@@ -71,6 +71,26 @@ describe("nextAttemptAt", () => {
     const now = 1_700_000_000_000;
     expect(nextAttemptAt(now, 7, 50)).toBe(now + 30 * MIN);
   });
+
+  // ── day-boundary reset semantic ─────────────────────────────────────────
+  // caller (useCharacterState.consumeBossAttempt) 가 todayLocalDateKey 비교로
+  // 새 날 첫 호출 시 count=1 / lastAttemptAt=now 로 다시 시작한다. 그 직전
+  // getBossAttemptsToday / getBossLastAttemptAt 는 0 / null 을 반환. 이 모듈의
+  // nextAttemptAt 가 그 시점에 0 (즉시 가능) 을 돌려줘야 자정 직후 첫 도전이 막히지 않는다.
+  it("자정 지나서 caller 가 attemptCount=0 으로 리셋한 시점은 즉시 가능", () => {
+    expect(nextAttemptAt(null, 0)).toBe(0);
+    const yesterdayMs = Date.now() - 24 * 3600 * 1000;
+    // lastAttemptAt 가 살아 있어도 caller 가 attemptCount=0 으로 넘기면 즉시 가능.
+    expect(nextAttemptAt(yesterdayMs, 0)).toBe(0);
+  });
+
+  it("자정 직전 4회차로 30분 쿨에 걸려도 자정 후 첫 도전은 0 (caller 가 count 리셋)", () => {
+    const beforeMidnight = 1_700_000_000_000;
+    // 자정 직전: 30분 대기 중.
+    expect(nextAttemptAt(beforeMidnight, 4)).toBe(beforeMidnight + 30 * MIN);
+    // 자정 후 caller 가 count=0 으로 리셋. 같은 lastAttemptAtMs 라도 nextAttemptAt 0.
+    expect(nextAttemptAt(beforeMidnight, 0)).toBe(0);
+  });
 });
 
 describe("formatCooldownRemaining", () => {

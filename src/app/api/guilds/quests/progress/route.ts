@@ -134,20 +134,24 @@ export async function POST(req: Request) {
             .from(guildMembers)
             .where(eq(guildMembers.guildId, guildId));
 
-          for (const m of memberRows) {
+          // 한 번의 multi-row insert — 100명 길드도 1 쿼리. 시리얼 await 루프가
+          // long-tx 를 만들지 않도록.
+          if (memberRows.length > 0) {
             await tx.insert(marketplaceInbox).values(
-              inboxValues({
-                userId: m.userId,
-                payload: {
-                  kind: "guild_quest_reward",
-                  quest_id: def.id,
-                  quest_name: def.name,
-                  gold: def.reward.goldPerMember,
-                  materials: def.reward.materialsPerMember ?? [],
-                  items: def.reward.itemsPerMember ?? [],
-                },
-                message: `${def.name} 완료 보상`,
-              }),
+              memberRows.map((m) =>
+                inboxValues({
+                  userId: m.userId,
+                  payload: {
+                    kind: "guild_quest_reward",
+                    quest_id: def.id,
+                    quest_name: def.name,
+                    gold: def.reward.goldPerMember,
+                    materials: def.reward.materialsPerMember ?? [],
+                    items: def.reward.itemsPerMember ?? [],
+                  },
+                  message: `${def.name} 완료 보상`,
+                }),
+              ),
             );
           }
         }

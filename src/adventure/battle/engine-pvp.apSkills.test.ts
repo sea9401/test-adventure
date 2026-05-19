@@ -266,6 +266,27 @@ describe("PvP AP — 광기 (player_atk_buff + def_debuff)", () => {
     expect(s.p1.buffs.playerDefDebuffPct).toBe(15);
     expect(s.p1.buffs.playerAtkBuffTurnsLeft).toBe(3);
   });
+
+  it("발동턴 그림자 분신 추가타에도 광기 ATK 보너스 적용 (회귀 가드)", () => {
+    // p1: ATK 100, 분신 100% 1회. p2: DEF 0. 광기 발동 turn 메인 130 + 분신 130 = 260.
+    const p1: PlayerCombat = {
+      ...BASE,
+      hp: 99999,
+      maxHp: 99999,
+      atk: 100,
+      def: 0,
+      shadowCloneAtkPct: 100,
+      equippedAPSkills: [slot(MADNESS)],
+    };
+    const p2: PlayerCombat = { ...BASE, hp: 99999, maxHp: 99999, atk: 1, def: 0 };
+    let s = initialBattleStatePvP(p1, p2, "p1", "p2");
+    s = attack(s); // p1 turn 1: AP 2 < 3 미발동. 메인 100 + 분신 100 = 200.
+    s = attack(s); // p2 turn.
+    const hpBefore = s.p2.hp;
+    s = attack(s); // p1 turn 2: 광기 발동, 메인 130 + 분신 130 = 260.
+    expect(s.p1.buffs.playerAtkBuffTurnsLeft).toBe(3);
+    expect(hpBefore - s.p2.hp).toBe(260);
+  });
 });
 
 describe("PvP AP — 둔화·폭주 (SPD mult)", () => {

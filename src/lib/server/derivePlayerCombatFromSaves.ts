@@ -1,7 +1,7 @@
 // 서버측 PlayerCombat 재계산 — 저장된 character.v2 + training.v2 를 읽어 같은 derive 를 돌린다.
 // 협동 보스 등 신뢰가 필요한 경로에서 클라가 보낸 PlayerCombat 을 무시하고 이 결과를 사용.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { baseCharacter } from "@/adventure/character/defaults";
@@ -56,25 +56,36 @@ type SavedStoryFlagsV2 = {
   flags?: string[];
 };
 
-async function readSave<T>(userId: string, key: string): Promise<T | null> {
+// 4 키를 한 번의 `key IN (...)` 쿼리로 가져온다. 시리얼 await 4 회는 코옵 보스 1 공격당
+// 4 round-trip 누적 — 100+ 동시 참여자 시점에 보스 카드 폴링과 합쳐 부하 누적.
+async function readSavesBatch(
+  userId: string,
+  keys: readonly string[],
+): Promise<Record<string, unknown>> {
   const rows = await db
-    .select({ value: savesKv.value })
+    .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
-    .where(and(eq(savesKv.userId, userId), eq(savesKv.key, key)))
-    .limit(1);
-  return (rows[0]?.value as T | undefined) ?? null;
+    .where(and(eq(savesKv.userId, userId), inArray(savesKv.key, keys)));
+  const out: Record<string, unknown> = {};
+  for (const r of rows) out[r.key] = r.value;
+  return out;
 }
 
 export async function derivePlayerCombatFromSaves(
   userId: string,
 ): Promise<DerivedPlayerCombat | null> {
-  const character = await readSave<SavedCharacterV2>(userId, "character.v2");
+  const saves = await readSavesBatch(userId, [
+    "character.v2",
+    "training.v2",
+    STORY_FLAGS_STORAGE_KEY,
+    "paragon.v1",
+  ]);
+  const character = saves["character.v2"] as SavedCharacterV2 | undefined;
   if (!character) return null;
 
-  const training =
-    (await readSave<SavedTrainingV2>(userId, "training.v2")) ?? {};
+  const training = (saves["training.v2"] as SavedTrainingV2 | undefined) ?? {};
   const storyFlags =
-    (await readSave<SavedStoryFlagsV2>(userId, STORY_FLAGS_STORAGE_KEY)) ?? {};
+    (saves[STORY_FLAGS_STORAGE_KEY] as SavedStoryFlagsV2 | undefined) ?? {};
   const storyFlagIds = new Set(
     Array.isArray(storyFlags.flags) ? storyFlags.flags : [],
   );
@@ -111,8 +122,7 @@ export async function derivePlayerCombatFromSaves(
     character.apSkillConditions,
   );
 
-  const paragonRaw = await readSave<unknown>(userId, "paragon.v1");
-  const paragon = readInitialParagon(paragonRaw);
+  const paragon = readInitialParagon(saves["paragon.v1"]);
 
   return derivePlayerCombat({
     level: character.level ?? 1,

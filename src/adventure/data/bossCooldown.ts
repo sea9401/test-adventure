@@ -1,25 +1,25 @@
 // 보스 도전 쿨다운 — 일일 도전 횟수에 따라 누진. 자정에 횟수·쿨타임 모두 초기화.
 //
-// 정책:
-//   1~3회차 → 쿨다운 없음 (자정 리셋 후 일일 3회는 즉시 연달아 도전 가능)
-//   4~6회차 → 직후 30분
-//   7~9회차 → 직후 1시간
-//   10회+   → 직후 3시간
-// (즉 "방금 친 N번째 도전" 직후의 대기 시간. N=0 — 아직 한 번도 안 침 — 도 0.)
+// 정책 ("N번째 도전 직후의 대기 시간"):
+//   1·2회차 직후 → 0      (자정 리셋 후 1·2·3번째는 즉시 연속 가능)
+//   3·4·5회차 직후 → 30분  (4·5·6번째 도전 직전 30분 대기)
+//   6·7·8회차 직후 → 1시간 (7·8·9번째 도전 직전 1시간 대기)
+//   9회+ 직후     → 3시간  (10번째 이후 매 도전 3시간 대기)
+// (N=0 — 아직 한 번도 안 침 — 도 0.)
 //
 // 길드 버프 boss_attempt (boss_cooldown_reduction_pct) 가 위 베이스 쿨에 곱셈으로
-// 적용. 1~50% 감소. 음수/100 이상은 clamp. (1~3회차는 베이스가 0 이라 감소 무의미.)
+// 적용. 1~50% 감소. 음수/100 이상은 clamp. (1·2회차는 베이스가 0 이라 감소 무의미.)
 
 const MIN_MS = 60_000;
 const COOLDOWN_TIERS_MIN: readonly { threshold: number; minutes: number }[] = [
-  { threshold: 3, minutes: 0 },
-  { threshold: 6, minutes: 30 },
-  { threshold: 9, minutes: 60 },
+  { threshold: 2, minutes: 0 },
+  { threshold: 5, minutes: 30 },
+  { threshold: 8, minutes: 60 },
   { threshold: Infinity, minutes: 180 },
 ] as const;
 
 // 방금 친 attemptCount 번째 도전 직후 대기해야 할 ms.
-// attemptCount = 1~3 이면 0 (즉시 다음 도전 가능 — 자정 리셋 후 일일 3회 보장).
+// attemptCount = 1·2 이면 0 (즉시 다음 도전 가능 — 1·2·3번째까지 연속 보장).
 // attemptCount = 0 이면 아직 한 번도 안 침 → 0.
 export function cooldownAfterAttempt(
   attemptCount: number,

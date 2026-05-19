@@ -28,8 +28,17 @@ import {
   resolveBuffMultiplier,
   type GuildBuffSlot,
 } from "@/adventure/data/guildBuffs";
-import { MAX_LEVEL, XP_RATE_MULT, applyNewbieBonus } from "@/lib/leveling";
+import {
+  applyExpGain,
+  MAX_LEVEL,
+  XP_RATE_MULT,
+  applyNewbieBonus,
+} from "@/lib/leveling";
 import { computeParagonBonus, readInitialParagon } from "@/lib/paragon";
+import {
+  maxHpForLevel,
+  maxMpForLevel,
+} from "@/adventure/character/defaults";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 import { bumpGuildFameFromMember } from "@/lib/server/guildFame";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
@@ -41,6 +50,7 @@ import {
 const QUEST_PROGRESS_KEY = "quest-progress.v2";
 const ADVENTURE_LOG_KEY = "adventure-log.v2";
 const PARAGON_KEY = "paragon.v1";
+const CRAFTING_KEY = "crafting.v2";
 
 const REWARD_SAVES_KEYS = [
   "character.v2",
@@ -48,6 +58,8 @@ const REWARD_SAVES_KEYS = [
   STORY_FLAGS_STORAGE_KEY,
   ADVENTURE_LOG_KEY,
   QUEST_PROGRESS_KEY,
+  CRAFTING_KEY,
+  PARAGON_KEY,
 ] as const;
 
 export type QuestRewardSavesSnapshot = Partial<
@@ -91,21 +103,20 @@ type QuestProgressMap = Record<string, QuestProgressEntry>;
 async function readSavesForUpdate(
   tx: DbExecutor,
   userId: string,
-): Promise<QuestRewardSavesSnapshot & { [PARAGON_KEY]?: unknown }> {
-  const allKeys = [...REWARD_SAVES_KEYS, PARAGON_KEY];
+): Promise<QuestRewardSavesSnapshot> {
   const rows = await tx
     .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
     .where(
       and(
         eq(savesKv.userId, userId),
-        inArray(savesKv.key, allKeys as unknown as string[]),
+        inArray(savesKv.key, REWARD_SAVES_KEYS as unknown as string[]),
       ),
     )
     .for("update");
   const out: Record<string, unknown> = {};
   for (const r of rows) out[r.key] = r.value;
-  return out as QuestRewardSavesSnapshot & { [PARAGON_KEY]?: unknown };
+  return out as QuestRewardSavesSnapshot;
 }
 
 async function readGuildBuffs(
@@ -135,12 +146,15 @@ function recipeName(id: string): string {
   return RECIPES.find((r) => r.id === id)?.name ?? id;
 }
 
-// 메인 보상 적용 — 클라 applyQuestReward 와 동일한 math. character/inventory 객체를
-// 변경된 사본으로 반환 + 토큰 배열 기록. 사이드이펙트(titles, flags) 는 별도 함수.
+// 메인 보상 적용 — 클라 applyQuestReward 와 동일한 math. character/inventory/crafting/
+// paragon 객체를 변경된 사본으로 반환 + 토큰 배열 기록. 사이드이펙트(titles, flags) 는
+// 별도 함수.
 function applyMainReward(
   reward: QuestReward,
   charPrev: Record<string, unknown>,
   invPrev: Record<string, unknown>,
+  craftingPrev: Record<string, unknown>,
+  paragonPrev: Record<string, unknown>,
   ctx: {
     playerLevel: number;
     guildBuffs: GuildBuffSlot[];
@@ -149,6 +163,8 @@ function applyMainReward(
 ): {
   charNext: Record<string, unknown>;
   invNext: Record<string, unknown>;
+  craftingNext: Record<string, unknown>;
+  paragonNext: Record<string, unknown>;
   tokens: string[];
   /** 적용된 character.fame delta (post-multiplier). 길드 fame piggyback 용. */
   fameDelta: number;
@@ -156,8 +172,12 @@ function applyMainReward(
   const tokens: string[] = [];
   let charChanged = false;
   let invChanged = false;
+  let craftingChanged = false;
+  let paragonChanged = false;
   const char: Record<string, unknown> = { ...charPrev };
   const inv: Record<string, unknown> = { ...invPrev };
+  const crafting: Record<string, unknown> = { ...craftingPrev };
+  const paragon: Record<string, unknown> = { ...paragonPrev };
 
   const fameMult = resolveBuffMultiplier(ctx.guildBuffs, "fame_mult");
   const expMult = resolveBuffMultiplier(ctx.guildBuffs, "exp_mult");
@@ -182,9 +202,9 @@ function applyMainReward(
   const fameDelta = fame > 0 ? fame : 0;
 
   // EXP — 신참 ×2 + 길드 ×expMult + 전역 ×XP_RATE_MULT + 파라곤 풍요 ×.
-  // 만렙 도달 시 잉여는 파라곤 EXP 로 적립되어야 하나 클라 useCharacterState 가 처리.
-  // 서버는 단순히 character.exp += boosted 로 누적; 클라 readInitial/applyExpGain 이
-  // saves replace 후 다음 tick 에서 정리한다.
+  // 레벨 transition 은 클라 readInitial 이 자동 적용하지 않으므로 서버가 applyExpGain 으로
+  // 직접 처리: levelsGained > 0 이면 hp/mp 풀회복 + 새 level, overflow 는 paragon.paragonExp 로.
+  // 이전 버그(#399): char.exp 만 raw 로 더해 레벨업/만렙 라우팅이 영영 안 됨.
   const baseExp = reward.exp ?? 0;
   if (baseExp > 0) {
     const expBonus = applyNewbieBonus(baseExp, ctx.playerLevel);
@@ -192,15 +212,36 @@ function applyMainReward(
       expBonus.gained * expMult * XP_RATE_MULT * ctx.paragonRewardMult,
     );
     if (boosted > 0) {
-      const curExp = typeof char.exp === "number" ? char.exp : 0;
-      char.exp = curExp + boosted;
-      charChanged = true;
       const atMax = ctx.playerLevel >= MAX_LEVEL;
-      tokens.push(
-        atMax
-          ? `EXP +${boosted} (파라곤)`
-          : `EXP +${boosted}${expBonus.bonusApplied ? " (신참 ×2)" : ""}`,
-      );
+      if (atMax) {
+        // 만렙 — 전액 파라곤 EXP 로 적립.
+        const curParagon =
+          typeof paragon.paragonExp === "number" ? paragon.paragonExp : 0;
+        paragon.paragonExp = curParagon + boosted;
+        paragonChanged = true;
+        tokens.push(`EXP +${boosted} (파라곤)`);
+      } else {
+        const curExp = typeof char.exp === "number" ? char.exp : 0;
+        const next = applyExpGain(ctx.playerLevel, curExp, boosted);
+        char.exp = next.exp;
+        if (next.levelsGained > 0) {
+          char.level = next.level;
+          // 레벨업 풀회복 — vit 보너스는 서버가 합성 stats 를 모르므로 base maxHp 만.
+          // 클라가 다음 tick 에 vit 반영해 max 만 올리고 hp 는 그대로 유지(자연 회복).
+          char.hp = maxHpForLevel(next.level);
+          char.mp = maxMpForLevel(next.level);
+        }
+        charChanged = true;
+        if (next.overflowExp > 0) {
+          const curParagon =
+            typeof paragon.paragonExp === "number" ? paragon.paragonExp : 0;
+          paragon.paragonExp = curParagon + next.overflowExp;
+          paragonChanged = true;
+        }
+        tokens.push(
+          `EXP +${boosted}${expBonus.bonusApplied ? " (신참 ×2)" : ""}`,
+        );
+      }
     }
   }
 
@@ -256,21 +297,37 @@ function applyMainReward(
     inv.equipment = ne;
   }
 
-  // 제작서 — 이미 알고 있는 건 추가 안 함. 인벤의 knownRecipes 배열 가정.
+  // 제작서 — 클라 useCrafting.learnRecipe 정책 그대로: crafting.v2 의 known + shareable
+  // 양쪽에 추가. 이전 버그(#399): inv.knownRecipes 라는 존재하지 않는 키에 써서 보상이
+  // silently 손실됨. useCrafting 은 crafting.v2 에서 known/shareable 을 읽는다.
   if (reward.recipes && reward.recipes.length > 0) {
-    const cur = Array.isArray(inv.knownRecipes)
-      ? (inv.knownRecipes as string[])
+    const curKnown = Array.isArray(crafting.known)
+      ? (crafting.known as string[])
       : [];
-    const set = new Set(cur);
-    const next = [...cur];
+    const curShareable = Array.isArray(crafting.shareable)
+      ? (crafting.shareable as string[])
+      : [];
+    const knownSet = new Set(curKnown);
+    const shareableSet = new Set(curShareable);
+    const nextKnown = [...curKnown];
+    const nextShareable = [...curShareable];
     for (const id of reward.recipes) {
       tokens.push(recipeName(id));
-      if (set.has(id)) continue;
-      set.add(id);
-      next.push(id);
-      invChanged = true;
+      if (!knownSet.has(id)) {
+        knownSet.add(id);
+        nextKnown.push(id);
+        craftingChanged = true;
+      }
+      if (!shareableSet.has(id)) {
+        shareableSet.add(id);
+        nextShareable.push(id);
+        craftingChanged = true;
+      }
     }
-    if (next.length !== cur.length) inv.knownRecipes = next;
+    if (craftingChanged) {
+      crafting.known = nextKnown;
+      crafting.shareable = nextShareable;
+    }
   }
 
   // 포션 최대 보유량 +.
@@ -297,6 +354,8 @@ function applyMainReward(
   return {
     charNext: charChanged ? char : charPrev,
     invNext: invChanged ? inv : invPrev,
+    craftingNext: craftingChanged ? crafting : craftingPrev,
+    paragonNext: paragonChanged ? paragon : paragonPrev,
     tokens,
     fameDelta,
   };
@@ -440,6 +499,8 @@ export async function applyQuestRewardServer(
         [STORY_FLAGS_STORAGE_KEY]: saves[STORY_FLAGS_STORAGE_KEY],
         [ADVENTURE_LOG_KEY]: saves[ADVENTURE_LOG_KEY],
         [QUEST_PROGRESS_KEY]: saves[QUEST_PROGRESS_KEY],
+        [CRAFTING_KEY]: saves[CRAFTING_KEY],
+        [PARAGON_KEY]: saves[PARAGON_KEY],
       },
     };
   }
@@ -454,19 +515,32 @@ export async function applyQuestRewardServer(
   const logPrev =
     (saves[ADVENTURE_LOG_KEY] as Record<string, unknown> | undefined) ??
     { titles: {} };
-  const paragon = readInitialParagon(saves[PARAGON_KEY]);
-  const paragonBonus = computeParagonBonus(paragon.allocations);
+  const craftingPrev =
+    (saves[CRAFTING_KEY] as Record<string, unknown> | undefined) ?? {};
+  const paragonPrev =
+    (saves[PARAGON_KEY] as Record<string, unknown> | undefined) ?? {};
+  // 풍요 트랙 % 는 readInitialParagon 으로 정규화한 allocations 에서 — paragonExp 덧셈만
+  // 별도 (paragonNext) 로 적립한다.
+  const paragonNormalized = readInitialParagon(saves[PARAGON_KEY]);
+  const paragonBonus = computeParagonBonus(paragonNormalized.allocations);
   const paragonRewardMult = 1 + (paragonBonus.pctGoldExp ?? 0) / 100;
   const playerLevel =
     typeof charPrev.level === "number" ? charPrev.level : 1;
   const guildBuffs = await readGuildBuffs(tx, userId);
 
   // 1) 메인 보상.
-  const main = applyMainReward(quest.reward, charPrev, invPrev, {
-    playerLevel,
-    guildBuffs,
-    paragonRewardMult,
-  });
+  const main = applyMainReward(
+    quest.reward,
+    charPrev,
+    invPrev,
+    craftingPrev,
+    paragonPrev,
+    {
+      playerLevel,
+      guildBuffs,
+      paragonRewardMult,
+    },
+  );
 
   // 2) 퀘스트 상태 전환 (먼저 적용해야 ON_ALL_COMPLETE 가 본인 completed 를 본다).
   const progressNext = transitionQuestState(progressPrev, quest);
@@ -477,6 +551,8 @@ export async function applyQuestRewardServer(
   // 4) 저장.
   const charChanged = main.charNext !== charPrev;
   const invChanged = main.invNext !== invPrev;
+  const craftingChanged = main.craftingNext !== craftingPrev;
+  const paragonChanged = main.paragonNext !== paragonPrev;
   const flagsChanged = side.flagsNext !== flagsPrev;
   const logChanged = side.logNext !== logPrev;
   const progressChanged = progressNext !== progressPrev;
@@ -485,6 +561,10 @@ export async function applyQuestRewardServer(
     await upsertSave(tx, userId, "character.v2", main.charNext);
   if (invChanged)
     await upsertSave(tx, userId, "inventory.v2", main.invNext);
+  if (craftingChanged)
+    await upsertSave(tx, userId, CRAFTING_KEY, main.craftingNext);
+  if (paragonChanged)
+    await upsertSave(tx, userId, PARAGON_KEY, main.paragonNext);
   if (flagsChanged)
     await upsertSave(tx, userId, STORY_FLAGS_STORAGE_KEY, side.flagsNext);
   if (logChanged)
@@ -507,6 +587,8 @@ export async function applyQuestRewardServer(
       [STORY_FLAGS_STORAGE_KEY]: side.flagsNext,
       [ADVENTURE_LOG_KEY]: side.logNext,
       [QUEST_PROGRESS_KEY]: progressNext,
+      [CRAFTING_KEY]: main.craftingNext,
+      [PARAGON_KEY]: main.paragonNext,
     },
   };
 }

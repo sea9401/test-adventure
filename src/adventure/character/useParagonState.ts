@@ -73,11 +73,17 @@ export function useParagonState() {
     setState(initialParagonState);
   }, []);
 
+  // 서버 권위 액션(/api/quests/claim) 응답으로 받은 paragon.v1 통째 교체.
+  const replaceFromSaved = useCallback((raw: unknown) => {
+    setState(readInitialParagon(raw));
+  }, []);
+
   return {
     state,
     addParagonExp,
     setAllocations,
     respec,
     reset,
+    replaceFromSaved,
   };
 }

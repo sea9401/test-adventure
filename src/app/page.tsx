@@ -333,6 +333,8 @@ function Home() {
       quests,
       inventory,
       characterStateHook,
+      paragon,
+      crafting,
       storyFlags,
       adventureLog,
       grantTitle,

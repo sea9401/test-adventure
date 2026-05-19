@@ -2,6 +2,8 @@
 
 import type { useAdventureLog } from "@/adventure/log/useAdventureLog";
 import type { useCharacterState } from "@/adventure/character/useCharacterState";
+import type { useParagonState } from "@/adventure/character/useParagonState";
+import type { useCrafting } from "@/adventure/crafting/useCrafting";
 import type { useInventory } from "@/adventure/inventory/useInventory";
 import type { useQuests } from "@/adventure/quests/useQuests";
 import type { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
@@ -23,6 +25,8 @@ export function useQuestActions(deps: {
   quests: ReturnType<typeof useQuests>;
   inventory: ReturnType<typeof useInventory>;
   characterStateHook: ReturnType<typeof useCharacterState>;
+  paragon: ReturnType<typeof useParagonState>;
+  crafting: ReturnType<typeof useCrafting>;
   storyFlags: ReturnType<typeof useStoryFlags>;
   adventureLog: ReturnType<typeof useAdventureLog>;
   grantTitle: (titleId: string) => void;
@@ -36,6 +40,8 @@ export function useQuestActions(deps: {
     quests,
     inventory,
     characterStateHook,
+    paragon,
+    crafting,
     storyFlags,
     adventureLog,
     grantTitle,
@@ -98,6 +104,12 @@ export function useQuestActions(deps: {
         }
         if (outcome.saves["quest-progress.v2"] !== undefined) {
           quests.replaceFromSaved(outcome.saves["quest-progress.v2"]);
+        }
+        if (outcome.saves["crafting.v2"] !== undefined) {
+          crafting.replaceFromSaved(outcome.saves["crafting.v2"]);
+        }
+        if (outcome.saves["paragon.v1"] !== undefined) {
+          paragon.replaceFromSaved(outcome.saves["paragon.v1"]);
         }
 
         if (!outcome.applied) return; // retry idempotent — 토스트 생략.

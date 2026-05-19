@@ -33,16 +33,25 @@ type RegionGroup = {
   regionName: string;
   level: number | undefined;
   quests: QuestRow[];
-  /** 진행 중 탭 — 보상 대기(ready) 개수. 완료 탭에선 항상 0. */
-  readyCount: number;
+  /** 길드 반복 의뢰의 ready — 수첩에서 바로 완료 가능. 완료 탭에선 0. */
+  actionableReadyCount: number;
+  /** NPC 의뢰의 ready — 해당 NPC 와 대화로 보상 수령. 완료 탭에선 0. */
+  pendingReadyCount: number;
   /** 완료 탭 — 그룹 내 가장 최근 완료 시각(없으면 0). 진행 중 탭에선 0. */
   mostRecentAt: number;
 };
 
+// 길드 게시판에서 받은 반복 의뢰 — giverNpcId 없는 repeatable. 수첩에서 바로 완료 허용.
+function isGuildBoardQuest(quest: Quest): boolean {
+  return quest.repeatable && !quest.giverNpcId;
+}
+
 export function QuestJournalView({
   getEntry,
+  onClaim,
 }: {
   getEntry: (id: string) => QuestProgressEntry;
+  onClaim?: (id: string) => void;
 }) {
   const [tab, setTab] = useState<Tab>("active");
 
@@ -87,6 +96,7 @@ export function QuestJournalView({
                 group={g}
                 tab="active"
                 defaultOpen={false}
+                onClaim={onClaim}
               />
             ))}
           </div>
@@ -105,6 +115,7 @@ export function QuestJournalView({
               group={g}
               tab="completed"
               defaultOpen={false}
+              onClaim={onClaim}
             />
           ))}
         </div>
@@ -115,7 +126,8 @@ export function QuestJournalView({
 
 // 진행 중/보상 대기 의뢰들을 지역별로 묶어 정렬한다.
 // - 지역 정렬: recommendedLevel 오름차순 (미지정은 맨 뒤, 동률은 stable)
-// - 지역 내 정렬: ready → active 순, 같은 상태 내에서는 QUESTS 선언 순 유지
+// - 지역 내 정렬: 길드 ready(완료 가능) → NPC ready(보상 대기) → active 순,
+//   같은 상태 내에서는 QUESTS 선언 순 유지
 function buildActiveGroups(
   getEntry: (id: string) => QuestProgressEntry,
 ): RegionGroup[] {
@@ -130,13 +142,17 @@ function buildActiveGroups(
         regionName: REGION_NAMES.get(quest.regionId) ?? quest.regionId,
         level: REGION_LEVELS.get(quest.regionId),
         quests: [],
-        readyCount: 0,
+        actionableReadyCount: 0,
+        pendingReadyCount: 0,
         mostRecentAt: 0,
       };
       map.set(quest.regionId, g);
     }
     g.quests.push({ quest, entry });
-    if (entry.state === "ready") g.readyCount += 1;
+    if (entry.state === "ready") {
+      if (isGuildBoardQuest(quest)) g.actionableReadyCount += 1;
+      else g.pendingReadyCount += 1;
+    }
   }
   const groups = Array.from(map.values()).sort(
     (a, b) =>
@@ -144,13 +160,15 @@ function buildActiveGroups(
       (b.level ?? Number.POSITIVE_INFINITY),
   );
   for (const g of groups) {
-    g.quests.sort((a, b) => {
-      const ar = a.entry.state === "ready" ? 0 : 1;
-      const br = b.entry.state === "ready" ? 0 : 1;
-      return ar - br;
-    });
+    g.quests.sort((a, b) => rowRank(a) - rowRank(b));
   }
   return groups;
+}
+
+// 같은 지역 내 정렬용 순위. 0=길드 ready, 1=NPC ready, 2=active.
+function rowRank(r: QuestRow): number {
+  if (r.entry.state !== "ready") return 2;
+  return isGuildBoardQuest(r.quest) ? 0 : 1;
 }
 
 // 완료한 의뢰들을 지역별로 묶어 정렬한다.
@@ -171,7 +189,8 @@ function buildCompletedGroups(
         regionName: REGION_NAMES.get(quest.regionId) ?? quest.regionId,
         level: REGION_LEVELS.get(quest.regionId),
         quests: [],
-        readyCount: 0,
+        actionableReadyCount: 0,
+        pendingReadyCount: 0,
         mostRecentAt: 0,
       };
       map.set(quest.regionId, g);
@@ -199,10 +218,12 @@ function RegionSection({
   group,
   tab,
   defaultOpen,
+  onClaim,
 }: {
   group: RegionGroup;
   tab: Tab;
   defaultOpen: boolean;
+  onClaim?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
@@ -228,9 +249,14 @@ function RegionSection({
           )}
         </span>
         <span className="flex items-center gap-2 text-xs">
-          {group.readyCount > 0 && (
+          {group.actionableReadyCount > 0 && (
             <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-medium text-emerald-700 dark:text-emerald-400">
-              보상 대기 {group.readyCount}
+              완료 가능 {group.actionableReadyCount}
+            </span>
+          )}
+          {group.pendingReadyCount > 0 && (
+            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-400">
+              보상 대기 {group.pendingReadyCount}
             </span>
           )}
           {tab === "completed" && group.mostRecentAt > 0 && (
@@ -252,6 +278,7 @@ function RegionSection({
               entry={entry}
               tab={tab}
               showRegion={false}
+              onClaim={onClaim}
             />
           ))}
         </ul>
@@ -289,11 +316,13 @@ function JournalCard({
   entry,
   tab,
   showRegion,
+  onClaim,
 }: {
   quest: Quest;
   entry: QuestProgressEntry;
   tab: Tab;
   showRegion: boolean;
+  onClaim?: (id: string) => void;
 }) {
   const regionName = REGION_NAMES.get(quest.regionId) ?? quest.regionId;
   const giverName = quest.giverNpcId
@@ -305,6 +334,9 @@ function JournalCard({
   if (showRegion) meta.push(regionName);
   if (giverName) meta.push(`의뢰인 ${giverName}`);
 
+  const isReady = tab === "active" && entry.state === "ready";
+  const canClaimHere = isReady && isGuildBoardQuest(quest) && !!onClaim;
+
   return (
     <Card as="li" padding="md">
       <div className="flex items-baseline justify-between gap-2">
@@ -314,8 +346,17 @@ function JournalCard({
             {quest.title}
           </h3>
         </div>
-        {tab === "active" && entry.state === "ready" && (
-          <span className="shrink-0 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+        {isReady && canClaimHere && (
+          <button
+            type="button"
+            onClick={() => onClaim?.(quest.id)}
+            className="shrink-0 rounded-md border border-emerald-500 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/20 dark:border-emerald-400 dark:text-emerald-300"
+          >
+            완료 가능
+          </button>
+        )}
+        {isReady && !canClaimHere && (
+          <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
             보상 대기
           </span>
         )}

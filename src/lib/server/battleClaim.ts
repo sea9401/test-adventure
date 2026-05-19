@@ -53,18 +53,13 @@ import {
 import type { EquippedRune } from "@/adventure/data/runes";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 import {
-  QUESTS,
-  questTargetTotal,
-} from "@/adventure/data/quests";
-import {
-  defaultQuestEntry,
-  type QuestProgressEntry,
   type QuestProgressMap,
 } from "@/adventure/quests/storage";
 import {
   applyGuildQuestKills,
   type GuildQuestKill,
 } from "@/lib/server/guildQuestKills";
+import { recordKillIntoProgress } from "@/lib/server/questKillProgress";
 
 const CHARACTER_KEY = "character.v2";
 const INVENTORY_KEY = "inventory.v2";
@@ -208,42 +203,6 @@ function battleSeed(encounterId: string, userId: string): number {
 
 function recipeName(id: string): string {
   return RECIPES.find((r) => r.id === id)?.name ?? id;
-}
-
-// 활성 kill/kill_within_hp/no_potion_boss 의뢰 진행 +1. 클라 useQuests.recordKill 의 룰 mirror.
-// ctx 없는 호출(자동 사냥 등)에서 조건부 kind 가 진행되지 않도록 같은 가드 유지.
-function recordKillIntoProgress(
-  progress: QuestProgressMap,
-  monsterName: string,
-  ctx: { hpFraction: number; potionsUsed: number },
-): { next: QuestProgressMap; readyIds: string[]; changed: boolean } {
-  const next: QuestProgressMap = { ...progress };
-  const readyIds: string[] = [];
-  let changed = false;
-  for (const quest of QUESTS) {
-    const t = quest.target;
-    if (
-      t.kind !== "kill" &&
-      t.kind !== "kill_within_hp" &&
-      t.kind !== "no_potion_boss"
-    )
-      continue;
-    if (t.monsterName !== monsterName) continue;
-    if (t.kind === "kill_within_hp" && ctx.hpFraction < t.minHpFraction)
-      continue;
-    if (t.kind === "no_potion_boss" && ctx.potionsUsed > 0) continue;
-    const entry = next[quest.id] ?? defaultQuestEntry();
-    if (entry.state !== "active") continue;
-    const total = questTargetTotal(t);
-    if (entry.progress >= total) continue;
-    const newProgress = entry.progress + 1;
-    const newState: QuestProgressEntry["state"] =
-      newProgress >= total ? "ready" : "active";
-    next[quest.id] = { ...entry, progress: newProgress, state: newState };
-    if (newState === "ready") readyIds.push(quest.id);
-    changed = true;
-  }
-  return { next, readyIds, changed };
 }
 
 // 길드 활성 버프 — questReward 의 private helper 와 동일한 모양. 트랜잭션 안에서 호출.

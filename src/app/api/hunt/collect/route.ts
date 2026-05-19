@@ -66,6 +66,10 @@ type CollectResponse =
       result: OfflineSimResult;
       died: boolean;
       simMs: number;
+      /** active→ready 로 전환된 의뢰 ID. 클라 quest_ready 토스트. */
+      readyQuestIds: string[];
+      /** 이번 위탁으로 신규 grant 된 칭호. 클라 milestone 토스트. */
+      grantedTitleIds: string[];
     };
 
 type ClaimOutcome =
@@ -225,7 +229,7 @@ export async function POST(req: Request) {
       const state2 = await loadStateForSim(tx, userId);
       if (!state2) return { ok: true, noop: true, reason: "no_state" };
 
-      await applyResultToSaves(tx, userId, {
+      const outcome = await applyResultToSaves(tx, userId, {
         state: state2,
         result,
         died: result.died,
@@ -248,6 +252,8 @@ export async function POST(req: Request) {
         result,
         died: result.died,
         simMs: claim.simMs,
+        readyQuestIds: outcome.readyQuestIds,
+        grantedTitleIds: outcome.grantedTitleIds,
       };
     });
 

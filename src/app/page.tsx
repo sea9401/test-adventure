@@ -434,9 +434,6 @@ function Home() {
 
   const { autoHuntResult, dismiss: dismissAutoHuntResult } =
     useAutoHuntResultHandler({
-      adventureLog,
-      quests,
-      grantTitle,
       replaceLocation,
       addNotification,
     });

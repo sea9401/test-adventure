@@ -62,6 +62,10 @@ type CollectResponse =
       result: OfflineSimResult;
       died: boolean;
       simMs: number;
+      /** 서버가 수령 시 active→ready 로 전환한 의뢰 ID. replay 응답엔 없음. */
+      readyQuestIds?: string[];
+      /** 서버가 수령 시 신규 grant 한 칭호 ID. replay 응답엔 없음. */
+      grantedTitleIds?: string[];
     };
 
 export type AutoHuntState = "idle" | "active" | "complete";
@@ -257,14 +261,17 @@ export function useAutoHunt(opts?: {
         return;
       }
       // 결과 있음 — sessionStorage 박고 reload. replayed 플래그도 같이 박아 reload 후
-      // useAutoHuntResultHandler 가 KV 재적용을 건너뛸 수 있게 한다 (이미 다른 경로에서
-      // 적용된 결과를 또 보태면 도감/퀘스트 진행도가 중복 가산되기 때문).
+      // useAutoHuntResultHandler 가 토스트 처리만 하고 KV mutation 은 건너뛰게 한다.
+      // 서버가 이미 adventure-log.v2 / quest-progress.v2 / first_blood 칭호를 누적해 둠 —
+      // 클라가 추가로 mutate 하면 중복 가산이라 fresh/replay 둘 다 서버 권위.
       try {
         sessionStorage.setItem(
           AUTO_HUNT_RESULT_KEY,
           JSON.stringify({
             result: data.result,
             replayed: data.replayed === true,
+            readyQuestIds: data.readyQuestIds ?? [],
+            grantedTitleIds: data.grantedTitleIds ?? [],
           }),
         );
       } catch {}

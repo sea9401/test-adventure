@@ -43,7 +43,10 @@ import {
   applyGuildQuestKills,
   type GuildQuestKill,
 } from "@/lib/server/guildQuestKills";
+import { recordKillIntoProgress } from "@/lib/server/questKillProgress";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
+import { ADVENTURE_LOG_KEY, type MonsterLogEntry, type TitleLogEntry } from "@/adventure/log/storage";
+import { QUEST_PROGRESS_KEY, type QuestProgressMap } from "@/adventure/quests/storage";
 // type-only — useAutoPotionConfig 자체는 "use client" 지만 type 임포트는 erase 됨.
 import type { AutoPotionConfig } from "@/adventure/inventory/useAutoPotionConfig";
 
@@ -138,6 +141,13 @@ type SavedMap = {
   respawnRegionId?: RegionId;
 };
 
+type SavedAdventureLog = {
+  monsters?: Record<string, MonsterLogEntry>;
+  titles?: Record<string, TitleLogEntry>;
+  battleLosses?: number;
+  [k: string]: unknown;
+};
+
 function allocatedFrom(training: SavedTraining): Record<StatKey, number> {
   return STAT_KEYS.reduce(
     (acc, k) => {
@@ -196,6 +206,10 @@ export type LoadedState = {
   storyFlags: SavedStoryFlags;
   /** 100레벨 도달 후 잉여 EXP 적립처. 신규 유저는 빈 상태로 시드. */
   paragon: ParagonState;
+  /** 도감 — monsters[].kills · titles · battleLosses 누적용. */
+  adventureLog: SavedAdventureLog;
+  /** 길드 의뢰 외에 NPC 의뢰(`quest-progress.v2`) kill 진행 누적용. */
+  questProgress: QuestProgressMap;
 };
 
 // sim 에 필요한 모든 savesKv 키를 읽음.
@@ -222,7 +236,21 @@ export async function loadStateForSim(
     {};
   const paragonRaw = await readKv<unknown>(tx, userId, "paragon.v1", lock);
   const paragon = readInitialParagon(paragonRaw);
-  return { character, inventory, crafting, map, training, storyFlags, paragon };
+  const adventureLog =
+    (await readKv<SavedAdventureLog>(tx, userId, ADVENTURE_LOG_KEY, lock)) ?? {};
+  const questProgress =
+    (await readKv<QuestProgressMap>(tx, userId, QUEST_PROGRESS_KEY, lock)) ?? {};
+  return {
+    character,
+    inventory,
+    crafting,
+    map,
+    training,
+    storyFlags,
+    paragon,
+    adventureLog,
+    questProgress,
+  };
 }
 
 // sim 입력 조립 — derivePlayerCombat 으로 PlayerCombat 만들고 region/potions/luk 등 패키징.
@@ -318,6 +346,10 @@ export type ApplyResultOutcome = {
   newRespawnRegionId: RegionId | null;
   /** 잉여 EXP 가 파라곤으로 흘러 들어갔으면 갱신된 상태. 아니면 null (쓰기 스킵). */
   newParagon: ParagonState | null;
+  /** 이번 위탁으로 active→ready 로 전환된 의뢰 ID 들. 클라가 quest_ready 토스트. */
+  readyQuestIds: string[];
+  /** 이번 위탁으로 신규 grant 된 칭호 ID 들. 클라 milestone 토스트. (현재는 first_blood 뿐.) */
+  grantedTitleIds: string[];
 };
 
 export async function applyResultToSaves(
@@ -488,6 +520,68 @@ export async function applyResultToSaves(
   }
   await applyGuildQuestKills(tx, userId, kills);
 
+  // 3-e) NPC 의뢰 진행(`quest-progress.v2`) + 도감(`adventure-log.v2`) 누적 — 옛
+  // useAutoHuntResultHandler 가 클라에서 돌리던 mutation 을 서버로 이관. ctx 없이 호출 →
+  // kill_within_hp / no_potion_boss 류는 자동 사냥에서 진행되지 않음(클라 동작 동일).
+  const logPrev = state.adventureLog;
+  const monstersPrev = logPrev.monsters ?? {};
+  const monstersNext: Record<string, MonsterLogEntry> = { ...monstersPrev };
+  let logChanged = false;
+  let progressNext = state.questProgress;
+  const readyQuestIds: string[] = [];
+  const nowMs = Date.now();
+  let anyKill = false;
+  for (const [name, count] of Object.entries(result.killsByName)) {
+    if (count <= 0) continue;
+    anyKill = true;
+    const existing = monstersNext[name];
+    monstersNext[name] = {
+      encountered: true,
+      kills: (existing?.kills ?? 0) + count,
+      firstSeenAt: existing?.firstSeenAt ?? nowMs,
+      lastKilledAt: nowMs,
+    };
+    logChanged = true;
+    for (let i = 0; i < count; i += 1) {
+      const step = recordKillIntoProgress(progressNext, name);
+      if (step.changed) {
+        progressNext = step.next;
+        for (const id of step.readyIds) readyQuestIds.push(id);
+      }
+    }
+  }
+
+  // 첫 처치 칭호 — idempotent. 이미 박혀 있으면 grantedTitleIds 에 안 들어감.
+  const titlesPrev = logPrev.titles ?? {};
+  const titlesNext: Record<string, TitleLogEntry> = { ...titlesPrev };
+  const grantedTitleIds: string[] = [];
+  if (anyKill && !titlesNext.first_blood) {
+    titlesNext.first_blood = { obtainedAt: nowMs };
+    grantedTitleIds.push("first_blood");
+    logChanged = true;
+  }
+
+  // 패배 누적 — 옛 클라 incrementBattleLosses 의 서버 미러.
+  let battleLossesNext =
+    typeof logPrev.battleLosses === "number" ? logPrev.battleLosses : 0;
+  if (died) {
+    battleLossesNext += 1;
+    logChanged = true;
+  }
+
+  if (logChanged) {
+    const newLog: SavedAdventureLog = {
+      ...logPrev,
+      monsters: monstersNext,
+      titles: titlesNext,
+      battleLosses: battleLossesNext,
+    };
+    await upsertSave(tx, userId, ADVENTURE_LOG_KEY, newLog);
+  }
+  if (progressNext !== state.questProgress) {
+    await upsertSave(tx, userId, QUEST_PROGRESS_KEY, progressNext);
+  }
+
   // 4) 사망 시 map.v2 의 currentRegionId 도 respawn 으로 갱신.
   let newRespawnRegionId: RegionId | null = null;
   if (died) {
@@ -512,6 +606,8 @@ export async function applyResultToSaves(
     newTraining,
     newRespawnRegionId,
     newParagon,
+    readyQuestIds,
+    grantedTitleIds,
   };
 }
 

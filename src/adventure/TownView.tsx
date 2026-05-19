@@ -8,6 +8,7 @@ import { NpcDialogue } from "./NpcDialogue";
 import { NpcAvatar } from "./NpcAvatar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
+import type { NpcQuestBadge } from "./quests/npcAvailability";
 
 const ROLE_LABEL: Record<NpcRole, string> = {
   elder: "촌장",
@@ -38,8 +39,13 @@ export function TownView({
   initialNpcId?: string;
   /** initialNpcId 를 한 번 소비했음을 부모에 알림 (state 정리용). */
   onInitialNpcConsumed?: () => void;
-  /** true 면 NPC 아바타에 "!" 뱃지 표시 — 지금 받을 수 있는 의뢰가 있다는 힌트. */
-  hasAvailableQuest?: (npcId: NpcId) => boolean;
+  /**
+   * NPC 아바타 우상단 뱃지 결정자:
+   *   "ready"     → "?" (보상 받을 의뢰 있음)
+   *   "available" → "!" (수락 가능한 새 의뢰 있음, 진행 중 없음)
+   *   null        → 표시 없음
+   */
+  hasAvailableQuest?: (npcId: NpcId) => NpcQuestBadge;
 }) {
   const npcs = getNpcsByRegion(region.id);
   const [openNpc, setOpenNpc] = useState<Npc | null>(null);
@@ -85,7 +91,7 @@ export function TownView({
             만날 수 있는 사람
           </div>
           {npcs.map((npc) => {
-            const showQuestBadge = hasAvailableQuest?.(npc.id) ?? false;
+            const badge = hasAvailableQuest?.(npc.id) ?? null;
             return (
               <button
                 key={npc.id}
@@ -95,12 +101,20 @@ export function TownView({
               >
                 <span className="relative shrink-0">
                   <NpcAvatar npc={npc} size={28} />
-                  {showQuestBadge && (
+                  {badge === "available" && (
                     <span
                       aria-label="받을 수 있는 의뢰 있음"
                       className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold leading-none text-zinc-900 ring-2 ring-white dark:ring-zinc-950"
                     >
                       !
+                    </span>
+                  )}
+                  {badge === "ready" && (
+                    <span
+                      aria-label="완료한 의뢰 보고 가능"
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-sky-400 text-[10px] font-bold leading-none text-zinc-900 ring-2 ring-white dark:ring-zinc-950"
+                    >
+                      ?
                     </span>
                   )}
                 </span>

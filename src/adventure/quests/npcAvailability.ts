@@ -44,3 +44,32 @@ export function npcHasAcceptableQuest(
     return true;
   });
 }
+
+export type NpcQuestBadge = "ready" | "available" | null;
+
+// 우선순위 기반 뱃지 판정:
+//   "ready"     — 이 NPC 와 연결된 의뢰 중 ready(목표 완료, 보상 미수령) 가 1개 이상
+//   "available" — ready/active 가 없고, npcHasAcceptableQuest 조건 만족하는 의뢰 존재
+//   null        — 그 외 (수락 후 진행 중이거나, 받을 게 없음)
+// 의도: 한 NPC 가 병렬로 여러 의뢰를 줄 때, 하나 수락한 뒤에는 "!" 를 끄고 진행에 집중하게.
+// 보상 받을 게 생기면 "?" 로 알려주고, 마무리되면 다시 "!" 로 다음 의뢰 신호.
+export function npcQuestBadge(
+  npcId: NpcId,
+  characterLevel: number,
+  getEntry: (id: string) => QuestProgressEntry,
+  now: number,
+  opts: Opts = {},
+): NpcQuestBadge {
+  let hasInProgress = false;
+  for (const q of QUESTS) {
+    if (q.giverNpcId !== npcId) continue;
+    if (q.hidden) continue;
+    const entry = getEntry(q.id);
+    if (entry.state === "ready") return "ready";
+    if (entry.state === "active") hasInProgress = true;
+  }
+  if (hasInProgress) return null;
+  return npcHasAcceptableQuest(npcId, characterLevel, getEntry, now, opts)
+    ? "available"
+    : null;
+}

@@ -5,7 +5,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TownView } from "@/adventure/TownView";
 import { renderTownNpcDialogue } from "@/adventure/town/dialogues/renderTownNpcDialogue";
 import { useGame } from "@/adventure/GameContext";
-import { npcHasAcceptableQuest } from "@/adventure/quests/npcAvailability";
+import { npcQuestBadge } from "@/adventure/quests/npcAvailability";
 import type { NpcId } from "@/adventure/data/npcs";
 
 export function TownSubView() {
@@ -37,7 +37,7 @@ export function TownSubView() {
   }, []);
   const titles = adventureLog.log.titles;
   const hasAvailableQuest = (npcId: NpcId) =>
-    npcHasAcceptableQuest(npcId, characterLevel, getQuestEntry, now, {
+    npcQuestBadge(npcId, characterLevel, getQuestEntry, now, {
       titles,
     });
 

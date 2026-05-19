@@ -106,6 +106,12 @@ export function currentlyHeldVariants(
       if ((n ?? 0) > 0) mark(id as ItemId, variantKey(null, Number(q) as DropQuality));
     }
   }
+  // 인스턴스 풀 (별빛 무구) — variantKey 는 craftTier 만 본다. 강화/마법부여는 변형 키로
+  // 구분하지 않는다 (도감은 한 아이템의 craftTier 까지만 변형 — 강화 단계는 인스턴스 단위라
+  // 도감 차원에서 의미가 약함).
+  for (const inst of inv.equipmentInstances ?? []) {
+    mark(inst.itemId, variantKey(inst.craftTier ?? null, null));
+  }
   if (equipped) {
     for (const slot of EQUIP_SLOTS) {
       const e = equipped[slot];

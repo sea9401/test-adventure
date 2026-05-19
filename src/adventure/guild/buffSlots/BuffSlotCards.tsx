@@ -20,8 +20,8 @@ export function effectLabel(
       return `드랍 +${((effect.value - 1) * 100).toFixed(1)}%`;
     case "fame_mult":
       return `명성 +${Math.round((effect.value - 1) * 100)}%`;
-    case "boss_attempt_bonus":
-      return `보스 시도 +${effect.value}`;
+    case "boss_cooldown_reduction_pct":
+      return `보스 쿨다운 -${effect.value}%`;
     default:
       return "?";
   }

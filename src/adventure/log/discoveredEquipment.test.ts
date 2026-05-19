@@ -93,4 +93,32 @@ describe("currentlyHeldVariants", () => {
     );
     expect(held.size).toBe(0);
   });
+
+  it("equipmentInstances 풀의 별빛 무구도 도감에 등록 — craftTier 별 변형 키", () => {
+    const state = inv({
+      equipmentInstances: [
+        {
+          instanceId: "i1",
+          itemId: "starlit_greatsword_str",
+          enhancementLevel: 0,
+          remainingAttempts: 7,
+        },
+        {
+          instanceId: "i2",
+          itemId: "starlit_lance_luk",
+          craftTier: 1,
+          enhancementLevel: 3,
+          enhanceHistory: ["safe", "safe", "safe"],
+          remainingAttempts: 7,
+        },
+      ],
+    });
+    const held = currentlyHeldVariants(state, {
+      weapon: null,
+      armor: null,
+      accessory: null,
+    });
+    expect([...(held.get("starlit_greatsword_str") ?? [])]).toEqual(["base"]);
+    expect([...(held.get("starlit_lance_luk") ?? [])]).toEqual(["c1"]);
+  });
 });

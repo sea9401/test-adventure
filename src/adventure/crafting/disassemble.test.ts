@@ -182,4 +182,77 @@ describe("disassemble — 적용", () => {
     const next = applyDisassemble(plan, inv);
     expect(next).toBe(inv);
   });
+
+  it("equipmentInstance 분해 — 풀에서 instanceId 로 제거 + legendary 수율 적용", () => {
+    const inv = withInventory({
+      equipmentInstances: [
+        {
+          instanceId: "inst-a",
+          itemId: "starlit_greatsword_str",
+          enhancementLevel: 0,
+          remainingAttempts: 7,
+        },
+        {
+          instanceId: "inst-b",
+          itemId: "starlit_lance_luk",
+          enhancementLevel: 3,
+          enhanceHistory: ["safe", "safe", "safe"],
+          remainingAttempts: 7,
+        },
+      ],
+    });
+    const plan = planDisassemble(
+      [
+        {
+          entry: {
+            kind: "equipmentInstance",
+            instanceId: "inst-a",
+            itemId: "starlit_greatsword_str",
+          },
+          count: 1,
+        },
+      ],
+      inv,
+      NO_SLOTS,
+    );
+    expect(plan.totalDust).toBe(RARITY_DUST_YIELD.legendary);
+    const next = applyDisassemble(plan, inv);
+    expect(next.equipmentInstances).toHaveLength(1);
+    expect(next.equipmentInstances?.[0].instanceId).toBe("inst-b");
+    expect(next.materials.mana_dust).toBe(RARITY_DUST_YIELD.legendary);
+  });
+
+  it("equipmentInstance 차단 — instanceId 가 슬롯에 있으면 equipped", () => {
+    const inv = withInventory({
+      equipmentInstances: [
+        {
+          instanceId: "inst-equip",
+          itemId: "starlit_greatsword_str",
+          enhancementLevel: 0,
+          remainingAttempts: 7,
+        },
+      ],
+    });
+    const slots: EquippedSlots = {
+      weapon: {
+        ...ITEMS.starlit_greatsword_str,
+        instanceId: "inst-equip",
+        enhancementLevel: 0,
+      },
+      armor: null,
+      accessory: null,
+    };
+    expect(
+      entryBlockReason(
+        {
+          kind: "equipmentInstance",
+          instanceId: "inst-equip",
+          itemId: "starlit_greatsword_str",
+        },
+        1,
+        inv,
+        slots,
+      ),
+    ).toBe("equipped");
+  });
 });

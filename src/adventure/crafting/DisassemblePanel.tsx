@@ -42,6 +42,7 @@ function entryKey(entry: DisassembleEntry): string {
     return `c:${entry.itemId}#t${entry.tier}`;
   if (entry.kind === "droppedEquipment")
     return `d:${entry.itemId}#q${entry.quality}`;
+  if (entry.kind === "equipmentInstance") return `i:${entry.instanceId}`;
   return `m:${entry.materialId}`;
 }
 
@@ -131,6 +132,34 @@ function buildRows(inv: InventoryState, slots: EquippedSlots): Row[] {
         blockedAlways: alwaysBlocked(entry, slots),
       });
     }
+  }
+
+  // 인스턴스 풀 (별빛 무구) — 자루별 행. 강화 +N / craftTier 라벨을 qualifier 에 합쳐 표시.
+  for (const inst of inv.equipmentInstances ?? []) {
+    const item = ITEMS[inst.itemId] as EquipItem | undefined;
+    if (!item) continue;
+    const entry: DisassembleEntry = {
+      kind: "equipmentInstance",
+      instanceId: inst.instanceId,
+      itemId: inst.itemId,
+    };
+    const tierLabel =
+      inst.craftTier != null && inst.craftTier !== 0
+        ? CRAFT_TIER_NAMES[inst.craftTier]
+        : "";
+    const enhLabel = inst.enhancementLevel > 0 ? `+${inst.enhancementLevel}` : "";
+    const qualifier = [tierLabel, enhLabel].filter((s) => s.length > 0).join(" ");
+    rows.push({
+      key: entryKey(entry),
+      entry,
+      name: item.name,
+      qualifier: qualifier.length > 0 ? qualifier : undefined,
+      rarityClass: rarityTextClass(item),
+      have: 1,
+      yieldEach: entryYield(entry),
+      tab: item.slot,
+      blockedAlways: alwaysBlocked(entry, slots),
+    });
   }
 
   // 재료.

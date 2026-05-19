@@ -64,6 +64,8 @@ export type DisassembleEntry =
   | { kind: "equipment"; itemId: ItemId }
   | { kind: "craftedEquipment"; itemId: ItemId; tier: CraftTier }
   | { kind: "droppedEquipment"; itemId: ItemId; quality: DropQuality }
+  // 인스턴스 풀(별빛 무구) — 자루마다 instanceId 가 고유. count 는 항상 1 (인스턴스 단위).
+  | { kind: "equipmentInstance"; instanceId: string; itemId: ItemId }
   | { kind: "material"; materialId: MaterialId };
 
 export type DisassembleRequest = readonly { entry: DisassembleEntry; count: number }[];
@@ -103,6 +105,16 @@ function itemIdEquipped(itemId: ItemId, slots: EquippedSlots): boolean {
   );
 }
 
+// 인스턴스가 어느 슬롯엔가 장착 중인지 — instanceId 정확 일치. 같은 itemId 두 자루를
+// 한 쪽만 차고 한 쪽은 분해하고 싶을 때 itemIdEquipped 보다 정확.
+function instanceEquipped(instanceId: string, slots: EquippedSlots): boolean {
+  return (
+    slots.weapon?.instanceId === instanceId ||
+    slots.armor?.instanceId === instanceId ||
+    slots.accessory?.instanceId === instanceId
+  );
+}
+
 function isStarter(itemId: ItemId): boolean {
   return STARTER_ITEM_IDS.includes(itemId);
 }
@@ -121,6 +133,12 @@ function entryHave(entry: DisassembleEntry, inv: InventoryState): number {
       return inv.craftedEquipment[entry.itemId]?.[String(entry.tier)] ?? 0;
     case "droppedEquipment":
       return inv.droppedEquipment[entry.itemId]?.[String(entry.quality)] ?? 0;
+    case "equipmentInstance":
+      return (inv.equipmentInstances ?? []).some(
+        (i) => i.instanceId === entry.instanceId,
+      )
+        ? 1
+        : 0;
     case "material":
       return inv.materials[entry.materialId] ?? 0;
   }
@@ -137,6 +155,8 @@ export function entryYield(entry: DisassembleEntry): number {
     if (entry.materialId === "mana_dust") return 0;
     return MATERIAL_DUST_OVERRIDE[entry.materialId] ?? 1;
   }
+  // 인스턴스(별빛 무구) 도 rarity 기반 — uncommon=3. 자루별 강화/마법부여는 별도 가치라
+  // 분해 시 mana_dust 단위로는 환산하지 않는다 (강화 sink 의 의미를 지키기 위해).
   return RARITY_DUST_YIELD[entryItemRarity(entry.itemId)] ?? 1;
 }
 
@@ -152,6 +172,10 @@ export function entryBlockReason(
 ): BlockReason | null {
   if (entry.kind === "material") {
     if (entry.materialId === "mana_dust") return "mana-dust";
+  } else if (entry.kind === "equipmentInstance") {
+    if (isStarter(entry.itemId)) return "starter-gear";
+    // 인스턴스는 instanceId 로 정확히 매칭 — 같은 itemId 둘이라도 한 쪽만 차단.
+    if (instanceEquipped(entry.instanceId, slots)) return "equipped";
   } else {
     if (isStarter(entry.itemId)) return "starter-gear";
     if (itemIdEquipped(entry.itemId, slots)) return "equipped";
@@ -206,6 +230,8 @@ export function applyDisassemble(
     droppedEquipment[k] = { ...inv.droppedEquipment[k] };
   }
   const materials = { ...inv.materials };
+  // 인스턴스 풀 — 분해 대상 instanceId 셋 모아두고 한 번에 필터.
+  const removeInstanceIds = new Set<string>();
 
   for (const { entry, count } of plan.applied) {
     if (entry.kind === "equipment") {
@@ -228,6 +254,8 @@ export function applyDisassemble(
       if (left > 0) map[key] = left;
       else delete map[key];
       if (Object.keys(map).length === 0) delete droppedEquipment[entry.itemId];
+    } else if (entry.kind === "equipmentInstance") {
+      removeInstanceIds.add(entry.instanceId);
     } else {
       const left = (materials[entry.materialId] ?? 0) - count;
       if (left > 0) materials[entry.materialId] = left;
@@ -238,11 +266,19 @@ export function applyDisassemble(
   // 마력가루 가산.
   materials.mana_dust = (materials.mana_dust ?? 0) + plan.totalDust;
 
+  const equipmentInstances =
+    removeInstanceIds.size > 0
+      ? (inv.equipmentInstances ?? []).filter(
+          (i) => !removeInstanceIds.has(i.instanceId),
+        )
+      : inv.equipmentInstances;
+
   return {
     ...inv,
     equipment,
     craftedEquipment,
     droppedEquipment,
     materials,
+    ...(equipmentInstances !== undefined ? { equipmentInstances } : {}),
   };
 }

@@ -514,8 +514,8 @@ export const TITLES: Record<TitleId, Title> = {
   },
   tower_weekly_top_25: {
     id: "tower_weekly_top_25",
-    name: "고탑의 도전자",
-    description: "한 주의 고탑 상위 25%. 몸을 사리지 않은 도전.",
+    name: "고탑의 추격자",
+    description: "한 주의 고탑 상위 25%. 위만 보고 한 주를 쫓아 올라간 자.",
     condition: "주간 고탑 최고층 상위 25% (F30 이상 자격)",
   },
   tower_weekly_top_50: {

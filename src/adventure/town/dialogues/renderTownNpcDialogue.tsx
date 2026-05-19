@@ -53,6 +53,7 @@ export type TownNpcDialogueDeps = Pick<
   | "characterStateHook"
   | "adventureLog"
   | "grantTitle"
+  | "claimDialogueReward"
 >;
 
 export function renderTownNpcDialogue(
@@ -70,6 +71,7 @@ export function renderTownNpcDialogue(
     characterStateHook,
     adventureLog,
     grantTitle,
+    claimDialogueReward,
   } = deps;
 
   switch (npc.id) {
@@ -129,8 +131,7 @@ export function renderTownNpcDialogue(
           npc={npc}
           onClose={close}
           storyFlags={storyFlags}
-          inventory={inventory}
-          characterStateHook={characterStateHook}
+          claimDialogueReward={claimDialogueReward}
           addNotification={addNotification}
         />
       );
@@ -220,6 +221,7 @@ export function renderTownNpcDialogue(
           completeQuest={completeQuest}
           inventory={inventory}
           characterStateHook={characterStateHook}
+          claimDialogueReward={claimDialogueReward}
           addNotification={addNotification}
         />
       );

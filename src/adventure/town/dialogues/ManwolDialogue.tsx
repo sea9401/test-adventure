@@ -6,6 +6,7 @@ import type { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import type { useQuests } from "@/adventure/quests/useQuests";
 import type { useInventory } from "@/adventure/inventory/useInventory";
 import type { useCharacterState } from "@/adventure/character/useCharacterState";
+import type { DialogueRewardId } from "@/adventure/data/dialogueRewards";
 import type { NotificationKind } from "@/lib/notifications";
 
 type Props = {
@@ -16,6 +17,11 @@ type Props = {
   completeQuest: (id: string) => boolean;
   inventory: ReturnType<typeof useInventory>;
   characterStateHook: ReturnType<typeof useCharacterState>;
+  /** 1회성 보상 서버 mutator — character/inventory/storyFlags 통째 교체 + dialogue close. */
+  claimDialogueReward: (
+    id: DialogueRewardId,
+    opts?: { onSuccess?: () => void },
+  ) => Promise<void>;
   addNotification: (kind: NotificationKind, text: string) => void;
 };
 
@@ -42,6 +48,7 @@ export function ManwolDialogue({
   completeQuest,
   inventory,
   characterStateHook,
+  claimDialogueReward,
   addNotification,
 }: Props) {
   const giantDefeated = storyFlags.has("peak_giant_defeated");
@@ -372,14 +379,15 @@ export function ManwolDialogue({
         primaryAction={{
           label: "영웅검을 받는다",
           onClick: () => {
-            inventory.addEquipment("hero_sword");
-            characterStateHook.addGoldFame(400, 8);
-            storyFlags.set("hero_sword_restored");
-            addNotification(
-              "quest_complete",
-              `${HERO_QUEST_TITLE} 완료 — 영웅검 획득! (+골드 400 / +명성 8)`,
-            );
-            onClose();
+            void claimDialogueReward("manwol_hero_sword", {
+              onSuccess: () => {
+                addNotification(
+                  "quest_complete",
+                  `${HERO_QUEST_TITLE} 완료 — 영웅검 획득! (+골드 400 / +명성 8)`,
+                );
+                onClose();
+              },
+            });
           },
         }}
       />

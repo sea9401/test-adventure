@@ -23,6 +23,7 @@ export function TownSubView() {
     completeQuest,
     addNotification,
     grantTitle,
+    claimDialogueReward,
   } = useGame();
 
   const characterLevel = characterStateHook.state.level;
@@ -62,6 +63,7 @@ export function TownSubView() {
             characterStateHook,
             adventureLog,
             grantTitle,
+            claimDialogueReward,
           })
         }
       />

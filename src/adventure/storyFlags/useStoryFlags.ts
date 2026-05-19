@@ -43,5 +43,10 @@ export function useStoryFlags() {
     });
   }, []);
 
-  return { state, has, set, remove, removeWithPrefix };
+  // 서버 권위 액션 (NPC 대화 보상 등) 의 응답으로 받은 storyFlags.v2 통째 교체.
+  const replaceFromSaved = useCallback((raw: unknown) => {
+    setState(readStoryFlagsState(raw));
+  }, []);
+
+  return { state, has, set, remove, removeWithPrefix, replaceFromSaved };
 }

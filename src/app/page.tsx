@@ -69,6 +69,7 @@ import { useShopActions } from "@/adventure/shop/useShopActions";
 import { useEquipmentActions } from "@/adventure/inventory/useEquipmentActions";
 import { useCraftAction } from "@/adventure/crafting/useCraftAction";
 import { useEnhanceAction } from "@/adventure/character/useEnhanceAction";
+import { useDialogueRewardAction } from "@/adventure/town/dialogues/useDialogueRewardAction";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -382,6 +383,12 @@ function Home() {
   });
 
   const { handleEnhance } = useEnhanceAction({ inventory, addNotification });
+  const { claim: claimDialogueReward } = useDialogueRewardAction({
+    inventory,
+    characterStateHook,
+    storyFlags,
+    addNotification,
+  });
 
   // 카운터/상태/시간 기반 자동 칭호 부여.
   const maxNpcTalkCount = Object.values(adventureLog.log.npcs).reduce(
@@ -539,6 +546,7 @@ function Home() {
     handleWithdrawFromVault,
     handleCraft,
     handleEnhance,
+    claimDialogueReward,
     handleBattleEnd,
     handleAcceptQuest,
     handleClaimQuest,

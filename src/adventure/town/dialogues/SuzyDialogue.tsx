@@ -2,8 +2,7 @@ import type { Npc } from "@/adventure/data/npcs";
 import { NpcDialogue } from "@/adventure/NpcDialogue";
 import { STORY_QUESTS } from "@/adventure/data/storyQuests";
 import type { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
-import type { useInventory } from "@/adventure/inventory/useInventory";
-import type { useCharacterState } from "@/adventure/character/useCharacterState";
+import type { DialogueRewardId } from "@/adventure/data/dialogueRewards";
 import type { NotificationKind } from "@/lib/notifications";
 
 export const SUZY_FLAG_ACCEPTED = "suzy_husband_news_accepted";
@@ -14,8 +13,11 @@ type Props = {
   npc: Npc;
   onClose: () => void;
   storyFlags: ReturnType<typeof useStoryFlags>;
-  inventory: ReturnType<typeof useInventory>;
-  characterStateHook: ReturnType<typeof useCharacterState>;
+  /** 1회성 보상 서버 mutator — character/inventory/storyFlags 통째 교체 + dialogue close. */
+  claimDialogueReward: (
+    id: DialogueRewardId,
+    opts?: { onSuccess?: () => void },
+  ) => Promise<void>;
   addNotification: (kind: NotificationKind, text: string) => void;
 };
 
@@ -23,8 +25,7 @@ export function SuzyDialogue({
   npc,
   onClose,
   storyFlags,
-  inventory,
-  characterStateHook,
+  claimDialogueReward,
   addNotification,
 }: Props) {
   const accepted = storyFlags.has(SUZY_FLAG_ACCEPTED);
@@ -76,14 +77,15 @@ export function SuzyDialogue({
         primaryAction={{
           label: "감사 인사를 받는다",
           onClick: () => {
-            characterStateHook.addGoldFame(30, 1);
-            inventory.add("potion_heal_s", 2);
-            storyFlags.set(SUZY_FLAG_COMPLETE);
-            addNotification(
-              "quest_complete",
-              `${STORY_QUESTS.suzy_husband_news.title} 완료 — 골드 +30, 명성 +1, 작은 회복약 ×2`,
-            );
-            onClose();
+            void claimDialogueReward("suzy_husband_news", {
+              onSuccess: () => {
+                addNotification(
+                  "quest_complete",
+                  `${STORY_QUESTS.suzy_husband_news.title} 완료 — 골드 +30, 명성 +1, 작은 회복약 ×2`,
+                );
+                onClose();
+              },
+            });
           },
         }}
       />

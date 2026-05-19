@@ -873,6 +873,7 @@ export const MONSTERS: Record<string, Monster> = {
   // ── 선인의 폐도 (skyfolk_ruins) — 별의 첨탑 위 Lv80 구간. 협동 보스 천공인의 왕. ─────
   "천공인 사관": {
     name: "천공인 사관",
+    image: "/images/monster/celestialpriest.webp",
     tags: ["spirit"],
     hp: 1035,
     atk: 87,
@@ -892,6 +893,7 @@ export const MONSTERS: Record<string, Monster> = {
   },
   "천공인 전사": {
     name: "천공인 전사",
+    image: "/images/monster/celestialwarrior.webp",
     tags: ["humanoid"],
     hp: 1310,
     atk: 91,
@@ -910,6 +912,7 @@ export const MONSTERS: Record<string, Monster> = {
   },
   "폐허의 거상": {
     name: "폐허의 거상",
+    image: "/images/monster/acientgolem.webp",
     tags: ["golem"],
     hp: 1525,
     atk: 100,
@@ -929,6 +932,7 @@ export const MONSTERS: Record<string, Monster> = {
   // 처치 시 별의 정수 ×8 + 에테르 합금 ×3 확정 + 에테르 무구 4종 중 1 + 망토 15% + 천공인의 관 1%.
   "천공인의 왕": {
     name: "천공인의 왕",
+    image: "/images/monster/celestialking.webp",
     tags: ["humanoid"],
     hp: 2615,
     atk: 120,
@@ -964,6 +968,7 @@ export const MONSTERS: Record<string, Monster> = {
   // ── 옥좌의 길 (throne_road) — 선인의 폐도 → 창공의 옥좌 사이 Lv85 사냥터. 보스 없음. ───
   "황성 의장기수": {
     name: "황성 의장기수",
+    image: "/images/monster/imperialbannerknight.webp",
     tags: ["humanoid"],
     hp: 1415,
     atk: 109,
@@ -1001,6 +1006,7 @@ export const MONSTERS: Record<string, Monster> = {
   },
   "봉인 파편": {
     name: "봉인 파편",
+    image: "/images/monster/sealedfragment.webp",
     tags: ["golem"],
     hp: 1795,
     atk: 120,
@@ -1051,6 +1057,7 @@ export const MONSTERS: Record<string, Monster> = {
   // 처치 시 endgame_apex_defeated flag → 6번째 일반 슬롯 + 2번째 특기 슬롯 해금.
   "별빛 사도": {
     name: "별빛 사도",
+    image: "/images/monster/celestialapostle.webp",
     tags: ["spirit"],
     hp: 1415,
     atk: 120,
@@ -1070,6 +1077,7 @@ export const MONSTERS: Record<string, Monster> = {
   },
   "옥좌의 검신": {
     name: "옥좌의 검신",
+    image: "/images/monster/swordmasterofthrone.webp",
     tags: ["humanoid"],
     hp: 1795,
     atk: 125,
@@ -1086,6 +1094,7 @@ export const MONSTERS: Record<string, Monster> = {
   },
   "잠든 황좌 거인": {
     name: "잠든 황좌 거인",
+    image: "/images/monster/sleepinggiant.webp",
     tags: ["golem"],
     hp: 2070,
     atk: 136,
@@ -1108,6 +1117,7 @@ export const MONSTERS: Record<string, Monster> = {
   // 처치 시 창공 조각 ×10 + 태초의 정수 ×4 + 창공 무구 4종 중 1 + 망토 15% + 창공의 옥새 1%.
   "창공의 주재": {
     name: "창공의 주재",
+    image: "/images/monster/lordofsky.webp",
     tags: ["humanoid"],
     hp: 3815,
     atk: 147,
@@ -1592,6 +1602,7 @@ export const MONSTERS: Record<string, Monster> = {
   // auraKind: "starfall" 분류는 5막 후속 PR(별빛 깃든 기예·도감 그룹) 에서 활용된다.
   "별빛 박쥐": {
     name: "별빛 박쥐",
+    image: "/images/monster/starlitbat.webp",
     tags: ["beast"],
     hp: 2450,
     atk: 191,
@@ -1607,6 +1618,7 @@ export const MONSTERS: Record<string, Monster> = {
   },
   "별빛 동굴뱀": {
     name: "별빛 동굴뱀",
+    image: "/images/monster/starlitcavesnake.webp",
     tags: ["beast"],
     hp: 2950,
     atk: 199,
@@ -1872,6 +1884,7 @@ export const MONSTERS: Record<string, Monster> = {
   // 처치 시 별빛 조각 ×7 + 녹슨 쇳조각 ×5 + 옛 군기 조각 ×4 + 성문의 빗장 1% 굴림.
   "성문지기 잔영": {
     name: "성문지기 잔영",
+    image: "/images/monster/gateguard.webp",
     tags: ["golem"],
     hp: 11700,
     atk: 267,

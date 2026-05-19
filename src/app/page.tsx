@@ -49,6 +49,7 @@ import { useRespawnSafetyNet } from "@/adventure/character/useRespawnSafetyNet";
 import { getTitle } from "@/adventure/data/titles";
 import { MONSTERS } from "@/adventure/data/monsters";
 import { onBattleEnd } from "@/adventure/battle/onBattleEnd";
+import { useBattleClaimAction } from "@/adventure/battle/useBattleClaimAction";
 import { useAutoHunt } from "@/adventure/hunting/useAutoHunt";
 // 자동사냥 결과 모달 — 결과가 있을 때만 마운트. 메인 페이지 초기 번들에서 분리해
 // 라우트 진입 시 다운로드 안 함. 결과 발생 시 (드물게) 동적 로드.
@@ -413,15 +414,16 @@ function Home() {
     maxMaterialSold,
   });
 
+  const { claim: claimBattleVictory } = useBattleClaimAction({
+    inventory,
+    characterStateHook,
+    crafting,
+    paragon,
+  });
   const handleBattleEnd = (payload: BattleEndPayload) =>
-    onBattleEnd(payload, {
-      inventory: {
-        consume: inventory.consume,
-        addMaterial: inventory.addMaterial,
-        addEquipment: inventory.addEquipment,
-        addDroppedEquipment: (id, q) => inventory.addDroppedEquipment(id, q, 1),
-        addSkillBook: inventory.addSkillBook,
-      },
+    void onBattleEnd(payload, {
+      claimVictory: claimBattleVictory,
+      inventory: { consume: inventory.consume },
       adventureLog: {
         addKill: adventureLog.addKill,
         markTitleObtained: grantTitle,
@@ -429,14 +431,11 @@ function Home() {
         incrementNoDamageWin: adventureLog.incrementNoDamageWin,
       },
       quests: { recordKill: quests.recordKill },
-      crafting: {
-        knows: crafting.knows,
-        learnRecipe: crafting.learnRecipe,
+      inventoryActions: {
+        addSkillBook: (id, n) => inventory.addSkillBook(id, n),
       },
       characterState: {
         setHp: characterStateHook.setHp,
-        addExp: characterStateHook.addExp,
-        addGoldFame: characterStateHook.addGoldFame,
       },
       storyFlags: { set: storyFlags.set, has: storyFlags.has },
       bossKillsTotal,
@@ -444,9 +443,6 @@ function Home() {
       noDamageWinsTotal: adventureLog.log.noDamageWins ?? 0,
       peakGiantKillsTotal:
         adventureLog.log.monsters["운봉의 거인"]?.kills ?? 0,
-      vit: character.stats.vit,
-      luk: character.stats.luk,
-      playerLevel: character.level,
       respawnRegionId: mapProgress.respawnRegionId ?? START_REGION_ID,
       addNotification,
       setHuntingActive,
@@ -455,8 +451,7 @@ function Home() {
       reportGuildKill: (enemyName) => {
         // 보스(phaseTrigger 보유) 는 kill_boss 로, 잡몹은 kill_monster 로 분기.
         // 서버는 task.kind 와 정확히 매칭된 활성 의뢰만 진행하므로, 보스를 kill_monster
-        // 로 보내면 일일 보스 의뢰(수심의 것/옛 성문지기/화산의 심장/뼈비늘 노룡) 가
-        // 영원히 카운트되지 않는다.
+        // 로 보내면 일일 보스 의뢰가 영원히 카운트되지 않는다.
         const isBoss = MONSTERS[enemyName]?.phaseTrigger != null;
         void reportGuildQuestProgress({
           kind: isBoss ? "kill_boss" : "kill_monster",
@@ -464,9 +459,6 @@ function Home() {
           count: 1,
         }).catch(() => {});
       },
-      guildBuffs: guildBuffsCache.buffs,
-      runeBonus: composed.runeBonus,
-      paragonBonus: computeParagonBonus(paragon.state.allocations),
     });
 
   const { autoHuntResult, dismiss: dismissAutoHuntResult } =

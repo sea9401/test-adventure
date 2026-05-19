@@ -1,44 +1,36 @@
 import type { BattleEndPayload } from "@/adventure/BattleView";
 import type { PotionId } from "@/adventure/data/potions";
-import type { MaterialId } from "@/adventure/data/materials";
-import type { ItemId } from "@/adventure/data/items";
 import { MONSTERS } from "@/adventure/data/monsters";
-import { MATERIALS } from "@/adventure/data/materials";
-import { ITEMS, isLuckyFind, rarityTextClass } from "@/adventure/data/items";
 import {
   dropQualityPrefix,
   dropQualityTextClass,
-  rollDropQuality,
-  type DropQuality,
 } from "@/adventure/data/dropQuality";
+import { rarityTextClass, ITEMS, type ItemId } from "@/adventure/data/items";
 import { WORLD_MAP, type RegionId } from "@/adventure/data/world";
 import { getQuestById } from "@/adventure/data/quests";
-import { getRecipeById } from "@/adventure/data/recipes";
-import { SKILL_BOOKS, type SkillBookId } from "@/adventure/data/skillBooks";
 import { reportUniqueDrop } from "@/lib/clientFeed";
-import {
-  resolveBuffMultiplier,
-  type GuildBuffSlot,
-} from "@/adventure/data/guildBuffs";
-import type { RuneBonusMap } from "@/adventure/character/runeBonus";
-import { XP_RATE_MULT, getNewbieDropMultiplier } from "@/lib/leveling";
-import type { ParagonBonus } from "@/lib/paragon";
 import type { MapProgress } from "@/lib/map-progress";
 import type {
   NotificationKind,
   NotificationMeta,
 } from "@/lib/notifications";
 import type { TabKey } from "@/lib/useNavTabs";
+import type { BattleClaimOutcome } from "@/lib/server/battleClaim";
 
+// 보상 (드랍 RNG + EXP/gold + HP-regen) 는 EPIC #3-3 Phase 1 이후 서버 권위.
+// 클라는 claimVictory 응답을 받아 saves replaceFromSaved + loot/EXP 토스트.
+// 비-보상 (칭호/마일스톤/스토리플래그/quest progress/패배 페널티) 은 Phase 2/3 까지 잔존.
 export type BattleEndDeps = {
+  /** 서버 victory claim — encounterId 와 stat 만 보내고 saves + drops 받음. null = 통신 실패. */
+  claimVictory: (input: {
+    encounterId: string;
+    enemyName: string;
+    finalPlayerHp: number;
+    playerMaxHp: number;
+    isBoss: boolean;
+  }) => Promise<BattleClaimOutcome | null>;
   inventory: {
     consume: (id: PotionId, n: number) => void;
-    addMaterial: (id: MaterialId, n: number) => void;
-    addEquipment: (id: ItemId) => void;
-    /** 드랍 고품질(정교한/빼어난) 장비 1개 추가 — q 0(기본)은 addEquipment 로 간다. */
-    addDroppedEquipment: (id: ItemId, q: DropQuality) => void;
-    /** 스킬북 1권 추가 — AP 스킬 학습용 아이템. */
-    addSkillBook: (id: SkillBookId, n?: number) => void;
   };
   adventureLog: {
     addKill: (name: string) => void;
@@ -52,14 +44,20 @@ export type BattleEndDeps = {
       ctx?: { hpFraction?: number; potionsUsed?: number },
     ) => string[];
   };
-  crafting: {
-    knows: (id: string) => boolean;
-    learnRecipe: (id: string) => void;
+  inventoryActions: {
+    /** 마일스톤 스킬북 1회 지급 — Phase 2 이전까지 클라 잔존. */
+    addSkillBook: (
+      id:
+        | "book_mad_slash"
+        | "book_deep_wound"
+        | "book_frenzy"
+        | "book_thunder_strike"
+        | "book_light_glide",
+      n?: number,
+    ) => void;
   };
   characterState: {
     setHp: (n: number) => void;
-    addExp: (exp: number, vit: number) => void;
-    addGoldFame: (gold: number, fame: number) => void;
   };
   storyFlags: { set: (id: string) => void; has: (id: string) => boolean };
   /** 누적 보스 처치 수 (이번 처치 전 기준) — 보스 50회 업적 보상 발급용. */
@@ -70,10 +68,6 @@ export type BattleEndDeps = {
   noDamageWinsTotal: number;
   /** 누적 운봉의 거인 처치 수 (이번 처치 전 기준) — 거인 10회 천뢰 일격 업적용. */
   peakGiantKillsTotal: number;
-  vit: number;
-  luk: number;
-  /** 신참 드롭 ×2 판정용. Lv 30 미만이면 ×2. */
-  playerLevel: number;
   respawnRegionId: RegionId;
   addNotification: (
     kind: NotificationKind,
@@ -85,20 +79,23 @@ export type BattleEndDeps = {
   setMapProgress: (updater: (prev: MapProgress) => MapProgress) => void;
   /** 길드 의뢰 진행도 보고 — 길드 미가입/미매칭이면 서버가 silent ignore. */
   reportGuildKill?: (enemyName: string) => void;
-  /** 길드 버프 슬롯 — EXP/골드/명성/드랍 배율 곱셈에 사용. 비어있으면 모두 ×1. */
-  guildBuffs?: GuildBuffSlot[];
-  /** 장착 룬 합산 보너스 — EXP%/드롭% 가산에 사용. 비어있으면 ×1. */
-  runeBonus?: RuneBonusMap;
-  /** 파라곤 합산 보너스 — pctGoldExp 가 EXP/골드 곱셈. 미지정 = 보너스 없음. */
-  paragonBonus?: ParagonBonus;
 };
+
+// crypto.randomUUID fallback. encounterId 는 서버 idempotency 가드(Phase 2 추가 예정)
+// 의 키 — 일단 충돌만 안 나면 충분.
+function newEncounterId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 // BattleView 의 onBattleEnd 콜백 본체. 의존성을 명시적으로 주입받는 형태로
 // page.tsx 에서 분리 — 테스트 가능 + 거대한 컴포넌트 본체에서 빠져나옴.
-export function onBattleEnd(
+export async function onBattleEnd(
   payload: BattleEndPayload,
   deps: BattleEndDeps,
-): void {
+): Promise<void> {
   // 전투 중 사용된 포션을 인벤토리에서 차감 (resolveBattle 은 가짜 잔량으로 시뮬했음).
   let potionTotal = 0;
   for (const [id, n] of Object.entries(payload.potionsConsumed)) {
@@ -121,7 +118,7 @@ export function onBattleEnd(
         !deps.storyFlags.has("mad_slash_book_granted")
       ) {
         deps.storyFlags.set("mad_slash_book_granted");
-        deps.inventory.addSkillBook("book_mad_slash", 1);
+        deps.inventoryActions.addSkillBook("book_mad_slash", 1);
         deps.addNotification(
           "milestone",
           "✨ 무피해 100회 승리 — '스킬북 — 광살참' 을 손에 넣었다!",
@@ -141,202 +138,139 @@ export function onBattleEnd(
       potionsUsed: potionTotal,
     });
     deps.reportGuildKill?.(payload.enemyName);
-    // 재생의 룬 — 승리 직후 maxHp × regen_pct/100 회복. 자동 사냥 패배 휴식 시스템은 영향 X (승리만).
-    const runeRegenPct = deps.runeBonus?.regen_pct ?? 0;
-    const runeRegenHeal =
-      runeRegenPct > 0 && payload.playerMaxHp > 0
-        ? Math.floor((payload.playerMaxHp * runeRegenPct) / 100)
-        : 0;
-    const hpAfterRegen =
-      runeRegenHeal > 0
-        ? Math.min(
-            payload.playerMaxHp,
-            payload.finalPlayerHp + runeRegenHeal,
-          )
-        : payload.finalPlayerHp;
-    deps.characterState.setHp(hpAfterRegen);
-    if (runeRegenHeal > 0 && hpAfterRegen > payload.finalPlayerHp) {
-      deps.addNotification(
-        "info",
-        `재생의 룬 — HP +${hpAfterRegen - payload.finalPlayerHp}`,
-      );
-    }
-    // 길드 버프 — 비어 있으면 모든 곱셈 ×1.0 (no-op).
-    // 룬 EXP/드롭 % 도 같은 자리에서 곱셈으로 합류 — 단, 로그 라벨은 분리해서 표시.
-    // 신참 드롭 ×2 도 같은 자리에서 합류 (Lv 30 미만일 때).
-    const buffs = deps.guildBuffs ?? [];
-    const guildExpMult = resolveBuffMultiplier(buffs, "exp_mult");
-    const runeExpMult = 1 + (deps.runeBonus?.exp_pct ?? 0) / 100;
-    const runeDropMult = 1 + (deps.runeBonus?.drop_pct ?? 0) / 100;
-    const newbieDropMult = getNewbieDropMultiplier(deps.playerLevel);
-    // 파라곤 풍요 트랙 — EXP·골드 획득에 곱셈. 드랍률에는 영향 없음.
-    const paragonRewardMult =
-      1 + (deps.paragonBonus?.pctGoldExp ?? 0) / 100;
-    const expMult = guildExpMult * runeExpMult * paragonRewardMult;
-    const dropMult =
-      resolveBuffMultiplier(buffs, "drop_mult") * runeDropMult * newbieDropMult;
-    const boostedExp = Math.floor(payload.rewards.exp * expMult * XP_RATE_MULT);
-    deps.characterState.addExp(boostedExp, deps.vit);
-    // 보스 처치 시 storyFlag 발급 (data-driven, monster.onDefeatFlag).
-    // useStoryFlags.set 은 idempotent 라 두 번째 처치는 무시 — 안전하게 매 처치마다 호출.
+
+    // 보스 storyFlag / 칭호 — data-driven (monster.onDefeatFlag/onDefeatTitleId).
     const monster = MONSTERS[payload.enemyName];
-    if (monster?.onDefeatFlag) {
-      deps.storyFlags.set(monster.onDefeatFlag);
-    }
-    // 솔로 region.boss 처치 시 칭호 부여 (data-driven, monster.onDefeatTitleId).
-    // 옛 coop 시절의 "50% 데미지 임계" 대신 솔로 처치 자체가 자격. grantTitle 이 idempotent.
+    if (monster?.onDefeatFlag) deps.storyFlags.set(monster.onDefeatFlag);
     if (monster?.onDefeatTitleId) {
       deps.adventureLog.markTitleObtained(monster.onDefeatTitleId);
     }
-    // 보스 누적 50회 업적 — 깊은 상처 스킬북 1회 지급. phaseTrigger 보유 = 보스.
+
+    // 누적 마일스톤 — 보스 50 / 총 1000 / 거인 10 / 천공인 첫 처치.
     if (
       monster?.phaseTrigger &&
       deps.bossKillsTotal + 1 >= 50 &&
       !deps.storyFlags.has("deep_wound_book_granted")
     ) {
       deps.storyFlags.set("deep_wound_book_granted");
-      deps.inventory.addSkillBook("book_deep_wound", 1);
+      deps.inventoryActions.addSkillBook("book_deep_wound", 1);
       deps.addNotification(
         "milestone",
         "✨ 보스 50회 처치 — '스킬북 — 깊은 상처' 를 손에 넣었다!",
       );
     }
-    // 누적 처치 1000회 업적 — 폭주 스킬북 1회 지급. monster 종류 무관.
     if (
       deps.totalKillsTotal + 1 >= 1000 &&
       !deps.storyFlags.has("frenzy_book_granted")
     ) {
       deps.storyFlags.set("frenzy_book_granted");
-      deps.inventory.addSkillBook("book_frenzy", 1);
+      deps.inventoryActions.addSkillBook("book_frenzy", 1);
       deps.addNotification(
         "milestone",
         "✨ 누적 1000회 처치 — '스킬북 — 폭주' 를 손에 넣었다!",
       );
     }
-    // 운봉의 거인 10회 처치 업적 — 천뢰 일격 스킬북 1회 지급.
     if (
       payload.enemyName === "운봉의 거인" &&
       deps.peakGiantKillsTotal + 1 >= 10 &&
       !deps.storyFlags.has("thunder_strike_book_granted")
     ) {
       deps.storyFlags.set("thunder_strike_book_granted");
-      deps.inventory.addSkillBook("book_thunder_strike", 1);
+      deps.inventoryActions.addSkillBook("book_thunder_strike", 1);
       deps.addNotification(
         "milestone",
         "✨ 운봉의 거인 10회 처치 — '스킬북 — 천뢰 일격' 을 손에 넣었다!",
       );
     }
-    // 천공인의 왕 첫 처치 업적 — 빛의 활공 스킬북 1회 지급.
     if (
       payload.enemyName === "천공인의 왕" &&
       !deps.storyFlags.has("light_glide_book_granted")
     ) {
       deps.storyFlags.set("light_glide_book_granted");
-      deps.inventory.addSkillBook("book_light_glide", 1);
+      deps.inventoryActions.addSkillBook("book_light_glide", 1);
       deps.addNotification(
         "milestone",
         "✨ 천공인의 왕 처치 — '스킬북 — 빛의 활공' 을 손에 넣었다!",
       );
     }
-    // 드롭 판정 — 몬스터의 drops 정의대로 확률 굴림.
-    // kind 별로 인벤/골드/장비에 분배.
-    if (monster?.drops) {
-      // luk 1pt 당 드랍률 ×1.01 (multiplicative). 1.0 으로 capping 해 100% 초과 방지.
-      // 길드 drop_boost 가 LUK 위에 또 곱해진다 (활성화 시 +0.5%~+2.5%).
-      const luckMultiplier = 1 + deps.luk * 0.01;
-      for (const drop of monster.drops) {
-        const adjustedChance = Math.min(
-          1,
-          drop.chance * luckMultiplier * dropMult,
+
+    // 보상 적용 — 서버 권위. fetch 실패해도 위의 클라 비-보상 부분은 이미 적용됨.
+    const outcome = await deps.claimVictory({
+      encounterId: newEncounterId(),
+      enemyName: payload.enemyName,
+      finalPlayerHp: payload.finalPlayerHp,
+      playerMaxHp: payload.playerMaxHp,
+      isBoss: !!payload.isBoss,
+    });
+    if (!outcome) {
+      // 통신 실패 — finalHp 만 따로 적용해 stuck 회피. 재생 룬 미적용.
+      deps.characterState.setHp(payload.finalPlayerHp);
+      deps.addNotification(
+        "info",
+        "보상 통신 오류 — 잠시 후 다시 시도해 주세요.",
+      );
+      return;
+    }
+
+    if (outcome.hpRegenHealed > 0) {
+      deps.addNotification("info", `재생의 룬 — HP +${outcome.hpRegenHealed}`);
+    }
+
+    // 드랍 토스트 — 서버가 굴린 결과대로 클라에서 같은 문구로.
+    for (const drop of outcome.drops) {
+      if (drop.kind === "material") {
+        deps.addNotification(
+          "loot",
+          `${drop.name}${drop.amount > 1 ? ` ×${drop.amount}` : ""}을(를) 손에 넣었다.`,
         );
-        if (Math.random() >= adjustedChance) continue;
-        if (drop.kind === "material") {
-          const amount = drop.amount ?? 1;
-          deps.inventory.addMaterial(drop.materialId, amount);
-          deps.addNotification(
-            "loot",
-            `${MATERIALS[drop.materialId].name}${
-              amount > 1 ? ` ×${amount}` : ""
-            }을(를) 손에 넣었다.`,
-          );
-        } else if (drop.kind === "gold") {
-          const boostedGold = Math.floor(drop.amount * paragonRewardMult);
-          deps.characterState.addGoldFame(boostedGold, 0);
-          deps.addNotification("loot", `골드 +${boostedGold}`);
-        } else if (drop.kind === "equip") {
-          // 드랍 품질 등급 롤 — 대부분 기본(접두어 없음), 가끔 정교한(+1u)/빼어난(+2u).
-          // 보스·고티어는 monster.dropQualityBias 로 좋은 품질 가중치가 올라간다.
-          const q = rollDropQuality(Math.random, monster.dropQualityBias ?? 1);
-          if (q === 0) deps.inventory.addEquipment(drop.itemId);
-          else deps.inventory.addDroppedEquipment(drop.itemId, q);
-          const equipDef = ITEMS[drop.itemId];
-          const name = dropQualityPrefix(q) + equipDef.name;
-          // "유실된 명품"(unique)은 자주 보는 loot 토스트에 묻히지 않게 milestone 으로 띄우고
-          // 메시지 앞에 강조 배너를 붙인다 — 잡몹한테서 떡상 장비가 나온 순간을 못 놓치게.
-          const lucky = isLuckyFind(equipDef);
-          // 유실된 명품 — 전체 소식(서버 피드)에도 한 줄 보고 (fire-and-forget).
-          if (lucky) reportUniqueDrop(drop.itemId);
-          deps.addNotification(
-            lucky ? "milestone" : "equip_drop",
-            `${lucky ? "✨ 굉장한 발견! " : ""}${name}을(를) 손에 넣었다!`,
-            {
-              highlight: {
-                name,
-                className: q ? dropQualityTextClass(q) : rarityTextClass(equipDef),
-              },
+      } else if (drop.kind === "gold") {
+        deps.addNotification("loot", `골드 +${drop.amount}`);
+      } else if (drop.kind === "equip") {
+        const display = dropQualityPrefix(drop.quality) + drop.name;
+        const equipDef = ITEMS[drop.itemId as ItemId];
+        if (drop.lucky) reportUniqueDrop(drop.itemId as ItemId);
+        deps.addNotification(
+          drop.lucky ? "milestone" : "equip_drop",
+          `${drop.lucky ? "✨ 굉장한 발견! " : ""}${display}을(를) 손에 넣었다!`,
+          {
+            highlight: {
+              name: display,
+              className: drop.quality
+                ? dropQualityTextClass(drop.quality)
+                : rarityTextClass(equipDef),
             },
-          );
-        } else if (drop.kind === "recipe") {
-          if (deps.crafting.knows(drop.recipeId)) continue;
-          deps.crafting.learnRecipe(drop.recipeId);
-          const recipe = getRecipeById(drop.recipeId);
-          deps.addNotification(
-            "equip_drop",
-            `${recipe?.name ?? drop.recipeId}을(를) 손에 넣었다!`,
-          );
-        } else if (drop.kind === "skill_book") {
-          deps.inventory.addSkillBook(drop.bookId, 1);
-          const book = SKILL_BOOKS[drop.bookId];
-          deps.addNotification(
-            "milestone",
-            `✨ ${book.name}을(를) 손에 넣었다!`,
-          );
-        } else if (drop.kind === "recipe_one_of") {
-          // 풀에서 1개 학습 시도. 미보유 항목이 있으면 그중에서만 균등 추첨 — 사용자가
-          // 이미 아는 항목으로 뽑혀 빈손이 되는 사고를 방지 (보스가 "항상 1종 드랍" 약속을
-          // 지키는 모양새). 풀 전체를 이미 알고 있으면 그 사실을 명시 토스트로 안내.
-          if (drop.recipeIds.length === 0) continue;
-          const unknown = drop.recipeIds.filter(
-            (id) => !deps.crafting.knows(id),
-          );
-          if (unknown.length === 0) {
-            deps.addNotification(
-              "info",
-              "제작서 보상 — 이미 모든 종류를 알고 있다.",
-            );
-            continue;
-          }
-          const pick = unknown[Math.floor(Math.random() * unknown.length)];
-          deps.crafting.learnRecipe(pick);
-          const recipe = getRecipeById(pick);
-          deps.addNotification(
-            "equip_drop",
-            `${recipe?.name ?? pick}을(를) 손에 넣었다!`,
-          );
-        }
+          },
+        );
+      } else if (drop.kind === "recipe") {
+        deps.addNotification(
+          "equip_drop",
+          `${drop.name}을(를) 손에 넣었다!`,
+        );
+      } else if (drop.kind === "skill_book") {
+        deps.addNotification(
+          "milestone",
+          `✨ ${drop.name}을(를) 손에 넣었다!`,
+        );
+      } else if (drop.kind === "recipe_one_of_already_known") {
+        deps.addNotification(
+          "info",
+          "제작서 보상 — 이미 모든 종류를 알고 있다.",
+        );
       }
     }
-    // 신참/길드/룬/파라곤 각 곱셈을 별도 괄호로 표기 — 어느 출처로 보너스가 왔는지
-    // 유저가 한눈에 알 수 있게. 곱셈 = 1 인 출처는 라벨 자체를 생략.
+
+    // EXP 토스트 — 곱셈 분해 라벨.
     let expParts = "";
-    if (payload.rewards.expBonusApplied) expParts += " (신참 ×2)";
-    if (guildExpMult > 1) expParts += ` (길드 ×${guildExpMult.toFixed(2)})`;
-    if (runeExpMult > 1) expParts += ` (룬 ×${runeExpMult.toFixed(2)})`;
-    if (paragonRewardMult > 1)
-      expParts += ` (파라곤 ×${paragonRewardMult.toFixed(2)})`;
+    if (outcome.expBonusApplied) expParts += " (신참 ×2)";
+    if (outcome.expMultParts.guild > 1)
+      expParts += ` (길드 ×${outcome.expMultParts.guild.toFixed(2)})`;
+    if (outcome.expMultParts.rune > 1)
+      expParts += ` (룬 ×${outcome.expMultParts.rune.toFixed(2)})`;
+    if (outcome.expMultParts.paragon > 1)
+      expParts += ` (파라곤 ×${outcome.expMultParts.paragon.toFixed(2)})`;
     const reward =
-      payload.rewards.exp > 0
-        ? `EXP +${boostedExp}${expParts}`
+      outcome.expGained > 0
+        ? `EXP +${outcome.expGained}${expParts}`
         : "보상 없음";
     deps.addNotification(
       "battle_win",
@@ -359,8 +293,6 @@ export function onBattleEnd(
   deps.setHuntingActive(false);
 
   // 보스 패배 (개인 region.boss 도전) — 마을 강제 이동 X, HP 는 maxHP 로 풀회.
-  // 의도: 사용자가 BattleScene 의 전투 로그를 그대로 보면서 다음 도전을 결정. 패배 페널티는
-  // 보스 일일 도전 횟수 차감(이미 도전 시 차감됨) 으로 충분.
   if (payload.isBoss) {
     deps.characterState.setHp(payload.playerMaxHp);
     deps.addNotification(
@@ -371,8 +303,7 @@ export function onBattleEnd(
     return;
   }
 
-  // 일반 전투 패배 — HP 0 + 복귀 마을 강제 이동 + 마을 탭 치료소 sub 로 점프.
-  // replace 로 history 에 남기지 않음 (사망 직후로 back 되돌아갈 일 없음).
+  // 일반 전투 패배 — HP 0 + 복귀 마을 강제 이동.
   deps.characterState.setHp(0);
   deps.replaceLocation("town", "healing");
   const respawnId = deps.respawnRegionId;

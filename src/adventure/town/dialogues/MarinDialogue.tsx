@@ -87,8 +87,13 @@ export function MarinDialogue({
     // 영혼 결정 라인 마무리 후 — 첫 모험가의 의장 (equip_set). 다른 분기보다 우선.
     const firstGear = quests.getEntry("diola-marin-first-gear-set");
     // 부적을 판 캐릭("불효자" 칭호 보유)은 부적이 영영 안 돌아오므로(재제작·드랍 없음)
-    // 의뢰를 제안하지 않고 거절 멘트로 흘려보낸다. (사용자 신고: "받기 후 영영 미완료" 방치)
-    if (firstGear.state === "available" && adventureLog.log.titles.unfilial) {
+    // 의뢰를 제안/진행하지 않고 거절 멘트로 흘려보낸다. available 단계는 NPC 뱃지도
+    // npcHasAcceptableQuest 의 isPermanentlyBlocked 에서 차단. 이미 받고 나서 판
+    // active 케이스도 같은 거절 멘트로 안내(active 는 어차피 뱃지에 안 잡힘).
+    if (
+      (firstGear.state === "available" || firstGear.state === "active") &&
+      adventureLog.log.titles.unfilial
+    ) {
       return (
         <NpcDialogue
           npc={npc}

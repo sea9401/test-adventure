@@ -73,6 +73,27 @@ describe("npcHasAcceptableQuest", () => {
     }
   });
 
+  it("unfilial 칭호 보유 시 첫 모험가의 의장은 뱃지에 안 잡힌다", () => {
+    // 선행(영혼 결정)을 끝낸 상태 — equip_set 만 available 로 남음.
+    const map: QuestProgressMap = {
+      "diola-marin-soul-crystals": {
+        ...defaultQuestEntry(),
+        state: "completed",
+        completedCount: 1,
+      },
+    };
+    // 베이스라인: unfilial 없으면 뱃지 켜짐.
+    expect(
+      npcHasAcceptableQuest("diola_elder", 99, mkGetEntry(map), NOW),
+    ).toBe(true);
+    // unfilial 보유 시 영구 차단 → 뱃지 꺼짐.
+    expect(
+      npcHasAcceptableQuest("diola_elder", 99, mkGetEntry(map), NOW, {
+        titles: { unfilial: { obtainedAt: 0 } },
+      }),
+    ).toBe(false);
+  });
+
   it("선행 의뢰 미완료면 후속 의뢰는 뱃지에 안 잡힌다", () => {
     const linked = QUESTS.find(
       (q) => q.giverNpcId && q.requiresQuestCompleted,

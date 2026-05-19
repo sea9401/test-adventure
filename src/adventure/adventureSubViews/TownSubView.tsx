@@ -35,8 +35,11 @@ export function TownSubView() {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
+  const titles = adventureLog.log.titles;
   const hasAvailableQuest = (npcId: NpcId) =>
-    npcHasAcceptableQuest(npcId, characterLevel, getQuestEntry, now);
+    npcHasAcceptableQuest(npcId, characterLevel, getQuestEntry, now, {
+      titles,
+    });
 
   return (
     <div className="space-y-3">

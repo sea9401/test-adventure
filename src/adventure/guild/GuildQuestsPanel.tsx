@@ -17,6 +17,7 @@ import {
   type GuildQuestDef,
 } from "@/adventure/data/guildQuests";
 import { ITEMS } from "@/adventure/data/items";
+import { MATERIALS } from "@/adventure/data/materials";
 
 const GRADE_COLOR: Record<string, string> = {
   G: "text-zinc-500 dark:text-zinc-400",
@@ -274,7 +275,8 @@ function RewardLine({ def }: { def: GuildQuestDef }) {
   parts.push(`멤버당 ${r.goldPerMember.toLocaleString()} G`);
   if (r.materialsPerMember && r.materialsPerMember.length > 0) {
     for (const m of r.materialsPerMember) {
-      parts.push(`${m.materialId} ×${m.count}`);
+      const name = MATERIALS[m.materialId as keyof typeof MATERIALS]?.name ?? m.materialId;
+      parts.push(`${name} ×${m.count}`);
     }
   }
   if (r.itemsPerMember && r.itemsPerMember.length > 0) {
@@ -299,7 +301,8 @@ function describeTask(def: GuildQuestDef): string {
     return `보스 ${t.monsterName} ${t.count}회 처치`;
   }
   if (t.kind === "collect_material") {
-    return `${t.materialId} ${t.count}개 납품`;
+    const name = MATERIALS[t.materialId as keyof typeof MATERIALS]?.name ?? t.materialId;
+    return `${name} ${t.count}개 납품`;
   }
   return "";
 }

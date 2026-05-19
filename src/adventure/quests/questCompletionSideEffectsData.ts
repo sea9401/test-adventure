@@ -1,16 +1,13 @@
-import type { useQuests } from "@/adventure/quests/useQuests";
-import type { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
+// 의뢰 완료 시 적용할 사이드이펙트 데이터 — 클라/서버 양쪽에서 import.
+// 실제 적용 함수는 questCompletionSideEffects.ts (클라, 레거시) / lib/server/questReward.ts (서버 권위).
+// EPIC #3-2 이후 서버 권위가 primary 경로. 클라 적용은 호환 fallback.
 
-// completeQuest 의 후처리 — 특정 의뢰 완료 시 칭호 부여 + 스토리 flag 세팅을 데이터로 기술.
-// claim 직후 호출한다 (방금 완료한 의뢰 자체는 상태가 비동기라, 그룹 효과는 짝 의뢰의
-// completed 여부로 라인 클로저를 판정하는 패턴).
-
-type SideEffect =
+export type QuestCompletionEffect =
   | { kind: "grantTitle"; titleId: string }
   | { kind: "setFlag"; flag: string };
 
 // 의뢰 ID → 완료 시 즉시 적용할 효과들 (전제 조건 없음).
-const ON_COMPLETE: Record<string, readonly SideEffect[]> = {
+export const ON_COMPLETE_DATA: Record<string, readonly QuestCompletionEffect[]> = {
   // 마린의 영혼 결정 의뢰 = "안개 너머의 길" 라인의 클로저.
   "diola-marin-soul-crystals": [{ kind: "grantTitle", titleId: "diola_friend" }],
   // 운향 메인 라인 "잠들지 않는 산" — 백운의 운봉의 거인 의뢰 완수.
@@ -52,7 +49,7 @@ const ON_COMPLETE: Record<string, readonly SideEffect[]> = {
     { kind: "setFlag", flag: "skyfolk_gate_cleared" },
   ],
   "star-haven-apex-gate": [{ kind: "setFlag", flag: "apex_gate_cleared" }],
-  // 별바다 유성 — 후반 3코옵 보스 도전 의뢰 9종 (각 보스 × 3종) → 칭호 9개.
+  // 별바다 유성 — 후반 3보스 도전 의뢰 9종 (각 보스 × 3종) → 칭호 9개.
   "star-haven-keeper-challenge-witness": [
     { kind: "grantTitle", titleId: "starlight_witness" },
   ],
@@ -95,9 +92,9 @@ const ON_COMPLETE: Record<string, readonly SideEffect[]> = {
 
 // "이 의뢰들이 모두 completed 되면 효과 적용". claim 직후 호출되므로 방금 완료한 의뢰는
 // 멤버에 포함돼 있고, 나머지가 모두 completed 인지로 판정한다.
-const ON_ALL_COMPLETE: readonly {
+export const ON_ALL_COMPLETE_DATA: readonly {
   members: readonly string[];
-  effects: readonly SideEffect[];
+  effects: readonly QuestCompletionEffect[];
 }[] = [
   // 교역로 정리 2종(협곡 절벽 늑대 + 산기슭 산양) 둘 다 완료 → 디올라 연계 입구 개방.
   {
@@ -118,32 +115,3 @@ const ON_ALL_COMPLETE: readonly {
     effects: [{ kind: "grantTitle", titleId: "caravan_warden" }],
   },
 ];
-
-export function applyQuestCompletionSideEffects(
-  id: string,
-  deps: {
-    grantTitle: (titleId: string) => void;
-    storyFlags: ReturnType<typeof useStoryFlags>;
-    quests: ReturnType<typeof useQuests>;
-  },
-): void {
-  const { grantTitle, storyFlags, quests } = deps;
-
-  const apply = (effects: readonly SideEffect[]) => {
-    for (const e of effects) {
-      if (e.kind === "grantTitle") grantTitle(e.titleId);
-      else storyFlags.set(e.flag);
-    }
-  };
-
-  const direct = ON_COMPLETE[id];
-  if (direct) apply(direct);
-
-  for (const group of ON_ALL_COMPLETE) {
-    if (!group.members.includes(id)) continue;
-    const others = group.members.filter((m) => m !== id);
-    if (others.every((m) => quests.getEntry(m).state === "completed")) {
-      apply(group.effects);
-    }
-  }
-}

@@ -255,25 +255,24 @@ export function useQuests() {
   );
 
   // 보상 수령 — 호출 측이 캐릭터 상태 갱신을 함께 처리.
+  // 2026-05-19 EPIC #3-2 이후 primary 경로는 서버 라우트 (`/api/quests/claim`).
+  // 이 함수는 readiness 확인 + 사람이 읽을 정보 제공만 하고 state 전환은 서버 응답의
+  // replaceFromSaved 에 맡긴다. (이중 전환 방지.)
   const claim = useCallback((id: string): ClaimResult => {
     const quest = getQuestById(id);
     if (!quest) return { ok: false, reason: "not-found" };
     const cur = progressRef.current;
     const entry = cur[id] ?? defaultQuestEntry();
     if (entry.state !== "ready") return { ok: false, reason: "not-ready" };
-    const next: QuestProgressMap = {
-      ...cur,
-      [id]: {
-        ...entry,
-        state: quest.repeatable ? "available" : "completed",
-        progress: 0,
-        completedCount: entry.completedCount + 1,
-        lastCompletedAt: Date.now(),
-      },
-    };
+    return { ok: true, quest };
+  }, []);
+
+  // 서버 권위 액션(`/api/quests/claim`) 의 응답으로 받은 quest-progress.v2 값을 통째 교체.
+  // EPIC #3-2 패턴 — 클라 mutation 을 거치지 않고 서버 결과를 그대로 반영.
+  const replaceFromSaved = useCallback((raw: unknown) => {
+    const next = readInitial(raw);
     progressRef.current = next;
     setProgress(next);
-    return { ok: true, quest };
   }, []);
 
   return {
@@ -288,5 +287,6 @@ export function useQuests() {
     checkEquip,
     tryDeliver,
     claim,
+    replaceFromSaved,
   };
 }

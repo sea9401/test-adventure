@@ -333,13 +333,10 @@ function Home() {
   const { handleAcceptQuest, completeQuest, handleClaimQuest } = useQuestActions(
     {
       quests,
-      crafting,
       inventory,
       characterStateHook,
-      paragon,
       storyFlags,
-      guildBuffs: guildBuffsCache.buffs,
-      character,
+      adventureLog,
       grantTitle,
       addNotification,
     },

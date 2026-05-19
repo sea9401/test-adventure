@@ -14,7 +14,7 @@ describe("enhancement — 비용 상수", () => {
   it("ENHANCE_SHARD_COST 의 합이 ENHANCE_FULL_COST 와 같다", () => {
     const sum = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
     expect(sum).toBe(ENHANCE_FULL_COST);
-    expect(ENHANCE_FULL_COST).toBe(1690); // 30+60+100+150+250+400+700
+    expect(ENHANCE_FULL_COST).toBe(1555); // 30+60+100+150+225+360+630
   });
 
   it("ENHANCE_MAX_LEVEL 까지 모든 단계에 비용 entry 가 있다 (0 단계는 0)", () => {
@@ -79,14 +79,14 @@ describe("enhancement — enhancementBonus", () => {
 });
 
 describe("enhancement — nextEnhanceCost", () => {
-  it("1단계 30, 2: 60, 3: 100, 4: 150, 5: 250, 6: 400, 7: 700", () => {
+  it("1단계 30, 2: 60, 3: 100, 4: 150, 5: 225, 6: 360, 7: 630", () => {
     expect(nextEnhanceCost(0)).toEqual({ toLevel: 1, shards: 30 });
     expect(nextEnhanceCost(1)).toEqual({ toLevel: 2, shards: 60 });
     expect(nextEnhanceCost(2)).toEqual({ toLevel: 3, shards: 100 });
     expect(nextEnhanceCost(3)).toEqual({ toLevel: 4, shards: 150 });
-    expect(nextEnhanceCost(4)).toEqual({ toLevel: 5, shards: 250 });
-    expect(nextEnhanceCost(5)).toEqual({ toLevel: 6, shards: 400 });
-    expect(nextEnhanceCost(6)).toEqual({ toLevel: 7, shards: 700 });
+    expect(nextEnhanceCost(4)).toEqual({ toLevel: 5, shards: 225 });
+    expect(nextEnhanceCost(5)).toEqual({ toLevel: 6, shards: 360 });
+    expect(nextEnhanceCost(6)).toEqual({ toLevel: 7, shards: 630 });
   });
 
   it("최대 단계 도달 시 null", () => {
@@ -109,10 +109,10 @@ describe("enhancement — planEnhance", () => {
       mode: "safe",
       successPct: 100,
     });
-    expect(planEnhance("starlit_greatsword_str", 6, "safe", 700, 3)).toEqual({
+    expect(planEnhance("starlit_greatsword_str", 6, "safe", 630, 3)).toEqual({
       ok: true,
       toLevel: 7,
-      shards: 700,
+      shards: 630,
       mode: "safe",
       successPct: 100,
     });

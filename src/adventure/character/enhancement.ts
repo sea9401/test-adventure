@@ -33,9 +33,10 @@ export const ENHANCE_MAX_LEVEL = 7;
 
 // 별빛 조각 누진 비용 — index = 도달 단계. 0 단계는 비용 없음(초기 상태).
 // 비용은 *시도* 비용 — 실패해도 차감 (모드 무관).
-export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 250, 400, 700];
+// 후반(5/6/7) 단계는 10% 깎여 — 풀강까지 도달 부담을 1690 → 1555 로 완화.
+export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 225, 360, 630];
 
-// 자루당 풀강 누적 비용 (전부 100% 안전 모드로만 도달했을 때) — 30+60+100+150+250+400+700 = 1690.
+// 자루당 풀강 누적 비용 (전부 100% 안전 모드로만 도달했을 때) — 30+60+100+150+225+360+630 = 1555.
 export const ENHANCE_FULL_COST = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
 
 // 자루당 총 강화 시도 한도 — 성공/실패 무관 매 시도 -1. 0 이 되면 더 시도 불가 (천장 깎임).

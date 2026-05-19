@@ -41,7 +41,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
     expect(out.shardsSpent).toBe(30);
   });
 
-  it("4→5 풀강 — 250 조각 차감", () => {
+  it("4→5 — 225 조각 차감", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 300 },
@@ -51,12 +51,12 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
       "safe",
       alwaysSuccess,
     );
-    expect(out.materials.starfall_shard).toBe(50);
+    expect(out.materials.starfall_shard).toBe(75);
     expect(out.equipmentInstances[0].enhancementLevel).toBe(5);
     expect(out.toLevel).toBe(5);
   });
 
-  it("6→7 단계 — 700 조각 차감", () => {
+  it("6→7 단계 — 630 조각 차감", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 800 },
@@ -66,7 +66,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
       "safe",
       alwaysSuccess,
     );
-    expect(out.shardsSpent).toBe(700);
+    expect(out.shardsSpent).toBe(630);
     expect(out.equipmentInstances[0].enhancementLevel).toBe(7);
   });
 

@@ -398,6 +398,11 @@ export const guilds = pgTable(
       .$type<GuildBuffSlotRow[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    // 길드 회관 등급 — 0=미건립, 1~5=★ 단계. 봉납 누계 임계 도달 시 마스터가 trigger.
+    // 능력 수치 영향 X (power-free) — 사회적 정체성 + sink 만.
+    lodgeRank: integer("lodge_rank").notNull().default(0),
+    // 마스터 자유 텍스트, 회관 첫 줄 표시. ≤80자(앱단 검증). NULL = 미설정.
+    lodgeSlogan: text("lodge_slogan"),
   },
   (t) => [
     uniqueIndex("guilds_name_lower_idx").on(sql`lower(${t.name})`),
@@ -487,6 +492,49 @@ export const guildLeaveCooldown = pgTable("guild_leave_cooldown", {
     .primaryKey()
     .references(() => users.id, { onDelete: "cascade" }),
   cooldownUntil: timestamp("cooldown_until").notNull(),
+});
+
+// 길드 회관 봉납 로그. 멤버가 별빛/골드를 봉납하면 row 1개 INSERT — kind 별로 별도 row.
+// 같은 트랜잭션에서 guild_lodge_state 의 누계 캐시를 UPSERT 해 hot read 경로를 단순화.
+// 봉납은 비가역 — 길드 해체(tombstone) 시 cascade 로 같이 사라진다.
+export const guildLodgeDonations = pgTable(
+  "guild_lodge_donations",
+  {
+    id: serial("id").primaryKey(),
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    amount: integer("amount").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // 이번주/누계 집계 — guildId × createdAt 으로 멤버별 GROUP BY 가 hot path.
+    index("guild_lodge_donations_guild_created_idx").on(t.guildId, t.createdAt),
+    check(
+      "guild_lodge_donations_kind_valid",
+      sql`${t.kind} IN ('stardust','gold')`,
+    ),
+    check(
+      "guild_lodge_donations_amount_positive",
+      sql`${t.amount} > 0`,
+    ),
+  ],
+);
+
+// 회관 누계 캐시 — 봉납 row 가 source of truth, 이쪽은 derived.
+// 매 봉납 트랜잭션 안에서 같이 UPSERT 하므로 정합성 손실 위험 없음.
+// 등급 임계 비교 / 회관 메인 표시에 hot read 라 SUM 매번 돌리는 대신 캐시.
+export const guildLodgeState = pgTable("guild_lodge_state", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  stardustTotal: integer("stardust_total").notNull().default(0),
+  goldTotal: integer("gold_total").notNull().default(0),
+  lastDonationAt: timestamp("last_donation_at"),
 });
 
 // 길드 주간 의뢰 인스턴스. 매주 월 00:00 KST cron 으로 길드별 후보 3건 생성,

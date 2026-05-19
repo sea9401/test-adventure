@@ -54,8 +54,9 @@ export function buildEquipEntries(inventory: InventoryState): EquipEntry[] {
     const item = resolveEnhancedItem(
       inst.itemId,
       inst.craftTier,
-      inst.enhancementLevel,
+      inst.enhanceHistory ?? inst.enhancementLevel,
       inst.instanceId,
+      inst.enchantSlots,
     );
     entries.push({
       key: `inst:${inst.instanceId}`,

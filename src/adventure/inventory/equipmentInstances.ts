@@ -20,6 +20,12 @@ import {
   ENHANCE_MODE_SPEC,
   type EnhanceMode,
 } from "@/adventure/character/enhancement";
+import {
+  ENCHANT_AFFIXES,
+  enchantSlotCapacity,
+  isEnchantAffixId,
+  type EnchantSlot,
+} from "@/adventure/character/enchant";
 
 export type EquipmentInstance = {
   /** 고유 ID. crypto.randomUUID 권장 (서버에서 생성). 절대 재사용 X. */
@@ -34,6 +40,8 @@ export type EquipmentInstance = {
   enhanceHistory?: EnhanceMode[];
   /** 남은 강화 시도 횟수. 시작 7, 실패 시 -1. 0 = 천장 깎임. */
   remainingAttempts: number;
+  /** 부여된 마법부여 슬롯. 강화 단계별 capacity (+2/+4/+7→1/2/3) 이하. 재부여 불가. */
+  enchantSlots?: EnchantSlot[];
 };
 
 // 인스턴스 ID 생성 — 서버/클라 모두 randomUUID 가 있으면 그걸, 없으면 fallback.
@@ -103,6 +111,27 @@ export function normalizeInstance(raw: unknown): EquipmentInstance | null {
   ) {
     return null;
   }
+  // enchantSlots — 자루별 마법부여 슬롯. 강화 단계별 capacity (+2/+4/+7→1/2/3) 이하.
+  // 위조 가드: 각 slot 의 affixId 가 카탈로그 안 + value 가 range 안 정수.
+  // capacity 초과 시 자루 통째 drop — 부분 trim 은 클라/서버 정책 비대칭 위험.
+  let slots: EnchantSlot[] | undefined;
+  if (r.enchantSlots !== undefined) {
+    if (!Array.isArray(r.enchantSlots)) return null;
+    const cap = enchantSlotCapacity(lv);
+    if (r.enchantSlots.length > cap) return null;
+    const parsed: EnchantSlot[] = [];
+    for (const s of r.enchantSlots) {
+      if (!s || typeof s !== "object") return null;
+      const aid = (s as { affixId?: unknown }).affixId;
+      const val = (s as { value?: unknown }).value;
+      if (!isEnchantAffixId(aid)) return null;
+      if (typeof val !== "number" || !Number.isInteger(val)) return null;
+      const [min, max] = ENCHANT_AFFIXES[aid].range;
+      if (val < min || val > max) return null;
+      parsed.push({ affixId: aid, value: val });
+    }
+    if (parsed.length > 0) slots = parsed;
+  }
   return {
     instanceId: r.instanceId,
     itemId: r.itemId as ItemId,
@@ -110,6 +139,7 @@ export function normalizeInstance(raw: unknown): EquipmentInstance | null {
     enhancementLevel: lv,
     ...(history && history.length > 0 ? { enhanceHistory: history } : {}),
     remainingAttempts: remaining,
+    ...(slots ? { enchantSlots: slots } : {}),
   };
 }
 

@@ -66,6 +66,7 @@ import { useShopActions } from "@/adventure/shop/useShopActions";
 import { useEquipmentActions } from "@/adventure/inventory/useEquipmentActions";
 import { useCraftAction } from "@/adventure/crafting/useCraftAction";
 import { useEnhanceAction } from "@/adventure/character/useEnhanceAction";
+import { useEnchantAction } from "@/adventure/character/useEnchantAction";
 import { useDialogueRewardAction } from "@/adventure/town/dialogues/useDialogueRewardAction";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import {
@@ -372,6 +373,7 @@ function Home() {
   });
 
   const { handleEnhance } = useEnhanceAction({ inventory, addNotification });
+  const { handleEnchant } = useEnchantAction({ inventory, addNotification });
   const { claim: claimDialogueReward } = useDialogueRewardAction({
     inventory,
     characterStateHook,
@@ -503,6 +505,7 @@ function Home() {
     handleWithdrawFromVault,
     handleCraft,
     handleEnhance,
+    handleEnchant,
     claimDialogueReward,
     handleBattleEnd,
     handleAcceptQuest,

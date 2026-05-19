@@ -101,8 +101,9 @@ export function useEquipmentActions(deps: {
     const equipItem: EquippedItem = resolveEnhancedItem(
       inst.itemId,
       inst.craftTier,
-      inst.enhancementLevel,
+      inst.enhanceHistory ?? inst.enhancementLevel,
       inst.instanceId,
+      inst.enchantSlots,
     );
     returnEquippedToInventory(
       characterStateHook.equippedSlots[equipItem.slot],

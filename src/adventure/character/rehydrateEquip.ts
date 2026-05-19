@@ -28,7 +28,14 @@ export function rehydrateEquippedItem(
     if (typeof saved.instanceId === "string" && saved.instanceId) {
       const rawLv = saved.enhancementLevel ?? 0;
       const lv = Math.max(0, Math.min(ENHANCE_MAX_LEVEL, Math.floor(rawLv)));
-      return resolveEnhancedItem(id, saved.craftTier, lv, saved.instanceId);
+      const historyOrLv = saved.enhanceHistory ?? lv;
+      return resolveEnhancedItem(
+        id,
+        saved.craftTier,
+        historyOrLv,
+        saved.instanceId,
+        saved.enchantSlots,
+      );
     }
     // instanceId 누락 (마이그레이션 도중 / 인스턴스 풀 sync 누락) — 슬롯에서 사라지면
     // 데이터 손실이라, 강화 0 단계의 베이스/craftTier 아이템으로 살린다. 강화 시도 시

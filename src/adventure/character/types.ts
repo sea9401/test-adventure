@@ -4,6 +4,7 @@ import type { DropQuality } from "@/adventure/data/dropQuality";
 import type { StatKey } from "@/adventure/data/stats";
 import type { Gender } from "@/adventure/profile/avatars";
 import type { EnhanceMode } from "./enhancement";
+import type { EnchantSlot } from "./enchant";
 
 export type Skill = {
   name: string;
@@ -29,6 +30,8 @@ export type EquippedItem = EquipItem & {
   remainingAttempts?: number;
   /** 인스턴스 기반 장비 한정. 슬롯에서 빠질 때 equipmentInstances 로 복원하는 키. */
   instanceId?: string;
+  /** 인스턴스 기반 장비 한정. 부여된 마법부여 슬롯. 회수 시 풀에 복원하기 위해 들고 다닌다. */
+  enchantSlots?: EnchantSlot[];
 };
 
 export type EquippedSlots = {

@@ -166,6 +166,8 @@ export type GameCtx = {
     instanceId: string,
     mode: import("./character/enhancement").EnhanceMode,
   ) => void;
+  /** 별빛 무구 마법부여 (서버 권위). 인스턴스 ID + 부여서 materialId. 슬롯 1개 부여. */
+  handleEnchant: (instanceId: string, materialId: string) => void;
   /**
    * NPC 1회성 대화 보상 수령 (서버 권위). dialogueId 만 보내고 서버가 character/
    * inventory/storyFlags 를 mutate. onSuccess 는 dialogue 닫기 등.

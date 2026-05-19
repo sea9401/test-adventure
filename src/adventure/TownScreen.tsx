@@ -64,6 +64,7 @@ export function TownScreen() {
     notifications,
     handleCraft,
     handleEnhance,
+    handleEnchant,
     handlePurchasePotion,
     handlePurchaseMaterial,
     handlePurchaseConsumable,
@@ -442,13 +443,21 @@ export function TownScreen() {
   }
 
   if (subView === "enhance") {
+    const scrolls: Record<string, number> = {};
+    for (const [k, v] of Object.entries(inventory.state.materials)) {
+      if (k.startsWith("enchant_") && typeof v === "number" && v > 0) {
+        scrolls[k] = v;
+      }
+    }
     return (
       <div className="space-y-3">
         <SubViewHeader title="별빛 강화소" onBack={() => setSubView("crafting")} />
         <EnhancementPanel
           instances={inventory.state.equipmentInstances ?? []}
           shardCount={inventory.state.materials.starfall_shard ?? 0}
+          enchantScrolls={scrolls}
           onEnhance={handleEnhance}
+          onEnchant={handleEnchant}
         />
       </div>
     );

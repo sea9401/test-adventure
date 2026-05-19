@@ -6,7 +6,7 @@
 //
 // 강화 자체는 서버 권위(/api/enhance) — useEnhanceAction.handleEnhance 호출.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Sparkle } from "@phosphor-icons/react";
 import { ITEMS } from "@/adventure/data/items";
 import { craftTierSuffix } from "@/adventure/data/craftQuality";
@@ -19,6 +19,11 @@ import {
   resolveEnhancedItem,
   type EnhanceMode,
 } from "@/adventure/character/enhancement";
+import {
+  ENCHANT_AFFIXES,
+  enchantSlotCapacity,
+} from "@/adventure/character/enchant";
+import { EnchantDialog } from "@/adventure/character/EnchantDialog";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
@@ -26,7 +31,10 @@ import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances
 type Props = {
   instances: readonly EquipmentInstance[];
   shardCount: number;
+  /** materialId(enchant_*) → 보유 개수. 부여서 카탈로그 표시·검증에 사용. */
+  enchantScrolls: Record<string, number>;
   onEnhance: (instanceId: string, mode: EnhanceMode) => void;
+  onEnchant: (instanceId: string, materialId: string) => void;
 };
 
 const MODE_LABEL: Record<EnhanceMode, string> = {
@@ -54,8 +62,21 @@ function modeDeltaSummary(
   return parts.join(" · ");
 }
 
-export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
+export function EnhancementPanel({
+  instances,
+  shardCount,
+  enchantScrolls,
+  onEnhance,
+  onEnchant,
+}: Props) {
   const [mode, setMode] = useState<EnhanceMode>("safe");
+  const [enchantTarget, setEnchantTarget] = useState<EquipmentInstance | null>(
+    null,
+  );
+  const hasAnyScroll = useMemo(
+    () => Object.values(enchantScrolls).some((n) => n > 0),
+    [enchantScrolls],
+  );
   if (instances.length === 0) {
     return (
       <EmptyState
@@ -111,6 +132,7 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
             inst.craftTier,
             inst.enhanceHistory ?? inst.enhancementLevel,
             inst.instanceId,
+            inst.enchantSlots,
           );
           const isMax = inst.enhancementLevel >= ENHANCE_MAX_LEVEL;
           const noAttempts = inst.remainingAttempts <= 0;
@@ -121,6 +143,10 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
           const enhSuf =
             inst.enhancementLevel > 0 ? `+${inst.enhancementLevel}` : "";
           const deltaSummary = isMax ? "" : modeDeltaSummary(inst.itemId, mode);
+          const slotCap = enchantSlotCapacity(inst.enhancementLevel);
+          const curSlots = inst.enchantSlots ?? [];
+          const enchantOpen = slotCap > 0 && curSlots.length < slotCap;
+          const enchantBtnDisabled = !enchantOpen || !hasAnyScroll;
           return (
             <li
               key={inst.instanceId}
@@ -149,13 +175,30 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
                   <div className="text-xs text-amber-600 dark:text-amber-400">
                     {item.stats.map((s) => `${s.label} ${s.value}`).join(" · ")}
                   </div>
+                  {curSlots.length > 0 && (
+                    <div className="flex flex-wrap gap-1 text-[11px] text-violet-700 dark:text-violet-300">
+                      {curSlots.map((s, i) => {
+                        const a = ENCHANT_AFFIXES[s.affixId];
+                        const unit = a.unit === "percent" ? "%" : "";
+                        return (
+                          <span
+                            key={i}
+                            className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 dark:border-violet-800 dark:bg-violet-950"
+                          >
+                            {a.name} {s.value}
+                            {unit}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                   {!isMax && !noAttempts && (
                     <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       성공 시: {deltaSummary} (별빛 조각 {nextCost})
                     </div>
                   )}
                 </div>
-                <div className="shrink-0 pt-0.5">
+                <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
                   {isMax ? (
                     <span className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
                       풀강 +{ENHANCE_MAX_LEVEL}
@@ -174,12 +217,30 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
                       +{nextLevel} 시도 ({nextCost})
                     </button>
                   )}
+                  {slotCap > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setEnchantTarget(inst)}
+                      disabled={enchantBtnDisabled}
+                      className="rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+                    >
+                      마법부여 ({curSlots.length}/{slotCap})
+                    </button>
+                  )}
                 </div>
               </div>
             </li>
           );
         })}
       </ul>
+      {enchantTarget && (
+        <EnchantDialog
+          instance={enchantTarget}
+          scrolls={enchantScrolls}
+          onPick={(materialId) => onEnchant(enchantTarget.instanceId, materialId)}
+          onClose={() => setEnchantTarget(null)}
+        />
+      )}
     </div>
   );
 }

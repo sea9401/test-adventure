@@ -25,6 +25,7 @@ import {
   type CraftTier,
 } from "@/adventure/data/craftQuality";
 import { resolveCraftedItem } from "@/adventure/data/recipes";
+import { enchantStaticBonus, type EnchantSlot } from "./enchant";
 import type { EquippedItem } from "./types";
 
 export const ENHANCE_MAX_LEVEL = 7;
@@ -224,14 +225,16 @@ export function planEnhance(
   };
 }
 
-// 인스턴스의 (itemId, craftTier, enhanceHistory) 로부터 장착 가능한 EquippedItem 을 만든다.
-// craftTier 가 우선 적용된 베이스 위에 강화 누적 보너스를 더하고, stats 표시도 재생성.
+// 인스턴스의 (itemId, craftTier, enhanceHistory, enchantSlots) 로부터 장착 가능한
+// EquippedItem 을 만든다. craftTier → 강화 → 마법부여 순으로 보너스 누적, stats 도 재생성.
 // instanceId 를 받아 EquippedItem 의 instanceId 필드에 박는다 — 슬롯 회수 시 풀로 돌려놓는 키.
+// enchantSlots 의 might/swift/insight 만 정적 bonus 합산 — 가드/회피/치명타 등은 전투 엔진.
 export function resolveEnhancedItem(
   itemId: ItemId,
   craftTier: CraftTier | undefined,
   historyOrLevel: readonly EnhanceMode[] | number,
   instanceId: string,
+  enchantSlots?: readonly EnchantSlot[],
 ): EquippedItem {
   const base = ITEMS[itemId];
   // 제작 등급 먼저 적용 (강화 위에). craftTier 0/미지정이면 베이스 그대로.
@@ -243,21 +246,30 @@ export function resolveEnhancedItem(
     typeof historyOrLevel === "number"
       ? Math.max(0, Math.floor(historyOrLevel))
       : historyOrLevel.length;
-  if (level <= 0) {
+  const enchStatic = enchantSlots ? enchantStaticBonus(enchantSlots) : {};
+  // 강화도 부여도 없는 자루는 메타만 박힌 베이스.
+  if (level <= 0 && Object.keys(enchStatic).length === 0) {
     return {
       ...tiered,
       craftTier,
       enhancementLevel: 0,
       instanceId,
+      ...(enchantSlots && enchantSlots.length > 0
+        ? { enchantSlots: enchantSlots.slice() }
+        : {}),
     };
   }
   const tierBonus = tiered.bonus ?? {};
-  const enhBonus = enhancementBonus(itemId, historyOrLevel);
+  const enhBonus = level > 0 ? enhancementBonus(itemId, historyOrLevel) : {};
   const merged: EquipBonus = { ...tierBonus };
   for (const k of BONUS_KEYS) {
     const e = enhBonus[k];
     if (typeof e === "number" && e !== 0) {
       merged[k] = (merged[k] ?? 0) + e;
+    }
+    const s = (enchStatic as Record<string, number | undefined>)[k];
+    if (typeof s === "number" && s !== 0) {
+      merged[k] = (merged[k] ?? 0) + s;
     }
   }
   return {
@@ -267,5 +279,8 @@ export function resolveEnhancedItem(
     craftTier,
     enhancementLevel: level,
     instanceId,
+    ...(enchantSlots && enchantSlots.length > 0
+      ? { enchantSlots: enchantSlots.slice() }
+      : {}),
   };
 }

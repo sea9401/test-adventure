@@ -1,3 +1,5 @@
+import { TITLE_RENAMES } from "@/adventure/data/titles";
+
 export type MonsterLogEntry = {
   encountered: boolean;
   kills: number;
@@ -101,6 +103,21 @@ export function migrateMonsters(
     delete next[oldName];
   }
   return next;
+}
+
+// 칭호 ID 가 바뀐 경우(임계값/네이밍 정리 등) 옛 키를 새 키로 옮긴다.
+// 신 키가 이미 있으면 그쪽을 살리고(원래 obtainedAt 보존) 구 키만 제거.
+export function migrateTitles(
+  titles: Record<string, TitleLogEntry>,
+): Record<string, TitleLogEntry> {
+  let next: Record<string, TitleLogEntry> | null = null;
+  for (const [oldId, newId] of Object.entries(TITLE_RENAMES)) {
+    if (!titles[oldId]) continue;
+    if (!next) next = { ...titles };
+    if (!next[newId]) next[newId] = next[oldId];
+    delete next[oldId];
+  }
+  return next ?? titles;
 }
 
 export const emptyAdventureLog = (): AdventureLog => ({

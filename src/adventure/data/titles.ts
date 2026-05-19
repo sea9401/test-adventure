@@ -45,20 +45,20 @@ export const TITLES: Record<TitleId, Title> = {
     description: "남들이 잘 때 모험을 떠나는 자.",
     condition: "새벽 3~5시 접속",
   },
-  training_10: {
-    id: "training_10",
+  training_apprentice: {
+    id: "training_apprentice",
     name: "수련생",
     description: "훈련의 첫 호흡을 익힌 자.",
     condition: "훈련 50회 완료",
   },
-  training_50: {
-    id: "training_50",
+  training_blackbelt: {
+    id: "training_blackbelt",
     name: "유단자",
     description: "땀으로 다져진 몸. 가벼운 한 걸음에도 무게가 실린다.",
     condition: "훈련 100회 완료",
   },
-  training_100: {
-    id: "training_100",
+  training_master: {
+    id: "training_master",
     name: "검은띠",
     description: "꺾일 줄 모르는 의지. 훈련장의 전설로 불린다.",
     condition: "훈련 200회 완료",
@@ -559,9 +559,9 @@ export const COUNTER_TITLES: {
 }[] = [
   { id: "frail", key: "battleLosses", target: 10 },
   { id: "unknown_soldier", key: "battleLosses", target: 100 },
-  { id: "training_10", key: "trainingCount", target: 50 },
-  { id: "training_50", key: "trainingCount", target: 100 },
-  { id: "training_100", key: "trainingCount", target: 200 },
+  { id: "training_apprentice", key: "trainingCount", target: 50 },
+  { id: "training_blackbelt", key: "trainingCount", target: 100 },
+  { id: "training_master", key: "trainingCount", target: 200 },
   { id: "sandbag", key: "battleLosses", target: 50 },
   { id: "gym_rat", key: "trainingCount", target: 500 },
   { id: "marathoner", key: "trainingCount", target: 1000 },
@@ -580,3 +580,12 @@ export function getTitle(id: TitleId | null | undefined): Title | undefined {
   if (!id) return undefined;
   return TITLES[id];
 }
+
+// 옛 칭호 ID 가 옛 임계값에 묶여 있어(임계값이 바뀌어도 ID 가 그대로) 의미 흐트러진
+// 케이스를 의미적 ID 로 옮기는 매핑. adventure-log 로드 시 storage.migrateTitles 가
+// 적용 — 구 ID 가 보유 상태면 신 ID 로 옮긴다 (idempotent).
+export const TITLE_RENAMES: Record<string, string> = {
+  training_10: "training_apprentice", // 50회
+  training_50: "training_blackbelt", // 100회
+  training_100: "training_master", // 200회
+};

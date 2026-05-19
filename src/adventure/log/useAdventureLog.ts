@@ -6,6 +6,7 @@ import { useRemotePatch } from "@/lib/storage/useRemotePatch";
 import {
   emptyAdventureLog,
   migrateMonsters,
+  migrateTitles,
   type AdventureLog,
 } from "./storage";
 import { currentlyHeldVariants } from "./discoveredEquipment";
@@ -19,7 +20,7 @@ function readInitial(raw: unknown): AdventureLog {
     monsters: migrateMonsters(parsed.monsters ?? {}),
     towns: parsed.towns ?? {},
     npcs: parsed.npcs ?? {},
-    titles: parsed.titles ?? {},
+    titles: migrateTitles(parsed.titles ?? {}),
     discoveredEquipment: parsed.discoveredEquipment ?? {},
     battleLosses: parsed.battleLosses ?? 0,
     chatCount: parsed.chatCount ?? 0,

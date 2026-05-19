@@ -48,6 +48,7 @@ import {
   type EnchantSlot,
 } from "@/adventure/character/enchant";
 import { MONSTERS, type Monster } from "@/adventure/data/monsters";
+import { WORLD_MAP } from "@/adventure/data/world";
 import { MATERIALS } from "@/adventure/data/materials";
 import { ITEMS, isLuckyFind } from "@/adventure/data/items";
 import { rollDropQuality, type DropQuality } from "@/adventure/data/dropQuality";
@@ -447,11 +448,78 @@ export type BattleClaimInput = {
   finalPlayerHp: number;
   playerMaxHp: number;
   isBoss: boolean;
+  bossAttempt?: BossAttemptClaimSnapshot;
   /** Phase 2: 무피해 승리 판정 (광살참 100승 마일스톤). */
   damageTakenThisCombat: number;
   /** Phase 2: potion_overload 칭호(5병 이상 사용) 판정. */
   potionsConsumedTotal: number;
 };
+
+export type BossAttemptClaimSnapshot = {
+  regionId: string;
+  date: string;
+  count: number;
+  lastAttemptAtMs?: number;
+};
+
+export function mergeBossAttemptSnapshotForClaim(
+  character: Record<string, unknown>,
+  enemyName: string,
+  snapshot: BossAttemptClaimSnapshot | undefined,
+): boolean {
+  if (!snapshot) return false;
+  const region = WORLD_MAP.regions.find(
+    (r) => r.id === snapshot.regionId && r.boss?.monsterName === enemyName,
+  );
+  if (!region) return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshot.date)) return false;
+  if (!Number.isInteger(snapshot.count) || snapshot.count <= 0) return false;
+  const lastAttemptAtMs =
+    typeof snapshot.lastAttemptAtMs === "number" &&
+    Number.isFinite(snapshot.lastAttemptAtMs) &&
+    snapshot.lastAttemptAtMs >= 0
+      ? snapshot.lastAttemptAtMs
+      : undefined;
+
+  const prevAttempts =
+    character.bossAttempts &&
+    typeof character.bossAttempts === "object" &&
+    !Array.isArray(character.bossAttempts)
+      ? (character.bossAttempts as Record<string, unknown>)
+      : {};
+  const prevEntryRaw = prevAttempts[snapshot.regionId];
+  const prevEntry =
+    prevEntryRaw && typeof prevEntryRaw === "object" && !Array.isArray(prevEntryRaw)
+      ? (prevEntryRaw as Record<string, unknown>)
+      : null;
+  const prevSameDate = prevEntry?.date === snapshot.date;
+  const prevCount =
+    prevSameDate && typeof prevEntry?.count === "number"
+      ? prevEntry.count
+      : 0;
+  const prevLast =
+    prevSameDate && typeof prevEntry?.lastAttemptAtMs === "number"
+      ? prevEntry.lastAttemptAtMs
+      : undefined;
+  const nextEntry: { date: string; count: number; lastAttemptAtMs?: number } = {
+    date: snapshot.date,
+    count: Math.max(prevCount, snapshot.count),
+  };
+  if (lastAttemptAtMs !== undefined || prevLast !== undefined) {
+    nextEntry.lastAttemptAtMs = Math.max(prevLast ?? 0, lastAttemptAtMs ?? 0);
+  }
+
+  const same =
+    prevSameDate &&
+    prevCount === nextEntry.count &&
+    (prevLast ?? undefined) === (nextEntry.lastAttemptAtMs ?? undefined);
+  if (same) return false;
+  character.bossAttempts = {
+    ...prevAttempts,
+    [snapshot.regionId]: nextEntry,
+  };
+  return true;
+}
 
 export async function applyBattleClaim(
   tx: DbExecutor,
@@ -574,6 +642,20 @@ export async function applyBattleClaim(
   let paragonNext: Record<string, unknown> = { ...paragonPrev };
   let charChanged = false;
   let paragonChanged = false;
+
+  // 보스 도전 카운터는 전투 시작 시 클라가 먼저 기록한다. 승리 보상 응답이 서버의
+  // character.v2 스냅샷으로 클라 상태를 교체하므로, 그 기록을 같은 저장 경로에서
+  // 병합하지 않으면 응답이 bossAttempts 를 과거값(대개 없음)으로 되돌릴 수 있다.
+  if (
+    input.isBoss &&
+    mergeBossAttemptSnapshotForClaim(
+      charNext,
+      input.enemyName,
+      input.bossAttempt,
+    )
+  ) {
+    charChanged = true;
+  }
 
   if (boostedExp > 0) {
     const curExp = typeof charPrev.exp === "number" ? charPrev.exp : 0;

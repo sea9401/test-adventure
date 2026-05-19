@@ -33,6 +33,7 @@ type ClaimInput = {
   finalPlayerHp: number;
   playerMaxHp: number;
   isBoss: boolean;
+  bossRegionId?: string;
   damageTakenThisCombat: number;
   potionsConsumedTotal: number;
 };
@@ -59,10 +60,21 @@ export function useBattleClaimAction(deps: Deps) {
       if (sessionId) headers["X-Session-Id"] = sessionId;
       let res: Response;
       try {
+        const bossAttempt =
+          input.isBoss && input.bossRegionId
+            ? characterStateHook.getBossAttemptSnapshotToday(
+                input.bossRegionId,
+              )
+            : null;
         res = await fetch("/api/battle/claim-victory", {
           method: "POST",
           headers,
-          body: JSON.stringify(input),
+          body: JSON.stringify({
+            ...input,
+            bossAttempt: bossAttempt
+              ? { regionId: input.bossRegionId, ...bossAttempt }
+              : undefined,
+          }),
         });
       } catch {
         return null;

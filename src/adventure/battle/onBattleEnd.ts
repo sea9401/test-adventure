@@ -30,6 +30,7 @@ export type BattleEndDeps = {
     finalPlayerHp: number;
     playerMaxHp: number;
     isBoss: boolean;
+    bossRegionId?: string;
     damageTakenThisCombat: number;
     potionsConsumedTotal: number;
   }) => Promise<BattleClaimOutcome | null>;
@@ -88,6 +89,7 @@ export async function onBattleEnd(
       finalPlayerHp: payload.finalPlayerHp,
       playerMaxHp: payload.playerMaxHp,
       isBoss: !!payload.isBoss,
+      bossRegionId: payload.bossRegionId,
       damageTakenThisCombat: payload.damageTakenThisCombat,
       potionsConsumedTotal: potionTotal,
     });

@@ -1,7 +1,7 @@
 // POST /api/battle/claim-victory — 솔로 전투 승리 보상 (EPIC #3-3 Phase 1+2).
 //
 // body: { encounterId, enemyName, finalPlayerHp, playerMaxHp, isBoss,
-//         damageTakenThisCombat, potionsConsumedTotal }
+//         damageTakenThisCombat, potionsConsumedTotal, bossAttempt? }
 //
 // 흐름:
 //   1) auth + session header.
@@ -34,6 +34,8 @@ export async function POST(req: Request) {
     finalPlayerHp?: unknown;
     playerMaxHp?: unknown;
     isBoss?: unknown;
+    bossRegionId?: unknown;
+    bossAttempt?: unknown;
     damageTakenThisCombat?: unknown;
     potionsConsumedTotal?: unknown;
   };
@@ -47,6 +49,7 @@ export async function POST(req: Request) {
   const finalPlayerHp = body.finalPlayerHp;
   const playerMaxHp = body.playerMaxHp;
   const isBoss = body.isBoss;
+  const bossAttempt = parseBossAttempt(body.bossAttempt);
   const damageTakenThisCombat = body.damageTakenThisCombat;
   const potionsConsumedTotal = body.potionsConsumedTotal;
   if (
@@ -96,6 +99,7 @@ export async function POST(req: Request) {
         finalPlayerHp,
         playerMaxHp,
         isBoss: isBoss === true,
+        bossAttempt: isBoss === true ? bossAttempt : undefined,
         damageTakenThisCombat,
         potionsConsumedTotal,
       }),
@@ -106,4 +110,41 @@ export async function POST(req: Request) {
     console.error("[battle/claim-victory]", e);
     return jsonError("internal_error", 500);
   }
+}
+
+function parseBossAttempt(raw: unknown):
+  | {
+      regionId: string;
+      date: string;
+      count: number;
+      lastAttemptAtMs?: number;
+    }
+  | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.regionId !== "string") return undefined;
+  if (typeof obj.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(obj.date)) {
+    return undefined;
+  }
+  if (
+    typeof obj.count !== "number" ||
+    !Number.isInteger(obj.count) ||
+    obj.count <= 0
+  ) {
+    return undefined;
+  }
+  if (
+    obj.lastAttemptAtMs !== undefined &&
+    (typeof obj.lastAttemptAtMs !== "number" ||
+      !Number.isFinite(obj.lastAttemptAtMs) ||
+      obj.lastAttemptAtMs < 0)
+  ) {
+    return undefined;
+  }
+  return {
+    regionId: obj.regionId,
+    date: obj.date,
+    count: obj.count,
+    lastAttemptAtMs: obj.lastAttemptAtMs,
+  };
 }

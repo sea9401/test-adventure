@@ -50,6 +50,8 @@ export type BattleEndPayload = {
   log: BattleLogEntry[];
   /** 보스 도전 여부 — onBattleEnd lose 분기에서 마을 강제 이동/HP 0 대신 HP 풀회 + 현장 유지. */
   isBoss?: boolean;
+  /** 보스 도전 지역 — 승리 보상 서버가 bossAttempts 를 보존/병합하는 데 사용. */
+  bossRegionId?: string;
 };
 
 function pickEnemy(region: Region): Monster | null {
@@ -175,6 +177,8 @@ export function BattleView({
         rewards: { exp: expBonus.gained, expBonusApplied: expBonus.bonusApplied },
         potionsConsumed,
         log: state.log,
+        isBoss: bossModeRef.current,
+        bossRegionId: bossModeRef.current ? region.id : undefined,
       });
     } catch (err) {
       // 핸들러 실패 시 ref 해제 — 다음 effect 실행에서 재시도 가능.
@@ -511,6 +515,7 @@ export function BattleView({
                     potionsConsumed,
                     log: state.log,
                     isBoss: true,
+                    bossRegionId: region.id,
                   });
                 } catch (err) {
                   firedForStateRef.current = null;

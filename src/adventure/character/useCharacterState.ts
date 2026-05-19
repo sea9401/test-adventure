@@ -342,6 +342,16 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
     return entry.lastAttemptAtMs ?? null;
   };
 
+  // 서버 권위 보상(claim-victory)이 character.v2 를 통째 반환할 때, 보스 도전 직전
+  // 클라가 기록한 카운터가 응답 스냅샷에서 사라지지 않게 같이 보낸다.
+  const getBossAttemptSnapshotToday = (
+    regionId: string,
+  ): { date: string; count: number; lastAttemptAtMs?: number } | null => {
+    const entry = state.bossAttempts?.[regionId];
+    if (!entry || entry.date !== todayLocalDateKey()) return null;
+    return entry;
+  };
+
   // 스킬북 사용 시 호출 — 이미 학습한 스킬이면 false (인벤 측이 책 소비 막아야 함).
   const learnAPSkill = (skillName: string): boolean => {
     const learned = state.learnedAPSkills ?? [];
@@ -392,6 +402,7 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
     replaceFromSaved,
     getBossAttemptsToday,
     getBossLastAttemptAt,
+    getBossAttemptSnapshotToday,
     consumeBossAttempt,
     learnAPSkill,
   };

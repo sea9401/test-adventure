@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import {
+  advanceTurn,
+  initialBattleState,
+  type BattleState,
+  type PlayerCombat,
+} from "./engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10.
@@ -55,7 +60,11 @@ describe("6티어 — 충돌파", () => {
 
   it("isBoss=true 면 충돌파가 BOSS_PCT_HP_DAMAGE_MULT(0.1) 로 감산", () => {
     const p: PlayerCombat = { ...PLAYER, impactWaveHpPct: 10 };
-    let s = { ...initialBattleState(p, enemy(1000), "용사"), isBoss: true };
+    // 명시 annotation — 없으면 스프레드+리터럴이 isBoss 를 필수 boolean 으로 좁혀 advanceTurn 재대입 실패.
+    let s: BattleState = {
+      ...initialBattleState(p, enemy(1000), "용사"),
+      isBoss: true,
+    };
     // turn 1, 2: 본타만, 1000 → 993 → 986
     s = advanceTurn(s, p, "용사");
     s = advanceTurn(s, p, "용사"); // 적 턴

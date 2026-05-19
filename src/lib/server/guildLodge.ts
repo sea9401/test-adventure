@@ -210,8 +210,11 @@ export async function readLodge(
   return tx ? read(tx) : db.transaction(read);
 }
 
-// 캐릭터 잔고에서 별빛/골드 차감 — character.v2 (gold) + inventory.v2 (materials.stardust).
-// saves_kv 두 키를 같은 트랜잭션에서 잠근 뒤 mutate. version 은 upsertSave 가 +1.
+// 캐릭터 잔고에서 별빛 조각/골드 차감 — character.v2 (gold) + inventory.v2
+// (materials.starfall_shard). kind="stardust" 는 의미상 별빛 조각이라
+// 컬럼/enum 명만 옛 이름을 유지한다 — 명명 배경은 data/guildLodge.ts 의
+// 상단 주석 참고. saves_kv 두 키를 같은 트랜잭션에서 잠근 뒤 mutate.
+// version 은 upsertSave 가 +1.
 async function debitDonation(
   tx: DbExecutor,
   userId: string,
@@ -244,9 +247,9 @@ async function debitDonation(
   const inv = (invRow?.value ?? {}) as Record<string, unknown>;
   const mats =
     (inv.materials as Record<string, number> | undefined) ?? {};
-  const have = mats.stardust ?? 0;
+  const have = mats.starfall_shard ?? 0;
   if (have < amount) return "insufficient_stardust";
-  const nextMats = { ...mats, stardust: have - amount };
+  const nextMats = { ...mats, starfall_shard: have - amount };
   await upsertSave(tx, userId, "inventory.v2", { ...inv, materials: nextMats });
   return null;
 }
@@ -301,7 +304,7 @@ async function donateInternal(
 }
 
 // 봉납 입력 검증 — pure. 라우트 진입 직후 호출 + 라이브러리도 한 번 더 보호.
-// 상한 1e9 는 정수 overflow 가드 (별빛/골드 모두 32bit int 컬럼이라 SUM 오버플로우 방지).
+// 상한 1e9 는 정수 overflow 가드 (별빛 조각/골드 모두 32bit int 컬럼이라 SUM 오버플로우 방지).
 export function validateDonationInput(
   kind: unknown,
   amount: unknown,

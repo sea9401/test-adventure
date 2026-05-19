@@ -82,7 +82,7 @@ export function DonateForm({
       <div className="space-y-1.5">
         <DonateRow
           kind="stardust"
-          label="별빛"
+          label="별빛 조각"
           icon={
             <Sparkle
               size={14}

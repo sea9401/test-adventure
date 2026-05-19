@@ -33,7 +33,8 @@ export function GuildLodgePanel({
   const myUserId = session?.user?.id ?? "";
   const { character, inventory, addNotification, characterStateHook } = useGame();
   const myGold = character.gold;
-  const myStardust = inventory.materialCount("stardust");
+  // kind="stardust" 는 회관 봉납 자원 의미상 별빛 조각 — 인벤토리 키는 starfall_shard.
+  const myStardust = inventory.materialCount("starfall_shard");
 
   const [data, setData] = useState<LodgeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,14 +79,14 @@ export function GuildLodgePanel({
       const r = await donateToLodge(guildId, { kind, amount });
       setData(r);
       if (kind === "stardust") {
-        inventory.consumeMaterial("stardust", amount);
+        inventory.consumeMaterial("starfall_shard", amount);
       } else {
         characterStateHook.addGold(-amount);
       }
       addNotification(
         "info",
         kind === "stardust"
-          ? `별빛 ${amount.toLocaleString()} 을 봉납했습니다.`
+          ? `별빛 조각 ${amount.toLocaleString()} 을 봉납했습니다.`
           : `골드 ${amount.toLocaleString()} 을 봉납했습니다.`,
       );
     } catch (e) {
@@ -212,7 +213,7 @@ function EmptyLodge({
           회관이 아직 비어 있습니다
         </h4>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          첫 별빛을 봉납하면 ★1 회관이 자동으로 세워집니다.
+          첫 별빛 조각을 봉납하면 ★1 회관이 자동으로 세워집니다.
         </p>
       </div>
       <div className="border-t border-zinc-200 pt-3 text-left dark:border-zinc-800">

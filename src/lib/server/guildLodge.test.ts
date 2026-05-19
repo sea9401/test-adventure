@@ -107,11 +107,11 @@ describe("rankReady", () => {
     expect(rankReady({ stardustTotal: 0, goldTotal: 0 }, 0)).toBe(true);
   });
 
-  it("rank=1 → 별빛 200 & 골드 5000 양쪽 만족해야 ready", () => {
-    expect(rankReady({ stardustTotal: 199, goldTotal: 5000 }, 1)).toBe(false);
-    expect(rankReady({ stardustTotal: 200, goldTotal: 4999 }, 1)).toBe(false);
-    expect(rankReady({ stardustTotal: 200, goldTotal: 5000 }, 1)).toBe(true);
-    expect(rankReady({ stardustTotal: 999, goldTotal: 5001 }, 1)).toBe(true);
+  it("rank=1 → 별빛 조각 40 & 골드 5000 양쪽 만족해야 ready", () => {
+    expect(rankReady({ stardustTotal: 39, goldTotal: 5000 }, 1)).toBe(false);
+    expect(rankReady({ stardustTotal: 40, goldTotal: 4999 }, 1)).toBe(false);
+    expect(rankReady({ stardustTotal: 40, goldTotal: 5000 }, 1)).toBe(true);
+    expect(rankReady({ stardustTotal: 159, goldTotal: 5001 }, 1)).toBe(true);
   });
 
   it("rank=5 (max) → 더 못 올라감", () => {
@@ -145,7 +145,7 @@ describe("nextRankThreshold", () => {
 });
 
 describe("LODGE_RANK_THRESHOLD — 단조 증가", () => {
-  it("rank 가 오를수록 별빛/골드 임계 모두 단조 비감소", () => {
+  it("rank 가 오를수록 별빛 조각/골드 임계 모두 단조 비감소", () => {
     let prevS = -1;
     let prevG = -1;
     for (let r = 1; r <= LODGE_RANK_MAX; r++) {

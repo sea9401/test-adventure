@@ -83,7 +83,7 @@ export function ContributorList({
   contributors: LodgeContributor[];
   myUserId: string;
 }) {
-  // 이번주 정렬은 별빛 큰 순, 누계는 서버가 이미 정렬해 보내준 그대로.
+  // 이번주 정렬은 별빛 조각 큰 순, 누계는 서버가 이미 정렬해 보내준 그대로.
   const weekly = contributors
     .filter((c) => c.weekStardust > 0 || c.weekGold > 0)
     .map((c) => ({

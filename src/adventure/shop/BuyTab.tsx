@@ -11,8 +11,8 @@ import {
 } from "../data/consumables";
 import { ITEMS, type ItemId } from "../data/items";
 import type { InventoryState } from "../inventory/useInventory";
-import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
+import { LIST_ROW } from "@/components/ui/listRow";
 import { QtyStepper } from "./QtyStepper";
 import { SHOP_PURCHASE_QTY_MAX } from "./constants";
 
@@ -83,7 +83,7 @@ export function BuyTab({
 
       {category === "equipment" &&
         (equipmentIds.length > 0 ? (
-          <div className="space-y-2">
+          <ul className="space-y-1.5">
             {equipmentIds.map((id) => {
               const item = ITEMS[id];
               const price = (item as { shopPrice: number }).shopPrice;
@@ -105,14 +105,14 @@ export function BuyTab({
                 />
               );
             })}
-          </div>
+          </ul>
         ) : (
           <BuyCategoryEmpty label="장비" />
         ))}
 
       {category === "materials" &&
         (materialIds.length > 0 ? (
-          <div className="space-y-2">
+          <ul className="space-y-1.5">
             {materialIds.map((id) => {
               const m = MATERIALS[id];
               const owned = inventory.materials[id] ?? 0;
@@ -128,14 +128,14 @@ export function BuyTab({
                 />
               );
             })}
-          </div>
+          </ul>
         ) : (
           <BuyCategoryEmpty label="재료" />
         ))}
 
       {category === "consumables" &&
         (potionIds.length > 0 || CONSUMABLE_IDS.length > 0 ? (
-          <div className="space-y-2">
+          <ul className="space-y-1.5">
             {potionIds.map((id) => {
               const potion = POTIONS[id];
               const owned = inventory.potions[id] ?? 0;
@@ -167,7 +167,7 @@ export function BuyTab({
                 />
               );
             })}
-          </div>
+          </ul>
         ) : (
           <BuyCategoryEmpty label="소모품" />
         ))}
@@ -211,7 +211,7 @@ function BuyRow({
   const canPurchase = !isFull && effectiveQty > 0 && canAfford;
 
   return (
-    <Card>
+    <li className={LIST_ROW}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {name}
@@ -221,10 +221,10 @@ function BuyRow({
           {cap !== undefined ? ` / ${cap}` : ""}
         </span>
       </div>
-      <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
         {description}
       </p>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-1.5 flex items-center gap-2">
         <div className="inline-flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
           <Coins size={12} weight="fill" className="text-yellow-500" />
           <span className="tabular-nums">{price.toLocaleString()}</span>
@@ -259,6 +259,6 @@ function BuyRow({
           </button>
         </div>
       </div>
-    </Card>
+    </li>
   );
 }

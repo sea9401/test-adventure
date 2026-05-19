@@ -122,7 +122,6 @@ export function renderTownNpcDialogue(
           storyFlags={storyFlags}
           inventory={inventory}
           grantTitle={grantTitle}
-          learnRecipe={crafting.learnRecipe}
         />
       );
     case "village_suzy":

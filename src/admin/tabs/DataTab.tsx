@@ -172,13 +172,15 @@ function MonstersTable({ q }: { q: string }) {
               ? d.materialId
               : d.kind === "equip"
                 ? d.itemId
-                : d.kind === "recipe"
-                  ? `recipe ${d.recipeId}`
-                  : d.kind === "recipe_one_of"
-                    ? `recipe one_of [${d.recipeIds.join(",")}]`
-                    : d.kind === "skill_book"
-                      ? `book ${d.bookId}`
-                      : `gold ${d.amount}`;
+                : d.kind === "equip_one_of"
+                  ? `equip one_of [${d.itemIds.join(",")}]`
+                  : d.kind === "recipe"
+                    ? `recipe ${d.recipeId}`
+                    : d.kind === "recipe_one_of"
+                      ? `recipe one_of [${d.recipeIds.join(",")}]`
+                      : d.kind === "skill_book"
+                        ? `book ${d.bookId}`
+                        : `gold ${d.amount}`;
           return `${id}(${d.chance})`;
         })
         .join(", ") ?? "—",

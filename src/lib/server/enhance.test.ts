@@ -8,7 +8,7 @@ import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances
 const inst = (
   instanceId: string,
   enhancementLevel: number,
-  itemId: EquipmentInstance["itemId"] = "starlit_blade",
+  itemId: EquipmentInstance["itemId"] = "starlit_greatsword_str",
 ): EquipmentInstance => ({ instanceId, itemId, enhancementLevel });
 
 describe("computeEnhanceOutcome", () => {
@@ -22,7 +22,7 @@ describe("computeEnhanceOutcome", () => {
     );
     expect(out.materials).toEqual({ starfall_shard: 70 }); // 100 - 30
     expect(out.equipmentInstances).toEqual([
-      { instanceId: "a", itemId: "starlit_blade", enhancementLevel: 1 },
+      { instanceId: "a", itemId: "starlit_greatsword_str", enhancementLevel: 1 },
     ]);
     expect(out.toLevel).toBe(1);
     expect(out.shardsSpent).toBe(30);
@@ -53,12 +53,12 @@ describe("computeEnhanceOutcome", () => {
     ).toThrow(EnhanceError);
   });
 
-  it("최대 단계 → max_level", () => {
+  it("최대 단계 (+7) → max_level", () => {
     expect(() =>
       computeEnhanceOutcome(
         {
           materials: { starfall_shard: 1000 },
-          equipmentInstances: [inst("d", 5)],
+          equipmentInstances: [inst("d", 7)],
         },
         "d",
       ),

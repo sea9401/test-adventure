@@ -461,46 +461,38 @@ describe("computeCraftOutcome — firstCraft 보호", () => {
   });
 });
 
-describe("computeCraftOutcome — 별빛 재단 무구 (인스턴스 풀)", () => {
+describe("computeCraftOutcome — 별빛 무구 (인스턴스 풀)", () => {
   const starlitInput = (): CraftComputeInput => ({
     ...base(),
-    known: ["starlit_blade"],
-    equipment: { empyrean_blade: 1 },
+    known: ["starlit_greatsword_str"],
     materials: {
-      giant_scale: 4,
-      deep_scale: 4,
-      war_banner_scrap: 4,
-      starfall_shard: 50,
+      starfall_shard: 80,
     },
   });
 
-  it("starlit_blade 제작 — equipment[] 가 아니라 equipmentInstances 풀로", () => {
-    const out = computeCraftOutcome(starlitInput(), "starlit_blade", {
+  it("starlit_greatsword_str 제작 — equipment[] 가 아니라 equipmentInstances 풀로", () => {
+    const out = computeCraftOutcome(starlitInput(), "starlit_greatsword_str", {
       rng: rngMid,
     });
-    expect(out.equipment.starlit_blade).toBeUndefined();
-    expect(out.craftedEquipment.starlit_blade).toBeUndefined();
+    expect(out.equipment.starlit_greatsword_str).toBeUndefined();
+    expect(out.craftedEquipment.starlit_greatsword_str).toBeUndefined();
     expect(out.equipmentInstances).toHaveLength(1);
-    expect(out.equipmentInstances[0].itemId).toBe("starlit_blade");
+    expect(out.equipmentInstances[0].itemId).toBe("starlit_greatsword_str");
     expect(out.equipmentInstances[0].enhancementLevel).toBe(0);
     expect(out.equipmentInstances[0].craftTier).toBeUndefined(); // 일반 등급
     expect(typeof out.equipmentInstances[0].instanceId).toBe("string");
     expect(out.equipmentInstances[0].instanceId.length).toBeGreaterThan(0);
   });
 
-  it("재료 차감 — empyrean_blade 1 + 잔영 소재 각 4 + 별빛 조각 50", () => {
-    const out = computeCraftOutcome(starlitInput(), "starlit_blade", {
+  it("재료 차감 — 별빛 조각 80 만 (다른 소재 없음)", () => {
+    const out = computeCraftOutcome(starlitInput(), "starlit_greatsword_str", {
       rng: rngMid,
     });
-    expect(out.equipment.empyrean_blade).toBeUndefined(); // 0 → cleanup
-    expect(out.materials.giant_scale).toBeUndefined(); // 0 → cleanup
-    expect(out.materials.deep_scale).toBeUndefined();
-    expect(out.materials.war_banner_scrap).toBeUndefined();
-    expect(out.materials.starfall_shard).toBeUndefined();
+    expect(out.materials.starfall_shard).toBeUndefined(); // 0 → cleanup
   });
 
   it("걸작(+2) 롤 → 인스턴스 craftTier=2 로 박힘", () => {
-    const out = computeCraftOutcome(starlitInput(), "starlit_blade", {
+    const out = computeCraftOutcome(starlitInput(), "starlit_greatsword_str", {
       rng: rngMax,
     });
     expect(out.equipmentInstances[0].craftTier).toBe(2);
@@ -509,29 +501,25 @@ describe("computeCraftOutcome — 별빛 재단 무구 (인스턴스 풀)", () =
   it("기존 인스턴스가 있을 때 새 인스턴스 append, 기존은 보존", () => {
     const existing = {
       instanceId: "old-id",
-      itemId: "starlit_aegis" as const,
+      itemId: "starlit_shield_vit" as const,
       enhancementLevel: 3,
     };
     const input = { ...starlitInput(), equipmentInstances: [existing] };
-    const out = computeCraftOutcome(input, "starlit_blade", { rng: rngMid });
+    const out = computeCraftOutcome(input, "starlit_greatsword_str", { rng: rngMid });
     expect(out.equipmentInstances).toHaveLength(2);
     expect(out.equipmentInstances[0]).toEqual(existing); // 변경 없음
-    expect(out.equipmentInstances[1].itemId).toBe("starlit_blade");
+    expect(out.equipmentInstances[1].itemId).toBe("starlit_greatsword_str");
   });
 
   it("배치 제작 — quantity 2 → 인스턴스 2자루 (서로 다른 instanceId)", () => {
     const input = {
       ...base(),
-      known: ["starlit_blade"],
-      equipment: { empyrean_blade: 2 },
+      known: ["starlit_greatsword_str"],
       materials: {
-        giant_scale: 8,
-        deep_scale: 8,
-        war_banner_scrap: 8,
-        starfall_shard: 100,
+        starfall_shard: 160,
       },
     };
-    const out = computeCraftOutcome(input, "starlit_blade", {
+    const out = computeCraftOutcome(input, "starlit_greatsword_str", {
       quantity: 2,
       rng: rngMid,
     });

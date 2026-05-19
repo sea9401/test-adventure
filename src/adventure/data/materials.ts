@@ -325,12 +325,157 @@ export const MATERIALS = {
   },
   // ── 5막 「빈 옥좌의 시대」 — 별빛이 떨어진 자리의 회수 통화 ───────────────
   // 황제가 쓰러진 뒤 옛 봉인 자리로 흩어진 별빛 한 조각. 별빛 변종 처치 시 떨어진다.
-  // 룬 6등급 강화 / 별빛 깃든 기예 스킬북 / 별빛 재단 무구 의 공통 재료. inShop: false.
+  // 룬 6등급 강화 / 별빛 깃든 기예 스킬북 / 별빛 무구 제작 / 강화 의 공통 재료.
   starfall_shard: {
     id: "starfall_shard",
     name: "별빛 조각",
     description:
       "옥좌의 주재가 거두어 모았던 별빛이, 그가 쓰러진 자리에서 한 조각씩 떨어져 옛 봉인 자리로 회귀했다. 손에 쥐면 옅게 떨리는 한기.",
+    price: 0,
+    inShop: false,
+  },
+  // ── 5막 별빛 마법부여서 20종 — 4 별빛 사냥터 보스에 5종씩 분배 드랍.
+  // 별빛 무구에 강화 단계에 비례한 슬롯 (+2 / +4 / +7) 이 풀리고 한 슬롯에 한 장 사용.
+  // 100% 부여 성공, 옵션 수치는 range 안에서 랜덤 롤. 재부여(덮어쓰기) 불가.
+  // 효과 데이터(수치 range / 발동 조건) 는 Chunk 3 의 enchant 모듈에서 정의.
+  // inShop: false — 거래소만 가능 (1장 단위 listing OK).
+  enchant_guard: {
+    id: "enchant_guard",
+    name: "가드 부여서",
+    description: "별빛이 한 결로 굳어 적의 공격을 한 번 흩어 내는 결을 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_dodge: {
+    id: "enchant_dodge",
+    name: "회피 부여서",
+    description: "별빛이 한 결로 얇게 풀려 적의 공격에서 한 박자 비켜서는 결을 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_barrier: {
+    id: "enchant_barrier",
+    name: "보호막 부여서",
+    description: "전투에 들어설 때마다 별빛이 한 겹의 막을 두른다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_regen: {
+    id: "enchant_regen",
+    name: "재생 부여서",
+    description: "별빛이 한 호흡마다 한 결씩 풀려 상처를 메운다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_reflect: {
+    id: "enchant_reflect",
+    name: "반사 부여서",
+    description: "받아 낸 결 한 자락을 그대로 되돌려 보내는 결을 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_critical: {
+    id: "enchant_critical",
+    name: "치명타 부여서",
+    description: "한 칼 끝에 별빛이 깊게 박혀 결정적인 한 번을 만들어 낸다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_pierce: {
+    id: "enchant_pierce",
+    name: "관통 부여서",
+    description: "별빛이 결을 가로질러 적의 방어를 한 자락 흩어 낸다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_execute: {
+    id: "enchant_execute",
+    name: "처형 부여서",
+    description: "끝에 닿은 적에게 별빛이 마지막 한 결을 얹는다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_berserk: {
+    id: "enchant_berserk",
+    name: "폭주 부여서",
+    description: "자신의 결이 끊기기 직전 별빛이 한 결을 폭주시키는 결을 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_breaker: {
+    id: "enchant_breaker",
+    name: "파괴 부여서",
+    description: "별빛이 보스의 결을 한 자락씩 더 깊이 가르는 결을 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_lifesteal: {
+    id: "enchant_lifesteal",
+    name: "흡혈 부여서",
+    description: "벤 결의 한 자락을 그대로 자신의 호흡으로 돌리는 결을 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_fortune: {
+    id: "enchant_fortune",
+    name: "행운 부여서",
+    description: "별빛이 결의 가장자리에 동전 한 점을 더 떨군다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_bounty: {
+    id: "enchant_bounty",
+    name: "풍요 부여서",
+    description: "별빛이 결을 따라 경험의 자취를 한 결씩 더 새긴다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_harvest: {
+    id: "enchant_harvest",
+    name: "채집 부여서",
+    description: "별빛이 결의 끝에 재료 한 자락을 더 머물게 한다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_swift: {
+    id: "enchant_swift",
+    name: "신속 부여서",
+    description: "별빛이 결을 가장 얇게 펴 발이 한 박자 더 빨라진다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_might: {
+    id: "enchant_might",
+    name: "강타 부여서",
+    description: "별빛이 결을 두껍게 두른 한 자락의 힘이 자루에 박힌다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_insight: {
+    id: "enchant_insight",
+    name: "통찰 부여서",
+    description: "별빛이 모든 결을 한 점에서 가지런히 가다듬는다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_awaken: {
+    id: "enchant_awaken",
+    name: "각성 부여서",
+    description: "한 호흡마다 별빛이 한 점씩 결 안에 솟아오른다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_endure: {
+    id: "enchant_endure",
+    name: "인내 부여서",
+    description: "받아 내는 결의 한 자락이 별빛으로 옅게 흩어진다.",
+    price: 0,
+    inShop: false,
+  },
+  enchant_venom: {
+    id: "enchant_venom",
+    name: "독공 부여서",
+    description: "벤 결에 별빛이 옅게 스며 적의 호흡을 한 결씩 거둔다.",
     price: 0,
     inShop: false,
   },

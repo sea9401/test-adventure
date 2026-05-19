@@ -5,14 +5,14 @@ import { normalizeInstance, normalizeInstances } from "./equipmentInstances";
 describe("normalizeInstance", () => {
   const valid = {
     instanceId: "inst-1",
-    itemId: "starlit_blade",
+    itemId: "starlit_greatsword_str",
     enhancementLevel: 3,
   };
 
   it("정상 인스턴스는 통과", () => {
     expect(normalizeInstance(valid)).toEqual({
       instanceId: "inst-1",
-      itemId: "starlit_blade",
+      itemId: "starlit_greatsword_str",
       enhancementLevel: 3,
       craftTier: undefined,
     });
@@ -59,9 +59,9 @@ describe("normalizeInstance", () => {
 describe("normalizeInstances", () => {
   it("forged level 999 인스턴스는 빠지고 정상만 남는다", () => {
     const out = normalizeInstances([
-      { instanceId: "a", itemId: "starlit_blade", enhancementLevel: 3 },
-      { instanceId: "b", itemId: "starlit_lance", enhancementLevel: 999 },
-      { instanceId: "c", itemId: "starlit_aegis", enhancementLevel: 0 },
+      { instanceId: "a", itemId: "starlit_greatsword_str", enhancementLevel: 3 },
+      { instanceId: "b", itemId: "starlit_lance_dex", enhancementLevel: 999 },
+      { instanceId: "c", itemId: "starlit_shield_vit", enhancementLevel: 0 },
     ]);
     expect(out).toHaveLength(2);
     expect(out.map((x) => x.instanceId)).toEqual(["a", "c"]);
@@ -69,8 +69,8 @@ describe("normalizeInstances", () => {
 
   it("중복 instanceId 는 한 번만", () => {
     const out = normalizeInstances([
-      { instanceId: "dup", itemId: "starlit_blade", enhancementLevel: 1 },
-      { instanceId: "dup", itemId: "starlit_lance", enhancementLevel: 2 },
+      { instanceId: "dup", itemId: "starlit_greatsword_str", enhancementLevel: 1 },
+      { instanceId: "dup", itemId: "starlit_lance_dex", enhancementLevel: 2 },
     ]);
     expect(out).toHaveLength(1);
   });

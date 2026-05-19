@@ -1,14 +1,14 @@
-// 별빛 재단 무구 강화 — 5막 종착 후 풀리는 영구 sink.
+// 별빛 무구 강화 — 5막 별빛 사냥터 (Ch 26 이후) 풀리는 영구 sink.
 //
-// 별빛 재단 무구 5종 한정. empyrean 이하 일반 장비는 강화 불가 (사다리 흐려지지 않게).
-// 인스턴스 기반 — 한 자루 한 자루가 고유 ID 와 enhancementLevel(0~5) 을 들고 있다.
-// 비용: 별빛 조각 누진 — 자루당 +5 풀강 590개, 5종 풀세트 +5 = 2950개.
+// 별빛 무구 30종 (무기 25 + 갑옷 5) 한정. empyrean 이하 일반 장비는 강화 불가.
+// 인스턴스 기반 — 한 자루 한 자루가 고유 ID 와 enhancementLevel(0~7) 을 들고 있다.
+// 비용: 별빛 조각 누진 — 자루당 +7 풀강 1690개.
 //
-// 단계당 보너스:
-//   무기 4종 — atk +1, 주능력치(검=str/방패=vit/창=dex/너클=luk) +1
-//   망토 1종 — dex +1, spd +1
+// 단계당 보너스 (100% 안전 모드 기준 — 확률 분기는 Chunk 2 에서 추가):
+//   무기: atk +1, 메인스탯 +1
+//   갑옷: def +1, 메인스탯 +1
 //
-// 실패 확률 없음 — 비용 누진만으로 페이스 조절.
+// 메인스탯 매핑: 대검=str / 창=dex / 방패=vit / 쌍검=spd / 단검=luk.
 
 import { BONUS_KEYS, ITEMS, type EquipBonus, type ItemId } from "@/adventure/data/items";
 import {
@@ -18,21 +18,54 @@ import {
 import { resolveCraftedItem } from "@/adventure/data/recipes";
 import type { EquippedItem } from "./types";
 
-export const ENHANCE_MAX_LEVEL = 5;
+export const ENHANCE_MAX_LEVEL = 7;
 
 // 별빛 조각 누진 비용 — index = 도달 단계. 0 단계는 비용 없음(초기 상태).
-export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 250];
+// 1~5 단계는 기존 정책 유지, 6/7 단계는 누진 추세 그대로 (400/700).
+export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 250, 400, 700];
 
-// 자루당 풀강 누적 비용 — 30 + 60 + 100 + 150 + 250 = 590.
+// 자루당 풀강 누적 비용 — 30+60+100+150+250+400+700 = 1690.
 export const ENHANCE_FULL_COST = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
 
 // 강화 가능한 itemId 들과 단계당 보너스. 새 강화 라인 추가 시 여기에 한 줄.
+// 무기 25 + 갑옷 5 = 30종. 100% 안전 모드 보너스만 — 70/50/30/10 확률 모드는 Chunk 2.
 const ENHANCE_PER_LEVEL: Partial<Record<ItemId, EquipBonus>> = {
-  starlit_blade: { atk: 1, str: 1 },
-  starlit_aegis: { atk: 1, vit: 1 },
-  starlit_lance: { atk: 1, dex: 1 },
-  starlit_grip: { atk: 1, luk: 1 },
-  starlit_mantle: { dex: 1, spd: 1 },
+  // 대검 (메인 = str)
+  starlit_greatsword_str: { atk: 1, str: 1 },
+  starlit_greatsword_dex: { atk: 1, str: 1 },
+  starlit_greatsword_vit: { atk: 1, str: 1 },
+  starlit_greatsword_spd: { atk: 1, str: 1 },
+  starlit_greatsword_luk: { atk: 1, str: 1 },
+  // 창 (메인 = dex)
+  starlit_lance_str: { atk: 1, dex: 1 },
+  starlit_lance_dex: { atk: 1, dex: 1 },
+  starlit_lance_vit: { atk: 1, dex: 1 },
+  starlit_lance_spd: { atk: 1, dex: 1 },
+  starlit_lance_luk: { atk: 1, dex: 1 },
+  // 방패 (메인 = vit)
+  starlit_shield_str: { atk: 1, vit: 1 },
+  starlit_shield_dex: { atk: 1, vit: 1 },
+  starlit_shield_vit: { atk: 1, vit: 1 },
+  starlit_shield_spd: { atk: 1, vit: 1 },
+  starlit_shield_luk: { atk: 1, vit: 1 },
+  // 쌍검 (메인 = spd)
+  starlit_twinblades_str: { atk: 1, spd: 1 },
+  starlit_twinblades_dex: { atk: 1, spd: 1 },
+  starlit_twinblades_vit: { atk: 1, spd: 1 },
+  starlit_twinblades_spd: { atk: 1, spd: 1 },
+  starlit_twinblades_luk: { atk: 1, spd: 1 },
+  // 단검 (메인 = luk)
+  starlit_dagger_str: { atk: 1, luk: 1 },
+  starlit_dagger_dex: { atk: 1, luk: 1 },
+  starlit_dagger_vit: { atk: 1, luk: 1 },
+  starlit_dagger_spd: { atk: 1, luk: 1 },
+  starlit_dagger_luk: { atk: 1, luk: 1 },
+  // 갑옷 (메인 = 자기 스탯)
+  starlit_armor_str: { def: 1, str: 1 },
+  starlit_armor_dex: { def: 1, dex: 1 },
+  starlit_armor_vit: { def: 1, vit: 1 },
+  starlit_armor_spd: { def: 1, spd: 1 },
+  starlit_armor_luk: { def: 1, luk: 1 },
 };
 
 // 강화 가능한 itemId 집합 — 인스턴스 기반 저장 대상.

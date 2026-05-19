@@ -971,68 +971,402 @@ export const ITEMS = {
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  // ── 별빛 재단 무구 5종 — 창공의 옥좌 옆 칸 (5막 종착 의식 후, 별빛 재단법 해금). ──
-  // empyrean 무구 1자루를 잔영 3종 소재 + 별빛 조각으로 재단조한 결과. 같은 tier 5 의
-  // 사이드그레이드 — 무기 atk +2/주능력치 +1 폭이 empyrean 대비 위. 강화 +5 여지 남기느라
-  // 베이스 자체는 작게. recipes.ts 의 starlit_* 5종 + MeteorDialogue Ch 30 onClick 학습.
-  starlit_blade: {
-    name: "별빛 재단 검",
+  // ── 5막 별빛 무구 — 4 별빛 사냥터 (Ch 26 이후) 진입 컨텐츠.
+  // 무기 25종 = 5무기(대검/창/방패/쌍검/단검) × 5부스탯 변형. atk +28 / 메인 +14 / 부스탯 +5.
+  // 메인스탯 매핑: 대검=str, 창=dex, 방패=vit, 쌍검=spd, 단검=luk.
+  // 부스탯이 메인과 일치하는 변형(예: 힘의 별빛 대검) 은 같은 스탯에 자연 합산 → 메인 +19.
+  // 방어구 5종 = 메인스탯 5종 각 1자루. def +24 / 메인 +14. 부스탯 없음.
+  // 입수: 4 사냥터 일반 몹 제작서 드랍 → 별빛 조각으로 제작 / 사냥터 일반 몹 완제품 드랍.
+  // craftTier 적용 + 강화 +7 + 마법부여 3슬 (강화 단계별 해금).
+
+  // 대검 (메인 = 힘)
+  starlit_greatsword_str: {
+    name: "힘의 별빛 대검",
     slot: "weapon",
     stats: [
-      { label: "공격력", value: "+27" },
-      { label: "힘", value: "+13" },
+      { label: "공격력", value: "+28" },
+      { label: "힘", value: "+19" },
     ],
-    bonus: { atk: 27, str: 13 },
-    description: "창공검 위에 잔영 셋의 결을 한 데 둘러 다시 단조한 한손 대검. 거인의 비늘이 균형을, 수심의 결이 흐름을, 성문의 빗장이 무게를 한 칼에 얹는다.",
+    bonus: { atk: 28, str: 19 },
+    description: "별빛 한 결을 한 자루로 두껍게 두른 한손 대검. 들면 어깨에 별바다의 무게가 가지런히 얹힌다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  starlit_aegis: {
-    name: "별빛 재단 방패",
+  starlit_greatsword_dex: {
+    name: "민첩의 별빛 대검",
     slot: "weapon",
     stats: [
-      { label: "공격력", value: "+27" },
-      { label: "활력", value: "+15" },
+      { label: "공격력", value: "+28" },
+      { label: "힘", value: "+14" },
+      { label: "민첩", value: "+5" },
     ],
-    bonus: { atk: 27, vit: 15 },
-    description: "창공 방패의 골격을 잔영 셋의 결로 다시 보강한 방패형 무기. 어느 쪽에서 와도 흩으리라는 약속이 결 안쪽에 가지런히 가라앉아 있다.",
+    bonus: { atk: 28, str: 14, dex: 5 },
+    description: "별빛 한 결을 가늘게 흘려 단조한 한손 대검. 결을 따라 손끝까지 가지런히 흐른다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  starlit_lance: {
-    name: "별빛 재단 창",
+  starlit_greatsword_vit: {
+    name: "활력의 별빛 대검",
     slot: "weapon",
     stats: [
-      { label: "공격력", value: "+29" },
-      { label: "민첩", value: "+15" },
+      { label: "공격력", value: "+28" },
+      { label: "힘", value: "+14" },
+      { label: "활력", value: "+5" },
     ],
-    bonus: { atk: 29, dex: 15 },
-    description: "창공창 끝에 잔영 셋의 결을 모아 박은 긴 창. 거인이 박힌 자세, 수심이 흘러간 결, 성문이 다시 들린 박자. 한 번에 셋이 닿는다.",
+    bonus: { atk: 28, str: 14, vit: 5 },
+    description: "별빛 한 결이 가장 안쪽에 두텁게 가라앉아 있는 한손 대검. 한 호흡이 어긋나도 결이 자세를 잡아 준다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  starlit_grip: {
-    name: "별빛 재단 너클",
+  starlit_greatsword_spd: {
+    name: "속도의 별빛 대검",
     slot: "weapon",
     stats: [
-      { label: "공격력", value: "+29" },
-      { label: "행운", value: "+15" },
+      { label: "공격력", value: "+28" },
+      { label: "힘", value: "+14" },
+      { label: "속도", value: "+5" },
     ],
-    bonus: { atk: 29, luk: 15 },
-    description: "창공 너클에 잔영 셋의 결을 한 결씩 새겨 넣은 너클. 한 방 한 방이 거인의 무게·수심의 흐름·성문의 빗장 셋을 한꺼번에 떨군다.",
+    bonus: { atk: 28, str: 14, spd: 5 },
+    description: "별빛 한 결을 결대로 얇게 펴 단조한 한손 대검. 그림자가 가볍게 떨어진다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  starlit_mantle: {
-    name: "별빛 재단 망토",
-    slot: "accessory",
+  starlit_greatsword_luk: {
+    name: "행운의 별빛 대검",
+    slot: "weapon",
     stats: [
-      { label: "민첩", value: "+12" },
-      { label: "속도", value: "+12" },
-      { label: "활력", value: "+7" },
+      { label: "공격력", value: "+28" },
+      { label: "힘", value: "+14" },
+      { label: "행운", value: "+5" },
     ],
-    bonus: { dex: 12, spd: 12, vit: 7 },
-    description: "창공 망토에 잔영 셋의 결을 한 가닥씩 더 짜낸 가장 가벼운 망토. 두르면 어깨에 별빛 셋의 결이 가지런히 얹힌다.",
+    bonus: { atk: 28, str: 14, luk: 5 },
+    description: "별빛 한 점이 한 칼에 옅게 떨려 있는 한손 대검. 자루 끝에서 가끔 빛이 한 번 깜박인다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+
+  // 창 (메인 = 민첩)
+  starlit_lance_str: {
+    name: "힘의 별빛 창",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "민첩", value: "+14" },
+      { label: "힘", value: "+5" },
+    ],
+    bonus: { atk: 28, dex: 14, str: 5 },
+    description: "별빛 한 결을 묵직하게 박아 단조한 긴 창. 한 번 박으면 결이 손까지 같이 박힌다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_lance_dex: {
+    name: "민첩의 별빛 창",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "민첩", value: "+19" },
+    ],
+    bonus: { atk: 28, dex: 19 },
+    description: "별빛 한 결을 가장 가지런히 흘려 단조한 긴 창. 결이 손끝까지 한 번에 미끄러진다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_lance_vit: {
+    name: "활력의 별빛 창",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "민첩", value: "+14" },
+      { label: "활력", value: "+5" },
+    ],
+    bonus: { atk: 28, dex: 14, vit: 5 },
+    description: "별빛 한 결이 자루 안쪽에 가장 두텁게 가라앉아 있는 긴 창. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_lance_spd: {
+    name: "속도의 별빛 창",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "민첩", value: "+14" },
+      { label: "속도", value: "+5" },
+    ],
+    bonus: { atk: 28, dex: 14, spd: 5 },
+    description: "별빛 한 결을 가장 얇게 펴 단조한 긴 창. 휘두를 때마다 그림자가 한 박자 늦게 따라온다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_lance_luk: {
+    name: "행운의 별빛 창",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "민첩", value: "+14" },
+      { label: "행운", value: "+5" },
+    ],
+    bonus: { atk: 28, dex: 14, luk: 5 },
+    description: "별빛 한 점이 창끝에 옅게 떨려 있는 긴 창. 결정적인 한 자세에 빛이 한 번 깜박인다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+
+  // 방패 (메인 = 활력)
+  starlit_shield_str: {
+    name: "힘의 별빛 방패",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "활력", value: "+14" },
+      { label: "힘", value: "+5" },
+    ],
+    bonus: { atk: 28, vit: 14, str: 5 },
+    description: "별빛 한 결을 가장 두텁게 박아 단조한 방패형 무기. 받아 내는 한 번에 별바다의 무게가 같이 얹힌다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_shield_dex: {
+    name: "민첩의 별빛 방패",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "활력", value: "+14" },
+      { label: "민첩", value: "+5" },
+    ],
+    bonus: { atk: 28, vit: 14, dex: 5 },
+    description: "별빛 한 결을 가장 가지런히 흘려 단조한 방패형 무기. 결이 손끝까지 한 번에 미끄러진다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_shield_vit: {
+    name: "활력의 별빛 방패",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "활력", value: "+19" },
+    ],
+    bonus: { atk: 28, vit: 19 },
+    description: "별빛 한 결이 안쪽까지 가장 깊이 가라앉아 있는 방패형 무기. 어떤 결도 안으로 닿지 못한다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_shield_spd: {
+    name: "속도의 별빛 방패",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "활력", value: "+14" },
+      { label: "속도", value: "+5" },
+    ],
+    bonus: { atk: 28, vit: 14, spd: 5 },
+    description: "별빛 한 결을 얇게 펴 단조한 방패형 무기. 받아 낼 때마다 그림자가 한 박자 늦게 따라온다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_shield_luk: {
+    name: "행운의 별빛 방패",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "활력", value: "+14" },
+      { label: "행운", value: "+5" },
+    ],
+    bonus: { atk: 28, vit: 14, luk: 5 },
+    description: "별빛 한 점이 방패 한가운데에 옅게 떨려 있는 방패형 무기. 막아 낸 한 번에 빛이 한 번 깜박인다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+
+  // 쌍검 (메인 = 속도)
+  starlit_twinblades_str: {
+    name: "힘의 별빛 쌍검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "속도", value: "+14" },
+      { label: "힘", value: "+5" },
+    ],
+    bonus: { atk: 28, spd: 14, str: 5 },
+    description: "별빛 한 결을 두껍게 두른 한 손에 한 자루씩의 쌍검. 한 번에 두 결이 같이 박힌다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_twinblades_dex: {
+    name: "민첩의 별빛 쌍검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "속도", value: "+14" },
+      { label: "민첩", value: "+5" },
+    ],
+    bonus: { atk: 28, spd: 14, dex: 5 },
+    description: "별빛 한 결을 가지런히 흘려 단조한 쌍검. 두 결이 한 손끝까지 같이 미끄러진다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_twinblades_vit: {
+    name: "활력의 별빛 쌍검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "속도", value: "+14" },
+      { label: "활력", value: "+5" },
+    ],
+    bonus: { atk: 28, spd: 14, vit: 5 },
+    description: "별빛 한 결이 두 자루 안쪽에 두텁게 가라앉아 있는 쌍검. 두 호흡이 끊겨도 결이 자세를 잡아 준다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_twinblades_spd: {
+    name: "속도의 별빛 쌍검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "속도", value: "+19" },
+    ],
+    bonus: { atk: 28, spd: 19 },
+    description: "별빛 한 결을 가장 얇게 펴 단조한 쌍검. 두 그림자가 한 박자 늦게 같이 따라온다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_twinblades_luk: {
+    name: "행운의 별빛 쌍검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "속도", value: "+14" },
+      { label: "행운", value: "+5" },
+    ],
+    bonus: { atk: 28, spd: 14, luk: 5 },
+    description: "별빛 한 점이 두 자루 끝에 옅게 떨려 있는 쌍검. 결정적인 두 결에 빛이 한 번 깜박인다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+
+  // 단검 (메인 = 행운)
+  starlit_dagger_str: {
+    name: "힘의 별빛 단검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "행운", value: "+14" },
+      { label: "힘", value: "+5" },
+    ],
+    bonus: { atk: 28, luk: 14, str: 5 },
+    description: "별빛 한 결을 두껍게 두른 짧고 가는 단검. 한 번 박으면 별바다의 무게가 같이 박힌다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_dagger_dex: {
+    name: "민첩의 별빛 단검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "행운", value: "+14" },
+      { label: "민첩", value: "+5" },
+    ],
+    bonus: { atk: 28, luk: 14, dex: 5 },
+    description: "별빛 한 결을 가지런히 흘려 단조한 짧고 가는 단검. 결이 손끝까지 한 번에 미끄러진다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_dagger_vit: {
+    name: "활력의 별빛 단검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "행운", value: "+14" },
+      { label: "활력", value: "+5" },
+    ],
+    bonus: { atk: 28, luk: 14, vit: 5 },
+    description: "별빛 한 결이 자루 안쪽에 두텁게 가라앉아 있는 짧고 가는 단검. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_dagger_spd: {
+    name: "속도의 별빛 단검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "행운", value: "+14" },
+      { label: "속도", value: "+5" },
+    ],
+    bonus: { atk: 28, luk: 14, spd: 5 },
+    description: "별빛 한 결을 가장 얇게 펴 단조한 짧고 가는 단검. 그림자가 칼끝보다 한 박자 늦게 따라온다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_dagger_luk: {
+    name: "행운의 별빛 단검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+28" },
+      { label: "행운", value: "+19" },
+    ],
+    bonus: { atk: 28, luk: 19 },
+    description: "별빛 한 점이 칼끝에 가장 가지런히 떨려 있는 짧고 가는 단검. 결정적인 한 박자에 빛이 한 번 깜박인다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+
+  // 별빛 갑옷 5종 (메인스탯만, 부스탯 없음)
+  starlit_armor_str: {
+    name: "힘의 별빛 갑옷",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+24" },
+      { label: "힘", value: "+14" },
+    ],
+    bonus: { def: 24, str: 14 },
+    description: "별빛 한 결을 가장 두껍게 두른 갑주. 한 발 디딜 때마다 별바다의 무게가 가지런히 얹힌다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_armor_dex: {
+    name: "민첩의 별빛 갑옷",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+24" },
+      { label: "민첩", value: "+14" },
+    ],
+    bonus: { def: 24, dex: 14 },
+    description: "별빛 한 결을 가지런히 흘려 단조한 가벼운 갑주. 몸의 결이 한 번에 미끄러진다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_armor_vit: {
+    name: "활력의 별빛 갑옷",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+24" },
+      { label: "활력", value: "+14" },
+    ],
+    bonus: { def: 24, vit: 14 },
+    description: "별빛 한 결이 안쪽까지 가장 깊이 가라앉아 있는 두꺼운 갑주. 어떤 결도 안으로 닿지 못한다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_armor_spd: {
+    name: "속도의 별빛 갑옷",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+24" },
+      { label: "속도", value: "+14" },
+    ],
+    bonus: { def: 24, spd: 14 },
+    description: "별빛 한 결을 가장 얇게 펴 단조한 갑주. 그림자가 한 박자 늦게 따라온다.",
+    rarity: "uncommon",
+    tier: 5,
+  } satisfies EquipItem,
+  starlit_armor_luk: {
+    name: "행운의 별빛 갑옷",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+24" },
+      { label: "행운", value: "+14" },
+    ],
+    bonus: { def: 24, luk: 14 },
+    description: "별빛 한 점이 가슴 위에 옅게 떨려 있는 갑주. 결정적인 한 발에 빛이 한 번 깜박인다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,

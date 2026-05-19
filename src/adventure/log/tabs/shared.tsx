@@ -40,6 +40,7 @@ export function describeDrop(
   }
   if (d.kind === "gold") return `골드 +${d.amount}`;
   if (d.kind === "equip") return ITEMS[d.itemId]?.name ?? d.itemId;
+  if (d.kind === "equip_one_of") return `장비 ${d.itemIds.length}종 중 1`;
   if (d.kind === "recipe") return getRecipeById(d.recipeId)?.name ?? d.recipeId;
   if (d.kind === "skill_book") return SKILL_BOOKS[d.bookId]?.name ?? d.bookId;
   // recipe_one_of

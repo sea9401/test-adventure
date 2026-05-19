@@ -245,6 +245,14 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
                 itemId: drop.itemId,
                 quality: rollDropQuality(rng, enemy.dropQualityBias ?? 1),
               });
+            } else if (drop.kind === "equip_one_of") {
+              // 풀에서 균등 추첨 — equip 단일과 동일하게 dropQuality 도 굴린다.
+              if (drop.itemIds.length === 0) continue;
+              const pick = drop.itemIds[Math.floor(rng() * drop.itemIds.length)];
+              result.equipsGained.push({
+                itemId: pick,
+                quality: rollDropQuality(rng, enemy.dropQualityBias ?? 1),
+              });
             } else if (drop.kind === "recipe") {
               if (
                 input.knowsRecipe(drop.recipeId) ||

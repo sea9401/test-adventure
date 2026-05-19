@@ -52,7 +52,7 @@ describe("rehydrateEquippedItem", () => {
 
   // 인스턴스 기반 장비(별빛 재단 무구) — instanceId + enhancementLevel 까지 들고 있다.
   it("별빛 재단 무구 +3 — bonus 에 강화 보너스 누적", () => {
-    const base = ITEMS.starlit_blade;
+    const base = ITEMS.starlit_greatsword_str;
     const saved = {
       ...base,
       instanceId: "inst-test-123",
@@ -62,13 +62,13 @@ describe("rehydrateEquippedItem", () => {
     expect(re).not.toBeNull();
     expect(re!.instanceId).toBe("inst-test-123");
     expect(re!.enhancementLevel).toBe(3);
-    // base: atk 27, str 13 / +3: atk 30, str 16
-    expect(re!.bonus?.atk).toBe(30);
-    expect(re!.bonus?.str).toBe(16);
+    // base: atk 28, str 19 (힘의 별빛 대검) / +3: atk 31, str 22
+    expect(re!.bonus?.atk).toBe(31);
+    expect(re!.bonus?.str).toBe(22);
   });
 
   it("별빛 재단 무구 그러나 instanceId 누락 — 강화 0 베이스로 살린다 (슬롯 보존)", () => {
-    const base = ITEMS.starlit_blade;
+    const base = ITEMS.starlit_greatsword_str;
     const saved = { ...base }; // instanceId 없음
     const re = rehydrateEquippedItem(saved);
     expect(re).not.toBeNull();
@@ -79,7 +79,7 @@ describe("rehydrateEquippedItem", () => {
   });
 
   it("별빛 재단 무구 + craftTier 만 있고 instanceId 누락 — 등급 반영 베이스로 살린다", () => {
-    const base = ITEMS.starlit_blade;
+    const base = ITEMS.starlit_greatsword_str;
     const saved = { ...base, craftTier: 2 as const }; // instanceId 없음
     const re = rehydrateEquippedItem(saved);
     expect(re).not.toBeNull();
@@ -90,7 +90,7 @@ describe("rehydrateEquippedItem", () => {
   });
 
   it("별빛 재단 무구 +0 (미강화) — bonus 베이스 그대로, 메타만 박힘", () => {
-    const base = ITEMS.starlit_mantle;
+    const base = ITEMS.starlit_armor_dex;
     const saved = {
       ...base,
       instanceId: "inst-mantle",
@@ -102,14 +102,14 @@ describe("rehydrateEquippedItem", () => {
     expect(re!.enhancementLevel).toBe(0);
   });
 
-  it("별빛 재단 무구 enhancementLevel 가 MAX 초과 — MAX 로 clamp", () => {
+  it("별빛 무구 enhancementLevel 가 MAX 초과 — MAX 로 clamp", () => {
     const saved = {
-      ...ITEMS.starlit_blade,
+      ...ITEMS.starlit_greatsword_str,
       instanceId: "inst-clamp",
       enhancementLevel: 999,
     };
     const re = rehydrateEquippedItem(saved);
     expect(re).not.toBeNull();
-    expect(re!.enhancementLevel).toBe(5);
+    expect(re!.enhancementLevel).toBe(7);
   });
 });

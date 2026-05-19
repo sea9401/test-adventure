@@ -11,14 +11,18 @@ export type MonsterTag =
   | "undead"
   | "dragon";
 
-// 드롭은 여섯 가지 — 재료 / 골드 / 장비 / 제작서 / 제작서 풀(랜덤 1) / 스킬북. chance 는 0~1.
+// 드롭은 일곱 가지 — 재료 / 골드 / 장비 / 장비 풀(랜덤 1) / 제작서 / 제작서 풀(랜덤 1) / 스킬북.
+// chance 는 0~1.
 // "recipe" 드롭은 해당 제작법을 학습 (이미 알고 있으면 무시).
 // "recipe_one_of" 는 chance 가 통과하면 recipeIds 중 하나를 균등 추첨해 학습 시도.
+// "equip_one_of" 는 chance 가 통과하면 itemIds 중 하나를 균등 추첨해 인벤에 추가.
+//    별빛 사냥터처럼 30종 풀에서 한 자루 떨어지는 패턴용 — 30 entry 박지 않고 풀로.
 // "skill_book" 은 책 그 자체가 인벤에 들어간다 — 학습은 사용 시점.
 export type MonsterDrop =
   | { kind: "material"; materialId: MaterialId; chance: number; amount?: number }
   | { kind: "gold"; amount: number; chance: number }
   | { kind: "equip"; itemId: ItemId; chance: number }
+  | { kind: "equip_one_of"; itemIds: ItemId[]; chance: number }
   | { kind: "recipe"; recipeId: string; chance: number }
   | { kind: "recipe_one_of"; recipeIds: string[]; chance: number }
   | { kind: "skill_book"; bookId: SkillBookId; chance: number };
@@ -95,6 +99,39 @@ export type Monster = {
    */
   bonusAttackChancePct?: number;
 };
+
+// ── 5막 별빛 사냥터 drop 풀 상수 — 일반 몹 12종에 inline 으로 반복 박지 않도록 추출 ──
+// recipe_one_of: 사냥터별 30종을 8/7/8/7 묶음으로 분배 (메인스탯 X 무기/방어구 골고루).
+// equip_one_of: 완제품 30종은 4사냥터 모두 같은 풀 — 사용자 의도 "4구역 전부 적당히 낮은 확률".
+// 부여서 5종/보스는 inline (5장이라 충분히 짧다).
+const STARFALL_CAVE_RECIPES: readonly string[] = [
+  "starlit_greatsword_str", "starlit_greatsword_dex", "starlit_lance_str",
+  "starlit_lance_dex", "starlit_shield_str", "starlit_twinblades_str",
+  "starlit_dagger_str", "starlit_armor_str",
+];
+const STARLIT_CANYON_RECIPES: readonly string[] = [
+  "starlit_greatsword_vit", "starlit_lance_vit", "starlit_shield_dex",
+  "starlit_shield_vit", "starlit_twinblades_dex", "starlit_dagger_dex",
+  "starlit_armor_dex", "starlit_armor_vit",
+];
+const STARLIT_REEF_RECIPES: readonly string[] = [
+  "starlit_greatsword_spd", "starlit_lance_spd", "starlit_shield_spd",
+  "starlit_twinblades_vit", "starlit_twinblades_spd", "starlit_dagger_vit",
+  "starlit_armor_spd",
+];
+const STARLIT_KEEP_RECIPES: readonly string[] = [
+  "starlit_greatsword_luk", "starlit_lance_luk", "starlit_shield_luk",
+  "starlit_twinblades_luk", "starlit_dagger_spd", "starlit_dagger_luk",
+  "starlit_armor_luk",
+];
+const STARLIT_ALL_EQUIPS: readonly ItemId[] = [
+  "starlit_greatsword_str", "starlit_greatsword_dex", "starlit_greatsword_vit", "starlit_greatsword_spd", "starlit_greatsword_luk",
+  "starlit_lance_str", "starlit_lance_dex", "starlit_lance_vit", "starlit_lance_spd", "starlit_lance_luk",
+  "starlit_shield_str", "starlit_shield_dex", "starlit_shield_vit", "starlit_shield_spd", "starlit_shield_luk",
+  "starlit_twinblades_str", "starlit_twinblades_dex", "starlit_twinblades_vit", "starlit_twinblades_spd", "starlit_twinblades_luk",
+  "starlit_dagger_str", "starlit_dagger_dex", "starlit_dagger_vit", "starlit_dagger_spd", "starlit_dagger_luk",
+  "starlit_armor_str", "starlit_armor_dex", "starlit_armor_vit", "starlit_armor_spd", "starlit_armor_luk",
+];
 
 export const MONSTERS: Record<string, Monster> = {
   주정뱅이: {
@@ -1612,6 +1649,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 240,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.08 },
+      { kind: "recipe_one_of", recipeIds: [...STARFALL_CAVE_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 20,
@@ -1627,6 +1666,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 250,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.09 },
+      { kind: "recipe_one_of", recipeIds: [...STARFALL_CAVE_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 25,
@@ -1641,6 +1682,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 270,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.12 },
+      { kind: "recipe_one_of", recipeIds: [...STARFALL_CAVE_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 30,
@@ -1659,6 +1702,12 @@ export const MONSTERS: Record<string, Monster> = {
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 1, amount: 4 },
       { kind: "material", materialId: "mana_crystal", chance: 1, amount: 3 },
+      // 부여서 분배 — 폭주/채집/보호막/각성/흡혈 (셔플 결과 고정).
+      { kind: "material", materialId: "enchant_berserk", chance: 0.10 },
+      { kind: "material", materialId: "enchant_harvest", chance: 0.10 },
+      { kind: "material", materialId: "enchant_barrier", chance: 0.10 },
+      { kind: "material", materialId: "enchant_awaken", chance: 0.10 },
+      { kind: "material", materialId: "enchant_lifesteal", chance: 0.10 },
     ],
     dropQualityBias: 4,
     armorVulnerable: 0.3,
@@ -1688,6 +1737,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 250,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.08 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_CANYON_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 25,
@@ -1703,6 +1754,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 260,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.09 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_CANYON_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     skill: { kind: "pierce", name: "별빛 결풍", armorPierce: 6 },
     auraKind: "starfall",
@@ -1718,6 +1771,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 280,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.12 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_CANYON_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 40,
@@ -1738,6 +1793,12 @@ export const MONSTERS: Record<string, Monster> = {
       { kind: "material", materialId: "unbong_ore", chance: 1, amount: 3 },
       // 옛 coop legend 1% 시절 unique — 솔로 region.boss 전환 후 그대로 유지.
       { kind: "equip", itemId: "giant_yoke", chance: 0.01 },
+      // 부여서 분배 — 반사/독공/가드/강타/관통 (셔플 결과 고정).
+      { kind: "material", materialId: "enchant_reflect", chance: 0.10 },
+      { kind: "material", materialId: "enchant_venom", chance: 0.10 },
+      { kind: "material", materialId: "enchant_guard", chance: 0.10 },
+      { kind: "material", materialId: "enchant_might", chance: 0.10 },
+      { kind: "material", materialId: "enchant_pierce", chance: 0.10 },
     ],
     dropQualityBias: 4,
     armorVulnerable: 0.3,
@@ -1767,6 +1828,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 260,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.09 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_REEF_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 25,
@@ -1781,6 +1844,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 270,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.10 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_REEF_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     skill: { kind: "heavy_blow", name: "별빛 작살", everyPhases: 3, multiplier: 1.7 },
     auraKind: "starfall",
@@ -1796,6 +1861,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 290,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.12 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_REEF_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     skill: { kind: "brace", name: "별빛 가시 껍질", damageReduction: 6 },
     auraKind: "starfall",
@@ -1817,6 +1884,12 @@ export const MONSTERS: Record<string, Monster> = {
       { kind: "material", materialId: "coral_spine", chance: 1, amount: 4 },
       // 옛 coop legend 1% 시절 unique — 솔로 region.boss 전환 후 그대로 유지.
       { kind: "equip", itemId: "deep_orb", chance: 0.01 },
+      // 부여서 분배 — 회피/통찰/치명타/행운/처형 (셔플 결과 고정).
+      { kind: "material", materialId: "enchant_dodge", chance: 0.10 },
+      { kind: "material", materialId: "enchant_insight", chance: 0.10 },
+      { kind: "material", materialId: "enchant_critical", chance: 0.10 },
+      { kind: "material", materialId: "enchant_fortune", chance: 0.10 },
+      { kind: "material", materialId: "enchant_execute", chance: 0.10 },
     ],
     dropQualityBias: 4,
     armorVulnerable: 0.3,
@@ -1846,6 +1919,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 270,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.08 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_KEEP_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     auraKind: "starfall",
     bonusAttackChancePct: 25,
@@ -1860,6 +1935,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 285,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.10 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_KEEP_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     skill: { kind: "heavy_blow", name: "별빛 투창", everyPhases: 3, multiplier: 1.7 },
     auraKind: "starfall",
@@ -1875,6 +1952,8 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 305,
     drops: [
       { kind: "material", materialId: "starfall_shard", chance: 0.12 },
+      { kind: "recipe_one_of", recipeIds: [...STARLIT_KEEP_RECIPES], chance: 0.05 },
+      { kind: "equip_one_of", itemIds: [...STARLIT_ALL_EQUIPS], chance: 0.02 },
     ],
     skill: { kind: "brace", name: "별빛 장갑판", damageReduction: 6 },
     auraKind: "starfall",
@@ -1897,6 +1976,12 @@ export const MONSTERS: Record<string, Monster> = {
       { kind: "material", materialId: "war_banner_scrap", chance: 1, amount: 4 },
       // 옛 coop legend 1% 시절 unique — 솔로 region.boss 전환 후 그대로 유지.
       { kind: "equip", itemId: "gate_bar", chance: 0.01 },
+      // 부여서 분배 — 재생/파괴/인내/신속/풍요 (셔플 결과 고정).
+      { kind: "material", materialId: "enchant_regen", chance: 0.10 },
+      { kind: "material", materialId: "enchant_breaker", chance: 0.10 },
+      { kind: "material", materialId: "enchant_endure", chance: 0.10 },
+      { kind: "material", materialId: "enchant_swift", chance: 0.10 },
+      { kind: "material", materialId: "enchant_bounty", chance: 0.10 },
     ],
     dropQualityBias: 4,
     armorVulnerable: 0.3,

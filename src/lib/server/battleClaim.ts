@@ -342,6 +342,29 @@ function rollDrops(
         quality: q,
         lucky: isLuckyFind(equipDef),
       });
+    } else if (drop.kind === "equip_one_of") {
+      // 풀에서 균등 추첨 — equip 단일과 동일하게 dropQuality 굴림.
+      if (drop.itemIds.length === 0) continue;
+      const pickIdx = Math.floor(rng() * drop.itemIds.length);
+      const pickId = drop.itemIds[pickIdx];
+      const q = rollDropQuality(rng, ctx.monster.dropQualityBias ?? 1);
+      if (q === 0) {
+        invEquipment[pickId] = (invEquipment[pickId] ?? 0) + 1;
+      } else {
+        const key = String(q);
+        const map = { ...(invDropped[pickId] ?? {}) };
+        map[key] = (map[key] ?? 0) + 1;
+        invDropped[pickId] = map;
+      }
+      invChanged = true;
+      const equipDef = ITEMS[pickId];
+      drops.push({
+        kind: "equip",
+        itemId: pickId,
+        name: equipDef.name,
+        quality: q,
+        lucky: isLuckyFind(equipDef),
+      });
     } else if (drop.kind === "recipe") {
       if (knownSet.has(drop.recipeId)) continue;
       knownSet.add(drop.recipeId);

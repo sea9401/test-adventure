@@ -383,15 +383,6 @@ export async function reportGuildQuestProgress(
   return (await r.json()) as ProgressReportResponse;
 }
 
-// 캐릭터 명성이 늘어난 만큼 같은 양을 길드 명성에 가산. 길드 멤버 아니면
-// silent ignore. 호출 측은 delta(>0) 만 보내면 됨 — 누적 추적은 클라이언트가 한다.
-export type FameContributeResponse = {
-  ok: true;
-  applied: boolean;
-  fameAdded?: number;
-  guildFameTotal?: number;
-};
-
 // ───── 길드 버프 ─────
 
 export type GuildBuffsResponse = {
@@ -458,14 +449,3 @@ export async function uninstallGuildBuff(
   return (await r.json()) as BuffMutationResponse;
 }
 
-export async function reportFameContribution(
-  delta: number,
-): Promise<FameContributeResponse> {
-  const r = await fetch("/api/guilds/fame-contribute", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ delta }),
-  });
-  if (!r.ok) throw await parseError(r);
-  return (await r.json()) as FameContributeResponse;
-}

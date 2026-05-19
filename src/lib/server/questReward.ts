@@ -31,6 +31,7 @@ import {
 import { MAX_LEVEL, XP_RATE_MULT, applyNewbieBonus } from "@/lib/leveling";
 import { computeParagonBonus, readInitialParagon } from "@/lib/paragon";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
+import { bumpGuildFameFromMember } from "@/lib/server/guildFame";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import {
   ON_COMPLETE_DATA,
@@ -149,6 +150,8 @@ function applyMainReward(
   charNext: Record<string, unknown>;
   invNext: Record<string, unknown>;
   tokens: string[];
+  /** 적용된 character.fame delta (post-multiplier). 길드 fame piggyback 용. */
+  fameDelta: number;
 } {
   const tokens: string[] = [];
   let charChanged = false;
@@ -176,6 +179,7 @@ function applyMainReward(
       charChanged = true;
     }
   }
+  const fameDelta = fame > 0 ? fame : 0;
 
   // EXP — 신참 ×2 + 길드 ×expMult + 전역 ×XP_RATE_MULT + 파라곤 풍요 ×.
   // 만렙 도달 시 잉여는 파라곤 EXP 로 적립되어야 하나 클라 useCharacterState 가 처리.
@@ -294,6 +298,7 @@ function applyMainReward(
     charNext: charChanged ? char : charPrev,
     invNext: invChanged ? inv : invPrev,
     tokens,
+    fameDelta,
   };
 }
 
@@ -486,6 +491,9 @@ export async function applyQuestRewardServer(
     await upsertSave(tx, userId, ADVENTURE_LOG_KEY, side.logNext);
   if (progressChanged)
     await upsertSave(tx, userId, QUEST_PROGRESS_KEY, progressNext);
+
+  // 5) 길드 fame piggyback — EPIC #3-4. 같은 tx 안에서 동일 delta 를 길드 fame 에도.
+  await bumpGuildFameFromMember(tx, userId, main.fameDelta);
 
   return {
     applied: true,

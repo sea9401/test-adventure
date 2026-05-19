@@ -61,7 +61,6 @@ const AutoHuntResultModal = dynamic(
 );
 import { useAutoHuntResultHandler } from "@/adventure/hunting/useAutoHuntResultHandler";
 import { useOneTimeNotices } from "@/adventure/notifications/useOneTimeNotices";
-import { useGuildFameSync } from "@/adventure/guild/useGuildFameSync";
 import { useGuildBuffsCache } from "@/adventure/guild/useGuildBuffsCache";
 import { reportGuildQuestProgress } from "@/adventure/guild/api";
 import { useShopUnlocks } from "@/adventure/shop/useShopUnlocks";
@@ -252,7 +251,6 @@ function Home() {
     className: character.className,
     title: character.titleName ?? null,
   });
-  useGuildFameSync(character.fame);
   const guildBuffsCache = useGuildBuffsCache();
 
   const showModal = profile.needsSetup;

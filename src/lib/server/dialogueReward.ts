@@ -17,6 +17,7 @@ import {
   type DialogueRewardId,
 } from "@/adventure/data/dialogueRewards";
 import { potionMax, type PotionId } from "@/adventure/data/potions";
+import { bumpGuildFameFromMember } from "@/lib/server/guildFame";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 
@@ -190,6 +191,9 @@ export async function applyDialogueReward(
   if (flagsNext !== flagsRaw) {
     await upsertSave(tx, userId, STORY_FLAGS_STORAGE_KEY, flagsNext);
   }
+
+  // 길드 fame piggyback — EPIC #3-4. 캐릭터 fame 증가분만큼 길드 fame 에도 가산.
+  await bumpGuildFameFromMember(tx, userId, reward.fame ?? 0);
 
   return {
     applied: true,

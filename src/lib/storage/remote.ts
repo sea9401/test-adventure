@@ -75,6 +75,12 @@ export function createRemoteSave(options: Options = {}): RemoteSave {
   const conflictCount = new Map<SyncedKey, number>();
   let flushTimer: ReturnType<typeof setTimeout> | null = null;
   let flushing = false;
+  // 진행 중 flush 의 promise. caller 가 `await flush()` 로 완료를 기다릴 수 있게 추적한다.
+  // flushNow 가 in-flight 중에 호출되면 새 사이클을 띄우지 않고 이 promise 를 그대로 반환 —
+  // `await flush()` 가 진짜 PATCH 완료를 기다림. 옛 `if (flushing) return;` 은 await
+  // 시맨틱을 깨뜨려 quest claim 같은 race-sensitive caller 가 stale 값으로 후속 API 를
+  // 호출하는 사고가 있었음 (2026-05-19, #412 이후 후속).
+  let inFlightFlush: Promise<void> | null = null;
   let attempts = 0;
   let _status: RemoteSaveStatus = { kind: "idle" };
   const listeners = new Set<RemoteSaveListener>();
@@ -84,18 +90,9 @@ export function createRemoteSave(options: Options = {}): RemoteSave {
     for (const l of listeners) l(next);
   };
 
-  const flushNow = async (): Promise<void> => {
-    if (flushTimer) {
-      _clearTimeout(flushTimer);
-      flushTimer = null;
-    }
-    if (flushing) return;
-    if (pending.size === 0) {
-      setStatus({ kind: "idle" });
-      return;
-    }
-    if (_status.kind === "session-expired" || _status.kind === "stale") return;
-
+  // 한 사이클의 본문 — pending snapshot 을 PATCH 들로 처리. flushNow 가 in-flight
+  // 가드 후 호출한다. 직접 호출 금지 (가드를 건너뛰면 동시 사이클이 펼쳐진다).
+  const runFlushCycle = async (): Promise<void> => {
     flushing = true;
     setStatus({ kind: "saving" });
 
@@ -228,6 +225,28 @@ export function createRemoteSave(options: Options = {}): RemoteSave {
     }
   };
 
+  const flushNow = async (): Promise<void> => {
+    // 진행 중 사이클이 있으면 그 promise 를 그대로 반환 — `await flushNow()` 가 진짜
+    // PATCH 완료를 기다린다. 옛 구현은 `if (flushing) return;` 으로 즉시 resolve 해서
+    // quest claim 같은 race-sensitive caller 가 stale 값으로 후속 API 를 호출하는
+    // 사고가 있었음 (2026-05-19, #412 이후 후속).
+    if (inFlightFlush) return inFlightFlush;
+    if (flushTimer) {
+      _clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    if (pending.size === 0) {
+      setStatus({ kind: "idle" });
+      return;
+    }
+    if (_status.kind === "session-expired" || _status.kind === "stale") return;
+
+    inFlightFlush = runFlushCycle().finally(() => {
+      inFlightFlush = null;
+    });
+    return inFlightFlush;
+  };
+
   const scheduleFlush = () => {
     if (flushTimer || flushing) return;
     flushTimer = _setTimeout(() => {
@@ -277,7 +296,25 @@ export function createRemoteSave(options: Options = {}): RemoteSave {
       scheduleFlush();
     },
     async flush() {
-      await flushNow();
+      // pending + in-flight 사이클이 모두 소진될 때까지 진짜 await. 한 사이클이 끝났는데
+      // 그 동안 새로 쌓인 patch 가 있으면 한 번 더 돌려서 caller 가 보내는 것이 다 도달했음을
+      // 보장. error/stale 등 비정상 상태에선 빠져나옴 (그 경우 추가 flush 가 무의미).
+      while (true) {
+        if (inFlightFlush) {
+          await inFlightFlush;
+        }
+        if (pending.size === 0) return;
+        const k = _status.kind;
+        if (
+          k === "error" ||
+          k === "stale" ||
+          k === "session-expired" ||
+          k === "session-invalidated"
+        ) {
+          return;
+        }
+        await flushNow();
+      }
     },
     flushSync() {
       if (pending.size === 0) return;

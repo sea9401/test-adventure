@@ -289,6 +289,58 @@ describe("createRemoteSave", () => {
     vi.useRealTimers();
   });
 
+  it("flush() 는 in-flight 사이클 + 그 동안 쌓인 큐까지 완료될 때까지 await", async () => {
+    // 회귀 가드 — 옛 구현은 flushNow 의 `if (flushing) return;` 으로 즉시 resolve,
+    // quest claim 같은 caller 가 stale 값으로 후속 API 를 호출하는 race 가 있었다.
+    vi.useFakeTimers();
+    const pendingResolvers: Array<() => void> = [];
+    const fakeFetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method !== "PATCH") return new Response("{}", { status: 200 });
+      // 응답을 외부에서 제어 — in-flight 상태 유지.
+      await new Promise<void>((r) => pendingResolvers.push(r));
+      return new Response(JSON.stringify({ ok: true, version: 1 }), {
+        status: 200,
+      });
+    });
+
+    const remote = createRemoteSave({
+      flushDelayMs: 100,
+      fetchImpl: fakeFetch as unknown as typeof fetch,
+    });
+
+    // 첫 patch — 100ms 디바운스 후 fetch 발사 (응답 대기 상태).
+    remote.patch("character.v2", { hp: 50 });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(fakeFetch).toHaveBeenCalledTimes(1);
+
+    // in-flight 중에 새 키 patch.
+    remote.patch("inventory.v2", { gold: 100 });
+
+    // 별도 caller 가 flush() — 진짜 끝까지 대기해야 함 (옛 구현은 여기서 즉시 resolve).
+    let flushResolved = false;
+    const flushPromise = remote.flush().then(() => {
+      flushResolved = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(flushResolved).toBe(false);
+
+    // 첫 fetch 응답 → 진행 중 사이클 완료 → flush() 의 while 루프가 두 번째 사이클 발사.
+    pendingResolvers[0]();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fakeFetch).toHaveBeenCalledTimes(2);
+    expect(flushResolved).toBe(false);
+
+    // 두 번째 fetch 응답 → 큐 비고 flush() resolve.
+    pendingResolvers[1]();
+    await vi.advanceTimersByTimeAsync(0);
+    await flushPromise;
+    expect(flushResolved).toBe(true);
+    expect(remote.status().kind).toBe("idle");
+
+    vi.useRealTimers();
+  });
+
   it("성공 응답의 version 으로 다음 PATCH expectedVersion 갱신", async () => {
     vi.useFakeTimers();
     const fakeFetch = vi.fn(async (url: string, init?: RequestInit) => {

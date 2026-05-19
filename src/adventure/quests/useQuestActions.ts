@@ -61,6 +61,12 @@ export function useQuestActions(deps: {
 
     void (async () => {
       try {
+        // 클라가 보는 quest-progress.v2 를 서버에 강제 push 후 flush.
+        // useQuests.readInitial 이 server raw + localStorage 백업을 머지하므로
+        // "localStorage 는 ready, server 는 active" 케이스가 가능 — 이때 useRemotePatch
+        // first-mount skip 때문에 자동 동기화가 안 돼 서버 claim 이 state!=='ready' 로
+        // applied:false 를 돌려준다. 클릭 직전 force-patch 로 격차를 메운다.
+        remote.patch("quest-progress.v2", quests.progress);
         await remote.flush();
         const sessionId = readDeviceSessionId();
         const headers: Record<string, string> = {

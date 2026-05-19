@@ -85,15 +85,18 @@ export function useQuestActions(deps: {
           return;
         }
         if (res.status === 401 || res.status === 410) return;
+        // jsonOk 는 `{ ok: true, ...outcome }` 로 spread 한다 (data 키 nested X). outcome 필드는
+        // top-level 에 박혀 있다. 처음엔 `{ ok, data }` 가정으로 짰는데 그러면 outcome 이 항상
+        // undefined 라 saves 접근에서 TypeError 가 나며 보상 적용이 통째 안 됐다.
         const data = (await res.json().catch(() => null)) as
-          | { ok: true; data: QuestRewardOutcome }
+          | (QuestRewardOutcome & { ok: true })
           | { ok: false; error: string }
           | null;
         if (!data || data.ok === false) {
           addNotification("info", "보상 수령에 실패했다.");
           return;
         }
-        const outcome = data.data;
+        const outcome = data;
 
         // 1) saves 통째 교체 — applied 여부와 무관 (idempotent retry 도 latest 로 자가 수렴).
         if (outcome.saves["character.v2"] !== undefined) {

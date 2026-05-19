@@ -68,12 +68,15 @@ export function useBattleClaimAction(deps: Deps) {
         return null;
       }
       if (res.status === 401 || res.status === 410) return null;
+      // jsonOk 는 `{ ok: true, ...outcome }` 로 spread 한다 (data 키 nested X). outcome 필드는
+      // top-level 에 박혀 있다. 옛 코드의 `data.data` 가정은 항상 undefined 라 saves 접근에서
+      // TypeError → 클라 상태가 갱신 안 됨 (서버는 정상 mutate, 새로고침해야 보이는 증상).
       const data = (await res.json().catch(() => null)) as
-        | { ok: true; data: BattleClaimOutcome }
+        | (BattleClaimOutcome & { ok: true })
         | { ok: false; error: string }
         | null;
       if (!data || data.ok === false) return null;
-      const outcome = data.data;
+      const outcome = data;
       if (outcome.saves["character.v2"] !== undefined) {
         characterStateHook.replaceFromSaved(outcome.saves["character.v2"]);
       }

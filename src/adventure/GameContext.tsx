@@ -161,7 +161,7 @@ export type GameCtx = {
     quantity?: number,
     equipPicks?: EquipPicks,
   ) => void;
-  /** 별빛 무구 +1 강화 시도 (서버 권위). 인스턴스 ID + 확률 모드. 실패 시 가능 횟수 -1. */
+  /** 별빛 무구 +1 강화 시도 (서버 권위). 인스턴스 ID + 확률 모드. 성공/실패 무관 매 시도 가능 횟수 -1 (자루당 총 7회). */
   handleEnhance: (
     instanceId: string,
     mode: import("./character/enhancement").EnhanceMode,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EnhanceError,
   computeEnhanceOutcome,
+  type EnhanceComputeInput,
 } from "./enhance";
 import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 
@@ -34,7 +35,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
     expect(out.materials).toEqual({ starfall_shard: 70 }); // 100 - 30
     expect(out.equipmentInstances[0].enhancementLevel).toBe(1);
     expect(out.equipmentInstances[0].enhanceHistory).toEqual(["safe"]);
-    expect(out.equipmentInstances[0].remainingAttempts).toBe(7); // 차감 X
+    expect(out.equipmentInstances[0].remainingAttempts).toBe(6); // 7 - 1 (성공도 시도 카운터 차감)
     expect(out.success).toBe(true);
     expect(out.toLevel).toBe(1);
     expect(out.shardsSpent).toBe(30);
@@ -132,7 +133,7 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
     expect(out.remainingAttempts).toBe(6);
   });
 
-  it("성공 시 모드가 history 에 들어간다", () => {
+  it("성공 시 모드가 history 에 들어가고 시도 카운터도 -1", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 100 },
@@ -144,7 +145,35 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
     );
     expect(out.success).toBe(true);
     expect(out.equipmentInstances[0].enhanceHistory).toEqual(["extreme"]);
-    expect(out.equipmentInstances[0].remainingAttempts).toBe(7); // 성공이라 차감 X
+    expect(out.equipmentInstances[0].remainingAttempts).toBe(6); // 성공/실패 무관 -1
+  });
+
+  it("safe 7회 연속 성공 → +7 도달과 동시에 remainingAttempts 0 (총 시도 한도 소진)", () => {
+    let state: EnhanceComputeInput = {
+      materials: { starfall_shard: 10_000 },
+      equipmentInstances: [inst("a", 0)],
+    };
+    for (let i = 0; i < 7; i += 1) {
+      const out = computeEnhanceOutcome(state, "a", "safe", alwaysSuccess);
+      state = { materials: out.materials, equipmentInstances: out.equipmentInstances };
+    }
+    expect(state.equipmentInstances[0].enhancementLevel).toBe(7);
+    expect(state.equipmentInstances[0].remainingAttempts).toBe(0);
+  });
+
+  it("실패가 섞이면 +7 도달 전에 시도 한도가 먼저 소진 — 천장 깎임", () => {
+    let state: EnhanceComputeInput = {
+      materials: { starfall_shard: 10_000 },
+      equipmentInstances: [inst("a", 0)],
+    };
+    // 첫 시도만 실패, 나머지는 성공 — 총 7회 시도 후 enhancementLevel=6, remainingAttempts=0.
+    const rngs = [alwaysFail, alwaysSuccess, alwaysSuccess, alwaysSuccess, alwaysSuccess, alwaysSuccess, alwaysSuccess];
+    for (const rng of rngs) {
+      const out = computeEnhanceOutcome(state, "a", "boost", rng);
+      state = { materials: out.materials, equipmentInstances: out.equipmentInstances };
+    }
+    expect(state.equipmentInstances[0].enhancementLevel).toBe(6);
+    expect(state.equipmentInstances[0].remainingAttempts).toBe(0);
   });
 
   it("remainingAttempts 0 → no_attempts", () => {

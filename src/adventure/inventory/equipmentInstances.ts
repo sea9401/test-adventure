@@ -8,8 +8,9 @@
 // enhanceHistory: 단계별 어떤 모드(safe/boost/high/risky/extreme) 로 강화했는지 history.
 //   길이 = enhancementLevel (성공한 단계만 push). 옛 인스턴스(history 없는 자루) 는
 //   normalizeInstance 가 safe 모드 N 회로 마이그레이션.
-// remainingAttempts: 자루별 남은 시도 횟수. 시작 ENHANCE_INITIAL_ATTEMPTS(7), 실패 시 -1.
-//   0 이면 더 시도 불가 — 자루의 천장이 깎인 상태. 옛 인스턴스는 7 로 마이그레이션.
+// remainingAttempts: 자루별 남은 강화 시도 횟수. 시작 ENHANCE_INITIAL_ATTEMPTS(7),
+//   성공/실패 무관 매 시도 -1. 0 이면 더 시도 불가 — 자루의 천장이 깎인 상태.
+//   옛 인스턴스는 7 로 마이그레이션.
 
 import type { CraftTier } from "@/adventure/data/craftQuality";
 import type { ItemId } from "@/adventure/data/items";
@@ -38,7 +39,7 @@ export type EquipmentInstance = {
   enhancementLevel: number;
   /** 단계별 강화 모드 history. 길이 === enhancementLevel. 빈 자루는 빈 배열 또는 생략. */
   enhanceHistory?: EnhanceMode[];
-  /** 남은 강화 시도 횟수. 시작 7, 실패 시 -1. 0 = 천장 깎임. */
+  /** 남은 강화 시도 횟수. 시작 7, 성공/실패 무관 매 시도 -1. 0 = 천장 깎임. */
   remainingAttempts: number;
   /** 부여된 마법부여 슬롯. 강화 단계별 capacity (+2/+4/+7→1/2/3) 이하. 재부여 불가. */
   enchantSlots?: EnchantSlot[];

@@ -5,8 +5,8 @@ import "server-only";
 // 권위: 서버. 클라는 instanceId + 모드만 보내고, 서버가 inventory.v2 를 잠그고 검증·RNG 굴림.
 // 비용·단계 캡은 character/enhancement.ts 의 상수 그대로 — 클라/서버 동일 정책.
 //
-// 비용은 *시도* 시 항상 차감 (성공/실패 무관).
-// 성공: enhanceHistory 에 모드 push + enhancementLevel +1.
+// 비용·시도 카운터 모두 *시도* 시 항상 처리 (성공/실패 무관) — 자루당 총 7회로 캡.
+// 성공: enhanceHistory 에 모드 push + enhancementLevel +1 + remainingAttempts -= 1.
 // 실패: remainingAttempts -= 1. enhancementLevel / history 그대로.
 // remainingAttempts 가 0 이 되면 더 시도 불가 — 자루 천장이 깎인 상태.
 //
@@ -49,7 +49,7 @@ export type EnhanceComputeResult = {
   equipmentInstances: EquipmentInstance[];
   /** 시도 후 결과 — 성공 시 단계 +1, 실패 시 그대로. */
   toLevel: number;
-  /** 시도 후 남은 가능 횟수 — 실패 시 -1, 성공 시 그대로. */
+  /** 시도 후 남은 가능 횟수 — 성공/실패 무관 매 시도 -1. */
   remainingAttempts: number;
   /** 차감된 별빛 조각 양 (시도 시 항상 차감). */
   shardsSpent: number;
@@ -97,6 +97,8 @@ export function computeEnhanceOutcome(
   // RNG — 0~1 < successPct/100 이면 성공.
   const success = rng() < spec.successPct / 100;
 
+  // 성공/실패 무관 매 시도 -1 — 자루당 총 시도 7회 캡.
+  const nextRemainingAttempts = inst.remainingAttempts - 1;
   let updated: EquipmentInstance;
   if (success) {
     const nextHistory: EnhanceMode[] = [
@@ -107,11 +109,12 @@ export function computeEnhanceOutcome(
       ...inst,
       enhancementLevel: targetLevel,
       enhanceHistory: nextHistory,
+      remainingAttempts: nextRemainingAttempts,
     };
   } else {
     updated = {
       ...inst,
-      remainingAttempts: inst.remainingAttempts - 1,
+      remainingAttempts: nextRemainingAttempts,
     };
   }
   const equipmentInstances = [

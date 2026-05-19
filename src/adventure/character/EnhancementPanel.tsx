@@ -2,7 +2,7 @@
 
 // 별빛 강화소 — 별빛 무구 인스턴스를 +1~+7 까지 누진 비용으로 강화 시도.
 // 모드 선택 (safe/boost/high/risky/extreme) — 확률·보상 트레이드오프. 비용은 모드 무관.
-// 실패 시 자루별 가능 횟수 -1. 0 이 되면 더 시도 불가.
+// 매 시도 자루별 가능 횟수 -1 (성공/실패 무관, 자루당 총 7회). 0 이 되면 더 시도 불가.
 //
 // 강화 자체는 서버 권위(/api/enhance) — useEnhanceAction.handleEnhance 호출.
 
@@ -103,7 +103,7 @@ export function EnhancementPanel({
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           별빛을 한 점 한 점 무구에 옮기는 자리. 단계마다 별빛 조각이 누진. 최대 +{ENHANCE_MAX_LEVEL}.
-          모드를 낮은 확률로 고르면 한 번에 더 많은 결이 옮겨지지만, 실패하면 이 자루의 남은 시도 횟수가 한 번 깎인다.
+          모드를 낮은 확률로 고르면 한 번에 더 많은 결이 옮겨지지만, 시도할 때마다 (성공/실패 무관) 자루의 남은 시도 횟수가 한 번 깎인다. 자루당 총 {ENHANCE_MAX_LEVEL}회.
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <label className="text-xs text-zinc-500 dark:text-zinc-400">강화 모드</label>

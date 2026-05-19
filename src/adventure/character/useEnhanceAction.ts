@@ -117,7 +117,7 @@ export function useEnhanceAction(deps: {
     if (data.success) {
       addNotification(
         "milestone",
-        `${itemName}을(를) +${data.toLevel} 으로 강화했다. (별빛 조각 ${data.shardsSpent} 소비, ${spec.successPct}% 모드)`,
+        `${itemName}을(를) +${data.toLevel} 으로 강화했다. (별빛 조각 ${data.shardsSpent} 소비, ${spec.successPct}% 모드, 가능 횟수 ${data.remainingAttempts} 남음)`,
         {
           highlight: {
             name: `${itemName} +${data.toLevel}`,

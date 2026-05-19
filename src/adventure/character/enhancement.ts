@@ -16,8 +16,9 @@
 // 부스탯이 메인과 일치하는 변형(예: 힘의 별빛 대검) 은 같은 스탯에 자연 합산.
 //
 // 실패 시: enhancementLevel 그대로, remainingAttempts -= 1.
-// 성공 시: enhancementLevel += 1, enhanceHistory 에 mode push, remainingAttempts 차감 X.
-// remainingAttempts 시작 값 = ENHANCE_INITIAL_ATTEMPTS (7). 0 이 되면 더 시도 불가.
+// 성공 시: enhancementLevel += 1, enhanceHistory 에 mode push, remainingAttempts -= 1.
+// remainingAttempts 시작 값 = ENHANCE_INITIAL_ATTEMPTS (7) — 자루당 총 시도 한도.
+// 0 이 되면 더 시도 불가. 7회 모두 safe 로 가면 +7 도달, 그 외 모드는 EV 가 그만큼 깎인다.
 
 import { BONUS_KEYS, ITEMS, type EquipBonus, type ItemId } from "@/adventure/data/items";
 import {
@@ -37,7 +38,7 @@ export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 250, 
 // 자루당 풀강 누적 비용 (전부 100% 안전 모드로만 도달했을 때) — 30+60+100+150+250+400+700 = 1690.
 export const ENHANCE_FULL_COST = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
 
-// 자루 시작 가능 횟수 — 실패 시마다 -1. 0 이 되면 더 강화 시도 불가 (천장 깎임).
+// 자루당 총 강화 시도 한도 — 성공/실패 무관 매 시도 -1. 0 이 되면 더 시도 불가 (천장 깎임).
 export const ENHANCE_INITIAL_ATTEMPTS = 7;
 
 // 확률 모드 ─────────────────────────────────────────────────────────────────

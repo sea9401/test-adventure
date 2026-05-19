@@ -11,14 +11,22 @@ import type { Listing } from "./types";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
 
-// listing.grade → 표시용 prefix/suffix. base 면 둘 다 빈 문자열.
-function gradeAffix(grade: string): { prefix: string; suffix: string } {
-  if (grade === "c-2" || grade === "c-1" || grade === "c1" || grade === "c2") {
-    return { prefix: "", suffix: craftTierSuffix(Number(grade.slice(1)) as CraftTier) };
-  }
-  if (grade === "d1" || grade === "d2") {
+// listing.variantKey → 표시용 prefix/suffix. base 면 둘 다 빈 문자열.
+function variantAffix(variantKey: string): { prefix: string; suffix: string } {
+  if (
+    variantKey === "c-2" ||
+    variantKey === "c-1" ||
+    variantKey === "c1" ||
+    variantKey === "c2"
+  ) {
     return {
-      prefix: dropQualityPrefix(Number(grade.slice(1)) as DropQuality),
+      prefix: "",
+      suffix: craftTierSuffix(Number(variantKey.slice(1)) as CraftTier),
+    };
+  }
+  if (variantKey === "d1" || variantKey === "d2") {
+    return {
+      prefix: dropQualityPrefix(Number(variantKey.slice(1)) as DropQuality),
       suffix: "",
     };
   }
@@ -43,9 +51,9 @@ export function BuyConfirmModal({
   const insufficient = after < 0;
   const isRecipe = listing.itemKind === "recipe";
   const blocked = alreadyKnown === true;
-  const { prefix: gradePrefix, suffix: gradeSuffix } =
+  const { prefix: variantPrefix, suffix: variantSuffix } =
     listing.itemKind === "equip"
-      ? gradeAffix(listing.grade)
+      ? variantAffix(listing.variantKey)
       : { prefix: "", suffix: "" };
   const handleEscape = useCallback(() => {
     if (!busy) onClose();
@@ -90,9 +98,9 @@ export function BuyConfirmModal({
           <Card padding="sm">
             <div className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {isRecipe ? "📜 " : ""}
-              {gradePrefix}
+              {variantPrefix}
               {listing.itemName}
-              {gradeSuffix}
+              {variantSuffix}
               {listing.itemKind === "material" && listing.quantity > 1 ? (
                 <span className="ml-1 text-zinc-500">×{listing.quantity}</span>
               ) : null}

@@ -128,8 +128,8 @@ export function InboxView() {
       for (const it of r.itemsAdded) {
         if (it.kind === "equip") {
           if (Object.prototype.hasOwnProperty.call(ITEMS, it.id)) {
-            // grade variant 별로 적절한 storage 에 추가. 미지정/잘못된 grade → base fallback.
-            const g = it.grade;
+            // 변형 키 별로 적절한 storage 에 추가. 미지정/잘못된 키 → base fallback.
+            const g = it.variantKey;
             const id = it.id as ItemId;
             if (g === "c-2" || g === "c-1" || g === "c1" || g === "c2") {
               addCraftedEquipment(id, Number(g.slice(1)) as -2 | -1 | 1 | 2, it.quantity);
@@ -168,7 +168,7 @@ export function InboxView() {
         // 등급 라벨 합성 (equip 만 의미) — "정교한 야구방망이 ⟨고급⟩" 식.
         let label = baseLabel;
         if (it.kind === "equip") {
-          const g = it.grade;
+          const g = it.variantKey;
           let tier: CraftTier | undefined;
           let quality: DropQuality | undefined;
           if (g === "c-2" || g === "c-1" || g === "c1" || g === "c2") {

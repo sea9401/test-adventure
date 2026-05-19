@@ -6,11 +6,22 @@ import type { CraftTier } from "../data/craftQuality";
 import type { DropQuality } from "../data/dropQuality";
 import type { InventoryState } from "./useInventory";
 
+// 장비 변형 직렬화 키 — 인벤·도감·보관함·거래소 공통 규약.
+//   "base"       : 기본(craftTier 0, dropQuality 0). 일반 equipment[] 슬롯.
+//   "c-2".."c2"  : 제작 등급 ±N (0 제외). craftedEquipment 슬롯.
+//   "d1"|"d2"    : 드랍 품질 1·2. droppedEquipment 슬롯.
+//
+// CraftTier (-2..2) / DropQuality (0..2) / RuneGrade (1..6) 와 별개 — 이 셋은 각기
+// 다른 축이고, EquipVariantKey 는 그 둘(CraftTier·DropQuality)을 단일 문자열로 직렬화한
+// "표시·저장 키". 거래소 API 와이어 포맷에선 historically `grade` 필드명으로 직렬화됨
+// (서버 호환 위해 유지) — 클라 내부 타입은 모두 `variantKey` 로 통일(LOW #23).
+export type EquipVariantKey = "base" | `c${-2 | -1 | 1 | 2}` | `d${1 | 2}`;
+
 // (tier, quality) → 변형 키. discoveredEquipment.variantKey 와 동일 규약.
 export function vaultVariantKey(
   tier?: CraftTier | null,
   quality?: DropQuality | null,
-): string {
+): EquipVariantKey {
   if (tier != null && tier !== 0) return `c${tier}`;
   if (quality != null && quality !== 0) return `d${quality}`;
   return "base";

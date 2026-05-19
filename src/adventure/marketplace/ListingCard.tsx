@@ -17,16 +17,21 @@ import {
 import type { Listing } from "./types";
 import { hasOwn, listingDetail } from "./listingDetail";
 
-// listing.grade ("base"|"c±N"|"dN") → (craftTier, dropQuality) — UI 라벨용.
-function parseListingGrade(grade: string): {
+// listing.variantKey ("base"|"c±N"|"dN") → (craftTier, dropQuality) — UI 라벨용.
+function parseListingVariantKey(variantKey: string): {
   tier?: CraftTier;
   quality?: DropQuality;
 } {
-  if (grade === "c-2" || grade === "c-1" || grade === "c1" || grade === "c2") {
-    return { tier: Number(grade.slice(1)) as CraftTier };
+  if (
+    variantKey === "c-2" ||
+    variantKey === "c-1" ||
+    variantKey === "c1" ||
+    variantKey === "c2"
+  ) {
+    return { tier: Number(variantKey.slice(1)) as CraftTier };
   }
-  if (grade === "d1" || grade === "d2") {
-    return { quality: Number(grade.slice(1)) as DropQuality };
+  if (variantKey === "d1" || variantKey === "d2") {
+    return { quality: Number(variantKey.slice(1)) as DropQuality };
   }
   return {};
 }
@@ -61,7 +66,7 @@ function ListingCardImpl({
     ? "text-violet-700 dark:text-violet-300"
     : rarityTextClass(equipDef, "text-zinc-900 dark:text-zinc-100");
   // 등급 라벨 — equip 전용. base 면 prefix/suffix 둘 다 빈 문자열.
-  const { tier, quality } = isEquip ? parseListingGrade(item.grade) : {};
+  const { tier, quality } = isEquip ? parseListingVariantKey(item.variantKey) : {};
   const detail = listingDetail(item);
   return (
     <Card padding="sm">

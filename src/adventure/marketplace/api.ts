@@ -1,11 +1,22 @@
 import type { RemoteSave } from "@/lib/storage/remote";
+import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
 import type { ItemKind, ListResponse, Listing, SortMode } from "./types";
+
+// 서버 wire schema (historically `grade` 필드). 클라 내부는 모두 `variantKey` — 본 파일이
+// boundary 매퍼 역할 (LOW #23).
+type WireListing = Omit<Listing, "variantKey"> & { grade: string };
+type WireListResponse = { items: WireListing[]; nextCursor: string | null };
+
+function listingFromWire(wire: WireListing): Listing {
+  const { grade, ...rest } = wire;
+  return { ...rest, variantKey: (grade as EquipVariantKey) ?? "base" };
+}
 
 export type ListQuery = {
   q?: string;
   kind?: ItemKind | "all";
   // vault variant 키와 동일: 'base'|'c-2'|'c-1'|'c1'|'c2'|'d1'|'d2'. 'all' / undefined = 전체.
-  grade?: string | "all";
+  variantKey?: EquipVariantKey | "all";
   sort?: SortMode;
   mine?: boolean;
   cursor?: string | null;
@@ -19,21 +30,27 @@ export async function fetchListings(
   const url = new URL("/api/marketplace/listings", window.location.origin);
   if (q.q) url.searchParams.set("q", q.q);
   if (q.kind && q.kind !== "all") url.searchParams.set("kind", q.kind);
-  if (q.grade && q.grade !== "all") url.searchParams.set("grade", q.grade);
+  // 서버는 URL param 이름이 historically `grade` — 호환 위해 유지.
+  if (q.variantKey && q.variantKey !== "all")
+    url.searchParams.set("grade", q.variantKey);
   if (q.sort) url.searchParams.set("sort", q.sort);
   if (q.mine) url.searchParams.set("mine", "1");
   if (q.cursor) url.searchParams.set("cursor", q.cursor);
   if (q.limit) url.searchParams.set("limit", String(q.limit));
   const r = await fetch(url.toString(), { signal });
   if (!r.ok) throw new Error(`목록 로드 실패 (${r.status})`);
-  return (await r.json()) as ListResponse;
+  const wire = (await r.json()) as WireListResponse;
+  return {
+    items: wire.items.map(listingFromWire),
+    nextCursor: wire.nextCursor,
+  };
 }
 
 export type CreateParams = {
   itemKind: ItemKind;
   itemId: string;
-  // 등급 variant. 미지정 = 'base'. equip 외 kind 는 항상 'base'.
-  grade?: string;
+  // 장비 변형 키. 미지정 = 'base'. equip 외 kind 는 항상 'base'.
+  variantKey?: EquipVariantKey;
   quantity: number;
   price: number;
 };
@@ -44,6 +61,12 @@ export type CreateResult = {
   inventory: unknown; // 서버가 적용한 inventory.v2 스냅샷
 };
 
+type WireCreateResult = {
+  ok: true;
+  listing: Omit<WireListing, "sellerId" | "sellerName" | "isMine">;
+  inventory: unknown;
+};
+
 // 등록 — 호출 전에 RemoteSave.flush() 로 로컬 보류 PATCH 를 모두 보내서
 // 서버측 inventory.v2 가 최신 상태에서 차감되도록 한다.
 export async function createListing(
@@ -51,16 +74,33 @@ export async function createListing(
   params: CreateParams,
 ): Promise<CreateResult> {
   await remote.flush();
+  // 서버는 body 의 `grade` 필드를 기대 — 클라 internal `variantKey` 를 wire 명칭으로 변환.
+  const wireBody: Record<string, unknown> = {
+    itemKind: params.itemKind,
+    itemId: params.itemId,
+    quantity: params.quantity,
+    price: params.price,
+    grade: params.variantKey ?? "base",
+  };
   const r = await fetch("/api/marketplace/listings", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(params),
+    body: JSON.stringify(wireBody),
   });
   if (!r.ok) {
     const text = await r.text();
     throw new Error(translateError(text, r.status));
   }
-  return (await r.json()) as CreateResult;
+  const wire = (await r.json()) as WireCreateResult;
+  const { grade, ...listingRest } = wire.listing;
+  return {
+    ok: true,
+    listing: {
+      ...listingRest,
+      variantKey: (grade as EquipVariantKey) ?? "base",
+    },
+    inventory: wire.inventory,
+  };
 }
 
 export type CancelResult = { ok: true; inventory: unknown };
@@ -144,14 +184,23 @@ export type ClaimResult = {
   itemsAdded: {
     kind: "equip" | "material" | "skill_book";
     id: string;
-    // 등급 variant — equip 만 의미. 'base' 면 일반 equipment[] 로 합산.
-    grade: string;
+    // 장비 변형 키 — equip 만 의미. 'base' 면 일반 equipment[] 로 합산.
+    variantKey: EquipVariantKey;
     quantity: number;
   }[];
   recipesAdded: string[];
   recipesSkipped: string[];
   newGold: number | null;
   newInventory: unknown | null;
+};
+
+type WireClaimResult = Omit<ClaimResult, "itemsAdded"> & {
+  itemsAdded: {
+    kind: "equip" | "material" | "skill_book";
+    id: string;
+    grade: string;
+    quantity: number;
+  }[];
 };
 
 export async function claimInbox(
@@ -168,7 +217,14 @@ export async function claimInbox(
     const text = await r.text();
     throw new Error(translateError(text, r.status));
   }
-  return (await r.json()) as ClaimResult;
+  const wire = (await r.json()) as WireClaimResult;
+  return {
+    ...wire,
+    itemsAdded: wire.itemsAdded.map((x) => {
+      const { grade, ...rest } = x;
+      return { ...rest, variantKey: (grade as EquipVariantKey) ?? "base" };
+    }),
+  };
 }
 
 export type SendMessageResult = { ok: true; recipientName: string };

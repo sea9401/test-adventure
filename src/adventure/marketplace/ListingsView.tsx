@@ -30,8 +30,8 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
 
 // 등급 필터 — vault variant 키 + 라벨 + 가치 내림차순 정렬 순서.
 // (장비 매물만 의미 있음 — kind 가 'equip' 또는 'all' 일 때만 노출.)
-type GradeFilter = "all" | "base" | "c-2" | "c-1" | "c1" | "c2" | "d1" | "d2";
-const GRADE_OPTIONS: { value: GradeFilter; label: string }[] = [
+type VariantKeyFilter = "all" | "base" | "c-2" | "c-1" | "c1" | "c2" | "d1" | "d2";
+const VARIANT_OPTIONS: { value: VariantKeyFilter; label: string }[] = [
   { value: "all", label: "전체 등급" },
   { value: "c2", label: "걸작 (+2)" },
   { value: "d2", label: "빼어난" },
@@ -58,12 +58,12 @@ export function ListingsView({
   knownRecipes?: string[];
 }) {
   const [kind, setKind] = useState<KindFilter>("all");
-  const [grade, setGrade] = useState<GradeFilter>("all");
+  const [variantKey, setVariantKey] = useState<VariantKeyFilter>("all");
   const [sort, setSort] = useState<SortMode>("recent");
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
   // 장비 외 종류로 바꾸면 등급 필터는 의미 없으니 자동으로 초기화.
-  const gradeFilterApplicable = kind === "all" || kind === "equip";
+  const variantFilterApplicable = kind === "all" || kind === "equip";
 
   const [items, setItems] = useState<Listing[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -72,7 +72,7 @@ export function ListingsView({
   const [error, setError] = useState<string | null>(null);
 
   // 장비 필터를 풀어도 등급 선택은 무시 (서버 400 회피).
-  const effectiveGrade = gradeFilterApplicable ? grade : "all";
+  const effectiveVariantKey = variantFilterApplicable ? variantKey : "all";
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -82,7 +82,7 @@ export function ListingsView({
         const r = await fetchListings(
           {
             kind,
-            grade: effectiveGrade,
+            variantKey: effectiveVariantKey,
             sort,
             q: submitted,
             mine: mineOnly,
@@ -100,7 +100,7 @@ export function ListingsView({
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [kind, effectiveGrade, sort, submitted, mineOnly],
+    [kind, effectiveVariantKey, sort, submitted, mineOnly],
   );
 
   useEffect(() => {
@@ -142,7 +142,7 @@ export function ListingsView({
     try {
       const r = await fetchListings({
         kind,
-        grade: effectiveGrade,
+        variantKey: effectiveVariantKey,
         sort,
         q: submitted,
         mine: mineOnly,
@@ -181,14 +181,14 @@ export function ListingsView({
             placeholder="아이템 이름 검색"
             className="flex-1 min-w-[140px] rounded-md border border-zinc-300 bg-white px-2.5 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           />
-          {gradeFilterApplicable && (
+          {variantFilterApplicable && (
             <select
-              value={grade}
-              onChange={(e) => setGrade(e.target.value as GradeFilter)}
+              value={variantKey}
+              onChange={(e) => setVariantKey(e.target.value as VariantKeyFilter)}
               aria-label="등급 필터"
               className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
-              {GRADE_OPTIONS.map((o) => (
+              {VARIANT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>

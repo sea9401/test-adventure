@@ -25,6 +25,7 @@ import {
   type SkillBookId,
 } from "@/adventure/data/skillBooks";
 import type { InventoryState } from "@/adventure/inventory/useInventory";
+import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
 import type { RemoteSave } from "@/lib/storage/remote";
 import { createListing } from "./api";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -34,17 +35,12 @@ import { useModalA11y } from "@/lib/useModalA11y";
 const FEE_RATE = 0;
 const PRICE_MAX = 999_999_999;
 
-// 장비 등급 variant — vault 키와 동일 규약. base = 일반(equipment[]),
-// c±1/±2 = 제작 (불량/하급/고급/걸작), d1/d2 = 드랍 (정교한/빼어난).
-// craftTier / dropQuality 둘 중 하나만 채워지면 grade key 결정. (둘 다 0/없으면 base.)
-type EquipGradeKey = "base" | `c${-2 | -1 | 1 | 2}` | `d${1 | 2}`;
-
 type Selection =
   | {
       kind: "equip";
       itemId: ItemId;
       def: EquipItem;
-      grade: EquipGradeKey;
+      variantKey: EquipVariantKey;
       craftTier?: CraftTier;
       dropQuality?: DropQuality;
       have: number;
@@ -60,7 +56,7 @@ type Selection =
 
 // 정렬용 등급 가치 — 같은 itemId 내에서 좋은 사본부터 노출.
 // c2(걸작) > d2(빼어난) > c1(고급) > d1(정교한) > base > c-1(하급) > c-2(불량).
-const GRADE_RANK: Record<EquipGradeKey, number> = {
+const VARIANT_RANK: Record<EquipVariantKey, number> = {
   c2: 6,
   d2: 5,
   c1: 4,
@@ -99,7 +95,7 @@ export function ListingCreateModal({
 
   // 등급별로 3 storage 모두 펼친다 — equipment(base) + craftedEquipment(c±N) + droppedEquipment(dN).
   // 장착 여부 필터는 두지 않는다 (인벤 스택 ≠ 장착 사본).
-  // 정렬: itemId 이름 오름차순 → 같은 itemId 내에서는 GRADE_RANK 내림차순.
+  // 정렬: itemId 이름 오름차순 → 같은 itemId 내에서는 VARIANT_RANK 내림차순.
   const equipOptions = useMemo<Selection[]>(() => {
     const out: Selection[] = [];
     const pushBase = (id: string, count: number) => {
@@ -111,7 +107,7 @@ export function ListingCreateModal({
         kind: "equip",
         itemId: id as ItemId,
         def,
-        grade: "base",
+        variantKey: "base",
         have: count,
       });
     };
@@ -130,7 +126,7 @@ export function ListingCreateModal({
           kind: "equip",
           itemId: id as ItemId,
           def,
-          grade: `c${t as -2 | -1 | 1 | 2}`,
+          variantKey: `c${t as -2 | -1 | 1 | 2}`,
           craftTier: t as CraftTier,
           have: count,
         });
@@ -148,7 +144,7 @@ export function ListingCreateModal({
           kind: "equip",
           itemId: id as ItemId,
           def,
-          grade: `d${q as 1 | 2}`,
+          variantKey: `d${q as 1 | 2}`,
           dropQuality: q as DropQuality,
           have: count,
         });
@@ -158,7 +154,7 @@ export function ListingCreateModal({
       const nameCmp = a.def.name.localeCompare(b.def.name);
       if (nameCmp !== 0) return nameCmp;
       if (a.kind !== "equip" || b.kind !== "equip") return 0;
-      return GRADE_RANK[b.grade] - GRADE_RANK[a.grade];
+      return VARIANT_RANK[b.variantKey] - VARIANT_RANK[a.variantKey];
     });
   }, [inventory.equipment, inventory.craftedEquipment, inventory.droppedEquipment]);
 
@@ -230,7 +226,7 @@ export function ListingCreateModal({
       await createListing(remote, {
         itemKind: selection.kind,
         itemId: selection.itemId,
-        grade: selection.kind === "equip" ? selection.grade : "base",
+        variantKey: selection.kind === "equip" ? selection.variantKey : "base",
         quantity: qtyN,
         price: priceN,
       });
@@ -430,7 +426,7 @@ function ItemPicker({
 
 // 같은 itemId 가 등급별로 여러 줄 노출되므로 grade 까지 포함해야 key 가 유니크.
 function pickerKey(o: Selection): string {
-  if (o.kind === "equip") return `equip-${o.itemId}-${o.grade}`;
+  if (o.kind === "equip") return `equip-${o.itemId}-${o.variantKey}`;
   return `${o.kind}-${o.itemId}`;
 }
 

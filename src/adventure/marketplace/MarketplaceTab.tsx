@@ -94,9 +94,9 @@ export function MarketplaceTab() {
         // 그래야 useRemotePatch 가 보낼 다음 PATCH 가 일관된 값을 보낸다.
         if (listing.itemKind === "equip") {
           if (Object.prototype.hasOwnProperty.call(ITEMS, listing.itemId)) {
-            // grade variant ('base'|'c±N'|'dN') 별로 알맞은 storage 로 환불.
-            // 미지정/잘못된 grade → base 로 fallback (구 데이터 호환).
-            const g = listing.grade;
+            // 변형 키 ('base'|'c±N'|'dN') 별로 알맞은 storage 로 환불.
+            // 미지정/잘못된 키 → base 로 fallback (구 데이터 호환).
+            const g = listing.variantKey;
             const id = listing.itemId as ItemId;
             if (g === "c-2" || g === "c-1" || g === "c1" || g === "c2") {
               addCraftedEquipment(id, Number(g.slice(1)) as -2 | -1 | 1 | 2, listing.quantity);

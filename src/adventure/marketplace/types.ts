@@ -1,4 +1,8 @@
-// 거래소 클라이언트 타입. 서버 응답 shape 와 1:1.
+// 거래소 클라이언트 internal 타입. 서버 응답 wire shape 와 다른 점: 변형 키 필드가
+// 서버는 historically `grade` 인데 클라 내부는 `variantKey` 로 통일됨 (LOW #23). api.ts
+// 의 fetchListings/buyListing/claimInbox 가 wire→internal 매핑을 수행.
+
+import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
 
 export type ItemKind = "equip" | "material" | "recipe" | "skill_book";
 
@@ -10,9 +14,9 @@ export type Listing = {
   itemKind: ItemKind;
   itemId: string;
   itemName: string;
-  // 등급 variant — equip 만 의미. 'base'|'c-2'|'c-1'|'c1'|'c2'|'d1'|'d2'.
-  // vault variant 키와 동일 규약. (server: marketplace_listings.grade, default 'base')
-  grade: string;
+  // 장비 변형 키 — equip 만 의미. vault/도감/거래소 공통 규약.
+  // 서버는 marketplace_listings.grade 컬럼에 같은 값 저장. wire 변환은 api.ts.
+  variantKey: EquipVariantKey;
   quantity: number;
   price: number;
   createdAt: string;

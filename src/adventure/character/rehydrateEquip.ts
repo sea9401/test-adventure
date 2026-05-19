@@ -35,6 +35,7 @@ export function rehydrateEquippedItem(
         historyOrLv,
         saved.instanceId,
         saved.enchantSlots,
+        saved.remainingAttempts,
       );
     }
     // instanceId 누락 (마이그레이션 도중 / 인스턴스 풀 sync 누락) — 슬롯에서 사라지면

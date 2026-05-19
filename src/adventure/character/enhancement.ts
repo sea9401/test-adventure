@@ -226,9 +226,12 @@ export function planEnhance(
   };
 }
 
-// 인스턴스의 (itemId, craftTier, enhanceHistory, enchantSlots) 로부터 장착 가능한
-// EquippedItem 을 만든다. craftTier → 강화 → 마법부여 순으로 보너스 누적, stats 도 재생성.
+// 인스턴스의 (itemId, craftTier, enhanceHistory, enchantSlots, remainingAttempts) 로부터
+// 장착 가능한 EquippedItem 을 만든다. craftTier → 강화 → 마법부여 순으로 보너스 누적, stats 도 재생성.
 // instanceId 를 받아 EquippedItem 의 instanceId 필드에 박는다 — 슬롯 회수 시 풀로 돌려놓는 키.
+// 강화 history 와 가능 횟수도 EquippedItem 에 그대로 박는다 — 회수 시 풀에 그대로 복원되어
+// 다음 표시가 safe×N 으로 깎이지 않는다 (chunk 3 이전엔 history 가 EquippedItem 에 없어서
+// equip→unequip 후 history 가 사라지고 normalizeInstance 가 safe×lv 로 덮어쓰던 버그 수정).
 // enchantSlots 의 might/swift/insight 만 정적 bonus 합산 — 가드/회피/치명타 등은 전투 엔진.
 export function resolveEnhancedItem(
   itemId: ItemId,
@@ -236,6 +239,7 @@ export function resolveEnhancedItem(
   historyOrLevel: readonly EnhanceMode[] | number,
   instanceId: string,
   enchantSlots?: readonly EnchantSlot[],
+  remainingAttempts?: number,
 ): EquippedItem {
   const base = ITEMS[itemId];
   // 제작 등급 먼저 적용 (강화 위에). craftTier 0/미지정이면 베이스 그대로.
@@ -248,16 +252,30 @@ export function resolveEnhancedItem(
       ? Math.max(0, Math.floor(historyOrLevel))
       : historyOrLevel.length;
   const enchStatic = enchantSlots ? enchantStaticBonus(enchantSlots) : {};
+  // 인스턴스 메타 — 회수 시 풀 복원에 필요. history 는 array 로 전달된 경우에만 슬롯에 박는다
+  // (number 로만 알면 mode 시퀀스를 복원할 수 없어 safe×N 추정 — 옛 데이터 호환). 단 슬롯에서
+  // 회수 후 다시 inventory 풀로 돌아갈 때는 enhanceHistory 가 있어야 stats 가 정확히 복원된다.
+  const enhanceHistory =
+    typeof historyOrLevel === "number" ? undefined : historyOrLevel.slice();
+  const metaProps = {
+    craftTier,
+    instanceId,
+    ...(enhanceHistory && enhanceHistory.length > 0
+      ? { enhanceHistory }
+      : {}),
+    ...(typeof remainingAttempts === "number"
+      ? { remainingAttempts }
+      : {}),
+    ...(enchantSlots && enchantSlots.length > 0
+      ? { enchantSlots: enchantSlots.slice() }
+      : {}),
+  };
   // 강화도 부여도 없는 자루는 메타만 박힌 베이스.
   if (level <= 0 && Object.keys(enchStatic).length === 0) {
     return {
       ...tiered,
-      craftTier,
+      ...metaProps,
       enhancementLevel: 0,
-      instanceId,
-      ...(enchantSlots && enchantSlots.length > 0
-        ? { enchantSlots: enchantSlots.slice() }
-        : {}),
     };
   }
   const tierBonus = tiered.bonus ?? {};
@@ -277,11 +295,7 @@ export function resolveEnhancedItem(
     ...tiered,
     bonus: merged,
     stats: rebuildStats(base, merged),
-    craftTier,
+    ...metaProps,
     enhancementLevel: level,
-    instanceId,
-    ...(enchantSlots && enchantSlots.length > 0
-      ? { enchantSlots: enchantSlots.slice() }
-      : {}),
   };
 }

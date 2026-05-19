@@ -172,4 +172,39 @@ describe("enhancement — resolveEnhancedItem", () => {
     const item = resolveEnhancedItem("starlit_armor_dex", undefined, 7, "id-z");
     expect(item.bonus).toEqual({ def: 31, dex: 21 });
   });
+
+  // 회수 라운드트립 보존 — chunk 3 이전엔 EquippedItem 에 enhanceHistory/remainingAttempts
+  // 가 없어서 equip→unequip 후 normalizeInstance 의 safe×N fallback 으로 덮어써짐.
+  it("array history 입력 + remainingAttempts → EquippedItem 에 둘 다 박힘", () => {
+    const item = resolveEnhancedItem(
+      "starlit_lance_luk",
+      1,
+      ["risky", "risky", "high", "high", "boost"],
+      "inst-rt",
+      undefined,
+      6,
+    );
+    expect(item.enhanceHistory).toEqual([
+      "risky",
+      "risky",
+      "high",
+      "high",
+      "boost",
+    ]);
+    expect(item.remainingAttempts).toBe(6);
+    // 행운의 별빛 창 base(atk 28, dex 14, luk 5) + 고급(atk+1) + 위 history → 47/32/16.
+    expect(item.bonus).toEqual({ atk: 47, dex: 32, luk: 16 });
+  });
+
+  it("number 입력은 history 없이 — 옛 데이터 호환 (safe×N 추정 stats 유지)", () => {
+    const item = resolveEnhancedItem(
+      "starlit_lance_luk",
+      1,
+      5,
+      "inst-old",
+    );
+    expect(item.enhanceHistory).toBeUndefined();
+    // safe×5 추정 — atk +5, dex +5, luk +0.
+    expect(item.bonus).toEqual({ atk: 34, dex: 19, luk: 5 });
+  });
 });

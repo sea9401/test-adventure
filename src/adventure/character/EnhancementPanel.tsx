@@ -133,6 +133,7 @@ export function EnhancementPanel({
             inst.enhanceHistory ?? inst.enhancementLevel,
             inst.instanceId,
             inst.enchantSlots,
+            inst.remainingAttempts,
           );
           const isMax = inst.enhancementLevel >= ENHANCE_MAX_LEVEL;
           const noAttempts = inst.remainingAttempts <= 0;

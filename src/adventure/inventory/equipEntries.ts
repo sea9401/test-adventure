@@ -57,6 +57,7 @@ export function buildEquipEntries(inventory: InventoryState): EquipEntry[] {
       inst.enhanceHistory ?? inst.enhancementLevel,
       inst.instanceId,
       inst.enchantSlots,
+      inst.remainingAttempts,
     );
     entries.push({
       key: `inst:${inst.instanceId}`,

@@ -104,6 +104,7 @@ export function useEquipmentActions(deps: {
       inst.enhanceHistory ?? inst.enhancementLevel,
       inst.instanceId,
       inst.enchantSlots,
+      inst.remainingAttempts,
     );
     returnEquippedToInventory(
       characterStateHook.equippedSlots[equipItem.slot],

@@ -39,7 +39,6 @@ import { useTraining } from "@/adventure/training/useTraining";
 import { baseCharacter } from "@/adventure/character/defaults";
 import { useCharacterState } from "@/adventure/character/useCharacterState";
 import { useParagonState } from "@/adventure/character/useParagonState";
-import { computeParagonBonus } from "@/lib/paragon";
 import { useProfile } from "@/adventure/profile/useProfile";
 import { useTrialUnlocks } from "@/adventure/edges/useTrialUnlocks";
 import { composeCharacter } from "@/adventure/character/composeCharacter";
@@ -47,7 +46,6 @@ import { useTitleGrants } from "@/adventure/character/useTitleGrants";
 import { useLevelUpDetection } from "@/adventure/character/useLevelUpDetection";
 import { useRespawnSafetyNet } from "@/adventure/character/useRespawnSafetyNet";
 import { getTitle } from "@/adventure/data/titles";
-import { MONSTERS } from "@/adventure/data/monsters";
 import { onBattleEnd } from "@/adventure/battle/onBattleEnd";
 import { useBattleClaimAction } from "@/adventure/battle/useBattleClaimAction";
 import { useAutoHunt } from "@/adventure/hunting/useAutoHunt";
@@ -63,7 +61,6 @@ const AutoHuntResultModal = dynamic(
 import { useAutoHuntResultHandler } from "@/adventure/hunting/useAutoHuntResultHandler";
 import { useOneTimeNotices } from "@/adventure/notifications/useOneTimeNotices";
 import { useGuildBuffsCache } from "@/adventure/guild/useGuildBuffsCache";
-import { reportGuildQuestProgress } from "@/adventure/guild/api";
 import { useShopUnlocks } from "@/adventure/shop/useShopUnlocks";
 import { useShopActions } from "@/adventure/shop/useShopActions";
 import { useEquipmentActions } from "@/adventure/inventory/useEquipmentActions";
@@ -415,6 +412,7 @@ function Home() {
     paragon,
     adventureLog,
     storyFlags,
+    quests,
   });
   const handleBattleEnd = (payload: BattleEndPayload) =>
     void onBattleEnd(payload, {
@@ -424,7 +422,6 @@ function Home() {
         markTitleObtained: grantTitle,
         incrementBattleLosses: adventureLog.incrementBattleLosses,
       },
-      quests: { recordKill: quests.recordKill },
       characterState: {
         setHp: characterStateHook.setHp,
       },
@@ -433,17 +430,6 @@ function Home() {
       setHuntingActive,
       replaceLocation,
       setMapProgress,
-      reportGuildKill: (enemyName) => {
-        // 보스(phaseTrigger 보유) 는 kill_boss 로, 잡몹은 kill_monster 로 분기.
-        // 서버는 task.kind 와 정확히 매칭된 활성 의뢰만 진행하므로, 보스를 kill_monster
-        // 로 보내면 일일 보스 의뢰가 영원히 카운트되지 않는다.
-        const isBoss = MONSTERS[enemyName]?.phaseTrigger != null;
-        void reportGuildQuestProgress({
-          kind: isBoss ? "kill_boss" : "kill_monster",
-          name: enemyName,
-          count: 1,
-        }).catch(() => {});
-      },
     });
 
   const { autoHuntResult, dismiss: dismissAutoHuntResult } =

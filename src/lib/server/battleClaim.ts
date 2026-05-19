@@ -6,17 +6,23 @@ import "server-only";
 // damageTaken/potionsConsumedTotal) 만 보낸다. 서버가 monster 정의에서 base reward 를
 // 읽고 deterministic seed (encounterId+userId FNV-1a → mulberry32) 로 드랍 RNG 굴림.
 //
-// 적용 saves (Phase 1 + Phase 2): character.v2 / inventory.v2 / crafting.v2 /
-// paragon.v1 / adventure-log.v2 / storyFlags.v2.
+// 적용 saves (Phase 1+2+3):
+//   character.v2 / inventory.v2 / crafting.v2 / paragon.v1 /
+//   adventure-log.v2 / storyFlags.v2 / quest-progress.v2.
 //
 // Phase 2 추가: 칭호 grants(first_blood/close_call/potion_overload/monster.onDefeatTitleId)
 // + monster.onDefeatFlag + 누적 카운터(monsters[].kills · noDamageWins) + 마일스톤 5종
 // (mad_slash 100승 / deep_wound 50보스 / frenzy 1000회 / thunder 거인10 / light_glide 천공인첫).
 //
-// Phase 3 비-스코프 (클라 잔존):
-//  - quest progress (recordKill — kill_within_hp / no_potion_boss)
-//  - 패배 페널티 (respawn / 마을 강제 이동 / incrementBattleLosses)
-//  - 서버 dedup (encounterId 슬라이딩 윈도우)
+// Phase 3 추가:
+//   - encounterId 서버 dedup — character.v2.lastBattleEncounterId 와 같으면 applied:false +
+//     현재 saves 그대로 반환. 응답 손실 후 retry 시 보상 중복 차단.
+//   - quest progress 서버화 — 활성 kill / kill_within_hp / no_potion_boss 의뢰 진행을
+//     같은 트랜잭션 안에서 recordKillIntoProgress 로 적용. readyQuestIds 반환.
+//   - 길드 의뢰 kill 보고 — applyGuildQuestKills 헬퍼로 같은 tx (chunk A 와 동일 패턴).
+//
+// 클라 잔존: 패배 페널티(respawn / 마을 강제 이동 / incrementBattleLosses) — 보상이 없어
+// 보안 면이 없고 UX 측 흐름이 마을 이동·치료소 sub 라 클라가 더 단순.
 
 import { and, eq, inArray } from "drizzle-orm";
 import { guildMembers, guilds, savesKv } from "@/db/schema";
@@ -46,12 +52,26 @@ import {
 } from "@/adventure/data/guildBuffs";
 import type { EquippedRune } from "@/adventure/data/runes";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
+import {
+  QUESTS,
+  questTargetTotal,
+} from "@/adventure/data/quests";
+import {
+  defaultQuestEntry,
+  type QuestProgressEntry,
+  type QuestProgressMap,
+} from "@/adventure/quests/storage";
+import {
+  applyGuildQuestKills,
+  type GuildQuestKill,
+} from "@/lib/server/guildQuestKills";
 
 const CHARACTER_KEY = "character.v2";
 const INVENTORY_KEY = "inventory.v2";
 const CRAFTING_KEY = "crafting.v2";
 const PARAGON_KEY = "paragon.v1";
 const ADVENTURE_LOG_KEY = "adventure-log.v2";
+const QUEST_PROGRESS_KEY = "quest-progress.v2";
 
 const REWARD_SAVES_KEYS = [
   CHARACTER_KEY,
@@ -60,6 +80,7 @@ const REWARD_SAVES_KEYS = [
   PARAGON_KEY,
   ADVENTURE_LOG_KEY,
   STORY_FLAGS_STORAGE_KEY,
+  QUEST_PROGRESS_KEY,
 ] as const;
 
 export type BattleRewardSavesSnapshot = Partial<
@@ -95,7 +116,7 @@ export type ResolvedBattleDrop =
 export type BattleClaimOutcome = {
   enemyName: string;
   isBoss: boolean;
-  /** 신규 적용 (false 면 dedup 이후 도입할 idempotent retry). Phase 1 은 항상 true. */
+  /** false 면 같은 encounterId 로 이미 처리됨 — saves 현재 상태 그대로 반환 (idempotent retry). */
   applied: boolean;
   /** 멀티플라이어 반영 후 실제 적립 EXP — 클라 토스트 표시용. */
   expGained: number;
@@ -119,6 +140,8 @@ export type BattleClaimOutcome = {
   grantedTitleIds: string[];
   /** Phase 2 신규 — 마일스톤 스킬북 지급 토스트. 클라가 그대로 milestone 토스트로 띄움. */
   milestones: Array<{ bookId: string; message: string }>;
+  /** Phase 3 신규 — active → ready 로 전환된 의뢰 ID 들. 클라가 quest_ready 토스트. */
+  readyQuestIds: string[];
   saves: BattleRewardSavesSnapshot;
 };
 
@@ -185,6 +208,42 @@ function battleSeed(encounterId: string, userId: string): number {
 
 function recipeName(id: string): string {
   return RECIPES.find((r) => r.id === id)?.name ?? id;
+}
+
+// 활성 kill/kill_within_hp/no_potion_boss 의뢰 진행 +1. 클라 useQuests.recordKill 의 룰 mirror.
+// ctx 없는 호출(자동 사냥 등)에서 조건부 kind 가 진행되지 않도록 같은 가드 유지.
+function recordKillIntoProgress(
+  progress: QuestProgressMap,
+  monsterName: string,
+  ctx: { hpFraction: number; potionsUsed: number },
+): { next: QuestProgressMap; readyIds: string[]; changed: boolean } {
+  const next: QuestProgressMap = { ...progress };
+  const readyIds: string[] = [];
+  let changed = false;
+  for (const quest of QUESTS) {
+    const t = quest.target;
+    if (
+      t.kind !== "kill" &&
+      t.kind !== "kill_within_hp" &&
+      t.kind !== "no_potion_boss"
+    )
+      continue;
+    if (t.monsterName !== monsterName) continue;
+    if (t.kind === "kill_within_hp" && ctx.hpFraction < t.minHpFraction)
+      continue;
+    if (t.kind === "no_potion_boss" && ctx.potionsUsed > 0) continue;
+    const entry = next[quest.id] ?? defaultQuestEntry();
+    if (entry.state !== "active") continue;
+    const total = questTargetTotal(t);
+    if (entry.progress >= total) continue;
+    const newProgress = entry.progress + 1;
+    const newState: QuestProgressEntry["state"] =
+      newProgress >= total ? "ready" : "active";
+    next[quest.id] = { ...entry, progress: newProgress, state: newState };
+    if (newState === "ready") readyIds.push(quest.id);
+    changed = true;
+  }
+  return { next, readyIds, changed };
 }
 
 // 길드 활성 버프 — questReward 의 private helper 와 동일한 모양. 트랜잭션 안에서 호출.
@@ -422,6 +481,43 @@ export async function applyBattleClaim(
   const saves = await readSavesForUpdate(tx, userId);
   const charPrev =
     (saves[CHARACTER_KEY] as Record<string, unknown> | undefined) ?? {};
+
+  // ── Phase 3: encounterId dedup ─────────────────────────────────
+  // 같은 encounterId 두 번째 호출(응답 손실 후 retry 등)은 mutation 생략 + 현재 saves 그대로.
+  // 클라는 saves replaceFromSaved 로 그대로 적용 → 결국 latest 로 자가 수렴.
+  if (
+    typeof charPrev.lastBattleEncounterId === "string" &&
+    charPrev.lastBattleEncounterId === input.encounterId
+  ) {
+    return {
+      enemyName: input.enemyName,
+      isBoss: input.isBoss,
+      applied: false,
+      expGained: 0,
+      expBonusApplied: false,
+      expMultParts: { guild: 1, rune: 1, paragon: 1 },
+      goldGained: 0,
+      hpAfterRegen:
+        typeof charPrev.hp === "number"
+          ? charPrev.hp
+          : Math.max(0, Math.min(input.finalPlayerHp, input.playerMaxHp)),
+      hpRegenHealed: 0,
+      drops: [],
+      grantedTitleIds: [],
+      milestones: [],
+      readyQuestIds: [],
+      saves: {
+        [CHARACTER_KEY]: saves[CHARACTER_KEY],
+        [INVENTORY_KEY]: saves[INVENTORY_KEY],
+        [CRAFTING_KEY]: saves[CRAFTING_KEY],
+        [PARAGON_KEY]: saves[PARAGON_KEY],
+        [ADVENTURE_LOG_KEY]: saves[ADVENTURE_LOG_KEY],
+        [STORY_FLAGS_STORAGE_KEY]: saves[STORY_FLAGS_STORAGE_KEY],
+        [QUEST_PROGRESS_KEY]: saves[QUEST_PROGRESS_KEY],
+      },
+    };
+  }
+
   const invPrev =
     (saves[INVENTORY_KEY] as Record<string, unknown> | undefined) ?? {};
   const craftingPrev =
@@ -433,6 +529,8 @@ export async function applyBattleClaim(
   const flagsPrev =
     (saves[STORY_FLAGS_STORAGE_KEY] as Record<string, unknown> | undefined) ??
     {};
+  const progressPrev =
+    (saves[QUEST_PROGRESS_KEY] as QuestProgressMap | undefined) ?? {};
 
   const playerLevel =
     typeof charPrev.level === "number" ? charPrev.level : 1;
@@ -474,7 +572,7 @@ export async function applyBattleClaim(
   });
 
   // character.v2 mutation — EXP + level transition + paragon overflow + gold (drop) + hp regen.
-  let charNext: Record<string, unknown> = { ...charPrev };
+  const charNext: Record<string, unknown> = { ...charPrev };
   let paragonNext: Record<string, unknown> = { ...paragonPrev };
   let charChanged = false;
   let paragonChanged = false;
@@ -670,6 +768,23 @@ export async function applyBattleClaim(
   const flagsChanged = flagsArr.length !== (Array.isArray(flagsPrev.flags) ? (flagsPrev.flags as string[]).length : 0);
   const flagsNext = flagsChanged ? { ...flagsPrev, flags: flagsArr } : flagsPrev;
 
+  // ── Phase 3: quest progress ───────────────────────────────────────
+  // hpFraction / potionsUsed 컨텍스트 — kill_within_hp / no_potion_boss 의뢰 판정.
+  // playerMaxHp 가 0/음수면 비율 0 (실용상 발생 X — input 검증에서 maxHp>0 이지만 방어).
+  const hpFraction =
+    input.playerMaxHp > 0 ? finalHp / input.playerMaxHp : 0;
+  const questResult = recordKillIntoProgress(progressPrev, input.enemyName, {
+    hpFraction,
+    potionsUsed: input.potionsConsumedTotal,
+  });
+  const progressNext = questResult.next;
+  const readyQuestIds = questResult.readyIds;
+
+  // Phase 3: encounterId dedup 토큰 박기 — 어차피 char 는 항상 한 줄 이상 mutate 되지만
+  // 모든 경로(드랍 0/EXP 0)에서도 토큰이 박히도록 명시.
+  charNext.lastBattleEncounterId = input.encounterId;
+  charChanged = true;
+
   // ─── 저장 ───
   if (charChanged) await upsertSave(tx, userId, CHARACTER_KEY, charNext);
   if (invNext !== invPrev) {
@@ -685,6 +800,18 @@ export async function applyBattleClaim(
   if (flagsChanged) {
     await upsertSave(tx, userId, STORY_FLAGS_STORAGE_KEY, flagsNext);
   }
+  if (questResult.changed) {
+    await upsertSave(tx, userId, QUEST_PROGRESS_KEY, progressNext);
+  }
+
+  // ── Phase 3: 길드 의뢰 kill 보고 — 같은 tx 안. chunk A 의 헬퍼 재활용.
+  // monster.phaseTrigger 유무로 kill_boss / kill_monster 자동 분류 (page.tsx 의 옛 분기 동일).
+  const guildKill: GuildQuestKill = {
+    kind: monster.phaseTrigger != null ? "kill_boss" : "kill_monster",
+    name: input.enemyName,
+    count: 1,
+  };
+  await applyGuildQuestKills(tx, userId, [guildKill]);
 
   return {
     enemyName: input.enemyName,
@@ -703,13 +830,15 @@ export async function applyBattleClaim(
     drops: dropResult.drops,
     grantedTitleIds,
     milestones,
+    readyQuestIds,
     saves: {
-      [CHARACTER_KEY]: charChanged ? charNext : charPrev,
+      [CHARACTER_KEY]: charNext,
       [INVENTORY_KEY]: invNext,
       [CRAFTING_KEY]: dropResult.craftingNext,
       [PARAGON_KEY]: paragonChanged ? paragonNext : paragonPrev,
       [ADVENTURE_LOG_KEY]: logChanged ? logNext : logPrev,
       [STORY_FLAGS_STORAGE_KEY]: flagsChanged ? flagsNext : flagsPrev,
+      [QUEST_PROGRESS_KEY]: questResult.changed ? progressNext : progressPrev,
     },
   };
 }

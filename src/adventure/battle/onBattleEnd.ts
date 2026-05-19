@@ -1,6 +1,5 @@
 import type { BattleEndPayload } from "@/adventure/BattleView";
 import type { PotionId } from "@/adventure/data/potions";
-import { MONSTERS } from "@/adventure/data/monsters";
 import {
   dropQualityPrefix,
   dropQualityTextClass,
@@ -17,12 +16,12 @@ import type {
 import type { TabKey } from "@/lib/useNavTabs";
 import type { BattleClaimOutcome } from "@/lib/server/battleClaim";
 
-// 보상 / 칭호 / 마일스톤 / 누적 카운터 는 EPIC #3-3 Phase 1+2 이후 서버 권위.
-// 클라는 claimVictory 응답을 받아 saves replaceFromSaved + loot/milestone/EXP 토스트
-// + grantTitle chain (잔영 컬렉션 등) 처리. 비-보상 클라 잔존:
-//   - potion_overload 칭호 (승패 무관 — Phase 2 win path 에만 서버화, 패배는 클라).
-//   - quest progress (recordKill — kill_within_hp/no_potion_boss 의뢰 판정). Phase 3.
-//   - 패배 페널티 (respawn / 마을 강제 이동 / incrementBattleLosses). Phase 3.
+// 보상 / 칭호 / 마일스톤 / 누적 카운터 / 의뢰 진행 / 길드 의뢰 kill 보고 는 EPIC #3-3
+// Phase 1+2+3 이후 모두 서버 권위. 클라는 claimVictory 응답을 받아 saves replaceFromSaved +
+// loot/milestone/EXP/quest_ready 토스트 + grantTitle chain (잔영 컬렉션 등) 처리.
+// 비-보상 클라 잔존:
+//   - potion_overload 칭호 (패배 시) — 패배 path 자체가 클라 권위.
+//   - 패배 페널티 (respawn / 마을 강제 이동 / incrementBattleLosses). 보상이 없어 보안 면 없음.
 export type BattleEndDeps = {
   /** 서버 victory claim — encounterId 와 stat 만 보내고 saves + drops + 칭호/마일스톤 받음. */
   claimVictory: (input: {
@@ -42,12 +41,6 @@ export type BattleEndDeps = {
     markTitleObtained: (titleId: string) => void;
     incrementBattleLosses: () => void;
   };
-  quests: {
-    recordKill: (
-      name: string,
-      ctx?: { hpFraction?: number; potionsUsed?: number },
-    ) => string[];
-  };
   characterState: {
     setHp: (n: number) => void;
   };
@@ -60,8 +53,6 @@ export type BattleEndDeps = {
   setHuntingActive: (next: boolean) => void;
   replaceLocation: (tab: TabKey, subView: string | null) => void;
   setMapProgress: (updater: (prev: MapProgress) => MapProgress) => void;
-  /** 길드 의뢰 진행도 보고 — 길드 미가입/미매칭이면 서버가 silent ignore. */
-  reportGuildKill?: (enemyName: string) => void;
 };
 
 // crypto.randomUUID fallback. encounterId 는 서버 idempotency 가드(Phase 3 추가 예정)
@@ -89,16 +80,8 @@ export async function onBattleEnd(
   }
 
   if (payload.outcome === "win") {
-    // kill_within_hp / no_potion_boss 의뢰 판정 — Phase 3 까지 클라 잔존.
-    const hpFraction =
-      payload.playerMaxHp > 0 ? payload.finalPlayerHp / payload.playerMaxHp : 0;
-    const readyQuestIds = deps.quests.recordKill(payload.enemyName, {
-      hpFraction,
-      potionsUsed: potionTotal,
-    });
-    deps.reportGuildKill?.(payload.enemyName);
-
-    // 보상 + 칭호 + 마일스톤 + 카운터 — 모두 서버. fetch 실패 시 stuck 회피 fallback.
+    // 보상 + 칭호 + 마일스톤 + 카운터 + 의뢰 진행 + 길드 의뢰 kill — 모두 서버.
+    // fetch 실패 시 stuck 회피 fallback.
     const outcome = await deps.claimVictory({
       encounterId: newEncounterId(),
       enemyName: payload.enemyName,
@@ -194,7 +177,7 @@ export async function onBattleEnd(
       `${payload.enemyName}을(를) 쓰러뜨렸다 — ${reward}`,
       { battleLog: payload.log },
     );
-    for (const id of readyQuestIds) {
+    for (const id of outcome.readyQuestIds) {
       const quest = getQuestById(id);
       if (quest) {
         deps.addNotification(

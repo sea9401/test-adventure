@@ -11,6 +11,7 @@ import type { useCrafting } from "@/adventure/crafting/useCrafting";
 import type { useParagonState } from "@/adventure/character/useParagonState";
 import type { useAdventureLog } from "@/adventure/log/useAdventureLog";
 import type { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
+import type { useQuests } from "@/adventure/quests/useQuests";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 import { readDeviceSessionId } from "@/lib/storage/deviceSession";
 import { useRemoteSave } from "@/lib/storage/SaveProvider";
@@ -23,6 +24,7 @@ type Deps = {
   paragon: ReturnType<typeof useParagonState>;
   adventureLog: ReturnType<typeof useAdventureLog>;
   storyFlags: ReturnType<typeof useStoryFlags>;
+  quests: ReturnType<typeof useQuests>;
 };
 
 type ClaimInput = {
@@ -43,6 +45,7 @@ export function useBattleClaimAction(deps: Deps) {
     paragon,
     adventureLog,
     storyFlags,
+    quests,
   } = deps;
   const remote = useRemoteSave();
 
@@ -89,6 +92,9 @@ export function useBattleClaimAction(deps: Deps) {
       if (outcome.saves[STORY_FLAGS_STORAGE_KEY] !== undefined) {
         storyFlags.replaceFromSaved(outcome.saves[STORY_FLAGS_STORAGE_KEY]);
       }
+      if (outcome.saves["quest-progress.v2"] !== undefined) {
+        quests.replaceFromSaved(outcome.saves["quest-progress.v2"]);
+      }
       return outcome;
     },
     [
@@ -99,6 +105,7 @@ export function useBattleClaimAction(deps: Deps) {
       paragon,
       adventureLog,
       storyFlags,
+      quests,
     ],
   );
 

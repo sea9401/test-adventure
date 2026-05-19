@@ -38,6 +38,11 @@ import type { EquippedItem } from "@/adventure/character/types";
 import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 import { WORLD_MAP, START_REGION_ID, type RegionId } from "@/adventure/data/world";
 import { potionMax, type PotionId } from "@/adventure/data/potions";
+import { MONSTERS } from "@/adventure/data/monsters";
+import {
+  applyGuildQuestKills,
+  type GuildQuestKill,
+} from "@/lib/server/guildQuestKills";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 // type-only — useAutoPotionConfig 자체는 "use client" 지만 type 임포트는 erase 됨.
 import type { AutoPotionConfig } from "@/adventure/inventory/useAutoPotionConfig";
@@ -466,6 +471,22 @@ export async function applyResultToSaves(
   if (newParagon) {
     await upsertSave(tx, userId, "paragon.v1", newParagon);
   }
+
+  // 3-d) 길드 의뢰 kill 진행 — sim 의 killsByName 을 monster.phaseTrigger 유무로
+  // kill_monster / kill_boss 로 분류해 한 번에 보고. 같은 트랜잭션이라 길드 fame /
+  // 멤버 인박스 보상까지 atomic. (EPIC #3-3 chunk A — 라이브 onBattleEnd 의
+  // reportGuildKill 패턴을 서버 권위 경로에서도 마찬가지로.)
+  const kills: GuildQuestKill[] = [];
+  for (const [name, count] of Object.entries(result.killsByName)) {
+    if (count <= 0) continue;
+    const isBoss = MONSTERS[name]?.phaseTrigger != null;
+    kills.push({
+      kind: isBoss ? "kill_boss" : "kill_monster",
+      name,
+      count,
+    });
+  }
+  await applyGuildQuestKills(tx, userId, kills);
 
   // 4) 사망 시 map.v2 의 currentRegionId 도 respawn 으로 갱신.
   let newRespawnRegionId: RegionId | null = null;

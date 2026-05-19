@@ -5,6 +5,12 @@ import type {
   GuildBuffId,
   GuildBuffSlot,
 } from "@/adventure/data/guildBuffs";
+import type {
+  DonateBody,
+  LodgeResponse,
+  SloganBody,
+  UpgradeResponse,
+} from "@/adventure/data/guildLodge";
 
 export type GuildMember = {
   userId: string;
@@ -104,6 +110,12 @@ const ERROR_MESSAGES: Record<string, string> = {
   not_requester: "본인의 가입 신청이 아닙니다.",
   applicant_in_guild: "신청자가 이미 다른 길드에 소속됐습니다.",
   applicant_cooldown: "신청자가 탈퇴/추방 쿨다운 중입니다.",
+  invalid_kind: "잘못된 봉납 종류입니다.",
+  invalid_amount: "잘못된 봉납 수량입니다.",
+  insufficient_stardust: "별빛 조각이 부족합니다.",
+  max_rank: "회관이 이미 최고 등급입니다.",
+  not_ready: "아직 승급 임계에 도달하지 않았습니다.",
+  slogan_too_long: "슬로건이 너무 깁니다.",
 };
 
 export class GuildError extends Error {
@@ -447,5 +459,47 @@ export async function uninstallGuildBuff(
   });
   if (!r.ok) throw await parseError(r);
   return (await r.json()) as BuffMutationResponse;
+}
+
+// ───── 회관 (Lodge) ─────
+
+export async function fetchLodge(guildId: number): Promise<LodgeResponse> {
+  const r = await fetch(`/api/guilds/${guildId}/lodge`);
+  if (!r.ok) throw await parseError(r);
+  return (await r.json()) as LodgeResponse;
+}
+
+export async function donateToLodge(
+  guildId: number,
+  body: DonateBody,
+): Promise<LodgeResponse> {
+  const r = await fetch(`/api/guilds/${guildId}/lodge/donate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw await parseError(r);
+  return (await r.json()) as LodgeResponse;
+}
+
+export async function upgradeLodge(guildId: number): Promise<UpgradeResponse> {
+  const r = await fetch(`/api/guilds/${guildId}/lodge/upgrade`, {
+    method: "POST",
+  });
+  if (!r.ok) throw await parseError(r);
+  return (await r.json()) as UpgradeResponse;
+}
+
+export async function setLodgeSlogan(
+  guildId: number,
+  body: SloganBody,
+): Promise<{ slogan: string | null }> {
+  const r = await fetch(`/api/guilds/${guildId}/lodge/slogan`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw await parseError(r);
+  return (await r.json()) as { slogan: string | null };
 }
 

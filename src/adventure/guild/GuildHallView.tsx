@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Gear, Scroll, Sparkle, UsersThree } from "@phosphor-icons/react";
+import { Gear, House, Scroll, Sparkle, UsersThree } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useGame } from "@/adventure/GameContext";
@@ -32,10 +32,11 @@ import { GuildNoGuildPanel } from "./GuildNoGuildPanel";
 import { GuildBrowsePanel } from "./GuildBrowsePanel";
 import { GuildMembersPanel } from "./GuildMembersPanel";
 import { GuildManagePanel } from "./GuildManagePanel";
+import { GuildLodgePanel } from "./GuildLodgePanel";
 
 const NO_AFFILIATION = "무소속";
 
-type Tab = "members" | "quests" | "buffs" | "manage";
+type Tab = "lodge" | "members" | "quests" | "buffs" | "manage";
 
 export function GuildHallView() {
   const { character, characterStateHook, addNotification, grantTitle, refreshGuildBuffs } = useGame();
@@ -47,7 +48,7 @@ export function GuildHallView() {
   const [busy, setBusy] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
-  const [tab, setTab] = useState<Tab>("members");
+  const [tab, setTab] = useState<Tab>("lodge");
 
   const pushToast = (msg: string) => addNotification("info", msg);
 
@@ -276,6 +277,12 @@ export function GuildHallView() {
 
           <div className="flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900/60">
             <GuildTabButton
+              icon={<House size={14} weight="bold" />}
+              label="회관"
+              active={tab === "lodge"}
+              onClick={() => setTab("lodge")}
+            />
+            <GuildTabButton
               icon={<UsersThree size={14} weight="bold" />}
               label={`길드원 목록 ${data.guild.members.length}/${GUILD_MAX_MEMBERS}`}
               active={tab === "members"}
@@ -303,7 +310,12 @@ export function GuildHallView() {
             ) : null}
           </div>
 
-          {tab === "manage" && data.guild.isMaster ? (
+          {tab === "lodge" ? (
+            <GuildLodgePanel
+              guildId={data.guild.id}
+              isMaster={data.guild.isMaster}
+            />
+          ) : tab === "manage" && data.guild.isMaster ? (
             <GuildManagePanel
               guild={data.guild}
               busy={busy}

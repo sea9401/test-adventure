@@ -324,6 +324,34 @@ export type PlayerCombat = {
   eternalGaleNoCap?: boolean;
   // 만물 행운 — 회피·크리·추가타 모든 확률에 더할 보너스(%). 0/undefined = 미보유.
   universalLuckBonusPct?: number;
+  // ── 별빛 마법부여 — 발동형 affix (정적 might/swift/insight 는 EquippedItem.bonus 에 합쳐짐) ──
+  // 가드(가드) — 피격 시 % 확률로 피해 완전 무효. 룬/회피 굴림 전에 1회 굴림. 0/undefined = 미보유.
+  enchantGuardBlockPct?: number;
+  // 인내(endure) — 받는 피해 -%. 가드/철벽 전에 곱연산 (결의 AP 와 비슷한 위치). 0/undefined = 미보유.
+  enchantEndurePct?: number;
+  // 반사(reflect) — 받은 HP 피해의 %를 적에게 반사. thorns/bramble 과 합산되는 별개 라벨. 0/undefined = 미보유.
+  enchantReflectPct?: number;
+  // 재생(regen) — 매 플레이어 턴 시작 시 maxHp의 %만큼 회복. baselineRegen 과 별개. 0/undefined = 미보유.
+  enchantRegenPctPerTurn?: number;
+  // 보호막(barrier) — 전투 시작 시 maxHp의 % 를 playerShield 로 추가. bulwarkShield 와 별개 누적. 0/undefined = 미보유.
+  enchantBarrierPctMaxHp?: number;
+  // 각성(awaken) — 매 플레이어 턴 시작 시 % 확률로 AP +1. AP_CAP 클램프. 0/undefined = 미보유.
+  enchantAwakenApChancePct?: number;
+  // 관통(pierce) — flat. 플레이어가 굴리는 모든 공격에서 적 facing DEF 에서 직접 차감. 0/undefined = 미보유.
+  enchantPierceFlat?: number;
+  // 폭주(berserk) — 자신 HP 30% 이하일 때 ATK 곱연산 +%. atk 최종값에 멀티 적용. 0/undefined = 미보유.
+  enchantBerserkBonusPct?: number;
+  // 파괴(breaker) — 보스 적에게 가하는 모든 피해에 곱연산 +%. isBoss 일 때만. 0/undefined = 미보유.
+  enchantBreakerBossBonusPct?: number;
+  // 흡혈(lifesteal) — 가한 피해의 % 만큼 HP 회복. runeLifestealPct 와 합산되는 별개 라벨. 0/undefined = 미보유.
+  enchantLifestealPct?: number;
+  // 독공(venom) — 본타 공격 시 % 확률로 적에게 출혈 스택 1 부여 (bleed). 발동 확률 별개. 0/undefined = 미보유.
+  enchantVenomChancePct?: number;
+  // 독공 dot 누적 — 출혈 스택당 추가되는 고정 피해(DEF 무시). 기존 bleedDmgPerStack 와 합산. 0/undefined = 미보유.
+  enchantVenomDmgPerStack?: number;
+  // 처형(execute) — 적 HP 25% 이하일 때 추가 피해(%). executionDamageMult 가 0 이면 25%/1+pct 로 자동 시드,
+  // 기존 처형 스킬과 같이 보유 시 곱연산으로 더해진다. 0/undefined = 미보유.
+  enchantExecuteBonusPct?: number;
   // AP 스킬 — 학습 + 슬롯 장착 된 것만. 슬롯 순서 보존. 빈 배열/undefined = 미장착.
   // 매 플레이어 턴 첫 공격 시 슬롯 순서로 condition 만족 + cost<=AP 인 첫 1개 발동.
   // 한 턴 최대 1개. condition 미지정 슬롯은 always 로 해석.
@@ -476,11 +504,15 @@ function playerFacingEnemyDef(
   const frac = player.armorPierceFraction ?? 0;
   const afterPierce =
     frac > 0 ? Math.round(afterVuln * (1 - frac)) : afterVuln;
+  // 별빛 관통(enchant pierce) — flat. 약점 노출 곱연산 직전에 직접 차감. 0 클램프.
+  const enchantPierce = player.enchantPierceFlat ?? 0;
+  const afterEnchantPierce =
+    enchantPierce > 0 ? Math.max(0, afterPierce - enchantPierce) : afterPierce;
   // 약점 노출 (AP) — 적 DEF -pct%. 곱연산으로 마지막에 반영.
   if (buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0) {
-    return Math.round(afterPierce * (1 - buffs.enemyDefDebuffPct / 100));
+    return Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100));
   }
-  return afterPierce;
+  return afterEnchantPierce;
 }
 
 // 다음 플레이어 턴의 공격 횟수 — 기본 attackCount + extraAttackChancePct.
@@ -621,6 +653,53 @@ function applyBaselineRegenIfAny(
     log: appendLog(state.log, {
       kind: "info",
       text: `[자연회복] ${playerName}의 HP +${actual}`,
+    }),
+  };
+}
+
+// 별빛 재생(regen) — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
+// interval 없이 매 턴 발동. 이미 풀 HP 면 노옵. 회복량은 정수 floor.
+function applyEnchantRegenIfAny(
+  state: BattleState,
+  player: PlayerCombat,
+  playerName: string,
+): BattleState {
+  const pct = player.enchantRegenPctPerTurn ?? 0;
+  if (pct <= 0) return state;
+  if (state.turn.completedPlayerTurns === 0) return state;
+  if (state.playerHp >= state.playerMaxHp) return state;
+  const heal = Math.floor((state.playerMaxHp * pct) / 100);
+  if (heal <= 0) return state;
+  const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
+  const actual = newHp - state.playerHp;
+  return {
+    ...state,
+    playerHp: newHp,
+    log: appendLog(state.log, {
+      kind: "info",
+      text: `[재생] ${playerName}의 HP +${actual}`,
+    }),
+  };
+}
+
+// 별빛 각성(awaken) — 매 플레이어 턴 종료 시 % 확률로 AP +1. AP_CAP 클램프.
+// equippedAPSkills 미장착이면 AP 시스템 자체가 비활성이라 발동 무의미.
+function applyEnchantAwakenIfAny(
+  state: BattleState,
+  player: PlayerCombat,
+): BattleState {
+  const pct = player.enchantAwakenApChancePct ?? 0;
+  if (pct <= 0) return state;
+  if (state.turn.completedPlayerTurns === 0) return state;
+  if ((player.equippedAPSkills?.length ?? 0) === 0) return state;
+  if (state.ap >= AP_CAP) return state;
+  if (Math.random() * 100 >= pct) return state;
+  return {
+    ...state,
+    ap: Math.min(AP_CAP, state.ap + 1),
+    log: appendLog(state.log, {
+      kind: "info",
+      text: `[각성] AP +1 (현 ${Math.min(AP_CAP, state.ap + 1)})`,
     }),
   };
 }
@@ -804,7 +883,9 @@ function finishPlayerTurn(
     };
   }
   st = applyBaselineRegenIfAny(st, player, playerName);
-  return applyRegenIfAny(st, player, playerName);
+  st = applyRegenIfAny(st, player, playerName);
+  st = applyEnchantRegenIfAny(st, player, playerName);
+  return applyEnchantAwakenIfAny(st, player);
 }
 
 // 선공 — SPD가 높은 쪽이 먼저 공격. 동점이면 플레이어 우선.
@@ -838,9 +919,17 @@ export function initialBattleState(
       text: `${enemy.name} — 능력 [${enemy.skill.name}]`,
     });
   }
-  const startShield = player.bulwarkShield ?? 0;
-  if (startShield > 0) {
-    log.push({ kind: "info", text: `[철벽] 보호막 ${startShield} 전개` });
+  const bulwarkStart = player.bulwarkShield ?? 0;
+  // 별빛 보호막(barrier) — maxHp 의 %. 정수 floor. 철벽과 별개 라벨로 보여주되 같은 스택에 누적.
+  const barrierPct = player.enchantBarrierPctMaxHp ?? 0;
+  const barrierStart =
+    barrierPct > 0 ? Math.floor((player.maxHp * barrierPct) / 100) : 0;
+  const startShield = bulwarkStart + barrierStart;
+  if (bulwarkStart > 0) {
+    log.push({ kind: "info", text: `[철벽] 보호막 ${bulwarkStart} 전개` });
+  }
+  if (barrierStart > 0) {
+    log.push({ kind: "info", text: `[보호막] 별빛이 ${barrierStart} 둘렀다` });
   }
   return {
     enemy,
@@ -1181,6 +1270,14 @@ export function advanceTurn(
             player.atk * lostHpFraction * player.berserkAtkPctPerLostHpPct!,
           )
         : 0;
+    // 별빛 폭주(enchant berserk) — 자신 HP 30% 이하일 때 atk +pct%. 단계형 (광전사 특기와
+    // 별개 누적).
+    const enchantBerserkPct = player.enchantBerserkBonusPct ?? 0;
+    const enchantBerserkActive =
+      enchantBerserkPct > 0 && state.playerHp / state.playerMaxHp <= 0.3;
+    const enchantBerserkBonus = enchantBerserkActive
+      ? Math.floor((player.atk * enchantBerserkPct) / 100)
+      : 0;
     // 질풍검 (특기) — 턴 첫 공격에 (그 턴 공격 횟수 × N) ATK 보너스.
     const gustBonus =
       (player.gustAtkPerAttack ?? 0) > 0 && isFirstAttackOfTurn
@@ -1247,6 +1344,7 @@ export function advanceTurn(
       state.buffs.rampageAtkBonus +
       bonus +
       berserkBonus +
+      enchantBerserkBonus +
       gustBonus +
       enduringStrikeBonus +
       madnessAtkBonus;
@@ -1271,12 +1369,19 @@ export function advanceTurn(
     const dmgAfterExecution = executionActive
       ? Math.max(1, Math.floor(baseDmg * exMult))
       : baseDmg;
+    // 별빛 처형(enchant execute) — 적 HP 25% 이하일 때 추가 피해(%). 기존 처형 위에 곱연산.
+    const enchantExePct = player.enchantExecuteBonusPct ?? 0;
+    const enchantExeActive =
+      enchantExePct > 0 && state.enemyHp / enemyMaxHp <= 0.25;
+    const dmgAfterEnchantExe = enchantExeActive
+      ? Math.max(1, Math.floor(dmgAfterExecution * (1 + enchantExePct / 100)))
+      : dmgAfterExecution;
     // 집중의 호흡 (AP) — 그 1발 한정 critMult 에 +pct% 추가 (가산 후 한 번에 곱).
     const critMult =
       (player.critMult ?? CRIT_MULT_BASE) + focusedBreathCritDmgBonus;
     const dmgAfterCrit = critRoll
-      ? Math.floor(dmgAfterExecution * critMult)
-      : dmgAfterExecution;
+      ? Math.floor(dmgAfterEnchantExe * critMult)
+      : dmgAfterEnchantExe;
     // 행운의 별 (5티어) — 크리티컬과 별개, 발동 시 데미지 ×LUCKY_STAR_DAMAGE_MULT.
     const luckyStarPct = player.luckyStarChancePct ?? 0;
     const luckyStarFires =
@@ -1295,8 +1400,14 @@ export function advanceTurn(
       state.enemy.skill?.kind === "brace"
         ? state.enemy.skill.damageReduction
         : 0;
-    const dmg =
+    const dmgAfterBrace =
       braceReduction > 0 ? Math.max(1, dmgBeforeBrace - braceReduction) : dmgBeforeBrace;
+    // 별빛 파괴(enchant breaker) — 보스 적에게 가하는 피해 +pct%. 모든 배수 끝나고 마지막 곱연산.
+    const breakerPct = player.enchantBreakerBossBonusPct ?? 0;
+    const breakerActive = breakerPct > 0 && state.isBoss === true;
+    const dmg = breakerActive
+      ? Math.max(1, Math.floor(dmgAfterBrace * (1 + breakerPct / 100)))
+      : dmgAfterBrace;
     // 천명 (4티어) — 일정 확률로 적 현재 HP 의 일부를 추가 고정 피해 (이 공격의 보통 피해와 별개로 합산).
     // 보스 전투에는 BOSS_PCT_HP_DAMAGE_MULT 배 적용 (%HP 누진 폭딜 방지).
     const decreeFires =
@@ -1325,6 +1436,9 @@ export function advanceTurn(
     if (bonus > 0) labels.push("강공격");
     if (bonus > 0 && crushReduction > 0) labels.push("분쇄");
     if (executionActive) labels.push("처형");
+    if (enchantExeActive) labels.push("별빛 처형");
+    if (enchantBerserkActive) labels.push("폭주");
+    if (breakerActive) labels.push("파괴");
     if (critRoll) labels.push("크리티컬");
     if (luckyStarFires) labels.push("행운의 별");
     if (assassinFires) labels.push("암살");
@@ -1372,8 +1486,17 @@ export function advanceTurn(
       nextBuffsTimed.playerLifestealTurnsLeft > 0 && nextBuffsTimed.playerLifestealPct > 0
         ? Math.floor((dmg * nextBuffsTimed.playerLifestealPct) / 100)
         : 0;
+    // 별빛 흡혈(enchant lifesteal) — 가한 피해의 pct% HP 회복. 다른 흡혈류와 별개 가산.
+    const enchantLifestealHeal =
+      (player.enchantLifestealPct ?? 0) > 0
+        ? Math.floor((dmg * player.enchantLifestealPct!) / 100)
+        : 0;
     const totalLifestealHeal =
-      lifestealHeal + luckyLifestealHeal + runeLifestealHeal + apLifestealHeal;
+      lifestealHeal +
+      luckyLifestealHeal +
+      runeLifestealHeal +
+      apLifestealHeal +
+      enchantLifestealHeal;
     const newPlayerHp =
       totalLifestealHeal > 0
         ? Math.min(state.playerMaxHp, state.playerHp + totalLifestealHeal)
@@ -1385,6 +1508,7 @@ export function advanceTurn(
       if (luckyLifestealHeal > 0) lifestealLabels.push("행운의 흡혈");
       if (runeLifestealHeal > 0) lifestealLabels.push("흡혈의 룬");
       if (apLifestealHeal > 0) lifestealLabels.push("흡령");
+      if (enchantLifestealHeal > 0) lifestealLabels.push("별빛 흡혈");
       log = appendLog(log, {
         kind: "info",
         text: `[${lifestealLabels.join(" + ")}] ${playerName}의 HP +${actualLifesteal}`,
@@ -1392,10 +1516,21 @@ export function advanceTurn(
     }
     const enemyHp = Math.max(0, state.enemyHp - totalDmg);
     // 출혈 (4티어) — 적중하면 출혈 1스택 누적 (다음 적 턴부터 도트).
+    // 별빛 독공(enchant venom) — % 확률로 출혈 1스택 추가. 같은 출혈 스택을 공유 — bleedDmgPerStack
+    // 과 enchantVenomDmgPerStack 둘 다 합산해서 turnstart 에서 적용.
+    const venomFires =
+      (player.enchantVenomChancePct ?? 0) > 0 &&
+      Math.random() * 100 < player.enchantVenomChancePct!;
+    const bleedAddSkill = (player.bleedDmgPerStack ?? 0) > 0 ? 1 : 0;
+    const bleedAddVenom = venomFires ? 1 : 0;
     const bleedStacks =
-      (player.bleedDmgPerStack ?? 0) > 0
-        ? state.stacks.bleedStacks + 1
-        : state.stacks.bleedStacks;
+      state.stacks.bleedStacks + bleedAddSkill + bleedAddVenom;
+    if (venomFires) {
+      log = appendLog(log, {
+        kind: "info",
+        text: `[독공] ${state.enemy.name}에게 출혈 +1스택`,
+      });
+    }
     // 약점 적중 (2티어 특기) — 크리 발동 시 그 턴 1회, DEF 무시 큐 + 추가타 1회.
     const weakpointFires =
       critRoll &&
@@ -1762,8 +1897,11 @@ export function advanceTurn(
   }
 
   // ── 출혈 (4티어) — 적 턴 시작 시 출혈 스택당 고정 피해 (DEF 무시) ──────────
-  if (state.stacks.bleedStacks > 0 && (player.bleedDmgPerStack ?? 0) > 0) {
-    const bleedDmg = state.stacks.bleedStacks * player.bleedDmgPerStack!;
+  // 별빛 독공(venom) 도 같은 스택을 공유 — enchantVenomDmgPerStack 가 bleed dmg 에 가산.
+  const bleedPerStack =
+    (player.bleedDmgPerStack ?? 0) + (player.enchantVenomDmgPerStack ?? 0);
+  if (state.stacks.bleedStacks > 0 && bleedPerStack > 0) {
+    const bleedDmg = state.stacks.bleedStacks * bleedPerStack;
     const afterBleedHp = Math.max(0, state.enemyHp - bleedDmg);
     const bled = applyPhaseTriggerIfAny({
       ...state,
@@ -2032,6 +2170,23 @@ export function advanceTurn(
     if (counter.ended) return counter.state;
     return finishEnemyAttack(counter.state);
   }
+  // 별빛 가드(enchant guard) — 회피/럭키 방패 전에 굴리는 % 블록. 슬롯당 5~20% 누적.
+  // 회피와 별개 라벨 — 회피는 비켜서고, 가드는 받아낸 다음 흩어 낸다.
+  const enchantGuardPct = player.enchantGuardBlockPct ?? 0;
+  if (enchantGuardPct > 0 && Math.random() * 100 < enchantGuardPct) {
+    const log = appendLog(state.log, {
+      kind: "info",
+      text: `[가드] ${playerName}이(가) ${state.enemy.name}의 공격을 흩어 냈다!`,
+    });
+    return finishEnemyAttack({
+      ...state,
+      turn: {
+        ...state.turn,
+        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+      },
+      log,
+    });
+  }
   // 행운의 방패 (특기) — 위 회피가 모두 실패해도 일정 확률로 피해 무효 (행운 회피).
   const luckyBlockPct = player.luckyShieldBlockPct ?? 0;
   if (luckyBlockPct > 0 && Math.random() * 100 < luckyBlockPct) {
@@ -2138,17 +2293,25 @@ export function advanceTurn(
           ),
         )
       : rawDmgBeforeReduction;
+  // 별빛 인내(enchant endure) — 받는 피해 -pct%. 결의 다음, 가드/굳건/철벽 전에 곱연산.
+  // 항상 활성(시한부 X). 최소 1 클램프.
+  const endurePct = player.enchantEndurePct ?? 0;
+  const enduredDmg =
+    endurePct > 0
+      ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
+      : rawDmg;
+  const enduredApplied = enduredDmg < rawDmg;
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
   const guard = player.guard;
   const guarded =
     guard && guard.turns > 0 && state.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, rawDmg - guard.reduction)
-      : rawDmg;
+      ? Math.max(0, enduredDmg - guard.reduction)
+      : enduredDmg;
   // 굳건한 의지 (2티어 특기) — 받은 피해 평탄 -(N) 감소. 가드 뒤에 적용.
   const steadfastFlat = player.steadfastWillFlat ?? 0;
   const dmg = steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
-  const guardApplied = guarded < rawDmg;
+  const guardApplied = guarded < enduredDmg;
   const steadfastApplied = dmg < guarded;
   // 철벽 (4티어) — 보호막이 데미지를 먼저 흡수, 남은 만큼만 HP 에 적용. 무피해 난무는 dmgToHp 로 누적.
   const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);
@@ -2180,10 +2343,16 @@ export function advanceTurn(
       text: `[${skill.name}] ${state.enemy.name}이(가) 격앙되어 공격력이 +${skill.atkBonus}!`,
     });
   }
+  if (enduredApplied) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[인내] 피해 -${rawDmg - enduredDmg}`,
+    });
+  }
   if (guardApplied) {
     log = appendLog(log, {
       kind: "info",
-      text: `[가드] 피해 -${rawDmg - guarded}`,
+      text: `[가드] 피해 -${enduredDmg - guarded}`,
     });
   }
   if (steadfastApplied) {
@@ -2227,13 +2396,21 @@ export function advanceTurn(
     (player.bramblePct ?? 0) > 0
       ? Math.floor((rawDmgBeforeReduction * player.bramblePct!) / 100)
       : 0;
-  const reflectDmg = thornsDmg + brambleDmg + infiniteThornsDmg;
+  // 별빛 반사(enchant reflect) — 실제 HP 로 들어간 피해의 N% 만 반사 (회피·가드 무효
+  // 시엔 0). 라벨은 "별빛 반사" 로 분리.
+  const enchantReflectDmg =
+    (player.enchantReflectPct ?? 0) > 0 && dmgToHp > 0
+      ? Math.floor((dmgToHp * player.enchantReflectPct!) / 100)
+      : 0;
+  const reflectDmg =
+    thornsDmg + brambleDmg + infiniteThornsDmg + enchantReflectDmg;
   const enemyHpAfterThorns = Math.max(0, state.enemyHp - reflectDmg);
   if (reflectDmg > 0) {
     const reflectLabels: string[] = [];
     if (thornsDmg > 0) reflectLabels.push("반사 갑주");
     if (brambleDmg > 0) reflectLabels.push("가시 갑옷");
     if (infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
+    if (enchantReflectDmg > 0) reflectLabels.push("별빛 반사");
     log = appendLog(log, {
       kind: "player_attack",
       text: `[${reflectLabels.join(" + ")}] ${state.enemy.name}에게 ${reflectDmg} 반사 피해.`,

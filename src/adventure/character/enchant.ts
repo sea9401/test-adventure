@@ -294,3 +294,149 @@ export function enchantStaticBonus(
   }
   return out;
 }
+
+// 전투/보상 발동형 affix 의 합산 결과. 한 자루 안에서도, 자루끼리도 같은 affix 가
+// 나오면 단순 누적. 발동형 분류는 enchant 카탈로그 description 과 일치.
+//
+// 단위 정책:
+//   - "percent" affix 는 그대로 percent 값 누적 (ex. critical 5~8 → critPct 합산).
+//   - "flat" affix 도 그대로 누적 (ex. pierce 1~5 → pierceFlat 합산).
+//
+// 발동/적용 위치:
+//   - 전투 시작 시:        barrierPct (보호막)
+//   - 자기 턴 시작 시:     regenPctPerTurn (재생), awakenApChancePct (각성)
+//   - 공격 굴림 시:        critPct (+ critChancePct), pierceFlat (def 차감),
+//                          executeBonusPct(+ execution), berserkBonusPct(자체 HP),
+//                          breakerBossBonusPct(boss), lifestealPct(+ runeLifestealPct),
+//                          venomChancePct + venomDmg (출혈 스택)
+//   - 피격 시:             guardBlockPct(블록), dodgePct(+ evasionPct),
+//                          endurePct(피해 -%), reflectPct(받은 피해 % 반사)
+//   - 전투 종료(보상) 시:  fortunePct(gold), bountyPct(exp), harvestPct(drop)
+export type EnchantCombatBonus = {
+  // 공격
+  critPct: number;
+  pierceFlat: number;
+  executeBonusPct: number;
+  berserkBonusPct: number;
+  breakerBossBonusPct: number;
+  lifestealPct: number;
+  venomChancePct: number;
+  venomDmg: number;
+  // 방어
+  guardBlockPct: number;
+  dodgePct: number;
+  endurePct: number;
+  reflectPct: number;
+  // 자기 차원
+  barrierPct: number;
+  regenPctPerTurn: number;
+  awakenApChancePct: number;
+  // 보상
+  fortunePct: number;
+  bountyPct: number;
+  harvestPct: number;
+};
+
+export const ZERO_ENCHANT_COMBAT_BONUS: Readonly<EnchantCombatBonus> = {
+  critPct: 0,
+  pierceFlat: 0,
+  executeBonusPct: 0,
+  berserkBonusPct: 0,
+  breakerBossBonusPct: 0,
+  lifestealPct: 0,
+  venomChancePct: 0,
+  venomDmg: 0,
+  guardBlockPct: 0,
+  dodgePct: 0,
+  endurePct: 0,
+  reflectPct: 0,
+  barrierPct: 0,
+  regenPctPerTurn: 0,
+  awakenApChancePct: 0,
+  fortunePct: 0,
+  bountyPct: 0,
+  harvestPct: 0,
+};
+
+// 한 자루의 슬롯 → bonus 누적 (in-place). 여러 자루를 합산할 때 같은 acc 에 누적.
+export function accumulateEnchantCombat(
+  acc: EnchantCombatBonus,
+  slots: readonly EnchantSlot[] | undefined,
+): void {
+  if (!slots || slots.length === 0) return;
+  for (const s of slots) {
+    switch (s.affixId) {
+      // 공격
+      case "critical":
+        acc.critPct += s.value;
+        break;
+      case "pierce":
+        acc.pierceFlat += s.value;
+        break;
+      case "execute":
+        acc.executeBonusPct += s.value;
+        break;
+      case "berserk":
+        acc.berserkBonusPct += s.value;
+        break;
+      case "breaker":
+        acc.breakerBossBonusPct += s.value;
+        break;
+      case "lifesteal":
+        acc.lifestealPct += s.value;
+        break;
+      case "venom":
+        // venom 한 슬롯 = 같은 확률 + 같은 데미지. 두 슬롯이면 확률·데미지 둘 다 가산.
+        acc.venomChancePct += s.value;
+        acc.venomDmg += s.value;
+        break;
+      // 방어
+      case "guard":
+        acc.guardBlockPct += s.value;
+        break;
+      case "dodge":
+        acc.dodgePct += s.value;
+        break;
+      case "endure":
+        acc.endurePct += s.value;
+        break;
+      case "reflect":
+        acc.reflectPct += s.value;
+        break;
+      // 자기 차원
+      case "barrier":
+        acc.barrierPct += s.value;
+        break;
+      case "regen":
+        acc.regenPctPerTurn += s.value;
+        break;
+      case "awaken":
+        acc.awakenApChancePct += s.value;
+        break;
+      // 보상
+      case "fortune":
+        acc.fortunePct += s.value;
+        break;
+      case "bounty":
+        acc.bountyPct += s.value;
+        break;
+      case "harvest":
+        acc.harvestPct += s.value;
+        break;
+      // 정적 합산 affix — enchantStaticBonus 가 처리. 여기선 무시.
+      case "might":
+      case "swift":
+      case "insight":
+        break;
+    }
+  }
+}
+
+// 무기/방어구/장신구 슬롯 모음 → combat bonus 누적 결과.
+export function enchantCombatBonus(
+  slotsList: ReadonlyArray<readonly EnchantSlot[] | undefined>,
+): EnchantCombatBonus {
+  const acc: EnchantCombatBonus = { ...ZERO_ENCHANT_COMBAT_BONUS };
+  for (const slots of slotsList) accumulateEnchantCombat(acc, slots);
+  return acc;
+}

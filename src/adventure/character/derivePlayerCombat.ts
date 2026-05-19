@@ -5,6 +5,10 @@
 import type { PlayerCombat } from "@/adventure/battle/engine";
 import type { EquipItem } from "@/adventure/data/items";
 import {
+  enchantCombatBonus,
+  type EnchantSlot,
+} from "@/adventure/character/enchant";
+import {
   EXTRA_ATTACK_PCT_PER_SPD,
   STAT_KEYS,
   type StatKey,
@@ -93,6 +97,13 @@ import {
   type SkillLayout,
 } from "./skills";
 
+// 장착 슬롯에 들어가는 아이템 — derivePlayerCombat 가 enchant slots 까지 보존해서 받아야
+// 인스턴스 기반 별빛 무구의 발동형 affix 가 합산된다. EquippedItem 전체를 노출하지 않고
+// 필요한 필드만 추리는 좁은 타입.
+export type EquippedItemForDerive = EquipItem & {
+  enchantSlots?: EnchantSlot[];
+};
+
 export type DerivePlayerCombatInput = {
   level: number;
   /** 캐릭터 base 스탯 (baseCharacter.stats 와 같은 형태). */
@@ -101,9 +112,9 @@ export type DerivePlayerCombatInput = {
   allocatedStats: Record<StatKey, number>;
   /** 장착 슬롯 — 무기/방어구/장신구. null 슬롯은 무시. */
   equipped: {
-    weapon: EquipItem | null;
-    armor: EquipItem | null;
-    accessory: EquipItem | null;
+    weapon: EquippedItemForDerive | null;
+    armor: EquippedItemForDerive | null;
+    accessory: EquippedItemForDerive | null;
   };
   /** 장착 스킬 이름 목록 (일반 슬롯). undefined 면 자동 (보유 첫 N개). */
   equippedSkills: string[] | undefined;
@@ -161,11 +172,13 @@ export function derivePlayerCombat(
     spd: 0,
     luk: 0,
   };
-  const items: (EquipItem | null)[] = [
+  const items: (EquippedItemForDerive | null)[] = [
     input.equipped.weapon,
     input.equipped.armor,
     input.equipped.accessory,
   ];
+  // 별빛 마법부여 발동형 affix 합산 — 3 슬롯의 enchantSlots 를 한 acc 에 누적.
+  const enchant = enchantCombatBonus(items.map((i) => i?.enchantSlots));
   for (const item of items) {
     if (!item?.bonus) continue;
     for (const k of STAT_KEYS) {
@@ -288,7 +301,9 @@ export function derivePlayerCombat(
       paragonBonus.flatDef,
     spd: totalStats.spd,
     evasionPct:
-      totalStats.dex * 0.5 + evadeBonusPctFor(totalStats, effectiveSkillSet),
+      totalStats.dex * 0.5 +
+      evadeBonusPctFor(totalStats, effectiveSkillSet) +
+      enchant.dodgePct,
     attackCount: 1 + lightHandExtra,
     // SPD × 2% — 캡 없음. 100% 초과는 정수 부분만큼 확정 추가타 (rollPlayerAttackCount).
     extraAttackChancePct: totalStats.spd * EXTRA_ATTACK_PCT_PER_SPD,
@@ -311,7 +326,8 @@ export function derivePlayerCombat(
     critChancePct:
       critChancePctFor(totalStats, effectiveSkillSet) +
       runeBonus.crit_pct +
-      paragonBonus.ppCritRate,
+      paragonBonus.ppCritRate +
+      enchant.critPct,
     critMult:
       critMultFor(totalStats, effectiveSkillSet) +
       paragonBonus.ppCritDmg / 100,
@@ -381,6 +397,20 @@ export function derivePlayerCombat(
       totalStats,
       effectiveSkillSet,
     ),
+    // ── 별빛 마법부여 발동형 affix ──────────────────────────────────────
+    enchantGuardBlockPct: enchant.guardBlockPct || undefined,
+    enchantEndurePct: enchant.endurePct || undefined,
+    enchantReflectPct: enchant.reflectPct || undefined,
+    enchantRegenPctPerTurn: enchant.regenPctPerTurn || undefined,
+    enchantBarrierPctMaxHp: enchant.barrierPct || undefined,
+    enchantAwakenApChancePct: enchant.awakenApChancePct || undefined,
+    enchantPierceFlat: enchant.pierceFlat || undefined,
+    enchantBerserkBonusPct: enchant.berserkBonusPct || undefined,
+    enchantBreakerBossBonusPct: enchant.breakerBossBonusPct || undefined,
+    enchantLifestealPct: enchant.lifestealPct || undefined,
+    enchantVenomChancePct: enchant.venomChancePct || undefined,
+    enchantVenomDmgPerStack: enchant.venomDmg || undefined,
+    enchantExecuteBonusPct: enchant.executeBonusPct || undefined,
     // ── 2티어 특기 (각 스탯 50) ─────────────────────────────────────────
     enduringStrikeMult: enduringStrikeMultFor(totalStats, effectiveSkillSet),
     weakpointExtraAttacks: weakpointExtraAttacksFor(

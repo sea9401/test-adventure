@@ -35,6 +35,11 @@ import {
 } from "@/lib/paragon";
 import { rehydrateEquippedItem } from "@/adventure/character/rehydrateEquip";
 import type { EquippedItem } from "@/adventure/character/types";
+import {
+  ZERO_ENCHANT_COMBAT_BONUS,
+  accumulateEnchantCombat,
+  type EnchantCombatBonus,
+} from "@/adventure/character/enchant";
 import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 import { WORLD_MAP, START_REGION_ID, type RegionId } from "@/adventure/data/world";
 import { potionMax, type PotionId } from "@/adventure/data/potions";
@@ -167,6 +172,20 @@ function equippedFrom(character: SavedCharacter) {
     armor: rehydrateEquippedItem(character.equipped?.armor),
     accessory: rehydrateEquippedItem(character.equipped?.accessory),
   };
+}
+
+// 위탁 사냥 보상 finalize 에서 사용 — char.equipped 의 3 슬롯 enchantSlots 합산.
+// rehydrate 가 enchantSlots 를 보존하므로 그대로 누적. harvest(드랍) 은 offlineSim 안에서
+// 굴려야 효과가 있어 여기선 사용 X. fortune/bounty 만 finalize 멀티에 반영.
+function readCharEnchantBonusForHunt(
+  character: SavedCharacter,
+): EnchantCombatBonus {
+  const acc: EnchantCombatBonus = { ...ZERO_ENCHANT_COMBAT_BONUS };
+  const eq = equippedFrom(character);
+  for (const item of [eq.weapon, eq.armor, eq.accessory]) {
+    accumulateEnchantCombat(acc, item?.enchantSlots);
+  }
+  return acc;
 }
 
 // 서버측 raw → typed APSkillCondition 변환. 클라 parseAPSkillConditions 와 동일.
@@ -423,10 +442,19 @@ export async function applyResultToSaves(
   const character = state.character;
   // 파라곤 풍요 트랙 → 골드/EXP 획득 % 보너스. 사냥 시뮬은 자체 멀티플라이어 없이
   // 적의 raw EXP/gold 를 적립하므로, sim 결과를 캐릭터에 반영하는 이 시점에 곱한다.
+  // 별빛 마법부여 — bounty(EXP), fortune(골드) 같은 timing 에 곱연산.
+  // harvest(드랍률) 는 offlineSim 안에서 굴려야 하므로 여기선 적용 불가 (limitation).
   const paragonBonus = computeParagonBonus(state.paragon.allocations);
   const paragonRewardMult = 1 + paragonBonus.pctGoldExp / 100;
-  const boostedExpGained = Math.floor(result.expGained * paragonRewardMult);
-  const boostedGoldGained = Math.floor(result.goldGained * paragonRewardMult);
+  const enchantBonusForHunt = readCharEnchantBonusForHunt(character);
+  const enchantExpMult = 1 + enchantBonusForHunt.bountyPct / 100;
+  const enchantGoldMult = 1 + enchantBonusForHunt.fortunePct / 100;
+  const boostedExpGained = Math.floor(
+    result.expGained * paragonRewardMult * enchantExpMult,
+  );
+  const boostedGoldGained = Math.floor(
+    result.goldGained * paragonRewardMult * enchantGoldMult,
+  );
   const newLevelExp = computeFinalLevelExp(
     character.level ?? 1,
     character.exp ?? 0,

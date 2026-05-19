@@ -40,6 +40,13 @@ import {
   maxMpForLevel,
 } from "@/adventure/character/defaults";
 import { computeRuneBonus } from "@/adventure/character/runeBonus";
+import {
+  ZERO_ENCHANT_COMBAT_BONUS,
+  accumulateEnchantCombat,
+  isEnchantAffixId,
+  type EnchantCombatBonus,
+  type EnchantSlot,
+} from "@/adventure/character/enchant";
 import { MONSTERS, type Monster } from "@/adventure/data/monsters";
 import { MATERIALS } from "@/adventure/data/materials";
 import { ITEMS, isLuckyFind } from "@/adventure/data/items";
@@ -117,11 +124,12 @@ export type BattleClaimOutcome = {
   expGained: number;
   /** 신참 ×2 적용 여부 — 토스트 라벨용. */
   expBonusApplied: boolean;
-  /** EXP 곱셈 분해 (토스트 표시용). */
+  /** EXP 곱셈 분해 (토스트 표시용). enchant=별빛 풍요 합산. */
   expMultParts: {
     guild: number;
     rune: number;
     paragon: number;
+    enchant: number;
   };
   /** 드롭에서 누적된 골드 (gold drop kind). character.gold 증가량. */
   goldGained: number;
@@ -477,7 +485,7 @@ export async function applyBattleClaim(
       applied: false,
       expGained: 0,
       expBonusApplied: false,
-      expMultParts: { guild: 1, rune: 1, paragon: 1 },
+      expMultParts: { guild: 1, rune: 1, paragon: 1, enchant: 1 },
       goldGained: 0,
       hpAfterRegen:
         typeof charPrev.hp === "number"
@@ -520,6 +528,9 @@ export async function applyBattleClaim(
     | (EquippedRune | null)[]
     | undefined) ?? undefined;
   const runeBonus = computeRuneBonus(equippedRunes);
+  // 별빛 마법부여 보상 보너스 — char.equipped 의 3 슬롯 enchantSlots 합산.
+  // fortune(gold) / bounty(exp) / harvest(drop) 만 사용. 다른 affix 는 전투 엔진 측.
+  const enchantBonus = readCharEnchantBonus(charPrev);
   const guildBuffs = await readGuildBuffs(tx, userId);
   const paragonNorm = readInitialParagon(saves[PARAGON_KEY]);
   const paragonBonus = computeParagonBonus(paragonNorm.allocations);
@@ -531,8 +542,12 @@ export async function applyBattleClaim(
   const runeDropMult = 1 + (runeBonus.drop_pct ?? 0) / 100;
   const newbieDropMult = getNewbieDropMultiplier(playerLevel);
   const paragonRewardMult = 1 + (paragonBonus.pctGoldExp ?? 0) / 100;
-  const expMult = guildExpMult * runeExpMult * paragonRewardMult;
-  const dropMult = guildDropMult * runeDropMult * newbieDropMult;
+  // 별빛 마법부여 — fortune=골드드랍 / bounty=경험치 / harvest=재료드랍.
+  const enchantExpMult = 1 + enchantBonus.bountyPct / 100;
+  const enchantDropMult = 1 + enchantBonus.harvestPct / 100;
+  const enchantGoldMult = 1 + enchantBonus.fortunePct / 100;
+  const expMult = guildExpMult * runeExpMult * paragonRewardMult * enchantExpMult;
+  const dropMult = guildDropMult * runeDropMult * newbieDropMult * enchantDropMult;
 
   // EXP 계산 — monster.exp + newbie ×2 (Lv30 미만).
   const baseExp = monster.exp ?? 0;
@@ -549,7 +564,8 @@ export async function applyBattleClaim(
   const dropResult = rollDrops(rng, invPrev, craftingPrev, {
     luckMultiplier,
     dropMult,
-    paragonRewardMult,
+    // paragon + 별빛 행운(fortune) 둘 다 골드 드랍에 곱연산.
+    paragonRewardMult: paragonRewardMult * enchantGoldMult,
     monster,
   });
 
@@ -805,6 +821,7 @@ export async function applyBattleClaim(
       guild: guildExpMult,
       rune: runeExpMult,
       paragon: paragonRewardMult,
+      enchant: enchantExpMult,
     },
     goldGained: dropResult.goldGained,
     hpAfterRegen,
@@ -823,4 +840,32 @@ export async function applyBattleClaim(
       [QUEST_PROGRESS_KEY]: questResult.changed ? progressNext : progressPrev,
     },
   };
+}
+
+// character.v2 의 equipped 슬롯 3개에서 enchantSlots 만 추려 합산.
+// 보상 멀티(fortune/bounty/harvest) 만 쓰지만 헬퍼는 전체 EnchantCombatBonus 를 반환 — 추후
+// 서버에서 발동형 affix 도 검증할 일이 생기면 그대로 재사용.
+function readCharEnchantBonus(
+  charPrev: Record<string, unknown>,
+): EnchantCombatBonus {
+  const acc: EnchantCombatBonus = { ...ZERO_ENCHANT_COMBAT_BONUS };
+  const equipped = charPrev.equipped;
+  if (!equipped || typeof equipped !== "object") return acc;
+  for (const key of ["weapon", "armor", "accessory"] as const) {
+    const slot = (equipped as Record<string, unknown>)[key];
+    if (!slot || typeof slot !== "object") continue;
+    const raw = (slot as { enchantSlots?: unknown }).enchantSlots;
+    if (!Array.isArray(raw)) continue;
+    const parsed: EnchantSlot[] = [];
+    for (const s of raw) {
+      if (!s || typeof s !== "object") continue;
+      const aid = (s as { affixId?: unknown }).affixId;
+      const val = (s as { value?: unknown }).value;
+      if (!isEnchantAffixId(aid)) continue;
+      if (typeof val !== "number" || !Number.isFinite(val)) continue;
+      parsed.push({ affixId: aid, value: val });
+    }
+    accumulateEnchantCombat(acc, parsed);
+  }
+  return acc;
 }

@@ -549,7 +549,8 @@ export type TitleCounterKey =
   | "battleLosses"
   | "trainingCount"
   | "chatCount"
-  | "healingCount";
+  | "healingCount"
+  | "npcTalkCount";
 
 export const COUNTER_TITLES: {
   id: TitleId;
@@ -570,6 +571,9 @@ export const COUNTER_TITLES: {
   { id: "patient", key: "healingCount", target: 50 },
   { id: "vip_patient", key: "healingCount", target: 200 },
   { id: "head_patient", key: "healingCount", target: 500 },
+  // NPC 1인 누적 대화 — 한 사람을 얼마나 붙들었나. 카운터는 NPC 별 talkCount 의 최댓값.
+  { id: "phisher", key: "npcTalkCount", target: 100 },
+  { id: "devoted_listener", key: "npcTalkCount", target: 500 },
 ];
 
 export function getTitle(id: TitleId | null | undefined): Title | undefined {

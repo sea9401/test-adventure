@@ -446,6 +446,10 @@ export function CharacterScreen() {
             trainingCount: training.completedCount,
             chatCount: adventureLog.log.chatCount ?? 0,
             healingCount: adventureLog.log.healingCount ?? 0,
+            npcTalkCount: Object.values(adventureLog.log.npcs).reduce(
+              (max, e) => Math.max(max, e?.talkCount ?? 0),
+              0,
+            ),
           }}
           knownRecipes={crafting.state.known}
           shareableRecipes={crafting.state.shareable}

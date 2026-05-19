@@ -17,7 +17,7 @@ export function useTitleGrants(
     healingCount: number;
     gold: number;
     level: number;
-    /** 한 NPC 와의 최대 대화 횟수 — 100 이상이면 '낚시꾼' 칭호. */
+    /** 한 NPC 와의 최대 대화 횟수 — COUNTER_TITLES 의 npcTalkCount 키로 phisher/devoted_listener 부여. */
     maxNpcTalkCount: number;
     /** equip + training 합산된 최종 스탯. */
     totalStats: Record<StatKey, number>;
@@ -40,6 +40,7 @@ export function useTitleGrants(
       trainingCount: opts.trainingCount,
       chatCount: opts.chatCount,
       healingCount: opts.healingCount,
+      npcTalkCount: opts.maxNpcTalkCount,
     };
     for (const t of COUNTER_TITLES) {
       if ((counters[t.key] ?? 0) >= t.target) grantTitle(t.id);
@@ -51,6 +52,7 @@ export function useTitleGrants(
     opts.trainingCount,
     opts.chatCount,
     opts.healingCount,
+    opts.maxNpcTalkCount,
   ]);
 
   // '상인' — 한 종류의 재료를 상점에 누적 임계치 이상 판매. 본래는 판매 핸들러가
@@ -69,7 +71,7 @@ export function useTitleGrants(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 상태 관찰형 — gold 0 도달, 동일 NPC 100회 대화, 외골수 빌드, 레벨/골드 마일스톤.
+  // 상태 관찰형 — gold 0 도달, 외골수 빌드, 레벨/골드 마일스톤.
   // 외골수: 한 스탯 30↑, 나머지 모두 10↓ (11~29 구간이 있으면 미부여).
   const goldZero = opts.gold === 0;
   const goldOneCoin = opts.gold === 1;
@@ -92,8 +94,6 @@ export function useTitleGrants(
     if (levelLegend) grantTitle("level_50");
     if (levelMythic) grantTitle("level_70");
     if (levelTranscendent) grantTitle("level_100");
-    if (opts.maxNpcTalkCount >= 100) grantTitle("phisher");
-    if (opts.maxNpcTalkCount >= 500) grantTitle("devoted_listener");
     if (opts.allRegionsVisited) grantTitle("globetrotter");
     if (opts.luckyCollected) grantTitle("lucky_finder");
     if (opts.cipherDone) grantTitle("cipher_bearer");
@@ -119,7 +119,6 @@ export function useTitleGrants(
     levelMythic,
     levelTranscendent,
     opts.allRegionsVisited,
-    opts.maxNpcTalkCount,
     opts.luckyCollected,
     opts.cipherDone,
     opts.heroSwordRestored,

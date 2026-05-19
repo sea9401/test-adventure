@@ -156,7 +156,7 @@ export function MeteorDialogue({
     );
   }
 
-  // Ch 30 종착 — apex_phantom_seen(고탑 100층 환영) 본 후 의식 컷씬 1회.
+  // Ch 30 종착 — apex_phantom_seen(고탑 50층 환영) 본 후 의식 컷씬 1회.
   // 누르면 endgame_complete flag set + starfall_keeper 칭호 grant + 별빛 재단법 5종 학습.
   // 모두 idempotent (learnRecipe known no-op).
   if (
@@ -196,7 +196,7 @@ export function MeteorDialogue({
     );
   }
 
-  // 의뢰 완료 후 ~ Ch 29 미진입 — 옥좌 환영 떡밥. 고탑 100층까지는 자네 몫이라는 안내.
+  // 의뢰 완료 후 ~ Ch 29 미진입 — 옥좌 환영 떡밥. 고탑 50층까지는 자네 몫이라는 안내.
   return (
     <NpcDialogue
       npc={npc}
@@ -205,7 +205,7 @@ export function MeteorDialogue({
         "그릇은 빚어 두었네. 자네에게 묶지 않을 결로, 누구의 것도 아닌 자리에. 별빛이 한 점 한 점 그릇 가장자리에 가라앉는 것을 자네도 보겠지.\n옛 옥좌의 환영이 아직 자네 등을 따라온다는 얘기를 들었네. 그것을 마지막으로 떼어 내는 자리는 고탑 위일 게야. 자기가 만든 자리로 자기가 가 닿는 그 길."
       }
       objective={{
-        body: "끝없는 고탑 100층까지 올라가 옛 옥좌의 환영을 만나야 합니다.\n환영을 본 뒤 다시 유성에게 돌아오면 됩니다.",
+        body: "고탑 50층까지 올라가 옛 옥좌의 환영을 만나야 합니다.\n환영을 본 뒤 다시 유성에게 돌아오면 됩니다.",
       }}
     />
   );

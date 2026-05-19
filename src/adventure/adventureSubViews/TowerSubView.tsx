@@ -23,13 +23,15 @@ export function TowerSubView() {
         if (r.inventory) {
           inventory.replaceFromSaved(r.inventory);
         }
-        // 5막 PR-D2 — 고탑 100층 도달 시 Ch 29 「빈 옥좌의 그림자」 활성화.
-        // Ch 25 클리어자(endgame_apex_defeated) 한정 — 4막 미완료 캐릭의 100층 도달은
+        // 5막 PR-D2 — 고탑 F50 도달 시 Ch 29 「빈 옥좌의 그림자」 활성화. (옛 F100 →
+        // F50, 메인 스토리 게이트로 너무 가팔라서 완화. 화산의 심장이 F50 보스라
+        // '정규 region.boss 다 깬 사람만 환영을 본다' 흐름은 유지.)
+        // Ch 25 클리어자(endgame_apex_defeated) 한정 — 4막 미완료 캐릭의 도달은
         // 의미 없으므로 가드. idempotent (storyFlags.set 이 중복 처리).
         const floor = r.tower?.run?.currentFloor;
         if (
           floor != null &&
-          floor >= 100 &&
+          floor >= 50 &&
           storyFlags.has("endgame_apex_defeated") &&
           !storyFlags.has("apex_phantom_seen")
         ) {

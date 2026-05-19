@@ -199,13 +199,6 @@ function Home() {
   const battleCount =
     totalMonsterKills + (adventureLog.log.battleLosses ?? 0);
 
-  // 보스 누적 처치 — phaseTrigger 보유 몬스터의 kills 합산. 깊은 상처 업적 트리거용.
-  const bossKillsTotal = Object.entries(adventureLog.log.monsters).reduce(
-    (sum, [name, m]) =>
-      sum + (MONSTERS[name]?.phaseTrigger ? (m.kills ?? 0) : 0),
-    0,
-  );
-
   const equippedTitle = getTitle(characterStateHook.equippedTitleId);
 
   // 스탯/장비/스킬/HP 합산 → PlayerCombat + Character 단일 source-of-truth.
@@ -420,30 +413,21 @@ function Home() {
     characterStateHook,
     crafting,
     paragon,
+    adventureLog,
+    storyFlags,
   });
   const handleBattleEnd = (payload: BattleEndPayload) =>
     void onBattleEnd(payload, {
       claimVictory: claimBattleVictory,
       inventory: { consume: inventory.consume },
       adventureLog: {
-        addKill: adventureLog.addKill,
         markTitleObtained: grantTitle,
         incrementBattleLosses: adventureLog.incrementBattleLosses,
-        incrementNoDamageWin: adventureLog.incrementNoDamageWin,
       },
       quests: { recordKill: quests.recordKill },
-      inventoryActions: {
-        addSkillBook: (id, n) => inventory.addSkillBook(id, n),
-      },
       characterState: {
         setHp: characterStateHook.setHp,
       },
-      storyFlags: { set: storyFlags.set, has: storyFlags.has },
-      bossKillsTotal,
-      totalKillsTotal: totalMonsterKills,
-      noDamageWinsTotal: adventureLog.log.noDamageWins ?? 0,
-      peakGiantKillsTotal:
-        adventureLog.log.monsters["운봉의 거인"]?.kills ?? 0,
       respawnRegionId: mapProgress.respawnRegionId ?? START_REGION_ID,
       addNotification,
       setHuntingActive,

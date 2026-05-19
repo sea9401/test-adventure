@@ -1,20 +1,22 @@
 import "server-only";
 
-// 솔로 전투 승리 보상 서버 lib — /api/battle/claim-victory 핵심 (EPIC #3-3 Phase 1).
+// 솔로 전투 승리 보상 서버 lib — /api/battle/claim-victory 핵심.
 //
 // 권위: 서버. 클라는 enemyName + encounterId + 몇 가지 stat (finalPlayerHp/maxHp/
-// damageTaken/potionsConsumed) 만 보낸다. 서버가 monster 정의에서 base reward 를 읽고
-// deterministic seed (encounterId+userId FNV-1a → mulberry32) 로 드랍 RNG 굴림.
+// damageTaken/potionsConsumedTotal) 만 보낸다. 서버가 monster 정의에서 base reward 를
+// 읽고 deterministic seed (encounterId+userId FNV-1a → mulberry32) 로 드랍 RNG 굴림.
 //
-// 적용 saves: character.v2 (gold/exp/level/hp/mp) + inventory.v2 (materials/equipment/
-// droppedEquipment/skillBooks) + crafting.v2 (recipes) + paragon.v1 (만렙 잉여 EXP).
+// 적용 saves (Phase 1 + Phase 2): character.v2 / inventory.v2 / crafting.v2 /
+// paragon.v1 / adventure-log.v2 / storyFlags.v2.
 //
-// Phase 1 스코프 밖 (클라 잔존):
-//  - 칭호 grants (first_blood / close_call / monster.onDefeatTitleId / potion_overload)
-//  - 스토리플래그 (monster.onDefeatFlag / mad_slash·deep_wound·frenzy·thunder·light_glide 마일스톤)
-//  - 누적 카운터 (adventureLog.addKill / incrementNoDamageWin / battle losses)
-//  - quest progress (recordKill — kill_within_hp / no_potion_boss 의뢰 판정)
-//  - regen 룬 HP 회복 (서버가 보상 적용 시 같이 하지만 hpAfterRegen 반환 → 클라가 setHp)
+// Phase 2 추가: 칭호 grants(first_blood/close_call/potion_overload/monster.onDefeatTitleId)
+// + monster.onDefeatFlag + 누적 카운터(monsters[].kills · noDamageWins) + 마일스톤 5종
+// (mad_slash 100승 / deep_wound 50보스 / frenzy 1000회 / thunder 거인10 / light_glide 천공인첫).
+//
+// Phase 3 비-스코프 (클라 잔존):
+//  - quest progress (recordKill — kill_within_hp / no_potion_boss)
+//  - 패배 페널티 (respawn / 마을 강제 이동 / incrementBattleLosses)
+//  - 서버 dedup (encounterId 슬라이딩 윈도우)
 
 import { and, eq, inArray } from "drizzle-orm";
 import { guildMembers, guilds, savesKv } from "@/db/schema";
@@ -43,17 +45,21 @@ import {
   type GuildBuffSlot,
 } from "@/adventure/data/guildBuffs";
 import type { EquippedRune } from "@/adventure/data/runes";
+import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 
 const CHARACTER_KEY = "character.v2";
 const INVENTORY_KEY = "inventory.v2";
 const CRAFTING_KEY = "crafting.v2";
 const PARAGON_KEY = "paragon.v1";
+const ADVENTURE_LOG_KEY = "adventure-log.v2";
 
 const REWARD_SAVES_KEYS = [
   CHARACTER_KEY,
   INVENTORY_KEY,
   CRAFTING_KEY,
   PARAGON_KEY,
+  ADVENTURE_LOG_KEY,
+  STORY_FLAGS_STORAGE_KEY,
 ] as const;
 
 export type BattleRewardSavesSnapshot = Partial<
@@ -109,7 +115,44 @@ export type BattleClaimOutcome = {
   hpRegenHealed: number;
   /** 굴려진 드랍들 — 클라가 loot/milestone 토스트로 표시. */
   drops: ResolvedBattleDrop[];
+  /** Phase 2 신규 — 이번 처치로 신규 획득한 칭호 ID 목록. 클라 grantTitle 토스트 chain. */
+  grantedTitleIds: string[];
+  /** Phase 2 신규 — 마일스톤 스킬북 지급 토스트. 클라가 그대로 milestone 토스트로 띄움. */
+  milestones: Array<{ bookId: string; message: string }>;
   saves: BattleRewardSavesSnapshot;
+};
+
+// 마일스톤 정의 — flag 가 박혀 있지 않고 카운트 충족 시 1회 지급. 모두 storyFlags.v2 의
+// 단일 flag 로 dedup. 클라 onBattleEnd 의 동일 데이터가 옮겨온 것.
+type MilestoneSpec = {
+  flag: string;
+  bookId: SkillBookId;
+  message: string;
+};
+const MILESTONE_MAD_SLASH: MilestoneSpec = {
+  flag: "mad_slash_book_granted",
+  bookId: "book_mad_slash",
+  message: "✨ 무피해 100회 승리 — '스킬북 — 광살참' 을 손에 넣었다!",
+};
+const MILESTONE_DEEP_WOUND: MilestoneSpec = {
+  flag: "deep_wound_book_granted",
+  bookId: "book_deep_wound",
+  message: "✨ 보스 50회 처치 — '스킬북 — 깊은 상처' 를 손에 넣었다!",
+};
+const MILESTONE_FRENZY: MilestoneSpec = {
+  flag: "frenzy_book_granted",
+  bookId: "book_frenzy",
+  message: "✨ 누적 1000회 처치 — '스킬북 — 폭주' 를 손에 넣었다!",
+};
+const MILESTONE_THUNDER: MilestoneSpec = {
+  flag: "thunder_strike_book_granted",
+  bookId: "book_thunder_strike",
+  message: "✨ 운봉의 거인 10회 처치 — '스킬북 — 천뢰 일격' 을 손에 넣었다!",
+};
+const MILESTONE_LIGHT_GLIDE: MilestoneSpec = {
+  flag: "light_glide_book_granted",
+  bookId: "book_light_glide",
+  message: "✨ 천공인의 왕 처치 — '스킬북 — 빛의 활공' 을 손에 넣었다!",
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -355,6 +398,10 @@ export type BattleClaimInput = {
   finalPlayerHp: number;
   playerMaxHp: number;
   isBoss: boolean;
+  /** Phase 2: 무피해 승리 판정 (광살참 100승 마일스톤). */
+  damageTakenThisCombat: number;
+  /** Phase 2: potion_overload 칭호(5병 이상 사용) 판정. */
+  potionsConsumedTotal: number;
 };
 
 export async function applyBattleClaim(
@@ -381,6 +428,11 @@ export async function applyBattleClaim(
     (saves[CRAFTING_KEY] as Record<string, unknown> | undefined) ?? {};
   const paragonPrev =
     (saves[PARAGON_KEY] as Record<string, unknown> | undefined) ?? {};
+  const logPrev =
+    (saves[ADVENTURE_LOG_KEY] as Record<string, unknown> | undefined) ?? {};
+  const flagsPrev =
+    (saves[STORY_FLAGS_STORAGE_KEY] as Record<string, unknown> | undefined) ??
+    {};
 
   const playerLevel =
     typeof charPrev.level === "number" ? charPrev.level : 1;
@@ -491,15 +543,148 @@ export async function applyBattleClaim(
     charChanged = true;
   }
 
-  // 저장.
+  // ─── Phase 2: adventure-log + storyFlags 누적 / 칭호 / 마일스톤 ───────────────────
+  let invNext: Record<string, unknown> = dropResult.invNext;
+  const flagsArr = Array.isArray(flagsPrev.flags)
+    ? [...(flagsPrev.flags as string[])]
+    : [];
+  const flagsSet = new Set(flagsArr);
+  const titlesPrev =
+    (logPrev.titles as Record<string, { obtainedAt: number }> | undefined) ?? {};
+  const titlesNext: Record<string, { obtainedAt: number }> = { ...titlesPrev };
+  const grantedTitleIds: string[] = [];
+  const nowMs = Date.now();
+
+  const grantTitle = (titleId: string) => {
+    if (titlesNext[titleId]) return;
+    titlesNext[titleId] = { obtainedAt: nowMs };
+    grantedTitleIds.push(titleId);
+  };
+  const setFlag = (flagId: string): boolean => {
+    if (flagsSet.has(flagId)) return false;
+    flagsSet.add(flagId);
+    flagsArr.push(flagId);
+    return true;
+  };
+
+  // 칭호 grants — 매번 idempotent (이미 보유면 무시).
+  grantTitle("first_blood");
+  if (input.finalPlayerHp === 1) grantTitle("close_call");
+  if (input.potionsConsumedTotal >= 5) grantTitle("potion_overload");
+  if (monster.onDefeatTitleId) grantTitle(monster.onDefeatTitleId);
+
+  // monster.onDefeatFlag — idempotent.
+  if (monster.onDefeatFlag) setFlag(monster.onDefeatFlag);
+
+  // 누적 카운터 — addKill(this monster) + 무피해 시 noDamageWins++.
+  const monstersMap =
+    (logPrev.monsters as Record<
+      string,
+      {
+        encountered?: boolean;
+        kills?: number;
+        firstSeenAt?: number;
+        lastKilledAt?: number;
+      }
+    > | undefined) ?? {};
+  const existingMon = monstersMap[input.enemyName];
+  const newKills = (existingMon?.kills ?? 0) + 1;
+  const monstersNext = {
+    ...monstersMap,
+    [input.enemyName]: {
+      ...existingMon,
+      encountered: true,
+      kills: newKills,
+      firstSeenAt: existingMon?.firstSeenAt ?? nowMs,
+      lastKilledAt: nowMs,
+    },
+  };
+  let noDamageWinsNext =
+    typeof logPrev.noDamageWins === "number" ? logPrev.noDamageWins : 0;
+  if (input.damageTakenThisCombat === 0) {
+    noDamageWinsNext += 1;
+  }
+
+  // 누적 합산 — 마일스톤 판정용. monstersNext 를 기준으로 (이번 처치 반영본).
+  let totalKillsAfter = 0;
+  let bossKillsAfter = 0;
+  for (const [name, m] of Object.entries(monstersNext)) {
+    const k = m.kills ?? 0;
+    totalKillsAfter += k;
+    if (MONSTERS[name]?.phaseTrigger) bossKillsAfter += k;
+  }
+
+  // 마일스톤 — flag 미보유 + 카운트 충족 시 1회 지급. skillBook 추가는 별도.
+  const milestones: Array<{ bookId: string; message: string }> = [];
+  const milestoneBookCounts: Partial<Record<string, number>> = {};
+  const tryGrantMilestone = (
+    spec: MilestoneSpec,
+    condition: boolean,
+  ) => {
+    if (!condition) return;
+    if (!setFlag(spec.flag)) return; // 이미 박혀 있음.
+    milestoneBookCounts[spec.bookId] = (milestoneBookCounts[spec.bookId] ?? 0) + 1;
+    milestones.push({ bookId: spec.bookId, message: spec.message });
+  };
+  tryGrantMilestone(
+    MILESTONE_MAD_SLASH,
+    input.damageTakenThisCombat === 0 && noDamageWinsNext >= 100,
+  );
+  tryGrantMilestone(
+    MILESTONE_DEEP_WOUND,
+    !!monster.phaseTrigger && bossKillsAfter >= 50,
+  );
+  tryGrantMilestone(MILESTONE_FRENZY, totalKillsAfter >= 1000);
+  tryGrantMilestone(
+    MILESTONE_THUNDER,
+    input.enemyName === "운봉의 거인" && (newKills >= 10),
+  );
+  tryGrantMilestone(MILESTONE_LIGHT_GLIDE, input.enemyName === "천공인의 왕");
+
+  // 마일스톤 스킬북 — inventory.skillBooks 에 추가. drop 으로 이미 변경된 invNext 위에 누적.
+  if (Object.keys(milestoneBookCounts).length > 0) {
+    const curSkillBooks = {
+      ...((invNext.skillBooks as Record<string, number> | undefined) ?? {}),
+    };
+    for (const [bookId, n] of Object.entries(milestoneBookCounts)) {
+      if (!n) continue;
+      curSkillBooks[bookId] = (curSkillBooks[bookId] ?? 0) + n;
+    }
+    invNext = { ...invNext, skillBooks: curSkillBooks };
+  }
+
+  const logChanged =
+    monstersNext !== monstersMap ||
+    noDamageWinsNext !==
+      (typeof logPrev.noDamageWins === "number" ? logPrev.noDamageWins : 0) ||
+    grantedTitleIds.length > 0;
+  const logNext = logChanged
+    ? {
+        ...logPrev,
+        monsters: monstersNext,
+        noDamageWins: noDamageWinsNext,
+        titles: titlesNext,
+      }
+    : logPrev;
+
+  const flagsChanged = flagsArr.length !== (Array.isArray(flagsPrev.flags) ? (flagsPrev.flags as string[]).length : 0);
+  const flagsNext = flagsChanged ? { ...flagsPrev, flags: flagsArr } : flagsPrev;
+
+  // ─── 저장 ───
   if (charChanged) await upsertSave(tx, userId, CHARACTER_KEY, charNext);
-  if (dropResult.invNext !== invPrev) {
-    await upsertSave(tx, userId, INVENTORY_KEY, dropResult.invNext);
+  if (invNext !== invPrev) {
+    await upsertSave(tx, userId, INVENTORY_KEY, invNext);
   }
   if (dropResult.craftingNext !== craftingPrev) {
     await upsertSave(tx, userId, CRAFTING_KEY, dropResult.craftingNext);
   }
   if (paragonChanged) await upsertSave(tx, userId, PARAGON_KEY, paragonNext);
+  if (logChanged) {
+    await upsertSave(tx, userId, ADVENTURE_LOG_KEY, logNext);
+  }
+  if (flagsChanged) {
+    await upsertSave(tx, userId, STORY_FLAGS_STORAGE_KEY, flagsNext);
+  }
 
   return {
     enemyName: input.enemyName,
@@ -516,11 +701,15 @@ export async function applyBattleClaim(
     hpAfterRegen,
     hpRegenHealed: Math.max(0, hpAfterRegen - finalHp),
     drops: dropResult.drops,
+    grantedTitleIds,
+    milestones,
     saves: {
       [CHARACTER_KEY]: charChanged ? charNext : charPrev,
-      [INVENTORY_KEY]: dropResult.invNext,
+      [INVENTORY_KEY]: invNext,
       [CRAFTING_KEY]: dropResult.craftingNext,
       [PARAGON_KEY]: paragonChanged ? paragonNext : paragonPrev,
+      [ADVENTURE_LOG_KEY]: logChanged ? logNext : logPrev,
+      [STORY_FLAGS_STORAGE_KEY]: flagsChanged ? flagsNext : flagsPrev,
     },
   };
 }

@@ -1,15 +1,16 @@
-// POST /api/battle/claim-victory — 솔로 전투 승리 보상 (EPIC #3-3 Phase 1).
+// POST /api/battle/claim-victory — 솔로 전투 승리 보상 (EPIC #3-3 Phase 1+2).
 //
-// body: { encounterId, enemyName, finalPlayerHp, playerMaxHp, isBoss }
+// body: { encounterId, enemyName, finalPlayerHp, playerMaxHp, isBoss,
+//         damageTakenThisCombat, potionsConsumedTotal }
 //
 // 흐름:
 //   1) auth + session header.
-//   2) 트랜잭션: 4 saves 키 (character/inventory/crafting/paragon) FOR UPDATE →
-//      deterministic seed RNG 로 드랍 굴림 + EXP/gold 적용 + 재생 룬 → upsert.
-//   3) 응답: { ok, enemyName, drops, expGained, goldGained, hpAfterRegen, saves }.
+//   2) 트랜잭션: 6 saves 키 (character/inventory/crafting/paragon/adventure-log/storyFlags)
+//      FOR UPDATE → deterministic seed RNG 로 드랍 굴림 + EXP/gold + 재생 룬 → 칭호
+//      grants + onDefeatFlag + addKill/noDamageWins + 마일스톤 스킬북 → upsert.
+//   3) 응답: { ok, drops, grantedTitleIds, milestones, expGained, ..., saves }.
 //
-// 비-스코프 (클라 잔존): 칭호/스토리플래그/마일스톤 grants, quest progress(recordKill),
-// adventureLog 카운터. Phase 2/3 에서 이전.
+// 비-스코프 (Phase 3): quest progress(recordKill), 패배 페널티, 서버 dedup.
 
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -33,6 +34,8 @@ export async function POST(req: Request) {
     finalPlayerHp?: unknown;
     playerMaxHp?: unknown;
     isBoss?: unknown;
+    damageTakenThisCombat?: unknown;
+    potionsConsumedTotal?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -44,6 +47,8 @@ export async function POST(req: Request) {
   const finalPlayerHp = body.finalPlayerHp;
   const playerMaxHp = body.playerMaxHp;
   const isBoss = body.isBoss;
+  const damageTakenThisCombat = body.damageTakenThisCombat;
+  const potionsConsumedTotal = body.potionsConsumedTotal;
   if (
     typeof encounterId !== "string" ||
     encounterId.length === 0 ||
@@ -68,6 +73,20 @@ export async function POST(req: Request) {
   ) {
     return jsonError("invalid_max_hp");
   }
+  if (
+    typeof damageTakenThisCombat !== "number" ||
+    !Number.isFinite(damageTakenThisCombat) ||
+    damageTakenThisCombat < 0
+  ) {
+    return jsonError("invalid_damage_taken");
+  }
+  if (
+    typeof potionsConsumedTotal !== "number" ||
+    !Number.isFinite(potionsConsumedTotal) ||
+    potionsConsumedTotal < 0
+  ) {
+    return jsonError("invalid_potions_consumed");
+  }
 
   try {
     const outcome: BattleClaimOutcome = await db.transaction((tx) =>
@@ -77,6 +96,8 @@ export async function POST(req: Request) {
         finalPlayerHp,
         playerMaxHp,
         isBoss: isBoss === true,
+        damageTakenThisCombat,
+        potionsConsumedTotal,
       }),
     );
     return jsonOk<BattleClaimOutcome>(outcome);

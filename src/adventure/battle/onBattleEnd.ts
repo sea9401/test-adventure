@@ -17,26 +17,30 @@ import type {
 import type { TabKey } from "@/lib/useNavTabs";
 import type { BattleClaimOutcome } from "@/lib/server/battleClaim";
 
-// 보상 (드랍 RNG + EXP/gold + HP-regen) 는 EPIC #3-3 Phase 1 이후 서버 권위.
-// 클라는 claimVictory 응답을 받아 saves replaceFromSaved + loot/EXP 토스트.
-// 비-보상 (칭호/마일스톤/스토리플래그/quest progress/패배 페널티) 은 Phase 2/3 까지 잔존.
+// 보상 / 칭호 / 마일스톤 / 누적 카운터 는 EPIC #3-3 Phase 1+2 이후 서버 권위.
+// 클라는 claimVictory 응답을 받아 saves replaceFromSaved + loot/milestone/EXP 토스트
+// + grantTitle chain (잔영 컬렉션 등) 처리. 비-보상 클라 잔존:
+//   - potion_overload 칭호 (승패 무관 — Phase 2 win path 에만 서버화, 패배는 클라).
+//   - quest progress (recordKill — kill_within_hp/no_potion_boss 의뢰 판정). Phase 3.
+//   - 패배 페널티 (respawn / 마을 강제 이동 / incrementBattleLosses). Phase 3.
 export type BattleEndDeps = {
-  /** 서버 victory claim — encounterId 와 stat 만 보내고 saves + drops 받음. null = 통신 실패. */
+  /** 서버 victory claim — encounterId 와 stat 만 보내고 saves + drops + 칭호/마일스톤 받음. */
   claimVictory: (input: {
     encounterId: string;
     enemyName: string;
     finalPlayerHp: number;
     playerMaxHp: number;
     isBoss: boolean;
+    damageTakenThisCombat: number;
+    potionsConsumedTotal: number;
   }) => Promise<BattleClaimOutcome | null>;
   inventory: {
     consume: (id: PotionId, n: number) => void;
   };
   adventureLog: {
-    addKill: (name: string) => void;
+    /** potion_overload 칭호 (패배 시 잔존) + 잔영 컬렉션 chain 트리거용 grantTitle. */
     markTitleObtained: (titleId: string) => void;
     incrementBattleLosses: () => void;
-    incrementNoDamageWin: () => void;
   };
   quests: {
     recordKill: (
@@ -44,30 +48,9 @@ export type BattleEndDeps = {
       ctx?: { hpFraction?: number; potionsUsed?: number },
     ) => string[];
   };
-  inventoryActions: {
-    /** 마일스톤 스킬북 1회 지급 — Phase 2 이전까지 클라 잔존. */
-    addSkillBook: (
-      id:
-        | "book_mad_slash"
-        | "book_deep_wound"
-        | "book_frenzy"
-        | "book_thunder_strike"
-        | "book_light_glide",
-      n?: number,
-    ) => void;
-  };
   characterState: {
     setHp: (n: number) => void;
   };
-  storyFlags: { set: (id: string) => void; has: (id: string) => boolean };
-  /** 누적 보스 처치 수 (이번 처치 전 기준) — 보스 50회 업적 보상 발급용. */
-  bossKillsTotal: number;
-  /** 누적 일반 처치 수 (이번 처치 전 기준) — 1000회 사냥 폭주 업적 발급용. */
-  totalKillsTotal: number;
-  /** 누적 무피해 승리 수 (이번 처치 전 기준) — 무피해 100회 광살참 업적용. */
-  noDamageWinsTotal: number;
-  /** 누적 운봉의 거인 처치 수 (이번 처치 전 기준) — 거인 10회 천뢰 일격 업적용. */
-  peakGiantKillsTotal: number;
   respawnRegionId: RegionId;
   addNotification: (
     kind: NotificationKind,
@@ -81,7 +64,7 @@ export type BattleEndDeps = {
   reportGuildKill?: (enemyName: string) => void;
 };
 
-// crypto.randomUUID fallback. encounterId 는 서버 idempotency 가드(Phase 2 추가 예정)
+// crypto.randomUUID fallback. encounterId 는 서버 idempotency 가드(Phase 3 추가 예정)
 // 의 키 — 일단 충돌만 안 나면 충분.
 function newEncounterId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -104,33 +87,9 @@ export async function onBattleEnd(
       potionTotal += n;
     }
   }
-  // '포션 폭격기' — 승패 무관, 한 전투에서 5병 이상.
-  if (potionTotal >= 5) deps.adventureLog.markTitleObtained("potion_overload");
 
   if (payload.outcome === "win") {
-    deps.adventureLog.addKill(payload.enemyName);
-    deps.adventureLog.markTitleObtained("first_blood");
-    // 무피해 승리 — 광살참 업적 카운터 +1. 누적 100회 도달 시 1회성 지급.
-    if (payload.damageTakenThisCombat === 0) {
-      deps.adventureLog.incrementNoDamageWin();
-      if (
-        deps.noDamageWinsTotal + 1 >= 100 &&
-        !deps.storyFlags.has("mad_slash_book_granted")
-      ) {
-        deps.storyFlags.set("mad_slash_book_granted");
-        deps.inventoryActions.addSkillBook("book_mad_slash", 1);
-        deps.addNotification(
-          "milestone",
-          "✨ 무피해 100회 승리 — '스킬북 — 광살참' 을 손에 넣었다!",
-        );
-      }
-    }
-    // '구사일생' — 체력 1 남긴 채 승리.
-    if (payload.finalPlayerHp === 1) {
-      deps.adventureLog.markTitleObtained("close_call");
-    }
-    // kill_within_hp / no_potion_boss 의뢰 판정용 ctx. autohunt 경로는 ctx 없이 호출 →
-    // 조건부 kind 는 자동으로 진행 안 됨 (의도 — 라이브 도전 의뢰).
+    // kill_within_hp / no_potion_boss 의뢰 판정 — Phase 3 까지 클라 잔존.
     const hpFraction =
       payload.playerMaxHp > 0 ? payload.finalPlayerHp / payload.playerMaxHp : 0;
     const readyQuestIds = deps.quests.recordKill(payload.enemyName, {
@@ -139,71 +98,18 @@ export async function onBattleEnd(
     });
     deps.reportGuildKill?.(payload.enemyName);
 
-    // 보스 storyFlag / 칭호 — data-driven (monster.onDefeatFlag/onDefeatTitleId).
-    const monster = MONSTERS[payload.enemyName];
-    if (monster?.onDefeatFlag) deps.storyFlags.set(monster.onDefeatFlag);
-    if (monster?.onDefeatTitleId) {
-      deps.adventureLog.markTitleObtained(monster.onDefeatTitleId);
-    }
-
-    // 누적 마일스톤 — 보스 50 / 총 1000 / 거인 10 / 천공인 첫 처치.
-    if (
-      monster?.phaseTrigger &&
-      deps.bossKillsTotal + 1 >= 50 &&
-      !deps.storyFlags.has("deep_wound_book_granted")
-    ) {
-      deps.storyFlags.set("deep_wound_book_granted");
-      deps.inventoryActions.addSkillBook("book_deep_wound", 1);
-      deps.addNotification(
-        "milestone",
-        "✨ 보스 50회 처치 — '스킬북 — 깊은 상처' 를 손에 넣었다!",
-      );
-    }
-    if (
-      deps.totalKillsTotal + 1 >= 1000 &&
-      !deps.storyFlags.has("frenzy_book_granted")
-    ) {
-      deps.storyFlags.set("frenzy_book_granted");
-      deps.inventoryActions.addSkillBook("book_frenzy", 1);
-      deps.addNotification(
-        "milestone",
-        "✨ 누적 1000회 처치 — '스킬북 — 폭주' 를 손에 넣었다!",
-      );
-    }
-    if (
-      payload.enemyName === "운봉의 거인" &&
-      deps.peakGiantKillsTotal + 1 >= 10 &&
-      !deps.storyFlags.has("thunder_strike_book_granted")
-    ) {
-      deps.storyFlags.set("thunder_strike_book_granted");
-      deps.inventoryActions.addSkillBook("book_thunder_strike", 1);
-      deps.addNotification(
-        "milestone",
-        "✨ 운봉의 거인 10회 처치 — '스킬북 — 천뢰 일격' 을 손에 넣었다!",
-      );
-    }
-    if (
-      payload.enemyName === "천공인의 왕" &&
-      !deps.storyFlags.has("light_glide_book_granted")
-    ) {
-      deps.storyFlags.set("light_glide_book_granted");
-      deps.inventoryActions.addSkillBook("book_light_glide", 1);
-      deps.addNotification(
-        "milestone",
-        "✨ 천공인의 왕 처치 — '스킬북 — 빛의 활공' 을 손에 넣었다!",
-      );
-    }
-
-    // 보상 적용 — 서버 권위. fetch 실패해도 위의 클라 비-보상 부분은 이미 적용됨.
+    // 보상 + 칭호 + 마일스톤 + 카운터 — 모두 서버. fetch 실패 시 stuck 회피 fallback.
     const outcome = await deps.claimVictory({
       encounterId: newEncounterId(),
       enemyName: payload.enemyName,
       finalPlayerHp: payload.finalPlayerHp,
       playerMaxHp: payload.playerMaxHp,
       isBoss: !!payload.isBoss,
+      damageTakenThisCombat: payload.damageTakenThisCombat,
+      potionsConsumedTotal: potionTotal,
     });
     if (!outcome) {
-      // 통신 실패 — finalHp 만 따로 적용해 stuck 회피. 재생 룬 미적용.
+      // 통신 실패 — finalHp 만 따로 적용해 stuck 회피. 재생 룬·서버 칭호 미반영.
       deps.characterState.setHp(payload.finalPlayerHp);
       deps.addNotification(
         "info",
@@ -216,7 +122,7 @@ export async function onBattleEnd(
       deps.addNotification("info", `재생의 룬 — HP +${outcome.hpRegenHealed}`);
     }
 
-    // 드랍 토스트 — 서버가 굴린 결과대로 클라에서 같은 문구로.
+    // 드랍 토스트 — 서버가 굴린 결과대로.
     for (const drop of outcome.drops) {
       if (drop.kind === "material") {
         deps.addNotification(
@@ -259,6 +165,17 @@ export async function onBattleEnd(
       }
     }
 
+    // 마일스톤 스킬북 토스트 — 서버가 storyFlag + inventory 에 박았고, 클라 토스트만 띄움.
+    for (const m of outcome.milestones) {
+      deps.addNotification("milestone", m.message);
+    }
+
+    // 칭호 grants — saves 의 titles 는 이미 갱신됨. grantTitle 은 클라 측 toast +
+    // 잔영 컬렉션 chain (예: starlit_quietener 자동 grant) 트리거. idempotent.
+    for (const titleId of outcome.grantedTitleIds) {
+      deps.adventureLog.markTitleObtained(titleId);
+    }
+
     // EXP 토스트 — 곱셈 분해 라벨.
     let expParts = "";
     if (outcome.expBonusApplied) expParts += " (신참 ×2)";
@@ -289,6 +206,8 @@ export async function onBattleEnd(
     return;
   }
 
+  // 패배 — Phase 3 까지 클라 잔존. potion_overload 도 패배 시엔 클라가 처리.
+  if (potionTotal >= 5) deps.adventureLog.markTitleObtained("potion_overload");
   deps.adventureLog.incrementBattleLosses();
   deps.setHuntingActive(false);
 

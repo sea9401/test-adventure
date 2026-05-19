@@ -1,14 +1,17 @@
 "use client";
 
-// 솔로 전투 승리 보상 서버 액션 (EPIC #3-3 Phase 1). 클라는 encounterId + 기본 stat 만
-// 보내고 서버가 deterministic seed 로 드랍 RNG 굴리고 EXP/gold/HP-regen 까지 적용.
-// 응답으로 받은 saves 4종을 각 hook 의 replaceFromSaved 로 통째 교체.
+// 솔로 전투 승리 보상 서버 액션 (EPIC #3-3). 클라는 encounterId + 기본 stat 만 보내고
+// 서버가 deterministic seed 로 드랍 RNG 굴리고 EXP/gold/HP-regen + 칭호/마일스톤/카운터
+// 까지 적용 (Phase 1+2). 응답으로 받은 saves 6종을 각 hook 의 replaceFromSaved 로 통째 교체.
 
 import { useCallback } from "react";
 import type { useInventory } from "@/adventure/inventory/useInventory";
 import type { useCharacterState } from "@/adventure/character/useCharacterState";
 import type { useCrafting } from "@/adventure/crafting/useCrafting";
 import type { useParagonState } from "@/adventure/character/useParagonState";
+import type { useAdventureLog } from "@/adventure/log/useAdventureLog";
+import type { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
+import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 import { readDeviceSessionId } from "@/lib/storage/deviceSession";
 import { useRemoteSave } from "@/lib/storage/SaveProvider";
 import type { BattleClaimOutcome } from "@/lib/server/battleClaim";
@@ -18,6 +21,8 @@ type Deps = {
   characterStateHook: ReturnType<typeof useCharacterState>;
   crafting: ReturnType<typeof useCrafting>;
   paragon: ReturnType<typeof useParagonState>;
+  adventureLog: ReturnType<typeof useAdventureLog>;
+  storyFlags: ReturnType<typeof useStoryFlags>;
 };
 
 type ClaimInput = {
@@ -26,10 +31,19 @@ type ClaimInput = {
   finalPlayerHp: number;
   playerMaxHp: number;
   isBoss: boolean;
+  damageTakenThisCombat: number;
+  potionsConsumedTotal: number;
 };
 
 export function useBattleClaimAction(deps: Deps) {
-  const { inventory, characterStateHook, crafting, paragon } = deps;
+  const {
+    inventory,
+    characterStateHook,
+    crafting,
+    paragon,
+    adventureLog,
+    storyFlags,
+  } = deps;
   const remote = useRemoteSave();
 
   const claim = useCallback(
@@ -57,7 +71,6 @@ export function useBattleClaimAction(deps: Deps) {
         | null;
       if (!data || data.ok === false) return null;
       const outcome = data.data;
-      // saves 통째 교체 — applied 여부 무관 (Phase 1 은 dedup 미구현이라 항상 applied=true).
       if (outcome.saves["character.v2"] !== undefined) {
         characterStateHook.replaceFromSaved(outcome.saves["character.v2"]);
       }
@@ -70,9 +83,23 @@ export function useBattleClaimAction(deps: Deps) {
       if (outcome.saves["paragon.v1"] !== undefined) {
         paragon.replaceFromSaved(outcome.saves["paragon.v1"]);
       }
+      if (outcome.saves["adventure-log.v2"] !== undefined) {
+        adventureLog.replaceFromSaved(outcome.saves["adventure-log.v2"]);
+      }
+      if (outcome.saves[STORY_FLAGS_STORAGE_KEY] !== undefined) {
+        storyFlags.replaceFromSaved(outcome.saves[STORY_FLAGS_STORAGE_KEY]);
+      }
       return outcome;
     },
-    [remote, characterStateHook, inventory, crafting, paragon],
+    [
+      remote,
+      characterStateHook,
+      inventory,
+      crafting,
+      paragon,
+      adventureLog,
+      storyFlags,
+    ],
   );
 
   return { claim };

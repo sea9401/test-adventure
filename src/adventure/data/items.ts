@@ -36,10 +36,10 @@ export function signedBonus(n: number): string {
   return (n >= 0 ? "+" : "") + n;
 }
 
-// 진행 구간 티어 — 1 입문 / 2 정착 / 3 다리 구간 / 4 봉황·화산 / 5 엔드.
+// 진행 구간 티어 — 1 입문 / 2 정착 / 3 다리 구간 / 4 봉황·화산 / 5 엔드 / 6 별빛.
 // 인벤토리·도감·대장간 UI에서 장비를 진행 구간별로 그룹화하는 용도.
 // 미지정 장비는 EQUIP_TIER_FALLBACK("입문") 으로 묶임 — 신규 장비 추가 시 한 줄만 적어두면 됨.
-export type EquipTier = 1 | 2 | 3 | 4 | 5;
+export type EquipTier = 1 | 2 | 3 | 4 | 5 | 6;
 
 export type EquipItem = {
   name: string;
@@ -990,7 +990,7 @@ export const ITEMS = {
     bonus: { atk: 28, str: 19 },
     description: "별빛 한 결을 한 자루로 두껍게 두른 한손 대검. 들면 어깨에 별바다의 무게가 가지런히 얹힌다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_greatsword_dex: {
     name: "민첩의 별빛 대검",
@@ -1003,7 +1003,7 @@ export const ITEMS = {
     bonus: { atk: 28, str: 14, dex: 5 },
     description: "별빛 한 결을 가늘게 흘려 단조한 한손 대검. 결을 따라 손끝까지 가지런히 흐른다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_greatsword_vit: {
     name: "활력의 별빛 대검",
@@ -1016,7 +1016,7 @@ export const ITEMS = {
     bonus: { atk: 28, str: 14, vit: 5 },
     description: "별빛 한 결이 가장 안쪽에 두텁게 가라앉아 있는 한손 대검. 한 호흡이 어긋나도 결이 자세를 잡아 준다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_greatsword_spd: {
     name: "속도의 별빛 대검",
@@ -1029,7 +1029,7 @@ export const ITEMS = {
     bonus: { atk: 28, str: 14, spd: 5 },
     description: "별빛 한 결을 결대로 얇게 펴 단조한 한손 대검. 그림자가 가볍게 떨어진다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_greatsword_luk: {
     name: "행운의 별빛 대검",
@@ -1042,7 +1042,7 @@ export const ITEMS = {
     bonus: { atk: 28, str: 14, luk: 5 },
     description: "별빛 한 점이 한 칼에 옅게 떨려 있는 한손 대검. 자루 끝에서 가끔 빛이 한 번 깜박인다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
 
   // 창 (메인 = 민첩)
@@ -1057,7 +1057,7 @@ export const ITEMS = {
     bonus: { atk: 28, dex: 14, str: 5 },
     description: "별빛 한 결을 묵직하게 박아 단조한 긴 창. 한 번 박으면 결이 손까지 같이 박힌다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_lance_dex: {
     name: "민첩의 별빛 창",
@@ -1069,7 +1069,7 @@ export const ITEMS = {
     bonus: { atk: 28, dex: 19 },
     description: "별빛 한 결을 가장 가지런히 흘려 단조한 긴 창. 결이 손끝까지 한 번에 미끄러진다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_lance_vit: {
     name: "활력의 별빛 창",
@@ -1082,7 +1082,7 @@ export const ITEMS = {
     bonus: { atk: 28, dex: 14, vit: 5 },
     description: "별빛 한 결이 자루 안쪽에 가장 두텁게 가라앉아 있는 긴 창. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_lance_spd: {
     name: "속도의 별빛 창",
@@ -1095,7 +1095,7 @@ export const ITEMS = {
     bonus: { atk: 28, dex: 14, spd: 5 },
     description: "별빛 한 결을 가장 얇게 펴 단조한 긴 창. 휘두를 때마다 그림자가 한 박자 늦게 따라온다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_lance_luk: {
     name: "행운의 별빛 창",
@@ -1108,7 +1108,7 @@ export const ITEMS = {
     bonus: { atk: 28, dex: 14, luk: 5 },
     description: "별빛 한 점이 창끝에 옅게 떨려 있는 긴 창. 결정적인 한 자세에 빛이 한 번 깜박인다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
 
   // 방패 (메인 = 활력)
@@ -1123,7 +1123,7 @@ export const ITEMS = {
     bonus: { atk: 28, vit: 14, str: 5 },
     description: "별빛 한 결을 가장 두텁게 박아 단조한 방패형 무기. 받아 내는 한 번에 별바다의 무게가 같이 얹힌다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_shield_dex: {
     name: "민첩의 별빛 방패",
@@ -1136,7 +1136,7 @@ export const ITEMS = {
     bonus: { atk: 28, vit: 14, dex: 5 },
     description: "별빛 한 결을 가장 가지런히 흘려 단조한 방패형 무기. 결이 손끝까지 한 번에 미끄러진다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_shield_vit: {
     name: "활력의 별빛 방패",
@@ -1148,7 +1148,7 @@ export const ITEMS = {
     bonus: { atk: 28, vit: 19 },
     description: "별빛 한 결이 안쪽까지 가장 깊이 가라앉아 있는 방패형 무기. 어떤 결도 안으로 닿지 못한다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_shield_spd: {
     name: "속도의 별빛 방패",
@@ -1161,7 +1161,7 @@ export const ITEMS = {
     bonus: { atk: 28, vit: 14, spd: 5 },
     description: "별빛 한 결을 얇게 펴 단조한 방패형 무기. 받아 낼 때마다 그림자가 한 박자 늦게 따라온다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_shield_luk: {
     name: "행운의 별빛 방패",
@@ -1174,7 +1174,7 @@ export const ITEMS = {
     bonus: { atk: 28, vit: 14, luk: 5 },
     description: "별빛 한 점이 방패 한가운데에 옅게 떨려 있는 방패형 무기. 막아 낸 한 번에 빛이 한 번 깜박인다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
 
   // 쌍검 (메인 = 속도)
@@ -1189,7 +1189,7 @@ export const ITEMS = {
     bonus: { atk: 28, spd: 14, str: 5 },
     description: "별빛 한 결을 두껍게 두른 한 손에 한 자루씩의 쌍검. 한 번에 두 결이 같이 박힌다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_twinblades_dex: {
     name: "민첩의 별빛 쌍검",
@@ -1202,7 +1202,7 @@ export const ITEMS = {
     bonus: { atk: 28, spd: 14, dex: 5 },
     description: "별빛 한 결을 가지런히 흘려 단조한 쌍검. 두 결이 한 손끝까지 같이 미끄러진다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_twinblades_vit: {
     name: "활력의 별빛 쌍검",
@@ -1215,7 +1215,7 @@ export const ITEMS = {
     bonus: { atk: 28, spd: 14, vit: 5 },
     description: "별빛 한 결이 두 자루 안쪽에 두텁게 가라앉아 있는 쌍검. 두 호흡이 끊겨도 결이 자세를 잡아 준다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_twinblades_spd: {
     name: "속도의 별빛 쌍검",
@@ -1227,7 +1227,7 @@ export const ITEMS = {
     bonus: { atk: 28, spd: 19 },
     description: "별빛 한 결을 가장 얇게 펴 단조한 쌍검. 두 그림자가 한 박자 늦게 같이 따라온다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_twinblades_luk: {
     name: "행운의 별빛 쌍검",
@@ -1240,7 +1240,7 @@ export const ITEMS = {
     bonus: { atk: 28, spd: 14, luk: 5 },
     description: "별빛 한 점이 두 자루 끝에 옅게 떨려 있는 쌍검. 결정적인 두 결에 빛이 한 번 깜박인다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
 
   // 단검 (메인 = 행운)
@@ -1255,7 +1255,7 @@ export const ITEMS = {
     bonus: { atk: 28, luk: 14, str: 5 },
     description: "별빛 한 결을 두껍게 두른 짧고 가는 단검. 한 번 박으면 별바다의 무게가 같이 박힌다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_dagger_dex: {
     name: "민첩의 별빛 단검",
@@ -1268,7 +1268,7 @@ export const ITEMS = {
     bonus: { atk: 28, luk: 14, dex: 5 },
     description: "별빛 한 결을 가지런히 흘려 단조한 짧고 가는 단검. 결이 손끝까지 한 번에 미끄러진다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_dagger_vit: {
     name: "활력의 별빛 단검",
@@ -1281,7 +1281,7 @@ export const ITEMS = {
     bonus: { atk: 28, luk: 14, vit: 5 },
     description: "별빛 한 결이 자루 안쪽에 두텁게 가라앉아 있는 짧고 가는 단검. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_dagger_spd: {
     name: "속도의 별빛 단검",
@@ -1294,7 +1294,7 @@ export const ITEMS = {
     bonus: { atk: 28, luk: 14, spd: 5 },
     description: "별빛 한 결을 가장 얇게 펴 단조한 짧고 가는 단검. 그림자가 칼끝보다 한 박자 늦게 따라온다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_dagger_luk: {
     name: "행운의 별빛 단검",
@@ -1306,7 +1306,7 @@ export const ITEMS = {
     bonus: { atk: 28, luk: 19 },
     description: "별빛 한 점이 칼끝에 가장 가지런히 떨려 있는 짧고 가는 단검. 결정적인 한 박자에 빛이 한 번 깜박인다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
 
   // 별빛 갑옷 5종 (메인스탯만, 부스탯 없음)
@@ -1320,7 +1320,7 @@ export const ITEMS = {
     bonus: { def: 24, str: 14 },
     description: "별빛 한 결을 가장 두껍게 두른 갑주. 한 발 디딜 때마다 별바다의 무게가 가지런히 얹힌다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_armor_dex: {
     name: "민첩의 별빛 갑옷",
@@ -1332,7 +1332,7 @@ export const ITEMS = {
     bonus: { def: 24, dex: 14 },
     description: "별빛 한 결을 가지런히 흘려 단조한 가벼운 갑주. 몸의 결이 한 번에 미끄러진다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_armor_vit: {
     name: "활력의 별빛 갑옷",
@@ -1344,7 +1344,7 @@ export const ITEMS = {
     bonus: { def: 24, vit: 14 },
     description: "별빛 한 결이 안쪽까지 가장 깊이 가라앉아 있는 두꺼운 갑주. 어떤 결도 안으로 닿지 못한다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_armor_spd: {
     name: "속도의 별빛 갑옷",
@@ -1356,7 +1356,7 @@ export const ITEMS = {
     bonus: { def: 24, spd: 14 },
     description: "별빛 한 결을 가장 얇게 펴 단조한 갑주. 그림자가 한 박자 늦게 따라온다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
   starlit_armor_luk: {
     name: "행운의 별빛 갑옷",
@@ -1368,7 +1368,7 @@ export const ITEMS = {
     bonus: { def: 24, luk: 14 },
     description: "별빛 한 점이 가슴 위에 옅게 떨려 있는 갑주. 결정적인 한 발에 빛이 한 번 깜박인다.",
     rarity: "uncommon",
-    tier: 5,
+    tier: 6,
   } satisfies EquipItem,
 
   // ── 5막 잔영 협동 legend 1% unique 액세서리 3종 (별빛 변종 협동 보스 보상) ──

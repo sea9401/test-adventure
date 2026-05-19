@@ -19,6 +19,7 @@ export const EQUIP_TIER_METAS: readonly EquipTierMeta[] = [
   { tier: 3, label: "다리 구간", hint: "운저 평원 ~ 잿빛 협로 · 30~45" },
   { tier: 4, label: "봉황·화산", hint: "봉황령 ~ 화산 · 45~60" },
   { tier: 5, label: "엔드", hint: "천공 ~ 만렙 후 · 60+" },
+  { tier: 6, label: "별빛", hint: "별빛 사냥터 · 100+" },
 ] as const;
 
 // 장비의 tier — items.ts 에 명시된 값, 없으면 fallback.

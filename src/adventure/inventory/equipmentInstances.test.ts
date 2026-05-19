@@ -9,13 +9,57 @@ describe("normalizeInstance", () => {
     enhancementLevel: 3,
   };
 
-  it("정상 인스턴스는 통과", () => {
+  it("정상 인스턴스는 통과 (옛 인스턴스 fallback — safe N 회 history + 가능 횟수 7)", () => {
     expect(normalizeInstance(valid)).toEqual({
       instanceId: "inst-1",
       itemId: "starlit_greatsword_str",
       enhancementLevel: 3,
       craftTier: undefined,
+      enhanceHistory: ["safe", "safe", "safe"],
+      remainingAttempts: 7,
     });
+  });
+
+  it("enhanceHistory + remainingAttempts 명시된 신규 인스턴스 통과", () => {
+    const fresh = {
+      instanceId: "fresh",
+      itemId: "starlit_greatsword_str",
+      enhancementLevel: 2,
+      enhanceHistory: ["boost", "high"],
+      remainingAttempts: 5,
+    };
+    expect(normalizeInstance(fresh)).toEqual({
+      instanceId: "fresh",
+      itemId: "starlit_greatsword_str",
+      enhancementLevel: 2,
+      craftTier: undefined,
+      enhanceHistory: ["boost", "high"],
+      remainingAttempts: 5,
+    });
+  });
+
+  it("enhanceHistory 길이 mismatch — drop", () => {
+    expect(
+      normalizeInstance({
+        ...valid,
+        enhanceHistory: ["safe"], // level 3 인데 길이 1
+      }),
+    ).toBeNull();
+  });
+
+  it("enhanceHistory 에 알 수 없는 모드 — drop", () => {
+    expect(
+      normalizeInstance({
+        ...valid,
+        enhanceHistory: ["safe", "wat", "safe"],
+      }),
+    ).toBeNull();
+  });
+
+  it("remainingAttempts 가 INITIAL(7) 초과 — drop", () => {
+    expect(
+      normalizeInstance({ ...valid, remainingAttempts: 999 }),
+    ).toBeNull();
   });
 
   it("enhancementLevel 가 MAX 초과면 drop", () => {

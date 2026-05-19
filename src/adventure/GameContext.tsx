@@ -161,8 +161,11 @@ export type GameCtx = {
     quantity?: number,
     equipPicks?: EquipPicks,
   ) => void;
-  /** 별빛 재단 무구 +1 강화 (서버 권위). 인스턴스 ID 1자루씩. */
-  handleEnhance: (instanceId: string) => void;
+  /** 별빛 무구 +1 강화 시도 (서버 권위). 인스턴스 ID + 확률 모드. 실패 시 가능 횟수 -1. */
+  handleEnhance: (
+    instanceId: string,
+    mode: import("./character/enhancement").EnhanceMode,
+  ) => void;
   /**
    * NPC 1회성 대화 보상 수령 (서버 권위). dialogueId 만 보내고 서버가 character/
    * inventory/storyFlags 를 mutate. onSuccess 는 dialogue 닫기 등.

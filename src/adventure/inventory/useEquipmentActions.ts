@@ -16,6 +16,7 @@ import {
 } from "@/adventure/data/dropQuality";
 import { resolveCraftedItem } from "@/adventure/data/recipes";
 import {
+  ENHANCE_INITIAL_ATTEMPTS,
   isEnhanceable,
   resolveEnhancedItem,
 } from "@/adventure/character/enhancement";
@@ -68,6 +69,13 @@ export function useEquipmentActions(deps: {
         itemId: id,
         craftTier: item.craftTier,
         enhancementLevel: item.enhancementLevel ?? 0,
+        // 슬롯에 박혀 있는 동안 history/remainingAttempts 는 EquippedItem 에 미반영이라
+        // 회수 시 풀에서 복원이 필요. 단 EquippedItem 자체에 그 메타가 없으니
+        // safe 모드 fallback + 시작 가능 횟수로 임시 박는다 — 실제 history 보존은
+        // 슬롯 장착 시점에 EquippedItem 까지 메타를 끌고 가는 후속 PR 에서 정리.
+        enhanceHistory: item.enhanceHistory,
+        remainingAttempts:
+          item.remainingAttempts ?? ENHANCE_INITIAL_ATTEMPTS,
       });
       return;
     }

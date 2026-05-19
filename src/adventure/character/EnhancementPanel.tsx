@@ -1,19 +1,23 @@
 "use client";
 
-// 별빛 강화소 — 별빛 재단 무구 인스턴스를 +1~+5 까지 누진 비용으로 강화.
-// 대장간 옆 sub-view 로 진입. 강화 가능한 인스턴스를 한 자루씩 카드로 보여 주고,
-// 다음 단계 비용 + "강화" 버튼 + 보유 별빛 조각 부족 시 disable.
+// 별빛 강화소 — 별빛 무구 인스턴스를 +1~+7 까지 누진 비용으로 강화 시도.
+// 모드 선택 (safe/boost/high/risky/extreme) — 확률·보상 트레이드오프. 비용은 모드 무관.
+// 실패 시 자루별 가능 횟수 -1. 0 이 되면 더 시도 불가.
 //
 // 강화 자체는 서버 권위(/api/enhance) — useEnhanceAction.handleEnhance 호출.
 
+import { useState } from "react";
 import { Sparkle } from "@phosphor-icons/react";
 import { ITEMS } from "@/adventure/data/items";
 import { craftTierSuffix } from "@/adventure/data/craftQuality";
 import {
   ENHANCE_MAX_LEVEL,
+  ENHANCE_MODES,
+  ENHANCE_MODE_SPEC,
   ENHANCE_SHARD_COST,
-  enhancementBonus,
+  modeBonus,
   resolveEnhancedItem,
+  type EnhanceMode,
 } from "@/adventure/character/enhancement";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -22,14 +26,26 @@ import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances
 type Props = {
   instances: readonly EquipmentInstance[];
   shardCount: number;
-  onEnhance: (instanceId: string) => void;
+  onEnhance: (instanceId: string, mode: EnhanceMode) => void;
 };
 
-// 한 단계 강화 시 atk/주능력치 가 +1 (무기) 또는 dex/spd 가 +1 (망토). 미리보기에 쓴다.
-function nextLevelDeltaSummary(itemId: EquipmentInstance["itemId"]): string {
-  const per = enhancementBonus(itemId, 1);
+const MODE_LABEL: Record<EnhanceMode, string> = {
+  safe: "안전 100%",
+  boost: "도전 70%",
+  high: "위험 50%",
+  risky: "고위험 30%",
+  extreme: "극한 10%",
+};
+
+// 모드 1회 시 자루에 더해지는 보너스 미리보기.
+function modeDeltaSummary(
+  itemId: EquipmentInstance["itemId"],
+  mode: EnhanceMode,
+): string {
+  const per = modeBonus(itemId, mode);
   const parts: string[] = [];
   if (per.atk) parts.push(`공격력 +${per.atk}`);
+  if (per.def) parts.push(`방어력 +${per.def}`);
   if (per.str) parts.push(`힘 +${per.str}`);
   if (per.vit) parts.push(`활력 +${per.vit}`);
   if (per.dex) parts.push(`민첩 +${per.dex}`);
@@ -39,15 +55,17 @@ function nextLevelDeltaSummary(itemId: EquipmentInstance["itemId"]): string {
 }
 
 export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
+  const [mode, setMode] = useState<EnhanceMode>("safe");
   if (instances.length === 0) {
     return (
       <EmptyState
         icon={<Sparkle size={40} weight="duotone" />}
         title="강화할 장비가 없습니다"
-        message="별빛 재단 무구를 먼저 만들어 가져오세요."
+        message="별빛 무구를 먼저 만들어 가져오세요."
       />
     );
   }
+  const spec = ENHANCE_MODE_SPEC[mode];
   return (
     <div className="space-y-3">
       <Card as="section" padding="md">
@@ -63,8 +81,26 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
           </p>
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          잔영 셋을 잠재운 결을 한 점 한 점 무구에 옮기는 자리. 강화 단계마다 별빛 조각이 누진적으로 들어간다. 최대 +{ENHANCE_MAX_LEVEL}.
+          별빛을 한 점 한 점 무구에 옮기는 자리. 단계마다 별빛 조각이 누진. 최대 +{ENHANCE_MAX_LEVEL}.
+          모드를 낮은 확률로 고르면 한 번에 더 많은 결이 옮겨지지만, 실패하면 이 자루의 남은 시도 횟수가 한 번 깎인다.
         </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="text-xs text-zinc-500 dark:text-zinc-400">강화 모드</label>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as EnhanceMode)}
+            className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          >
+            {ENHANCE_MODES.map((m) => (
+              <option key={m} value={m}>
+                {MODE_LABEL[m]}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            성공률 {spec.successPct}%
+          </span>
+        </div>
       </Card>
 
       <ul className="space-y-2">
@@ -73,17 +109,18 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
           const item = resolveEnhancedItem(
             inst.itemId,
             inst.craftTier,
-            inst.enhancementLevel,
+            inst.enhanceHistory ?? inst.enhancementLevel,
             inst.instanceId,
           );
           const isMax = inst.enhancementLevel >= ENHANCE_MAX_LEVEL;
+          const noAttempts = inst.remainingAttempts <= 0;
           const nextLevel = inst.enhancementLevel + 1;
           const nextCost = isMax ? 0 : ENHANCE_SHARD_COST[nextLevel] ?? 0;
           const canAfford = shardCount >= nextCost;
           const tierSuf = craftTierSuffix(inst.craftTier).trim();
           const enhSuf =
             inst.enhancementLevel > 0 ? `+${inst.enhancementLevel}` : "";
-          const deltaSummary = isMax ? "" : nextLevelDeltaSummary(inst.itemId);
+          const deltaSummary = isMax ? "" : modeDeltaSummary(inst.itemId, mode);
           return (
             <li
               key={inst.instanceId}
@@ -105,13 +142,16 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
                         {enhSuf}
                       </span>
                     )}
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      가능 횟수 {inst.remainingAttempts}
+                    </span>
                   </div>
                   <div className="text-xs text-amber-600 dark:text-amber-400">
                     {item.stats.map((s) => `${s.label} ${s.value}`).join(" · ")}
                   </div>
-                  {!isMax && (
+                  {!isMax && !noAttempts && (
                     <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      +{nextLevel} 강화 시: {deltaSummary} (별빛 조각 {nextCost})
+                      성공 시: {deltaSummary} (별빛 조각 {nextCost})
                     </div>
                   )}
                 </div>
@@ -120,14 +160,18 @@ export function EnhancementPanel({ instances, shardCount, onEnhance }: Props) {
                     <span className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300">
                       풀강 +{ENHANCE_MAX_LEVEL}
                     </span>
+                  ) : noAttempts ? (
+                    <span className="rounded-md border border-zinc-300 bg-zinc-50 px-2.5 py-1 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+                      가능 횟수 소진
+                    </span>
                   ) : (
                     <button
                       type="button"
-                      onClick={() => onEnhance(inst.instanceId)}
+                      onClick={() => onEnhance(inst.instanceId, mode)}
                       disabled={!canAfford}
                       className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
                     >
-                      +{nextLevel} 강화 ({nextCost})
+                      +{nextLevel} 시도 ({nextCost})
                     </button>
                   )}
                 </div>

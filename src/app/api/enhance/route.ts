@@ -1,21 +1,30 @@
-// POST /api/enhance — 별빛 재단 무구 인스턴스를 +1 강화. 서버 권위.
+// POST /api/enhance — 별빛 무구 인스턴스를 +1 강화 시도. 서버 권위.
 //
-// body: { instanceId: string }
+// body: { instanceId: string, mode: EnhanceMode }
 //
 // 흐름:
 //   1) auth + session
-//   2) 트랜잭션 안에서 inventory.v2 잠금 → 별빛 조각 차감 + 인스턴스 단계 +1
-//   3) 새 inventory.v2 + toLevel + shardsSpent 반환 → 클라가 replace + 알림.
+//   2) 트랜잭션 안에서 inventory.v2 잠금 → 모드 검증 → 별빛 조각 차감 → RNG 굴림
+//      → 성공: 단계 +1, history push / 실패: remainingAttempts -1
+//   3) 새 inventory.v2 + toLevel + remainingAttempts + shardsSpent + success + mode 반환.
 
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { requireSessionHeader } from "@/lib/server/checkSession";
 import { jsonError, jsonOk } from "@/lib/server/jsonResponse";
 import {
+  ENHANCE_MODE_SPEC,
+  type EnhanceMode,
+} from "@/adventure/character/enhancement";
+import {
   EnhanceError,
   applyEnhanceAction,
   type EnhanceOutcome,
 } from "@/lib/server/enhance";
+
+function isEnhanceMode(v: unknown): v is EnhanceMode {
+  return typeof v === "string" && v in ENHANCE_MODE_SPEC;
+}
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
@@ -23,7 +32,7 @@ export async function POST(req: Request) {
   const sessionFail = await requireSessionHeader(userId, req);
   if (sessionFail) return sessionFail;
 
-  let body: { instanceId?: unknown };
+  let body: { instanceId?: unknown; mode?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -37,11 +46,15 @@ export async function POST(req: Request) {
   ) {
     return jsonError("invalid_instance_id");
   }
+  if (!isEnhanceMode(body.mode)) {
+    return jsonError("invalid_mode");
+  }
   const instanceId = body.instanceId;
+  const mode = body.mode;
 
   try {
     const outcome: EnhanceOutcome = await db.transaction((tx) =>
-      applyEnhanceAction(tx, userId, instanceId),
+      applyEnhanceAction(tx, userId, instanceId, mode),
     );
     return jsonOk<EnhanceOutcome>(outcome);
   } catch (e) {

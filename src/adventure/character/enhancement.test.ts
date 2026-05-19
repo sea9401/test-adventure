@@ -101,37 +101,56 @@ describe("enhancement — nextEnhanceCost", () => {
 });
 
 describe("enhancement — planEnhance", () => {
-  it("정상 경로 — 별빛 조각 충분", () => {
-    expect(planEnhance("starlit_greatsword_str", 0, 30)).toEqual({
+  it("정상 경로 — 안전 모드", () => {
+    expect(planEnhance("starlit_greatsword_str", 0, "safe", 30, 7)).toEqual({
       ok: true,
       toLevel: 1,
       shards: 30,
+      mode: "safe",
+      successPct: 100,
     });
-    expect(planEnhance("starlit_greatsword_str", 6, 700)).toEqual({
+    expect(planEnhance("starlit_greatsword_str", 6, "safe", 700, 3)).toEqual({
       ok: true,
       toLevel: 7,
       shards: 700,
+      mode: "safe",
+      successPct: 100,
+    });
+  });
+
+  it("정상 경로 — 도전 모드 (extreme 10%)", () => {
+    expect(planEnhance("starlit_greatsword_str", 0, "extreme", 30, 7)).toEqual({
+      ok: true,
+      toLevel: 1,
+      shards: 30,
+      mode: "extreme",
+      successPct: 10,
     });
   });
 
   it("강화 불가 itemId", () => {
-    const r = planEnhance("empyrean_blade", 0, 1000);
+    const r = planEnhance("empyrean_blade", 0, "safe", 1000, 7);
     expect(r).toEqual({ ok: false, reason: "not_enhanceable" });
   });
 
   it("최대 단계 (+7) 도달 후 → max_level", () => {
-    const r = planEnhance("starlit_greatsword_str", 7, 1000);
+    const r = planEnhance("starlit_greatsword_str", 7, "safe", 1000, 5);
     expect(r).toEqual({ ok: false, reason: "max_level" });
   });
 
   it("별빛 조각 부족", () => {
-    const r = planEnhance("starlit_greatsword_str", 0, 29);
+    const r = planEnhance("starlit_greatsword_str", 0, "safe", 29, 7);
     expect(r).toEqual({ ok: false, reason: "insufficient_shards" });
   });
 
   it("잘못된 단계 (음수)", () => {
-    const r = planEnhance("starlit_greatsword_str", -1, 1000);
+    const r = planEnhance("starlit_greatsword_str", -1, "safe", 1000, 7);
     expect(r).toEqual({ ok: false, reason: "invalid_level" });
+  });
+
+  it("가능 횟수 0 — no_attempts", () => {
+    const r = planEnhance("starlit_greatsword_str", 0, "safe", 1000, 0);
+    expect(r).toEqual({ ok: false, reason: "no_attempts" });
   });
 });
 

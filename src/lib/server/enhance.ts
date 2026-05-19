@@ -1,19 +1,27 @@
 import "server-only";
 
-// 별빛 재단 무구 강화 서버 lib — /api/enhance 의 핵심 로직.
+// 별빛 무구 강화 서버 lib — /api/enhance 의 핵심 로직.
 //
-// 권위: 서버. 클라는 instanceId 만 보내고, 서버가 inventory.v2 를 잠그고 검증·적용.
+// 권위: 서버. 클라는 instanceId + 모드만 보내고, 서버가 inventory.v2 를 잠그고 검증·RNG 굴림.
 // 비용·단계 캡은 character/enhancement.ts 의 상수 그대로 — 클라/서버 동일 정책.
 //
+// 비용은 *시도* 시 항상 차감 (성공/실패 무관).
+// 성공: enhanceHistory 에 모드 push + enhancementLevel +1.
+// 실패: remainingAttempts -= 1. enhancementLevel / history 그대로.
+// remainingAttempts 가 0 이 되면 더 시도 불가 — 자루 천장이 깎인 상태.
+//
 // 순수 계산(computeEnhanceOutcome)과 DB I/O(applyEnhanceAction) 를 분리해 단위 테스트.
+// RNG 는 외부 주입 — 테스트는 결정적 RNG 로 검증.
 
 import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import {
   ENHANCE_MAX_LEVEL,
+  ENHANCE_MODE_SPEC,
   ENHANCE_SHARD_COST,
   isEnhanceable,
+  type EnhanceMode,
 } from "@/adventure/character/enhancement";
 import {
   normalizeInstances,
@@ -39,16 +47,25 @@ export type EnhanceComputeInput = {
 export type EnhanceComputeResult = {
   materials: CountMap;
   equipmentInstances: EquipmentInstance[];
-  /** 적용 후 인스턴스의 새 단계. UI 알림에 사용. */
+  /** 시도 후 결과 — 성공 시 단계 +1, 실패 시 그대로. */
   toLevel: number;
-  /** 차감된 별빛 조각 양. */
+  /** 시도 후 남은 가능 횟수 — 실패 시 -1, 성공 시 그대로. */
+  remainingAttempts: number;
+  /** 차감된 별빛 조각 양 (시도 시 항상 차감). */
   shardsSpent: number;
+  /** 강화 시도 성공 여부. */
+  success: boolean;
+  /** 사용된 모드 — 응답 토스트에 사용. */
+  mode: EnhanceMode;
 };
 
-// 순수 함수 — 인스턴스를 +1 단계 강화. 위반 시 EnhanceError throw.
+// 순수 함수 — 인스턴스 +1 강화 *시도*. RNG 결과에 따라 성공/실패 분기.
+// 위반 시 EnhanceError throw. rng() 는 0 이상 1 미만 반환.
 export function computeEnhanceOutcome(
   input: EnhanceComputeInput,
   instanceId: string,
+  mode: EnhanceMode,
+  rng: () => number,
 ): EnhanceComputeResult {
   const idx = input.equipmentInstances.findIndex(
     (i) => i.instanceId === instanceId,
@@ -61,25 +78,56 @@ export function computeEnhanceOutcome(
   if (inst.enhancementLevel >= ENHANCE_MAX_LEVEL) {
     throw new EnhanceError("max_level");
   }
-  const toLevel = inst.enhancementLevel + 1;
-  const cost = ENHANCE_SHARD_COST[toLevel] ?? 0;
+  const spec = ENHANCE_MODE_SPEC[mode];
+  if (!spec) throw new EnhanceError("invalid_mode");
+  if (inst.remainingAttempts <= 0) {
+    throw new EnhanceError("no_attempts");
+  }
+  const targetLevel = inst.enhancementLevel + 1;
+  const cost = ENHANCE_SHARD_COST[targetLevel] ?? 0;
   const have = input.materials[SHARD_MATERIAL] ?? 0;
   if (have < cost) throw new EnhanceError("insufficient_shards");
 
+  // 비용 차감 (시도 시 항상).
   const materials: CountMap = { ...input.materials };
   const left = have - cost;
   if (left > 0) materials[SHARD_MATERIAL] = left;
   else delete materials[SHARD_MATERIAL];
-  const updated: EquipmentInstance = {
-    ...inst,
-    enhancementLevel: toLevel,
-  };
+
+  // RNG — 0~1 < successPct/100 이면 성공.
+  const success = rng() < spec.successPct / 100;
+
+  let updated: EquipmentInstance;
+  if (success) {
+    const nextHistory: EnhanceMode[] = [
+      ...(inst.enhanceHistory ?? new Array<EnhanceMode>(inst.enhancementLevel).fill("safe")),
+      mode,
+    ];
+    updated = {
+      ...inst,
+      enhancementLevel: targetLevel,
+      enhanceHistory: nextHistory,
+    };
+  } else {
+    updated = {
+      ...inst,
+      remainingAttempts: inst.remainingAttempts - 1,
+    };
+  }
   const equipmentInstances = [
     ...input.equipmentInstances.slice(0, idx),
     updated,
     ...input.equipmentInstances.slice(idx + 1),
   ];
-  return { materials, equipmentInstances, toLevel, shardsSpent: cost };
+  return {
+    materials,
+    equipmentInstances,
+    toLevel: updated.enhancementLevel,
+    remainingAttempts: updated.remainingAttempts,
+    shardsSpent: cost,
+    success,
+    mode,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -106,14 +154,18 @@ async function readKv<T>(
 export type EnhanceOutcome = {
   inventory: SavedInventory;
   toLevel: number;
+  remainingAttempts: number;
   shardsSpent: number;
+  success: boolean;
+  mode: EnhanceMode;
 };
 
-// 트랜잭션 안에서 호출. inventory.v2 잠금 → 검증 → 적용.
+// 트랜잭션 안에서 호출. inventory.v2 잠금 → 검증 → RNG 굴림 → 적용.
 export async function applyEnhanceAction(
   tx: DbExecutor,
   userId: string,
   instanceId: string,
+  mode: EnhanceMode,
 ): Promise<EnhanceOutcome> {
   const inv = (await readKv<SavedInventory>(tx, userId, "inventory.v2")) ?? {};
   const out = computeEnhanceOutcome(
@@ -122,6 +174,8 @@ export async function applyEnhanceAction(
       equipmentInstances: normalizeInstances(inv.equipmentInstances),
     },
     instanceId,
+    mode,
+    Math.random,
   );
   const newInventory: SavedInventory = {
     ...inv,
@@ -132,6 +186,9 @@ export async function applyEnhanceAction(
   return {
     inventory: newInventory,
     toLevel: out.toLevel,
+    remainingAttempts: out.remainingAttempts,
     shardsSpent: out.shardsSpent,
+    success: out.success,
+    mode: out.mode,
   };
 }

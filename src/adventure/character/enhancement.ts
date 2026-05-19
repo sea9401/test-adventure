@@ -1,14 +1,23 @@
 // 별빛 무구 강화 — 5막 별빛 사냥터 (Ch 26 이후) 풀리는 영구 sink.
 //
 // 별빛 무구 30종 (무기 25 + 갑옷 5) 한정. empyrean 이하 일반 장비는 강화 불가.
-// 인스턴스 기반 — 한 자루 한 자루가 고유 ID 와 enhancementLevel(0~7) 을 들고 있다.
-// 비용: 별빛 조각 누진 — 자루당 +7 풀강 1690개.
+// 인스턴스 기반 — 한 자루가 enhancementLevel(0~7) + enhanceHistory + remainingAttempts
+// 를 들고 있다.
 //
-// 단계당 보너스 (100% 안전 모드 기준 — 확률 분기는 Chunk 2 에서 추가):
-//   무기: atk +1, 메인스탯 +1
-//   갑옷: def +1, 메인스탯 +1
+// 비용: 별빛 조각 누진 — 자루당 +7 풀강 1690개. 비용은 시도 시 항상 차감 (성공/실패 무관).
 //
-// 메인스탯 매핑: 대검=str / 창=dex / 방패=vit / 쌍검=spd / 단검=luk.
+// 확률 모드 (사용자 선택, 시도 시 결정):
+//   safe    100% — atk/def +1, 메인 +1
+//   boost    70% — atk/def +2, 메인 +2, 부 +1
+//   high     50% — atk/def +3, 메인 +3, 부 +2
+//   risky    30% — atk/def +5, 메인 +5, 부 +3
+//   extreme  10% — atk/def +10, 메인 +10, 부 +7
+//
+// 부스탯이 메인과 일치하는 변형(예: 힘의 별빛 대검) 은 같은 스탯에 자연 합산.
+//
+// 실패 시: enhancementLevel 그대로, remainingAttempts -= 1.
+// 성공 시: enhancementLevel += 1, enhanceHistory 에 mode push, remainingAttempts 차감 X.
+// remainingAttempts 시작 값 = ENHANCE_INITIAL_ATTEMPTS (7). 0 이 되면 더 시도 불가.
 
 import { BONUS_KEYS, ITEMS, type EquipBonus, type ItemId } from "@/adventure/data/items";
 import {
@@ -21,79 +30,139 @@ import type { EquippedItem } from "./types";
 export const ENHANCE_MAX_LEVEL = 7;
 
 // 별빛 조각 누진 비용 — index = 도달 단계. 0 단계는 비용 없음(초기 상태).
-// 1~5 단계는 기존 정책 유지, 6/7 단계는 누진 추세 그대로 (400/700).
+// 비용은 *시도* 비용 — 실패해도 차감 (모드 무관).
 export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 250, 400, 700];
 
-// 자루당 풀강 누적 비용 — 30+60+100+150+250+400+700 = 1690.
+// 자루당 풀강 누적 비용 (전부 100% 안전 모드로만 도달했을 때) — 30+60+100+150+250+400+700 = 1690.
 export const ENHANCE_FULL_COST = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
 
-// 강화 가능한 itemId 들과 단계당 보너스. 새 강화 라인 추가 시 여기에 한 줄.
-// 무기 25 + 갑옷 5 = 30종. 100% 안전 모드 보너스만 — 70/50/30/10 확률 모드는 Chunk 2.
-const ENHANCE_PER_LEVEL: Partial<Record<ItemId, EquipBonus>> = {
-  // 대검 (메인 = str)
-  starlit_greatsword_str: { atk: 1, str: 1 },
-  starlit_greatsword_dex: { atk: 1, str: 1 },
-  starlit_greatsword_vit: { atk: 1, str: 1 },
-  starlit_greatsword_spd: { atk: 1, str: 1 },
-  starlit_greatsword_luk: { atk: 1, str: 1 },
-  // 창 (메인 = dex)
-  starlit_lance_str: { atk: 1, dex: 1 },
-  starlit_lance_dex: { atk: 1, dex: 1 },
-  starlit_lance_vit: { atk: 1, dex: 1 },
-  starlit_lance_spd: { atk: 1, dex: 1 },
-  starlit_lance_luk: { atk: 1, dex: 1 },
-  // 방패 (메인 = vit)
-  starlit_shield_str: { atk: 1, vit: 1 },
-  starlit_shield_dex: { atk: 1, vit: 1 },
-  starlit_shield_vit: { atk: 1, vit: 1 },
-  starlit_shield_spd: { atk: 1, vit: 1 },
-  starlit_shield_luk: { atk: 1, vit: 1 },
-  // 쌍검 (메인 = spd)
-  starlit_twinblades_str: { atk: 1, spd: 1 },
-  starlit_twinblades_dex: { atk: 1, spd: 1 },
-  starlit_twinblades_vit: { atk: 1, spd: 1 },
-  starlit_twinblades_spd: { atk: 1, spd: 1 },
-  starlit_twinblades_luk: { atk: 1, spd: 1 },
-  // 단검 (메인 = luk)
-  starlit_dagger_str: { atk: 1, luk: 1 },
-  starlit_dagger_dex: { atk: 1, luk: 1 },
-  starlit_dagger_vit: { atk: 1, luk: 1 },
-  starlit_dagger_spd: { atk: 1, luk: 1 },
-  starlit_dagger_luk: { atk: 1, luk: 1 },
-  // 갑옷 (메인 = 자기 스탯)
-  starlit_armor_str: { def: 1, str: 1 },
-  starlit_armor_dex: { def: 1, dex: 1 },
-  starlit_armor_vit: { def: 1, vit: 1 },
-  starlit_armor_spd: { def: 1, spd: 1 },
-  starlit_armor_luk: { def: 1, luk: 1 },
+// 자루 시작 가능 횟수 — 실패 시마다 -1. 0 이 되면 더 강화 시도 불가 (천장 깎임).
+export const ENHANCE_INITIAL_ATTEMPTS = 7;
+
+// 확률 모드 ─────────────────────────────────────────────────────────────────
+export type EnhanceMode = "safe" | "boost" | "high" | "risky" | "extreme";
+
+export const ENHANCE_MODES: readonly EnhanceMode[] = [
+  "safe",
+  "boost",
+  "high",
+  "risky",
+  "extreme",
+];
+
+// 모드별 (성공률, atk/def 증가, 메인스탯 증가, 부스탯 증가).
+// 부스탯이 메인과 같은 변형(힘의 대검 등) 은 ENHANCE_PER_LEVEL 계산 시 같은 키에 자연 합산.
+type ModeSpec = {
+  /** 성공 확률 % (0~100). */
+  successPct: number;
+  /** atk(무기) / def(갑옷) 증가량. */
+  atkDef: number;
+  /** 메인스탯 증가량. */
+  main: number;
+  /** 부스탯 증가량 — 0 이면 부스탯 줄 추가 X (safe 모드). */
+  sub: number;
 };
 
-// 강화 가능한 itemId 집합 — 인스턴스 기반 저장 대상.
+export const ENHANCE_MODE_SPEC: Record<EnhanceMode, ModeSpec> = {
+  safe: { successPct: 100, atkDef: 1, main: 1, sub: 0 },
+  boost: { successPct: 70, atkDef: 2, main: 2, sub: 1 },
+  high: { successPct: 50, atkDef: 3, main: 3, sub: 2 },
+  risky: { successPct: 30, atkDef: 5, main: 5, sub: 3 },
+  extreme: { successPct: 10, atkDef: 10, main: 10, sub: 7 },
+};
+
+// 무기 → 메인스탯 매핑. itemId 파싱에 사용.
+const WEAPON_MAIN_STAT: Record<string, keyof EquipBonus> = {
+  greatsword: "str",
+  lance: "dex",
+  shield: "vit",
+  twinblades: "spd",
+  dagger: "luk",
+};
+
+const STAT_TOKEN_TO_KEY: Record<string, keyof EquipBonus> = {
+  str: "str",
+  dex: "dex",
+  vit: "vit",
+  spd: "spd",
+  luk: "luk",
+};
+
+export type StarlitItemSpec = {
+  /** 메인스탯 키 (무기·갑옷 공통). */
+  main: keyof EquipBonus;
+  /** 부스탯 키 — 갑옷은 undefined. 무기는 itemId 의 suffix. */
+  sub: keyof EquipBonus | undefined;
+  /** atk(무기) vs def(갑옷). */
+  damageKind: "atk" | "def";
+};
+
+/** "starlit_<weapon>_<stat>" / "starlit_armor_<stat>" 형태 itemId 를 메인/부 스탯으로 분해. */
+export function parseStarlitItem(itemId: string): StarlitItemSpec | null {
+  const m = /^starlit_([a-z]+)_(str|dex|vit|spd|luk)$/.exec(itemId);
+  if (!m) return null;
+  const [, weapon, stat] = m;
+  const subKey = STAT_TOKEN_TO_KEY[stat];
+  if (!subKey) return null;
+  if (weapon === "armor") {
+    return { main: subKey, sub: undefined, damageKind: "def" };
+  }
+  const main = WEAPON_MAIN_STAT[weapon];
+  if (!main) return null;
+  return { main, sub: subKey, damageKind: "atk" };
+}
+
+// 강화 가능한 itemId 집합 — items.ts 의 모든 starlit_* 이 자동으로 강화 가능.
+// 새 별빛 라인 추가 시 itemId 만 컨벤션에 맞추면 별도 등록 불필요.
 export const ENHANCEABLE_ITEM_IDS: ReadonlySet<ItemId> = new Set(
-  Object.keys(ENHANCE_PER_LEVEL) as ItemId[],
+  (Object.keys(ITEMS) as ItemId[]).filter((id) => parseStarlitItem(id) !== null),
 );
 
 export function isEnhanceable(itemId: ItemId): boolean {
   return ENHANCEABLE_ITEM_IDS.has(itemId);
 }
 
-// 강화 N 단계의 누적 보너스 — level 0 이면 빈 보너스.
-// 보너스 키별로 (per-level 값 × level) 누적.
+// 한 번의 강화 (mode) 가 자루에 더하는 보너스. parseStarlitItem 으로 메인/부 도출 후 모드별 delta 적용.
+// 부스탯이 메인과 일치 (예: 힘의 대검 + str sub) 면 같은 키에 자연 합산.
+export function modeBonus(itemId: ItemId, mode: EnhanceMode): EquipBonus {
+  const spec = parseStarlitItem(itemId);
+  if (!spec) return {};
+  const m = ENHANCE_MODE_SPEC[mode];
+  const bonus: EquipBonus = {};
+  if (m.atkDef > 0) bonus[spec.damageKind] = m.atkDef;
+  if (m.main > 0) bonus[spec.main] = (bonus[spec.main] ?? 0) + m.main;
+  if (m.sub > 0 && spec.sub !== undefined) {
+    bonus[spec.sub] = (bonus[spec.sub] ?? 0) + m.sub;
+  }
+  return bonus;
+}
+
+// 강화 history 누적 보너스 — 빈 history 면 빈 보너스.
+// 옛 인스턴스(history 없이 enhancementLevel 만 박힌 자루) 호환을 위해 두 번째 시그니처도 둔다.
 export function enhancementBonus(
   itemId: ItemId,
-  level: number,
+  historyOrLevel: readonly EnhanceMode[] | number,
 ): EquipBonus {
-  const per = ENHANCE_PER_LEVEL[itemId];
-  if (!per || level <= 0) return {};
+  const history: readonly EnhanceMode[] =
+    typeof historyOrLevel === "number"
+      ? // number 받으면 safe 모드 N 회로 간주 (마이그레이션 호환).
+        new Array<EnhanceMode>(Math.max(0, Math.floor(historyOrLevel))).fill("safe")
+      : historyOrLevel;
+  if (history.length === 0) return {};
   const out: EquipBonus = {};
-  for (const k of Object.keys(per) as (keyof EquipBonus)[]) {
-    const v = per[k];
-    if (typeof v === "number" && v !== 0) out[k] = v * level;
+  for (const mode of history) {
+    const inc = modeBonus(itemId, mode);
+    for (const k of BONUS_KEYS) {
+      const v = inc[k];
+      if (typeof v === "number" && v !== 0) {
+        out[k] = (out[k] ?? 0) + v;
+      }
+    }
   }
   return out;
 }
 
-// 다음 강화 한 단계의 비용. 최대 단계면 null.
+// 다음 강화 시도의 별빛 조각 비용. 최대 단계면 null (더 시도 불가).
 export function nextEnhanceCost(
   fromLevel: number,
 ): { toLevel: number; shards: number } | null {
@@ -106,20 +175,62 @@ export function nextEnhanceCost(
 export type EnhanceErrorCode =
   | "not_enhanceable" // itemId 가 강화 대상 아님
   | "max_level" // 이미 최대 단계
+  | "no_attempts" // remainingAttempts 가 0
   | "insufficient_shards" // 별빛 조각 부족
-  | "invalid_level"; // fromLevel 이 음수/비정수
+  | "invalid_level" // fromLevel 이 음수/비정수
+  | "invalid_mode"; // 알 수 없는 mode
 
 export type EnhancePlan =
-  | { ok: true; toLevel: number; shards: number }
+  | {
+      ok: true;
+      toLevel: number;
+      shards: number;
+      mode: EnhanceMode;
+      successPct: number;
+    }
   | { ok: false; reason: EnhanceErrorCode };
 
-// 인스턴스의 (itemId, craftTier, enhancementLevel) 로부터 장착 가능한 EquippedItem 을 만든다.
-// craftTier 가 우선 적용된 베이스 위에 강화 보너스를 더하고, stats 표시도 재생성.
+// 한 자루 +1 강화의 사전 검사. UI 미리보기·검증에 쓴다.
+// 실제 적용·확률 굴림은 서버. 비용은 시도 시 차감 (성공/실패 무관).
+export function planEnhance(
+  itemId: ItemId,
+  fromLevel: number,
+  mode: EnhanceMode,
+  shardCount: number,
+  remainingAttempts: number,
+): EnhancePlan {
+  if (!isEnhanceable(itemId)) return { ok: false, reason: "not_enhanceable" };
+  if (!Number.isInteger(fromLevel) || fromLevel < 0) {
+    return { ok: false, reason: "invalid_level" };
+  }
+  if (!(mode in ENHANCE_MODE_SPEC)) {
+    return { ok: false, reason: "invalid_mode" };
+  }
+  if (!Number.isInteger(remainingAttempts) || remainingAttempts <= 0) {
+    return { ok: false, reason: "no_attempts" };
+  }
+  const cost = nextEnhanceCost(fromLevel);
+  if (!cost) return { ok: false, reason: "max_level" };
+  if (shardCount < cost.shards) {
+    return { ok: false, reason: "insufficient_shards" };
+  }
+  const spec = ENHANCE_MODE_SPEC[mode];
+  return {
+    ok: true,
+    toLevel: cost.toLevel,
+    shards: cost.shards,
+    mode,
+    successPct: spec.successPct,
+  };
+}
+
+// 인스턴스의 (itemId, craftTier, enhanceHistory) 로부터 장착 가능한 EquippedItem 을 만든다.
+// craftTier 가 우선 적용된 베이스 위에 강화 누적 보너스를 더하고, stats 표시도 재생성.
 // instanceId 를 받아 EquippedItem 의 instanceId 필드에 박는다 — 슬롯 회수 시 풀로 돌려놓는 키.
 export function resolveEnhancedItem(
   itemId: ItemId,
   craftTier: CraftTier | undefined,
-  enhancementLevel: number,
+  historyOrLevel: readonly EnhanceMode[] | number,
   instanceId: string,
 ): EquippedItem {
   const base = ITEMS[itemId];
@@ -128,7 +239,11 @@ export function resolveEnhancedItem(
     craftTier != null && craftTier !== 0
       ? resolveCraftedItem(itemId, craftTier)
       : { ...base };
-  if (enhancementLevel <= 0) {
+  const level =
+    typeof historyOrLevel === "number"
+      ? Math.max(0, Math.floor(historyOrLevel))
+      : historyOrLevel.length;
+  if (level <= 0) {
     return {
       ...tiered,
       craftTier,
@@ -137,7 +252,7 @@ export function resolveEnhancedItem(
     };
   }
   const tierBonus = tiered.bonus ?? {};
-  const enhBonus = enhancementBonus(itemId, enhancementLevel);
+  const enhBonus = enhancementBonus(itemId, historyOrLevel);
   const merged: EquipBonus = { ...tierBonus };
   for (const k of BONUS_KEYS) {
     const e = enhBonus[k];
@@ -150,26 +265,7 @@ export function resolveEnhancedItem(
     bonus: merged,
     stats: rebuildStats(base, merged),
     craftTier,
-    enhancementLevel,
+    enhancementLevel: level,
     instanceId,
   };
-}
-
-// 한 자루 +1 강화의 유효성·비용 사전 검사. UI 에서 미리보기·검증에 쓴다.
-// 실제 적용은 서버 endpoint 가 같은 검사를 다시 한다.
-export function planEnhance(
-  itemId: ItemId,
-  fromLevel: number,
-  shardCount: number,
-): EnhancePlan {
-  if (!isEnhanceable(itemId)) return { ok: false, reason: "not_enhanceable" };
-  if (!Number.isInteger(fromLevel) || fromLevel < 0) {
-    return { ok: false, reason: "invalid_level" };
-  }
-  const cost = nextEnhanceCost(fromLevel);
-  if (!cost) return { ok: false, reason: "max_level" };
-  if (shardCount < cost.shards) {
-    return { ok: false, reason: "insufficient_shards" };
-  }
-  return { ok: true, toLevel: cost.toLevel, shards: cost.shards };
 }

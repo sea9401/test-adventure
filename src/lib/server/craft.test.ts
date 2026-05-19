@@ -503,6 +503,7 @@ describe("computeCraftOutcome — 별빛 무구 (인스턴스 풀)", () => {
       instanceId: "old-id",
       itemId: "starlit_shield_vit" as const,
       enhancementLevel: 3,
+      remainingAttempts: 7,
     };
     const input = { ...starlitInput(), equipmentInstances: [existing] };
     const out = computeCraftOutcome(input, "starlit_greatsword_str", { rng: rngMid });

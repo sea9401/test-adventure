@@ -21,7 +21,10 @@ import {
   type CraftResult,
   type EquipPicks,
 } from "@/adventure/crafting/types";
-import { ENHANCEABLE_ITEM_IDS } from "@/adventure/character/enhancement";
+import {
+  ENHANCEABLE_ITEM_IDS,
+  ENHANCE_INITIAL_ATTEMPTS,
+} from "@/adventure/character/enhancement";
 import {
   generateInstanceId,
   normalizeInstances,
@@ -334,6 +337,7 @@ export function computeCraftOutcome(
           itemId,
           craftTier: tier === 0 ? undefined : tier,
           enhancementLevel: 0,
+          remainingAttempts: ENHANCE_INITIAL_ATTEMPTS,
         });
       } else if (tier === 0) {
         equipment[itemId] = (equipment[itemId] ?? 0) + 1;

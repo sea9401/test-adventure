@@ -4,6 +4,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
+import type { DbExecutor } from "@/lib/server/savesKv";
 import { baseCharacter } from "@/adventure/character/defaults";
 import {
   derivePlayerCombat,
@@ -59,10 +60,11 @@ type SavedStoryFlagsV2 = {
 // 4 키를 한 번의 `key IN (...)` 쿼리로 가져온다. 시리얼 await 4 회는 코옵 보스 1 공격당
 // 4 round-trip 누적 — 100+ 동시 참여자 시점에 보스 카드 폴링과 합쳐 부하 누적.
 async function readSavesBatch(
+  executor: DbExecutor,
   userId: string,
   keys: readonly string[],
 ): Promise<Record<string, unknown>> {
-  const rows = await db
+  const rows = await executor
     .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
     .where(and(eq(savesKv.userId, userId), inArray(savesKv.key, keys)));
@@ -71,10 +73,14 @@ async function readSavesBatch(
   return out;
 }
 
+// 호출자가 이미 트랜잭션 안이라면 그 tx 를 넘겨야 같은 커넥션에서 읽힌다. 별도 db
+// 커넥션을 쓰면 호출자가 잠근 saves_kv 행을 새 커넥션이 SELECT 하다 잠금 대기에
+// 걸려, 호출자 tx 가 그 await 결과를 기다리며 self-deadlock 후보가 된다.
 export async function derivePlayerCombatFromSaves(
   userId: string,
+  executor: DbExecutor = db,
 ): Promise<DerivedPlayerCombat | null> {
-  const saves = await readSavesBatch(userId, [
+  const saves = await readSavesBatch(executor, userId, [
     "character.v2",
     "training.v2",
     STORY_FLAGS_STORAGE_KEY,

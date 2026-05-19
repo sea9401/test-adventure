@@ -139,7 +139,7 @@ export async function applyTowerAction(
   if (action.kind === "fight_floor") {
     if (!state.run) throw new TowerError("no_active_run");
     const floor = state.run.currentFloor;
-    const derived = await derivePlayerCombatFromSaves(userId);
+    const derived = await derivePlayerCombatFromSaves(userId, tx);
     if (!derived) throw new TowerError("character_not_found");
     // 클라 ready 화면과 동일한 적과 싸우도록 upcomingEnemy 가 있으면 사용.
     // 옛 런(upcomingEnemy 없음) 은 즉시 픽 — 그 한 번은 mismatch 가능.
@@ -268,7 +268,7 @@ async function applyTowerAutoProgress(
   if (!state.run) throw new TowerError("no_active_run");
   if (isBossFloor(state.run.currentFloor)) throw new TowerError("at_boss");
 
-  const derived = await derivePlayerCombatFromSaves(userId);
+  const derived = await derivePlayerCombatFromSaves(userId, tx);
   if (!derived) throw new TowerError("character_not_found");
 
   const startFloor = state.run.currentFloor;

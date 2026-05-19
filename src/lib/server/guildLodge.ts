@@ -147,17 +147,23 @@ async function readContributions(
     );
 }
 
+// 호출자가 이미 트랜잭션을 열고 같은 길드 행 락을 잡고 있는 경우 그 tx 를 재사용해야
+// 한다. 새 db.transaction 을 열면 별도 커넥션에서 같은 행을 SELECT FOR UPDATE 하다
+// 호출자 tx 와 self-deadlock 이 난다 (PG 가 다른 connection 으로 인식해 감지 못함).
 export async function readLodge(
   guildId: number,
   userId: string,
+  tx?: DbExecutor,
 ): Promise<LodgeResult<LodgeResponse>> {
-  return db.transaction(async (tx) => {
-    const guild = await lockActiveGuild(tx, guildId);
+  const read = async (
+    executor: DbExecutor,
+  ): Promise<LodgeResult<LodgeResponse>> => {
+    const guild = await lockActiveGuild(executor, guildId);
     if (!guild) return err("guild_not_found");
-    if (!(await isMember(tx, guildId, userId))) return err("not_member");
+    if (!(await isMember(executor, guildId, userId))) return err("not_member");
 
     const stateRow = (
-      await tx
+      await executor
         .select()
         .from(guildLodgeState)
         .where(eq(guildLodgeState.guildId, guildId))
@@ -169,7 +175,7 @@ export async function readLodge(
     const lastDonationAt = stateRow?.lastDonationAt ?? null;
 
     const weekStart = kstWeekStartUtc();
-    const contributions = await readContributions(tx, guildId, weekStart);
+    const contributions = await readContributions(executor, guildId, weekStart);
     const mine = contributions.find((c) => c.userId === userId);
 
     const next = nextRankThreshold(guild.lodgeRank);
@@ -200,7 +206,8 @@ export async function readLodge(
         contributions,
       } satisfies LodgeResponse,
     };
-  });
+  };
+  return tx ? read(tx) : db.transaction(read);
 }
 
 // 캐릭터 잔고에서 별빛/골드 차감 — character.v2 (gold) + inventory.v2 (materials.stardust).
@@ -290,7 +297,7 @@ async function donateInternal(
       .where(eq(guilds.id, guild.id));
   }
 
-  return readLodge(guild.id, userId);
+  return readLodge(guild.id, userId, tx);
 }
 
 // 봉납 입력 검증 — pure. 라우트 진입 직후 호출 + 라이브러리도 한 번 더 보호.

@@ -100,7 +100,7 @@ export async function applyTowerChallengeAction(
     if (!state.run) throw new TowerChallengeError("no_active_run");
     const floor = state.run.currentFloor;
     clearedFloor = floor;
-    const derived = await derivePlayerCombatFromSaves(userId);
+    const derived = await derivePlayerCombatFromSaves(userId, tx);
     if (!derived) throw new TowerChallengeError("character_not_found");
     const enemy = buildChallengeFloorEnemy(floor, state.run.upcomingEnemy);
     const resolution = resolveBattle(derived.player, enemy, "player", {

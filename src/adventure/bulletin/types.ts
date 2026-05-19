@@ -26,8 +26,7 @@ export type BulletinComment = {
   mine: boolean;
 };
 
-// 글 카드 상단 카테고리 배지 톤 — Tailwind 클래스 모음.
-// PostCard 외 다른 컴포넌트(예: 미래의 검색 결과 미리보기) 가 같은 톤 쓰도록 따로 export.
+// 카테고리 배지 톤 — Tailwind 클래스 모음. PostListRow / PostDetailPage 공용.
 export const CATEGORY_BADGE: Record<BulletinCategory, string> = {
   notice:
     "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300",

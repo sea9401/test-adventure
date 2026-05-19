@@ -159,19 +159,19 @@ export async function POST(req: Request) {
     });
   }
 
-  // title — body 에서 받아도 되고 (제목 입력란), 없으면 actor.title (칭호) 로 fallback.
-  // 빈 문자열은 null 로 정규화.
+  // title — 필수. 제목 + 본문 분리(목록 — 상세) UI 의 전제라 빈 제목 작성을 차단.
+  // (옛 코드는 비우면 actor.title 로 fallback 했으나, 유저 의도가 반영된 제목만 받음.)
   const rawTitle =
-    typeof body.title === "string" ? body.title.trim() : null;
-  if (rawTitle && rawTitle.length > BULLETIN_TITLE_MAX_LENGTH) {
+    typeof body.title === "string" ? body.title.trim() : "";
+  if (!rawTitle) return new Response("empty title", { status: 400 });
+  if (rawTitle.length > BULLETIN_TITLE_MAX_LENGTH) {
     return new Response(`title too long (max ${BULLETIN_TITLE_MAX_LENGTH})`, {
       status: 400,
     });
   }
-  const titleFromBody = rawTitle || null;
+  const title = rawTitle;
 
-  const { name, className, title: actorTitle } = await resolveActor(userId);
-  const title = titleFromBody ?? actorTitle;
+  const { name, className } = await resolveActor(userId);
 
   // rate limit — 본인 마지막 글 시각 기준 X ms 이내면 차단.
   const since = new Date(Date.now() - BULLETIN_RATE_LIMIT_MS);

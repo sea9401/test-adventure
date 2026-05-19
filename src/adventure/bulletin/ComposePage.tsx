@@ -24,7 +24,7 @@ export function ComposePage({
   onCancel: () => void;
   onSubmit: (input: {
     category: BulletinCategory;
-    title: string | null;
+    title: string;
     content: string;
   }) => Promise<void>;
 }) {
@@ -36,7 +36,11 @@ export function ComposePage({
   const trimmed = draft.trim();
   const trimmedTitle = titleDraft.trim();
   const canSubmit =
-    trimmed.length > 0 && trimmed.length <= BULLETIN_MAX_LENGTH && !submitting;
+    trimmedTitle.length > 0 &&
+    trimmedTitle.length <= BULLETIN_TITLE_MAX_LENGTH &&
+    trimmed.length > 0 &&
+    trimmed.length <= BULLETIN_MAX_LENGTH &&
+    !submitting;
 
   // 작성 가능 카테고리 — admin 은 전체, 일반 유저는 USER_WRITABLE_CATEGORIES.
   const selectableCategories: ReadonlyArray<BulletinCategory> = isAdmin
@@ -50,7 +54,7 @@ export function ComposePage({
     try {
       await onSubmit({
         category,
-        title: trimmedTitle || null,
+        title: trimmedTitle,
         content: trimmed,
       });
     } catch (e) {
@@ -102,10 +106,23 @@ export function ComposePage({
         value={titleDraft}
         onChange={(e) => setTitleDraft(e.target.value)}
         maxLength={BULLETIN_TITLE_MAX_LENGTH + 10}
-        placeholder={`제목 (선택, 최대 ${BULLETIN_TITLE_MAX_LENGTH}자)`}
+        placeholder={`제목 (필수, 최대 ${BULLETIN_TITLE_MAX_LENGTH}자)`}
         disabled={submitting}
+        required
+        aria-required="true"
         className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-400"
       />
+      <div className="-mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <span
+          className={
+            trimmedTitle.length > BULLETIN_TITLE_MAX_LENGTH
+              ? "text-rose-600"
+              : ""
+          }
+        >
+          제목 {trimmedTitle.length} / {BULLETIN_TITLE_MAX_LENGTH}
+        </span>
+      </div>
 
       <textarea
         value={draft}

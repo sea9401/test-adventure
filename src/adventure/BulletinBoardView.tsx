@@ -26,20 +26,25 @@ import {
   postPost,
 } from "./bulletin/api";
 import { ComposePage } from "./bulletin/ComposePage";
-import { PostCard } from "./bulletin/PostCard";
+import { PostListRow } from "./bulletin/PostListRow";
+import { PostDetailPage } from "./bulletin/PostDetailPage";
 import type { BulletinPost } from "./bulletin/types";
 
-// 게시판 본체 — 탭(카테고리) + 검색 + 목록/페이지네이션, 그리고 글쓰기 화면 전환 라우터.
-// 글 카드 렌더링·좋아요·댓글은 PostCard 로, 글쓰기 폼은 ComposePage 로, fetch helper 는 ./bulletin/api 로 분리.
+// 게시판 본체 — 탭(카테고리) + 검색 + 제목 목록 + 페이지네이션, 그리고 글쓰기/상세 화면 전환 라우터.
+// 목록은 제목·작성자·시간·카운트만 한 줄로 (PostListRow). 클릭 시 상세 페이지로 본문+댓글 풀로 노출.
+// 별도 라우트 대신 같은 view 안에서 mode 전환 — PlazaScreen 의 subView=bulletin 한 자리에서 처리.
+type Mode =
+  | { kind: "list" }
+  | { kind: "compose" }
+  | { kind: "detail"; postId: number };
+
 export function BulletinBoardView() {
   const [category, setCategory] = useState<BulletinCategory>("notice");
   const [search, setSearch] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [posts, setPosts] = useState<BulletinPost[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // "list" = 목록 화면, "compose" = 글쓰기 페이지. 별도 라우트 대신 같은 view 안에서 모드 전환.
-  // 글쓰기는 모바일에서 모달이 답답해 별개 페이지로 전환 (textarea 풀화면 가능).
-  const [mode, setMode] = useState<"list" | "compose">("list");
+  const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [pmTarget, setPmTarget] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -75,7 +80,7 @@ export function BulletinBoardView() {
 
   const handleSubmit = async (input: {
     category: BulletinCategory;
-    title: string | null;
+    title: string;
     content: string;
   }) => {
     try {
@@ -86,7 +91,7 @@ export function BulletinBoardView() {
       } else {
         setCategory(created.category);
       }
-      setMode("list");
+      setMode({ kind: "list" });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "작성 실패";
       if (msg === "rate limited") {
@@ -95,18 +100,24 @@ export function BulletinBoardView() {
       if (msg === "forbidden") {
         throw new Error("이 카테고리에 글을 쓸 권한이 없어요.");
       }
+      if (msg === "empty title") {
+        throw new Error("제목을 입력해주세요.");
+      }
       throw new Error(msg);
     }
   };
 
-  // PostCard 가 React.memo 라 콜백 4개는 useCallback 으로 안정화 — 안 그러면 매 렌더
-  // 새 함수가 prop 으로 들어가 memo 가 무력화된다. setPosts/setError/setPmTarget 은
-  // React 가 보장하는 안정 setter 라 deps 는 비어 있어도 됨.
+  // PostListRow / PostDetailPage 가 콜백을 prop 으로 받으니 useCallback 으로 안정화.
+  // memo 가 같은 post 인 행은 렌더 skip 하도록.
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm("이 글을 삭제할까요?")) return;
     try {
       await deletePost(id);
       setPosts((prev) => prev?.filter((p) => p.id !== id) ?? null);
+      // 상세 화면에서 삭제했으면 목록으로 자동 복귀.
+      setMode((m) =>
+        m.kind === "detail" && m.postId === id ? { kind: "list" } : m,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "삭제 실패");
     }
@@ -140,7 +151,15 @@ export function BulletinBoardView() {
     setPmTarget(name);
   }, []);
 
-  const pager = usePagination(posts ?? [], 10);
+  const handleOpenDetail = useCallback((postId: number) => {
+    setMode({ kind: "detail", postId });
+  }, []);
+
+  const handleBackToList = useCallback(() => {
+    setMode({ kind: "list" });
+  }, []);
+
+  const pager = usePagination(posts ?? [], 15);
 
   const tabs = useMemo(
     () =>
@@ -151,14 +170,55 @@ export function BulletinBoardView() {
     [],
   );
 
-  if (mode === "compose") {
+  if (mode.kind === "compose") {
     return (
       <ComposePage
         initialCategory={category === "notice" && !isAdmin ? "free" : category}
         isAdmin={isAdmin}
-        onCancel={() => setMode("list")}
+        onCancel={() => setMode({ kind: "list" })}
         onSubmit={handleSubmit}
       />
+    );
+  }
+
+  if (mode.kind === "detail") {
+    const post = posts?.find((p) => p.id === mode.postId);
+    if (!post) {
+      // posts 가 다시 로딩 중이거나(탭/검색 전환) 글이 사라진 경우 — 목록으로 안전 복귀.
+      return (
+        <div className="space-y-3">
+          <Card padding="sm">
+            <div className="text-sm text-zinc-600 dark:text-zinc-300">
+              글을 찾을 수 없어요.
+            </div>
+          </Card>
+          <button
+            type="button"
+            onClick={handleBackToList}
+            className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          >
+            목록으로
+          </button>
+        </div>
+      );
+    }
+    return (
+      <>
+        <PostDetailPage
+          post={post}
+          onBack={handleBackToList}
+          onDelete={handleDelete}
+          onLikeUpdate={handleLikeUpdate}
+          onCommentCountChange={handleCommentCountChange}
+          onRequestSendMessage={handleRequestSendMessage}
+        />
+        {pmTarget && (
+          <SendMessageModal
+            initialRecipient={pmTarget}
+            onClose={() => setPmTarget(null)}
+          />
+        )}
+      </>
     );
   }
 
@@ -194,7 +254,7 @@ export function BulletinBoardView() {
         </div>
         <button
           type="button"
-          onClick={() => setMode("compose")}
+          onClick={() => setMode({ kind: "compose" })}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
         >
           <PaperPlaneTilt size={14} weight="fill" />
@@ -211,11 +271,11 @@ export function BulletinBoardView() {
       ) : null}
 
       {posts === null ? (
-        <ul className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <ul className="space-y-1.5">
+          {Array.from({ length: 6 }).map((_, i) => (
             <li
               key={i}
-              className="rounded-lg border border-zinc-200 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-950/60"
+              className="rounded-lg border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950/60"
             >
               <Skeleton rows={2} />
             </li>
@@ -247,16 +307,9 @@ export function BulletinBoardView() {
         />
       ) : (
         <>
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {pager.pageItems.map((p) => (
-              <PostCard
-                key={p.id}
-                post={p}
-                onDelete={handleDelete}
-                onLikeUpdate={handleLikeUpdate}
-                onCommentCountChange={handleCommentCountChange}
-                onRequestSendMessage={handleRequestSendMessage}
-              />
+              <PostListRow key={p.id} post={p} onOpen={handleOpenDetail} />
             ))}
           </ul>
           <Pagination

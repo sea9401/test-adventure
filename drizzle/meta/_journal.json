@@ -183,6 +183,13 @@
       "when": 1779172739325,
       "tag": "0025_fast_marvex",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1779196800000,
+      "tag": "0026_bulletin_titles_backfill",
+      "breakpoints": true
     }
   ]
 }

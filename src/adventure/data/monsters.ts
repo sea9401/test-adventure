@@ -1593,9 +1593,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 박쥐": {
     name: "별빛 박쥐",
     tags: ["beast"],
-    hp: 2150,
-    atk: 159,
-    def: 71,
+    hp: 2450,
+    atk: 191,
+    def: 78,
     spd: 11,
     evasionPct: 15,
     exp: 240,
@@ -1608,9 +1608,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 동굴뱀": {
     name: "별빛 동굴뱀",
     tags: ["beast"],
-    hp: 2550,
-    atk: 166,
-    def: 83,
+    hp: 2950,
+    atk: 199,
+    def: 91,
     spd: 8,
     exp: 250,
     drops: [
@@ -1622,9 +1622,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 광물 골렘": {
     name: "별빛 광물 골렘",
     tags: ["golem"],
-    hp: 3450,
-    atk: 152,
-    def: 110,
+    hp: 3950,
+    atk: 182,
+    def: 121,
     spd: 4,
     exp: 270,
     drops: [
@@ -1639,9 +1639,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 광맥 수호자": {
     name: "별빛 광맥 수호자",
     tags: ["golem"],
-    hp: 6200,
-    atk: 168,
-    def: 105,
+    hp: 7150,
+    atk: 202,
+    def: 116,
     spd: 5,
     exp: 1400,
     drops: [
@@ -1668,9 +1668,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 절벽 늑대": {
     name: "별빛 절벽 늑대",
     tags: ["beast"],
-    hp: 2350,
-    atk: 168,
-    def: 76,
+    hp: 2800,
+    atk: 218,
+    def: 87,
     spd: 10,
     evasionPct: 15,
     exp: 250,
@@ -1683,9 +1683,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 돌풍 정령": {
     name: "별빛 돌풍 정령",
     tags: ["spirit"],
-    hp: 2550,
-    atk: 175,
-    def: 71,
+    hp: 3050,
+    atk: 228,
+    def: 82,
     spd: 9,
     evasionPct: 18,
     exp: 260,
@@ -1699,9 +1699,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 늑대 무리장": {
     name: "별빛 늑대 무리장",
     tags: ["beast"],
-    hp: 3200,
-    atk: 173,
-    def: 99,
+    hp: 3850,
+    atk: 225,
+    def: 114,
     spd: 7,
     exp: 280,
     drops: [
@@ -1715,9 +1715,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 거인 잔영": {
     name: "별빛 거인 잔영",
     tags: ["golem"],
-    hp: 7500,
-    atk: 178,
-    def: 112,
+    hp: 9000,
+    atk: 231,
+    def: 129,
     spd: 6,
     exp: 1800,
     drops: [
@@ -1747,9 +1747,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 산호초 사이렌": {
     name: "별빛 산호초 사이렌",
     tags: ["spirit"],
-    hp: 2400,
-    atk: 170,
-    def: 69,
+    hp: 3000,
+    atk: 238,
+    def: 83,
     spd: 8,
     evasionPct: 22,
     exp: 260,
@@ -1762,9 +1762,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 갑각 약탈자": {
     name: "별빛 갑각 약탈자",
     tags: ["humanoid"],
-    hp: 2900,
-    atk: 175,
-    def: 83,
+    hp: 3600,
+    atk: 245,
+    def: 100,
     spd: 7,
     exp: 270,
     drops: [
@@ -1777,9 +1777,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 가시 산호 골렘": {
     name: "별빛 가시 산호 골렘",
     tags: ["golem"],
-    hp: 3550,
-    atk: 159,
-    def: 110,
+    hp: 4450,
+    atk: 223,
+    def: 132,
     spd: 4,
     exp: 290,
     drops: [
@@ -1794,9 +1794,9 @@ export const MONSTERS: Record<string, Monster> = {
   "수심의 메아리": {
     name: "수심의 메아리",
     tags: ["beast", "spirit"],
-    hp: 8200,
-    atk: 180,
-    def: 105,
+    hp: 10250,
+    atk: 252,
+    def: 126,
     spd: 6,
     exp: 1900,
     drops: [
@@ -1826,9 +1826,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 폐성벽 까마귀": {
     name: "별빛 폐성벽 까마귀",
     tags: ["beast"],
-    hp: 2200,
-    atk: 173,
-    def: 69,
+    hp: 2850,
+    atk: 260,
+    def: 86,
     spd: 11,
     evasionPct: 20,
     exp: 270,
@@ -1841,9 +1841,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 탈영 약탈자": {
     name: "별빛 탈영 약탈자",
     tags: ["humanoid"],
-    hp: 2700,
-    atk: 179,
-    def: 85,
+    hp: 3500,
+    atk: 269,
+    def: 106,
     spd: 7,
     exp: 285,
     drops: [
@@ -1856,9 +1856,9 @@ export const MONSTERS: Record<string, Monster> = {
   "별빛 녹슨 자동인형": {
     name: "별빛 녹슨 자동인형",
     tags: ["golem"],
-    hp: 3800,
-    atk: 154,
-    def: 120,
+    hp: 4950,
+    atk: 231,
+    def: 150,
     spd: 3,
     exp: 305,
     drops: [
@@ -1873,9 +1873,9 @@ export const MONSTERS: Record<string, Monster> = {
   "성문지기 잔영": {
     name: "성문지기 잔영",
     tags: ["golem"],
-    hp: 9000,
-    atk: 178,
-    def: 116,
+    hp: 11700,
+    atk: 267,
+    def: 145,
     spd: 5,
     exp: 2000,
     drops: [

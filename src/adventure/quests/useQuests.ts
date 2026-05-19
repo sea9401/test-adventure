@@ -48,6 +48,17 @@ function readInitial(raw: unknown): QuestProgressMap {
     if (!quest || quest.repeatable) continue;
     merged[id] = { ...entry, state: "completed" };
   }
+  // 카운트 balance 감축 후 잔존 진행 정정 — 옛 count 시절 쌓인 progress 가
+  // 새 count 보다 크거나 같은데 state="active" 로 박혀 보상이 안 열리는 경우.
+  // 예: 창공의 주재 strike count 3→1 (#381) 이후 진행 2/1 로 멈춤.
+  for (const [id, entry] of Object.entries(merged)) {
+    if (entry.state !== "active") continue;
+    const quest = getQuestById(id);
+    if (!quest) continue;
+    if (entry.progress >= questTargetTotal(quest.target)) {
+      merged[id] = { ...entry, state: "ready" };
+    }
+  }
   return merged;
 }
 

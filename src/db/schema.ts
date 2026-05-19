@@ -562,6 +562,10 @@ export const coopBossContributors = pgTable(
     lastAttackAt: timestamp("last_attack_at"),
     claimedAt: timestamp("claimed_at"),
     claimedTier: text("claimed_tier"),
+    // 적용된 보상 스냅샷 — ResolvedCoopReward 그대로. 트랜잭션 안에서 saves_kv 와
+    // 함께 박힌다. 응답 손실 후 retry 시 같은 reward 를 그대로 반환해 보상이 사라지지
+    // 않게 한다 (HOTFIX-D 의 claim race full fix — audit #9).
+    claimedRewardSnapshot: jsonb("claimed_reward_snapshot"),
   },
   (t) => [
     primaryKey({ columns: [t.sessionId, t.userId] }),

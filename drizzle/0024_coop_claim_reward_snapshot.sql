@@ -1,0 +1,1 @@
+ALTER TABLE "coop_boss_contributors" ADD COLUMN "claimed_reward_snapshot" jsonb;

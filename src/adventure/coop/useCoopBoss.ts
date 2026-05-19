@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CoopRewardTier } from "./data";
 import type { BattleLogEntry } from "@/adventure/battle/engine";
 import { readDeviceSessionId } from "@/lib/storage/deviceSession";
+import { useRemoteSave } from "@/lib/storage/SaveProvider";
 
 // 코옵 POST 요청 헬퍼 — X-Session-Id 헤더 동봉.
 function coopHeaders(): Record<string, string> {
@@ -77,15 +78,29 @@ export type CoopClaimResponse = {
   tier: CoopRewardTier;
   ratio: number;
   /**
-   * 서버에서 RNG 가 펼쳐진 최종 보상 (ResolvedCoopReward 와 shape 동일).
-   * recipeOneOf / recipeRolls / equipRolls 는 서버가 결정해 recipes / equipment 로
-   * 합쳐 보낸다. 클라는 그대로 적용 — favorable seed replay 불가.
+   * 이번 호출이 실제로 적용한 경우 true, 이미 적용된 상태에서 retry 한 경우 false.
+   * 클라는 reward summary 토스트를 applied=true 일 때만 띄우고, false 면 saves replace
+   * 만 한다 ("이미 받았습니다" 정도). 적용/표시 두 번 막아 idempotent.
+   */
+  applied: boolean;
+  /**
+   * 서버에서 RNG 가 펼쳐지고 saves_kv 에 이미 적용된 최종 보상 (ResolvedCoopReward).
+   * 클라는 표시용으로만 사용 — 실제 인벤·제작서·칭호는 서버 mutation 후 saves 로 받는다.
    */
   reward: {
     materials: Record<string, number>;
     recipes: string[];
     equipment: string[];
     titleId?: string;
+  };
+  /**
+   * 보상 적용 후의 최신 inventory.v2 / crafting.v2 / adventure-log.v2 스냅샷.
+   * 클라는 각 hook 의 replaceFromSaved 로 통째 교체한다.
+   */
+  saves: {
+    "inventory.v2"?: unknown;
+    "crafting.v2"?: unknown;
+    "adventure-log.v2"?: unknown;
   };
 };
 
@@ -94,6 +109,7 @@ export type CoopClaimResponse = {
 const POLL_INTERVAL_MS = 10_000;
 
 export function useCoopBoss(regionId: string, enabled: boolean) {
+  const remote = useRemoteSave();
   const [data, setData] = useState<CoopFetchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
@@ -154,6 +170,8 @@ export function useCoopBoss(regionId: string, enabled: boolean) {
     setWorking(true);
     setError(null);
     try {
+      // 디바운스 큐 flush — 서버 mutation 후 stale 클라 PATCH 가 덮지 못하게.
+      await remote.flush();
       const r = await fetch(`/api/coop/${regionId}`, {
         method: "POST",
         headers: coopHeaders(),
@@ -172,7 +190,7 @@ export function useCoopBoss(regionId: string, enabled: boolean) {
     } finally {
       setWorking(false);
     }
-  }, [regionId, fetchOnce]);
+  }, [regionId, fetchOnce, remote]);
 
   return { data, error, working, attack, claim, refresh: fetchOnce };
 }

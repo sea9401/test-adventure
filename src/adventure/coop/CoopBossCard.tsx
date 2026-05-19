@@ -26,8 +26,12 @@ type Props = {
   playerName: string;
   /** 공격 직후 캐릭터 hp 갱신. 서버가 derive 한 hp 를 그대로 반영. */
   onPlayerHpChange: (hp: number) => void;
-  /** claim 보상 적용 — 재료/제작서/칭호. 실제 들어온 항목 요약을 반환. */
-  applyReward: (reward: CoopClaimResponse["reward"]) => AppliedCoopReward;
+  /**
+   * claim 응답 처리 — 서버가 saves_kv 에 이미 적용한 상태. 호출 측에서 inventory/
+   * crafting/adventure-log 의 replaceFromSaved 로 통째 교체하고 reward summary 를
+   * 반환한다 (보상 토스트 표시용). applied=false (retry) 인 경우 saves 만 replace.
+   */
+  applyReward: (response: CoopClaimResponse) => AppliedCoopReward;
   /** 토스트 등 알림. */
   notify?: (text: string) => void;
   /** 협동 공격 라운드 1회의 결과를 최근 기록의 "전투 로그" 탭에 남기기 위한 콜백. */
@@ -169,9 +173,13 @@ export function CoopBossCard({
   const handleClaim = async () => {
     const r = await claim();
     if (!r) return;
-    const applied = applyReward(r.reward);
+    const applied = applyReward(r);
     setLastClaim({ tier: r.tier, applied });
-    notify?.(`${COOP_TIER_LABEL[r.tier]} 보상 수령 완료`);
+    notify?.(
+      r.applied
+        ? `${COOP_TIER_LABEL[r.tier]} 보상 수령 완료`
+        : `${COOP_TIER_LABEL[r.tier]} 보상 (이미 받음)`,
+    );
   };
 
   return (

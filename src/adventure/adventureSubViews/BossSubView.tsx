@@ -68,12 +68,11 @@ export function BossSubView() {
           onPlayerHpChange={(hp) =>
             characterStateHook.setHp(hp <= 0 ? character.maxHp : hp)
           }
-          applyReward={(reward) =>
-            applyCoopReward(reward, {
-              addMaterial: inventory.addMaterial,
-              learnRecipe: crafting.learnRecipe,
-              knowsRecipe: crafting.knows,
-              addEquipment: inventory.addEquipment,
+          applyReward={(response) =>
+            applyCoopReward(response, {
+              replaceInventoryFromSaved: inventory.replaceFromSaved,
+              replaceCraftingFromSaved: crafting.replaceFromSaved,
+              replaceAdventureLogFromSaved: adventureLog.replaceFromSaved,
               grantTitle,
             })
           }

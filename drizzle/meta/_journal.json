@@ -169,6 +169,13 @@
       "when": 1779018320498,
       "tag": "0023_lethal_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1779165030251,
+      "tag": "0024_coop_claim_reward_snapshot",
+      "breakpoints": true
     }
   ]
 }

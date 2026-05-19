@@ -64,13 +64,15 @@ describe("resolveCoopReward — 서버 RNG 결정성", () => {
   });
 
   it("recipeOneOf 가 있으면 정확히 한 개를 picked 으로 recipes 에 추가", () => {
-    const r = computeCoopReward("운봉의 거인", "gold");
-    expect(r.recipeOneOf?.length).toBe(4);
-    const resolved = resolveCoopReward(r, 1);
-    // gold 누적: 확정 recipes 비어 있음 → recipeOneOf 1개 + recipeRolls(peak_mantle 0.15) 0~1개.
-    expect(resolved.recipes.length).toBeGreaterThanOrEqual(1);
-    expect(resolved.recipes.length).toBeLessThanOrEqual(2);
-    expect(r.recipeOneOf).toContain(resolved.recipes[0]);
+    // 솔로 전환된 스토리 보스들은 TIER_TABLES 엔 더 이상 없음 — mock reward 로 검증.
+    const reward = {
+      materials: {},
+      recipes: [],
+      recipeOneOf: ["a", "b", "c", "d"],
+    };
+    const resolved = resolveCoopReward(reward, 1);
+    expect(resolved.recipes.length).toBe(1);
+    expect(reward.recipeOneOf).toContain(resolved.recipes[0]);
   });
 
   it("recipeRolls chance 1 은 항상 통과, 0 은 항상 탈락", () => {

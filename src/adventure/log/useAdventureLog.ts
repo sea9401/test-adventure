@@ -233,6 +233,12 @@ export function useAdventureLog() {
     });
   }, []);
 
+  // 서버 권위 액션 (코옵 claim 등) 의 응답으로 받은 adventure-log.v2 값으로 통째 교체.
+  // useRemotePatch 가 이후 동일 값을 다시 PATCH 하지만 서버 version 과 409 재시도로 자가 수렴.
+  const replaceFromSaved = useCallback((raw: unknown) => {
+    setLog(readInitial(raw));
+  }, []);
+
   return {
     log,
     hydrated: true,
@@ -249,5 +255,6 @@ export function useAdventureLog() {
     incrementNoDamageWin,
     addCompendiumClaimed,
     setCompendiumClaimed,
+    replaceFromSaved,
   };
 }

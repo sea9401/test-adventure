@@ -74,20 +74,18 @@ export function useTitleGrants(
   // 상태 관찰형 — gold 0 도달, 외골수 빌드, 레벨/골드 마일스톤.
   // 외골수: 한 스탯 30↑, 나머지 모두 10↓ (11~29 구간이 있으면 미부여).
   const goldZero = opts.gold === 0;
-  const goldOneCoin = opts.gold === 1;
   const goldRich = opts.gold >= 10000;
-  const goldLandlord = opts.gold >= 100_000;
+  // youngRich (어린 부자) 조건의 임계값 — 10만 골드. 칭호 자체는 없음.
+  const goldHundredK = opts.gold >= 100_000;
   const goldFortune = opts.gold >= 1_000_000;
-  const youngRich = goldLandlord && opts.level < 10;
+  const youngRich = goldHundredK && opts.level < 10;
   const levelVeteran = opts.level >= 30;
   const levelLegend = opts.level >= 50;
   const levelMythic = opts.level >= 70;
   const levelTranscendent = opts.level >= 100;
   useEffect(() => {
     if (goldZero) grantTitle("beggar");
-    if (goldOneCoin) grantTitle("one_coin");
     if (goldRich) grantTitle("wealthy");
-    if (goldLandlord) grantTitle("landlord");
     if (goldFortune) grantTitle("nouveau_riche");
     if (youngRich) grantTitle("young_rich");
     if (levelVeteran) grantTitle("level_30");
@@ -109,9 +107,8 @@ export function useTitleGrants(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     goldZero,
-    goldOneCoin,
     goldRich,
-    goldLandlord,
+    goldHundredK,
     goldFortune,
     youngRich,
     levelVeteran,

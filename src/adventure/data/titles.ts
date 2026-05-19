@@ -99,13 +99,6 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "훈련 100회 완료",
     category: "training",
   },
-  training_master: {
-    id: "training_master",
-    name: "검은띠",
-    description: "꺾일 줄 모르는 의지. 훈련장의 전설로 불린다.",
-    condition: "훈련 200회 완료",
-    category: "training",
-  },
   merchant: {
     id: "merchant",
     name: "상인",
@@ -473,34 +466,6 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "장비 미착용 상태로 보스 도전",
     category: "battle",
   },
-  loudspeaker: {
-    id: "loudspeaker",
-    name: "확성기",
-    description: "광장에 천 마디를 얹은 자. 이제 그의 목소리를 모르는 사람이 없다.",
-    condition: "글로벌 채팅 1,000회 발화",
-    category: "town",
-  },
-  gym_rat: {
-    id: "gym_rat",
-    name: "헬창",
-    description: "근육이 곧 인격이라 믿는 자. '쉰다'는 단어를 어디에 뒀는지 잊었다.",
-    condition: "훈련 500회 완료",
-    category: "training",
-  },
-  sandbag: {
-    id: "sandbag",
-    name: "샌드백",
-    description: "수십 번 두들겨 맞고도 또 일어선다. 단단해진 건지 무뎌진 건지.",
-    condition: "전투 패배 50회",
-    category: "battle",
-  },
-  vip_patient: {
-    id: "vip_patient",
-    name: "VIP 환자",
-    description: "치료소 회전문이 그의 출입 리듬에 맞춰 돈다. 의사가 전용 이름표를 만들어 줬다.",
-    condition: "치료소 200회 이용",
-    category: "town",
-  },
   nouveau_riche: {
     id: "nouveau_riche",
     name: "졸부",
@@ -514,13 +479,6 @@ export const TITLES: Record<TitleId, Title> = {
     description: "이것저것 다 조금씩 찍은 자. 모난 데 없는 게 장점이라면 장점이다.",
     condition: "모든 스탯 15 이상이면서 최댓값과 최솟값 차이 4 이하",
     category: "character",
-  },
-  landlord: {
-    id: "landlord",
-    name: "건물주",
-    description: "골드 십만. 동네 가게 한 칸쯤은 살 수 있겠다고 진지하게 계산해 봤다.",
-    condition: "보유 골드 100,000 도달",
-    category: "economy",
   },
   devoted_listener: {
     id: "devoted_listener",
@@ -590,13 +548,6 @@ export const TITLES: Record<TitleId, Title> = {
     name: "불량품 제작자",
     description: "최선을 다했는데 불량품이 나왔다. 누구에게나 그런 날이 있다.",
     condition: "제작으로 '불량' 등급 장비 획득",
-    category: "economy",
-  },
-  one_coin: {
-    id: "one_coin",
-    name: "동전 한 닢",
-    description: "마지막 동전 한 닢을 쥔 자. 거지보단 조금 낫다고 우긴다.",
-    condition: "보유 골드 정확히 1",
     category: "economy",
   },
   young_rich: {
@@ -682,15 +633,10 @@ export const COUNTER_TITLES: {
   { id: "unknown_soldier", key: "battleLosses", target: 100 },
   { id: "training_apprentice", key: "trainingCount", target: 50 },
   { id: "training_blackbelt", key: "trainingCount", target: 100 },
-  { id: "training_master", key: "trainingCount", target: 200 },
-  { id: "sandbag", key: "battleLosses", target: 50 },
-  { id: "gym_rat", key: "trainingCount", target: 500 },
   { id: "marathoner", key: "trainingCount", target: 1000 },
   { id: "chatterbox", key: "chatCount", target: 100 },
-  { id: "loudspeaker", key: "chatCount", target: 1000 },
   { id: "town_broadcaster", key: "chatCount", target: 3000 },
   { id: "patient", key: "healingCount", target: 50 },
-  { id: "vip_patient", key: "healingCount", target: 200 },
   { id: "head_patient", key: "healingCount", target: 500 },
   // NPC 1인 누적 대화 — 한 사람을 얼마나 붙들었나. 카운터는 NPC 별 talkCount 의 최댓값.
   { id: "phisher", key: "npcTalkCount", target: 100 },
@@ -708,5 +654,6 @@ export function getTitle(id: TitleId | null | undefined): Title | undefined {
 export const TITLE_RENAMES: Record<string, string> = {
   training_10: "training_apprentice", // 50회
   training_50: "training_blackbelt", // 100회
-  training_100: "training_master", // 200회
+  // training_100 → training_master 매핑은 PR-5 에서 training_master 자체가 삭제되며 제거.
+  // 옛 보유분은 log.titles 에 dormant key 로 그대로 남는다 (도감에는 안 보임).
 };

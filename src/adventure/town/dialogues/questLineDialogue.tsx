@@ -1,10 +1,22 @@
 import { useState } from "react";
 import type { Npc } from "@/adventure/data/npcs";
-import { NpcDialogue, type NpcDialogueAction } from "@/adventure/NpcDialogue";
+import {
+  NpcDialogue,
+  type NpcDialogueAction,
+  type NpcObjective,
+} from "@/adventure/NpcDialogue";
 import type { useQuests } from "@/adventure/quests/useQuests";
 import type { useInventory } from "@/adventure/inventory/useInventory";
-import { getQuestById, questTargetTotal, type Quest } from "@/adventure/data/quests";
+import {
+  getQuestById,
+  questTargetTotal,
+  type Quest,
+  type QuestTarget,
+} from "@/adventure/data/quests";
 import { cooldownStatus } from "@/adventure/quests/cooldown";
+import { MATERIALS } from "@/adventure/data/materials";
+import { ITEMS } from "@/adventure/data/items";
+import { getRegion } from "@/adventure/data/world";
 import { formatDuration } from "@/lib/format";
 
 // NPC 가 여러 의뢰를 순차적으로 내주는 다이얼로그용 헬퍼.
@@ -25,7 +37,70 @@ export type QuestLineStep = {
   doneText: string;
   /** 수주 버튼 라벨. 기본 "받아들인다". */
   acceptLabel?: string;
+  /**
+   * 활성 의뢰 안내 박스("▶ 할 일") 본문. 미지정 시 quest.target 에서 자동 생성.
+   * 자동 본문이 부족할 때 (예: "어디 가서 얻나" 정보가 필요한 deliver) 직접 지정.
+   * 예: "별빛 광맥 깊은 곳의 별빛 잡몹·잔영에서 조각이 나옵니다."
+   */
+  objectiveHint?: string;
 };
+
+// 활성 의뢰 박스 본문 자동 생성. activeText 가 산문 톤이라 묻혀버리는 "할 일" 을
+// 한 줄로 다시 적어준다. objectiveHint 가 지정돼 있으면 그쪽이 우선.
+function defaultObjectiveBody(target: QuestTarget): string {
+  switch (target.kind) {
+    case "kill":
+    case "kill_within_hp":
+      return `${target.monsterName} 처치`;
+    case "no_potion_boss":
+      return `${target.monsterName} 처치 (포션 사용 금지)`;
+    case "deliver":
+      return `${MATERIALS[target.materialId]?.name ?? target.materialId} 모으기`;
+    case "talk_to_npc":
+      return `${target.npcId} 에게 말 걸기`;
+    case "visit_region":
+      return `${getRegion(target.regionId)?.name ?? target.regionId} 방문`;
+    case "craft_item":
+      return `${ITEMS[target.itemId]?.name ?? target.itemId} 제작`;
+    case "equip_item":
+      return `${ITEMS[target.itemId]?.name ?? target.itemId} 장착`;
+    case "equip_set":
+      return `한 복 장착 (${target.itemIds.length}종)`;
+  }
+}
+
+function objectiveProgressLabel(target: QuestTarget): string {
+  switch (target.kind) {
+    case "kill":
+    case "kill_within_hp":
+    case "no_potion_boss":
+      return "처치";
+    case "deliver":
+      return "모은 수";
+    case "craft_item":
+      return "제작";
+    case "visit_region":
+      return "방문 횟수";
+    case "talk_to_npc":
+      return "대화";
+    case "equip_item":
+    case "equip_set":
+      return "장착";
+  }
+}
+
+function buildObjective(
+  quest: Quest,
+  step: QuestLineStep,
+  have: number,
+  need: number,
+): NpcObjective {
+  const body = step.objectiveHint ?? defaultObjectiveBody(quest.target);
+  return {
+    body,
+    progress: `${objectiveProgressLabel(quest.target)} ${have}/${need}`,
+  };
+}
 
 type Props = {
   npc: Npc;
@@ -126,7 +201,12 @@ export function QuestLineDialogue({
           );
         }
         return (
-          <NpcDialogue npc={npc} onClose={onClose} text={step.activeText(have, need)} />
+          <NpcDialogue
+            npc={npc}
+            onClose={onClose}
+            text={step.activeText(have, need)}
+            objective={buildObjective(quest, step, have, need)}
+          />
         );
       }
       return (
@@ -134,6 +214,7 @@ export function QuestLineDialogue({
           npc={npc}
           onClose={onClose}
           text={step.activeText(entry.progress, need)}
+          objective={buildObjective(quest, step, entry.progress, need)}
         />
       );
     }

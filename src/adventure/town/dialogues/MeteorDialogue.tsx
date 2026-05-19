@@ -76,6 +76,10 @@ export function MeteorDialogue({
     storyFlags.has("starlit_gate_quelled");
 
   if (!ch27Done) {
+    const quelled =
+      (storyFlags.has("starlit_giant_quelled") ? 1 : 0) +
+      (storyFlags.has("starlit_deep_quelled") ? 1 : 0) +
+      (storyFlags.has("starlit_gate_quelled") ? 1 : 0);
     return (
       <NpcDialogue
         npc={npc}
@@ -83,6 +87,10 @@ export function MeteorDialogue({
         text={
           "별바다에서 여기까지 걸어왔네. …옛 봉인 자리 세 곳에 별이 더 떨어졌다 들었으니.\n자네가 셋을 모두 잠재울 때까지 — 우물가에 앉아 기다리지. 산정 협곡, 안개 너머 산호초, 옛 변경 성채. 셋 다 자네 손이 닿아야 하네."
         }
+        objective={{
+          body: "별빛 협곡의 거인 잔영, 안개 산호초의 수심의 메아리, 옛 변경 성채의 성문지기 잔영. 세 잔영을 모두 잠재워야 합니다.\n운향 백운, 소만 여울, 마른나루 무진과 먼저 이야기해 보세요.",
+          progress: `잠재운 잔영 ${quelled}/3`,
+        }}
       />
     );
   }
@@ -139,7 +147,11 @@ export function MeteorDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={`별빛 조각이 얼마나 모였나? 서른 점이 되거든 다시 오시게. — 진행 ${have}/${VESSEL_SHARDS}`}
+        text={`별빛 조각이 얼마나 모였나? 서른 점이 되거든 다시 오시게.`}
+        objective={{
+          body: "별빛 광맥, 별빛 협곡, 별빛 산호초, 별빛 옛 성채의 별빛 잡몹과 잔영에서 별빛 조각이 나옵니다.",
+          progress: `모은 수 ${have}/${VESSEL_SHARDS}`,
+        }}
       />
     );
   }
@@ -192,6 +204,9 @@ export function MeteorDialogue({
       text={
         "그릇은 빚어 두었네. 자네에게 묶지 않을 결로, 누구의 것도 아닌 자리에. 별빛이 한 점 한 점 그릇 가장자리에 가라앉는 것을 자네도 보겠지.\n옛 옥좌의 환영이 아직 자네 등을 따라온다는 얘기를 들었네. 그것을 마지막으로 떼어 내는 자리는 고탑 위일 게야. 자기가 만든 자리로 자기가 가 닿는 그 길."
       }
+      objective={{
+        body: "끝없는 고탑 100층까지 올라가 옛 옥좌의 환영을 만나야 합니다.\n환영을 본 뒤 다시 유성에게 돌아오면 됩니다.",
+      }}
     />
   );
 }

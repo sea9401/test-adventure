@@ -229,6 +229,17 @@ export function MujinDialogue({
                 ? "성채에 다시 사람이 든다오. 갈라진 우물을 메우고, 막사를 헐어 새로 짓고. …자네가 한 일이야.\n옛 변경의 일이 다 끝난 건 아닐지 몰라도 — 이 마을은 자네를 식구로 기억할 게요."
                 : "…고맙소. 진심으로. 마른나루는 자네를 잊지 않을 게요.")
         }
+        objective={
+          !offerBook && starfall && !gateQuelled
+            ? {
+                body: "별빛 성채의 성문지기 잔영을 잠재우세요.\n지역 보스 도전 버튼으로 진입합니다.",
+              }
+            : !offerBook && starfall && gateQuelled
+              ? {
+                  body: "시작 마을 우물가의 별바다 노수호자 유성에게 가 보세요.",
+                }
+              : undefined
+        }
         primaryAction={
           offerBook
             ? {

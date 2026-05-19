@@ -7,7 +7,13 @@
 //
 // 순수 함수 — hook 아님. 매 render 호출되지만 derivePlayerCombat 비용은 무시 가능.
 
-import { requiredExpToNext } from "@/lib/leveling";
+import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
+import {
+  PARAGON_TOTAL_CAP,
+  cumulativeExpForPoints,
+  paragonPointCost,
+  pointsFromExp,
+} from "@/lib/paragon";
 import type { Gender } from "@/adventure/profile/avatars";
 import { baseCharacter, maxMpForLevel } from "./defaults";
 import {
@@ -23,6 +29,8 @@ export type ComposeCharacterInput = DerivePlayerCombatInput & {
   /** 저장된 mp — maxMp 로 clamp 된다. */
   mp: number;
   exp: number;
+  /** 누적 파라곤 EXP — 만렙 도달 후 EXP 바를 "다음 파라곤 포인트까지" 로 치환. */
+  paragonExp: number;
   gold: number;
   fame: number;
   /** UI 표시용 — 누적 처치 + 패배. */
@@ -49,6 +57,23 @@ export function composeCharacter(
 
   const maxMp = maxMpForLevel(input.level);
 
+  // EXP 바 값. 만렙 미만: 현 레벨의 잔여/필요. 만렙 도달 후엔 같은 바가 끊기지 않고
+  // 다음 파라곤 포인트까지의 진행도로 이어진다 — 익숙한 리듬 유지.
+  // 풀졸업(150pt) 시엔 마지막 포인트 비용으로 가득 찬 바를 표시.
+  let displayExp = input.exp;
+  let displayMaxExp = requiredExpToNext(input.level) ?? 0;
+  if (input.level >= MAX_LEVEL) {
+    const pts = pointsFromExp(input.paragonExp);
+    if (pts >= PARAGON_TOTAL_CAP) {
+      const last = paragonPointCost(PARAGON_TOTAL_CAP);
+      displayExp = last;
+      displayMaxExp = last;
+    } else {
+      displayExp = input.paragonExp - cumulativeExpForPoints(pts);
+      displayMaxExp = paragonPointCost(pts + 1);
+    }
+  }
+
   const equippedSlots: EquippedSlots = {
     weapon: input.equipped.weapon,
     armor: input.equipped.armor,
@@ -65,8 +90,8 @@ export function composeCharacter(
     maxHp,
     maxMp,
     level: input.level,
-    exp: input.exp,
-    maxExp: requiredExpToNext(input.level) ?? 0,
+    exp: displayExp,
+    maxExp: displayMaxExp,
     gold: input.gold,
     fame: input.fame,
     battleCount: input.battleCount,

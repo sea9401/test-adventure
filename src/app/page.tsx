@@ -228,6 +228,7 @@ function Home() {
     name: profile.name,
     gender: profile.gender,
     exp: characterState.exp,
+    paragonExp: paragon.state.paragonExp,
     gold: characterState.gold,
     fame: characterState.fame,
     battleCount,

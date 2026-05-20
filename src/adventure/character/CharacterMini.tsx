@@ -11,6 +11,7 @@ import {
 } from "@/adventure/data/dropQuality";
 import { enhanceAttemptStatus } from "./enhancement";
 import type { Character, EquippedItem, EquippedSlots } from "./types";
+import { EnchantBadges } from "./EnchantBadges";
 
 export const EQUIP_SLOT_META: {
   slot: EquipSlot;
@@ -205,6 +206,7 @@ export function MiniEquipCard({
               </div>
             ))}
           </div>
+          <EnchantBadges slots={item.enchantSlots} className="mt-1.5" />
           {item.description && (
             <div className="mt-2 border-t border-zinc-200 pt-2 text-xs italic text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
               {item.description}

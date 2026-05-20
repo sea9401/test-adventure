@@ -10,6 +10,8 @@ import { CRAFT_TIER_NAMES, type CraftTier } from "../data/craftQuality";
 import { DROP_QUALITY_NAMES, type DropQuality } from "../data/dropQuality";
 import type { InventoryState } from "../inventory/useInventory";
 import type { EquippedSlots } from "../character/types";
+import type { EnchantSlot } from "../character/enchant";
+import { EnchantBadges } from "../character/EnchantBadges";
 import {
   entryBlockReason,
   entryYield,
@@ -51,6 +53,7 @@ type Row = {
   entry: DisassembleEntry;
   name: string;
   qualifier?: string; // "걸작" / "정교한" 등
+  enchantSlots?: readonly EnchantSlot[]; // 인스턴스 한정 — 부여된 마법부여
   rarityClass: string; // 텍스트 색
   have: number;
   yieldEach: number;
@@ -154,6 +157,7 @@ function buildRows(inv: InventoryState, slots: EquippedSlots): Row[] {
       entry,
       name: item.name,
       qualifier: qualifier.length > 0 ? qualifier : undefined,
+      enchantSlots: inst.enchantSlots,
       rarityClass: rarityTextClass(item),
       have: 1,
       yieldEach: entryYield(entry),
@@ -454,6 +458,7 @@ export function DisassemblePanel({
                         보유 {r.have}
                       </span>
                     </div>
+                    <EnchantBadges slots={r.enchantSlots} className="mt-0.5" />
                     <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                       {locked ? (
                         <span className="text-amber-600 dark:text-amber-400">

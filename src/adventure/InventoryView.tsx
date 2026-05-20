@@ -35,6 +35,7 @@ import type { InventoryState } from "./inventory/useInventory";
 import type { EquippedItem, EquippedSlots } from "./character/types";
 import { enhanceAttemptStatus } from "./character/enhancement";
 import { EquippedGrid } from "./character/CharacterMini";
+import { EnchantBadges } from "./character/EnchantBadges";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
@@ -343,6 +344,7 @@ export function InventoryView({
                                 </span>
                               )}
                             </div>
+                            <EnchantBadges slots={entry.enchantSlots} />
                           </div>
                           <div className="flex shrink-0 items-center gap-1 pt-0.5">
                             {entry.instanceId

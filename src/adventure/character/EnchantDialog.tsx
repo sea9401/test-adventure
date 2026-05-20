@@ -15,6 +15,7 @@ import {
   enchantSlotCapacity,
   type EnchantAffix,
 } from "@/adventure/character/enchant";
+import { EnchantBadges } from "@/adventure/character/EnchantBadges";
 import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 
 function fmtRange(affix: EnchantAffix): string {
@@ -97,23 +98,7 @@ export function EnchantDialog({
             {instance.enhancementLevel > 0 ? ` +${instance.enhancementLevel}` : ""}
             {" · "}슬롯 {cur.length}/{cap}
           </p>
-          {cur.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-violet-700 dark:text-violet-300">
-              {cur.map((s, i) => {
-                const a = ENCHANT_AFFIXES[s.affixId];
-                const unit = a.unit === "percent" ? "%" : "";
-                return (
-                  <span
-                    key={i}
-                    className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 dark:border-violet-800 dark:bg-violet-950"
-                  >
-                    {a.name} {s.value}
-                    {unit}
-                  </span>
-                );
-              })}
-            </div>
-          )}
+          <EnchantBadges slots={cur} className="mt-1" />
         </div>
 
         <div className="overflow-y-auto px-4 py-3">

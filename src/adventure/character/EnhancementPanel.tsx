@@ -19,10 +19,8 @@ import {
   resolveEnhancedItem,
   type EnhanceMode,
 } from "@/adventure/character/enhancement";
-import {
-  ENCHANT_AFFIXES,
-  enchantSlotCapacity,
-} from "@/adventure/character/enchant";
+import { enchantSlotCapacity } from "@/adventure/character/enchant";
+import { EnchantBadges } from "@/adventure/character/EnchantBadges";
 import { EnchantDialog } from "@/adventure/character/EnchantDialog";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -176,23 +174,7 @@ export function EnhancementPanel({
                   <div className="text-xs text-amber-600 dark:text-amber-400">
                     {item.stats.map((s) => `${s.label} ${s.value}`).join(" · ")}
                   </div>
-                  {curSlots.length > 0 && (
-                    <div className="flex flex-wrap gap-1 text-[11px] text-violet-700 dark:text-violet-300">
-                      {curSlots.map((s, i) => {
-                        const a = ENCHANT_AFFIXES[s.affixId];
-                        const unit = a.unit === "percent" ? "%" : "";
-                        return (
-                          <span
-                            key={i}
-                            className="rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 dark:border-violet-800 dark:bg-violet-950"
-                          >
-                            {a.name} {s.value}
-                            {unit}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <EnchantBadges slots={curSlots} />
                   {!isMax && !noAttempts && (
                     <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                       성공 시: {deltaSummary} (별빛 조각 {nextCost})

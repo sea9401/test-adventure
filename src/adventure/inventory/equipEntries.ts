@@ -3,6 +3,7 @@ import { resolveDroppedItem, type DropQuality } from "../data/dropQuality";
 import type { CraftTier } from "../data/craftQuality";
 import { resolveCraftedItem } from "../data/recipes";
 import { resolveEnhancedItem } from "../character/enhancement";
+import type { EnchantSlot } from "../character/enchant";
 import type { InventoryState } from "./useInventory";
 
 // 보유 장비를 1개당 한 entry 로 펼친다 — 같은 장비라도 묶지 않는다(중첩 X).
@@ -19,6 +20,8 @@ export type EquipEntry = {
   enhancementLevel?: number;
   /** 인스턴스 기반 한정. 자루별 남은 강화 시도 횟수 (성공·실패 모두 1 차감, 시작 7). */
   remainingAttempts?: number;
+  /** 인스턴스 기반 한정. 부여된 마법부여 슬롯. 목록 표시용. */
+  enchantSlots?: EnchantSlot[];
   item: EquipItem;
 };
 
@@ -68,6 +71,7 @@ export function buildEquipEntries(inventory: InventoryState): EquipEntry[] {
       instanceId: inst.instanceId,
       enhancementLevel: inst.enhancementLevel,
       remainingAttempts: inst.remainingAttempts,
+      enchantSlots: inst.enchantSlots,
       item,
     });
   }

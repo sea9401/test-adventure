@@ -352,9 +352,9 @@ describe("computeShopOutcome", () => {
       expect(r.applied.goldDelta).toBe(0);
     });
 
-    it("5등급 = 500토큰", () => {
+    it("5등급 = 900토큰", () => {
       const r = computeShopOutcome(
-        { ...base(), materials: { tower_token: 500 } },
+        { ...base(), materials: { tower_token: 900 } },
         { kind: "buy_rune", id: "rune_crit", quantity: 1, grade: 5 },
       );
       expect(r.materials.tower_token).toBe(0);

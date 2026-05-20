@@ -40,12 +40,24 @@ export type MonsterPhaseTrigger = {
 //  - enrage:     적 HP 가 maxHp×hpFraction 미만으로 떨어지는 순간 1회 발동, ATK +atkBonus (전투 종료까지 유지).
 //  - brace:      플레이어가 이 적을 공격할 때 데미지 -damageReduction (최소 1로 클램프).
 //  - pierce:     이 적의 공격이 플레이어 DEF 를 armorPierce 만큼 무시.
+//  - chill:      이 적의 공격이 적중할 때마다 플레이어에 한기 perHit 스택 누적. 적 페이즈
+//                시작 시 스택이 threshold 이상이면 스택당 dmgPerStack 고정 피해 (DEF·보호막 무시).
+//                deepHpFraction 지정 시 적 HP 가 그 비율 미만이면 perHit 가 2배 (깊은 한기).
+//                무한 탱킹을 막는 시간압 기믹 — 「별을 잊은 것」(6막) 의 정체.
 // name 은 전투 로그에 [name] 으로 찍힌다.
 export type MonsterSkill =
   | { kind: "heavy_blow"; name: string; everyPhases: number; multiplier: number }
   | { kind: "enrage"; name: string; hpFraction: number; atkBonus: number }
   | { kind: "brace"; name: string; damageReduction: number }
-  | { kind: "pierce"; name: string; armorPierce: number };
+  | { kind: "pierce"; name: string; armorPierce: number }
+  | {
+      kind: "chill";
+      name: string;
+      perHit: number;
+      dmgPerStack: number;
+      threshold: number;
+      deepHpFraction?: number;
+    };
 
 export type Monster = {
   name: string;

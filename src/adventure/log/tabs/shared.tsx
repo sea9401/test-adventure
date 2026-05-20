@@ -59,6 +59,8 @@ export function describeMonsterSkill(s: MonsterSkill): string {
       return `피격 데미지 -${s.damageReduction} (최소 1)`;
     case "pierce":
       return `이 적의 공격이 방어 -${s.armorPierce} 관통`;
+    case "chill":
+      return `피격 시 한기 +${s.perHit} 누적 — ${s.threshold}스택부터 스택당 ${s.dmgPerStack} 피해 (방어 무시)`;
   }
 }
 

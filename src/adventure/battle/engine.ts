@@ -162,6 +162,10 @@ export type BattleBuffs = {
 export type BattleStacks = {
   // 출혈 (4티어) — 누적 스택. 매 적 턴 시작 시 스택당 bleedDmgPerStack 만큼 적 HP 감소 (DEF 무시).
   bleedStacks: number;
+  // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
+  // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
+  // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
+  chillStacks: number;
   // 철벽 (4티어) — 남은 보호막. 받는 피해를 먼저 흡수. 회복 안 됨.
   playerShield: number;
   // 회피 강화로 적립된 보장 회피 잔량 — enemy phase 에서 % 회피 판정 전에 우선 소모.
@@ -983,6 +987,7 @@ export function initialBattleState(
     },
     stacks: {
       bleedStacks: 0,
+      chillStacks: 0,
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
@@ -1926,6 +1931,45 @@ export function advanceTurn(
     state = bled;
   }
 
+  // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
+  // 출혈의 미러. threshold 이상부터 발동. 스택은 적 chill 공격 적중 시 누적(아래 적 공격부).
+  // 이미 몸에 스민 추위는 천뢰 일격 silence 와 무관하게 틱한다.
+  const chillSkill =
+    state.enemy.skill?.kind === "chill" ? state.enemy.skill : null;
+  if (
+    chillSkill &&
+    chillSkill.dmgPerStack > 0 &&
+    state.stacks.chillStacks >= chillSkill.threshold
+  ) {
+    const chillDmg = state.stacks.chillStacks * chillSkill.dmgPerStack;
+    const afterChillHp = Math.max(0, state.playerHp - chillDmg);
+    const chilled: BattleState = {
+      ...state,
+      playerHp: afterChillHp,
+      stacks: {
+        ...state.stacks,
+        damageTakenThisCombat:
+          state.stacks.damageTakenThisCombat + (state.playerHp - afterChillHp),
+      },
+      log: appendLog(state.log, {
+        kind: "info",
+        text: `[한기] ${chillSkill.name} — 추위가 ${chillDmg} 피해 (스택 ${state.stacks.chillStacks})`,
+      }),
+    };
+    if (afterChillHp <= 0) {
+      return {
+        ...chilled,
+        log: appendLog(chilled.log, {
+          kind: "info",
+          text: `${playerName}이(가) 얼어붙어 쓰러졌다...`,
+        }),
+        phase: "ended",
+        outcome: "lose",
+      };
+    }
+    state = chilled;
+  }
+
   // 잔상 (AP) — 큐가 활성이면 적 공격 1회 무효. 데미지·반사 모두 스킵, count -1.
   // 회피·반사 우선순위보다 위에 둠 — "잔상" 은 적이 허를 쳐서 빈 자리만 후려치는 결.
   // 다대시 보스라도 잔상은 그 중 1대만 막음 (남은 추가타는 정상 진행).
@@ -2242,6 +2286,15 @@ export function advanceTurn(
   // 천뢰 일격 (AP) — silence 활성 중엔 enemy.skill 전체 효과 비활성.
   const skill =
     state.buffs.enemySilenceTurnsLeft > 0 ? undefined : state.enemy.skill;
+  // 한기 누적 — chill 공격이 적중하면 perHit 만큼 스택. 적 HP 가 deepHpFraction 미만이면 2배(깊은 한기).
+  // silence 중엔 누적 안 됨(skill 이 undefined). 실제 DoT 는 다음 적 페이즈 시작에 틱.
+  const chillAdd =
+    skill?.kind === "chill"
+      ? state.enemyHp < state.enemy.hp * (skill.deepHpFraction ?? 0)
+        ? skill.perHit * 2
+        : skill.perHit
+      : 0;
+  const chillStacksNext = state.stacks.chillStacks + chillAdd;
   // 격노 — 적 HP 가 maxHp×hpFraction 미만으로 떨어지는 순간 1회 발동, ATK +atkBonus (전투 종료까지 유지).
   const enrageReady =
     skill?.kind === "enrage" &&
@@ -2454,6 +2507,7 @@ export function advanceTurn(
       stacks: {
         ...state.stacks,
         playerShield: newShield,
+        chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
       },
       turn: {
@@ -2486,6 +2540,7 @@ export function advanceTurn(
       stacks: {
         ...state.stacks,
         playerShield: newShield,
+        chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
       },
       turn: {
@@ -2516,6 +2571,7 @@ export function advanceTurn(
     stacks: {
       ...state.stacks,
       playerShield: newShield,
+      chillStacks: chillStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
     },
     turn: {

@@ -821,3 +821,92 @@ describe("반격의 룬 — non-lethal counter 데미지 반영", () => {
     expect(s.log.some((e) => e.text.startsWith("[반격의 룬]"))).toBe(true);
   });
 });
+
+describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
+  // perHit 2 / dmgPerStack 3 / threshold 4 / deepHpFraction 0.5.
+  const chillEnemy = (over: Partial<Monster> = {}) =>
+    makeEnemy({
+      hp: 1000,
+      atk: 6,
+      spd: 5,
+      skill: {
+        kind: "chill",
+        name: "선천의 한기",
+        perHit: 2,
+        dmgPerStack: 3,
+        threshold: 4,
+        deepHpFraction: 0.5,
+      },
+      ...over,
+    });
+  // DEF 100 탱커 — 적 평타를 바닥(1)으로 눌러 한기 DoT 를 분리 관측.
+  const tank: PlayerCombat = { ...PLAYER, hp: 200, maxHp: 200, def: 100 };
+
+  it("적 공격이 적중하면 한기가 perHit 만큼 누적된다", () => {
+    const enemy = chillEnemy();
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = { ...s0, phase: "enemy" as const };
+    const after = advanceTurn(primed, tank, "P");
+    expect(after.stacks.chillStacks).toBe(2);
+  });
+
+  it("threshold 이상이면 적 페이즈 시작에 스택당 dmgPerStack 피해 (DEF 무시)", () => {
+    const enemy = chillEnemy();
+    const s0 = initialBattleState(tank, enemy, "P");
+    // 스택 5 로 시작 → 한기 DoT 5×3=15, 적 평타 1 → 200-16=184. 누적은 +2 → 7.
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 5 },
+    };
+    const after = advanceTurn(primed, tank, "P");
+    expect(after.playerHp).toBe(184);
+    expect(after.stacks.chillStacks).toBe(7);
+    expect(
+      after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("15 피해")),
+    ).toBe(true);
+  });
+
+  it("threshold 미만이면 DoT 가 발동하지 않는다", () => {
+    const enemy = chillEnemy();
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 3 },
+    };
+    const after = advanceTurn(primed, tank, "P");
+    // 한기 DoT 없음 → 적 평타 1 만. 200-1=199.
+    expect(after.playerHp).toBe(199);
+    expect(after.log.some((e) => e.text.startsWith("[한기]"))).toBe(false);
+  });
+
+  it("깊은 한기 — 적 HP 가 deepHpFraction 미만이면 perHit 가 2배", () => {
+    const enemy = chillEnemy();
+    const s0 = initialBattleState(tank, enemy, "P");
+    // 적 HP 400 (< 1000×0.5) → chillAdd = perHit×2 = 4.
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      enemyHp: 400,
+    };
+    const after = advanceTurn(primed, tank, "P");
+    expect(after.stacks.chillStacks).toBe(4);
+  });
+
+  it("한기로 HP 가 0 이 되면 패배 처리", () => {
+    const enemy = chillEnemy();
+    const frail: PlayerCombat = { ...tank, hp: 10, maxHp: 10 };
+    const s0 = initialBattleState(frail, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 5 }, // 5×3=15 ≥ 10
+    };
+    const after = advanceTurn(primed, frail, "P");
+    expect(after.playerHp).toBe(0);
+    expect(after.outcome).toBe("lose");
+    expect(after.phase).toBe("ended");
+    expect(after.log.some((e) => e.text.includes("얼어붙어"))).toBe(true);
+  });
+});

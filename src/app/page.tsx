@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { setForegroundHunting } from "@/lib/huntingSignal";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Coins, MapPin } from "@phosphor-icons/react";
@@ -122,6 +123,11 @@ function Home() {
   // 돈다 (BattleView). 다른 탭/백그라운드로 가면 BattleView 가 unmount 되어 자연히 멈추고,
   // 돌아오면 다시 이어진다. 오프라인 누적·서버 동기화 없음 — "그 창에서만 전투".
   const [huntingActive, setHuntingActive] = useState(false);
+  // VersionCheck(root, GameContext 밖)가 새 배포 자동 새로고침을 사냥 중엔 미루도록 신호 미러링.
+  useEffect(() => {
+    setForegroundHunting(huntingActive);
+    return () => setForegroundHunting(false);
+  }, [huntingActive]);
   const trial = useTrialState({ tab, subView });
 
   // 마을 진입 직후 자동으로 열 NPC 대화 — 알림판 클릭 시 세팅, TownView 가 마운트 직후 소비.

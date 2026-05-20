@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isForegroundHunting } from "@/lib/huntingSignal";
 
 // 새 배포 감지 → 보고 있으면 "새 버전 — 새로고침" 토스트, 안 보고 있으면(탭 숨김) 조용히 자동 reload.
 //
@@ -13,6 +14,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // 이 게임은 자동사냥 등으로 탭을 오래 켜둬서, 구버전 탭으로 동작하다 깨지는(ChunkLoadError /
 // 서버액션 불일치) 게 "서버 멈춤"으로 보이는 핵심 원인. 돌아오기 전에 미리 갈아끼워 그걸 막는다.
 // 캐릭터 진행은 서버 자동저장이라 reload 자체는 안전. (반응형 백스톱은 staleBuild.ts 참고.)
+//
+// 예외 — 포그라운드(실시간) 사냥 중에는 hidden 자동 reload 를 미룬다. 사냥을 켜둔 채 탭을
+// 벗어났을 때 reload 하면 huntingActive(클라 상태)가 false 로 리셋돼 복귀해도 사냥이 재개되지
+// 않는다. 사냥 중엔 토스트로만 알리고, 사냥을 끝낸 뒤 다음 hidden/visible 전환에서 갈아끼운다.
 
 const LOADED_BUILD_ID = process.env.NEXT_PUBLIC_BUILD_ID ?? "dev";
 const POLL_INTERVAL_MS = 5 * 60 * 1000;
@@ -37,7 +42,8 @@ export function VersionCheck() {
         data.buildId !== LOADED_BUILD_ID
       ) {
         // 탭이 숨겨져 있으면(유저가 안 보는 동안) 토스트 띄울 것 없이 바로 갈아끼운다.
-        if (document.visibilityState === "hidden") {
+        // 단 실시간 사냥 중이면 미룬다 — reload 가 huntingActive 를 리셋해 사냥이 끊긴다.
+        if (document.visibilityState === "hidden" && !isForegroundHunting()) {
           window.location.reload();
           return;
         }
@@ -60,7 +66,11 @@ export function VersionCheck() {
     // 새 버전을 이미 감지한(updateAvailable) 채로 탭을 벗어나면 그 순간 조용히 reload.
     // visible 동안엔 토스트로 두다가, 자리를 비우는 즉시 새 빌드로 갈아끼우는 것.
     const onHide = () => {
-      if (document.visibilityState === "hidden" && updateAvailableRef.current) {
+      if (
+        document.visibilityState === "hidden" &&
+        updateAvailableRef.current &&
+        !isForegroundHunting()
+      ) {
         window.location.reload();
       }
     };

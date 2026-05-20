@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   WORLD_MAP,
+  ZONES,
   getAdjacent,
   getRegion,
+  getZone,
   type RegionId,
+  type ZoneId,
 } from "./data/world";
+import { TabBar } from "@/components/ui/TabBar";
 import {
   evaluateEdgeRequirement,
   findEdgeRequirement,
@@ -39,9 +43,45 @@ export function MapView({
   hasStoryFlag: (flagId: string) => boolean;
   onTrialStart: (from: RegionId, to: RegionId) => void;
 }) {
-  const { addNotification, handleUseTownReturn, autoHunt } = useGame();
+  const { addNotification, autoHunt } = useGame();
   const [selectedId, setSelectedId] = useState<RegionId | null>(null);
   const [lowHpBlocked, setLowHpBlocked] = useState(false);
+
+  // 권역(zone) 포커스 — 탭으로 맵을 권역 클러스터에 한 번에 줌. 기본 = 현재 지역의 권역.
+  const [activeZone, setActiveZone] = useState<ZoneId>(() =>
+    getZone(progress.currentRegionId),
+  );
+  // fitNonce 증가 → MapCanvas 가 활성 권역 bounds 로 재줌. 같은 권역 재선택에도 트리거되게 nonce.
+  const [fitNonce, setFitNonce] = useState(0);
+  const selectZone = (z: ZoneId) => {
+    setActiveZone(z);
+    setFitNonce((n) => n + 1);
+  };
+  // 이동으로 권역이 바뀌면 활성 탭을 따라가며 그 권역으로 재줌 (같은 권역 내 이동은 그대로 둠).
+  const lastZoneRef = useRef(getZone(progress.currentRegionId));
+  useEffect(() => {
+    const z = getZone(progress.currentRegionId);
+    if (z === lastZoneRef.current) return;
+    lastZoneRef.current = z;
+    setActiveZone(z);
+    setFitNonce((n) => n + 1);
+  }, [progress.currentRegionId]);
+
+  // 활성 권역에 속한 지역들의 좌표 bounds — MapCanvas 가 이 영역을 화면에 꽉 채운다.
+  const zoneBounds = useMemo(() => {
+    const pts = WORLD_MAP.regions
+      .filter((r) => getZone(r.id) === activeZone)
+      .map((r) => r.position);
+    if (pts.length === 0) return null;
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    return {
+      minX: Math.min(...xs),
+      minY: Math.min(...ys),
+      maxX: Math.max(...xs),
+      maxY: Math.max(...ys),
+    };
+  }, [activeZone]);
 
   const visitedSet = new Set(progress.visitedRegionIds);
   const adjacentToCurrent = new Set(
@@ -115,18 +155,13 @@ export function MapView({
     (requirementStatus?.met ?? true);
   const canChallenge = isTrialEdge && !huntDispatched;
 
-  // 마을 귀환 주문서로 이동 가능 여부 — 가본 마을이고, 정상 경로(canMove/canChallenge)
-  // 가 안 풀리는 상황에서만 노출. 출발지가 마을이면 fast-travel 엣지로 무료 이동 가능
-  // 하므로 주문서 모드 자체를 띄우지 않는다 (count 표시 + 소비 일관성).
-  const fromRegion = getRegion(progress.currentRegionId);
-  const fromIsTown = !!fromRegion?.tags?.includes("town");
-  const targetIsTown = !!selectedRegion?.tags?.includes("town");
-  const isScrollEligible =
+  // 빠른 이동 — 한 번이라도 가본(visited) 지역이면 어디서든 한 탭 워프 (무료).
+  // 인접 정상 이동(canMove)·시련 도전(canChallenge)이 우선이라 그게 가능하면 노출 안 함.
+  // 발견한 지역만 대상이라 진행 순서를 건너뛰지 않는다 — 순수 동선 단축(맵 왔다갔다 완화).
+  const canFastTravel =
     !!selectedId &&
     selectedId !== progress.currentRegionId &&
-    targetIsTown &&
     visitedSet.has(selectedId) &&
-    !fromIsTown &&
     !canMove &&
     !canChallenge;
 
@@ -165,9 +200,13 @@ export function MapView({
       performMove(selectedId);
       return;
     }
-    if (isScrollEligible) {
-      // 마을 귀환 — 당분간 인벤 소모 없이 무료. handleUseTownReturn 가 mapProgress 갱신.
-      handleUseTownReturn(selectedId);
+    if (canFastTravel) {
+      // 빠른 이동 — 가본 지역으로 무료 워프. 일반 이동과 같은 onProgressChange 경로.
+      performMove(selectedId);
+      const region = getRegion(selectedId);
+      if (region) {
+        addNotification("info", `${region.name}(으)로 빠르게 이동했다.`);
+      }
       return;
     }
   };
@@ -193,7 +232,7 @@ export function MapView({
           return;
       }
       if (lowHpBlocked) return;
-      const canFire = canMove || canChallenge || isScrollEligible;
+      const canFire = canMove || canChallenge || canFastTravel;
       if (!canFire) return;
       e.preventDefault(); // Space 의 페이지 스크롤 기본 동작 차단.
       handleMove();
@@ -203,7 +242,7 @@ export function MapView({
     // handleMove 는 매 렌더 새로 만들어지지만 effect 가 매 렌더 재바인딩되는 비용은 작음.
     // 의존성 명시로 closure 가 항상 최신 selectedId / 플래그를 본다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canMove, canChallenge, isScrollEligible, lowHpBlocked]);
+  }, [canMove, canChallenge, canFastTravel, lowHpBlocked]);
 
   const currentRegion = getRegion(progress.currentRegionId);
 
@@ -216,11 +255,20 @@ export function MapView({
           {currentRegion?.name ?? "—"}
         </span>
       </div>
+      <TabBar
+        tabs={ZONES.map((z) => ({ key: z.id, label: z.label }))}
+        active={activeZone}
+        onChange={selectZone}
+        ariaLabel="권역"
+        scrollable
+      />
       <Card padding="none" className="overflow-hidden">
         <MapCanvas
           world={WORLD_MAP.viewBox}
           focusX={currentRegion?.position.x ?? WORLD_MAP.viewBox.width / 2}
           focusY={currentRegion?.position.y ?? WORLD_MAP.viewBox.height / 2}
+          fitBounds={zoneBounds}
+          fitNonce={fitNonce}
         >
           {WORLD_MAP.edges.map((edge) => {
             const from = getRegion(edge.from);
@@ -263,7 +311,7 @@ export function MapView({
         canChallenge={canChallenge}
         onMove={handleMove}
         requirementStatus={requirementStatus}
-        scrollMove={isScrollEligible}
+        fastTravel={canFastTravel}
       />
       {lowHpBlocked && (
         <LowHpBlockModal onConfirm={() => setLowHpBlocked(false)} />

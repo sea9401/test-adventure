@@ -25,6 +25,8 @@ export function MapCanvas({
   world,
   focusX,
   focusY,
+  fitBounds,
+  fitNonce = 0,
   children,
   height = "min(54vh, 460px)",
 }: {
@@ -33,6 +35,11 @@ export function MapCanvas({
   world: { x?: number; y?: number; width: number; height: number };
   focusX: number;
   focusY: number;
+  // 권역(zone) 포커스 — 지정되면 초기 진입·fitNonce 변경 시 이 bounds 가 화면에 꽉 차게 맞춘다.
+  // 권역 탭으로 클러스터에 한 번에 줌하기 위한 용도. 미지정이면 focusX/Y 리센터로 fallback.
+  fitBounds?: { minX: number; minY: number; maxX: number; maxY: number } | null;
+  // 권역 탭을 누를 때마다 +1. 같은 권역 재선택에도 다시 맞춰지도록 nonce 로 트리거.
+  fitNonce?: number;
   children: ReactNode;
   height?: string;
 }) {
@@ -66,6 +73,27 @@ export function MapCanvas({
     [containerSize, focusX, focusY, world.width],
   );
 
+  // 권역 bounds 가 화면에 꽉 차게 viewBox 를 맞춘다 (여백 포함). 단일 노드 등 너무 작은
+  // 권역은 줌 한계(minVbW/maxVbW)로 클램프해 과도 확대를 막는다. fitAll 과 같은 ratio 로직.
+  const fitToBounds = useCallback(
+    (b: { minX: number; minY: number; maxX: number; maxY: number }) => {
+      const { w: cw, h: ch } = containerSize;
+      if (cw === 0 || ch === 0) return;
+      const pad = 80; // world 단위 여백
+      const bw = Math.max(1, b.maxX - b.minX) + pad * 2;
+      const bh = Math.max(1, b.maxY - b.minY) + pad * 2;
+      const containerRatio = ch / cw;
+      const boundsRatio = bh / bw;
+      let vbW = containerRatio >= boundsRatio ? bw : bh / containerRatio;
+      vbW = Math.max(minVbW, Math.min(maxVbW, vbW));
+      const vbH = vbW * containerRatio;
+      const cx = (b.minX + b.maxX) / 2;
+      const cy = (b.minY + b.maxY) / 2;
+      setVb({ x: cx - vbW / 2, y: cy - vbH / 2, w: vbW, h: vbH });
+    },
+    [containerSize, minVbW, maxVbW],
+  );
+
   // 컨테이너 사이즈 추적 — 회전·resize 대응.
   useLayoutEffect(() => {
     const el = containerRef.current;
@@ -90,8 +118,19 @@ export function MapCanvas({
     if (didInitRef.current) return;
     if (containerSize.w === 0 || containerSize.h === 0) return;
     didInitRef.current = true;
-    recenter(INITIAL_ZOOM);
-  }, [containerSize, recenter]);
+    // 초기 진입은 활성 권역 bounds 로 맞춘다 (있으면). 없으면 현재 위치 리센터.
+    if (fitBounds) fitToBounds(fitBounds);
+    else recenter(INITIAL_ZOOM);
+  }, [containerSize, recenter, fitBounds, fitToBounds]);
+
+  // 권역 탭 클릭(fitNonce 증가) 시 그 권역 bounds 로 다시 맞춘다.
+  useEffect(() => {
+    if (fitNonce <= 0) return;
+    if (containerSize.w === 0 || containerSize.h === 0) return;
+    if (fitBounds) fitToBounds(fitBounds);
+    // fitBounds 는 fire 시점 값으로 읽음 — nonce 변화로만 트리거.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitNonce]);
 
   // 포인터 추적 — Map 으로 멀티터치 지원.
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());

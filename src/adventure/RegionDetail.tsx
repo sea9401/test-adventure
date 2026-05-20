@@ -17,7 +17,7 @@ export function RegionDetail({
   canChallenge,
   onMove,
   requirementStatus,
-  scrollMove,
+  fastTravel,
 }: {
   region: Region | null;
   state: NodeState | null;
@@ -25,8 +25,8 @@ export function RegionDetail({
   canChallenge?: boolean;
   onMove: () => void;
   requirementStatus?: EdgeRequirementStatus | null;
-  /** 가본 마을로 귀환 가능한 경우 — 2026-05-18~ 무료. true 면 "마을 귀환" 버튼 노출. */
-  scrollMove?: boolean;
+  /** 가본(visited) 지역으로 빠른 이동 가능한 경우 — 무료. true 면 "빠른 이동" 버튼 노출. */
+  fastTravel?: boolean;
 }) {
   if (!region || !state) {
     return (
@@ -61,7 +61,7 @@ export function RegionDetail({
       )}
       <button
         type="button"
-        disabled={!canMove && !canChallenge && !scrollMove}
+        disabled={!canMove && !canChallenge && !fastTravel}
         onClick={onMove}
         className="mt-3 w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-700 transition-[transform,background-color] duration-100 hover:bg-zinc-100 active:scale-[0.97] active:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800 dark:active:bg-zinc-700"
       >
@@ -75,9 +75,9 @@ export function RegionDetail({
           <>
             시련 도전<MoveShortcutHint />
           </>
-        ) : scrollMove ? (
+        ) : fastTravel ? (
           <>
-            마을 귀환<MoveShortcutHint />
+            빠른 이동<MoveShortcutHint />
           </>
         ) : (
           "지금은 갈 수 없음"

@@ -49,6 +49,74 @@ export type RegionId =
   | "starlit_reef"
   | "starlit_keep";
 
+// 권역 — 맵 뷰를 묶어서 보여주기 위한 그룹. 이동 그래프(edges)와 무관한 표시/네비게이션 전용.
+// MapCanvas 가 활성 권역에 속한 지역들의 bounds 로 자동 줌/포커스한다.
+export type ZoneId =
+  | "homeland" // 본토 — 시작 마을 ~ 천공 성지 메인 모험길
+  | "coast" // 디올라 해안 지선
+  | "westroad" // 서편 옛길
+  | "dragonscale" // 용비늘 묘지 라인
+  | "skythrone" // 천공·옥좌 (4막)
+  | "starlit" // 별빛 권역 (5막 + 6막 선천)
+  | "tower"; // 고탑
+
+// 권역 탭 순서·라벨. UI 가 이 순서대로 탭을 깐다.
+export const ZONES: ReadonlyArray<{ id: ZoneId; label: string }> = [
+  { id: "homeland", label: "본토" },
+  { id: "coast", label: "디올라 해안" },
+  { id: "westroad", label: "서편 옛길" },
+  { id: "dragonscale", label: "용비늘" },
+  { id: "skythrone", label: "천공·옥좌" },
+  { id: "starlit", label: "별빛 권역" },
+  { id: "tower", label: "고탑" },
+];
+
+// 지역 → 권역 매핑. Record 라 RegionId 가 빠지면 TS 가 잡는다 (exhaustive).
+export const REGION_ZONE: Record<RegionId, ZoneId> = {
+  village: "homeland",
+  plains: "homeland",
+  forest: "homeland",
+  cave: "homeland",
+  deep_cave: "homeland",
+  lake: "homeland",
+  diola: "homeland",
+  ruins: "homeland",
+  quarry: "homeland",
+  highland: "homeland",
+  canyon: "homeland",
+  unhyang: "homeland",
+  cloud_plain: "homeland",
+  windvale: "homeland",
+  ashen_pass: "homeland",
+  phoenix_ridge: "homeland",
+  volcanic_badlands: "homeland",
+  skyreach: "homeland",
+  tideflats: "coast",
+  saltmarsh: "coast",
+  reef_isle: "coast",
+  westgate: "westroad",
+  dustford: "westroad",
+  oldwall_keep: "westroad",
+  bone_marches: "dragonscale",
+  scalefall_barrows: "dragonscale",
+  dragon_nest: "dragonscale",
+  starspire: "skythrone",
+  star_corridor: "skythrone",
+  star_haven: "skythrone",
+  skyfolk_ruins: "skythrone",
+  throne_road: "skythrone",
+  apex_throne: "skythrone",
+  starfall_cave: "starlit",
+  starlit_canyon: "starlit",
+  starlit_reef: "starlit",
+  starlit_keep: "starlit",
+  tower_foot: "tower",
+};
+
+export function getZone(regionId: RegionId): ZoneId {
+  return REGION_ZONE[regionId];
+}
+
 export type Biome =
   | "village"
   | "plains"
@@ -630,7 +698,9 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 갱도",
       description:
         "깊은 동굴 안쪽, 광맥이 끊긴 자리에 별빛 한 점이 가라앉아 있다. 천 길 아래로 떨어진 별의 흔적. 광맥의 옛 잡것들이 그 빛에 데워져 다시 깨어났다.",
-      position: { x: 30, y: 40 },
+      // 별빛 권역 클러스터 — 옛 봉인 자리에 흩어져 있던 4지역을 맵에서 한 곳으로 모았다.
+      // 좌표는 표시/네비게이션용(권역 뷰 + 빠른이동). 진입 게이트(edges)는 옛 위치 그대로 유지.
+      position: { x: 470, y: 560 },
       biome: "cave",
       enemies: ["별빛 박쥐", "별빛 동굴뱀", "별빛 광물 골렘"],
       encounterWeights: {
@@ -649,7 +719,7 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 협곡",
       description:
         "운무 협곡 안쪽, 옛 거인이 잠들었던 자리에 별빛 한 점이 가라앉아 있다. 떼지어 도망쳤던 절벽 늑대들이 별빛에 데워져 다시 돌아와 있고, 협곡 깊은 자리에서 잔영 하나가 두 발을 박아 넣는다.",
-      position: { x: 1140, y: 470 },
+      position: { x: 640, y: 560 },
       biome: "mountain",
       enemies: ["별빛 절벽 늑대", "별빛 돌풍 정령", "별빛 늑대 무리장"],
       encounterWeights: {
@@ -667,7 +737,7 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 산호초",
       description:
         "산호초 섬 너머 안개 한가운데, 옛 수심의 것이 가라앉았던 자리에 별빛 한 점이 떠 있다. 사이렌이 옛 노래 사이에 새 음절을 섞어 부르고, 갑각 약탈자들이 한낮에도 한기를 두른 채 떠다닌다.",
-      position: { x: 960, y: -360 },
+      position: { x: 470, y: 700 },
       biome: "coast",
       enemies: ["별빛 산호초 사이렌", "별빛 갑각 약탈자", "별빛 가시 산호 골렘"],
       encounterWeights: {
@@ -685,7 +755,7 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 성채",
       description:
         "옛 변경 성채 안쪽, 성문지기 자동인형이 멈춰 섰던 자리에 별빛 한 점이 가라앉아 있다. 폐성벽의 까마귀들이 별빛을 두른 채 깃을 떨구고, 빗장이 다시 한 번 들렸다 떨어진다.",
-      position: { x: 180, y: 680 },
+      position: { x: 640, y: 700 },
       biome: "ruins",
       enemies: ["별빛 폐성벽 까마귀", "별빛 탈영 약탈자", "별빛 녹슨 자동인형"],
       encounterWeights: {

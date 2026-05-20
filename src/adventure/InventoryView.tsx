@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Diamond, Flask, Scroll, Sword } from "@phosphor-icons/react";
+import { Diamond, Flask, Scroll, Sparkle, Sword } from "@phosphor-icons/react";
 import {
   BONUS_KEYS,
   BONUS_LABELS,
@@ -27,6 +27,11 @@ import {
   type EquipEntry,
 } from "./inventory/equipEntries";
 import { MATERIALS, type MaterialId } from "./data/materials";
+import {
+  ENCHANT_AFFIX_IDS,
+  ENCHANT_AFFIXES,
+  type EnchantAffix,
+} from "./character/enchant";
 import { POTIONS, POTION_IDS, potionMax } from "./data/potions";
 import { CONSUMABLES, CONSUMABLE_IDS } from "./data/consumables";
 import { SKILL_BOOKS, SKILL_BOOK_IDS, type SkillBookId } from "./data/skillBooks";
@@ -54,6 +59,7 @@ import { TierSectionHeader } from "@/adventure/equipment/TierSectionHeader";
 type InvTabKey =
   | "equipment"
   | "materials"
+  | "enchants"
   | "potions"
   | "consumables"
   | "skillBooks";
@@ -61,10 +67,17 @@ type InvTabKey =
 const TABS: { key: InvTabKey; label: string }[] = [
   { key: "equipment", label: "장비" },
   { key: "materials", label: "재료" },
+  { key: "enchants", label: "부여서" },
   { key: "potions", label: "포션" },
   { key: "consumables", label: "소모품" },
   { key: "skillBooks", label: "스킬북" },
 ];
+
+// 부여서 효과 수치 range 표기 — EnchantDialog 와 동일 포맷.
+function fmtEnchantRange(affix: EnchantAffix): string {
+  const [min, max] = affix.range;
+  return `${min}~${max}${affix.unit === "percent" ? "%" : ""}`;
+}
 
 const SLOT_TABS: { key: EquipSlot; label: string }[] = [
   { key: "weapon", label: "무기" },
@@ -126,7 +139,10 @@ export function InventoryView({
 
   const ownedEquipment = buildEquipEntries(inventory);
   // 각 카테고리는 기본적으로 이름순(가나다)으로 표시 — 정의 객체 키 순서 대신 localeCompare.
+  // 부여서(enchant_*)는 전용 "부여서" 탭에서 카탈로그로 보여주므로 재료 탭에서는 제외 —
+  // 일반 제작 재료에 20종이 섞여 흩어지던 걸 분리한다.
   const ownedMaterials = (Object.keys(MATERIALS) as MaterialId[])
+    .filter((id) => !id.startsWith("enchant_"))
     .map((id) => ({
       id,
       material: MATERIALS[id],
@@ -134,6 +150,15 @@ export function InventoryView({
     }))
     .filter((e) => e.count > 0)
     .sort((a, b) => a.material.name.localeCompare(b.material.name));
+  // 부여서 카탈로그 — 표시 순서 = 카탈로그 순서. 보유 0 도 회색으로 같이 보여 가이드 역할
+  // (EnchantDialog 와 동일 정책). 별빛 사냥터 보스 드랍 / 거래소에서 모은다.
+  const enchantRows = ENCHANT_AFFIX_IDS.map((id) => {
+    const affix = ENCHANT_AFFIXES[id];
+    // materialId 는 `enchant_<id>` 컨벤션으로 항상 유효한 MaterialId (materials.ts 에 정의).
+    const count = inventory.materials[affix.materialId as MaterialId] ?? 0;
+    return { affix, count };
+  });
+  const ownedEnchantKinds = enchantRows.filter((e) => e.count > 0).length;
   const ownedPotions = POTION_IDS.map((id) => ({
     id,
     potion: POTIONS[id],
@@ -200,6 +225,7 @@ export function InventoryView({
         active={tab}
         onChange={setTab}
         ariaLabel="가방 탭"
+        scrollable
       />
 
       {tab === "equipment" && equipped && (
@@ -416,6 +442,52 @@ export function InventoryView({
             />
           </section>
         ))}
+
+      {tab === "enchants" && (
+        <section className="space-y-2">
+          <p className="px-1 text-xs text-zinc-500 dark:text-zinc-400">
+            별빛 무구 마법부여에 쓰는 부여서다. 별빛 사냥터 보스에서 떨어지거나
+            거래소에서 모은다. 보유 {ownedEnchantKinds}종 / 전체{" "}
+            {enchantRows.length}종.
+          </p>
+          {ownedEnchantKinds === 0 ? (
+            <EmptyState
+              icon={<Sparkle size={40} weight="duotone" />}
+              title="보유한 부여서가 없습니다"
+              message="별빛 사냥터 보스를 처치하면 떨어집니다."
+            />
+          ) : (
+            <ul className="space-y-1.5">
+              {enchantRows.map(({ affix, count }) => {
+                const owned = count > 0;
+                return (
+                  <li
+                    key={affix.id}
+                    className={`${LIST_ROW} ${owned ? "" : "opacity-40"}`}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                        {affix.name} 부여서
+                      </span>
+                      <span className="flex shrink-0 items-baseline gap-1.5 text-xs tabular-nums">
+                        <span className="text-zinc-400 dark:text-zinc-500">
+                          {fmtEnchantRange(affix)}
+                        </span>
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          ×{count}
+                        </span>
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      {affix.description}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
 
       {tab === "potions" &&
         (ownedPotions.length === 0 ? (

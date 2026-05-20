@@ -1,5 +1,6 @@
 import type { Monster } from "../data/monsters";
-import { computeHealAmount, type Potion, type PotionId } from "../data/potions";
+import { type Potion, type PotionId } from "../data/potions";
+import { potionHealAmount, rollAttackCount } from "./combatShared";
 import { EVASION_PCT_CAP } from "../data/stats";
 import {
   CRIT_MULT_BASE,
@@ -515,19 +516,10 @@ function playerFacingEnemyDef(
   return afterEnchantPierce;
 }
 
-// 다음 플레이어 턴의 공격 횟수 — 기본 attackCount + extraAttackChancePct.
-// 100% 초과는 정수 부분만큼 확정 추가타, 소수 부분만 확률 굴림.
-// (예: 250% → 2대 확정 + 50% 확률로 1대 더. 만물 행운 100% 가산 시 350% → 3대 확정 + 50%.)
-// 회피 100% 무적 빌드를 견제하기 위해 SPD 1pt = +2% 캡 없음으로 변경되면서 같이 들어온 로직.
+// 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은
+// combatShared.rollAttackCount 로 단일화 — PvP 엔진과 공유해 한쪽만 바뀌는 divergence 방지.
 function rollPlayerAttackCount(player: PlayerCombat): number {
-  const base = Math.max(1, player.attackCount);
-  const luckBonus = player.universalLuckBonusPct ?? 0;
-  const chance = (player.extraAttackChancePct ?? 0) + luckBonus;
-  if (chance <= 0) return base;
-  const guaranteed = Math.floor(chance / 100);
-  const remainder = chance - guaranteed * 100;
-  const extra = guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
-  return base + extra;
+  return rollAttackCount(player);
 }
 
 // 한 번의 enemy phase 진입 시 결정되는 총 공격 횟수 — base 1 + bonusAttackChancePct 기반.
@@ -2717,8 +2709,11 @@ export function applyPotionEffect(
   playerName: string,
 ): BattleState {
   if (potion.effect.kind === "heal_hp") {
-    const baseHeal = computeHealAmount(potion, state.playerMaxHp);
-    const heal = Math.floor(baseHeal * (1 + (state.buffs.potionHealPct ?? 0) / 100));
+    const heal = potionHealAmount(
+      potion,
+      state.playerMaxHp,
+      state.buffs.potionHealPct ?? 0,
+    );
     const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
     const actual = newHp - state.playerHp;
     return {

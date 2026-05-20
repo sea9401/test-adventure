@@ -43,7 +43,8 @@ import {
   appendLog,
   damageBetween,
 } from "./engine";
-import { computeHealAmount, type Potion, type PotionId } from "../data/potions";
+import { type Potion, type PotionId } from "../data/potions";
+import { potionHealAmount, rollAttackCount } from "./combatShared";
 import {
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
@@ -153,15 +154,6 @@ export type PvPBattleState = {
 };
 
 // ── 유틸 ────────────────────────────────────────────────────────────────────
-
-// 한 턴의 공격 횟수 — 기본 attackCount + extraAttackChancePct 1회 판정. 6티어 만물 행운 가산.
-function rollAttackCount(player: PlayerCombat): number {
-  const base = Math.max(1, player.attackCount);
-  const luckBonus = player.universalLuckBonusPct ?? 0;
-  const chance = (player.extraAttackChancePct ?? 0) + luckBonus;
-  if (chance > 0 && Math.random() * 100 < chance) return base + 1;
-  return base;
-}
 
 // 공격자가 마주하는 방어자의 effective DEF — analysis 누적 페널티(자기 측 buffs 에 기록) 차감.
 // armorPierceFraction 비례 관통 적용. 분쇄/암살/약점은 호출 측에서 별도 처리.
@@ -1987,10 +1979,7 @@ function applyPotionTo(
 ): PvPBattleState {
   if (potion.effect.kind !== "heal_hp") return state;
   const side = state[key];
-  const baseHeal = computeHealAmount(potion, side.maxHp);
-  const heal = Math.floor(
-    baseHeal * (1 + (side.buffs.potionHealPct ?? 0) / 100),
-  );
+  const heal = potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0);
   const newHp = Math.min(side.maxHp, side.hp + heal);
   const actual = newHp - side.hp;
   let next = setSide(state, key, { ...side, hp: newHp });

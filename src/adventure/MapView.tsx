@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "@phosphor-icons/react";
 import {
   WORLD_MAP,
   ZONES,
@@ -291,6 +292,19 @@ export function MapView({
           y: (gameMap.viewBox.y ?? 0) + gameMap.viewBox.height / 2,
         };
 
+  // 지도 안 하단 액션 오버레이의 버튼 라벨/활성 — RegionDetail 버튼과 같은 규칙.
+  const moveDisabled = !canMove && !canChallenge && !canFastTravel;
+  const moveLabel =
+    selectedState === "current"
+      ? "이미 이곳에 있음"
+      : canMove
+        ? "이동"
+        : canChallenge
+          ? "시련 도전"
+          : canFastTravel
+            ? "빠른 이동"
+            : "갈 수 없음";
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-1.5 px-1 text-sm">
@@ -308,7 +322,7 @@ export function MapView({
         ariaLabel="맵"
         scrollable
       />
-      <Card padding="none" className="overflow-hidden">
+      <Card padding="none" className="relative overflow-hidden">
         <MapCanvas
           key={activeMap}
           world={gameMap.viewBox}
@@ -351,6 +365,48 @@ export function MapView({
               />
             ))}
         </MapCanvas>
+        {/* 지도 안 하단 액션 오버레이 — 모바일에서 노드 선택 후 이동 버튼까지 스크롤 안 해도
+            되도록 지도 위에 띄운다. 줌 컨트롤(우상단)과 겹치지 않게 하단 중앙. 바깥은
+            pointer-events-none 라 주변 지도 팬은 그대로 동작. */}
+        {selectedRegion && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-2">
+            <div className="pointer-events-auto mx-auto flex max-w-md items-center gap-2 rounded-lg border border-zinc-200/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm dark:border-zinc-700/80 dark:bg-zinc-900/95">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  {selectedRegion.name}
+                </div>
+                {requirementStatus &&
+                  !requirementStatus.met &&
+                  (requirementStatus.reason || requirementStatus.progress) && (
+                    <div className="truncate text-[11px] text-amber-600 dark:text-amber-400">
+                      {requirementStatus.progress
+                        ? requirementStatus.kind === "trial"
+                          ? requirementStatus.reason ??
+                            requirementStatus.progress.label
+                          : `${requirementStatus.progress.label} ${requirementStatus.progress.current}/${requirementStatus.progress.total}`
+                        : requirementStatus.reason}
+                    </div>
+                  )}
+              </div>
+              <button
+                type="button"
+                disabled={moveDisabled}
+                onClick={handleMove}
+                className="shrink-0 rounded-md border border-emerald-500 bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-[transform,background-color] duration-100 hover:bg-emerald-600 active:scale-95 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-500 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+              >
+                {moveLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                aria-label="선택 해제"
+                className="shrink-0 rounded-md p-1.5 text-zinc-400 transition-colors hover:text-zinc-700 dark:hover:text-zinc-200"
+              >
+                <X size={18} weight="bold" />
+              </button>
+            </div>
+          </div>
+        )}
       </Card>
       {isTrialEdge && huntDispatched && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">

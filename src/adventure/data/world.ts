@@ -117,6 +117,57 @@ export function getZone(regionId: RegionId): ZoneId {
   return REGION_ZONE[regionId];
 }
 
+// ── 맵(map) 분할 ──────────────────────────────────────────────────────────
+// 이동 그래프(WORLD_MAP.regions/edges)는 단일로 유지하되, "그리는 면"을 둘로 나눈다.
+// 본토 맵과 별빛 맵은 각자의 viewBox(좌표계)·배경을 가진 별개의 SVG 로 렌더되고,
+// 한 번에 하나만 화면에 뜬다. PoE 의 Act 분리와 같은 모델 — 두 맵이 동시에 안 그려지므로
+// Region.position 은 "소속 맵 안의 로컬 좌표" 로 해석된다(전역 유일성 불필요).
+//
+// 본토↔별빛을 잇는 게이트 엣지(deep_cave→starfall_cave 등)는 cross-map 엣지가 되며,
+// getMap(from) !== getMap(to) 로 파생된다(데이터에 따로 표시하지 않음). 이동 로직은 그대로:
+// 게이트를 넘으면 currentRegion 이 바뀌고 활성 맵만 그걸 따라 전환된다.
+export type MapId =
+  | "world" // 본토 — 시작 마을 ~ 천공 옥좌, 해안·서편·용비늘·고탑까지 전부
+  | "starlit"; // 별빛 권역 (5막 + 향후 6막 선천)
+
+export type GameMap = {
+  id: MapId;
+  label: string;
+  // 이 맵 전용 SVG viewBox(좌표계). MapCanvas 가 이 영역으로 팬/줌을 클램프한다.
+  viewBox: { x?: number; y?: number; width: number; height: number };
+  // 노드 뒤에 깔리는 배경 이미지 경로(`/images/...`). 미지정이면 평면 배경.
+  // 에셋이 준비되면 채운다 — 없는 파일을 참조하면 check-images 가 빌드를 막으므로 비워둔다.
+  background?: string;
+};
+
+// 맵 선택자 탭 순서·라벨.
+export const MAPS: ReadonlyArray<GameMap> = [
+  { id: "world", label: "본토", viewBox: { y: -440, width: 2440, height: 1260 } },
+  { id: "starlit", label: "별빛 권역", viewBox: { width: 1000, height: 760 } },
+];
+
+const MAP_BY_ID: Record<MapId, GameMap> = Object.fromEntries(
+  MAPS.map((m) => [m.id, m]),
+) as Record<MapId, GameMap>;
+
+export function getGameMap(mapId: MapId): GameMap {
+  return MAP_BY_ID[mapId];
+}
+
+// 지역 → 소속 맵. REGION_ZONE(exhaustive Record)에서 파생하므로 자동으로 전 지역을 덮는다
+// — 새 지역은 REGION_ZONE 에 추가될 때 TS 가 강제하고, 그러면 여기도 자동 반영된다.
+// 별빛 권역(zone)에 속한 지역만 별빛 맵으로, 나머지는 전부 본토 맵.
+export const REGION_MAP: Record<RegionId, MapId> = Object.fromEntries(
+  (Object.keys(REGION_ZONE) as RegionId[]).map((id) => [
+    id,
+    REGION_ZONE[id] === "starlit" ? "starlit" : "world",
+  ]),
+) as Record<RegionId, MapId>;
+
+export function getMap(regionId: RegionId): MapId {
+  return REGION_MAP[regionId];
+}
+
 export type Biome =
   | "village"
   | "plains"
@@ -698,9 +749,9 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 갱도",
       description:
         "깊은 동굴 안쪽, 광맥이 끊긴 자리에 별빛 한 점이 가라앉아 있다. 천 길 아래로 떨어진 별의 흔적. 광맥의 옛 잡것들이 그 빛에 데워져 다시 깨어났다.",
-      // 별빛 권역 클러스터 — 옛 봉인 자리에 흩어져 있던 4지역을 맵에서 한 곳으로 모았다.
-      // 좌표는 표시/네비게이션용(권역 뷰 + 빠른이동). 진입 게이트(edges)는 옛 위치 그대로 유지.
-      position: { x: 470, y: 560 },
+      // 별빛 맵 전용 좌표(viewBox 1000×760). 본토 맵과 별개의 SVG 라 본토 좌표와 안 겹쳐도 된다.
+      // 권장 레벨 순으로 좌상→우상→좌하→우하 배치. 진입 게이트(edges)는 본토 지역에서 그대로.
+      position: { x: 260, y: 230 },
       biome: "cave",
       enemies: ["별빛 박쥐", "별빛 동굴뱀", "별빛 광물 골렘"],
       encounterWeights: {
@@ -719,7 +770,7 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 협곡",
       description:
         "운무 협곡 안쪽, 옛 거인이 잠들었던 자리에 별빛 한 점이 가라앉아 있다. 떼지어 도망쳤던 절벽 늑대들이 별빛에 데워져 다시 돌아와 있고, 협곡 깊은 자리에서 잔영 하나가 두 발을 박아 넣는다.",
-      position: { x: 640, y: 560 },
+      position: { x: 740, y: 230 },
       biome: "mountain",
       enemies: ["별빛 절벽 늑대", "별빛 돌풍 정령", "별빛 늑대 무리장"],
       encounterWeights: {
@@ -737,7 +788,7 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 산호초",
       description:
         "산호초 섬 너머 안개 한가운데, 옛 수심의 것이 가라앉았던 자리에 별빛 한 점이 떠 있다. 사이렌이 옛 노래 사이에 새 음절을 섞어 부르고, 갑각 약탈자들이 한낮에도 한기를 두른 채 떠다닌다.",
-      position: { x: 470, y: 700 },
+      position: { x: 260, y: 540 },
       biome: "coast",
       enemies: ["별빛 산호초 사이렌", "별빛 갑각 약탈자", "별빛 가시 산호 골렘"],
       encounterWeights: {
@@ -755,7 +806,7 @@ export const WORLD_MAP: WorldMap = {
       name: "별빛 성채",
       description:
         "옛 변경 성채 안쪽, 성문지기 자동인형이 멈춰 섰던 자리에 별빛 한 점이 가라앉아 있다. 폐성벽의 까마귀들이 별빛을 두른 채 깃을 떨구고, 빗장이 다시 한 번 들렸다 떨어진다.",
-      position: { x: 640, y: 700 },
+      position: { x: 740, y: 540 },
       biome: "ruins",
       enemies: ["별빛 폐성벽 까마귀", "별빛 탈영 약탈자", "별빛 녹슨 자동인형"],
       encounterWeights: {

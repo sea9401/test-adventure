@@ -27,6 +27,7 @@ export function MapCanvas({
   focusY,
   fitBounds,
   fitNonce = 0,
+  background,
   children,
   height = "min(54vh, 460px)",
 }: {
@@ -40,6 +41,9 @@ export function MapCanvas({
   fitBounds?: { minX: number; minY: number; maxX: number; maxY: number } | null;
   // 권역 탭을 누를 때마다 +1. 같은 권역 재선택에도 다시 맞춰지도록 nonce 로 트리거.
   fitNonce?: number;
+  // 노드 뒤에 깔리는 배경 이미지 경로(`/images/...`). world 영역 전체를 덮으며 콘텐츠와
+  // 함께 팬/줌된다. 미지정이면 컨테이너의 평면 배경만 보인다.
+  background?: string;
   children: ReactNode;
   height?: string;
 }) {
@@ -365,6 +369,16 @@ export function MapCanvas({
         role="img"
         aria-label="월드맵"
       >
+        {background && (
+          <image
+            href={background}
+            x={originX}
+            y={originY}
+            width={world.width}
+            height={world.height}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        )}
         {children}
       </svg>
       <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-1.5">

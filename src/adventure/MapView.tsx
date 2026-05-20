@@ -4,9 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   WORLD_MAP,
   ZONES,
+  MAPS,
   getAdjacent,
+  getGameMap,
+  getMap,
   getRegion,
   getZone,
+  type MapId,
   type RegionId,
   type ZoneId,
 } from "./data/world";
@@ -47,25 +51,65 @@ export function MapView({
   const [selectedId, setSelectedId] = useState<RegionId | null>(null);
   const [lowHpBlocked, setLowHpBlocked] = useState(false);
 
-  // 권역(zone) 포커스 — 탭으로 맵을 권역 클러스터에 한 번에 줌. 기본 = 현재 지역의 권역.
+  // 활성 맵 — 본토/별빛은 각자의 SVG·좌표계로 한 번에 하나만 그린다. 기본 = 현재 지역의 맵.
+  const [activeMap, setActiveMap] = useState<MapId>(() =>
+    getMap(progress.currentRegionId),
+  );
+  // 권역(zone) 포커스 — 활성 맵 안의 하위 탭. 탭으로 권역 클러스터에 한 번에 줌. 기본 = 현재 권역.
   const [activeZone, setActiveZone] = useState<ZoneId>(() =>
     getZone(progress.currentRegionId),
   );
   // fitNonce 증가 → MapCanvas 가 활성 권역 bounds 로 재줌. 같은 권역 재선택에도 트리거되게 nonce.
   const [fitNonce, setFitNonce] = useState(0);
+
+  // 맵에 속한 권역 중 첫 번째 — 맵 전환 시 활성 권역의 기본값.
+  const firstZoneOfMap = (m: MapId): ZoneId | null =>
+    ZONES.find((z) =>
+      WORLD_MAP.regions.some((r) => getZone(r.id) === z.id && getMap(r.id) === m),
+    )?.id ?? null;
+
   const selectZone = (z: ZoneId) => {
     setActiveZone(z);
     setFitNonce((n) => n + 1);
   };
-  // 이동으로 권역이 바뀌면 활성 탭을 따라가며 그 권역으로 재줌 (같은 권역 내 이동은 그대로 둠).
+  const selectMap = (m: MapId) => {
+    setActiveMap(m);
+    // 새 맵의 첫 권역으로 활성 권역 리셋 — zoneBounds 가 새 맵 좌표계 안을 가리키도록.
+    const z = firstZoneOfMap(m);
+    if (z) setActiveZone(z);
+    setFitNonce((n) => n + 1);
+  };
+
+  // 이동으로 맵/권역이 바뀌면 활성 탭을 따라가며 그곳으로 재줌 (같은 권역 내 이동은 그대로 둠).
+  // 게이트 통과(본토↔별빛)는 맵까지 자동 전환한다.
+  const lastMapRef = useRef(getMap(progress.currentRegionId));
   const lastZoneRef = useRef(getZone(progress.currentRegionId));
   useEffect(() => {
+    const m = getMap(progress.currentRegionId);
     const z = getZone(progress.currentRegionId);
-    if (z === lastZoneRef.current) return;
+    const mapChanged = m !== lastMapRef.current;
+    const zoneChanged = z !== lastZoneRef.current;
+    if (!mapChanged && !zoneChanged) return;
+    lastMapRef.current = m;
     lastZoneRef.current = z;
+    if (mapChanged) setActiveMap(m);
     setActiveZone(z);
     setFitNonce((n) => n + 1);
   }, [progress.currentRegionId]);
+
+  // 활성 맵의 viewBox·배경. 맵이 바뀌면 MapCanvas 를 key 로 재마운트해 새 bounds 로 초기화.
+  const gameMap = getGameMap(activeMap);
+
+  // 활성 맵에 있는 권역 탭만 노출 (본토 맵의 권역들 / 별빛 맵의 권역). 1개뿐이면 탭 숨김.
+  const zonesInMap = useMemo(
+    () =>
+      ZONES.filter((z) =>
+        WORLD_MAP.regions.some(
+          (r) => getZone(r.id) === z.id && getMap(r.id) === activeMap,
+        ),
+      ),
+    [activeMap],
+  );
 
   // 활성 권역에 속한 지역들의 좌표 bounds — MapCanvas 가 이 영역을 화면에 꽉 채운다.
   const zoneBounds = useMemo(() => {
@@ -246,6 +290,16 @@ export function MapView({
 
   const currentRegion = getRegion(progress.currentRegionId);
 
+  // "현재 위치" 리센터 타깃 — 현재 지역이 활성 맵에 있을 때만 그 좌표, 아니면 맵 중앙.
+  // (다른 맵을 구경 중일 때 현재 지역의 좌표는 이 맵 좌표계에서 무의미하므로.)
+  const focusPoint =
+    currentRegion && getMap(currentRegion.id) === activeMap
+      ? currentRegion.position
+      : {
+          x: (gameMap.viewBox.x ?? 0) + gameMap.viewBox.width / 2,
+          y: (gameMap.viewBox.y ?? 0) + gameMap.viewBox.height / 2,
+        };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-1.5 px-1 text-sm">
@@ -255,18 +309,31 @@ export function MapView({
           {currentRegion?.name ?? "—"}
         </span>
       </div>
+      {/* 맵 선택자 — 본토/별빛을 통째로 스왑. 게이트를 넘으면 자동으로도 전환된다. */}
       <TabBar
-        tabs={ZONES.map((z) => ({ key: z.id, label: z.label }))}
-        active={activeZone}
-        onChange={selectZone}
-        ariaLabel="권역"
+        tabs={MAPS.map((m) => ({ key: m.id, label: m.label }))}
+        active={activeMap}
+        onChange={selectMap}
+        ariaLabel="맵"
         scrollable
       />
+      {/* 권역 탭 — 활성 맵 안의 하위 스코핑. 권역이 2개 이상일 때만 노출. */}
+      {zonesInMap.length > 1 && (
+        <TabBar
+          tabs={zonesInMap.map((z) => ({ key: z.id, label: z.label }))}
+          active={activeZone}
+          onChange={selectZone}
+          ariaLabel="권역"
+          scrollable
+        />
+      )}
       <Card padding="none" className="overflow-hidden">
         <MapCanvas
-          world={WORLD_MAP.viewBox}
-          focusX={currentRegion?.position.x ?? WORLD_MAP.viewBox.width / 2}
-          focusY={currentRegion?.position.y ?? WORLD_MAP.viewBox.height / 2}
+          key={activeMap}
+          world={gameMap.viewBox}
+          background={gameMap.background}
+          focusX={focusPoint.x}
+          focusY={focusPoint.y}
           fitBounds={zoneBounds}
           fitNonce={fitNonce}
         >
@@ -278,6 +345,10 @@ export function MapView({
             // 라인이 다른 엣지/노드 위로 어지럽게 겹친다. 발견된 마을 노드가 "방문함"
             // 상태로 표시되고 클릭하면 이동 버튼이 뜨므로 기능은 유지된다.
             if (edge.requires?.kind === "visited") return null;
+            // 활성 맵 안의 엣지만 그린다. 본토↔별빛 cross-map 엣지(게이트)는 양 끝이 다른
+            // 좌표계라 선으로 못 그린다 — 게이트 통과 시 활성 맵이 자동 전환되어 기능은 유지.
+            if (getMap(edge.from) !== activeMap || getMap(edge.to) !== activeMap)
+              return null;
             return (
               <MapEdge
                 key={`${edge.from}-${edge.to}`}
@@ -287,15 +358,17 @@ export function MapView({
               />
             );
           })}
-          {WORLD_MAP.regions.map((region) => (
-            <MapNode
-              key={region.id}
-              region={region}
-              state={stateOf(region.id)}
-              selected={selectedId === region.id}
-              onClick={() => setSelectedId(region.id)}
-            />
-          ))}
+          {WORLD_MAP.regions
+            .filter((region) => getMap(region.id) === activeMap)
+            .map((region) => (
+              <MapNode
+                key={region.id}
+                region={region}
+                state={stateOf(region.id)}
+                selected={selectedId === region.id}
+                onClick={() => setSelectedId(region.id)}
+              />
+            ))}
         </MapCanvas>
       </Card>
       {isTrialEdge && huntDispatched && (

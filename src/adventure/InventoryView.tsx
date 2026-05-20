@@ -123,36 +123,47 @@ export function InventoryView({
   const [equipQuery, setEquipQuery] = useState("");
 
   const ownedEquipment = buildEquipEntries(inventory);
+  // 각 카테고리는 기본적으로 이름순(가나다)으로 표시 — 정의 객체 키 순서 대신 localeCompare.
   const ownedMaterials = (Object.keys(MATERIALS) as MaterialId[])
     .map((id) => ({
       id,
       material: MATERIALS[id],
       count: inventory.materials[id] ?? 0,
     }))
-    .filter((e) => e.count > 0);
+    .filter((e) => e.count > 0)
+    .sort((a, b) => a.material.name.localeCompare(b.material.name));
   const ownedPotions = POTION_IDS.map((id) => ({
     id,
     potion: POTIONS[id],
     count: inventory.potions[id] ?? 0,
-  })).filter((e) => e.count > 0);
+  }))
+    .filter((e) => e.count > 0)
+    .sort((a, b) => a.potion.name.localeCompare(b.potion.name));
   const ownedConsumables = CONSUMABLE_IDS.map((id) => ({
     id,
     consumable: CONSUMABLES[id],
     count: inventory.consumables[id] ?? 0,
-  })).filter((e) => e.count > 0);
+  }))
+    .filter((e) => e.count > 0)
+    .sort((a, b) => a.consumable.name.localeCompare(b.consumable.name));
   const ownedSkillBooks = SKILL_BOOK_IDS.map((id) => ({
     id,
     book: SKILL_BOOKS[id],
     count: (inventory.skillBooks ?? {})[id] ?? 0,
-  })).filter((e) => e.count > 0);
+  }))
+    .filter((e) => e.count > 0)
+    .sort((a, b) => a.book.name.localeCompare(b.book.name));
   const learnedSet = new Set(learnedAPSkillNames ?? []);
   const potionCap = potionMax(inventory.potionCapacityBonus ?? 0);
 
   // 슬롯 탭 + 이름 검색으로 필터, 진행 티어로 그룹화 — 페이저 대신 티어 헤더가 자연 분할.
-  const filteredEquipment = ownedEquipment.filter(
-    (e) =>
-      e.item.slot === equipSlotTab && matchesEquipQuery(e.item, equipQuery),
-  );
+  // 이름순(가나다) 정렬 후 그룹화하므로 각 티어 안에서 이름순으로 나열된다.
+  const filteredEquipment = ownedEquipment
+    .filter(
+      (e) =>
+        e.item.slot === equipSlotTab && matchesEquipQuery(e.item, equipQuery),
+    )
+    .sort((a, b) => a.item.name.localeCompare(b.item.name));
   // 동종 여분이 여러 개여도 "장착중" 표시는 딱 하나에만 — 첫 매칭 entry 의 key.
   const equippedEntryKey =
     filteredEquipment.find((e) =>

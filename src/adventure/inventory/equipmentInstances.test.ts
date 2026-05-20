@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { ENHANCE_MAX_LEVEL } from "@/adventure/character/enhancement";
+import {
+  ENHANCE_MAX_LEVEL,
+  resolveEnhancedItem,
+} from "@/adventure/character/enhancement";
 import { normalizeInstance, normalizeInstances } from "./equipmentInstances";
 
 describe("normalizeInstance", () => {
@@ -117,5 +120,101 @@ describe("normalizeInstances", () => {
       { instanceId: "dup", itemId: "starlit_lance_dex", enhancementLevel: 2 },
     ]);
     expect(out).toHaveLength(1);
+  });
+});
+
+// 마법부여(enchant) 슬롯 데이터가 로드/normalize 에서 손실되지 않는지 가드.
+// 룬 carry-through(#448) 와 같은 계열의 "비파괴 로드" 회귀 방지 — 단, enchant 는
+// 의도적으로 "자루 통째 drop" 정책이므로, 그 drop 동작 자체를 명시적으로 못박아
+// 카탈로그/range/capacity 를 바꾸는 PR 이 기존 데이터를 조용히 날리면 CI 가 잡게 한다.
+describe("normalizeInstance — enchantSlots 보존/드롭 가드", () => {
+  // guard affix range [5,20]. enhancementLevel 7 → capacity 3.
+  const enchanted = {
+    instanceId: "ench-1",
+    itemId: "starlit_greatsword_str",
+    enhancementLevel: 7,
+    enhanceHistory: ["safe", "safe", "safe", "safe", "safe", "safe", "safe"],
+    remainingAttempts: 7,
+    enchantSlots: [
+      { affixId: "guard", value: 10 },
+      { affixId: "dodge", value: 8 },
+    ],
+  };
+
+  it("정상 enchantSlots 는 round-trip 보존", () => {
+    expect(normalizeInstance(enchanted)?.enchantSlots).toEqual([
+      { affixId: "guard", value: 10 },
+      { affixId: "dodge", value: 8 },
+    ]);
+  });
+
+  // 아래 3건은 "현재 통째 drop" 동작을 고정하는 tripwire — 카탈로그/range/capacity 를
+  // 바꿔 기존 자루가 사라지게 되면 여기가 깨지면서 의식적 결정을 강제한다.
+  it("[tripwire] 미인식 affixId → 자루 통째 drop", () => {
+    expect(
+      normalizeInstance({
+        ...enchanted,
+        enchantSlots: [{ affixId: "no_such_affix", value: 10 }],
+      }),
+    ).toBeNull();
+  });
+
+  it("[tripwire] range 밖 value → 자루 통째 drop", () => {
+    expect(
+      normalizeInstance({
+        ...enchanted,
+        enchantSlots: [{ affixId: "guard", value: 999 }],
+      }),
+    ).toBeNull();
+  });
+
+  it("[tripwire] capacity 초과 (lv2=cap1 인데 2슬롯) → 자루 통째 drop", () => {
+    expect(
+      normalizeInstance({
+        instanceId: "over",
+        itemId: "starlit_greatsword_str",
+        enhancementLevel: 2,
+        enhanceHistory: ["safe", "safe"],
+        remainingAttempts: 7,
+        enchantSlots: [
+          { affixId: "guard", value: 10 },
+          { affixId: "dodge", value: 8 },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  // #447 회귀 가드 — 장착→해제 round-trip 에서 마법부여가 사라지던 버그.
+  // resolveEnhancedItem(인스턴스→EquippedItem) 가 enchantSlots 를 실어주고,
+  // 해제 시 그 메타로 풀에 복원(normalizeInstance)했을 때 그대로 보존돼야 한다.
+  it("[#447] 장착→해제 round-trip 후 enchantSlots/history/attempts 보존", () => {
+    const inst = normalizeInstance(enchanted);
+    expect(inst).not.toBeNull();
+    if (!inst) return;
+
+    // 장착: 인스턴스 메타 → EquippedItem.
+    const equipped = resolveEnhancedItem(
+      inst.itemId,
+      inst.craftTier,
+      inst.enhanceHistory ?? inst.enhancementLevel,
+      inst.instanceId,
+      inst.enchantSlots,
+      inst.remainingAttempts,
+    );
+    expect(equipped.enchantSlots).toEqual(inst.enchantSlots);
+
+    // 해제: EquippedItem 메타로 풀 복원 (useEquipmentActions.returnEquippedToInventory 와 동일 매핑).
+    const restored = normalizeInstance({
+      instanceId: equipped.instanceId,
+      itemId: inst.itemId,
+      craftTier: equipped.craftTier,
+      enhancementLevel: equipped.enhancementLevel,
+      enhanceHistory: equipped.enhanceHistory,
+      remainingAttempts: equipped.remainingAttempts,
+      enchantSlots: equipped.enchantSlots,
+    });
+    expect(restored?.enchantSlots).toEqual(enchanted.enchantSlots);
+    expect(restored?.enhanceHistory).toEqual(enchanted.enhanceHistory);
+    expect(restored?.remainingAttempts).toBe(enchanted.remainingAttempts);
   });
 });

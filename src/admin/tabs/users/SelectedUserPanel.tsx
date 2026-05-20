@@ -15,6 +15,7 @@ import {
 } from "./types";
 import { GuildCooldownSection } from "./GuildCooldownSection";
 import { ItemGrantSection } from "./ItemGrantSection";
+import { RuneGrantSection } from "./RuneGrantSection";
 import { TowerSection } from "./TowerSection";
 import { BossSection } from "./BossSection";
 
@@ -276,6 +277,12 @@ export function SelectedUserPanel({
       </section>
 
       <ItemGrantSection
+        inventory={inventory}
+        readOnly={readOnly || loading}
+        onUpdateInventory={onUpdateInventory}
+      />
+
+      <RuneGrantSection
         inventory={inventory}
         readOnly={readOnly || loading}
         onUpdateInventory={onUpdateInventory}

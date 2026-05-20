@@ -262,7 +262,7 @@ export function ChatPanel({
               type="button"
               onClick={() => setTab(key)}
               aria-current={tab === key}
-              className={`flex flex-1 items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-semibold transition-colors ${
                 tab === key
                   ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                   : "border-b-2 border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"

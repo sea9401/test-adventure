@@ -275,7 +275,7 @@ export function GuildHallView() {
             onSaveDescription={handleSaveDescription}
           />
 
-          <div className="flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900/60">
+          <div className="flex gap-1 overflow-x-auto rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-800 dark:bg-zinc-900/60">
             <GuildTabButton
               icon={<House size={14} weight="bold" />}
               label="회관"

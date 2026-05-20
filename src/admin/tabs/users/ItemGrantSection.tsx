@@ -64,15 +64,13 @@ export function ItemGrantSection({
 
   const grant = () => {
     if (!itemId || quantity === 0) return;
+    // 변경하는 맵 3개만 복사하고 나머지(runes/skillBooks/equipmentInstances 등)는
+    // spread 로 보존 — 예전엔 명시 필드만 나열해 룬·스킬북·인스턴스가 날아갔다.
     const next: InventoryState = {
+      ...inventory,
       potions: { ...inventory.potions },
       equipment: { ...inventory.equipment },
-      craftedEquipment: { ...inventory.craftedEquipment },
-      droppedEquipment: { ...inventory.droppedEquipment },
-      vault: { ...inventory.vault },
       materials: { ...inventory.materials },
-      consumables: { ...inventory.consumables },
-      potionCapacityBonus: inventory.potionCapacityBonus,
     };
     if (category === "potion") {
       const id = itemId as PotionId;

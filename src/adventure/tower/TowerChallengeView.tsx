@@ -254,7 +254,7 @@ function EntryView({
               type="button"
               onClick={onResume}
               disabled={pending !== null}
-              className="flex-1 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+              className="flex-1 whitespace-nowrap rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
             >
               이어하기
             </button>
@@ -262,7 +262,7 @@ function EntryView({
               type="button"
               onClick={onForfeit}
               disabled={pending !== null}
-              className="flex-1 rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-zinc-700"
+              className="flex-1 whitespace-nowrap rounded-md border border-zinc-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-zinc-700"
             >
               {pending === "forfeit" ? "포기 중..." : "포기"}
             </button>

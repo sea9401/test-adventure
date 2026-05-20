@@ -129,10 +129,14 @@ export function MapView({
     if (visitedSet.has(id)) return "visited";
     for (const v of progress.visitedRegionIds) {
       if (!getAdjacent(WORLD_MAP, v).includes(id)) continue;
-      // 마을 직통 이동 (kind: "visited") 은 목적지 발견 후에만 활성화 — reachability
-      // 계산에서 제외해 미발견 마을이 "도달 가능" 으로 잘못 표시되지 않게 한다.
       const req = findEdgeRequirement(v, id) ?? findEdgeRequirement(id, v);
-      if (req?.kind === "visited") continue;
+      // visited 게이트(마을 직통·허브 스포크)는 요구 지역을 실제 방문했을 때만 도달 가능으로
+      // 본다. 미발견 마을은 여전히 잠금(목적지 미방문)이고, 별빛 교차로 같은 허브는 방문한
+      // 인접 지역을 통해 도달 가능으로 뜬다 — 옛 무조건 제외는 허브를 잠금으로 잘못 표시했다.
+      if (req?.kind === "visited") {
+        if (visitedSet.has(req.regionId)) return "reachable";
+        continue;
+      }
       return "reachable";
     }
     return "locked";
@@ -144,9 +148,18 @@ export function MapView({
   const selectedRegion = getRegion(selectedId);
   const selectedState = selectedId ? stateOf(selectedId) : null;
   const isAdjacent = !!selectedId && adjacentToCurrent.has(selectedId);
-  const selectedReq = selectedId
-    ? findEdgeRequirement(progress.currentRegionId, selectedId)
-    : undefined;
+  // 정상 이동 요구조건 — 진행 방향(current→selected)이 우선. 그게 없으면 역방향 엣지가
+  // visited 게이트일 때만 그걸 적용한다(허브 자기-제한). 별빛 교차로↔지역은 region→교차로
+  // 단방향 visited 엣지뿐이라, 역방향(교차로→region)을 안 보면 요구조건이 없어져 미발견
+  // 지역까지 무료로 점프돼 스토리 게이트가 우회됐다. story/trial 같은 단방향 게이트는 역방향
+  // 적용 안 함 — 한 번 발견한 길은 자유로이 되돌아갈 수 있어야 하므로.
+  const selectedReq = (() => {
+    if (!selectedId) return undefined;
+    const fwd = findEdgeRequirement(progress.currentRegionId, selectedId);
+    if (fwd) return fwd;
+    const rev = findEdgeRequirement(selectedId, progress.currentRegionId);
+    return rev?.kind === "visited" ? rev : undefined;
+  })();
   const requirementStatus: EdgeRequirementStatus | null = (() => {
     if (!selectedId) return null;
     if (isAdjacent) {
@@ -336,14 +349,19 @@ export function MapView({
             const from = getRegion(edge.from);
             const to = getRegion(edge.to);
             if (!from || !to) return null;
-            // 마을 직통 (fast-travel) 엣지는 지도에 그리지 않는다 — 길게 가로지르는
-            // 라인이 다른 엣지/노드 위로 어지럽게 겹친다. 발견된 마을 노드가 "방문함"
-            // 상태로 표시되고 클릭하면 이동 버튼이 뜨므로 기능은 유지된다.
-            if (edge.requires?.kind === "visited") return null;
             // 활성 맵 안의 엣지만 그린다. 본토↔별빛 cross-map 엣지(게이트)는 양 끝이 다른
             // 좌표계라 선으로 못 그린다 — 게이트 통과 시 활성 맵이 자동 전환되어 기능은 유지.
             if (getMap(edge.from) !== activeMap || getMap(edge.to) !== activeMap)
               return null;
+            if (edge.requires?.kind === "visited") {
+              // 마을 간 직통(town↔town fast-travel)의 길게 가로지르는 라인은 안 그린다
+              // — 다른 엣지/노드 위로 어지럽게 겹친다(노드 클릭으로 기능은 유지).
+              // 단 허브 스포크(town 허브 ↔ 비-town 사냥터, 예: 별빛 교차로↔별빛 4지역)는
+              // 짧은 방사형이라 그려서 진입 동선을 보여준다 — 한쪽만 town 인 visited 엣지.
+              const fromTown = !!from.tags?.includes("town");
+              const toTown = !!to.tags?.includes("town");
+              if (fromTown === toTown) return null;
+            }
             return (
               <MapEdge
                 key={`${edge.from}-${edge.to}`}

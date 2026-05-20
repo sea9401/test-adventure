@@ -15,8 +15,10 @@ export type EquipEntry = {
   quality?: DropQuality;
   /** 인스턴스 기반 한정. 동일 itemId·tier 라도 인스턴스마다 별개 entry. */
   instanceId?: string;
-  /** 인스턴스 기반 한정. 강화 단계 (0~5). bonus 에 이미 합쳐져 있다. */
+  /** 인스턴스 기반 한정. 강화 단계 (0~7). bonus 에 이미 합쳐져 있다. */
   enhancementLevel?: number;
+  /** 인스턴스 기반 한정. 자루별 남은 강화 시도 횟수 (성공·실패 모두 1 차감, 시작 7). */
+  remainingAttempts?: number;
   item: EquipItem;
 };
 
@@ -65,6 +67,7 @@ export function buildEquipEntries(inventory: InventoryState): EquipEntry[] {
       tier: inst.craftTier,
       instanceId: inst.instanceId,
       enhancementLevel: inst.enhancementLevel,
+      remainingAttempts: inst.remainingAttempts,
       item,
     });
   }

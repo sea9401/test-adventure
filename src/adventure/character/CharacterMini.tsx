@@ -9,6 +9,7 @@ import {
   dropQualityPrefix,
   dropQualityTextClass,
 } from "@/adventure/data/dropQuality";
+import { enhanceAttemptStatus } from "./enhancement";
 import type { Character, EquippedItem, EquippedSlots } from "./types";
 
 export const EQUIP_SLOT_META: {
@@ -99,6 +100,14 @@ export function MiniEquipCard({
     if (item) setOpen((v) => !v);
   };
 
+  // 별빛 무구(인스턴스) 한정 — 강화 단계 +N + 남은 강화 시도 횟수.
+  const enhLevel = item?.enhancementLevel ?? 0;
+  const enhSuffix = item?.instanceId && enhLevel > 0 ? `+${enhLevel}` : "";
+  const attemptInfo =
+    item?.instanceId && typeof item.remainingAttempts === "number"
+      ? enhanceAttemptStatus(enhLevel, item.remainingAttempts)
+      : null;
+
   return (
     <div
       ref={ref}
@@ -133,6 +142,12 @@ export function MiniEquipCard({
                   {craftTierSuffix(item.craftTier)}
                 </span>
               )}
+              {enhSuffix && (
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {" "}
+                  {enhSuffix}
+                </span>
+              )}
             </span>
           ) : (
             <span className="italic text-zinc-400 dark:text-zinc-600">없음</span>
@@ -157,7 +172,24 @@ export function MiniEquipCard({
             <span className={craftTierTextClass(item.craftTier)}>
               {craftTierSuffix(item.craftTier)}
             </span>
+            {enhSuffix && (
+              <span className="text-amber-600 dark:text-amber-400">
+                {" "}
+                {enhSuffix}
+              </span>
+            )}
           </div>
+          {attemptInfo && attemptInfo.status !== "max" && (
+            <div
+              className={`mt-0.5 text-xs ${
+                attemptInfo.status === "exhausted"
+                  ? "text-zinc-400 dark:text-zinc-500"
+                  : "text-amber-600/80 dark:text-amber-400/80"
+              }`}
+            >
+              {attemptInfo.label}
+            </div>
+          )}
           <div className="mt-1.5 space-y-0.5">
             {item.stats.map((s) => (
               <div

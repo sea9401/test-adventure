@@ -42,6 +42,24 @@ export const ENHANCE_FULL_COST = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
 // 자루당 총 강화 시도 한도 — 성공/실패 무관 매 시도 -1. 0 이 되면 더 시도 불가 (천장 깎임).
 export const ENHANCE_INITIAL_ATTEMPTS = 7;
 
+export type EnhanceAttemptStatus = "available" | "max" | "exhausted";
+
+// 별빛 무구 한 자루의 남은 강화 시도 상태 — 인벤토리·장착 툴팁 등 표기 공용.
+// remainingAttempts 는 성공·실패 모두 1 차감되는 자루별 총 시도 한도라, 사실상
+// "앞으로 강화할 수 있는 횟수" 다. +풀강이면 max, 0 이면 소진, 그 외엔 available.
+export function enhanceAttemptStatus(
+  enhancementLevel: number,
+  remainingAttempts: number,
+): { status: EnhanceAttemptStatus; label: string } {
+  if (enhancementLevel >= ENHANCE_MAX_LEVEL) {
+    return { status: "max", label: `풀강 +${ENHANCE_MAX_LEVEL}` };
+  }
+  if (remainingAttempts <= 0) {
+    return { status: "exhausted", label: "강화 소진" };
+  }
+  return { status: "available", label: `가능 ${remainingAttempts}회` };
+}
+
 // 확률 모드 ─────────────────────────────────────────────────────────────────
 export type EnhanceMode = "safe" | "boost" | "high" | "risky" | "extreme";
 

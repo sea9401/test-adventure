@@ -33,6 +33,7 @@ import { SKILL_BOOKS, SKILL_BOOK_IDS, type SkillBookId } from "./data/skillBooks
 import { getAPSkillById } from "./character/apSkills";
 import type { InventoryState } from "./inventory/useInventory";
 import type { EquippedItem, EquippedSlots } from "./character/types";
+import { enhanceAttemptStatus } from "./character/enhancement";
 import { EquippedGrid } from "./character/CharacterMini";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Card } from "@/components/ui/Card";
@@ -266,6 +267,15 @@ export function InventoryView({
                         entry.enhancementLevel && entry.enhancementLevel > 0
                           ? ` +${entry.enhancementLevel}`
                           : "";
+                      // 별빛 무구(인스턴스) 한정 — 남은 강화 시도 횟수. +풀강은 +N 표기로 갈음.
+                      const attemptInfo =
+                        entry.instanceId &&
+                        typeof entry.remainingAttempts === "number"
+                          ? enhanceAttemptStatus(
+                              entry.enhancementLevel ?? 0,
+                              entry.remainingAttempts,
+                            )
+                          : null;
                       return (
                         <li key={key} className={`flex items-start gap-2 ${LIST_ROW}`}>
                           <div className="min-w-0 flex-1 space-y-0.5">
@@ -290,6 +300,17 @@ export function InventoryView({
                               {enhanceSuffix && (
                                 <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
                                   {enhanceSuffix.trim()}
+                                </span>
+                              )}
+                              {attemptInfo && attemptInfo.status !== "max" && (
+                                <span
+                                  className={`text-[11px] ${
+                                    attemptInfo.status === "exhausted"
+                                      ? "text-zinc-400 dark:text-zinc-500"
+                                      : "text-amber-600/80 dark:text-amber-400/80"
+                                  }`}
+                                >
+                                  {attemptInfo.label}
                                 </span>
                               )}
                               {isEquipped && (

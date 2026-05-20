@@ -55,27 +55,29 @@ export function MapView({
   const [activeMap, setActiveMap] = useState<MapId>(() =>
     getMap(progress.currentRegionId),
   );
-  // 권역(zone) 포커스 — 활성 맵 안의 하위 탭. 탭으로 권역 클러스터에 한 번에 줌. 기본 = 현재 권역.
+  // 포커스 클러스터 — MapCanvas 가 진입/전환 시 어느 권역 bounds 로 줌할지. 권역 탭은 없애서
+  // 사용자가 직접 못 바꾸지만, 거대한 본토 맵을 통째로 축소하지 않고 "지금 있는 곳" 으로
+  // 프레이밍하기 위해 내부적으로 유지한다. 기본 = 현재 지역의 권역.
   const [activeZone, setActiveZone] = useState<ZoneId>(() =>
     getZone(progress.currentRegionId),
   );
-  // fitNonce 증가 → MapCanvas 가 활성 권역 bounds 로 재줌. 같은 권역 재선택에도 트리거되게 nonce.
+  // fitNonce 증가 → MapCanvas 가 포커스 클러스터 bounds 로 재줌.
   const [fitNonce, setFitNonce] = useState(0);
 
-  // 맵에 속한 권역 중 첫 번째 — 맵 전환 시 활성 권역의 기본값.
+  // 맵에 속한 권역 중 첫 번째 — 현재 지역이 그 맵에 없을 때의 fallback 포커스.
   const firstZoneOfMap = (m: MapId): ZoneId | null =>
     ZONES.find((z) =>
       WORLD_MAP.regions.some((r) => getZone(r.id) === z.id && getMap(r.id) === m),
     )?.id ?? null;
 
-  const selectZone = (z: ZoneId) => {
-    setActiveZone(z);
-    setFitNonce((n) => n + 1);
-  };
   const selectMap = (m: MapId) => {
     setActiveMap(m);
-    // 새 맵의 첫 권역으로 활성 권역 리셋 — zoneBounds 가 새 맵 좌표계 안을 가리키도록.
-    const z = firstZoneOfMap(m);
+    // 새 맵으로 줌할 클러스터를 정한다 — 현재 지역이 그 맵에 있으면 그 권역(지금 있는 곳),
+    // 아니면 그 맵의 첫 권역.
+    const z =
+      getMap(progress.currentRegionId) === m
+        ? getZone(progress.currentRegionId)
+        : firstZoneOfMap(m);
     if (z) setActiveZone(z);
     setFitNonce((n) => n + 1);
   };
@@ -100,18 +102,7 @@ export function MapView({
   // 활성 맵의 viewBox·배경. 맵이 바뀌면 MapCanvas 를 key 로 재마운트해 새 bounds 로 초기화.
   const gameMap = getGameMap(activeMap);
 
-  // 활성 맵에 있는 권역 탭만 노출 (본토 맵의 권역들 / 별빛 맵의 권역). 1개뿐이면 탭 숨김.
-  const zonesInMap = useMemo(
-    () =>
-      ZONES.filter((z) =>
-        WORLD_MAP.regions.some(
-          (r) => getZone(r.id) === z.id && getMap(r.id) === activeMap,
-        ),
-      ),
-    [activeMap],
-  );
-
-  // 활성 권역에 속한 지역들의 좌표 bounds — MapCanvas 가 이 영역을 화면에 꽉 채운다.
+  // 포커스 클러스터에 속한 지역들의 좌표 bounds — MapCanvas 가 이 영역을 화면에 꽉 채운다.
   const zoneBounds = useMemo(() => {
     const pts = WORLD_MAP.regions
       .filter((r) => getZone(r.id) === activeZone)
@@ -317,16 +308,6 @@ export function MapView({
         ariaLabel="맵"
         scrollable
       />
-      {/* 권역 탭 — 활성 맵 안의 하위 스코핑. 권역이 2개 이상일 때만 노출. */}
-      {zonesInMap.length > 1 && (
-        <TabBar
-          tabs={zonesInMap.map((z) => ({ key: z.id, label: z.label }))}
-          active={activeZone}
-          onChange={selectZone}
-          ariaLabel="권역"
-          scrollable
-        />
-      )}
       <Card padding="none" className="overflow-hidden">
         <MapCanvas
           key={activeMap}

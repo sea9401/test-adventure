@@ -76,6 +76,8 @@ export function useEquipmentActions(deps: {
         enhanceHistory: item.enhanceHistory,
         remainingAttempts:
           item.remainingAttempts ?? ENHANCE_INITIAL_ATTEMPTS,
+        // 마법부여 슬롯도 풀로 되돌린다 — 누락 시 장착 해제하면 부여가 사라진다.
+        enchantSlots: item.enchantSlots,
       });
       return;
     }

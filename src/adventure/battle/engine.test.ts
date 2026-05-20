@@ -250,7 +250,7 @@ describe("applyPotionEffect", () => {
     expect(s1.playerHp).toBe(50);
   });
 
-  it("플레이어 phase에서 use_potion 후 enemy phase로 전환", () => {
+  it("플레이어 phase에서 use_potion 후 enemy phase로 전환 (공격 1회 캐릭터)", () => {
     const s0 = initialBattleState({ ...PLAYER, hp: 10 }, makeEnemy(), "P");
     const s1 = advanceTurn(s0, PLAYER, "P", {
       kind: "use_potion",
@@ -259,6 +259,24 @@ describe("applyPotionEffect", () => {
     });
     expect(s1.playerHp).toBe(30);
     expect(s1.phase).toBe("enemy");
+  });
+
+  it("use_potion 은 턴이 아니라 공격 1회만 소모 — 추가타 빌드는 같은 턴에 계속 공격", () => {
+    const fast: PlayerCombat = { ...PLAYER, hp: 10, attackCount: 2 };
+    const s0 = initialBattleState(fast, makeEnemy({ hp: 100 }), "P");
+    expect(s0.playerAttacksLeft).toBe(2);
+    const s1 = advanceTurn(s0, fast, "P", {
+      kind: "use_potion",
+      potionId: HEAL_POTION.id,
+      potion: HEAL_POTION,
+    });
+    // 회복은 적용되고, 공격 1회만 깎여 여전히 player phase (남은 공격 1회).
+    expect(s1.playerHp).toBe(30);
+    expect(s1.phase).toBe("player");
+    expect(s1.playerAttacksLeft).toBe(1);
+    // 남은 공격으로 마저 때리면 그때 enemy phase 로.
+    const s2 = advanceTurn(s1, fast, "P");
+    expect(s2.phase).toBe("enemy");
   });
 });
 

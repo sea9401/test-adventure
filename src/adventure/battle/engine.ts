@@ -1131,6 +1131,15 @@ export function advanceTurn(
   if (state.phase === "player") {
     if (action.kind === "use_potion") {
       const next = applyPotionEffect(state, action.potion, playerName);
+      // 포션은 공격이 아니라 그 턴의 공격 "1회" 를 소모한다. 추가타 빌드(attackCount>1)는
+      // 마신 뒤에도 남은 공격으로 계속 싸울 수 있고, 마지막 1회였다면 적 페이즈로 넘어간다.
+      // (기본 1회 공격 캐릭터는 attacksLeft 가 0 이 되어 기존과 동일하게 턴이 끝난다.)
+      // turn 플래그(firstAttackPending 등)는 그대로 둔다 — 포션은 공격이 아니므로 다음 실제
+      // 공격이 여전히 그 턴의 첫 공격(강공격/AP 트리거)으로 취급된다.
+      const attacksLeft = next.playerAttacksLeft - 1;
+      if (attacksLeft > 0) {
+        return { ...next, playerAttacksLeft: attacksLeft };
+      }
       return {
         ...next,
         phase: "enemy",

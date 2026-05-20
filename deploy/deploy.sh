@@ -12,8 +12,8 @@ git fetch --prune origin
 git checkout main
 git reset --hard origin/main   # 로컬 변경 무시하고 origin/main 에 맞춤
 
-echo "▶ npm ci"
-npm ci
+echo "▶ deps"
+bash deploy/install-deps.sh
 
 echo "▶ db migrate"
 node --env-file=.env.production.local src/db/migrate.mjs

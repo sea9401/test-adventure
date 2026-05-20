@@ -39,8 +39,8 @@ jobs:
             git fetch --prune origin
             git checkout main
             git reset --hard origin/main
-            echo "▶ [prod] npm ci"
-            npm ci
+            echo "▶ [prod] deps"
+            bash deploy/install-deps.sh
             echo "▶ [prod] db migrate"
             node --env-file=.env.production.local src/db/migrate.mjs
             echo "▶ [prod] build"

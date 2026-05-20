@@ -7,7 +7,6 @@ import {
   guildLodgeState,
   guildMembers,
   guilds,
-  savesKv,
   users,
 } from "@/db/schema";
 import {
@@ -20,7 +19,7 @@ import {
   type LodgeContributor,
   type LodgeResponse,
 } from "@/adventure/data/guildLodge";
-import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 
 // 회관 서버 라이브러리 — donate / upgradeRank / setSlogan / readLodge 4개 진입점.
 // 라우트는 권한별 status 매핑과 JSON 직렬화만 담당하고 비즈니스 로직은 전부 이쪽.
@@ -222,29 +221,23 @@ async function debitDonation(
   amount: number,
 ): Promise<LodgeErrorCode | null> {
   if (kind === "gold") {
-    const charRow = (
-      await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")))
-        .for("update")
-        .limit(1)
-    )[0];
-    const char = (charRow?.value ?? {}) as Record<string, unknown>;
+    const char = await lockSaveForUpdate<Record<string, unknown>>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
     const gold = typeof char.gold === "number" ? char.gold : 0;
     if (gold < amount) return "insufficient_gold";
     await upsertSave(tx, userId, "character.v2", { ...char, gold: gold - amount });
     return null;
   }
-  const invRow = (
-    await tx
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "inventory.v2")))
-      .for("update")
-      .limit(1)
-  )[0];
-  const inv = (invRow?.value ?? {}) as Record<string, unknown>;
+  const inv = await lockSaveForUpdate<Record<string, unknown>>(
+    tx,
+    userId,
+    "inventory.v2",
+    {},
+  );
   const mats =
     (inv.materials as Record<string, number> | undefined) ?? {};
   const have = mats.starfall_shard ?? 0;

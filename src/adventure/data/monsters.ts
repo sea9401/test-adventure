@@ -216,7 +216,7 @@ export const MONSTERS: Record<string, Monster> = {
     spd: 5,
     exp: 5,
     drops: [
-      { kind: "material", materialId: "hard_crystal", chance: 0.03 },
+      { kind: "material", materialId: "hard_crystal", chance: 0.06 },
       { kind: "recipe", recipeId: "crystal_dagger", chance: 0.004 },
     ],
   },
@@ -396,7 +396,7 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 13,
     drops: [
       { kind: "material", materialId: "soul_crystal", chance: 0.03 },
-      { kind: "material", materialId: "hard_crystal", chance: 0.03 },
+      { kind: "material", materialId: "hard_crystal", chance: 0.06 },
       { kind: "gold", amount: 1, chance: 0.08 },
     ],
   },
@@ -411,7 +411,7 @@ export const MONSTERS: Record<string, Monster> = {
     exp: 16,
     drops: [
       { kind: "material", materialId: "ruin_fragment", chance: 0.075 },
-      { kind: "material", materialId: "hard_crystal", chance: 0.045 },
+      { kind: "material", materialId: "hard_crystal", chance: 0.08 },
       { kind: "recipe", recipeId: "golem_armor", chance: 0.012 },
     ],
   },

@@ -47,7 +47,9 @@ export type RegionId =
   // 5막 PR-B2 — 산호초 섬 옆/옛 변경 성채 옆. 같은 게이트(starfall_warden_felled).
   // 수심의 메아리 / 성문지기 잔영이 협동 보스로 등장. Lv104 / Lv106.
   | "starlit_reef"
-  | "starlit_keep";
+  | "starlit_keep"
+  // 별빛 권역 중앙 허브 — NPC·퀘스트 없는 town 기능 노드(회복·빠른이동·네 지역 연결).
+  | "starlit_crossroads";
 
 // 권역 — 맵 뷰를 묶어서 보여주기 위한 그룹. 이동 그래프(edges)와 무관한 표시/네비게이션 전용.
 // MapCanvas 가 활성 권역에 속한 지역들의 bounds 로 자동 줌/포커스한다.
@@ -110,6 +112,7 @@ export const REGION_ZONE: Record<RegionId, ZoneId> = {
   starlit_canyon: "starlit",
   starlit_reef: "starlit",
   starlit_keep: "starlit",
+  starlit_crossroads: "starlit",
   tower_foot: "tower",
 };
 
@@ -817,6 +820,21 @@ export const WORLD_MAP: WorldMap = {
       boss: { monsterName: "성문지기 잔영" },
       recommendedLevel: 106,
     },
+    // 별빛 권역 중앙 허브 — 네 별빛 지역(갱도·협곡·산호초·성채)을 한가운데서 잇는다.
+    // NPC·퀘스트 없이 town 기능만 제공: 회복소 + 빠른이동 목적지 + 안전 지대. 좌표는
+    // 네 지역(260/740 × 230/540)의 정중앙. 배경 이미지는 ui/starlit_crossroads.webp
+    // fallback (없으면 RegionBackground 가 graceful 처리 — 추후 추가).
+    {
+      id: "starlit_crossroads",
+      name: "별빛 교차로",
+      description:
+        "별빛이 떨어진 네 자리의 한가운데. 흩어진 길목이 여기서 만난다. 별먼지에 덮인 옛 보급 거점이 남아 있어 지친 몸을 추스르고 어디로든 다시 나설 수 있다.",
+      position: { x: 500, y: 385 },
+      biome: "village",
+      enemies: [],
+      tags: ["town"],
+      recommendedLevel: 102,
+    },
   ],
   edges: [
     { from: "village", to: "plains" },
@@ -1054,6 +1072,28 @@ export const WORLD_MAP: WorldMap = {
         flagId: "starfall_warden_felled",
         reason: "별이 떨어진 첫 자리(별빛 갱도)를 정리한 뒤에야 성벽 안쪽으로 별빛이 새어 든다.",
       },
+    },
+    // 별빛 권역 중앙 허브 ↔ 네 지역. 각 지역은 본토 게이트로 처음 들어가야 하고(진행 우회
+    // 방지), 한 번 방문한 지역과는 교차로를 통해 자유로이 오간다 — "visited" 게이트로 자기-제한.
+    {
+      from: "starfall_cave",
+      to: "starlit_crossroads",
+      requires: { kind: "visited", regionId: "starfall_cave" },
+    },
+    {
+      from: "starlit_canyon",
+      to: "starlit_crossroads",
+      requires: { kind: "visited", regionId: "starlit_canyon" },
+    },
+    {
+      from: "starlit_reef",
+      to: "starlit_crossroads",
+      requires: { kind: "visited", regionId: "starlit_reef" },
+    },
+    {
+      from: "starlit_keep",
+      to: "starlit_crossroads",
+      requires: { kind: "visited", regionId: "starlit_keep" },
     },
     // 마을 간 직통 이동 (fast-travel) — 양쪽 마을을 모두 발견했을 때만 통행.
     { from: "village", to: "diola", requires: { kind: "visited", regionId: "diola" } },

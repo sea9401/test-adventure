@@ -292,7 +292,7 @@ export function MapView({
           y: (gameMap.viewBox.y ?? 0) + gameMap.viewBox.height / 2,
         };
 
-  // 지도 안 하단 액션 오버레이의 버튼 라벨/활성 — RegionDetail 버튼과 같은 규칙.
+  // 지도 안 하단 액션 오버레이의 버튼 라벨/활성 — 이동/시련/빠른이동 우선순위.
   const moveDisabled = !canMove && !canChallenge && !canFastTravel;
   const moveLabel =
     selectedState === "current"
@@ -417,11 +417,7 @@ export function MapView({
       <RegionDetail
         region={selectedRegion}
         state={selectedState}
-        canMove={canMove}
-        canChallenge={canChallenge}
-        onMove={handleMove}
         requirementStatus={requirementStatus}
-        fastTravel={canFastTravel}
       />
       {lowHpBlocked && (
         <LowHpBlockModal onConfirm={() => setLowHpBlocked(false)} />

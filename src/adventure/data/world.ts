@@ -754,8 +754,9 @@ export const WORLD_MAP: WorldMap = {
       to: "canyon",
       requires: { kind: "trial", battles: 5, enemiesFrom: "canyon" },
     },
-    // 협동 보스 운봉의 거인에 한 번이라도 공격을 가하면 unlock (참여 flag).
+    // 솔로 region.boss 운봉의 거인에 한 번이라도 도전하면 unlock (참여 flag).
     // peak_giant_defeated 가 아닌 peak_giant_engaged — 처치까진 안 가도 진입 가능.
+    // engage flag 는 monsters.ts 의 onEngageFlag → BossSubView.onBossAttempt 가 set.
     {
       from: "canyon",
       to: "unhyang",

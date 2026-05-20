@@ -10,6 +10,7 @@ import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { useGame } from "@/adventure/GameContext";
 import { resolveBuffMultiplier } from "@/adventure/data/guildBuffs";
 import { getQuestById } from "@/adventure/data/quests";
+import { MONSTERS } from "@/adventure/data/monsters";
 
 export function BossSubView() {
   const {
@@ -144,6 +145,10 @@ export function BossSubView() {
             if (!slots.weapon && !slots.armor && !slots.accessory) {
               grantTitle("stagnant");
             }
+            // 도전(첫 일격) = "참여" 플래그 set — 처치 안 해도 진입로가 열리는 길목용
+            // (운봉의 거인 → 운향). useStoryFlags.set 은 useRemotePatch 로 서버 저장 + idempotent.
+            const engageFlag = MONSTERS[currentRegion.boss!.monsterName]?.onEngageFlag;
+            if (engageFlag) storyFlags.set(engageFlag);
           }}
           bossCooldownReductionPct={bossCooldownReductionPct}
           bossOnlyMode

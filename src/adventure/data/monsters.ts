@@ -81,6 +81,12 @@ export type Monster = {
   /** 처치 시 set 할 storyFlag id — 보스용. 두 번째 처치부터는 useStoryFlags.set 이 idempotent 라 무시. */
   onDefeatFlag?: string;
   /**
+   * 보스에 도전(첫 일격)하는 순간 set 할 storyFlag id — 처치까진 안 가도 set 되는 "참여" 플래그.
+   * 옛 coop 시절 onAttackFlag 를 솔로 region.boss 로 옮긴 것. 진입로가 "맞붙으면 열림" 인
+   * 길목(canyon→unhyang)을 위해 BossSubView.onBossAttempt 가 도전 클릭 시 set.
+   */
+  onEngageFlag?: string;
+  /**
    * 처치 시 grant 할 titleId — 솔로 region.boss 의 legend 칭호 자동 부여용
    * (옛 coop 시절의 50% 데미지 임계 대신, 솔로 처치 = 칭호 획득).
    * grantTitle 자체가 idempotent — 두 번째 처치부터 무시.
@@ -485,7 +491,9 @@ export const MONSTERS: Record<string, Monster> = {
   },
   // 운향 협곡 보스 — region.boss 도전 버튼으로만 진입. 일반 인카운터 풀에선 제외.
   // 처치 시 거인 비늘 ×3 + 운봉석 ×2 확정 + 운봉 무기 4종 중 1 + 견갑 15% 학습 + 운봉령 2%.
-  // onDefeatFlag 가 peak_giant_defeated 를 set 하여 운향 도시 진입로가 열림.
+  // 진입로(canyon→unhyang)는 처치가 아니라 onEngageFlag(peak_giant_engaged) — 한 번 맞붙으면
+  // 열린다. 운향 의뢰 라인이 "맞붙어 진입 → 마을에서 레벨업 → 거인 처치" 순서로 짜여 있기 때문.
+  // onDefeatFlag(peak_giant_defeated) 는 만월/백운 후속 대사·의뢰 게이트와 Chapter 룰용.
   "운봉의 거인": {
     name: "운봉의 거인",
     tags: ["golem"],
@@ -516,6 +524,7 @@ export const MONSTERS: Record<string, Monster> = {
       message: "거인이 두 발을 단단히 박아 넣는다.",
     },
     onDefeatFlag: "peak_giant_defeated",
+    onEngageFlag: "peak_giant_engaged",
     onDefeatTitleId: "giant_slayer",
     bonusAttackChancePct: 250,
   },

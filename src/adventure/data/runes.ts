@@ -184,8 +184,27 @@ export type EquippedRune = {
   grade: RuneGrade;
 };
 
+// 저장된 룬 슬롯/항목이 "보존할 만한 모양"인지만 검사 — 의미(현재 정의된 id·grade) 인식과
+// 분리한다. 모양만 멀쩡하면 미인식 id/grade 도 통과시켜, 코드보다 새로운 세이브를 로드한
+// 구버전 클라이언트가 못 알아보는 룬을 조용히 파괴하지 않도록 한다(carry-through).
+// 진짜 손상(객체 아님 / 빈 id / 음수·비정수 grade)은 여전히 걸러진다.
+export function isWellFormedRuneSlot(v: unknown): v is EquippedRune {
+  if (!v || typeof v !== "object") return false;
+  const { id, grade } = v as { id?: unknown; grade?: unknown };
+  return (
+    typeof id === "string" &&
+    id.length > 0 &&
+    typeof grade === "number" &&
+    Number.isInteger(grade) &&
+    grade > 0
+  );
+}
+
+// 미인식 id/grade(carry-through 로 살아남은 룬)에 대해서는 0 을 돌려 전투 합산이 NaN 으로
+// 오염되지 않게 한다. 정의된 id+grade 면 magnitude 그대로.
 export function getRuneMagnitude(id: RuneId, grade: RuneGrade): number {
-  return RUNES[id].magnitudeByGrade[grade];
+  const mag = RUNES[id]?.magnitudeByGrade[grade];
+  return typeof mag === "number" && Number.isFinite(mag) ? mag : 0;
 }
 
 // 룬 상점 (PR-C2) — 등급별 고탑 토큰 가격. 합성이 등급별 차등(3/4/5/6, runeFusion.ts)으로

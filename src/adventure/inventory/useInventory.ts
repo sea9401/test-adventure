@@ -12,8 +12,6 @@ import {
 import type { MaterialId } from "../data/materials";
 import { potionMax, type PotionId } from "../data/potions";
 import {
-  isRuneGrade,
-  isRuneId,
   RUNE_GRADES,
   type RuneGrade,
   type RuneId,
@@ -82,7 +80,7 @@ export type InventoryState = {
   // 종류별 포션 최대 보유 수의 추가 보너스. 보상으로 영구 누적.
   potionCapacityBonus?: number;
   /**
-   * 룬 보유 — 룬 id × 등급(1~5) → 개수. 장착은 별도(CharacterDynamicState.equippedRunes),
+   * 룬 보유 — 룬 id × 등급(1~6) → 개수. 장착은 별도(CharacterDynamicState.equippedRunes),
    * 여기는 가방. 폐기/판매 개념은 없고 합성·장착 시 소비.
    */
   runes?: Partial<Record<RuneId, Partial<Record<RuneGrade, number>>>>;
@@ -113,20 +111,23 @@ function readRunes(
   if (!raw || typeof raw !== "object") return {};
   const out: Partial<Record<RuneId, Partial<Record<RuneGrade, number>>>> = {};
   for (const [rid, grades] of Object.entries(raw as Record<string, unknown>)) {
-    if (!isRuneId(rid) || !grades || typeof grades !== "object") continue;
+    // id/grade 의 "의미 인식"이 아니라 "모양"만 본다 — 미인식 룬 id 나 미래 등급도
+    // 모양만 멀쩡하면 보존해 구버전 클라가 파괴하지 않게 한다(carry-through).
+    if (!rid || !grades || typeof grades !== "object") continue;
     const map: Partial<Record<RuneGrade, number>> = {};
     for (const [g, n] of Object.entries(grades as Record<string, unknown>)) {
       const gradeNum = Number(g);
       if (
-        isRuneGrade(gradeNum) &&
+        Number.isInteger(gradeNum) &&
+        gradeNum > 0 &&
         typeof n === "number" &&
         Number.isInteger(n) &&
         n > 0
       ) {
-        map[gradeNum] = n;
+        map[gradeNum as RuneGrade] = n;
       }
     }
-    if (Object.keys(map).length) out[rid] = map;
+    if (Object.keys(map).length) out[rid as RuneId] = map;
   }
   return out;
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RuneGrade, RuneId } from "@/adventure/data/runes";
 import { computeRuneBonus, pctToMultiplier } from "./runeBonus";
 
 describe("computeRuneBonus", () => {
@@ -95,6 +96,27 @@ describe("computeRuneBonus", () => {
       null,
     ]);
     expect(regen.regen_pct).toBe(4);
+  });
+});
+
+describe("computeRuneBonus — carry-through 미인식 룬 안전성", () => {
+  it("미인식 grade 룬은 0 기여, 정상 룬 합산엔 영향 없음 (NaN 오염 X)", () => {
+    const b = computeRuneBonus([
+      { id: "rune_attack", grade: 99 as RuneGrade },
+      { id: "rune_attack", grade: 5 },
+      null,
+    ]);
+    expect(b.atk_pct).toBe(7);
+    expect(Number.isNaN(b.atk_pct)).toBe(false);
+  });
+
+  it("미인식 id 룬은 무시 (throw/NaN 없음)", () => {
+    const b = computeRuneBonus([
+      { id: "rune_future_unknown" as RuneId, grade: 3 },
+      null,
+      null,
+    ]);
+    expect(b.atk_pct).toBe(0);
   });
 });
 

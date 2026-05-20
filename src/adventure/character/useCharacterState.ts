@@ -6,8 +6,7 @@ import { baseCharacter, maxHpForLevel, maxMpForLevel } from "./defaults";
 import { rehydrateEquippedItem } from "./rehydrateEquip";
 import type { EquippedItem, EquippedSlots } from "./types";
 import {
-  isRuneGrade,
-  isRuneId,
+  isWellFormedRuneSlot,
   RUNE_SLOT_COUNT,
   type EquippedRune,
 } from "@/adventure/data/runes";
@@ -150,19 +149,9 @@ function rehydrateEquippedRunes(
   if (!Array.isArray(saved)) return undefined;
   const out: (EquippedRune | null)[] = [];
   for (let i = 0; i < Math.min(saved.length, RUNE_SLOT_COUNT); i += 1) {
-    const v = saved[i] as { id?: unknown; grade?: unknown } | null | undefined;
-    if (
-      v &&
-      typeof v === "object" &&
-      typeof v.id === "string" &&
-      isRuneId(v.id) &&
-      typeof v.grade === "number" &&
-      isRuneGrade(v.grade)
-    ) {
-      out.push({ id: v.id, grade: v.grade });
-    } else {
-      out.push(null);
-    }
+    // 모양이 멀쩡하면 미인식 id/grade 라도 보존(carry-through) — 진짜 손상만 null.
+    const v = saved[i];
+    out.push(isWellFormedRuneSlot(v) ? { id: v.id, grade: v.grade } : null);
   }
   return out;
 }

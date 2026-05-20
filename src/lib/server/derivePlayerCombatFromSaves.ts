@@ -13,8 +13,7 @@ import {
 import { rehydrateEquippedItem } from "@/adventure/character/rehydrateEquip";
 import type { EquippedItem } from "@/adventure/character/types";
 import {
-  isRuneGrade,
-  isRuneId,
+  isWellFormedRuneSlot,
   RUNE_SLOT_COUNT,
   type EquippedRune,
 } from "@/adventure/data/runes";
@@ -160,26 +159,16 @@ function parseSavedAPSkillConditions(
 }
 
 // 서버측 룬 슬롯 정규화 — 클라이언트의 rehydrateEquippedRunes 와 동일 규칙.
-// 부정확하거나 정의 안 된 룬은 null 처리.
+// 모양이 멀쩡하면 미인식 id/grade 라도 보존(carry-through), 진짜 손상만 null.
+// 미인식 룬의 전투 기여는 computeRuneBonus/getRuneMagnitude 가 0 으로 무력화한다.
 function rehydrateEquippedRunes(
   saved: unknown,
 ): (EquippedRune | null)[] | undefined {
   if (!Array.isArray(saved)) return undefined;
   const out: (EquippedRune | null)[] = [];
   for (let i = 0; i < Math.min(saved.length, RUNE_SLOT_COUNT); i += 1) {
-    const v = saved[i] as { id?: unknown; grade?: unknown } | null | undefined;
-    if (
-      v &&
-      typeof v === "object" &&
-      typeof v.id === "string" &&
-      isRuneId(v.id) &&
-      typeof v.grade === "number" &&
-      isRuneGrade(v.grade)
-    ) {
-      out.push({ id: v.id, grade: v.grade });
-    } else {
-      out.push(null);
-    }
+    const v = saved[i];
+    out.push(isWellFormedRuneSlot(v) ? { id: v.id, grade: v.grade } : null);
   }
   return out;
 }

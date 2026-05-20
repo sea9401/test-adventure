@@ -320,7 +320,7 @@ export function RuneView({
                           : "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60"
                       }`}
                     >
-                      <span className={gradeColor(g)}>{g}등</span>
+                      <span className={gradeColor(g)}>{gradeLabel(g)}</span>
                       <span className="ml-1 tabular-nums">{price}</span>
                     </button>
                   );

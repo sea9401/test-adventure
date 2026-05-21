@@ -118,3 +118,29 @@ describe("resolveCoopReward — 서버 RNG 결정성", () => {
     expect(pass).toBeLessThan(70);
   });
 });
+
+describe("별을 잊은 것 — 별빛 고리 드랍 (gold 부터, 티어 오를수록 상승)", () => {
+  it("ringRoll 이 도달 티어 값으로 덮어써져 resolve 까지 전달된다", () => {
+    expect(computeCoopReward("별을 잊은 것", "silver").ringRoll).toBeUndefined();
+    expect(computeCoopReward("별을 잊은 것", "gold").ringRoll?.chance).toBe(0.15);
+    expect(computeCoopReward("별을 잊은 것", "epic").ringRoll?.chance).toBe(0.2);
+    expect(computeCoopReward("별을 잊은 것", "legend").ringRoll?.chance).toBe(0.25);
+  });
+
+  it("legend 누적 보상엔 별빛 조각 + 칭호 + ringRoll 이 모두 산다", () => {
+    const r = computeCoopReward("별을 잊은 것", "legend");
+    expect(r.materials.starfall_shard).toBe(8 + 16 + 28 + 44 + 60);
+    expect(r.titleId).toBe("forgotten_star_slayer");
+    expect(r.ringRoll?.chance).toBe(0.25);
+  });
+
+  it("resolveCoopReward — ringRoll 통과 시 롤된 별빛 고리 인스턴스 생성", () => {
+    // 확률 1 로 강제해 결정성 확보 (chance=1 이면 어떤 seed 든 통과).
+    const reward = { ...computeCoopReward("별을 잊은 것", "legend"), ringRoll: { chance: 1 } };
+    const resolved = resolveCoopReward(reward, coopRewardSeed("s1", "u1"));
+    expect(resolved.equipmentInstances).toHaveLength(1);
+    const inst = resolved.equipmentInstances[0]!;
+    expect(inst.itemId).toBe("starlit_ring");
+    expect(Object.keys(inst.rolledBonus ?? {})).toHaveLength(2);
+  });
+});

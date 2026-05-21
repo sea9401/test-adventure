@@ -78,28 +78,30 @@ const PRIMORDIAL_DRAGON_TIER_REWARDS: Record<CoopRewardTier, CoopReward> = {
 // 무구류 직접 굴림은 두지 않는다 — 이 보스는 "장신구 획득처" 컨셉. (수치는 튜닝 포인트.)
 const FORGOTTEN_STAR_TIER_REWARDS: Record<CoopRewardTier, CoopReward> = {
   bronze: {
-    materials: { starfall_shard: 4 },
-    recipes: [],
-  },
-  silver: {
     materials: { starfall_shard: 8 },
     recipes: [],
   },
-  gold: {
-    materials: { starfall_shard: 14 },
+  silver: {
+    materials: { starfall_shard: 16 },
     recipes: [],
+  },
+  gold: {
+    materials: { starfall_shard: 28 },
+    recipes: [],
+    // T6 별빛 고리(랜덤 롤 장신구) — gold 부터 드랍, 티어 오를수록 드랍률↑(덮어쓰기).
+    // 옵션이 인스턴스마다 롤(2/5 × 1~20)이라 진짜 그라인드는 "롤"이지 드랍이 아님 → 드랍은 후하게.
+    ringRoll: { chance: 0.15 },
   },
   epic: {
-    materials: { starfall_shard: 22 },
+    materials: { starfall_shard: 44 },
     recipes: [],
+    ringRoll: { chance: 0.2 },
   },
   legend: {
-    materials: { starfall_shard: 30 },
+    materials: { starfall_shard: 60 },
     recipes: [],
     titleId: "forgotten_star_slayer",
-    // T6 별빛 고리(랜덤 롤 장신구) — legend 도달자에게 10%. 옵션은 인스턴스마다 롤(2/5 × 1~20)
-    // 이라, 드랍은 자주 나도 "원하는 조합" 은 반복 파밍이 강제된다.
-    ringRoll: { chance: 0.1 },
+    ringRoll: { chance: 0.25 },
   },
 };
 
@@ -139,6 +141,10 @@ export function computeCoopReward(
       out.equipRolls = [...(out.equipRolls ?? []), ...r.equipRolls];
     }
     if (r.titleId) out.titleId = r.titleId;
+    // ringRoll 은 누적이 아니라 "도달한 가장 높은 티어 값으로 덮어쓰기" (titleId 와 동일).
+    // → 티어가 오를수록 드랍률이 갈아끼워져, 한 번만 굴리되 높은 티어일수록 확률↑.
+    // (이 줄이 없으면 ringRoll 이 resolve 까지 전달되지 않아 별빛 고리가 영영 안 떨어진다.)
+    if (r.ringRoll) out.ringRoll = r.ringRoll;
     if (t === tier) break;
   }
   return out;

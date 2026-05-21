@@ -11,6 +11,10 @@
 //   - write: `db.insert(marketplaceInbox).values(inboxValues({ userId, payload: { kind, ... }, ... }))`
 //   - read:  `parseInboxPayload(row.kind, row.payload)` → typed union or null (잘못된 shape).
 import { isItemKind, isValidGrade, type ItemKind } from "./marketplace";
+import {
+  normalizeInstance,
+  type EquipmentInstance,
+} from "@/adventure/inventory/equipmentInstances";
 
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
@@ -24,6 +28,8 @@ export type InboxPayload =
       item_id: string;
       grade: string;
       quantity: number;
+      /** 인스턴스 매물(강화/부여 별빛 무구·고리) — 있으면 claim 시 새 instanceId 로 인벤에 push. */
+      instance?: EquipmentInstance;
     }
   | {
       kind: "cancel_return";
@@ -31,6 +37,7 @@ export type InboxPayload =
       item_id: string;
       grade: string;
       quantity: number;
+      instance?: EquipmentInstance;
     }
   | {
       kind: "listing_expired";
@@ -38,6 +45,7 @@ export type InboxPayload =
       item_id: string;
       grade: string;
       quantity: number;
+      instance?: EquipmentInstance;
     }
   | { kind: "user_message"; text: string }
   | { kind: "recipe_gift"; recipe_id: string; recipe_name: string }
@@ -107,6 +115,13 @@ export function parseInboxPayload(
       // grade 누락/빈문자/비유효 → 'base' (구 페이로드 + equip 외 kind 호환).
       const rawGrade = asString(p.grade) ?? "base";
       const grade = isValidGrade(rawGrade) ? rawGrade : "base";
+      // 인스턴스 매물 — instance 가 있으면 normalizeInstance 로 검증(위조/손상 가드).
+      // 손상 시 payload 전체를 null 로 → claim 이 행을 보존(소실 방지·조사 가능).
+      if (p.instance !== undefined) {
+        const instance = normalizeInstance(p.instance);
+        if (!instance) return null;
+        return { kind, item_kind: item_kind_str, item_id, grade, quantity, instance };
+      }
       return { kind, item_kind: item_kind_str, item_id, grade, quantity };
     }
     case "user_message": {

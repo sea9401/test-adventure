@@ -539,8 +539,8 @@ export const STARLIT_ITEMS = {
 
   // 6막 「별을 잊은 것」 — 잊힌 봉인 legend 랜덤 롤 장신구. base 는 옵션 없음(bonus 생략):
   // 실제 옵션(힘·활력·민첩·속도·행운 중 2개 × 1~20)은 드랍 시 인스턴스마다 롤되어 박힌다
-  // (starlitRing.ts / EquipmentInstance.rolledBonus). 거래 불가 — 롤 자체가 파밍 동력이라
-  // 좋은 롤을 사고팔지 못하게(마켓도 인스턴스 롤을 구분 못 함).
+  // (starlitRing.ts / EquipmentInstance.rolledBonus). 거래 가능 — 거래소가 인스턴스(롤 포함)
+  // 거래를 지원하면서 좋은 롤을 사고팔 수 있다(거래소 instance_payload).
   starlit_ring: {
     name: "별빛 고리",
     slot: "accessory",
@@ -552,6 +552,6 @@ export const STARLIT_ITEMS = {
       "잊힌 봉인이 흘린 결을 고리로 엮은 것. 손가락에 둘러질 때마다 다른 결이 깃들어, 같은 고리는 둘도 없다.",
     rarity: "legendary",
     tier: 6,
-    tradable: false,
+    tradable: true,
   } satisfies EquipItem,
 } as const;

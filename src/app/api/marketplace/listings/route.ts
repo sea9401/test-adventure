@@ -16,17 +16,25 @@ import {
   MARKETPLACE_PRICE_MIN,
   MARKETPLACE_SLOT_LIMIT,
   addGradedEquip,
+  addInstance,
   addToCategory,
   deductFromCategory,
   deductGradedEquip,
+  deductInstanceById,
   getItemName,
   getKnownArr,
   getShareableArr,
+  instanceListingGrade,
   isItemKind,
   isTradable,
   isValidGrade,
   type InventoryShape,
 } from "@/lib/server/marketplace";
+import {
+  normalizeInstance,
+  type EquipmentInstance,
+} from "@/adventure/inventory/equipmentInstances";
+import { randomUUID } from "node:crypto";
 
 const SAVES_INVENTORY = "inventory.v2";
 const SAVES_PROFILE = "character-profile.v2";
@@ -107,6 +115,9 @@ async function sweepExpiredListings(): Promise<void> {
               item_id: listing.itemId,
               grade: listing.grade,
               quantity: listing.itemKind === "recipe" ? 0 : listing.quantity,
+              ...(listing.instancePayload
+                ? { instance: listing.instancePayload as EquipmentInstance }
+                : {}),
             },
             message:
               listing.itemKind === "recipe"
@@ -228,6 +239,8 @@ export async function GET(req: Request) {
       quantity: r.quantity,
       price: r.price,
       createdAt: r.createdAt.toISOString(),
+      // 인스턴스 매물(강화/부여)이면 스냅샷 — 클라가 강화/부여/롤 표시에 사용.
+      instance: (r.instancePayload as EquipmentInstance | null) ?? undefined,
     })),
     nextCursor,
   });
@@ -249,6 +262,7 @@ export async function POST(req: Request) {
     grade?: unknown;
     quantity?: unknown;
     price?: unknown;
+    instanceId?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -257,24 +271,16 @@ export async function POST(req: Request) {
   }
 
   const itemKind = body.itemKind;
-  const itemId = body.itemId;
-  const quantity = Number(body.quantity);
   const price = Number(body.price);
-  // grade — equip 만 의미 있음. 미지정/equip 외 kind 는 'base'.
-  const rawGrade = typeof body.grade === "string" ? body.grade : "base";
-  const grade = itemKind === "equip" ? rawGrade : "base";
+  // 인스턴스 매물(강화/부여 별빛 무구·고리) — instanceId 가 오면 itemId/grade/quantity 는
+  // 클라가 아니라 서버가 셀러 인벤의 인스턴스에서 파생한다(위조 차단). equip 만 가능.
+  const instanceId =
+    typeof body.instanceId === "string" && body.instanceId
+      ? body.instanceId
+      : null;
 
   if (typeof itemKind !== "string" || !isItemKind(itemKind)) {
     return new Response("invalid itemKind", { status: 400 });
-  }
-  if (typeof itemId !== "string" || !itemId) {
-    return new Response("invalid itemId", { status: 400 });
-  }
-  if (!isValidGrade(grade)) {
-    return new Response("invalid grade", { status: 400 });
-  }
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    return new Response("invalid quantity", { status: 400 });
   }
   if (
     !Number.isInteger(price) ||
@@ -283,23 +289,48 @@ export async function POST(req: Request) {
   ) {
     return new Response("invalid price", { status: 400 });
   }
-  // 장비/제작서/스킬북은 1개만 등록 가능 (스택 개념 없음).
-  if (
-    (itemKind === "equip" ||
-      itemKind === "recipe" ||
-      itemKind === "skill_book") &&
-    quantity !== 1
-  ) {
-    return new Response(`${itemKind} quantity must be 1`, { status: 400 });
+
+  // 스택형(비-인스턴스) 매물의 itemId/grade/quantity 검증. 인스턴스는 tx 안에서 파생·검증.
+  const itemId = body.itemId;
+  const quantity = Number(body.quantity);
+  const rawGrade = typeof body.grade === "string" ? body.grade : "base";
+  const grade = itemKind === "equip" ? rawGrade : "base";
+  let itemName: string | null = null;
+  if (!instanceId) {
+    if (typeof itemId !== "string" || !itemId) {
+      return new Response("invalid itemId", { status: 400 });
+    }
+    if (!isValidGrade(grade)) {
+      return new Response("invalid grade", { status: 400 });
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return new Response("invalid quantity", { status: 400 });
+    }
+    if (
+      (itemKind === "equip" ||
+        itemKind === "recipe" ||
+        itemKind === "skill_book") &&
+      quantity !== 1
+    ) {
+      return new Response(`${itemKind} quantity must be 1`, { status: 400 });
+    }
+    itemName = getItemName(itemKind, itemId);
+    if (!itemName) {
+      return new Response("unknown item", { status: 400 });
+    }
+    if (!isTradable(itemKind, itemId)) {
+      return new Response("not tradable", { status: 400 });
+    }
+  } else if (itemKind !== "equip") {
+    return new Response("instance must be equip", { status: 400 });
   }
 
-  const itemName = getItemName(itemKind, itemId);
-  if (!itemName) {
-    return new Response("unknown item", { status: 400 });
-  }
-  if (!isTradable(itemKind, itemId)) {
-    return new Response("not tradable", { status: 400 });
-  }
+  // insert 에 쓸 유효 값 — 인스턴스 매물은 tx 안에서 셀러 인스턴스에서 파생해 덮어쓴다.
+  let effectiveItemId = typeof itemId === "string" ? itemId : "";
+  let effectiveGrade = grade;
+  let effectiveName = itemName ?? "";
+  const effectiveQuantity = instanceId ? 1 : quantity;
+  let instanceSnapshot: EquipmentInstance | null = null;
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -339,14 +370,14 @@ export async function POST(req: Request) {
           .for("update");
         const craft = (craftRows[0]?.value ?? {}) as Record<string, unknown>;
         const knownArr = getKnownArr(craft);
-        if (!knownArr.includes(itemId)) {
+        if (!knownArr.includes(effectiveItemId)) {
           return { error: "not_known", status: 400 as const };
         }
         const shareableArr = getShareableArr(craft);
-        if (!shareableArr.includes(itemId)) {
+        if (!shareableArr.includes(effectiveItemId)) {
           return { error: "already_shared", status: 400 as const };
         }
-        const nextShareable = shareableArr.filter((x) => x !== itemId);
+        const nextShareable = shareableArr.filter((x) => x !== effectiveItemId);
         const nextCraft = { ...craft, known: knownArr, shareable: nextShareable };
         await upsertSave(tx, userId, SAVES_CRAFTING, nextCraft);
       } else {
@@ -362,8 +393,31 @@ export async function POST(req: Request) {
         // inventory.equipment 는 미장착 사본만 카운트 — 동일 ID 가 슬롯에 장착돼 있어도
         // 인벤 스택과 무관하다. equip 은 grade 별로 올바른 카테고리에서 차감.
         // material / skill_book 은 등급 개념 없음 → 평면 카테고리에서 차감.
-        if (itemKind === "equip") {
-          const next = deductGradedEquip(inv, itemId, grade, quantity);
+        if (itemKind === "equip" && instanceId) {
+          // ── 인스턴스 에스크로 ── 셀러 풀에서 instanceId 로 빼서 normalizeInstance(위조/손상
+          // 가드, 클라가 보낸 건 instanceId 뿐) → 스냅샷. itemId/grade/name 은 여기서 파생.
+          const found = deductInstanceById(inv, instanceId);
+          if (!found) {
+            return { error: "insufficient", status: 400 as const };
+          }
+          const snapshot = normalizeInstance(found.instance);
+          if (!snapshot) {
+            return { error: "not tradable", status: 400 as const };
+          }
+          if (!isTradable("equip", snapshot.itemId)) {
+            return { error: "not tradable", status: 400 as const };
+          }
+          const name = getItemName("equip", snapshot.itemId);
+          if (!name) {
+            return { error: "unknown item", status: 400 as const };
+          }
+          effectiveItemId = snapshot.itemId;
+          effectiveGrade = instanceListingGrade(snapshot.craftTier);
+          effectiveName = name;
+          instanceSnapshot = snapshot;
+          nextInv = found.inv;
+        } else if (itemKind === "equip") {
+          const next = deductGradedEquip(inv, effectiveItemId, grade, quantity);
           if (next === null) {
             return { error: "insufficient", status: 400 as const };
           }
@@ -371,7 +425,7 @@ export async function POST(req: Request) {
         } else {
           const categoryKey =
             itemKind === "skill_book" ? "skillBooks" : "materials";
-          const next = deductFromCategory(inv[categoryKey], itemId, quantity);
+          const next = deductFromCategory(inv[categoryKey], effectiveItemId, quantity);
           if (next === null) {
             return { error: "insufficient", status: 400 as const };
           }
@@ -409,11 +463,12 @@ export async function POST(req: Request) {
           sellerId: userId,
           sellerName,
           itemKind,
-          itemId,
-          itemName,
-          grade,
-          quantity,
+          itemId: effectiveItemId,
+          itemName: effectiveName,
+          grade: effectiveGrade,
+          quantity: effectiveQuantity,
           price,
+          instancePayload: instanceSnapshot ?? undefined,
         })
         .returning();
 
@@ -519,7 +574,14 @@ export async function DELETE(req: Request) {
           .where(and(eq(savesKv.userId, userId), eq(savesKv.key, SAVES_INVENTORY)))
           .for("update");
         const inv = (invRows[0]?.value ?? {}) as InventoryShape;
-        if (listing.itemKind === "equip") {
+        if (listing.itemKind === "equip" && listing.instancePayload) {
+          // 인스턴스 매물 취소 — 새 instanceId 로 재-normalize 후 셀러 풀에 복구.
+          const restored = normalizeInstance({
+            ...(listing.instancePayload as object),
+            instanceId: randomUUID(),
+          });
+          nextInv = restored ? addInstance(inv, restored) : inv;
+        } else if (listing.itemKind === "equip") {
           nextInv = addGradedEquip(inv, listing.itemId, listing.grade, listing.quantity);
         } else {
           const next = addToCategory(inv.materials, listing.itemId, listing.quantity);

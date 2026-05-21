@@ -224,3 +224,52 @@ describe("inboxValues — drizzle .values() 호환 매핑", () => {
     expect(v.payload).toEqual({ text: "hi" });
   });
 });
+
+describe("parseInboxPayload — 인스턴스 매물(instance)", () => {
+  const validRing = {
+    instanceId: "ring-1",
+    itemId: "starlit_ring",
+    enhancementLevel: 0,
+    remainingAttempts: 0,
+    rolledBonus: { str: 12, spd: 8 },
+  };
+
+  it("유효한 instance 는 normalizeInstance 통과해 carry", () => {
+    const r = parseInboxPayload("purchase_item", {
+      item_kind: "equip",
+      item_id: "starlit_ring",
+      grade: "base",
+      quantity: 1,
+      instance: validRing,
+    });
+    expect(r?.kind).toBe("purchase_item");
+    expect((r as { instance?: unknown }).instance).toMatchObject({
+      itemId: "starlit_ring",
+      rolledBonus: { str: 12, spd: 8 },
+    });
+  });
+
+  it("손상된 instance 는 payload 전체 null (claim 이 행 보존·소실 방지)", () => {
+    // 롤이 범위 밖(21) → normalizeInstance drop → payload null.
+    expect(
+      parseInboxPayload("purchase_item", {
+        item_kind: "equip",
+        item_id: "starlit_ring",
+        grade: "base",
+        quantity: 1,
+        instance: { ...validRing, rolledBonus: { str: 21, spd: 8 } },
+      }),
+    ).toBeNull();
+  });
+
+  it("instance 없으면 일반 스택형으로 parse (instance undefined)", () => {
+    const r = parseInboxPayload("purchase_item", {
+      item_kind: "equip",
+      item_id: "baseball_bat",
+      grade: "base",
+      quantity: 1,
+    });
+    expect(r?.kind).toBe("purchase_item");
+    expect((r as { instance?: unknown }).instance).toBeUndefined();
+  });
+});

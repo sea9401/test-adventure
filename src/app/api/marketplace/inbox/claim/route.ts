@@ -7,11 +7,17 @@ import { parseInboxPayload } from "@/lib/server/inboxPayload";
 import { upsertSave } from "@/lib/server/savesKv";
 import {
   addGradedEquip,
+  addInstance,
   addToCategory,
   getKnownArr,
   getShareableArr,
   type InventoryShape,
 } from "@/lib/server/marketplace";
+import {
+  normalizeInstance,
+  type EquipmentInstance,
+} from "@/adventure/inventory/equipmentInstances";
+import { randomUUID } from "node:crypto";
 
 const SAVES_CHARACTER = "character.v2";
 const SAVES_INVENTORY = "inventory.v2";
@@ -84,6 +90,8 @@ export async function POST(req: Request) {
 
       let goldTotal = 0;
       const itemsToAdd: AddItem[] = [];
+      const instancesToAdd: EquipmentInstance[] = [];
+      const instancesApplied: EquipmentInstance[] = [];
       const recipesToAdd: AddRecipe[] = [];
       // 파싱 실패 row 는 claimedAt 마킹에서 제외 — 인박스에 남겨 운영진이 점검할 수
       // 있게 함. 자동 claim 했다가 사라지면 보상이 영구 손실됨 (#309 후속 보강).
@@ -113,6 +121,9 @@ export async function POST(req: Request) {
               if (parsed.kind === "purchase_item") {
                 recipesToAdd.push({ id: parsed.item_id });
               }
+            } else if (parsed.instance) {
+              // 인스턴스 매물(강화/부여) — 새 instanceId 는 적용 시 발급. graded 필드는 무시.
+              instancesToAdd.push(parsed.instance);
             } else if (parsed.quantity > 0) {
               itemsToAdd.push({
                 kind: parsed.item_kind,
@@ -171,9 +182,9 @@ export async function POST(req: Request) {
         await upsertSave(tx, userId, SAVES_CHARACTER, nextChar);
       }
 
-      // 인벤토리 갱신 (아이템 있을 때만).
+      // 인벤토리 갱신 (스택 아이템 또는 인스턴스 있을 때만).
       let newInventory: InventoryShape | null = null;
-      if (itemsToAdd.length > 0) {
+      if (itemsToAdd.length > 0 || instancesToAdd.length > 0) {
         const invRows = await tx
           .select()
           .from(savesKv)
@@ -197,6 +208,14 @@ export async function POST(req: Request) {
                 it.quantity,
               ),
             };
+          }
+        }
+        // 인스턴스 매물 — 배송 시 새 instanceId 발급(셀러 잔여 사본과 충돌 방지) + 재-normalize.
+        for (const inst of instancesToAdd) {
+          const fresh = normalizeInstance({ ...inst, instanceId: randomUUID() });
+          if (fresh) {
+            next = addInstance(next, fresh);
+            instancesApplied.push(fresh);
           }
         }
         await upsertSave(tx, userId, SAVES_INVENTORY, next);
@@ -264,6 +283,7 @@ export async function POST(req: Request) {
         claimed: idsToMark,
         goldAdded: goldTotal,
         itemsAdded: itemsToAdd,
+        instancesAdded: instancesApplied,
         recipesAdded,
         recipesSkipped,
         newGold,

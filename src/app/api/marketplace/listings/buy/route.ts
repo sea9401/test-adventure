@@ -9,6 +9,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { isItemKind, MARKETPLACE_FEE_RATE } from "@/lib/server/marketplace";
 import { inboxValues } from "@/lib/server/inboxPayload";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 import { upsertSave } from "@/lib/server/savesKv";
 
 const SAVES_CHARACTER = "character.v2";
@@ -140,6 +141,10 @@ export async function POST(req: Request) {
               item_id: listing.itemId,
               grade: listing.grade,
               quantity: listing.quantity,
+              // 인스턴스 매물(강화/부여)이면 스냅샷 첨부 — claim 시 새 instanceId 로 push.
+              ...(listing.instancePayload
+                ? { instance: listing.instancePayload as EquipmentInstance }
+                : {}),
             },
             message: `${listing.itemName}${
               listing.quantity > 1 ? ` ×${listing.quantity}` : ""

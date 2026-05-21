@@ -161,7 +161,7 @@ const ringInst: EquipmentInstance = {
 };
 const wepInst: EquipmentInstance = {
   instanceId: "wep-1",
-  itemId: "starlit_blade_str",
+  itemId: "starlit_lance_str",
   craftTier: 1,
   enhancementLevel: 4,
   enhanceHistory: ["safe", "safe", "safe", "safe"],

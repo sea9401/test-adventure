@@ -18,6 +18,7 @@ import { type SkillBookId } from "../data/skillBooks";
 import {
   advanceTurn,
   initialBattleState,
+  setBattleLogCollection,
   type BattleState,
   type PlayerAction,
   type PlayerCombat,
@@ -166,6 +167,10 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
   let runningLevel = input.playerLevel;
   let runningExp = input.playerExp ?? 0;
 
+  // 시뮬은 전투 로그를 안 읽으므로 로그 수집을 끈다 — appendLog 의 O(턴²) 배열 복사 제거.
+  // 동기 함수라 try/finally 로 플래그를 반드시 복구(라이브/PvP 로 누수 방지).
+  setBattleLogCollection(false);
+  try {
   while (elapsed < cap && currentHp > 0 && result.battles < maxBattles) {
     // wall-clock 예산 초과 시 즉시 종료 — 이벤트 루프 점유 방지.
     // (전투 한 판 단위로만 체크 — 내측 turn 루프는 짧으므로 충분.)
@@ -299,6 +304,9 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
       }
     }
     if (!battleFinished) break;
+  }
+  } finally {
+    setBattleLogCollection(true);
   }
 
   result.simulatedMs = Math.min(elapsed, cap);

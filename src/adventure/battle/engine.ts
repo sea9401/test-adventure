@@ -472,11 +472,22 @@ export type PlayerAction =
 
 // 로그는 전체 보관 — 종료 후 알림에 첨부되는 battleLog 도 같은 배열을 사용한다.
 // BattleScene 은 스크롤 컨테이너라 길이가 늘어도 UX 영향 없음.
+//
+// 자동사냥 시뮬(offlineSim)은 전투 로그를 전혀 안 읽는데, 수천 전투 × 수천 턴 동안 매
+// appendLog 가 [...log] 로 점점 커지는 배열을 복사해 O(턴²) 의 순수 낭비가 쌓인다. 시뮬은
+// setBattleLogCollection(false) 로 꺼서 appendLog 가 같은 배열 ref 를 그대로 반환(복사·증가
+// 0)하게 한다. simulateOfflineHunt 는 완전 동기라 try/finally 로 감싸면 동시 요청과 간섭하지
+// 않는다. 라이브/PvP 는 기본 on 이라 로그 동작이 byte-identical 하다.
+let battleLogCollectionEnabled = true;
+export function setBattleLogCollection(enabled: boolean): void {
+  battleLogCollectionEnabled = enabled;
+}
+
 export function appendLog(
   log: BattleLogEntry[],
   entry: BattleLogEntry,
 ): BattleLogEntry[] {
-  return [...log, entry];
+  return battleLogCollectionEnabled ? [...log, entry] : log;
 }
 
 // 데미지 최소 비율 — 순수 감산(atk-def)이 0 이하가 되는 "방어력 임계 초과 = 1딜 고정" 절벽을 완화.

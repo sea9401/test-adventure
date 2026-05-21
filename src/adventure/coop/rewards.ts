@@ -74,7 +74,7 @@ const PRIMORDIAL_DRAGON_TIER_REWARDS: Record<CoopRewardTier, CoopReward> = {
 };
 
 // 6막 「별을 잊은 것」 — 잊힌 봉인 월드 레이드. T6 별빛 장신구(잊힌 별의 유물) 획득처.
-// 누적 데미지 티어로 별빛 조각을 쌓고, legend 에 한해 T6 장신구가 5% 로 떨어진다.
+// 누적 데미지 티어로 별빛 조각을 쌓고, silver 부터 T6 장신구가 떨어진다.
 // 무구류 직접 굴림은 두지 않는다 — 이 보스는 "장신구 획득처" 컨셉. (수치는 튜닝 포인트.)
 const FORGOTTEN_STAR_TIER_REWARDS: Record<CoopRewardTier, CoopReward> = {
   bronze: {
@@ -84,24 +84,25 @@ const FORGOTTEN_STAR_TIER_REWARDS: Record<CoopRewardTier, CoopReward> = {
   silver: {
     materials: { starfall_shard: 16 },
     recipes: [],
+    // T6 별빛 고리(랜덤 롤 장신구) — silver 부터 드랍, 티어 오를수록 드랍률↑(덮어쓰기).
+    // 옵션이 인스턴스마다 롤(2/5 × 1~20)이라 진짜 그라인드는 "롤"이지 드랍이 아님 → 드랍은 후하게.
+    ringRoll: { chance: 0.15 },
   },
   gold: {
     materials: { starfall_shard: 28 },
     recipes: [],
-    // T6 별빛 고리(랜덤 롤 장신구) — gold 부터 드랍, 티어 오를수록 드랍률↑(덮어쓰기).
-    // 옵션이 인스턴스마다 롤(2/5 × 1~20)이라 진짜 그라인드는 "롤"이지 드랍이 아님 → 드랍은 후하게.
-    ringRoll: { chance: 0.15 },
+    ringRoll: { chance: 0.25 },
   },
   epic: {
     materials: { starfall_shard: 44 },
     recipes: [],
-    ringRoll: { chance: 0.2 },
+    ringRoll: { chance: 0.35 },
   },
   legend: {
     materials: { starfall_shard: 60 },
     recipes: [],
     titleId: "forgotten_star_slayer",
-    ringRoll: { chance: 0.25 },
+    ringRoll: { chance: 0.45 },
   },
 };
 

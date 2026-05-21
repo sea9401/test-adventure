@@ -36,6 +36,7 @@ import { POTIONS, POTION_IDS, potionMax } from "./data/potions";
 import { CONSUMABLES, CONSUMABLE_IDS } from "./data/consumables";
 import { SKILL_BOOKS, SKILL_BOOK_IDS, type SkillBookId } from "./data/skillBooks";
 import { getAPSkillById } from "./character/apSkills";
+import { isStarlitRing } from "./inventory/starlitRing";
 import type { InventoryState } from "./inventory/useInventory";
 import type { EquippedItem, EquippedSlots } from "./character/types";
 import { enhanceAttemptStatus } from "./character/enhancement";
@@ -295,8 +296,10 @@ export function InventoryView({
                           ? ` +${entry.enhancementLevel}`
                           : "";
                       // 별빛 무구(인스턴스) 한정 — 남은 강화 시도 횟수. +풀강은 +N 표기로 갈음.
+                      // 별빛 고리는 강화 경로가 아니라(remainingAttempts 0) 제외 — "강화 소진" 오표기 방지.
                       const attemptInfo =
                         entry.instanceId &&
+                        !isStarlitRing(entry.id) &&
                         typeof entry.remainingAttempts === "number"
                           ? enhanceAttemptStatus(
                               entry.enhancementLevel ?? 0,

@@ -2,6 +2,10 @@ import { ITEMS, type ItemId } from "@/adventure/data/items";
 import { MATERIALS, type MaterialId } from "@/adventure/data/materials";
 import { getRecipeById } from "@/adventure/data/recipes";
 import { TITLES } from "@/adventure/data/titles";
+import {
+  isStarlitRing,
+  starlitRingStatsFromBonus,
+} from "@/adventure/inventory/starlitRing";
 import type { CoopClaimResponse } from "./useCoopBoss";
 
 type Services = {
@@ -24,6 +28,8 @@ export type AppliedCoopReward = {
   materials: { id: MaterialId; name: string; count: number }[];
   recipes: { id: string; name: string }[];
   equipment: { id: ItemId; name: string }[];
+  /** 롤 인스턴스 보상(별빛 고리) — 옵션 문자열 포함. equipment(스택형)와 별개로 표시. */
+  rings: { instanceId: string; name: string; options: string }[];
   title?: { id: string; name: string };
 };
 
@@ -52,6 +58,7 @@ export function applyCoopReward(
     materials: [],
     recipes: [],
     equipment: [],
+    rings: [],
   };
 
   // retry → 이미 적용된 보상이라 summary 비움. 토스트도 "이미 받음" 으로 호출 측이 처리.
@@ -72,6 +79,22 @@ export function applyCoopReward(
     const itemId = itemIdStr as ItemId;
     const def = ITEMS[itemId as keyof typeof ITEMS];
     applied.equipment.push({ id: itemId, name: def?.name ?? itemIdStr });
+  }
+  // 롤 인스턴스(별빛 고리) — 서버가 inventory.equipmentInstances 에 이미 push 했고, 여기선
+  // 토스트/로그 표시용 요약만 만든다. 옵션 문자열까지 보여 "뭐가 떨어졌는지" 바로 알게.
+  for (const inst of reward.equipmentInstances ?? []) {
+    const def = ITEMS[inst.itemId as keyof typeof ITEMS];
+    const options =
+      isStarlitRing(inst.itemId) && inst.rolledBonus
+        ? starlitRingStatsFromBonus(inst.rolledBonus)
+            .map((s) => `${s.label} ${s.value}`)
+            .join(" · ")
+        : "";
+    applied.rings.push({
+      instanceId: inst.instanceId,
+      name: def?.name ?? inst.itemId,
+      options,
+    });
   }
   if (reward.titleId) {
     // grantTitle — 토스트 + 잔영 컬렉션 체인. adventureLog.titles 는 saves replace 가 이미 박았음.

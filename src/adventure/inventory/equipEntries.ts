@@ -4,6 +4,7 @@ import type { CraftTier } from "../data/craftQuality";
 import { resolveCraftedItem } from "../data/recipes";
 import { resolveEnhancedItem } from "../character/enhancement";
 import type { EnchantSlot } from "../character/enchant";
+import { isStarlitRing, resolveStarlitRing } from "./starlitRing";
 import type { InventoryState } from "./useInventory";
 
 // 보유 장비를 1개당 한 entry 로 펼친다 — 같은 장비라도 묶지 않는다(중첩 X).
@@ -56,14 +57,19 @@ export function buildEquipEntries(inventory: InventoryState): EquipEntry[] {
   }
   // 인스턴스 기반 — 한 자루마다 instanceId 로 고유 entry. 강화 단계가 표시·bonus 에 반영.
   for (const inst of inventory.equipmentInstances ?? []) {
-    const item = resolveEnhancedItem(
-      inst.itemId,
-      inst.craftTier,
-      inst.enhanceHistory ?? inst.enhancementLevel,
-      inst.instanceId,
-      inst.enchantSlots,
-      inst.remainingAttempts,
-    );
+    // 별빛 고리(롤 장신구)는 강화 경로가 아니라 rolledBonus 로 재계산 — resolveEnhancedItem
+    // 으로 풀면 롤 옵션이 사라져 빈 깡통으로 표시된다(장착 경로 useEquipmentActions 와 동일 분기).
+    const item =
+      isStarlitRing(inst.itemId) && inst.rolledBonus
+        ? resolveStarlitRing(inst.rolledBonus, inst.instanceId)
+        : resolveEnhancedItem(
+            inst.itemId,
+            inst.craftTier,
+            inst.enhanceHistory ?? inst.enhancementLevel,
+            inst.instanceId,
+            inst.enchantSlots,
+            inst.remainingAttempts,
+          );
     entries.push({
       key: `inst:${inst.instanceId}`,
       id: inst.itemId,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CoopRewardTier } from "./data";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 import type { BattleLogEntry } from "@/adventure/battle/engine";
 import { readDeviceSessionId } from "@/lib/storage/deviceSession";
 import { useRemoteSave } from "@/lib/storage/SaveProvider";
@@ -91,6 +92,8 @@ export type CoopClaimResponse = {
     materials: Record<string, number>;
     recipes: string[];
     equipment: string[];
+    /** 롤 인스턴스 보상(별빛 고리) — 서버가 inventory 에 push + 응답에 포함. 표시용. */
+    equipmentInstances?: EquipmentInstance[];
     titleId?: string;
   };
   /**

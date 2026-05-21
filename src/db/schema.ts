@@ -284,6 +284,9 @@ export const marketplaceListings = pgTable(
     buyerId: text("buyer_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    // 인스턴스 매물(강화·부여된 별빛 무구/고리)의 EquipmentInstance 스냅샷(instanceId 제외).
+    // null 이면 일반 스택형 매물. non-null 이면 quantity=1, grade 는 craftTier 파생.
+    instancePayload: jsonb("instance_payload"),
   },
   (t) => [
     // 활성 listing 의 아이템 종류·가격 검색용 partial index.

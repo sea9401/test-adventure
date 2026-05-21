@@ -190,6 +190,13 @@
       "when": 1779196800000,
       "tag": "0026_bulletin_titles_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1779368485771,
+      "tag": "0027_glamorous_the_renegades",
+      "breakpoints": true
     }
   ]
 }

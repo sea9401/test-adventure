@@ -4,13 +4,17 @@
 import { describe, expect, it } from "vitest";
 import {
   addGradedEquip,
+  addInstance,
   addToCategory,
   deductFromCategory,
   deductGradedEquip,
+  deductInstanceById,
+  instanceListingGrade,
   inventoryCategoryForGrade,
   isValidGrade,
   type InventoryShape,
 } from "./marketplace";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 
 describe("isValidGrade", () => {
   it("vault variant 키 7종은 허용", () => {
@@ -145,5 +149,62 @@ describe("기존 평면 helpers — 회귀", () => {
   it("addToCategory 변경 없음", () => {
     const next = addToCategory({ x: 1 }, "x", 2);
     expect(next).toEqual({ x: 3 });
+  });
+});
+
+const ringInst: EquipmentInstance = {
+  instanceId: "ring-1",
+  itemId: "starlit_ring",
+  enhancementLevel: 0,
+  remainingAttempts: 0,
+  rolledBonus: { str: 12, spd: 8 },
+};
+const wepInst: EquipmentInstance = {
+  instanceId: "wep-1",
+  itemId: "starlit_blade_str",
+  craftTier: 1,
+  enhancementLevel: 4,
+  enhanceHistory: ["safe", "safe", "safe", "safe"],
+  remainingAttempts: 3,
+  enchantSlots: [{ affixId: "might", value: 7 }],
+};
+
+describe("deductInstanceById", () => {
+  it("instanceId 로 빼내고 새 inv 반환", () => {
+    const inv: InventoryShape = { equipmentInstances: [ringInst, wepInst] };
+    const r = deductInstanceById(inv, "ring-1")!;
+    expect(r.instance).toEqual(ringInst);
+    expect(r.inv.equipmentInstances).toEqual([wepInst]);
+    // 원본 불변
+    expect(inv.equipmentInstances).toHaveLength(2);
+  });
+  it("없으면 null", () => {
+    expect(deductInstanceById({ equipmentInstances: [ringInst] }, "nope")).toBeNull();
+    expect(deductInstanceById({}, "ring-1")).toBeNull();
+  });
+});
+
+describe("addInstance", () => {
+  it("추가", () => {
+    const next = addInstance({ equipmentInstances: [ringInst] }, wepInst);
+    expect(next.equipmentInstances).toEqual([ringInst, wepInst]);
+  });
+  it("instanceId 중복이면 무시(멱등)", () => {
+    const next = addInstance({ equipmentInstances: [ringInst] }, ringInst);
+    expect(next.equipmentInstances).toHaveLength(1);
+  });
+  it("빈 인벤에도 추가", () => {
+    expect(addInstance({}, ringInst).equipmentInstances).toEqual([ringInst]);
+  });
+});
+
+describe("instanceListingGrade", () => {
+  it("craftTier 가 c±N 이면 c{tier}", () => {
+    expect(instanceListingGrade(1)).toBe("c1");
+    expect(instanceListingGrade(-2)).toBe("c-2");
+  });
+  it("0/미지정(고리 등)은 base", () => {
+    expect(instanceListingGrade(0)).toBe("base");
+    expect(instanceListingGrade(undefined)).toBe("base");
   });
 });

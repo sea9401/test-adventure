@@ -6,6 +6,8 @@ import {
   type SkillBook,
   type SkillBookId,
 } from "@/adventure/data/skillBooks";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
+import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
 
 // 거래 성사 수수료. 0 이면 수수료 없음 (UI 에서도 자동 숨김).
 export const MARKETPLACE_FEE_RATE = 0;
@@ -112,7 +114,47 @@ export type InventoryShape = {
   droppedEquipment?: Record<string, Record<string, number>>;
   materials?: Record<string, number>;
   skillBooks?: Record<string, number>;
+  /** 강화·부여된 별빛 무구/고리 — 인스턴스 매물 거래용. */
+  equipmentInstances?: EquipmentInstance[];
 };
+
+// ── 인스턴스(강화/부여 별빛 무구·고리) 매물 헬퍼 ──────────────────────────────
+// 인스턴스는 스택형 grade 카테고리가 아니라 equipmentInstances 배열에 instanceId 로 고유 저장된다.
+// 거래소는 등록 시 셀러 풀에서 빼고(에스크로) 배송 시 바이어 풀에 넣는다 — 데이터(강화 history·
+// 부여 슬롯·롤)는 verbatim 보존, 검증/정규화는 호출 측이 normalizeInstance 로.
+
+// instanceId 로 인스턴스 1개 빼냄. 성공 시 빼낸 인스턴스 + 새 inv, 없으면 null.
+export function deductInstanceById(
+  inv: InventoryShape,
+  instanceId: string,
+): { inv: InventoryShape; instance: EquipmentInstance } | null {
+  const list = inv.equipmentInstances ?? [];
+  const found = list.find((i) => i.instanceId === instanceId);
+  if (!found) return null;
+  return {
+    inv: { ...inv, equipmentInstances: list.filter((i) => i.instanceId !== instanceId) },
+    instance: found,
+  };
+}
+
+// 인스턴스 1개 추가(instanceId 중복이면 무시 — 재지급/재시도 멱등). 배송/환불에서 사용.
+export function addInstance(
+  inv: InventoryShape,
+  instance: EquipmentInstance,
+): InventoryShape {
+  const list = inv.equipmentInstances ?? [];
+  if (list.some((i) => i.instanceId === instance.instanceId)) return inv;
+  return { ...inv, equipmentInstances: [...list, instance] };
+}
+
+// 인스턴스 매물의 grade(변형 키) — CHECK 제약을 만족시키려 craftTier 에서 파생.
+// craftTier ∈ {-2,-1,1,2} → c{tier}, 그 외(0/미지정, 예: 별빛 고리) → base.
+export function instanceListingGrade(craftTier: number | undefined): EquipVariantKey {
+  if (craftTier === -2 || craftTier === -1 || craftTier === 1 || craftTier === 2) {
+    return `c${craftTier}`;
+  }
+  return "base";
+}
 
 // 장비 등급 variant 키 — vault 변형 키와 동일 규약(useInventory.ts VAULT_VARIANT_KEYS).
 //  base: equipment[]                          (일반)

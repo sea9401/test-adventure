@@ -57,6 +57,8 @@ export type MonsterSkill =
       dmgPerStack: number;
       threshold: number;
       deepHpFraction?: number;
+      /** 한기 스택 상한. 미지정 = 무제한. 폭주(무한 누적) 방지 — DoT 최대치를 dmgPerStack×maxStacks 로 고정. */
+      maxStacks?: number;
     };
 
 export type Monster = {
@@ -2026,6 +2028,8 @@ export const MONSTERS: Record<string, Monster> = {
       dmgPerStack: 45,
       threshold: 4,
       deepHpFraction: 0.25,
+      // 스택 상한 6 — 무한 누적 폭주 방지. DoT 최대 45×6=270/페이즈로 고정(4스택부터 발동).
+      maxStacks: 6,
     },
     auraKind: "starfall",
     // 4대 확정(1 + 3) — 잔영(220, 3~4대) 위 한 칸. 타격마다 한기 +1 이라 한 페이즈에 +4 스택.

@@ -2294,7 +2294,11 @@ export function advanceTurn(
         ? skill.perHit * 2
         : skill.perHit
       : 0;
-  const chillStacksNext = state.stacks.chillStacks + chillAdd;
+  // maxStacks 지정 시 상한 클램프 — 무한 누적 폭주 방지.
+  const chillStacksNext =
+    skill?.kind === "chill" && skill.maxStacks !== undefined
+      ? Math.min(skill.maxStacks, state.stacks.chillStacks + chillAdd)
+      : state.stacks.chillStacks + chillAdd;
   // 격노 — 적 HP 가 maxHp×hpFraction 미만으로 떨어지는 순간 1회 발동, ATK +atkBonus (전투 종료까지 유지).
   const enrageReady =
     skill?.kind === "enrage" &&

@@ -867,6 +867,28 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     ).toBe(true);
   });
 
+  it("maxStacks 지정 시 누적이 상한에서 멈춘다 (폭주 방지)", () => {
+    const enemy = chillEnemy({
+      skill: {
+        kind: "chill",
+        name: "선천의 한기",
+        perHit: 2,
+        dmgPerStack: 3,
+        threshold: 4,
+        maxStacks: 5,
+      },
+    });
+    const s0 = initialBattleState(tank, enemy, "P");
+    // 스택 4 에서 적 공격 적중(+2) → 6 이지만 maxStacks 5 로 클램프.
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 4 },
+    };
+    const after = advanceTurn(primed, tank, "P");
+    expect(after.stacks.chillStacks).toBe(5);
+  });
+
   it("threshold 미만이면 DoT 가 발동하지 않는다", () => {
     const enemy = chillEnemy();
     const s0 = initialBattleState(tank, enemy, "P");

@@ -53,6 +53,22 @@ export const COOP_BOSSES: Partial<Record<RegionId, CoopBossDef>> = {
     lockedMessage:
       "뼈비늘 노룡을 한 번 쓰러뜨려야 둥지의 어미가 자네를 알아본다. 묘지의 보스를 먼저 잡고 다시 오라.",
   },
+  // 6막 「별을 잊은 것」 — 잊힌 봉인의 상시 협동(월드) 레이드. 별빛 교차로 아래.
+  // 누적 데미지 비동기(매칭 불필요) + 자연회복 없음(꾸준히 깎으면 진척 보존). 한기 기믹은
+  // monster("별을 잊은 것") 의 chill 스킬. 자격 게이트 = 별빛 잔영(성채) 정리 — 별빛 권역을
+  // 깊이 정리한 자에게만 봉인이 반응한다는 의미(튜닝 시 잔영 3종 종합 플래그로 강화 가능).
+  forgotten_seal: {
+    monsterName: "별을 잊은 것",
+    maxHp: 150_000, // 2h 리스폰 상시 레이드 — 활성 소수가 리스폰 주기 안에 처치 가능한 양 (튜닝 포인트)
+    expirationMs: 365 * 24 * 60 * 60 * 1000, // 1y (실질 무한 — 죽을 때까지)
+    respawnMs: 2 * 60 * 60 * 1000, // 2h — 처치 후 2시간이면 다시 깨어난다 (상시 레이드)
+    isWorldBoss: true,
+    onDefeatFlag: "forgotten_star_felled",
+    onAttackFlag: "forgotten_star_engaged",
+    requiredFlag: "starlit_gate_quelled",
+    lockedMessage:
+      "별빛 잔영을 깊이 잠재운 자에게만 봉인이 숨을 내준다. 별빛 권역의 잔영을 먼저 정리하고 다시 오라.",
+  },
 };
 
 // 5단계 reward tier — 누적 데미지 / maxHp 비율 임계.
@@ -97,4 +113,4 @@ export function coopTierForRatio(ratio: number): CoopRewardTier | null {
 
 // 1회 공격 시뮬 턴 수 + 공격 간 쿨다운.
 export const COOP_ATTACK_TURNS = 20;
-export const COOP_ATTACK_COOLDOWN_MS = 5 * 60 * 1000; // 5분
+export const COOP_ATTACK_COOLDOWN_MS = 10 * 60 * 1000; // 10분 (전역 — 모든 협동 보스 공통)

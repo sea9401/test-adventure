@@ -352,6 +352,14 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "태고의 노룡 월드 보스 처치에서 누적 데미지 60% 이상 (legend 티어)",
     category: "battle",
   },
+  // 6막 「별을 잊은 것」 — 잊힌 봉인 월드 레이드 legend 티어 칭호.
+  forgotten_star_slayer: {
+    id: "forgotten_star_slayer",
+    name: "잊힌 것을 기억한 자",
+    description: "별빛도 온기도 잊은 것을, 끝내 잊지 않고 잠재운 자. 시린 결이 한 사람의 이름을 기억한다.",
+    condition: "잊힌 봉인 월드 보스에서 누적 데미지 60% 이상 (legend 티어)",
+    category: "endgame",
+  },
   // ── 후반 3보스 도전 칭호 (3 보스 × 3 종 = 9) — 유성 도전 의뢰 라인 보상.
   // 2026-05-19 협동→솔로 전환 + 카운트 축소(survive ×2→×1) 이후 condition 갱신.
   starlight_witness: {

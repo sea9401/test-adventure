@@ -1997,6 +1997,40 @@ export const MONSTERS: Record<string, Monster> = {
     onDefeatTitleId: "starlit_gate_breaker",
     bonusAttackChancePct: 220,
   },
+  // 6막 「별을 잊은 것」 — 잊힌 봉인의 상시 협동(월드) 레이드 보스. coop maxHp 는 coop/data.ts.
+  // 시그니처 기믹 = 한기(chill): 적중마다 한기 스택, threshold 이상이면 적 페이즈마다 스택당
+  // 고정 피해(DEF·보호막 무시). 저HP(deepHpFraction) 에선 누적 2배 = "깊은 한기" 피날레.
+  // 무한 탱킹을 막는 시간압 — 별빛도 온기도 잊은 것의 정체. 처치 플래그/칭호는 coop 경로
+  // (COOP_BOSSES.onDefeatFlag + rewards.legend.titleId)로 처리하므로 monster 엔 안 둔다.
+  // 수치는 잔영(Lv106) 위 한 칸 기준 초안 — 밸런스 튜닝 포인트. 이미지는 추후(생략 안전).
+  "별을 잊은 것": {
+    name: "별을 잊은 것",
+    tags: ["golem"],
+    hp: 24000,
+    atk: 340,
+    def: 180,
+    spd: 5,
+    exp: 4000,
+    dropQualityBias: 4,
+    armorVulnerable: 0.3,
+    playerDefVulnerable: 0.28,
+    phaseTrigger: {
+      hpFraction: 0.5,
+      defBonus: 20,
+      message: "봉인의 결이 갈라지며, 잊힌 것이 처음으로 숨을 깊게 들이쉰다. 사위의 온기가 빨려 든다.",
+    },
+    skill: {
+      kind: "chill",
+      name: "망각의 한기",
+      perHit: 1,
+      dmgPerStack: 45,
+      threshold: 4,
+      deepHpFraction: 0.25,
+    },
+    auraKind: "starfall",
+    // 4대 확정(1 + 3) — 잔영(220, 3~4대) 위 한 칸. 타격마다 한기 +1 이라 한 페이즈에 +4 스택.
+    bonusAttackChancePct: 300,
+  },
   // 훈련용 더미 — 일반 인카운터 풀에 들어가지 않는 스파링 전용 몬스터.
   // 보상/패널티 모두 우회 (SparringView 가 onBattleEnd 를 호출하지 않음).
   "훈련용 허수아비": {

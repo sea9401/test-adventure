@@ -49,7 +49,9 @@ export type RegionId =
   | "starlit_reef"
   | "starlit_keep"
   // 별빛 권역 중앙 허브 — NPC·퀘스트 없는 town 기능 노드(회복·빠른이동·네 지역 연결).
-  | "starlit_crossroads";
+  | "starlit_crossroads"
+  // 6막 「별을 잊은 것」 — 별빛 교차로 아래 더 오래된 봉인. 상시 협동(월드) 레이드 아레나.
+  | "forgotten_seal";
 
 // 권역 — 맵 뷰를 묶어서 보여주기 위한 그룹. 이동 그래프(edges)와 무관한 표시/네비게이션 전용.
 // MapCanvas 가 활성 권역에 속한 지역들의 bounds 로 자동 줌/포커스한다.
@@ -113,6 +115,7 @@ export const REGION_ZONE: Record<RegionId, ZoneId> = {
   starlit_reef: "starlit",
   starlit_keep: "starlit",
   starlit_crossroads: "starlit",
+  forgotten_seal: "starlit",
   tower_foot: "tower",
 };
 
@@ -835,6 +838,19 @@ export const WORLD_MAP: WorldMap = {
       tags: ["town"],
       recommendedLevel: 102,
     },
+    // 6막 「별을 잊은 것」 — 별빛 교차로 바로 아래, 별빛보다 더 오래된 봉인이 가라앉은 자리.
+    // 상시 협동(월드) 레이드 보스 아레나. 일반 사냥(enemies) 없이 보스 도전만 — COOP_BOSSES
+    // 가 BossSubView 에 협동 카드를 띄운다. 배경은 ui/forgotten_seal.webp fallback(추후).
+    {
+      id: "forgotten_seal",
+      name: "잊힌 봉인",
+      description:
+        "별빛 교차로 발치가 갈라진 틈. 별이 떨어지기 한참 전부터 무언가가 여기 봉인되어 있었다. 빛도 온기도 닿지 않는 바닥에서, 잊힌 것이 천천히 숨을 고른다.",
+      position: { x: 500, y: 690 },
+      biome: "ruins",
+      enemies: [],
+      recommendedLevel: 108,
+    },
   ],
   edges: [
     { from: "village", to: "plains" },
@@ -1094,6 +1110,14 @@ export const WORLD_MAP: WorldMap = {
       from: "starlit_keep",
       to: "starlit_crossroads",
       requires: { kind: "visited", regionId: "starlit_keep" },
+    },
+    // 별빛 교차로 → 잊힌 봉인(6막 레이드 아레나). 교차로를 거쳐야 닿는다. 보스 자격 게이트는
+    // COOP_BOSSES.requiredFlag(별빛 잔영 정리) 가 보스 카드에서 따로 건다 — 길은 열려 있되
+    // 자격 없으면 잠금 카드만 보이는 dragon_nest 패턴과 동일.
+    {
+      from: "starlit_crossroads",
+      to: "forgotten_seal",
+      requires: { kind: "visited", regionId: "starlit_crossroads" },
     },
     // 마을 간 직통 이동 (fast-travel) — 양쪽 마을을 모두 발견했을 때만 통행.
     { from: "village", to: "diola", requires: { kind: "visited", regionId: "diola" } },

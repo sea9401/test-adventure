@@ -13,7 +13,7 @@
 //   옛 인스턴스는 7 로 마이그레이션.
 
 import type { CraftTier } from "@/adventure/data/craftQuality";
-import type { ItemId } from "@/adventure/data/items";
+import type { EquipBonus, ItemId } from "@/adventure/data/items";
 import {
   ENHANCEABLE_ITEM_IDS,
   ENHANCE_INITIAL_ATTEMPTS,
@@ -21,6 +21,7 @@ import {
   ENHANCE_MODE_SPEC,
   type EnhanceMode,
 } from "@/adventure/character/enhancement";
+import { isStarlitRing, isValidStarlitRingBonus } from "./starlitRing";
 import {
   ENCHANT_AFFIXES,
   enchantSlotCapacity,
@@ -43,6 +44,11 @@ export type EquipmentInstance = {
   remainingAttempts: number;
   /** 부여된 마법부여 슬롯. 강화 단계별 capacity (+2/+4/+7→1/2/3) 이하. 재부여 불가. */
   enchantSlots?: EnchantSlot[];
+  /**
+   * 별빛 고리(롤 장신구) 한정 — 드랍 시 롤된 옵션({str/vit/dex/spd/luk 중 2개 × 1~20}).
+   * 강화/부여 메타와 배타: 링은 enhancementLevel 0 / remainingAttempts 0 / enchantSlots 없음.
+   */
+  rolledBonus?: EquipBonus;
 };
 
 // 인스턴스 ID 생성 — 서버/클라 모두 randomUUID 가 있으면 그걸, 없으면 fallback.
@@ -65,6 +71,18 @@ export function normalizeInstance(raw: unknown): EquipmentInstance | null {
   const r = raw as Partial<EquipmentInstance>;
   if (typeof r.instanceId !== "string" || !r.instanceId) return null;
   if (typeof r.itemId !== "string") return null;
+  // 별빛 고리(롤 장신구) — 강화 경로와 별개. rolledBonus 가 유효해야 살고, 강화/부여 메타는
+  // 무시(0/없음 고정). 위조 가드: isValidStarlitRingBonus 가 개수·범위·키 전부 검사.
+  if (isStarlitRing(r.itemId)) {
+    if (!isValidStarlitRingBonus(r.rolledBonus)) return null;
+    return {
+      instanceId: r.instanceId,
+      itemId: r.itemId as ItemId,
+      enhancementLevel: 0,
+      remainingAttempts: 0,
+      rolledBonus: { ...(r.rolledBonus as EquipBonus) },
+    };
+  }
   // itemId 화이트리스트 — 인스턴스 풀에는 강화 대상 아이템만. 다른 itemId 가 박힌
   // 위조 인스턴스는 drop (장착·강화 endpoint 가 itemId 자체를 신뢰하지 않게 한다).
   if (!ENHANCEABLE_ITEM_IDS.has(r.itemId as ItemId)) return null;

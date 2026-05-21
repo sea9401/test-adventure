@@ -15,6 +15,11 @@ import { ITEMS, findItemId } from "@/adventure/data/items";
 import { resolveCraftedItem } from "@/adventure/data/recipes";
 import { resolveDroppedItem } from "@/adventure/data/dropQuality";
 import { ENHANCE_MAX_LEVEL, isEnhanceable, resolveEnhancedItem } from "./enhancement";
+import {
+  isStarlitRing,
+  isValidStarlitRingBonus,
+  resolveStarlitRing,
+} from "@/adventure/inventory/starlitRing";
 import type { EquippedItem } from "./types";
 
 export function rehydrateEquippedItem(
@@ -23,6 +28,14 @@ export function rehydrateEquippedItem(
   if (!saved) return null;
   const id = findItemId(saved);
   if (!id) return null;
+  // 별빛 고리(롤 장신구) — 강화 경로가 아니라 base + rolledBonus 로 재계산. instanceId + 유효 롤 필수.
+  if (isStarlitRing(id)) {
+    if (saved.instanceId && isValidStarlitRingBonus(saved.rolledBonus)) {
+      return resolveStarlitRing(saved.rolledBonus, saved.instanceId);
+    }
+    // 롤/instanceId 누락 — 옵션 없는 base 로라도 살려 슬롯에서 사라지지 않게.
+    return ITEMS[id];
+  }
   // 인스턴스 기반(강화 가능 장비). instanceId 가 박혀 있어야 정상.
   if (isEnhanceable(id)) {
     if (typeof saved.instanceId === "string" && saved.instanceId) {

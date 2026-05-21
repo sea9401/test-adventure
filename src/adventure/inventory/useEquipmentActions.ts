@@ -20,6 +20,10 @@ import {
   isEnhanceable,
   resolveEnhancedItem,
 } from "@/adventure/character/enhancement";
+import {
+  isStarlitRing,
+  resolveStarlitRing,
+} from "@/adventure/inventory/starlitRing";
 import type { EquippedItem } from "@/adventure/character/types";
 import type { useCharacterState } from "@/adventure/character/useCharacterState";
 import type { useInventory } from "@/adventure/inventory/useInventory";
@@ -62,6 +66,17 @@ export function useEquipmentActions(deps: {
     if (!item) return;
     const id = findItemId(item);
     if (!id) return;
+    // 별빛 고리(롤 장신구) — instanceId + rolledBonus 로 풀에 복원. 롤 보존.
+    if (item.instanceId && isStarlitRing(id) && item.rolledBonus) {
+      inventory.addEquipmentInstance({
+        instanceId: item.instanceId,
+        itemId: id,
+        enhancementLevel: 0,
+        remainingAttempts: 0,
+        rolledBonus: item.rolledBonus,
+      });
+      return;
+    }
     // 인스턴스 기반(별빛 재단 무구) — instanceId 로 풀에 복원. 강화 단계 보존.
     if (item.instanceId && isEnhanceable(id)) {
       inventory.addEquipmentInstance({
@@ -100,14 +115,17 @@ export function useEquipmentActions(deps: {
     const inst = inventory.findEquipmentInstance(instanceId);
     if (!inst) return;
     if (!inventory.consumeEquipmentInstance(instanceId)) return;
-    const equipItem: EquippedItem = resolveEnhancedItem(
-      inst.itemId,
-      inst.craftTier,
-      inst.enhanceHistory ?? inst.enhancementLevel,
-      inst.instanceId,
-      inst.enchantSlots,
-      inst.remainingAttempts,
-    );
+    const equipItem: EquippedItem =
+      isStarlitRing(inst.itemId) && inst.rolledBonus
+        ? resolveStarlitRing(inst.rolledBonus, inst.instanceId)
+        : resolveEnhancedItem(
+            inst.itemId,
+            inst.craftTier,
+            inst.enhanceHistory ?? inst.enhancementLevel,
+            inst.instanceId,
+            inst.enchantSlots,
+            inst.remainingAttempts,
+          );
     returnEquippedToInventory(
       characterStateHook.equippedSlots[equipItem.slot],
     );

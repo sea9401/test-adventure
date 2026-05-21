@@ -24,6 +24,7 @@ import {
 } from "../crafting/disassemble";
 import type { EquippedSlots } from "../character/types";
 import { isEnhanceable } from "../character/enhancement";
+import { isStarlitRing } from "./starlitRing";
 import {
   normalizeInstances,
   type EquipmentInstance,
@@ -385,7 +386,7 @@ export function useInventory() {
   // craft 결과(서버 권위) 가 instance 를 만들어 내려 주면 클라가 받아 add. 강화는 enhance.
   // 차감은 equip / disassemble / craft 가 재료로 쓸 때 (현재는 equip 만).
   const addEquipmentInstance = useCallback((inst: EquipmentInstance) => {
-    if (!isEnhanceable(inst.itemId)) return;
+    if (!isEnhanceable(inst.itemId) && !isStarlitRing(inst.itemId)) return;
     const cur = stateRef.current;
     const list = cur.equipmentInstances ?? [];
     // 동일 instanceId 중복 방지 — 서버 권위지만 클라 reconciliation 시 dedupe.

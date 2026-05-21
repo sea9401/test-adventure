@@ -11,6 +11,11 @@
 import type { MaterialId } from "@/adventure/data/materials";
 import type { ItemId } from "@/adventure/data/items";
 import type { CoopRewardTier } from "./data";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
+import {
+  STARLIT_RING_ITEM_ID,
+  rollStarlitRingBonus,
+} from "@/adventure/inventory/starlitRing";
 
 export type CoopReward = {
   materials: Partial<Record<MaterialId, number>>;
@@ -22,6 +27,11 @@ export type CoopReward = {
   recipeRolls?: { recipeId: string; chance: number }[];
   /** 장비 드랍 굴림: { itemId, chance } — chance 비율로 그 장비를 인벤토리에 추가. legend 티어의 물욕 드랍용. */
   equipRolls?: { itemId: ItemId; chance: number }[];
+  /**
+   * 별빛 고리(롤 인스턴스) 드랍 — chance 비율로 옵션이 랜덤 롤된 인스턴스 1개 지급.
+   * 롤·instanceId 모두 seed 에서 결정(retry 시 dedup 안전). 잊힌 봉인 legend 전용.
+   */
+  ringRoll?: { chance: number };
   /** 부여할 칭호. */
   titleId?: string;
 };
@@ -87,7 +97,9 @@ const FORGOTTEN_STAR_TIER_REWARDS: Record<CoopRewardTier, CoopReward> = {
     materials: { starfall_shard: 30 },
     recipes: [],
     titleId: "forgotten_star_slayer",
-    // 장신구 드롭은 옵션 확정 전까지 보류 — legend 는 별빛 조각 + 칭호만. 추후 별도 PR 로 추가.
+    // T6 별빛 고리(랜덤 롤 장신구) — legend 도달자에게 10%. 옵션은 인스턴스마다 롤(2/5 × 1~20)
+    // 이라, 드랍은 자주 나도 "원하는 조합" 은 반복 파밍이 강제된다.
+    ringRoll: { chance: 0.1 },
   },
 };
 
@@ -141,6 +153,8 @@ export type ResolvedCoopReward = {
   recipes: string[];
   /** equipRolls 에서 통과한 itemId 들. */
   equipment: ItemId[];
+  /** ringRoll 통과 시 생성된 롤 인스턴스(별빛 고리). 인벤토리 equipmentInstances 에 push. */
+  equipmentInstances: EquipmentInstance[];
   titleId?: string;
 };
 
@@ -192,10 +206,23 @@ export function resolveCoopReward(
       if (rng() < roll.chance) equipment.push(roll.itemId);
     }
   }
+  // 별빛 고리 — chance 통과 시 옵션 롤된 인스턴스 1개. instanceId 도 seed 에서 결정해
+  // retry 시 같은 instanceId → 인벤 dedup 으로 중복 지급 방지(claim 측 + addInstance 둘 다).
+  const equipmentInstances: EquipmentInstance[] = [];
+  if (reward.ringRoll && rng() < reward.ringRoll.chance) {
+    equipmentInstances.push({
+      instanceId: `starlit-ring-${(seed >>> 0).toString(36)}`,
+      itemId: STARLIT_RING_ITEM_ID,
+      enhancementLevel: 0,
+      remainingAttempts: 0,
+      rolledBonus: rollStarlitRingBonus(rng),
+    });
+  }
   return {
     materials: reward.materials,
     recipes,
     equipment,
+    equipmentInstances,
     titleId: reward.titleId,
   };
 }

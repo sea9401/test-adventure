@@ -85,6 +85,22 @@ function applyEquipment(
   return { ...inv, equipment: next };
 }
 
+// reward.equipmentInstances → inventory.equipmentInstances 에 push (별빛 고리 롤 인스턴스).
+// instanceId dedup — resolveCoopReward 가 seed 결정적 id 를 주므로 retry 시 중복 지급 안 됨.
+function applyEquipmentInstances(
+  inv: Record<string, unknown>,
+  instances: ResolvedCoopReward["equipmentInstances"],
+): Record<string, unknown> {
+  if (instances.length === 0) return inv;
+  const cur = Array.isArray(inv.equipmentInstances)
+    ? (inv.equipmentInstances as { instanceId?: string }[])
+    : [];
+  const ids = new Set(cur.map((i) => i?.instanceId));
+  const add = instances.filter((i) => !ids.has(i.instanceId));
+  if (add.length === 0) return inv;
+  return { ...inv, equipmentInstances: [...cur, ...add] };
+}
+
 // reward.recipes → crafting.known 추가 (미보유만). shareable 도 같이 — learnRecipe
 // 정책 그대로 (NPC 보상 결).
 function applyRecipes(
@@ -220,6 +236,7 @@ export async function handleCoopClaim(
       (saves["inventory.v2"] as Record<string, unknown> | undefined) ?? {};
     let invNext = applyMaterials(invPrev, resolved.materials);
     invNext = applyEquipment(invNext, resolved.equipment);
+    invNext = applyEquipmentInstances(invNext, resolved.equipmentInstances);
     const craftingNext = applyRecipes(
       (saves["crafting.v2"] as Record<string, unknown> | undefined) ?? {},
       resolved.recipes,

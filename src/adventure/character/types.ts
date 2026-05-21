@@ -1,4 +1,4 @@
-import type { EquipItem } from "@/adventure/data/items";
+import type { EquipBonus, EquipItem } from "@/adventure/data/items";
 import type { CraftTier } from "@/adventure/data/craftQuality";
 import type { DropQuality } from "@/adventure/data/dropQuality";
 import type { StatKey } from "@/adventure/data/stats";
@@ -32,6 +32,8 @@ export type EquippedItem = EquipItem & {
   instanceId?: string;
   /** 인스턴스 기반 장비 한정. 부여된 마법부여 슬롯. 회수 시 풀에 복원하기 위해 들고 다닌다. */
   enchantSlots?: EnchantSlot[];
+  /** 별빛 고리(롤 장신구) 한정. 드랍 시 롤된 옵션. 회수 시 풀에 복원하기 위해 들고 다닌다. */
+  rolledBonus?: EquipBonus;
 };
 
 export type EquippedSlots = {

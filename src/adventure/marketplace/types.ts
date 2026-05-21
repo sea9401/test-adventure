@@ -3,6 +3,7 @@
 // 의 fetchListings/buyListing/claimInbox 가 wire→internal 매핑을 수행.
 
 import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 
 export type ItemKind = "equip" | "material" | "recipe" | "skill_book";
 
@@ -20,6 +21,8 @@ export type Listing = {
   quantity: number;
   price: number;
   createdAt: string;
+  // 인스턴스 매물(강화/부여 별빛 무구·고리) — 있으면 강화/부여/롤 표시에 사용. 서버 GET 이 surface.
+  instance?: EquipmentInstance;
 };
 
 export type ListResponse = {

@@ -41,6 +41,7 @@ export function InboxView() {
   const addDroppedEquipment = inventory.addDroppedEquipment;
   const addMaterial = inventory.addMaterial;
   const addSkillBook = inventory.addSkillBook;
+  const addEquipmentInstance = inventory.addEquipmentInstance;
   const addGold = characterStateHook.addGold;
   // 거래/우편으로 받은 제작서는 공유 토큰 없이 학습.
   const learnRecipeFromTrade = crafting.learnRecipeFromTrade;
@@ -148,6 +149,10 @@ export function InboxView() {
             addMaterial(it.id as MaterialId, it.quantity);
           }
         }
+      }
+      // 인스턴스 매물 수령(강화/부여 별빛 무구·고리) — 새 instanceId 로 풀에 추가(서버가 발급).
+      for (const inst of r.instancesAdded ?? []) {
+        addEquipmentInstance(inst);
       }
       // 거래/우편 출처 학습 — 새로 받은 것만 known 에 추가. 토큰 부여는 X
       // (재거래 사이클로 토큰을 영구 갱신하지 못하도록).

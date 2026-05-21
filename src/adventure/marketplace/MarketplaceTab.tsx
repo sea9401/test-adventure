@@ -34,11 +34,13 @@ export function MarketplaceTab() {
   const consumeDroppedEquipment = inventory.consumeDroppedEquipment;
   const consumeMaterial = inventory.consumeMaterial;
   const consumeSkillBook = inventory.consumeSkillBook;
+  const consumeEquipmentInstance = inventory.consumeEquipmentInstance;
   const addEquipment = inventory.addEquipment;
   const addCraftedEquipment = inventory.addCraftedEquipment;
   const addDroppedEquipment = inventory.addDroppedEquipment;
   const addMaterial = inventory.addMaterial;
   const addSkillBook = inventory.addSkillBook;
+  const addEquipmentInstance = inventory.addEquipmentInstance;
   const addGold = characterStateHook.addGold;
   const currentGold = character.gold;
   const inboxCount = inbox.count;
@@ -92,7 +94,11 @@ export function MarketplaceTab() {
         await cancelListing(remote, listing.id);
         // 서버가 인벤토리/공유토큰에 환불했으므로 클라 로컬 상태도 동일 변경 —
         // 그래야 useRemotePatch 가 보낼 다음 PATCH 가 일관된 값을 보낸다.
-        if (listing.itemKind === "equip") {
+        if (listing.itemKind === "equip" && listing.instance) {
+          // 인스턴스 매물 취소 — 로컬 풀에 복구(서버는 새 instanceId 로 복구, 다음 save
+          // 동기화 때 서버 진실로 수렴). 표시 즉시성용.
+          addEquipmentInstance(listing.instance);
+        } else if (listing.itemKind === "equip") {
           if (Object.prototype.hasOwnProperty.call(ITEMS, listing.itemId)) {
             // 변형 키 ('base'|'c±N'|'dN') 별로 알맞은 storage 로 환불.
             // 미지정/잘못된 키 → base 로 fallback (구 데이터 호환).
@@ -133,6 +139,7 @@ export function MarketplaceTab() {
       addMaterial,
       learnRecipe,
       addSkillBook,
+      addEquipmentInstance,
     ],
   );
 
@@ -212,6 +219,9 @@ export function MarketplaceTab() {
               } else {
                 consumeEquipment(s.itemId as ItemId, 1);
               }
+            } else if (s.kind === "equip_instance") {
+              // 인스턴스 매물 등록 — 로컬 풀에서도 제거(서버 에스크로 미러).
+              consumeEquipmentInstance(s.instanceId);
             } else if (s.kind === "material") {
               consumeMaterial(s.itemId as MaterialId, qty);
             } else if (s.kind === "recipe") {

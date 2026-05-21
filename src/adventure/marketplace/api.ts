@@ -1,5 +1,6 @@
 import type { RemoteSave } from "@/lib/storage/remote";
 import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
 import type { ItemKind, ListResponse, Listing, SortMode } from "./types";
 
 // 서버 wire schema (historically `grade` 필드). 클라 내부는 모두 `variantKey` — 본 파일이
@@ -53,6 +54,8 @@ export type CreateParams = {
   variantKey?: EquipVariantKey;
   quantity: number;
   price: number;
+  // 인스턴스 매물 — 지정 시 서버가 셀러 인벤의 해당 인스턴스를 거래(itemId/grade/quantity 서버 파생).
+  instanceId?: string;
 };
 
 export type CreateResult = {
@@ -81,6 +84,7 @@ export async function createListing(
     quantity: params.quantity,
     price: params.price,
     grade: params.variantKey ?? "base",
+    ...(params.instanceId ? { instanceId: params.instanceId } : {}),
   };
   const r = await fetch("/api/marketplace/listings", {
     method: "POST",
@@ -188,6 +192,8 @@ export type ClaimResult = {
     variantKey: EquipVariantKey;
     quantity: number;
   }[];
+  // 인스턴스 매물 수령분(강화/부여 별빛 무구·고리) — 새 instanceId 발급된 상태.
+  instancesAdded?: EquipmentInstance[];
   recipesAdded: string[];
   recipesSkipped: string[];
   newGold: number | null;

@@ -16,6 +16,10 @@ import {
 } from "@/adventure/data/dropQuality";
 import type { Listing } from "./types";
 import { hasOwn, listingDetail } from "./listingDetail";
+import {
+  isStarlitRing,
+  starlitRingStatsFromBonus,
+} from "@/adventure/inventory/starlitRing";
 
 // listing.variantKey ("base"|"c±N"|"dN") → (craftTier, dropQuality) — UI 라벨용.
 function parseListingVariantKey(variantKey: string): {
@@ -113,6 +117,21 @@ function ListingCardImpl({
               </span>
             )}
           </span>
+          {item.instance ? (
+            <span className="mt-0.5 block text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              {item.instance.enhancementLevel > 0
+                ? `+${item.instance.enhancementLevel} `
+                : ""}
+              {isStarlitRing(item.instance.itemId) && item.instance.rolledBonus
+                ? starlitRingStatsFromBonus(item.instance.rolledBonus)
+                    .map((s) => `${s.label}${s.value}`)
+                    .join(" · ")
+                : item.instance.enchantSlots &&
+                    item.instance.enchantSlots.length > 0
+                  ? `부여 ${item.instance.enchantSlots.length}종`
+                  : ""}
+            </span>
+          ) : null}
           <span className="mt-0.5 block text-[11px] text-zinc-500">
             {formatRelativeTime(item.createdAt)}
             {(() => {

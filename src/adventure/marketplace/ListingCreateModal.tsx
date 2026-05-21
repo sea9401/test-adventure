@@ -26,6 +26,11 @@ import {
 } from "@/adventure/data/skillBooks";
 import type { InventoryState } from "@/adventure/inventory/useInventory";
 import type { EquipVariantKey } from "@/adventure/inventory/vaultOps";
+import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
+import {
+  isStarlitRing,
+  starlitRingStatsFromBonus,
+} from "@/adventure/inventory/starlitRing";
 import type { RemoteSave } from "@/lib/storage/remote";
 import { createListing } from "./api";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -52,7 +57,16 @@ type Selection =
       have: number;
     }
   | { kind: "recipe"; itemId: string; def: Recipe }
-  | { kind: "skill_book"; itemId: SkillBookId; def: SkillBook; have: number };
+  | { kind: "skill_book"; itemId: SkillBookId; def: SkillBook; have: number }
+  | {
+      // 인스턴스 매물(강화/부여 별빛 무구·고리) — instanceId 로 거래. 표시용 라벨 동봉.
+      kind: "equip_instance";
+      itemId: ItemId;
+      def: EquipItem;
+      instanceId: string;
+      instance: EquipmentInstance;
+      label: string;
+    };
 
 // 정렬용 등급 가치 — 같은 itemId 내에서 좋은 사본부터 노출.
 // c2(걸작) > d2(빼어난) > c1(고급) > d1(정교한) > base > c-1(하급) > c-2(불량).
@@ -150,13 +164,43 @@ export function ListingCreateModal({
         });
       }
     }
+    // 인스턴스(강화/부여 별빛 무구·고리) — 한 자루마다 고유 매물. 라벨에 강화/부여/롤 요약.
+    for (const inst of inventory.equipmentInstances ?? []) {
+      const def = ITEMS[inst.itemId as keyof typeof ITEMS] as
+        | EquipItem
+        | undefined;
+      if (!def) continue;
+      if ("tradable" in def && def.tradable === false) continue;
+      let label = def.name;
+      if (inst.enhancementLevel > 0) label += ` +${inst.enhancementLevel}`;
+      if (isStarlitRing(inst.itemId) && inst.rolledBonus) {
+        label += ` (${starlitRingStatsFromBonus(inst.rolledBonus)
+          .map((s) => `${s.label}${s.value}`)
+          .join("·")})`;
+      } else if (inst.enchantSlots && inst.enchantSlots.length > 0) {
+        label += ` [부여 ${inst.enchantSlots.length}]`;
+      }
+      out.push({
+        kind: "equip_instance",
+        itemId: inst.itemId as ItemId,
+        def,
+        instanceId: inst.instanceId,
+        instance: inst,
+        label,
+      });
+    }
     return out.sort((a, b) => {
       const nameCmp = a.def.name.localeCompare(b.def.name);
       if (nameCmp !== 0) return nameCmp;
       if (a.kind !== "equip" || b.kind !== "equip") return 0;
       return VARIANT_RANK[b.variantKey] - VARIANT_RANK[a.variantKey];
     });
-  }, [inventory.equipment, inventory.craftedEquipment, inventory.droppedEquipment]);
+  }, [
+    inventory.equipment,
+    inventory.craftedEquipment,
+    inventory.droppedEquipment,
+    inventory.equipmentInstances,
+  ]);
 
   const materialOptions = useMemo<Selection[]>(() => {
     const out: Selection[] = [];
@@ -224,11 +268,14 @@ export function ListingCreateModal({
     setSubmitting(true);
     try {
       await createListing(remote, {
-        itemKind: selection.kind,
+        itemKind: selection.kind === "equip_instance" ? "equip" : selection.kind,
         itemId: selection.itemId,
         variantKey: selection.kind === "equip" ? selection.variantKey : "base",
         quantity: qtyN,
         price: priceN,
+        ...(selection.kind === "equip_instance"
+          ? { instanceId: selection.instanceId }
+          : {}),
       });
       onLocalDeduct(selection, qtyN);
       onSuccess();
@@ -397,6 +444,8 @@ function ItemPicker({
                     {craftTierSuffix(o.craftTier)}
                   </span>
                 </span>
+              ) : o.kind === "equip_instance" ? (
+                <span className={rarityTextClass(o.def)}>{o.label}</span>
               ) : (
                 <span
                   className={
@@ -414,7 +463,9 @@ function ItemPicker({
                   ? "제작서"
                   : o.kind === "skill_book"
                     ? `${o.have}권 보유`
-                    : `${o.have}개 보유`}
+                    : o.kind === "equip_instance"
+                      ? "고유 1"
+                      : `${o.have}개 보유`}
               </span>
             </button>
           </li>
@@ -427,6 +478,7 @@ function ItemPicker({
 // 같은 itemId 가 등급별로 여러 줄 노출되므로 grade 까지 포함해야 key 가 유니크.
 function pickerKey(o: Selection): string {
   if (o.kind === "equip") return `equip-${o.itemId}-${o.variantKey}`;
+  if (o.kind === "equip_instance") return `inst-${o.instanceId}`;
   return `${o.kind}-${o.itemId}`;
 }
 
@@ -464,6 +516,12 @@ function PriceForm({
               <span className={craftTierTextClass(selection.craftTier)}>
                 {craftTierSuffix(selection.craftTier)}
               </span>
+            </span>
+          ) : selection.kind === "equip_instance" ? (
+            <span
+              className={`text-sm font-medium ${rarityTextClass(selection.def)}`}
+            >
+              {selection.label}
             </span>
           ) : (
             <span

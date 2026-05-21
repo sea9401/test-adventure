@@ -16,7 +16,7 @@ import {
   type ItemRarity,
 } from "@/adventure/data/items";
 import { getRecipeById } from "@/adventure/data/recipes";
-import { dropQualityTextClass } from "@/adventure/data/dropQuality";
+import { dropQualityPrefix, dropQualityTextClass } from "@/adventure/data/dropQuality";
 import { craftTierTextClass } from "@/adventure/data/craftQuality";
 import type { DiscoveredEquipmentEntry } from "@/adventure/log/storage";
 import type {
@@ -249,14 +249,29 @@ function EquipmentSubTab({
                   return (
                   <Card key={`${row.id}@${row.variantKey}`}>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span
-                        className={`text-sm font-semibold ${
-                          row.grade
-                            ? gradeTextClass(row.variantKey)
-                            : rarityTextClass(row.item)
-                        }`}
-                      >
-                        {SLOT_EMOJI[row.item.slot]} {row.name}
+                      <span className="text-sm font-semibold">
+                        {SLOT_EMOJI[row.item.slot]}{" "}
+                        {quality ? (
+                          // 드랍 수식어(접두어)만 품질 색, 이름은 rarity 색 유지.
+                          <>
+                            <span className={dropQualityTextClass(quality)}>
+                              {dropQualityPrefix(quality)}
+                            </span>
+                            <span className={rarityTextClass(row.item)}>
+                              {row.item.name}
+                            </span>
+                          </>
+                        ) : (
+                          <span
+                            className={
+                              row.grade
+                                ? gradeTextClass(row.variantKey)
+                                : rarityTextClass(row.item)
+                            }
+                          >
+                            {row.name}
+                          </span>
+                        )}
                       </span>
                       <span className="shrink-0 text-xs text-amber-600 dark:text-amber-400">
                         {row.item.stats.map((s) => `${s.label} ${s.value}`).join(" · ")}

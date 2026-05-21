@@ -129,15 +129,13 @@ export function MiniEquipCard({
         </div>
         <div className="truncate text-xs">
           {item ? (
-            <span
-              className={
-                item.dropQuality
-                  ? dropQualityTextClass(item.dropQuality)
-                  : rarityTextClass(item)
-              }
-            >
-              {dropQualityPrefix(item.dropQuality)}
-              {item.name}
+            <span>
+              {item.dropQuality ? (
+                <span className={dropQualityTextClass(item.dropQuality)}>
+                  {dropQualityPrefix(item.dropQuality)}
+                </span>
+              ) : null}
+              <span className={rarityTextClass(item)}>{item.name}</span>
               {craftTierSuffix(item.craftTier) && (
                 <span className={craftTierTextClass(item.craftTier)}>
                   {craftTierSuffix(item.craftTier)}
@@ -161,15 +159,13 @@ export function MiniEquipCard({
           role="tooltip"
           className={`pointer-events-none absolute top-full z-20 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-md border border-zinc-200 bg-white p-3 text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900 ${TOOLTIP_ALIGN[tooltipAlign]}`}
         >
-          <div
-            className={`font-medium ${
-              item.dropQuality
-                ? dropQualityTextClass(item.dropQuality)
-                : rarityTextClass(item)
-            }`}
-          >
-            {dropQualityPrefix(item.dropQuality)}
-            {item.name}
+          <div className="font-medium">
+            {item.dropQuality ? (
+              <span className={dropQualityTextClass(item.dropQuality)}>
+                {dropQualityPrefix(item.dropQuality)}
+              </span>
+            ) : null}
+            <span className={rarityTextClass(item)}>{item.name}</span>
             <span className={craftTierTextClass(item.craftTier)}>
               {craftTierSuffix(item.craftTier)}
             </span>

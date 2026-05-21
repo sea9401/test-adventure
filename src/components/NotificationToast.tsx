@@ -33,20 +33,37 @@ type ToastItem = {
 };
 
 // 메시지 안에서 highlight.name 부분만 className 으로 강조해 ReactNode 로 렌더.
-// 일치하는 부분이 없으면 plain text 그대로 반환.
-// 토스트와 알림 패널 양쪽에서 공용으로 쓴다.
+// prefix 가 있으면 "prefix.text + name" 을 한 덩어리로 찾아 접두어는 prefix.className,
+// 이름은 className 으로 따로 칠한다(접두어만 품질 색 / 이름은 rarity 색).
+// 일치하는 부분이 없으면 plain text 그대로 반환. 토스트와 알림 패널 양쪽 공용.
 export function renderHighlightedText(
   text: string,
   highlight: NotificationMeta["highlight"],
 ): React.ReactNode {
   if (!highlight) return text;
-  const idx = text.indexOf(highlight.name);
-  if (idx < 0) return text;
+  const prefixText = highlight.prefix?.text ?? "";
+  const full = prefixText + highlight.name;
+  const idx = text.indexOf(full);
+  if (idx < 0) {
+    // prefix 포함 매칭 실패 시 name 단독으로 폴백(하위 호환).
+    const i2 = text.indexOf(highlight.name);
+    if (i2 < 0) return text;
+    return (
+      <>
+        {text.slice(0, i2)}
+        <span className={highlight.className}>{highlight.name}</span>
+        {text.slice(i2 + highlight.name.length)}
+      </>
+    );
+  }
   return (
     <>
       {text.slice(0, idx)}
+      {highlight.prefix && (
+        <span className={highlight.prefix.className}>{highlight.prefix.text}</span>
+      )}
       <span className={highlight.className}>{highlight.name}</span>
-      {text.slice(idx + highlight.name.length)}
+      {text.slice(idx + full.length)}
     </>
   );
 }

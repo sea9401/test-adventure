@@ -117,7 +117,8 @@ export async function onBattleEnd(
       } else if (drop.kind === "gold") {
         deps.addNotification("loot", `골드 +${drop.amount}`);
       } else if (drop.kind === "equip") {
-        const display = dropQualityPrefix(drop.quality) + drop.name;
+        const prefix = dropQualityPrefix(drop.quality);
+        const display = prefix + drop.name;
         const equipDef = ITEMS[drop.itemId as ItemId];
         if (drop.lucky) reportUniqueDrop(drop.itemId as ItemId);
         deps.addNotification(
@@ -125,10 +126,17 @@ export async function onBattleEnd(
           `${drop.lucky ? "✨ 굉장한 발견! " : ""}${display}을(를) 손에 넣었다!`,
           {
             highlight: {
-              name: display,
-              className: drop.quality
-                ? dropQualityTextClass(drop.quality)
-                : rarityTextClass(equipDef),
+              // 이름은 rarity 색 유지, 접두어(드랍 수식어)만 품질 색.
+              name: drop.name,
+              className: rarityTextClass(equipDef),
+              ...(drop.quality
+                ? {
+                    prefix: {
+                      text: prefix,
+                      className: dropQualityTextClass(drop.quality),
+                    },
+                  }
+                : {}),
             },
           },
         );

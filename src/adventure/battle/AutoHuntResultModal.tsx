@@ -216,17 +216,22 @@ export function AutoHuntResultModal({
                   {Array.from(equipCounts.entries()).map(
                     ([key, { itemId, quality, count }]) => {
                       const item = ITEMS[itemId];
-                      const nameClass = quality
-                        ? dropQualityTextClass(quality)
-                        : rarityTextClass(item, "text-amber-700 dark:text-amber-300");
+                      const nameClass = rarityTextClass(
+                        item,
+                        "text-amber-700 dark:text-amber-300",
+                      );
                       return (
                         <li
                           key={`eq-${key}`}
                           className="flex items-center justify-between gap-2"
                         >
-                          <span className={`truncate ${nameClass}`}>
-                            {dropQualityPrefix(quality)}
-                            {item?.name ?? itemId}
+                          <span className="truncate">
+                            {quality ? (
+                              <span className={dropQualityTextClass(quality)}>
+                                {dropQualityPrefix(quality)}
+                              </span>
+                            ) : null}
+                            <span className={nameClass}>{item?.name ?? itemId}</span>
                           </span>
                           <span className="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-300">
                             ×{count}

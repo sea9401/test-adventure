@@ -313,9 +313,7 @@ export function InventoryView({
                                 </span>
                               )}
                               <span
-                                className={`text-sm font-medium ${
-                                  quality ? dropQualityTextClass(quality) : rarityTextClass(item)
-                                }`}
+                                className={`text-sm font-medium ${rarityTextClass(item)}`}
                               >
                                 {item.name}
                               </span>

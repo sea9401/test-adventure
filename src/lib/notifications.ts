@@ -20,9 +20,15 @@ export type NotificationKind =
 // kind = "battle_win" | "battle_lose" 일 때 battleLog가 있으면 RecentLogView에서 클릭 시 전투 로그 펼쳐 보기.
 // highlight 가 있으면 토스트/알림 패널에서 메시지 안의 name 부분만 className 으로 강조한다.
 //   — lib 레이어가 adventure 도메인(ItemId, rarity)을 모르도록 색상 className 자체를 직접 담는다.
+// prefix 가 있으면 name 바로 앞의 접두어(드랍 수식어 등)를 별도 색으로 칠한다 — 이름은 rarity 색,
+// 접두어만 품질 색. prefix 없는 기존 알림은 종전대로 name 전체를 한 색으로 강조(하위 호환).
 export type NotificationMeta = {
   battleLog?: { kind: string; text: string }[];
-  highlight?: { name: string; className: string };
+  highlight?: {
+    name: string;
+    className: string;
+    prefix?: { text: string; className: string };
+  };
 };
 
 export type AppNotification = {

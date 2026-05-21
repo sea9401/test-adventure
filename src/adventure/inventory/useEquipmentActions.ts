@@ -56,9 +56,28 @@ export function useEquipmentActions(deps: {
     craftTierSuffix(tier) +
     (enhancementLevel && enhancementLevel > 0 ? ` +${enhancementLevel}` : "");
 
-  // 표시 이름 강조 색 — 드랍 고품질이면 그 등급 톤, 아니면 아이템 rarity 톤.
-  const equipNameClass = (id: ItemId, quality?: DropQuality): string =>
-    quality ? dropQualityTextClass(quality) : rarityTextClass(ITEMS[id]);
+  // 표시 이름 강조 — 이름·제작접미사·강화는 rarity 색으로, 드랍 수식어(접두어)만 품질 색으로
+  // 분리해서 강조한다. 드랍 고품질이 아니면 prefix 없이 이름 전체를 rarity 색.
+  const equipHighlight = (
+    id: ItemId,
+    tier?: CraftTier,
+    quality?: DropQuality,
+    enhancementLevel?: number,
+  ): NotificationMeta["highlight"] => {
+    const base =
+      ITEMS[id].name +
+      craftTierSuffix(tier) +
+      (enhancementLevel && enhancementLevel > 0 ? ` +${enhancementLevel}` : "");
+    const className = rarityTextClass(ITEMS[id]);
+    const prefix = dropQualityPrefix(quality);
+    return prefix
+      ? {
+          name: base,
+          className,
+          prefix: { text: prefix, className: dropQualityTextClass(quality!) },
+        }
+      : { name: base, className };
+  };
 
   // 슬롯에 장착돼 있던 장비를 인벤토리로 회수 — 인스턴스 기반이면 풀로, 제작산/드랍
   // 고품질이면 등급별 칸으로, 아니면 기본 칸으로.
@@ -137,7 +156,12 @@ export function useEquipmentActions(deps: {
       inst.enhancementLevel,
     );
     addNotification("item", `${name}을(를) 장착했다.`, {
-      highlight: { name, className: equipNameClass(inst.itemId) },
+      highlight: equipHighlight(
+        inst.itemId,
+        inst.craftTier,
+        undefined,
+        inst.enhancementLevel,
+      ),
     });
   };
 
@@ -167,10 +191,7 @@ export function useEquipmentActions(deps: {
     characterStateHook.setSlot(item.slot, equipItem);
     const name = equipDisplayName(id, tier, isDropped ? quality : undefined);
     addNotification("item", `${name}을(를) 장착했다.`, {
-      highlight: {
-        name,
-        className: equipNameClass(id, isDropped ? quality : undefined),
-      },
+      highlight: equipHighlight(id, tier, isDropped ? quality : undefined),
     });
   };
 
@@ -189,12 +210,14 @@ export function useEquipmentActions(deps: {
         )
       : current.name;
     addNotification("item", `${name}을(를) 해제했다.`, {
-      highlight: {
-        name,
-        className: id
-          ? equipNameClass(id, current.dropQuality)
-          : rarityTextClass(current),
-      },
+      highlight: id
+        ? equipHighlight(
+            id,
+            current.craftTier,
+            current.dropQuality,
+            current.enhancementLevel,
+          )
+        : { name: current.name, className: rarityTextClass(current) },
     });
   };
 

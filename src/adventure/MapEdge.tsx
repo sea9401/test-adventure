@@ -1,8 +1,9 @@
+import { memo } from "react";
 import type { Region } from "./data/world";
 
 const NODE_RADIUS = 24;
 
-export function MapEdge({
+export const MapEdge = memo(function MapEdge({
   from,
   to,
   active,
@@ -36,4 +37,4 @@ export function MapEdge({
       }
     />
   );
-}
+});

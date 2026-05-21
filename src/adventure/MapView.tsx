@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import {
   WORLD_MAP,
@@ -119,31 +119,57 @@ export function MapView({
     };
   }, [activeZone]);
 
-  const visitedSet = new Set(progress.visitedRegionIds);
-  const adjacentToCurrent = new Set(
-    getAdjacent(WORLD_MAP, progress.currentRegionId),
+  const visitedSet = useMemo(
+    () => new Set(progress.visitedRegionIds),
+    [progress.visitedRegionIds],
   );
 
-  const stateOf = (id: RegionId): NodeState => {
-    if (id === progress.currentRegionId) return "current";
-    if (visitedSet.has(id)) return "visited";
+  const adjacentToCurrent = useMemo(
+    () => new Set(getAdjacent(WORLD_MAP, progress.currentRegionId)),
+    [progress.currentRegionId],
+  );
+
+  const nodeStateById = useMemo(() => {
+    const states = new Map<RegionId, NodeState>();
+    const reachableSet = new Set<RegionId>();
+
     for (const v of progress.visitedRegionIds) {
-      if (!getAdjacent(WORLD_MAP, v).includes(id)) continue;
-      const req = findEdgeRequirement(v, id) ?? findEdgeRequirement(id, v);
-      // visited 게이트(마을 직통·허브 스포크)는 요구 지역을 실제 방문했을 때만 도달 가능으로
-      // 본다. 미발견 마을은 여전히 잠금(목적지 미방문)이고, 별빛 교차로 같은 허브는 방문한
-      // 인접 지역을 통해 도달 가능으로 뜬다 — 옛 무조건 제외는 허브를 잠금으로 잘못 표시했다.
-      if (req?.kind === "visited") {
-        if (visitedSet.has(req.regionId)) return "reachable";
-        continue;
+      for (const id of getAdjacent(WORLD_MAP, v)) {
+        if (id === progress.currentRegionId || visitedSet.has(id)) continue;
+        const req = findEdgeRequirement(v, id) ?? findEdgeRequirement(id, v);
+        // visited 게이트(마을 직통·허브 스포크)는 요구 지역을 실제 방문했을 때만 도달 가능으로
+        // 본다. 미발견 마을은 여전히 잠금(목적지 미방문)이고, 별빛 교차로 같은 허브는 방문한
+        // 인접 지역을 통해 도달 가능으로 뜬다 — 옛 무조건 제외는 허브를 잠금으로 잘못 표시했다.
+        if (req?.kind === "visited" && !visitedSet.has(req.regionId)) continue;
+        reachableSet.add(id);
       }
-      return "reachable";
     }
-    return "locked";
-  };
+
+    for (const region of WORLD_MAP.regions) {
+      const id = region.id;
+      states.set(
+        id,
+        id === progress.currentRegionId
+          ? "current"
+          : visitedSet.has(id)
+            ? "visited"
+            : reachableSet.has(id)
+              ? "reachable"
+              : "locked",
+      );
+    }
+
+    return states;
+  }, [progress.currentRegionId, progress.visitedRegionIds, visitedSet]);
+
+  const stateOf = (id: RegionId): NodeState => nodeStateById.get(id) ?? "locked";
 
   const isEdgeActive = (fromId: RegionId, toId: RegionId): boolean =>
     visitedSet.has(fromId) && visitedSet.has(toId);
+
+  const handleNodeSelect = useCallback((regionId: RegionId) => {
+    setSelectedId(regionId);
+  }, []);
 
   const selectedRegion = getRegion(selectedId);
   const selectedState = selectedId ? stateOf(selectedId) : null;
@@ -377,9 +403,9 @@ export function MapView({
               <MapNode
                 key={region.id}
                 region={region}
-                state={stateOf(region.id)}
+                state={nodeStateById.get(region.id) ?? "locked"}
                 selected={selectedId === region.id}
-                onClick={() => setSelectedId(region.id)}
+                onSelect={handleNodeSelect}
               />
             ))}
         </MapCanvas>

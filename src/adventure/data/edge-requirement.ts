@@ -33,6 +33,19 @@ export type EvaluateContext = {
   to?: RegionId;
 };
 
+const edgeRequirementKey = (fromId: RegionId, toId: RegionId) =>
+  `${fromId} ${toId}`;
+
+const EDGE_REQUIREMENT_BY_ROUTE: Map<string, EdgeRequirement | undefined> =
+  new Map();
+
+for (const edge of WORLD_MAP.edges) {
+  const key = edgeRequirementKey(edge.from, edge.to);
+  if (!EDGE_REQUIREMENT_BY_ROUTE.has(key)) {
+    EDGE_REQUIREMENT_BY_ROUTE.set(key, edge.requires);
+  }
+}
+
 export function evaluateEdgeRequirement(
   req: EdgeRequirement | undefined,
   ctx: EvaluateContext,
@@ -113,6 +126,5 @@ export function findEdgeRequirement(
   fromId: RegionId,
   toId: RegionId,
 ): EdgeRequirement | undefined {
-  const edge = WORLD_MAP.edges.find((e) => e.from === fromId && e.to === toId);
-  return edge?.requires;
+  return EDGE_REQUIREMENT_BY_ROUTE.get(edgeRequirementKey(fromId, toId));
 }

@@ -1203,13 +1203,48 @@ export function pickEnemyName(
   return region.enemies[region.enemies.length - 1];
 }
 
-export function getAdjacent(map: WorldMap, regionId: RegionId): RegionId[] {
-  const adjacent = new Set<RegionId>();
+function buildAdjacencyByRegion(map: WorldMap): Map<RegionId, RegionId[]> {
+  const adjacency = new Map<RegionId, RegionId[]>();
+  const seenByRegion = new Map<RegionId, Set<RegionId>>();
+  const addAdjacent = (from: RegionId, to: RegionId) => {
+    let list = adjacency.get(from);
+    if (!list) {
+      list = [];
+      adjacency.set(from, list);
+    }
+    let seen = seenByRegion.get(from);
+    if (!seen) {
+      seen = new Set();
+      seenByRegion.set(from, seen);
+    }
+    if (!seen.has(to)) {
+      seen.add(to);
+      list.push(to);
+    }
+  };
+
   for (const edge of map.edges) {
-    if (edge.from === regionId) adjacent.add(edge.to);
-    if (edge.to === regionId) adjacent.add(edge.from);
+    addAdjacent(edge.from, edge.to);
+    addAdjacent(edge.to, edge.from);
   }
-  return Array.from(adjacent);
+  return adjacency;
+}
+
+const WORLD_ADJACENCY_BY_REGION = buildAdjacencyByRegion(WORLD_MAP);
+const ADJACENCY_BY_MAP = new WeakMap<WorldMap, Map<RegionId, RegionId[]>>([
+  [WORLD_MAP, WORLD_ADJACENCY_BY_REGION],
+]);
+
+export function getAdjacent(map: WorldMap, regionId: RegionId): RegionId[] {
+  let adjacency = ADJACENCY_BY_MAP.get(map);
+  if (!adjacency) {
+    adjacency = buildAdjacencyByRegion(map);
+    ADJACENCY_BY_MAP.set(map, adjacency);
+  }
+  if (map === WORLD_MAP) {
+    return [...(WORLD_ADJACENCY_BY_REGION.get(regionId) ?? [])];
+  }
+  return [...(adjacency.get(regionId) ?? [])];
 }
 
 // id → Region 빠른 조회. WORLD_MAP.regions.find() 가 O(N) 인데,

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { Region } from "./data/world";
 import { COOP_BOSSES } from "./coop/data";
 
@@ -46,20 +47,21 @@ const KIND_STROKE: Record<RegionKind, string> = {
   tower: "stroke-sky-500 dark:stroke-sky-700",
 };
 
-export function MapNode({
+export const MapNode = memo(function MapNode({
   region,
   state,
   selected,
-  onClick,
+  onSelect,
 }: {
   region: Region;
   state: NodeState;
   selected: boolean;
-  onClick: () => void;
+  onSelect: (regionId: Region["id"]) => void;
 }) {
   const isCurrent = state === "current";
   const isReachable = state === "reachable";
   const isLocked = state === "locked";
+  const selectRegion = () => onSelect(region.id);
 
   const kind = regionKind(region);
   const fillClass = isLocked
@@ -82,7 +84,7 @@ export function MapNode({
 
   return (
     <g
-      onClick={onClick}
+      onClick={selectRegion}
       className="cursor-pointer outline-none"
       role="button"
       tabIndex={0}
@@ -90,7 +92,7 @@ export function MapNode({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onClick();
+          selectRegion();
         }
       }}
       opacity={isLocked ? 0.55 : 1}
@@ -202,4 +204,4 @@ export function MapNode({
       )}
     </g>
   );
-}
+});

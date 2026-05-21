@@ -4,7 +4,7 @@
 // AI 발동: 매 턴 슬롯 순서로 첫 발동 가능한 AP 스킬 1개 발동 (한 턴 최대 1개).
 
 export const AP_CAP = 5;
-export const AP_BATTLE_START = 2;
+export const AP_BATTLE_START = 3;
 
 export type APSkillId =
   | "shadow_cut"

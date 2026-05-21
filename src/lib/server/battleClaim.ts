@@ -109,11 +109,6 @@ export type ResolvedBattleDrop =
       lucky: boolean;
     }
   | { kind: "recipe"; recipeId: string; name: string }
-  | {
-      kind: "recipe_one_of_already_known";
-      /** 풀 전체를 이미 알고 있어서 학습 못함 — 클라 안내 토스트. */
-      recipeIds: string[];
-    }
   | { kind: "skill_book"; bookId: string; name: string };
 
 export type BattleClaimOutcome = {
@@ -391,11 +386,9 @@ function rollDrops(
     } else if (drop.kind === "recipe_one_of") {
       if (drop.recipeIds.length === 0) continue;
       const unknown = drop.recipeIds.filter((id) => !knownSet.has(id));
+      // 풀 전체를 이미 알고 있으면 조용히 스킵 — 직접 recipe 드랍(이미 보유 시 continue)과
+      // 동일 정책. 이미 수집 완료한 제작서엔 보상 알림을 띄우지 않는다.
       if (unknown.length === 0) {
-        drops.push({
-          kind: "recipe_one_of_already_known",
-          recipeIds: [...drop.recipeIds],
-        });
         continue;
       }
       const pick = unknown[Math.floor(rng() * unknown.length)]!;

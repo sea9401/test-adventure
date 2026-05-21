@@ -150,11 +150,6 @@ export async function onBattleEnd(
           "milestone",
           `✨ ${drop.name}을(를) 손에 넣었다!`,
         );
-      } else if (drop.kind === "recipe_one_of_already_known") {
-        deps.addNotification(
-          "info",
-          "제작서 보상 — 이미 모든 종류를 알고 있다.",
-        );
       }
     }
 

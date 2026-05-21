@@ -84,6 +84,7 @@ export function BossSubView() {
           onStopHunting={() => setHuntingActive(false)}
           dispatched={autoHunt.isDispatched}
           onStoryFlag={storyFlags.set}
+          onEncounter={(bossName) => adventureLog.markEncountered(bossName)}
           onKill={(bossName) => {
             // 협동 보스 처치를 kill 카운터 의뢰(태고의 노룡 처치 등)에 반영.
             // 도감 kill 카운트도 같이 — 솔로 보스 onBattleEnd 와 일관성.

@@ -50,6 +50,9 @@ type Props = {
    *  내 일격이 마지막이든 다른 사람이 마지막이든, 내가 1점 이상 기여한 세션이 처치되면 호출.
    *  sessionId 기준으로 중복 호출 막음. */
   onKill?: (bossName: string) => void;
+  /** 보스를 공격(참여)한 순간 호출 — 도감(모험의 서) 조우 기록용. 월드 보스는 개인이
+   *  처치를 못 해도(서버 전체가 한 번 잡음) 참여만으로 도감에 떠야 하므로 attack 시 마킹. */
+  onEncounter?: (bossName: string) => void;
 };
 
 export function CoopBossCard({
@@ -63,6 +66,7 @@ export function CoopBossCard({
   dispatched = false,
   onStoryFlag,
   onKill,
+  onEncounter,
 }: Props) {
   const { data, error, working, attack, claim } = useCoopBoss(regionId, true);
   const [now, setNow] = useState(() => Date.now());
@@ -147,6 +151,8 @@ export function CoopBossCard({
     onStopHunting?.();
     const r = await attack(playerName);
     if (!r) return;
+    // 참여(공격) = 도감 조우 기록. 처치 못 해도 이 보스가 모험의 서에 뜨도록.
+    onEncounter?.(s.bossName);
     onPlayerHpChange(r.finalPlayerHp);
     // 서버가 박은 storyFlag (참여=peak_giant_engaged 등) 를 클라 상태에 즉시 반영 —
     // reload 없이 운향 진입로가 열리도록.

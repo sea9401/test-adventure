@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { rollAttackCount, potionHealAmount } from "./combatShared";
+import {
+  rollAttackCount,
+  potionHealAmount,
+  extractApEffect,
+} from "./combatShared";
 import type { PlayerCombat } from "./engine";
 import type { Potion } from "../data/potions";
 
@@ -65,5 +69,47 @@ describe("potionHealAmount", () => {
 
   it("potionHealPct 가산 후 floor", () => {
     expect(potionHealAmount(potion, 100, 50)).toBe(30); // floor(20 * 1.5)
+  });
+});
+
+describe("extractApEffect (PvE/PvP 공유 — divergence 방지)", () => {
+  it("effect 없음 → 기본값", () => {
+    expect(extractApEffect(undefined)).toEqual({
+      atkMult: 1,
+      ignoresDef: false,
+      ignoresEvasion: false,
+      hits: 1,
+    });
+  });
+
+  it("atk_multiplier — atkMult/ignoresDef/ignoresEvasion 반영, hits=1", () => {
+    expect(
+      extractApEffect({
+        kind: "atk_multiplier",
+        atkMult: 2.5,
+        ignoresDef: true,
+        ignoresEvasion: true,
+      } as never),
+    ).toEqual({ atkMult: 2.5, ignoresDef: true, ignoresEvasion: true, hits: 1 });
+  });
+
+  it("multi_hit_self_damage — hits 반영", () => {
+    expect(
+      extractApEffect({
+        kind: "multi_hit_self_damage",
+        atkMult: 1.2,
+        hits: 3,
+        selfDmgPct: 10,
+      } as never),
+    ).toEqual({ atkMult: 1.2, ignoresDef: false, ignoresEvasion: false, hits: 3 });
+  });
+
+  it("비-mult 계열(예: heal/cleanse) → 기본값", () => {
+    expect(extractApEffect({ kind: "cleanse_debuffs" } as never)).toEqual({
+      atkMult: 1,
+      ignoresDef: false,
+      ignoresEvasion: false,
+      hits: 1,
+    });
   });
 });

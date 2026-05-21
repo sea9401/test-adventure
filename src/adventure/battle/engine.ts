@@ -1,6 +1,10 @@
 import type { Monster } from "../data/monsters";
 import { type Potion, type PotionId } from "../data/potions";
-import { potionHealAmount, rollAttackCount } from "./combatShared";
+import {
+  extractApEffect,
+  potionHealAmount,
+  rollAttackCount,
+} from "./combatShared";
 import { EVASION_PCT_CAP } from "../data/stats";
 import {
   CRIT_MULT_BASE,
@@ -1184,27 +1188,16 @@ export function advanceTurn(
         : null;
     // atk_multiplier 계열 효과 — 광살참(multi_hit_self_damage)과 천뢰 일격
     // (atk_multiplier_with_silence) 도 atkMult/ignoresDef/ignoresEvasion 을 공유.
+    // apMultEffect 는 아래(atk_plus_spd_pct_bonus·multi_hit_self_damage 자해)에서도 쓰여 유지.
+    // atkMult/ignoresDef/ignoresEvasion/hits 파생은 combatShared.extractApEffect 로 단일화
+    // (PvP 엔진과 공유 — ignoresEvasion = true 면 적 회피 굴림 스킵, 광살참 hits = N 번 누적).
     const apMultEffect = apSkillFires?.effect;
-    const apAtkMult =
-      apMultEffect?.kind === "atk_multiplier" ||
-      apMultEffect?.kind === "multi_hit_self_damage" ||
-      apMultEffect?.kind === "atk_multiplier_with_silence"
-        ? apMultEffect.atkMult
-        : 1;
-    const apIgnoresDef =
-      (apMultEffect?.kind === "atk_multiplier" ||
-        apMultEffect?.kind === "multi_hit_self_damage" ||
-        apMultEffect?.kind === "atk_multiplier_with_silence") &&
-      apMultEffect.ignoresDef === true;
-    // ignoresEvasion = true 면 적 회피 굴림 자체 스킵 — 천살 등이 사용.
-    const apIgnoresEvasion =
-      (apMultEffect?.kind === "atk_multiplier" ||
-        apMultEffect?.kind === "multi_hit_self_damage" ||
-        apMultEffect?.kind === "atk_multiplier_with_silence") &&
-      apMultEffect.ignoresEvasion === true;
-    // 광살참 hits — 같은 fire 에서 N 번 데미지 누적.
-    const apHits =
-      apMultEffect?.kind === "multi_hit_self_damage" ? apMultEffect.hits : 1;
+    const {
+      atkMult: apAtkMult,
+      ignoresDef: apIgnoresDef,
+      ignoresEvasion: apIgnoresEvasion,
+      hits: apHits,
+    } = extractApEffect(apMultEffect);
 
     // 적 회피 — 데미지 굴리기 전에 1차 판정. 회피하면 공격 1회가 그대로 빗나간다.
     // 정확 슬롯 시 적 evasion 에 배수(<1) 가 곱해져 부분 무력화.

@@ -44,7 +44,11 @@ import {
   damageBetween,
 } from "./engine";
 import { type Potion, type PotionId } from "../data/potions";
-import { potionHealAmount, rollAttackCount } from "./combatShared";
+import {
+  extractApEffect,
+  potionHealAmount,
+  rollAttackCount,
+} from "./combatShared";
 import {
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
@@ -1095,26 +1099,15 @@ export function advanceTurnPvP(
       : null;
   // atk_multiplier 계열 — 광살참(multi_hit_self_damage) / 천뢰(atk_multiplier_with_silence)
   // 도 atkMult/ignoresDef/ignoresEvasion 공유.
+  // apMultEffect 는 아래(atk_plus_spd_pct_bonus·multi_hit_self_damage 자해)에서도 쓰여 유지.
+  // 파생은 combatShared.extractApEffect 로 단일화 — PvE 엔진과 공유(divergence 방지).
   const apMultEffect = apSkillFires?.effect;
-  const apAtkMult =
-    apMultEffect?.kind === "atk_multiplier" ||
-    apMultEffect?.kind === "multi_hit_self_damage" ||
-    apMultEffect?.kind === "atk_multiplier_with_silence"
-      ? apMultEffect.atkMult
-      : 1;
-  const apIgnoresDef =
-    (apMultEffect?.kind === "atk_multiplier" ||
-      apMultEffect?.kind === "multi_hit_self_damage" ||
-      apMultEffect?.kind === "atk_multiplier_with_silence") &&
-    apMultEffect.ignoresDef === true;
-  const apIgnoresEvasion =
-    (apMultEffect?.kind === "atk_multiplier" ||
-      apMultEffect?.kind === "multi_hit_self_damage" ||
-      apMultEffect?.kind === "atk_multiplier_with_silence") &&
-    apMultEffect.ignoresEvasion === true;
-  // 광살참 hits.
-  const apHits =
-    apMultEffect?.kind === "multi_hit_self_damage" ? apMultEffect.hits : 1;
+  const {
+    atkMult: apAtkMult,
+    ignoresDef: apIgnoresDef,
+    ignoresEvasion: apIgnoresEvasion,
+    hits: apHits,
+  } = extractApEffect(apMultEffect);
 
   // ── 잔상 (defender 측 enemyAttackBlockedCount) ────────────────────────────
   // 방어자가 직전 자기 페이즈에서 잔상을 발동했으면, 이번 공격을 통째 무효. 1회 소비.

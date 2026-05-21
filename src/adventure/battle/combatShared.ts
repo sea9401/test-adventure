@@ -7,7 +7,33 @@
 // PlayerCombat 은 engine.ts 에서 정의 — type-only import 라 런타임 순환참조 없음(타입은 소거).
 
 import { computeHealAmount, type Potion } from "../data/potions";
+import type { APSkillEffect } from "../character/apSkills";
 import type { PlayerCombat } from "./engine";
+
+// AP 스킬 effect → 공격 배수/방어무시/회피무시/타격수. atk_multiplier 계열(광살참
+// multi_hit_self_damage·천뢰 일격 atk_multiplier_with_silence 포함)이 atkMult/ignoresDef/
+// ignoresEvasion 를 공유한다. 두 엔진(PvE/PvP)이 토씨까지 같던 블록을 한 곳으로 — 한쪽만
+// 고쳐 어긋나는 divergence 방지. 동작은 옛 인라인 조건과 동일.
+export function extractApEffect(effect: APSkillEffect | undefined): {
+  atkMult: number;
+  ignoresDef: boolean;
+  ignoresEvasion: boolean;
+  hits: number;
+} {
+  if (
+    effect?.kind === "atk_multiplier" ||
+    effect?.kind === "multi_hit_self_damage" ||
+    effect?.kind === "atk_multiplier_with_silence"
+  ) {
+    return {
+      atkMult: effect.atkMult,
+      ignoresDef: effect.ignoresDef === true,
+      ignoresEvasion: effect.ignoresEvasion === true,
+      hits: effect.kind === "multi_hit_self_damage" ? effect.hits : 1,
+    };
+  }
+  return { atkMult: 1, ignoresDef: false, ignoresEvasion: false, hits: 1 };
+}
 
 // 공격 횟수 롤 — base(attackCount) + 추가타. 추가공격 확률은 100% 초과 가능:
 // 정수부는 보장 추가타, 나머지(%)는 확률. (예: 150% → +1 보장 + 50% 확률로 +1 더.)

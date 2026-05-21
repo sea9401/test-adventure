@@ -1955,7 +1955,15 @@ export function advanceTurn(
     chillSkill.dmgPerStack > 0 &&
     state.stacks.chillStacks >= chillSkill.threshold
   ) {
-    const chillDmgRaw = state.stacks.chillStacks * chillSkill.dmgPerStack;
+    // DEF 부분감산 — defMitigationFraction 만큼 플레이어 DEF 를 깎아낸다(미지정/0 = DEF 무시, 기존
+    // 동작). 하한 1 — 아무리 DEF 가 높아도 한기는 최소 1 은 들어가 시간압 취지가 죽지 않는다.
+    const chillDefCut = Math.round(
+      player.def * (chillSkill.defMitigationFraction ?? 0),
+    );
+    const chillDmgRaw = Math.max(
+      1,
+      state.stacks.chillStacks * chillSkill.dmgPerStack - chillDefCut,
+    );
     const chillDmgAfterResolve =
       state.buffs.playerDmgReductionTurnsLeft > 0 &&
       state.buffs.playerDmgReductionPct > 0
@@ -2186,12 +2194,21 @@ export function advanceTurn(
   // 회전 운기 (2티어 특기) — 누적 보너스 회피에도 적용.
   // 회피 캡 EVASION_PCT_CAP — 100% 회피 무적 빌드 차단.
   // 보장 회피 (소모형 적립) 는 위쪽 분기에서 별도 처리되어 캡 무관 100% 회피 유지.
-  const effectiveEvadePct = Math.min(
-    EVASION_PCT_CAP,
-    player.evasionPct +
-      luckEvadeBonus +
-      universalLuckEvadeBonus +
-      state.buffs.cyclingChiBonus,
+  // 한기 슬로우 — chill 스택당 회피율 감소(굼떠짐). 미지정/0 = 효과 없음. 회피는 0 미만 안 됨.
+  const chillSlowPct =
+    state.enemy.skill?.kind === "chill"
+      ? state.stacks.chillStacks *
+        (state.enemy.skill.evasionPenaltyPerStack ?? 0)
+      : 0;
+  const effectiveEvadePct = Math.max(
+    0,
+    Math.min(
+      EVASION_PCT_CAP,
+      player.evasionPct +
+        luckEvadeBonus +
+        universalLuckEvadeBonus +
+        state.buffs.cyclingChiBonus,
+    ) - chillSlowPct,
   );
   if (Math.random() * 100 < effectiveEvadePct) {
     const healedHp = healOnDodge(state.playerHp);

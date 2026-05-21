@@ -890,6 +890,68 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after.stacks.chillStacks).toBe(5);
   });
 
+  it("defMitigationFraction 만큼 플레이어 DEF 로 한기가 감산된다 (하한 1)", () => {
+    const enemy = chillEnemy({
+      skill: {
+        kind: "chill",
+        name: "선천의 한기",
+        perHit: 2,
+        dmgPerStack: 30,
+        threshold: 4,
+        defMitigationFraction: 0.3,
+      },
+    });
+    // tank def 100 → 한기 차감 round(100×0.3)=30. 스택 5 → 5×30=150, −30 = 120.
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 5 },
+    };
+    const after = advanceTurn(primed, tank, "P");
+    expect(
+      after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("120 피해")),
+    ).toBe(true);
+    // 한기 120 + 적 평타 바닥 1 → 200 − 121 = 79.
+    expect(after.playerHp).toBe(79);
+  });
+
+  it("evasionPenaltyPerStack — 한기 스택만큼 회피율이 줄어 못 피한다 (슬로우)", () => {
+    const enemy = chillEnemy({
+      atk: 50,
+      skill: {
+        kind: "chill",
+        name: "선천의 한기",
+        perHit: 0,
+        dmgPerStack: 0, // DoT 끄고 회피 효과만 관측
+        threshold: 99,
+        evasionPenaltyPerStack: 5,
+      },
+    });
+    const dodgy: PlayerCombat = {
+      ...PLAYER,
+      hp: 500,
+      maxHp: 500,
+      def: 0,
+      evasionPct: 50,
+    };
+    const s0 = initialBattleState(dodgy, enemy, "P");
+    // 회피 굴림 40 — 한기 0 이면 유효 50%로 피하고, 4스택(-20%p)이면 30%라 못 피한다.
+    vi.spyOn(Math, "random").mockReturnValue(0.4);
+    const noChill = advanceTurn(
+      { ...s0, phase: "enemy" as const, stacks: { ...s0.stacks, chillStacks: 0 } },
+      dodgy,
+      "P",
+    );
+    expect(noChill.playerHp).toBe(500); // 회피 성공
+    const chilled = advanceTurn(
+      { ...s0, phase: "enemy" as const, stacks: { ...s0.stacks, chillStacks: 4 } },
+      dodgy,
+      "P",
+    );
+    expect(chilled.playerHp).toBeLessThan(500); // 슬로우로 못 피함 → 피격
+  });
+
   it("threshold 미만이면 DoT 가 발동하지 않는다", () => {
     const enemy = chillEnemy();
     const s0 = initialBattleState(tank, enemy, "P");

@@ -198,6 +198,7 @@ export type BattleState = {
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
+const CHILL_DECAY_PER_TURN = 1;
 
 export type PlayerCombat = {
   hp: number;
@@ -1098,7 +1099,9 @@ export function advanceTurn(
   // 새 enemy phase 진입 시 다대시 횟수 초기화 — 첫 공격 진입 시점에만 굴림.
   // 다대시 중간(enemyAttacksLeft>0)에는 통과. 이 한 곳에서 잡으면 player→enemy 전환 지점들에서
   // 별도 초기화 코드 안 둬도 됨.
-  if (state.phase === "enemy" && state.turn.enemyAttacksLeft <= 0) {
+  const enteringEnemyPhase =
+    state.phase === "enemy" && state.turn.enemyAttacksLeft <= 0;
+  if (enteringEnemyPhase) {
     state = {
       ...state,
       turn: {
@@ -1120,6 +1123,11 @@ export function advanceTurn(
     state = {
       ...state,
       buffs: decrementTimedEffects(state.buffs),
+      // 한기는 매 플레이어 턴 1씩 자연 감소 — 회피/키팅 플레이 여지.
+      stacks: {
+        ...state.stacks,
+        chillStacks: Math.max(0, state.stacks.chillStacks - CHILL_DECAY_PER_TURN),
+      },
       playerAttacksLeft: state.playerAttacksLeft + consumeQueued,
       turn: { ...state.turn, queuedExtraAttacks: 0 },
     };
@@ -1735,6 +1743,10 @@ export function advanceTurn(
       stacks: {
         ...state.stacks,
         bleedStacks: bleedStacks + apBleedAdd,
+        chillStacks:
+          apSkillFires?.effect.kind === "cleanse_debuffs"
+            ? 0
+            : state.stacks.chillStacks,
         evadesRemaining: state.stacks.evadesRemaining + apEvadesAdd,
         weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
       },
@@ -1904,9 +1916,10 @@ export function advanceTurn(
 
   // ── 출혈 (4티어) — 적 턴 시작 시 출혈 스택당 고정 피해 (DEF 무시) ──────────
   // 별빛 독공(venom) 도 같은 스택을 공유 — enchantVenomDmgPerStack 가 bleed dmg 에 가산.
+  // 다대시 보스 상대로도 출혈은 적 페이즈당 1회만 틱한다 (의도된 설계).
   const bleedPerStack =
     (player.bleedDmgPerStack ?? 0) + (player.enchantVenomDmgPerStack ?? 0);
-  if (state.stacks.bleedStacks > 0 && bleedPerStack > 0) {
+  if (enteringEnemyPhase && state.stacks.bleedStacks > 0 && bleedPerStack > 0) {
     const bleedDmg = state.stacks.bleedStacks * bleedPerStack;
     const afterBleedHp = Math.max(0, state.enemyHp - bleedDmg);
     const bled = applyPhaseTriggerIfAny({
@@ -1938,10 +1951,22 @@ export function advanceTurn(
     state.enemy.skill?.kind === "chill" ? state.enemy.skill : null;
   if (
     chillSkill &&
+    enteringEnemyPhase &&
     chillSkill.dmgPerStack > 0 &&
     state.stacks.chillStacks >= chillSkill.threshold
   ) {
-    const chillDmg = state.stacks.chillStacks * chillSkill.dmgPerStack;
+    const chillDmgRaw = state.stacks.chillStacks * chillSkill.dmgPerStack;
+    const chillDmgAfterResolve =
+      state.buffs.playerDmgReductionTurnsLeft > 0 &&
+      state.buffs.playerDmgReductionPct > 0
+        ? Math.floor(chillDmgRaw * (1 - state.buffs.playerDmgReductionPct / 100))
+        : chillDmgRaw;
+    const endurePct = player.enchantEndurePct ?? 0;
+    const chillDmgAfterEndure =
+      endurePct > 0
+        ? Math.floor(chillDmgAfterResolve * (1 - endurePct / 100))
+        : chillDmgAfterResolve;
+    const chillDmg = Math.max(1, chillDmgAfterEndure);
     const afterChillHp = Math.max(0, state.playerHp - chillDmg);
     const chilled: BattleState = {
       ...state,

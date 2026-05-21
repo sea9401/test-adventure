@@ -10,6 +10,7 @@ import {
   type PlayerCombat,
 } from "./engine";
 import { CRIT_MULT_BASE } from "../character/skills";
+import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
 
@@ -914,6 +915,122 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     };
     const after = advanceTurn(primed, tank, "P");
     expect(after.stacks.chillStacks).toBe(4);
+  });
+
+  it("다대시 적이어도 한기 DoT 는 적 페이즈당 1회만 발동한다", () => {
+    const enemy = chillEnemy({ bonusAttackChancePct: 100 });
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 5 },
+    };
+    const after1 = advanceTurn(primed, tank, "P");
+    const after2 = advanceTurn(after1, tank, "P");
+    expect(after2.playerHp).toBe(183);
+    expect(after2.log.filter((e) => e.text.startsWith("[한기]")).length).toBe(1);
+  });
+
+  it("다대시 적이어도 출혈 DoT 는 적 페이즈당 1회만 발동한다", () => {
+    const bleeder: PlayerCombat = { ...tank, bleedDmgPerStack: 4 };
+    const enemy = chillEnemy({ bonusAttackChancePct: 100, skill: undefined });
+    const s0 = initialBattleState(bleeder, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, bleedStacks: 3 },
+    };
+    const after1 = advanceTurn(primed, bleeder, "P");
+    const after2 = advanceTurn(after1, bleeder, "P");
+    expect(after2.enemyHp).toBe(988);
+    expect(after2.log.filter((e) => e.text.startsWith("[출혈]")).length).toBe(1);
+  });
+
+  it("정화는 누적된 한기를 제거한다", () => {
+    const purify = AP_SKILLS.find((s) => s.id === "purify")!;
+    const purifier: PlayerCombat = {
+      ...tank,
+      equippedAPSkills: [{ skill: purify, condition: DEFAULT_AP_SKILL_CONDITION }],
+    };
+    const enemy = chillEnemy();
+    const s0 = initialBattleState(purifier, enemy, "P");
+    const primed = {
+      ...s0,
+      stacks: { ...s0.stacks, chillStacks: 6 },
+    };
+    const after = advanceTurn(primed, purifier, "P");
+    expect(after.stacks.chillStacks).toBe(0);
+    expect(after.log.some((e) => e.text.includes("모든 디버프 해제"))).toBe(true);
+  });
+
+  it("한기는 플레이어 턴마다 1씩 자연 감소해 0 에서 멈춘다", () => {
+    const enemy = chillEnemy({ skill: undefined });
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = {
+      ...s0,
+      stacks: { ...s0.stacks, chillStacks: 2 },
+      turn: { ...s0.turn, completedPlayerTurns: 1 },
+    };
+    const after1 = advanceTurn(primed, tank, "P");
+    expect(after1.stacks.chillStacks).toBe(1);
+    const after2 = advanceTurn(
+      {
+        ...after1,
+        phase: "player" as const,
+        playerAttacksLeft: 1,
+        turn: { ...after1.turn, firstAttackPending: true },
+      },
+      tank,
+      "P",
+    );
+    expect(after2.stacks.chillStacks).toBe(0);
+    const after3 = advanceTurn(
+      {
+        ...after2,
+        phase: "player" as const,
+        playerAttacksLeft: 1,
+        turn: { ...after2.turn, firstAttackPending: true },
+      },
+      tank,
+      "P",
+    );
+    expect(after3.stacks.chillStacks).toBe(0);
+  });
+
+  it("한기 DoT 는 결의 피해 감소를 적용한다", () => {
+    const enemy = chillEnemy();
+    const s0 = initialBattleState(tank, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      buffs: {
+        ...s0.buffs,
+        playerDmgReductionPct: 50,
+        playerDmgReductionTurnsLeft: 1,
+      },
+      stacks: { ...s0.stacks, chillStacks: 5 },
+    };
+    const after = advanceTurn(primed, tank, "P");
+    expect(after.playerHp).toBe(192);
+    expect(
+      after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("7 피해")),
+    ).toBe(true);
+  });
+
+  it("한기 DoT 는 별빛 인내 피해 감소를 적용한다", () => {
+    const enemy = chillEnemy();
+    const enduring: PlayerCombat = { ...tank, enchantEndurePct: 50 };
+    const s0 = initialBattleState(enduring, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      stacks: { ...s0.stacks, chillStacks: 5 },
+    };
+    const after = advanceTurn(primed, enduring, "P");
+    expect(after.playerHp).toBe(192);
+    expect(
+      after.log.some((e) => e.text.startsWith("[한기]") && e.text.includes("7 피해")),
+    ).toBe(true);
   });
 
   it("한기로 HP 가 0 이 되면 패배 처리", () => {

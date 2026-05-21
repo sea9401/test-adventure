@@ -59,7 +59,7 @@ export const COOP_BOSSES: Partial<Record<RegionId, CoopBossDef>> = {
   // 깊이 정리한 자에게만 봉인이 반응한다는 의미(튜닝 시 잔영 3종 종합 플래그로 강화 가능).
   forgotten_seal: {
     monsterName: "별을 잊은 것",
-    maxHp: 150_000, // 2h 리스폰 상시 레이드 — 활성 소수가 리스폰 주기 안에 처치 가능한 양 (튜닝 포인트)
+    maxHp: 200_000, // 2h 리스폰 상시 레이드 — 활성 소수가 리스폰 주기 안에 처치 가능한 양 (튜닝 포인트). 한기 완화 보정으로 150k→200k.
     expirationMs: 365 * 24 * 60 * 60 * 1000, // 1y (실질 무한 — 죽을 때까지)
     respawnMs: 2 * 60 * 60 * 1000, // 2h — 처치 후 2시간이면 다시 깨어난다 (상시 레이드)
     isWorldBoss: true,

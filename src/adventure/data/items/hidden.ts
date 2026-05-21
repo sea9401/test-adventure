@@ -1,0 +1,430 @@
+import type { EquipItem } from "./types";
+
+export const HIDDEN_ITEMS = {
+  // ── 히든 퀘스트 보상 (§11) — 정식 곡선 위 한 칸, 의뢰로만 입수 ─────────────
+  // 월광검: 볼드 ↔ 만월 옛 합작 무기를 마저 완성한 것(hidden-blacksmith-duel). 운봉 무기 한 칸 위.
+  moonlight_blade: {
+    name: "월광검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+9" },
+      { label: "힘", value: "+4" },
+      { label: "속도", value: "+3" },
+    ],
+    bonus: { atk: 9, str: 4, spd: 3 },
+    description:
+      "두 대장장이가 절반씩 벼려 마침내 한 자루로 합친 검. 달빛 같은 푸른 결이 칼날을 따라 흐른다.",
+    rarity: "rare",
+    tradable: false,
+    tier: 4,
+  } satisfies EquipItem,
+  // 용암 정수: 화산의 심장이 잠든 자리에 고인 정수를 시온이 다듬은 것(hidden-volcano-relic). 봉황 액세서리 한 칸 위.
+  lava_essence: {
+    name: "용암 정수",
+    slot: "accessory",
+    stats: [
+      { label: "힘", value: "+6" },
+      { label: "활력", value: "+5" },
+    ],
+    bonus: { str: 6, vit: 5 },
+    description:
+      "화산의 심장이 잠든 자리에서 흘러나와 굳은 정수. 손에 쥐면 가슴께가 묵직하게 달아오른다.",
+    rarity: "rare",
+    tradable: false,
+    tier: 4,
+  } satisfies EquipItem,
+
+  // ── 유실된 명품 ───────────────────────────────────────────────────────────
+  // 일부 잡몹이 아주 드물게(≈0.01~0.02%) 떨구는 unique 등급 장비. 그 구간에서 제작·일반 드랍으로는
+  // 못 얻는 한두 티어 위의 "한 자루" — 운빨로 점프하는 손맛 전용이라 곡선 위로 살짝만 비집고 들어간다
+  // (보조 스탯 합으로 보면 같은 구간 정식 장비가 대개 더 낫다). 드랍/원정 결과에 강조 배너가 뜨고,
+  // 드랍 품질 롤도 그대로 적용된다 — 정교한/빼어난까지 겹치면 더블 잭팟. 1번(두더지왕의 드릴)은 위 참고.
+  bat_swarm_charm: {
+    name: "박쥐떼의 길잡이",
+    slot: "accessory",
+    stats: [
+      { label: "속도", value: "+4" },
+      { label: "민첩", value: "+2" },
+    ],
+    bonus: { spd: 4, dex: 2 },
+    description: "박쥐 한 마리가 발에 꼭 끼우고 다니던 작은 뼈 장신구. 지니면 발밑이 환해지고 발걸음이 가벼워진다. 박쥐떼가 길을 안다는 옛말이 진짜였을지도.",
+    rarity: "unique",
+    tier: 2,
+  } satisfies EquipItem,
+  spider_queen_silk_robe: {
+    name: "거미여왕의 비단갑",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+4" },
+      { label: "행운", value: "+7" },
+    ],
+    bonus: { def: 4, luk: 7 },
+    description: "거미가 제 몸보다 큰 비단 뭉치를 끌어안고 있었다. 풀어 두르면 결이 비단보다 곱고, 묘하게 운이 따라붙는다. 진짜 여왕이 짠 건지는 아무도 모른다.",
+    rarity: "unique",
+    tier: 2,
+  } satisfies EquipItem,
+  hero_broken_sword: {
+    name: "부러진 영웅검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+8" },
+      { label: "방어력", value: "-2" },
+    ],
+    bonus: { atk: 8, def: -2 },
+    description: "폐허 한구석에 반쯤 묻혀 있던 검의 윗동강. 폐허 늑대가 자루를 물어뜯고 있었다. 날밑이 떨어져 나가 손이 자꾸 베이지만, 한 번 휘두르면 옛 영웅의 무게가 실린다.",
+    rarity: "unique",
+    tier: 2,
+  } satisfies EquipItem,
+  // 운향 만월의 '부러진 영웅검' 복원 의뢰(storyQuests: hero_sword_restoration) 보상.
+  // hero_broken_sword 윗동강 + 운봉석 검신 + 화염 능선 재료 날밑 → 한 자루로 복원. 서사 아이템이라 거래 불가.
+  hero_sword: {
+    name: "영웅검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+18" },
+      { label: "힘", value: "+5" },
+    ],
+    bonus: { atk: 18, str: 5 },
+    description: "운향 대장장이 만월이 부러진 윗동강에 운봉석 검신을 잇고, 화염 능선의 것으로 새 날밑을 둘러 되살린 검. 옛 영웅이 들었을 때의 무게가 고스란히 돌아왔다. 묵직한데도 손에 착 감기고, 그 무게가 곧 위력이 된다.",
+    rarity: "legendary",
+    tradable: false,
+    tier: 5,
+  } satisfies EquipItem,
+  // ── 천공 라인 legendary 4종 — 신규 지역(starspire/skyfolk_ruins/apex_throne) 몹에서 ──
+  // ──   ultra-rare(0.00015~0.0002) 로 떨어지는 specialized lore drop. craftable 라인엔  ──
+  // ──   없는 stat 결합으로 빌드 다양성 부여.                                            ──
+  starlight_bow: {
+    name: "별빛 명궁",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+24" },
+      { label: "민첩", value: "+15" },
+    ],
+    bonus: { atk: 24, dex: 15 },
+    description: "별의 첨탑 정찰자들이 한 자루씩 들고 있었다 전해지는 가느다란 활. 시위를 당기면 별빛이 시위 결을 따라 흐른다.",
+    rarity: "legendary",
+    tier: 5,
+  } satisfies EquipItem,
+  ancient_sky_blade: {
+    name: "옛 천공인의 칼",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+27" },
+      { label: "힘", value: "+12" },
+      { label: "속도", value: "+6" },
+    ],
+    bonus: { atk: 27, str: 12, spd: 6 },
+    description: "옛 천공인 전사가 폐도 끝에서 부러뜨리지 못한 채 남긴 가벼우면서 잔인하게 무거운 칼. 휘둘러야 할 결을 손이 먼저 안다.",
+    rarity: "legendary",
+    tier: 5,
+  } satisfies EquipItem,
+  enthrone_plate: {
+    name: "봉인된 황좌 갑주",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+21" },
+      { label: "활력", value: "+15" },
+      { label: "힘", value: "+5" },
+    ],
+    bonus: { def: 21, vit: 15, str: 5 },
+    description: "잠든 황좌 거인 내부에 함께 잠들어 있던 옛 호위병의 갑주. 두르는 자에게 옥좌의 무게가 그대로 얹힌다.",
+    rarity: "legendary",
+    tier: 5,
+  } satisfies EquipItem,
+  starbound_charm: {
+    name: "별빛 부적",
+    slot: "accessory",
+    stats: [
+      { label: "행운", value: "+15" },
+      { label: "민첩", value: "+6" },
+      { label: "속도", value: "+6" },
+    ],
+    bonus: { luk: 15, dex: 6, spd: 6 },
+    description: "별빛 사도들이 마지막까지 품에 두고 있었다는 작은 부적. 손에 쥐면 어느 결로 떨어진 별의 자리가 어렴풋이 보인다.",
+    rarity: "legendary",
+    tier: 5,
+  } satisfies EquipItem,
+
+  // ── 천공 라인 빌드 정의 unique 18종 (Lv70~90) — 골렘갑주 패턴의 한쪽 몰빵 + 디버프 ─
+  // 각 라인 잡몹에서 0.04% 로 떨어지는 specialized drop. craftable 곡선 위로 raw stat
+  // 살짝 비집고 들어가지만 디버프 2~3종을 동시에 받아 특정 빌드(SPD/DEX/LUK/순수ATK/
+  // 순수DEF) 에서만 손맛이 사는 한 자루.
+  cloud_hunter_string: {
+    name: "구름시위",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+15" },
+      { label: "민첩", value: "+13" },
+      { label: "활력", value: "-6" },
+      { label: "방어력", value: "-4" },
+    ],
+    bonus: { atk: 15, dex: 13, vit: -6, def: -4 },
+    description: "구름 사냥꾼이 한쪽 어깨에 메고 있던 가느다란 활. 손에 들면 어깨가 무거워지는 만큼 시위가 가벼워진다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  fate_weaver_skein: {
+    name: "운명실",
+    slot: "accessory",
+    stats: [
+      { label: "행운", value: "+17" },
+      { label: "민첩", value: "+4" },
+      { label: "활력", value: "-5" },
+      { label: "방어력", value: "-3" },
+    ],
+    bonus: { luk: 17, dex: 4, vit: -5, def: -3 },
+    description: "운명 직조자가 끝까지 풀지 못한 별빛 실타래. 손에 쥐면 운이 가닥을 따라 따라붙고, 어깨가 텅 빈다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  starlight_lens: {
+    name: "별빛 안목",
+    slot: "accessory",
+    stats: [
+      { label: "민첩", value: "+16" },
+      { label: "행운", value: "+4" },
+      { label: "활력", value: "-5" },
+      { label: "방어력", value: "-3" },
+    ],
+    bonus: { dex: 16, luk: 4, vit: -5, def: -3 },
+    description: "별점술사 잔영이 한쪽 눈에 끼우고 있던 별빛 렌즈. 손에 쥐면 어깨가 비는 만큼 별의 자리가 또렷이 보인다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  corridor_string: {
+    name: "회랑시위",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+16" },
+      { label: "민첩", value: "+15" },
+      { label: "활력", value: "-7" },
+      { label: "방어력", value: "-4" },
+    ],
+    bonus: { atk: 16, dex: 15, vit: -7, def: -4 },
+    description: "떠도는 시녀가 별빛 결을 한 가닥 더 매어 둔 활. 시위에 닿으면 어깨 위 무게가 사라진다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  wraith_omen_charm: {
+    name: "망령 부적",
+    slot: "accessory",
+    stats: [
+      { label: "행운", value: "+20" },
+      { label: "민첩", value: "+4" },
+      { label: "활력", value: "-6" },
+      { label: "방어력", value: "-4" },
+    ],
+    bonus: { luk: 20, dex: 4, vit: -6, def: -4 },
+    description: "별빛 망령이 마지막까지 쥐고 있던 별점 부적. 손에 쥐면 별빛이 다음 한 수를 일러준다. 그 대가로 어깨가 비어 든다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  corridor_carapace: {
+    name: "회랑갑주",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+24" },
+      { label: "공격력", value: "-3" },
+      { label: "속도", value: "-5" },
+      { label: "행운", value: "-2" },
+    ],
+    bonus: { def: 24, atk: -3, spd: -5, luk: -2 },
+    description: "회랑 골렘의 잔해를 그대로 두른 두꺼운 갑주. 어떤 결도 들이치지 못하지만, 발이 묶이고 운도 따르지 않는다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  starlight_dust_armor: {
+    name: "별바람 경갑",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+8" },
+      { label: "민첩", value: "+14" },
+      { label: "속도", value: "+6" },
+      { label: "힘", value: "-5" },
+      { label: "활력", value: "-7" },
+    ],
+    bonus: { def: 8, dex: 14, spd: 6, str: -5, vit: -7 },
+    description: "별빛 망령이 두르고 있던 한 줌의 경갑. 두르면 어깨에 힘이 빠지는 만큼 발이 떠오른다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  ruin_scout_sandals: {
+    name: "폐도 짚신",
+    slot: "accessory",
+    stats: [
+      { label: "속도", value: "+18" },
+      { label: "민첩", value: "+4" },
+      { label: "활력", value: "-6" },
+      { label: "방어력", value: "-4" },
+    ],
+    bonus: { spd: 18, dex: 4, vit: -6, def: -4 },
+    description: "천공인 사관이 신고 다녔다는 가벼운 별빛 짚신. 신으면 어깨가 휑한 만큼 발이 살아난다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  ruin_phantom_blade: {
+    name: "폐도 환검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+20" },
+      { label: "속도", value: "+14" },
+      { label: "활력", value: "-8" },
+      { label: "방어력", value: "-5" },
+    ],
+    bonus: { atk: 20, spd: 14, vit: -8, def: -5 },
+    description: "천공인 사관이 환영처럼 휘둘렀다는 가벼운 칼. 손에 들면 어깨가 비는 만큼 발이 한 박자 먼저 떨어진다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  skyfolk_warden_plate: {
+    name: "천공 결갑",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+26" },
+      { label: "공격력", value: "-3" },
+      { label: "속도", value: "-6" },
+      { label: "행운", value: "-2" },
+    ],
+    bonus: { def: 26, atk: -3, spd: -6, luk: -2 },
+    description: "천공인 전사가 마지막까지 두르고 있던 두꺼운 갑주. 한 번 두르면 어떤 결도 안으로 닿지 못한다. 그 대가로 발이 묶인다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  skyfolk_greatsword: {
+    name: "천공 대검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+26" },
+      { label: "방어력", value: "-5" },
+      { label: "속도", value: "-4" },
+      { label: "행운", value: "-2" },
+    ],
+    bonus: { atk: 26, def: -5, spd: -4, luk: -2 },
+    description: "폐허의 거상이 한 손에 들고 있던 양손검. 두 손으로도 무겁지만, 한 번 휘두르면 별이 떨어진다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  road_flash_dagger: {
+    name: "일섬 단검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+18" },
+      { label: "민첩", value: "+18" },
+      { label: "활력", value: "-8" },
+      { label: "방어력", value: "-5" },
+    ],
+    bonus: { atk: 18, dex: 18, vit: -8, def: -5 },
+    description: "황성 의장기수가 옥좌의 길에서 다듬은 가느다란 단검. 손에 닿으면 어깨가 비고 끝이 살아난다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  road_resolve_blade: {
+    name: "황성 결검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+30" },
+      { label: "방어력", value: "-6" },
+      { label: "속도", value: "-4" },
+      { label: "행운", value: "-2" },
+    ],
+    bonus: { atk: 30, def: -6, spd: -4, luk: -2 },
+    description: "황성 호위병이 마지막까지 휘두른 옛 결의 칼. 무게가 손에 그대로 얹히는 만큼 발이 묶인다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  road_sandals: {
+    name: "황성 짚신",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+4" },
+      { label: "속도", value: "+18" },
+      { label: "활력", value: "-7" },
+      { label: "힘", value: "-5" },
+    ],
+    bonus: { def: 4, spd: 18, vit: -7, str: -5 },
+    description: "황성 호위병이 신고 옥좌의 길을 달렸다는 가벼운 짚신. 신으면 힘이 빠지는 만큼 발이 살아난다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  shard_seal_plate: {
+    name: "파편 결정갑",
+    slot: "armor",
+    stats: [
+      { label: "방어력", value: "+29" },
+      { label: "공격력", value: "-4" },
+      { label: "속도", value: "-6" },
+      { label: "행운", value: "-2" },
+    ],
+    bonus: { def: 29, atk: -4, spd: -6, luk: -2 },
+    description: "봉인 파편이 단단해진 옛 봉인의 결정을 그대로 두른 갑주. 어떤 무게도 결정 위로 미끄러진다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  throne_pursuer_sandals: {
+    name: "옥좌 짚신",
+    slot: "accessory",
+    stats: [
+      { label: "속도", value: "+22" },
+      { label: "민첩", value: "+6" },
+      { label: "활력", value: "-8" },
+      { label: "방어력", value: "-5" },
+    ],
+    bonus: { spd: 22, dex: 6, vit: -8, def: -5 },
+    description: "옥좌의 검신이 신고 옥좌 둘레를 돌았다는 가벼운 짚신. 신으면 어깨가 비고 발이 살아난다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  apostle_shard_blade: {
+    name: "사도 잔검",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+22" },
+      { label: "행운", value: "+18" },
+      { label: "활력", value: "-8" },
+      { label: "방어력", value: "-5" },
+    ],
+    bonus: { atk: 22, luk: 18, vit: -8, def: -5 },
+    description: "별빛 사도가 끝까지 부러뜨리지 못한 잔검. 손에 쥐면 어깨가 비고 운이 끝을 따라 떨어진다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+  throne_starbook: {
+    name: "황좌 별책",
+    slot: "accessory",
+    stats: [
+      { label: "행운", value: "+24" },
+      { label: "공격력", value: "+5" },
+      { label: "활력", value: "-8" },
+      { label: "방어력", value: "-5" },
+    ],
+    bonus: { luk: 24, atk: 5, vit: -8, def: -5 },
+    description: "잠든 황좌 거인이 옛 황성에서 두고 떠난 별책. 손에 쥐면 어깨가 비고 별의 결이 손가락에 흐른다.",
+    rarity: "unique",
+    tier: 5,
+  } satisfies EquipItem,
+
+  sky_render_talon: {
+    name: "하늘가르개",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+11" },
+      { label: "민첩", value: "+5" },
+    ],
+    bonus: { atk: 11, dex: 5 },
+    description: "초원 매가 한쪽 발에 끼우고 다니던 굽은 발톱 모양 쇳조각. 휘두르면 허공이 가늘게 갈라진다. 어느 대장장이가 매에게 빼앗긴 물건이라는 소문이 있다.",
+    rarity: "unique",
+    tier: 4,
+  } satisfies EquipItem,
+  lava_core_maul: {
+    name: "굳은 용암핵 망치",
+    slot: "weapon",
+    stats: [
+      { label: "공격력", value: "+11" },
+      { label: "속도", value: "-2" },
+    ],
+    bonus: { atk: 11, spd: -2 },
+    description: "용암 슬라임이 미처 녹이지 못한 채 품고 있던 거대한 용암 핵에 자루를 단 것. 둔하기 짝이 없지만, 한 번 내리치면 땅이 운다.",
+    rarity: "unique",
+    tier: 4,
+  } satisfies EquipItem,
+} as const;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Diamond, Flask, Scroll, Sparkle, Sword } from "@phosphor-icons/react";
 import {
   BONUS_KEYS,
@@ -138,67 +138,104 @@ export function InventoryView({
   const [equipSlotTab, setEquipSlotTab] = useState<EquipSlot>("weapon");
   const [equipQuery, setEquipQuery] = useState("");
 
-  const ownedEquipment = buildEquipEntries(inventory);
+  // 파생 리스트는 inventory 슬라이스에만 의존 — useMemo 로 검색 타이핑(equipQuery)·탭 변경마다
+  // 재계산되지 않게 한다(특히 buildEquipEntries 는 ITEMS 200+ 순회라 비쌈). 결과·정렬 동일.
+  const ownedEquipment = useMemo(() => buildEquipEntries(inventory), [inventory]);
   // 각 카테고리는 기본적으로 이름순(가나다)으로 표시 — 정의 객체 키 순서 대신 localeCompare.
   // 부여서(enchant_*)는 전용 "부여서" 탭에서 카탈로그로 보여주므로 재료 탭에서는 제외 —
   // 일반 제작 재료에 20종이 섞여 흩어지던 걸 분리한다.
-  const ownedMaterials = (Object.keys(MATERIALS) as MaterialId[])
-    .filter((id) => !id.startsWith("enchant_"))
-    .map((id) => ({
-      id,
-      material: MATERIALS[id],
-      count: inventory.materials[id] ?? 0,
-    }))
-    .filter((e) => e.count > 0)
-    .sort((a, b) => a.material.name.localeCompare(b.material.name));
+  const ownedMaterials = useMemo(
+    () =>
+      (Object.keys(MATERIALS) as MaterialId[])
+        .filter((id) => !id.startsWith("enchant_"))
+        .map((id) => ({
+          id,
+          material: MATERIALS[id],
+          count: inventory.materials[id] ?? 0,
+        }))
+        .filter((e) => e.count > 0)
+        .sort((a, b) => a.material.name.localeCompare(b.material.name)),
+    [inventory],
+  );
   // 부여서 카탈로그 — 표시 순서 = 카탈로그 순서. 보유 0 도 회색으로 같이 보여 가이드 역할
   // (EnchantDialog 와 동일 정책). 별빛 사냥터 보스 드랍 / 거래소에서 모은다.
-  const enchantRows = ENCHANT_AFFIX_IDS.map((id) => {
-    const affix = ENCHANT_AFFIXES[id];
-    // materialId 는 `enchant_<id>` 컨벤션으로 항상 유효한 MaterialId (materials.ts 에 정의).
-    const count = inventory.materials[affix.materialId as MaterialId] ?? 0;
-    return { affix, count };
-  });
-  const ownedEnchantKinds = enchantRows.filter((e) => e.count > 0).length;
-  const ownedPotions = POTION_IDS.map((id) => ({
-    id,
-    potion: POTIONS[id],
-    count: inventory.potions[id] ?? 0,
-  }))
-    .filter((e) => e.count > 0)
-    .sort((a, b) => a.potion.name.localeCompare(b.potion.name));
-  const ownedConsumables = CONSUMABLE_IDS.map((id) => ({
-    id,
-    consumable: CONSUMABLES[id],
-    count: inventory.consumables[id] ?? 0,
-  }))
-    .filter((e) => e.count > 0)
-    .sort((a, b) => a.consumable.name.localeCompare(b.consumable.name));
-  const ownedSkillBooks = SKILL_BOOK_IDS.map((id) => ({
-    id,
-    book: SKILL_BOOKS[id],
-    count: (inventory.skillBooks ?? {})[id] ?? 0,
-  }))
-    .filter((e) => e.count > 0)
-    .sort((a, b) => a.book.name.localeCompare(b.book.name));
-  const learnedSet = new Set(learnedAPSkillNames ?? []);
+  const enchantRows = useMemo(
+    () =>
+      ENCHANT_AFFIX_IDS.map((id) => {
+        const affix = ENCHANT_AFFIXES[id];
+        // materialId 는 `enchant_<id>` 컨벤션으로 항상 유효한 MaterialId (materials.ts 에 정의).
+        const count = inventory.materials[affix.materialId as MaterialId] ?? 0;
+        return { affix, count };
+      }),
+    [inventory],
+  );
+  const ownedEnchantKinds = useMemo(
+    () => enchantRows.filter((e) => e.count > 0).length,
+    [enchantRows],
+  );
+  const ownedPotions = useMemo(
+    () =>
+      POTION_IDS.map((id) => ({
+        id,
+        potion: POTIONS[id],
+        count: inventory.potions[id] ?? 0,
+      }))
+        .filter((e) => e.count > 0)
+        .sort((a, b) => a.potion.name.localeCompare(b.potion.name)),
+    [inventory],
+  );
+  const ownedConsumables = useMemo(
+    () =>
+      CONSUMABLE_IDS.map((id) => ({
+        id,
+        consumable: CONSUMABLES[id],
+        count: inventory.consumables[id] ?? 0,
+      }))
+        .filter((e) => e.count > 0)
+        .sort((a, b) => a.consumable.name.localeCompare(b.consumable.name)),
+    [inventory],
+  );
+  const ownedSkillBooks = useMemo(
+    () =>
+      SKILL_BOOK_IDS.map((id) => ({
+        id,
+        book: SKILL_BOOKS[id],
+        count: (inventory.skillBooks ?? {})[id] ?? 0,
+      }))
+        .filter((e) => e.count > 0)
+        .sort((a, b) => a.book.name.localeCompare(b.book.name)),
+    [inventory],
+  );
+  const learnedSet = useMemo(
+    () => new Set(learnedAPSkillNames ?? []),
+    [learnedAPSkillNames],
+  );
   const potionCap = potionMax(inventory.potionCapacityBonus ?? 0);
 
   // 슬롯 탭 + 이름 검색으로 필터, 진행 티어로 그룹화 — 페이저 대신 티어 헤더가 자연 분할.
   // 이름순(가나다) 정렬 후 그룹화하므로 각 티어 안에서 이름순으로 나열된다.
-  const filteredEquipment = ownedEquipment
-    .filter(
-      (e) =>
-        e.item.slot === equipSlotTab && matchesEquipQuery(e.item, equipQuery),
-    )
-    .sort((a, b) => a.item.name.localeCompare(b.item.name));
+  const filteredEquipment = useMemo(
+    () =>
+      ownedEquipment
+        .filter(
+          (e) =>
+            e.item.slot === equipSlotTab &&
+            matchesEquipQuery(e.item, equipQuery),
+        )
+        .sort((a, b) => a.item.name.localeCompare(b.item.name)),
+    [ownedEquipment, equipSlotTab, equipQuery],
+  );
   // 동종 여분이 여러 개여도 "장착중" 표시는 딱 하나에만 — 첫 매칭 entry 의 key.
-  const equippedEntryKey =
-    filteredEquipment.find((e) =>
-      isEntryEquipped(e, equipped?.[e.item.slot] ?? null),
-    )?.key ?? null;
-  const groupedEquipment = groupByTier(filteredEquipment, (e) =>
-    getItemTier(e.id),
+  const equippedEntryKey = useMemo(
+    () =>
+      filteredEquipment.find((e) =>
+        isEntryEquipped(e, equipped?.[e.item.slot] ?? null),
+      )?.key ?? null,
+    [filteredEquipment, equipped],
+  );
+  const groupedEquipment = useMemo(
+    () => groupByTier(filteredEquipment, (e) => getItemTier(e.id)),
+    [filteredEquipment],
   );
   // 티어 접기/펴기 — 기본 접힘. 검색 활성 시 강제 펼침.
   const {

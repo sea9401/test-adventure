@@ -198,7 +198,6 @@ export type BattleState = {
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
-const CHILL_DECAY_PER_TURN = 1;
 
 export type PlayerCombat = {
   hp: number;
@@ -1123,11 +1122,6 @@ export function advanceTurn(
     state = {
       ...state,
       buffs: decrementTimedEffects(state.buffs),
-      // 한기는 매 플레이어 턴 1씩 자연 감소 — 회피/키팅 플레이 여지.
-      stacks: {
-        ...state.stacks,
-        chillStacks: Math.max(0, state.stacks.chillStacks - CHILL_DECAY_PER_TURN),
-      },
       playerAttacksLeft: state.playerAttacksLeft + consumeQueued,
       turn: { ...state.turn, queuedExtraAttacks: 0 },
     };

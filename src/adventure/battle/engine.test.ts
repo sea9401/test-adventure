@@ -1025,40 +1025,6 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after.log.some((e) => e.text.includes("모든 디버프 해제"))).toBe(true);
   });
 
-  it("한기는 플레이어 턴마다 1씩 자연 감소해 0 에서 멈춘다", () => {
-    const enemy = chillEnemy({ skill: undefined });
-    const s0 = initialBattleState(tank, enemy, "P");
-    const primed = {
-      ...s0,
-      stacks: { ...s0.stacks, chillStacks: 2 },
-      turn: { ...s0.turn, completedPlayerTurns: 1 },
-    };
-    const after1 = advanceTurn(primed, tank, "P");
-    expect(after1.stacks.chillStacks).toBe(1);
-    const after2 = advanceTurn(
-      {
-        ...after1,
-        phase: "player" as const,
-        playerAttacksLeft: 1,
-        turn: { ...after1.turn, firstAttackPending: true },
-      },
-      tank,
-      "P",
-    );
-    expect(after2.stacks.chillStacks).toBe(0);
-    const after3 = advanceTurn(
-      {
-        ...after2,
-        phase: "player" as const,
-        playerAttacksLeft: 1,
-        turn: { ...after2.turn, firstAttackPending: true },
-      },
-      tank,
-      "P",
-    );
-    expect(after3.stacks.chillStacks).toBe(0);
-  });
-
   it("한기 DoT 는 결의 피해 감소를 적용한다", () => {
     const enemy = chillEnemy();
     const s0 = initialBattleState(tank, enemy, "P");

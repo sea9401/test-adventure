@@ -9,6 +9,10 @@ const PUBLIC_PATHS = [
   "/api/version",
   "/api/chat/cleanup",
   "/api/cron", // 스케줄러(EC2 crontab / Vercel crons) 호출 — 라우트 자체가 CRON_SECRET 을 검사
+  // 개발/프리뷰 전용 UI 프리뷰 라우트(/dev/*) — 로그인 없이 컴포넌트 확인용.
+  // production 빌드에선 이 항목 자체가 컴파일 타임에 빠지고(NODE_ENV 정적 치환),
+  // 라우트 페이지도 production 에서 notFound() 라 운영(msmsge.com)엔 절대 노출 안 됨.
+  ...(process.env.NODE_ENV === "production" ? [] : ["/dev"]),
 ];
 
 // 미들웨어 전용 설정 — adapter 없이 edge-compatible.

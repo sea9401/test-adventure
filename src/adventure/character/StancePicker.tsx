@@ -17,8 +17,9 @@ const CHIP_CLASS: Record<StanceEffectChip["kind"], string> = {
 };
 
 // 전투 전 전술(스탠스) 선택기. 현재 보스 진입 화면(BossSubView)에 노출.
-// 선택값은 character.v2 에 전역 영속 — 한 번 고르면 보스·협동·고탑·PvP 모든
-// 특수 전투에 적용된다(고탑/PvP 진입 화면 노출은 후속). 일반 사냥엔 영향 없음.
+// 선택값은 character.v2 에 전역 영속 — 한 번 고르면 전투 보정(공세/수성/처형)이
+// 보스·협동·고탑·PvP 모든 특수 전투에 적용된다(고탑/PvP 진입 화면 노출은 후속).
+// 노획(없음)의 드랍률·경험치 보너스는 지역 보스에만 적용. 일반 사냥엔 영향 없음.
 export function StancePicker({
   value,
   onChange,
@@ -31,7 +32,7 @@ export function StancePicker({
     name: string;
     chips: StanceEffectChip[];
   }> = [
-    { id: null, name: "없음", chips: stanceEffectChips(null) },
+    { id: null, name: "노획", chips: stanceEffectChips(null) },
     ...STANCE_IDS.map((id) => ({
       id,
       name: STANCE_META[id].name,

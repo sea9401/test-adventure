@@ -6,6 +6,7 @@ import {
   normalizeStance,
   stanceBattleLogText,
   stanceEffectChips,
+  stanceRewardMult,
 } from "./stance";
 
 function basePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
@@ -82,9 +83,13 @@ describe("stanceBattleLogText", () => {
 });
 
 describe("stanceEffectChips", () => {
-  it("없음(null) 은 보정 없음 한 칩", () => {
-    const chips = stanceEffectChips(null);
-    expect(chips).toEqual([{ label: "보정 없음", kind: "neutral" }]);
+  it("노획(null) 은 보스 드랍률·경험치 buff 칩 (GREED_REWARD 도출)", () => {
+    expect(stanceEffectChips(null)).toEqual([
+      { label: "보스 드랍률 +25%", kind: "buff" },
+      { label: "보스 경험치 +15%", kind: "buff" },
+    ]);
+    // undefined 도 동일(노획 취급).
+    expect(stanceEffectChips(undefined)).toEqual(stanceEffectChips(null));
   });
   it("공세 — 공격 buff + 방어/회피 penalty (STANCE_MOD 도출)", () => {
     expect(stanceEffectChips("onslaught")).toEqual([
@@ -104,6 +109,21 @@ describe("stanceEffectChips", () => {
       { label: "공격 -4%", kind: "penalty" },
       { label: "HP 45%↓ 적 +40% 피해", kind: "buff" },
     ]);
+  });
+});
+
+describe("stanceRewardMult", () => {
+  it("노획(null/undefined) — 드랍 ×1.25, 경험치 ×1.15", () => {
+    expect(stanceRewardMult(null)).toEqual({ dropRateMult: 1.25, expMult: 1.15 });
+    expect(stanceRewardMult(undefined)).toEqual({
+      dropRateMult: 1.25,
+      expMult: 1.15,
+    });
+  });
+  it("전투 스탠스 3종은 보상 항등 (1×) — 보정은 전투 능력치로만", () => {
+    for (const id of ["onslaught", "bulwark", "execution"] as const) {
+      expect(stanceRewardMult(id)).toEqual({ dropRateMult: 1, expMult: 1 });
+    }
   });
 });
 

@@ -4,10 +4,14 @@
 // 자동 전투 전제는 유지(수동 발동 부활 아님). 플레이어는 전투 전에 전술을 골라
 // 자동 해결의 수치를 편향시킨다. 매크로 위험 0, 즉시해결과 충돌 0.
 //
-// 효과는 전부 PlayerCombat 필드 보정으로만 표현 → engine.ts 무수정.
-// **적용 범위 = 보스/특수 전투에만** (지역 보스 isBoss / 협동 / 고탑 / PvP).
+// 전투 보정(공세/수성/처형)은 전부 PlayerCombat 필드 보정으로만 표현 → engine.ts 무수정.
+// **전투 보정 적용 범위 = 보스/특수 전투에만** (지역 보스 isBoss / 협동 / 고탑 / PvP).
 // 일반 사냥·오프라인 오토헌트(offlineSim)는 미적용 — applyStance 를 derive 에
 // 보편 주입하지 않고, 특수 전투 진입 지점에서만 게이팅 호출한다.
+//
+// 「전술 없음」(null) 은 죽은 선택지가 아니라 「노획」 전술 — 전투 보정 0 인 대신 보스 전투의
+// 전리품·경험치를 끌어올린다(stanceRewardMult). 보상 보너스는 지역 보스(battleClaim)에만
+// 적용 — 고탑/협동/PvP 는 보상 모델이 달라 미적용(stanceRewardMult 주석 참조).
 //
 // 수치는 전부 초안 — 실측 후 튜닝(다른 밸런스 다이얼과 동일).
 
@@ -84,9 +88,30 @@ const STANCE_MOD: Record<
   },
 };
 
+// 「노획」 전술 — stance 없음(null). 전투 보정은 0(applyStance 항등)인 대신, 보스 전투의
+// 전리품·경험치 획득을 끌어올린다. 다른 3개 전투 스탠스의 기회비용(전투 우위)을 포기하는
+// 대가로 보상을 챙기는 트레이드오프. **드랍률·경험치는 PlayerCombat 필드가 아니라 보상
+// 계산 단계 값**이라 applyStance 로는 못 싣고, battleClaim 보스 경로에서 stanceRewardMult 로
+// 곱한다. 적용 범위 = 지역 보스(battleClaim)만 — 고탑(마일스톤 고정)·협동(기여도 모델)·PvP
+// (보상 없음)는 보상 모델이 달라 미적용. 수치는 초안, 실측 후 튜닝.
+export type StanceRewardMult = { dropRateMult: number; expMult: number };
+
+const NO_STANCE_REWARD: StanceRewardMult = { dropRateMult: 1, expMult: 1 };
+const GREED_REWARD: StanceRewardMult = { dropRateMult: 1.25, expMult: 1.15 };
+
+/**
+ * 전술별 보상 배율 — 보스 전투 보상 경로(battleClaim)에서만 곱할 것.
+ * 노획(null) 만 보너스, 전투 스탠스 3종은 항등(1×). 호출부가 isBoss 게이팅 책임.
+ */
+export function stanceRewardMult(
+  stance: StanceId | null | undefined,
+): StanceRewardMult {
+  return stance ? NO_STANCE_REWARD : GREED_REWARD;
+}
+
 /**
  * 전술 보정을 PlayerCombat 에 적용한 새 객체 반환. 순수 함수.
- * stance 가 null/undefined 면 항등(원본 그대로) — 기존 동작 무변화.
+ * stance 가 null/undefined(노획) 면 항등(원본 그대로) — 전투 보정 없음.
  * 보스/특수 전투 진입 지점에서만 호출할 것(일반 사냥/offlineSim 미적용).
  */
 export function applyStance(
@@ -125,15 +150,27 @@ export type StanceEffectChip = {
   kind: "buff" | "penalty" | "neutral";
 };
 
-/** 전술별 보정 수치 칩. stance 없음(null)이면 "보정 없음" 한 칩. */
+/**
+ * 전술별 보정 수치 칩. stance 없음(null) = 노획 — 전투 칩 대신 보상 칩(드랍/경험치).
+ * 모든 수치는 단일 진실원(STANCE_MOD / GREED_REWARD)에서 도출 → 튜닝 시 UI 자동 동기.
+ */
 export function stanceEffectChips(
   stance: StanceId | null | undefined,
 ): StanceEffectChip[] {
-  if (!stance) return [{ label: "보정 없음", kind: "neutral" }];
-  const m = STANCE_MOD[stance];
-  const chips: StanceEffectChip[] = [];
   // 곱연산 보정 → ± 퍼센트. 1.12 → +12%, 0.92 → -8%.
   const signed = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+  if (!stance) {
+    // 노획: 보스 한정 드랍률·경험치 보너스. 전투 보정은 없음(기회비용으로 표현).
+    const r = stanceRewardMult(null);
+    const dropPct = Math.round((r.dropRateMult - 1) * 100);
+    const expPct = Math.round((r.expMult - 1) * 100);
+    return [
+      { label: `보스 드랍률 ${signed(dropPct)}%`, kind: "buff" },
+      { label: `보스 경험치 ${signed(expPct)}%`, kind: "buff" },
+    ];
+  }
+  const m = STANCE_MOD[stance];
+  const chips: StanceEffectChip[] = [];
   const atkPct = Math.round((m.atkMult - 1) * 100);
   if (atkPct !== 0) {
     chips.push({

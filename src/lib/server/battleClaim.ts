@@ -47,6 +47,7 @@ import {
 } from "@/adventure/character/enchant";
 import { MONSTERS, type Monster } from "@/adventure/data/monsters";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
+import { normalizeStance, stanceRewardMult } from "@/adventure/character/stance";
 import { WORLD_MAP } from "@/adventure/data/world";
 import { MATERIALS } from "@/adventure/data/materials";
 import { ITEMS, isLuckyFind } from "@/adventure/data/items";
@@ -611,8 +612,15 @@ export async function applyBattleClaim(
   const enchantExpMult = 1 + enchantBonus.bountyPct / 100;
   const enchantDropMult = 1 + enchantBonus.harvestPct / 100;
   const enchantGoldMult = 1 + enchantBonus.fortunePct / 100;
-  const expMult = guildExpMult * runeExpMult * paragonRewardMult * enchantExpMult;
-  const dropMult = guildDropMult * runeDropMult * newbieDropMult * enchantDropMult;
+  // 노획 전술(stance 없음) — 보스 전투 한정 드랍률·경험치 보너스. 비보스/일반 전투는 미적용
+  // (isBoss 게이팅). 골드(paragonRewardMult)는 의도적으로 미포함 — 노획은 드랍+경험치만.
+  const stanceReward = input.isBoss
+    ? stanceRewardMult(normalizeStance(charPrev.selectedStance))
+    : { dropRateMult: 1, expMult: 1 };
+  const expMult =
+    guildExpMult * runeExpMult * paragonRewardMult * enchantExpMult * stanceReward.expMult;
+  const dropMult =
+    guildDropMult * runeDropMult * newbieDropMult * enchantDropMult * stanceReward.dropRateMult;
 
   // EXP 계산 — monster.exp + newbie ×2 (Lv30 미만).
   const baseExp = monster.exp ?? 0;

@@ -1,35 +1,26 @@
-// PvP 전투 엔진 — engine.ts (PvE) 의 대칭 미러. PR-1a (공격자 측).
-//
-// 시리즈:
-//   PR-1a (이 파일) — 구조·타입·이니셜·resolve 루프 + 공격자 측 능력 전부.
-//   PR-1b (예정)   — 방어자 측 능력 전부 (가드/철벽/불굴/그림자보법/회피강화/행운의방패/
-//                  곡예/반사갑주/가시갑옷/무한가시/반사회피/유격/반격/굳건한의지/흡혈갑옷/
-//                  반격의룬). advanceTurnPvP 본체를 한 번 더 크게 보강.
+// PvP 전투 엔진 — engine.ts (PvE) 의 대칭 미러. 양쪽 모두 PlayerCombat.
+// 공격자/방어자 양측 능력 전부 대칭 구현 (#282 풀-스코프, 능력 32종 + AP 시스템 미러).
 //
 // 차이점 (engine.ts 와):
 //   - 양쪽 모두 PlayerCombat (Monster 없음). 두 사이드를 p1/p2 로 보관.
 //   - Monster 전용 개념(phaseTrigger / 잡몹 skill heavy_blow|enrage|brace|pierce /
-//     armorVulnerable / playerDefVulnerable) 은 제거. 두 플레이어의 특기·룬·포션은
-//     양쪽 모두에 대칭으로 적용.
+//     armorVulnerable / playerDefVulnerable) 은 제거. 두 플레이어의 특기·룬·AP스킬은
+//     양쪽 모두에 대칭으로 적용. (포션은 PvP 디자인상 사용 불가 — 라우트가 미전달.)
 //   - state.enemy.X → defender.player.X (현재 페이즈에서 방어자 측)
 //   - state.buffs/flags/stacks/turn → attacker.buffs/flags/stacks/turn (현재 페이즈에서 공격자 측)
 //   - 출혈 도트는 "공격자가 상대에게 쌓아둔 스택" 으로 attacker.stacks.bleedStacksOnOpponent 에 보관.
 //     상대(defender) 턴 시작 시, attacker(=직전 페이즈에서 공격자였던 쪽) 의 bleedDmgPerStack 으로 도트 데미지.
-//   - 양쪽 모두 HP 0 → 무승부 (draw) 가능. resolveBattlePvP 가 처리.
+//   - 승패: 양쪽 모두 HP 0 → 무승부(draw). 100턴(PVP_TURN_CAP) 초과 시 잔여 HP 비율 높은
+//     쪽 승, 동률이면 draw. resolveBattlePvP 가 처리.
 //
-// PR-1a 범위 — 공격자 측 능력 (대칭으로 양쪽에 적용):
-//   강공격, 분쇄, 암살, 약점적중, 광전사, 질풍검, 불굴의일격, 회전운기, 크리(+ 천칭 + 이중행운
-//   + 만물행운), 처형, 행운의별, 천명, 충돌파, 연쇄운명, 연타, 광속, 풍사슬(5)/무한풍사슬(6),
-//   연참, 그림자 분신/군단, 무피해 난무, 막다른 격노, 약점 분석, 포션, 흡혈/행운의 흡혈/흡혈의 룬,
-//   출혈 dot (방어자 턴 시작 시 적용).
-//
-// PR-1b 잔여 — 방어자 측 능력 (advanceTurnPvP 본체 보강 시 통합):
-//   그림자 보법, 회피 강화(보장 회피), 행운의 방패, 곡예(회피 시 힐), 반사 회피, 유격,
-//   반격(counterAtkBonus), 가드, 굳건한 의지, 철벽 보호막 흡수, 불굴(HP 0 방어),
-//   흡혈 갑옷, 반사 갑주, 가시 갑옷, 무한 가시 반사, 반격의 룬.
-//   (현재 PR-1a 본체는 공격자가 가하는 totalDmg 를 방어자 hp 에 *그대로* 차감 — 위 방어자
-//    측 능력이 없는 상태에서의 1차 대칭 검증용. PR-1b 가 데미지 적용 직전·직후의 방어자 측
-//    처리를 위빙해 넣는다.)
+// 능력 범위 (대칭 — 양쪽에 동일 적용):
+//   공격 측: 강공격, 분쇄, 암살, 약점적중, 광전사, 질풍검, 불굴의일격, 회전운기, 크리(천칭·
+//     이중행운·만물행운), 처형, 행운의별, 천명, 충돌파, 연쇄운명, 연타, 광속, 풍사슬(5)/
+//     무한풍사슬(6), 연참, 그림자 분신/군단, 무피해 난무, 막다른 격노, 약점 분석,
+//     흡혈/행운의 흡혈/흡혈의 룬, 출혈 dot (방어자 턴 시작 시 적용).
+//   방어 측: 그림자 보법, 회피 강화(보장 회피), 행운의 방패, 곡예(회피 시 힐), 반사 회피,
+//     유격, 반격(counterAtkBonus), 가드, 굳건한 의지, 철벽 보호막 흡수, 불굴(HP 0 방어),
+//     흡혈 갑옷, 반사 갑주, 가시 갑옷, 무한 가시 반사, 반격의 룬.
 //
 // 재사용:
 //   - PlayerCombat / PlayerAction / BattleLogEntry / damageBetween / BattleTurnState 는

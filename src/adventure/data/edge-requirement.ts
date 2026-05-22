@@ -1,6 +1,9 @@
 import type { AdventureLog } from "../log/storage";
 import {
   WORLD_MAP,
+  getAdjacent,
+  getMap,
+  getRegion,
   type EdgeRequirement,
   type EdgeRequirementKind,
   type RegionId,
@@ -127,4 +130,41 @@ export function findEdgeRequirement(
   toId: RegionId,
 ): EdgeRequirement | undefined {
   return EDGE_REQUIREMENT_BY_ROUTE.get(edgeRequirementKey(fromId, toId));
+}
+
+export type CrossMapGate = {
+  to: RegionId;
+  name: string;
+  status: EdgeRequirementStatus;
+};
+
+/**
+ * 현재 지역에서 "다른 맵(본토↔별빛)" 으로 넘어가는 인접 게이트 목록 + 각 충족 상태.
+ * cross-map 엣지는 좌표계가 달라 지도에 선으로 못 그리므로(MapView), UI 가 이 목록을
+ * 별도 배너로 노출해 진입 동선을 보여준다. 같은 맵 인접은 지도에 이미 그려지므로 제외.
+ *
+ * 요구조건 방향 정책은 MapView 의 selectedReq 와 동일 — 진행 방향(현재→목적지) 우선,
+ * 역방향은 visited 게이트일 때만(한 번 발견한 길은 자유로이 되돌아가기).
+ */
+export function crossMapGatesFrom(
+  currentRegionId: RegionId,
+  ctx: Omit<EvaluateContext, "from" | "to">,
+): CrossMapGate[] {
+  const curMap = getMap(currentRegionId);
+  const gates: CrossMapGate[] = [];
+  for (const to of getAdjacent(WORLD_MAP, currentRegionId)) {
+    if (getMap(to) === curMap) continue;
+    const region = getRegion(to);
+    if (!region) continue;
+    const fwd = findEdgeRequirement(currentRegionId, to);
+    const rev = findEdgeRequirement(to, currentRegionId);
+    const req = fwd ?? (rev?.kind === "visited" ? rev : undefined);
+    const status = evaluateEdgeRequirement(req, {
+      ...ctx,
+      from: currentRegionId,
+      to,
+    });
+    gates.push({ to, name: region.name, status });
+  }
+  return gates;
 }

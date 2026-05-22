@@ -17,6 +17,7 @@ import {
 } from "./data/world";
 import { TabBar } from "@/components/ui/TabBar";
 import {
+  crossMapGatesFrom,
   evaluateEdgeRequirement,
   findEdgeRequirement,
   type EdgeRequirementStatus,
@@ -215,6 +216,25 @@ export function MapView({
     }
     return null;
   })();
+  // 본토↔별빛 cross-map 게이트 — 다른 맵으로 넘어가는 인접 길. 좌표계가 달라 지도에 선으로
+  // 못 그리므로(MapView 엣지 렌더 참조), 별도 배너로 노출해 진입 동선을 드러낸다.
+  const crossMapGates = useMemo(
+    () =>
+      crossMapGatesFrom(progress.currentRegionId, {
+        log,
+        isTrialCleared,
+        hasStoryFlag,
+        visitedRegionIds: progress.visitedRegionIds,
+      }),
+    [
+      progress.currentRegionId,
+      progress.visitedRegionIds,
+      log,
+      isTrialCleared,
+      hasStoryFlag,
+    ],
+  );
+
   const isTrialEdge =
     !!selectedId &&
     isAdjacent &&
@@ -286,6 +306,14 @@ export function MapView({
     }
   };
 
+  const handleCrossMapTravel = (toId: RegionId) => {
+    if (playerHp <= 0) {
+      setLowHpBlocked(true);
+      return;
+    }
+    performMove(toId); // currentRegion 변경 → useEffect 가 activeMap 자동 전환
+  };
+
   // PC 편의 — Space / Enter 로 "이동" 버튼 발화. 텍스트 입력 / 다른 버튼·링크에 포커스가
   // 있을 때는 그쪽의 기본 동작에 양보(이중 발화 방지). 모바일은 가상 키보드만 있어 영향 없음.
   // canMove / canChallenge / 주문서 셋 중 하나라도 가능할 때만 발화.
@@ -353,6 +381,44 @@ export function MapView({
           {currentRegion?.name ?? "—"}
         </span>
       </div>
+      {/* 권역 게이트 — 다른 맵(본토↔별빛)으로 넘어가는 길. 지도엔 선이 안 그려져서
+          여기로 노출한다. 충족 시 한 탭 건너가기, 미충족 시 사유 힌트. */}
+      {crossMapGates.length > 0 && (
+        <div className="space-y-1.5 rounded-lg border border-indigo-200/70 bg-indigo-50/70 px-3 py-2 dark:border-indigo-900/50 dark:bg-indigo-950/30">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 dark:text-indigo-300">
+            <span className="text-sm leading-none">🌌</span>
+            <span>다른 권역으로 가는 길</span>
+          </div>
+          {crossMapGates.map((gate) =>
+            gate.status.met ? (
+              <button
+                key={gate.to}
+                type="button"
+                onClick={() => handleCrossMapTravel(gate.to)}
+                className="flex w-full items-center justify-between rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              >
+                <span>{gate.name}(으)로 건너가기</span>
+                <span aria-hidden>→</span>
+              </button>
+            ) : (
+              <div
+                key={gate.to}
+                className="flex items-start gap-1.5 rounded-md bg-white/50 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-900/40 dark:text-zinc-400"
+              >
+                <span className="leading-none">🔒</span>
+                <span>
+                  <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                    {gate.name}
+                  </span>
+                  {gate.status.reason
+                    ? ` · ${gate.status.reason}`
+                    : " · 아직 갈 수 없다."}
+                </span>
+              </div>
+            ),
+          )}
+        </div>
+      )}
       {/* 맵 선택자 — 본토/별빛을 통째로 스왑. 게이트를 넘으면 자동으로도 전환된다. */}
       <TabBar
         tabs={MAPS.map((m) => ({ key: m.id, label: m.label }))}

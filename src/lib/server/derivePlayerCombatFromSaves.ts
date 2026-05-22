@@ -11,6 +11,7 @@ import {
   type DerivedPlayerCombat,
 } from "@/adventure/character/derivePlayerCombat";
 import { rehydrateEquippedItem } from "@/adventure/character/rehydrateEquip";
+import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import type { EquippedItem } from "@/adventure/character/types";
 import {
   isWellFormedRuneSlot,
@@ -46,6 +47,8 @@ type SavedCharacterV2 = {
   learnedAPSkills?: string[];
   /** AP 스킬 슬롯의 발동 조건 맵 — skillName 키. 미지정 = always. */
   apSkillConditions?: Record<string, unknown>;
+  /** 선택한 전술(스탠스). 보스/특수 전투에만 적용 — 호출부가 applyStance 로 게이팅. */
+  selectedStance?: unknown;
 };
 
 type SavedTrainingV2 = {
@@ -75,10 +78,16 @@ async function readSavesBatch(
 // 호출자가 이미 트랜잭션 안이라면 그 tx 를 넘겨야 같은 커넥션에서 읽힌다. 별도 db
 // 커넥션을 쓰면 호출자가 잠근 saves_kv 행을 새 커넥션이 SELECT 하다 잠금 대기에
 // 걸려, 호출자 tx 가 그 await 결과를 기다리며 self-deadlock 후보가 된다.
+/** derive 결과 + 저장된 전술. 전술은 적용하지 않고 그대로 전달 — 호출부가
+ *  보스/특수 전투에서만 applyStance 로 게이팅 적용한다(비특수 경로 보호). */
+export type DerivedPlayerCombatFromSaves = DerivedPlayerCombat & {
+  selectedStance: StanceId | null;
+};
+
 export async function derivePlayerCombatFromSaves(
   userId: string,
   executor: DbExecutor = db,
-): Promise<DerivedPlayerCombat | null> {
+): Promise<DerivedPlayerCombatFromSaves | null> {
   const saves = await readSavesBatch(executor, userId, [
     "character.v2",
     "training.v2",
@@ -129,7 +138,7 @@ export async function derivePlayerCombatFromSaves(
 
   const paragon = readInitialParagon(saves["paragon.v1"]);
 
-  return derivePlayerCombat({
+  const derived = derivePlayerCombat({
     level: character.level ?? 1,
     baseStats: baseCharacter.stats,
     allocatedStats,
@@ -143,6 +152,7 @@ export async function derivePlayerCombatFromSaves(
     paragonAllocations: paragon.allocations,
     hp: character.hp ?? baseCharacter.hp,
   });
+  return { ...derived, selectedStance: normalizeStance(character.selectedStance) };
 }
 
 function parseSavedAPSkillConditions(

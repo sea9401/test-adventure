@@ -1,0 +1,71 @@
+"use client";
+
+import { Card } from "@/components/ui/Card";
+import { STANCE_IDS, STANCE_META, type StanceId } from "./stance";
+
+// 전투 전 전술(스탠스) 선택기. 현재 보스 진입 화면(BossSubView)에 노출.
+// 선택값은 character.v2 에 전역 영속 — 한 번 고르면 보스·협동·고탑·PvP 모든
+// 특수 전투에 적용된다(고탑/PvP 진입 화면 노출은 후속). 일반 사냥엔 영향 없음.
+export function StancePicker({
+  value,
+  onChange,
+}: {
+  value: StanceId | null;
+  onChange: (stance: StanceId | null) => void;
+}) {
+  const options: Array<{ id: StanceId | null; name: string; blurb: string }> = [
+    {
+      id: null,
+      name: "없음",
+      blurb: "전술 보정 없이 평소 능력치 그대로 싸운다.",
+    },
+    ...STANCE_IDS.map((id) => ({
+      id,
+      name: STANCE_META[id].name,
+      blurb: STANCE_META[id].blurb,
+    })),
+  ];
+  return (
+    <Card as="section" padding="md">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          전술
+        </h3>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          보스·협동·고탑·PvP 에만 적용
+        </span>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        {options.map((o) => {
+          const active = value === o.id;
+          return (
+            <button
+              key={o.id ?? "none"}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(o.id)}
+              className={`rounded-md border p-3 text-left transition-colors ${
+                active
+                  ? "border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-sky-950/40"
+                  : "border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+              }`}
+            >
+              <div
+                className={`text-sm font-medium ${
+                  active
+                    ? "text-sky-700 dark:text-sky-300"
+                    : "text-zinc-800 dark:text-zinc-100"
+                }`}
+              >
+                {o.name}
+              </div>
+              <div className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                {o.blurb}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}

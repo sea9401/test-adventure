@@ -3,6 +3,7 @@
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { BattleView } from "@/adventure/BattleView";
+import { StancePicker } from "@/adventure/character/StancePicker";
 import { CoopBossCard } from "@/adventure/coop/CoopBossCard";
 import { COOP_BOSSES } from "@/adventure/coop/data";
 import { applyCoopReward } from "@/adventure/coop/applyReward";
@@ -61,6 +62,10 @@ export function BossSubView() {
     return (
       <div className="space-y-3">
         <SubViewHeader title="보스" onBack={back} />
+        <StancePicker
+          value={characterStateHook.state.selectedStance ?? null}
+          onChange={characterStateHook.setStance}
+        />
         <CoopBossCard
           regionId={currentRegion.id}
           playerName={character.name}
@@ -111,9 +116,14 @@ export function BossSubView() {
     return (
       <div className="space-y-3">
         <SubViewHeader title="보스" onBack={back} />
+        <StancePicker
+          value={characterStateHook.state.selectedStance ?? null}
+          onChange={characterStateHook.setStance}
+        />
         <BattleView
           region={currentRegion}
           player={playerCombat}
+          stance={characterStateHook.state.selectedStance ?? null}
           playerLevel={character.level}
           playerName={character.name}
           playerStatus={playerStatus}

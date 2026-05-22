@@ -12,6 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { applyStance } from "@/adventure/character/stance";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
   resolveBattle,
@@ -102,8 +103,10 @@ export async function applyTowerChallengeAction(
     clearedFloor = floor;
     const derived = await derivePlayerCombatFromSaves(userId, tx);
     if (!derived) throw new TowerChallengeError("character_not_found");
+    // 도전 고탑은 특수 콘텐츠 → 선택한 전술 적용.
+    const player = applyStance(derived.player, derived.selectedStance);
     const enemy = buildChallengeFloorEnemy(floor, state.run.upcomingEnemy);
-    const resolution = resolveBattle(derived.player, enemy, "player", {
+    const resolution = resolveBattle(player, enemy, "player", {
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
       potions: {},
       isBoss: isBossFloor(floor),

@@ -3,6 +3,7 @@ import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
 import { useSavedValue } from "@/lib/storage/SaveProvider";
 import { useRemotePatch } from "@/lib/storage/useRemotePatch";
 import { baseCharacter, maxHpForLevel, maxMpForLevel } from "./defaults";
+import { normalizeStance, type StanceId } from "./stance";
 import { rehydrateEquippedItem } from "./rehydrateEquip";
 import type { EquippedItem, EquippedSlots } from "./types";
 import {
@@ -59,6 +60,11 @@ export type CharacterDynamicState = {
    * STAT_SKILL 은 슬롯 풀을 공유하지만 패시브라 조건 무의미 — 키 자체를 두지 않는다.
    */
   apSkillConditions?: Partial<Record<string, APSkillCondition>>;
+  /**
+   * 선택한 전술(스탠스). null/미지정 = 전술 없음(보정 0).
+   * 보스/특수 전투(지역 보스·협동·고탑·PvP)에만 적용 — 일반 사냥엔 무영향.
+   */
+  selectedStance?: StanceId | null;
   /** 일회성 마이그레이션 플래그 — 키별 1회만 실행. */
   migrations?: Partial<Record<string, boolean>>;
 };
@@ -126,6 +132,7 @@ function readInitial(raw: unknown): CharacterDynamicState {
       ? parsed.learnedAPSkills.filter((x): x is string => typeof x === "string")
       : undefined,
     apSkillConditions: parseAPSkillConditions(parsed.apSkillConditions),
+    selectedStance: normalizeStance(parsed.selectedStance),
     migrations: parsed.migrations,
   };
 }
@@ -202,6 +209,10 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
     setState((prev) => ({ ...prev, hp: maxHp ?? maxHpForLevel(prev.level) }));
 
   const setHp = (hp: number) => setState((prev) => ({ ...prev, hp }));
+
+  // 전술(스탠스) 선택. null = 전술 없음. 보스/특수 전투에만 적용된다.
+  const setStance = (stance: StanceId | null) =>
+    setState((prev) => ({ ...prev, selectedStance: stance }));
 
   const addGoldFame = (gold: number, fame: number) =>
     setState((prev) => ({
@@ -378,6 +389,7 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
     heal,
     restoreHpFull,
     setHp,
+    setStance,
     addGold,
     addGoldFame,
     addExp,

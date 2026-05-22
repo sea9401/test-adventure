@@ -1,5 +1,7 @@
 import "server-only";
 
+import { isStanceId } from "@/adventure/character/stance";
+
 // /api/save PATCH 들어오는 페이로드의 1차 위생 검사.
 //
 // 진짜 anti-cheat 는 아니다 — 클라가 권위인 흐름(NPC 보상, 퀘스트 보상, 단발 전투
@@ -94,6 +96,11 @@ function sanitizeCharacter(value: unknown): string | null {
   for (const [field, val, max, allowZero] of checks) {
     const err = checkNumericField(val, field, max, allowZero);
     if (err) return err;
+  }
+  // 전술(스탠스) — 미지정/null 이거나 유효한 StanceId 여야 함.
+  const stance = c.selectedStance;
+  if (stance !== undefined && stance !== null && !isStanceId(stance)) {
+    return "invalid selectedStance";
   }
   return null;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowsClockwise, Coins, Skull, Star } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -68,6 +68,7 @@ export function TowerPage({
   playerName,
   playerStatus,
   onApplied,
+  headerExtra,
 }: {
   onBack: () => void;
   playerName: string;
@@ -75,6 +76,8 @@ export function TowerPage({
   playerStatus: BattlePlayerStatus;
   /** 마일스톤 보상으로 character/inventory 가 갱신되면 호출 — 부모에서 state 동기화. */
   onApplied?: (r: TowerApiResponse) => void;
+  /** 헤더 바로 아래 노출 슬롯 — 전술 선택기 등. */
+  headerExtra?: ReactNode;
 }) {
   const tower = useTower({ onApplied });
   const [view, setView] = useState<View>({ kind: "entry" });
@@ -86,6 +89,7 @@ export function TowerPage({
   return (
     <div className="space-y-3">
       <SubViewHeader title="고탑" onBack={onBack} />
+      {headerExtra}
       <Card as="section" padding="sm">
         <TabBar
           tabs={[

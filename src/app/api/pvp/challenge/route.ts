@@ -19,6 +19,7 @@
 import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { applyStance } from "@/adventure/character/stance";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
@@ -91,7 +92,8 @@ export async function POST(req: Request) {
       // 풀 fetch 와 derive 사이에 save 가 사라진 race — 다음 호출에서 풀이 갱신됨.
       return new Response("opponent unavailable", { status: 503 });
     }
-    oppPlayer = oppCombat.player;
+    // PvP 는 특수 전투 → 인간 상대의 전술도 적용. (봇은 derive 안 거쳐 전술 없음.)
+    oppPlayer = applyStance(oppCombat.player, oppCombat.selectedStance);
     await getOrCreateRating(opponent.userId, season.id);
     oppName = (await resolveActor(opponent.userId)).name;
   }
@@ -102,7 +104,7 @@ export async function POST(req: Request) {
   // 따라서 양쪽 모두 매 턴 평타만 선택. (AP 스킬은 엔진이 슬롯 조건으로 자동 발동.)
   // 포션 풀을 빈 객체로 넘기므로 use_potion 액션이 발생해도 실제 소비/효과 없음 — 이중 가드.
   const resolution = resolveBattlePvP(
-    myCombat.player,
+    applyStance(myCombat.player, myCombat.selectedStance),
     oppPlayer,
     meActor.name,
     oppName,

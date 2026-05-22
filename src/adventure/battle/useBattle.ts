@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Monster } from "../data/monsters";
 import type { PotionId } from "../data/potions";
+import { applyStance, type StanceId } from "../character/stance";
 import {
   resolveBattle,
   type BattleResolution,
@@ -19,11 +20,14 @@ export function useBattle({
   playerName,
   pickAction,
   potions,
+  stance,
 }: {
   player: PlayerCombat;
   playerName: string;
   pickAction: (state: BattleState) => PlayerAction;
   potions: Partial<Record<PotionId, number>>;
+  /** 선택한 전술 — 보스 전투(isBoss)에만 적용. 일반 사냥엔 무영향. */
+  stance?: StanceId | null;
 }) {
   const [state, setState] = useState<BattleState | null>(null);
   const [potionsConsumed, setPotionsConsumed] = useState<
@@ -37,11 +41,13 @@ export function useBattle({
   const playerNameRef = useRef(playerName);
   const pickActionRef = useRef(pickAction);
   const potionsRef = useRef(potions);
+  const stanceRef = useRef(stance);
   useEffect(() => {
     playerRef.current = player;
     playerNameRef.current = playerName;
     pickActionRef.current = pickAction;
     potionsRef.current = potions;
+    stanceRef.current = stance;
   });
 
   // hpOverride — 직전 전투의 finalHp를 그대로 이어받을 때 사용 (setCharacterState 비동기 우회).
@@ -49,7 +55,10 @@ export function useBattle({
   const start = useCallback(
     (enemy: Monster, hpOverride?: number, isBoss?: boolean) => {
       const base = playerRef.current;
-      const p = hpOverride !== undefined ? { ...base, hp: hpOverride } : base;
+      const withHp =
+        hpOverride !== undefined ? { ...base, hp: hpOverride } : base;
+      // 전술은 보스 전투에만 적용 — 일반 사냥(isBoss 아님)엔 보정 0.
+      const p = isBoss ? applyStance(withHp, stanceRef.current) : withHp;
       const r: BattleResolution = resolveBattle(
         p,
         enemy,

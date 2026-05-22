@@ -14,6 +14,7 @@ import {
   coopBossSessions,
 } from "@/db/schema";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { applyStance } from "@/adventure/character/stance";
 import {
   COOP_ATTACK_COOLDOWN_MS,
   COOP_BOSSES,
@@ -71,10 +72,12 @@ export async function handleCoopAttack(
   if (derived.player.hp <= 0) {
     return new Response("character is incapacitated", { status: 409 });
   }
+  // 협동은 특수 전투 → 선택한 전술 적용(일반 사냥엔 미적용).
+  const player = applyStance(derived.player, derived.selectedStance);
 
   // 시뮬레이션은 CPU 작업이라 트랜잭션 밖에서 — bossCurrentHp 는 in-tx SELECT 시점에 다시 클램프된다.
   const result = simulateCoopAttack({
-    player: derived.player,
+    player,
     playerName: body.playerName ?? "모험가",
     bossName: session.bossName,
     bossCurrentHp: session.hp,

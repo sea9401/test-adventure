@@ -11,6 +11,7 @@ import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { applyStance } from "@/adventure/character/stance";
 import {
   resolveBattle,
   type BattleState,
@@ -141,10 +142,12 @@ export async function applyTowerAction(
     const floor = state.run.currentFloor;
     const derived = await derivePlayerCombatFromSaves(userId, tx);
     if (!derived) throw new TowerError("character_not_found");
+    // 고탑은 특수 콘텐츠 → 선택한 전술 적용(전 층).
+    const player = applyStance(derived.player, derived.selectedStance);
     // 클라 ready 화면과 동일한 적과 싸우도록 upcomingEnemy 가 있으면 사용.
     // 옛 런(upcomingEnemy 없음) 은 즉시 픽 — 그 한 번은 mismatch 가능.
     const enemy = buildFloorEnemy(floor, state.run.upcomingEnemy);
-    const resolution = resolveBattle(derived.player, enemy, "player", {
+    const resolution = resolveBattle(player, enemy, "player", {
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
       potions: {},
       isBoss: isBossFloor(floor),
@@ -270,6 +273,8 @@ async function applyTowerAutoProgress(
 
   const derived = await derivePlayerCombatFromSaves(userId, tx);
   if (!derived) throw new TowerError("character_not_found");
+  // 고탑은 특수 콘텐츠 → 선택한 전술 적용(전 층).
+  const player = applyStance(derived.player, derived.selectedStance);
 
   const startFloor = state.run.currentFloor;
   let lastBattle: TowerOutcome["battle"];
@@ -286,7 +291,7 @@ async function applyTowerAutoProgress(
     // 마다 새 currentFloor 라 자연스럽게 random 픽. (computeFightFloor 가 upcomingEnemy
     // 를 비워 다음 iteration 진입 시 없음 상태.)
     const enemy = buildFloorEnemy(floor, state.run.upcomingEnemy);
-    const resolution = resolveBattle(derived.player, enemy, "player", {
+    const resolution = resolveBattle(player, enemy, "player", {
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
       potions: {},
       isBoss: false, // 자동은 잡몹만 — 보스 직전에 break.

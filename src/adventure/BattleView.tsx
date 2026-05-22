@@ -8,6 +8,7 @@ import {
 } from "./data/bossCooldown";
 import { pickEnemyName, type Region } from "./data/world";
 import { MONSTERS, type Monster } from "./data/monsters";
+import type { StanceId } from "./character/stance";
 import type {
   BattleLogEntry,
   BattleOutcome,
@@ -88,6 +89,7 @@ export function BattleView({
   onBossAttempt,
   bossCooldownReductionPct = 0,
   bossOnlyMode = false,
+  stance = null,
 }: {
   region: Region;
   player: PlayerCombat;
@@ -124,12 +126,15 @@ export function BattleView({
    * false (기본) 면 사냥 섹션만 노출하고 보스 카드는 숨김 — 보스는 별도 서브뷰에 있음.
    */
   bossOnlyMode?: boolean;
+  /** 선택한 전술 — 보스 전투(isBoss)에만 적용. 일반 사냥엔 무영향. */
+  stance?: StanceId | null;
 }) {
   const { state, potionsConsumed, start, stop } = useBattle({
     player,
     playerName,
     pickAction: pickAutoAction,
     potions: inventoryState.potions,
+    stance,
   });
 
   // 보스 전투 모드 — 일반 자동사냥 루프와 분리. 1회 전투 후 종료, 자동 다음 적 X.

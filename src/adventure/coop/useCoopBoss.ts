@@ -147,6 +147,9 @@ export function useCoopBoss(regionId: string, enabled: boolean) {
       setWorking(true);
       setError(null);
       try {
+        // 직전 변경(전술 선택 등)이 서버 derive 에 반영되도록 디바운스 큐 flush.
+        // 같은 화면에서 전술 고른 직후 공격 시 서버가 옛 stance 로 계산하는 race 방지.
+        await remote.flush();
         const r = await fetch(`/api/coop/${regionId}`, {
           method: "POST",
           headers: coopHeaders(),
@@ -166,7 +169,7 @@ export function useCoopBoss(regionId: string, enabled: boolean) {
         setWorking(false);
       }
     },
-    [regionId, fetchOnce],
+    [regionId, fetchOnce, remote],
   );
 
   const claim = useCallback(async (): Promise<CoopClaimResponse | null> => {

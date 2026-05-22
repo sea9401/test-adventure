@@ -1,6 +1,7 @@
 "use client";
 
 import { TowerPage } from "@/adventure/tower/TowerPage";
+import { StancePicker } from "@/adventure/character/StancePicker";
 import { useGame } from "@/adventure/GameContext";
 
 // AdventureScreen 에서 ?sub=tower 라우팅을 받아 TowerPage 를 렌더링하는 얇은 래퍼.
@@ -13,6 +14,12 @@ export function TowerSubView() {
       onBack={back}
       playerName={character.name}
       playerStatus={playerStatus}
+      headerExtra={
+        <StancePicker
+          value={characterStateHook.state.selectedStance ?? null}
+          onChange={characterStateHook.setStance}
+        />
+      }
       onApplied={(r) => {
         // 서버가 character.v2 / inventory.v2 를 read-modify-write 했으므로 응답으로 받은
         // 값을 in-memory 에 통째 교체. 누락하면 다음 로컬 PATCH 의 last-writer-wins 로

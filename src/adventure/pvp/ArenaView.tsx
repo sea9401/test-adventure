@@ -14,6 +14,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { TabBar } from "@/components/ui/TabBar";
 import { BattleLogList } from "@/adventure/battle/BattleLogList";
+import { useGame } from "@/adventure/GameContext";
+import { StancePicker } from "@/adventure/character/StancePicker";
 import { useArena, useMatchLog, type ChallengeResponse } from "./useArena";
 import { StatsView } from "./StatsView";
 import { tierFor, tierProgress } from "./tiers";
@@ -58,6 +60,7 @@ export function ArenaView() {
     cooldownSecondsLeft,
   } = useArena();
   const [activeTab, setActiveTab] = useState<ArenaTab>("leaderboard");
+  const { characterStateHook } = useGame();
 
   if (loading && !status) {
     return (
@@ -96,6 +99,11 @@ export function ArenaView() {
         wins={status.me.wins}
         losses={status.me.losses}
         draws={status.me.draws}
+      />
+
+      <StancePicker
+        value={characterStateHook.state.selectedStance ?? null}
+        onChange={characterStateHook.setStance}
       />
 
       <button

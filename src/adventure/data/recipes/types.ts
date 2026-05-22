@@ -35,14 +35,15 @@ export function recipeHasVariance(recipe: Recipe): boolean {
   return craftHasVariance(recipe);
 }
 
-// 티어별 제작 골드 — 저티어 싸게(초보 무영향), 고티어 비싸게(골드 넘치는 만렙층 타격).
+// 티어별 제작 골드 — 저티어 싸게(초보 무영향), 고티어만 비싸게. RDS 실측(만렙 median 82k)에
+// 맞춰 고티어 하향(t3 800→600, t4 3k→2k, t5 10k→5k, t6 30k→12k). 실측 후 재튜닝.
 const RECIPE_GOLD_BY_TIER: Record<EquipTier, number> = {
   1: 50,
   2: 200,
-  3: 800,
-  4: 3000,
-  5: 10000,
-  6: 30000,
+  3: 600,
+  4: 2000,
+  5: 5000,
+  6: 12000,
 };
 
 // 레시피 1회 제작 골드 비용. 명시 gold 오버라이드 우선, 없으면 장비 티어 자동 산출.

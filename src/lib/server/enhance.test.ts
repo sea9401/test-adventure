@@ -4,7 +4,10 @@ import {
   computeEnhanceOutcome,
   type EnhanceComputeInput,
 } from "./enhance";
+import { ENHANCE_GOLD_COST } from "@/adventure/character/enhancement";
 import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances";
+
+const GOLD_1 = ENHANCE_GOLD_COST[1];
 
 const inst = (
   instanceId: string,
@@ -241,7 +244,7 @@ describe("computeEnhanceOutcome — 부수 검증", () => {
 });
 
 describe("computeEnhanceOutcome — 골드 비용 (싱크)", () => {
-  it("0→1 강화 시 goldSpent = ENHANCE_GOLD_COST[1] (1000)", () => {
+  it("0→1 강화 시 goldSpent = ENHANCE_GOLD_COST[1]", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 100 },
@@ -252,7 +255,7 @@ describe("computeEnhanceOutcome — 골드 비용 (싱크)", () => {
       "safe",
       alwaysSuccess,
     );
-    expect(out.goldSpent).toBe(1000);
+    expect(out.goldSpent).toBe(GOLD_1);
   });
 
   it("골드가 비용 미만이면 insufficient_gold (조각은 충분해도)", () => {
@@ -260,7 +263,7 @@ describe("computeEnhanceOutcome — 골드 비용 (싱크)", () => {
       computeEnhanceOutcome(
         {
           materials: { starfall_shard: 10_000 },
-          gold: 999, // < 1000
+          gold: GOLD_1 - 1, // < ENHANCE_GOLD_COST[1]
           equipmentInstances: [inst("a", 0)],
         },
         "a",
@@ -282,6 +285,6 @@ describe("computeEnhanceOutcome — 골드 비용 (싱크)", () => {
       alwaysFail,
     );
     expect(out.success).toBe(false);
-    expect(out.goldSpent).toBe(1000);
+    expect(out.goldSpent).toBe(GOLD_1);
   });
 });

@@ -75,17 +75,19 @@ const STANCE_MOD: Record<
     executionHpFractionFloor?: number;
   }
 > = {
-  onslaught: { atkMult: 1.18, defMult: 0.9, evasionDelta: -5 },
-  bulwark: { atkMult: 0.9, defMult: 1.25, evasionDelta: 0 },
-  // 2026-05-22 시뮬 튜닝: 초안(0.95/1.3/0.33)은 atk 페널티를 처형 보너스가 못 메워
-  // 모든 보스에서 무전술보다 나빴다(시뮬 보통 -5%·탱키 -12%). atk 페널티 제거 +
-  // 배수 1.3→1.6 + 발동 구간 33%→45% 로 "고HP 탱키 보스 녹이기" niche 확립
-  // (시뮬: 보통 +16%·탱키 +21%, 수성/공세를 압도하진 않음).
+  // 2026-05-22 폭 축소(scripts/sim-stance.ts 측정): 1차 값(공세 1.18/0.9, 수성 0.9/1.25,
+  // 처형 1.6)은 "유리한 스탠스 골라잡기"로 보스를 과하게 쉽게 만들었다 — 수성이 생존바운드
+  // 보스 승률을 +15~+55%p(순례자 27→82) 끌어올렸다. 보스 수치는 안 건드리고 스탠스 폭만
+  // 줄여 최대 완화폭을 ~+10%p / 월드보스 공세 +27%→+13% 로 낮춤. 주도성은 유지(트레이드오프
+  // 유의미: 공세=빠르나 위험, 수성=생존, 처형=완만 마무리), 난이도 지우개 효과만 제거.
+  onslaught: { atkMult: 1.12, defMult: 0.92, evasionDelta: -4 },
+  bulwark: { atkMult: 0.92, defMult: 1.14, evasionDelta: 0 },
+  // 처형: atk 페널티 없음 + 기본 처형 부여(HP<45% 적 ×1.4). 미보유자에게도 floor 합성.
   execution: {
     atkMult: 1,
     defMult: 1,
     evasionDelta: 0,
-    executionDamageMultFloor: 1.6,
+    executionDamageMultFloor: 1.4,
     executionHpFractionFloor: 0.45,
   },
 };

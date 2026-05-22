@@ -27,29 +27,29 @@ describe("applyStance", () => {
     expect(applyStance(p, undefined)).toBe(p);
   });
 
-  it("공세: atk ×1.18, def ×0.9, 회피 −5%p", () => {
+  it("공세: atk ×1.12, def ×0.92, 회피 −4%p", () => {
     const r = applyStance(basePlayer(), "onslaught");
-    expect(r.atk).toBe(118); // round(100*1.18)
-    expect(r.def).toBe(45); // round(50*0.9)
-    expect(r.evasionPct).toBe(5); // 10-5
+    expect(r.atk).toBe(112); // round(100*1.12)
+    expect(r.def).toBe(46); // round(50*0.92)
+    expect(r.evasionPct).toBe(6); // 10-4
   });
 
   it("공세: 회피 하한 0 클램프 (음수 방지)", () => {
     const r = applyStance(basePlayer({ evasionPct: 3 }), "onslaught");
-    expect(r.evasionPct).toBe(0); // max(0, 3-5)
+    expect(r.evasionPct).toBe(0); // max(0, 3-4)
   });
 
-  it("수성: def ×1.25, atk ×0.9, 회피 불변", () => {
+  it("수성: def ×1.14, atk ×0.92, 회피 불변", () => {
     const r = applyStance(basePlayer(), "bulwark");
-    expect(r.atk).toBe(90);
-    expect(r.def).toBe(63); // round(50*1.25)=62.5→63
+    expect(r.atk).toBe(92);
+    expect(r.def).toBe(57); // round(50*1.14)=57
     expect(r.evasionPct).toBe(10);
   });
 
   it("처형: atk 유지(페널티 없음) + 기본 처형 부여 (스킬 미보유자)", () => {
     const r = applyStance(basePlayer(), "execution");
-    expect(r.atk).toBe(100); // atkMult 1.0 — 2026-05-22 튜닝으로 페널티 제거
-    expect(r.executionDamageMult).toBe(1.6);
+    expect(r.atk).toBe(100); // atkMult 1.0 — 페널티 없음
+    expect(r.executionDamageMult).toBe(1.4);
     expect(r.executionHpFraction).toBe(0.45);
   });
 

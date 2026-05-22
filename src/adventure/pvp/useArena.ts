@@ -50,6 +50,8 @@ export type ArenaMe = {
   draws: number;
   /** 투기장 코인 잔액 (영속). */
   coins: number;
+  /** 이미 보유한 상점 칭호 id — 상점에서 "보유" 표시/구매 비활성. */
+  ownedShopTitleIds: string[];
 };
 
 export type ArenaLeaderboardEntry = {
@@ -184,6 +186,42 @@ export function useArena() {
     }
   }, [refetch]);
 
+  const [buyingTitleId, setBuyingTitleId] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
+
+  const buyTitle = useCallback(
+    async (titleId: string): Promise<boolean> => {
+      setBuyingTitleId(titleId);
+      setBuyError(null);
+      try {
+        const r = await fetch("/api/pvp/shop", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ titleId }),
+        });
+        if (r.ok) {
+          await refetch();
+          return true;
+        }
+        const msg =
+          r.status === 402
+            ? "투기장 코인이 부족해요."
+            : r.status === 409
+              ? "이미 보유한 칭호예요."
+              : `구매 실패 (HTTP ${r.status})`;
+        setBuyError(msg);
+        if (r.status === 409) await refetch(); // 보유 상태 동기화
+        return false;
+      } catch (e) {
+        setBuyError(e instanceof Error ? e.message : "구매 실패");
+        return false;
+      } finally {
+        setBuyingTitleId(null);
+      }
+    },
+    [refetch],
+  );
+
   return {
     status: data,
     loading,
@@ -196,6 +234,9 @@ export function useArena() {
     clearLastResult: () => setLastResult(null),
     onCooldown,
     cooldownSecondsLeft: Math.ceil(msLeft / 1000),
+    buyTitle,
+    buyingTitleId,
+    buyError,
   };
 }
 

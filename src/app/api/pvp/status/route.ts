@@ -19,6 +19,7 @@ import { getOrCreateRating } from "@/lib/server/pvp/ratings";
 import { getNextChallengeAt } from "@/lib/server/pvp/cooldown";
 import { isBotId } from "@/lib/server/pvp/bots";
 import { PVP_WALLET_KEY, type PvpWallet } from "@/lib/server/pvp/coins";
+import { PVP_SHOP_TITLES } from "@/adventure/pvp/shop";
 
 const TOP_LIMIT = 50;
 const RECENT_LIMIT = 20;
@@ -29,7 +30,7 @@ export async function GET() {
 
   const season = await getOrCreateCurrentSeason();
 
-  const [meRating, nextChallengeAt, walletRows] = await Promise.all([
+  const [meRating, nextChallengeAt, walletRows, logRows] = await Promise.all([
     getOrCreateRating(userId, season.id),
     getNextChallengeAt(userId),
     db
@@ -37,9 +38,21 @@ export async function GET() {
       .from(savesKv)
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, PVP_WALLET_KEY)))
       .limit(1),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")))
+      .limit(1),
   ]);
   const wallet = walletRows[0]?.value as PvpWallet | undefined;
   const coins = typeof wallet?.coins === "number" ? wallet.coins : 0;
+  // 보유한 상점 칭호 — 상점 UI 가 "보유" 표시/구매 비활성에 사용.
+  const ownedTitles =
+    (logRows[0]?.value as { titles?: Record<string, unknown> } | undefined)
+      ?.titles ?? {};
+  const ownedShopTitleIds = PVP_SHOP_TITLES.map((t) => t.titleId).filter(
+    (id) => id in ownedTitles,
+  );
 
   // 순위표 — 레이팅 인덱스(seasonId, rating DESC) 가 정렬을 cover.
   const topResult = await db.execute(sql`
@@ -163,6 +176,7 @@ export async function GET() {
       losses: meRating.losses,
       draws: meRating.draws,
       coins,
+      ownedShopTitleIds,
     },
     nextChallengeAt: nextChallengeAt ? nextChallengeAt.toISOString() : null,
     top,

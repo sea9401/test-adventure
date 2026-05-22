@@ -20,7 +20,8 @@ export type TitleCategory =
   | "character"
   | "guild"
   | "tower"
-  | "endgame";
+  | "endgame"
+  | "pvp";
 
 export type Title = {
   id: TitleId;
@@ -47,6 +48,7 @@ export const TITLE_CATEGORY_ORDER: readonly {
   { id: "guild", label: "길드" },
   { id: "tower", label: "탑" },
   { id: "endgame", label: "별의 옥좌" },
+  { id: "pvp", label: "투기장" },
 ];
 
 export const TITLES: Record<TitleId, Title> = {
@@ -619,6 +621,35 @@ export const TITLES: Record<TitleId, Title> = {
       "옛 봉인 자리에 떨어진 별빛 셋을 거두어, 누구의 것도 아닌 자리에 놓아 준 자. 옥좌의 환영을 자기 손에서 풀어 주었고, 별바다의 노수호자가 마지막 한 잔을 따라 준 자리에 그를 두고 떠났다.",
     condition: "Ch 30 「별을 놓는 자」 완료: 5막 종착 의식",
     category: "endgame",
+  },
+  // ── 투기장 상점 칭호 (투기장 코인으로 구매) ──────────────────────────────
+  pvp_gladiator: {
+    id: "pvp_gladiator",
+    name: "검투사",
+    description: "투기장의 모래밭에 첫발을 디딘 자.",
+    condition: "투기장 상점에서 투기장 코인 200으로 구매",
+    category: "pvp",
+  },
+  pvp_veteran: {
+    id: "pvp_veteran",
+    name: "맹장",
+    description: "수많은 결투를 헤쳐 온 맹렬한 투사.",
+    condition: "투기장 상점에서 투기장 코인 600으로 구매",
+    category: "pvp",
+  },
+  pvp_overlord: {
+    id: "pvp_overlord",
+    name: "패왕",
+    description: "투기장을 호령하며 모든 도전을 짓밟은 지배자.",
+    condition: "투기장 상점에서 투기장 코인 1200으로 구매",
+    category: "pvp",
+  },
+  pvp_legend: {
+    id: "pvp_legend",
+    name: "전설",
+    description: "투기장의 전설로 길이 회자되는 자.",
+    condition: "투기장 상점에서 투기장 코인 2500으로 구매",
+    category: "pvp",
   },
 };
 

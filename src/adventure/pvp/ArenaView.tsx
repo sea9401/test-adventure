@@ -5,6 +5,7 @@ import {
   ChartLineUp,
   ClockCountdown,
   ClockCounterClockwise,
+  Storefront,
   Sword,
   Trophy,
   WarningCircle,
@@ -19,8 +20,9 @@ import { StancePicker } from "@/adventure/character/StancePicker";
 import { useArena, useMatchLog, type ChallengeResponse } from "./useArena";
 import { StatsView } from "./StatsView";
 import { tierFor, tierProgress } from "./tiers";
+import { pvpShopEntries } from "./shop";
 
-type ArenaTab = "leaderboard" | "recent" | "stats";
+type ArenaTab = "leaderboard" | "recent" | "stats" | "shop";
 
 const TABS = [
   {
@@ -37,6 +39,11 @@ const TABS = [
     key: "stats" as const,
     label: "통계",
     icon: <ChartLineUp size={14} weight="duotone" />,
+  },
+  {
+    key: "shop" as const,
+    label: "상점",
+    icon: <Storefront size={14} weight="duotone" />,
   },
 ];
 
@@ -58,6 +65,9 @@ export function ArenaView() {
     clearLastResult,
     onCooldown,
     cooldownSecondsLeft,
+    buyTitle,
+    buyingTitleId,
+    buyError,
   } = useArena();
   const [activeTab, setActiveTab] = useState<ArenaTab>("leaderboard");
   const { characterStateHook } = useGame();
@@ -140,7 +150,86 @@ export function ArenaView() {
       {activeTab === "leaderboard" && <Leaderboard top={status.top} />}
       {activeTab === "recent" && <RecentMatches recent={status.recent} />}
       {activeTab === "stats" && <StatsView />}
+      {activeTab === "shop" && (
+        <ShopView
+          coins={status.me.coins}
+          ownedTitleIds={status.me.ownedShopTitleIds}
+          onBuy={buyTitle}
+          buyingTitleId={buyingTitleId}
+          buyError={buyError}
+        />
+      )}
     </div>
+  );
+}
+
+function ShopView({
+  coins,
+  ownedTitleIds,
+  onBuy,
+  buyingTitleId,
+  buyError,
+}: {
+  coins: number;
+  ownedTitleIds: string[];
+  onBuy: (titleId: string) => void;
+  buyingTitleId: string | null;
+  buyError: string | null;
+}) {
+  const owned = new Set(ownedTitleIds);
+  const entries = pvpShopEntries();
+  return (
+    <Card as="section" padding="none">
+      <div className="flex items-center justify-between px-4 py-2 text-xs">
+        <span className="text-zinc-500 dark:text-zinc-400">
+          투기장 코인으로 칭호 구매 · 구매 후 칭호 도감에서 장착
+        </span>
+        <span className="font-semibold text-amber-600 dark:text-amber-400">
+          보유 {coins.toLocaleString()}
+        </span>
+      </div>
+      {buyError && (
+        <p className="px-4 pb-2 text-xs text-rose-600 dark:text-rose-400">
+          {buyError}
+        </p>
+      )}
+      <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+        {entries.map((e) => {
+          const isOwned = owned.has(e.titleId);
+          const affordable = coins >= e.price;
+          const busy = buyingTitleId === e.titleId;
+          return (
+            <li
+              key={e.titleId}
+              className="flex items-center justify-between gap-3 px-4 py-2.5"
+            >
+              <span className="min-w-0">
+                <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                  {e.name}
+                </span>
+                <span className="block truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {e.description}
+                </span>
+              </span>
+              {isOwned ? (
+                <span className="shrink-0 rounded px-2 py-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                  보유중
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!affordable || busy}
+                  onClick={() => onBuy(e.titleId)}
+                  className="shrink-0 rounded-md border border-amber-600 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold tabular-nums text-amber-700 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-amber-400"
+                >
+                  {busy ? "구매 중…" : `${e.price.toLocaleString()} 코인`}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Card>
   );
 }
 

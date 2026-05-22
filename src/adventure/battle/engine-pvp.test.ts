@@ -432,6 +432,35 @@ describe("resolveBattlePvP — 풀 시뮬", () => {
     expect(r.turns).toBeGreaterThan(0);
   });
 
+  it("openingNote 가 있으면 전투 시작 로그에 info 로 박힌다 (전술 안내 가시성)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const note = "내 전술 공세, 상대 전술 수성";
+    const r = resolveBattlePvP(
+      makePlayer({ spd: 15, atk: 30, def: 0, hp: 100, maxHp: 100 }),
+      makePlayer({ spd: 5, atk: 10, def: 0, hp: 100, maxHp: 100 }),
+      "P1",
+      "P2",
+      { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} }, openingNote: note },
+    );
+    expect(
+      r.finalState.log.some((e) => e.kind === "info" && e.text === note),
+    ).toBe(true);
+  });
+
+  it("openingNote 미지정이면 전술 안내 없음", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const r = resolveBattlePvP(
+      makePlayer({ spd: 15, atk: 30, def: 0, hp: 100, maxHp: 100 }),
+      makePlayer({ spd: 5, atk: 10, def: 0, hp: 100, maxHp: 100 }),
+      "P1",
+      "P2",
+      { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
+    );
+    expect(
+      r.finalState.log.some((e) => e.kind === "info" && e.text.includes("전술")),
+    ).toBe(false);
+  });
+
   it("p1 압도적 우위 → p1 승", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const ctx: PvPResolveContext = {

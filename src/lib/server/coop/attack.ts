@@ -14,7 +14,7 @@ import {
   coopBossSessions,
 } from "@/db/schema";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
-import { applyStance } from "@/adventure/character/stance";
+import { applyStance, stanceBattleLogText } from "@/adventure/character/stance";
 import {
   COOP_ATTACK_COOLDOWN_MS,
   COOP_BOSSES,
@@ -84,6 +84,15 @@ export async function handleCoopAttack(
     bossMaxHp: session.maxHp,
     turns: 20,
   });
+
+  // 전술이 켜졌으면 협동 공격 로그 첫머리에 안내 한 줄(#502 가시성을 협동 경로에도 일관).
+  const stanceNote = stanceBattleLogText(derived.selectedStance);
+  if (stanceNote) {
+    result.log = [
+      { kind: "info", text: stanceNote, turn: "player" },
+      ...result.log,
+    ];
+  }
 
   // 세션/쿨다운/hp 차감/contributor 를 하나의 트랜잭션에 묶는다.
   // 핵심: session row 를 FOR UPDATE 로 잠가서 같은 보스에 대한 동시 공격을 직렬화.

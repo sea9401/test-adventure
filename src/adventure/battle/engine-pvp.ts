@@ -1984,6 +1984,9 @@ function applyPotionTo(
 export type PvPResolveContext = {
   pickAction: (state: PvPBattleState, who: "p1" | "p2") => PlayerAction;
   potions: { p1: Partial<Record<PotionId, number>>; p2: Partial<Record<PotionId, number>> };
+  // 전투 시작 로그에 박을 전술 안내 한 줄(양측 전술 라벨). 호출부가 문자열로 빌드해 넘긴다
+  // (엔진은 stance 를 모름 — 순환 의존 회피). 미지정이면 추가 안 함.
+  openingNote?: string;
 };
 
 export type PvPBattleResolution = {
@@ -2015,6 +2018,14 @@ export function resolveBattlePvP(
     p2: {} as Partial<Record<PotionId, number>>,
   };
   let state = initialBattleStatePvP(p1Player, p2Player, p1Name, p2Name);
+  // 전술 안내(#502 가시성을 PvP 경로에도) — ctx.openingNote(양측 전술 라벨)를 마주섬·선공
+  // 안내 다음에 info 로 끼운다. 호출부가 문자열로 빌드(엔진은 stance 를 모름).
+  if (ctx.openingNote) {
+    state = {
+      ...state,
+      log: [...state.log, { kind: "info", text: ctx.openingNote, turn: "player" }],
+    };
+  }
   // hp_bar 용 apMax — AP 스킬 장착자만 핍 표시. 미장착 사이드는 0.
   const p1ApMax = (p1Player.equippedAPSkills?.length ?? 0) > 0 ? AP_CAP : 0;
   const p2ApMax = (p2Player.equippedAPSkills?.length ?? 0) > 0 ? AP_CAP : 0;

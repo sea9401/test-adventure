@@ -19,7 +19,7 @@
 import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
-import { applyStance } from "@/adventure/character/stance";
+import { applyStance, STANCE_META, type StanceId } from "@/adventure/character/stance";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import {
@@ -83,6 +83,7 @@ export async function POST(req: Request) {
   // 인간/봇 양쪽 모두 player + 이름 결정.
   let oppPlayer;
   let oppName: string;
+  let oppStance: StanceId | null = null; // 봇은 전술 없음
   if (opponent.isBot && opponent.botPlayer) {
     oppPlayer = opponent.botPlayer;
     oppName = opponent.name;
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
       return new Response("opponent unavailable", { status: 503 });
     }
     // PvP 는 특수 전투 → 인간 상대의 전술도 적용. (봇은 derive 안 거쳐 전술 없음.)
+    oppStance = oppCombat.selectedStance;
     oppPlayer = applyStance(oppCombat.player, oppCombat.selectedStance);
     await getOrCreateRating(opponent.userId, season.id);
     oppName = (await resolveActor(opponent.userId)).name;
@@ -103,6 +105,14 @@ export async function POST(req: Request) {
   // PvP 는 포션 사용 불가가 디자인 결정 — 캐릭터 스탯 / 장비 / AP 스킬 빌드만으로 승부.
   // 따라서 양쪽 모두 매 턴 평타만 선택. (AP 스킬은 엔진이 슬롯 조건으로 자동 발동.)
   // 포션 풀을 빈 객체로 넘기므로 use_potion 액션이 발생해도 실제 소비/효과 없음 — 이중 가드.
+  // 전술 안내 — 양측(나/상대) 전술 라벨. 한쪽이라도 켜져 있으면 전투 로그 첫머리에 노출.
+  const stanceParts: string[] = [];
+  if (myCombat.selectedStance) {
+    stanceParts.push(`내 전술 ${STANCE_META[myCombat.selectedStance].name}`);
+  }
+  if (oppStance) stanceParts.push(`상대 전술 ${STANCE_META[oppStance].name}`);
+  const stanceNote = stanceParts.length > 0 ? stanceParts.join(", ") : undefined;
+
   const resolution = resolveBattlePvP(
     applyStance(myCombat.player, myCombat.selectedStance),
     oppPlayer,
@@ -111,6 +121,7 @@ export async function POST(req: Request) {
     {
       pickAction: () => ({ kind: "attack" }),
       potions: { p1: {}, p2: {} },
+      openingNote: stanceNote,
     },
   );
 

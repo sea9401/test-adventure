@@ -54,12 +54,21 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
-export function MapPreview() {
-  const [scenarioIdx, setScenarioIdx] = useState(0);
+export function MapPreview({ initialScenario = 0 }: { initialScenario?: number }) {
+  // ?scenario=N 딥링크 → 초기 시나리오. 범위 밖이면 0.
+  const startIdx =
+    Number.isInteger(initialScenario) &&
+    initialScenario >= 0 &&
+    initialScenario < SCENARIOS.length
+      ? initialScenario
+      : 0;
+  const [scenarioIdx, setScenarioIdx] = useState(startIdx);
   const scenario = SCENARIOS[scenarioIdx];
 
   // 시나리오 전환 시 progress 를 리셋. 방문 지역은 넉넉히 포함(되돌아가기 게이트 평가용).
-  const [progress, setProgress] = useState<MapProgress>(() => initialFor(SCENARIOS[0]));
+  const [progress, setProgress] = useState<MapProgress>(() =>
+    initialFor(SCENARIOS[startIdx]),
+  );
 
   const selectScenario = (idx: number) => {
     setScenarioIdx(idx);

@@ -44,24 +44,12 @@ export function stanceBattleLogText(
 
 export type StanceMeta = {
   name: string;
-  /** 한 줄 설명 + 어떤 상황에 좋은지. UI 노출. */
-  blurb: string;
 };
 
 export const STANCE_META: Record<StanceId, StanceMeta> = {
-  onslaught: {
-    name: "공세",
-    blurb:
-      "공격을 끌어올리는 대신 방어와 회피가 무뎌진다. 약한 적을 빠르게 정리할 때.",
-  },
-  bulwark: {
-    name: "수성",
-    blurb: "버티는 데 특화. 강한 보스나 한기 지역에서 오래 살아남는다.",
-  },
-  execution: {
-    name: "처형",
-    blurb: "체력이 깎인 적에게 강하다. 체력 높은 단일 보스의 긴 꼬리를 녹인다.",
-  },
+  onslaught: { name: "공세" },
+  bulwark: { name: "수성" },
+  execution: { name: "처형" },
 };
 
 // 스탠스별 보정값 — 한 곳에서 관리(단일 진실원). 실측 후 튜닝 포인트.
@@ -124,4 +112,51 @@ export function applyStance(
     );
   }
   return next;
+}
+
+// 전술 효과를 UI 칩으로 — STANCE_MOD 단일 진실원에서 도출하므로 수치 튜닝 시 자동 동기.
+// buff(이득)/penalty(손해)/neutral 로 색을 구분해 "뭐가 좋아지는지" 한눈에.
+export type StanceEffectChip = {
+  label: string;
+  kind: "buff" | "penalty" | "neutral";
+};
+
+/** 전술별 보정 수치 칩. stance 없음(null)이면 "보정 없음" 한 칩. */
+export function stanceEffectChips(
+  stance: StanceId | null | undefined,
+): StanceEffectChip[] {
+  if (!stance) return [{ label: "보정 없음", kind: "neutral" }];
+  const m = STANCE_MOD[stance];
+  const chips: StanceEffectChip[] = [];
+  // 곱연산 보정 → ± 퍼센트. 1.12 → +12%, 0.92 → -8%.
+  const signed = (n: number) => `${n > 0 ? "+" : ""}${n}`;
+  const atkPct = Math.round((m.atkMult - 1) * 100);
+  if (atkPct !== 0) {
+    chips.push({
+      label: `공격 ${signed(atkPct)}%`,
+      kind: atkPct > 0 ? "buff" : "penalty",
+    });
+  }
+  const defPct = Math.round((m.defMult - 1) * 100);
+  if (defPct !== 0) {
+    chips.push({
+      label: `방어 ${signed(defPct)}%`,
+      kind: defPct > 0 ? "buff" : "penalty",
+    });
+  }
+  if (m.evasionDelta !== 0) {
+    chips.push({
+      label: `회피 ${signed(m.evasionDelta)}%p`,
+      kind: m.evasionDelta > 0 ? "buff" : "penalty",
+    });
+  }
+  if (
+    m.executionDamageMultFloor !== undefined &&
+    m.executionHpFractionFloor !== undefined
+  ) {
+    const dmgPct = Math.round((m.executionDamageMultFloor - 1) * 100);
+    const hpPct = Math.round(m.executionHpFractionFloor * 100);
+    chips.push({ label: `HP ${hpPct}%↓ 적 +${dmgPct}% 피해`, kind: "buff" });
+  }
+  return chips;
 }

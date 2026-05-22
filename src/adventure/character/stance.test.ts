@@ -5,6 +5,7 @@ import {
   isStanceId,
   normalizeStance,
   stanceBattleLogText,
+  stanceEffectChips,
 } from "./stance";
 
 function basePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
@@ -77,6 +78,31 @@ describe("stanceBattleLogText", () => {
     expect(stanceBattleLogText("execution")).toContain("처형");
     expect(stanceBattleLogText(null)).toBeNull();
     expect(stanceBattleLogText(undefined)).toBeNull();
+  });
+});
+
+describe("stanceEffectChips", () => {
+  it("없음(null) 은 보정 없음 한 칩", () => {
+    const chips = stanceEffectChips(null);
+    expect(chips).toEqual([{ label: "보정 없음", kind: "neutral" }]);
+  });
+  it("공세 — 공격 buff + 방어/회피 penalty (STANCE_MOD 도출)", () => {
+    expect(stanceEffectChips("onslaught")).toEqual([
+      { label: "공격 +12%", kind: "buff" },
+      { label: "방어 -8%", kind: "penalty" },
+      { label: "회피 -4%p", kind: "penalty" },
+    ]);
+  });
+  it("수성 — 공격 penalty + 방어 buff, 회피 0 은 칩 생략", () => {
+    expect(stanceEffectChips("bulwark")).toEqual([
+      { label: "공격 -8%", kind: "penalty" },
+      { label: "방어 +14%", kind: "buff" },
+    ]);
+  });
+  it("처형 — atk/def 변화 없어 처형 칩만", () => {
+    expect(stanceEffectChips("execution")).toEqual([
+      { label: "HP 45%↓ 적 +40% 피해", kind: "buff" },
+    ]);
   });
 });
 

@@ -1,7 +1,20 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
-import { STANCE_IDS, STANCE_META, type StanceId } from "./stance";
+import {
+  STANCE_IDS,
+  STANCE_META,
+  stanceEffectChips,
+  type StanceEffectChip,
+  type StanceId,
+} from "./stance";
+
+// 효과 칩 색 — buff(이득) 초록, penalty(손해) 빨강, neutral(보정 없음) 회색.
+const CHIP_CLASS: Record<StanceEffectChip["kind"], string> = {
+  buff: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300",
+  penalty: "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
+  neutral: "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400",
+};
 
 // 전투 전 전술(스탠스) 선택기. 현재 보스 진입 화면(BossSubView)에 노출.
 // 선택값은 character.v2 에 전역 영속 — 한 번 고르면 보스·협동·고탑·PvP 모든
@@ -13,16 +26,16 @@ export function StancePicker({
   value: StanceId | null;
   onChange: (stance: StanceId | null) => void;
 }) {
-  const options: Array<{ id: StanceId | null; name: string; blurb: string }> = [
-    {
-      id: null,
-      name: "없음",
-      blurb: "전술 보정 없이 평소 능력치 그대로 싸운다.",
-    },
+  const options: Array<{
+    id: StanceId | null;
+    name: string;
+    chips: StanceEffectChip[];
+  }> = [
+    { id: null, name: "없음", chips: stanceEffectChips(null) },
     ...STANCE_IDS.map((id) => ({
       id,
       name: STANCE_META[id].name,
-      blurb: STANCE_META[id].blurb,
+      chips: stanceEffectChips(id),
     })),
   ];
   return (
@@ -59,8 +72,15 @@ export function StancePicker({
               >
                 {o.name}
               </div>
-              <div className="mt-0.5 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                {o.blurb}
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {o.chips.map((c) => (
+                  <span
+                    key={c.label}
+                    className={`rounded px-1.5 py-0.5 text-xs font-medium ${CHIP_CLASS[c.kind]}`}
+                  >
+                    {c.label}
+                  </span>
+                ))}
               </div>
             </button>
           );

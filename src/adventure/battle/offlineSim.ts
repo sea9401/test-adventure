@@ -220,20 +220,32 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         result.wins += 1;
         result.killsByName[enemyName] =
           (result.killsByName[enemyName] ?? 0) + 1;
-        const expBonus = applyNewbieBonus(enemy.exp, runningLevel);
+        // 이 처치 시점의 레벨 — EXP 보너스·밴드 배율·드롭 보너스 모두 *이 킬 직전* 레벨로
+        // 일관 판정한다. (이 킬의 EXP 로 레벨업하더라도 그건 다음 킬부터 반영.)
+        const levelAtKill = runningLevel;
+        const expBonus = applyNewbieBonus(enemy.exp, levelAtKill);
         const gained = Math.floor(
-          expBonus.gained * XP_RATE_MULT * levelBandExpMultiplier(runningLevel),
+          expBonus.gained * XP_RATE_MULT * levelBandExpMultiplier(levelAtKill),
         );
         result.expGained += gained;
         if (expBonus.bonusApplied) result.expBonusApplied = true;
-        // 누적 EXP → 레벨 재계산. 다음 처치는 갱신된 runningLevel 로 보너스 판정.
+        // [알려진 한계 — 레벨 추적] sim 의 runningLevel 은 raw EXP(여기 gained)로만 추적하나,
+        // 실제 저장 레벨은 이 결과에 efficiency(0.9) × 파라곤 × 부여 배수를 곱해 재계산한다
+        // (autoHunt applyAutoHuntEfficiency + applyResultToSaves). 그래서 sim 이 추적한 레벨과
+        // 최종 저장 레벨이 어긋날 수 있다(보상 총량 자체는 정합 — 손실/중복 없음). 밴드 폭이
+        // 20 레벨이라 한 사이클에 밴드 경계를 넘는 일은 드물지만, 레벨 30 신참 경계 부근에선
+        // 영향이 있을 수 있다(드리프트 크기는 보너스 조합에 따라 달라 "무시 가능"으로 단정 못 함).
+        // 정밀 보정안: result.expGained(영속 캐시 lastClaimResult 필드)는 raw 로 두고, 레벨
+        // 추적용 effective EXP(= gained × efficiency × 파라곤 × 부여)를 별도 변수로 굴리면
+        // 캐시 의미 변경 없이 보정 가능. 단 그 배수가 후처리(applyResultToSaves)와 항상
+        // 일치해야 해(공유 헬퍼 권장) 별도 작업으로 둔다.
         const after = applyExpGain(runningLevel, runningExp, gained);
         runningLevel = after.level;
         runningExp = after.exp;
         // 드롭 — onBattleEnd 와 동일 로직(LUK 멀티 + 신참 ×2 + cap 1.0).
-        // 신참 드롭 ×2 는 처치 시점의 runningLevel 로 판정 — 사이클 중 임계치 넘으면
-        // 그때부터 OFF (EXP 보너스와 같은 타이밍).
-        const newbieDropMult = getNewbieDropMultiplier(runningLevel);
+        // 신참 드롭 ×2 도 EXP 보너스와 *같은* levelAtKill 로 판정 — 레벨 30 을 넘기는 그 한 킬이
+        // EXP 는 신참, 드롭은 비신참으로 어긋나던 것을 일치시킨다.
+        const newbieDropMult = getNewbieDropMultiplier(levelAtKill);
         if (enemy.drops) {
           for (const drop of enemy.drops) {
             const adjustedChance = Math.min(

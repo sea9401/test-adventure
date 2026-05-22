@@ -7,6 +7,8 @@ import {
 } from "./offlineSim";
 import type { Region } from "../data/world";
 import type { PlayerCombat } from "./engine";
+import { MONSTERS } from "../data/monsters";
+import { monsterGoldReward } from "./monsterGold";
 
 const TURN = 500;
 
@@ -81,6 +83,15 @@ describe("simulateOfflineHunt", () => {
     expect(r.wins).toBeGreaterThan(0);
     expect(r.killsByName["슬라임"]).toBe(r.wins);
     expect(r.simulatedMs).toBeLessThanOrEqual(30_000);
+  });
+
+  it("처치마다 base 골드(raw)가 누적된다", () => {
+    const r = simulateOfflineHunt(baseInput({ awayMs: 30_000 }));
+    expect(r.wins).toBeGreaterThan(0);
+    // 슬라임 base 골드 × 처치 수가 최소선 (gold 드롭이 더해질 수 있어 >=).
+    const base = monsterGoldReward(MONSTERS["슬라임"]);
+    expect(base).toBeGreaterThanOrEqual(1);
+    expect(r.goldGained).toBeGreaterThanOrEqual(r.wins * base);
   });
 
   it("expLevelTrackingMult 은 레벨 추적 전용 — result.expGained(영속 캐시)는 raw 불변", () => {

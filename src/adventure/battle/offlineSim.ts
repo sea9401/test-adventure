@@ -10,6 +10,7 @@
 
 import { pickEnemyName, type Region } from "../data/world";
 import { MONSTERS } from "../data/monsters";
+import { monsterGoldReward } from "./monsterGold";
 import { POTIONS, type PotionId } from "../data/potions";
 import { type MaterialId } from "../data/materials";
 import { type ItemId } from "../data/items";
@@ -229,6 +230,8 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         result.wins += 1;
         result.killsByName[enemyName] =
           (result.killsByName[enemyName] ?? 0) + 1;
+        // 킬당 base 골드(raw). gold 드롭과 동일하게 후처리(efficiency×paragon×부여)된다.
+        result.goldGained += monsterGoldReward(enemy);
         // 이 처치 시점의 레벨 — EXP 보너스·밴드 배율·드롭 보너스 모두 *이 킬 직전* 레벨로
         // 일관 판정한다. (이 킬의 EXP 로 레벨업하더라도 그건 다음 킬부터 반영.)
         const levelAtKill = runningLevel;

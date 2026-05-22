@@ -46,6 +46,7 @@ import {
   type EnchantSlot,
 } from "@/adventure/character/enchant";
 import { MONSTERS, type Monster } from "@/adventure/data/monsters";
+import { monsterGoldReward } from "@/adventure/battle/monsterGold";
 import { WORLD_MAP } from "@/adventure/data/world";
 import { MATERIALS } from "@/adventure/data/materials";
 import { ITEMS, isLuckyFind } from "@/adventure/data/items";
@@ -292,15 +293,20 @@ function rollDrops(
   const knownSet = new Set(knownRecipes);
   const shareableSet = new Set(shareableRecipes);
 
-  let goldGained = 0;
-  const drops: ResolvedBattleDrop[] = [];
+  // 킬당 base 골드 — 모든 처치에 부여. gold 드롭과 동일하게 paragonRewardMult 곱.
+  const baseGold = Math.floor(
+    monsterGoldReward(ctx.monster) * ctx.paragonRewardMult,
+  );
+  let goldGained = baseGold;
+  const drops: ResolvedBattleDrop[] =
+    baseGold > 0 ? [{ kind: "gold", amount: baseGold }] : [];
 
   if (!ctx.monster.drops) {
     return {
       invNext: inv,
       craftingNext: crafting,
-      goldGained: 0,
-      drops: [],
+      goldGained,
+      drops,
     };
   }
 

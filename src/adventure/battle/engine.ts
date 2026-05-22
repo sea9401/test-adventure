@@ -8,7 +8,7 @@ import {
 import { EVASION_PCT_CAP } from "../data/stats";
 import {
   BLEED_MAX_STACKS,
-  BLEED_PCT_PER_STACK,
+  VENOM_PCT_HP_PER_POINT,
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
   GALE_CHAIN_MAX_PER_TURN,
@@ -358,7 +358,9 @@ export type PlayerCombat = {
   enchantLifestealPct?: number;
   // 독공(venom) — 본타 공격 시 % 확률로 적에게 출혈 스택 1 부여 (bleed). 발동 확률 별개. 0/undefined = 미보유.
   enchantVenomChancePct?: number;
-  // 독공 dot 누적 — 출혈 스택당 추가되는 고정 피해(DEF 무시). 기존 bleedDmgPerStack 와 합산. 0/undefined = 미보유.
+  // 독공 강도 — 출혈 스택당 "체력% DoT"의 세기(venom affix value 합, 5~45). 스택당 피해는
+  // floor(적 최대HP × 이 값 × VENOM_PCT_HP_PER_POINT)로 환산(DEF 무시). 출혈 고정 피해와 합산.
+  // 0/undefined = 미보유. (옛 flat 피해 의미에서 %HP 계수로 변경 — DoT 컨셉 분리.)
   enchantVenomDmgPerStack?: number;
   // 처형(execute) — 적 HP 25% 이하일 때 추가 피해(%). executionDamageMult 가 0 이면 25%/1+pct 로 자동 시드,
   // 기존 처형 스킬과 같이 보유 시 곱연산으로 더해진다. 0/undefined = 미보유.
@@ -1530,8 +1532,8 @@ export function advanceTurn(
     }
     const enemyHp = Math.max(0, state.enemyHp - totalDmg);
     // 출혈 (4티어) — 적중하면 출혈 1스택 누적 (다음 적 턴부터 도트).
-    // 별빛 독공(enchant venom) — % 확률로 출혈 1스택 추가. 같은 출혈 스택을 공유 — bleedDmgPerStack
-    // 과 enchantVenomDmgPerStack 둘 다 합산해서 turnstart 에서 적용.
+    // 별빛 독공(enchant venom) — % 확률로 출혈 1스택 추가. 같은 출혈 스택을 공유하되 피해 축은
+    // 다르다: 출혈 = STR 고정(기본 DoT), 독공 = 적 최대HP 비례(체력% DoT). 둘 다 turnstart 에서 합산.
     const venomFires =
       (player.enchantVenomChancePct ?? 0) > 0 &&
       Math.random() * 100 < player.enchantVenomChancePct!;
@@ -1916,20 +1918,18 @@ export function advanceTurn(
     return finishPlayerTurn(ended, player, playerName);
   }
 
-  // ── 출혈 (4티어) — 적 턴 시작 시 출혈 스택당 고정 피해 (DEF 무시) ──────────
-  // 별빛 독공(venom) 도 같은 스택을 공유 — enchantVenomDmgPerStack 가 bleed dmg 에 가산.
-  // 다대시 보스 상대로도 출혈은 적 페이즈당 1회만 틱한다 (의도된 설계).
-  const bleedFixedPerStack =
-    (player.bleedDmgPerStack ?? 0) + (player.enchantVenomDmgPerStack ?? 0);
-  // 스택당 피해 = max(고정 STR 기반, 적 최대HP 비례). 후자가 고HP 보스에서도 출혈을
-  // 의미 있게 만든다(타깃 스케일). 스택 캡(BLEED_MAX_STACKS)이 무한 누적을 막는다. DEF 무시.
-  const bleedPerStack =
-    bleedFixedPerStack > 0
-      ? Math.max(
-          bleedFixedPerStack,
-          Math.floor(state.enemy.hp * BLEED_PCT_PER_STACK),
-        )
+  // ── 출혈/독공 (4티어 + 별빛 부여) — 적 턴 시작 시 스택당 피해 (DEF 무시) ──────────
+  // 같은 스택 풀을 공유하되 피해 축이 다르다:
+  //   · 출혈(BLOODLET): STR 기반 고정 = 기본 DoT, 타깃 HP 무관 신뢰성.
+  //   · 독공(venom 부여): 적 최대HP × venom강도 비례 = 체력% DoT, 고HP 보스 녹이는 엔드게임 스케일.
+  // 스택 캡(BLEED_MAX_STACKS)이 무한 누적을 막는다. 다대시 보스도 적 페이즈당 1회만 틱.
+  const bleedFixedPerStack = player.bleedDmgPerStack ?? 0;
+  const venomStrength = player.enchantVenomDmgPerStack ?? 0;
+  const venomPctPerStack =
+    venomStrength > 0
+      ? Math.floor(state.enemy.hp * venomStrength * VENOM_PCT_HP_PER_POINT)
       : 0;
+  const bleedPerStack = bleedFixedPerStack + venomPctPerStack;
   if (enteringEnemyPhase && state.stacks.bleedStacks > 0 && bleedPerStack > 0) {
     const bleedDmg = state.stacks.bleedStacks * bleedPerStack;
     const afterBleedHp = Math.max(0, state.enemyHp - bleedDmg);

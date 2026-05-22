@@ -209,16 +209,17 @@ export const BLOOM_CRIT_MULT_BONUS = 0.5;
 export const BLOOM_CRIT_CHANCE_BONUS_PCT = 3;
 
 // ── 4티어 (각 스탯 50 도달) — 전부 자체 완결, 새 메커니즘 ─────────────────
-// 출혈 — 적중 시 출혈 1스택(중첩, 최대 BLEED_MAX_STACKS). 매 적 턴마다 스택당 피해(DEF 무시).
-// 스택당 피해 = max(floor(STR × BLOODLET_DMG_PER_STR), floor(적 최대HP × BLEED_PCT_PER_STACK)).
-// 2026-05-22: 고정 피해만으론 고HP 보스에서 무의미 → 적 최대HP 비례 floor 추가(캐릭터/타깃
-// 스케일). 무한 누적 방지로 스택 캡 신설. PvE 전용 — PvP 출혈은 종전 고정식 유지(밸런스 분리).
+// 출혈(BLOODLET) — 적중 시 출혈 1스택(중첩, 최대 BLEED_MAX_STACKS). 매 적 턴마다 스택당
+// floor(STR × BLOODLET_DMG_PER_STR) 고정 피해(DEF 무시). 컨셉: "기본 DoT" — 타깃 HP 와 무관한
+// 신뢰성 있는 고정 피해.
 export const BLOODLET_STR_THRESHOLD = 50;
 export const BLOODLET_DMG_PER_STR = 0.1;
-// 출혈 스택당 적 최대HP 비례 피해(고정식과 max). 스택 캡과 합쳐 보스 크기 무관 ~20% 기여.
-export const BLEED_PCT_PER_STACK = 0.002;
-// 출혈 스택 상한 — 무한 누적(긴 전투에서 보스 단독 녹임) 방지.
+// 출혈 스택 상한 — 무한 누적(긴 전투에서 보스 단독 녹임) 방지. 출혈·독공이 공유하는 스택에 적용.
 export const BLEED_MAX_STACKS = 10;
+// 독공(venom 부여) — 컨셉: "체력% DoT". 같은 출혈 스택을 공유하되, 스택당 피해는 적 최대HP 비례
+// (venom 강도 × 이 계수). 고HP 보스를 녹이는 스케일 축은 기본 출혈이 아니라 엔드게임 부여(독공)에 둔다.
+// venom 강도(enchantVenomDmgPerStack, affix range 5~15 합산)당 적 최대HP 의 이 비율.
+export const VENOM_PCT_HP_PER_POINT = 0.0001;
 // 그림자 분신 — 매 플레이어 턴 종료 시 분신이 추가 공격 1회 (ATK의 SHADOW_CLONE_ATK_PCT%).
 export const SHADOW_CLONE_DEX_THRESHOLD = 50;
 export const SHADOW_CLONE_ATK_PCT = 65;
@@ -306,7 +307,7 @@ export const STAT_SKILL: Record<StatKey, StatSkillInfo[]> = {
     },
     {
       name: SKILL_NAMES.BLOODLET,
-      description: `적중 시 출혈 1스택(중첩, 최대 ${BLEED_MAX_STACKS}) — 매 적 턴마다 스택당 max(STR × ${BLOODLET_DMG_PER_STR}, 적 최대HP × ${BLEED_PCT_PER_STACK * 100}%) 피해 (DEF 무시)`,
+      description: `적중 시 출혈 1스택(중첩, 최대 ${BLEED_MAX_STACKS}) — 매 적 턴마다 스택당 STR × ${BLOODLET_DMG_PER_STR} 고정 피해 (DEF 무시)`,
       activationThreshold: BLOODLET_STR_THRESHOLD,
     },
     {

@@ -203,7 +203,8 @@ export const ENCHANT_AFFIXES: Record<EnchantAffixId, EnchantAffix> = {
     id: "venom",
     materialId: "enchant_venom",
     name: "독공",
-    description: "공격 시 일정 확률로 적에게 도트를 부여한다.",
+    description:
+      "공격 시 일정 확률로 적에게 체력 비례 도트를 부여한다. 적 최대 체력에 비례하므로 고체력 보스에 강하다.",
     range: [5, 15],
     unit: "percent",
   },

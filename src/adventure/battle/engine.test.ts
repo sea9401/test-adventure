@@ -11,7 +11,7 @@ import {
 } from "./engine";
 import {
   BLEED_MAX_STACKS,
-  BLEED_PCT_PER_STACK,
+  VENOM_PCT_HP_PER_POINT,
   CRIT_MULT_BASE,
 } from "../character/skills";
 import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
@@ -1037,14 +1037,9 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after2.log.filter((e) => e.text.startsWith("[출혈]")).length).toBe(1);
   });
 
-  it("출혈 스택당 피해 = max(고정, 적 최대HP × 비율) — 고HP 보스에서 %HP floor 적용", () => {
-    const bleeder: PlayerCombat = {
-      ...tank,
-      hp: 10000,
-      maxHp: 10000,
-      bleedDmgPerStack: 4,
-    };
-    // 적 최대HP 50000 → floor(50000 × 0.002) = 100 > 고정 4 → perStack = 100.
+  it("출혈(기본 DoT)은 STR 기반 고정 — 적 HP 와 무관", () => {
+    // 출혈만(독공 없음): perStack = bleedDmgPerStack 고정. 고HP 적이어도 %HP 안 붙음.
+    const bleeder: PlayerCombat = { ...tank, hp: 10000, maxHp: 10000, bleedDmgPerStack: 4 };
     const enemy = makeEnemy({ hp: 50000, atk: 5 });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
@@ -1054,8 +1049,28 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       stacks: { ...s0.stacks, bleedStacks: 3 },
     };
     const after = advanceTurn(primed, bleeder, "P");
-    const pctFloor = Math.floor(50000 * BLEED_PCT_PER_STACK); // 100
-    expect(after.enemyHp).toBe(50000 - 3 * pctFloor); // 49700, 고정 4 가 아닌 %HP
+    expect(after.enemyHp).toBe(50000 - 3 * 4); // 49988 — 고정 4, %HP 아님
+  });
+
+  it("독공(체력% DoT)은 적 최대HP × venom강도 비례", () => {
+    // 독공만: perStack = floor(적 최대HP × venom강도 × VENOM_PCT_HP_PER_POINT).
+    const venomer: PlayerCombat = {
+      ...tank,
+      hp: 10000,
+      maxHp: 10000,
+      enchantVenomDmgPerStack: 20,
+    };
+    const enemy = makeEnemy({ hp: 50000, atk: 5 });
+    const s0 = initialBattleState(venomer, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      enemyHp: 50000,
+      stacks: { ...s0.stacks, bleedStacks: 3 },
+    };
+    const after = advanceTurn(primed, venomer, "P");
+    const venomPer = Math.floor(50000 * 20 * VENOM_PCT_HP_PER_POINT); // 100
+    expect(after.enemyHp).toBe(50000 - 3 * venomPer); // 49700 — %HP
   });
 
   it("출혈 스택은 BLEED_MAX_STACKS 로 캡된다", () => {

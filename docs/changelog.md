@@ -1,5 +1,7 @@
 # Changelog
 
+> 상태: 📌 **살아있는 문서** — 변경 이력. 지속 갱신.
+
 날짜·해시는 git log 기준. 카테고리 태그:
 🏗️ infra · 👤 character · 🗺️ adventure · ⚔️ battle · 🏘️ town · 🤝 npc · 🔔 notify · 🎨 ui · 📦 data · 📝 docs
 

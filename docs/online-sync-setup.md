@@ -1,5 +1,7 @@
 # 온라인 동기화 — 외부 셋업 가이드
 
+> 상태: 📌 **셋업 가이드 — ⚠️ stale** — Clerk/Neon 기준이라 현행(next-auth/RDS)과 다름. 참고 시 주의.
+
 > `feature/online-sync` 브랜치 작업 시 사용자가 직접 해야 하는 외부 셋업 단계.
 > 자세한 설계는 `docs/online-sync-plan.md` 참조.
 

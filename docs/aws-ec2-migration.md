@@ -1,5 +1,7 @@
 # Vercel → AWS EC2 운영 기록
 
+> 상태: 📌 **운영 기록 (살아있는 문서)** — Vercel→AWS EC2 이전·배포 운영 메모. 지속 갱신.
+
 2026-05 에 Vercel 에서 AWS EC2 로 이전. 이 문서는 **현재 운영 구성** 과 **재현/복구 절차** 를 기록한다.
 DB(Neon Postgres)는 외부 서비스라 그대로 두고 `DATABASE_URL` 만 가져왔다 — DB 이전 없음.
 

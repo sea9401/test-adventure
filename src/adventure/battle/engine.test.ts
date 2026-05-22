@@ -9,7 +9,11 @@ import {
   type BattleLogEntry,
   type PlayerCombat,
 } from "./engine";
-import { CRIT_MULT_BASE } from "../character/skills";
+import {
+  BLEED_MAX_STACKS,
+  BLEED_PCT_PER_STACK,
+  CRIT_MULT_BASE,
+} from "../character/skills";
 import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
@@ -1031,6 +1035,47 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     const after2 = advanceTurn(after1, bleeder, "P");
     expect(after2.enemyHp).toBe(988);
     expect(after2.log.filter((e) => e.text.startsWith("[출혈]")).length).toBe(1);
+  });
+
+  it("출혈 스택당 피해 = max(고정, 적 최대HP × 비율) — 고HP 보스에서 %HP floor 적용", () => {
+    const bleeder: PlayerCombat = {
+      ...tank,
+      hp: 10000,
+      maxHp: 10000,
+      bleedDmgPerStack: 4,
+    };
+    // 적 최대HP 50000 → floor(50000 × 0.002) = 100 > 고정 4 → perStack = 100.
+    const enemy = makeEnemy({ hp: 50000, atk: 5 });
+    const s0 = initialBattleState(bleeder, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "enemy" as const,
+      enemyHp: 50000,
+      stacks: { ...s0.stacks, bleedStacks: 3 },
+    };
+    const after = advanceTurn(primed, bleeder, "P");
+    const pctFloor = Math.floor(50000 * BLEED_PCT_PER_STACK); // 100
+    expect(after.enemyHp).toBe(50000 - 3 * pctFloor); // 49700, 고정 4 가 아닌 %HP
+  });
+
+  it("출혈 스택은 BLEED_MAX_STACKS 로 캡된다", () => {
+    const bleeder: PlayerCombat = {
+      ...tank,
+      hp: 10000,
+      maxHp: 10000,
+      atk: 1000,
+      bleedDmgPerStack: 4,
+    };
+    const enemy = makeEnemy({ hp: 50000, def: 0, atk: 5, evasionPct: 0 });
+    const s0 = initialBattleState(bleeder, enemy, "P");
+    const primed = {
+      ...s0,
+      phase: "player" as const,
+      stacks: { ...s0.stacks, bleedStacks: BLEED_MAX_STACKS },
+    };
+    // 이미 캡인데 플레이어 적중(+1) → 캡 유지.
+    const after = advanceTurn(primed, bleeder, "P");
+    expect(after.stacks.bleedStacks).toBe(BLEED_MAX_STACKS);
   });
 
   it("정화는 누적된 한기를 제거한다", () => {

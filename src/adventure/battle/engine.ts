@@ -7,6 +7,8 @@ import {
 } from "./combatShared";
 import { EVASION_PCT_CAP } from "../data/stats";
 import {
+  BLEED_MAX_STACKS,
+  BLEED_PCT_PER_STACK,
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
   GALE_CHAIN_MAX_PER_TURN,
@@ -769,10 +771,10 @@ function dealExtraEnemyDamage(
       ? Math.min(state.playerMaxHp, state.playerHp + totalHeal)
       : state.playerHp;
   const actualHeal = newPlayerHp - state.playerHp;
-  // 출혈 +1 — 적중 시 매번. (본타와 같은 룰.)
+  // 출혈 +1 — 적중 시 매번. (본타와 같은 룰.) 스택은 BLEED_MAX_STACKS 로 캡.
   const bleedStacks =
     (player.bleedDmgPerStack ?? 0) > 0
-      ? state.stacks.bleedStacks + 1
+      ? Math.min(BLEED_MAX_STACKS, state.stacks.bleedStacks + 1)
       : state.stacks.bleedStacks;
 
   // 메인 데미지 라인 — 라벨에 행운의 별/천명 합쳐 박는다.
@@ -1535,8 +1537,10 @@ export function advanceTurn(
       Math.random() * 100 < player.enchantVenomChancePct!;
     const bleedAddSkill = (player.bleedDmgPerStack ?? 0) > 0 ? 1 : 0;
     const bleedAddVenom = venomFires ? 1 : 0;
-    const bleedStacks =
-      state.stacks.bleedStacks + bleedAddSkill + bleedAddVenom;
+    const bleedStacks = Math.min(
+      BLEED_MAX_STACKS,
+      state.stacks.bleedStacks + bleedAddSkill + bleedAddVenom,
+    );
     if (venomFires) {
       log = appendLog(log, {
         kind: "info",
@@ -1740,7 +1744,7 @@ export function advanceTurn(
       },
       stacks: {
         ...state.stacks,
-        bleedStacks: bleedStacks + apBleedAdd,
+        bleedStacks: Math.min(BLEED_MAX_STACKS, bleedStacks + apBleedAdd),
         chillStacks:
           apSkillFires?.effect.kind === "cleanse_debuffs"
             ? 0
@@ -1915,8 +1919,17 @@ export function advanceTurn(
   // ── 출혈 (4티어) — 적 턴 시작 시 출혈 스택당 고정 피해 (DEF 무시) ──────────
   // 별빛 독공(venom) 도 같은 스택을 공유 — enchantVenomDmgPerStack 가 bleed dmg 에 가산.
   // 다대시 보스 상대로도 출혈은 적 페이즈당 1회만 틱한다 (의도된 설계).
-  const bleedPerStack =
+  const bleedFixedPerStack =
     (player.bleedDmgPerStack ?? 0) + (player.enchantVenomDmgPerStack ?? 0);
+  // 스택당 피해 = max(고정 STR 기반, 적 최대HP 비례). 후자가 고HP 보스에서도 출혈을
+  // 의미 있게 만든다(타깃 스케일). 스택 캡(BLEED_MAX_STACKS)이 무한 누적을 막는다. DEF 무시.
+  const bleedPerStack =
+    bleedFixedPerStack > 0
+      ? Math.max(
+          bleedFixedPerStack,
+          Math.floor(state.enemy.hp * BLEED_PCT_PER_STACK),
+        )
+      : 0;
   if (enteringEnemyPhase && state.stacks.bleedStacks > 0 && bleedPerStack > 0) {
     const bleedDmg = state.stacks.bleedStacks * bleedPerStack;
     const afterBleedHp = Math.max(0, state.enemyHp - bleedDmg);

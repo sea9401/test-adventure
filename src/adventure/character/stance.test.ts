@@ -47,9 +47,9 @@ describe("applyStance", () => {
     expect(r.evasionPct).toBe(10);
   });
 
-  it("처형: atk 유지(페널티 없음) + 기본 처형 부여 (스킬 미보유자)", () => {
+  it("처형: 선행 공격 -4% + 기본 처형 부여 (스킬 미보유자)", () => {
     const r = applyStance(basePlayer(), "execution");
-    expect(r.atk).toBe(100); // atkMult 1.0 — 페널티 없음
+    expect(r.atk).toBe(96); // atkMult 0.96 — 무대가 지배 방지용 선행 페널티
     expect(r.executionDamageMult).toBe(1.4);
     expect(r.executionHpFraction).toBe(0.45);
   });
@@ -99,8 +99,9 @@ describe("stanceEffectChips", () => {
       { label: "방어 +14%", kind: "buff" },
     ]);
   });
-  it("처형 — atk/def 변화 없어 처형 칩만", () => {
+  it("처형 — 선행 공격 페널티 + 처형 보정 칩", () => {
     expect(stanceEffectChips("execution")).toEqual([
+      { label: "공격 -4%", kind: "penalty" },
       { label: "HP 45%↓ 적 +40% 피해", kind: "buff" },
     ]);
   });

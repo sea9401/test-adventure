@@ -68,11 +68,15 @@ const STANCE_MOD: Record<
   // 보스 승률을 +15~+55%p(순례자 27→82) 끌어올렸다. 보스 수치는 안 건드리고 스탠스 폭만
   // 줄여 최대 완화폭을 ~+10%p / 월드보스 공세 +27%→+13% 로 낮춤. 주도성은 유지(트레이드오프
   // 유의미: 공세=빠르나 위험, 수성=생존, 처형=완만 마무리), 난이도 지우개 효과만 제거.
+  // 2026-05-23 처형 atk 페널티 복원(1.0→0.96): 페널티 0 이라 「없음」 대비 전 축(WR·턴·HP)
+  // 우위인 무대가 지배 스탠스였다. sim 으로 0.88~0.96 sweep — 0.94 이하는 마무리 처치턴 이점까지
+  // 사라져 죽은 스탠스, 0.96 이 마무리 정체성 유지 + 협동/장기전 가한뎀 -5~10% 비용을 만드는
+  // 지점. 선행 공격 -4% 는 stanceEffectChips 로 UI 에도 자동 노출.
   onslaught: { atkMult: 1.12, defMult: 0.92, evasionDelta: -4 },
   bulwark: { atkMult: 0.92, defMult: 1.14, evasionDelta: 0 },
-  // 처형: atk 페널티 없음 + 기본 처형 부여(HP<45% 적 ×1.4). 미보유자에게도 floor 합성.
+  // 처형: 기본 공격은 낮추고, HP<45% 적에게 ×1.4 마무리 보정 부여. 미보유자에게도 floor 합성.
   execution: {
-    atkMult: 1,
+    atkMult: 0.96,
     defMult: 1,
     evasionDelta: 0,
     executionDamageMultFloor: 1.4,

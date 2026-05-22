@@ -66,6 +66,16 @@ export function BossSubView() {
           value={characterStateHook.state.selectedStance ?? null}
           onChange={characterStateHook.setStance}
         />
+        {/* 라이브 사냥이 켜진 채 협동 보스 화면에 들어왔을 때 여기서 끌 수 있게 — 편의 요청. */}
+        {huntingActive && (
+          <button
+            type="button"
+            onClick={() => setHuntingActive(false)}
+            className="w-full rounded-md border border-rose-500 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-500/20 dark:border-rose-400 dark:text-rose-300"
+          >
+            자동 사냥 정지
+          </button>
+        )}
         <CoopBossCard
           regionId={currentRegion.id}
           playerName={character.name}

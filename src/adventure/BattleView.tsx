@@ -200,6 +200,9 @@ export function BattleView({
   });
   useEffect(() => {
     if (!state || state.phase !== "ended" || state.outcome !== "win") return;
+    // bossOnlyMode 인스턴스는 다음 적 자동 시작을 절대 안 한다(방어적 가드 — 시작 effect
+    // 차단으로 이미 보스 전투만 발생하지만, 미래 변경에도 일반 사냥 재트리거가 없게 명시).
+    if (bossOnlyMode) return;
     // 보스 승리는 결과 모달 확인 후 종료 — 자동 cooldown/다음 적 X.
     // 동기 시뮬 특성상 즉시 stop() 하면 BattleScene 이 한 프레임만 보이고 사라진다.
     if (bossModeRef.current) return;
@@ -240,6 +243,9 @@ export function BattleView({
   useEffect(() => {
     if (state !== null) return;
     if (!huntingActive) return;
+    // bossOnlyMode 인 BattleView(보스 서브뷰)는 일반 사냥을 절대 시작하지 않는다 — 보스
+    // 진입 시 huntingActive 가 켜져 있으면 보스 화면에서 일반 사냥이 떠버리던 버그 차단.
+    if (bossOnlyMode) return;
     // 위탁 사냥 중엔 라이브 자동전투 시작 안 함. busy(dispatch 진행 중) 까지 막아야
     // "자동 사냥 보내기" 누른 직후 라이브 사냥을 연타로 끼워넣는 레이스를 차단.
     if (autoHunt.isDispatched || autoHunt.busy) return;
@@ -354,6 +360,17 @@ export function BattleView({
                 inventory={inventoryState}
                 onUpdateRule={onUpdateAutoPotionRule}
               />
+              {/* 자동(라이브) 사냥이 켜진 채 보스 화면에 들어왔을 때, 일반 전투로 돌아가지
+                  않고도 여기서 끌 수 있게 — 편의 요청. */}
+              {huntingActive && (
+                <button
+                  type="button"
+                  onClick={() => onToggleHunting(false)}
+                  className="w-full rounded-md border border-rose-500 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-500/20 dark:border-rose-400 dark:text-rose-300"
+                >
+                  자동 사냥 정지
+                </button>
+              )}
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-zinc-300 bg-white/90 p-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-zinc-400">

@@ -7,8 +7,51 @@
 // PlayerCombat 은 engine.ts 에서 정의 — type-only import 라 런타임 순환참조 없음(타입은 소거).
 
 import { computeHealAmount, type Potion } from "../data/potions";
-import type { APSkillEffect } from "../character/apSkills";
-import type { PlayerCombat } from "./engine";
+import type { APSkill, APSkillEffect } from "../character/apSkills";
+import type { EquippedAPSkill, PlayerCombat } from "./engine";
+
+export const AP_SKILLS_PER_TURN_CAP = 3;
+
+type ApSkillSelectionState = {
+  canFireApSkill: (equipped: EquippedAPSkill) => boolean;
+};
+
+export function isOffensiveApEffect(effect: APSkillEffect): boolean {
+  return (
+    effect.kind === "atk_multiplier" ||
+    effect.kind === "multi_hit_self_damage" ||
+    effect.kind === "atk_multiplier_with_silence" ||
+    effect.kind === "atk_plus_spd_pct_bonus"
+  );
+}
+
+export function selectApSkillsToFire(
+  equipped: ReadonlyArray<EquippedAPSkill>,
+  state: ApSkillSelectionState,
+  budgetAp: number,
+): { offensive: EquippedAPSkill | null; utilities: EquippedAPSkill[]; totalCost: number } {
+  let remainingAp = budgetAp;
+  let offensive: EquippedAPSkill | null = null;
+  const utilities: EquippedAPSkill[] = [];
+  let count = 0;
+
+  for (const e of equipped) {
+    if (count >= AP_SKILLS_PER_TURN_CAP) break;
+    const skill: APSkill = e.skill;
+    if (skill.apCost > remainingAp) continue;
+    if (!state.canFireApSkill(e)) continue;
+
+    const isOffensive = isOffensiveApEffect(skill.effect);
+    if (isOffensive && offensive) continue;
+
+    if (isOffensive) offensive = e;
+    else utilities.push(e);
+    remainingAp -= skill.apCost;
+    count += 1;
+  }
+
+  return { offensive, utilities, totalCost: budgetAp - remainingAp };
+}
 
 // AP 스킬 effect → 공격 배수/방어무시/회피무시/타격수. atk_multiplier 계열(광살참
 // multi_hit_self_damage·천뢰 일격 atk_multiplier_with_silence 포함)이 atkMult/ignoresDef/

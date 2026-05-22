@@ -707,6 +707,7 @@ describe("AP 스킬 — 천뢰 일격 (atk_multiplier_with_silence)", () => {
 // ── PR-4 ──
 const PURIFY = getAPSkillByName("정화")!;
 const AFTERIMAGE = getAPSkillByName("잔상")!;
+const STARLIT_MENDING = getAPSkillByName("별빛 회수")!;
 
 describe("AP 스킬 — 정화 (cleanse_debuffs)", () => {
   it("발동 시 playerDefDebuffPct/turnsLeft 리셋 (멱등, 디버프 없어도 OK)", () => {
@@ -788,6 +789,87 @@ describe("AP 스킬 — 빛의 활공 (queued_extra_attacks_next_turn)", () => {
       expect(before + 3 - 1).toBeGreaterThanOrEqual(s.playerAttacksLeft);
     }
     expect(s.turn.queuedExtraAttacks).toBe(0);
+  });
+});
+
+describe("AP 스킬 멀티 발동", () => {
+  it("회복술 + 별빛 회수 동시 발동으로 회복을 합산하고 AP 를 누적 차감", () => {
+    const p: PlayerCombat = {
+      ...PLAYER,
+      hp: 100,
+      maxHp: 1000,
+      attackCount: 2,
+      equippedAPSkills: [
+        eq({ ...MENDING, apCost: 1 }),
+        eq({ ...STARLIT_MENDING, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleState(p, enemy(1000), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.playerHp).toBe(750);
+    expect(s.ap).toBe(2);
+    expect(s.turn.apSkillFiredThisTurn).toBe("mending");
+    expect(s.log.some((e) => e.text.includes("[회복술]"))).toBe(true);
+    expect(s.log.some((e) => e.text.includes("[별빛 회수]"))).toBe(true);
+  });
+
+  it("공격형 2개 슬롯은 한 턴에 첫 공격형 1개만 발동", () => {
+    const p: PlayerCombat = {
+      ...PLAYER,
+      atk: 10,
+      attackCount: 2,
+      equippedAPSkills: [
+        eq({ ...HEAVEN_SLAY, apCost: 1 }),
+        eq({ ...SHADOW_CUT, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleState(p, enemy(1000), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.enemyHp).toBe(970);
+    expect(s.ap).toBe(3);
+    expect(s.turn.apSkillFiredThisTurn).toBe("heaven_slay");
+    const attackLog = s.log.findLast((e) => e.kind === "player_attack")?.text ?? "";
+    expect(attackLog).toContain("천살");
+    expect(attackLog).not.toContain("그림자 베기");
+  });
+
+  it("유틸 4개 슬롯은 슬롯 순서 기준 최대 3개만 발동", () => {
+    const p: PlayerCombat = {
+      ...PLAYER,
+      attackCount: 1,
+      equippedAPSkills: [
+        eq({ ...EXTRA_EVADE, apCost: 1 }),
+        eq({ ...PURIFY, apCost: 1 }),
+        eq({ ...COMBO, apCost: 1 }),
+        eq({ ...DEEP_WOUND, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleState(p, enemy(1000), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.stacks.evadesRemaining).toBe(1);
+    expect(s.stacks.bleedStacks).toBe(0);
+    expect(s.playerAttacksLeft).toBe(1);
+    expect(s.ap).toBe(1);
+  });
+
+  it("슬롯 순서와 누적 AP 부족으로 살 수 없는 후보를 건너뛰고 다음 후보를 발동", () => {
+    const p: PlayerCombat = {
+      ...PLAYER,
+      hp: 100,
+      maxHp: 1000,
+      attackCount: 2,
+      equippedAPSkills: [
+        eq({ ...MENDING, apCost: 2 }),
+        eq({ ...STARLIT_MENDING, apCost: 2 }),
+        eq({ ...EXTRA_EVADE, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleState(p, enemy(1000), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.playerHp).toBe(350);
+    expect(s.stacks.evadesRemaining).toBe(1);
+    expect(s.ap).toBe(1);
+    expect(s.log.some((e) => e.text.includes("[별빛 회수]"))).toBe(false);
   });
 });
 

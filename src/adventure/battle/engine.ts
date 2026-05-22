@@ -4,6 +4,7 @@ import {
   extractApEffect,
   potionHealAmount,
   rollAttackCount,
+  selectApSkillsToFire,
 } from "./combatShared";
 import { EVASION_PCT_CAP } from "../data/stats";
 import {
@@ -1178,24 +1179,33 @@ export function advanceTurn(
         ? player.powerAttackBonus!
         : 0;
 
-    // AP 스킬 — 그 턴 첫 공격일 때만 슬롯 순서로 condition 만족 + cost<=AP 인 첫 1개 발동.
-    // 한 턴 1개 정책 (apSkillFiredThisTurn null 체크). 강공격과 동시 발동 가능 (별개 트리거).
-    const apSkillFires =
+    // AP 스킬 — 그 턴 첫 공격 명중에 슬롯 순서로 최대 3개 발동. 공격형은 최대 1개.
+    const apSel =
       isFirstAttackOfTurn &&
       state.turn.apSkillFiredThisTurn === null &&
       (player.equippedAPSkills?.length ?? 0) > 0
-        ? player.equippedAPSkills!.find(
-            (e) =>
-              e.skill.apCost <= state.ap &&
-              evaluateAPSkillCondition(e.condition, state, e.skill),
-          )?.skill ?? null
-        : null;
+        ? selectApSkillsToFire(
+            player.equippedAPSkills!,
+            {
+              canFireApSkill: (e) =>
+                evaluateAPSkillCondition(e.condition, state, e.skill),
+            },
+            state.ap,
+          )
+        : { offensive: null, utilities: [], totalCost: 0 };
+    const apOffensiveFires = apSel.offensive;
+    const apUtilityFires = apSel.utilities;
+    const apAllFired = apOffensiveFires
+      ? [apOffensiveFires, ...apUtilityFires]
+      : apUtilityFires;
+    const apOffensiveSkill = apOffensiveFires?.skill ?? null;
+    const apAllFiredSkills = apAllFired.map((e) => e.skill);
     // atk_multiplier 계열 효과 — 광살참(multi_hit_self_damage)과 천뢰 일격
     // (atk_multiplier_with_silence) 도 atkMult/ignoresDef/ignoresEvasion 을 공유.
     // apMultEffect 는 아래(atk_plus_spd_pct_bonus·multi_hit_self_damage 자해)에서도 쓰여 유지.
     // atkMult/ignoresDef/ignoresEvasion/hits 파생은 combatShared.extractApEffect 로 단일화
     // (PvP 엔진과 공유 — ignoresEvasion = true 면 적 회피 굴림 스킵, 광살참 hits = N 번 누적).
-    const apMultEffect = apSkillFires?.effect;
+    const apMultEffect = apOffensiveSkill?.effect;
     const {
       atkMult: apAtkMult,
       ignoresDef: apIgnoresDef,
@@ -1257,7 +1267,10 @@ export function advanceTurn(
     // AP 스킬 시한부 버프 — 발동턴 damage calc 부터 효과 받도록 buffs 를 미리 갱신.
     // decrementTimedEffects 는 다음 플레이어 턴 진입 시 -1 → 발동턴 + (turns-1) 후속턴 = 총 turns 턴.
     // evasion 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 그 분기는 위에서 이미 return 된 상태.
-    const nextBuffsTimed = applyTimedBuffFromApSkill(state.buffs, apSkillFires);
+    const nextBuffsTimed = apAllFiredSkills.reduce(
+      (buffs, skill) => applyTimedBuffFromApSkill(buffs, skill),
+      state.buffs,
+    );
 
     // 암살 (특기) — 전투 첫 공격이면 발동: 적 DEF 무시 + 데미지 배수 (배수는 아래에서 적용).
     const assassinFires =
@@ -1463,7 +1476,7 @@ export function advanceTurn(
     if (enduringStrikeBonus > 0) labels.push("불굴의 일격");
     if (weakpointDefIgnore) labels.push("약점 적중");
     if (fatedChainConsumed) labels.push("연쇄 운명");
-    if (apSkillFires) labels.push(apSkillFires.name);
+    for (const skill of apAllFiredSkills) labels.push(skill.name);
     const prefix = labels.length > 0 ? `[${labels.join(" + ")}] ` : "";
     let log = appendLog(state.log, {
       kind: "player_attack",
@@ -1580,100 +1593,110 @@ export function advanceTurn(
     // 회복이 먼저 — 그 턴 첫 공격이 ult cost 와 정확히 일치할 때도 예상대로 발동.
     const nextApAfter = Math.max(
       0,
-      Math.min(AP_CAP, state.ap + 1) - (apSkillFires?.apCost ?? 0),
+      Math.min(AP_CAP, state.ap + 1) - apSel.totalCost,
     );
     // 비-atk_multiplier AP 효과 처리 — 본타와 같이 발동되는 부가 효과.
-    const apHealAmount =
-      apSkillFires?.effect.kind === "heal_pct"
-        ? Math.floor((state.playerMaxHp * apSkillFires.effect.pct) / 100)
-        : 0;
-    const apBleedAdd =
-      apSkillFires?.effect.kind === "apply_bleed"
-        ? apSkillFires.effect.stacks
-        : 0;
-    const apEvadesAdd =
-      apSkillFires?.effect.kind === "add_guaranteed_evades"
-        ? apSkillFires.effect.count
-        : 0;
-    const playerHpAfterAPHeal =
-      apHealAmount > 0
-        ? Math.min(state.playerMaxHp, newPlayerHp + apHealAmount)
-        : newPlayerHp;
-    const apHealActual = playerHpAfterAPHeal - newPlayerHp;
-    if (apHealActual > 0) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires!.name}] ${playerName}의 HP +${apHealActual}`,
-      });
+    let playerHpAfterAPHeal = newPlayerHp;
+    let apBleedAdd = 0;
+    let apEvadesAdd = 0;
+    let comboExtraAttacks = 0;
+    let queuedExtraAttacksAdd = 0;
+    let focusedBreathQueueBonusPct = 0;
+    let shouldCleanseDebuffs = false;
+
+    for (const skill of apAllFiredSkills) {
+      const effect = skill.effect;
+      if (effect.kind === "heal_pct") {
+        const amount = Math.floor((state.playerMaxHp * effect.pct) / 100);
+        const healed = Math.min(state.playerMaxHp, playerHpAfterAPHeal + amount);
+        const actual = healed - playerHpAfterAPHeal;
+        playerHpAfterAPHeal = healed;
+        if (actual > 0) {
+          log = appendLog(log, {
+            kind: "info",
+            text: `[${skill.name}] ${playerName}의 HP +${actual}`,
+          });
+        }
+      } else if (effect.kind === "apply_bleed") {
+        apBleedAdd += effect.stacks;
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${state.enemy.name}에게 출혈 +${effect.stacks}스택`,
+        });
+      } else if (effect.kind === "add_guaranteed_evades") {
+        apEvadesAdd += effect.count;
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] 보장 회피 +${effect.count}`,
+        });
+      } else if (effect.kind === "extra_attack_this_turn") {
+        comboExtraAttacks += effect.count;
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] 이번 턴 추가 공격 +${effect.count}`,
+        });
+      } else if (effect.kind === "queued_extra_attacks_next_turn") {
+        queuedExtraAttacksAdd += effect.count;
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] 다음 턴 행동 +${effect.count}`,
+        });
+      } else if (effect.kind === "crit_buff_next_attack") {
+        focusedBreathQueueBonusPct = effect.critDmgBonusPct;
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] 다음 공격 크리 보장 + 크리뎀 +${effect.critDmgBonusPct}%`,
+        });
+      } else if (effect.kind === "cleanse_debuffs") {
+        shouldCleanseDebuffs = true;
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${playerName}의 모든 디버프 해제`,
+        });
+      } else if (effect.kind === "player_dmg_reduction_turns") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${effect.turns}턴간 받는 피해 -${effect.pct}%`,
+        });
+      } else if (effect.kind === "enemy_def_debuff_pct_turns") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${effect.turns}턴간 ${state.enemy.name}의 DEF -${effect.pct}%`,
+        });
+      } else if (effect.kind === "player_atk_buff_def_debuff_pct_turns") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${effect.turns}턴간 ATK +${effect.atkPct}%, DEF -${effect.defPct}%`,
+        });
+      } else if (effect.kind === "enemy_spd_mult_turns") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${effect.turns}턴간 ${state.enemy.name}의 SPD ×${effect.mult}`,
+        });
+      } else if (effect.kind === "player_spd_mult_turns") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${effect.turns}턴간 SPD ×${effect.mult}`,
+        });
+      } else if (effect.kind === "atk_multiplier_with_silence") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${state.enemy.name} ${effect.silenceTurns}턴간 스킬 봉인`,
+        });
+      } else if (effect.kind === "block_next_enemy_attack") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${state.enemy.name}의 다음 공격 ${effect.count}회 무효`,
+        });
+      } else if (effect.kind === "lifesteal_dmg_pct_turns") {
+        log = appendLog(log, {
+          kind: "info",
+          text: `[${skill.name}] ${effect.turns}턴간 가한 피해의 ${effect.pct}% HP 회복`,
+        });
+      }
     }
-    if (apBleedAdd > 0) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires!.name}] ${state.enemy.name}에게 출혈 +${apBleedAdd}스택`,
-      });
-    }
-    if (apEvadesAdd > 0) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires!.name}] 보장 회피 +${apEvadesAdd}`,
-      });
-    }
-    // 시한부 효과 로그 — buffs state 는 evasion 직후 applyTimedBuffFromApSkill 로 이미 적용됨.
-    // 여기서는 표시용 로그만 남긴다 (발동턴 damage calc 부터 효과 받음).
-    if (apSkillFires?.effect.kind === "player_dmg_reduction_turns") {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${apSkillFires.effect.turns}턴간 받는 피해 -${apSkillFires.effect.pct}%`,
-      });
-    } else if (apSkillFires?.effect.kind === "enemy_def_debuff_pct_turns") {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${apSkillFires.effect.turns}턴간 ${state.enemy.name}의 DEF -${apSkillFires.effect.pct}%`,
-      });
-    } else if (
-      apSkillFires?.effect.kind === "player_atk_buff_def_debuff_pct_turns"
-    ) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${apSkillFires.effect.turns}턴간 ATK +${apSkillFires.effect.atkPct}%, DEF -${apSkillFires.effect.defPct}%`,
-      });
-    } else if (apSkillFires?.effect.kind === "enemy_spd_mult_turns") {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${apSkillFires.effect.turns}턴간 ${state.enemy.name}의 SPD ×${apSkillFires.effect.mult}`,
-      });
-    } else if (apSkillFires?.effect.kind === "player_spd_mult_turns") {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${apSkillFires.effect.turns}턴간 SPD ×${apSkillFires.effect.mult}`,
-      });
-    } else if (apSkillFires?.effect.kind === "atk_multiplier_with_silence") {
-      // 천뢰 일격 — atk_multiplier 와 같이 발동 + 1턴 적 스킬 봉인.
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${state.enemy.name} ${apSkillFires.effect.silenceTurns}턴간 스킬 봉인`,
-      });
-    } else if (apSkillFires?.effect.kind === "cleanse_debuffs") {
-      // 정화 — 플레이어에게 걸린 모든 디버프 제거. 현재는 광기 자신 DEF 페널티만 존재하지만
-      // 미래 확장 대비 player-side debuff 필드 전부 리셋.
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${playerName}의 모든 디버프 해제`,
-      });
-    } else if (apSkillFires?.effect.kind === "block_next_enemy_attack") {
-      // 잔상 — 적의 다음 공격 N회 무효. 적 페이즈에서 데미지 적용 전 1회 소비.
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${state.enemy.name}의 다음 공격 ${apSkillFires.effect.count}회 무효`,
-      });
-    } else if (apSkillFires?.effect.kind === "lifesteal_dmg_pct_turns") {
-      // 흡령 — 시한부 흡혈 버프. turnsLeft 동안 매 공격 데미지의 pct% heal (앞쪽 totalLifestealHeal 합산).
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires.name}] ${apSkillFires.effect.turns}턴간 가한 피해의 ${apSkillFires.effect.pct}% HP 회복`,
-      });
-    }
-    // 광살참 (multi_hit_self_damage) — 자해 HP. dmg 적용 후 player HP 에서 추가 감산.
+
+    // 광살참 (multi_hit_self_damage) — 공격형 fire 에서만 자해 HP 적용.
     const madSlashSelfDmg =
       apMultEffect?.kind === "multi_hit_self_damage"
         ? Math.floor((state.playerMaxHp * apMultEffect.selfDmgPct) / 100)
@@ -1685,40 +1708,7 @@ export function advanceTurn(
     if (madSlashSelfDmg > 0) {
       log = appendLog(log, {
         kind: "info",
-        text: `[${apSkillFires!.name}] ${playerName}의 HP -${madSlashSelfDmg} (자해)`,
-      });
-    }
-    // 연환격 (extra_attack_this_turn) — 이번 턴 attacksLeft 즉시 가산.
-    const comboExtraAttacks =
-      apSkillFires?.effect.kind === "extra_attack_this_turn"
-        ? apSkillFires.effect.count
-        : 0;
-    // 빛의 활공 (queued_extra_attacks_next_turn) — 다음 턴 시작 시 attacksLeft 에 가산할 큐.
-    const queuedExtraAttacksAdd =
-      apSkillFires?.effect.kind === "queued_extra_attacks_next_turn"
-        ? apSkillFires.effect.count
-        : 0;
-    if (comboExtraAttacks > 0) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires!.name}] 이번 턴 추가 공격 +${comboExtraAttacks}`,
-      });
-    }
-    if (queuedExtraAttacksAdd > 0) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires!.name}] 다음 턴 행동 +${queuedExtraAttacksAdd}`,
-      });
-    }
-    // 집중의 호흡 큐잉 — 이 발동 attack 후 첫 평타에 적용. 현재 fire 의 critRoll 에는 영향 X.
-    const focusedBreathQueueBonusPct =
-      apSkillFires?.effect.kind === "crit_buff_next_attack"
-        ? apSkillFires.effect.critDmgBonusPct
-        : 0;
-    if (focusedBreathQueueBonusPct > 0) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${apSkillFires!.name}] 다음 공격 크리 보장 + 크리뎀 +${focusedBreathQueueBonusPct}%`,
+        text: `[${apOffensiveSkill!.name}] ${playerName}의 HP -${madSlashSelfDmg} (자해)`,
       });
     }
     // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
@@ -1747,10 +1737,7 @@ export function advanceTurn(
       stacks: {
         ...state.stacks,
         bleedStacks: Math.min(BLEED_MAX_STACKS, bleedStacks + apBleedAdd),
-        chillStacks:
-          apSkillFires?.effect.kind === "cleanse_debuffs"
-            ? 0
-            : state.stacks.chillStacks,
+        chillStacks: shouldCleanseDebuffs ? 0 : state.stacks.chillStacks,
         evadesRemaining: state.stacks.evadesRemaining + apEvadesAdd,
         weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
       },
@@ -1760,9 +1747,10 @@ export function advanceTurn(
         fatedChainTriggeredThisTurn:
           state.turn.fatedChainTriggeredThisTurn || fatedChainFires,
         weakpointUsedThisTurn: state.turn.weakpointUsedThisTurn || weakpointFires,
-        apSkillFiredThisTurn: apSkillFires
-          ? apSkillFires.id
-          : state.turn.apSkillFiredThisTurn,
+        apSkillFiredThisTurn:
+          apOffensiveSkill?.id ??
+          apUtilityFires[0]?.skill.id ??
+          state.turn.apSkillFiredThisTurn,
         // 집중의 호흡 — 발동되면 이번 fire 후부터 큐잉, 큐 활성 중 평타 1회 발사 시 0 으로 소비.
         focusedBreathCritDmgBonusPct: focusedBreathQueueBonusPct > 0
           ? focusedBreathQueueBonusPct

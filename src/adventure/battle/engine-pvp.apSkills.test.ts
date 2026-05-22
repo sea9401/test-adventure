@@ -39,6 +39,7 @@ const MENDING = getAPSkillByName("회복술")!;
 const DEEP_WOUND = getAPSkillByName("깊은 상처")!;
 const EXTRA_EVADE = getAPSkillByName("추가 회피")!;
 const HEAVEN_SLAY = getAPSkillByName("천살")!;
+const STARLIT_MENDING = getAPSkillByName("별빛 회수")!;
 
 // 양 사이드 selectAPSkill 검증을 단순화 — 페이즈가 self 일 때 attack 단발.
 function attack(s: PvPBattleState): PvPBattleState {
@@ -438,6 +439,67 @@ describe("PvP AP — 슬롯 발동 조건", () => {
     // 적 HP 100% — 조건 미충족, AP 충전만.
     s = attack(s);
     expect(s.p1.turn.apSkillFiredThisTurn).toBeNull();
+  });
+});
+
+describe("PvP AP — 멀티 발동", () => {
+  it("p1 회복술 + 별빛 회수 동시 발동으로 자기 HP 만 합산 회복", () => {
+    const p1: PlayerCombat = {
+      ...BASE,
+      hp: 100,
+      maxHp: 1000,
+      attackCount: 2,
+      equippedAPSkills: [
+        slot({ ...MENDING, apCost: 1 }),
+        slot({ ...STARLIT_MENDING, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleStatePvP(p1, BASE, "p1", "p2");
+    s = attack(s);
+    expect(s.p1.hp).toBe(750);
+    expect(s.p2.hp).toBeLessThan(BASE.hp);
+    expect(s.p1.ap).toBe(2);
+    expect(s.p1.turn.apSkillFiredThisTurn).toBe("mending");
+  });
+
+  it("p1 공격형 2개 슬롯은 첫 공격형 1개만 발동", () => {
+    const p1: PlayerCombat = {
+      ...BASE,
+      attackCount: 2,
+      equippedAPSkills: [
+        slot({ ...HEAVEN_SLAY, apCost: 1 }),
+        slot({ ...SHADOW_CUT, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleStatePvP(p1, BASE, "p1", "p2");
+    s = attack(s);
+    expect(BASE.hp - s.p2.hp).toBe(30);
+    expect(s.p1.ap).toBe(3);
+    expect(s.p1.turn.apSkillFiredThisTurn).toBe("heaven_slay");
+    const attackLog = s.log.findLast((e) => e.kind === "player_attack")?.text ?? "";
+    expect(attackLog).toContain("천살");
+    expect(attackLog).not.toContain("그림자 베기");
+  });
+
+  it("p2 도 동일하게 유틸 3개 cap 과 AP 누적 차감을 적용", () => {
+    const p1: PlayerCombat = { ...BASE, spd: 5 };
+    const p2: PlayerCombat = {
+      ...BASE,
+      attackCount: 1,
+      equippedAPSkills: [
+        slot({ ...EXTRA_EVADE, apCost: 1 }),
+        slot({ ...MENDING, apCost: 1 }),
+        slot({ ...DEEP_WOUND, apCost: 1 }),
+        slot({ ...SHADOW_CUT, apCost: 1 }),
+      ],
+    };
+    let s = initialBattleStatePvP(p1, p2, "p1", "p2");
+    expect(s.phase).toBe("p2");
+    s = attack(s);
+    expect(s.p2.stacks.evadesRemaining).toBe(1);
+    expect(s.p2.stacks.bleedStacksOnOpponent).toBe(5);
+    expect(s.p2.ap).toBe(1);
+    expect(s.log.some((e) => e.text.includes("그림자 베기"))).toBe(false);
   });
 });
 

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import type { PlayerCombat } from "@/adventure/battle/engine";
-import { applyStance, isStanceId, normalizeStance } from "./stance";
+import {
+  applyStance,
+  isStanceId,
+  normalizeStance,
+  stanceBattleLogText,
+} from "./stance";
 
 function basePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
   return {
@@ -62,6 +67,16 @@ describe("applyStance", () => {
     applyStance(p, "onslaught");
     expect(p.atk).toBe(100);
     expect(p.def).toBe(50);
+  });
+});
+
+describe("stanceBattleLogText", () => {
+  it("전술별 안내 문구 반환, null 은 null", () => {
+    expect(stanceBattleLogText("onslaught")).toContain("공세");
+    expect(stanceBattleLogText("bulwark")).toContain("수성");
+    expect(stanceBattleLogText("execution")).toContain("처형");
+    expect(stanceBattleLogText(null)).toBeNull();
+    expect(stanceBattleLogText(undefined)).toBeNull();
   });
 });
 

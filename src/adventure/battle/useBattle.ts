@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Monster } from "../data/monsters";
 import type { PotionId } from "../data/potions";
-import { applyStance, type StanceId } from "../character/stance";
+import { applyStance, stanceBattleLogText, type StanceId } from "../character/stance";
 import {
   resolveBattle,
   type BattleResolution,
@@ -59,6 +59,10 @@ export function useBattle({
         hpOverride !== undefined ? { ...base, hp: hpOverride } : base;
       // 전술은 보스 전투에만 적용 — 일반 사냥(isBoss 아님)엔 보정 0.
       const p = isBoss ? applyStance(withHp, stanceRef.current) : withHp;
+      // 전술이 켜졌으면 전투 시작 로그에 안내 한 줄(가시성) — 보스 전투에만.
+      const openingNote = isBoss
+        ? (stanceBattleLogText(stanceRef.current) ?? undefined)
+        : undefined;
       const r: BattleResolution = resolveBattle(
         p,
         enemy,
@@ -67,6 +71,7 @@ export function useBattle({
           pickAction: pickActionRef.current,
           potions: potionsRef.current,
           isBoss,
+          openingNote,
         },
       );
       setState(r.finalState);

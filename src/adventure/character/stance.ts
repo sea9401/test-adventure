@@ -27,6 +27,21 @@ export function normalizeStance(v: unknown): StanceId | null {
   return isStanceId(v) ? v : null;
 }
 
+// 전투 시작 로그에 박는 한 줄 안내 — 전술이 켜졌음을 플레이어가 알도록(가시성).
+// 자연스러운 한국어 문장, 하이픈/마크다운 없이.
+const STANCE_BATTLE_LOG: Record<StanceId, string> = {
+  onslaught: "공세 전술을 취한다. 공격이 거세지지만 방어와 회피가 무뎌진다.",
+  bulwark: "수성 전술을 취한다. 단단히 버티는 대신 공격이 약해진다.",
+  execution: "처형 전술을 취한다. 체력이 깎인 적의 남은 숨통을 빠르게 끊는다.",
+};
+
+/** 전투 시작 로그용 전술 안내 문구. 전술 없음(null)이면 null. */
+export function stanceBattleLogText(
+  stance: StanceId | null | undefined,
+): string | null {
+  return stance ? STANCE_BATTLE_LOG[stance] : null;
+}
+
 export type StanceMeta = {
   name: string;
   /** 한 줄 설명 + 어떤 상황에 좋은지. UI 노출. */

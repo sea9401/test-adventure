@@ -282,6 +282,31 @@ describe("applyPotionEffect", () => {
 });
 
 describe("resolveBattle", () => {
+  it("openingNote 가 있으면 전투 시작 로그에 info 로 박힌다", () => {
+    const note = "공세 전술을 취한다.";
+    const r = resolveBattle(PLAYER, makeEnemy(), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      openingNote: note,
+    });
+    const hit = r.finalState.log.find(
+      (e) => e.kind === "info" && e.text === note,
+    );
+    expect(hit).toBeDefined();
+  });
+
+  it("openingNote 미지정이면 추가 안 됨", () => {
+    const r = resolveBattle(PLAYER, makeEnemy(), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("전술을 취한다"),
+      ),
+    ).toBe(false);
+  });
+
   it("강한 플레이어는 승리 + 적 HP 0", () => {
     const r = resolveBattle(PLAYER, makeEnemy(), "P", {
       pickAction: () => ({ kind: "attack" }),

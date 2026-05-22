@@ -12,7 +12,7 @@ import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
-import { applyStance } from "@/adventure/character/stance";
+import { applyStance, stanceBattleLogText } from "@/adventure/character/stance";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import {
   resolveBattle,
@@ -110,6 +110,7 @@ export async function applyTowerChallengeAction(
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
       potions: {},
       isBoss: isBossFloor(floor),
+      openingNote: stanceBattleLogText(derived.selectedStance) ?? undefined,
     });
     battle = {
       finalState: resolution.finalState,

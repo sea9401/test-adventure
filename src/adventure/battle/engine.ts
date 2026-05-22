@@ -2636,6 +2636,9 @@ export type ResolveContext = {
   potions: Partial<Record<PotionId, number>>;
   // 보스 전투면 BOSS_TURN_CAP 턴 경과 시 패배로 타임아웃. 일반 전투에는 영향 없음.
   isBoss?: boolean;
+  // 전투 시작 로그에 박을 안내 한 줄(전술 등). 호출부가 문자열로 빌드해 넘긴다
+  // (엔진은 stance 를 모름 — 순환 의존 회피). 미지정이면 추가 안 함.
+  openingNote?: string;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
@@ -2683,10 +2686,15 @@ export function resolveBattle(
     apMax: apMaxForLog,
   });
   // 초기 entry (적 등장 / 선공 / 능력 안내 등) 는 player 턴으로 태깅. 첫 턴 marker 도 박는다.
+  // openingNote(전술 안내 등)가 있으면 적 등장 다음·첫 턴 marker 앞에 info 로 끼운다.
+  const openingExtra: BattleLogEntry[] = ctx.openingNote
+    ? [{ kind: "info", text: ctx.openingNote, turn: "player" as const }]
+    : [];
   state = {
     ...state,
     log: [
       ...state.log.map((e) => ({ ...e, turn: "player" as const })),
+      ...openingExtra,
       {
         kind: "turn_marker",
         text: turnMarkerText(1, state.ap),

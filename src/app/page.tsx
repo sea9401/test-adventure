@@ -221,7 +221,6 @@ function Home() {
     paragonAllocations: paragon.state.allocations,
     storyFlagIds: new Set(storyFlags.state.flags),
     hp: characterState.hp,
-    mp: characterState.mp,
     name: profile.name,
     gender: profile.gender,
     exp: characterState.exp,

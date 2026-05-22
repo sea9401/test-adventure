@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from "react";
 import { Sparkle } from "@phosphor-icons/react";
+import { TutorialOverlay } from "@/adventure/tutorial";
 import { ITEMS } from "@/adventure/data/items";
 import { craftTierSuffix } from "@/adventure/data/craftQuality";
 import {
@@ -91,6 +92,23 @@ export function EnhancementPanel({
   const spec = ENHANCE_MODE_SPEC[mode];
   return (
     <div className="space-y-3">
+      <TutorialOverlay
+        stepId="tutorial.enhance.intro"
+        title="별빛 강화"
+        body={
+          <>
+            <p>
+              <b>별빛 무구</b> 는 <b>별빛 조각</b> 을 써서 강화할 수 있다.
+              단계가 오를수록 필요한 조각이 늘어난다.
+            </p>
+            <p>
+              강화에는 여러 <b>모드</b> 가 있다. 성공 확률이 낮은 모드일수록
+              성공했을 때 능력치가 더 크게 오른다. 다만 자루마다 강화 시도
+              횟수가 정해져 있으니 신중하게.
+            </p>
+          </>
+        }
+      />
       <Card as="section" padding="md">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">

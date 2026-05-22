@@ -51,8 +51,6 @@ export type Character = {
   level: number;
   hp: number;
   maxHp: number;
-  mp: number;
-  maxMp: number;
   exp: number;
   maxExp: number;
   gold: number;

@@ -42,7 +42,6 @@ describe("sanitizeSavePayload", () => {
         exp: 1234,
         fame: 50,
         hp: 200,
-        mp: 100,
       });
       expect(r.ok).toBe(true);
     });
@@ -98,7 +97,7 @@ describe("sanitizeSavePayload", () => {
       if (!r.ok) expect(r.reason).toContain("level");
     });
 
-    it("optional 필드 미지정 통과 (fame/hp/mp 없어도)", () => {
+    it("optional 필드 미지정 통과 (fame/hp 없어도)", () => {
       const r = sanitizeSavePayload("character.v2", {
         level: 5,
         gold: 1000,

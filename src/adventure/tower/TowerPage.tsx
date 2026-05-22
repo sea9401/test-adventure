@@ -72,7 +72,7 @@ export function TowerPage({
 }: {
   onBack: () => void;
   playerName: string;
-  /** BattleScene 의 HUD (MP/EXP 바, 캐릭터 아바타) 에 필요한 상태. */
+  /** BattleScene 의 HUD (HP/EXP 바, 캐릭터 아바타) 에 필요한 상태. */
   playerStatus: BattlePlayerStatus;
   /** 마일스톤 보상으로 character/inventory 가 갱신되면 호출 — 부모에서 state 동기화. */
   onApplied?: (r: TowerApiResponse) => void;
@@ -628,7 +628,7 @@ function ResultView({
         )}
       </Card>
 
-      {/* 전투 로그 + 최종 HP/MP/EXP 가 한 화면에 — 일반 BattleView 와 같은 BattleScene. */}
+      {/* 전투 로그 + 최종 HP/EXP 가 한 화면에 — 일반 BattleView 와 같은 BattleScene. */}
       <BattleScene
         state={finalState}
         playerName={playerName}

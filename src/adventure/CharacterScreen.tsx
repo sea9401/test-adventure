@@ -147,12 +147,20 @@ export function CharacterScreen() {
           }
           onClick={() => setSubView("recent-log")}
         />
-        <EntryCard
-          icon={<Diamond size={28} weight="duotone" className="text-violet-500" />}
-          title="룬"
-          description="3개의 슬롯에 룬을 장착해 영구 능력치를 더한다."
-          onClick={() => setSubView("runes")}
-        />
+        {(inventory.runeTotalCount() > 0 ||
+          inventory.materialCount("tower_token") > 0 ||
+          (characterStateHook.state.equippedRunes ?? []).some(
+            (r) => r != null,
+          )) && (
+          <EntryCard
+            icon={
+              <Diamond size={28} weight="duotone" className="text-violet-500" />
+            }
+            title="룬"
+            description="3개의 슬롯에 룬을 장착해 영구 능력치를 더한다."
+            onClick={() => setSubView("runes")}
+          />
+        )}
         {character.level >= MAX_LEVEL && (
           <EntryCard
             icon={
@@ -217,6 +225,22 @@ export function CharacterScreen() {
     };
     return (
       <div className="space-y-3">
+        <TutorialOverlay
+          stepId="tutorial.runes.intro"
+          title="룬을 얻었다"
+          body={
+            <>
+              <p>
+                <b>룬</b> 은 3개의 슬롯에 끼워 영구적으로 능력치를 더한다.
+                공격·방어·체력·획득량 등 원하는 방향으로 조합할 수 있다.
+              </p>
+              <p>
+                같은 룬을 모으면 <b>합성</b> 으로 더 높은 등급을 만들 수 있다.
+                룬은 주로 <b>고탑</b> 에서 얻는다.
+              </p>
+            </>
+          }
+        />
         <SubViewHeader title="룬" onBack={back} />
         <RuneView
           equippedRunes={characterStateHook.state.equippedRunes ?? []}
@@ -353,6 +377,22 @@ export function CharacterScreen() {
   if (subView === "skills") {
     return (
       <div className="space-y-3">
+        <TutorialOverlay
+          stepId="tutorial.skills.intro"
+          title="스킬 다루기"
+          body={
+            <>
+              <p>
+                전투는 자동으로 진행되지만, 어떤 <b>스킬</b> 을 슬롯에 끼울지는
+                직접 정한다. 익힌 스킬을 슬롯에 넣어야 전투에서 발동한다.
+              </p>
+              <p>
+                스킬마다 <b>발동 조건</b> 을 정할 수 있다. HP 가 낮을 때만, 또는
+                몇 턴마다 한 번씩 쓰도록 맞춰 두면 그에 맞춰 자동으로 나간다.
+              </p>
+            </>
+          }
+        />
         <SubViewHeader title="스킬" onBack={back} />
         <SkillsView
           skills={character.skills}

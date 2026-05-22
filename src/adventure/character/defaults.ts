@@ -2,9 +2,8 @@ import { ITEMS } from "@/adventure/data/items";
 import type { StatKey } from "@/adventure/data/stats";
 import type { EquippedItem, Skill } from "./types";
 
-// 레벨 1 기준 베이스 — 레벨 N의 max는 baseCharacter.max{Hp,Mp} + (N-1) * {HP,MP}_PER_LEVEL.
+// 레벨 1 기준 베이스 — 레벨 N의 maxHp 는 baseCharacter.maxHp + (N-1) * HP_PER_LEVEL.
 export const HP_PER_LEVEL = 5;
-export const MP_PER_LEVEL = 2;
 
 // 직업 미정 시 표시되는 기본 className. 채팅 헤더 등에서 "의미 없는" 표시이므로
 // 이 값과 같으면 UI 에서 숨길 수 있도록 export.
@@ -15,8 +14,6 @@ export const baseCharacter = {
   level: 1,
   hp: 97,
   maxHp: 97,
-  mp: 30,
-  maxMp: 30,
   exp: 0,
   maxExp: 120,
   gold: 0,
@@ -34,8 +31,4 @@ export const baseCharacter = {
 
 export function maxHpForLevel(level: number): number {
   return baseCharacter.maxHp + Math.max(0, level - 1) * HP_PER_LEVEL;
-}
-
-export function maxMpForLevel(level: number): number {
-  return baseCharacter.maxMp + Math.max(0, level - 1) * MP_PER_LEVEL;
 }

@@ -105,7 +105,7 @@ export function TownScreen() {
           body={
             <>
               <p>
-                <b>치료소</b> — 전투로 줄어든 HP·MP 를 회복한다.
+                <b>치료소</b> — 전투로 줄어든 HP 를 회복한다.
               </p>
               <p>
                 <b>상점</b> — 포션·재료를 사고 판다.
@@ -128,8 +128,8 @@ export function TownScreen() {
           }
           title="치료소"
           description={
-            character.hp >= character.maxHp && character.mp >= character.maxMp
-              ? "체력과 마력이 가득 차 있다."
+            character.hp >= character.maxHp
+              ? "체력이 가득 차 있다."
               : "지친 몸을 회복할 수 있는 곳."
           }
           onClick={() => setSubView("healing")}
@@ -196,8 +196,7 @@ export function TownScreen() {
 
   if (subView === "healing") {
     const healCost = character.gold < 50 ? 0 : 1;
-    const isFull =
-      character.hp >= character.maxHp && character.mp >= character.maxMp;
+    const isFull = character.hp >= character.maxHp;
     // 위탁 원정 중에는 치유소 회복을 막지만, HP가 0이면 예외 — 시련 등에서 쓰러져
     // 마을로 복귀한 직후 회복도 이동도 못 해 갇히는 상황을 푼다. 원정은 그대로
     // 진행되고, 수령 시 서버가 baseline HP 기준으로 결과를 적용하므로 desync 없음.
@@ -215,8 +214,7 @@ export function TownScreen() {
               className="shrink-0 text-rose-500"
             />
             <p className="text-sm text-zinc-700 dark:text-zinc-300">
-              체력과 마력을 모두 회복할 수 있다. 비용 1 G — 소지금이 50 G
-              미만이면 무료.
+              체력을 모두 회복할 수 있다. 비용 1 G — 소지금이 50 G 미만이면 무료.
             </p>
           </div>
           <div className="mt-4 space-y-2">
@@ -226,22 +224,12 @@ export function TownScreen() {
               max={character.maxHp}
               color="bg-red-500"
             />
-            <StatBar
-              label="MP"
-              value={character.mp}
-              max={character.maxMp}
-              color="bg-sky-500"
-            />
           </div>
           <button
             type="button"
             onClick={() => {
               if (blockedByHunt) return;
-              characterStateHook.heal(
-                healCost,
-                character.maxHp,
-                character.maxMp,
-              );
+              characterStateHook.heal(healCost, character.maxHp);
               adventureLog.incrementHealingCount();
             }}
             disabled={isFull || blockedByHunt}

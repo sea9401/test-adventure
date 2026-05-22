@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
 import { useSavedValue } from "@/lib/storage/SaveProvider";
 import { useRemotePatch } from "@/lib/storage/useRemotePatch";
-import { baseCharacter, maxHpForLevel, maxMpForLevel } from "./defaults";
+import { baseCharacter, maxHpForLevel } from "./defaults";
 import { normalizeStance, type StanceId } from "./stance";
 import { rehydrateEquippedItem } from "./rehydrateEquip";
 import type { EquippedItem, EquippedSlots } from "./types";
@@ -22,7 +22,6 @@ const HP_LIFT_V1 = "hpLift_v1";
 
 export type CharacterDynamicState = {
   hp: number;
-  mp: number;
   level: number;
   exp: number;
   gold: number;
@@ -76,7 +75,6 @@ function todayLocalDateKey(): string {
 
 export const initialCharacterState: CharacterDynamicState = {
   hp: 97,
-  mp: 30,
   level: 1,
   exp: 0,
   gold: 50,
@@ -113,7 +111,6 @@ function readInitial(raw: unknown): CharacterDynamicState {
   }
   return {
     hp: parsed.hp ?? initialCharacterState.hp,
-    mp: parsed.mp ?? initialCharacterState.mp,
     level: Math.min(
       MAX_LEVEL,
       Math.max(1, parsed.level ?? initialCharacterState.level),
@@ -195,14 +192,13 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
 
   const equippedSlots = state.equipped ?? baseCharacter.equipped;
 
-  // maxHp/maxMp는 호출 측이 스탯(VIT 등) 보정을 합쳐 넘겨주면 그 값으로 회복.
+  // maxHp는 호출 측이 스탯(VIT 등) 보정을 합쳐 넘겨주면 그 값으로 회복.
   // 미지정이면 레벨 기준만 사용 (스탯 보정 없는 레거시 동작).
-  const heal = (cost = 0, maxHp?: number, maxMp?: number) =>
+  const heal = (cost = 0, maxHp?: number) =>
     setState((prev) => ({
       ...prev,
       gold: Math.max(0, prev.gold - cost),
       hp: maxHp ?? maxHpForLevel(prev.level),
-      mp: maxMp ?? maxMpForLevel(prev.level),
     }));
 
   const restoreHpFull = (maxHp?: number) =>
@@ -232,7 +228,7 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
     const peek = applyExpGain(state.level, state.exp, n);
     setState((prev) => {
       const next = applyExpGain(prev.level, prev.exp, n);
-      // 레벨업 시 HP/MP 를 새 max 로 풀회복 — 보상감 + max 증가만 했을 때 발생하는
+      // 레벨업 시 HP 를 새 max 로 풀회복 — 보상감 + max 증가만 했을 때 발생하는
       // "현재값이 max 보다 낮은 채 정체" 문제 회피.
       if (next.levelsGained > 0) {
         return {
@@ -240,7 +236,6 @@ export function useCharacterState(opts?: UseCharacterStateOpts) {
           level: next.level,
           exp: next.exp,
           hp: maxHpForLevel(next.level) + vitHpBonus,
-          mp: maxMpForLevel(next.level),
         };
       }
       return { ...prev, level: next.level, exp: next.exp };

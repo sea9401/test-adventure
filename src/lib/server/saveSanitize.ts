@@ -28,9 +28,8 @@ const CHARACTER_BOUNDS = {
   expMax: 10_000_000_000,
   // 명성 (fame). 길드 활동 누적이라 1e7 정도면 충분.
   fameMax: 10_000_000,
-  // hp/mp — 캐릭터 maxHp 가 레벨/스탯 조합으로 결정되지만 안전 상한.
+  // hp — 캐릭터 maxHp 가 레벨/스탯 조합으로 결정되지만 안전 상한.
   hpMax: 1_000_000,
-  mpMax: 1_000_000,
 };
 
 export type SanitizeResult =
@@ -91,7 +90,6 @@ function sanitizeCharacter(value: unknown): string | null {
     ["exp", c.exp, CHARACTER_BOUNDS.expMax, true],
     ["fame", c.fame, CHARACTER_BOUNDS.fameMax, true],
     ["hp", c.hp, CHARACTER_BOUNDS.hpMax, true],
-    ["mp", c.mp, CHARACTER_BOUNDS.mpMax, true],
   ];
   for (const [field, val, max, allowZero] of checks) {
     const err = checkNumericField(val, field, max, allowZero);

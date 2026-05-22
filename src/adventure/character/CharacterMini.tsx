@@ -282,12 +282,6 @@ export function CharacterMini({ character }: { character: Character }) {
                 color="bg-red-500"
               />
               <StatBar
-                label="MP"
-                value={character.mp}
-                max={character.maxMp}
-                color="bg-sky-500"
-              />
-              <StatBar
                 label="EXP"
                 value={character.exp}
                 max={character.maxExp}

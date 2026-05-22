@@ -12,7 +12,7 @@ export function TownContent() {
 
       <H2>치유소</H2>
       <UL>
-        <li>한 번의 클릭으로 HP·MP 가 완전히 회복됩니다.</li>
+        <li>한 번의 클릭으로 HP 가 완전히 회복됩니다.</li>
         <li>현재 무료. 자동 사냥 중에는 비활성 — 위탁 종료 후 사용 가능.</li>
       </UL>
 

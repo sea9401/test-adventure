@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/Card";
 
 // 스파링 — 훈련용 더미와의 모의전.
 // - 보상/패널티/드롭/EXP/킬 카운터 전부 적용 안 됨 (onBattleEnd 가 호출되지 않음).
-// - 캐릭터 HP/MP 는 시작 시점 그대로 유지 — useBattle 결과를 외부 state 로 전파하지 않음.
+// - 캐릭터 HP 는 시작 시점 그대로 유지 — useBattle 결과를 외부 state 로 전파하지 않음.
 //   (시작 시 자동회복 X — 치료소 대용 악용 방지.)
 // - 패배해도 복귀 마을 이동 없음. 종료 후 인라인 '재도전' 카드 노출, 나가기는 상단 SubViewHeader.
 export function SparringView({

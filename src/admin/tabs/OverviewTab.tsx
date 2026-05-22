@@ -90,7 +90,7 @@ export function OverviewTab() {
           />
           <Card label="골드" value={`${d.character?.gold ?? 0} G`} />
           <Card label="명성" value={String(d.character?.fame ?? 0)} />
-          <Card label="HP/MP" value={d.character ? `${d.character.hp} / ${d.character.mp}` : "—"} />
+          <Card label="HP" value={d.character ? `${d.character.hp}` : "—"} />
           <Card label="현재 위치" value={d.map?.currentRegionId ?? "—"} />
           <Card label="방문 지역" value={`${visited} / ${totalRegions}`} />
           <Card label="도감 조우" value={`${monsterEncountered} / ${monsterTotal}`} />

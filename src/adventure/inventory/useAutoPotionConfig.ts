@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type AutoUseTrigger = { kind: "hp_below_pct"; pct: number };
 
-// 1차에는 HP 회복 카테고리만. MP/버프 등 추가될 때 union으로 확장.
+// 1차에는 HP 회복 카테고리만. 버프 등 추가될 때 union으로 확장.
 export type AutoPotionTarget = "hp_heal";
 
 export type AutoPotionRule = {

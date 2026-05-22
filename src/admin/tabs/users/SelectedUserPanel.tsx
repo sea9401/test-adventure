@@ -3,7 +3,7 @@
 import { Button, Field, NumberInput, TextInput } from "../../ui/Field";
 import { initialCharacterState } from "@/adventure/character/useCharacterState";
 import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
-import { maxHpForLevel, maxMpForLevel } from "@/adventure/character/defaults";
+import { maxHpForLevel } from "@/adventure/character/defaults";
 import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
 import type { Profile } from "@/adventure/profile/useProfile";
 import { emptyInventory, type InventoryState } from "@/adventure/inventory/useInventory";
@@ -111,14 +111,6 @@ export function SelectedUserPanel({
               onChange={(hp) => onUpdateCharacter({ ...character, hp })}
             />
           </Field>
-          <Field label="MP" hint={`최대(레벨기준) ${maxMpForLevel(character.level)}`}>
-            <NumberInput
-              value={character.mp}
-              min={0}
-              disabled={readOnly || loading}
-              onChange={(mp) => onUpdateCharacter({ ...character, mp })}
-            />
-          </Field>
           <Field label="레벨" hint={`만렙 ${MAX_LEVEL}`}>
             <NumberInput
               value={character.level}
@@ -168,11 +160,10 @@ export function SelectedUserPanel({
               onUpdateCharacter({
                 ...character,
                 hp: maxHpForLevel(character.level),
-                mp: maxMpForLevel(character.level),
               })
             }
           >
-            HP/MP 풀 회복
+            HP 풀 회복
           </Button>
           <Button
             disabled={readOnly || loading}

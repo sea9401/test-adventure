@@ -15,7 +15,7 @@ import {
   pointsFromExp,
 } from "@/lib/paragon";
 import type { Gender } from "@/adventure/profile/avatars";
-import { baseCharacter, maxMpForLevel } from "./defaults";
+import { baseCharacter } from "./defaults";
 import {
   derivePlayerCombat,
   type DerivePlayerCombatInput,
@@ -26,8 +26,6 @@ import type { Character, EquippedSlots } from "./types";
 export type ComposeCharacterInput = DerivePlayerCombatInput & {
   name: string;
   gender: Gender;
-  /** 저장된 mp — maxMp 로 clamp 된다. */
-  mp: number;
   exp: number;
   /** 누적 파라곤 EXP — 만렙 도달 후 EXP 바를 "다음 파라곤 포인트까지" 로 치환. */
   paragonExp: number;
@@ -54,8 +52,6 @@ export function composeCharacter(
 ): ComposedCharacter {
   const combat = derivePlayerCombat(input);
   const { totalStats, maxHp } = combat;
-
-  const maxMp = maxMpForLevel(input.level);
 
   // EXP 바 값. 만렙 미만: 현 레벨의 잔여/필요. 만렙 도달 후엔 같은 바가 끊기지 않고
   // 다음 파라곤 포인트까지의 진행도로 이어진다 — 익숙한 리듬 유지.
@@ -86,9 +82,7 @@ export function composeCharacter(
     gender: input.gender,
     titleName: input.titleName,
     hp: combat.player.hp,
-    mp: Math.min(input.mp, maxMp),
     maxHp,
-    maxMp,
     level: input.level,
     exp: displayExp,
     maxExp: displayMaxExp,

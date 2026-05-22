@@ -36,10 +36,7 @@ import {
   applyNewbieBonus,
 } from "@/lib/leveling";
 import { computeParagonBonus, readInitialParagon } from "@/lib/paragon";
-import {
-  maxHpForLevel,
-  maxMpForLevel,
-} from "@/adventure/character/defaults";
+import { maxHpForLevel } from "@/adventure/character/defaults";
 import { STORY_FLAGS_STORAGE_KEY } from "@/adventure/storyFlags/storage";
 import { bumpGuildFameFromMember } from "@/lib/server/guildFame";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
@@ -204,7 +201,7 @@ function applyMainReward(
 
   // EXP — 신참 ×2 + 길드 ×expMult + 전역 ×XP_RATE_MULT + 파라곤 풍요 ×.
   // 레벨 transition 은 클라 readInitial 이 자동 적용하지 않으므로 서버가 applyExpGain 으로
-  // 직접 처리: levelsGained > 0 이면 hp/mp 풀회복 + 새 level, overflow 는 paragon.paragonExp 로.
+  // 직접 처리: levelsGained > 0 이면 hp 풀회복 + 새 level, overflow 는 paragon.paragonExp 로.
   // 이전 버그(#399): char.exp 만 raw 로 더해 레벨업/만렙 라우팅이 영영 안 됨.
   const baseExp = reward.exp ?? 0;
   if (baseExp > 0) {
@@ -234,7 +231,6 @@ function applyMainReward(
           // 레벨업 풀회복 — vit 보너스는 서버가 합성 stats 를 모르므로 base maxHp 만.
           // 클라가 다음 tick 에 vit 반영해 max 만 올리고 hp 는 그대로 유지(자연 회복).
           char.hp = maxHpForLevel(next.level);
-          char.mp = maxMpForLevel(next.level);
         }
         charChanged = true;
         if (next.overflowExp > 0) {

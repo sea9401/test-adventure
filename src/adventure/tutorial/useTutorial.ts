@@ -10,9 +10,9 @@ export type TutorialState = {
 };
 
 // 전체 유저 튜토리얼 OFF kill-switch.
-// 다시 켜려면 false 로 바꾸면 됨 — 데이터/플래그는 그대로 보존되어 있어
-// 토글만 풀면 기존 진행도에서 그대로 재개됨.
-const TUTORIAL_KILL_SWITCH = true;
+// TUTORIAL_ENABLED_FLAG 는 신규 캐릭만 starterSaves 가 시드하므로, false 로 풀어도
+// 기존 유저(플래그 없음)에겐 안 뜨고 신규 유저에게만 노출된다 (#256 "걸리적거림" 회피).
+const TUTORIAL_KILL_SWITCH = false;
 
 export function useTutorial(stepId: TutorialStepId): TutorialState {
   const { has, set } = useStoryFlags();

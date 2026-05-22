@@ -98,7 +98,7 @@ export function BattleLogList({
 // 데미지·회복·스탯 수치를 굵게. 같은 줄에서 가장 중요한 숫자가 먼저 눈에 들어오도록.
 function emphasizeNumbers(text: string): ReactNode[] {
   const re =
-    /(\d+)\s*피해|HP\s*[+-]\s*\d+|MP\s*[+-]\s*\d+|ATK\s*[+-]\s*\d+|DEF\s*[+-]\s*\d+|SPD\s*[+-]\s*\d+|[+-]\s*\d+%?/g;
+    /(\d+)\s*피해|HP\s*[+-]\s*\d+|ATK\s*[+-]\s*\d+|DEF\s*[+-]\s*\d+|SPD\s*[+-]\s*\d+|[+-]\s*\d+%?/g;
   const parts: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;

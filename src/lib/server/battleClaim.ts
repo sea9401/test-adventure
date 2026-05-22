@@ -36,10 +36,7 @@ import {
   getNewbieDropMultiplier,
 } from "@/lib/leveling";
 import { computeParagonBonus, readInitialParagon } from "@/lib/paragon";
-import {
-  maxHpForLevel,
-  maxMpForLevel,
-} from "@/adventure/character/defaults";
+import { maxHpForLevel } from "@/adventure/character/defaults";
 import { computeRuneBonus } from "@/adventure/character/runeBonus";
 import {
   ZERO_ENCHANT_COMBAT_BONUS,
@@ -673,7 +670,6 @@ export async function applyBattleClaim(
         charNext.level = next.level;
         // 레벨업 풀회복 — vit 보너스는 서버가 합성 stats 를 모르므로 base maxHp 만.
         charNext.hp = maxHpForLevel(next.level);
-        charNext.mp = maxMpForLevel(next.level);
       }
       charChanged = true;
       if (next.overflowExp > 0) {

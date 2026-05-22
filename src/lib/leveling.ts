@@ -83,8 +83,23 @@ function endgameMultiplier(level: number): number {
     // Lv 70→89: 1.30 → 1.5375 (다음 구간 시작값 1.55)
     return 1.3 + ((level - MID_ENDGAME_LEVEL) * 0.25) / 20;
   }
-  // Lv 90→99: 1.55 → 1.955 (만렙 직전 무겁게)
-  return 1.55 + ((level - LATE_ENDGAME_LEVEL) * 0.45) / 10;
+  // Lv 90→99: 1.55 → 1.3175 (막판 EXP 벽 완화 — L99 에서 -15%, L90 은 1.55 유지로 경계 점프 없음).
+  // 종전엔 1.55→1.955 로 막판이 폭발 → "대기=진행" 의 진원지였다(game-fun-audit 2순위).
+  return 1.55 - ((level - LATE_ENDGAME_LEVEL) * (1.55 * 0.15)) / 9;
+}
+
+// 유입(income) 밴드 배율 — EXP 페이싱 개편(game-fun-audit 2순위). monster.exp / 퀘스트 EXP
+// 에 곱해 중후반 페이싱을 완화한다. 곡선(요구치)을 슬래시하는 대신 유입을 올리는 접근 —
+// EXP 는 골드/드랍과 분리돼 있어 독립 상향이 안전하고, 기존 세이브 burst 위험이 없다.
+// L1-29 는 1.0 — 신참 ×2(L<30)가 이미 커버하므로 곱해지지 않게 한다.
+// battleClaim / offlineSim / questReward 세 EXP 소비 지점이 모두 이 헬퍼를 써야 한다
+// (한 곳 누락 = 라이브/위탁/퀘 페이싱 불일치).
+export function levelBandExpMultiplier(level: number): number {
+  if (level < 30) return 1; // 신참 ×2 가 커버
+  if (level < 50) return 1.1; // L30-49
+  if (level < 70) return 1.25; // L50-69
+  if (level < 90) return 1.45; // L70-89
+  return 1.55; // L90-100
 }
 
 export function requiredExpToNext(level: number): number | null {

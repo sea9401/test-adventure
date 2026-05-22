@@ -30,6 +30,7 @@ import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import {
   applyExpGain,
   applyNewbieBonus,
+  levelBandExpMultiplier,
   MAX_LEVEL,
   XP_RATE_MULT,
   getNewbieDropMultiplier,
@@ -613,7 +614,12 @@ export async function applyBattleClaim(
   // EXP 계산 — monster.exp + newbie ×2 (Lv30 미만).
   const baseExp = monster.exp ?? 0;
   const expBonus = applyNewbieBonus(baseExp, playerLevel);
-  const boostedExp = Math.floor(expBonus.gained * expMult * XP_RATE_MULT);
+  const boostedExp = Math.floor(
+    expBonus.gained *
+      expMult *
+      XP_RATE_MULT *
+      levelBandExpMultiplier(playerLevel),
+  );
 
   // 드랍 — luk 부터 monster equipped 등을 pull, deterministic rng.
   const luk = typeof charPrev.stats === "object" && charPrev.stats !== null

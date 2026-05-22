@@ -30,6 +30,7 @@ import {
 } from "@/adventure/data/guildBuffs";
 import {
   applyExpGain,
+  levelBandExpMultiplier,
   MAX_LEVEL,
   XP_RATE_MULT,
   applyNewbieBonus,
@@ -209,7 +210,11 @@ function applyMainReward(
   if (baseExp > 0) {
     const expBonus = applyNewbieBonus(baseExp, ctx.playerLevel);
     const boosted = Math.floor(
-      expBonus.gained * expMult * XP_RATE_MULT * ctx.paragonRewardMult,
+      expBonus.gained *
+        expMult *
+        XP_RATE_MULT *
+        ctx.paragonRewardMult *
+        levelBandExpMultiplier(ctx.playerLevel),
     );
     if (boosted > 0) {
       const atMax = ctx.playerLevel >= MAX_LEVEL;

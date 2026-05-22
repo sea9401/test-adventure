@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   applyExpGain,
+  applyNewbieBonus,
   getLevelTable,
+  levelBandExpMultiplier,
   MAX_LEVEL,
   requiredExpToNext,
 } from "./leveling";
@@ -51,6 +53,70 @@ describe("requiredExpToNext", () => {
 describe("MAX_LEVEL", () => {
   it("만렙은 100", () => {
     expect(MAX_LEVEL).toBe(100);
+  });
+});
+
+describe("applyNewbieBonus (정밀 ×2)", () => {
+  it("Lv30 미만은 EXP ×2 + 플래그", () => {
+    expect(applyNewbieBonus(100, 1)).toEqual({ gained: 200, bonusApplied: true });
+    expect(applyNewbieBonus(100, 29)).toEqual({
+      gained: 200,
+      bonusApplied: true,
+    });
+  });
+  it("Lv30 이상은 무변화", () => {
+    expect(applyNewbieBonus(100, 30)).toEqual({
+      gained: 100,
+      bonusApplied: false,
+    });
+    expect(applyNewbieBonus(100, 99)).toEqual({
+      gained: 100,
+      bonusApplied: false,
+    });
+  });
+});
+
+describe("levelBandExpMultiplier (EXP 페이싱 개편)", () => {
+  it("밴드 경계값 — L1-29 ×1.0(신참 커버) / 30-49 ×1.1 / 50-69 ×1.25 / 70-89 ×1.45 / 90+ ×1.55", () => {
+    expect(levelBandExpMultiplier(1)).toBe(1);
+    expect(levelBandExpMultiplier(29)).toBe(1);
+    expect(levelBandExpMultiplier(30)).toBe(1.1);
+    expect(levelBandExpMultiplier(49)).toBe(1.1);
+    expect(levelBandExpMultiplier(50)).toBe(1.25);
+    expect(levelBandExpMultiplier(69)).toBe(1.25);
+    expect(levelBandExpMultiplier(70)).toBe(1.45);
+    expect(levelBandExpMultiplier(89)).toBe(1.45);
+    expect(levelBandExpMultiplier(90)).toBe(1.55);
+    expect(levelBandExpMultiplier(100)).toBe(1.55);
+  });
+});
+
+describe("90-99 곡선 완화 (막판 벽)", () => {
+  const base = (lv: number) => (120 / 35) * Math.pow(lv, 2.5);
+
+  it("L90 요구치 불변 — 1.55 유지(경계 점프 없음)", () => {
+    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.55 * 0.85));
+  });
+
+  it("L99 막판 벽 완화 — 종전(×1.955)보다 작고 -15% 램프(×1.3175)", () => {
+    const oldReq = Math.floor(base(99) * 1.955 * 0.85);
+    expect(requiredExpToNext(99)!).toBeLessThan(oldReq);
+    const eg99 = 1.55 - ((99 - 90) * (1.55 * 0.15)) / 9; // = 1.3175
+    expect(requiredExpToNext(99)).toBe(Math.floor(base(99) * eg99 * 0.85));
+  });
+
+  it("90-99 도 단조 증가 유지(역전 없음)", () => {
+    for (let lv = 90; lv < 99; lv += 1) {
+      expect(requiredExpToNext(lv)!).toBeLessThanOrEqual(
+        requiredExpToNext(lv + 1)!,
+      );
+    }
+  });
+
+  it("전체 1→100 누적 요구치 회귀 고정 (개편 후 ~ -7.1%)", () => {
+    let sum = 0;
+    for (let lv = 1; lv < MAX_LEVEL; lv += 1) sum += requiredExpToNext(lv)!;
+    expect(sum).toBe(11_031_503);
   });
 });
 

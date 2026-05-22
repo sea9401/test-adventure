@@ -147,11 +147,17 @@ describe("simulateOfflineHunt", () => {
     expect(r.expBonusApplied).toBe(false); // baseInput 은 playerLevel 99
   });
 
-  it("신참 보너스 — playerLevel < 30 면 expGained ×2 + 플래그 true", () => {
+  it("신참 보너스 — playerLevel < 30 면 expGained ↑ + 플래그 true", () => {
+    // EXP 페이싱 개편 후: 신참(L1)은 밴드 ×1.0 + 신참 ×2, 비교군(L99)은 밴드 ×1.55.
+    // player 스탯은 고정이라 wins 동일 — 차이는 EXP 배율뿐. cross-level 정밀 ×2 비교는
+    // 밴드가 레벨마다 달라 불가하므로 여기선 플래그 + 정성(신참이 더 많음)만 검증하고,
+    // 정밀 ×2 는 leveling.test.ts 의 applyNewbieBonus 단위 테스트가 커버한다.
     const baseR = simulateOfflineHunt(baseInput({ awayMs: 10_000, playerLevel: 99 }));
     const newbieR = simulateOfflineHunt(baseInput({ awayMs: 10_000, playerLevel: 1 }));
-    expect(newbieR.expGained).toBe(baseR.expGained * 2);
+    expect(newbieR.wins).toBe(baseR.wins);
     expect(newbieR.expBonusApplied).toBe(true);
+    expect(baseR.expBonusApplied).toBe(false);
+    expect(newbieR.expGained).toBeGreaterThan(baseR.expGained);
   });
 
   it("신참 보너스 — playerLevel < 30 면 드롭률도 ×2", () => {

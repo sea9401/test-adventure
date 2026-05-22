@@ -31,6 +31,7 @@ import {
   applyExpGain,
   applyNewbieBonus,
   getNewbieDropMultiplier,
+  levelBandExpMultiplier,
   XP_RATE_MULT,
 } from "@/lib/leveling";
 
@@ -56,7 +57,7 @@ export type OfflineSimInput = {
   player: PlayerCombat;
   playerName: string;
   region: Region;
-  /** 신참 보너스(<8) 판정 시작 레벨. 사이클 중 누적 EXP 로 레벨업하면 그 시점부터 보너스 OFF. */
+  /** 신참 보너스(Lv30 미만) 판정 시작 레벨. 사이클 중 누적 EXP 로 레벨업하면 그 시점부터 보너스 OFF. */
   playerLevel: number;
   /** 시뮬 시작 시점의 누적 EXP — 사이클 중 레벨업 판정에 사용. 미지정 시 0. */
   playerExp?: number;
@@ -220,7 +221,9 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         result.killsByName[enemyName] =
           (result.killsByName[enemyName] ?? 0) + 1;
         const expBonus = applyNewbieBonus(enemy.exp, runningLevel);
-        const gained = Math.floor(expBonus.gained * XP_RATE_MULT);
+        const gained = Math.floor(
+          expBonus.gained * XP_RATE_MULT * levelBandExpMultiplier(runningLevel),
+        );
         result.expGained += gained;
         if (expBonus.bonusApplied) result.expBonusApplied = true;
         // 누적 EXP → 레벨 재계산. 다음 처치는 갱신된 runningLevel 로 보너스 판정.

@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getAdminEmailsList } from "@/lib/server/isAdmin";
 import { kstWeekStartKey } from "@/adventure/tower/weeklyTypes";
+import { pointsFromExp } from "@/lib/paragon";
 
 // 관리자 계정을 랭킹에서 제외하는 SQL 필터. ADMIN_EMAILS 가 비어 있으면 빈 fragment.
 // 호출처는 stats CTE 의 WHERE 절에 그대로 합성한다.
@@ -38,6 +39,8 @@ type RankRow = {
   userId: string;
   name: string;
   level: number;
+  /** 파라곤 레벨 = 적립 EXP 로 획득한 총 포인트(0~150). 만렙 미만은 0. level 탭 표시·정렬용. */
+  paragonLevel: number;
   fame: number;
   battleCount: number;
   /** towerWeek 한정 — 이번 주 최고층. 다른 metric 에서는 0. */
@@ -59,9 +62,12 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
+  // level 탭은 "실효 레벨"(만렙 + 파라곤) 순. 파라곤 EXP 는 만렙 도달 후에만 적립되므로
+  // (battleClaim 의 atMax 분기) 만렙 미만은 paragon_exp=0 → level DESC, paragon_exp DESC 정렬이
+  // level + 파라곤레벨(pointsFromExp 단조증가) 순서와 정확히 일치한다. SQL 에서 곡선 환산 불필요.
   const orderBy =
     metric === "level"
-      ? sql`level DESC, updated_at ASC`
+      ? sql`level DESC, paragon_exp DESC, updated_at ASC`
       : metric === "fame"
         ? sql`fame DESC, updated_at ASC`
         : sql`battle_count DESC, updated_at ASC`;
@@ -74,6 +80,8 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::int, 0) AS fame,
+        -- 파라곤 적립 EXP. 큰 값(만렙 후 누적)이라 bigint. 포인트 환산은 JS(pointsFromExp).
+        COALESCE((pg.value->>'paragonExp')::bigint, 0) AS paragon_exp,
         (
           COALESCE((
             SELECT SUM((m.value->>'kills')::int)
@@ -87,6 +95,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       LEFT JOIN saves_kv c ON c.user_id = u.id AND c.key = 'character.v2'
       LEFT JOIN saves_kv l ON l.user_id = u.id AND l.key = 'adventure-log.v2'
       LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
+      LEFT JOIN saves_kv pg ON pg.user_id = u.id AND pg.key = 'paragon.v1'
       WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
         ${excludeAdminEmails()}
     ),
@@ -94,7 +103,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY ${orderBy})::int AS rank
       FROM stats
     )
-    SELECT user_id, name, level, fame, battle_count, rank
+    SELECT user_id, name, level, paragon_exp, fame, battle_count, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -103,6 +112,8 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     user_id: string;
     name: string;
     level: number;
+    // node-postgres 는 bigint(int8) 를 문자열로 반환할 수 있어 number|string 모두 수용.
+    paragon_exp: number | string;
     fame: number;
     battle_count: number;
     rank: number;
@@ -111,6 +122,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
+    paragonLevel: pointsFromExp(Number(r.paragon_exp)),
     fame: Number(r.fame),
     battleCount: Number(r.battle_count),
     weekHighest: 0,
@@ -161,6 +173,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
+    paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
     weekHighest: Number(r.week_highest),
@@ -209,6 +222,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
+    paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
     weekHighest: 0,
@@ -267,6 +281,7 @@ export async function GET(req: Request) {
     rank: r.rank,
     name: r.name,
     level: r.level,
+    paragonLevel: r.paragonLevel,
     fame: r.fame,
     battleCount: r.battleCount,
     weekHighest: r.weekHighest,
@@ -280,6 +295,7 @@ export async function GET(req: Request) {
         rank: myRow.rank,
         name: myRow.name,
         level: myRow.level,
+        paragonLevel: myRow.paragonLevel,
         fame: myRow.fame,
         battleCount: myRow.battleCount,
         weekHighest: myRow.weekHighest,

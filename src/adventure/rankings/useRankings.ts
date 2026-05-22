@@ -15,6 +15,8 @@ export type RankingEntry = {
   rank: number;
   name: string;
   level: number;
+  /** 파라곤 레벨(획득 총 포인트 0~150). 만렙 미만은 0. level 탭에서 "Lv. 100 +N" 표시. */
+  paragonLevel: number;
   fame: number;
   battleCount: number;
   weekHighest: number;
@@ -27,6 +29,7 @@ export type RankingMe = {
   rank: number;
   name: string;
   level: number;
+  paragonLevel: number;
   fame: number;
   battleCount: number;
   weekHighest: number;

@@ -12,9 +12,9 @@ import type { Monster } from "@/adventure/data/monsters";
 import type { TowerModifier } from "./modifiers";
 import { TOWER_BOSS_INTERVAL } from "./types";
 
-export const TOWER_HP_EXP = 0.45;
-export const TOWER_ATK_EXP = 0.25;
-export const TOWER_DEF_EXP = 0.25;
+export const TOWER_HP_EXP = 0.1;
+export const TOWER_ATK_EXP = 0.04;
+export const TOWER_DEF_EXP = 0.12;
 
 // 고탑 적 명중(accuracy) — 플레이어 유효 회피에서 %p 차감. 고회피(DEX) 빌드가 회피의
 // 이진성으로 스케일링을 무시하고 벽을 우회하던 문제 견제. 실게임(apply.ts)·sim-tower 공용
@@ -25,7 +25,7 @@ export const TOWER_DEF_EXP = 0.25;
 // 아무도 못 간 91+ 미답 구간에서만 ramp 해 우회를 견제. 보스는 배수로 더 정확.
 // 절대 난이도 곡선(페이스롤→절벽) 재설계는 후속 PR — 거기서 명중·스케일 동반 튜닝.
 export const TOWER_ACC_START_FLOOR = 90;
-export const TOWER_ACC_PER_FLOOR = 5.0;
+export const TOWER_ACC_PER_FLOOR = 1.15;
 export const TOWER_ACC_BOSS_MULT = 1.5;
 
 /** 해당 층 적의 명중(%p). isBoss 면 배수 적용. START_FLOOR 이하는 0. */

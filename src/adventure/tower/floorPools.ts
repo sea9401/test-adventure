@@ -41,11 +41,11 @@ export const BOSS_SLOTS: readonly BossSlot[] = [
   { monsterName: "별을 지키는 자", bossMultiplier: 1.0 }, // F60
   { monsterName: "천공인의 왕", bossMultiplier: 1.0 }, // F70
   { monsterName: "창공의 주재", bossMultiplier: 1.0 }, // F80
-  { monsterName: "잠든 황좌 거인", displayName: "고탑의 황좌 거인", bossMultiplier: 2.0 }, // F90
-  { monsterName: "황성 호위병", displayName: "고탑의 황성 호위", bossMultiplier: 2.2 }, // F100
-  { monsterName: "옥좌의 검신", displayName: "고탑의 옥좌 검신", bossMultiplier: 2.4 }, // F110
-  { monsterName: "별빛 사도", displayName: "고탑의 별빛 사도", bossMultiplier: 2.5 }, // F120
-  { monsterName: "봉인 파편", displayName: "고탑의 봉인 파편", bossMultiplier: 3.0 }, // F130
+  { monsterName: "잠든 황좌 거인", displayName: "고탑의 황좌 거인", bossMultiplier: 3.2 }, // F90
+  { monsterName: "황성 호위병", displayName: "고탑의 황성 호위", bossMultiplier: 4.0 }, // F100
+  { monsterName: "옥좌의 검신", displayName: "고탑의 옥좌 검신", bossMultiplier: 2.3 }, // F110
+  { monsterName: "별빛 사도", displayName: "고탑의 별빛 사도", bossMultiplier: 3.5 }, // F120
+  { monsterName: "봉인 파편", displayName: "고탑의 봉인 파편", bossMultiplier: 4.2 }, // F130
 ];
 
 /** 보스층 → 슬롯. 130 초과는 마지막 슬롯 재사용. */

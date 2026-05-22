@@ -106,11 +106,17 @@ export function CharacterScreen() {
             <Sparkle size={28} weight="duotone" className="text-amber-500" />
           }
           title="스킬"
-          description={
-            character.skills.length > 0
-              ? `보유 스킬 ${character.skills.length}개`
-              : "아직 익힌 스킬이 없습니다."
-          }
+          description={(() => {
+            // 스킬 화면에 노출되는 모든 종류 합계 — 일반 + 특기 + AP 스킬.
+            // (예전엔 character.skills(일반)만 세어 특기·AP 가 빠졌다.)
+            const owned =
+              character.skills.length +
+              characterFeats.length +
+              (characterStateHook.state.learnedAPSkills?.length ?? 0);
+            return owned > 0
+              ? `보유 스킬 ${owned}개`
+              : "아직 익힌 스킬이 없습니다.";
+          })()}
           onClick={() => setSubView("skills")}
         />
         <EntryCard

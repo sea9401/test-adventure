@@ -6,14 +6,21 @@
 //   3) 매칭 후보 1명 선출 — 그 후보의 row 도 getOrCreateRating
 //   4) PvP 시뮬 → applyEloMatch → 양쪽 rating 업데이트 + pvpMatches INSERT
 //
-// dailyEarned / dailyResetAt 은 보상 화폐 (별도 PR) 의 일일 캡 추적용 — 이 PR 에선
-// 컬럼만 채워둠.
+// dailyEarned / dailyResetAt 은 보상 화폐 「투기장 코인」 의 일일 캡 추적용 (KST 자정 리셋).
+// 코인 잔액은 saves_kv PVP_WALLET_KEY 에 영속 — recordMatch 트랜잭션 안에서 같이 갱신(원자적).
 
 import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { pvpMatches, pvpRatings } from "@/db/schema";
 import { ELO_INITIAL, applyEloMatch, computeNewRating } from "./elo";
 import { CHALLENGE_COOLDOWN_MS } from "./cooldown";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  PVP_WALLET_KEY,
+  type PvpWallet,
+  coinRewardFor,
+  applyDailyCappedCoins,
+} from "./coins";
 
 export type PvPRatingRow = typeof pvpRatings.$inferSelect;
 export type PvPMatchRow = typeof pvpMatches.$inferSelect;
@@ -21,13 +28,54 @@ export type PvPMatchRow = typeof pvpMatches.$inferSelect;
 // 매치 기록 결과 — cooldown race 시 "cooldown" 으로 분기.
 // (C3 fix: tx 밖에서의 cooldown 체크는 더블 submit 시 양쪽 다 통과해 매치 중복 생성.
 //  여기선 attacker rating row 를 FOR UPDATE 로 잡고 그 안에서 최근 매치를 한 번 더 확인.)
+// coinsAwarded = 이번 매치 지급 코인(일일 캡 반영), coinBalance = 지급 후 총 잔액.
 export type RecordMatchResult =
-  | { kind: "ok"; attackerAfter: number; defenderAfter: number }
+  | {
+      kind: "ok";
+      attackerAfter: number;
+      defenderAfter: number;
+      coinsAwarded: number;
+      coinBalance: number;
+    }
   | { kind: "cooldown"; retryAfterMs: number };
 
 export type RecordBotMatchResult =
-  | { kind: "ok"; attackerAfter: number }
+  | { kind: "ok"; attackerAfter: number; coinsAwarded: number; coinBalance: number }
   | { kind: "cooldown"; retryAfterMs: number };
+
+// 챌린저(attacker) 의 잠긴 rating row + 매치 결과로 코인 지급. dailyEarned/dailyResetAt 갱신은
+// 호출부의 pvp_ratings UPDATE 에 합치고(여기선 계산만), wallet read-modify-write 만 수행.
+// 반환: { awarded, balance, newDailyEarned, newResetAt }.
+async function grantCoinsTx(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  attackerId: string,
+  attackerRow: PvPRatingRow,
+  outcome: "a_win" | "d_win" | "draw",
+  isBot: boolean,
+  now: Date,
+): Promise<{ awarded: number; balance: number; newDailyEarned: number; newResetAt: Date }> {
+  const base = coinRewardFor(outcome, isBot);
+  const { awarded, newDailyEarned, newResetAt } = applyDailyCappedCoins(
+    attackerRow.dailyEarned,
+    attackerRow.dailyResetAt,
+    base,
+    now,
+  );
+  let balance = 0;
+  if (awarded > 0) {
+    const wallet = await lockSaveForUpdate<PvpWallet>(tx, attackerId, PVP_WALLET_KEY, {
+      coins: 0,
+    });
+    balance = (typeof wallet.coins === "number" ? wallet.coins : 0) + awarded;
+    await upsertSave(tx, attackerId, PVP_WALLET_KEY, { coins: balance });
+  } else {
+    const wallet = await lockSaveForUpdate<PvpWallet>(tx, attackerId, PVP_WALLET_KEY, {
+      coins: 0,
+    });
+    balance = typeof wallet.coins === "number" ? wallet.coins : 0;
+  }
+  return { awarded, balance, newDailyEarned, newResetAt };
+}
 
 // 시즌별 유저 레이팅 row. 없으면 ELO_INITIAL=1000 으로 INSERT. PK race 안전.
 export async function getOrCreateRating(
@@ -130,6 +178,9 @@ export async function recordMatchAndUpdateRatings(args: {
     );
 
     const now = new Date();
+    // 코인 지급 — 챌린저(attacker) 만. 일일 캡은 attacker rating row 의 dailyEarned/dailyResetAt.
+    const coins = await grantCoinsTx(tx, args.attackerId, a, args.outcome, false, now);
+
     await tx
       .update(pvpRatings)
       .set({
@@ -137,6 +188,8 @@ export async function recordMatchAndUpdateRatings(args: {
         wins: args.outcome === "a_win" ? a.wins + 1 : a.wins,
         losses: args.outcome === "d_win" ? a.losses + 1 : a.losses,
         draws: args.outcome === "draw" ? a.draws + 1 : a.draws,
+        dailyEarned: coins.newDailyEarned,
+        dailyResetAt: coins.newResetAt,
         updatedAt: now,
       })
       .where(
@@ -174,7 +227,13 @@ export async function recordMatchAndUpdateRatings(args: {
       log: args.log as object,
     });
 
-    return { kind: "ok", attackerAfter, defenderAfter };
+    return {
+      kind: "ok",
+      attackerAfter,
+      defenderAfter,
+      coinsAwarded: coins.awarded,
+      coinBalance: coins.balance,
+    };
   });
 }
 
@@ -227,6 +286,9 @@ export async function recordBotMatchAndUpdateRating(args: {
     const attackerAfter = computeNewRating(a.rating, args.botRating, aResult);
 
     const now = new Date();
+    // 코인 지급 — 봇 상대라 isBot=true (×0.5 디스카운트).
+    const coins = await grantCoinsTx(tx, args.attackerId, a, args.outcome, true, now);
+
     await tx
       .update(pvpRatings)
       .set({
@@ -234,6 +296,8 @@ export async function recordBotMatchAndUpdateRating(args: {
         wins: args.outcome === "a_win" ? a.wins + 1 : a.wins,
         losses: args.outcome === "d_win" ? a.losses + 1 : a.losses,
         draws: args.outcome === "draw" ? a.draws + 1 : a.draws,
+        dailyEarned: coins.newDailyEarned,
+        dailyResetAt: coins.newResetAt,
         updatedAt: now,
       })
       .where(
@@ -255,7 +319,12 @@ export async function recordBotMatchAndUpdateRating(args: {
       log: args.log as object,
     });
 
-    return { kind: "ok", attackerAfter };
+    return {
+      kind: "ok",
+      attackerAfter,
+      coinsAwarded: coins.awarded,
+      coinBalance: coins.balance,
+    };
   });
 }
 

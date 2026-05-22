@@ -129,6 +129,8 @@ export async function POST(req: Request) {
 
   let attackerAfter: number;
   let defenderAfter: number;
+  let coinsAwarded = 0;
+  let coinBalance = 0;
   if (opponent.isBot) {
     // 봇은 rating 고정 — defenderAfter = opponent.rating.
     const result = await recordBotMatchAndUpdateRating({
@@ -152,6 +154,8 @@ export async function POST(req: Request) {
     }
     attackerAfter = result.attackerAfter;
     defenderAfter = opponent.rating;
+    coinsAwarded = result.coinsAwarded;
+    coinBalance = result.coinBalance;
   } else {
     const result = await recordMatchAndUpdateRatings({
       seasonId: season.id,
@@ -173,12 +177,16 @@ export async function POST(req: Request) {
     }
     attackerAfter = result.attackerAfter;
     defenderAfter = result.defenderAfter;
+    coinsAwarded = result.coinsAwarded;
+    coinBalance = result.coinBalance;
   }
 
   return Response.json({
     seasonId: season.id,
     outcome: dbOutcome,
     turns: resolution.turns,
+    coinsAwarded,
+    coinBalance,
     me: {
       name: meActor.name,
       ratingBefore: myRating.rating,

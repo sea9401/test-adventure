@@ -99,6 +99,7 @@ export function ArenaView() {
         wins={status.me.wins}
         losses={status.me.losses}
         draws={status.me.draws}
+        coins={status.me.coins}
       />
 
       <StancePicker
@@ -168,11 +169,13 @@ function MeCard({
   wins,
   losses,
   draws,
+  coins,
 }: {
   rating: number;
   wins: number;
   losses: number;
   draws: number;
+  coins: number;
 }) {
   const tier = tierFor(rating);
   const progress = tierProgress(rating);
@@ -222,6 +225,9 @@ function MeCard({
             승률 {winRate}%
           </span>
         )}
+        <span className="ml-auto font-semibold text-amber-600 dark:text-amber-400">
+          투기장 코인 {coins.toLocaleString()}
+        </span>
       </div>
     </Card>
   );
@@ -281,6 +287,11 @@ function LastResultBanner({
           {myDelta})
         </span>
         <span className="text-zinc-400"> · {result.turns}턴</span>
+        {result.coinsAwarded > 0 && (
+          <span className="text-amber-600 dark:text-amber-400">
+            {" · "}투기장 코인 +{result.coinsAwarded}
+          </span>
+        )}
       </div>
       <details className="mt-2">
         <summary className="cursor-pointer text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">

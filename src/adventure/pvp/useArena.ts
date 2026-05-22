@@ -48,6 +48,8 @@ export type ArenaMe = {
   wins: number;
   losses: number;
   draws: number;
+  /** 투기장 코인 잔액 (영속). */
+  coins: number;
 };
 
 export type ArenaLeaderboardEntry = {
@@ -89,6 +91,9 @@ export type ChallengeResponse = {
   seasonId: string;
   outcome: "a_win" | "d_win" | "draw";
   turns: number;
+  /** 이번 매치 지급 코인(일일 캡 반영) + 지급 후 총 잔액. */
+  coinsAwarded: number;
+  coinBalance: number;
   me: { name: string; ratingBefore: number; ratingAfter: number };
   opponent: {
     userId: string;

@@ -10,7 +10,7 @@
 // 1) season 1 query, 2) my rating 1 query, 3) top SQL 1 query (PvP 레이팅 × 닉네임),
 // 4) my matches 1 query + 닉네임 batch 1 query. 총 5 query.
 
-import { desc, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { pvpMatches, savesKv, users } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -18,6 +18,7 @@ import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { getOrCreateRating } from "@/lib/server/pvp/ratings";
 import { getNextChallengeAt } from "@/lib/server/pvp/cooldown";
 import { isBotId } from "@/lib/server/pvp/bots";
+import { PVP_WALLET_KEY, type PvpWallet } from "@/lib/server/pvp/coins";
 
 const TOP_LIMIT = 50;
 const RECENT_LIMIT = 20;
@@ -28,10 +29,17 @@ export async function GET() {
 
   const season = await getOrCreateCurrentSeason();
 
-  const [meRating, nextChallengeAt] = await Promise.all([
+  const [meRating, nextChallengeAt, walletRows] = await Promise.all([
     getOrCreateRating(userId, season.id),
     getNextChallengeAt(userId),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, PVP_WALLET_KEY)))
+      .limit(1),
   ]);
+  const wallet = walletRows[0]?.value as PvpWallet | undefined;
+  const coins = typeof wallet?.coins === "number" ? wallet.coins : 0;
 
   // 순위표 — 레이팅 인덱스(seasonId, rating DESC) 가 정렬을 cover.
   const topResult = await db.execute(sql`
@@ -154,6 +162,7 @@ export async function GET() {
       wins: meRating.wins,
       losses: meRating.losses,
       draws: meRating.draws,
+      coins,
     },
     nextChallengeAt: nextChallengeAt ? nextChallengeAt.toISOString() : null,
     top,

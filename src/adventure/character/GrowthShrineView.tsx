@@ -14,12 +14,11 @@ const ZERO_DRAFT: Record<StatKey, number> = STAT_KEYS.reduce(
   {} as Record<StatKey, number>,
 );
 
-// 되돌리기 포인트 1개 구매 비용 — 레벨 무관 고정 1G.
-// (level 인자는 호출부 호환 위해 유지하지만 사용하지 않음.)
-export const REVERT_POINT_PRICE = 1;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function revertPointPriceFor(_level: number): number {
-  return REVERT_POINT_PRICE;
+// 되돌리기 포인트 1개 구매 비용 — 레벨 비례(골드 싱크). 만렙 100 이면 2000G/포인트.
+// 종전엔 고정 1G(사실상 무료)라 골드 싱크가 아니었다. 레벨 비례라 저레벨은 저렴.
+export const REVERT_POINT_PRICE_PER_LEVEL = 20;
+export function revertPointPriceFor(level: number): number {
+  return Math.max(1, Math.floor(level) * REVERT_POINT_PRICE_PER_LEVEL);
 }
 
 // 성장의 신전 — 드래프트 모드. +/- 로 분배안을 미리 짜고, '확정' 으로 일괄 반영.

@@ -11,6 +11,7 @@ import { Sparkle } from "@phosphor-icons/react";
 import { ITEMS } from "@/adventure/data/items";
 import { craftTierSuffix } from "@/adventure/data/craftQuality";
 import {
+  ENHANCE_GOLD_COST,
   ENHANCE_MAX_LEVEL,
   ENHANCE_MODES,
   ENHANCE_MODE_SPEC,
@@ -29,6 +30,8 @@ import type { EquipmentInstance } from "@/adventure/inventory/equipmentInstances
 type Props = {
   instances: readonly EquipmentInstance[];
   shardCount: number;
+  /** 보유 골드 — 강화 골드 비용 표시·affordability. */
+  gold: number;
   /** materialId(enchant_*) → 보유 개수. 부여서 카탈로그 표시·검증에 사용. */
   enchantScrolls: Record<string, number>;
   onEnhance: (instanceId: string, mode: EnhanceMode) => void;
@@ -63,6 +66,7 @@ function modeDeltaSummary(
 export function EnhancementPanel({
   instances,
   shardCount,
+  gold,
   enchantScrolls,
   onEnhance,
   onEnchant,
@@ -137,7 +141,8 @@ export function EnhancementPanel({
           const noAttempts = inst.remainingAttempts <= 0;
           const nextLevel = inst.enhancementLevel + 1;
           const nextCost = isMax ? 0 : ENHANCE_SHARD_COST[nextLevel] ?? 0;
-          const canAfford = shardCount >= nextCost;
+          const nextGoldCost = isMax ? 0 : ENHANCE_GOLD_COST[nextLevel] ?? 0;
+          const canAfford = shardCount >= nextCost && gold >= nextGoldCost;
           const tierSuf = craftTierSuffix(inst.craftTier).trim();
           const enhSuf =
             inst.enhancementLevel > 0 ? `+${inst.enhancementLevel}` : "";
@@ -177,7 +182,11 @@ export function EnhancementPanel({
                   <EnchantBadges slots={curSlots} />
                   {!isMax && !noAttempts && (
                     <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      성공 시: {deltaSummary} (별빛 조각 {nextCost})
+                      성공 시: {deltaSummary} (별빛 조각 {nextCost}
+                      {nextGoldCost > 0
+                        ? ` · ${nextGoldCost.toLocaleString()} G`
+                        : ""}
+                      )
                     </div>
                   )}
                 </div>
@@ -197,7 +206,11 @@ export function EnhancementPanel({
                       disabled={!canAfford}
                       className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
                     >
-                      +{nextLevel} 시도 ({nextCost})
+                      +{nextLevel} 시도 (조각 {nextCost}
+                      {nextGoldCost > 0
+                        ? ` · ${nextGoldCost.toLocaleString()}G`
+                        : ""}
+                      )
                     </button>
                   )}
                   {slotCap > 0 && (

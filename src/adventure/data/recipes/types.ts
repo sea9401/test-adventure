@@ -1,5 +1,5 @@
 import { craftHasVariance, type CraftVariance } from "../craftQuality";
-import type { EquipSlot, ItemId } from "../items";
+import { ITEMS, type EquipSlot, type EquipTier, type ItemId } from "../items";
 import type { MaterialId } from "../materials";
 import type { PotionId } from "../potions";
 
@@ -23,9 +23,34 @@ export type Recipe = CraftVariance & {
   result: RecipeResult;
   /** 거래소 등록 / 우편 선물 가능 여부. 미지정/true → 가능. */
   tradable?: boolean;
+  /**
+   * 제작 골드 비용 오버라이드. 미지정이면 출력 장비 티어에서 자동 산출(recipeGoldCost).
+   * 골드 싱크(game-fun-audit 보조문제) — 저티어 싸게, 고티어 비싸게. 포션 결과는 0.
+   */
+  gold?: number;
 };
 
 // 레시피에 품질 변동 정의(variance / varianceTable)가 있는지 — 서버가 등급 추첨 여부를 결정.
 export function recipeHasVariance(recipe: Recipe): boolean {
   return craftHasVariance(recipe);
+}
+
+// 티어별 제작 골드 — 저티어 싸게(초보 무영향), 고티어 비싸게(골드 넘치는 만렙층 타격).
+const RECIPE_GOLD_BY_TIER: Record<EquipTier, number> = {
+  1: 50,
+  2: 200,
+  3: 800,
+  4: 3000,
+  5: 10000,
+  6: 30000,
+};
+
+// 레시피 1회 제작 골드 비용. 명시 gold 오버라이드 우선, 없으면 장비 티어 자동 산출.
+// 포션 결과는 0(가루 등으로 만드는 소비재라 골드 싱크 대상 아님).
+export function recipeGoldCost(recipe: Recipe): number {
+  if (typeof recipe.gold === "number") return Math.max(0, recipe.gold);
+  if (recipe.result.kind !== "equipment") return 0;
+  const item = ITEMS[recipe.result.itemId] as { tier?: EquipTier } | undefined;
+  const tier = item?.tier ?? 1;
+  return RECIPE_GOLD_BY_TIER[tier] ?? 0;
 }

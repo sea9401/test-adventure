@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import { CraftError, computeCraftOutcome, type CraftComputeInput } from "./craft";
+import { getRecipeById, recipeGoldCost } from "@/adventure/data/recipes";
 
 const base = (): CraftComputeInput => ({
   potions: {},
@@ -11,6 +12,7 @@ const base = (): CraftComputeInput => ({
   craftedEquipment: {},
   potionCapacityBonus: 0,
   known: [],
+  gold: 1_000_000,
 });
 
 // rollCraftTier(가중치 6/22/44/22/6, 누적 불량[0,6)/하급[6,28)/일반[28,72)/고급[72,94)/걸작[94,100)):
@@ -528,5 +530,40 @@ describe("computeCraftOutcome — 별빛 무구 (인스턴스 풀)", () => {
     expect(out.equipmentInstances[0].instanceId).not.toBe(
       out.equipmentInstances[1].instanceId,
     );
+  });
+});
+
+describe("computeCraftOutcome — 골드 비용 (싱크)", () => {
+  const bbCost = recipeGoldCost(getRecipeById("baseball_bat")!);
+
+  it("장비 제작 goldSpent = recipeGoldCost(레시피)", () => {
+    const out = computeCraftOutcome(
+      { ...base(), known: ["baseball_bat"], materials: { branch: 100 } },
+      "baseball_bat",
+    );
+    expect(out.goldSpent).toBe(bbCost);
+  });
+
+  it("배치 제작은 goldSpent × quantity", () => {
+    const out = computeCraftOutcome(
+      { ...base(), known: ["baseball_bat"], materials: { branch: 100 } },
+      "baseball_bat",
+      { quantity: 3 },
+    );
+    expect(out.goldSpent).toBe(bbCost * 3);
+  });
+
+  it("골드 부족이면 insufficient_gold (재료 충분해도, 차감 전 reject)", () => {
+    expect(() =>
+      computeCraftOutcome(
+        {
+          ...base(),
+          gold: bbCost - 1,
+          known: ["baseball_bat"],
+          materials: { branch: 100 },
+        },
+        "baseball_bat",
+      ),
+    ).toThrow(CraftError);
   });
 });

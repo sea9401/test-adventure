@@ -26,6 +26,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 100 },
+        gold: 1_000_000,
         equipmentInstances: [inst("a", 0)],
       },
       "a",
@@ -45,6 +46,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 300 },
+        gold: 1_000_000,
         equipmentInstances: [inst("b", 4)],
       },
       "b",
@@ -60,6 +62,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 800 },
+        gold: 1_000_000,
         equipmentInstances: [inst("c", 6)],
       },
       "c",
@@ -75,6 +78,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
       computeEnhanceOutcome(
         {
           materials: { starfall_shard: 29 },
+          gold: 1_000_000,
           equipmentInstances: [inst("c", 0)],
         },
         "c",
@@ -89,6 +93,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
       computeEnhanceOutcome(
         {
           materials: { starfall_shard: 1000 },
+          gold: 1_000_000,
           equipmentInstances: [inst("d", 7)],
         },
         "d",
@@ -103,6 +108,7 @@ describe("computeEnhanceOutcome — safe (100%) 모드", () => {
       computeEnhanceOutcome(
         {
           materials: { starfall_shard: 1000 },
+          gold: 1_000_000,
           equipmentInstances: [inst("a", 0)],
         },
         "nonexistent",
@@ -118,6 +124,7 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 100 },
+        gold: 1_000_000,
         equipmentInstances: [inst("a", 0)],
       },
       "a",
@@ -137,6 +144,7 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 100 },
+        gold: 1_000_000,
         equipmentInstances: [inst("a", 0)],
       },
       "a",
@@ -151,11 +159,12 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
   it("safe 7회 연속 성공 → +7 도달과 동시에 remainingAttempts 0 (총 시도 한도 소진)", () => {
     let state: EnhanceComputeInput = {
       materials: { starfall_shard: 10_000 },
+      gold: 1_000_000,
       equipmentInstances: [inst("a", 0)],
     };
     for (let i = 0; i < 7; i += 1) {
       const out = computeEnhanceOutcome(state, "a", "safe", alwaysSuccess);
-      state = { materials: out.materials, equipmentInstances: out.equipmentInstances };
+      state = { materials: out.materials, equipmentInstances: out.equipmentInstances, gold: 1_000_000 };
     }
     expect(state.equipmentInstances[0].enhancementLevel).toBe(7);
     expect(state.equipmentInstances[0].remainingAttempts).toBe(0);
@@ -164,13 +173,14 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
   it("실패가 섞이면 +7 도달 전에 시도 한도가 먼저 소진 — 천장 깎임", () => {
     let state: EnhanceComputeInput = {
       materials: { starfall_shard: 10_000 },
+      gold: 1_000_000,
       equipmentInstances: [inst("a", 0)],
     };
     // 첫 시도만 실패, 나머지는 성공 — 총 7회 시도 후 enhancementLevel=6, remainingAttempts=0.
     const rngs = [alwaysFail, alwaysSuccess, alwaysSuccess, alwaysSuccess, alwaysSuccess, alwaysSuccess, alwaysSuccess];
     for (const rng of rngs) {
       const out = computeEnhanceOutcome(state, "a", "boost", rng);
-      state = { materials: out.materials, equipmentInstances: out.equipmentInstances };
+      state = { materials: out.materials, equipmentInstances: out.equipmentInstances, gold: 1_000_000 };
     }
     expect(state.equipmentInstances[0].enhancementLevel).toBe(6);
     expect(state.equipmentInstances[0].remainingAttempts).toBe(0);
@@ -187,6 +197,7 @@ describe("computeEnhanceOutcome — 확률 모드 실패", () => {
       computeEnhanceOutcome(
         {
           materials: { starfall_shard: 1000 },
+          gold: 1_000_000,
           equipmentInstances: [broken],
         },
         "ceiling",
@@ -202,6 +213,7 @@ describe("computeEnhanceOutcome — 부수 검증", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 100 },
+        gold: 1_000_000,
         equipmentInstances: [inst("a", 0), inst("b", 2)],
       },
       "a",
@@ -217,6 +229,7 @@ describe("computeEnhanceOutcome — 부수 검증", () => {
     const out = computeEnhanceOutcome(
       {
         materials: { starfall_shard: 30, other_mat: 5 },
+        gold: 1_000_000,
         equipmentInstances: [inst("a", 0)],
       },
       "a",
@@ -224,5 +237,51 @@ describe("computeEnhanceOutcome — 부수 검증", () => {
       alwaysSuccess,
     );
     expect(out.materials).toEqual({ other_mat: 5 });
+  });
+});
+
+describe("computeEnhanceOutcome — 골드 비용 (싱크)", () => {
+  it("0→1 강화 시 goldSpent = ENHANCE_GOLD_COST[1] (1000)", () => {
+    const out = computeEnhanceOutcome(
+      {
+        materials: { starfall_shard: 100 },
+        gold: 1_000_000,
+        equipmentInstances: [inst("a", 0)],
+      },
+      "a",
+      "safe",
+      alwaysSuccess,
+    );
+    expect(out.goldSpent).toBe(1000);
+  });
+
+  it("골드가 비용 미만이면 insufficient_gold (조각은 충분해도)", () => {
+    expect(() =>
+      computeEnhanceOutcome(
+        {
+          materials: { starfall_shard: 10_000 },
+          gold: 999, // < 1000
+          equipmentInstances: [inst("a", 0)],
+        },
+        "a",
+        "safe",
+        alwaysSuccess,
+      ),
+    ).toThrow(EnhanceError);
+  });
+
+  it("실패해도 골드는 차감(goldSpent 보고)", () => {
+    const out = computeEnhanceOutcome(
+      {
+        materials: { starfall_shard: 100 },
+        gold: 1_000_000,
+        equipmentInstances: [inst("a", 0)],
+      },
+      "a",
+      "extreme",
+      alwaysFail,
+    );
+    expect(out.success).toBe(false);
+    expect(out.goldSpent).toBe(1000);
   });
 });

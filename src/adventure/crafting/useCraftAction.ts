@@ -4,7 +4,7 @@ import { ITEMS, rarityTextClass, type ItemId } from "@/adventure/data/items";
 import { POTIONS } from "@/adventure/data/potions";
 import { MATERIALS } from "@/adventure/data/materials";
 import { craftTierSuffix } from "@/adventure/data/craftQuality";
-import type { Recipe } from "@/adventure/data/recipes";
+import { recipeGoldCost, type Recipe } from "@/adventure/data/recipes";
 import {
   craftErrorMessage,
   type CraftResult,
@@ -21,6 +21,10 @@ import type { NotificationKind, NotificationMeta } from "@/lib/notifications";
 export function useCraftAction(deps: {
   inventory: ReturnType<typeof useInventory>;
   crafting: ReturnType<typeof useCrafting>;
+  /** 골드 사전검사용 — 현재 보유 골드. 권한은 서버. */
+  gold: number;
+  /** 제작 골드 차감이 반영된 character.v2 적용 — 잔액 갱신. */
+  replaceCharacterFromSaved: (saved: unknown) => void;
   addNotification: (
     kind: NotificationKind,
     text: string,
@@ -30,7 +34,15 @@ export function useCraftAction(deps: {
   /** craft_item 의뢰 진행도 보고 — 장비 제작 성공 시. 미지정 가능(서버 사이드 등). */
   recordCraft?: (itemId: ItemId) => void;
 }) {
-  const { inventory, crafting, addNotification, grantTitle, recordCraft } = deps;
+  const {
+    inventory,
+    crafting,
+    gold,
+    replaceCharacterFromSaved,
+    addNotification,
+    grantTitle,
+    recordCraft,
+  } = deps;
   const remote = useRemoteSave();
 
   const handleCraft = async (
@@ -76,6 +88,14 @@ export function useCraftAction(deps: {
         return;
       }
     }
+    const goldCost = recipeGoldCost(recipe) * quantity;
+    if (gold < goldCost) {
+      addNotification(
+        "info",
+        `골드가 부족하다 — ${goldCost.toLocaleString()} G 필요 (보유 ${gold.toLocaleString()}).`,
+      );
+      return;
+    }
 
     // 서버가 inventory.v2 / crafting.v2 를 read-modify-write 하므로, 디바운스 큐의
     // 로컬 PATCH(방금 주운 드랍 등)를 먼저 flush 해 서버가 최신 값에서 차감하게 한다.
@@ -105,7 +125,9 @@ export function useCraftAction(deps: {
           ok: true;
           inventory: unknown;
           crafting: unknown;
+          character: unknown;
           results: CraftResult[];
+          goldSpent: number;
         }
       | { ok: false; error: string }
       | null;
@@ -119,6 +141,7 @@ export function useCraftAction(deps: {
     }
     inventory.replaceFromSaved(data.inventory);
     crafting.replaceFromSaved(data.crafting);
+    replaceCharacterFromSaved(data.character);
 
     // 알림 — 장비는 결과 회마다 개별(걸작/일반/불량 각각 한 줄), 포션은 같은 ID 끼리 묶어
     // 한 줄로 합산(품질 변동이 없으므로 줄여도 정보 손실 없음).

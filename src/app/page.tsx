@@ -373,12 +373,19 @@ function Home() {
   const { handleCraft } = useCraftAction({
     inventory,
     crafting,
+    gold: characterState.gold,
+    replaceCharacterFromSaved: characterStateHook.replaceFromSaved,
     addNotification,
     grantTitle,
     recordCraft: quests.recordCraft,
   });
 
-  const { handleEnhance } = useEnhanceAction({ inventory, addNotification });
+  const { handleEnhance } = useEnhanceAction({
+    inventory,
+    gold: characterState.gold,
+    replaceCharacterFromSaved: characterStateHook.replaceFromSaved,
+    addNotification,
+  });
   const { handleEnchant } = useEnchantAction({ inventory, addNotification });
   const { claim: claimDialogueReward } = useDialogueRewardAction({
     inventory,

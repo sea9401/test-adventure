@@ -36,6 +36,13 @@ export const ENHANCE_MAX_LEVEL = 7;
 // 후반(5/6/7) 단계는 10% 깎여 — 풀강까지 도달 부담을 1690 → 1555 로 완화.
 export const ENHANCE_SHARD_COST: readonly number[] = [0, 30, 60, 100, 150, 225, 360, 630];
 
+// 별빛 조각과 병행하는 골드 비용 — index = 도달 단계. 골드 싱크(game-fun-audit 보조문제).
+// 별빛 강화는 만렙 전용이라 골드가 넘치는 층만 타격(초보 무영향). *시도* 비용(실패해도 차감).
+// 풀강(+7) 누적 = 158,500G/무기. 실측 후 튜닝.
+export const ENHANCE_GOLD_COST: readonly number[] = [
+  0, 1000, 2500, 5000, 10000, 20000, 40000, 80000,
+];
+
 // 자루당 풀강 누적 비용 (전부 100% 안전 모드로만 도달했을 때) — 30+60+100+150+225+360+630 = 1555.
 export const ENHANCE_FULL_COST = ENHANCE_SHARD_COST.reduce((a, b) => a + b, 0);
 

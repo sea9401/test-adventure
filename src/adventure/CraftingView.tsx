@@ -5,7 +5,12 @@ import { Hammer, Sparkle } from "@phosphor-icons/react";
 import { ITEMS, type ItemId } from "./data/items";
 import { MATERIALS, type MaterialId } from "./data/materials";
 import { POTIONS, type PotionId } from "./data/potions";
-import { RECIPES, type Recipe, type RecipeIngredient } from "./data/recipes";
+import {
+  RECIPES,
+  recipeGoldCost,
+  type Recipe,
+  type RecipeIngredient,
+} from "./data/recipes";
 import {
   CRAFT_TIER_NAMES,
   craftTierTextClass,
@@ -96,6 +101,7 @@ function maxCraftable(
   equipmentCounts: Partial<Record<ItemId, number>>,
   potionCounts: Partial<Record<PotionId, number>>,
   potionMax: number,
+  gold: number,
 ): number {
   let cap = CRAFT_BATCH_MAX;
   for (const ing of r.ingredients) {
@@ -108,6 +114,8 @@ function maxCraftable(
       potionMax - (potionCounts[r.result.potionId] ?? 0);
     cap = Math.min(cap, Math.floor(headroom / r.result.quantity));
   }
+  const goldCost = recipeGoldCost(r);
+  if (goldCost > 0) cap = Math.min(cap, Math.floor(gold / goldCost));
   return Math.max(0, cap);
 }
 
@@ -124,6 +132,7 @@ export function CraftingView({
   droppedEquipmentCounts,
   potionCounts,
   potionMax,
+  gold,
   onCraft,
 }: {
   knownIds: string[];
@@ -140,6 +149,8 @@ export function CraftingView({
   droppedEquipmentCounts: Partial<Record<ItemId, GradedCount>>;
   potionCounts: Partial<Record<PotionId, number>>;
   potionMax: number;
+  /** 보유 골드 — 제작 골드 비용 표시·affordability(maxCraftable 상한). */
+  gold: number;
   onCraft: (recipe: Recipe, quantity?: number, equipPicks?: EquipPicks) => void;
 }) {
   const knownRecipes = RECIPES.filter((r) => knownIds.includes(r.id));
@@ -230,6 +241,7 @@ export function CraftingView({
                       droppedEquipmentCounts={droppedEquipmentCounts}
                       potionCounts={potionCounts}
                       potionMax={potionMax}
+                      gold={gold}
                       onCraft={onCraft}
                     />
                   ))}
@@ -253,6 +265,7 @@ export function CraftingView({
                 droppedEquipmentCounts={droppedEquipmentCounts}
                 potionCounts={potionCounts}
                 potionMax={potionMax}
+                gold={gold}
                 onCraft={onCraft}
               />
             ))}
@@ -275,6 +288,7 @@ function RecipeRow({
   droppedEquipmentCounts,
   potionCounts,
   potionMax,
+  gold,
   onCraft,
 }: {
   recipe: Recipe;
@@ -287,9 +301,11 @@ function RecipeRow({
   droppedEquipmentCounts: Partial<Record<ItemId, GradedCount>>;
   potionCounts: Partial<Record<PotionId, number>>;
   potionMax: number;
+  gold: number;
   onCraft: (recipe: Recipe, quantity?: number, equipPicks?: EquipPicks) => void;
 }) {
   const { title, meta, variance } = summarizeResult(recipe);
+  const goldCost = recipeGoldCost(recipe);
   const max = useMemo(
     () =>
       maxCraftable(
@@ -298,8 +314,9 @@ function RecipeRow({
         equipmentCounts,
         potionCounts,
         potionMax,
+        gold,
       ),
-    [recipe, materialCounts, equipmentCounts, potionCounts, potionMax],
+    [recipe, materialCounts, equipmentCounts, potionCounts, potionMax, gold],
   );
 
   // 수량 입력 상태 — 사용자 의도를 그대로 들고 있다가, "제작" 누를 때 1..max 로 clamp.
@@ -364,6 +381,23 @@ function RecipeRow({
               </span>
             );
           })}
+        </div>
+      )}
+      {goldCost > 0 && (
+        <div className="mt-1 text-xs">
+          <span className="text-zinc-500 dark:text-zinc-400">제작 비용: </span>
+          <span
+            className={
+              gold >= goldCost
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-rose-600 dark:text-rose-400"
+            }
+          >
+            {goldCost.toLocaleString()} G
+            {effectiveQty > 1
+              ? ` × ${effectiveQty} = ${(goldCost * effectiveQty).toLocaleString()} G`
+              : ""}
+          </span>
         </div>
       )}
       {potionFull && (

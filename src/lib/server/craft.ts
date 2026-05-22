@@ -13,7 +13,11 @@ import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import { potionMax } from "@/adventure/data/potions";
-import { getRecipeById, recipeHasVariance } from "@/adventure/data/recipes";
+import {
+  getRecipeById,
+  recipeGoldCost,
+  recipeHasVariance,
+} from "@/adventure/data/recipes";
 import { rollCraftTier, type CraftTier } from "@/adventure/data/craftQuality";
 import {
   CRAFT_BATCH_MAX,
@@ -93,6 +97,8 @@ export type CraftComputeInput = {
   equipmentInstances?: EquipmentInstance[];
   potionCapacityBonus: number;
   known: string[];
+  /** 보유 골드 — 제작 골드 비용 검증용. */
+  gold: number;
 };
 
 export type CraftComputeResult = {
@@ -104,6 +110,8 @@ export type CraftComputeResult = {
   equipmentInstances: EquipmentInstance[];
   // 배치 제작 시 호출 수량만큼 채워지고 단일 제작이면 길이 1. 등급 추첨은 회마다 독립.
   results: CraftResult[];
+  /** 차감할 총 골드 (recipeGoldCost × quantity). */
+  goldSpent: number;
 };
 
 export type CraftComputeOptions = {
@@ -229,6 +237,9 @@ export function computeCraftOutcome(
   if (!recipe) throw new CraftError("unknown_recipe");
   if (!input.known.includes(recipe.id)) throw new CraftError("not_learned");
 
+  // 제작 골드 비용 — 티어 비례 × 수량(골드 싱크). all-or-nothing 으로 차감 전 검증.
+  const goldCost = recipeGoldCost(recipe) * quantity;
+
   const potions = { ...input.potions };
   const materials = { ...input.materials };
   const equipment = { ...input.equipment };
@@ -277,6 +288,9 @@ export function computeCraftOutcome(
     if (have + totalProduce > potionMax(input.potionCapacityBonus))
       throw new CraftError("potion_full");
   }
+
+  // 2.5) 골드 충족 검사 (all-or-nothing — 차감 전).
+  if (input.gold < goldCost) throw new CraftError("insufficient_gold");
 
   // 3) 재료 차감 — quantity 배.
   for (const ing of recipe.ingredients) {
@@ -373,6 +387,7 @@ export function computeCraftOutcome(
     droppedEquipment: dropped,
     equipmentInstances: instances,
     results,
+    goldSpent: goldCost,
   };
 }
 
@@ -392,6 +407,10 @@ type SavedInventory = {
 type SavedCrafting = {
   known?: string[];
   crafted?: string[];
+  [k: string]: unknown;
+};
+type SavedCharacter = {
+  gold?: number;
   [k: string]: unknown;
 };
 
@@ -416,6 +435,11 @@ export async function applyCraftAction(
   quantity: number = 1,
   equipPicks?: EquipPicks,
 ): Promise<CraftOutcome> {
+  // lock 순서: character.v2 → inventory.v2 → crafting.v2 (enhance/shop 과 일관, 데드락 방지).
+  // 호출부 route 의 tx 를 그대로 받아 nested transaction 안 만듦.
+  const character =
+    (await readKv<SavedCharacter>(tx, userId, "character.v2")) ?? {};
+  const currentGold = typeof character.gold === "number" ? character.gold : 0;
   const inv = (await readKv<SavedInventory>(tx, userId, "inventory.v2")) ?? {};
   const craftingState =
     (await readKv<SavedCrafting>(tx, userId, "crafting.v2")) ?? {};
@@ -434,6 +458,7 @@ export async function applyCraftAction(
       droppedEquipment: inv.droppedEquipment ?? {},
       equipmentInstances: normalizeInstances(inv.equipmentInstances),
       potionCapacityBonus: inv.potionCapacityBonus ?? 0,
+      gold: currentGold,
       // 가루 공정 3 종은 기본기 — 서버 권위 검증에서도 자동 학습으로 본다
       // (클라이언트는 useCrafting.readInitial 가 known 에 보강. 영속 상태가
       //  아직 보강 전이라도 서버가 거절하지 않도록 한다.)
@@ -459,9 +484,25 @@ export async function applyCraftAction(
     ? { ...craftingState, crafted: [...craftedList, recipeId] }
     : craftingState;
 
+  let newCharacter: SavedCharacter = character;
+  if (out.goldSpent > 0) {
+    newCharacter = {
+      ...character,
+      gold: Math.max(0, currentGold - out.goldSpent),
+    };
+  }
+
   await upsertSave(tx, userId, "inventory.v2", newInventory);
   if (newCrafting !== craftingState)
     await upsertSave(tx, userId, "crafting.v2", newCrafting);
+  if (newCharacter !== character)
+    await upsertSave(tx, userId, "character.v2", newCharacter);
 
-  return { inventory: newInventory, crafting: newCrafting, results: out.results };
+  return {
+    inventory: newInventory,
+    crafting: newCrafting,
+    character: newCharacter,
+    results: out.results,
+    goldSpent: out.goldSpent,
+  };
 }

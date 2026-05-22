@@ -4,9 +4,10 @@
 //
 // 흐름:
 //   1) auth + session
-//   2) 트랜잭션 안에서 inventory.v2 잠금 → 모드 검증 → 별빛 조각 차감 → RNG 굴림
-//      → 성공: 단계 +1, history push / 실패: remainingAttempts -1
-//   3) 새 inventory.v2 + toLevel + remainingAttempts + shardsSpent + success + mode 반환.
+//   2) 트랜잭션 안에서 character.v2 + inventory.v2 잠금 → 모드 검증 → 별빛 조각 + 골드 차감
+//      → RNG 굴림 → 성공: 단계 +1, history push / 실패: remainingAttempts -1
+//   3) 새 inventory.v2 + character.v2(골드) + toLevel + remainingAttempts + shardsSpent
+//      + goldSpent + success + mode 반환.
 
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";

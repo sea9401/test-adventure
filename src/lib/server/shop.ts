@@ -158,7 +158,10 @@ export function computeShopOutcome(
       const room = Math.max(0, potionMax(input.potionCapacityBonus) - have);
       appliedQty = Math.min(qty, room);
       if (appliedQty <= 0) throw new ShopError("full");
-      const cost = p.price * appliedQty;
+      // 상점 구매가 = shopPrice 우선(없으면 price). 판매(sell_potion)는 별도 판매가 맵.
+      const unit = p.shopPrice ?? p.price;
+      if (!Number.isFinite(unit) || unit < 0) throw new ShopError("not_for_sale");
+      const cost = unit * appliedQty;
       if (gold < cost) throw new ShopError("insufficient_gold");
       potions[action.id] = have + appliedQty;
       goldDelta = -cost;

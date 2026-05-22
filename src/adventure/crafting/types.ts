@@ -36,7 +36,11 @@ export type CraftResult =
 export type CraftOutcome = {
   inventory: Record<string, unknown>; // 새 inventory.v2 값
   crafting: Record<string, unknown>; // 새 crafting.v2 값
+  /** 골드 차감 반영된 character.v2 — 클라가 잔액 갱신. 골드 비용 0 이면 변경 전과 동일. */
+  character: Record<string, unknown>;
   results: CraftResult[];
+  /** 차감된 총 골드 (= recipeGoldCost × quantity). */
+  goldSpent: number;
 };
 
 const CRAFT_ERROR_MESSAGES: Record<string, string> = {
@@ -45,6 +49,7 @@ const CRAFT_ERROR_MESSAGES: Record<string, string> = {
   missing_material: "재료가 부족하다.",
   missing_ingredient: "필요한 장비가 부족하다.",
   potion_full: "포션을 더 들 수 없다.",
+  insufficient_gold: "골드가 부족하다.",
   invalid_quantity: "제작 수량이 잘못됐다.",
   invalid_picks: "재료 선택이 잘못됐다.",
 };

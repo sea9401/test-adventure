@@ -144,7 +144,7 @@ export function BuyTab({
                   key={id}
                   name={potion.name}
                   description={potion.description}
-                  price={potion.price}
+                  price={potion.shopPrice ?? potion.price}
                   owned={owned}
                   gold={gold}
                   cap={cap}

@@ -15,6 +15,13 @@ export type Potion = {
   description: string;
   effect: PotionEffect;
   price: number;
+  /**
+   * 상점 구매 시 골드 단가 오버라이드. 미지정이면 price 사용.
+   * 제작 전용(조합) 포션을 골드 프리미엄으로 사게 할 때 — 제작(싼 경로)의 가치는
+   * 보존하면서 골드 싱크를 더한다(game-fun-audit 보조문제 C4). 판매(sell)는 이 값과
+   * 무관하게 별도 판매가 맵(getPotionSellPrice)을 쓰므로 buy≫sell 라 차익 없음.
+   */
+  shopPrice?: number;
   /** 상점 구매 노출 여부. 미지정/true → 노출. 조합 전용 포션은 false. */
   inShop?: boolean;
 };
@@ -33,7 +40,9 @@ export const POTIONS: Record<PotionId, Potion> = {
     description: "산초꽃을 졸여 빚은 약. 깊은 숨이 트인다. HP +50 또는 최대 HP 의 35% 중 큰 쪽.",
     effect: { kind: "heal_hp", flat: 50, pct: 35 },
     price: 6,
-    inShop: false,
+    // 제작이 정상 경로(마력가루) — 상점은 골드 프리미엄 편의(골드 싱크).
+    inShop: true,
+    shopPrice: 150,
   },
   potion_heal_l: {
     id: "potion_heal_l",
@@ -41,7 +50,8 @@ export const POTIONS: Record<PotionId, Potion> = {
     description: "봉황 깃털을 우려낸 약. 식은 몸에 다시 불이 붙는다. HP +100 또는 최대 HP 의 60% 중 큰 쪽.",
     effect: { kind: "heal_hp", flat: 100, pct: 60 },
     price: 16,
-    inShop: false,
+    inShop: true,
+    shopPrice: 500,
   },
 };
 

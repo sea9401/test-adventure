@@ -7,6 +7,7 @@
 
 import { ITEMS } from "@/adventure/data/items";
 import {
+  ENHANCE_GOLD_COST,
   ENHANCE_MAX_LEVEL,
   ENHANCE_MODE_SPEC,
   ENHANCE_SHARD_COST,
@@ -22,6 +23,7 @@ const ENHANCE_ERROR_LABELS: Record<string, string> = {
   not_enhanceable: "강화할 수 없는 장비다.",
   max_level: "이미 최대 단계다.",
   insufficient_shards: "별빛 조각이 부족하다.",
+  insufficient_gold: "골드가 부족하다.",
   no_attempts: "이 자루는 더 강화할 수 없다 (가능 횟수가 다했다).",
   invalid_mode: "강화 모드가 잘못됐다.",
   invalid_instance_id: "강화할 장비를 찾지 못했다.",
@@ -29,13 +31,17 @@ const ENHANCE_ERROR_LABELS: Record<string, string> = {
 
 export function useEnhanceAction(deps: {
   inventory: ReturnType<typeof useInventory>;
+  /** 골드 사전검사용 — 현재 보유 골드. 권한은 서버. */
+  gold: number;
+  /** 강화 골드 차감이 반영된 character.v2 를 적용 — 잔액 갱신. */
+  replaceCharacterFromSaved: (saved: unknown) => void;
   addNotification: (
     kind: NotificationKind,
     text: string,
     meta?: NotificationMeta,
   ) => void;
 }) {
-  const { inventory, addNotification } = deps;
+  const { inventory, gold, replaceCharacterFromSaved, addNotification } = deps;
   const remote = useRemoteSave();
 
   const handleEnhance = async (instanceId: string, mode: EnhanceMode) => {
@@ -71,6 +77,14 @@ export function useEnhanceAction(deps: {
       );
       return;
     }
+    const goldCost = ENHANCE_GOLD_COST[toLevel] ?? 0;
+    if (gold < goldCost) {
+      addNotification(
+        "info",
+        `골드가 부족하다 — ${goldCost.toLocaleString()} G 필요 (보유 ${gold.toLocaleString()}).`,
+      );
+      return;
+    }
 
     // 디바운스 큐 flush — 서버가 stale 값 위에서 차감하지 않게.
     await remote.flush();
@@ -96,9 +110,11 @@ export function useEnhanceAction(deps: {
       | {
           ok: true;
           inventory: unknown;
+          character: unknown;
           toLevel: number;
           remainingAttempts: number;
           shardsSpent: number;
+          goldSpent: number;
           success: boolean;
           mode: EnhanceMode;
         }
@@ -113,11 +129,13 @@ export function useEnhanceAction(deps: {
       return;
     }
     inventory.replaceFromSaved(data.inventory);
+    replaceCharacterFromSaved(data.character);
+    const goldNote = data.goldSpent > 0 ? `, 골드 ${data.goldSpent.toLocaleString()} 소비` : "";
     const itemName = ITEMS[inst.itemId].name;
     if (data.success) {
       addNotification(
         "milestone",
-        `${itemName}을(를) +${data.toLevel} 으로 강화했다. (별빛 조각 ${data.shardsSpent} 소비, ${spec.successPct}% 모드, 가능 횟수 ${data.remainingAttempts} 남음)`,
+        `${itemName}을(를) +${data.toLevel} 으로 강화했다. (별빛 조각 ${data.shardsSpent} 소비${goldNote}, ${spec.successPct}% 모드, 가능 횟수 ${data.remainingAttempts} 남음)`,
         {
           highlight: {
             name: `${itemName} +${data.toLevel}`,
@@ -128,7 +146,7 @@ export function useEnhanceAction(deps: {
     } else {
       addNotification(
         "info",
-        `${itemName} 강화 실패 — 가능 횟수 ${data.remainingAttempts} 남음. (별빛 조각 ${data.shardsSpent} 소비, ${spec.successPct}% 모드)`,
+        `${itemName} 강화 실패 — 가능 횟수 ${data.remainingAttempts} 남음. (별빛 조각 ${data.shardsSpent} 소비${goldNote}, ${spec.successPct}% 모드)`,
       );
     }
   };

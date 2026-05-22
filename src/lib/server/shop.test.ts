@@ -29,6 +29,24 @@ describe("computeShopOutcome", () => {
     });
   });
 
+  it("buy_potion — shopPrice 가 있으면 그 프리미엄 단가로 과금 (m: 150, 골드 싱크 C4)", () => {
+    const r = computeShopOutcome(
+      { ...base(), gold: 1000 },
+      { kind: "buy_potion", id: "potion_heal_m", quantity: 2 },
+    );
+    expect(r.newGold).toBe(1000 - 150 * 2); // price(6) 가 아니라 shopPrice(150)
+    expect(r.potions.potion_heal_m).toBe(2);
+  });
+
+  it("buy_potion — 큰 회복약도 shopPrice(500) 로 과금", () => {
+    const r = computeShopOutcome(
+      { ...base(), gold: 2000 },
+      { kind: "buy_potion", id: "potion_heal_l", quantity: 1 },
+    );
+    expect(r.newGold).toBe(2000 - 500);
+    expect(r.potions.potion_heal_l).toBe(1);
+  });
+
   it("buy_potion — 캡 초과분은 잘리고 잘린 만큼만 과금", () => {
     const r = computeShopOutcome(
       { ...base(), potions: { potion_heal_s: 13 } }, // base cap 15 → room 2

@@ -17,6 +17,7 @@ import { and, eq } from "drizzle-orm";
 import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 import {
+  ENHANCE_GOLD_COST,
   ENHANCE_MAX_LEVEL,
   ENHANCE_MODE_SPEC,
   ENHANCE_SHARD_COST,
@@ -42,6 +43,8 @@ type CountMap = Record<string, number>;
 export type EnhanceComputeInput = {
   materials: CountMap;
   equipmentInstances: EquipmentInstance[];
+  /** 보유 골드 — 강화 골드 비용 검증용. */
+  gold: number;
 };
 
 export type EnhanceComputeResult = {
@@ -53,6 +56,8 @@ export type EnhanceComputeResult = {
   remainingAttempts: number;
   /** 차감된 별빛 조각 양 (시도 시 항상 차감). */
   shardsSpent: number;
+  /** 차감된 골드 양 (시도 시 항상 차감). */
+  goldSpent: number;
   /** 강화 시도 성공 여부. */
   success: boolean;
   /** 사용된 모드 — 응답 토스트에 사용. */
@@ -87,6 +92,9 @@ export function computeEnhanceOutcome(
   const cost = ENHANCE_SHARD_COST[targetLevel] ?? 0;
   const have = input.materials[SHARD_MATERIAL] ?? 0;
   if (have < cost) throw new EnhanceError("insufficient_shards");
+  // 골드 비용 — 조각과 병행. 시도 시 항상 차감(성공/실패 무관).
+  const goldCost = ENHANCE_GOLD_COST[targetLevel] ?? 0;
+  if (input.gold < goldCost) throw new EnhanceError("insufficient_gold");
 
   // 비용 차감 (시도 시 항상).
   const materials: CountMap = { ...input.materials };
@@ -128,6 +136,7 @@ export function computeEnhanceOutcome(
     toLevel: updated.enhancementLevel,
     remainingAttempts: updated.remainingAttempts,
     shardsSpent: cost,
+    goldSpent: goldCost,
     success,
     mode,
   };
@@ -138,6 +147,11 @@ export function computeEnhanceOutcome(
 type SavedInventory = {
   materials?: CountMap;
   equipmentInstances?: unknown;
+  [k: string]: unknown;
+};
+
+type SavedCharacter = {
+  gold?: number;
   [k: string]: unknown;
 };
 
@@ -156,25 +170,33 @@ async function readKv<T>(
 
 export type EnhanceOutcome = {
   inventory: SavedInventory;
+  /** 골드 차감 반영된 character.v2 — 클라가 잔액을 갱신할 수 있게 반환. */
+  character: SavedCharacter;
   toLevel: number;
   remainingAttempts: number;
   shardsSpent: number;
+  goldSpent: number;
   success: boolean;
   mode: EnhanceMode;
 };
 
-// 트랜잭션 안에서 호출. inventory.v2 잠금 → 검증 → RNG 굴림 → 적용.
+// 트랜잭션 안에서 호출. character.v2 → inventory.v2 잠금(shop 등과 일관된 순서로 데드락 방지)
+// → 검증(조각+골드) → RNG 굴림 → 적용. 호출부 route 의 tx 를 그대로 받아 nested transaction 안 만듦.
 export async function applyEnhanceAction(
   tx: DbExecutor,
   userId: string,
   instanceId: string,
   mode: EnhanceMode,
 ): Promise<EnhanceOutcome> {
+  const character =
+    (await readKv<SavedCharacter>(tx, userId, "character.v2")) ?? {};
+  const currentGold = typeof character.gold === "number" ? character.gold : 0;
   const inv = (await readKv<SavedInventory>(tx, userId, "inventory.v2")) ?? {};
   const out = computeEnhanceOutcome(
     {
       materials: { ...(inv.materials ?? {}) },
       equipmentInstances: normalizeInstances(inv.equipmentInstances),
+      gold: currentGold,
     },
     instanceId,
     mode,
@@ -186,11 +208,18 @@ export async function applyEnhanceAction(
     equipmentInstances: out.equipmentInstances,
   };
   await upsertSave(tx, userId, "inventory.v2", newInventory);
+  let newCharacter = character;
+  if (out.goldSpent > 0) {
+    newCharacter = { ...character, gold: Math.max(0, currentGold - out.goldSpent) };
+    await upsertSave(tx, userId, "character.v2", newCharacter);
+  }
   return {
     inventory: newInventory,
+    character: newCharacter,
     toLevel: out.toLevel,
     remainingAttempts: out.remainingAttempts,
     shardsSpent: out.shardsSpent,
+    goldSpent: out.goldSpent,
     success: out.success,
     mode: out.mode,
   };

@@ -42,10 +42,10 @@ function enemy(hp = 100, overrides: Partial<Monster> = {}): Monster {
   };
 }
 
-// 그림자 베기 — ATK × 1.5, DEF 무시. AP cost 3.
+// 그림자 베기 — ATK × 1.5, DEF 30% 무시. AP cost 3. (2026-05-23 완전무시→30% 관통)
 const SHADOW_CUT = getAPSkillByName("그림자 베기")!;
 
-// damageBetween(10, 3) = 7. AP fired: damageBetween(15, 0) = 15.
+// damageBetween(10, 3) = 7. AP fired: ATK ×1.5=15, DEF 3×0.7→round 2 → damageBetween(15,2)=13.
 
 describe("AP 스킬 시스템 — 그림자 베기", () => {
   it("AP 미장착이면 ap=0 고정, 발동 X, 평소 데미지", () => {
@@ -60,16 +60,16 @@ describe("AP 스킬 시스템 — 그림자 베기", () => {
     let s = initialBattleState(p, enemy(100), "용사");
     expect(s.ap).toBe(3);
     s = advanceTurn(s, p, "용사");
-    // 발동 시점에 state.ap = 3 ≥ 3 → 발동. ATK 15 DEF 0 → 15 데미지. AP 3+1-3=1.
-    expect(s.enemyHp).toBe(85);
+    // 발동 시점에 state.ap = 3 ≥ 3 → 발동. ATK 15, DEF 3×0.7→2 → damageBetween(15,2)=13. AP 3+1-3=1.
+    expect(s.enemyHp).toBe(87);
     expect(s.ap).toBe(1);
   });
 
-  it("AP 3 시작 턴 — ATK ×1.5 + DEF 무시 (damage 15)", () => {
+  it("AP 3 시작 턴 — ATK ×1.5 + DEF 30% 무시 (damage 13)", () => {
     const p: PlayerCombat = { ...PLAYER, equippedAPSkills: [eq(SHADOW_CUT)] };
     let s = initialBattleState(p, enemy(1000), "용사");
-    s = advanceTurn(s, p, "용사"); // turn 1: 발동, ATK 15 DEF 0 → 15 데미지, AP 3+1-3=1
-    expect(s.enemyHp).toBe(1000 - 15);
+    s = advanceTurn(s, p, "용사"); // turn 1: 발동, ATK 15 DEF 2 → 13 데미지, AP 3+1-3=1
+    expect(s.enemyHp).toBe(1000 - 13);
     expect(s.ap).toBe(1);
   });
 
@@ -95,19 +95,19 @@ describe("AP 스킬 시스템 — 그림자 베기", () => {
       equippedAPSkills: [eq(SHADOW_CUT)],
     };
     let s = initialBattleState(p, enemy(1000), "용사");
-    // turn 1: 1st AP 3≥3 → 발동 (15 데미지), 2nd 는 평타 7. AP 3+1-3+1 = 2.
+    // turn 1: 1st AP 3≥3 → 발동 (13 데미지), 2nd 는 평타 7. AP 3+1-3+1 = 2.
     s = advanceTurn(s, p, "용사"); // 1st
-    expect(s.enemyHp).toBe(985);
+    expect(s.enemyHp).toBe(987);
     s = advanceTurn(s, p, "용사"); // 2nd, attacksLeft 0 → 턴 종료
-    expect(s.enemyHp).toBe(978);
+    expect(s.enemyHp).toBe(980);
     expect(s.ap).toBe(2);
     // 적 턴 (자동 이미 종료) — 다음 advanceTurn 은 turn 2 의 1st.
     s = advanceTurn(s, p, "용사"); // 적 턴
     // turn 2: 1st AP 2<3 → 평타, 2nd AP 3 이지만 첫 공격이 아니라 평타.
     s = advanceTurn(s, p, "용사"); // 1st of turn 2 — no AP
-    expect(s.enemyHp).toBe(978 - 7);
+    expect(s.enemyHp).toBe(980 - 7);
     s = advanceTurn(s, p, "용사"); // 2nd of turn 2 — 평타
-    expect(s.enemyHp).toBe(978 - 7 - 7);
+    expect(s.enemyHp).toBe(980 - 7 - 7);
   });
 
   describe("턴 마커에 AP 표기 (장착 여부 무관 — 시스템 발견용)", () => {
@@ -422,17 +422,18 @@ describe("AP 스킬 발동 조건 (확장 6종)", () => {
   });
 });
 
-describe("AP 스킬 — 천살 (ignoresEvasion + ignoresDef)", () => {
-  it("회피 100% 적 상대로도 큰 한 방 — ATK ×3 + DEF 무시", () => {
+describe("AP 스킬 — 천살 (ignoresEvasion) — 회피 100% 우회", () => {
+  it("회피 100% 적 상대로도 큰 한 방 — ATK ×3 (회피 무시)", () => {
     const p: PlayerCombat = {
       ...PLAYER,
       atk: 10,
       equippedAPSkills: [eq(HEAVEN_SLAY)],
     };
-    // 회피 100% 적 — 천살이 발동하기 전까진 데미지 0, 발동 시 30 데미지.
+    // 회피 100% 적 — 천살이 발동하기 전까진 데미지 0, 발동 시 회피 무시로 ATK×3 적중.
+    // (DEF 무시는 30% 부분 관통으로 바뀌어 검증 대상 아님 — def 0 으로 격리.)
     let s = initialBattleState(
       p,
-      { ...enemy(9999), evasionPct: 100, def: 50 },
+      { ...enemy(9999), evasionPct: 100, def: 0 },
       "용사",
     );
     const startHp = s.enemyHp;
@@ -445,7 +446,7 @@ describe("AP 스킬 — 천살 (ignoresEvasion + ignoresDef)", () => {
       if (delta > biggestHit) biggestHit = delta;
       prevEnemyHp = s.enemyHp;
     }
-    // ATK 10 × 3.0 = 30, DEF 무시. damageBetween variance → 25 이상.
+    // ATK 10 × 3.0 = 30 (DEF 0). damageBetween → 30, 25 이상.
     expect(biggestHit).toBeGreaterThanOrEqual(25);
   });
 });
@@ -825,7 +826,8 @@ describe("AP 스킬 멀티 발동", () => {
     };
     let s = initialBattleState(p, enemy(1000), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(970);
+    // 천살 ATK 10×3=30, DEF 3×0.7→2 → damageBetween(30,2)=28. (2026-05-23 DEF 30% 무시)
+    expect(s.enemyHp).toBe(972);
     expect(s.ap).toBe(3);
     expect(s.turn.apSkillFiredThisTurn).toBe("heaven_slay");
     const attackLog = s.log.findLast((e) => e.kind === "player_attack")?.text ?? "";

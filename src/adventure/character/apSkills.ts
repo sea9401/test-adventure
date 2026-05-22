@@ -35,7 +35,8 @@ export type APSkillId =
   | "starlit_scatter";
 
 export type APSkillEffect =
-  // 본타 데미지를 ATK × atkMult 로 갱신. ignoresDef = true 면 적 DEF 무시.
+  // 본타 데미지를 ATK × atkMult 로 갱신. ignoresDef = true 면 적 DEF 일부 관통
+  // (engine.ts DEF_IGNORE_FRACTION = 30% 무시. 2026-05-23 완전 무시에서 완화).
   // ignoresEvasion = true 면 적 회피 굴림 자체를 스킵 — 첫 공격은 100% 명중.
   | {
       kind: "atk_multiplier";
@@ -112,7 +113,7 @@ export const AP_SKILLS: APSkill[] = [
   {
     id: "shadow_cut",
     name: "그림자 베기",
-    description: "ATK × 1.5 단발, 적 DEF 무시",
+    description: "ATK × 1.5 단발, 적 DEF 30% 무시",
     apCost: 3,
     effect: { kind: "atk_multiplier", atkMult: 1.5, ignoresDef: true },
   },
@@ -133,7 +134,7 @@ export const AP_SKILLS: APSkill[] = [
   {
     id: "heaven_slay",
     name: "천살",
-    description: "ATK × 3.0 단발, 회피·DEF 모두 무시",
+    description: "ATK × 3.0 단발, 회피 무시 + 적 DEF 30% 무시",
     apCost: 5,
     effect: {
       kind: "atk_multiplier",
@@ -303,7 +304,7 @@ export const AP_SKILLS: APSkill[] = [
   {
     id: "starlit_scatter",
     name: "별빛 흩기",
-    description: "ATK × 1.8 단발, 회피·DEF 모두 무시",
+    description: "ATK × 1.8 단발, 회피 무시 + 적 DEF 30% 무시",
     apCost: 4,
     effect: {
       kind: "atk_multiplier",

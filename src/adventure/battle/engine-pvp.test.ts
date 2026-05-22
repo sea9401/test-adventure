@@ -309,17 +309,17 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     expect(s1.log.some((e) => e.text.includes("처형"))).toBe(true);
   });
 
-  it("암살 (assassinateDmgMult) — 전투 첫 공격 1회 발동, DEF 무시 + 데미지 배수", () => {
+  it("암살 (assassinateDmgMult) — 전투 첫 공격 1회 ×2 + DEF 30% 무시", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
       makePlayer({ spd: 15, atk: 50, def: 0, assassinateDmgMult: 2, hp: 1000, maxHp: 1000 }),
-      makePlayer({ spd: 5, atk: 1, def: 100, hp: 1000, maxHp: 1000 }), // 높은 DEF 라도 암살은 무시.
+      makePlayer({ spd: 5, atk: 1, def: 10, hp: 1000, maxHp: 1000 }),
       "P1",
       "P2",
     );
     const s1 = advanceTurnPvP(s0);
-    // DEF 100 인데 암살은 무시. 50 × 2 = 100 데미지 (cap 적용 안 됨).
-    expect(s0.p2.hp - s1.p2.hp).toBe(100);
+    // 2026-05-23 DEF 30% 무시: DEF 10×0.7→7. damageBetween(50,7)=43, ×2 = 86.
+    expect(s0.p2.hp - s1.p2.hp).toBe(86);
     expect(s1.p1.flags.assassinateUsed).toBe(true);
   });
 

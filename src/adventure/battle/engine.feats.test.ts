@@ -33,15 +33,16 @@ describe("특기 — 광전사", () => {
 });
 
 describe("특기 — 암살", () => {
-  it("전투 첫 공격: 적 DEF 무시 + 데미지 ×2, 그 뒤 공격은 정상", () => {
+  it("전투 첫 공격: 적 DEF 30% 무시 + 데미지 ×2, 그 뒤 공격은 정상", () => {
     const p: PlayerCombat = { ...PLAYER, assassinateDmgMult: 2 };
     let s = initialBattleState(p, enemy(100), "용사");
-    s = advanceTurn(s, p, "용사"); // DEF무시 baseDmg=10, ×2 → 20 → 80
-    expect(s.enemyHp).toBe(80);
+    // DEF 3×0.7→round 2. damageBetween(10,2)=8, ×2 → 16 → 84.
+    s = advanceTurn(s, p, "용사");
+    expect(s.enemyHp).toBe(84);
     expect(s.flags.assassinateUsed).toBe(true);
     s = advanceTurn(s, p, "용사"); // 적 턴
-    s = advanceTurn(s, p, "용사"); // 2턴: 암살 소진 → damageBetween(10,3)=7 → 73
-    expect(s.enemyHp).toBe(73);
+    s = advanceTurn(s, p, "용사"); // 2턴: 암살 소진 → damageBetween(10,3)=7 → 77
+    expect(s.enemyHp).toBe(77);
   });
 });
 
@@ -146,7 +147,7 @@ describe("2티어 특기 — 불굴의 일격", () => {
 });
 
 describe("2티어 특기 — 약점 적중", () => {
-  it("크리 발동 시 DEF 무시 추가타 1회 (턴당 1회)", () => {
+  it("크리 발동 시 DEF 30% 무시 추가타 1회 (턴당 1회)", () => {
     const p: PlayerCombat = {
       ...PLAYER,
       critChancePct: 100,
@@ -159,8 +160,9 @@ describe("2티어 특기 — 약점 적중", () => {
     expect(s.turn.weakpointUsedThisTurn).toBe(true);
     expect(s.stacks.weakpointDefIgnoreLeft).toBe(1);
     expect(s.phase).toBe("player");
-    s = advanceTurn(s, p, "용사"); // 약점 추가타: DEF 무시, 크리 → damageBetween(10,0)=10 ×2 = 20 → 66
-    expect(s.enemyHp).toBe(66);
+    // 약점 추가타: DEF 3×0.7→round 2 관통, 크리 → damageBetween(10,2)=8 ×2 = 16 → 70
+    s = advanceTurn(s, p, "용사");
+    expect(s.enemyHp).toBe(70);
     expect(s.stacks.weakpointDefIgnoreLeft).toBe(0);
   });
 });

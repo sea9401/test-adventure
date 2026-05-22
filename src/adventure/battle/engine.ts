@@ -505,6 +505,11 @@ export function appendLog(
 // 플레이어↔적 양쪽 공격에 모두 적용 — 방어력을 무한 적층해 무피격이 되는 것도 같이 막힌다.
 export const DAMAGE_FLOOR_FRACTION = 0.15;
 
+// 방어 관통 비율 — 암살/약점 적중/DEF무시 AP 스킬이 무시하는 적 DEF 비율.
+// 2026-05-23: 완전 무시(DEF 0)가 "선턴 이김"·방어 무력화의 주범이라, 0.3(30%)만 무시하도록
+// 완화. 방어 투자가 70% 는 항상 유효. (정확 스킬의 비례 관통도 같은 0.3 캡 — skills.ts)
+export const DEF_IGNORE_FRACTION = 0.3;
+
 export function damageBetween(atk: number, def: number): number {
   const minByAtk = Math.ceil(Math.max(0, atk) * DAMAGE_FLOOR_FRACTION);
   return Math.max(1, minByAtk, atk - def);
@@ -1278,18 +1283,22 @@ export function advanceTurn(
       !state.flags.assassinateUsed &&
       state.turn.completedPlayerTurns === 0 &&
       isFirstAttackOfTurn;
-    // 약점 적중 (2티어 특기) — 큐가 있으면 이 공격은 DEF 무시. 트리거 자체는 아래 크리 처리 후.
+    // 약점 적중 (2티어 특기) — 큐가 있으면 이 공격은 적 DEF 일부 관통. 트리거 자체는 아래 크리 처리 후.
     const weakpointDefIgnore = state.stacks.weakpointDefIgnoreLeft > 0;
-    // 분쇄 — 강공격 발동 턴, 그 공격에 한해 적 DEF -crushDefReduction. 암살/약점 적중이면 DEF 0.
-    // baseDef 는 보스 취약(armorVulnerable) + 정확(armorPierceFraction) 비례 관통이 이미 반영된 값 —
-    // 분쇄는 그 위에 추가 고정 감산.
+    // 분쇄 — 강공격 발동 턴, 그 공격에 한해 적 DEF -crushDefReduction (분쇄 먼저 적용).
+    // baseDef 는 보스 취약(armorVulnerable) + 정확(armorPierceFraction) 비례 관통이 이미 반영된 값.
+    // 2026-05-23: 암살/약점/AP 의 방어 관통은 완전 무시(0)가 아니라 DEF_IGNORE_FRACTION(30%)만 무시.
+    // 분쇄(고정 감산) 후 30% 관통을 곱연산으로 적용 — 방어 투자가 70% 는 항상 유효.
     const crushReduction = player.crushDefReduction ?? 0;
     const baseDef = playerFacingEnemyDef(state, player, nextBuffsTimed);
-    const targetDef = assassinFires || weakpointDefIgnore || apIgnoresDef
-      ? 0
-      : bonus > 0 && crushReduction > 0
+    const afterCrush =
+      bonus > 0 && crushReduction > 0
         ? Math.max(0, baseDef - crushReduction)
         : baseDef;
+    const targetDef =
+      assassinFires || weakpointDefIgnore || apIgnoresDef
+        ? Math.round(afterCrush * (1 - DEF_IGNORE_FRACTION))
+        : afterCrush;
     // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
     // berserkAtkPctPerLostHpPct=0.5 → 잃은 HP 1%당 ATK +0.5% → 보너스ATK = atk × lostFraction × 0.5.
     const lostHpFraction = Math.max(0, 1 - state.playerHp / state.playerMaxHp);

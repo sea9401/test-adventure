@@ -143,15 +143,16 @@ describe("PvP AP — 추가 회피 (add_guaranteed_evades)", () => {
   });
 });
 
-describe("PvP AP — 천살 (ignoresEvasion + ignoresDef)", () => {
+describe("PvP AP — 천살 (ignoresEvasion) — 회피 100% 우회", () => {
   it("회피 100% 적 상대로도 큰 한 방 발동 — dodge cascade 우회", () => {
     const p1: PlayerCombat = { ...BASE, atk: 10, equippedAPSkills: [slot(HEAVEN_SLAY)] };
-    const wall: PlayerCombat = { ...BASE, evasionPct: 100, def: 50 };
+    // DEF 무시는 30% 부분 관통으로 바뀌어 검증 대상 아님 — def 0 으로 회피 우회만 격리.
+    const wall: PlayerCombat = { ...BASE, evasionPct: 100, def: 0 };
     let s = initialBattleStatePvP(p1, wall, "p1", "p2");
     const startHp = s.p2.hp;
     let biggestHit = 0;
     let prev = startHp;
-    // p1 페이즈만 검사: 매 라운드 attack 2회 (p1, p2). p1 의 ATK ×3=30, DEF 무시.
+    // p1 페이즈만 검사: 매 라운드 attack 2회 (p1, p2). p1 의 ATK ×3=30 (DEF 0).
     for (let i = 0; i < 30; i++) {
       const before = s.p2.hp;
       s = attack(s);
@@ -473,7 +474,8 @@ describe("PvP AP — 멀티 발동", () => {
     };
     let s = initialBattleStatePvP(p1, BASE, "p1", "p2");
     s = attack(s);
-    expect(BASE.hp - s.p2.hp).toBe(30);
+    // 천살 ATK 10×3=30, BASE DEF 5×0.7→round 4 → damageBetween(30,4)=26. (2026-05-23 DEF 30% 무시)
+    expect(BASE.hp - s.p2.hp).toBe(26);
     expect(s.p1.ap).toBe(3);
     expect(s.p1.turn.apSkillFiredThisTurn).toBe("heaven_slay");
     const attackLog = s.log.findLast((e) => e.kind === "player_attack")?.text ?? "";

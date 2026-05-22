@@ -33,6 +33,7 @@ import {
   type BattleTurnState,
   appendLog,
   damageBetween,
+  DEF_IGNORE_FRACTION,
 } from "./engine";
 import { type Potion, type PotionId } from "../data/potions";
 import {
@@ -1210,17 +1211,21 @@ export function advanceTurnPvP(
     !attacker.flags.assassinateUsed &&
     attacker.turn.completedPlayerTurns === 0 &&
     isFirstAttackOfTurn;
-  // 약점 적중 — 큐가 있으면 이 공격은 DEF 무시.
+  // 약점 적중 — 큐가 있으면 이 공격은 적 DEF 일부 관통.
   const weakpointDefIgnore = attacker.stacks.weakpointDefIgnoreLeft > 0;
   // 분쇄 — 강공격 발동 턴 그 공격에 한해 적 DEF -crushDefReduction.
+  // 2026-05-23: 암살/약점/AP 방어 관통은 완전 무시(0)가 아니라 DEF_IGNORE_FRACTION(30%)만 무시.
+  // engine.ts 와 동일 — 분쇄(고정 감산) 후 30% 곱연산 관통.
   const crushReduction = attacker.player.crushDefReduction ?? 0;
   const baseDef = attackerFacingDef(attacker, defender, nextBuffsTimedFromAp);
+  const afterCrush =
+    powerBonus > 0 && crushReduction > 0
+      ? Math.max(0, baseDef - crushReduction)
+      : baseDef;
   const targetDef =
     assassinFires || weakpointDefIgnore || apIgnoresDef
-      ? 0
-      : powerBonus > 0 && crushReduction > 0
-        ? Math.max(0, baseDef - crushReduction)
-        : baseDef;
+      ? Math.round(afterCrush * (1 - DEF_IGNORE_FRACTION))
+      : afterCrush;
 
   // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
   const lostHpFraction = Math.max(0, 1 - attacker.hp / attacker.maxHp);

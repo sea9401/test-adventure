@@ -180,12 +180,14 @@ export const EXECUTION_DAMAGE_MULT = 1.5;
 // 효과 1) 모든 공격에 대해 적 evasion ×PRECISION_EVASION_MULT (절반). 회피 무력화가 아닌 비례 감소.
 // 효과 2) 플레이어의 모든 공격이 적 방어력의 (DEX × PRECISION_PIERCE_PER_DEX)% 를 무시 (PRECISION_PIERCE_CAP 캡).
 //   "약점을 노린다" — DEX 비례라 후반에도 유효하고, 고방어 보스에 대한 DEX 빌드의 답.
-//   DEX 35=24.5% / 50=35% / 70=49% / 100=60%(캡). 분쇄(고정 감산)는 이 비례 관통 뒤에 적용, 암살은 여전히 DEF 0.
+//   2026-05-23: 방어 무시 과잉 정리로 캡 60%→30% (모든 방어 관통을 DEF_IGNORE_FRACTION 0.3 으로 통일).
+//   DEX 35=24.5% / 43+=30%(캡). 분쇄(고정 감산)는 이 비례 관통 뒤에 적용.
 export const PRECISION_DEX_THRESHOLD = 35;
 export const PRECISION_EVASION_MULT = 0.5;
 // DEX 1pt 당 무시하는 적 DEF 비율(0~1). 0.007 = pt당 0.7%.
 export const PRECISION_PIERCE_PER_DEX = 0.007;
-export const PRECISION_PIERCE_CAP = 0.6;
+// 캡 0.3 — engine.ts DEF_IGNORE_FRACTION 과 동일(모든 방어 관통 통일). DEX 43 에서 도달.
+export const PRECISION_PIERCE_CAP = 0.3;
 
 // 불굴 — 활력 35 도달 시 획득.
 // 효과 1) 전투당 1회, HP 가 0 이 되는 데미지 받으면 HP 1 로 버틴다.
@@ -334,7 +336,7 @@ export const STAT_SKILL: Record<StatKey, StatSkillInfo[]> = {
     },
     {
       name: SKILL_NAMES.PRECISION,
-      description: `모든 공격에 대해 적 회피 ×${PRECISION_EVASION_MULT} (비례 절반) + 적 방어력 (DEX × ${(PRECISION_PIERCE_PER_DEX * 100).toFixed(1)})% 무시 — DEX 35=24.5%, 70=49% (최대 ${Math.round(PRECISION_PIERCE_CAP * 100)}%)`,
+      description: `모든 공격에 대해 적 회피 ×${PRECISION_EVASION_MULT} (비례 절반) + 적 방어력 (DEX × ${(PRECISION_PIERCE_PER_DEX * 100).toFixed(1)})% 무시 — DEX 35=24.5% (최대 ${Math.round(PRECISION_PIERCE_CAP * 100)}%)`,
       activationThreshold: PRECISION_DEX_THRESHOLD,
     },
     {
@@ -583,7 +585,7 @@ export const FEAT_SKILL: FeatSkillInfo[] = [
   },
   {
     name: FEAT_NAMES.ASSASSINATE,
-    description: `전투 첫 공격 — 적 방어력 무시 + 데미지 ×${ASSASSINATE_DMG_MULT}`,
+    description: `전투 첫 공격 — 적 방어력 30% 무시 + 데미지 ×${ASSASSINATE_DMG_MULT}`,
     req: ["str", "dex"],
   },
   {
@@ -809,7 +811,7 @@ export const FEAT_TIER2_SKILL: FeatSkillInfo[] = [
   },
   {
     name: FEAT_TIER2_NAMES.WEAKPOINT_HIT,
-    description: `크리티컬 발동 시 그 턴 즉시 추가 공격 ${WEAKPOINT_EXTRA_ATTACKS}회 + 적 DEF 무시 (턴당 1회)`,
+    description: `크리티컬 발동 시 그 턴 즉시 추가 공격 ${WEAKPOINT_EXTRA_ATTACKS}회 + 적 DEF 30% 무시 (턴당 1회)`,
     req: ["str", "dex"],
   },
   {

@@ -24,7 +24,11 @@ import {
   TOWER_STORAGE_KEY,
   type TowerState,
 } from "@/adventure/tower/types";
-import { isBossFloor, scaledStats } from "@/adventure/tower/scaling";
+import {
+  isBossFloor,
+  scaledStats,
+  towerEnemyAccuracy,
+} from "@/adventure/tower/scaling";
 import { currentWeeklyModifier } from "@/adventure/tower/modifiers";
 import type { TowerMilestoneReward } from "@/adventure/tower/rewards";
 import {
@@ -397,7 +401,15 @@ function buildFloorEnemy(
   if (slot) {
     const base = bossBaseMonster(slot);
     const s = scaledStats(base, floor, slot.bossMultiplier, modifier);
-    return { ...base, name: bossDisplayName(slot), hp: s.hp, atk: s.atk, def: s.def, spd: s.spd };
+    return {
+      ...base,
+      name: bossDisplayName(slot),
+      hp: s.hp,
+      atk: s.atk,
+      def: s.def,
+      spd: s.spd,
+      accuracy: towerEnemyAccuracy(floor, true),
+    };
   }
   const pool = mobPoolForFloor(floor);
   let baseName: string;
@@ -410,7 +422,14 @@ function buildFloorEnemy(
   }
   const base = MONSTERS[baseName] ?? MONSTERS[pool[0]] ?? bossBaseMonster(BOSS_SLOTS[0]);
   const s = scaledStats(base, floor, 1, modifier);
-  return { ...base, hp: s.hp, atk: s.atk, def: s.def, spd: s.spd };
+  return {
+    ...base,
+    hp: s.hp,
+    atk: s.atk,
+    def: s.def,
+    spd: s.spd,
+    accuracy: towerEnemyAccuracy(floor, false),
+  };
 }
 
 /**

@@ -81,6 +81,12 @@ export type Monster = {
   spd: number;
   /** 0~100. 플레이어 공격을 % 확률로 회피. 0/undefined = 항상 피격. */
   evasionPct?: number;
+  /**
+   * 명중 — 플레이어의 유효 회피율에서 이만큼(%p) 차감한다. 0/undefined = 차감 없음(기존 동작).
+   * 회피의 이진·무한대응 구조(고회피 빌드가 스케일링을 무시) 견제용 맞상대 축.
+   * 현재는 고탑 보스가 층 비례로 보유(towerEnemyAccuracy). 일반 몬스터는 0.
+   */
+  accuracy?: number;
   exp: number;
   drops?: MonsterDrop[];
   phaseTrigger?: MonsterPhaseTrigger;

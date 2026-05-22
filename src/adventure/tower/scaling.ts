@@ -16,6 +16,25 @@ export const TOWER_HP_EXP = 0.45;
 export const TOWER_ATK_EXP = 0.25;
 export const TOWER_DEF_EXP = 0.25;
 
+// 고탑 적 명중(accuracy) — 플레이어 유효 회피에서 %p 차감. 고회피(DEX) 빌드가 회피의
+// 이진성으로 스케일링을 무시하고 벽을 우회하던 문제 견제. 실게임(apply.ts)·sim-tower 공용
+// 단일 소스. 탑밖 전투는 Monster.accuracy 가 없어 0(무변화).
+//
+// START_FLOOR=90 의도: 현재 최고 도달층이 89(보스90 벽)이라, 90 이하는 명중 0 으로 두어
+// **기존 플레이어 진행을 절대 깎지 않는다**(회피 빌드가 89에서 퇴보하지 않음). 명중은 아직
+// 아무도 못 간 91+ 미답 구간에서만 ramp 해 우회를 견제. 보스는 배수로 더 정확.
+// 절대 난이도 곡선(페이스롤→절벽) 재설계는 후속 PR — 거기서 명중·스케일 동반 튜닝.
+export const TOWER_ACC_START_FLOOR = 90;
+export const TOWER_ACC_PER_FLOOR = 5.0;
+export const TOWER_ACC_BOSS_MULT = 1.5;
+
+/** 해당 층 적의 명중(%p). isBoss 면 배수 적용. START_FLOOR 이하는 0. */
+export function towerEnemyAccuracy(floor: number, isBoss: boolean): number {
+  if (floor <= TOWER_ACC_START_FLOOR) return 0;
+  const base = (floor - TOWER_ACC_START_FLOOR) * TOWER_ACC_PER_FLOOR;
+  return Math.round(base * (isBoss ? TOWER_ACC_BOSS_MULT : 1));
+}
+
 /** 보스층 여부 — 10/20/30/... */
 export function isBossFloor(floor: number): boolean {
   return floor > 0 && floor % TOWER_BOSS_INTERVAL === 0;

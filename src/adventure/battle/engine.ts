@@ -2199,6 +2199,9 @@ export function advanceTurn(
       ? state.stacks.chillStacks *
         (state.enemy.skill.evasionPenaltyPerStack ?? 0)
       : 0;
+  // 적 명중(accuracy) — 유효 회피에서 %p 차감. 0/undefined = 차감 없음(기존 동작).
+  // chillSlowPct 와 같은 자리에서 빼 회피 캡 적용 후 감산. 고탑 보스가 층 비례로 보유.
+  const enemyAccuracy = state.enemy.accuracy ?? 0;
   const effectiveEvadePct = Math.max(
     0,
     Math.min(
@@ -2207,7 +2210,7 @@ export function advanceTurn(
         luckEvadeBonus +
         universalLuckEvadeBonus +
         state.buffs.cyclingChiBonus,
-    ) - chillSlowPct,
+    ) - chillSlowPct - enemyAccuracy,
   );
   if (Math.random() * 100 < effectiveEvadePct) {
     const healedHp = healOnDodge(state.playerHp);

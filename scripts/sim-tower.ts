@@ -35,7 +35,13 @@ import {
   mobPoolForFloor,
   pickMobFromPool,
 } from "../src/adventure/tower/floorPools";
-import { isBossFloor, scaledStats } from "../src/adventure/tower/scaling";
+import {
+  TOWER_ACC_BOSS_MULT,
+  TOWER_ACC_PER_FLOOR,
+  TOWER_ACC_START_FLOOR,
+  isBossFloor,
+  scaledStats,
+} from "../src/adventure/tower/scaling";
 
 const LEVEL = Number(process.env.LEVEL ?? 100);
 const TRIALS = Number(process.env.TRIALS ?? 60);
@@ -47,9 +53,39 @@ const POWER_MULTS = (process.env.POWER_MULTS ?? "1,1.25")
   .split(",")
   .map((s) => Number(s.trim()))
   .filter((n) => n > 0);
+const SIM_ACC_START_FLOOR = Number(
+  process.env.TOWER_ACC_START_FLOOR ?? TOWER_ACC_START_FLOOR,
+);
+const SIM_ACC_PER_FLOOR = Number(
+  process.env.TOWER_ACC_PER_FLOOR ?? TOWER_ACC_PER_FLOOR,
+);
+const SIM_ACC_BOSS_MULT = Number(
+  process.env.TOWER_ACC_BOSS_MULT ?? TOWER_ACC_BOSS_MULT,
+);
 
 const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
 type Archetype = "STR" | "DEX" | "SPD" | "BAL";
+type AccConfig = { start: number; per: number; bossMult: number };
+let activeAccConfig: AccConfig = {
+  start: SIM_ACC_START_FLOOR,
+  per: SIM_ACC_PER_FLOOR,
+  bossMult: SIM_ACC_BOSS_MULT,
+};
+
+function simTowerEnemyAccuracy(floor: number, isBoss: boolean): number {
+  if (floor <= activeAccConfig.start) return 0;
+  const base = (floor - activeAccConfig.start) * activeAccConfig.per;
+  return Math.round(base * (isBoss ? activeAccConfig.bossMult : 1));
+}
+
+function sampledFloors(maxFloor: number, floorStep: number): number[] {
+  const floors = new Set<number>();
+  for (let f = 1; f <= maxFloor; f += floorStep) floors.add(f);
+  for (let f = 1; f <= maxFloor; f += 1) {
+    if (isBossFloor(f)) floors.add(f);
+  }
+  return [...floors].sort((a, b) => a - b);
+}
 
 // ── 플레이어 빌드 ─────────────────────────────────────────────────────
 function allocate(arch: Archetype, level: number): Record<StatKey, number> {
@@ -158,7 +194,15 @@ function buildFloorEnemy(floor: number): Monster {
   if (slot) {
     const base = bossBaseMonster(slot);
     const s = scaledStats(base, floor, slot.bossMultiplier);
-    return { ...base, name: bossDisplayName(slot), hp: s.hp, atk: s.atk, def: s.def, spd: s.spd };
+    return {
+      ...base,
+      name: bossDisplayName(slot),
+      hp: s.hp,
+      atk: s.atk,
+      def: s.def,
+      spd: s.spd,
+      accuracy: simTowerEnemyAccuracy(floor, true),
+    };
   }
   const pool = mobPoolForFloor(floor);
   let baseName: string;
@@ -169,7 +213,14 @@ function buildFloorEnemy(floor: number): Monster {
   }
   const base = MONSTERS[baseName] ?? MONSTERS[pool[0]] ?? bossBaseMonster(BOSS_SLOTS[0]);
   const s = scaledStats(base, floor);
-  return { ...base, hp: s.hp, atk: s.atk, def: s.def, spd: s.spd };
+  return {
+    ...base,
+    hp: s.hp,
+    atk: s.atk,
+    def: s.def,
+    spd: s.spd,
+    accuracy: simTowerEnemyAccuracy(floor, false),
+  };
 }
 
 // ── 매치업 ─────────────────────────────────────────────────────────────
@@ -194,8 +245,64 @@ function winRate(combat: PlayerCombat, floor: number): number {
 }
 
 // ── 실행 ───────────────────────────────────────────────────────────────
+function bossWall(combat: PlayerCombat): number | null {
+  const minBossFloor = Number(process.env.SWEEP_MIN_BOSS_FLOOR ?? 90);
+  const firstBossFloor = Math.max(10, Math.ceil(minBossFloor / 10) * 10);
+  for (let f = firstBossFloor; f <= MAX_FLOOR; f += 10) {
+    if (winRate(combat, f) < 0.5) return f;
+  }
+  return null;
+}
+
+function fmtWalls(walls: (number | null)[]): string {
+  return walls.map((w) => w ?? ">").join("/");
+}
+
+if (process.env.SWEEP_ACC === "1") {
+  const starts = [85, 88, 90, 92, 95];
+  const pers = [1.5, 2.0, 2.5, 3.0];
+  const bossMults = [1.5, 2.0, 2.5];
+  const powers = POWER_MULTS.length > 0 ? POWER_MULTS : [1.25, 1.5, 1.75];
+
+  console.log(
+    `START | PER | BOSS_MULT | DEX wall | STR wall | BAL wall | SPD wall | verdict`,
+  );
+  for (const start of starts) {
+    for (const per of pers) {
+      for (const bossMult of bossMults) {
+        activeAccConfig = { start, per, bossMult };
+        const walls: Record<Archetype, (number | null)[]> = {
+          STR: [],
+          BAL: [],
+          DEX: [],
+          SPD: [],
+        };
+        for (const power of powers) {
+          for (const arch of ["STR", "BAL", "DEX", "SPD"] as Archetype[]) {
+            walls[arch].push(bossWall(makePlayer(arch, power).combat));
+          }
+        }
+        const aOk = start >= 90;
+        const bOk = powers.every((_, i) => {
+          const dex = walls.DEX[i] ?? MAX_FLOOR + 10;
+          const nonDex = [walls.STR[i], walls.BAL[i], walls.SPD[i]].map(
+            (w) => w ?? MAX_FLOOR + 10,
+          );
+          const bestNonDex = Math.max(...nonDex);
+          return dex >= bestNonDex && dex - bestNonDex <= 10;
+        });
+        console.log(
+          `${String(start).padStart(5)} | ${per.toFixed(1).padStart(3)} | ${bossMult.toFixed(1).padStart(9)} | ${fmtWalls(walls.DEX).padStart(8)} | ${fmtWalls(walls.STR).padStart(8)} | ${fmtWalls(walls.BAL).padStart(8)} | ${fmtWalls(walls.SPD).padStart(8)} | ${aOk ? "A ok" : "A fail"} / ${bOk ? "B ok" : "B fail"}`,
+        );
+      }
+    }
+  }
+  process.exit(0);
+}
+
 console.log(`\n고탑 스케일링 시뮬레이션 (floorPools + scaling 실 모듈 호출)`);
 console.log(`Lv${LEVEL} 풀스펙 (PT_MULT=${PT_MULT}, QUAL=${QUAL ? "ON" : "OFF"})  TRIALS=${TRIALS}  층 1..${MAX_FLOOR} step ${FLOOR_STEP}`);
+console.log(`ACC START=${SIM_ACC_START_FLOOR} PER=${SIM_ACC_PER_FLOOR} BOSS_MULT=${SIM_ACC_BOSS_MULT}`);
 console.log(`목표: ~80층에서 평균 WR 50% 부근 (Lv70 기준 — 그 위 레벨은 더 위로 밀려야 정상)`);
 
 type Threshold = { wr95?: number; wr50?: number; wr10?: number };
@@ -225,7 +332,7 @@ for (const power of POWER_MULTS) {
   const thr: Threshold = {};
   const strThr: Threshold = {};
   let prev: number | null = null;
-  for (let f = 1; f <= MAX_FLOOR; f += FLOOR_STEP) {
+  for (const f of sampledFloors(MAX_FLOOR, FLOOR_STEP)) {
     const wrs: Record<Archetype, number> = { STR: 0, BAL: 0, DEX: 0, SPD: 0 };
     for (const arch of ["STR", "BAL", "DEX", "SPD"] as Archetype[]) {
       wrs[arch] = winRate(players[arch].combat, f);
@@ -243,7 +350,7 @@ for (const power of POWER_MULTS) {
       `  ${String(f).padStart(3)}   ${(wrs.STR * 100).toFixed(0).padStart(4)}%  ${(wrs.BAL * 100).toFixed(0).padStart(4)}%  ${(wrs.DEX * 100).toFixed(0).padStart(4)}%  ${(wrs.SPD * 100).toFixed(0).padStart(4)}%  ${(avg * 100).toFixed(0).padStart(4)}%  ${mark} ${delta}`,
     );
     prev = avg;
-    if (avg < 0.02 && wrs.STR < 0.02) break;
+    if (process.env.NO_EARLY_BREAK !== "1" && avg < 0.02 && wrs.STR < 0.02) break;
   }
   console.log(
     `  요약 평균: WR<95% ${thr.wr95 ?? "—"}, WR<50% ${thr.wr50 ?? "—"}, WR<10% ${thr.wr10 ?? "—"}`,

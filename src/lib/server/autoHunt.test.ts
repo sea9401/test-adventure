@@ -7,9 +7,11 @@ import {
   assembleSimInput,
   decideClaim,
   decideWinner,
+  huntExpBoostMult,
   type ClaimSnapshot,
   type LoadedState,
 } from "./autoHunt";
+import { AUTO_HUNT_EFFICIENCY } from "@/adventure/battle/autoHunt";
 import type { OfflineSimResult } from "@/adventure/battle/offlineSim";
 
 const MIN_MS = 10_000;
@@ -196,5 +198,21 @@ describe("assembleSimInput — AP 스킬 plumbing", () => {
       playerName: "tester",
     });
     expect(input.player.equippedAPSkills ?? []).toEqual([]);
+  });
+
+  it("expLevelTrackingMult = efficiency × 부스트 (보너스 없으면 efficiency 만)", () => {
+    // makeState 는 파라곤·부여 없음 → huntExpBoostMult = 1 → expLevelTrackingMult = efficiency.
+    const state = makeState();
+    expect(huntExpBoostMult(state.character, state.paragon.allocations)).toBe(1);
+    const input = assembleSimInput({
+      state,
+      baselineHp: 100,
+      baselineRegionId: "plains",
+      awayMs: 60_000,
+      rng: () => 0.5,
+      autoPotionRules: [],
+      playerName: "tester",
+    });
+    expect(input.expLevelTrackingMult).toBeCloseTo(AUTO_HUNT_EFFICIENCY, 6);
   });
 });

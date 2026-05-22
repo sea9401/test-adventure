@@ -85,6 +85,13 @@ export type OfflineSimInput = {
    * 굳이 쓸 필요 없음.
    */
   runBudgetMs?: number;
+  /**
+   * 레벨 추적용 EXP 배수 — sim 내 runningLevel 이 *최종 저장 레벨*과 일치하도록, 각 킬의
+   * raw EXP 에 이 배수를 곱한 값으로 레벨업을 추적한다(밴드 배율·신참 경계 판정 정합).
+   * = efficiency × 파라곤 × 부여(autoHunt 후처리와 동일). result.expGained 는 raw 유지 —
+   * 영속 캐시 의미 불변. 미지정 시 1(기존 동작 — 클라/테스트 직접 호출).
+   */
+  expLevelTrackingMult?: number;
 };
 
 export type OfflineSimResult = {
@@ -128,6 +135,8 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
   const cappedByLimit = input.awayMs > OFFLINE_SIM_MAX_MS;
   const maxBattles = input.maxBattles ?? Infinity;
   const rng = input.rng ?? Math.random;
+  // 레벨 추적용 EXP 배수 — 후처리(efficiency×파라곤×부여)와 동일. 미지정 시 1(기존 동작).
+  const expLevelTrackingMult = input.expLevelTrackingMult ?? 1;
   // wall-clock 예산 — 시작 시각 + 마감 시각 캐시. 미지정 시 Infinity (기존 동작).
   const runDeadline =
     typeof input.runBudgetMs === "number" && input.runBudgetMs > 0
@@ -227,19 +236,20 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         const gained = Math.floor(
           expBonus.gained * XP_RATE_MULT * levelBandExpMultiplier(levelAtKill),
         );
+        // result.expGained 는 raw 누계 — 영속 캐시(lastClaimResult)의 의미를 보존한다
+        // (후처리 applyAutoHuntEfficiency × applyResultToSaves 가 동일하게 곱하던 그 입력).
         result.expGained += gained;
         if (expBonus.bonusApplied) result.expBonusApplied = true;
-        // [알려진 한계 — 레벨 추적] sim 의 runningLevel 은 raw EXP(여기 gained)로만 추적하나,
-        // 실제 저장 레벨은 이 결과에 efficiency(0.9) × 파라곤 × 부여 배수를 곱해 재계산한다
-        // (autoHunt applyAutoHuntEfficiency + applyResultToSaves). 그래서 sim 이 추적한 레벨과
-        // 최종 저장 레벨이 어긋날 수 있다(보상 총량 자체는 정합 — 손실/중복 없음). 밴드 폭이
-        // 20 레벨이라 한 사이클에 밴드 경계를 넘는 일은 드물지만, 레벨 30 신참 경계 부근에선
-        // 영향이 있을 수 있다(드리프트 크기는 보너스 조합에 따라 달라 "무시 가능"으로 단정 못 함).
-        // 정밀 보정안: result.expGained(영속 캐시 lastClaimResult 필드)는 raw 로 두고, 레벨
-        // 추적용 effective EXP(= gained × efficiency × 파라곤 × 부여)를 별도 변수로 굴리면
-        // 캐시 의미 변경 없이 보정 가능. 단 그 배수가 후처리(applyResultToSaves)와 항상
-        // 일치해야 해(공유 헬퍼 권장) 별도 작업으로 둔다.
-        const after = applyExpGain(runningLevel, runningExp, gained);
+        // 레벨 추적은 *effective* EXP(= gained × expLevelTrackingMult)로 굴린다. 최종 저장
+        // 레벨은 raw 에 efficiency(0.9)×파라곤×부여 를 곱해 재계산하므로(autoHunt), sim 의
+        // runningLevel 이 raw 로만 추적하면 둘이 어긋났다(밴드 배율·신참 경계 오판). 호출부
+        // (assembleSimInput)가 후처리와 *동일한 배수*를 expLevelTrackingMult 로 주입해 일치시킨다.
+        // result.expGained 는 여전히 raw — 캐시 의미 불변.
+        const levelGain =
+          expLevelTrackingMult === 1
+            ? gained
+            : Math.floor(gained * expLevelTrackingMult);
+        const after = applyExpGain(runningLevel, runningExp, levelGain);
         runningLevel = after.level;
         runningExp = after.exp;
         // 드롭 — onBattleEnd 와 동일 로직(LUK 멀티 + 신참 ×2 + cap 1.0).

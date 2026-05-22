@@ -17,6 +17,7 @@ import type {
 } from "@/adventure/battle/offlineSim";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import {
+  AUTO_HUNT_EFFICIENCY,
   AUTO_HUNT_MAX_BATTLES,
   AUTO_HUNT_SIM_BUDGET_MS,
 } from "@/adventure/battle/autoHunt";
@@ -188,6 +189,19 @@ function readCharEnchantBonusForHunt(
   return acc;
 }
 
+// 위탁 사냥 EXP 부스트 배수 — 파라곤 풍요(pctGoldExp) × 별빛 부여 bounty(EXP). 사냥 sim 은
+// raw EXP 를 적립하고, 이 배수는 결과 반영 시점(applyResultToSaves)에 곱한다. 단일 진실원 —
+// assembleSimInput 의 expLevelTrackingMult(= efficiency × 이 값)와 applyResultToSaves 의 실제
+// 부스트가 항상 일치해야 sim 레벨 추적과 최종 저장 레벨이 어긋나지 않는다. (efficiency 는 별도.)
+export function huntExpBoostMult(
+  character: SavedCharacter,
+  paragonAllocations: Parameters<typeof computeParagonBonus>[0],
+): number {
+  const paragonBonus = computeParagonBonus(paragonAllocations);
+  const enchant = readCharEnchantBonusForHunt(character);
+  return (1 + paragonBonus.pctGoldExp / 100) * (1 + enchant.bountyPct / 100);
+}
+
 // 서버측 raw → typed APSkillCondition 변환. 클라 parseAPSkillConditions 와 동일.
 function parseAPSkillConditionsSaved(
   raw: unknown,
@@ -336,6 +350,11 @@ export function assembleSimInput(opts: AssembleSimInputOpts): OfflineSimInput {
         potions,
       }),
     rng,
+    // sim 의 runningLevel 을 최종 저장 레벨과 일치시키기 위한 EXP 배수 —
+    // efficiency(applyAutoHuntEfficiency) × 부스트(applyResultToSaves) 와 동일 공식.
+    expLevelTrackingMult:
+      AUTO_HUNT_EFFICIENCY *
+      huntExpBoostMult(character, state.paragon.allocations),
   };
 }
 
@@ -447,10 +466,11 @@ export async function applyResultToSaves(
   const paragonBonus = computeParagonBonus(state.paragon.allocations);
   const paragonRewardMult = 1 + paragonBonus.pctGoldExp / 100;
   const enchantBonusForHunt = readCharEnchantBonusForHunt(character);
-  const enchantExpMult = 1 + enchantBonusForHunt.bountyPct / 100;
   const enchantGoldMult = 1 + enchantBonusForHunt.fortunePct / 100;
+  // EXP 부스트는 공유 헬퍼로 — assembleSimInput 의 expLevelTrackingMult 와 동일 공식이라야
+  // sim 레벨 추적과 최종 저장 레벨이 일치한다(단일 진실원).
   const boostedExpGained = Math.floor(
-    result.expGained * paragonRewardMult * enchantExpMult,
+    result.expGained * huntExpBoostMult(character, state.paragon.allocations),
   );
   const boostedGoldGained = Math.floor(
     result.goldGained * paragonRewardMult * enchantGoldMult,

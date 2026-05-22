@@ -83,6 +83,20 @@ describe("simulateOfflineHunt", () => {
     expect(r.simulatedMs).toBeLessThanOrEqual(30_000);
   });
 
+  it("expLevelTrackingMult 은 레벨 추적 전용 — result.expGained(영속 캐시)는 raw 불변", () => {
+    // L99(신참 없음·단일 밴드 90-100)에선 mult 가 레벨 추적에 영향을 줘도 expGained 는
+    // 동일해야 한다 — 캐시(lastClaimResult)에 박히는 값은 raw 라는 불변식.
+    const a = simulateOfflineHunt(
+      baseInput({ awayMs: 30_000, expLevelTrackingMult: 1 }),
+    );
+    const b = simulateOfflineHunt(
+      baseInput({ awayMs: 30_000, expLevelTrackingMult: 3 }),
+    );
+    expect(a.expGained).toBeGreaterThan(0);
+    expect(b.expGained).toBe(a.expGained);
+    expect(b.wins).toBe(a.wins);
+  });
+
   it("OFFLINE_SIM_MAX_MS(1시간)을 넘는 awayMs는 cap + cappedByLimit=true", () => {
     const r = simulateOfflineHunt(
       baseInput({ awayMs: OFFLINE_SIM_MAX_MS * 5 }),

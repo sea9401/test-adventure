@@ -45,7 +45,9 @@ executionDamageMult / executionHpFraction`. → 스탠스를 **`PlayerCombat` �
 |------|------|------|------|
 | **공세** | atk ×1.18, def ×0.9, evasionPct −5%p | 약한 잡몹 빠른 청소(처리량↑) | 강타격·한기 지역에서 잘 죽음 → 오토헌트 사망 페널티(20분) 위험 |
 | **수성** | def ×1.25, atk ×0.9 | 강한 보스·한기 DoT 생존이 관건 | 처치 느림 → 파밍 처리량↓ |
-| **처형** | executionDamageMult = max(기존, 1.3), executionHpFraction = max(기존, 0.33), atk ×0.95 | 고HP 단일 보스(긴 꼬리 HP를 녹임) | 잡몹 다수엔 무의미(처형창 전에 죽음) |
+| **처형** | executionDamageMult = max(기존, 1.6), executionHpFraction = max(기존, 0.45), atk 페널티 없음 | 고HP 단일 보스(긴 꼬리 HP를 녹임) | 잡몹 다수엔 무의미(처형창 전에 죽음) |
+
+> 2026-05-22 시뮬 튜닝: 초안 수치(1.3 / 0.33 / atk ×0.95)는 atk 페널티를 처형 보너스가 못 메워 모든 보스에서 무전술보다 나빴다. atk 페널티 제거 + 배수 1.6 + 발동 구간 45% 로 재조정해 niche(고HP 탱키 보스) 우위를 확보. 코드(`stance.ts`)가 현재 사양.
 
 - **처형 스탠스는 처형 스킬 미보유자에게도 기본 처형을 부여**한다(max 처리). 스킬 보유자는
   더 강해진다.

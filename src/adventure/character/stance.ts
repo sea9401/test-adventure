@@ -62,12 +62,16 @@ const STANCE_MOD: Record<
 > = {
   onslaught: { atkMult: 1.18, defMult: 0.9, evasionDelta: -5 },
   bulwark: { atkMult: 0.9, defMult: 1.25, evasionDelta: 0 },
+  // 2026-05-22 시뮬 튜닝: 초안(0.95/1.3/0.33)은 atk 페널티를 처형 보너스가 못 메워
+  // 모든 보스에서 무전술보다 나빴다(시뮬 보통 -5%·탱키 -12%). atk 페널티 제거 +
+  // 배수 1.3→1.6 + 발동 구간 33%→45% 로 "고HP 탱키 보스 녹이기" niche 확립
+  // (시뮬: 보통 +16%·탱키 +21%, 수성/공세를 압도하진 않음).
   execution: {
-    atkMult: 0.95,
+    atkMult: 1,
     defMult: 1,
     evasionDelta: 0,
-    executionDamageMultFloor: 1.3,
-    executionHpFractionFloor: 0.33,
+    executionDamageMultFloor: 1.6,
+    executionHpFractionFloor: 0.45,
   },
 };
 

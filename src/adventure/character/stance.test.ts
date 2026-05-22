@@ -41,20 +41,20 @@ describe("applyStance", () => {
     expect(r.evasionPct).toBe(10);
   });
 
-  it("처형: atk ×0.95 + 기본 처형 부여 (스킬 미보유자)", () => {
+  it("처형: atk 유지(페널티 없음) + 기본 처형 부여 (스킬 미보유자)", () => {
     const r = applyStance(basePlayer(), "execution");
-    expect(r.atk).toBe(95);
-    expect(r.executionDamageMult).toBe(1.3);
-    expect(r.executionHpFraction).toBe(0.33);
+    expect(r.atk).toBe(100); // atkMult 1.0 — 2026-05-22 튜닝으로 페널티 제거
+    expect(r.executionDamageMult).toBe(1.6);
+    expect(r.executionHpFraction).toBe(0.45);
   });
 
   it("처형: 기존 처형이 더 강하면 유지 (max 합성, 너프 없음)", () => {
     const r = applyStance(
-      basePlayer({ executionDamageMult: 1.8, executionHpFraction: 0.25 }),
+      basePlayer({ executionDamageMult: 1.8, executionHpFraction: 0.5 }),
       "execution",
     );
-    expect(r.executionDamageMult).toBe(1.8); // max(1.8, 1.3)
-    expect(r.executionHpFraction).toBe(0.33); // max(0.25, 0.33)
+    expect(r.executionDamageMult).toBe(1.8); // max(1.8, 1.6)
+    expect(r.executionHpFraction).toBe(0.5); // max(0.5, 0.45)
   });
 
   it("원본 객체를 변형하지 않는다 (순수)", () => {

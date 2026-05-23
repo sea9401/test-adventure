@@ -1,6 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
 import type { Monster } from "../data/monsters";
+
+// 크리 cap 75% 도입 후, 결정적 크리 발동을 위해 Math.random 을 0 으로 모킹(이전엔
+// critChancePct 100 으로 항상 발동했으나, 캡 도입으로 75% 확률 굴림이 필요해짐).
+beforeEach(() => {
+  vi.spyOn(Math, "random").mockReturnValue(0);
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // 기본: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠름 → 항상 선공.
 // 적 회피 0 / 추가공격 확률 0 → 결정적. damageBetween(10,3)=7, damageBetween(8,5)=3.
@@ -61,7 +70,7 @@ describe("특기 — 연참", () => {
   it("그 턴 크리티컬 나면 추가 공격 1회 (턴당 1회)", () => {
     const p: PlayerCombat = {
       ...PLAYER,
-      critChancePct: 100,
+      critChancePct: 75,
       critMult: 2,
       riposteExtra: 1,
     };
@@ -150,7 +159,7 @@ describe("2티어 특기 — 약점 적중", () => {
   it("크리 발동 시 DEF 30% 무시 추가타 1회 (턴당 1회)", () => {
     const p: PlayerCombat = {
       ...PLAYER,
-      critChancePct: 100,
+      critChancePct: 75,
       critMult: 2,
       weakpointExtraAttacks: 1,
     };
@@ -185,7 +194,7 @@ describe("2티어 특기 — 연쇄 운명", () => {
     const p: PlayerCombat = {
       ...PLAYER,
       attackCount: 2,
-      critChancePct: 100,
+      critChancePct: 75,
       critMult: 2,
       fatedChainActive: true,
     };
@@ -266,11 +275,11 @@ describe("2티어 특기 — 회전 운기", () => {
       ...PLAYER,
       critChancePct: 0,
       critMult: 2,
-      cyclingChiPerTurn: 100,
+      cyclingChiPerTurn: 75,
     };
     let s = initialBattleState(p, enemy(100), "용사");
-    s = advanceTurn(s, p, "용사"); // 1턴 본타: cyclingChiBonus = 0 + 100 = 100 → 크리 강제 → 14 → 86
+    s = advanceTurn(s, p, "용사"); // 1턴 본타: cyclingChiBonus = 0 + 75 = 75 → 크리 캡 도달 → 14 → 86
     expect(s.enemyHp).toBe(86);
-    expect(s.buffs.cyclingChiBonus).toBe(100);
+    expect(s.buffs.cyclingChiBonus).toBe(75);
   });
 });

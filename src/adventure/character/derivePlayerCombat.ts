@@ -9,6 +9,9 @@ import {
   type EnchantSlot,
 } from "@/adventure/character/enchant";
 import {
+  EVASION_PCT_CAP,
+  EVA_OVERFLOW_PIERCE_CAP,
+  EVA_OVERFLOW_PIERCE_PER_PCT,
   EXTRA_ATTACK_PCT_PER_SPD,
   STAT_KEYS,
   type StatKey,
@@ -300,19 +303,32 @@ export function derivePlayerCombat(
       levelBaseDef +
       paragonBonus.flatDef,
     spd: totalStats.spd,
-    evasionPct:
+    // 회피: DEX·스킬·부여 합산. EVASION_PCT_CAP(75%) 도달 후 초과분은 방어 무시로 자동 변환.
+    // 캡이 cliff 가 아니라 "전환점" — 캡 도달 후에도 DEX 투자 의미가 유지되어 빌드 다양성 보존.
+    evasionPct: Math.min(
+      EVASION_PCT_CAP,
       totalStats.dex * 0.5 +
-      evadeBonusPctFor(totalStats, effectiveSkillSet) +
-      enchant.dodgePct,
+        evadeBonusPctFor(totalStats, effectiveSkillSet) +
+        enchant.dodgePct,
+    ),
     attackCount: 1 + lightHandExtra,
     // SPD × 2% — 캡 없음. 100% 초과는 정수 부분만큼 확정 추가타 (rollPlayerAttackCount).
     extraAttackChancePct: totalStats.spd * EXTRA_ATTACK_PCT_PER_SPD,
     powerAttackBonus: powerAttackBonusFor(totalStats, effectiveSkillSet),
     crushDefReduction: crushDefReductionFor(totalStats, effectiveSkillSet),
-    armorPierceFraction: precisionArmorPierceFractionFor(
-      totalStats,
-      effectiveSkillSet,
-    ),
+    armorPierceFraction:
+      precisionArmorPierceFractionFor(totalStats, effectiveSkillSet) +
+      // 회피 오버플로 → 방어 무시 변환. 정확 스킬과 별개로 가산되며 자체 캡(EVA_OVERFLOW_PIERCE_CAP) 적용.
+      Math.min(
+        EVA_OVERFLOW_PIERCE_CAP,
+        Math.max(
+          0,
+          totalStats.dex * 0.5 +
+            evadeBonusPctFor(totalStats, effectiveSkillSet) +
+            enchant.dodgePct -
+            EVASION_PCT_CAP,
+        ) * EVA_OVERFLOW_PIERCE_PER_PCT,
+      ),
     guaranteedEvades: evadeGuaranteedFor(totalStats, effectiveSkillSet),
     counterAtkBonus: counterAtkBonusFor(totalStats, effectiveSkillSet),
     extraAttackEveryNTurns: doubleStrikeIntervalFor(

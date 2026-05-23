@@ -192,16 +192,18 @@ describe("6티어 — 무한 풍사슬", () => {
 
 describe("6티어 — 만물 행운", () => {
   it("크리티컬 확률 +N%", () => {
-    // critChancePct 0 + universalLuckBonusPct 100 = effectivePct 100 → 항상 크리.
-    // 데미지 = damageBetween(10,3)=7, ×2 = 14 (CRIT_MULT_BASE=2.0).
+    // critChancePct 0 + universalLuckBonusPct 75 = effectivePct 75(캡 도달).
+    // Math.random 0 mock 으로 결정적 발동(75% 굴림 통과). damageBetween(10,3)=7, ×2 = 14.
+    vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = {
       ...PLAYER,
       critChancePct: 0,
-      universalLuckBonusPct: 100,
+      universalLuckBonusPct: 75,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
     expect(s.enemyHp).toBe(86); // 100 - 14
+    vi.restoreAllMocks();
   });
 
   it("회피 확률 +N% (캡 75% 적용)", () => {
@@ -268,6 +270,41 @@ describe("몬스터 다대시 — bonusAttackChancePct", () => {
     expect(s.phase).toBe("player");
     expect(s.playerHp).toBe(9999); // 무피해
     expect(s.turn.enemyAttacksLeft).toBe(0); // 남은 공격도 강제 0
+    vi.restoreAllMocks();
+  });
+});
+
+// ── 크리 캡 + 오버플로 → 크리뎀 변환 (Phase 1 밸런스) ─────────────────
+describe("크리 cap 75% + 오버플로 → 크리뎀 변환", () => {
+  it("raw critPct > 75 일 때 초과분이 크리뎀에 가산되어 데미지 증가", () => {
+    // critChancePct 100 = raw 100. 캡 후 effective 75, 초과 25%p × 0.02 = +0.5× critMult.
+    // critMult: base 2.0 + 0.5 = 2.5. 강제 발동 → damageBetween(10,3)=7 × 2.5 = 17.5 → 17.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p: PlayerCombat = { ...PLAYER, critChancePct: 100 };
+    let s = initialBattleState(p, enemy(100), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.enemyHp).toBe(83); // 100 - 17 (오버플로 적용된 크리뎀)
+    vi.restoreAllMocks();
+  });
+
+  it("raw critPct ≤ 75 일 때 오버플로 0 (기존 동작 유지)", () => {
+    // critChancePct 75 = 캡 도달 직전. 오버플로 0. damageBetween(10,3)=7 × 2.0 = 14.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p: PlayerCombat = { ...PLAYER, critChancePct: 75 };
+    let s = initialBattleState(p, enemy(100), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.enemyHp).toBe(86); // 100 - 14 (overflow 0, 원래 크리뎀)
+    vi.restoreAllMocks();
+  });
+
+  it("오버플로 크리뎀 보너스에도 캡(CRIT_OVERFLOW_DMG_CAP=1.0) 적용 — 극단 초과도 +1× 까지만", () => {
+    // critChancePct 500 = raw 500. 초과 425%p × 0.02 = 8.5 이지만 캡 1.0 에서 멈춤.
+    // critMult: 2.0 + 1.0 = 3.0. damageBetween(10,3)=7 × 3 = 21.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p: PlayerCombat = { ...PLAYER, critChancePct: 500 };
+    let s = initialBattleState(p, enemy(100), "용사");
+    s = advanceTurn(s, p, "용사");
+    expect(s.enemyHp).toBe(79); // 100 - 21 (CRIT_OVERFLOW_DMG_CAP 도달)
     vi.restoreAllMocks();
   });
 });

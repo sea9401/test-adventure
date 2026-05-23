@@ -35,6 +35,11 @@ import {
   damageBetween,
   DEF_IGNORE_FRACTION,
 } from "./engine";
+import {
+  CRIT_OVERFLOW_DMG_CAP,
+  CRIT_OVERFLOW_DMG_PER_PCT,
+  CRIT_PCT_CAP,
+} from "../data/stats";
 import { type Potion, type PotionId } from "../data/potions";
 import {
   extractApEffect,
@@ -1275,12 +1280,18 @@ export function advanceTurnPvP(
         )
       : 0;
   const universalLuckBonus = attacker.player.universalLuckBonusPct ?? 0;
-  const effectiveCritPct =
+  // 크리 확률 CRIT_PCT_CAP 캡 + 초과분 → 크리뎀 변환 (PvE 와 대칭, engine.ts 동일 패턴).
+  const rawCritPct =
     baseCritPct +
     luckCritBonus +
     balanceCritBonus +
     universalLuckBonus +
     cyclingChiThisTurn;
+  const effectiveCritPct = Math.min(CRIT_PCT_CAP, rawCritPct);
+  const critOverflowDmgBonus = Math.min(
+    CRIT_OVERFLOW_DMG_CAP,
+    Math.max(0, rawCritPct - CRIT_PCT_CAP) * CRIT_OVERFLOW_DMG_PER_PCT,
+  );
   // 연쇄 운명 — 큐가 있으면 강제 크리. 큐는 이번 공격에 소비.
   const fatedChainConsumed = attacker.flags.fatedChainCritPending;
   // 집중의 호흡 (AP) — 큐가 있으면 이 공격 크리 강제 + 크리뎀 보너스. 1회 소비.
@@ -1331,7 +1342,9 @@ export function advanceTurnPvP(
     : baseDmg;
   // 집중의 호흡 (AP) — 그 1발 한정 critMult +pct% (가산 후 한 번에 곱).
   const critMult =
-    (attacker.player.critMult ?? CRIT_MULT_BASE) + focusedBreathCritDmgBonus;
+    (attacker.player.critMult ?? CRIT_MULT_BASE) +
+    focusedBreathCritDmgBonus +
+    critOverflowDmgBonus;
   const dmgAfterCrit = critRoll
     ? Math.floor(dmgAfterExecution * critMult)
     : dmgAfterExecution;

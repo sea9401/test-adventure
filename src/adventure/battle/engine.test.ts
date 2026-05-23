@@ -746,7 +746,7 @@ describe("만개 (critMult / critChance) 누적", () => {
     const lucky: PlayerCombat = {
       ...PLAYER,
       atk: 10,
-      critChancePct: 100,
+      critChancePct: 75,
       critMult: 3.0, // luk 비례 + 만개 보너스 가정
     };
     vi.spyOn(Math, "random").mockReturnValue(0.0);

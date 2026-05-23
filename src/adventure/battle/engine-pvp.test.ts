@@ -282,7 +282,7 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     // Math.random 0 으로 모든 확률 항상 발동.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 100, def: 0, critChancePct: 100, hp: 1000, maxHp: 1000, attackCount: 1, extraAttackChancePct: 0 }),
+      makePlayer({ spd: 15, atk: 100, def: 0, critChancePct: 75, hp: 1000, maxHp: 1000, attackCount: 1, extraAttackChancePct: 0 }),
       makePlayer({ spd: 5, atk: 1, def: 0, hp: 5000, maxHp: 5000 }),
       "P1",
       "P2",
@@ -334,7 +334,7 @@ describe("공격자 측 능력 — 대칭 적용", () => {
         def: 0,
         attackCount: 2,
         extraAttackChancePct: 0,
-        critChancePct: 100,
+        critChancePct: 75,
         fatedChainActive: true,
         hp: 1000,
         maxHp: 1000,

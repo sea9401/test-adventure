@@ -15,15 +15,24 @@ export const STAT_LABELS: Record<StatKey, string> = {
 export const EXTRA_ATTACK_PCT_PER_SPD = 2;
 
 // 회피 캡 — 100% 회피 무적 빌드 차단. 보장 회피 스킬(소모형 적립, 별도 path)은 캡 무관 100% 회피 유지.
+// 캡 초과분은 derive 시점에 방어 무시(armorPierce)로 자동 변환 — "더 찍을 이유" 보존.
 export const EVASION_PCT_CAP = 75;
+export const EVA_OVERFLOW_PIERCE_PER_PCT = 0.005; // 캡 초과 1%p → 방어 무시 +0.5%
+export const EVA_OVERFLOW_PIERCE_CAP = 0.2; // 오버플로 기여 최대 20% (정확 스킬과 별개 가산)
+
+// 크리티컬 확률 캡 — 회피와 대칭. 캡 초과분은 engine 시점에 크리 데미지로 자동 변환.
+// 빌드가 캡 도달 후에도 LUK 투자 의미를 유지(빌드 수렴 방지).
+export const CRIT_PCT_CAP = 75;
+export const CRIT_OVERFLOW_DMG_PER_PCT = 0.02; // 캡 초과 1%p → 크리뎀 +0.02×
+export const CRIT_OVERFLOW_DMG_CAP = 1.0; // 오버플로 크리뎀 기여 최대 +1.0×
 
 // 스탯 1pt 당 전투 수치 환산 — UI 도감 노출용 설명.
 export const STAT_CONVERSIONS: Record<StatKey, string> = {
   str: "1pt 당 공격력 +1",
-  dex: `1pt 당 회피 +0.5% (최대 ${EVASION_PCT_CAP}%) / 3pt 당 공격력 +1`,
-  vit: "1pt 당 방어력 +1 / 1pt 당 최대 HP +2 / 방어력 5 당 공격력 +1 (방어구 합산)",
+  dex: `1pt 당 회피 +0.5% (최대 ${EVASION_PCT_CAP}%, 초과분은 방어 무시로 전환) / 3pt 당 공격력 +1`,
+  vit: "1pt 당 방어력 +1 / 1pt 당 최대 HP +3 / 방어력 5 당 공격력 +1 (방어구 합산)",
   spd: `1pt 당 추가 공격 확률 +${EXTRA_ATTACK_PCT_PER_SPD}% (100% 초과 시 추가타 1회 확정) / 5pt 당 공격력 +1`,
-  luk: "1pt 당 드랍률 +1% / 1pt 당 크리티컬 확률 +0.5% / 1pt 당 크리티컬 데미지 +0.025배 / 3pt 당 공격력 +1",
+  luk: `1pt 당 드랍률 +1% / 1pt 당 크리티컬 확률 +0.5% (최대 ${CRIT_PCT_CAP}%, 초과분은 크리 데미지로 전환) / 1pt 당 크리티컬 데미지 +0.025배 / 3pt 당 공격력 +1`,
 };
 
 // 도감에서 스탯별 스킬 정보를 공개하는 임계값.

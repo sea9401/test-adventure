@@ -6,7 +6,12 @@ import {
   rollAttackCount,
   selectApSkillsToFire,
 } from "./combatShared";
-import { EVASION_PCT_CAP } from "../data/stats";
+import {
+  CRIT_OVERFLOW_DMG_CAP,
+  CRIT_OVERFLOW_DMG_PER_PCT,
+  CRIT_PCT_CAP,
+  EVASION_PCT_CAP,
+} from "../data/stats";
 import {
   BLEED_MAX_STACKS,
   VENOM_PCT_HP_PER_POINT,
@@ -1354,8 +1359,15 @@ export function advanceTurn(
         : 0;
     // 만물 행운 (6티어) — 크리티컬 확률 +N%.
     const universalLuckBonus = player.universalLuckBonusPct ?? 0;
-    const effectiveCritPct =
+    // 크리 확률은 CRIT_PCT_CAP(75%) 캡. 초과분은 크리 데미지로 자동 변환 — 캡 도달 후에도
+    // LUK 투자 의미를 유지(빌드 수렴 방지, 회피 오버플로와 대칭).
+    const rawCritPct =
       baseCritPct + luckCritBonus + balanceCritBonus + universalLuckBonus + cyclingChiThisTurn;
+    const effectiveCritPct = Math.min(CRIT_PCT_CAP, rawCritPct);
+    const critOverflowDmgBonus = Math.min(
+      CRIT_OVERFLOW_DMG_CAP,
+      Math.max(0, rawCritPct - CRIT_PCT_CAP) * CRIT_OVERFLOW_DMG_PER_PCT,
+    );
     // 연쇄 운명 (2티어 특기) — 큐가 있으면 이 공격 크리 강제. 큐는 아래에서 소비.
     const fatedChainConsumed = state.flags.fatedChainCritPending;
     // 집중의 호흡 (AP) — 큐가 있으면 이 공격 크리 강제 + 크리뎀 보너스. 1회 소비.
@@ -1415,8 +1427,11 @@ export function advanceTurn(
       ? Math.max(1, Math.floor(dmgAfterExecution * (1 + enchantExePct / 100)))
       : dmgAfterExecution;
     // 집중의 호흡 (AP) — 그 1발 한정 critMult 에 +pct% 추가 (가산 후 한 번에 곱).
+    // critOverflowDmgBonus — 크리 확률 캡 초과분이 변환된 크리뎀 보너스(stats.ts 참조).
     const critMult =
-      (player.critMult ?? CRIT_MULT_BASE) + focusedBreathCritDmgBonus;
+      (player.critMult ?? CRIT_MULT_BASE) +
+      focusedBreathCritDmgBonus +
+      critOverflowDmgBonus;
     const dmgAfterCrit = critRoll
       ? Math.floor(dmgAfterEnchantExe * critMult)
       : dmgAfterEnchantExe;

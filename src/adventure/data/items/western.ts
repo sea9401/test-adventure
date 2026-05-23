@@ -4,7 +4,7 @@ export const WESTERN_ITEMS = {
   // ── 서편 옛길 장비 (서편 옛길 / 옛 변경 성채 / 옛 성문지기) ─────────────────
   // 시작 마을 서쪽의 막다른 라인. 옛길 입문 2종(까마귀 깃) → 옛 변경 성채 잡몹산 3종
   // (녹슨 쇳조각·옛 군기 조각) → 업그레이드 3종 → 옛 성문지기 보스 보상(수비대 무구 4 + 성문지기의 핵).
-  // 수비대 무구는 마정석 라인과 운봉 라인 사이(atk +6 + 보조 +4) — 옛 변경 성채(Lv13) tier.
+  // 수비대 무구는 마정석 라인과 운봉 라인 사이(atk +6 + 보조 +4), 옛 변경 성채(Lv13) tier.
   crow_feather_cap: {
     name: "까마귀깃 두건",
     slot: "armor",
@@ -66,7 +66,7 @@ export const WESTERN_ITEMS = {
     rarity: "uncommon",
     tier: 2,
   } satisfies EquipItem,
-  // 업그레이드 결과 3종 — 베이스를 'equip' 재료로 소비 (recipes.ts).
+  // 업그레이드 결과 3종, 베이스를 'equip' 재료로 소비 (recipes.ts).
   roadbandit_falchion: {
     name: "노상강도의 활검",
     slot: "weapon",
@@ -105,7 +105,7 @@ export const WESTERN_ITEMS = {
     rarity: "uncommon",
     tier: 3,
   } satisfies EquipItem,
-  // 옛 성문지기 보스 보상 — 수비대 무구 4종(무기, atk +6 공통 + 보조 +4) + 성문지기의 핵(액세서리).
+  // 옛 성문지기 보스 보상, 수비대 무구 4종(무기, atk +6 공통 + 보조 +4) + 성문지기의 핵(액세서리).
   // recipe_one_of 로 무기 1종 확정 학습, 0.15 로 성문지기의 핵. 마정석 라인과 운봉 라인 사이 tier.
   garrison_blade: {
     name: "수비대 도검",
@@ -167,8 +167,8 @@ export const WESTERN_ITEMS = {
     rarity: "uncommon",
     tier: 3,
   } satisfies EquipItem,
-  // 유실된 명품 — 들까마귀 떼가 아주 드물게 떨군다. corvid_fortune_charm 은 녹슨 자동인형/옛
-  // 성문지기가 떨구는 새김서로 끌어올린 결과(결과도 unique) — "손에 맞춰진 보물".
+  // 유실된 명품, 들까마귀 떼가 아주 드물게 떨군다. corvid_fortune_charm 은 녹슨 자동인형/옛
+  // 성문지기가 떨구는 새김서로 끌어올린 결과(결과도 unique), "손에 맞춰진 보물".
   crows_hoard_charm: {
     name: "까마귀 둥지의 부적",
     slot: "accessory",

@@ -41,7 +41,7 @@ export function RioDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"카이 아저씨가 요즘 밤마다 호숫가만 봐요. 새벽에도. 엄마가 가서 한번 들어주랬는데 — 나 무서워. 형/누나가 세 번만 들러줘요. 진짜로!"}
+          text={"카이 아저씨가 요즘 밤마다 호숫가만 봐요. 새벽에도. 엄마가 가서 한번 들어주랬는데, 나 무서워. 형/누나가 세 번만 들러줘요. 진짜로!"}
           primaryAction={{
             label: "알았다고 한다",
             onClick: () => {
@@ -57,7 +57,7 @@ export function RioDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`아직 안 들러줬어요? 카이 아저씨, 호숫가에 있어요. 세 번이면 돼요. — 다녀온 횟수 ${listenKai.progress}/3`}
+          text={`아직 안 들러줬어요? 카이 아저씨, 호숫가에 있어요. 세 번이면 돼요. 다녀온 횟수 ${listenKai.progress}/3`}
         />
       );
     }
@@ -66,7 +66,7 @@ export function RioDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"세 번 다 들러줬다고요? 아저씨 표정이 좀 풀린 거 같았어요. 자, 약속한 거 — 형/누나한테 진짜로 줄게요."}
+          text={"세 번 다 들러줬다고요? 아저씨 표정이 좀 풀린 거 같았어요. 자, 약속한 거. 형/누나한테 진짜로 줄게요."}
           primaryAction={{
             label: "보상을 받는다",
             onClick: () => {

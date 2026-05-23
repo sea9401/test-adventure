@@ -19,11 +19,11 @@ export type QuestReward = {
   recipes?: string[];
   // 종류별 포션 최대 보유 수의 영구 보너스(+n).
   potionCapacityBonus?: number;
-  // 학습 전 AP 스킬북 — 보상 회수 시 인벤토리에 1권씩 들어간다.
+  // 학습 전 AP 스킬북, 보상 회수 시 인벤토리에 1권씩 들어간다.
   skillBooks?: SkillBookId[];
 };
 
-// 의뢰 목표 — 8 종류:
+// 의뢰 목표, 8 종류:
 // - "kill"             : 지정 몬스터를 N마리 처치. 진행도는 storage 의 progress 에 누적.
 // - "deliver"          : 지정 재료를 N개 모아 의뢰주(NPC)에게 직접 건넨다. 진행도는 별도
 //                        저장하지 않고, NPC 대화에서 인벤토리 잔량을 보고 즉시 판정·소비한다.
@@ -34,7 +34,7 @@ export type QuestReward = {
 //                        조건 충족 시점에 즉시 ready 로 전환. progress 는 0 또는 1.
 // - "equip_set"        : 지정 장비 N종을 동시에 장착. progress = 현재 동시 장착 중인 수.
 // - "kill_within_hp"   : 지정 몬스터를 처치 시점 HP 가 maxHp×minHpFraction 이상으로 N번 처치.
-//                        조건 미달 처치는 진행도 증가 없음 (보스 도전 의뢰 — 엄격한 처치).
+//                        조건 미달 처치는 진행도 증가 없음 (보스 도전 의뢰, 엄격한 처치).
 // - "no_potion_boss"   : 지정 몬스터를 그 전투에서 포션 0병 사용으로 N번 처치.
 export type QuestTarget =
   | { kind: "kill"; monsterName: string; count: number }
@@ -47,7 +47,7 @@ export type QuestTarget =
   | { kind: "kill_within_hp"; monsterName: string; minHpFraction: number; count: number }
   | { kind: "no_potion_boss"; monsterName: string; count: number };
 
-// 의뢰 목표가 요구하는 총량 — UI 와 useQuests 가 공용으로 쓴다.
+// 의뢰 목표가 요구하는 총량, UI 와 useQuests 가 공용으로 쓴다.
 // count 가 없는 kind 는 1 (talk/visit 기본), equip_item 도 1, equip_set 은 itemIds.length.
 export function questTargetTotal(t: QuestTarget): number {
   switch (t.kind) {
@@ -108,7 +108,7 @@ export type Quest = {
   // 설정 시 지정된 의뢰가 'completed' 상태일 때만 게시판/UI 에 노출.
   // 메인 라인을 끝낸 모험가에게만 풀리는 후속 반복 의뢰 등에 사용.
   requiresQuestCompleted?: string;
-  // 발견형 의뢰 — 인벤/플래그/특수 조건이 다이얼로그에서 게이트하는 케이스.
+  // 발견형 의뢰, 인벤/플래그/특수 조건이 다이얼로그에서 게이트하는 케이스.
   // 데이터로 게이트를 표현할 수 없어 NPC 뱃지("!") 가 스포일하지 않도록 통째로 제외.
   // 플레이어가 직접 NPC 와 대화해 발견해야 함.
   hidden?: boolean;

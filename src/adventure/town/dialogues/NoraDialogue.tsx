@@ -40,7 +40,7 @@ export function NoraDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"리오가 요즘 다 큰 척만 해요. 후드 손님 흉내 내면서요. 어린애가 어른 흉내 내는 게 마음 쓰여서요 — 세 번만 그 애 들러줘요. 차 한 잔 끓여 둘게요."}
+          text={"리오가 요즘 다 큰 척만 해요. 후드 손님 흉내 내면서요. 어린애가 어른 흉내 내는 게 마음 쓰여서요. 세 번만 그 애 들러줘요. 차 한 잔 끓여 둘게요."}
           primaryAction={{
             label: "들러 보겠다고 한다",
             onClick: () => {
@@ -56,7 +56,7 @@ export function NoraDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`리오는 보통 마을 어귀에 있어요. 어른 흉내 내려 들지 말고, 그냥 그 애 이야기를 들어 주세요. — 들른 횟수 ${listenRio.progress}/3`}
+          text={`리오는 보통 마을 어귀에 있어요. 어른 흉내 내려 들지 말고, 그냥 그 애 이야기를 들어 주세요. 들른 횟수 ${listenRio.progress}/3`}
         />
       );
     }
@@ -82,7 +82,7 @@ export function NoraDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"산하가 보낸 산정 약초, 잘 받았어요! …당신이 전령이었군요. 산기슭 향이 그대로네요 — 고마워요.\n차에 한 줌 우려뒀어요. 안개 짙은 밤엔 이게 제일이에요."}
+          text={"산하가 보낸 산정 약초, 잘 받았어요! …당신이 전령이었군요. 산기슭 향이 그대로네요. 고마워요.\n차에 한 줌 우려뒀어요. 안개 짙은 밤엔 이게 제일이에요."}
         />
       );
     }

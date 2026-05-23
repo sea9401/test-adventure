@@ -5,7 +5,7 @@ export type NpcId =
   | "village_blacksmith_bold"
   | "village_suzy"
   | "village_woodcutter_jimmy"
-  // 5막 「빈 옥좌의 시대」 — 별바다 노수호자 유성이 시작 마을로 직접 걸어왔다 (Ch 26 ~).
+  // 5막 「빈 옥좌의 시대」, 별바다 노수호자 유성이 시작 마을로 직접 걸어왔다 (Ch 26 ~).
   | "village_pilgrim_meteor"
   | "diola_elder"
   | "diola_fisher"
@@ -27,15 +27,15 @@ export type NpcId =
   | "skyreach_alchemist"
   | "skyreach_acolyte"
   | "skyreach_gatekeeper"
-  // 별바다 — 천공 라인 endgame 정거장.
+  // 별바다, 천공 라인 endgame 정거장.
   | "star_haven_elder"
-  // 소만 — 해안 지선의 작은 포구.
+  // 소만, 해안 지선의 작은 포구.
   | "saltmarsh_elder"
   | "saltmarsh_ferryman"
   | "saltmarsh_salter"
   | "saltmarsh_innkeeper"
   | "saltmarsh_kid"
-  // 마른나루 — 서편 옛길의 작은 역참 마을.
+  // 마른나루, 서편 옛길의 작은 역참 마을.
   | "dustford_keeper"
   | "dustford_scavenger"
   | "dustford_innkeeper"
@@ -106,7 +106,7 @@ export const NPCS: Npc[] = [
       "어이, 모험가 양반.\n오늘도 숲에서 나무 좀 패다 왔지. 별일 없는 게 제일이야, 안 그래?",
     portrait: "/images/npc/jimmy.webp",
   },
-  // 5막 — 별바다에서 시작 마을까지 직접 걸어온 노수호자. star_haven_elder 와 동일 인물,
+  // 5막, 별바다에서 시작 마을까지 직접 걸어온 노수호자. star_haven_elder 와 동일 인물,
   // 다른 인스턴스(NPC 시스템에 flag-gated 등장이 없어 dialogue 가 endgame_apex_defeated
   // 미보유 시 짧은 인사로 가드). portrait 공유.
   {
@@ -125,7 +125,7 @@ export const NPCS: Npc[] = [
     region: "diola",
     name: "촌장 마린",
     role: "elder",
-    description: "바닷바람에 그을린 노인. 호수의 모든 변화를 기억한다.",
+    description: "바닷바람에 그을린 노인. 호수가 달라지는 낌새를 누구보다 빨리 알아챈다.",
     greeting:
       "…어서 와요, 모험가.\n안개가 짙은 날엔 길을 잘 살펴야 해. 이 호수도 늘 같은 자리에 있는 건 아니거든.",
     portrait: "/images/npc/marin.webp",
@@ -289,7 +289,7 @@ export const NPCS: Npc[] = [
     description:
       "천공 성지를 수백 년 지켜온 노인. 화산의 위협을 누구보다 잘 알았다.",
     greeting:
-      "…드디어 왔구려. 화산의 심장이 잠든 걸 느꼈소.\n그것이 깨어 있는 한 이 성지는 닫혀 있었지. 잘 와줬소.",
+      "…드디어 왔구려. 화산의 심장이 잠든 걸 느꼈소.\n그놈이 깨어 있는 동안엔 이 성지도 닫혀 있었지. 잘 와줬소.",
     portrait: "/images/npc/haemoo.webp",
   },
   {
@@ -322,7 +322,7 @@ export const NPCS: Npc[] = [
     description:
       "성지 첨탑을 오르내리며 종을 치는 어린 수행자. 구름층 위를 자주 올려다본다.",
     greeting:
-      "…쉿. 종소리 끝나기 전엔 말하면 안 돼요.\n…됐다. 저기 첨탑 너머, 구름이 한 겹 더 있는 거 보여요? 해무 어른은 거기 얘기를 안 해요. 북쪽에서 온 순례자도요. 다들 뭔가 알면서 안 말하는 거예요. …당신은 알게 될 것 같아요. 왠지.",
+      "…쉿. 종소리 끝나기 전엔 말하면 안 돼요.\n…됐다. 저기 첨탑 너머, 구름이 한 겹 더 있는 거 보여요? 해무 어른은 거기 얘기를 안 해요. 북쪽에서 온 순례자도요. 다들 뭔가 알면서 숨기는 것 같아요. …모험가님은 알게 될 것 같아요. 왠지.",
     portrait: "/images/npc/unha.webp",
   },
   {
@@ -343,9 +343,9 @@ export const NPCS: Npc[] = [
     name: "노수호자 유성",
     role: "quest",
     description:
-      "별바다에 마지막으로 남은 옛 천공인의 후예. 회랑부터 옥좌의 길까지 모든 결을 외우고, 첨탑 위 별빛을 매일 지킨다.",
+      "별바다에 마지막으로 남은 옛 천공인의 후예. 회랑부터 옥좌의 길까지 오래된 길을 외우고, 첨탑 위 별빛을 매일 지킨다.",
     greeting:
-      "…별바다에 사람의 발소리가 닿은 게 얼마만인지.\n자네의 결을 보니 별의 첨탑은 지났고, 폐도의 문 앞까지도 닿았겠지. 그렇다면. 회랑에 흩어진 별빛부터 한 결씩 챙겨주게. 옛 회랑·옥좌의 길을 다시 잇기 위한 마지막 손길이 필요하네.",
+      "…별바다에 사람의 발소리가 닿은 게 얼마만인지.\n자네를 보니 별의 첨탑은 지났고, 폐도의 문 앞까지도 닿았겠지. 그렇다면 회랑에 흩어진 별빛부터 거두어 주게. 옛 회랑과 옥좌의 길을 다시 잇는 데 마지막 손길이 필요하네.",
     portrait: "/images/npc/yousung.webp",
   },
   // ── 소만 (해안 지선) ─────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ export const NPCS: Npc[] = [
     description:
       "소만 포구를 가장 오래 지켜본 노인. 갯바람에 그을린 얼굴로 늘 난바다 쪽을 본다.",
     greeting:
-      "낯선 발소리군. 디올라 쪽에서 갯벌을 건너왔나.\n…요즘 우리 포구가 영 시원찮네. 그물이 비어 오고, 한낮에도 물이 차. 노인들은. 그것이 다시 뒤척인다고들 해. 암초 너머, 안개 밑에서 잠든 것 말이야.\n소만이 자네를 알게 되거든, 그때 이야기를 더 하지. 우선 갈매와 보말부터 도와주게.",
+      "낯선 발소리군. 디올라 쪽에서 갯벌을 건너왔나.\n…요즘 우리 포구가 영 시원찮네. 그물이 비어 오고, 한낮에도 물이 차. 노인들은 암초 너머 안개 밑에 잠든 게 다시 뒤척인다고들 해.\n소만이 자네를 알게 되거든, 그때 이야기를 더 하지. 우선 갈매와 보말부터 도와주게.",
   },
   {
     id: "saltmarsh_ferryman",

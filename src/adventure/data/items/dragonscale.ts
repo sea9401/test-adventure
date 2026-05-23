@@ -2,7 +2,7 @@ import type { EquipItem } from "./types";
 
 export const DRAGONSCALE_ITEMS = {
   // ── 용비늘 라인 장비 (뼈무덤 황야 / 용비늘 묘지 / 뼈비늘 노룡) ─────────────
-  // 바람골 역참 남쪽의 막다른 라인. 서양 판타지 톤의 고룡 묘지 — 방어 중심 무구가 떨어진다.
+  // 바람골 역참 남쪽의 막다른 라인. 서양 판타지 톤의 고룡 묘지, 방어 중심 무구가 떨어진다.
   // 황야 입문 2종(뼈비늘 손방패·황야 행자 갑옷) → 묘지 잡몹산 3종(용골 카이트 방패·비늘 보호갑·
   // 뼈각인 투구) → 뼈비늘 노룡 보스 보상(용비늘 무구 3종 업그레이드 + 뼈왕의 대검 + 용지기의 망토).
   // 별·회랑 라인(Lv70~75)과 같은 tier 5 영역이지만 방어/활력 비중이 훨씬 높다.
@@ -31,7 +31,7 @@ export const DRAGONSCALE_ITEMS = {
     rarity: "uncommon",
     tier: 4,
   } satisfies EquipItem,
-  // 용비늘 묘지 잡몹산 3종 — Lv75 사냥터 드랍 제작서로 풀린다.
+  // 용비늘 묘지 잡몹산 3종, Lv75 사냥터 드랍 제작서로 풀린다.
   dragonbone_kite_shield: {
     name: "용골 카이트 방패",
     slot: "weapon",
@@ -69,7 +69,7 @@ export const DRAGONSCALE_ITEMS = {
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  // 뼈비늘 노룡 보스 보상 — 잡몹산 3종 업그레이드(영광 방패·흉갑·투구) + 뼈왕의 대검 + 용지기의 망토.
+  // 뼈비늘 노룡 보스 보상, 잡몹산 3종 업그레이드(영광 방패·흉갑·투구) + 뼈왕의 대검 + 용지기의 망토.
   // recipe_one_of 로 4종 중 1종 확정 학습, 0.15 로 망토 제작서. 별·회랑 라인 위, 에테르 아래.
   dragonscale_aegis: {
     name: "용비늘 영광 방패",

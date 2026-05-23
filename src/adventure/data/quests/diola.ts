@@ -3,7 +3,7 @@ import type { Quest } from "./types";
 export const DIOLA_QUESTS: Quest[] = [
   // 후드 손님이 폐허로 안내하기 전에 디올라 사람들의 신뢰를 얻어야 한다.
   // 세 의뢰는 마을·동굴·숲을 거쳐 디올라까지 이른 모험가가 그 동선을 다시
-  // 한 번 훑게 하는 가벼운 콜백 — 자료 채집형(deliver)으로 진행.
+  // 한 번 훑게 하는 가벼운 콜백, 자료 채집형(deliver)으로 진행.
   {
     id: "diola-rio-nails",
     regionId: "diola",
@@ -46,7 +46,7 @@ export const DIOLA_QUESTS: Quest[] = [
     // 다이얼로그 게이트: storyFlags.has(STRANGER_FLAG_TRIAL_STARTED) → hidden.
     hidden: true,
   },
-  // 마린 — 트라이얼 통과 후 폐허가 열리고 나서야 진행 가능 (영혼 결정은 망령 드롭).
+  // 마린, 트라이얼 통과 후 폐허가 열리고 나서야 진행 가능 (영혼 결정은 망령 드롭).
   // 완료 시 '디올라의 친구' 칭호를 부여하는 라인의 클로저.
   {
     id: "diola-marin-soul-crystals",
@@ -62,7 +62,7 @@ export const DIOLA_QUESTS: Quest[] = [
     // 다이얼로그 게이트: storyFlags.has(STRANGER_FLAG_RUINS_GUIDE) → hidden.
     hidden: true,
   },
-  // 마린 ↔ 백운 — 산정 교역로 개통(§7.2). 운향 백운 라인의 mountain_trade_open flag 가
+  // 마린 ↔ 백운, 산정 교역로 개통(§7.2). 운향 백운 라인의 mountain_trade_open flag 가
   // 켜진 뒤 MarinDialogue 에서 노출. 완료 시 diola_unhyang_trade_done flag → 양 마을 갱신.
   {
     id: "diola-marin-mountain-trade",
@@ -76,11 +76,11 @@ export const DIOLA_QUESTS: Quest[] = [
     repeatable: false,
     giverNpcId: "diola_elder",
     requiresQuestCompleted: "unhyang-baekun-highland-goats",
-    // 다이얼로그 게이트: storyFlags.has("mountain_trade_open") — goats + cliff-wolves
+    // 다이얼로그 게이트: storyFlags.has("mountain_trade_open"), goats + cliff-wolves
     // 둘 다 완료해야 켜지는데 prereq 는 goats 만 검사하므로 false positive 방지 위해 hidden.
     hidden: true,
   },
-  // ── 디올라 길드 게시판 — 반복 의뢰 ────────────────────────────────────
+  // ── 디올라 길드 게시판, 반복 의뢰 ────────────────────────────────────
   // 호수·폐허 두 인접 지역의 적을 디올라 거점에서 처리. 폐허 적 3종은 트라이얼
   // 통과 후에야 실제로 잡을 수 있어, 길드판 노출이 트라이얼 동기 강화에도 기여.
   {
@@ -127,10 +127,10 @@ export const DIOLA_QUESTS: Quest[] = [
     reward: { gold: 280, fame: 14, exp: 380 },
     repeatable: true,
   },
-  // ── 디올라 — 새 quest kind 의뢰 5종 ─────────────────────────────────────
+  // ── 디올라, 새 quest kind 의뢰 5종 ─────────────────────────────────────
   // 트라이얼 통과 후 라인을 한 번씩 마친 NPC 들이 각자 결에 맞춰 한 단계 더 내준다.
   {
-    // talk_to_npc — 리오의 라인 마무리. 어부 카이를 세 번 들러줘라.
+    // talk_to_npc, 리오의 라인 마무리. 어부 카이를 세 번 들러줘라.
     id: "diola-rio-listen-kai",
     regionId: "diola",
     title: "리오의 청: 카이 아저씨한테 가 줘",
@@ -144,7 +144,7 @@ export const DIOLA_QUESTS: Quest[] = [
     requiresQuestCompleted: "diola-rio-nails",
   },
   {
-    // talk_to_npc — 노라의 라인 마무리. 리오를 세 번 들러줘라.
+    // talk_to_npc, 노라의 라인 마무리. 리오를 세 번 들러줘라.
     id: "diola-nora-listen-rio",
     regionId: "diola",
     title: "노라의 청: 리오 들어주기",
@@ -158,7 +158,7 @@ export const DIOLA_QUESTS: Quest[] = [
     requiresQuestCompleted: "diola-nora-bat-eyes",
   },
   {
-    // equip_item — 보로의 라인 마무리. 산적 단검 한 번이라도 차고 와라.
+    // equip_item, 보로의 라인 마무리. 산적 단검 한 번이라도 차고 와라.
     id: "diola-boro-bandit-dagger-bear",
     regionId: "diola",
     title: "보로의 청: 손에 자루를",
@@ -172,7 +172,7 @@ export const DIOLA_QUESTS: Quest[] = [
     requiresQuestCompleted: "diola-boro-spider-silk",
   },
   {
-    // kill_within_hp — 카이가 마지막에 내주는 일상 도전. 호수 님프를 흠 없이 다섯.
+    // kill_within_hp, 카이가 마지막에 내주는 일상 도전. 호수 님프를 흠 없이 다섯.
     // 카이의 결("그 노랫소리에 만져지기 전에 끝내야 해")을 그대로 잇는다.
     id: "diola-kai-pristine-nymphs",
     regionId: "diola",
@@ -195,7 +195,7 @@ export const DIOLA_QUESTS: Quest[] = [
     hidden: true,
   },
   {
-    // equip_set — 마린의 라인 마무리. 자네가 처음 손에 든 것 한 복으로 차고 와라.
+    // equip_set, 마린의 라인 마무리. 자네가 처음 손에 든 것 한 복으로 차고 와라.
     // 시작 장비 3 종(branch_stick·cloth_clothes·mom_amulet)을 동시에 장착하면 진행.
     id: "diola-marin-first-gear-set",
     regionId: "diola",

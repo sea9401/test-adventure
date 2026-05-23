@@ -31,7 +31,7 @@ export function MireuDialogue({ npc, onClose, quests, completeQuest, storyFlags 
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"다섯 번 다 다녀왔어요? …그럼 이제 다 말해 줘요. 안개도, 사이렌 노래도, 가시 산호도. 약속한 거 — 갯벌에서 주운 거예요."}
+          text={"다섯 번 다 다녀왔어요? …그럼 이제 다 말해 줘요. 안개도, 사이렌 노래도, 가시 산호도. 약속한 거예요. 갯벌에서 주운 거예요."}
           primaryAction={{
             label: "이야기해 준다",
             onClick: () => {
@@ -46,7 +46,7 @@ export function MireuDialogue({ npc, onClose, quests, completeQuest, storyFlags 
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`산호초 섬, 또 다녀왔어요? 한 번씩 갔다 와서 다 말해 줘요 — 안개도, 사이렌 노래도. 다녀온 횟수 ${tour.progress}/${REEF_TOUR_NEED}`}
+          text={`산호초 섬, 또 다녀왔어요? 한 번씩 갔다 와서 다 말해 줘요. 안개도, 사이렌 노래도. 다녀온 횟수 ${tour.progress}/${REEF_TOUR_NEED}`}
         />
       );
     }
@@ -55,7 +55,7 @@ export function MireuDialogue({ npc, onClose, quests, completeQuest, storyFlags 
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"해랑 아저씨는 안 데려가 줘요. 아저씨가 다섯 번만 더 갔다 와서, 산호초 섬이 어떻게 생겼는지 다 말해 줘요 — 안개도, 사이렌 노래도, 가시 산호도. 약속해요?"}
+          text={"해랑 아저씨는 안 데려가 줘요. 아저씨가 다섯 번만 더 갔다 와서, 산호초 섬이 어떻게 생겼는지 다 말해 줘요. 안개도, 사이렌 노래도, 가시 산호도. 약속해요?"}
           primaryAction={{
             label: "약속한다",
             onClick: () => {
@@ -74,7 +74,7 @@ export function MireuDialogue({ npc, onClose, quests, completeQuest, storyFlags 
         npc={npc}
         onClose={onClose}
         text={
-          "이제 갯벌이 안 출렁여요! 한낮에도요. 진짜로 가라앉았나 봐요.\n…저 조개껍데기들 중에 제일 큰 거, 아저씨한테 줄게요. 암초 밑에서 주웠대요 — 해랑 아저씨가."
+          "이제 갯벌이 안 출렁여요! 한낮에도요. 진짜로 가라앉았나 봐요.\n…저 조개껍데기들 중에 제일 큰 거, 아저씨한테 줄게요. 암초 밑에서 주웠대요. 해랑 아저씨가."
         }
       />
     );
@@ -85,7 +85,7 @@ export function MireuDialogue({ npc, onClose, quests, completeQuest, storyFlags 
         npc={npc}
         onClose={onClose}
         text={
-          "해랑 아저씨 배 타고 암초 너머 갔었죠? …거기, 노랫소리 들렸어요? 사이렌 거요.\n어른들은 갯벌이 출렁이는 건 물때 때문이래요. 근데 물때는 달이 정하는 거잖아요. 한낮인데 출렁이면 — 그건 밑에 있는 게 숨 쉬는 거예요. 난 알아요."
+          "해랑 아저씨 배 타고 암초 너머 갔었죠? …거기, 노랫소리 들렸어요? 사이렌 거요.\n어른들은 갯벌이 출렁이는 건 물때 때문이래요. 근데 물때는 달이 정하는 거잖아요. 한낮인데 출렁이면, 그건 밑에 있는 게 숨 쉬는 거예요. 난 알아요."
         }
       />
     );

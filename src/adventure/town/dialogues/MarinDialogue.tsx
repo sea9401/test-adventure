@@ -45,7 +45,7 @@ export function MarinDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"산정 길이 다시 안전해졌다고 — 백운이 전하더라고? …그렇다면 거래를 트지.\n우리 쪽 길목도 정리가 필요하오. 폐허 어귀 늑대 서른 마리만 솎아 주시오. 그러면 디올라와 운향 사이로 짐수레가 다시 오갈 게요."}
+          text={"산정 길이 다시 안전해졌다고. 백운이 전하더라고? …그렇다면 거래를 트지.\n우리 쪽 길목도 정리가 필요하오. 폐허 어귀 늑대 서른 마리만 솎아 주시오. 그러면 디올라와 운향 사이로 짐수레가 다시 오갈 게요."}
           primaryAction={{
             label: "받아들인다",
             onClick: () => {
@@ -61,7 +61,7 @@ export function MarinDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`폐허 어귀 늑대들은 좀 정리됐소? 그 길목이 트여야 짐수레가 산을 오르오. — 진행 ${mtq.progress}/${MT_NEED}`}
+          text={`폐허 어귀 늑대들은 좀 정리됐소? 그 길목이 트여야 짐수레가 산을 오르오. 진행 ${mtq.progress}/${MT_NEED}`}
         />
       );
     }
@@ -70,7 +70,7 @@ export function MarinDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"길목이 트였구려. 이제 디올라와 운향 사이로 짐수레가 오갈 게요 — 백운에게도 그리 전해 주시오.\n자, 약속한 사례요."}
+          text={"길목이 트였구려. 이제 디올라와 운향 사이로 짐수레가 오갈 게요. 백운에게도 그리 전해 주시오.\n자, 약속한 사례요."}
           primaryAction={{
             label: "보상을 받는다",
             onClick: () => {
@@ -98,7 +98,7 @@ export function MarinDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"…자네 어머니의 부적, 두 푼 돈에 넘긴 손이라 들었네.\n그 손으로는 우리 마을 사람들 앞에 처음의 모습을 보일 수 없어. — 첫 모험가의 의장 얘기는, 다른 사람을 찾으시오."}
+          text={"…자네 어머니의 부적, 두 푼 돈에 넘긴 손이라 들었네.\n그 손으로는 우리 마을 사람들 앞에 처음의 모습을 보일 수 없어. 첫 모험가의 의장 얘기는, 다른 사람을 찾으시오."}
         />
       );
     }
@@ -107,7 +107,7 @@ export function MarinDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"자네가 처음 손에 든 것 — 나뭇가지·천 옷·어머니의 부적. 한 번이라도 다시 한 복으로 차고 와 보게. 우리 마을 사람들도 한 번 봐야 해 — 자네가 어디서 시작했는지를."}
+          text={"자네가 처음 손에 든 것. 나뭇가지·천 옷·어머니의 부적. 한 번이라도 다시 한 복으로 차고 와 보게. 우리 마을 사람들도 한 번 봐야 해. 자네가 어디서 시작했는지를."}
           primaryAction={{
             label: "그러겠다고 한다",
             onClick: () => {
@@ -123,7 +123,7 @@ export function MarinDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"세 가지 — 다 한 복으로. 인벤토리에 두지 말고 몸에. 잠깐이라도 좋아."}
+          text={"세 가지. 다 한 복으로. 인벤토리에 두지 말고 몸에. 잠깐이라도 좋아."}
         />
       );
     }

@@ -94,7 +94,7 @@ export function KaiDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"다섯 다 — 노랫소리에 만져지지 않고. 새벽 그물이 한결 가벼워졌어요. 자, 약속한 사례요."}
+          text={"다섯 다. 노랫소리에 만져지지 않고. 새벽 그물이 한결 가벼워졌어요. 자, 약속한 사례요."}
           primaryAction={{
             label: "보상을 받는다",
             onClick: () => {
@@ -109,7 +109,7 @@ export function KaiDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`그 노랫소리에 만져지기 전에 끝내야 해요. 한 마리라도 들리면 다음 한 마리는 손이 떨립니다. — 흠 없이 잡은 수 ${e.progress}/${PRISTINE_NEED}`}
+          text={`그 노랫소리에 만져지기 전에 끝내야 해요. 한 마리라도 들리면 다음 한 마리는 손이 떨립니다. 흠 없이 잡은 수 ${e.progress}/${PRISTINE_NEED}`}
         />
       );
     }
@@ -118,7 +118,7 @@ export function KaiDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={"그 노랫소리에 만져지기 전에 끝내야 해요. 호수 님프 다섯을 — HP 70% 이상으로 — 흠 없이 잡고 오세요. 그래야 새벽 그물을 다시 걷을 수 있을 거예요."}
+          text={"그 노랫소리에 만져지기 전에 끝내야 해요. 호수 님프 다섯을. HP 70% 이상으로. 흠 없이 잡고 오세요. 그래야 새벽 그물을 다시 걷을 수 있을 거예요."}
           primaryAction={{
             label: "맡겠다고 한다",
             onClick: () => {
@@ -138,7 +138,7 @@ export function KaiDialogue({
             npc={npc}
             onClose={onClose}
             text={
-              "노랫소리에 만져지지 않고 다섯을 잡으셨죠. 그 결을 한 권으로 옮겨 드릴게요.\n요정 가루 열 점만 모아 오세요 — 호수 님프가 가끔 떨궈요. 그걸로 잔상의 결을 자네 검에 옮겨 드릴게요."
+              "노랫소리에 만져지지 않고 다섯을 잡으셨죠. 그 결을 한 권으로 옮겨 드릴게요.\n요정 가루 열 점만 모아 오세요. 호수 님프가 가끔 떨궈요. 그걸로 잔상의 결을 자네 검에 옮겨 드릴게요."
             }
             primaryAction={{
               label: "받아들인다",
@@ -158,7 +158,7 @@ export function KaiDialogue({
               npc={npc}
               onClose={onClose}
               text={
-                "열 점 — 새벽 안개가 잡힌 결이네요. 잔상의 결을 옮겨 드릴게요. 받으세요."
+                "열 점. 새벽 안개가 잡힌 결이네요. 잔상의 결을 옮겨 드릴게요. 받으세요."
               }
               primaryAction={{
                 label: "건네준다",
@@ -181,7 +181,7 @@ export function KaiDialogue({
           <NpcDialogue
             npc={npc}
             onClose={onClose}
-            text={`요정 가루는 호수 님프가 가끔 떨궈요. — 진행 ${have}/${AFTERIMAGE_NEED}`}
+            text={`요정 가루는 호수 님프가 가끔 떨궈요. 진행 ${have}/${AFTERIMAGE_NEED}`}
           />
         );
       }

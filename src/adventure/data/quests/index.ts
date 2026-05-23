@@ -20,7 +20,7 @@ export const QUESTS: Quest[] = [
   ...STARLIT_QUESTS,
 ];
 
-// 길드 게시판 노출용 — NPC 전속 퀘스트는 제외, kill 형만 노출.
+// 길드 게시판 노출용, NPC 전속 퀘스트는 제외, kill 형만 노출.
 // (deliver 형은 NPC 대화에서만 진행되므로 길드 게시판에 보이지 않는다.)
 export function getQuestsForRegion(regionId: RegionId): KillQuest[] {
   return QUESTS.filter(

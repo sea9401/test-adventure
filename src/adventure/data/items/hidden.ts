@@ -1,7 +1,7 @@
 import type { EquipItem } from "./types";
 
 export const HIDDEN_ITEMS = {
-  // ── 히든 퀘스트 보상 (§11) — 정식 곡선 위 한 칸, 의뢰로만 입수 ─────────────
+  // ── 히든 퀘스트 보상 (§11), 정식 곡선 위 한 칸, 의뢰로만 입수 ─────────────
   // 월광검: 볼드 ↔ 만월 옛 합작 무기를 마저 완성한 것(hidden-blacksmith-duel). 운봉 무기 한 칸 위.
   moonlight_blade: {
     name: "월광검",
@@ -13,7 +13,7 @@ export const HIDDEN_ITEMS = {
     ],
     bonus: { atk: 9, str: 4, spd: 3 },
     description:
-      "두 대장장이가 절반씩 벼려 마침내 한 자루로 합친 검. 달빛 같은 푸른 결이 칼날을 따라 흐른다.",
+      "두 대장장이가 절반씩 벼려 마침내 한 자루로 합친 검. 달빛 같은 푸른 빛이 칼날을 따라 흐른다.",
     rarity: "rare",
     tradable: false,
     tier: 4,
@@ -36,9 +36,9 @@ export const HIDDEN_ITEMS = {
 
   // ── 유실된 명품 ───────────────────────────────────────────────────────────
   // 일부 잡몹이 아주 드물게(≈0.01~0.02%) 떨구는 unique 등급 장비. 그 구간에서 제작·일반 드랍으로는
-  // 못 얻는 한두 티어 위의 "한 자루" — 운빨로 점프하는 손맛 전용이라 곡선 위로 살짝만 비집고 들어간다
+  // 못 얻는 한두 티어 위의 "한 자루", 운빨로 점프하는 손맛 전용이라 곡선 위로 살짝만 비집고 들어간다
   // (보조 스탯 합으로 보면 같은 구간 정식 장비가 대개 더 낫다). 드랍/원정 결과에 강조 배너가 뜨고,
-  // 드랍 품질 롤도 그대로 적용된다 — 정교한/빼어난까지 겹치면 더블 잭팟. 1번(두더지왕의 드릴)은 위 참고.
+  // 드랍 품질 롤도 그대로 적용된다, 정교한/빼어난까지 겹치면 더블 잭팟. 1번(두더지왕의 드릴)은 위 참고.
   bat_swarm_charm: {
     name: "박쥐떼의 길잡이",
     slot: "accessory",
@@ -59,7 +59,7 @@ export const HIDDEN_ITEMS = {
       { label: "행운", value: "+7" },
     ],
     bonus: { def: 4, luk: 7 },
-    description: "거미가 제 몸보다 큰 비단 뭉치를 끌어안고 있었다. 풀어 두르면 결이 비단보다 곱고, 묘하게 운이 따라붙는다. 진짜 여왕이 짠 건지는 아무도 모른다.",
+    description: "거미가 제 몸보다 큰 비단 뭉치를 끌어안고 있었다. 풀어 두르면 비단보다 곱고, 묘하게 운이 따라붙는다. 진짜 여왕이 짠 건지는 아무도 모른다.",
     rarity: "unique",
     tier: 2,
   } satisfies EquipItem,
@@ -90,7 +90,7 @@ export const HIDDEN_ITEMS = {
     tradable: false,
     tier: 5,
   } satisfies EquipItem,
-  // ── 천공 라인 legendary 4종 — 신규 지역(starspire/skyfolk_ruins/apex_throne) 몹에서 ──
+  // ── 천공 라인 legendary 4종, 신규 지역(starspire/skyfolk_ruins/apex_throne) 몹에서 ──
   // ──   ultra-rare(0.00015~0.0002) 로 떨어지는 specialized lore drop. craftable 라인엔  ──
   // ──   없는 stat 결합으로 빌드 다양성 부여.                                            ──
   starlight_bow: {
@@ -101,7 +101,7 @@ export const HIDDEN_ITEMS = {
       { label: "민첩", value: "+15" },
     ],
     bonus: { atk: 24, dex: 15 },
-    description: "별의 첨탑 정찰자들이 한 자루씩 들고 있었다 전해지는 가느다란 활. 시위를 당기면 별빛이 시위 결을 따라 흐른다.",
+    description: "별의 첨탑 정찰자들이 한 자루씩 들고 있었다 전해지는 가느다란 활. 시위를 당기면 별빛이 줄을 타고 흐른다.",
     rarity: "legendary",
     tier: 5,
   } satisfies EquipItem,
@@ -114,7 +114,7 @@ export const HIDDEN_ITEMS = {
       { label: "속도", value: "+6" },
     ],
     bonus: { atk: 27, str: 12, spd: 6 },
-    description: "옛 천공인 전사가 폐도 끝에서 부러뜨리지 못한 채 남긴 가벼우면서 잔인하게 무거운 칼. 휘둘러야 할 결을 손이 먼저 안다.",
+    description: "옛 천공인 전사가 폐도 끝에서 부러뜨리지 못한 채 남긴 칼. 가벼워 보이지만 손에 들면 잔인하게 무겁다.",
     rarity: "legendary",
     tier: 5,
   } satisfies EquipItem,
@@ -140,12 +140,12 @@ export const HIDDEN_ITEMS = {
       { label: "속도", value: "+6" },
     ],
     bonus: { luk: 15, dex: 6, spd: 6 },
-    description: "별빛 사도들이 마지막까지 품에 두고 있었다는 작은 부적. 손에 쥐면 어느 결로 떨어진 별의 자리가 어렴풋이 보인다.",
+    description: "별빛 사도들이 마지막까지 품에 두고 있었다는 작은 부적. 손에 쥐면 떨어진 별의 자리가 어렴풋이 보인다.",
     rarity: "legendary",
     tier: 5,
   } satisfies EquipItem,
 
-  // ── 천공 라인 빌드 정의 unique 18종 (Lv70~90) — 골렘갑주 패턴의 한쪽 몰빵 + 디버프 ─
+  // ── 천공 라인 빌드 정의 unique 18종 (Lv70~90), 골렘갑주 패턴의 한쪽 몰빵 + 디버프 ─
   // 각 라인 잡몹에서 0.04% 로 떨어지는 specialized drop. craftable 곡선 위로 raw stat
   // 살짝 비집고 들어가지만 디버프 2~3종을 동시에 받아 특정 빌드(SPD/DEX/LUK/순수ATK/
   // 순수DEF) 에서만 손맛이 사는 한 자루.
@@ -173,7 +173,7 @@ export const HIDDEN_ITEMS = {
       { label: "방어력", value: "-3" },
     ],
     bonus: { luk: 17, dex: 4, vit: -5, def: -3 },
-    description: "운명 직조자가 끝까지 풀지 못한 별빛 실타래. 손에 쥐면 운이 가닥을 따라 따라붙고, 어깨가 텅 빈다.",
+    description: "운명 직조자가 끝까지 풀지 못한 별빛 실타래. 손에 쥐면 운이 실가닥처럼 따라붙고, 어깨가 텅 빈다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -201,7 +201,7 @@ export const HIDDEN_ITEMS = {
       { label: "방어력", value: "-4" },
     ],
     bonus: { atk: 16, dex: 15, vit: -7, def: -4 },
-    description: "떠도는 시녀가 별빛 결을 한 가닥 더 매어 둔 활. 시위에 닿으면 어깨 위 무게가 사라진다.",
+    description: "떠도는 시녀가 별빛 실을 한 가닥 더 매어 둔 활. 시위에 닿으면 어깨 위 무게가 사라진다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -328,7 +328,7 @@ export const HIDDEN_ITEMS = {
       { label: "행운", value: "-2" },
     ],
     bonus: { atk: 30, def: -6, spd: -4, luk: -2 },
-    description: "황성 호위병이 마지막까지 휘두른 옛 결의 칼. 무게가 손에 그대로 얹히는 만큼 발이 묶인다.",
+    description: "황성 호위병이 마지막까지 휘두른 옛 칼. 무게가 손에 그대로 얹히는 만큼 발이 묶인다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -398,7 +398,7 @@ export const HIDDEN_ITEMS = {
       { label: "방어력", value: "-5" },
     ],
     bonus: { luk: 24, atk: 5, vit: -8, def: -5 },
-    description: "잠든 황좌 거인이 옛 황성에서 두고 떠난 별책. 손에 쥐면 어깨가 비고 별의 결이 손가락에 흐른다.",
+    description: "잠든 황좌 거인이 옛 황성에서 두고 떠난 별책. 손에 쥐면 어깨가 비고 별빛이 손가락에 흐른다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,

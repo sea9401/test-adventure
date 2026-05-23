@@ -53,7 +53,7 @@ export function HaerangDialogue({
           <NpcDialogue
             npc={npc}
             onClose={onClose}
-            text={"게딱지 — 됐어. 선저를 덧대 두지. 이만하면 암초 사이를 지나도 배 밑이 안 갉여.\n자, 사례다. 그리고 약속대로 — 난바다로 데려가 주지. 산호초 섬, 가고 싶을 때 말만 해."}
+            text={"게딱지, 됐어. 선저를 덧대 두지. 이만하면 암초 사이를 지나도 배 밑이 안 갉여.\n자, 사례다. 약속대로 난바다로 데려가 주지. 산호초 섬, 가고 싶을 때 말만 해."}
             primaryAction={{
               label: "건네준다",
               onClick: () => {
@@ -76,7 +76,7 @@ export function HaerangDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`게딱지는 모았어? 선저 한 겹 덧대는 데 그게 필요해 — 아니면 암초가 배 밑을 갉아. 진행: ${have}/${HULL_NEED}`}
+          text={`게딱지는 모았어? 선저 한 겹 덧대는 데 그게 필요해. 아니면 암초가 배 밑을 갉아. 진행: ${have}/${HULL_NEED}`}
         />
       );
     }
@@ -86,7 +86,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"여울이 자네를 보증했다더군. 그렇다면 데려가 주지 — 단, 배부터 손봐야 해.\n암초가 선저를 갉아서, 게딱지 갑판으로 한 겹 덧대야 해. 게딱지 15개만 모아다 줘. 그러면 난바다로 나간다."}
+        text={"여울이 자네를 보증했다더군. 그렇다면 데려가 주지. 단, 배부터 손봐야 해.\n암초가 선저를 갉아서, 게딱지 갑판으로 한 겹 덧대야 해. 게딱지 15개만 모아다 줘. 그러면 난바다로 나간다."}
         primaryAction={{
           label: "받아들인다",
           onClick: () => {
@@ -107,7 +107,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"손에 익었군 — 산호 가시쯤은. 이제 자넨 난바다 사람일세. 자, 약속한 뱃삯."}
+        text={"산호 가시쯤은 손에 익었군. 이제 자넨 난바다 사람일세. 자, 약속한 뱃삯."}
         primaryAction={{
           label: "보상을 받는다",
           onClick: () => {
@@ -122,7 +122,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"산호 가시 단검 — 차고 다니라고. 한 번이라도 손에 익히면 그걸로 됐어."}
+        text={"산호 가시 단검, 차고 다니라고. 한 번이라도 손에 익히면 그걸로 됐어."}
       />
     );
   }
@@ -131,7 +131,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"암초를 자주 건너는 사람은 산호 가시쯤은 손에 익숙해야 해. 산호 가시 단검 — 한 번이라도 차고 와 줘. 그래야 뱃삯도 깎아 주지."}
+        text={"암초를 자주 건너는 사람은 산호 가시쯤은 손에 익숙해야 해. 산호 가시 단검 한 번이라도 차고 와 줘. 그래야 뱃삯도 깎아 주지."}
         primaryAction={{
           label: "받아들인다",
           onClick: () => {
@@ -149,7 +149,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"사이렌 노랫소리가 한결 멀어졌어. 뱃길이 수월하겠군 — 자, 약속한 거다."}
+        text={"사이렌 노랫소리가 한결 멀어졌어. 뱃길이 수월하겠군. 자, 약속한 거다."}
         primaryAction={{
           label: "보상을 받는다",
           onClick: () => {
@@ -164,7 +164,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={`사이렌은 암초 둘레를 빙빙 돌아 — 노랫소리 들리는 쪽으로 가면 만나. 진행: ${runs.progress}/${RUNS_NEED}`}
+        text={`사이렌은 암초 둘레를 빙빙 돌아. 노랫소리 들리는 쪽으로 가면 만나. 진행: ${runs.progress}/${RUNS_NEED}`}
       />
     );
   }
@@ -173,7 +173,7 @@ export function HaerangDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"건너는 김에 부탁 하나 — 난바다를 지날 때마다 사이렌 노랫소리가 뱃머리를 돌려세워. 산호초 사이렌 20만 쫓아 주면 뱃길이 한결 수월하겠어."}
+        text={"건너는 김에 부탁 하나. 난바다를 지날 때마다 사이렌 노랫소리가 뱃머리를 돌려세워. 산호초 사이렌 20만 쫓아 주면 뱃길이 한결 수월하겠어."}
         primaryAction={{
           label: "받아들인다",
           onClick: () => {
@@ -192,7 +192,7 @@ export function HaerangDialogue({
       onClose={onClose}
       text={
         stilled
-          ? "자네가 그걸 가라앉혔다고 들었어. …물이 다시 따뜻해. 그물도 차오르고.\n산호초 섬, 또 건너갈 일 있거든 언제든 말해 — 이젠 뱃길이 편해."
+          ? "자네가 그걸 가라앉혔다고 들었어. …물이 다시 따뜻해. 그물도 차오르고.\n산호초 섬, 또 건너갈 일 있거든 언제든 말해. 이젠 뱃길이 편해."
           : "산호초 섬으로? 좋아, 노를 잡지. …암초 밑이 영 조용하지가 않아. 단단히 준비해 둬."
       }
     />

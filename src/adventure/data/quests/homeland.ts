@@ -17,7 +17,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     regionId: "village",
     title: "슬라임 퇴치",
     description:
-      "평야에 슬라임이 갑자기 너무 많아져서 농부들이 피해를 보고있어요. 슬라임 60마리를 처치해주세요.",
+      "평야에 슬라임이 갑자기 너무 많아져서 농부들이 피해를 보고 있어요. 슬라임 60마리를 처치해 주세요.",
     requiredLevel: 1,
     target: { kind: "kill", monsterName:"슬라임", count: 60 },
     reward: { gold: 60, fame: 4, exp: 120 },
@@ -28,7 +28,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     regionId: "village",
     title: "들개 퇴치",
     description:
-      "마을 외곽에서 들개가 가축을 노린다는 신고가 들어왔어요. 들개 45마리를 처치해주세요.",
+      "마을 외곽에서 들개가 가축을 노린다는 신고가 들어왔어요. 들개 45마리를 처치해 주세요.",
     requiredLevel: 1,
     target: { kind: "kill", monsterName:"들개", count: 45 },
     reward: { gold: 70, fame: 4, exp: 135 },
@@ -39,7 +39,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     regionId: "village",
     title: "두더지 퇴치",
     description:
-      "두더지가 밭을 헤집어 놓아 농작물 피해가 심해요. 두더지 60마리를 처치해주세요.",
+      "두더지가 밭을 헤집어 놓아 농작물 피해가 심해요. 두더지 60마리를 처치해 주세요.",
     requiredLevel: 1,
     target: { kind: "kill", monsterName:"두더지", count: 60 },
     reward: { gold: 55, fame: 4, exp: 120 },
@@ -89,7 +89,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     regionId: "village",
     title: "나무꾼 지미의 부탁",
     description:
-      "요즘 숲에 산적이 너무 많이 나와서 벌목하러 가질 못하고있어요. 산적들좀 처리해주세요.",
+      "요즘 숲에 산적이 너무 많이 나와서 벌목하러 가질 못하고 있어요. 산적들 좀 처리해 주세요.",
     requiredLevel: 1,
     target: { kind: "kill", monsterName: "산적", count: 20 },
     reward: {
@@ -101,7 +101,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     // 다이얼로그 게이트: crafting.state.boldQuestComplete. 데이터로 표현 불가 → hidden.
     hidden: true,
   },
-  // 지미 — 산적 의뢰 완료 후 받는 깊은 동굴 조사 의뢰. 보스 1회 처치.
+  // 지미, 산적 의뢰 완료 후 받는 깊은 동굴 조사 의뢰. 보스 1회 처치.
   // 수락 시 'jimmy_deep_cave_quest' story flag 설정 → 동굴 → 깊은 동굴 통로 해금.
   {
     id: "village-jimmy-deep-cave",
@@ -116,7 +116,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     giverNpcId: "village_woodcutter_jimmy",
     requiresQuestCompleted: "village-jimmy-bandits",
   },
-  // 시작 마을 길드판 반복 의뢰 — 메인 깊은 동굴 의뢰 완료 후에만 노출.
+  // 시작 마을 길드판 반복 의뢰, 메인 깊은 동굴 의뢰 완료 후에만 노출.
   // 보스 일일 3회 제한이라 1일에 1회 완료 가능. 누적 파밍 동기.
   // count 는 일일 캡(3)에 묶여 있어 다른 반복 의뢰처럼 ×3 하지 않고 보상만 키운다.
   {
@@ -131,8 +131,8 @@ export const HOMELAND_QUESTS: Quest[] = [
     repeatable: true,
     requiresQuestCompleted: "village-jimmy-deep-cave",
   },
-  // 볼드 — 마정석 무기 라인 보조(§10.1). 광맥의 수호자 드롭(마정석)을 볼드가 시연 → 팔찌 제작서.
-  // BlacksmithDialogue 에서 노출 (jimmy_deep_cave_quest flag 가 켜진 뒤 — 동굴 안쪽을 안다는 신호).
+  // 볼드, 마정석 무기 라인 보조(§10.1). 광맥의 수호자 드롭(마정석)을 볼드가 시연 → 팔찌 제작서.
+  // BlacksmithDialogue 에서 노출 (jimmy_deep_cave_quest flag 가 켜진 뒤, 동굴 안쪽을 안다는 신호).
   {
     id: "village-bold-mana-crystal",
     regionId: "village",
@@ -147,10 +147,10 @@ export const HOMELAND_QUESTS: Quest[] = [
     // 다이얼로그 게이트: storyFlags.has("jimmy_deep_cave_quest"). 데이터로 표현 불가 → hidden.
     hidden: true,
   },
-  // ── 시작 마을 — 새 quest kind 의뢰 3종 ─────────────────────────────────
+  // ── 시작 마을, 새 quest kind 의뢰 3종 ─────────────────────────────────
   // 각 인트로 라인의 4 번째 단계로 매단다. 라인 어휘를 잇는 자연스러운 결.
   {
-    // equip_item — 트레이너 라인 마무리. 활력의 반지 한 번이라도 차고 와 봐.
+    // equip_item, 트레이너 라인 마무리. 활력의 반지 한 번이라도 차고 와 봐.
     id: "village-trainer-equip-vitality-ring",
     regionId: "village",
     title: "스미스의 청: 반지를 차고 와",
@@ -164,7 +164,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     requiresQuestCompleted: "village-trainer-moles",
   },
   {
-    // visit_region — 지미의 깊은 동굴 라인 마무리. 광맥 자리를 다섯 번 더 봐 두고 와라.
+    // visit_region, 지미의 깊은 동굴 라인 마무리. 광맥 자리를 다섯 번 더 봐 두고 와라.
     id: "village-jimmy-deep-cave-tour",
     regionId: "village",
     title: "나무꾼 지미의 청: 광맥 자리 다시 보기",
@@ -178,7 +178,7 @@ export const HOMELAND_QUESTS: Quest[] = [
     requiresQuestCompleted: "village-jimmy-deep-cave",
   },
   {
-    // craft_item — 볼드의 마정석 라인 마무리. 자네 손으로 한 자루 짜 봐.
+    // craft_item, 볼드의 마정석 라인 마무리. 자네 손으로 한 자루 짜 봐.
     id: "village-bold-mana-sword-craft",
     regionId: "village",
     title: "대장장이 볼드의 청: 자네 손으로 한 자루",
@@ -191,5 +191,5 @@ export const HOMELAND_QUESTS: Quest[] = [
     giverNpcId: "village_blacksmith_bold",
     requiresQuestCompleted: "village-bold-mana-crystal",
   },
-  // ── 디올라 — "안개 너머의 길" 트라이얼 라인 ──────────────────────────────
+  // ── 디올라, "안개 너머의 길" 트라이얼 라인 ──────────────────────────────
 ];

@@ -1,7 +1,7 @@
 import type { EquipItem } from "./types";
 
 export const STARLIT_ITEMS = {
-  // ── 5막 별빛 무구 — 4 별빛 사냥터 (Ch 26 이후) 진입 컨텐츠.
+  // ── 5막 별빛 무구, 4 별빛 사냥터 (Ch 26 이후) 진입 컨텐츠.
   // 무기 25종 = 5무기(대검/창/방패/쌍검/단검) × 5부스탯 변형. atk +28 / 메인 +14 / 부스탯 +5.
   // 메인스탯 매핑: 대검=str, 창=dex, 방패=vit, 쌍검=spd, 단검=luk.
   // 부스탯이 메인과 일치하는 변형(예: 힘의 별빛 대검) 은 같은 스탯에 자연 합산 → 메인 +19.
@@ -18,7 +18,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+19" },
     ],
     bonus: { atk: 28, str: 19 },
-    description: "별빛 한 결을 한 자루로 두껍게 두른 한손 대검. 들면 어깨에 별바다의 무게가 가지런히 얹힌다.",
+    description: "별빛을 두껍게 둘러 단조한 한손 대검. 들면 별바다의 무게가 어깨에 얹힌다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -31,7 +31,7 @@ export const STARLIT_ITEMS = {
       { label: "민첩", value: "+5" },
     ],
     bonus: { atk: 28, str: 14, dex: 5 },
-    description: "별빛 한 결을 가늘게 흘려 단조한 한손 대검. 결을 따라 손끝까지 가지런히 흐른다.",
+    description: "별빛을 가늘게 흘려 단조한 한손 대검. 빛이 손끝까지 매끄럽게 흐른다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -44,7 +44,7 @@ export const STARLIT_ITEMS = {
       { label: "활력", value: "+5" },
     ],
     bonus: { atk: 28, str: 14, vit: 5 },
-    description: "별빛 한 결이 가장 안쪽에 두텁게 가라앉아 있는 한손 대검. 한 호흡이 어긋나도 결이 자세를 잡아 준다.",
+    description: "별빛이 안쪽 깊이 가라앉아 있는 한손 대검. 한 호흡이 어긋나도 자세를 잡아 준다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -57,7 +57,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+5" },
     ],
     bonus: { atk: 28, str: 14, spd: 5 },
-    description: "별빛 한 결을 결대로 얇게 펴 단조한 한손 대검. 그림자가 가볍게 떨어진다.",
+    description: "별빛을 얇게 펴 단조한 한손 대검. 그림자가 가볍게 떨어진다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -85,7 +85,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+5" },
     ],
     bonus: { atk: 28, dex: 14, str: 5 },
-    description: "별빛 한 결을 묵직하게 박아 단조한 긴 창. 한 번 박으면 결이 손까지 같이 박힌다.",
+    description: "별빛을 묵직하게 박아 단조한 긴 창. 한 번 찌르면 울림이 손까지 박힌다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -97,7 +97,7 @@ export const STARLIT_ITEMS = {
       { label: "민첩", value: "+19" },
     ],
     bonus: { atk: 28, dex: 19 },
-    description: "별빛 한 결을 가장 가지런히 흘려 단조한 긴 창. 결이 손끝까지 한 번에 미끄러진다.",
+    description: "별빛을 가지런히 흘려 단조한 긴 창. 힘이 손끝까지 한 번에 미끄러진다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -110,7 +110,7 @@ export const STARLIT_ITEMS = {
       { label: "활력", value: "+5" },
     ],
     bonus: { atk: 28, dex: 14, vit: 5 },
-    description: "별빛 한 결이 자루 안쪽에 가장 두텁게 가라앉아 있는 긴 창. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
+    description: "별빛이 자루 안쪽 깊이 가라앉아 있는 긴 창. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -123,7 +123,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+5" },
     ],
     bonus: { atk: 28, dex: 14, spd: 5 },
-    description: "별빛 한 결을 가장 얇게 펴 단조한 긴 창. 휘두를 때마다 그림자가 한 박자 늦게 따라온다.",
+    description: "별빛을 얇게 펴 단조한 긴 창. 휘두를 때마다 그림자가 한 박자 늦게 따라온다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -151,7 +151,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+5" },
     ],
     bonus: { atk: 28, vit: 14, str: 5 },
-    description: "별빛 한 결을 가장 두텁게 박아 단조한 방패형 무기. 받아 내는 한 번에 별바다의 무게가 같이 얹힌다.",
+    description: "별빛을 두텁게 박아 단조한 방패형 무기. 받아 내는 순간 별바다의 무게가 같이 실린다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -164,7 +164,7 @@ export const STARLIT_ITEMS = {
       { label: "민첩", value: "+5" },
     ],
     bonus: { atk: 28, vit: 14, dex: 5 },
-    description: "별빛 한 결을 가장 가지런히 흘려 단조한 방패형 무기. 결이 손끝까지 한 번에 미끄러진다.",
+    description: "별빛을 가지런히 흘려 단조한 방패형 무기. 힘이 손끝까지 한 번에 미끄러진다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -176,7 +176,7 @@ export const STARLIT_ITEMS = {
       { label: "활력", value: "+19" },
     ],
     bonus: { atk: 28, vit: 19 },
-    description: "별빛 한 결이 안쪽까지 가장 깊이 가라앉아 있는 방패형 무기. 어떤 결도 안으로 닿지 못한다.",
+    description: "별빛이 안쪽 깊이 가라앉아 있는 방패형 무기. 무엇이 부딪혀도 안쪽까지 닿지 못한다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -189,7 +189,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+5" },
     ],
     bonus: { atk: 28, vit: 14, spd: 5 },
-    description: "별빛 한 결을 얇게 펴 단조한 방패형 무기. 받아 낼 때마다 그림자가 한 박자 늦게 따라온다.",
+    description: "별빛을 얇게 펴 단조한 방패형 무기. 받아 낼 때마다 그림자가 한 박자 늦게 따라온다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -217,7 +217,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+5" },
     ],
     bonus: { atk: 28, spd: 14, str: 5 },
-    description: "별빛 한 결을 두껍게 두른 한 손에 한 자루씩의 쌍검. 한 번에 두 결이 같이 박힌다.",
+    description: "별빛을 두껍게 두른 쌍검. 한 번에 두 칼끝이 같이 박힌다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -230,7 +230,7 @@ export const STARLIT_ITEMS = {
       { label: "민첩", value: "+5" },
     ],
     bonus: { atk: 28, spd: 14, dex: 5 },
-    description: "별빛 한 결을 가지런히 흘려 단조한 쌍검. 두 결이 한 손끝까지 같이 미끄러진다.",
+    description: "별빛을 가지런히 흘려 단조한 쌍검. 두 칼날의 힘이 손끝까지 같이 미끄러진다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -243,7 +243,7 @@ export const STARLIT_ITEMS = {
       { label: "활력", value: "+5" },
     ],
     bonus: { atk: 28, spd: 14, vit: 5 },
-    description: "별빛 한 결이 두 자루 안쪽에 두텁게 가라앉아 있는 쌍검. 두 호흡이 끊겨도 결이 자세를 잡아 준다.",
+    description: "별빛이 두 자루 안쪽 깊이 가라앉아 있는 쌍검. 호흡이 흐트러져도 자세를 잡아 준다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -255,7 +255,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+19" },
     ],
     bonus: { atk: 28, spd: 19 },
-    description: "별빛 한 결을 가장 얇게 펴 단조한 쌍검. 두 그림자가 한 박자 늦게 같이 따라온다.",
+    description: "별빛을 얇게 펴 단조한 쌍검. 두 그림자가 한 박자 늦게 같이 따라온다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -268,7 +268,7 @@ export const STARLIT_ITEMS = {
       { label: "행운", value: "+5" },
     ],
     bonus: { atk: 28, spd: 14, luk: 5 },
-    description: "별빛 한 점이 두 자루 끝에 옅게 떨려 있는 쌍검. 결정적인 두 결에 빛이 한 번 깜박인다.",
+    description: "별빛 한 점이 두 자루 끝에 옅게 떨려 있는 쌍검. 결정적인 순간에 빛이 한 번 깜박인다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -283,7 +283,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+5" },
     ],
     bonus: { atk: 28, luk: 14, str: 5 },
-    description: "별빛 한 결을 두껍게 두른 짧고 가는 단검. 한 번 박으면 별바다의 무게가 같이 박힌다.",
+    description: "별빛을 두껍게 두른 짧고 가는 단검. 한 번 박으면 별바다의 무게가 같이 실린다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -296,7 +296,7 @@ export const STARLIT_ITEMS = {
       { label: "민첩", value: "+5" },
     ],
     bonus: { atk: 28, luk: 14, dex: 5 },
-    description: "별빛 한 결을 가지런히 흘려 단조한 짧고 가는 단검. 결이 손끝까지 한 번에 미끄러진다.",
+    description: "별빛을 가지런히 흘려 단조한 짧고 가는 단검. 힘이 손끝까지 한 번에 미끄러진다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -309,7 +309,7 @@ export const STARLIT_ITEMS = {
       { label: "활력", value: "+5" },
     ],
     bonus: { atk: 28, luk: 14, vit: 5 },
-    description: "별빛 한 결이 자루 안쪽에 두텁게 가라앉아 있는 짧고 가는 단검. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
+    description: "별빛이 자루 안쪽 깊이 가라앉아 있는 짧고 가는 단검. 호흡이 끊겨도 자루가 자세를 잡아 준다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -322,7 +322,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+5" },
     ],
     bonus: { atk: 28, luk: 14, spd: 5 },
-    description: "별빛 한 결을 가장 얇게 펴 단조한 짧고 가는 단검. 그림자가 칼끝보다 한 박자 늦게 따라온다.",
+    description: "별빛을 얇게 펴 단조한 짧고 가는 단검. 그림자가 칼끝보다 한 박자 늦게 따라온다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -334,7 +334,7 @@ export const STARLIT_ITEMS = {
       { label: "행운", value: "+19" },
     ],
     bonus: { atk: 28, luk: 19 },
-    description: "별빛 한 점이 칼끝에 가장 가지런히 떨려 있는 짧고 가는 단검. 결정적인 한 박자에 빛이 한 번 깜박인다.",
+    description: "별빛 한 점이 칼끝에 가지런히 떨려 있는 짧고 가는 단검. 결정적인 한 박자에 빛이 한 번 깜박인다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -348,7 +348,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+14" },
     ],
     bonus: { def: 24, str: 14 },
-    description: "별빛 한 결을 가장 두껍게 두른 갑주. 한 발 디딜 때마다 별바다의 무게가 가지런히 얹힌다.",
+    description: "별빛을 두껍게 두른 갑주. 한 발 디딜 때마다 별바다의 무게가 얹힌다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -360,7 +360,7 @@ export const STARLIT_ITEMS = {
       { label: "민첩", value: "+14" },
     ],
     bonus: { def: 24, dex: 14 },
-    description: "별빛 한 결을 가지런히 흘려 단조한 가벼운 갑주. 몸의 결이 한 번에 미끄러진다.",
+    description: "별빛을 가지런히 흘려 단조한 가벼운 갑주. 몸이 한 번에 미끄러지듯 움직인다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -372,7 +372,7 @@ export const STARLIT_ITEMS = {
       { label: "활력", value: "+14" },
     ],
     bonus: { def: 24, vit: 14 },
-    description: "별빛 한 결이 안쪽까지 가장 깊이 가라앉아 있는 두꺼운 갑주. 어떤 결도 안으로 닿지 못한다.",
+    description: "별빛이 안쪽 깊이 가라앉아 있는 두꺼운 갑주. 어떤 충격도 안으로 닿지 못한다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -384,7 +384,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+14" },
     ],
     bonus: { def: 24, spd: 14 },
-    description: "별빛 한 결을 가장 얇게 펴 단조한 갑주. 그림자가 한 박자 늦게 따라온다.",
+    description: "별빛을 얇게 펴 단조한 갑주. 그림자가 한 박자 늦게 따라온다.",
     rarity: "legendary",
     tier: 6,
   } satisfies EquipItem,
@@ -412,7 +412,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+12" },
     ],
     bonus: { vit: 18, str: 12 },
-    description: "거인의 어깨에 얹혔던 멍에. 별빛 잔영이 그 무게를 자기 결로 옮겨 온 자리. 두르면 어깨가 가라앉지 않는다. 마지막에 자기 발로 선 자만 허락된 결.",
+    description: "거인의 어깨에 얹혔던 멍에. 별빛 잔영의 무게가 남아 있지만, 두르면 어깨가 가라앉지 않는다. 마지막에 자기 발로 선 자에게만 허락된다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -424,7 +424,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+15" },
     ],
     bonus: { dex: 15, spd: 15 },
-    description: "수심의 것이 가장 깊은 곳에서 한 점씩 모아 두었던 결. 손에 쥐면 발 끝의 결이 흐르듯 가벼워진다. 마지막 한 음절을 끊은 자에게만 허락된 결.",
+    description: "수심의 것이 가장 깊은 곳에서 한 점씩 모아 둔 보주. 손에 쥐면 발끝이 물 흐르듯 가벼워진다. 마지막 한 음절을 끊은 자에게만 허락된다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -436,12 +436,12 @@ export const STARLIT_ITEMS = {
       { label: "행운", value: "+18" },
     ],
     bonus: { atk: 15, luk: 18 },
-    description: "성문지기 자동인형이 마지막으로 들었다가 떨군 빗장. 한 손에 쥐면 한 번에 두 박자를 끊을 수 있다. 빗장을 마지막으로 내린 자에게만 허락된 결.",
+    description: "성문지기 자동인형이 마지막으로 들었다가 떨군 빗장. 한 손에 쥐면 한 번에 두 박자를 끊을 수 있다. 빗장을 마지막으로 내린 자에게만 허락된다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
 
-  // 창공의 옥새 — 창공의 주재 협동 legend 티어 1% 드랍 (만렙 정점 물욕템).
+  // 창공의 옥새, 창공의 주재 협동 legend 티어 1% 드랍 (만렙 정점 물욕템).
   // accessory 슬롯, 천공인의 관 위의 전스탯 + 양면 분포.
   apex_regalia: {
     name: "창공의 옥새",
@@ -456,14 +456,14 @@ export const STARLIT_ITEMS = {
       { label: "행운", value: "+5" },
     ],
     bonus: { atk: 10, def: 10, str: 5, dex: 5, vit: 5, spd: 5, luk: 5 },
-    description: "창공의 주재가 옥좌에 두고 떠난 옥새. 한 손에 별 한 자루의 무게가 그대로 실린다. 마지막에 닿은 자에게만 허락된 결.",
+    description: "창공의 주재가 옥좌에 두고 떠난 옥새. 한 손에 별 한 자루의 무게가 그대로 실린다. 마지막에 닿은 자에게만 허락된다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
 
-  // ── 태고의 노룡 (월드 보스) 보상 — 용의 둥지에서 모든 모험가가 깎아 잡는 어미의 결. ──
+  // ── 태고의 노룡 (월드 보스) 보상, 용의 둥지에서 모든 모험가가 깎아 잡는 어미의 결. ──
   // gold/epic 티어 도달자에게 equipRolls 로 직접 떨어지는 무구 4종 (no debuff, BiS급).
-  // legend 티어 도달자에게는 그 위 액세서리 한 자루(태고의 비늘관) — 운빨.
+  // legend 티어 도달자에게는 그 위 액세서리 한 자루(태고의 비늘관), 운빨.
   primordial_blade: {
     name: "태고의 결검",
     slot: "weapon",
@@ -473,7 +473,7 @@ export const STARLIT_ITEMS = {
       { label: "속도", value: "+5" },
     ],
     bonus: { atk: 28, str: 14, spd: 5 },
-    description: "태고의 노룡의 가장 안쪽 비늘을 깎아 결을 잡은 한손 대검. 들면 어깨에 옛 시대의 무게가 그대로 얹히면서, 그 결이 칼날 끝까지 흐른다.",
+    description: "태고의 노룡의 가장 안쪽 비늘을 깎아 만든 한손 대검. 들면 옛 시대의 무게가 어깨에 얹히고, 그 힘이 칼날 끝까지 흐른다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -499,7 +499,7 @@ export const STARLIT_ITEMS = {
       { label: "힘", value: "+6" },
     ],
     bonus: { def: 11, vit: 9, str: 6 },
-    description: "태고의 노룡의 머리뼈 결을 그대로 깎아 두른 투구. 한 번 쓰면 어미가 잠시 자네의 어깨에 한 결을 얹는다.",
+    description: "태고의 노룡의 머리뼈를 그대로 깎아 두른 투구. 한 번 쓰면 어미의 무게가 잠시 어깨에 얹힌다.",
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
@@ -517,8 +517,8 @@ export const STARLIT_ITEMS = {
     rarity: "unique",
     tier: 5,
   } satisfies EquipItem,
-  // 태고의 비늘관 — legend 티어 5% 드랍 (월드 보스 정점 물욕템).
-  // accessory 슬롯, 창공의 옥새 위의 전스탯 — 운빨로 한 자루.
+  // 태고의 비늘관, legend 티어 5% 드랍 (월드 보스 정점 물욕템).
+  // accessory 슬롯, 창공의 옥새 위의 전스탯, 운빨로 한 자루.
   primordial_regalia: {
     name: "태고의 비늘관",
     slot: "accessory",
@@ -532,24 +532,24 @@ export const STARLIT_ITEMS = {
       { label: "행운", value: "+6" },
     ],
     bonus: { atk: 12, def: 12, str: 6, dex: 6, vit: 6, spd: 6, luk: 6 },
-    description: "태고의 노룡이 마지막에 떨군 가장 안쪽 비늘 한 장을 그대로 둘러 만든 관. 한 자루로는 닿을 수 없는 결. 모든 모험가의 누적 데미지로 어미를 쓰러뜨려야만 자네의 손에 들린다.",
+    description: "태고의 노룡이 마지막에 떨군 가장 안쪽 비늘 한 장을 그대로 둘러 만든 관. 혼자서는 닿을 수 없는 무게. 모든 모험가가 함께 어미를 쓰러뜨려야만 자네의 손에 들린다.",
     rarity: "legendary",
     tier: 5,
   } satisfies EquipItem,
 
-  // 6막 「별을 잊은 것」 — 잊힌 봉인 legend 랜덤 롤 장신구. base 는 옵션 없음(bonus 생략):
+  // 6막 「별을 잊은 것」, 잊힌 봉인 legend 랜덤 롤 장신구. base 는 옵션 없음(bonus 생략):
   // 실제 옵션(힘·활력·민첩·속도·행운 중 2개 × 1~20)은 드랍 시 인스턴스마다 롤되어 박힌다
-  // (starlitRing.ts / EquipmentInstance.rolledBonus). 거래 가능 — 거래소가 인스턴스(롤 포함)
+  // (starlitRing.ts / EquipmentInstance.rolledBonus). 거래 가능, 거래소가 인스턴스(롤 포함)
   // 거래를 지원하면서 좋은 롤을 사고팔 수 있다(거래소 instance_payload).
   starlit_ring: {
     name: "별빛 고리",
     slot: "accessory",
     stats: [{ label: "랜덤 옵션", value: "2종 · 각 +1~20" }],
-    // base 는 옵션 없음 — 실제 bonus 는 인스턴스 rolledBonus 가 채운다(resolveStarlitRing).
+    // base 는 옵션 없음, 실제 bonus 는 인스턴스 rolledBonus 가 채운다(resolveStarlitRing).
     // 빈 객체라도 둬야 ITEMS 유니온 전 항목이 bonus 키를 가져 타입이 일관된다.
     bonus: {},
     description:
-      "잊힌 봉인이 흘린 결을 고리로 엮은 것. 손가락에 둘러질 때마다 다른 결이 깃들어, 같은 고리는 둘도 없다.",
+      "잊힌 봉인이 흘린 별빛을 고리로 엮은 것. 손가락에 둘러질 때마다 다른 힘이 깃들어, 같은 고리는 둘도 없다.",
     rarity: "legendary",
     tier: 6,
     tradable: true,

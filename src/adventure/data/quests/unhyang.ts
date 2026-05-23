@@ -1,7 +1,7 @@
 import type { Quest } from "./types";
 
 export const UNHYANG_QUESTS: Quest[] = [
-  // ── 운향 — 메인 라인 "잠들지 않는 산" (노촌장 백운) ──────────────────────
+  // ── 운향, 메인 라인 "잠들지 않는 산" (노촌장 백운) ──────────────────────
   // 운향 도달(= 운봉의 거인과 한 번 맞붙음, peak_giant_engaged) → 협곡 정찰 →
   // 운봉의 거인 처치 → 교역로 정리 2종 → 정기 토벌. 백운 대사 분기는 BaekunDialogue.
   {
@@ -16,7 +16,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: false,
     giverNpcId: "unhyang_elder",
     // 다이얼로그 게이트: storyFlags.has("peak_giant_engaged") (운향 진입 시 거의 켜져 있음).
-    // 안전하게 hidden — 운향 도달 전 신규 캐릭터에게 뱃지 노출 방지.
+    // 안전하게 hidden, 운향 도달 전 신규 캐릭터에게 뱃지 노출 방지.
     hidden: true,
   },
   {
@@ -24,7 +24,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     regionId: "unhyang",
     title: "운봉의 거인",
     description:
-      "이제 알겠네. 산 깊은 곳에 잠들지 않는 것이 버티는 한, 이 산정은 평온할 수 없어. 운봉의 거인. 혼자선 어림없는 상대지. 동료를 모아 그놈을 잠재워 주게. 산정의 명운이 거기 달렸다네.",
+      "이제 알겠네. 산 깊은 곳에 잠들지 않는 것이 버티는 한, 이 산정은 평온할 수 없어. 운봉의 거인. 혼자선 어림없는 상대지. 동료를 모아 그놈을 잠재워 주게. 산정이 거기에 달렸다네.",
     requiredLevel: 22,
     target: { kind: "kill", monsterName: "운봉의 거인", count: 1 },
     reward: { gold: 1800, fame: 60, exp: 4500, items: [{ id: "peak_heart", count: 1 }] },
@@ -70,7 +70,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: true,
     requiresQuestCompleted: "unhyang-baekun-peak-giant",
   },
-  // 만월 — "운봉석을 벼리는 법"(견갑 확정) → 후속 "운봉 네 자루"(무기 4종 제작서 확정).
+  // 만월, "운봉석을 벼리는 법"(견갑 확정) → 후속 "운봉 네 자루"(무기 4종 제작서 확정).
   // 운봉 무기 4종은 운봉의 거인 보스 드롭(recipe_one_of)으로도 풀리지만, 이 의뢰가 확정 루트.
   {
     id: "unhyang-manwol-ore-demo",
@@ -91,7 +91,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     regionId: "unhyang",
     title: "운봉 네 자루",
     description:
-      "견갑은 봤으니 이제 무기 차례야. 운봉석 여덟 덩이면. 대검, 방벽, 장창, 발톱. 네 자루 전부 벼리는 법을 새겨 줌세. 손에 맞는 걸 골라 쓰게.",
+      "견갑은 봤으니 이제 무기 차례야. 운봉석 여덟 덩이면, 대검, 방벽, 장창, 발톱. 네 자루 전부 벼리는 법을 새겨 줌세. 손에 맞는 걸 골라 쓰게.",
     requiredLevel: 22,
     target: { kind: "deliver", materialId: "unbong_ore", count: 8 },
     reward: { gold: 800, exp: 1200, recipes: ["peak_sword", "peak_shield", "peak_spear", "peak_claw"] },
@@ -99,7 +99,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     giverNpcId: "unhyang_smith",
     requiresQuestCompleted: "unhyang-manwol-ore-demo",
   },
-  // ── 운향 — 사이드 의뢰 (도연 / 산하) ────────────────────────────────────
+  // ── 운향, 사이드 의뢰 (도연 / 산하) ────────────────────────────────────
   {
     id: "unhyang-sanha-herbs",
     regionId: "unhyang",
@@ -128,13 +128,13 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: false,
     giverNpcId: "unhyang_herbalist",
   },
-  // ── 운향 — 사이드 의뢰 추가 (도연 / 산하 / 백운) ────────────────────────
+  // ── 운향, 사이드 의뢰 추가 (도연 / 산하 / 백운) ────────────────────────
   {
     id: "unhyang-doyeon-stone-frogs",
     regionId: "unhyang",
     title: "산기슭의 바위 두꺼비",
     description:
-      "산기슭 바위 두꺼비, 그놈들 등껍데기가 길을 막아. 열다섯 마리만 치워 주면 짐꾼들 발이 좀 편해질 거야.. 가는 김에 협곡 무리장 늑대도 한 마리 봐 두면 굵은 송곳니가 나올 거야. 그게 나오면 단검 만드는 법도 함께 알려줄게.",
+      "산기슭 바위 두꺼비, 그놈들 등껍데기가 길을 막아. 열다섯 마리만 치워 주면 짐꾼들 발이 좀 편해질 거야. 가는 김에 협곡 무리장 늑대도 한 마리 봐 두면 굵은 송곳니가 나올 거야. 그게 나오면 단검 만드는 법도 함께 알려줄게.",
     requiredLevel: 18,
     target: { kind: "kill", monsterName: "바위 두꺼비", count: 15 },
     reward: { gold: 360, fame: 18, exp: 600, recipes: ["wolfking_fang_dagger"] },
@@ -202,7 +202,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     giverNpcId: "unhyang_elder",
     requiresQuestCompleted: "unhyang-baekun-peak-giant",
   },
-  // 산하 ↔ 노라(디올라 여관) — 산정 약초 배송(§7.2). 완료 시 sanha_nora_herbs_sent flag
+  // 산하 ↔ 노라(디올라 여관), 산정 약초 배송(§7.2). 완료 시 sanha_nora_herbs_sent flag
   // + herbalists_courier 칭호 (page.tsx). 디올라 노라 다이얼로그가 갱신된다.
   {
     id: "unhyang-sanha-nora-herbs",
@@ -327,7 +327,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: true,
     requiresQuestCompleted: "diola-marin-mountain-trade",
   },
-  // ── 다리 구간 — 운저 평원 (운향에서 받는 첫 의뢰) ───────────────────────
+  // ── 다리 구간, 운저 평원 (운향에서 받는 첫 의뢰) ───────────────────────
   {
     id: "unhyang-guide-cloud-raiders",
     regionId: "unhyang",
@@ -340,7 +340,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: false,
     giverNpcId: "unhyang_guide",
   },
-  // 운향 길드 게시판 — 운저 평원 정기 의뢰 (바람골 게시판에서 이관, 운향 바로 아래 들녘).
+  // 운향 길드 게시판, 운저 평원 정기 의뢰 (바람골 게시판에서 이관, 운향 바로 아래 들녘).
   // id 의 windvale- 접두는 플레이어 진행도 보존을 위해 그대로 유지.
   {
     id: "windvale-bison-cull",
@@ -383,7 +383,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     reward: { gold: 420, fame: 16, exp: 700 },
     repeatable: true,
   },
-  // ── 다리 구간 — 바람골 역참 ─────────────────────────────────────────────
+  // ── 다리 구간, 바람골 역참 ─────────────────────────────────────────────
   {
     id: "windvale-keeper-bison",
     regionId: "windvale",
@@ -420,8 +420,8 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: false,
     giverNpcId: "windvale_pathfinder",
   },
-  // 바람골 역참 길드 게시판 — 잿빛 협로(다리 동쪽) 반복 의뢰.
-  // 운저 평원(서쪽 들녘) 의뢰는 운향 게시판으로 이관 — 운향 바로 아래 사냥터라.
+  // 바람골 역참 길드 게시판, 잿빛 협로(다리 동쪽) 반복 의뢰.
+  // 운저 평원(서쪽 들녘) 의뢰는 운향 게시판으로 이관, 운향 바로 아래 사냥터라.
   // (id 의 windvale- 접두는 플레이어 진행도 보존을 위해 그대로 두고 regionId 만 옮긴 케이스가 아래로 이어진다.)
   {
     id: "windvale-ash-hounds",
@@ -434,7 +434,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     reward: { gold: 500, fame: 18, exp: 850 },
     repeatable: true,
   },
-  // 바람골 역참 — 봉황령 너머(화산 지대) 의뢰. 길잡이 한솔이 잿빛 협로 의뢰 후 풀어주는 후속.
+  // 바람골 역참, 봉황령 너머(화산 지대) 의뢰. 길잡이 한솔이 잿빛 협로 의뢰 후 풀어주는 후속.
   // 보스 의뢰는 화산 지대 진입 시점에 미리 받을 수 있어, 천공 성지가 열리기 전부터 보스 도전 동기를 준다.
   {
     id: "windvale-volcano-boss",
@@ -449,7 +449,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     giverNpcId: "windvale_pathfinder",
     requiresQuestCompleted: "windvale-pathfinder-golems",
   },
-  // 화산 지대 정기 의뢰 — 천공 성지 게시판으로 이관(성지 발치 사냥터). 진행도 보존 위해
+  // 화산 지대 정기 의뢰, 천공 성지 게시판으로 이관(성지 발치 사냥터). 진행도 보존 위해
   // id 의 windvale- 접두는 그대로. requires 도 윈드밸 길잡이 한솔 라인 그대로 유지.
   {
     id: "windvale-lava-slimes",
@@ -463,7 +463,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: true,
     requiresQuestCompleted: "windvale-pathfinder-golems",
   },
-  // ── 운향 — 봉황령 입구 의뢰 ─────────────────────────────────────────────
+  // ── 운향, 봉황령 입구 의뢰 ─────────────────────────────────────────────
   // 도연이 봉황령 너머를 경계해 파견 의뢰를 내는 NPC 라인 첫 번째.
   {
     id: "unhyang-guide-phoenix-hunt",
@@ -493,7 +493,7 @@ export const UNHYANG_QUESTS: Quest[] = [
     repeatable: false,
     giverNpcId: "unhyang_herbalist",
   },
-  // 봉황령 정기 의뢰는 바람골 게시판 단독 — 운향은 자기 사냥터·운저 평원에 집중.
+  // 봉황령 정기 의뢰는 바람골 게시판 단독, 운향은 자기 사냥터·운저 평원에 집중.
   // (옛 unhyang-phoenix-ridge-patrol / unhyang-board-phoenix-ridge-grand 는 분담 정리로 제거.)
 
 ];

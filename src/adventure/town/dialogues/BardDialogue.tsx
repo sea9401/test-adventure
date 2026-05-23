@@ -42,7 +42,7 @@ export function BardDialogue({
           npc={npc}
           onClose={onClose}
           text={
-            "행운이 붙은 손이라면 — 한 가지 더 일러둘게.\n노래는 한 호흡으로 끝나야 결이 잡혀. 봉황 깃털 셋만 가져다 주면 — 진짜 불을 머금은 깃이라야 — 그 호흡의 결을 자네 검에 옮겨 줄게."
+            "행운이 붙은 손이라면, 한 가지 더 일러둘게.\n노래는 한 호흡으로 끝나야 결이 잡혀. 봉황 깃털 셋만 가져다 주면, 진짜 불을 머금은 깃이라야. 그 호흡의 결을 자네 검에 옮겨 줄게."
           }
           primaryAction={{
             label: "받아들인다",
@@ -62,7 +62,7 @@ export function BardDialogue({
             npc={npc}
             onClose={onClose}
             text={
-              "셋 — 결이 살아 있군. 호흡 한 자락 옮길 만한 깃이야.\n자, 집중의 호흡 — 받게. 다음 휘두름엔 잊지 말고."
+              "셋. 결이 살아 있군. 호흡 한 자락 옮길 만한 깃이야.\n자, 집중의 호흡. 받게. 다음 휘두름엔 잊지 말고."
             }
             primaryAction={{
               label: "건네준다",
@@ -85,7 +85,7 @@ export function BardDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`봉황 깃털은 봉황령 능선 — 불꽃 독수리한테서 나오지. — 진행 ${have}/${FOCUSED_BREATH_NEED}`}
+          text={`봉황 깃털은 봉황령 능선. 불꽃 독수리한테서 나오지. 진행 ${have}/${FOCUSED_BREATH_NEED}`}
         />
       );
     }
@@ -95,7 +95,7 @@ export function BardDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "행운은 이미 자네 손에 붙었어 — 노래대로.\n…그러니 다음 번 굉장한 발견이 있거든, 그건 운이 아니라 자네 솜씨인 거다. 잊지 마."
+          "행운은 이미 자네 손에 붙었어. 노래대로.\n…그러니 다음 번 굉장한 발견이 있거든, 그건 운이 아니라 자네 솜씨인 거다. 잊지 마."
         }
       />
     );
@@ -109,7 +109,7 @@ export function BardDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "오호 — 두 점이군. 유실품을 둘이나 그러모은 손이야.\n옛 노래대로다. 행운이 자네 손에 붙어. 어디서 떨어진 건지도 모를 명품이 두 번이나 자네한테 왔다면 — 세 번째도 올 거야. 그게 노래의 끝이지."
+          "오호. 두 점이군. 유실품을 둘이나 그러모은 손이야.\n옛 노래대로다. 행운이 자네 손에 붙어. 어디서 떨어진 건지도 모를 명품이 두 번이나 자네한테 왔다면, 세 번째도 올 거야. 그게 노래의 끝이지."
         }
         primaryAction={{
           label: "노래를 듣는다",
@@ -128,7 +128,7 @@ export function BardDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "한 점은 있군 — 유실된 명품. 어디서 떨어진 건지도 모를 물건이지.\n노래는 두 점부터 시작돼. 하나 더 그러모으거든 다시 와. 그때 끝까지 불러줄게."
+          "한 점은 있군. 유실된 명품. 어디서 떨어진 건지도 모를 물건이지.\n노래는 두 점부터 시작돼. 하나 더 그러모으거든 다시 와. 그때 끝까지 불러줄게."
         }
       />
     );

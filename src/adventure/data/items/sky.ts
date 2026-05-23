@@ -1,8 +1,8 @@
 import type { EquipItem } from "./types";
 
 export const SKY_ITEMS = {
-  // ── 별의 첨탑 무구 5종 — 별을 지키는 자 협동 처치 보상으로 풀리는 엔드 라인. ──
-  // 봉황·화산 라인의 한 단계 위. 용비늘 보스 무구(Lv75)와 같은 두께의 stat 곡선 — 천공 라인 시작점.
+  // ── 별의 첨탑 무구 5종, 별을 지키는 자 협동 처치 보상으로 풀리는 엔드 라인. ──
+  // 봉황·화산 라인의 한 단계 위. 용비늘 보스 무구(Lv75)와 같은 두께의 stat 곡선, 천공 라인 시작점.
   // 무기 atk +16(검/방패) / +18(창/너클) 공통(제작 `일반` 기준) + 보조 stat.
   star_blade: {
     name: "별검",
@@ -65,8 +65,8 @@ export const SKY_ITEMS = {
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  // 별빛 두루마기 — 별을 지키는 자 협동 legend 티어 확정 드랍 (물욕템).
-  // armor 슬롯을 채우는 전스탯 균형형 — 자랑용.
+  // 별빛 두루마기, 별을 지키는 자 협동 legend 티어 확정 드랍 (물욕템).
+  // armor 슬롯을 채우는 전스탯 균형형, 자랑용.
   star_robe: {
     name: "별빛 두루마기",
     slot: "armor",
@@ -83,7 +83,7 @@ export const SKY_ITEMS = {
     tier: 5,
   } satisfies EquipItem,
 
-  // ── 별빛 회랑 무구 5종 (Lv75) — star 와 aether 사이 중간 tier. ──
+  // ── 별빛 회랑 무구 5종 (Lv75), star 와 aether 사이 중간 tier. ──
   // 무기 atk +17(검/방패) / +19(창/너클). 별 무구 한 자루를 잡아 회랑의 별빛 + 합금으로 보강.
   // 용비늘 묘지 보스(뼈왕의 대검 atk17+str9, 영광방패 atk13+vit12+def5) 와 같은 stat 두께.
   corridor_blade: {
@@ -94,7 +94,7 @@ export const SKY_ITEMS = {
       { label: "힘", value: "+9" },
     ],
     bonus: { atk: 17, str: 9 },
-    description: "별빛 회랑에 떨어진 떠도는 시녀의 잔재를 별검 위에 한 결 더 입힌 칼. 별빛의 결이 손잡이까지 따라 흐른다.",
+    description: "별빛 회랑에 떨어진 떠도는 시녀의 잔재를 별검 위에 덧입힌 칼. 별빛이 손잡이까지 옅게 흐른다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -106,7 +106,7 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+10" },
     ],
     bonus: { atk: 17, vit: 10 },
-    description: "별의 방패에 회랑의 별빛 합금을 한 겹 더 두른 방패형 무기. 회랑의 결이 충격을 가른다.",
+    description: "별의 방패에 회랑의 별빛 합금을 한 겹 더 두른 방패형 무기. 막아내면 충격이 옆으로 갈라진다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -118,7 +118,7 @@ export const SKY_ITEMS = {
       { label: "민첩", value: "+10" },
     ],
     bonus: { atk: 19, dex: 10 },
-    description: "별창 끝에 회랑의 별빛을 압축해 박은 긴 창. 끝에서 회랑의 결이 가늘게 떨린다.",
+    description: "별창 끝에 회랑의 별빛을 압축해 박은 긴 창. 창끝에서 회랑의 빛이 가늘게 떨린다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -130,7 +130,7 @@ export const SKY_ITEMS = {
       { label: "행운", value: "+10" },
     ],
     bonus: { atk: 19, luk: 10 },
-    description: "별의 너클을 한 번 풀어 회랑의 별빛 결로 다시 새긴 너클. 한 방 한 방이 회랑을 닮은 결을 낸다.",
+    description: "별의 너클을 한 번 풀어 회랑의 별빛으로 다시 새긴 너클. 한 방 한 방이 길게 울린다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -143,12 +143,12 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+4" },
     ],
     bonus: { dex: 8, spd: 8, vit: 4 },
-    description: "별의 망토에 회랑의 별빛 실을 한 결 더 짜낸 가벼운 망토. 두르면 발걸음에 회랑의 결이 따라 붙는다.",
+    description: "별의 망토에 회랑의 별빛 실을 더 짜 넣은 가벼운 망토. 두르면 발걸음에 회랑의 빛이 따라붙는다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
 
-  // ── 선인의 폐도 무구 5종 — 천공인의 왕 협동 처치 보상 (별 라인의 한 단계 위). ──
+  // ── 선인의 폐도 무구 5종, 천공인의 왕 협동 처치 보상 (별 라인의 한 단계 위). ──
   // 무기 atk +19(검/방패) / +21(창/너클) 공통(제작 `일반` 기준) + 보조 스탯.
   aether_blade: {
     name: "에테르검",
@@ -158,7 +158,7 @@ export const SKY_ITEMS = {
       { label: "힘", value: "+10" },
     ],
     bonus: { atk: 19, str: 10 },
-    description: "에테르 합금을 별의 정수에 담갔다 단조한 한손 대검. 칼날을 휘두를 때마다 옛 별빛이 결을 따라 흐른다.",
+    description: "에테르 합금을 별의 정수에 담갔다 단조한 한손 대검. 휘두를 때마다 옛 별빛이 칼날을 타고 흐른다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -170,7 +170,7 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+12" },
     ],
     bonus: { atk: 19, vit: 12 },
-    description: "에테르 합금을 겹쳐 별의 정수로 결을 잡은 방패형 무기. 막아낼 때마다 별빛의 결이 적의 충격을 흩는다.",
+    description: "에테르 합금을 겹쳐 별의 정수로 다진 방패형 무기. 막아낼 때마다 별빛이 충격을 흩어 낸다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -211,7 +211,7 @@ export const SKY_ITEMS = {
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
-  // 천공인의 관 — 천공인의 왕 협동 legend 티어 1% 드랍 (물욕템).
+  // 천공인의 관, 천공인의 왕 협동 legend 티어 1% 드랍 (물욕템).
   // accessory 슬롯, 운봉령/별빛 두루마기 위의 분포.
   skyfolk_crown: {
     name: "천공인의 관",
@@ -231,7 +231,7 @@ export const SKY_ITEMS = {
     tier: 5,
   } satisfies EquipItem,
 
-  // ── 옥좌의 길 무구 5종 (Lv85) — aether 와 empyrean 사이 중간 tier. ──
+  // ── 옥좌의 길 무구 5종 (Lv85), aether 와 empyrean 사이 중간 tier. ──
   // 무기 atk +22(검/방패) / +24(창/너클). 에테르 무구를 잡아 황성 합금 + 별의 결로 다시 단조.
   road_blade: {
     name: "황성검",
@@ -241,7 +241,7 @@ export const SKY_ITEMS = {
       { label: "힘", value: "+11" },
     ],
     bonus: { atk: 22, str: 11 },
-    description: "옥좌의 길에서 무너진 황성 호위병의 칼을 에테르검 위에 한 겹 더 입힌 한손 대검. 휘두를 때마다 황성의 결이 칼날을 따라 흐른다.",
+    description: "옥좌의 길에서 무너진 황성 호위병의 칼을 에테르검 위에 덧입힌 한손 대검. 휘두를 때마다 황성의 빛이 칼날을 탄다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -253,7 +253,7 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+13" },
     ],
     bonus: { atk: 22, vit: 13 },
-    description: "에테르 방패에 황성 호위병이 두르고 있던 보호의 결을 한 겹 더 두른 방패형 무기. 막아낼 때마다 황성의 결이 충격을 흩는다.",
+    description: "에테르 방패에 황성 호위병의 보호 마법을 한 겹 더 두른 방패형 무기. 막아낼 때마다 황성의 빛이 충격을 흩는다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -265,7 +265,7 @@ export const SKY_ITEMS = {
       { label: "민첩", value: "+13" },
     ],
     bonus: { atk: 24, dex: 13 },
-    description: "에테르창 끝에 황성의 결을 압축해 박은 긴 창. 끝에서 옥좌가 빛을 떨군다는 그 결이 가늘게 떨린다.",
+    description: "에테르창 끝에 황성의 빛을 압축해 박은 긴 창. 창끝에서 옥좌의 빛이 가늘게 떨린다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -277,7 +277,7 @@ export const SKY_ITEMS = {
       { label: "행운", value: "+13" },
     ],
     bonus: { atk: 24, luk: 13 },
-    description: "에테르 너클에 황성 호위병의 한 결을 더 새긴 너클. 한 방 한 방이 옥좌로 가는 길을 닮은 결을 낸다.",
+    description: "에테르 너클에 황성 호위병의 문양을 더 새긴 너클. 한 방 한 방이 옥좌로 가는 길처럼 묵직하다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -290,12 +290,12 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+5" },
     ],
     bonus: { dex: 10, spd: 10, vit: 5 },
-    description: "에테르 망토에 황성의 결을 한 줄 더 짜낸 가벼운 망토. 두르면 어깨에 옥좌로 가는 길의 결이 얹힌다.",
+    description: "에테르 망토에 황성의 실을 한 줄 더 짜 넣은 가벼운 망토. 두르면 옥좌로 가는 길의 무게가 어깨에 얹힌다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
 
-  // ── 창공의 옥좌 무구 5종 — 창공의 주재 협동 처치 보상 (에테르 라인의 한 단계 위, 만렙 정점). ──
+  // ── 창공의 옥좌 무구 5종, 창공의 주재 협동 처치 보상 (에테르 라인의 한 단계 위, 만렙 정점). ──
   // 무기 atk +25(검/방패) / +27(창/너클) 공통(제작 `일반` 기준) + 보조 스탯.
   empyrean_blade: {
     name: "창공검",
@@ -305,7 +305,7 @@ export const SKY_ITEMS = {
       { label: "힘", value: "+12" },
     ],
     bonus: { atk: 25, str: 12 },
-    description: "창공 조각을 태초의 정수에 담갔다 단조한 한손 대검. 휘두를 때마다 별 그 자체의 결이 칼날을 따라 흐른다.",
+    description: "창공 조각을 태초의 정수에 담갔다 단조한 한손 대검. 휘두를 때마다 별빛이 칼날을 따라 흐른다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -317,7 +317,7 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+14" },
     ],
     bonus: { atk: 25, vit: 14 },
-    description: "창공 조각을 겹쳐 태초의 정수로 결을 잡은 방패형 무기. 막아낼 때마다 별이 일렁이며 충격을 흩는다.",
+    description: "창공 조각을 겹쳐 태초의 정수로 다진 방패형 무기. 막아낼 때마다 별이 일렁이며 충격을 흩는다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -329,7 +329,7 @@ export const SKY_ITEMS = {
       { label: "민첩", value: "+14" },
     ],
     bonus: { atk: 27, dex: 14 },
-    description: "태초의 정수로 균형을 잡고 창공 조각 끝을 깎아 박은 긴 창. 끝에서 별이 떨어지는 듯한 결이 인다.",
+    description: "태초의 정수로 균형을 잡고 창공 조각 끝을 깎아 박은 긴 창. 창끝에서 별이 떨어지는 듯한 빛이 인다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,
@@ -354,7 +354,7 @@ export const SKY_ITEMS = {
       { label: "활력", value: "+6" },
     ],
     bonus: { dex: 11, spd: 11, vit: 6 },
-    description: "태초의 정수를 짜낸 실로 짠 가장 가벼우면서 가장 단단한 망토. 두르면 어깨에 별 한 자루의 결이 얹힌다.",
+    description: "태초의 정수를 짜낸 실로 짠 가장 가벼우면서 가장 단단한 망토. 두르면 별 한 자루의 무게가 어깨에 얹힌다.",
     rarity: "uncommon",
     tier: 5,
   } satisfies EquipItem,

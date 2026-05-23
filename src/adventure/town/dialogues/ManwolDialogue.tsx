@@ -74,7 +74,7 @@ export function ManwolDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "거인을 잠재웠다고? …거짓말이라도 그 비늘은 못 가져올 텐데. 좋아, 믿어 주지.\n그럼 한 가지 — 운봉석은 제대로 다룰 줄 아는 손이 드물어. 자네가 운봉석 여섯 덩이만 가져오면, 거인 어깨 비늘로 견갑을 어떻게 짜는지 시연해 줌세. 보고 나면 자네 손에도 새겨질 거야."
+          "거인을 잠재웠다고? …거짓말이라도 그 비늘은 못 가져올 텐데. 좋아, 믿어 주지.\n그럼 한 가지. 운봉석은 제대로 다룰 줄 아는 손이 드물어. 자네가 운봉석 여섯 덩이만 가져오면, 거인 어깨 비늘로 견갑을 어떻게 짜는지 시연해 줌세. 보고 나면 자네 손에도 새겨질 거야."
         }
         primaryAction={{
           label: "받아들인다",
@@ -94,7 +94,7 @@ export function ManwolDialogue({
           npc={npc}
           onClose={onClose}
           text={
-            "운봉석 여섯 덩이… 제대로 골라왔군. 자, 잘 보게 — 비늘 결을 따라 운봉석을 끼워 넣고, 이렇게.\n됐어. 이제 자네 손에도 새겨졌을 거야. 견갑 제작서일세."
+            "운봉석 여섯 덩이… 제대로 골라왔군. 자, 잘 보게. 비늘 결을 따라 운봉석을 끼워 넣고, 이렇게.\n됐어. 이제 자네 손에도 새겨졌을 거야. 견갑 제작서일세."
           }
           primaryAction={{
             label: "건네준다",
@@ -117,7 +117,7 @@ export function ManwolDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={`운봉석은 거인을 잠재울 때 떨어진다네. 충분히 모아 오게. — 진행 ${have}/${ORE_NEED}`}
+        text={`운봉석은 거인을 잠재울 때 떨어진다네. 충분히 모아 오게. 진행 ${have}/${ORE_NEED}`}
       />
     );
   }
@@ -130,7 +130,7 @@ export function ManwolDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "견갑은 봤으니 이제 무기 차례야. 운봉석 여덟 덩이만 더 가져와 봐 — 대검, 방벽, 장창, 발톱. 네 자루 전부 벼리는 법을 자네 손에 새겨 줌세."
+          "견갑은 봤으니 이제 무기 차례야. 운봉석 여덟 덩이만 더 가져와 봐. 대검, 방벽, 장창, 발톱. 네 자루 전부 벼리는 법을 자네 손에 새겨 줌세."
         }
         primaryAction={{
           label: "받아들인다",
@@ -150,7 +150,7 @@ export function ManwolDialogue({
           npc={npc}
           onClose={onClose}
           text={
-            "운봉석 여덟 덩이… 좋아. 대검, 방벽, 장창, 발톱 — 네 자루의 결을 차례로 잡아 보겠네. 잘 봐 두게.\n됐어. 네 자루 전부, 자네 손에 새겨졌어. 손에 맞는 걸 골라 벼리게."
+            "운봉석 여덟 덩이… 좋아. 대검, 방벽, 장창, 발톱. 네 자루의 결을 차례로 잡아 보겠네. 잘 봐 두게.\n됐어. 네 자루 전부, 자네 손에 새겨졌어. 손에 맞는 걸 골라 벼리게."
           }
           primaryAction={{
             label: "건네준다",
@@ -173,14 +173,14 @@ export function ManwolDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={`무기 네 자루를 벼리려면 운봉석이 좀 들어가. 여덟 덩이 채워 오게. — 진행 ${have}/${WEAPONS_NEED}`}
+        text={`무기 네 자루를 벼리려면 운봉석이 좀 들어가. 여덟 덩이 채워 오게. 진행 ${have}/${WEAPONS_NEED}`}
       />
     );
   }
 
   // weapons.state === "completed" — 제작 안내 + 볼드 재회 라인(§7.1).
   const craftHint =
-    "운봉 무기 네 자루든 견갑이든 — 제작서는 자네 손에 다 새겨졌어. 거인이 떨군 비늘·운봉석·단단한 수정으로, 대장간 모루 위에 올려놓고 두드려보게.";
+    "운봉 무기 네 자루든 견갑이든. 제작서는 자네 손에 다 새겨졌어. 거인이 떨군 비늘·운봉석·단단한 수정으로, 대장간 모루 위에 올려놓고 두드려보게.";
   const errandGiven = storyFlags.has("manwol_bold_errand_given");
   const letterDelivered = storyFlags.has("manwol_bold_letter_delivered");
   const reunionDone = storyFlags.has("manwol_bold_reunion_done");
@@ -213,7 +213,7 @@ export function ManwolDialogue({
       // 천공 성지 보스 미처치 / 윗동강 미보유 — 평소 재회 idle + (보스 처치했으면) 떡밥.
       if (!volcanoDefeated || !ownsBroken) {
         const breadcrumb = volcanoDefeated
-          ? "\n\n…참, 폐허 늑대들이 옛 검의 윗동강 하나를 물고 다닌다는 소문이 있어. 진짜라면 — 그건 내가 손볼 수 있는 물건일지도 모르겠군."
+          ? "\n\n…참, 폐허 늑대들이 옛 검의 윗동강 하나를 물고 다닌다는 소문이 있어. 진짜라면, 그건 내가 손볼 수 있는 물건일지도 모르겠군."
           : "";
         return (
           <NpcDialogue
@@ -229,7 +229,7 @@ export function ManwolDialogue({
           npc={npc}
           onClose={onClose}
           text={
-            "…잠깐, 그 검. 자루 쪽을 이리 줘 보게.\n…윗동강뿐이군. 날밑은 떨어져 나갔고, 검신도 반이 없어. 그런데 이 결 — 옛 영웅검이야. 진짜.\n되살릴 수 있어. 단, 손이 많이 가. 운봉석으로 검신을 새로 잇고, 날밑은 화염 능선 너머의 것으로 둘러야 해. 맡기겠나?"
+            "…잠깐, 그 검. 자루 쪽을 이리 줘 보게.\n…윗동강뿐이군. 날밑은 떨어져 나갔고, 검신도 반이 없어. 그런데 이 결, 옛 영웅검이야. 진짜.\n되살릴 수 있어. 단, 손이 많이 가. 운봉석으로 검신을 새로 잇고, 날밑은 화염 능선 너머의 것으로 둘러야 해. 맡기겠나?"
           }
           primaryAction={{
             label: "윗동강을 맡긴다",
@@ -250,7 +250,7 @@ export function ManwolDialogue({
               storyFlags.set("hero_sword_started");
               addNotification(
                 "quest_complete",
-                `${HERO_QUEST_TITLE} — 만월이 윗동강을 맡았다. 운봉석 ${HERO_ORE_NEED}덩이를 모아 오자.`,
+                `${HERO_QUEST_TITLE}. 만월이 윗동강을 맡았다. 운봉석 ${HERO_ORE_NEED}덩이를 모아 오자.`,
               );
               onClose();
             },
@@ -272,7 +272,7 @@ export function ManwolDialogue({
           <NpcDialogue
             npc={npc}
             onClose={onClose}
-            text={`운봉석 열여섯 덩이… 검신 하나에 이만큼이 들어가. 결을 잡아 두지.\n다음은 날밑이야. 화염 능선 너머 — 용암 핵 ${HERO_CORE.lava_core}, 화염 비늘 ${HERO_CORE.flame_scale}, 봉황 깃털 ${HERO_CORE.phoenix_feather}. 그래야 옛 영웅검에 어울리는 날밑이 나와.`}
+            text={`운봉석 열여섯 덩이… 검신 하나에 이만큼이 들어가. 결을 잡아 두지.\n다음은 날밑이야. 화염 능선 너머. 용암 핵 ${HERO_CORE.lava_core}, 화염 비늘 ${HERO_CORE.flame_scale}, 봉황 깃털 ${HERO_CORE.phoenix_feather}. 그래야 옛 영웅검에 어울리는 날밑이 나와.`}
             primaryAction={{
               label: "운봉석을 건넨다",
               onClick: () => {
@@ -291,7 +291,7 @@ export function ManwolDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`검신을 새로 이으려면 운봉석이 많이 들어. 거인이 떨군 걸 모아 오게. — 진행 ${have}/${HERO_ORE_NEED}`}
+          text={`검신을 새로 이으려면 운봉석이 많이 들어. 거인이 떨군 걸 모아 오게. 진행 ${have}/${HERO_ORE_NEED}`}
         />
       );
     }
@@ -311,7 +311,7 @@ export function ManwolDialogue({
             npc={npc}
             onClose={onClose}
             text={
-              "용암 핵에 화염 비늘, 봉황 깃털까지 — 다 됐군. 날밑은 이걸로 둘러 주지.\n검신·날밑·윗동강, 셋이 다 모였어. 모루에 올려놓고 벼리는 데 시간이 좀 걸려. 잠시 뒤에 다시 오게."
+              "용암 핵에 화염 비늘, 봉황 깃털까지. 다 됐군. 날밑은 이걸로 둘러 주지.\n검신·날밑·윗동강, 셋이 다 모였어. 모루에 올려놓고 벼리는 데 시간이 좀 걸려. 잠시 뒤에 다시 오게."
             }
             primaryAction={{
               label: "재료를 건넨다",
@@ -343,7 +343,7 @@ export function ManwolDialogue({
         <NpcDialogue
           npc={npc}
           onClose={onClose}
-          text={`날밑 재료가 아직이야. 용암 핵 ${lc}/${HERO_CORE.lava_core}, 화염 비늘 ${fs}/${HERO_CORE.flame_scale}, 봉황 깃털 ${pf}/${HERO_CORE.phoenix_feather} — 화염 능선 너머에서 구할 수 있어.`}
+          text={`날밑 재료가 아직이야. 용암 핵 ${lc}/${HERO_CORE.lava_core}, 화염 비늘 ${fs}/${HERO_CORE.flame_scale}, 봉황 깃털 ${pf}/${HERO_CORE.phoenix_feather}. 화염 능선 너머에서 구할 수 있어.`}
         />
       );
     }
@@ -355,7 +355,7 @@ export function ManwolDialogue({
           npc={npc}
           onClose={onClose}
           text={
-            "아직 모루 위야. 운봉석 검신을 윗동강에 잇고, 날밑을 두르는 중 — 서두르면 또 부러져. 조금만 더 기다리게."
+            "아직 모루 위야. 운봉석 검신을 윗동강에 잇고, 날밑을 두르는 중. 서두르면 또 부러져. 조금만 더 기다리게."
           }
           primaryAction={{
             label: "기다린다",
@@ -374,7 +374,7 @@ export function ManwolDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "…됐어. 받게.\n윗동강에 운봉석 검신을 잇고, 화염 능선의 것으로 날밑을 둘렀어. 묵직하지? 옛 영웅이 들었을 때 그대로야. 그 무게, 휘두르면 곧 위력이 돼.\n— 영웅검일세. 자네 손에 있어야 할 물건이야."
+          "…됐어. 받게.\n윗동강에 운봉석 검신을 잇고, 화염 능선의 것으로 날밑을 둘렀어. 묵직하지? 옛 영웅이 들었을 때 그대로야. 그 무게, 휘두르면 곧 위력이 돼.\n, 영웅검일세. 자네 손에 있어야 할 물건이야."
         }
         primaryAction={{
           label: "영웅검을 받는다",
@@ -383,7 +383,7 @@ export function ManwolDialogue({
               onSuccess: () => {
                 addNotification(
                   "quest_complete",
-                  `${HERO_QUEST_TITLE} 완료 — 영웅검 획득! (+골드 400 / +명성 8)`,
+                  `${HERO_QUEST_TITLE} 완료. 영웅검 받음! (+골드 400 / +명성 8)`,
                 );
                 onClose();
               },
@@ -399,7 +399,7 @@ export function ManwolDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "녀석한테 다녀왔나? …볼드, 그 까칠한 대머리 영감 아직 살아 있다니 다행이야. 망치질 하나는 쓸 만했지.\n자, 자네 약통 좀 손봐줬어 — 회복약 몇 병이랑, 한 칸 더. 고맙네."
+          "녀석한테 다녀왔나? …볼드, 그 까칠한 대머리 영감 아직 살아 있다니 다행이야. 망치질 하나는 쓸 만했지.\n자, 자네 약통 좀 손봐줬어. 회복약 몇 병이랑, 한 칸 더. 고맙네."
         }
         primaryAction={{
           label: "받는다",
@@ -418,7 +418,7 @@ export function ManwolDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={`볼드한테 그 손잡이 전해줬나? 시작 마을, 대머리 영감일세 — 못 알아볼 리 없어.\n…아 참, ${craftHint}`}
+        text={`볼드한테 그 손잡이 전해줬나? 시작 마을, 대머리 영감일세. 못 알아볼 리 없어.\n…아 참, ${craftHint}`}
       />
     );
   }
@@ -426,7 +426,7 @@ export function ManwolDialogue({
     <NpcDialogue
       npc={npc}
       onClose={onClose}
-      text={`${craftHint}\n…그리고 한 가지 더. 시작 마을에 볼드라는 대머리 영감 아직 살아 있나? 망치질 하나는 쓸 만했지 — 이 손잡이 좀 전해 주게. '만월이 보낸다'고 하면 알 거야.`}
+      text={`${craftHint}\n…그리고 한 가지 더. 시작 마을에 볼드라는 대머리 영감 아직 살아 있나? 망치질 하나는 쓸 만했지. 이 손잡이 좀 전해 주게. '만월이 보낸다'고 하면 알 거야.`}
       primaryAction={{
         label: "손잡이를 받는다",
         onClick: () => {

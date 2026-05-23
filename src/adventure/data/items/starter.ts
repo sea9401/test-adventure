@@ -9,7 +9,7 @@ export const STARTER_ITEMS = {
     bonus: { atk: 0 },
     description: "나뭇가지를 대충 다듬어 만든 평범한 막대.",
     tradable: false,
-    // 시작 무기 분실/판매 시 재구매용 — 공격력 +0 이라 상징적 가격(5g).
+    // 시작 무기 분실/판매 시 재구매용, 공격력 +0 이라 상징적 가격(5g).
     shopPrice: 5,
     tier: 1,
   } satisfies EquipItem,
@@ -20,7 +20,7 @@ export const STARTER_ITEMS = {
     bonus: { def: 0 },
     description: "평범한 천으로 만든 옷.",
     tradable: false,
-    // 시작 방어구 분실/판매 시 재구매용 — 방어력 +0 이라 상징적 가격(5g). 도감 등록 길도 열어준다.
+    // 시작 방어구 분실/판매 시 재구매용, 방어력 +0 이라 상징적 가격(5g). 도감 등록 길도 열어준다.
     shopPrice: 5,
     tier: 1,
   } satisfies EquipItem,
@@ -32,12 +32,12 @@ export const STARTER_ITEMS = {
     description: "어머니의 사랑이 깃든 작은 부적.",
     tradable: false,
     // 시작 액세서리 분실 시 재구매 + 도감 등록 길. 같은 +2 액세서리 활력의 반지(30g) 와
-    // 일관 — 정상 진행 시엔 처음부터 갖고 있고, 분실 시에만 재구매 인센티브.
+    // 일관, 정상 진행 시엔 처음부터 갖고 있고, 분실 시에만 재구매 인센티브.
     shopPrice: 30,
     tier: 1,
   } satisfies EquipItem,
 
-  // 초반 발판 — 상점에서 싸게 살 수 있는 입문 장비. 볼드 대장간 라인(야구방망이/낡은 가죽갑옷)을
+  // 초반 발판, 상점에서 싸게 살 수 있는 입문 장비. 볼드 대장간 라인(야구방망이/낡은 가죽갑옷)을
   // 타기 전이라도 첫 골드로 살 게 생긴다. 곧 그쪽으로 덮이는 잠깐용.
   worn_dagger: {
     name: "무딘 단검",
@@ -89,7 +89,7 @@ export const STARTER_ITEMS = {
     bonus: { def: 2 },
     description: "오랜 세월 입던 흔적이 남아있지만 천 옷보단 든든하다.",
     // 볼드의 야구방망이 의뢰(bold_blacksmith_intro) 보상으로 받는 게 정상 진행.
-    // 분실(판매/분해) 시 재구매할 길을 열어주되, 의뢰 완료 전엔 노출하지 않는다 —
+    // 분실(판매/분해) 시 재구매할 길을 열어주되, 의뢰 완료 전엔 노출하지 않는다,
     // 보상 스포일러 방지. 가격은 vitality_ring(+2) 30g 과 동일 룰.
     shopPrice: 30,
     shopGate: "boldQuestComplete",
@@ -103,7 +103,7 @@ export const STARTER_ITEMS = {
     description: "은은한 녹빛이 도는 반지. 끼고 있으면 몸이 가볍다.",
     // 스미스의 두더지 솎기 의뢰 보상이지만, 분실(판매/분해) 시 후속 '반지를 차고 와'
     // 의뢰가 영구 미완으로 묶이는 걸 막기 위해 상점에서 재구매 가능. 가격은 초반
-    // 발판 +1 스탯 장비 14g 의 두 배 — '의뢰 보상으로 받을 수 있다는 가치' 보다
+    // 발판 +1 스탯 장비 14g 의 두 배, '의뢰 보상으로 받을 수 있다는 가치' 보다
     // 살짝 비싼 30g 으로 두어 정상 진행 시엔 보상으로 받고, 분실 시에만 재구매 인센티브.
     shopPrice: 30,
     tier: 1,
@@ -247,8 +247,8 @@ export const STARTER_ITEMS = {
     tier: 2,
   } satisfies EquipItem,
 
-  // 마정석 무기 4종 — 광맥의 수호자 처치 보상으로 풀리는 동굴 강화 라인.
-  // 모두 weapon 슬롯, atk +6 공통(제작 `일반` 등급 기준 — 품질에 따라 ±2) + 보조 스탯이 다름.
+  // 마정석 무기 4종, 광맥의 수호자 처치 보상으로 풀리는 동굴 강화 라인.
+  // 모두 weapon 슬롯, atk +6 공통(제작 `일반` 등급 기준, 품질에 따라 ±2) + 보조 스탯이 다름.
   mana_sword: {
     name: "마정석 검",
     slot: "weapon",
@@ -310,8 +310,8 @@ export const STARTER_ITEMS = {
     tier: 2,
   } satisfies EquipItem,
 
-  // 운봉 무기 4종 + 액세서리 2 — 운봉의 거인 협동 처치 보상으로 풀리는 산정 강화 라인.
-  // 마정석 라인의 한 단계 위. 무기 atk +8 공통(제작 `일반` 등급 기준 — 품질에 따라 ±2) + 보조 stat.
+  // 운봉 무기 4종 + 액세서리 2, 운봉의 거인 협동 처치 보상으로 풀리는 산정 강화 라인.
+  // 마정석 라인의 한 단계 위. 무기 atk +8 공통(제작 `일반` 등급 기준, 품질에 따라 ±2) + 보조 stat.
   peak_sword: {
     name: "운봉 대검",
     slot: "weapon",
@@ -372,7 +372,7 @@ export const STARTER_ITEMS = {
     rarity: "uncommon",
     tier: 3,
   } satisfies EquipItem,
-  // 운봉의 심장 — 협동 보스 처치 보상. str 중심 공격형 액세서리.
+  // 운봉의 심장, 협동 보스 처치 보상. str 중심 공격형 액세서리.
   peak_heart: {
     name: "운봉의 심장",
     slot: "accessory",
@@ -385,8 +385,8 @@ export const STARTER_ITEMS = {
     rarity: "uncommon",
     tier: 3,
   } satisfies EquipItem,
-  // 운봉령 — 협동 보스 legend 티어에서 아주 낮은 확률로만 떨어지는 unique 액세서리 (물욕템).
-  // 모든 스탯이 한 결로 펴진 균형형 — 거래 불가, 자랑용.
+  // 운봉령, 협동 보스 legend 티어에서 아주 낮은 확률로만 떨어지는 unique 액세서리 (물욕템).
+  // 모든 스탯이 한 결로 펴진 균형형, 거래 불가, 자랑용.
   peak_relic: {
     name: "운봉령",
     slot: "accessory",
@@ -398,13 +398,13 @@ export const STARTER_ITEMS = {
       { label: "행운", value: "+3" },
     ],
     bonus: { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 },
-    description: "운봉의 거인 척추 한 마디에서 떼어낸 운봉석 결정. 다섯 결이 한 결로 펴져 손에 쥔 자의 모든 발이 같이 가벼워진다.",
+    description: "운봉의 거인 척추 한 마디에서 떼어낸 운봉석 결정. 손에 쥐면 몸 전체가 고르게 가벼워진다.",
     rarity: "unique",
     tradable: false,
     tier: 3,
   } satisfies EquipItem,
 
-  // 다리 구간 장비 — 운저 평원 / 잿빛 협로. 운봉 라인과 화염 라인 사이의 빈 구간을 메운다.
+  // 다리 구간 장비, 운저 평원 / 잿빛 협로. 운봉 라인과 화염 라인 사이의 빈 구간을 메운다.
   bison_hide_armor: {
     name: "들소 가죽 갑옷",
     slot: "armor",
@@ -432,7 +432,7 @@ export const STARTER_ITEMS = {
     tier: 3,
   } satisfies EquipItem,
 
-  // 봉황 망토 — 불꽃 독수리 희귀 드랍. 봉황령 파밍 동기.
+  // 봉황 망토, 불꽃 독수리 희귀 드랍. 봉황령 파밍 동기.
   flame_eagle_cape: {
     name: "봉황 망토",
     slot: "armor",
@@ -446,9 +446,9 @@ export const STARTER_ITEMS = {
     tier: 4,
   } satisfies EquipItem,
 
-  // 봉황 무구 6종 — 화산의 심장 보스 보상으로 풀리는 최상위 강화 라인.
+  // 봉황 무구 6종, 화산의 심장 보스 보상으로 풀리는 최상위 강화 라인.
   // 봉황령에서 모은 봉황 깃털 + 보스가 떨군 용암 핵·화염 비늘로 벼린 고대 유물급 무구.
-  // 무기 atk +10 공통(제작 `일반` 등급 기준 — 품질에 따라 ±2) + 보조 스탯이 다름.
+  // 무기 atk +10 공통(제작 `일반` 등급 기준, 품질에 따라 ±2) + 보조 스탯이 다름.
   volcano_sword: {
     name: "봉황도",
     slot: "weapon",

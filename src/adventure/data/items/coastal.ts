@@ -65,7 +65,7 @@ export const COASTAL_ITEMS = {
     rarity: "uncommon",
     tier: 2,
   } satisfies EquipItem,
-  // 업그레이드 결과 3종 — 베이스를 'equip' 재료로 소비 (recipes.ts).
+  // 업그레이드 결과 3종, 베이스를 'equip' 재료로 소비 (recipes.ts).
   crustacean_bulwark: {
     name: "갑각 보루방패",
     slot: "weapon",
@@ -104,7 +104,7 @@ export const COASTAL_ITEMS = {
     rarity: "uncommon",
     tier: 3,
   } satisfies EquipItem,
-  // 수심의 것 보스 보상 — 심연 무구 4종(무기, atk +7 공통 + 보조 stat) + 수심의 핵(액세서리).
+  // 수심의 것 보스 보상, 심연 무구 4종(무기, atk +7 공통 + 보조 stat) + 수심의 핵(액세서리).
   // recipe_one_of 로 무기 1종 확정 학습, 0.15 로 수심의 핵 제작서. 마정석 라인의 한 단계 위.
   abyssal_edge: {
     name: "심연 칼날",
@@ -166,8 +166,8 @@ export const COASTAL_ITEMS = {
     rarity: "uncommon",
     tier: 3,
   } satisfies EquipItem,
-  // 유실된 명품 — 진흙 미꾸라지가 아주 드물게 떨군다. tidelord_signet 은 가시 산호 골렘/수심의 것이
-  // 떨구는 새김서로 끌어올린 결과(결과도 unique) — "손에 맞춰진 보물".
+  // 유실된 명품, 진흙 미꾸라지가 아주 드물게 떨군다. tidelord_signet 은 가시 산호 골렘/수심의 것이
+  // 떨구는 새김서로 끌어올린 결과(결과도 unique), "손에 맞춰진 보물".
   drowned_signet: {
     name: "물에 잠긴 인장반지",
     slot: "accessory",

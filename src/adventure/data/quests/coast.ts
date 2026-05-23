@@ -47,7 +47,7 @@ export const COAST_QUESTS: Quest[] = [
     regionId: "saltmarsh",
     title: "보말의 곳간 채우기",
     description:
-      "대상 길손이 줄줄이 들이닥칠 철이라 곳간을 단단히 채워야 해요. 게딱지 15개만 더 들여와 주면. 손님이 두고 간 약 주머니를 손봐서 드릴게요.",
+      "대상 길손이 줄줄이 들이닥칠 철이라 곳간을 단단히 채워야 해요. 게딱지 15개만 더 들여와 주면, 손님이 두고 간 약 주머니를 손봐서 드릴게요.",
     requiredLevel: 11,
     target: { kind: "deliver", materialId: "crab_shell", count: 15 },
     reward: { gold: 240, fame: 13, exp: 420, potionCapacityBonus: 1 },
@@ -112,7 +112,7 @@ export const COAST_QUESTS: Quest[] = [
     regionId: "saltmarsh",
     title: "수심의 것",
     description:
-      "이제 알겠네. 암초 밑에서 뒤척이는 그것이 잠잠해지지 않는 한, 이 포구는 다시 일어서지 못해. 수심의 것. 단단히 준비해 가서 그것을 가라앉혀 주게. 소만의 명운이 거기 달렸네.",
+      "이제 알겠네. 암초 밑에서 뒤척이는 놈이 잠잠해지지 않는 한, 이 포구는 다시 일어서지 못해. 수심의 것. 단단히 준비해 가서 가라앉혀 주게. 소만이 거기에 달렸네.",
     requiredLevel: 18,
     target: { kind: "kill", monsterName: "수심의 것", count: 1 },
     reward: {
@@ -131,7 +131,7 @@ export const COAST_QUESTS: Quest[] = [
     regionId: "saltmarsh",
     title: "수심의 것: 다시 뒤척일 때",
     description:
-      "한 번 가라앉혔다고 끝이 아니야. 또 물이 차거든. 수심의 것을 세 번 더 가라앉혀 주게. 소만이 자네를 기억할 게요.",
+      "한 번 가라앉혔다고 끝이 아니야. 또 물이 차거든. 수심의 것을 세 번 더 가라앉혀 주게. 소만 사람들이 자네 이름을 잊지 않을 게요.",
     requiredLevel: 18,
     target: { kind: "kill", monsterName: "수심의 것", count: 3 },
     reward: { gold: 1100, fame: 28, exp: 1500 },
@@ -139,12 +139,12 @@ export const COAST_QUESTS: Quest[] = [
     giverNpcId: "saltmarsh_elder",
     requiresQuestCompleted: "saltmarsh-yeoul-deep-one",
   },
-  // ── 소만 — 새 quest kind 의뢰 ─────────────────────────────────────────
+  // ── 소만, 새 quest kind 의뢰 ─────────────────────────────────────────
   // craft_item / talk_to_npc / visit_region / equip_item / equip_set / kill_within_hp
   // / no_potion_boss 를 자연스러운 4 번째 단계로 매단다. 보스 후 도전 3 종은 무진 패턴
-  // 그대로 — kill_within_hp / no_potion_boss / equip_set 을 한 라인에서 검증.
+  // 그대로, kill_within_hp / no_potion_boss / equip_set 을 한 라인에서 검증.
   {
-    // craft_item — 갈매 라인 마지막 단계. 게딱지 손방패 2 점 제작.
+    // craft_item, 갈매 라인 마지막 단계. 게딱지 손방패 2 점 제작.
     // 게딱지 손방패 제작서는 갈매의 첫 의뢰(crabs) 보상으로 받는다.
     id: "saltmarsh-galmae-shell-forge",
     regionId: "saltmarsh",
@@ -159,12 +159,12 @@ export const COAST_QUESTS: Quest[] = [
     requiresQuestCompleted: "saltmarsh-galmae-crabs",
   },
   {
-    // talk_to_npc — 보말 라인 마지막 단계. 미르(갯마을 아이)를 N 번 들어주기.
+    // talk_to_npc, 보말 라인 마지막 단계. 미르(갯마을 아이)를 N 번 들어주기.
     id: "saltmarsh-bomal-listen-mireu",
     regionId: "saltmarsh",
     title: "보말의 청: 미르 들어주기",
     description:
-      "그 애가 요즘 통 말이 적어요. 한낮에도 갯벌만 보고 있고요. 들어줄 사람이 있어야지요. 미르와 세 번만 이야기를 나눠 주세요. 사례는 손님이 두고 간 회복약으로요.",
+      "그 애가 요즘 통 말이 적어요. 한낮에도 갯벌만 보고 있고요. 누가 좀 들어줘야지요. 미르와 세 번만 이야기를 나눠 주세요. 사례는 손님이 두고 간 회복약으로요.",
     requiredLevel: 11,
     target: { kind: "talk_to_npc", npcId: "saltmarsh_kid", count: 3 },
     reward: { gold: 220, fame: 11, exp: 280, potions: [{ id: "potion_heal_s", count: 5 }] },
@@ -173,24 +173,24 @@ export const COAST_QUESTS: Quest[] = [
     requiresQuestCompleted: "saltmarsh-bomal-crab-shells",
   },
   {
-    // visit_region — 미르(갯마을 아이) 가 처음으로 내주는 의뢰. 해랑이 배를 내준 뒤,
+    // visit_region, 미르(갯마을 아이) 가 처음으로 내주는 의뢰. 해랑이 배를 내준 뒤,
     // 산호초 섬에 다섯 번 다녀와 어떻게 생겼는지 이야기해 달라는 어린애의 부탁.
     id: "saltmarsh-mireu-reef-tour",
     regionId: "saltmarsh",
     title: "미르의 청: 산호초 섬 한 바퀴",
     description:
-      "해랑 아저씨는 안 데려가 줘요. 아저씨가 다섯 번만 더 갔다 와서, 산호초 섬이 어떻게 생겼는지 다 말해 줘요. 안개도, 사이렌 노래도, 가시 산호도. 산호초 섬 5회 방문.",
+      "해랑 아저씨는 안 데려가 줘요. 아저씨가 다섯 번만 더 갔다 와서 산호초 섬이 어떻게 생겼는지 다 말해 줘요. 안개랑 사이렌 노래, 가시 산호까지요. 산호초 섬 5회 방문.",
     requiredLevel: 16,
     target: { kind: "visit_region", regionId: "reef_isle", count: 5 },
     reward: { gold: 280, fame: 13, exp: 460 },
     repeatable: false,
     giverNpcId: "saltmarsh_kid",
     requiresQuestCompleted: "saltmarsh-haerang-hull-plating",
-    // 다이얼로그 게이트: stilled(deep_one_stilled) && crossed — prereq 만으론 표현 불가 → hidden.
+    // 다이얼로그 게이트: stilled(deep_one_stilled) && crossed, prereq 만으론 표현 불가 → hidden.
     hidden: true,
   },
   {
-    // equip_item — 해랑 라인 마지막 단계. 산호 가시 단검을 한 번이라도 차고 와라.
+    // equip_item, 해랑 라인 마지막 단계. 산호 가시 단검을 한 번이라도 차고 와라.
     // 뱃사공이 "산호 가시쯤은 익숙해야 난바다를 건너지" 라고 말하는 결.
     id: "saltmarsh-haerang-coral-bear",
     regionId: "saltmarsh",
@@ -204,7 +204,7 @@ export const COAST_QUESTS: Quest[] = [
     giverNpcId: "saltmarsh_ferryman",
     requiresQuestCompleted: "saltmarsh-haerang-hull-plating",
   },
-  // ── 소만 — 수심의 것 보스 재도전 3 종 ──────────────────────────────────
+  // ── 소만, 수심의 것 보스 재도전 3 종 ──────────────────────────────────
   // kill_within_hp / no_potion_boss / equip_set 의 인게임 검증. 무진 라인과 짝.
   // 보스 처치(saltmarsh-yeoul-deep-one) 완료 후에만 노출되며, YeoulDialogue 가 한
   // 번에 한 단계씩 차례로 제안한다.
@@ -213,7 +213,7 @@ export const COAST_QUESTS: Quest[] = [
     regionId: "saltmarsh",
     title: "흠 없는 한 잠수",
     description:
-      "수심의 것을 한 번 가라앉혔다면. 두 번째는 흠 없이 가져갈 수 있나? 소용돌이가 등을 핥기 전에. HP 70% 이상으로 수심의 것을 처치.",
+      "수심의 것을 한 번 가라앉혔다면, 두 번째는 흠 없이 가져갈 수 있나? 소용돌이가 등을 핥기 전에. HP 70% 이상으로 수심의 것을 처치.",
     requiredLevel: 18,
     target: {
       kind: "kill_within_hp",
@@ -240,7 +240,7 @@ export const COAST_QUESTS: Quest[] = [
     requiresQuestCompleted: "saltmarsh-yeoul-deep-one",
   },
   {
-    // equip_set — 무기 / 갑옷 / 액세서리 슬롯이 겹치지 않게 골랐다. 셋을 동시에 차야 진행.
+    // equip_set, 무기 / 갑옷 / 액세서리 슬롯이 겹치지 않게 골랐다. 셋을 동시에 차야 진행.
     id: "saltmarsh-yeoul-challenge-abyssal-set",
     regionId: "saltmarsh",
     title: "심연의 한 복",
@@ -256,7 +256,7 @@ export const COAST_QUESTS: Quest[] = [
     giverNpcId: "saltmarsh_elder",
     requiresQuestCompleted: "saltmarsh-yeoul-deep-one",
   },
-  // ── 소만 길드 게시판 — 반복 의뢰 ──────────────────────────────────────
+  // ── 소만 길드 게시판, 반복 의뢰 ──────────────────────────────────────
   // 갯벌 적 3종은 누구나, 산호초 섬 적 2종은 해랑의 선저 덧대기 완료 후 노출.
   {
     id: "saltmarsh-board-crabs",

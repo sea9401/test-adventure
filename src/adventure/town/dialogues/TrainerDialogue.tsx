@@ -47,7 +47,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          `슬라임은 잘 잡고 있나?\n평야에 가면 흔하지. — 진행 ${slime.progress}/5`
+          `슬라임은 잘 잡고 있나?\n평야에 가면 흔하지. 진행 ${slime.progress}/5`
         }
       />
     );
@@ -58,7 +58,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "오, 다섯 마리를 다 잡아왔군.\n잘 했네 — 자, 보상이다. 작은 회복약 다섯 개와 조합법.\n모험을 하려면 포션 정도는 만들 줄 알아야 할걸세."
+          "오, 다섯 마리를 다 잡아왔군.\n잘 했네. 자, 보상이다. 작은 회복약 다섯 개와 조합법.\n모험을 하려면 포션 정도는 만들 줄 알아야 할걸세."
         }
         primaryAction={{
           label: "보상을 받는다",
@@ -77,7 +77,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "슬라임은 얌전한 편이지.\n다음은 들개다 — 평야와 외곽 숲에서 떼지어 다닌다.\n10마리만 잡아와. 어금니가 부딪치는 소리가 익숙해져야 해."
+          "슬라임은 얌전한 편이지.\n다음은 들개다. 평야와 외곽 숲에서 떼지어 다닌다.\n10마리만 잡아와. 어금니가 부딪치는 소리가 익숙해져야 해."
         }
         primaryAction={{
           label: "받아들인다",
@@ -95,7 +95,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          `들개는 빠르고 사나워.\n자세를 낮추고 발을 노려라. — 진행 ${dogs.progress}/10`
+          `들개는 빠르고 사나워.\n자세를 낮추고 발을 노려라. 진행 ${dogs.progress}/10`
         }
       />
     );
@@ -106,7 +106,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "들개의 눈빛이 익숙해졌나?\n잘 했네. — 그럼 마지막 단련만 남았다."
+          "들개의 눈빛이 익숙해졌나?\n잘 했네. 그럼 마지막 단련만 남았다."
         }
         primaryAction={{
           label: "보고한다",
@@ -125,7 +125,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "두더지를 우습게 보면 안 돼.\n땅 밑으로 들락거리며 빠르게 친다.\n10마리. 어디로 들어가는지, 어디로 나오는지 — 그걸 보는 눈을 길러봐."
+          "두더지를 우습게 보면 안 돼.\n땅 밑으로 들락거리며 빠르게 친다.\n10마리. 어디로 들어가는지, 어디로 나오는지. 그걸 보는 눈을 길러봐."
         }
         primaryAction={{
           label: "받아들인다",
@@ -143,7 +143,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          `두더지는 보이지 않을 때가 더 위험하지.\n흙 위의 떨림을 읽어라. — 진행 ${moles.progress}/10`
+          `두더지는 보이지 않을 때가 더 위험하지.\n흙 위의 떨림을 읽어라. 진행 ${moles.progress}/10`
         }
       />
     );
@@ -154,7 +154,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "훌륭해. 슬라임, 들개, 두더지 — 평야의 셋을 다 끝냈군.\n자, 이건 내가 신참 시절 주워 모은 거다. 활력의 반지. 끼고 다녀라."
+          "훌륭해. 슬라임, 들개, 두더지. 평야의 셋을 다 끝냈군.\n자, 이건 내가 신참 시절 주워 모은 거다. 활력의 반지. 끼고 다녀라."
         }
         primaryAction={{
           label: "활력의 반지를 받는다",
@@ -174,7 +174,7 @@ export function TrainerDialogue({
         npc={npc}
         onClose={onClose}
         text={
-          "내가 준 활력의 반지 — 끼고 다니나? 한 번이라도 차고 와 보게. 그래야 자네가 평야 졸업이라고 인정해 주지."
+          "내가 준 활력의 반지. 끼고 다니나? 한 번이라도 차고 와 보게. 그래야 자네가 평야 졸업이라고 인정해 주지."
         }
         primaryAction={{
           label: "차고 오겠다고 한다",
@@ -198,7 +198,7 @@ export function TrainerDialogue({
           npc={npc}
           onClose={onClose}
           text={
-            "어, 반지를 잃어버렸나? 이런 — 마침 하나 더 있었네. 자, 받게. 이번엔 꼭 끼고 다녀라."
+            "어, 반지를 잃어버렸나? 이런. 마침 하나 더 있었네. 자, 받게. 이번엔 꼭 끼고 다녀라."
           }
           primaryAction={{
             label: "활력의 반지를 받는다",
@@ -223,7 +223,7 @@ export function TrainerDialogue({
       <NpcDialogue
         npc={npc}
         onClose={onClose}
-        text={"끼고 다닌 흔적이 보이는군. 좋아 — 자네 평야 졸업, 이제 진짜다."}
+        text={"끼고 다닌 흔적이 보이는군. 좋아. 자네 평야 졸업, 이제 진짜다."}
         primaryAction={{
           label: "보상을 받는다",
           onClick: () => {

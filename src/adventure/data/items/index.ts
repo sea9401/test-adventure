@@ -29,7 +29,7 @@ const NAME_TO_ID: Map<string, ItemId> = new Map(
 );
 
 // 장착돼 있던 EquipItem이 어느 ITEMS 엔트리인지 역추적. localStorage 저장 후
-// 참조가 끊긴 인스턴스도 이름 매칭으로 식별 — 이름은 고유라고 가정.
+// 참조가 끊긴 인스턴스도 이름 매칭으로 식별, 이름은 고유라고 가정.
 export function findItemId(item: EquipItem | null | undefined): ItemId | null {
   if (!item) return null;
   return NAME_TO_ID.get(item.name) ?? null;

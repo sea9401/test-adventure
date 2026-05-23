@@ -81,7 +81,7 @@ export function SuzyDialogue({
               onSuccess: () => {
                 addNotification(
                   "quest_complete",
-                  `${STORY_QUESTS.suzy_husband_news.title} 완료 — 골드 +30, 명성 +1, 작은 회복약 ×2`,
+                  `${STORY_QUESTS.suzy_husband_news.title} 완료. 골드 +30, 명성 +1, 작은 회복약 ×2`,
                 );
                 onClose();
               },

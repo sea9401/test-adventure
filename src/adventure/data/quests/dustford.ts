@@ -59,7 +59,7 @@ export const DUSTFORD_QUESTS: Quest[] = [
     regionId: "dustford",
     title: "나래의 겨우살이",
     description:
-      "찬바람 들 철이라 깃을 넉넉히 둬야 해요. 까마귀 깃 15장만 더 들여와 주면. 손님이 두고 간 약 주머니를 손봐서 드릴게요.",
+      "찬바람 들 철이라 깃을 넉넉히 둬야 해요. 까마귀 깃 15장만 더 들여와 주면, 손님이 두고 간 약 주머니를 손봐서 드릴게요.",
     requiredLevel: 4,
     target: { kind: "deliver", materialId: "raven_feather", count: 15 },
     reward: { gold: 120, fame: 8, exp: 180, potionCapacityBonus: 1 },
@@ -135,7 +135,7 @@ export const DUSTFORD_QUESTS: Quest[] = [
     regionId: "dustford",
     title: "옛 성문지기",
     description:
-      "성채는 멀쩡해. 한 가지만 빼면. 성문지기. 사람을 막으라 만든 게 아니야, 군대를 막으라 세운 거지. 군대는 오지 않았고 그것만 남아 빈 벽을 지켜. 단단히 준비해 가서 그것을 잠재워 주게. 마른나루의 명운이 거기 달렸소.",
+      "성채는 멀쩡해. 한 가지만 빼면, 성문지기. 사람을 막으라 만든 게 아니야, 군대를 막으라 세운 거지. 군대는 오지 않았고 그것만 남아 빈 벽을 지켜. 단단히 준비해 가서 잠재워 주게. 마른나루가 거기에 달렸소.",
     requiredLevel: 13,
     target: { kind: "kill", monsterName: "옛 성문지기", count: 1 },
     reward: {
@@ -162,15 +162,15 @@ export const DUSTFORD_QUESTS: Quest[] = [
     giverNpcId: "dustford_keeper",
     requiresQuestCompleted: "dustford-mujin-gatekeeper",
   },
-  // 옛 성문지기 도전 의뢰 3종 — 보스 처치 후 무진이 추가로 내준다.
+  // 옛 성문지기 도전 의뢰 3종, 보스 처치 후 무진이 추가로 내준다.
   // kill_within_hp / no_potion_boss / equip_set 세 가지 새 quest kind 의 인게임 라인.
-  // 단순히 "한 번 처치"가 아니라 자세를 보는 의뢰들 — 옛 수비대의 결을 잇는 자에게.
+  // 단순히 "한 번 처치"가 아니라 자세를 보는 의뢰들, 옛 수비대의 결을 잇는 자에게.
   {
     id: "dustford-mujin-challenge-pristine",
     regionId: "dustford",
     title: "흠 없는 한 수",
     description:
-      "성문지기를 한 번 잠재웠다면. 두 번째는 흠 없이 가져갈 수 있나? 빗장이 살갗에 닿기 전에. HP 70% 이상으로 옛 성문지기를 처치.",
+      "성문지기를 한 번 잠재웠다면, 두 번째는 흠 없이 가져갈 수 있나? 빗장이 살갗에 닿기 전에. HP 70% 이상으로 옛 성문지기를 처치.",
     requiredLevel: 13,
     target: { kind: "kill_within_hp", monsterName: "옛 성문지기", minHpFraction: 0.7, count: 1 },
     reward: { gold: 600, fame: 16, exp: 1000 },
@@ -207,12 +207,12 @@ export const DUSTFORD_QUESTS: Quest[] = [
     giverNpcId: "dustford_keeper",
     requiresQuestCompleted: "dustford-mujin-gatekeeper",
   },
-  // ── 마른나루 옛길 — 새 quest kind 의뢰 ─────────────────────────────────
+  // ── 마른나루 옛길, 새 quest kind 의뢰 ─────────────────────────────────
   // PR A 에서 도입한 craft_item / talk_to_npc / visit_region / kill_within_hp 를
   // 인트로 라인의 자연스러운 4 번째 단계로 매단다. 각 NPC 의 인트로 의뢰를 한 번
   // 마친 뒤에야 노출돼, 라인 어휘를 끊지 않는다.
   {
-    // craft_item — 두루 라인 마지막 단계. 옛 군기 망토(군기 한 폭 + 또 한 폭) 1 회 제작.
+    // craft_item, 두루 라인 마지막 단계. 옛 군기 망토(군기 한 폭 + 또 한 폭) 1 회 제작.
     // tattered_standard_cloak 은 노상강도가 떨궈 모이고, 합쳐 frontier_standard_cloak.
     id: "dustford-duru-standard-restore",
     regionId: "dustford",
@@ -227,12 +227,12 @@ export const DUSTFORD_QUESTS: Quest[] = [
     requiresQuestCompleted: "dustford-duru-scrap",
   },
   {
-    // talk_to_npc — 나래 라인 마지막 단계. 보리(역참 아이)를 N 번 들어주기.
+    // talk_to_npc, 나래 라인 마지막 단계. 보리(역참 아이)를 N 번 들어주기.
     id: "dustford-narae-listen-bori",
     regionId: "dustford",
     title: "나래의 청: 보리 들어주기",
     description:
-      "그 애가 요즘 통 말이 적어요. 밤마다 옛길 끝 쪽을 본대요. 자기는 안 무섭다면서. 들어줄 사람이 있어야지요. 보리와 세 번만 이야기를 나눠 주세요.",
+      "그 애가 요즘 통 말이 적어요. 밤마다 옛길 끝 쪽을 본대요. 자기는 안 무섭다면서요. 누가 좀 들어줘야지요. 보리와 세 번만 이야기를 나눠 주세요.",
     requiredLevel: 4,
     target: { kind: "talk_to_npc", npcId: "dustford_kid", count: 3 },
     reward: { gold: 200, fame: 10, exp: 240, potions: [{ id: "potion_heal_s", count: 5 }] },
@@ -241,24 +241,24 @@ export const DUSTFORD_QUESTS: Quest[] = [
     requiresQuestCompleted: "dustford-narae-feathers",
   },
   {
-    // visit_region — 보리(역참 아이) 가 처음으로 내주는 의뢰. 성문이 열린 뒤,
+    // visit_region, 보리(역참 아이) 가 처음으로 내주는 의뢰. 성문이 열린 뒤,
     // 옛 성채에 다섯 번 들어갔다 와서 어떻게 생겼는지 이야기해 달라는 어린애의 부탁.
     id: "dustford-bori-keep-tour",
     regionId: "dustford",
     title: "보리의 청: 성채 한 바퀴",
     description:
-      "무진 할아버지는 안 데려가 줘요. 아저씨가 다섯 번만 더 갔다 와서, 안이 어떻게 생겼는지 다 말해 줘요. 흉벽도, 우물도, 안마당도. 옛 성채 5회 방문.",
+      "무진 할아버지는 안 데려가 줘요. 아저씨가 다섯 번만 더 갔다 와서 안이 어떻게 생겼는지 다 말해 줘요. 흉벽이랑 우물, 안마당까지요. 옛 성채 5회 방문.",
     requiredLevel: 9,
     target: { kind: "visit_region", regionId: "oldwall_keep", count: 5 },
     reward: { gold: 220, fame: 11, exp: 320 },
     repeatable: false,
     giverNpcId: "dustford_kid",
     requiresQuestCompleted: "dustford-mujin-clear-road",
-    // 다이얼로그 게이트: gatekeeper_felled && KEEP_FLAG_UNSEALED — prereq 만으로 못 표현 → hidden.
+    // 다이얼로그 게이트: gatekeeper_felled && KEEP_FLAG_UNSEALED, prereq 만으로 못 표현 → hidden.
     hidden: true,
   },
   {
-    // kill_within_hp — 솔개 라인 마지막 단계. 노상강도 5 마리를 HP 70% 이상으로 처치.
+    // kill_within_hp, 솔개 라인 마지막 단계. 노상강도 5 마리를 HP 70% 이상으로 처치.
     // 들사냥꾼다운 "흠 없는 한 수" 어휘를 잡몹으로 끌어다 일상 도전으로 둔다.
     id: "dustford-solgae-pristine-bandits",
     regionId: "dustford",
@@ -277,7 +277,7 @@ export const DUSTFORD_QUESTS: Quest[] = [
     giverNpcId: "dustford_hunter",
     requiresQuestCompleted: "dustford-solgae-ravens",
   },
-  // ── 마른나루 길드 게시판 — 반복 의뢰 ─────────────────────────────────
+  // ── 마른나루 길드 게시판, 반복 의뢰 ─────────────────────────────────
   // 옛길 적 3종은 누구나, 옛 변경 성채 적 2종은 무진의 옛길 정리 완료 후 노출.
   {
     id: "dustford-board-wildcats",

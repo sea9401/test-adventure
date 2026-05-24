@@ -53,39 +53,38 @@ const NEUTRAL_OUTPOSTS: Outpost[] = [
   },
 ];
 
-// 5 왕국 (tier 4) — 비대칭 배치. 노인브로스트는 약간 안쪽, 엘본가드는 좌측 안쪽,
-// 다크스든은 좌단 끝, 선아출드는 우측으로 살짝, 라그나로드는 동단 안.
+// 5 왕국 (tier 4) — png 위 거점 위치에 맞춘 좌표 + 명칭.
 const KINGDOMS: Outpost[] = [
   {
-    id: "kingdom_noinbrost",
-    name: "노인브로스트 왕국",
+    id: "kingdom_tatiholm",
+    name: "타티홀름 왕국",
     type: "fort",
     tier: 4,
-    position: { x: 2100, y: 750 },
+    position: { x: 2400, y: 1134 },
     description: "북부 빙하 위에 세워진 시야와 영창의 왕국.",
   },
   {
-    id: "kingdom_elbongard",
-    name: "엘본가드 왕국",
+    id: "kingdom_silverbance",
+    name: "실버벤스 왕국",
     type: "tower",
     tier: 4,
-    position: { x: 8400, y: 1300 },
+    position: { x: 7590, y: 1297 },
     description: "동부 숲 깊은 곳, 마법과 학문의 왕국.",
   },
   {
-    id: "kingdom_darksden",
-    name: "다크스든 왕국",
+    id: "kingdom_blackforge",
+    name: "블랙포지 왕국",
     type: "mine",
     tier: 4,
-    position: { x: 1100, y: 4800 },
+    position: { x: 2050, y: 4435 },
     description: "서남부 늪지대의 광부 왕국. 깊은 광맥을 지배한다.",
   },
   {
-    id: "kingdom_seonachuld",
-    name: "선아출드 왕국",
+    id: "kingdom_sunderhold",
+    name: "선더홀드 왕국",
     type: "village",
     tier: 4,
-    position: { x: 5400, y: 5150 },
+    position: { x: 4459, y: 5088 },
     description: "중남부 평원의 농경 왕국. 가장 평화로운 시작점.",
   },
   {
@@ -93,7 +92,7 @@ const KINGDOMS: Outpost[] = [
     name: "라그나로드 왕국",
     type: "fort",
     tier: 4,
-    position: { x: 8700, y: 4900 },
+    position: { x: 7852, y: 4439 },
     description: "동남부 산악의 전쟁 왕국. 공성에 능하다.",
   },
 ];

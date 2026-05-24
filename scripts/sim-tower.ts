@@ -28,6 +28,12 @@ import { ITEMS } from "../src/adventure/data/items";
 import { MONSTERS, type Monster } from "../src/adventure/data/monsters";
 import type { StatKey } from "../src/adventure/data/stats";
 import {
+  PARAGON_TRACK_CAP,
+  type ParagonTrackKey,
+} from "../src/lib/paragon";
+import type { EquippedRune, RuneGrade } from "../src/adventure/data/runes";
+import type { EnchantSlot } from "../src/adventure/character/enchant";
+import {
   BOSS_SLOTS,
   bossBaseMonster,
   bossDisplayName,
@@ -49,6 +55,56 @@ const MAX_FLOOR = Number(process.env.MAX_FLOOR ?? 150);
 const FLOOR_STEP = Number(process.env.FLOOR_STEP ?? 5);
 const PT_MULT = Number(process.env.PT_MULT ?? 1.5);
 const QUAL = process.env.QUAL !== "0";
+// 실제 만렙 파워 보정(2026-05-23) — 과거 sim 빌드엔 파라곤/룬/부여가 빠져 ×1.0 이 실유저보다
+// 약했다(sim 이 tower F80 보스도 0% 인데 실유저는 F89=F80 클리어). 이 셋을 반영해 현실 앵커
+// "만렙 = F90 보스 벽" 에 맞춘다. 0 으로 끄면 옛 베이스라인.
+const PARAGON_PTS = Number(process.env.PARAGON_PTS ?? 60); // 전투 트랙 분배 총 포인트
+const RUNE_GRADE = Number(process.env.RUNE_GRADE ?? 4); // 룬 3슬롯 등급(0=룬 없음)
+const ENCHANT = process.env.ENCHANT !== "0"; // 부여 슬롯 채움
+
+// 전투 파라곤 트랙(자원 fortune 제외)에 라운드로빈 분배, 트랙당 PARAGON_TRACK_CAP(25) 캡.
+function buildParagon(pts: number): Partial<Record<ParagonTrackKey, number>> {
+  const order: ParagonTrackKey[] = ["wrath", "vigor", "guard", "precision", "blast"];
+  const alloc: Partial<Record<ParagonTrackKey, number>> = {};
+  let left = Math.max(0, Math.min(pts, order.length * PARAGON_TRACK_CAP));
+  let i = 0;
+  while (left > 0 && order.some((k) => (alloc[k] ?? 0) < PARAGON_TRACK_CAP)) {
+    const k = order[i % order.length];
+    if ((alloc[k] ?? 0) < PARAGON_TRACK_CAP) {
+      alloc[k] = (alloc[k] ?? 0) + 1;
+      left--;
+    }
+    i++;
+  }
+  return alloc;
+}
+
+// 3 슬롯 전투 룬(공격·생명·치명) at RUNE_GRADE. 0 이면 룬 없음.
+function buildRunes(): (EquippedRune | null)[] | undefined {
+  if (RUNE_GRADE <= 0) return undefined;
+  const g = Math.min(6, Math.max(1, RUNE_GRADE)) as RuneGrade;
+  return [
+    { id: "rune_attack", grade: g },
+    { id: "rune_life", grade: g },
+    { id: "rune_crit", grade: g },
+  ];
+}
+
+// +7 자루(부여 3슬롯) 가정 — 무기 공격형, 방어구 생존형. ENCHANT=0 이면 빈 칸.
+const WEAPON_ENCHANT: EnchantSlot[] = ENCHANT
+  ? [
+      { affixId: "might", value: 9 },
+      { affixId: "might", value: 7 },
+      { affixId: "swift", value: 6 },
+    ]
+  : [];
+const ARMOR_ENCHANT: EnchantSlot[] = ENCHANT
+  ? [
+      { affixId: "endure", value: 8 },
+      { affixId: "insight", value: 3 },
+      { affixId: "insight", value: 3 },
+    ]
+  : [];
 const POWER_MULTS = (process.env.POWER_MULTS ?? "1,1.25")
   .split(",")
   .map((s) => Number(s.trim()))
@@ -164,18 +220,24 @@ function makePlayer(arch: Archetype, powerMult: number) {
     "skyfolk_king_defeated",
     "endgame_apex_defeated",
   ]);
+  const withEnchant = (
+    it: typeof ITEMS[keyof typeof ITEMS],
+    slots: EnchantSlot[],
+  ) => (slots.length > 0 ? { ...it, enchantSlots: slots } : it);
   const d = derivePlayerCombat({
     level: LEVEL,
     baseStats: BASE_STATS,
     allocatedStats: allocate(arch, LEVEL),
     equipped: {
-      weapon: bump(ITEMS[gear.weapon], "atk"),
-      armor: bump(ITEMS[gear.armor], "def"),
+      weapon: withEnchant(bump(ITEMS[gear.weapon], "atk"), WEAPON_ENCHANT),
+      armor: withEnchant(bump(ITEMS[gear.armor], "def"), ARMOR_ENCHANT),
       accessory: ITEMS[gear.accessory],
     },
     equippedSkills: skillsFor(arch),
     equippedFeats: featsFor(arch),
     storyFlagIds: flags,
+    paragonAllocations: buildParagon(PARAGON_PTS),
+    equippedRunes: buildRunes(),
     hp: 99999,
   });
   const m = Math.max(1, powerMult);

@@ -12,7 +12,15 @@ type HuntResponse = {
   ok?: boolean;
   stamina?: StaminaState;
   error?: string;
-  result?: { floor: number };
+  result?: {
+    floor: number;
+    enemyName: string;
+    won: boolean;
+    expGained: number;
+    goldGained: number;
+    levelsGained: number;
+    turns: number;
+  };
 };
 
 // 던전 사냥 dev preview — POST /api/v2/dungeon/hunt 흐름을 시각 검증.
@@ -53,7 +61,16 @@ export function DungeonHunt() {
       }
       if (json.ok === true) {
         const cur = json.stamina?.current ?? "?";
-        pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);
+        const r = json.result;
+        if (r) {
+          const verdict = r.won ? "승리" : "패배";
+          const levelUp = r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
+          pushLog(
+            `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · EXP +${r.expGained} · GOLD +${r.goldGained}${levelUp} · 스태미너 ${cur}/200`,
+          );
+        } else {
+          pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);
+        }
       } else {
         const err = json.error ?? "unknown";
         const after = json.stamina ? ` (스태미너 ${json.stamina.current}/200)` : "";

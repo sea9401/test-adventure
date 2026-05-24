@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   OUTPOSTS,
   MAP_BOUNDS,
@@ -53,17 +53,59 @@ const TIER_LABEL: Record<OutpostTier, string> = {
   4: "왕국",
 };
 
+// SVG 의 viewBox 좌표로 변환. getScreenCTM 으로 정확 변환 (letterbox 보정).
+function svgCoordsFromEvent(
+  e: React.MouseEvent<SVGSVGElement>,
+): { x: number; y: number } | null {
+  const svg = e.currentTarget;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return null;
+  const inv = ctm.inverse();
+  const pt = svg.createSVGPoint();
+  pt.x = e.clientX;
+  pt.y = e.clientY;
+  const t = pt.matrixTransform(inv);
+  return { x: Math.round(t.x), y: Math.round(t.y) };
+}
+
 export function ContinentMap() {
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const [clickLog, setClickLog] = useState<
+    { x: number; y: number; ts: number }[]
+  >([]);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  function pushClick(pos: { x: number; y: number }) {
+    setClickLog((prev) =>
+      [{ ...pos, ts: Date.now() }, ...prev].slice(0, 8),
+    );
+    // 클립보드 복사 (가능하면)
+    if (navigator?.clipboard) {
+      navigator.clipboard
+        .writeText(`position: { x: ${pos.x}, y: ${pos.y} },`)
+        .catch(() => {});
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-3 p-4">
       <div className="rounded-lg border border-zinc-300 overflow-hidden dark:border-zinc-700">
         <svg
+          ref={svgRef}
           viewBox={`0 0 ${MAP_BOUNDS.width} ${MAP_BOUNDS.height}`}
           preserveAspectRatio="xMidYMid meet"
           className="w-full h-auto block"
+          onMouseMove={(e) => setMousePos(svgCoordsFromEvent(e))}
+          onMouseLeave={() => setMousePos(null)}
+          onClick={(e) => {
+            // 마커 클릭은 stopPropagation 으로 막힘 — 여기는 빈 영역만.
+            const coords = svgCoordsFromEvent(e);
+            if (coords) pushClick(coords);
+          }}
         >
           {/* 대륙 배경 일러스트 — png 위에 마커 overlay. preserveAspectRatio="none" 으로
               SVG viewBox 에 stretch (이미지 비율과 좌표 비율이 살짝 달라도 fill). */}
@@ -96,7 +138,10 @@ export function ContinentMap() {
               return (
                 <g
                   key={o.id}
-                  onClick={() => setSelected(o)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelected(o);
+                  }}
                   onMouseEnter={() => setHover(o.id)}
                   onMouseLeave={() => setHover(null)}
                   className="cursor-pointer"
@@ -209,6 +254,34 @@ export function ContinentMap() {
             지도에서 거점을 클릭하세요.
           </div>
         )}
+
+        {/* 좌표 추출 도우미 — 빈 영역 클릭 시 viewBox 좌표 + 클립보드 복사. */}
+        <section className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+            좌표 도우미
+          </div>
+          <div className="mt-1 text-xs text-zinc-500">
+            지도 빈 영역을 클릭하면 좌표 복사 (클립보드).
+          </div>
+          <div className="mt-2 rounded bg-zinc-100 px-2 py-1 text-xs font-mono tabular-nums dark:bg-zinc-900">
+            {mousePos
+              ? `x: ${mousePos.x}, y: ${mousePos.y}`
+              : "마우스를 지도 위로"}
+          </div>
+          {clickLog.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="text-xs text-zinc-500">최근 클릭</div>
+              {clickLog.map((c) => (
+                <div
+                  key={c.ts}
+                  className="rounded bg-zinc-100 px-2 py-1 text-xs font-mono tabular-nums dark:bg-zinc-900"
+                >
+                  {`{ x: ${c.x}, y: ${c.y} }`}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </aside>
     </div>
   );

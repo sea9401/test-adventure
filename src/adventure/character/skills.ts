@@ -242,9 +242,15 @@ export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_STR_THRESHOLD = 65;
 export const RAMPAGE_START_TURN = 3;
 export const RAMPAGE_ATK_STR_DIVISOR = 12;
-// 약점 분석 — 매 플레이어 턴 종료 시 적 ATK·DEF 각각 -floor(DEX/ANALYSIS_DEX_DIVISOR) (최소 0 클램프, 누적).
+// 약점 분석 — 매 플레이어 턴 종료 시 적 ATK·DEF 각각 -floor(DEX/ANALYSIS_DEX_DIVISOR) 누적.
+// 누적치는 적 raw stat 의 ANALYSIS_PENALTY_CAP_PCT 까지만 — 캡 도달 후 더 누적되지 않는다.
+// 캡 없는 무한 누적이 자동 사냥 부활 페널티(20분)와 결합해 DEX 빌드 wins 가 다른 빌드의
+// 27~80배로 폭증하던 사고 차단(Lv80 폐도 ablation 검증). 사망률 몇 %p 차이가 비선형 증폭됨.
+// divisor 30→50: 초기 누적 속도 자체 완화 (DEX 65=-1/턴, DEX 100=-2/턴).
+// cap 0.5→0.3: 후반 누적 천장 인하 (적 stat 30% 까지만 약화 가능).
 export const ANALYSIS_DEX_THRESHOLD = 65;
-export const ANALYSIS_DEX_DIVISOR = 30;
+export const ANALYSIS_DEX_DIVISOR = 50;
+export const ANALYSIS_PENALTY_CAP_PCT = 0.3;
 // 가시 갑옷 — 적이 넣은 피해(가드/굳건/철벽 감산 전, heavyBlow 반영)의 floor(VIT/BRAMBLE_VIT_DIVISOR)% 반사.
 // 특성 반사 갑주와 별도로 누적.
 export const BRAMBLE_VIT_THRESHOLD = 65;
@@ -346,7 +352,7 @@ export const STAT_SKILL: Record<StatKey, StatSkillInfo[]> = {
     },
     {
       name: SKILL_NAMES.ANALYSIS,
-      description: `매 플레이어 턴 종료 시 적 ATK·DEF 각각 -(DEX/${ANALYSIS_DEX_DIVISOR}) 누적 (최소 0) — DEX 65=-2/턴`,
+      description: `매 플레이어 턴 종료 시 적 ATK·DEF 각각 -(DEX/${ANALYSIS_DEX_DIVISOR}) 누적 — DEX 65=-1/턴, DEX 100=-2/턴. 누적치는 적 원값의 ${Math.round(ANALYSIS_PENALTY_CAP_PCT * 100)}%까지`,
       activationThreshold: ANALYSIS_DEX_THRESHOLD,
     },
     {

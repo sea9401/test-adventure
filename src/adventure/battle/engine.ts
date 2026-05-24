@@ -13,6 +13,7 @@ import {
   EVASION_PCT_CAP,
 } from "../data/stats";
 import {
+  ANALYSIS_PENALTY_CAP_PCT,
   BLEED_MAX_STACKS,
   VENOM_PCT_HP_PER_POINT,
   CRIT_MULT_BASE,
@@ -890,23 +891,32 @@ function finishPlayerTurn(
       }),
     };
   }
-  // 약점 분석 (5티어) — 매 플레이어 턴 종료 시 적 ATK·DEF 누적 페널티 +N.
+  // 약점 분석 (5티어) — 매 플레이어 턴 종료 시 적 ATK·DEF 누적 페널티 +N, 단 raw stat 의
+  // ANALYSIS_PENALTY_CAP_PCT 까지만. 캡 없는 무한 누적이 자동 사냥 부활 페널티와 결합해
+  // DEX 빌드 wins 가 비선형 폭증하던 사고 차단. 캡 도달 후엔 누적 멈춤 — 로그도 갱신 시에만.
   const analysis = player.analysisPerTurn ?? 0;
   if (analysis > 0) {
-    const nextAtkPen = st.buffs.enemyAtkPenalty + analysis;
-    const nextDefPen = st.buffs.enemyDefPenalty + analysis;
-    st = {
-      ...st,
-      buffs: {
-        ...st.buffs,
-        enemyAtkPenalty: nextAtkPen,
-        enemyDefPenalty: nextDefPen,
-      },
-      log: appendLog(st.log, {
-        kind: "info",
-        text: `[약점 분석] ${st.enemy.name} ATK·DEF -${analysis} (누적 -${nextAtkPen}/-${nextDefPen})`,
-      }),
-    };
+    const atkCap = Math.floor(st.enemy.atk * ANALYSIS_PENALTY_CAP_PCT);
+    const defCap = Math.floor(st.enemy.def * ANALYSIS_PENALTY_CAP_PCT);
+    const nextAtkPen = Math.min(atkCap, st.buffs.enemyAtkPenalty + analysis);
+    const nextDefPen = Math.min(defCap, st.buffs.enemyDefPenalty + analysis);
+    if (
+      nextAtkPen > st.buffs.enemyAtkPenalty ||
+      nextDefPen > st.buffs.enemyDefPenalty
+    ) {
+      st = {
+        ...st,
+        buffs: {
+          ...st.buffs,
+          enemyAtkPenalty: nextAtkPen,
+          enemyDefPenalty: nextDefPen,
+        },
+        log: appendLog(st.log, {
+          kind: "info",
+          text: `[약점 분석] ${st.enemy.name} ATK·DEF -${analysis} (누적 -${nextAtkPen}/-${nextDefPen})`,
+        }),
+      };
+    }
   }
   st = applyBaselineRegenIfAny(st, player, playerName);
   st = applyRegenIfAny(st, player, playerName);

@@ -1,0 +1,64 @@
+"use client";
+
+import { useState } from "react";
+import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import {
+  MAX_STAMINA,
+  REGEN_SECONDS_PER_POINT,
+  initialStamina,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
+
+// 다양한 스태미너 상태를 시각으로 검증하는 dev preview.
+// staging 운영자가 https://test.msmsge.com/dev/stamina-preview 에서 확인.
+export function StaminaPreview() {
+  const now = Date.now();
+  const REGEN_MS = REGEN_SECONDS_PER_POINT * 1000;
+
+  const [scenarios] = useState<Array<{ label: string; state: StaminaState }>>(
+    () => [
+      { label: "만피 (200/200)", state: initialStamina(now) },
+      {
+        label: "0 (회복 막 시작)",
+        state: { current: 0, lastUpdatedAt: now },
+      },
+      {
+        label: "50 (회복 진행 중간)",
+        state: { current: 50, lastUpdatedAt: now - REGEN_MS / 2 },
+      },
+      {
+        label: "100 (반 채움)",
+        state: { current: 100, lastUpdatedAt: now },
+      },
+      {
+        label: "199 (1 회복 직전, 곧 만피)",
+        state: { current: 199, lastUpdatedAt: now },
+      },
+      {
+        label: "옛 데이터 (1시간 전 마지막, +12 자동 회복)",
+        state: { current: 100, lastUpdatedAt: now - 3600 * 1000 },
+      },
+    ],
+  );
+
+  return (
+    <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+      <header className="space-y-1">
+        <h1 className="text-lg font-bold">스태미너 미리보기</h1>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          MAX={MAX_STAMINA}, 회복={REGEN_SECONDS_PER_POINT}초/1. 카운트다운은
+          1초마다 갱신.
+        </p>
+      </header>
+
+      {scenarios.map(({ label, state }) => (
+        <section key={label} className="space-y-1">
+          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            {label}
+          </div>
+          <StaminaBar state={state} />
+        </section>
+      ))}
+    </main>
+  );
+}

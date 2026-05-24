@@ -1,9 +1,12 @@
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
+import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { monsterGoldReward } from "@/adventure/battle/monsterGold";
 import { applyExpGain } from "@/lib/leveling";
 import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
@@ -125,15 +128,27 @@ export async function POST(req: Request) {
       };
     }
 
-    const battleResult = resolveBattle(player.player, enemyMonster, "모험가", {
+    // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
+    const profileRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, "character-profile.v2")),
+      )
+      .limit(1);
+    const profile = (profileRow[0]?.value ?? null) as { name?: string } | null;
+    const playerName = profile?.name?.trim() || "모험가";
+
+    const battleResult = resolveBattle(player.player, enemyMonster, playerName, {
       pickAction: (state) =>
         pickAutoAction(state, { rules: [], potions: {} }),
       potions: {},
     });
 
     const won = battleResult.outcome === "win";
+    // 라이브 BASE_GOLD_RATE 그대로 — paragon/부여 곱은 다음 PR.
     const expGained = won ? enemyMonster.exp : 0;
-    const goldGained = 0; // 다음 PR: monsterGold 통합
+    const goldGained = won ? monsterGoldReward(enemyMonster) : 0;
 
     const curLevel = Math.max(1, charSave.level ?? 1);
     const curExp = Math.max(0, charSave.exp ?? 0);

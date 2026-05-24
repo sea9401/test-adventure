@@ -6,6 +6,8 @@ import { BossSubView } from "@/adventure/adventureSubViews/BossSubView";
 import { TownSubView } from "@/adventure/adventureSubViews/TownSubView";
 import { MapSubView } from "@/adventure/adventureSubViews/MapSubView";
 import { TowerSubView } from "@/adventure/adventureSubViews/TowerSubView";
+import { FiefdomView } from "@/adventure/fiefdom/FiefdomView";
+import { isFiefdomEnabled } from "@/adventure/fiefdom/feature-flag";
 import { useGame } from "@/adventure/GameContext";
 
 export function AdventureScreen() {
@@ -24,6 +26,8 @@ export function AdventureScreen() {
       return <MapSubView />;
     case "tower":
       return <TowerSubView />;
+    case "fiefdom":
+      return isFiefdomEnabled() ? <FiefdomView /> : <AdventureHome />;
     default:
       return null;
   }

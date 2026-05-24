@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  CastleTurret,
   Compass,
   Crown,
   Footprints,
@@ -14,6 +15,7 @@ import { EntryCard } from "@/components/ui/EntryCard";
 import { CharacterMini } from "@/adventure/character/CharacterMini";
 import { ServerFeedView } from "@/adventure/log/ServerFeedView";
 import { COOP_BOSSES } from "@/adventure/coop/data";
+import { isFiefdomEnabled } from "@/adventure/fiefdom/feature-flag";
 import {
   PilgrimMarkDialogue,
   pilgrimMarkStep,
@@ -128,16 +130,50 @@ export function AdventureHome() {
           );
         })()}
       <div className="space-y-2">
-        {currentRegion.tags?.includes("town") && (
-          <EntryCard
-            icon={
-              <User size={28} weight="duotone" className="text-blue-500" />
-            }
-            title={currentRegion.name}
-            description="마을을 둘러보고 사람들과 이야기합니다."
-            onClick={() => setSubView("town")}
-          />
-        )}
+        {currentRegion.tags?.includes("town") &&
+          currentRegion.id !== "fiefdom_hall" && (
+            <EntryCard
+              icon={
+                <User size={28} weight="duotone" className="text-blue-500" />
+              }
+              title={currentRegion.name}
+              description="마을을 둘러보고 사람들과 이야기합니다."
+              onClick={() => setSubView("town")}
+            />
+          )}
+        {/* 길드 영지 진입 — fiefdom_hall 노드 전용. 일반 town 카드 대신 이걸 띄운다.
+            플래그 OFF 시에는 진입 불가 안내(곧 공개됩니다). */}
+        {currentRegion.id === "fiefdom_hall" &&
+          (isFiefdomEnabled() ? (
+            <EntryCard
+              icon={
+                <CastleTurret
+                  size={28}
+                  weight="duotone"
+                  className="text-indigo-500"
+                />
+              }
+              title="영주의 회관"
+              description="길드 영지를 관리합니다."
+              onClick={() => setSubView("fiefdom")}
+            />
+          ) : (
+            <div className="flex w-full items-center gap-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-3 text-left dark:border-zinc-700 dark:bg-zinc-900/40">
+              <CastleTurret
+                size={28}
+                weight="duotone"
+                className="shrink-0 text-zinc-400 dark:text-zinc-500"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-medium text-zinc-700 dark:text-zinc-300">
+                  영주의 회관
+                </div>
+                <div className="truncate text-sm text-zinc-500 dark:text-zinc-500">
+                  곧 공개됩니다 — 길드 영지 시스템 준비 중.
+                </div>
+              </div>
+            </div>
+          ))}
         {currentRegion.enemies.length > 0 && (
           <EntryCard
             icon={

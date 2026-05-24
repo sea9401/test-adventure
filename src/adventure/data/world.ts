@@ -51,7 +51,10 @@ export type RegionId =
   // 별빛 권역 중앙 허브 — NPC·퀘스트 없는 town 기능 노드(회복·빠른이동·네 지역 연결).
   | "starlit_crossroads"
   // 6막 「별을 잊은 것」 — 별빛 교차로 아래 더 오래된 봉인. 상시 협동(월드) 레이드 아레나.
-  | "forgotten_seal";
+  | "forgotten_seal"
+  // 길드 영지 시스템 진입점 — 별빛 권역의 미개척지. 별빛 교차로 북쪽에 위치.
+  // 클릭 시 FiefdomView 로 전이(피처 플래그 ON 일 때만). enemies/boss 없음 — 순수 진입 노드.
+  | "fiefdom_hall";
 
 // 권역 — 맵 뷰를 묶어서 보여주기 위한 그룹. 이동 그래프(edges)와 무관한 표시/네비게이션 전용.
 // MapCanvas 가 활성 권역에 속한 지역들의 bounds 로 자동 줌/포커스한다.
@@ -116,6 +119,7 @@ export const REGION_ZONE: Record<RegionId, ZoneId> = {
   starlit_keep: "starlit",
   starlit_crossroads: "starlit",
   forgotten_seal: "starlit",
+  fiefdom_hall: "starlit",
   tower_foot: "tower",
 };
 
@@ -851,6 +855,21 @@ export const WORLD_MAP: WorldMap = {
       enemies: [],
       recommendedLevel: 108,
     },
+    // 길드 영지 진입점 — 별빛 교차로 북쪽. 별빛 맵(1000×760) 상단 중앙(500, 130) 배치.
+    // 기존 노드: 모서리 4개 (260/740 × 230/540), 교차로 (500, 385), 잊힌 봉인 (500, 690).
+    // tags: ["town"] 으로 마을 노드 시각 적용. enemies/boss 없어 전투/보스 카드는 안 뜸.
+    // 진입은 AdventureHome 의 fiefdom_hall 전용 분기(피처 플래그 ON 시)로 처리.
+    {
+      id: "fiefdom_hall",
+      name: "영주의 회관",
+      description:
+        "별빛 권역의 미개척지 한가운데. 길드의 이름으로 영지를 일구려는 영주들이 모이는 곳. 별먼지 위로 깃발이 하나둘 올라간다.",
+      position: { x: 500, y: 130 },
+      biome: "village",
+      enemies: [],
+      tags: ["town"],
+      recommendedLevel: 100,
+    },
   ],
   edges: [
     { from: "village", to: "plains" },
@@ -1117,6 +1136,13 @@ export const WORLD_MAP: WorldMap = {
     {
       from: "starlit_crossroads",
       to: "forgotten_seal",
+      requires: { kind: "visited", regionId: "starlit_crossroads" },
+    },
+    // 별빛 교차로 → 영주의 회관(길드 영지 진입점). 교차로 방문 시 인접 reachable 노드로 표시됨.
+    // 회관 자체는 NPC/전투 없는 town 노드 — AdventureHome 의 영지 카드 분기로 진입.
+    {
+      from: "starlit_crossroads",
+      to: "fiefdom_hall",
       requires: { kind: "visited", regionId: "starlit_crossroads" },
     },
     // 마을 간 직통 이동 (fast-travel) — 양쪽 마을을 모두 발견했을 때만 통행.

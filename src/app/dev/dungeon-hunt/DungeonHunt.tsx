@@ -8,9 +8,12 @@ import {
 } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 
-type HuntResponse =
-  | { ok: true; stamina: StaminaState; result: { floor: number } }
-  | { ok: false; error: string; stamina: StaminaState };
+type HuntResponse = {
+  ok?: boolean;
+  stamina?: StaminaState;
+  error?: string;
+  result?: { floor: number };
+};
 
 // 던전 사냥 dev preview — POST /api/v2/dungeon/hunt 흐름을 시각 검증.
 // 초기 stamina 는 만피 가정 (실제 서버 값은 hunt 한 번 호출 후 동기화).
@@ -34,12 +37,27 @@ export function DungeonHunt() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ floor }),
       });
-      const json = (await res.json()) as HuntResponse;
-      setStamina(json.stamina);
-      if (json.ok) {
-        pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${json.stamina.current}/200`);
+      let json: HuntResponse | null = null;
+      try {
+        json = (await res.json()) as HuntResponse;
+      } catch {
+        pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
+        return;
+      }
+      if (!json) {
+        pushLog(`✗ http ${res.status} (빈 응답)`);
+        return;
+      }
+      if (json.stamina) {
+        setStamina(json.stamina);
+      }
+      if (json.ok === true) {
+        const cur = json.stamina?.current ?? "?";
+        pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);
       } else {
-        pushLog(`✗ ${json.error} — 스태미너 ${json.stamina.current}/200`);
+        const err = json.error ?? "unknown";
+        const after = json.stamina ? ` (스태미너 ${json.stamina.current}/200)` : "";
+        pushLog(`✗ http ${res.status} ${err}${after}`);
       }
     } catch (err) {
       pushLog(`✗ network: ${(err as Error).message}`);

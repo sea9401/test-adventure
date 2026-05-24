@@ -32,13 +32,15 @@ type HuntResultPlaceholder = {
 
 export async function POST(req: Request) {
   const userId = await ensureUser();
-  if (!userId) return new Response("unauthorized", { status: 401 });
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
 
   let body: { floor?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
-    return new Response("invalid json", { status: 400 });
+    return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
   if (
     typeof body.floor !== "number" ||

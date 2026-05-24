@@ -59,39 +59,25 @@ export function ContinentMap() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-3 p-4">
-      <div className="rounded-lg border border-zinc-300 bg-[#e8d6a8] dark:border-zinc-700">
+      <div className="rounded-lg border border-zinc-300 overflow-hidden dark:border-zinc-700">
         <svg
           viewBox={`0 0 ${MAP_BOUNDS.width} ${MAP_BOUNDS.height}`}
           preserveAspectRatio="xMidYMid meet"
-          className="w-full h-auto"
+          className="w-full h-auto block"
         >
-          {/* 중앙 분쟁지대 표식 (시각만) */}
-          <ellipse
-            cx={5000}
-            cy={3000}
-            rx={2200}
-            ry={1100}
-            fill="#b84b42"
-            opacity={0.18}
-            stroke="#8c2e28"
-            strokeWidth={20}
-            strokeDasharray="60 40"
+          {/* 대륙 배경 일러스트 — png 위에 마커 overlay. preserveAspectRatio="none" 으로
+              SVG viewBox 에 stretch (이미지 비율과 좌표 비율이 살짝 달라도 fill). */}
+          <image
+            href="/images/ui/v2-continent.webp"
+            x={0}
+            y={0}
+            width={MAP_BOUNDS.width}
+            height={MAP_BOUNDS.height}
+            preserveAspectRatio="none"
           />
-          <text
-            x={5000}
-            y={3060}
-            textAnchor="middle"
-            fontSize={220}
-            fontWeight={900}
-            fill="#3a2517"
-            paintOrder="stroke"
-            stroke="#e8d6a8"
-            strokeWidth={40}
-          >
-            중앙 분쟁지대
-          </text>
 
-          {/* 거점 marker — 큰 tier 가 작은 tier 위 (큰 거점이 시각적 위) */}
+          {/* 거점 marker — 이미지 위 시각이 이미 있어 작은 outline 만 + hit area.
+              hover/select 시 노란 highlight. 좌표가 png 거점과 안 맞아도 클릭 흐름 검증용. */}
           {[1, 2, 3, 4].flatMap((tier) =>
             OUTPOSTS.filter((o) => o.tier === tier).map((o) => {
               const r = TIER_RADIUS[o.tier];
@@ -106,6 +92,7 @@ export function ContinentMap() {
                   ? "#fff1a8"
                   : "#1a1a1a";
               const strokeWidth = isNeutral ? 22 : isSelected ? 26 : 8;
+              const showLabel = isSelected || isHover;
               return (
                 <g
                   key={o.id}
@@ -114,25 +101,41 @@ export function ContinentMap() {
                   onMouseLeave={() => setHover(null)}
                   className="cursor-pointer"
                 >
+                  {/* 큰 투명 hit area (작은 outline 만 시각). */}
                   <circle
                     cx={o.position.x}
                     cy={o.position.y}
                     r={r}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={strokeWidth}
-                    opacity={isSelected ? 1 : 0.92}
+                    fill="transparent"
                   />
-                  {(TIER_LABEL_VISIBLE[o.tier] || isSelected || isHover) && (
+                  <circle
+                    cx={o.position.x}
+                    cy={o.position.y}
+                    r={Math.max(15, r * 0.35)}
+                    fill={showLabel ? fill : "transparent"}
+                    fillOpacity={showLabel ? 0.4 : 0}
+                    stroke={
+                      isNeutral
+                        ? "#f4c842"
+                        : showLabel
+                          ? "#fff1a8"
+                          : isKingdom
+                            ? "#ffd98a"
+                            : "#ffffff"
+                    }
+                    strokeWidth={isKingdom ? 12 : isNeutral ? 10 : 6}
+                    strokeOpacity={showLabel ? 1 : 0.55}
+                  />
+                  {showLabel && (
                     <text
                       x={o.position.x}
-                      y={o.position.y - r - 18}
+                      y={o.position.y - r - 8}
                       textAnchor="middle"
                       fontSize={isKingdom ? 110 : 80}
                       fontWeight={700}
-                      fill="#2f2115"
+                      fill="#fff"
                       paintOrder="stroke"
-                      stroke="#e8d6a8"
+                      stroke="#000"
                       strokeWidth={14}
                     >
                       {o.name}

@@ -36,79 +36,16 @@ const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
   4: true,
 };
 
-// === marker 모양 polygon points 빌더 ===========================
-// 각자 cx, cy 중심 + 반지름 r 기준. r 가 marker 의 시각 크기.
-// u 단위로 좌표 만들고 결과는 polygon points string.
-
-function pointsFromUnits(
-  cx: number,
-  cy: number,
-  u: number,
-  rels: [number, number][],
-): string {
-  return rels.map(([dx, dy]) => `${cx + dx * u},${cy + dy * u}`).join(" ");
-}
-
-// 성 (왕국) — 본채 + 좌·중·우 톱니탑. 8u 폭, ~7u 높이.
-function castlePoints(cx: number, cy: number, r: number): string {
-  const u = r / 4;
-  return pointsFromUnits(cx, cy, u, [
-    [-4, +3], [-4, -1],
-    [-3, -1], [-3, -3], [-2, -3], [-2, -1],
-    [-1, -1], [-1, -4], [+1, -4], [+1, -1],
-    [+2, -1], [+2, -3], [+3, -3], [+3, -1],
-    [+4, -1], [+4, +3],
-  ]);
-}
-
-// 첨탑 (도시 / 마탑) — 직사각 본체 + 위 뾰족.
-function towerPoints(cx: number, cy: number, r: number): string {
-  const u = r / 4;
-  return pointsFromUnits(cx, cy, u, [
-    [-2, +4], [-2, -2], [0, -4], [+2, -2], [+2, +4],
-  ]);
-}
-
-// 방패 (요새).
-function shieldPoints(cx: number, cy: number, r: number): string {
-  const u = r / 4;
-  return pointsFromUnits(cx, cy, u, [
-    [-3, -3], [+3, -3], [+3, 0], [0, +4], [-3, 0],
-  ]);
-}
-
-// 마름모 (광산).
-function diamondPoints(cx: number, cy: number, r: number): string {
-  const u = r / 4;
-  return pointsFromUnits(cx, cy, u, [
-    [0, -4], [+3, 0], [0, +4], [-3, 0],
-  ]);
-}
-
-// 집 (마을) — 사각 본체 + 삼각 지붕.
-function hutPoints(cx: number, cy: number, r: number): string {
-  const u = r / 3;
-  return pointsFromUnits(cx, cy, u, [
-    [-3, +3], [-3, 0], [0, -3], [+3, 0], [+3, +3],
-  ]);
-}
-
-// 출력 — tier·type 따라 모양 결정.
-// 규칙: tier 4 = 성 / tier 3 = 첨탑(도시) / tier 1·2 = type 별 (광산·마탑·요새·마을).
-function shapePointsForOutpost(o: Outpost, r: number): string {
-  const { x, y } = o.position;
-  if (o.tier === 4) return castlePoints(x, y, r);
-  if (o.tier === 3) return towerPoints(x, y, r);
-  switch (o.type) {
-    case "mine":
-      return diamondPoints(x, y, r);
-    case "tower":
-      return towerPoints(x, y, r);
-    case "fort":
-      return shieldPoints(x, y, r);
-    case "village":
-      return hutPoints(x, y, r);
+// 5 꼭짓점 별 polygon — 왕국 전용. 외부반지름 r, 내부반지름 r * 0.4.
+function starPoints(cx: number, cy: number, r: number): string {
+  const inner = r * 0.4;
+  const pts: string[] = [];
+  for (let i = 0; i < 10; i += 1) {
+    const radius = i % 2 === 0 ? r : inner;
+    const angle = (Math.PI / 5) * i - Math.PI / 2;
+    pts.push(`${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`);
   }
+  return pts.join(" ");
 }
 
 // tier 4 (왕국) 는 별도 색 (선아출드 등은 type 보단 "왕국" 표식 우선).
@@ -225,32 +162,45 @@ export function ContinentMap() {
                   onMouseLeave={() => setHover(null)}
                   className="cursor-pointer"
                 >
-                  {/* 시각용 marker — tier/type 별 모양.
-                      tier 4 = 성 / tier 3 = 첨탑(도시) / tier 1·2 = type 별
-                      (광산 마름모·마탑 첨탑·요새 방패·마을 집).
+                  {/* 시각용 marker — tier 4 는 별, 그 외는 원. 종류는 색깔로.
                       두 겹 outline (외 검정 / 내 흰) 으로 biome 위 또렷. */}
-                  {(() => {
-                    const drawR = showLabel ? r * 1.2 : r;
-                    const points = shapePointsForOutpost(o, drawR);
-                    return (
-                      <>
-                        <polygon
-                          points={points}
-                          fill="none"
-                          stroke={innerStroke}
-                          strokeWidth={drawR * 0.18 + 6}
-                          strokeLinejoin="round"
-                        />
-                        <polygon
-                          points={points}
-                          fill={markerFill}
-                          stroke={markerStroke}
-                          strokeWidth={showLabel ? 12 : 8}
-                          strokeLinejoin="round"
-                        />
-                      </>
-                    );
-                  })()}
+                  {isKingdom ? (
+                    <>
+                      <polygon
+                        points={starPoints(o.position.x, o.position.y, r + 6)}
+                        fill="none"
+                        stroke={innerStroke}
+                        strokeWidth={8}
+                        strokeLinejoin="round"
+                      />
+                      <polygon
+                        points={starPoints(o.position.x, o.position.y, r)}
+                        fill={markerFill}
+                        stroke={markerStroke}
+                        strokeWidth={showLabel ? 16 : 10}
+                        strokeLinejoin="round"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <circle
+                        cx={o.position.x}
+                        cy={o.position.y}
+                        r={(showLabel ? r * 1.2 : r) + 4}
+                        fill="none"
+                        stroke={innerStroke}
+                        strokeWidth={5}
+                      />
+                      <circle
+                        cx={o.position.x}
+                        cy={o.position.y}
+                        r={showLabel ? r * 1.2 : r}
+                        fill={markerFill}
+                        stroke={markerStroke}
+                        strokeWidth={showLabel ? 12 : 8}
+                      />
+                    </>
+                  )}
                   {/* 라벨 — tier 3+ 항상, tier 1~2 hover/select 시 */}
                   {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
                     <text

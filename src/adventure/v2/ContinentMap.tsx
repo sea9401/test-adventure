@@ -20,13 +20,12 @@ const TYPE_COLOR: Record<OutpostType, string> = {
   village: "#bd713b", // 마을 — 주황
 };
 
-// tier 별 marker 반지름 (큰 좌표 공간 단위). 화면 fit 시 자동 scaling.
-// 깨끗한 biome 배경 위라 너무 크지 않게.
+// tier 별 marker 반지름 (큰 좌표 공간 단위). biome 위에서 잘 보이게 크게.
 const TIER_RADIUS: Record<OutpostTier, number> = {
-  1: 22,
-  2: 36,
-  3: 55,
-  4: 90,
+  1: 38,
+  2: 55,
+  3: 75,
+  4: 110,
 };
 
 // tier 별 라벨 보임 여부.
@@ -149,7 +148,9 @@ export function ContinentMap() {
               const strokeWidth = isNeutral ? 22 : isSelected ? 26 : 8;
               const showLabel = isSelected || isHover;
               const markerFill = isNeutral ? "#f4c842" : fill;
-              const markerStroke = showLabel ? "#fff1a8" : "#0a0a0a";
+              // 흰 outline 으로 biome 위 가시성 확보. hover/select 시 노란.
+              const markerStroke = showLabel ? "#fff1a8" : "#ffffff";
+              const innerStroke = showLabel ? "#000" : "#000";
               return (
                 <g
                   key={o.id}
@@ -161,24 +162,44 @@ export function ContinentMap() {
                   onMouseLeave={() => setHover(null)}
                   className="cursor-pointer"
                 >
-                  {/* 시각용 marker — tier 4 는 별, 그 외는 원. 항상 채워져 보임. */}
+                  {/* 시각용 marker — tier 4 는 별, 그 외는 원. 두 겹 outline
+                      (외 흰 / 내 검정) 으로 어떤 biome 위에서도 또렷. */}
                   {isKingdom ? (
-                    <polygon
-                      points={starPoints(o.position.x, o.position.y, r)}
-                      fill={markerFill}
-                      stroke={markerStroke}
-                      strokeWidth={showLabel ? 14 : 8}
-                      strokeLinejoin="round"
-                    />
+                    <>
+                      <polygon
+                        points={starPoints(o.position.x, o.position.y, r + 8)}
+                        fill="none"
+                        stroke={innerStroke}
+                        strokeWidth={6}
+                        strokeLinejoin="round"
+                      />
+                      <polygon
+                        points={starPoints(o.position.x, o.position.y, r)}
+                        fill={markerFill}
+                        stroke={markerStroke}
+                        strokeWidth={showLabel ? 18 : 12}
+                        strokeLinejoin="round"
+                      />
+                    </>
                   ) : (
-                    <circle
-                      cx={o.position.x}
-                      cy={o.position.y}
-                      r={showLabel ? r * 1.2 : r}
-                      fill={markerFill}
-                      stroke={markerStroke}
-                      strokeWidth={showLabel ? 10 : 5}
-                    />
+                    <>
+                      <circle
+                        cx={o.position.x}
+                        cy={o.position.y}
+                        r={(showLabel ? r * 1.2 : r) + 4}
+                        fill="none"
+                        stroke={innerStroke}
+                        strokeWidth={5}
+                      />
+                      <circle
+                        cx={o.position.x}
+                        cy={o.position.y}
+                        r={showLabel ? r * 1.2 : r}
+                        fill={markerFill}
+                        stroke={markerStroke}
+                        strokeWidth={showLabel ? 12 : 8}
+                      />
+                    </>
                   )}
                   {/* 라벨 — tier 3+ 항상, tier 1~2 hover/select 시 */}
                   {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (

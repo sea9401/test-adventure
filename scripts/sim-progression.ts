@@ -71,7 +71,7 @@ function weaponSuffix(arch: Arch): "blade" | "lance" | "grip" {
 function gearFor(arch: Arch, level: number) {
   const w = weaponSuffix(arch);
   if (level <= 30) {
-    return { weapon: ITEMS["bone_sword"], armor: ITEMS["bone_armor"], accessory: ITEMS["sea_charm"] };
+    return { weapon: ITEMS["worn_dagger"], armor: ITEMS["cloth_clothes"], accessory: ITEMS["mom_amulet"] };
   }
   if (level <= 55) {
     return { weapon: ITEMS["volcano_sword"], armor: ITEMS["volcano_armor"], accessory: ITEMS["volcano_core"] };

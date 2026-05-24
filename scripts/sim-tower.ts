@@ -211,7 +211,8 @@ function makePlayer(arch: Archetype, powerMult: number) {
     for (const k of ["str", "dex", "vit", "spd", "luk"]) {
       if (k !== main && (b[k] ?? 0) > 0) { b[k] = (b[k] ?? 0) + 2; break; }
     }
-    return { ...it, bonus: b };
+    // sim 전용 — 동적 stat 키 합성이라 union narrowing 깨짐. 본 코드와 직접 무관해 cast.
+    return { ...it, bonus: b } as typeof it;
   };
   const flags = new Set<string>([
     "peak_giant_defeated",

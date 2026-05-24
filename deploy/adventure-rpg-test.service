@@ -1,5 +1,6 @@
 # /etc/systemd/system/adventure-rpg-test.service
-# 테스트 서버용 Next.js 인스턴스. prod 와 같은 EC2 위에서 포트 3001 로 동시 가동.
+# 테스트 서버용 Next.js 인스턴스. prod 와 같은 EC2 위에서 포트 3002 로 동시 가동.
+# (3000 = prod adventure-rpg, 3001 = monster-arena, 3002 = adventure-rpg-test)
 # 환경변수는 ~/adventure-rpg-test/.env.production.local 에 두면 `next start` 가 알아서 로드한다.
 # 핵심 차이값 (prod 대비):
 #   DATABASE_URL          — 새 Neon 프로젝트 URL
@@ -13,7 +14,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/home/ec2-user/adventure-rpg-test
-ExecStart=/usr/bin/npm start -- -p 3001
+ExecStart=/usr/bin/npm start -- -p 3002
 Restart=always
 RestartSec=3
 User=ec2-user

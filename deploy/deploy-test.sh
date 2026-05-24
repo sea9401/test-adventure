@@ -28,6 +28,6 @@ sleep 2
 sudo systemctl --no-pager status adventure-rpg-test | head -n 4
 
 echo "▶ health check"
-curl -fsS -o /dev/null -w 'http=%{http_code}\n' http://127.0.0.1:3001/api/health || true
+curl -fsS -o /dev/null -w 'http=%{http_code}\n' http://127.0.0.1:3002/api/health || true
 
 echo "▶ done"

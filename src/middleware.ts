@@ -17,9 +17,9 @@ export default auth((req) => {
   ) {
     const { pathname } = req.nextUrl;
     if (!STAGING_ALLOW.has(pathname)) {
-      const url = req.nextUrl.clone();
-      url.pathname = "/staging-closed";
-      return NextResponse.rewrite(url);
+      // `new URL(path, req.url)` 로 같은 origin 유지. req.nextUrl.clone() 은
+      // 환경에 따라 host 가 외부값(AUTH_URL 등)으로 잡혀 Next 가 외부 proxy 시도함.
+      return NextResponse.rewrite(new URL("/staging-closed", req.url));
     }
   }
 });

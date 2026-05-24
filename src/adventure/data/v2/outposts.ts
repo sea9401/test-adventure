@@ -12,7 +12,7 @@
 //   - 사막 (중하): center (5000, 4900)
 //   - 평원 (중상~중) = 분쟁지대
 //
-// 분량 (54): 5 왕국 + 10 도시 + 15 거점 + 20 마을 + 4 절대 중립.
+// 분량 (69): 5 왕국 + 10 도시 + 20 거점 + 30 마을 + 4 절대 중립.
 
 import type { Outpost } from "./types";
 
@@ -119,13 +119,19 @@ const CITIES: Outpost[] = [
   { id: "city_thunder_camp", name: "천둥 야영지", type: "fort", tier: 3, position: { x: 9000, y: 4200 } },
 ];
 
-// 거점 (tier 2) — 분쟁지대 4 + 길목/biome 경계 11.
+// 거점 (tier 2) — 분쟁지대 4 + 길목/biome 경계 16.
 const OUTPOSTS_T2: Outpost[] = [
   // 중앙 분쟁지대 (평원)
   { id: "war_central_fort", name: "중앙 요새", type: "fort", tier: 2, position: { x: 4500, y: 2800 }, description: "중앙 분쟁지대의 핵심 요새. 시야와 방어 보너스." },
   { id: "war_central_tower", name: "중앙 마탑", type: "tower", tier: 2, position: { x: 5500, y: 2800 }, description: "분쟁지대의 마탑. 점령 시 빠른 이동/사냥 효율." },
   { id: "war_central_mine", name: "중앙 광산", type: "mine", tier: 2, position: { x: 4800, y: 2300 }, description: "분쟁지대의 광산. 영지 자원 산출." },
   { id: "war_south_mine", name: "중앙 남광산", type: "mine", tier: 2, position: { x: 5200, y: 3400 } },
+  // 평원 추가 거점 — 빈 공간 채움
+  { id: "outpost_plain_fort", name: "평원 요새", type: "fort", tier: 2, position: { x: 3700, y: 2700 } },
+  { id: "outpost_plain_tower", name: "평원 마탑", type: "tower", tier: 2, position: { x: 6200, y: 2400 } },
+  { id: "outpost_central_post", name: "중앙 초소", type: "fort", tier: 2, position: { x: 5500, y: 3300 } },
+  { id: "outpost_eastern_mine", name: "동남 광산", type: "mine", tier: 2, position: { x: 7400, y: 4500 } },
+  { id: "outpost_southwest_mine", name: "남서 광산", type: "mine", tier: 2, position: { x: 3000, y: 5000 } },
   // 빙하-숲 경계
   { id: "outpost_frostgate", name: "서리 관문", type: "fort", tier: 2, position: { x: 3800, y: 1300 } },
   { id: "outpost_misttower", name: "안개 첨탑", type: "tower", tier: 2, position: { x: 7200, y: 2000 } },
@@ -170,6 +176,18 @@ const VILLAGES: Outpost[] = [
   // 분쟁지대 변두리
   { id: "village_crossroads_n", name: "북쪽 갈림길 마을", type: "village", tier: 1, position: { x: 4500, y: 2100 } },
   { id: "village_crossroads_s", name: "남쪽 갈림길 마을", type: "village", tier: 1, position: { x: 5500, y: 3700 } },
+  // 평원 추가 마을 — 빈 공간 채움
+  { id: "village_grassland", name: "들녘 마을", type: "village", tier: 1, position: { x: 3800, y: 2500 } },
+  { id: "village_meadow", name: "풀밭 마을", type: "village", tier: 1, position: { x: 4200, y: 1800 } },
+  { id: "village_river_bend", name: "강굽이 마을", type: "village", tier: 1, position: { x: 5800, y: 2400 } },
+  { id: "village_sandhill", name: "사구 마을", type: "village", tier: 1, position: { x: 6300, y: 3200 } },
+  { id: "village_reedside", name: "갈대 마을", type: "village", tier: 1, position: { x: 4000, y: 3400 } },
+  { id: "village_central_north", name: "중앙 북녘 마을", type: "village", tier: 1, position: { x: 5500, y: 2200 } },
+  // biome 경계 추가 마을
+  { id: "village_eastern_bluff", name: "동남 절벽 마을", type: "village", tier: 1, position: { x: 7200, y: 4900 } },
+  { id: "village_southwest_pass", name: "남서 후미 마을", type: "village", tier: 1, position: { x: 2500, y: 5600 } },
+  { id: "village_north_minor", name: "서리 들 마을", type: "village", tier: 1, position: { x: 3500, y: 700 } },
+  { id: "village_north_pass", name: "북고개 마을", type: "village", tier: 1, position: { x: 6300, y: 1400 } },
   // frontier
   { id: "village_icefall", name: "얼음폭포 마을", type: "village", tier: 1, position: { x: 500, y: 2000 } },
 ];

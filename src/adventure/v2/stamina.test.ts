@@ -7,6 +7,7 @@ import {
   tryConsume,
   msUntilNextRegen,
   initialStamina,
+  parseStaminaFromSave,
   type StaminaState,
 } from "./stamina";
 
@@ -117,5 +118,50 @@ describe("스태미너 — 초기화", () => {
     const s = initialStamina(12345);
     expect(s.current).toBe(MAX_STAMINA);
     expect(s.lastUpdatedAt).toBe(12345);
+  });
+});
+
+describe("스태미너 — saves 파싱", () => {
+  it("undefined / null / 비객체 — 만피로 시드", () => {
+    expect(parseStaminaFromSave(undefined, 1000).current).toBe(MAX_STAMINA);
+    expect(parseStaminaFromSave(null, 1000).current).toBe(MAX_STAMINA);
+    expect(parseStaminaFromSave(42, 1000).current).toBe(MAX_STAMINA);
+    expect(parseStaminaFromSave("garbage", 1000).current).toBe(MAX_STAMINA);
+  });
+
+  it("필드 누락 — 만피로 시드", () => {
+    expect(parseStaminaFromSave({}, 1000).current).toBe(MAX_STAMINA);
+    expect(parseStaminaFromSave({ current: 5 }, 1000).current).toBe(MAX_STAMINA);
+    expect(parseStaminaFromSave({ lastUpdatedAt: 0 }, 1000).current).toBe(MAX_STAMINA);
+  });
+
+  it("잘 모양 — 그대로 보존", () => {
+    const r = parseStaminaFromSave({ current: 50, lastUpdatedAt: 999 });
+    expect(r.current).toBe(50);
+    expect(r.lastUpdatedAt).toBe(999);
+  });
+
+  it("current 가 MAX 초과 — clamp", () => {
+    const r = parseStaminaFromSave({ current: 9999, lastUpdatedAt: 0 });
+    expect(r.current).toBe(MAX_STAMINA);
+  });
+
+  it("current 가 음수 — 0 으로 clamp", () => {
+    const r = parseStaminaFromSave({ current: -10, lastUpdatedAt: 0 });
+    expect(r.current).toBe(0);
+  });
+
+  it("Infinity / NaN — 만피로 시드", () => {
+    const r1 = parseStaminaFromSave(
+      { current: Infinity, lastUpdatedAt: 0 },
+      500,
+    );
+    expect(r1.current).toBe(MAX_STAMINA);
+    expect(r1.lastUpdatedAt).toBe(500);
+    const r2 = parseStaminaFromSave(
+      { current: 10, lastUpdatedAt: NaN },
+      500,
+    );
+    expect(r2.current).toBe(MAX_STAMINA);
   });
 });

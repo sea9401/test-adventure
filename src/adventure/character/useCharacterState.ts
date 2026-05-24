@@ -15,6 +15,11 @@ import {
   isAPSkillCondition,
   type APSkillCondition,
 } from "@/adventure/character/apSkills";
+import {
+  MAX_STAMINA,
+  parseStaminaFromSave,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
 
 // PR #140 (baseCharacter.maxHp 47 → 97) 이전 캐릭터의 hp 저장값에 +50 을 일률 보정하는
 // 일회성 마이그레이션 키. derivePlayerCombat 가 maxHp 로 클램프하므로 maxHp 초과해도 안전.
@@ -66,6 +71,11 @@ export type CharacterDynamicState = {
   selectedStance?: StanceId | null;
   /** 일회성 마이그레이션 플래그 — 키별 1회만 실행. */
   migrations?: Partial<Record<string, boolean>>;
+  /**
+   * v2 스태미너(행동력). 사냥 1회마다 소모, 시간 회복.
+   * 옛 캐릭 데이터엔 없음 — 로드 시 만피로 시드 (backward-compatible).
+   */
+  stamina?: StaminaState;
 };
 
 // 클라이언트 로컬 자정 기준 'YYYY-MM-DD' (sv-SE 가 ISO-like 안전한 포맷).
@@ -82,6 +92,8 @@ export const initialCharacterState: CharacterDynamicState = {
   equippedTitleId: null,
   // 신규 유저는 이미 +50 후 베이스로 시작하므로 마이그레이션 적용된 것으로 시드.
   migrations: { [HP_LIFT_V1]: true },
+  // lastUpdatedAt 0 — 첫 readInitial 시 nowMs 까지의 시간이 흘러 자연히 만피.
+  stamina: { current: MAX_STAMINA, lastUpdatedAt: 0 },
 };
 
 // 저장된 EquipItem 슬롯 매핑을 "지금" 데이터 정의로 다시 만들어 옛 인스턴스가 남지 않게.
@@ -131,6 +143,7 @@ function readInitial(raw: unknown): CharacterDynamicState {
     apSkillConditions: parseAPSkillConditions(parsed.apSkillConditions),
     selectedStance: normalizeStance(parsed.selectedStance),
     migrations: parsed.migrations,
+    stamina: parseStaminaFromSave(parsed.stamina),
   };
 }
 

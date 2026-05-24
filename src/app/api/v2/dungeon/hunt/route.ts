@@ -16,6 +16,7 @@ import {
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -69,6 +70,8 @@ export async function POST(req: Request) {
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<{
       stamina?: unknown;
+      hp?: number;
+      hpRegenSince?: number;
       level?: number;
       exp?: number;
       gold?: number;
@@ -139,11 +142,26 @@ export async function POST(req: Request) {
     const profile = (profileRow[0]?.value ?? null) as { name?: string } | null;
     const playerName = profile?.name?.trim() || "모험가";
 
-    const battleResult = resolveBattle(player.player, enemyMonster, playerName, {
-      pickAction: (state) =>
-        pickAutoAction(state, { rules: [], potions: {} }),
-      potions: {},
-    });
+    // 사냥 전 hp 회복 — 마지막 사냥 이후 흐른 시간만큼 충전.
+    const hpBefore = parseHpRegenSince(charSave.hpRegenSince, now);
+    const regenResult = applyHpRegen(
+      Math.max(0, charSave.hp ?? player.maxHp),
+      player.maxHp,
+      hpBefore,
+      now,
+    );
+    const playerForBattle = { ...player.player, hp: regenResult.hp };
+
+    const battleResult = resolveBattle(
+      playerForBattle,
+      enemyMonster,
+      playerName,
+      {
+        pickAction: (state) =>
+          pickAutoAction(state, { rules: [], potions: {} }),
+        potions: {},
+      },
+    );
 
     const won = battleResult.outcome === "win";
     // 라이브 BASE_GOLD_RATE 그대로 — paragon/부여 곱은 다음 PR.
@@ -156,9 +174,15 @@ export async function POST(req: Request) {
 
     const newGold = Math.max(0, (charSave.gold ?? 0) + goldGained);
 
+    // 사냥 후 hp — finalState.playerHp 그대로 적용 (사망 시 0).
+    // 0 이면 다음 사냥 전까지 시간 회복으로 만피까지 채워짐.
+    const afterHp = Math.max(0, battleResult.finalState.playerHp);
+
     const next = {
       ...charSave,
       stamina: afterStamina,
+      hp: afterHp,
+      hpRegenSince: now,
       level: expResult.level,
       exp: expResult.exp,
       gold: newGold,
@@ -179,6 +203,9 @@ export async function POST(req: Request) {
           goldGained,
           levelsGained: expResult.levelsGained,
           turns: battleResult.turns,
+          hpBefore: regenResult.hp,
+          hpAfter: afterHp,
+          maxHp: player.maxHp,
         },
       },
     };

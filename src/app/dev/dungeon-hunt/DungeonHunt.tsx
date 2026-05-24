@@ -20,6 +20,9 @@ type HuntResponse = {
     goldGained: number;
     levelsGained: number;
     turns: number;
+    hpBefore: number;
+    hpAfter: number;
+    maxHp: number;
   };
 };
 
@@ -65,8 +68,9 @@ export function DungeonHunt() {
         if (r) {
           const verdict = r.won ? "승리" : "패배";
           const levelUp = r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
+          const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
           pushLog(
-            `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · EXP +${r.expGained} · GOLD +${r.goldGained}${levelUp} · 스태미너 ${cur}/200`,
+            `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${levelUp} · 스태미너 ${cur}/200`,
           );
         } else {
           pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);

@@ -83,3 +83,28 @@ export function msUntilNextRegen(state: StaminaState, nowMs: number): number {
   const remainder = elapsedMs % regenMs;
   return Math.max(0, regenMs - remainder);
 }
+
+// === saves 파싱 ====================================================
+
+// saves_kv 의 JSON 에서 stamina 필드를 추출. 옛 데이터엔 없음 → 만피로 시드.
+// 손상된 모양도 만피로 대체 (회복 시계 리셋). nowMs 기본값은 Date.now().
+export function parseStaminaFromSave(
+  raw: unknown,
+  nowMs: number = Date.now(),
+): StaminaState {
+  if (raw && typeof raw === "object") {
+    const s = raw as Partial<StaminaState>;
+    if (
+      typeof s.current === "number" &&
+      typeof s.lastUpdatedAt === "number" &&
+      Number.isFinite(s.current) &&
+      Number.isFinite(s.lastUpdatedAt)
+    ) {
+      return {
+        current: Math.max(0, Math.min(MAX_STAMINA, s.current)),
+        lastUpdatedAt: s.lastUpdatedAt,
+      };
+    }
+  }
+  return initialStamina(nowMs);
+}

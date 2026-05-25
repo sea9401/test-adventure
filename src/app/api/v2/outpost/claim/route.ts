@@ -8,6 +8,7 @@ import { resolveBattle } from "@/adventure/battle/engine";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
+import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
 import {
   simulateTroopBattle,
@@ -74,7 +75,9 @@ export async function POST(req: Request) {
   const cost = CLAIM_STAMINA_COST[outpost.tier];
 
   const result = await db.transaction(async (tx) => {
-    // 이미 점령 상태 확인 — FOR UPDATE 로 lock 해서 PvP 시도 사이 race 직렬화.
+    // lock 순서 — occupations FOR UPDATE 가 항상 먼저. 그 후 길드 보장
+    // (ensureSoloGuild 가 guilds/guildMembers 잠금). 이 순서를 모든 라우트에서
+    // 동일하게 유지해야 cross-tx 데드락 회피.
     const occRow = (
       await tx
         .select()
@@ -84,14 +87,30 @@ export async function POST(req: Request) {
         .limit(1)
     )[0];
 
-    if (occRow && occRow.occupiedByUserId === userId) {
+    // 공격자 길드 보장 (idempotent). 모든 점령은 길드 명의로 통일.
+    const attackerGuildId = await ensureSoloGuild(tx, userId);
+
+    // defender 측 — occupiedByGuildId 있으면 그것. 없는 legacy row 면 user 측
+    // ensureSoloGuild 로 백필. PvP 분기는 길드 기준.
+    let defenderGuildId: number | null = null;
+    if (occRow && occRow.occupiedByGuildId) {
+      defenderGuildId = occRow.occupiedByGuildId;
+    } else if (occRow && occRow.occupiedByUserId) {
+      defenderGuildId = await ensureSoloGuild(tx, occRow.occupiedByUserId);
+    }
+
+    // 같은 길드 (자기 길드 점령) → 모집 거부.
+    if (defenderGuildId !== null && defenderGuildId === attackerGuildId) {
       return {
         ok: false as const,
         status: 400,
         body: { ok: false as const, error: "already_yours" as const },
       };
     }
-    // occRow 있고 자기 점령 아님 → PvP claim (아래 흐름에서 분기).
+
+    // PvP defender 유저 — 같은 길드 아니고 occupiedByUserId 있으면.
+    // 1인 길드 가정에서는 곧 occupiedByUserId 가 그 길드의 마스터. 다인 길드
+    // 토너먼트는 후속 PR.
     const pvpDefenderId =
       occRow && occRow.occupiedByUserId && occRow.occupiedByUserId !== userId
         ? occRow.occupiedByUserId
@@ -330,7 +349,7 @@ export async function POST(req: Request) {
     await tx.insert(outpostClaimAttempts).values({
       outpostId: outpost.id,
       attackerUserId: userId,
-      attackerGuildId: null,
+      attackerGuildId,
       defenderName: defenderLabel!,
       defenderUserId: defenderUserIdForLog!,
       won: won!,
@@ -343,6 +362,7 @@ export async function POST(req: Request) {
     let occupation: {
       outpostId: string;
       occupiedByUserId: string;
+      occupiedByGuildId: number;
       occupiedAt: string;
     } | null = null;
     let raceLost = false;
@@ -354,7 +374,7 @@ export async function POST(req: Request) {
           .update(outpostOccupations)
           .set({
             occupiedByUserId: userId,
-            occupiedByGuildId: null,
+            occupiedByGuildId: attackerGuildId,
             occupiedAt: newOccupiedAt,
             policy: "open",
             taxRate: "0.100",
@@ -366,6 +386,7 @@ export async function POST(req: Request) {
         occupation = {
           outpostId: outpost.id,
           occupiedByUserId: userId,
+          occupiedByGuildId: attackerGuildId,
           occupiedAt: newOccupiedAt.toISOString(),
         };
       } else {
@@ -374,7 +395,7 @@ export async function POST(req: Request) {
           await tx.insert(outpostOccupations).values({
             outpostId: outpost.id,
             occupiedByUserId: userId,
-            occupiedByGuildId: null,
+            occupiedByGuildId: attackerGuildId,
             policy: "open",
             taxRate: "0.100",
             nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
@@ -382,6 +403,7 @@ export async function POST(req: Request) {
           occupation = {
             outpostId: outpost.id,
             occupiedByUserId: userId,
+            occupiedByGuildId: attackerGuildId,
             occupiedAt: newOccupiedAt.toISOString(),
           };
         } catch (e) {

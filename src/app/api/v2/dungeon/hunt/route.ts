@@ -18,6 +18,12 @@ import {
   tryConsume,
 } from "@/adventure/v2/stamina";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
+import {
+  mergeDrops,
+  rollDrops,
+  type DropResult,
+} from "@/adventure/data/v2/dungeonDrops";
+import type { DungeonFloorId } from "@/adventure/data/v2/types";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -32,12 +38,15 @@ import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 //   7. character.v2 save.
 //
 // 단순화 (다음 PR 에서 발전):
-//   - gold 보상 0 (monsterGold 통합 후속)
-//   - 사망/부활 처리 없음 (hp 변경 안 함)
-//   - drop / material 적용 없음
+//   - 사망/부활 처리 없음 (사후 시간 회복으로 만피까지)
 //   - playerName placeholder "모험가"
+//   - drop 은 placeholder 풀 (`dungeonDrops.ts`) — 정식 재료 시스템 통째 교체 예정
 
 const VALID_FLOORS = [1, 2, 3, 4, 5] as const;
+
+function isValidFloor(n: number): n is DungeonFloorId {
+  return (VALID_FLOORS as readonly number[]).includes(n);
+}
 
 function pickRandomEnemy(enemies: readonly string[]): string | null {
   if (enemies.length === 0) return null;
@@ -56,10 +65,7 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (
-    typeof body.floor !== "number" ||
-    !(VALID_FLOORS as readonly number[]).includes(body.floor)
-  ) {
+  if (typeof body.floor !== "number" || !isValidFloor(body.floor)) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
   const floor = body.floor;
@@ -85,6 +91,7 @@ export async function POST(req: Request) {
       level?: number;
       exp?: number;
       gold?: number;
+      materials?: unknown;
       [k: string]: unknown;
     };
 
@@ -245,6 +252,8 @@ export async function POST(req: Request) {
     const won = battleResult.outcome === "win";
     const expGained = won ? enemyMonster.exp : 0;
     const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
+    const drops: DropResult = won ? rollDrops(floor, Math.random) : {};
+    const nextMaterials = mergeDrops(charSave.materials, drops);
 
     // 세금 계산 — 위에서 결정한 taxOwnerId / taxRate 사용 (lock 후 결정 X — race 방지).
     // tx 안에서 1회 스냅샷 정책: claim/release 와의 변경은 다음 hunt 에 반영.
@@ -273,6 +282,7 @@ export async function POST(req: Request) {
       level: expResult.level,
       exp: expResult.exp,
       gold: newGold,
+      materials: nextMaterials,
     };
     await upsertSave(tx, userId, "character.v2", next);
 
@@ -304,6 +314,7 @@ export async function POST(req: Request) {
           hpBefore: regenResult.hp,
           hpAfter: afterHp,
           maxHp: player.maxHp,
+          drops,
         },
       },
     };

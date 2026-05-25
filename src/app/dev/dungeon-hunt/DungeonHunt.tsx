@@ -7,6 +7,10 @@ import {
   type StaminaState,
 } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import {
+  V2_MATERIALS,
+  type V2MaterialId,
+} from "@/adventure/data/v2/dungeonDrops";
 
 type HuntResponse = {
   ok?: boolean;
@@ -25,12 +29,25 @@ type HuntResponse = {
     hpBefore: number;
     hpAfter: number;
     maxHp: number;
+    drops?: Partial<Record<V2MaterialId, number>>;
   };
 };
 
+function formatDrops(
+  drops: Partial<Record<V2MaterialId, number>> | undefined,
+): string {
+  if (!drops) return "";
+  const parts: string[] = [];
+  for (const [id, amount] of Object.entries(drops)) {
+    if (!amount || amount <= 0) continue;
+    const mat = V2_MATERIALS[id as V2MaterialId];
+    parts.push(`${mat?.name ?? id} x${amount}`);
+  }
+  return parts.length ? ` · 드랍 ${parts.join(", ")}` : "";
+}
+
 // 던전 사냥 dev preview — POST /api/v2/dungeon/hunt 흐름을 시각 검증.
 // 초기 stamina 는 만피 가정 (실제 서버 값은 hunt 한 번 호출 후 동기화).
-// 전투 결과는 다음 PR 에서.
 export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
@@ -72,7 +89,7 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
           const levelUp = r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
           const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
           pushLog(
-            `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp} · 스태미너 ${cur}/200`,
+            `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/200`,
           );
         } else {
           pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);

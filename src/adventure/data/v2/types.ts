@@ -44,10 +44,11 @@ export type OutpostTier = 1 | 2 | 3 | 4;
 // 1 = 마을, 2 = 거점, 3 = 도시, 4 = 왕국
 
 // 점령된 거점의 입장 정책 (점령 길드가 결정).
+// 동맹(alliance) 정책은 동맹 시스템 구현 전까지 옵션에서 제외 — 추후 추가 시
+// "alliance" 식별자로 합류 예정 (저장된 옛 값은 hunt 가 open 으로 대우).
 export type OutpostPolicy =
-  | "open"        // 모두 입장 가능 (세금만 받음)
-  | "alliance"    // 동맹 + 자기 길드만
-  | "guild-only"; // 자기 길드원만
+  | "open"         // 모두 입장 가능 (세금만 받음)
+  | "guild-only";  // 점령 길드 멤버만 입장
 
 export type Outpost = {
   id: string;

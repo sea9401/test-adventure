@@ -253,6 +253,13 @@
       "when": 1779701457270,
       "tag": "0035_tearful_mentor",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1779787857000,
+      "tag": "0036_drop_alliance_policy",
+      "breakpoints": true
     }
   ]
 }

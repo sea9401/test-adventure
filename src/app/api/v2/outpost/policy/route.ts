@@ -9,11 +9,12 @@ import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 // body: { outpostId, policy?, taxRate? } — 둘 중 하나는 있어야.
 // 점령자(occupiedByUserId === userId) 만 가능.
 //
-// policy: "open" | "alliance" | "guild-only"
-//   - alliance / guild-only 는 데이터 저장만, 효과(입장 거부 등)는 후속 PR.
+// policy: "open" | "guild-only"
+//   - open: 누구나 입장 가능, taxRate 만큼 점령자에게 세금
+//   - guild-only: 점령 길드 멤버만 입장 가능 (그 외 차단)
 // taxRate: 0 ~ 0.5 (50% cap, 점령자 abuse 방지).
 
-const VALID_POLICIES = ["open", "alliance", "guild-only"] as const;
+const VALID_POLICIES = ["open", "guild-only"] as const;
 const TAX_RATE_MAX = 0.5;
 
 export async function POST(req: Request) {

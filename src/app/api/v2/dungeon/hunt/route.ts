@@ -23,7 +23,9 @@ import {
   rollDrops,
   type DropResult,
 } from "@/adventure/data/v2/dungeonDrops";
+import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
+import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -95,25 +97,68 @@ export async function POST(req: Request) {
       [k: string]: unknown;
     };
 
-    // === 1. 점령자 lookup + owner 검증 (lock 전) ===
-    // outpost_occupations 에 owner 가 있고, 다른 user 이고, owner 의 character.v2 가 실제 존재할 때만 세금 transfer.
+    // === 1. outpost 점령 조회 (FOR UPDATE) ===
+    // v2 의 lock 순서 통일: outpost FOR UPDATE → ensureSoloGuild → character.v2.
+    // FOR UPDATE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
+    // hunt 도중 정책을 바꿔도 이 hunt 는 진입 시점 정책으로 일관.
+    let occRow:
+      | {
+          occupiedByUserId: string | null;
+          occupiedByGuildId: number | null;
+          policy: string;
+          taxRate: string;
+        }
+      | null = null;
+    if (outpostId) {
+      occRow =
+        (
+          await tx
+            .select()
+            .from(outpostOccupations)
+            .where(eq(outpostOccupations.outpostId, outpostId))
+            .for("update")
+            .limit(1)
+        )[0] ?? null;
+    }
+
+    // === 2. 사냥자 길드 확인 (정책 게이트 + 세금 면제 판정용) ===
+    const viewerGuildId = await ensureSoloGuild(tx, userId);
+
+    // === 3. 정책 게이트 — 거부 시 즉시 403, stamina 차감/character.v2 lock 전. ===
+    if (occRow) {
+      const decision = evaluateOutpostEntry({
+        policy: occRow.policy,
+        occupiedByGuildId: occRow.occupiedByGuildId,
+        viewerGuildId,
+      });
+      if (!decision.allowed) {
+        return {
+          ok: false as const,
+          status: 403,
+          body: {
+            ok: false as const,
+            error: "policy_blocked" as const,
+            reason: decision.reason,
+          },
+        };
+      }
+    }
+
+    // === 4. 세금 owner 결정 ===
+    // 점령자가 본인이 아닌 다른 user 이고, 사냥자가 점령 길드 멤버가 아닐 때만
+    // 세금 transfer. 같은 길드면 세금 면제(정책 게이트의 charge="none" 의미).
     // owner row 가 비어 있으면(가입했지만 캐릭 미생성) 고아 지급 위험 → skip.
     let taxOwnerId: string | null = null;
     let taxRate = 0;
-    if (outpostId) {
-      const occRow = (
-        await tx
-          .select()
-          .from(outpostOccupations)
-          .where(eq(outpostOccupations.outpostId, outpostId))
-          .limit(1)
-      )[0];
-      if (
-        occRow &&
-        occRow.occupiedByUserId &&
-        occRow.occupiedByUserId !== userId
-      ) {
-        // owner row 존재 확인 (no lock)
+    if (
+      occRow &&
+      occRow.occupiedByUserId &&
+      occRow.occupiedByUserId !== userId
+    ) {
+      const isSameGuild =
+        occRow.occupiedByGuildId != null &&
+        occRow.occupiedByGuildId === viewerGuildId;
+      if (!isSameGuild) {
         const probe = await tx
           .select({ key: savesKv.key })
           .from(savesKv)
@@ -131,7 +176,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // === 2. character.v2 lock — deadlock 방지 위해 두 user 모두 잠글 땐 userId 정렬 순서 ===
+    // === 5. character.v2 lock — deadlock 방지 위해 두 user 모두 잠글 땐 userId 정렬 순서 ===
     let charSave: CharSave;
     let ownerSave: CharSave | null = null;
     if (taxOwnerId) {
@@ -255,8 +300,9 @@ export async function POST(req: Request) {
     const drops: DropResult = won ? rollDrops(floor, Math.random) : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
 
-    // 세금 계산 — 위에서 결정한 taxOwnerId / taxRate 사용 (lock 후 결정 X — race 방지).
-    // tx 안에서 1회 스냅샷 정책: claim/release 와의 변경은 다음 hunt 에 반영.
+    // 세금 계산 — 위에서 결정한 taxOwnerId / taxRate 사용.
+    // outpost FOR UPDATE 로 정책/세율 스냅샷 — 점령자가 hunt 도중 정책을 바꿔도
+    // 이 hunt 는 진입 시점 값으로 처리, 다음 hunt 부터 변경 반영.
     let goldTaxed = 0;
     if (taxOwnerId && taxRate > 0 && won && goldGross > 0) {
       goldTaxed = Math.max(1, Math.floor(goldGross * taxRate));

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { HuntResultCard, type HuntResult } from "@/adventure/v2/HuntResultCard";
 import {
   initialStamina,
   type StaminaState,
@@ -16,21 +17,7 @@ type HuntResponse = {
   ok?: boolean;
   stamina?: StaminaState;
   error?: string;
-  result?: {
-    floor: number;
-    enemyName: string;
-    won: boolean;
-    expGained: number;
-    goldGained: number;
-    goldGross?: number;
-    goldTaxed?: number;
-    levelsGained: number;
-    turns: number;
-    hpBefore: number;
-    hpAfter: number;
-    maxHp: number;
-    drops?: Partial<Record<V2MaterialId, number>>;
-  };
+  result?: HuntResult;
 };
 
 function formatDrops(
@@ -46,13 +33,15 @@ function formatDrops(
   return parts.length ? ` · 드랍 ${parts.join(", ")}` : "";
 }
 
-// 던전 사냥 dev preview — POST /api/v2/dungeon/hunt 흐름을 시각 검증.
+// 던전 사냥 dev preview — POST /api/v2/dungeon/hunt 흐름.
 // 초기 stamina 는 만피 가정 (실제 서버 값은 hunt 한 번 호출 후 동기화).
+// 직전 1회 결과는 카드로, 그 이전 결과는 로그로 압축 표시.
 export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
   const [busy, setBusy] = useState(false);
+  const [lastResult, setLastResult] = useState<HuntResult | null>(null);
   const [log, setLog] = useState<string[]>([]);
 
   function pushLog(line: string) {
@@ -85,6 +74,7 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
         const cur = json.stamina?.current ?? "?";
         const r = json.result;
         if (r) {
+          setLastResult(r);
           const verdict = r.won ? "승리" : "패배";
           const levelUp = r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
           const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
@@ -113,10 +103,9 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
-        <h1 className="text-lg font-bold">던전 사냥 (shell)</h1>
+        <h1 className="text-lg font-bold">던전 사냥</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          하나 클릭 = POST /api/v2/dungeon/hunt → 스태미너 1 차감. 전투 결과는
-          다음 PR 에서.
+          층 클릭 = 단판 사냥 (스태미너 1 소모).
         </p>
       </header>
 
@@ -139,6 +128,8 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
           </button>
         ))}
       </div>
+
+      {lastResult && <HuntResultCard result={lastResult} />}
 
       {log.length > 0 && (
         <section className="space-y-1">

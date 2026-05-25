@@ -8,6 +8,8 @@ import { resolveBattle } from "@/adventure/battle/engine";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
+import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
+import { parseResources } from "@/adventure/data/v2/resources";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -126,14 +128,29 @@ export async function POST(req: Request) {
       };
     }
 
-    // hp 회복 적용
+    // 공격자 병사 read (lock 안 함 — claim 흐름에서 모집 안 함).
+    const attackerResRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, "v2-resources")),
+      )
+      .limit(1);
+    const attackerSoldiers = parseResources(
+      attackerResRow[0]?.value ?? null,
+    ).soldiers;
+
+    // hp 회복 + 병사 보정 적용
     const hpRegen = applyHpRegen(
       Math.max(0, charSave.hp ?? player.maxHp),
       player.maxHp,
       parseHpRegenSince(charSave.hpRegenSince, now),
       now,
     );
-    const playerForBattle = { ...player.player, hp: hpRegen.hp };
+    const playerForBattle = applySoldierBoost(
+      { ...player.player, hp: hpRegen.hp },
+      attackerSoldiers,
+    );
 
     // playerName fetch (공격자)
     const profileRow = await tx
@@ -186,11 +203,28 @@ export async function POST(req: Request) {
         defenderLabel = defProfile?.name?.trim() || "수비자";
         defenderUserIdForLog = pvpDefenderId;
 
-        // PvP sim — 수비자는 만피 기준 (사냥 누적 hp 무관, 비동기 자동 방어 정책).
-        // 라이브 /api/pvp/challenge 패턴 따라 양측 applyStance (보스/특수전투 보정).
+        // PvP sim — 수비자는 만피 기준 + 병사 보정 + 스탠스.
+        // 라이브 /api/pvp/challenge 패턴 따라 양측 applyStance.
+        const defenderResRow = await tx
+          .select({ value: savesKv.value })
+          .from(savesKv)
+          .where(
+            and(
+              eq(savesKv.userId, pvpDefenderId),
+              eq(savesKv.key, "v2-resources"),
+            ),
+          )
+          .limit(1);
+        const defenderSoldiers = parseResources(
+          defenderResRow[0]?.value ?? null,
+        ).soldiers;
         const attackerStanced = applyStance(playerForBattle, player.selectedStance);
-        const defenderStanced = applyStance(
+        const defenderWithSoldiers = applySoldierBoost(
           { ...defender.player, hp: defender.maxHp },
+          defenderSoldiers,
+        );
+        const defenderStanced = applyStance(
+          defenderWithSoldiers,
           defender.selectedStance,
         );
         const pvp = resolveBattlePvP(
@@ -298,8 +332,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // 사냥 후 hp 적용 (단판 패턴)
-    const afterHp = Math.max(0, battleFinalPlayerHp!);
+    // 사냥 후 hp 적용 (단판 패턴).
+    // 병사 보정으로 battle 안 maxHp 가 늘었으므로 base maxHp 로 cap.
+    // (안 그러면 저장 hp 가 다음 regen tick 의 base max 캡까지 의미상 잉여)
+    const afterHp = Math.min(player.maxHp, Math.max(0, battleFinalPlayerHp!));
 
     const next = {
       ...charSave,

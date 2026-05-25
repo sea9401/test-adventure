@@ -33,18 +33,24 @@ export function computeStoneYield(
 // saves_kv 의 v2-resources 키 형태.
 export type V2Resources = {
   stone: number;
-  // 미래 확장: food, wood, gold? 등
+  soldiers: number;
+  // 미래 확장: food, wood 등
 };
+
+function parseNonNegInt(v: unknown): number {
+  if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
+    return Math.floor(v);
+  }
+  return 0;
+}
 
 export function parseResources(raw: unknown): V2Resources {
   if (raw && typeof raw === "object") {
     const r = raw as Partial<V2Resources>;
     return {
-      stone:
-        typeof r.stone === "number" && Number.isFinite(r.stone) && r.stone >= 0
-          ? Math.floor(r.stone)
-          : 0,
+      stone: parseNonNegInt(r.stone),
+      soldiers: parseNonNegInt(r.soldiers),
     };
   }
-  return { stone: 0 };
+  return { stone: 0, soldiers: 0 };
 }

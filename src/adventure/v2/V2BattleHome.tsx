@@ -1,54 +1,72 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
-import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
-import type { Gender } from "@/adventure/profile/avatars";
+import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import type { DungeonFloorId } from "@/adventure/data/v2/types";
 
-// 전투 탭 — 현재 거점의 던전 사냥.
-// V2TopBar 의 currentOutpost 가 자동 outpostId 로 사용 (세금/정책 게이트 적용).
-// 거점 없으면 안내 + 지도 탭으로 가도록.
+// 전투 탭 home — 5층 list. 현재 거점이 있으면 입장 가능, 없으면 안내.
+// 층 클릭 → 그 층의 V2DungeonFloorView (각 층 페이지).
 
 export function V2BattleHome({
   currentOutpost,
-  playerName,
-  playerGender,
+  onSelectFloor,
   onOpenMap,
 }: {
   currentOutpost: { id: string; name: string } | null;
-  playerName: string;
-  playerGender: Gender;
+  onSelectFloor: (floorId: DungeonFloorId) => void;
   onOpenMap: () => void;
 }) {
-  if (!currentOutpost) {
-    return (
-      <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-        <header>
-          <h1 className="text-lg font-bold">전투</h1>
-        </header>
+  return (
+    <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+      <header>
+        <h1 className="text-lg font-bold">전투</h1>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {currentOutpost
+            ? `${currentOutpost.name} 의 던전. 층을 선택해 입장.`
+            : "거점에 머문 적이 없어요. 지도 탭에서 거점 진입 후 사냥 가능."}
+        </p>
+      </header>
+
+      {!currentOutpost ? (
         <Card padding="md">
-          <div className="text-sm text-zinc-700 dark:text-zinc-200">
-            아직 머문 거점이 없어요.
-          </div>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            지도 탭에서 거점에 들어가면 그 거점의 던전을 여기서 사냥할 수 있어요.
-          </p>
           <button
             type="button"
             onClick={onOpenMap}
-            className="mt-3 rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             지도 열기
           </button>
         </Card>
-      </main>
-    );
-  }
-
-  return (
-    <DungeonHunt
-      outpostId={currentOutpost.id}
-      playerName={playerName}
-      playerGender={playerGender}
-    />
+      ) : (
+        <div className="space-y-2">
+          {MAIN_DUNGEON.floors.map((floor) => (
+            <button
+              key={floor.id}
+              type="button"
+              onClick={() => onSelectFloor(floor.id)}
+              className="block w-full text-left"
+            >
+              <Card padding="sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-medium">
+                      {floor.name}
+                    </div>
+                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      {floor.requirement.kind === "level"
+                        ? `Lv ${floor.requirement.min}~${floor.requirement.max}`
+                        : `엔드 ${floor.requirement.tier}`}
+                    </div>
+                  </div>
+                  <span className="shrink-0 rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                    입장
+                  </span>
+                </div>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+    </main>
   );
 }

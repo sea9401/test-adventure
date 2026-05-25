@@ -48,6 +48,7 @@ type ClaimResponse = {
   error?: string;
   won?: boolean;
   raceLost?: boolean;
+  pvp?: boolean;
   championName?: string;
   turns?: number;
   stamina?: StaminaState;
@@ -98,19 +99,20 @@ export function OutpostView({
         setLastClaim(`✗ http ${res.status} (빈 응답)`);
         return;
       }
+      const label = json.pvp ? "결투 (PvP)" : "일기토 (NPC)";
       if (json.ok && json.won && !json.raceLost) {
         setLastClaim(
-          `✓ ${json.championName} 격파 (${json.turns}턴) — 점령 성공!`,
+          `✓ ${label} — ${json.championName} 격파 (${json.turns}턴) — 점령 성공!`,
         );
         onAction({ kind: "claimed" });
       } else if (json.ok && json.won && json.raceLost) {
         setLastClaim(
-          `△ ${json.championName} 격파 (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.`,
+          `△ ${label} — ${json.championName} 격파 (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.`,
         );
         onAction({ kind: "claimed" });
       } else if (json.ok && !json.won) {
         setLastClaim(
-          `✗ ${json.championName} 패배 (${json.turns}턴) — 점령 실패. 스태미너만 차감됨.`,
+          `✗ ${label} — ${json.championName} 패배 (${json.turns}턴) — 점령 실패. 스태미너만 차감됨.`,
         );
       } else {
         const need =
@@ -186,10 +188,18 @@ export function OutpostView({
         />
 
         <ActionCard
-          title={claimDisabled ? "점령 시도" : "점령 시도 (일기토)"}
+          title={
+            claimDisabled
+              ? "점령 시도"
+              : occupation
+                ? "점령 시도 (PvP 결투)"
+                : "점령 시도 (NPC 일기토)"
+          }
           subtitle={
             claimDisabled?.reason ??
-            `이 거점의 NPC 영웅과 1대1 결투. 승리 시 점령. (스태미너 소모)`
+            (occupation
+              ? "점령자 영웅과 1대1 결투. 승리 시 점령권 이전 (스태미너 소모)."
+              : "거점 NPC 영웅과 1대1 결투. 승리 시 점령 (스태미너 소모).")
           }
           onClick={attemptClaim}
           disabled={!!claimDisabled || busy}
@@ -252,11 +262,11 @@ function computeClaimDisabled(
   viewerUserId: string | null,
 ): { reason: string } | null {
   if (outpost.neutral) return { reason: "절대 중립 거점 (점령 불가)" };
-  if (!occupation) return null; // 비점령 — 시도 가능
+  if (!occupation) return null; // 비점령 — NPC 일기토 시도 가능
   if (viewerUserId && occupation.occupiedByUserId === viewerUserId) {
     return { reason: "이미 내 점령지" };
   }
-  return { reason: "다른 세력이 점령 중 (PvP 후속 PR)" };
+  return null; // 다른 세력 점령 — PvP 결투 시도 가능
 }
 
 function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {

@@ -7,7 +7,13 @@ import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFrom
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
-import { applyExpGain } from "@/lib/leveling";
+import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
+
+// BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
+// EXP 바 안 보이게 0 으로 fallback (현재 exp 와 동일 → pct 0).
+function requiredExpToNextNullable(level: number): number | null {
+  return requiredExpToNext(level);
+}
 import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
@@ -386,6 +392,18 @@ export async function POST(req: Request) {
           maxHp: player.maxHp,
           drops,
           ejected: ejectedNotice,
+          // BattleScene replay 용 — finalState 의 log 가 비대해질 수 있어
+          // 마지막 200 entry 만 cap (단판 사냥은 보통 < 50). 그래도 시각 흐름은 유지.
+          battleFinalState: {
+            ...battleResult.finalState,
+            log: battleResult.finalState.log.slice(-200),
+          },
+          // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
+          startPlayerHp: regenResult.hp,
+          // 이 사냥의 시작 EXP/maxExp — replay UI 의 EXP 바 표시용
+          // (사냥 후 변동은 결과 카드로 분리).
+          expForBar: curExp,
+          maxExpForBar: requiredExpToNextNullable(curLevel) ?? curExp,
         },
       },
     };

@@ -8,6 +8,7 @@ import { LineupCard } from "@/adventure/v2/LineupCard";
 import { V2HomeScreen, type HomeAction } from "@/adventure/v2/V2HomeScreen";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
+import type { Gender } from "@/adventure/profile/avatars";
 
 // v2 게임 흐름 — home 중심 라우팅 (라이브 TownScreen 패턴).
 // home → outpost-list / map / lineup / outpost(상세) → dungeon.
@@ -35,6 +36,10 @@ export function V2GameFlow() {
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
+  // viewer 의 캐릭 정보(이름·gender) — ReplayBattleScene 의 PlayerAvatar 에 사용.
+  // me/state 응답에서 받아 두고 dungeon hunt 자식에 prop.
+  const [viewerName, setViewerName] = useState<string>("모험가");
+  const [viewerGender, setViewerGender] = useState<Gender>("male1");
 
   const refreshOccupations = useCallback(async () => {
     try {
@@ -65,6 +70,19 @@ export function V2GameFlow() {
         if (res.ok) {
           const j = (await res.json()) as { guildId?: number } | null;
           if (typeof j?.guildId === "number") setViewerGuildId(j.guildId);
+        }
+      } catch {}
+    })();
+    // 캐릭터 이름·gender — BattleScene 의 PlayerAvatar 용. me/state 한 번 fetch.
+    (async () => {
+      try {
+        const res = await fetch("/api/v2/me/state");
+        if (res.ok) {
+          const j = (await res.json()) as {
+            character?: { name?: string; gender?: string };
+          } | null;
+          if (j?.character?.name) setViewerName(j.character.name);
+          if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
         }
       } catch {}
     })();
@@ -171,7 +189,11 @@ export function V2GameFlow() {
               ← {view.outpost.name} 로 돌아가기
             </button>
           </div>
-          <DungeonHunt outpostId={view.outpost.id} />
+          <DungeonHunt
+            outpostId={view.outpost.id}
+            playerName={viewerName}
+            playerGender={viewerGender}
+          />
         </div>
       )}
     </div>

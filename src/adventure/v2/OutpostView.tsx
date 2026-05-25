@@ -52,6 +52,17 @@ type TroopBattleSummary = {
   plunderStone: number;
 };
 
+type TournamentSummary = {
+  matches: {
+    attackerName: string;
+    defenderName: string;
+    winnerSide: "attacker" | "defender";
+    turns: number;
+  }[];
+  attackerLineupCount: number;
+  defenderLineupCount: number;
+};
+
 type ClaimResponse = {
   ok?: boolean;
   error?: string;
@@ -66,6 +77,7 @@ type ClaimResponse = {
   maxHp?: number;
   requiredStamina?: number;
   troopBattle?: TroopBattleSummary | null;
+  tournament?: TournamentSummary | null;
 };
 
 export function OutpostView({
@@ -109,23 +121,31 @@ export function OutpostView({
         setLastClaim(`✗ http ${res.status} (빈 응답)`);
         return;
       }
-      const label = json.pvp ? "PvP — 일기토 + 본 병사 전쟁" : "일기토 (NPC)";
+      const useTournament = !!json.tournament;
+      const label = useTournament
+        ? `PvP — 3:3 토너먼트 (${json.tournament!.attackerLineupCount} vs ${json.tournament!.defenderLineupCount}) + 본 병사 전쟁`
+        : json.pvp
+          ? "PvP — 일기토 + 본 병사 전쟁"
+          : "일기토 (NPC)";
+      const tournamentLine = json.tournament
+        ? ` · 매치 ${json.tournament.matches.length}회 (${json.tournament.matches.map((m) => `${m.attackerName}↔${m.defenderName}:${m.winnerSide === "attacker" ? "A" : "D"}`).join(", ")})`
+        : "";
       const troopLine = json.troopBattle
-        ? ` · 일기토 ${json.troopBattle.duelWonByAttacker ? "승" : "패"} → 본 전쟁 power ${json.troopBattle.attackerPower}/${json.troopBattle.defenderPower} · 사상 ${json.troopBattle.attackerCasualties}/${json.troopBattle.defenderCasualties} · 약탈 광물 ${json.troopBattle.plunderStone}`
+        ? ` · ${useTournament ? "토너먼트" : "일기토"} ${json.troopBattle.duelWonByAttacker ? "승" : "패"} → 본 전쟁 power ${json.troopBattle.attackerPower}/${json.troopBattle.defenderPower} · 사상 ${json.troopBattle.attackerCasualties}/${json.troopBattle.defenderCasualties} · 약탈 광물 ${json.troopBattle.plunderStone}`
         : "";
       if (json.ok && json.won && !json.raceLost) {
         setLastClaim(
-          `✓ ${label} — ${json.championName} (${json.turns}턴) — 점령 성공!${troopLine}`,
+          `✓ ${label} — ${json.championName} (${json.turns}턴) — 점령 성공!${tournamentLine}${troopLine}`,
         );
         onAction({ kind: "claimed" });
       } else if (json.ok && json.won && json.raceLost) {
         setLastClaim(
-          `△ ${label} — ${json.championName} (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.${troopLine}`,
+          `△ ${label} — ${json.championName} (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.${tournamentLine}${troopLine}`,
         );
         onAction({ kind: "claimed" });
       } else if (json.ok && !json.won) {
         setLastClaim(
-          `✗ ${label} — ${json.championName} (${json.turns}턴) — 점령 실패.${troopLine}`,
+          `✗ ${label} — ${json.championName} (${json.turns}턴) — 점령 실패.${tournamentLine}${troopLine}`,
         );
         if (json.troopBattle) onAction({ kind: "claimed" });
       } else {

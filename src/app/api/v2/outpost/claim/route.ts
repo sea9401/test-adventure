@@ -1,6 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { outpostOccupations, outpostClaimAttempts, savesKv } from "@/db/schema";
+import {
+  guildMembers,
+  outpostOccupations,
+  outpostClaimAttempts,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
@@ -9,6 +14,7 @@ import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { runTournamentForGuilds } from "@/lib/server/v2RunTournament";
 import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
 import {
   simulateTroopBattle,
@@ -226,6 +232,17 @@ export async function POST(req: Request) {
     let troopBattle: TroopBattleResult | null = null;
     let duelWonByAttacker: boolean | null = null;
     let plunderStone = 0;
+    // 다인 길드 토너먼트 결과 (양측 모두 멤버 2+ 인 경우). 아니면 null.
+    let tournamentSummary: {
+      matches: {
+        attackerName: string;
+        defenderName: string;
+        winnerSide: "attacker" | "defender";
+        turns: number;
+      }[];
+      attackerLineupCount: number;
+      defenderLineupCount: number;
+    } | null = null;
 
     if (pvpDefenderId) {
       // === PvP claim — 영웅 일기토 + 본 병사 전쟁 ===
@@ -257,30 +274,67 @@ export async function POST(req: Request) {
         defenderLabel = defProfile?.name?.trim() || "수비자";
         defenderUserIdForLog = pvpDefenderId;
 
-        // 1단계 — 영웅 일기토. 결과는 본 전쟁 power 보정용 (점령 결정 X).
-        // 양측 applyStance + 병사 stat 보정.
-        const attackerStanced = applyStance(playerForBattle, player.selectedStance);
-        const defenderWithSoldiers = applySoldierBoost(
-          { ...defender.player, hp: defender.maxHp },
-          defenderResources.soldiers,
-        );
-        const defenderStanced = applyStance(
-          defenderWithSoldiers,
-          defender.selectedStance,
-        );
-        const pvp = resolveBattlePvP(
-          attackerStanced,
-          defenderStanced,
-          playerName,
-          defenderLabel,
-          {
-            pickAction: () => ({ kind: "attack" }),
-            potions: { p1: {}, p2: {} },
-          },
-        );
-        duelWonByAttacker = pvp.outcome === "p1_win";
-        turns = pvp.turns;
-        battleFinalPlayerHp = pvp.finalState.p1.hp;
+        // 1단계 — 양측 길드 멤버 수에 따라 일기토 또는 3:3 토너먼트.
+        const [attackerMembers, defenderMembers] = await Promise.all([
+          tx
+            .select({ userId: guildMembers.userId })
+            .from(guildMembers)
+            .where(eq(guildMembers.guildId, attackerGuildId)),
+          tx
+            .select({ userId: guildMembers.userId })
+            .from(guildMembers)
+            .where(eq(guildMembers.guildId, defenderGuildId!)),
+        ]);
+        const useTournament =
+          attackerMembers.length >= 2 && defenderMembers.length >= 2;
+
+        if (useTournament) {
+          // === 다인 길드 vs 다인 길드 — 3:3 토너먼트 (왕좌 모드) ===
+          // 영웅 raw stat sim (병사 보정 X — 본 전쟁이 병사 layer).
+          // 호출자(attacker) 의 hp 는 영향 안 받음 (토너먼트가 별도 sim).
+          const t = await runTournamentForGuilds(
+            tx,
+            attackerGuildId,
+            defenderGuildId!,
+          );
+          duelWonByAttacker = t.result.attackerWon;
+          turns = t.result.matches.reduce((s, m) => s + m.turns, 0);
+          battleFinalPlayerHp = hpRegen.hp;
+          tournamentSummary = {
+            matches: t.result.matches.map((m) => ({
+              attackerName: m.attackerName,
+              defenderName: m.defenderName,
+              winnerSide: m.winnerSide,
+              turns: m.turns,
+            })),
+            attackerLineupCount: t.attackerLineupCount,
+            defenderLineupCount: t.defenderLineupCount,
+          };
+        } else {
+          // === 1인 길드 vs 1인 길드 — 기존 영웅 일기토 ===
+          const attackerStanced = applyStance(playerForBattle, player.selectedStance);
+          const defenderWithSoldiers = applySoldierBoost(
+            { ...defender.player, hp: defender.maxHp },
+            defenderResources.soldiers,
+          );
+          const defenderStanced = applyStance(
+            defenderWithSoldiers,
+            defender.selectedStance,
+          );
+          const pvp = resolveBattlePvP(
+            attackerStanced,
+            defenderStanced,
+            playerName,
+            defenderLabel,
+            {
+              pickAction: () => ({ kind: "attack" }),
+              potions: { p1: {}, p2: {} },
+            },
+          );
+          duelWonByAttacker = pvp.outcome === "p1_win";
+          turns = pvp.turns;
+          battleFinalPlayerHp = pvp.finalState.p1.hp;
+        }
 
         // 2단계 — 본 병사 전쟁. 이게 점령 결정.
         troopBattle = simulateTroopBattle({
@@ -457,6 +511,8 @@ export async function POST(req: Request) {
               plunderStone,
             }
           : null,
+        // 다인 길드 토너먼트 결과 (1단계). 양측 모두 멤버 2+ 일 때만.
+        tournament: tournamentSummary,
       },
     };
   });

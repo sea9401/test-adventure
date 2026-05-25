@@ -6,7 +6,7 @@ import { Sword } from "@phosphor-icons/react";
 
 export function V2AdventureHome() {
   return (
-    <main className="mx-auto max-w-md space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-2xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">모험</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

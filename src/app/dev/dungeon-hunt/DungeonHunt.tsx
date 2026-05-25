@@ -134,7 +134,7 @@ export function DungeonHunt({
   const replayPending = !replayDone && lastResult?.replay != null;
 
   return (
-    <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">던전 사냥</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

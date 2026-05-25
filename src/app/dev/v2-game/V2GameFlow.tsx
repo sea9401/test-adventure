@@ -9,7 +9,7 @@ import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
-import { V2TabBar, type TabId } from "@/adventure/v2/V2TabBar";
+import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
@@ -21,6 +21,15 @@ import type { Gender } from "@/adventure/profile/avatars";
 // 마을 탭: 마을 home(default)/성장의 신전
 // 지도 탭: ContinentMap(default)/outpost/dungeon
 // 모험 탭: placeholder
+
+type TabId = "adventure" | "town" | "character" | "map";
+
+const TABS: { key: TabId; label: string }[] = [
+  { key: "adventure", label: "모험" },
+  { key: "town", label: "마을" },
+  { key: "character", label: "캐릭터" },
+  { key: "map", label: "지도" },
+];
 
 export type Occupation = {
   outpostId: string;
@@ -175,7 +184,14 @@ export function V2GameFlow() {
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      <V2TabBar current={currentTab} onSelect={handleTabSelect} />
+      <TabBar
+        tabs={TABS}
+        active={currentTab}
+        onChange={handleTabSelect}
+        ariaLabel="메인 탭"
+        size="sm"
+        className="mx-auto w-full max-w-2xl px-4 sm:px-6"
+      />
 
       {/* === 캐릭터 탭 === */}
       {view.kind === "character" && (

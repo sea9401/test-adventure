@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 
 // POST /api/v2/me/skills/equip — character.v2.equippedSkills 업데이트.
 //
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
-    const combat = await derivePlayerCombatFromSaves(userId, tx);
+    const combat = await derivePlayerCombatV2(userId, tx);
     if (!combat) {
       return {
         status: 400,

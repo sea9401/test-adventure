@@ -2,10 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 
 // GET /api/v2/me/skills — V2SkillsView 의 자체 fetch.
-// derivePlayerCombatFromSaves 결과의 characterSkills/effectiveSkillNames/layout +
+// derivePlayerCombatV2 결과의 characterSkills/effectiveSkillNames/layout +
 // character.v2.equippedSkills 반환. 라이브 SkillsView 의 prop 그대로 매핑.
 //
 // POST /api/v2/me/skills/equip — character.v2.equippedSkills 배열 업데이트.
@@ -18,7 +18,7 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const combat = await derivePlayerCombatFromSaves(userId);
+  const combat = await derivePlayerCombatV2(userId);
   if (!combat) {
     return Response.json({ ok: false, error: "no_character" }, { status: 400 });
   }

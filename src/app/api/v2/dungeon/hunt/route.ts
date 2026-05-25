@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
@@ -239,7 +239,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const player = await derivePlayerCombatFromSaves(userId, tx);
+    const player = await derivePlayerCombatV2(userId, tx);
     if (!player) {
       return {
         ok: false as const,

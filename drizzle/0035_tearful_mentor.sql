@@ -1,0 +1,1 @@
+ALTER TABLE "v2_guild_resources" ADD COLUMN "scrolls" integer DEFAULT 0 NOT NULL;

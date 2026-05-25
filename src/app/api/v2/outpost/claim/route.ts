@@ -26,6 +26,7 @@ import {
   computePlunder,
   type TroopBattleResult,
 } from "@/adventure/data/v2/troopBattle";
+import { SCROLL_POWER_BONUS } from "@/adventure/data/v2/resources";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { outpostId?: unknown };
+  let body: { outpostId?: unknown; useScroll?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -71,6 +72,7 @@ export async function POST(req: Request) {
   if (typeof body.outpostId !== "string" || body.outpostId.length === 0) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
+  const useScroll = body.useScroll === true;
   const outpost = OUTPOSTS.find((o) => o.id === body.outpostId);
   if (!outpost) {
     return Response.json({ ok: false, error: "no_such_outpost" }, { status: 400 });
@@ -115,6 +117,18 @@ export async function POST(req: Request) {
         ok: false as const,
         status: 400,
         body: { ok: false as const, error: "already_yours" as const },
+      };
+    }
+
+    // useScroll 은 PvP 한정 (NPC 일기토는 본 전쟁 없어 효과 없음).
+    if (useScroll && defenderGuildId === null) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "scroll_not_applicable_npc" as const,
+        },
       };
     }
 
@@ -166,8 +180,8 @@ export async function POST(req: Request) {
     //   - PvP: 양측 mutate (병사 사상자 + 약탈) → 양측 길드 FOR UPDATE, guildId 사전 정렬.
     //   - NPC: 공격자 길드만 lock.
     //   - already_yours 분기에서 같은 길드 차단됨 → lockTwoGuildResources 안전.
-    let attackerResources = { stone: 0, soldiers: 0 };
-    let defenderResources = { stone: 0, soldiers: 0 };
+    let attackerResources = { stone: 0, soldiers: 0, scrolls: 0 };
+    let defenderResources = { stone: 0, soldiers: 0, scrolls: 0 };
     if (pvpDefenderId && defenderGuildId !== null) {
       const both = await lockTwoGuildResources(
         tx,
@@ -178,6 +192,19 @@ export async function POST(req: Request) {
       defenderResources = both.b;
     } else {
       attackerResources = await lockGuildResources(tx, attackerGuildId);
+    }
+
+    // useScroll — 공격자 길드 scrolls 1 차감. 부족하면 400.
+    if (useScroll && attackerResources.scrolls < 1) {
+      return {
+        ok: false as const,
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "not_enough_scrolls" as const,
+          have: attackerResources.scrolls,
+        },
+      };
     }
 
     // hp 회복 + 병사 보정 적용
@@ -321,6 +348,7 @@ export async function POST(req: Request) {
         }
 
         // 2단계 — 본 병사 전쟁. 이게 점령 결정.
+        // useScroll 면 공격자 power × (1 + SCROLL_POWER_BONUS).
         troopBattle = simulateTroopBattle({
           attackerSoldiers: attackerResources.soldiers,
           defenderSoldiers: defenderResources.soldiers,
@@ -329,6 +357,7 @@ export async function POST(req: Request) {
           attackerWonDuel: duelWonByAttacker,
           // ±10% 노이즈. 단판 sim 의 결정론성 완화.
           noise: 0.1,
+          attackerPowerMult: useScroll ? 1 + SCROLL_POWER_BONUS : 1,
         });
         won = troopBattle.attackerWon;
 
@@ -352,13 +381,20 @@ export async function POST(req: Request) {
           aStoneNext = attackerResources.stone - plunderStone;
           dStoneNext = defenderResources.stone + plunderStone;
         }
+        // useScroll 면 공격자 scrolls -1.
+        const aScrollsNext = Math.max(
+          0,
+          attackerResources.scrolls - (useScroll ? 1 : 0),
+        );
         await upsertGuildResources(tx, attackerGuildId, {
           stone: aStoneNext,
           soldiers: aSoldiersNext,
+          scrolls: aScrollsNext,
         });
         await upsertGuildResources(tx, defenderGuildId!, {
           stone: dStoneNext,
           soldiers: dSoldiersNext,
+          scrolls: defenderResources.scrolls,
         });
       }
     }

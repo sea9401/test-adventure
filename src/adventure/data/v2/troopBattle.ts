@@ -35,6 +35,9 @@ export type TroopBattleInput = {
   noise?: number;
   // RNG 주입 — 테스트 결정론용. 미래 audit 위해 seeded 가능. default Math.random.
   rng?: () => number;
+  // 추가 power 배수 — 주문서 등 active item 효과. default 1.0.
+  attackerPowerMult?: number;
+  defenderPowerMult?: number;
 };
 
 export type TroopBattleResult = {
@@ -55,6 +58,8 @@ export function simulateTroopBattle(input: TroopBattleInput): TroopBattleResult 
     attackerWonDuel,
     noise = 0,
     rng = Math.random,
+    attackerPowerMult = 1,
+    defenderPowerMult = 1,
   } = input;
 
   const aBase =
@@ -72,8 +77,8 @@ export function simulateTroopBattle(input: TroopBattleInput): TroopBattleResult 
   const aNoiseFactor = 1 + (rng() * 2 - 1) * noise;
   const dNoiseFactor = 1 + (rng() * 2 - 1) * noise;
 
-  const aPower = aBase * aMod * aNoiseFactor;
-  const dPower = dBase * dMod * dNoiseFactor;
+  const aPower = aBase * aMod * aNoiseFactor * attackerPowerMult;
+  const dPower = dBase * dMod * dNoiseFactor * defenderPowerMult;
 
   const attackerWon = aPower > dPower;
 

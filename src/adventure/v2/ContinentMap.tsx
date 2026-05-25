@@ -156,18 +156,21 @@ export function ContinentMap({
       const w = Math.max(MIN_VB_W, Math.min(MAX_VB_W, next.w));
       const { w: cw, h: ch } = containerSize;
       const h = cw > 0 && ch > 0 ? w * (ch / cw) : (next.h / next.w) * w;
-      const marginX = MAP_BOUNDS.width * 0.3;
-      const marginY = MAP_BOUNDS.height * 0.3;
-      const minX = -marginX;
-      const maxX = MAP_BOUNDS.width - w + marginX;
-      const minY = -marginY;
-      const maxY = MAP_BOUNDS.height - h + marginY;
-      return {
-        x: Math.max(minX, Math.min(maxX, next.x)),
-        y: Math.max(minY, Math.min(maxY, next.y)),
-        w,
-        h,
-      };
+      // viewBox 가 월드보다 크면(축 별로) 그 축은 중앙 정렬 강제 — 화면 좌하단
+      // drift 누적 방지. 그 외엔 가장자리를 화면에 맞춤 (월드 밖 X).
+      let x: number;
+      if (w >= MAP_BOUNDS.width) {
+        x = (MAP_BOUNDS.width - w) / 2;
+      } else {
+        x = Math.max(0, Math.min(MAP_BOUNDS.width - w, next.x));
+      }
+      let y: number;
+      if (h >= MAP_BOUNDS.height) {
+        y = (MAP_BOUNDS.height - h) / 2;
+      } else {
+        y = Math.max(0, Math.min(MAP_BOUNDS.height - h, next.y));
+      }
+      return { x, y, w, h };
     },
     [containerSize],
   );

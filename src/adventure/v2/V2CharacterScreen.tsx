@@ -1,17 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  Diamond,
-  Shield,
-  Sword,
-  User as UserIcon,
-  type Icon,
-} from "@phosphor-icons/react";
+import { Diamond, Shield, Sword, type Icon } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
-import { StatBar } from "@/components/ui/StatBar";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
-import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import { V2CharacterCard } from "./V2CharacterCard";
 import type { StatKey } from "@/adventure/data/stats";
 import {
   V2_EQUIPMENT,
@@ -19,9 +12,7 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
-// v2 캐릭터 화면 — 라이브 CharacterMini 패턴 차용.
-// portrait + 칭호(placeholder) + 이름 + 레벨 + HP/MP/EXP bars + 3 슬롯 + StatsPanel.
-// MP 는 v2 에 시스템 없음 — 0/0 placeholder. 칭호도 같음 (있을 때만 표시).
+// v2 캐릭터 화면 — V2CharacterCard 위에 장비 3슬롯 + StatsPanel + 인벤/스킬 진입.
 
 type StateResponse = {
   ok?: boolean;
@@ -58,28 +49,6 @@ const SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] =
     color: "text-violet-500",
   },
 ];
-
-function CharacterPortrait({ gender }: { gender: Gender }) {
-  const [errored, setErrored] = useState(false);
-  return (
-    <div
-      aria-label="캐릭터 이미지"
-      className="flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-600"
-    >
-      {errored ? (
-        <UserIcon size={56} weight="duotone" />
-      ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatarImageSrc(gender)}
-          alt=""
-          onError={() => setErrored(true)}
-          className="h-full w-full object-contain"
-        />
-      )}
-    </div>
-  );
-}
 
 export function V2CharacterScreen({
   onOpenEquipment,
@@ -119,11 +88,6 @@ export function V2CharacterScreen({
   const stats = state?.stats;
   const combat = state?.combat;
   const equipped = equipment?.equipped ?? {};
-  // 칭호 — v2 에 시스템 없음. placeholder (있을 때만 표시).
-  const titleName: string | null = null;
-  // MP — v2 에 없음. 사용자 요청에 라이브 톤 맞춰 0/0 placeholder.
-  const mp = 0;
-  const maxMp = 0;
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -131,57 +95,13 @@ export function V2CharacterScreen({
         <h1 className="text-lg font-bold">내 정보</h1>
       </header>
 
-      <Card padding="md">
-        {character ? (
-          <>
-            <div className="flex items-stretch gap-4">
-              <CharacterPortrait gender={(character.gender ?? "male1") as Gender} />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  {titleName && (
-                    <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
-                      {titleName}
-                    </span>
-                  )}
-                  <span className="text-base font-semibold">
-                    {character.name}
-                  </span>
-                  <span className="text-sm text-zinc-400 dark:text-zinc-500">
-                    Lv.{character.level}
-                  </span>
-                  {guild && (
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      · {guild.name}
-                    </span>
-                  )}
-                </div>
-                <div className="max-w-sm space-y-1.5">
-                  <StatBar
-                    label="HP"
-                    value={character.hp}
-                    max={character.maxHp}
-                    color="bg-red-500"
-                  />
-                  <StatBar
-                    label="MP"
-                    value={mp}
-                    max={maxMp}
-                    color="bg-blue-500"
-                  />
-                  {character.expToNext != null && (
-                    <StatBar
-                      label="EXP"
-                      value={character.exp}
-                      max={character.expToNext}
-                      color="bg-amber-400"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
+      {character ? (
+        <>
+          <V2CharacterCard character={character} guild={guild} />
 
-            {/* 장비 3슬롯 — 클릭 시 V2EquipmentView 진입. */}
-            <div className="mt-4 grid grid-cols-3 gap-2">
+          {/* 장비 3슬롯 — 클릭 시 V2EquipmentView 진입. */}
+          <Card padding="md">
+            <div className="grid grid-cols-3 gap-2">
               {SLOTS.map(({ slot, label, Icon, color }) => {
                 const id = equipped[slot];
                 const item = id ? V2_EQUIPMENT[id] : null;
@@ -204,24 +124,21 @@ export function V2CharacterScreen({
                 );
               })}
             </div>
-
-            <div className="mt-3 flex items-center justify-between text-xs">
-              <span className="text-zinc-500 dark:text-zinc-400">골드</span>
-              <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-                {character.gold.toLocaleString()}
-              </span>
-            </div>
-          </>
-        ) : loading ? (
+          </Card>
+        </>
+      ) : loading ? (
+        <Card padding="md">
           <div className="text-sm text-zinc-500 dark:text-zinc-400">
             불러오는 중…
           </div>
-        ) : (
+        </Card>
+      ) : (
+        <Card padding="md">
           <div className="text-sm text-rose-600 dark:text-rose-400">
             캐릭터 정보를 불러오지 못했어요.
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {stats && combat && (
         <Card padding="md">
@@ -253,11 +170,10 @@ export function V2CharacterScreen({
         </div>
       )}
 
-      {stats == null && !loading && (
+      {character && stats == null && !loading && (
         <Card padding="md">
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            캐릭터가 아직 만들어지지 않았어요. 거점에서 사냥을 한 번 시도하면
-            자동 생성됩니다.
+            능력치 정보가 아직 만들어지지 않았어요. 사냥을 한 번 시도하면 자동 생성됩니다.
           </div>
         </Card>
       )}

@@ -23,9 +23,10 @@ const TIER_LABEL: Record<OutpostTier, string> = {
   4: "왕국",
 };
 
+// 던전 입장은 전투 탭으로 이동 (V2BattleHome) — OutpostView 에서는 outpost 자체
+// 활동(claim/harvest/policy/병사 모집 등) 만.
 export type OutpostAction =
   | { kind: "back" }
-  | { kind: "enter-dungeon" }
   | { kind: "claimed" }
   | { kind: "harvested" };
 
@@ -222,14 +223,11 @@ export function OutpostView({
           여기서 할 수 있는 것
         </div>
 
-        <ActionCard
-          title="던전 입장"
-          subtitle={
-            dungeonDisabled?.reason ?? "5층 던전에서 사냥. 스태미너 소모."
-          }
-          onClick={() => onAction({ kind: "enter-dungeon" })}
-          disabled={dungeonDisabled ?? undefined}
-        />
+        {dungeonDisabled && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+            ⚠️ {dungeonDisabled.reason} — 사냥 불가
+          </div>
+        )}
 
         <ActionCard
           title={

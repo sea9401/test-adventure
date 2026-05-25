@@ -21,6 +21,19 @@ describe("v2 outposts 데이터", () => {
     }
   });
 
+  // 대륙 일러스트는 가장자리에 바다/ocean 여백이 있어 안전 interior 만 land.
+  // 마커 반지름 (최대 ~110) 도 고려해 inset 둠. 정확한 land 외곽선은 아니지만
+  // 명백히 바다 위 마커는 잡힘.
+  it("모든 좌표가 안전 interior (육지) 안", () => {
+    const SAFE = { xMin: 600, xMax: 9400, yMin: 400, yMax: 5700 };
+    for (const o of OUTPOSTS) {
+      expect(o.position.x, `${o.name} x`).toBeGreaterThanOrEqual(SAFE.xMin);
+      expect(o.position.x, `${o.name} x`).toBeLessThanOrEqual(SAFE.xMax);
+      expect(o.position.y, `${o.name} y`).toBeGreaterThanOrEqual(SAFE.yMin);
+      expect(o.position.y, `${o.name} y`).toBeLessThanOrEqual(SAFE.yMax);
+    }
+  });
+
   it("tier 가 1~4", () => {
     for (const o of OUTPOSTS) {
       expect([1, 2, 3, 4]).toContain(o.tier);

@@ -88,6 +88,17 @@ export async function GET() {
   const exp = Math.max(0, charSave.exp ?? 0);
   const expToNext = requiredExpToNext(level);
 
+  // V2CharacterScreen 의 StatsPanel 표시용. combat 미생성(캐릭 없음) 시 null.
+  const stats = combat
+    ? {
+        base: combat.baseAllocatedStats,
+        total: combat.totalStats,
+      }
+    : null;
+  const combatStats = combat
+    ? { atk: combat.player.atk, def: combat.player.def, spd: combat.player.spd }
+    : null;
+
   return Response.json({
     ok: true,
     character: {
@@ -105,6 +116,8 @@ export async function GET() {
       },
       gold: Math.max(0, charSave.gold ?? 0),
     },
+    stats,
+    combat: combatStats,
     guild: { id: guildId, name: guildName },
     resources,
   });

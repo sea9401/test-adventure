@@ -5,6 +5,7 @@ import {
   ArrowsClockwise,
   Buildings,
   MapTrifold,
+  User,
   UsersThree,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -20,7 +21,8 @@ import type { V2Resources } from "@/adventure/data/v2/resources";
 export type HomeAction =
   | { kind: "open-outposts" }
   | { kind: "open-map" }
-  | { kind: "open-lineup" };
+  | { kind: "open-lineup" }
+  | { kind: "open-character" };
 
 type StateResponse = {
   ok?: boolean;
@@ -141,6 +143,12 @@ export function V2HomeScreen({
       <ResourceBar resources={resources} />
 
       <div className="space-y-2">
+        <EntryCard
+          icon={<User size={28} weight="duotone" className="text-sky-600" />}
+          title="내 정보"
+          description="스탯·전투력 (장비/스킬/룬 은 후속)."
+          onClick={() => onAction({ kind: "open-character" })}
+        />
         <EntryCard
           icon={<Buildings size={28} weight="duotone" className="text-amber-600" />}
           title="거점 목록"

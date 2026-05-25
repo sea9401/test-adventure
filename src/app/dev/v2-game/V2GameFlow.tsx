@@ -82,7 +82,7 @@ export function V2GameFlow() {
             ← {view.outpost.name} 로 돌아가기
           </button>
         </div>
-        <DungeonHunt />
+        <DungeonHunt outpostId={view.outpost.id} />
       </div>
     );
   }

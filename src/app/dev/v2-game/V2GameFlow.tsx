@@ -163,7 +163,10 @@ export function V2GameFlow() {
       )}
 
       {view.kind === "character" && (
-        <V2CharacterScreen onBack={() => setView({ kind: "home" })} />
+        <V2CharacterScreen
+          onBack={() => setView({ kind: "home" })}
+          onOpenEquipment={() => setView({ kind: "equipment" })}
+        />
       )}
 
       {view.kind === "inventory" && (

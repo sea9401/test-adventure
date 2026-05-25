@@ -59,7 +59,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           onClick={onBack}
           className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
         >
-          ← 메인으로
+          ← 캐릭터로
         </button>
         <h1 className="text-lg font-bold">인벤토리</h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">

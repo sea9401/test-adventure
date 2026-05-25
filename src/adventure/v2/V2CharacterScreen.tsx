@@ -12,7 +12,8 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
-// v2 캐릭터 화면 — V2CharacterCard 위에 장비 3슬롯 + StatsPanel + 인벤/스킬 진입.
+// v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드 + 장비 3슬롯 + StatsPanel.
+// 인벤/스킬은 캐릭터 탭 메뉴(V2CharacterMenu) 에서 분리됨.
 
 type StateResponse = {
   ok?: boolean;
@@ -52,12 +53,10 @@ const SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] =
 
 export function V2CharacterScreen({
   onOpenEquipment,
-  onOpenInventory,
-  onOpenSkills,
+  onBack,
 }: {
   onOpenEquipment?: () => void;
-  onOpenInventory?: () => void;
-  onOpenSkills?: () => void;
+  onBack?: () => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
@@ -92,7 +91,16 @@ export function V2CharacterScreen({
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
-        <h1 className="text-lg font-bold">내 정보</h1>
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          >
+            ← 캐릭터로
+          </button>
+        )}
+        <h1 className="mt-1 text-lg font-bold">내 정보</h1>
       </header>
 
       {character ? (
@@ -144,30 +152,6 @@ export function V2CharacterScreen({
         <Card padding="md">
           <StatsPanel stats={stats.base} totalStats={stats.total} combat={combat} />
         </Card>
-      )}
-
-      {/* 캐릭터 탭 내 sub 진입 — 인벤/스킬. 장비는 위의 슬롯 클릭. */}
-      {(onOpenInventory || onOpenSkills) && (
-        <div className="grid grid-cols-2 gap-2">
-          {onOpenInventory && (
-            <button
-              type="button"
-              onClick={onOpenInventory}
-              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              인벤토리
-            </button>
-          )}
-          {onOpenSkills && (
-            <button
-              type="button"
-              onClick={onOpenSkills}
-              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            >
-              스킬
-            </button>
-          )}
-        </div>
       )}
 
       {character && stats == null && !loading && (

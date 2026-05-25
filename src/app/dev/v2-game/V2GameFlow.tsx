@@ -4,6 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { ContinentMap } from "@/adventure/v2/ContinentMap";
 import { OutpostView } from "@/adventure/v2/OutpostView";
 import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
+import {
+  V2CharacterMenu,
+  type CharacterAction,
+} from "@/adventure/v2/V2CharacterMenu";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
@@ -24,7 +28,7 @@ import type { Gender } from "@/adventure/profile/avatars";
 // 모험: placeholder
 // 전투: 현재 거점의 던전 사냥 (currentOutpost 자동)
 // 마을: 마을 home(default)/성장의 신전
-// 캐릭터: 내정보(default)/인벤토리/스킬/장비
+// 캐릭터: 메뉴(default)/내정보/인벤토리/스킬/장비 — 내정보 안의 슬롯 클릭으로 장비 진입
 // 지도: ContinentMap(default)/outpost
 
 type TabId =
@@ -61,6 +65,7 @@ type View =
   | { kind: "town" }
   | { kind: "shrine" }
   | { kind: "character" }
+  | { kind: "character-info" }
   | { kind: "inventory" }
   | { kind: "skills" }
   | { kind: "equipment" }
@@ -79,6 +84,7 @@ function tabOfView(view: View): TabId {
     case "shrine":
       return "town";
     case "character":
+    case "character-info":
     case "inventory":
     case "skills":
     case "equipment":
@@ -272,10 +278,26 @@ export function V2GameFlow() {
 
       {/* === 캐릭터 탭 === */}
       {view.kind === "character" && (
+        <V2CharacterMenu
+          onAction={(a: CharacterAction) => {
+            switch (a.kind) {
+              case "open-info":
+                setView({ kind: "character-info" });
+                break;
+              case "open-inventory":
+                setView({ kind: "inventory" });
+                break;
+              case "open-skills":
+                setView({ kind: "skills" });
+                break;
+            }
+          }}
+        />
+      )}
+      {view.kind === "character-info" && (
         <V2CharacterScreen
           onOpenEquipment={() => setView({ kind: "equipment" })}
-          onOpenInventory={() => setView({ kind: "inventory" })}
-          onOpenSkills={() => setView({ kind: "skills" })}
+          onBack={() => setView({ kind: "character" })}
         />
       )}
       {view.kind === "inventory" && (
@@ -285,7 +307,7 @@ export function V2GameFlow() {
         <V2SkillsView onBack={() => setView({ kind: "character" })} />
       )}
       {view.kind === "equipment" && (
-        <V2EquipmentView onBack={() => setView({ kind: "character" })} />
+        <V2EquipmentView onBack={() => setView({ kind: "character-info" })} />
       )}
 
       {/* === 길드 탭 === */}

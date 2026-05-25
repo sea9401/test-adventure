@@ -113,7 +113,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
           onClick={onBack}
           className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
         >
-          ← 메인으로
+          ← 내 정보로
         </button>
         <h1 className="text-lg font-bold">장비</h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">

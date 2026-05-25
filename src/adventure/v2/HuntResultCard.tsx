@@ -28,6 +28,8 @@ export type HuntResult = {
   hpAfter: number;
   maxHp: number;
   drops?: Partial<Record<V2MaterialId, number>>;
+  // 직전 사냥 사이에 점령 길드에게 토벌당한 정보 — 다음 hunt 응답에 1회 surface.
+  ejected?: { outpostId: string; byGuildId: number; at: number } | null;
 };
 
 export function HuntResultCard({ result }: { result: HuntResult }) {
@@ -156,6 +158,12 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
       {won && !hasReward && (
         <div className="mt-2 border-t border-zinc-200 pt-3 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
           이번 사냥은 빈손
+        </div>
+      )}
+
+      {result.ejected && (
+        <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-center text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          직전 사냥지에서 점령 길드에게 토벌당했습니다.
         </div>
       )}
     </Card>

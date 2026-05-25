@@ -29,6 +29,7 @@ import {
   rollDrops,
   type DropResult,
 } from "@/adventure/data/v2/dungeonDrops";
+import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
   parseEjectedFrom,
@@ -392,12 +393,10 @@ export async function POST(req: Request) {
           maxHp: player.maxHp,
           drops,
           ejected: ejectedNotice,
-          // BattleScene replay 용 — finalState 의 log 가 비대해질 수 있어
-          // 마지막 200 entry 만 cap (단판 사냥은 보통 < 50). 그래도 시각 흐름은 유지.
-          battleFinalState: {
-            ...battleResult.finalState,
-            log: battleResult.finalState.log.slice(-200),
-          },
+          // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
+          // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
+          // 로 BattleState 형태로 재구성. log 는 마지막 200 cap.
+          replay: toReplayPayload(battleResult.finalState, 200),
           // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
           startPlayerHp: regenResult.hp,
           // 이 사냥의 시작 EXP/maxExp — replay UI 의 EXP 바 표시용

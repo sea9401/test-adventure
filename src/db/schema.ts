@@ -826,6 +826,8 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
     .references(() => guilds.id, { onDelete: "cascade" }),
   stone: integer("stone").notNull().default(0),
   soldiers: integer("soldiers").notNull().default(0),
+  // 주문서 — 마탑(tower) 거점에서 산출. claim 시 1 소비하면 본 전쟁 power +20%.
+  scrolls: integer("scrolls").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

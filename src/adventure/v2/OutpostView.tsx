@@ -94,12 +94,15 @@ export function OutpostView({
   const [busy, setBusy] = useState(false);
   const [lastClaim, setLastClaim] = useState<string | null>(null);
   const [policyOpen, setPolicyOpen] = useState(false);
+  const [useScroll, setUseScroll] = useState(false);
 
   const claimDisabled = computeClaimDisabled(outpost, occupation, viewerUserId);
   const isOwner =
     !!occupation &&
     !!viewerUserId &&
     occupation.occupiedByUserId === viewerUserId;
+  // PvP claim 일 때만 주문서 의미 — 점령자 있고 자기 점령 아님.
+  const pvpTarget = !!occupation && !isOwner;
 
   async function attemptClaim() {
     setBusy(true);
@@ -108,7 +111,7 @@ export function OutpostView({
       const res = await fetch("/api/v2/outpost/claim", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ outpostId: outpost.id }),
+        body: JSON.stringify({ outpostId: outpost.id, useScroll }),
       });
       let json: ClaimResponse | null = null;
       try {
@@ -152,7 +155,9 @@ export function OutpostView({
         const need =
           json.error === "out_of_stamina" && json.requiredStamina
             ? ` (필요 ${json.requiredStamina})`
-            : "";
+            : json.error === "not_enough_scrolls"
+              ? " (주문서 0 — 마탑에서 수확 필요)"
+              : "";
         setLastClaim(`✗ ${json.error ?? "unknown"}${need}`);
       }
     } catch (err) {
@@ -240,6 +245,18 @@ export function OutpostView({
           loading={busy}
         />
 
+        {pvpTarget && !claimDisabled && (
+          <label className="flex items-center gap-2 px-3 py-1 text-xs text-zinc-600 dark:text-zinc-400">
+            <input
+              type="checkbox"
+              checked={useScroll}
+              onChange={(e) => setUseScroll(e.target.checked)}
+              disabled={busy}
+            />
+            주문서 1 사용 (본 전쟁 power +20%)
+          </label>
+        )}
+
         {lastClaim && (
           <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono dark:border-zinc-800 dark:bg-zinc-900/50">
             {lastClaim}
@@ -269,7 +286,9 @@ export function OutpostView({
             disabled={{ reason: "점령자 전용" }}
           />
         )}
-        {(outpost.type === "mine" || outpost.type === "village") &&
+        {(outpost.type === "mine" ||
+          outpost.type === "village" ||
+          outpost.type === "tower") &&
           isOwner && (
             <MineHarvestCard
               outpost={outpost}
@@ -278,7 +297,9 @@ export function OutpostView({
               onHarvested={() => onAction({ kind: "harvested" })}
             />
           )}
-        {(outpost.type === "mine" || outpost.type === "village") &&
+        {(outpost.type === "mine" ||
+          outpost.type === "village" ||
+          outpost.type === "tower") &&
           !isOwner && (
             <ActionCard
               title="자원 산출"
@@ -442,7 +463,13 @@ function MineHarvestCard({
   outpostType: OutpostType;
   onHarvested: () => void;
 }) {
-  const typeLabel = outpostType === "village" ? "마을 (보조)" : "광산";
+  const typeLabel =
+    outpostType === "village"
+      ? "마을 (보조)"
+      : outpostType === "tower"
+        ? "마탑 (주문서)"
+        : "광산";
+  const resourceLabel = outpostType === "tower" ? "주문서" : "광물";
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -459,8 +486,9 @@ function MineHarvestCard({
         ok?: boolean;
         error?: string;
         gained?: number;
+        gainedKind?: "stone" | "scrolls";
         effectiveHours?: number;
-        resources?: { stone: number };
+        resources?: { stone: number; soldiers: number; scrolls: number };
       };
       let json: HarvestResponse | null = null;
       try {
@@ -470,13 +498,17 @@ function MineHarvestCard({
         return;
       }
       if (json && json.ok) {
+        const cumulative =
+          json.gainedKind === "scrolls"
+            ? json.resources?.scrolls
+            : json.resources?.stone;
         if ((json.gained ?? 0) > 0) {
           setMsg(
-            `✓ 광물 +${json.gained} (${(json.effectiveHours ?? 0).toFixed(1)}시간치) · 누적 ${json.resources?.stone}`,
+            `✓ ${resourceLabel} +${json.gained} (${(json.effectiveHours ?? 0).toFixed(1)}시간치) · 누적 ${cumulative}`,
           );
         } else {
           setMsg(
-            `△ 아직 산출량 없음 (누적 시간 부족) · 보유 ${json.resources?.stone ?? 0}`,
+            `△ 아직 산출량 없음 (누적 시간 부족) · 보유 ${cumulative ?? 0}`,
           );
         }
         // 성공 응답이면 (gained=0 포함) sticky bar 동기화 — 다른 탭에서 변경된 자원도 반영.

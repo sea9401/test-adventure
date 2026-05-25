@@ -7,6 +7,7 @@ type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 export type V2GuildResources = {
   stone: number;
   soldiers: number;
+  scrolls: number;
 };
 
 // row 가 없으면 빈 row 보장 (race-safe). SELECT FOR UPDATE 가 잠금 잡으려면
@@ -14,7 +15,7 @@ export type V2GuildResources = {
 async function ensureRow(tx: Tx, guildId: number): Promise<void> {
   await tx
     .insert(v2GuildResources)
-    .values({ guildId, stone: 0, soldiers: 0 })
+    .values({ guildId, stone: 0, soldiers: 0, scrolls: 0 })
     .onConflictDoNothing();
 }
 
@@ -29,6 +30,7 @@ export async function lockGuildResources(
       .select({
         stone: v2GuildResources.stone,
         soldiers: v2GuildResources.soldiers,
+        scrolls: v2GuildResources.scrolls,
       })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
@@ -38,6 +40,7 @@ export async function lockGuildResources(
   return {
     stone: Math.max(0, row?.stone ?? 0),
     soldiers: Math.max(0, row?.soldiers ?? 0),
+    scrolls: Math.max(0, row?.scrolls ?? 0),
   };
 }
 
@@ -65,19 +68,22 @@ export async function upsertGuildResources(
   guildId: number,
   resources: V2GuildResources,
 ): Promise<void> {
+  const safe = {
+    stone: Math.max(0, resources.stone),
+    soldiers: Math.max(0, resources.soldiers),
+    scrolls: Math.max(0, resources.scrolls),
+  };
   await tx
     .insert(v2GuildResources)
     .values({
       guildId,
-      stone: Math.max(0, resources.stone),
-      soldiers: Math.max(0, resources.soldiers),
+      ...safe,
       updatedAt: new Date(),
     })
     .onConflictDoUpdate({
       target: v2GuildResources.guildId,
       set: {
-        stone: Math.max(0, resources.stone),
-        soldiers: Math.max(0, resources.soldiers),
+        ...safe,
         updatedAt: new Date(),
       },
     });
@@ -93,14 +99,16 @@ export async function readGuildResources(
       .select({
         stone: v2GuildResources.stone,
         soldiers: v2GuildResources.soldiers,
+        scrolls: v2GuildResources.scrolls,
       })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
       .limit(1)
   )[0];
-  if (!row) return { stone: 0, soldiers: 0 };
+  if (!row) return { stone: 0, soldiers: 0, scrolls: 0 };
   return {
     stone: Math.max(0, row.stone),
     soldiers: Math.max(0, row.soldiers),
+    scrolls: Math.max(0, row.scrolls),
   };
 }

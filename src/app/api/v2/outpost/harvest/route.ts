@@ -8,7 +8,10 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
-import { computeStoneYield } from "@/adventure/data/v2/resources";
+import {
+  computeScrollYield,
+  computeStoneYield,
+} from "@/adventure/data/v2/resources";
 
 // POST /api/v2/outpost/harvest — 광산 거점에서 자원 수확.
 //
@@ -41,7 +44,11 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (outpost.type !== "mine" && outpost.type !== "village") {
+  if (
+    outpost.type !== "mine" &&
+    outpost.type !== "village" &&
+    outpost.type !== "tower"
+  ) {
     return Response.json(
       { ok: false, error: "not_harvestable" },
       { status: 400 },
@@ -78,20 +85,37 @@ export async function POST(req: Request) {
     }
 
     const now = Date.now();
-    const yieldResult = computeStoneYield(
+    // type 별 산출 — mine/village=stone, tower=scrolls.
+    const stoneResult = computeStoneYield(
       outpost.tier,
       outpost.type,
       occ.lastHarvestedAt.getTime(),
       now,
     );
+    const scrollResult = computeScrollYield(
+      outpost.tier,
+      outpost.type,
+      occ.lastHarvestedAt.getTime(),
+      now,
+    );
+    const gainedKind: "stone" | "scrolls" =
+      outpost.type === "tower" ? "scrolls" : "stone";
+    const gainedAmount =
+      gainedKind === "stone" ? stoneResult.gained : scrollResult.gained;
+    const effectiveHours =
+      gainedKind === "stone"
+        ? stoneResult.effectiveHours
+        : scrollResult.effectiveHours;
 
     const resources = await lockGuildResources(tx, occGuildId);
     const newResources = {
-      stone: resources.stone + yieldResult.gained,
+      stone: resources.stone + (gainedKind === "stone" ? gainedAmount : 0),
       soldiers: resources.soldiers,
+      scrolls:
+        resources.scrolls + (gainedKind === "scrolls" ? gainedAmount : 0),
     };
 
-    if (yieldResult.gained > 0) {
+    if (gainedAmount > 0) {
       await upsertGuildResources(tx, occGuildId, newResources);
       await tx
         .update(outpostOccupations)
@@ -103,8 +127,9 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
-        gained: yieldResult.gained,
-        effectiveHours: yieldResult.effectiveHours,
+        gained: gainedAmount,
+        gainedKind,
+        effectiveHours,
         resources: newResources,
       },
     };

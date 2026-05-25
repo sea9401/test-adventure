@@ -20,6 +20,18 @@ export const STONE_YIELD_TYPE_MULT: Partial<Record<OutpostType, number>> = {
   village: 0.5,
 };
 
+// tower 거점 tier 별 주문서 시간당 산출. 작은 수 — 시간 누적해서 정수 단위로.
+// floor 손실 minor (자주 수확 안 권장).
+export const SCROLL_YIELD_PER_HOUR: Record<OutpostTier, number> = {
+  1: 0.1,
+  2: 0.3,
+  3: 0.6,
+  4: 1.0,
+};
+
+// 주문서 1 = 본 전쟁 power +20% (공격자만, claim 시 active 소비).
+export const SCROLL_POWER_BONUS = 0.2;
+
 // 오프라인 누적 cap — 자주 안 와도 손해 적게(스태미너 원칙과 같음) 하지만 영구 누적은 X.
 // 24 시간 = 만피. 자주 수확하면 손실 없음.
 export const HARVEST_OFFLINE_CAP_HOURS = 24;
@@ -40,11 +52,25 @@ export function computeStoneYield(
   return { gained, effectiveHours: cappedHours };
 }
 
-// saves_kv 의 v2-resources 키 형태.
+// tower 주문서 산출. type !== tower 이면 0.
+export function computeScrollYield(
+  tier: OutpostTier,
+  type: OutpostType,
+  lastHarvestedAtMs: number,
+  nowMs: number,
+): { gained: number; effectiveHours: number } {
+  if (type !== "tower") return { gained: 0, effectiveHours: 0 };
+  const elapsedHours = Math.max(0, (nowMs - lastHarvestedAtMs) / 3600_000);
+  const cappedHours = Math.min(HARVEST_OFFLINE_CAP_HOURS, elapsedHours);
+  const gained = Math.floor(SCROLL_YIELD_PER_HOUR[tier] * cappedHours);
+  return { gained, effectiveHours: cappedHours };
+}
+
+// 길드 자원 풀 형태 — v2_guild_resources 테이블 + UI 반영.
 export type V2Resources = {
   stone: number;
   soldiers: number;
-  // 미래 확장: food, wood 등
+  scrolls: number;
 };
 
 function parseNonNegInt(v: unknown): number {
@@ -60,7 +86,8 @@ export function parseResources(raw: unknown): V2Resources {
     return {
       stone: parseNonNegInt(r.stone),
       soldiers: parseNonNegInt(r.soldiers),
+      scrolls: parseNonNegInt(r.scrolls),
     };
   }
-  return { stone: 0, soldiers: 0 };
+  return { stone: 0, soldiers: 0, scrolls: 0 };
 }

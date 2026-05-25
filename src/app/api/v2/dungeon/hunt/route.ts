@@ -16,6 +16,7 @@ function requiredExpToNextNullable(level: number): number | null {
 }
 import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
   HUNT_COST,
@@ -263,8 +264,8 @@ export async function POST(req: Request) {
         },
       };
     }
-    const enemyMonster = MONSTERS[enemyName];
-    if (!enemyMonster) {
+    const baseMonster = MONSTERS[enemyName];
+    if (!baseMonster) {
       return {
         ok: false as const,
         status: 500,
@@ -275,6 +276,8 @@ export async function POST(req: Request) {
         },
       };
     }
+    // 층별 multiplier 적용 — hp/atk/def/exp 만, skill/drops 는 베이스 그대로.
+    const enemyMonster = scaleMonsterForFloor(baseMonster, floor);
 
     // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
     const profileRow = await tx

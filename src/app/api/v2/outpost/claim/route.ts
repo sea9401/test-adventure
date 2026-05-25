@@ -5,7 +5,9 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
 import { resolveBattle } from "@/adventure/battle/engine";
+import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { applyStance } from "@/adventure/character/stance";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -65,35 +67,28 @@ export async function POST(req: Request) {
   const cost = CLAIM_STAMINA_COST[outpost.tier];
 
   const result = await db.transaction(async (tx) => {
-    // 이미 점령 상태 확인
+    // 이미 점령 상태 확인 — FOR UPDATE 로 lock 해서 PvP 시도 사이 race 직렬화.
     const occRow = (
       await tx
         .select()
         .from(outpostOccupations)
         .where(eq(outpostOccupations.outpostId, outpost.id))
+        .for("update")
         .limit(1)
     )[0];
 
-    if (occRow) {
-      if (occRow.occupiedByUserId === userId) {
-        return {
-          ok: false as const,
-          status: 400,
-          body: { ok: false as const, error: "already_yours" as const },
-        };
-      }
-      // 다른 점령자 — PvP claim 은 후속 PR.
+    if (occRow && occRow.occupiedByUserId === userId) {
       return {
         ok: false as const,
         status: 400,
-        body: {
-          ok: false as const,
-          error: "already_occupied_by_other" as const,
-          occupiedByUserId: occRow.occupiedByUserId,
-          occupiedByGuildId: occRow.occupiedByGuildId,
-        },
+        body: { ok: false as const, error: "already_yours" as const },
       };
     }
+    // occRow 있고 자기 점령 아님 → PvP claim (아래 흐름에서 분기).
+    const pvpDefenderId =
+      occRow && occRow.occupiedByUserId && occRow.occupiedByUserId !== userId
+        ? occRow.occupiedByUserId
+        : null;
 
     // character.v2 잠금
     const charSave = await lockSaveForUpdate<{
@@ -140,9 +135,7 @@ export async function POST(req: Request) {
     );
     const playerForBattle = { ...player.player, hp: hpRegen.hp };
 
-    const champion = getChampion(outpost.type, outpost.tier);
-
-    // playerName fetch
+    // playerName fetch (공격자)
     const profileRow = await tx
       .select({ value: savesKv.value })
       .from(savesKv)
@@ -153,60 +146,160 @@ export async function POST(req: Request) {
     const profile = (profileRow[0]?.value ?? null) as { name?: string } | null;
     const playerName = profile?.name?.trim() || "모험가";
 
-    const battle = resolveBattle(playerForBattle, champion, playerName, {
-      pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
-      potions: {},
-    });
-    const won = battle.outcome === "win";
+    let won: boolean;
+    let turns: number;
+    let battleFinalPlayerHp: number;
+    let defenderLabel: string;
+    let defenderUserIdForLog: string | null;
+    let pvpFallbackToNpc = false;
+    // fallback 후 stale occRow 가 row 처리 분기에 다시 잡히지 않도록.
+    // (delete 한 row 가 occRow 에 남아 있어서 UPDATE 분기로 가면 0행 update — silent miss)
+    let stillHasOccRow = !!occRow;
+
+    if (pvpDefenderId) {
+      // === PvP claim — 점령자 영웅 vs 공격자 영웅 단판 ===
+      const defender = await derivePlayerCombatFromSaves(pvpDefenderId, tx);
+      if (!defender) {
+        // 점령자 캐릭 없음 = stale occupation (saves 손상/유저 삭제 등).
+        // row 정리 후 NPC claim 로 fallthrough. ownership 이전이 의미 없는
+        // 케이스라 stale row 삭제 + NPC 일기토 흐름.
+        await tx
+          .delete(outpostOccupations)
+          .where(eq(outpostOccupations.outpostId, outpost.id));
+        pvpFallbackToNpc = true;
+        stillHasOccRow = false;
+      } else {
+        // 수비자 이름
+        const defProfileRow = await tx
+          .select({ value: savesKv.value })
+          .from(savesKv)
+          .where(
+            and(
+              eq(savesKv.userId, pvpDefenderId),
+              eq(savesKv.key, "character-profile.v2"),
+            ),
+          )
+          .limit(1);
+        const defProfile = (defProfileRow[0]?.value ?? null) as {
+          name?: string;
+        } | null;
+        defenderLabel = defProfile?.name?.trim() || "수비자";
+        defenderUserIdForLog = pvpDefenderId;
+
+        // PvP sim — 수비자는 만피 기준 (사냥 누적 hp 무관, 비동기 자동 방어 정책).
+        // 라이브 /api/pvp/challenge 패턴 따라 양측 applyStance (보스/특수전투 보정).
+        const attackerStanced = applyStance(playerForBattle, player.selectedStance);
+        const defenderStanced = applyStance(
+          { ...defender.player, hp: defender.maxHp },
+          defender.selectedStance,
+        );
+        const pvp = resolveBattlePvP(
+          attackerStanced,
+          defenderStanced,
+          playerName,
+          defenderLabel,
+          {
+            pickAction: () => ({ kind: "attack" }),
+            potions: { p1: {}, p2: {} },
+          },
+        );
+        won = pvp.outcome === "p1_win";
+        turns = pvp.turns;
+        battleFinalPlayerHp = pvp.finalState.p1.hp;
+      }
+    }
+
+    // NPC claim 또는 PvP fallback (수비자 derive 실패)
+    if (!pvpDefenderId || pvpFallbackToNpc) {
+      const champion = getChampion(outpost.type, outpost.tier);
+      defenderLabel = champion.name;
+      defenderUserIdForLog = null;
+      const battle = resolveBattle(
+        playerForBattle,
+        champion,
+        playerName,
+        {
+          pickAction: (state) =>
+            pickAutoAction(state, { rules: [], potions: {} }),
+          potions: {},
+        },
+      );
+      won = battle.outcome === "win";
+      turns = battle.turns;
+      battleFinalPlayerHp = battle.finalState.playerHp;
+    }
 
     // log attempt
     await tx.insert(outpostClaimAttempts).values({
       outpostId: outpost.id,
       attackerUserId: userId,
       attackerGuildId: null,
-      defenderName: champion.name,
-      defenderUserId: null,
-      won,
-      turns: battle.turns,
+      defenderName: defenderLabel!,
+      defenderUserId: defenderUserIdForLog!,
+      won: won!,
+      turns: turns!,
     });
 
-    // 점령 성공 → occupations 에 행 추가. unique violation (race) 시 패배 취급.
+    // 점령 성공 → occupations 처리.
+    //   - NPC claim 신규: INSERT (race 시 23505 catch → raceLost)
+    //   - PvP claim 인수: UPDATE (점령권 이전, 정책·세율·자원 anchor 리셋)
     let occupation: {
       outpostId: string;
       occupiedByUserId: string;
       occupiedAt: string;
     } | null = null;
     let raceLost = false;
-    if (won) {
-      try {
-        await tx.insert(outpostOccupations).values({
-          outpostId: outpost.id,
-          occupiedByUserId: userId,
-          occupiedByGuildId: null,
-          policy: "open",
-          // 점령 시 default 세금율 10%. 정책 UI 추가되면 점령자가 customize.
-          taxRate: "0.100",
-          // tier 기반 첫 NPC 공격 일정.
-          nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-        });
+    if (won!) {
+      const newOccupiedAt = new Date();
+      if (stillHasOccRow) {
+        // PvP 인수 — UPDATE
+        await tx
+          .update(outpostOccupations)
+          .set({
+            occupiedByUserId: userId,
+            occupiedByGuildId: null,
+            occupiedAt: newOccupiedAt,
+            policy: "open",
+            taxRate: "0.100",
+            nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+            // 자원 anchor 도 리셋 — 옛 점령자가 쌓아둔 시간 공격자가 못 가져감.
+            lastHarvestedAt: newOccupiedAt,
+          })
+          .where(eq(outpostOccupations.outpostId, outpost.id));
         occupation = {
           outpostId: outpost.id,
           occupiedByUserId: userId,
-          occupiedAt: new Date().toISOString(),
+          occupiedAt: newOccupiedAt.toISOString(),
         };
-      } catch (e) {
-        const code = (e as { code?: string }).code;
-        if (code === "23505") {
-          // 동시에 다른 사람이 먼저 점령 — 일기토는 이겼지만 race 에서 졌음.
-          raceLost = true;
-        } else {
-          throw e;
+      } else {
+        // NPC 신규 claim — INSERT (race 시 catch)
+        try {
+          await tx.insert(outpostOccupations).values({
+            outpostId: outpost.id,
+            occupiedByUserId: userId,
+            occupiedByGuildId: null,
+            policy: "open",
+            taxRate: "0.100",
+            nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+          });
+          occupation = {
+            outpostId: outpost.id,
+            occupiedByUserId: userId,
+            occupiedAt: newOccupiedAt.toISOString(),
+          };
+        } catch (e) {
+          const code = (e as { code?: string }).code;
+          if (code === "23505") {
+            raceLost = true;
+          } else {
+            throw e;
+          }
         }
       }
     }
 
-    // 사냥 후 hp 적용 (라이브 단판 패턴)
-    const afterHp = Math.max(0, battle.finalState.playerHp);
+    // 사냥 후 hp 적용 (단판 패턴)
+    const afterHp = Math.max(0, battleFinalPlayerHp!);
 
     const next = {
       ...charSave,
@@ -221,10 +314,11 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
-        won,
+        won: won!,
         raceLost,
-        championName: champion.name,
-        turns: battle.turns,
+        pvp: !!pvpDefenderId && !pvpFallbackToNpc,
+        championName: defenderLabel!,
+        turns: turns!,
         stamina: afterStamina,
         hpBefore: hpRegen.hp,
         hpAfter: afterHp,

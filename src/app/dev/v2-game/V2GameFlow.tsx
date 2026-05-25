@@ -225,9 +225,11 @@ export function V2GameFlow() {
           size="sm"
           className="mx-auto w-full max-w-2xl px-4 sm:px-6"
         />
-        <div className="mx-auto w-full max-w-2xl px-4 py-2 sm:px-6">
-          <StaminaBar state={stamina} />
-        </div>
+        {currentTab !== "map" && (
+          <div className="mx-auto w-full max-w-2xl px-4 py-2 sm:px-6">
+            <StaminaBar state={stamina} />
+          </div>
+        )}
       </div>
 
       {/* === 모험 탭 === */}

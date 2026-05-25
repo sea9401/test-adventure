@@ -483,7 +483,7 @@ export function ContinentMap({
                   )}
                 </div>
               </div>
-              {onOutpostEnter && !selected.neutral && (
+              {onOutpostEnter && (
                 <button
                   type="button"
                   onClick={() => onOutpostEnter(selected)}

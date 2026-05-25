@@ -14,6 +14,8 @@ import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2BattleHome } from "@/adventure/v2/V2BattleHome";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
+import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -103,6 +105,11 @@ export function V2GameFlow() {
   const [currentOutpost, setCurrentOutpost] = useState<
     { id: string; name: string } | null
   >(null);
+  // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
+  // nav 아래 sticky StaminaBar 가 표시 (모든 탭에서 동일).
+  const [stamina, setStamina] = useState<StaminaState>(() =>
+    initialStamina(Date.now()),
+  );
 
   const refreshOccupations = useCallback(async () => {
     try {
@@ -139,11 +146,21 @@ export function V2GameFlow() {
         const res = await fetch("/api/v2/me/state");
         if (res.ok) {
           const j = (await res.json()) as {
-            character?: { name?: string; gender?: string };
+            character?: {
+              name?: string;
+              gender?: string;
+              stamina?: { current: number; lastUpdatedAt: number };
+            };
             currentOutpost?: { id: string; name: string } | null;
           } | null;
           if (j?.character?.name) setViewerName(j.character.name);
           if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
+          if (j?.character?.stamina) {
+            setStamina({
+              current: j.character.stamina.current,
+              lastUpdatedAt: j.character.stamina.lastUpdatedAt,
+            });
+          }
           if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
         }
       } catch {}
@@ -185,14 +202,20 @@ export function V2GameFlow() {
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      <TabBar
-        tabs={TABS}
-        active={currentTab}
-        onChange={handleTabSelect}
-        ariaLabel="메인 탭"
-        size="sm"
-        className="mx-auto w-full max-w-2xl px-4 sm:px-6"
-      />
+      {/* 탭바 + 스태미너 — TopBar 아래 sticky stack. 모든 view 에서 항상 보임. */}
+      <div className="sticky top-[44px] z-10 bg-white/95 backdrop-blur dark:bg-zinc-950/95">
+        <TabBar
+          tabs={TABS}
+          active={currentTab}
+          onChange={handleTabSelect}
+          ariaLabel="메인 탭"
+          size="sm"
+          className="mx-auto w-full max-w-2xl px-4 sm:px-6"
+        />
+        <div className="mx-auto w-full max-w-2xl px-4 py-2 sm:px-6">
+          <StaminaBar state={stamina} />
+        </div>
+      </div>
 
       {/* === 모험 탭 === */}
       {view.kind === "adventure" && <V2AdventureHome />}
@@ -212,6 +235,7 @@ export function V2GameFlow() {
           outpostName={currentOutpost.name}
           playerName={viewerName}
           playerGender={viewerGender}
+          setStamina={setStamina}
           onBack={() => setView({ kind: "battle" })}
         />
       )}

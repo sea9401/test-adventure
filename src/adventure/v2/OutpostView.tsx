@@ -23,7 +23,8 @@ const TIER_LABEL: Record<OutpostTier, string> = {
 export type OutpostAction =
   | { kind: "back" }
   | { kind: "enter-dungeon" }
-  | { kind: "claimed" };
+  | { kind: "claimed" }
+  | { kind: "harvested" };
 
 type OccupationLite = {
   outpostId: string;
@@ -223,7 +224,11 @@ export function OutpostView({
           />
         )}
         {outpost.type === "mine" && isOwner && (
-          <MineHarvestCard outpost={outpost} tier={outpost.tier} />
+          <MineHarvestCard
+            outpost={outpost}
+            tier={outpost.tier}
+            onHarvested={() => onAction({ kind: "harvested" })}
+          />
         )}
         {outpost.type === "mine" && !isOwner && (
           <ActionCard
@@ -253,9 +258,11 @@ function computeClaimDisabled(
 function MineHarvestCard({
   outpost,
   tier,
+  onHarvested,
 }: {
   outpost: Outpost;
   tier: OutpostTier;
+  onHarvested: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -293,6 +300,8 @@ function MineHarvestCard({
             `△ 아직 산출량 없음 (누적 시간 부족) · 보유 ${json.resources?.stone ?? 0}`,
           );
         }
+        // 성공 응답이면 (gained=0 포함) sticky bar 동기화 — 다른 탭에서 변경된 자원도 반영.
+        onHarvested();
       } else {
         setMsg(`✗ ${json?.error ?? `http ${res.status}`}`);
       }

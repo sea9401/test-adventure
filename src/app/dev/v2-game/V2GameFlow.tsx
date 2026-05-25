@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { ContinentMap } from "@/adventure/v2/ContinentMap";
 import { OutpostView } from "@/adventure/v2/OutpostView";
+import { ResourceBar } from "@/adventure/v2/ResourceBar";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
+import type { V2Resources } from "@/adventure/data/v2/resources";
 
 // v2 게임 흐름 dev preview — 단일 페이지에서 view 전환.
 // 대륙 맵 → 거점 hub → 던전 사냥 (라이브 TownScreen 패턴 모방).
@@ -28,6 +30,7 @@ export function V2GameFlow() {
   const [view, setView] = useState<View>({ kind: "map" });
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [resources, setResources] = useState<V2Resources | null>(null);
 
   const refreshOccupations = useCallback(async () => {
     try {
@@ -39,8 +42,21 @@ export function V2GameFlow() {
     } catch {}
   }, []);
 
+  const refreshResources = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/resources");
+      if (res.ok) {
+        const json = (await res.json()) as {
+          resources?: V2Resources;
+        };
+        if (json.resources) setResources(json.resources);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     refreshOccupations();
+    refreshResources();
     (async () => {
       try {
         const res = await fetch("/api/auth/session");
@@ -50,48 +66,60 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
-  }, [refreshOccupations]);
+  }, [refreshOccupations, refreshResources]);
 
-  if (view.kind === "outpost") {
-    return (
-      <OutpostView
-        outpost={view.outpost}
-        viewerUserId={viewerUserId}
-        occupation={
-          occupations.find((o) => o.outpostId === view.outpost.id) ?? null
-        }
-        onAction={(action) => {
-          if (action.kind === "back") setView({ kind: "map" });
-          if (action.kind === "enter-dungeon")
-            setView({ kind: "dungeon", outpost: view.outpost });
-          if (action.kind === "claimed") refreshOccupations();
-        }}
-      />
-    );
-  }
-
-  if (view.kind === "dungeon") {
-    return (
-      <div>
-        <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-          <button
-            type="button"
-            onClick={() => setView({ kind: "outpost", outpost: view.outpost })}
-            className="hover:text-zinc-900 dark:hover:text-white"
-          >
-            ← {view.outpost.name} 로 돌아가기
-          </button>
-        </div>
-        <DungeonHunt outpostId={view.outpost.id} />
-      </div>
-    );
-  }
+  const handleOutpostAction = (action: {
+    kind: "back" | "enter-dungeon" | "claimed" | "harvested";
+  }) => {
+    if (action.kind === "back") setView({ kind: "map" });
+    if (action.kind === "enter-dungeon" && view.kind === "outpost")
+      setView({ kind: "dungeon", outpost: view.outpost });
+    if (action.kind === "claimed") {
+      refreshOccupations();
+      refreshResources();
+    }
+    if (action.kind === "harvested") {
+      refreshOccupations();
+      refreshResources();
+    }
+  };
 
   return (
-    <ContinentMap
-      onOutpostEnter={(o) => setView({ kind: "outpost", outpost: o })}
-      occupations={occupations}
-      viewerUserId={viewerUserId}
-    />
+    <div>
+      <ResourceBar resources={resources} />
+      {view.kind === "outpost" && (
+        <OutpostView
+          outpost={view.outpost}
+          viewerUserId={viewerUserId}
+          occupation={
+            occupations.find((o) => o.outpostId === view.outpost.id) ?? null
+          }
+          onAction={handleOutpostAction}
+        />
+      )}
+      {view.kind === "dungeon" && (
+        <div>
+          <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+            <button
+              type="button"
+              onClick={() =>
+                setView({ kind: "outpost", outpost: view.outpost })
+              }
+              className="hover:text-zinc-900 dark:hover:text-white"
+            >
+              ← {view.outpost.name} 로 돌아가기
+            </button>
+          </div>
+          <DungeonHunt outpostId={view.outpost.id} />
+        </div>
+      )}
+      {view.kind === "map" && (
+        <ContinentMap
+          onOutpostEnter={(o) => setView({ kind: "outpost", outpost: o })}
+          occupations={occupations}
+          viewerUserId={viewerUserId}
+        />
+      )}
+    </div>
   );
 }

@@ -235,6 +235,7 @@ export function V2GameFlow() {
           outpostName={currentOutpost.name}
           playerName={viewerName}
           playerGender={viewerGender}
+          stamina={stamina}
           setStamina={setStamina}
           onBack={() => setView({ kind: "battle" })}
         />

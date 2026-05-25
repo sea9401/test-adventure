@@ -2,12 +2,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import {
-  computeStoneYield,
-  parseResources,
-} from "@/adventure/data/v2/resources";
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { computeStoneYield } from "@/adventure/data/v2/resources";
 
 // POST /api/v2/outpost/harvest — 광산 거점에서 자원 수확.
 //
@@ -62,7 +63,14 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_occupied" as const },
       };
     }
-    if (occ.occupiedByUserId !== userId) {
+    // 점령자 길드의 멤버인지 확인. 1인 길드면 그 마스터 = userId. 다인 길드면
+    // 같은 길드의 어느 멤버도 harvest 가능 (공동 자원).
+    const occGuildId = occ.occupiedByGuildId
+      ?? (occ.occupiedByUserId
+        ? await ensureSoloGuild(tx, occ.occupiedByUserId)
+        : null);
+    const viewerGuildId = await ensureSoloGuild(tx, userId);
+    if (!occGuildId || occGuildId !== viewerGuildId) {
       return {
         status: 403,
         body: { ok: false as const, error: "not_owner" as const },
@@ -76,20 +84,14 @@ export async function POST(req: Request) {
       now,
     );
 
-    // 현재 v2-resources 잠금. gained=0 이어도 read 해서 응답에 포함.
-    const resSave = await lockSaveForUpdate<unknown>(
-      tx,
-      userId,
-      "v2-resources",
-      {},
-    );
-    const resources = parseResources(resSave);
+    const resources = await lockGuildResources(tx, occGuildId);
     const newResources = {
       stone: resources.stone + yieldResult.gained,
+      soldiers: resources.soldiers,
     };
 
     if (yieldResult.gained > 0) {
-      await upsertSave(tx, userId, "v2-resources", newResources);
+      await upsertGuildResources(tx, occGuildId, newResources);
       await tx
         .update(outpostOccupations)
         .set({ lastHarvestedAt: new Date(now) })

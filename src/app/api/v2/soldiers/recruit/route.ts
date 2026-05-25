@@ -1,19 +1,23 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { parseResources } from "@/adventure/data/v2/resources";
+import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 import {
   SOLDIER_COST_STONE,
   SOLDIER_MAX_TOTAL,
 } from "@/adventure/data/v2/soldiers";
 
-// POST /api/v2/soldiers/recruit — 병사 모집.
+// POST /api/v2/soldiers/recruit — 길드 공용 자원 stone 으로 병사 모집.
 //
 // body: { count: number } — 모집할 병사 수 (1~상한 N)
-// 비용: count × SOLDIER_COST_STONE (현재 10 stone/명)
-// stone 부족 → 409. count 잘못 → 400.
+// 비용: count × SOLDIER_COST_STONE
+// 자원 부족 / 누적 한도 → 409.
 //
-// v2-resources 의 stone 차감 + soldiers 증가, 같은 tx.
+// 라이브 PR-vi-b 부터 길드 자원 풀로 통일. 호출자의 길드 자원에서 차감.
+// 다인 길드면 길드원 누구나 모집 호출 가능 (공동 자원).
 
 const MAX_PER_REQUEST = 1000;
 
@@ -45,13 +49,8 @@ export async function POST(req: Request) {
   const cost = count * SOLDIER_COST_STONE;
 
   const result = await db.transaction(async (tx) => {
-    const resSave = await lockSaveForUpdate<unknown>(
-      tx,
-      userId,
-      "v2-resources",
-      {},
-    );
-    const resources = parseResources(resSave);
+    const guildId = await ensureSoloGuild(tx, userId);
+    const resources = await lockGuildResources(tx, guildId);
     if (resources.stone < cost) {
       return {
         status: 409,
@@ -78,7 +77,7 @@ export async function POST(req: Request) {
       stone: resources.stone - cost,
       soldiers: resources.soldiers + count,
     };
-    await upsertSave(tx, userId, "v2-resources", next);
+    await upsertGuildResources(tx, guildId, next);
     return {
       status: 200,
       body: { ok: true as const, recruited: count, cost, resources: next },

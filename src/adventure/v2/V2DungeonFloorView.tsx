@@ -37,26 +37,20 @@ export function V2DungeonFloorView({
   onBack: () => void;
 }) {
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
-  const {
-    busy,
-    lastResult,
-    replayDone,
-    replayPending,
-    log,
-    hunt,
-    onReplayDone,
-  } = useDungeonHunt({ outpostId, setStamina });
+  const { busy, lastResult, log, hunt } = useDungeonHunt({
+    outpostId,
+    setStamina,
+  });
   const [autoMode, setAutoMode] = useState(false);
   const [autoMsg, setAutoMsg] = useState<string | null>(null);
 
-  // 자동 트리거 — 조건 충족 시 setTimeout 후 hunt.
-  // stamina/busy/replayDone 가 바뀌면 useEffect 다시 평가.
+  // 자동 트리거 — busy 아님 + stamina 충분 시 setTimeout 후 hunt.
+  // 결과 즉시 표시 (replay step 폐기) 이므로 hunt 완료 = busy false 가 다음 trigger.
   useEffect(() => {
     if (!autoMode) return;
-    if (busy || !replayDone) return;
+    if (busy) return;
     if (!floor) return;
     if (stamina.current < HUNT_COST) {
-      // 회복은 시간 단위라 자동 retry 무의미 → OFF.
       setAutoMode(false);
       setAutoMsg("스태미너 부족 — 자동 중지. 회복 후 다시 켜세요.");
       return;
@@ -64,7 +58,7 @@ export function V2DungeonFloorView({
     setAutoMsg(null);
     const id = setTimeout(() => void hunt(floor.id), AUTO_DELAY_MS);
     return () => clearTimeout(id);
-  }, [autoMode, busy, replayDone, stamina.current, hunt, floor]);
+  }, [autoMode, busy, stamina.current, hunt, floor]);
 
   if (!floor) {
     return (
@@ -135,7 +129,7 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
-      {replayPending && lastResult?.replay && (
+      {lastResult?.replay && (
         <ReplayBattleScene
           payload={lastResult.replay}
           startPlayerHp={lastResult.startPlayerHp}
@@ -143,11 +137,10 @@ export function V2DungeonFloorView({
           gender={playerGender}
           exp={lastResult.expForBar ?? 0}
           maxExp={lastResult.maxExpForBar ?? 1}
-          onDone={onReplayDone}
         />
       )}
 
-      {replayDone && lastResult && <HuntResultCard result={lastResult} />}
+      {lastResult && <HuntResultCard result={lastResult} />}
 
       {log.length > 0 && (
         <section className="space-y-1">

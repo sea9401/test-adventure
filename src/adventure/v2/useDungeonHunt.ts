@@ -38,8 +38,8 @@ function formatDrops(
 }
 
 // 던전 사냥 상태 + 호출 hook — DungeonHunt(dev) / V2DungeonFloorView 공유.
-// stamina 는 controlled — caller 가 state/setter 보유. 던전 페이지가 전역
-// StaminaBar 와 sync 되도록.
+// stamina 는 controlled — caller 가 state/setter 보유 (전역 StaminaBar 와 sync).
+// replay step-through 폐기 후 replayDone/replayPending 도 제거 — hunt 끝나면 즉시 결과 표시.
 export function useDungeonHunt({
   outpostId,
   setStamina,
@@ -49,7 +49,6 @@ export function useDungeonHunt({
 }) {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
-  const [replayDone, setReplayDone] = useState(true);
   const [log, setLog] = useState<string[]>([]);
 
   const pushLog = useCallback((line: string) => {
@@ -62,7 +61,6 @@ export function useDungeonHunt({
     async (floor: number) => {
       setBusy(true);
       setLastResult(null);
-      setReplayDone(false);
       try {
         const res = await fetch("/api/v2/dungeon/hunt", {
           method: "POST",
@@ -74,12 +72,10 @@ export function useDungeonHunt({
           json = (await res.json()) as HuntResponse;
         } catch {
           pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
-          setReplayDone(true);
           return;
         }
         if (!json) {
           pushLog(`✗ http ${res.status} (빈 응답)`);
-          setReplayDone(true);
           return;
         }
         if (json.stamina) setStamina(json.stamina);
@@ -88,7 +84,6 @@ export function useDungeonHunt({
           const r = json.result;
           if (r) {
             setLastResult(r);
-            if (!r.replay) setReplayDone(true);
             const verdict = r.won ? "승리" : "패배";
             const levelUp =
               r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
@@ -97,7 +92,6 @@ export function useDungeonHunt({
               `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/200`,
             );
           } else {
-            setReplayDone(true);
             pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);
           }
         } else {
@@ -110,11 +104,9 @@ export function useDungeonHunt({
             ? ` (스태미너 ${json.stamina.current}/200)`
             : "";
           pushLog(`✗ http ${res.status} ${errLabel}${after}`);
-          setReplayDone(true);
         }
       } catch (err) {
         pushLog(`✗ network: ${(err as Error).message}`);
-        setReplayDone(true);
       } finally {
         setBusy(false);
       }
@@ -122,16 +114,10 @@ export function useDungeonHunt({
     [outpostId, pushLog, setStamina],
   );
 
-  const onReplayDone = useCallback(() => setReplayDone(true), []);
-  const replayPending = !replayDone && lastResult?.replay != null;
-
   return {
     busy,
     lastResult,
-    replayDone,
-    replayPending,
     log,
     hunt,
-    onReplayDone,
   };
 }

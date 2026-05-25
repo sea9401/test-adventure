@@ -12,20 +12,22 @@ import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
-import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
+import { V2BattleHome } from "@/adventure/v2/V2BattleHome";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// v2 게임 흐름 — 4탭(모험·마을·캐릭터·지도) 기반 nav.
-// 캐릭터 탭: 내정보(default)/인벤토리/스킬/장비
-// 마을 탭: 마을 home(default)/성장의 신전
-// 지도 탭: ContinentMap(default)/outpost/dungeon
-// 모험 탭: placeholder
+// v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·지도) 기반 nav.
+// 모험: placeholder
+// 전투: 현재 거점의 던전 사냥 (currentOutpost 자동)
+// 마을: 마을 home(default)/성장의 신전
+// 캐릭터: 내정보(default)/인벤토리/스킬/장비
+// 지도: ContinentMap(default)/outpost
 
-type TabId = "adventure" | "town" | "character" | "map";
+type TabId = "adventure" | "battle" | "town" | "character" | "map";
 
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
+  { key: "battle", label: "전투" },
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
   { key: "map", label: "지도" },
@@ -42,37 +44,34 @@ export type Occupation = {
 };
 
 type View =
-  // 캐릭터 탭
+  | { kind: "adventure" }
+  | { kind: "battle" }
+  | { kind: "town" }
+  | { kind: "shrine" }
   | { kind: "character" }
   | { kind: "inventory" }
   | { kind: "skills" }
   | { kind: "equipment" }
-  // 마을 탭
-  | { kind: "town" }
-  | { kind: "shrine" }
-  // 지도 탭
   | { kind: "map" }
-  | { kind: "outpost"; outpost: Outpost }
-  | { kind: "dungeon"; outpost: Outpost }
-  // 모험 탭
-  | { kind: "adventure" };
+  | { kind: "outpost"; outpost: Outpost };
 
 function tabOfView(view: View): TabId {
   switch (view.kind) {
+    case "adventure":
+      return "adventure";
+    case "battle":
+      return "battle";
+    case "town":
+    case "shrine":
+      return "town";
     case "character":
     case "inventory":
     case "skills":
     case "equipment":
       return "character";
-    case "town":
-    case "shrine":
-      return "town";
     case "map":
     case "outpost":
-    case "dungeon":
       return "map";
-    case "adventure":
-      return "adventure";
   }
 }
 
@@ -80,6 +79,8 @@ function defaultViewOfTab(tab: TabId): View {
   switch (tab) {
     case "adventure":
       return { kind: "adventure" };
+    case "battle":
+      return { kind: "battle" };
     case "town":
       return { kind: "town" };
     case "character":
@@ -90,7 +91,6 @@ function defaultViewOfTab(tab: TabId): View {
 }
 
 export function V2GameFlow() {
-  // 시작 탭 = 캐릭터 (제일 자주 보는 곳).
   const [view, setView] = useState<View>(() => defaultViewOfTab("character"));
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
@@ -147,7 +147,6 @@ export function V2GameFlow() {
     })();
   }, [refreshOccupations]);
 
-  // outpost 진입 helper — 로컬 state + 서버 visit POST 백그라운드.
   const enterOutpost = useCallback((outpost: Outpost) => {
     setCurrentOutpost({ id: outpost.id, name: outpost.name });
     setView({ kind: "outpost", outpost });
@@ -166,14 +165,13 @@ export function V2GameFlow() {
     if (action.kind === "open-shrine") setView({ kind: "shrine" });
   };
 
+  // OutpostView 의 enter-dungeon 은 폐기 (사용자 의도 — 사냥터를 전투 탭으로 이동).
+  // 그 외 action (back/claimed/harvested) 만 처리.
   const handleOutpostAction = (action: {
     kind: "back" | "enter-dungeon" | "claimed" | "harvested";
   }) => {
     if (view.kind !== "outpost") return;
     if (action.kind === "back") setView({ kind: "map" });
-    if (action.kind === "enter-dungeon") {
-      setView({ kind: "dungeon", outpost: view.outpost });
-    }
     if (action.kind === "claimed" || action.kind === "harvested") {
       refreshOccupations();
     }
@@ -193,6 +191,25 @@ export function V2GameFlow() {
         className="mx-auto w-full max-w-2xl px-4 sm:px-6"
       />
 
+      {/* === 모험 탭 === */}
+      {view.kind === "adventure" && <V2AdventureHome />}
+
+      {/* === 전투 탭 === */}
+      {view.kind === "battle" && (
+        <V2BattleHome
+          currentOutpost={currentOutpost}
+          playerName={viewerName}
+          playerGender={viewerGender}
+          onOpenMap={() => setView({ kind: "map" })}
+        />
+      )}
+
+      {/* === 마을 탭 === */}
+      {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
+      {view.kind === "shrine" && (
+        <V2GrowthShrineView onBack={() => setView({ kind: "town" })} />
+      )}
+
       {/* === 캐릭터 탭 === */}
       {view.kind === "character" && (
         <V2CharacterScreen
@@ -209,12 +226,6 @@ export function V2GameFlow() {
       )}
       {view.kind === "equipment" && (
         <V2EquipmentView onBack={() => setView({ kind: "character" })} />
-      )}
-
-      {/* === 마을 탭 === */}
-      {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
-      {view.kind === "shrine" && (
-        <V2GrowthShrineView onBack={() => setView({ kind: "town" })} />
       )}
 
       {/* === 지도 탭 === */}
@@ -236,29 +247,6 @@ export function V2GameFlow() {
           onAction={handleOutpostAction}
         />
       )}
-      {view.kind === "dungeon" && (
-        <div>
-          <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-            <button
-              type="button"
-              onClick={() =>
-                setView({ kind: "outpost", outpost: view.outpost })
-              }
-              className="hover:text-zinc-900 dark:hover:text-white"
-            >
-              ← {view.outpost.name} 로 돌아가기
-            </button>
-          </div>
-          <DungeonHunt
-            outpostId={view.outpost.id}
-            playerName={viewerName}
-            playerGender={viewerGender}
-          />
-        </div>
-      )}
-
-      {/* === 모험 탭 === */}
-      {view.kind === "adventure" && <V2AdventureHome />}
     </div>
   );
 }

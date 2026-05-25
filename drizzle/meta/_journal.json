@@ -204,6 +204,13 @@
       "when": 1779558606536,
       "tag": "0028_skinny_clea",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1779685907022,
+      "tag": "0029_glossy_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

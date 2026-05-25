@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { guilds, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
@@ -54,7 +54,7 @@ export async function GET() {
       .where(eq(guilds.id, guildId))
       .limit(1)
       .then((rows) => rows[0]),
-    derivePlayerCombatFromSaves(userId),
+    derivePlayerCombatV2(userId),
     db.transaction(async (tx) => readGuildResources(tx, guildId)),
   ]);
 

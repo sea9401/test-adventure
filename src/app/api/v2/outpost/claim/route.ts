@@ -8,7 +8,7 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
@@ -237,7 +237,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const player = await derivePlayerCombatFromSaves(userId, tx);
+    const player = await derivePlayerCombatV2(userId, tx);
     if (!player) {
       return {
         ok: false as const,
@@ -327,7 +327,7 @@ export async function POST(req: Request) {
 
     if (pvpDefenderId) {
       // === PvP claim — 영웅 일기토 + 본 병사 전쟁 ===
-      const defender = await derivePlayerCombatFromSaves(pvpDefenderId, tx);
+      const defender = await derivePlayerCombatV2(pvpDefenderId, tx);
       if (!defender) {
         // 점령자 캐릭 없음 = stale occupation (saves 손상/유저 삭제 등).
         // row 정리 후 NPC claim 로 fallthrough. ownership 이전이 의미 없는

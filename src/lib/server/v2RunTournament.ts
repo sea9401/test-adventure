@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { db as dbType } from "@/db";
 import { guildMembers, savesKv, v2GuildLineups } from "@/db/schema";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import {
   simulateTournament,
@@ -70,7 +70,7 @@ async function buildLineupMembersFromIds(
   }
   const out: TournamentMember[] = [];
   for (const id of candidateIds) {
-    const combat = await derivePlayerCombatFromSaves(id, tx);
+    const combat = await derivePlayerCombatV2(id, tx);
     if (!combat) continue;
     out.push({
       userId: id,

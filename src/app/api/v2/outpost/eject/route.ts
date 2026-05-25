@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -144,8 +144,8 @@ export async function POST(req: Request) {
     }
 
     // === 6. 양측 PlayerCombat derive ===
-    const attackerCombat = await derivePlayerCombatFromSaves(userId, tx);
-    const defenderCombat = await derivePlayerCombatFromSaves(targetUserId, tx);
+    const attackerCombat = await derivePlayerCombatV2(userId, tx);
+    const defenderCombat = await derivePlayerCombatV2(targetUserId, tx);
     if (!attackerCombat) {
       return {
         status: 400,

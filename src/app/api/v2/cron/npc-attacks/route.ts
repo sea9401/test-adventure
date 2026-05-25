@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostClaimAttempts, outpostOccupations } from "@/db/schema";
-import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { resolveBattle } from "@/adventure/battle/engine";
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
         }
 
         const ownerId = lockedOcc.occupiedByUserId;
-        const player = await derivePlayerCombatFromSaves(ownerId, tx);
+        const player = await derivePlayerCombatV2(ownerId, tx);
         if (!player) {
           // 점령자 캐릭 없음 (이상) → skip + nextAttackAt 갱신
           await tx

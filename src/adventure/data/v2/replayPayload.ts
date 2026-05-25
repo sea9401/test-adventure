@@ -1,0 +1,63 @@
+// v2 hunt 응답의 replay 페이로드 — BattleScene 이 실제로 보는 필드만 보냄.
+//
+// 옛 응답은 BattleState 통째였는데 turn/flags/buffs/stacks 같은 안 보는
+// 무거운 객체까지 따라와서 size 비대 위험. 여기서 필요 필드만 추출,
+// 클라가 BattleScene 에 줄 때 안 보는 필드는 minimal default 로 padding.
+
+import type {
+  BattleLogEntry,
+  BattleState,
+} from "@/adventure/battle/engine";
+import type { Monster } from "@/adventure/data/monsters/types";
+
+// enemy.image 는 BattleScene 이 클라 MONSTERS 카탈로그에서 `MONSTERS[name]?.image`
+// 로 재조회 — payload 에 안 담아도 됨.
+export type ReplayPayload = {
+  enemy: {
+    name: string;
+    hp: number; // max HP
+  };
+  playerMaxHp: number;
+  log: BattleLogEntry[];
+};
+
+// 서버 — finalState 에서 필요 필드만 추출.
+export function toReplayPayload(
+  finalState: BattleState,
+  logCap: number,
+): ReplayPayload {
+  return {
+    enemy: {
+      name: finalState.enemy.name,
+      hp: finalState.enemy.hp,
+    },
+    playerMaxHp: finalState.playerMaxHp,
+    log: finalState.log.slice(-logCap),
+  };
+}
+
+// 클라 — BattleScene 에 줄 BattleState 만들기. 안 보는 필드는 minimal default.
+// BattleScene 이 보는 필드 = enemy.{name,hp,image}, enemyHp, playerHp, playerMaxHp, log.
+// 그 외(phase/turn/flags/buffs/stacks/etc) 는 안 보지만 type 상 required 라
+// `as BattleState["xxx"]` 로 cast (BattleTurnState 변경되어도 깨지지 않게).
+export function buildBattleStateFromReplay(
+  payload: ReplayPayload,
+  playerHp: number,
+  enemyHp: number,
+): BattleState {
+  return {
+    enemy: payload.enemy as Monster,
+    enemyHp,
+    playerHp,
+    playerMaxHp: payload.playerMaxHp,
+    log: payload.log,
+    phase: "ended",
+    outcome: null,
+    playerAttacksLeft: 0,
+    turn: {} as BattleState["turn"],
+    flags: {} as BattleState["flags"],
+    buffs: {} as BattleState["buffs"],
+    stacks: {} as BattleState["stacks"],
+    ap: 0,
+  };
+}

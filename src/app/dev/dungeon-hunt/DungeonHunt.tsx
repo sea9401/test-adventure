@@ -13,12 +13,12 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import type { BattleState } from "@/adventure/battle/engine";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드(서버가 hunt route 에 박은 것).
 type HuntResultPayload = HuntResult & {
-  battleFinalState?: BattleState;
+  replay?: ReplayPayload;
   startPlayerHp?: number;
   expForBar?: number;
   maxExpForBar?: number;
@@ -100,9 +100,9 @@ export function DungeonHunt({
         const r = json.result;
         if (r) {
           setLastResult(r);
-          // battleFinalState 가 있으면 replay 표시 — 끝나면 결과 카드.
+          // replay 가 있으면 BattleScene 재생 — 끝나면 결과 카드.
           // 없으면 결과 카드 즉시.
-          if (!r.battleFinalState) setReplayDone(true);
+          if (!r.replay) setReplayDone(true);
           const verdict = r.won ? "승리" : "패배";
           const levelUp = r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
           const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
@@ -131,8 +131,7 @@ export function DungeonHunt({
     }
   }
 
-  const replayPending =
-    !replayDone && lastResult?.battleFinalState != null;
+  const replayPending = !replayDone && lastResult?.replay != null;
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -163,9 +162,9 @@ export function DungeonHunt({
         ))}
       </div>
 
-      {replayPending && lastResult?.battleFinalState && (
+      {replayPending && lastResult?.replay && (
         <ReplayBattleScene
-          finalState={lastResult.battleFinalState}
+          payload={lastResult.replay}
           startPlayerHp={lastResult.startPlayerHp}
           playerName={playerName}
           gender={playerGender}

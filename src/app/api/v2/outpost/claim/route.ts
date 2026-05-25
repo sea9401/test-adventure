@@ -19,7 +19,10 @@ import {
   lockTwoGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
-import { runTournamentForGuilds } from "@/lib/server/v2RunTournament";
+import {
+  fetchLineupCandidates,
+  runTournamentForGuilds,
+} from "@/lib/server/v2RunTournament";
 import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
 import {
   simulateTroopBattle,
@@ -134,13 +137,81 @@ export async function POST(req: Request) {
 
     // PvP defender 유저 — 같은 길드 아니고 occupiedByUserId 있으면.
     // 1인 길드 가정에서는 곧 occupiedByUserId 가 그 길드의 마스터. 다인 길드
-    // 토너먼트는 후속 PR.
+    // 토너먼트는 라인업 멤버들의 character.v2 도 사전 정렬 lock 안에 포함.
     const pvpDefenderId =
       occRow && occRow.occupiedByUserId && occRow.occupiedByUserId !== userId
         ? occRow.occupiedByUserId
         : null;
 
-    // character.v2 잠금
+    const now = Date.now();
+
+    // === stamina pre-check (lock 없이 read) ===
+    // 락 전 빠른 거부. 부족 시 사전 정렬 lock 안 잡고 early return.
+    // 실제 차감은 lock 후 다시 check (race 안전).
+    const charPreRow = (
+      await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")),
+        )
+        .limit(1)
+    )[0];
+    const charPre = (charPreRow?.value ?? {}) as { stamina?: unknown };
+    const staminaPre = parseStaminaFromSave(charPre.stamina, now);
+    if (!tryConsume(staminaPre, cost, now)) {
+      return {
+        ok: false as const,
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "out_of_stamina" as const,
+          requiredStamina: cost,
+          stamina: applyRegen(staminaPre, now),
+        },
+      };
+    }
+
+    // === 토너먼트 사전 결정 (PvP 시 양측 멤버 수) ===
+    let useTournament = false;
+    let attackerLineupIds: string[] = [];
+    let defenderLineupIds: string[] = [];
+    if (pvpDefenderId && defenderGuildId !== null) {
+      const [aMembers, dMembers] = await Promise.all([
+        tx
+          .select({ userId: guildMembers.userId })
+          .from(guildMembers)
+          .where(eq(guildMembers.guildId, attackerGuildId)),
+        tx
+          .select({ userId: guildMembers.userId })
+          .from(guildMembers)
+          .where(eq(guildMembers.guildId, defenderGuildId)),
+      ]);
+      useTournament = aMembers.length >= 2 && dMembers.length >= 2;
+      if (useTournament) {
+        [attackerLineupIds, defenderLineupIds] = await Promise.all([
+          fetchLineupCandidates(tx, attackerGuildId),
+          fetchLineupCandidates(tx, defenderGuildId),
+        ]);
+      }
+    }
+
+    // === character.v2 합집합 사전 정렬 lock ===
+    // 모든 관련 userId — attacker, defender (PvP), 토너먼트 라인업 멤버 (양측).
+    // 사전 정렬 → cross-tx 데드락 회피.
+    const charLockIds = Array.from(
+      new Set([
+        userId,
+        ...(pvpDefenderId ? [pvpDefenderId] : []),
+        ...attackerLineupIds,
+        ...defenderLineupIds,
+      ]),
+    ).sort();
+    for (const id of charLockIds) {
+      await lockSaveForUpdate<unknown>(tx, id, "character.v2", {});
+    }
+
+    // === attacker char.v2 lock 된 상태에서 read + stamina 재check + 차감 ===
     const charSave = await lockSaveForUpdate<{
       stamina?: unknown;
       hp?: number;
@@ -150,11 +221,10 @@ export async function POST(req: Request) {
       gold?: number;
       [k: string]: unknown;
     }>(tx, userId, "character.v2", {});
-
-    const now = Date.now();
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const afterStamina = tryConsume(stamina, cost, now);
     if (!afterStamina) {
+      // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
       return {
         ok: false as const,
         status: 409,
@@ -285,28 +355,16 @@ export async function POST(req: Request) {
         defenderLabel = defProfile?.name?.trim() || "수비자";
         defenderUserIdForLog = pvpDefenderId;
 
-        // 1단계 — 양측 길드 멤버 수에 따라 일기토 또는 3:3 토너먼트.
-        const [attackerMembers, defenderMembers] = await Promise.all([
-          tx
-            .select({ userId: guildMembers.userId })
-            .from(guildMembers)
-            .where(eq(guildMembers.guildId, attackerGuildId)),
-          tx
-            .select({ userId: guildMembers.userId })
-            .from(guildMembers)
-            .where(eq(guildMembers.guildId, defenderGuildId!)),
-        ]);
-        const useTournament =
-          attackerMembers.length >= 2 && defenderMembers.length >= 2;
-
+        // 1단계 — 사전 단계에서 결정된 useTournament 분기.
         if (useTournament) {
           // === 다인 길드 vs 다인 길드 — 3:3 토너먼트 (왕좌 모드) ===
           // 영웅 raw stat sim (병사 보정 X — 본 전쟁이 병사 layer).
-          // 호출자(attacker) 의 hp 는 영향 안 받음 (토너먼트가 별도 sim).
+          // 사전 단계에서 잠근 lineup ids 를 그대로 helper 에 전달
+          // (lineup row stale race 후 lock 밖 멤버 read 차단).
           const t = await runTournamentForGuilds(
             tx,
-            attackerGuildId,
-            defenderGuildId!,
+            attackerLineupIds,
+            defenderLineupIds,
           );
           duelWonByAttacker = t.result.attackerWon;
           turns = t.result.matches.reduce((s, m) => s + m.turns, 0);

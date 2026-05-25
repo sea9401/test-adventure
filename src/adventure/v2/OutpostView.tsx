@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
 import type { StaminaState } from "./stamina";
+import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -92,7 +93,9 @@ export function OutpostView({
   onAction: (action: OutpostAction) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [lastClaim, setLastClaim] = useState<string | null>(null);
+  const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
+    null,
+  );
   const [policyOpen, setPolicyOpen] = useState(false);
   const [useScroll, setUseScroll] = useState(false);
 
@@ -106,62 +109,40 @@ export function OutpostView({
 
   async function attemptClaim() {
     setBusy(true);
-    setLastClaim(null);
+    setLastClaimResult(null);
     try {
       const res = await fetch("/api/v2/outpost/claim", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ outpostId: outpost.id, useScroll }),
       });
-      let json: ClaimResponse | null = null;
+      let json: ClaimResult | null = null;
       try {
-        json = (await res.json()) as ClaimResponse;
+        json = (await res.json()) as ClaimResult;
       } catch {
-        setLastClaim(`✗ http ${res.status} (응답 JSON 아님)`);
+        setLastClaimResult({
+          ok: false,
+          error: `http ${res.status} (응답 JSON 아님)`,
+        });
         return;
       }
       if (!json) {
-        setLastClaim(`✗ http ${res.status} (빈 응답)`);
+        setLastClaimResult({
+          ok: false,
+          error: `http ${res.status} (빈 응답)`,
+        });
         return;
       }
-      const useTournament = !!json.tournament;
-      const label = useTournament
-        ? `PvP — 3:3 토너먼트 (${json.tournament!.attackerLineupCount} vs ${json.tournament!.defenderLineupCount}) + 본 병사 전쟁`
-        : json.pvp
-          ? "PvP — 일기토 + 본 병사 전쟁"
-          : "일기토 (NPC)";
-      const tournamentLine = json.tournament
-        ? ` · 매치 ${json.tournament.matches.length}회 (${json.tournament.matches.map((m) => `${m.attackerName}↔${m.defenderName}:${m.winnerSide === "attacker" ? "A" : "D"}`).join(", ")})`
-        : "";
-      const troopLine = json.troopBattle
-        ? ` · ${useTournament ? "토너먼트" : "일기토"} ${json.troopBattle.duelWonByAttacker ? "승" : "패"} → 본 전쟁 power ${json.troopBattle.attackerPower}/${json.troopBattle.defenderPower} · 사상 ${json.troopBattle.attackerCasualties}/${json.troopBattle.defenderCasualties} · 약탈 광물 ${json.troopBattle.plunderStone}`
-        : "";
-      if (json.ok && json.won && !json.raceLost) {
-        setLastClaim(
-          `✓ ${label} — ${json.championName} (${json.turns}턴) — 점령 성공!${tournamentLine}${troopLine}`,
-        );
+      setLastClaimResult(json);
+      // 점령 성공/raceLost/troopBattle 변동 → 자원/점령 상태 refresh.
+      if (json.ok && (json.won || json.troopBattle)) {
         onAction({ kind: "claimed" });
-      } else if (json.ok && json.won && json.raceLost) {
-        setLastClaim(
-          `△ ${label} — ${json.championName} (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.${tournamentLine}${troopLine}`,
-        );
-        onAction({ kind: "claimed" });
-      } else if (json.ok && !json.won) {
-        setLastClaim(
-          `✗ ${label} — ${json.championName} (${json.turns}턴) — 점령 실패.${tournamentLine}${troopLine}`,
-        );
-        if (json.troopBattle) onAction({ kind: "claimed" });
-      } else {
-        const need =
-          json.error === "out_of_stamina" && json.requiredStamina
-            ? ` (필요 ${json.requiredStamina})`
-            : json.error === "not_enough_scrolls"
-              ? " (주문서 0 — 마탑에서 수확 필요)"
-              : "";
-        setLastClaim(`✗ ${json.error ?? "unknown"}${need}`);
       }
     } catch (err) {
-      setLastClaim(`✗ network: ${(err as Error).message}`);
+      setLastClaimResult({
+        ok: false,
+        error: `network: ${(err as Error).message}`,
+      });
     } finally {
       setBusy(false);
     }
@@ -257,10 +238,12 @@ export function OutpostView({
           </label>
         )}
 
-        {lastClaim && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono dark:border-zinc-800 dark:bg-zinc-900/50">
-            {lastClaim}
-          </div>
+        {lastClaimResult && (
+          <ClaimResultCard
+            result={lastClaimResult}
+            outpostName={outpost.name}
+            onClose={() => setLastClaimResult(null)}
+          />
         )}
 
         {isOwner && occupation && (

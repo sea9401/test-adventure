@@ -1,6 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
+import { ArrowsOut, Minus, Plus } from "@phosphor-icons/react";
 import {
   OUTPOSTS,
   MAP_BOUNDS,
@@ -14,13 +23,12 @@ import type {
 
 // 종류별 색 — tier 2+ marker fill.
 const TYPE_COLOR: Record<OutpostType, string> = {
-  mine: "#8a6a43", // 광산 — 갈색
-  tower: "#845fc4", // 마탑 — 보라
-  fort: "#5d5d68", // 요새 — 회색파랑
-  village: "#bd713b", // 마을 — 주황
+  mine: "#8a6a43",
+  tower: "#845fc4",
+  fort: "#5d5d68",
+  village: "#bd713b",
 };
 
-// tier 별 marker 반지름 (큰 좌표 공간 단위). biome 위에서 잘 보이게 크게.
 const TIER_RADIUS: Record<OutpostTier, number> = {
   1: 38,
   2: 55,
@@ -28,15 +36,13 @@ const TIER_RADIUS: Record<OutpostTier, number> = {
   4: 110,
 };
 
-// tier 별 라벨 보임 여부.
 const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
-  1: false, // hover/select 시만
+  1: false,
   2: false,
   3: true,
   4: true,
 };
 
-// 5 꼭짓점 별 polygon — 왕국 전용. 외부반지름 r, 내부반지름 r * 0.4.
 function starPoints(cx: number, cy: number, r: number): string {
   const inner = r * 0.4;
   const pts: string[] = [];
@@ -48,7 +54,6 @@ function starPoints(cx: number, cy: number, r: number): string {
   return pts.join(" ");
 }
 
-// tier 4 (왕국) 는 별도 색 (선아출드 등은 type 보단 "왕국" 표식 우선).
 const KINGDOM_FILL = "#b04535";
 
 const TYPE_LABEL: Record<OutpostType, string> = {
@@ -57,7 +62,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   fort: "요새",
   village: "마을",
 };
-
 const TIER_LABEL: Record<OutpostTier, string> = {
   1: "마을",
   2: "거점",
@@ -65,26 +69,17 @@ const TIER_LABEL: Record<OutpostTier, string> = {
   4: "왕국",
 };
 
-// SVG 의 viewBox 좌표로 변환. getScreenCTM 으로 정확 변환 (letterbox 보정).
-function svgCoordsFromEvent(
-  e: React.MouseEvent<SVGSVGElement>,
-): { x: number; y: number } | null {
-  const svg = e.currentTarget;
-  const ctm = svg.getScreenCTM();
-  if (!ctm) return null;
-  const inv = ctm.inverse();
-  const pt = svg.createSVGPoint();
-  pt.x = e.clientX;
-  pt.y = e.clientY;
-  const t = pt.matrixTransform(inv);
-  return { x: Math.round(t.x), y: Math.round(t.y) };
-}
+// 줌 한계 — viewBox 너비. 작을수록 확대. 0.15 * world = 약 6.6배 확대 max.
+const MIN_VB_W = MAP_BOUNDS.width * 0.15;
+const MAX_VB_W = MAP_BOUNDS.width * 1.0;
 
 type OccupationLite = {
   outpostId: string;
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
 };
+
+type Vb = { x: number; y: number; w: number; h: number };
 
 export function ContinentMap({
   onOutpostEnter,
@@ -101,44 +96,243 @@ export function ContinentMap({
   }
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const [clickLog, setClickLog] = useState<
-    { x: number; y: number; ts: number }[]
-  >([]);
-  const svgRef = useRef<SVGSVGElement>(null);
 
-  function pushClick(pos: { x: number; y: number }) {
-    setClickLog((prev) =>
-      [{ ...pos, ts: Date.now() }, ...prev].slice(0, 8),
-    );
-    // 클립보드 복사 (가능하면)
-    if (navigator?.clipboard) {
-      navigator.clipboard
-        .writeText(`position: { x: ${pos.x}, y: ${pos.y} },`)
-        .catch(() => {});
+  // 컨테이너 크기 측정 — viewBox 비율 + 좌표 변환에 사용.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    const el = containerRef.current;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setContainerSize({ w: r.width, h: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // viewBox state — 동적 (핀치·팬·휠·버튼 조작).
+  const [vb, setVb] = useState<Vb>({
+    x: 0,
+    y: 0,
+    w: MAP_BOUNDS.width,
+    h: MAP_BOUNDS.height,
+  });
+
+  const fitAll = useCallback(() => {
+    const { w: cw, h: ch } = containerSize;
+    if (cw === 0 || ch === 0) return;
+    const containerRatio = ch / cw;
+    const worldRatio = MAP_BOUNDS.height / MAP_BOUNDS.width;
+    let vbW: number;
+    let vbH: number;
+    if (containerRatio >= worldRatio) {
+      vbW = MAP_BOUNDS.width;
+      vbH = vbW * containerRatio;
+    } else {
+      vbH = MAP_BOUNDS.height;
+      vbW = vbH / containerRatio;
     }
-  }
+    setVb({
+      x: MAP_BOUNDS.width / 2 - vbW / 2,
+      y: MAP_BOUNDS.height / 2 - vbH / 2,
+      w: vbW,
+      h: vbH,
+    });
+  }, [containerSize]);
+
+  const didFitRef = useRef(false);
+  useEffect(() => {
+    if (didFitRef.current) return;
+    if (containerSize.w === 0 || containerSize.h === 0) return;
+    fitAll();
+    didFitRef.current = true;
+  }, [containerSize, fitAll]);
+
+  const clampVb = useCallback(
+    (next: Vb): Vb => {
+      const w = Math.max(MIN_VB_W, Math.min(MAX_VB_W, next.w));
+      const { w: cw, h: ch } = containerSize;
+      const h = cw > 0 && ch > 0 ? w * (ch / cw) : (next.h / next.w) * w;
+      const marginX = MAP_BOUNDS.width * 0.3;
+      const marginY = MAP_BOUNDS.height * 0.3;
+      const minX = -marginX;
+      const maxX = MAP_BOUNDS.width - w + marginX;
+      const minY = -marginY;
+      const maxY = MAP_BOUNDS.height - h + marginY;
+      return {
+        x: Math.max(minX, Math.min(maxX, next.x)),
+        y: Math.max(minY, Math.min(maxY, next.y)),
+        w,
+        h,
+      };
+    },
+    [containerSize],
+  );
+
+  // 포인터 — 다중 포인터로 핀치/팬 구분.
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ startDist: number; startVb: Vb } | null>(null);
+  const draggedRef = useRef(false);
+  const downAtRef = useRef<{ x: number; y: number } | null>(null);
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointersRef.current.size === 1) {
+      downAtRef.current = { x: e.clientX, y: e.clientY };
+      draggedRef.current = false;
+    }
+    if (pointersRef.current.size === 2) {
+      const pts = Array.from(pointersRef.current.values());
+      const dx = pts[1].x - pts[0].x;
+      const dy = pts[1].y - pts[0].y;
+      pinchRef.current = {
+        startDist: Math.hypot(dx, dy) || 1,
+        startVb: vb,
+      };
+      draggedRef.current = true;
+      for (const id of pointersRef.current.keys()) {
+        try {
+          e.currentTarget.setPointerCapture(id);
+        } catch {}
+      }
+    }
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    const prev = pointersRef.current.get(e.pointerId)!;
+    const dx = e.clientX - prev.x;
+    const dy = e.clientY - prev.y;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    const { w: cw, h: ch } = containerSize;
+    if (cw === 0 || ch === 0) return;
+
+    if (pointersRef.current.size === 2 && pinchRef.current) {
+      const pts = Array.from(pointersRef.current.values());
+      const newDist =
+        Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
+      const ratio = pinchRef.current.startDist / newDist;
+      const cx = (pts[0].x + pts[1].x) / 2;
+      const cy = (pts[0].y + pts[1].y) / 2;
+      const rect = containerRef.current!.getBoundingClientRect();
+      const focalCx = cx - rect.left;
+      const focalCy = cy - rect.top;
+      const start = pinchRef.current.startVb;
+      const newW = start.w * ratio;
+      const newH = newW * (ch / cw);
+      const focalVBx = start.x + (focalCx / cw) * start.w;
+      const focalVBy = start.y + (focalCy / ch) * start.h;
+      const newX = focalVBx - (focalCx / cw) * newW;
+      const newY = focalVBy - (focalCy / ch) * newH;
+      setVb(clampVb({ x: newX, y: newY, w: newW, h: newH }));
+      return;
+    }
+
+    if (pointersRef.current.size === 1) {
+      if (downAtRef.current && !draggedRef.current) {
+        const moved =
+          Math.abs(e.clientX - downAtRef.current.x) +
+          Math.abs(e.clientY - downAtRef.current.y);
+        if (moved > 5) {
+          draggedRef.current = true;
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {}
+        }
+      }
+      if (!draggedRef.current) return;
+      const pxToVB = vb.w / cw;
+      setVb((cur) =>
+        clampVb({
+          x: cur.x - dx * pxToVB,
+          y: cur.y - dy * (cur.h / ch),
+          w: cur.w,
+          h: cur.h,
+        }),
+      );
+    }
+  };
+
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (pointersRef.current.size === 0) downAtRef.current = null;
+  };
+
+  const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
+    const { w: cw, h: ch } = containerSize;
+    if (cw === 0 || ch === 0) return;
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12;
+    const rect = containerRef.current!.getBoundingClientRect();
+    const focalCx = e.clientX - rect.left;
+    const focalCy = e.clientY - rect.top;
+    setVb((cur) => {
+      const newW = cur.w * factor;
+      const newH = newW * (ch / cw);
+      const focalVBx = cur.x + (focalCx / cw) * cur.w;
+      const focalVBy = cur.y + (focalCy / ch) * cur.h;
+      return clampVb({
+        x: focalVBx - (focalCx / cw) * newW,
+        y: focalVBy - (focalCy / ch) * newH,
+        w: newW,
+        h: newH,
+      });
+    });
+  };
+
+  // 드래그 직후 click 차단 — 마커 click 으로 잘못 전달 방지.
+  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (draggedRef.current) {
+      e.stopPropagation();
+      e.preventDefault();
+      draggedRef.current = false;
+    }
+  };
+
+  const zoomBy = (factor: number) => {
+    const { w: cw, h: ch } = containerSize;
+    if (cw === 0 || ch === 0) return;
+    const focalCx = cw / 2;
+    const focalCy = ch / 2;
+    setVb((cur) => {
+      const newW = cur.w * factor;
+      const newH = newW * (ch / cw);
+      const focalVBx = cur.x + (focalCx / cw) * cur.w;
+      const focalVBy = cur.y + (focalCy / ch) * cur.h;
+      return clampVb({
+        x: focalVBx - (focalCx / cw) * newW,
+        y: focalVBy - (focalCy / ch) * newH,
+        w: newW,
+        h: newH,
+      });
+    });
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-3 p-4">
-      <div className="rounded-lg border border-zinc-300 overflow-hidden dark:border-zinc-700">
+      <div
+        ref={containerRef}
+        className="relative h-[70vh] w-full touch-none select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
+        onWheel={onWheel}
+        onClickCapture={onClickCapture}
+      >
         <svg
-          ref={svgRef}
-          viewBox={`0 0 ${MAP_BOUNDS.width} ${MAP_BOUNDS.height}`}
-          preserveAspectRatio="xMidYMid meet"
-          className="w-full h-auto block"
-          onMouseMove={(e) => setMousePos(svgCoordsFromEvent(e))}
-          onMouseLeave={() => setMousePos(null)}
-          onClick={(e) => {
-            // 마커 클릭은 stopPropagation 으로 막힘 — 여기는 빈 영역만.
-            const coords = svgCoordsFromEvent(e);
-            if (coords) pushClick(coords);
-          }}
+          viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
+          preserveAspectRatio="xMidYMid slice"
+          className="block h-full w-full"
+          role="img"
+          aria-label="대륙 지도"
         >
-          {/* 대륙 배경 일러스트 — png 위에 마커 overlay. preserveAspectRatio="none" 으로
-              SVG viewBox 에 stretch (이미지 비율과 좌표 비율이 살짝 달라도 fill). */}
           <image
             href="/images/ui/v2-continent.webp"
             x={0}
@@ -148,8 +342,6 @@ export function ContinentMap({
             preserveAspectRatio="none"
           />
 
-          {/* 거점 marker — 이미지 위 시각이 이미 있어 작은 outline 만 + hit area.
-              hover/select 시 노란 highlight. 좌표가 png 거점과 안 맞아도 클릭 흐름 검증용. */}
           {[1, 2, 3, 4].flatMap((tier) =>
             OUTPOSTS.filter((o) => o.tier === tier).map((o) => {
               const r = TIER_RADIUS[o.tier];
@@ -158,15 +350,7 @@ export function ContinentMap({
               const isSelected = selected?.id === o.id;
               const isHover = hover === o.id;
               const fill = isKingdom ? KINGDOM_FILL : TYPE_COLOR[o.type];
-              const stroke = isNeutral
-                ? "#f4c842"
-                : isSelected || isHover
-                  ? "#fff1a8"
-                  : "#1a1a1a";
-              const strokeWidth = isNeutral ? 22 : isSelected ? 26 : 8;
               const showLabel = isSelected || isHover;
-              // 점령 상태에 따라 fill 색 override — 내 점령(녹색) / 적대 점령(빨강) / 비점령(type 색)
-              // viewerUserId 가 null 일 때 isMine 이 false 가 되도록 가드.
               const occ = occByOutpost.get(o.id);
               const isMine =
                 !!occ &&
@@ -179,13 +363,12 @@ export function ContinentMap({
               const markerFill = isNeutral
                 ? "#f4c842"
                 : isMine
-                  ? "#10b981" // emerald-500
+                  ? "#10b981"
                   : isHostile
-                    ? "#dc2626" // red-600
+                    ? "#dc2626"
                     : fill;
-              // 흰 outline 으로 biome 위 가시성 확보. hover/select 시 노란.
               const markerStroke = showLabel ? "#fff1a8" : "#ffffff";
-              const innerStroke = showLabel ? "#000" : "#000";
+              const innerStroke = "#000";
               return (
                 <g
                   key={o.id}
@@ -197,8 +380,6 @@ export function ContinentMap({
                   onMouseLeave={() => setHover(null)}
                   className="cursor-pointer"
                 >
-                  {/* 시각용 marker — tier 4 는 별, 그 외는 원. 종류는 색깔로.
-                      두 겹 outline (외 검정 / 내 흰) 으로 biome 위 또렷. */}
                   {isKingdom ? (
                     <>
                       <polygon
@@ -236,7 +417,6 @@ export function ContinentMap({
                       />
                     </>
                   )}
-                  {/* 라벨 — tier 3+ 항상, tier 1~2 hover/select 시 */}
                   {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
                     <text
                       x={o.position.x}
@@ -257,6 +437,33 @@ export function ContinentMap({
             }),
           )}
         </svg>
+        {/* 줌 컨트롤 — 우상단 floating */}
+        <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={fitAll}
+            aria-label="전체 보기"
+            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white/95 text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ArrowsOut size={16} weight="bold" />
+          </button>
+          <button
+            type="button"
+            onClick={() => zoomBy(1 / 1.25)}
+            aria-label="확대"
+            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white/95 text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Plus size={16} weight="bold" />
+          </button>
+          <button
+            type="button"
+            onClick={() => zoomBy(1.25)}
+            aria-label="축소"
+            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white/95 text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <Minus size={16} weight="bold" />
+          </button>
+        </div>
       </div>
 
       <aside className="rounded-lg border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
@@ -268,7 +475,8 @@ export function ContinentMap({
             {CONTINENT_NAME}
           </div>
           <div className="text-xs text-zinc-500">
-            거점 {OUTPOSTS.length} (왕국 {OUTPOSTS.filter((o) => o.tier === 4).length}
+            거점 {OUTPOSTS.length} (왕국{" "}
+            {OUTPOSTS.filter((o) => o.tier === 4).length}
             · 도시 {OUTPOSTS.filter((o) => o.tier === 3).length} · 거점{" "}
             {OUTPOSTS.filter((o) => o.tier === 2).length} · 마을{" "}
             {OUTPOSTS.filter((o) => o.tier === 1).length})
@@ -296,9 +504,6 @@ export function ContinentMap({
                 </span>
               )}
             </div>
-            <div className="text-xs text-zinc-600 dark:text-zinc-400">
-              좌표 ({selected.position.x}, {selected.position.y})
-            </div>
             {selected.description && (
               <div className="text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
                 {selected.description}
@@ -313,10 +518,7 @@ export function ContinentMap({
                   if (selected.neutral) return "NPC 영구 운영 (점령 불가)";
                   const occ = occByOutpost.get(selected.id);
                   if (!occ) return "비점령 (점령 시도 가능)";
-                  if (
-                    viewerUserId &&
-                    occ.occupiedByUserId === viewerUserId
-                  )
+                  if (viewerUserId && occ.occupiedByUserId === viewerUserId)
                     return "내 점령지";
                   return "다른 세력 점령 중";
                 })()}
@@ -334,37 +536,9 @@ export function ContinentMap({
           </div>
         ) : (
           <div className="mt-3 text-xs text-zinc-500">
-            지도에서 거점을 클릭하세요.
+            지도에서 거점을 선택하세요. 핀치/휠 로 확대, 드래그 로 이동.
           </div>
         )}
-
-        {/* 좌표 추출 도우미 — 빈 영역 클릭 시 viewBox 좌표 + 클립보드 복사. */}
-        <section className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-            좌표 도우미
-          </div>
-          <div className="mt-1 text-xs text-zinc-500">
-            지도 빈 영역을 클릭하면 좌표 복사 (클립보드).
-          </div>
-          <div className="mt-2 rounded bg-zinc-100 px-2 py-1 text-xs font-mono tabular-nums dark:bg-zinc-900">
-            {mousePos
-              ? `x: ${mousePos.x}, y: ${mousePos.y}`
-              : "마우스를 지도 위로"}
-          </div>
-          {clickLog.length > 0 && (
-            <div className="mt-2 space-y-1">
-              <div className="text-xs text-zinc-500">최근 클릭</div>
-              {clickLog.map((c) => (
-                <div
-                  key={c.ts}
-                  className="rounded bg-zinc-100 px-2 py-1 text-xs font-mono tabular-nums dark:bg-zinc-900"
-                >
-                  {`{ x: ${c.x}, y: ${c.y} }`}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
       </aside>
     </div>
   );

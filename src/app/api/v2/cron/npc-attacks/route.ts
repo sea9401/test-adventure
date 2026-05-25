@@ -1,12 +1,14 @@
 import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
-import { outpostClaimAttempts, outpostOccupations } from "@/db/schema";
+import { outpostClaimAttempts, outpostOccupations, savesKv } from "@/db/schema";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
+import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
+import { parseResources } from "@/adventure/data/v2/resources";
 
 // POST /api/v2/cron/npc-attacks — cron 이 주기적으로 호출 (e.g. 매 시간).
 // CRON_SECRET 헤더 검증. 모든 점령된 거점 중 nextAttackAt < now 인 것들 평가.
@@ -93,8 +95,20 @@ export async function POST(req: Request) {
         }
 
         const champion = getChampion(outpost.type, outpost.tier);
-        // 점령자 영웅 hp = derive 결과 그대로 (사냥 누적 hp X — sim 용 만피)
-        const playerForBattle = { ...player.player, hp: player.maxHp };
+        // 점령자 v2-resources 의 soldiers 도 보정 (수비측 영웅 강화)
+        const resRow = await tx
+          .select({ value: savesKv.value })
+          .from(savesKv)
+          .where(
+            and(eq(savesKv.userId, ownerId), eq(savesKv.key, "v2-resources")),
+          )
+          .limit(1);
+        const soldiers = parseResources(resRow[0]?.value ?? null).soldiers;
+        // 점령자 영웅 hp = 만피 + 병사 보정.
+        const playerForBattle = applySoldierBoost(
+          { ...player.player, hp: player.maxHp },
+          soldiers,
+        );
 
         const battle = resolveBattle(
           playerForBattle,

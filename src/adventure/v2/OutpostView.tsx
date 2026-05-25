@@ -230,11 +230,16 @@ export function OutpostView({
             disabled={{ reason: "곧 공개" }}
           />
         )}
-        {outpost.type === "fort" && (
+        {outpost.type === "fort" && isOwner && (
+          <SoldierRecruitCard
+            onRecruited={() => onAction({ kind: "harvested" })}
+          />
+        )}
+        {outpost.type === "fort" && !isOwner && (
           <ActionCard
             title="병사 모집"
-            subtitle="자길드 점령 시 가능."
-            disabled={{ reason: "곧 공개" }}
+            subtitle="점령자 전용 (요새 거점)."
+            disabled={{ reason: "점령자 전용" }}
           />
         )}
         {outpost.type === "mine" && isOwner && (
@@ -267,6 +272,109 @@ function computeClaimDisabled(
     return { reason: "이미 내 점령지" };
   }
   return null; // 다른 세력 점령 — PvP 결투 시도 가능
+}
+
+function SoldierRecruitCard({
+  onRecruited,
+}: {
+  onRecruited: () => void;
+}) {
+  const [count, setCount] = useState(10);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const COST_PER = 10;
+
+  async function recruit() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/soldiers/recruit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
+      type RecruitResponse = {
+        ok?: boolean;
+        error?: string;
+        recruited?: number;
+        cost?: number;
+        have?: number;
+        need?: number;
+        max?: number;
+        resources?: { stone: number; soldiers: number };
+      };
+      let json: RecruitResponse | null = null;
+      try {
+        json = (await res.json()) as RecruitResponse;
+      } catch {
+        setMsg(`✗ http ${res.status} (응답 JSON 아님)`);
+        return;
+      }
+      if (json && json.ok) {
+        setMsg(
+          `✓ 병사 +${json.recruited} (광물 ${json.cost} 소모) · 누적 병사 ${json.resources?.soldiers}`,
+        );
+        onRecruited();
+      } else if (json?.error === "not_enough_stone") {
+        setMsg(
+          `✗ 광물 부족 — ${json.have ?? 0} / 필요 ${json.need ?? 0}`,
+        );
+      } else if (json?.error === "soldier_cap") {
+        setMsg(`✗ 누적 한도 — ${json.have ?? 0} / 최대 ${json.max ?? 0}`);
+      } else {
+        setMsg(`✗ ${json?.error ?? `http ${res.status}`}`);
+      }
+    } catch (err) {
+      setMsg(`✗ network: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/50">
+      <div className="px-3 py-2 text-sm">
+        <div className="font-medium">병사 모집</div>
+        <div className="mt-0.5 text-xs text-zinc-500">
+          1 병사 = {COST_PER} 광물 · 영웅 전투(claim·PvP·NPC 공격) 시 stat 보정
+        </div>
+      </div>
+      <div className="flex items-center gap-2 border-t border-zinc-200 px-3 py-2 dark:border-zinc-800">
+        <input
+          type="number"
+          min={1}
+          max={1000}
+          step={1}
+          value={count}
+          onChange={(e) =>
+            setCount(
+              Math.max(
+                1,
+                Math.min(1000, Math.floor(Number(e.target.value) || 0)),
+              ),
+            )
+          }
+          className="w-24 rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+        />
+        <span className="text-xs text-zinc-500">
+          명 (광물 {count * COST_PER} 필요)
+        </span>
+        <button
+          type="button"
+          onClick={recruit}
+          disabled={busy}
+          className="ml-auto rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? "모집 중…" : "모집"}
+        </button>
+      </div>
+      {msg && (
+        <div className="border-t border-zinc-200 px-3 py-1 text-xs font-mono dark:border-zinc-800">
+          {msg}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {

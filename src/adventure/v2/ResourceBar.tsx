@@ -16,6 +16,12 @@ export function ResourceBar({ resources }: { resources: V2Resources | null }) {
           {loaded ? resources.stone : "—"}
         </span>
       </span>
+      <span className="flex items-center gap-1">
+        <span className="text-zinc-400">병사</span>
+        <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+          {loaded ? resources.soldiers : "—"}
+        </span>
+      </span>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowsClockwise,
+  Backpack,
   Buildings,
   Diamond,
   MapTrifold,
@@ -28,7 +29,8 @@ export type HomeAction =
   | { kind: "open-character" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
-  | { kind: "open-shrine" };
+  | { kind: "open-shrine" }
+  | { kind: "open-equipment" };
 
 type StateResponse = {
   ok?: boolean;
@@ -172,6 +174,12 @@ export function V2HomeScreen({
           title="성장의 신전"
           description="레벨업 단련 포인트 분배."
           onClick={() => onAction({ kind: "open-shrine" })}
+        />
+        <EntryCard
+          icon={<Backpack size={28} weight="duotone" className="text-orange-600" />}
+          title="장비"
+          description="placeholder — 장착 UI 검증 (효과 wiring 보류)."
+          onClick={() => onAction({ kind: "open-equipment" })}
         />
         <EntryCard
           icon={<Buildings size={28} weight="duotone" className="text-amber-600" />}

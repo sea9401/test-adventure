@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 // 마스터만 변경 가능. 멤버 1~3명을 순서대로 선택. v2 길드는 1인 길드 default 이라
 // 다인 길드 시점에만 의미 있음. 1인 길드면 마스터 1명 표시.
 
-type Member = { userId: string; role: string };
+type Member = { userId: string; role: string; name: string; level: number };
 
 type LineupResponse = {
   ok?: boolean;
@@ -17,6 +17,10 @@ type LineupResponse = {
   error?: string;
   offending?: string;
 };
+
+function memberLabel(m: Member): string {
+  return `${m.role === "master" ? "★ " : ""}${m.name} (Lv.${m.level})`;
+}
 
 const MAX_LINEUP = 3;
 
@@ -124,7 +128,7 @@ export function LineupCard() {
               <option value="">{slot + 1}번 (없음)</option>
               {members.map((m) => (
                 <option key={m.userId} value={m.userId}>
-                  {m.role === "master" ? "★" : "·"} {m.userId.slice(0, 8)}
+                  {memberLabel(m)}
                 </option>
               ))}
             </select>
@@ -142,7 +146,25 @@ export function LineupCard() {
       )}
       {!isMaster && data.lineup && data.lineup.length > 0 && (
         <div className="mt-1 text-zinc-500">
-          현재 라인업: {data.lineup.map((id) => id.slice(0, 8)).join(" → ")}
+          현재 라인업:{" "}
+          {data.lineup
+            .map((id) => {
+              const m = members.find((mm) => mm.userId === id);
+              return m ? memberLabel(m) : id.slice(0, 8);
+            })
+            .join(" → ")}
+        </div>
+      )}
+      {/* 마스터 — 현재 저장된 라인업 미리보기 */}
+      {isMaster && data.lineup && data.lineup.length > 0 && (
+        <div className="mt-1 text-zinc-500">
+          현재 저장:{" "}
+          {data.lineup
+            .map((id) => {
+              const m = members.find((mm) => mm.userId === id);
+              return m ? memberLabel(m) : id.slice(0, 8);
+            })
+            .join(" → ")}
         </div>
       )}
     </div>

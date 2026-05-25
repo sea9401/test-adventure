@@ -1,11 +1,11 @@
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, v2GuildLineups } from "@/db/schema";
+import { guildMembers, savesKv, v2GuildLineups } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 
 // GET /api/v2/guild/me/lineup — viewer 의 길드 라인업 조회.
-// 응답: { ok: true, guildId, isMaster, members: [{ userId, role, name }], lineup: string[] | null }
+// 응답: { ok: true, guildId, isMaster, members: [{ userId, role, name, level }], lineup: string[] | null }
 //
 // POST /api/v2/guild/me/lineup — 마스터만 라인업 변경.
 // body: { memberUserIds: string[] } — 1~3명, 순서대로. 모두 같은 길드 멤버여야.
@@ -20,11 +20,12 @@ export async function GET() {
 
   const result = await db.transaction(async (tx) => {
     const guildId = await ensureSoloGuild(tx, userId);
-    const members = await tx
+    const memberRows = await tx
       .select({ userId: guildMembers.userId, role: guildMembers.role })
       .from(guildMembers)
       .where(eq(guildMembers.guildId, guildId));
-    const isMaster = members.some(
+    const memberIds = memberRows.map((m) => m.userId);
+    const isMaster = memberRows.some(
       (m) => m.userId === userId && m.role === "master",
     );
     const lineupRow = await tx
@@ -32,6 +33,50 @@ export async function GET() {
       .from(v2GuildLineups)
       .where(eq(v2GuildLineups.guildId, guildId))
       .limit(1);
+
+    // 이름·레벨 batch — character-profile.v2 + character.v2.
+    const [profileRows, charRows] = await Promise.all([
+      memberIds.length === 0
+        ? Promise.resolve([])
+        : tx
+            .select({ userId: savesKv.userId, value: savesKv.value })
+            .from(savesKv)
+            .where(
+              and(
+                inArray(savesKv.userId, memberIds),
+                eq(savesKv.key, "character-profile.v2"),
+              ),
+            ),
+      memberIds.length === 0
+        ? Promise.resolve([])
+        : tx
+            .select({ userId: savesKv.userId, value: savesKv.value })
+            .from(savesKv)
+            .where(
+              and(
+                inArray(savesKv.userId, memberIds),
+                eq(savesKv.key, "character.v2"),
+              ),
+            ),
+    ]);
+    const nameByUser = new Map<string, string>();
+    for (const r of profileRows) {
+      const v = (r.value ?? null) as { name?: string } | null;
+      const n = v?.name?.trim();
+      if (n) nameByUser.set(r.userId, n);
+    }
+    const levelByUser = new Map<string, number>();
+    for (const r of charRows) {
+      const v = (r.value ?? null) as { level?: number } | null;
+      if (typeof v?.level === "number") levelByUser.set(r.userId, v.level);
+    }
+    const members = memberRows.map((m) => ({
+      userId: m.userId,
+      role: m.role,
+      name: nameByUser.get(m.userId) ?? "모험가",
+      level: levelByUser.get(m.userId) ?? 1,
+    }));
+
     return {
       guildId,
       isMaster,

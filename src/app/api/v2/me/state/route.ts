@@ -12,6 +12,7 @@ import {
   parseStaminaFromSave,
 } from "@/adventure/v2/stamina";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 // GET /api/v2/me/state — V2HomeScreen 의 단일 fetch.
 //
@@ -64,7 +65,17 @@ export async function GET() {
     hpRegenSince?: number;
     stamina?: unknown;
     gold?: number;
+    lastVisitedOutpost?: { outpostId?: string; at?: number };
   };
+
+  // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
+  // null = 아직 거점 방문 안 함 ("이동 중").
+  let currentOutpost: { id: string; name: string } | null = null;
+  const lastVisitId = charSave.lastVisitedOutpost?.outpostId;
+  if (typeof lastVisitId === "string") {
+    const o = OUTPOSTS.find((x) => x.id === lastVisitId);
+    if (o) currentOutpost = { id: o.id, name: o.name };
+  }
   const profile = (profileRow?.value ?? null) as {
     name?: string;
     gender?: string;
@@ -120,5 +131,6 @@ export async function GET() {
     combat: combatStats,
     guild: { id: guildId, name: guildName },
     resources,
+    currentOutpost,
   });
 }

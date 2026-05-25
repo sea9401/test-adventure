@@ -10,6 +10,7 @@ import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
+import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -48,6 +49,10 @@ export function V2GameFlow() {
   // me/state 응답에서 받아 두고 dungeon hunt 자식에 prop.
   const [viewerName, setViewerName] = useState<string>("모험가");
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
+  // V2TopBar 좌측 표시 — outpost 진입 시 visit POST → state 갱신.
+  const [currentOutpost, setCurrentOutpost] = useState<
+    { id: string; name: string } | null
+  >(null);
 
   const refreshOccupations = useCallback(async () => {
     try {
@@ -81,20 +86,33 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
-    // 캐릭터 이름·gender — BattleScene 의 PlayerAvatar 용. me/state 한 번 fetch.
+    // 캐릭터 이름·gender + currentOutpost — V2TopBar 좌측, BattleScene 의 PlayerAvatar 용.
     (async () => {
       try {
         const res = await fetch("/api/v2/me/state");
         if (res.ok) {
           const j = (await res.json()) as {
             character?: { name?: string; gender?: string };
+            currentOutpost?: { id: string; name: string } | null;
           } | null;
           if (j?.character?.name) setViewerName(j.character.name);
           if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
+          if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
         }
       } catch {}
     })();
   }, [refreshOccupations]);
+
+  // outpost 진입 helper — 로컬 state 즉시 갱신 + 서버 visit POST 백그라운드.
+  const enterOutpost = useCallback((outpost: Outpost) => {
+    setCurrentOutpost({ id: outpost.id, name: outpost.name });
+    setView({ kind: "outpost", outpost });
+    void fetch("/api/v2/me/visit-outpost", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ outpostId: outpost.id }),
+    }).catch(() => {});
+  }, []);
 
   const handleHome = (action: HomeAction) => {
     if (action.kind === "open-map") setView({ kind: "map" });
@@ -122,6 +140,7 @@ export function V2GameFlow() {
 
   return (
     <div>
+      <V2TopBar currentOutpost={currentOutpost} />
       {view.kind === "home" && <V2HomeScreen onAction={handleHome} />}
 
       {view.kind === "map" && (
@@ -136,7 +155,7 @@ export function V2GameFlow() {
             </button>
           </div>
           <ContinentMap
-            onOutpostEnter={(o) => setView({ kind: "outpost", outpost: o })}
+            onOutpostEnter={enterOutpost}
             occupations={occupations}
             viewerUserId={viewerUserId}
           />

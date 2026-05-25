@@ -6,6 +6,7 @@ import {
   Buildings,
   Diamond,
   MapTrifold,
+  Sparkle,
   User,
   UsersThree,
 } from "@phosphor-icons/react";
@@ -24,7 +25,8 @@ export type HomeAction =
   | { kind: "open-map" }
   | { kind: "open-lineup" }
   | { kind: "open-character" }
-  | { kind: "open-inventory" };
+  | { kind: "open-inventory" }
+  | { kind: "open-skills" };
 
 type StateResponse = {
   ok?: boolean;
@@ -156,6 +158,12 @@ export function V2HomeScreen({
           title="인벤토리"
           description="던전 사냥 재료 (장비/스킬북 은 후속)."
           onClick={() => onAction({ kind: "open-inventory" })}
+        />
+        <EntryCard
+          icon={<Sparkle size={28} weight="duotone" className="text-fuchsia-600" />}
+          title="스킬"
+          description="일반 스킬 장착 (특기·AP 는 후속)."
+          onClick={() => onAction({ kind: "open-skills" })}
         />
         <EntryCard
           icon={<Buildings size={28} weight="duotone" className="text-amber-600" />}

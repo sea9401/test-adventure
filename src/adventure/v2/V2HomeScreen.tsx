@@ -4,13 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowsClockwise,
   Backpack,
-  Buildings,
   Diamond,
   MapTrifold,
   Plus,
   Sparkle,
   User,
-  UsersThree,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EntryCard } from "@/components/ui/EntryCard";
@@ -23,9 +21,7 @@ import type { V2Resources } from "@/adventure/data/v2/resources";
 // 메인이 지도였던 옛 구조 폐기 — 지도는 진입 카드 중 하나.
 
 export type HomeAction =
-  | { kind: "open-outposts" }
   | { kind: "open-map" }
-  | { kind: "open-lineup" }
   | { kind: "open-character" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
@@ -182,26 +178,12 @@ export function V2HomeScreen({
           onClick={() => onAction({ kind: "open-equipment" })}
         />
         <EntryCard
-          icon={<Buildings size={28} weight="duotone" className="text-amber-600" />}
-          title="거점 목록"
-          description="점령된 거점과 빈 자리를 한눈에. 클릭해서 입장."
-          onClick={() => onAction({ kind: "open-outposts" })}
-        />
-        <EntryCard
           icon={
             <MapTrifold size={28} weight="duotone" className="text-emerald-600" />
           }
           title="대륙 지도"
           description="거점 배치를 지도에서 확인."
           onClick={() => onAction({ kind: "open-map" })}
-        />
-        <EntryCard
-          icon={
-            <UsersThree size={28} weight="duotone" className="text-violet-600" />
-          }
-          title="길드 라인업"
-          description="3:3 토너먼트 마스터 라인업 설정."
-          onClick={() => onAction({ kind: "open-lineup" })}
         />
       </div>
     </main>

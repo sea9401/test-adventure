@@ -19,6 +19,7 @@ export type Occupation = {
   occupiedAt: string;
   policy: string;
   taxRate: string;
+  nextAttackAt: string;
 };
 
 type View =

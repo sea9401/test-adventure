@@ -32,6 +32,7 @@ type OccupationLite = {
   occupiedByGuildId: number | null;
   policy?: string;
   taxRate?: string;
+  nextAttackAt?: string;
 } | null;
 
 const POLICY_LABELS: Record<string, string> = {
@@ -168,6 +169,9 @@ export function OutpostView({
             {outpost.description}
           </p>
         )}
+        {isOwner && occupation?.nextAttackAt && (
+          <NextAttackInfo nextAttackAt={occupation.nextAttackAt} />
+        )}
       </header>
 
       <section className="space-y-2">
@@ -253,6 +257,30 @@ function computeClaimDisabled(
     return { reason: "이미 내 점령지" };
   }
   return { reason: "다른 세력이 점령 중 (PvP 후속 PR)" };
+}
+
+function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {
+  const targetMs = new Date(nextAttackAt).getTime();
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const diffMs = targetMs - now;
+  const overdue = diffMs <= 0;
+  const totalMin = Math.max(0, Math.floor(diffMs / 60_000));
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+
+  return (
+    <div className="rounded border border-zinc-200 bg-zinc-100 px-2 py-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
+      <span className="text-zinc-500">다음 NPC 공격: </span>
+      <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+        {overdue ? "곧 (cron 처리 대기)" : `${h}시간 ${m}분 후`}
+      </span>
+    </div>
+  );
 }
 
 function MineHarvestCard({

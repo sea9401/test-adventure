@@ -19,6 +19,7 @@ export async function GET() {
       occupiedAt: r.occupiedAt.toISOString(),
       policy: r.policy,
       taxRate: r.taxRate,
+      nextAttackAt: r.nextAttackAt.toISOString(),
     })),
   });
 }

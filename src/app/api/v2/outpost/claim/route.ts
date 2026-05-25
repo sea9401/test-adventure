@@ -8,6 +8,7 @@ import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
+import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
   applyRegen,
   parseStaminaFromSave,
@@ -185,6 +186,8 @@ export async function POST(req: Request) {
           policy: "open",
           // 점령 시 default 세금율 10%. 정책 UI 추가되면 점령자가 customize.
           taxRate: "0.100",
+          // tier 기반 첫 NPC 공격 일정.
+          nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
         });
         occupation = {
           outpostId: outpost.id,

@@ -817,6 +817,17 @@ export const outpostClaimAttempts = pgTable(
   ],
 );
 
+// v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).
+// memberUserIds: 1~3명, 순서대로 1번 / 2번 / 3번. 길드원만 가능.
+// 미설정 길드는 row 없음 → 토너먼트 sim 시 default = 마스터 1명.
+export const v2GuildLineups = pgTable("v2_guild_lineups", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  memberUserIds: text("member_user_ids").array().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // 공격 감사 로그. 누가 누구를 언제 공격했고 결과/약탈 얼만큼 나갔는지.
 // won=true 면 lootGold/Wood/Food 가 실제 공격자에게 이전된 양 (cap 20% 적용 후).
 // 패배는 0/0/0. defender 측은 raid 알림에서 이 row 를 읽어 표시.

@@ -25,8 +25,10 @@ export function DungeonHunt({
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
-  const { busy, lastResult, replayDone, replayPending, log, hunt, onReplayDone } =
-    useDungeonHunt({ outpostId, setStamina });
+  const { busy, lastResult, log, hunt } = useDungeonHunt({
+    outpostId,
+    setStamina,
+  });
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -57,7 +59,7 @@ export function DungeonHunt({
         ))}
       </div>
 
-      {replayPending && lastResult?.replay && (
+      {lastResult?.replay && (
         <ReplayBattleScene
           payload={lastResult.replay}
           startPlayerHp={lastResult.startPlayerHp}
@@ -65,11 +67,10 @@ export function DungeonHunt({
           gender={playerGender}
           exp={lastResult.expForBar ?? 0}
           maxExp={lastResult.maxExpForBar ?? 1}
-          onDone={onReplayDone}
         />
       )}
 
-      {replayDone && lastResult && <HuntResultCard result={lastResult} />}
+      {lastResult && <HuntResultCard result={lastResult} />}
 
       {log.length > 0 && (
         <section className="space-y-1">

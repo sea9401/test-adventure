@@ -1,14 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
+import type { StaminaState } from "./stamina";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
-// 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트 보여줌.
-// 현재 활동 = "던전 입장" 만. 미래 확장:
-//   - 점령 시도 (점령 가능 거점)
-//   - 상점 (마을·도시 type)
-//   - 병사 모집 (요새 type, 본인 길드 점령 시)
-//   - 자원 산출 확인 (광산 type)
+// 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
 
 const TYPE_LABEL: Record<OutpostType, string> = {
   mine: "광산",
@@ -16,7 +13,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   fort: "요새",
   village: "마을",
 };
-
 const TIER_LABEL: Record<OutpostTier, string> = {
   1: "마을",
   2: "거점",
@@ -26,15 +22,93 @@ const TIER_LABEL: Record<OutpostTier, string> = {
 
 export type OutpostAction =
   | { kind: "back" }
-  | { kind: "enter-dungeon" };
+  | { kind: "enter-dungeon" }
+  | { kind: "claimed" };
+
+type OccupationLite = {
+  outpostId: string;
+  occupiedByUserId: string | null;
+  occupiedByGuildId: number | null;
+} | null;
+
+type ClaimResponse = {
+  ok?: boolean;
+  error?: string;
+  won?: boolean;
+  raceLost?: boolean;
+  championName?: string;
+  turns?: number;
+  stamina?: StaminaState;
+  hpBefore?: number;
+  hpAfter?: number;
+  maxHp?: number;
+  requiredStamina?: number;
+};
 
 export function OutpostView({
   outpost,
+  viewerUserId,
+  occupation,
   onAction,
 }: {
   outpost: Outpost;
+  viewerUserId: string | null;
+  occupation: OccupationLite;
   onAction: (action: OutpostAction) => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [lastClaim, setLastClaim] = useState<string | null>(null);
+
+  const claimDisabled = computeClaimDisabled(outpost, occupation, viewerUserId);
+
+  async function attemptClaim() {
+    setBusy(true);
+    setLastClaim(null);
+    try {
+      const res = await fetch("/api/v2/outpost/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outpostId: outpost.id }),
+      });
+      let json: ClaimResponse | null = null;
+      try {
+        json = (await res.json()) as ClaimResponse;
+      } catch {
+        setLastClaim(`✗ http ${res.status} (응답 JSON 아님)`);
+        return;
+      }
+      if (!json) {
+        setLastClaim(`✗ http ${res.status} (빈 응답)`);
+        return;
+      }
+      if (json.ok && json.won && !json.raceLost) {
+        setLastClaim(
+          `✓ ${json.championName} 격파 (${json.turns}턴) — 점령 성공!`,
+        );
+        onAction({ kind: "claimed" });
+      } else if (json.ok && json.won && json.raceLost) {
+        setLastClaim(
+          `△ ${json.championName} 격파 (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.`,
+        );
+        onAction({ kind: "claimed" });
+      } else if (json.ok && !json.won) {
+        setLastClaim(
+          `✗ ${json.championName} 패배 (${json.turns}턴) — 점령 실패. 스태미너만 차감됨.`,
+        );
+      } else {
+        const need =
+          json.error === "out_of_stamina" && json.requiredStamina
+            ? ` (필요 ${json.requiredStamina})`
+            : "";
+        setLastClaim(`✗ ${json.error ?? "unknown"}${need}`);
+      }
+    } catch (err) {
+      setLastClaim(`✗ network: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
@@ -58,6 +132,20 @@ export function OutpostView({
               절대 중립
             </span>
           )}
+          {occupation &&
+            viewerUserId &&
+            occupation.occupiedByUserId === viewerUserId && (
+              <span className="rounded bg-emerald-500 px-2 py-0.5 text-white">
+                내 점령
+              </span>
+            )}
+          {occupation &&
+            occupation.occupiedByUserId !== null &&
+            occupation.occupiedByUserId !== viewerUserId && (
+              <span className="rounded bg-red-500 px-2 py-0.5 text-white">
+                적대 점령
+              </span>
+            )}
         </div>
         {outpost.description && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -77,37 +165,42 @@ export function OutpostView({
           onClick={() => onAction({ kind: "enter-dungeon" })}
         />
 
-        {/* 미래 카드들 (placeholder) */}
         <ActionCard
-          title="점령 시도"
-          subtitle="이 거점을 길드 영지로 점령."
-          disabled
-          disabledReason={
-            outpost.neutral ? "절대 중립 거점 (점령 불가)" : "곧 공개"
+          title={claimDisabled ? "점령 시도" : "점령 시도 (일기토)"}
+          subtitle={
+            claimDisabled?.reason ??
+            `이 거점의 NPC 영웅과 1대1 결투. 승리 시 점령. (스태미너 소모)`
           }
+          onClick={attemptClaim}
+          disabled={!!claimDisabled || busy}
+          loading={busy}
         />
+
+        {lastClaim && (
+          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono dark:border-zinc-800 dark:bg-zinc-900/50">
+            {lastClaim}
+          </div>
+        )}
+
         {outpost.type === "village" && (
           <ActionCard
             title="상점"
             subtitle="아이템 거래."
-            disabled
-            disabledReason="곧 공개"
+            disabled={{ reason: "곧 공개" }}
           />
         )}
         {outpost.type === "fort" && (
           <ActionCard
             title="병사 모집"
             subtitle="자길드 점령 시 가능."
-            disabled
-            disabledReason="곧 공개"
+            disabled={{ reason: "곧 공개" }}
           />
         )}
         {outpost.type === "mine" && (
           <ActionCard
             title="자원 산출"
             subtitle="광산이 시간당 산출하는 자원 확인."
-            disabled
-            disabledReason="곧 공개"
+            disabled={{ reason: "곧 공개" }}
           />
         )}
       </section>
@@ -115,30 +208,46 @@ export function OutpostView({
   );
 }
 
+function computeClaimDisabled(
+  outpost: Outpost,
+  occupation: OccupationLite,
+  viewerUserId: string | null,
+): { reason: string } | null {
+  if (outpost.neutral) return { reason: "절대 중립 거점 (점령 불가)" };
+  if (!occupation) return null; // 비점령 — 시도 가능
+  if (viewerUserId && occupation.occupiedByUserId === viewerUserId) {
+    return { reason: "이미 내 점령지" };
+  }
+  return { reason: "다른 세력이 점령 중 (PvP 후속 PR)" };
+}
+
 function ActionCard({
   title,
   subtitle,
   onClick,
   disabled,
-  disabledReason,
+  loading,
 }: {
   title: string;
   subtitle: string;
   onClick?: () => void;
-  disabled?: boolean;
-  disabledReason?: string;
+  disabled?: { reason: string } | boolean;
+  loading?: boolean;
 }) {
+  const isDisabled = !!disabled;
+  const reason = typeof disabled === "object" ? disabled.reason : null;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
+      disabled={isDisabled}
       className="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/50 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900/50"
     >
-      <div className="font-medium">{title}</div>
-      <div className="mt-0.5 text-xs text-zinc-500">
-        {disabled && disabledReason ? disabledReason : subtitle}
+      <div className="font-medium">
+        {title}
+        {loading && <span className="ml-2 text-xs text-zinc-500">…</span>}
       </div>
+      <div className="mt-0.5 text-xs text-zinc-500">{reason ?? subtitle}</div>
     </button>
   );
 }

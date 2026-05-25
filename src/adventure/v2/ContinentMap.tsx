@@ -80,11 +80,25 @@ function svgCoordsFromEvent(
   return { x: Math.round(t.x), y: Math.round(t.y) };
 }
 
+type OccupationLite = {
+  outpostId: string;
+  occupiedByUserId: string | null;
+  occupiedByGuildId: number | null;
+};
+
 export function ContinentMap({
   onOutpostEnter,
+  occupations,
+  viewerUserId,
 }: {
   onOutpostEnter?: (o: Outpost) => void;
+  occupations?: OccupationLite[];
+  viewerUserId?: string | null;
 } = {}) {
+  const occByOutpost = new Map<string, OccupationLite>();
+  if (occupations) {
+    for (const o of occupations) occByOutpost.set(o.outpostId, o);
+  }
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
@@ -151,7 +165,24 @@ export function ContinentMap({
                   : "#1a1a1a";
               const strokeWidth = isNeutral ? 22 : isSelected ? 26 : 8;
               const showLabel = isSelected || isHover;
-              const markerFill = isNeutral ? "#f4c842" : fill;
+              // 점령 상태에 따라 fill 색 override — 내 점령(녹색) / 적대 점령(빨강) / 비점령(type 색)
+              // viewerUserId 가 null 일 때 isMine 이 false 가 되도록 가드.
+              const occ = occByOutpost.get(o.id);
+              const isMine =
+                !!occ &&
+                !!viewerUserId &&
+                occ.occupiedByUserId === viewerUserId;
+              const isHostile =
+                !!occ &&
+                occ.occupiedByUserId !== null &&
+                occ.occupiedByUserId !== viewerUserId;
+              const markerFill = isNeutral
+                ? "#f4c842"
+                : isMine
+                  ? "#10b981" // emerald-500
+                  : isHostile
+                    ? "#dc2626" // red-600
+                    : fill;
               // 흰 outline 으로 biome 위 가시성 확보. hover/select 시 노란.
               const markerStroke = showLabel ? "#fff1a8" : "#ffffff";
               const innerStroke = showLabel ? "#000" : "#000";
@@ -278,9 +309,17 @@ export function ContinentMap({
                 점령 상태
               </div>
               <div className="text-zinc-500">
-                {selected.neutral
-                  ? "NPC 영구 운영 (점령 불가)"
-                  : "비점령 (PR-B3 에서 점령 룰 통합 예정)"}
+                {(() => {
+                  if (selected.neutral) return "NPC 영구 운영 (점령 불가)";
+                  const occ = occByOutpost.get(selected.id);
+                  if (!occ) return "비점령 (점령 시도 가능)";
+                  if (
+                    viewerUserId &&
+                    occ.occupiedByUserId === viewerUserId
+                  )
+                    return "내 점령지";
+                  return "다른 세력 점령 중";
+                })()}
               </div>
             </div>
             {onOutpostEnter && (

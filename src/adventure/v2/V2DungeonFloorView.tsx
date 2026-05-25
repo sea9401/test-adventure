@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
+import type { StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -19,6 +19,7 @@ export function V2DungeonFloorView({
   outpostName,
   playerName,
   playerGender,
+  setStamina,
   onBack,
 }: {
   floorId: DungeonFloorId;
@@ -26,11 +27,12 @@ export function V2DungeonFloorView({
   outpostName: string;
   playerName: string;
   playerGender: Gender;
+  // 전역 stamina 갱신 — V2GameFlow 의 setter.
+  setStamina: (s: StaminaState) => void;
   onBack: () => void;
 }) {
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const {
-    stamina,
     busy,
     lastResult,
     replayDone,
@@ -38,7 +40,7 @@ export function V2DungeonFloorView({
     log,
     hunt,
     onReplayDone,
-  } = useDungeonHunt({ outpostId });
+  } = useDungeonHunt({ outpostId, setStamina });
   const [autoMode, setAutoMode] = useState(false);
 
   if (!floor) {
@@ -80,8 +82,6 @@ export function V2DungeonFloorView({
             : `엔드 컨텐츠 ${floor.requirement.tier}`}
         </p>
       </header>
-
-      <StaminaBar state={stamina} />
 
       <Card padding="md">
         <div className="flex items-center justify-between gap-3">

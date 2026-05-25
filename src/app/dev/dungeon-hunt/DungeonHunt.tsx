@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
+import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // 던전 사냥 dev preview — useDungeonHunt 사용. 5층 한 페이지에서 사냥 (구식).
 // 실제 게임은 V2BattleHome → V2DungeonFloorView (페이지 분리).
+// dev 라 자체 stamina state (실제 게임은 V2GameFlow 의 전역 stamina 사용).
 
 export function DungeonHunt({
   outpostId,
@@ -19,16 +22,11 @@ export function DungeonHunt({
   playerName?: string;
   playerGender?: Gender;
 } = {}) {
-  const {
-    stamina,
-    busy,
-    lastResult,
-    replayDone,
-    replayPending,
-    log,
-    hunt,
-    onReplayDone,
-  } = useDungeonHunt({ outpostId });
+  const [stamina, setStamina] = useState<StaminaState>(() =>
+    initialStamina(Date.now()),
+  );
+  const { busy, lastResult, replayDone, replayPending, log, hunt, onReplayDone } =
+    useDungeonHunt({ outpostId, setStamina });
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">

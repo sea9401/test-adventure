@@ -2,10 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { HuntResult } from "@/adventure/v2/HuntResultCard";
-import {
-  initialStamina,
-  type StaminaState,
-} from "@/adventure/v2/stamina";
+import { type StaminaState } from "@/adventure/v2/stamina";
 import {
   V2_MATERIALS,
   type V2MaterialId,
@@ -41,10 +38,15 @@ function formatDrops(
 }
 
 // 던전 사냥 상태 + 호출 hook — DungeonHunt(dev) / V2DungeonFloorView 공유.
-export function useDungeonHunt({ outpostId }: { outpostId?: string } = {}) {
-  const [stamina, setStamina] = useState<StaminaState>(() =>
-    initialStamina(Date.now()),
-  );
+// stamina 는 controlled — caller 가 state/setter 보유. 던전 페이지가 전역
+// StaminaBar 와 sync 되도록.
+export function useDungeonHunt({
+  outpostId,
+  setStamina,
+}: {
+  outpostId?: string;
+  setStamina: (s: StaminaState) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
   const [replayDone, setReplayDone] = useState(true);
@@ -117,14 +119,13 @@ export function useDungeonHunt({ outpostId }: { outpostId?: string } = {}) {
         setBusy(false);
       }
     },
-    [outpostId, pushLog],
+    [outpostId, pushLog, setStamina],
   );
 
   const onReplayDone = useCallback(() => setReplayDone(true), []);
   const replayPending = !replayDone && lastResult?.replay != null;
 
   return {
-    stamina,
     busy,
     lastResult,
     replayDone,

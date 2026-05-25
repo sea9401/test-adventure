@@ -14,6 +14,7 @@ import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2BattleHome } from "@/adventure/v2/V2BattleHome";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
+import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
@@ -26,13 +27,20 @@ import type { Gender } from "@/adventure/profile/avatars";
 // 캐릭터: 내정보(default)/인벤토리/스킬/장비
 // 지도: ContinentMap(default)/outpost
 
-type TabId = "adventure" | "battle" | "town" | "character" | "map";
+type TabId =
+  | "adventure"
+  | "battle"
+  | "town"
+  | "character"
+  | "guild"
+  | "map";
 
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
   { key: "battle", label: "전투" },
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
+  { key: "guild", label: "길드" },
   { key: "map", label: "지도" },
 ];
 
@@ -56,6 +64,7 @@ type View =
   | { kind: "inventory" }
   | { kind: "skills" }
   | { kind: "equipment" }
+  | { kind: "guild" }
   | { kind: "map" }
   | { kind: "outpost"; outpost: Outpost };
 
@@ -74,6 +83,8 @@ function tabOfView(view: View): TabId {
     case "skills":
     case "equipment":
       return "character";
+    case "guild":
+      return "guild";
     case "map":
     case "outpost":
       return "map";
@@ -90,6 +101,8 @@ function defaultViewOfTab(tab: TabId): View {
       return { kind: "town" };
     case "character":
       return { kind: "character" };
+    case "guild":
+      return { kind: "guild" };
     case "map":
       return { kind: "map" };
   }
@@ -271,6 +284,11 @@ export function V2GameFlow() {
       )}
       {view.kind === "equipment" && (
         <V2EquipmentView onBack={() => setView({ kind: "character" })} />
+      )}
+
+      {/* === 길드 탭 === */}
+      {view.kind === "guild" && (
+        <V2GuildHome viewerGuildId={viewerGuildId} occupations={occupations} />
       )}
 
       {/* === 지도 탭 === */}

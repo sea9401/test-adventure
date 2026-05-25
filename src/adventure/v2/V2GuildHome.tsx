@@ -43,6 +43,34 @@ type StateResponse = {
   resources?: V2Resources;
 };
 
+type GuildInfoResponse = {
+  ok?: boolean;
+  guild?: {
+    id: number;
+    name: string;
+    masterId: string;
+    createdAt: string;
+    fameTotal: number;
+    description: string | null;
+  } | null;
+  members?: {
+    userId: string;
+    role: string;
+    joinedAt: string;
+    name: string;
+    level: number;
+  }[];
+};
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function V2GuildHome({
   viewerGuildId,
   occupations,
@@ -51,14 +79,18 @@ export function V2GuildHome({
   occupations: Occupation[];
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
+  const [info, setInfo] = useState<GuildInfoResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v2/me/state");
-      const j = (await res.json().catch(() => null)) as StateResponse | null;
-      setState(j);
+      const [stateRes, infoRes] = await Promise.all([
+        fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
+        fetch("/api/v2/me/guild/info").then((r) => (r.ok ? r.json() : null)),
+      ]);
+      setState(stateRes as StateResponse | null);
+      setInfo(infoRes as GuildInfoResponse | null);
     } catch {}
     setLoading(false);
   }, []);
@@ -87,6 +119,77 @@ export function V2GuildHome({
           길드 자원·보유 거점·3:3 토너먼트 라인업.
         </p>
       </header>
+
+      {/* 길드 정보 */}
+      <Card padding="md">
+        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          길드 정보
+        </div>
+        {info?.guild ? (
+          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+            <InfoCell
+              label="마스터"
+              value={
+                info.members?.find((m) => m.role === "master")?.name ?? "—"
+              }
+            />
+            <InfoCell label="멤버" value={`${info.members?.length ?? 0}명`} />
+            <InfoCell label="창설" value={fmtDate(info.guild.createdAt)} />
+            <InfoCell label="명성" value={info.guild.fameTotal.toLocaleString()} />
+            {info.guild.description && (
+              <div className="col-span-2 mt-1 rounded-md bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
+                {info.guild.description}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            {loading ? "불러오는 중…" : "—"}
+          </div>
+        )}
+      </Card>
+
+      {/* 멤버 list */}
+      <Card padding="md">
+        <div className="flex items-baseline justify-between">
+          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            멤버
+          </div>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {info?.members?.length ?? 0}명
+          </span>
+        </div>
+        {!info?.members || info.members.length === 0 ? (
+          <div className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            —
+          </div>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {info.members.map((m) => (
+              <li
+                key={m.userId}
+                className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    {m.role === "master" && (
+                      <span className="rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                        마스터
+                      </span>
+                    )}
+                    <span className="truncate text-sm font-medium">
+                      {m.name}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    Lv.{m.level} · 가입 {fmtDate(m.joinedAt)}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       {/* 자원풀 */}
       <Card padding="md">
@@ -170,6 +273,17 @@ function ResourceCell({ label, value }: { label: string; value: number }) {
     <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
       <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
       <div className="mt-0.5 text-base font-medium tabular-nums">{value}</div>
+    </div>
+  );
+}
+
+function InfoCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
+      <div className="mt-0.5 truncate text-sm font-medium tabular-nums">
+        {value}
+      </div>
     </div>
   );
 }

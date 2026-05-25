@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { HuntResultCard, type HuntResult } from "@/adventure/v2/HuntResultCard";
+import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import {
   initialStamina,
   type StaminaState,
@@ -12,12 +13,22 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
+import type { BattleState } from "@/adventure/battle/engine";
+import type { Gender } from "@/adventure/profile/avatars";
+
+// hunt API 응답 — UI 기록용 + replay 용 추가 필드(서버가 hunt route 에 박은 것).
+type HuntResultPayload = HuntResult & {
+  battleFinalState?: BattleState;
+  startPlayerHp?: number;
+  expForBar?: number;
+  maxExpForBar?: number;
+};
 
 type HuntResponse = {
   ok?: boolean;
   stamina?: StaminaState;
   error?: string;
-  result?: HuntResult;
+  result?: HuntResultPayload;
 };
 
 function formatDrops(
@@ -34,14 +45,23 @@ function formatDrops(
 }
 
 // 던전 사냥 dev preview — POST /api/v2/dungeon/hunt 흐름.
-// 초기 stamina 는 만피 가정 (실제 서버 값은 hunt 한 번 호출 후 동기화).
-// 직전 1회 결과는 카드로, 그 이전 결과는 로그로 압축 표시.
-export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
+// 사냥 시작 시 ReplayBattleScene 으로 라이브 BattleScene replay 표시,
+// replay 끝나면 풍부한 결과 카드 + 보조 로그.
+export function DungeonHunt({
+  outpostId,
+  playerName = "모험가",
+  playerGender = "male1",
+}: {
+  outpostId?: string;
+  playerName?: string;
+  playerGender?: Gender;
+} = {}) {
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
   const [busy, setBusy] = useState(false);
-  const [lastResult, setLastResult] = useState<HuntResult | null>(null);
+  const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
+  const [replayDone, setReplayDone] = useState(true);
   const [log, setLog] = useState<string[]>([]);
 
   function pushLog(line: string) {
@@ -50,6 +70,9 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
 
   async function hunt(floor: number) {
     setBusy(true);
+    // 직전 결과/replay 모두 초기화 — busy 중 재클릭 안전.
+    setLastResult(null);
+    setReplayDone(false);
     try {
       const res = await fetch("/api/v2/dungeon/hunt", {
         method: "POST",
@@ -61,10 +84,12 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
         json = (await res.json()) as HuntResponse;
       } catch {
         pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
+        setReplayDone(true);
         return;
       }
       if (!json) {
         pushLog(`✗ http ${res.status} (빈 응답)`);
+        setReplayDone(true);
         return;
       }
       if (json.stamina) {
@@ -75,6 +100,9 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
         const r = json.result;
         if (r) {
           setLastResult(r);
+          // battleFinalState 가 있으면 replay 표시 — 끝나면 결과 카드.
+          // 없으면 결과 카드 즉시.
+          if (!r.battleFinalState) setReplayDone(true);
           const verdict = r.won ? "승리" : "패배";
           const levelUp = r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
           const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
@@ -82,6 +110,7 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
             `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/200`,
           );
         } else {
+          setReplayDone(true);
           pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);
         }
       } else {
@@ -92,13 +121,18 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
             : err;
         const after = json.stamina ? ` (스태미너 ${json.stamina.current}/200)` : "";
         pushLog(`✗ http ${res.status} ${errLabel}${after}`);
+        setReplayDone(true);
       }
     } catch (err) {
       pushLog(`✗ network: ${(err as Error).message}`);
+      setReplayDone(true);
     } finally {
       setBusy(false);
     }
   }
+
+  const replayPending =
+    !replayDone && lastResult?.battleFinalState != null;
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -129,7 +163,19 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
         ))}
       </div>
 
-      {lastResult && <HuntResultCard result={lastResult} />}
+      {replayPending && lastResult?.battleFinalState && (
+        <ReplayBattleScene
+          finalState={lastResult.battleFinalState}
+          startPlayerHp={lastResult.startPlayerHp}
+          playerName={playerName}
+          gender={playerGender}
+          exp={lastResult.expForBar ?? 0}
+          maxExp={lastResult.maxExpForBar ?? 1}
+          onDone={() => setReplayDone(true)}
+        />
+      )}
+
+      {replayDone && lastResult && <HuntResultCard result={lastResult} />}
 
       {log.length > 0 && (
         <section className="space-y-1">

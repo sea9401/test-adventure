@@ -65,8 +65,15 @@ export async function GET() {
     stamina?: unknown;
     gold?: number;
   };
-  const profile = (profileRow?.value ?? null) as { name?: string } | null;
+  const profile = (profileRow?.value ?? null) as {
+    name?: string;
+    gender?: string;
+  } | null;
   const name = profile?.name?.trim() || "모험가";
+  const gender =
+    typeof profile?.gender === "string" && profile.gender.length > 0
+      ? profile.gender
+      : "male1";
   const guildName = guildRow?.name ?? "—";
   const maxHp = combat?.maxHp ?? 100;
 
@@ -85,6 +92,7 @@ export async function GET() {
     ok: true,
     character: {
       name,
+      gender,
       level,
       exp,
       expToNext,

@@ -218,6 +218,20 @@
       "when": 1779689034087,
       "tag": "0030_yellow_franklin_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1779690265561,
+      "tag": "0031_huge_silverclaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1779690582457,
+      "tag": "0032_white_terrax",
+      "breakpoints": true
     }
   ]
 }

@@ -758,21 +758,34 @@ export const fiefdoms = pgTable("fiefdoms", {
 // outpostId = data/v2/outposts.ts 의 Outpost.id (코드 정적 데이터라 FK X).
 // occupiedByUserId/Guild — 둘 다 nullable. 솔로 점령은 user 만, 길드 점령은 guild 만.
 // policy/taxRate — 점령자가 설정. 입장 정책 + 사냥 골드 세금.
-export const outpostOccupations = pgTable("outpost_occupations", {
-  outpostId: text("outpost_id").primaryKey(),
-  occupiedByUserId: text("occupied_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  occupiedByGuildId: integer("occupied_by_guild_id").references(() => guilds.id, {
-    onDelete: "set null",
-  }),
-  occupiedAt: timestamp("occupied_at").defaultNow().notNull(),
-  policy: text("policy").notNull().default("open"),
-  // 0.000 ~ 1.000. open 정책에서 거점 사냥 골드의 % 점령자 징수.
-  taxRate: numeric("tax_rate", { precision: 4, scale: 3 }).notNull().default("0"),
-  // 자원 산출 lazy 계산 anchor. 수확 시 갱신. 광산만 의미 있음.
-  lastHarvestedAt: timestamp("last_harvested_at").defaultNow().notNull(),
-});
+export const outpostOccupations = pgTable(
+  "outpost_occupations",
+  {
+    outpostId: text("outpost_id").primaryKey(),
+    occupiedByUserId: text("occupied_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    occupiedByGuildId: integer("occupied_by_guild_id").references(
+      () => guilds.id,
+      { onDelete: "set null" },
+    ),
+    occupiedAt: timestamp("occupied_at").defaultNow().notNull(),
+    policy: text("policy").notNull().default("open"),
+    // 0.000 ~ 1.000. open 정책에서 거점 사냥 골드의 % 점령자 징수.
+    taxRate: numeric("tax_rate", { precision: 4, scale: 3 })
+      .notNull()
+      .default("0"),
+    // 자원 산출 lazy 계산 anchor. 수확 시 갱신. 광산만 의미 있음.
+    lastHarvestedAt: timestamp("last_harvested_at").defaultNow().notNull(),
+    // 다음 NPC 정기 공격 예정 시각. 점령 시 tier 기반 interval 으로 설정.
+    // cron 또는 lazy 평가가 nextAttackAt < now 인 거점들을 처리.
+    nextAttackAt: timestamp("next_attack_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // cron 의 due 검색 효율 (WHERE next_attack_at <= now AND occupied_by_user_id IS NOT NULL).
+    index("outpost_occupations_next_attack_at_idx").on(t.nextAttackAt),
+  ],
+);
 
 // v2 거점 점령 시도 기록 (성공/실패 모두). claim attempt log — 분석/표시용.
 // 1대1 일기토 결과 1행. 길드 3:3 토너먼트는 3행 (라운드 별).
@@ -781,15 +794,15 @@ export const outpostClaimAttempts = pgTable(
   {
     id: serial("id").primaryKey(),
     outpostId: text("outpost_id").notNull(),
-    attackerUserId: text("attacker_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    // 공격자가 user 면 user.id, NPC 정기 공격이면 null.
+    attackerUserId: text("attacker_user_id").references(() => users.id, {
+      onDelete: "cascade",
+    }),
     // 공격측 길드 (솔로면 null).
     attackerGuildId: integer("attacker_guild_id").references(() => guilds.id, {
       onDelete: "set null",
     }),
-    // 일기토 상대 — NPC 챔피언 이름(라이브 monster name) 또는 user.id (PvP).
-    // PvP 시 defenderUserId 도 채움.
+    // 수비자 표기 — 일반 claim 시 NPC 챔피언 이름, NPC 공격 시 점령자(영웅) 이름.
     defenderName: text("defender_name").notNull(),
     defenderUserId: text("defender_user_id").references(() => users.id, {
       onDelete: "set null",

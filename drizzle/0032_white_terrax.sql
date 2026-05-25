@@ -1,0 +1,1 @@
+ALTER TABLE "outpost_claim_attempts" ALTER COLUMN "attacker_user_id" DROP NOT NULL;

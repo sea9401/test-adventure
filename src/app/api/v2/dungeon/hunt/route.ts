@@ -363,6 +363,20 @@ export async function POST(req: Request) {
     };
     await upsertSave(tx, userId, "character.v2", next);
 
+    // 레벨업 시 단련 포인트 +levelsGained (라이브 autoHunt 패턴).
+    // GrowthShrine 에서 분배. lock 순서 character.v2 다음에 training.v2 (다른 키).
+    if (expResult.levelsGained > 0) {
+      const trainingSave = await lockSaveForUpdate<{
+        points?: number;
+        [k: string]: unknown;
+      }>(tx, userId, "training.v2", {});
+      const curPoints = Math.max(0, trainingSave.points ?? 0);
+      await upsertSave(tx, userId, "training.v2", {
+        ...trainingSave,
+        points: curPoints + expResult.levelsGained,
+      });
+    }
+
     // 세금 transfer — 위에서 정렬된 순서로 이미 lock 한 ownerSave 에 gold 추가.
     if (goldTaxed > 0 && taxOwnerId && ownerSave) {
       const ownerNew = {

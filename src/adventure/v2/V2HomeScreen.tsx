@@ -6,6 +6,7 @@ import {
   Buildings,
   Diamond,
   MapTrifold,
+  Plus,
   Sparkle,
   User,
   UsersThree,
@@ -26,7 +27,8 @@ export type HomeAction =
   | { kind: "open-lineup" }
   | { kind: "open-character" }
   | { kind: "open-inventory" }
-  | { kind: "open-skills" };
+  | { kind: "open-skills" }
+  | { kind: "open-shrine" };
 
 type StateResponse = {
   ok?: boolean;
@@ -164,6 +166,12 @@ export function V2HomeScreen({
           title="스킬"
           description="일반 스킬 장착 (특기·AP 는 후속)."
           onClick={() => onAction({ kind: "open-skills" })}
+        />
+        <EntryCard
+          icon={<Plus size={28} weight="duotone" className="text-violet-600" />}
+          title="성장의 신전"
+          description="레벨업 단련 포인트 분배."
+          onClick={() => onAction({ kind: "open-shrine" })}
         />
         <EntryCard
           icon={<Buildings size={28} weight="duotone" className="text-amber-600" />}

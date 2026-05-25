@@ -41,9 +41,9 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (outpost.type !== "mine") {
+  if (outpost.type !== "mine" && outpost.type !== "village") {
     return Response.json(
-      { ok: false, error: "not_a_mine" },
+      { ok: false, error: "not_harvestable" },
       { status: 400 },
     );
   }
@@ -80,6 +80,7 @@ export async function POST(req: Request) {
     const now = Date.now();
     const yieldResult = computeStoneYield(
       outpost.tier,
+      outpost.type,
       occ.lastHarvestedAt.getTime(),
       now,
     );

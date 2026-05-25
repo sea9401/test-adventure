@@ -257,13 +257,6 @@ export function OutpostView({
           />
         )}
 
-        {outpost.type === "village" && (
-          <ActionCard
-            title="상점"
-            subtitle="아이템 거래."
-            disabled={{ reason: "곧 공개" }}
-          />
-        )}
         {outpost.type === "fort" && isOwner && (
           <SoldierRecruitCard
             onRecruited={() => onAction({ kind: "harvested" })}
@@ -276,20 +269,23 @@ export function OutpostView({
             disabled={{ reason: "점령자 전용" }}
           />
         )}
-        {outpost.type === "mine" && isOwner && (
-          <MineHarvestCard
-            outpost={outpost}
-            tier={outpost.tier}
-            onHarvested={() => onAction({ kind: "harvested" })}
-          />
-        )}
-        {outpost.type === "mine" && !isOwner && (
-          <ActionCard
-            title="자원 산출"
-            subtitle="점령자만 수확 가능."
-            disabled={{ reason: "점령자 전용" }}
-          />
-        )}
+        {(outpost.type === "mine" || outpost.type === "village") &&
+          isOwner && (
+            <MineHarvestCard
+              outpost={outpost}
+              tier={outpost.tier}
+              outpostType={outpost.type}
+              onHarvested={() => onAction({ kind: "harvested" })}
+            />
+          )}
+        {(outpost.type === "mine" || outpost.type === "village") &&
+          !isOwner && (
+            <ActionCard
+              title="자원 산출"
+              subtitle="점령자만 수확 가능."
+              disabled={{ reason: "점령자 전용" }}
+            />
+          )}
       </section>
     </main>
   );
@@ -438,12 +434,15 @@ function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {
 function MineHarvestCard({
   outpost,
   tier,
+  outpostType,
   onHarvested,
 }: {
   outpost: Outpost;
   tier: OutpostTier;
+  outpostType: OutpostType;
   onHarvested: () => void;
 }) {
+  const typeLabel = outpostType === "village" ? "마을 (보조)" : "광산";
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -505,7 +504,7 @@ function MineHarvestCard({
           {busy && <span className="ml-2 text-xs text-zinc-500">…</span>}
         </div>
         <div className="mt-0.5 text-xs text-zinc-500">
-          tier {tier} 광산 — 시간당 산출 (최대 24시간 누적). 클릭 시 즉시 수확.
+          tier {tier} {typeLabel} — 시간당 산출 (최대 24시간 누적). 클릭 시 즉시 수확.
         </div>
       </button>
       {msg && (

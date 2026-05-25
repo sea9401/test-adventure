@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
+import { IntruderPanel } from "./IntruderPanel";
 import type { StaminaState } from "./stamina";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 
@@ -108,6 +109,12 @@ export function OutpostView({
     occupation.occupiedByUserId === viewerUserId;
   // PvP claim 일 때만 주문서 의미 — 점령자 있고 자기 점령 아님.
   const pvpTarget = !!occupation && !isOwner;
+  // 점령 길드 멤버 — 침입자 토벌 패널 가시 조건. user 본인 점령이 아니어도
+  // 같은 길드 멤버라면 토벌 가능.
+  const isGuildMember =
+    !!occupation &&
+    occupation.occupiedByGuildId != null &&
+    viewerGuildId === occupation.occupiedByGuildId;
 
   // 정책 게이트 — guild-only 거점에 다른 길드가 들어가려는 경우 던전 입장 막음.
   const entryDecision = occupation
@@ -273,6 +280,8 @@ export function OutpostView({
             onSaved={() => onAction({ kind: "claimed" })}
           />
         )}
+
+        {isGuildMember && <IntruderPanel outpostId={outpost.id} />}
 
         {outpost.type === "fort" && isOwner && (
           <SoldierRecruitCard

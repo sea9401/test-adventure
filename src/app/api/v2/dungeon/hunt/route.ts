@@ -24,6 +24,11 @@ import {
   type DropResult,
 } from "@/adventure/data/v2/dungeonDrops";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
+import {
+  parseEjectedFrom,
+  type EjectedFrom,
+  type LastHuntedOutpost,
+} from "@/adventure/data/v2/intruderTracking";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 
@@ -94,6 +99,8 @@ export async function POST(req: Request) {
       exp?: number;
       gold?: number;
       materials?: unknown;
+      lastHuntedOutpost?: unknown;
+      ejectedFrom?: unknown;
       [k: string]: unknown;
     };
 
@@ -320,8 +327,23 @@ export async function POST(req: Request) {
     // 0 이면 다음 사냥 전까지 시간 회복으로 만피까지 채워짐.
     const afterHp = Math.max(0, battleResult.finalState.playerHp);
 
+    // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).
+    // 패배해도 거점에서 사냥 시도는 한 셈이라 트래킹. 미점령 거점도 트래킹 X 의미 없으므로
+    // outpostId 가 있을 때만.
+    const nextLastHunted: LastHuntedOutpost | undefined = outpostId
+      ? { outpostId, at: now }
+      : undefined;
+
+    // ejectedFrom 은 직전 사냥 응답 1회용 — 이 응답에 surface 후 키 자체 제거.
+    // (undefined 박는 대신 destructure 로 명시적 제거 — JSON 직렬화 동작 의존 제거)
+    const ejectedNotice: EjectedFrom | null = parseEjectedFrom(
+      charSave.ejectedFrom,
+    );
+    const { ejectedFrom: _dropEjected, ...charSaveWithoutEject } = charSave;
+    void _dropEjected;
+
     const next = {
-      ...charSave,
+      ...charSaveWithoutEject,
       stamina: afterStamina,
       hp: afterHp,
       hpRegenSince: now,
@@ -329,6 +351,8 @@ export async function POST(req: Request) {
       exp: expResult.exp,
       gold: newGold,
       materials: nextMaterials,
+      // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
+      ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
     };
     await upsertSave(tx, userId, "character.v2", next);
 
@@ -361,6 +385,7 @@ export async function POST(req: Request) {
           hpAfter: afterHp,
           maxHp: player.maxHp,
           drops,
+          ejected: ejectedNotice,
         },
       },
     };

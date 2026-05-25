@@ -24,20 +24,20 @@ export function StaminaBar({ state }: { state: StaminaState }) {
   const isFull = display.current >= MAX_STAMINA;
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
-      <div className="flex items-baseline justify-between text-xs">
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="flex items-baseline justify-between text-sm">
         <span className="text-zinc-500 dark:text-zinc-400">스태미너</span>
         <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
           {display.current} / {MAX_STAMINA}
         </span>
       </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div
-          className="h-full bg-emerald-500 transition-[width] duration-500"
+          className="h-full bg-amber-500 transition-[width] duration-500"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
+      <div className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
         {isFull ? "만피" : `다음 회복 ${formatMs(remainingMs)}`}
       </div>
     </div>

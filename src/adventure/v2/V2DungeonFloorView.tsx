@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
-import type { StaminaState } from "@/adventure/v2/stamina";
+import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // 한 층 전용 던전 페이지. 사냥 버튼 + 자동 토글 + 결과 replay/card.
-// 자동 토글은 일단 UI placeholder — 실 작동은 후속.
+// 자동: 토글 ON + busy 아님 + replay 끝남 + stamina ≥ HUNT_COST → setTimeout 후 hunt.
+// 스태미너 부족 시 자동 OFF (회복은 시간이 걸려 자동 재시도 비효율).
+
+const AUTO_DELAY_MS = 600;
 
 export function V2DungeonFloorView({
   floorId,
@@ -19,6 +22,7 @@ export function V2DungeonFloorView({
   outpostName,
   playerName,
   playerGender,
+  stamina,
   setStamina,
   onBack,
 }: {
@@ -27,7 +31,8 @@ export function V2DungeonFloorView({
   outpostName: string;
   playerName: string;
   playerGender: Gender;
-  // 전역 stamina 갱신 — V2GameFlow 의 setter.
+  // 전역 stamina + setter — V2GameFlow.
+  stamina: StaminaState;
   setStamina: (s: StaminaState) => void;
   onBack: () => void;
 }) {
@@ -42,6 +47,24 @@ export function V2DungeonFloorView({
     onReplayDone,
   } = useDungeonHunt({ outpostId, setStamina });
   const [autoMode, setAutoMode] = useState(false);
+  const [autoMsg, setAutoMsg] = useState<string | null>(null);
+
+  // 자동 트리거 — 조건 충족 시 setTimeout 후 hunt.
+  // stamina/busy/replayDone 가 바뀌면 useEffect 다시 평가.
+  useEffect(() => {
+    if (!autoMode) return;
+    if (busy || !replayDone) return;
+    if (!floor) return;
+    if (stamina.current < HUNT_COST) {
+      // 회복은 시간 단위라 자동 retry 무의미 → OFF.
+      setAutoMode(false);
+      setAutoMsg("스태미너 부족 — 자동 중지. 회복 후 다시 켜세요.");
+      return;
+    }
+    setAutoMsg(null);
+    const id = setTimeout(() => void hunt(floor.id), AUTO_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [autoMode, busy, replayDone, stamina.current, hunt, floor]);
 
   if (!floor) {
     return (
@@ -88,24 +111,26 @@ export function V2DungeonFloorView({
           <button
             type="button"
             onClick={() => hunt(floor.id)}
-            disabled={busy}
+            disabled={busy || autoMode}
             className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
           >
-            {busy ? "사냥 중…" : "사냥 (스태미너 1)"}
+            {busy ? "사냥 중…" : autoMode ? "자동 사냥 중" : "사냥 (스태미너 1)"}
           </button>
-          {/* 자동 토글 — 일단 UI placeholder. 실 작동(setInterval 반복 사냥)은 후속 PR. */}
           <label className="flex shrink-0 cursor-pointer items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
             <input
               type="checkbox"
               checked={autoMode}
-              onChange={(e) => setAutoMode(e.target.checked)}
+              onChange={(e) => {
+                setAutoMode(e.target.checked);
+                if (!e.target.checked) setAutoMsg(null);
+              }}
             />
-            <span>자동 (준비 중)</span>
+            <span>자동</span>
           </label>
         </div>
-        {autoMode && (
+        {autoMsg && (
           <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            자동 전투는 다음 업데이트에 작동합니다.
+            {autoMsg}
           </p>
         )}
       </Card>

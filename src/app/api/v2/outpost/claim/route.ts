@@ -169,25 +169,36 @@ export async function POST(req: Request) {
       turns: battle.turns,
     });
 
-    // 점령 성공 → occupations 에 행 추가
+    // 점령 성공 → occupations 에 행 추가. unique violation (race) 시 패배 취급.
     let occupation: {
       outpostId: string;
       occupiedByUserId: string;
       occupiedAt: string;
     } | null = null;
+    let raceLost = false;
     if (won) {
-      await tx.insert(outpostOccupations).values({
-        outpostId: outpost.id,
-        occupiedByUserId: userId,
-        occupiedByGuildId: null,
-        policy: "open",
-        taxRate: "0",
-      });
-      occupation = {
-        outpostId: outpost.id,
-        occupiedByUserId: userId,
-        occupiedAt: new Date().toISOString(),
-      };
+      try {
+        await tx.insert(outpostOccupations).values({
+          outpostId: outpost.id,
+          occupiedByUserId: userId,
+          occupiedByGuildId: null,
+          policy: "open",
+          taxRate: "0",
+        });
+        occupation = {
+          outpostId: outpost.id,
+          occupiedByUserId: userId,
+          occupiedAt: new Date().toISOString(),
+        };
+      } catch (e) {
+        const code = (e as { code?: string }).code;
+        if (code === "23505") {
+          // 동시에 다른 사람이 먼저 점령 — 일기토는 이겼지만 race 에서 졌음.
+          raceLost = true;
+        } else {
+          throw e;
+        }
+      }
     }
 
     // 사냥 후 hp 적용 (라이브 단판 패턴)
@@ -207,6 +218,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         won,
+        raceLost,
         championName: champion.name,
         turns: battle.turns,
         stamina: afterStamina,

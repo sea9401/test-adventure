@@ -9,6 +9,11 @@ import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
+import {
+  simulateTroopBattle,
+  computePlunder,
+  type TroopBattleResult,
+} from "@/adventure/data/v2/troopBattle";
 import { parseResources } from "@/adventure/data/v2/resources";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
@@ -128,17 +133,43 @@ export async function POST(req: Request) {
       };
     }
 
-    // 공격자 병사 read (lock 안 함 — claim 흐름에서 모집 안 함).
-    const attackerResRow = await tx
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(
-        and(eq(savesKv.userId, userId), eq(savesKv.key, "v2-resources")),
-      )
-      .limit(1);
-    const attackerSoldiers = parseResources(
-      attackerResRow[0]?.value ?? null,
-    ).soldiers;
+    // 양측 v2-resources lock.
+    //   - PvP: 양측 모두 mutate (병사 사상자 + 약탈) → 양측 FOR UPDATE.
+    //     데드락 방지를 위해 userId 사전순 lock.
+    //   - NPC (pvpDefenderId == null): 공격자 read만 (보정용). lock 불필요.
+    //   - PvP 흐름이라도 stale 로 NPC fallback 되면 defender 측 mutation 안 함.
+    let attackerResources = { stone: 0, soldiers: 0 };
+    let defenderResources = { stone: 0, soldiers: 0 };
+    if (pvpDefenderId) {
+      const [firstId, secondId] = [userId, pvpDefenderId].sort();
+      const firstSave = await lockSaveForUpdate<unknown>(
+        tx,
+        firstId,
+        "v2-resources",
+        {},
+      );
+      const secondSave = await lockSaveForUpdate<unknown>(
+        tx,
+        secondId,
+        "v2-resources",
+        {},
+      );
+      attackerResources = parseResources(
+        userId === firstId ? firstSave : secondSave,
+      );
+      defenderResources = parseResources(
+        userId === firstId ? secondSave : firstSave,
+      );
+    } else {
+      const row = await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, "v2-resources")),
+        )
+        .limit(1);
+      attackerResources = parseResources(row[0]?.value ?? null);
+    }
 
     // hp 회복 + 병사 보정 적용
     const hpRegen = applyHpRegen(
@@ -149,7 +180,7 @@ export async function POST(req: Request) {
     );
     const playerForBattle = applySoldierBoost(
       { ...player.player, hp: hpRegen.hp },
-      attackerSoldiers,
+      attackerResources.soldiers,
     );
 
     // playerName fetch (공격자)
@@ -172,9 +203,13 @@ export async function POST(req: Request) {
     // fallback 후 stale occRow 가 row 처리 분기에 다시 잡히지 않도록.
     // (delete 한 row 가 occRow 에 남아 있어서 UPDATE 분기로 가면 0행 update — silent miss)
     let stillHasOccRow = !!occRow;
+    // 본 병사 전쟁 결과 (PvP 한정). NPC claim 이면 null.
+    let troopBattle: TroopBattleResult | null = null;
+    let duelWonByAttacker: boolean | null = null;
+    let plunderStone = 0;
 
     if (pvpDefenderId) {
-      // === PvP claim — 점령자 영웅 vs 공격자 영웅 단판 ===
+      // === PvP claim — 영웅 일기토 + 본 병사 전쟁 ===
       const defender = await derivePlayerCombatFromSaves(pvpDefenderId, tx);
       if (!defender) {
         // 점령자 캐릭 없음 = stale occupation (saves 손상/유저 삭제 등).
@@ -203,25 +238,12 @@ export async function POST(req: Request) {
         defenderLabel = defProfile?.name?.trim() || "수비자";
         defenderUserIdForLog = pvpDefenderId;
 
-        // PvP sim — 수비자는 만피 기준 + 병사 보정 + 스탠스.
-        // 라이브 /api/pvp/challenge 패턴 따라 양측 applyStance.
-        const defenderResRow = await tx
-          .select({ value: savesKv.value })
-          .from(savesKv)
-          .where(
-            and(
-              eq(savesKv.userId, pvpDefenderId),
-              eq(savesKv.key, "v2-resources"),
-            ),
-          )
-          .limit(1);
-        const defenderSoldiers = parseResources(
-          defenderResRow[0]?.value ?? null,
-        ).soldiers;
+        // 1단계 — 영웅 일기토. 결과는 본 전쟁 power 보정용 (점령 결정 X).
+        // 양측 applyStance + 병사 stat 보정.
         const attackerStanced = applyStance(playerForBattle, player.selectedStance);
         const defenderWithSoldiers = applySoldierBoost(
           { ...defender.player, hp: defender.maxHp },
-          defenderSoldiers,
+          defenderResources.soldiers,
         );
         const defenderStanced = applyStance(
           defenderWithSoldiers,
@@ -237,9 +259,50 @@ export async function POST(req: Request) {
             potions: { p1: {}, p2: {} },
           },
         );
-        won = pvp.outcome === "p1_win";
+        duelWonByAttacker = pvp.outcome === "p1_win";
         turns = pvp.turns;
         battleFinalPlayerHp = pvp.finalState.p1.hp;
+
+        // 2단계 — 본 병사 전쟁. 이게 점령 결정.
+        troopBattle = simulateTroopBattle({
+          attackerSoldiers: attackerResources.soldiers,
+          defenderSoldiers: defenderResources.soldiers,
+          attackerAtk: player.player.atk,
+          defenderAtk: defender.player.atk,
+          attackerWonDuel: duelWonByAttacker,
+          // ±10% 노이즈. 단판 sim 의 결정론성 완화.
+          noise: 0.1,
+        });
+        won = troopBattle.attackerWon;
+
+        // 양측 v2-resources 업데이트 — 병사 사상자 + 패자 약탈.
+        const aSoldiersNext = Math.max(
+          0,
+          attackerResources.soldiers - troopBattle.attackerCasualties,
+        );
+        const dSoldiersNext = Math.max(
+          0,
+          defenderResources.soldiers - troopBattle.defenderCasualties,
+        );
+        let aStoneNext = attackerResources.stone;
+        let dStoneNext = defenderResources.stone;
+        if (won) {
+          plunderStone = computePlunder(defenderResources.stone);
+          dStoneNext = defenderResources.stone - plunderStone;
+          aStoneNext = attackerResources.stone + plunderStone;
+        } else {
+          plunderStone = computePlunder(attackerResources.stone);
+          aStoneNext = attackerResources.stone - plunderStone;
+          dStoneNext = defenderResources.stone + plunderStone;
+        }
+        await upsertSave(tx, userId, "v2-resources", {
+          stone: aStoneNext,
+          soldiers: aSoldiersNext,
+        });
+        await upsertSave(tx, pvpDefenderId, "v2-resources", {
+          stone: dStoneNext,
+          soldiers: dSoldiersNext,
+        });
       }
     }
 
@@ -360,6 +423,18 @@ export async function POST(req: Request) {
         hpAfter: afterHp,
         maxHp: player.maxHp,
         occupation,
+        // PvP 본 병사 전쟁 결과 (NPC claim 이면 null).
+        // duelWonByAttacker = 일기토 결과 (power 보정), won = 본 전쟁 = 점령권 결정.
+        troopBattle: troopBattle
+          ? {
+              duelWonByAttacker,
+              attackerPower: troopBattle.attackerPower,
+              defenderPower: troopBattle.defenderPower,
+              attackerCasualties: troopBattle.attackerCasualties,
+              defenderCasualties: troopBattle.defenderCasualties,
+              plunderStone,
+            }
+          : null,
       },
     };
   });

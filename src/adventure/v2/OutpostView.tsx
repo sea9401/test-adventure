@@ -43,6 +43,15 @@ const POLICY_LABELS: Record<string, string> = {
 const POLICY_OPTIONS = ["open", "alliance", "guild-only"] as const;
 const TAX_RATE_MAX = 0.5;
 
+type TroopBattleSummary = {
+  duelWonByAttacker?: boolean;
+  attackerPower: number;
+  defenderPower: number;
+  attackerCasualties: number;
+  defenderCasualties: number;
+  plunderStone: number;
+};
+
 type ClaimResponse = {
   ok?: boolean;
   error?: string;
@@ -56,6 +65,7 @@ type ClaimResponse = {
   hpAfter?: number;
   maxHp?: number;
   requiredStamina?: number;
+  troopBattle?: TroopBattleSummary | null;
 };
 
 export function OutpostView({
@@ -99,21 +109,25 @@ export function OutpostView({
         setLastClaim(`✗ http ${res.status} (빈 응답)`);
         return;
       }
-      const label = json.pvp ? "결투 (PvP)" : "일기토 (NPC)";
+      const label = json.pvp ? "PvP — 일기토 + 본 병사 전쟁" : "일기토 (NPC)";
+      const troopLine = json.troopBattle
+        ? ` · 일기토 ${json.troopBattle.duelWonByAttacker ? "승" : "패"} → 본 전쟁 power ${json.troopBattle.attackerPower}/${json.troopBattle.defenderPower} · 사상 ${json.troopBattle.attackerCasualties}/${json.troopBattle.defenderCasualties} · 약탈 광물 ${json.troopBattle.plunderStone}`
+        : "";
       if (json.ok && json.won && !json.raceLost) {
         setLastClaim(
-          `✓ ${label} — ${json.championName} 격파 (${json.turns}턴) — 점령 성공!`,
+          `✓ ${label} — ${json.championName} (${json.turns}턴) — 점령 성공!${troopLine}`,
         );
         onAction({ kind: "claimed" });
       } else if (json.ok && json.won && json.raceLost) {
         setLastClaim(
-          `△ ${label} — ${json.championName} 격파 (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.`,
+          `△ ${label} — ${json.championName} (${json.turns}턴) — 다른 세력이 먼저 점령. 스태미너만 차감.${troopLine}`,
         );
         onAction({ kind: "claimed" });
       } else if (json.ok && !json.won) {
         setLastClaim(
-          `✗ ${label} — ${json.championName} 패배 (${json.turns}턴) — 점령 실패. 스태미너만 차감됨.`,
+          `✗ ${label} — ${json.championName} (${json.turns}턴) — 점령 실패.${troopLine}`,
         );
+        if (json.troopBattle) onAction({ kind: "claimed" });
       } else {
         const need =
           json.error === "out_of_stamina" && json.requiredStamina

@@ -6,6 +6,7 @@ import { OutpostView } from "@/adventure/v2/OutpostView";
 import { OutpostListView } from "@/adventure/v2/OutpostListView";
 import { LineupCard } from "@/adventure/v2/LineupCard";
 import { V2HomeScreen, type HomeAction } from "@/adventure/v2/V2HomeScreen";
+import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -28,6 +29,7 @@ type View =
   | { kind: "outpost-list" }
   | { kind: "map" }
   | { kind: "lineup" }
+  | { kind: "character" }
   | { kind: "outpost"; outpost: Outpost; from: "list" | "map" }
   | { kind: "dungeon"; outpost: Outpost; from: "list" | "map" };
 
@@ -92,6 +94,7 @@ export function V2GameFlow() {
     if (action.kind === "open-outposts") setView({ kind: "outpost-list" });
     else if (action.kind === "open-map") setView({ kind: "map" });
     else if (action.kind === "open-lineup") setView({ kind: "lineup" });
+    else if (action.kind === "open-character") setView({ kind: "character" });
   };
 
   const handleOutpostAction = (action: {
@@ -158,6 +161,10 @@ export function V2GameFlow() {
           </button>
           <LineupCard />
         </main>
+      )}
+
+      {view.kind === "character" && (
+        <V2CharacterScreen onBack={() => setView({ kind: "home" })} />
       )}
 
       {view.kind === "outpost" && (

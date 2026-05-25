@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   boolean,
   check,
+  numeric,
 } from "drizzle-orm/pg-core";
 
 // Auth.js(NextAuth) 와 게임 사용자 1:1 매핑.
@@ -752,6 +753,54 @@ export const fiefdoms = pgTable("fiefdoms", {
   shieldUntil: timestamp("shield_until"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// v2 거점 점령 상태. row 가 있으면 점령된 거점, 없으면 NPC 운영(비점령).
+// outpostId = data/v2/outposts.ts 의 Outpost.id (코드 정적 데이터라 FK X).
+// occupiedByUserId/Guild — 둘 다 nullable. 솔로 점령은 user 만, 길드 점령은 guild 만.
+// policy/taxRate — 점령자가 설정. 입장 정책 + 사냥 골드 세금.
+export const outpostOccupations = pgTable("outpost_occupations", {
+  outpostId: text("outpost_id").primaryKey(),
+  occupiedByUserId: text("occupied_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  occupiedByGuildId: integer("occupied_by_guild_id").references(() => guilds.id, {
+    onDelete: "set null",
+  }),
+  occupiedAt: timestamp("occupied_at").defaultNow().notNull(),
+  policy: text("policy").notNull().default("open"),
+  // 0.000 ~ 1.000. open 정책에서 거점 사냥 골드의 % 점령자 징수.
+  taxRate: numeric("tax_rate", { precision: 4, scale: 3 }).notNull().default("0"),
+});
+
+// v2 거점 점령 시도 기록 (성공/실패 모두). claim attempt log — 분석/표시용.
+// 1대1 일기토 결과 1행. 길드 3:3 토너먼트는 3행 (라운드 별).
+export const outpostClaimAttempts = pgTable(
+  "outpost_claim_attempts",
+  {
+    id: serial("id").primaryKey(),
+    outpostId: text("outpost_id").notNull(),
+    attackerUserId: text("attacker_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // 공격측 길드 (솔로면 null).
+    attackerGuildId: integer("attacker_guild_id").references(() => guilds.id, {
+      onDelete: "set null",
+    }),
+    // 일기토 상대 — NPC 챔피언 이름(라이브 monster name) 또는 user.id (PvP).
+    // PvP 시 defenderUserId 도 채움.
+    defenderName: text("defender_name").notNull(),
+    defenderUserId: text("defender_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    won: boolean("won").notNull(),
+    turns: integer("turns").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("outpost_claim_attempts_outpost_idx").on(t.outpostId, t.createdAt),
+    index("outpost_claim_attempts_attacker_idx").on(t.attackerUserId, t.createdAt),
+  ],
+);
 
 // 공격 감사 로그. 누가 누구를 언제 공격했고 결과/약탈 얼만큼 나갔는지.
 // won=true 면 lootGold/Wood/Food 가 실제 공격자에게 이전된 양 (cap 20% 적용 후).

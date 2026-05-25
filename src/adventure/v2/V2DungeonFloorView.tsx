@@ -37,7 +37,7 @@ export function V2DungeonFloorView({
   onBack: () => void;
 }) {
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
-  const { busy, lastResult, log, hunt } = useDungeonHunt({
+  const { busy, lastResult, hunt } = useDungeonHunt({
     outpostId,
     setStamina,
   });
@@ -141,19 +141,6 @@ export function V2DungeonFloorView({
       )}
 
       {lastResult && <HuntResultCard result={lastResult} />}
-
-      {log.length > 0 && (
-        <section className="space-y-1">
-          <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-            최근 호출
-          </div>
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs font-mono dark:border-zinc-800 dark:bg-zinc-900/50">
-            {log.map((line, i) => (
-              <div key={i}>{line}</div>
-            ))}
-          </div>
-        </section>
-      )}
     </main>
   );
 }

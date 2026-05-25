@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
+import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import type { StaminaState } from "./stamina";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 
@@ -38,10 +39,9 @@ type OccupationLite = {
 
 const POLICY_LABELS: Record<string, string> = {
   open: "자유 입장",
-  alliance: "동맹만",
   "guild-only": "자길드만",
 };
-const POLICY_OPTIONS = ["open", "alliance", "guild-only"] as const;
+const POLICY_OPTIONS = ["open", "guild-only"] as const;
 const TAX_RATE_MAX = 0.5;
 
 type TroopBattleSummary = {
@@ -84,11 +84,13 @@ type ClaimResponse = {
 export function OutpostView({
   outpost,
   viewerUserId,
+  viewerGuildId,
   occupation,
   onAction,
 }: {
   outpost: Outpost;
   viewerUserId: string | null;
+  viewerGuildId: number | null;
   occupation: OccupationLite;
   onAction: (action: OutpostAction) => void;
 }) {
@@ -106,6 +108,18 @@ export function OutpostView({
     occupation.occupiedByUserId === viewerUserId;
   // PvP claim 일 때만 주문서 의미 — 점령자 있고 자기 점령 아님.
   const pvpTarget = !!occupation && !isOwner;
+
+  // 정책 게이트 — guild-only 거점에 다른 길드가 들어가려는 경우 던전 입장 막음.
+  const entryDecision = occupation
+    ? evaluateOutpostEntry({
+        policy: occupation.policy ?? "open",
+        occupiedByGuildId: occupation.occupiedByGuildId,
+        viewerGuildId,
+      })
+    : { allowed: true as const, charge: "none" as const };
+  const dungeonDisabled: { reason: string } | null = entryDecision.allowed
+    ? null
+    : { reason: "점령 길드가 자길드 멤버에게만 개방 중" };
 
   async function attemptClaim() {
     setBusy(true);
@@ -203,8 +217,11 @@ export function OutpostView({
 
         <ActionCard
           title="던전 입장"
-          subtitle="5층 던전에서 사냥. 스태미너 소모."
+          subtitle={
+            dungeonDisabled?.reason ?? "5층 던전에서 사냥. 스태미너 소모."
+          }
           onClick={() => onAction({ kind: "enter-dungeon" })}
+          disabled={dungeonDisabled ?? undefined}
         />
 
         <ActionCard

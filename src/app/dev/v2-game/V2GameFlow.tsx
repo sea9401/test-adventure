@@ -32,6 +32,7 @@ export function V2GameFlow() {
   const [view, setView] = useState<View>({ kind: "map" });
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
+  const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
   const [resources, setResources] = useState<V2Resources | null>(null);
 
   const refreshOccupations = useCallback(async () => {
@@ -68,11 +69,15 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
-    // v2 자동 1인 길드 보장 — 첫 진입 시 1회 fire-and-forget. idempotent.
-    // guildId 사용은 후속 PR (claim 길드화 + 토너먼트). 지금은 인프라만.
+    // v2 자동 1인 길드 보장 — 첫 진입 시 1회. idempotent.
+    // guildId 는 정책 게이트(거점 입장 가능 여부 판정)에 사용.
     (async () => {
       try {
-        await fetch("/api/v2/me/guild", { method: "POST" });
+        const res = await fetch("/api/v2/me/guild", { method: "POST" });
+        if (res.ok) {
+          const j = (await res.json()) as { guildId?: number } | null;
+          if (typeof j?.guildId === "number") setViewerGuildId(j.guildId);
+        }
       } catch {}
     })();
   }, [refreshOccupations, refreshResources]);
@@ -101,6 +106,7 @@ export function V2GameFlow() {
         <OutpostView
           outpost={view.outpost}
           viewerUserId={viewerUserId}
+          viewerGuildId={viewerGuildId}
           occupation={
             occupations.find((o) => o.outpostId === view.outpost.id) ?? null
           }

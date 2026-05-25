@@ -96,8 +96,12 @@ export function DungeonHunt({ outpostId }: { outpostId?: string } = {}) {
         }
       } else {
         const err = json.error ?? "unknown";
+        const errLabel =
+          err === "policy_blocked"
+            ? "policy_blocked (점령 길드가 자길드 멤버에게만 개방 중)"
+            : err;
         const after = json.stamina ? ` (스태미너 ${json.stamina.current}/200)` : "";
-        pushLog(`✗ http ${res.status} ${err}${after}`);
+        pushLog(`✗ http ${res.status} ${errLabel}${after}`);
       }
     } catch (err) {
       pushLog(`✗ network: ${(err as Error).message}`);

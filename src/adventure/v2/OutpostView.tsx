@@ -222,11 +222,14 @@ export function OutpostView({
             disabled={{ reason: "곧 공개" }}
           />
         )}
-        {outpost.type === "mine" && (
+        {outpost.type === "mine" && isOwner && (
+          <MineHarvestCard outpost={outpost} tier={outpost.tier} />
+        )}
+        {outpost.type === "mine" && !isOwner && (
           <ActionCard
             title="자원 산출"
-            subtitle="광산이 시간당 산출하는 자원 확인."
-            disabled={{ reason: "곧 공개" }}
+            subtitle="점령자만 수확 가능."
+            disabled={{ reason: "점령자 전용" }}
           />
         )}
       </section>
@@ -245,6 +248,84 @@ function computeClaimDisabled(
     return { reason: "이미 내 점령지" };
   }
   return { reason: "다른 세력이 점령 중 (PvP 후속 PR)" };
+}
+
+function MineHarvestCard({
+  outpost,
+  tier,
+}: {
+  outpost: Outpost;
+  tier: OutpostTier;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function harvest() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/outpost/harvest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outpostId: outpost.id }),
+      });
+      type HarvestResponse = {
+        ok?: boolean;
+        error?: string;
+        gained?: number;
+        effectiveHours?: number;
+        resources?: { stone: number };
+      };
+      let json: HarvestResponse | null = null;
+      try {
+        json = (await res.json()) as HarvestResponse;
+      } catch {
+        setMsg(`✗ http ${res.status} (응답 JSON 아님)`);
+        return;
+      }
+      if (json && json.ok) {
+        if ((json.gained ?? 0) > 0) {
+          setMsg(
+            `✓ 광물 +${json.gained} (${(json.effectiveHours ?? 0).toFixed(1)}시간치) · 누적 ${json.resources?.stone}`,
+          );
+        } else {
+          setMsg(
+            `△ 아직 산출량 없음 (누적 시간 부족) · 보유 ${json.resources?.stone ?? 0}`,
+          );
+        }
+      } else {
+        setMsg(`✗ ${json?.error ?? `http ${res.status}`}`);
+      }
+    } catch (err) {
+      setMsg(`✗ network: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/50">
+      <button
+        type="button"
+        onClick={harvest}
+        disabled={busy}
+        className="block w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
+      >
+        <div className="font-medium">
+          광물 수확
+          {busy && <span className="ml-2 text-xs text-zinc-500">…</span>}
+        </div>
+        <div className="mt-0.5 text-xs text-zinc-500">
+          tier {tier} 광산 — 시간당 산출 (최대 24시간 누적). 클릭 시 즉시 수확.
+        </div>
+      </button>
+      {msg && (
+        <div className="border-t border-zinc-200 px-3 py-2 text-xs font-mono dark:border-zinc-800">
+          {msg}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function PolicyEditor({

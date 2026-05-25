@@ -770,6 +770,8 @@ export const outpostOccupations = pgTable("outpost_occupations", {
   policy: text("policy").notNull().default("open"),
   // 0.000 ~ 1.000. open 정책에서 거점 사냥 골드의 % 점령자 징수.
   taxRate: numeric("tax_rate", { precision: 4, scale: 3 }).notNull().default("0"),
+  // 자원 산출 lazy 계산 anchor. 수확 시 갱신. 광산만 의미 있음.
+  lastHarvestedAt: timestamp("last_harvested_at").defaultNow().notNull(),
 });
 
 // v2 거점 점령 시도 기록 (성공/실패 모두). claim attempt log — 분석/표시용.

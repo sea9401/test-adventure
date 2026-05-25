@@ -3,21 +3,24 @@
 import { useCallback, useEffect, useState } from "react";
 import { ContinentMap } from "@/adventure/v2/ContinentMap";
 import { OutpostView } from "@/adventure/v2/OutpostView";
-// OutpostListView / LineupCard 는 길드 탭 신규 PR 에서 재활용 예정 — 파일은 보존, 여기 import 만 제거.
-import { V2HomeScreen, type HomeAction } from "@/adventure/v2/V2HomeScreen";
 import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
+import { V2TabBar, type TabId } from "@/adventure/v2/V2TabBar";
+import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
+import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// v2 게임 흐름 — home 중심 라우팅 (라이브 TownScreen 패턴).
-// home → map → outpost(상세) → dungeon.
-// 거점 목록/라인업은 길드 탭 신규 PR 에서 재배치 예정.
+// v2 게임 흐름 — 4탭(모험·마을·캐릭터·지도) 기반 nav.
+// 캐릭터 탭: 내정보(default)/인벤토리/스킬/장비
+// 마을 탭: 마을 home(default)/성장의 신전
+// 지도 탭: ContinentMap(default)/outpost/dungeon
+// 모험 탭: placeholder
 
 export type Occupation = {
   outpostId: string;
@@ -30,26 +33,61 @@ export type Occupation = {
 };
 
 type View =
-  | { kind: "home" }
-  | { kind: "map" }
+  // 캐릭터 탭
   | { kind: "character" }
   | { kind: "inventory" }
   | { kind: "skills" }
-  | { kind: "shrine" }
   | { kind: "equipment" }
+  // 마을 탭
+  | { kind: "town" }
+  | { kind: "shrine" }
+  // 지도 탭
+  | { kind: "map" }
   | { kind: "outpost"; outpost: Outpost }
-  | { kind: "dungeon"; outpost: Outpost };
+  | { kind: "dungeon"; outpost: Outpost }
+  // 모험 탭
+  | { kind: "adventure" };
+
+function tabOfView(view: View): TabId {
+  switch (view.kind) {
+    case "character":
+    case "inventory":
+    case "skills":
+    case "equipment":
+      return "character";
+    case "town":
+    case "shrine":
+      return "town";
+    case "map":
+    case "outpost":
+    case "dungeon":
+      return "map";
+    case "adventure":
+      return "adventure";
+  }
+}
+
+function defaultViewOfTab(tab: TabId): View {
+  switch (tab) {
+    case "adventure":
+      return { kind: "adventure" };
+    case "town":
+      return { kind: "town" };
+    case "character":
+      return { kind: "character" };
+    case "map":
+      return { kind: "map" };
+  }
+}
 
 export function V2GameFlow() {
-  const [view, setView] = useState<View>({ kind: "home" });
+  // 시작 탭 = 캐릭터 (제일 자주 보는 곳).
+  const [view, setView] = useState<View>(() => defaultViewOfTab("character"));
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
-  // viewer 의 캐릭 정보(이름·gender) — ReplayBattleScene 의 PlayerAvatar 에 사용.
-  // me/state 응답에서 받아 두고 dungeon hunt 자식에 prop.
   const [viewerName, setViewerName] = useState<string>("모험가");
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
-  // V2TopBar 좌측 표시 — outpost 진입 시 visit POST → state 갱신.
   const [currentOutpost, setCurrentOutpost] = useState<
     { id: string; name: string } | null
   >(null);
@@ -75,8 +113,6 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
-    // v2 자동 1인 길드 보장 — 첫 진입 시 1회. idempotent.
-    // guildId 는 정책 게이트(거점 입장 가능 여부 판정)에 사용.
     (async () => {
       try {
         const res = await fetch("/api/v2/me/guild", { method: "POST" });
@@ -86,7 +122,6 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
-    // 캐릭터 이름·gender + currentOutpost — V2TopBar 좌측, BattleScene 의 PlayerAvatar 용.
     (async () => {
       try {
         const res = await fetch("/api/v2/me/state");
@@ -103,7 +138,7 @@ export function V2GameFlow() {
     })();
   }, [refreshOccupations]);
 
-  // outpost 진입 helper — 로컬 state 즉시 갱신 + 서버 visit POST 백그라운드.
+  // outpost 진입 helper — 로컬 state + 서버 visit POST 백그라운드.
   const enterOutpost = useCallback((outpost: Outpost) => {
     setCurrentOutpost({ id: outpost.id, name: outpost.name });
     setView({ kind: "outpost", outpost });
@@ -114,22 +149,19 @@ export function V2GameFlow() {
     }).catch(() => {});
   }, []);
 
-  const handleHome = (action: HomeAction) => {
-    if (action.kind === "open-map") setView({ kind: "map" });
-    else if (action.kind === "open-character") setView({ kind: "character" });
-    else if (action.kind === "open-inventory") setView({ kind: "inventory" });
-    else if (action.kind === "open-skills") setView({ kind: "skills" });
-    else if (action.kind === "open-shrine") setView({ kind: "shrine" });
-    else if (action.kind === "open-equipment") setView({ kind: "equipment" });
+  const handleTabSelect = (tab: TabId) => {
+    setView(defaultViewOfTab(tab));
+  };
+
+  const handleTownAction = (action: TownAction) => {
+    if (action.kind === "open-shrine") setView({ kind: "shrine" });
   };
 
   const handleOutpostAction = (action: {
     kind: "back" | "enter-dungeon" | "claimed" | "harvested";
   }) => {
     if (view.kind !== "outpost") return;
-    if (action.kind === "back") {
-      setView({ kind: "map" });
-    }
+    if (action.kind === "back") setView({ kind: "map" });
     if (action.kind === "enter-dungeon") {
       setView({ kind: "dungeon", outpost: view.outpost });
     }
@@ -138,53 +170,45 @@ export function V2GameFlow() {
     }
   };
 
+  const currentTab = tabOfView(view);
+
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      {view.kind === "home" && <V2HomeScreen onAction={handleHome} />}
+      <V2TabBar current={currentTab} onSelect={handleTabSelect} />
 
-      {view.kind === "map" && (
-        <div>
-          <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-            <button
-              type="button"
-              onClick={() => setView({ kind: "home" })}
-              className="hover:text-zinc-900 dark:hover:text-white"
-            >
-              ← 메인으로
-            </button>
-          </div>
-          <ContinentMap
-            onOutpostEnter={enterOutpost}
-            occupations={occupations}
-            viewerUserId={viewerUserId}
-          />
-        </div>
-      )}
-
+      {/* === 캐릭터 탭 === */}
       {view.kind === "character" && (
         <V2CharacterScreen
-          onBack={() => setView({ kind: "home" })}
           onOpenEquipment={() => setView({ kind: "equipment" })}
+          onOpenInventory={() => setView({ kind: "inventory" })}
+          onOpenSkills={() => setView({ kind: "skills" })}
         />
       )}
-
       {view.kind === "inventory" && (
-        <V2InventoryView onBack={() => setView({ kind: "home" })} />
+        <V2InventoryView onBack={() => setView({ kind: "character" })} />
       )}
-
       {view.kind === "skills" && (
-        <V2SkillsView onBack={() => setView({ kind: "home" })} />
+        <V2SkillsView onBack={() => setView({ kind: "character" })} />
       )}
-
-      {view.kind === "shrine" && (
-        <V2GrowthShrineView onBack={() => setView({ kind: "home" })} />
-      )}
-
       {view.kind === "equipment" && (
-        <V2EquipmentView onBack={() => setView({ kind: "home" })} />
+        <V2EquipmentView onBack={() => setView({ kind: "character" })} />
       )}
 
+      {/* === 마을 탭 === */}
+      {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
+      {view.kind === "shrine" && (
+        <V2GrowthShrineView onBack={() => setView({ kind: "town" })} />
+      )}
+
+      {/* === 지도 탭 === */}
+      {view.kind === "map" && (
+        <ContinentMap
+          onOutpostEnter={enterOutpost}
+          occupations={occupations}
+          viewerUserId={viewerUserId}
+        />
+      )}
       {view.kind === "outpost" && (
         <OutpostView
           outpost={view.outpost}
@@ -196,7 +220,6 @@ export function V2GameFlow() {
           onAction={handleOutpostAction}
         />
       )}
-
       {view.kind === "dungeon" && (
         <div>
           <div className="border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-xs text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
@@ -217,6 +240,9 @@ export function V2GameFlow() {
           />
         </div>
       )}
+
+      {/* === 모험 탭 === */}
+      {view.kind === "adventure" && <V2AdventureHome />}
     </div>
   );
 }

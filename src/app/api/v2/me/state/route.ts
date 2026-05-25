@@ -14,7 +14,7 @@ import {
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
-// GET /api/v2/me/state — V2HomeScreen 의 단일 fetch.
+// GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
 //
 // 캐릭터(레벨/EXP/HP/스태미너/골드) + 길드(id/name) + 자원풀 한 번에.
 // HP·stamina 는 시간 회복 적용한 현재값으로 surface (다음 사냥 진입 시 동기화).

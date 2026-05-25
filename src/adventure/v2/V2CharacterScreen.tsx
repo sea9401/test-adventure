@@ -82,11 +82,13 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
 }
 
 export function V2CharacterScreen({
-  onBack,
   onOpenEquipment,
+  onOpenInventory,
+  onOpenSkills,
 }: {
-  onBack: () => void;
   onOpenEquipment?: () => void;
+  onOpenInventory?: () => void;
+  onOpenSkills?: () => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
@@ -125,14 +127,7 @@ export function V2CharacterScreen({
 
   return (
     <main className="mx-auto max-w-md space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← 메인으로
-        </button>
+      <header>
         <h1 className="text-lg font-bold">내 정보</h1>
       </header>
 
@@ -232,6 +227,30 @@ export function V2CharacterScreen({
         <Card padding="md">
           <StatsPanel stats={stats.base} totalStats={stats.total} combat={combat} />
         </Card>
+      )}
+
+      {/* 캐릭터 탭 내 sub 진입 — 인벤/스킬. 장비는 위의 슬롯 클릭. */}
+      {(onOpenInventory || onOpenSkills) && (
+        <div className="grid grid-cols-2 gap-2">
+          {onOpenInventory && (
+            <button
+              type="button"
+              onClick={onOpenInventory}
+              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              인벤토리
+            </button>
+          )}
+          {onOpenSkills && (
+            <button
+              type="button"
+              onClick={onOpenSkills}
+              className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              스킬
+            </button>
+          )}
+        </div>
       )}
 
       {stats == null && !loading && (

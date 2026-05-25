@@ -80,7 +80,11 @@ function svgCoordsFromEvent(
   return { x: Math.round(t.x), y: Math.round(t.y) };
 }
 
-export function ContinentMap() {
+export function ContinentMap({
+  onOutpostEnter,
+}: {
+  onOutpostEnter?: (o: Outpost) => void;
+} = {}) {
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(
@@ -279,6 +283,15 @@ export function ContinentMap() {
                   : "비점령 (PR-B3 에서 점령 룰 통합 예정)"}
               </div>
             </div>
+            {onOutpostEnter && (
+              <button
+                type="button"
+                onClick={() => onOutpostEnter(selected)}
+                className="block w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                이 거점 진입 →
+              </button>
+            )}
           </div>
         ) : (
           <div className="mt-3 text-xs text-zinc-500">

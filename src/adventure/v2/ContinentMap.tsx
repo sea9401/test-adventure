@@ -9,12 +9,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { ArrowsOut, Minus, Plus } from "@phosphor-icons/react";
-import {
-  OUTPOSTS,
-  MAP_BOUNDS,
-  CONTINENT_NAME,
-} from "@/adventure/data/v2/outposts";
+import { ArrowsOut, Minus, Plus, X } from "@phosphor-icons/react";
+import { OUTPOSTS, MAP_BOUNDS } from "@/adventure/data/v2/outposts";
 import type {
   Outpost,
   OutpostType,
@@ -317,10 +313,10 @@ export function ContinentMap({
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-3 p-4">
+    <div className="mx-auto w-full max-w-2xl p-4">
       <div
         ref={containerRef}
-        className="relative h-[70vh] w-full touch-none select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40"
+        className="relative h-[78vh] w-full touch-none select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -467,82 +463,47 @@ export function ContinentMap({
             <Minus size={16} weight="bold" />
           </button>
         </div>
-      </div>
 
-      <aside className="rounded-lg border border-zinc-300 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
-        <header className="space-y-1 border-b border-zinc-200 pb-2 dark:border-zinc-800">
-          <div className="text-xs uppercase tracking-wider text-zinc-500">
-            대륙
-          </div>
-          <div className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            {CONTINENT_NAME}
-          </div>
-          <div className="text-xs text-zinc-500">
-            거점 {OUTPOSTS.length} (왕국{" "}
-            {OUTPOSTS.filter((o) => o.tier === 4).length}
-            · 도시 {OUTPOSTS.filter((o) => o.tier === 3).length} · 거점{" "}
-            {OUTPOSTS.filter((o) => o.tier === 2).length} · 마을{" "}
-            {OUTPOSTS.filter((o) => o.tier === 1).length})
-          </div>
-        </header>
-
-        {selected ? (
-          <div className="mt-3 space-y-2 text-sm">
-            <div className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-              {selected.name}
-            </div>
-            <div className="flex flex-wrap gap-1 text-xs">
-              <span className="rounded bg-zinc-200 px-2 py-0.5 dark:bg-zinc-800">
-                {TIER_LABEL[selected.tier]}
-              </span>
-              <span
-                className="rounded px-2 py-0.5 text-white"
-                style={{ backgroundColor: TYPE_COLOR[selected.type] }}
-              >
-                {TYPE_LABEL[selected.type]}
-              </span>
-              {selected.neutral && (
-                <span className="rounded bg-yellow-400 px-2 py-0.5 text-yellow-900">
-                  절대 중립
-                </span>
+        {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 진입 + X. 세부 정보는 진입 후 화면. */}
+        {selected && (
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-center">
+            <div className="pointer-events-auto flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-zinc-300 bg-white/95 px-3 py-2 shadow-md backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-1.5">
+                  <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {selected.name}
+                  </span>
+                  <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                    {TIER_LABEL[selected.tier]} · {TYPE_LABEL[selected.type]}
+                  </span>
+                  {selected.neutral && (
+                    <span className="shrink-0 rounded bg-yellow-400 px-1.5 py-0.5 text-[10px] text-yellow-900">
+                      중립
+                    </span>
+                  )}
+                </div>
+              </div>
+              {onOutpostEnter && !selected.neutral && (
+                <button
+                  type="button"
+                  onClick={() => onOutpostEnter(selected)}
+                  className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                >
+                  진입
+                </button>
               )}
-            </div>
-            {selected.description && (
-              <div className="text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
-                {selected.description}
-              </div>
-            )}
-            <div className="rounded border border-zinc-200 bg-zinc-100 p-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-              <div className="font-medium text-zinc-700 dark:text-zinc-300">
-                점령 상태
-              </div>
-              <div className="text-zinc-500">
-                {(() => {
-                  if (selected.neutral) return "NPC 영구 운영 (점령 불가)";
-                  const occ = occByOutpost.get(selected.id);
-                  if (!occ) return "비점령 (점령 시도 가능)";
-                  if (viewerUserId && occ.occupiedByUserId === viewerUserId)
-                    return "내 점령지";
-                  return "다른 세력 점령 중";
-                })()}
-              </div>
-            </div>
-            {onOutpostEnter && (
               <button
                 type="button"
-                onClick={() => onOutpostEnter(selected)}
-                className="block w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                onClick={() => setSelected(null)}
+                aria-label="닫기"
+                className="shrink-0 rounded p-1 text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
-                이 거점 진입 →
+                <X size={14} weight="bold" />
               </button>
-            )}
-          </div>
-        ) : (
-          <div className="mt-3 text-xs text-zinc-500">
-            지도에서 거점을 선택하세요. 핀치/휠 로 확대, 드래그 로 이동.
+            </div>
           </div>
         )}
-      </aside>
+      </div>
     </div>
   );
 }

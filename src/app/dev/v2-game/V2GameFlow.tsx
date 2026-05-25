@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ContinentMap } from "@/adventure/v2/ContinentMap";
 import { OutpostView } from "@/adventure/v2/OutpostView";
 import { ResourceBar } from "@/adventure/v2/ResourceBar";
+import { LineupCard } from "@/adventure/v2/LineupCard";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { V2Resources } from "@/adventure/data/v2/resources";
@@ -95,6 +96,7 @@ export function V2GameFlow() {
   return (
     <div>
       <ResourceBar resources={resources} />
+      <LineupCard />
       {view.kind === "outpost" && (
         <OutpostView
           outpost={view.outpost}

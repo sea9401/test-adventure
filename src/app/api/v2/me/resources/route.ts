@@ -1,25 +1,21 @@
-import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { parseResources } from "@/adventure/data/v2/resources";
+import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { readGuildResources } from "@/lib/server/v2GuildResources";
 
-// GET /api/v2/me/resources — viewer 의 v2 자원 풀 조회.
-// 응답: { resources: { stone: number } }
-// row 없으면 모두 0.
+// GET /api/v2/me/resources — viewer 의 길드 공용 자원 풀 조회.
+// 라이브 PR-vi-b 부터 길드 자원으로 통일. 1인 길드 가정 하 옛 user-level
+// v2-resources 와 동치이지만 다인 길드는 공유.
+// 응답: { resources: { stone, soldiers } }
 
 export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const row = (
-    await db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "v2-resources")))
-      .limit(1)
-  )[0];
-  const resources = parseResources(row?.value ?? null);
+  const resources = await db.transaction(async (tx) => {
+    const guildId = await ensureSoloGuild(tx, userId);
+    return readGuildResources(tx, guildId);
+  });
   return Response.json({ ok: true, resources });
 }

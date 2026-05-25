@@ -817,6 +817,18 @@ export const outpostClaimAttempts = pgTable(
   ],
 );
 
+// v2 길드 공용 자원 풀 — 길드별 stone/병사. 라이브에서는 마스터 개인 saves_kv 의
+// v2-resources 였으나 길드전 컨셉 정합 위해 길드 자원으로 통일.
+// 1인 길드도 같은 테이블 — 마스터 = 본인 자원.
+export const v2GuildResources = pgTable("v2_guild_resources", {
+  guildId: integer("guild_id")
+    .primaryKey()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  stone: integer("stone").notNull().default(0),
+  soldiers: integer("soldiers").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).
 // memberUserIds: 1~3명, 순서대로 1번 / 2번 / 3번. 길드원만 가능.
 // 미설정 길드는 row 없음 → 토너먼트 sim 시 default = 마스터 1명.

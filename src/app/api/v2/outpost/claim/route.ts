@@ -14,6 +14,11 @@ import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import {
+  lockGuildResources,
+  lockTwoGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 import { runTournamentForGuilds } from "@/lib/server/v2RunTournament";
 import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
 import {
@@ -21,7 +26,6 @@ import {
   computePlunder,
   type TroopBattleResult,
 } from "@/adventure/data/v2/troopBattle";
-import { parseResources } from "@/adventure/data/v2/resources";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -158,42 +162,22 @@ export async function POST(req: Request) {
       };
     }
 
-    // 양측 v2-resources lock.
-    //   - PvP: 양측 모두 mutate (병사 사상자 + 약탈) → 양측 FOR UPDATE.
-    //     데드락 방지를 위해 userId 사전순 lock.
-    //   - NPC (pvpDefenderId == null): 공격자 read만 (보정용). lock 불필요.
-    //   - PvP 흐름이라도 stale 로 NPC fallback 되면 defender 측 mutation 안 함.
+    // 양측 길드 자원 풀 lock (PR-vi-b — 마스터 개인 saves_kv 가 아닌 길드 공용).
+    //   - PvP: 양측 mutate (병사 사상자 + 약탈) → 양측 길드 FOR UPDATE, guildId 사전 정렬.
+    //   - NPC: 공격자 길드만 lock.
+    //   - already_yours 분기에서 같은 길드 차단됨 → lockTwoGuildResources 안전.
     let attackerResources = { stone: 0, soldiers: 0 };
     let defenderResources = { stone: 0, soldiers: 0 };
-    if (pvpDefenderId) {
-      const [firstId, secondId] = [userId, pvpDefenderId].sort();
-      const firstSave = await lockSaveForUpdate<unknown>(
+    if (pvpDefenderId && defenderGuildId !== null) {
+      const both = await lockTwoGuildResources(
         tx,
-        firstId,
-        "v2-resources",
-        {},
+        attackerGuildId,
+        defenderGuildId,
       );
-      const secondSave = await lockSaveForUpdate<unknown>(
-        tx,
-        secondId,
-        "v2-resources",
-        {},
-      );
-      attackerResources = parseResources(
-        userId === firstId ? firstSave : secondSave,
-      );
-      defenderResources = parseResources(
-        userId === firstId ? secondSave : firstSave,
-      );
+      attackerResources = both.a;
+      defenderResources = both.b;
     } else {
-      const row = await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(eq(savesKv.userId, userId), eq(savesKv.key, "v2-resources")),
-        )
-        .limit(1);
-      attackerResources = parseResources(row[0]?.value ?? null);
+      attackerResources = await lockGuildResources(tx, attackerGuildId);
     }
 
     // hp 회복 + 병사 보정 적용
@@ -368,11 +352,11 @@ export async function POST(req: Request) {
           aStoneNext = attackerResources.stone - plunderStone;
           dStoneNext = defenderResources.stone + plunderStone;
         }
-        await upsertSave(tx, userId, "v2-resources", {
+        await upsertGuildResources(tx, attackerGuildId, {
           stone: aStoneNext,
           soldiers: aSoldiersNext,
         });
-        await upsertSave(tx, pvpDefenderId, "v2-resources", {
+        await upsertGuildResources(tx, defenderGuildId!, {
           stone: dStoneNext,
           soldiers: dSoldiersNext,
         });

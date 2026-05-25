@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowsClockwise,
   Buildings,
+  Diamond,
   MapTrifold,
   User,
   UsersThree,
@@ -22,7 +23,8 @@ export type HomeAction =
   | { kind: "open-outposts" }
   | { kind: "open-map" }
   | { kind: "open-lineup" }
-  | { kind: "open-character" };
+  | { kind: "open-character" }
+  | { kind: "open-inventory" };
 
 type StateResponse = {
   ok?: boolean;
@@ -148,6 +150,12 @@ export function V2HomeScreen({
           title="내 정보"
           description="스탯·전투력 (장비/스킬/룬 은 후속)."
           onClick={() => onAction({ kind: "open-character" })}
+        />
+        <EntryCard
+          icon={<Diamond size={28} weight="duotone" className="text-teal-600" />}
+          title="인벤토리"
+          description="던전 사냥 재료 (장비/스킬북 은 후속)."
+          onClick={() => onAction({ kind: "open-inventory" })}
         />
         <EntryCard
           icon={<Buildings size={28} weight="duotone" className="text-amber-600" />}

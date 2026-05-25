@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
+import { outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatFromSaves } from "@/lib/server/derivePlayerCombatFromSaves";
@@ -10,6 +10,7 @@ import { monsterGoldReward } from "@/adventure/battle/monsterGold";
 import { applyExpGain } from "@/lib/leveling";
 import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
   HUNT_COST,
   applyRegen,
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { floor?: unknown };
+  let body: { floor?: unknown; outpostId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -67,8 +68,17 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_floor" }, { status: 400 });
   }
 
+  // outpostId 는 선택적. 있으면 점령자 lookup + 골드 세금 transfer.
+  // 없으면(또는 모르는 id) 세금 없이 사냥자가 100% gold.
+  let outpostId: string | null = null;
+  if (typeof body.outpostId === "string" && body.outpostId.length > 0) {
+    if (OUTPOSTS.some((o) => o.id === body.outpostId)) {
+      outpostId = body.outpostId;
+    }
+  }
+
   const result = await db.transaction(async (tx) => {
-    const charSave = await lockSaveForUpdate<{
+    type CharSave = {
       stamina?: unknown;
       hp?: number;
       hpRegenSince?: number;
@@ -76,7 +86,76 @@ export async function POST(req: Request) {
       exp?: number;
       gold?: number;
       [k: string]: unknown;
-    }>(tx, userId, "character.v2", {});
+    };
+
+    // === 1. 점령자 lookup + owner 검증 (lock 전) ===
+    // outpost_occupations 에 owner 가 있고, 다른 user 이고, owner 의 character.v2 가 실제 존재할 때만 세금 transfer.
+    // owner row 가 비어 있으면(가입했지만 캐릭 미생성) 고아 지급 위험 → skip.
+    let taxOwnerId: string | null = null;
+    let taxRate = 0;
+    if (outpostId) {
+      const occRow = (
+        await tx
+          .select()
+          .from(outpostOccupations)
+          .where(eq(outpostOccupations.outpostId, outpostId))
+          .limit(1)
+      )[0];
+      if (
+        occRow &&
+        occRow.occupiedByUserId &&
+        occRow.occupiedByUserId !== userId
+      ) {
+        // owner row 존재 확인 (no lock)
+        const probe = await tx
+          .select({ key: savesKv.key })
+          .from(savesKv)
+          .where(
+            and(
+              eq(savesKv.userId, occRow.occupiedByUserId),
+              eq(savesKv.key, "character.v2"),
+            ),
+          )
+          .limit(1);
+        if (probe.length > 0) {
+          taxOwnerId = occRow.occupiedByUserId;
+          taxRate = Math.max(0, Math.min(1, Number(occRow.taxRate) || 0));
+        }
+      }
+    }
+
+    // === 2. character.v2 lock — deadlock 방지 위해 두 user 모두 잠글 땐 userId 정렬 순서 ===
+    let charSave: CharSave;
+    let ownerSave: CharSave | null = null;
+    if (taxOwnerId) {
+      const ids = [userId, taxOwnerId].sort();
+      const first = await lockSaveForUpdate<CharSave>(
+        tx,
+        ids[0],
+        "character.v2",
+        {},
+      );
+      const second = await lockSaveForUpdate<CharSave>(
+        tx,
+        ids[1],
+        "character.v2",
+        {},
+      );
+      if (ids[0] === userId) {
+        charSave = first;
+        ownerSave = second;
+      } else {
+        charSave = second;
+        ownerSave = first;
+      }
+    } else {
+      charSave = await lockSaveForUpdate<CharSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+    }
 
     const now = Date.now();
     const stamina = parseStaminaFromSave(charSave.stamina, now);
@@ -164,15 +243,23 @@ export async function POST(req: Request) {
     );
 
     const won = battleResult.outcome === "win";
-    // 라이브 BASE_GOLD_RATE 그대로 — paragon/부여 곱은 다음 PR.
     const expGained = won ? enemyMonster.exp : 0;
-    const goldGained = won ? monsterGoldReward(enemyMonster) : 0;
+    const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
+
+    // 세금 계산 — 위에서 결정한 taxOwnerId / taxRate 사용 (lock 후 결정 X — race 방지).
+    // tx 안에서 1회 스냅샷 정책: claim/release 와의 변경은 다음 hunt 에 반영.
+    let goldTaxed = 0;
+    if (taxOwnerId && taxRate > 0 && won && goldGross > 0) {
+      goldTaxed = Math.max(1, Math.floor(goldGross * taxRate));
+      if (goldTaxed > goldGross) goldTaxed = goldGross;
+    }
+    const goldNet = goldGross - goldTaxed;
 
     const curLevel = Math.max(1, charSave.level ?? 1);
     const curExp = Math.max(0, charSave.exp ?? 0);
     const expResult = applyExpGain(curLevel, curExp, expGained);
 
-    const newGold = Math.max(0, (charSave.gold ?? 0) + goldGained);
+    const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet);
 
     // 사냥 후 hp — finalState.playerHp 그대로 적용 (사망 시 0).
     // 0 이면 다음 사냥 전까지 시간 회복으로 만피까지 채워짐.
@@ -189,6 +276,15 @@ export async function POST(req: Request) {
     };
     await upsertSave(tx, userId, "character.v2", next);
 
+    // 세금 transfer — 위에서 정렬된 순서로 이미 lock 한 ownerSave 에 gold 추가.
+    if (goldTaxed > 0 && taxOwnerId && ownerSave) {
+      const ownerNew = {
+        ...ownerSave,
+        gold: Math.max(0, (ownerSave.gold ?? 0) + goldTaxed),
+      };
+      await upsertSave(tx, taxOwnerId, "character.v2", ownerNew);
+    }
+
     return {
       ok: true as const,
       status: 200,
@@ -200,7 +296,9 @@ export async function POST(req: Request) {
           enemyName,
           won,
           expGained,
-          goldGained,
+          goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
+          goldGross,
+          goldTaxed,
           levelsGained: expResult.levelsGained,
           turns: battleResult.turns,
           hpBefore: regenResult.hp,

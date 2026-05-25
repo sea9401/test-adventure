@@ -183,7 +183,8 @@ export async function POST(req: Request) {
           occupiedByUserId: userId,
           occupiedByGuildId: null,
           policy: "open",
-          taxRate: "0",
+          // 점령 시 default 세금율 10%. 정책 UI 추가되면 점령자가 customize.
+          taxRate: "0.100",
         });
         occupation = {
           outpostId: outpost.id,

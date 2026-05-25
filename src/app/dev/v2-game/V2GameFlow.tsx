@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ContinentMap } from "@/adventure/v2/ContinentMap";
 import { OutpostView } from "@/adventure/v2/OutpostView";
-import { OutpostListView } from "@/adventure/v2/OutpostListView";
-import { LineupCard } from "@/adventure/v2/LineupCard";
+// OutpostListView / LineupCard 는 길드 탭 신규 PR 에서 재활용 예정 — 파일은 보존, 여기 import 만 제거.
 import { V2HomeScreen, type HomeAction } from "@/adventure/v2/V2HomeScreen";
 import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
@@ -16,7 +15,8 @@ import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // v2 게임 흐름 — home 중심 라우팅 (라이브 TownScreen 패턴).
-// home → outpost-list / map / lineup / outpost(상세) → dungeon.
+// home → map → outpost(상세) → dungeon.
+// 거점 목록/라인업은 길드 탭 신규 PR 에서 재배치 예정.
 
 export type Occupation = {
   outpostId: string;
@@ -30,16 +30,14 @@ export type Occupation = {
 
 type View =
   | { kind: "home" }
-  | { kind: "outpost-list" }
   | { kind: "map" }
-  | { kind: "lineup" }
   | { kind: "character" }
   | { kind: "inventory" }
   | { kind: "skills" }
   | { kind: "shrine" }
   | { kind: "equipment" }
-  | { kind: "outpost"; outpost: Outpost; from: "list" | "map" }
-  | { kind: "dungeon"; outpost: Outpost; from: "list" | "map" };
+  | { kind: "outpost"; outpost: Outpost }
+  | { kind: "dungeon"; outpost: Outpost };
 
 export function V2GameFlow() {
   const [view, setView] = useState<View>({ kind: "home" });
@@ -99,9 +97,7 @@ export function V2GameFlow() {
   }, [refreshOccupations]);
 
   const handleHome = (action: HomeAction) => {
-    if (action.kind === "open-outposts") setView({ kind: "outpost-list" });
-    else if (action.kind === "open-map") setView({ kind: "map" });
-    else if (action.kind === "open-lineup") setView({ kind: "lineup" });
+    if (action.kind === "open-map") setView({ kind: "map" });
     else if (action.kind === "open-character") setView({ kind: "character" });
     else if (action.kind === "open-inventory") setView({ kind: "inventory" });
     else if (action.kind === "open-skills") setView({ kind: "skills" });
@@ -114,12 +110,10 @@ export function V2GameFlow() {
   }) => {
     if (view.kind !== "outpost") return;
     if (action.kind === "back") {
-      setView({
-        kind: view.from === "list" ? "outpost-list" : "map",
-      } as View);
+      setView({ kind: "map" });
     }
     if (action.kind === "enter-dungeon") {
-      setView({ kind: "dungeon", outpost: view.outpost, from: view.from });
+      setView({ kind: "dungeon", outpost: view.outpost });
     }
     if (action.kind === "claimed" || action.kind === "harvested") {
       refreshOccupations();
@@ -129,17 +123,6 @@ export function V2GameFlow() {
   return (
     <div>
       {view.kind === "home" && <V2HomeScreen onAction={handleHome} />}
-
-      {view.kind === "outpost-list" && (
-        <OutpostListView
-          occupations={occupations}
-          viewerGuildId={viewerGuildId}
-          onBack={() => setView({ kind: "home" })}
-          onSelect={(outpost) =>
-            setView({ kind: "outpost", outpost, from: "list" })
-          }
-        />
-      )}
 
       {view.kind === "map" && (
         <div>
@@ -153,26 +136,11 @@ export function V2GameFlow() {
             </button>
           </div>
           <ContinentMap
-            onOutpostEnter={(o) =>
-              setView({ kind: "outpost", outpost: o, from: "map" })
-            }
+            onOutpostEnter={(o) => setView({ kind: "outpost", outpost: o })}
             occupations={occupations}
             viewerUserId={viewerUserId}
           />
         </div>
-      )}
-
-      {view.kind === "lineup" && (
-        <main className="mx-auto max-w-md space-y-3 p-6">
-          <button
-            type="button"
-            onClick={() => setView({ kind: "home" })}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            ← 메인으로
-          </button>
-          <LineupCard />
-        </main>
       )}
 
       {view.kind === "character" && (
@@ -213,11 +181,7 @@ export function V2GameFlow() {
             <button
               type="button"
               onClick={() =>
-                setView({
-                  kind: "outpost",
-                  outpost: view.outpost,
-                  from: view.from,
-                })
+                setView({ kind: "outpost", outpost: view.outpost })
               }
               className="hover:text-zinc-900 dark:hover:text-white"
             >

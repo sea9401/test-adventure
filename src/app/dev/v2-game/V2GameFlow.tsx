@@ -67,6 +67,13 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
+    // v2 자동 1인 길드 보장 — 첫 진입 시 1회 fire-and-forget. idempotent.
+    // guildId 사용은 후속 PR (claim 길드화 + 토너먼트). 지금은 인프라만.
+    (async () => {
+      try {
+        await fetch("/api/v2/me/guild", { method: "POST" });
+      } catch {}
+    })();
   }, [refreshOccupations, refreshResources]);
 
   const handleOutpostAction = (action: {

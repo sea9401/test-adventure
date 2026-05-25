@@ -13,7 +13,8 @@ import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2BattleHome } from "@/adventure/v2/V2BattleHome";
-import type { Outpost } from "@/adventure/data/v2/types";
+import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
+import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·지도) 기반 nav.
@@ -46,6 +47,7 @@ export type Occupation = {
 type View =
   | { kind: "adventure" }
   | { kind: "battle" }
+  | { kind: "battle-floor"; floorId: DungeonFloorId }
   | { kind: "town" }
   | { kind: "shrine" }
   | { kind: "character" }
@@ -60,6 +62,7 @@ function tabOfView(view: View): TabId {
     case "adventure":
       return "adventure";
     case "battle":
+    case "battle-floor":
       return "battle";
     case "town":
     case "shrine":
@@ -198,8 +201,25 @@ export function V2GameFlow() {
       {view.kind === "battle" && (
         <V2BattleHome
           currentOutpost={currentOutpost}
+          onSelectFloor={(floorId) => setView({ kind: "battle-floor", floorId })}
+          onOpenMap={() => setView({ kind: "map" })}
+        />
+      )}
+      {view.kind === "battle-floor" && currentOutpost && (
+        <V2DungeonFloorView
+          floorId={view.floorId}
+          outpostId={currentOutpost.id}
+          outpostName={currentOutpost.name}
           playerName={viewerName}
           playerGender={viewerGender}
+          onBack={() => setView({ kind: "battle" })}
+        />
+      )}
+      {view.kind === "battle-floor" && !currentOutpost && (
+        // 거점이 사라진 사고용 안전 — 자동 battle 로 복귀.
+        <V2BattleHome
+          currentOutpost={null}
+          onSelectFloor={() => {}}
           onOpenMap={() => setView({ kind: "map" })}
         />
       )}

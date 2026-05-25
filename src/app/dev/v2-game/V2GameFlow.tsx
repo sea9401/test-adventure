@@ -10,6 +10,7 @@ import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
+import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
 import { DungeonHunt } from "@/app/dev/dungeon-hunt/DungeonHunt";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -36,6 +37,7 @@ type View =
   | { kind: "inventory" }
   | { kind: "skills" }
   | { kind: "shrine" }
+  | { kind: "equipment" }
   | { kind: "outpost"; outpost: Outpost; from: "list" | "map" }
   | { kind: "dungeon"; outpost: Outpost; from: "list" | "map" };
 
@@ -104,6 +106,7 @@ export function V2GameFlow() {
     else if (action.kind === "open-inventory") setView({ kind: "inventory" });
     else if (action.kind === "open-skills") setView({ kind: "skills" });
     else if (action.kind === "open-shrine") setView({ kind: "shrine" });
+    else if (action.kind === "open-equipment") setView({ kind: "equipment" });
   };
 
   const handleOutpostAction = (action: {
@@ -186,6 +189,10 @@ export function V2GameFlow() {
 
       {view.kind === "shrine" && (
         <V2GrowthShrineView onBack={() => setView({ kind: "home" })} />
+      )}
+
+      {view.kind === "equipment" && (
+        <V2EquipmentView onBack={() => setView({ kind: "home" })} />
       )}
 
       {view.kind === "outpost" && (

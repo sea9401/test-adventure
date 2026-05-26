@@ -29,12 +29,14 @@ import {
 import { rehydrateEquippedItem } from "@/adventure/character/rehydrateEquip";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import type { EquippedItem } from "@/adventure/character/types";
-import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
+import { EVASION_PCT_CAP, STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 import { normalizeEquippedSpells } from "@/adventure/data/v2/spells";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
+  pickEquipBonus,
   type V2Equipment,
+  type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
@@ -64,8 +66,9 @@ export type DerivedPlayerCombatV2 = DerivedPlayerCombat & {
 const EMPTY_STORY_FLAGS: ReadonlySet<string> = new Set<string>();
 
 // V2Equipment → derive 가 받을 minimal EquippedItemForDerive 로 변환.
-// derive 는 bonus(6스탯 + atk/def) 만 읽으므로, 표시용 stats/description 은 빈 값/스킵
-// 으로 두고 enchantSlots 도 비운다 — v2 결정상 마법부여 시스템은 폐기.
+// derive 는 bonus(EquipBonus = 6스탯 + atk/def) 만 읽으므로 pickEquipBonus 로
+// 추가 파생(crit/mp/eva/hp)을 제외한다. 그 4종은 derivePlayerCombatV2 가 derive
+// 결과 player 에 후-가산. 표시용 stats/description 은 빈 값/스킵, enchantSlots 도 비움.
 //
 // 단위 테스트가 derive 합산을 검증할 수 있도록 export.
 export function v2ToDeriveItem(item: V2Equipment): EquippedItemForDerive {
@@ -73,8 +76,36 @@ export function v2ToDeriveItem(item: V2Equipment): EquippedItemForDerive {
     name: item.name,
     slot: item.slot,
     stats: [],
-    bonus: { ...item.stats },
+    bonus: pickEquipBonus(item.stats),
   };
+}
+
+export type V2DerivedExtras = {
+  crit: number;
+  mp: number;
+  eva: number;
+  hp: number;
+};
+
+// 장착된 v2 장비의 추가 파생(crit/mp/eva/hp) 합산.
+// EquipBonus 부분은 derive 가 자동 합산하므로, 여기서는 derive 가 못 보는 4종만 모은다.
+export function sumV2DerivedExtras(
+  v2Equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>,
+): V2DerivedExtras {
+  let crit = 0;
+  let mp = 0;
+  let eva = 0;
+  let hp = 0;
+  for (const slot of ["weapon", "armor", "accessory"] as const) {
+    const id = v2Equipped[slot];
+    if (!id) continue;
+    const s = V2_EQUIPMENT[id].stats;
+    crit += s.crit ?? 0;
+    mp += s.mp ?? 0;
+    eva += s.eva ?? 0;
+    hp += s.hp ?? 0;
+  }
+  return { crit, mp, eva, hp };
 }
 
 type DeriveEquippedSlots = {
@@ -169,6 +200,23 @@ export async function derivePlayerCombatV2(
     paragonAllocations: {},
     hp: character.hp ?? baseCharacter.hp,
   });
+  // v2 장비 추가 파생 후-가산 — crit/mp/eva/hp 는 derive 의 자동 경로(EquipBonus)가
+  // 다루지 못하므로 여기서 직접 합산. eva 는 EVASION_PCT_CAP 클램프.
+  // (overflow→pierce 보정은 PR-2 범위 밖, 후속 PR.)
+  const extras = sumV2DerivedExtras(v2Equipped);
+  const adjustedMaxHp = derived.maxHp + extras.hp;
+  const adjustedPlayer = {
+    ...derived.player,
+    critChancePct: (derived.player.critChancePct ?? 0) + extras.crit,
+    maxMp: (derived.player.maxMp ?? 0) + extras.mp,
+    evasionPct: Math.min(
+      (derived.player.evasionPct ?? 0) + extras.eva,
+      EVASION_PCT_CAP,
+    ),
+    maxHp: adjustedMaxHp,
+    hp: Math.max(0, Math.min(derived.player.hp, adjustedMaxHp)),
+  };
+
   // v2 마법 슬롯 정규화 — 학습 가능·중복 제거·슬롯 cap. cap 은 라이브 layout.normalSlots
   // 와 공유 ("스킬 슬롯 공유" 결정). derive 가 layout 까지 만들어 noremalSlots 박음.
   const intStat = derived.totalStats.int ?? 0;
@@ -179,10 +227,11 @@ export async function derivePlayerCombatV2(
     slotCount,
   );
   // PlayerCombat 에 equippedSpells 박기 — engine 의 마법 sweep 이 이를 보고 발동.
-  const playerWithSpells = { ...derived.player, equippedSpells };
+  const playerWithSpells = { ...adjustedPlayer, equippedSpells };
   return {
     ...derived,
     player: playerWithSpells,
+    maxHp: adjustedMaxHp,
     selectedStance: normalizeStance(character.selectedStance),
   };
 }

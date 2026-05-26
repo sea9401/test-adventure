@@ -26,17 +26,17 @@ import { buildBotsAroundLevel, type ArenaBot } from "@/adventure/data/v2/arenaBo
 // POST /api/v2/arena/match — 아레나 1:1 매치 한 판 실행.
 //
 // 서버 권위:
-//   1. 본인 character.v2 + arena.v2-state lock (read-modify-write 안전).
+//   1. 본인 character.v2 + arena-state.v2 lock (read-modify-write 안전).
 //   2. 일일 리셋 적용 (자정 KST). dailyUsed >= MAX_DAILY_MATCHES → 409.
 //   3. 본인 derivePlayerCombatV2.
 //   4. 후보 풀 — 본인 제외 character.v2 보유 유저 (snapshot). 각 candidate 의
-//      arena.v2-state.score 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
+//      arena-state.v2.score 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
 //   5. 후보 0명 → buildBotsAroundLevel 봇 풀로 폴백.
 //   6. weightForCandidate 가중 랜덤 추첨.
 //   7. 선정된 상대만 derive (real user) 또는 미리 derive 된 봇 사용.
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
 //   9. outcome → 점수 변동(0 미만 클램프), 골드 보상.
-//  10. arena.v2-state(score/dailyUsed/recentOpponents) + character.v2(gold) 저장.
+//  10. arena-state.v2(score/dailyUsed/recentOpponents) + character.v2(gold) 저장.
 //
 // PR-8a 범위 — UI 결과 카드 표시만. replay 페이로드/매치 히스토리 X (PR-8b/8c).
 
@@ -82,7 +82,7 @@ export async function POST() {
   const now = new Date();
 
   const result = await db.transaction(async (tx) => {
-    // 1. 본인 character.v2 + arena.v2-state lock — 같은 유저라 데드락 안전.
+    // 1. 본인 character.v2 + arena-state.v2 lock — 같은 유저라 데드락 안전.
     //    arena 키부터 잠그면 character 와 다른 곳에서의 lock 순서와 충돌 없음
     //    (현 코드에 arena lock 다른 경로 없음).
     const charSave = await lockSaveForUpdate<CharSaveShape>(
@@ -152,7 +152,7 @@ export async function POST() {
       );
     const candidateIds = candidateChars.map((r) => r.userId);
 
-    // 6a. 점수 (arena.v2-state) 일괄 조회. 미존재면 0.
+    // 6a. 점수 (arena-state.v2) 일괄 조회. 미존재면 0.
     const scoreByUser = new Map<string, number>();
     if (candidateIds.length > 0) {
       const arenaRows = await tx

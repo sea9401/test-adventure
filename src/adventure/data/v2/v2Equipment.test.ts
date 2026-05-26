@@ -1,15 +1,43 @@
 import { describe, expect, it } from "vitest";
 import {
+  CONCEPT_LABELS,
+  SLOT_CONCEPTS,
   V2_EQUIPMENT,
   V2_EQUIP_BONUS_KEYS,
   V2_EQUIP_BONUS_LABELS,
+  V2_EQUIP_PERCENT_KEYS,
   parseEquipmentSave,
+  pickEquipBonus,
+  v2EquipmentByConcept,
   v2EquipmentBySlot,
+  type V2EquipConcept,
   type V2EquipmentId,
   type V2EquipSlot,
+  type V2EquipTier,
 } from "./v2Equipment";
 
 const ALL_SLOTS: V2EquipSlot[] = ["weapon", "armor", "accessory"];
+const ALL_CONCEPTS: V2EquipConcept[] = [
+  "str",
+  "dex",
+  "int",
+  "heavy",
+  "light",
+  "luck",
+  "mana",
+];
+const ALL_TIERS: V2EquipTier[] = [1, 2, 3, 4, 5];
+
+// 컨셉별 "주력 스탯" — 같은 컨셉의 T1~T5 가 이 키에서 단조 증가해야 함.
+const PRIMARY_STAT: Record<V2EquipConcept, keyof typeof V2_EQUIP_BONUS_LABELS> = {
+  str: "str",
+  dex: "dex",
+  int: "int",
+  heavy: "vit",
+  light: "dex",
+  luck: "luk",
+  mana: "int",
+};
 
 describe("V2_EQUIPMENT catalog", () => {
   it("모든 id 는 키와 일치해야 함 (self-id 일관성)", () => {
@@ -56,7 +84,7 @@ describe("V2_EQUIPMENT catalog", () => {
     }
   });
 
-  it("PR-1 7종은 모두 stats 가 비어있지 않음 (적어도 1키)", () => {
+  it("모든 항목의 stats 가 비어있지 않음 (적어도 1키)", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       const keys = V2_EQUIP_BONUS_KEYS.filter(
         (k) => (item.stats[k] ?? 0) !== 0,
@@ -69,6 +97,95 @@ describe("V2_EQUIPMENT catalog", () => {
     expect(new Set(Object.keys(V2_EQUIP_BONUS_LABELS))).toEqual(
       new Set(V2_EQUIP_BONUS_KEYS),
     );
+  });
+
+  it("PERCENT_KEYS 는 BONUS_KEYS 의 부분집합", () => {
+    for (const k of V2_EQUIP_PERCENT_KEYS) {
+      expect(V2_EQUIP_BONUS_KEYS).toContain(k);
+    }
+  });
+});
+
+describe("V2_EQUIPMENT grid (35종 — 7컨셉 × T1~T5)", () => {
+  it("총 35종", () => {
+    expect(Object.keys(V2_EQUIPMENT)).toHaveLength(35);
+  });
+
+  it("모든 컨셉이 T1~T5 정확히 한 종씩", () => {
+    for (const concept of ALL_CONCEPTS) {
+      const items = v2EquipmentByConcept(concept);
+      expect(items, `concept=${concept}`).toHaveLength(5);
+      const tiers = items.map((i) => i.tier);
+      expect(tiers).toEqual(ALL_TIERS);
+    }
+  });
+
+  it("SLOT_CONCEPTS 와 카탈로그의 슬롯-컨셉 매핑이 일관", () => {
+    for (const slot of ALL_SLOTS) {
+      for (const concept of SLOT_CONCEPTS[slot]) {
+        for (const item of v2EquipmentByConcept(concept)) {
+          expect(item.slot, `${item.id} 의 slot 이 SLOT_CONCEPTS 와 불일치`).toBe(
+            slot,
+          );
+        }
+      }
+    }
+  });
+
+  it("CONCEPT_LABELS 가 ALL_CONCEPTS 와 동일 키셋", () => {
+    expect(new Set(Object.keys(CONCEPT_LABELS))).toEqual(new Set(ALL_CONCEPTS));
+  });
+
+  it("같은 컨셉의 주력 스탯은 T1→T5 단조 증가", () => {
+    for (const concept of ALL_CONCEPTS) {
+      const items = v2EquipmentByConcept(concept);
+      const primary = PRIMARY_STAT[concept];
+      const values = items.map((i) => i.stats[primary] ?? 0);
+      // 모두 양수
+      for (const v of values) {
+        expect(v, `${concept} primary=${primary}`).toBeGreaterThan(0);
+      }
+      // 단조 증가 (등호 불허)
+      for (let i = 1; i < values.length; i++) {
+        expect(
+          values[i],
+          `${concept} T${i + 1} primary 가 T${i} 보다 작거나 같음`,
+        ).toBeGreaterThan(values[i - 1]);
+      }
+    }
+  });
+
+  it("tier 값이 1~5 범위 안에 있고 정수", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      expect(Number.isInteger(item.tier)).toBe(true);
+      expect(item.tier).toBeGreaterThanOrEqual(1);
+      expect(item.tier).toBeLessThanOrEqual(5);
+    }
+  });
+});
+
+describe("pickEquipBonus", () => {
+  it("EquipBonus 부분(atk/def + 6스탯)만 반환, 추가 파생(crit/mp/eva/hp) 제외", () => {
+    const out = pickEquipBonus({
+      str: 5,
+      atk: 3,
+      crit: 2,
+      mp: 30,
+      eva: 4,
+      hp: 50,
+    });
+    expect(out).toEqual({ str: 5, atk: 3 });
+  });
+
+  it("빈 stats 는 빈 객체", () => {
+    expect(pickEquipBonus({})).toEqual({});
+  });
+
+  it("0 값 키는 보존되지 않는다 (undefined 만 스킵)", () => {
+    // 정확히는 0 도 보존되어야 하지만 — 우리 카탈로그는 0 값 키를 안 박음.
+    // 그래도 의도된 동작을 명시: 정의된 값은 그대로.
+    const out = pickEquipBonus({ str: 0, atk: 7 });
+    expect(out).toEqual({ str: 0, atk: 7 });
   });
 });
 

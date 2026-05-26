@@ -1,4 +1,5 @@
 import type { Monster } from "../data/monsters";
+import { applyStartOfBattleSpells } from "../data/v2/spells";
 import { type Potion, type PotionId } from "../data/potions";
 import {
   extractApEffect,
@@ -221,9 +222,11 @@ export type PlayerCombat = {
   hp: number;
   maxHp: number;
   // v2 마법 시스템 — 전투당 풀충전. derive 에서 INT × MP_PER_INT 로 계산.
-  // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성. 소비는 PR-4+ 부터.
+  // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성.
   // optional 로 둠 — 라이브 PlayerCombat 객체 리터럴(테스트 다수)이 매번 안 박아도 되게.
   maxMp?: number;
+  // v2 마법 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). 0/undefined = no-op.
+  intStat?: number;
   atk: number;
   def: number;
   spd: number; // 선공 판정에 사용
@@ -2714,6 +2717,12 @@ export function resolveBattle(
   let state = initialBattleState(player, enemy, playerName);
   // 보스 전투 여부 — 충돌파/천명 같은 %HP 효과 감산 (BOSS_PCT_HP_DAMAGE_MULT) 에 사용.
   if (ctx.isBoss) state = { ...state, isBoss: true };
+  // v2 마법 — 전투 시작 시 1회 sweep. INT 0(라이브) 캐릭은 자동 미발동.
+  // 시작 이전에 적이 죽으면 advanceTurn 루프 가드(outcome) 가 처리.
+  state = applyStartOfBattleSpells(state, player.intStat ?? 0, playerName);
+  if (state.enemyHp <= 0) {
+    state = { ...state, outcome: "win", phase: "ended" };
+  }
   // 선공자 캐시 — 사이클(1턴) 정의가 선공자에 따라 달라진다.
   //   - 플레이어 선공: 사이클 = [player phase → enemy phase] — enemy→player 전환이 사이클 끝.
   //   - 적 선공:      사이클 = [enemy phase → player phase]  — player→enemy 전환이 사이클 끝.

@@ -303,6 +303,7 @@ export function derivePlayerCombat(
     hp: Math.max(0, Math.min(input.hp, maxHp)),
     maxHp,
     maxMp,
+    intStat: totalStats.int,
     atk:
       Math.floor(rawAtk * pctToMultiplier(runeBonus.atk_pct)) +
       levelBaseAtk +

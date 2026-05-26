@@ -41,6 +41,7 @@ import {
   CRIT_PCT_CAP,
 } from "../data/stats";
 import { type Potion, type PotionId } from "../data/potions";
+import { applyStartOfBattleSpellsPvP } from "../data/v2/spells";
 import {
   extractApEffect,
   potionHealAmount,
@@ -133,6 +134,9 @@ export type PvPSide = {
   name: string;
   hp: number;
   maxHp: number;
+  // v2 마법 풀 — 일기토/토너먼트 매치 시작 시 풀충전 (PR-3·4). INT 0 = 둘 다 0.
+  mp: number;
+  maxMp: number;
   attacksLeft: number;
   // 유격 (skirmishNextTurnBonus) — 이 사이드가 회피 성공 시 누적, 다음 자기 공격 페이즈
   // 시작 시 attacksLeft 에 더해지고 0 으로 리셋. PvE 의 enemy phase 내 직접 가산을
@@ -396,11 +400,14 @@ function actorKeys(phase: PvPPhase): { atkKey: "p1" | "p2"; defKey: "p1" | "p2" 
 
 function buildSide(player: PlayerCombat, name: string): PvPSide {
   const startShield = player.bulwarkShield ?? 0;
+  const sideMaxMp = Math.max(0, player.maxMp ?? 0);
   return {
     player,
     name,
     hp: player.hp,
     maxHp: player.maxHp,
+    mp: sideMaxMp, // 매치 시작 풀충전 (단판 모델). 토너먼트는 매치마다 다시 풀충전.
+    maxMp: sideMaxMp,
     attacksLeft: 0, // initialBattleStatePvP 에서 선공 측만 채움
     nextTurnAttackBonus: 0,
     ap: (player.equippedAPSkills?.length ?? 0) > 0 ? AP_BATTLE_START : 0,
@@ -2029,6 +2036,19 @@ export function resolveBattlePvP(
     p2: {} as Partial<Record<PotionId, number>>,
   };
   let state = initialBattleStatePvP(p1Player, p2Player, p1Name, p2Name);
+  // v2 마법 — 매치 시작 시 양측 1회 sweep. 선공 측 우선 순서.
+  // INT 0 인 양측은 자동 미발동.
+  state = applyStartOfBattleSpellsPvP(
+    state,
+    state.phase === "p2" ? "p2" : "p1",
+  );
+  if (state.p1.hp <= 0 && state.p2.hp <= 0) {
+    state = { ...state, outcome: "draw", phase: "ended" };
+  } else if (state.p1.hp <= 0) {
+    state = { ...state, outcome: "p2_win", phase: "ended" };
+  } else if (state.p2.hp <= 0) {
+    state = { ...state, outcome: "p1_win", phase: "ended" };
+  }
   // 전술 안내(#502 가시성을 PvP 경로에도) — ctx.openingNote(양측 전술 라벨)를 마주섬·선공
   // 안내 다음에 info 로 끼운다. 호출부가 문자열로 빌드(엔진은 stance 를 모름).
   if (ctx.openingNote) {

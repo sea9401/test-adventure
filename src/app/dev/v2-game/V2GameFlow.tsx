@@ -16,6 +16,7 @@ import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
+import { V2ArenaView } from "@/adventure/v2/V2ArenaView";
 import { V2BattleHome } from "@/adventure/v2/V2BattleHome";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
@@ -60,6 +61,7 @@ export type Occupation = {
 
 type View =
   | { kind: "adventure" }
+  | { kind: "arena" }
   | { kind: "battle" }
   | { kind: "battle-floor"; floorId: DungeonFloorId }
   | { kind: "town" }
@@ -76,6 +78,7 @@ type View =
 function tabOfView(view: View): TabId {
   switch (view.kind) {
     case "adventure":
+    case "arena":
       return "adventure";
     case "battle":
     case "battle-floor":
@@ -239,7 +242,12 @@ export function V2GameFlow() {
       </div>
 
       {/* === 모험 탭 === */}
-      {view.kind === "adventure" && <V2AdventureHome />}
+      {view.kind === "adventure" && (
+        <V2AdventureHome onOpenArena={() => setView({ kind: "arena" })} />
+      )}
+      {view.kind === "arena" && (
+        <V2ArenaView onBack={() => setView({ kind: "adventure" })} />
+      )}
 
       {/* === 전투 탭 === */}
       {view.kind === "battle" && (

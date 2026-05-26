@@ -109,8 +109,8 @@ export async function POST(req: Request) {
 
     const resources = await lockGuildResources(tx, occGuildId);
     const newResources = {
+      ...resources,
       stone: resources.stone + (gainedKind === "stone" ? gainedAmount : 0),
-      soldiers: resources.soldiers,
       scrolls:
         resources.scrolls + (gainedKind === "scrolls" ? gainedAmount : 0),
     };

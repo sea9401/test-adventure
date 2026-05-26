@@ -828,6 +828,9 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   soldiers: integer("soldiers").notNull().default(0),
   // 주문서 — 마탑(tower) 거점에서 산출. claim 시 1 소비하면 본 전쟁 power +20%.
   scrolls: integer("scrolls").notNull().default(0),
+  // v2 PR-6 — 활성화된 주문서 만료 시점. null = 비활성. 활성 시 길드원의 토너먼트/
+  // 본 병사 전쟁에 buff (atk +10%). claim 시 단발 소비(PR #57)와 별개 메커닉.
+  activeScrollExpiresAt: timestamp("active_scroll_expires_at"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

@@ -71,6 +71,8 @@ export type V2Resources = {
   stone: number;
   soldiers: number;
   scrolls: number;
+  // PR-6 활성 주문서 만료(epoch ms). null = 비활성.
+  activeScrollExpiresAt?: number | null;
 };
 
 function parseNonNegInt(v: unknown): number {
@@ -87,7 +89,11 @@ export function parseResources(raw: unknown): V2Resources {
       stone: parseNonNegInt(r.stone),
       soldiers: parseNonNegInt(r.soldiers),
       scrolls: parseNonNegInt(r.scrolls),
+      activeScrollExpiresAt:
+        typeof r.activeScrollExpiresAt === "number"
+          ? r.activeScrollExpiresAt
+          : null,
     };
   }
-  return { stone: 0, soldiers: 0, scrolls: 0 };
+  return { stone: 0, soldiers: 0, scrolls: 0, activeScrollExpiresAt: null };
 }

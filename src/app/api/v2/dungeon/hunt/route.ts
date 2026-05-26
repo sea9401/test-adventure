@@ -30,6 +30,12 @@ import {
   rollDrops,
   type DropResult,
 } from "@/adventure/data/v2/dungeonDrops";
+import { rollEquipDrop } from "@/adventure/data/v2/dungeonEquipDrops";
+import {
+  parseEquipmentSave,
+  type EquipmentSave,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
@@ -317,6 +323,28 @@ export async function POST(req: Request) {
     const drops: DropResult = won ? rollDrops(floor, Math.random) : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
 
+    // 장비 드랍 — 승리 시 1회 굴림. equipment.v2 save 도 lock 해서 누적.
+    // 이미 보유한 id 는 후보 제외 (장비 unique). 풀이 마르거나 굴림 실패면 null.
+    let droppedEquipment: V2EquipmentId | null = null;
+    if (won) {
+      const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
+        tx,
+        userId,
+        "equipment.v2",
+        {},
+      );
+      const { owned } = parseEquipmentSave(equipmentSave);
+      const ownedSet = new Set<V2EquipmentId>(owned);
+      droppedEquipment = rollEquipDrop(floor, ownedSet, Math.random);
+      if (droppedEquipment !== null) {
+        const nextOwned = [...owned, droppedEquipment];
+        await upsertSave(tx, userId, "equipment.v2", {
+          ...equipmentSave,
+          owned: nextOwned,
+        });
+      }
+    }
+
     // 세금 계산 — 위에서 결정한 taxOwnerId / taxRate 사용.
     // outpost FOR UPDATE 로 정책/세율 스냅샷 — 점령자가 hunt 도중 정책을 바꿔도
     // 이 hunt 는 진입 시점 값으로 처리, 다음 hunt 부터 변경 반영.
@@ -409,6 +437,7 @@ export async function POST(req: Request) {
           hpAfter: afterHp,
           maxHp: player.maxHp,
           drops,
+          droppedEquipment,
           ejected: ejectedNotice,
           // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
           // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay

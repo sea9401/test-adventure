@@ -115,11 +115,11 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
           revertPoints={data.revertPoints ?? 0}
           allocatedStats={
             data.allocatedStats ??
-            ({ str: 0, dex: 0, vit: 0, spd: 0, luk: 0 } as Record<StatKey, number>)
+            ({ str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>)
           }
           baseStats={
             data.baseStats ??
-            ({ str: 3, dex: 3, vit: 3, spd: 3, luk: 3 } as Record<StatKey, number>)
+            ({ str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 } as Record<StatKey, number>)
           }
           gold={data.gold ?? 0}
           level={data.level ?? 1}

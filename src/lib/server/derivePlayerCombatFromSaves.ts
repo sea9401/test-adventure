@@ -109,7 +109,7 @@ export async function derivePlayerCombatFromSaves(
       acc[k] = training.allocated?.[k] ?? 0;
       return acc;
     },
-    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 } as Record<StatKey, number>,
+    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
   );
 
   // ⚠️ 반드시 craftTier/dropQuality 까지 반영하는 공용 헬퍼를 써야 한다 — 베이스 아이템만

@@ -174,6 +174,7 @@ export function derivePlayerCombat(
     vit: 0,
     spd: 0,
     luk: 0,
+    int: 0,
   };
   const items: (EquippedItemForDerive | null)[] = [
     input.equipped.weapon,
@@ -194,14 +195,14 @@ export function derivePlayerCombat(
       acc[k] = (input.baseStats[k] ?? 0) + (input.allocatedStats[k] ?? 0);
       return acc;
     },
-    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 } as Record<StatKey, number>,
+    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
   );
   const totalStats: Record<StatKey, number> = STAT_KEYS.reduce(
     (acc, k) => {
       acc[k] = baseAllocatedStats[k] + equipStatBonuses[k];
       return acc;
     },
-    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 } as Record<StatKey, number>,
+    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
   );
 
   const layout = skillLayout({

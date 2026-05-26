@@ -14,7 +14,7 @@ import { ITEMS } from "../src/adventure/data/items";
 import { WORLD_MAP } from "../src/adventure/data/world";
 import type { StatKey } from "../src/adventure/data/stats";
 
-const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
+const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 };
 // Lv 80 폐도가 진짜 DEX 폭발 지점 (메서드 fix 후 재측정 기준: DEX 219wins/h vs 다른 빌드 8~12).
 // Lv 70 starspire 는 fix 후 평형됨 (DEX 38 vs 다른 24).
 const LEVEL = 80;
@@ -24,7 +24,7 @@ const REGION_ID = "skyfolk_ruins";
 // 60% 였던 직전 sim 은 ANALYSIS 가 임계 미달로 비활성 → -ANALYSIS≈BASE 가 가짜 0 영향.
 function allocate(level: number): Record<StatKey, number> {
   const pts = Math.max(0, level - 1);
-  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 };
+  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
   a.dex = Math.round(pts * 0.8);
   a.vit = Math.round(pts * 0.15);
   a.luk = pts - a.dex - a.vit;

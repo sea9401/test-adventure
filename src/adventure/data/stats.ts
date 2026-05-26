@@ -1,4 +1,4 @@
-export const STAT_KEYS = ["str", "dex", "vit", "spd", "luk"] as const;
+export const STAT_KEYS = ["str", "dex", "vit", "spd", "luk", "int"] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
 
 export const STAT_LABELS: Record<StatKey, string> = {
@@ -7,6 +7,7 @@ export const STAT_LABELS: Record<StatKey, string> = {
   vit: "활력",
   spd: "속도",
   luk: "행운",
+  int: "지능",
 };
 
 // SPD → 매 턴 추가 공격 확률(%). 1pt 당 EXTRA_ATTACK_PCT_PER_SPD%, 캡 없음.
@@ -33,6 +34,7 @@ export const STAT_CONVERSIONS: Record<StatKey, string> = {
   vit: "1pt 당 방어력 +1 / 1pt 당 최대 HP +3 / 방어력 5 당 공격력 +1 (방어구 합산)",
   spd: `1pt 당 추가 공격 확률 +${EXTRA_ATTACK_PCT_PER_SPD}% (100% 초과 시 추가타 1회 확정) / 5pt 당 공격력 +1`,
   luk: `1pt 당 드랍률 +1% / 1pt 당 크리티컬 확률 +0.5% (최대 ${CRIT_PCT_CAP}%, 초과분은 크리 데미지로 전환) / 1pt 당 크리티컬 데미지 +0.025배 / 3pt 당 공격력 +1`,
+  int: "현재 전투 효과 없음. 추후 마법 데미지와 MP 에 사용됩니다.",
 };
 
 // 도감에서 스탯별 스킬 정보를 공개하는 임계값.

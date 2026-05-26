@@ -21,7 +21,9 @@ export const baseCharacter = {
   battleCount: 0,
   fame: 0,
   skills: [] as Skill[],
-  stats: { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 } as Record<StatKey, number>,
+  // INT 는 v2 마법 시스템용 신규 스탯 — 기존 캐릭이 PR 머지 시점에 무료 INT 를
+  // 받지 않도록 베이스 0. v2 전투 효과 wiring 은 PR-3+ 부터.
+  stats: { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 0 } as Record<StatKey, number>,
   equipped: {
     weapon: ITEMS.branch_stick as EquippedItem | null,
     armor: ITEMS.cloth_clothes as EquippedItem | null,

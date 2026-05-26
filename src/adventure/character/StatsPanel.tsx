@@ -31,7 +31,7 @@ export function StatsPanel({
         <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           능력치{totalStats ? " (기본 · 장비)" : ""}
         </div>
-        <div className="mt-2 grid grid-cols-5 gap-2">
+        <div className="mt-2 grid grid-cols-6 gap-2">
           {STAT_KEYS.map((k) => {
             const base = stats[k];
             const finalValue = total[k];

@@ -36,7 +36,7 @@ const RS = (process.env.RS ?? "0.005,0.01,0.02,0.03").split(",").map((s) => Numb
 // 근사. 천장(=인플레 위험)을 보고 R 을 보수적으로 잡는 게 목적.
 const POWER_MULT = Number(process.env.POWER_MULT ?? 2);
 
-const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
+const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 };
 const PT_MULT = 1.5;
 
 // 존재 확인된 엔드 기어 고정 — 전 레벨 동일(천장 측정이므로 OK). atk/def/maxHp 에 POWER_MULT.
@@ -44,7 +44,7 @@ const GEAR = { weapon: "empyrean_blade", armor: "empyrean_mantle", accessory: "a
 
 function allocate(level: number): Record<StatKey, number> {
   const points = Math.round(Math.max(0, level - 1) * PT_MULT);
-  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 };
+  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
   let left = points;
   const give = (k: StatKey, n: number) => {
     const v = Math.max(0, Math.min(left, n));

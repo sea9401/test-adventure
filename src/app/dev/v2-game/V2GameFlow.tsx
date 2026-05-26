@@ -221,19 +221,22 @@ export function V2GameFlow() {
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      {/* 탭 컨테이너 — 현재 탭에 배경이 있으면 탭바·스태미너까지 같이 덮음. */}
-      <div
-        className={
-          currentTab === "adventure"
-            ? "min-h-[calc(100vh-44px)] bg-cover bg-center bg-no-repeat"
-            : ""
-        }
-        style={
-          currentTab === "adventure"
-            ? { backgroundImage: "url('/images/ui/village.webp')" }
-            : undefined
-        }
-      >
+      {/* 모험 탭 배경 — 라이브 RegionBackground 와 동일한 오버레이 강도. */}
+      {currentTab === "adventure" && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/ui/village.webp"
+            alt=""
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
+        </div>
+      )}
+      <div>
         <TabBar
           tabs={TABS}
           active={currentTab}

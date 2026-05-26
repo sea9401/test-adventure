@@ -24,12 +24,19 @@ import { baseCharacter } from "@/adventure/character/defaults";
 import {
   derivePlayerCombat,
   type DerivedPlayerCombat,
+  type EquippedItemForDerive,
 } from "@/adventure/character/derivePlayerCombat";
 import { rehydrateEquippedItem } from "@/adventure/character/rehydrateEquip";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import type { EquippedItem } from "@/adventure/character/types";
 import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 import { normalizeEquippedSpells } from "@/adventure/data/v2/spells";
+import {
+  V2_EQUIPMENT,
+  parseEquipmentSave,
+  type V2Equipment,
+  type V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
 
 type SavedEquipped = {
   weapon?: EquippedItem | null;
@@ -56,6 +63,46 @@ export type DerivedPlayerCombatV2 = DerivedPlayerCombat & {
 
 const EMPTY_STORY_FLAGS: ReadonlySet<string> = new Set<string>();
 
+// V2Equipment → derive 가 받을 minimal EquippedItemForDerive 로 변환.
+// derive 는 bonus(6스탯 + atk/def) 만 읽으므로, 표시용 stats/description 은 빈 값/스킵
+// 으로 두고 enchantSlots 도 비운다 — v2 결정상 마법부여 시스템은 폐기.
+//
+// 단위 테스트가 derive 합산을 검증할 수 있도록 export.
+export function v2ToDeriveItem(item: V2Equipment): EquippedItemForDerive {
+  return {
+    name: item.name,
+    slot: item.slot,
+    stats: [],
+    bonus: { ...item.stats },
+  };
+}
+
+type DeriveEquippedSlots = {
+  weapon: EquippedItemForDerive | null;
+  armor: EquippedItemForDerive | null;
+  accessory: EquippedItemForDerive | null;
+};
+
+// 슬롯 병합 — v2 저장소(equipment.v2) 에 v2 장비가 있는 슬롯은 라이브 잔존 슬롯을
+// 덮어쓴다. 라이브 슬롯이 채워지는 경로는 v2 결정상 사실상 없지만, 마이그레이션
+// 중간 상태에서 데이터가 남아 있을 가능성을 위해 v2 없는 슬롯은 라이브 fallback.
+//
+// 단위 테스트가 우선순위 로직을 검증할 수 있도록 export.
+export function pickV2OrLiveSlots(
+  v2Equipped: Partial<Record<V2EquipSlot, V2Equipment["id"]>>,
+  liveEquipped: DeriveEquippedSlots,
+): DeriveEquippedSlots {
+  const v2ForSlot = (slot: V2EquipSlot): EquippedItemForDerive | null => {
+    const id = v2Equipped[slot];
+    return id ? v2ToDeriveItem(V2_EQUIPMENT[id]) : null;
+  };
+  return {
+    weapon: v2ForSlot("weapon") ?? liveEquipped.weapon,
+    armor: v2ForSlot("armor") ?? liveEquipped.armor,
+    accessory: v2ForSlot("accessory") ?? liveEquipped.accessory,
+  };
+}
+
 export async function derivePlayerCombatV2(
   userId: string,
   executor: DbExecutor = db,
@@ -66,15 +113,21 @@ export async function derivePlayerCombatV2(
     .where(
       and(
         eq(savesKv.userId, userId),
-        inArray(savesKv.key, ["character.v2", "training.v2"]),
+        inArray(savesKv.key, [
+          "character.v2",
+          "training.v2",
+          "equipment.v2",
+        ]),
       ),
     );
 
   let character: SavedCharacterV2 | undefined;
   let training: SavedTrainingV2 = {};
+  let equipmentSave: unknown = undefined;
   for (const r of rows) {
     if (r.key === "character.v2") character = r.value as SavedCharacterV2;
     else if (r.key === "training.v2") training = (r.value ?? {}) as SavedTrainingV2;
+    else if (r.key === "equipment.v2") equipmentSave = r.value;
   }
   if (!character) return null;
 
@@ -86,12 +139,20 @@ export async function derivePlayerCombatV2(
     { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
   );
 
+  // 라이브 character.v2.equipped (라이브 ITEMS catalog 잔존 슬롯) — v2 결정상 라이브
+  // 장비 시스템 폐기이므로 사실상 비어 있다. 안전상 rehydrate 는 유지하되 v2 장비와 함께
+  // 한 슬롯에 덮어쓰지 않도록 — equipment.v2 가 채우면 그게 우선.
   const savedEquipped = character.equipped ?? null;
-  const equipped = {
+  const liveEquipped = {
     weapon: rehydrateEquippedItem(savedEquipped?.weapon),
     armor: rehydrateEquippedItem(savedEquipped?.armor),
     accessory: rehydrateEquippedItem(savedEquipped?.accessory),
   };
+
+  // equipment.v2 의 슬롯별 장착 → V2_EQUIPMENT 룩업 → minimal EquippedItemForDerive 변환.
+  // V2 장비가 있는 슬롯은 라이브 슬롯을 덮어쓴다 (v2 결정: 라이브 시스템 폐기).
+  const { equipped: v2Equipped } = parseEquipmentSave(equipmentSave);
+  const equipped = pickV2OrLiveSlots(v2Equipped, liveEquipped);
 
   const derived = derivePlayerCombat({
     level: character.level ?? 1,

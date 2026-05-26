@@ -3,13 +3,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
+  parseEquipmentSave,
+  type EquipmentSave,
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import {
-  parseEquipmentSave,
-  type EquipmentSave,
-} from "../route";
 
 // POST /api/v2/me/equipment/equip — 한 슬롯의 장착 변경.
 //

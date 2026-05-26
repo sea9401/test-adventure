@@ -1,23 +1,24 @@
-// v2 마법 데미지 스킬 풀 (PR-4) — 라이브 25종 AP 스킬 풀과 별개.
+// v2 마법 데미지 스킬 풀.
 //
-// 단판 전투 모델: 매 전투 시작 시 MP 풀충전(PR-3) → 학습한 마법 중 비용
-// 큰 것부터 발동 가능한 만큼 차례로 자동 발동 → MP 다 떨어지면 끝.
+// PR-7 변경:
+//   - intMultiplier 1/3 인하 (codex 컨설팅 — 즉사 위험 해소).
+//     기존: flame ×3 / bolt ×6 / meteor ×12 → 신: ×1 / ×2 / ×4
+//   - 한 전투 1주문만 cast (큰 비용 순으로 첫 발동 가능한 것). 기존 sweep(가능한
+//     만큼 다 발동) 폐기 — "한 번의 큰 burst" 컨셉으로 단순화.
+//   - 턴당 액티브·cooldown 구조 전환은 PR-7b 후속 (engine 의 player turn 시작 hook
+//     필요, 큰 변경).
 //
-// 1차 다이얼:
-//   - 효율 통일: damage = INT × (cost / 6.66) ≈ MP 1 당 데미지 0.15×INT
-//     (코드는 단순화 위해 다이얼 상수만 갖음)
-//   - INT 10 = MP 100 → 유성(80) + 불꽃(20) 발동
-//   - INT 20 = MP 200 → 유성 2번 + 불꽃 2번 ... (소진까지)
+// 단판 전투 모델: 전투 시작 시 MP 풀충전 → 큰 비용 순으로 첫 발동 가능한 1주문 cast →
+// 그 후 일반 전투. MP 회복 없음 (전투 끝까지 잔량 보존, UI 표시용).
 //
-// 학습은 별도 시스템 없음 — INT > 0 인 모든 캐릭이 3종 다 사용 가능 (PR-5
-// 에서 슬롯/장착으로 좁힐 가능성). 라이브 캐릭은 INT 0 → MP 0 → 자동 미발동.
+// 학습 임계: INT 5(flame) / 15(bolt) / 30(meteor). 라이브 캐릭은 INT 0 → 학습 X → no-op.
 
 export type Spell = {
   id: SpellId;
   name: string;
   description: string;
   mpCost: number;
-  /** 데미지 = INT × intMultiplier (DEF 적용 후 1 하한). */
+  /** 데미지 = INT × intMultiplier (1 하한). 마법은 회피 불가 (DEF 무시). */
   intMultiplier: number;
 };
 
@@ -29,31 +30,29 @@ export const SPELLS: Record<SpellId, Spell> = {
     name: "불꽃",
     description: "기초 마법. 적은 MP 로 작은 화염 일격.",
     mpCost: 20,
-    intMultiplier: 3,
+    intMultiplier: 1,
   },
   bolt: {
     id: "bolt",
     name: "번개",
     description: "중급 마법. 적정 비용에 한 줄기 번개.",
     mpCost: 40,
-    intMultiplier: 6,
+    intMultiplier: 2,
   },
   meteor: {
     id: "meteor",
     name: "유성",
     description: "상급 마법. 큰 비용으로 떨어뜨리는 별빛 일격.",
     mpCost: 80,
-    intMultiplier: 12,
+    intMultiplier: 4,
   },
 };
 
-// 발동 우선순위 — 큰 비용/큰 데미지부터. 한 전투 시작 1회 sweep 에서 가능한
-// 만큼 차례로 발동.
+// 발동 우선순위 — 큰 비용/큰 데미지부터. PR-7: 한 전투 1주문만 cast.
 export const SPELL_ORDER: readonly SpellId[] = ["meteor", "bolt", "flame"];
 
-// INT 임계값 자동 학습 (PR-5). INT 가 임계값 이상이면 책 없이 자동 사용 가능.
-// 1차 다이얼: flame 5 / bolt 15 / meteor 30. v2 베이스 INT = 0 → 시작 시 아무것도
-// 학습 안 됨. 단련 포인트로 INT 찍어 해금.
+// INT 임계값 자동 학습. INT 가 임계값 이상이면 책 없이 자동 사용 가능.
+// v2 베이스 INT = 0 → 시작 시 아무것도 학습 안 됨. 단련/장비로 INT 찍어 해금.
 export const SPELL_LEARN_THRESHOLD: Record<SpellId, number> = {
   flame: 5,
   bolt: 15,
@@ -92,8 +91,9 @@ export function normalizeEquippedSpells(
 import type { BattleLogEntry, BattleState } from "@/adventure/battle/engine";
 import type { PvPBattleState, PvPSide } from "@/adventure/battle/engine-pvp";
 
-// 전투 시작 시 1회 sweep — 학습한 마법(현재는 SPELLS 전체) 중 비용 큰 것부터
-// 가능한 만큼 발동. 적이 죽으면 sweep 중단. 마법 데미지는 DEF 무시 (1차).
+// 전투 시작 시 1주문 cast (PR-7) — 큰 비용 순으로 첫 발동 가능한 spell 1번만.
+// 기존 sweep(MP 소진까지 반복)에서 한 발로 좁힘 — "burst" 컨셉.
+// 마법은 회피 불가, DEF 무시 (1차).
 //
 // totalStats.int / maxMp 둘 다 0 인 라이브 캐릭은 no-op — state 그대로 반환.
 export function applyStartOfBattleSpells(
@@ -105,92 +105,94 @@ export function applyStartOfBattleSpells(
   if (intStat <= 0 || state.playerMaxMp <= 0 || equippedSpells.length === 0) {
     return state;
   }
-  let mp = state.playerMp;
-  let enemyHp = state.enemyHp;
-  const log: BattleLogEntry[] = [...state.log];
-  // 장착 슬롯 중 우선순위(큰 비용→작은 비용) 순으로 sweep.
   const equippedSet = new Set(equippedSpells);
   for (const id of SPELL_ORDER) {
     if (!equippedSet.has(id)) continue;
     const spell = SPELLS[id];
-    while (mp >= spell.mpCost && enemyHp > 0) {
-      mp -= spell.mpCost;
-      const damage = Math.max(1, intStat * spell.intMultiplier);
-      enemyHp = Math.max(0, enemyHp - damage);
-      log.push({
+    if (state.playerMp < spell.mpCost) continue;
+    const damage = Math.max(1, intStat * spell.intMultiplier);
+    const log: BattleLogEntry[] = [
+      ...state.log,
+      {
         kind: "player_attack",
         text: `${playerName}의 [${spell.name}] — ${damage} 마법 데미지 (MP -${spell.mpCost})`,
         turn: "player",
-      });
-    }
-    if (enemyHp <= 0) break;
+      },
+    ];
+    return {
+      ...state,
+      playerMp: state.playerMp - spell.mpCost,
+      enemyHp: Math.max(0, state.enemyHp - damage),
+      log,
+    };
   }
-  return { ...state, playerMp: mp, enemyHp, log };
+  return state;
 }
 
-// PvP 시작 sweep — 양측 동시 발동. 선공 측 우선 순서 (관습).
-// 한쪽이 마법으로 죽으면 죽은 측은 sweep 중단(상대만 마저 발동 가능).
+// PvP 시작 1주문 — 양측 동시 발동 (PR-7).
+// 양측 cast 의사를 pre-state 기준으로 독립 계산 → 한 번에 적용. 선공/후공 영향 X,
+// 동귀어진 가능 (양측 lethal). 로그는 firstSideKey 순서 (관습).
+// 마법 단발화 의도 = "양측이 burst 1발씩 동시 발사". 라이브 호환: intStat 0/equipped 빈
+// → 결정 0 → no-op.
 export function applyStartOfBattleSpellsPvP(
   state: PvPBattleState,
   firstSideKey: "p1" | "p2",
 ): PvPBattleState {
-  const secondSideKey = firstSideKey === "p1" ? "p2" : "p1";
-  const log: BattleLogEntry[] = [...state.log];
-  let p1 = state.p1;
-  let p2 = state.p2;
+  type CastIntent = {
+    spellName: string;
+    mpCost: number;
+    damage: number;
+  } | null;
 
-  function sweepSide(
-    attacker: PvPSide,
-    defender: PvPSide,
-    attackerSideTag: "p1" | "p2",
-  ): { attacker: PvPSide; defender: PvPSide } {
-    const intStat = attacker.player.intStat ?? 0;
-    const equipped = attacker.player.equippedSpells ?? [];
-    if (intStat <= 0 || attacker.maxMp <= 0 || equipped.length === 0) {
-      return { attacker, defender };
-    }
-    let mp = attacker.mp;
-    let defHp = defender.hp;
+  function pickCast(side: PvPSide): CastIntent {
+    const intStat = side.player.intStat ?? 0;
+    const equipped = side.player.equippedSpells ?? [];
+    if (intStat <= 0 || side.maxMp <= 0 || equipped.length === 0) return null;
     const equippedSet = new Set(equipped);
     for (const id of SPELL_ORDER) {
       if (!equippedSet.has(id)) continue;
       const spell = SPELLS[id];
-      while (mp >= spell.mpCost && defHp > 0) {
-        mp -= spell.mpCost;
-        const damage = Math.max(1, intStat * spell.intMultiplier);
-        defHp = Math.max(0, defHp - damage);
-        log.push({
-          kind: "player_attack",
-          text: `${attacker.name}의 [${spell.name}] — ${damage} 마법 데미지 (MP -${spell.mpCost})`,
-          turn: "player",
-          side: attackerSideTag,
-        });
-      }
-      if (defHp <= 0) break;
+      if (side.mp < spell.mpCost) continue;
+      return {
+        spellName: spell.name,
+        mpCost: spell.mpCost,
+        damage: Math.max(1, intStat * spell.intMultiplier),
+      };
     }
-    return { attacker: { ...attacker, mp }, defender: { ...defender, hp: defHp } };
+    return null;
   }
 
-  // 선공 측 먼저.
-  if (firstSideKey === "p1") {
-    const r1 = sweepSide(p1, p2, "p1");
-    p1 = r1.attacker;
-    p2 = r1.defender;
-    if (p2.hp > 0) {
-      const r2 = sweepSide(p2, p1, "p2");
-      p2 = r2.attacker;
-      p1 = r2.defender;
-    }
-  } else {
-    const r1 = sweepSide(p2, p1, "p2");
-    p2 = r1.attacker;
-    p1 = r1.defender;
-    if (p1.hp > 0) {
-      const r2 = sweepSide(p1, p2, "p1");
-      p1 = r2.attacker;
-      p2 = r2.defender;
-    }
+  // pre-state 기준 — 양측 의사 결정이 상대의 cast 결과에 영향받지 않음.
+  const p1Cast = pickCast(state.p1);
+  const p2Cast = pickCast(state.p2);
+
+  const log: BattleLogEntry[] = [...state.log];
+  // 로그는 선공 측 우선 순서 (관습).
+  const order: ("p1" | "p2")[] =
+    firstSideKey === "p1" ? ["p1", "p2"] : ["p2", "p1"];
+  for (const sideTag of order) {
+    const cast = sideTag === "p1" ? p1Cast : p2Cast;
+    if (!cast) continue;
+    const sideName = sideTag === "p1" ? state.p1.name : state.p2.name;
+    log.push({
+      kind: "player_attack",
+      text: `${sideName}의 [${cast.spellName}] — ${cast.damage} 마법 데미지 (MP -${cast.mpCost})`,
+      turn: "player",
+      side: sideTag,
+    });
   }
-  void secondSideKey;
-  return { ...state, p1, p2, log };
+
+  // HP/MP 동시 적용. 양측 lethal 이면 둘 다 0 으로 → 동귀어진.
+  const newP1 = {
+    ...state.p1,
+    mp: p1Cast ? state.p1.mp - p1Cast.mpCost : state.p1.mp,
+    hp: p2Cast ? Math.max(0, state.p1.hp - p2Cast.damage) : state.p1.hp,
+  };
+  const newP2 = {
+    ...state.p2,
+    mp: p2Cast ? state.p2.mp - p2Cast.mpCost : state.p2.mp,
+    hp: p1Cast ? Math.max(0, state.p2.hp - p1Cast.damage) : state.p2.hp,
+  };
+
+  return { ...state, p1: newP1, p2: newP2, log };
 }

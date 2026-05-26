@@ -1183,11 +1183,17 @@ export function advanceTurnPvP(
       ? defender.player.doubleLuck?.evade ?? 0
       : 0;
     const universalLuckEvadeBonus = defender.player.universalLuckBonusPct ?? 0;
-    const effectiveEvadePct =
+    // v2 명중률(PR-6): 공격자 accuracyPct 가 방어자 evasion 에서 %p 차감.
+    // 0/undefined = 차감 없음(라이브 기존 동작 보존).
+    const attackerAccuracy = attacker.player.accuracyPct ?? 0;
+    const effectiveEvadePct = Math.max(
+      0,
       defender.player.evasionPct * precisionMult +
-      luckEvadeBonus +
-      universalLuckEvadeBonus +
-      defender.buffs.cyclingChiBonus;
+        luckEvadeBonus +
+        universalLuckEvadeBonus +
+        defender.buffs.cyclingChiBonus -
+        attackerAccuracy,
+    );
     if (effectiveEvadePct > 0 && Math.random() * 100 < effectiveEvadePct) {
       return applyPerAttackDodge(
         state,

@@ -240,6 +240,9 @@ export type PlayerCombat = {
   def: number;
   spd: number; // 선공 판정에 사용
   evasionPct: number; // 0~100, 적 공격 회피 확률
+  // v2 명중률 (PR-6) — 적 evasionPct 에서 %p 차감. 0/undefined = 차감 없음(라이브 기존 동작).
+  // 라이브 적의 `enemy.accuracy` 와 대칭. v2 derive 가 totalStats.dex × 0.25 로 채움.
+  accuracyPct?: number;
   attackCount: number; // 한 턴에 가하는 공격 횟수 (>=1)
   // 매 턴 시작 시 이 확률(0~100)로 추가 공격 1회. SPD 의 기본 환산.
   extraAttackChancePct?: number;
@@ -1260,9 +1263,13 @@ export function advanceTurn(
 
     // 적 회피 — 데미지 굴리기 전에 1차 판정. 회피하면 공격 1회가 그대로 빗나간다.
     // 정확 슬롯 시 적 evasion 에 배수(<1) 가 곱해져 부분 무력화.
+    // v2 명중률(PR-6): player.accuracyPct 가 적 evasion 에서 %p 차감. 0/undefined =
+    // 차감 없음(라이브 기존 동작 보존). 라이브 enemy.accuracy 와 대칭.
     // AP 스킬의 ignoresEvasion = true 면 회피 판정 자체 스킵.
     const precisionMult = player.precisionEvasionMult ?? 1;
-    const enemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
+    const rawEnemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
+    const playerAccuracy = player.accuracyPct ?? 0;
+    const enemyEvasionPct = Math.max(0, rawEnemyEvasionPct - playerAccuracy);
     if (
       !apIgnoresEvasion &&
       enemyEvasionPct > 0 &&

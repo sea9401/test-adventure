@@ -25,6 +25,7 @@ type StateResponse = {
     expToNext: number | null;
     hp: number;
     maxHp: number;
+    maxMp?: number;
     gold: number;
   };
   guild?: { name: string };

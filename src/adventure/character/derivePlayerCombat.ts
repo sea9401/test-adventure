@@ -2,6 +2,10 @@
 // page.tsx (클라이언트) 와 협동 보스 라우트 (서버) 가 공유 — 클라이언트 위변조 차단을 위해
 // 서버는 같은 derive 로 재계산해 클라가 보낸 값을 무시한다.
 
+// v2 마법 풀 환산 — INT 1pt 당 MP +N. INT 가 0 인 라이브 캐릭은 maxMp = 0 → 자동
+// 비활성. 1차 다이얼: INT 10 = MP 100. 마법 소비 비용은 PR-4+ 에서 같이 튜닝.
+export const MP_PER_INT = 10;
+
 import type { PlayerCombat } from "@/adventure/battle/engine";
 import type { EquipItem } from "@/adventure/data/items";
 import {
@@ -292,9 +296,13 @@ export function derivePlayerCombat(
   // 화력 빌드(STR 외)의 ATK floor, 화력 빌드의 DEF floor 양쪽 다 보강.
   const levelBaseAtk = Math.floor(input.level / 2);
   const levelBaseDef = Math.floor(input.level / 2);
+  // v2 마법 풀 — INT × MP_PER_INT. INT 0(라이브) 이면 0 — MP 자원·UI 자동 비활성.
+  // 1차 다이얼: INT 10 = MP 100. 마법 소비 비용은 PR-4+ 에서 정해지면 같이 튜닝.
+  const maxMp = totalStats.int * MP_PER_INT;
   const player: PlayerCombat = {
     hp: Math.max(0, Math.min(input.hp, maxHp)),
     maxHp,
+    maxMp,
     atk:
       Math.floor(rawAtk * pctToMultiplier(runeBonus.atk_pct)) +
       levelBaseAtk +

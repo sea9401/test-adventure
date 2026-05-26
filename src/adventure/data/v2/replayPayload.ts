@@ -18,6 +18,8 @@ export type ReplayPayload = {
     hp: number; // max HP
   };
   playerMaxHp: number;
+  // v2 마법 시스템 풀 max (INT 0 이면 0). PR-4+ 에서 마법 소비 들어오면 finalMp 추가 검토.
+  playerMaxMp: number;
   log: BattleLogEntry[];
 };
 
@@ -32,6 +34,7 @@ export function toReplayPayload(
       hp: finalState.enemy.hp,
     },
     playerMaxHp: finalState.playerMaxHp,
+    playerMaxMp: finalState.playerMaxMp,
     log: finalState.log.slice(-logCap),
   };
 }
@@ -50,6 +53,10 @@ export function buildBattleStateFromReplay(
     enemyHp,
     playerHp,
     playerMaxHp: payload.playerMaxHp,
+    // PR-4 까지 MP 소비 없음 — replay 시점에도 풀충전 그대로 표시.
+    // 옛 payload(이전 배포본의 열어 둔 탭) 호환 — playerMaxMp 미존재 시 0.
+    playerMp: payload.playerMaxMp ?? 0,
+    playerMaxMp: payload.playerMaxMp ?? 0,
     log: payload.log,
     phase: "ended",
     outcome: null,

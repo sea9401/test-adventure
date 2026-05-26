@@ -17,6 +17,8 @@ export type V2CharacterCardData = {
   expToNext: number | null;
   hp: number;
   maxHp: number;
+  // v2 마법 풀 — INT 0 이면 0 (라이브 캐릭). 0 일 때는 MP 바 비표시.
+  maxMp?: number;
   gold: number;
 };
 
@@ -55,9 +57,10 @@ export function V2CharacterCard({
   titleName?: string | null;
   showGold?: boolean;
 }) {
-  // MP — v2 시스템 없음. 라이브 톤 맞춰 0/0 placeholder.
-  const mp = 0;
-  const maxMp = 0;
+  // v2 마법 풀 (PR-3). 단판 모델 — 캐릭터 카드는 풀충전 상태 표시.
+  // INT 0 인 캐릭은 maxMp 0 → MP 바 자체 안 보임.
+  const maxMp = character.maxMp ?? 0;
+  const mp = maxMp;
 
   return (
     <Card padding="md">
@@ -87,7 +90,9 @@ export function V2CharacterCard({
               max={character.maxHp}
               color="bg-red-500"
             />
-            <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
+            {maxMp > 0 && (
+              <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
+            )}
             {character.expToNext != null && (
               <StatBar
                 label="EXP"

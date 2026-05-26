@@ -194,6 +194,11 @@ export type BattleState = {
   enemyHp: number;
   playerHp: number;
   playerMaxHp: number;
+  // v2 마법 시스템 자원. INT 가 있는 캐릭만 > 0. 단판 전투당 풀충전 모델 —
+  // 전투 시작 시 = playerMaxMp, 마법 발동 시 차감(소비는 PR-4+ 부터).
+  // 라이브 캐릭(INT=0)은 둘 다 0 — MP 바 표시·소비 메커닉 자체 비활성.
+  playerMp: number;
+  playerMaxMp: number;
   log: BattleLogEntry[];
   phase: BattlePhase;
   outcome: BattleOutcome | null;
@@ -215,6 +220,10 @@ export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 export type PlayerCombat = {
   hp: number;
   maxHp: number;
+  // v2 마법 시스템 — 전투당 풀충전. derive 에서 INT × MP_PER_INT 로 계산.
+  // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성. 소비는 PR-4+ 부터.
+  // optional 로 둠 — 라이브 PlayerCombat 객체 리터럴(테스트 다수)이 매번 안 박아도 되게.
+  maxMp?: number;
   atk: number;
   def: number;
   spd: number; // 선공 판정에 사용
@@ -967,11 +976,15 @@ export function initialBattleState(
   if (barrierStart > 0) {
     log.push({ kind: "info", text: `[보호막] 별빛이 ${barrierStart} 둘렀다` });
   }
+  // 전투 시작 시 MP 풀충전 (단판 모델). INT 0 또는 undefined 면 둘 다 0.
+  const playerMaxMp = Math.max(0, player.maxMp ?? 0);
   return {
     enemy,
     enemyHp: enemy.hp,
     playerHp: player.hp,
     playerMaxHp: player.maxHp,
+    playerMp: playerMaxMp,
+    playerMaxMp,
     log,
     phase: playerFirst ? "player" : "enemy",
     outcome: null,

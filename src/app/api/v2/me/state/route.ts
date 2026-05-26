@@ -87,6 +87,7 @@ export async function GET() {
       : "male1";
   const guildName = guildRow?.name ?? "—";
   const maxHp = combat?.maxHp ?? 100;
+  const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
   const stamina = applyRegen(parseStaminaFromSave(charSave.stamina, now), now);
@@ -120,6 +121,9 @@ export async function GET() {
       expToNext,
       hp: hpRegen.hp,
       maxHp,
+      // v2 마법 풀 (PR-3). INT 0 이면 0 — UI 가 maxMp > 0 일 때만 MP 바 렌더.
+      // 단판 모델이라 현재 mp 저장 X (전투 시작 시 풀충전 = maxMp).
+      maxMp,
       stamina: {
         current: stamina.current,
         max: MAX_STAMINA,

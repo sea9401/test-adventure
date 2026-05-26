@@ -1,5 +1,5 @@
 import type { Monster } from "../data/monsters";
-import { applyStartOfBattleSpells } from "../data/v2/spells";
+import { castSpellsOnPlayerTurn } from "../data/v2/spells";
 import { type Potion, type PotionId } from "../data/potions";
 import {
   extractApEffect,
@@ -202,10 +202,14 @@ export type BattleState = {
   playerHp: number;
   playerMaxHp: number;
   // v2 마법 시스템 자원. INT 가 있는 캐릭만 > 0. 단판 전투당 풀충전 모델 —
-  // 전투 시작 시 = playerMaxMp, 마법 발동 시 차감(소비는 PR-4+ 부터).
+  // 전투 시작 시 = playerMaxMp, 마법 발동 시 차감.
   // 라이브 캐릭(INT=0)은 둘 다 0 — MP 바 표시·소비 메커닉 자체 비활성.
   playerMp: number;
   playerMaxMp: number;
+  // v2 마법 cooldown (PR-7b). spell id 별 남은 player turn 수. 0 또는 미설정 = cast 가능.
+  // 매 player turn 시작 시 -1 후 가능한 spell 1발 cast → 해당 cd 초기화.
+  // 라이브 캐릭은 spellCooldowns 미정의 → castSpellsOnPlayerTurn 이 no-op.
+  spellCooldowns?: import("../data/v2/spells").SpellCooldowns;
   log: BattleLogEntry[];
   phase: BattlePhase;
   outcome: BattleOutcome | null;
@@ -2733,17 +2737,8 @@ export function resolveBattle(
   let state = initialBattleState(player, enemy, playerName);
   // 보스 전투 여부 — 충돌파/천명 같은 %HP 효과 감산 (BOSS_PCT_HP_DAMAGE_MULT) 에 사용.
   if (ctx.isBoss) state = { ...state, isBoss: true };
-  // v2 마법 — 전투 시작 시 1회 sweep. INT 0(라이브) 캐릭은 자동 미발동.
-  // 시작 이전에 적이 죽으면 advanceTurn 루프 가드(outcome) 가 처리.
-  state = applyStartOfBattleSpells(
-    state,
-    player.intStat ?? 0,
-    player.equippedSpells ?? [],
-    playerName,
-  );
-  if (state.enemyHp <= 0) {
-    state = { ...state, outcome: "win", phase: "ended" };
-  }
+  // v2 마법 (PR-7b) — 매 player turn 시작 시 cast. 전투 시작 시 sweep 폐기.
+  // INT 0(라이브) 캐릭은 자동 미발동. cast hook 은 main loop 안.
   // 선공자 캐시 — 사이클(1턴) 정의가 선공자에 따라 달라진다.
   //   - 플레이어 선공: 사이클 = [player phase → enemy phase] — enemy→player 전환이 사이클 끝.
   //   - 적 선공:      사이클 = [enemy phase → player phase]  — player→enemy 전환이 사이클 끝.
@@ -2786,9 +2781,44 @@ export function resolveBattle(
     ],
   };
   let turns = 0;
+  // v2 마법 — 매 player turn 시작 시 cast hook. 한 turn 안에 player phase 가 여러 step
+  // 으로 분할되어도 첫 step 에서만 cast (lastCastedTurn 로 dedupe). 첫 turn 은
+  // completedPlayerTurns === 0 에서 cast (lastCastedTurn 초기값 -1).
+  let lastCastedTurn = -1;
 
   while (state.phase !== "ended") {
     let action: PlayerAction = { kind: "attack" };
+    if (state.phase === "player") {
+      // 매 player turn 의 첫 step 에서 cast. cast 후 enemy 가 죽으면 outcome 처리.
+      // ended 면 continue 로 while 가드 재평가 → 종료.
+      if (state.turn.completedPlayerTurns > lastCastedTurn) {
+        lastCastedTurn = state.turn.completedPlayerTurns;
+        state = castSpellsOnPlayerTurn(
+          state,
+          player.intStat ?? 0,
+          player.equippedSpells ?? [],
+          playerName,
+        );
+        if (state.enemyHp <= 0) {
+          // 일반 공격 lethal 경로와 일관성 — 처치 로그 + completedPlayerTurns +1.
+          state = {
+            ...state,
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+              turn: "player",
+            }),
+            outcome: "win",
+            phase: "ended",
+            turn: {
+              ...state.turn,
+              completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+            },
+          };
+          continue;
+        }
+      }
+    }
     if (state.phase === "player") {
       const picked = ctx.pickAction(state);
       if (picked.kind === "use_potion") {
@@ -2804,6 +2834,8 @@ export function resolveBattle(
     }
     // advanceTurn 호출 직전의 phase 가 이번 step 의 turn — 호출 안에서 phase 가 다음으로
     // 전환되더라도, 그 사이 push 된 entry 들은 모두 이 turn 의 것이다.
+    // PR-7b cast hook 으로 ended 가 박힐 수 있어 안전 가드 — 도달 시 다음 iter 종료.
+    if (state.phase === "ended") continue;
     const turnContext: "player" | "enemy" = state.phase;
     const prevLogLen = state.log.length;
     const prevPhase = state.phase;

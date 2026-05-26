@@ -17,7 +17,7 @@ import { APSkillConditionModal } from "./APSkillConditionModal";
 // 미장착 스킬 목록의 탭 키 — "feat" 은 특기, "ap" 은 학습한 AP 스킬, 나머지는 STAT_LABELS.
 // 순서: AP / 특기 / 힘 / 활력 / 민첩 / 속도 / 행운.
 type SkillTabKey = "ap" | "feat" | StatKey;
-const SKILL_TAB_ORDER: SkillTabKey[] = ["ap", "feat", "str", "vit", "dex", "spd", "luk"];
+const SKILL_TAB_ORDER: SkillTabKey[] = ["ap", "feat", "str", "vit", "dex", "spd", "luk", "int"];
 
 // 보유 스킬을 슬롯으로 관리. 슬롯에 들어간 스킬만 전투에서 발동.
 // 일반 슬롯(normalSlots, 3~5) + 특기 전용 슬롯(featSlots, 0~2).
@@ -221,6 +221,7 @@ function UnequippedSkillsTabs({
     vit: [],
     spd: [],
     luk: [],
+    int: [],
   };
   for (const s of unequippedSkills) {
     const stat = statOfSkill(s.name);

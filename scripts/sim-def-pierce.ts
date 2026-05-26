@@ -33,7 +33,7 @@ const LEVEL = Number(process.env.LEVEL ?? 100);
 const TRIALS = Number(process.env.TRIALS ?? 400);
 const PT_MULT = 1.5;
 
-const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
+const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 };
 const FLAGS = new Set<string>([
   "peak_giant_defeated",
   "volcano_heart_defeated",
@@ -50,7 +50,7 @@ const always = (skill: ReturnType<typeof getAPSkillByName>): EquippedAPSkill => 
 // 스탯 분배 — main 50% / vit 32% / sub 12%.
 function allocate(main: StatKey, sub: StatKey): Record<StatKey, number> {
   const points = Math.round(Math.max(0, LEVEL - 1) * PT_MULT);
-  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 };
+  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
   let left = points;
   const give = (k: StatKey, n: number) => {
     const v = Math.max(0, Math.min(left, n));

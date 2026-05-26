@@ -11,7 +11,7 @@ import { ITEMS } from "../src/adventure/data/items";
 import { WORLD_MAP } from "../src/adventure/data/world";
 import type { StatKey } from "../src/adventure/data/stats";
 
-const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
+const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 };
 const LEVEL = 80;
 
 // Lv80 = 일반 스킬 슬롯 4 개. ANALYSIS 는 4번째 자리에 두어야 slice 에 안 잘림.
@@ -33,7 +33,7 @@ const ALL_STORY_FLAGS = new Set<string>([
 
 function allocate(): Record<StatKey, number> {
   const pts = Math.max(0, LEVEL - 1);
-  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 };
+  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
   a.dex = Math.round(pts * 0.8);
   a.vit = Math.round(pts * 0.15);
   a.luk = pts - a.dex - a.vit;

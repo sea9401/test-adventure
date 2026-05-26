@@ -8,9 +8,9 @@ import { ITEMS } from "../src/adventure/data/items";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import type { StatKey } from "../src/adventure/data/stats";
 
-const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
+const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 };
 const LEVEL = 80;
-const ALLOC: Record<StatKey, number> = { str: 0, dex: 63, vit: 12, spd: 0, luk: 4 };
+const ALLOC: Record<StatKey, number> = { str: 0, dex: 63, vit: 12, spd: 0, luk: 4, int: 0 };
 
 const ALL_STORY_FLAGS = new Set<string>([
   "peak_giant_defeated",

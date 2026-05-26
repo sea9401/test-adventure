@@ -457,6 +457,9 @@ export const STAT_SKILL: Record<StatKey, StatSkillInfo[]> = {
       activationThreshold: UNIVERSAL_LUCK_LUK_THRESHOLD,
     },
   ],
+  // INT 스탯의 라이브 스킬은 없음 — v2 마법 시스템 도입(PR-2)에 따른 placeholder.
+  // 마법 액티브는 별도 풀(후속 PR)로 도입되며 이 STAT_SKILL 구조와 무관.
+  int: [],
 };
 
 // 스킬 이름 → 소속 스탯 매핑. STAT_SKILL 의 역인덱스. 표시(도감·SkillsView 그룹핑) 전용.

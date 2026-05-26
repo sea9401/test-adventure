@@ -80,7 +80,7 @@ export async function derivePlayerCombatV2(
       acc[k] = training.allocated?.[k] ?? 0;
       return acc;
     },
-    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 } as Record<StatKey, number>,
+    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
   );
 
   const savedEquipped = character.equipped ?? null;

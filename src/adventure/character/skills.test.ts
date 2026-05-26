@@ -16,6 +16,7 @@ const ZERO: Record<StatKey, number> = {
   vit: 0,
   spd: 0,
   luk: 0,
+  int: 0,
 };
 
 describe("skillLayout — 슬롯 해금", () => {

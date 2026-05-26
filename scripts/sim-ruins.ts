@@ -37,7 +37,7 @@ type Build = {
 
 function build(
   name: string,
-  s: { str: number; dex: number; vit: number; spd: number; luk: number },
+  s: { str: number; dex: number; vit: number; spd: number; luk: number; int: number },
   gear: { atk?: number; def?: number; bonus?: { str?: number; dex?: number; vit?: number; spd?: number } },
 ): Build {
   const str = s.str + (gear.bonus?.str ?? 0);
@@ -68,19 +68,19 @@ const builds: Build[] = [
   // A: 무난 빌드. 8pt 골고루(str+3, vit+3, dex+2). 기본 무기/방어구 (atk +0, def +0).
   build(
     "Lv9 / 기본장비 / str+3 vit+3 dex+2",
-    { str: 6, dex: 5, vit: 6, spd: 3, luk: 3 },
+    { str: 6, dex: 5, vit: 6, spd: 3, luk: 3, int: 3 },
     { atk: 0, def: 0 },
   ),
   // B: 외곽숲까지 진행한 평균. 야구방망이(+2) + 낡은가죽(+2) + 활력반지(vit+2). 8pt 분배.
   build(
     "Lv9 / 야구방망이+낡은가죽+활력반지 / str+4 vit+2 dex+2",
-    { str: 7, dex: 5, vit: 5, spd: 3, luk: 3 },
+    { str: 7, dex: 5, vit: 5, spd: 3, luk: 3, int: 3 },
     { atk: 2, def: 2, bonus: { vit: 2 } },
   ),
   // C: 상위 빌드 가정. 산적단검(+4 dex+2) + 낡은가죽(+2) + 님프반지(spd+2). str/vit 위주 8pt.
   build(
     "Lv9 / 산적단검+낡은가죽+님프반지 / str+4 vit+3 spd+1",
-    { str: 7, dex: 3, vit: 6, spd: 4, luk: 3 },
+    { str: 7, dex: 3, vit: 6, spd: 4, luk: 3, int: 3 },
     { atk: 4, def: 2, bonus: { dex: 2, spd: 2 } },
   ),
 ];

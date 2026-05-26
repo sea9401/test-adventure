@@ -16,7 +16,7 @@ import type { StatKey } from "../src/adventure/data/stats";
 
 type Arch = "STR" | "DEX" | "SPD" | "LUK" | "BAL";
 const ARCHES: Arch[] = ["STR", "DEX", "SPD", "LUK", "BAL"];
-const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3 };
+const BASE_STATS: Record<StatKey, number> = { str: 3, dex: 3, vit: 3, spd: 3, luk: 3, int: 3 };
 const PT_PER_LEVEL = 1; // 실게임 1pt/레벨
 
 // 레벨별 마일스톤 — 보스 있는 region 위주(보스WR 측정 가능).
@@ -42,7 +42,7 @@ function regionById(id: string): Region {
 // 메인 60% 로는 Lv70 메인스탯이 장비 보너스 포함해도 임계 미달 → 5티어 스킬 발동 안 함 → sim 오염.
 function allocate(arch: Arch, level: number): Record<StatKey, number> {
   const pts = Math.max(0, level - 1) * PT_PER_LEVEL;
-  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0 };
+  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
   const main: StatKey = arch === "STR" ? "str" : arch === "DEX" ? "dex" : arch === "SPD" ? "spd" : arch === "LUK" ? "luk" : "str";
   if (arch === "BAL") {
     a.str = Math.round(pts * 0.3); a.vit = Math.round(pts * 0.25); a.dex = Math.round(pts * 0.18); a.spd = Math.round(pts * 0.15); a.luk = pts - a.str - a.vit - a.dex - a.spd;

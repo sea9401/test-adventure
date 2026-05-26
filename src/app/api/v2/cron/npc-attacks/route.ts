@@ -2,14 +2,13 @@ import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostClaimAttempts, outpostOccupations } from "@/db/schema";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
-import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
-import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
+// PR-7b: 병사 시스템 폐기 — applySoldierBoost / readGuildResources soldiers 보정 제거.
+// 점령자 영웅 단신으로 NPC 챔피언과 단판.
 
 // POST /api/v2/cron/npc-attacks — cron 이 주기적으로 호출 (e.g. 매 시간).
 // CRON_SECRET 헤더 검증. 모든 점령된 거점 중 nextAttackAt < now 인 것들 평가.
@@ -96,16 +95,8 @@ export async function POST(req: Request) {
         }
 
         const champion = getChampion(outpost.type, outpost.tier);
-        // 점령자 길드 자원의 soldiers 보정 (수비측 영웅 강화).
-        // 점령자 = guildMaster 가정 (1인 길드 + 다인 마스터). PR-vi-b 후속.
-        const ownerGuildId = lockedOcc.occupiedByGuildId
-          ?? (await ensureSoloGuild(tx, ownerId));
-        const soldiers = (await readGuildResources(tx, ownerGuildId)).soldiers;
-        // 점령자 영웅 hp = 만피 + 병사 보정.
-        const playerForBattle = applySoldierBoost(
-          { ...player.player, hp: player.maxHp },
-          soldiers,
-        );
+        // PR-7b: 병사 보정 제거 — 점령자 영웅 단신, hp = 만피.
+        const playerForBattle = { ...player.player, hp: player.maxHp };
 
         const battle = resolveBattle(
           playerForBattle,

@@ -4,12 +4,14 @@ import { v2GuildResources } from "@/db/schema";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
+// PR-7b: 병사 시스템 폐기. soldiers DB 컬럼은 보존(데이터 안전), 헬퍼 타입에서
+// 제거 — 새 코드가 soldiers 안 보게. DROP COLUMN 마이그레이션은 후일 결정.
+
 export type V2GuildResources = {
   stone: number;
-  soldiers: number;
   scrolls: number;
   // PR-6 — 활성 주문서 만료 시점(epoch ms). null = 비활성. 활성 시 길드원의
-  // 토너먼트/본 병사 전쟁에 atk +SCROLL_ATK_BONUS_PCT% buff.
+  // 토너먼트에 atk +SCROLL_ATK_BONUS_PCT% buff.
   activeScrollExpiresAt: number | null;
 };
 
@@ -26,13 +28,11 @@ export function isScrollActive(
 
 function rowToResources(row: {
   stone: number | null;
-  soldiers: number | null;
   scrolls: number | null;
   activeScrollExpiresAt: Date | null;
 }): V2GuildResources {
   return {
     stone: Math.max(0, row.stone ?? 0),
-    soldiers: Math.max(0, row.soldiers ?? 0),
     scrolls: Math.max(0, row.scrolls ?? 0),
     activeScrollExpiresAt: row.activeScrollExpiresAt
       ? row.activeScrollExpiresAt.getTime()
@@ -41,11 +41,11 @@ function rowToResources(row: {
 }
 
 // row 가 없으면 빈 row 보장 (race-safe). SELECT FOR UPDATE 가 잠금 잡으려면
-// row 가 있어야 하므로.
+// row 가 있어야 하므로. soldiers 컬럼은 기본값(0) 자동.
 async function ensureRow(tx: Tx, guildId: number): Promise<void> {
   await tx
     .insert(v2GuildResources)
-    .values({ guildId, stone: 0, soldiers: 0, scrolls: 0 })
+    .values({ guildId, stone: 0, scrolls: 0 })
     .onConflictDoNothing();
 }
 
@@ -59,7 +59,6 @@ export async function lockGuildResources(
     await tx
       .select({
         stone: v2GuildResources.stone,
-        soldiers: v2GuildResources.soldiers,
         scrolls: v2GuildResources.scrolls,
         activeScrollExpiresAt: v2GuildResources.activeScrollExpiresAt,
       })
@@ -69,12 +68,7 @@ export async function lockGuildResources(
       .limit(1)
   )[0];
   if (!row) {
-    return {
-      stone: 0,
-      soldiers: 0,
-      scrolls: 0,
-      activeScrollExpiresAt: null,
-    };
+    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null };
   }
   return rowToResources(row);
 }
@@ -105,7 +99,6 @@ export async function upsertGuildResources(
 ): Promise<void> {
   const safe = {
     stone: Math.max(0, resources.stone),
-    soldiers: Math.max(0, resources.soldiers),
     scrolls: Math.max(0, resources.scrolls),
     activeScrollExpiresAt: resources.activeScrollExpiresAt
       ? new Date(resources.activeScrollExpiresAt)
@@ -136,7 +129,6 @@ export async function readGuildResources(
     await tx
       .select({
         stone: v2GuildResources.stone,
-        soldiers: v2GuildResources.soldiers,
         scrolls: v2GuildResources.scrolls,
         activeScrollExpiresAt: v2GuildResources.activeScrollExpiresAt,
       })
@@ -145,7 +137,7 @@ export async function readGuildResources(
       .limit(1)
   )[0];
   if (!row) {
-    return { stone: 0, soldiers: 0, scrolls: 0, activeScrollExpiresAt: null };
+    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null };
   }
   return rowToResources(row);
 }

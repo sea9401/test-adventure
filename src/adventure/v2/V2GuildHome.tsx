@@ -248,9 +248,8 @@ export function V2GuildHome({
       {subTab === "resources" && (
         state?.resources ? (
           <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <ResourceCell label="광물" value={state.resources.stone} />
-              <ResourceCell label="병사" value={state.resources.soldiers} />
               <ResourceCell label="주문서" value={state.resources.scrolls} />
             </div>
             <ScrollActivationCard

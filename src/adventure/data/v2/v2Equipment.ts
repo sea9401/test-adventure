@@ -253,7 +253,9 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     stats: { int: 28, atk: 7, mp: 80 },
   },
 
-  // ── 방어-중갑 (vit/def) ──────────────────────────
+  // ── 방어-중갑 (vit/def, spd 페널티) ──────────────
+  // PR-5: 중갑 vs 경갑 트레이드오프 명확화 — 중갑 = 굳지만 느림.
+  // spd 페널티는 다중공격(spd×N%)과 선공 판정에 영향.
   v2_chain_mail: {
     id: "v2_chain_mail",
     slot: "armor",
@@ -261,7 +263,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "쇠사슬 갑옷",
     description: "고리를 엮은 갑옷. 무겁지만 든든하다.",
-    stats: { vit: 5, def: 6 },
+    stats: { vit: 5, def: 6, spd: -1 },
   },
   v2_plate_armor: {
     id: "v2_plate_armor",
@@ -270,7 +272,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "판금 갑옷",
     description: "철판을 덧댄 갑옷. 두꺼운 만큼 든든하다.",
-    stats: { vit: 9, def: 10 },
+    stats: { vit: 9, def: 10, spd: -2 },
   },
   v2_full_plate: {
     id: "v2_full_plate",
@@ -279,7 +281,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "완판 갑옷",
     description: "온몸을 두른 두꺼운 갑옷.",
-    stats: { vit: 14, def: 15 },
+    stats: { vit: 14, def: 15, spd: -3 },
   },
   v2_silver_plate: {
     id: "v2_silver_plate",
@@ -288,7 +290,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은판 갑옷",
     description: "은판으로 덧댄 갑옷. 빛이 묻어난다.",
-    stats: { vit: 20, def: 22 },
+    stats: { vit: 20, def: 22, spd: -4 },
   },
   v2_mithril_plate: {
     id: "v2_mithril_plate",
@@ -297,7 +299,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴 갑옷",
     description: "가볍고 단단한 미스릴 갑옷.",
-    stats: { vit: 28, def: 30 },
+    stats: { vit: 28, def: 30, spd: -5 },
   },
 
   // ── 방어-경갑 (dex/def/eva) ──────────────────────

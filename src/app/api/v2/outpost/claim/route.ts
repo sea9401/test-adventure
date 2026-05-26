@@ -26,13 +26,8 @@ import {
   fetchLineupCandidates,
   runTournamentForGuilds,
 } from "@/lib/server/v2RunTournament";
-import { applySoldierBoost } from "@/adventure/data/v2/soldiers";
-import {
-  simulateTroopBattle,
-  computePlunder,
-  type TroopBattleResult,
-} from "@/adventure/data/v2/troopBattle";
-import { SCROLL_POWER_BONUS } from "@/adventure/data/v2/resources";
+// PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder/
+//        SCROLL_POWER_BONUS import 제거. 함수 자체 파일은 PR-7b 에서 정리.
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -297,10 +292,8 @@ export async function POST(req: Request) {
       parseHpRegenSince(charSave.hpRegenSince, now),
       now,
     );
-    const playerForBattle = applySoldierBoost(
-      { ...player.player, hp: hpRegen.hp },
-      attackerResources.soldiers,
-    );
+    // PR-7: 병사 시스템 폐기 — applySoldierBoost 제거.
+    const playerForBattle = { ...player.player, hp: hpRegen.hp };
 
     // playerName fetch (공격자)
     const profileRow = await tx
@@ -322,10 +315,8 @@ export async function POST(req: Request) {
     // fallback 후 stale occRow 가 row 처리 분기에 다시 잡히지 않도록.
     // (delete 한 row 가 occRow 에 남아 있어서 UPDATE 분기로 가면 0행 update — silent miss)
     let stillHasOccRow = !!occRow;
-    // 본 병사 전쟁 결과 (PvP 한정). NPC claim 이면 null.
-    let troopBattle: TroopBattleResult | null = null;
+    // PR-7: 본 병사 전쟁 폐기 — troopBattle/plunderStone 제거.
     let duelWonByAttacker: boolean | null = null;
-    let plunderStone = 0;
     // 다인 길드 토너먼트 결과 (양측 모두 멤버 2+ 인 경우). 아니면 null.
     let tournamentSummary: {
       matches: {
@@ -408,16 +399,20 @@ export async function POST(req: Request) {
             defenderLineupCount: t.defenderLineupCount,
           };
         } else {
-          // === 1인 길드 vs 1인 길드 — 기존 영웅 일기토 ===
-          const attackerStanced = applyStance(playerForBattle, player.selectedStance);
-          const defenderWithSoldiers = applySoldierBoost(
-            { ...defender.player, hp: defender.maxHp },
-            defenderResources.soldiers,
-          );
-          const defenderStanced = applyStance(
-            defenderWithSoldiers,
-            defender.selectedStance,
-          );
+          // === 1인 길드 vs 1인 길드 — 영웅 일기토 ===
+          // PR-7: 병사 시스템 폐기 — 일기토에 병사 보정 제거 (applySoldierBoost X).
+          // PR-6 활성 주문서 buff 는 PvP 엔진 derive 결과로 들어가지 않으니 atk 직접 곱.
+          const attackerBuffed =
+            attackerAtkMult === 1
+              ? playerForBattle
+              : { ...playerForBattle, atk: Math.round(playerForBattle.atk * attackerAtkMult) };
+          const attackerStanced = applyStance(attackerBuffed, player.selectedStance);
+          const defenderBase = { ...defender.player, hp: defender.maxHp };
+          const defenderBuffed =
+            defenderAtkMult === 1
+              ? defenderBase
+              : { ...defenderBase, atk: Math.round(defenderBase.atk * defenderAtkMult) };
+          const defenderStanced = applyStance(defenderBuffed, defender.selectedStance);
           const pvp = resolveBattlePvP(
             attackerStanced,
             defenderStanced,
@@ -433,57 +428,16 @@ export async function POST(req: Request) {
           battleFinalPlayerHp = pvp.finalState.p1.hp;
         }
 
-        // 2단계 — 본 병사 전쟁. 이게 점령 결정.
-        // useScroll 면 공격자 power × (1 + SCROLL_POWER_BONUS).
-        troopBattle = simulateTroopBattle({
-          attackerSoldiers: attackerResources.soldiers,
-          defenderSoldiers: defenderResources.soldiers,
-          // PR-6 활성 주문서 buff 를 영웅 atk 에 곱 (power 계산 자동 반영).
-          attackerAtk: player.player.atk * attackerAtkMult,
-          defenderAtk: defender.player.atk * defenderAtkMult,
-          attackerWonDuel: duelWonByAttacker,
-          // ±10% 노이즈. 단판 sim 의 결정론성 완화.
-          noise: 0.1,
-          attackerPowerMult: useScroll ? 1 + SCROLL_POWER_BONUS : 1,
-        });
-        won = troopBattle.attackerWon;
-
-        // 양측 v2-resources 업데이트 — 병사 사상자 + 패자 약탈.
-        const aSoldiersNext = Math.max(
-          0,
-          attackerResources.soldiers - troopBattle.attackerCasualties,
-        );
-        const dSoldiersNext = Math.max(
-          0,
-          defenderResources.soldiers - troopBattle.defenderCasualties,
-        );
-        let aStoneNext = attackerResources.stone;
-        let dStoneNext = defenderResources.stone;
-        if (won) {
-          plunderStone = computePlunder(defenderResources.stone);
-          dStoneNext = defenderResources.stone - plunderStone;
-          aStoneNext = attackerResources.stone + plunderStone;
-        } else {
-          plunderStone = computePlunder(attackerResources.stone);
-          aStoneNext = attackerResources.stone - plunderStone;
-          dStoneNext = defenderResources.stone + plunderStone;
+        // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅(일기토/토너먼트) 결과로 결정.
+        // 병사 사상자·약탈·power 보정 모두 제거. useScroll(PR #57) 단발 소비도 의미
+        // 사라짐 — scrolls 차감 보존(데이터 정리는 PR-7b).
+        won = duelWonByAttacker;
+        if (useScroll) {
+          await upsertGuildResources(tx, attackerGuildId, {
+            ...attackerResources,
+            scrolls: Math.max(0, attackerResources.scrolls - 1),
+          });
         }
-        // useScroll 면 공격자 scrolls -1.
-        const aScrollsNext = Math.max(
-          0,
-          attackerResources.scrolls - (useScroll ? 1 : 0),
-        );
-        await upsertGuildResources(tx, attackerGuildId, {
-          ...attackerResources,
-          stone: aStoneNext,
-          soldiers: aSoldiersNext,
-          scrolls: aScrollsNext,
-        });
-        await upsertGuildResources(tx, defenderGuildId!, {
-          ...defenderResources,
-          stone: dStoneNext,
-          soldiers: dSoldiersNext,
-        });
       }
     }
 
@@ -607,19 +561,10 @@ export async function POST(req: Request) {
         hpAfter: afterHp,
         maxHp: player.maxHp,
         occupation,
-        // PvP 본 병사 전쟁 결과 (NPC claim 이면 null).
-        // duelWonByAttacker = 일기토 결과 (power 보정), won = 본 전쟁 = 점령권 결정.
-        troopBattle: troopBattle
-          ? {
-              duelWonByAttacker,
-              attackerPower: troopBattle.attackerPower,
-              defenderPower: troopBattle.defenderPower,
-              attackerCasualties: troopBattle.attackerCasualties,
-              defenderCasualties: troopBattle.defenderCasualties,
-              plunderStone,
-            }
-          : null,
-        // 다인 길드 토너먼트 결과 (1단계). 양측 모두 멤버 2+ 일 때만.
+        // PR-7: 본 병사 전쟁 폐기 — 결과 객체 항상 null. 옛 클라 호환 위해 키는
+        // 유지 (PR-7b/UI 정리에서 키 자체 제거 검토).
+        troopBattle: null,
+        // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         tournament: tournamentSummary,
       },
     };

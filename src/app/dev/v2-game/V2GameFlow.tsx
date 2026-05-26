@@ -26,20 +26,14 @@ import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·지도) 기반 nav.
+// v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·길드) 기반 nav.
 // 모험: placeholder
-// 전투: 현재 거점의 던전 사냥 (currentOutpost 자동)
-// 마을: 마을 home(default)/성장의 신전
+// 전투: sub-tab(던전·지도) — 던전 사냥 + 대륙 지도 + 거점 진입
+// 마을: 마을 home(default)/성장의 신전/치료소/상점/훈련장/대장간
 // 캐릭터: 메뉴(default)/내정보/인벤토리/스킬/장비 — 내정보 안의 슬롯 클릭으로 장비 진입
-// 지도: ContinentMap(default)/outpost
+// 길드: 길드 home
 
-type TabId =
-  | "adventure"
-  | "battle"
-  | "town"
-  | "character"
-  | "guild"
-  | "map";
+type TabId = "adventure" | "battle" | "town" | "character" | "guild";
 
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
@@ -47,6 +41,13 @@ const TABS: { key: TabId; label: string }[] = [
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
   { key: "guild", label: "길드" },
+];
+
+// 전투 탭 sub-tab — 던전 list / 대륙 지도.
+type BattleSubId = "dungeon" | "map";
+
+const BATTLE_SUBS: { key: BattleSubId; label: string }[] = [
+  { key: "dungeon", label: "던전" },
   { key: "map", label: "지도" },
 ];
 
@@ -85,6 +86,8 @@ function tabOfView(view: View): TabId {
       return "adventure";
     case "battle":
     case "battle-floor":
+    case "map":
+    case "outpost":
       return "battle";
     case "town":
     case "shrine":
@@ -101,9 +104,21 @@ function tabOfView(view: View): TabId {
       return "character";
     case "guild":
       return "guild";
+  }
+}
+
+// 전투 탭 안에서 현재 sub-tab. battle/battle-floor = 던전, map/outpost = 지도.
+// null = 전투 탭 외 (sub-tab 미렌더).
+function battleSubOfView(view: View): BattleSubId | null {
+  switch (view.kind) {
+    case "battle":
+    case "battle-floor":
+      return "dungeon";
     case "map":
     case "outpost":
       return "map";
+    default:
+      return null;
   }
 }
 
@@ -119,8 +134,6 @@ function defaultViewOfTab(tab: TabId): View {
       return { kind: "character" };
     case "guild":
       return { kind: "guild" };
-    case "map":
-      return { kind: "map" };
   }
 }
 
@@ -271,7 +284,22 @@ export function V2GameFlow() {
           size="sm"
           className="mx-auto w-full max-w-2xl px-4 sm:px-6"
         />
-        {(currentTab === "adventure" || currentTab === "battle") && (
+        {currentTab === "battle" && (
+          <TabBar
+            tabs={BATTLE_SUBS}
+            active={battleSubOfView(view) ?? "dungeon"}
+            onChange={(next) =>
+              setView(next === "map" ? { kind: "map" } : { kind: "battle" })
+            }
+            ariaLabel="전투 sub 탭"
+            size="sm"
+            className="mx-auto w-full max-w-2xl px-4 sm:px-6"
+          />
+        )}
+        {(currentTab === "adventure" ||
+          (currentTab === "battle" &&
+            view.kind !== "map" &&
+            view.kind !== "outpost")) && (
           <div className="mx-auto w-full max-w-2xl px-4 py-2 sm:px-6">
             <StaminaBar state={stamina} />
           </div>

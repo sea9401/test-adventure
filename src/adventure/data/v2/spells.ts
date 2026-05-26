@@ -51,6 +51,44 @@ export const SPELLS: Record<SpellId, Spell> = {
 // 만큼 차례로 발동.
 export const SPELL_ORDER: readonly SpellId[] = ["meteor", "bolt", "flame"];
 
+// INT 임계값 자동 학습 (PR-5). INT 가 임계값 이상이면 책 없이 자동 사용 가능.
+// 1차 다이얼: flame 5 / bolt 15 / meteor 30. v2 베이스 INT = 0 → 시작 시 아무것도
+// 학습 안 됨. 단련 포인트로 INT 찍어 해금.
+export const SPELL_LEARN_THRESHOLD: Record<SpellId, number> = {
+  flame: 5,
+  bolt: 15,
+  meteor: 30,
+};
+
+// 학습 가능 마법 목록 — SPELL_ORDER 순(큰 것부터). UI/equip 정규화에 사용.
+export function learnedSpellsForInt(intStat: number): SpellId[] {
+  return SPELL_ORDER.filter((id) => intStat >= SPELL_LEARN_THRESHOLD[id]);
+}
+
+// 저장된 equippedSpells 를 학습 가능 목록·슬롯 cap 으로 정규화.
+// - 알 수 없는 id 제거 / 학습 안 한 id 제거 / 중복 제거(앞 우선) / cap = slotCount
+export function normalizeEquippedSpells(
+  saved: unknown,
+  intStat: number,
+  slotCount: number,
+): SpellId[] {
+  const learnable = new Set(learnedSpellsForInt(intStat));
+  if (!Array.isArray(saved)) return [];
+  const out: SpellId[] = [];
+  const seen = new Set<SpellId>();
+  for (const v of saved) {
+    if (typeof v !== "string") continue;
+    const id = v as SpellId;
+    if (!(id in SPELLS)) continue;
+    if (!learnable.has(id)) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= slotCount) break;
+  }
+  return out;
+}
+
 import type { BattleLogEntry, BattleState } from "@/adventure/battle/engine";
 import type { PvPBattleState, PvPSide } from "@/adventure/battle/engine-pvp";
 
@@ -61,13 +99,19 @@ import type { PvPBattleState, PvPSide } from "@/adventure/battle/engine-pvp";
 export function applyStartOfBattleSpells(
   state: BattleState,
   intStat: number,
+  equippedSpells: readonly SpellId[],
   playerName: string,
 ): BattleState {
-  if (intStat <= 0 || state.playerMaxMp <= 0) return state;
+  if (intStat <= 0 || state.playerMaxMp <= 0 || equippedSpells.length === 0) {
+    return state;
+  }
   let mp = state.playerMp;
   let enemyHp = state.enemyHp;
   const log: BattleLogEntry[] = [...state.log];
+  // 장착 슬롯 중 우선순위(큰 비용→작은 비용) 순으로 sweep.
+  const equippedSet = new Set(equippedSpells);
   for (const id of SPELL_ORDER) {
+    if (!equippedSet.has(id)) continue;
     const spell = SPELLS[id];
     while (mp >= spell.mpCost && enemyHp > 0) {
       mp -= spell.mpCost;
@@ -101,10 +145,15 @@ export function applyStartOfBattleSpellsPvP(
     attackerSideTag: "p1" | "p2",
   ): { attacker: PvPSide; defender: PvPSide } {
     const intStat = attacker.player.intStat ?? 0;
-    if (intStat <= 0 || attacker.maxMp <= 0) return { attacker, defender };
+    const equipped = attacker.player.equippedSpells ?? [];
+    if (intStat <= 0 || attacker.maxMp <= 0 || equipped.length === 0) {
+      return { attacker, defender };
+    }
     let mp = attacker.mp;
     let defHp = defender.hp;
+    const equippedSet = new Set(equipped);
     for (const id of SPELL_ORDER) {
+      if (!equippedSet.has(id)) continue;
       const spell = SPELLS[id];
       while (mp >= spell.mpCost && defHp > 0) {
         mp -= spell.mpCost;

@@ -29,6 +29,7 @@ import { rehydrateEquippedItem } from "@/adventure/character/rehydrateEquip";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import type { EquippedItem } from "@/adventure/character/types";
 import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
+import { normalizeEquippedSpells } from "@/adventure/data/v2/spells";
 
 type SavedEquipped = {
   weapon?: EquippedItem | null;
@@ -41,6 +42,8 @@ type SavedCharacterV2 = {
   level?: number;
   equipped?: SavedEquipped | null;
   selectedStance?: unknown;
+  // v2 마법 장착 슬롯 (PR-5). SpellId[] — 미저장이면 빈 배열로 정규화.
+  equippedSpells?: unknown;
 };
 
 type SavedTrainingV2 = {
@@ -105,5 +108,20 @@ export async function derivePlayerCombatV2(
     paragonAllocations: {},
     hp: character.hp ?? baseCharacter.hp,
   });
-  return { ...derived, selectedStance: normalizeStance(character.selectedStance) };
+  // v2 마법 슬롯 정규화 — 학습 가능·중복 제거·슬롯 cap. cap 은 라이브 layout.normalSlots
+  // 와 공유 ("스킬 슬롯 공유" 결정). derive 가 layout 까지 만들어 noremalSlots 박음.
+  const intStat = derived.totalStats.int ?? 0;
+  const slotCount = derived.layout.normalSlots;
+  const equippedSpells = normalizeEquippedSpells(
+    character.equippedSpells,
+    intStat,
+    slotCount,
+  );
+  // PlayerCombat 에 equippedSpells 박기 — engine 의 마법 sweep 이 이를 보고 발동.
+  const playerWithSpells = { ...derived.player, equippedSpells };
+  return {
+    ...derived,
+    player: playerWithSpells,
+    selectedStance: normalizeStance(character.selectedStance),
+  };
 }

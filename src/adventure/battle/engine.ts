@@ -227,6 +227,9 @@ export type PlayerCombat = {
   maxMp?: number;
   // v2 마법 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). 0/undefined = no-op.
   intStat?: number;
+  // v2 마법 슬롯 — 정규화된 장착 마법 id 배열. 없거나 빈 배열이면 마법 발동 X.
+  // (라이브 캐릭은 derive-v2 가 안 박음 → undefined → no-op.)
+  equippedSpells?: import("../data/v2/spells").SpellId[];
   atk: number;
   def: number;
   spd: number; // 선공 판정에 사용
@@ -2719,7 +2722,12 @@ export function resolveBattle(
   if (ctx.isBoss) state = { ...state, isBoss: true };
   // v2 마법 — 전투 시작 시 1회 sweep. INT 0(라이브) 캐릭은 자동 미발동.
   // 시작 이전에 적이 죽으면 advanceTurn 루프 가드(outcome) 가 처리.
-  state = applyStartOfBattleSpells(state, player.intStat ?? 0, playerName);
+  state = applyStartOfBattleSpells(
+    state,
+    player.intStat ?? 0,
+    player.equippedSpells ?? [],
+    playerName,
+  );
   if (state.enemyHp <= 0) {
     state = { ...state, outcome: "win", phase: "ended" };
   }

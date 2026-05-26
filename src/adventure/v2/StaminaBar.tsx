@@ -24,7 +24,7 @@ export function StaminaBar({ state }: { state: StaminaState }) {
   const isFull = display.current >= MAX_STAMINA;
 
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900/50">
+    <div className="rounded-md border border-zinc-200 bg-zinc-50/90 px-4 py-3 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90">
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-zinc-500 dark:text-zinc-400">스태미너</span>
         <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">

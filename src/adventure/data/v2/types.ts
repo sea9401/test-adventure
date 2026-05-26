@@ -4,13 +4,13 @@
 
 // === 던전 (PvE 성장의 주 무대) ===
 
-// 단일 던전 5층. 1~2 캐릭 성장(1~100렙) / 3~5 만렙 후 엔드 파밍.
-export type DungeonFloorId = 1 | 2 | 3 | 4 | 5;
+// 단일 던전 8층. 1~5 캐릭 성장(1~100렙, 라이브 권역 밴드별 분할) / 6~8 만렙 후 엔드 파밍.
+export type DungeonFloorId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-// 권장 강도. 1~2 는 레벨 범위, 3~5 는 만렙 후 단계로 표현.
+// 권장 강도. 1~5 는 레벨 범위, 6~8 은 만렙 후 단계로 표현.
 export type DungeonFloorRequirement =
-  | { kind: "level"; min: number; max: number } // 1~2층
-  | { kind: "endgame"; tier: "entry" | "mid" | "max" }; // 3~5층
+  | { kind: "level"; min: number; max: number } // 1~5층
+  | { kind: "endgame"; tier: "entry" | "mid" | "max" }; // 6~8층
 
 export type DungeonFloor = {
   id: DungeonFloorId;

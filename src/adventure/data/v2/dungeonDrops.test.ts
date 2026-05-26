@@ -49,11 +49,11 @@ describe("rollDrops", () => {
     expect(result.v2_slime_shard).toBeUndefined();
   });
 
-  it("3·4·5층은 빈 풀이라 항상 빈 결과", () => {
+  it("6·7·8층(엔드)은 빈 풀이라 항상 빈 결과", () => {
     const rng = seqRng([0, 0, 0, 0, 0]);
-    expect(rollDrops(3, rng)).toEqual({});
-    expect(rollDrops(4, rng)).toEqual({});
-    expect(rollDrops(5, rng)).toEqual({});
+    expect(rollDrops(6, rng)).toEqual({});
+    expect(rollDrops(7, rng)).toEqual({});
+    expect(rollDrops(8, rng)).toEqual({});
   });
 });
 

@@ -60,21 +60,43 @@ export type DropRule = {
 };
 
 export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
+  // 1층 — 변경 입구 (Lv 1~5). 옛 1층 풀 그대로.
   1: [
     { id: "v2_stone_chip", chance: 0.5, amountMin: 1, amountMax: 2 },
     { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 1 },
     { id: "v2_slime_shard", chance: 0.1, amountMin: 1, amountMax: 1 },
   ],
+  // 2층 — 변경 외곽 (Lv 6~13). slime_shard 비율 ↑.
   2: [
+    { id: "v2_stone_chip", chance: 0.5, amountMin: 1, amountMax: 2 },
+    { id: "v2_herb", chance: 0.35, amountMin: 1, amountMax: 2 },
+    { id: "v2_slime_shard", chance: 0.18, amountMin: 1, amountMax: 1 },
+  ],
+  // 3층 — 산악 평원 (Lv 18~28). bone_fragment 진입.
+  3: [
+    { id: "v2_stone_chip", chance: 0.45, amountMin: 1, amountMax: 3 },
+    { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 2 },
+    { id: "v2_slime_shard", chance: 0.18, amountMin: 1, amountMax: 1 },
+    { id: "v2_bone_fragment", chance: 0.12, amountMin: 1, amountMax: 1 },
+  ],
+  // 4층 — 화염 지대 (Lv 34~55). bone_fragment 비중 ↑.
+  4: [
+    { id: "v2_stone_chip", chance: 0.4, amountMin: 1, amountMax: 3 },
+    { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 2 },
+    { id: "v2_bone_fragment", chance: 0.2, amountMin: 1, amountMax: 2 },
+    { id: "v2_starlit_dust", chance: 0.08, amountMin: 1, amountMax: 1 },
+  ],
+  // 5층 — 별빛 회랑 (Lv 70~100). 옛 2층 풀 그대로 (starlit_dust 본격).
+  5: [
     { id: "v2_stone_chip", chance: 0.4, amountMin: 1, amountMax: 3 },
     { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 2 },
     { id: "v2_bone_fragment", chance: 0.2, amountMin: 1, amountMax: 1 },
     { id: "v2_starlit_dust", chance: 0.15, amountMin: 1, amountMax: 1 },
   ],
-  // 3~5 층은 후속 PR 에서 채움. 빈 풀이라 사냥 보상 X.
-  3: [],
-  4: [],
-  5: [],
+  // 6~8 층(엔드) 은 후속 PR 에서 채움. 빈 풀이라 사냥 보상 X.
+  6: [],
+  7: [],
+  8: [],
 };
 
 // === 드랍 굴림 (순수 함수) ===========================================

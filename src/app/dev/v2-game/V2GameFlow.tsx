@@ -12,6 +12,8 @@ import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
+import { V2HealingView } from "@/adventure/v2/V2HealingView";
+import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
@@ -25,20 +27,14 @@ import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·지도) 기반 nav.
+// v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·길드) 기반 nav.
 // 모험: placeholder
-// 전투: 현재 거점의 던전 사냥 (currentOutpost 자동)
-// 마을: 마을 home(default)/성장의 신전
+// 전투: sub-tab(던전·지도) — 던전 사냥 + 대륙 지도 + 거점 진입
+// 마을: 마을 home(default)/성장의 신전/치료소/상점/훈련장/대장간
 // 캐릭터: 메뉴(default)/내정보/인벤토리/스킬/장비 — 내정보 안의 슬롯 클릭으로 장비 진입
-// 지도: ContinentMap(default)/outpost
+// 길드: 길드 home
 
-type TabId =
-  | "adventure"
-  | "battle"
-  | "town"
-  | "character"
-  | "guild"
-  | "map";
+type TabId = "adventure" | "battle" | "town" | "character" | "guild";
 
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
@@ -46,6 +42,13 @@ const TABS: { key: TabId; label: string }[] = [
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
   { key: "guild", label: "길드" },
+];
+
+// 전투 탭 sub-tab — 던전 list / 대륙 지도.
+type BattleSubId = "dungeon" | "map";
+
+const BATTLE_SUBS: { key: BattleSubId; label: string }[] = [
+  { key: "dungeon", label: "던전" },
   { key: "map", label: "지도" },
 ];
 
@@ -66,6 +69,10 @@ type View =
   | { kind: "battle-floor"; floorId: DungeonFloorId }
   | { kind: "town" }
   | { kind: "shrine" }
+  | { kind: "healing" }
+  | { kind: "shop" }
+  | { kind: "training" }
+  | { kind: "smithy" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -82,9 +89,15 @@ function tabOfView(view: View): TabId {
       return "adventure";
     case "battle":
     case "battle-floor":
+    case "map":
+    case "outpost":
       return "battle";
     case "town":
     case "shrine":
+    case "healing":
+    case "shop":
+    case "training":
+    case "smithy":
       return "town";
     case "character":
     case "character-info":
@@ -94,9 +107,21 @@ function tabOfView(view: View): TabId {
       return "character";
     case "guild":
       return "guild";
+  }
+}
+
+// 전투 탭 안에서 현재 sub-tab. battle/battle-floor = 던전, map/outpost = 지도.
+// null = 전투 탭 외 (sub-tab 미렌더).
+function battleSubOfView(view: View): BattleSubId | null {
+  switch (view.kind) {
+    case "battle":
+    case "battle-floor":
+      return "dungeon";
     case "map":
     case "outpost":
       return "map";
+    default:
+      return null;
   }
 }
 
@@ -112,8 +137,6 @@ function defaultViewOfTab(tab: TabId): View {
       return { kind: "character" };
     case "guild":
       return { kind: "guild" };
-    case "map":
-      return { kind: "map" };
   }
 }
 
@@ -204,7 +227,23 @@ export function V2GameFlow() {
   };
 
   const handleTownAction = (action: TownAction) => {
-    if (action.kind === "open-shrine") setView({ kind: "shrine" });
+    switch (action.kind) {
+      case "open-shrine":
+        setView({ kind: "shrine" });
+        break;
+      case "open-healing":
+        setView({ kind: "healing" });
+        break;
+      case "open-shop":
+        setView({ kind: "shop" });
+        break;
+      case "open-training":
+        setView({ kind: "training" });
+        break;
+      case "open-smithy":
+        setView({ kind: "smithy" });
+        break;
+    }
   };
 
   // OutpostView 의 enter-dungeon 은 폐기 (사용자 의도 — 사냥터를 전투 탭으로 이동).
@@ -224,8 +263,22 @@ export function V2GameFlow() {
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      {/* 탭바 + 스태미너 — TopBar 아래 sticky stack. 모든 view 에서 항상 보임. */}
-      <div className="sticky top-[44px] z-10 bg-white/95 backdrop-blur dark:bg-zinc-950/95">
+      {/* 모험 탭 배경 — 라이브 RegionBackground 와 동일한 오버레이 강도. */}
+      {currentTab === "adventure" && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/ui/village.webp"
+            alt=""
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
+        </div>
+      )}
+      <div>
         <TabBar
           tabs={TABS}
           active={currentTab}
@@ -234,16 +287,33 @@ export function V2GameFlow() {
           size="sm"
           className="mx-auto w-full max-w-2xl px-4 sm:px-6"
         />
-        {currentTab !== "map" && (
+        {currentTab === "battle" && (
+          <TabBar
+            tabs={BATTLE_SUBS}
+            active={battleSubOfView(view) ?? "dungeon"}
+            onChange={(next) =>
+              setView(next === "map" ? { kind: "map" } : { kind: "battle" })
+            }
+            ariaLabel="전투 sub 탭"
+            size="sm"
+            className="mx-auto w-full max-w-2xl px-4 sm:px-6"
+          />
+        )}
+        {(currentTab === "adventure" ||
+          (currentTab === "battle" &&
+            view.kind !== "map" &&
+            view.kind !== "outpost")) && (
           <div className="mx-auto w-full max-w-2xl px-4 py-2 sm:px-6">
             <StaminaBar state={stamina} />
           </div>
         )}
-      </div>
 
       {/* === 모험 탭 === */}
       {view.kind === "adventure" && (
-        <V2AdventureHome onOpenArena={() => setView({ kind: "arena" })} />
+        <V2AdventureHome
+          currentOutpost={currentOutpost}
+          onOpenArena={() => setView({ kind: "arena" })}
+        />
       )}
       {view.kind === "arena" && (
         <V2ArenaView onBack={() => setView({ kind: "adventure" })} />
@@ -282,6 +352,27 @@ export function V2GameFlow() {
       {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
       {view.kind === "shrine" && (
         <V2GrowthShrineView onBack={() => setView({ kind: "town" })} />
+      )}
+      {view.kind === "healing" && (
+        <V2HealingView onBack={() => setView({ kind: "town" })} />
+      )}
+      {view.kind === "shop" && (
+        <V2PlaceholderView
+          title="상점"
+          onBack={() => setView({ kind: "town" })}
+        />
+      )}
+      {view.kind === "training" && (
+        <V2PlaceholderView
+          title="훈련장"
+          onBack={() => setView({ kind: "town" })}
+        />
+      )}
+      {view.kind === "smithy" && (
+        <V2PlaceholderView
+          title="대장간"
+          onBack={() => setView({ kind: "town" })}
+        />
       )}
 
       {/* === 캐릭터 탭 === */}
@@ -346,6 +437,7 @@ export function V2GameFlow() {
           onAction={handleOutpostAction}
         />
       )}
+      </div>
     </div>
   );
 }

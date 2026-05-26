@@ -12,46 +12,51 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("5층 모두 정의됨", () => {
-    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2, 3, 4, 5]);
+  it("8층 모두 정의됨", () => {
+    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
-  it("1~2층은 레벨 requirement, 3~5층은 endgame requirement", () => {
-    const [f1, f2, f3, f4, f5] = MAIN_DUNGEON.floors;
-    expect(f1.requirement.kind).toBe("level");
-    expect(f2.requirement.kind).toBe("level");
-    expect(f3.requirement.kind).toBe("endgame");
-    expect(f4.requirement.kind).toBe("endgame");
-    expect(f5.requirement.kind).toBe("endgame");
+  it("1~5층은 레벨 requirement, 6~8층은 endgame requirement", () => {
+    const floors = MAIN_DUNGEON.floors;
+    for (let i = 0; i < 5; i++) {
+      expect(floors[i].requirement.kind).toBe("level");
+    }
+    for (let i = 5; i < 8; i++) {
+      expect(floors[i].requirement.kind).toBe("endgame");
+    }
   });
 
-  it("3~5층 enemy 풀이 서로 겹치지 않음 (이름 → multiplier 일관)", () => {
-    const f3 = new Set(MAIN_DUNGEON.floors[2].enemies);
-    const f4 = new Set(MAIN_DUNGEON.floors[3].enemies);
-    const f5 = new Set(MAIN_DUNGEON.floors[4].enemies);
-    for (const n of f3) expect(f4.has(n), `3·4층 겹침: ${n}`).toBe(false);
-    for (const n of f3) expect(f5.has(n), `3·5층 겹침: ${n}`).toBe(false);
-    for (const n of f4) expect(f5.has(n), `4·5층 겹침: ${n}`).toBe(false);
+  it("6~8층 enemy 풀이 서로 겹치지 않음 (이름 → multiplier 일관)", () => {
+    const f6 = new Set(MAIN_DUNGEON.floors[5].enemies);
+    const f7 = new Set(MAIN_DUNGEON.floors[6].enemies);
+    const f8 = new Set(MAIN_DUNGEON.floors[7].enemies);
+    for (const n of f6) expect(f7.has(n), `6·7층 겹침: ${n}`).toBe(false);
+    for (const n of f6) expect(f8.has(n), `6·8층 겹침: ${n}`).toBe(false);
+    for (const n of f7) expect(f8.has(n), `7·8층 겹침: ${n}`).toBe(false);
   });
 
   it("FLOOR_DIFFICULTY 가 단조 비감소 (깊을수록 어려움)", () => {
-    expect(FLOOR_DIFFICULTY[1]).toBeLessThanOrEqual(FLOOR_DIFFICULTY[2]);
-    expect(FLOOR_DIFFICULTY[2]).toBeLessThanOrEqual(FLOOR_DIFFICULTY[3]);
-    expect(FLOOR_DIFFICULTY[3]).toBeLessThanOrEqual(FLOOR_DIFFICULTY[4]);
-    expect(FLOOR_DIFFICULTY[4]).toBeLessThanOrEqual(FLOOR_DIFFICULTY[5]);
+    for (let i = 1; i < 8; i++) {
+      const a = FLOOR_DIFFICULTY[i as 1 | 2 | 3 | 4 | 5 | 6 | 7];
+      const b = FLOOR_DIFFICULTY[(i + 1) as 2 | 3 | 4 | 5 | 6 | 7 | 8];
+      expect(a).toBeLessThanOrEqual(b);
+    }
   });
 });
 
 describe("scaleMonsterForFloor", () => {
   const base = MONSTERS["별빛 박쥐"];
 
-  it("multiplier 1.0 (1·2층) 은 동일 객체 반환", () => {
+  it("multiplier 1.0 (1~5층 성장) 은 동일 객체 반환", () => {
     expect(scaleMonsterForFloor(base, 1)).toBe(base);
     expect(scaleMonsterForFloor(base, 2)).toBe(base);
+    expect(scaleMonsterForFloor(base, 3)).toBe(base);
+    expect(scaleMonsterForFloor(base, 4)).toBe(base);
+    expect(scaleMonsterForFloor(base, 5)).toBe(base);
   });
 
-  it("3층 ×1.2 — hp/atk/def/exp 만 곱, 새 객체", () => {
-    const scaled = scaleMonsterForFloor(base, 3);
+  it("6층 ×1.2 — hp/atk/def/exp 만 곱, 새 객체", () => {
+    const scaled = scaleMonsterForFloor(base, 6);
     expect(scaled).not.toBe(base);
     expect(scaled.hp).toBe(Math.round(base.hp * 1.2));
     expect(scaled.atk).toBe(Math.round(base.atk * 1.2));
@@ -61,9 +66,9 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.name).toBe(base.name);
   });
 
-  it("5층 ×4.0 — 베이스 변형 없음 (mutation 가드)", () => {
+  it("8층 ×4.0 — 베이스 변형 없음 (mutation 가드)", () => {
     const beforeHp = base.hp;
-    scaleMonsterForFloor(base, 5);
+    scaleMonsterForFloor(base, 8);
     expect(base.hp).toBe(beforeHp);
   });
 });

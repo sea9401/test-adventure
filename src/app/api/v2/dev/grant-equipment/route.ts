@@ -3,12 +3,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
-  type V2EquipmentId,
-} from "@/adventure/data/v2/v2Equipment";
-import {
   parseEquipmentSave,
   type EquipmentSave,
-} from "../../me/equipment/route";
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 
 // POST /api/v2/dev/grant-equipment — 테스트용 보유 추가.
 //

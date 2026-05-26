@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import {
+  V2CharacterCard,
+  type V2CharacterCardData,
+} from "@/adventure/v2/V2CharacterCard";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -43,6 +47,29 @@ export function V2DungeonFloorView({
   });
   const [autoMode, setAutoMode] = useState(false);
   const [autoMsg, setAutoMsg] = useState<string | null>(null);
+  const [characterInfo, setCharacterInfo] = useState<{
+    character?: V2CharacterCardData;
+    guild?: { name: string };
+  }>({});
+
+  // 캐릭 카드 fetch — mount 시 + hunt 완료 후 (레벨업/EXP/HP 반영).
+  const refetchCharacter = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/state");
+      if (!res.ok) return;
+      const j = (await res.json().catch(() => null)) as {
+        character?: V2CharacterCardData;
+        guild?: { name: string };
+      } | null;
+      if (j) setCharacterInfo({ character: j.character, guild: j.guild });
+    } catch {}
+  }, []);
+  useEffect(() => {
+    void refetchCharacter();
+  }, [refetchCharacter]);
+  useEffect(() => {
+    if (lastResult) void refetchCharacter();
+  }, [lastResult, refetchCharacter]);
 
   // 자동 트리거 — busy 아님 + stamina 충분 시 setTimeout 후 hunt.
   // 결과 즉시 표시 (replay step 폐기) 이므로 hunt 완료 = busy false 가 다음 trigger.
@@ -100,6 +127,14 @@ export function V2DungeonFloorView({
         </p>
       </header>
 
+      {characterInfo.character && (
+        <V2CharacterCard
+          character={characterInfo.character}
+          guild={characterInfo.guild}
+          showGold={false}
+        />
+      )}
+
       <Card padding="md">
         <div className="flex items-center justify-between gap-3">
           <button
@@ -129,6 +164,8 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
+      {lastResult && <HuntResultCard result={lastResult} />}
+
       {lastResult?.replay && (
         <ReplayBattleScene
           payload={lastResult.replay}
@@ -139,8 +176,6 @@ export function V2DungeonFloorView({
           maxExp={lastResult.maxExpForBar ?? 1}
         />
       )}
-
-      {lastResult && <HuntResultCard result={lastResult} />}
     </main>
   );
 }

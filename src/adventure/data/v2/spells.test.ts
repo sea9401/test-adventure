@@ -2,11 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   SPELLS,
   SPELL_LEARN_THRESHOLD,
-  applyStartOfBattleSpells,
+  castSpellsOnPlayerTurn,
   learnedSpellsForInt,
   normalizeEquippedSpells,
 } from "./spells";
-import type { BattleState } from "@/adventure/battle/engine";
+import type { BattleState, BattleLogEntry } from "@/adventure/battle/engine";
 
 function mkState(over: Partial<BattleState> = {}): BattleState {
   return {
@@ -29,60 +29,86 @@ function mkState(over: Partial<BattleState> = {}): BattleState {
   };
 }
 
-describe("v2 spells — applyStartOfBattleSpells", () => {
-  it("INT 0 은 발동 X (라이브 캐릭)", () => {
+function spellLogs(log: readonly BattleLogEntry[]): string[] {
+  return log
+    .filter((e) => typeof e.text === "string" && /\[.+\]/.test(e.text))
+    .map((e) => e.text as string);
+}
+
+describe("castSpellsOnPlayerTurn — 매 player turn 1발 cast", () => {
+  it("INT 0 (라이브 캐릭) → no-op", () => {
     const before = mkState();
-    const after = applyStartOfBattleSpells(before, 0, ["meteor", "bolt", "flame"], "용사");
+    const after = castSpellsOnPlayerTurn(before, 0, ["flame", "bolt", "meteor"], "용사");
     expect(after).toBe(before);
   });
 
-  it("maxMp 0 은 발동 X", () => {
+  it("maxMp 0 → no-op", () => {
     const before = mkState({ playerMp: 0, playerMaxMp: 0 });
-    const after = applyStartOfBattleSpells(before, 10, ["meteor", "bolt", "flame"], "용사");
+    const after = castSpellsOnPlayerTurn(before, 10, ["flame"], "용사");
     expect(after).toBe(before);
   });
 
-  it("INT 10, MP 100 → 유성(80) + 불꽃(20) 발동", () => {
-    const before = mkState({ playerMp: 100, playerMaxMp: 100 });
-    const after = applyStartOfBattleSpells(before, 10, ["meteor", "bolt", "flame"], "용사");
-    // 유성 = INT 10 × 12 = 120, 불꽃 = INT 10 × 3 = 30 → 총 150
-    expect(before.enemyHp - after.enemyHp).toBe(150);
-    expect(after.playerMp).toBe(0);
-    const spellLogs = after.log.filter((e) => e.text?.includes("[유성]") || e.text?.includes("[불꽃]"));
-    expect(spellLogs.length).toBe(2);
-  });
-
-  it("적이 마법으로 죽으면 sweep 중단", () => {
-    const before = mkState({ enemyHp: 50, playerMp: 100, playerMaxMp: 100 });
-    const after = applyStartOfBattleSpells(before, 10, ["meteor", "bolt", "flame"], "용사");
-    // 유성 120 → 적 -70 → 죽음. 불꽃 안 나감.
-    expect(after.enemyHp).toBe(0);
-    expect(after.playerMp).toBe(20); // 유성 80 만 차감
-  });
-
-  it("MP 부족하면 큰 비용 마법 건너뜀", () => {
-    const before = mkState({ playerMp: 50, playerMaxMp: 50 });
-    const after = applyStartOfBattleSpells(before, 10, ["meteor", "bolt", "flame"], "용사");
-    // 유성 80 > 50 → 스킵, 번개 40 = INT 60, 불꽃 20 → MP 10 남음
-    expect(after.playerMp).toBeLessThanOrEqual(20);
-    expect(before.enemyHp - after.enemyHp).toBeGreaterThan(0);
-  });
-});
-
-describe("v2 spells — equippedSpells 필터", () => {
-  it("장착 안 한 마법은 발동 X", () => {
-    function mkS() { return mkState({ playerMp: 100, playerMaxMp: 100 }); }
-    const before = mkS();
-    const after = applyStartOfBattleSpells(before, 10, ["flame"], "용사");
-    // 불꽃만 발동 (INT 10 × 3 = 30, MP 20 → 5번 발동 가능: 5×20=100)
-    expect(before.enemyHp - after.enemyHp).toBe(150); // 5 발 × 30
-    expect(after.playerMp).toBe(0);
-  });
-
-  it("빈 배열이면 발동 X", () => {
-    const before = mkState({ playerMp: 100, playerMaxMp: 100 });
-    const after = applyStartOfBattleSpells(before, 10, [], "용사");
+  it("equippedSpells 빈 → no-op", () => {
+    const before = mkState();
+    const after = castSpellsOnPlayerTurn(before, 10, [], "용사");
     expect(after).toBe(before);
+  });
+
+  it("flame 장착, 첫 turn → flame cast (cd 0)", () => {
+    const before = mkState({ playerMp: 100 });
+    const after = castSpellsOnPlayerTurn(before, 10, ["flame"], "용사");
+    expect(before.enemyHp - after.enemyHp).toBe(10);
+    expect(after.playerMp).toBe(80);
+    expect(after.spellCooldowns?.flame).toBe(0);
+    expect(spellLogs(after.log).length).toBe(1);
+  });
+
+  it("meteor 장착, 첫 turn → meteor cast (cd 3 set)", () => {
+    const before = mkState({ playerMp: 100 });
+    const after = castSpellsOnPlayerTurn(before, 30, ["meteor"], "용사");
+    expect(before.enemyHp - after.enemyHp).toBe(120);
+    expect(after.playerMp).toBe(20);
+    expect(after.spellCooldowns?.meteor).toBe(3);
+  });
+
+  it("두 번째 turn — cd 3 의 meteor 는 cast 못 함, cd 만 감소", () => {
+    let s = mkState({ playerMp: 200 });
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor"], "용사");
+    expect(s.spellCooldowns?.meteor).toBe(3);
+    const after = castSpellsOnPlayerTurn(s, 30, ["meteor"], "용사");
+    expect(after.spellCooldowns?.meteor).toBe(2);
+    expect(after.playerMp).toBe(s.playerMp);
+    expect(after.enemyHp).toBe(s.enemyHp);
+  });
+
+  it("3턴 후 cd 만료 → meteor 다시 cast", () => {
+    let s = mkState({ playerMp: 500 });
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor"], "용사"); // cast cd=3
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor"], "용사"); // cd 3 → 2
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor"], "용사"); // cd 2 → 1
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor"], "용사"); // cd 1 → 0, cast cd=3
+    expect(s.playerMp).toBe(500 - 160);
+    expect(spellLogs(s.log).length).toBe(2);
+  });
+
+  it("meteor + flame 둘 다 → 큰 비용 우선 meteor, 다음 turn 은 cd 라 flame", () => {
+    let s = mkState({ playerMp: 300 });
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor", "flame"], "용사");
+    expect(s.spellCooldowns?.meteor).toBe(3);
+    expect(s.playerMp).toBe(220);
+
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor", "flame"], "용사");
+    expect(s.spellCooldowns?.meteor).toBe(2);
+    expect(s.spellCooldowns?.flame).toBe(0);
+    expect(s.playerMp).toBe(200);
+  });
+
+  it("MP 부족 → cd 만 감소, cast X", () => {
+    let s = mkState({ playerMp: 10 });
+    s = castSpellsOnPlayerTurn(s, 30, ["meteor", "flame"], "용사");
+    expect(s.playerMp).toBe(10);
+    expect(s.enemyHp).toBe(1000);
+    expect(s.spellCooldowns?.meteor).toBe(0);
   });
 });
 
@@ -101,7 +127,7 @@ describe("v2 spells — normalizeEquippedSpells", () => {
   it("학습 안 한 / 중복 / 알 수 없는 id 제거 + 슬롯 cap", () => {
     expect(
       normalizeEquippedSpells(["meteor", "bolt", "flame"], 10, 3),
-    ).toEqual(["flame"]); // INT 10 은 flame 만 학습
+    ).toEqual(["flame"]);
     expect(
       normalizeEquippedSpells(["bolt", "flame", "flame", "junk"], 15, 3),
     ).toEqual(["bolt", "flame"]);
@@ -112,15 +138,29 @@ describe("v2 spells — normalizeEquippedSpells", () => {
   });
 });
 
-describe("v2 spells — SPELLS 카탈로그", () => {
+describe("v2 spells — SPELLS 카탈로그 (PR-7b cooldown)", () => {
   it("3종 모두 정의 (flame/bolt/meteor)", () => {
     expect(Object.keys(SPELLS).sort()).toEqual(["bolt", "flame", "meteor"]);
   });
 
-  it("비용·데미지 비율이 단조 (큰 비용 = 큰 데미지)", () => {
+  it("intMultiplier — flame ×1, bolt ×2, meteor ×4 (PR-7)", () => {
+    expect(SPELLS.flame.intMultiplier).toBe(1);
+    expect(SPELLS.bolt.intMultiplier).toBe(2);
+    expect(SPELLS.meteor.intMultiplier).toBe(4);
+  });
+
+  it("cooldownPlayerTurns — flame 0, bolt 1, meteor 3 (PR-7b)", () => {
+    expect(SPELLS.flame.cooldownPlayerTurns).toBe(0);
+    expect(SPELLS.bolt.cooldownPlayerTurns).toBe(1);
+    expect(SPELLS.meteor.cooldownPlayerTurns).toBe(3);
+  });
+
+  it("비용·데미지·cd 단조", () => {
     expect(SPELLS.flame.mpCost).toBeLessThan(SPELLS.bolt.mpCost);
     expect(SPELLS.bolt.mpCost).toBeLessThan(SPELLS.meteor.mpCost);
     expect(SPELLS.flame.intMultiplier).toBeLessThan(SPELLS.bolt.intMultiplier);
     expect(SPELLS.bolt.intMultiplier).toBeLessThan(SPELLS.meteor.intMultiplier);
+    expect(SPELLS.flame.cooldownPlayerTurns).toBeLessThan(SPELLS.bolt.cooldownPlayerTurns);
+    expect(SPELLS.bolt.cooldownPlayerTurns).toBeLessThan(SPELLS.meteor.cooldownPlayerTurns);
   });
 });

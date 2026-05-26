@@ -58,7 +58,6 @@ export function V2CharacterCard({
   showGold?: boolean;
 }) {
   // v2 마법 풀 (PR-3). 단판 모델 — 캐릭터 카드는 풀충전 상태 표시.
-  // INT 0 인 캐릭은 maxMp 0 → MP 바 자체 안 보임.
   const maxMp = character.maxMp ?? 0;
   const mp = maxMp;
 
@@ -90,9 +89,7 @@ export function V2CharacterCard({
               max={character.maxHp}
               color="bg-red-500"
             />
-            {maxMp > 0 && (
-              <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
-            )}
+            <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
             {character.expToNext != null && (
               <StatBar
                 label="EXP"

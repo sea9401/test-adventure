@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 
-// 전투 탭 home — 5층 list. 현재 거점이 있으면 입장 가능, 없으면 안내.
+// 전투 탭 home — 8층 list. 현재 거점이 있으면 입장 가능, 없으면 안내.
 // 층 클릭 → 그 층의 V2DungeonFloorView (각 층 페이지).
 
 export function V2BattleHome({

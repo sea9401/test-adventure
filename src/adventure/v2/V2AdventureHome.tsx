@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapPin, Sword } from "@phosphor-icons/react";
 import {
   V2CharacterCard,
@@ -9,7 +9,7 @@ import {
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import type { OutpostType, OutpostTier } from "@/adventure/data/v2/types";
 
-// 모험 탭 — 캐릭 간략 카드 + 현 위치 거점 카드 + placeholder.
+// 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 + 아레나 진입.
 
 type StateResponse = {
   ok?: boolean;
@@ -32,24 +32,28 @@ const TIER_LABEL: Record<OutpostTier, string> = {
 
 export function V2AdventureHome({
   currentOutpost,
+  onOpenArena,
 }: {
   currentOutpost: { id: string; name: string } | null;
+  onOpenArena: () => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
 
-  const refresh = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v2/me/state");
-      const j = (await res.json().catch(() => null)) as StateResponse | null;
-      setState(j ?? { ok: false });
-    } catch {
-      setState({ ok: false });
-    }
-  }, []);
-
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/v2/me/state");
+        const j = (await res.json().catch(() => null)) as StateResponse | null;
+        if (!cancelled) setState(j ?? { ok: false });
+      } catch {
+        if (!cancelled) setState({ ok: false });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const outpost = useMemo(
     () =>
@@ -100,21 +104,23 @@ export function V2AdventureHome({
 
         <header className="rounded-md bg-white/80 px-3 py-2 backdrop-blur-sm dark:bg-zinc-950/70">
           <h1 className="text-lg font-bold">모험</h1>
-          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-            준비 중인 탭입니다.
-          </p>
         </header>
-        <div className="rounded-lg border border-dashed border-zinc-300 bg-white/90 p-10 text-center dark:border-zinc-700 dark:bg-zinc-950/90">
-          <div className="mx-auto inline-flex text-zinc-400 dark:text-zinc-500">
-            <Sword size={40} weight="duotone" />
+
+        <button
+          type="button"
+          onClick={onOpenArena}
+          className="w-full rounded-lg border border-zinc-300 bg-white/90 p-5 text-left transition hover:border-amber-500 hover:bg-amber-50/50 dark:border-zinc-700 dark:bg-zinc-950/90 dark:hover:border-amber-400 dark:hover:bg-amber-950/30"
+        >
+          <div className="flex items-center gap-3">
+            <Sword size={32} weight="duotone" className="text-amber-600 dark:text-amber-400" />
+            <div className="flex-1">
+              <div className="text-base font-semibold">아레나</div>
+              <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
+                1:1 단판 결투 — 빌드 자랑의 무대
+              </div>
+            </div>
           </div>
-          <div className="mt-3 text-base font-medium text-zinc-700 dark:text-zinc-300">
-            곧 만나요
-          </div>
-          <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            자동 사냥·일일 모험 등이 들어올 자리.
-          </div>
-        </div>
+        </button>
       </div>
     </main>
   );

@@ -67,6 +67,12 @@ export type BattleLogEntry =
       /** 그 시점의 AP. apMax=0 이면 AP 스킬 미장착 — UI 는 핍 안 그림. */
       ap: number;
       apMax: number;
+      /**
+       * v2 마법 시스템 MP 스냅샷. playerMaxMp=0 이면 INT 0(라이브 캐릭) — UI 는 바 안 그림.
+       * 옛 로그(서버 캐시·DB)는 미동봉 → optional. PR-5b 부터 채움.
+       */
+      playerMp?: number;
+      playerMaxMp?: number;
     };
 
 export type BattleOutcome = "win" | "lose";
@@ -2752,6 +2758,8 @@ export function resolveBattle(
     enemyMaxHp: s.enemy.hp,
     ap: s.ap,
     apMax: apMaxForLog,
+    playerMp: s.playerMp,
+    playerMaxMp: s.playerMaxMp,
   });
   // 초기 entry (적 등장 / 선공 / 능력 안내 등) 는 player 턴으로 태깅. 첫 턴 marker 도 박는다.
   // openingNote(전술 안내 등)가 있으면 적 등장 다음·첫 턴 marker 앞에 info 로 끼운다.

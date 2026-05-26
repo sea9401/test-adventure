@@ -199,6 +199,15 @@ export function BattleScene({
               max={state.playerMaxHp}
               color="bg-emerald-500"
             />
+            {/* v2 MP 바 — INT 0 인 캐릭(라이브) 은 playerMaxMp=0 → 안 보임. */}
+            {state.playerMaxMp > 0 && (
+              <HpBar
+                label="MP"
+                value={state.playerMp}
+                max={state.playerMaxMp}
+                color="bg-blue-500"
+              />
+            )}
             <HpBar
               label="EXP"
               value={playerStatus.exp}

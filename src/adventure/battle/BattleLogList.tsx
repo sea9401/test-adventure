@@ -69,6 +69,8 @@ export function BattleLogList({
               enemyMaxHp={entry.enemyMaxHp}
               ap={entry.ap}
               apMax={entry.apMax}
+              playerMp={entry.playerMp}
+              playerMaxMp={entry.playerMaxMp}
               sizes={s}
             />
           );
@@ -245,6 +247,8 @@ function HpBar({
   enemyMaxHp,
   ap,
   apMax,
+  playerMp,
+  playerMaxMp,
   sizes,
 }: {
   playerHp: number;
@@ -253,6 +257,8 @@ function HpBar({
   enemyMaxHp: number;
   ap: number;
   apMax: number;
+  playerMp?: number;
+  playerMaxMp?: number;
   sizes: Sizes;
 }) {
   const BAR_LEN = 10;
@@ -303,6 +309,17 @@ function HpBar({
           </span>
         </span>
       </div>
+      {playerMaxMp != null && playerMaxMp > 0 && playerMp != null && (
+        // v2 MP 바 — INT 0 캐릭(라이브) 은 maxMp=0 → 비표시. 마법 소비(PR-6+) 시 가시화.
+        <div className="mt-0.5 flex items-center gap-1">
+          <span className="text-blue-700 dark:text-blue-300">
+            {renderBar(playerMp, playerMaxMp)}
+          </span>
+          <span className="text-zinc-500 dark:text-zinc-400">
+            MP {playerMp}/{playerMaxMp}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

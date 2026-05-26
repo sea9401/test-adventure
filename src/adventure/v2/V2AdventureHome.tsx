@@ -33,10 +33,7 @@ export function V2AdventureHome() {
   }, [refresh]);
 
   return (
-    <main
-      className="min-h-[calc(100vh-7rem)] bg-cover bg-center bg-no-repeat text-zinc-900 dark:text-zinc-100"
-      style={{ backgroundImage: "url('/images/ui/village.webp')" }}
-    >
+    <main className="text-zinc-900 dark:text-zinc-100">
       <div className="mx-auto max-w-2xl space-y-4 p-6">
         {state?.character && (
           <V2CharacterCard

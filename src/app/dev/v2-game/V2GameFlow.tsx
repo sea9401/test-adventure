@@ -221,8 +221,19 @@ export function V2GameFlow() {
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      {/* 탭바 + 스태미너 — main 흐름 안에 일반 배치 (스크롤 같이 움직임). */}
-      <div>
+      {/* 탭 컨테이너 — 현재 탭에 배경이 있으면 탭바·스태미너까지 같이 덮음. */}
+      <div
+        className={
+          currentTab === "adventure"
+            ? "min-h-[calc(100vh-44px)] bg-cover bg-center bg-no-repeat"
+            : ""
+        }
+        style={
+          currentTab === "adventure"
+            ? { backgroundImage: "url('/images/ui/village.webp')" }
+            : undefined
+        }
+      >
         <TabBar
           tabs={TABS}
           active={currentTab}
@@ -236,7 +247,6 @@ export function V2GameFlow() {
             <StaminaBar state={stamina} />
           </div>
         )}
-      </div>
 
       {/* === 모험 탭 === */}
       {view.kind === "adventure" && <V2AdventureHome />}
@@ -338,6 +348,7 @@ export function V2GameFlow() {
           onAction={handleOutpostAction}
         />
       )}
+      </div>
     </div>
   );
 }

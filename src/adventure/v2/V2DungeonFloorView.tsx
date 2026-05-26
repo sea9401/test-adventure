@@ -129,6 +129,8 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
+      {lastResult && <HuntResultCard result={lastResult} />}
+
       {lastResult?.replay && (
         <ReplayBattleScene
           payload={lastResult.replay}
@@ -139,8 +141,6 @@ export function V2DungeonFloorView({
           maxExp={lastResult.maxExpForBar ?? 1}
         />
       )}
-
-      {lastResult && <HuntResultCard result={lastResult} />}
     </main>
   );
 }

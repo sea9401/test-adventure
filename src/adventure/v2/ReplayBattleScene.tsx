@@ -41,7 +41,20 @@ export function ReplayBattleScene({
         enemyHp = e.enemyHp;
       }
     }
-    return buildBattleStateFromReplay(payload, playerHp, enemyHp);
+    // v2 UI: "나타났다!" / "선공." 시작 entry 제거 — 사용자 의도로 노이즈 제거.
+    // engine 자체는 그대로 (라이브 영향 0), 표시 단에서만 필터.
+    const cleanedLog = payload.log.filter((e) => {
+      if (e.kind !== "info") return true;
+      const text = typeof e.text === "string" ? e.text : "";
+      if (text.includes("나타났다")) return false;
+      if (/의 선공\.?$/.test(text)) return false;
+      return true;
+    });
+    return buildBattleStateFromReplay(
+      { ...payload, log: cleanedLog },
+      playerHp,
+      enemyHp,
+    );
   }, [payload, startPlayerHp]);
 
   const playerStatus: BattlePlayerStatus = {

@@ -2072,6 +2072,9 @@ export function resolveBattlePvP(
     enemyMaxHp: s.p2.maxHp,
     ap: s.p1.ap,
     apMax: p1ApMax,
+    // v2 MP — p1 시점 (challenge API 가 me=p1 로 호출). p1 INT 0 = 둘 다 0 → UI 비표시.
+    playerMp: s.p1.mp,
+    playerMaxMp: s.p1.maxMp,
   });
   // p2 도전자(상대) 측 AP 표시도 살리려면 별도 hp_bar 가 필요하지만,
   // 지금은 도전자(p1) 시점만. p2ApMax 는 향후 미러용으로 유지.

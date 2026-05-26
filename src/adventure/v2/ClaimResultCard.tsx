@@ -21,14 +21,6 @@ export type ClaimResult = {
   hpAfter?: number;
   maxHp?: number;
   requiredStamina?: number;
-  troopBattle?: {
-    duelWonByAttacker?: boolean;
-    attackerPower: number;
-    defenderPower: number;
-    attackerCasualties: number;
-    defenderCasualties: number;
-    plunderStone: number;
-  } | null;
   tournament?: {
     matches: {
       attackerName: string;
@@ -94,8 +86,7 @@ export function ClaimResultCard({
         {result.tournament && (
           <TournamentSection tournament={result.tournament} />
         )}
-        {result.troopBattle && <TroopBattleSection battle={result.troopBattle} />}
-        {!result.tournament && !result.troopBattle && (
+        {!result.tournament && (
           <DuelOnlySection
             championName={result.championName ?? "?"}
             turns={result.turns ?? 0}
@@ -192,57 +183,6 @@ function TournamentSection({
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function TroopBattleSection({
-  battle,
-}: {
-  battle: NonNullable<ClaimResult["troopBattle"]>;
-}) {
-  const total = battle.attackerPower + battle.defenderPower;
-  const aPct =
-    total > 0 ? Math.round((battle.attackerPower / total) * 100) : 50;
-  const dPct = 100 - aPct;
-  return (
-    <div>
-      <div className="mb-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-        2단계 — 본 병사 전쟁
-        {battle.duelWonByAttacker !== undefined && (
-          <span className="ml-2 text-zinc-500">
-            일기토 {battle.duelWonByAttacker ? "승" : "패"} → 보정 적용
-          </span>
-        )}
-      </div>
-      <div className="overflow-hidden rounded border border-zinc-300 dark:border-zinc-700">
-        <div className="flex h-3 text-[0px]">
-          <div
-            className="bg-emerald-500/70"
-            style={{ width: `${aPct}%` }}
-          />
-          <div className="bg-red-500/70" style={{ width: `${dPct}%` }} />
-        </div>
-        <div className="grid grid-cols-2 gap-2 px-2 py-1 text-xs">
-          <div>
-            <div className="font-medium">공격자 power {battle.attackerPower}</div>
-            <div className="text-zinc-500">
-              사상 {battle.attackerCasualties}명
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-medium">수비자 power {battle.defenderPower}</div>
-            <div className="text-zinc-500">
-              사상 {battle.defenderCasualties}명
-            </div>
-          </div>
-        </div>
-      </div>
-      {battle.plunderStone > 0 && (
-        <div className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-          약탈 광물 +{battle.plunderStone} (승자측)
-        </div>
-      )}
     </div>
   );
 }

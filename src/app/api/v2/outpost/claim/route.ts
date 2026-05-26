@@ -245,18 +245,16 @@ export async function POST(req: Request) {
     }
 
     // 양측 길드 자원 풀 lock (PR-vi-b — 마스터 개인 saves_kv 가 아닌 길드 공용).
-    //   - PvP: 양측 mutate (병사 사상자 + 약탈) → 양측 길드 FOR UPDATE, guildId 사전 정렬.
+    //   - PvP: 양측 lock (활성 주문서 buff 검사용) → guildId 사전 정렬.
     //   - NPC: 공격자 길드만 lock.
     //   - already_yours 분기에서 같은 길드 차단됨 → lockTwoGuildResources 안전.
     let attackerResources: V2GuildResources = {
       stone: 0,
-      soldiers: 0,
       scrolls: 0,
       activeScrollExpiresAt: null,
     };
     let defenderResources: V2GuildResources = {
       stone: 0,
-      soldiers: 0,
       scrolls: 0,
       activeScrollExpiresAt: null,
     };
@@ -561,10 +559,8 @@ export async function POST(req: Request) {
         hpAfter: afterHp,
         maxHp: player.maxHp,
         occupation,
-        // PR-7: 본 병사 전쟁 폐기 — 결과 객체 항상 null. 옛 클라 호환 위해 키는
-        // 유지 (PR-7b/UI 정리에서 키 자체 제거 검토).
-        troopBattle: null,
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
+        // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
         tournament: tournamentSummary,
       },
     };

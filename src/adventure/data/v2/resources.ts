@@ -67,9 +67,9 @@ export function computeScrollYield(
 }
 
 // 길드 자원 풀 형태 — v2_guild_resources 테이블 + UI 반영.
+// PR-7b: 병사(soldiers) 시스템 폐기.
 export type V2Resources = {
   stone: number;
-  soldiers: number;
   scrolls: number;
   // PR-6 활성 주문서 만료(epoch ms). null = 비활성.
   activeScrollExpiresAt?: number | null;
@@ -87,7 +87,6 @@ export function parseResources(raw: unknown): V2Resources {
     const r = raw as Partial<V2Resources>;
     return {
       stone: parseNonNegInt(r.stone),
-      soldiers: parseNonNegInt(r.soldiers),
       scrolls: parseNonNegInt(r.scrolls),
       activeScrollExpiresAt:
         typeof r.activeScrollExpiresAt === "number"
@@ -95,5 +94,5 @@ export function parseResources(raw: unknown): V2Resources {
           : null,
     };
   }
-  return { stone: 0, soldiers: 0, scrolls: 0, activeScrollExpiresAt: null };
+  return { stone: 0, scrolls: 0, activeScrollExpiresAt: null };
 }

@@ -17,30 +17,24 @@ export function V2TopBar({
   currentOutpost: { id: string; name: string } | null;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
-      <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-2.5 sm:px-6">
-        <div className="flex min-w-0 items-center gap-1.5 text-sm">
-          <MapPin
-            size={18}
-            weight="duotone"
-            className="shrink-0 text-emerald-600 dark:text-emerald-400"
-          />
-          <span className="truncate font-medium text-zinc-700 dark:text-zinc-200">
-            {currentOutpost?.name ?? "이동 중"}
-          </span>
-        </div>
-        <nav className="flex shrink-0 items-center gap-1">
-          <IconButton aria-label="알림">
-            <Bell size={18} weight="duotone" />
-          </IconButton>
-          <IconButton aria-label="채팅">
-            <ChatCircle size={18} weight="duotone" />
-          </IconButton>
-          <IconButton aria-label="설정">
-            <Gear size={18} weight="duotone" />
-          </IconButton>
-        </nav>
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/90">
+      <div className="flex min-w-0 items-center gap-2">
+        <MapPin size={16} weight="fill" className="shrink-0 text-emerald-500" />
+        <span className="truncate text-base font-semibold text-zinc-700 dark:text-zinc-200">
+          {currentOutpost?.name ?? "이동 중"}
+        </span>
       </div>
+      <nav className="flex shrink-0 items-center gap-1">
+        <IconButton aria-label="알림">
+          <Bell size={18} weight="duotone" />
+        </IconButton>
+        <IconButton aria-label="채팅">
+          <ChatCircle size={18} weight="duotone" />
+        </IconButton>
+        <IconButton aria-label="설정">
+          <Gear size={18} weight="duotone" />
+        </IconButton>
+      </nav>
     </header>
   );
 }

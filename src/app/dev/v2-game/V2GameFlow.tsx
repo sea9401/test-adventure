@@ -221,8 +221,8 @@ export function V2GameFlow() {
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      {/* 탭바 + 스태미너 — TopBar 아래 sticky stack. 모든 view 에서 항상 보임. */}
-      <div className="sticky top-[44px] z-10 bg-white/95 backdrop-blur dark:bg-zinc-950/95">
+      {/* 탭바 + 스태미너 — main 흐름 안에 일반 배치 (스크롤 같이 움직임). */}
+      <div>
         <TabBar
           tabs={TABS}
           active={currentTab}

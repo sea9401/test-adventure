@@ -23,13 +23,16 @@ export type FloorEquipDropPool = {
 };
 
 // 곡선 — 층 올라갈수록 chance 상승 + 고티어 가중치 상승.
-// 사용자 직관 합의: 1층 T1~T3, 2층 T2~T5, 3층 T3~T5, 4층 T4~T5, 5층 T5.
+// 1~5 성장 5층은 옛 1·2 사이를 부드럽게 보간. 6~8 엔드는 옛 3·4·5 그대로.
 export const EQUIP_FLOOR_POOLS: Record<DungeonFloorId, FloorEquipDropPool> = {
-  1: { chance: 0.15, tierWeights: { 1: 5, 2: 3, 3: 1 } },
-  2: { chance: 0.18, tierWeights: { 2: 3, 3: 5, 4: 3, 5: 1 } },
-  3: { chance: 0.22, tierWeights: { 3: 3, 4: 5, 5: 3 } },
-  4: { chance: 0.28, tierWeights: { 4: 3, 5: 7 } },
-  5: { chance: 0.35, tierWeights: { 5: 10 } },
+  1: { chance: 0.15, tierWeights: { 1: 7, 2: 2 } },
+  2: { chance: 0.15, tierWeights: { 1: 5, 2: 3, 3: 1 } },
+  3: { chance: 0.16, tierWeights: { 1: 3, 2: 5, 3: 2 } },
+  4: { chance: 0.17, tierWeights: { 2: 4, 3: 5, 4: 2 } },
+  5: { chance: 0.18, tierWeights: { 2: 3, 3: 5, 4: 3, 5: 1 } },
+  6: { chance: 0.22, tierWeights: { 3: 3, 4: 5, 5: 3 } },
+  7: { chance: 0.28, tierWeights: { 4: 3, 5: 7 } },
+  8: { chance: 0.35, tierWeights: { 5: 10 } },
 };
 
 const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3, 4, 5]);

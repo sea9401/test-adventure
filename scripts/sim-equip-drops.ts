@@ -37,7 +37,7 @@ import type { EquippedItemForDerive } from "../src/adventure/character/derivePla
 
 const TRIALS = Number(process.env.TRIALS ?? 500);
 const LEVEL = Number(process.env.LEVEL ?? 50);
-const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5];
+const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
 function emptyStats(): Record<StatKey, number> {
   return STAT_KEYS.reduce(

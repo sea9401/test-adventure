@@ -48,7 +48,7 @@ import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
-// 본문: { floor: 1 | 2 | 3 | 4 | 5 }
+// 본문: { floor: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 }
 // 서버 권위:
 //   1. character.v2 잠금 + stamina 회복 + HUNT_COST 차감.
 //   2. derive PlayerCombat (장비/스킬/룬/부여/파라곤 반영).
@@ -63,7 +63,7 @@ import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 //   - playerName placeholder "모험가"
 //   - drop 은 placeholder 풀 (`dungeonDrops.ts`) — 정식 재료 시스템 통째 교체 예정
 
-const VALID_FLOORS = [1, 2, 3, 4, 5] as const;
+const VALID_FLOORS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 function isValidFloor(n: number): n is DungeonFloorId {
   return (VALID_FLOORS as readonly number[]).includes(n);

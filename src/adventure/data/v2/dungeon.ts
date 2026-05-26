@@ -1,19 +1,17 @@
-// v2 단일 던전 — 5층 구조.
+// v2 단일 던전 — 8층 구조.
 //
-// 1~2층 = 1~100렙 캐릭 성장. 라이브 몬스터 재활용 (×1.0).
-// 3~5층 = 만렙 후 엔드 파밍. 라이브 별빛 권역 잡몹/엘리트 + 층별 FLOOR_DIFFICULTY
+// 1~5층 = 1~100렙 캐릭 성장. 라이브 권역 밴드별 잡몹 그룹화 (×1.0).
+//   캐릭 레벨에 맞는 층만 사냥 → Lv1 도 패배 0 보장.
+// 6~8층 = 만렙 후 엔드 파밍. 라이브 별빛 권역 잡몹/엘리트 + 층별 FLOOR_DIFFICULTY
 //         배수 적용 (hunt 시점에 scaleMonsterForFloor 로 hp/atk/def/exp 곱).
 // 풀과 multiplier 는 다이얼링 — 배포 후 분포 보고 후속 PR 에서 조정.
 
 import type { Dungeon, DungeonFloorId } from "./types";
 
-// === 1층 — 변경 (1~70렙) ============================================
-// 라이브 권역에서 권장Lv ≤ 70 인 잡몹들 모음. 다양한 강도 (Lv1~70) 가 한 층에 섞여 있어
-// 자유 입장 룰상 캐릭 강도에 따라 가시 효율이 다름. encounter 가중치는 우선 균등,
-// 캐릭 레벨 기반 weight 보정은 사냥 로직에서 다룰 예정.
+// === 1층 — 변경 입구 (Lv 1~5) ========================================
+// homeland 초입. 신캐 Lv1 도 안전한 풀.
 
 const FLOOR1_ENEMIES = [
-  // Lv 1~5 (homeland · 변경 시작점)
   "주정뱅이",
   "슬라임",
   "들개",
@@ -25,7 +23,12 @@ const FLOOR1_ENEMIES = [
   "들까마귀 떼",
   "갈대 살쾡이",
   "노상강도",
-  // Lv 6~13 (homeland 후반 · coast · midlands 시작)
+];
+
+// === 2층 — 변경 외곽 (Lv 6~13) =======================================
+// homeland 후반 · coast · midlands 시작.
+
+const FLOOR2_ENEMIES = [
   "작은 광물 골렘",
   "호수 님프",
   "부서진 골렘",
@@ -40,7 +43,12 @@ const FLOOR1_ENEMIES = [
   "폐성벽 까마귀",
   "탈영 약탈자",
   "녹슨 자동인형",
-  // Lv 18~28 (midlands · 산악 · 평원)
+];
+
+// === 3층 — 산악 평원 (Lv 18~28) ======================================
+// midlands · 산악 · 평원.
+
+const FLOOR3_ENEMIES = [
   "산양",
   "바위 두꺼비",
   "산호초 사이렌",
@@ -52,7 +60,12 @@ const FLOOR1_ENEMIES = [
   "들소",
   "초원 매",
   "떠돌이 약탈자",
-  // Lv 34~55 (volcanic · dragonscale 일부)
+];
+
+// === 4층 — 화염 지대 (Lv 34~55) ======================================
+// volcanic · dragonscale 일부.
+
+const FLOOR4_ENEMIES = [
   "재먼지 골렘",
   "잿빛 들개",
   "불씨 도롱뇽",
@@ -65,16 +78,16 @@ const FLOOR1_ENEMIES = [
   "용암 슬라임",
   "화산 두꺼비",
   "불꽃 골렘",
-  // Lv 70 (skythrone 입구 — 별의 첨탑)
+];
+
+// === 5층 — 별빛 회랑 (Lv 70~100) =====================================
+// skythrone 입구 ~ 별빛 권역 ~ 창공 옥좌. 만렙 도달까지의 마지막 성장구간.
+
+const FLOOR5_ENEMIES = [
+  // Lv 70 (skythrone 입구)
   "별점술사 잔영",
   "구름 사냥꾼",
   "운명 직조자",
-];
-
-// === 2층 — 심층 (70~100렙) ===========================================
-// 라이브 권역에서 권장Lv 70~100 잡몹들. 별빛 권역 진입 ~ 창공 옥좌까지.
-
-const FLOOR2_ENEMIES = [
   // Lv 75 (별빛 회랑 · 용비늘 묘지)
   "떠도는 시녀",
   "별빛 망령",
@@ -96,11 +109,11 @@ const FLOOR2_ENEMIES = [
   "잠든 황좌 거인",
 ];
 
-// === 3층 — 균열 (엔드 entry) ========================================
+// === 6층 — 균열 (엔드 entry) ========================================
 // 라이브의 별빛 갱도(Lv100) ~ 별빛 협곡(Lv102) 잡몹. 만렙 진입 + 파라곤 시작.
-// 스탯은 FLOOR_DIFFICULTY[3] = 1.2 배수.
+// 스탯은 FLOOR_DIFFICULTY[6] = 1.2 배수.
 
-const FLOOR3_ENEMIES: string[] = [
+const FLOOR6_ENEMIES: string[] = [
   // Lv 100 (별빛 갱도)
   "별빛 박쥐",
   "별빛 동굴뱀",
@@ -111,11 +124,11 @@ const FLOOR3_ENEMIES: string[] = [
   "별빛 늑대 무리장",
 ];
 
-// === 4층 — 어둠 (엔드 중반) =========================================
+// === 7층 — 어둠 (엔드 중반) =========================================
 // 라이브의 별빛 산호초(Lv104) ~ 별빛 성채(Lv106) 잡몹. 만렙 + 중반 파라곤.
-// 스탯은 FLOOR_DIFFICULTY[4] = 2.0 배수.
+// 스탯은 FLOOR_DIFFICULTY[7] = 2.0 배수.
 
-const FLOOR4_ENEMIES: string[] = [
+const FLOOR7_ENEMIES: string[] = [
   // Lv 104 (별빛 산호초)
   "별빛 산호초 사이렌",
   "별빛 갑각 약탈자",
@@ -126,11 +139,11 @@ const FLOOR4_ENEMIES: string[] = [
   "별빛 녹슨 자동인형",
 ];
 
-// === 5층 — 심연 (엔드 최종) =========================================
+// === 8층 — 심연 (엔드 최종) =========================================
 // 별빛 권역의 엘리트/지역 보스급 4종. 만렙 + 만개 파라곤 + 풀세팅 전제.
-// 스탯은 FLOOR_DIFFICULTY[5] = 4.0 배수 — 베이스 hp 7k~12k 가 28k~47k 로.
+// 스탯은 FLOOR_DIFFICULTY[8] = 4.0 배수.
 
-const FLOOR5_ENEMIES: string[] = [
+const FLOOR8_ENEMIES: string[] = [
   "별빛 광맥 수호자", // 별빛 갱도 엘리트 (pierce)
   "별빛 거인 잔영",   // 별빛 협곡 엘리트 (heavy_blow)
   "수심의 메아리",    // 별빛 산호초 엘리트 (enrage)
@@ -141,17 +154,20 @@ const FLOOR5_ENEMIES: string[] = [
 // hp/atk/def/exp 에 동시 적용. 1.0 = 라이브 베이스 그대로.
 // 배포 후 도달시간/처치시간 분포 보고 조정.
 //
-// 1~2 = 라이브 성장 곡선 그대로 (×1.0).
-// 3 = 만렙 entry, 베이스 별빛 ×1.2.
-// 4 = 만렙 + 풀세팅 도전, 별빛 ×2.0.
-// 5 = 만렙 + 만개 파라곤 + 풀세팅 종착, 별빛 엘리트 ×4.0.
+// 1~5 = 라이브 성장 곡선 그대로 (×1.0). 캐릭 레벨에 맞는 층만 골라 사냥.
+// 6 = 만렙 entry, 베이스 별빛 ×1.2.
+// 7 = 만렙 + 풀세팅 도전, 별빛 ×2.0.
+// 8 = 만렙 + 만개 파라곤 + 풀세팅 종착, 별빛 엘리트 ×4.0.
 
 export const FLOOR_DIFFICULTY: Record<DungeonFloorId, number> = {
   1: 1.0,
   2: 1.0,
-  3: 1.2,
-  4: 2.0,
-  5: 4.0,
+  3: 1.0,
+  4: 1.0,
+  5: 1.0,
+  6: 1.2,
+  7: 2.0,
+  8: 4.0,
 };
 
 export const MAIN_DUNGEON: Dungeon = {
@@ -160,33 +176,51 @@ export const MAIN_DUNGEON: Dungeon = {
   floors: [
     {
       id: 1,
-      name: "1층 — 변경",
-      requirement: { kind: "level", min: 1, max: 70 },
+      name: "1층 — 변경 입구",
+      requirement: { kind: "level", min: 1, max: 5 },
       enemies: FLOOR1_ENEMIES,
     },
     {
       id: 2,
-      name: "2층 — 심층",
-      requirement: { kind: "level", min: 70, max: 100 },
+      name: "2층 — 변경 외곽",
+      requirement: { kind: "level", min: 6, max: 13 },
       enemies: FLOOR2_ENEMIES,
     },
     {
       id: 3,
-      name: "3층 — 균열",
-      requirement: { kind: "endgame", tier: "entry" },
+      name: "3층 — 산악 평원",
+      requirement: { kind: "level", min: 18, max: 28 },
       enemies: FLOOR3_ENEMIES,
     },
     {
       id: 4,
-      name: "4층 — 어둠",
-      requirement: { kind: "endgame", tier: "mid" },
+      name: "4층 — 화염 지대",
+      requirement: { kind: "level", min: 34, max: 55 },
       enemies: FLOOR4_ENEMIES,
     },
     {
       id: 5,
-      name: "5층 — 심연",
-      requirement: { kind: "endgame", tier: "max" },
+      name: "5층 — 별빛 회랑",
+      requirement: { kind: "level", min: 70, max: 100 },
       enemies: FLOOR5_ENEMIES,
+    },
+    {
+      id: 6,
+      name: "6층 — 균열",
+      requirement: { kind: "endgame", tier: "entry" },
+      enemies: FLOOR6_ENEMIES,
+    },
+    {
+      id: 7,
+      name: "7층 — 어둠",
+      requirement: { kind: "endgame", tier: "mid" },
+      enemies: FLOOR7_ENEMIES,
+    },
+    {
+      id: 8,
+      name: "8층 — 심연",
+      requirement: { kind: "endgame", tier: "max" },
+      enemies: FLOOR8_ENEMIES,
     },
   ],
 };

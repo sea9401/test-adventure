@@ -18,9 +18,9 @@ function seqRng(values: number[]): () => number {
 }
 
 describe("EQUIP_FLOOR_POOLS — sanity", () => {
-  const ALL_FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5];
+  const ALL_FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
-  it("5층 모두 정의", () => {
+  it("8층 모두 정의", () => {
     for (const f of ALL_FLOORS) {
       expect(EQUIP_FLOOR_POOLS[f]).toBeDefined();
     }
@@ -61,8 +61,8 @@ describe("EQUIP_FLOOR_POOLS — sanity", () => {
     }
   });
 
-  it("최고층 (5) 의 가중 풀은 T5 만 포함", () => {
-    const tiers = Object.keys(EQUIP_FLOOR_POOLS[5].tierWeights).map(Number);
+  it("최고층 (8) 의 가중 풀은 T5 만 포함", () => {
+    const tiers = Object.keys(EQUIP_FLOOR_POOLS[8].tierWeights).map(Number);
     expect(tiers).toEqual([5]);
   });
 
@@ -105,23 +105,23 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     expect(rollEquipDrop(1, ownedT1, rng)).toBeNull();
   });
 
-  it("가중 풀에 없는 티어는 반환되지 않음 (1층은 T4/T5 안 떨어짐)", () => {
-    // 1층 풀 = T1/T2/T3 만. 여러 굴림 해도 T4/T5 안 나옴.
+  it("가중 풀에 없는 티어는 반환되지 않음 (1층은 T3 이상 안 떨어짐)", () => {
+    // 1층 풀 = T1/T2 만. 여러 굴림 해도 T3 이상 안 나옴.
     for (let seed = 0; seed < 100; seed++) {
       const rng = seqRng([0.0, seed / 100, seed / 100]);
       const got = rollEquipDrop(1, empty, rng);
       if (got) {
         const tier = V2_EQUIPMENT[got].tier;
-        expect(tier).toBeLessThanOrEqual(3);
+        expect(tier).toBeLessThanOrEqual(2);
         expect(tier).toBeGreaterThanOrEqual(1);
       }
     }
   });
 
-  it("5층은 항상 T5 만 (통과 시)", () => {
+  it("8층은 항상 T5 만 (통과 시)", () => {
     for (let seed = 0; seed < 50; seed++) {
       const rng = seqRng([0.0, seed / 50, seed / 50]);
-      const got = rollEquipDrop(5, empty, rng);
+      const got = rollEquipDrop(8, empty, rng);
       if (got) {
         expect(V2_EQUIPMENT[got].tier).toBe(5);
       }
@@ -143,10 +143,10 @@ describe("rollEquipDrop — 굴림 결정성", () => {
   });
 
   it("티어 가중 끝점 — roll = totalWeight - epsilon 일 때 마지막 티어 (overflow 안전)", () => {
-    // 2층 풀 [T2:3, T3:5, T4:3, T5:1] 합=12.
+    // 5층 풀 [T2:3, T3:5, T4:3, T5:1] 합=12.
     // rng[1] = 11.99/12 ≈ 0.9991 → roll ≈ 11.99 → T5 도달.
     const rng = seqRng([0.0, 0.9991, 0.0]);
-    const got = rollEquipDrop(2, new Set(), rng);
+    const got = rollEquipDrop(5, new Set(), rng);
     expect(got).not.toBeNull();
     if (got) {
       expect(V2_EQUIPMENT[got].tier).toBe(5);
@@ -159,6 +159,6 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     // 실제 EQUIP_FLOOR_POOLS 에 빈 풀은 없음. 함수 동작만 sanity 체크.
     expect(fakePool.chance).toBeGreaterThan(0);
     // dungeonEquipDrops 의 rollEquipDrop 시그니처는 floor 만 받으므로 직접 호출 가능
-    // 패스 — 5층 케이스에서 이미 다 보유 시 null 반환 검증으로 갈음.
+    // 패스 — 1층 케이스에서 이미 다 보유 시 null 반환 검증으로 갈음.
   });
 });

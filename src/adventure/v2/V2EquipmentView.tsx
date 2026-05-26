@@ -7,13 +7,28 @@ import { LIST_ROW } from "@/components/ui/listRow";
 import { Backpack } from "@phosphor-icons/react";
 import {
   V2_EQUIPMENT,
+  V2_EQUIP_BONUS_KEYS,
+  V2_EQUIP_BONUS_LABELS,
   v2EquipmentBySlot,
   type V2EquipmentId,
   type V2EquipSlot,
+  type V2EquipStats,
 } from "@/adventure/data/v2/v2Equipment";
 
 // v2 장비 화면 — 라이브 자산 (ITEMS/dropQuality 등) 분리. 자체 placeholder 풀.
-// 효과(스탯 보너스) wiring 은 아직 없음 — "갈아엎을수도있다" 전제로 UI 만 가져옴.
+// PR-1: stats 효과 wiring 완료 — derivePlayerCombatV2 가 합산해 atk/def/스탯이 캐릭터
+// 패널에 반영된다. 7종은 임시 T1~T2 수치, PR-2 에서 부위×컨셉×티어 그리드로 확장.
+
+function formatStats(stats: V2EquipStats): string {
+  const parts: string[] = [];
+  for (const k of V2_EQUIP_BONUS_KEYS) {
+    const v = stats[k];
+    if (!v) continue;
+    const sign = v >= 0 ? "+" : "";
+    parts.push(`${V2_EQUIP_BONUS_LABELS[k]} ${sign}${v}`);
+  }
+  return parts.join(" · ");
+}
 
 const SLOT_LABEL: Record<V2EquipSlot, string> = {
   weapon: "무기",
@@ -141,6 +156,11 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                   <div className="truncate text-sm font-medium">
                     {item ? item.name : "—"}
                   </div>
+                  {item && (
+                    <div className="truncate text-xs text-emerald-700 dark:text-emerald-300">
+                      {formatStats(item.stats)}
+                    </div>
+                  )}
                 </div>
                 {item && (
                   <button
@@ -202,6 +222,9 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                         장착
                       </button>
                     )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                    {formatStats(item.stats)}
                   </div>
                   <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                     {item.description}

@@ -1,25 +1,28 @@
 // v2 마법 데미지 스킬 풀.
 //
-// PR-7 변경:
-//   - intMultiplier 1/3 인하 (codex 컨설팅 — 즉사 위험 해소).
-//     기존: flame ×3 / bolt ×6 / meteor ×12 → 신: ×1 / ×2 / ×4
-//   - 한 전투 1주문만 cast (큰 비용 순으로 첫 발동 가능한 것). 기존 sweep(가능한
-//     만큼 다 발동) 폐기 — "한 번의 큰 burst" 컨셉으로 단순화.
-//   - 턴당 액티브·cooldown 구조 전환은 PR-7b 후속 (engine 의 player turn 시작 hook
-//     필요, 큰 변경).
+// PR-7b: 턴당 액티브 + cooldown 패턴. 매 player turn 시작 시 가능한 spell 1발 cast.
 //
-// 단판 전투 모델: 전투 시작 시 MP 풀충전 → 큰 비용 순으로 첫 발동 가능한 1주문 cast →
-// 그 후 일반 전투. MP 회복 없음 (전투 끝까지 잔량 보존, UI 표시용).
+// - intMultiplier (PR-7): flame ×1 / bolt ×2 / meteor ×4
+// - cooldownPlayerTurns (PR-7b): flame 0 / bolt 1 / meteor 3
+//   cast 직후 spellCooldowns[id] = cooldown 으로 set, 매 player turn 시작 시 -1.
+//   0 이면 (또는 미설정이면) cast 가능. flame 은 cd 0 → MP 만 있으면 매 turn 가능.
 //
-// 학습 임계: INT 5(flame) / 15(bolt) / 30(meteor). 라이브 캐릭은 INT 0 → 학습 X → no-op.
+// 흐름:
+//   - 매 player turn 시작 시: ①cooldowns 감소 → ②가능한 spell 1발 cast → ③해당 cd set
+//   - MP 회복 없음 (전투 끝까지 잔량 보존)
+//   - 마법은 회피 불가 + DEF 무시
+//
+// 학습 임계: INT 5(flame) / 15(bolt) / 30(meteor). 라이브 캐릭은 INT 0 → no-op.
 
 export type Spell = {
   id: SpellId;
   name: string;
   description: string;
   mpCost: number;
-  /** 데미지 = INT × intMultiplier (1 하한). 마법은 회피 불가 (DEF 무시). */
+  /** 데미지 = INT × intMultiplier (1 하한). */
   intMultiplier: number;
+  /** cast 직후 다음 cast 가능 turn 까지의 대기 (player turn 단위). 0 = 매 턴 가능. */
+  cooldownPlayerTurns: number;
 };
 
 export type SpellId = "flame" | "bolt" | "meteor";
@@ -31,6 +34,7 @@ export const SPELLS: Record<SpellId, Spell> = {
     description: "기초 마법. 적은 MP 로 작은 화염 일격.",
     mpCost: 20,
     intMultiplier: 1,
+    cooldownPlayerTurns: 0,
   },
   bolt: {
     id: "bolt",
@@ -38,6 +42,7 @@ export const SPELLS: Record<SpellId, Spell> = {
     description: "중급 마법. 적정 비용에 한 줄기 번개.",
     mpCost: 40,
     intMultiplier: 2,
+    cooldownPlayerTurns: 1,
   },
   meteor: {
     id: "meteor",
@@ -45,27 +50,25 @@ export const SPELLS: Record<SpellId, Spell> = {
     description: "상급 마법. 큰 비용으로 떨어뜨리는 별빛 일격.",
     mpCost: 80,
     intMultiplier: 4,
+    cooldownPlayerTurns: 3,
   },
 };
 
-// 발동 우선순위 — 큰 비용/큰 데미지부터. PR-7: 한 전투 1주문만 cast.
+// 발동 우선순위 — 큰 비용/큰 데미지부터. 매 turn cast 시 이 순서로 첫 가능한 spell pick.
 export const SPELL_ORDER: readonly SpellId[] = ["meteor", "bolt", "flame"];
 
-// INT 임계값 자동 학습. INT 가 임계값 이상이면 책 없이 자동 사용 가능.
-// v2 베이스 INT = 0 → 시작 시 아무것도 학습 안 됨. 단련/장비로 INT 찍어 해금.
+// INT 임계값 자동 학습. INT 가 임계값 이상이면 자동 사용 가능.
+// v2 베이스 INT = 0 → 시작 시 아무것도 학습 안 됨.
 export const SPELL_LEARN_THRESHOLD: Record<SpellId, number> = {
   flame: 5,
   bolt: 15,
   meteor: 30,
 };
 
-// 학습 가능 마법 목록 — SPELL_ORDER 순(큰 것부터). UI/equip 정규화에 사용.
 export function learnedSpellsForInt(intStat: number): SpellId[] {
   return SPELL_ORDER.filter((id) => intStat >= SPELL_LEARN_THRESHOLD[id]);
 }
 
-// 저장된 equippedSpells 를 학습 가능 목록·슬롯 cap 으로 정규화.
-// - 알 수 없는 id 제거 / 학습 안 한 id 제거 / 중복 제거(앞 우선) / cap = slotCount
 export function normalizeEquippedSpells(
   saved: unknown,
   intStat: number,
@@ -91,12 +94,23 @@ export function normalizeEquippedSpells(
 import type { BattleLogEntry, BattleState } from "@/adventure/battle/engine";
 import type { PvPBattleState, PvPSide } from "@/adventure/battle/engine-pvp";
 
-// 전투 시작 시 1주문 cast (PR-7) — 큰 비용 순으로 첫 발동 가능한 spell 1번만.
-// 기존 sweep(MP 소진까지 반복)에서 한 발로 좁힘 — "burst" 컨셉.
-// 마법은 회피 불가, DEF 무시 (1차).
+export type SpellCooldowns = Partial<Record<SpellId, number>>;
+
+// 매 player turn 시작 시 호출 — cooldown 감소 + 1발 cast + 해당 cd set.
+// totalStats.int / maxMp 둘 다 0 인 라이브 캐릭은 no-op (state 그대로).
 //
-// totalStats.int / maxMp 둘 다 0 인 라이브 캐릭은 no-op — state 그대로 반환.
-export function applyStartOfBattleSpells(
+// 흐름:
+//   1) 모든 cooldowns 의 카운터 -1 (0 클램프)
+//   2) SPELL_ORDER 순으로 첫 cast 가능한 spell pick:
+//      - equipped 안에 있어야 함
+//      - mp 충분
+//      - (감소 후) cooldown <= 0
+//   3) cast: damage = INT × intMultiplier, enemyHp 차감, mp 차감, log push,
+//      해당 cooldown = spell.cooldownPlayerTurns 로 set
+//
+// cd 감소만 일어나고 cast 안 되는 경우도 정상 (mp 부족·cd 안 끝남) — state 갱신은
+// cooldowns 변화만 반영. 가독성·테스트 위해 cooldowns 는 항상 새 객체 반환.
+export function castSpellsOnPlayerTurn(
   state: BattleState,
   intStat: number,
   equippedSpells: readonly SpellId[],
@@ -105,11 +119,23 @@ export function applyStartOfBattleSpells(
   if (intStat <= 0 || state.playerMaxMp <= 0 || equippedSpells.length === 0) {
     return state;
   }
+
+  // 1) cooldowns 감소
+  const prevCooldowns = state.spellCooldowns ?? {};
+  const cooldowns: SpellCooldowns = {};
+  for (const id of SPELL_ORDER) {
+    const prev = prevCooldowns[id] ?? 0;
+    cooldowns[id] = Math.max(0, prev - 1);
+  }
+
+  // 2) cast 후보 pick
   const equippedSet = new Set(equippedSpells);
   for (const id of SPELL_ORDER) {
     if (!equippedSet.has(id)) continue;
     const spell = SPELLS[id];
     if (state.playerMp < spell.mpCost) continue;
+    if ((cooldowns[id] ?? 0) > 0) continue;
+    // 3) cast
     const damage = Math.max(1, intStat * spell.intMultiplier);
     const log: BattleLogEntry[] = [
       ...state.log,
@@ -119,21 +145,24 @@ export function applyStartOfBattleSpells(
         turn: "player",
       },
     ];
+    cooldowns[id] = spell.cooldownPlayerTurns;
     return {
       ...state,
       playerMp: state.playerMp - spell.mpCost,
       enemyHp: Math.max(0, state.enemyHp - damage),
       log,
+      spellCooldowns: cooldowns,
     };
   }
-  return state;
+
+  // cd 만 감소
+  return { ...state, spellCooldowns: cooldowns };
 }
 
-// PvP 시작 1주문 — 양측 동시 발동 (PR-7).
-// 양측 cast 의사를 pre-state 기준으로 독립 계산 → 한 번에 적용. 선공/후공 영향 X,
-// 동귀어진 가능 (양측 lethal). 로그는 firstSideKey 순서 (관습).
-// 마법 단발화 의도 = "양측이 burst 1발씩 동시 발사". 라이브 호환: intStat 0/equipped 빈
-// → 결정 0 → no-op.
+// PvP 시작 1주문 — 양측 동시 발동 (PR-7 에서 도입한 단발 burst 패턴 유지).
+// PR-7b 의 턴당 액티브 전환은 PvE 만. PvP 는 PR-7c 후속에서 통일.
+// 양측 cast 의사를 pre-state 기준으로 독립 계산 → 한 번에 적용. 양측 lethal 시
+// 동귀어진. 로그는 firstSideKey 순서 (관습). 라이브 호환: intStat 0/equipped 빈 → no-op.
 export function applyStartOfBattleSpellsPvP(
   state: PvPBattleState,
   firstSideKey: "p1" | "p2",
@@ -162,12 +191,10 @@ export function applyStartOfBattleSpellsPvP(
     return null;
   }
 
-  // pre-state 기준 — 양측 의사 결정이 상대의 cast 결과에 영향받지 않음.
   const p1Cast = pickCast(state.p1);
   const p2Cast = pickCast(state.p2);
 
   const log: BattleLogEntry[] = [...state.log];
-  // 로그는 선공 측 우선 순서 (관습).
   const order: ("p1" | "p2")[] =
     firstSideKey === "p1" ? ["p1", "p2"] : ["p2", "p1"];
   for (const sideTag of order) {
@@ -182,7 +209,6 @@ export function applyStartOfBattleSpellsPvP(
     });
   }
 
-  // HP/MP 동시 적용. 양측 lethal 이면 둘 다 0 으로 → 동귀어진.
   const newP1 = {
     ...state.p1,
     mp: p1Cast ? state.p1.mp - p1Cast.mpCost : state.p1.mp,

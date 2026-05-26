@@ -121,13 +121,16 @@ export function aggregateV2Equipment(
   return acc;
 }
 
-// PR-5 다이얼 — sim 캘리브 후 튜닝 가능하게 한 곳에 모음.
+// PR-5/6 다이얼 — sim 캘리브 후 튜닝 가능하게 한 곳에 모음.
 const MP_PER_INT = 10;
 const HP_PER_VIT = 5; // 라이브의 3 → v2 5 (vit 강화)
 const DEF_PER_VIT_NUM = 1; // v2 = vit × (NUM/DEN). 라이브 = vit (1.0). v2 = 0.5
 const DEF_PER_VIT_DEN = 2;
 const CRIT_PER_LUK_NUM = 1; // luk × (NUM/DEN). v2 = 0.5%
 const CRIT_PER_LUK_DEN = 2;
+// PR-6 명중률 — dex × 0.25 (codex 컨설팅 다이얼). DEX 50 → +12.5%p, DEX 100 → +25%p.
+// 적 evasionPct 에서 %p 차감. dex 의 회피 0.5 와 다른 axis.
+const ACCURACY_PCT_PER_DEX = 0.25;
 
 export async function derivePlayerCombatV2(
   userId: string,
@@ -195,6 +198,8 @@ export async function derivePlayerCombatV2(
     totalStats.dex * 0.5 + equipAcc.eva,
     EVASION_PCT_CAP,
   );
+  // PR-6 명중률 — dex × 0.25, 적 evasion 에서 %p 차감. 음수 안 박힘 (max 0).
+  const accuracyPct = Math.max(0, totalStats.dex * ACCURACY_PCT_PER_DEX);
   // spd 가 중갑 페널티로 음수가 될 수 있음. 엔진은 chance<=0 에서 base 공격으로
   // 클램프하지만 API/UI 에 음수 노출되지 않게 0 클램프.
   const spd = Math.max(0, totalStats.spd);
@@ -226,6 +231,7 @@ export async function derivePlayerCombatV2(
     def,
     spd,
     evasionPct,
+    accuracyPct,
     attackCount: 1,
     extraAttackChancePct,
     critChancePct,

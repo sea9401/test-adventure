@@ -260,6 +260,13 @@
       "when": 1779787857000,
       "tag": "0036_drop_alliance_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1779772109133,
+      "tag": "0037_skinny_the_fallen",
+      "breakpoints": true
     }
   ]
 }

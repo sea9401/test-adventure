@@ -74,9 +74,9 @@ export async function POST(req: Request) {
       };
     }
     const next = {
+      ...resources,
       stone: resources.stone - cost,
       soldiers: resources.soldiers + count,
-      scrolls: resources.scrolls,
     };
     await upsertGuildResources(tx, guildId, next);
     return {

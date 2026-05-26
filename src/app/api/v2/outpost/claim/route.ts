@@ -18,6 +18,9 @@ import {
   lockGuildResources,
   lockTwoGuildResources,
   upsertGuildResources,
+  isScrollActive,
+  SCROLL_ATK_BONUS_PCT,
+  type V2GuildResources,
 } from "@/lib/server/v2GuildResources";
 import {
   fetchLineupCandidates,
@@ -250,8 +253,18 @@ export async function POST(req: Request) {
     //   - PvP: 양측 mutate (병사 사상자 + 약탈) → 양측 길드 FOR UPDATE, guildId 사전 정렬.
     //   - NPC: 공격자 길드만 lock.
     //   - already_yours 분기에서 같은 길드 차단됨 → lockTwoGuildResources 안전.
-    let attackerResources = { stone: 0, soldiers: 0, scrolls: 0 };
-    let defenderResources = { stone: 0, soldiers: 0, scrolls: 0 };
+    let attackerResources: V2GuildResources = {
+      stone: 0,
+      soldiers: 0,
+      scrolls: 0,
+      activeScrollExpiresAt: null,
+    };
+    let defenderResources: V2GuildResources = {
+      stone: 0,
+      soldiers: 0,
+      scrolls: 0,
+      activeScrollExpiresAt: null,
+    };
     if (pvpDefenderId && defenderGuildId !== null) {
       const both = await lockTwoGuildResources(
         tx,
@@ -356,6 +369,20 @@ export async function POST(req: Request) {
         defenderUserIdForLog = pvpDefenderId;
 
         // 1단계 — 사전 단계에서 결정된 useTournament 분기.
+        // PR-6 활성 주문서 buff — 양측 독립. atk × (1 + SCROLL_ATK_BONUS_PCT/100).
+        // 단발 소비(useScroll, PR #57) 와 별 메커닉으로 같이 적용 가능.
+        const nowForBuff = Date.now();
+        const buffMult = 1 + SCROLL_ATK_BONUS_PCT / 100;
+        const attackerScrollActive = isScrollActive(
+          attackerResources.activeScrollExpiresAt,
+          nowForBuff,
+        );
+        const defenderScrollActive = isScrollActive(
+          defenderResources.activeScrollExpiresAt,
+          nowForBuff,
+        );
+        const attackerAtkMult = attackerScrollActive ? buffMult : 1;
+        const defenderAtkMult = defenderScrollActive ? buffMult : 1;
         if (useTournament) {
           // === 다인 길드 vs 다인 길드 — 3:3 토너먼트 (왕좌 모드) ===
           // 영웅 raw stat sim (병사 보정 X — 본 전쟁이 병사 layer).
@@ -365,6 +392,7 @@ export async function POST(req: Request) {
             tx,
             attackerLineupIds,
             defenderLineupIds,
+            { attackerAtkMult, defenderAtkMult },
           );
           duelWonByAttacker = t.result.attackerWon;
           turns = t.result.matches.reduce((s, m) => s + m.turns, 0);
@@ -410,8 +438,9 @@ export async function POST(req: Request) {
         troopBattle = simulateTroopBattle({
           attackerSoldiers: attackerResources.soldiers,
           defenderSoldiers: defenderResources.soldiers,
-          attackerAtk: player.player.atk,
-          defenderAtk: defender.player.atk,
+          // PR-6 활성 주문서 buff 를 영웅 atk 에 곱 (power 계산 자동 반영).
+          attackerAtk: player.player.atk * attackerAtkMult,
+          defenderAtk: defender.player.atk * defenderAtkMult,
           attackerWonDuel: duelWonByAttacker,
           // ±10% 노이즈. 단판 sim 의 결정론성 완화.
           noise: 0.1,
@@ -445,14 +474,15 @@ export async function POST(req: Request) {
           attackerResources.scrolls - (useScroll ? 1 : 0),
         );
         await upsertGuildResources(tx, attackerGuildId, {
+          ...attackerResources,
           stone: aStoneNext,
           soldiers: aSoldiersNext,
           scrolls: aScrollsNext,
         });
         await upsertGuildResources(tx, defenderGuildId!, {
+          ...defenderResources,
           stone: dStoneNext,
           soldiers: dSoldiersNext,
-          scrolls: defenderResources.scrolls,
         });
       }
     }

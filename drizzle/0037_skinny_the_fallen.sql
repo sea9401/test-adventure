@@ -1,0 +1,1 @@
+ALTER TABLE "v2_guild_resources" ADD COLUMN "active_scroll_expires_at" timestamp;

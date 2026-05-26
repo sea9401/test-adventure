@@ -312,7 +312,11 @@ export function V2GameFlow() {
 
       {/* === 길드 탭 === */}
       {view.kind === "guild" && (
-        <V2GuildHome viewerGuildId={viewerGuildId} occupations={occupations} />
+        <V2GuildHome
+          viewerGuildId={viewerGuildId}
+          viewerUserId={viewerUserId}
+          occupations={occupations}
+        />
       )}
 
       {/* === 지도 탭 === */}

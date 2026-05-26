@@ -125,6 +125,39 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
     [refresh],
   );
 
+  const resetMe = useCallback(async () => {
+    if (
+      !window.confirm(
+        "정말로 본인 캐릭터 데이터를 전부 초기화할까요?\n" +
+          "(레벨·EXP·골드·장비·재료·길드 자원 모두 삭제, 되돌릴 수 없음)",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/dev/reset-me", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: "RESET_MY_DATA" }),
+      });
+      const j = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; deletedKeys?: number }
+        | null;
+      if (!j?.ok) {
+        setMsg(`✗ reset: ${j?.error ?? `http ${res.status}`}`);
+        return;
+      }
+      setMsg(`✓ 초기화 완료 (${j.deletedKeys ?? 0}개 키 삭제). 새로고침 권장.`);
+      await refresh();
+    } catch (err) {
+      setMsg(`✗ network: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [refresh]);
+
   // 보유 목록을 슬롯·컨셉·티어 순으로 정렬 — 35종이 무작위로 흩어지지 않게.
   const ownedSet = new Set(owned);
 
@@ -312,6 +345,17 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
               </div>
             </div>
           ))}
+        </div>
+        {/* 데이터 wipe — 사냥 직접 검증용 staging dev 도구. */}
+        <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          <button
+            type="button"
+            onClick={resetMe}
+            disabled={busy}
+            className="rounded border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+          >
+            내 데이터 초기화 (캐릭·장비·재료·길드 자원 wipe)
+          </button>
         </div>
       </Card>
 

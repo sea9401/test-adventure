@@ -12,6 +12,8 @@ import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
+import { V2HealingView } from "@/adventure/v2/V2HealingView";
+import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
@@ -64,6 +66,10 @@ type View =
   | { kind: "battle-floor"; floorId: DungeonFloorId }
   | { kind: "town" }
   | { kind: "shrine" }
+  | { kind: "healing" }
+  | { kind: "shop" }
+  | { kind: "training" }
+  | { kind: "smithy" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -82,6 +88,10 @@ function tabOfView(view: View): TabId {
       return "battle";
     case "town":
     case "shrine":
+    case "healing":
+    case "shop":
+    case "training":
+    case "smithy":
       return "town";
     case "character":
     case "character-info":
@@ -201,7 +211,23 @@ export function V2GameFlow() {
   };
 
   const handleTownAction = (action: TownAction) => {
-    if (action.kind === "open-shrine") setView({ kind: "shrine" });
+    switch (action.kind) {
+      case "open-shrine":
+        setView({ kind: "shrine" });
+        break;
+      case "open-healing":
+        setView({ kind: "healing" });
+        break;
+      case "open-shop":
+        setView({ kind: "shop" });
+        break;
+      case "open-training":
+        setView({ kind: "training" });
+        break;
+      case "open-smithy":
+        setView({ kind: "smithy" });
+        break;
+    }
   };
 
   // OutpostView 의 enter-dungeon 은 폐기 (사용자 의도 — 사냥터를 전투 탭으로 이동).
@@ -252,7 +278,9 @@ export function V2GameFlow() {
         )}
 
       {/* === 모험 탭 === */}
-      {view.kind === "adventure" && <V2AdventureHome />}
+      {view.kind === "adventure" && (
+        <V2AdventureHome currentOutpost={currentOutpost} />
+      )}
 
       {/* === 전투 탭 === */}
       {view.kind === "battle" && (
@@ -287,6 +315,27 @@ export function V2GameFlow() {
       {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
       {view.kind === "shrine" && (
         <V2GrowthShrineView onBack={() => setView({ kind: "town" })} />
+      )}
+      {view.kind === "healing" && (
+        <V2HealingView onBack={() => setView({ kind: "town" })} />
+      )}
+      {view.kind === "shop" && (
+        <V2PlaceholderView
+          title="상점"
+          onBack={() => setView({ kind: "town" })}
+        />
+      )}
+      {view.kind === "training" && (
+        <V2PlaceholderView
+          title="훈련장"
+          onBack={() => setView({ kind: "town" })}
+        />
+      )}
+      {view.kind === "smithy" && (
+        <V2PlaceholderView
+          title="대장간"
+          onBack={() => setView({ kind: "town" })}
+        />
       )}
 
       {/* === 캐릭터 탭 === */}

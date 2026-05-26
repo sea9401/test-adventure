@@ -1,12 +1,17 @@
 "use client";
 
-import { Plus } from "@phosphor-icons/react";
+import { Barbell, FirstAid, Hammer, Sparkle, Storefront } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 일단 성장의 신전만. 향후 상점·대장간·길드 회관 등 시설 추가.
+// 치료소만 실제 동작, 상점·훈련장·대장간은 준비 중 placeholder.
 
-export type TownAction = { kind: "open-shrine" };
+export type TownAction =
+  | { kind: "open-healing" }
+  | { kind: "open-shop" }
+  | { kind: "open-training" }
+  | { kind: "open-smithy" }
+  | { kind: "open-shrine" };
 
 export function V2TownHome({
   onAction,
@@ -18,15 +23,41 @@ export function V2TownHome({
       <header>
         <h1 className="text-lg font-bold">마을</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          모험가가 들르는 시설들. 상점·대장간 등은 후속.
+          모험가가 들르는 시설들.
         </p>
       </header>
       <div className="space-y-2">
         <EntryCard
-          icon={<Plus size={28} weight="duotone" className="text-violet-600" />}
+          icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
+          title="치료소"
+          description="지친 몸을 회복할 수 있는 곳."
+          onClick={() => onAction({ kind: "open-healing" })}
+        />
+        <EntryCard
+          icon={
+            <Storefront size={28} weight="duotone" className="text-emerald-600" />
+          }
+          title="상점"
+          description="물건을 사고 팔 수 있는 곳. 준비 중."
+          onClick={() => onAction({ kind: "open-shop" })}
+        />
+        <EntryCard
+          icon={<Barbell size={28} weight="duotone" className="text-slate-400" />}
+          title="훈련장"
+          description="기초를 다지는 곳. 준비 중."
+          onClick={() => onAction({ kind: "open-training" })}
+        />
+        <EntryCard
+          icon={<Sparkle size={28} weight="duotone" className="text-violet-400" />}
           title="성장의 신전"
-          description="레벨업 단련 포인트 분배."
+          description="단련을 능력치로 새겨넣는 곳."
           onClick={() => onAction({ kind: "open-shrine" })}
+        />
+        <EntryCard
+          icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
+          title="대장간"
+          description="장비를 두드려 벼리는 곳. 준비 중."
+          onClick={() => onAction({ kind: "open-smithy" })}
         />
       </div>
     </main>

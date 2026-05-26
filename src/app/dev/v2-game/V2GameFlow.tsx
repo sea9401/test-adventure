@@ -231,7 +231,7 @@ export function V2GameFlow() {
           size="sm"
           className="mx-auto w-full max-w-2xl px-4 sm:px-6"
         />
-        {currentTab !== "map" && (
+        {(currentTab === "adventure" || currentTab === "battle") && (
           <div className="mx-auto w-full max-w-2xl px-4 py-2 sm:px-6">
             <StaminaBar state={stamina} />
           </div>

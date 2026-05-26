@@ -10,6 +10,26 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
+import {
+  V2_EQUIPMENT,
+  V2_EQUIP_BONUS_KEYS,
+  V2_EQUIP_BONUS_LABELS,
+  V2_EQUIP_PERCENT_KEYS,
+  type V2EquipmentId,
+  type V2EquipStats,
+} from "@/adventure/data/v2/v2Equipment";
+
+function formatEquipStats(stats: V2EquipStats): string {
+  const parts: string[] = [];
+  for (const k of V2_EQUIP_BONUS_KEYS) {
+    const v = stats[k];
+    if (!v) continue;
+    const sign = v >= 0 ? "+" : "";
+    const unit = V2_EQUIP_PERCENT_KEYS.has(k) ? "%" : "";
+    parts.push(`${V2_EQUIP_BONUS_LABELS[k]} ${sign}${v}${unit}`);
+  }
+  return parts.join(" · ");
+}
 
 export type HuntResult = {
   floor: number;
@@ -25,6 +45,7 @@ export type HuntResult = {
   hpAfter: number;
   maxHp: number;
   drops?: Partial<Record<V2MaterialId, number>>;
+  droppedEquipment?: V2EquipmentId | null;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
 };
 
@@ -34,6 +55,9 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
     : [];
+  const droppedEquip = result.droppedEquipment
+    ? V2_EQUIPMENT[result.droppedEquipment]
+    : null;
 
   return (
     <Card padding="md">
@@ -84,7 +108,7 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
         <div>
           <div className="flex items-center justify-between">
             <span className="text-zinc-500 dark:text-zinc-400">드랍</span>
-            {drops.length === 0 && (
+            {drops.length === 0 && !droppedEquip && (
               <span className="text-xs text-zinc-400 dark:text-zinc-500">
                 —
               </span>
@@ -109,6 +133,21 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
                 );
               })}
             </ul>
+          )}
+          {droppedEquip && (
+            <div className="mt-1 rounded-md border border-emerald-300 bg-emerald-50 p-2 dark:border-emerald-700 dark:bg-emerald-950/40">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                  ✦ {droppedEquip.name}
+                </span>
+                <span className="shrink-0 text-xs text-emerald-700 dark:text-emerald-300">
+                  T{droppedEquip.tier}
+                </span>
+              </div>
+              <div className="mt-0.5 truncate text-xs text-emerald-700 dark:text-emerald-300">
+                {formatEquipStats(droppedEquip.stats)}
+              </div>
+            </div>
           )}
         </div>
       </div>

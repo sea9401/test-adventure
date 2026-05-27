@@ -48,7 +48,17 @@ export type HuntResult = {
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
 };
 
-export function HuntResultCard({ result }: { result: HuntResult }) {
+export function HuntResultCard({
+  result,
+  showFirstHuntBanner,
+  showFirstDropBanner,
+}: {
+  result: HuntResult;
+  /** 신규 캐릭이 이번 결과에서 첫 사냥 승리한 경우. V2DungeonFloorView 가 판정. */
+  showFirstHuntBanner?: boolean;
+  /** 신규 캐릭이 이번 결과에서 첫 장비/재료 드랍 받은 경우. */
+  showFirstDropBanner?: boolean;
+}) {
   const won = result.won;
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
@@ -59,6 +69,16 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
 
   return (
     <Card padding="sm">
+      {showFirstHuntBanner && (
+        <div className="mb-2 rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200">
+          🎉 첫 사냥 성공! 자동 전투로 계속 사냥하며 EXP·골드·재료를 모아보세요.
+        </div>
+      )}
+      {showFirstDropBanner && (
+        <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          ⭐ 첫 보상 획득! 인벤토리/장비 탭에서 확인할 수 있어요.
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
           전투 결과

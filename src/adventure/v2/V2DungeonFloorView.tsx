@@ -7,6 +7,14 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
+import {
+  TUTORIAL_ENABLED_FLAG,
+  TUTORIAL_V2_FIRST_DROP,
+  TUTORIAL_V2_FIRST_HUNT,
+  TUTORIAL_V2_FIRST_LEVELUP,
+} from "@/adventure/tutorial/flags";
+import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -47,6 +55,37 @@ export function V2DungeonFloorView({
   });
   const [autoMode, setAutoMode] = useState(false);
   const [autoMsg, setAutoMsg] = useState<string | null>(null);
+
+  // 1회성 진입 후크 — 첫 사냥/드랍 배너 + 첫 레벨업 모달.
+  // storyFlags 가 신규 캐릭만 (TUTORIAL_ENABLED_FLAG 시드 됨) 트리거.
+  // lastResult 변경 시점에만 판정 — 같은 결과 카드 안에서 배너 깜빡임 방지.
+  const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
+  const [firstHuntBanner, setFirstHuntBanner] = useState(false);
+  const [firstDropBanner, setFirstDropBanner] = useState(false);
+  useEffect(() => {
+    if (!lastResult) {
+      setFirstHuntBanner(false);
+      setFirstDropBanner(false);
+      return;
+    }
+    const enabled = storyFlags.flags.includes(TUTORIAL_ENABLED_FLAG);
+    if (!enabled) return;
+    const seenHunt = storyFlags.flags.includes(TUTORIAL_V2_FIRST_HUNT);
+    const seenDrop = storyFlags.flags.includes(TUTORIAL_V2_FIRST_DROP);
+    const isFirstHunt = !seenHunt && lastResult.won;
+    const hasDropForThis =
+      (lastResult.drops &&
+        Object.values(lastResult.drops).some((n) => (n ?? 0) > 0)) ||
+      !!lastResult.droppedEquipment;
+    const isFirstDrop = !seenDrop && hasDropForThis;
+    setFirstHuntBanner(isFirstHunt);
+    setFirstDropBanner(isFirstDrop);
+    if (isFirstHunt) setStoryFlag(TUTORIAL_V2_FIRST_HUNT);
+    if (isFirstDrop) setStoryFlag(TUTORIAL_V2_FIRST_DROP);
+    // storyFlags 는 lastResult 변경 시에만 재판정 — set 직후 flags 새 ref 로 인한
+    // 재실행은 의도적으로 막는다 (배너 깜빡임 방지).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastResult]);
   const [characterInfo, setCharacterInfo] = useState<{
     character?: V2CharacterCardData;
     guild?: { name: string };
@@ -71,12 +110,23 @@ export function V2DungeonFloorView({
     if (lastResult) void refetchCharacter();
   }, [lastResult, refetchCharacter]);
 
+  // 첫 레벨업 모달 — controlled 마운트. 같은 useStoryFlags 인스턴스로 shown/dismiss
+  // 처리해 TutorialOverlay (uncontrolled) 의 별 인스턴스 PATCH race 차단.
+  const showLevelupModal =
+    !!lastResult &&
+    lastResult.levelsGained > 0 &&
+    storyFlags.flags.includes(TUTORIAL_ENABLED_FLAG) &&
+    !storyFlags.flags.includes(TUTORIAL_V2_FIRST_LEVELUP);
+
   // 자동 트리거 — busy 아님 + stamina 충분 시 setTimeout 후 hunt.
   // 결과 즉시 표시 (replay step 폐기) 이므로 hunt 완료 = busy false 가 다음 trigger.
+  // 첫 레벨업 모달 떠있는 동안 일시정지 — 유저가 확인 클릭 전에 다음 사냥이 모달
+  // 사라지게 하는 사고 방지.
   useEffect(() => {
     if (!autoMode) return;
     if (busy) return;
     if (!floor) return;
+    if (showLevelupModal) return;
     if (stamina.current < HUNT_COST) {
       setAutoMode(false);
       setAutoMsg("스태미너 부족 — 자동 중지. 회복 후 다시 켜세요.");
@@ -85,7 +135,7 @@ export function V2DungeonFloorView({
     setAutoMsg(null);
     const id = setTimeout(() => void hunt(floor.id), AUTO_DELAY_MS);
     return () => clearTimeout(id);
-  }, [autoMode, busy, stamina.current, hunt, floor]);
+  }, [autoMode, busy, stamina.current, hunt, floor, showLevelupModal]);
 
   if (!floor) {
     return (
@@ -164,7 +214,35 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
-      {lastResult && <HuntResultCard result={lastResult} />}
+      {lastResult && (
+        <HuntResultCard
+          result={lastResult}
+          showFirstHuntBanner={firstHuntBanner}
+          showFirstDropBanner={firstDropBanner}
+        />
+      )}
+
+      {/* 첫 레벨업 모달 — controlled. 같은 useStoryFlags 인스턴스로 dismiss 처리해
+          PATCH race 차단. 자동전투 effect 도 showLevelupModal 동안 일시정지. */}
+      {showLevelupModal && (
+        <TutorialOverlayInner
+          title="레벨 업! 🎉"
+          body={
+            <>
+              <p>새로운 레벨에 도달했습니다. 캐릭터가 더 강해졌어요.</p>
+              <p>
+                레벨업당 스탯 포인트 5점을 받습니다. <strong>훈련 탭</strong>
+                에서 STR/DEX/VIT/SPD/LUK/INT 에 분배할 수 있어요.
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                계속 사냥해 다음 층 입장 레벨까지 도달해보세요.
+              </p>
+            </>
+          }
+          dismissLabel="계속 사냥"
+          onDismiss={() => setStoryFlag(TUTORIAL_V2_FIRST_LEVELUP)}
+        />
+      )}
 
       {lastResult?.replay && (
         <ReplayBattleScene

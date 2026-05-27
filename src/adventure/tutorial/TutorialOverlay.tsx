@@ -20,7 +20,10 @@ export function TutorialOverlay(props: Props) {
   return <TutorialOverlayInner {...props} onDismiss={dismiss} />;
 }
 
-function TutorialOverlayInner({
+// controlled 모드 — 호출자가 단일 useStoryFlags 인스턴스로 shown/dismiss 직접
+// 관리할 때. TutorialOverlay (uncontrolled) 와 다르게 useStoryFlags 새 인스턴스를
+// 마운트 안 함 → 두 인스턴스 PATCH race 차단. 호출자가 shown=false 일 땐 mount X.
+export function TutorialOverlayInner({
   title,
   body,
   dismissLabel = "이해했어요",

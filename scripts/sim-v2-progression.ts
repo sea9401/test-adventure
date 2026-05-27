@@ -1,16 +1,27 @@
 // v2 진행 시뮬레이션 — 7 archetype × 6 milestone 매트릭스로 derived stats + 던전
-// 첫 번째 잡몹 1대1 처치턴/승률 측정.
+// 전체 잡몹 풀 평균 처치턴/승률/패배 진단 측정.
 //
-// PR-S1 (×5 스케일) 이후 v2 game 첫 sim. v2Stats.ts (5pt/lv) + V2_BASE_STATS(15) +
+// PR-S1 (×5 스케일) 이후 v2 game sim. v2Stats.ts (5pt/lv) + V2_BASE_STATS(15) +
 // V2_EQUIPMENT(35종, tier-by-level) + derivePlayerCombatV2Pure 기반.
+//
+// PR-S3b 개선 (codex 권고):
+//   - 첫 잡몹 1종 → 층 전체 풀 평균 (sample bias 제거)
+//   - 손실 진단: 패배 시 평균 turns / 적 HP % 남음 (얼마나 가까웠나)
+//   - wr% Wilson 95% CI half-width 컬럼 (작은 차이가 노이즈인지 판단)
+//
+// 향후 sim 확장 후보 (별 스크립트):
+//   - 아레나 봇 vs 플레이어 매치 sim
+//   - 보스 단독전 sim (보스 풀 별도)
+//   - 다층 연속 sim (캐릭이 던전 1층부터 진행하며 누적 보상)
 //
 // 실행: node --import tsx scripts/sim-v2-progression.ts
 //
 // 해석 가이드:
-//   - 각 줄 = (Arch × Lv) 1조합. 결과는 derive 후 PlayerCombat + 100회 평균 처치턴/승률.
+//   - wr%   = 풀 평균 승률 (층 모든 잡몹 가중 동일)
+//   - winT  = 승리 시 평균 처치 턴 (낮을수록 강함)
+//   - lossT = 패배 시 평균 사망 턴 (높을수록 끈질김)
+//   - hpL%  = 패배 시 적 HP 평균 잔량 % (0% 완전 처치 직전, 100% 못 깎음)
 //   - 빌드 간 격차 = 메타 빌드 지배 신호.
-//   - turns가 1로 수렴 = 잡몹이 너무 약함 → 다음 층 진입 신호.
-//   - wr < 100% = 그 빌드가 그 층 잡몹에서 무너짐.
 
 import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
 import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
@@ -129,66 +140,116 @@ function makePlayer(arch: Arch, level: number) {
   });
 }
 
-function sampleMonster(floor: 1 | 2 | 3 | 4 | 5): { name: string; monster: Monster } | null {
+// 층 전체 풀 — 잡몹 이름→scaled Monster. 미정의 이름은 스킵.
+function floorMonsters(floor: 1 | 2 | 3 | 4 | 5): Monster[] {
   const f = MAIN_DUNGEON.floors.find((x) => x.id === floor);
-  if (!f || f.enemies.length === 0) return null;
-  // 첫 번째 잡몹 — 결정적 표본. 풀 평균 측정은 별 sim.
-  const name = f.enemies[0];
-  const base = MONSTERS[name];
-  if (!base) return null;
-  return { name, monster: scaleMonsterForFloor(base, floor) };
+  if (!f) return [];
+  const out: Monster[] = [];
+  for (const name of f.enemies) {
+    const base = MONSTERS[name];
+    if (base) out.push(scaleMonsterForFloor(base, floor));
+  }
+  return out;
 }
 
-const TRIALS = 100;
-function turnsToKill(player: PlayerCombat, enemy: Monster) {
+// 잡몹 1종당 trial 수. 풀 크기 ~10~20 → 총 ~300~600 sim/cell. 옛 100 단일 잡몹 대비 ~3~6x.
+const TRIALS_PER_MONSTER = 30;
+
+type CombatStats = {
+  wrPct: number; // 풀 평균 승률 %
+  wrCiPct: number; // wr Wilson 95% CI half-width % (작을수록 안정)
+  winTurns: number; // 승리 시 평균 turn (0 = 승 X)
+  lossTurns: number; // 패배 시 평균 turn (0 = 패 X)
+  lossEnemyHpPct: number; // 패배 시 적 HP 평균 잔량 % (0 = 완전 처치 직전, 100 = 못 깎음)
+};
+
+// Wilson score interval half-width (95% CI). p = wins/n, n = total trials.
+// 큰 표본/극단 비율에서 normal-approx 보다 안전.
+function wilsonCiHalfWidth(wins: number, total: number): number {
+  if (total === 0) return 0;
+  const z = 1.96;
+  const p = wins / total;
+  const denom = 1 + (z * z) / total;
+  const margin = z * Math.sqrt((p * (1 - p)) / total + (z * z) / (4 * total * total));
+  // CI = [(center - margin)/denom, (center + margin)/denom]. half-width 는 margin/denom.
+  return (margin / denom) * 100;
+}
+
+function combatStats(player: PlayerCombat, enemies: Monster[]): CombatStats {
+  if (enemies.length === 0) {
+    return { wrPct: 0, wrCiPct: 0, winTurns: 0, lossTurns: 0, lossEnemyHpPct: 0 };
+  }
   let wins = 0;
-  let totalTurns = 0;
-  for (let i = 0; i < TRIALS; i++) {
-    const r = resolveBattle({ ...player, hp: player.maxHp }, enemy, "Sim", {
-      pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
-      potions: {},
-    });
-    if (r.outcome === "win") {
-      wins++;
-      totalTurns += r.turns;
+  let losses = 0;
+  let winTurnsSum = 0;
+  let lossTurnsSum = 0;
+  let lossHpPctSum = 0;
+  for (const enemy of enemies) {
+    for (let i = 0; i < TRIALS_PER_MONSTER; i++) {
+      const r = resolveBattle({ ...player, hp: player.maxHp }, enemy, "Sim", {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+      });
+      if (r.outcome === "win") {
+        wins++;
+        winTurnsSum += r.turns;
+      } else {
+        losses++;
+        lossTurnsSum += r.turns;
+        // 적 HP 잔량 % — finalState.enemyHp / enemy.hp.
+        const hpPct = (r.finalState.enemyHp / enemy.hp) * 100;
+        lossHpPctSum += hpPct;
+      }
     }
   }
+  const total = wins + losses;
   return {
-    wr: Math.round((wins / TRIALS) * 100),
-    avgTurns: wins > 0 ? totalTurns / wins : 0,
+    wrPct: Math.round((wins / total) * 100),
+    wrCiPct: wilsonCiHalfWidth(wins, total),
+    winTurns: wins > 0 ? winTurnsSum / wins : 0,
+    lossTurns: losses > 0 ? lossTurnsSum / losses : 0,
+    lossEnemyHpPct: losses > 0 ? lossHpPctSum / losses : 0,
   };
 }
 
 // ── 실행 ────────────────────────────────────────────────────
-console.log("v2 진행 시뮬레이션 — 7 archetype × 6 milestone (×5 스케일)");
+console.log("v2 진행 시뮬레이션 — 7 archetype × 6 milestone (×5 스케일, 풀 평균)");
 console.log(
-  `가정: V2_STAT_POINTS_PER_LEVEL=${V2_STAT_POINTS_PER_LEVEL}, 60/30/10 분배(BAL spread), tier-by-level 장비, 첫 잡몹 100회 sim.`,
+  `가정: V2_STAT_POINTS_PER_LEVEL=${V2_STAT_POINTS_PER_LEVEL}, 60/30/10 분배(BAL spread), tier-by-level 장비, 층 전체 잡몹 × ${TRIALS_PER_MONSTER} trial 풀 평균.`,
 );
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);
 const pct = (n: number) => n.toFixed(1).padStart(5);
 
+// "<1" 같은 가독성 셀 만들기 — 0 이면 dash.
+function turnCell(t: number, hasAny: boolean): string {
+  if (!hasAny) return "  -";
+  if (t < 1) return " <1";
+  return t.toFixed(1);
+}
+
 for (const ms of MILESTONES) {
   const floorMeta = MAIN_DUNGEON.floors.find((f) => f.id === ms.floor);
-  const sample = sampleMonster(ms.floor);
+  const enemies = floorMonsters(ms.floor);
   console.log(
-    `\n━━━ Lv${ms.lvl} · ${floorMeta?.name ?? `Floor ${ms.floor}`} (sample: ${sample?.name ?? "n/a"}) ━━━`,
+    `\n━━━ Lv${ms.lvl} · ${floorMeta?.name ?? `Floor ${ms.floor}`} (pool: ${enemies.length}종) ━━━`,
   );
   console.log(
-    "Arch  STR DEX VIT SPD LUK INT │ atk def maxHp maxMp crit% eva% acc% extra% │  wr  turns",
+    "Arch  STR DEX VIT SPD LUK INT │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
   );
   for (const arch of ARCHES) {
     const d = makePlayer(arch, ms.lvl);
     const s = d.totalStats;
     const p = d.player;
-    let combatCol = "│   -    -";
-    if (sample) {
-      const r = turnsToKill(p, sample.monster);
-      // wr 0 이면 turns 도 0 으로 나오는데 의미 없음 — "FAIL" 표기.
-      // turns 0 (win < 1 cycle, 보통 INT 마법 1발 처치) → "<1".
-      const turnsCell =
-        r.wr === 0 ? " FAIL" : r.avgTurns < 1 ? "  <1" : r.avgTurns.toFixed(1);
-      combatCol = `│ ${pad(r.wr + "%", 4)} ${pad(turnsCell, 5)}`;
+    let combatCol = "│   -    -    -    -    -";
+    if (enemies.length > 0) {
+      const r = combatStats(p, enemies);
+      const wrStr = `${r.wrPct}%`;
+      const ciStr = `±${r.wrCiPct.toFixed(1)}`;
+      const winT = turnCell(r.winTurns, r.wrPct > 0);
+      const lossT = turnCell(r.lossTurns, r.wrPct < 100);
+      const hpL = r.wrPct < 100 ? r.lossEnemyHpPct.toFixed(0) + "%" : " -";
+      combatCol = `│ ${pad(wrStr, 4)} ${pad(ciStr, 5)} ${pad(winT, 5)} ${pad(lossT, 5)} ${pad(hpL, 4)}`;
     }
     console.log(
       `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.spd, 3)} ${pad(s.luk, 3)} ${pad(s.int, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol}`,
@@ -197,5 +258,5 @@ for (const ms of MILESTONES) {
 }
 
 console.log(
-  "\n해석:\n  - turns: 1대1 처치 평균 turn 수. 작을수록 강함.\n  - wr<100% = 그 빌드가 그 층 첫 잡몹에서 무너짐.\n  - crit/eva/acc/extra 가 float — 0.1%p 해상도 보존된 ×5 결과.\n  - 빌드 간 격차 = 메타 빌드 지배 신호.",
+  "\n해석:\n  - wr%   : 풀 평균 승률.\n  - ±95   : Wilson 95% CI half-width %. 작을수록 안정. 두 빌드 wr 차이가 (±95 합) 보다 작으면 노이즈.\n  - winT  : 승리 시 평균 처치 턴 (낮을수록 강함).\n  - lossT : 패배 시 평균 사망 턴 (높을수록 끈질김 — '거의 깰 뻔' 신호).\n  - hpL%  : 패배 시 적 HP 평균 잔량 % (낮을수록 '간발 패배', 높으면 못 깎고 패배).\n  - hpL% 30% 미만 + wr 낮음 = 데미지 살짝만 올리면 회복 가능한 약점.\n  - hpL% 70%+ + wr 낮음 = 빌드 자체가 그 층 못 깸 (구조적 부족).",
 );

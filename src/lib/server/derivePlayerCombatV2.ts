@@ -7,9 +7,9 @@
 //
 // 5배 스케일 6스탯 axis (옛 1pt 동등 = 새 5pt):
 //   str → atk 주력 (atk += str×0.2)
-//   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T2 ×0.04)
+//   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
-//   spd → 다중공격 확률, 선공권 (extra += spd×0.4%) + atk 보조 (PR-T2 ×0.04)
+//   spd → 다중공격 확률, 선공권 (extra += spd×0.4%) + atk 보조 (PR-T4 ×0.06)
 //   luk → 치명 (crit += luk×0.15, PR-T3 버프) + atk 보조 (PR-T3 ×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
@@ -138,8 +138,12 @@ const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 // 옛 라이브 dex/5+spd/5 의 ×5 스케일 환산값 = ×0.04 (= 0.2 / 5).
 // PR-T3: LUK 도 같은 패턴으로 복원. CRIT_PER_LUK 0.15 단독으론 Lv75 wr 2%→4% 미흡 —
 // 진짜 원인은 LUK atk 부족이라 crit 터져도 def 못 뚫음. DEX/SPD 와 동일 ×0.04 추가.
-const ATK_PER_DEX = 0.04; // 옛 0.2. 5×DEX × 0.04 = 0.2 atk 기여 (동등)
-const ATK_PER_SPD = 0.04;
+// PR-T4: DEX/SPD 만 ×0.04 → ×0.06 (×1.5 추가 버프). PR-T2 후에도 Lv75 DEX/SPD wr 0%·
+// hpL% 87% (구조적 부족 — eva cap 54%·atk 46 으로 STR atk 100 의 절반). 라이브 동등치
+// 보다 강화하여 ×5 스케일에서 회피 빌드 정체성 + 데미지 모두 성립시킴. LUK 는 유지
+// (PR-T3 에서 0.04 + CRIT 0.15 로 Lv100 wr 34% 회복 완료).
+const ATK_PER_DEX = 0.06; // PR-T4: 0.04 → 0.06. Lv75 DEX atk +9 (446×0.02)
+const ATK_PER_SPD = 0.06;
 const ATK_PER_LUK = 0.04;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
@@ -195,6 +199,7 @@ export function derivePlayerCombatV2Pure(
   // crit/eva/acc/extraAtk 는 float 그대로 (엔진이 확률 비교만, 0.1%p 단위 보존).
   // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
   // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
+  // PR-T4: DEX/SPD 만 ×0.04 → ×0.06 (Lv75 0% wr 구조적 부족 해소).
   const atk = Math.floor(
     totalStats.str * ATK_PER_STR +
       totalStats.dex * ATK_PER_DEX +

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { HuntResult } from "@/adventure/v2/HuntResultCard";
-import { type StaminaState } from "@/adventure/v2/stamina";
+import { MAX_STAMINA, type StaminaState } from "@/adventure/v2/stamina";
 import {
   V2_MATERIALS,
   type V2MaterialId,
@@ -89,10 +89,10 @@ export function useDungeonHunt({
               r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
             pushLog(
-              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/200`,
+              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
           } else {
-            pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/200`);
+            pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/${MAX_STAMINA}`);
           }
         } else {
           const err = json.error ?? "unknown";
@@ -101,7 +101,7 @@ export function useDungeonHunt({
               ? "policy_blocked (점령 길드가 자길드 멤버에게만 개방 중)"
               : err;
           const after = json.stamina
-            ? ` (스태미너 ${json.stamina.current}/200)`
+            ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`
             : "";
           pushLog(`✗ http ${res.status} ${errLabel}${after}`);
         }

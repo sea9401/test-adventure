@@ -10,8 +10,6 @@ import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
-  TUTORIAL_V2_FIRST_DROP,
-  TUTORIAL_V2_FIRST_HUNT,
   TUTORIAL_V2_FIRST_LEVELUP,
 } from "@/adventure/tutorial/flags";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
@@ -56,36 +54,9 @@ export function V2DungeonFloorView({
   const [autoMode, setAutoMode] = useState(false);
   const [autoMsg, setAutoMsg] = useState<string | null>(null);
 
-  // 1회성 진입 후크 — 첫 사냥/드랍 배너 + 첫 레벨업 모달.
-  // storyFlags 가 신규 캐릭만 (TUTORIAL_ENABLED_FLAG 시드 됨) 트리거.
-  // lastResult 변경 시점에만 판정 — 같은 결과 카드 안에서 배너 깜빡임 방지.
+  // 진입 후크 — 첫 레벨업 모달만 1회성 (storyFlags). 드랍 배너는 매 사냥마다
+  // HuntResultCard 가 result 자체에서 자동 표시 (2026-05-28 변경).
   const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
-  const [firstHuntBanner, setFirstHuntBanner] = useState(false);
-  const [firstDropBanner, setFirstDropBanner] = useState(false);
-  useEffect(() => {
-    if (!lastResult) {
-      setFirstHuntBanner(false);
-      setFirstDropBanner(false);
-      return;
-    }
-    const enabled = storyFlags.flags.includes(TUTORIAL_ENABLED_FLAG);
-    if (!enabled) return;
-    const seenHunt = storyFlags.flags.includes(TUTORIAL_V2_FIRST_HUNT);
-    const seenDrop = storyFlags.flags.includes(TUTORIAL_V2_FIRST_DROP);
-    const isFirstHunt = !seenHunt && lastResult.won;
-    const hasDropForThis =
-      (lastResult.drops &&
-        Object.values(lastResult.drops).some((n) => (n ?? 0) > 0)) ||
-      !!lastResult.droppedEquipment;
-    const isFirstDrop = !seenDrop && hasDropForThis;
-    setFirstHuntBanner(isFirstHunt);
-    setFirstDropBanner(isFirstDrop);
-    if (isFirstHunt) setStoryFlag(TUTORIAL_V2_FIRST_HUNT);
-    if (isFirstDrop) setStoryFlag(TUTORIAL_V2_FIRST_DROP);
-    // storyFlags 는 lastResult 변경 시에만 재판정 — set 직후 flags 새 ref 로 인한
-    // 재실행은 의도적으로 막는다 (배너 깜빡임 방지).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastResult]);
   const [characterInfo, setCharacterInfo] = useState<{
     character?: V2CharacterCardData;
     guild?: { name: string };
@@ -214,13 +185,7 @@ export function V2DungeonFloorView({
         )}
       </Card>
 
-      {lastResult && (
-        <HuntResultCard
-          result={lastResult}
-          showFirstHuntBanner={firstHuntBanner}
-          showFirstDropBanner={firstDropBanner}
-        />
-      )}
+      {lastResult && <HuntResultCard result={lastResult} />}
 
       {/* 첫 레벨업 모달 — controlled. 같은 useStoryFlags 인스턴스로 dismiss 처리해
           PATCH race 차단. 자동전투 effect 도 showLevelupModal 동안 일시정지. */}

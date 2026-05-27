@@ -48,17 +48,23 @@ export type HuntResult = {
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
 };
 
-export function HuntResultCard({
-  result,
-  showFirstHuntBanner,
-  showFirstDropBanner,
-}: {
-  result: HuntResult;
-  /** 신규 캐릭이 이번 결과에서 첫 사냥 승리한 경우. V2DungeonFloorView 가 판정. */
-  showFirstHuntBanner?: boolean;
-  /** 신규 캐릭이 이번 결과에서 첫 장비/재료 드랍 받은 경우. */
-  showFirstDropBanner?: boolean;
-}) {
+// 드랍 배너용 — 재료(×N)와 장비 이름들을 자연스러운 한국어 문장으로 합친다.
+// "돌멩이 ×2를 획득했다!" / "돌멩이 ×2, 철광석 ×1, 철검을 획득했다!"
+function formatDropBanner(
+  drops: Array<[string, number]>,
+  equipName: string | null,
+): string | null {
+  const parts: string[] = [];
+  for (const [id, amount] of drops) {
+    const mat = V2_MATERIALS[id as V2MaterialId];
+    parts.push(`${mat?.name ?? id} ×${amount}`);
+  }
+  if (equipName) parts.push(equipName);
+  if (parts.length === 0) return null;
+  return `⭐ ${parts.join(", ")}을(를) 획득했다!`;
+}
+
+export function HuntResultCard({ result }: { result: HuntResult }) {
   const won = result.won;
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
@@ -66,17 +72,18 @@ export function HuntResultCard({
   const droppedEquip = result.droppedEquipment
     ? V2_EQUIPMENT[result.droppedEquipment]
     : null;
+  // 드랍 알림 배너 — 매 사냥마다 (드랍 있을 때만). 1회성 storyFlags 폐기 (사용자
+  // 요청 2026-05-28): 매번 어떤 아이템 받았는지 명시적 알림이 후크에 더 효과적.
+  const dropBannerText = formatDropBanner(
+    drops as Array<[string, number]>,
+    droppedEquip?.name ?? null,
+  );
 
   return (
     <Card padding="sm">
-      {showFirstHuntBanner && (
-        <div className="mb-2 rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950/40 dark:text-sky-200">
-          🎉 첫 사냥 성공! 자동 전투로 계속 사냥하며 EXP·골드·재료를 모아보세요.
-        </div>
-      )}
-      {showFirstDropBanner && (
+      {dropBannerText && (
         <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-          ⭐ 첫 보상 획득! 인벤토리/장비 탭에서 확인할 수 있어요.
+          {dropBannerText}
         </div>
       )}
       <div className="flex items-center justify-between gap-2">

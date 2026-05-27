@@ -24,7 +24,11 @@ import {
   type PlayerAction,
   type PlayerCombat,
 } from "./engine";
-import { resolveV2SkillCast } from "./combatShared";
+import {
+  applyV2BuffsToMap,
+  resolveV2SkillCast,
+  tickV2BuffMap,
+} from "./combatShared";
 import type { V2SkillsState } from "../data/v2/v2Skills";
 import {
   AUTO_HUNT_REVIVE_DELAY_MS,
@@ -223,20 +227,58 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         v2CastedThisPlayerPhase = false;
       }
       if (state.phase === "player") {
-        // v2 스킬 cast (PR-4a framework). 효과 적용은 PR-4b — offlineSim 은 로그
-        // 미수집(setBattleLogCollection(false)) 이라 로그 entry 도 skip.
+        // v2 스킬 cast (PR-4b — MP + cd + 효과 적용). offlineSim 은 로그 미수집 → log entry skip.
         if (!v2CastedThisPlayerPhase) {
           v2CastedThisPlayerPhase = true;
+          const tickedSelfBuffs = tickV2BuffMap(state.v2SelfBuffs);
+          const tickedSelfDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
+          const tickedEnemyDebuffs = tickV2BuffMap(state.enemyV2Debuffs);
           const cast = resolveV2SkillCast({
             skills: state.v2Skills,
             cooldowns: state.v2SkillCooldowns,
-            mp: state.playerMp,
+            attacker: {
+              mp: state.playerMp,
+              atk: playerForBattle.atk,
+              maxHp: state.playerMaxHp,
+              selfBuffs: tickedSelfBuffs,
+              selfDebuffs: tickedSelfDebuffs,
+            },
+            target: {
+              def: state.enemy.def,
+              selfDebuffs: tickedEnemyDebuffs,
+            },
           });
+          const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, cast.selfBuffsToApply);
+          const nextEnemyDebuffs = applyV2BuffsToMap(
+            tickedEnemyDebuffs,
+            cast.enemyDebuffsToApply,
+          );
           state = {
             ...state,
             playerMp: cast.nextMp,
             v2SkillCooldowns: cast.nextCooldowns,
+            v2SelfBuffs: nextSelfBuffs,
+            v2SelfDebuffs: tickedSelfDebuffs,
+            enemyV2Debuffs: nextEnemyDebuffs,
+            playerHp: Math.min(
+              state.playerMaxHp,
+              state.playerHp + cast.selfHeal,
+            ),
+            enemyHp: Math.max(0, state.enemyHp - cast.enemyDamage),
           };
+          // v2 damage lethal — advanceTurn 호출 전에 outcome 박고 종료.
+          if (state.enemyHp <= 0) {
+            state = {
+              ...state,
+              outcome: "win",
+              phase: "ended",
+              turn: {
+                ...state.turn,
+                completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+              },
+            };
+            continue;
+          }
         }
         const picked = input.pickAction(state);
         if (picked.kind === "use_potion") {

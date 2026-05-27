@@ -22,6 +22,10 @@ import {
   type ArenaOpponentRef,
 } from "@/lib/server/arena";
 import { buildBotsAroundLevel, type ArenaBot } from "@/adventure/data/v2/arenaBots";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 
 // POST /api/v2/arena/match — 아레나 1:1 매치 한 판 실행.
 //
@@ -263,10 +267,35 @@ export async function POST() {
     // 본인 HP 도 풀충전 — 단판 모델.
     const myPlayer = { ...viewerCombat.player, hp: viewerCombat.maxHp };
 
+    // PR-4b — 양측 v2 스킬 wiring. 본인은 lock, 상대는 plain read (다른 user row lock = deadlock 위험).
+    // 상대가 봇이면 빈 배열 (사용자 결정 — PR-5+ 에서 봇 적형 확장 검토).
+    const mySkillsRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState() as unknown as Record<string, unknown>,
+    );
+    const mySkills = parseV2SkillsState(mySkillsRaw);
+    let oppSkills = emptyV2SkillsState();
+    if (picked.cand && picked.cand.userId) {
+      const oppSkillsRow = await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(
+            eq(savesKv.userId, picked.cand.userId),
+            eq(savesKv.key, "skills.v2"),
+          ),
+        )
+        .limit(1);
+      oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
+    }
+
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
       pickAction: () => ({ kind: "attack" }),
       potions: { p1: {}, p2: {} },
+      v2Skills: { p1: mySkills, p2: oppSkills },
     });
 
     // 11. outcome 변환.

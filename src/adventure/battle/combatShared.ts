@@ -13,6 +13,7 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "../data/v2/v2Skills";
+import type { StatKey } from "../data/stats";
 import type { EquippedAPSkill, PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
@@ -114,6 +115,74 @@ export function potionHealAmount(
 
 export type V2SkillCooldowns = Partial<Record<V2SkillId, number>>;
 
+// v2 스킬 selfBuff/enemyDebuff 의 stat 별 시한부 효과. PR-4b.
+// pct 정수 퍼센트, turns 남은 턴 (매 player turn 진입 시 -1, 0 도달이면 제거).
+// 같은 stat 키에 새 buff/debuff 가 박히면 덮어쓰기 (refresh) — pct/turns 새 값으로.
+export type V2BuffEntry = { pct: number; turns: number };
+export type V2BuffMap = Partial<Record<StatKey, V2BuffEntry>>;
+
+// 매 player turn 진입 시 turns -1. 0 이하 키는 제거.
+export function tickV2BuffMap(map: V2BuffMap): V2BuffMap {
+  const next: V2BuffMap = {};
+  for (const [stat, entry] of Object.entries(map)) {
+    if (!entry) continue;
+    if (entry.turns > 1) next[stat as StatKey] = { pct: entry.pct, turns: entry.turns - 1 };
+    // turns <= 1 → drop.
+  }
+  return next;
+}
+
+// 활성화된 buff/debuff 의 stat 별 효과 % (turns > 0 인 것만). 0 이면 효과 없음.
+// caller 는 stat 곱셈 보정에 사용 — 예: atk *= (1 + buffPct/100), atk *= (1 - debuffPct/100).
+export function v2BuffActive(map: V2BuffMap, stat: StatKey): number {
+  const entry = map[stat];
+  if (!entry || entry.turns <= 0) return 0;
+  return entry.pct;
+}
+
+// ── v2 스킬 effect 계산 (PR-4b) ─────────────────────────────────────────
+// PR-4a 의 cast 결정 + MP/cd 외에 실제 효과(damage/heal/buff/debuff) 를 계산.
+// 격리 원칙 — v2 selfBuffs/selfDebuffs 는 v2 스킬 발동 damage 계산에만 영향.
+// 일반 공격 / AP 스킬 / 옛 spell 은 영향 받지 않음 (PR-5+ 에서 확장 가능).
+
+// v2 스킬 damage 계산. statCoef × attackerAtk × statBuffMult + baseFlat 을 raw atk 로,
+// 적 def 에 vit debuff 곱 후 damageBetween. 일반 공격과 같은 경로(DEF 적용) — 사용자 결정.
+//   - scalingStat: 스킬의 def.stat (이 stat 의 buff/debuff 만 곱셈에 사용)
+//   - attackerSelfBuffs: 공격자 자기 강화 (해당 stat 키만 사용)
+//   - attackerSelfDebuffs: 공격자에 걸린 약화 (해당 stat 키만 사용)
+//   - targetSelfDebuffs: 적에 걸린 약화 (vit 키만 사용 — def 감소)
+export function v2DamageAmount(args: {
+  attackerAtk: number;
+  targetDef: number;
+  scalingStat: StatKey;
+  statCoef: number;
+  baseFlat: number;
+  attackerSelfBuffs: V2BuffMap;
+  attackerSelfDebuffs: V2BuffMap;
+  targetSelfDebuffs: V2BuffMap;
+}): number {
+  const buffPct = v2BuffActive(args.attackerSelfBuffs, args.scalingStat);
+  const debuffPct = v2BuffActive(args.attackerSelfDebuffs, args.scalingStat);
+  const atkMult = Math.max(0, 1 + buffPct / 100 - debuffPct / 100);
+  // 적 vit debuff 가 def 감소 (다른 stat debuff 는 def 무관).
+  const targetVitDebuff = v2BuffActive(args.targetSelfDebuffs, "vit");
+  const defMult = Math.max(0, 1 - targetVitDebuff / 100);
+  const rawAtk = Math.floor(args.attackerAtk * atkMult * args.statCoef) + args.baseFlat;
+  const effectiveDef = Math.floor(args.targetDef * defMult);
+  // 일반 공격과 같은 경로 — damageBetween 식 (atk - def, 1 하한).
+  return Math.max(1, rawAtk - effectiveDef);
+}
+
+// v2 스킬 heal 계산. pctMaxHp × maxHp / 100 + flat (caller 가 maxHp 클램프).
+export function v2HealAmount(args: {
+  attackerMaxHp: number;
+  pctMaxHp: number;
+  flat: number;
+}): number {
+  const pctPart = Math.floor((args.attackerMaxHp * args.pctMaxHp) / 100);
+  return Math.max(0, pctPart + args.flat);
+}
+
 export function emptyV2SkillCooldowns(): V2SkillCooldowns {
   return {};
 }
@@ -150,47 +219,132 @@ export function pickAutoCastV2Skill(args: {
   return null;
 }
 
-// v2 스킬 cast 한 번의 결과 (framework 만 — 효과 미적용).
-//   - nextMp: MP 차감 후 잔량
-//   - nextCooldowns: 이번에 cast 한 스킬의 cd 가 def.cooldown 으로 세팅된 맵
-//   - castSkillId: 발동된 스킬 id (없으면 null)
-//   - castSkillName: 로그용 (한글명, 없으면 null)
+// v2 스킬 cast 한 번의 결과.
+//   PR-4a (framework):
+//     - nextMp / nextCooldowns: MP 차감 + cd 세팅 후 상태
+//     - castSkillId / castSkillName: 발동된 스킬 (없으면 null)
+//   PR-4b (효과 적용):
+//     - enemyDamage: damage effect 들의 합 (0 = 미발동)
+//     - selfHeal: heal effect 들의 합 (caller 가 maxHp 클램프, 0 = 미발동)
+//     - selfBuffsToApply: selfBuff effect 의 {stat,pct,turns} 목록 — caller 가 state.v2SelfBuffs 갱신
+//     - enemyDebuffsToApply: enemyDebuff effect 의 {stat,pct,turns} 목록 — caller 가 target.v2SelfDebuffs 갱신
+export type V2SkillBuffApply = { stat: StatKey; pct: number; turns: number };
 export type V2SkillCastResult = {
   nextMp: number;
   nextCooldowns: V2SkillCooldowns;
   castSkillId: V2SkillId | null;
   castSkillName: string | null;
+  enemyDamage: number;
+  selfHeal: number;
+  selfBuffsToApply: V2SkillBuffApply[];
+  enemyDebuffsToApply: V2SkillBuffApply[];
 };
 
-export function resolveV2SkillCast(args: {
+// PR-4b — attacker/target ctx 로 묶음. PR-4a 의 단순 mp/cd 입력에서 확장.
+export type V2SkillCastInput = {
   skills: V2SkillsState;
   cooldowns: V2SkillCooldowns;
-  mp: number;
-}): V2SkillCastResult {
+  attacker: {
+    mp: number;
+    atk: number;
+    maxHp: number;
+    selfBuffs: V2BuffMap;
+    selfDebuffs: V2BuffMap;
+  };
+  target: {
+    def: number;
+    selfDebuffs: V2BuffMap;
+  };
+};
+
+const EMPTY_CAST_RESULT_BASE = {
+  enemyDamage: 0,
+  selfHeal: 0,
+  selfBuffsToApply: [] as V2SkillBuffApply[],
+  enemyDebuffsToApply: [] as V2SkillBuffApply[],
+};
+
+export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 1) cd tick.
-  const ticked = tickV2SkillCooldowns(args.cooldowns);
+  const ticked = tickV2SkillCooldowns(input.cooldowns);
   // 2) 발동 후보 선택.
   const id = pickAutoCastV2Skill({
-    equipped: args.skills.equipped,
+    equipped: input.skills.equipped,
     cooldowns: ticked,
-    mp: args.mp,
+    mp: input.attacker.mp,
   });
   if (!id) {
     return {
-      nextMp: args.mp,
+      ...EMPTY_CAST_RESULT_BASE,
+      nextMp: input.attacker.mp,
       nextCooldowns: ticked,
       castSkillId: null,
       castSkillName: null,
     };
   }
   const def = V2_SKILLS[id];
-  // 3) MP 차감 + cd 세팅. 효과 적용은 PR-4b.
-  // cd=N → "발동 후 N턴 lockout" 의미. 다음 턴의 tick 이 -1 하므로 N+1 로 저장해야
-  // 정확히 N턴 동안 cd>0 상태가 유지된다 (cast T1 → T2~Tn+1 lockout → Tn+2 재시전).
+  // 3) effect 별 결과 누산.
+  let enemyDamage = 0;
+  let selfHeal = 0;
+  const selfBuffsToApply: V2SkillBuffApply[] = [];
+  const enemyDebuffsToApply: V2SkillBuffApply[] = [];
+  for (const effect of def.effects) {
+    if (effect.kind === "damage") {
+      enemyDamage += v2DamageAmount({
+        attackerAtk: input.attacker.atk,
+        targetDef: input.target.def,
+        scalingStat: def.stat,
+        statCoef: effect.statCoef,
+        baseFlat: effect.baseFlat ?? 0,
+        attackerSelfBuffs: input.attacker.selfBuffs,
+        attackerSelfDebuffs: input.attacker.selfDebuffs,
+        targetSelfDebuffs: input.target.selfDebuffs,
+      });
+    } else if (effect.kind === "heal") {
+      selfHeal += v2HealAmount({
+        attackerMaxHp: input.attacker.maxHp,
+        pctMaxHp: effect.pctMaxHp ?? 0,
+        flat: effect.flat ?? 0,
+      });
+    } else if (effect.kind === "selfBuff") {
+      selfBuffsToApply.push({
+        stat: effect.stat,
+        pct: effect.pct,
+        turns: effect.turns,
+      });
+    } else if (effect.kind === "enemyDebuff") {
+      enemyDebuffsToApply.push({
+        stat: effect.stat,
+        pct: effect.pct,
+        turns: effect.turns,
+      });
+    }
+  }
+  // 4) MP 차감 + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
   return {
-    nextMp: args.mp - def.mpCost,
+    nextMp: input.attacker.mp - def.mpCost,
     nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
     castSkillId: id,
     castSkillName: def.name,
+    enemyDamage,
+    selfHeal,
+    selfBuffsToApply,
+    enemyDebuffsToApply,
   };
+}
+
+// V2BuffMap 갱신 — selfBuff/enemyDebuff effect 의 결과를 stat 키에 박는다.
+// 같은 stat 키에 새 entry 박히면 덮어쓰기 (refresh): pct/turns 새 값으로.
+// turns 는 +1 박는다 — 다음 턴의 tickV2BuffMap 이 -1 하므로 정확히 N 턴 활성이 되려면 N+1 시드.
+// (cd off-by-one 과 같은 패턴 — 매 player turn 진입 시 tick 후 cast/damage 계산.)
+export function applyV2BuffsToMap(
+  map: V2BuffMap,
+  buffs: readonly V2SkillBuffApply[],
+): V2BuffMap {
+  if (buffs.length === 0) return map;
+  const next: V2BuffMap = { ...map };
+  for (const b of buffs) {
+    next[b.stat] = { pct: b.pct, turns: b.turns + 1 };
+  }
+  return next;
 }

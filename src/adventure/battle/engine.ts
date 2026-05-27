@@ -2,11 +2,13 @@ import type { Monster } from "../data/monsters";
 import { castSpellsOnPlayerTurn } from "../data/v2/spells";
 import { type Potion, type PotionId } from "../data/potions";
 import {
+  applyV2BuffsToMap,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
   selectApSkillsToFire,
+  tickV2BuffMap,
 } from "./combatShared";
 import {
   CRIT_OVERFLOW_DMG_CAP,
@@ -215,6 +217,15 @@ export type BattleState = {
   // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
   v2Skills: import("../data/v2/v2Skills").V2SkillsState;
   v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
+  // v2 스킬 selfBuff/enemyDebuff (PR-4b). AP buff slot 과 별개 — 동거 가능. pct 는 정수 퍼센트.
+  // 매 player turn 진입 시 turns -1, 0 도달이면 제거.
+  //   v2SelfBuffs: 플레이어가 자기에게 건 강화 (selfBuff effect 결과).
+  //   v2SelfDebuffs: 적이 플레이어에게 건 약화 (PvE 는 적이 v2 스킬 안 가져서 항상 빈, PvP 미러용 자리).
+  //   enemyV2Debuffs: 플레이어가 적에게 건 약화 (PvE 전용). PvP 는 상대 side.v2SelfDebuffs 가 같은 역할.
+  // damage/heal 계산 시 stat 곱셈으로 반영 — v2 스킬 effect 한정 (PR-5+ 에서 일반 공격까지 확장 검토).
+  v2SelfBuffs: import("./combatShared").V2BuffMap;
+  v2SelfDebuffs: import("./combatShared").V2BuffMap;
+  enemyV2Debuffs: import("./combatShared").V2BuffMap;
   log: BattleLogEntry[];
   phase: BattlePhase;
   outcome: BattleOutcome | null;
@@ -1075,6 +1086,9 @@ export function initialBattleState(
     ap: (player.equippedAPSkills?.length ?? 0) > 0 ? AP_BATTLE_START : 0,
     v2Skills,
     v2SkillCooldowns: {},
+    v2SelfBuffs: {},
+    v2SelfDebuffs: {},
+    enemyV2Debuffs: {},
   };
 }
 
@@ -2834,28 +2848,106 @@ export function resolveBattle(
           continue;
         }
       }
-      // v2 스킬 cast (PR-4a) — framework only. MP 차감 + cooldown set + 로그.
-      // 효과(damage/heal/buff/debuff) 는 PR-4b 에서 적용.
+      // v2 스킬 cast (PR-4b) — MP 차감 + cooldown set + 효과 적용 (damage/heal/buff/debuff).
+      // 매 player phase 진입 시 1회 — buff/debuff turn -1 tick + cast.
       if (!v2CastedThisPlayerPhase) {
         v2CastedThisPlayerPhase = true;
+        // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
+        const tickedSelfBuffs = tickV2BuffMap(state.v2SelfBuffs);
+        const tickedSelfDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
+        const tickedEnemyDebuffs = tickV2BuffMap(state.enemyV2Debuffs);
+        // 2) cast 결정 + 효과 계산.
         const result = resolveV2SkillCast({
           skills: state.v2Skills,
           cooldowns: state.v2SkillCooldowns,
-          mp: state.playerMp,
+          attacker: {
+            mp: state.playerMp,
+            atk: player.atk,
+            maxHp: state.playerMaxHp,
+            selfBuffs: tickedSelfBuffs,
+            selfDebuffs: tickedSelfDebuffs,
+          },
+          target: {
+            def: state.enemy.def,
+            selfDebuffs: tickedEnemyDebuffs,
+          },
         });
-        const nextLog = result.castSkillName
-          ? appendLog(state.log, {
+        // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
+        let nextEnemyHp = state.enemyHp;
+        let nextPlayerHp = state.playerHp;
+        let nextLog = state.log;
+        if (result.castSkillName) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[스킬] ${result.castSkillName} 시전`,
+            turn: "player",
+          });
+        }
+        if (result.enemyDamage > 0) {
+          nextEnemyHp = Math.max(0, nextEnemyHp - result.enemyDamage);
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[스킬] ${state.enemy.name}에 ${result.enemyDamage} 피해`,
+            turn: "player",
+          });
+        }
+        if (result.selfHeal > 0) {
+          const before = nextPlayerHp;
+          nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + result.selfHeal);
+          const actual = nextPlayerHp - before;
+          if (actual > 0) {
+            nextLog = appendLog(nextLog, {
               kind: "info",
-              text: `[스킬] ${result.castSkillName} 시전`,
+              text: `[스킬] HP ${actual} 회복`,
               turn: "player",
-            })
-          : state.log;
+            });
+          }
+        }
+        const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
+        const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
+        for (const b of result.selfBuffsToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[강화] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+            turn: "player",
+          });
+        }
+        for (const d of result.enemyDebuffsToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[약화] ${state.enemy.name} ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            turn: "player",
+          });
+        }
         state = {
           ...state,
+          playerHp: nextPlayerHp,
+          enemyHp: nextEnemyHp,
           playerMp: result.nextMp,
           v2SkillCooldowns: result.nextCooldowns,
+          v2SelfBuffs: nextSelfBuffs,
+          v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
+          enemyV2Debuffs: nextEnemyDebuffs,
           log: nextLog,
         };
+        // lethal 체크 — v2 damage 로 적 사망 시 정상 종료 처리 (옛 spell cast 분기와 일관).
+        if (state.enemyHp <= 0) {
+          state = {
+            ...state,
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+              turn: "player",
+            }),
+            outcome: "win",
+            phase: "ended",
+            turn: {
+              ...state.turn,
+              completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+            },
+          };
+          continue;
+        }
       }
     } else {
       // 비-player phase (enemy/ended). 다음 player phase 진입 시 다시 cast 할 수 있게 reset.

@@ -91,11 +91,13 @@ function endgameMultiplier(level: number): number {
 // 유입(income) 밴드 배율 — EXP 페이싱 개편(game-fun-audit 2순위). monster.exp / 퀘스트 EXP
 // 에 곱해 중후반 페이싱을 완화한다. 곡선(요구치)을 슬래시하는 대신 유입을 올리는 접근 —
 // EXP 는 골드/드랍과 분리돼 있어 독립 상향이 안전하고, 기존 세이브 burst 위험이 없다.
-// L1-29 는 1.0 — 신참 ×2(L<30)가 이미 커버하므로 곱해지지 않게 한다.
+// L1-29: 사용자 초반 가속 요청 (2026-05-28). 신참 ×2 와 곱해 ×3.0 효과.
+//   sim-v2-exp-pacing 기준 1→25 시나리오 A 2.5일→1.7일, 시나리오 B 6.8일→4.5일.
+//   "접속해서 stamina 만 쓰고 끄면 흥미 없음" 피드백 대응 — 초반 모멘텀 빠르게.
 // battleClaim / offlineSim / questReward 세 EXP 소비 지점이 모두 이 헬퍼를 써야 한다
 // (한 곳 누락 = 라이브/위탁/퀘 페이싱 불일치).
 export function levelBandExpMultiplier(level: number): number {
-  if (level < 30) return 1; // 신참 ×2 가 커버
+  if (level < 30) return 1.5; // L1-29 (신참 ×2 와 곱해 ×3.0)
   if (level < 50) return 1.1; // L30-49
   if (level < 70) return 1.25; // L50-69
   if (level < 90) return 1.45; // L70-89

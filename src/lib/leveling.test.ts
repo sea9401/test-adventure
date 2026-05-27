@@ -77,9 +77,9 @@ describe("applyNewbieBonus (정밀 ×2)", () => {
 });
 
 describe("levelBandExpMultiplier (EXP 페이싱 개편)", () => {
-  it("밴드 경계값 — L1-29 ×1.0(신참 커버) / 30-49 ×1.1 / 50-69 ×1.25 / 70-89 ×1.45 / 90+ ×1.55", () => {
-    expect(levelBandExpMultiplier(1)).toBe(1);
-    expect(levelBandExpMultiplier(29)).toBe(1);
+  it("밴드 경계값 — L1-29 ×1.5(초반 가속) / 30-49 ×1.1 / 50-69 ×1.25 / 70-89 ×1.45 / 90+ ×1.55", () => {
+    expect(levelBandExpMultiplier(1)).toBe(1.5);
+    expect(levelBandExpMultiplier(29)).toBe(1.5);
     expect(levelBandExpMultiplier(30)).toBe(1.1);
     expect(levelBandExpMultiplier(49)).toBe(1.1);
     expect(levelBandExpMultiplier(50)).toBe(1.25);

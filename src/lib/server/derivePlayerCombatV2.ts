@@ -10,7 +10,7 @@
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T2 ×0.04)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
 //   spd → 다중공격 확률, 선공권 (extra += spd×0.4%) + atk 보조 (PR-T2 ×0.04)
-//   luk → 치명 (crit += luk×0.1). 스킬 조건부 X — 항상 작동
+//   luk → 치명 (crit += luk×0.15, PR-T3 버프) + atk 보조 (PR-T3 ×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
 // 장비 stats:
@@ -127,14 +127,20 @@ export function aggregateV2Equipment(
 const MP_PER_INT = 2; // 옛 10. 5×INT × 2 = 10 MP (동등)
 const HP_PER_VIT = 1; // 옛 5.  5×VIT × 1 = 5 HP (동등)
 const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
-const CRIT_PER_LUK = 0.1; // 옛 0.5%. 5×LUK × 0.1% = 0.5% (동등)
+// PR-T3: 0.1 → 0.15 (×1.5 버프). sim-v2-progression 측정에서 LUK 가 Lv75 wr 2%·
+// hpL% 80% (crit-only axis 라 atk 부족 + Lv100 도 crit 48% 로 cap 도달 못 함). LUK
+// 빌드 정체성 유지하면서 crit 도달 속도를 빠르게. STR/BAL 같이 LUK 부 투자 빌드도
+// 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
+const CRIT_PER_LUK = 0.15;
 const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 // PR-T2: DEX/SPD atk 보조 복원. PR-S1 에서 dex/spd/luk atk 보조(/5) 제거했더니
 // 후반 def 큰 잡몹 못 깨는 구조적 약점 발생(sim-v2-progression: Lv25+ DEX/SPD 0% wr).
-// 옛 라이브 dex/5+spd/5 의 ×5 스케일 환산값 = ×0.04 (= 0.2 / 5). LUK 는 빌드 정체성
-// 분리 위해 제외 유지 (LUK 는 crit-only axis).
+// 옛 라이브 dex/5+spd/5 의 ×5 스케일 환산값 = ×0.04 (= 0.2 / 5).
+// PR-T3: LUK 도 같은 패턴으로 복원. CRIT_PER_LUK 0.15 단독으론 Lv75 wr 2%→4% 미흡 —
+// 진짜 원인은 LUK atk 부족이라 crit 터져도 def 못 뚫음. DEX/SPD 와 동일 ×0.04 추가.
 const ATK_PER_DEX = 0.04; // 옛 0.2. 5×DEX × 0.04 = 0.2 atk 기여 (동등)
 const ATK_PER_SPD = 0.04;
+const ATK_PER_LUK = 0.04;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 // v2 전용 SPD 계수 — stats.ts 의 라이브 공용 EXTRA_ATTACK_PCT_PER_SPD(=2) 와 별도.
@@ -188,10 +194,12 @@ export function derivePlayerCombatV2Pure(
   // PR-S1 5배 스케일 — float 누적 후 atk/def/maxHp/maxMp 만 최종 floor.
   // crit/eva/acc/extraAtk 는 float 그대로 (엔진이 확률 비교만, 0.1%p 단위 보존).
   // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
+  // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
   const atk = Math.floor(
     totalStats.str * ATK_PER_STR +
       totalStats.dex * ATK_PER_DEX +
       Math.max(0, totalStats.spd) * ATK_PER_SPD +
+      totalStats.luk * ATK_PER_LUK +
       equipAcc.atk,
   );
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);

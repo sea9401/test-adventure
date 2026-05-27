@@ -1,6 +1,5 @@
-// PR-5: derivePlayerCombatV2 가 라이브 derive 호출 안 하고 자체 식. db 의존이라
-// 전체 호출은 단위 테스트 어려움 — pure 함수 분리한 aggregateV2Equipment 만 단위로.
-// (식 자체 검증은 통합 테스트 또는 sim 으로.)
+// PR-S1 5배 해상도 — 단위 테스트는 pure 함수 aggregateV2Equipment 만 (db 의존 derive 는 통합/sim).
+// expected 값들은 PR-S1 5배 스케일 (옛값 × 5) 로 갱신.
 
 import { describe, expect, it } from "vitest";
 import { aggregateV2Equipment } from "./derivePlayerCombatV2";
@@ -24,49 +23,57 @@ describe("aggregateV2Equipment", () => {
     });
   });
 
-  it("철검 T1 (str+5 atk+3) → str=5 atk=3 나머지 0", () => {
+  it("철검 T1 (str+25 atk+3) → str=25 atk=3 나머지 0", () => {
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.str).toBe(5);
+    expect(a.str).toBe(25);
     expect(a.atk).toBe(3);
     expect(a.dex).toBe(0);
     expect(a.crit).toBe(0);
   });
 
-  it("3슬롯 풀세팅 — 모든 키 합산", () => {
-    // 철검: str+5 atk+3
-    // 쇠사슬 갑옷: vit+5 def+6
-    // 은가락지: luk+3
+  it("3슬롯 풀세팅 — 모든 키 합산 (T1 ×5 스케일)", () => {
+    // 철검: str+25 atk+3
+    // 쇠사슬 갑옷: vit+25 def+6 spd-5
+    // 은가락지: luk+15
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
       armor: "v2_chain_mail",
       accessory: "v2_silver_ring",
     });
-    expect(a.str).toBe(5);
+    expect(a.str).toBe(25);
     expect(a.atk).toBe(3);
-    expect(a.vit).toBe(5);
+    expect(a.vit).toBe(25);
     expect(a.def).toBe(6);
-    expect(a.luk).toBe(3);
+    expect(a.spd).toBe(-5);
+    expect(a.luk).toBe(15);
   });
 
-  it("추가 파생 (crit/mp/eva) 합산 — T5 풀", () => {
-    // 별노래궁 T5: dex+25 atk+14 crit+7
-    // 바람 망토 T5: dex+17 def+13 eva+10
-    // 마나의 정수 T5: int+22 mp+90
+  it("추가 파생 (crit/mp/eva) 합산 — T5 풀 ×5 스케일", () => {
+    // 별노래궁 T5: dex+125 atk+14 crit+7
+    // 바람 망토 T5: dex+85 def+13 eva+10
+    // 마나의 정수 T5: int+110 mp+90
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
       accessory: "v2_mana_essence",
     });
-    expect(a.dex).toBe(25 + 17);
+    expect(a.dex).toBe(125 + 85);
     expect(a.atk).toBe(14);
     expect(a.crit).toBe(7);
     expect(a.def).toBe(13);
     expect(a.eva).toBe(10);
-    expect(a.int).toBe(22);
+    expect(a.int).toBe(110);
     expect(a.mp).toBe(90);
   });
 
-  it("luck 컨셉 5종은 luk/crit 만 채움 (재조정 후 컨셉 일관성)", () => {
+  it("중갑 spd 페널티도 ×5 스케일 — 미스릴 갑옷 T5 = spd -25", () => {
+    const a = aggregateV2Equipment({ armor: "v2_mithril_plate" });
+    expect(a.vit).toBe(140);
+    expect(a.def).toBe(30);
+    expect(a.spd).toBe(-25);
+  });
+
+  it("luck 컨셉 5종은 luk/crit 만 채움 (컨셉 일관성)", () => {
     for (const id of [
       "v2_silver_ring",
       "v2_gold_ring",

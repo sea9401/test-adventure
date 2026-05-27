@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { baseCharacter } from "@/adventure/character/defaults";
+import { V2_BASE_STATS } from "@/lib/server/derivePlayerCombatV2";
 import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
 
 // GET /api/v2/me/training — V2GrowthShrineView 의 자체 fetch.
@@ -60,7 +60,7 @@ export async function GET() {
     unspentPoints: Math.max(0, training.points ?? 0),
     revertPoints: Math.max(0, training.revertPoints ?? 0),
     allocatedStats: allocated,
-    baseStats: baseCharacter.stats,
+    baseStats: V2_BASE_STATS,
     gold: Math.max(0, charSave.gold ?? 0),
     level: Math.max(1, charSave.level ?? 1),
   });

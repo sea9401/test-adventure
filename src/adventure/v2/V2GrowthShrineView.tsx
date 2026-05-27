@@ -101,7 +101,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
         </button>
         <h1 className="text-lg font-bold">성장의 신전</h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          레벨업 1당 단련 포인트 +1. 분배는 즉시 사냥에 반영.
+          레벨업 1당 단련 포인트 +5. 분배는 즉시 사냥에 반영.
         </p>
       </header>
 

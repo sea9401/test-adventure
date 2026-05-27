@@ -3,7 +3,10 @@ import { db } from "@/db";
 import { outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import {
+  derivePlayerCombatV2,
+  V2_STAT_POINTS_PER_LEVEL,
+} from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
@@ -394,7 +397,7 @@ export async function POST(req: Request) {
     };
     await upsertSave(tx, userId, "character.v2", next);
 
-    // 레벨업 시 단련 포인트 +levelsGained (라이브 autoHunt 패턴).
+    // 레벨업 시 단련 포인트 +levelsGained × V2_STAT_POINTS_PER_LEVEL (PR-S1: ×5).
     // GrowthShrine 에서 분배. lock 순서 character.v2 다음에 training.v2 (다른 키).
     if (expResult.levelsGained > 0) {
       const trainingSave = await lockSaveForUpdate<{
@@ -404,7 +407,8 @@ export async function POST(req: Request) {
       const curPoints = Math.max(0, trainingSave.points ?? 0);
       await upsertSave(tx, userId, "training.v2", {
         ...trainingSave,
-        points: curPoints + expResult.levelsGained,
+        points:
+          curPoints + expResult.levelsGained * V2_STAT_POINTS_PER_LEVEL,
       });
     }
 

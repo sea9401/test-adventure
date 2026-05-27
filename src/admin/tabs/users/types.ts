@@ -11,7 +11,9 @@ export type TrainingPersisted = {
   allocated: Record<StatKey, number>;
   revertPoints: number;
   // 누적 훈련 완료 횟수 — 칭호 마일스톤 트리거 + 단련 포인트 정합성 진단용.
-  // 기댓값: (level - 1) + completedCount = points + sum(allocated). 안 맞으면 어딘가 손실.
+  // 기댓값: (level-1) × V2_STAT_POINTS_PER_LEVEL + completedCount = points + sum(allocated).
+  // 안 맞으면 어딘가 손실 (v2 dungeon hunt grant 기준 — autoHunt/page 의 ×1 grant 캐릭은
+  // 양의 diff 가 정상).
   completedCount?: number;
 };
 

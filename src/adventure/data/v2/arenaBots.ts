@@ -1,16 +1,19 @@
 // v2 아레나 봇 — 실유저 매칭 풀이 비었을 때 폴백 (PR-8a).
 //
 // 봇은 라이브 PvP 의 NPC 데이터를 이식하지 않는다 (라이브 코드 영향 0 룰).
-// 6 스탯 분배 + 레벨만 가진 가벼운 템플릿. derivePlayerCombat 으로 PlayerCombat
+// 6 스탯 분배 + 레벨만 가진 가벼운 템플릿. derivePlayerCombatV2Pure 로 PlayerCombat
 // 변환 — 장비/룬/스킬/파라곤 모두 비워서 라이브 시스템 의존 0.
+//
+// PR-S2: 라이브 derivePlayerCombat → v2 pure 로 교체. V2_BASE_STATS 베이스 + 레벨당
+// V2_STAT_POINTS_PER_LEVEL(=5) 포인트. 플레이어와 동일 스케일·계수 → 매치 공정성 보장.
 //
 // INT 가 임계값 이상이면 자동 학습 마법 (PR-5 의 normalizeEquippedSpells 와 같은 규칙).
 
-import { baseCharacter } from "@/adventure/character/defaults";
 import {
-  derivePlayerCombat,
-  type DerivedPlayerCombat,
-} from "@/adventure/character/derivePlayerCombat";
+  derivePlayerCombatV2Pure,
+  V2_STAT_POINTS_PER_LEVEL,
+  type DerivedPlayerCombatV2,
+} from "@/lib/server/derivePlayerCombatV2";
 import type { StatKey } from "@/adventure/data/stats";
 import { learnedSpellsForInt } from "@/adventure/data/v2/spells";
 
@@ -40,7 +43,7 @@ export type ArenaBot = {
   level: number;
   /** 매칭 가중치 산정용 가짜 점수 — 봇은 항상 0. */
   score: number;
-  combat: DerivedPlayerCombat;
+  combat: DerivedPlayerCombatV2;
   /** 자동 학습된 마법 (INT 임계값). */
   equippedSpells: ReturnType<typeof learnedSpellsForInt>;
 };
@@ -50,10 +53,8 @@ function emptyStatRecord(): Record<StatKey, number> {
 }
 
 /**
- * 단련 포인트 배분: 레벨 N 캐릭의 총 보유 포인트는 N (1당 1pt 가정 — hunt 라우트가
- * 레벨업당 1pt 발급). 60/30/10 으로 focus/secondary/vit 에 배분.
- *
- * 음수 클램프 (level <= 1 = 포인트 0).
+ * 단련 포인트 배분: 레벨 N 캐릭의 총 보유 포인트는 (N-1) × V2_STAT_POINTS_PER_LEVEL.
+ * 60/30/10 으로 focus/secondary/vit(또는 luk) 에 배분. 음수/0 클램프 (level ≤ 1 = 0).
  */
 function allocatePoints(
   totalPoints: number,
@@ -83,20 +84,15 @@ function allocatePoints(
 
 export function buildBot(template: BotTemplate, level: number): ArenaBot {
   const lv = Math.max(1, Math.floor(level));
-  const allocated = allocatePoints(lv, template);
-  const combat = derivePlayerCombat({
+  // (lv-1) × 5 — 1레벨 봇은 베이스만, 2레벨부터 1레벨업분(5pt) 누적.
+  // hunt route 의 grant 와 동일 정책.
+  const totalPoints = Math.max(0, lv - 1) * V2_STAT_POINTS_PER_LEVEL;
+  const allocated = allocatePoints(totalPoints, template);
+  const combat = derivePlayerCombatV2Pure({
     level: lv,
-    baseStats: baseCharacter.stats,
     allocatedStats: allocated,
-    equipped: { weapon: null, armor: null, accessory: null },
-    equippedSkills: [],
-    equippedFeats: [],
-    equippedRunes: undefined,
-    learnedAPSkills: undefined,
-    apSkillConditions: undefined,
-    storyFlagIds: new Set<string>(),
-    paragonAllocations: {},
-    hp: 99999, // derive 가 maxHp 로 클램프
+    v2Equipped: {}, // 봇은 장비 없음
+    hp: undefined, // 풀충 (maxHp 로 클램프)
   });
   const intStat = combat.totalStats.int ?? 0;
   const slots = combat.layout.normalSlots;

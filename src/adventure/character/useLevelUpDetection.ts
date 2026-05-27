@@ -37,6 +37,8 @@ export function useLevelUpDetection(opts: {
     const next = opts.level;
     if (next > prev) {
       const gained = next - prev;
+      // PR-S2 검토: ×5 안 함 — useLevelUpDetection 은 라이브 page.tsx 의 live derive 와
+      // 결합. v2 derive 마이그까지 ×1 유지 (v2 dungeon hunt 의 server-side grant 만 ×5).
       opts.addPoints(gained);
       opts.addNotification(
         "milestone",

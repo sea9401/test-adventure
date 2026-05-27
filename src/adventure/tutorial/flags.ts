@@ -7,11 +7,9 @@ export const TUTORIAL_FLAG_PREFIX = "tutorial.";
 // 신규 캐릭터는 starterSaves 가 시드. 기존 캐릭터는 미설정이라 자동 트리거되지 않는다.
 export const TUTORIAL_ENABLED_FLAG = "tutorial.enabled";
 
-// v2 진입 후크 — 1회성 축하/안내. 신규 캐릭만 (TUTORIAL_ENABLED_FLAG 시드된 경우)
-// 자동 표시되고, 첫 발생 시 set 되어 그 후엔 안 보인다. 사용자 피드백 (2026-05-28)
-// "접속해서 stamina 만 쓰고 끄면 흥미 없음" 대응.
-export const TUTORIAL_V2_FIRST_HUNT = "tutorial.v2-first-hunt";
-export const TUTORIAL_V2_FIRST_DROP = "tutorial.v2-first-drop";
+// v2 진입 후크 — 첫 레벨업 모달만 1회성. 신규 캐릭만 (TUTORIAL_ENABLED_FLAG 시드된
+// 경우) 트리거. dismiss 시 set. 드랍 알림은 HuntResultCard 가 매 사냥마다 자동
+// 표시 (1회성 아님 — 사용자 피드백 2026-05-28).
 export const TUTORIAL_V2_FIRST_LEVELUP = "tutorial.v2-first-levelup";
 
 export type TutorialStepId = `tutorial.${string}`;

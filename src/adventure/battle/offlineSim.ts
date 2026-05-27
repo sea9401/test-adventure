@@ -24,6 +24,8 @@ import {
   type PlayerAction,
   type PlayerCombat,
 } from "./engine";
+import { resolveV2SkillCast } from "./combatShared";
+import type { V2SkillsState } from "../data/v2/v2Skills";
 import {
   AUTO_HUNT_REVIVE_DELAY_MS,
   AUTO_HUNT_REVIVE_POTION_REFILL,
@@ -93,6 +95,11 @@ export type OfflineSimInput = {
    * 영속 캐시 의미 불변. 미지정 시 1(기존 동작 — 클라/테스트 직접 호출).
    */
   expLevelTrackingMult?: number;
+  /**
+   * v2 스킬 상태 (PR-4a) — learned/equipped. 미지정 또는 빈 배열이면 v2 스킬 cast no-op.
+   * MP/cooldown 풀은 전투마다 풀충전·리셋 (단판 모델).
+   */
+  v2Skills?: V2SkillsState;
 };
 
 export type OfflineSimResult = {
@@ -195,14 +202,42 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
     if (!enemy) break;
 
     const playerForBattle: PlayerCombat = { ...input.player, hp: currentHp };
-    let state = initialBattleState(playerForBattle, enemy, input.playerName);
+    let state = initialBattleState(
+      playerForBattle,
+      enemy,
+      input.playerName,
+      input.v2Skills,
+    );
     let battleFinished = false;
     let turns = 0;
+    // PR-4a: v2 스킬 cast dedupe — phase-entry flag. player phase 에 진입할 때마다 1회만
+    // cast. (completedPlayerTurns 기반 dedupe 는 potion-only turn 종료 케이스에서 한 turn 을
+    // 건너뛰는 버그가 있어 phase flag 로 대체.)
+    let v2CastedThisPlayerPhase = false;
 
     while (state.phase !== "ended" && turns < MAX_TURNS_PER_BATTLE) {
       turns += 1;
       let action: PlayerAction = { kind: "attack" };
+      if (state.phase !== "player") {
+        // enemy phase — 다음 player phase 진입 시 다시 cast 할 수 있게 reset.
+        v2CastedThisPlayerPhase = false;
+      }
       if (state.phase === "player") {
+        // v2 스킬 cast (PR-4a framework). 효과 적용은 PR-4b — offlineSim 은 로그
+        // 미수집(setBattleLogCollection(false)) 이라 로그 entry 도 skip.
+        if (!v2CastedThisPlayerPhase) {
+          v2CastedThisPlayerPhase = true;
+          const cast = resolveV2SkillCast({
+            skills: state.v2Skills,
+            cooldowns: state.v2SkillCooldowns,
+            mp: state.playerMp,
+          });
+          state = {
+            ...state,
+            playerMp: cast.nextMp,
+            v2SkillCooldowns: cast.nextCooldowns,
+          };
+        }
         const picked = input.pickAction(state);
         if (picked.kind === "use_potion") {
           const have = potions[picked.potionId] ?? 0;

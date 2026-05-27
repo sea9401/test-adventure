@@ -8,6 +8,11 @@
 
 import { computeHealAmount, type Potion } from "../data/potions";
 import type { APSkill, APSkillEffect } from "../character/apSkills";
+import {
+  V2_SKILLS,
+  type V2SkillId,
+  type V2SkillsState,
+} from "../data/v2/v2Skills";
 import type { EquippedAPSkill, PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
@@ -100,4 +105,92 @@ export function potionHealAmount(
 ): number {
   const baseHeal = computeHealAmount(potion, maxHp);
   return Math.floor(baseHeal * (1 + (potionHealPct ?? 0) / 100));
+}
+
+// ── v2 스킬 런타임 (PR-4a) ────────────────────────────────────────────────
+// 새 v2 스탯 스킬 시스템 (v2_skill_*, V2_SKILLS) 의 전투 런타임 헬퍼. 옛 spells.ts
+// 시스템과는 별개 — 두 시스템이 한 전투에서 동시에 돌아도 cooldowns/MP 풀은 공유한다
+// (둘 다 PlayerCombat.maxMp 를 씀). PR-4a 는 framework only — 효과 적용은 PR-4b.
+
+export type V2SkillCooldowns = Partial<Record<V2SkillId, number>>;
+
+export function emptyV2SkillCooldowns(): V2SkillCooldowns {
+  return {};
+}
+
+// 매 플레이어 턴 진입 시 호출. 양수 카운터 -1 (0 이하 키는 삭제 — ready 상태).
+export function tickV2SkillCooldowns(map: V2SkillCooldowns): V2SkillCooldowns {
+  const next: V2SkillCooldowns = {};
+  for (const [id, n] of Object.entries(map)) {
+    if (typeof n !== "number") continue;
+    if (n > 1) next[id as V2SkillId] = n - 1;
+    // n <= 1 → drop (0 = ready, 음수는 정상 상태 아님이나 보수적으로 drop).
+  }
+  return next;
+}
+
+// 슬롯 우선순위로 발동 가능한 첫 스킬 선택. 조건:
+//   (a) cooldowns[id] === 0 (또는 undefined),
+//   (b) mp >= def.mpCost,
+//   (c) def.effects.length > 0 (효과 없는 스킬은 PR-4a 에서 skip).
+// equipped 배열 순서가 우선순위 = 자동 발동 정책 (spec Section 6.4 PR-4 contract).
+export function pickAutoCastV2Skill(args: {
+  equipped: readonly V2SkillId[];
+  cooldowns: V2SkillCooldowns;
+  mp: number;
+}): V2SkillId | null {
+  for (const id of args.equipped) {
+    const def = V2_SKILLS[id];
+    if (!def) continue;
+    if ((args.cooldowns[id] ?? 0) > 0) continue;
+    if (args.mp < def.mpCost) continue;
+    if (def.effects.length === 0) continue;
+    return id;
+  }
+  return null;
+}
+
+// v2 스킬 cast 한 번의 결과 (framework 만 — 효과 미적용).
+//   - nextMp: MP 차감 후 잔량
+//   - nextCooldowns: 이번에 cast 한 스킬의 cd 가 def.cooldown 으로 세팅된 맵
+//   - castSkillId: 발동된 스킬 id (없으면 null)
+//   - castSkillName: 로그용 (한글명, 없으면 null)
+export type V2SkillCastResult = {
+  nextMp: number;
+  nextCooldowns: V2SkillCooldowns;
+  castSkillId: V2SkillId | null;
+  castSkillName: string | null;
+};
+
+export function resolveV2SkillCast(args: {
+  skills: V2SkillsState;
+  cooldowns: V2SkillCooldowns;
+  mp: number;
+}): V2SkillCastResult {
+  // 1) cd tick.
+  const ticked = tickV2SkillCooldowns(args.cooldowns);
+  // 2) 발동 후보 선택.
+  const id = pickAutoCastV2Skill({
+    equipped: args.skills.equipped,
+    cooldowns: ticked,
+    mp: args.mp,
+  });
+  if (!id) {
+    return {
+      nextMp: args.mp,
+      nextCooldowns: ticked,
+      castSkillId: null,
+      castSkillName: null,
+    };
+  }
+  const def = V2_SKILLS[id];
+  // 3) MP 차감 + cd 세팅. 효과 적용은 PR-4b.
+  // cd=N → "발동 후 N턴 lockout" 의미. 다음 턴의 tick 이 -1 하므로 N+1 로 저장해야
+  // 정확히 N턴 동안 cd>0 상태가 유지된다 (cast T1 → T2~Tn+1 lockout → Tn+2 재시전).
+  return {
+    nextMp: args.mp - def.mpCost,
+    nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
+    castSkillId: id,
+    castSkillName: def.name,
+  };
 }

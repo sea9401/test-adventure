@@ -12,6 +12,7 @@ import {
 } from "./engine-pvp";
 import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../character/skills";
 import type { Potion } from "../data/potions";
+import { V2_SKILLS } from "../data/v2/v2Skills";
 
 function makePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
   return {
@@ -893,6 +894,115 @@ describe("교차 시나리오 — 양쪽 능력 조합", () => {
     // raw 100 → guard -20 = 80 → steadfast -5 = 75 → shield 30 흡수 → HP 45 적용 → p1.hp 500-45=455.
     expect(s1.p1.hp).toBe(455);
     expect(s1.p1.stacks.playerShield).toBe(0);
+  });
+});
+
+// PR-4a — v2 스킬 런타임 framework. 효과 적용은 PR-4b, PR-4a 는 cast hook 만.
+describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
+  it("v2Skills 미지정 → 양 side state 빈 배열 (no-op)", () => {
+    const s = initialBattleStatePvP(
+      makePlayer({ spd: 15 }),
+      makePlayer({ spd: 5 }),
+      "P1",
+      "P2",
+    );
+    expect(s.p1.v2Skills).toEqual({ learned: [], equipped: [] });
+    expect(s.p2.v2Skills).toEqual({ learned: [], equipped: [] });
+    expect(s.p1.v2SkillCooldowns).toEqual({});
+    expect(s.p2.v2SkillCooldowns).toEqual({});
+  });
+
+  it("initialBattleStatePvP — p1/p2 별 v2Skills 인자 buildSide 로 전달", () => {
+    const s = initialBattleStatePvP(
+      makePlayer({ spd: 15 }),
+      makePlayer({ spd: 5 }),
+      "P1",
+      "P2",
+      { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      { learned: ["v2_skill_recover"], equipped: [] },
+    );
+    expect(s.p1.v2Skills.equipped).toEqual(["v2_skill_strike"]);
+    expect(s.p2.v2Skills.equipped).toEqual([]);
+  });
+
+  it("ctx.v2Skills 로 양 side 전달 → 첫 턴 cast 시 mp 차감 + cd 세팅 + 시전 로그", () => {
+    const p1 = makePlayer({ spd: 100, atk: 100, maxMp: 500, hp: 200, maxHp: 200 });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 60, maxHp: 60 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // p1 의 mp 가 풀충전(500)에서 한 번 이상 차감되어야.
+    expect(r.finalState.p1.mp).toBeLessThan(500);
+    // 시전 로그 존재.
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("[스킬]"),
+      ),
+    ).toBe(true);
+  });
+
+  it("maxMp 0 (INT 없는 캐릭) → cast no-op", () => {
+    const p1 = makePlayer({ spd: 100, atk: 100, hp: 200, maxHp: 200 });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 60, maxHp: 60 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    expect(r.finalState.p1.mp).toBe(0);
+    expect(r.finalState.p1.v2SkillCooldowns).toEqual({});
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("[스킬]"),
+      ),
+    ).toBe(false);
+  });
+
+  // 회귀: advanceTurnPvP 가 attacksLeft > 0 일 때 같은 phase 를 반환 → 같은 side 가 연속
+  // loop iteration 점유 → 옛 dedupe 미보유 코드는 한 turn 에 v2 가 여러 번 fire (Codex Q3).
+  // per-side phase-entry flag 로 교체 후 1턴에 정확히 1회 cast.
+  it("같은 side 가 다대시(attackCount>1) 로 여러 iter 점유해도 1턴 1회 cast", () => {
+    // attackCount=3 인 강한 p1 → 한 turn 안에 advanceTurnPvP 가 여러 번 호출되며 phase 유지.
+    const p1 = makePlayer({
+      spd: 100,
+      atk: 100,
+      attackCount: 3,
+      maxMp: 10000,
+      hp: 500,
+      maxHp: 500,
+    });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 1000, maxHp: 1000 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // MP 차감 횟수 = cast 횟수. p1.mp = 풀충전 - (cast 횟수 × strike.mpCost).
+    const strike = V2_SKILLS["v2_skill_strike"];
+    const castCount = Math.floor(
+      (p1.maxMp! - r.finalState.p1.mp) / strike.mpCost,
+    );
+    // p1 의 turn 수는 적어도 1, 많아도 (적이 죽을 때까지). 매 turn 1회 cast 가 정상이므로
+    // cast 횟수가 turn 수보다 클 수 없음. p2 의 attacksLeft=0 이므로 p1 turn 수 ≈ loop iter / 2 + 1.
+    // 정확히 비교 어려우므로 sanity: cast 가 발생했으면서 한 turn 에 2번 fire 안 했는지.
+    // 보장: p1 의 strike cooldown 이 N+1 로 세팅 → 잘못된 dedupe 면 매 iter 마다 cast 시도 →
+    // 빠르게 MP 고갈. 정상이면 1턴/cast.
+    expect(castCount).toBeGreaterThan(0);
+    // p1.turn.completedPlayerTurns 가 cast 횟수 이상이면 dedupe 정상.
+    expect(r.finalState.p1.turn.completedPlayerTurns).toBeGreaterThanOrEqual(
+      castCount,
+    );
   });
 });
 

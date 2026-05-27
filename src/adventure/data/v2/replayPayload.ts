@@ -66,5 +66,8 @@ export function buildBattleStateFromReplay(
     buffs: {} as BattleState["buffs"],
     stacks: {} as BattleState["stacks"],
     ap: 0,
+    // PR-4a — replay 는 끝난 상태 표시만 하므로 빈 v2 스킬 상태로 충분.
+    v2Skills: { learned: [], equipped: [] },
+    v2SkillCooldowns: {},
   };
 }

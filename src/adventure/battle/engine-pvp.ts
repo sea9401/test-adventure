@@ -45,6 +45,7 @@ import { applyStartOfBattleSpellsPvP } from "../data/v2/spells";
 import {
   extractApEffect,
   potionHealAmount,
+  resolveV2SkillCast,
   rollAttackCount,
   selectApSkillsToFire,
 } from "./combatShared";
@@ -149,6 +150,9 @@ export type PvPSide = {
   flags: PvPSideFlags;
   buffs: PvPSideBuffs;
   stacks: PvPSideStacks;
+  // v2 스킬 (v2_skill_*) — PR-4a framework. 라이브 spells.ts 와 별개. equipped 빈 배열이면 no-op.
+  v2Skills: import("../data/v2/v2Skills").V2SkillsState;
+  v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
 };
 
 export type PvPBattleState = {
@@ -398,12 +402,18 @@ function actorKeys(phase: PvPPhase): { atkKey: "p1" | "p2"; defKey: "p1" | "p2" 
 
 // ── 초기화 ──────────────────────────────────────────────────────────────────
 
-function buildSide(player: PlayerCombat, name: string): PvPSide {
+function buildSide(
+  player: PlayerCombat,
+  name: string,
+  v2Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+): PvPSide {
   const startShield = player.bulwarkShield ?? 0;
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
   return {
     player,
     name,
+    v2Skills,
+    v2SkillCooldowns: {},
     hp: player.hp,
     maxHp: player.maxHp,
     mp: sideMaxMp, // 매치 시작 풀충전 (단판 모델). 토너먼트는 매치마다 다시 풀충전.
@@ -473,9 +483,11 @@ export function initialBattleStatePvP(
   p2Player: PlayerCombat,
   p1Name: string,
   p2Name: string,
+  p1Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  p2Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): PvPBattleState {
-  const p1Side = buildSide(p1Player, p1Name);
-  const p2Side = buildSide(p2Player, p2Name);
+  const p1Side = buildSide(p1Player, p1Name, p1Skills);
+  const p2Side = buildSide(p2Player, p2Name, p2Skills);
   const p1First = p1Player.spd >= p2Player.spd;
   const phase: PvPPhase = p1First ? "p1" : "p2";
   const initiator = p1First ? p1Name : p2Name;
@@ -2011,6 +2023,12 @@ export type PvPResolveContext = {
   // 전투 시작 로그에 박을 전술 안내 한 줄(양측 전술 라벨). 호출부가 문자열로 빌드해 넘긴다
   // (엔진은 stance 를 모름 — 순환 의존 회피). 미지정이면 추가 안 함.
   openingNote?: string;
+  // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped, 양 side 별도. 미지정/빈 배열이면
+  // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
+  v2Skills?: {
+    p1?: import("../data/v2/v2Skills").V2SkillsState;
+    p2?: import("../data/v2/v2Skills").V2SkillsState;
+  };
 };
 
 export type PvPBattleResolution = {
@@ -2025,6 +2043,33 @@ export type PvPBattleResolution = {
 
 // PvP 결판 — 양쪽이 turn cap 까지 결판 못 내면 무승부.
 export const PVP_TURN_CAP = 100;
+
+// PR-4a: v2 스킬 cast (framework only). MP 차감 + cooldown set + 로그.
+// 효과(damage/heal/buff/debuff) 는 PR-4b 에서 적용 — PR-4a 는 enemyHp/buffs 변화 없음.
+function castV2SkillOnAttackerTurnPvP(
+  state: PvPBattleState,
+  who: "p1" | "p2",
+): PvPBattleState {
+  const side = state[who];
+  const result = resolveV2SkillCast({
+    skills: side.v2Skills,
+    cooldowns: side.v2SkillCooldowns,
+    mp: side.mp,
+  });
+  const nextSide: PvPSide = {
+    ...side,
+    mp: result.nextMp,
+    v2SkillCooldowns: result.nextCooldowns,
+  };
+  const nextLog = result.castSkillName
+    ? appendLog(state.log, {
+        kind: "info",
+        text: `[스킬] ${side.name} — ${result.castSkillName} 시전`,
+        side: who,
+      })
+    : state.log;
+  return setSide({ ...state, log: nextLog }, who, nextSide);
+}
 
 export function resolveBattlePvP(
   p1Player: PlayerCombat,
@@ -2041,7 +2086,14 @@ export function resolveBattlePvP(
     p1: {} as Partial<Record<PotionId, number>>,
     p2: {} as Partial<Record<PotionId, number>>,
   };
-  let state = initialBattleStatePvP(p1Player, p2Player, p1Name, p2Name);
+  let state = initialBattleStatePvP(
+    p1Player,
+    p2Player,
+    p1Name,
+    p2Name,
+    ctx.v2Skills?.p1,
+    ctx.v2Skills?.p2,
+  );
   // v2 마법 — 매치 시작 시 양측 1회 sweep. 선공 측 우선 순서.
   // INT 0 인 양측은 자동 미발동.
   state = applyStartOfBattleSpellsPvP(
@@ -2086,8 +2138,20 @@ export function resolveBattlePvP(
   // 지금은 도전자(p1) 시점만. p2ApMax 는 향후 미러용으로 유지.
   void p2ApMax;
   let turns = 0;
+  // v2 스킬 (PR-4a) — 각 side 의 턴 진입 시 1회 cast (framework only).
+  // advanceTurnPvP 는 attacksLeft > 0 (다대시·블록 등) 일 때 같은 phase 를 반환하므로
+  // loop iteration 하나가 곧 한 turn 은 아니다 — per-side phase-entry flag 로 dedupe.
+  // 효과 적용은 PR-4b. 옛 applyStartOfBattleSpellsPvP (battle-start one-shot) 와 별개.
+  let v2CastedThisPhase: { p1: boolean; p2: boolean } = { p1: false, p2: false };
   while (state.phase !== "ended") {
     const who: "p1" | "p2" = state.phase === "p1" ? "p1" : "p2";
+    const other: "p1" | "p2" = who === "p1" ? "p2" : "p1";
+    // who 가 이번 phase 의 actor — 다른 쪽 flag 는 reset (그 쪽 다음 phase 에서 1회 보장).
+    v2CastedThisPhase[other] = false;
+    if (!v2CastedThisPhase[who]) {
+      v2CastedThisPhase[who] = true;
+      state = castV2SkillOnAttackerTurnPvP(state, who);
+    }
     let action: PlayerAction = { kind: "attack" };
     const picked = ctx.pickAction(state, who);
     if (picked.kind === "use_potion") {

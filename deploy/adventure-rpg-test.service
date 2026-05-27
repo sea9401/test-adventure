@@ -3,8 +3,12 @@
 # (3000 = prod adventure-rpg, 3001 = monster-arena, 3002 = adventure-rpg-test)
 # 환경변수는 ~/adventure-rpg-test/.env.production.local 에 두면 `next start` 가 알아서 로드한다.
 # 핵심 차이값 (prod 대비):
-#   DATABASE_URL          — 새 Neon 프로젝트 URL
-#   NEXT_PUBLIC_XP_RATE_MULT=5
+#   DATABASE_URL          — 별 RDS DB (test_adventurerpg)
+#   NEXT_PUBLIC_XP_RATE_MULT=2.5
+#     v2 EXP 페이싱 분석 결과 (scripts/sim-v2-exp-pacing.ts):
+#     stamina max 1000 / 1분 2회복 가정에서 일 1회 접속 기준 만렙 약 36일,
+#     상시 접속 기준 만렙 약 17일. 30~40일 만렙 목표에 맞춤.
+#     NEXT_PUBLIC_ 접두사라 빌드 시점 주입 — 변경 시 재빌드 필수.
 #   AUTH_SECRET           — 새 랜덤 (test 세션 분리)
 [Unit]
 Description=Adventure RPG (test)

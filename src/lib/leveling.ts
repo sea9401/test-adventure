@@ -13,7 +13,7 @@
 
 export const MAX_LEVEL = 100;
 
-// 서버 전역 EXP 배율 — 테스트 서버용. 빌드 시 NEXT_PUBLIC_XP_RATE_MULT=5 처럼 주입.
+// 서버 전역 EXP 배율 — 테스트 서버용. 빌드 시 NEXT_PUBLIC_XP_RATE_MULT=2.5 처럼 주입.
 // NEXT_PUBLIC_ 접두사라 클라/서버 양쪽에서 같은 값. 신참 ×2 와 길드 expMult 와는 곱해짐.
 // 안전 범위 [0.1, 100] 클램프, 파싱 실패/미설정 시 1.
 function parseXpRateMult(): number {

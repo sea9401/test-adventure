@@ -523,6 +523,8 @@ export async function applyResultToSaves(
   // 3-b) 레벨업 시 단련 포인트 지급 (레벨업 1당 +1).
   // 라이브 사냥은 useLevelUpDetection 이 클라에서 레벨 델타를 보고 주지만, 위탁 사냥은
   // collect 직후 page reload 라 클라가 델타를 못 봐서 포인트가 유실된다 → 서버가 직접 적립.
+  // (PR-S2: ×5 안 함 — autoHunt 가 라이브 derive 사용하므로 grant 만 올리면 5× 인플레.
+  //  autoHunt 자체를 v2 derive 로 마이그하는 별 PR 까지 ×1 유지.)
   let newTraining: SavedTraining = state.training;
   if (newLevelExp.levelsGained > 0) {
     newTraining = {

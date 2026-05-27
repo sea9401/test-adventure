@@ -4,6 +4,7 @@ import { Button, Field, NumberInput, TextInput } from "../../ui/Field";
 import { initialCharacterState } from "@/adventure/character/useCharacterState";
 import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
 import { maxHpForLevel } from "@/adventure/character/defaults";
+import { V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
 import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
 import type { Profile } from "@/adventure/profile/useProfile";
 import { emptyInventory, type InventoryState } from "@/adventure/inventory/useInventory";
@@ -296,9 +297,11 @@ export function SelectedUserPanel({
   );
 }
 
-// 단련 포인트 손실/복구 진단용. 기대값: (level-1) 회의 레벨업 + completedCount 회의
-// 훈련 완료 = 총 획득. 분배(allocated) 와 미사용(points) 의 합과 비교.
-// 차이가 음수면 어딘가 손실 — 그 만큼 단련 포인트로 채워주면 복구.
+// 단련 포인트 손실/복구 진단용. 기대값: (level-1) × V2_STAT_POINTS_PER_LEVEL(=5) 회의
+// 레벨업분 + completedCount 회의 훈련 완료 = 총 획득. 분배(allocated) + 미사용(points)
+// 합과 비교. diff = earned - held: 양수(빨강) = 부족분, 음수(주황) = 초과 적립.
+// 주의: v2 dungeon hunt grant(×5) 기준이라 라이브 page/autoHunt(×1 grant) 캐릭은 양의
+// diff 가 정상 — v2 derive 마이그 완료 전까진 false positive.
 function ExpectedPointsHint({
   level,
   training,
@@ -306,7 +309,8 @@ function ExpectedPointsHint({
   level: number;
   training: TrainingPersisted;
 }) {
-  const earned = Math.max(0, level - 1) + (training.completedCount ?? 0);
+  const levelEarned = Math.max(0, level - 1) * V2_STAT_POINTS_PER_LEVEL;
+  const earned = levelEarned + (training.completedCount ?? 0);
   const allocated = Object.values(training.allocated).reduce((a, b) => a + b, 0);
   const held = training.points + allocated;
   const diff = earned - held;
@@ -319,7 +323,8 @@ function ExpectedPointsHint({
   return (
     <div className="flex items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/50">
       <span className="font-mono">
-        {earned} = ({level} - 1) + {training.completedCount ?? 0}
+        {earned} = ({level} - 1)×{V2_STAT_POINTS_PER_LEVEL} +{" "}
+        {training.completedCount ?? 0}
       </span>
       <span className={`font-mono tabular-nums ${tone}`}>
         보유 {held} · 차이 {diff >= 0 ? `+${diff}` : diff}

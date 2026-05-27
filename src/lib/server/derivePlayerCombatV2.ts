@@ -39,6 +39,7 @@ import {
   type StatKey,
 } from "@/adventure/data/stats";
 import { normalizeEquippedSpells } from "@/adventure/data/v2/spells";
+import { V2_BASE_STATS } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
@@ -134,60 +135,37 @@ const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 // 옛 v2 = 2%. 5×SPD × 0.4% = 2% (동등).
 const EXTRA_ATK_PCT_PER_SPD = 0.4;
 
-// PR-S1 v2 베이스 스탯 — 5배 스케일 (옛 라이브 {3,...} × 5). baseCharacter.stats 는
-// 라이브 derive/arenaBots/autoHunt 가 공유 사용해 ×5 하면 라이브 측이 5× 강화돼 깨짐.
-// 따라서 v2 전용 baseline 으로 분리. INT 만 0 유지 (마법 시스템 신규 스탯).
-export const V2_BASE_STATS: Record<StatKey, number> = {
-  str: 15,
-  dex: 15,
-  vit: 15,
-  spd: 15,
-  luk: 15,
-  int: 0,
+// PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).
+// 여기서는 backward compat 을 위해 re-export.
+export { V2_BASE_STATS, V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
+
+// PR-S2: pure 함수 추출 — DB 의존 없이 (level/allocated/v2Equipped/hp) 입력으로 derive.
+// arenaBots 가 saves 없이 봇 PlayerCombat 빌드할 때 호출. DB wrapper 는 saves 로드 후 위임.
+export type DerivePlayerCombatV2PureInput = {
+  level: number;
+  /** training.allocated — V2_BASE_STATS 위에 더해질 분배 포인트. */
+  allocatedStats?: Partial<Record<StatKey, number>>;
+  /** parseEquipmentSave().equipped — 슬롯별 장비 id. */
+  v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+  /** 현재 hp. undefined 면 maxHp 풀충. maxHp 초과는 클램프. */
+  hp?: number;
+  /** character.v2.selectedStance raw. undefined = null. */
+  selectedStanceRaw?: unknown;
+  /** character.v2.equippedSpells raw. undefined = 빈 슬롯. */
+  equippedSpellsRaw?: unknown;
 };
 
-// PR-S1 5배 스케일 레벨업 grant — training.v2.points 에 (levelsGained × 5).
-// 현재 v2 hunt route 만 사용. autoHunt·useLevelUpDetection 은 라이브 system 경로라
-// dev 호환 위해 ×1 유지 (PR-S1 scope 외).
-export const V2_STAT_POINTS_PER_LEVEL = 5;
-
-export async function derivePlayerCombatV2(
-  userId: string,
-  executor: DbExecutor = db,
-): Promise<DerivedPlayerCombatV2 | null> {
-  const rows = await executor
-    .select({ key: savesKv.key, value: savesKv.value })
-    .from(savesKv)
-    .where(
-      and(
-        eq(savesKv.userId, userId),
-        inArray(savesKv.key, [
-          "character.v2",
-          "training.v2",
-          "equipment.v2",
-        ]),
-      ),
-    );
-
-  let character: SavedCharacterV2 | undefined;
-  let training: SavedTrainingV2 = {};
-  let equipmentSave: unknown = undefined;
-  for (const r of rows) {
-    if (r.key === "character.v2") character = r.value as SavedCharacterV2;
-    else if (r.key === "training.v2") training = (r.value ?? {}) as SavedTrainingV2;
-    else if (r.key === "equipment.v2") equipmentSave = r.value;
-  }
-  if (!character) return null;
-
-  const level = Math.max(1, character.level ?? 1);
-  const { equipped: v2Equipped } = parseEquipmentSave(equipmentSave);
+export function derivePlayerCombatV2Pure(
+  input: DerivePlayerCombatV2PureInput,
+): DerivedPlayerCombatV2 {
+  const level = Math.max(1, input.level ?? 1);
+  const v2Equipped = input.v2Equipped ?? {};
   const equipAcc = aggregateV2Equipment(v2Equipped);
 
-  // baseAllocatedStats = V2_BASE_STATS(×5) + training.allocated (장비 6스탯 제외).
-  // baseCharacter.stats 대신 v2 전용 baseline 사용 — 라이브 baseline 과 분리.
+  // baseAllocatedStats = V2_BASE_STATS(×5) + allocated (장비 6스탯 제외).
   const baseAllocatedStats: Record<StatKey, number> = STAT_KEYS.reduce(
     (acc, k) => {
-      acc[k] = (V2_BASE_STATS[k] ?? 0) + (training.allocated?.[k] ?? 0);
+      acc[k] = (V2_BASE_STATS[k] ?? 0) + (input.allocatedStats?.[k] ?? 0);
       return acc;
     },
     { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
@@ -221,7 +199,7 @@ export async function derivePlayerCombatV2(
   const extraAttackChancePct = spd * EXTRA_ATK_PCT_PER_SPD;
 
   // hp 클램프 (저장값이 maxHp 초과 안 되게)
-  const savedHp = character.hp ?? maxHp;
+  const savedHp = input.hp ?? maxHp;
   const hp = Math.max(0, Math.min(savedHp, maxHp));
 
   // 라이브 skillLayout — v2 마법 슬롯 cap 으로 재사용. storyFlagIds 빈 set.
@@ -232,7 +210,7 @@ export async function derivePlayerCombatV2(
 
   // v2 마법 슬롯 정규화 — 학습 가능·중복 제거·슬롯 cap.
   const equippedSpells = normalizeEquippedSpells(
-    character.equippedSpells,
+    input.equippedSpellsRaw,
     totalStats.int,
     layout.normalSlots,
   );
@@ -268,6 +246,46 @@ export async function derivePlayerCombatV2(
     effectiveFeatNames: Array.from({ length: layout.featSlots }, () => null),
     effectiveSkillSet: new Set<string>(),
     layout,
-    selectedStance: normalizeStance(character.selectedStance),
+    selectedStance: normalizeStance(input.selectedStanceRaw),
   };
+}
+
+export async function derivePlayerCombatV2(
+  userId: string,
+  executor: DbExecutor = db,
+): Promise<DerivedPlayerCombatV2 | null> {
+  const rows = await executor
+    .select({ key: savesKv.key, value: savesKv.value })
+    .from(savesKv)
+    .where(
+      and(
+        eq(savesKv.userId, userId),
+        inArray(savesKv.key, [
+          "character.v2",
+          "training.v2",
+          "equipment.v2",
+        ]),
+      ),
+    );
+
+  let character: SavedCharacterV2 | undefined;
+  let training: SavedTrainingV2 = {};
+  let equipmentSave: unknown = undefined;
+  for (const r of rows) {
+    if (r.key === "character.v2") character = r.value as SavedCharacterV2;
+    else if (r.key === "training.v2") training = (r.value ?? {}) as SavedTrainingV2;
+    else if (r.key === "equipment.v2") equipmentSave = r.value;
+  }
+  if (!character) return null;
+
+  const { equipped: v2Equipped } = parseEquipmentSave(equipmentSave);
+
+  return derivePlayerCombatV2Pure({
+    level: character.level ?? 1,
+    allocatedStats: training.allocated,
+    v2Equipped,
+    hp: character.hp,
+    selectedStanceRaw: character.selectedStance,
+    equippedSpellsRaw: character.equippedSpells,
+  });
 }

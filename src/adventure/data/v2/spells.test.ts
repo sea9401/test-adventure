@@ -25,6 +25,8 @@ function mkState(over: Partial<BattleState> = {}): BattleState {
     buffs: {} as BattleState["buffs"],
     stacks: {} as BattleState["stacks"],
     ap: 0,
+    v2Skills: { learned: [], equipped: [] },
+    v2SkillCooldowns: {},
     ...over,
   };
 }

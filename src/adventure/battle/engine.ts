@@ -4,6 +4,7 @@ import { type Potion, type PotionId } from "../data/potions";
 import {
   extractApEffect,
   potionHealAmount,
+  resolveV2SkillCast,
   rollAttackCount,
   selectApSkillsToFire,
 } from "./combatShared";
@@ -210,6 +211,10 @@ export type BattleState = {
   // 매 player turn 시작 시 -1 후 가능한 spell 1발 cast → 해당 cd 초기화.
   // 라이브 캐릭은 spellCooldowns 미정의 → castSpellsOnPlayerTurn 이 no-op.
   spellCooldowns?: import("../data/v2/spells").SpellCooldowns;
+  // v2 스킬 (v2_skill_*) 시스템 — PR-4a framework. 옛 spells 와 별개 자원이지만 MP 풀은 공유.
+  // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
+  v2Skills: import("../data/v2/v2Skills").V2SkillsState;
+  v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
   log: BattleLogEntry[];
   phase: BattlePhase;
   outcome: BattleOutcome | null;
@@ -957,6 +962,7 @@ export function initialBattleState(
   player: PlayerCombat,
   enemy: Monster,
   playerName: string,
+  v2Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): BattleState {
   const playerFirst = player.spd >= enemy.spd;
   const initiator = playerFirst ? playerName : enemy.name;
@@ -1067,6 +1073,8 @@ export function initialBattleState(
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     ap: (player.equippedAPSkills?.length ?? 0) > 0 ? AP_BATTLE_START : 0,
+    v2Skills,
+    v2SkillCooldowns: {},
   };
 }
 
@@ -2713,6 +2721,9 @@ export type ResolveContext = {
   // 전투 시작 로그에 박을 안내 한 줄(전술 등). 호출부가 문자열로 빌드해 넘긴다
   // (엔진은 stance 를 모름 — 순환 의존 회피). 미지정이면 추가 안 함.
   openingNote?: string;
+  // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped. 미지정/빈 배열이면
+  // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
+  v2Skills?: import("../data/v2/v2Skills").V2SkillsState;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
@@ -2734,7 +2745,7 @@ export function resolveBattle(
 ): BattleResolution {
   const potions: Partial<Record<PotionId, number>> = { ...ctx.potions };
   const consumed: Partial<Record<PotionId, number>> = {};
-  let state = initialBattleState(player, enemy, playerName);
+  let state = initialBattleState(player, enemy, playerName, ctx.v2Skills);
   // 보스 전투 여부 — 충돌파/천명 같은 %HP 효과 감산 (BOSS_PCT_HP_DAMAGE_MULT) 에 사용.
   if (ctx.isBoss) state = { ...state, isBoss: true };
   // v2 마법 (PR-7b) — 매 player turn 시작 시 cast. 전투 시작 시 sweep 폐기.
@@ -2785,6 +2796,11 @@ export function resolveBattle(
   // 으로 분할되어도 첫 step 에서만 cast (lastCastedTurn 로 dedupe). 첫 turn 은
   // completedPlayerTurns === 0 에서 cast (lastCastedTurn 초기값 -1).
   let lastCastedTurn = -1;
+  // v2 스킬 (v2_skill_*) — PR-4a framework. 옛 spells.ts dedupe 와 별개 — completedPlayerTurns
+  // 는 포션-only 턴 종료 시 증가하지 않아 (engine.ts:1222-1227) 한 turn 이 통째 미시전되는
+  // 케이스가 있다. v2 는 phase-entry flag 로 dedupe — player phase 가 enemy 로 빠졌다가
+  // 돌아올 때마다 정확히 1회 cast.
+  let v2CastedThisPlayerPhase = false;
 
   while (state.phase !== "ended") {
     let action: PlayerAction = { kind: "attack" };
@@ -2818,6 +2834,32 @@ export function resolveBattle(
           continue;
         }
       }
+      // v2 스킬 cast (PR-4a) — framework only. MP 차감 + cooldown set + 로그.
+      // 효과(damage/heal/buff/debuff) 는 PR-4b 에서 적용.
+      if (!v2CastedThisPlayerPhase) {
+        v2CastedThisPlayerPhase = true;
+        const result = resolveV2SkillCast({
+          skills: state.v2Skills,
+          cooldowns: state.v2SkillCooldowns,
+          mp: state.playerMp,
+        });
+        const nextLog = result.castSkillName
+          ? appendLog(state.log, {
+              kind: "info",
+              text: `[스킬] ${result.castSkillName} 시전`,
+              turn: "player",
+            })
+          : state.log;
+        state = {
+          ...state,
+          playerMp: result.nextMp,
+          v2SkillCooldowns: result.nextCooldowns,
+          log: nextLog,
+        };
+      }
+    } else {
+      // 비-player phase (enemy/ended). 다음 player phase 진입 시 다시 cast 할 수 있게 reset.
+      v2CastedThisPlayerPhase = false;
     }
     if (state.phase === "player") {
       const picked = ctx.pickAction(state);

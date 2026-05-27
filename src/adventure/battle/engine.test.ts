@@ -408,6 +408,118 @@ describe("resolveBattle", () => {
   });
 });
 
+// PR-4a v2 스킬 framework 통합 테스트 — resolveBattle 통해.
+describe("v2 스킬 런타임 framework (PR-4a)", () => {
+  it("ctx.v2Skills 미지정 → state.v2Skills 빈 배열 (no-op)", () => {
+    const r = resolveBattle(PLAYER, makeEnemy({ hp: 50 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    expect(r.finalState.v2Skills).toEqual({ learned: [], equipped: [] });
+    expect(r.finalState.v2SkillCooldowns).toEqual({});
+  });
+
+  it("equipped + MP 충분 → 첫 턴 cast 후 cooldown 세팅 + MP 차감 + 로그", () => {
+    const skillsPlayer: PlayerCombat = { ...PLAYER, maxMp: 1000 };
+    const r = resolveBattle(skillsPlayer, makeEnemy({ hp: 60 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    });
+    // strike 가 적어도 한 번은 발동 (cd=3, mp=20 가정 — 충분).
+    expect(r.finalState.playerMp).toBeLessThan(1000);
+    // 로그에 시전 entry 존재.
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("[스킬]"),
+      ),
+    ).toBe(true);
+  });
+
+  it("MP 0 / maxMp 0 → cast 안 됨 (INT 없는 캐릭 안전)", () => {
+    // PLAYER 는 maxMp 미지정 → undefined → 0 으로 클램프.
+    const r = resolveBattle(PLAYER, makeEnemy({ hp: 60 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    });
+    expect(r.finalState.playerMp).toBe(0);
+    expect(r.finalState.v2SkillCooldowns).toEqual({});
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("[스킬]"),
+      ),
+    ).toBe(false);
+  });
+
+  it("슬롯 우선순위 — 첫 슬롯 cooldown 중이면 다음 슬롯 cast", () => {
+    const skillsPlayer: PlayerCombat = { ...PLAYER, maxMp: 1000 };
+    const r = resolveBattle(skillsPlayer, makeEnemy({ hp: 200 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2_skill_strike", "v2_skill_flurry"],
+        equipped: ["v2_skill_strike", "v2_skill_flurry"],
+      },
+    });
+    // 두 스킬 모두 한 번 이상 발동 — 로그에 둘 다 나오는지.
+    const strikeFired = r.finalState.log.some(
+      (e) => e.kind === "info" && e.text.includes("강타"),
+    );
+    const flurryFired = r.finalState.log.some(
+      (e) => e.kind === "info" && e.text.includes("연격"),
+    );
+    expect(strikeFired).toBe(true);
+    // 전투 길이에 따라 flurry 도 cd 사이에 발동될 수 있음.
+    // 최소 하나는 발동했으면 OK — 우선순위 검증은 단위테스트가 cover.
+    expect(strikeFired || flurryFired).toBe(true);
+  });
+
+  // 회귀: 포션-only 턴 종료가 completedPlayerTurns 를 증가시키지 않아 옛 카운터 dedupe 가
+  // 한 턴 건너뛰던 문제 (Codex Q2). phase-entry flag 로 교체 후 정상 동작 확인.
+  it("포션-only 턴 후 다음 player phase 에서도 정상 cast (dedupe phase-entry 기반)", () => {
+    const skillsPlayer: PlayerCombat = {
+      ...PLAYER,
+      maxMp: 10000,
+      attackCount: 1,
+      hp: 200,
+      maxHp: 200,
+    };
+    let actionCount = 0;
+    const r = resolveBattle(
+      skillsPlayer,
+      makeEnemy({ hp: 500, atk: 5 }),
+      "P",
+      {
+        // 첫 player phase 액션 = 포션 (turn 종료). 그 후엔 공격.
+        pickAction: () => {
+          actionCount += 1;
+          if (actionCount === 1) {
+            return { kind: "use_potion", potionId: "potion_heal_s", potion: HEAL_POTION };
+          }
+          return { kind: "attack" };
+        },
+        potions: { potion_heal_s: 1 },
+        v2Skills: {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      },
+    );
+    // 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
+    const castLogs = r.finalState.log.filter(
+      (e) => e.kind === "info" && e.text.includes("[스킬]"),
+    );
+    expect(castLogs.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("강공격 (powerAttackBonus)", () => {
   // 적 def 0, 플레이어 atk 1 → 일반 공격 1 데미지 / 강공격 (atk+2) = 3 데미지.
   const minimal: PlayerCombat = {

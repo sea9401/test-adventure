@@ -141,7 +141,8 @@ function defaultViewOfTab(tab: TabId): View {
 }
 
 export function V2GameFlow() {
-  const [view, setView] = useState<View>(() => defaultViewOfTab("character"));
+  // 첫 시작 탭 — adventure (모험). 사용자가 진입 즉시 사냥/거점 흐름으로 안내.
+  const [view, setView] = useState<View>(() => defaultViewOfTab("adventure"));
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);

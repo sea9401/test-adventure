@@ -7,9 +7,9 @@
 //
 // 5배 스케일 6스탯 axis (옛 1pt 동등 = 새 5pt):
 //   str → atk 주력 (atk += str×0.2)
-//   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05)
+//   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T2 ×0.04)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
-//   spd → 다중공격 확률, 선공권 (extra += spd×0.4%). atk 영향 X
+//   spd → 다중공격 확률, 선공권 (extra += spd×0.4%) + atk 보조 (PR-T2 ×0.04)
 //   luk → 치명 (crit += luk×0.1). 스킬 조건부 X — 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
@@ -129,6 +129,12 @@ const HP_PER_VIT = 1; // 옛 5.  5×VIT × 1 = 5 HP (동등)
 const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 const CRIT_PER_LUK = 0.1; // 옛 0.5%. 5×LUK × 0.1% = 0.5% (동등)
 const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
+// PR-T2: DEX/SPD atk 보조 복원. PR-S1 에서 dex/spd/luk atk 보조(/5) 제거했더니
+// 후반 def 큰 잡몹 못 깨는 구조적 약점 발생(sim-v2-progression: Lv25+ DEX/SPD 0% wr).
+// 옛 라이브 dex/5+spd/5 의 ×5 스케일 환산값 = ×0.04 (= 0.2 / 5). LUK 는 빌드 정체성
+// 분리 위해 제외 유지 (LUK 는 crit-only axis).
+const ATK_PER_DEX = 0.04; // 옛 0.2. 5×DEX × 0.04 = 0.2 atk 기여 (동등)
+const ATK_PER_SPD = 0.04;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 // v2 전용 SPD 계수 — stats.ts 의 라이브 공용 EXTRA_ATTACK_PCT_PER_SPD(=2) 와 별도.
@@ -181,7 +187,13 @@ export function derivePlayerCombatV2Pure(
 
   // PR-S1 5배 스케일 — float 누적 후 atk/def/maxHp/maxMp 만 최종 floor.
   // crit/eva/acc/extraAtk 는 float 그대로 (엔진이 확률 비교만, 0.1%p 단위 보존).
-  const atk = Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk);
+  // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
+  const atk = Math.floor(
+    totalStats.str * ATK_PER_STR +
+      totalStats.dex * ATK_PER_DEX +
+      Math.max(0, totalStats.spd) * ATK_PER_SPD +
+      equipAcc.atk,
+  );
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
   const maxHp = Math.floor(
     maxHpForLevel(level) + totalStats.vit * HP_PER_VIT + equipAcc.hp,

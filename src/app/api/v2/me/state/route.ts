@@ -4,6 +4,7 @@ import { guilds, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
+import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -35,13 +36,14 @@ export async function GET() {
     return gid;
   });
 
-  const [charRow, profileRow, guildRow, combat, resources] = await Promise.all([
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")))
-      .limit(1)
-      .then((rows) => rows[0]),
+  const [charRow, profileRow, guildRow, combat, resources, skillsRow] =
+    await Promise.all([
+      db
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")))
+        .limit(1)
+        .then((rows) => rows[0]),
     db
       .select({ value: savesKv.value })
       .from(savesKv)
@@ -61,6 +63,12 @@ export async function GET() {
       .then((rows) => rows[0]),
     derivePlayerCombatV2(userId),
     db.transaction(async (tx) => readGuildResources(tx, guildId)),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "skills.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
   ]);
 
   const charSave = (charRow?.value ?? {}) as {
@@ -141,5 +149,6 @@ export async function GET() {
     guild: { id: guildId, name: guildName },
     resources,
     currentOutpost,
+    skills: parseV2SkillsState(skillsRow?.value),
   });
 }

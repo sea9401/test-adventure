@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { guilds, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -25,10 +26,14 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // ensureSoloGuild 는 idempotent write 가능 → tx 안. 나머지는 read-only 라 분리.
-  const guildId = await db.transaction(async (tx) =>
-    ensureSoloGuild(tx, userId),
-  );
+  // ensureSoloGuild + ensureV2StarterSkills 둘 다 idempotent write — 같은 tx 에서.
+  // 후자는 기존 staging 유저가 PR-1 카탈로그 도입 후 첫 me/state 호출 시 자동 백필.
+  // 학습 보유 6 종 모두 있고 equipped 비어있지 않으면 noop.
+  const guildId = await db.transaction(async (tx) => {
+    const gid = await ensureSoloGuild(tx, userId);
+    await ensureV2StarterSkills(tx, userId);
+    return gid;
+  });
 
   const [charRow, profileRow, guildRow, combat, resources] = await Promise.all([
     db

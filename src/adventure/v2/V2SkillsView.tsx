@@ -162,7 +162,7 @@ export function V2SkillsView({ onBack }: { onBack: () => void }) {
                   MP {s.mpCost} · 데미지 INT×{s.intMultiplier}
                   {s.learned && intStat > 0 && (
                     <span className="ml-1 text-indigo-600 dark:text-indigo-400">
-                      (현재 = {intStat * s.intMultiplier})
+                      (현재 = {Math.max(1, Math.floor(intStat * s.intMultiplier))})
                     </span>
                   )}
                 </div>

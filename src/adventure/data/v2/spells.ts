@@ -2,7 +2,10 @@
 //
 // PR-7b: 턴당 액티브 + cooldown 패턴. 매 player turn 시작 시 가능한 spell 1발 cast.
 //
-// - intMultiplier (PR-7): flame ×1 / bolt ×2 / meteor ×4
+// - intMultiplier (PR-T1 ×5 스케일): flame ×0.2 / bolt ×0.4 / meteor ×0.8
+//   PR-7 옛값 1/2/4 였으나 PR-S1 에서 INT raw 가 ×5 되면서 데미지 5× 부풀음
+//   (sim-v2-progression 측정: INT 가 모든 milestone 1턴 처치) → 1/5 너프로 동등화.
+//   cast 시 Math.floor 정수화.
 // - cooldownPlayerTurns (PR-7b): flame 0 / bolt 1 / meteor 3
 //   cast 직후 spellCooldowns[id] = cooldown 으로 set, 매 player turn 시작 시 -1.
 //   0 이면 (또는 미설정이면) cast 가능. flame 은 cd 0 → MP 만 있으면 매 turn 가능.
@@ -12,14 +15,14 @@
 //   - MP 회복 없음 (전투 끝까지 잔량 보존)
 //   - 마법은 회피 불가 + DEF 무시
 //
-// 학습 임계: INT 5(flame) / 15(bolt) / 30(meteor). 라이브 캐릭은 INT 0 → no-op.
+// 학습 임계 (PR-T1 ×5): INT 25(flame) / 75(bolt) / 150(meteor). 라이브 캐릭은 INT 0 → no-op.
 
 export type Spell = {
   id: SpellId;
   name: string;
   description: string;
   mpCost: number;
-  /** 데미지 = INT × intMultiplier (1 하한). */
+  /** 데미지 = floor(INT × intMultiplier), 1 하한. PR-T1 부터 mult 가 분수(0.2/0.4/0.8). */
   intMultiplier: number;
   /** cast 직후 다음 cast 가능 turn 까지의 대기 (player turn 단위). 0 = 매 턴 가능. */
   cooldownPlayerTurns: number;
@@ -33,7 +36,7 @@ export const SPELLS: Record<SpellId, Spell> = {
     name: "불꽃",
     description: "기초 마법. 적은 MP 로 작은 화염 일격.",
     mpCost: 20,
-    intMultiplier: 1,
+    intMultiplier: 0.2,
     cooldownPlayerTurns: 0,
   },
   bolt: {
@@ -41,7 +44,7 @@ export const SPELLS: Record<SpellId, Spell> = {
     name: "번개",
     description: "중급 마법. 적정 비용에 한 줄기 번개.",
     mpCost: 40,
-    intMultiplier: 2,
+    intMultiplier: 0.4,
     cooldownPlayerTurns: 1,
   },
   meteor: {
@@ -49,7 +52,7 @@ export const SPELLS: Record<SpellId, Spell> = {
     name: "유성",
     description: "상급 마법. 큰 비용으로 떨어뜨리는 별빛 일격.",
     mpCost: 80,
-    intMultiplier: 4,
+    intMultiplier: 0.8,
     cooldownPlayerTurns: 3,
   },
 };
@@ -59,10 +62,11 @@ export const SPELL_ORDER: readonly SpellId[] = ["meteor", "bolt", "flame"];
 
 // INT 임계값 자동 학습. INT 가 임계값 이상이면 자동 사용 가능.
 // v2 베이스 INT = 0 → 시작 시 아무것도 학습 안 됨.
+// PR-T1 ×5 스케일: 옛 5/15/30 → 25/75/150 (raw INT ×5 보정).
 export const SPELL_LEARN_THRESHOLD: Record<SpellId, number> = {
-  flame: 5,
-  bolt: 15,
-  meteor: 30,
+  flame: 25,
+  bolt: 75,
+  meteor: 150,
 };
 
 export function learnedSpellsForInt(intStat: number): SpellId[] {
@@ -135,8 +139,8 @@ export function castSpellsOnPlayerTurn(
     const spell = SPELLS[id];
     if (state.playerMp < spell.mpCost) continue;
     if ((cooldowns[id] ?? 0) > 0) continue;
-    // 3) cast
-    const damage = Math.max(1, intStat * spell.intMultiplier);
+    // 3) cast — PR-T1: mult 가 분수(0.2/0.4/0.8) 라 floor 정수화.
+    const damage = Math.max(1, Math.floor(intStat * spell.intMultiplier));
     const log: BattleLogEntry[] = [
       ...state.log,
       {
@@ -185,7 +189,8 @@ export function applyStartOfBattleSpellsPvP(
       return {
         spellName: spell.name,
         mpCost: spell.mpCost,
-        damage: Math.max(1, intStat * spell.intMultiplier),
+        // PR-T1: mult 분수 → floor 정수화.
+        damage: Math.max(1, Math.floor(intStat * spell.intMultiplier)),
       };
     }
     return null;

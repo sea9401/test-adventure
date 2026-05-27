@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
+import { StaleBuildAutoReload } from "@/components/StaleBuildAutoReload";
 import { VersionCheck } from "@/components/VersionCheck";
 import "./globals.css";
 
@@ -72,6 +73,7 @@ export default function RootLayout({
           <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         </head>
         <body className="min-h-full flex flex-col font-sans">
+          <StaleBuildAutoReload />
           <ServiceWorkerRegistrar />
           <VersionCheck />
           {children}

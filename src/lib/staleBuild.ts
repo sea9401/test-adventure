@@ -23,19 +23,61 @@ export function isStaleBuildError(err: unknown): boolean {
 
 const RELOAD_GUARD_KEY = "stale-build-reload-at";
 // 새로고침해도 같은 에러가 또 나면(진짜 깨진 배포 — stale 가 아님) 무한 reload 루프를 돈다.
-// 최근에 한 번 새로고침했으면 다시 안 한다.
-const RELOAD_COOLDOWN_MS = 30_000;
+// 최근에 한 번 새로고침했으면 다시 안 한다. 옛 30s 였으나 staging 사용자가
+// "다시 시도/새로고침 버튼 누르는 동안 cooldown 걸려 자동 reload 무효화" 사고로
+// 10s 로 완화 (2026-05-28). 진짜 깨진 빌드면 10s 안에 재발생해 동일 가드 작동.
+const RELOAD_COOLDOWN_MS = 10_000;
+
+// sessionStorage 차단 환경 (프라이빗 모드 일부) 백업 — in-memory timestamp 도 같이
+// 본다. 둘 중 가장 최근 reload 시점이 cooldown 기준.
+let inMemoryLastReload = 0;
 
 // 새 빌드를 받기 위해 1회 새로고침. 루프 가드에 걸려 건너뛰면 false 반환.
+// console.warn 로그 — 자동 reload 가 작동했는지 / cooldown 가드에 걸렸는지 추적용.
 export function reloadForStaleBuild(): boolean {
   if (typeof window === "undefined") return false;
+  let lastReloadAt = inMemoryLastReload;
   try {
-    const last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) ?? "0");
-    if (Date.now() - last < RELOAD_COOLDOWN_MS) return false;
-    sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now()));
+    const stored = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) ?? "0");
+    if (stored > lastReloadAt) lastReloadAt = stored;
   } catch {
-    // sessionStorage 불가(프라이빗 모드 등) — 가드 없이도 1회 reload 가 낫다.
+    // sessionStorage 차단 — in-memory 값만 사용.
   }
+  if (Date.now() - lastReloadAt < RELOAD_COOLDOWN_MS) {
+    console.warn("[staleBuild] reload skipped — cooldown active");
+    return false;
+  }
+  const now = Date.now();
+  inMemoryLastReload = now;
+  try {
+    sessionStorage.setItem(RELOAD_GUARD_KEY, String(now));
+  } catch {}
+  console.warn("[staleBuild] auto-reloading for new build");
   window.location.reload();
   return true;
+}
+
+// 전역 에러/promise rejection 핸들러 등록. idempotent — 여러 곳에서 호출해도 1회만
+// 설치된다. 1차 진입점은 instrumentation-client.ts (하이드레이션 전), 2차는 root
+// layout 의 StaleBuildAutoReload 컴포넌트 (instrumentation-client 가 staging build
+// 에 누락된 경우 백업).
+//
+// HMR/Next dev 에서 module 재로딩 시 module-level let 은 reset 되므로 globalThis
+// sentinel 사용 — 한 페이지 세션 안에서 1회만 등록.
+const STALE_BUILD_INSTALLED_KEY = "__staleBuildListenersInstalled";
+type GlobalWithSentinel = typeof globalThis & {
+  [STALE_BUILD_INSTALLED_KEY]?: boolean;
+};
+
+export function installStaleBuildAutoReload(): void {
+  if (typeof window === "undefined") return;
+  const g = globalThis as GlobalWithSentinel;
+  if (g[STALE_BUILD_INSTALLED_KEY]) return;
+  g[STALE_BUILD_INSTALLED_KEY] = true;
+  window.addEventListener("error", (event) => {
+    if (isStaleBuildError(event.error ?? event.message)) reloadForStaleBuild();
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    if (isStaleBuildError(event.reason)) reloadForStaleBuild();
+  });
 }

@@ -120,7 +120,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "철검",
     description: "흔한 한손검. 무난한 무게와 균형.",
-    stats: { str: 5, atk: 3 },
+    stats: { str: 25, atk: 3 },
   },
   v2_steel_sword: {
     id: "v2_steel_sword",
@@ -129,7 +129,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "강철검",
     description: "단단한 강철 한손검. 한 손에 묵직하다.",
-    stats: { str: 9, atk: 5 },
+    stats: { str: 45, atk: 5 },
   },
   v2_greatsword: {
     id: "v2_greatsword",
@@ -138,7 +138,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "한타검",
     description: "두 손으로 거머쥐는 큰 검. 일격의 무게가 다르다.",
-    stats: { str: 14, atk: 8 },
+    stats: { str: 70, atk: 8 },
   },
   v2_silver_sword: {
     id: "v2_silver_sword",
@@ -147,7 +147,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은검",
     description: "은으로 벼린 검. 옅게 빛을 낸다.",
-    stats: { str: 20, atk: 12 },
+    stats: { str: 100, atk: 12 },
   },
   v2_mithril_sword: {
     id: "v2_mithril_sword",
@@ -156,7 +156,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴검",
     description: "오래된 별빛이 어린 미스릴 검.",
-    stats: { str: 28, atk: 18 },
+    stats: { str: 140, atk: 18 },
   },
 
   // ── 무기-민 (dex/atk/crit) ───────────────────────
@@ -167,7 +167,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "목궁",
     description: "참나무로 깎은 활. 가볍지만 사정거리 짧다.",
-    stats: { dex: 4, atk: 2 },
+    stats: { dex: 20, atk: 2 },
   },
   v2_recurve_bow: {
     id: "v2_recurve_bow",
@@ -176,7 +176,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "합성궁",
     description: "휘어 만든 합성궁. 사거리가 늘었다.",
-    stats: { dex: 8, atk: 4, crit: 2 },
+    stats: { dex: 40, atk: 4, crit: 2 },
   },
   v2_horn_bow: {
     id: "v2_horn_bow",
@@ -185,7 +185,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "각궁",
     description: "뿔과 힘줄을 덧대 만든 강한 활.",
-    stats: { dex: 12, atk: 6, crit: 3 },
+    stats: { dex: 60, atk: 6, crit: 3 },
   },
   v2_silver_bow: {
     id: "v2_silver_bow",
@@ -194,7 +194,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은활",
     description: "은으로 보강된 정교한 활.",
-    stats: { dex: 18, atk: 9, crit: 5 },
+    stats: { dex: 90, atk: 9, crit: 5 },
   },
   v2_starsong_bow: {
     id: "v2_starsong_bow",
@@ -203,7 +203,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "별노래궁",
     description: "시위가 별의 노래처럼 떨린다.",
-    stats: { dex: 25, atk: 14, crit: 7 },
+    stats: { dex: 125, atk: 14, crit: 7 },
   },
 
   // ── 무기-지 (int/atk/mp) ─────────────────────────
@@ -214,7 +214,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "참나무 지팡이",
     description: "옹이가 굵은 지팡이. 무게가 손에 익는다.",
-    stats: { int: 5, atk: 1 },
+    stats: { int: 25, atk: 1 },
   },
   v2_runed_staff: {
     id: "v2_runed_staff",
@@ -223,7 +223,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "룬 지팡이",
     description: "룬을 새긴 지팡이. 미세하게 따뜻하다.",
-    stats: { int: 9, atk: 2, mp: 20 },
+    stats: { int: 45, atk: 2, mp: 20 },
   },
   v2_obsidian_staff: {
     id: "v2_obsidian_staff",
@@ -232,7 +232,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "흑요석 지팡이",
     description: "검은 유리처럼 매끄러운 지팡이.",
-    stats: { int: 14, atk: 3, mp: 35 },
+    stats: { int: 70, atk: 3, mp: 35 },
   },
   v2_silver_staff: {
     id: "v2_silver_staff",
@@ -241,7 +241,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은 지팡이",
     description: "은으로 감은 정교한 지팡이.",
-    stats: { int: 20, atk: 5, mp: 55 },
+    stats: { int: 100, atk: 5, mp: 55 },
   },
   v2_starlit_staff: {
     id: "v2_starlit_staff",
@@ -250,7 +250,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "별빛 지팡이",
     description: "보석 끝에 별빛이 머문다.",
-    stats: { int: 28, atk: 7, mp: 80 },
+    stats: { int: 140, atk: 7, mp: 80 },
   },
 
   // ── 방어-중갑 (vit/def, spd 페널티) ──────────────
@@ -263,7 +263,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "쇠사슬 갑옷",
     description: "고리를 엮은 갑옷. 무겁지만 든든하다.",
-    stats: { vit: 5, def: 6, spd: -1 },
+    stats: { vit: 25, def: 6, spd: -5 },
   },
   v2_plate_armor: {
     id: "v2_plate_armor",
@@ -272,7 +272,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "판금 갑옷",
     description: "철판을 덧댄 갑옷. 두꺼운 만큼 든든하다.",
-    stats: { vit: 9, def: 10, spd: -2 },
+    stats: { vit: 45, def: 10, spd: -10 },
   },
   v2_full_plate: {
     id: "v2_full_plate",
@@ -281,7 +281,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "완판 갑옷",
     description: "온몸을 두른 두꺼운 갑옷.",
-    stats: { vit: 14, def: 15, spd: -3 },
+    stats: { vit: 70, def: 15, spd: -15 },
   },
   v2_silver_plate: {
     id: "v2_silver_plate",
@@ -290,7 +290,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은판 갑옷",
     description: "은판으로 덧댄 갑옷. 빛이 묻어난다.",
-    stats: { vit: 20, def: 22, spd: -4 },
+    stats: { vit: 100, def: 22, spd: -20 },
   },
   v2_mithril_plate: {
     id: "v2_mithril_plate",
@@ -299,7 +299,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴 갑옷",
     description: "가볍고 단단한 미스릴 갑옷.",
-    stats: { vit: 28, def: 30, spd: -5 },
+    stats: { vit: 140, def: 30, spd: -25 },
   },
 
   // ── 방어-경갑 (dex/def/eva) ──────────────────────
@@ -310,7 +310,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "가죽 갑옷",
     description: "들개 가죽을 손질해 만든 가벼운 갑옷.",
-    stats: { dex: 2, def: 3 },
+    stats: { dex: 10, def: 3 },
   },
   v2_studded_leather: {
     id: "v2_studded_leather",
@@ -319,7 +319,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "보강 가죽 갑옷",
     description: "쇠징으로 덧댄 단단한 가죽 갑옷.",
-    stats: { dex: 5, def: 5, eva: 3 },
+    stats: { dex: 25, def: 5, eva: 3 },
   },
   v2_shadow_cloak: {
     id: "v2_shadow_cloak",
@@ -328,7 +328,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "그림자 망토",
     description: "발걸음을 가리는 어두운 망토.",
-    stats: { dex: 8, def: 7, eva: 5 },
+    stats: { dex: 40, def: 7, eva: 5 },
   },
   v2_silken_armor: {
     id: "v2_silken_armor",
@@ -337,7 +337,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은빛 비단 갑옷",
     description: "은사로 짠 가벼운 비단 갑옷.",
-    stats: { dex: 12, def: 10, eva: 7 },
+    stats: { dex: 60, def: 10, eva: 7 },
   },
   v2_windweave_cloak: {
     id: "v2_windweave_cloak",
@@ -346,7 +346,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "바람을 엮은 망토",
     description: "바람결을 짜 만든 가벼운 망토.",
-    stats: { dex: 17, def: 13, eva: 10 },
+    stats: { dex: 85, def: 13, eva: 10 },
   },
 
   // ── 장신-운 (luk/crit) ───────────────────────────
@@ -357,7 +357,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "은가락지",
     description: "흠집 없는 은반지. 광택이 곱다.",
-    stats: { luk: 3 },
+    stats: { luk: 15 },
   },
   v2_gold_ring: {
     id: "v2_gold_ring",
@@ -366,7 +366,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "황금 반지",
     description: "두꺼운 황금 반지. 묵직하게 손에 머문다.",
-    stats: { luk: 6, crit: 2 },
+    stats: { luk: 30, crit: 2 },
   },
   v2_lucky_charm: {
     id: "v2_lucky_charm",
@@ -375,7 +375,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "행운의 부적",
     description: "닳은 패에 글자가 빛난다.",
-    stats: { luk: 10, crit: 3 },
+    stats: { luk: 50, crit: 3 },
   },
   v2_stardust_ring: {
     id: "v2_stardust_ring",
@@ -384,7 +384,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "별모래 반지",
     description: "잘게 빻은 별모래가 박혀 있다.",
-    stats: { luk: 15, crit: 4 },
+    stats: { luk: 75, crit: 4 },
   },
   v2_fate_ring: {
     id: "v2_fate_ring",
@@ -393,7 +393,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "운명의 반지",
     description: "보는 각도마다 색이 바뀌는 반지.",
-    stats: { luk: 22, crit: 6 },
+    stats: { luk: 110, crit: 6 },
   },
 
   // ── 장신-마법 (int/mp) ───────────────────────────
@@ -404,7 +404,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "옥 부적",
     description: "옥 조각에 끈을 꿴 부적. 묘하게 안심된다.",
-    stats: { int: 3 },
+    stats: { int: 15 },
   },
   v2_rune_pendant: {
     id: "v2_rune_pendant",
@@ -413,7 +413,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "룬 펜던트",
     description: "조그만 룬이 박힌 펜던트.",
-    stats: { int: 6, mp: 25 },
+    stats: { int: 30, mp: 25 },
   },
   v2_crystal_amulet: {
     id: "v2_crystal_amulet",
@@ -422,7 +422,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "수정 부적",
     description: "맑은 수정에 빛이 모인다.",
-    stats: { int: 10, mp: 40 },
+    stats: { int: 50, mp: 40 },
   },
   v2_starlight_pendant: {
     id: "v2_starlight_pendant",
@@ -431,7 +431,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "별빛 펜던트",
     description: "은사슬에 별빛이 묶여 있다.",
-    stats: { int: 15, mp: 60 },
+    stats: { int: 75, mp: 60 },
   },
   v2_mana_essence: {
     id: "v2_mana_essence",
@@ -440,7 +440,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "마나의 정수",
     description: "푸른 빛이 일렁이는 작은 결정.",
-    stats: { int: 22, mp: 90 },
+    stats: { int: 110, mp: 90 },
   },
 };
 

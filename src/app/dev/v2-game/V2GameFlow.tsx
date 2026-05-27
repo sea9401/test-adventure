@@ -9,7 +9,8 @@ import {
   type CharacterAction,
 } from "@/adventure/v2/V2CharacterMenu";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
-import { V2SkillsView } from "@/adventure/v2/V2SkillsView";
+import { V2SkillEquipPanel } from "@/adventure/v2/V2SkillEquipPanel";
+import { V2InstructorView } from "@/adventure/v2/V2InstructorView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
@@ -73,6 +74,7 @@ type View =
   | { kind: "shop" }
   | { kind: "training" }
   | { kind: "smithy" }
+  | { kind: "instructors" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -98,6 +100,7 @@ function tabOfView(view: View): TabId {
     case "shop":
     case "training":
     case "smithy":
+    case "instructors":
       return "town";
     case "character":
     case "character-info":
@@ -243,6 +246,9 @@ export function V2GameFlow() {
         break;
       case "open-smithy":
         setView({ kind: "smithy" });
+        break;
+      case "open-instructors":
+        setView({ kind: "instructors" });
         break;
     }
   };
@@ -404,7 +410,10 @@ export function V2GameFlow() {
         <V2InventoryView onBack={() => setView({ kind: "character" })} />
       )}
       {view.kind === "skills" && (
-        <V2SkillsView onBack={() => setView({ kind: "character" })} />
+        <V2SkillEquipPanel onBack={() => setView({ kind: "character" })} />
+      )}
+      {view.kind === "instructors" && (
+        <V2InstructorView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "equipment" && (
         <V2EquipmentView onBack={() => setView({ kind: "character-info" })} />

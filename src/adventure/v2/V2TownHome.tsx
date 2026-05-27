@@ -1,6 +1,13 @@
 "use client";
 
-import { Barbell, FirstAid, Hammer, Sparkle, Storefront } from "@phosphor-icons/react";
+import {
+  Barbell,
+  FirstAid,
+  GraduationCap,
+  Hammer,
+  Sparkle,
+  Storefront,
+} from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
@@ -11,7 +18,8 @@ export type TownAction =
   | { kind: "open-shop" }
   | { kind: "open-training" }
   | { kind: "open-smithy" }
-  | { kind: "open-shrine" };
+  | { kind: "open-shrine" }
+  | { kind: "open-instructors" };
 
 export function V2TownHome({
   onAction,
@@ -58,6 +66,18 @@ export function V2TownHome({
           title="대장간"
           description="장비를 두드려 벼리는 곳. 준비 중."
           onClick={() => onAction({ kind: "open-smithy" })}
+        />
+        <EntryCard
+          icon={
+            <GraduationCap
+              size={28}
+              weight="duotone"
+              className="text-sky-500"
+            />
+          }
+          title="전직 교관"
+          description="6스탯 교관에게 골드를 내고 스킬을 배운다."
+          onClick={() => onAction({ kind: "open-instructors" })}
         />
       </div>
     </main>

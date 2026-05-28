@@ -15,6 +15,7 @@ import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
 import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
+import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
@@ -341,10 +342,7 @@ export function V2GameFlow() {
         <V2HealingView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "shop" && (
-        <V2PlaceholderView
-          title="상점"
-          onBack={() => setView({ kind: "town" })}
-        />
+        <V2ShopView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "training" && (
         <V2PlaceholderView

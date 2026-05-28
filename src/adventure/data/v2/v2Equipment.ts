@@ -114,9 +114,9 @@ export type V2Equipment = {
 // T3=비싼 컴포트. T4-5 는 던전 드랍 전용 (undefined).
 // 부위별 곱: 무기 ×1.5, 방어 ×1.0, 장신 ×0.5.
 const SHOP_TIER_BASE: Record<1 | 2 | 3, number> = {
-  1: 1000,
-  2: 6000,
-  3: 30000,
+  1: 500,
+  2: 3000,
+  3: 15000,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,

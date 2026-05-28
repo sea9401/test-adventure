@@ -12,7 +12,9 @@ export const V2_BASE_STATS: Record<StatKey, number> = {
   str: 15,
   dex: 15,
   vit: 15,
-  spd: 15,
+  // SPD 50 = 신캐 시작부터 2타 (SPD_PER_EXTRA_ATTACK=50 임계값 도달). 다중공격 기본
+  // 동작 보장. 다른 5스탯은 15 유지.
+  spd: 50,
   luk: 15,
   int: 0,
 };

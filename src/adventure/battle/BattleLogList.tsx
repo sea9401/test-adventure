@@ -71,6 +71,8 @@ export function BattleLogList({
               apMax={entry.apMax}
               playerMp={entry.playerMp}
               playerMaxMp={entry.playerMaxMp}
+              enemyMp={entry.enemyMp}
+              enemyMaxMp={entry.enemyMaxMp}
               sizes={s}
             />
           );
@@ -249,6 +251,8 @@ function HpBar({
   apMax,
   playerMp,
   playerMaxMp,
+  enemyMp,
+  enemyMaxMp,
   sizes,
 }: {
   playerHp: number;
@@ -259,8 +263,14 @@ function HpBar({
   apMax: number;
   playerMp?: number;
   playerMaxMp?: number;
+  enemyMp?: number;
+  enemyMaxMp?: number;
   sizes: Sizes;
 }) {
+  const showPlayerMp =
+    playerMaxMp != null && playerMaxMp > 0 && playerMp != null;
+  const showEnemyMp =
+    enemyMaxMp != null && enemyMaxMp > 0 && enemyMp != null;
   return (
     <div
       className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
@@ -284,7 +294,7 @@ function HpBar({
           </span>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-3">
         <InlineBar
           label="HP"
           value={playerHp}
@@ -296,18 +306,30 @@ function HpBar({
           value={enemyHp}
           max={enemyMaxHp}
           color="bg-rose-500"
-          align="right"
         />
       </div>
-      {playerMaxMp != null && playerMaxMp > 0 && playerMp != null && (
-        // v2 MP 바 — INT 0 캐릭(라이브) 은 maxMp=0 → 비표시.
-        <div className="mt-1 grid grid-cols-2 gap-1.5">
-          <InlineBar
-            label="MP"
-            value={playerMp}
-            max={playerMaxMp}
-            color="bg-blue-500"
-          />
+      {(showPlayerMp || showEnemyMp) && (
+        <div className="mt-1 grid grid-cols-2 gap-3">
+          {showPlayerMp ? (
+            <InlineBar
+              label="MP"
+              value={playerMp!}
+              max={playerMaxMp!}
+              color="bg-blue-500"
+            />
+          ) : (
+            <span />
+          )}
+          {showEnemyMp ? (
+            <InlineBar
+              label="MP"
+              value={enemyMp!}
+              max={enemyMaxMp!}
+              color="bg-blue-500"
+            />
+          ) : (
+            <span />
+          )}
         </div>
       )}
     </div>
@@ -319,48 +341,29 @@ function InlineBar({
   value,
   max,
   color,
-  align = "left",
 }: {
   label: string;
   value: number;
   max: number;
   color: string;
-  align?: "left" | "right";
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
-  const numbers = (
-    <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
-      {value}/{max}
-    </span>
-  );
-  const labelEl = (
-    <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-      {label}
-    </span>
-  );
-  // bar 가로 — 컨테이너 가득(flex-1) 대신 80px 로 짧게. 숫자가 컬럼 밖으로 새지 않게.
-  const bar = (
-    <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-      <div
-        className={`h-full ${color} transition-all`}
-        style={{ width: `${pct * 100}%` }}
-      />
-    </div>
-  );
-  if (align === "right") {
-    return (
-      <div className="flex items-center justify-end gap-1">
-        {numbers}
-        {bar}
-        {labelEl}
-      </div>
-    );
-  }
+  // [라벨 HP][바][숫자] — 양쪽 컬럼 모두 같은 순서 (거울 X). 바는 flex-1 로 컬럼 채움 +
+  // min-w-0 으로 숫자가 컬럼 밖 안 새게.
   return (
-    <div className="flex items-center justify-start gap-1">
-      {labelEl}
-      {bar}
-      {numbers}
+    <div className="flex items-center gap-1.5">
+      <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        {label}
+      </span>
+      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div
+          className={`h-full ${color} transition-all`}
+          style={{ width: `${pct * 100}%` }}
+        />
+      </div>
+      <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+        {value}/{max}
+      </span>
     </div>
   );
 }

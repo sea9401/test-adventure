@@ -84,6 +84,9 @@ export type BattleLogEntry =
        */
       playerMp?: number;
       playerMaxMp?: number;
+      /** 적 MP 스냅샷. 몬스터가 v2MaxMp 미정의면 0 → UI 비표시. */
+      enemyMp?: number;
+      enemyMaxMp?: number;
     };
 
 export type BattleOutcome = "win" | "lose";
@@ -2863,6 +2866,8 @@ export function resolveBattle(
     apMax: apMaxForLog,
     playerMp: s.playerMp,
     playerMaxMp: s.playerMaxMp,
+    enemyMp: s.enemyMp,
+    enemyMaxMp: s.enemyMaxMp,
   });
   // 초기 entry (적 등장 / 선공 / 능력 안내 등) 는 player 턴으로 태깅. 첫 턴 marker 도 박는다.
   // openingNote(전술 안내 등)가 있으면 적 등장 다음·첫 턴 marker 앞에 info 로 끼운다.

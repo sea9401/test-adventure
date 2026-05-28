@@ -2,37 +2,39 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Coins } from "@phosphor-icons/react";
-import { POTIONS, type PotionId } from "@/adventure/data/potions";
 
-// v2 상점 minimal — POTIONS 카탈로그 (HP/MP 6종) 만 구매. 라이브 /api/shop 라우트 그대로
-// 사용 (character.v2 + inventory.v2 잠금 + gold 차감 + potion 누계). 다른 카테고리
-// (재료/장비/소비재) 는 v2 inventory 시스템과 호환 위해 후속.
+// v2 상점 — HP/MP 충전식 (1g=1, 1000 cap). 옛 POTIONS 카탈로그 폐기.
+// 상점에 들러서 캐릭의 충전약 보유량을 채워둠 → 사냥 후 자동 회복 hook 이 부족분 차감.
+
+const MAX_CHARGE = 1000;
 
 type ShopState = {
   gold: number;
-  potions: Partial<Record<PotionId, number>>;
+  hpCharges: number;
+  mpCharges: number;
 };
+
+type Kind = "hp" | "mp";
 
 export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [state, setState] = useState<ShopState | null>(null);
-  const [busy, setBusy] = useState<PotionId | null>(null);
+  const [busy, setBusy] = useState<Kind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<PotionId | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
-      if (!res.ok) return;
-      const j = (await res.json()) as {
-        character?: { gold?: number };
-      };
+      const stateRes = await fetch("/api/v2/me/state");
+      const stateJ = stateRes.ok
+        ? ((await stateRes.json()) as { character?: { gold?: number } })
+        : null;
       const invRes = await fetch("/api/v2/me/inventory");
-      const inv = invRes.ok
-        ? ((await invRes.json()) as { potions?: Partial<Record<PotionId, number>> })
+      const invJ = invRes.ok
+        ? ((await invRes.json()) as { hpCharges?: number; mpCharges?: number })
         : null;
       setState({
-        gold: j.character?.gold ?? 0,
-        potions: inv?.potions ?? {},
+        gold: stateJ?.character?.gold ?? 0,
+        hpCharges: invJ?.hpCharges ?? 0,
+        mpCharges: invJ?.mpCharges ?? 0,
       });
     } catch {}
   }, []);
@@ -42,23 +44,23 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   const buy = useCallback(
-    async (id: PotionId) => {
-      setBusy(id);
+    async (kind: Kind, amount: number) => {
+      setBusy(kind);
       setMsg(null);
       try {
-        const res = await fetch("/api/shop", {
+        const res = await fetch("/api/v2/shop/charge", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind: "buy_potion", id, quantity: 1 }),
+          body: JSON.stringify({ kind, amount }),
         });
         const j = (await res.json().catch(() => null)) as
-          | { ok?: boolean; error?: string }
+          | { ok?: boolean; error?: string; charged?: number }
           | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
-        setMsg(`✓ ${POTIONS[id].name} 구매`);
+        setMsg(`✓ ${kind === "hp" ? "HP" : "MP"} +${j.charged ?? amount} 충전`);
         await refresh();
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
@@ -69,18 +71,17 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     [refresh],
   );
 
-  const buyables = (Object.keys(POTIONS) as PotionId[])
-    .map((id) => POTIONS[id])
-    .filter((p) => p.inShop !== false)
-    .sort((a, b) => (a.shopPrice ?? a.price) - (b.shopPrice ?? b.price));
+  const gold = state?.gold ?? 0;
+  const hp = state?.hpCharges ?? 0;
+  const mp = state?.mpCharges ?? 0;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="flex items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold">상점</h1>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            물약 카탈로그 (HP / MP). 라이브 /api/shop 라우트 그대로.
+            HP·MP 충전약 (1g당 1 충전, 최대 {MAX_CHARGE}). 사냥 후 자동 회복에 사용.
           </p>
         </div>
         <button
@@ -93,9 +94,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       </header>
       <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
         <Coins size={16} weight="fill" className="text-yellow-500" />
-        <span className="tabular-nums">
-          {(state?.gold ?? 0).toLocaleString()}g
-        </span>
+        <span className="tabular-nums">{gold.toLocaleString()}g</span>
       </div>
       {msg && (
         <div
@@ -108,62 +107,82 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           {msg}
         </div>
       )}
-      <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-        {buyables.map((p) => {
-          const owned = state?.potions[p.id] ?? 0;
-          const price = p.shopPrice ?? p.price;
-          const affordable = (state?.gold ?? 0) >= price;
-          const isOpen = expanded === p.id;
+
+      <ChargeRow
+        label="HP 충전약"
+        kind="hp"
+        current={hp}
+        gold={gold}
+        busy={busy === "hp"}
+        onBuy={buy}
+      />
+      <ChargeRow
+        label="MP 충전약"
+        kind="mp"
+        current={mp}
+        gold={gold}
+        busy={busy === "mp"}
+        onBuy={buy}
+      />
+    </main>
+  );
+}
+
+function ChargeRow({
+  label,
+  kind,
+  current,
+  gold,
+  busy,
+  onBuy,
+}: {
+  label: string;
+  kind: Kind;
+  current: number;
+  gold: number;
+  busy: boolean;
+  onBuy: (kind: Kind, amount: number) => void;
+}) {
+  const room = MAX_CHARGE - current;
+  const full = room <= 0;
+  const buyAmounts = [10, 100, 1000];
+  return (
+    <section className="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="text-base font-medium">{label}</h2>
+        <span className="text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
+          {current.toLocaleString()} / {MAX_CHARGE.toLocaleString()}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {buyAmounts.map((amt) => {
+          const actual = Math.min(amt, room);
+          const cost = actual;
+          const affordable = gold >= cost && actual > 0;
           return (
-            <li key={p.id} className="text-sm">
-              <button
-                type="button"
-                onClick={() => setExpanded(isOpen ? null : p.id)}
-                className="flex w-full items-center gap-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900/40"
-                aria-expanded={isOpen}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="truncate font-medium">{p.name}</span>
-                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                      보유 {owned}
-                    </span>
-                  </div>
-                </div>
-                <div className="shrink-0 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                  {price.toLocaleString()}g
-                </div>
-                <span
-                  className={`shrink-0 text-xs text-zinc-400 transition-transform ${
-                    isOpen ? "rotate-90" : ""
-                  }`}
-                >
-                  ▸
-                </span>
-              </button>
-              {isOpen && (
-                <div className="pb-2.5 pt-1">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {p.description}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => buy(p.id)}
-                    disabled={busy === p.id || !affordable}
-                    className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-                  >
-                    {busy === p.id
-                      ? "구매 중…"
-                      : affordable
-                        ? "1개 구매"
-                        : "골드 부족"}
-                  </button>
-                </div>
-              )}
-            </li>
+            <button
+              key={amt}
+              type="button"
+              onClick={() => onBuy(kind, amt)}
+              disabled={busy || full || !affordable}
+              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            >
+              +{amt} ({cost}g)
+            </button>
           );
         })}
-      </ul>
-    </main>
+        <button
+          type="button"
+          onClick={() => onBuy(kind, room)}
+          disabled={busy || full || gold < room}
+          className="rounded-md border border-emerald-400 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-200 dark:border-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-800/40"
+        >
+          꽉 채우기 ({room}g)
+        </button>
+      </div>
+      {full && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">최대치.</p>
+      )}
+    </section>
   );
 }

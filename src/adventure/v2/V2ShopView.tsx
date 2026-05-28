@@ -107,40 +107,37 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           {msg}
         </div>
       )}
-      <div className="space-y-2">
+      <ul className="divide-y divide-zinc-200 overflow-hidden rounded-md border border-zinc-200 bg-white/90 dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950/90">
         {buyables.map((p) => {
           const owned = state?.potions[p.id] ?? 0;
           const price = p.shopPrice ?? p.price;
           const affordable = (state?.gold ?? 0) >= price;
           return (
-            <div
+            <li
               key={p.id}
-              className="rounded-md border border-zinc-200 bg-white/90 p-3 dark:border-zinc-800 dark:bg-zinc-950/90"
+              className="flex items-center gap-3 px-3 py-2 text-sm"
             >
-              <div className="flex items-baseline justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="truncate text-base font-medium">{p.name}</div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    {p.description}
-                  </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{p.name}</div>
+                <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                  보유 {owned}
                 </div>
-                <div className="shrink-0 text-right text-xs text-zinc-600 dark:text-zinc-400">
-                  <div className="tabular-nums">{price.toLocaleString()}g</div>
-                  <div className="mt-0.5">보유 {owned}</div>
-                </div>
+              </div>
+              <div className="shrink-0 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+                {price.toLocaleString()}g
               </div>
               <button
                 type="button"
                 onClick={() => buy(p.id)}
                 disabled={busy === p.id || !affordable}
-                className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+                className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
               >
-                {busy === p.id ? "구매 중…" : affordable ? "1개 구매" : "골드 부족"}
+                {busy === p.id ? "…" : "구매"}
               </button>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </main>
   );
 }

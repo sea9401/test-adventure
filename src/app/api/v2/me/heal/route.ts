@@ -12,6 +12,7 @@ import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 
 type CharSave = {
   hp?: number;
+  mp?: number;
   hpRegenSince?: number;
   gold?: number;
   [k: string]: unknown;
@@ -45,11 +46,14 @@ export async function POST() {
 
     const now = Date.now();
     const maxHp = player.maxHp;
+    const maxMp = Math.max(0, player.player.maxMp ?? 0);
     const savedHp = Math.max(0, charSave.hp ?? maxHp);
+    const savedMp = Math.max(0, charSave.mp ?? maxMp);
     const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
     const regen = applyHpRegen(savedHp, maxHp, hpRegenSince, now);
 
-    if (regen.hp >= maxHp) {
+    // 둘 다 풀이어야 already_full. MP 가 미달이면 HP 풀이어도 회복 가능 (mp 만 채움).
+    if (regen.hp >= maxHp && savedMp >= maxMp) {
       return {
         ok: false as const,
         status: 409,
@@ -58,6 +62,8 @@ export async function POST() {
           error: "already_full" as const,
           hp: maxHp,
           maxHp,
+          mp: maxMp,
+          maxMp,
         },
       };
     }
@@ -68,6 +74,7 @@ export async function POST() {
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       hp: maxHp,
+      mp: maxMp,
       hpRegenSince: now,
       gold: gold - cost,
     });
@@ -79,6 +86,8 @@ export async function POST() {
         ok: true as const,
         hp: maxHp,
         maxHp,
+        mp: maxMp,
+        maxMp,
         gold: gold - cost,
         cost,
       },

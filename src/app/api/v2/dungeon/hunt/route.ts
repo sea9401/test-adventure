@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { outpostOccupations, savesKv } from "@/db/schema";
+import { outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -24,7 +24,7 @@ import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
   HUNT_COST,
   applyRegen,
@@ -176,8 +176,10 @@ export async function POST(req: Request) {
     // 점령자가 본인이 아닌 다른 user 이고, 사냥자가 점령 길드 멤버가 아닐 때만
     // 세금 transfer. 같은 길드면 세금 면제(정책 게이트의 charge="none" 의미).
     // owner row 가 비어 있으면(가입했지만 캐릭 미생성) 고아 지급 위험 → skip.
+    // 미점령(NPC 운영) 거점이면 OUTPOST_NPC_TAX_RATE 만큼 거점 금고에 누적.
     let taxOwnerId: string | null = null;
     let taxRate = 0;
+    let npcTaxOutpostId: string | null = null;
     if (
       occRow &&
       occRow.occupiedByUserId &&
@@ -202,6 +204,10 @@ export async function POST(req: Request) {
           taxRate = Math.max(0, Math.min(1, Number(occRow.taxRate) || 0));
         }
       }
+    } else if (outpostId && (!occRow || !occRow.occupiedByUserId)) {
+      // 미점령 거점 사냥 — NPC 가 OUTPOST_NPC_TAX_RATE 만큼 징수, 거점 금고에 누적.
+      npcTaxOutpostId = outpostId;
+      taxRate = OUTPOST_NPC_TAX_RATE;
     }
 
     // === 5. character.v2 lock — deadlock 방지 위해 두 user 모두 잠글 땐 userId 정렬 순서 ===
@@ -362,11 +368,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // 세금 계산 — 위에서 결정한 taxOwnerId / taxRate 사용.
+    // 세금 계산 — 위에서 결정한 taxOwnerId/npcTaxOutpostId/taxRate 사용.
     // outpost FOR UPDATE 로 정책/세율 스냅샷 — 점령자가 hunt 도중 정책을 바꿔도
     // 이 hunt 는 진입 시점 값으로 처리, 다음 hunt 부터 변경 반영.
     let goldTaxed = 0;
-    if (taxOwnerId && taxRate > 0 && won && goldGross > 0) {
+    if ((taxOwnerId || npcTaxOutpostId) && taxRate > 0 && won && goldGross > 0) {
       goldTaxed = Math.max(1, Math.floor(goldGross * taxRate));
       if (goldTaxed > goldGross) goldTaxed = goldGross;
     }
@@ -465,6 +471,23 @@ export async function POST(req: Request) {
         gold: Math.max(0, (ownerSave.gold ?? 0) + goldTaxed),
       };
       await upsertSave(tx, taxOwnerId, "character.v2", ownerNew);
+    }
+    // NPC 세금 — 미점령 거점 금고에 누적. 추후 점령 전쟁 보상으로 사용.
+    if (goldTaxed > 0 && npcTaxOutpostId) {
+      await tx
+        .insert(outpostTreasury)
+        .values({
+          outpostId: npcTaxOutpostId,
+          gold: goldTaxed,
+          updatedAt: new Date(now),
+        })
+        .onConflictDoUpdate({
+          target: outpostTreasury.outpostId,
+          set: {
+            gold: sql`${outpostTreasury.gold} + ${goldTaxed}`,
+            updatedAt: new Date(now),
+          },
+        });
     }
 
     return {

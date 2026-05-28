@@ -6,7 +6,7 @@ import {
   V2CharacterCard,
   type V2CharacterCardData,
 } from "./V2CharacterCard";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import type {
   Outpost,
   OutpostType,
@@ -156,7 +156,9 @@ export function V2AdventureHome({
               </dd>
               <dt className="text-zinc-500 dark:text-zinc-400">세율</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
-                {occupation ? formatTaxRate(occupation.taxRate) : "—"}
+                {occupation
+                  ? formatTaxRate(occupation.taxRate)
+                  : `${Math.round(OUTPOST_NPC_TAX_RATE * 100)}% (NPC)`}
               </dd>
               <dt className="text-zinc-500 dark:text-zinc-400">정책</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">

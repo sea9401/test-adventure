@@ -267,6 +267,13 @@
       "when": 1779772109133,
       "tag": "0037_skinny_the_fallen",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1779988411970,
+      "tag": "0038_outpost_treasury",
+      "breakpoints": true
     }
   ]
 }

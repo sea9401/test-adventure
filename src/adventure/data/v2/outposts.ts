@@ -16,6 +16,10 @@
 
 import type { Outpost } from "./types";
 
+// 미점령(NPC 운영) 거점의 기본 세율. 사냥 골드의 이만큼이 거점 금고에 누적되며
+// (outpost_treasury 테이블), 추후 점령 전쟁의 보상으로 사용된다.
+export const OUTPOST_NPC_TAX_RATE = 0.15;
+
 // 절대 중립 거점 — NPC 영구 운영.
 const NEUTRAL_OUTPOSTS: Outpost[] = [
   {

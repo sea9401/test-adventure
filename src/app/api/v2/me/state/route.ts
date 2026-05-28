@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guilds, savesKv } from "@/db/schema";
+import { guilds, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
@@ -87,11 +87,59 @@ export async function GET() {
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
   // null = 아직 거점 방문 안 함 ("이동 중").
-  let currentOutpost: { id: string; name: string } | null = null;
+  // PR-outpost-info: V2AdventureHome 의 거점 카드용 occupation (보유 길드/세율/정책/다음 공격)
+  // 동봉. row 없으면 occupation=null (NPC 운영). 점령 길드 name 별도 select.
+  type OccupationInfo = {
+    occupiedByUserId: string | null;
+    occupiedByGuildId: number | null;
+    occupiedByGuildName: string | null;
+    occupiedAt: string;
+    policy: string;
+    taxRate: string;
+    nextAttackAt: string;
+  };
+  type CurrentOutpost = {
+    id: string;
+    name: string;
+    occupation: OccupationInfo | null;
+  };
+  let currentOutpost: CurrentOutpost | null = null;
   const lastVisitId = charSave.lastVisitedOutpost?.outpostId;
   if (typeof lastVisitId === "string") {
     const o = OUTPOSTS.find((x) => x.id === lastVisitId);
-    if (o) currentOutpost = { id: o.id, name: o.name };
+    if (o) {
+      const occRow = (
+        await db
+          .select()
+          .from(outpostOccupations)
+          .where(eq(outpostOccupations.outpostId, o.id))
+          .limit(1)
+      )[0];
+      let occupation: OccupationInfo | null = null;
+      if (occRow) {
+        let occGuildName: string | null = null;
+        if (occRow.occupiedByGuildId != null) {
+          const g = (
+            await db
+              .select({ name: guilds.name })
+              .from(guilds)
+              .where(eq(guilds.id, occRow.occupiedByGuildId))
+              .limit(1)
+          )[0];
+          occGuildName = g?.name ?? null;
+        }
+        occupation = {
+          occupiedByUserId: occRow.occupiedByUserId,
+          occupiedByGuildId: occRow.occupiedByGuildId,
+          occupiedByGuildName: occGuildName,
+          occupiedAt: occRow.occupiedAt.toISOString(),
+          policy: occRow.policy,
+          taxRate: occRow.taxRate,
+          nextAttackAt: occRow.nextAttackAt.toISOString(),
+        };
+      }
+      currentOutpost = { id: o.id, name: o.name, occupation };
+    }
   }
   const profile = (profileRow?.value ?? null) as {
     name?: string;

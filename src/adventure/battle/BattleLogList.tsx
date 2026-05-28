@@ -261,19 +261,13 @@ function HpBar({
   playerMaxMp?: number;
   sizes: Sizes;
 }) {
-  const BAR_LEN = 10;
-  const renderBar = (cur: number, max: number): string => {
-    const ratio = max > 0 ? Math.max(0, Math.min(1, cur / max)) : 0;
-    const filled = Math.round(ratio * BAR_LEN);
-    return "█".repeat(filled) + "░".repeat(BAR_LEN - filled);
-  };
   return (
     <div
-      className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1 font-mono ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
+      className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
     >
       {apMax > 0 && (
-        // AP 핍 — 플레이어 HP 막대 바로 위. 미장착(apMax=0)은 그리지 않아 라인 공간 절약.
-        <div className="mb-0.5 flex items-center gap-1">
+        // AP 핍 — 플레이어 HP 막대 바로 위. 미장착(apMax=0) 은 그리지 않아 라인 공간 절약.
+        <div className="mb-1 flex items-center gap-1">
           {Array.from({ length: apMax }, (_, i) => (
             <span
               key={i}
@@ -290,36 +284,82 @@ function HpBar({
           </span>
         </div>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex-1 truncate">
-          <span className="text-emerald-700 dark:text-emerald-300">
-            {renderBar(playerHp, playerMaxHp)}
-          </span>
-          <span className="ml-1 text-zinc-600 dark:text-zinc-400">
-            {playerHp}/{playerMaxHp}
-          </span>
-        </span>
-        <span className="text-zinc-300 dark:text-zinc-600">│</span>
-        <span className="flex-1 truncate text-right">
-          <span className="mr-1 text-zinc-600 dark:text-zinc-400">
-            {enemyHp}/{enemyMaxHp}
-          </span>
-          <span className="text-rose-700 dark:text-rose-300">
-            {renderBar(enemyHp, enemyMaxHp)}
-          </span>
-        </span>
+      <div className="grid grid-cols-2 gap-2">
+        <InlineBar
+          label="HP"
+          value={playerHp}
+          max={playerMaxHp}
+          color="bg-emerald-500"
+        />
+        <InlineBar
+          label="HP"
+          value={enemyHp}
+          max={enemyMaxHp}
+          color="bg-rose-500"
+          align="right"
+        />
       </div>
       {playerMaxMp != null && playerMaxMp > 0 && playerMp != null && (
-        // v2 MP 바 — INT 0 캐릭(라이브) 은 maxMp=0 → 비표시. 마법 소비(PR-6+) 시 가시화.
-        <div className="mt-0.5 flex items-center gap-1">
-          <span className="text-blue-700 dark:text-blue-300">
-            {renderBar(playerMp, playerMaxMp)}
-          </span>
-          <span className="text-zinc-500 dark:text-zinc-400">
-            MP {playerMp}/{playerMaxMp}
-          </span>
+        // v2 MP 바 — INT 0 캐릭(라이브) 은 maxMp=0 → 비표시.
+        <div className="mt-1 grid grid-cols-2 gap-2">
+          <InlineBar
+            label="MP"
+            value={playerMp}
+            max={playerMaxMp}
+            color="bg-blue-500"
+          />
         </div>
       )}
+    </div>
+  );
+}
+
+function InlineBar({
+  label,
+  value,
+  max,
+  color,
+  align = "left",
+}: {
+  label: string;
+  value: number;
+  max: number;
+  color: string;
+  align?: "left" | "right";
+}) {
+  const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+  const numbers = (
+    <span className="shrink-0 tabular-nums text-zinc-500 dark:text-zinc-400">
+      {value}/{max}
+    </span>
+  );
+  const labelEl = (
+    <span className="w-5 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+      {label}
+    </span>
+  );
+  const bar = (
+    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div
+        className={`h-full ${color} transition-all`}
+        style={{ width: `${pct * 100}%` }}
+      />
+    </div>
+  );
+  if (align === "right") {
+    return (
+      <div className="flex items-center gap-1.5">
+        {numbers}
+        {bar}
+        {labelEl}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      {labelEl}
+      {bar}
+      {numbers}
     </div>
   );
 }

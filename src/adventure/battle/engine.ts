@@ -2893,18 +2893,22 @@ export function resolveBattle(
       if (!v2CastedThisPlayerPhase) {
         v2CastedThisPlayerPhase = true;
         // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
+        // 적이 박은 dot 이므로 enemy_attack 로그 (오른쪽 적 레인).
         const playerDotTick = tickV2Dots(state.playerV2Dots);
         if (playerDotTick.totalDmg > 0) {
           const before = state.playerHp;
           const newHp = Math.max(0, before - playerDotTick.totalDmg);
+          const dotLabels = state.playerV2Dots
+            .filter((d) => d.turns > 0)
+            .map((d) => d.label)
+            .join(" + ");
           state = {
             ...state,
             playerHp: newHp,
             playerV2Dots: playerDotTick.nextDots,
             log: appendLog(state.log, {
-              kind: "info",
-              text: `[지속피해] ${playerDotTick.totalDmg} 피해 (HP ${before} → ${newHp})`,
-              turn: "player",
+              kind: "enemy_attack",
+              text: `[${dotLabels}] ${playerDotTick.totalDmg} 피해를 입었다.`,
             }),
           };
           if (state.playerHp <= 0) {
@@ -2950,30 +2954,24 @@ export function resolveBattle(
         let nextEnemyHp = state.enemyHp;
         let nextPlayerHp = state.playerHp;
         let nextLog = state.log;
-        if (result.castSkillName) {
-          nextLog = appendLog(nextLog, {
-            kind: "info",
-            text: `[스킬] ${result.castSkillName} 시전`,
-            turn: "player",
-          });
-        }
-        if (result.enemyDamage > 0) {
+        // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
+        // damage 효과: 일반 공격과 같은 player_attack kind, "[강타] 적에게 N 피해를 입혔다."
+        if (result.enemyDamage > 0 && result.castSkillName) {
           nextEnemyHp = Math.max(0, nextEnemyHp - result.enemyDamage);
           nextLog = appendLog(nextLog, {
-            kind: "info",
-            text: `[스킬] ${state.enemy.name}에 ${result.enemyDamage} 피해`,
-            turn: "player",
+            kind: "player_attack",
+            text: `[${result.castSkillName}] ${state.enemy.name}에게 ${result.enemyDamage} 피해를 입혔다.`,
           });
         }
-        if (result.selfHeal > 0) {
+        // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
+        if (result.selfHeal > 0 && result.castSkillName) {
           const before = nextPlayerHp;
           nextPlayerHp = Math.min(state.playerMaxHp, nextPlayerHp + result.selfHeal);
           const actual = nextPlayerHp - before;
           if (actual > 0) {
             nextLog = appendLog(nextLog, {
-              kind: "info",
-              text: `[스킬] HP ${actual} 회복`,
-              turn: "player",
+              kind: "player_attack",
+              text: `[${result.castSkillName}] HP ${actual} 회복했다.`,
             });
           }
         }
@@ -3048,9 +3046,11 @@ export function resolveBattle(
             enemyHp: newHp,
             enemyV2Dots: enemyDotTick.nextDots,
             log: appendLog(state.log, {
-              kind: "info",
-              text: `[지속피해] ${state.enemy.name} ${enemyDotTick.totalDmg} 피해 (HP ${before} → ${newHp})`,
-              turn: "enemy",
+              kind: "player_attack",
+              text: `[${state.enemyV2Dots
+                .filter((d) => d.turns > 0)
+                .map((d) => d.label)
+                .join(" + ")}] ${state.enemy.name}에게 ${enemyDotTick.totalDmg} 피해를 입혔다.`,
             }),
           };
           if (state.enemyHp <= 0) {
@@ -3095,31 +3095,24 @@ export function resolveBattle(
         let nextPlayerHp = state.playerHp;
         let nextEnemyHp = state.enemyHp;
         let nextLog = state.log;
-        if (result.castSkillName) {
-          nextLog = appendLog(nextLog, {
-            kind: "info",
-            text: `[적 스킬] ${state.enemy.name} — ${result.castSkillName} 시전`,
-            turn: "enemy",
-          });
-        }
-        if (result.enemyDamage > 0) {
-          // attacker=enemy, target=player → enemyDamage 는 player 에 가해진 데미지.
+        // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
+        // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
+        if (result.enemyDamage > 0 && result.castSkillName) {
           nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
           nextLog = appendLog(nextLog, {
-            kind: "info",
-            text: `[적 스킬] 플레이어에 ${result.enemyDamage} 피해`,
-            turn: "enemy",
+            kind: "enemy_attack",
+            text: `[${result.castSkillName}] ${state.enemy.name}이(가) ${result.enemyDamage} 피해를 입혔다.`,
           });
         }
-        if (result.selfHeal > 0) {
+        // 적의 self heal — enemy_attack kind (적 측 행동).
+        if (result.selfHeal > 0 && result.castSkillName) {
           const before = nextEnemyHp;
           nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + result.selfHeal);
           const actual = nextEnemyHp - before;
           if (actual > 0) {
             nextLog = appendLog(nextLog, {
-              kind: "info",
-              text: `[적 스킬] ${state.enemy.name} HP ${actual} 회복`,
-              turn: "enemy",
+              kind: "enemy_attack",
+              text: `[${result.castSkillName}] ${state.enemy.name} HP ${actual} 회복했다.`,
             });
           }
         }

@@ -465,10 +465,10 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     });
     // strike 가 적어도 한 번은 발동 (cd=3, mp=20 가정 — 충분).
     expect(r.finalState.playerMp).toBeLessThan(1000);
-    // 로그에 시전 entry 존재.
+    // 로그에 강타 prefix 가 박힌 player_attack 존재 (일반 공격과 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "info" && e.text.includes("[스킬]"),
+        (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
       ),
     ).toBe(true);
   });
@@ -487,7 +487,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     expect(r.finalState.v2SkillCooldowns).toEqual({});
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "info" && e.text.includes("[스킬]"),
+        (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
       ),
     ).toBe(false);
   });
@@ -502,12 +502,12 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
         equipped: ["v2_skill_strike", "v2_skill_flurry"],
       },
     });
-    // 두 스킬 모두 한 번 이상 발동 — 로그에 둘 다 나오는지.
+    // 두 스킬 모두 한 번 이상 발동 — player_attack 로그에 prefix.
     const strikeFired = r.finalState.log.some(
-      (e) => e.kind === "info" && e.text.includes("강타"),
+      (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
     );
     const flurryFired = r.finalState.log.some(
-      (e) => e.kind === "info" && e.text.includes("연격"),
+      (e) => e.kind === "player_attack" && e.text.includes("[연격]"),
     );
     expect(strikeFired).toBe(true);
     // 전투 길이에 따라 flurry 도 cd 사이에 발동될 수 있음.
@@ -546,9 +546,9 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
         },
       },
     );
-    // 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
+    // 강타 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
     const castLogs = r.finalState.log.filter(
-      (e) => e.kind === "info" && e.text.includes("[스킬]"),
+      (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
     );
     expect(castLogs.length).toBeGreaterThanOrEqual(2);
   });
@@ -579,12 +579,12 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
-    // 데미지 로그 — "스킬] {enemy}에 N 피해" 패턴.
+    // 데미지 로그 — player_attack kind + 스킬명 prefix "[강타]".
     const dmgLog = r.finalState.log.find(
       (e) =>
-        e.kind === "info" &&
-        e.text.includes("피해") &&
-        e.text.includes("[스킬]"),
+        e.kind === "player_attack" &&
+        e.text.includes("피해를 입혔다") &&
+        e.text.includes("강타"),
     );
     expect(dmgLog).toBeDefined();
   });
@@ -612,7 +612,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
       },
     );
     const healLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("HP") && e.text.includes("회복") && e.text.includes("[스킬]"),
+      (e) => e.kind === "player_attack" && e.text.includes("HP") && e.text.includes("회복했다"),
     );
     expect(healLog).toBeDefined();
   });
@@ -671,17 +671,17 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
-    // 출혈 박힘 로그.
+    // 출혈 박힘 로그 (apply 시점 — info kind 유지).
     const dotApplyLog = r.finalState.log.find(
       (e) => e.kind === "info" && e.text.includes("[지속피해]") && e.text.includes("출혈"),
     );
     expect(dotApplyLog).toBeDefined();
-    // tick 로그 (enemy 측 turn 진입 시 누적 피해).
+    // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격 패턴 (player_attack + "[출혈]").
     const dotTickLogs = r.finalState.log.filter(
       (e) =>
-        e.kind === "info" &&
-        e.text.includes("[지속피해]") &&
-        e.text.includes("피해 (HP"),
+        e.kind === "player_attack" &&
+        e.text.includes("출혈") &&
+        e.text.includes("피해를 입혔다"),
     );
     expect(dotTickLogs.length).toBeGreaterThan(0);
   });
@@ -758,9 +758,11 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       pickAction: () => ({ kind: "attack" }),
       potions: {},
     });
-    // enemy v2 cast log 없음.
+    // enemy v2 cast 발동 로그 없음 (강타 prefix 없음 — 일반 적 공격 enemy_attack 와 구분).
     expect(
-      r.finalState.log.some((e) => e.kind === "info" && e.text.includes("[적 스킬]")),
+      r.finalState.log.some(
+        (e) => e.kind === "enemy_attack" && e.text.includes("[강타]"),
+      ),
     ).toBe(false);
     // enemy v2 state 빈 그대로.
     expect(r.finalState.enemyV2Skills.equipped).toEqual([]);
@@ -780,9 +782,11 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       pickAction: () => ({ kind: "attack" }),
       potions: {},
     });
-    // enemy 시전 로그 존재.
+    // enemy 강타 발동 로그 존재.
     expect(
-      r.finalState.log.some((e) => e.kind === "info" && e.text.includes("[적 스킬]")),
+      r.finalState.log.some(
+        (e) => e.kind === "enemy_attack" && e.text.includes("[강타]"),
+      ),
     ).toBe(true);
     // enemy MP 차감됨.
     expect(r.finalState.enemyMp).toBeLessThan(200);
@@ -804,8 +808,9 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       potions: {},
     });
     // strike mpCost=15. v2MaxMp=200. 최대 ~13 회 cast 가능. flag reset 없으면 1회만.
+    // 시전 별도 로그 폐기됐고 damage 로그가 enemy_attack — 강타 prefix 로 매 cast 식별.
     const castLogs = r.finalState.log.filter(
-      (e) => e.kind === "info" && e.text.includes("[적 스킬]") && e.text.includes("시전"),
+      (e) => e.kind === "enemy_attack" && e.text.includes("강타"),
     );
     expect(castLogs.length).toBeGreaterThan(1);
   });

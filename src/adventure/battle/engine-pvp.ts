@@ -2136,10 +2136,15 @@ function castV2SkillOnAttackerTurnPvP(
   if (dotTick.totalDmg > 0) {
     const before = sideStart.hp;
     const newHp = Math.max(0, before - dotTick.totalDmg);
+    const dotLabels = sideStart.v2Dots
+      .filter((d) => d.turns > 0)
+      .map((d) => d.label)
+      .join(" + ");
+    // 상대가 박은 dot 이 자기에게 가해진 피해 → 상대 측 행동으로 표시 (otherKey).
     preLog = appendLog(preLog, {
-      kind: "info",
-      text: `[지속피해] ${sideStart.name} ${dotTick.totalDmg} 피해 (HP ${before} → ${newHp})`,
-      side: who,
+      kind: "player_attack",
+      text: `[${dotLabels}] ${sideStart.name}이(가) ${dotTick.totalDmg} 피해를 입었다.`,
+      side: otherKey,
     });
     st = setSide({ ...st, log: preLog }, who, {
       ...sideStart,
@@ -2186,32 +2191,28 @@ function castV2SkillOnAttackerTurnPvP(
     },
   });
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
+  // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   let nextLog = st.log;
-  if (result.castSkillName) {
-    nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[스킬] ${side.name} — ${result.castSkillName} 시전`,
-      side: who,
-    });
-  }
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
-  if (result.enemyDamage > 0) {
+  // damage: 일반 공격 player_attack kind 미러.
+  if (result.enemyDamage > 0 && result.castSkillName) {
     nextOppHp = Math.max(0, nextOppHp - result.enemyDamage);
     nextLog = appendLog(nextLog, {
-      kind: "info",
-      text: `[스킬] ${opp.name}에 ${result.enemyDamage} 피해`,
+      kind: "player_attack",
+      text: `[${result.castSkillName}] ${side.name}이(가) ${opp.name}에게 ${result.enemyDamage} 피해를 입혔다.`,
       side: who,
     });
   }
-  if (result.selfHeal > 0) {
+  // heal: 같은 player_attack kind (자기 행동).
+  if (result.selfHeal > 0 && result.castSkillName) {
     const before = nextSideHp;
     nextSideHp = Math.min(side.maxHp, nextSideHp + result.selfHeal);
     const actual = nextSideHp - before;
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
-        kind: "info",
-        text: `[스킬] ${side.name} HP ${actual} 회복`,
+        kind: "player_attack",
+        text: `[${result.castSkillName}] ${side.name} HP ${actual} 회복했다.`,
         side: who,
       });
     }

@@ -1,15 +1,11 @@
 "use client";
 
-import {
-  Bell,
-  ChatCircle,
-  Gear,
-  MapPin,
-} from "@phosphor-icons/react";
+import { Bell, ChatCircle, MapPin } from "@phosphor-icons/react";
+import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 현재 거점 위치 (없으면 "이동 중") — V2GameFlow 가 visit 시 갱신.
-// 우측: 알림·채팅·설정 아이콘 — 일단 모양만, 클릭 시 no-op.
+// 우측: 알림·채팅·설정. 설정만 wiring (테마 토글 + 메뉴얼), 알림/채팅은 placeholder.
 
 export function V2TopBar({
   currentOutpost,
@@ -31,9 +27,7 @@ export function V2TopBar({
         <IconButton aria-label="채팅">
           <ChatCircle size={18} weight="duotone" />
         </IconButton>
-        <IconButton aria-label="설정">
-          <Gear size={18} weight="duotone" />
-        </IconButton>
+        <V2SettingsMenu />
       </nav>
     </header>
   );

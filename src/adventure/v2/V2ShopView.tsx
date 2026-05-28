@@ -113,27 +113,31 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           const price = p.shopPrice ?? p.price;
           const affordable = (state?.gold ?? 0) >= price;
           return (
-            <li
-              key={p.id}
-              className="flex items-center gap-3 px-3 py-2 text-sm"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{p.name}</div>
-                <div className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                  보유 {owned}
+            <li key={p.id} className="px-3 py-2 text-sm">
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="truncate font-medium">{p.name}</span>
+                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                      보유 {owned}
+                    </span>
+                  </div>
                 </div>
+                <div className="shrink-0 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+                  {price.toLocaleString()}g
+                </div>
+                <button
+                  type="button"
+                  onClick={() => buy(p.id)}
+                  disabled={busy === p.id || !affordable}
+                  className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+                >
+                  {busy === p.id ? "…" : "구매"}
+                </button>
               </div>
-              <div className="shrink-0 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
-                {price.toLocaleString()}g
-              </div>
-              <button
-                type="button"
-                onClick={() => buy(p.id)}
-                disabled={busy === p.id || !affordable}
-                className="shrink-0 rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-              >
-                {busy === p.id ? "…" : "구매"}
-              </button>
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {p.description}
+              </p>
             </li>
           );
         })}

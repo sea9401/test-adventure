@@ -6,7 +6,11 @@ import {
   aggregateV2Equipment,
   derivePlayerCombatV2Pure,
 } from "./derivePlayerCombatV2";
-import { V2_BASE_MP } from "@/adventure/data/v2/v2Stats";
+import {
+  V2_BASE_HP,
+  V2_BASE_MP,
+  V2_HP_PER_LEVEL,
+} from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 
 describe("aggregateV2Equipment", () => {
@@ -125,5 +129,37 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
       v2Equipped: { accessory: "v2_mana_essence" },
     });
     expect(d.player.maxMp).toBe(V2_BASE_MP + 90 + 110 * 2);
+  });
+});
+
+describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
+  it("Lv1 신캐 (빈 장비, vit 15) → maxHp = V2_BASE_HP + vit = 135 + 15 = 150", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      v2Equipped: {},
+    });
+    expect(d.totalStats.vit).toBe(15);
+    expect(d.maxHp).toBe(V2_BASE_HP + 15);
+    expect(d.maxHp).toBe(150);
+  });
+
+  it("레벨 성장 — Lv100 = V2_BASE_HP + 99×5 + vit", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 100,
+      v2Equipped: {},
+    });
+    expect(d.maxHp).toBe(V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15);
+    expect(d.maxHp).toBe(135 + 495 + 15); // 645
+  });
+
+  it("vit 투자 시 추가 (HP_PER_VIT 1)", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 50, spd: 0, luk: 0, int: 0 },
+      v2Equipped: {},
+    });
+    // 베이스 vit 15 + 할당 50 = 65. maxHp = 135 + 65 = 200.
+    expect(d.totalStats.vit).toBe(65);
+    expect(d.maxHp).toBe(V2_BASE_HP + 65);
   });
 });

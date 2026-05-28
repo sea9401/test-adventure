@@ -39,7 +39,6 @@ export async function GET() {
 
   const training = (trainingRow?.value ?? {}) as {
     points?: number;
-    revertPoints?: number;
     allocated?: Partial<Record<StatKey, number>>;
     endsAt?: number | null;
     completedCount?: number;
@@ -60,7 +59,6 @@ export async function GET() {
   return Response.json({
     ok: true,
     unspentPoints: Math.max(0, training.points ?? 0),
-    revertPoints: Math.max(0, training.revertPoints ?? 0),
     allocatedStats: allocated,
     baseStats: V2_BASE_STATS,
     gold: Math.max(0, charSave.gold ?? 0),

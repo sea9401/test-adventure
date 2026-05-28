@@ -8,9 +8,9 @@ import type { Monster } from "../data/monsters";
 // 단판(battleClaim)은 paragonRewardMult 곱.
 //
 // 2026-05-28: 0.01 → 0.1 (10×). 라이브 캘리브 (만렙 6h ~14k) 가 v2 staging 에는 너무 짠.
-// 포션 가격 (heal_s shopPrice 150g) 대비 잡몹 1g 으로 보충 불가. 10× 로 exp 100 → 10g,
-// ~15마리에 포션 1개 자연 페이싱. staging 측정 후 후속 튜닝.
-export const BASE_GOLD_RATE = 0.1;
+// 2026-05-28 추가: 0.1 → 1.0 (100×). 충전식 포션 모델 (1g=1, 1000 cap) 페이싱에 맞춰
+// 골드 입수 강화. 잡몹 exp 8 = 8g/처치 → ~20마리에 HP 충전 150 정도.
+export const BASE_GOLD_RATE = 1.0;
 
 /** 한 마리 처치 시 부여되는 base 골드(부스트 전 raw). 최소 1 보장. */
 export function monsterGoldReward(monster: Pick<Monster, "exp">): number {

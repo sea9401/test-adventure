@@ -108,6 +108,48 @@ export function potionHealAmount(
   return Math.floor(baseHeal * (1 + (potionHealPct ?? 0) / 100));
 }
 
+// ── v2 DoT (PR-8) ─────────────────────────────────────────────────────────
+// 지속 피해 (출혈/소각/한기/독 등). v2 스킬 effect kind "dot" 의 결과로 target 에 박힘.
+// 매 target 의 turn 진입 시 tick — 각 dot 의 turns -= 1 + dmgPerTurn 합산하여 target HP 차감.
+// turns <= 0 dot 은 drop. DEF 무시.
+// 같은 label 박히면 refresh (turns 새 값으로 덮어쓰기) — 정책 단순화.
+export type V2Dot = { label: string; dmgPerTurn: number; turns: number };
+export type V2DotList = readonly V2Dot[];
+
+// tick: dot 들 turns -1 + 총 dmg 합산. turns 0 도달 dot drop.
+// turns +0 시드 정책 — applyV2DotsToTarget 가 그대로 박음 (cd/buff 의 +1 시드와 다름).
+// 이유: dot 은 tick 시점에 즉시 dmg 적용 + turns-1. buff 는 tick 후 turns > 0 이어야 active.
+export function tickV2Dots(dots: V2DotList): { nextDots: V2Dot[]; totalDmg: number } {
+  const nextDots: V2Dot[] = [];
+  let totalDmg = 0;
+  for (const d of dots) {
+    if (d.turns <= 0) continue;
+    totalDmg += Math.max(0, d.dmgPerTurn);
+    if (d.turns > 1) nextDots.push({ ...d, turns: d.turns - 1 });
+    // turns === 1 → drop (이번 turn 이 마지막 적용).
+  }
+  return { nextDots, totalDmg };
+}
+
+// target 의 dot 목록 갱신. 같은 label 이 들어오면 refresh (덮어쓰기), 새 label 은 append.
+// turns 는 그대로 박는다 — tick 시점에 즉시 dmg 적용 + turns-1 패턴이라 cd 의 +1 시드 패턴과 다름.
+// 의도: N=3 → 3번 tick 마다 dmg 적용.
+export function applyV2DotsToTarget(
+  current: V2DotList,
+  toApply: ReadonlyArray<{ label: string; dmgPerTurn: number; turns: number }>,
+): V2Dot[] {
+  if (toApply.length === 0) return [...current];
+  const byLabel = new Map<string, V2Dot>(current.map((d) => [d.label, d]));
+  for (const a of toApply) {
+    byLabel.set(a.label, {
+      label: a.label,
+      dmgPerTurn: a.dmgPerTurn,
+      turns: a.turns,
+    });
+  }
+  return Array.from(byLabel.values());
+}
+
 // ── v2 스킬 런타임 (PR-4a~b) ──────────────────────────────────────────────
 // v2 스탯 스킬 시스템 (v2_skill_*, V2_SKILLS) 의 전투 런타임 헬퍼. PR-7a 부터 옛 spell
 // 시스템 (data/v2/spells.ts) 폐기 — 모든 마법은 V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델.
@@ -263,7 +305,10 @@ export function pickAutoCastV2Skill(args: {
 //     - selfHeal: heal effect 들의 합 (caller 가 maxHp 클램프, 0 = 미발동)
 //     - selfBuffsToApply: selfBuff effect 의 {stat,pct,turns} 목록 — caller 가 state.v2SelfBuffs 갱신
 //     - enemyDebuffsToApply: enemyDebuff effect 의 {stat,pct,turns} 목록 — caller 가 target.v2SelfDebuffs 갱신
+//   PR-8 (DoT 적용):
+//     - dotsToApplyToTarget: dot effect 의 {label,dmgPerTurn,turns} 목록 — caller 가 target.v2Dots 갱신.
 export type V2SkillBuffApply = { stat: StatKey; pct: number; turns: number };
+export type V2SkillDotApply = { label: string; dmgPerTurn: number; turns: number };
 export type V2SkillCastResult = {
   nextMp: number;
   nextCooldowns: V2SkillCooldowns;
@@ -273,6 +318,7 @@ export type V2SkillCastResult = {
   selfHeal: number;
   selfBuffsToApply: V2SkillBuffApply[];
   enemyDebuffsToApply: V2SkillBuffApply[];
+  dotsToApplyToTarget: V2SkillDotApply[];
 };
 
 // PR-4b — attacker/target ctx 로 묶음. PR-4a 의 단순 mp/cd 입력에서 확장.
@@ -299,6 +345,7 @@ const EMPTY_CAST_RESULT_BASE = {
   selfHeal: 0,
   selfBuffsToApply: [] as V2SkillBuffApply[],
   enemyDebuffsToApply: [] as V2SkillBuffApply[],
+  dotsToApplyToTarget: [] as V2SkillDotApply[],
 };
 
 export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
@@ -325,6 +372,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let selfHeal = 0;
   const selfBuffsToApply: V2SkillBuffApply[] = [];
   const enemyDebuffsToApply: V2SkillBuffApply[] = [];
+  const dotsToApplyToTarget: V2SkillDotApply[] = [];
   for (const effect of def.effects) {
     if (effect.kind === "damage") {
       enemyDamage += v2DamageAmount({
@@ -355,6 +403,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         pct: effect.pct,
         turns: effect.turns,
       });
+    } else if (effect.kind === "dot") {
+      dotsToApplyToTarget.push({
+        label: effect.label,
+        dmgPerTurn: effect.dmgPerTurn,
+        turns: effect.turns,
+      });
     }
   }
   // 4) MP 차감 + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
@@ -367,6 +421,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     selfHeal,
     selfBuffsToApply,
     enemyDebuffsToApply,
+    dotsToApplyToTarget,
   };
 }
 

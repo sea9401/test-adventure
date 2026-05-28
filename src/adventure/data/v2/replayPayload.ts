@@ -77,5 +77,7 @@ export function buildBattleStateFromReplay(
     enemyV2SkillCooldowns: {},
     enemyMp: 0,
     enemyMaxMp: 0,
+    playerV2Dots: [],
+    enemyV2Dots: [],
   };
 }

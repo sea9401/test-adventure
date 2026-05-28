@@ -46,11 +46,14 @@ export type V2SkillId =
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
 // 0.10 으로 오해 금지. damage 의 statCoef 는 배율 (1.0 = 1×stat).
+// dot (PR-8) = 지속 피해 (DoT). label 은 UI 표시·중복 정책에 사용 (같은 label 박히면 turns refresh).
+// dmgPerTurn 은 raw 정수 — DEF 무시. 매 target turn 진입 시 적용.
 export type V2SkillEffect =
   | { kind: "damage"; statCoef: number; baseFlat?: number }
   | { kind: "heal"; pctMaxHp?: number; flat?: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
-  | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number };
+  | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number }
+  | { kind: "dot"; label: string; dmgPerTurn: number; turns: number };
 
 // 학습 조건 — 교관 화면에서 사용. 충족 안 되면 구매 차단.
 export type V2SkillLearnRequirement = {
@@ -218,10 +221,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "dex",
     category: "attack",
     tier: 2,
-    description: "짧고 정확한 찌르기를 여러 번 이어 빈틈을 넓힌다.",
+    description: "짧고 정확한 찌르기를 여러 번 이어 빈틈을 넓힌다. 빠른 베기 끝의 미세한 상처가 출혈로 이어진다.",
     mpCost: 65,
     cooldown: 3,
-    effects: [{ kind: "damage", statCoef: 1.35, baseFlat: 8 }],
+    // PR-8 — DoT (출혈) 추가. 발동 직후 damage + 다음 3턴 동안 매턴 6 추가 피해 (DEF 무시).
+    effects: [
+      { kind: "damage", statCoef: 1.35, baseFlat: 8 },
+      { kind: "dot", label: "출혈", dmgPerTurn: 6, turns: 3 },
+    ],
     learn: {
       goldCost: 1800,
       stat: { key: "dex", min: 45 },
@@ -430,10 +437,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "int",
     category: "attack",
     tier: 2,
-    description: "응축한 마력을 한 점에 쏘아 단일 대상을 꿰뚫는다.",
+    description: "응축한 마력을 한 점에 쏘아 단일 대상을 꿰뚫는다. 잔류한 마력이 살을 태운다.",
     mpCost: 70,
     cooldown: 3,
-    effects: [{ kind: "damage", statCoef: 1.5, baseFlat: 10 }],
+    // PR-8 — DoT (소각) 추가. 발동 직후 damage + 다음 2턴 동안 매턴 8 추가 피해 (DEF 무시).
+    effects: [
+      { kind: "damage", statCoef: 1.5, baseFlat: 10 },
+      { kind: "dot", label: "소각", dmgPerTurn: 8, turns: 2 },
+    ],
     learn: {
       goldCost: 1800,
       stat: { key: "int", min: 45 },

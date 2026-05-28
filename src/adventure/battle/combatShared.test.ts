@@ -11,6 +11,8 @@ import {
   v2BuffActive,
   v2AtkBuffMult,
   v2DefBuffMult,
+  tickV2Dots,
+  applyV2DotsToTarget,
 } from "./combatShared";
 import type { PlayerCombat } from "./engine";
 import type { Potion } from "../data/potions";
@@ -478,6 +480,54 @@ describe("tickV2BuffMap / applyV2BuffsToMap (PR-4b)", () => {
     // T5 tick → drop, inactive.
     map = tickV2BuffMap(map);
     expect(v2BuffActive(map, "str")).toBe(0);
+  });
+});
+
+describe("v2 DoT (PR-8) — tick + apply", () => {
+  it("tickV2Dots — 양수 turns -1, turns 1 도달 시 drop. 누적 dmg 합산", () => {
+    const r = tickV2Dots([
+      { label: "출혈", dmgPerTurn: 6, turns: 3 },
+      { label: "소각", dmgPerTurn: 8, turns: 1 },
+    ]);
+    expect(r.totalDmg).toBe(14);
+    expect(r.nextDots).toEqual([{ label: "출혈", dmgPerTurn: 6, turns: 2 }]);
+  });
+
+  it("tickV2Dots — 빈 배열 → 빈 결과", () => {
+    expect(tickV2Dots([])).toEqual({ nextDots: [], totalDmg: 0 });
+  });
+
+  it("applyV2DotsToTarget — 같은 label refresh, 새 label append", () => {
+    const current = [
+      { label: "출혈", dmgPerTurn: 5, turns: 2 },
+      { label: "한기", dmgPerTurn: 3, turns: 1 },
+    ];
+    const result = applyV2DotsToTarget(current, [
+      { label: "출혈", dmgPerTurn: 8, turns: 3 }, // refresh
+      { label: "소각", dmgPerTurn: 6, turns: 2 }, // 새 append
+    ]);
+    expect(result).toEqual([
+      { label: "출혈", dmgPerTurn: 8, turns: 3 },
+      { label: "한기", dmgPerTurn: 3, turns: 1 },
+      { label: "소각", dmgPerTurn: 6, turns: 2 },
+    ]);
+  });
+
+  it("회귀: turns:N dot 가 정확히 N 번 tick 동안 활성", () => {
+    // T1 apply turns:3. tick 시점 즉시 dmg 적용 + turns-1 패턴.
+    // T1 tick: dmg, drop to 2. T2: dmg, drop to 1. T3: dmg, drop (turns 1 → drop).
+    let dots: ReturnType<typeof tickV2Dots>["nextDots"] = applyV2DotsToTarget(
+      [],
+      [{ label: "출혈", dmgPerTurn: 5, turns: 3 }],
+    );
+    expect(dots[0].turns).toBe(3);
+    let activeCount = 0;
+    for (let i = 0; i < 5; i++) {
+      const r = tickV2Dots(dots);
+      if (r.totalDmg > 0) activeCount += 1;
+      dots = r.nextDots;
+    }
+    expect(activeCount).toBe(3);
   });
 });
 

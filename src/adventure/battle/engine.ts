@@ -6,6 +6,7 @@ import {
 } from "../data/potions";
 import {
   applyV2BuffsToMap,
+  applyV2DotsToTarget,
   defaultV2MaxMpFor,
   extractApEffect,
   potionHealAmount,
@@ -13,6 +14,7 @@ import {
   rollAttackCount,
   selectApSkillsToFire,
   tickV2BuffMap,
+  tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
@@ -237,6 +239,12 @@ export type BattleState = {
   enemyV2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
   enemyMp: number;
   enemyMaxMp: number;
+  // PR-8 — v2 DoT (지속 피해). dot effect 가 target 에 박힌 결과.
+  //   playerV2Dots: 적이 player 에 박은 DoT (매 player turn 진입 시 tick → playerHp 차감).
+  //   enemyV2Dots: player 가 적에 박은 DoT (매 enemy phase 진입 시 tick → enemyHp 차감).
+  // DEF 무시. 같은 label 은 refresh (덮어쓰기).
+  playerV2Dots: import("./combatShared").V2Dot[];
+  enemyV2Dots: import("./combatShared").V2Dot[];
   log: BattleLogEntry[];
   phase: BattlePhase;
   outcome: BattleOutcome | null;
@@ -1124,6 +1132,9 @@ export function initialBattleState(
     enemyMaxMp: enemy.v2MaxMp !== undefined
       ? Math.max(0, enemy.v2MaxMp)
       : defaultV2MaxMpFor(enemy.v2Skills ?? { learned: [], equipped: [] }),
+    // PR-8 — DoT 시작 시 빈 배열. cast 결과로 박힘.
+    playerV2Dots: [],
+    enemyV2Dots: [],
   };
 }
 
@@ -2881,6 +2892,38 @@ export function resolveBattle(
       // 매 player phase 진입 시 1회 — buff/debuff turn -1 tick + cast.
       if (!v2CastedThisPlayerPhase) {
         v2CastedThisPlayerPhase = true;
+        // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
+        const playerDotTick = tickV2Dots(state.playerV2Dots);
+        if (playerDotTick.totalDmg > 0) {
+          const before = state.playerHp;
+          const newHp = Math.max(0, before - playerDotTick.totalDmg);
+          state = {
+            ...state,
+            playerHp: newHp,
+            playerV2Dots: playerDotTick.nextDots,
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `[지속피해] ${playerDotTick.totalDmg} 피해 (HP ${before} → ${newHp})`,
+              turn: "player",
+            }),
+          };
+          if (state.playerHp <= 0) {
+            state = {
+              ...state,
+              log: appendLog(state.log, {
+                kind: "info",
+                text: `플레이어가 쓰러졌다.`,
+                turn: "player",
+              }),
+              outcome: "lose",
+              phase: "ended",
+            };
+            continue;
+          }
+        } else {
+          // 누적 데미지 0 (dot 비어있음) 라도 tick 결과 next 로 갱신.
+          state = { ...state, playerV2Dots: playerDotTick.nextDots };
+        }
         // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
         const tickedSelfBuffs = tickV2BuffMap(state.v2SelfBuffs);
         const tickedSelfDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
@@ -2936,6 +2979,8 @@ export function resolveBattle(
         }
         const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
         const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
+        // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
+        const nextEnemyDots = applyV2DotsToTarget(state.enemyV2Dots, result.dotsToApplyToTarget);
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
@@ -2950,6 +2995,13 @@ export function resolveBattle(
             turn: "player",
           });
         }
+        for (const dot of result.dotsToApplyToTarget) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[지속피해] ${state.enemy.name} ${dot.label} ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            turn: "player",
+          });
+        }
         state = {
           ...state,
           playerHp: nextPlayerHp,
@@ -2959,6 +3011,7 @@ export function resolveBattle(
           v2SelfBuffs: nextSelfBuffs,
           v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
           enemyV2Debuffs: nextEnemyDebuffs,
+          enemyV2Dots: nextEnemyDots,
           log: nextLog,
         };
         // lethal 체크 — v2 damage 로 적 사망 시 정상 종료 처리 (옛 spell cast 분기와 일관).
@@ -2985,6 +3038,41 @@ export function resolveBattle(
       v2CastedThisPlayerPhase = false;
       if (!v2CastedThisEnemyPhase) {
         v2CastedThisEnemyPhase = true;
+        // 0) PR-8 — enemy 가 받는 DoT tick (player 가 박은 dot). DEF 무시. lethal 처리.
+        const enemyDotTick = tickV2Dots(state.enemyV2Dots);
+        if (enemyDotTick.totalDmg > 0) {
+          const before = state.enemyHp;
+          const newHp = Math.max(0, before - enemyDotTick.totalDmg);
+          state = {
+            ...state,
+            enemyHp: newHp,
+            enemyV2Dots: enemyDotTick.nextDots,
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `[지속피해] ${state.enemy.name} ${enemyDotTick.totalDmg} 피해 (HP ${before} → ${newHp})`,
+              turn: "enemy",
+            }),
+          };
+          if (state.enemyHp <= 0) {
+            state = {
+              ...state,
+              log: appendLog(state.log, {
+                kind: "info",
+                text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+                turn: "enemy",
+              }),
+              outcome: "win",
+              phase: "ended",
+              turn: {
+                ...state.turn,
+                completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+              },
+            };
+            continue;
+          }
+        } else {
+          state = { ...state, enemyV2Dots: enemyDotTick.nextDots };
+        }
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
         const tickedEnemyDebuffsLocal = tickV2BuffMap(state.enemyV2Debuffs);
         const tickedPlayerDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
@@ -3038,6 +3126,8 @@ export function resolveBattle(
         const nextEnemySelfBuffs = applyV2BuffsToMap(tickedEnemySelfBuffs, result.selfBuffsToApply);
         // enemyDebuff effect (적이 player 에 거는 약화) → state.v2SelfDebuffs 갱신.
         const nextPlayerDebuffs = applyV2BuffsToMap(tickedPlayerDebuffs, result.enemyDebuffsToApply);
+        // PR-8 — enemy cast 의 dot 결과 → state.playerV2Dots 박힘 (target=player).
+        const nextPlayerDots = applyV2DotsToTarget(state.playerV2Dots, result.dotsToApplyToTarget);
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
@@ -3052,6 +3142,13 @@ export function resolveBattle(
             turn: "enemy",
           });
         }
+        for (const dot of result.dotsToApplyToTarget) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[적 지속피해] 플레이어 ${dot.label} ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            turn: "enemy",
+          });
+        }
         state = {
           ...state,
           playerHp: nextPlayerHp,
@@ -3061,6 +3158,7 @@ export function resolveBattle(
           enemyV2SelfBuffs: nextEnemySelfBuffs,
           enemyV2Debuffs: tickedEnemyDebuffsLocal,
           v2SelfDebuffs: nextPlayerDebuffs,
+          playerV2Dots: nextPlayerDots,
           log: nextLog,
         };
         // lethal — enemy v2 damage 로 player 사망 시 outcome=lose.

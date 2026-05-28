@@ -2,7 +2,11 @@
 // expected 값들은 PR-S1 5배 스케일 (옛값 × 5) 로 갱신.
 
 import { describe, expect, it } from "vitest";
-import { aggregateV2Equipment } from "./derivePlayerCombatV2";
+import {
+  aggregateV2Equipment,
+  derivePlayerCombatV2Pure,
+} from "./derivePlayerCombatV2";
+import { V2_BASE_MP } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 
 describe("aggregateV2Equipment", () => {
@@ -90,5 +94,36 @@ describe("aggregateV2Equipment", () => {
         ).toBe(true);
       }
     }
+  });
+});
+
+describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
+  it("INT 0 신캐 (빈 장비) → maxMp = V2_BASE_MP", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      v2Equipped: {},
+    });
+    expect(d.player.maxMp).toBe(V2_BASE_MP);
+    expect(d.totalStats.int).toBe(0);
+  });
+
+  it("INT 투자 시 추가 (V2_BASE_MP + int × 2)", () => {
+    // INT 25 → maxMp = 50 + 25 × 2 = 100.
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 25 },
+      v2Equipped: {},
+    });
+    expect(d.totalStats.int).toBe(25);
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 25 * 2);
+  });
+
+  it("mana accessory + INT 합산", () => {
+    // 마나의 정수 T5: int+110 mp+90. + 베이스 50 + INT(0+110)×2 = 50+90+220 = 360.
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      v2Equipped: { accessory: "v2_mana_essence" },
+    });
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 90 + 110 * 2);
   });
 });

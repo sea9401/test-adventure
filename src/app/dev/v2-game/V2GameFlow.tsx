@@ -84,13 +84,13 @@ type View =
 function tabOfView(view: View): TabId {
   switch (view.kind) {
     case "adventure":
-    case "arena":
       return "adventure";
     case "battle":
     case "dungeons":
     case "battle-floor":
     case "map":
     case "outpost":
+    case "arena":
       return "battle";
     case "town":
     case "shrine":
@@ -295,12 +295,8 @@ export function V2GameFlow() {
       {view.kind === "adventure" && (
         <V2AdventureHome
           currentOutpost={currentOutpost}
-          onOpenArena={() => setView({ kind: "arena" })}
           onEnterOutpost={enterOutpost}
         />
-      )}
-      {view.kind === "arena" && (
-        <V2ArenaView onBack={() => setView({ kind: "adventure" })} />
       )}
 
       {/* === 전투 탭 === */}
@@ -309,8 +305,12 @@ export function V2GameFlow() {
           onAction={(action: BattleAction) => {
             if (action.kind === "open-dungeons") setView({ kind: "dungeons" });
             else if (action.kind === "open-map") setView({ kind: "map" });
+            else if (action.kind === "open-arena") setView({ kind: "arena" });
           }}
         />
+      )}
+      {view.kind === "arena" && (
+        <V2ArenaView onBack={() => setView({ kind: "battle" })} />
       )}
       {view.kind === "dungeons" && (
         <V2DungeonList

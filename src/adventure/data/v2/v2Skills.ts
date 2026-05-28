@@ -170,7 +170,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "damage", statCoef: 1.45 }],
     learn: {
-      goldCost: 1800,
+      goldCost: 3600,
       stat: { key: "str", min: 45 },
       level: 18,
       prereqSkillIds: ["v2_skill_strike"],
@@ -190,7 +190,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "enemyDebuff", stat: "vit", pct: 14, turns: 3 },
     ],
     learn: {
-      goldCost: 2400,
+      goldCost: 4800,
       stat: { key: "str", min: 60 },
       level: 24,
       prereqSkillIds: ["v2_skill_strike"],
@@ -207,7 +207,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "enemyDebuff", stat: "str", pct: 16, turns: 3 }],
     learn: {
-      goldCost: 2000,
+      goldCost: 4000,
       stat: { key: "str", min: 50 },
       level: 20,
       prereqSkillIds: ["v2_skill_strike"],
@@ -230,7 +230,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "dot", label: "출혈", dmgPerTurn: 6, turns: 3 },
     ],
     learn: {
-      goldCost: 1800,
+      goldCost: 3600,
       stat: { key: "dex", min: 45 },
       level: 18,
       prereqSkillIds: ["v2_skill_flurry"],
@@ -247,7 +247,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "damage", statCoef: 1.55, baseFlat: 10 }],
     learn: {
-      goldCost: 2300,
+      goldCost: 4600,
       stat: { key: "dex", min: 58 },
       level: 23,
       prereqSkillIds: ["v2_skill_flurry"],
@@ -264,7 +264,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 5,
     effects: [{ kind: "selfBuff", stat: "dex", pct: 16, turns: 3 }],
     learn: {
-      goldCost: 2100,
+      goldCost: 4200,
       stat: { key: "dex", min: 52 },
       level: 21,
       prereqSkillIds: ["v2_skill_flurry"],
@@ -283,7 +283,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "heal", pctMaxHp: 16 }],
     learn: {
-      goldCost: 1900,
+      goldCost: 3800,
       stat: { key: "vit", min: 45 },
       level: 18,
       prereqSkillIds: ["v2_skill_recover"],
@@ -300,7 +300,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 5,
     effects: [{ kind: "selfBuff", stat: "vit", pct: 17, turns: 3 }],
     learn: {
-      goldCost: 2200,
+      goldCost: 4400,
       stat: { key: "vit", min: 55 },
       level: 22,
       prereqSkillIds: ["v2_skill_recover"],
@@ -317,7 +317,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "enemyDebuff", stat: "str", pct: 14, turns: 3 }],
     learn: {
-      goldCost: 2000,
+      goldCost: 4000,
       stat: { key: "vit", min: 50 },
       level: 20,
       prereqSkillIds: ["v2_skill_recover"],
@@ -336,7 +336,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "selfBuff", stat: "spd", pct: 16, turns: 3 }],
     learn: {
-      goldCost: 1800,
+      goldCost: 3600,
       stat: { key: "spd", min: 45 },
       level: 18,
       prereqSkillIds: ["v2_skill_dash"],
@@ -353,7 +353,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "enemyDebuff", stat: "spd", pct: 16, turns: 3 }],
     learn: {
-      goldCost: 2100,
+      goldCost: 4200,
       stat: { key: "spd", min: 52 },
       level: 21,
       prereqSkillIds: ["v2_skill_dash"],
@@ -370,7 +370,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 3,
     effects: [{ kind: "damage", statCoef: 1.5, baseFlat: 6 }],
     learn: {
-      goldCost: 2300,
+      goldCost: 4600,
       stat: { key: "spd", min: 58 },
       level: 23,
       prereqSkillIds: ["v2_skill_dash"],
@@ -389,7 +389,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 5,
     effects: [{ kind: "selfBuff", stat: "luk", pct: 17, turns: 3 }],
     learn: {
-      goldCost: 1900,
+      goldCost: 3800,
       stat: { key: "luk", min: 45 },
       level: 18,
       prereqSkillIds: ["v2_skill_fortune"],
@@ -406,7 +406,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "enemyDebuff", stat: "luk", pct: 16, turns: 3 }],
     learn: {
-      goldCost: 2100,
+      goldCost: 4200,
       stat: { key: "luk", min: 52 },
       level: 21,
       prereqSkillIds: ["v2_skill_fortune"],
@@ -423,7 +423,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 5,
     effects: [{ kind: "damage", statCoef: 1.75, baseFlat: 12 }],
     learn: {
-      goldCost: 2600,
+      goldCost: 5200,
       stat: { key: "luk", min: 62 },
       level: 25,
       prereqSkillIds: ["v2_skill_fortune"],
@@ -446,7 +446,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "dot", label: "소각", dmgPerTurn: 8, turns: 2 },
     ],
     learn: {
-      goldCost: 1800,
+      goldCost: 3600,
       stat: { key: "int", min: 45 },
       level: 18,
       prereqSkillIds: ["v2_skill_meditate"],
@@ -463,7 +463,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 5,
     effects: [{ kind: "damage", statCoef: 1.7, baseFlat: 14 }],
     learn: {
-      goldCost: 2500,
+      goldCost: 5000,
       stat: { key: "int", min: 60 },
       level: 24,
       prereqSkillIds: ["v2_skill_meditate"],
@@ -480,7 +480,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 4,
     effects: [{ kind: "enemyDebuff", stat: "int", pct: 16, turns: 3 }],
     learn: {
-      goldCost: 2100,
+      goldCost: 4200,
       stat: { key: "int", min: 52 },
       level: 21,
       prereqSkillIds: ["v2_skill_meditate"],

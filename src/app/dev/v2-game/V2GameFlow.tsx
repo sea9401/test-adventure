@@ -16,6 +16,7 @@ import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
 import { V2GuildHallView } from "@/adventure/v2/V2GuildHallView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
 import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
+import { V2TrainingView } from "@/adventure/v2/V2TrainingView";
 import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
@@ -352,10 +353,7 @@ export function V2GameFlow() {
         <V2ShopView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "training" && (
-        <V2PlaceholderView
-          title="훈련장"
-          onBack={() => setView({ kind: "town" })}
-        />
+        <V2TrainingView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "smithy" && (
         <V2PlaceholderView

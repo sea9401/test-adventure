@@ -1,72 +1,48 @@
 "use client";
 
-import { Card } from "@/components/ui/Card";
-import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
-import type { DungeonFloorId } from "@/adventure/data/v2/types";
+import { CompassRose, Sword } from "@phosphor-icons/react";
+import { EntryCard } from "@/components/ui/EntryCard";
 
-// 전투 탭 home — 8층 list. 현재 거점이 있으면 입장 가능, 없으면 안내.
-// 층 클릭 → 그 층의 V2DungeonFloorView (각 층 페이지).
+// 전투 탭 default — town/character 탭 패턴: EntryCard 던전/지도 2 종 진입.
+// 던전 → V2DungeonList (8 층 list). 지도 → V2ContinentMap.
+
+export type BattleAction = { kind: "open-dungeons" } | { kind: "open-map" };
 
 export function V2BattleHome({
-  currentOutpost,
-  onSelectFloor,
-  onOpenMap,
+  onAction,
 }: {
-  currentOutpost: { id: string; name: string } | null;
-  onSelectFloor: (floorId: DungeonFloorId) => void;
-  onOpenMap: () => void;
+  onAction: (action: BattleAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-2xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-2xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">전투</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {currentOutpost
-            ? `${currentOutpost.name} 의 던전. 층을 선택해 입장.`
-            : "거점에 머문 적이 없어요. 지도 탭에서 거점 진입 후 사냥 가능."}
+          모험가가 향할 사냥터.
         </p>
       </header>
-
-      {!currentOutpost ? (
-        <Card padding="md">
-          <button
-            type="button"
-            onClick={onOpenMap}
-            className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            지도 열기
-          </button>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {MAIN_DUNGEON.floors.map((floor) => (
-            <button
-              key={floor.id}
-              type="button"
-              onClick={() => onSelectFloor(floor.id)}
-              className="block w-full text-left"
-            >
-              <Card padding="sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-base font-medium">
-                      {floor.name}
-                    </div>
-                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      {floor.requirement.kind === "level"
-                        ? `Lv ${floor.requirement.min}~${floor.requirement.max}`
-                        : `엔드 ${floor.requirement.tier}`}
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                    입장
-                  </span>
-                </div>
-              </Card>
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="space-y-2">
+        <EntryCard
+          icon={
+            <Sword size={28} weight="duotone" className="text-rose-500" />
+          }
+          title="던전"
+          description="현재 거점의 8 층 던전. 층을 선택해 입장."
+          onClick={() => onAction({ kind: "open-dungeons" })}
+        />
+        <EntryCard
+          icon={
+            <CompassRose
+              size={28}
+              weight="duotone"
+              className="text-emerald-500"
+            />
+          }
+          title="지도"
+          description="대륙 지도. 거점 정보 확인 + 다른 거점으로 이동."
+          onClick={() => onAction({ kind: "open-map" })}
+        />
+      </div>
     </main>
   );
 }

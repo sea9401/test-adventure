@@ -17,7 +17,7 @@ export function V2DungeonList({
   onOpenMap: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">던전</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

@@ -26,7 +26,7 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     label: "text-[11px]",
     banner: "text-base",
     turnMarker: "text-[12px]",
-    hpBar: "text-[12px]",
+    hpBar: "text-[10px]",
     bubblePadding: "px-3 py-2",
     spacing: "space-y-1",
   },
@@ -36,7 +36,7 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     label: "text-[10px]",
     banner: "text-[13px]",
     turnMarker: "text-[10px]",
-    hpBar: "text-[10px]",
+    hpBar: "text-[9px]",
     bubblePadding: "px-2 py-1",
     spacing: "space-y-0.5",
   },
@@ -284,7 +284,7 @@ function HpBar({
           </span>
         </div>
       )}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         <InlineBar
           label="HP"
           value={playerHp}
@@ -301,7 +301,7 @@ function HpBar({
       </div>
       {playerMaxMp != null && playerMaxMp > 0 && playerMp != null && (
         // v2 MP 바 — INT 0 캐릭(라이브) 은 maxMp=0 → 비표시.
-        <div className="mt-1 grid grid-cols-2 gap-2">
+        <div className="mt-1 grid grid-cols-2 gap-1.5">
           <InlineBar
             label="MP"
             value={playerMp}
@@ -334,12 +334,12 @@ function InlineBar({
     </span>
   );
   const labelEl = (
-    <span className="w-5 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+    <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
       {label}
     </span>
   );
   const bar = (
-    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+    <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
       <div
         className={`h-full ${color} transition-all`}
         style={{ width: `${pct * 100}%` }}
@@ -348,7 +348,7 @@ function InlineBar({
   );
   if (align === "right") {
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         {numbers}
         {bar}
         {labelEl}
@@ -356,7 +356,7 @@ function InlineBar({
     );
   }
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1">
       {labelEl}
       {bar}
       {numbers}

@@ -114,7 +114,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const canChallenge = !busy && dailyRemaining > 0;
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-3xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <button
         type="button"
         onClick={onBack}

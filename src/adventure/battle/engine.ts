@@ -3043,21 +3043,16 @@ export function resolveBattle(
           };
           continue;
         }
-        // PR-cast-attack: cast 가 발동되면 그 턴의 attacksLeft -1 소모 (포션 패턴).
-        // 0 도달이면 phase=enemy 전환 — 일반 공격 대신 cast 만 진행.
-        // attackCount > 1 캐릭은 남은 swing 일반 공격으로 계속.
+        // cast 발동 시 그 턴 전체 소진 → phase=enemy 직행. 다대시(attacksLeft>1) 캐릭도
+        // 강타 1번으로 그 턴 종료. 의도: 1턴 1행동 (강타 OR 일반공격, 양립 X).
         if (result.castSkillId) {
-          const nextAttacksLeft = state.playerAttacksLeft - 1;
-          if (nextAttacksLeft <= 0) {
-            state = {
-              ...state,
-              phase: "enemy",
-              playerAttacksLeft: rollPlayerAttackCount(player),
-              turn: { ...state.turn, firstAttackPending: true },
-            };
-            continue;
-          }
-          state = { ...state, playerAttacksLeft: nextAttacksLeft };
+          state = {
+            ...state,
+            phase: "enemy",
+            playerAttacksLeft: rollPlayerAttackCount(player),
+            turn: { ...state.turn, firstAttackPending: true },
+          };
+          continue;
         }
       }
     } else if (state.phase === "enemy") {

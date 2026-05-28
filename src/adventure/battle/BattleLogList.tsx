@@ -50,49 +50,69 @@ export function BattleLogList({
   compact?: boolean;
 }) {
   const s = compact ? SIZES.compact : SIZES.normal;
+  // 턴별 그룹화 — turn_marker 가 그룹 헤더. 시작 전 entries (적 등장/선공 등) 는 별도 그룹.
+  const groups: BattleLogEntry[][] = [];
+  let cur: BattleLogEntry[] = [];
+  for (const e of entries) {
+    if (e.kind === "turn_marker") {
+      if (cur.length > 0) groups.push(cur);
+      cur = [e];
+    } else {
+      cur.push(e);
+    }
+  }
+  if (cur.length > 0) groups.push(cur);
+
+  const renderEntry = (entry: BattleLogEntry, i: number) => {
+    if (entry.kind === "phase_trigger") {
+      return <PhaseTriggerBanner key={i} text={entry.text} sizes={s} />;
+    }
+    if (entry.kind === "turn_marker") {
+      return <TurnMarker key={i} text={entry.text} sizes={s} />;
+    }
+    if (entry.kind === "hp_bar") {
+      return (
+        <HpBar
+          key={i}
+          playerHp={entry.playerHp}
+          playerMaxHp={entry.playerMaxHp}
+          enemyHp={entry.enemyHp}
+          enemyMaxHp={entry.enemyMaxHp}
+          ap={entry.ap}
+          apMax={entry.apMax}
+          playerMp={entry.playerMp}
+          playerMaxMp={entry.playerMaxMp}
+          enemyMp={entry.enemyMp}
+          enemyMaxMp={entry.enemyMaxMp}
+          sizes={s}
+        />
+      );
+    }
+    if (entry.kind === "player_attack" || entry.kind === "enemy_attack") {
+      return (
+        <AttackBubble
+          key={i}
+          side={entry.kind === "player_attack" ? "left" : "right"}
+          text={entry.text}
+          sizes={s}
+        />
+      );
+    }
+    const side =
+      entry.turn === "enemy" ? "right" : entry.turn === "player" ? "left" : null;
+    return <InfoLine key={i} text={entry.text} side={side} sizes={s} />;
+  };
+
   return (
-    <div className={s.spacing}>
-      {entries.map((entry, i) => {
-        if (entry.kind === "phase_trigger") {
-          return <PhaseTriggerBanner key={i} text={entry.text} sizes={s} />;
-        }
-        if (entry.kind === "turn_marker") {
-          return <TurnMarker key={i} text={entry.text} sizes={s} />;
-        }
-        if (entry.kind === "hp_bar") {
-          return (
-            <HpBar
-              key={i}
-              playerHp={entry.playerHp}
-              playerMaxHp={entry.playerMaxHp}
-              enemyHp={entry.enemyHp}
-              enemyMaxHp={entry.enemyMaxHp}
-              ap={entry.ap}
-              apMax={entry.apMax}
-              playerMp={entry.playerMp}
-              playerMaxMp={entry.playerMaxMp}
-              enemyMp={entry.enemyMp}
-              enemyMaxMp={entry.enemyMaxMp}
-              sizes={s}
-            />
-          );
-        }
-        if (entry.kind === "player_attack" || entry.kind === "enemy_attack") {
-          return (
-            <AttackBubble
-              key={i}
-              side={entry.kind === "player_attack" ? "left" : "right"}
-              text={entry.text}
-              sizes={s}
-            />
-          );
-        }
-        // info — entry.turn 이 있으면 좌/우, 없으면 가운데. 미래에 추가될 미지 kind 도
-        // 같은 경로로 폴백해 빨강 버블로 오해석되지 않게.
-        const side =
-          entry.turn === "enemy" ? "right" : entry.turn === "player" ? "left" : null;
-        return <InfoLine key={i} text={entry.text} side={side} sizes={s} />;
-      })}
+    <div className="space-y-3">
+      {groups.map((group, gi) => (
+        <div
+          key={gi}
+          className={`${s.spacing} rounded-md border border-zinc-200 bg-white/50 p-2 dark:border-zinc-800 dark:bg-zinc-900/50`}
+        >
+          {group.map((entry, i) => renderEntry(entry, i))}
+        </div>
+      ))}
     </div>
   );
 }
@@ -237,9 +257,9 @@ function InfoLine({
 }
 
 function TurnMarker({ text, sizes }: { text: string; sizes: Sizes }) {
-  // 턴 사이 호흡 — my-4 (위·아래 16px) 로 명확한 구분. space-y 보다 강하게.
+  // 턴 그룹화 후 그룹 박스가 호흡 담당 — TurnMarker 는 박스 안 헤더 한 줄.
   return (
-    <div className="my-4 flex items-center gap-2 text-zinc-400 dark:text-zinc-600">
+    <div className="flex items-center gap-2 text-zinc-400 dark:text-zinc-600">
       <div className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
       <span
         className={`rounded-full bg-zinc-100 px-2 py-0.5 ${sizes.turnMarker} font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300`}
@@ -363,7 +383,7 @@ function InlineBar({
       <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
         {label}
       </span>
-      <div className="h-2 min-w-0 max-w-[88px] flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div className="h-2 min-w-0 max-w-[104px] flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div
           className={`h-full ${color} transition-all`}
           style={{ width: `${pct * 100}%` }}

@@ -686,43 +686,9 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     expect(dotTickLogs.length).toBeGreaterThan(0);
   });
 
-  it("PR-5a — v2 buff 가 일반 공격에도 영향 (격리 해제). buff 있는 빌드 = 무 buff 보다 큰 누적 데미지", () => {
-    // baseline (atk 50, def 10): 일반 공격 = 50 - 10 = 40.
-    // dash 만 장착 (selfBuff spd +10% turns 3) — atk 곱셈 +10% → 일반공격 ~ (50×1.10) - 10 = 45.
-    const skillsPlayer: PlayerCombat = {
-      ...PLAYER,
-      atk: 50,
-      maxMp: 1000,
-      hp: 200,
-      maxHp: 200,
-      spd: 100,
-    };
-    const withSkill = resolveBattle(
-      skillsPlayer,
-      makeEnemy({ hp: 10000, atk: 1, def: 10 }),
-      "P",
-      {
-        pickAction: () => ({ kind: "attack" }),
-        potions: {},
-        v2Skills: {
-          learned: ["v2_skill_dash"],
-          equipped: ["v2_skill_dash"],
-        },
-      },
-    );
-    const noSkill = resolveBattle(
-      skillsPlayer,
-      makeEnemy({ hp: 10000, atk: 1, def: 10 }),
-      "P",
-      {
-        pickAction: () => ({ kind: "attack" }),
-        potions: {},
-      },
-    );
-    const withSkillDmg = 10000 - withSkill.finalState.enemyHp;
-    const noSkillDmg = 10000 - noSkill.finalState.enemyHp;
-    expect(withSkillDmg).toBeGreaterThan(noSkillDmg);
-  });
+  // PR-cast-attack 부터 cast 가 attacksLeft 를 소모해 일반 공격 대체 (포션 패턴).
+  // PR-5a 격리 해제 검증은 unit 테스트 (combatShared.test 의 v2AtkBuffMult) 가 cover —
+  // 통합 비교 (with-skill vs no-skill 누적 데미지) 는 cast 가 attack 대체라 의미 변경.
 
   it("damage 누계 + 첫 cast 가 lethal — outcome win 처리", () => {
     // 적 HP 30, strike 데미지 (atk 50 - def 5 = 45) > 30 → 1발에 처치.

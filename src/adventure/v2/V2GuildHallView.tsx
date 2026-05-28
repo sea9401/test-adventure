@@ -88,7 +88,7 @@ export function V2GuildHallView({ onBack }: { onBack: () => void }) {
   const canCreate = !guild && nameValid && levelOk && goldOk && !busy;
 
   return (
-    <main className="mx-auto max-w-2xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-4xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="길드 회관" onBack={onBack} />
 
       {guild ? (

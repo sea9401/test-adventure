@@ -266,10 +266,13 @@ export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 export type PlayerCombat = {
   hp: number;
   maxHp: number;
-  // v2 마법 시스템 — 전투당 풀충전. derive 에서 INT × MP_PER_INT 로 계산.
+  // v2 마법 시스템 — derive 에서 INT × MP_PER_INT + V2_BASE_MP 로 계산.
   // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성.
   // optional 로 둠 — 라이브 PlayerCombat 객체 리터럴(테스트 다수)이 매번 안 박아도 되게.
   maxMp?: number;
+  // 현재 mp — character.v2.mp 저장값. 미지정이면 maxMp 풀충전 (옛 단판 모델 fallback).
+  // 사냥 후 finalState.playerMp 가 character.v2.mp 에 저장 → 다음 사냥 시 그대로 시드.
+  mp?: number;
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
@@ -1044,14 +1047,19 @@ export function initialBattleState(
   if (barrierStart > 0) {
     log.push({ kind: "info", text: `[보호막] 별빛이 ${barrierStart} 둘렀다` });
   }
-  // 전투 시작 시 MP 풀충전 (단판 모델). INT 0 또는 undefined 면 둘 다 0.
+  // 전투 시작 시 MP 시드 — character.v2.mp 가 있으면 그 값, 없으면 maxMp (옛 단판 모델 fallback).
+  // PR-potion-auto-restore 이후 단판 풀충전 폐기 — mp 가 사냥 사이 보존되고 포션으로 회복.
   const playerMaxMp = Math.max(0, player.maxMp ?? 0);
+  const playerMpStart = Math.min(
+    playerMaxMp,
+    Math.max(0, player.mp ?? playerMaxMp),
+  );
   return {
     enemy,
     enemyHp: enemy.hp,
     playerHp: player.hp,
     playerMaxHp: player.maxHp,
-    playerMp: playerMaxMp,
+    playerMp: playerMpStart,
     playerMaxMp,
     log,
     phase: playerFirst ? "player" : "enemy",

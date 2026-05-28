@@ -17,7 +17,7 @@ export function V2CharacterMenu({
   onAction: (action: CharacterAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-4xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-3xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">캐릭터</h1>
       </header>

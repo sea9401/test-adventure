@@ -52,7 +52,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     .sort((a, b) => a.material.name.localeCompare(b.material.name));
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-3xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         <button
           type="button"

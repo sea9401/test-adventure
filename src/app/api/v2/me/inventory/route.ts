@@ -3,13 +3,13 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
-import { POTION_IDS, type PotionId } from "@/adventure/data/potions";
+import { MAX_CHARGE } from "@/app/api/v2/shop/charge/route";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //
 // surface 필드:
 //   - materials: v2 던전 드랍 (V2_MATERIALS 카탈로그 한정)
-//   - potions: inventory.v2.potions raw (POTION_IDS 카탈로그 한정) — 상점 구매 후 누적.
+//   - hpCharges / mpCharges: 충전식 (1g=1, MAX_CHARGE cap). 옛 POTIONS 폐기.
 
 export async function GET() {
   const userId = await ensureUser();
@@ -28,7 +28,7 @@ export async function GET() {
     );
 
   let charSave: { materials?: Record<string, unknown> } = {};
-  let invSave: { potions?: Record<string, unknown> } = {};
+  let invSave: { hpCharges?: number; mpCharges?: number } = {};
   for (const r of rows) {
     if (r.key === "character.v2")
       charSave = (r.value ?? {}) as typeof charSave;
@@ -49,18 +49,9 @@ export async function GET() {
     }
   }
 
-  // potions — POTION_IDS catalog 키만 surface.
-  const rawPotions =
-    invSave.potions && typeof invSave.potions === "object"
-      ? invSave.potions
-      : {};
-  const potions: Partial<Record<PotionId, number>> = {};
-  for (const id of POTION_IDS) {
-    const v = rawPotions[id];
-    if (typeof v === "number" && Number.isFinite(v) && v > 0) {
-      potions[id] = Math.floor(v);
-    }
-  }
+  // charges — 충전식 모델 (1g=1, MAX_CHARGE cap).
+  const hpCharges = Math.max(0, Math.min(MAX_CHARGE, invSave.hpCharges ?? 0));
+  const mpCharges = Math.max(0, Math.min(MAX_CHARGE, invSave.mpCharges ?? 0));
 
-  return Response.json({ ok: true, materials, potions });
+  return Response.json({ ok: true, materials, hpCharges, mpCharges });
 }

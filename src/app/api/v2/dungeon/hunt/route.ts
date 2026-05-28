@@ -18,12 +18,6 @@ function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
 import { MONSTERS } from "@/adventure/data/monsters";
-import {
-  POTIONS,
-  computeHealAmount,
-  computeMpRestoreAmount,
-  type PotionId,
-} from "@/adventure/data/potions";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import {
@@ -384,57 +378,39 @@ export async function POST(req: Request) {
 
     const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet);
 
-    // 사냥 후 hp — finalState.playerHp 시작. PR-potion-auto-restore: 부족분 만큼
-    // 보유 포션 (큰 → 중간 → 작은 순) 자동 소모해서 maxHp 까지 회복.
-    // MP 도 동일 — 단판 풀충전 모델 폐기, 사냥 사이 mp 보존 + 마력약 자동 회복.
+    // 사냥 후 hp/mp — finalState 시작. 충전식 모델 (1g=1충전, 1000 cap):
+    // inventory.v2.{hpCharges, mpCharges} 보유량 만큼 부족분 자동 회복. 옛 POTIONS
+    // 카탈로그 (heal_s/m/l 등) 폐기 후 단순 카운터.
     let afterHp = Math.max(0, battleResult.finalState.playerHp);
     let afterMp = Math.max(0, battleResult.finalState.playerMp);
 
-    // inventory.v2 lock — potion 카운트 자동 소모용.
     const invSave = await lockSaveForUpdate<{
-      potions?: Partial<Record<PotionId, number>>;
+      hpCharges?: number;
+      mpCharges?: number;
       [k: string]: unknown;
     }>(tx, userId, "inventory.v2", {});
-    const nextPotions: Partial<Record<PotionId, number>> = {
-      ...(invSave.potions ?? {}),
-    };
+    let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
+    let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
 
-    // HP 자동 회복 — 큰 → 중간 → 작은 순서. 부족분 채울 때까지.
-    if (afterHp > 0) {
-      const hpOrder: PotionId[] = [
-        "potion_heal_l",
-        "potion_heal_m",
-        "potion_heal_s",
-      ];
-      for (const id of hpOrder) {
-        while ((nextPotions[id] ?? 0) > 0 && afterHp < player.maxHp) {
-          const restore = computeHealAmount(POTIONS[id], player.maxHp);
-          afterHp = Math.min(player.maxHp, afterHp + restore);
-          nextPotions[id] = (nextPotions[id] ?? 0) - 1;
-        }
-        if (afterHp >= player.maxHp) break;
-      }
+    // HP 부족분 만큼 hpCharges 차감.
+    if (afterHp > 0 && afterHp < player.maxHp && hpCharges > 0) {
+      const need = player.maxHp - afterHp;
+      const restore = Math.min(need, hpCharges);
+      afterHp += restore;
+      hpCharges -= restore;
     }
-    // MP 자동 회복 — 같은 식. maxMp 0 (INT 없는 캐릭) 이면 skip.
+    // MP — INT 캐릭만.
     const maxMp = player.player.maxMp ?? 0;
-    if (maxMp > 0) {
-      const mpOrder: PotionId[] = [
-        "potion_mp_l",
-        "potion_mp_m",
-        "potion_mp_s",
-      ];
-      for (const id of mpOrder) {
-        while ((nextPotions[id] ?? 0) > 0 && afterMp < maxMp) {
-          const restore = computeMpRestoreAmount(POTIONS[id], maxMp);
-          afterMp = Math.min(maxMp, afterMp + restore);
-          nextPotions[id] = (nextPotions[id] ?? 0) - 1;
-        }
-        if (afterMp >= maxMp) break;
-      }
+    if (maxMp > 0 && afterMp < maxMp && mpCharges > 0) {
+      const need = maxMp - afterMp;
+      const restore = Math.min(need, mpCharges);
+      afterMp += restore;
+      mpCharges -= restore;
     }
     await upsertSave(tx, userId, "inventory.v2", {
       ...invSave,
-      potions: nextPotions,
+      hpCharges,
+      mpCharges,
     });
 
     // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).

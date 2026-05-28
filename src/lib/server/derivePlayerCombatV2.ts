@@ -26,7 +26,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
-import { maxHpForLevel } from "@/adventure/character/defaults";
 import {
   baselineRegenFor,
   skillLayout,
@@ -38,7 +37,12 @@ import {
   STAT_KEYS,
   type StatKey,
 } from "@/adventure/data/stats";
-import { V2_BASE_MP, V2_BASE_STATS } from "@/adventure/data/v2/v2Stats";
+import {
+  V2_BASE_HP,
+  V2_BASE_MP,
+  V2_BASE_STATS,
+  V2_HP_PER_LEVEL,
+} from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
@@ -207,8 +211,13 @@ export function derivePlayerCombatV2Pure(
       equipAcc.atk,
   );
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
+  // PR-base-hp: V2_BASE_HP(135) + 레벨당 V2_HP_PER_LEVEL(5) + vit×HP_PER_VIT + 장비 hp.
+  // Lv1 vit 15 신캐 = 135 + 0 + 15 + 0 = 150. 라이브 baseCharacter.maxHp(97) 분리.
   const maxHp = Math.floor(
-    maxHpForLevel(level) + totalStats.vit * HP_PER_VIT + equipAcc.hp,
+    V2_BASE_HP +
+      Math.max(0, level - 1) * V2_HP_PER_LEVEL +
+      totalStats.vit * HP_PER_VIT +
+      equipAcc.hp,
   );
   // PR-base-mp: 신캐 (INT 0) 도 v2 스킬 일부 cast 가능하게 V2_BASE_MP 가산.
   // 의도: onboarding 부드럽게 + STR/DEX 빌드도 가끔 magic 활용.

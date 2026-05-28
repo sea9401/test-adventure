@@ -26,3 +26,12 @@ export const V2_STAT_POINTS_PER_LEVEL = 5;
 // 정도 1-3 회). INT 투자 시 추가 (int × 2). 라이브 spell 시스템 (INT 임계값 필요) 와 다른
 // 접근 — onboarding 부드럽게.
 export const V2_BASE_MP = 50;
+
+// v2 베이스 HP — Lv1 vit 15 신캐 maxHp = 135 + 15 = 150 (어정쩡한 112 → 깔끔 150).
+// 라이브 baseCharacter.maxHp(97) 와 분리 — V2_BASE_MP 와 대칭. v2 만 영향.
+// 레벨 성장은 HP_PER_LEVEL(=5) 그대로 — Lv100 = 135 + 99×5 + vit = 630 + vit.
+export const V2_BASE_HP = 135;
+
+// 레벨업 시 추가되는 maxHp. v2 / 라이브 공유 상수였으나 명확성 위해 v2 도 여기서 참조.
+// 옛 defaults.ts:HP_PER_LEVEL 와 동일 값 (5). 변경 시 양쪽 일관 유지.
+export const V2_HP_PER_LEVEL = 5;

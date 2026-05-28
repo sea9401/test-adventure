@@ -410,6 +410,33 @@ describe("포션 — applyPotionTo", () => {
     // 30 × 1.5 = 45. 50 + 45 = 95.
     expect(s1.p1.hp).toBe(95);
   });
+
+  it("PR-6 — MP 포션 사용 시 p1 의 MP 만 회복, 페이즈 종료", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, maxMp: 100 }),
+      makePlayer({ spd: 5 }),
+      "P1",
+      "P2",
+    );
+    // 시작 풀충전 → 강제로 깎아 회복 검증.
+    const drained = { ...s0, p1: { ...s0.p1, mp: 10 } };
+    const mpPotion: Potion = {
+      id: "potion_mp_s",
+      name: "작은 마력약",
+      description: "",
+      effect: { kind: "heal_mp", flat: 30, pct: 20 },
+      price: 0,
+    };
+    const s1 = advanceTurnPvP(drained, {
+      kind: "use_potion",
+      potionId: mpPotion.id,
+      potion: mpPotion,
+    });
+    // 회복 = max(30, ceil(100 × 20%)) = 30. 10 + 30 = 40.
+    expect(s1.p1.mp).toBe(40);
+    expect(s1.p1.hp).toBe(s0.p1.hp); // hp 무관.
+  });
 });
 
 // ── resolve 루프 ────────────────────────────────────────────────────────────

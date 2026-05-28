@@ -1,6 +1,10 @@
 import type { Monster } from "../data/monsters";
 import { castSpellsOnPlayerTurn } from "../data/v2/spells";
-import { type Potion, type PotionId } from "../data/potions";
+import {
+  computeMpRestoreAmount,
+  type Potion,
+  type PotionId,
+} from "../data/potions";
 import {
   applyV2BuffsToMap,
   defaultV2MaxMpFor,
@@ -3245,6 +3249,20 @@ export function applyPotionEffect(
       log: appendLog(state.log, {
         kind: "info",
         text: `${playerName}이(가) ${potion.name}을(를) 마셨다 — HP +${actual} (${state.playerHp} → ${newHp})`,
+      }),
+    };
+  }
+  if (potion.effect.kind === "heal_mp") {
+    // PR-6 — MP 회복 포션. v2 스킬 자원 충전용. maxMp 0 (INT 없는 캐릭) 이면 회복 0 → 사실상 no-op.
+    const restore = computeMpRestoreAmount(potion, state.playerMaxMp);
+    const newMp = Math.min(state.playerMaxMp, state.playerMp + restore);
+    const actual = newMp - state.playerMp;
+    return {
+      ...state,
+      playerMp: newMp,
+      log: appendLog(state.log, {
+        kind: "info",
+        text: `${playerName}이(가) ${potion.name}을(를) 마셨다 — MP +${actual} (${state.playerMp} → ${newMp})`,
       }),
     };
   }

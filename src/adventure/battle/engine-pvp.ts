@@ -40,7 +40,11 @@ import {
   CRIT_OVERFLOW_DMG_PER_PCT,
   CRIT_PCT_CAP,
 } from "../data/stats";
-import { type Potion, type PotionId } from "../data/potions";
+import {
+  computeMpRestoreAmount,
+  type Potion,
+  type PotionId,
+} from "../data/potions";
 import { applyStartOfBattleSpellsPvP } from "../data/v2/spells";
 import {
   applyV2BuffsToMap,
@@ -2043,26 +2047,43 @@ function endAttackerPhase(
   return { ...next, phase: atkKey === "p1" ? "p2" : "p1" };
 }
 
-// 포션 효과 — 단일 사이드의 HP 회복. potionHealPct 자체 buffs 에서 가산.
+// 포션 효과 — 단일 사이드의 HP 또는 MP 회복. potionHealPct 자체 buffs 에서 가산 (HP 만).
 function applyPotionTo(
   state: PvPBattleState,
   key: "p1" | "p2",
   potion: Potion,
 ): PvPBattleState {
-  if (potion.effect.kind !== "heal_hp") return state;
   const side = state[key];
-  const heal = potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0);
-  const newHp = Math.min(side.maxHp, side.hp + heal);
-  const actual = newHp - side.hp;
-  let next = setSide(state, key, { ...side, hp: newHp });
-  next = {
-    ...next,
-    log: appendLog(next.log, {
-      kind: "info",
-      text: `${side.name}이(가) ${potion.name}을(를) 마셨다 — HP +${actual} (${side.hp} → ${newHp})`,
-    }),
-  };
-  return next;
+  if (potion.effect.kind === "heal_hp") {
+    const heal = potionHealAmount(potion, side.maxHp, side.buffs.potionHealPct ?? 0);
+    const newHp = Math.min(side.maxHp, side.hp + heal);
+    const actual = newHp - side.hp;
+    let next = setSide(state, key, { ...side, hp: newHp });
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `${side.name}이(가) ${potion.name}을(를) 마셨다 — HP +${actual} (${side.hp} → ${newHp})`,
+      }),
+    };
+    return next;
+  }
+  if (potion.effect.kind === "heal_mp") {
+    // PR-6 — MP 포션. maxMp 0 (INT 없는 캐릭) 이면 회복 0 → 사실상 no-op.
+    const restore = computeMpRestoreAmount(potion, side.maxMp);
+    const newMp = Math.min(side.maxMp, side.mp + restore);
+    const actual = newMp - side.mp;
+    let next = setSide(state, key, { ...side, mp: newMp });
+    next = {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `${side.name}이(가) ${potion.name}을(를) 마셨다 — MP +${actual} (${side.mp} → ${newMp})`,
+      }),
+    };
+    return next;
+  }
+  return state;
 }
 
 // 방어자 측 능력 통합은 PR-1b 에서. (파일 상단 시리즈 노트 참조.)

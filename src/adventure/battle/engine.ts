@@ -3030,6 +3030,22 @@ export function resolveBattle(
           };
           continue;
         }
+        // PR-cast-attack: cast 가 발동되면 그 턴의 attacksLeft -1 소모 (포션 패턴).
+        // 0 도달이면 phase=enemy 전환 — 일반 공격 대신 cast 만 진행.
+        // attackCount > 1 캐릭은 남은 swing 일반 공격으로 계속.
+        if (result.castSkillId) {
+          const nextAttacksLeft = state.playerAttacksLeft - 1;
+          if (nextAttacksLeft <= 0) {
+            state = {
+              ...state,
+              phase: "enemy",
+              playerAttacksLeft: rollPlayerAttackCount(player),
+              turn: { ...state.turn, firstAttackPending: true },
+            };
+            continue;
+          }
+          state = { ...state, playerAttacksLeft: nextAttacksLeft };
+        }
       }
     } else if (state.phase === "enemy") {
       // PR-5b — enemy 의 v2 스킬 cast (player cast hook 미러). monster.v2Skills 미지정이면 no-op.

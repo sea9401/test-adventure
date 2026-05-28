@@ -17,6 +17,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [state, setState] = useState<ShopState | null>(null);
   const [busy, setBusy] = useState<PotionId | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<PotionId | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -112,9 +113,15 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           const owned = state?.potions[p.id] ?? 0;
           const price = p.shopPrice ?? p.price;
           const affordable = (state?.gold ?? 0) >= price;
+          const isOpen = expanded === p.id;
           return (
-            <li key={p.id} className="py-2.5 text-sm">
-              <div className="flex items-center gap-3">
+            <li key={p.id} className="text-sm">
+              <button
+                type="button"
+                onClick={() => setExpanded(isOpen ? null : p.id)}
+                className="flex w-full items-center gap-3 py-2.5 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900/40"
+                aria-expanded={isOpen}
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="truncate font-medium">{p.name}</span>
@@ -126,18 +133,33 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                 <div className="shrink-0 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
                   {price.toLocaleString()}g
                 </div>
-                <button
-                  type="button"
-                  onClick={() => buy(p.id)}
-                  disabled={busy === p.id || !affordable}
-                  className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-40 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+                <span
+                  className={`shrink-0 text-xs text-zinc-400 transition-transform ${
+                    isOpen ? "rotate-90" : ""
+                  }`}
                 >
-                  {busy === p.id ? "…" : "구매"}
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                {p.description}
-              </p>
+                  ▸
+                </span>
+              </button>
+              {isOpen && (
+                <div className="pb-2.5 pt-1">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {p.description}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => buy(p.id)}
+                    disabled={busy === p.id || !affordable}
+                    className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+                  >
+                    {busy === p.id
+                      ? "구매 중…"
+                      : affordable
+                        ? "1개 구매"
+                        : "골드 부족"}
+                  </button>
+                </div>
+              )}
             </li>
           );
         })}

@@ -126,7 +126,7 @@ export function V2GuildHome({
   // 무소속이면 안내만 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
   if (!loading && !state?.guild) {
     return (
-      <main className="mx-auto max-w-3xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+      <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
         <header>
           <h1 className="text-lg font-bold">길드</h1>
         </header>
@@ -141,7 +141,7 @@ export function V2GuildHome({
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">{state?.guild?.name ?? "길드"}</h1>
       </header>

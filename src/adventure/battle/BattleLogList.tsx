@@ -338,8 +338,9 @@ function InlineBar({
       {label}
     </span>
   );
+  // bar 가로 — 컨테이너 가득(flex-1) 대신 80px 로 짧게. 숫자가 컬럼 밖으로 새지 않게.
   const bar = (
-    <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+    <div className="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
       <div
         className={`h-full ${color} transition-all`}
         style={{ width: `${pct * 100}%` }}
@@ -348,7 +349,7 @@ function InlineBar({
   );
   if (align === "right") {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         {numbers}
         {bar}
         {labelEl}
@@ -356,7 +357,7 @@ function InlineBar({
     );
   }
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center justify-start gap-1">
       {labelEl}
       {bar}
       {numbers}

@@ -175,7 +175,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const mp = state?.mpCharges ?? 0;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="flex items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold">상점</h1>

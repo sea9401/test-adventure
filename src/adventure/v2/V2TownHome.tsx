@@ -29,7 +29,7 @@ export function V2TownHome({
   onAction: (action: TownAction) => void;
 }) {
   return (
-    <main className="mx-auto max-w-3xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">마을</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">

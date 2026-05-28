@@ -57,7 +57,7 @@ export function V2InstructorView({ onBack }: { onBack: () => void }) {
   }, [refetch]);
 
   return (
-    <main className="mx-auto max-w-3xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         <button
           type="button"

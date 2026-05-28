@@ -107,7 +107,7 @@ export function V2AdventureHome({
 
   return (
     <main className="text-zinc-900 dark:text-zinc-100">
-      <div className="mx-auto max-w-3xl space-y-4 p-6">
+      <div className="mx-auto max-w-[720px] space-y-4 p-6">
         {state?.character && (
           <V2CharacterCard
             character={state.character}

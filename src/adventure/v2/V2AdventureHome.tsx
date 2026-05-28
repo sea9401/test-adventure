@@ -209,7 +209,7 @@ export function V2AdventureHome({
               <dd className="text-zinc-800 dark:text-zinc-200">
                 {occupation ? formatNextAttack(occupation.nextAttackAt) : "—"}
               </dd>
-              <dt className="text-zinc-500 dark:text-zinc-400">거점 금고</dt>
+              <dt className="text-zinc-500 dark:text-zinc-400">보유 골드</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
                 <span className="tabular-nums">
                   {treasuryGold.toLocaleString()}

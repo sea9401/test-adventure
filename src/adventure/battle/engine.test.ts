@@ -7,6 +7,7 @@ import {
   initialBattleState,
   resolveBattle,
   type BattleLogEntry,
+  type BattleState,
   type PlayerCombat,
 } from "./engine";
 import {
@@ -282,6 +283,39 @@ describe("applyPotionEffect", () => {
     // 남은 공격으로 마저 때리면 그때 enemy phase 로.
     const s2 = advanceTurn(s1, fast, "P");
     expect(s2.phase).toBe("enemy");
+  });
+
+  it("PR-6 — MP 포션 (heal_mp) 으로 playerMp 회복, maxMp 클램프", () => {
+    const intPlayer: PlayerCombat = { ...PLAYER, maxMp: 100 };
+    const s0 = initialBattleState(intPlayer, makeEnemy(), "P");
+    // 시작 시 playerMp = playerMaxMp (풀충전). 강제로 깎아 회복 검증.
+    const drained: BattleState = { ...s0, playerMp: 10 };
+    const mpPotion: Potion = {
+      id: "potion_mp_s",
+      name: "작은 마력약",
+      description: "",
+      effect: { kind: "heal_mp", flat: 30, pct: 20 },
+      price: 0,
+    };
+    const after = applyPotionEffect(drained, mpPotion, "P");
+    // 회복 = max(30, ceil(100 × 20%)) = max(30, 20) = 30. 10 + 30 = 40 ≤ 100.
+    expect(after.playerMp).toBe(40);
+    expect(after.playerHp).toBe(drained.playerHp); // hp 무관
+  });
+
+  it("PR-6 — MP 포션 maxMp 0 (INT 없는 캐릭) → no-op", () => {
+    const s0 = initialBattleState(PLAYER, makeEnemy(), "P");
+    // PLAYER 에 maxMp 미지정 → 0.
+    expect(s0.playerMaxMp).toBe(0);
+    const mpPotion: Potion = {
+      id: "potion_mp_s",
+      name: "작은 마력약",
+      description: "",
+      effect: { kind: "heal_mp", flat: 30, pct: 20 },
+      price: 0,
+    };
+    const after = applyPotionEffect(s0, mpPotion, "P");
+    expect(after.playerMp).toBe(0);
   });
 });
 

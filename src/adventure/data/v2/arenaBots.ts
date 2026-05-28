@@ -4,10 +4,8 @@
 // 6 스탯 분배 + 레벨만 가진 가벼운 템플릿. derivePlayerCombatV2Pure 로 PlayerCombat
 // 변환 — 장비/룬/스킬/파라곤 모두 비워서 라이브 시스템 의존 0.
 //
-// PR-S2: 라이브 derivePlayerCombat → v2 pure 로 교체. V2_BASE_STATS 베이스 + 레벨당
-// V2_STAT_POINTS_PER_LEVEL(=5) 포인트. 플레이어와 동일 스케일·계수 → 매치 공정성 보장.
-//
-// INT 가 임계값 이상이면 자동 학습 마법 (PR-5 의 normalizeEquippedSpells 와 같은 규칙).
+// PR-7a: 옛 spell 시스템 (equippedSpells/learnedSpellsForInt) 폐기. 봇은 현재 v2 스킬 미장착
+// (PR-5b 처럼 monster v2 카탈로그 도입은 가능하나 봇 디자인은 후속 PR 에서).
 
 import {
   derivePlayerCombatV2Pure,
@@ -15,7 +13,6 @@ import {
   type DerivedPlayerCombatV2,
 } from "@/lib/server/derivePlayerCombatV2";
 import type { StatKey } from "@/adventure/data/stats";
-import { learnedSpellsForInt } from "@/adventure/data/v2/spells";
 
 export type BotTemplate = {
   /** 안정적 식별자 — recentOpponents 매칭에 사용. */
@@ -44,8 +41,6 @@ export type ArenaBot = {
   /** 매칭 가중치 산정용 가짜 점수 — 봇은 항상 0. */
   score: number;
   combat: DerivedPlayerCombatV2;
-  /** 자동 학습된 마법 (INT 임계값). */
-  equippedSpells: ReturnType<typeof learnedSpellsForInt>;
 };
 
 function emptyStatRecord(): Record<StatKey, number> {
@@ -94,16 +89,12 @@ export function buildBot(template: BotTemplate, level: number): ArenaBot {
     v2Equipped: {}, // 봇은 장비 없음
     hp: undefined, // 풀충 (maxHp 로 클램프)
   });
-  const intStat = combat.totalStats.int ?? 0;
-  const slots = combat.layout.normalSlots;
-  const learnable = learnedSpellsForInt(intStat).slice(0, slots);
   return {
     id: `${template.id}-l${lv}`,
     name: template.name,
     level: lv,
     score: 0,
     combat,
-    equippedSpells: learnable,
   };
 }
 

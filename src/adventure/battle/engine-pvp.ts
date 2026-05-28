@@ -45,7 +45,6 @@ import {
   type Potion,
   type PotionId,
 } from "../data/potions";
-import { applyStartOfBattleSpellsPvP } from "../data/v2/spells";
 import {
   applyV2BuffsToMap,
   extractApEffect,
@@ -2240,12 +2239,8 @@ export function resolveBattlePvP(
     ctx.v2Skills?.p1,
     ctx.v2Skills?.p2,
   );
-  // v2 마법 — 매치 시작 시 양측 1회 sweep. 선공 측 우선 순서.
-  // INT 0 인 양측은 자동 미발동.
-  state = applyStartOfBattleSpellsPvP(
-    state,
-    state.phase === "p2" ? "p2" : "p1",
-  );
+  // PR-7a — 옛 spell 시스템 폐기. start-of-battle one-shot 도 제거됐고, v2 스킬 cast hook
+  // 이 각 side 의 첫 turn 진입 시 1회 발동 (resolveBattlePvP main loop).
   if (state.p1.hp <= 0 && state.p2.hp <= 0) {
     state = { ...state, outcome: "draw", phase: "ended" };
   } else if (state.p1.hp <= 0) {

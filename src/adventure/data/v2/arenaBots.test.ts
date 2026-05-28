@@ -20,18 +20,18 @@ describe("buildBot", () => {
     expect(stats.str).toBeGreaterThan(stats.luk);
   });
 
-  it("INT 봇은 임계값 이상이면 마법 학습", () => {
+  it("INT 봇은 maxMp 보유 (v2 스킬 자원 풀)", () => {
     const intBot = BOT_TEMPLATES.find((x) => x.focus === "int")!;
-    const bot = buildBot(intBot, 50); // ~30 INT → meteor 까지 학습
-    expect(bot.equippedSpells.length).toBeGreaterThan(0);
+    const bot = buildBot(intBot, 50);
     expect(bot.combat.totalStats.int).toBeGreaterThanOrEqual(5);
+    expect(bot.combat.player.maxMp ?? 0).toBeGreaterThan(0);
   });
 
-  it("STR 봇은 INT 낮아 마법 학습 X", () => {
+  it("STR 봇은 INT 0 → maxMp 0", () => {
     const strBot = BOT_TEMPLATES.find((x) => x.focus === "str")!;
     const bot = buildBot(strBot, 30);
     expect(bot.combat.totalStats.int).toBe(0);
-    expect(bot.equippedSpells.length).toBe(0);
+    expect(bot.combat.player.maxMp ?? 0).toBe(0);
   });
 
   it("음수·0 레벨은 1 로 클램프", () => {

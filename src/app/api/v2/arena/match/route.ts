@@ -257,7 +257,6 @@ export async function POST() {
       oppPlayer = {
         ...bot.combat.player,
         hp: bot.combat.maxHp,
-        equippedSpells: bot.equippedSpells,
       };
       oppLevel = bot.level;
       oppScore = bot.score;

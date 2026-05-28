@@ -38,7 +38,6 @@ import {
   STAT_KEYS,
   type StatKey,
 } from "@/adventure/data/stats";
-import { normalizeEquippedSpells } from "@/adventure/data/v2/spells";
 import { V2_BASE_STATS } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
@@ -53,6 +52,8 @@ type SavedCharacterV2 = {
   hp?: number;
   level?: number;
   selectedStance?: unknown;
+  // PR-7a — equippedSpells 는 옛 spell 시스템 잔재. parse 단계에서 무시되며 PR-7b 마이그
+  // 가 v2_skill_meditate 자동 학습 부여로 대체. 필드는 옛 캐릭 save 호환 위해 보존.
   equippedSpells?: unknown;
 };
 
@@ -167,8 +168,6 @@ export type DerivePlayerCombatV2PureInput = {
   hp?: number;
   /** character.v2.selectedStance raw. undefined = null. */
   selectedStanceRaw?: unknown;
-  /** character.v2.equippedSpells raw. undefined = 빈 슬롯. */
-  equippedSpellsRaw?: unknown;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -227,18 +226,11 @@ export function derivePlayerCombatV2Pure(
   const savedHp = input.hp ?? maxHp;
   const hp = Math.max(0, Math.min(savedHp, maxHp));
 
-  // 라이브 skillLayout — v2 마법 슬롯 cap 으로 재사용. storyFlagIds 빈 set.
+  // 라이브 skillLayout — 슬롯 cap 으로 재사용 (PR-7a 후로는 effectiveFeatNames 길이용만).
   const layout = skillLayout({
     level,
     hasFlag: () => false,
   });
-
-  // v2 마법 슬롯 정규화 — 학습 가능·중복 제거·슬롯 cap.
-  const equippedSpells = normalizeEquippedSpells(
-    input.equippedSpellsRaw,
-    totalStats.int,
-    layout.normalSlots,
-  );
 
   const player: PlayerCombat = {
     hp,
@@ -254,7 +246,6 @@ export function derivePlayerCombatV2Pure(
     extraAttackChancePct,
     critChancePct,
     baselineRegen: baselineRegenFor(maxHp),
-    equippedSpells,
   };
 
   return {
@@ -311,6 +302,5 @@ export async function derivePlayerCombatV2(
     v2Equipped,
     hp: character.hp,
     selectedStanceRaw: character.selectedStance,
-    equippedSpellsRaw: character.equippedSpells,
   });
 }

@@ -1,5 +1,4 @@
 import type { Monster } from "../data/monsters";
-import { castSpellsOnPlayerTurn } from "../data/v2/spells";
 import {
   computeMpRestoreAmount,
   type Potion,
@@ -216,11 +215,8 @@ export type BattleState = {
   // 라이브 캐릭(INT=0)은 둘 다 0 — MP 바 표시·소비 메커닉 자체 비활성.
   playerMp: number;
   playerMaxMp: number;
-  // v2 마법 cooldown (PR-7b). spell id 별 남은 player turn 수. 0 또는 미설정 = cast 가능.
-  // 매 player turn 시작 시 -1 후 가능한 spell 1발 cast → 해당 cd 초기화.
-  // 라이브 캐릭은 spellCooldowns 미정의 → castSpellsOnPlayerTurn 이 no-op.
-  spellCooldowns?: import("../data/v2/spells").SpellCooldowns;
-  // v2 스킬 (v2_skill_*) 시스템 — PR-4a framework. 옛 spells 와 별개 자원이지만 MP 풀은 공유.
+  // v2 스킬 (v2_skill_*) 시스템 — PR-4a framework. 옛 spell 시스템 폐기 (PR-7a) — 모든 마법
+  // 시전은 V2_SKILLS 카탈로그 + V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델 (시작 = maxMp).
   // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
   v2Skills: import("../data/v2/v2Skills").V2SkillsState;
   v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
@@ -266,11 +262,9 @@ export type PlayerCombat = {
   // INT 0 인 캐릭(라이브) 은 0/undefined → 전투 메커닉·UI 자동 비활성.
   // optional 로 둠 — 라이브 PlayerCombat 객체 리터럴(테스트 다수)이 매번 안 박아도 되게.
   maxMp?: number;
-  // v2 마법 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). 0/undefined = no-op.
+  // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
+  // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
-  // v2 마법 슬롯 — 정규화된 장착 마법 id 배열. 없거나 빈 배열이면 마법 발동 X.
-  // (라이브 캐릭은 derive-v2 가 안 박음 → undefined → no-op.)
-  equippedSpells?: import("../data/v2/spells").SpellId[];
   atk: number;
   def: number;
   spd: number; // 선공 판정에 사용
@@ -2869,14 +2863,9 @@ export function resolveBattle(
     ],
   };
   let turns = 0;
-  // v2 마법 — 매 player turn 시작 시 cast hook. 한 turn 안에 player phase 가 여러 step
-  // 으로 분할되어도 첫 step 에서만 cast (lastCastedTurn 로 dedupe). 첫 turn 은
-  // completedPlayerTurns === 0 에서 cast (lastCastedTurn 초기값 -1).
-  let lastCastedTurn = -1;
-  // v2 스킬 (v2_skill_*) — PR-4a framework. 옛 spells.ts dedupe 와 별개 — completedPlayerTurns
-  // 는 포션-only 턴 종료 시 증가하지 않아 (engine.ts:1222-1227) 한 turn 이 통째 미시전되는
-  // 케이스가 있다. v2 는 phase-entry flag 로 dedupe — player phase 가 enemy 로 빠졌다가
-  // 돌아올 때마다 정확히 1회 cast.
+  // v2 스킬 (v2_skill_*) — PR-4a framework. phase-entry flag 로 dedupe — player phase 가
+  // enemy 로 빠졌다가 돌아올 때마다 정확히 1회 cast. (포션-only 턴 종료가 completedPlayerTurns
+  // 를 증가시키지 않아 옛 counter 기반 dedupe 는 한 turn 미시전 케이스가 있어 채택.)
   let v2CastedThisPlayerPhase = false;
   // PR-5b — enemy phase 진입 시 1회 cast. phase 가 enemy 가 아니게 되면 reset.
   let v2CastedThisEnemyPhase = false;
@@ -2888,35 +2877,6 @@ export function resolveBattle(
       v2CastedThisEnemyPhase = false;
     }
     if (state.phase === "player") {
-      // 매 player turn 의 첫 step 에서 cast. cast 후 enemy 가 죽으면 outcome 처리.
-      // ended 면 continue 로 while 가드 재평가 → 종료.
-      if (state.turn.completedPlayerTurns > lastCastedTurn) {
-        lastCastedTurn = state.turn.completedPlayerTurns;
-        state = castSpellsOnPlayerTurn(
-          state,
-          player.intStat ?? 0,
-          player.equippedSpells ?? [],
-          playerName,
-        );
-        if (state.enemyHp <= 0) {
-          // 일반 공격 lethal 경로와 일관성 — 처치 로그 + completedPlayerTurns +1.
-          state = {
-            ...state,
-            log: appendLog(state.log, {
-              kind: "info",
-              text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
-              turn: "player",
-            }),
-            outcome: "win",
-            phase: "ended",
-            turn: {
-              ...state.turn,
-              completedPlayerTurns: state.turn.completedPlayerTurns + 1,
-            },
-          };
-          continue;
-        }
-      }
       // v2 스킬 cast (PR-4b) — MP 차감 + cooldown set + 효과 적용 (damage/heal/buff/debuff).
       // 매 player phase 진입 시 1회 — buff/debuff turn -1 tick + cast.
       if (!v2CastedThisPlayerPhase) {

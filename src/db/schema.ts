@@ -787,6 +787,15 @@ export const outpostOccupations = pgTable(
   ],
 );
 
+// v2 거점 금고 — 미점령(NPC 운영) 거점에 누적된 NPC 세금.
+// 점령자가 없는 거점에서 사냥 시 15% 가 여기 쌓인다. 추후 전쟁 보상으로 사용 예정.
+// outpostId = data/v2/outposts.ts 의 Outpost.id (FK X, 정적 데이터).
+export const outpostTreasury = pgTable("outpost_treasury", {
+  outpostId: text("outpost_id").primaryKey(),
+  gold: integer("gold").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // v2 거점 점령 시도 기록 (성공/실패 모두). claim attempt log — 분석/표시용.
 // 1대1 일기토 결과 1행. 길드 3:3 토너먼트는 3행 (라운드 별).
 export const outpostClaimAttempts = pgTable(

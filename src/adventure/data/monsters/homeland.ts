@@ -127,6 +127,9 @@ export const HOMELAND_MONSTERS: Record<string, Monster> = {
       // 너덜너덜한 보법서 — 산적이 회피 보법을 익혔던 흔적. 한 번만 학습되면 충분하므로 낮은 확률.
       { kind: "skill_book", bookId: "book_extra_evade", chance: 0.003 },
     ],
+    // PR-5b — 인프라 검증 샘플. 강타 발동 (str 계 데미지 + cd 2턴 + 작은 mp 풀).
+    v2Skills: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+    v2MaxMp: 100,
   },
   "호수 님프": {
     name: "호수 님프",
@@ -137,6 +140,9 @@ export const HOMELAND_MONSTERS: Record<string, Monster> = {
     def: 4,
     spd: 5,
     exp: 10,
+    // PR-5b — 인프라 검증 샘플 2호. spirit 컨셉에 맞게 자강화 (잔영 보법 dex +10%).
+    v2Skills: { learned: ["v2_skill_dash"], equipped: ["v2_skill_dash"] },
+    v2MaxMp: 100,
     drops: [
       { kind: "material", materialId: "fairy_dust", chance: 0.03 },
       { kind: "equip", itemId: "nymph_ring", chance: 0.005 },

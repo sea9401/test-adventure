@@ -218,13 +218,60 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
     // cast. (completedPlayerTurns 기반 dedupe 는 potion-only turn 종료 케이스에서 한 turn 을
     // 건너뛰는 버그가 있어 phase flag 로 대체.)
     let v2CastedThisPlayerPhase = false;
+    // PR-5b — enemy v2 cast dedupe.
+    let v2CastedThisEnemyPhase = false;
 
     while (state.phase !== "ended" && turns < MAX_TURNS_PER_BATTLE) {
       turns += 1;
       let action: PlayerAction = { kind: "attack" };
-      if (state.phase !== "player") {
-        // enemy phase — 다음 player phase 진입 시 다시 cast 할 수 있게 reset.
+      if (state.phase === "player") {
+        v2CastedThisEnemyPhase = false;
+      } else {
+        // enemy/ended — player flag reset.
         v2CastedThisPlayerPhase = false;
+      }
+      // PR-5b: enemy phase 진입 시 1회 enemy v2 cast. resolveBattle 미러 (로그 X).
+      if (state.phase === "enemy" && !v2CastedThisEnemyPhase) {
+        v2CastedThisEnemyPhase = true;
+        const tEBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
+        const tEDebuffs = tickV2BuffMap(state.enemyV2Debuffs);
+        const tPDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
+        const ec = resolveV2SkillCast({
+          skills: state.enemyV2Skills,
+          cooldowns: state.enemyV2SkillCooldowns,
+          attacker: {
+            mp: state.enemyMp,
+            atk: state.enemy.atk,
+            maxHp: state.enemy.hp,
+            selfBuffs: tEBuffs,
+            selfDebuffs: tEDebuffs,
+          },
+          target: {
+            def: playerForBattle.def,
+            selfBuffs: state.v2SelfBuffs,
+            selfDebuffs: tPDebuffs,
+          },
+        });
+        const nextEBuffs = applyV2BuffsToMap(tEBuffs, ec.selfBuffsToApply);
+        const nextPDebuffs = applyV2BuffsToMap(tPDebuffs, ec.enemyDebuffsToApply);
+        state = {
+          ...state,
+          enemyMp: ec.nextMp,
+          enemyV2SkillCooldowns: ec.nextCooldowns,
+          enemyV2SelfBuffs: nextEBuffs,
+          enemyV2Debuffs: tEDebuffs,
+          v2SelfDebuffs: nextPDebuffs,
+          playerHp: Math.max(0, state.playerHp - ec.enemyDamage),
+          enemyHp: Math.min(state.enemy.hp, state.enemyHp + ec.selfHeal),
+        };
+        if (state.playerHp <= 0) {
+          state = {
+            ...state,
+            outcome: "lose",
+            phase: "ended",
+          };
+          continue;
+        }
       }
       if (state.phase === "player") {
         // v2 스킬 cast (PR-4b — MP + cd + 효과 적용). offlineSim 은 로그 미수집 → log entry skip.
@@ -245,8 +292,8 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
             },
             target: {
               def: state.enemy.def,
-              // PR-5a: PvE 적은 v2 buff 없음 (PR-5b 도입 예정).
-              selfBuffs: {},
+              // PR-5b: enemy 측 v2 buff 도 사용 (monster v2 cast 결과 + def buff 가 vit buff).
+              selfBuffs: state.enemyV2SelfBuffs,
               selfDebuffs: tickedEnemyDebuffs,
             },
           });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Sword, DoorOpen } from "@phosphor-icons/react";
+import { MapPin, DoorOpen } from "@phosphor-icons/react";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -72,11 +72,9 @@ function formatNextAttack(iso: string): string {
 
 export function V2AdventureHome({
   currentOutpost,
-  onOpenArena,
   onEnterOutpost,
 }: {
   currentOutpost: { id: string; name: string } | null;
-  onOpenArena: () => void;
   onEnterOutpost: (outpost: Outpost) => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
@@ -182,25 +180,6 @@ export function V2AdventureHome({
           </section>
         )}
 
-        <header className="rounded-md bg-white/80 px-3 py-2 backdrop-blur-sm dark:bg-zinc-950/70">
-          <h1 className="text-lg font-bold">모험</h1>
-        </header>
-
-        <button
-          type="button"
-          onClick={onOpenArena}
-          className="w-full rounded-lg border border-zinc-300 bg-white/90 p-5 text-left transition hover:border-amber-500 hover:bg-amber-50/50 dark:border-zinc-700 dark:bg-zinc-950/90 dark:hover:border-amber-400 dark:hover:bg-amber-950/30"
-        >
-          <div className="flex items-center gap-3">
-            <Sword size={32} weight="duotone" className="text-amber-600 dark:text-amber-400" />
-            <div className="flex-1">
-              <div className="text-base font-semibold">아레나</div>
-              <div className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400">
-                1:1 단판 결투 — 빌드 자랑의 무대
-              </div>
-            </div>
-          </div>
-        </button>
       </div>
     </main>
   );

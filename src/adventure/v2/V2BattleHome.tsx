@@ -1,12 +1,15 @@
 "use client";
 
-import { CompassRose, Sword } from "@phosphor-icons/react";
+import { CompassRose, Sword, Trophy } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
-// 전투 탭 default — town/character 탭 패턴: EntryCard 던전/지도 2 종 진입.
-// 던전 → V2DungeonList (8 층 list). 지도 → V2ContinentMap.
+// 전투 탭 default — town/character 탭 패턴: EntryCard 던전/지도/아레나 진입.
+// 던전 → V2DungeonList (8 층 list). 지도 → V2ContinentMap. 아레나 → V2ArenaView.
 
-export type BattleAction = { kind: "open-dungeons" } | { kind: "open-map" };
+export type BattleAction =
+  | { kind: "open-dungeons" }
+  | { kind: "open-map" }
+  | { kind: "open-arena" };
 
 export function V2BattleHome({
   onAction,
@@ -41,6 +44,14 @@ export function V2BattleHome({
           title="지도"
           description="대륙 지도. 거점 정보 확인 + 다른 거점으로 이동."
           onClick={() => onAction({ kind: "open-map" })}
+        />
+        <EntryCard
+          icon={
+            <Trophy size={28} weight="duotone" className="text-amber-500" />
+          }
+          title="아레나"
+          description="1:1 단판 결투 — 빌드 자랑의 무대."
+          onClick={() => onAction({ kind: "open-arena" })}
         />
       </div>
     </main>

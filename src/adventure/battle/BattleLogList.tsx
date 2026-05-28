@@ -99,7 +99,7 @@ export function BattleLogList({
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
-// 데미지·회복·스탯 수치를 굵게. 같은 줄에서 가장 중요한 숫자가 먼저 눈에 들어오도록.
+// 데미지·회복·스탯 수치를 강조. 피해량(N 피해) 은 빨강 + 굵게, 나머지는 굵게.
 function emphasizeNumbers(text: string): ReactNode[] {
   const re =
     /(\d+)\s*피해|HP\s*[+-]\s*\d+|ATK\s*[+-]\s*\d+|DEF\s*[+-]\s*\d+|SPD\s*[+-]\s*\d+|[+-]\s*\d+%?/g;
@@ -108,8 +108,16 @@ function emphasizeNumbers(text: string): ReactNode[] {
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) parts.push(text.slice(last, m.index));
+    const isDamage = /피해/.test(m[0]);
     parts.push(
-      <strong key={m.index} className="font-semibold">
+      <strong
+        key={m.index}
+        className={
+          isDamage
+            ? "font-semibold text-rose-600 dark:text-rose-400"
+            : "font-semibold"
+        }
+      >
         {m[0]}
       </strong>,
     );

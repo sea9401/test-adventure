@@ -688,7 +688,7 @@ function applyCounterIfAny(
     enemyHp,
     log: appendLog(state.log, {
       kind: "player_attack",
-      text: `[반격] ${state.enemy.name}에게 ${dmg} 피해를 입혔다.`,
+      text: `[반격] ${dmg} 피해를 입혔다.`,
     }),
   };
   next = applyPhaseTriggerIfAny(next);
@@ -869,7 +869,7 @@ function dealExtraEnemyDamage(
   if (decreeFires) dmgLabels.push("천명");
   let log = appendLog(state.log, {
     kind: "player_attack",
-    text: `[${dmgLabels.join(" + ")}] ${state.enemy.name}에게 ${totalDmg} 피해를 입혔다.`,
+    text: `[${dmgLabels.join(" + ")}] ${totalDmg} 피해를 입혔다.`,
   });
   if (actualHeal > 0) {
     const healLabels: string[] = [];
@@ -1635,7 +1635,7 @@ export function advanceTurn(
     const prefix = labels.length > 0 ? `[${labels.join(" + ")}] ` : "";
     let log = appendLog(state.log, {
       kind: "player_attack",
-      text: `${prefix}${state.enemy.name}에게 ${totalDmg} 피해를 입혔다.`,
+      text: `${prefix || "공격! "}${totalDmg} 피해를 입혔다.`,
     });
     // 이중 행운 — 첫 크리티컬 발동 순간 활성화, 후속 공격/회피 부터 보너스 적용.
     const shouldActivateLucky =
@@ -2640,7 +2640,7 @@ export function advanceTurn(
     heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "";
   log = appendLog(log, {
     kind: "enemy_attack",
-    text: `${atkPrefix}${state.enemy.name}이(가) ${playerName}에게 ${dmgToHp} 피해를 입혔다.`,
+    text: `${atkPrefix || "공격! "}${dmgToHp} 피해를 입혔다.`,
   });
   if (enduranceFires) {
     log = appendLog(log, {
@@ -2973,7 +2973,7 @@ export function resolveBattle(
           nextEnemyHp = Math.max(0, nextEnemyHp - result.enemyDamage);
           nextLog = appendLog(nextLog, {
             kind: "player_attack",
-            text: `[${result.castSkillName}] ${state.enemy.name}에게 ${result.enemyDamage} 피해를 입혔다.`,
+            text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
           });
         }
         // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
@@ -3079,7 +3079,7 @@ export function resolveBattle(
               text: `[${state.enemyV2Dots
                 .filter((d) => d.turns > 0)
                 .map((d) => d.label)
-                .join(" + ")}] ${state.enemy.name}에게 ${enemyDotTick.totalDmg} 피해를 입혔다.`,
+                .join(" + ")}] ${enemyDotTick.totalDmg} 피해를 입혔다.`,
             }),
           };
           if (state.enemyHp <= 0) {
@@ -3130,7 +3130,7 @@ export function resolveBattle(
           nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
-            text: `[${result.castSkillName}] ${state.enemy.name}이(가) ${result.enemyDamage} 피해를 입혔다.`,
+            text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
           });
         }
         // 적의 self heal — enemy_attack kind (적 측 행동).

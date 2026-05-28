@@ -13,14 +13,14 @@ function sampleEntries(stance: StanceId | null): BattleLogEntry[] {
   entries.push({ kind: "info", text: "사나운 늑대가 나타났다!", turn: "player" });
   if (note) entries.push({ kind: "info", text: note, turn: "player" });
   entries.push({ kind: "turn_marker", text: "1턴 · AP 0", turn: "player" });
-  entries.push({ kind: "player_attack", text: "사나운 늑대에게 220 피해를 입혔다.", turn: "player" });
-  entries.push({ kind: "enemy_attack", text: "사나운 늑대가 모험가에게 60 피해를 입혔다.", turn: "enemy" });
+  entries.push({ kind: "player_attack", text: "공격! 220 피해를 입혔다.", turn: "player" });
+  entries.push({ kind: "enemy_attack", text: "공격! 60 피해를 입혔다.", turn: "enemy" });
   entries.push({
     kind: "hp_bar", text: "", turn: "enemy",
     playerHp: 540, playerMaxHp: 600, enemyHp: 380, enemyMaxHp: 600, ap: 0, apMax: 0,
   });
   entries.push({ kind: "turn_marker", text: "2턴 · AP 0", turn: "player" });
-  entries.push({ kind: "player_attack", text: "사나운 늑대에게 240 피해를 입혔다.", turn: "player" });
+  entries.push({ kind: "player_attack", text: "공격! 240 피해를 입혔다.", turn: "player" });
   entries.push({ kind: "info", text: "사나운 늑대를 쓰러뜨렸다!", turn: "player" });
   return entries;
 }

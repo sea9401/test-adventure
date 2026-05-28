@@ -1,26 +1,16 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
-// POST /api/v2/me/guild — v2 자동 1인 길드 보장.
+// GET /api/v2/me/guild — viewer 의 길드 id 조회. 무소속이면 guildId=null.
+// (옛 POST 시맨틱 — 자동 1인 길드 생성 — 폐기. 길드는 명시적 생성/가입.)
 //
-// 모든 거점 점령이 길드 명의로 가는 흐름의 인프라.
-// idempotent — 이미 길드 있으면 그 guildId 그대로 리턴.
-// V2GameFlow mount 시 1회 호출 권장.
-//
-// 응답: { ok: true, guildId: number }
-export async function POST() {
+// 응답: { ok: true, guildId: number | null }
+export async function GET() {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  try {
-    const guildId = await db.transaction(async (tx) => {
-      return ensureSoloGuild(tx, userId);
-    });
-    return Response.json({ ok: true, guildId });
-  } catch (e) {
-    console.error("[v2/me/guild] ", e);
-    return Response.json({ ok: false, error: "internal" }, { status: 500 });
-  }
+  const guildId = await db.transaction(async (tx) => getGuildId(tx, userId));
+  return Response.json({ ok: true, guildId });
 }

@@ -13,6 +13,7 @@ import { V2SkillEquipPanel } from "@/adventure/v2/V2SkillEquipPanel";
 import { V2InstructorView } from "@/adventure/v2/V2InstructorView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2EquipmentView } from "@/adventure/v2/V2EquipmentView";
+import { V2GuildHallView } from "@/adventure/v2/V2GuildHallView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
 import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
 import { V2ShopView } from "@/adventure/v2/V2ShopView";
@@ -70,6 +71,7 @@ type View =
   | { kind: "training" }
   | { kind: "smithy" }
   | { kind: "instructors" }
+  | { kind: "guild-hall" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -97,6 +99,7 @@ function tabOfView(view: View): TabId {
     case "training":
     case "smithy":
     case "instructors":
+    case "guild-hall":
       return "town";
     case "character":
     case "character-info":
@@ -164,9 +167,10 @@ export function V2GameFlow() {
     })();
     (async () => {
       try {
-        const res = await fetch("/api/v2/me/guild", { method: "POST" });
+        const res = await fetch("/api/v2/me/guild");
         if (res.ok) {
-          const j = (await res.json()) as { guildId?: number } | null;
+          const j = (await res.json()) as { guildId?: number | null } | null;
+          // 무소속이면 null — 상태 그대로 두면 점령/거점 UI 가 적절히 비활성화.
           if (typeof j?.guildId === "number") setViewerGuildId(j.guildId);
         }
       } catch {}
@@ -230,6 +234,9 @@ export function V2GameFlow() {
         break;
       case "open-instructors":
         setView({ kind: "instructors" });
+        break;
+      case "open-guild-hall":
+        setView({ kind: "guild-hall" });
         break;
     }
   };
@@ -389,6 +396,9 @@ export function V2GameFlow() {
       )}
       {view.kind === "instructors" && (
         <V2InstructorView onBack={() => setView({ kind: "town" })} />
+      )}
+      {view.kind === "guild-hall" && (
+        <V2GuildHallView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "equipment" && (
         <V2EquipmentView onBack={() => setView({ kind: "character-info" })} />

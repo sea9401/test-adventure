@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   lockGuildResources,
   upsertGuildResources,
@@ -24,7 +24,13 @@ export async function POST() {
   }
 
   const result = await db.transaction(async (tx) => {
-    const guildId = await ensureSoloGuild(tx, userId);
+    const guildId = await getGuildId(tx, userId);
+    if (guildId == null) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "no_guild" as const },
+      };
+    }
 
     // 마스터 권한 확인.
     const memberRow = (

@@ -5,6 +5,7 @@ import {
   FirstAid,
   GraduationCap,
   Hammer,
+  Shield,
   Sparkle,
   Storefront,
 } from "@phosphor-icons/react";
@@ -19,7 +20,8 @@ export type TownAction =
   | { kind: "open-training" }
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
-  | { kind: "open-instructors" };
+  | { kind: "open-instructors" }
+  | { kind: "open-guild-hall" };
 
 export function V2TownHome({
   onAction,
@@ -78,6 +80,12 @@ export function V2TownHome({
           title="전직 교관"
           description="6스탯 교관에게 골드를 내고 스킬을 배운다."
           onClick={() => onAction({ kind: "open-instructors" })}
+        />
+        <EntryCard
+          icon={<Shield size={28} weight="duotone" className="text-indigo-500" />}
+          title="길드 회관"
+          description="새로운 길드를 세우거나 동료들과 깃발을 모은다."
+          onClick={() => onAction({ kind: "open-guild-hall" })}
         />
       </div>
     </main>

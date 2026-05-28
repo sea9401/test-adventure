@@ -13,7 +13,7 @@ import { resolveBattle } from "@/adventure/battle/engine";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   lockGuildResources,
   lockTwoGuildResources,
@@ -88,9 +88,7 @@ export async function POST(req: Request) {
   const cost = CLAIM_STAMINA_COST[outpost.tier];
 
   const result = await db.transaction(async (tx) => {
-    // lock 순서 — occupations FOR UPDATE 가 항상 먼저. 그 후 길드 보장
-    // (ensureSoloGuild 가 guilds/guildMembers 잠금). 이 순서를 모든 라우트에서
-    // 동일하게 유지해야 cross-tx 데드락 회피.
+    // lock 순서 — occupations FOR UPDATE 가 항상 먼저. 그 후 길드 조회.
     const occRow = (
       await tx
         .select()
@@ -100,17 +98,18 @@ export async function POST(req: Request) {
         .limit(1)
     )[0];
 
-    // 공격자 길드 보장 (idempotent). 모든 점령은 길드 명의로 통일.
-    const attackerGuildId = await ensureSoloGuild(tx, userId);
-
-    // defender 측 — occupiedByGuildId 있으면 그것. 없는 legacy row 면 user 측
-    // ensureSoloGuild 로 백필. PvP 분기는 길드 기준.
-    let defenderGuildId: number | null = null;
-    if (occRow && occRow.occupiedByGuildId) {
-      defenderGuildId = occRow.occupiedByGuildId;
-    } else if (occRow && occRow.occupiedByUserId) {
-      defenderGuildId = await ensureSoloGuild(tx, occRow.occupiedByUserId);
+    // 공격자 길드 필수 — 무소속은 점령 불가.
+    const attackerGuildId = await getGuildId(tx, userId);
+    if (attackerGuildId == null) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { ok: false as const, error: "no_guild" as const },
+      };
     }
+
+    // defender 측 — occupiedByGuildId 만 사용. 자동 솔로 길드 백필 없음.
+    const defenderGuildId: number | null = occRow?.occupiedByGuildId ?? null;
 
     // 같은 길드 (자기 길드 점령) → 모집 거부.
     if (defenderGuildId !== null && defenderGuildId === attackerGuildId) {

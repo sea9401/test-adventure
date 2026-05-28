@@ -18,8 +18,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 //   - 본인이 점령자 길드인 outpost_occupations row 삭제 (점령 해제)
 //   - 다른 멤버가 있는 길드는 본인 leave 만 (다른 사람 데이터 보호)
 //
-// 다음 mount/사냥 시 ensureSoloGuild + 자동 캐릭 생성 흐름이 다시 돌아 깨끗한
-// 새 캐릭 시작.
+// 다음 mount 시 자동 캐릭 생성 흐름이 다시 돌아 깨끗한 새 캐릭 시작 (무소속 상태).
 //
 // 본문: { confirm: "RESET_MY_DATA" } — 우발적 호출 방지용 토큰.
 // 라이브 prod 에선 IS_STAGING 게이트 (staging 외 → 404).

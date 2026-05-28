@@ -9,8 +9,9 @@ const PAD: Record<CardPadding, string> = {
   lg: "p-6",
 };
 
+// 배경(zinc-50/950) 위에서 카드가 떠 보이도록 — light: 흰색+shadow, dark: zinc-900(배경보다 1단 밝게)+border 강조.
 const SURFACE =
-  "rounded-lg border border-zinc-200 bg-white/90 dark:border-zinc-800 dark:bg-zinc-950/90";
+  "rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 type CardOwnProps = {
   padding?: CardPadding;

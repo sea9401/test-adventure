@@ -129,7 +129,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       </header>
 
       <section className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-zinc-200 bg-white/90 p-4 dark:border-zinc-800 dark:bg-zinc-950/90">
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
             <Trophy size={14} /> 점수
           </div>
@@ -137,7 +137,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             {state?.state?.score ?? 0}
           </div>
         </div>
-        <div className="rounded-lg border border-zinc-200 bg-white/90 p-4 dark:border-zinc-800 dark:bg-zinc-950/90">
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <div className="text-xs text-zinc-500 dark:text-zinc-400">오늘 잔여</div>
           <div className="mt-1 text-2xl font-bold tabular-nums">
             {dailyRemaining}
@@ -168,7 +168,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       )}
 
       {lastResult && (
-        <section className="rounded-lg border border-zinc-200 bg-white/90 p-4 dark:border-zinc-800 dark:bg-zinc-950/90">
+        <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>

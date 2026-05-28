@@ -108,10 +108,9 @@ export function potionHealAmount(
   return Math.floor(baseHeal * (1 + (potionHealPct ?? 0) / 100));
 }
 
-// ── v2 스킬 런타임 (PR-4a) ────────────────────────────────────────────────
-// 새 v2 스탯 스킬 시스템 (v2_skill_*, V2_SKILLS) 의 전투 런타임 헬퍼. 옛 spells.ts
-// 시스템과는 별개 — 두 시스템이 한 전투에서 동시에 돌아도 cooldowns/MP 풀은 공유한다
-// (둘 다 PlayerCombat.maxMp 를 씀). PR-4a 는 framework only — 효과 적용은 PR-4b.
+// ── v2 스킬 런타임 (PR-4a~b) ──────────────────────────────────────────────
+// v2 스탯 스킬 시스템 (v2_skill_*, V2_SKILLS) 의 전투 런타임 헬퍼. PR-7a 부터 옛 spell
+// 시스템 (data/v2/spells.ts) 폐기 — 모든 마법은 V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델.
 
 export type V2SkillCooldowns = Partial<Record<V2SkillId, number>>;
 

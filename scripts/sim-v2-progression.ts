@@ -30,7 +30,6 @@ import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
-import { learnedSpellsForInt } from "../src/adventure/data/v2/spells";
 import type {
   V2EquipmentId,
   V2EquipSlot,
@@ -124,19 +123,13 @@ function allocate(arch: Arch, level: number): Record<StatKey, number> {
 
 function makePlayer(arch: Arch, level: number) {
   const allocated = allocate(arch, level);
-  // PR-S3 fix (codex 지적): equippedSpellsRaw 미지정이면 spells 비어 engine cast no-op
-  // → INT 빌드가 마법 못 씀. 학습 가능 spell 전체를 raw 로 넘겨 normalize 단계에서 slot
-  // cap 까지 자동 채움. INT 0 인 빌드는 learnedSpellsForInt 가 빈 배열 반환해 무영향.
-  const intTotal = 0 + (allocated.int ?? 0); // V2_BASE_STATS.int=0, 장비는 derive 내부에서 합산
-  // intTotal 은 장비 int 보너스 미포함 — derive 내부 totalStats.int 계산 후 normalize 가
-  // 다시 거른다. 여기선 candidate 만 넣어주면 됨.
-  const candidateSpells = learnedSpellsForInt(intTotal + 200); // 충분히 큰 값으로 over-supply
+  // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
+  // 단, 이 sim 은 v2 스킬을 직접 장착시키지 않음 — 일반 공격 기반 progression 측정용.
   return derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
     v2Equipped: equipFor(arch, level),
     hp: undefined,
-    equippedSpellsRaw: candidateSpells,
   });
 }
 

@@ -22,7 +22,7 @@ import {
 // 3) 학습 보유 (learned 부분집합)
 //
 // equipped 배열 순서 = 자동 발동 우선순위 (PR-4 전투 런타임이 사용).
-// 옛 /api/v2/me/skills/equip (character.v2.equippedSpells) 는 PR-7 마이그 까지 보존.
+// PR-7a — 옛 spell 시스템 폐기, 이 라우트가 v2 스킬 슬롯 장착의 단일 진입점.
 
 export async function POST(req: Request) {
   const userId = await ensureUser();

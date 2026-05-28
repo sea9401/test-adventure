@@ -295,16 +295,26 @@ export function V2GameFlow() {
           className="mx-auto w-full max-w-2xl px-4 sm:px-6"
         />
         {currentTab === "battle" && (
-          <TabBar
-            tabs={BATTLE_SUBS}
-            active={battleSubOfView(view) ?? "dungeon"}
-            onChange={(next) =>
-              setView(next === "map" ? { kind: "map" } : { kind: "battle" })
-            }
-            ariaLabel="전투 sub 탭"
-            size="sm"
-            className="mx-auto w-full max-w-2xl px-4 sm:px-6"
-          />
+          <div className="mx-auto w-full max-w-2xl px-4 pt-2 sm:px-6">
+            <label className="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+              <span className="sr-only">전투 화면 선택</span>
+              <select
+                aria-label="전투 sub 메뉴"
+                value={battleSubOfView(view) ?? "dungeon"}
+                onChange={(e) => {
+                  const next = e.target.value as BattleSubId;
+                  setView(next === "map" ? { kind: "map" } : { kind: "battle" });
+                }}
+                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+              >
+                {BATTLE_SUBS.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
         {(currentTab === "adventure" ||
           (currentTab === "battle" &&

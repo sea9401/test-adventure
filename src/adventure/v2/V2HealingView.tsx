@@ -6,8 +6,11 @@ import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
-// v2 치료소 — 라이브 룰 차용: gold < 50 무료, 아니면 1G 에 만피.
-// /api/v2/me/state 로 hp/maxHp/gold 받고, /api/v2/me/heal 로 실행.
+// v2 치료소 — 만피 회복(라이브 룰: gold<50 무료, 1G 만피) + HP/MP 충전약 구매.
+// 옛 V2ShopView 의 충전 섹션이 여기로 이전 — 상점은 장비만 취급.
+
+const HEAL_FREE_GOLD_THRESHOLD = 50;
+const MAX_CHARGE = 1000;
 
 type StateResponse = {
   ok?: boolean;
@@ -20,7 +23,12 @@ type StateResponse = {
   };
 };
 
-const HEAL_FREE_GOLD_THRESHOLD = 50;
+type InventoryResponse = {
+  hpCharges?: number;
+  mpCharges?: number;
+};
+
+type ChargeKind = "hp" | "mp";
 
 export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [hp, setHp] = useState<number | null>(null);
@@ -28,13 +36,18 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [mp, setMp] = useState<number | null>(null);
   const [maxMp, setMaxMp] = useState<number | null>(null);
   const [gold, setGold] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [hpCharges, setHpCharges] = useState<number | null>(null);
+  const [mpCharges, setMpCharges] = useState<number | null>(null);
+  const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
-      const j = (await res.json().catch(() => null)) as StateResponse | null;
+      const [stateRes, invRes] = await Promise.all([
+        fetch("/api/v2/me/state"),
+        fetch("/api/v2/me/inventory"),
+      ]);
+      const j = (await stateRes.json().catch(() => null)) as StateResponse | null;
       if (j?.character) {
         setHp(j.character.hp);
         setMaxHp(j.character.maxHp);
@@ -42,6 +55,11 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         setMaxMp(j.character.maxMp ?? 0);
         setGold(j.character.gold);
       }
+      const invJ = invRes.ok
+        ? ((await invRes.json().catch(() => null)) as InventoryResponse | null)
+        : null;
+      setHpCharges(invJ?.hpCharges ?? 0);
+      setMpCharges(invJ?.mpCharges ?? 0);
     } catch {}
   }, []);
 
@@ -50,7 +68,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   const handleHeal = useCallback(async () => {
-    setBusy(true);
+    setBusy("heal");
     setMsg(null);
     try {
       const res = await fetch("/api/v2/me/heal", { method: "POST" });
@@ -77,15 +95,51 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
     } catch (err) {
       setMsg(`✗ network: ${(err as Error).message}`);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }, []);
 
-  // 둘 다 풀이어야 disabled. MP 미달이면 HP 풀이어도 회복 가능.
+  const buyCharge = useCallback(
+    async (kind: ChargeKind, amount: number) => {
+      setBusy(kind);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/shop/charge", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind, amount }),
+        });
+        const j = (await res.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              error?: string;
+              charged?: number;
+              gold?: number;
+              hpCharges?: number;
+              mpCharges?: number;
+            }
+          | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        setMsg(`✓ ${kind === "hp" ? "HP" : "MP"} +${j.charged ?? amount} 충전`);
+        if (typeof j.gold === "number") setGold(j.gold);
+        if (typeof j.hpCharges === "number") setHpCharges(j.hpCharges);
+        if (typeof j.mpCharges === "number") setMpCharges(j.mpCharges);
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [],
+  );
+
   const hpFull = hp != null && maxHp != null && hp >= maxHp;
   const mpFull = mp != null && maxMp != null && mp >= maxMp;
   const isFull = hpFull && mpFull;
-  const cost =
+  const healCost =
     gold == null ? 0 : gold < HEAL_FREE_GOLD_THRESHOLD ? 0 : 1;
 
   return (
@@ -113,21 +167,110 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         <button
           type="button"
           onClick={handleHeal}
-          disabled={isFull || busy || hp == null}
+          disabled={isFull || busy !== null || hp == null}
           className="mt-4 w-full rounded-md border border-rose-500 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-400 dark:text-rose-300"
         >
           {hp == null
             ? "..."
             : isFull
               ? "이미 가득 차 있다"
-              : cost > 0
-                ? `전부 회복 (${cost} G)`
+              : healCost > 0
+                ? `전부 회복 (${healCost} G)`
                 : "전부 회복 (무료)"}
         </button>
-        {msg && (
-          <p className="mt-3 text-xs text-zinc-600 dark:text-zinc-400">{msg}</p>
-        )}
       </Card>
+
+      <Card padding="md">
+        <h2 className="text-sm font-semibold">충전약</h2>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          1 G 당 1 충전, 최대 {MAX_CHARGE.toLocaleString()}. 사냥 후 부족분 만큼 자동 소모.
+        </p>
+        <ChargeRow
+          label="HP 충전약"
+          kind="hp"
+          current={hpCharges ?? 0}
+          gold={gold ?? 0}
+          busy={busy === "hp"}
+          onBuy={buyCharge}
+        />
+        <ChargeRow
+          label="MP 충전약"
+          kind="mp"
+          current={mpCharges ?? 0}
+          gold={gold ?? 0}
+          busy={busy === "mp"}
+          onBuy={buyCharge}
+        />
+      </Card>
+
+      {msg && (
+        <div
+          className={`rounded-md border px-3 py-1.5 text-xs ${
+            msg.startsWith("✓")
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+          }`}
+        >
+          {msg}
+        </div>
+      )}
     </main>
+  );
+}
+
+function ChargeRow({
+  label,
+  kind,
+  current,
+  gold,
+  busy,
+  onBuy,
+}: {
+  label: string;
+  kind: ChargeKind;
+  current: number;
+  gold: number;
+  busy: boolean;
+  onBuy: (kind: ChargeKind, amount: number) => void;
+}) {
+  const room = MAX_CHARGE - current;
+  const full = room <= 0;
+  const amounts = [10, 100, 1000];
+  return (
+    <section className="mt-3 space-y-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-sm font-medium">{label}</h3>
+        <span className="text-xs tabular-nums text-zinc-600 dark:text-zinc-400">
+          {current.toLocaleString()} / {MAX_CHARGE.toLocaleString()}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {amounts.map((amt) => {
+          const actual = Math.min(amt, room);
+          const cost = actual;
+          const affordable = gold >= cost && actual > 0;
+          return (
+            <button
+              key={amt}
+              type="button"
+              onClick={() => onBuy(kind, amt)}
+              disabled={busy || full || !affordable}
+              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            >
+              +{amt} ({cost}g)
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => onBuy(kind, room)}
+          disabled={busy || full || gold < room}
+          className="rounded-md border border-emerald-400 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-200 dark:border-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-800/40"
+        >
+          꽉 채우기 ({room}g)
+        </button>
+      </div>
+      {full && <p className="text-xs text-zinc-500 dark:text-zinc-400">최대치.</p>}
+    </section>
   );
 }

@@ -6,6 +6,9 @@ import {
   tickV2SkillCooldowns,
   pickAutoCastV2Skill,
   resolveV2SkillCast,
+  tickV2BuffMap,
+  applyV2BuffsToMap,
+  v2BuffActive,
 } from "./combatShared";
 import type { PlayerCombat } from "./engine";
 import type { Potion } from "../data/potions";
@@ -166,29 +169,49 @@ describe("pickAutoCastV2Skill (PR-4a)", () => {
   void flurry;
 });
 
-describe("resolveV2SkillCast (PR-4a — framework, 효과 미적용)", () => {
+// PR-4b 시그니처로 cast 호출하는 헬퍼 — framework 만 검증할 때 ctx 채워준다.
+function castFrameworkOnly(args: {
+  skills: Parameters<typeof resolveV2SkillCast>[0]["skills"];
+  cooldowns: Parameters<typeof resolveV2SkillCast>[0]["cooldowns"];
+  mp: number;
+}) {
+  return resolveV2SkillCast({
+    skills: args.skills,
+    cooldowns: args.cooldowns,
+    attacker: {
+      mp: args.mp,
+      atk: 0,
+      maxHp: 0,
+      selfBuffs: {},
+      selfDebuffs: {},
+    },
+    target: { def: 0, selfDebuffs: {} },
+  });
+}
+
+describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
   it("발동 가능 — cd tick + MP 차감 + 발동 스킬 cd 세팅 (lockout = N 턴)", () => {
     const strike = V2_SKILLS["v2_skill_strike"];
-    const result = resolveV2SkillCast({
+    const result = castFrameworkOnly({
       skills: {
         learned: ["v2_skill_strike", "v2_skill_recover"],
         equipped: ["v2_skill_strike"],
       },
-      cooldowns: { v2_skill_recover: 3 }, // 다른 스킬 cd
+      cooldowns: { v2_skill_recover: 3 },
       mp: 100,
     });
     expect(result.castSkillId).toBe("v2_skill_strike");
     expect(result.castSkillName).toBe(strike.name);
     expect(result.nextMp).toBe(100 - strike.mpCost);
     expect(result.nextCooldowns).toEqual({
-      v2_skill_recover: 2, // tick 됐고
-      v2_skill_strike: strike.cooldown + 1, // 다음 tick 까지 lockout 시드 (N+1 → tick 후 N).
+      v2_skill_recover: 2,
+      v2_skill_strike: strike.cooldown + 1,
     });
   });
 
   it("발동 불가 — 그래도 cd tick 만 진행 (MP/log 그대로)", () => {
-    const result = resolveV2SkillCast({
-      skills: { learned: [], equipped: [] }, // 장착 없음
+    const result = castFrameworkOnly({
+      skills: { learned: [], equipped: [] },
       cooldowns: { v2_skill_strike: 2 },
       mp: 50,
     });
@@ -200,8 +223,7 @@ describe("resolveV2SkillCast (PR-4a — framework, 효과 미적용)", () => {
 
   it("cd=N 이면 정확히 N 턴 lockout 후 재시전 (cast T1 → T2..T(N+1) blocked → T(N+2) cast)", () => {
     const strike = V2_SKILLS["v2_skill_strike"];
-    // T1: cast → cd[strike] = strike.cooldown + 1
-    const t1 = resolveV2SkillCast({
+    const t1 = castFrameworkOnly({
       skills: {
         learned: ["v2_skill_strike"],
         equipped: ["v2_skill_strike"],
@@ -212,10 +234,9 @@ describe("resolveV2SkillCast (PR-4a — framework, 효과 미적용)", () => {
     expect(t1.castSkillId).toBe("v2_skill_strike");
     expect(t1.nextCooldowns).toEqual({ v2_skill_strike: strike.cooldown + 1 });
 
-    // T2..T(N+1) — 매 turn entry 마다 tick. 마지막 tick (T(N+1)) 에서도 cd>0 이라 cast skip.
     let cur = t1;
     for (let n = 0; n < strike.cooldown; n++) {
-      cur = resolveV2SkillCast({
+      cur = castFrameworkOnly({
         skills: {
           learned: ["v2_skill_strike"],
           equipped: ["v2_skill_strike"],
@@ -225,8 +246,7 @@ describe("resolveV2SkillCast (PR-4a — framework, 효과 미적용)", () => {
       });
       expect(cur.castSkillId).toBeNull();
     }
-    // T(N+2) — tick 으로 cd 가 drop → 재시전 가능.
-    const ready = resolveV2SkillCast({
+    const ready = castFrameworkOnly({
       skills: {
         learned: ["v2_skill_strike"],
         equipped: ["v2_skill_strike"],
@@ -235,6 +255,190 @@ describe("resolveV2SkillCast (PR-4a — framework, 효과 미적용)", () => {
       mp: cur.nextMp,
     });
     expect(ready.castSkillId).toBe("v2_skill_strike");
+  });
+});
+
+describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
+  it("damage effect — attacker.atk × statCoef + baseFlat − target.def, DEF 적용", () => {
+    // strike: damage statCoef=1.0, baseFlat=0. atk=100, def=20 → 100×1.0 - 20 = 80
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        maxHp: 200,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 20, selfDebuffs: {} },
+    });
+    expect(result.enemyDamage).toBe(80);
+    expect(result.selfHeal).toBe(0);
+  });
+
+  it("heal effect — pctMaxHp 비례", () => {
+    // recover: heal pctMaxHp=10. maxHp=200 → 20.
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_recover"],
+        equipped: ["v2_skill_recover"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 0,
+        maxHp: 200,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfDebuffs: {} },
+    });
+    expect(result.selfHeal).toBe(20);
+    expect(result.enemyDamage).toBe(0);
+  });
+
+  it("selfBuff effect — buff 목록 반환 (stat/pct/turns)", () => {
+    // dash: selfBuff stat=spd pct=10 turns=3.
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_dash"],
+        equipped: ["v2_skill_dash"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        maxHp: 200,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfDebuffs: {} },
+    });
+    expect(result.selfBuffsToApply).toEqual([
+      { stat: "spd", pct: 10, turns: 3 },
+    ]);
+    expect(result.enemyDebuffsToApply).toEqual([]);
+  });
+
+  it("v2 selfBuff(str) 활성 시 strike damage 가 atk 곱셈으로 증폭", () => {
+    // 강타 (str scaling). selfBuffs.str = +20% → atk 100 × 1.20 × 1.0 − def 20 = 100.
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        maxHp: 200,
+        selfBuffs: { str: { pct: 20, turns: 3 } },
+        selfDebuffs: {},
+      },
+      target: { def: 20, selfDebuffs: {} },
+    });
+    // floor(100 × 1.20 × 1.0) - 20 = 120 - 20 = 100
+    expect(result.enemyDamage).toBe(100);
+  });
+
+  it("target 의 vit selfDebuff 활성 시 target.def 감소 → damage 증폭", () => {
+    // target.def 20, vit debuff 50% → effective def 10. atk 100, statCoef 1.0 → 100 - 10 = 90.
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        maxHp: 200,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: {
+        def: 20,
+        selfDebuffs: { vit: { pct: 50, turns: 3 } },
+      },
+    });
+    expect(result.enemyDamage).toBe(90);
+  });
+
+  it("복수 effect 한 스킬 — Tier 2 분쇄 강타 (damage + enemyDebuff vit)", () => {
+    // str_crushing_blow_t2: damage statCoef 1.65 + enemyDebuff vit pct 14 turns 3
+    const result = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_strike", "str_crushing_blow_t2"],
+        equipped: ["str_crushing_blow_t2"],
+      },
+      cooldowns: {},
+      attacker: {
+        mp: 1000,
+        atk: 100,
+        maxHp: 200,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 20, selfDebuffs: {} },
+    });
+    // floor(100 × 1.65) - 20 = 165 - 20 = 145
+    expect(result.enemyDamage).toBe(145);
+    expect(result.enemyDebuffsToApply).toEqual([
+      { stat: "vit", pct: 14, turns: 3 },
+    ]);
+  });
+});
+
+describe("tickV2BuffMap / applyV2BuffsToMap (PR-4b)", () => {
+  it("tickV2BuffMap — turns -1, 1 도달이면 drop", () => {
+    expect(
+      tickV2BuffMap({
+        str: { pct: 20, turns: 3 },
+        spd: { pct: 10, turns: 1 },
+      }),
+    ).toEqual({
+      str: { pct: 20, turns: 2 },
+      // spd drop.
+    });
+  });
+
+  it("applyV2BuffsToMap — 같은 stat 키 덮어쓰기 + turns +1 시드 (다음 tick 흡수용)", () => {
+    expect(
+      applyV2BuffsToMap(
+        { str: { pct: 5, turns: 2 } },
+        [{ stat: "str", pct: 20, turns: 3 }],
+      ),
+    ).toEqual({ str: { pct: 20, turns: 4 } });
+  });
+
+  it("v2BuffActive — turns > 0 일 때만 pct, 아니면 0", () => {
+    expect(v2BuffActive({ str: { pct: 20, turns: 3 } }, "str")).toBe(20);
+    expect(v2BuffActive({ str: { pct: 20, turns: 0 } }, "str")).toBe(0);
+    expect(v2BuffActive({}, "str")).toBe(0);
+  });
+
+  // 회귀: turns:N 의도 = 정확히 N번 tick-후 active. apply 시 +1 시드 → tick 1회 흡수 후 N.
+  it("turns:3 buff 가 정확히 3 번의 tick-후 active 턴 유지 (off-by-one 회귀)", () => {
+    // 시드: T1 cast 시 applyV2BuffsToMap → turns 4 박힘.
+    let map = applyV2BuffsToMap({}, [{ stat: "str", pct: 20, turns: 3 }]);
+    expect(map.str?.turns).toBe(4);
+    // T2 entry tick → turns 3, active.
+    map = tickV2BuffMap(map);
+    expect(v2BuffActive(map, "str")).toBe(20);
+    expect(map.str?.turns).toBe(3);
+    // T3 tick → turns 2, active.
+    map = tickV2BuffMap(map);
+    expect(v2BuffActive(map, "str")).toBe(20);
+    // T4 tick → turns 1, active.
+    map = tickV2BuffMap(map);
+    expect(v2BuffActive(map, "str")).toBe(20);
+    // T5 tick → drop, inactive.
+    map = tickV2BuffMap(map);
+    expect(v2BuffActive(map, "str")).toBe(0);
   });
 });
 

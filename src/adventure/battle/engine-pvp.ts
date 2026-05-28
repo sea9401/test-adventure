@@ -43,11 +43,13 @@ import {
 import { type Potion, type PotionId } from "../data/potions";
 import { applyStartOfBattleSpellsPvP } from "../data/v2/spells";
 import {
+  applyV2BuffsToMap,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
   selectApSkillsToFire,
+  tickV2BuffMap,
 } from "./combatShared";
 import {
   CRIT_MULT_BASE,
@@ -153,6 +155,10 @@ export type PvPSide = {
   // v2 스킬 (v2_skill_*) — PR-4a framework. 라이브 spells.ts 와 별개. equipped 빈 배열이면 no-op.
   v2Skills: import("../data/v2/v2Skills").V2SkillsState;
   v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
+  // v2 스킬 buff slot (PR-4b). pct 정수, turns 매 attacker turn 진입 시 -1.
+  // v2SelfBuffs: 이 side 가 자기에게 건 강화. v2SelfDebuffs: 상대가 이 side 에 건 약화.
+  v2SelfBuffs: import("./combatShared").V2BuffMap;
+  v2SelfDebuffs: import("./combatShared").V2BuffMap;
 };
 
 export type PvPBattleState = {
@@ -414,6 +420,8 @@ function buildSide(
     name,
     v2Skills,
     v2SkillCooldowns: {},
+    v2SelfBuffs: {},
+    v2SelfDebuffs: {},
     hp: player.hp,
     maxHp: player.maxHp,
     mp: sideMaxMp, // 매치 시작 풀충전 (단판 모델). 토너먼트는 매치마다 다시 풀충전.
@@ -2044,31 +2052,102 @@ export type PvPBattleResolution = {
 // PvP 결판 — 양쪽이 turn cap 까지 결판 못 내면 무승부.
 export const PVP_TURN_CAP = 100;
 
-// PR-4a: v2 스킬 cast (framework only). MP 차감 + cooldown set + 로그.
-// 효과(damage/heal/buff/debuff) 는 PR-4b 에서 적용 — PR-4a 는 enemyHp/buffs 변화 없음.
+// PR-4b: v2 스킬 cast — MP 차감 + cooldown set + 효과 적용 (damage/heal/buff/debuff) + 로그.
+// 매 side 의 turn 진입 시 1회 — 자기 side 의 buff/debuff turn -1 tick + cast.
 function castV2SkillOnAttackerTurnPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
 ): PvPBattleState {
   const side = state[who];
+  const otherKey: "p1" | "p2" = who === "p1" ? "p2" : "p1";
+  const opp = state[otherKey];
+  // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
+  const tickedSelfBuffs = tickV2BuffMap(side.v2SelfBuffs);
+  const tickedSelfDebuffs = tickV2BuffMap(side.v2SelfDebuffs);
+  // 2) cast 결정 + 효과 계산. target = 상대 side (opp).
   const result = resolveV2SkillCast({
     skills: side.v2Skills,
     cooldowns: side.v2SkillCooldowns,
-    mp: side.mp,
+    attacker: {
+      mp: side.mp,
+      atk: side.player.atk,
+      maxHp: side.maxHp,
+      selfBuffs: tickedSelfBuffs,
+      selfDebuffs: tickedSelfDebuffs,
+    },
+    target: {
+      def: opp.player.def,
+      selfDebuffs: opp.v2SelfDebuffs,
+    },
   });
+  // 3) state 업데이트.
+  let nextLog = state.log;
+  if (result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[스킬] ${side.name} — ${result.castSkillName} 시전`,
+      side: who,
+    });
+  }
+  let nextSideHp = side.hp;
+  let nextOppHp = opp.hp;
+  if (result.enemyDamage > 0) {
+    nextOppHp = Math.max(0, nextOppHp - result.enemyDamage);
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[스킬] ${opp.name}에 ${result.enemyDamage} 피해`,
+      side: who,
+    });
+  }
+  if (result.selfHeal > 0) {
+    const before = nextSideHp;
+    nextSideHp = Math.min(side.maxHp, nextSideHp + result.selfHeal);
+    const actual = nextSideHp - before;
+    if (actual > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "info",
+        text: `[스킬] ${side.name} HP ${actual} 회복`,
+        side: who,
+      });
+    }
+  }
+  const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
+  // enemyDebuff 결과는 상대 side 의 v2SelfDebuffs 에 박힌다.
+  const nextOppSelfDebuffs = applyV2BuffsToMap(
+    opp.v2SelfDebuffs,
+    result.enemyDebuffsToApply,
+  );
+  for (const b of result.selfBuffsToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[강화] ${side.name} ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+      side: who,
+    });
+  }
+  for (const d of result.enemyDebuffsToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[약화] ${opp.name} ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      side: who,
+    });
+  }
   const nextSide: PvPSide = {
     ...side,
+    hp: nextSideHp,
     mp: result.nextMp,
     v2SkillCooldowns: result.nextCooldowns,
+    v2SelfBuffs: nextSelfBuffs,
+    v2SelfDebuffs: tickedSelfDebuffs,
   };
-  const nextLog = result.castSkillName
-    ? appendLog(state.log, {
-        kind: "info",
-        text: `[스킬] ${side.name} — ${result.castSkillName} 시전`,
-        side: who,
-      })
-    : state.log;
-  return setSide({ ...state, log: nextLog }, who, nextSide);
+  const nextOpp: PvPSide = {
+    ...opp,
+    hp: nextOppHp,
+    v2SelfDebuffs: nextOppSelfDebuffs,
+  };
+  let next: PvPBattleState = { ...state, log: nextLog };
+  next = setSide(next, who, nextSide);
+  next = setSide(next, otherKey, nextOpp);
+  return next;
 }
 
 export function resolveBattlePvP(

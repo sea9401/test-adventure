@@ -27,6 +27,9 @@ function mkState(over: Partial<BattleState> = {}): BattleState {
     ap: 0,
     v2Skills: { learned: [], equipped: [] },
     v2SkillCooldowns: {},
+    v2SelfBuffs: {},
+    v2SelfDebuffs: {},
+    enemyV2Debuffs: {},
     ...over,
   };
 }

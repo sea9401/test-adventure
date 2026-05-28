@@ -20,6 +20,10 @@ function requiredExpToNextNullable(level: number): number | null {
 import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
   HUNT_COST,
@@ -309,6 +313,15 @@ export async function POST(req: Request) {
     );
     const playerForBattle = { ...player.player, hp: regenResult.hp };
 
+    // PR-4b — 플레이어의 v2 스킬 (learned/equipped) 을 lock 해서 read. cast hook 이 사용.
+    const skillsRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState() as unknown as Record<string, unknown>,
+    );
+    const v2Skills = parseV2SkillsState(skillsRaw);
+
     const battleResult = resolveBattle(
       playerForBattle,
       enemyMonster,
@@ -317,6 +330,7 @@ export async function POST(req: Request) {
         pickAction: (state) =>
           pickAutoAction(state, { rules: [], potions: {} }),
         potions: {},
+        v2Skills,
       },
     );
 

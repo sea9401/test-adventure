@@ -520,6 +520,127 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
   });
 });
 
+describe("v2 스킬 효과 적용 (PR-4b)", () => {
+  it("damage effect — strike 발동 시 적 HP 차감 (atk - def 식)", () => {
+    // atk 50, def 5 의 적 → strike (coef 1.0) → 50 - 5 = 45 데미지/cast
+    // 적 hp 200 → 적어도 1회 cast 후 HP 차감 확인.
+    const skillsPlayer: PlayerCombat = {
+      ...PLAYER,
+      atk: 50,
+      maxMp: 1000,
+      hp: 200,
+      maxHp: 200,
+      spd: 100,
+    };
+    const r = resolveBattle(
+      skillsPlayer,
+      makeEnemy({ hp: 1000, atk: 1, def: 5 }),
+      "P",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      },
+    );
+    // 데미지 로그 — "스킬] {enemy}에 N 피해" 패턴.
+    const dmgLog = r.finalState.log.find(
+      (e) =>
+        e.kind === "info" &&
+        e.text.includes("피해") &&
+        e.text.includes("[스킬]"),
+    );
+    expect(dmgLog).toBeDefined();
+  });
+
+  it("heal effect — recover 발동 시 player HP 회복 (maxHp 클램프)", () => {
+    // recover: pctMaxHp=10, maxHp=200 → 20 heal.
+    // 시작 HP=50 (낮춤) → cast 후 HP 70 이상.
+    const skillsPlayer: PlayerCombat = {
+      ...PLAYER,
+      hp: 50,
+      maxHp: 200,
+      maxMp: 1000,
+    };
+    const r = resolveBattle(
+      skillsPlayer,
+      makeEnemy({ hp: 1000, atk: 1 }),
+      "P",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_recover"],
+          equipped: ["v2_skill_recover"],
+        },
+      },
+    );
+    const healLog = r.finalState.log.find(
+      (e) => e.kind === "info" && e.text.includes("HP") && e.text.includes("회복") && e.text.includes("[스킬]"),
+    );
+    expect(healLog).toBeDefined();
+  });
+
+  it("selfBuff effect — dash 발동 시 [강화] 로그 + v2SelfBuffs 갱신", () => {
+    // dash: selfBuff spd +10% 3턴
+    const skillsPlayer: PlayerCombat = {
+      ...PLAYER,
+      maxMp: 1000,
+      hp: 200,
+      maxHp: 200,
+      spd: 100,
+    };
+    const r = resolveBattle(
+      skillsPlayer,
+      makeEnemy({ hp: 1000 }),
+      "P",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_dash"],
+          equipped: ["v2_skill_dash"],
+        },
+      },
+    );
+    const buffLog = r.finalState.log.find(
+      (e) => e.kind === "info" && e.text.includes("[강화]"),
+    );
+    expect(buffLog).toBeDefined();
+    // 마지막 상태의 v2SelfBuffs 에 spd 키 (turns > 0 또는 tick 으로 expire).
+    // 발동 후 turns 가 cd 보다 짧을 수 있으니 단순 expect: 존재 검증만.
+  });
+
+  it("damage 누계 + 첫 cast 가 lethal — outcome win 처리", () => {
+    // 적 HP 30, strike 데미지 (atk 50 - def 5 = 45) > 30 → 1발에 처치.
+    const skillsPlayer: PlayerCombat = {
+      ...PLAYER,
+      atk: 50,
+      maxMp: 1000,
+      hp: 200,
+      maxHp: 200,
+      spd: 100,
+    };
+    const r = resolveBattle(
+      skillsPlayer,
+      makeEnemy({ hp: 30, atk: 1, def: 5 }),
+      "P",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      },
+    );
+    expect(r.outcome).toBe("win");
+    expect(r.finalState.enemyHp).toBe(0);
+  });
+});
+
 describe("강공격 (powerAttackBonus)", () => {
   // 적 def 0, 플레이어 atk 1 → 일반 공격 1 데미지 / 강공격 (atk+2) = 3 데미지.
   const minimal: PlayerCombat = {

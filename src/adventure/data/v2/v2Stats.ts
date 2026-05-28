@@ -12,9 +12,9 @@ export const V2_BASE_STATS: Record<StatKey, number> = {
   str: 15,
   dex: 15,
   vit: 15,
-  // SPD 50 = 신캐 시작부터 2타 (SPD_PER_EXTRA_ATTACK=50 임계값 도달). 다중공격 기본
-  // 동작 보장. 다른 5스탯은 15 유지.
-  spd: 50,
+  // SPD 30 = 라이브 확률 모델에서 60% 추가공격 확률 (평균 1.6타). 다른 5스탯(15) 보다
+  // 살짝 높여 SPD 정체성 보장.
+  spd: 30,
   luk: 15,
   int: 0,
 };

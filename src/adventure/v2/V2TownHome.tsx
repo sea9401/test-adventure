@@ -46,7 +46,7 @@ export function V2TownHome({
             <Storefront size={28} weight="duotone" className="text-emerald-600" />
           }
           title="상점"
-          description="물건을 사고 팔 수 있는 곳. 준비 중."
+          description="HP·MP 물약을 구매. 골드를 들고 들르는 곳."
           onClick={() => onAction({ kind: "open-shop" })}
         />
         <EntryCard

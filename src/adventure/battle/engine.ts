@@ -3,6 +3,7 @@ import { castSpellsOnPlayerTurn } from "../data/v2/spells";
 import { type Potion, type PotionId } from "../data/potions";
 import {
   applyV2BuffsToMap,
+  defaultV2MaxMpFor,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
@@ -219,15 +220,23 @@ export type BattleState = {
   // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
   v2Skills: import("../data/v2/v2Skills").V2SkillsState;
   v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
-  // v2 스킬 selfBuff/enemyDebuff (PR-4b). AP buff slot 과 별개 — 동거 가능. pct 는 정수 퍼센트.
-  // 매 player turn 진입 시 turns -1, 0 도달이면 제거.
-  //   v2SelfBuffs: 플레이어가 자기에게 건 강화 (selfBuff effect 결과).
-  //   v2SelfDebuffs: 적이 플레이어에게 건 약화 (PvE 는 적이 v2 스킬 안 가져서 항상 빈, PvP 미러용 자리).
-  //   enemyV2Debuffs: 플레이어가 적에게 건 약화 (PvE 전용). PvP 는 상대 side.v2SelfDebuffs 가 같은 역할.
-  // damage/heal 계산 시 stat 곱셈으로 반영 — v2 스킬 effect 한정 (PR-5+ 에서 일반 공격까지 확장 검토).
+  // v2 스킬 selfBuff/enemyDebuff (PR-4b/PR-5b). AP buff slot 과 별개 — 동거 가능. pct 는 정수 퍼센트.
+  // 매 그 사이드의 turn 진입 시 turns -1, 0 도달이면 제거.
+  //   v2SelfBuffs: 플레이어가 자기에게 건 강화.
+  //   v2SelfDebuffs: 적이 플레이어에게 건 약화 (PR-5b 부터 monster v2 가능).
+  //   enemyV2SelfBuffs: 적이 자기에게 건 강화 (PR-5b 부터, monster v2 cast 결과).
+  //   enemyV2Debuffs: 플레이어가 적에게 건 약화.
+  // damage 계산에 stat 곱셈 반영 — PR-5a 부터 일반 공격에도 적용 (격리 해제).
   v2SelfBuffs: import("./combatShared").V2BuffMap;
   v2SelfDebuffs: import("./combatShared").V2BuffMap;
+  enemyV2SelfBuffs: import("./combatShared").V2BuffMap;
   enemyV2Debuffs: import("./combatShared").V2BuffMap;
+  // PR-5b — monster 의 v2 자원. equipped 가 있고 maxMp > 0 일 때만 cast 활성.
+  // 라이브 잡몹(v2Skills 미장착)은 둘 다 0 → cast no-op. 단판 풀충전 모델.
+  enemyV2Skills: import("../data/v2/v2Skills").V2SkillsState;
+  enemyV2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
+  enemyMp: number;
+  enemyMaxMp: number;
   log: BattleLogEntry[];
   phase: BattlePhase;
   outcome: BattleOutcome | null;
@@ -654,7 +663,7 @@ function applyCounterIfAny(
   if (bonus <= 0) return { state, ended: false };
   // PR-5a: v2 buff/debuff 격리 해제 — 반격 데미지도 일반 공격과 동일하게 v2 buff 곱셈.
   const v2AtkMult = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
-  const v2DefMult = v2DefBuffMult({}, state.enemyV2Debuffs);
+  const v2DefMult = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
   const atk = v2AtkMult !== 1
     ? Math.floor((player.atk + bonus) * v2AtkMult)
     : player.atk + bonus;
@@ -900,7 +909,7 @@ function finishPlayerTurn(
       : player.atk;
   // PR-5a: 그림자 분신·무피해 난무 모두 v2 buff/debuff 격리 해제 적용.
   const v2AtkMultExtra = v2AtkBuffMult(st.v2SelfBuffs, st.v2SelfDebuffs);
-  const v2DefMultExtra = v2DefBuffMult({}, st.enemyV2Debuffs);
+  const v2DefMultExtra = v2DefBuffMult(st.enemyV2SelfBuffs, st.enemyV2Debuffs);
   const applyV2Atk = (rawAtk: number): number =>
     v2AtkMultExtra !== 1 ? Math.floor(rawAtk * v2AtkMultExtra) : rawAtk;
   const applyV2Def = (rawDef: number): number =>
@@ -1105,7 +1114,18 @@ export function initialBattleState(
     v2SkillCooldowns: {},
     v2SelfBuffs: {},
     v2SelfDebuffs: {},
+    enemyV2SelfBuffs: {},
     enemyV2Debuffs: {},
+    // PR-5b — monster.v2Skills 가 있으면 enemy v2 시드. 없으면 빈 배열로 무력화.
+    // v2MaxMp 미지정 시 defaultV2MaxMpFor (equipped 의 max mpCost × 3) 로 자동 시드.
+    enemyV2Skills: enemy.v2Skills ?? { learned: [], equipped: [] },
+    enemyV2SkillCooldowns: {},
+    enemyMp: enemy.v2MaxMp !== undefined
+      ? Math.max(0, enemy.v2MaxMp)
+      : defaultV2MaxMpFor(enemy.v2Skills ?? { learned: [], equipped: [] }),
+    enemyMaxMp: enemy.v2MaxMp !== undefined
+      ? Math.max(0, enemy.v2MaxMp)
+      : defaultV2MaxMpFor(enemy.v2Skills ?? { learned: [], equipped: [] }),
   };
 }
 
@@ -1486,7 +1506,7 @@ export function advanceTurn(
     // PR-5a: v2 buff/debuff 격리 해제 — 일반 공격 damage 에도 atk 곱셈으로 반영.
     // attacker 의 v2 self buff (str/dex/spd/luk) 합산, target 의 v2 vit debuff/buff 가 def 곱셈.
     const v2AtkMultPlayer = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
-    const v2DefMultEnemy = v2DefBuffMult({}, state.enemyV2Debuffs);
+    const v2DefMultEnemy = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
     const v2EffectiveAtk = v2AtkMultPlayer !== 1 ? Math.floor(atkBeforeApMult * v2AtkMultPlayer) : atkBeforeApMult;
     const v2EffectiveTargetDef = v2DefMultEnemy !== 1 ? Math.floor(targetDef * v2DefMultEnemy) : targetDef;
     const baseDmgSingleHit = damageBetween(
@@ -2169,7 +2189,8 @@ export function advanceTurn(
       0,
       state.enemy.atk + state.buffs.enemyAtkBonus - state.buffs.enemyAtkPenalty,
     );
-    const v2AtkMultE = v2AtkBuffMult({}, state.enemyV2Debuffs);
+    // PR-5b: enemy 의 self buff 도 합산 (monster v2 cast 결과).
+    const v2AtkMultE = v2AtkBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
     const v2DefMultP = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2EffAtk = v2AtkMultE !== 1 ? Math.floor(effAtk * v2AtkMultE) : effAtk;
     const v2EffDef = v2DefMultP !== 1 ? Math.floor(effDef * v2DefMultP) : effDef;
@@ -2499,9 +2520,9 @@ export function advanceTurn(
     0,
     state.enemy.atk + enemyAtkBonus - state.buffs.enemyAtkPenalty,
   );
-  // PR-5a: enemy 가 받은 v2 debuff (player 가 박은 enemyDebuff) 가 자기 atk 곱셈으로 약화.
-  // player 의 v2 self buff/debuff 는 player.def 곱셈으로 반영.
-  const v2AtkMultEnemy = v2AtkBuffMult({}, state.enemyV2Debuffs);
+  // PR-5a/5b: enemy 측 v2 buff/debuff 합산. PR-5b 부터 monster v2 cast 가능 → enemyV2SelfBuffs
+  // 도 합산. player 의 v2 self buff/debuff 는 player.def 곱셈으로 반영.
+  const v2AtkMultEnemy = v2AtkBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
   const v2DefMultPlayer = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
   const v2EffectiveEnemyAtk = v2AtkMultEnemy !== 1 ? Math.floor(effectiveEnemyAtk * v2AtkMultEnemy) : effectiveEnemyAtk;
   const v2EffectivePlayerDef = v2DefMultPlayer !== 1 ? Math.floor(effectivePlayerDef * v2DefMultPlayer) : effectivePlayerDef;
@@ -2656,7 +2677,7 @@ export function advanceTurn(
   ) {
     // PR-5a: 룬 반격도 v2 buff/debuff 격리 해제 일관 적용.
     const v2AtkMultC = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
-    const v2DefMultC = v2DefBuffMult({}, state.enemyV2Debuffs);
+    const v2DefMultC = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
     const counterDef = playerFacingEnemyDef(state, player);
     const counterDmg = damageBetween(
       v2AtkMultC !== 1 ? Math.floor(player.atk * v2AtkMultC) : player.atk,
@@ -2853,9 +2874,15 @@ export function resolveBattle(
   // 케이스가 있다. v2 는 phase-entry flag 로 dedupe — player phase 가 enemy 로 빠졌다가
   // 돌아올 때마다 정확히 1회 cast.
   let v2CastedThisPlayerPhase = false;
+  // PR-5b — enemy phase 진입 시 1회 cast. phase 가 enemy 가 아니게 되면 reset.
+  let v2CastedThisEnemyPhase = false;
 
   while (state.phase !== "ended") {
     let action: PlayerAction = { kind: "attack" };
+    // PR-5b 회귀: enemy phase 가 player 로 전환되면 enemy cast flag reset (offlineSim 과 동작 일치).
+    if (state.phase === "player") {
+      v2CastedThisEnemyPhase = false;
+    }
     if (state.phase === "player") {
       // 매 player turn 의 첫 step 에서 cast. cast 후 enemy 가 죽으면 outcome 처리.
       // ended 면 continue 로 while 가드 재평가 → 종료.
@@ -2907,8 +2934,8 @@ export function resolveBattle(
           },
           target: {
             def: state.enemy.def,
-            // PR-5a: PvE 적은 v2 buff 없음 (PR-5b 에서 monster 측 v2 slot 도입 예정).
-            selfBuffs: {},
+            // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
+            selfBuffs: state.enemyV2SelfBuffs,
             selfDebuffs: tickedEnemyDebuffs,
           },
         });
@@ -2989,9 +3016,108 @@ export function resolveBattle(
           continue;
         }
       }
-    } else {
-      // 비-player phase (enemy/ended). 다음 player phase 진입 시 다시 cast 할 수 있게 reset.
+    } else if (state.phase === "enemy") {
+      // PR-5b — enemy 의 v2 스킬 cast (player cast hook 미러). monster.v2Skills 미지정이면 no-op.
       v2CastedThisPlayerPhase = false;
+      if (!v2CastedThisEnemyPhase) {
+        v2CastedThisEnemyPhase = true;
+        const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
+        const tickedEnemyDebuffsLocal = tickV2BuffMap(state.enemyV2Debuffs);
+        const tickedPlayerDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
+        const result = resolveV2SkillCast({
+          skills: state.enemyV2Skills,
+          cooldowns: state.enemyV2SkillCooldowns,
+          attacker: {
+            mp: state.enemyMp,
+            atk: state.enemy.atk,
+            maxHp: state.enemy.hp, // monster.hp = max hp (정적)
+            selfBuffs: tickedEnemySelfBuffs,
+            selfDebuffs: tickedEnemyDebuffsLocal,
+          },
+          target: {
+            def: player.def,
+            selfBuffs: state.v2SelfBuffs,
+            selfDebuffs: tickedPlayerDebuffs,
+          },
+        });
+        let nextPlayerHp = state.playerHp;
+        let nextEnemyHp = state.enemyHp;
+        let nextLog = state.log;
+        if (result.castSkillName) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[적 스킬] ${state.enemy.name} — ${result.castSkillName} 시전`,
+            turn: "enemy",
+          });
+        }
+        if (result.enemyDamage > 0) {
+          // attacker=enemy, target=player → enemyDamage 는 player 에 가해진 데미지.
+          nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[적 스킬] 플레이어에 ${result.enemyDamage} 피해`,
+            turn: "enemy",
+          });
+        }
+        if (result.selfHeal > 0) {
+          const before = nextEnemyHp;
+          nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + result.selfHeal);
+          const actual = nextEnemyHp - before;
+          if (actual > 0) {
+            nextLog = appendLog(nextLog, {
+              kind: "info",
+              text: `[적 스킬] ${state.enemy.name} HP ${actual} 회복`,
+              turn: "enemy",
+            });
+          }
+        }
+        const nextEnemySelfBuffs = applyV2BuffsToMap(tickedEnemySelfBuffs, result.selfBuffsToApply);
+        // enemyDebuff effect (적이 player 에 거는 약화) → state.v2SelfDebuffs 갱신.
+        const nextPlayerDebuffs = applyV2BuffsToMap(tickedPlayerDebuffs, result.enemyDebuffsToApply);
+        for (const b of result.selfBuffsToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[적 강화] ${state.enemy.name} ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+            turn: "enemy",
+          });
+        }
+        for (const d of result.enemyDebuffsToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[적 약화] 플레이어 ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            turn: "enemy",
+          });
+        }
+        state = {
+          ...state,
+          playerHp: nextPlayerHp,
+          enemyHp: nextEnemyHp,
+          enemyMp: result.nextMp,
+          enemyV2SkillCooldowns: result.nextCooldowns,
+          enemyV2SelfBuffs: nextEnemySelfBuffs,
+          enemyV2Debuffs: tickedEnemyDebuffsLocal,
+          v2SelfDebuffs: nextPlayerDebuffs,
+          log: nextLog,
+        };
+        // lethal — enemy v2 damage 로 player 사망 시 outcome=lose.
+        if (state.playerHp <= 0) {
+          state = {
+            ...state,
+            log: appendLog(state.log, {
+              kind: "info",
+              text: `플레이어가 쓰러졌다.`,
+              turn: "enemy",
+            }),
+            outcome: "lose",
+            phase: "ended",
+          };
+          continue;
+        }
+      }
+    } else {
+      // ended 등 — 둘 다 reset.
+      v2CastedThisPlayerPhase = false;
+      v2CastedThisEnemyPhase = false;
     }
     if (state.phase === "player") {
       const picked = ctx.pickAction(state);

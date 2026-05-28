@@ -679,6 +679,87 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   });
 });
 
+describe("PR-5b — monster v2 cast (enemy phase)", () => {
+  it("monster.v2Skills 미지정 → enemy cast hook no-op (기존 잡몹 동작 보존)", () => {
+    const r = resolveBattle(PLAYER, makeEnemy(), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    // enemy v2 cast log 없음.
+    expect(
+      r.finalState.log.some((e) => e.kind === "info" && e.text.includes("[적 스킬]")),
+    ).toBe(false);
+    // enemy v2 state 빈 그대로.
+    expect(r.finalState.enemyV2Skills.equipped).toEqual([]);
+    expect(r.finalState.enemyMp).toBe(0);
+  });
+
+  it("monster.v2Skills 장착 + v2MaxMp > 0 → enemy phase 진입 시 cast 발동 + 로그", () => {
+    const skilledEnemy = makeEnemy({
+      hp: 1000,
+      atk: 30,
+      def: 5,
+      v2Skills: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      v2MaxMp: 200,
+    });
+    const tough: PlayerCombat = { ...PLAYER, hp: 500, maxHp: 500, atk: 5, def: 50 };
+    const r = resolveBattle(tough, skilledEnemy, "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    // enemy 시전 로그 존재.
+    expect(
+      r.finalState.log.some((e) => e.kind === "info" && e.text.includes("[적 스킬]")),
+    ).toBe(true);
+    // enemy MP 차감됨.
+    expect(r.finalState.enemyMp).toBeLessThan(200);
+  });
+
+  it("PR-5b 회귀 — enemy cast 가 매 enemy phase 마다 발동 (Codex bug 1: flag reset 누락)", () => {
+    // monster strike (cd 2) — 첫 enemy phase 만 cast 가 아니라 cd 풀리는 후속 phase 에도 cast.
+    // tough player 로 long battle → enemy 가 mp 떨어질 때까지 여러 cast.
+    const monster = makeEnemy({
+      hp: 5000,
+      atk: 1,
+      def: 5,
+      v2Skills: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      v2MaxMp: 200,
+    });
+    const tough: PlayerCombat = { ...PLAYER, hp: 1000, maxHp: 1000, atk: 50, def: 50 };
+    const r = resolveBattle(tough, monster, "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    // strike mpCost=15. v2MaxMp=200. 최대 ~13 회 cast 가능. flag reset 없으면 1회만.
+    const castLogs = r.finalState.log.filter(
+      (e) => e.kind === "info" && e.text.includes("[적 스킬]") && e.text.includes("시전"),
+    );
+    expect(castLogs.length).toBeGreaterThan(1);
+  });
+
+  it("monster selfBuff cast → enemyV2SelfBuffs 에 buff 박힘 (격리 해제 반영 단위는 combatShared 테스트로 cover)", () => {
+    // dash (selfBuff spd +10%) 만 장착. 첫 enemy phase 에서 cast 가 fire 되면 enemyV2SelfBuffs 에 spd 키 박힘.
+    const buffEnemy = makeEnemy({
+      hp: 1000,
+      atk: 30,
+      def: 5,
+      v2Skills: { learned: ["v2_skill_dash"], equipped: ["v2_skill_dash"] },
+      v2MaxMp: 200,
+    });
+    // tough player — 죽지 않고 buff 누적 관찰.
+    const tough: PlayerCombat = { ...PLAYER, hp: 500, maxHp: 500, atk: 5, def: 50 };
+    const r = resolveBattle(tough, buffEnemy, "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    // enemy 의 자강화 로그.
+    const buffLog = r.finalState.log.find(
+      (e) => e.kind === "info" && e.text.includes("[적 강화]"),
+    );
+    expect(buffLog).toBeDefined();
+  });
+});
+
 describe("강공격 (powerAttackBonus)", () => {
   // 적 def 0, 플레이어 atk 1 → 일반 공격 1 데미지 / 강공격 (atk+2) = 3 데미지.
   const minimal: PlayerCombat = {

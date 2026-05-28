@@ -207,6 +207,18 @@ export function v2HealAmount(args: {
   return Math.max(0, pctPart + args.flat);
 }
 
+// PR-5b — monster.v2MaxMp 미지정 시 자동 시드. equipped 중 max mpCost × 3 → 약 3-5 회 cast.
+// 0 = equipped 비어 cast 불가능. monster 데이터 작성 부담 줄이는 default.
+export function defaultV2MaxMpFor(skills: V2SkillsState): number {
+  if (skills.equipped.length === 0) return 0;
+  let maxCost = 0;
+  for (const id of skills.equipped) {
+    const cost = V2_SKILLS[id]?.mpCost ?? 0;
+    if (cost > maxCost) maxCost = cost;
+  }
+  return maxCost * 3;
+}
+
 export function emptyV2SkillCooldowns(): V2SkillCooldowns {
   return {};
 }

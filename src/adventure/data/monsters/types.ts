@@ -134,6 +134,19 @@ export type Monster = {
    * 플레이어 회피 100% 무적 빌드 견제 + 보스전 압박감을 위한 다대시 수단.
    */
   bonusAttackChancePct?: number;
+  /**
+   * PR-5b — 몬스터의 v2 스킬 장착. equipped 배열 순서가 enemy phase cast 우선순위.
+   * mp/cd 풀은 BattleState 의 enemyMp/enemyMaxMp/enemyV2SkillCooldowns 가 매 전투 fresh 시드.
+   * 미지정/빈 배열이면 enemy v2 cast no-op (기존 잡몹).
+   * 몬스터는 stat 별 buff/heal/damage 다 가능 — player 와 같은 카탈로그 (V2_SKILLS).
+   */
+  v2Skills?: import("../v2/v2Skills").V2SkillsState;
+  /**
+   * PR-5b — 몬스터의 v2 마법 풀 max. equipped 가 있고 maxMp > 0 이면 cast 가능. 단판 풀충전 모델.
+   * 미지정 시 v2Skills 의 mpCost 가장 큰 값 × 3 정도 자동 시드 (단, 게임 디자인이 의도적으로
+   * 짧게 운영하려면 명시).
+   */
+  v2MaxMp?: number;
 };
 
 // ── 5막 별빛 사냥터 drop 풀 상수 — 일반 몹 12종에 inline 으로 반복 박지 않도록 추출 ──

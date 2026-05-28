@@ -197,7 +197,7 @@ export function BattleScene({
               label={playerName}
               value={state.playerHp}
               max={state.playerMaxHp}
-              color="bg-emerald-500"
+              color="bg-rose-500"
             />
             {/* v2 MP 바 — INT 0 인 캐릭(라이브) 은 playerMaxMp=0 → 안 보임. */}
             {state.playerMaxMp > 0 && (

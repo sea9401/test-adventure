@@ -349,14 +349,13 @@ function InlineBar({
   color: string;
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
-  // [라벨 HP][바][숫자] — 양쪽 컬럼 모두 같은 순서 (거울 X). 바는 flex-1 로 컬럼 채움 +
-  // min-w-0 으로 숫자가 컬럼 밖 안 새게.
+  // [라벨][바][숫자]. 바는 컬럼 채움(flex-1) + 살짝 더 짧게(max-w-[88px]) + 두꺼움(h-2).
   return (
     <div className="flex items-center gap-1.5">
       <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
         {label}
       </span>
-      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div className="h-2 min-w-0 max-w-[88px] flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
         <div
           className={`h-full ${color} transition-all`}
           style={{ width: `${pct * 100}%` }}

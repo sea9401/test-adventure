@@ -13,10 +13,6 @@ import {
   TUTORIAL_V2_FIRST_LEVELUP,
 } from "@/adventure/tutorial/flags";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
-import {
-  V2CharacterCard,
-  type V2CharacterCardData,
-} from "@/adventure/v2/V2CharacterCard";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -57,29 +53,6 @@ export function V2DungeonFloorView({
   // 진입 후크 — 첫 레벨업 모달만 1회성 (storyFlags). 드랍 배너는 매 사냥마다
   // HuntResultCard 가 result 자체에서 자동 표시 (2026-05-28 변경).
   const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
-  const [characterInfo, setCharacterInfo] = useState<{
-    character?: V2CharacterCardData;
-    guild?: { name: string };
-  }>({});
-
-  // 캐릭 카드 fetch — mount 시 + hunt 완료 후 (레벨업/EXP/HP 반영).
-  const refetchCharacter = useCallback(async () => {
-    try {
-      const res = await fetch("/api/v2/me/state");
-      if (!res.ok) return;
-      const j = (await res.json().catch(() => null)) as {
-        character?: V2CharacterCardData;
-        guild?: { name: string };
-      } | null;
-      if (j) setCharacterInfo({ character: j.character, guild: j.guild });
-    } catch {}
-  }, []);
-  useEffect(() => {
-    void refetchCharacter();
-  }, [refetchCharacter]);
-  useEffect(() => {
-    if (lastResult) void refetchCharacter();
-  }, [lastResult, refetchCharacter]);
 
   // 첫 레벨업 모달 — controlled 마운트. 같은 useStoryFlags 인스턴스로 shown/dismiss
   // 처리해 TutorialOverlay (uncontrolled) 의 별 인스턴스 PATCH race 차단.
@@ -147,14 +120,6 @@ export function V2DungeonFloorView({
             : `엔드 컨텐츠 ${floor.requirement.tier}`}
         </p>
       </header>
-
-      {characterInfo.character && (
-        <V2CharacterCard
-          character={characterInfo.character}
-          guild={characterInfo.guild}
-          showGold={false}
-        />
-      )}
 
       <Card padding="md">
         <div className="flex items-center justify-between gap-3">

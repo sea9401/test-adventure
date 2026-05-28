@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
+import {
+  BatchSummaryCard,
+  type BatchSummary,
+} from "@/adventure/v2/BatchSummaryCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
@@ -14,13 +18,15 @@ import {
   TUTORIAL_V2_FIRST_LEVELUP,
 } from "@/adventure/tutorial/flags";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
+import type {
+  V2MaterialId,
+} from "@/adventure/data/v2/dungeonDrops";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// 한 층 전용 던전 페이지. 사냥 버튼 + 전투 설정(연속 N회) + 결과 replay/card.
-// 옛 무한 자동 토글은 폐기. 대신 ⚙ 전투 설정에서 5/10회 연속 사냥 옵션.
-
-const MULTI_DELAY_MS = 600;
+// 한 층 전용 던전 페이지. 1회 사냥 + 5/10회 일괄 사냥 (한 번에 N회, 합산 결과).
+// 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
 
 export function V2DungeonFloorView({
   floorId,
@@ -47,59 +53,82 @@ export function V2DungeonFloorView({
     outpostId,
     setStamina,
   });
-  // 연속 사냥 — multiTotal 회 만큼 자동 hunt. multiDone 진행 카운트.
+  // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [multiTotal, setMultiTotal] = useState(0);
-  const [multiDone, setMultiDone] = useState(0);
-  const [multiMsg, setMultiMsg] = useState<string | null>(null);
-  const multiActive = multiTotal > multiDone;
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
 
-  // 진입 후크 — 첫 레벨업 모달만 1회성 (storyFlags). 드랍 배너는 매 사냥마다
-  // HuntResultCard 가 result 자체에서 자동 표시 (2026-05-28 변경).
   const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
 
-  // 첫 레벨업 모달 — controlled 마운트. 같은 useStoryFlags 인스턴스로 shown/dismiss
-  // 처리해 TutorialOverlay (uncontrolled) 의 별 인스턴스 PATCH race 차단.
   const showLevelupModal =
     !!lastResult &&
     lastResult.levelsGained > 0 &&
     storyFlags.flags.includes(TUTORIAL_ENABLED_FLAG) &&
     !storyFlags.flags.includes(TUTORIAL_V2_FIRST_LEVELUP);
 
-  // 사냥 결과 도착 → multiDone += 1. 다음 useEffect 가 multiActive 재평가.
-  useEffect(() => {
-    if (!lastResult) return;
-    if (multiTotal === 0) return;
-    setMultiDone((d) => d + 1);
-  }, [lastResult, multiTotal]);
-
-  // 연속 사냥 트리거 — busy 아님 + stamina 충분 + 모달 안 떠있으면 다음 hunt.
-  // 옛 자동 토글 자리를 횟수 제한으로 대체. showLevelupModal 동안 일시정지.
-  useEffect(() => {
-    if (!multiActive) return;
-    if (busy) return;
+  const runBatch = async (count: number) => {
     if (!floor) return;
-    if (showLevelupModal) return;
-    if (stamina.current < HUNT_COST) {
-      setMultiTotal(0);
-      setMultiDone(0);
-      setMultiMsg("스태미너 부족 — 연속 사냥 중지.");
-      return;
-    }
-    setMultiMsg(null);
-    const id = setTimeout(() => void hunt(floor.id), MULTI_DELAY_MS);
-    return () => clearTimeout(id);
-  }, [multiActive, busy, stamina.current, hunt, floor, showLevelupModal]);
-
-  const startMulti = (n: number) => {
-    setMultiTotal(n);
-    setMultiDone(0);
-    setMultiMsg(null);
     setSettingsOpen(false);
-  };
-  const cancelMulti = () => {
-    setMultiTotal(0);
-    setMultiDone(0);
+    setBatchSummary(null);
+    setBatchRunning(true);
+    setBatchProgress({ done: 0, total: count });
+
+    let wins = 0;
+    let losses = 0;
+    let totalExp = 0;
+    let totalGold = 0;
+    let levelsGained = 0;
+    const drops: Partial<Record<V2MaterialId, number>> = {};
+    const droppedEquipments: V2EquipmentId[] = [];
+    let stoppedReason: BatchSummary["stoppedReason"] = null;
+    let completed = 0;
+
+    for (let i = 0; i < count; i++) {
+      const r = await hunt(floor.id);
+      if (!r) {
+        stoppedReason = "error";
+        break;
+      }
+      completed++;
+      setBatchProgress({ done: completed, total: count });
+      if (r.won) wins++;
+      else losses++;
+      totalExp += r.expGained;
+      totalGold += r.goldGained;
+      levelsGained += r.levelsGained;
+      for (const [id, n] of Object.entries(r.drops ?? {})) {
+        const key = id as V2MaterialId;
+        drops[key] = (drops[key] ?? 0) + (n ?? 0);
+      }
+      if (r.droppedEquipment) droppedEquipments.push(r.droppedEquipment);
+      // 사망(패배) 시 그 사이 회복 없으니 다음 사냥 회피·중단.
+      if (!r.won && r.hpAfter <= 0) {
+        stoppedReason = "death";
+        break;
+      }
+      // 다음 사냥 전 스태미너 사전 검사 — 직전 응답의 잔량 기준.
+      // (response 의 stamina 가 setStamina 됐지만 React state 라 await 즉시 안 보임.
+      //  마지막 hunt 가 실패 시 다음 시도가 error 로 처리되니 안전.)
+    }
+
+    setBatchSummary({
+      attempted: count,
+      completed,
+      wins,
+      losses,
+      totalExp,
+      totalGold,
+      levelsGained,
+      drops,
+      droppedEquipments,
+      stoppedReason,
+    });
+    setBatchProgress(null);
+    setBatchRunning(false);
   };
 
   if (!floor) {
@@ -118,6 +147,9 @@ export function V2DungeonFloorView({
       </main>
     );
   }
+
+  const lowStamina = stamina.current < HUNT_COST;
+  const oneActionDisabled = busy || batchRunning;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -146,73 +178,61 @@ export function V2DungeonFloorView({
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => hunt(floor.id)}
-            disabled={busy || multiActive}
+            onClick={() => {
+              setBatchSummary(null);
+              void hunt(floor.id);
+            }}
+            disabled={oneActionDisabled || lowStamina}
             className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
           >
-            {busy
-              ? "사냥 중…"
-              : multiActive
-                ? `${multiDone + 1}/${multiTotal} 진행 중`
+            {batchRunning && batchProgress
+              ? `${batchProgress.done}/${batchProgress.total} 처리 중…`
+              : busy
+                ? "사냥 중…"
                 : "사냥 (스태미너 1)"}
           </button>
           <button
             type="button"
             onClick={() => setSettingsOpen((o) => !o)}
+            disabled={batchRunning}
             aria-label="전투 설정"
-            className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400 dark:hover:bg-zinc-800"
           >
             <Gear size={16} weight="duotone" />
           </button>
         </div>
         {settingsOpen && (
           <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">연속 전투</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">일괄 사냥</p>
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => startMulti(5)}
-                disabled={busy || multiActive}
+                onClick={() => void runBatch(5)}
+                disabled={oneActionDisabled || lowStamina}
                 className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
               >
-                5회 연속
+                5회 일괄
               </button>
               <button
                 type="button"
-                onClick={() => startMulti(10)}
-                disabled={busy || multiActive}
+                onClick={() => void runBatch(10)}
+                disabled={oneActionDisabled || lowStamina}
                 className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
               >
-                10회 연속
+                10회 일괄
               </button>
             </div>
           </div>
         )}
-        {multiActive && (
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <p className="text-xs text-emerald-600 dark:text-emerald-400">
-              연속 사냥 {multiDone}/{multiTotal}
-            </p>
-            <button
-              type="button"
-              onClick={cancelMulti}
-              className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            >
-              중지
-            </button>
-          </div>
-        )}
-        {multiMsg && (
-          <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-            {multiMsg}
-          </p>
-        )}
       </Card>
 
-      {lastResult && <HuntResultCard result={lastResult} />}
+      {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
+      {batchSummary ? (
+        <BatchSummaryCard summary={batchSummary} />
+      ) : (
+        lastResult && <HuntResultCard result={lastResult} />
+      )}
 
-      {/* 첫 레벨업 모달 — controlled. 같은 useStoryFlags 인스턴스로 dismiss 처리해
-          PATCH race 차단. 자동전투 effect 도 showLevelupModal 동안 일시정지. */}
       {showLevelupModal && (
         <TutorialOverlayInner
           title="레벨 업! 🎉"
@@ -233,7 +253,8 @@ export function V2DungeonFloorView({
         />
       )}
 
-      {lastResult?.replay && (
+      {/* 1회 사냥 replay — batch summary 표시 중에는 숨김(합산만 보길 원함). */}
+      {!batchSummary && lastResult?.replay && (
         <ReplayBattleScene
           payload={lastResult.replay}
           startPlayerHp={lastResult.startPlayerHp}

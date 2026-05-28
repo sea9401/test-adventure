@@ -110,6 +110,31 @@ export type V2Equipment = {
   stats: V2EquipStats;
 };
 
+// 마을 상점 판매가 — T1~T3 만. T1=입문 (모으면 사는 가격), T2=중간 마일스톤,
+// T3=비싼 컴포트. T4-5 는 던전 드랍 전용 (undefined).
+// 부위별 곱: 무기 ×1.5, 방어 ×1.0, 장신 ×0.5.
+const SHOP_TIER_BASE: Record<1 | 2 | 3, number> = {
+  1: 1000,
+  2: 6000,
+  3: 30000,
+};
+const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
+  weapon: 1.5,
+  armor: 1.0,
+  accessory: 0.5,
+};
+export function shopPriceFor(
+  tier: V2EquipTier,
+  slot: V2EquipSlot,
+): number | undefined {
+  if (tier > 3) return undefined;
+  return SHOP_TIER_BASE[tier as 1 | 2 | 3] * SHOP_SLOT_MULT[slot];
+}
+
+export function shopPriceOf(item: V2Equipment): number | undefined {
+  return shopPriceFor(item.tier, item.slot);
+}
+
 // V2_EQUIPMENT — 35종, 컨셉×티어 그리드. 곡선은 컨셉별로 명시.
 export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // ── 무기-힘 (str/atk) ─────────────────────────────

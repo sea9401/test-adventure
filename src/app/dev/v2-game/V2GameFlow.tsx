@@ -20,7 +20,8 @@ import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2ArenaView } from "@/adventure/v2/V2ArenaView";
-import { V2BattleHome } from "@/adventure/v2/V2BattleHome";
+import { V2BattleHome, type BattleAction } from "@/adventure/v2/V2BattleHome";
+import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
@@ -45,14 +46,6 @@ const TABS: { key: TabId; label: string }[] = [
   { key: "guild", label: "길드" },
 ];
 
-// 전투 탭 sub-tab — 던전 list / 대륙 지도.
-type BattleSubId = "dungeon" | "map";
-
-const BATTLE_SUBS: { key: BattleSubId; label: string }[] = [
-  { key: "dungeon", label: "던전" },
-  { key: "map", label: "지도" },
-];
-
 export type Occupation = {
   outpostId: string;
   occupiedByUserId: string | null;
@@ -67,6 +60,7 @@ type View =
   | { kind: "adventure" }
   | { kind: "arena" }
   | { kind: "battle" }
+  | { kind: "dungeons" }
   | { kind: "battle-floor"; floorId: DungeonFloorId }
   | { kind: "town" }
   | { kind: "shrine" }
@@ -90,6 +84,7 @@ function tabOfView(view: View): TabId {
     case "arena":
       return "adventure";
     case "battle":
+    case "dungeons":
     case "battle-floor":
     case "map":
     case "outpost":
@@ -110,21 +105,6 @@ function tabOfView(view: View): TabId {
       return "character";
     case "guild":
       return "guild";
-  }
-}
-
-// 전투 탭 안에서 현재 sub-tab. battle/battle-floor = 던전, map/outpost = 지도.
-// null = 전투 탭 외 (sub-tab 미렌더).
-function battleSubOfView(view: View): BattleSubId | null {
-  switch (view.kind) {
-    case "battle":
-    case "battle-floor":
-      return "dungeon";
-    case "map":
-    case "outpost":
-      return "map";
-    default:
-      return null;
   }
 }
 
@@ -294,28 +274,6 @@ export function V2GameFlow() {
           size="sm"
           className="mx-auto w-full max-w-2xl px-4 sm:px-6"
         />
-        {currentTab === "battle" && (
-          <div className="mx-auto w-full max-w-2xl px-4 pt-2 sm:px-6">
-            <label className="inline-flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-              <span className="sr-only">전투 화면 선택</span>
-              <select
-                aria-label="전투 sub 메뉴"
-                value={battleSubOfView(view) ?? "dungeon"}
-                onChange={(e) => {
-                  const next = e.target.value as BattleSubId;
-                  setView(next === "map" ? { kind: "map" } : { kind: "battle" });
-                }}
-                className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-              >
-                {BATTLE_SUBS.map((s) => (
-                  <option key={s.key} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        )}
         {(currentTab === "adventure" ||
           (currentTab === "battle" &&
             view.kind !== "map" &&
@@ -340,6 +298,14 @@ export function V2GameFlow() {
       {/* === 전투 탭 === */}
       {view.kind === "battle" && (
         <V2BattleHome
+          onAction={(action: BattleAction) => {
+            if (action.kind === "open-dungeons") setView({ kind: "dungeons" });
+            else if (action.kind === "open-map") setView({ kind: "map" });
+          }}
+        />
+      )}
+      {view.kind === "dungeons" && (
+        <V2DungeonList
           currentOutpost={currentOutpost}
           onSelectFloor={(floorId) => setView({ kind: "battle-floor", floorId })}
           onOpenMap={() => setView({ kind: "map" })}
@@ -354,12 +320,12 @@ export function V2GameFlow() {
           playerGender={viewerGender}
           stamina={stamina}
           setStamina={setStamina}
-          onBack={() => setView({ kind: "battle" })}
+          onBack={() => setView({ kind: "dungeons" })}
         />
       )}
       {view.kind === "battle-floor" && !currentOutpost && (
-        // 거점이 사라진 사고용 안전 — 자동 battle 로 복귀.
-        <V2BattleHome
+        // 거점이 사라진 사고용 안전 — 자동 dungeons 로 복귀.
+        <V2DungeonList
           currentOutpost={null}
           onSelectFloor={() => {}}
           onOpenMap={() => setView({ kind: "map" })}

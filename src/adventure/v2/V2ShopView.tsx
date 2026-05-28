@@ -43,33 +43,42 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     refresh();
   }, [refresh]);
 
-  const buy = useCallback(
-    async (kind: Kind, amount: number) => {
-      setBusy(kind);
-      setMsg(null);
-      try {
-        const res = await fetch("/api/v2/shop/charge", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind, amount }),
-        });
-        const j = (await res.json().catch(() => null)) as
-          | { ok?: boolean; error?: string; charged?: number }
-          | null;
-        if (!j?.ok) {
-          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
-          return;
-        }
-        setMsg(`✓ ${kind === "hp" ? "HP" : "MP"} +${j.charged ?? amount} 충전`);
-        await refresh();
-      } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
-      } finally {
-        setBusy(null);
+  const buy = useCallback(async (kind: Kind, amount: number) => {
+    setBusy(kind);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/shop/charge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind, amount }),
+      });
+      const j = (await res.json().catch(() => null)) as
+        | {
+            ok?: boolean;
+            error?: string;
+            charged?: number;
+            gold?: number;
+            hpCharges?: number;
+            mpCharges?: number;
+          }
+        | null;
+      if (!j?.ok) {
+        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        return;
       }
-    },
-    [refresh],
-  );
+      setMsg(`✓ ${kind === "hp" ? "HP" : "MP"} +${j.charged ?? amount} 충전`);
+      // 응답에 새 gold/charges 다 있음 — refresh 없이 직접 state 갱신 (layout shift 제거).
+      setState((prev) => ({
+        gold: j.gold ?? prev?.gold ?? 0,
+        hpCharges: j.hpCharges ?? prev?.hpCharges ?? 0,
+        mpCharges: j.mpCharges ?? prev?.mpCharges ?? 0,
+      }));
+    } catch (err) {
+      setMsg(`✗ ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  }, []);
 
   const gold = state?.gold ?? 0;
   const hp = state?.hpCharges ?? 0;

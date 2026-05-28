@@ -664,7 +664,7 @@ function dealExtraDamage(
     ...next,
     log: appendLog(next.log, {
       kind: "player_attack",
-      text: `[${dmgLabels.join(" + ")}] ${defender.name}에게 ${totalDmg} 피해를 입혔다.`,
+      text: `[${dmgLabels.join(" + ")}] ${totalDmg} 피해를 입혔다.`,
     }),
   };
   if (actualHeal > 0) {
@@ -1549,7 +1549,7 @@ export function advanceTurnPvP(
   }
   log = appendLog(log, {
     kind: "player_attack",
-    text: `${prefix}${defender.name}에게 ${dmgToHp} 피해를 입혔다.`,
+    text: `${prefix || "공격! "}${dmgToHp} 피해를 입혔다.`,
   });
   if (enduranceFires) {
     log = appendLog(log, {
@@ -2200,7 +2200,7 @@ function castV2SkillOnAttackerTurnPvP(
     nextOppHp = Math.max(0, nextOppHp - result.enemyDamage);
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `[${result.castSkillName}] ${side.name}이(가) ${opp.name}에게 ${result.enemyDamage} 피해를 입혔다.`,
+      text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
       side: who,
     });
   }

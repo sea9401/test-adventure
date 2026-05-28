@@ -41,6 +41,8 @@ export async function GET() {
     points?: number;
     revertPoints?: number;
     allocated?: Partial<Record<StatKey, number>>;
+    endsAt?: number | null;
+    completedCount?: number;
   };
   const charSave = (charRow?.value ?? {}) as {
     gold?: number;
@@ -63,5 +65,8 @@ export async function GET() {
     baseStats: V2_BASE_STATS,
     gold: Math.max(0, charSave.gold ?? 0),
     level: Math.max(1, charSave.level ?? 1),
+    // 훈련 진행 상태 (V2TrainingView 용).
+    endsAt: typeof training.endsAt === "number" ? training.endsAt : null,
+    completedCount: Math.max(0, training.completedCount ?? 0),
   });
 }

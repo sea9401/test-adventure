@@ -840,6 +840,8 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   // v2 PR-6 — 활성화된 주문서 만료 시점. null = 비활성. 활성 시 길드원의 토너먼트/
   // 본 병사 전쟁에 buff (atk +10%). claim 시 단발 소비(PR #57)와 별개 메커닉.
   activeScrollExpiresAt: timestamp("active_scroll_expires_at"),
+  // 거점 세금 회수 시 90% 가 누적되는 길드 공용 골드 풀. 회수자 본인 10% 와 별개.
+  gold: integer("gold").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

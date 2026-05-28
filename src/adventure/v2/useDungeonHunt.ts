@@ -57,8 +57,9 @@ export function useDungeonHunt({
     );
   }, []);
 
+  // hunt 결과를 리턴 — caller(batch 모드 등) 가 직접 누적 가능. 실패 시 null.
   const hunt = useCallback(
-    async (floor: number) => {
+    async (floor: number): Promise<HuntResultPayload | null> => {
       setBusy(true);
       setLastResult(null);
       try {
@@ -72,11 +73,11 @@ export function useDungeonHunt({
           json = (await res.json()) as HuntResponse;
         } catch {
           pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
-          return;
+          return null;
         }
         if (!json) {
           pushLog(`✗ http ${res.status} (빈 응답)`);
-          return;
+          return null;
         }
         if (json.stamina) setStamina(json.stamina);
         if (json.ok === true) {
@@ -91,22 +92,24 @@ export function useDungeonHunt({
             pushLog(
               `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
-          } else {
-            pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/${MAX_STAMINA}`);
+            return r;
           }
-        } else {
-          const err = json.error ?? "unknown";
-          const errLabel =
-            err === "policy_blocked"
-              ? "policy_blocked (점령 길드가 자길드 멤버에게만 개방 중)"
-              : err;
-          const after = json.stamina
-            ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`
-            : "";
-          pushLog(`✗ http ${res.status} ${errLabel}${after}`);
+          pushLog(`✓ ${floor}층 사냥 1회 — 스태미너 ${cur}/${MAX_STAMINA}`);
+          return null;
         }
+        const err = json.error ?? "unknown";
+        const errLabel =
+          err === "policy_blocked"
+            ? "policy_blocked (점령 길드가 자길드 멤버에게만 개방 중)"
+            : err;
+        const after = json.stamina
+          ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`
+          : "";
+        pushLog(`✗ http ${res.status} ${errLabel}${after}`);
+        return null;
       } catch (err) {
         pushLog(`✗ network: ${(err as Error).message}`);
+        return null;
       } finally {
         setBusy(false);
       }

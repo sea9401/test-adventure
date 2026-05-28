@@ -18,6 +18,12 @@ function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
 import { MONSTERS } from "@/adventure/data/monsters";
+import {
+  POTIONS,
+  computeHealAmount,
+  computeMpRestoreAmount,
+  type PotionId,
+} from "@/adventure/data/potions";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import {
@@ -378,9 +384,58 @@ export async function POST(req: Request) {
 
     const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet);
 
-    // 사냥 후 hp — finalState.playerHp 그대로 적용 (사망 시 0).
-    // 0 이면 다음 사냥 전까지 시간 회복으로 만피까지 채워짐.
-    const afterHp = Math.max(0, battleResult.finalState.playerHp);
+    // 사냥 후 hp — finalState.playerHp 시작. PR-potion-auto-restore: 부족분 만큼
+    // 보유 포션 (큰 → 중간 → 작은 순) 자동 소모해서 maxHp 까지 회복.
+    // MP 도 동일 — 단판 풀충전 모델 폐기, 사냥 사이 mp 보존 + 마력약 자동 회복.
+    let afterHp = Math.max(0, battleResult.finalState.playerHp);
+    let afterMp = Math.max(0, battleResult.finalState.playerMp);
+
+    // inventory.v2 lock — potion 카운트 자동 소모용.
+    const invSave = await lockSaveForUpdate<{
+      potions?: Partial<Record<PotionId, number>>;
+      [k: string]: unknown;
+    }>(tx, userId, "inventory.v2", {});
+    const nextPotions: Partial<Record<PotionId, number>> = {
+      ...(invSave.potions ?? {}),
+    };
+
+    // HP 자동 회복 — 큰 → 중간 → 작은 순서. 부족분 채울 때까지.
+    if (afterHp > 0) {
+      const hpOrder: PotionId[] = [
+        "potion_heal_l",
+        "potion_heal_m",
+        "potion_heal_s",
+      ];
+      for (const id of hpOrder) {
+        while ((nextPotions[id] ?? 0) > 0 && afterHp < player.maxHp) {
+          const restore = computeHealAmount(POTIONS[id], player.maxHp);
+          afterHp = Math.min(player.maxHp, afterHp + restore);
+          nextPotions[id] = (nextPotions[id] ?? 0) - 1;
+        }
+        if (afterHp >= player.maxHp) break;
+      }
+    }
+    // MP 자동 회복 — 같은 식. maxMp 0 (INT 없는 캐릭) 이면 skip.
+    const maxMp = player.player.maxMp ?? 0;
+    if (maxMp > 0) {
+      const mpOrder: PotionId[] = [
+        "potion_mp_l",
+        "potion_mp_m",
+        "potion_mp_s",
+      ];
+      for (const id of mpOrder) {
+        while ((nextPotions[id] ?? 0) > 0 && afterMp < maxMp) {
+          const restore = computeMpRestoreAmount(POTIONS[id], maxMp);
+          afterMp = Math.min(maxMp, afterMp + restore);
+          nextPotions[id] = (nextPotions[id] ?? 0) - 1;
+        }
+        if (afterMp >= maxMp) break;
+      }
+    }
+    await upsertSave(tx, userId, "inventory.v2", {
+      ...invSave,
+      potions: nextPotions,
+    });
 
     // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).
     // 패배해도 거점에서 사냥 시도는 한 셈이라 트래킹. 미점령 거점도 트래킹 X 의미 없으므로
@@ -401,6 +456,7 @@ export async function POST(req: Request) {
       ...charSaveWithoutEject,
       stamina: afterStamina,
       hp: afterHp,
+      mp: afterMp,
       hpRegenSince: now,
       level: expResult.level,
       exp: expResult.exp,

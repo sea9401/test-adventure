@@ -54,6 +54,7 @@ import type { DerivedPlayerCombat } from "@/adventure/character/derivePlayerComb
 
 type SavedCharacterV2 = {
   hp?: number;
+  mp?: number;
   level?: number;
   selectedStance?: unknown;
   // PR-7a — equippedSpells 는 옛 spell 시스템 잔재. parse 단계에서 무시되며 PR-7b 마이그
@@ -170,6 +171,8 @@ export type DerivePlayerCombatV2PureInput = {
   v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   /** 현재 hp. undefined 면 maxHp 풀충. maxHp 초과는 클램프. */
   hp?: number;
+  /** 현재 mp. undefined 면 maxMp 풀충. maxMp 초과는 클램프. PR-potion-auto-restore. */
+  mp?: number;
   /** character.v2.selectedStance raw. undefined = null. */
   selectedStanceRaw?: unknown;
 };
@@ -237,6 +240,10 @@ export function derivePlayerCombatV2Pure(
   const savedHp = input.hp ?? maxHp;
   const hp = Math.max(0, Math.min(savedHp, maxHp));
 
+  // mp 클램프 (저장값이 maxMp 초과 안 되게). 미지정이면 maxMp 풀충 (옛 캐릭 호환).
+  const savedMp = input.mp ?? maxMp;
+  const mp = Math.max(0, Math.min(savedMp, maxMp));
+
   // 라이브 skillLayout — 슬롯 cap 으로 재사용 (PR-7a 후로는 effectiveFeatNames 길이용만).
   const layout = skillLayout({
     level,
@@ -246,6 +253,7 @@ export function derivePlayerCombatV2Pure(
   const player: PlayerCombat = {
     hp,
     maxHp,
+    mp,
     maxMp,
     intStat: totalStats.int,
     atk,
@@ -312,6 +320,7 @@ export async function derivePlayerCombatV2(
     allocatedStats: training.allocated,
     v2Equipped,
     hp: character.hp,
+    mp: character.mp,
     selectedStanceRaw: character.selectedStance,
   });
 }

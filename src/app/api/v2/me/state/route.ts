@@ -186,8 +186,8 @@ export async function GET() {
       expToNext,
       hp: hpRegen.hp,
       maxHp,
-      // v2 마법 풀 (PR-3). INT 0 이면 0 — UI 가 maxMp > 0 일 때만 MP 바 렌더.
-      // 단판 모델이라 현재 mp 저장 X (전투 시작 시 풀충전 = maxMp).
+      // v2 마법 풀 — derive 가 character.v2.mp 시드, 미지정이면 maxMp 풀충. INT 0 이면 둘 다 0.
+      mp: combat?.player.mp ?? maxMp,
       maxMp,
       stamina: {
         current: stamina.current,

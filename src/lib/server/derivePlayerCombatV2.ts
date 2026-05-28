@@ -38,7 +38,7 @@ import {
   STAT_KEYS,
   type StatKey,
 } from "@/adventure/data/stats";
-import { V2_BASE_STATS } from "@/adventure/data/v2/v2Stats";
+import { V2_BASE_MP, V2_BASE_STATS } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
@@ -210,7 +210,9 @@ export function derivePlayerCombatV2Pure(
   const maxHp = Math.floor(
     maxHpForLevel(level) + totalStats.vit * HP_PER_VIT + equipAcc.hp,
   );
-  const maxMp = Math.floor(totalStats.int * MP_PER_INT + equipAcc.mp);
+  // PR-base-mp: 신캐 (INT 0) 도 v2 스킬 일부 cast 가능하게 V2_BASE_MP 가산.
+  // 의도: onboarding 부드럽게 + STR/DEX 빌드도 가끔 magic 활용.
+  const maxMp = Math.floor(V2_BASE_MP + totalStats.int * MP_PER_INT + equipAcc.mp);
   const critChancePct = totalStats.luk * CRIT_PER_LUK + equipAcc.crit;
   const evasionPct = Math.min(
     totalStats.dex * EVA_PER_DEX + equipAcc.eva,

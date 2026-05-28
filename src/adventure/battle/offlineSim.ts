@@ -245,6 +245,8 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
             },
             target: {
               def: state.enemy.def,
+              // PR-5a: PvE 적은 v2 buff 없음 (PR-5b 도입 예정).
+              selfBuffs: {},
               selfDebuffs: tickedEnemyDebuffs,
             },
           });

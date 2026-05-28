@@ -140,33 +140,57 @@ export function v2BuffActive(map: V2BuffMap, stat: StatKey): number {
   return entry.pct;
 }
 
-// ── v2 스킬 effect 계산 (PR-4b) ─────────────────────────────────────────
-// PR-4a 의 cast 결정 + MP/cd 외에 실제 효과(damage/heal/buff/debuff) 를 계산.
-// 격리 원칙 — v2 selfBuffs/selfDebuffs 는 v2 스킬 발동 damage 계산에만 영향.
-// 일반 공격 / AP 스킬 / 옛 spell 은 영향 받지 않음 (PR-5+ 에서 확장 가능).
+// atk 에 기여하는 stat 의 buff/debuff 합산 → 곱셈 multiplier (1 + Σbuff% − Σdebuff%).
+// PR-5a: 격리 해제 — v2 buff/debuff 가 일반 공격에도 영향. atk 기여 stat = str/dex/spd/luk.
+// int 는 일반 공격 atk 와 무관 (마법/MP 자원만 관련) — 합산에서 제외.
+// 0 floor — 합산 debuff 가 buff+100% 초과해도 atk 음수 안 되게.
+const V2_ATK_STATS: readonly StatKey[] = ["str", "dex", "spd", "luk"];
+export function v2AtkBuffMult(
+  selfBuffs: V2BuffMap,
+  selfDebuffs: V2BuffMap,
+): number {
+  let totalBuff = 0;
+  let totalDebuff = 0;
+  for (const s of V2_ATK_STATS) {
+    totalBuff += v2BuffActive(selfBuffs, s);
+    totalDebuff += v2BuffActive(selfDebuffs, s);
+  }
+  return Math.max(0, 1 + totalBuff / 100 - totalDebuff / 100);
+}
 
-// v2 스킬 damage 계산. statCoef × attackerAtk × statBuffMult + baseFlat 을 raw atk 로,
-// 적 def 에 vit debuff 곱 후 damageBetween. 일반 공격과 같은 경로(DEF 적용) — 사용자 결정.
-//   - scalingStat: 스킬의 def.stat (이 stat 의 buff/debuff 만 곱셈에 사용)
-//   - attackerSelfBuffs: 공격자 자기 강화 (해당 stat 키만 사용)
-//   - attackerSelfDebuffs: 공격자에 걸린 약화 (해당 stat 키만 사용)
-//   - targetSelfDebuffs: 적에 걸린 약화 (vit 키만 사용 — def 감소)
+// def 에 기여하는 stat = vit 만 (다른 stat 은 def 무관).
+// vit buff → +%, vit debuff → −%. 0 floor.
+export function v2DefBuffMult(
+  selfBuffs: V2BuffMap,
+  selfDebuffs: V2BuffMap,
+): number {
+  const vitBuff = v2BuffActive(selfBuffs, "vit");
+  const vitDebuff = v2BuffActive(selfDebuffs, "vit");
+  return Math.max(0, 1 + vitBuff / 100 - vitDebuff / 100);
+}
+
+// ── v2 스킬 effect 계산 (PR-4b → PR-5a) ───────────────────────────────────
+// PR-4a 의 cast 결정 + MP/cd 외에 실제 효과(damage/heal/buff/debuff) 를 계산.
+// PR-5a 격리 해제: v2 buff/debuff 가 일반 공격에도 영향 → v2DamageAmount 도 공통 헬퍼
+// (v2AtkBuffMult / v2DefBuffMult) 사용해 일관성 유지. scalingStat 인자 폐지 — atk 기여
+// stat 전부 합산 (이전엔 def.stat 한 stat 만 사용했으나 격리 해제 의미 약해 폐기).
+
+// v2 스킬 damage 계산. statCoef × attackerAtk × v2AtkBuffMult + baseFlat 을 raw atk 로,
+// 적 def 에 v2DefBuffMult(target) 곱 후 damageBetween. 일반 공격과 같은 경로(DEF 적용).
+//   - attackerSelfBuffs / attackerSelfDebuffs: 공격자 측 (atk 기여 stat 전부 합산)
+//   - targetSelfBuffs / targetSelfDebuffs: 방어자 측 (vit 만 def 에 영향)
 export function v2DamageAmount(args: {
   attackerAtk: number;
   targetDef: number;
-  scalingStat: StatKey;
   statCoef: number;
   baseFlat: number;
   attackerSelfBuffs: V2BuffMap;
   attackerSelfDebuffs: V2BuffMap;
+  targetSelfBuffs: V2BuffMap;
   targetSelfDebuffs: V2BuffMap;
 }): number {
-  const buffPct = v2BuffActive(args.attackerSelfBuffs, args.scalingStat);
-  const debuffPct = v2BuffActive(args.attackerSelfDebuffs, args.scalingStat);
-  const atkMult = Math.max(0, 1 + buffPct / 100 - debuffPct / 100);
-  // 적 vit debuff 가 def 감소 (다른 stat debuff 는 def 무관).
-  const targetVitDebuff = v2BuffActive(args.targetSelfDebuffs, "vit");
-  const defMult = Math.max(0, 1 - targetVitDebuff / 100);
+  const atkMult = v2AtkBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs);
+  const defMult = v2DefBuffMult(args.targetSelfBuffs, args.targetSelfDebuffs);
   const rawAtk = Math.floor(args.attackerAtk * atkMult * args.statCoef) + args.baseFlat;
   const effectiveDef = Math.floor(args.targetDef * defMult);
   // 일반 공격과 같은 경로 — damageBetween 식 (atk - def, 1 하한).
@@ -253,6 +277,8 @@ export type V2SkillCastInput = {
   };
   target: {
     def: number;
+    // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
+    selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
   };
 };
@@ -293,11 +319,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       enemyDamage += v2DamageAmount({
         attackerAtk: input.attacker.atk,
         targetDef: input.target.def,
-        scalingStat: def.stat,
         statCoef: effect.statCoef,
         baseFlat: effect.baseFlat ?? 0,
         attackerSelfBuffs: input.attacker.selfBuffs,
         attackerSelfDebuffs: input.attacker.selfDebuffs,
+        targetSelfBuffs: input.target.selfBuffs,
         targetSelfDebuffs: input.target.selfDebuffs,
       });
     } else if (effect.kind === "heal") {

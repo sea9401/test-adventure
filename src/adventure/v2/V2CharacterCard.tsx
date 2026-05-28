@@ -18,6 +18,8 @@ export type V2CharacterCardData = {
   hp: number;
   maxHp: number;
   // v2 마법 풀 — INT 0 이면 0 (라이브 캐릭). 0 일 때는 MP 바 비표시.
+  // PR-potion-auto-restore 부터 단판 풀충전 모델 폐기 — 현재 mp 도 prop 으로.
+  mp?: number;
   maxMp?: number;
   gold: number;
 };
@@ -57,9 +59,10 @@ export function V2CharacterCard({
   titleName?: string | null;
   showGold?: boolean;
 }) {
-  // v2 마법 풀 (PR-3). 단판 모델 — 캐릭터 카드는 풀충전 상태 표시.
+  // v2 마법 풀 — 현재 mp 사용. PR-potion-auto-restore: 단판 풀충전 모델 폐기 후 mp 가
+  // 사냥 사이 보존. me/state 가 mp 동봉 — undefined fallback 은 maxMp (옛 캐릭).
   const maxMp = character.maxMp ?? 0;
-  const mp = maxMp;
+  const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
 
   return (
     <Card padding="md">

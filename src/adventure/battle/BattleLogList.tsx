@@ -28,7 +28,7 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     turnMarker: "text-[12px]",
     hpBar: "text-[10px]",
     bubblePadding: "px-3 py-2",
-    spacing: "space-y-1",
+    spacing: "space-y-1.5",
   },
   compact: {
     bubble: "text-[13px]",
@@ -38,7 +38,7 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     turnMarker: "text-[10px]",
     hpBar: "text-[9px]",
     bubblePadding: "px-2 py-1",
-    spacing: "space-y-0.5",
+    spacing: "space-y-1",
   },
 };
 
@@ -229,8 +229,9 @@ function InfoLine({
 }
 
 function TurnMarker({ text, sizes }: { text: string; sizes: Sizes }) {
+  // 턴 사이 호흡 — my-4 (위·아래 16px) 로 명확한 구분. space-y 보다 강하게.
   return (
-    <div className="my-2 flex items-center gap-2 text-zinc-400 dark:text-zinc-600">
+    <div className="my-4 flex items-center gap-2 text-zinc-400 dark:text-zinc-600">
       <div className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
       <span
         className={`rounded-full bg-zinc-100 px-2 py-0.5 ${sizes.turnMarker} font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300`}

@@ -330,6 +330,7 @@ export function V2GameFlow() {
         <V2AdventureHome
           currentOutpost={currentOutpost}
           onOpenArena={() => setView({ kind: "arena" })}
+          onEnterOutpost={enterOutpost}
         />
       )}
       {view.kind === "arena" && (

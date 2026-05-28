@@ -26,8 +26,10 @@ import {
 } from "./engine";
 import {
   applyV2BuffsToMap,
+  applyV2DotsToTarget,
   resolveV2SkillCast,
   tickV2BuffMap,
+  tickV2Dots,
 } from "./combatShared";
 import type { V2SkillsState } from "../data/v2/v2Skills";
 import {
@@ -231,8 +233,32 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         v2CastedThisPlayerPhase = false;
       }
       // PR-5b: enemy phase 진입 시 1회 enemy v2 cast. resolveBattle 미러 (로그 X).
+      // PR-8: dot tick 도 phase 진입 시 (cast 전).
       if (state.phase === "enemy" && !v2CastedThisEnemyPhase) {
         v2CastedThisEnemyPhase = true;
+        // 0) enemyV2Dots tick → enemyHp 차감. lethal 처리.
+        const enemyDotTick = tickV2Dots(state.enemyV2Dots);
+        if (enemyDotTick.totalDmg > 0) {
+          state = {
+            ...state,
+            enemyHp: Math.max(0, state.enemyHp - enemyDotTick.totalDmg),
+            enemyV2Dots: enemyDotTick.nextDots,
+          };
+          if (state.enemyHp <= 0) {
+            state = {
+              ...state,
+              outcome: "win",
+              phase: "ended",
+              turn: {
+                ...state.turn,
+                completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+              },
+            };
+            continue;
+          }
+        } else {
+          state = { ...state, enemyV2Dots: enemyDotTick.nextDots };
+        }
         const tEBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
         const tEDebuffs = tickV2BuffMap(state.enemyV2Debuffs);
         const tPDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
@@ -254,6 +280,7 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
         });
         const nextEBuffs = applyV2BuffsToMap(tEBuffs, ec.selfBuffsToApply);
         const nextPDebuffs = applyV2BuffsToMap(tPDebuffs, ec.enemyDebuffsToApply);
+        const nextPDots = applyV2DotsToTarget(state.playerV2Dots, ec.dotsToApplyToTarget);
         state = {
           ...state,
           enemyMp: ec.nextMp,
@@ -261,6 +288,7 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
           enemyV2SelfBuffs: nextEBuffs,
           enemyV2Debuffs: tEDebuffs,
           v2SelfDebuffs: nextPDebuffs,
+          playerV2Dots: nextPDots,
           playerHp: Math.max(0, state.playerHp - ec.enemyDamage),
           enemyHp: Math.min(state.enemy.hp, state.enemyHp + ec.selfHeal),
         };
@@ -275,8 +303,23 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
       }
       if (state.phase === "player") {
         // v2 스킬 cast (PR-4b — MP + cd + 효과 적용). offlineSim 은 로그 미수집 → log entry skip.
+        // PR-8 — playerV2Dots tick (적이 박은 dot) → playerHp 차감.
         if (!v2CastedThisPlayerPhase) {
           v2CastedThisPlayerPhase = true;
+          const playerDotTick = tickV2Dots(state.playerV2Dots);
+          if (playerDotTick.totalDmg > 0) {
+            state = {
+              ...state,
+              playerHp: Math.max(0, state.playerHp - playerDotTick.totalDmg),
+              playerV2Dots: playerDotTick.nextDots,
+            };
+            if (state.playerHp <= 0) {
+              state = { ...state, outcome: "lose", phase: "ended" };
+              continue;
+            }
+          } else {
+            state = { ...state, playerV2Dots: playerDotTick.nextDots };
+          }
           const tickedSelfBuffs = tickV2BuffMap(state.v2SelfBuffs);
           const tickedSelfDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
           const tickedEnemyDebuffs = tickV2BuffMap(state.enemyV2Debuffs);
@@ -302,6 +345,7 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
             tickedEnemyDebuffs,
             cast.enemyDebuffsToApply,
           );
+          const nextEnemyDots = applyV2DotsToTarget(state.enemyV2Dots, cast.dotsToApplyToTarget);
           state = {
             ...state,
             playerMp: cast.nextMp,
@@ -309,6 +353,7 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
             v2SelfBuffs: nextSelfBuffs,
             v2SelfDebuffs: tickedSelfDebuffs,
             enemyV2Debuffs: nextEnemyDebuffs,
+            enemyV2Dots: nextEnemyDots,
             playerHp: Math.min(
               state.playerMaxHp,
               state.playerHp + cast.selfHeal,

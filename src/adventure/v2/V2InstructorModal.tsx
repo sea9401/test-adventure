@@ -156,7 +156,11 @@ function effectSummary(def: V2SkillDefinition): string {
       if (e.kind === "selfBuff") {
         return `${(STAT_KOR[e.stat] ?? e.stat).toUpperCase()} +${e.pct}% ${e.turns}턴`;
       }
-      return `적 ${(STAT_KOR[e.stat] ?? e.stat).toUpperCase()} −${e.pct}% ${e.turns}턴`;
+      if (e.kind === "enemyDebuff") {
+        return `적 ${(STAT_KOR[e.stat] ?? e.stat).toUpperCase()} −${e.pct}% ${e.turns}턴`;
+      }
+      // PR-8 — dot effect 표시.
+      return `${e.label} ${e.dmgPerTurn}/턴 (${e.turns}턴)`;
     })
     .join(" · ");
 }

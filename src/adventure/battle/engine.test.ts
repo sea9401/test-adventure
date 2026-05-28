@@ -647,6 +647,45 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     // 발동 후 turns 가 cd 보다 짧을 수 있으니 단순 expect: 존재 검증만.
   });
 
+  it("PR-8 — dot effect 스킬 발동 후 적 hp 가 후속 turn tick 으로 추가 감소", () => {
+    // dex_needle_flurry_t2: damage + dot (출혈 6/turn × 3턴).
+    const dexPlayer: PlayerCombat = {
+      ...PLAYER,
+      atk: 50,
+      maxMp: 1000,
+      hp: 500,
+      maxHp: 500,
+      spd: 100,
+      def: 50,
+    };
+    const r = resolveBattle(
+      dexPlayer,
+      makeEnemy({ hp: 2000, atk: 5, def: 5 }),
+      "P",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_flurry", "dex_needle_flurry_t2"],
+          equipped: ["dex_needle_flurry_t2"],
+        },
+      },
+    );
+    // 출혈 박힘 로그.
+    const dotApplyLog = r.finalState.log.find(
+      (e) => e.kind === "info" && e.text.includes("[지속피해]") && e.text.includes("출혈"),
+    );
+    expect(dotApplyLog).toBeDefined();
+    // tick 로그 (enemy 측 turn 진입 시 누적 피해).
+    const dotTickLogs = r.finalState.log.filter(
+      (e) =>
+        e.kind === "info" &&
+        e.text.includes("[지속피해]") &&
+        e.text.includes("피해 (HP"),
+    );
+    expect(dotTickLogs.length).toBeGreaterThan(0);
+  });
+
   it("PR-5a — v2 buff 가 일반 공격에도 영향 (격리 해제). buff 있는 빌드 = 무 buff 보다 큰 누적 데미지", () => {
     // baseline (atk 50, def 10): 일반 공격 = 50 - 10 = 40.
     // dash 만 장착 (selfBuff spd +10% turns 3) — atk 곱셈 +10% → 일반공격 ~ (50×1.10) - 10 = 45.

@@ -47,12 +47,14 @@ import {
 } from "../data/potions";
 import {
   applyV2BuffsToMap,
+  applyV2DotsToTarget,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
   selectApSkillsToFire,
   tickV2BuffMap,
+  tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
@@ -164,6 +166,8 @@ export type PvPSide = {
   // v2SelfBuffs: 이 side 가 자기에게 건 강화. v2SelfDebuffs: 상대가 이 side 에 건 약화.
   v2SelfBuffs: import("./combatShared").V2BuffMap;
   v2SelfDebuffs: import("./combatShared").V2BuffMap;
+  // PR-8 — DoT (지속 피해). 상대가 이 side 에 박은 dot. 매 자기 turn 진입 시 tick → hp 차감.
+  v2Dots: import("./combatShared").V2Dot[];
 };
 
 export type PvPBattleState = {
@@ -427,6 +431,7 @@ function buildSide(
     v2SkillCooldowns: {},
     v2SelfBuffs: {},
     v2SelfDebuffs: {},
+    v2Dots: [],
     hp: player.hp,
     maxHp: player.maxHp,
     mp: sideMaxMp, // 매치 시작 풀충전 (단판 모델). 토너먼트는 매치마다 다시 풀충전.
@@ -2122,9 +2127,43 @@ function castV2SkillOnAttackerTurnPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
 ): PvPBattleState {
-  const side = state[who];
+  const sideStart = state[who];
   const otherKey: "p1" | "p2" = who === "p1" ? "p2" : "p1";
-  const opp = state[otherKey];
+  // 0) PR-8 — side 가 받는 DoT tick (상대가 박은 dot). DEF 무시. lethal 처리는 호출자 main loop.
+  const dotTick = tickV2Dots(sideStart.v2Dots);
+  let st = state;
+  let preLog = state.log;
+  if (dotTick.totalDmg > 0) {
+    const before = sideStart.hp;
+    const newHp = Math.max(0, before - dotTick.totalDmg);
+    preLog = appendLog(preLog, {
+      kind: "info",
+      text: `[지속피해] ${sideStart.name} ${dotTick.totalDmg} 피해 (HP ${before} → ${newHp})`,
+      side: who,
+    });
+    st = setSide({ ...st, log: preLog }, who, {
+      ...sideStart,
+      hp: newHp,
+      v2Dots: dotTick.nextDots,
+    });
+    // lethal: side 가 dot 으로 사망 → outcome 처리 + 종료. PvE lethal / 옛 bleed lethal 미러.
+    if (newHp <= 0) {
+      return {
+        ...st,
+        log: appendLog(st.log, {
+          kind: "info",
+          text: `${sideStart.name}이(가) 쓰러졌다.`,
+          side: who,
+        }),
+        outcome: who === "p1" ? "p2_win" : "p1_win",
+        phase: "ended",
+      };
+    }
+  } else {
+    st = setSide({ ...st, log: preLog }, who, { ...sideStart, v2Dots: dotTick.nextDots });
+  }
+  const side = st[who];
+  const opp = st[otherKey];
   // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
   const tickedSelfBuffs = tickV2BuffMap(side.v2SelfBuffs);
   const tickedSelfDebuffs = tickV2BuffMap(side.v2SelfDebuffs);
@@ -2146,8 +2185,8 @@ function castV2SkillOnAttackerTurnPvP(
       selfDebuffs: opp.v2SelfDebuffs,
     },
   });
-  // 3) state 업데이트.
-  let nextLog = state.log;
+  // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
+  let nextLog = st.log;
   if (result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -2183,6 +2222,8 @@ function castV2SkillOnAttackerTurnPvP(
     opp.v2SelfDebuffs,
     result.enemyDebuffsToApply,
   );
+  // PR-8 — dot 결과는 상대 side 의 v2Dots 에 박힌다.
+  const nextOppDots = applyV2DotsToTarget(opp.v2Dots, result.dotsToApplyToTarget);
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
@@ -2194,6 +2235,13 @@ function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "info",
       text: `[약화] ${opp.name} ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      side: who,
+    });
+  }
+  for (const dot of result.dotsToApplyToTarget) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[지속피해] ${opp.name} ${dot.label} ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
       side: who,
     });
   }
@@ -2209,8 +2257,9 @@ function castV2SkillOnAttackerTurnPvP(
     ...opp,
     hp: nextOppHp,
     v2SelfDebuffs: nextOppSelfDebuffs,
+    v2Dots: nextOppDots,
   };
-  let next: PvPBattleState = { ...state, log: nextLog };
+  let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
   return next;
@@ -2292,6 +2341,12 @@ export function resolveBattlePvP(
     if (!v2CastedThisPhase[who]) {
       v2CastedThisPhase[who] = true;
       state = castV2SkillOnAttackerTurnPvP(state, who);
+      // PR-8: cast hook 의 dot tick 으로 side 가 사망 → outcome=ended. 후속 처리 skip.
+      if (state.phase === "ended") {
+        state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };
+        turns += 1;
+        break;
+      }
     }
     let action: PlayerAction = { kind: "attack" };
     const picked = ctx.pickAction(state, who);

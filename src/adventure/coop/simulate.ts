@@ -95,6 +95,10 @@ export function simulateCoopAttack(input: CoopAttackInput): CoopAttackResult {
     enemyMaxHp: s.enemy.hp,
     ap: s.ap,
     apMax: apMaxForLog,
+    playerMp: s.playerMp,
+    playerMaxMp: s.playerMaxMp,
+    enemyMp: s.enemyMp,
+    enemyMaxMp: s.enemyMaxMp,
   });
   const turnMarkerText = (turnNo: number, ap: number): string =>
     `${turnNo}턴 · AP ${ap}`;

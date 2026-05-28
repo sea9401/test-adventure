@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, savesKv, v2GuildLineups } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 // GET /api/v2/guild/me/lineup — viewer 의 길드 라인업 조회.
 // 응답: { ok: true, guildId, isMaster, members: [{ userId, role, name, level }], lineup: string[] | null }
@@ -19,7 +19,20 @@ export async function GET() {
   }
 
   const result = await db.transaction(async (tx) => {
-    const guildId = await ensureSoloGuild(tx, userId);
+    const guildId = await getGuildId(tx, userId);
+    if (guildId == null) {
+      return {
+        guildId: null as number | null,
+        isMaster: false,
+        members: [] as Array<{
+          userId: string;
+          role: string;
+          name: string;
+          level: number;
+        }>,
+        lineup: null as string[] | null,
+      };
+    }
     const memberRows = await tx
       .select({ userId: guildMembers.userId, role: guildMembers.role })
       .from(guildMembers)
@@ -121,7 +134,10 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
-    const guildId = await ensureSoloGuild(tx, userId);
+    const guildId = await getGuildId(tx, userId);
+    if (guildId == null) {
+      return { status: 400, body: { ok: false, error: "no_guild" } };
+    }
     const members = await tx
       .select({ userId: guildMembers.userId, role: guildMembers.role })
       .from(guildMembers)

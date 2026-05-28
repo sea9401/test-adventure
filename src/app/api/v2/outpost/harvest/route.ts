@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   lockGuildResources,
   upsertGuildResources,
@@ -70,14 +70,11 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_occupied" as const },
       };
     }
-    // 점령자 길드의 멤버인지 확인. 1인 길드면 그 마스터 = userId. 다인 길드면
-    // 같은 길드의 어느 멤버도 harvest 가능 (공동 자원).
-    const occGuildId = occ.occupiedByGuildId
-      ?? (occ.occupiedByUserId
-        ? await ensureSoloGuild(tx, occ.occupiedByUserId)
-        : null);
-    const viewerGuildId = await ensureSoloGuild(tx, userId);
-    if (!occGuildId || occGuildId !== viewerGuildId) {
+    // 점령자 길드의 멤버여야 harvest. 길드 점령만 지원(occupiedByGuildId 필수).
+    // 무소속 점령은 더 이상 없으므로 occupiedByUserId fallback 도 제거.
+    const occGuildId = occ.occupiedByGuildId;
+    const viewerGuildId = await getGuildId(tx, userId);
+    if (!occGuildId || viewerGuildId == null || occGuildId !== viewerGuildId) {
       return {
         status: 403,
         body: { ok: false as const, error: "not_owner" as const },

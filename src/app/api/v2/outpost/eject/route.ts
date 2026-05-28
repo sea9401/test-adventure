@@ -5,7 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   HUNT_COST,
   applyRegen,
@@ -30,7 +30,7 @@ import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 //
 // lock 순서 (claim 흐름과 정합):
 //   1. outpost FOR UPDATE
-//   2. ensureSoloGuild (양측 user 모두 idempotent)
+//   2. getGuildId (viewer)
 //   3. character.v2 합집합 사전 정렬 lock
 
 const EJECT_STAMINA_COST = HUNT_COST;
@@ -89,9 +89,9 @@ export async function POST(req: Request) {
     }
     const occupyingGuildId = occRow.occupiedByGuildId;
 
-    // === 2. 사냥자 길드 보장 + 권한 확인 ===
-    const viewerGuildId = await ensureSoloGuild(tx, userId);
-    if (viewerGuildId !== occupyingGuildId) {
+    // === 2. 사냥자 길드 확인 — 무소속이면 점령권한 자체가 없음. ===
+    const viewerGuildId = await getGuildId(tx, userId);
+    if (viewerGuildId == null || viewerGuildId !== occupyingGuildId) {
       return {
         status: 403,
         body: { ok: false as const, error: "not_owner_guild" as const },

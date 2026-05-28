@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guilds, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
@@ -28,14 +28,12 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // ensureSoloGuild + ensureV2StarterSkills 둘 다 idempotent write — 같은 tx 에서.
-  // 후자는 기존 staging 유저가 PR-1 카탈로그 도입 후 첫 me/state 호출 시 자동 백필.
-  // 학습 보유 6 종 모두 있고 equipped 비어있지 않으면 noop.
+  // ensureV2StarterSkills 는 idempotent write — 기존 staging 유저가 PR-1 카탈로그
+  // 도입 후 첫 me/state 호출 시 자동 백필. 학습 6종+equipped 채워져 있으면 noop.
+  // 길드는 더 이상 자동 생성 X — null 이면 무소속.
   const guildId = await db.transaction(async (tx) => {
-    const gid = await ensureSoloGuild(tx, userId);
+    const gid = await getGuildId(tx, userId);
     await ensureV2StarterSkills(tx, userId);
-    // 신캐/리셋 후 char.v2 row 가 없으면 빈 obj 로 시드 — derive 가 null 반환하지
-    // 않게 (V2_BASE_MP 50 + 기본 stats 적용된 캐릭이 첫 me/state 응답부터 보임).
     await ensureV2Character(tx, userId);
     return gid;
   });
@@ -59,14 +57,18 @@ export async function GET() {
       )
       .limit(1)
       .then((rows) => rows[0]),
-    db
-      .select({ name: guilds.name })
-      .from(guilds)
-      .where(eq(guilds.id, guildId))
-      .limit(1)
-      .then((rows) => rows[0]),
+    guildId == null
+      ? Promise.resolve(undefined)
+      : db
+          .select({ name: guilds.name })
+          .from(guilds)
+          .where(eq(guilds.id, guildId))
+          .limit(1)
+          .then((rows) => rows[0]),
     derivePlayerCombatV2(userId),
-    db.transaction(async (tx) => readGuildResources(tx, guildId)),
+    guildId == null
+      ? Promise.resolve(null)
+      : db.transaction(async (tx) => readGuildResources(tx, guildId)),
     db
       .select({ value: savesKv.value })
       .from(savesKv)
@@ -150,7 +152,7 @@ export async function GET() {
     typeof profile?.gender === "string" && profile.gender.length > 0
       ? profile.gender
       : "male1";
-  const guildName = guildRow?.name ?? "—";
+  const guildName = guildRow?.name ?? null;
   const maxHp = combat?.maxHp ?? 100;
   const maxMp = combat?.player.maxMp ?? 0;
 
@@ -198,7 +200,7 @@ export async function GET() {
     },
     stats,
     combat: combatStats,
-    guild: { id: guildId, name: guildName },
+    guild: guildId == null ? null : { id: guildId, name: guildName ?? "—" },
     resources,
     currentOutpost,
     skills: parseV2SkillsState(skillsRow?.value),

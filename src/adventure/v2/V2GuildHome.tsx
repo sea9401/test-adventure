@@ -123,6 +123,23 @@ export function V2GuildHome({
       : [];
   const occByOutpost = new Map(occupations.map((o) => [o.outpostId, o]));
 
+  // 무소속이면 안내만 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
+  if (!loading && !state?.guild) {
+    return (
+      <main className="mx-auto max-w-2xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+        <header>
+          <h1 className="text-lg font-bold">길드</h1>
+        </header>
+        <div className="rounded-md border border-zinc-200 bg-white/90 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950/90">
+          <p className="text-zinc-700 dark:text-zinc-300">아직 무소속이다.</p>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            마을 → 길드 회관에서 새 길드를 창단하거나 초대를 기다리자.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-2xl space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>

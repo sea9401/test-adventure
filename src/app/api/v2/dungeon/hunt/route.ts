@@ -51,7 +51,7 @@ import {
   type LastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
     };
 
     // === 1. outpost 점령 조회 (FOR UPDATE) ===
-    // v2 의 lock 순서 통일: outpost FOR UPDATE → ensureSoloGuild → character.v2.
+    // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
     // FOR UPDATE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
     // hunt 도중 정책을 바꿔도 이 hunt 는 진입 시점 정책으로 일관.
     let occRow:
@@ -150,7 +150,8 @@ export async function POST(req: Request) {
     }
 
     // === 2. 사냥자 길드 확인 (정책 게이트 + 세금 면제 판정용) ===
-    const viewerGuildId = await ensureSoloGuild(tx, userId);
+    // 무소속이면 null — same-guild 세금면제 분기에서 false 로 통과.
+    const viewerGuildId = await getGuildId(tx, userId);
 
     // === 3. 정책 게이트 — 거부 시 즉시 403, stamina 차감/character.v2 lock 전. ===
     if (occRow) {

@@ -79,11 +79,9 @@ export function V2CharacterCard({
             <span className="text-sm text-zinc-400 dark:text-zinc-500">
               Lv.{character.level}
             </span>
-            {guild && (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                · {guild.name}
-              </span>
-            )}
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              · {guild ? guild.name : "무소속"}
+            </span>
           </div>
           <div className="space-y-1.5">
             <StatBar

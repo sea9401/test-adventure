@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
   isIntruderActive,
@@ -51,8 +51,8 @@ export async function GET(req: Request) {
     if (!occ || occ.guildId == null) {
       return { error: "not_occupied" as const };
     }
-    const viewerGuildId = await ensureSoloGuild(tx, userId);
-    if (viewerGuildId !== occ.guildId) {
+    const viewerGuildId = await getGuildId(tx, userId);
+    if (viewerGuildId == null || viewerGuildId !== occ.guildId) {
       return { error: "not_owner_guild" as const };
     }
 

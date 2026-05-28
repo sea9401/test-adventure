@@ -2228,21 +2228,21 @@ function castV2SkillOnAttackerTurnPvP(
   for (const b of result.selfBuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[강화] ${side.name} ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
       side: who,
     });
   }
   for (const d of result.enemyDebuffsToApply) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[약화] ${opp.name} ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
       side: who,
     });
   }
   for (const dot of result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[지속피해] ${opp.name} ${dot.label} ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+      text: `[${result.castSkillName ?? dot.label}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
       side: who,
     });
   }

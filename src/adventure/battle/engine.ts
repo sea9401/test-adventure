@@ -2995,21 +2995,21 @@ export function resolveBattle(
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[강화] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+            text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
             turn: "player",
           });
         }
         for (const d of result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[약화] ${state.enemy.name} ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
             turn: "player",
           });
         }
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[지속피해] ${state.enemy.name} ${dot.label} ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            text: `[${result.castSkillName ?? dot.label}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
             turn: "player",
           });
         }
@@ -3153,21 +3153,21 @@ export function resolveBattle(
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[적 강화] ${state.enemy.name} ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+            text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
             turn: "enemy",
           });
         }
         for (const d of result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[적 약화] 플레이어 ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
             turn: "enemy",
           });
         }
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[적 지속피해] 플레이어 ${dot.label} ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            text: `[${result.castSkillName ?? dot.label}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
             turn: "enemy",
           });
         }

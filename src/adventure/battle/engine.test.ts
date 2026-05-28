@@ -639,12 +639,12 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
+    // 라벨은 스킬명. 본문에 "+N% (3턴)" 패턴이 안정적.
     const buffLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("[강화]"),
+      (e) =>
+        e.kind === "info" && e.text.includes("SPD +") && e.text.includes("3턴"),
     );
     expect(buffLog).toBeDefined();
-    // 마지막 상태의 v2SelfBuffs 에 spd 키 (turns > 0 또는 tick 으로 expire).
-    // 발동 후 turns 가 cd 보다 짧을 수 있으니 단순 expect: 존재 검증만.
   });
 
   it("PR-8 — dot effect 스킬 발동 후 적 hp 가 후속 turn tick 으로 추가 감소", () => {
@@ -671,9 +671,9 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
-    // 출혈 박힘 로그 (apply 시점 — info kind 유지).
+    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명] N/턴 (M턴).
     const dotApplyLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("[지속피해]") && e.text.includes("출혈"),
+      (e) => e.kind === "info" && e.text.includes("/턴") && e.text.includes("(3턴)"),
     );
     expect(dotApplyLog).toBeDefined();
     // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격 패턴 (player_attack + "[출혈]").
@@ -796,9 +796,13 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
       pickAction: () => ({ kind: "attack" }),
       potions: {},
     });
-    // enemy 의 자강화 로그.
+    // enemy 의 자강화 로그 — 새 포맷은 [스킬명] STAT +N% (M턴). enemy turn 으로 태깅됨.
     const buffLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("[적 강화]"),
+      (e) =>
+        e.kind === "info" &&
+        e.turn === "enemy" &&
+        /[A-Z]+\s*\+\d+%/.test(e.text) &&
+        e.text.includes("턴)"),
     );
     expect(buffLog).toBeDefined();
   });

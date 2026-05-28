@@ -335,6 +335,7 @@ function HpBar({
           value={enemyHp}
           max={enemyMaxHp}
           color="bg-rose-500"
+          align="right"
         />
       </div>
       {(showPlayerMp || showEnemyMp) && (
@@ -355,6 +356,7 @@ function HpBar({
               value={enemyMp!}
               max={enemyMaxMp!}
               color="bg-blue-500"
+              align="right"
             />
           ) : (
             <span />
@@ -370,16 +372,22 @@ function InlineBar({
   value,
   max,
   color,
+  align = "left",
 }: {
   label: string;
   value: number;
   max: number;
   color: string;
+  align?: "left" | "right";
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
-  // [라벨][바][숫자]. 바는 컬럼 채움(flex-1) + 살짝 더 짧게(max-w-[88px]) + 두꺼움(h-2).
+  // [라벨][바][숫자] 순서 그대로. align="right" 면 컬럼 우측에 붙임 (적 측).
   return (
-    <div className="flex items-center gap-1.5">
+    <div
+      className={`flex items-center gap-1.5 ${
+        align === "right" ? "justify-end" : "justify-start"
+      }`}
+    >
       <span className="w-4 shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
         {label}
       </span>

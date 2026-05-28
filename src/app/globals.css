@@ -41,3 +41,12 @@ body {
   /* iOS 의 가로 바운스(상하좌우 rubber-band) 중 좌우 방향만 차단 — 세로 스크롤은 유지. */
   overscroll-behavior-x: none;
 }
+
+/* 전역 — 페이지·내부 컨테이너 모두의 네이티브 스크롤바 막대 숨김. 스크롤 동작은 유지.
+   no-scrollbar 유틸과 동일 효과를 모든 요소에 자동 적용 (앞으로 추가될 스크롤도 자동). */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}

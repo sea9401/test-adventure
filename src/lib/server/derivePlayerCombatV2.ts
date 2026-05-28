@@ -9,7 +9,7 @@
 //   str → atk 주력 (atk += str×0.2)
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
-//   spd → 결정적 다중공격 (attackCount = 1 + floor(spd/50), cap 5) + 선공권 + atk 보조 (×0.06)
+//   spd → 다중공격 확률 (extra += spd×2%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
 //   luk → 치명 (crit += luk×0.15, PR-T3 버프) + atk 보조 (PR-T3 ×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
@@ -154,10 +154,10 @@ const ATK_PER_LUK = 0.04;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 
-// v2 SPD → 다중공격: 확률 모델 폐기, 결정적 임계값. SPD 50 마다 attackCount +1, cap 5.
-// 라이브 derive 는 확률(extraAttackChancePct) 모델 유지. v2 만 분기.
-const SPD_PER_EXTRA_ATTACK = 50;
-const MAX_ATTACK_COUNT = 5;
+// v2 SPD → 다중공격: 라이브 모델 채택. SPD 1 당 +2%p 추가공격 확률.
+// SPD 50 = 100% (확정 +1타) · SPD 75 = 150% (확정 +1타 + 50% +1타) · SPD 200 = 400% (확정 +4타).
+// rollAttackCount(combatShared) 가 100%↑를 정수부 확정 + 소수부 확률로 처리. cap 없음.
+const EXTRA_ATTACK_PCT_PER_SPD = 2;
 
 // PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).
 // 여기서는 backward compat 을 위해 re-export.
@@ -236,12 +236,8 @@ export function derivePlayerCombatV2Pure(
   // spd 가 중갑 페널티로 음수가 될 수 있음. 엔진은 chance<=0 에서 base 공격으로
   // 클램프하지만 API/UI 에 음수 노출되지 않게 0 클램프.
   const spd = Math.max(0, totalStats.spd);
-  // v2: 결정적 다중공격 — SPD 50 마다 +1, cap MAX_ATTACK_COUNT. 확률 모델 0.
-  const attackCount = Math.min(
-    MAX_ATTACK_COUNT,
-    1 + Math.floor(spd / SPD_PER_EXTRA_ATTACK),
-  );
-  const extraAttackChancePct = 0;
+  // v2 다중공격 — 라이브 모델. SPD × 2%p 추가공격 확률 (50=100% 확정 +1, 75=150%, …).
+  const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
 
   // hp 클램프 (저장값이 maxHp 초과 안 되게)
   const savedHp = input.hp ?? maxHp;
@@ -268,7 +264,7 @@ export function derivePlayerCombatV2Pure(
     spd,
     evasionPct,
     accuracyPct,
-    attackCount,
+    attackCount: 1,
     extraAttackChancePct,
     critChancePct,
     baselineRegen: baselineRegenFor(maxHp),

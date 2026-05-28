@@ -50,6 +50,8 @@ import {
   rollAttackCount,
   selectApSkillsToFire,
   tickV2BuffMap,
+  v2AtkBuffMult,
+  v2DefBuffMult,
 } from "./combatShared";
 import {
   CRIT_MULT_BASE,
@@ -738,11 +740,19 @@ function applyDodgeEffects(
       ? Math.floor((attackerNow.player.atk * infiniteThornsPct) / 100)
       : 0;
   const reflexEvadeMult = defenderNow.player.reflexEvadeMult ?? 0;
+  // PR-5a: v2 buff/debuff 격리 해제 — 반사 회피 추정도 일관 적용.
+  // attackerNow 가 공격자, defenderNow 가 방어자.
+  const v2AtkMultR = v2AtkBuffMult(attackerNow.v2SelfBuffs, attackerNow.v2SelfDebuffs);
+  const v2DefMultR = v2DefBuffMult(defenderNow.v2SelfBuffs, defenderNow.v2SelfDebuffs);
   const estimatedRawDmg =
     reflexEvadeMult > 0
       ? damageBetween(
-          effectiveAttackerAtk(attackerNow, defenderNow),
-          defenderNow.player.def,
+          v2AtkMultR !== 1
+            ? Math.floor(effectiveAttackerAtk(attackerNow, defenderNow) * v2AtkMultR)
+            : effectiveAttackerAtk(attackerNow, defenderNow),
+          v2DefMultR !== 1
+            ? Math.floor(defenderNow.player.def * v2DefMultR)
+            : defenderNow.player.def,
         )
       : 0;
   const reflexEvadeDmg =
@@ -777,9 +787,18 @@ function applyDodgeEffects(
   const attackerAfterReflect = st[atkKey];
   const counterBonus = defenderNow.player.counterAtkBonus ?? 0;
   if (counterBonus > 0) {
+    // PR-5a: 반격도 v2 buff/debuff 격리 해제. defender 가 공격자, attacker 가 방어자 (반격 방향).
+    const v2AtkMultCt = v2AtkBuffMult(defenderNow.v2SelfBuffs, defenderNow.v2SelfDebuffs);
+    const v2DefMultCt = v2DefBuffMult(
+      attackerAfterReflect.v2SelfBuffs,
+      attackerAfterReflect.v2SelfDebuffs,
+    );
+    const counterRawAtk = defenderNow.player.atk + counterBonus;
     const counterDmg = damageBetween(
-      defenderNow.player.atk + counterBonus,
-      attackerAfterReflect.player.def,
+      v2AtkMultCt !== 1 ? Math.floor(counterRawAtk * v2AtkMultCt) : counterRawAtk,
+      v2DefMultCt !== 1
+        ? Math.floor(attackerAfterReflect.player.def * v2DefMultCt)
+        : attackerAfterReflect.player.def,
     );
     const newAtkHp = Math.max(0, attackerAfterReflect.hp - counterDmg);
     st = setSide(st, atkKey, { ...attackerAfterReflect, hp: newAtkHp });
@@ -933,9 +952,14 @@ function maybeApplyRuneCounter(
   if (pct <= 0 || Math.random() * 100 >= pct) {
     return { state, attackerKilled: false };
   }
+  // PR-5a: 룬 반격도 v2 buff/debuff 격리 해제. defender 공격자, attacker 방어자.
+  const v2AtkMultRC = v2AtkBuffMult(defender.v2SelfBuffs, defender.v2SelfDebuffs);
+  const v2DefMultRC = v2DefBuffMult(attacker.v2SelfBuffs, attacker.v2SelfDebuffs);
+  const rcAtk = effectiveAttackerAtk(defender, attacker);
+  const rcDef = attackerFacingDef(defender, attacker);
   const dmg = damageBetween(
-    effectiveAttackerAtk(defender, attacker),
-    attackerFacingDef(defender, attacker),
+    v2AtkMultRC !== 1 ? Math.floor(rcAtk * v2AtkMultRC) : rcAtk,
+    v2DefMultRC !== 1 ? Math.floor(rcDef * v2DefMultRC) : rcDef,
   );
   const newAtkHp = Math.max(0, attacker.hp - dmg);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
@@ -970,6 +994,16 @@ function finishAttackerTurn(
 ): PvPBattleState {
   let st = state;
   const attacker = st[atkKey];
+  // PR-5a: 분신·난무 모두 v2 buff/debuff 격리 해제 적용. PvP 는 매 호출마다 atk/def state 가
+  // 바뀔 수 있어 (dealExtraDamage 가 hp 만 변경하므로 buff/debuff map 은 보존) 안전.
+  const applyV2AtkPvP = (rawAtk: number, atkSide: PvPSide): number => {
+    const m = v2AtkBuffMult(atkSide.v2SelfBuffs, atkSide.v2SelfDebuffs);
+    return m !== 1 ? Math.floor(rawAtk * m) : rawAtk;
+  };
+  const applyV2DefPvP = (rawDef: number, defSide: PvPSide): number => {
+    const m = v2DefBuffMult(defSide.v2SelfBuffs, defSide.v2SelfDebuffs);
+    return m !== 1 ? Math.floor(rawDef * m) : rawDef;
+  };
   // 그림자 분신 + 6티어 군단.
   const clonePct = attacker.player.shadowCloneAtkPct ?? 0;
   const cloneExtra = attacker.player.shadowLegionExtraClones ?? 0;
@@ -980,8 +1014,8 @@ function finishAttackerTurn(
       const atk = st[atkKey];
       const def = st[defKey];
       const cloneDmg = damageBetween(
-        Math.floor((attackerAtkWithMadness(atk) * clonePct) / 100),
-        attackerFacingDef(atk, def),
+        applyV2AtkPvP(Math.floor((attackerAtkWithMadness(atk) * clonePct) / 100), atk),
+        applyV2DefPvP(attackerFacingDef(atk, def), def),
       );
       st = dealExtraDamage(
         st,
@@ -1005,8 +1039,8 @@ function finishAttackerTurn(
       const atk = st[atkKey];
       const def = st[defKey];
       const fd = damageBetween(
-        effectiveAttackerAtk(atk, def),
-        attackerFacingDef(atk, def),
+        applyV2AtkPvP(effectiveAttackerAtk(atk, def), atk),
+        applyV2DefPvP(attackerFacingDef(atk, def), def),
       );
       st = dealExtraDamage(st, atkKey, defKey, fd, "무피해 난무");
     }
@@ -1357,12 +1391,22 @@ export function advanceTurnPvP(
     0,
     baseAtkValue - defender.buffs.opponentAtkPenalty,
   );
+  // PR-5a: v2 buff/debuff 격리 해제 — 일반 공격 damage 에도 v2 buff 곱셈.
+  // attacker 측 v2 atk-stats buff/debuff 합산 → atk 곱. defender 측 vit buff/debuff → def 곱.
+  const v2AtkMultAttacker = v2AtkBuffMult(attacker.v2SelfBuffs, attacker.v2SelfDebuffs);
+  const v2DefMultDefender = v2DefBuffMult(defender.v2SelfBuffs, defender.v2SelfDebuffs);
+  const v2EffectiveAtk = v2AtkMultAttacker !== 1
+    ? Math.floor(baseAtkWithAnalysis * v2AtkMultAttacker)
+    : baseAtkWithAnalysis;
+  const v2EffectiveTargetDef = v2DefMultDefender !== 1
+    ? Math.floor(targetDef * v2DefMultDefender)
+    : targetDef;
   // AP 스킬의 atk_multiplier 는 모든 ATK 합산 후 곱.
   const atkForDmg =
     apAtkMult !== 1
-      ? Math.floor(baseAtkWithAnalysis * apAtkMult)
-      : baseAtkWithAnalysis;
-  const baseDmgSingleHit = damageBetween(atkForDmg, targetDef);
+      ? Math.floor(v2EffectiveAtk * apAtkMult)
+      : v2EffectiveAtk;
+  const baseDmgSingleHit = damageBetween(atkForDmg, v2EffectiveTargetDef);
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복. apHits=1 이면 그대로.
   const baseDmg = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
   // 처형 — defender 의 HP 비율이 임계 미만이면 데미지 ×mult.
@@ -2077,6 +2121,8 @@ function castV2SkillOnAttackerTurnPvP(
     },
     target: {
       def: opp.player.def,
+      // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
+      selfBuffs: opp.v2SelfBuffs,
       selfDebuffs: opp.v2SelfDebuffs,
     },
   });

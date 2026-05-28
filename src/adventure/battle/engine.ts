@@ -9,6 +9,8 @@ import {
   rollAttackCount,
   selectApSkillsToFire,
   tickV2BuffMap,
+  v2AtkBuffMult,
+  v2DefBuffMult,
 } from "./combatShared";
 import {
   CRIT_OVERFLOW_DMG_CAP,
@@ -650,10 +652,15 @@ function applyCounterIfAny(
 ): { state: BattleState; ended: boolean } {
   const bonus = player.counterAtkBonus ?? 0;
   if (bonus <= 0) return { state, ended: false };
-  const dmg = damageBetween(
-    player.atk + bonus,
-    playerFacingEnemyDef(state, player),
-  );
+  // PR-5a: v2 buff/debuff 격리 해제 — 반격 데미지도 일반 공격과 동일하게 v2 buff 곱셈.
+  const v2AtkMult = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+  const v2DefMult = v2DefBuffMult({}, state.enemyV2Debuffs);
+  const atk = v2AtkMult !== 1
+    ? Math.floor((player.atk + bonus) * v2AtkMult)
+    : player.atk + bonus;
+  const def = playerFacingEnemyDef(state, player);
+  const v2EffDef = v2DefMult !== 1 ? Math.floor(def * v2DefMult) : def;
+  const dmg = damageBetween(atk, v2EffDef);
   const enemyHp = Math.max(0, state.enemyHp - dmg);
   let next: BattleState = {
     ...state,
@@ -891,6 +898,13 @@ function finishPlayerTurn(
     buffedAtkPct > 0
       ? player.atk + Math.floor((player.atk * buffedAtkPct) / 100)
       : player.atk;
+  // PR-5a: 그림자 분신·무피해 난무 모두 v2 buff/debuff 격리 해제 적용.
+  const v2AtkMultExtra = v2AtkBuffMult(st.v2SelfBuffs, st.v2SelfDebuffs);
+  const v2DefMultExtra = v2DefBuffMult({}, st.enemyV2Debuffs);
+  const applyV2Atk = (rawAtk: number): number =>
+    v2AtkMultExtra !== 1 ? Math.floor(rawAtk * v2AtkMultExtra) : rawAtk;
+  const applyV2Def = (rawDef: number): number =>
+    v2DefMultExtra !== 1 ? Math.floor(rawDef * v2DefMultExtra) : rawDef;
   // 그림자 분신 — ATK 의 N% 로 1회. 6티어 그림자 군단 보유 시 추가 횟수만큼 더 발동.
   const clonePct = player.shadowCloneAtkPct ?? 0;
   const cloneExtra = player.shadowLegionExtraClones ?? 0;
@@ -899,8 +913,8 @@ function finishPlayerTurn(
     for (let i = 0; i < cloneCount; i += 1) {
       if (st.phase === "ended") break;
       const cloneDmg = damageBetween(
-        Math.floor((buffedAtk * clonePct) / 100),
-        playerFacingEnemyDef(st, player),
+        applyV2Atk(Math.floor((buffedAtk * clonePct) / 100)),
+        applyV2Def(playerFacingEnemyDef(st, player)),
       );
       st = dealExtraEnemyDamage(
         st,
@@ -916,7 +930,10 @@ function finishPlayerTurn(
   if (st.phase !== "ended" && flurry > 0 && st.stacks.damageTakenThisCombat === 0) {
     for (let i = 0; i < flurry; i += 1) {
       if (st.phase === "ended") break;
-      const fd = damageBetween(buffedAtk, playerFacingEnemyDef(st, player));
+      const fd = damageBetween(
+        applyV2Atk(buffedAtk),
+        applyV2Def(playerFacingEnemyDef(st, player)),
+      );
       st = dealExtraEnemyDamage(st, fd, "무피해 난무", player, playerName);
     }
   }
@@ -1466,9 +1483,15 @@ export function advanceTurn(
       gustBonus +
       enduringStrikeBonus +
       madnessAtkBonus;
+    // PR-5a: v2 buff/debuff 격리 해제 — 일반 공격 damage 에도 atk 곱셈으로 반영.
+    // attacker 의 v2 self buff (str/dex/spd/luk) 합산, target 의 v2 vit debuff/buff 가 def 곱셈.
+    const v2AtkMultPlayer = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+    const v2DefMultEnemy = v2DefBuffMult({}, state.enemyV2Debuffs);
+    const v2EffectiveAtk = v2AtkMultPlayer !== 1 ? Math.floor(atkBeforeApMult * v2AtkMultPlayer) : atkBeforeApMult;
+    const v2EffectiveTargetDef = v2DefMultEnemy !== 1 ? Math.floor(targetDef * v2DefMultEnemy) : targetDef;
     const baseDmgSingleHit = damageBetween(
-      apAtkMult !== 1 ? Math.floor(atkBeforeApMult * apAtkMult) : atkBeforeApMult,
-      targetDef,
+      apAtkMult !== 1 ? Math.floor(v2EffectiveAtk * apAtkMult) : v2EffectiveAtk,
+      v2EffectiveTargetDef,
     );
     // 광살참 (AP) — 같은 fire 에서 hits 번 반복 데미지. apHits=1 이면 baseDmgSingleHit 그대로.
     const baseDmg = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
@@ -2132,6 +2155,7 @@ export function advanceTurn(
       ? Math.floor((state.enemy.atk * infiniteThornsPct) / 100)
       : 0;
   // 반사 회피 (2티어 특기) — 회피 성공 시 받았을 피해의 N 비율 반사. baseEnemyDmg 추정.
+  // PR-5a: v2 buff/debuff 격리 해제 — 추정 데미지도 일관 적용 (적의 atk debuff + player def buff).
   const reflexEvadeMult = player.reflexEvadeMult ?? 0;
   const estimatedRawEnemyDmg = (() => {
     if (reflexEvadeMult <= 0) return 0;
@@ -2145,7 +2169,11 @@ export function advanceTurn(
       0,
       state.enemy.atk + state.buffs.enemyAtkBonus - state.buffs.enemyAtkPenalty,
     );
-    return damageBetween(effAtk, effDef);
+    const v2AtkMultE = v2AtkBuffMult({}, state.enemyV2Debuffs);
+    const v2DefMultP = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+    const v2EffAtk = v2AtkMultE !== 1 ? Math.floor(effAtk * v2AtkMultE) : effAtk;
+    const v2EffDef = v2DefMultP !== 1 ? Math.floor(effDef * v2DefMultP) : effDef;
+    return damageBetween(v2EffAtk, v2EffDef);
   })();
   const reflexEvadeDmg =
     reflexEvadeMult > 0
@@ -2471,7 +2499,13 @@ export function advanceTurn(
     0,
     state.enemy.atk + enemyAtkBonus - state.buffs.enemyAtkPenalty,
   );
-  const baseEnemyDmg = damageBetween(effectiveEnemyAtk, effectivePlayerDef);
+  // PR-5a: enemy 가 받은 v2 debuff (player 가 박은 enemyDebuff) 가 자기 atk 곱셈으로 약화.
+  // player 의 v2 self buff/debuff 는 player.def 곱셈으로 반영.
+  const v2AtkMultEnemy = v2AtkBuffMult({}, state.enemyV2Debuffs);
+  const v2DefMultPlayer = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+  const v2EffectiveEnemyAtk = v2AtkMultEnemy !== 1 ? Math.floor(effectiveEnemyAtk * v2AtkMultEnemy) : effectiveEnemyAtk;
+  const v2EffectivePlayerDef = v2DefMultPlayer !== 1 ? Math.floor(effectivePlayerDef * v2DefMultPlayer) : effectivePlayerDef;
+  const baseEnemyDmg = damageBetween(v2EffectiveEnemyAtk, v2EffectivePlayerDef);
   const rawDmgBeforeReduction = heavyBlowFired
     ? Math.max(1, Math.floor(baseEnemyDmg * heavyBlowMult))
     : baseEnemyDmg;
@@ -2620,9 +2654,13 @@ export function advanceTurn(
     enemyHpAfterThorns > 0 &&
     Math.random() * 100 < runeCounterPct
   ) {
+    // PR-5a: 룬 반격도 v2 buff/debuff 격리 해제 일관 적용.
+    const v2AtkMultC = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+    const v2DefMultC = v2DefBuffMult({}, state.enemyV2Debuffs);
+    const counterDef = playerFacingEnemyDef(state, player);
     const counterDmg = damageBetween(
-      player.atk,
-      playerFacingEnemyDef(state, player),
+      v2AtkMultC !== 1 ? Math.floor(player.atk * v2AtkMultC) : player.atk,
+      v2DefMultC !== 1 ? Math.floor(counterDef * v2DefMultC) : counterDef,
     );
     enemyHpAfterRuneCounter = Math.max(0, enemyHpAfterThorns - counterDmg);
     log = appendLog(log, {
@@ -2869,6 +2907,8 @@ export function resolveBattle(
           },
           target: {
             def: state.enemy.def,
+            // PR-5a: PvE 적은 v2 buff 없음 (PR-5b 에서 monster 측 v2 slot 도입 예정).
+            selfBuffs: {},
             selfDebuffs: tickedEnemyDebuffs,
           },
         });

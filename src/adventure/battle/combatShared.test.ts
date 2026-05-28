@@ -9,6 +9,8 @@ import {
   tickV2BuffMap,
   applyV2BuffsToMap,
   v2BuffActive,
+  v2AtkBuffMult,
+  v2DefBuffMult,
 } from "./combatShared";
 import type { PlayerCombat } from "./engine";
 import type { Potion } from "../data/potions";
@@ -185,7 +187,7 @@ function castFrameworkOnly(args: {
       selfBuffs: {},
       selfDebuffs: {},
     },
-    target: { def: 0, selfDebuffs: {} },
+    target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
   });
 }
 
@@ -274,7 +276,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfBuffs: {},
         selfDebuffs: {},
       },
-      target: { def: 20, selfDebuffs: {} },
+      target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.enemyDamage).toBe(80);
     expect(result.selfHeal).toBe(0);
@@ -295,7 +297,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfBuffs: {},
         selfDebuffs: {},
       },
-      target: { def: 0, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.selfHeal).toBe(20);
     expect(result.enemyDamage).toBe(0);
@@ -316,7 +318,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfBuffs: {},
         selfDebuffs: {},
       },
-      target: { def: 0, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
     expect(result.selfBuffsToApply).toEqual([
       { stat: "spd", pct: 10, turns: 3 },
@@ -339,7 +341,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfBuffs: { str: { pct: 20, turns: 3 } },
         selfDebuffs: {},
       },
-      target: { def: 20, selfDebuffs: {} },
+      target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
     // floor(100 × 1.20 × 1.0) - 20 = 120 - 20 = 100
     expect(result.enemyDamage).toBe(100);
@@ -362,6 +364,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: {
         def: 20,
+        selfBuffs: {},
         selfDebuffs: { vit: { pct: 50, turns: 3 } },
       },
     });
@@ -383,7 +386,7 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
         selfBuffs: {},
         selfDebuffs: {},
       },
-      target: { def: 20, selfDebuffs: {} },
+      target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
     // floor(100 × 1.65) - 20 = 165 - 20 = 145
     expect(result.enemyDamage).toBe(145);
@@ -419,6 +422,42 @@ describe("tickV2BuffMap / applyV2BuffsToMap (PR-4b)", () => {
     expect(v2BuffActive({ str: { pct: 20, turns: 3 } }, "str")).toBe(20);
     expect(v2BuffActive({ str: { pct: 20, turns: 0 } }, "str")).toBe(0);
     expect(v2BuffActive({}, "str")).toBe(0);
+  });
+
+  // PR-5a v2AtkBuffMult / v2DefBuffMult — 격리 해제 (일반 공격 buff 곱셈).
+  it("v2AtkBuffMult — str/dex/spd/luk buff 합산, debuff 차감, 0 floor", () => {
+    // empty → 1.0
+    expect(v2AtkBuffMult({}, {})).toBe(1);
+    // str +20% only → 1.20
+    expect(v2AtkBuffMult({ str: { pct: 20, turns: 3 } }, {})).toBe(1.2);
+    // str +20 + spd +10 → 1.30
+    expect(
+      v2AtkBuffMult(
+        { str: { pct: 20, turns: 3 }, spd: { pct: 10, turns: 3 } },
+        {},
+      ),
+    ).toBeCloseTo(1.3);
+    // str debuff -20% → 0.8
+    expect(v2AtkBuffMult({}, { str: { pct: 20, turns: 3 } })).toBeCloseTo(0.8);
+    // vit / int buff 는 atk 무관 — 1.0 그대로
+    expect(v2AtkBuffMult({ vit: { pct: 50, turns: 3 } }, {})).toBe(1);
+    expect(v2AtkBuffMult({ int: { pct: 50, turns: 3 } }, {})).toBe(1);
+    // 합산 debuff 가 +100% buff 보다 커도 0 floor
+    expect(
+      v2AtkBuffMult({}, {
+        str: { pct: 50, turns: 3 },
+        dex: { pct: 50, turns: 3 },
+        spd: { pct: 50, turns: 3 },
+      }),
+    ).toBe(0);
+  });
+
+  it("v2DefBuffMult — vit 만 사용, buff/debuff 곱셈", () => {
+    expect(v2DefBuffMult({}, {})).toBe(1);
+    expect(v2DefBuffMult({ vit: { pct: 30, turns: 3 } }, {})).toBe(1.3);
+    expect(v2DefBuffMult({}, { vit: { pct: 30, turns: 3 } })).toBeCloseTo(0.7);
+    // 다른 stat 은 무관
+    expect(v2DefBuffMult({ str: { pct: 50, turns: 3 } }, {})).toBe(1);
   });
 
   // 회귀: turns:N 의도 = 정확히 N번 tick-후 active. apply 시 +1 시드 → tick 1회 흡수 후 N.

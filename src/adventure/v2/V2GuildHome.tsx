@@ -130,7 +130,7 @@ export function V2GuildHome({
         <header>
           <h1 className="text-lg font-bold">길드</h1>
         </header>
-        <div className="rounded-md border border-zinc-200 bg-white/90 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-950/90">
+        <div className="rounded-md border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
           <p className="text-zinc-700 dark:text-zinc-300">아직 무소속이다.</p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             마을 → 길드 회관에서 새 길드를 창단하거나 초대를 기다리자.

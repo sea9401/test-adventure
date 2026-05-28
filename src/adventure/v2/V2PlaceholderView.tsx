@@ -15,7 +15,7 @@ export function V2PlaceholderView({
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title={title} onBack={onBack} />
-      <div className="rounded-lg border border-dashed border-zinc-300 bg-white/90 p-10 text-center backdrop-blur-sm dark:border-zinc-700 dark:bg-zinc-950/90">
+      <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-10 text-center shadow-sm dark:bg-zinc-900">
         <div className="mx-auto inline-flex text-zinc-400 dark:text-zinc-500">
           <Wrench size={40} weight="duotone" />
         </div>

@@ -117,7 +117,7 @@ export function V2AdventureHome({
         )}
 
         {outpost && (
-          <section className="rounded-md border border-zinc-200 bg-white/90 p-4 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/90">
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex items-baseline gap-2">
               <MapPin
                 size={16}

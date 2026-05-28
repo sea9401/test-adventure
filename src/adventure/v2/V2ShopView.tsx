@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { CaretDown, CaretRight, Coins } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Coins, X } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import {
   V2_EQUIPMENT,
@@ -64,6 +64,22 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [slotTab, setSlotTab] = useState<SlotTab>("weapon");
   const [expanded, setExpanded] = useState<V2EquipmentId | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // 외부 클릭 시 popover 닫음. popover/section 안 클릭은 무시.
+  useEffect(() => {
+    if (expanded == null) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (
+        sectionRef.current &&
+        !sectionRef.current.contains(e.target as Node)
+      ) {
+        setExpanded(null);
+      }
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [expanded]);
 
   const refresh = useCallback(async () => {
     try {
@@ -164,7 +180,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         size="sm"
       />
 
-      <section className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+      <section
+        ref={sectionRef}
+        className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+      >
         {ids.map((id) => (
           <EquipmentRow
             key={id}
@@ -174,6 +193,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
             busy={busy === id}
             expanded={expanded === id}
             onToggle={() => setExpanded((cur) => (cur === id ? null : id))}
+            onClose={() => setExpanded(null)}
             onBuy={buy}
           />
         ))}
@@ -189,6 +209,7 @@ function EquipmentRow({
   busy,
   expanded,
   onToggle,
+  onClose,
   onBuy,
 }: {
   id: V2EquipmentId;
@@ -197,6 +218,7 @@ function EquipmentRow({
   busy: boolean;
   expanded: boolean;
   onToggle: () => void;
+  onClose: () => void;
   onBuy: (id: V2EquipmentId) => void;
 }) {
   const item = V2_EQUIPMENT[id];
@@ -204,26 +226,15 @@ function EquipmentRow({
   const affordable = gold >= price;
   const stats = statEntries(item.stats);
   return (
-    <div>
+    <div className="relative">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900"
+        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-900 ${
+          expanded ? "bg-zinc-50 dark:bg-zinc-900" : ""
+        }`}
       >
         <div className="flex min-w-0 items-center gap-2">
-          {expanded ? (
-            <CaretDown
-              size={14}
-              weight="bold"
-              className="shrink-0 text-zinc-400"
-            />
-          ) : (
-            <CaretRight
-              size={14}
-              weight="bold"
-              className="shrink-0 text-zinc-400"
-            />
-          )}
           <span className="text-sm font-medium">{item.name}</span>
           <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
             T{item.tier}
@@ -246,7 +257,30 @@ function EquipmentRow({
         )}
       </button>
       {expanded && (
-        <div className="space-y-2 border-t border-zinc-200 bg-zinc-50/50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/30">
+        // 플로팅 카드 — row 아래 떠오름. 다른 row 위치 유지.
+        // 외부 클릭은 V2ShopView 의 ref 가 처리. 내부 클릭은 stopPropagation.
+        <div
+          role="dialog"
+          aria-label={`${item.name} 옵션`}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-2 right-2 top-full z-20 mt-1 space-y-2 rounded-lg border border-zinc-300 bg-white p-3 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-sm font-semibold">{item.name}</span>
+              <span className="ml-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                T{item.tier}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="rounded p-0.5 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <X size={14} weight="bold" />
+            </button>
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {stats.length === 0 ? (
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -266,10 +300,7 @@ function EquipmentRow({
           {!owned && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onBuy(id);
-              }}
+              onClick={() => onBuy(id)}
               disabled={busy || !affordable}
               className="w-full rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40"
             >

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MapPin, DoorOpen } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Coins, DoorOpen, MapPin } from "@phosphor-icons/react";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -13,7 +13,7 @@ import type {
   OutpostTier,
 } from "@/adventure/data/v2/types";
 
-// 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션) + 아레나 진입.
+// 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
 type OccupationInfo = {
   occupiedByUserId: string | null;
@@ -28,11 +28,12 @@ type OccupationInfo = {
 type StateResponse = {
   ok?: boolean;
   character?: V2CharacterCardData;
-  guild?: { name: string };
+  guild?: { id: number; name: string } | null;
   currentOutpost?: {
     id: string;
     name: string;
     occupation: OccupationInfo | null;
+    treasuryGold?: number;
   } | null;
 };
 
@@ -78,22 +79,22 @@ export function V2AdventureHome({
   onEnterOutpost: (outpost: Outpost) => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/state");
+      const j = (await res.json().catch(() => null)) as StateResponse | null;
+      setState(j ?? { ok: false });
+    } catch {
+      setState({ ok: false });
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/v2/me/state");
-        const j = (await res.json().catch(() => null)) as StateResponse | null;
-        if (!cancelled) setState(j ?? { ok: false });
-      } catch {
-        if (!cancelled) setState({ ok: false });
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    refresh();
+  }, [refresh]);
 
   const outpost = useMemo(
     () =>
@@ -104,6 +105,46 @@ export function V2AdventureHome({
   );
 
   const occupation = state?.currentOutpost?.occupation ?? null;
+  const treasuryGold = state?.currentOutpost?.treasuryGold ?? 0;
+  const viewerGuildId = state?.guild?.id ?? null;
+  // 점령 길드원인지 — 세금 회수 권한 판정.
+  const isMember =
+    viewerGuildId != null &&
+    occupation?.occupiedByGuildId != null &&
+    viewerGuildId === occupation.occupiedByGuildId;
+  const canClaim = isMember && treasuryGold > 0;
+
+  const handleClaim = useCallback(async () => {
+    if (!outpost || !canClaim) return;
+    setClaiming(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/outpost/treasury/claim", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outpostId: outpost.id }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        total?: number;
+        claimerShare?: number;
+        guildShare?: number;
+      } | null;
+      if (!j?.ok) {
+        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        return;
+      }
+      setMsg(
+        `✓ ${j.total ?? 0} G 회수 — 본인 +${j.claimerShare ?? 0} · 길드 +${j.guildShare ?? 0}`,
+      );
+      await refresh();
+    } catch (err) {
+      setMsg(`✗ ${(err as Error).message}`);
+    } finally {
+      setClaiming(false);
+    }
+  }, [outpost, canClaim, refresh]);
 
   return (
     <main className="text-zinc-900 dark:text-zinc-100">
@@ -111,7 +152,7 @@ export function V2AdventureHome({
         {state?.character && (
           <V2CharacterCard
             character={state.character}
-            guild={state.guild}
+            guild={state.guild ?? null}
             showGold={false}
           />
         )}
@@ -168,15 +209,50 @@ export function V2AdventureHome({
               <dd className="text-zinc-800 dark:text-zinc-200">
                 {occupation ? formatNextAttack(occupation.nextAttackAt) : "—"}
               </dd>
+              <dt className="text-zinc-500 dark:text-zinc-400">거점 금고</dt>
+              <dd className="text-zinc-800 dark:text-zinc-200">
+                <span className="tabular-nums">
+                  {treasuryGold.toLocaleString()}
+                </span>{" "}
+                G
+              </dd>
             </dl>
-            <button
-              type="button"
-              onClick={() => onEnterOutpost(outpost)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              <DoorOpen size={16} weight="fill" />
-              거점 진입
-            </button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onEnterOutpost(outpost)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+              >
+                <DoorOpen size={16} weight="fill" />
+                거점 진입
+              </button>
+              {isMember && (
+                <button
+                  type="button"
+                  onClick={handleClaim}
+                  disabled={claiming || !canClaim}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                >
+                  <Coins size={14} weight="fill" />
+                  {claiming
+                    ? "회수 중…"
+                    : treasuryGold > 0
+                      ? `세금 회수 (본인 +${Math.floor((treasuryGold * 10) / 100).toLocaleString()} G)`
+                      : "세금 회수 (금고 비어있음)"}
+                </button>
+              )}
+            </div>
+            {msg && (
+              <p
+                className={`mt-2 text-xs ${
+                  msg.startsWith("✓")
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                {msg}
+              </p>
+            )}
           </section>
         )}
 

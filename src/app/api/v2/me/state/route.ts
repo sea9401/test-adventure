@@ -1,6 +1,11 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { guilds, outpostOccupations, savesKv } from "@/db/schema";
+import {
+  guilds,
+  outpostOccupations,
+  outpostTreasury,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
@@ -104,6 +109,8 @@ export async function GET() {
     id: string;
     name: string;
     occupation: OccupationInfo | null;
+    // 거점 금고 — 점령 길드원이 회수 가능한 누적 세금. 미점령 거점도 누적될 수 있어 별도 노출.
+    treasuryGold: number;
   };
   let currentOutpost: CurrentOutpost | null = null;
   const lastVisitId = charSave.lastVisitedOutpost?.outpostId;
@@ -140,7 +147,19 @@ export async function GET() {
           nextAttackAt: occRow.nextAttackAt.toISOString(),
         };
       }
-      currentOutpost = { id: o.id, name: o.name, occupation };
+      const treasuryRow = (
+        await db
+          .select({ gold: outpostTreasury.gold })
+          .from(outpostTreasury)
+          .where(eq(outpostTreasury.outpostId, o.id))
+          .limit(1)
+      )[0];
+      currentOutpost = {
+        id: o.id,
+        name: o.name,
+        occupation,
+        treasuryGold: Math.max(0, treasuryRow?.gold ?? 0),
+      };
     }
   }
   const profile = (profileRow?.value ?? null) as {

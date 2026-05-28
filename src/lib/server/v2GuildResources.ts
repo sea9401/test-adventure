@@ -13,6 +13,8 @@ export type V2GuildResources = {
   // PR-6 — 활성 주문서 만료 시점(epoch ms). null = 비활성. 활성 시 길드원의
   // 토너먼트에 atk +SCROLL_ATK_BONUS_PCT% buff.
   activeScrollExpiresAt: number | null;
+  // 거점 세금 회수 시 90% 가 누적. 회수자 본인 10% 와 별개.
+  gold: number;
 };
 
 // PR-6 다이얼.
@@ -30,6 +32,7 @@ function rowToResources(row: {
   stone: number | null;
   scrolls: number | null;
   activeScrollExpiresAt: Date | null;
+  gold: number | null;
 }): V2GuildResources {
   return {
     stone: Math.max(0, row.stone ?? 0),
@@ -37,6 +40,7 @@ function rowToResources(row: {
     activeScrollExpiresAt: row.activeScrollExpiresAt
       ? row.activeScrollExpiresAt.getTime()
       : null,
+    gold: Math.max(0, row.gold ?? 0),
   };
 }
 
@@ -45,7 +49,7 @@ function rowToResources(row: {
 async function ensureRow(tx: Tx, guildId: number): Promise<void> {
   await tx
     .insert(v2GuildResources)
-    .values({ guildId, stone: 0, scrolls: 0 })
+    .values({ guildId, stone: 0, scrolls: 0, gold: 0 })
     .onConflictDoNothing();
 }
 
@@ -61,6 +65,7 @@ export async function lockGuildResources(
         stone: v2GuildResources.stone,
         scrolls: v2GuildResources.scrolls,
         activeScrollExpiresAt: v2GuildResources.activeScrollExpiresAt,
+        gold: v2GuildResources.gold,
       })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
@@ -68,7 +73,7 @@ export async function lockGuildResources(
       .limit(1)
   )[0];
   if (!row) {
-    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null };
+    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null, gold: 0 };
   }
   return rowToResources(row);
 }
@@ -103,6 +108,7 @@ export async function upsertGuildResources(
     activeScrollExpiresAt: resources.activeScrollExpiresAt
       ? new Date(resources.activeScrollExpiresAt)
       : null,
+    gold: Math.max(0, resources.gold),
   };
   await tx
     .insert(v2GuildResources)
@@ -131,13 +137,14 @@ export async function readGuildResources(
         stone: v2GuildResources.stone,
         scrolls: v2GuildResources.scrolls,
         activeScrollExpiresAt: v2GuildResources.activeScrollExpiresAt,
+        gold: v2GuildResources.gold,
       })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
       .limit(1)
   )[0];
   if (!row) {
-    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null };
+    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null, gold: 0 };
   }
   return rowToResources(row);
 }

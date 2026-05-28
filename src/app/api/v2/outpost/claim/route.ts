@@ -251,11 +251,13 @@ export async function POST(req: Request) {
       stone: 0,
       scrolls: 0,
       activeScrollExpiresAt: null,
+      gold: 0,
     };
     let defenderResources: V2GuildResources = {
       stone: 0,
       scrolls: 0,
       activeScrollExpiresAt: null,
+      gold: 0,
     };
     if (pvpDefenderId && defenderGuildId !== null) {
       const both = await lockTwoGuildResources(

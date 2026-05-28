@@ -4,6 +4,7 @@ import { guilds, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { ensureSoloGuild } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
+import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
@@ -33,6 +34,9 @@ export async function GET() {
   const guildId = await db.transaction(async (tx) => {
     const gid = await ensureSoloGuild(tx, userId);
     await ensureV2StarterSkills(tx, userId);
+    // 신캐/리셋 후 char.v2 row 가 없으면 빈 obj 로 시드 — derive 가 null 반환하지
+    // 않게 (V2_BASE_MP 50 + 기본 stats 적용된 캐릭이 첫 me/state 응답부터 보임).
+    await ensureV2Character(tx, userId);
     return gid;
   });
 

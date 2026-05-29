@@ -547,18 +547,27 @@ export const V2_EQUIP_PERCENT_KEYS: ReadonlySet<V2EquipBonusKey> = new Set<V2Equ
   ["crit", "eva"],
 );
 
-// 장비 옵션 stats → 표시 문자열 배열 ("공격력 +3", "치명 +5%" 등).
-// 인벤토리·상점·아이템 카드가 공유하는 단일 source — 0 값은 건너뜀.
-export function v2EquipStatEntries(stats: V2EquipStats): string[] {
-  const out: string[] = [];
+// 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
+// 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
+export type V2EquipStatRow = { label: string; value: string };
+
+// 장비 옵션 stats → {라벨, 값} 행 배열. 0 값은 건너뜀. 값은 "+36" / "+3%" 형태.
+// 인벤토리·상점·아이템 카드가 공유하는 단일 source.
+export function v2EquipStatRows(stats: V2EquipStats): V2EquipStatRow[] {
+  const out: V2EquipStatRow[] = [];
   for (const k of V2_EQUIP_BONUS_KEYS) {
     const v = stats[k];
     if (!v) continue;
     const sign = v >= 0 ? "+" : "";
     const unit = V2_EQUIP_PERCENT_KEYS.has(k) ? "%" : "";
-    out.push(`${V2_EQUIP_BONUS_LABELS[k]} ${sign}${v}${unit}`);
+    out.push({ label: V2_EQUIP_BONUS_LABELS[k], value: `${sign}${v}${unit}` });
   }
   return out;
+}
+
+// 표시 문자열 배열 ("공격력 +3", "치명 +5%" 등) — 한 줄 인라인용. rows 를 합쳐 단일 source 유지.
+export function v2EquipStatEntries(stats: V2EquipStats): string[] {
+  return v2EquipStatRows(stats).map((r) => `${r.label} ${r.value}`);
 }
 
 // 6스탯만 추리는 키셋 — derive 에서 atk/def 와 분리해야 할 때 사용.

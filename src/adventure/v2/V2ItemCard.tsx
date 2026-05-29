@@ -4,7 +4,7 @@ import { useEffect, type CSSProperties } from "react";
 import { X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import {
-  v2EquipStatEntries,
+  v2EquipStatRows,
   type V2Equipment,
 } from "@/adventure/data/v2/v2Equipment";
 
@@ -47,7 +47,7 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  const options = v2EquipStatEntries(item.stats);
+  const options = v2EquipStatRows(item.stats);
 
   // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
@@ -89,25 +89,30 @@ export function V2ItemCard({
           </button>
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="mt-2 space-y-0.5">
           {options.length === 0 ? (
             <span className="text-xs text-zinc-400 dark:text-zinc-500">
               옵션 없음
             </span>
           ) : (
             options.map((s) => (
-              <span
-                key={s}
-                className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+              <div
+                key={s.label}
+                className="flex items-baseline justify-between gap-2 text-xs"
               >
-                {s}
-              </span>
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  {s.label}
+                </span>
+                <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
+                  {s.value}
+                </span>
+              </div>
             ))
           )}
         </div>
 
         {item.description && (
-          <p className="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          <p className="mt-2 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
             {item.description}
           </p>
         )}

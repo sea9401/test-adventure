@@ -31,7 +31,7 @@ type StateResponse = {
     base: Record<StatKey, number>;
     total: Record<StatKey, number>;
   } | null;
-  combat?: { atk: number; def: number; spd: number } | null;
+  combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
 };
 
 type EquipmentResponse = {

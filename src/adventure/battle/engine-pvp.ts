@@ -2179,6 +2179,7 @@ function castV2SkillOnAttackerTurnPvP(
     attacker: {
       mp: side.mp,
       atk: side.player.atk,
+      magicAtk: side.player.magicAtk ?? side.player.atk,
       maxHp: side.maxHp,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,

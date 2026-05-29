@@ -194,7 +194,13 @@ export async function GET() {
       }
     : null;
   const combatStats = combat
-    ? { atk: combat.player.atk, def: combat.player.def, spd: combat.player.spd }
+    ? {
+        atk: combat.player.atk,
+        def: combat.player.def,
+        spd: combat.player.spd,
+        // 마법 공격력 — INT 환산. 0(물리 빌드)이면 StatsPanel 이 숨김.
+        magicAtk: combat.player.magicAtk ?? 0,
+      }
     : null;
 
   return Response.json({

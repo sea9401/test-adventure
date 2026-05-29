@@ -199,6 +199,20 @@ export function v2AtkBuffMult(
   return Math.max(0, 1 + totalBuff / 100 - totalDebuff / 100);
 }
 
+// 마법 데미지에 기여하는 stat 의 buff/debuff → 곱셈 multiplier. 마법 축 = int 만.
+// 물리의 v2AtkBuffMult(str/dex/spd/luk) 와 대칭 — int 는 그쪽에서 제외돼 있어 명상(int +10%
+// selfBuff)·정신 안개(int enemyDebuff)가 그동안 전투 no-op 였다. 마법 경로(scaling="magic")
+// 가 이 헬퍼를 쓰면서 비로소 실효를 가진다. 공격자 자신의 int buff 가 자기 마법을 키우고,
+// 자신에게 박힌 int debuff(상대의 정신 안개)가 자기 마법을 깎는다. 0 floor.
+export function v2MagicBuffMult(
+  selfBuffs: V2BuffMap,
+  selfDebuffs: V2BuffMap,
+): number {
+  const buff = v2BuffActive(selfBuffs, "int");
+  const debuff = v2BuffActive(selfDebuffs, "int");
+  return Math.max(0, 1 + buff / 100 - debuff / 100);
+}
+
 // def 에 기여하는 stat = vit 만 (다른 stat 은 def 무관).
 // vit buff → +%, vit debuff → −%. 0 floor.
 export function v2DefBuffMult(
@@ -216,12 +230,17 @@ export function v2DefBuffMult(
 // (v2AtkBuffMult / v2DefBuffMult) 사용해 일관성 유지. scalingStat 인자 폐지 — atk 기여
 // stat 전부 합산 (이전엔 def.stat 한 stat 만 사용했으나 격리 해제 의미 약해 폐기).
 
-// v2 스킬 damage 계산. statCoef × attackerAtk × v2AtkBuffMult + baseFlat 을 raw atk 로,
-// 적 def 에 v2DefBuffMult(target) 곱 후 damageBetween. 일반 공격과 같은 경로(DEF 적용).
-//   - attackerSelfBuffs / attackerSelfDebuffs: 공격자 측 (atk 기여 stat 전부 합산)
+// v2 스킬 damage 계산. (물리) statCoef × attackerAtk × v2AtkBuffMult + baseFlat,
+// (마법) statCoef × attackerMagicAtk × v2MagicBuffMult + baseFlat 을 raw 로, 적 def 에
+// v2DefBuffMult(target) 곱 후 damageBetween. 일반 공격과 같은 경로(DEF 적용, 물리·마법 공유).
+//   - scaling: "magic" 이면 magicAtk(INT 환산)+int 버프 배수, 아니면 atk+물리 버프 배수.
+//   - attackerMagicAtk 미지정(적·구 호출) 이면 attackerAtk 로 폴백 → 물리와 동일 동작 보존.
+//   - attackerSelfBuffs / attackerSelfDebuffs: 공격자 측 (물리=str/dex/spd/luk, 마법=int)
 //   - targetSelfBuffs / targetSelfDebuffs: 방어자 측 (vit 만 def 에 영향)
 export function v2DamageAmount(args: {
   attackerAtk: number;
+  attackerMagicAtk?: number;
+  scaling?: "physical" | "magic";
   targetDef: number;
   statCoef: number;
   baseFlat: number;
@@ -230,9 +249,13 @@ export function v2DamageAmount(args: {
   targetSelfBuffs: V2BuffMap;
   targetSelfDebuffs: V2BuffMap;
 }): number {
-  const atkMult = v2AtkBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs);
+  const isMagic = args.scaling === "magic";
+  const base = isMagic ? args.attackerMagicAtk ?? args.attackerAtk : args.attackerAtk;
+  const mult = isMagic
+    ? v2MagicBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs)
+    : v2AtkBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs);
   const defMult = v2DefBuffMult(args.targetSelfBuffs, args.targetSelfDebuffs);
-  const rawAtk = Math.floor(args.attackerAtk * atkMult * args.statCoef) + args.baseFlat;
+  const rawAtk = Math.floor(base * mult * args.statCoef) + args.baseFlat;
   const effectiveDef = Math.floor(args.targetDef * defMult);
   // 일반 공격과 같은 경로 — damageBetween 식 (atk - def, 1 하한).
   return Math.max(1, rawAtk - effectiveDef);
@@ -328,6 +351,9 @@ export type V2SkillCastInput = {
   attacker: {
     mp: number;
     atk: number;
+    // 마법 공격력(INT 환산). 미지정이면 v2DamageAmount 가 atk 로 폴백 — 적·구 호출 무영향.
+    // scaling="magic" 데미지 스킬만 이 값을 쓴다.
+    magicAtk?: number;
     maxHp: number;
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -377,6 +403,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     if (effect.kind === "damage") {
       enemyDamage += v2DamageAmount({
         attackerAtk: input.attacker.atk,
+        attackerMagicAtk: input.attacker.magicAtk,
+        scaling: effect.scaling,
         targetDef: input.target.def,
         statCoef: effect.statCoef,
         baseFlat: effect.baseFlat ?? 0,

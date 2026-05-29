@@ -45,11 +45,14 @@ export type V2SkillId =
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
-// 0.10 으로 오해 금지. damage 의 statCoef 는 배율 (1.0 = 1×stat).
+// 0.10 으로 오해 금지. damage 의 statCoef 는 배율 (1.0 = 1×공격력).
+// scaling (PR-magic): damage 가 어느 공격력으로 스케일하는지. 미지정/"physical" = 물리 atk,
+// "magic" = 마법 공격력(magicAtk = INT 환산). INT 공격 스킬만 "magic" — 마법 빌드가
+// 물리 atk 없이도 데미지를 내는 별도 경로. DEF 는 물리·마법 공유(마법저항 미신설).
 // dot (PR-8) = 지속 피해 (DoT). label 은 UI 표시·중복 정책에 사용 (같은 label 박히면 turns refresh).
 // dmgPerTurn 은 raw 정수 — DEF 무시. 매 target turn 진입 시 적용.
 export type V2SkillEffect =
-  | { kind: "damage"; statCoef: number; baseFlat?: number }
+  | { kind: "damage"; statCoef: number; baseFlat?: number; scaling?: "physical" | "magic" }
   | { kind: "heal"; pctMaxHp?: number; flat?: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number }
@@ -442,7 +445,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     cooldown: 3,
     // PR-8 — DoT (소각) 추가. 발동 직후 damage + 다음 2턴 동안 매턴 8 추가 피해 (DEF 무시).
     effects: [
-      { kind: "damage", statCoef: 1.5, baseFlat: 10 },
+      { kind: "damage", statCoef: 1.5, baseFlat: 10, scaling: "magic" },
       { kind: "dot", label: "소각", dmgPerTurn: 8, turns: 2 },
     ],
     learn: {
@@ -461,7 +464,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "마력을 넓게 터뜨려 전장을 흔든다.",
     mpCost: 90,
     cooldown: 5,
-    effects: [{ kind: "damage", statCoef: 1.7, baseFlat: 14 }],
+    effects: [{ kind: "damage", statCoef: 1.7, baseFlat: 14, scaling: "magic" }],
     learn: {
       goldCost: 5000,
       stat: { key: "int", min: 60 },

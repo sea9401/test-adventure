@@ -27,6 +27,12 @@ import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine
 import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
+import {
+  V2_SKILLS,
+  v2SkillSlotsForLevel,
+  type V2SkillId,
+  type V2SkillsState,
+} from "../src/adventure/data/v2/v2Skills";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
@@ -124,13 +130,48 @@ function allocate(arch: Arch, level: number): Record<StatKey, number> {
 function makePlayer(arch: Arch, level: number) {
   const allocated = allocate(arch, level);
   // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
-  // 단, 이 sim 은 v2 스킬을 직접 장착시키지 않음 — 일반 공격 기반 progression 측정용.
+  // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
   return derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
     v2Equipped: equipFor(arch, level),
     hp: undefined,
   });
+}
+
+// --skills: 각 빌드가 주력 스탯 스킬을 장착하고 싸우는 모드. INT 마법 경로(magicAtk) 캘리브용.
+// 기본(off)은 일반 공격 baseline 유지 — 기존 ATK_PER_* 다이얼은 이 baseline 으로 튜닝됨.
+const SKILLS_MODE = process.argv.includes("--skills");
+
+// 빌드의 주력 스탯 스킬 로드아웃. 학습 조건(level + stat min)을 충족하는 것만, 슬롯 수 cap.
+// 우선순위: 공격 스킬(고티어=고배율 먼저) → 버프/디버프. 자동발동은 슬롯 순서 우선.
+function skillsFor(
+  arch: Arch,
+  level: number,
+  totalStats: Record<StatKey, number>,
+): V2SkillsState {
+  if (!SKILLS_MODE) return { learned: [], equipped: [] };
+  const mainStat: StatKey = arch === "BAL" ? "str" : (arch.toLowerCase() as StatKey);
+  const ids = (Object.keys(V2_SKILLS) as V2SkillId[]).filter((id) => {
+    const def = V2_SKILLS[id];
+    if (def.stat !== mainStat) return false;
+    if (!def.learn) return true; // 스타터 = 항상 보유
+    if (level < (def.learn.level ?? 0)) return false;
+    const req = def.learn.stat;
+    if (req && (totalStats[req.key] ?? 0) < req.min) return false;
+    return true;
+  });
+  // 공격 먼저(티어 desc → 고배율 우선), 그 다음 버프/디버프(티어 desc).
+  const ordered = ids.sort((a, b) => {
+    const da = V2_SKILLS[a];
+    const db = V2_SKILLS[b];
+    const atkA = da.category === "attack" ? 1 : 0;
+    const atkB = db.category === "attack" ? 1 : 0;
+    if (atkA !== atkB) return atkB - atkA;
+    return db.tier - da.tier;
+  });
+  const equipped = ordered.slice(0, v2SkillSlotsForLevel(level));
+  return { learned: ids, equipped };
 }
 
 // 층 전체 풀 — 잡몹 이름→scaled Monster. 미정의 이름은 스킵.
@@ -168,7 +209,11 @@ function wilsonCiHalfWidth(wins: number, total: number): number {
   return (margin / denom) * 100;
 }
 
-function combatStats(player: PlayerCombat, enemies: Monster[]): CombatStats {
+function combatStats(
+  player: PlayerCombat,
+  enemies: Monster[],
+  v2Skills: V2SkillsState,
+): CombatStats {
   if (enemies.length === 0) {
     return { wrPct: 0, wrCiPct: 0, winTurns: 0, lossTurns: 0, lossEnemyHpPct: 0 };
   }
@@ -182,6 +227,7 @@ function combatStats(player: PlayerCombat, enemies: Monster[]): CombatStats {
       const r = resolveBattle({ ...player, hp: player.maxHp }, enemy, "Sim", {
         pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
         potions: {},
+        v2Skills,
       });
       if (r.outcome === "win") {
         wins++;
@@ -210,6 +256,11 @@ console.log("v2 진행 시뮬레이션 — 7 archetype × 6 milestone (×5 스�
 console.log(
   `가정: V2_STAT_POINTS_PER_LEVEL=${V2_STAT_POINTS_PER_LEVEL}, 60/30/10 분배(BAL spread), tier-by-level 장비, 층 전체 잡몹 × ${TRIALS_PER_MONSTER} trial 풀 평균.`,
 );
+console.log(
+  SKILLS_MODE
+    ? "스킬 모드 ON (--skills): 각 빌드가 주력 스탯 스킬 장착(INT=마법 경로 magicAtk 측정)."
+    : "스킬 모드 OFF: 일반 공격 baseline. INT 마법 측정하려면 --skills.",
+);
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);
 const pct = (n: number) => n.toFixed(1).padStart(5);
@@ -236,7 +287,7 @@ for (const ms of MILESTONES) {
     const p = d.player;
     let combatCol = "│   -    -    -    -    -";
     if (enemies.length > 0) {
-      const r = combatStats(p, enemies);
+      const r = combatStats(p, enemies, skillsFor(arch, ms.lvl, s));
       const wrStr = `${r.wrPct}%`;
       const ciStr = `±${r.wrCiPct.toFixed(1)}`;
       const winT = turnCell(r.winTurns, r.wrPct > 0);

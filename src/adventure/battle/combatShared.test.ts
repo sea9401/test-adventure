@@ -10,7 +10,9 @@ import {
   applyV2BuffsToMap,
   v2BuffActive,
   v2AtkBuffMult,
+  v2MagicBuffMult,
   v2DefBuffMult,
+  v2DamageAmount,
   tickV2Dots,
   applyV2DotsToTarget,
 } from "./combatShared";
@@ -480,6 +482,144 @@ describe("tickV2BuffMap / applyV2BuffsToMap (PR-4b)", () => {
     // T5 tick → drop, inactive.
     map = tickV2BuffMap(map);
     expect(v2BuffActive(map, "str")).toBe(0);
+  });
+});
+
+describe("v2 마법 데미지 경로 (PR-magic)", () => {
+  it("v2MagicBuffMult — int 만 사용, buff/debuff 곱셈, 0 floor", () => {
+    expect(v2MagicBuffMult({}, {})).toBe(1);
+    // 명상 int +10% → 1.1
+    expect(v2MagicBuffMult({ int: { pct: 10, turns: 3 } }, {})).toBeCloseTo(1.1);
+    // 정신 안개 int -16% (자신에게 박힌 debuff) → 0.84
+    expect(v2MagicBuffMult({}, { int: { pct: 16, turns: 3 } })).toBeCloseTo(0.84);
+    // str/dex/spd/luk/vit 는 마법 무관 — 1.0
+    expect(v2MagicBuffMult({ str: { pct: 50, turns: 3 } }, {})).toBe(1);
+    expect(v2MagicBuffMult({ vit: { pct: 50, turns: 3 } }, {})).toBe(1);
+    // debuff 가 +100% 초과해도 0 floor
+    expect(v2MagicBuffMult({}, { int: { pct: 150, turns: 3 } })).toBe(0);
+  });
+
+  it("v2DamageAmount scaling='magic' — magicAtk 로 스케일 + int 버프 배수", () => {
+    // 물리(기본): atk 100 × 1.0 - def 0 = 100. magicAtk 무시.
+    expect(
+      v2DamageAmount({
+        attackerAtk: 100,
+        attackerMagicAtk: 50,
+        targetDef: 0,
+        statCoef: 1.0,
+        baseFlat: 0,
+        attackerSelfBuffs: {},
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: {},
+        targetSelfDebuffs: {},
+      }),
+    ).toBe(100);
+    // 마법: magicAtk 50 × 1.5 + 10 - def 0 = 85. atk(100) 무시.
+    expect(
+      v2DamageAmount({
+        attackerAtk: 100,
+        attackerMagicAtk: 50,
+        scaling: "magic",
+        targetDef: 0,
+        statCoef: 1.5,
+        baseFlat: 10,
+        attackerSelfBuffs: {},
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: {},
+        targetSelfDebuffs: {},
+      }),
+    ).toBe(85);
+    // 마법 + 명상 int +10%: floor(50 × 1.1 × 1.5) + 10 - 0 = floor(82.5)+10 = 92.
+    expect(
+      v2DamageAmount({
+        attackerAtk: 100,
+        attackerMagicAtk: 50,
+        scaling: "magic",
+        targetDef: 0,
+        statCoef: 1.5,
+        baseFlat: 10,
+        attackerSelfBuffs: { int: { pct: 10, turns: 3 } },
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: {},
+        targetSelfDebuffs: {},
+      }),
+    ).toBe(92);
+    // 마법인데 str 버프는 무효(물리 stat) — 50×1.5+10 = 85 그대로.
+    expect(
+      v2DamageAmount({
+        attackerAtk: 100,
+        attackerMagicAtk: 50,
+        scaling: "magic",
+        targetDef: 0,
+        statCoef: 1.5,
+        baseFlat: 10,
+        attackerSelfBuffs: { str: { pct: 50, turns: 3 } },
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: {},
+        targetSelfDebuffs: {},
+      }),
+    ).toBe(85);
+  });
+
+  it("v2DamageAmount scaling='magic' 인데 magicAtk 미지정 → atk 폴백 (적·구 호출 무영향)", () => {
+    // magicAtk 없으면 attackerAtk 로 폴백: 40 × 1.5 + 0 = 60.
+    expect(
+      v2DamageAmount({
+        attackerAtk: 40,
+        scaling: "magic",
+        targetDef: 0,
+        statCoef: 1.5,
+        baseFlat: 0,
+        attackerSelfBuffs: {},
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: {},
+        targetSelfDebuffs: {},
+      }),
+    ).toBe(60);
+  });
+
+  it("마법 데미지도 적 DEF 를 물리와 동일하게 적용 (마법저항 미신설)", () => {
+    // magicAtk 50 × 1.5 + 10 = 85, 적 def 30 → 55.
+    expect(
+      v2DamageAmount({
+        attackerAtk: 0,
+        attackerMagicAtk: 50,
+        scaling: "magic",
+        targetDef: 30,
+        statCoef: 1.5,
+        baseFlat: 10,
+        attackerSelfBuffs: {},
+        attackerSelfDebuffs: {},
+        targetSelfBuffs: {},
+        targetSelfDebuffs: {},
+      }),
+    ).toBe(55);
+  });
+
+  it("resolveV2SkillCast — 비전 화살(scaling magic)은 magicAtk 로 스케일", () => {
+    // 비전 화살: statCoef 1.5, baseFlat 10, scaling magic. atk 는 약하지만(5) magicAtk 80.
+    // 기대 직격: floor(80 × 1.5) + 10 - def 0 = 130. (DoT 소각은 enemyDamage 에 미포함)
+    const result = resolveV2SkillCast({
+      skills: { learned: ["int_arcane_bolt_t2"], equipped: ["int_arcane_bolt_t2"] },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        magicAtk: 80,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(result.castSkillName).toBe("비전 화살");
+    expect(result.enemyDamage).toBe(130);
+    // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다.
+    expect(result.dotsToApplyToTarget).toContainEqual({
+      label: "소각",
+      dmgPerTurn: 8,
+      turns: 2,
+    });
   });
 });
 

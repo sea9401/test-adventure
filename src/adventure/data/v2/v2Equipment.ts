@@ -547,6 +547,20 @@ export const V2_EQUIP_PERCENT_KEYS: ReadonlySet<V2EquipBonusKey> = new Set<V2Equ
   ["crit", "eva"],
 );
 
+// 장비 옵션 stats → 표시 문자열 배열 ("공격력 +3", "치명 +5%" 등).
+// 인벤토리·상점·아이템 카드가 공유하는 단일 source — 0 값은 건너뜀.
+export function v2EquipStatEntries(stats: V2EquipStats): string[] {
+  const out: string[] = [];
+  for (const k of V2_EQUIP_BONUS_KEYS) {
+    const v = stats[k];
+    if (!v) continue;
+    const sign = v >= 0 ? "+" : "";
+    const unit = V2_EQUIP_PERCENT_KEYS.has(k) ? "%" : "";
+    out.push(`${V2_EQUIP_BONUS_LABELS[k]} ${sign}${v}${unit}`);
+  }
+  return out;
+}
+
 // 6스탯만 추리는 키셋 — derive 에서 atk/def 와 분리해야 할 때 사용.
 export const V2_EQUIP_STAT_KEYS: readonly StatKey[] = [
   "str",

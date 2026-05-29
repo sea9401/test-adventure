@@ -5,12 +5,9 @@ import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import {
   V2_EQUIPMENT,
-  V2_EQUIP_BONUS_KEYS,
-  V2_EQUIP_BONUS_LABELS,
-  V2_EQUIP_PERCENT_KEYS,
   shopPriceOf,
+  v2EquipStatEntries,
   type V2EquipmentId,
-  type V2EquipStats,
   type V2EquipTier,
 } from "@/adventure/data/v2/v2Equipment";
 
@@ -47,16 +44,6 @@ const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
   return groups;
 })();
 
-const CONCEPT_LABEL: Record<string, string> = {
-  str: "힘",
-  dex: "민",
-  int: "지",
-  heavy: "중갑",
-  light: "경갑",
-  luck: "운",
-  mana: "마법",
-};
-
 const TIER_STRIPE: Record<V2EquipTier, string> = {
   1: "bg-zinc-300 dark:bg-zinc-700",
   2: "bg-emerald-400 dark:bg-emerald-600",
@@ -71,18 +58,6 @@ const TIER_BADGE: Record<V2EquipTier, string> = {
   4: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300",
   5: "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300",
 };
-
-function statEntries(stats: V2EquipStats): string[] {
-  const out: string[] = [];
-  for (const k of V2_EQUIP_BONUS_KEYS) {
-    const v = stats[k];
-    if (!v) continue;
-    const sign = v >= 0 ? "+" : "";
-    const unit = V2_EQUIP_PERCENT_KEYS.has(k) ? "%" : "";
-    out.push(`${V2_EQUIP_BONUS_LABELS[k]} ${sign}${v}${unit}`);
-  }
-  return out;
-}
 
 // 보유 카운트 맵 빌드 — owned array 의 등장 횟수.
 function buildCountMap(owned: V2EquipmentId[]): Map<V2EquipmentId, number> {
@@ -268,11 +243,10 @@ function EquipmentRow({
   const buyPrice = shopPriceOf(item) ?? 0;
   const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
   const affordable = gold >= buyPrice;
-  const stats = statEntries(item.stats);
-  const conceptLabel = CONCEPT_LABEL[item.concept] ?? item.concept;
+  const stats = v2EquipStatEntries(item.stats);
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-2 py-2 sm:grid-cols-[1fr_2fr_auto]">
-      {/* 좌측 — 티어 stripe + 이름 + 컨셉 + 보유 카운트 */}
+      {/* 좌측 — 티어 stripe + 이름 + 보유 카운트 */}
       <div className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden
@@ -294,9 +268,6 @@ function EquipmentRow({
               </span>
             )}
           </div>
-          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            {conceptLabel}
-          </span>
         </div>
       </div>
 

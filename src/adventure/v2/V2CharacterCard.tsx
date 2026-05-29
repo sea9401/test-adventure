@@ -13,11 +13,14 @@ import { StatBar } from "@/components/ui/StatBar";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
 import {
   V2_EQUIPMENT,
+  type V2Equipment,
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2ItemCard } from "./V2ItemCard";
 
-// v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 3슬롯 인라인 표시 (read-only).
+// v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 3슬롯 인라인 표시.
+// 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
 
 export type V2CharacterCardData = {
   name: string;
@@ -86,6 +89,9 @@ export function V2CharacterCard({
   const maxMp = character.maxMp ?? 0;
   const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
 
+  // 장착 슬롯 클릭 시 띄울 아이템 — null 이면 팝업 닫힘.
+  const [selected, setSelected] = useState<V2Equipment | null>(null);
+
   return (
     <Card padding="md">
       <div className="flex items-stretch gap-4">
@@ -137,11 +143,10 @@ export function V2CharacterCard({
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const id = equipped[slot];
             const item = id ? V2_EQUIPMENT[id] : null;
-            return (
-              <div
-                key={slot}
-                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50"
-              >
+            const slotClass =
+              "flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50";
+            const inner = (
+              <>
                 <Icon size={18} weight="duotone" className={color} />
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   {label}
@@ -149,10 +154,28 @@ export function V2CharacterCard({
                 <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
                   {item?.name ?? "—"}
                 </div>
+              </>
+            );
+            // 아이템이 있으면 클릭 가능한 버튼 → 옵션 카드 팝업. 빈 슬롯은 정적 표시.
+            return item ? (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => setSelected(item)}
+                className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
+              >
+                {inner}
+              </button>
+            ) : (
+              <div key={slot} className={slotClass}>
+                {inner}
               </div>
             );
           })}
         </div>
+      )}
+      {selected && (
+        <V2ItemCard item={selected} onClose={() => setSelected(null)} />
       )}
     </Card>
   );

@@ -29,8 +29,10 @@ const ALL_CONCEPTS: V2EquipConcept[] = [
 const ALL_TIERS: V2EquipTier[] = [1, 2, 3, 4, 5];
 
 // 컨셉별 "주력 스탯" — 같은 컨셉의 T1~T5 가 이 키에서 단조 증가해야 함.
+// 힘 무기는 atk 주력 재배치(PR-atk-primary): str 은 소량 부스탯이라 단조성 비강제,
+// 주력 축인 atk 가 T1→T5 단조 증가한다.
 const PRIMARY_STAT: Record<V2EquipConcept, keyof typeof V2_EQUIP_BONUS_LABELS> = {
-  str: "str",
+  str: "atk",
   dex: "dex",
   int: "int",
   heavy: "vit",

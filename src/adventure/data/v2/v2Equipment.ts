@@ -145,7 +145,12 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 // V2_EQUIPMENT — 35종, 컨셉×티어 그리드. PR-rebal(2026): 옛 스탯 ÷3 (round).
 //   사용자 의도: 장비는 보조, 훈련 분배 포인트가 주력.
 export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
-  // ── 무기-힘 (str/atk) ─────────────────────────────
+  // ── 무기-힘 (atk 주력, str 부) ─────────────────────────────
+  // v2 는 스탯-스킬이 없어 str 은 오직 atk 로만 환산된다(ATK_PER_STR=0.2, 즉 str 5 = atk 1).
+  // 그래서 힘 무기의 "힘" 은 5배 표기된 공격력일 뿐이라 카드가 "힘15/공2" 처럼 거꾸로 읽혔다.
+  // PR-atk-primary: 실질 화력(str×0.2 + atk) 을 그대로 둔 채 atk 를 헤드라인으로 재배치.
+  //   철검 2.6 / 강철 5.0 / 한타 7.6 / 은검 10.6 / 미스릴 15.4 — 변경 전과 동일.
+  // (민/지 무기는 dex→회피·명중, int→MP 로 실제 작동하므로 컨셉 스탯 유지.)
   v2_iron_sword: {
     id: "v2_iron_sword",
     slot: "weapon",
@@ -153,7 +158,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "철검",
     description: "흔한 한손검. 무난한 무게와 균형.",
-    stats: { str: 8, atk: 1 },
+    stats: { atk: 2, str: 3 },
   },
   v2_steel_sword: {
     id: "v2_steel_sword",
@@ -162,7 +167,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "강철검",
     description: "단단한 강철 한손검. 한 손에 묵직하다.",
-    stats: { str: 15, atk: 2 },
+    stats: { atk: 4, str: 5 },
   },
   v2_greatsword: {
     id: "v2_greatsword",
@@ -171,7 +176,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "한타검",
     description: "두 손으로 거머쥐는 큰 검. 일격의 무게가 다르다.",
-    stats: { str: 23, atk: 3 },
+    stats: { atk: 6, str: 8 },
   },
   v2_silver_sword: {
     id: "v2_silver_sword",
@@ -180,7 +185,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은검",
     description: "은으로 벼린 검. 옅게 빛을 낸다.",
-    stats: { str: 33, atk: 4 },
+    stats: { atk: 9, str: 8 },
   },
   v2_mithril_sword: {
     id: "v2_mithril_sword",
@@ -189,7 +194,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴검",
     description: "오래된 별빛이 어린 미스릴 검.",
-    stats: { str: 47, atk: 6 },
+    stats: { atk: 13, str: 12 },
   },
 
   // ── 무기-민 (dex/atk/crit) ───────────────────────

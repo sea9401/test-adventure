@@ -31,16 +31,16 @@ describe("aggregateV2Equipment", () => {
     });
   });
 
-  it("철검 T1 (str+8 atk+1) → str=8 atk=1 나머지 0", () => {
+  it("철검 T1 (atk 주력 재배치) → atk=2 str=3 나머지 0", () => {
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.str).toBe(8);
-    expect(a.atk).toBe(1);
+    expect(a.atk).toBe(2);
+    expect(a.str).toBe(3);
     expect(a.dex).toBe(0);
     expect(a.crit).toBe(0);
   });
 
   it("3슬롯 풀세팅 — 모든 키 합산 (T1, rebal 1/3)", () => {
-    // 철검: str+8 atk+1
+    // 철검: atk+2 str+3 (atk 주력 재배치)
     // 쇠사슬 갑옷: vit+8 def+2 spd-2
     // 은가락지: luk+5
     const a = aggregateV2Equipment({
@@ -48,8 +48,8 @@ describe("aggregateV2Equipment", () => {
       armor: "v2_chain_mail",
       accessory: "v2_silver_ring",
     });
-    expect(a.str).toBe(8);
-    expect(a.atk).toBe(1);
+    expect(a.str).toBe(3);
+    expect(a.atk).toBe(2);
     expect(a.vit).toBe(8);
     expect(a.def).toBe(2);
     expect(a.spd).toBe(-2);

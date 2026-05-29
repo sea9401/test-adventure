@@ -6,13 +6,16 @@ import {
   parseEquipmentSave,
   shopPriceOf,
   type V2EquipmentId,
+  type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
-// POST /api/v2/shop/equipment — 마을 상점에서 T1~T5 장비 구매.
+// POST /api/v2/shop/equipment/sell — 보유 장비 1개 판매.
 //
 // body: { id: V2EquipmentId }
-// 검증: id 유효, shopPrice 존재, 골드 충분. 중복 구매 허용 (owned 카운트 +1).
-// 응답: { ok: true, gold, owned: V2EquipmentId[] } | { ok: false, error }
+// 가격: 상점 구매가의 5% (floor). 비매품(T 외) 은 거부.
+// 보유 카운트 -1 (배열 내 첫 등장 1개 제거). 카운트 0 되면 그 슬롯 장착 해제.
+
+export const SELL_PRICE_RATIO = 0.05;
 
 type CharSave = { gold?: number; [k: string]: unknown };
 
@@ -33,10 +36,11 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
   const item = V2_EQUIPMENT[id];
-  const price = shopPriceOf(item);
-  if (price == null) {
+  const buyPrice = shopPriceOf(item);
+  if (buyPrice == null) {
     return Response.json({ ok: false, error: "not_for_sale" }, { status: 400 });
   }
+  const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -52,33 +56,42 @@ export async function POST(req: Request) {
       {},
     );
     const parsed = parseEquipmentSave(equipSave);
-    const gold = Math.max(0, charSave.gold ?? 0);
-    if (gold < price) {
+    const idx = parsed.owned.indexOf(id);
+    if (idx < 0) {
       return {
         status: 400,
-        body: {
-          ok: false as const,
-          error: "insufficient_gold" as const,
-          required: price,
-          have: gold,
-        },
+        body: { ok: false as const, error: "not_owned" as const },
       };
     }
-    const nextOwned = [...parsed.owned, id];
+    // 첫 등장 1개 제거.
+    const nextOwned = [...parsed.owned.slice(0, idx), ...parsed.owned.slice(idx + 1)];
+    const remaining = nextOwned.filter((x) => x === id).length;
+    // 카운트 0 되면 그 슬롯 장착 해제 (다른 슬롯에 같은 id 가 들어갈 일은 없음 — slot fix).
+    const nextEquipped: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
+      ...parsed.equipped,
+    };
+    if (remaining === 0 && nextEquipped[item.slot] === id) {
+      delete nextEquipped[item.slot];
+    }
+    const gold = Math.max(0, charSave.gold ?? 0);
+    const newGold = gold + sellPrice;
     await upsertSave(tx, userId, "equipment.v2", {
       ...equipSave,
       owned: nextOwned,
+      equipped: nextEquipped,
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      gold: gold - price,
+      gold: newGold,
     });
     return {
       status: 200,
       body: {
         ok: true as const,
-        gold: gold - price,
+        gold: newGold,
         owned: nextOwned,
+        equipped: nextEquipped,
+        sellPrice,
       },
     };
   });

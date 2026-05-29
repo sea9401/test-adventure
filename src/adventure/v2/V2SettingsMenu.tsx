@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
   BookOpen,
   Gear,
@@ -9,18 +9,11 @@ import {
   Sun,
 } from "@phosphor-icons/react";
 
-// 메뉴얼 모달 — 클릭 시점에만 로드 (페이지 번들 분리).
-const V2ManualModal = dynamic(
-  () => import("./V2ManualModal").then((m) => ({ default: m.V2ManualModal })),
-  { ssr: false },
-);
-
 // v2 상단바 우측 설정 메뉴 — 메뉴얼 + 라이트/다크 토글만. 라이브 SettingsMenu 보다 경량.
 // 테마 토글 패턴: documentElement.classList + localStorage("theme").
 
 export function V2SettingsMenu() {
   const [open, setOpen] = useState(false);
-  const [manualOpen, setManualOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,11 +46,6 @@ export function V2SettingsMenu() {
     try {
       localStorage.setItem("theme", next);
     } catch {}
-  };
-
-  const handleOpenManual = () => {
-    setOpen(false);
-    setManualOpen(true);
   };
 
   const isDark = theme === "dark";
@@ -94,19 +82,18 @@ export function V2SettingsMenu() {
               </button>
             </li>
             <li>
-              <button
-                type="button"
-                onClick={handleOpenManual}
+              <Link
+                href="/manual"
+                onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
                 <BookOpen size={18} weight="duotone" />
                 메뉴얼
-              </button>
+              </Link>
             </li>
           </ul>
         </div>
       )}
-      {manualOpen && <V2ManualModal onClose={() => setManualOpen(false)} />}
     </div>
   );
 }

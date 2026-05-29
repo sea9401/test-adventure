@@ -22,7 +22,7 @@ export type BatchSummary = {
   levelsGained: number;
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
-  stoppedReason?: "stamina" | "death" | "error" | null;
+  stoppedReason?: "stamina" | "death" | "recovery" | "error" | null;
 };
 
 export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
@@ -87,7 +87,9 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
             ? "스태미너 부족으로 중단"
             : summary.stoppedReason === "death"
               ? "패배로 중단"
-              : "오류로 중단"}{" "}
+              : summary.stoppedReason === "recovery"
+                ? "체력 부족으로 중단"
+                : "오류로 중단"}{" "}
           ({summary.completed}/{summary.attempted})
         </p>
       )}

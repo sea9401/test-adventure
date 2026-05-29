@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   HP_RESTORE_MS,
   applyHpRegen,
+  canHuntWithHp,
+  huntHpFloor,
   parseHpRegenSince,
 } from "./hpRegen";
 
@@ -41,6 +43,27 @@ describe("hp 회복", () => {
   it("maxHp 0 처리 — 1 로 clamp", () => {
     const r = applyHpRegen(0, 0, 0, HP_RESTORE_MS);
     expect(r.hp).toBe(1);
+  });
+});
+
+describe("사냥 최소 체력 (5% 게이트)", () => {
+  it("huntHpFloor = ceil(maxHp * 5%), 최소 1", () => {
+    expect(huntHpFloor(100)).toBe(5);
+    expect(huntHpFloor(2000)).toBe(100);
+    expect(huntHpFloor(10)).toBe(1); // ceil(0.5) = 1
+    expect(huntHpFloor(0)).toBe(1); // maxHp clamp 1
+  });
+
+  it("5% 미만이면 사냥 불가, 5% 이상이면 가능", () => {
+    expect(canHuntWithHp(4, 100)).toBe(false);
+    expect(canHuntWithHp(5, 100)).toBe(true);
+    expect(canHuntWithHp(99, 2000)).toBe(false); // floor 100
+    expect(canHuntWithHp(100, 2000)).toBe(true);
+  });
+
+  it("0 체력은 항상 사냥 불가", () => {
+    expect(canHuntWithHp(0, 100)).toBe(false);
+    expect(canHuntWithHp(0, 2000)).toBe(false);
   });
 });
 

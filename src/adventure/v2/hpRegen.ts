@@ -26,6 +26,21 @@ export function applyHpRegen(
   return { hp: nextHp, lastUpdatedAt: nowMs };
 }
 
+// 사냥 가능 최소 체력 — 최대치의 이 비율 미만이면 "회복 필요" 로 보고 전투를 막는다.
+// 0 에서 시간 재생이 0→1 을 금방 넘겨(maxHp/5분 페이스) doomed 전투가 새던 문제를
+// 안정적으로 차단하기 위함. 5% 면 0 에서 약 15초(또는 치료소 즉시 회복) 후 다시 사냥 가능.
+export const MIN_HUNT_HP_FRACTION = 0.05;
+
+// 사냥하려면 필요한 최소 hp (정수). maxHp 가 아주 작아도 최소 1 보장.
+export function huntHpFloor(maxHp: number): number {
+  return Math.max(1, Math.ceil(Math.max(1, maxHp) * MIN_HUNT_HP_FRACTION));
+}
+
+// 현재 hp 로 사냥 가능한가. 서버 가드·클라 버튼 게이트가 같은 기준을 쓰도록 공유.
+export function canHuntWithHp(hp: number, maxHp: number): boolean {
+  return hp >= huntHpFloor(maxHp);
+}
+
 // saves 의 hpRegenSince 파싱. 비정상 모양 / 미존재면 fallback (보통 now).
 // fallback 으로 now 를 주면 옛 캐릭은 첫 사냥 시 회복 시작점 = 지금 → hp 변경 없음.
 export function parseHpRegenSince(raw: unknown, fallback: number): number {

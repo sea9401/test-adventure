@@ -31,7 +31,11 @@ import {
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
-import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
+import {
+  applyHpRegen,
+  canHuntWithHp,
+  parseHpRegenSince,
+} from "@/adventure/v2/hpRegen";
 import {
   mergeDrops,
   rollDrops,
@@ -327,9 +331,10 @@ export async function POST(req: Request) {
     );
     const playerForBattle = { ...player.player, hp: regenResult.hp };
 
-    // 체력 0(사망) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로 회복 대기.
-    // 시간 경과로 hp 가 0 위로 회복되면 다시 사냥 가능. 일괄사냥의 death-stop 가드와 같은 의도.
-    if (regenResult.hp <= 0) {
+    // 체력 부족(최대치 5% 미만) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로
+    // 회복 대기. 0 에서 시간 재생이 0→1 을 금방 넘겨 doomed 전투가 새던 문제를 안정적으로 차단.
+    // 시간 경과(또는 치료소)로 회복되면 다시 사냥 가능. 일괄사냥의 death-stop 가드와 같은 의도.
+    if (!canHuntWithHp(regenResult.hp, player.maxHp)) {
       return {
         ok: false as const,
         status: 409,

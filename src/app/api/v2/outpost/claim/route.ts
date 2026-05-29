@@ -36,7 +36,11 @@ import {
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
-import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
+import {
+  applyHpRegen,
+  canHuntWithHp,
+  parseHpRegenSince,
+} from "@/adventure/v2/hpRegen";
 
 // POST /api/v2/outpost/claim — 거점 점령 시도 (1대1 일기토 NPC).
 //
@@ -294,9 +298,9 @@ export async function POST(req: Request) {
     // PR-7: 병사 시스템 폐기 — applySoldierBoost 제거.
     const playerForBattle = { ...player.player, hp: hpRegen.hp };
 
-    // 체력 0(사망) 상태에선 거점 사냥/점령 시도 불가 — 스태미나 미소모 + hpRegenSince 미리셋.
-    // 일반 던전 사냥과 동일하게 hp 가 0 위로 회복돼야 다시 시도 가능.
-    if (hpRegen.hp <= 0) {
+    // 체력 부족(최대치 5% 미만) 상태에선 거점 사냥/점령 시도 불가 — 스태미나 미소모 +
+    // hpRegenSince 미리셋. 일반 던전 사냥과 동일 기준(canHuntWithHp)으로 회복돼야 다시 시도 가능.
+    if (!canHuntWithHp(hpRegen.hp, player.maxHp)) {
       return {
         ok: false as const,
         status: 409,

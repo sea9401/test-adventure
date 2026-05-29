@@ -31,54 +31,54 @@ describe("aggregateV2Equipment", () => {
     });
   });
 
-  it("철검 T1 (str+25 atk+3) → str=25 atk=3 나머지 0", () => {
+  it("철검 T1 (str+8 atk+1) → str=8 atk=1 나머지 0", () => {
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.str).toBe(25);
-    expect(a.atk).toBe(3);
+    expect(a.str).toBe(8);
+    expect(a.atk).toBe(1);
     expect(a.dex).toBe(0);
     expect(a.crit).toBe(0);
   });
 
-  it("3슬롯 풀세팅 — 모든 키 합산 (T1 ×5 스케일)", () => {
-    // 철검: str+25 atk+3
-    // 쇠사슬 갑옷: vit+25 def+6 spd-5
-    // 은가락지: luk+15
+  it("3슬롯 풀세팅 — 모든 키 합산 (T1, rebal 1/3)", () => {
+    // 철검: str+8 atk+1
+    // 쇠사슬 갑옷: vit+8 def+2 spd-2
+    // 은가락지: luk+5
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
       armor: "v2_chain_mail",
       accessory: "v2_silver_ring",
     });
-    expect(a.str).toBe(25);
-    expect(a.atk).toBe(3);
-    expect(a.vit).toBe(25);
-    expect(a.def).toBe(6);
-    expect(a.spd).toBe(-5);
-    expect(a.luk).toBe(15);
+    expect(a.str).toBe(8);
+    expect(a.atk).toBe(1);
+    expect(a.vit).toBe(8);
+    expect(a.def).toBe(2);
+    expect(a.spd).toBe(-2);
+    expect(a.luk).toBe(5);
   });
 
-  it("추가 파생 (crit/mp/eva) 합산 — T5 풀 ×5 스케일", () => {
-    // 별노래궁 T5: dex+125 atk+14 crit+7
-    // 바람 망토 T5: dex+85 def+13 eva+10
-    // 마나의 정수 T5: int+110 mp+90
+  it("추가 파생 (crit/mp/eva) 합산 — T5 풀, rebal 1/3", () => {
+    // 별노래궁 T5: dex+42 atk+5 crit+2
+    // 바람 망토 T5: dex+28 def+4 eva+3
+    // 마나의 정수 T5: int+37 mp+30
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
       accessory: "v2_mana_essence",
     });
-    expect(a.dex).toBe(125 + 85);
-    expect(a.atk).toBe(14);
-    expect(a.crit).toBe(7);
-    expect(a.def).toBe(13);
-    expect(a.eva).toBe(10);
-    expect(a.int).toBe(110);
-    expect(a.mp).toBe(90);
+    expect(a.dex).toBe(42 + 28);
+    expect(a.atk).toBe(5);
+    expect(a.crit).toBe(2);
+    expect(a.def).toBe(4);
+    expect(a.eva).toBe(3);
+    expect(a.int).toBe(37);
+    expect(a.mp).toBe(30);
   });
 
-  it("중갑 spd 페널티도 ×5 스케일 — 미스릴 갑옷 T5 = spd -25", () => {
+  it("중갑 spd 페널티도 rebal 1/3 — 미스릴 갑옷 T5 = spd -8", () => {
     const a = aggregateV2Equipment({ armor: "v2_mithril_plate" });
-    expect(a.vit).toBe(140);
-    expect(a.def).toBe(30);
-    expect(a.spd).toBe(-25);
+    expect(a.vit).toBe(47);
+    expect(a.def).toBe(10);
+    expect(a.spd).toBe(-8);
   });
 
   it("luck 컨셉 5종은 luk/crit 만 채움 (컨셉 일관성)", () => {
@@ -123,12 +123,13 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 
   it("mana accessory + INT 합산", () => {
-    // 마나의 정수 T5: int+110 mp+90. + 베이스 50 + INT(0+110)×2 = 50+90+220 = 360.
+    // 마나의 정수 T5 (rebal 1/3): int+37 mp+30.
+    // + 베이스 V2_BASE_MP(50) + mp 30 + INT(0+37)×2 = 50+30+74 = 154.
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: { accessory: "v2_mana_essence" },
     });
-    expect(d.player.maxMp).toBe(V2_BASE_MP + 90 + 110 * 2);
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 30 + 37 * 2);
   });
 });
 

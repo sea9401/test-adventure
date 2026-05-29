@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
+import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
+import type { HpBarState } from "@/adventure/v2/HpBar";
 import {
   BatchSummaryCard,
   type BatchSummary,
@@ -41,6 +43,9 @@ export function V2DungeonFloorView({
   playerGender,
   stamina,
   setStamina,
+  hp,
+  setHp,
+  onSeekHealing,
   onBack,
 }: {
   floorId: DungeonFloorId;
@@ -51,6 +56,12 @@ export function V2DungeonFloorView({
   // 전역 stamina + setter — V2GameFlow.
   stamina: StaminaState;
   setStamina: (s: StaminaState) => void;
+  // 전역 HP + setter — V2GameFlow. 미로딩(null)이면 클라 게이트 비활성(서버가 최종 권위).
+  // dev 하니스(DungeonHunt)에선 미전달 → optional.
+  hp?: HpBarState | null;
+  setHp?: (s: HpBarState) => void;
+  // "치료소로 가기" — 마을 치료소 뷰로 이동. 미전달이면 버튼 숨김.
+  onSeekHealing?: () => void;
   onBack: () => void;
 }) {
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
@@ -68,6 +79,18 @@ export function V2DungeonFloorView({
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
+
+  // HP 게이트용 1초 틱 — 시간 재생으로 회복되면 사냥 버튼이 자동 재활성된다. (HpBar 와 같은 패턴)
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // 사냥 응답의 최종 HP 로 전역 HP 갱신 — anchor = 지금(응답 수신 시각 ≈ 서버 now).
+  const recordHp = (r: { hpAfter: number; maxHp: number }) => {
+    setHp?.({ hp: r.hpAfter, maxHp: r.maxHp, anchorMs: Date.now() });
+  };
 
   const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
 
@@ -100,6 +123,7 @@ export function V2DungeonFloorView({
         stoppedReason = "error";
         break;
       }
+      recordHp(r);
       completed++;
       setBatchProgress({ done: completed, total: count });
       if (r.won) wins++;
@@ -112,9 +136,10 @@ export function V2DungeonFloorView({
         drops[key] = (drops[key] ?? 0) + (n ?? 0);
       }
       if (r.droppedEquipment) droppedEquipments.push(r.droppedEquipment);
-      // 사망(패배) 시 그 사이 회복 없으니 다음 사냥 회피·중단.
-      if (!r.won && r.hpAfter <= 0) {
-        stoppedReason = "death";
+      // 사망 또는 체력 부족(5% 미만)이면 다음 사냥이 어차피 서버에서 막히므로 중단.
+      // 헛돈(409) 없이 즉시 멈추고, 패배(0)·생존했지만 저체력을 라벨로 구분.
+      if (!canHuntWithHp(r.hpAfter, r.maxHp)) {
+        stoppedReason = r.hpAfter <= 0 ? "death" : "recovery";
         break;
       }
       // 다음 사냥 전 스태미너 사전 검사 — 직전 응답의 잔량 기준.
@@ -157,6 +182,13 @@ export function V2DungeonFloorView({
 
   const lowStamina = stamina.current < HUNT_COST;
   const oneActionDisabled = busy || batchRunning;
+  // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).
+  // hp 미로딩(null)이면 게이트 비활성 — 서버 가드가 최종 차단.
+  const liveHp = hp
+    ? applyHpRegen(hp.hp, Math.max(1, hp.maxHp), hp.anchorMs, now).hp
+    : null;
+  const needsRecovery =
+    hp != null && liveHp != null && !canHuntWithHp(liveHp, hp.maxHp);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -187,19 +219,26 @@ export function V2DungeonFloorView({
             type="button"
             onClick={() => {
               setBatchSummary(null);
-              if (huntCount === 1) void hunt(floor.id);
-              else void runBatch(huntCount);
+              if (huntCount === 1) {
+                void hunt(floor.id).then((r) => {
+                  if (r) recordHp(r);
+                });
+              } else {
+                void runBatch(huntCount);
+              }
             }}
-            disabled={oneActionDisabled || lowStamina}
+            disabled={oneActionDisabled || lowStamina || needsRecovery}
             className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
           >
             {batchRunning && batchProgress
               ? `${batchProgress.done}/${batchProgress.total} 처리 중…`
               : busy
                 ? "사냥 중…"
-                : huntCount === 1
-                  ? "사냥 (스태미너 1)"
-                  : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
+                : needsRecovery
+                  ? "회복 필요"
+                  : huntCount === 1
+                    ? "사냥 (스태미너 1)"
+                    : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
           <button
             type="button"
@@ -240,6 +279,26 @@ export function V2DungeonFloorView({
           </div>
         )}
       </Card>
+
+      {needsRecovery && (
+        <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950/40">
+          <p className="text-sm font-medium text-rose-700 dark:text-rose-300">
+            체력이 부족해 전투할 수 없습니다.
+          </p>
+          <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+            마을 치료소에서 회복하거나, 잠시 기다리면 체력이 서서히 회복됩니다.
+          </p>
+          {onSeekHealing && (
+            <button
+              type="button"
+              onClick={onSeekHealing}
+              className="mt-2.5 w-full rounded-md border border-rose-400 bg-rose-100 px-3 py-2 text-sm font-medium text-rose-800 hover:bg-rose-200 dark:border-rose-700 dark:bg-rose-900/50 dark:text-rose-100 dark:hover:bg-rose-900"
+            >
+              치료소로 가기
+            </button>
+          )}
+        </div>
+      )}
 
       {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
       {batchSummary ? (

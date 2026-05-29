@@ -27,6 +27,7 @@ import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -141,6 +142,9 @@ export function V2GameFlow() {
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
+  // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
+  // null = 아직 미로딩. 로딩 후에만 HpBar 표시 + 사냥 게이트 동작 (서버가 최종 권위).
+  const [hp, setHp] = useState<HpBarState | null>(null);
 
   const refreshOccupations = useCallback(async () => {
     try {
@@ -181,6 +185,8 @@ export function V2GameFlow() {
             character?: {
               name?: string;
               gender?: string;
+              hp?: number;
+              maxHp?: number;
               stamina?: { current: number; lastUpdatedAt: number };
             };
             currentOutpost?: { id: string; name: string } | null;
@@ -191,6 +197,16 @@ export function V2GameFlow() {
             setStamina({
               current: j.character.stamina.current,
               lastUpdatedAt: j.character.stamina.lastUpdatedAt,
+            });
+          }
+          if (
+            typeof j?.character?.hp === "number" &&
+            typeof j?.character?.maxHp === "number"
+          ) {
+            setHp({
+              hp: j.character.hp,
+              maxHp: j.character.maxHp,
+              anchorMs: Date.now(),
             });
           }
           if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
@@ -284,7 +300,8 @@ export function V2GameFlow() {
           (currentTab === "battle" &&
             view.kind !== "map" &&
             view.kind !== "outpost")) && (
-          <div className="mx-auto w-full max-w-[720px] px-4 py-2 sm:px-6">
+          <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
+            {hp && <HpBar state={hp} />}
             <StaminaBar state={stamina} />
           </div>
         )}
@@ -326,6 +343,9 @@ export function V2GameFlow() {
           playerGender={viewerGender}
           stamina={stamina}
           setStamina={setStamina}
+          hp={hp}
+          setHp={setHp}
+          onSeekHealing={() => setView({ kind: "healing" })}
           onBack={() => setView({ kind: "dungeons" })}
         />
       )}

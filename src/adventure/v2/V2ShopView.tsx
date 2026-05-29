@@ -6,10 +6,11 @@ import { TabBar } from "@/components/ui/TabBar";
 import {
   V2_EQUIPMENT,
   shopPriceOf,
-  v2EquipStatEntries,
+  type V2Equipment,
   type V2EquipmentId,
   type V2EquipTier,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
 // v2 상점 — 장비 전용. T1~T5 35종. sub-tab: 무기/방어구/장신구.
 // 보유 카운트 시스템: 보유 중인 아이템도 추가 구매 가능, 판매 가능(5%).
@@ -72,6 +73,11 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState<{ id: V2EquipmentId; mode: "buy" | "sell" } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [slotTab, setSlotTab] = useState<SlotTab>("weapon");
+  // 클릭 시 뜨는 옵션 카드 팝오버 — null 이면 닫힘.
+  const [card, setCard] = useState<{
+    item: V2Equipment;
+    anchor: ItemCardAnchor;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -200,10 +206,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       <section>
         <div
           aria-hidden
-          className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 sm:grid-cols-[1fr_2fr_auto]"
+          className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500"
         >
           <span>이름</span>
-          <span className="hidden sm:block">옵션</span>
           <span className="text-right">거래</span>
         </div>
         <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -216,10 +221,18 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
               busyMode={busy?.id === id ? busy.mode : null}
               onBuy={buy}
               onSell={sell}
+              onOpenCard={(item, anchor) => setCard({ item, anchor })}
             />
           ))}
         </ul>
       </section>
+      {card && (
+        <V2ItemCard
+          item={card.item}
+          anchor={card.anchor}
+          onClose={() => setCard(null)}
+        />
+      )}
     </main>
   );
 }
@@ -231,6 +244,7 @@ function EquipmentRow({
   busyMode,
   onBuy,
   onSell,
+  onOpenCard,
 }: {
   id: V2EquipmentId;
   count: number;
@@ -238,59 +252,43 @@ function EquipmentRow({
   busyMode: "buy" | "sell" | null;
   onBuy: (id: V2EquipmentId) => void;
   onSell: (id: V2EquipmentId) => void;
+  onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
   const buyPrice = shopPriceOf(item) ?? 0;
   const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
   const affordable = gold >= buyPrice;
-  const stats = v2EquipStatEntries(item.stats);
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-2 py-2 sm:grid-cols-[1fr_2fr_auto]">
-      {/* 좌측 — 티어 stripe + 이름 + 보유 카운트 */}
-      <div className="flex min-w-0 items-center gap-2">
+    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2">
+      {/* 이름 영역 클릭 → 옵션 카드 팝오버 (옵션은 행에 인라인으로 적지 않음) */}
+      <button
+        type="button"
+        onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+        className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
+      >
         <span
           aria-hidden
           className={`h-5 w-1 shrink-0 rounded-sm ${TIER_STRIPE[item.tier]}`}
         />
-        <div className="flex min-w-0 flex-col">
-          <div className="flex items-baseline gap-1.5">
-            <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-              {item.name}
-            </span>
-            <span
-              className={`shrink-0 rounded px-1 py-px text-[9px] font-semibold ${TIER_BADGE[item.tier]}`}
-            >
-              T{item.tier}
-            </span>
-            {count > 0 && (
-              <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                ×{count}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 옵션 — 모바일은 row 아래로 wrap, sm 이상은 가운데 컬럼 */}
-      <div className="col-span-2 flex flex-wrap gap-1 sm:col-span-1 sm:col-start-2">
-        {stats.length === 0 ? (
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            옵션 없음
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {item.name}
           </span>
-        ) : (
-          stats.map((s) => (
-            <span
-              key={s}
-              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-            >
-              {s}
+          <span
+            className={`shrink-0 rounded px-1 py-px text-[9px] font-semibold ${TIER_BADGE[item.tier]}`}
+          >
+            T{item.tier}
+          </span>
+          {count > 0 && (
+            <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+              ×{count}
             </span>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      </button>
 
       {/* 우측 — 구매 / 판매 버튼 */}
-      <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-1 justify-self-end sm:col-start-3">
+      <div className="flex shrink-0 items-center gap-1 justify-self-end">
         <button
           type="button"
           onClick={() => onBuy(id)}

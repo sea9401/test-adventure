@@ -15,6 +15,12 @@ import {
 // 클릭한 슬롯의 화면 좌표 — 이 근처에 카드를 띄운다 (DOMRect 의 필요한 값만).
 export type ItemCardAnchor = { top: number; bottom: number; left: number };
 
+// 클릭한 엘리먼트의 화면 좌표 → 팝오버 앵커. 슬롯·행 onClick 에서 공유.
+export function anchorOf(el: HTMLElement): ItemCardAnchor {
+  const r = el.getBoundingClientRect();
+  return { top: r.top, bottom: r.bottom, left: r.left };
+}
+
 const WIDTH = 256; // 카드 폭(px)
 const GAP = 6; // 앵커와 카드 사이 간격
 const MARGIN = 8; // 뷰포트 가장자리 여백

@@ -17,7 +17,7 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { V2ItemCard, type ItemCardAnchor } from "./V2ItemCard";
+import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 3슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -164,13 +164,9 @@ export function V2CharacterCard({
               <button
                 key={slot}
                 type="button"
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setSelected({
-                    item,
-                    anchor: { top: r.top, bottom: r.bottom, left: r.left },
-                  });
-                }}
+                onClick={(e) =>
+                  setSelected({ item, anchor: anchorOf(e.currentTarget) })
+                }
                 className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
               >
                 {inner}

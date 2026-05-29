@@ -16,11 +16,12 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import {
   V2_EQUIPMENT,
-  v2EquipStatEntries,
+  type V2Equipment,
   type V2EquipmentId,
   type V2EquipSlot,
   type V2EquipTier,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
 // v2 인벤토리 — 위쪽 장착 슬롯 + 무기/방어구/장신구/재료 sub-tab.
 // 행 우측 버튼으로 장착/해제 (POST /api/v2/me/equipment/equip).
@@ -83,6 +84,11 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<V2EquipmentId | V2EquipSlot | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // 클릭 시 뜨는 옵션 카드 팝오버 — null 이면 닫힘.
+  const [card, setCard] = useState<{
+    item: V2Equipment;
+    anchor: ItemCardAnchor;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -206,11 +212,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
             const id = equipped[slot] ?? null;
             const item = id ? V2_EQUIPMENT[id] : null;
-            return (
-              <div
-                key={slot}
-                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50"
-              >
+            const slotInner = (
+              <>
                 <Icon size={18} weight="duotone" className={color} />
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   {label}
@@ -218,6 +221,27 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
                   {item?.name ?? "—"}
                 </div>
+              </>
+            );
+            return (
+              <div
+                key={slot}
+                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50"
+              >
+                {item ? (
+                  // 장착 아이템 클릭 → 옵션 카드 팝오버.
+                  <button
+                    type="button"
+                    onClick={(e) =>
+                      setCard({ item, anchor: anchorOf(e.currentTarget) })
+                    }
+                    className="flex flex-col items-center gap-1 rounded transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    {slotInner}
+                  </button>
+                ) : (
+                  slotInner
+                )}
                 {id ? (
                   <button
                     type="button"
@@ -273,6 +297,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           busy={busy}
           onEquip={(id) => applyEquip(tab as V2EquipSlot, id, id)}
           onUnequip={() => applyEquip(tab as V2EquipSlot, null, tab as V2EquipSlot)}
+          onOpenCard={(item, anchor) => setCard({ item, anchor })}
+        />
+      )}
+      {card && (
+        <V2ItemCard
+          item={card.item}
+          anchor={card.anchor}
+          onClose={() => setCard(null)}
         />
       )}
     </main>
@@ -338,6 +370,7 @@ function EquipmentList({
   busy,
   onEquip,
   onUnequip,
+  onOpenCard,
 }: {
   ids: V2EquipmentId[];
   counts: Map<V2EquipmentId, number>;
@@ -346,6 +379,7 @@ function EquipmentList({
   busy: V2EquipmentId | V2EquipSlot | null;
   onEquip: (id: V2EquipmentId) => void;
   onUnequip: () => void;
+  onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   if (ids.length === 0) {
     return (
@@ -361,10 +395,9 @@ function EquipmentList({
     <section>
       <div
         aria-hidden
-        className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 sm:grid-cols-[1fr_2fr_auto]"
+        className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500"
       >
         <span>이름</span>
-        <span className="hidden sm:block">옵션</span>
         <span className="text-right">장착</span>
       </div>
       <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -379,6 +412,7 @@ function EquipmentList({
               busy={busy === id || (isEquipped && busy === slot)}
               onEquip={() => onEquip(id)}
               onUnequip={onUnequip}
+              onOpenCard={onOpenCard}
             />
           );
         })}
@@ -394,6 +428,7 @@ function EquipmentRow({
   busy,
   onEquip,
   onUnequip,
+  onOpenCard,
 }: {
   id: V2EquipmentId;
   count: number;
@@ -401,51 +436,37 @@ function EquipmentRow({
   busy: boolean;
   onEquip: () => void;
   onUnequip: () => void;
+  onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  const stats = v2EquipStatEntries(item.stats);
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-2 py-2 sm:grid-cols-[1fr_2fr_auto]">
-      <div className="flex min-w-0 items-center gap-2">
+    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2">
+      {/* 이름 영역 클릭 → 옵션 카드 팝오버 (옵션은 행에 인라인으로 적지 않음) */}
+      <button
+        type="button"
+        onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+        className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
+      >
         <span
           aria-hidden
           className={`h-5 w-1 shrink-0 rounded-sm ${TIER_STRIPE[item.tier]}`}
         />
-        <div className="flex min-w-0 flex-col">
-          <div className="flex items-baseline gap-1.5">
-            <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-              {item.name}
-            </span>
-            <span
-              className={`shrink-0 rounded px-1 py-px text-[9px] font-semibold ${TIER_BADGE[item.tier]}`}
-            >
-              T{item.tier}
-            </span>
-            <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              ×{count}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="col-span-2 flex flex-wrap gap-1 sm:col-span-1 sm:col-start-2">
-        {stats.length === 0 ? (
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-            옵션 없음
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {item.name}
           </span>
-        ) : (
-          stats.map((s) => (
-            <span
-              key={s}
-              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-            >
-              {s}
-            </span>
-          ))
-        )}
-      </div>
+          <span
+            className={`shrink-0 rounded px-1 py-px text-[9px] font-semibold ${TIER_BADGE[item.tier]}`}
+          >
+            T{item.tier}
+          </span>
+          <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+            ×{count}
+          </span>
+        </div>
+      </button>
 
-      <div className="col-start-2 row-start-1 shrink-0 justify-self-end sm:col-start-3">
+      <div className="shrink-0 justify-self-end">
         {isEquipped ? (
           <button
             type="button"

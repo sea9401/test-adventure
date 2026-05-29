@@ -48,6 +48,16 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   },
 };
 
+// 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용. 재료는 티어/등급 개념이
+// 없어 재료별 고정값으로 둔다(흔함순 차등). 현재 소비처가 없어 환금 위주 — 구매는 불가.
+export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
+  v2_stone_chip: 2,
+  v2_herb: 3,
+  v2_slime_shard: 4,
+  v2_bone_fragment: 6,
+  v2_starlit_dust: 20,
+};
+
 // === floor 별 드랍 풀 ===============================================
 // chance = 0~1, 굴림 통과 시 [amountMin, amountMax] 사이 정수 개수 획득.
 // 한 사냥에서 여러 row 가 동시에 통과할 수 있음 (독립 굴림).

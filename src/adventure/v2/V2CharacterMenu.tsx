@@ -4,7 +4,7 @@ import { Backpack, Sparkle, UserCircle } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 캐릭터 탭 default — 3 진입(내 정보 / 인벤토리 / 스킬). 마을과 같은 EntryCard 패턴.
-// 장비 진입은 "내 정보" 안의 슬롯 클릭으로.
+// 장비 장착/해제는 인벤토리 안에서 처리.
 
 export type CharacterAction =
   | { kind: "open-info" }
@@ -27,7 +27,7 @@ export function V2CharacterMenu({
             <UserCircle size={28} weight="duotone" className="text-amber-500" />
           }
           title="내 정보"
-          description="레벨·능력치·장비 슬롯."
+          description="레벨·능력치·장비."
           onClick={() => onAction({ kind: "open-info" })}
         />
         <EntryCard

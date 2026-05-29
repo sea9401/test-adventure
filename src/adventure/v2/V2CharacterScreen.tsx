@@ -1,19 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Diamond, Shield, Sword, type Icon } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
 import type { StatKey } from "@/adventure/data/stats";
-import {
-  V2_EQUIPMENT,
-  type V2EquipmentId,
-  type V2EquipSlot,
+import type {
+  V2EquipmentId,
+  V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
-// v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드 + 장비 3슬롯 + StatsPanel.
-// 인벤/스킬은 캐릭터 탭 메뉴(V2CharacterMenu) 에서 분리됨.
+// v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
+// 장착/해제는 인벤토리에서.
 
 type StateResponse = {
   ok?: boolean;
@@ -41,22 +39,9 @@ type EquipmentResponse = {
   equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
 };
 
-const SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] = [
-  { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
-  { slot: "armor", label: "방어구", Icon: Shield, color: "text-sky-500" },
-  {
-    slot: "accessory",
-    label: "장신구",
-    Icon: Diamond,
-    color: "text-violet-500",
-  },
-];
-
 export function V2CharacterScreen({
-  onOpenEquipment,
   onBack,
 }: {
-  onOpenEquipment?: () => void;
   onBack?: () => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
@@ -105,36 +90,11 @@ export function V2CharacterScreen({
       </header>
 
       {character ? (
-        <>
-          <V2CharacterCard character={character} guild={guild} />
-
-          {/* 장비 3슬롯 — 클릭 시 V2EquipmentView 진입. */}
-          <Card padding="md">
-            <div className="grid grid-cols-3 gap-2">
-              {SLOTS.map(({ slot, label, Icon, color }) => {
-                const id = equipped[slot];
-                const item = id ? V2_EQUIPMENT[id] : null;
-                return (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={onOpenEquipment}
-                    disabled={!onOpenEquipment}
-                    className="flex flex-col items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-2.5 text-center transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900/50"
-                  >
-                    <Icon size={20} weight="duotone" className={color} />
-                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {label}
-                    </div>
-                    <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
-                      {item?.name ?? "—"}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-        </>
+        <V2CharacterCard
+          character={character}
+          guild={guild}
+          equipped={equipped}
+        />
       ) : loading ? (
         <Card padding="md">
           <div className="text-sm text-zinc-500 dark:text-zinc-400">

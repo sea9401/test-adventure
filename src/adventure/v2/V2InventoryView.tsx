@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Diamond } from "@phosphor-icons/react";
+import {
+  Diamond,
+  Shield,
+  Sword,
+  type Icon,
+} from "@phosphor-icons/react";
+import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -19,8 +25,8 @@ import {
   type V2EquipTier,
 } from "@/adventure/data/v2/v2Equipment";
 
-// v2 인벤토리 — 무기 / 방어구 / 장신구 / 재료 sub-tab. 상점과 동일한 테이블 구조.
-// 보유한 아이템만 표시. 장비 row 에 ×count 카운트 + 장착중 뱃지.
+// v2 인벤토리 — 위쪽 장착 슬롯 + 무기/방어구/장신구/재료 sub-tab.
+// 행 우측 버튼으로 장착/해제 (POST /api/v2/me/equipment/equip).
 
 type TabKey = V2EquipSlot | "material";
 
@@ -29,6 +35,22 @@ const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "armor", label: "방어구" },
   { key: "accessory", label: "장신구" },
   { key: "material", label: "재료" },
+];
+
+const EQUIP_SLOTS: {
+  slot: V2EquipSlot;
+  label: string;
+  Icon: Icon;
+  color: string;
+}[] = [
+  { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
+  { slot: "armor", label: "방어구", Icon: Shield, color: "text-sky-500" },
+  {
+    slot: "accessory",
+    label: "장신구",
+    Icon: Diamond,
+    color: "text-violet-500",
+  },
 ];
 
 const CONCEPT_LABEL: Record<string, string> = {
@@ -84,6 +106,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<V2EquipmentId | V2EquipSlot | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -114,7 +138,42 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     refresh();
   }, [refresh]);
 
-  // 슬롯별 보유 장비 id 목록 (count > 0) — T1→T5, concept 정렬.
+  const applyEquip = useCallback(
+    async (slot: V2EquipSlot, equipmentId: V2EquipmentId | null, busyKey: V2EquipmentId | V2EquipSlot) => {
+      setBusy(busyKey);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/equipment/equip", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slot, equipmentId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+        } | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        setEquipped(j.equipped ?? {});
+        if (equipmentId == null) {
+          setMsg(`✓ 해제 완료`);
+        } else {
+          const item = V2_EQUIPMENT[equipmentId];
+          setMsg(`✓ ${item.name} 장착`);
+        }
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [],
+  );
+
+  // 슬롯별 보유 장비 id 목록 — T1→T5, concept 정렬.
   const equipmentBySlot = useMemo(() => {
     const groups: Record<V2EquipSlot, V2EquipmentId[]> = {
       weapon: [],
@@ -134,7 +193,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     return groups;
   }, [counts]);
 
-  // 보유 중인 재료 — catalog 순서.
   const ownedMaterials = useMemo(
     () =>
       (Object.keys(V2_MATERIALS) as V2MaterialId[])
@@ -164,6 +222,47 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <h1 className="text-lg font-bold">인벤토리</h1>
       </header>
 
+      {/* 위쪽 — 장착 슬롯 (해제 버튼 인라인) */}
+      <Card padding="md">
+        <h2 className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          장착 중
+        </h2>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
+            const id = equipped[slot] ?? null;
+            const item = id ? V2_EQUIPMENT[id] : null;
+            return (
+              <div
+                key={slot}
+                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50"
+              >
+                <Icon size={18} weight="duotone" className={color} />
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {label}
+                </div>
+                <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                  {item?.name ?? "—"}
+                </div>
+                {id ? (
+                  <button
+                    type="button"
+                    onClick={() => applyEquip(slot, null, slot)}
+                    disabled={busy !== null}
+                    className="rounded border border-zinc-300 px-1.5 py-0.5 text-[10px] text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    {busy === slot ? "…" : "해제"}
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-600">
+                    비어있음
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
       <TabBar
         tabs={TABS}
         active={tab}
@@ -171,6 +270,18 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         ariaLabel="인벤토리 카테고리"
         size="sm"
       />
+
+      {msg && (
+        <div
+          className={`rounded-md border px-3 py-1.5 text-xs ${
+            msg.startsWith("✓")
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+          }`}
+        >
+          {msg}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -184,6 +295,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           counts={counts}
           equipped={equipped}
           slot={tab}
+          busy={busy}
+          onEquip={(id) => applyEquip(tab as V2EquipSlot, id, id)}
+          onUnequip={() => applyEquip(tab as V2EquipSlot, null, tab as V2EquipSlot)}
         />
       )}
     </main>
@@ -246,11 +360,17 @@ function EquipmentList({
   counts,
   equipped,
   slot,
+  busy,
+  onEquip,
+  onUnequip,
 }: {
   ids: V2EquipmentId[];
   counts: Map<V2EquipmentId, number>;
   equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   slot: V2EquipSlot;
+  busy: V2EquipmentId | V2EquipSlot | null;
+  onEquip: (id: V2EquipmentId) => void;
+  onUnequip: () => void;
 }) {
   if (ids.length === 0) {
     return (
@@ -270,17 +390,23 @@ function EquipmentList({
       >
         <span>이름</span>
         <span className="hidden sm:block">옵션</span>
-        <span className="text-right">상태</span>
+        <span className="text-right">장착</span>
       </div>
       <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-        {ids.map((id) => (
-          <EquipmentRow
-            key={id}
-            id={id}
-            count={counts.get(id) ?? 0}
-            isEquipped={equippedId === id}
-          />
-        ))}
+        {ids.map((id) => {
+          const isEquipped = equippedId === id;
+          return (
+            <EquipmentRow
+              key={id}
+              id={id}
+              count={counts.get(id) ?? 0}
+              isEquipped={isEquipped}
+              busy={busy === id || (isEquipped && busy === slot)}
+              onEquip={() => onEquip(id)}
+              onUnequip={onUnequip}
+            />
+          );
+        })}
       </ul>
     </section>
   );
@@ -290,17 +416,22 @@ function EquipmentRow({
   id,
   count,
   isEquipped,
+  busy,
+  onEquip,
+  onUnequip,
 }: {
   id: V2EquipmentId;
   count: number;
   isEquipped: boolean;
+  busy: boolean;
+  onEquip: () => void;
+  onUnequip: () => void;
 }) {
   const item = V2_EQUIPMENT[id];
   const stats = statEntries(item.stats);
   const conceptLabel = CONCEPT_LABEL[item.concept] ?? item.concept;
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-2 py-2 sm:grid-cols-[1fr_2fr_auto]">
-      {/* 좌측 — 티어 stripe + 이름 + 컨셉 + 카운트 */}
       <div className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden
@@ -326,7 +457,6 @@ function EquipmentRow({
         </div>
       </div>
 
-      {/* 옵션 — 모바일은 row 아래로 wrap */}
       <div className="col-span-2 flex flex-wrap gap-1 sm:col-span-1 sm:col-start-2">
         {stats.length === 0 ? (
           <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
@@ -344,14 +474,25 @@ function EquipmentRow({
         )}
       </div>
 
-      {/* 우측 — 장착 상태 */}
       <div className="col-start-2 row-start-1 shrink-0 justify-self-end sm:col-start-3">
         {isEquipped ? (
-          <span className="rounded bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-            장착중
-          </span>
+          <button
+            type="button"
+            onClick={onUnequip}
+            disabled={busy}
+            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            {busy ? "…" : "해제"}
+          </button>
         ) : (
-          <span className="text-[10px] text-zinc-400 dark:text-zinc-600">—</span>
+          <button
+            type="button"
+            onClick={onEquip}
+            disabled={busy}
+            className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+          >
+            {busy ? "…" : "장착"}
+          </button>
         )}
       </div>
     </li>

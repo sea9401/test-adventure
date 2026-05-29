@@ -1,13 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { User as UserIcon } from "@phosphor-icons/react";
+import {
+  Diamond,
+  Shield,
+  Sword,
+  User as UserIcon,
+  type Icon,
+} from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import {
+  V2_EQUIPMENT,
+  type V2EquipmentId,
+  type V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
 
-// v2 캐릭터 간략 카드 — 라이브 CharacterMini 패턴 차용.
-// 모험·캐릭터 탭 둘 다에서 재활용. dumb component — character/guild prop.
+// v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 3슬롯 인라인 표시 (read-only).
 
 export type V2CharacterCardData = {
   name: string;
@@ -17,12 +27,21 @@ export type V2CharacterCardData = {
   expToNext: number | null;
   hp: number;
   maxHp: number;
-  // v2 마법 풀 — INT 0 이면 0 (라이브 캐릭). 0 일 때는 MP 바 비표시.
-  // PR-potion-auto-restore 부터 단판 풀충전 모델 폐기 — 현재 mp 도 prop 으로.
   mp?: number;
   maxMp?: number;
   gold: number;
 };
+
+const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] = [
+  { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
+  { slot: "armor", label: "방어구", Icon: Shield, color: "text-sky-500" },
+  {
+    slot: "accessory",
+    label: "장신구",
+    Icon: Diamond,
+    color: "text-violet-500",
+  },
+];
 
 function CharacterPortrait({ gender }: { gender: Gender }) {
   const [errored, setErrored] = useState(false);
@@ -49,15 +68,18 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
 export function V2CharacterCard({
   character,
   guild,
-  // 칭호 — v2 시스템 없음. 있을 때만 노출 (미래에 me/state 에 titleName 추가하면 prop 으로).
+  // 칭호 — v2 시스템 없음. 있을 때만 노출.
   titleName = null,
   // 카드 하단에 골드 한 줄 노출 여부.
   showGold = true,
+  // 있으면 카드 하단에 3슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
+  equipped,
 }: {
   character: V2CharacterCardData;
   guild?: { name: string } | null;
   titleName?: string | null;
   showGold?: boolean;
+  equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
 }) {
   // v2 마법 풀 — 현재 mp 사용. PR-potion-auto-restore: 단판 풀충전 모델 폐기 후 mp 가
   // 사냥 사이 보존. me/state 가 mp 동봉 — undefined fallback 은 maxMp (옛 캐릭).
@@ -108,6 +130,28 @@ export function V2CharacterCard({
           <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
             {character.gold.toLocaleString()}
           </span>
+        </div>
+      )}
+      {equipped && (
+        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+          {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
+            const id = equipped[slot];
+            const item = id ? V2_EQUIPMENT[id] : null;
+            return (
+              <div
+                key={slot}
+                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50"
+              >
+                <Icon size={18} weight="duotone" className={color} />
+                <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {label}
+                </div>
+                <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                  {item?.name ?? "—"}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </Card>

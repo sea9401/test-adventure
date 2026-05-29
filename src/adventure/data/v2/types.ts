@@ -12,13 +12,17 @@ export type DungeonFloorRequirement =
   | { kind: "level"; min: number; max: number } // 1~5층
   | { kind: "endgame"; tier: "entry" | "mid" | "max" }; // 6~8층
 
+// 사냥터 출현 몬스터 — key 는 라이브 MONSTERS 의 스탯/스킬 출처, name 은 화면 표시 이름.
+// 둘을 분리해, 표시 이름을 라이브 몬스터와 무관하게(지형에 맞게) 붙일 수 있다.
+export type DungeonEnemy = { key: string; name: string };
+
 export type DungeonFloor = {
   id: DungeonFloorId;
   name: string;
   requirement: DungeonFloorRequirement;
-  // 출현 몬스터 (라이브 Monster 의 이름 키 그대로 사용).
-  enemies: string[];
-  // 가중치 안 주면 균등.
+  // 출현 몬스터. key = 라이브 Monster 스탯 출처, name = 표시 이름.
+  enemies: DungeonEnemy[];
+  // 가중치 안 주면 균등. key 기준.
   encounterWeights?: Record<string, number>;
   // 보스 (있는 층만). enemies 와 별개로 보스 도전 슬롯.
   boss?: { monsterName: string };

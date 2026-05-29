@@ -19,10 +19,10 @@ export function V2DungeonList({
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
-        <h1 className="text-lg font-bold">던전</h1>
+        <h1 className="text-lg font-bold">사냥터</h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {currentOutpost
-            ? `${currentOutpost.name} 의 던전. 층을 선택해 입장.`
+            ? `${currentOutpost.name} 의 사냥터. 구역을 선택해 입장.`
             : "거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능."}
         </p>
       </header>

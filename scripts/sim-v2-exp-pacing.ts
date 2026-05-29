@@ -21,8 +21,8 @@ type FloorInfo = { id: number; avgExp: number; lvMin?: number; lvMax?: number; t
 const floorInfos: FloorInfo[] = [];
 for (const f of MAIN_DUNGEON.floors) {
   const exps: number[] = [];
-  for (const name of f.enemies) {
-    const m = MONSTERS[name];
+  for (const e of f.enemies) {
+    const m = MONSTERS[e.key];
     if (m) exps.push(m.exp);
   }
   floorInfos.push({

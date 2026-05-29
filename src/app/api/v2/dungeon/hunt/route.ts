@@ -50,7 +50,7 @@ import {
   type EjectedFrom,
   type LastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
-import type { DungeonFloorId } from "@/adventure/data/v2/types";
+import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
@@ -76,7 +76,9 @@ function isValidFloor(n: number): n is DungeonFloorId {
   return (VALID_FLOORS as readonly number[]).includes(n);
 }
 
-function pickRandomEnemy(enemies: readonly string[]): string | null {
+function pickRandomEnemy(
+  enemies: readonly DungeonEnemy[],
+): DungeonEnemy | null {
   if (enemies.length === 0) return null;
   return enemies[Math.floor(Math.random() * enemies.length)];
 }
@@ -272,8 +274,8 @@ export async function POST(req: Request) {
       };
     }
 
-    const enemyName = pickRandomEnemy(floorData.enemies);
-    if (!enemyName) {
+    const enemy = pickRandomEnemy(floorData.enemies);
+    if (!enemy) {
       return {
         ok: false as const,
         status: 400,
@@ -284,7 +286,7 @@ export async function POST(req: Request) {
         },
       };
     }
-    const baseMonster = MONSTERS[enemyName];
+    const baseMonster = MONSTERS[enemy.key];
     if (!baseMonster) {
       return {
         ok: false as const,
@@ -296,8 +298,13 @@ export async function POST(req: Request) {
         },
       };
     }
-    // 층별 multiplier 적용 — hp/atk/def/exp 만, skill/drops 는 베이스 그대로.
-    const enemyMonster = scaleMonsterForFloor(baseMonster, floor);
+    // 구역 multiplier 적용 (hp/atk/def/exp). 표시 이름은 사냥터 고유 이름으로 덮어쓴다 —
+    // spread 로 새 객체를 만들어 라이브 MONSTERS 원본을 mutate 하지 않는다.
+    const enemyName = enemy.name;
+    const enemyMonster = {
+      ...scaleMonsterForFloor(baseMonster, floor),
+      name: enemyName,
+    };
 
     // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
     const profileRow = await tx

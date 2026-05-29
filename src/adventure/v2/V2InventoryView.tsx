@@ -325,7 +325,7 @@ function MaterialList({
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
         title="보유한 재료가 없습니다"
-        message="거점에서 던전 사냥을 하면 모입니다."
+        message="거점 사냥터에서 사냥하면 모입니다."
       />
     );
   }
@@ -386,7 +386,7 @@ function EquipmentList({
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
         title="보유한 장비가 없습니다"
-        message="상점에서 구매하거나 던전 드랍으로 모입니다."
+        message="상점에서 구매하거나 사냥터 드랍으로 모입니다."
       />
     );
   }

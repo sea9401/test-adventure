@@ -29,8 +29,8 @@ export function V2BattleHome({
           icon={
             <Sword size={28} weight="duotone" className="text-rose-500" />
           }
-          title="던전"
-          description="현재 거점의 8 층 던전. 층을 선택해 입장."
+          title="사냥터"
+          description="현재 거점의 사냥터. 구역을 선택해 입장."
           onClick={() => onAction({ kind: "open-dungeons" })}
         />
         <EntryCard

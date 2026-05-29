@@ -101,7 +101,9 @@ export function useDungeonHunt({
         const errLabel =
           err === "policy_blocked"
             ? "policy_blocked (점령 길드가 자길드 멤버에게만 개방 중)"
-            : err;
+            : err === "hp_zero"
+              ? "체력이 0입니다 — 잠시 회복을 기다린 뒤 다시 시도하세요 (스태미너 미소모)"
+              : err;
         const after = json.stamina
           ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`
           : "";

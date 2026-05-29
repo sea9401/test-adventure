@@ -38,6 +38,21 @@ describe("v2Skills 카탈로그", () => {
       new Set(["str", "dex", "vit", "spd", "luk", "int"]),
     );
   });
+
+  it("마법 탄(tier1 학습형 INT) — magic 스케일·학습형·스타터 아님·int 요구", () => {
+    const bolt = V2_SKILLS.int_magic_bolt_t1;
+    expect(bolt.stat).toBe("int");
+    expect(bolt.tier).toBe(1);
+    expect(bolt.category).toBe("attack");
+    // magic 스케일 damage effect (magicAtk 로 침)
+    const dmg = bolt.effects.find((e) => e.kind === "damage");
+    expect(dmg).toBeDefined();
+    expect(dmg?.kind === "damage" && dmg.scaling).toBe("magic");
+    // 스타터 아님 — 비-INT 빌드 자동지급 방지. 학습형 + int 요구치로 게이트.
+    expect(V2_STARTER_SKILL_IDS).not.toContain("int_magic_bolt_t1");
+    expect(bolt.learn).toBeDefined();
+    expect(bolt.learn?.stat?.key).toBe("int");
+  });
 });
 
 describe("v2SkillSlotsForLevel", () => {

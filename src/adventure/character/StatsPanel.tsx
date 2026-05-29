@@ -9,8 +9,8 @@ export function StatsPanel({
   stats: Record<StatKey, number>;
   /** 베이스 + 분배 + 장비 합산된 최종 스탯. 미지정 시 stats 와 동일 (장비 보너스 표시 X). */
   totalStats?: Record<StatKey, number>;
-  /** 전투력 — 공격력/방어력. 지정 시 능력치 위에 별도 섹션으로 표시. */
-  combat?: { atk: number; def: number };
+  /** 전투력 — 공격력/방어력. magicAtk(마법 공격력)은 v2 INT 빌드만, 0/미지정이면 숨김. */
+  combat?: { atk: number; def: number; magicAtk?: number };
 }) {
   const total = totalStats ?? stats;
   return (
@@ -23,6 +23,14 @@ export function StatsPanel({
           <div className="mt-2 grid grid-cols-2 gap-2">
             <CombatStat label="공격력" value={combat.atk} accent="text-rose-600 dark:text-rose-400" />
             <CombatStat label="방어력" value={combat.def} accent="text-sky-600 dark:text-sky-400" />
+            {/* 마법 공격력 — INT 환산. 마법 빌드(INT>0)만 노출, 물리 빌드는 0이라 숨김. */}
+            {combat.magicAtk ? (
+              <CombatStat
+                label="마법 공격력"
+                value={combat.magicAtk}
+                accent="text-indigo-600 dark:text-indigo-400"
+              />
+            ) : null}
           </div>
         </div>
       )}

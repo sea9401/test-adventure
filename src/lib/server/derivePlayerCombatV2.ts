@@ -151,6 +151,13 @@ const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 const ATK_PER_DEX = 0.06; // PR-T4: 0.04 → 0.06. Lv75 DEX atk +9 (446×0.02)
 const ATK_PER_SPD = 0.06;
 const ATK_PER_LUK = 0.04;
+// PR-magic — 마법 공격력(magicAtk = INT 환산). 물리 atk(str×0.2)와 분리된 별도 데미지 풀.
+// scaling="magic" 스킬(비전 화살·마력 폭발)만 이 값으로 스케일한다(combatShared.v2DamageAmount).
+// 마법 빌드는 평타가 약한(물리 atk ~7) 대신 스킬 coef 프리미엄(1.5/1.7)으로 버는 구조라
+// STR(0.2)보다 높게 둔다. 0.35 — sim-v2-progression --skills 캘리브: INT wr Lv25 82%·
+// Lv50 83%(STR 동률, winT 7.3 버스트형)로 pack 상중위. INT 0 빌드는 magicAtk 0 → 비활성.
+// 알려진 공백: Lv18 전엔 마법 공격 스킬(비전 화살)이 없어 INT 초반이 약함(상수 무관, 후속).
+const MAGIC_ATK_PER_INT = 0.35;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 
@@ -216,6 +223,10 @@ export function derivePlayerCombatV2Pure(
       equipAcc.atk,
   );
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
+  // PR-magic — 마법 공격력. scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
+  // INT 0(라이브·STR/DEX 빌드) → 0 → 마법 데미지 경로 자동 비활성. 장비 atk 는 물리 전용이라
+  // 합산하지 않는다(지팡이 atk 는 평타·물리 스킬용). 미래 '마법 장비 atk' 필요 시 별도 키.
+  const magicAtk = Math.floor(totalStats.int * MAGIC_ATK_PER_INT);
   // PR-base-hp: V2_BASE_HP(135) + 레벨당 V2_HP_PER_LEVEL(5) + vit×HP_PER_VIT + 장비 hp.
   // Lv1 vit 15 신캐 = 135 + 0 + 15 + 0 = 150. 라이브 baseCharacter.maxHp(97) 분리.
   const maxHp = Math.floor(
@@ -260,6 +271,7 @@ export function derivePlayerCombatV2Pure(
     maxMp,
     intStat: totalStats.int,
     atk,
+    magicAtk,
     def,
     spd,
     evasionPct,

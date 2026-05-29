@@ -133,6 +133,39 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 });
 
+describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
+  it("INT 0 빌드 → magicAtk 0 (마법 경로 비활성)", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 245, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 },
+      v2Equipped: {},
+    });
+    expect(d.totalStats.int).toBe(0);
+    expect(d.player.magicAtk).toBe(0);
+  });
+
+  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.35)", () => {
+    // 베이스 int 0 + 할당 100 = 100. magicAtk = floor(100 × 0.35) = 35.
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 100 },
+      v2Equipped: {},
+    });
+    expect(d.totalStats.int).toBe(100);
+    expect(d.player.magicAtk).toBe(35);
+  });
+
+  it("지팡이 int 도 magicAtk 에 합산 (장비 6스탯 경로)", () => {
+    // 별빛 지팡이 T5: int 47. magicAtk = floor(47 × 0.35) = 16.
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_starlit_staff" },
+    });
+    expect(d.totalStats.int).toBe(47);
+    expect(d.player.magicAtk).toBe(Math.floor(47 * 0.35));
+  });
+});
+
 describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
   it("Lv1 신캐 (빈 장비, vit 15) → maxHp = V2_BASE_HP + vit = 135 + 15 = 150", () => {
     const d = derivePlayerCombatV2Pure({

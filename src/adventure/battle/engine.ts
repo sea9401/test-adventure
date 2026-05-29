@@ -280,6 +280,9 @@ export type PlayerCombat = {
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
   atk: number;
+  // v2 마법 공격력(magicAtk = INT 환산). scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
+  // 0/undefined(라이브·STR/DEX 빌드·적) = 마법 경로 비활성, v2DamageAmount 가 atk 로 폴백.
+  magicAtk?: number;
   def: number;
   spd: number; // 선공 판정에 사용
   evasionPct: number; // 0~100, 적 공격 회피 확률
@@ -2952,6 +2955,7 @@ export function resolveBattle(
           attacker: {
             mp: state.playerMp,
             atk: player.atk,
+            magicAtk: player.magicAtk ?? player.atk,
             maxHp: state.playerMaxHp,
             selfBuffs: tickedSelfBuffs,
             selfDebuffs: tickedSelfDebuffs,

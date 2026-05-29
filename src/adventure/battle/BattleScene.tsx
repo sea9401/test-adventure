@@ -88,8 +88,17 @@ const FLASH_CLASS =
 
 // 전투 로그 렌더링은 BattleLogList 에 분리 — RecentLogView / CoopBossCard 와 공유.
 
-function EnemyAvatar({ name, hp }: { name: string; hp: number }) {
-  const image = MONSTERS[name]?.image;
+function EnemyAvatar({
+  name,
+  hp,
+  image: imageOverride,
+}: {
+  name: string;
+  hp: number;
+  // 명시 초상화(v2 사냥터) 우선, 없으면 라이브 MONSTERS 카탈로그에서 이름으로 조회.
+  image?: string;
+}) {
+  const image = imageOverride ?? MONSTERS[name]?.image;
   const flash = useDamageFlash(hp);
   const ringClass = flash ? ` ${FLASH_CLASS}` : "";
   if (!image) {
@@ -176,7 +185,11 @@ export function BattleScene({
     <div className="space-y-4">
       <Card padding="lg">
         <div className="flex items-center gap-4">
-          <EnemyAvatar name={state.enemy.name} hp={state.enemyHp} />
+          <EnemyAvatar
+            name={state.enemy.name}
+            hp={state.enemyHp}
+            image={state.enemy.image}
+          />
           <div className="flex-1">
             <HpBar
               label={state.enemy.name}

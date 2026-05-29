@@ -607,11 +607,11 @@ export function parseEquipmentSave(raw: unknown): {
 } {
   const v = (raw ?? {}) as EquipmentSave;
   const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
+  // 같은 id 중복 허용 — 배열 등장 횟수 = 보유 카운트. seen 은 equipped 유효성 검증용만.
   const owned: V2EquipmentId[] = [];
   const seen = new Set<string>();
   for (const id of ownedRaw) {
     if (typeof id !== "string" || !VALID_IDS.has(id)) continue;
-    if (seen.has(id)) continue;
     seen.add(id);
     owned.push(id as V2EquipmentId);
   }

@@ -28,6 +28,11 @@ import type { Gender } from "@/adventure/profile/avatars";
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
 
+// 사냥 버튼이 한 번에 처리할 횟수. 전투 설정에서 고르면 메인 사냥 버튼이 이 값을 반영한다.
+// 1 이면 단판(hunt), 5/10 이면 일괄(runBatch).
+const HUNT_COUNTS = [1, 5, 10] as const;
+type HuntCount = (typeof HUNT_COUNTS)[number];
+
 export function V2DungeonFloorView({
   floorId,
   outpostId,
@@ -61,6 +66,8 @@ export function V2DungeonFloorView({
     total: number;
   } | null>(null);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
+  const [huntCount, setHuntCount] = useState<HuntCount>(1);
 
   const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
 
@@ -180,7 +187,8 @@ export function V2DungeonFloorView({
             type="button"
             onClick={() => {
               setBatchSummary(null);
-              void hunt(floor.id);
+              if (huntCount === 1) void hunt(floor.id);
+              else void runBatch(huntCount);
             }}
             disabled={oneActionDisabled || lowStamina}
             className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
@@ -189,7 +197,9 @@ export function V2DungeonFloorView({
               ? `${batchProgress.done}/${batchProgress.total} 처리 중…`
               : busy
                 ? "사냥 중…"
-                : "사냥 (스태미너 1)"}
+                : huntCount === 1
+                  ? "사냥 (스태미너 1)"
+                  : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
           <button
             type="button"
@@ -203,24 +213,29 @@ export function V2DungeonFloorView({
         </div>
         {settingsOpen && (
           <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">일괄 사냥</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              사냥 횟수 — 고른 만큼 사냥 버튼이 한 번에 처리합니다.
+            </p>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void runBatch(5)}
-                disabled={oneActionDisabled || lowStamina}
-                className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
-              >
-                5회 일괄
-              </button>
-              <button
-                type="button"
-                onClick={() => void runBatch(10)}
-                disabled={oneActionDisabled || lowStamina}
-                className="flex-1 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
-              >
-                10회 일괄
-              </button>
+              {HUNT_COUNTS.map((n) => {
+                const selected = huntCount === n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setHuntCount(n)}
+                    aria-pressed={selected}
+                    disabled={batchRunning}
+                    className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-50 ${
+                      selected
+                        ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900/60 dark:text-emerald-100"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {n}회
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

@@ -195,11 +195,15 @@ describe("parseEquipmentSave", () => {
     expect(parseEquipmentSave(undefined)).toEqual({ owned: [], equipped: {} });
   });
 
-  it("owned 의 중복은 한 번만 남는다", () => {
+  it("owned 의 중복은 보존된다 (등장 횟수 = 보유 카운트)", () => {
     const r = parseEquipmentSave({
       owned: ["v2_iron_sword", "v2_iron_sword", "v2_leather_armor"],
     });
-    expect(r.owned).toEqual(["v2_iron_sword", "v2_leather_armor"]);
+    expect(r.owned).toEqual([
+      "v2_iron_sword",
+      "v2_iron_sword",
+      "v2_leather_armor",
+    ]);
   });
 
   it("owned 의 알 수 없는 id 는 제거", () => {

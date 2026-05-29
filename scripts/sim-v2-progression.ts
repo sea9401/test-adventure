@@ -138,8 +138,8 @@ function floorMonsters(floor: 1 | 2 | 3 | 4 | 5): Monster[] {
   const f = MAIN_DUNGEON.floors.find((x) => x.id === floor);
   if (!f) return [];
   const out: Monster[] = [];
-  for (const name of f.enemies) {
-    const base = MONSTERS[name];
+  for (const e of f.enemies) {
+    const base = MONSTERS[e.key];
     if (base) out.push(scaleMonsterForFloor(base, floor));
   }
   return out;

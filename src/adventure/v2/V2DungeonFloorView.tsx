@@ -142,7 +142,7 @@ export function V2DungeonFloorView({
           ← 전투로
         </button>
         <div className="text-sm text-rose-600 dark:text-rose-400">
-          알 수 없는 층입니다.
+          알 수 없는 구역입니다.
         </div>
       </main>
     );
@@ -244,7 +244,7 @@ export function V2DungeonFloorView({
                 에서 STR/DEX/VIT/SPD/LUK/INT 에 분배할 수 있어요.
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                계속 사냥해 다음 층 입장 레벨까지 도달해보세요.
+                계속 사냥해 다음 구역 입장 레벨까지 도달해보세요.
               </p>
             </>
           }

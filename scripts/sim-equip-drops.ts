@@ -122,7 +122,7 @@ function simBattle(
   };
   for (let i = 0; i < trials; i++) {
     const player = deriveLoadout(tier);
-    const enemyName = pickRandomEnemy(floorData.enemies);
+    const enemyName = pickRandomEnemy(floorData.enemies.map((e) => e.key));
     const base = MONSTERS[enemyName];
     if (!base) continue;
     const enemy = scaleMonsterForFloor(base, floor);

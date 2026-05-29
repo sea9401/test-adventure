@@ -6,8 +6,11 @@ import { MONSTERS } from "../monsters";
 describe("v2 dungeon", () => {
   it("모든 enemy 이름이 라이브 MONSTERS 에 존재", () => {
     for (const floor of MAIN_DUNGEON.floors) {
-      for (const name of floor.enemies) {
-        expect(MONSTERS[name], `${floor.name} 의 ${name} 가 MONSTERS 에 없음`).toBeDefined();
+      for (const enemy of floor.enemies) {
+        expect(
+          MONSTERS[enemy.key],
+          `${floor.name} 의 ${enemy.key} 가 MONSTERS 에 없음`,
+        ).toBeDefined();
       }
     }
   });
@@ -26,13 +29,13 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("6~8층 enemy 풀이 서로 겹치지 않음 (이름 → multiplier 일관)", () => {
-    const f6 = new Set(MAIN_DUNGEON.floors[5].enemies);
-    const f7 = new Set(MAIN_DUNGEON.floors[6].enemies);
-    const f8 = new Set(MAIN_DUNGEON.floors[7].enemies);
-    for (const n of f6) expect(f7.has(n), `6·7층 겹침: ${n}`).toBe(false);
-    for (const n of f6) expect(f8.has(n), `6·8층 겹침: ${n}`).toBe(false);
-    for (const n of f7) expect(f8.has(n), `7·8층 겹침: ${n}`).toBe(false);
+  it("6~8구역 enemy 풀(스탯 출처)이 서로 겹치지 않음 (출처 → multiplier 일관)", () => {
+    const f6 = new Set(MAIN_DUNGEON.floors[5].enemies.map((e) => e.key));
+    const f7 = new Set(MAIN_DUNGEON.floors[6].enemies.map((e) => e.key));
+    const f8 = new Set(MAIN_DUNGEON.floors[7].enemies.map((e) => e.key));
+    for (const n of f6) expect(f7.has(n), `6·7 겹침: ${n}`).toBe(false);
+    for (const n of f6) expect(f8.has(n), `6·8 겹침: ${n}`).toBe(false);
+    for (const n of f7) expect(f8.has(n), `7·8 겹침: ${n}`).toBe(false);
   });
 
   it("FLOOR_DIFFICULTY 가 단조 비감소 (깊을수록 어려움)", () => {

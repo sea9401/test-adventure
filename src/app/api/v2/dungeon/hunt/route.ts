@@ -327,6 +327,20 @@ export async function POST(req: Request) {
     );
     const playerForBattle = { ...player.player, hp: regenResult.hp };
 
+    // 체력 0(사망) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로 회복 대기.
+    // 시간 경과로 hp 가 0 위로 회복되면 다시 사냥 가능. 일괄사냥의 death-stop 가드와 같은 의도.
+    if (regenResult.hp <= 0) {
+      return {
+        ok: false as const,
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "hp_zero" as const,
+          stamina: applyRegen(stamina, now),
+        },
+      };
+    }
+
     // PR-4b — 플레이어의 v2 스킬 (learned/equipped) 을 lock 해서 read. cast hook 이 사용.
     const skillsRaw = await lockSaveForUpdate(
       tx,

@@ -12,6 +12,10 @@ import type {
   OutpostType,
   OutpostTier,
 } from "@/adventure/data/v2/types";
+import type {
+  V2EquipmentId,
+  V2EquipSlot,
+} from "@/adventure/data/v2/v2Equipment";
 
 // 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
@@ -79,14 +83,28 @@ export function V2AdventureHome({
   onEnterOutpost: (outpost: Outpost) => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
+  // 모험 탭 간략 카드에 장착 장비를 표시 — me/state 는 장비를 안 담으므로 별도 fetch.
+  const [equipped, setEquipped] = useState<
+    Partial<Record<V2EquipSlot, V2EquipmentId>>
+  >({});
   const [claiming, setClaiming] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/v2/me/state");
-      const j = (await res.json().catch(() => null)) as StateResponse | null;
+      const [stateRes, equipRes] = await Promise.all([
+        fetch("/api/v2/me/state"),
+        // 장비는 부가 표시 — fetch 자체가 실패해도 카드 본체 렌더를 막지 않게 흡수.
+        fetch("/api/v2/me/equipment").catch(() => null),
+      ]);
+      const j = (await stateRes.json().catch(() => null)) as StateResponse | null;
       setState(j ?? { ok: false });
+      if (equipRes && equipRes.ok) {
+        const ej = (await equipRes.json().catch(() => null)) as {
+          equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+        } | null;
+        setEquipped(ej?.equipped ?? {});
+      }
     } catch {
       setState({ ok: false });
     }
@@ -154,6 +172,7 @@ export function V2AdventureHome({
             character={state.character}
             guild={state.guild ?? null}
             showGold={false}
+            equipped={equipped}
           />
         )}
 

@@ -29,8 +29,43 @@ import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
-import type { DungeonFloorId, Outpost } from "@/adventure/data/v2/types";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import type {
+  DungeonFloorId,
+  Outpost,
+  OutpostType,
+} from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
+
+// 현 위치 거점의 종류 → 탭 배경 이미지. id 로 type 을 역참조.
+const OUTPOST_TYPE_BY_ID = new Map<string, OutpostType>(
+  OUTPOSTS.map((o) => [o.id, o.type]),
+);
+// 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드는 추후 별도 이미지 예정.
+const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
+
+// 현 위치 거점 종류별 배경. ui/{type}.webp 가 있으면 사용, 없으면(아직 미발주) village 로 폴백.
+// 경로를 템플릿으로 둬서 check-images 누락 검사에 안 걸린다(파일 없어도 빌드 OK).
+// 런타임에 404 면 onError 로 village 로 교체. type 이 바뀌면 부모가 key 로 remount → errored 리셋.
+function OutpostBackground({ type }: { type: OutpostType }) {
+  const [errored, setErrored] = useState(false);
+  const src = errored ? "/images/ui/village.webp" : `/images/ui/${type}.webp`;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        onError={() => setErrored(true)}
+        className="h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
+    </div>
+  );
+}
 
 // v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·길드) 기반 nav.
 // 모험: placeholder
@@ -268,24 +303,17 @@ export function V2GameFlow() {
   };
 
   const currentTab = tabOfView(view);
+  // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
+  const currentOutpostType: OutpostType = currentOutpost
+    ? (OUTPOST_TYPE_BY_ID.get(currentOutpost.id) ?? "village")
+    : "village";
 
   return (
     <div>
       <V2TopBar currentOutpost={currentOutpost} />
-      {/* 모험 탭 배경 — 라이브 RegionBackground 와 동일한 오버레이 강도. */}
-      {currentTab === "adventure" && (
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/images/ui/village.webp"
-            alt=""
-            className="h-full w-full object-cover"
-          />
-          <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
-        </div>
+      {/* 탭 배경 — 현 위치 거점 종류별 이미지 (모험/마을/캐릭터). 전투·길드는 추후. */}
+      {BG_TABS.has(currentTab) && (
+        <OutpostBackground key={currentOutpostType} type={currentOutpostType} />
       )}
       <div>
         <TabBar

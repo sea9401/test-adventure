@@ -75,9 +75,6 @@ export function V2ItemCard({
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {item.name}
             </h2>
-            <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              T{item.tier}
-            </span>
           </div>
           <button
             type="button"

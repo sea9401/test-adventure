@@ -19,7 +19,6 @@ import {
   type V2Equipment,
   type V2EquipmentId,
   type V2EquipSlot,
-  type V2EquipTier,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
@@ -51,20 +50,6 @@ const EQUIP_SLOTS: {
   },
 ];
 
-const TIER_STRIPE: Record<V2EquipTier, string> = {
-  1: "bg-zinc-300 dark:bg-zinc-700",
-  2: "bg-emerald-400 dark:bg-emerald-600",
-  3: "bg-amber-400 dark:bg-amber-500",
-  4: "bg-rose-400 dark:bg-rose-500",
-  5: "bg-violet-400 dark:bg-violet-500",
-};
-const TIER_BADGE: Record<V2EquipTier, string> = {
-  1: "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  2: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
-  3: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
-  4: "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300",
-  5: "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300",
-};
 
 function buildCountMap(owned: V2EquipmentId[]): Map<V2EquipmentId, number> {
   const m = new Map<V2EquipmentId, number>();
@@ -447,18 +432,9 @@ function EquipmentRow({
         onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
         className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
       >
-        <span
-          aria-hidden
-          className={`h-5 w-1 shrink-0 rounded-sm ${TIER_STRIPE[item.tier]}`}
-        />
         <div className="flex min-w-0 items-baseline gap-1.5">
           <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             {item.name}
-          </span>
-          <span
-            className={`shrink-0 rounded px-1 py-px text-[9px] font-semibold ${TIER_BADGE[item.tier]}`}
-          >
-            T{item.tier}
           </span>
           <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             ×{count}

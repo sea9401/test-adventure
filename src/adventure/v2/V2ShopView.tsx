@@ -186,23 +186,33 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         size="sm"
       />
 
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {ids.map((id) => (
-          <EquipmentCard
-            key={id}
-            id={id}
-            owned={owned.has(id)}
-            gold={gold}
-            busy={busy === id}
-            onBuy={buy}
-          />
-        ))}
+      <section>
+        <div
+          aria-hidden
+          className="grid grid-cols-[1fr_auto_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 sm:grid-cols-[1fr_2fr_auto]"
+        >
+          <span>이름</span>
+          <span className="hidden sm:block">옵션</span>
+          <span className="text-right">가격</span>
+        </div>
+        <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          {ids.map((id) => (
+            <EquipmentRow
+              key={id}
+              id={id}
+              owned={owned.has(id)}
+              gold={gold}
+              busy={busy === id}
+              onBuy={buy}
+            />
+          ))}
+        </ul>
       </section>
     </main>
   );
 }
 
-function EquipmentCard({
+function EquipmentRow({
   id,
   owned,
   gold,
@@ -221,59 +231,69 @@ function EquipmentCard({
   const stats = statEntries(item.stats);
   const conceptLabel = CONCEPT_LABEL[item.concept] ?? item.concept;
   return (
-    <article
-      className={`flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900 ${
-        owned ? "opacity-60" : ""
+    <li
+      className={`grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-1 px-2 py-2 sm:grid-cols-[1fr_2fr_auto] ${
+        owned ? "opacity-50" : ""
       }`}
     >
-      <div className={`h-1 w-full ${TIER_STRIPE[item.tier]}`} aria-hidden />
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <h3 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
-            {item.name}
-          </h3>
-          <span
-            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${TIER_BADGE[item.tier]}`}
-          >
-            T{item.tier}
+      {/* 좌측 — 티어 stripe + 이름 + 컨셉 */}
+      <div className="flex min-w-0 items-center gap-2">
+        <span
+          aria-hidden
+          className={`h-5 w-1 shrink-0 rounded-sm ${TIER_STRIPE[item.tier]}`}
+        />
+        <div className="flex min-w-0 flex-col">
+          <div className="flex items-baseline gap-1.5">
+            <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+              {item.name}
+            </span>
+            <span
+              className={`shrink-0 rounded px-1 py-px text-[9px] font-semibold ${TIER_BADGE[item.tier]}`}
+            >
+              T{item.tier}
+            </span>
+          </div>
+          <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+            {conceptLabel}
           </span>
         </div>
-        <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-          {conceptLabel}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {stats.length === 0 ? (
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">
-              옵션 없음
-            </span>
-          ) : (
-            stats.map((s) => (
-              <span
-                key={s}
-                className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-              >
-                {s}
-              </span>
-            ))
-          )}
-        </div>
-        <div className="mt-auto pt-1">
-          {owned ? (
-            <div className="rounded-md border border-zinc-200 px-3 py-1.5 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-              이미 보유 중
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => onBuy(id)}
-              disabled={busy || !affordable}
-              className="w-full rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40"
-            >
-              {busy ? "구매 중…" : `${price.toLocaleString()} G`}
-            </button>
-          )}
-        </div>
       </div>
-    </article>
+
+      {/* 옵션 — 모바일은 row 아래로 wrap, sm 이상은 가운데 컬럼 */}
+      <div className="col-span-3 flex flex-wrap gap-1 sm:col-span-1 sm:col-start-2">
+        {stats.length === 0 ? (
+          <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+            옵션 없음
+          </span>
+        ) : (
+          stats.map((s) => (
+            <span
+              key={s}
+              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+            >
+              {s}
+            </span>
+          ))
+        )}
+      </div>
+
+      {/* 우측 — 가격/구매 버튼 또는 보유 배지 */}
+      <div className="col-start-2 row-start-1 justify-self-end sm:col-start-3">
+        {owned ? (
+          <span className="rounded bg-zinc-200 px-2 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+            보유
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onBuy(id)}
+            disabled={busy || !affordable}
+            className="rounded-md border border-amber-400 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40"
+          >
+            {busy ? "구매 중…" : `${price.toLocaleString()} G`}
+          </button>
+        )}
+      </div>
+    </li>
   );
 }

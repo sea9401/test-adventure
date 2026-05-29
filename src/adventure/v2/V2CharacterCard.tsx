@@ -17,7 +17,7 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { V2ItemCard } from "./V2ItemCard";
+import { V2ItemCard, type ItemCardAnchor } from "./V2ItemCard";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 3슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -89,8 +89,11 @@ export function V2CharacterCard({
   const maxMp = character.maxMp ?? 0;
   const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
 
-  // 장착 슬롯 클릭 시 띄울 아이템 — null 이면 팝업 닫힘.
-  const [selected, setSelected] = useState<V2Equipment | null>(null);
+  // 장착 슬롯 클릭 시 띄울 아이템 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
+  const [selected, setSelected] = useState<{
+    item: V2Equipment;
+    anchor: ItemCardAnchor;
+  } | null>(null);
 
   return (
     <Card padding="md">
@@ -161,7 +164,13 @@ export function V2CharacterCard({
               <button
                 key={slot}
                 type="button"
-                onClick={() => setSelected(item)}
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  setSelected({
+                    item,
+                    anchor: { top: r.top, bottom: r.bottom, left: r.left },
+                  });
+                }}
                 className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
               >
                 {inner}
@@ -175,7 +184,11 @@ export function V2CharacterCard({
         </div>
       )}
       {selected && (
-        <V2ItemCard item={selected} onClose={() => setSelected(null)} />
+        <V2ItemCard
+          item={selected.item}
+          anchor={selected.anchor}
+          onClose={() => setSelected(null)}
+        />
       )}
     </Card>
   );

@@ -9,6 +9,7 @@ import {
   type CharacterAction,
 } from "@/adventure/v2/V2CharacterMenu";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
+import { V2CodexView } from "@/adventure/v2/V2CodexView";
 import { V2SkillEquipPanel } from "@/adventure/v2/V2SkillEquipPanel";
 import { V2InstructorView } from "@/adventure/v2/V2InstructorView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
@@ -114,6 +115,7 @@ type View =
   | { kind: "character-info" }
   | { kind: "inventory" }
   | { kind: "skills" }
+  | { kind: "codex" }
   | { kind: "guild" }
   | { kind: "map" }
   | { kind: "outpost"; outpost: Outpost };
@@ -143,6 +145,7 @@ function tabOfView(view: View): TabId {
     case "character-info":
     case "inventory":
     case "skills":
+    case "codex":
       return "character";
     case "guild":
       return "guild";
@@ -433,6 +436,9 @@ export function V2GameFlow() {
               case "open-skills":
                 setView({ kind: "skills" });
                 break;
+              case "open-codex":
+                setView({ kind: "codex" });
+                break;
             }
           }}
         />
@@ -445,6 +451,9 @@ export function V2GameFlow() {
       )}
       {view.kind === "skills" && (
         <V2SkillEquipPanel onBack={() => setView({ kind: "character" })} />
+      )}
+      {view.kind === "codex" && (
+        <V2CodexView onBack={() => setView({ kind: "character" })} />
       )}
       {view.kind === "instructors" && (
         <V2InstructorView onBack={() => setView({ kind: "town" })} />

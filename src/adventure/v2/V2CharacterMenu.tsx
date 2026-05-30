@@ -1,15 +1,16 @@
 "use client";
 
-import { Backpack, Sparkle, UserCircle } from "@phosphor-icons/react";
+import { Backpack, BookOpen, Sparkle, UserCircle } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
-// 캐릭터 탭 default — 3 진입(내 정보 / 인벤토리 / 스킬). 마을과 같은 EntryCard 패턴.
-// 장비 장착/해제는 인벤토리 안에서 처리.
+// 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
+// 장비 장착/해제는 인벤토리 안에서 처리. 모험의 서는 도감(우선 재료) — 맨 아래에 둔다.
 
 export type CharacterAction =
   | { kind: "open-info" }
   | { kind: "open-inventory" }
-  | { kind: "open-skills" };
+  | { kind: "open-skills" }
+  | { kind: "open-codex" };
 
 export function V2CharacterMenu({
   onAction,
@@ -45,6 +46,14 @@ export function V2CharacterMenu({
           title="스킬"
           description="습득 스킬·전투 슬롯."
           onClick={() => onAction({ kind: "open-skills" })}
+        />
+        <EntryCard
+          icon={
+            <BookOpen size={28} weight="duotone" className="text-sky-500" />
+          }
+          title="모험의 서"
+          description="재료 도감 — 구역별 드랍."
+          onClick={() => onAction({ kind: "open-codex" })}
         />
       </div>
     </main>

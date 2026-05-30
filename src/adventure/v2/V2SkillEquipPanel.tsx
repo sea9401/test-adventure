@@ -142,7 +142,7 @@ export function V2SkillEquipPanel({ onBack }: { onBack: () => void }) {
       </header>
 
       {error && (
-        <div className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+        <div className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200">
           {error}
         </div>
       )}

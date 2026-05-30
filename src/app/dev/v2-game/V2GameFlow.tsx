@@ -327,7 +327,7 @@ export function V2GameFlow() {
           active={currentTab}
           onChange={handleTabSelect}
           ariaLabel="메인 탭"
-          size="sm"
+          size="lg"
           variant="highlight"
           className="mx-auto w-full max-w-[720px] px-4 sm:px-6"
         />

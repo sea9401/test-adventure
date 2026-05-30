@@ -352,7 +352,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
             type="button"
             onClick={resetMe}
             disabled={busy}
-            className="rounded border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+            className="rounded border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
           >
             내 데이터 초기화 (캐릭·장비·재료·길드 자원 wipe)
           </button>

@@ -117,7 +117,7 @@ export function V2InstructorModal({
         </div>
 
         {error && (
-          <div className="mt-3 rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+          <div className="mt-3 rounded-md border border-rose-300 bg-rose-50 px-2 py-1.5 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200">
             {error}
           </div>
         )}
@@ -204,7 +204,7 @@ function SkillRow({
               T{def.tier}
             </span>
             {owned && (
-              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+              <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200">
                 보유
               </span>
             )}

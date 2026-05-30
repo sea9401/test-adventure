@@ -66,7 +66,7 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
   return (
     <Card padding="sm">
       {dropBannerText && (
-        <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
           {dropBannerText}
         </div>
       )}

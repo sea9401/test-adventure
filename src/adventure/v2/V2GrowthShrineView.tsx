@@ -172,7 +172,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
               return (
                 <li
                   key={k}
-                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50/50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"
+                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   <div className="flex min-w-0 items-baseline gap-2">
                     <span className="text-sm font-semibold uppercase">
@@ -268,8 +268,8 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${
             msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
           }`}
         >
           {msg}

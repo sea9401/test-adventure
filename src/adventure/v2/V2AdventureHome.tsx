@@ -191,7 +191,7 @@ export function V2AdventureHome({
                 {TYPE_LABEL[outpost.type]} · {TIER_LABEL[outpost.tier]}
               </span>
               {outpost.neutral && (
-                <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                <span className="rounded bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
                   중립
                 </span>
               )}

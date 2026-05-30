@@ -23,6 +23,7 @@ describe("aggregateV2Equipment", () => {
       luk: 0,
       int: 0,
       atk: 0,
+      matk: 0,
       def: 0,
       crit: 0,
       mp: 0,
@@ -31,16 +32,16 @@ describe("aggregateV2Equipment", () => {
     });
   });
 
-  it("철검 T1 (atk 주력 재배치) → atk=2 str=3 나머지 0", () => {
+  it("철검 T1 (atk 헤드라인 + str token) → atk=3 str=2 나머지 0", () => {
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.atk).toBe(2);
-    expect(a.str).toBe(3);
+    expect(a.atk).toBe(3);
+    expect(a.str).toBe(2);
     expect(a.dex).toBe(0);
     expect(a.crit).toBe(0);
   });
 
-  it("3슬롯 풀세팅 — 모든 키 합산 (T1, rebal 1/3)", () => {
-    // 철검: atk+2 str+3 (atk 주력 재배치)
+  it("3슬롯 풀세팅 — 모든 키 합산 (T1)", () => {
+    // 철검: atk+3 str+2 (atk 헤드라인)
     // 쇠사슬 갑옷: vit+8 def+2 spd-2
     // 은가락지: luk+5
     const a = aggregateV2Equipment({
@@ -48,16 +49,16 @@ describe("aggregateV2Equipment", () => {
       armor: "v2_chain_mail",
       accessory: "v2_silver_ring",
     });
-    expect(a.str).toBe(3);
-    expect(a.atk).toBe(2);
+    expect(a.str).toBe(2);
+    expect(a.atk).toBe(3);
     expect(a.vit).toBe(8);
     expect(a.def).toBe(2);
     expect(a.spd).toBe(-2);
     expect(a.luk).toBe(5);
   });
 
-  it("추가 파생 (crit/mp/eva) 합산 — T5 풀, rebal 1/3", () => {
-    // 별노래궁 T5: dex+42 atk+5 crit+2
+  it("추가 파생 (crit/mp/eva/matk) 합산 — T5 풀", () => {
+    // 별노래궁 T5: atk+14 dex+4 crit+2 (atk 헤드라인 재배치)
     // 바람 망토 T5: dex+28 def+4 eva+3
     // 마나의 정수 T5: int+37 mp+30
     const a = aggregateV2Equipment({
@@ -65,8 +66,8 @@ describe("aggregateV2Equipment", () => {
       armor: "v2_windweave_cloak",
       accessory: "v2_mana_essence",
     });
-    expect(a.dex).toBe(42 + 28);
-    expect(a.atk).toBe(5);
+    expect(a.dex).toBe(4 + 28);
+    expect(a.atk).toBe(14);
     expect(a.crit).toBe(2);
     expect(a.def).toBe(4);
     expect(a.eva).toBe(3);
@@ -155,14 +156,27 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     expect(d.player.magicAtk).toBe(35);
   });
 
-  it("지팡이 int 도 magicAtk 에 합산 (장비 6스탯 경로)", () => {
-    // 별빛 지팡이 T5: int 47. magicAtk = floor(47 × 0.35) = 16.
+  it("지팡이 matk(헤드라인) + int token 둘 다 magicAtk 에 합산", () => {
+    // 별빛 지팡이 T5: matk 17(헤드라인) + int 8(token) + mp 36.
+    // magicAtk = floor(int 8 × 0.35) + matk 17 = 2 + 17 = 19.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starlit_staff" },
     });
-    expect(d.totalStats.int).toBe(47);
-    expect(d.player.magicAtk).toBe(Math.floor(47 * 0.35));
+    expect(d.totalStats.int).toBe(8);
+    expect(d.player.magicAtk).toBe(Math.floor(8 * 0.35) + 17);
+    expect(d.player.magicAtk).toBe(19);
+  });
+
+  it("장비 matk 는 INT 0 빌드(라이브·물리)면 magicAtk 에 그대로 — 하지만 마법스킬 없으면 무용", () => {
+    // 지팡이만 끼고 INT 0: magicAtk = floor(0×0.35) + matk. 물리 빌드는 마법스킬을 안 배워
+    // 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 },
+      v2Equipped: { weapon: "v2_oak_staff" }, // matk 5, int 3
+    });
+    expect(d.player.magicAtk).toBe(Math.floor(3 * 0.35) + 5); // 1 + 5 = 6
   });
 });
 

@@ -82,6 +82,7 @@ export type V2EquipAggregate = {
   int: number;
   // 파생 — derive 결과 후-가산
   atk: number;
+  matk: number;
   def: number;
   crit: number;
   mp: number;
@@ -97,6 +98,7 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   luk: 0,
   int: 0,
   atk: 0,
+  matk: 0,
   def: 0,
   crit: 0,
   mp: 0,
@@ -119,6 +121,7 @@ export function aggregateV2Equipment(
     acc.luk += s.luk ?? 0;
     acc.int += s.int ?? 0;
     acc.atk += s.atk ?? 0;
+    acc.matk += s.matk ?? 0;
     acc.def += s.def ?? 0;
     acc.crit += s.crit ?? 0;
     acc.mp += s.mp ?? 0;
@@ -224,9 +227,9 @@ export function derivePlayerCombatV2Pure(
   );
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
   // PR-magic — 마법 공격력. scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
-  // INT 0(라이브·STR/DEX 빌드) → 0 → 마법 데미지 경로 자동 비활성. 장비 atk 는 물리 전용이라
-  // 합산하지 않는다(지팡이 atk 는 평타·물리 스킬용). 미래 '마법 장비 atk' 필요 시 별도 키.
-  const magicAtk = Math.floor(totalStats.int * MAGIC_ATK_PER_INT);
+  // = floor(int×계수) + 장비 matk(지팡이 헤드라인). INT 0 이고 matk 0(라이브·STR/DEX 빌드)
+  // 이면 0 → 마법 데미지 경로 자동 비활성. 장비 물리 atk 는 별도(평타·물리 스킬용).
+  const magicAtk = Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.matk;
   // PR-base-hp: V2_BASE_HP(135) + 레벨당 V2_HP_PER_LEVEL(5) + vit×HP_PER_VIT + 장비 hp.
   // Lv1 vit 15 신캐 = 135 + 0 + 15 + 0 = 150. 라이브 baseCharacter.maxHp(97) 분리.
   const maxHp = Math.floor(

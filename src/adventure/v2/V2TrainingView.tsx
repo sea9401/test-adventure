@@ -135,7 +135,7 @@ export function V2TrainingView({
               type="button"
               onClick={handleClaim}
               disabled={busy !== null}
-              className="w-full rounded-md border border-emerald-400 bg-emerald-50 px-4 py-3 text-base font-medium text-emerald-800 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+              className="w-full rounded-md border border-emerald-600 bg-emerald-600 px-4 py-3 text-base font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {busy === "claim"
                 ? "수령 중…"

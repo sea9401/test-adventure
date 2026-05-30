@@ -212,7 +212,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
                         aria-label={`${k} +1`}
                         onClick={() => bump(k, 1)}
                         disabled={busy != null || remaining <= 0}
-                        className="flex h-7 w-7 items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
                       >
                         <Plus size={12} weight="bold" />
                       </button>
@@ -229,7 +229,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
             type="button"
             onClick={handleCommit}
             disabled={busy != null || draftTotal <= 0}
-            className="flex-1 rounded-md border border-emerald-400 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+            className="flex-1 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy === "commit" ? "확정 중…" : "확정"}
           </button>
@@ -256,7 +256,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
             type="button"
             onClick={handleReset}
             disabled={busy != null}
-            className="flex shrink-0 items-center gap-1.5 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/30"
+            className="flex shrink-0 items-center gap-1.5 rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
           >
             <ArrowCounterClockwise size={14} weight="bold" />
             {busy === "reset" ? "환불 중…" : "초기화"}

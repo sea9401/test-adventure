@@ -278,7 +278,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                                     type="button"
                                     onClick={() => equip(item.slot, item.id)}
                                     disabled={busy}
-                                    className="shrink-0 rounded border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200"
+                                    className="shrink-0 rounded border border-emerald-600 bg-emerald-600 px-3 py-1 text-xs text-white hover:bg-emerald-700 disabled:opacity-50"
                                   >
                                     장착
                                   </button>

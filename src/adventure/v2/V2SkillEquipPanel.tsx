@@ -241,7 +241,7 @@ export function V2SkillEquipPanel({ onBack }: { onBack: () => void }) {
                   onClick={() => equip(def.id)}
                   disabled={busy || isEquipped}
                   aria-label="장착"
-                  className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-30 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40"
+                  className="rounded-md border border-emerald-600 bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-30"
                 >
                   {isEquipped ? "장착됨" : (
                     <>

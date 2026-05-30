@@ -129,7 +129,7 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
                 type="button"
                 onClick={() => eject(it.userId)}
                 disabled={busyUserId !== null}
-                className="shrink-0 rounded border border-rose-300 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                className="shrink-0 rounded border border-rose-600 bg-rose-600 px-3 py-1 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {busyUserId === it.userId ? "교전 중…" : "토벌"}
               </button>

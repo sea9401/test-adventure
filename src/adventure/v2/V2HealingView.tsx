@@ -168,7 +168,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           type="button"
           onClick={handleHeal}
           disabled={isFull || busy !== null || hp == null}
-          className="mt-4 w-full rounded-md border border-rose-500 bg-rose-500/10 px-3 py-2 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-400 dark:text-rose-300"
+          className="mt-4 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {hp == null
             ? "..."
@@ -255,7 +255,7 @@ function ChargeRow({
               type="button"
               onClick={() => onBuy(kind, amt)}
               disabled={busy || full || !affordable}
-              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+              className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
             >
               +{amt} ({cost}g)
             </button>
@@ -265,7 +265,7 @@ function ChargeRow({
           type="button"
           onClick={() => onBuy(kind, room)}
           disabled={busy || full || gold < room}
-          className="rounded-md border border-emerald-400 bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-200 dark:border-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-200 dark:hover:bg-emerald-800/40"
+          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
         >
           꽉 채우기 ({room}g)
         </button>

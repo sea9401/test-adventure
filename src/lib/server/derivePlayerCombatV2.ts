@@ -157,7 +157,12 @@ const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 // 빌드, Lv75 76→81%)하되 Lv50 은 atk 28 이 STR 49 의 절반이라 구조적으로 남음(크리 빌드 램프업).
 const ATK_PER_DEX = 0.075; // PR-dexluk: 0.06→0.075
 const ATK_PER_SPD = 0.06;
-const ATK_PER_LUK = 0.05; // PR-dexluk: 0.04→0.05
+// PR-9: 0.05→0.06 (SPD 동일 — LUK 이 유일하게 최저 atk 보조였음). sim-v2-progression
+// --skills: LUK Lv75 81→85%·Lv100 91→94% 로 후반을 pack 에 안착(타 빌드 크리프 0).
+// Lv50(화산) LUK 67% 는 유지 — crit 29% 램프 전이라 ATK·CRIT 어느 다이얼로도 안 움직이는
+// 크리 아키타입 고유 밸리(ATK 0.06 + CRIT 0.18 까지 sim 해도 68%). 억지 보정은 전 빌드
+// 크리프라 보류. 후반(Lv75+)은 crit 43%+ 로 정체성 발현 → pack 합류.
+const ATK_PER_LUK = 0.06;
 // PR-luk-critdmg — LUK → 크리 데미지 배수. v2 는 그동안 luk 를 크리 확률(CRIT_PER_LUK)에만
 // 쓰고 크리 데미지는 CRIT_MULT_BASE(2.0×) 고정이었다. 그래서 LUK 빌드는 atk 가 낮아(luk×0.04)
 // 크리가 터져도 약했다(sim: 전 빌드 중 최약). luk 가 크리 데미지도 키우게 해 '크리 빌드'

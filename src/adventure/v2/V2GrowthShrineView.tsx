@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowCounterClockwise, Minus, Plus } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { STAT_KEYS, STAT_LABELS, type StatKey } from "@/adventure/data/stats";
+import { V2_STAT_KEYS, V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // v2 성장의 신전 — 분배(양수)만 드래프트. 옛 revertPoints 폐기.
 // 적립된 분배를 되돌릴 땐 "초기화" 한 번에 전부 환불.
@@ -12,24 +12,24 @@ import { STAT_KEYS, STAT_LABELS, type StatKey } from "@/adventure/data/stats";
 type TrainingResponse = {
   ok?: boolean;
   unspentPoints?: number;
-  allocatedStats?: Record<StatKey, number>;
-  baseStats?: Record<StatKey, number>;
+  allocatedStats?: Record<V2StatKey, number>;
+  baseStats?: Record<V2StatKey, number>;
   error?: string;
 };
 
-const ZERO_DRAFT: Record<StatKey, number> = STAT_KEYS.reduce(
+const ZERO_DRAFT: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
   (acc, k) => {
     acc[k] = 0;
     return acc;
   },
-  {} as Record<StatKey, number>,
+  {} as Record<V2StatKey, number>,
 );
 
 export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
   const [unspentPoints, setUnspentPoints] = useState(0);
-  const [allocated, setAllocated] = useState<Record<StatKey, number>>(ZERO_DRAFT);
-  const [base, setBase] = useState<Record<StatKey, number>>(ZERO_DRAFT);
-  const [draft, setDraft] = useState<Record<StatKey, number>>(ZERO_DRAFT);
+  const [allocated, setAllocated] = useState<Record<V2StatKey, number>>(ZERO_DRAFT);
+  const [base, setBase] = useState<Record<V2StatKey, number>>(ZERO_DRAFT);
+  const [draft, setDraft] = useState<Record<V2StatKey, number>>(ZERO_DRAFT);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"commit" | "reset" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -54,12 +54,12 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   const draftTotal = useMemo(
-    () => STAT_KEYS.reduce((s, k) => s + draft[k], 0),
+    () => V2_STAT_KEYS.reduce((s, k) => s + draft[k], 0),
     [draft],
   );
   const remaining = unspentPoints - draftTotal;
 
-  const bump = (k: StatKey, step: number) => {
+  const bump = (k: V2StatKey, step: number) => {
     if (step > 0) {
       if (remaining <= 0) return;
       const add = Math.min(step, remaining);
@@ -86,7 +86,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
         ok?: boolean;
         error?: string;
         unspentPoints?: number;
-        allocatedStats?: Record<StatKey, number>;
+        allocatedStats?: Record<V2StatKey, number>;
       } | null;
       if (!j?.ok) {
         setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
@@ -120,7 +120,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
         ok?: boolean;
         error?: string;
         unspentPoints?: number;
-        allocatedStats?: Record<StatKey, number>;
+        allocatedStats?: Record<V2StatKey, number>;
         refunded?: number;
       } | null;
       if (!j?.ok) {
@@ -164,7 +164,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
           </p>
         ) : (
           <ul className="mt-3 space-y-1.5">
-            {STAT_KEYS.map((k) => {
+            {V2_STAT_KEYS.map((k) => {
               const baseV = base[k] ?? 0;
               const allocV = allocated[k] ?? 0;
               const draftV = draft[k] ?? 0;
@@ -179,7 +179,7 @@ export function V2GrowthShrineView({ onBack }: { onBack: () => void }) {
                       {k.toUpperCase()}
                     </span>
                     <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {STAT_LABELS[k]}
+                      {V2_STAT_LABELS[k]}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

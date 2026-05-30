@@ -34,11 +34,12 @@ import {
   parseV2Class,
   type V2Class,
 } from "@/adventure/data/v2/classes";
+import { EVASION_PCT_CAP } from "@/adventure/data/stats";
 import {
-  EVASION_PCT_CAP,
-  STAT_KEYS,
-  type StatKey,
-} from "@/adventure/data/stats";
+  V2_STAT_KEYS,
+  emptyV2StatMap,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_BASE_HP,
   V2_BASE_MP,
@@ -67,13 +68,13 @@ type SavedCharacterV2 = {
 };
 
 type SavedTrainingV2 = {
-  allocated?: Partial<Record<StatKey, number>>;
+  allocated?: Partial<Record<V2StatKey, number>>;
 };
 
 export type DerivedPlayerCombatV2 = {
   player: PlayerCombat;
-  totalStats: Record<StatKey, number>;
-  baseAllocatedStats: Record<StatKey, number>;
+  totalStats: Record<V2StatKey, number>;
+  baseAllocatedStats: Record<V2StatKey, number>;
   maxHp: number;
   selectedStance: StanceId | null;
 };
@@ -150,27 +151,31 @@ const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
 const CRIT_PER_LUK = 0.15;
 const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
-// PR-T2: DEX/SPD atk 보조 복원. PR-S1 에서 dex/spd/luk atk 보조(/5) 제거했더니
-// 후반 def 큰 잡몹 못 깨는 구조적 약점 발생(sim-v2-progression: Lv25+ DEX/SPD 0% wr).
-// 옛 라이브 dex/5+spd/5 의 ×5 스케일 환산값 = ×0.04 (= 0.2 / 5).
-// PR-T3: LUK 도 같은 패턴으로 복원. CRIT_PER_LUK 0.15 단독으론 Lv75 wr 2%→4% 미흡 —
-// 진짜 원인은 LUK atk 부족이라 crit 터져도 def 못 뚫음. DEX/SPD 와 동일 ×0.04 추가.
-// PR-T4: DEX/SPD 만 ×0.04 → ×0.06 (×1.5 추가 버프). PR-T2 후에도 Lv75 DEX/SPD wr 0%·
-// hpL% 87% (구조적 부족 — eva cap 54%·atk 46 으로 STR atk 100 의 절반). 라이브 동등치
-// 보다 강화하여 ×5 스케일에서 회피 빌드 정체성 + 데미지 모두 성립시킴. LUK 는 유지
-// (PR-T3 에서 0.04 + CRIT 0.15 로 Lv100 wr 34% 회복 완료).
-// PR-dexluk: 저-atk DEX/LUK 중반(Lv50 화산) 보강. 둘 다 atk 가 낮아 중반에 정체성 스탯
-// (DEX 회피·LUK 크리)이 덜 자란 채 풀스탯 floor 4 를 만나 attrition 패배(Lv50 67%). DEX 는
-// ATK_PER_DEX 0.06→0.075 로 Lv50 67→74% 해소. LUK 은 atk 0.04→0.05 로 일반 보강(원래 최약
-// 빌드, Lv75 76→81%)하되 Lv50 은 atk 28 이 STR 49 의 절반이라 구조적으로 남음(크리 빌드 램프업).
-const ATK_PER_DEX = 0.075; // PR-dexluk: 0.06→0.075
-const ATK_PER_SPD = 0.06;
-// PR-9: 0.05→0.06 (SPD 동일 — LUK 이 유일하게 최저 atk 보조였음). sim-v2-progression
-// --skills: LUK Lv75 81→85%·Lv100 91→94% 로 후반을 pack 에 안착(타 빌드 크리프 0).
-// Lv50(화산) LUK 67% 는 유지 — crit 29% 램프 전이라 ATK·CRIT 어느 다이얼로도 안 움직이는
-// 크리 아키타입 고유 밸리(ATK 0.06 + CRIT 0.18 까지 sim 해도 68%). 억지 보정은 전 빌드
-// 크리프라 보류. 후반(Lv75+)은 crit 43%+ 로 정체성 발현 → pack 합류.
-const ATK_PER_LUK = 0.06;
+// PR-2 strict §4 — 물리공격력 = 힘(STR) 단독. dex/spd/luk atk 보조 폐기(Codex 매핑).
+// 옛 PR-T2~PR-9 의 atk 보조는 무기 위력이 빈약하던 시절 미봉책. PR-4 장비 모델에서 무기
+// 위력이 모든 빌드에 atk 바닥을 주므로 스탯-atk 는 STR 정체성만. DEX/SPD/LUK 데미지는 무기
+// 위력 + 다중공격·크리·스킬로. PR-4 전까진 저-atk 빌드 약세는 예상된 임시 상태.
+
+// 속도 = 민첩 파생 (1차 아님). 옛 base spd 30 ≈ dex 15 × 2.0.
+const SPD_PER_DEX = 2.0;
+// 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
+const MIN_DMG_PER_STR = 0.1;
+const MIN_DMG_PER_INT = 0.05;
+const MIN_DMG_PER_VIT = 0.03;
+// 명중 — 힘·정신 minor (민첩은 ACCURACY_PCT_PER_DEX). 회피 — 행운 minor (민첩은 EVA_PER_DEX).
+const ACC_PER_STR = 0.02;
+const ACC_PER_SPI = 0.015;
+const EVA_PER_LUK = 0.08;
+// 치명타 피해 — 힘 minor (행운은 CRIT_DMG_PER_LUK major).
+const CRIT_DMG_PER_STR = 0.002;
+// 마법 방어력 — 정신 major + 지능 minor. 마법 데미지 경감.
+const MAGIC_DEF_PER_SPI = 0.12;
+const MAGIC_DEF_PER_INT = 0.03;
+// 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p).
+const CRIT_RESIST_PER_SPI = 0.1;
+// 회복량 배수 — 활력·정신 (1.0 기준 + 비례).
+const HEAL_MULT_PER_VIT = 0.004;
+const HEAL_MULT_PER_SPI = 0.0025;
 // PR-luk-critdmg — LUK → 크리 데미지 배수. v2 는 그동안 luk 를 크리 확률(CRIT_PER_LUK)에만
 // 쓰고 크리 데미지는 CRIT_MULT_BASE(2.0×) 고정이었다. 그래서 LUK 빌드는 atk 가 낮아(luk×0.04)
 // 크리가 터져도 약했다(sim: 전 빌드 중 최약). luk 가 크리 데미지도 키우게 해 '크리 빌드'
@@ -206,7 +211,7 @@ export { V2_BASE_STATS, V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2S
 export type DerivePlayerCombatV2PureInput = {
   level: number;
   /** training.allocated — V2_BASE_STATS 위에 더해질 분배 포인트. */
-  allocatedStats?: Partial<Record<StatKey, number>>;
+  allocatedStats?: Partial<Record<V2StatKey, number>>;
   /** parseEquipmentSave().equipped — 슬롯별 장비 id. */
   v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   /** 현재 hp. undefined 면 maxHp 풀충. maxHp 초과는 클램프. */
@@ -226,21 +231,22 @@ export function derivePlayerCombatV2Pure(
   const v2Equipped = input.v2Equipped ?? {};
   const equipAcc = aggregateV2Equipment(v2Equipped);
 
-  // baseAllocatedStats = V2_BASE_STATS(×5) + allocated (장비 6스탯 제외).
-  const baseAllocatedStats: Record<StatKey, number> = STAT_KEYS.reduce(
+  // baseAllocatedStats = V2_BASE_STATS + allocated (6 1차 스탯, 장비 제외).
+  const baseAllocatedStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
     (acc, k) => {
       acc[k] = (V2_BASE_STATS[k] ?? 0) + (input.allocatedStats?.[k] ?? 0);
       return acc;
     },
-    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
+    emptyV2StatMap(),
   );
-  // totalStats = baseAllocated + 장비 6스탯
-  const totalStats: Record<StatKey, number> = STAT_KEYS.reduce(
+  // totalStats = baseAllocated + 장비. 정신(spi)은 장비 보너스 없음(장비 개편 = PR-4).
+  // 장비의 spd 는 1차 아닌 파생 속도에 합산되므로 여기 1차 합산엔 안 들어간다.
+  const totalStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
     (acc, k) => {
-      acc[k] = baseAllocatedStats[k] + equipAcc[k];
+      acc[k] = baseAllocatedStats[k] + (k === "spi" ? 0 : equipAcc[k]);
       return acc;
     },
-    { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
+    emptyV2StatMap(),
   );
 
   // PR-1 직업 보정 — 직업 앵커 스탯에 statBonusPct%. (검사 = STR +10%)
@@ -256,45 +262,64 @@ export function derivePlayerCombatV2Pure(
   // crit/eva/acc/extraAtk 는 float 그대로 (엔진이 확률 비교만, 0.1%p 단위 보존).
   // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
   // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
-  // PR-T4: DEX/SPD 만 ×0.04 → ×0.06 (Lv75 0% wr 구조적 부족 해소).
-  const atk = Math.floor(
-    totalStats.str * ATK_PER_STR +
-      totalStats.dex * ATK_PER_DEX +
-      Math.max(0, totalStats.spd) * ATK_PER_SPD +
-      totalStats.luk * ATK_PER_LUK +
-      equipAcc.atk,
-  );
+  // strict §4 — 물리공격력 = 힘 단독 + 장비 atk(무기 위력). dex/spd/luk atk 보조 없음.
+  const atk = Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk);
+  // 물리 방어력 — 활력 + 장비 def.
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
-  // PR-magic — 마법 공격력. scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
-  // = floor(int×계수) + 장비 matk(지팡이 헤드라인). INT 0 이고 matk 0(라이브·STR/DEX 빌드)
-  // 이면 0 → 마법 데미지 경로 자동 비활성. 장비 물리 atk 는 별도(평타·물리 스킬용).
-  const magicAtk = Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.matk;
-  // PR-base-hp: V2_BASE_HP(135) + 레벨당 V2_HP_PER_LEVEL(5) + vit×HP_PER_VIT + 장비 hp.
-  // Lv1 vit 15 신캐 = 135 + 0 + 15 + 0 = 150. 라이브 baseCharacter.maxHp(97) 분리.
+  // 마법 공격력 — 지능 + 장비 matk(무기 위력). INT 0·matk 0 이면 0 → 마법 경로 비활성.
+  const magicAtk =
+    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.matk;
+  // 마법 방어력(신규) — 정신 major + 지능 minor. combatShared 가 마법 데미지에서 차감.
+  const magicDef = Math.floor(
+    totalStats.spi * MAGIC_DEF_PER_SPI + totalStats.int * MAGIC_DEF_PER_INT,
+  );
+  // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
+  const minDamage = Math.floor(
+    totalStats.str * MIN_DMG_PER_STR +
+      totalStats.int * MIN_DMG_PER_INT +
+      totalStats.vit * MIN_DMG_PER_VIT,
+  );
+  // 회복량 배수(신규) — 활력·정신. heal effect 스케일(1.0 기준).
+  const healMult =
+    1 +
+    totalStats.vit * HEAL_MULT_PER_VIT +
+    totalStats.spi * HEAL_MULT_PER_SPI;
   const maxHp = Math.floor(
     V2_BASE_HP +
       Math.max(0, level - 1) * V2_HP_PER_LEVEL +
       totalStats.vit * HP_PER_VIT +
       equipAcc.hp,
   );
-  // PR-base-mp: 신캐 (INT 0) 도 v2 스킬 일부 cast 가능하게 V2_BASE_MP 가산.
-  // 의도: onboarding 부드럽게 + STR/DEX 빌드도 가끔 magic 활용.
-  const maxMp = Math.floor(V2_BASE_MP + totalStats.int * MP_PER_INT + equipAcc.mp);
+  const maxMp = Math.floor(
+    V2_BASE_MP + totalStats.int * MP_PER_INT + equipAcc.mp,
+  );
   const critChancePct = totalStats.luk * CRIT_PER_LUK + equipAcc.crit;
-  // LUK → 크리 데미지 배수 (base 2.0× + luk 비례, 안전 상한 cap). 크리율 높은 LUK 빌드가 주 수혜.
+  // 치명타 피해 — 행운 major + 힘 minor.
   const critMult = Math.min(
-    CRIT_MULT_BASE + totalStats.luk * CRIT_DMG_PER_LUK,
+    CRIT_MULT_BASE +
+      totalStats.luk * CRIT_DMG_PER_LUK +
+      totalStats.str * CRIT_DMG_PER_STR,
     CRIT_MULT_CAP,
   );
+  // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p).
+  const critResistPct = totalStats.spi * CRIT_RESIST_PER_SPI;
+  // 회피 — 민첩 + 행운 minor + 장비.
   const evasionPct = Math.min(
-    totalStats.dex * EVA_PER_DEX + equipAcc.eva,
+    totalStats.dex * EVA_PER_DEX +
+      totalStats.luk * EVA_PER_LUK +
+      equipAcc.eva,
     EVASION_PCT_CAP,
   );
-  const accuracyPct = Math.max(0, totalStats.dex * ACCURACY_PCT_PER_DEX);
-  // spd 가 중갑 페널티로 음수가 될 수 있음. 엔진은 chance<=0 에서 base 공격으로
-  // 클램프하지만 API/UI 에 음수 노출되지 않게 0 클램프.
-  const spd = Math.max(0, totalStats.spd);
-  // v2 다중공격 — 라이브 모델. SPD × 2%p 추가공격 확률 (50=100% 확정 +1, 75=150%, …).
+  // 명중 — 민첩 major + 힘·정신 minor.
+  const accuracyPct = Math.max(
+    0,
+    totalStats.dex * ACCURACY_PCT_PER_DEX +
+      totalStats.str * ACC_PER_STR +
+      totalStats.spi * ACC_PER_SPI,
+  );
+  // 속도 = 민첩 파생(1차 아님) + 장비 spd(중갑 페널티 포함). 음수 0 클램프.
+  const spd = Math.max(0, totalStats.dex * SPD_PER_DEX + equipAcc.spd);
+  // v2 다중공격 — SPD × 2%p 추가공격 확률 (50=100% 확정 +1, …).
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
 
   // hp 클램프 (저장값이 maxHp 초과 안 되게)
@@ -321,6 +346,11 @@ export function derivePlayerCombatV2Pure(
     extraAttackChancePct,
     critChancePct,
     critMult,
+    // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
+    magicDef,
+    critResistPct,
+    minDamage,
+    healMult,
     baselineRegen: baselineRegenFor(maxHp),
   };
 

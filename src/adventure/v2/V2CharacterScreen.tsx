@@ -4,7 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
-import type { StatKey } from "@/adventure/data/stats";
+import {
+  V2_STAT_KEYS,
+  V2_STAT_LABELS,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 import type {
   V2EquipmentId,
   V2EquipSlot,
@@ -42,8 +46,8 @@ type StateResponse = {
   };
   guild?: { name: string };
   stats?: {
-    base: Record<StatKey, number>;
-    total: Record<StatKey, number>;
+    base: Record<V2StatKey, number>;
+    total: Record<V2StatKey, number>;
   } | null;
   combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
 };
@@ -133,7 +137,13 @@ export function V2CharacterScreen({
 
       {stats && combat && (
         <Card padding="md">
-          <StatsPanel stats={stats.base} totalStats={stats.total} combat={combat} />
+          <StatsPanel
+            stats={stats.base}
+            totalStats={stats.total}
+            combat={combat}
+            statKeys={V2_STAT_KEYS}
+            statLabels={V2_STAT_LABELS}
+          />
         </Card>
       )}
 

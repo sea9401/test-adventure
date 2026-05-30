@@ -12,26 +12,31 @@ import {
   V2_STAT_POINTS_PER_LEVEL,
   type DerivedPlayerCombatV2,
 } from "@/lib/server/derivePlayerCombatV2";
-import type { StatKey } from "@/adventure/data/stats";
+import {
+  emptyV2StatMap,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 
 export type BotTemplate = {
   /** 안정적 식별자 — recentOpponents 매칭에 사용. */
   id: string;
   name: string;
   /** 주력 스탯에 60% 배분. */
-  focus: StatKey;
+  focus: V2StatKey;
   /** 보조 스탯에 30% 배분. 남은 10% 는 vit 로. */
-  secondary: StatKey;
+  secondary: V2StatKey;
 };
 
+// PR-2 — 봇 분배는 v2 6스탯(str/dex/vit/int/spi/luk)만. 속도(spd)는 파생이라
+// 분배 대상 아님 → 옛 spd 봇은 dex(속도 파생원)/luk(회피)로 이관 (소실 방지).
 export const BOT_TEMPLATES: ReadonlyArray<BotTemplate> = [
   { id: "bot-veno-warrior", name: "유랑 전사", focus: "str", secondary: "vit" },
-  { id: "bot-veno-rogue", name: "그림자 적", focus: "dex", secondary: "spd" },
+  { id: "bot-veno-rogue", name: "그림자 적", focus: "dex", secondary: "luk" },
   { id: "bot-veno-mage", name: "방랑 술사", focus: "int", secondary: "luk" },
-  { id: "bot-veno-duelist", name: "결투가", focus: "spd", secondary: "str" },
+  { id: "bot-veno-duelist", name: "결투가", focus: "dex", secondary: "str" },
   { id: "bot-veno-templar", name: "맹세의 기수", focus: "vit", secondary: "str" },
   { id: "bot-veno-gambler", name: "행운의 검", focus: "luk", secondary: "dex" },
-  { id: "bot-veno-mystic", name: "별빛 신탁자", focus: "int", secondary: "vit" },
+  { id: "bot-veno-mystic", name: "별빛 신탁자", focus: "int", secondary: "spi" },
 ];
 
 export type ArenaBot = {
@@ -43,8 +48,8 @@ export type ArenaBot = {
   combat: DerivedPlayerCombatV2;
 };
 
-function emptyStatRecord(): Record<StatKey, number> {
-  return { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
+function emptyStatRecord(): Record<V2StatKey, number> {
+  return emptyV2StatMap();
 }
 
 /**
@@ -54,7 +59,7 @@ function emptyStatRecord(): Record<StatKey, number> {
 function allocatePoints(
   totalPoints: number,
   template: BotTemplate,
-): Record<StatKey, number> {
+): Record<V2StatKey, number> {
   const allocated = emptyStatRecord();
   if (totalPoints <= 0) return allocated;
   const focusPts = Math.floor(totalPoints * 0.6);

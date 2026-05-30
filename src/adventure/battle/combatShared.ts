@@ -185,7 +185,8 @@ export function v2BuffActive(map: V2BuffMap, stat: StatKey): number {
 // PR-5a: 격리 해제 — v2 buff/debuff 가 일반 공격에도 영향. atk 기여 stat = str/dex/spd/luk.
 // int 는 일반 공격 atk 와 무관 (마법/MP 자원만 관련) — 합산에서 제외.
 // 0 floor — 합산 debuff 가 buff+100% 초과해도 atk 음수 안 되게.
-const V2_ATK_STATS: readonly StatKey[] = ["str", "dex", "spd", "luk"];
+// PR-2 strict §4 — 물리 atk 버프는 STR 만 (dex/spd/luk atk 보조 폐기와 일관).
+const V2_ATK_STATS: readonly StatKey[] = ["str"];
 export function v2AtkBuffMult(
   selfBuffs: V2BuffMap,
   selfDebuffs: V2BuffMap,
@@ -240,8 +241,12 @@ export function v2DefBuffMult(
 export function v2DamageAmount(args: {
   attackerAtk: number;
   attackerMagicAtk?: number;
+  // PR-2 — 공격자 최소 데미지(데미지 하한). 미지정=0(하한 1 유지).
+  attackerMinDamage?: number;
   scaling?: "physical" | "magic";
   targetDef: number;
+  // PR-2 — 마법 방어력. scaling="magic" 일 때 사용, 미지정이면 물리 def 폴백(몹·구호출 보존).
+  targetMagicDef?: number;
   statCoef: number;
   baseFlat: number;
   attackerSelfBuffs: V2BuffMap;
@@ -256,9 +261,12 @@ export function v2DamageAmount(args: {
     : v2AtkBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs);
   const defMult = v2DefBuffMult(args.targetSelfBuffs, args.targetSelfDebuffs);
   const rawAtk = Math.floor(base * mult * args.statCoef) + args.baseFlat;
-  const effectiveDef = Math.floor(args.targetDef * defMult);
-  // 일반 공격과 같은 경로 — damageBetween 식 (atk - def, 1 하한).
-  return Math.max(1, rawAtk - effectiveDef);
+  // 마법 데미지는 마법 방어력으로 경감(미지정=물리 def 폴백). 물리는 물리 def.
+  const defStat = isMagic ? args.targetMagicDef ?? args.targetDef : args.targetDef;
+  const effectiveDef = Math.floor(defStat * defMult);
+  // 데미지 하한 = max(1, 공격자 최소 데미지). 저-atk 빌드의 바닥 데미지 보장.
+  const floor = Math.max(1, args.attackerMinDamage ?? 0);
+  return Math.max(floor, rawAtk - effectiveDef);
 }
 
 // v2 스킬 heal 계산. pctMaxHp × maxHp / 100 + flat (caller 가 maxHp 클램프).
@@ -266,9 +274,12 @@ export function v2HealAmount(args: {
   attackerMaxHp: number;
   pctMaxHp: number;
   flat: number;
+  // PR-2 — 회복량 배수(활력·정신). 미지정=1.
+  healMult?: number;
 }): number {
   const pctPart = Math.floor((args.attackerMaxHp * args.pctMaxHp) / 100);
-  return Math.max(0, pctPart + args.flat);
+  const base = Math.max(0, pctPart + args.flat);
+  return Math.floor(base * (args.healMult ?? 1));
 }
 
 // PR-5b — monster.v2MaxMp 미지정 시 자동 시드. equipped 중 max mpCost × 3 → 약 3-5 회 cast.
@@ -354,12 +365,17 @@ export type V2SkillCastInput = {
     // 마법 공격력(INT 환산). 미지정이면 v2DamageAmount 가 atk 로 폴백 — 적·구 호출 무영향.
     // scaling="magic" 데미지 스킬만 이 값을 쓴다.
     magicAtk?: number;
+    // PR-2 v2 — 최소 데미지(하한)·회복량 배수. 미지정 안전(폴백).
+    minDamage?: number;
+    healMult?: number;
     maxHp: number;
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
   };
   target: {
     def: number;
+    // PR-2 v2 — 마법 방어력 (마법 데미지 경감, 미지정=물리 def 폴백).
+    magicDef?: number;
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -404,8 +420,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       enemyDamage += v2DamageAmount({
         attackerAtk: input.attacker.atk,
         attackerMagicAtk: input.attacker.magicAtk,
+        attackerMinDamage: input.attacker.minDamage,
         scaling: effect.scaling,
         targetDef: input.target.def,
+        targetMagicDef: input.target.magicDef,
         statCoef: effect.statCoef,
         baseFlat: effect.baseFlat ?? 0,
         attackerSelfBuffs: input.attacker.selfBuffs,
@@ -418,6 +436,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         attackerMaxHp: input.attacker.maxHp,
         pctMaxHp: effect.pctMaxHp ?? 0,
         flat: effect.flat ?? 0,
+        healMult: input.attacker.healMult,
       });
     } else if (effect.kind === "selfBuff") {
       selfBuffsToApply.push({

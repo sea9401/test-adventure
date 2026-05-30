@@ -40,11 +40,11 @@ import type {
   V2EquipmentId,
   V2EquipSlot,
 } from "../src/adventure/data/v2/v2Equipment";
-import type { StatKey } from "../src/adventure/data/stats";
+import type { V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 import type { Monster } from "../src/adventure/data/monsters/types";
 
-type Arch = "STR" | "DEX" | "VIT" | "SPD" | "LUK" | "INT" | "BAL";
-const ARCHES: Arch[] = ["STR", "DEX", "VIT", "SPD", "LUK", "INT", "BAL"];
+type Arch = "STR" | "DEX" | "VIT" | "INT" | "SPI" | "LUK" | "BAL";
+const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
 
 type Milestone = { lvl: number; floor: 1 | 2 | 3 | 4 | 5 };
 const MILESTONES: Milestone[] = [
@@ -82,7 +82,7 @@ const ACC_LINE: Record<"luck" | "mana", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>
 function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2EquipmentId>> {
   const tier = tierForLevel(level);
   const weapon =
-    arch === "DEX" || arch === "SPD"
+    arch === "DEX"
       ? WEAPON_LINE.bow[tier]
       : arch === "INT"
         ? WEAPON_LINE.staff[tier]
@@ -102,27 +102,47 @@ function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2Equi
 // 분배 — main 60% / sub 30% / 잔여 10% (BAL 만 5스탯 spread).
 // sub 는 빌드 성격에 맞게 — STR/VIT/LUK 는 vit (탱크 보강), DEX/SPD 는 spd (다중공격),
 // INT 는 vit (마법사도 hp 필요).
-function allocate(arch: Arch, level: number): Record<StatKey, number> {
+// 빌드별 sub/filler — main 60% / sub 30% / filler 10% (셋 다 distinct). 속도는 파생이라 분배 안 함.
+const SUB_STAT: Record<V2StatKey, V2StatKey> = {
+  str: "vit",
+  dex: "luk",
+  vit: "str",
+  int: "vit",
+  spi: "vit",
+  luk: "dex",
+};
+const FILL_STAT: Record<V2StatKey, V2StatKey> = {
+  str: "luk",
+  dex: "vit",
+  vit: "luk",
+  int: "luk",
+  spi: "luk",
+  luk: "vit",
+};
+function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
   const total = Math.max(0, level - 1) * V2_STAT_POINTS_PER_LEVEL;
-  const a: Record<StatKey, number> = { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 };
+  const a: Record<V2StatKey, number> = {
+    str: 0,
+    dex: 0,
+    vit: 0,
+    int: 0,
+    spi: 0,
+    luk: 0,
+  };
   if (total === 0) return a;
   if (arch === "BAL") {
     a.str = Math.round(total * 0.25);
     a.vit = Math.round(total * 0.25);
     a.dex = Math.round(total * 0.2);
     a.luk = Math.round(total * 0.15);
-    a.spd = total - a.str - a.vit - a.dex - a.luk;
+    a.spi = total - a.str - a.vit - a.dex - a.luk;
     return a;
   }
-  const main = arch.toLowerCase() as StatKey;
-  const sub: StatKey =
-    arch === "DEX" || arch === "SPD"
-      ? main === "spd" ? "dex" : "spd"
-      : main === "vit" ? "str" : "vit";
+  const main = arch.toLowerCase() as V2StatKey;
+  const sub = SUB_STAT[main];
+  const filler = FILL_STAT[main];
   a[main] = Math.round(total * 0.6);
   a[sub] = Math.round(total * 0.3);
-  // 잔여는 luk (단 main 이 이미 luk 면 dex — sub 는 위 식에서 절대 luk 가 되지 않음).
-  const filler: StatKey = main === "luk" ? "dex" : "luk";
   a[filler] = total - a[main] - a[sub];
   return a;
 }
@@ -148,17 +168,17 @@ const SKILLS_MODE = process.argv.includes("--skills");
 function skillsFor(
   arch: Arch,
   level: number,
-  totalStats: Record<StatKey, number>,
+  totalStats: Record<V2StatKey, number>,
 ): V2SkillsState {
   if (!SKILLS_MODE) return { learned: [], equipped: [] };
-  const mainStat: StatKey = arch === "BAL" ? "str" : (arch.toLowerCase() as StatKey);
+  const mainStat: V2StatKey = arch === "BAL" ? "str" : (arch.toLowerCase() as V2StatKey);
   const ids = (Object.keys(V2_SKILLS) as V2SkillId[]).filter((id) => {
     const def = V2_SKILLS[id];
     if (def.stat !== mainStat) return false;
     if (!def.learn) return true; // 스타터 = 항상 보유
     if (level < (def.learn.level ?? 0)) return false;
     const req = def.learn.stat;
-    if (req && (totalStats[req.key] ?? 0) < req.min) return false;
+    if (req && ((totalStats as Record<string, number>)[req.key] ?? 0) < req.min) return false;
     return true;
   });
   // 공격 먼저(티어 desc → 고배율 우선), 그 다음 버프/디버프(티어 desc).
@@ -279,7 +299,7 @@ for (const ms of MILESTONES) {
     `\n━━━ Lv${ms.lvl} · ${floorMeta?.name ?? `Floor ${ms.floor}`} (pool: ${enemies.length}종) ━━━`,
   );
   console.log(
-    "Arch  STR DEX VIT SPD LUK INT │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
+    "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
   );
   for (const arch of ARCHES) {
     const d = makePlayer(arch, ms.lvl);
@@ -296,7 +316,7 @@ for (const ms of MILESTONES) {
       combatCol = `│ ${pad(wrStr, 4)} ${pad(ciStr, 5)} ${pad(winT, 5)} ${pad(lossT, 5)} ${pad(hpL, 4)}`;
     }
     console.log(
-      `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.spd, 3)} ${pad(s.luk, 3)} ${pad(s.int, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol}`,
+      `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.int, 3)} ${pad(s.spi, 3)} ${pad(s.luk, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol}`,
     );
   }
 }

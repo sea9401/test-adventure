@@ -3,20 +3,18 @@
 // derivePlayerCombatV2.ts 는 db 의존이라 클라에서 import 불가. 따라서 상수만 분리해
 // 여기에 둠. derive 함수는 서버 모듈이 그대로 보유.
 
-import type { StatKey } from "@/adventure/data/stats";
+import type { V2StatKey } from "./v2StatKeys";
 
-// v2 베이스 스탯 — 5배 스케일 (옛 라이브 {3,...} × 5). baseCharacter.stats 는
-// 라이브 derive/arenaBots/autoHunt 가 공유 사용해 ×5 하면 라이브 측이 5× 강화돼 깨짐.
-// 따라서 v2 전용 baseline 으로 분리. INT 만 0 유지 (마법 시스템 신규 스탯).
-export const V2_BASE_STATS: Record<StatKey, number> = {
+// v2 베이스 스탯 — 6 1차 스탯 (PR-2 전투 재설계: 속도 1차→파생, 정신 신설).
+// 라이브 stats.ts 와 분리된 v2 전용 키 공간(v2StatKeys.ts) 사용 → 라이브 무관.
+// INT 0 유지(마법 빌드 전용). 속도(spd)는 1차 아님 — 민첩에서 파생(derive).
+export const V2_BASE_STATS: Record<V2StatKey, number> = {
   str: 15,
   dex: 15,
   vit: 15,
-  // SPD 30 = 라이브 확률 모델에서 60% 추가공격 확률 (평균 1.6타). 다른 5스탯(15) 보다
-  // 살짝 높여 SPD 정체성 보장.
-  spd: 30,
-  luk: 15,
   int: 0,
+  spi: 15,
+  luk: 15,
 };
 
 // 레벨업 grant — training.v2.points 에 (levelsGained × 5).

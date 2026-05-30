@@ -310,6 +310,13 @@ export type PlayerCombat = {
   critChancePct?: number;
   // 크리티컬 데미지 배수. undefined = CRIT_MULT_BASE 사용. luk 비례로 호출 측이 계산.
   critMult?: number;
+  // PR-2 v2 전투 재설계 신규 축 — 옵셔널 (라이브 미사용, v2 경로만 읽음).
+  // magicDef: scaling="magic" 데미지에서 차감(combatShared). critResistPct: 피격 시 상대 치명 확률 −%p.
+  // minDamage: 데미지 하한. healMult: heal effect 스케일(1.0=무영향).
+  magicDef?: number;
+  critResistPct?: number;
+  minDamage?: number;
+  healMult?: number;
   // 이중 행운 — 첫 크리티컬 발동 시 회피/크리티컬 +bonus% 발동, 전투 종료까지 유지. 0 이면 미보유.
   doubleLuck?: { evade: number; crit: number };
   // 가드 — 첫 N턴 동안 받는 피해 -reduction. 둘 다 0 이면 스킬 미보유.
@@ -2956,6 +2963,8 @@ export function resolveBattle(
             mp: state.playerMp,
             atk: player.atk,
             magicAtk: player.magicAtk ?? player.atk,
+            minDamage: player.minDamage,
+            healMult: player.healMult,
             maxHp: state.playerMaxHp,
             selfBuffs: tickedSelfBuffs,
             selfDebuffs: tickedSelfDebuffs,
@@ -3116,6 +3125,7 @@ export function resolveBattle(
           },
           target: {
             def: player.def,
+            magicDef: player.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tickedPlayerDebuffs,
           },

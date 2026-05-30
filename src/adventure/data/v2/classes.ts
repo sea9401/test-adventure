@@ -4,7 +4,7 @@
 // PR-1 은 "검사(검술·STR)" 1직업만 구현해 정체성 루프를 검증한다(과도 확장 금지).
 // 직업이 주는 것: ① 앵커 스탯 보정 ② 전용 스킬(선택 시 자동 학습). 전직/비용전직은 PR-6+.
 
-import type { StatKey } from "@/adventure/data/stats";
+import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 export const V2_CLASSES = ["none", "swordsman"] as const;
@@ -17,7 +17,7 @@ export type V2ClassDef = {
   /** 직업군 (검술/체술/…). */
   group: string;
   /** 주 스탯 — 직업별 보정 대상. */
-  anchorStat: StatKey;
+  anchorStat: V2StatKey;
   /** 앵커 스탯 보정 %. 0 = 무보정(none). */
   statBonusPct: number;
   /** 전용 스킬 — 이 직업 선택 시 자동 학습, 타 직업은 학습 불가(requireClass 게이트). */

@@ -1,16 +1,21 @@
-import { STAT_KEYS, STAT_LABELS, type StatKey } from "@/adventure/data/stats";
+import { STAT_KEYS, STAT_LABELS } from "@/adventure/data/stats";
 
 export function StatsPanel({
   stats,
   totalStats,
   combat,
+  statKeys = STAT_KEYS,
+  statLabels = STAT_LABELS,
 }: {
   /** 베이스 + 분배 스탯 (장비 보너스 제외). */
-  stats: Record<StatKey, number>;
+  stats: Record<string, number>;
   /** 베이스 + 분배 + 장비 합산된 최종 스탯. 미지정 시 stats 와 동일 (장비 보너스 표시 X). */
-  totalStats?: Record<StatKey, number>;
+  totalStats?: Record<string, number>;
   /** 전투력 — 공격력/방어력. magicAtk(마법 공격력)은 v2 INT 빌드만, 0/미지정이면 숨김. */
   combat?: { atk: number; def: number; magicAtk?: number };
+  /** 스탯 키/라벨 — 기본은 라이브 6스탯. v2 는 V2_STAT_KEYS/V2_STAT_LABELS 전달. */
+  statKeys?: readonly string[];
+  statLabels?: Record<string, string>;
 }) {
   const total = totalStats ?? stats;
   return (
@@ -40,7 +45,7 @@ export function StatsPanel({
           능력치{totalStats ? " (기본 · 장비)" : ""}
         </div>
         <div className="mt-2 grid grid-cols-6 gap-2">
-          {STAT_KEYS.map((k) => {
+          {statKeys.map((k) => {
             const base = stats[k];
             const finalValue = total[k];
             const equipBonus = finalValue - base;
@@ -51,7 +56,7 @@ export function StatsPanel({
                 className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-center dark:border-zinc-800 dark:bg-zinc-900/50"
               >
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {STAT_LABELS[k]}
+                  {statLabels[k]}
                 </div>
                 {/* 큰 글자 = 기본(베이스 + 분배). 장비 보너스가 있어야만 그 아래로 갈라진다. */}
                 <div className="mt-0.5 text-base font-medium tabular-nums text-zinc-900 dark:text-zinc-100">

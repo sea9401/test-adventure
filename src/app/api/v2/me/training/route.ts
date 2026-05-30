@@ -3,17 +3,17 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { V2_BASE_STATS } from "@/lib/server/derivePlayerCombatV2";
-import { STAT_KEYS, type StatKey } from "@/adventure/data/stats";
+import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // GET /api/v2/me/training — V2GrowthShrineView 의 자체 fetch.
 // training.v2 + baseStats + character.v2.gold/level 한 번에.
 
-const ZERO: Record<StatKey, number> = STAT_KEYS.reduce(
+const ZERO: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
   (acc, k) => {
     acc[k] = 0;
     return acc;
   },
-  {} as Record<StatKey, number>,
+  {} as Record<V2StatKey, number>,
 );
 
 export async function GET() {
@@ -39,7 +39,7 @@ export async function GET() {
 
   const training = (trainingRow?.value ?? {}) as {
     points?: number;
-    allocated?: Partial<Record<StatKey, number>>;
+    allocated?: Partial<Record<V2StatKey, number>>;
     endsAt?: number | null;
     completedCount?: number;
   };
@@ -48,8 +48,8 @@ export async function GET() {
     level?: number;
   };
 
-  const allocated: Record<StatKey, number> = { ...ZERO };
-  for (const k of STAT_KEYS) {
+  const allocated: Record<V2StatKey, number> = { ...ZERO };
+  for (const k of V2_STAT_KEYS) {
     const v = training.allocated?.[k];
     if (typeof v === "number" && Number.isFinite(v) && v >= 0) {
       allocated[k] = Math.floor(v);

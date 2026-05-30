@@ -116,7 +116,7 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
     // INT 25 → maxMp = 50 + 25 × 2 = 100.
     const d = derivePlayerCombatV2Pure({
       level: 1,
-      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 25 },
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 25 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(25);
@@ -138,7 +138,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   it("INT 0 빌드 → magicAtk 0 (마법 경로 비활성)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
-      allocatedStats: { str: 245, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 },
+      allocatedStats: { str: 245, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(0);
@@ -149,7 +149,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     // 베이스 int 0 + 할당 100 = 100. magicAtk = floor(100 × 0.35) = 35.
     const d = derivePlayerCombatV2Pure({
       level: 50,
-      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 100 },
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 100 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(100);
@@ -173,7 +173,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     // 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
     const d = derivePlayerCombatV2Pure({
       level: 50,
-      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 },
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: { weapon: "v2_oak_staff" }, // matk 5, int 3
     });
     expect(d.player.magicAtk).toBe(Math.floor(3 * 0.35) + 5); // 1 + 5 = 6
@@ -184,29 +184,29 @@ describe("derivePlayerCombatV2Pure critMult (PR-luk-critdmg — LUK 크리 데�
   it("luk 미투자(물리빌드) → critMult ≈ base 2.0 (+ 베이스 luk 15)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
-      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 },
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
-    // 베이스 luk 15 → critMult = 2.0 + 15×0.006 = 2.09 (luk 적은 빌드는 거의 base).
+    // PR-2 strict §4: critMult = base 2.0 + luk 15×0.006 + str 15×0.002 (행운 major + 힘 minor).
     expect(d.totalStats.luk).toBe(15);
-    expect(d.player.critMult).toBeCloseTo(2.0 + 15 * 0.006);
+    expect(d.player.critMult).toBeCloseTo(2.0 + 15 * 0.006 + 15 * 0.002);
   });
 
   it("luk 투자 → critMult = 2.0 + luk × 0.006 (투자 비례 크리 데미지)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
-      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 200, int: 0 },
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 200, int: 0 },
       v2Equipped: {},
     });
-    // 베이스 15 + 투자 200 = 215. critMult = 2.0 + 215×0.006 = 3.29.
+    // 베이스 15 + 투자 200 = 215. critMult = 2.0 + 215×0.006 + str 15×0.002 (힘 minor).
     expect(d.totalStats.luk).toBe(215);
-    expect(d.player.critMult).toBeCloseTo(2.0 + 215 * 0.006);
+    expect(d.player.critMult).toBeCloseTo(2.0 + 215 * 0.006 + 15 * 0.002);
   });
 
   it("critMult 안전 상한 cap 5.0 — 극단 luk 도 초과 안 함", () => {
     const d = derivePlayerCombatV2Pure({
       level: 100,
-      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 1000, int: 0 },
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 1000, int: 0 },
       v2Equipped: {},
     });
     // luk 1015 → 2.0 + 1015×0.006 = 8.09 → cap 5.0.
@@ -237,7 +237,7 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
   it("vit 투자 시 추가 (HP_PER_VIT 1)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
-      allocatedStats: { str: 0, dex: 0, vit: 50, spd: 0, luk: 0, int: 0 },
+      allocatedStats: { str: 0, dex: 0, vit: 50, luk: 0, int: 0 },
       v2Equipped: {},
     });
     // 베이스 vit 15 + 할당 50 = 65. maxHp = 135 + 65 = 200.

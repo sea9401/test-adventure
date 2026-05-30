@@ -428,32 +428,30 @@ describe("tickV2BuffMap / applyV2BuffsToMap (PR-4b)", () => {
     expect(v2BuffActive({}, "str")).toBe(0);
   });
 
-  // PR-5a v2AtkBuffMult / v2DefBuffMult — 격리 해제 (일반 공격 buff 곱셈).
-  it("v2AtkBuffMult — str/dex/spd/luk buff 합산, debuff 차감, 0 floor", () => {
+  // PR-2 strict §4 — v2 일반공격 atk = STR 단독. dex/spd/luk 은 atk 버프에 무관.
+  it("v2AtkBuffMult — str buff 만 합산(strict §4), dex/spd/luk 무관, debuff 차감, 0 floor", () => {
     // empty → 1.0
     expect(v2AtkBuffMult({}, {})).toBe(1);
     // str +20% only → 1.20
     expect(v2AtkBuffMult({ str: { pct: 20, turns: 3 } }, {})).toBe(1.2);
-    // str +20 + spd +10 → 1.30
+    // spd/dex/luk buff 는 atk 무관(strict §4) → 1.0 그대로
     expect(
       v2AtkBuffMult(
-        { str: { pct: 20, turns: 3 }, spd: { pct: 10, turns: 3 } },
+        {
+          spd: { pct: 10, turns: 3 },
+          dex: { pct: 50, turns: 3 },
+          luk: { pct: 50, turns: 3 },
+        },
         {},
       ),
-    ).toBeCloseTo(1.3);
+    ).toBe(1);
     // str debuff -20% → 0.8
     expect(v2AtkBuffMult({}, { str: { pct: 20, turns: 3 } })).toBeCloseTo(0.8);
     // vit / int buff 는 atk 무관 — 1.0 그대로
     expect(v2AtkBuffMult({ vit: { pct: 50, turns: 3 } }, {})).toBe(1);
     expect(v2AtkBuffMult({ int: { pct: 50, turns: 3 } }, {})).toBe(1);
-    // 합산 debuff 가 +100% buff 보다 커도 0 floor
-    expect(
-      v2AtkBuffMult({}, {
-        str: { pct: 50, turns: 3 },
-        dex: { pct: 50, turns: 3 },
-        spd: { pct: 50, turns: 3 },
-      }),
-    ).toBe(0);
+    // str debuff 가 +100% 보다 커도 0 floor
+    expect(v2AtkBuffMult({}, { str: { pct: 150, turns: 3 } })).toBe(0);
   });
 
   it("v2DefBuffMult — vit 만 사용, buff/debuff 곱셈", () => {

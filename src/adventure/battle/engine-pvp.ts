@@ -1362,7 +1362,11 @@ export function advanceTurnPvP(
     balanceCritBonus +
     universalLuckBonus +
     cyclingChiThisTurn;
-  const effectiveCritPct = Math.min(CRIT_PCT_CAP, rawCritPct);
+  // PR-2 — 피격자(defender)의 치명타 저항(정신)만큼 공격자 크리 확률 차감. PvE 몹은 크리 없어 PvP 한정.
+  const effectiveCritPct = Math.max(
+    0,
+    Math.min(CRIT_PCT_CAP, rawCritPct) - (defender.player.critResistPct ?? 0),
+  );
   const critOverflowDmgBonus = Math.min(
     CRIT_OVERFLOW_DMG_CAP,
     Math.max(0, rawCritPct - CRIT_PCT_CAP) * CRIT_OVERFLOW_DMG_PER_PCT,
@@ -2180,12 +2184,15 @@ function castV2SkillOnAttackerTurnPvP(
       mp: side.mp,
       atk: side.player.atk,
       magicAtk: side.player.magicAtk ?? side.player.atk,
+      minDamage: side.player.minDamage,
+      healMult: side.player.healMult,
       maxHp: side.maxHp,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
     },
     target: {
       def: opp.player.def,
+      magicDef: opp.player.magicDef,
       // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
       selfBuffs: opp.v2SelfBuffs,
       selfDebuffs: opp.v2SelfDebuffs,

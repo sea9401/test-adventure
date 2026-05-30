@@ -274,6 +274,7 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
           },
           target: {
             def: playerForBattle.def,
+            magicDef: playerForBattle.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tPDebuffs,
           },
@@ -330,6 +331,8 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
               mp: state.playerMp,
               atk: playerForBattle.atk,
               magicAtk: playerForBattle.magicAtk ?? playerForBattle.atk,
+              minDamage: playerForBattle.minDamage,
+              healMult: playerForBattle.healMult,
               maxHp: state.playerMaxHp,
               selfBuffs: tickedSelfBuffs,
               selfDebuffs: tickedSelfDebuffs,

@@ -121,7 +121,11 @@ export async function POST(req: Request) {
       const reqStat = def.learn!.stat;
       if (reqStat) {
         const combat = await derivePlayerCombatV2(userId, tx);
-        const have = combat?.totalStats?.[reqStat.key] ?? 0;
+        // PR-2 — 속도(spd)는 1차 아닌 파생 스탯이라 player.spd 로 조회. 그 외는 1차 totalStats.
+        const have =
+          reqStat.key === "spd"
+            ? combat?.player.spd ?? 0
+            : combat?.totalStats?.[reqStat.key] ?? 0;
         if (have < reqStat.min) {
           return {
             ok: false as const,

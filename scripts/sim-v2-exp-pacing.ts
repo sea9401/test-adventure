@@ -42,13 +42,15 @@ function pickFloorForLevel(lv: number): FloorInfo {
   if (lv >= 100) pick = floorInfos.find((f) => f.tier === "entry") ?? pick;
   return pick;
 }
-const simWinT: Record<number, number> = { 3: 8.1, 10: 16.2, 25: 14.6, 50: 16.2, 75: 31.3, 100: 30.3 };
+// winT = STR 빌드 sim-v2-progression --skills 측정값 (2026-05-30 갱신 — 무기재배치·floor5
+// 정규화 반영). Lv75/100 은 floor5 ×0.4 로 몹이 약해져 옛 31.3/30.3 → 19.3/16.1 로 빨라짐.
+const simWinT: Record<number, number> = { 3: 8.9, 10: 19.3, 25: 19.1, 50: 19.2, 75: 19.3, 100: 16.1 };
 const segments = [
-  { from: 1, to: 10, lv: 3, winT: 8.1 },
-  { from: 10, to: 25, lv: 10, winT: 16.2 },
-  { from: 25, to: 50, lv: 25, winT: 14.6 },
-  { from: 50, to: 75, lv: 50, winT: 16.2 },
-  { from: 75, to: 100, lv: 75, winT: 31.3 },
+  { from: 1, to: 10, lv: 3, winT: 8.9 },
+  { from: 10, to: 25, lv: 10, winT: 19.3 },
+  { from: 25, to: 50, lv: 25, winT: 19.1 },
+  { from: 50, to: 75, lv: 50, winT: 19.2 },
+  { from: 75, to: 100, lv: 75, winT: 19.3 },
 ];
 
 // 다이얼 조합으로 한 hunt 의 최종 exp 계산.

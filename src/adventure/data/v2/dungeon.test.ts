@@ -58,15 +58,16 @@ describe("scaleMonsterForFloor", () => {
     expect(scaleMonsterForFloor(weak, 4)).toBe(weak);
   });
 
-  it("floor 5 — 라이브 엔드보스를 v2 성장 범위로 압축 (×0.4 + def cap 26)", () => {
+  it("floor 5 — 라이브 엔드보스 압축(난이도 ×0.4 + def cap 26), exp 는 분리(base ×1.0)", () => {
     // 잠든 황좌 거인 = 라이브 5막 엔드보스 (hp2070/atk136/def82/exp280).
     const giant = MONSTERS["잠든 황좌 거인"];
     const scaled = scaleMonsterForFloor(giant, 5);
     expect(scaled).not.toBe(giant);
-    expect(scaled.hp).toBe(Math.round(2070 * 0.4)); // 828
+    expect(scaled.hp).toBe(Math.round(2070 * 0.4)); // 828 — 난이도(hp) ×0.4
     expect(scaled.atk).toBe(Math.round(136 * 0.4)); // 54
     expect(scaled.def).toBe(26); // min(round(82×0.4)=33, cap 26)
-    expect(scaled.exp).toBe(Math.round(280 * 0.4)); // 112 — exp 도 난이도 비례 축소
+    // exp 는 난이도 배율과 분리 — base(×1.0). Lv70~100 leveling 페이스 보존(난이도에 안 묶음).
+    expect(scaled.exp).toBe(280);
     expect(scaled.spd).toBe(giant.spd); // hp/atk/def/exp 외 필드 보존
     expect(giant.hp).toBe(2070); // 원본 불변 (mutation 가드)
   });

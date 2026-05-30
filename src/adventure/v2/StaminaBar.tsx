@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  MAX_STAMINA,
-  applyRegen,
-  msUntilNextRegen,
-  type StaminaState,
-} from "./stamina";
+import { MAX_STAMINA, applyRegen, type StaminaState } from "./stamina";
 
 // 스태미너 표시 바.
 // state 자체는 DB save 시점 (사냥/회복 시) 에만 변경. 화면 표시값은 1초마다
@@ -20,8 +15,6 @@ export function StaminaBar({ state }: { state: StaminaState }) {
 
   const display = applyRegen(state, now);
   const pct = Math.max(0, Math.min(100, (display.current / MAX_STAMINA) * 100));
-  const remainingMs = msUntilNextRegen(display, now);
-  const isFull = display.current >= MAX_STAMINA;
 
   return (
     <div className="rounded-md border border-zinc-200 bg-zinc-50/90 px-4 py-3 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90">
@@ -37,16 +30,6 @@ export function StaminaBar({ state }: { state: StaminaState }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <div className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
-        {isFull ? "만피" : `다음 회복 ${formatMs(remainingMs)}`}
-      </div>
     </div>
   );
-}
-
-function formatMs(ms: number): string {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }

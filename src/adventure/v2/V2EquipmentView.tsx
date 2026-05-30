@@ -7,32 +7,22 @@ import { LIST_ROW } from "@/components/ui/listRow";
 import { Backpack } from "@phosphor-icons/react";
 import {
   V2_EQUIPMENT,
-  V2_EQUIP_BONUS_KEYS,
-  V2_EQUIP_BONUS_LABELS,
-  V2_EQUIP_PERCENT_KEYS,
   CONCEPT_LABELS,
   SLOT_CONCEPTS,
   v2EquipmentByConcept,
+  v2EquipStatEntries,
+  type V2Equipment,
   type V2EquipmentId,
   type V2EquipSlot,
-  type V2EquipStats,
 } from "@/adventure/data/v2/v2Equipment";
 
 // v2 장비 화면 — 라이브 자산 (ITEMS/dropQuality 등) 분리. 자체 placeholder 풀.
-// PR-2: 35종 그리드 (부위 3 × 컨셉 2~3 × 티어 5) + crit/mp/eva 추가 파생.
+// PR-4a: 35종 그리드 (부위 3 × 컨셉 2~3 × 티어 5) — 위력/무게/옵션 모델.
 // 보유 목록과 dev grant 모두 슬롯·컨셉 그룹 + 티어 순으로 정렬해 35종이 cluttered
 // 하지 않게 표시.
 
-function formatStats(stats: V2EquipStats): string {
-  const parts: string[] = [];
-  for (const k of V2_EQUIP_BONUS_KEYS) {
-    const v = stats[k];
-    if (!v) continue;
-    const sign = v >= 0 ? "+" : "";
-    const unit = V2_EQUIP_PERCENT_KEYS.has(k) ? "%" : "";
-    parts.push(`${V2_EQUIP_BONUS_LABELS[k]} ${sign}${v}${unit}`);
-  }
-  return parts.join(" · ");
+function formatStats(item: V2Equipment): string {
+  return v2EquipStatEntries(item).join(" · ");
 }
 
 const SLOT_LABEL: Record<V2EquipSlot, string> = {
@@ -199,7 +189,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                   </div>
                   {item && (
                     <div className="truncate text-xs text-emerald-700 dark:text-emerald-300">
-                      {formatStats(item.stats)}
+                      {formatStats(item)}
                     </div>
                   )}
                 </div>
@@ -285,7 +275,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                                 )}
                               </div>
                               <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
-                                {formatStats(item.stats)}
+                                {formatStats(item)}
                               </div>
                               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                                 {item.description}
@@ -331,7 +321,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                               type="button"
                               onClick={() => grantDev(item.id)}
                               disabled={busy || has}
-                              title={`${item.name} · ${formatStats(item.stats)}`}
+                              title={`${item.name} · ${formatStats(item)}`}
                               className="rounded border border-zinc-300 px-1 py-1 text-[10px] hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
                             >
                               {has ? `✓ T${item.tier}` : `T${item.tier}`}

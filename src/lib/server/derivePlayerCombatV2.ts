@@ -17,10 +17,8 @@
 //   - EquipBonus 부분 (atk/def + 6스탯) → 입력 합산. 6스탯은 ×5 스케일 (v2Equipment.ts)
 //   - 추가 파생 (crit/mp/eva/hp) → 결과에 후-가산. 파생 단위는 스케일 변화 없음.
 //
-// DerivedPlayerCombat 인터페이스 호환 — 다운스트림 코드(api routes, V2CharacterScreen
-// 등) 가 layout/runeBonus/characterSkills 같은 필드를 기대하므로 빈 값으로 채운다.
-//
-// v2 마법 슬롯 cap 은 layout.normalSlots 와 공유 — 라이브 skillLayout 수식 재사용.
+// 반환 타입 DerivedPlayerCombatV2 는 라이브 DerivedPlayerCombat 와 독립 — v2 전투는
+// player 만 소비하고 rune/skill/feat/affix/layout 은 일절 안 읽으므로 담지 않는다.
 
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
@@ -28,10 +26,8 @@ import { savesKv } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   baselineRegenFor,
-  skillLayout,
   CRIT_MULT_BASE,
 } from "@/adventure/character/skills";
-import { emptyRuneBonus } from "@/adventure/character/runeBonus";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
   EVASION_PCT_CAP,
@@ -51,7 +47,6 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import type { PlayerCombat } from "@/adventure/battle/engine";
-import type { DerivedPlayerCombat } from "@/adventure/character/derivePlayerCombat";
 
 type SavedCharacterV2 = {
   hp?: number;
@@ -67,7 +62,11 @@ type SavedTrainingV2 = {
   allocated?: Partial<Record<StatKey, number>>;
 };
 
-export type DerivedPlayerCombatV2 = DerivedPlayerCombat & {
+export type DerivedPlayerCombatV2 = {
+  player: PlayerCombat;
+  totalStats: Record<StatKey, number>;
+  baseAllocatedStats: Record<StatKey, number>;
+  maxHp: number;
   selectedStance: StanceId | null;
 };
 
@@ -282,12 +281,6 @@ export function derivePlayerCombatV2Pure(
   const savedMp = input.mp ?? maxMp;
   const mp = Math.max(0, Math.min(savedMp, maxMp));
 
-  // 라이브 skillLayout — 슬롯 cap 으로 재사용 (PR-7a 후로는 effectiveFeatNames 길이용만).
-  const layout = skillLayout({
-    level,
-    hasFlag: () => false,
-  });
-
   const player: PlayerCombat = {
     hp,
     maxHp,
@@ -312,15 +305,6 @@ export function derivePlayerCombatV2Pure(
     totalStats,
     baseAllocatedStats,
     maxHp,
-    // 라이브 스킬·룬·feats·affix 시스템 전부 폐기 — 모두 빈 값.
-    runeBonus: emptyRuneBonus(),
-    characterSkills: [],
-    characterFeats: [],
-    effectiveSkillNames: [],
-    // 인터페이스 의도상 길이 = layout.featSlots. v2 는 특기 폐기라 모두 null.
-    effectiveFeatNames: Array.from({ length: layout.featSlots }, () => null),
-    effectiveSkillSet: new Set<string>(),
-    layout,
     selectedStance: normalizeStance(input.selectedStanceRaw),
   };
 }

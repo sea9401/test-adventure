@@ -41,6 +41,13 @@ export type V2SkillId =
   | "v2_skill_arcane_nova" // 마법사 전용 — 비전 폭발 (INT)
   | "v2_skill_divine_light" // 신관 전용 — 신성한 빛 (SPI)
   | "v2_skill_shadow_strike" // 인술가 전용 — 그림자 일격 (LUK)
+  // ── 직업 2차 전용 (PR-7 전직) — 6 2차 시그니처 ──────────────────────
+  | "v2_skill_moonlight_slash" // 검성 전용 — 월광검 (STR)
+  | "v2_skill_storm_arrows" // 명궁 전용 — 폭풍 화살 (DEX)
+  | "v2_skill_collapsing_fist" // 권왕 전용 — 붕권 (VIT)
+  | "v2_skill_meteor" // 대마법사 전용 — 메테오 (INT)
+  | "v2_skill_blessing" // 주교 전용 — 축복의 빛 (SPI)
+  | "v2_skill_shadow_clones" // 그림자 주인 전용 — 그림자 분신 (LUK)
   | "dex_needle_flurry_t2" // DEX 바늘 연격
   | "dex_true_thrust_t2" // DEX 정밀 관통
   | "dex_mirage_step_t2" // DEX 잔영 보법
@@ -620,6 +627,95 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
     ],
     learn: { goldCost: 0, requireClass: "ninja" },
+  },
+
+  // ── 직업 2차 전용 (PR-7 전직) — 6 2차 시그니처. 1차보다 강한 coef, requireClass 2차직업. ──
+  v2_skill_moonlight_slash: {
+    id: "v2_skill_moonlight_slash",
+    name: "월광검",
+    stat: "str",
+    category: "attack",
+    tier: 3,
+    description: "검성 전용. 달빛을 베어 가르는 절검. 강력한 물리 피해.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "swordmaster" },
+  },
+  v2_skill_storm_arrows: {
+    id: "v2_skill_storm_arrows",
+    name: "폭풍 화살",
+    stat: "dex",
+    category: "attack",
+    tier: 3,
+    description: "명궁 전용. 폭풍처럼 쏟아지는 화살. 강력한 물리 피해.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "sharpshooter" },
+  },
+  v2_skill_collapsing_fist: {
+    id: "v2_skill_collapsing_fist",
+    name: "붕권",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "권왕 전용. 무너뜨리는 일권. 적의 방어를 깎고 강타한다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.4, baseFlat: 14, scaling: "physical" },
+      { kind: "enemyDebuff", stat: "vit", pct: 15, turns: 3 },
+    ],
+    learn: { goldCost: 0, requireClass: "grandmaster" },
+  },
+  v2_skill_meteor: {
+    id: "v2_skill_meteor",
+    name: "메테오",
+    stat: "int",
+    category: "attack",
+    tier: 3,
+    description: "대마법사 전용. 별을 떨궈 강력한 마법 피해를 입힌다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "magic" },
+    ],
+    learn: { goldCost: 0, requireClass: "archmage" },
+  },
+  v2_skill_blessing: {
+    id: "v2_skill_blessing",
+    name: "축복의 빛",
+    // 주교는 정신(spi) 직업이나 스킬 stat 메타는 라이브 StatKey 라 int 로 분류(divine_light 동일).
+    stat: "int",
+    category: "heal",
+    tier: 3,
+    description: "주교 전용. 깊은 가호로 크게 치유하고 몸을 단단히 한다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "heal", pctMaxHp: 30 },
+      { kind: "selfBuff", stat: "vit", pct: 20, turns: 3 },
+    ],
+    learn: { goldCost: 0, requireClass: "bishop" },
+  },
+  v2_skill_shadow_clones: {
+    id: "v2_skill_shadow_clones",
+    name: "그림자 분신",
+    stat: "luk",
+    category: "attack",
+    tier: 3,
+    description: "그림자 주인 전용. 분신이 일제히 급소를 친다. 치명타에 강하다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "nightblade" },
   },
 };
 

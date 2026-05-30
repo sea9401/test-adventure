@@ -4,6 +4,8 @@ import {
   V2_CLASS_DEFS,
   V2_SELECTABLE_CLASSES,
   parseV2Class,
+  tier1ClassOf,
+  tier2ClassOf,
 } from "./classes";
 import { V2_SKILLS } from "./v2Skills";
 import { V2_STAT_KEYS } from "./v2StatKeys";
@@ -19,10 +21,14 @@ const EXPECTED_ANCHOR = {
 } as const;
 
 describe("v2 직업 (PR-6 확장)", () => {
-  it("none + 6 직업군 = 7개, 선택가능은 6개", () => {
-    expect(V2_CLASSES).toHaveLength(7);
+  it("none + 6 1차 + 6 2차 = 13개, 선택가능(respec)은 1차 6개", () => {
+    expect(V2_CLASSES).toHaveLength(13);
     expect(V2_SELECTABLE_CLASSES).toHaveLength(6);
     expect(V2_SELECTABLE_CLASSES).not.toContain("none");
+    // 선택가능은 전부 1차.
+    for (const c of V2_SELECTABLE_CLASSES) {
+      expect(V2_CLASS_DEFS[c].tier).toBe(1);
+    }
   });
 
   it("6 직업이 6 1차 스탯을 앵커로 1:1 커버", () => {
@@ -70,5 +76,56 @@ describe("v2 직업 (PR-6 확장)", () => {
     expect(parseV2Class("nonsense")).toBe("none");
     expect(parseV2Class(undefined)).toBe("none");
     expect(parseV2Class("dark")).toBe("none");
+  });
+});
+
+describe("v2 2차 전직 (PR-7)", () => {
+  const TIER2 = [
+    "swordmaster",
+    "sharpshooter",
+    "grandmaster",
+    "archmage",
+    "bishop",
+    "nightblade",
+  ] as const;
+
+  it("6 1차 각각 정확히 1개의 2차로 전직 (1:1)", () => {
+    for (const c of V2_SELECTABLE_CLASSES) {
+      const t2 = tier2ClassOf(c);
+      expect(t2, `${c} 2차 없음`).toBeTruthy();
+      expect(V2_CLASS_DEFS[t2!].tier).toBe(2);
+      // 같은 직업군 + 앵커 동일.
+      expect(V2_CLASS_DEFS[t2!].group).toBe(V2_CLASS_DEFS[c].group);
+      expect(V2_CLASS_DEFS[t2!].anchorStat).toBe(V2_CLASS_DEFS[c].anchorStat);
+      // 2차 보정 > 1차 보정.
+      expect(V2_CLASS_DEFS[t2!].statBonusPct).toBeGreaterThan(
+        V2_CLASS_DEFS[c].statBonusPct,
+      );
+    }
+  });
+
+  it("2차는 advanceFrom/advanceLevel + 전용 스킬(requireClass 그 2차)", () => {
+    for (const t2 of TIER2) {
+      const def = V2_CLASS_DEFS[t2];
+      expect(def.tier).toBe(2);
+      expect(def.advanceFrom, `${t2} advanceFrom`).toBeTruthy();
+      expect(tier2ClassOf(def.advanceFrom!)).toBe(t2); // 역참조 일관
+      expect(def.advanceLevel, `${t2} advanceLevel`).toBeGreaterThan(0);
+      const sig = def.signatureSkill!;
+      expect(V2_SKILLS[sig], `${sig} 없음`).toBeDefined();
+      expect(V2_SKILLS[sig].learn?.requireClass).toBe(t2);
+    }
+  });
+
+  it("tier1ClassOf — 1차는 자신, 2차는 선행 1차, none 은 none", () => {
+    expect(tier1ClassOf("swordsman")).toBe("swordsman");
+    expect(tier1ClassOf("swordmaster")).toBe("swordsman");
+    expect(tier1ClassOf("archmage")).toBe("mage");
+    expect(tier1ClassOf("none")).toBe("none");
+  });
+
+  it("tier2ClassOf — 2차/none 은 null (1차만 전직 가능)", () => {
+    expect(tier2ClassOf("swordmaster")).toBeNull();
+    expect(tier2ClassOf("none")).toBeNull();
   });
 });

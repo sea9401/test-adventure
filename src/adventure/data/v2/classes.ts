@@ -10,12 +10,20 @@ import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
 
 export const V2_CLASSES = [
   "none",
+  // 1차 (직업군별 입문) ─────────────────────────────
   "swordsman",
   "archer",
   "martial",
   "mage",
   "priest",
   "ninja",
+  // 2차 (1차에서 레벨+골드 전직, PR-7) ───────────────
+  "swordmaster",
+  "sharpshooter",
+  "grandmaster",
+  "archmage",
+  "bishop",
+  "nightblade",
 ] as const;
 export type V2Class = (typeof V2_CLASSES)[number];
 
@@ -25,28 +33,40 @@ export type V2ClassDef = {
   name: string;
   /** 직업군 (검술/체술/…). */
   group: string;
+  /** 전직 단계 — 1차(입문) / 2차(전직). none 은 1. */
+  tier: 1 | 2;
   /** 주 스탯 — 직업별 보정 대상. */
   anchorStat: V2StatKey;
-  /** 앵커 스탯 보정 %. 0 = 무보정(none). */
+  /** 앵커 스탯 보정 %. 0 = 무보정(none). 2차는 더 큼. */
   statBonusPct: number;
-  /** 전용 스킬 — 이 직업 선택 시 자동 학습, 타 직업은 학습 불가(requireClass 게이트). */
+  /** 전용 스킬 — 이 직업 선택/전직 시 자동 학습, 타 직업은 학습 불가(requireClass 게이트). */
   signatureSkill?: V2SkillId;
+  /** 2차 전용 — 이 직업으로 전직하기 위한 선행 1차 직업. */
+  advanceFrom?: V2Class;
+  /** 2차 전용 — 전직 가능 최소 레벨. */
+  advanceLevel?: number;
   description: string;
 };
+
+// 2차 전직 가능 레벨 — 6직업 공통(PR-7 시작값, 다이얼).
+export const V2_TIER2_ADVANCE_LEVEL = 30;
 
 export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   none: {
     id: "none",
     name: "무직",
     group: "-",
+    tier: 1,
     anchorStat: "str",
     statBonusPct: 0,
     description: "직업 미선택.",
   },
+  // ── 1차 (직업군 입문, 앵커 +10%) ──────────────────────────────────
   swordsman: {
     id: "swordsman",
     name: "검사",
     group: "검술",
+    tier: 1,
     anchorStat: "str",
     statBonusPct: 10,
     signatureSkill: "v2_skill_blade_dance",
@@ -56,6 +76,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     id: "archer",
     name: "궁수",
     group: "궁술",
+    tier: 1,
     anchorStat: "dex",
     statBonusPct: 10,
     signatureSkill: "v2_skill_piercing_shot",
@@ -65,6 +86,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     id: "martial",
     name: "무도가",
     group: "체술",
+    tier: 1,
     anchorStat: "vit",
     statBonusPct: 10,
     signatureSkill: "v2_skill_iron_fist",
@@ -74,6 +96,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     id: "mage",
     name: "마법사",
     group: "마술",
+    tier: 1,
     anchorStat: "int",
     statBonusPct: 10,
     signatureSkill: "v2_skill_arcane_nova",
@@ -83,6 +106,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     id: "priest",
     name: "신관",
     group: "신술",
+    tier: 1,
     anchorStat: "spi",
     statBonusPct: 10,
     signatureSkill: "v2_skill_divine_light",
@@ -92,16 +116,91 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     id: "ninja",
     name: "인술가",
     group: "인술",
+    tier: 1,
     anchorStat: "luk",
     statBonusPct: 10,
     signatureSkill: "v2_skill_shadow_strike",
     description: "인술 계열. 행운(LUK) 기반 치명 일격. 크리티컬로 급소를 노린다. 전용 스킬 그림자 일격.",
   },
+  // ── 2차 (1차에서 Lv30+ 골드 전직, 앵커 +18% + 2차 전용 스킬) ──────────
+  swordmaster: {
+    id: "swordmaster",
+    name: "검성",
+    group: "검술",
+    tier: 2,
+    anchorStat: "str",
+    statBonusPct: 18,
+    signatureSkill: "v2_skill_moonlight_slash",
+    advanceFrom: "swordsman",
+    advanceLevel: V2_TIER2_ADVANCE_LEVEL,
+    description: "검술 2차. 극에 달한 검. 힘 보정이 깊어진다. 전용 스킬 월광검.",
+  },
+  sharpshooter: {
+    id: "sharpshooter",
+    name: "명궁",
+    group: "궁술",
+    tier: 2,
+    anchorStat: "dex",
+    statBonusPct: 18,
+    signatureSkill: "v2_skill_storm_arrows",
+    advanceFrom: "archer",
+    advanceLevel: V2_TIER2_ADVANCE_LEVEL,
+    description: "궁술 2차. 빗나가지 않는 사격. 민첩 보정이 깊어진다. 전용 스킬 폭풍 화살.",
+  },
+  grandmaster: {
+    id: "grandmaster",
+    name: "권왕",
+    group: "체술",
+    tier: 2,
+    anchorStat: "vit",
+    statBonusPct: 18,
+    signatureSkill: "v2_skill_collapsing_fist",
+    advanceFrom: "martial",
+    advanceLevel: V2_TIER2_ADVANCE_LEVEL,
+    description: "체술 2차. 무너지지 않는 몸. 활력 보정이 깊어진다. 전용 스킬 붕권.",
+  },
+  archmage: {
+    id: "archmage",
+    name: "대마법사",
+    group: "마술",
+    tier: 2,
+    anchorStat: "int",
+    statBonusPct: 18,
+    signatureSkill: "v2_skill_meteor",
+    advanceFrom: "mage",
+    advanceLevel: V2_TIER2_ADVANCE_LEVEL,
+    description: "마술 2차. 별을 떨구는 화력. 지능 보정이 깊어진다. 전용 스킬 메테오.",
+  },
+  bishop: {
+    id: "bishop",
+    name: "주교",
+    group: "신술",
+    tier: 2,
+    anchorStat: "spi",
+    statBonusPct: 18,
+    signatureSkill: "v2_skill_blessing",
+    advanceFrom: "priest",
+    advanceLevel: V2_TIER2_ADVANCE_LEVEL,
+    description: "신술 2차. 깊은 가호. 정신 보정이 깊어진다. 전용 스킬 축복의 빛.",
+  },
+  nightblade: {
+    id: "nightblade",
+    name: "그림자 주인",
+    group: "인술",
+    tier: 2,
+    anchorStat: "luk",
+    statBonusPct: 18,
+    signatureSkill: "v2_skill_shadow_clones",
+    advanceFrom: "ninja",
+    advanceLevel: V2_TIER2_ADVANCE_LEVEL,
+    description: "인술 2차. 그림자를 부린다. 행운 보정이 깊어진다. 전용 스킬 그림자 분신.",
+  },
 };
 
-// 플레이어가 선택 가능한 직업 (none 제외 — "직업 선택"이 정체성).
+// 플레이어가 직접 "선택(respec)"할 수 있는 직업 = 1차만 (none·2차 제외).
+// 2차는 직접 선택이 아니라 1차에서 전직(advance)으로 도달.
 export const V2_SELECTABLE_CLASSES: readonly V2Class[] = V2_CLASSES.filter(
-  (c) => c !== "none",
+  (c) => c !== "none" && V2_CLASS_DEFS[c].tier === 1,
 );
 
 export function parseV2Class(raw: unknown): V2Class {
@@ -113,4 +212,21 @@ export function parseV2Class(raw: unknown): V2Class {
 
 export function v2ClassDef(c: V2Class): V2ClassDef {
   return V2_CLASS_DEFS[c] ?? V2_CLASS_DEFS.none;
+}
+
+// 직업 c 의 직업군 1차 직업 (c 가 1차면 c, 2차면 advanceFrom, none 이면 none).
+// respec 피커가 2차 캐릭의 "현재 직업군"을 1차로 매핑할 때 사용.
+export function tier1ClassOf(c: V2Class): V2Class {
+  const def = V2_CLASS_DEFS[c];
+  if (def.tier === 2 && def.advanceFrom) return def.advanceFrom;
+  return c;
+}
+
+// 1차 직업 c 가 전직 가능한 2차 직업 (없으면 null). c 가 1차가 아니면 null.
+export function tier2ClassOf(c: V2Class): V2Class | null {
+  if (V2_CLASS_DEFS[c].tier !== 1 || c === "none") return null;
+  for (const id of V2_CLASSES) {
+    if (V2_CLASS_DEFS[id].advanceFrom === c) return id;
+  }
+  return null;
 }

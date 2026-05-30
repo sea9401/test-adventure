@@ -23,6 +23,11 @@ export type V2SkillId =
   | "v2_skill_dash" // SPD 질주
   | "v2_skill_fortune" // LUK 행운
   | "v2_skill_meditate" // INT 명상
+  // ── Tier 1 학습형 — INT 기본 마법 공격 (교관 구매) ──────────────────
+  // INT 는 물리 atk 가 안 붙어 평타가 무의미하므로, STR/DEX 의 평타 역할을 대신할
+  // 기본 마법 공격이 필요. 스타터(자동지급)로 두면 비-INT 빌드가 1뎀 마법을 잘못
+  // 시전하므로 학습형 + int 요구치로 게이트.
+  | "int_magic_bolt_t1" // INT 마법 탄 (기본 마법 공격)
   // ── Tier 2 (교관 학습, PR-3 도입) ─────────────────────────────────
   | "str_cleave_t2" // STR 횡베기
   | "str_crushing_blow_t2" // STR 분쇄 강타
@@ -154,6 +159,31 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     mpCost: 30,
     cooldown: 5,
     effects: [{ kind: "selfBuff", stat: "int", pct: 10, turns: 3 }],
+  },
+
+  // === Tier 1 학습형 — INT 기본 마법 공격 ───────────────────────────
+  // 마법 빌드의 평타 대체. magicAtk(INT 환산)로 스케일하는 가장 싼 단발 마법.
+  // 비전 화살(Lv18) 전까지 INT 가 데미지를 낼 유일한 수단. coef 1.0 으로 STR 강타와
+  // 같은 배율이되 마법 경로라 magicAtk 로 친다. int 20 요구치로 비-INT 빌드 차단.
+  int_magic_bolt_t1: {
+    id: "int_magic_bolt_t1",
+    name: "마법 탄",
+    stat: "int",
+    category: "attack",
+    tier: 1,
+    description: "응축한 마력을 작게 뭉쳐 쏘아 보낸다. 익히기 쉬운 기초 마법.",
+    mpCost: 14,
+    cooldown: 0,
+    // coef 0.45 + baseFlat 10 — flat 은 magicAtk 작은 초반엔 비중이 커 INT 초반(비전 화살
+    // Lv18 전)을 떠받치고, magicAtk 큰 후반엔 미미해 no-cd 필러가 지속 DPS 를 과하게 올리지
+    // 않는다(자연 스케일링). sim-v2-progression --skills 캘리브: INT wr Lv10 36%→79%(공백
+    // 해소), Lv25 91%·Lv50 83%(STR 동률) 유지. coef/flat 둘이 초반·후반 분리 다이얼.
+    effects: [{ kind: "damage", statCoef: 0.45, baseFlat: 10, scaling: "magic" }],
+    learn: {
+      goldCost: 200,
+      level: 1,
+      stat: { key: "int", min: 20 },
+    },
   },
 
   // === Tier 2 — 교관 NPC 학습 (PR-3) ────────────────────────────────

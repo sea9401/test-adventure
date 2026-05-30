@@ -85,7 +85,7 @@ export function LineupCard() {
   const isMaster = !!data.isMaster;
 
   return (
-    <div className="border-b border-zinc-200 bg-zinc-50/50 px-4 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900/30">
+    <div className="border-b border-zinc-200 bg-zinc-50 px-4 py-2 text-xs dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">3:3 토너먼트 라인업</span>
         <span className="text-zinc-500">

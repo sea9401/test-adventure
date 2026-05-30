@@ -264,8 +264,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${
             msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
           }`}
         >
           {msg}
@@ -359,7 +359,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="rounded-md border border-dashed border-zinc-300 bg-white/90 px-3 py-6 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-zinc-400">
+    <div className="rounded-md border border-dashed border-zinc-300 bg-white px-3 py-6 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-400">
       {text}
     </div>
   );

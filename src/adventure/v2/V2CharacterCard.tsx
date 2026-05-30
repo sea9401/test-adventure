@@ -51,7 +51,7 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
   return (
     <div
       aria-label="캐릭터 이미지"
-      className="flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/50 dark:text-zinc-600"
+      className="flex aspect-square w-28 shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-600"
     >
       {errored ? (
         <UserIcon size={56} weight="duotone" />
@@ -102,7 +102,7 @@ export function V2CharacterCard({
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-baseline gap-2">
             {titleName && (
-              <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+              <span className="rounded bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
                 {titleName}
               </span>
             )}
@@ -147,7 +147,7 @@ export function V2CharacterCard({
             const id = equipped[slot];
             const item = id ? V2_EQUIPMENT[id] : null;
             const slotClass =
-              "flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50";
+              "flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900";
             const inner = (
               <>
                 <Icon size={18} weight="duotone" className={color} />

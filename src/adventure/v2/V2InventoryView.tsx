@@ -211,7 +211,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             return (
               <div
                 key={slot}
-                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900/50"
+                className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900"
               >
                 {item ? (
                   // 장착 아이템 클릭 → 옵션 카드 팝오버.
@@ -260,8 +260,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${
             msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
+              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
           }`}
         >
           {msg}

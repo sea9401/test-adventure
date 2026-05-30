@@ -2,13 +2,14 @@
 
 import type { ReactNode } from "react";
 
-type TabSize = "sm" | "md";
+type TabSize = "sm" | "md" | "lg";
 // underline: 기존 밑줄 탭(v1 전반). highlight: nav 바 레일은 유지하고 호버/선택 시 글자 색만 인디고로(v2 게임 탭).
 type TabVariant = "underline" | "highlight";
 
 const SIZE: Record<TabSize, string> = {
   sm: "px-3 py-2 text-sm font-medium",
   md: "px-4 py-2 text-base font-semibold",
+  lg: "px-5 py-2.5 text-lg font-semibold",
 };
 
 const CONTAINER: Record<TabVariant, string> = {

@@ -120,9 +120,9 @@ function ResultShell({
     red: "border-red-300 dark:border-red-700",
   }[accent];
   const accentBg = {
-    green: "bg-emerald-50/50 dark:bg-emerald-950/30",
-    amber: "bg-amber-50/50 dark:bg-amber-950/30",
-    red: "bg-red-50/50 dark:bg-red-950/30",
+    green: "bg-emerald-50 dark:bg-emerald-950",
+    amber: "bg-amber-50 dark:bg-amber-950",
+    red: "bg-red-50 dark:bg-red-950",
   }[accent];
   return (
     <div className={`rounded-md border ${accentBorder} ${accentBg}`}>
@@ -160,7 +160,7 @@ function TournamentSection({
         {tournament.matches.map((m, i) => (
           <div
             key={i}
-            className="flex items-center justify-between rounded bg-white/50 px-2 py-1 text-xs dark:bg-zinc-900/50"
+            className="flex items-center justify-between rounded bg-white px-2 py-1 text-xs dark:bg-zinc-900"
           >
             <span className="font-mono text-zinc-500">m{i + 1}</span>
             <span className={m.winnerSide === "attacker" ? "font-medium" : ""}>

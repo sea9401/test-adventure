@@ -443,7 +443,7 @@ function EquipmentRow({
             type="button"
             onClick={onEquip}
             disabled={busy}
-            className="rounded-md border border-emerald-400 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            className="rounded-md border border-emerald-600 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
           >
             {busy ? "…" : "장착"}
           </button>

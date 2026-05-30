@@ -240,7 +240,7 @@ export function V2AdventureHome({
               <button
                 type="button"
                 onClick={() => onEnterOutpost(outpost)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700"
               >
                 <DoorOpen size={16} weight="fill" />
                 거점 진입
@@ -250,7 +250,7 @@ export function V2AdventureHome({
                   type="button"
                   onClick={handleClaim}
                   disabled={claiming || !canClaim}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-400 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Coins size={14} weight="fill" />
                   {claiming

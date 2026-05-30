@@ -419,7 +419,7 @@ function BuyEquipmentRow({
         onClick={() => onBuy(id)}
         disabled={busy || !affordable}
         title={`${buyPrice.toLocaleString()} G 에 구매`}
-        className="justify-self-end rounded-md border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-100 dark:border-amber-600 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40"
+        className="justify-self-end rounded-md border border-amber-600 bg-amber-600 px-2.5 py-1 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
       >
         {busy ? "…" : `${buyPrice.toLocaleString()} G`}
       </button>

@@ -146,7 +146,7 @@ export function V2GuildHallView({ onBack }: { onBack: () => void }) {
             type="button"
             onClick={handleCreate}
             disabled={!canCreate}
-            className="mt-4 w-full rounded-md border border-indigo-500 bg-indigo-500/10 px-3 py-2 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-300"
+            className="mt-4 w-full rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "창단 중..." : `길드 창단 (${GUILD_CREATE_GOLD_COST.toLocaleString()} G)`}
           </button>

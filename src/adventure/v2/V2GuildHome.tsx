@@ -354,7 +354,7 @@ function ScrollActivationCard({
           type="button"
           onClick={handleActivate}
           disabled={busy || resources.scrolls < 1}
-          className="mt-2 w-full rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+          className="mt-2 w-full rounded-md border border-indigo-600 bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? "활성화 중…" : `활성화 (주문서 1 소비)`}
         </button>

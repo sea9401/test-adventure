@@ -48,12 +48,14 @@ export function rollEquipDrop(
   floor: DungeonFloorId,
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
+  // 통과 굴림 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. chance×배율(1 cap).
+  chanceMult: number = 1,
 ): V2EquipmentId | null {
   const pool = EQUIP_FLOOR_POOLS[floor];
   if (!pool) return null;
 
   // 1) 통과 굴림
-  if (rng() >= pool.chance) return null;
+  if (rng() >= Math.min(1, pool.chance * chanceMult)) return null;
 
   // 2) 티어 가중 pick
   const tiers: V2EquipTier[] = [];

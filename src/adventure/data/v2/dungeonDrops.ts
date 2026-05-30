@@ -151,11 +151,13 @@ export type DropResult = Partial<Record<V2MaterialId, number>>;
 export function rollDrops(
   floor: DungeonFloorId,
   rng: () => number,
+  // 드롭 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. 칸당 chance×배율(1 cap).
+  chanceMult: number = 1,
 ): DropResult {
   const pool = FLOOR_DROP_POOLS[floor];
   const out: DropResult = {};
   for (const rule of pool) {
-    if (rng() >= rule.chance) continue;
+    if (rng() >= Math.min(1, rule.chance * chanceMult)) continue;
     const span = rule.amountMax - rule.amountMin + 1;
     const amount = rule.amountMin + Math.floor(rng() * span);
     if (amount <= 0) continue;

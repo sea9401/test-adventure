@@ -10,7 +10,13 @@ import {
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
-import { applyExpGain, requiredExpToNext, XP_RATE_MULT } from "@/lib/leveling";
+import {
+  applyExpGain,
+  applyNewbieBonus,
+  getNewbieDropMultiplier,
+  requiredExpToNext,
+  XP_RATE_MULT,
+} from "@/lib/leveling";
 
 // BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
 // EXP 바 안 보이게 0 으로 fallback (현재 exp 와 동일 → pct 0).
@@ -370,11 +376,18 @@ export async function POST(req: Request) {
     );
 
     const won = battleResult.outcome === "win";
-    // 전역 EXP 배율 적용 — staging 은 기본 2.2(IS_STAGING), 라이브 1.0, NEXT_PUBLIC_XP_RATE_MULT
-    // 로 override. (신참 ×2·levelBand 는 v2 미적용 — 별개 다이얼.)
-    const expGained = won ? Math.round(enemyMonster.exp * XP_RATE_MULT) : 0;
+    const curLevel = Math.max(1, charSave.level ?? 1);
+    // EXP = monster.exp → 신참 보너스(Lv30 미만 ×2, 라이브와 동일) → 전역 배율(staging 기본
+    // 2.2/IS_STAGING, 라이브 1.0, NEXT_PUBLIC_XP_RATE_MULT override). 라이브 battleClaim 과 같은
+    // 순서(newbie 먼저, 그 다음 배율). levelBand 는 여전히 v2 미적용 — 별개 다이얼.
+    const baseExp = won ? applyNewbieBonus(enemyMonster.exp, curLevel).gained : 0;
+    const expGained = Math.round(baseExp * XP_RATE_MULT);
     const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
-    const drops: DropResult = won ? rollDrops(floor, Math.random) : {};
+    // 신참 드롭 보너스 — Lv30 미만 드롭률 ×2 (라이브와 동일).
+    const newbieDropMult = getNewbieDropMultiplier(curLevel);
+    const drops: DropResult = won
+      ? rollDrops(floor, Math.random, newbieDropMult)
+      : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
 
     // 장비 드랍 — 승리 시 1회 굴림. equipment.v2 save 도 lock 해서 누적.
@@ -389,7 +402,7 @@ export async function POST(req: Request) {
       );
       const { owned } = parseEquipmentSave(equipmentSave);
       const ownedSet = new Set<V2EquipmentId>(owned);
-      droppedEquipment = rollEquipDrop(floor, ownedSet, Math.random);
+      droppedEquipment = rollEquipDrop(floor, ownedSet, Math.random, newbieDropMult);
       if (droppedEquipment !== null) {
         const nextOwned = [...owned, droppedEquipment];
         await upsertSave(tx, userId, "equipment.v2", {
@@ -409,7 +422,6 @@ export async function POST(req: Request) {
     }
     const goldNet = goldGross - goldTaxed;
 
-    const curLevel = Math.max(1, charSave.level ?? 1);
     const curExp = Math.max(0, charSave.exp ?? 0);
     const expResult = applyExpGain(curLevel, curExp, expGained);
 

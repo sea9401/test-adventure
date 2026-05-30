@@ -55,6 +55,19 @@ describe("rollDrops", () => {
     expect(rollDrops(7, rng)).toEqual({});
     expect(rollDrops(8, rng)).toEqual({});
   });
+
+  it("chanceMult(신참 ×2) — chance 를 2배(1 cap), 미지정 1 동작 불변", () => {
+    // 1층 풀: stone 0.5 / herb 0.3 / slime 0.1. 상수 rng 0.55.
+    const rng = () => 0.55;
+    // 배율 1: 0.55 가 모든 chance 이상 → 드롭 없음 (미지정 기본도 동일).
+    expect(rollDrops(1, rng)).toEqual({});
+    expect(rollDrops(1, rng, 1)).toEqual({});
+    // 배율 2: stone 0.5×2=1.0(cap)·herb 0.3×2=0.6 통과, slime 0.1×2=0.2 실패.
+    const d = rollDrops(1, rng, 2);
+    expect(d.v2_stone_chip).toBeGreaterThan(0);
+    expect(d.v2_herb).toBeGreaterThan(0);
+    expect(d.v2_slime_shard).toBeUndefined();
+  });
 });
 
 describe("mergeDrops", () => {

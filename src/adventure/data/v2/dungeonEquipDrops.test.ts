@@ -161,4 +161,15 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     // dungeonEquipDrops 의 rollEquipDrop 시그니처는 floor 만 받으므로 직접 호출 가능
     // 패스 — 1층 케이스에서 이미 다 보유 시 null 반환 검증으로 갈음.
   });
+
+  it("chanceMult(신참 ×2) — 통과 chance 를 2배(1 cap), 미지정 1 불변", () => {
+    // 1층 통과 chance 0.05. rng 0.07 (seqRng 는 소진 후 0 반환 → 티어/아이템 pick = 0).
+    // 배율 1(또는 미지정): 0.07 >= 0.05 → null.
+    expect(rollEquipDrop(1, empty, seqRng([0.07]))).toBeNull();
+    expect(rollEquipDrop(1, empty, seqRng([0.07]), 1)).toBeNull();
+    // 배율 2: 0.05×2=0.10, 0.07 < 0.10 → 통과 → 아이템 반환(보유 없음).
+    expect(rollEquipDrop(1, empty, seqRng([0.07]), 2)).not.toBeNull();
+    // cap: 0.05×30=1.5 → 1.0, rng 0.99 < 1.0 → 통과.
+    expect(rollEquipDrop(1, empty, seqRng([0.99]), 30)).not.toBeNull();
+  });
 });

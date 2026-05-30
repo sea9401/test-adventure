@@ -62,8 +62,14 @@ export async function POST(req: Request) {
 
   try {
     const result = await db.transaction(async (tx) => {
-      // skills.v2 + character.v2 둘 다 lock (행 없으면 fallback). 행 미존재 시
-      // race 보강 위해 lock 직후 빈 state upsert — 다음 동시 요청이 정상 lock 잡게.
+      // lock 순서 통일 — character.v2 → skills.v2 (hunt·class-element 라우트와 동일).
+      // 동시 hunt/전직/학습 시 AB/BA 데드락 방지. 검사는 두 행 모두 잠근 뒤 수행(순서 무관).
+      const charRaw = await lockSaveForUpdate<CharSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
       const skillsRaw = await lockSaveForUpdate(
         tx,
         userId,
@@ -86,13 +92,6 @@ export async function POST(req: Request) {
           };
         }
       }
-
-      const charRaw = await lockSaveForUpdate<CharSave>(
-        tx,
-        userId,
-        "character.v2",
-        {},
-      );
 
       // PR-1 직업 전용 — requireClass 면 해당 직업이어야 학습 가능.
       const reqClass = def.learn!.requireClass;

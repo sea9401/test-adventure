@@ -15,10 +15,25 @@ import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  RESPEC_COOLDOWN_MS,
+  isPaidRespec,
+  respecGoldCost,
+} from "@/adventure/data/v2/respec";
 
-// POST /api/v2/me/class-element — 직업·속성 선택/변경 (PR-1 전투 재설계 슬라이스).
-// 직업 선택 시 그 직업의 전용 스킬을 자동 학습(skills.v2.learned)에 추가한다.
-// 비용/쿨다운(비용 전직)은 PR-6. PR-1 은 무료 선택.
+// POST /api/v2/me/class-element — 직업·속성 선택/변경.
+// PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 레벨비례 골드 + 24h 쿨다운.
+// 직업 선택 시 그 직업의 전용 스킬을 자동 학습(skills.v2.learned).
+
+type CharSaveShape = {
+  class?: unknown;
+  element?: unknown;
+  level?: number;
+  gold?: number;
+  lastRespecAt?: number;
+  [k: string]: unknown;
+};
+
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -38,10 +53,16 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_class" }, { status: 400 });
   }
 
+  const now = Date.now();
   const result = await db.transaction(async (tx) => {
-    // 락 순서 통일 — skill-slots/learn 라우트와 동일하게 skills.v2 → character.v2.
-    // (반대로 잡으면 두 라우트 동시 호출 시 AB/BA 데드락.)
+    // 락 순서 통일 — character.v2 → skills.v2 (hunt·learn 라우트와 동일, 데드락 방지).
     const sig = V2_CLASS_DEFS[nextClass].signatureSkill;
+    const charSave = await lockSaveForUpdate<CharSaveShape>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
     const skillsRaw = await lockSaveForUpdate(
       tx,
       userId,
@@ -50,16 +71,62 @@ export async function POST(req: Request) {
     );
     const skills = parseV2SkillsState(skillsRaw);
 
-    const charSave = await lockSaveForUpdate<{ [k: string]: unknown }>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
+    const curClass = parseV2Class(charSave.class);
+    const curElement = parseV2Element(charSave.element);
+    const level = Math.max(1, charSave.level ?? 1);
+    const gold = Math.max(0, charSave.gold ?? 0);
+    const lastRespecAt =
+      typeof charSave.lastRespecAt === "number" ? charSave.lastRespecAt : 0;
+
+    // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
+    const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
+    let spent = 0;
+    let nextGold = gold;
+    let nextLastRespecAt = lastRespecAt;
+    let cooldownUntil =
+      lastRespecAt > 0 ? lastRespecAt + RESPEC_COOLDOWN_MS : 0;
+
+    if (paid) {
+      if (lastRespecAt > 0 && now < lastRespecAt + RESPEC_COOLDOWN_MS) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "respec_cooldown" as const,
+            cooldownUntil: lastRespecAt + RESPEC_COOLDOWN_MS,
+          },
+        };
+      }
+      const cost = respecGoldCost(
+        curClass,
+        nextClass,
+        curElement,
+        nextElement,
+        level,
+      );
+      if (gold < cost) {
+        return {
+          status: 400,
+          body: {
+            ok: false as const,
+            error: "insufficient_gold" as const,
+            required: cost,
+            have: gold,
+          },
+        };
+      }
+      spent = cost;
+      nextGold = gold - cost;
+      nextLastRespecAt = now;
+      cooldownUntil = now + RESPEC_COOLDOWN_MS;
+    }
+
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       class: nextClass,
       element: nextElement,
+      gold: nextGold,
+      lastRespecAt: nextLastRespecAt,
     });
 
     // 전용 스킬 자동 학습 — 이미 보유면 그대로.
@@ -70,8 +137,18 @@ export async function POST(req: Request) {
       });
     }
 
-    return { class: nextClass, element: nextElement };
+    return {
+      status: 200,
+      body: {
+        ok: true as const,
+        class: nextClass,
+        element: nextElement,
+        gold: nextGold,
+        spent,
+        cooldownUntil,
+      },
+    };
   });
 
-  return Response.json({ ok: true, ...result });
+  return Response.json(result.body, { status: result.status });
 }

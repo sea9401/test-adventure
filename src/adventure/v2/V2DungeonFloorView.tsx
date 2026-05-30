@@ -5,7 +5,7 @@ import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
-import type { HpBarState } from "@/adventure/v2/HpBar";
+import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
 import {
   BatchSummaryCard,
   type BatchSummary,
@@ -302,7 +302,11 @@ export function V2DungeonFloorView({
 
       {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
       {batchSummary ? (
-        <BatchSummaryCard summary={batchSummary} />
+        <>
+          <BatchSummaryCard summary={batchSummary} />
+          {/* 일괄(5/10회) 사냥 직후에만 잔여 체력 바 노출 — 연속 사냥으로 깎인 HP 확인용. */}
+          {hp && <HpBar state={hp} />}
+        </>
       ) : (
         lastResult && <HuntResultCard result={lastResult} />
       )}

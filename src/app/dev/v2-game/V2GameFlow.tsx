@@ -16,6 +16,7 @@ import { V2GuildHallView } from "@/adventure/v2/V2GuildHallView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
 import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
 import { V2TrainingView } from "@/adventure/v2/V2TrainingView";
+import { V2SparringView } from "@/adventure/v2/V2SparringView";
 import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
@@ -27,7 +28,7 @@ import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
-import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
+import type { HpBarState } from "@/adventure/v2/HpBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import type {
@@ -105,6 +106,7 @@ type View =
   | { kind: "healing" }
   | { kind: "shop" }
   | { kind: "training" }
+  | { kind: "sparring" }
   | { kind: "smithy" }
   | { kind: "instructors" }
   | { kind: "guild-hall" }
@@ -132,6 +134,7 @@ function tabOfView(view: View): TabId {
     case "healing":
     case "shop":
     case "training":
+    case "sparring":
     case "smithy":
     case "instructors":
     case "guild-hall":
@@ -178,7 +181,7 @@ export function V2GameFlow() {
     initialStamina(Date.now()),
   );
   // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
-  // null = 아직 미로딩. 로딩 후에만 HpBar 표시 + 사냥 게이트 동작 (서버가 최종 권위).
+  // null = 아직 미로딩. 로딩 후 사냥 게이트 동작 + 일괄 사냥 결과 밑 HP 바 표시 (서버가 최종 권위).
   const [hp, setHp] = useState<HpBarState | null>(null);
 
   const refreshOccupations = useCallback(async () => {
@@ -329,7 +332,6 @@ export function V2GameFlow() {
             view.kind !== "map" &&
             view.kind !== "outpost")) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
-            {hp && <HpBar state={hp} />}
             <StaminaBar state={stamina} />
           </div>
         )}
@@ -398,7 +400,17 @@ export function V2GameFlow() {
         <V2ShopView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "training" && (
-        <V2TrainingView onBack={() => setView({ kind: "town" })} />
+        <V2TrainingView
+          onBack={() => setView({ kind: "town" })}
+          onStartSparring={() => setView({ kind: "sparring" })}
+        />
+      )}
+      {view.kind === "sparring" && (
+        <V2SparringView
+          playerName={viewerName}
+          gender={viewerGender}
+          onBack={() => setView({ kind: "training" })}
+        />
       )}
       {view.kind === "smithy" && (
         <V2PlaceholderView

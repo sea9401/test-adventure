@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { formatDuration } from "@/lib/format";
@@ -18,7 +19,13 @@ type TrainingState = {
   completedCount: number;
 };
 
-export function V2TrainingView({ onBack }: { onBack: () => void }) {
+export function V2TrainingView({
+  onBack,
+  onStartSparring,
+}: {
+  onBack: () => void;
+  onStartSparring: () => void;
+}) {
   const [state, setState] = useState<TrainingState | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState<"start" | "claim" | null>(null);
@@ -161,6 +168,27 @@ export function V2TrainingView({ onBack }: { onBack: () => void }) {
             </span>
           </div>
         </div>
+      </Card>
+
+      <Card padding="md">
+        <button
+          type="button"
+          onClick={onStartSparring}
+          className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors"
+        >
+          <span className="flex items-center gap-3">
+            <Sword size={28} weight="duotone" className="text-zinc-500" />
+            <span className="flex flex-col">
+              <span className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+                허수아비치기
+              </span>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                공격력도 방어력도 없는 허수아비다. 모의전으로 전투 기록을
+                확인한다.
+              </span>
+            </span>
+          </span>
+        </button>
       </Card>
       {msg && (
         <div

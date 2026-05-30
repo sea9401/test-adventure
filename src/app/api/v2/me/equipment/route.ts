@@ -28,7 +28,7 @@ export async function GET() {
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "equipment.v2")))
       .limit(1)
   )[0];
-  const { owned, equipped } = parseEquipmentSave(row?.value);
+  const { owned, equipped, durability } = parseEquipmentSave(row?.value);
 
-  return Response.json({ ok: true, owned, equipped });
+  return Response.json({ ok: true, owned, equipped, durability });
 }

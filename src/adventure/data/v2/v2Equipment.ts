@@ -615,7 +615,55 @@ export function v2EquipStatEntries(item: V2Equipment): string[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// equipment.v2 save 파싱 — owned/equipped 정합 보정.
+// PR-4b 내구도 (durability) — 장비별 현재 내구도. 전투마다 닳고, 0 이면 장비 효과 비활성
+// (파괴는 없음 — 위력·무게·옵션 전부 inert, 슬롯 비운 것과 동일). 수리(골드)로 복구.
+// 자동전투라 "조용히 0 됨 → 캐릭 망가짐" 절벽 위험 → 경고 + 전투 전 수리 프롬프트(자동수리
+// 옵트인)로 완화. 내구도는 per-id (중복 보유는 한 값 공유 — placeholder 단순화).
+
+/** 내구도 최대치 (= 신품/수리 직후). 0~MAX. */
+export const MAX_DURABILITY = 100;
+/** 전투당 마모 — 승리 1, 패배 2 (패배가 더 닳음). 느낌·sim 캘리브 다이얼. */
+export const DURABILITY_WEAR_WIN = 1;
+export const DURABILITY_WEAR_LOSS = 2;
+/** 전투 전 수리 프롬프트/경고 임계 (이하면 "낮음"). */
+export const DURABILITY_LOW_THRESHOLD = 20;
+/** 수리비 = 상점가 × 이 비율 × (소모분/MAX). 골드 싱크 다이얼. */
+const REPAIR_COST_FRACTION = 0.15;
+
+/** id 의 현재 내구도 (durability 맵에 없으면 풀충 MAX). 0~MAX 로 클램프. */
+export function durabilityOf(
+  durability: Partial<Record<V2EquipmentId, number>> | undefined,
+  id: V2EquipmentId,
+): number {
+  const raw = durability?.[id];
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return MAX_DURABILITY;
+  return Math.max(0, Math.min(MAX_DURABILITY, Math.floor(raw)));
+}
+
+/** 내구도 0 = 비활성(broken). */
+export function isBroken(dur: number): boolean {
+  return dur <= 0;
+}
+
+/** 낮음(전투 전 프롬프트/경고 대상). */
+export function isLowDurability(dur: number): boolean {
+  return dur <= DURABILITY_LOW_THRESHOLD;
+}
+
+/** id 를 MAX 로 복구하는 수리비(골드). 이미 풀충이면 0. */
+export function repairCostFor(
+  id: V2EquipmentId,
+  currentDurability: number,
+): number {
+  const item = V2_EQUIPMENT[id];
+  const price = shopPriceOf(item) ?? 0;
+  const missing = Math.max(0, MAX_DURABILITY - currentDurability);
+  if (missing <= 0) return 0;
+  return Math.ceil(price * REPAIR_COST_FRACTION * (missing / MAX_DURABILITY));
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// equipment.v2 save 파싱 — owned/equipped/durability 정합 보정.
 //
 // 라우트(GET·equip·grant) 와 derivePlayerCombatV2 가 공유한다. v2Equipment.ts 가
 // catalog 의 단일 source 이므로 파싱도 여기에 두는 게 자연스럽다.
@@ -623,6 +671,7 @@ export function v2EquipStatEntries(item: V2Equipment): string[] {
 export type EquipmentSave = {
   owned?: unknown;
   equipped?: unknown;
+  durability?: unknown;
 };
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
@@ -635,6 +684,7 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
 export function parseEquipmentSave(raw: unknown): {
   owned: V2EquipmentId[];
   equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+  durability: Partial<Record<V2EquipmentId, number>>;
 } {
   const v = (raw ?? {}) as EquipmentSave;
   const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
@@ -658,5 +708,19 @@ export function parseEquipmentSave(raw: unknown): {
     if (!seen.has(id)) continue;
     equipped[slot] = id as V2EquipmentId;
   }
-  return { owned, equipped };
+  // 내구도 — 유효 id + 0~MAX 클램프만 보존. 없으면 풀충(durabilityOf 가 처리).
+  const durabilityRaw =
+    v.durability && typeof v.durability === "object" ? v.durability : {};
+  const durability: Partial<Record<V2EquipmentId, number>> = {};
+  for (const [id, val] of Object.entries(
+    durabilityRaw as Record<string, unknown>,
+  )) {
+    if (!VALID_IDS.has(id)) continue;
+    if (typeof val !== "number" || !Number.isFinite(val)) continue;
+    durability[id as V2EquipmentId] = Math.max(
+      0,
+      Math.min(MAX_DURABILITY, Math.floor(val)),
+    );
+  }
+  return { owned, equipped, durability };
 }

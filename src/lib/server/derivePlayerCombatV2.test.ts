@@ -104,6 +104,25 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       }
     }
   });
+
+  it("내구도 0(broken) 장비는 비활성 — 위력·무게·옵션 무시 (PR-4b)", () => {
+    // 미스릴 갑옷: power 10, weight 8. 내구도 0 → def·weight 0.
+    const broken = aggregateV2Equipment(
+      { armor: "v2_mithril_plate" },
+      { v2_mithril_plate: 0 },
+    );
+    expect(broken.def).toBe(0);
+    expect(broken.weight).toBe(0);
+    // 내구도 1 = 정상 (binary gating — 0 만 비활성).
+    const alive = aggregateV2Equipment(
+      { armor: "v2_mithril_plate" },
+      { v2_mithril_plate: 1 },
+    );
+    expect(alive.def).toBe(10);
+    expect(alive.weight).toBe(8);
+    // durability 미지정 = 풀충 = 정상.
+    expect(aggregateV2Equipment({ armor: "v2_mithril_plate" }).def).toBe(10);
+  });
 });
 
 describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {

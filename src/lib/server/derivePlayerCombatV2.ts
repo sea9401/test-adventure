@@ -49,6 +49,8 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
+  durabilityOf,
+  isBroken,
   parseEquipmentSave,
   type V2EquipmentId,
   type V2EquipSlot,
@@ -112,11 +114,14 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
 
 export function aggregateV2Equipment(
   v2Equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>,
+  durability?: Partial<Record<V2EquipmentId, number>>,
 ): V2EquipAggregate {
   const acc = EMPTY_AGGREGATE();
   for (const slot of ["weapon", "armor", "accessory"] as const) {
     const id = v2Equipped[slot];
     if (!id) continue;
+    // PR-4b — 내구도 0(broken) 장비는 비활성: 위력·무게·옵션 전부 무시(슬롯 빈 것과 동일).
+    if (isBroken(durabilityOf(durability, id))) continue;
     const item = V2_EQUIPMENT[id];
     const power = item.power ?? 0;
     // 위력 슬롯별 분기: 무기=물공+마공 / 방어구=물방 / 장신구=물방+마방.
@@ -216,6 +221,8 @@ export type DerivePlayerCombatV2PureInput = {
   allocatedStats?: Partial<Record<V2StatKey, number>>;
   /** parseEquipmentSave().equipped — 슬롯별 장비 id. */
   v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+  /** parseEquipmentSave().durability — id별 내구도. 0(broken)이면 그 장비 비활성(PR-4b). */
+  v2Durability?: Partial<Record<V2EquipmentId, number>>;
   /** 현재 hp. undefined 면 maxHp 풀충. maxHp 초과는 클램프. */
   hp?: number;
   /** 현재 mp. undefined 면 maxMp 풀충. maxMp 초과는 클램프. PR-potion-auto-restore. */
@@ -231,7 +238,7 @@ export function derivePlayerCombatV2Pure(
 ): DerivedPlayerCombatV2 {
   const level = Math.max(1, input.level ?? 1);
   const v2Equipped = input.v2Equipped ?? {};
-  const equipAcc = aggregateV2Equipment(v2Equipped);
+  const equipAcc = aggregateV2Equipment(v2Equipped, input.v2Durability);
 
   // baseAllocatedStats = V2_BASE_STATS + allocated (6 1차 스탯, 장비 제외).
   const baseAllocatedStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
@@ -392,12 +399,14 @@ export async function derivePlayerCombatV2(
   }
   if (!character) return null;
 
-  const { equipped: v2Equipped } = parseEquipmentSave(equipmentSave);
+  const { equipped: v2Equipped, durability: v2Durability } =
+    parseEquipmentSave(equipmentSave);
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
     allocatedStats: training.allocated,
     v2Equipped,
+    v2Durability,
     hp: character.hp,
     mp: character.mp,
     selectedStanceRaw: character.selectedStance,

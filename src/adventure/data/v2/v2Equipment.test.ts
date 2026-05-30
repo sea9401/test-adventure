@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   CONCEPT_LABELS,
+  DURABILITY_LOW_THRESHOLD,
+  MAX_DURABILITY,
   SLOT_CONCEPTS,
   V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
+  durabilityOf,
+  isBroken,
+  isLowDurability,
   parseEquipmentSave,
+  repairCostFor,
   v2EquipStatRows,
   v2EquipmentByConcept,
   v2EquipmentBySlot,
@@ -169,10 +175,74 @@ describe("v2EquipStatRows (표시 행)", () => {
   });
 });
 
+describe("내구도 (PR-4b)", () => {
+  it("durabilityOf — 미지정이면 MAX, 0~MAX 클램프", () => {
+    expect(durabilityOf(undefined, "v2_iron_sword")).toBe(MAX_DURABILITY);
+    expect(durabilityOf({}, "v2_iron_sword")).toBe(MAX_DURABILITY);
+    expect(durabilityOf({ v2_iron_sword: 50 }, "v2_iron_sword")).toBe(50);
+    expect(durabilityOf({ v2_iron_sword: -10 }, "v2_iron_sword")).toBe(0);
+    expect(durabilityOf({ v2_iron_sword: 999 }, "v2_iron_sword")).toBe(
+      MAX_DURABILITY,
+    );
+  });
+
+  it("isBroken — 0 이하", () => {
+    expect(isBroken(0)).toBe(true);
+    expect(isBroken(1)).toBe(false);
+  });
+
+  it("isLowDurability — 임계 이하", () => {
+    expect(isLowDurability(DURABILITY_LOW_THRESHOLD)).toBe(true);
+    expect(isLowDurability(DURABILITY_LOW_THRESHOLD + 1)).toBe(false);
+    expect(isLowDurability(0)).toBe(true);
+  });
+
+  it("repairCostFor — 풀충은 0, 소모 클수록 비쌈, 상점가 비례", () => {
+    expect(repairCostFor("v2_iron_sword", MAX_DURABILITY)).toBe(0);
+    const half = repairCostFor("v2_iron_sword", 50);
+    const full = repairCostFor("v2_iron_sword", 0);
+    expect(half).toBeGreaterThan(0);
+    expect(full).toBeGreaterThan(half);
+    // 더 비싼 무기가 더 비싼 수리비 (T5 검 > T1 검, 같은 소모분).
+    expect(repairCostFor("v2_mithril_sword", 0)).toBeGreaterThan(
+      repairCostFor("v2_iron_sword", 0),
+    );
+  });
+
+  it("parseEquipmentSave — durability 유효 id + 0~MAX 클램프만 보존", () => {
+    const r = parseEquipmentSave({
+      owned: ["v2_iron_sword", "v2_steel_sword"],
+      durability: {
+        v2_iron_sword: 30,
+        v2_steel_sword: -5,
+        v2_fake_item: 50,
+        bad: "x",
+      },
+    });
+    expect(r.durability.v2_iron_sword).toBe(30);
+    expect(r.durability.v2_steel_sword).toBe(0); // 음수 클램프
+    expect("v2_fake_item" in r.durability).toBe(false); // 무효 id 제거
+    expect("bad" in r.durability).toBe(false);
+  });
+
+  it("parseEquipmentSave — durability 없으면 빈 객체", () => {
+    const r = parseEquipmentSave({ owned: ["v2_iron_sword"] });
+    expect(r.durability).toEqual({});
+  });
+});
+
 describe("parseEquipmentSave", () => {
   it("null/undefined → 빈 결과", () => {
-    expect(parseEquipmentSave(null)).toEqual({ owned: [], equipped: {} });
-    expect(parseEquipmentSave(undefined)).toEqual({ owned: [], equipped: {} });
+    expect(parseEquipmentSave(null)).toEqual({
+      owned: [],
+      equipped: {},
+      durability: {},
+    });
+    expect(parseEquipmentSave(undefined)).toEqual({
+      owned: [],
+      equipped: {},
+      durability: {},
+    });
   });
 
   it("owned 의 중복은 보존된다 (등장 횟수 = 보유 카운트)", () => {

@@ -96,6 +96,10 @@ export type V2EquipDerivedExtras = {
   eva?: number;
   /** maxHp 후-가산, flat (PR-2 는 미사용, 미래 보존). */
   hp?: number;
+  /** 마법 공격력(magicAtk) 후-가산, flat (atk 와 같은 1배 스케일). 지팡이의 헤드라인 스탯 —
+   *  마법사는 물리 atk 가 무용이라, 검의 atk·활의 atk 에 대응하는 마법 무기의 공격력.
+   *  derive 에서 magicAtk = floor(int×계수) + Σmatk 로 합산(scaling="magic" 스킬이 사용). */
+  matk?: number;
 };
 
 export type V2EquipStats = EquipBonus & V2EquipDerivedExtras;
@@ -145,12 +149,11 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 // V2_EQUIPMENT — 35종, 컨셉×티어 그리드. PR-rebal(2026): 옛 스탯 ÷3 (round).
 //   사용자 의도: 장비는 보조, 훈련 분배 포인트가 주력.
 export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
-  // ── 무기-힘 (atk 주력, str 부) ─────────────────────────────
-  // v2 는 스탯-스킬이 없어 str 은 오직 atk 로만 환산된다(ATK_PER_STR=0.2, 즉 str 5 = atk 1).
-  // 그래서 힘 무기의 "힘" 은 5배 표기된 공격력일 뿐이라 카드가 "힘15/공2" 처럼 거꾸로 읽혔다.
-  // PR-atk-primary: 실질 화력(str×0.2 + atk) 을 그대로 둔 채 atk 를 헤드라인으로 재배치.
-  //   철검 2.6 / 강철 5.0 / 한타 7.6 / 은검 10.6 / 미스릴 15.4 — 변경 전과 동일.
-  // (민/지 무기는 dex→회피·명중, int→MP 로 실제 작동하므로 컨셉 스탯 유지.)
+  // ── 무기-힘 (atk 헤드라인 + str token) ─────────────────────────────
+  // PR-weapon-redistribute: 무기 = "공격력 주, 스탯 token" 으로 통일. 검은 물리 무기라
+  // atk 헤드라인 + str 은 결만 남기는 작은 token(#226 의 str 부스탯을 더 축소). 동시에
+  // atk 를 키운 의도적 소폭 파워업(sim-v2-progression --skills 캘리브). str 정체성은
+  // 훈련 분배에서 나온다.
   v2_iron_sword: {
     id: "v2_iron_sword",
     slot: "weapon",
@@ -158,7 +161,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "철검",
     description: "흔한 한손검. 무난한 무게와 균형.",
-    stats: { atk: 2, str: 3 },
+    stats: { atk: 3, str: 2 },
   },
   v2_steel_sword: {
     id: "v2_steel_sword",
@@ -167,7 +170,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "강철검",
     description: "단단한 강철 한손검. 한 손에 묵직하다.",
-    stats: { atk: 4, str: 5 },
+    stats: { atk: 5, str: 3 },
   },
   v2_greatsword: {
     id: "v2_greatsword",
@@ -176,7 +179,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "한타검",
     description: "두 손으로 거머쥐는 큰 검. 일격의 무게가 다르다.",
-    stats: { atk: 6, str: 8 },
+    stats: { atk: 8, str: 4 },
   },
   v2_silver_sword: {
     id: "v2_silver_sword",
@@ -185,7 +188,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은검",
     description: "은으로 벼린 검. 옅게 빛을 낸다.",
-    stats: { atk: 9, str: 8 },
+    stats: { atk: 11, str: 4 },
   },
   v2_mithril_sword: {
     id: "v2_mithril_sword",
@@ -194,10 +197,12 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴검",
     description: "오래된 별빛이 어린 미스릴 검.",
-    stats: { atk: 13, str: 12 },
+    stats: { atk: 16, str: 5 },
   },
 
-  // ── 무기-민 (dex/atk/crit) ───────────────────────
+  // ── 무기-민 (atk 헤드라인 + dex token + crit flavor) ───────────────────────
+  // 활도 물리 무기 — atk 를 헤드라인으로, dex 는 token(회피·명중 정체성은 훈련 분배에서).
+  // crit 은 궁수 특유 flavor 로 유지. PR-weapon-redistribute: 옛 dex 헤드라인 → atk 헤드라인.
   v2_wooden_bow: {
     id: "v2_wooden_bow",
     slot: "weapon",
@@ -205,7 +210,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "목궁",
     description: "참나무로 깎은 활. 가볍지만 사정거리 짧다.",
-    stats: { dex: 7, atk: 1 },
+    stats: { atk: 3, dex: 2 },
   },
   v2_recurve_bow: {
     id: "v2_recurve_bow",
@@ -214,7 +219,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "합성궁",
     description: "휘어 만든 합성궁. 사거리가 늘었다.",
-    stats: { dex: 13, atk: 1, crit: 1 },
+    stats: { atk: 5, dex: 2, crit: 1 },
   },
   v2_horn_bow: {
     id: "v2_horn_bow",
@@ -223,7 +228,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "각궁",
     description: "뿔과 힘줄을 덧대 만든 강한 활.",
-    stats: { dex: 20, atk: 2, crit: 1 },
+    stats: { atk: 7, dex: 3, crit: 1 },
   },
   v2_silver_bow: {
     id: "v2_silver_bow",
@@ -232,7 +237,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은활",
     description: "은으로 보강된 정교한 활.",
-    stats: { dex: 30, atk: 3, crit: 2 },
+    stats: { atk: 10, dex: 3, crit: 2 },
   },
   v2_starsong_bow: {
     id: "v2_starsong_bow",
@@ -241,11 +246,13 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "별노래궁",
     description: "시위가 별의 노래처럼 떨린다.",
-    stats: { dex: 42, atk: 5, crit: 2 },
+    stats: { atk: 14, dex: 4, crit: 2 },
   },
 
-  // ── 무기-지 (int/atk/mp) ─────────────────────────
-  // T1 oak_staff: 옛 atk:1 → round(1/3)=0 → 키 제거.
+  // ── 무기-지 (matk 헤드라인 + int token + mp) ─────────────────────────
+  // 지팡이는 마법 무기 — 마법사는 물리 atk 가 무용이라 검의 atk 에 대응하는 헤드라인은
+  // matk(마법 공격력)다(magicAtk = floor(int×계수) + Σmatk). int 는 MP·소량 magicAtk 용
+  // token 으로 축소, mp 는 자원 정체성이라 유지. PR-weapon-redistribute + 옵션 B(매tk 신설).
   v2_oak_staff: {
     id: "v2_oak_staff",
     slot: "weapon",
@@ -253,7 +260,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "참나무 지팡이",
     description: "옹이가 굵은 지팡이. 무게가 손에 익는다.",
-    stats: { int: 8 },
+    stats: { matk: 5, int: 3, mp: 8 },
   },
   v2_runed_staff: {
     id: "v2_runed_staff",
@@ -262,7 +269,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "룬 지팡이",
     description: "룬을 새긴 지팡이. 미세하게 따뜻하다.",
-    stats: { int: 15, atk: 1, mp: 7 },
+    stats: { matk: 9, int: 4, mp: 16 },
   },
   v2_obsidian_staff: {
     id: "v2_obsidian_staff",
@@ -271,7 +278,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "흑요석 지팡이",
     description: "검은 유리처럼 매끄러운 지팡이.",
-    stats: { int: 23, atk: 1, mp: 12 },
+    stats: { matk: 12, int: 5, mp: 22 },
   },
   v2_silver_staff: {
     id: "v2_silver_staff",
@@ -280,7 +287,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은 지팡이",
     description: "은으로 감은 정교한 지팡이.",
-    stats: { int: 33, atk: 2, mp: 18 },
+    stats: { matk: 13, int: 6, mp: 28 },
   },
   v2_starlit_staff: {
     id: "v2_starlit_staff",
@@ -289,7 +296,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "별빛 지팡이",
     description: "보석 끝에 별빛이 머문다.",
-    stats: { int: 47, atk: 2, mp: 27 },
+    stats: { matk: 17, int: 8, mp: 36 },
   },
 
   // ── 방어-중갑 (vit/def, spd 페널티) ──────────────
@@ -519,6 +526,7 @@ export type V2EquipBonusKey = keyof V2EquipStats;
 
 export const V2_EQUIP_BONUS_KEYS: readonly V2EquipBonusKey[] = [
   "atk",
+  "matk",
   "def",
   "str",
   "dex",
@@ -534,6 +542,7 @@ export const V2_EQUIP_BONUS_KEYS: readonly V2EquipBonusKey[] = [
 
 export const V2_EQUIP_BONUS_LABELS: Record<V2EquipBonusKey, string> = {
   atk: "공격력",
+  matk: "마법 공격력",
   def: "방어력",
   str: "힘",
   dex: "민첩",

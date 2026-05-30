@@ -50,12 +50,32 @@ describe("v2 dungeon", () => {
 describe("scaleMonsterForFloor", () => {
   const base = MONSTERS["별빛 박쥐"];
 
-  it("multiplier 1.0 (1~5층 성장) 은 동일 객체 반환", () => {
-    expect(scaleMonsterForFloor(base, 1)).toBe(base);
-    expect(scaleMonsterForFloor(base, 2)).toBe(base);
-    expect(scaleMonsterForFloor(base, 3)).toBe(base);
-    expect(scaleMonsterForFloor(base, 4)).toBe(base);
-    expect(scaleMonsterForFloor(base, 5)).toBe(base);
+  it("floor 1~4 (×1.0) 은 동일 객체 반환 (cap/배율 미적용)", () => {
+    const weak = MONSTERS["슬라임"];
+    expect(scaleMonsterForFloor(weak, 1)).toBe(weak);
+    expect(scaleMonsterForFloor(weak, 2)).toBe(weak);
+    expect(scaleMonsterForFloor(weak, 3)).toBe(weak);
+    expect(scaleMonsterForFloor(weak, 4)).toBe(weak);
+  });
+
+  it("floor 5 — 라이브 엔드보스를 v2 성장 범위로 압축 (×0.4 + def cap 26)", () => {
+    // 잠든 황좌 거인 = 라이브 5막 엔드보스 (hp2070/atk136/def82/exp280).
+    const giant = MONSTERS["잠든 황좌 거인"];
+    const scaled = scaleMonsterForFloor(giant, 5);
+    expect(scaled).not.toBe(giant);
+    expect(scaled.hp).toBe(Math.round(2070 * 0.4)); // 828
+    expect(scaled.atk).toBe(Math.round(136 * 0.4)); // 54
+    expect(scaled.def).toBe(26); // min(round(82×0.4)=33, cap 26)
+    expect(scaled.exp).toBe(Math.round(280 * 0.4)); // 112 — exp 도 난이도 비례 축소
+    expect(scaled.spd).toBe(giant.spd); // hp/atk/def/exp 외 필드 보존
+    expect(giant.hp).toBe(2070); // 원본 불변 (mutation 가드)
+  });
+
+  it("floor 5 변동성 보존 — 배율이라 작은 몹 < 거인 순서 유지", () => {
+    const small = scaleMonsterForFloor(MONSTERS["별점술사 잔영"], 5);
+    const giant = scaleMonsterForFloor(MONSTERS["잠든 황좌 거인"], 5);
+    expect(small.hp).toBeLessThan(giant.hp); // 314 < 828
+    expect(small.atk).toBeLessThan(giant.atk); // 28 < 54
   });
 
   it("6층 ×1.2 — hp/atk/def/exp 만 곱, 새 객체", () => {

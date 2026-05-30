@@ -35,6 +35,12 @@ export type V2SkillId =
   | "str_intimidating_roar_t2" // STR 위압의 함성
   // ── 직업 전용 (PR-1 슬라이스) ─────────────────────────────────────
   | "v2_skill_blade_dance" // 검사 전용 — 검무
+  // ── 직업 전용 (PR-6 직업 확장) — 5직업 시그니처 ──────────────────────
+  | "v2_skill_piercing_shot" // 궁수 전용 — 관통 사격 (DEX)
+  | "v2_skill_iron_fist" // 무도가 전용 — 철권난타 (VIT)
+  | "v2_skill_arcane_nova" // 마법사 전용 — 비전 폭발 (INT)
+  | "v2_skill_divine_light" // 신관 전용 — 신성한 빛 (SPI)
+  | "v2_skill_shadow_strike" // 인술가 전용 — 그림자 일격 (LUK)
   | "dex_needle_flurry_t2" // DEX 바늘 연격
   | "dex_true_thrust_t2" // DEX 정밀 관통
   | "dex_mirage_step_t2" // DEX 잔영 보법
@@ -538,6 +544,82 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "physical" },
     ],
     learn: { goldCost: 0, requireClass: "swordsman" },
+  },
+
+  // ── 직업 전용 (PR-6) — 5직업 시그니처. mpCost 0 (검무처럼 무료 시전), requireClass 게이트. ──
+  v2_skill_piercing_shot: {
+    id: "v2_skill_piercing_shot",
+    name: "관통 사격",
+    stat: "dex",
+    category: "attack",
+    tier: 2,
+    description: "궁수 전용. 관통하는 일격으로 강한 물리 피해를 입힌다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "archer" },
+  },
+  v2_skill_iron_fist: {
+    id: "v2_skill_iron_fist",
+    name: "철권난타",
+    stat: "vit",
+    category: "attack",
+    tier: 2,
+    description: "무도가 전용. 묵직한 연타 후 자세를 굳혀 활력이 오른다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 1.6, baseFlat: 12, scaling: "physical" },
+      { kind: "selfBuff", stat: "vit", pct: 20, turns: 3 },
+    ],
+    learn: { goldCost: 0, requireClass: "martial" },
+  },
+  v2_skill_arcane_nova: {
+    id: "v2_skill_arcane_nova",
+    name: "비전 폭발",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "마법사 전용. 마력을 터뜨려 강한 마법 피해를 입힌다.",
+    mpCost: 0,
+    cooldown: 2,
+    effects: [
+      { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "magic" },
+    ],
+    learn: { goldCost: 0, requireClass: "mage" },
+  },
+  v2_skill_divine_light: {
+    id: "v2_skill_divine_light",
+    name: "신성한 빛",
+    // 신관은 정신(spi) 직업이나 스킬 stat 메타는 라이브 StatKey 라 spi 불가 → int 로 분류.
+    // 회복은 healMult(정신 파생)로 자동 증폭되므로 정체성은 유지된다.
+    stat: "int",
+    category: "heal",
+    tier: 2,
+    description: "신관 전용. 성스러운 빛으로 자신을 치유하고 적을 정화한다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "heal", pctMaxHp: 22 },
+      { kind: "damage", statCoef: 1.0, baseFlat: 8, scaling: "magic" },
+    ],
+    learn: { goldCost: 0, requireClass: "priest" },
+  },
+  v2_skill_shadow_strike: {
+    id: "v2_skill_shadow_strike",
+    name: "그림자 일격",
+    stat: "luk",
+    category: "attack",
+    tier: 2,
+    description: "인술가 전용. 그림자에서 급소를 노린다. 치명타에 강하다.",
+    mpCost: 0,
+    cooldown: 3,
+    effects: [
+      { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "ninja" },
   },
 };
 

@@ -25,6 +25,10 @@ import {
   parseV2Element,
   type V2Element,
 } from "@/adventure/data/v2/elements";
+import {
+  isPaidRespec,
+  respecGoldCost,
+} from "@/adventure/data/v2/respec";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -131,6 +135,8 @@ export function V2CharacterScreen({
         <ClassElementPicker
           currentClass={parseV2Class(character.class)}
           currentElement={parseV2Element(character.element)}
+          level={character.level}
+          gold={character.gold}
           onChanged={refresh}
         />
       )}
@@ -158,14 +164,18 @@ export function V2CharacterScreen({
   );
 }
 
-// PR-1 전투 재설계 — 직업·속성 최소 선택 UI. 선택 시 전용 스킬 자동 학습(서버).
+// PR-6 전투 재설계 — 직업·속성 선택/전직 UI. 첫 선택 무료, 변경은 골드+쿨다운(비용 전직).
 function ClassElementPicker({
   currentClass,
   currentElement,
+  level,
+  gold,
   onChanged,
 }: {
   currentClass: V2Class;
   currentElement: V2Element;
+  level: number;
+  gold: number;
   onChanged: () => void;
 }) {
   const [cls, setCls] = useState<V2Class>(
@@ -176,6 +186,10 @@ function ClassElementPicker({
   const [msg, setMsg] = useState<string | null>(null);
 
   const dirty = cls !== currentClass || elem !== currentElement;
+  // 비용 전직 — none/neutral 에서의 첫 선택은 무료, 그 외 변경은 골드.
+  const paid = isPaidRespec(currentClass, cls, currentElement, elem);
+  const cost = respecGoldCost(currentClass, cls, currentElement, elem, level);
+  const cantAfford = paid && gold < cost;
 
   const apply = async () => {
     setBusy(true);
@@ -189,12 +203,24 @@ function ClassElementPicker({
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
+        required?: number;
+        cooldownUntil?: number;
       } | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        const label =
+          j?.error === "insufficient_gold"
+            ? `골드 부족 (필요 ${(j.required ?? cost).toLocaleString()}G)`
+            : j?.error === "respec_cooldown"
+              ? `전직 쿨다운 중 — ${
+                  j.cooldownUntil
+                    ? new Date(j.cooldownUntil).toLocaleString()
+                    : "잠시"
+                } 이후 가능`
+              : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
         return;
       }
-      setMsg("✓ 적용됨");
+      setMsg(paid ? `✓ 전직 완료 (-${cost.toLocaleString()}G)` : "✓ 적용됨");
       onChanged();
     } catch (e) {
       setMsg(`✗ ${(e as Error).message}`);
@@ -238,15 +264,27 @@ function ClassElementPicker({
         <button
           type="button"
           onClick={apply}
-          disabled={busy || !dirty}
+          disabled={busy || !dirty || cantAfford}
           className="rounded-md border border-indigo-400 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-300"
         >
-          {busy ? "…" : "적용"}
+          {busy ? "…" : paid ? `전직 (${cost.toLocaleString()}G)` : "적용"}
         </button>
         {msg && (
           <span className="text-xs text-zinc-500 dark:text-zinc-400">{msg}</span>
         )}
       </div>
+      {dirty && paid && (
+        <p
+          className={`mt-2 text-xs ${
+            cantAfford
+              ? "text-rose-600 dark:text-rose-400"
+              : "text-amber-600 dark:text-amber-400"
+          }`}
+        >
+          전직 비용 {cost.toLocaleString()}G · 변경 후 24시간 쿨다운
+          {cantAfford ? ` (보유 ${gold.toLocaleString()}G — 부족)` : ""}
+        </p>
+      )}
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
         {V2_CLASS_DEFS[cls].description} · 속성 상성으로 사냥 데미지가 ±됩니다.
       </p>

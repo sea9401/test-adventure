@@ -152,9 +152,13 @@ const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 // hpL% 87% (구조적 부족 — eva cap 54%·atk 46 으로 STR atk 100 의 절반). 라이브 동등치
 // 보다 강화하여 ×5 스케일에서 회피 빌드 정체성 + 데미지 모두 성립시킴. LUK 는 유지
 // (PR-T3 에서 0.04 + CRIT 0.15 로 Lv100 wr 34% 회복 완료).
-const ATK_PER_DEX = 0.06; // PR-T4: 0.04 → 0.06. Lv75 DEX atk +9 (446×0.02)
+// PR-dexluk: 저-atk DEX/LUK 중반(Lv50 화산) 보강. 둘 다 atk 가 낮아 중반에 정체성 스탯
+// (DEX 회피·LUK 크리)이 덜 자란 채 풀스탯 floor 4 를 만나 attrition 패배(Lv50 67%). DEX 는
+// ATK_PER_DEX 0.06→0.075 로 Lv50 67→74% 해소. LUK 은 atk 0.04→0.05 로 일반 보강(원래 최약
+// 빌드, Lv75 76→81%)하되 Lv50 은 atk 28 이 STR 49 의 절반이라 구조적으로 남음(크리 빌드 램프업).
+const ATK_PER_DEX = 0.075; // PR-dexluk: 0.06→0.075
 const ATK_PER_SPD = 0.06;
-const ATK_PER_LUK = 0.04;
+const ATK_PER_LUK = 0.05; // PR-dexluk: 0.04→0.05
 // PR-luk-critdmg — LUK → 크리 데미지 배수. v2 는 그동안 luk 를 크리 확률(CRIT_PER_LUK)에만
 // 쓰고 크리 데미지는 CRIT_MULT_BASE(2.0×) 고정이었다. 그래서 LUK 빌드는 atk 가 낮아(luk×0.04)
 // 크리가 터져도 약했다(sim: 전 빌드 중 최약). luk 가 크리 데미지도 키우게 해 '크리 빌드'

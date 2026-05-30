@@ -538,6 +538,9 @@ export async function POST(req: Request) {
           hpBefore: regenResult.hp,
           hpAfter: afterHp,
           maxHp: player.maxHp,
+          // 충전식 회복약 잔량 (사냥 후 부족분 자동 소모 반영). 전투 화면 캐릭터 정보에 표기.
+          hpCharges,
+          mpCharges,
           drops,
           droppedEquipment,
           ejected: ejectedNotice,

@@ -10,7 +10,7 @@ import {
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
-import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
+import { applyExpGain, requiredExpToNext, XP_RATE_MULT } from "@/lib/leveling";
 
 // BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
 // EXP 바 안 보이게 0 으로 fallback (현재 exp 와 동일 → pct 0).
@@ -370,7 +370,9 @@ export async function POST(req: Request) {
     );
 
     const won = battleResult.outcome === "win";
-    const expGained = won ? enemyMonster.exp : 0;
+    // 전역 EXP 배율 적용 — staging 은 기본 2.2(IS_STAGING), 라이브 1.0, NEXT_PUBLIC_XP_RATE_MULT
+    // 로 override. (신참 ×2·levelBand 는 v2 미적용 — 별개 다이얼.)
+    const expGained = won ? Math.round(enemyMonster.exp * XP_RATE_MULT) : 0;
     const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
     const drops: DropResult = won ? rollDrops(floor, Math.random) : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);

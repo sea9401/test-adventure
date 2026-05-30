@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   applyExpGain,
   applyNewbieBonus,
@@ -169,5 +169,39 @@ describe("getLevelTable", () => {
     for (let i = 1; i < rows.length; i += 1) {
       expect(rows[i].cumulative).toBeGreaterThan(rows[i - 1].cumulative);
     }
+  });
+});
+
+describe("XP_RATE_MULT (staging 기본값 + override)", () => {
+  // XP_RATE_MULT 은 모듈 로드 시 env 로 파싱되는 const → resetModules + 동적 import 로 재평가.
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  async function loadXpRate(): Promise<number> {
+    vi.resetModules();
+    return (await import("./leveling")).XP_RATE_MULT;
+  }
+
+  it("env 미설정 + 라이브(IS_STAGING≠true) → 1.0", async () => {
+    vi.stubEnv("NEXT_PUBLIC_XP_RATE_MULT", "");
+    vi.stubEnv("IS_STAGING", "");
+    expect(await loadXpRate()).toBe(1);
+  });
+
+  it("env 미설정 + staging(IS_STAGING=true) → 2.2 자동", async () => {
+    vi.stubEnv("NEXT_PUBLIC_XP_RATE_MULT", "");
+    vi.stubEnv("IS_STAGING", "true");
+    expect(await loadXpRate()).toBe(2.2);
+  });
+
+  it("NEXT_PUBLIC_XP_RATE_MULT 명시 → staging 이어도 명시값 우선 + 클램프", async () => {
+    vi.stubEnv("NEXT_PUBLIC_XP_RATE_MULT", "1.5");
+    vi.stubEnv("IS_STAGING", "true");
+    expect(await loadXpRate()).toBe(1.5);
+    vi.stubEnv("NEXT_PUBLIC_XP_RATE_MULT", "999"); // [0.1,100] 클램프
+    vi.stubEnv("IS_STAGING", "true");
+    expect(await loadXpRate()).toBe(100);
   });
 });

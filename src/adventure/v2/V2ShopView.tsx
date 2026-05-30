@@ -279,6 +279,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         onChange={onModeChange}
         ariaLabel="구매 / 판매"
         size="sm"
+        variant="chip"
       />
 
       {/* 하위 탭 — 부위 (+ 판매 모드엔 재료) */}
@@ -288,6 +289,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         onChange={setSubTab}
         ariaLabel="분류"
         size="sm"
+        variant="chip"
       />
 
       <section>

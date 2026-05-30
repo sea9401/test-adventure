@@ -152,6 +152,7 @@ export function V2GuildHome({
         onChange={setSubTab}
         ariaLabel="길드 하위 탭"
         size="sm"
+        variant="chip"
       />
 
       {subTab === "info" && (

@@ -13,9 +13,10 @@
 //   luk → 치명 확률(crit += luk×0.15) + 치명 데미지(critMult += luk×0.006) + atk 보조(×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
-// 장비 stats:
-//   - EquipBonus 부분 (atk/def + 6스탯) → 입력 합산. 6스탯은 ×5 스케일 (v2Equipment.ts)
-//   - 추가 파생 (crit/mp/eva/hp) → 결과에 후-가산. 파생 단위는 스케일 변화 없음.
+// 장비(PR-4a 위력/무게/옵션 모델):
+//   - 위력 → 슬롯별 분기(무기=물공+마공 / 방어구=물방 / 장신구=물방+마방). 결과 후-가산.
+//   - 무게 → 속도 −(선형, weight×WEIGHT_SPD_PENALTY).
+//   - 옵션(crit/mp/eva/hp) → 결과 후-가산. 장비는 6스탯 token 을 안 준다(정체성=훈련 분배).
 //
 // 반환 타입 DerivedPlayerCombatV2 는 라이브 DerivedPlayerCombat 와 독립 — v2 전투는
 // player 만 소비하고 rune/skill/feat/affix/layout 은 일절 안 읽으므로 담지 않는다.
@@ -79,20 +80,18 @@ export type DerivedPlayerCombatV2 = {
   selectedStance: StanceId | null;
 };
 
-// 장비 stats 합산 — equipment.v2 의 슬롯 3개에서 EquipBonus 부분(6스탯+atk/def) +
-// 추가 파생(crit/mp/eva/hp) 누적. 단위 테스트가 검증할 수 있도록 export.
+// PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 3개에서 위력을 슬롯별로 분기 누적 +
+// 무게 합산 + 옵션(crit/mp/eva/hp) 누적. 장비는 더 이상 6스탯 token 을 안 준다(정체성은
+// 훈련 분배). 단위 테스트가 검증할 수 있도록 export.
 export type V2EquipAggregate = {
-  // 6스탯 — derive 입력단에 합산
-  str: number;
-  dex: number;
-  vit: number;
-  spd: number;
-  luk: number;
-  int: number;
-  // 파생 — derive 결과 후-가산
-  atk: number;
-  matk: number;
-  def: number;
+  // 위력 슬롯별 분기 (derive 결과 후-가산)
+  atk: number; // Σ 무기 위력 (물리 공격력)
+  magicAtk: number; // Σ 무기 위력 (마법 공격력)
+  def: number; // Σ 방어구 위력 + Σ 장신구 위력 (물리 방어력)
+  magicDef: number; // Σ 장신구 위력 (마법 방어력)
+  // 무게 — 속도 페널티 (derive 에서 −weight×계수)
+  weight: number;
+  // 옵션 — derive 결과 후-가산
   crit: number;
   mp: number;
   eva: number;
@@ -100,15 +99,11 @@ export type V2EquipAggregate = {
 };
 
 const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
-  str: 0,
-  dex: 0,
-  vit: 0,
-  spd: 0,
-  luk: 0,
-  int: 0,
   atk: 0,
-  matk: 0,
+  magicAtk: 0,
   def: 0,
+  magicDef: 0,
+  weight: 0,
   crit: 0,
   mp: 0,
   eva: 0,
@@ -122,20 +117,24 @@ export function aggregateV2Equipment(
   for (const slot of ["weapon", "armor", "accessory"] as const) {
     const id = v2Equipped[slot];
     if (!id) continue;
-    const s = V2_EQUIPMENT[id].stats;
-    acc.str += s.str ?? 0;
-    acc.dex += s.dex ?? 0;
-    acc.vit += s.vit ?? 0;
-    acc.spd += s.spd ?? 0;
-    acc.luk += s.luk ?? 0;
-    acc.int += s.int ?? 0;
-    acc.atk += s.atk ?? 0;
-    acc.matk += s.matk ?? 0;
-    acc.def += s.def ?? 0;
-    acc.crit += s.crit ?? 0;
-    acc.mp += s.mp ?? 0;
-    acc.eva += s.eva ?? 0;
-    acc.hp += s.hp ?? 0;
+    const item = V2_EQUIPMENT[id];
+    const power = item.power ?? 0;
+    // 위력 슬롯별 분기: 무기=물공+마공 / 방어구=물방 / 장신구=물방+마방.
+    if (slot === "weapon") {
+      acc.atk += power;
+      acc.magicAtk += power;
+    } else if (slot === "armor") {
+      acc.def += power;
+    } else {
+      acc.def += power;
+      acc.magicDef += power;
+    }
+    acc.weight += item.weight ?? 0;
+    const o = item.options ?? {};
+    acc.crit += o.crit ?? 0;
+    acc.mp += o.mp ?? 0;
+    acc.eva += o.eva ?? 0;
+    acc.hp += o.hp ?? 0;
   }
   return acc;
 }
@@ -158,6 +157,9 @@ const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 
 // 속도 = 민첩 파생 (1차 아님). 옛 base spd 30 ≈ dex 15 × 2.0.
 const SPD_PER_DEX = 2.0;
+// PR-4a 무게 → 속도 페널티 (선형). k=1.0 — 무게 1 = 속도 −1. 옛 중갑 spd 페널티(−2..−8)를
+// 무게값으로 그대로 승계(미스릴 갑옷 무게 8 = 속도 −8). sim 캘리브(PR-8)에서 정식 튜닝.
+const WEIGHT_SPD_PENALTY = 1.0;
 // 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
 const MIN_DMG_PER_STR = 0.1;
 const MIN_DMG_PER_INT = 0.05;
@@ -239,15 +241,9 @@ export function derivePlayerCombatV2Pure(
     },
     emptyV2StatMap(),
   );
-  // totalStats = baseAllocated + 장비. 정신(spi)은 장비 보너스 없음(장비 개편 = PR-4).
-  // 장비의 spd 는 1차 아닌 파생 속도에 합산되므로 여기 1차 합산엔 안 들어간다.
-  const totalStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
-    (acc, k) => {
-      acc[k] = baseAllocatedStats[k] + (k === "spi" ? 0 : equipAcc[k]);
-      return acc;
-    },
-    emptyV2StatMap(),
-  );
+  // PR-4a — totalStats = baseAllocated 그대로. 장비는 더 이상 6스탯 token 을 안 준다
+  // (위력/무게/옵션만). 1차 스탯 정체성은 훈련 분배 + 직업 보정에서만 나온다.
+  const totalStats: Record<V2StatKey, number> = { ...baseAllocatedStats };
 
   // PR-1 직업 보정 — 직업 앵커 스탯에 statBonusPct%. (검사 = STR +10%)
   const classDef = V2_CLASS_DEFS[input.playerClass ?? "none"];
@@ -266,12 +262,14 @@ export function derivePlayerCombatV2Pure(
   const atk = Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk);
   // 물리 방어력 — 활력 + 장비 def.
   const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
-  // 마법 공격력 — 지능 + 장비 matk(무기 위력). INT 0·matk 0 이면 0 → 마법 경로 비활성.
+  // 마법 공격력 — 지능 + 무기 위력(magicAtk). INT 0·무기없음이면 0 → 마법 경로 비활성.
   const magicAtk =
-    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.matk;
-  // 마법 방어력(신규) — 정신 major + 지능 minor. combatShared 가 마법 데미지에서 차감.
+    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.magicAtk;
+  // 마법 방어력(신규) — 정신 major + 지능 minor + 장신구 위력. combatShared 가 마법 데미지에서 차감.
   const magicDef = Math.floor(
-    totalStats.spi * MAGIC_DEF_PER_SPI + totalStats.int * MAGIC_DEF_PER_INT,
+    totalStats.spi * MAGIC_DEF_PER_SPI +
+      totalStats.int * MAGIC_DEF_PER_INT +
+      equipAcc.magicDef,
   );
   // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
   const minDamage = Math.floor(
@@ -317,8 +315,11 @@ export function derivePlayerCombatV2Pure(
       totalStats.str * ACC_PER_STR +
       totalStats.spi * ACC_PER_SPI,
   );
-  // 속도 = 민첩 파생(1차 아님) + 장비 spd(중갑 페널티 포함). 음수 0 클램프.
-  const spd = Math.max(0, totalStats.dex * SPD_PER_DEX + equipAcc.spd);
+  // 속도 = 민첩 파생(1차 아님) − 장비 무게×계수(중갑일수록 느림). 음수 0 클램프.
+  const spd = Math.max(
+    0,
+    totalStats.dex * SPD_PER_DEX - equipAcc.weight * WEIGHT_SPD_PENALTY,
+  );
   // v2 다중공격 — SPD × 2%p 추가공격 확률 (50=100% 확정 +1, …).
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
 

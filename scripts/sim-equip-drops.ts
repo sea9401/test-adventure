@@ -15,9 +15,7 @@
 
 import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
 import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
-import { derivePlayerCombat } from "../src/adventure/character/derivePlayerCombat";
-import { baseCharacter } from "../src/adventure/character/defaults";
-import { STAT_KEYS, type StatKey } from "../src/adventure/data/stats";
+import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
@@ -27,46 +25,23 @@ import {
 } from "../src/adventure/data/v2/dungeonEquipDrops";
 import {
   V2_EQUIPMENT,
-  pickEquipBonus,
   type V2Equipment,
   type V2EquipmentId,
+  type V2EquipSlot,
   type V2EquipTier,
 } from "../src/adventure/data/v2/v2Equipment";
 import type { DungeonFloorId } from "../src/adventure/data/v2/types";
-import type { EquippedItemForDerive } from "../src/adventure/character/derivePlayerCombat";
 
 const TRIALS = Number(process.env.TRIALS ?? 500);
 const LEVEL = Number(process.env.LEVEL ?? 50);
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
-function emptyStats(): Record<StatKey, number> {
-  return STAT_KEYS.reduce(
-    (acc, k) => {
-      acc[k] = 0;
-      return acc;
-    },
-    {} as Record<StatKey, number>,
-  );
-}
-
-function v2ToItem(item: V2Equipment): EquippedItemForDerive {
-  return {
-    name: item.name,
-    slot: item.slot,
-    stats: [],
-    bonus: pickEquipBonus(item.stats),
-  };
-}
-
 // 한 티어의 컨셉별 풀세팅 — 무기/방어구/장신구 각 1. 가장 흔한 빌드: str / heavy / luck.
-function loadoutForTier(tier: V2EquipTier | null): {
-  weapon: EquippedItemForDerive | null;
-  armor: EquippedItemForDerive | null;
-  accessory: EquippedItemForDerive | null;
-} {
-  if (tier === null) {
-    return { weapon: null, armor: null, accessory: null };
-  }
+// PR-4a — v2Equipped 슬롯 맵을 반환(derivePlayerCombatV2Pure 가 위력/무게로 처리).
+function loadoutForTier(
+  tier: V2EquipTier | null,
+): Partial<Record<V2EquipSlot, V2EquipmentId>> {
+  if (tier === null) return {};
   const byConceptTier = (concept: V2Equipment["concept"]) =>
     Object.values(V2_EQUIPMENT).find(
       (x) => x.concept === concept && x.tier === tier,
@@ -74,26 +49,20 @@ function loadoutForTier(tier: V2EquipTier | null): {
   const w = byConceptTier("str");
   const a = byConceptTier("heavy");
   const c = byConceptTier("luck");
-  return {
-    weapon: w ? v2ToItem(w) : null,
-    armor: a ? v2ToItem(a) : null,
-    accessory: c ? v2ToItem(c) : null,
-  };
+  const eq: Partial<Record<V2EquipSlot, V2EquipmentId>> = {};
+  if (w) eq.weapon = w.id;
+  if (a) eq.armor = a.id;
+  if (c) eq.accessory = c.id;
+  return eq;
 }
 
 function deriveLoadout(tier: V2EquipTier | null): PlayerCombat {
-  const equipped = loadoutForTier(tier);
-  const out = derivePlayerCombat({
+  // 올바른 v2 derive — 단련 0 으로 고정(LEVEL 만, 장비만 변인).
+  const d = derivePlayerCombatV2Pure({
     level: LEVEL,
-    baseStats: baseCharacter.stats,
-    allocatedStats: emptyStats(),
-    equipped,
-    equippedSkills: undefined,
-    storyFlagIds: new Set<string>(),
-    hp: 1_000_000, // 강제 만피 — derive 가 maxHp 로 클램프
-    paragonAllocations: {},
+    v2Equipped: loadoutForTier(tier),
   });
-  return out.player;
+  return d.player;
 }
 
 function pickRandomEnemy(enemies: readonly string[]): string {

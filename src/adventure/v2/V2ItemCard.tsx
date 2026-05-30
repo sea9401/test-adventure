@@ -47,7 +47,7 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  const options = v2EquipStatRows(item.stats);
+  const options = v2EquipStatRows(item);
 
   // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;

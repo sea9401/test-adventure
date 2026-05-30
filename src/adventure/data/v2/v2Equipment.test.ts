@@ -3,11 +3,9 @@ import {
   CONCEPT_LABELS,
   SLOT_CONCEPTS,
   V2_EQUIPMENT,
-  V2_EQUIP_BONUS_KEYS,
-  V2_EQUIP_BONUS_LABELS,
-  V2_EQUIP_PERCENT_KEYS,
+  V2_EQUIP_OPTION_KEYS,
   parseEquipmentSave,
-  pickEquipBonus,
+  v2EquipStatRows,
   v2EquipmentByConcept,
   v2EquipmentBySlot,
   type V2EquipConcept,
@@ -27,20 +25,6 @@ const ALL_CONCEPTS: V2EquipConcept[] = [
   "mana",
 ];
 const ALL_TIERS: V2EquipTier[] = [1, 2, 3, 4, 5];
-
-// 컨셉별 "주력 스탯" — 같은 컨셉의 T1~T5 가 이 키에서 단조 증가해야 함.
-// PR-weapon-redistribute: 무기는 공격력 헤드라인. 검·활 = atk, 지팡이 = matk(마법 공격력).
-// 컨셉 스탯(str/dex/int)은 token 이라 단조성 비강제 — 주력 축(atk/matk)이 T1→T5 단조 증가.
-// 방어 light = dex(경갑), 장신 mana = int — 무기 아님, 기존 헤드라인 유지.
-const PRIMARY_STAT: Record<V2EquipConcept, keyof typeof V2_EQUIP_BONUS_LABELS> = {
-  str: "atk",
-  dex: "atk",
-  int: "matk",
-  heavy: "vit",
-  light: "dex",
-  luck: "luk",
-  mana: "int",
-};
 
 describe("V2_EQUIPMENT catalog", () => {
   it("모든 id 는 키와 일치해야 함 (self-id 일관성)", () => {
@@ -65,46 +49,37 @@ describe("V2_EQUIPMENT catalog", () => {
     }
   });
 
-  it("모든 stats 객체는 유효한 키만 사용 (atk/def + 6스탯)", () => {
-    const allowed = new Set<string>(V2_EQUIP_BONUS_KEYS);
+  it("모든 항목은 위력 ≥ 1 (유한 정수)", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
-      for (const k of Object.keys(item.stats)) {
-        expect(allowed.has(k), `${item.id}.stats.${k} 가 허용 키가 아님`).toBe(
+      expect(Number.isInteger(item.power), `${item.id}.power`).toBe(true);
+      expect(item.power, `${item.id}.power`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("모든 항목의 무게는 ≥ 0 유한 정수", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      expect(Number.isInteger(item.weight), `${item.id}.weight`).toBe(true);
+      expect(item.weight, `${item.id}.weight`).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("옵션은 허용 키(crit/eva/mp/hp)만, 값은 유한 정수", () => {
+    const allowed = new Set<string>(V2_EQUIP_OPTION_KEYS);
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      if (!item.options) continue;
+      for (const [k, v] of Object.entries(item.options)) {
+        expect(allowed.has(k), `${item.id}.options.${k} 가 허용 키가 아님`).toBe(
           true,
         );
+        expect(Number.isFinite(v), `${item.id}.options.${k}`).toBe(true);
+        expect(Number.isInteger(v), `${item.id}.options.${k}`).toBe(true);
       }
     }
   });
 
-  it("모든 stats 값은 유한 정수 (NaN/Infinity/소수 X)", () => {
-    for (const item of Object.values(V2_EQUIPMENT)) {
-      for (const k of V2_EQUIP_BONUS_KEYS) {
-        const v = item.stats[k];
-        if (v === undefined) continue;
-        expect(Number.isFinite(v)).toBe(true);
-        expect(Number.isInteger(v)).toBe(true);
-      }
-    }
-  });
-
-  it("모든 항목의 stats 가 비어있지 않음 (적어도 1키)", () => {
-    for (const item of Object.values(V2_EQUIPMENT)) {
-      const keys = V2_EQUIP_BONUS_KEYS.filter(
-        (k) => (item.stats[k] ?? 0) !== 0,
-      );
-      expect(keys.length, `${item.id} stats 가 비어있음`).toBeGreaterThan(0);
-    }
-  });
-
-  it("BONUS_LABELS 가 BONUS_KEYS 와 동일 키셋", () => {
-    expect(new Set(Object.keys(V2_EQUIP_BONUS_LABELS))).toEqual(
-      new Set(V2_EQUIP_BONUS_KEYS),
-    );
-  });
-
-  it("PERCENT_KEYS 는 BONUS_KEYS 의 부분집합", () => {
-    for (const k of V2_EQUIP_PERCENT_KEYS) {
-      expect(V2_EQUIP_BONUS_KEYS).toContain(k);
+  it("무게 0 인 슬롯 정합 — 장신구는 전부 무게 0", () => {
+    for (const item of v2EquipmentBySlot("accessory")) {
+      expect(item.weight, `${item.id} 장신구 무게`).toBe(0);
     }
   });
 });
@@ -139,22 +114,22 @@ describe("V2_EQUIPMENT grid (35종 — 7컨셉 × T1~T5)", () => {
     expect(new Set(Object.keys(CONCEPT_LABELS))).toEqual(new Set(ALL_CONCEPTS));
   });
 
-  it("같은 컨셉의 주력 스탯은 T1→T5 단조 증가", () => {
+  it("같은 컨셉의 위력은 T1→T5 비감소 + 전체로 증가", () => {
+    // 저위력 장신구·경갑은 정수 plateau(T2=T3 등) 허용 — 차별화는 옵션/무게로.
+    // 단 컨셉 전체로는 T5 > T1 로 티어 진행이 위력 우상향이어야 함.
     for (const concept of ALL_CONCEPTS) {
       const items = v2EquipmentByConcept(concept);
-      const primary = PRIMARY_STAT[concept];
-      const values = items.map((i) => i.stats[primary] ?? 0);
-      // 모두 양수
-      for (const v of values) {
-        expect(v, `${concept} primary=${primary}`).toBeGreaterThan(0);
-      }
-      // 단조 증가 (등호 불허)
+      const values = items.map((i) => i.power);
       for (let i = 1; i < values.length; i++) {
         expect(
           values[i],
-          `${concept} T${i + 1} primary 가 T${i} 보다 작거나 같음`,
-        ).toBeGreaterThan(values[i - 1]);
+          `${concept} T${i + 1} 위력 이 T${i} 보다 작음`,
+        ).toBeGreaterThanOrEqual(values[i - 1]);
       }
+      expect(
+        values[values.length - 1],
+        `${concept} T5 위력 이 T1 이하`,
+      ).toBeGreaterThan(values[0]);
     }
   });
 
@@ -167,28 +142,30 @@ describe("V2_EQUIPMENT grid (35종 — 7컨셉 × T1~T5)", () => {
   });
 });
 
-describe("pickEquipBonus", () => {
-  it("EquipBonus 부분(atk/def + 6스탯)만 반환, 추가 파생(crit/mp/eva/hp) 제외", () => {
-    const out = pickEquipBonus({
-      str: 5,
-      atk: 3,
-      crit: 2,
-      mp: 30,
-      eva: 4,
-      hp: 50,
-    });
-    expect(out).toEqual({ str: 5, atk: 3 });
+describe("v2EquipStatRows (표시 행)", () => {
+  it("위력 → 무게 → 옵션 순, 0 은 생략", () => {
+    // 별노래궁 T5: power 14, weight 2, crit 2.
+    const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
+    expect(rows).toEqual([
+      { label: "위력", value: "+14" },
+      { label: "무게", value: "2" },
+      { label: "치명", value: "+2%" },
+    ]);
   });
 
-  it("빈 stats 는 빈 객체", () => {
-    expect(pickEquipBonus({})).toEqual({});
+  it("무게 0·옵션 없음 → 위력 행만", () => {
+    // 은가락지 T1: power 1, weight 0, 옵션 없음.
+    const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
+    expect(rows).toEqual([{ label: "위력", value: "+1" }]);
   });
 
-  it("0 값 키는 보존되지 않는다 (undefined 만 스킵)", () => {
-    // 정확히는 0 도 보존되어야 하지만 — 우리 카탈로그는 0 값 키를 안 박음.
-    // 그래도 의도된 동작을 명시: 정의된 값은 그대로.
-    const out = pickEquipBonus({ str: 0, atk: 7 });
-    expect(out).toEqual({ str: 0, atk: 7 });
+  it("mp 옵션은 % 없이 flat", () => {
+    // 마나의 정수 T5: power 3, weight 0, mp 30.
+    const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
+    expect(rows).toEqual([
+      { label: "위력", value: "+3" },
+      { label: "MP", value: "+30" },
+    ]);
   });
 });
 

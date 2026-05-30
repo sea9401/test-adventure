@@ -10,12 +10,13 @@ import type {
 } from "@/adventure/battle/engine";
 import type { Monster } from "@/adventure/data/monsters/types";
 
-// enemy.image 는 BattleScene 이 클라 MONSTERS 카탈로그에서 `MONSTERS[name]?.image`
-// 로 재조회 — payload 에 안 담아도 됨.
+// enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면
+// 클라 MONSTERS 카탈로그(`MONSTERS[name]?.image`)로 폴백한다.
 export type ReplayPayload = {
   enemy: {
     name: string;
     hp: number; // max HP
+    image?: string;
   };
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0). PR-4+ 에서 마법 소비 들어오면 finalMp 추가 검토.
@@ -32,6 +33,7 @@ export function toReplayPayload(
     enemy: {
       name: finalState.enemy.name,
       hp: finalState.enemy.hp,
+      image: finalState.enemy.image,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,

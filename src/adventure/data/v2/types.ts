@@ -14,7 +14,8 @@ export type DungeonFloorRequirement =
 
 // 사냥터 출현 몬스터 — key 는 라이브 MONSTERS 의 스탯/스킬 출처, name 은 화면 표시 이름.
 // 둘을 분리해, 표시 이름을 라이브 몬스터와 무관하게(지형에 맞게) 붙일 수 있다.
-export type DungeonEnemy = { key: string; name: string };
+// image 는 v2 전용 초상화(이름과 짝). 없으면 BattleScene 이 라이브 MONSTERS 이미지로 폴백.
+export type DungeonEnemy = { key: string; name: string; image?: string };
 
 export type DungeonFloor = {
   id: DungeonFloorId;

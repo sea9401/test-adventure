@@ -302,12 +302,14 @@ export async function POST(req: Request) {
         },
       };
     }
-    // 구역 multiplier 적용 (hp/atk/def/exp). 표시 이름은 사냥터 고유 이름으로 덮어쓴다 —
+    // 구역 multiplier 적용 (hp/atk/def/exp). 표시 이름·초상화는 사냥터 고유 값으로 덮어쓴다 —
     // spread 로 새 객체를 만들어 라이브 MONSTERS 원본을 mutate 하지 않는다.
+    // image: v2 전용 초상화 우선, 없으면 라이브 몬스터 이미지 폴백.
     const enemyName = enemy.name;
     const enemyMonster = {
       ...scaleMonsterForFloor(baseMonster, floor),
       name: enemyName,
+      image: enemy.image ?? baseMonster.image,
     };
 
     // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".

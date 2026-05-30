@@ -109,6 +109,40 @@ export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
   8: [],
 };
 
+// === 재료 → 드랍 구역 역인덱스 (모험의 서 재료 도감용) ================
+// FLOOR_DROP_POOLS 를 뒤집어 "이 재료가 어느 floor 에서 몇 % 로 떨어지나" 를 만든다.
+// 라이브 모험의 서 재료 탭이 "재료 → 드랍 몬스터" 였던 것의 v2 대응 —
+// v2 드랍은 몬스터별이 아니라 floor(구역)별이라 출처를 구역으로 잡는다.
+// chance 내림차순(잘 떨어지는 구역이 위). 정적 카탈로그라 게이팅 없음.
+
+export type MaterialDropSource = {
+  floorId: DungeonFloorId;
+  chance: number;
+  amountMin: number;
+  amountMax: number;
+};
+
+export const MATERIAL_DROP_SOURCES: Record<V2MaterialId, MaterialDropSource[]> =
+  (() => {
+    const map = {} as Record<V2MaterialId, MaterialDropSource[]>;
+    for (const id of Object.keys(V2_MATERIALS) as V2MaterialId[]) map[id] = [];
+    const floors = Object.keys(FLOOR_DROP_POOLS).map(Number) as DungeonFloorId[];
+    for (const floorId of floors) {
+      for (const rule of FLOOR_DROP_POOLS[floorId]) {
+        map[rule.id].push({
+          floorId,
+          chance: rule.chance,
+          amountMin: rule.amountMin,
+          amountMax: rule.amountMax,
+        });
+      }
+    }
+    for (const id of Object.keys(map) as V2MaterialId[]) {
+      map[id].sort((a, b) => b.chance - a.chance);
+    }
+    return map;
+  })();
+
 // === 드랍 굴림 (순수 함수) ===========================================
 
 export type DropResult = Partial<Record<V2MaterialId, number>>;

@@ -4,6 +4,20 @@ import {
   buildBot,
   buildBotsAroundLevel,
 } from "./arenaBots";
+import { V2_ELEMENT_CYCLE } from "./elements";
+
+describe("봇 속성 (PR-5 — PvP 상성)", () => {
+  it("7템플릿이 7-ring 속성을 1:1 로 전부 커버", () => {
+    const els = BOT_TEMPLATES.map((t) => t.element);
+    expect(new Set(els).size).toBe(7);
+    expect(els.slice().sort()).toEqual(V2_ELEMENT_CYCLE.slice().sort());
+  });
+
+  it("buildBot 이 템플릿 속성을 봇에 전달", () => {
+    const bot = buildBot(BOT_TEMPLATES[0], 50);
+    expect(bot.element).toBe(BOT_TEMPLATES[0].element);
+  });
+});
 
 describe("buildBot", () => {
   it("레벨 1 봇은 스탯 분배 없음 — base + 장비 없음", () => {

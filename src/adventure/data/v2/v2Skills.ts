@@ -11,6 +11,7 @@
 // 이 모듈은 카탈로그/타입/파싱 헬퍼만 — DB/UI/전투 wiring 은 후속 PR.
 
 import type { StatKey } from "@/adventure/data/stats";
+import type { V2Class } from "./classes";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -32,6 +33,8 @@ export type V2SkillId =
   | "str_cleave_t2" // STR 횡베기
   | "str_crushing_blow_t2" // STR 분쇄 강타
   | "str_intimidating_roar_t2" // STR 위압의 함성
+  // ── 직업 전용 (PR-1 슬라이스) ─────────────────────────────────────
+  | "v2_skill_blade_dance" // 검사 전용 — 검무
   | "dex_needle_flurry_t2" // DEX 바늘 연격
   | "dex_true_thrust_t2" // DEX 정밀 관통
   | "dex_mirage_step_t2" // DEX 잔영 보법
@@ -70,6 +73,8 @@ export type V2SkillLearnRequirement = {
   stat?: { key: StatKey; min: number };
   /** 선행 스킬 — 모두 학습 보유해야. */
   prereqSkillIds?: readonly V2SkillId[];
+  /** 직업 전용 — 이 직업일 때만 학습 가능. 미지정 = 직업 무관. */
+  requireClass?: V2Class;
 };
 
 export type V2SkillDefinition = {
@@ -518,6 +523,21 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       level: 21,
       prereqSkillIds: ["v2_skill_meditate"],
     },
+  },
+  // ── 직업 전용 (PR-1) — 검사 검무 ──────────────────────────────────
+  v2_skill_blade_dance: {
+    id: "v2_skill_blade_dance",
+    name: "검무",
+    stat: "str",
+    category: "attack",
+    tier: 2,
+    description: "검사 전용. 연속 검격으로 강한 물리 피해를 입힌다.",
+    mpCost: 0,
+    cooldown: 2,
+    effects: [
+      { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "swordsman" },
   },
 };
 

@@ -9,6 +9,18 @@ import type {
   V2EquipmentId,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_CLASS_DEFS,
+  V2_SELECTABLE_CLASSES,
+  parseV2Class,
+  type V2Class,
+} from "@/adventure/data/v2/classes";
+import {
+  V2_ELEMENT_LABEL,
+  V2_PLAYER_ELEMENTS,
+  parseV2Element,
+  type V2Element,
+} from "@/adventure/data/v2/elements";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -25,6 +37,8 @@ type StateResponse = {
     maxHp: number;
     maxMp?: number;
     gold: number;
+    class?: string;
+    element?: string;
   };
   guild?: { name: string };
   stats?: {
@@ -109,6 +123,14 @@ export function V2CharacterScreen({
         </Card>
       )}
 
+      {character && (
+        <ClassElementPicker
+          currentClass={parseV2Class(character.class)}
+          currentElement={parseV2Element(character.element)}
+          onChanged={refresh}
+        />
+      )}
+
       {stats && combat && (
         <Card padding="md">
           <StatsPanel stats={stats.base} totalStats={stats.total} combat={combat} />
@@ -123,5 +145,101 @@ export function V2CharacterScreen({
         </Card>
       )}
     </main>
+  );
+}
+
+// PR-1 전투 재설계 — 직업·속성 최소 선택 UI. 선택 시 전용 스킬 자동 학습(서버).
+function ClassElementPicker({
+  currentClass,
+  currentElement,
+  onChanged,
+}: {
+  currentClass: V2Class;
+  currentElement: V2Element;
+  onChanged: () => void;
+}) {
+  const [cls, setCls] = useState<V2Class>(
+    currentClass === "none" ? V2_SELECTABLE_CLASSES[0] : currentClass,
+  );
+  const [elem, setElem] = useState<V2Element>(currentElement);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const dirty = cls !== currentClass || elem !== currentElement;
+
+  const apply = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/class-element", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ class: cls, element: elem }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (!j?.ok) {
+        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        return;
+      }
+      setMsg("✓ 적용됨");
+      onChanged();
+    } catch (e) {
+      setMsg(`✗ ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card padding="md">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold">직업 · 속성</h2>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          현재: {V2_CLASS_DEFS[currentClass].name} ·{" "}
+          {V2_ELEMENT_LABEL[currentElement]}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <select
+          value={cls}
+          onChange={(e) => setCls(e.target.value as V2Class)}
+          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {V2_SELECTABLE_CLASSES.map((c) => (
+            <option key={c} value={c}>
+              {V2_CLASS_DEFS[c].name} ({V2_CLASS_DEFS[c].group})
+            </option>
+          ))}
+        </select>
+        <select
+          value={elem}
+          onChange={(e) => setElem(e.target.value as V2Element)}
+          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          {V2_PLAYER_ELEMENTS.map((el) => (
+            <option key={el} value={el}>
+              {V2_ELEMENT_LABEL[el]}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={apply}
+          disabled={busy || !dirty}
+          className="rounded-md border border-indigo-400 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-300"
+        >
+          {busy ? "…" : "적용"}
+        </button>
+        {msg && (
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">{msg}</span>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+        {V2_CLASS_DEFS[cls].description} · 속성 상성으로 사냥 데미지가 ±됩니다.
+      </p>
+    </Card>
   );
 }

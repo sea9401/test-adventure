@@ -9,6 +9,7 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
 
 // POST /api/v2/me/skill-slots/learn — v2 스킬 학습 (교관 NPC 골드 구매).
 //
@@ -92,6 +93,18 @@ export async function POST(req: Request) {
         "character.v2",
         {},
       );
+
+      // PR-1 직업 전용 — requireClass 면 해당 직업이어야 학습 가능.
+      const reqClass = def.learn!.requireClass;
+      if (reqClass && parseV2Class(charRaw.class) !== reqClass) {
+        const className =
+          V2_CLASS_DEFS[parseV2Class(reqClass)]?.name ?? reqClass;
+        return {
+          ok: false as const,
+          error: `직업 전용 스킬 (필요 직업: ${className})`,
+          status: 400,
+        };
+      }
 
       const reqLevel = def.learn!.level;
       if (reqLevel != null) {

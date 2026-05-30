@@ -11,6 +11,8 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import { parseV2Class } from "@/adventure/data/v2/classes";
+import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -222,6 +224,9 @@ export async function GET() {
         lastUpdatedAt: stamina.lastUpdatedAt,
       },
       gold: Math.max(0, charSave.gold ?? 0),
+      // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
+      class: parseV2Class((charSave as { class?: unknown }).class),
+      element: parseV2Element((charSave as { element?: unknown }).element),
     },
     stats,
     combat: combatStats,

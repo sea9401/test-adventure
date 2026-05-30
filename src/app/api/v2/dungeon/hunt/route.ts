@@ -27,6 +27,12 @@ import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import {
+  elementDamageMult,
+  elementMatchup,
+  parseV2Element,
+  type V2Element,
+} from "@/adventure/data/v2/elements";
+import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
@@ -312,8 +318,18 @@ export async function POST(req: Request) {
     // spread 로 새 객체를 만들어 라이브 MONSTERS 원본을 mutate 하지 않는다.
     // image: v2 전용 초상화 우선, 없으면 라이브 몬스터 이미지 폴백.
     const enemyName = enemy.name;
+    // PR-1 속성 상성 — 캐릭 속성 vs 몬스터 속성으로 양방향 데미지 ±% (atk 스케일로 근사).
+    const playerElement = parseV2Element(
+      (charSave as { element?: unknown }).element,
+    );
+    const monsterElement: V2Element = enemy.element ?? "neutral";
+    const playerElemMult = elementDamageMult(playerElement, monsterElement); // 내 공격
+    const monsterElemMult = elementDamageMult(monsterElement, playerElement); // 적 공격
+    const playerElemMatchup = elementMatchup(playerElement, monsterElement);
+    const scaledEnemy = scaleMonsterForFloor(baseMonster, floor);
     const enemyMonster = {
-      ...scaleMonsterForFloor(baseMonster, floor),
+      ...scaledEnemy,
+      atk: Math.max(1, Math.round(scaledEnemy.atk * monsterElemMult)),
       name: enemyName,
       image: enemy.image ?? baseMonster.image,
     };
@@ -337,7 +353,15 @@ export async function POST(req: Request) {
       hpBefore,
       now,
     );
-    const playerForBattle = { ...player.player, hp: regenResult.hp };
+    const playerForBattle = {
+      ...player.player,
+      hp: regenResult.hp,
+      atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
+      magicAtk: Math.max(
+        0,
+        Math.round((player.player.magicAtk ?? 0) * playerElemMult),
+      ),
+    };
 
     // 체력 부족(최대치 5% 미만) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로
     // 회복 대기. 0 에서 시간 재생이 0→1 을 금방 넘겨 doomed 전투가 새던 문제를 안정적으로 차단.
@@ -552,6 +576,10 @@ export async function POST(req: Request) {
           hpBefore: regenResult.hp,
           hpAfter: afterHp,
           maxHp: player.maxHp,
+          // PR-1 속성 상성 — 결과 카드에 "유리/불리" 표기.
+          playerElement,
+          monsterElement,
+          elementMatchup: playerElemMatchup,
           // 충전식 회복약 잔량 (사냥 후 부족분 자동 소모 반영). 전투 화면 캐릭터 정보에 표기.
           hpCharges,
           mpCharges,

@@ -13,6 +13,11 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  V2_ELEMENT_LABEL,
+  type ElementMatchup,
+  type V2Element,
+} from "@/adventure/data/v2/elements";
 
 export type HuntResult = {
   floor: number;
@@ -30,6 +35,10 @@ export type HuntResult = {
   drops?: Partial<Record<V2MaterialId, number>>;
   droppedEquipment?: V2EquipmentId | null;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
+  // PR-1 속성 상성 — 내 속성 vs 몬스터 속성 결과.
+  playerElement?: V2Element;
+  monsterElement?: V2Element;
+  elementMatchup?: ElementMatchup;
 };
 
 // 드랍 배너용 — 재료(×N)와 장비 이름들을 자연스러운 한국어 문장으로 합친다.
@@ -84,6 +93,25 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
           {won ? "승리" : "패배"}
         </span>
       </div>
+
+      {result.elementMatchup &&
+        result.elementMatchup !== "neutral" &&
+        result.monsterElement &&
+        result.monsterElement !== "neutral" && (
+          <div className="mt-1 text-center text-[11px]">
+            <span
+              className={
+                result.elementMatchup === "advantage"
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-rose-600 dark:text-rose-400"
+              }
+            >
+              {V2_ELEMENT_LABEL[result.playerElement ?? "neutral"]} →{" "}
+              {V2_ELEMENT_LABEL[result.monsterElement]} · 속성{" "}
+              {result.elementMatchup === "advantage" ? "유리 (+)" : "불리 (−)"}
+            </span>
+          </div>
+        )}
 
       <div className="mt-2 space-y-1 text-center text-sm">
         <div className="flex items-baseline justify-center gap-1.5">

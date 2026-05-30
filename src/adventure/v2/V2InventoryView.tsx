@@ -253,6 +253,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         onChange={setTab}
         ariaLabel="인벤토리 카테고리"
         size="sm"
+        variant="chip"
       />
 
       {msg && (

@@ -30,6 +30,11 @@ import {
 } from "@/adventure/character/skills";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
+  V2_CLASS_DEFS,
+  parseV2Class,
+  type V2Class,
+} from "@/adventure/data/v2/classes";
+import {
   EVASION_PCT_CAP,
   STAT_KEYS,
   type StatKey,
@@ -53,6 +58,9 @@ type SavedCharacterV2 = {
   mp?: number;
   level?: number;
   selectedStance?: unknown;
+  // PR-1 전투 재설계 — 직업·속성. 직업은 derive 의 앵커 스탯 보정, 속성은 hunt 의 상성에 사용.
+  class?: unknown;
+  element?: unknown;
   // PR-7a — equippedSpells 는 옛 spell 시스템 잔재. parse 단계에서 무시되며 PR-7b 마이그
   // 가 v2_skill_meditate 자동 학습 부여로 대체. 필드는 옛 캐릭 save 호환 위해 보존.
   equippedSpells?: unknown;
@@ -207,6 +215,8 @@ export type DerivePlayerCombatV2PureInput = {
   mp?: number;
   /** character.v2.selectedStance raw. undefined = null. */
   selectedStanceRaw?: unknown;
+  /** character.v2.class — 직업. 앵커 스탯 보정에 사용. 미지정 = none. */
+  playerClass?: V2Class;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -232,6 +242,15 @@ export function derivePlayerCombatV2Pure(
     },
     { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 } as Record<StatKey, number>,
   );
+
+  // PR-1 직업 보정 — 직업 앵커 스탯에 statBonusPct%. (검사 = STR +10%)
+  const classDef = V2_CLASS_DEFS[input.playerClass ?? "none"];
+  if (classDef.statBonusPct > 0) {
+    const k = classDef.anchorStat;
+    totalStats[k] = Math.floor(
+      totalStats[k] * (1 + classDef.statBonusPct / 100),
+    );
+  }
 
   // PR-S1 5배 스케일 — float 누적 후 atk/def/maxHp/maxMp 만 최종 floor.
   // crit/eva/acc/extraAtk 는 float 그대로 (엔진이 확률 비교만, 0.1%p 단위 보존).
@@ -351,5 +370,6 @@ export async function derivePlayerCombatV2(
     hp: character.hp,
     mp: character.mp,
     selectedStanceRaw: character.selectedStance,
+    playerClass: parseV2Class(character.class),
   });
 }

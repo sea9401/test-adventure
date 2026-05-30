@@ -2,6 +2,8 @@
 // 라이브의 권역(region) 시스템을 폐기하고 던전(Dungeon) + 거점(Outpost) 두 시스템으로 대체.
 // 라이브의 전투 엔진·스킬·아이템·강화·마법부여는 그대로 재활용 (Monster 타입 등도 공유).
 
+import type { V2Element } from "./elements";
+
 // === 던전 (PvE 성장의 주 무대) ===
 
 // 단일 던전 8층. 1~5 캐릭 성장(1~100렙, 라이브 권역 밴드별 분할) / 6~8 만렙 후 엔드 파밍.
@@ -15,7 +17,13 @@ export type DungeonFloorRequirement =
 // 사냥터 출현 몬스터 — key 는 라이브 MONSTERS 의 스탯/스킬 출처, name 은 화면 표시 이름.
 // 둘을 분리해, 표시 이름을 라이브 몬스터와 무관하게(지형에 맞게) 붙일 수 있다.
 // image 는 v2 전용 초상화(이름과 짝). 없으면 BattleScene 이 라이브 MONSTERS 이미지로 폴백.
-export type DungeonEnemy = { key: string; name: string; image?: string };
+// element = PR-1 전투 재설계 — 몬스터 속성(상성 카운터). 미지정 = 무속성.
+export type DungeonEnemy = {
+  key: string;
+  name: string;
+  image?: string;
+  element?: V2Element;
+};
 
 export type DungeonFloor = {
   id: DungeonFloorId;

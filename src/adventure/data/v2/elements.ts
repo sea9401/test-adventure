@@ -1,52 +1,69 @@
-// v2 속성 시스템 (전투 재설계 PR-1). 캐릭터·몬스터에 부착, 상성으로 데미지 ±%.
+// v2 속성 시스템 (전투 재설계 PR-5). 캐릭터·몬스터에 부착, 상성으로 데미지 ±%.
 // 설계: docs/v2-combat-redesign.md §6.
-//   5속성 순환: 물>불>바람>대지>번개>물 (좌가 우를 카운터)
-//   빛 ↔ 어둠: 상호 카운터 (서로에게 +)
-//   무속성: 상성 없음 (중립)
-// 슬라이스 단계라 캐릭·몬스터에만 부착 — 스킬/장비 속성은 PR-5 확장.
+//
+// PR-5 — 옛 "5순환 + 빛/어둠 별도 대립쌍"(축 2개)을 **단일 먹이사슬(7-ring)** 으로 통합.
+// 빛/어둠은 게임의 별/우주 테마(별을 잊은 것·별빛 무구)에 맞춰 **별빛(starlight)/공허(void)**
+// 로 재해석 — 도덕 이분법이 아니라 세계관 생태로 순환 안에 편입.
+//
+// 단일 순환 (각 원소가 다음을 카운터, 데미지 +; 역방향은 −):
+//   물 → 불 → 바람 → 별빛 → 공허 → 대지 → 번개 → (물)
+//     물>불    물이 불을 끈다
+//     불>바람   불이 공기를 태워 번진다
+//     바람>별빛  운무·대기가 별빛을 가린다
+//     별빛>공허  별빛이 빈자리를 드러낸다
+//     공허>대지  공허가 대지의 토대를 무너뜨린다
+//     대지>번개  대지가 번개를 접지한다
+//     번개>물   물이 전류를 퍼뜨려 증폭
+//   무속성(neutral): 상성 없음 — 튜토리얼·잡몹·보스(카운터 농사 차단)·일관성 빌드용.
 
 export const V2_ELEMENTS = [
   "neutral",
-  "fire",
   "water",
-  "lightning",
-  "earth",
+  "fire",
   "wind",
-  "light",
-  "dark",
+  "starlight",
+  "void",
+  "earth",
+  "lightning",
 ] as const;
 
 export type V2Element = (typeof V2_ELEMENTS)[number];
 
 export const V2_ELEMENT_LABEL: Record<V2Element, string> = {
   neutral: "무속성",
-  fire: "불",
   water: "물",
-  lightning: "번개",
-  earth: "대지",
+  fire: "불",
   wind: "바람",
-  light: "빛",
-  dark: "어둠",
+  starlight: "별빛",
+  void: "공허",
+  earth: "대지",
+  lightning: "번개",
 };
 
 // 캐릭터가 고를 수 있는 속성 (무속성 포함 — "속성 없음" 정체성도 선택지).
 export const V2_PLAYER_ELEMENTS: readonly V2Element[] = V2_ELEMENTS;
 
-// 상성 우위 쌍: [공격자, 피격자] — 공격자가 피격자를 카운터(데미지 +).
-const ADVANTAGE: ReadonlyArray<readonly [V2Element, V2Element]> = [
-  ["water", "fire"],
-  ["fire", "wind"],
-  ["wind", "earth"],
-  ["earth", "lightning"],
-  ["lightning", "water"],
-  // 빛/어둠 상호 — 서로에게 우위.
-  ["light", "dark"],
-  ["dark", "light"],
+// 먹이사슬 단일 순환 — CYCLE[i] 가 CYCLE[i+1] 을 카운터. 여기서 ADVANTAGE 자동 생성.
+export const V2_ELEMENT_CYCLE: readonly V2Element[] = [
+  "water",
+  "fire",
+  "wind",
+  "starlight",
+  "void",
+  "earth",
+  "lightning",
 ];
 
-// 상성 배율 — 우위 +%, 열세 −% (양방향). 슬라이스 시작값, sim 캘리브 대상(§11).
-export const V2_ELEMENT_ADV_PCT = 20;
-export const V2_ELEMENT_DIS_PCT = 20;
+// 상성 우위 쌍: [공격자, 피격자] — 공격자가 피격자를 카운터(데미지 +). 순환에서 파생.
+const ADVANTAGE: ReadonlyArray<readonly [V2Element, V2Element]> =
+  V2_ELEMENT_CYCLE.map(
+    (a, i) => [a, V2_ELEMENT_CYCLE[(i + 1) % V2_ELEMENT_CYCLE.length]] as const,
+  );
+
+// 상성 배율 — 우위 +%, 열세 −% (양방향). PR-5 7-ring 시작값 ±15 (매치업이 드물고 결정적이라
+// 옛 ±20 보다 낮춤). sim 캘리브 대상(§11).
+export const V2_ELEMENT_ADV_PCT = 15;
+export const V2_ELEMENT_DIS_PCT = 15;
 
 const ADV_SET = new Set(ADVANTAGE.map(([a, d]) => `${a}>${d}`));
 
@@ -77,6 +94,8 @@ export function elementDamageMult(
   }
 }
 
+// 옛 "light"/"dark" 저장값은 더 이상 유효 속성 아님 → neutral 로 graceful 폴백
+// (test-adventure 리셋 허용 — 마이그 코드 불필요).
 export function parseV2Element(raw: unknown): V2Element {
   return typeof raw === "string" &&
     (V2_ELEMENTS as readonly string[]).includes(raw)

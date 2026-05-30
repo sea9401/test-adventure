@@ -16,6 +16,7 @@ import {
   emptyV2StatMap,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
+import type { V2Element } from "@/adventure/data/v2/elements";
 
 export type BotTemplate = {
   /** 안정적 식별자 — recentOpponents 매칭에 사용. */
@@ -25,18 +26,21 @@ export type BotTemplate = {
   focus: V2StatKey;
   /** 보조 스탯에 30% 배분. 남은 10% 는 vit 로. */
   secondary: V2StatKey;
+  /** PR-5 — 봇 속성(상성). 7템플릿 = 7-ring 1:1 스프레드 (PvP 상성 의미 부여). */
+  element: V2Element;
 };
 
 // PR-2 — 봇 분배는 v2 6스탯(str/dex/vit/int/spi/luk)만. 속도(spd)는 파생이라
 // 분배 대상 아님 → 옛 spd 봇은 dex(속도 파생원)/luk(회피)로 이관 (소실 방지).
+// PR-5 — 7템플릿에 7-ring 속성 1:1 부착 (봇 풀이 모든 속성 커버 → PvP 상성 활성).
 export const BOT_TEMPLATES: ReadonlyArray<BotTemplate> = [
-  { id: "bot-veno-warrior", name: "유랑 전사", focus: "str", secondary: "vit" },
-  { id: "bot-veno-rogue", name: "그림자 적", focus: "dex", secondary: "luk" },
-  { id: "bot-veno-mage", name: "방랑 술사", focus: "int", secondary: "luk" },
-  { id: "bot-veno-duelist", name: "결투가", focus: "dex", secondary: "str" },
-  { id: "bot-veno-templar", name: "맹세의 기수", focus: "vit", secondary: "str" },
-  { id: "bot-veno-gambler", name: "행운의 검", focus: "luk", secondary: "dex" },
-  { id: "bot-veno-mystic", name: "별빛 신탁자", focus: "int", secondary: "spi" },
+  { id: "bot-veno-warrior", name: "유랑 전사", focus: "str", secondary: "vit", element: "fire" },
+  { id: "bot-veno-rogue", name: "그림자 적", focus: "dex", secondary: "luk", element: "void" },
+  { id: "bot-veno-mage", name: "방랑 술사", focus: "int", secondary: "luk", element: "water" },
+  { id: "bot-veno-duelist", name: "결투가", focus: "dex", secondary: "str", element: "lightning" },
+  { id: "bot-veno-templar", name: "맹세의 기수", focus: "vit", secondary: "str", element: "earth" },
+  { id: "bot-veno-gambler", name: "행운의 검", focus: "luk", secondary: "dex", element: "wind" },
+  { id: "bot-veno-mystic", name: "별빛 신탁자", focus: "int", secondary: "spi", element: "starlight" },
 ];
 
 export type ArenaBot = {
@@ -45,6 +49,8 @@ export type ArenaBot = {
   level: number;
   /** 매칭 가중치 산정용 가짜 점수 — 봇은 항상 0. */
   score: number;
+  /** PR-5 — 봇 속성(상성). */
+  element: V2Element;
   combat: DerivedPlayerCombatV2;
 };
 
@@ -99,6 +105,7 @@ export function buildBot(template: BotTemplate, level: number): ArenaBot {
     name: template.name,
     level: lv,
     score: 0,
+    element: template.element,
     combat,
   };
 }

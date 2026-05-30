@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { MONSTERS } from "../monsters";
+import {
+  V2_ELEMENTS,
+  V2_ELEMENT_CYCLE,
+  type V2Element,
+} from "./elements";
 
 describe("v2 dungeon", () => {
   it("모든 enemy 이름이 라이브 MONSTERS 에 존재", () => {
@@ -43,6 +48,59 @@ describe("v2 dungeon", () => {
       const a = FLOOR_DIFFICULTY[i as 1 | 2 | 3 | 4 | 5 | 6 | 7];
       const b = FLOOR_DIFFICULTY[(i + 1) as 2 | 3 | 4 | 5 | 6 | 7 | 8];
       expect(a).toBeLessThanOrEqual(b);
+    }
+  });
+});
+
+// PR-5 — 속성 분포 게이트. 한 층이 한 속성에 안 쏠리고, 코스믹은 5구역부터.
+describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
+  const elemOf = (e: { element?: V2Element }): V2Element =>
+    e.element ?? "neutral";
+
+  it("모든 enemy 속성은 유효한 V2Element", () => {
+    for (const floor of MAIN_DUNGEON.floors) {
+      for (const enemy of floor.enemies) {
+        expect(
+          V2_ELEMENTS,
+          `${floor.name} ${enemy.key} element=${enemy.element}`,
+        ).toContain(elemOf(enemy));
+      }
+    }
+  });
+
+  it("각 층은 ≥2 종류의 non-neutral 속성 (mono-속성 금지 = 게이트)", () => {
+    for (const floor of MAIN_DUNGEON.floors) {
+      const nonNeutral = new Set(
+        floor.enemies.map(elemOf).filter((e) => e !== "neutral"),
+      );
+      expect(
+        nonNeutral.size,
+        `${floor.name} 가 속성 ${nonNeutral.size}종 (≥2 필요)`,
+      ).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("코스믹(별빛/공허)은 5구역(설원)부터만 — 1~4구역은 자연 속성만", () => {
+    const cosmic = new Set<V2Element>(["starlight", "void"]);
+    for (const floor of MAIN_DUNGEON.floors) {
+      if (floor.id <= 4) {
+        for (const enemy of floor.enemies) {
+          expect(
+            cosmic.has(elemOf(enemy)),
+            `${floor.name} ${enemy.key} 가 1~4구역인데 코스믹`,
+          ).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("순환 7원소가 전부 어딘가에 등장 (전 게임 분포 커버)", () => {
+    const used = new Set<V2Element>();
+    for (const floor of MAIN_DUNGEON.floors) {
+      for (const enemy of floor.enemies) used.add(elemOf(enemy));
+    }
+    for (const e of V2_ELEMENT_CYCLE) {
+      expect(used.has(e), `순환 원소 ${e} 가 어디에도 안 쓰임`).toBe(true);
     }
   });
 });

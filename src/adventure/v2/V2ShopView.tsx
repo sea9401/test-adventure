@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
+import { Card } from "@/components/ui/Card";
 import {
   V2_EQUIPMENT,
   shopPriceOf,
@@ -290,59 +291,57 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       />
 
       <section>
-        <div
-          aria-hidden
-          className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500"
-        >
-          <span>이름</span>
-          <span className="text-right">{mode === "buy" ? "구매" : "판매"}</span>
-        </div>
-
         {mode === "buy" ? (
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {buyIds.map((id) => (
-              <BuyEquipmentRow
-                key={id}
-                id={id}
-                count={counts.get(id) ?? 0}
-                gold={gold}
-                busy={busyId === id}
-                onBuy={buy}
-                onOpenCard={(item, anchor) => setCard({ item, anchor })}
-              />
-            ))}
-          </ul>
+          <Card padding="none" className="overflow-hidden">
+            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {buyIds.map((id) => (
+                <BuyEquipmentRow
+                  key={id}
+                  id={id}
+                  count={counts.get(id) ?? 0}
+                  gold={gold}
+                  busy={busyId === id}
+                  onBuy={buy}
+                  onOpenCard={(item, anchor) => setCard({ item, anchor })}
+                />
+              ))}
+            </ul>
+          </Card>
         ) : subTab === "material" ? (
           ownedMaterialIds.length === 0 ? (
             <EmptyHint text="판매할 재료가 없습니다. 사냥으로 모아보세요." />
           ) : (
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {ownedMaterialIds.map((id) => (
-                <MaterialRow
-                  key={id}
-                  id={id}
-                  count={materials[id] ?? 0}
-                  busy={busyId === id}
-                  onSell={sellMaterial}
-                />
-              ))}
-            </ul>
+            <Card padding="none" className="overflow-hidden">
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {ownedMaterialIds.map((id) => (
+                  <MaterialRow
+                    key={id}
+                    id={id}
+                    count={materials[id] ?? 0}
+                    busy={busyId === id}
+                    onSell={sellMaterial}
+                  />
+                ))}
+              </ul>
+            </Card>
           )
         ) : sellEquipIds.length === 0 ? (
           <EmptyHint text="판매할 장비가 없습니다." />
         ) : (
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {sellEquipIds.map((id) => (
-              <SellEquipmentRow
-                key={id}
-                id={id}
-                count={counts.get(id) ?? 0}
-                busy={busyId === id}
-                onSell={sellEquipment}
-                onOpenCard={(item, anchor) => setCard({ item, anchor })}
-              />
-            ))}
-          </ul>
+          <Card padding="none" className="overflow-hidden">
+            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {sellEquipIds.map((id) => (
+                <SellEquipmentRow
+                  key={id}
+                  id={id}
+                  count={counts.get(id) ?? 0}
+                  busy={busyId === id}
+                  onSell={sellEquipment}
+                  onOpenCard={(item, anchor) => setCard({ item, anchor })}
+                />
+              ))}
+            </ul>
+          </Card>
         )}
       </section>
       {card && (
@@ -358,7 +357,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
 function EmptyHint({ text }: { text: string }) {
   return (
-    <div className="rounded-md border border-dashed border-zinc-300 px-3 py-6 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+    <div className="rounded-md border border-dashed border-zinc-300 bg-white/90 px-3 py-6 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-950/90 dark:text-zinc-400">
       {text}
     </div>
   );
@@ -413,7 +412,7 @@ function BuyEquipmentRow({
   const buyPrice = shopPriceOf(item) ?? 0;
   const affordable = gold >= buyPrice;
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2">
+    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
       <EquipmentName item={item} count={count} onOpenCard={onOpenCard} />
       <button
         type="button"
@@ -445,7 +444,7 @@ function SellEquipmentRow({
   const buyPrice = shopPriceOf(item) ?? 0;
   const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2">
+    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
       <EquipmentName item={item} count={count} onOpenCard={onOpenCard} />
       <button
         type="button"
@@ -475,7 +474,7 @@ function MaterialRow({
   const unit = V2_MATERIAL_SELL_PRICE[id];
   const total = unit * count;
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2">
+    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
       <div className="flex min-w-0 items-baseline gap-1.5" title={mat.description}>
         <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {mat.name}

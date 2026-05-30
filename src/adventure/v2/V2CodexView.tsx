@@ -77,44 +77,46 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           message="사냥터 구역에 재료가 배치되면 여기에서 출처를 확인할 수 있습니다."
         />
       ) : (
-        <div className="space-y-2">
-          {entries.map(({ id, material, sources, sellPrice }) => (
-            <Card key={id}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                  📦 {material.name}
-                </span>
-                <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  판매 {sellPrice}골드
-                </span>
-              </div>
-              {material.description && (
-                <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                  {material.description}
-                </p>
-              )}
-              <ul className="mt-2 space-y-0.5 border-t border-dashed border-zinc-200 pt-1.5 text-[11px] dark:border-zinc-700">
-                {sources.map((s) => (
-                  <li
-                    key={s.floorId}
-                    className="flex items-center justify-between gap-2 py-0.5"
-                  >
-                    <span className="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
-                      <span className="text-zinc-400 dark:text-zinc-500">⛰️</span>
-                      {FLOOR_LABEL[s.floorId]}
-                      <span className="text-zinc-500 dark:text-zinc-400">
-                        {formatAmount(s)}
+        <Card padding="none" className="overflow-hidden">
+          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            {entries.map(({ id, material, sources, sellPrice }) => (
+              <li key={id} className="px-3 py-2.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    📦 {material.name}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    판매 {sellPrice}골드
+                  </span>
+                </div>
+                {material.description && (
+                  <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                    {material.description}
+                  </p>
+                )}
+                <ul className="mt-2 space-y-0.5 border-t border-dashed border-zinc-200 pt-1.5 text-[11px] dark:border-zinc-700">
+                    {sources.map((s) => (
+                    <li
+                      key={s.floorId}
+                      className="flex items-center justify-between gap-2 py-0.5"
+                    >
+                      <span className="flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
+                        <span className="text-zinc-400 dark:text-zinc-500">⛰️</span>
+                        {FLOOR_LABEL[s.floorId]}
+                        <span className="text-zinc-500 dark:text-zinc-400">
+                          {formatAmount(s)}
+                        </span>
                       </span>
-                    </span>
-                    <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
-                      {formatChance(s.chance)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          ))}
-        </div>
+                      <span className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {formatChance(s.chance)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </main>
   );

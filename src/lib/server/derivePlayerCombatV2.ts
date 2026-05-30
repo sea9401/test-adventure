@@ -10,7 +10,7 @@
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
 //   spd → 다중공격 확률 (extra += spd×2%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
-//   luk → 치명 (crit += luk×0.15, PR-T3 버프) + atk 보조 (PR-T3 ×0.04). 항상 작동
+//   luk → 치명 확률(crit += luk×0.15) + 치명 데미지(critMult += luk×0.006) + atk 보조(×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
 // 장비 stats:
@@ -29,6 +29,7 @@ import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   baselineRegenFor,
   skillLayout,
+  CRIT_MULT_BASE,
 } from "@/adventure/character/skills";
 import { emptyRuneBonus } from "@/adventure/character/runeBonus";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
@@ -154,6 +155,17 @@ const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
 const ATK_PER_DEX = 0.06; // PR-T4: 0.04 → 0.06. Lv75 DEX atk +9 (446×0.02)
 const ATK_PER_SPD = 0.06;
 const ATK_PER_LUK = 0.04;
+// PR-luk-critdmg — LUK → 크리 데미지 배수. v2 는 그동안 luk 를 크리 확률(CRIT_PER_LUK)에만
+// 쓰고 크리 데미지는 CRIT_MULT_BASE(2.0×) 고정이었다. 그래서 LUK 빌드는 atk 가 낮아(luk×0.04)
+// 크리가 터져도 약했다(sim: 전 빌드 중 최약). luk 가 크리 데미지도 키우게 해 '크리 빌드'
+// 정체성에 투자 비례 보상. 크리율 낮은 STR/BAL 등은 크리 발동이 드물어 영향 미미(타겟팅).
+// sim-v2-progression --skills 캘리브 0.006: LUK Lv75 67→75%·Lv100 85→89%(DEX/BAL 동률,
+// 파크 진입), winT 대폭↓(킬 속도 개선). Lv50 은 크리율 29% 로 낮아 보너스 발동이 적어 67%
+// 유지(DEX 동률 — 크리/피네스 빌드의 중반 변동성, LUK 단독 문제 아님).
+const CRIT_DMG_PER_LUK = 0.006;
+// 크리 데미지 배수 안전 상한 — 현재 Lv100 LUK(luk~349)는 4.09× 라 미바인딩이지만, 미래
+// 장비/스탯 인플레가 무한정 키우지 않게 cap. luk 500 에서 바인딩(현 만렙 도달 불가).
+const CRIT_MULT_CAP = 5.0;
 // PR-magic — 마법 공격력(magicAtk = INT 환산). 물리 atk(str×0.2)와 분리된 별도 데미지 풀.
 // scaling="magic" 스킬(비전 화살·마력 폭발)만 이 값으로 스케일한다(combatShared.v2DamageAmount).
 // 마법 빌드는 평타가 약한(물리 atk ~7) 대신 스킬 coef 프리미엄(1.5/1.7)으로 버는 구조라
@@ -242,6 +254,11 @@ export function derivePlayerCombatV2Pure(
   // 의도: onboarding 부드럽게 + STR/DEX 빌드도 가끔 magic 활용.
   const maxMp = Math.floor(V2_BASE_MP + totalStats.int * MP_PER_INT + equipAcc.mp);
   const critChancePct = totalStats.luk * CRIT_PER_LUK + equipAcc.crit;
+  // LUK → 크리 데미지 배수 (base 2.0× + luk 비례, 안전 상한 cap). 크리율 높은 LUK 빌드가 주 수혜.
+  const critMult = Math.min(
+    CRIT_MULT_BASE + totalStats.luk * CRIT_DMG_PER_LUK,
+    CRIT_MULT_CAP,
+  );
   const evasionPct = Math.min(
     totalStats.dex * EVA_PER_DEX + equipAcc.eva,
     EVASION_PCT_CAP,
@@ -282,6 +299,7 @@ export function derivePlayerCombatV2Pure(
     attackCount: 1,
     extraAttackChancePct,
     critChancePct,
+    critMult,
     baselineRegen: baselineRegenFor(maxHp),
   };
 

@@ -180,6 +180,40 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   });
 });
 
+describe("derivePlayerCombatV2Pure critMult (PR-luk-critdmg — LUK 크리 데미지)", () => {
+  it("luk 미투자(물리빌드) → critMult ≈ base 2.0 (+ 베이스 luk 15)", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 0, int: 0 },
+      v2Equipped: {},
+    });
+    // 베이스 luk 15 → critMult = 2.0 + 15×0.006 = 2.09 (luk 적은 빌드는 거의 base).
+    expect(d.totalStats.luk).toBe(15);
+    expect(d.player.critMult).toBeCloseTo(2.0 + 15 * 0.006);
+  });
+
+  it("luk 투자 → critMult = 2.0 + luk × 0.006 (투자 비례 크리 데미지)", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 200, int: 0 },
+      v2Equipped: {},
+    });
+    // 베이스 15 + 투자 200 = 215. critMult = 2.0 + 215×0.006 = 3.29.
+    expect(d.totalStats.luk).toBe(215);
+    expect(d.player.critMult).toBeCloseTo(2.0 + 215 * 0.006);
+  });
+
+  it("critMult 안전 상한 cap 5.0 — 극단 luk 도 초과 안 함", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 100,
+      allocatedStats: { str: 0, dex: 0, vit: 0, spd: 0, luk: 1000, int: 0 },
+      v2Equipped: {},
+    });
+    // luk 1015 → 2.0 + 1015×0.006 = 8.09 → cap 5.0.
+    expect(d.player.critMult).toBe(5.0);
+  });
+});
+
 describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
   it("Lv1 신캐 (빈 장비, vit 15) → maxHp = V2_BASE_HP + vit = 135 + 15 = 150", () => {
     const d = derivePlayerCombatV2Pure({

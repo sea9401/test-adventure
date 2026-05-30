@@ -15,13 +15,21 @@ export const MAX_LEVEL = 100;
 
 // 서버 전역 EXP 배율 — 테스트 서버용. 빌드 시 NEXT_PUBLIC_XP_RATE_MULT=2.5 처럼 주입.
 // NEXT_PUBLIC_ 접두사라 클라/서버 양쪽에서 같은 값. 신참 ×2 와 길드 expMult 와는 곱해짐.
-// 안전 범위 [0.1, 100] 클램프, 파싱 실패/미설정 시 1.
+// 안전 범위 [0.1, 100] 클램프.
+// 우선순위: NEXT_PUBLIC_XP_RATE_MULT(명시) > staging 기본(2.2) > 1.0.
+//   staging(IS_STAGING="true")은 env 미설정 시 2.2 자동 — v2 만렙 페이스 ~37일/B(목표 30~40).
+//   IS_STAGING 은 서버 전용이라 클라 번들에선 undefined → 1.0 이지만, XP_RATE_MULT 의 실제
+//   적용처(v2 hunt route·battleClaim·questReward)가 모두 서버라 지급 EXP 는 일관(2.2). 라이브
+//   (IS_STAGING≠true)는 기본 1.0 그대로라 영향 없음.
+const STAGING_DEFAULT_XP_RATE = 2.2;
 function parseXpRateMult(): number {
   const raw = process.env.NEXT_PUBLIC_XP_RATE_MULT;
-  if (!raw) return 1;
-  const n = Number.parseFloat(raw);
-  if (!Number.isFinite(n) || n <= 0) return 1;
-  return Math.min(100, Math.max(0.1, n));
+  if (raw) {
+    const n = Number.parseFloat(raw);
+    if (Number.isFinite(n) && n > 0) return Math.min(100, Math.max(0.1, n));
+  }
+  if (process.env.IS_STAGING === "true") return STAGING_DEFAULT_XP_RATE;
+  return 1;
 }
 
 export const XP_RATE_MULT = parseXpRateMult();

@@ -336,6 +336,8 @@ export function V2DungeonFloorView({
           gender={playerGender}
           exp={lastResult.expForBar ?? 0}
           maxExp={lastResult.maxExpForBar ?? 1}
+          hpCharges={lastResult.hpCharges}
+          mpCharges={lastResult.mpCharges}
         />
       )}
     </main>

@@ -15,6 +15,9 @@ export type HuntResultPayload = HuntResult & {
   startPlayerHp?: number;
   expForBar?: number;
   maxExpForBar?: number;
+  // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
+  hpCharges?: number;
+  mpCharges?: number;
 };
 
 type HuntResponse = {

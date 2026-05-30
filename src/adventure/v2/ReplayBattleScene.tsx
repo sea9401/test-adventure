@@ -22,6 +22,8 @@ export function ReplayBattleScene({
   gender,
   exp,
   maxExp,
+  hpCharges,
+  mpCharges,
 }: {
   payload: ReplayPayload;
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
@@ -30,6 +32,9 @@ export function ReplayBattleScene({
   gender: Gender;
   exp: number;
   maxExp: number;
+  // 충전식 회복약 잔량 (사냥 후 자동 소모 반영). 캐릭터 정보에 충전량으로 표기.
+  hpCharges?: number;
+  mpCharges?: number;
 }) {
   const derivedState = useMemo<BattleState>(() => {
     // finalState — 마지막 hp_bar entry 의 HP 가 최종.
@@ -61,7 +66,9 @@ export function ReplayBattleScene({
     gender,
     exp,
     maxExp: maxExp > 0 ? maxExp : exp + 1, // div-by-zero 회피 (만렙)
+    // v2 는 개수가 아닌 충전식 — recoveryCharges 로 충전량 표기. hpPotionCount 는 미사용.
     hpPotionCount: 0,
+    recoveryCharges: { hp: hpCharges ?? 0, mp: mpCharges ?? 0 },
   };
 
   return (
@@ -69,6 +76,7 @@ export function ReplayBattleScene({
       state={derivedState}
       playerName={playerName}
       playerStatus={playerStatus}
+      layout="split"
     />
   );
 }

@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 
 type TabSize = "sm" | "md";
-// underline: 기존 밑줄 탭(v1 전반). chip: 흰색 기본 + 호버/선택 시 인디고 하이라이트(v2 게임 탭).
-type TabVariant = "underline" | "chip";
+// underline: 기존 밑줄 탭(v1 전반). highlight: nav 바 레일은 유지하고 호버/선택 시 글자 색만 인디고로(v2 게임 탭).
+type TabVariant = "underline" | "highlight";
 
 const SIZE: Record<TabSize, string> = {
   sm: "px-3 py-2 text-sm font-medium",
@@ -13,12 +13,12 @@ const SIZE: Record<TabSize, string> = {
 
 const CONTAINER: Record<TabVariant, string> = {
   underline: "flex gap-1 border-b border-zinc-200 dark:border-zinc-800",
-  chip: "flex gap-1.5",
+  highlight: "flex gap-1 border-b border-zinc-200 dark:border-zinc-800",
 };
 
 const TAB_BASE: Record<TabVariant, string> = {
   underline: "-mb-px border-b-2",
-  chip: "rounded-md border",
+  highlight: "",
 };
 
 const TAB_STATE: Record<TabVariant, { active: string; inactive: string }> = {
@@ -27,11 +27,11 @@ const TAB_STATE: Record<TabVariant, { active: string; inactive: string }> = {
     inactive:
       "border-transparent text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100",
   },
-  chip: {
-    active:
-      "border-indigo-300 bg-indigo-100 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-200",
+  // 박스(테두리·배경) 없이 글자 색만 — 선택은 진한 인디고, 호버는 옅은 인디고, 기본은 중립 회색.
+  highlight: {
+    active: "text-indigo-700 dark:text-indigo-300",
     inactive:
-      "border-zinc-200 bg-white text-zinc-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-indigo-800 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-200",
+      "text-zinc-500 hover:text-indigo-500 dark:text-zinc-400 dark:hover:text-indigo-400",
   },
 };
 

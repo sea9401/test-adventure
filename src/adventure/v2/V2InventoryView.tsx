@@ -315,19 +315,12 @@ function MaterialList({
     );
   }
   return (
-    <section>
-      <div
-        aria-hidden
-        className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500"
-      >
-        <span>이름</span>
-        <span className="text-right">수량</span>
-      </div>
+    <Card padding="none" className="overflow-hidden">
       <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
         {materials.map(({ id, material, count }) => (
           <li
             key={id}
-            className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2"
+            className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5"
           >
             <div className="min-w-0">
               <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
@@ -343,7 +336,7 @@ function MaterialList({
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   );
 }
 
@@ -377,14 +370,7 @@ function EquipmentList({
   }
   const equippedId = equipped[slot] ?? null;
   return (
-    <section>
-      <div
-        aria-hidden
-        className="grid grid-cols-[1fr_auto] gap-x-3 px-2 pb-1.5 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500"
-      >
-        <span>이름</span>
-        <span className="text-right">장착</span>
-      </div>
+    <Card padding="none" className="overflow-hidden">
       <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
         {ids.map((id) => {
           const isEquipped = equippedId === id;
@@ -402,7 +388,7 @@ function EquipmentList({
           );
         })}
       </ul>
-    </section>
+    </Card>
   );
 }
 
@@ -425,7 +411,7 @@ function EquipmentRow({
 }) {
   const item = V2_EQUIPMENT[id];
   return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-2 py-2">
+    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
       {/* 이름 영역 클릭 → 옵션 카드 팝오버 (옵션은 행에 인라인으로 적지 않음) */}
       <button
         type="button"

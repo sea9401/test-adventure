@@ -157,21 +157,35 @@ export function V2GuildHome({
 
       {subTab === "info" && (
         info?.guild ? (
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <InfoCell
-              label="마스터"
-              value={
-                info.members?.find((m) => m.role === "master")?.name ?? "—"
-              }
-            />
-            <InfoCell label="멤버" value={`${info.members?.length ?? 0}명`} />
-            <InfoCell label="창설" value={fmtDate(info.guild.createdAt)} />
-            <InfoCell
-              label="명성"
-              value={info.guild.fameTotal.toLocaleString()}
-            />
+          <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900/50">
+            <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <dt className="text-zinc-500 dark:text-zinc-400">길드마스터</dt>
+                <dd className="truncate font-medium">
+                  {info.members?.find((m) => m.role === "master")?.name ?? "—"}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <dt className="text-zinc-500 dark:text-zinc-400">길드원 수</dt>
+                <dd className="font-medium tabular-nums">
+                  {info.members?.length ?? 0} / 3
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <dt className="text-zinc-500 dark:text-zinc-400">명성</dt>
+                <dd className="font-medium tabular-nums">
+                  {info.guild.fameTotal.toLocaleString()}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <dt className="text-zinc-500 dark:text-zinc-400">창설</dt>
+                <dd className="font-medium tabular-nums">
+                  {fmtDate(info.guild.createdAt)}
+                </dd>
+              </div>
+            </dl>
             {info.guild.description && (
-              <div className="col-span-2 mt-1 rounded-md bg-zinc-50 px-3 py-2 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-900/50 dark:text-zinc-400">
+              <div className="border-t border-zinc-200 px-3 py-2.5 text-xs leading-relaxed text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
                 {info.guild.description}
               </div>
             )}
@@ -379,13 +393,3 @@ function ResourceCell({ label, value }: { label: string; value: number }) {
   );
 }
 
-function InfoCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
-      <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
-      <div className="mt-0.5 truncate text-sm font-medium tabular-nums">
-        {value}
-      </div>
-    </div>
-  );
-}

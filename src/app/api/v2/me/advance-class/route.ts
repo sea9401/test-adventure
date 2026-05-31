@@ -28,7 +28,8 @@ import {
 
 // POST /api/v2/me/advance-class — 다음 차수 전직(진척). 레벨 + 골드 + (3·4차) 모험의 서 게이트.
 // 1→2→3→4 어느 단계든 nextTierClassOf 로 바로 위 차수로 승급. respec(직업군 변경,
-// 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 차수 전용 스킬 자동 학습.
+// 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 새 차수 시그니처는 자동 학습이
+// 아니라 learn-skill 로 숙련도 학습(전직은 equipped 만 reconcile, docs §6).
 // 3·4차는 재료 도감 등재 종 수(advanceCodexMin)를 추가 요건으로 — 직업 해금을 모험의 서
 // 진척에 묶는다(설계 §11-8).
 
@@ -127,12 +128,13 @@ export async function POST() {
       exp: 0,
     });
 
-    // 키트 = 직업 시그니처 체인뿐 (교관/스타터 폐지). 전직 후 통째 reconcile + 자동 장착.
-    const sigs = signaturesForClass(nextClass);
+    // 시그니처는 숙련도로 학습(자동부여 폐지, docs §6). 전직은 learned 를 안 건드리고
+    // equipped 만 학습분∩새 체인으로 reconcile — 새 차수 시그니처는 learn-skill 로 따로 습득.
+    const chain = signaturesForClass(nextClass);
+    const learnedSet = new Set<string>(skills.learned);
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      learned: [...sigs],
-      equipped: [...sigs],
+      equipped: chain.filter((s) => learnedSet.has(s)),
     });
 
     // 숙련도 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).

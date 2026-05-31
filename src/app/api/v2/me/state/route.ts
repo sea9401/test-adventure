@@ -8,10 +8,16 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { ensureV2ClassSkills } from "@/lib/server/v2Skills";
+import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
-import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  parseV2Class,
+  tier1ClassOf,
+  signaturesForClass,
+  signatureClassOf,
+  V2_CLASS_DEFS,
+} from "@/adventure/data/v2/classes";
 import {
   parseProficiency,
   totalEarned,
@@ -19,6 +25,7 @@ import {
   groupUsable,
   cultivationCount,
   cultivationCost,
+  signatureLearnCost,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import {
@@ -47,12 +54,12 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // ensureV2ClassSkills 는 idempotent — skills.v2 를 character.v2.class 의 시그니처로
-  // reconcile (교관/스타터 폐지 후 직업이 키트를 전적 결정). 일치하면 noop.
+  // reconcileV2EquippedSkills 는 idempotent — equipped 만 학습분∩현 체인으로 reconcile
+  // (시그니처는 learn-skill 라우트로 숙련도 학습; 자동부여 폐지). learned 불변.
   // 길드는 더 이상 자동 생성 X — null 이면 무소속.
   const guildId = await db.transaction(async (tx) => {
     const gid = await getGuildId(tx, userId);
-    await ensureV2ClassSkills(tx, userId);
+    await reconcileV2EquippedSkills(tx, userId);
     await ensureV2Character(tx, userId);
     return gid;
   });
@@ -260,6 +267,22 @@ export async function GET() {
     resources,
     currentOutpost,
     skills: parseV2SkillsState(skillsRow?.value),
+    // 시그니처 학습 현황 — 현 직업 체인의 각 시그니처 + 차수/비용/학습여부(UI 학습 패널용).
+    signatures: (() => {
+      const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const skillsState = parseV2SkillsState(skillsRow?.value);
+      const learnedSet = new Set<string>(skillsState.learned);
+      return signaturesForClass(cls).map((skillId) => {
+        const sigClass = signatureClassOf(skillId) ?? cls;
+        const tier = V2_CLASS_DEFS[sigClass].tier;
+        return {
+          skillId,
+          tier,
+          cost: signatureLearnCost(tier),
+          learned: learnedSet.has(skillId),
+        };
+      });
+    })(),
     // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
     codex: (() => {
       const ids = discoveredMaterialIds(charSave.materials);

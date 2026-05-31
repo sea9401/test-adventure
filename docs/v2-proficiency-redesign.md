@@ -153,7 +153,7 @@
 5. ✅ **시그니처 숙련도 학습** — 자동부여 폐지 → learn-skill 라우트(사용가능 숙련도 소모, 차수별 t1=80/t2=150/t3=250/t4=400). equipped = 학습분 ∩ 현 체인 자동 reconcile. (#278)
 6. ✅ **전직 게이트 교체** — 레벨/골드 → 직업군 누적 숙련도(t2=300/t3=1200/t4=3000). 3·4차 모험의 서 병존. UI 동반 패치. (#279)
 7. ✅ **콘텐츠 파워 지표** — 던전 층 권장 레벨 → derive 파워(power.ts derivePowerScore). state combat.power surface, 표시 4곳 전환. 하드 게이트 아님(권장). 층 min provisional. (#280)
-8. **UI 통합** — 성장의 신전/훈련장 → 수행·학습 화면으로 재편.
+8. ✅ **UI 재편** — 성장의 신전→수행(V2CultivationView, cap↑)·훈련장→학습(V2SkillLearnView, 시그니처 습득+대련). 죽은 수동분배 뷰 2개 + /api/v2/me/training/* 5라우트 삭제. (#281)
 9. **sim 캘리브** — 적립률·수행비용·전직임계·EXP·floor 균형.
 
 각 PR Codex 검증·worktree·브랜치-PR-머지. test-adventure 리셋 허용이라 마이그는 단순 wipe.

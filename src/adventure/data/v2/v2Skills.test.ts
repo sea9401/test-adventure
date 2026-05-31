@@ -151,3 +151,20 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
     }
   });
 });
+
+describe("스킬 속성 전면 태깅", () => {
+  it("모든 데미지 스킬은 element 보유 (몹 상태스킬 제외)", () => {
+    for (const s of Object.values(V2_SKILLS)) {
+      if (s.monsterOnly) continue;
+      const hasDamage = s.effects.some((e) => e.kind === "damage");
+      if (hasDamage) {
+        expect(s.element, `${s.id} 데미지 스킬인데 element 없음`).toBeTruthy();
+      }
+    }
+  });
+
+  it("힐/버프 전용 스킬엔 element 불필요 (데미지 없으면 미부여 허용)", () => {
+    // 회복(v2_skill_recover) 은 데미지 없음 → element 없어도 됨.
+    expect(V2_SKILLS.v2_skill_recover.effects.some((e) => e.kind === "damage")).toBe(false);
+  });
+});

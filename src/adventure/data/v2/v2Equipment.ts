@@ -174,6 +174,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "단단한 강철 한손검. 한 손에 묵직하다.",
     power: 5,
     weight: 2,
+    element: "fire",
   },
   v2_greatsword: {
     id: "v2_greatsword",
@@ -184,6 +185,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "두 손으로 거머쥐는 큰 검. 일격의 무게가 다르다.",
     power: 8,
     weight: 3,
+    element: "earth",
   },
   v2_silver_sword: {
     id: "v2_silver_sword",
@@ -194,6 +196,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "은으로 벼린 검. 옅게 빛을 낸다.",
     power: 11,
     weight: 3,
+    element: "starlight",
   },
   v2_mithril_sword: {
     id: "v2_mithril_sword",
@@ -204,6 +207,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "오래된 별빛이 어린 미스릴 검.",
     power: 16,
     weight: 4,
+    element: "void",
   },
 
   // ── 무기-민 (위력 = 물공+마공, 가벼움, 옵션 crit) ─────────────────────
@@ -227,6 +231,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "휘어 만든 합성궁. 사거리가 늘었다.",
     power: 5,
     weight: 1,
+    element: "wind",
     options: { crit: 1 },
   },
   v2_horn_bow: {
@@ -238,6 +243,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "뿔과 힘줄을 덧대 만든 강한 활.",
     power: 7,
     weight: 1,
+    element: "lightning",
     options: { crit: 1 },
   },
   v2_silver_bow: {
@@ -249,6 +255,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "은으로 보강된 정교한 활.",
     power: 10,
     weight: 2,
+    element: "water",
     options: { crit: 2 },
   },
   v2_starsong_bow: {
@@ -261,7 +268,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 14,
     weight: 2,
     options: { crit: 2 },
-    element: "starlight", // PR-5b 무기 속성 showcase — 별빛 무기.
+    element: "starlight", // 별빛 무기.
   },
 
   // ── 무기-지 (위력 = 물공+마공, 가벼움, 옵션 mp) ───────────────────────
@@ -287,6 +294,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "룬을 새긴 지팡이. 미세하게 따뜻하다.",
     power: 9,
     weight: 1,
+    element: "fire",
     options: { mp: 16 },
   },
   v2_obsidian_staff: {
@@ -298,6 +306,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "검은 유리처럼 매끄러운 지팡이.",
     power: 12,
     weight: 2,
+    element: "void",
     options: { mp: 22 },
   },
   v2_silver_staff: {
@@ -309,6 +318,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "은으로 감은 정교한 지팡이.",
     power: 13,
     weight: 2,
+    element: "water",
     options: { mp: 28 },
   },
   v2_starlit_staff: {
@@ -321,7 +331,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 17,
     weight: 2,
     options: { mp: 36 },
-    element: "starlight", // PR-5b 무기 속성 showcase — 별빛 무기.
+    element: "starlight", // 별빛 무기.
   },
 
   // ── 방어-중갑 (위력 = 물방, 무거움, 옵션 없음) ────────────────────────

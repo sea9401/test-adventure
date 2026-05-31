@@ -139,6 +139,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "힘을 실어 적에게 추가 피해를 준다.",
     mpCost: 30,
     cooldown: 3,
+    element: "earth",
     effects: [{ kind: "damage", statCoef: 1.0 }],
   },
   v2_skill_flurry: {
@@ -150,6 +151,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "빠르게 빈틈을 찔러 추가 피해를 준다.",
     mpCost: 25,
     cooldown: 2,
+    element: "wind",
     effects: [{ kind: "damage", statCoef: 0.85 }],
   },
   v2_skill_recover: {
@@ -210,6 +212,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "응축한 마력을 작게 뭉쳐 쏘아 보낸다. 익히기 쉬운 기초 마법.",
     mpCost: 14,
     cooldown: 0,
+    element: "fire",
     // coef 0.45 + baseFlat 10 — flat 은 magicAtk 작은 초반엔 비중이 커 INT 초반(비전 화살
     // Lv18 전)을 떠받치고, magicAtk 큰 후반엔 미미해 no-cd 필러가 지속 DPS 를 과하게 올리지
     // 않는다(자연 스케일링). sim-v2-progression --skills 캘리브: INT wr Lv10 36%→79%(공백
@@ -237,6 +240,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "무거운 일격을 넓게 휘둘러 적의 전열을 무너뜨린다.",
     mpCost: 70,
     cooldown: 4,
+    element: "earth",
     effects: [{ kind: "damage", statCoef: 1.45 }],
     learn: {
       goldCost: 3600,
@@ -254,6 +258,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "강타의 흐름을 끝까지 밀어붙여 방어 자세를 깨뜨린다.",
     mpCost: 85,
     cooldown: 5,
+    element: "earth",
     effects: [
       { kind: "damage", statCoef: 1.65 },
       { kind: "enemyDebuff", stat: "vit", pct: 14, turns: 3 },
@@ -293,6 +298,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "짧고 정확한 찌르기를 여러 번 이어 빈틈을 넓힌다. 빠른 베기 끝의 미세한 상처가 출혈로 이어진다.",
     mpCost: 65,
     cooldown: 3,
+    element: "wind",
     // PR-8 — DoT (출혈) 추가. 발동 직후 damage + 다음 3턴 동안 매턴 6 추가 피해 (DEF 무시).
     effects: [
       { kind: "damage", statCoef: 1.35, baseFlat: 8 },
@@ -314,6 +320,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "호흡을 멈추고 정확한 한 점을 꿰뚫는다.",
     mpCost: 80,
     cooldown: 4,
+    element: "lightning",
     effects: [{ kind: "damage", statCoef: 1.55, baseFlat: 10 }],
     learn: {
       goldCost: 4600,
@@ -437,6 +444,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "속도를 실어 짧은 궤적으로 베어낸다.",
     mpCost: 80,
     cooldown: 3,
+    element: "wind",
     effects: [{ kind: "damage", statCoef: 1.5, baseFlat: 6 }],
     learn: {
       goldCost: 4600,
@@ -490,6 +498,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "낮은 확률의 즉사 감각을 피해량으로 압축해 찌른다.",
     mpCost: 95,
     cooldown: 5,
+    element: "void",
     effects: [{ kind: "damage", statCoef: 1.75, baseFlat: 12 }],
     learn: {
       goldCost: 5200,
@@ -509,6 +518,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "응축한 마력을 한 점에 쏘아 단일 대상을 꿰뚫는다. 잔류한 마력이 살을 태운다.",
     mpCost: 70,
     cooldown: 3,
+    element: "starlight",
     // PR-8 — DoT (소각) 추가. 발동 직후 damage + 다음 2턴 동안 매턴 8 추가 피해 (DEF 무시).
     effects: [
       { kind: "damage", statCoef: 1.5, baseFlat: 10, scaling: "magic" },
@@ -530,6 +540,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "마력을 넓게 터뜨려 전장을 흔든다.",
     mpCost: 90,
     cooldown: 5,
+    element: "water",
     effects: [{ kind: "damage", statCoef: 1.7, baseFlat: 14, scaling: "magic" }],
     learn: {
       goldCost: 5000,
@@ -565,6 +576,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "검사 전용. 연속 검격으로 강한 물리 피해를 입힌다.",
     mpCost: 0,
     cooldown: 2,
+    element: "fire",
     effects: [
       { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "physical" },
     ],
@@ -581,6 +593,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "궁수 전용. 관통하는 일격으로 강한 물리 피해를 입힌다.",
     mpCost: 0,
     cooldown: 3,
+    element: "wind",
     effects: [
       { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
     ],
@@ -595,6 +608,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "무도가 전용. 묵직한 연타 후 자세를 굳혀 활력이 오른다.",
     mpCost: 0,
     cooldown: 3,
+    element: "earth",
     effects: [
       { kind: "damage", statCoef: 1.6, baseFlat: 12, scaling: "physical" },
       { kind: "selfBuff", stat: "vit", pct: 20, turns: 3 },
@@ -610,6 +624,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "마법사 전용. 마력을 터뜨려 강한 마법 피해를 입힌다.",
     mpCost: 0,
     cooldown: 2,
+    element: "void",
     effects: [
       { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "magic" },
     ],
@@ -626,6 +641,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "신관 전용. 성스러운 빛으로 자신을 치유하고 적을 정화한다.",
     mpCost: 0,
     cooldown: 3,
+    element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 22 },
       { kind: "damage", statCoef: 1.0, baseFlat: 8, scaling: "magic" },
@@ -641,6 +657,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "인술가 전용. 그림자에서 급소를 노린다. 치명타에 강하다.",
     mpCost: 0,
     cooldown: 3,
+    element: "void",
     effects: [
       { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
     ],
@@ -657,6 +674,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "검성 전용. 달빛을 베어 가르는 절검. 강력한 물리 피해.",
     mpCost: 0,
     cooldown: 3,
+    element: "starlight",
     effects: [
       { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "physical" },
     ],
@@ -671,6 +689,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "명궁 전용. 폭풍처럼 쏟아지는 화살. 강력한 물리 피해.",
     mpCost: 0,
     cooldown: 3,
+    element: "lightning",
     effects: [
       { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
     ],
@@ -685,6 +704,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "권왕 전용. 무너뜨리는 일권. 적의 방어를 깎고 강타한다.",
     mpCost: 0,
     cooldown: 3,
+    element: "earth",
     effects: [
       { kind: "damage", statCoef: 2.4, baseFlat: 14, scaling: "physical" },
       { kind: "enemyDebuff", stat: "vit", pct: 15, turns: 3 },
@@ -700,7 +720,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "대마법사 전용. 별을 떨궈 강력한 마법 피해를 입힌다.",
     mpCost: 0,
     cooldown: 3,
-    element: "starlight", // PR-5b 스킬 속성 showcase — 별을 떨구는 마법.
+    element: "starlight", // 별을 떨구는 마법.
     effects: [
       { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "magic" },
     ],
@@ -731,6 +751,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "그림자 주인 전용. 분신이 일제히 급소를 친다. 치명타에 강하다.",
     mpCost: 0,
     cooldown: 3,
+    element: "void",
     effects: [
       { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
     ],

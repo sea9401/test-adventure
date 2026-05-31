@@ -12,15 +12,22 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { advanceGoldCost } from "@/adventure/data/v2/respec";
+import {
+  codexRequirement,
+  countDiscoveredMaterials,
+} from "@/adventure/data/v2/codex";
 
-// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 레벨 게이트 + 골드(쿨다운 없음).
+// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 레벨 + 골드 + (3·4차) 모험의 서 게이트.
 // 1→2→3→4 어느 단계든 nextTierClassOf 로 바로 위 차수로 승급. respec(직업군 변경,
 // 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 차수 전용 스킬 자동 학습.
+// 3·4차는 재료 도감 등재 종 수(advanceCodexMin)를 추가 요건으로 — 직업 해금을 모험의 서
+// 진척에 묶는다(설계 §11-8).
 
 type CharSaveShape = {
   class?: unknown;
   level?: number;
   gold?: number;
+  materials?: unknown;
   [k: string]: unknown;
 };
 
@@ -70,6 +77,23 @@ export async function POST() {
         },
       };
     }
+    // 3·4차 모험의 서 게이트 — 재료 도감 등재 종 수가 요건 미만이면 차단.
+    const codexReq = codexRequirement(V2_CLASS_DEFS[nextClass].advanceCodexMin);
+    if (codexReq > 0) {
+      const discovered = countDiscoveredMaterials(charSave.materials);
+      if (discovered < codexReq) {
+        return {
+          status: 400,
+          body: {
+            ok: false as const,
+            error: "codex_incomplete" as const,
+            required: codexReq,
+            have: discovered,
+          },
+        };
+      }
+    }
+
     const cost = advanceGoldCost(level);
     if (gold < cost) {
       return {

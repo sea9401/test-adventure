@@ -13,6 +13,10 @@ import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { parseV2Class } from "@/adventure/data/v2/classes";
 import { parseV2Element } from "@/adventure/data/v2/elements";
+import {
+  V2_CODEX_TOTAL,
+  discoveredMaterialIds,
+} from "@/adventure/data/v2/codex";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -91,6 +95,7 @@ export async function GET() {
     hpRegenSince?: number;
     stamina?: unknown;
     gold?: number;
+    materials?: unknown;
     lastVisitedOutpost?: { outpostId?: string; at?: number };
   };
 
@@ -234,5 +239,10 @@ export async function GET() {
     resources,
     currentOutpost,
     skills: parseV2SkillsState(skillsRow?.value),
+    // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
+    codex: (() => {
+      const ids = discoveredMaterialIds(charSave.materials);
+      return { discovered: ids.length, total: V2_CODEX_TOTAL, discoveredIds: ids };
+    })(),
   });
 }

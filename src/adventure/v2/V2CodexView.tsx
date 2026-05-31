@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Package } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -41,6 +42,23 @@ function formatAmount(s: MaterialDropSource): string {
 }
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
+  // 내 도감 진척 — 수집한 재료 id 집합(전직 게이트와 같은 신호). /me/state 가 권위.
+  const [discovered, setDiscovered] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/v2/me/state")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && Array.isArray(j?.codex?.discoveredIds)) {
+          setDiscovered(new Set(j.codex.discoveredIds as string[]));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   // 드랍 출처가 하나라도 있는 재료만 — 출처 없는 재료(미배치)는 도감에서 숨긴다.
   const entries = (Object.keys(V2_MATERIALS) as V2MaterialId[])
     .map((id) => ({
@@ -65,7 +83,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         <div>
           <h1 className="text-lg font-bold">모험의 서</h1>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            재료 — 어느 구역에서 어떤 재료가 떨어지는지 한눈에.
+            재료 — 어느 구역에서 어떤 재료가 떨어지는지 한눈에.{" "}
+            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              등재 {entries.filter((e) => discovered.has(e.id)).length}/
+              {entries.length}종
+            </span>
           </p>
         </div>
       </header>
@@ -79,11 +101,25 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       ) : (
         <Card padding="none" className="overflow-hidden">
           <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {entries.map(({ id, material, sources, sellPrice }) => (
-              <li key={id} className="px-3 py-2.5">
+            {entries.map(({ id, material, sources, sellPrice }) => {
+              const found = discovered.has(id);
+              return (
+              <li
+                key={id}
+                className={`px-3 py-2.5 ${found ? "" : "opacity-50"}`}
+              >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                     📦 {material.name}
+                    {found ? (
+                      <span className="rounded bg-emerald-200/70 px-1 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                        등재
+                      </span>
+                    ) : (
+                      <span className="rounded bg-zinc-200/70 px-1 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
+                        미발견
+                      </span>
+                    )}
                   </span>
                   <span className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
                     판매 {sellPrice}골드
@@ -114,7 +150,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   ))}
                 </ul>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </Card>
       )}

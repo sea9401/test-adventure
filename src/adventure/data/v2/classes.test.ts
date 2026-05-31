@@ -182,4 +182,13 @@ describe("v2 3·4차 전직 (트리 완성)", () => {
   it("nextTierClassOf — none 은 null", () => {
     expect(nextTierClassOf("none")).toBeNull();
   });
+
+  it("3·4차는 모험의 서 요건(advanceCodexMin) 보유, 1·2차는 없음", () => {
+    for (const c of V2_CLASSES) {
+      const def = V2_CLASS_DEFS[c];
+      if (def.tier === 3) expect(def.advanceCodexMin, `${c}`).toBe(3);
+      else if (def.tier === 4) expect(def.advanceCodexMin, `${c}`).toBe(5);
+      else expect(def.advanceCodexMin, `${c}`).toBeUndefined();
+    }
+  });
 });

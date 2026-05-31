@@ -17,8 +17,8 @@ export function advanceGoldCost(level: number): number {
   return Math.max(1, Math.floor(level)) * ADVANCE_GOLD_PER_LEVEL;
 }
 
-// 직업군 변경 여부 — none 에서의 첫 선택은 무료. 같은 직업군 내(1차↔2차)는 변경 아님
-// (검성→검사 같은 군 = 무변경). respec 은 직업군 단위 변경만 비용 대상.
+// 직업군 변경 여부 — none 에서의 첫 선택은 무료. 같은 직업군 내(차수 이동)는 변경 아님
+// (검사→견습 검사 같은 군 = 무변경). respec 은 직업군 단위 변경만 비용 대상.
 export function isClassChange(cur: V2Class, next: V2Class): boolean {
   if (cur === "none") return false;
   return V2_CLASS_DEFS[cur].group !== V2_CLASS_DEFS[next].group;

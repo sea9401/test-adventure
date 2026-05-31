@@ -15,7 +15,7 @@ describe("v2 비용 전직 (PR-6)", () => {
     expect(isClassChange("none", "swordsman")).toBe(false); // 첫 선택
     expect(isClassChange("swordsman", "mage")).toBe(true); // 다른 직업군
     expect(isClassChange("swordsman", "swordsman")).toBe(false); // 동일
-    // PR-7 — 같은 직업군 1차↔2차는 변경 아님(검성→검사 = 검술 유지).
+    // PR-7 — 같은 직업군 차수 이동은 변경 아님(검사→견습 검사 = 검술 유지).
     expect(isClassChange("swordmaster", "swordsman")).toBe(false);
     expect(isClassChange("swordmaster", "mage")).toBe(true); // 2차에서 타 군은 변경
   });

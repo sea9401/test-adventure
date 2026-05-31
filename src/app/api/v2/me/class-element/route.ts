@@ -17,6 +17,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import {
   RESPEC_COOLDOWN_MS,
+  isClassChange,
   isPaidRespec,
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
@@ -56,7 +57,6 @@ export async function POST(req: Request) {
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
     // 락 순서 통일 — character.v2 → skills.v2 (hunt·learn 라우트와 동일, 데드락 방지).
-    const sig = V2_CLASS_DEFS[nextClass].signatureSkill;
     const charSave = await lockSaveForUpdate<CharSaveShape>(
       tx,
       userId,
@@ -77,6 +77,14 @@ export async function POST(req: Request) {
     const gold = Math.max(0, charSave.gold ?? 0);
     const lastRespecAt =
       typeof charSave.lastRespecAt === "number" ? charSave.lastRespecAt : 0;
+
+    // PR-7 — respec 은 직업군 단위. 같은 직업군의 1차를 골라도(2차 캐릭이 자기 군 1차 선택 등)
+    // 현 직업을 유지(다운그레이드 X). 첫 선택/타 직업군 변경만 effectiveClass 가 nextClass.
+    const effectiveClass: V2Class =
+      curClass === "none" || isClassChange(curClass, nextClass)
+        ? nextClass
+        : curClass;
+    const sig = V2_CLASS_DEFS[effectiveClass].signatureSkill;
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -123,7 +131,7 @@ export async function POST(req: Request) {
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      class: nextClass,
+      class: effectiveClass,
       element: nextElement,
       gold: nextGold,
       lastRespecAt: nextLastRespecAt,
@@ -141,7 +149,7 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
-        class: nextClass,
+        class: effectiveClass,
         element: nextElement,
         gold: nextGold,
         spent,

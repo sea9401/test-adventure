@@ -2,7 +2,7 @@
 // 설계: docs/v2-combat-redesign.md §5. 첫 선택(none/neutral 에서)은 무료, 변경만 비용.
 // 클라(프리뷰)·서버(권위) 공용 pure 모듈.
 
-import type { V2Class } from "@/adventure/data/v2/classes";
+import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
 import type { V2Element } from "@/adventure/data/v2/elements";
 
 // 변경 골드 = 레벨 × 계수 (고레벨일수록 투자 큼 → respec 비쌈). sim/체감 다이얼.
@@ -10,10 +10,18 @@ export const CLASS_CHANGE_GOLD_PER_LEVEL = 500;
 export const ELEMENT_CHANGE_GOLD_PER_LEVEL = 200;
 // 변경 후 쿨다운 — 콘텐츠마다 가볍게 갈아타 최적 수렴하는 걸 억제. 24h.
 export const RESPEC_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// PR-7 — 2차 전직(advance) 골드 = 레벨 × 계수. respec 과 별개(쿨다운 없음 = 진척).
+export const ADVANCE_GOLD_PER_LEVEL = 300;
 
-// 변경 여부 — none/neutral 에서의 첫 선택은 "변경"이 아님(무료 커밋).
+export function advanceGoldCost(level: number): number {
+  return Math.max(1, Math.floor(level)) * ADVANCE_GOLD_PER_LEVEL;
+}
+
+// 직업군 변경 여부 — none 에서의 첫 선택은 무료. 같은 직업군 내(1차↔2차)는 변경 아님
+// (검성→검사 같은 군 = 무변경). respec 은 직업군 단위 변경만 비용 대상.
 export function isClassChange(cur: V2Class, next: V2Class): boolean {
-  return next !== cur && cur !== "none";
+  if (cur === "none") return false;
+  return V2_CLASS_DEFS[cur].group !== V2_CLASS_DEFS[next].group;
 }
 export function isElementChange(cur: V2Element, next: V2Element): boolean {
   return next !== cur && cur !== "neutral";

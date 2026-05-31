@@ -17,6 +17,8 @@ import {
   V2_CLASS_DEFS,
   V2_SELECTABLE_CLASSES,
   parseV2Class,
+  tier1ClassOf,
+  tier2ClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -26,6 +28,8 @@ import {
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
+  advanceGoldCost,
+  isClassChange,
   isPaidRespec,
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
@@ -178,18 +182,64 @@ function ClassElementPicker({
   gold: number;
   onChanged: () => void;
 }) {
+  // 드롭다운은 직업군(1차) 단위. 2차 캐릭은 자기 군 1차로 매핑해 표시.
   const [cls, setCls] = useState<V2Class>(
-    currentClass === "none" ? V2_SELECTABLE_CLASSES[0] : currentClass,
+    currentClass === "none" ? V2_SELECTABLE_CLASSES[0] : tier1ClassOf(currentClass),
   );
   const [elem, setElem] = useState<V2Element>(currentElement);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const dirty = cls !== currentClass || elem !== currentElement;
-  // 비용 전직 — none/neutral 에서의 첫 선택은 무료, 그 외 변경은 골드.
+  // 같은 직업군 1차를 골라도 현 직업 유지(서버와 동일) → 실제 적용될 직업.
+  const effectiveClass: V2Class =
+    currentClass === "none" || isClassChange(currentClass, cls)
+      ? cls
+      : currentClass;
+  const dirty = effectiveClass !== currentClass || elem !== currentElement;
+  // 비용 전직 — none/neutral 에서의 첫 선택은 무료, 직업군/속성 변경은 골드.
   const paid = isPaidRespec(currentClass, cls, currentElement, elem);
   const cost = respecGoldCost(currentClass, cls, currentElement, elem, level);
   const cantAfford = paid && gold < cost;
+
+  // PR-7 — 2차 전직(advance). 현 1차 직업이 전직 가능한 2차 + 레벨/골드 조건.
+  const advanceTo = tier2ClassOf(currentClass);
+  const advanceLevel = advanceTo
+    ? V2_CLASS_DEFS[advanceTo].advanceLevel ?? Infinity
+    : Infinity;
+  const advanceCost = advanceGoldCost(level);
+  const advanceLevelOk = level >= advanceLevel;
+
+  const advance = async () => {
+    if (!advanceTo) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/advance-class", { method: "POST" });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        required?: number;
+      } | null;
+      if (!j?.ok) {
+        const label =
+          j?.error === "level_too_low"
+            ? `레벨 부족 (필요 Lv${j.required ?? advanceLevel})`
+            : j?.error === "insufficient_gold"
+              ? `골드 부족 (필요 ${(j.required ?? advanceCost).toLocaleString()}G)`
+              : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${label}`);
+        return;
+      }
+      setMsg(
+        `✓ ${V2_CLASS_DEFS[advanceTo].name} 전직 완료 (-${advanceCost.toLocaleString()}G)`,
+      );
+      onChanged();
+    } catch (e) {
+      setMsg(`✗ ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const apply = async () => {
     setBusy(true);
@@ -267,7 +317,7 @@ function ClassElementPicker({
           disabled={busy || !dirty || cantAfford}
           className="rounded-md border border-indigo-400 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-300"
         >
-          {busy ? "…" : paid ? `전직 (${cost.toLocaleString()}G)` : "적용"}
+          {busy ? "…" : paid ? `변경 (${cost.toLocaleString()}G)` : "적용"}
         </button>
         {msg && (
           <span className="text-xs text-zinc-500 dark:text-zinc-400">{msg}</span>
@@ -281,12 +331,43 @@ function ClassElementPicker({
               : "text-amber-600 dark:text-amber-400"
           }`}
         >
-          전직 비용 {cost.toLocaleString()}G · 변경 후 24시간 쿨다운
+          직업군/속성 변경 비용 {cost.toLocaleString()}G · 변경 후 24시간 쿨다운
           {cantAfford ? ` (보유 ${gold.toLocaleString()}G — 부족)` : ""}
         </p>
       )}
+      {/* PR-7 — 2차 전직(같은 직업군 단계 승급, 쿨다운 없음). */}
+      {advanceTo && (
+        <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-2.5 dark:border-emerald-500/40 dark:bg-emerald-500/10">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-emerald-800 dark:text-emerald-200">
+              2차 전직: <b>{V2_CLASS_DEFS[advanceTo].name}</b>
+              <span className="text-emerald-700/70 dark:text-emerald-300/70">
+                {" "}
+                · Lv{advanceLevel} · {advanceCost.toLocaleString()}G
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={advance}
+              disabled={busy || !advanceLevelOk || gold < advanceCost}
+              className="shrink-0 rounded-md border border-emerald-500 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-400 dark:text-emerald-300"
+            >
+              전직
+            </button>
+          </div>
+          {!advanceLevelOk ? (
+            <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
+              Lv{advanceLevel} 부터 전직 가능 (현재 Lv{level})
+            </p>
+          ) : gold < advanceCost ? (
+            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
+              골드 부족 (보유 {gold.toLocaleString()}G)
+            </p>
+          ) : null}
+        </div>
+      )}
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        {V2_CLASS_DEFS[cls].description} · 속성 상성으로 사냥 데미지가 ±됩니다.
+        {V2_CLASS_DEFS[effectiveClass].description} · 속성 상성으로 사냥 데미지가 ±됩니다.
       </p>
     </Card>
   );

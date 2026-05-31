@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  ADVANCE_GOLD_PER_LEVEL,
   CLASS_CHANGE_GOLD_PER_LEVEL,
   ELEMENT_CHANGE_GOLD_PER_LEVEL,
+  advanceGoldCost,
   isClassChange,
   isElementChange,
   isPaidRespec,
@@ -9,10 +11,13 @@ import {
 } from "./respec";
 
 describe("v2 비용 전직 (PR-6)", () => {
-  it("isClassChange — none(첫 선택)→X 무료, X→Y 변경, 동일 X→X 무변경", () => {
+  it("isClassChange — 직업군 기준 (none 첫선택 무료, 다른 군 변경, 같은 군 무변경)", () => {
     expect(isClassChange("none", "swordsman")).toBe(false); // 첫 선택
-    expect(isClassChange("swordsman", "mage")).toBe(true); // 변경
-    expect(isClassChange("swordsman", "swordsman")).toBe(false); // 무변경
+    expect(isClassChange("swordsman", "mage")).toBe(true); // 다른 직업군
+    expect(isClassChange("swordsman", "swordsman")).toBe(false); // 동일
+    // PR-7 — 같은 직업군 1차↔2차는 변경 아님(검성→검사 = 검술 유지).
+    expect(isClassChange("swordmaster", "swordsman")).toBe(false);
+    expect(isClassChange("swordmaster", "mage")).toBe(true); // 2차에서 타 군은 변경
   });
 
   it("isElementChange — neutral(첫 선택)→X 무료, X→Y 변경", () => {
@@ -52,5 +57,11 @@ describe("v2 비용 전직 (PR-6)", () => {
     expect(isPaidRespec("swordsman", "swordsman", "fire", "fire")).toBe(false);
     expect(isPaidRespec("swordsman", "mage", "fire", "fire")).toBe(true);
     expect(isPaidRespec("swordsman", "swordsman", "fire", "water")).toBe(true);
+  });
+
+  it("advanceGoldCost (PR-7 2차 전직) — 레벨 비례, level 최소 1", () => {
+    expect(advanceGoldCost(30)).toBe(30 * ADVANCE_GOLD_PER_LEVEL);
+    expect(advanceGoldCost(1)).toBe(ADVANCE_GOLD_PER_LEVEL);
+    expect(advanceGoldCost(0)).toBe(ADVANCE_GOLD_PER_LEVEL); // 클램프
   });
 });

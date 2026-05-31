@@ -55,7 +55,6 @@ export type V2SkillId =
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
-  | "dex_needle_flurry_t2" // DEX 바늘 연격
   | "dex_true_thrust_t2" // DEX 정밀 관통
   | "dex_mirage_step_t2" // DEX 잔영 보법
   | "vit_greater_recover_t2" // VIT 강화 회복
@@ -67,7 +66,6 @@ export type V2SkillId =
   | "luk_critical_omen_t2" // LUK 치명 예감
   | "luk_curse_mark_t2" // LUK 불길한 표식
   | "luk_death_lottery_t2" // LUK 사신의 제비
-  | "int_arcane_bolt_t2" // INT 비전 화살
   | "int_mana_burst_t2" // INT 마력 폭발
   | "int_mind_fog_t2"; // INT 정신 안개
 
@@ -201,8 +199,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
 
   // === Tier 1 학습형 — INT 기본 마법 공격 ───────────────────────────
   // 마법 빌드의 평타 대체. magicAtk(INT 환산)로 스케일하는 가장 싼 단발 마법.
-  // 비전 화살(Lv18) 전까지 INT 가 데미지를 낼 유일한 수단. coef 1.0 으로 STR 강타와
-  // 같은 배율이되 마법 경로라 magicAtk 로 친다. int 20 요구치로 비-INT 빌드 차단.
+  // 상위 마법 스킬(직업 시그니처 등) 을 얻기 전까지 INT 가 데미지를 낼 기본 수단. coef 1.0 으로
+  // STR 강타와 같은 배율이되 마법 경로라 magicAtk 로 친다. int 20 요구치로 비-INT 빌드 차단.
   int_magic_bolt_t1: {
     id: "int_magic_bolt_t1",
     name: "마법 탄",
@@ -213,8 +211,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     mpCost: 14,
     cooldown: 0,
     element: "fire",
-    // coef 0.45 + baseFlat 10 — flat 은 magicAtk 작은 초반엔 비중이 커 INT 초반(비전 화살
-    // Lv18 전)을 떠받치고, magicAtk 큰 후반엔 미미해 no-cd 필러가 지속 DPS 를 과하게 올리지
+    // coef 0.45 + baseFlat 10 — flat 은 magicAtk 작은 초반엔 비중이 커 INT 초반을
+    // 떠받치고, magicAtk 큰 후반엔 미미해 no-cd 필러가 지속 DPS 를 과하게 올리지
     // 않는다(자연 스케일링). sim-v2-progression --skills 캘리브: INT wr Lv10 36%→79%(공백
     // 해소), Lv25 91%·Lv50 83%(STR 동률) 유지. coef/flat 둘이 초반·후반 분리 다이얼.
     effects: [{ kind: "damage", statCoef: 0.45, baseFlat: 10, scaling: "magic" }],
@@ -289,28 +287,6 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   },
 
   // DEX — 공격 + 회피 버프
-  dex_needle_flurry_t2: {
-    id: "dex_needle_flurry_t2",
-    name: "바늘 연격",
-    stat: "dex",
-    category: "attack",
-    tier: 2,
-    description: "짧고 정확한 찌르기를 여러 번 이어 빈틈을 넓힌다. 빠른 베기 끝의 미세한 상처가 출혈로 이어진다.",
-    mpCost: 65,
-    cooldown: 3,
-    element: "wind",
-    // PR-8 — DoT (출혈) 추가. 발동 직후 damage + 다음 3턴 동안 매턴 6 추가 피해 (DEF 무시).
-    effects: [
-      { kind: "damage", statCoef: 1.35, baseFlat: 8 },
-      { kind: "dot", label: "출혈", dmgPerTurn: 6, turns: 3 },
-    ],
-    learn: {
-      goldCost: 3600,
-      stat: { key: "dex", min: 45 },
-      level: 18,
-      prereqSkillIds: ["v2_skill_flurry"],
-    },
-  },
   dex_true_thrust_t2: {
     id: "dex_true_thrust_t2",
     name: "정밀 관통",
@@ -509,28 +485,6 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   },
 
   // INT — 마법 공격 + 디버프
-  int_arcane_bolt_t2: {
-    id: "int_arcane_bolt_t2",
-    name: "비전 화살",
-    stat: "int",
-    category: "attack",
-    tier: 2,
-    description: "응축한 마력을 한 점에 쏘아 단일 대상을 꿰뚫는다. 잔류한 마력이 살을 태운다.",
-    mpCost: 70,
-    cooldown: 3,
-    element: "starlight",
-    // PR-8 — DoT (소각) 추가. 발동 직후 damage + 다음 2턴 동안 매턴 8 추가 피해 (DEF 무시).
-    effects: [
-      { kind: "damage", statCoef: 1.5, baseFlat: 10, scaling: "magic" },
-      { kind: "dot", label: "소각", dmgPerTurn: 8, turns: 2 },
-    ],
-    learn: {
-      goldCost: 3600,
-      stat: { key: "int", min: 45 },
-      level: 18,
-      prereqSkillIds: ["v2_skill_meditate"],
-    },
-  },
   int_mana_burst_t2: {
     id: "int_mana_burst_t2",
     name: "마력 폭발",
@@ -590,12 +544,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "dex",
     category: "attack",
     tier: 2,
-    description: "궁수 전용. 관통하는 일격으로 강한 물리 피해를 입힌다.",
+    description: "궁수 전용. 관통하는 일격으로 강한 물리 피해를 입힌다. 꿰뚫린 자리가 깊게 벌어져 한동안 피가 흐른다.",
     mpCost: 0,
     cooldown: 3,
     element: "wind",
+    // 출혈(DoT) — 직격 후 매 턴 추가 피해. 궁수 계열 시그니처 상태이상.
     effects: [
       { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.출혈 },
     ],
     learn: { goldCost: 0, requireClass: "archer" },
   },
@@ -621,12 +577,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "int",
     category: "attack",
     tier: 2,
-    description: "마법사 전용. 마력을 터뜨려 강한 마법 피해를 입힌다.",
+    description: "마법사 전용. 마력을 터뜨려 강한 마법 피해를 입힌다. 터진 마력이 살에 옮겨붙어 한동안 타들어간다.",
     mpCost: 0,
     cooldown: 2,
     element: "void",
+    // 소각(DoT) — 마법사 계열 시그니처 상태이상.
     effects: [
       { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "magic" },
+      { kind: "dot", ...V2_DOT_PRESETS.소각 },
     ],
     learn: { goldCost: 0, requireClass: "mage" },
   },
@@ -654,12 +612,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "luk",
     category: "attack",
     tier: 2,
-    description: "인술가 전용. 그림자에서 급소를 노린다. 치명타에 강하다.",
+    description: "인술가 전용. 그림자에서 급소를 노린다. 치명타에 강하다. 칼끝에 바른 독이 상처를 타고 천천히 퍼진다.",
     mpCost: 0,
     cooldown: 3,
     element: "void",
+    // 중독(DoT) — 인술 계열 시그니처 상태이상. 약하지만 가장 오래 가는 지속 피해.
     effects: [
       { kind: "damage", statCoef: 2.0, baseFlat: 12, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.중독 },
     ],
     learn: { goldCost: 0, requireClass: "ninja" },
   },
@@ -686,12 +646,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "dex",
     category: "attack",
     tier: 3,
-    description: "명궁 전용. 폭풍처럼 쏟아지는 화살. 강력한 물리 피해.",
+    description: "명궁 전용. 폭풍처럼 쏟아지는 화살. 강력한 물리 피해. 수많은 화살촉이 살을 찢어 피가 멎지 않는다.",
     mpCost: 0,
     cooldown: 3,
     element: "lightning",
+    // 출혈(DoT) — 궁수 계열 시그니처 상태이상(2차).
     effects: [
       { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.출혈 },
     ],
     learn: { goldCost: 0, requireClass: "sharpshooter" },
   },
@@ -717,12 +679,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "int",
     category: "attack",
     tier: 3,
-    description: "대마법사 전용. 별을 떨궈 강력한 마법 피해를 입힌다.",
+    description: "대마법사 전용. 별을 떨궈 강력한 마법 피해를 입힌다. 떨어진 불티가 남아 오래도록 타오른다.",
     mpCost: 0,
     cooldown: 3,
     element: "starlight", // 별을 떨구는 마법.
+    // 소각(DoT) — 마법사 계열 시그니처 상태이상(2차).
     effects: [
       { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "magic" },
+      { kind: "dot", ...V2_DOT_PRESETS.소각 },
     ],
     learn: { goldCost: 0, requireClass: "archmage" },
   },
@@ -748,12 +712,14 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     stat: "luk",
     category: "attack",
     tier: 3,
-    description: "그림자 주인 전용. 분신이 일제히 급소를 친다. 치명타에 강하다.",
+    description: "그림자 주인 전용. 분신이 일제히 급소를 친다. 치명타에 강하다. 분신마다 다른 독이 발려 상처가 곪아 든다.",
     mpCost: 0,
     cooldown: 3,
     element: "void",
+    // 중독(DoT) — 인술 계열 시그니처 상태이상(2차).
     effects: [
       { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.중독 },
     ],
     learn: { goldCost: 0, requireClass: "nightblade" },
   },

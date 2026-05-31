@@ -657,11 +657,11 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBeLessThan(100);
   });
 
-  it("resolveV2SkillCast — 비전 화살(scaling magic)은 magicAtk 로 스케일", () => {
-    // 비전 화살: statCoef 1.5, baseFlat 10, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 1.5) + 10 - def 0 = 130. (DoT 소각은 enemyDamage 에 미포함)
+  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 소각 DoT", () => {
+    // 비전 폭발: statCoef 2.2, baseFlat 12, scaling magic. atk 는 약하지만(5) magicAtk 80.
+    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 소각은 enemyDamage 에 미포함)
     const result = resolveV2SkillCast({
-      skills: { learned: ["int_arcane_bolt_t2"], equipped: ["int_arcane_bolt_t2"] },
+      skills: { learned: ["v2_skill_arcane_nova"], equipped: ["v2_skill_arcane_nova"] },
       cooldowns: {},
       attacker: {
         mp: 999,
@@ -673,9 +673,9 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.castSkillName).toBe("비전 화살");
-    expect(result.enemyDamage).toBe(130);
-    // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다.
+    expect(result.castSkillName).toBe("비전 폭발");
+    expect(result.enemyDamage).toBe(188);
+    // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
     expect(result.dotsToApplyToTarget).toContainEqual({
       label: "소각",
       dmgPerTurn: 8,

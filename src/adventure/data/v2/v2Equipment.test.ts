@@ -19,6 +19,33 @@ import {
   type V2EquipSlot,
   type V2EquipTier,
 } from "./v2Equipment";
+import { V2_ELEMENTS, V2_ELEMENT_CYCLE } from "./elements";
+
+describe("무기 속성 전면 태깅", () => {
+  it("무기 element 는 유효 V2Element, 방어구·장신구는 element 없음", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      if (item.element !== undefined) {
+        expect(V2_ELEMENTS, `${item.id}`).toContain(item.element);
+      }
+      // element 는 무기 슬롯에만 의미 — 방어구·장신구엔 미부여.
+      if (item.slot !== "weapon") {
+        expect(item.element, `${item.id} 비무기 element`).toBeUndefined();
+      }
+    }
+  });
+
+  it("무기 속성이 7-ring 전부 커버 + 일부 무속성(starter)", () => {
+    const weaponEls = v2EquipmentBySlot("weapon")
+      .map((w) => w.element)
+      .filter((e): e is NonNullable<typeof e> => Boolean(e));
+    const set = new Set(weaponEls);
+    for (const e of V2_ELEMENT_CYCLE) {
+      expect(set.has(e), `무기에 ${e} 없음`).toBe(true);
+    }
+    // 무속성 무기(저티어 starter)도 존재 — 캐릭 속성 선택 살림.
+    expect(v2EquipmentBySlot("weapon").some((w) => !w.element)).toBe(true);
+  });
+});
 
 const ALL_SLOTS: V2EquipSlot[] = ["weapon", "armor", "accessory"];
 const ALL_CONCEPTS: V2EquipConcept[] = [

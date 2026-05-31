@@ -1,6 +1,7 @@
 import type { MaterialId } from "../materials";
 import type { ItemId } from "../items";
 import type { SkillBookId } from "../skillBooks";
+import type { V2Element } from "../v2/elements";
 
 export type MonsterTag =
   | "humanoid"
@@ -87,6 +88,8 @@ export type Monster = {
    * 현재는 고탑 보스가 층 비례로 보유(towerEnemyAccuracy). 일반 몬스터는 0.
    */
   accuracy?: number;
+  /** PR-5b v2 — 몬스터 속성(상성). v2 전투 경로만 사용. 라이브 몹은 미지정(neutral). */
+  element?: V2Element;
   exp: number;
   drops?: MonsterDrop[];
   phaseTrigger?: MonsterPhaseTrigger;

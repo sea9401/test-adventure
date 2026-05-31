@@ -15,6 +15,8 @@
 // 컨셉 7갈래(같은 부위 안의 결): 무기 str/dex/int · 방어 heavy/light · 장신 luck/mana.
 // 티어 T1~T5. 내구도/수리는 PR-4b. 위력·무게 계수는 sim 캘리브(PR-8).
 
+import type { V2Element } from "@/adventure/data/v2/elements";
+
 export type V2EquipSlot = "weapon" | "armor" | "accessory";
 
 // 컨셉 = 같은 부위 안에서 빌드 결을 가르는 축.
@@ -109,6 +111,9 @@ export type V2Equipment = {
   weight: number;
   /** flavor 옵션 — 위력/무게 외 부가 효과. 없으면 생략. */
   options?: V2EquipOptions;
+  /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
+   *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
+  element?: V2Element;
 };
 
 // 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
@@ -256,6 +261,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 14,
     weight: 2,
     options: { crit: 2 },
+    element: "starlight", // PR-5b 무기 속성 showcase — 별빛 무기.
   },
 
   // ── 무기-지 (위력 = 물공+마공, 가벼움, 옵션 mp) ───────────────────────
@@ -315,6 +321,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 17,
     weight: 2,
     options: { mp: 36 },
+    element: "starlight", // PR-5b 무기 속성 showcase — 별빛 무기.
   },
 
   // ── 방어-중갑 (위력 = 물방, 무거움, 옵션 없음) ────────────────────────

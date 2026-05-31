@@ -358,20 +358,26 @@ export async function POST(req: Request) {
     // spread 로 새 객체를 만들어 라이브 MONSTERS 원본을 mutate 하지 않는다.
     // image: v2 전용 초상화 우선, 없으면 라이브 몬스터 이미지 폴백.
     const enemyName = enemy.name;
-    // PR-1 속성 상성 — 캐릭 속성 vs 몬스터 속성으로 양방향 데미지 ±% (atk 스케일로 근사).
+    // PR-1/5b 속성 상성 — 양방향 데미지 ±%.
+    //   캐릭 속성(playerElement) = 방어(피격) 속성 + 스킬 기본 속성.
+    //   평타/공격 속성(basicAttackElement) = 무기 속성 ?? 캐릭 속성 (PR-5b 무기 속성 우선).
+    //   atk 엔 basicAttackElement 를 baked, 스킬은 combatShared 가 스킬속성으로 재정규화.
     const playerElement = parseV2Element(
       (charSave as { element?: unknown }).element,
     );
+    const basicAttackElement: V2Element =
+      player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
     const monsterElement: V2Element = enemy.element ?? "neutral";
-    const playerElemMult = elementDamageMult(playerElement, monsterElement); // 내 공격
-    const monsterElemMult = elementDamageMult(monsterElement, playerElement); // 적 공격
-    const playerElemMatchup = elementMatchup(playerElement, monsterElement);
+    const playerElemMult = elementDamageMult(basicAttackElement, monsterElement); // 내 평타
+    const monsterElemMult = elementDamageMult(monsterElement, playerElement); // 적 공격(내 방어속성 대상)
+    const playerElemMatchup = elementMatchup(basicAttackElement, monsterElement);
     const scaledEnemy = scaleMonsterForFloor(baseMonster, floor);
     const enemyMonster = {
       ...scaledEnemy,
       atk: Math.max(1, Math.round(scaledEnemy.atk * monsterElemMult)),
       name: enemyName,
       image: enemy.image ?? baseMonster.image,
+      element: monsterElement, // PR-5b — 스킬 cast 상성 계산용.
     };
 
     // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
@@ -401,6 +407,9 @@ export async function POST(req: Request) {
         0,
         Math.round((player.player.magicAtk ?? 0) * playerElemMult),
       ),
+      // PR-5b — 평타 속성(baked) + 캐릭 속성(스킬 기본·피격 방어). combatShared 가 스킬 보정에 사용.
+      attackElement: basicAttackElement,
+      characterElement: playerElement,
     };
 
     // 체력 부족(최대치 5% 미만) 상태에선 사냥 불가 — 스태미나 미소모 + hpRegenSince 미리셋으로

@@ -55,6 +55,7 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/battle/engine";
 
 type SavedCharacterV2 = {
@@ -80,6 +81,9 @@ export type DerivedPlayerCombatV2 = {
   baseAllocatedStats: Record<V2StatKey, number>;
   maxHp: number;
   selectedStance: StanceId | null;
+  /** PR-5b — 장착 무기의 속성(평타/공격 속성). 무기 없음·미부여·내구도0 이면 neutral.
+   *  hunt·arena 가 basicAttackElement = weaponElement ?? characterElement 산출에 사용. */
+  weaponElement: V2Element;
 };
 
 // PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 3개에서 위력을 슬롯별로 분기 누적 +
@@ -362,12 +366,20 @@ export function derivePlayerCombatV2Pure(
     baselineRegen: baselineRegenFor(maxHp),
   };
 
+  // PR-5b — 장착 무기 속성. 내구도 0(broken) 무기는 비활성 → neutral.
+  const weaponId = v2Equipped.weapon;
+  const weaponElement: V2Element =
+    weaponId && !isBroken(durabilityOf(input.v2Durability, weaponId))
+      ? (V2_EQUIPMENT[weaponId].element ?? "neutral")
+      : "neutral";
+
   return {
     player,
     totalStats,
     baseAllocatedStats,
     maxHp,
     selectedStance: normalizeStance(input.selectedStanceRaw),
+    weaponElement,
   };
 }
 

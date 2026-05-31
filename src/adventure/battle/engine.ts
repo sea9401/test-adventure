@@ -1,4 +1,5 @@
 import type { Monster } from "../data/monsters";
+import type { V2Element } from "../data/v2/elements";
 import {
   computeMpRestoreAmount,
   type Potion,
@@ -317,6 +318,9 @@ export type PlayerCombat = {
   critResistPct?: number;
   minDamage?: number;
   healMult?: number;
+  // PR-5b v2 — 평타 속성(무기 ?? 캐릭, atk 에 baked)·캐릭 속성(스킬 기본·피격 방어). 미지정=neutral.
+  attackElement?: V2Element;
+  characterElement?: V2Element;
   // 이중 행운 — 첫 크리티컬 발동 시 회피/크리티컬 +bonus% 발동, 전투 종료까지 유지. 0 이면 미보유.
   doubleLuck?: { evade: number; crit: number };
   // 가드 — 첫 N턴 동안 받는 피해 -reduction. 둘 다 0 이면 스킬 미보유.
@@ -2968,12 +2972,17 @@ export function resolveBattle(
             maxHp: state.playerMaxHp,
             selfBuffs: tickedSelfBuffs,
             selfDebuffs: tickedSelfDebuffs,
+            // PR-5b — 플레이어 평타 속성(baked) + 캐릭 속성(스킬 기본).
+            attackElement: player.attackElement,
+            characterElement: player.characterElement,
           },
           target: {
             def: state.enemy.def,
             // PR-5b: monster 측 v2 self buff 도 def 곱셈에 반영 (격리 해제 일관).
             selfBuffs: state.enemyV2SelfBuffs,
             selfDebuffs: tickedEnemyDebuffs,
+            // PR-5b — 피격 몬스터 속성(상성).
+            element: state.enemy.element,
           },
         });
         // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
@@ -3122,12 +3131,17 @@ export function resolveBattle(
             maxHp: state.enemy.hp, // monster.hp = max hp (정적)
             selfBuffs: tickedEnemySelfBuffs,
             selfDebuffs: tickedEnemyDebuffsLocal,
+            // PR-5b — 몬스터 평타·스킬 모두 자기 속성(atk 에 baked). 보정=1(이중계산 방지).
+            attackElement: state.enemy.element,
+            characterElement: state.enemy.element,
           },
           target: {
             def: player.def,
             magicDef: player.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tickedPlayerDebuffs,
+            // PR-5b — 피격 플레이어의 방어 속성(캐릭 속성).
+            element: player.characterElement,
           },
         });
         let nextPlayerHp = state.playerHp;

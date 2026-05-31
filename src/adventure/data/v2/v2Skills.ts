@@ -50,6 +50,20 @@ export type V2SkillId =
   | "v2_skill_meteor" // 대마법사 전용 — 메테오 (INT)
   | "v2_skill_blessing" // 주교 전용 — 축복의 빛 (SPI)
   | "v2_skill_shadow_clones" // 그림자 주인 전용 — 그림자 분신 (LUK)
+  // ── 직업 3차 전용 — 6 3차 시그니처 ──────────────────────────────────
+  | "v2_skill_heaven_sword" // 검왕 전용 — 천검 (STR)
+  | "v2_skill_sky_volley" // 궁왕 전용 — 천공난사 (DEX)
+  | "v2_skill_mountain_breaker" // 권제 전용 — 붕산권 (VIT)
+  | "v2_skill_void_eclipse" // 현자 전용 — 공허식 (INT)
+  | "v2_skill_grand_heal" // 대주교 전용 — 대치유 (SPI)
+  | "v2_skill_shadow_swarm" // 어둠의 군주 전용 — 그림자 무리 (LUK)
+  // ── 직업 4차 전용 — 6 4차 시그니처 (직업군 정점) ────────────────────
+  | "v2_skill_infinity_blade" // 검신 전용 — 무극검 (STR)
+  | "v2_skill_divine_arrow" // 신궁 전용 — 신궁일사 (DEX)
+  | "v2_skill_titan_collapse" // 투신 전용 — 투신붕권 (VIT)
+  | "v2_skill_apocalypse_flame" // 마신 전용 — 종언의 불꽃 (INT)
+  | "v2_skill_holy_descent" // 교황 전용 — 성광강림 (SPI)
+  | "v2_skill_void_assassinate" // 공허의 화신 전용 — 공허 암살 (LUK)
   // ── 몬스터 전용 상태이상 (PR-9) — 플레이어 미학습, 몹 v2Skills 로만 ──────
   | "mob_venom_bite" // 독니 — 중독(DoT)
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
@@ -722,6 +736,207 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "dot", ...V2_DOT_PRESETS.중독 },
     ],
     learn: { goldCost: 0, requireClass: "nightblade" },
+  },
+
+  // ── 직업 3차 전용 — 6 3차 시그니처. 2차보다 강한 coef, requireClass 3차직업. ──
+  v2_skill_heaven_sword: {
+    id: "v2_skill_heaven_sword",
+    name: "천검",
+    stat: "str",
+    category: "attack",
+    tier: 3,
+    description: "검왕 전용. 하늘을 가르는 검격으로 압도적인 물리 피해를 입힌다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "fire",
+    effects: [
+      { kind: "damage", statCoef: 3.4, baseFlat: 16, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "swordking" },
+  },
+  v2_skill_sky_volley: {
+    id: "v2_skill_sky_volley",
+    name: "천공난사",
+    stat: "dex",
+    category: "attack",
+    tier: 3,
+    description: "궁왕 전용. 하늘을 뒤덮는 화살비. 쏟아진 화살촉마다 상처를 남겨 피가 흐른다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "wind",
+    // 출혈(DoT) — 궁수 계열 시그니처 상태이상(3차).
+    effects: [
+      { kind: "damage", statCoef: 3.2, baseFlat: 16, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.출혈 },
+    ],
+    learn: { goldCost: 0, requireClass: "bowking" },
+  },
+  v2_skill_mountain_breaker: {
+    id: "v2_skill_mountain_breaker",
+    name: "붕산권",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "권제 전용. 산을 무너뜨리는 일권. 적의 방어를 크게 깎고 강타한다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "earth",
+    // 무력(방어 저하) — 체술 계열 시그니처 상태이상(3차).
+    effects: [
+      { kind: "damage", statCoef: 3.0, baseFlat: 16, scaling: "physical" },
+      { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+    ],
+    learn: { goldCost: 0, requireClass: "fistemperor" },
+  },
+  v2_skill_void_eclipse: {
+    id: "v2_skill_void_eclipse",
+    name: "공허식",
+    stat: "int",
+    category: "attack",
+    tier: 3,
+    description: "현자 전용. 공허로 삼켜 강력한 마법 피해를 입힌다. 남은 잔열이 살을 태운다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "void",
+    // 소각(DoT) — 마법사 계열 시그니처 상태이상(3차).
+    effects: [
+      { kind: "damage", statCoef: 3.4, baseFlat: 16, scaling: "magic" },
+      { kind: "dot", ...V2_DOT_PRESETS.소각 },
+    ],
+    learn: { goldCost: 0, requireClass: "sage" },
+  },
+  v2_skill_grand_heal: {
+    id: "v2_skill_grand_heal",
+    name: "대치유",
+    stat: "int",
+    category: "heal",
+    tier: 3,
+    description: "대주교 전용. 넓고 깊은 가호로 크게 치유하고 몸을 단단히 한다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "starlight",
+    effects: [
+      { kind: "heal", pctMaxHp: 38 },
+      { kind: "selfBuff", stat: "vit", pct: 22, turns: 3 },
+    ],
+    learn: { goldCost: 0, requireClass: "archbishop" },
+  },
+  v2_skill_shadow_swarm: {
+    id: "v2_skill_shadow_swarm",
+    name: "그림자 무리",
+    stat: "luk",
+    category: "attack",
+    tier: 3,
+    description: "어둠의 군주 전용. 그림자 떼가 일제히 급소를 문다. 발린 독이 상처를 곪게 한다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "void",
+    // 중독(DoT) — 인술 계열 시그니처 상태이상(3차).
+    effects: [
+      { kind: "damage", statCoef: 3.2, baseFlat: 16, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.중독 },
+    ],
+    learn: { goldCost: 0, requireClass: "shadowlord" },
+  },
+  // ── 직업 4차 전용 — 6 4차 시그니처. 직업군 정점 coef, requireClass 4차직업. ──
+  v2_skill_infinity_blade: {
+    id: "v2_skill_infinity_blade",
+    name: "무극검",
+    stat: "str",
+    category: "attack",
+    tier: 3,
+    description: "검신 전용. 끝이 없는 검의 경지. 압도적인 물리 피해.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "starlight",
+    effects: [
+      { kind: "damage", statCoef: 4.2, baseFlat: 18, scaling: "physical" },
+    ],
+    learn: { goldCost: 0, requireClass: "swordgod" },
+  },
+  v2_skill_divine_arrow: {
+    id: "v2_skill_divine_arrow",
+    name: "신궁일사",
+    stat: "dex",
+    category: "attack",
+    tier: 3,
+    description: "신궁 전용. 빗나감이 없는 신의 한 발. 꿰뚫린 자리가 깊게 벌어진다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "lightning",
+    // 출혈(DoT) — 궁수 계열 시그니처 상태이상(4차).
+    effects: [
+      { kind: "damage", statCoef: 4.0, baseFlat: 18, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.출혈 },
+    ],
+    learn: { goldCost: 0, requireClass: "bowgod" },
+  },
+  v2_skill_titan_collapse: {
+    id: "v2_skill_titan_collapse",
+    name: "투신붕권",
+    stat: "vit",
+    category: "attack",
+    tier: 3,
+    description: "투신 전용. 거인을 무너뜨리는 한 방. 적의 방어를 크게 깎고 강타한다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "earth",
+    // 무력(방어 저하) — 체술 계열 시그니처 상태이상(4차).
+    effects: [
+      { kind: "damage", statCoef: 3.6, baseFlat: 18, scaling: "physical" },
+      { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 },
+    ],
+    learn: { goldCost: 0, requireClass: "warlord" },
+  },
+  v2_skill_apocalypse_flame: {
+    id: "v2_skill_apocalypse_flame",
+    name: "종언의 불꽃",
+    stat: "int",
+    category: "attack",
+    tier: 3,
+    description: "마신 전용. 종말을 부르는 마력의 불길. 살에 옮겨붙어 오래 타오른다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "fire",
+    // 소각(DoT) — 마법사 계열 시그니처 상태이상(4차).
+    effects: [
+      { kind: "damage", statCoef: 4.2, baseFlat: 18, scaling: "magic" },
+      { kind: "dot", ...V2_DOT_PRESETS.소각 },
+    ],
+    learn: { goldCost: 0, requireClass: "magus" },
+  },
+  v2_skill_holy_descent: {
+    id: "v2_skill_holy_descent",
+    name: "성광강림",
+    stat: "int",
+    category: "heal",
+    tier: 3,
+    description: "교황 전용. 성스러운 빛을 강림시켜 크게 치유하고 적을 심판한다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "starlight",
+    effects: [
+      { kind: "heal", pctMaxHp: 45 },
+      { kind: "damage", statCoef: 1.4, baseFlat: 10, scaling: "magic" },
+    ],
+    learn: { goldCost: 0, requireClass: "pope" },
+  },
+  v2_skill_void_assassinate: {
+    id: "v2_skill_void_assassinate",
+    name: "공허 암살",
+    stat: "luk",
+    category: "attack",
+    tier: 3,
+    description: "공허의 화신 전용. 공허에서 단 한 번에 급소를 끊는다. 스민 독이 천천히 퍼진다.",
+    mpCost: 0,
+    cooldown: 3,
+    element: "void",
+    // 중독(DoT) — 인술 계열 시그니처 상태이상(4차).
+    effects: [
+      { kind: "damage", statCoef: 4.0, baseFlat: 18, scaling: "physical" },
+      { kind: "dot", ...V2_DOT_PRESETS.중독 },
+    ],
+    learn: { goldCost: 0, requireClass: "voidwalker" },
   },
 
   // ── 몬스터 전용 상태이상 (PR-9) — monsterOnly, learn 없음(플레이어 미학습), mpCost 0. ──

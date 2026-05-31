@@ -18,7 +18,7 @@ import {
   V2_SELECTABLE_CLASSES,
   parseV2Class,
   tier1ClassOf,
-  tier2ClassOf,
+  nextTierClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -201,8 +201,8 @@ function ClassElementPicker({
   const cost = respecGoldCost(currentClass, cls, currentElement, elem, level);
   const cantAfford = paid && gold < cost;
 
-  // PR-7 — 2차 전직(advance). 현 1차 직업이 전직 가능한 2차 + 레벨/골드 조건.
-  const advanceTo = tier2ClassOf(currentClass);
+  // 전직(advance). 현 직업이 전직 가능한 다음 차수 + 레벨/골드 조건 (1→2→3→4).
+  const advanceTo = nextTierClassOf(currentClass);
   const advanceLevel = advanceTo
     ? V2_CLASS_DEFS[advanceTo].advanceLevel ?? Infinity
     : Infinity;
@@ -335,12 +335,12 @@ function ClassElementPicker({
           {cantAfford ? ` (보유 ${gold.toLocaleString()}G — 부족)` : ""}
         </p>
       )}
-      {/* PR-7 — 2차 전직(같은 직업군 단계 승급, 쿨다운 없음). */}
+      {/* 전직(같은 직업군 다음 차수 승급, 쿨다운 없음). */}
       {advanceTo && (
         <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-2.5 dark:border-emerald-500/40 dark:bg-emerald-500/10">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs text-emerald-800 dark:text-emerald-200">
-              2차 전직: <b>{V2_CLASS_DEFS[advanceTo].name}</b>
+              {V2_CLASS_DEFS[advanceTo].tier}차 전직: <b>{V2_CLASS_DEFS[advanceTo].name}</b>
               <span className="text-emerald-700/70 dark:text-emerald-300/70">
                 {" "}
                 · Lv{advanceLevel} · {advanceCost.toLocaleString()}G

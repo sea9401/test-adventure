@@ -36,6 +36,7 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import { parseProficiency } from "@/adventure/data/v2/proficiency";
+import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { EVASION_PCT_CAP } from "@/adventure/data/stats";
 import {
   V2_STAT_KEYS,
@@ -223,6 +224,8 @@ export type DerivePlayerCombatV2PureInput = {
   allocatedStats?: Partial<Record<V2StatKey, number>>;
   /** stat 별 cap(수행으로 상향). 미지정 스탯/입력은 무클램프 — sim 등 호환. */
   statCaps?: Partial<Record<V2StatKey, number>>;
+  /** stat 별 floor(저점, 숙련도로 상향, base 포함). 미지정 스탯은 base — 성장분은 floor 위 가산. */
+  statFloors?: Partial<Record<V2StatKey, number>>;
   /** parseEquipmentSave().equipped — 슬롯별 장비 id. */
   v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   /** parseEquipmentSave().durability — id별 내구도. 0(broken)이면 그 장비 비활성(PR-4b). */
@@ -248,7 +251,9 @@ export function derivePlayerCombatV2Pure(
   // PR-prof — 랜덤 레벨 성장은 cap 까지만(docs §2). statCaps 미지정이면 무클램프(sim 호환).
   const baseAllocatedStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
     (acc, k) => {
-      const raw = (V2_BASE_STATS[k] ?? 0) + (input.allocatedStats?.[k] ?? 0);
+      // floor(저점, base 포함) 위에 성장분 가산, cap 으로 클램프. floor 미지정=base.
+      const floor = input.statFloors?.[k] ?? (V2_BASE_STATS[k] ?? 0);
+      const raw = floor + (input.allocatedStats?.[k] ?? 0);
       const cap = input.statCaps?.[k];
       acc[k] = cap != null ? Math.min(raw, cap) : raw;
       return acc;
@@ -424,6 +429,7 @@ export async function derivePlayerCombatV2(
     level: character.level ?? 1,
     allocatedStats: prof.grown,
     statCaps: prof.caps,
+    statFloors: computeStatFloors(prof),
     v2Equipped,
     v2Durability,
     hp: character.hp,

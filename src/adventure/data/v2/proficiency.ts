@@ -14,6 +14,7 @@ export type V2ProficiencyGroup = {
   earned: number;
   spent: number;
   cultivations: number;
+  tier: number; // 그 직업군에서 도달한 최고 차수(1~4). floor tierMult 에 사용.
 };
 export type V2ProficiencyState = {
   groups: Record<string, V2ProficiencyGroup>;
@@ -77,9 +78,11 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       const earned = posInt((v as { earned?: unknown }).earned);
       const spent = posInt((v as { spent?: unknown }).spent);
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
+      // tier 1~4 클램프, 미지정(옛 세이브)=1.
+      const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
       // earned > 0 인 그룹만. spent 는 earned 초과 불가(손상 방어).
       if (earned > 0) {
-        groups[k] = { earned, spent: Math.min(spent, earned), cultivations };
+        groups[k] = { earned, spent: Math.min(spent, earned), cultivations, tier };
       }
     }
   }
@@ -104,6 +107,32 @@ export function setGrown(
 ): V2ProficiencyState {
   return { ...p, grown };
 }
+
+// 직업군 도달 최고 차수 갱신(전직 시). 기존 tier 와 max. 그룹 없으면 생성. 비파괴.
+export function setGroupTier(
+  p: V2ProficiencyState,
+  group: string,
+  tier: number,
+): V2ProficiencyState {
+  if (!group || group === "none") return p;
+  const t = Math.min(4, Math.max(1, Math.floor(tier)));
+  const cur = p.groups[group] ?? { earned: 0, spent: 0, cultivations: 0, tier: 1 };
+  if (cur.tier >= t) return p;
+  return { ...p, groups: { ...p.groups, [group]: { ...cur, tier: t } } };
+}
+
+// floor(저점) 다이얼 — docs §5. 총 숙련도 일반 베이스 + 직업 숙련도(프로필·차수 가중).
+export const V2_FLOOR_GLOBAL = 0.004; // 총 숙련도 → 전 스탯 베이스.
+export const V2_FLOOR_PER_PROF = 0.02; // 직업 earned → 프로필 스탯.
+export const V2_TIER_FLOOR_MULT: Record<number, number> = {
+  1: 1,
+  2: 1.5,
+  3: 2,
+  4: 3,
+};
+// 직업 프로필 floor 가중 — 앵커 1.0, 관련 0.4.
+export const V2_FLOOR_ANCHOR_WEIGHT = 1.0;
+export const V2_FLOOR_RELATED_WEIGHT = 0.4;
 
 // 총 숙련도 = 모든 직업군 earned 합.
 export function totalEarned(p: V2ProficiencyState): number {
@@ -138,7 +167,12 @@ export function addEarned(
   amount: number,
 ): V2ProficiencyState {
   if (amount <= 0 || !group || group === "none") return p;
-  const cur = p.groups[group] ?? { earned: 0, spent: 0, cultivations: 0 };
+  const cur = p.groups[group] ?? {
+    earned: 0,
+    spent: 0,
+    cultivations: 0,
+    tier: 1,
+  };
   return {
     ...p,
     groups: {
@@ -158,7 +192,12 @@ export function applyCultivation(
   if (!profile) return null; // none/무효 직업군
   const cost = cultivationCost(cultivationCount(p, group));
   if (groupUsable(p, group) < cost) return null; // 사용가능 부족
-  const cur = p.groups[group] ?? { earned: 0, spent: 0, cultivations: 0 };
+  const cur = p.groups[group] ?? {
+    earned: 0,
+    spent: 0,
+    cultivations: 0,
+    tier: 1,
+  };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
   for (const stat of V2_STAT_KEYS) {
     const gain = profile[stat] ?? 0;
@@ -171,7 +210,7 @@ export function applyCultivation(
       groups: {
         ...p.groups,
         [group]: {
-          earned: cur.earned,
+          ...cur,
           spent: cur.spent + cost,
           cultivations: cur.cultivations + 1,
         },

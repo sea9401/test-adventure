@@ -12,6 +12,7 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 import type { V2Class } from "./classes";
+import type { V2Element } from "./elements";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -104,6 +105,9 @@ export type V2SkillDefinition = {
   /** 발동 후 N턴 동안 재발동 불가. 0 = 매 턴 가능. */
   cooldown: number;
   effects: readonly V2SkillEffect[];
+  /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
+   *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
+  element?: V2Element;
   /** 스타터 (자동 보유) 는 learn 미사용. tier>=2 부터 교관 구매. */
   learn?: V2SkillLearnRequirement;
 };
@@ -682,6 +686,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     description: "대마법사 전용. 별을 떨궈 강력한 마법 피해를 입힌다.",
     mpCost: 0,
     cooldown: 3,
+    element: "starlight", // PR-5b 스킬 속성 showcase — 별을 떨구는 마법.
     effects: [
       { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "magic" },
     ],

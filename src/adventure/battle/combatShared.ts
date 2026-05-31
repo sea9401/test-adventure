@@ -13,6 +13,7 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "../data/v2/v2Skills";
+import { elementDamageMult, type V2Element } from "../data/v2/elements";
 import type { StatKey } from "../data/stats";
 import type { EquippedAPSkill, PlayerCombat } from "./engine";
 
@@ -253,9 +254,14 @@ export function v2DamageAmount(args: {
   attackerSelfDebuffs: V2BuffMap;
   targetSelfBuffs: V2BuffMap;
   targetSelfDebuffs: V2BuffMap;
+  // PR-5b — 스킬 속성 보정 배수. 평타속성(atk 에 baked) 대비 스킬속성으로 재정규화한 비율.
+  // 미지정/1 = 보정 없음(평타속성 그대로). atk 기여분(base)에만 적용, baseFlat 은 불변.
+  elementMult?: number;
 }): number {
   const isMagic = args.scaling === "magic";
-  const base = isMagic ? args.attackerMagicAtk ?? args.attackerAtk : args.attackerAtk;
+  const base =
+    (isMagic ? args.attackerMagicAtk ?? args.attackerAtk : args.attackerAtk) *
+    (args.elementMult ?? 1);
   const mult = isMagic
     ? v2MagicBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs)
     : v2AtkBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs);
@@ -371,6 +377,9 @@ export type V2SkillCastInput = {
     maxHp: number;
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
+    // PR-5b — 평타 속성(무기 ?? 캐릭, atk 에 baked)·캐릭 속성(스킬 기본). 미지정=neutral.
+    attackElement?: V2Element;
+    characterElement?: V2Element;
   };
   target: {
     def: number;
@@ -379,6 +388,8 @@ export type V2SkillCastInput = {
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
+    // PR-5b — 피격 대상 속성(상성 계산). 미지정=neutral.
+    element?: V2Element;
   };
 };
 
@@ -409,6 +420,14 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
+  // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.
+  const attackEl = input.attacker.attackElement ?? "neutral";
+  const charEl = input.attacker.characterElement ?? "neutral";
+  const targetEl = input.target.element ?? "neutral";
+  const mBasic = elementDamageMult(attackEl, targetEl);
+  const mSkill = elementDamageMult(def.element ?? charEl, targetEl);
+  const skillElementMult = mBasic > 0 ? mSkill / mBasic : 1;
   // 3) effect 별 결과 누산.
   let enemyDamage = 0;
   let selfHeal = 0;
@@ -430,6 +449,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         attackerSelfDebuffs: input.attacker.selfDebuffs,
         targetSelfBuffs: input.target.selfBuffs,
         targetSelfDebuffs: input.target.selfDebuffs,
+        elementMult: skillElementMult,
       });
     } else if (effect.kind === "heal") {
       selfHeal += v2HealAmount({

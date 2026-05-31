@@ -271,12 +271,16 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
             maxHp: state.enemy.hp,
             selfBuffs: tEBuffs,
             selfDebuffs: tEDebuffs,
+            // PR-5b — 몬스터 속성(보정=1).
+            attackElement: state.enemy.element,
+            characterElement: state.enemy.element,
           },
           target: {
             def: playerForBattle.def,
             magicDef: playerForBattle.magicDef,
             selfBuffs: state.v2SelfBuffs,
             selfDebuffs: tPDebuffs,
+            element: playerForBattle.characterElement,
           },
         });
         const nextEBuffs = applyV2BuffsToMap(tEBuffs, ec.selfBuffsToApply);
@@ -336,12 +340,15 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
               maxHp: state.playerMaxHp,
               selfBuffs: tickedSelfBuffs,
               selfDebuffs: tickedSelfDebuffs,
+              attackElement: playerForBattle.attackElement,
+              characterElement: playerForBattle.characterElement,
             },
             target: {
               def: state.enemy.def,
               // PR-5b: enemy 측 v2 buff 도 사용 (monster v2 cast 결과 + def buff 가 vit buff).
               selfBuffs: state.enemyV2SelfBuffs,
               selfDebuffs: tickedEnemyDebuffs,
+              element: state.enemy.element,
             },
           });
           const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, cast.selfBuffsToApply);

@@ -594,6 +594,39 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBe(55);
   });
 
+  it("v2DamageAmount elementMult (PR-5b 스킬 속성 보정) — base(atk) 에만, baseFlat 불변", () => {
+    const common = {
+      targetDef: 0,
+      statCoef: 1.0,
+      attackerSelfBuffs: {},
+      attackerSelfDebuffs: {},
+      targetSelfBuffs: {},
+      targetSelfDebuffs: {},
+    };
+    // 미지정 = 보정 1 → 100.
+    expect(v2DamageAmount({ attackerAtk: 100, baseFlat: 0, ...common })).toBe(
+      100,
+    );
+    // 보정은 base(atk) 에만 곱하고 floor (구현과 동일 계산으로 부동소수점 일치).
+    expect(
+      v2DamageAmount({ attackerAtk: 100, baseFlat: 0, elementMult: 1.15, ...common }),
+    ).toBe(Math.floor(100 * 1.15));
+    expect(
+      v2DamageAmount({ attackerAtk: 100, baseFlat: 0, elementMult: 0.85, ...common }),
+    ).toBe(Math.floor(100 * 0.85));
+    // baseFlat 은 속성 보정 안 받음 (atk 분에만 보정).
+    expect(
+      v2DamageAmount({ attackerAtk: 100, baseFlat: 20, elementMult: 1.15, ...common }),
+    ).toBe(Math.floor(100 * 1.15) + 20);
+    // 1.15 보정이 무보정(100)보다 큼 / 0.85 가 작음 — 방향 확인.
+    expect(
+      v2DamageAmount({ attackerAtk: 100, baseFlat: 0, elementMult: 1.15, ...common }),
+    ).toBeGreaterThan(100);
+    expect(
+      v2DamageAmount({ attackerAtk: 100, baseFlat: 0, elementMult: 0.85, ...common }),
+    ).toBeLessThan(100);
+  });
+
   it("resolveV2SkillCast — 비전 화살(scaling magic)은 magicAtk 로 스케일", () => {
     // 비전 화살: statCoef 1.5, baseFlat 10, scaling magic. atk 는 약하지만(5) magicAtk 80.
     // 기대 직격: floor(80 × 1.5) + 10 - def 0 = 130. (DoT 소각은 enemyDamage 에 미포함)

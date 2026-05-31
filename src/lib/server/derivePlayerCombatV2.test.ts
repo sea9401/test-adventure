@@ -269,3 +269,45 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
     expect(d.maxHp).toBe(V2_BASE_HP + 65);
   });
 });
+
+describe("derivePlayerCombatV2Pure weaponElement (PR-5b 무기 속성)", () => {
+  it("속성 무기 장착 → weaponElement = 무기 속성", () => {
+    // 별노래궁 = starlight 무기.
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_starsong_bow" },
+    });
+    expect(d.weaponElement).toBe("starlight");
+  });
+
+  it("무속성 무기/미장착 → neutral", () => {
+    // 철검 = element 미지정.
+    expect(
+      derivePlayerCombatV2Pure({
+        level: 50,
+        v2Equipped: { weapon: "v2_iron_sword" },
+      }).weaponElement,
+    ).toBe("neutral");
+    // 무기 없음.
+    expect(
+      derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).weaponElement,
+    ).toBe("neutral");
+  });
+
+  it("내구도 0(broken) 무기는 속성 비활성 → neutral", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { weapon: "v2_starsong_bow" },
+      v2Durability: { v2_starsong_bow: 0 },
+    });
+    expect(d.weaponElement).toBe("neutral");
+    // 내구도 1 이면 정상.
+    expect(
+      derivePlayerCombatV2Pure({
+        level: 50,
+        v2Equipped: { weapon: "v2_starsong_bow" },
+        v2Durability: { v2_starsong_bow: 1 },
+      }).weaponElement,
+    ).toBe("starlight");
+  });
+});

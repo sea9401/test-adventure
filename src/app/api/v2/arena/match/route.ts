@@ -243,6 +243,7 @@ export async function POST() {
     let oppScore: number;
     let oppRef: ArenaOpponentRef;
     let oppElement: V2Element = "neutral";
+    let oppWeaponElement: V2Element = "neutral"; // PR-5b — 상대 무기 속성(평타).
     if (picked.kind === "user") {
       const opponentCombat = await derivePlayerCombatV2(picked.cand.userId!, tx);
       if (!opponentCombat) {
@@ -270,6 +271,7 @@ export async function POST() {
       oppScore = picked.cand.score;
       oppRef = { userId: picked.cand.userId, at: now.toISOString() };
       oppElement = elementByUser.get(picked.cand.userId!) ?? "neutral";
+      oppWeaponElement = opponentCombat.weaponElement;
     } else {
       const bot = picked.bot!;
       oppName = bot.name;
@@ -281,25 +283,44 @@ export async function POST() {
       oppScore = bot.score;
       oppRef = { botId: bot.id, at: now.toISOString() };
       oppElement = bot.element;
+      oppWeaponElement = bot.combat.weaponElement;
     }
 
     // 본인 HP 도 풀충전 — 단판 모델.
-    // PR-5 — 속성 상성을 양측 atk/magicAtk 에 적용 (hunt PvE 와 동일 방식, ±15%).
+    // PR-5/5b — 속성 상성. 평타 속성 = 무기 ?? 캐릭(공격), 방어 = 캐릭. atk 에 평타속성 baked +
+    // attackElement/characterElement 실어 combatShared 가 스킬 속성 보정에 사용(hunt 와 동일).
+    const viewerAttackElement: V2Element =
+      viewerCombat.weaponElement !== "neutral"
+        ? viewerCombat.weaponElement
+        : viewerElement;
+    const oppAttackElement: V2Element =
+      oppWeaponElement !== "neutral" ? oppWeaponElement : oppElement;
     const withElemMult = (
       p: import("@/adventure/battle/engine").PlayerCombat,
       mult: number,
+      attackElement: V2Element,
+      characterElement: V2Element,
     ) => ({
       ...p,
       atk: Math.max(1, Math.round(p.atk * mult)),
       magicAtk: Math.max(0, Math.round((p.magicAtk ?? 0) * mult)),
+      attackElement,
+      characterElement,
     });
-    const myElemMult = elementDamageMult(viewerElement, oppElement);
-    const oppElemMult = elementDamageMult(oppElement, viewerElement);
+    const myElemMult = elementDamageMult(viewerAttackElement, oppElement);
+    const oppElemMult = elementDamageMult(oppAttackElement, viewerElement);
     const myPlayer = withElemMult(
       { ...viewerCombat.player, hp: viewerCombat.maxHp },
       myElemMult,
+      viewerAttackElement,
+      viewerElement,
     );
-    oppPlayer = withElemMult(oppPlayer, oppElemMult);
+    oppPlayer = withElemMult(
+      oppPlayer,
+      oppElemMult,
+      oppAttackElement,
+      oppElement,
+    );
 
     // PR-4b — 양측 v2 스킬 wiring. 본인은 lock, 상대는 plain read (다른 user row lock = deadlock 위험).
     // 상대가 봇이면 빈 배열 (사용자 결정 — PR-5+ 에서 봇 적형 확장 검토).
@@ -370,8 +391,8 @@ export async function POST() {
         scoreDelta,
         goldGained: goldGain,
         // PR-5 — 속성 상성 (클라가 유리/불리 표기). hunt 결과와 동일 형태.
-        playerElement: viewerElement,
-        elementMatchup: elementMatchup(viewerElement, oppElement),
+        playerElement: viewerAttackElement,
+        elementMatchup: elementMatchup(viewerAttackElement, oppElement),
         opponent: {
           name: oppName,
           level: oppLevel,

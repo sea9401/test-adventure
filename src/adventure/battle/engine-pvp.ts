@@ -2189,6 +2189,9 @@ function castV2SkillOnAttackerTurnPvP(
       maxHp: side.maxHp,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
+      // PR-5b — 시전자 평타 속성(baked) + 캐릭 속성(스킬 기본).
+      attackElement: side.player.attackElement,
+      characterElement: side.player.characterElement,
     },
     target: {
       def: opp.player.def,
@@ -2196,6 +2199,8 @@ function castV2SkillOnAttackerTurnPvP(
       // PR-5a: PvP 양 side 다 v2 buff slot 있음 — opponent 의 buff 도 def 곱셈에 반영.
       selfBuffs: opp.v2SelfBuffs,
       selfDebuffs: opp.v2SelfDebuffs,
+      // PR-5b — 피격 상대의 방어 속성(캐릭 속성).
+      element: opp.player.characterElement,
     },
   });
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.

@@ -13,6 +13,7 @@ import {
   setGroupTier,
   spendProficiency,
   signatureLearnCost,
+  advanceProficiencyReq,
   V2_STAT_CAP_BASE,
   V2_SIGNATURE_LEARN_COST,
 } from "./proficiency";
@@ -185,5 +186,13 @@ describe("v2 직업 숙련도", () => {
     expect(signatureLearnCost(3)).toBe(250);
     expect(signatureLearnCost(4)).toBe(400);
     expect(signatureLearnCost(9)).toBe(V2_SIGNATURE_LEARN_COST[1]); // 폴백
+  });
+
+  it("advanceProficiencyReq — 전직 차수별 누적 숙련도 임계, 1차/미지정은 Infinity", () => {
+    expect(advanceProficiencyReq(2)).toBe(300);
+    expect(advanceProficiencyReq(3)).toBe(1200);
+    expect(advanceProficiencyReq(4)).toBe(3000);
+    expect(advanceProficiencyReq(1)).toBe(Infinity); // 1차는 전직 도달점 아님
+    expect(advanceProficiencyReq(5)).toBe(Infinity);
   });
 });

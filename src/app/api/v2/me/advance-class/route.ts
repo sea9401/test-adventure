@@ -14,19 +14,21 @@ import {
   setGrown,
   setGroupTier,
   emptyProficiency,
+  groupEarned,
+  advanceProficiencyReq,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
-import { advanceGoldCost } from "@/adventure/data/v2/respec";
 import {
   codexRequirement,
   countDiscoveredMaterials,
 } from "@/adventure/data/v2/codex";
 
-// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 레벨 + 골드 + (3·4차) 모험의 서 게이트.
+// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직업군 누적 숙련도(earned)
+// 임계(t2=300·t3=1200·t4=3000) + (3·4차) 모험의 서 — 레벨/골드 X(docs §7, PR-6).
 // 1→2→3→4 어느 단계든 nextTierClassOf 로 바로 위 차수로 승급. respec(직업군 변경,
 // 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 새 차수 시그니처는 자동 학습이
 // 아니라 learn-skill 로 숙련도 학습(전직은 equipped 만 reconcile, docs §6).
@@ -36,7 +38,6 @@ import {
 type CharSaveShape = {
   class?: unknown;
   level?: number;
-  gold?: number;
   materials?: unknown;
   [k: string]: unknown;
 };
@@ -62,10 +63,17 @@ export async function POST() {
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
     const skills = parseV2SkillsState(skillsRaw);
+    // 게이트(누적 숙련도)에 쓰므로 락 순서(character→skills→proficiency)대로 미리 잠가 읽는다.
+    const prof = parseProficiency(
+      await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      ),
+    );
 
     const curClass = parseV2Class(charSave.class);
-    const level = Math.max(1, charSave.level ?? 1);
-    const gold = Math.max(0, charSave.gold ?? 0);
 
     // 전직 가능한 다음 차수 직업 (none 이거나 이미 정점(4차)이면 불가).
     const nextClass: V2Class | null = nextTierClassOf(curClass);
@@ -75,19 +83,23 @@ export async function POST() {
         body: { ok: false as const, error: "no_advance" as const },
       };
     }
-    const reqLevel = V2_CLASS_DEFS[nextClass].advanceLevel ?? Infinity;
-    if (level < reqLevel) {
+    const group = tier1ClassOf(nextClass);
+
+    // 게이트 1 — 직업군 누적 숙련도(earned) 임계. 골드/레벨 없음(docs §7).
+    const reqProf = advanceProficiencyReq(V2_CLASS_DEFS[nextClass].tier);
+    const haveProf = groupEarned(prof, group);
+    if (haveProf < reqProf) {
       return {
         status: 400,
         body: {
           ok: false as const,
-          error: "level_too_low" as const,
-          required: reqLevel,
-          have: level,
+          error: "insufficient_proficiency" as const,
+          required: reqProf,
+          have: haveProf,
         },
       };
     }
-    // 3·4차 모험의 서 게이트 — 재료 도감 등재 종 수가 요건 미만이면 차단.
+    // 게이트 2 — 3·4차 모험의 서: 재료 도감 등재 종 수가 요건 미만이면 차단.
     const codexReq = codexRequirement(V2_CLASS_DEFS[nextClass].advanceCodexMin);
     if (codexReq > 0) {
       const discovered = countDiscoveredMaterials(charSave.materials);
@@ -104,26 +116,11 @@ export async function POST() {
       }
     }
 
-    const cost = advanceGoldCost(level);
-    if (gold < cost) {
-      return {
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "insufficient_gold" as const,
-          required: cost,
-          have: gold,
-        },
-      };
-    }
-
     // PR-prof — 전직 시 레벨 1 리셋 + 랜덤 성장(grown) 리셋. 스탯은 floor(숙련도 누적)부터
-    // 다시 키운다(prestige 루프, docs §2·§5). exp 도 0.
-    const nextGold = gold - cost;
+    // 다시 키운다(prestige 루프, docs §2·§5). exp 도 0. 골드 변동 없음(PR-6).
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       class: nextClass,
-      gold: nextGold,
       level: 1,
       exp: 0,
     });
@@ -138,15 +135,9 @@ export async function POST() {
     });
 
     // 숙련도 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
-    const group = tier1ClassOf(nextClass);
-    const profSave = await lockSaveForUpdate<V2ProficiencyState>(
-      tx,
-      userId,
-      "proficiency.v2",
-      emptyProficiency(),
-    );
+    // earned/spent 는 보존(누적 숙련도는 줄지 않음). 위에서 잠가 읽은 prof 재사용.
     const nextProf = setGroupTier(
-      setGrown(parseProficiency(profSave), {}),
+      setGrown(prof, {}),
       group,
       V2_CLASS_DEFS[nextClass].tier,
     );
@@ -157,8 +148,6 @@ export async function POST() {
       body: {
         ok: true as const,
         class: nextClass,
-        gold: nextGold,
-        spent: cost,
       },
     };
   });

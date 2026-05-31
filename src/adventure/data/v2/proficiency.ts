@@ -145,6 +145,17 @@ export function signatureLearnCost(tier: number): number {
   return V2_SIGNATURE_LEARN_COST[tier] ?? V2_SIGNATURE_LEARN_COST[1];
 }
 
+// 전직(차수 승급) 게이트 — 직업군 누적 숙련도(earned) 임계. 골드/레벨 X(docs §7·§10).
+// key = 목표 차수. earned 는 안 줄어드는 영구값이라 spent 와 무관하게 누적 마스터리 척도.
+export const V2_ADVANCE_PROFICIENCY_REQ: Record<number, number> = {
+  2: 300,
+  3: 1200,
+  4: 3000,
+};
+export function advanceProficiencyReq(tier: number): number {
+  return V2_ADVANCE_PROFICIENCY_REQ[tier] ?? Infinity;
+}
+
 // 총 숙련도 = 모든 직업군 earned 합.
 export function totalEarned(p: V2ProficiencyState): number {
   let t = 0;

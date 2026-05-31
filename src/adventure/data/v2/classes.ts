@@ -24,6 +24,20 @@ export const V2_CLASSES = [
   "archmage",
   "bishop",
   "nightblade",
+  // 3차 (2차에서 Lv50+ 전직) ─────────────────────────
+  "swordking",
+  "bowking",
+  "fistemperor",
+  "sage",
+  "archbishop",
+  "shadowlord",
+  // 4차 (3차에서 Lv70+ 전직, 직업군 정점) ─────────────
+  "swordgod",
+  "bowgod",
+  "warlord",
+  "magus",
+  "pope",
+  "voidwalker",
 ] as const;
 export type V2Class = (typeof V2_CLASSES)[number];
 
@@ -33,8 +47,8 @@ export type V2ClassDef = {
   name: string;
   /** 직업군 (검술/체술/…). */
   group: string;
-  /** 전직 단계 — 1차(입문) / 2차(전직). none 은 1. */
-  tier: 1 | 2;
+  /** 전직 단계 — 1차(입문)~4차(정점). none 은 1. */
+  tier: 1 | 2 | 3 | 4;
   /** 주 스탯 — 직업별 보정 대상. */
   anchorStat: V2StatKey;
   /** 앵커 스탯 보정 %. 0 = 무보정(none). 2차는 더 큼. */
@@ -48,8 +62,10 @@ export type V2ClassDef = {
   description: string;
 };
 
-// 2차 전직 가능 레벨 — 6직업 공통(PR-7 시작값, 다이얼).
+// 전직 가능 레벨 — tier 별 공통(시작값, 다이얼). 만렙 100 안에 4단계 분산.
 export const V2_TIER2_ADVANCE_LEVEL = 30;
+export const V2_TIER3_ADVANCE_LEVEL = 50;
+export const V2_TIER4_ADVANCE_LEVEL = 70;
 
 export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   none: {
@@ -64,7 +80,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   // ── 1차 (직업군 입문, 앵커 +10%) ──────────────────────────────────
   swordsman: {
     id: "swordsman",
-    name: "검사",
+    name: "견습 검사",
     group: "검술",
     tier: 1,
     anchorStat: "str",
@@ -74,7 +90,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   archer: {
     id: "archer",
-    name: "궁수",
+    name: "견습 궁수",
     group: "궁술",
     tier: 1,
     anchorStat: "dex",
@@ -84,7 +100,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   martial: {
     id: "martial",
-    name: "무도가",
+    name: "견습 무도가",
     group: "체술",
     tier: 1,
     anchorStat: "vit",
@@ -94,7 +110,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   mage: {
     id: "mage",
-    name: "마법사",
+    name: "견습 마법사",
     group: "마술",
     tier: 1,
     anchorStat: "int",
@@ -104,7 +120,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   priest: {
     id: "priest",
-    name: "신관",
+    name: "견습 사제",
     group: "신술",
     tier: 1,
     anchorStat: "spi",
@@ -114,7 +130,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   ninja: {
     id: "ninja",
-    name: "인술가",
+    name: "견습 인술가",
     group: "인술",
     tier: 1,
     anchorStat: "luk",
@@ -125,7 +141,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   // ── 2차 (1차에서 Lv30+ 골드 전직, 앵커 +18% + 2차 전용 스킬) ──────────
   swordmaster: {
     id: "swordmaster",
-    name: "검성",
+    name: "검사",
     group: "검술",
     tier: 2,
     anchorStat: "str",
@@ -133,11 +149,11 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_moonlight_slash",
     advanceFrom: "swordsman",
     advanceLevel: V2_TIER2_ADVANCE_LEVEL,
-    description: "검술 2차. 극에 달한 검. 힘 보정이 깊어진다. 전용 스킬 월광검.",
+    description: "검술 2차. 검을 제법 다룬다. 힘 보정이 깊어진다. 전용 스킬 월광검.",
   },
   sharpshooter: {
     id: "sharpshooter",
-    name: "명궁",
+    name: "궁수",
     group: "궁술",
     tier: 2,
     anchorStat: "dex",
@@ -149,7 +165,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   grandmaster: {
     id: "grandmaster",
-    name: "권왕",
+    name: "무도가",
     group: "체술",
     tier: 2,
     anchorStat: "vit",
@@ -161,7 +177,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   archmage: {
     id: "archmage",
-    name: "대마법사",
+    name: "마법사",
     group: "마술",
     tier: 2,
     anchorStat: "int",
@@ -173,7 +189,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   bishop: {
     id: "bishop",
-    name: "주교",
+    name: "사제",
     group: "신술",
     tier: 2,
     anchorStat: "spi",
@@ -185,7 +201,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
   },
   nightblade: {
     id: "nightblade",
-    name: "그림자 주인",
+    name: "인술가",
     group: "인술",
     tier: 2,
     anchorStat: "luk",
@@ -194,6 +210,152 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     advanceFrom: "ninja",
     advanceLevel: V2_TIER2_ADVANCE_LEVEL,
     description: "인술 2차. 그림자를 부린다. 행운 보정이 깊어진다. 전용 스킬 그림자 분신.",
+  },
+  // ── 3차 (2차에서 Lv50+ 전직, 앵커 +26% + 3차 전용 스킬) ──────────────
+  swordking: {
+    id: "swordking",
+    name: "검호",
+    group: "검술",
+    tier: 3,
+    anchorStat: "str",
+    statBonusPct: 26,
+    signatureSkill: "v2_skill_heaven_sword",
+    advanceFrom: "swordmaster",
+    advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    description: "검술 3차. 검이 손에 익는다. 힘 보정이 한층 깊어진다. 전용 스킬 쾌검.",
+  },
+  bowking: {
+    id: "bowking",
+    name: "명궁",
+    group: "궁술",
+    tier: 3,
+    anchorStat: "dex",
+    statBonusPct: 26,
+    signatureSkill: "v2_skill_sky_volley",
+    advanceFrom: "sharpshooter",
+    advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    description: "궁술 3차. 좀처럼 빗나가지 않는다. 민첩 보정이 한층 깊어진다. 전용 스킬 연사.",
+  },
+  fistemperor: {
+    id: "fistemperor",
+    name: "권사",
+    group: "체술",
+    tier: 3,
+    anchorStat: "vit",
+    statBonusPct: 26,
+    signatureSkill: "v2_skill_mountain_breaker",
+    advanceFrom: "grandmaster",
+    advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    description: "체술 3차. 주먹에 무게가 실린다. 활력 보정이 한층 깊어진다. 전용 스킬 붕격.",
+  },
+  sage: {
+    id: "sage",
+    name: "마도사",
+    group: "마술",
+    tier: 3,
+    anchorStat: "int",
+    statBonusPct: 26,
+    signatureSkill: "v2_skill_void_eclipse",
+    advanceFrom: "archmage",
+    advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    description: "마술 3차. 마력을 더 깊이 다룬다. 지능 보정이 한층 깊어진다. 전용 스킬 공허탄.",
+  },
+  archbishop: {
+    id: "archbishop",
+    name: "신관",
+    group: "신술",
+    tier: 3,
+    anchorStat: "spi",
+    statBonusPct: 26,
+    signatureSkill: "v2_skill_grand_heal",
+    advanceFrom: "bishop",
+    advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    description: "신술 3차. 가호가 넓어진다. 정신 보정이 한층 깊어진다. 전용 스킬 치유의 빛.",
+  },
+  shadowlord: {
+    id: "shadowlord",
+    name: "그림자 자객",
+    group: "인술",
+    tier: 3,
+    anchorStat: "luk",
+    statBonusPct: 26,
+    signatureSkill: "v2_skill_shadow_swarm",
+    advanceFrom: "nightblade",
+    advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    description: "인술 3차. 그림자를 다루기 시작한다. 행운 보정이 한층 깊어진다. 전용 스킬 암습.",
+  },
+  // ── 4차 (3차에서 Lv70+ 전직, 직업군 정점, 앵커 +35% + 4차 전용 스킬) ──
+  swordgod: {
+    id: "swordgod",
+    name: "검왕",
+    group: "검술",
+    tier: 4,
+    anchorStat: "str",
+    statBonusPct: 35,
+    signatureSkill: "v2_skill_infinity_blade",
+    advanceFrom: "swordking",
+    advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    description: "검술 정점. 검을 제 손발처럼 부린다. 힘 보정이 극에 달한다. 전용 스킬 절검.",
+  },
+  bowgod: {
+    id: "bowgod",
+    name: "궁왕",
+    group: "궁술",
+    tier: 4,
+    anchorStat: "dex",
+    statBonusPct: 35,
+    signatureSkill: "v2_skill_divine_arrow",
+    advanceFrom: "bowking",
+    advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    description: "궁술 정점. 노린 곳을 반드시 맞힌다. 민첩 보정이 극에 달한다. 전용 스킬 일점사.",
+  },
+  warlord: {
+    id: "warlord",
+    name: "권왕",
+    group: "체술",
+    tier: 4,
+    anchorStat: "vit",
+    statBonusPct: 35,
+    signatureSkill: "v2_skill_titan_collapse",
+    advanceFrom: "fistemperor",
+    advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    description: "체술 정점. 무너지지 않는 몸과 주먹. 활력 보정이 극에 달한다. 전용 스킬 붕산권.",
+  },
+  magus: {
+    id: "magus",
+    name: "현자",
+    group: "마술",
+    tier: 4,
+    anchorStat: "int",
+    statBonusPct: 35,
+    signatureSkill: "v2_skill_apocalypse_flame",
+    advanceFrom: "sage",
+    advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    description: "마술 정점. 마력의 이치를 꿰뚫는다. 지능 보정이 극에 달한다. 전용 스킬 업화.",
+  },
+  pope: {
+    id: "pope",
+    name: "주교",
+    group: "신술",
+    tier: 4,
+    anchorStat: "spi",
+    statBonusPct: 35,
+    signatureSkill: "v2_skill_holy_descent",
+    advanceFrom: "archbishop",
+    advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    description: "신술 정점. 가장 깊은 가호. 정신 보정이 극에 달한다. 전용 스킬 심판의 빛.",
+  },
+  voidwalker: {
+    id: "voidwalker",
+    name: "그림자 주인",
+    group: "인술",
+    tier: 4,
+    anchorStat: "luk",
+    statBonusPct: 35,
+    signatureSkill: "v2_skill_void_assassinate",
+    advanceFrom: "shadowlord",
+    advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    description: "인술 정점. 그림자에서 급소만 끊는다. 행운 보정이 극에 달한다. 전용 스킬 절명.",
   },
 };
 
@@ -214,19 +376,32 @@ export function v2ClassDef(c: V2Class): V2ClassDef {
   return V2_CLASS_DEFS[c] ?? V2_CLASS_DEFS.none;
 }
 
-// 직업 c 의 직업군 1차 직업 (c 가 1차면 c, 2차면 advanceFrom, none 이면 none).
-// respec 피커가 2차 캐릭의 "현재 직업군"을 1차로 매핑할 때 사용.
+// 직업 c 의 직업군 1차 직업 (advanceFrom 체인을 1차까지 거슬러 올라간다 — 2·3·4차 모두 대응).
+// respec 피커가 상위 차수 캐릭의 "현재 직업군"을 1차로 매핑할 때 사용.
 export function tier1ClassOf(c: V2Class): V2Class {
-  const def = V2_CLASS_DEFS[c];
-  if (def.tier === 2 && def.advanceFrom) return def.advanceFrom;
-  return c;
+  let cur = c;
+  // V2_CLASSES.length 만큼만 — 순환/끊긴 체인 안전장치.
+  for (let i = 0; i < V2_CLASSES.length; i++) {
+    const def = V2_CLASS_DEFS[cur];
+    if (def.tier === 1 || !def.advanceFrom) return cur;
+    cur = def.advanceFrom;
+  }
+  return cur;
 }
 
-// 1차 직업 c 가 전직 가능한 2차 직업 (없으면 null). c 가 1차가 아니면 null.
-export function tier2ClassOf(c: V2Class): V2Class | null {
-  if (V2_CLASS_DEFS[c].tier !== 1 || c === "none") return null;
+// 직업 c 가 전직 가능한 바로 다음 차수 직업 (advanceFrom === c 인 직업). 없으면 null.
+// 1→2→3→4 어느 단계든 다음 단계를 반환. none/정점(4차)은 null.
+export function nextTierClassOf(c: V2Class): V2Class | null {
+  if (c === "none") return null;
   for (const id of V2_CLASSES) {
     if (V2_CLASS_DEFS[id].advanceFrom === c) return id;
   }
   return null;
+}
+
+// 1차 직업 c 가 전직 가능한 2차 직업 (없으면 null). c 가 1차가 아니면 null.
+// (tier2ClassOf 는 1차→2차 전용 — 테스트/하위호환. 일반 다음차수는 nextTierClassOf.)
+export function tier2ClassOf(c: V2Class): V2Class | null {
+  if (V2_CLASS_DEFS[c].tier !== 1 || c === "none") return null;
+  return nextTierClassOf(c);
 }

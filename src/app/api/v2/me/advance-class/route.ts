@@ -4,7 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_CLASS_DEFS,
   parseV2Class,
-  tier2ClassOf,
+  nextTierClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -13,9 +13,9 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { advanceGoldCost } from "@/adventure/data/v2/respec";
 
-// POST /api/v2/me/advance-class — 1차 → 2차 전직(진척). 레벨 게이트 + 골드(쿨다운 없음).
-// respec(직업군 변경, 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급.
-// 2차 전용 스킬 자동 학습.
+// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 레벨 게이트 + 골드(쿨다운 없음).
+// 1→2→3→4 어느 단계든 nextTierClassOf 로 바로 위 차수로 승급. respec(직업군 변경,
+// 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 차수 전용 스킬 자동 학습.
 
 type CharSaveShape = {
   class?: unknown;
@@ -50,8 +50,8 @@ export async function POST() {
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
 
-    // 전직 가능한 2차 직업 (1차가 아니거나 2차가 없으면 불가).
-    const nextClass: V2Class | null = tier2ClassOf(curClass);
+    // 전직 가능한 다음 차수 직업 (none 이거나 이미 정점(4차)이면 불가).
+    const nextClass: V2Class | null = nextTierClassOf(curClass);
     if (!nextClass) {
       return {
         status: 400,

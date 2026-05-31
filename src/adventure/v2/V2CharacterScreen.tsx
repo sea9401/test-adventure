@@ -28,11 +28,11 @@ import {
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
-  advanceGoldCost,
   isClassChange,
   isPaidRespec,
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
+import { advanceProficiencyReq } from "@/adventure/data/v2/proficiency";
 import { codexRequirement } from "@/adventure/data/v2/codex";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
@@ -60,6 +60,9 @@ type StateResponse = {
   } | null;
   combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
+  proficiency?: {
+    current?: { group: string; earned: number; usable: number };
+  };
 };
 
 type EquipmentResponse = {
@@ -144,6 +147,7 @@ export function V2CharacterScreen({
           level={character.level}
           gold={character.gold}
           codex={state?.codex}
+          cumulativeProficiency={state?.proficiency?.current?.earned ?? 0}
           onChanged={refresh}
         />
       )}
@@ -178,6 +182,7 @@ function ClassElementPicker({
   level,
   gold,
   codex,
+  cumulativeProficiency,
   onChanged,
 }: {
   currentClass: V2Class;
@@ -185,6 +190,7 @@ function ClassElementPicker({
   level: number;
   gold: number;
   codex?: { discovered: number; total: number };
+  cumulativeProficiency: number;
   onChanged: () => void;
 }) {
   // 드롭다운은 직업군(1차) 단위. 2차 캐릭은 자기 군 1차로 매핑해 표시.
@@ -206,13 +212,13 @@ function ClassElementPicker({
   const cost = respecGoldCost(currentClass, cls, currentElement, elem, level);
   const cantAfford = paid && gold < cost;
 
-  // 전직(advance). 현 직업이 전직 가능한 다음 차수 + 레벨/골드/도감 조건 (1→2→3→4).
+  // 전직(advance). 현 직업이 전직 가능한 다음 차수 + 누적 숙련도/도감 조건 (1→2→3→4).
+  // PR-6 — 게이트 = 직업군 누적 숙련도(earned). 골드/레벨 없음(docs §7).
   const advanceTo = nextTierClassOf(currentClass);
-  const advanceLevel = advanceTo
-    ? V2_CLASS_DEFS[advanceTo].advanceLevel ?? Infinity
+  const advanceProfReq = advanceTo
+    ? advanceProficiencyReq(V2_CLASS_DEFS[advanceTo].tier)
     : Infinity;
-  const advanceCost = advanceGoldCost(level);
-  const advanceLevelOk = level >= advanceLevel;
+  const advanceProfOk = cumulativeProficiency >= advanceProfReq;
   // 3·4차 모험의 서 요건 — 재료 도감 등재 종 수.
   const codexReq = advanceTo
     ? codexRequirement(V2_CLASS_DEFS[advanceTo].advanceCodexMin)
@@ -234,19 +240,15 @@ function ClassElementPicker({
       } | null;
       if (!j?.ok) {
         const label =
-          j?.error === "level_too_low"
-            ? `레벨 부족 (필요 Lv${j.required ?? advanceLevel})`
+          j?.error === "insufficient_proficiency"
+            ? `숙련도 부족 (누적 ${j.have ?? cumulativeProficiency}/${j.required ?? advanceProfReq})`
             : j?.error === "codex_incomplete"
               ? `모험의 서 부족 (재료 ${j.have ?? codexHave}/${j.required ?? codexReq} 등재)`
-              : j?.error === "insufficient_gold"
-                ? `골드 부족 (필요 ${(j.required ?? advanceCost).toLocaleString()}G)`
-                : (j?.error ?? `http ${res.status}`);
+              : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
         return;
       }
-      setMsg(
-        `✓ ${V2_CLASS_DEFS[advanceTo].name} 전직 완료 (-${advanceCost.toLocaleString()}G)`,
-      );
+      setMsg(`✓ ${V2_CLASS_DEFS[advanceTo].name} 전직 완료`);
       onChanged();
     } catch (e) {
       setMsg(`✗ ${(e as Error).message}`);
@@ -357,30 +359,26 @@ function ClassElementPicker({
               {V2_CLASS_DEFS[advanceTo].tier}차 전직: <b>{V2_CLASS_DEFS[advanceTo].name}</b>
               <span className="text-emerald-700/70 dark:text-emerald-300/70">
                 {" "}
-                · Lv{advanceLevel} · {advanceCost.toLocaleString()}G
+                · 누적 숙련도 {advanceProfReq}
                 {codexReq > 0 ? ` · 도감 ${codexReq}종` : ""}
               </span>
             </div>
             <button
               type="button"
               onClick={advance}
-              disabled={busy || !advanceLevelOk || !codexOk || gold < advanceCost}
+              disabled={busy || !advanceProfOk || !codexOk}
               className="shrink-0 rounded-md border border-emerald-500 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-400 dark:text-emerald-300"
             >
               전직
             </button>
           </div>
-          {!advanceLevelOk ? (
+          {!advanceProfOk ? (
             <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
-              Lv{advanceLevel} 부터 전직 가능 (현재 Lv{level})
+              누적 숙련도 {cumulativeProficiency}/{advanceProfReq} — 사냥으로 더 모으세요
             </p>
           ) : !codexOk ? (
             <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
               모험의 서 부족 — 재료 {codexHave}/{codexReq}종 등재 필요 (사냥으로 재료를 모으세요)
-            </p>
-          ) : gold < advanceCost ? (
-            <p className="mt-1 text-[11px] text-rose-600 dark:text-rose-400">
-              골드 부족 (보유 {gold.toLocaleString()}G)
             </p>
           ) : null}
         </div>

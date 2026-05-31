@@ -18,6 +18,7 @@ export type V2ProficiencyGroup = {
 export type V2ProficiencyState = {
   groups: Record<string, V2ProficiencyGroup>;
   caps: Partial<Record<V2StatKey, number>>;
+  grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
 };
 
 // §10 다이얼.
@@ -49,12 +50,26 @@ function posInt(raw: unknown): number {
 }
 
 export function emptyProficiency(): V2ProficiencyState {
-  return { groups: {}, caps: {} };
+  return { groups: {}, caps: {}, grown: {} };
+}
+
+function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
+  const out: Partial<Record<V2StatKey, number>> = {};
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    for (const stat of V2_STAT_KEYS) {
+      const v = obj[stat];
+      if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+        out[stat] = Math.floor(v);
+      }
+    }
+  }
+  return out;
 }
 
 export function parseProficiency(raw: unknown): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
-  const obj = raw as { groups?: unknown; caps?: unknown };
+  const obj = raw as { groups?: unknown; caps?: unknown; grown?: unknown };
   const groups: Record<string, V2ProficiencyGroup> = {};
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
@@ -79,7 +94,15 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       }
     }
   }
-  return { groups, caps };
+  return { groups, caps, grown: parseStatMap(obj.grown) };
+}
+
+// 랜덤 레벨 성장분 교체(비파괴). 다른 필드 보존.
+export function setGrown(
+  p: V2ProficiencyState,
+  grown: Partial<Record<V2StatKey, number>>,
+): V2ProficiencyState {
+  return { ...p, grown };
 }
 
 // 총 숙련도 = 모든 직업군 earned 합.
@@ -144,6 +167,7 @@ export function applyCultivation(
   return {
     cost,
     next: {
+      ...p,
       groups: {
         ...p.groups,
         [group]: {

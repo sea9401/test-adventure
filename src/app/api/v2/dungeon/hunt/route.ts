@@ -3,10 +3,7 @@ import { db } from "@/db";
 import { outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import {
-  derivePlayerCombatV2,
-  V2_STAT_POINTS_PER_LEVEL,
-} from "@/lib/server/derivePlayerCombatV2";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
@@ -30,10 +27,12 @@ import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
   parseProficiency,
   addEarned,
+  setGrown,
   emptyProficiency,
   V2_PROFICIENCY_PER_KILL,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
 import {
   elementDamageMult,
   elementMatchup,
@@ -647,39 +646,31 @@ export async function POST(req: Request) {
     };
     await upsertSave(tx, userId, "character.v2", next);
 
-    // 레벨업 시 단련 포인트 +levelsGained × V2_STAT_POINTS_PER_LEVEL (PR-S1: ×5).
-    // GrowthShrine 에서 분배. lock 순서 character.v2 다음에 training.v2 (다른 키).
-    if (expResult.levelsGained > 0) {
-      const trainingSave = await lockSaveForUpdate<{
-        points?: number;
-        [k: string]: unknown;
-      }>(tx, userId, "training.v2", {});
-      const curPoints = Math.max(0, trainingSave.points ?? 0);
-      await upsertSave(tx, userId, "training.v2", {
-        ...trainingSave,
-        points:
-          curPoints + expResult.levelsGained * V2_STAT_POINTS_PER_LEVEL,
-      });
-    }
-
-    // PR-prof — 승리 시 현재 직업군에 숙련도 적립(직업 마스터리). none(무직)은 적립 없음.
-    // 직업군 키 = tier1ClassOf(검술=swordsman 등). lock 순서: character.v2 다음(다른 키).
-    if (won) {
-      const group = tier1ClassOf(parseV2Class(charSave.class));
-      if (group !== "none") {
-        const profSave = await lockSaveForUpdate<V2ProficiencyState>(
-          tx,
-          userId,
-          "proficiency.v2",
-          emptyProficiency(),
-        );
-        const nextProf = addEarned(
-          parseProficiency(profSave),
-          group,
-          V2_PROFICIENCY_PER_KILL,
-        );
-        await upsertSave(tx, userId, "proficiency.v2", nextProf);
+    // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
+    // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
+    if (won || expResult.levelsGained > 0) {
+      const playerClass = parseV2Class(charSave.class);
+      const group = tier1ClassOf(playerClass);
+      const profSave = await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      );
+      let prof = parseProficiency(profSave);
+      // 적립 — 승리 + 직업 보유 시.
+      if (won && group !== "none") {
+        prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
       }
+      // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
+      if (expResult.levelsGained > 0) {
+        let grown = prof.grown;
+        for (let i = 0; i < expResult.levelsGained; i++) {
+          grown = rollLevelGrowth(grown, playerClass, prof, Math.random);
+        }
+        prof = setGrown(prof, grown);
+      }
+      await upsertSave(tx, userId, "proficiency.v2", prof);
     }
 
     // 세금 transfer — 위에서 정렬된 순서로 이미 lock 한 ownerSave 에 gold 추가.

@@ -10,8 +10,6 @@ import {
 } from "@/adventure/v2/V2CharacterMenu";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2CodexView } from "@/adventure/v2/V2CodexView";
-import { V2SkillEquipPanel } from "@/adventure/v2/V2SkillEquipPanel";
-import { V2InstructorView } from "@/adventure/v2/V2InstructorView";
 import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
 import { V2GuildHallView } from "@/adventure/v2/V2GuildHallView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
@@ -109,12 +107,10 @@ type View =
   | { kind: "training" }
   | { kind: "sparring" }
   | { kind: "smithy" }
-  | { kind: "instructors" }
   | { kind: "guild-hall" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
-  | { kind: "skills" }
   | { kind: "codex" }
   | { kind: "guild" }
   | { kind: "map" }
@@ -138,13 +134,11 @@ function tabOfView(view: View): TabId {
     case "training":
     case "sparring":
     case "smithy":
-    case "instructors":
     case "guild-hall":
       return "town";
     case "character":
     case "character-info":
     case "inventory":
-    case "skills":
     case "codex":
       return "character";
     case "guild":
@@ -286,9 +280,6 @@ export function V2GameFlow() {
         break;
       case "open-smithy":
         setView({ kind: "smithy" });
-        break;
-      case "open-instructors":
-        setView({ kind: "instructors" });
         break;
       case "open-guild-hall":
         setView({ kind: "guild-hall" });
@@ -434,9 +425,6 @@ export function V2GameFlow() {
               case "open-inventory":
                 setView({ kind: "inventory" });
                 break;
-              case "open-skills":
-                setView({ kind: "skills" });
-                break;
               case "open-codex":
                 setView({ kind: "codex" });
                 break;
@@ -450,14 +438,8 @@ export function V2GameFlow() {
       {view.kind === "inventory" && (
         <V2InventoryView onBack={() => setView({ kind: "character" })} />
       )}
-      {view.kind === "skills" && (
-        <V2SkillEquipPanel onBack={() => setView({ kind: "character" })} />
-      )}
       {view.kind === "codex" && (
         <V2CodexView onBack={() => setView({ kind: "character" })} />
-      )}
-      {view.kind === "instructors" && (
-        <V2InstructorView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "guild-hall" && (
         <V2GuildHallView onBack={() => setView({ kind: "town" })} />

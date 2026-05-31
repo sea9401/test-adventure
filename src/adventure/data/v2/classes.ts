@@ -419,3 +419,21 @@ export function tier2ClassOf(c: V2Class): V2Class | null {
   if (V2_CLASS_DEFS[c].tier !== 1 || c === "none") return null;
   return nextTierClassOf(c);
 }
+
+// 직업 c 가 보유하는 시그니처 스킬 체인 — 직업군 1차부터 c 차수까지 각 단계의 전용 스킬.
+// 교관/학습 폐지 후 플레이어 스킬 키트 = 이것뿐(전직으로만 획득·자동 장착). none = 빈 배열.
+export function signaturesForClass(c: V2Class): V2SkillId[] {
+  if (c === "none") return [];
+  const out: V2SkillId[] = [];
+  const targetTier = V2_CLASS_DEFS[c].tier;
+  let cur: V2Class | null = tier1ClassOf(c);
+  // 1차 → c 까지 nextTierClassOf 로 거슬러 올라가며 각 차수 시그니처 수집 (bounded).
+  for (let i = 0; i < V2_CLASSES.length && cur; i++) {
+    const def = V2_CLASS_DEFS[cur];
+    if (def.tier > targetTier) break;
+    if (def.signatureSkill) out.push(def.signatureSkill);
+    if (cur === c) break;
+    cur = nextTierClassOf(cur);
+  }
+  return out;
+}

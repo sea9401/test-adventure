@@ -2,9 +2,9 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  V2_CLASS_DEFS,
   V2_SELECTABLE_CLASSES,
   parseV2Class,
+  signaturesForClass,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -84,7 +84,8 @@ export async function POST(req: Request) {
       curClass === "none" || isClassChange(curClass, nextClass)
         ? nextClass
         : curClass;
-    const sig = V2_CLASS_DEFS[effectiveClass].signatureSkill;
+    // 키트 = 직업 시그니처 체인뿐 (교관/스타터 폐지). 직업 결정 시 통째 reconcile + 자동 장착.
+    const sigs = signaturesForClass(effectiveClass);
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -137,13 +138,12 @@ export async function POST(req: Request) {
       lastRespecAt: nextLastRespecAt,
     });
 
-    // 전용 스킬 자동 학습 — 이미 보유면 그대로.
-    if (sig && !skills.learned.includes(sig)) {
-      await upsertSave(tx, userId, "skills.v2", {
-        ...skills,
-        learned: [...skills.learned, sig],
-      });
-    }
+    // 키트 통째 reconcile — 직업 시그니처만 보유·자동 장착. (다른 직업군 잔존 스킬 정리)
+    await upsertSave(tx, userId, "skills.v2", {
+      ...skills,
+      learned: [...sigs],
+      equipped: [...sigs],
+    });
 
     return {
       status: 200,

@@ -11,7 +11,13 @@ import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { ensureV2ClassSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
-import { parseV2Class } from "@/adventure/data/v2/classes";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  parseProficiency,
+  totalEarned,
+  groupEarned,
+  groupUsable,
+} from "@/adventure/data/v2/proficiency";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import {
   V2_CODEX_TOTAL,
@@ -49,8 +55,15 @@ export async function GET() {
     return gid;
   });
 
-  const [charRow, profileRow, guildRow, combat, resources, skillsRow] =
-    await Promise.all([
+  const [
+    charRow,
+    profileRow,
+    guildRow,
+    combat,
+    resources,
+    skillsRow,
+    proficiencyRow,
+  ] = await Promise.all([
       db
         .select({ value: savesKv.value })
         .from(savesKv)
@@ -84,6 +97,12 @@ export async function GET() {
       .select({ value: savesKv.value })
       .from(savesKv)
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "skills.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "proficiency.v2")))
       .limit(1)
       .then((rows) => rows[0]),
   ]);
@@ -243,6 +262,22 @@ export async function GET() {
     codex: (() => {
       const ids = discoveredMaterialIds(charSave.materials);
       return { discovered: ids.length, total: V2_CODEX_TOTAL, discoveredIds: ids };
+    })(),
+    // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
+    proficiency: (() => {
+      const prof = parseProficiency(proficiencyRow?.value);
+      const group = tier1ClassOf(
+        parseV2Class((charSave as { class?: unknown }).class),
+      );
+      return {
+        total: totalEarned(prof),
+        groups: prof.groups,
+        current: {
+          group,
+          earned: groupEarned(prof, group),
+          usable: groupUsable(prof, group),
+        },
+      };
     })(),
   });
 }

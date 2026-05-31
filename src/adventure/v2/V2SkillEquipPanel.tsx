@@ -12,6 +12,7 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { v2SkillMpCost } from "@/adventure/battle/combatShared";
 
 // 캐릭터 탭의 스킬 슬롯 패널 — 학습 스킬 + 슬롯 장착/해제/순서.
 // equipped 배열 순서 = 자동 발동 우선순위 (PR-4 전투 런타임이 사용).
@@ -171,7 +172,7 @@ export function V2SkillEquipPanel({ onBack }: { onBack: () => void }) {
                       <div className="text-sm font-medium">{def.name}</div>
                       <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                         {CATEGORY_KOR[def.category] ?? def.category} · MP{" "}
-                        {def.mpCost} · CD {def.cooldown}턴
+                        {v2SkillMpCost(def)}
                       </div>
                     </div>
                     <button
@@ -233,7 +234,7 @@ export function V2SkillEquipPanel({ onBack }: { onBack: () => void }) {
                     </span>
                   </div>
                   <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                    MP {def.mpCost} · CD {def.cooldown}턴
+                    MP {v2SkillMpCost(def)}
                   </div>
                 </div>
                 <button

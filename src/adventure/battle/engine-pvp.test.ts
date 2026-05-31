@@ -1023,11 +1023,11 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     // p1 의 turn 수는 적어도 1, 많아도 (적이 죽을 때까지). 매 turn 1회 cast 가 정상이므로
     // cast 횟수가 turn 수보다 클 수 없음. p2 의 attacksLeft=0 이므로 p1 turn 수 ≈ loop iter / 2 + 1.
     // 정확히 비교 어려우므로 sanity: cast 가 발생했으면서 한 turn 에 2번 fire 안 했는지.
-    // 보장: p1 의 strike cooldown 이 N+1 로 세팅 → 잘못된 dedupe 면 매 iter 마다 cast 시도 →
-    // 빠르게 MP 고갈. 정상이면 1턴/cast.
+    // dedupe = per-side phase-entry flag(v2CastedThisPhase). MP-throttle 로 쿨다운 폐지 후
+    // 캐스팅이 빨라져 마지막 cast 가 적을 죽이며 그 턴이 미완료될 수 있음 → +1 허용.
+    // 잘못된 dedupe(매 iter cast)면 castCount 가 turns 보다 크게 초과해 이 가드를 깬다.
     expect(castCount).toBeGreaterThan(0);
-    // p1.turn.completedPlayerTurns 가 cast 횟수 이상이면 dedupe 정상.
-    expect(r.finalState.p1.turn.completedPlayerTurns).toBeGreaterThanOrEqual(
+    expect(r.finalState.p1.turn.completedPlayerTurns + 1).toBeGreaterThanOrEqual(
       castCount,
     );
   });

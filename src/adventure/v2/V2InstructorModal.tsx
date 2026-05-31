@@ -10,6 +10,7 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { v2SkillMpCost } from "@/adventure/battle/combatShared";
 import type { V2Instructor } from "@/adventure/data/v2/v2SkillInstructors";
 
 // 교관 NPC 모달 — 해당 스탯 스킬 카탈로그 (Tier 1 보유 표시 + Tier 2 학습 버튼).
@@ -213,7 +214,7 @@ function SkillRow({
             {def.description}
           </p>
           <div className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-            MP {def.mpCost} · CD {def.cooldown}턴 · {effectSummary(def)}
+            MP {v2SkillMpCost(def)} · {effectSummary(def)}
           </div>
         </div>
         {!isStarter && !owned && (

@@ -10,9 +10,11 @@ import { computeHealAmount, type Potion } from "../data/potions";
 import type { APSkill, APSkillEffect } from "../character/apSkills";
 import {
   V2_SKILLS,
+  type V2SkillDefinition,
   type V2SkillId,
   type V2SkillsState,
 } from "../data/v2/v2Skills";
+import { V2_CLASS_DEFS } from "../data/v2/classes";
 import { elementDamageMult, type V2Element } from "../data/v2/elements";
 import type { StatKey } from "../data/stats";
 import type { EquippedAPSkill, PlayerCombat } from "./engine";
@@ -288,13 +290,33 @@ export function v2HealAmount(args: {
   return Math.floor(base * (args.healMult ?? 1));
 }
 
+// MP-throttle 모델 — 전 스킬 쿨다운 폐지(데이터 cooldown:0), MP 소모량이 유일 throttle.
+// 직업 시그니처(requireClass)는 mpCost:0 = "직업 차수별 자동 산정"(아래 표). 개별 비용을
+// 지정하려면 0 이 아닌 literal 을 박으면 override. 비-시그니처 학습 스킬은 literal 그대로.
+export const V2_SIGNATURE_MP_BY_TIER: Record<1 | 2 | 3 | 4, number> = {
+  1: 12,
+  2: 16,
+  3: 20,
+  4: 24,
+};
+
+export function v2SkillMpCost(def: V2SkillDefinition): number {
+  const rc = def.learn?.requireClass;
+  // 시그니처 + mpCost 미지정(0) → 직업 차수별 기본 비용. literal 박혀 있으면 그 값 우선.
+  if (rc && def.mpCost === 0) {
+    return V2_SIGNATURE_MP_BY_TIER[V2_CLASS_DEFS[rc].tier];
+  }
+  return def.mpCost;
+}
+
 // PR-5b — monster.v2MaxMp 미지정 시 자동 시드. equipped 중 max mpCost × 3 → 약 3-5 회 cast.
 // 0 = equipped 비어 cast 불가능. monster 데이터 작성 부담 줄이는 default.
 export function defaultV2MaxMpFor(skills: V2SkillsState): number {
   if (skills.equipped.length === 0) return 0;
   let maxCost = 0;
   for (const id of skills.equipped) {
-    const cost = V2_SKILLS[id]?.mpCost ?? 0;
+    const def = V2_SKILLS[id];
+    const cost = def ? v2SkillMpCost(def) : 0;
     if (cost > maxCost) maxCost = cost;
   }
   return maxCost * 3;
@@ -329,7 +351,7 @@ export function pickAutoCastV2Skill(args: {
     const def = V2_SKILLS[id];
     if (!def) continue;
     if ((args.cooldowns[id] ?? 0) > 0) continue;
-    if (args.mp < def.mpCost) continue;
+    if (args.mp < v2SkillMpCost(def)) continue;
     if (def.effects.length === 0) continue;
     return id;
   }
@@ -480,7 +502,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   }
   // 4) MP 차감 + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
   return {
-    nextMp: input.attacker.mp - def.mpCost,
+    nextMp: input.attacker.mp - v2SkillMpCost(def),
     nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
     castSkillId: id,
     castSkillName: def.name,

@@ -149,8 +149,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 1,
     description: "힘을 실어 적에게 추가 피해를 준다.",
-    mpCost: 30,
-    cooldown: 3,
+    mpCost: 8,
+    cooldown: 0,
     element: "earth",
     effects: [{ kind: "damage", statCoef: 1.0 }],
   },
@@ -161,8 +161,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 1,
     description: "빠르게 빈틈을 찔러 추가 피해를 준다.",
-    mpCost: 25,
-    cooldown: 2,
+    mpCost: 8,
+    cooldown: 0,
     element: "wind",
     effects: [{ kind: "damage", statCoef: 0.85 }],
   },
@@ -173,8 +173,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "heal",
     tier: 1,
     description: "전투 중 자신의 HP 를 조금 회복한다.",
-    mpCost: 35,
-    cooldown: 4,
+    mpCost: 8,
+    cooldown: 0,
     effects: [{ kind: "heal", pctMaxHp: 10 }],
   },
   v2_skill_dash: {
@@ -184,8 +184,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 1,
     description: "잠시 동안 속도가 오른다.",
-    mpCost: 30,
-    cooldown: 5,
+    mpCost: 8,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "spd", pct: 10, turns: 3 }],
   },
   v2_skill_fortune: {
@@ -195,8 +195,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 1,
     description: "잠시 행운이 올라 좋은 결과를 노린다.",
-    mpCost: 30,
-    cooldown: 5,
+    mpCost: 8,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "luk", pct: 10, turns: 3 }],
   },
   v2_skill_meditate: {
@@ -206,8 +206,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 1,
     description: "정신을 가다듬어 지능이 오른다.",
-    mpCost: 30,
-    cooldown: 5,
+    mpCost: 8,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "int", pct: 10, turns: 3 }],
   },
 
@@ -222,7 +222,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 1,
     description: "응축한 마력을 작게 뭉쳐 쏘아 보낸다. 익히기 쉬운 기초 마법.",
-    mpCost: 14,
+    mpCost: 8,
     cooldown: 0,
     element: "fire",
     // coef 0.45 + baseFlat 10 — flat 은 magicAtk 작은 초반엔 비중이 커 INT 초반을
@@ -250,8 +250,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 2,
     description: "무거운 일격을 넓게 휘둘러 적의 전열을 무너뜨린다.",
-    mpCost: 70,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     element: "earth",
     effects: [{ kind: "damage", statCoef: 1.45 }],
     learn: {
@@ -268,8 +268,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 2,
     description: "강타의 흐름을 끝까지 밀어붙여 방어 자세를 깨뜨린다.",
-    mpCost: 85,
-    cooldown: 5,
+    mpCost: 14,
+    cooldown: 0,
     element: "earth",
     effects: [
       { kind: "damage", statCoef: 1.65 },
@@ -289,8 +289,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "debuff",
     tier: 2,
     description: "힘으로 전장을 짓눌러 적의 공격 의지를 꺾는다.",
-    mpCost: 60,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "enemyDebuff", stat: "str", pct: 16, turns: 3 }],
     learn: {
       goldCost: 4000,
@@ -308,8 +308,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 2,
     description: "호흡을 멈추고 정확한 한 점을 꿰뚫는다.",
-    mpCost: 80,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     element: "lightning",
     effects: [{ kind: "damage", statCoef: 1.55, baseFlat: 10 }],
     learn: {
@@ -326,8 +326,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 2,
     description: "잔상을 남기는 보법으로 공격을 흘린다.",
-    mpCost: 75,
-    cooldown: 5,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "dex", pct: 16, turns: 3 }],
     learn: {
       goldCost: 4200,
@@ -345,8 +345,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "heal",
     tier: 2,
     description: "깊게 숨을 들이켜 흐트러진 몸을 크게 회복한다.",
-    mpCost: 75,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "heal", pctMaxHp: 16 }],
     learn: {
       goldCost: 3800,
@@ -362,8 +362,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 2,
     description: "몸을 단단히 고정해 충격을 받아낼 자세를 만든다.",
-    mpCost: 70,
-    cooldown: 5,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "vit", pct: 17, turns: 3 }],
     learn: {
       goldCost: 4400,
@@ -379,8 +379,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "debuff",
     tier: 2,
     description: "적의 호흡을 흐트러뜨리는 거친 외침으로 공격 리듬을 끊는다.",
-    mpCost: 60,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "enemyDebuff", stat: "str", pct: 14, turns: 3 }],
     learn: {
       goldCost: 4000,
@@ -398,8 +398,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 2,
     description: "전투 시작의 한 박자를 앞당기는 움직임을 익힌다.",
-    mpCost: 65,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "spd", pct: 16, turns: 3 }],
     learn: {
       goldCost: 3600,
@@ -415,8 +415,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "debuff",
     tier: 2,
     description: "상대의 반격 타이밍을 비틀어 다음 움직임을 늦춘다.",
-    mpCost: 70,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "enemyDebuff", stat: "spd", pct: 16, turns: 3 }],
     learn: {
       goldCost: 4200,
@@ -432,8 +432,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 2,
     description: "속도를 실어 짧은 궤적으로 베어낸다.",
-    mpCost: 80,
-    cooldown: 3,
+    mpCost: 14,
+    cooldown: 0,
     element: "wind",
     effects: [{ kind: "damage", statCoef: 1.5, baseFlat: 6 }],
     learn: {
@@ -452,8 +452,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "buff",
     tier: 2,
     description: "승부가 기우는 순간을 읽어 행운을 끌어올린다.",
-    mpCost: 65,
-    cooldown: 5,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "selfBuff", stat: "luk", pct: 17, turns: 3 }],
     learn: {
       goldCost: 3800,
@@ -469,8 +469,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "debuff",
     tier: 2,
     description: "적에게 불운의 흐름을 새겨 균형을 무너뜨린다.",
-    mpCost: 70,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "enemyDebuff", stat: "luk", pct: 16, turns: 3 }],
     learn: {
       goldCost: 4200,
@@ -486,8 +486,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 2,
     description: "낮은 확률의 즉사 감각을 피해량으로 압축해 찌른다.",
-    mpCost: 95,
-    cooldown: 5,
+    mpCost: 14,
+    cooldown: 0,
     element: "void",
     effects: [{ kind: "damage", statCoef: 1.75, baseFlat: 12 }],
     learn: {
@@ -506,8 +506,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "attack",
     tier: 2,
     description: "마력을 넓게 터뜨려 전장을 흔든다.",
-    mpCost: 90,
-    cooldown: 5,
+    mpCost: 14,
+    cooldown: 0,
     element: "water",
     effects: [{ kind: "damage", statCoef: 1.7, baseFlat: 14, scaling: "magic" }],
     learn: {
@@ -524,8 +524,8 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     category: "debuff",
     tier: 2,
     description: "적의 판단을 흐리는 안개를 펼쳐 마력의 흐름을 끊는다.",
-    mpCost: 65,
-    cooldown: 4,
+    mpCost: 14,
+    cooldown: 0,
     effects: [{ kind: "enemyDebuff", stat: "int", pct: 16, turns: 3 }],
     learn: {
       goldCost: 4200,
@@ -543,7 +543,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 2,
     description: "견습 검사 전용. 연속 검격으로 강한 물리 피해를 입힌다.",
     mpCost: 0,
-    cooldown: 2,
+    cooldown: 0,
     element: "fire",
     effects: [
       { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "physical" },
@@ -560,7 +560,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 2,
     description: "견습 궁수 전용. 관통하는 일격으로 강한 물리 피해를 입힌다. 꿰뚫린 자리가 깊게 벌어져 한동안 피가 흐른다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "wind",
     // 출혈(DoT) — 직격 후 매 턴 추가 피해. 궁수 계열 시그니처 상태이상.
     effects: [
@@ -577,7 +577,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 2,
     description: "견습 무도가 전용. 묵직한 연타 후 자세를 굳혀 활력이 오른다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "earth",
     effects: [
       { kind: "damage", statCoef: 1.6, baseFlat: 12, scaling: "physical" },
@@ -593,7 +593,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 2,
     description: "견습 마법사 전용. 마력을 터뜨려 강한 마법 피해를 입힌다. 터진 마력이 살에 옮겨붙어 한동안 타들어간다.",
     mpCost: 0,
-    cooldown: 2,
+    cooldown: 0,
     element: "void",
     // 소각(DoT) — 마법사 계열 시그니처 상태이상.
     effects: [
@@ -612,7 +612,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 2,
     description: "견습 사제 전용. 성스러운 빛으로 자신을 치유하고 적을 정화한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 22 },
@@ -628,7 +628,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 2,
     description: "견습 인술가 전용. 그림자에서 급소를 노린다. 치명타에 강하다. 칼끝에 바른 독이 상처를 타고 천천히 퍼진다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "void",
     // 중독(DoT) — 인술 계열 시그니처 상태이상. 약하지만 가장 오래 가는 지속 피해.
     effects: [
@@ -647,7 +647,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "검사 전용. 달빛을 베어 가르는 일격. 강력한 물리 피해.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "starlight",
     effects: [
       { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "physical" },
@@ -662,7 +662,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "궁수 전용. 폭풍처럼 쏟아지는 화살. 강력한 물리 피해. 수많은 화살촉이 살을 찢어 피가 멎지 않는다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "lightning",
     // 출혈(DoT) — 궁수 계열 시그니처 상태이상(2차).
     effects: [
@@ -679,7 +679,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "무도가 전용. 무너뜨리는 일권. 적의 방어를 깎고 강타한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "earth",
     effects: [
       { kind: "damage", statCoef: 2.4, baseFlat: 14, scaling: "physical" },
@@ -695,7 +695,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "마법사 전용. 별을 떨궈 강력한 마법 피해를 입힌다. 떨어진 불티가 남아 오래도록 타오른다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "starlight", // 별을 떨구는 마법.
     // 소각(DoT) — 마법사 계열 시그니처 상태이상(2차).
     effects: [
@@ -713,7 +713,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "사제 전용. 깊은 가호로 크게 치유하고 몸을 단단히 한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     effects: [
       { kind: "heal", pctMaxHp: 30 },
       { kind: "selfBuff", stat: "vit", pct: 20, turns: 3 },
@@ -728,7 +728,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "인술가 전용. 분신이 일제히 급소를 친다. 치명타에 강하다. 분신마다 다른 독이 발려 상처가 곪아 든다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "void",
     // 중독(DoT) — 인술 계열 시그니처 상태이상(2차).
     effects: [
@@ -747,7 +747,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "검호 전용. 빠른 검격으로 강한 물리 피해를 입힌다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "fire",
     effects: [
       { kind: "damage", statCoef: 3.4, baseFlat: 16, scaling: "physical" },
@@ -762,7 +762,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "명궁 전용. 빠르게 연사한다. 화살촉마다 상처를 남겨 피가 흐른다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "wind",
     // 출혈(DoT) — 궁수 계열 시그니처 상태이상(3차).
     effects: [
@@ -779,7 +779,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "권사 전용. 묵직한 일권으로 적의 방어를 크게 깎고 강타한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "earth",
     // 무력(방어 저하) — 체술 계열 시그니처 상태이상(3차).
     effects: [
@@ -796,7 +796,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "마도사 전용. 공허의 탄으로 강한 마법 피해를 입힌다. 남은 잔열이 살을 태운다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "void",
     // 소각(DoT) — 마법사 계열 시그니처 상태이상(3차).
     effects: [
@@ -813,7 +813,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "신관 전용. 가호의 빛으로 크게 치유하고 몸을 단단히 한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 38 },
@@ -829,7 +829,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "그림자 자객 전용. 그림자에서 급소를 친다. 발린 독이 상처를 곪게 한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "void",
     // 중독(DoT) — 인술 계열 시그니처 상태이상(3차).
     effects: [
@@ -847,7 +847,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "검왕 전용. 단 한 번의 절검으로 큰 물리 피해를 입힌다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "starlight",
     effects: [
       { kind: "damage", statCoef: 4.2, baseFlat: 18, scaling: "physical" },
@@ -862,7 +862,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "궁왕 전용. 한 점을 노린 한 발. 꿰뚫린 자리가 깊게 벌어진다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "lightning",
     // 출혈(DoT) — 궁수 계열 시그니처 상태이상(4차).
     effects: [
@@ -879,7 +879,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "권왕 전용. 산을 무너뜨리는 한 방. 적의 방어를 크게 깎고 강타한다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "earth",
     // 무력(방어 저하) — 체술 계열 시그니처 상태이상(4차).
     effects: [
@@ -896,7 +896,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "현자 전용. 거센 불길로 태운다. 살에 옮겨붙어 오래 타오른다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "fire",
     // 소각(DoT) — 마법사 계열 시그니처 상태이상(4차).
     effects: [
@@ -913,7 +913,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "주교 전용. 심판의 빛으로 크게 치유하고 적을 함께 친다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 45 },
@@ -929,7 +929,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     tier: 3,
     description: "그림자 주인 전용. 단 한 번에 급소를 끊는다. 스민 독이 천천히 퍼진다.",
     mpCost: 0,
-    cooldown: 3,
+    cooldown: 0,
     element: "void",
     // 중독(DoT) — 인술 계열 시그니처 상태이상(4차).
     effects: [

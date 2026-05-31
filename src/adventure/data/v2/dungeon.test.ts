@@ -38,10 +38,16 @@ describe("v2 dungeon", () => {
     expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
-  it("1~5층은 레벨 requirement, 6~8층은 endgame requirement", () => {
+  it("1~5층은 파워 requirement(단조 증가), 6~8층은 endgame requirement", () => {
     const floors = MAIN_DUNGEON.floors;
+    let prev = 0;
     for (let i = 0; i < 5; i++) {
-      expect(floors[i].requirement.kind).toBe("level");
+      const req = floors[i].requirement;
+      expect(req.kind).toBe("power");
+      if (req.kind === "power") {
+        expect(req.min).toBeGreaterThan(prev); // 층이 올라갈수록 권장 파워↑
+        prev = req.min;
+      }
     }
     for (let i = 5; i < 8; i++) {
       expect(floors[i].requirement.kind).toBe("endgame");

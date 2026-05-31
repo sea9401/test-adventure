@@ -23,8 +23,8 @@ const FLOOR_LABEL: Record<DungeonFloorId, string> = (() => {
   const out = {} as Record<DungeonFloorId, string>;
   for (const f of MAIN_DUNGEON.floors) {
     const req =
-      f.requirement.kind === "level"
-        ? ` (Lv ${f.requirement.min}~${f.requirement.max})`
+      f.requirement.kind === "power"
+        ? ` (권장 파워 ${f.requirement.min})`
         : "";
     out[f.id] = `${f.name}${req}`;
   }

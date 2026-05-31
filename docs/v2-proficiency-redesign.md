@@ -97,8 +97,9 @@
 
 ## 8. 콘텐츠 게이트 — 레벨 → 누적 숙련도/파워 (사용자 (A))
 
-- 던전 층 등 **레벨 게이트 → derive 스탯-파워 게이트**((b) 확정). 레벨 리셋과 충돌 없음(파워는 floor 로 영구 진척).
-- 층 요건 `requirement.kind: "level"` → `"power"`. 파워 지표 = derive 합성치(예: `atk + magicAtk + def + magicDef + maxHp/10` 가중합 — 빌드 반영). 층별 임계 = 현 레벨 임계를 파워로 환산(sim).
+- 던전 층 등 **레벨 지표 → derive 스탯-파워 지표**((b) 확정). 레벨 리셋과 충돌 없음(파워는 floor 로 영구 진척).
+- 층 요건 `requirement.kind: "level"` → `"power"`. 파워 지표 = `derivePowerScore`(power.ts): `atk + magicAtk + def + maxHp×0.1 + spd×0.5 + maxMp×0.1`(가중치 잠정, PR-9 다이얼).
+- (PR-7 #280) **하드 게이트가 아니라 권장 지표** — v2 던전은 원래 레벨 하드락이 없었고(난이도는 몹 강도로 자율 조정), 표시만 "권장 레벨" → "권장 파워". state 가 `combat.power` surface, 층은 provisional min(F1=50/F2=100/F3=180/F4=320/F5=520, PR-9 캘리브). 6~8층 endgame 은 그대로.
 
 ---
 
@@ -151,7 +152,7 @@
 4. ✅ **저점 + 전직 리셋** — floor 계산 + 전직 시 레벨1·current→floor. (#277)
 5. ✅ **시그니처 숙련도 학습** — 자동부여 폐지 → learn-skill 라우트(사용가능 숙련도 소모, 차수별 t1=80/t2=150/t3=250/t4=400). equipped = 학습분 ∩ 현 체인 자동 reconcile. (#278)
 6. ✅ **전직 게이트 교체** — 레벨/골드 → 직업군 누적 숙련도(t2=300/t3=1200/t4=3000). 3·4차 모험의 서 병존. UI 동반 패치. (#279)
-7. **콘텐츠 게이트 교체** — 던전 층 레벨 → 숙련도/파워.
+7. ✅ **콘텐츠 파워 지표** — 던전 층 권장 레벨 → derive 파워(power.ts derivePowerScore). state combat.power surface, 표시 4곳 전환. 하드 게이트 아님(권장). 층 min provisional. (#280)
 8. **UI 통합** — 성장의 신전/훈련장 → 수행·학습 화면으로 재편.
 9. **sim 캘리브** — 적립률·수행비용·전직임계·EXP·floor 균형.
 

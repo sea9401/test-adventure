@@ -170,31 +170,32 @@ export const MAIN_DUNGEON: Dungeon = {
     {
       id: 1,
       name: "들판",
-      requirement: { kind: "level", min: 1, max: 5 },
+      // 권장 파워 잠정(PR-9 캘리브) — 옛 레벨밴드 1~5 환산. 시작 캐릭(≈66)이 진입 가능.
+      requirement: { kind: "power", min: 50 },
       enemies: FLOOR1_ENEMIES,
     },
     {
       id: 2,
       name: "숲",
-      requirement: { kind: "level", min: 6, max: 13 },
+      requirement: { kind: "power", min: 100 }, // 옛 Lv6~13
       enemies: FLOOR2_ENEMIES,
     },
     {
       id: 3,
       name: "산",
-      requirement: { kind: "level", min: 18, max: 28 },
+      requirement: { kind: "power", min: 180 }, // 옛 Lv18~28
       enemies: FLOOR3_ENEMIES,
     },
     {
       id: 4,
       name: "화산",
-      requirement: { kind: "level", min: 34, max: 55 },
+      requirement: { kind: "power", min: 320 }, // 옛 Lv34~55
       enemies: FLOOR4_ENEMIES,
     },
     {
       id: 5,
       name: "설원",
-      requirement: { kind: "level", min: 70, max: 100 },
+      requirement: { kind: "power", min: 520 }, // 옛 Lv70~100
       enemies: FLOOR5_ENEMIES,
     },
     {

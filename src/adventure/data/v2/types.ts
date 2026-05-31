@@ -10,9 +10,11 @@ import type { V2MonsterStatusSkillId } from "./v2Skills";
 // 단일 던전 8층. 1~5 캐릭 성장(1~100렙, 라이브 권역 밴드별 분할) / 6~8 만렙 후 엔드 파밍.
 export type DungeonFloorId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-// 권장 강도. 1~5 는 레벨 범위, 6~8 은 만렙 후 단계로 표현.
+// 권장 강도. 1~5 는 권장 파워(derive 합성 스탯-파워, docs §8), 6~8 은 만렙 후 단계.
+// 레벨 리셋 루프(전직 시 Lv1)로 레벨은 진척 척도가 못 돼 파워로 전환(PR-7). 하드 게이트는
+// 아니고 권장 지표 — 플레이어가 "내 파워" 와 비교해 층을 고른다(난이도는 몹 강도로 자율 조정).
 export type DungeonFloorRequirement =
-  | { kind: "level"; min: number; max: number } // 1~5층
+  | { kind: "power"; min: number } // 1~5층 권장 파워(잠정 — PR-9 sim 캘리브)
   | { kind: "endgame"; tier: "entry" | "mid" | "max" }; // 6~8층
 
 // 사냥터 출현 몬스터 — key 는 라이브 MONSTERS 의 스탯/스킬 출처, name 은 화면 표시 이름.

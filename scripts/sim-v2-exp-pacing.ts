@@ -18,6 +18,16 @@ const NEW_MAX_STAMINA = 1000;
 const STAMINA_REGEN_PER_HOUR = 120;
 
 type FloorInfo = { id: number; avgExp: number; lvMin?: number; lvMax?: number; tier?: string };
+// PR-7 에서 던전 층 requirement 가 레벨밴드 → 권장 파워로 바뀜. 이 exp-pacing sim 은
+// "레벨 → 어느 층 사냥" 휴리스틱이 필요해 옛 레벨밴드를 로컬로 보존한다(sim 고유 관심사).
+// 리셋 루프(전직 Lv1)·파워 게이트를 반영한 재모델은 PR-9(sim 캘리브)에서.
+const SIM_FLOOR_LEVEL_BANDS: Record<number, { min: number; max: number }> = {
+  1: { min: 1, max: 5 },
+  2: { min: 6, max: 13 },
+  3: { min: 18, max: 28 },
+  4: { min: 34, max: 55 },
+  5: { min: 70, max: 100 },
+};
 const floorInfos: FloorInfo[] = [];
 for (const f of MAIN_DUNGEON.floors) {
   const exps: number[] = [];
@@ -25,11 +35,12 @@ for (const f of MAIN_DUNGEON.floors) {
     const m = MONSTERS[e.key];
     if (m) exps.push(m.exp);
   }
+  const band = SIM_FLOOR_LEVEL_BANDS[f.id];
   floorInfos.push({
     id: f.id,
     avgExp: exps.reduce((a, b) => a + b, 0) / exps.length,
-    lvMin: f.requirement.kind === "level" ? f.requirement.min : undefined,
-    lvMax: f.requirement.kind === "level" ? f.requirement.max : undefined,
+    lvMin: band?.min,
+    lvMax: band?.max,
     tier: f.requirement.kind === "endgame" ? f.requirement.tier : undefined,
   });
 }

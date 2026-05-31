@@ -38,3 +38,34 @@ export const V2_STATUS_KINDS = {
   무력: "debuff",
 } as const;
 export type V2StatusName = keyof typeof V2_STATUS_KINDS;
+
+// PR-statuscolor — 전투 로그의 상태이상 라벨 pill 색(아이콘 대신 표시색). 상태별 톤 구분.
+//   출혈 적 · 중독 라임 · 소각 주황 · 둔화 하늘 · 약화 보라 · 무력 호박.
+export const V2_STATUS_PILL_COLORS: Record<V2StatusName, string> = {
+  출혈: "bg-rose-200/70 text-rose-900 dark:bg-rose-900/60 dark:text-rose-200",
+  중독: "bg-lime-200/70 text-lime-900 dark:bg-lime-900/60 dark:text-lime-200",
+  소각:
+    "bg-orange-200/70 text-orange-900 dark:bg-orange-900/60 dark:text-orange-200",
+  둔화: "bg-sky-200/70 text-sky-900 dark:bg-sky-900/60 dark:text-sky-200",
+  약화:
+    "bg-violet-200/70 text-violet-900 dark:bg-violet-900/60 dark:text-violet-200",
+  무력:
+    "bg-amber-200/70 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200",
+};
+
+// 라벨 문자열이 알려진 상태이상이면 그 pill 색, 아니면 null (전투 로그가 사용).
+export function v2StatusPillColor(label: string): string | null {
+  return label in V2_STATUS_PILL_COLORS
+    ? V2_STATUS_PILL_COLORS[label as V2StatusName]
+    : null;
+}
+
+// 디버프 stat → 상태이상 이름 (전투 로그가 "둔화" 등으로 명시·색칠하게). 매핑 없으면 null.
+const DEBUFF_STAT_TO_STATUS: Record<string, V2StatusName> = {
+  spd: "둔화",
+  str: "약화",
+  vit: "무력",
+};
+export function statusNameForDebuffStat(stat: string): V2StatusName | null {
+  return DEBUFF_STAT_TO_STATUS[stat] ?? null;
+}

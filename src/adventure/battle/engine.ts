@@ -1,5 +1,6 @@
 import type { Monster } from "../data/monsters";
 import type { V2Element } from "../data/v2/elements";
+import { statusNameForDebuffStat } from "../data/v2/statusEffects";
 import {
   computeMpRestoreAmount,
   type Potion,
@@ -3024,14 +3025,14 @@ export function resolveBattle(
         for (const d of result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
             turn: "player",
           });
         }
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${result.castSkillName ?? dot.label}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
             turn: "player",
           });
         }
@@ -3183,14 +3184,14 @@ export function resolveBattle(
         for (const d of result.enemyDebuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${result.castSkillName ?? "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+            text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
             turn: "enemy",
           });
         }
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${result.castSkillName ?? dot.label}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
             turn: "enemy",
           });
         }

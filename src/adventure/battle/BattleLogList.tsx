@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { BattleLogEntry } from "./engine";
+import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.
 // 라벨 pill + 데미지 강조 + 양쪽 레인 버블 + 턴 구분선 + 페이즈 트리거 배너.
@@ -203,7 +204,9 @@ function AttackBubble({
             {labels.map((l, idx) => (
               <span
                 key={idx}
-                className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${labelColor}`}
+                className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
+                  v2StatusPillColor(l) ?? labelColor
+                }`}
               >
                 {l}
               </span>
@@ -244,7 +247,10 @@ function InfoLine({
       {labels.map((l, idx) => (
         <span
           key={idx}
-          className={`rounded bg-zinc-100 px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200`}
+          className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
+            v2StatusPillColor(l) ??
+            "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+          }`}
         >
           {l}
         </span>

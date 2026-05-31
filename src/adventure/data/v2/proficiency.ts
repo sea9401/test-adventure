@@ -123,12 +123,16 @@ export function setGroupTier(
 
 // floor(저점) 다이얼 — docs §5. 총 숙련도 일반 베이스 + 직업 숙련도(프로필·차수 가중).
 export const V2_FLOOR_GLOBAL = 0.004; // 총 숙련도 → 전 스탯 베이스.
-export const V2_FLOOR_PER_PROF = 0.02; // 직업 earned → 프로필 스탯.
+// 직업 earned → 프로필 스탯 floor. PR-9 캘리브: 0.02 → 0.01. earned 는 선형(3000까지)인데
+// cap 은 수행 지수비용(1.12ⁿ)에 throttle 돼 고차에서 floor 가 cap 을 추월(수행 무의미)했다.
+// floor 가 cap 의 ~30~50% 에 머물도록(저점<천장 + grown 이 메우는 여지) 계수+tierMult 하향.
+export const V2_FLOOR_PER_PROF = 0.01;
+// 차수가 높을수록 floor 가 더 오르되(설계 의도), cap 을 넘지 않게 완만히. {1.5,2,3} → {1.15,1.3,1.5}.
 export const V2_TIER_FLOOR_MULT: Record<number, number> = {
   1: 1,
-  2: 1.5,
-  3: 2,
-  4: 3,
+  2: 1.15,
+  3: 1.3,
+  4: 1.5,
 };
 // 직업 프로필 floor 가중 — 앵커 1.0, 관련 0.4.
 export const V2_FLOOR_ANCHOR_WEIGHT = 1.0;

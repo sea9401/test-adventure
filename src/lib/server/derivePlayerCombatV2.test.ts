@@ -169,20 +169,20 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     expect(d.player.magicAtk).toBe(0);
   });
 
-  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.35)", () => {
-    // 베이스 int 0 + 할당 100 = 100. magicAtk = floor(100 × 0.35) = 35.
+  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.2) (PR-8 STR 대칭)", () => {
+    // 베이스 int 0 + 할당 100 = 100. magicAtk = floor(100 × 0.2) = 20.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 100 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(100);
-    expect(d.player.magicAtk).toBe(35);
+    expect(d.player.magicAtk).toBe(20);
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
     // 별빛 지팡이 T5: power 17 (무기 → atk·magicAtk 둘 다). int token 없음.
-    // magicAtk = floor(int 0 × 0.35) + 위력 17 = 17. atk = floor(str 15×0.2 + 17) = 20.
+    // magicAtk = floor(int 0 × 0.2) + 위력 17 = 17. atk = floor(str 15×0.2 + 17) = 20.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starlit_staff" },
@@ -193,7 +193,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   });
 
   it("INT 0 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
-    // 참나무 지팡이: power 5. magicAtk = floor(0×0.35) + 5 = 5. 물리 빌드는 마법스킬을 안
+    // 참나무 지팡이: power 5. magicAtk = floor(0×0.2) + 5 = 5. 물리 빌드는 마법스킬을 안
     // 배워 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
     const d = derivePlayerCombatV2Pure({
       level: 50,

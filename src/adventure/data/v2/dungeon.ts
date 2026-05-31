@@ -170,32 +170,35 @@ export const MAIN_DUNGEON: Dungeon = {
     {
       id: 1,
       name: "들판",
-      // 권장 파워 잠정(PR-9 캘리브) — 옛 레벨밴드 1~5 환산. 시작 캐릭(≈66)이 진입 가능.
+      // 권장 파워(PR-9 sim 캘리브, scripts/sim-v2-proficiency.ts) — 각 차수 6직업 최소 성숙
+      // 스탯파워(1차163/2차166/3차175/4차181, 스타터 장비) 바로 아래로 둬 해당 차수 캐릭이
+      // 매칭 층을 클리어하게. 장비 progression 미모델 → 절대치 잠정(라이브 실측 정제 대상).
       requirement: { kind: "power", min: 50 },
       enemies: FLOOR1_ENEMIES,
     },
     {
       id: 2,
       name: "숲",
-      requirement: { kind: "power", min: 100 }, // 옛 Lv6~13
+      requirement: { kind: "power", min: 110 },
       enemies: FLOOR2_ENEMIES,
     },
     {
       id: 3,
       name: "산",
-      requirement: { kind: "power", min: 180 }, // 옛 Lv18~28
+      requirement: { kind: "power", min: 160 },
       enemies: FLOOR3_ENEMIES,
     },
     {
       id: 4,
       name: "화산",
-      requirement: { kind: "power", min: 320 }, // 옛 Lv34~55
+      requirement: { kind: "power", min: 175 },
       enemies: FLOOR4_ENEMIES,
     },
     {
       id: 5,
       name: "설원",
-      requirement: { kind: "power", min: 520 }, // 옛 Lv70~100
+      // F5(최상층)는 4차 강빌드(스타터 211~311)·약빌드+장비 기준 — 약간 상회(장비 권장).
+      requirement: { kind: "power", min: 220 },
       enemies: FLOOR5_ENEMIES,
     },
     {

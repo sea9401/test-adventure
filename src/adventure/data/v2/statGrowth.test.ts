@@ -43,16 +43,17 @@ describe("v2 랜덤 레벨 성장", () => {
 describe("v2 스탯 floor", () => {
   it("computeStatFloors — 총(전 스탯) + 직업(프로필·차수 가중)", () => {
     // 검술(swordsman) earned 1000, tier1. 총=1000×0.004=4(전 스탯). 직업: str(앵커1.0)·dex/luk(0.4).
+    // PR-9 캘리브: FLOOR_PER_PROF 0.02→0.01.
     const prof = parseProficiency({
       groups: {
         swordsman: { earned: 1000, spent: 0, cultivations: 0, tier: 1 },
       },
     });
     const f = computeStatFloors(prof);
-    // str = base + 4(총) + 1000×0.02×1×1.0 = base + 4 + 20
-    expect(f.str).toBe(V2_BASE_STATS.str + 4 + 20);
-    // dex = base + 4(총) + 1000×0.02×1×0.4 = base + 4 + 8
-    expect(f.dex).toBe(V2_BASE_STATS.dex + 4 + 8);
+    // str = base + 4(총) + 1000×0.01×1×1.0 = base + 4 + 10
+    expect(f.str).toBe(V2_BASE_STATS.str + 4 + 10);
+    // dex = base + 4(총) + 1000×0.01×1×0.4 = base + 4 + 4
+    expect(f.dex).toBe(V2_BASE_STATS.dex + 4 + 4);
     // int(프로필 외) = base + 4(총만)
     expect(f.int).toBe(V2_BASE_STATS.int + 4);
   });

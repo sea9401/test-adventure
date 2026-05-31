@@ -33,6 +33,11 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "../src/adventure/data/v2/v2Skills";
+import {
+  V2_CLASS_DEFS,
+  nextTierClassOf,
+  type V2Class,
+} from "../src/adventure/data/v2/classes";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
@@ -147,14 +152,42 @@ function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
   return a;
 }
 
+// PR-10 — sim 충실도: 아키타입 → 직업군 1차, 레벨로 도달 차수(전직 레벨 게이트)를 산출해
+// 앵커 보정(statBonusPct) + 차수별 시그니처가 실제처럼 반영되게. BAL 은 무직(보정 없음).
+const ARCH_CLASS_T1: Record<Arch, V2Class> = {
+  STR: "swordsman",
+  DEX: "archer",
+  VIT: "martial",
+  INT: "mage",
+  SPI: "priest",
+  LUK: "ninja",
+  BAL: "none",
+};
+
+// 직업군 1차에서 레벨이 충족하는 만큼 전직(advanceLevel 게이트)해 도달한 차수 직업 반환.
+function classForArchLevel(arch: Arch, level: number): V2Class {
+  let c = ARCH_CLASS_T1[arch];
+  if (c === "none") return c;
+  for (;;) {
+    const next = nextTierClassOf(c);
+    if (!next) break;
+    const reqLvl = V2_CLASS_DEFS[next].advanceLevel ?? Infinity;
+    if (level >= reqLvl) c = next;
+    else break;
+  }
+  return c;
+}
+
 function makePlayer(arch: Arch, level: number) {
   const allocated = allocate(arch, level);
   // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
   // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
+  // PR-10 — playerClass 전달로 앵커 보정 반영(차수는 레벨로 결정).
   return derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
     v2Equipped: equipFor(arch, level),
+    playerClass: classForArchLevel(arch, level),
     hp: undefined,
   });
 }
@@ -172,8 +205,22 @@ function skillsFor(
 ): V2SkillsState {
   if (!SKILLS_MODE) return { learned: [], equipped: [] };
   const mainStat: V2StatKey = arch === "BAL" ? "str" : (arch.toLowerCase() as V2StatKey);
+  // PR-10 — 시그니처(requireClass)는 도달한 차수까지만 보유(레벨로 전직 차수 결정).
+  const cls = classForArchLevel(arch, level);
+  const curTier = V2_CLASS_DEFS[cls].tier;
+  const curGroup = V2_CLASS_DEFS[cls].group;
   const ids = (Object.keys(V2_SKILLS) as V2SkillId[]).filter((id) => {
     const def = V2_SKILLS[id];
+    if (def.monsterOnly) return false;
+    const rc = def.learn?.requireClass;
+    if (rc) {
+      // 직업 시그니처 — 직업군 + 도달한 차수(tier ≤ 현 차수)로만 판정. def.stat 무관:
+      // 신관 힐 시그니처는 stat="int"(라이브 StatKey 에 spi 없음)이지만 신술(spi) 직업 것이라
+      // mainStat 필터로 거르면 SPI 가 힐조차 못 껴 0% 과장됨(Codex). BAL(무직)은 시그니처 없음.
+      const rd = V2_CLASS_DEFS[rc];
+      return rd.group === curGroup && rd.tier <= curTier;
+    }
+    // 비-시그니처 학습 스킬 — 주력 스탯 일치 + 레벨/스탯 게이트.
     if (def.stat !== mainStat) return false;
     if (!def.learn) return true; // 스타터 = 항상 보유
     if (level < (def.learn.level ?? 0)) return false;

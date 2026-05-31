@@ -24,7 +24,8 @@ import {
 
 // POST /api/v2/me/class-element — 직업·속성 선택/변경.
 // PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 레벨비례 골드 + 24h 쿨다운.
-// 직업 선택 시 그 직업의 전용 스킬을 자동 학습(skills.v2.learned).
+// 시그니처는 숙련도 학습(learn-skill)이라 여기선 자동 학습 안 함 — equipped 만
+// 학습분∩새 직업 체인으로 reconcile(learned 보존, docs §6).
 
 type CharSaveShape = {
   class?: unknown;
@@ -84,8 +85,10 @@ export async function POST(req: Request) {
       curClass === "none" || isClassChange(curClass, nextClass)
         ? nextClass
         : curClass;
-    // 키트 = 직업 시그니처 체인뿐 (교관/스타터 폐지). 직업 결정 시 통째 reconcile + 자동 장착.
-    const sigs = signaturesForClass(effectiveClass);
+    // 시그니처는 숙련도로 학습(자동부여 폐지, docs §6). 직업(군) 변경 시 learned 는
+    // 안 건드리고 equipped 만 학습분∩새 체인으로 reconcile — 새 직업 시그니처는 learn-skill 로 습득.
+    const chain = signaturesForClass(effectiveClass);
+    const learnedSet = new Set<string>(skills.learned);
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -138,11 +141,11 @@ export async function POST(req: Request) {
       lastRespecAt: nextLastRespecAt,
     });
 
-    // 키트 통째 reconcile — 직업 시그니처만 보유·자동 장착. (다른 직업군 잔존 스킬 정리)
+    // equipped 만 reconcile(학습분∩새 체인) — learned 는 보존(직업군 바뀌면 옛 시그니처는
+    // equipped 에서만 빠지고 기록은 유지). 새 직업 시그니처는 learn-skill 로 숙련도 학습.
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      learned: [...sigs],
-      equipped: [...sigs],
+      equipped: chain.filter((s) => learnedSet.has(s)),
     });
 
     return {

@@ -4,7 +4,7 @@ import { users, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
-import { ensureV2ClassSkills } from "@/lib/server/v2Skills";
+import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
 
@@ -138,6 +138,11 @@ export async function POST(req: Request) {
 
       const profile = { name, gender: submittedGender };
       await upsertSave(tx, uid, PROFILE_STORAGE_KEY, profile);
+      // v2 스킬 키트 = 숙련도로 학습한 시그니처뿐 (자동부여 폐지). 신규 캐는 무직(none)·
+      // 미학습이라 시드할 스킬 없음 — 학습/전직 시 reconcileV2EquippedSkills 가 equipped reconcile.
+      // 장비 시드보다 먼저 호출 — reconcile 이 character.v2 → skills.v2 를 잠그므로 character-first
+      // 락 순서(다른 경로의 character→equipment 와 prefix 일치)를 지켜 데드락을 막는다.
+      await reconcileV2EquippedSkills(tx, uid);
       // v2 시작 장비 — 균형형 세트 (철검 + 가죽갑옷 + 은가락지).
       // equipment.v2 는 SYNCED_KEYS 화이트리스트에 없는 서버 권위 키라 STARTER_SAVES
       // (클라 부트스트랩) 경로로 시드 못 함. 신규 캐릭터 분기에서만 직접 박는다.
@@ -149,9 +154,6 @@ export async function POST(req: Request) {
           accessory: "v2_silver_ring",
         },
       });
-      // v2 스킬 키트 = 직업 시그니처뿐 (교관/스타터 폐지). 신규 캐는 무직(none)이라
-      // 시드할 스킬 없음 — 직업 선택/전직 시 ensureV2ClassSkills 가 reconcile. idempotent.
-      await ensureV2ClassSkills(tx, uid);
       return profile;
     });
 

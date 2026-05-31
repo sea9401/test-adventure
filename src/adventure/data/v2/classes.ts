@@ -421,7 +421,20 @@ export function tier2ClassOf(c: V2Class): V2Class | null {
 }
 
 // 직업 c 가 보유하는 시그니처 스킬 체인 — 직업군 1차부터 c 차수까지 각 단계의 전용 스킬.
-// 교관/학습 폐지 후 플레이어 스킬 키트 = 이것뿐(전직으로만 획득·자동 장착). none = 빈 배열.
+// 학습 가능 시그니처 목록(=그 차수 도달분)이자 equipped reconcile 의 기준 체인. none = 빈 배열.
+// 시그니처 스킬 id → 그 시그니처를 보유한 직업 (역참조). 차수/학습비용 산출용.
+const SIGNATURE_TO_CLASS: Record<string, V2Class> = (() => {
+  const m: Record<string, V2Class> = {};
+  for (const def of Object.values(V2_CLASS_DEFS)) {
+    if (def.signatureSkill) m[def.signatureSkill] = def.id;
+  }
+  return m;
+})();
+
+export function signatureClassOf(skillId: string): V2Class | null {
+  return SIGNATURE_TO_CLASS[skillId] ?? null;
+}
+
 export function signaturesForClass(c: V2Class): V2SkillId[] {
   if (c === "none") return [];
   const out: V2SkillId[] = [];

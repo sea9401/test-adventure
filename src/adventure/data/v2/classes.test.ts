@@ -8,6 +8,7 @@ import {
   tier2ClassOf,
   nextTierClassOf,
   signaturesForClass,
+  signatureClassOf,
 } from "./classes";
 import { V2_SKILLS } from "./v2Skills";
 import { V2_STAT_KEYS } from "./v2StatKeys";
@@ -212,5 +213,16 @@ describe("v2 3·4차 전직 (트리 완성)", () => {
         expect(V2_SKILLS[id].learn?.requireClass, `${id} requireClass`).toBeTruthy();
       }
     }
+  });
+
+  it("signatureClassOf — 시그니처 id → 보유 직업 역참조(차수 산출용)", () => {
+    // 모든 직업의 signatureSkill 은 자기 자신으로 역참조되어야 한다.
+    for (const c of V2_CLASSES) {
+      const sig = V2_CLASS_DEFS[c].signatureSkill;
+      if (!sig) continue;
+      expect(signatureClassOf(sig), `${sig} → ${c}`).toBe(c);
+    }
+    // 미지의 id 는 null.
+    expect(signatureClassOf("v2_skill_does_not_exist")).toBeNull();
   });
 });

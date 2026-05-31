@@ -11,7 +11,10 @@ import {
   statCap,
   applyCultivation,
   setGroupTier,
+  spendProficiency,
+  signatureLearnCost,
   V2_STAT_CAP_BASE,
+  V2_SIGNATURE_LEARN_COST,
 } from "./proficiency";
 
 describe("v2 직업 숙련도", () => {
@@ -147,5 +150,40 @@ describe("v2 직업 숙련도", () => {
       cultivations: 0,
       tier: 2,
     });
+  });
+
+  it("spendProficiency — 사용가능 소모(spent↑), cap/cultivations 불변, 비파괴", () => {
+    const p = parseProficiency({
+      groups: { swordsman: { earned: 100, spent: 10, cultivations: 2 } },
+    });
+    const next = spendProficiency(p, "swordsman", 80);
+    expect(next).not.toBeNull();
+    expect(next!.groups.swordsman).toEqual({
+      earned: 100,
+      spent: 90,
+      cultivations: 2, // 학습은 수행 횟수 미증가
+      tier: 1,
+    });
+    expect(next!.caps).toEqual(p.caps); // cap 불변
+    expect(groupUsable(next!, "swordsman")).toBe(10);
+    // 비파괴
+    expect(p.groups.swordsman.spent).toBe(10);
+  });
+
+  it("spendProficiency — 사용가능 부족이면 null, amount<=0 이면 그대로", () => {
+    const p = parseProficiency({
+      groups: { swordsman: { earned: 50, spent: 0, cultivations: 0 } },
+    });
+    expect(spendProficiency(p, "swordsman", 80)).toBeNull(); // 50 < 80
+    expect(spendProficiency(p, "archer", 10)).toBeNull(); // 그룹 없음
+    expect(spendProficiency(p, "swordsman", 0)).toBe(p); // no-op
+  });
+
+  it("signatureLearnCost — 차수별 비용, 미지정 차수는 t1 폴백", () => {
+    expect(signatureLearnCost(1)).toBe(V2_SIGNATURE_LEARN_COST[1]);
+    expect(signatureLearnCost(2)).toBe(150);
+    expect(signatureLearnCost(3)).toBe(250);
+    expect(signatureLearnCost(4)).toBe(400);
+    expect(signatureLearnCost(9)).toBe(V2_SIGNATURE_LEARN_COST[1]); // 폴백
   });
 });

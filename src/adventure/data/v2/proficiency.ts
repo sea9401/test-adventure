@@ -134,6 +134,17 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
 export const V2_FLOOR_ANCHOR_WEIGHT = 1.0;
 export const V2_FLOOR_RELATED_WEIGHT = 0.4;
 
+// 시그니처 학습 비용(사용가능 숙련도) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
+export const V2_SIGNATURE_LEARN_COST: Record<number, number> = {
+  1: 80,
+  2: 150,
+  3: 250,
+  4: 400,
+};
+export function signatureLearnCost(tier: number): number {
+  return V2_SIGNATURE_LEARN_COST[tier] ?? V2_SIGNATURE_LEARN_COST[1];
+}
+
 // 총 숙련도 = 모든 직업군 earned 합.
 export function totalEarned(p: V2ProficiencyState): number {
   let t = 0;
@@ -216,6 +227,30 @@ export function applyCultivation(
         },
       },
       caps: nextCaps,
+    },
+  };
+}
+
+// 사용가능 숙련도 소모(시그니처 학습용) — cap/cultivations 불변, spent 만 증가.
+// 비파괴. 사용가능 부족이면 null. (수행과 달리 횟수 카운트 안 함 — 고정 비용.)
+export function spendProficiency(
+  p: V2ProficiencyState,
+  group: string,
+  amount: number,
+): V2ProficiencyState | null {
+  if (amount <= 0) return p;
+  if (groupUsable(p, group) < amount) return null;
+  const cur = p.groups[group] ?? {
+    earned: 0,
+    spent: 0,
+    cultivations: 0,
+    tier: 1,
+  };
+  return {
+    ...p,
+    groups: {
+      ...p.groups,
+      [group]: { ...cur, spent: cur.spent + amount },
     },
   };
 }

@@ -1,48 +1,85 @@
-// v2 직업 숙련도 — 직업군별 적립(earned)/소모(spent). 총 숙련도 = Σ earned.
-// 설계: docs/v2-proficiency-redesign.md §3. 직업을 플레이로 마스터하며 영구 성장.
+// v2 직업 숙련도 + 수행(스탯 cap). 설계: docs/v2-proficiency-redesign.md §3·§4.
 //
-// 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). 안정적이라
-// display 문자열("검술") 대신 사용. none(무직)은 적립 없음(키 없음).
-// 저장: proficiency.v2 = { groups: { [tier1classId]: { earned, spent } } }.
-//   - earned: 누적(영구). spent: 수행·시그니처 학습에 쓴 합.
-//   - 직업 사용가능 = earned − spent. 총 숙련도 = Σ earned.
+// 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). none(무직) 적립 없음.
+// 저장: proficiency.v2 = {
+//   groups: { [tier1classId]: { earned, spent, cultivations } },  // 직업별 숙련도 + 수행 횟수
+//   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
+// }
+//   - earned 누적(영구) · spent(수행·학습 소모 합) · cultivations(그 직업 수행 횟수, 비용 증가용).
+//   - 직업 사용가능 = earned − spent. 총 숙련도 = Σ earned. cap 미지정 = V2_STAT_CAP_BASE.
 
-export type V2ProficiencyGroup = { earned: number; spent: number };
+import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
+
+export type V2ProficiencyGroup = {
+  earned: number;
+  spent: number;
+  cultivations: number;
+};
 export type V2ProficiencyState = {
   groups: Record<string, V2ProficiencyGroup>;
+  caps: Partial<Record<V2StatKey, number>>;
 };
 
-// 전투(킬/승리) 1회당 적립량. §10 다이얼.
+// §10 다이얼.
 export const V2_PROFICIENCY_PER_KILL = 2;
+export const V2_STAT_CAP_BASE = 60; // 시작 cap (전 스탯, 수행으로만 상향).
+
+// 수행 1회 cap 상승 — 직업군별 프로필(앵커 +3, 관련 2스탯 +1). 키 = tier1ClassOf(직업군). docs §9.
+export const V2_CULTIVATE_PROFILE: Record<
+  string,
+  Partial<Record<V2StatKey, number>>
+> = {
+  swordsman: { str: 3, dex: 1, luk: 1 }, // 검술
+  archer: { dex: 3, luk: 1, str: 1 }, // 궁술
+  martial: { vit: 3, str: 1, spi: 1 }, // 체술
+  mage: { int: 3, spi: 1, luk: 1 }, // 마술
+  priest: { spi: 3, int: 1, vit: 1 }, // 신술
+  ninja: { luk: 3, dex: 1, int: 1 }, // 인술
+};
+
+// n회차 수행 비용(사용가능 숙련도). 기하 증가 cost(n) = round(8 × 1.12ⁿ). §10 다이얼.
+export function cultivationCost(n: number): number {
+  return Math.round(8 * Math.pow(1.12, Math.max(0, n)));
+}
+
+function posInt(raw: unknown): number {
+  return typeof raw === "number" && Number.isFinite(raw)
+    ? Math.max(0, Math.floor(raw))
+    : 0;
+}
 
 export function emptyProficiency(): V2ProficiencyState {
-  return { groups: {} };
+  return { groups: {}, caps: {} };
 }
 
 export function parseProficiency(raw: unknown): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
-  const g = (raw as { groups?: unknown }).groups;
-  const out: Record<string, V2ProficiencyGroup> = {};
-  if (g && typeof g === "object") {
-    for (const [k, v] of Object.entries(g as Record<string, unknown>)) {
+  const obj = raw as { groups?: unknown; caps?: unknown };
+  const groups: Record<string, V2ProficiencyGroup> = {};
+  if (obj.groups && typeof obj.groups === "object") {
+    for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
       if (!v || typeof v !== "object") continue;
-      const rawE = (v as { earned?: unknown }).earned;
-      const rawS = (v as { spent?: unknown }).spent;
-      const earned =
-        typeof rawE === "number" && Number.isFinite(rawE)
-          ? Math.max(0, Math.floor(rawE))
-          : 0;
-      const spent =
-        typeof rawS === "number" && Number.isFinite(rawS)
-          ? Math.max(0, Math.floor(rawS))
-          : 0;
-      // earned > 0 인 그룹만 보존. spent 는 earned 초과 불가(손상 방어).
+      const earned = posInt((v as { earned?: unknown }).earned);
+      const spent = posInt((v as { spent?: unknown }).spent);
+      const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
+      // earned > 0 인 그룹만. spent 는 earned 초과 불가(손상 방어).
       if (earned > 0) {
-        out[k] = { earned, spent: Math.min(spent, earned) };
+        groups[k] = { earned, spent: Math.min(spent, earned), cultivations };
       }
     }
   }
-  return { groups: out };
+  const caps: Partial<Record<V2StatKey, number>> = {};
+  if (obj.caps && typeof obj.caps === "object") {
+    const rawCaps = obj.caps as Record<string, unknown>;
+    for (const stat of V2_STAT_KEYS) {
+      const c = rawCaps[stat];
+      // base 초과만 저장(기본값과 구분 — 줄어든 손상값은 base 로 폴백).
+      if (typeof c === "number" && Number.isFinite(c) && c > V2_STAT_CAP_BASE) {
+        caps[stat] = Math.floor(c);
+      }
+    }
+  }
+  return { groups, caps };
 }
 
 // 총 숙련도 = 모든 직업군 earned 합.
@@ -62,18 +99,60 @@ export function groupUsable(p: V2ProficiencyState, group: string): number {
   return g ? Math.max(0, g.earned - g.spent) : 0;
 }
 
-// 적립 — group 의 earned += amount. 비파괴(새 객체 반환). none/빈 group/0 이하는 무변경.
+export function cultivationCount(p: V2ProficiencyState, group: string): number {
+  return p.groups[group]?.cultivations ?? 0;
+}
+
+// stat cap — 수행으로 올린 값, 미지정이면 기본 cap.
+export function statCap(p: V2ProficiencyState, stat: V2StatKey): number {
+  return p.caps[stat] ?? V2_STAT_CAP_BASE;
+}
+
+// 적립 — group 의 earned += amount. 비파괴. none/빈 group/0 이하는 무변경.
 export function addEarned(
   p: V2ProficiencyState,
   group: string,
   amount: number,
 ): V2ProficiencyState {
   if (amount <= 0 || !group || group === "none") return p;
-  const cur = p.groups[group] ?? { earned: 0, spent: 0 };
+  const cur = p.groups[group] ?? { earned: 0, spent: 0, cultivations: 0 };
   return {
+    ...p,
     groups: {
       ...p.groups,
-      [group]: { earned: cur.earned + amount, spent: cur.spent },
+      [group]: { ...cur, earned: cur.earned + amount },
+    },
+  };
+}
+
+// 수행 1회 — 사용가능 숙련도 cost 소모 + 현 직업 프로필 stat cap 상승 + cultivations++.
+// 사용가능 부족/유효하지 않은 직업군이면 null. 비파괴.
+export function applyCultivation(
+  p: V2ProficiencyState,
+  group: string,
+): { next: V2ProficiencyState; cost: number } | null {
+  const profile = V2_CULTIVATE_PROFILE[group];
+  if (!profile) return null; // none/무효 직업군
+  const cost = cultivationCost(cultivationCount(p, group));
+  if (groupUsable(p, group) < cost) return null; // 사용가능 부족
+  const cur = p.groups[group] ?? { earned: 0, spent: 0, cultivations: 0 };
+  const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
+  for (const stat of V2_STAT_KEYS) {
+    const gain = profile[stat] ?? 0;
+    if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? V2_STAT_CAP_BASE) + gain;
+  }
+  return {
+    cost,
+    next: {
+      groups: {
+        ...p.groups,
+        [group]: {
+          earned: cur.earned,
+          spent: cur.spent + cost,
+          cultivations: cur.cultivations + 1,
+        },
+      },
+      caps: nextCaps,
     },
   };
 }

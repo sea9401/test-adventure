@@ -17,6 +17,8 @@ import {
   totalEarned,
   groupEarned,
   groupUsable,
+  cultivationCount,
+  cultivationCost,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import {
@@ -272,10 +274,13 @@ export async function GET() {
       return {
         total: totalEarned(prof),
         groups: prof.groups,
+        caps: prof.caps,
         current: {
           group,
           earned: groupEarned(prof, group),
           usable: groupUsable(prof, group),
+          cultivations: cultivationCount(prof, group),
+          nextCost: cultivationCost(cultivationCount(prof, group)),
         },
       };
     })(),

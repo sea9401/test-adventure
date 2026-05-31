@@ -207,8 +207,8 @@ export function V2DungeonFloorView({
           </span>
         </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {floor.requirement.kind === "level"
-            ? `권장 레벨 ${floor.requirement.min}~${floor.requirement.max}`
+          {floor.requirement.kind === "power"
+            ? `권장 파워 ${floor.requirement.min}`
             : `엔드 컨텐츠 ${floor.requirement.tier}`}
         </p>
       </header>

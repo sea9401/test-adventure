@@ -53,8 +53,8 @@ export function V2DungeonList({
                       {floor.name}
                     </div>
                     <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      {floor.requirement.kind === "level"
-                        ? `Lv ${floor.requirement.min}~${floor.requirement.max}`
+                      {floor.requirement.kind === "power"
+                        ? `권장 파워 ${floor.requirement.min}`
                         : `엔드 ${floor.requirement.tier}`}
                     </div>
                   </div>

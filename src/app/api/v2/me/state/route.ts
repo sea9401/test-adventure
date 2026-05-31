@@ -28,6 +28,7 @@ import {
   signatureLearnCost,
 } from "@/adventure/data/v2/proficiency";
 import { parseV2Element } from "@/adventure/data/v2/elements";
+import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
   V2_CODEX_TOTAL,
   discoveredMaterialIds,
@@ -235,6 +236,15 @@ export async function GET() {
         spd: combat.player.spd,
         // 마법 공격력 — INT 환산. 0(물리 빌드)이면 StatsPanel 이 숨김.
         magicAtk: combat.player.magicAtk ?? 0,
+        // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
+        power: derivePowerScore({
+          atk: combat.player.atk,
+          magicAtk: combat.player.magicAtk ?? 0,
+          def: combat.player.def,
+          spd: combat.player.spd,
+          maxHp,
+          maxMp,
+        }),
       }
     : null;
 

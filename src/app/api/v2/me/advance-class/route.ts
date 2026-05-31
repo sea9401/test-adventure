@@ -6,8 +6,16 @@ import {
   parseV2Class,
   nextTierClassOf,
   signaturesForClass,
+  tier1ClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
+import {
+  parseProficiency,
+  setGrown,
+  setGroupTier,
+  emptyProficiency,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -108,11 +116,15 @@ export async function POST() {
       };
     }
 
+    // PR-prof — 전직 시 레벨 1 리셋 + 랜덤 성장(grown) 리셋. 스탯은 floor(숙련도 누적)부터
+    // 다시 키운다(prestige 루프, docs §2·§5). exp 도 0.
     const nextGold = gold - cost;
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       class: nextClass,
       gold: nextGold,
+      level: 1,
+      exp: 0,
     });
 
     // 키트 = 직업 시그니처 체인뿐 (교관/스타터 폐지). 전직 후 통째 reconcile + 자동 장착.
@@ -122,6 +134,21 @@ export async function POST() {
       learned: [...sigs],
       equipped: [...sigs],
     });
+
+    // 숙련도 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
+    const group = tier1ClassOf(nextClass);
+    const profSave = await lockSaveForUpdate<V2ProficiencyState>(
+      tx,
+      userId,
+      "proficiency.v2",
+      emptyProficiency(),
+    );
+    const nextProf = setGroupTier(
+      setGrown(parseProficiency(profSave), {}),
+      group,
+      V2_CLASS_DEFS[nextClass].tier,
+    );
+    await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
     return {
       status: 200,

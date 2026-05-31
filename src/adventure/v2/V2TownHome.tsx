@@ -3,7 +3,6 @@
 import {
   Barbell,
   FirstAid,
-  GraduationCap,
   Hammer,
   Shield,
   Sparkle,
@@ -20,7 +19,6 @@ export type TownAction =
   | { kind: "open-training" }
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
-  | { kind: "open-instructors" }
   | { kind: "open-guild-hall" };
 
 export function V2TownHome({
@@ -68,18 +66,6 @@ export function V2TownHome({
           title="대장간"
           description="장비를 두드려 벼리는 곳. 준비 중."
           onClick={() => onAction({ kind: "open-smithy" })}
-        />
-        <EntryCard
-          icon={
-            <GraduationCap
-              size={28}
-              weight="duotone"
-              className="text-sky-500"
-            />
-          }
-          title="전직 교관"
-          description="6스탯 교관에게 골드를 내고 스킬을 배운다."
-          onClick={() => onAction({ kind: "open-instructors" })}
         />
         <EntryCard
           icon={<Shield size={28} weight="duotone" className="text-indigo-500" />}

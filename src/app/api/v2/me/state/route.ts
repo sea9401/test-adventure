@@ -8,7 +8,7 @@ import {
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
+import { ensureV2ClassSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { parseV2Class } from "@/adventure/data/v2/classes";
@@ -39,12 +39,12 @@ export async function GET() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // ensureV2StarterSkills 는 idempotent write — 기존 staging 유저가 PR-1 카탈로그
-  // 도입 후 첫 me/state 호출 시 자동 백필. 학습 6종+equipped 채워져 있으면 noop.
+  // ensureV2ClassSkills 는 idempotent — skills.v2 를 character.v2.class 의 시그니처로
+  // reconcile (교관/스타터 폐지 후 직업이 키트를 전적 결정). 일치하면 noop.
   // 길드는 더 이상 자동 생성 X — null 이면 무소속.
   const guildId = await db.transaction(async (tx) => {
     const gid = await getGuildId(tx, userId);
-    await ensureV2StarterSkills(tx, userId);
+    await ensureV2ClassSkills(tx, userId);
     await ensureV2Character(tx, userId);
     return gid;
   });

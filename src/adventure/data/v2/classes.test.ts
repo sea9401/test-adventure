@@ -7,6 +7,7 @@ import {
   tier1ClassOf,
   tier2ClassOf,
   nextTierClassOf,
+  signaturesForClass,
 } from "./classes";
 import { V2_SKILLS } from "./v2Skills";
 import { V2_STAT_KEYS } from "./v2StatKeys";
@@ -189,6 +190,27 @@ describe("v2 3·4차 전직 (트리 완성)", () => {
       if (def.tier === 3) expect(def.advanceCodexMin, `${c}`).toBe(3);
       else if (def.tier === 4) expect(def.advanceCodexMin, `${c}`).toBe(5);
       else expect(def.advanceCodexMin, `${c}`).toBeUndefined();
+    }
+  });
+
+  it("signaturesForClass — 1차→c 시그니처 체인 (none=빈, 길이=차수, 시그니처 보유)", () => {
+    expect(signaturesForClass("none")).toEqual([]);
+    expect(signaturesForClass("swordsman")).toEqual(["v2_skill_blade_dance"]);
+    expect(signaturesForClass("swordgod")).toEqual([
+      "v2_skill_blade_dance",
+      "v2_skill_moonlight_slash",
+      "v2_skill_heaven_sword",
+      "v2_skill_infinity_blade",
+    ]);
+    for (const c of V2_CLASSES) {
+      if (c === "none") continue;
+      const sigs = signaturesForClass(c);
+      // 길이 = 차수(각 단계 1개씩), 전부 카탈로그 존재, 같은 직업군.
+      expect(sigs.length, `${c} 체인 길이`).toBe(V2_CLASS_DEFS[c].tier);
+      for (const id of sigs) {
+        expect(V2_SKILLS[id], `${id} 카탈로그`).toBeDefined();
+        expect(V2_SKILLS[id].learn?.requireClass, `${id} requireClass`).toBeTruthy();
+      }
     }
   });
 });

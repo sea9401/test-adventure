@@ -4,7 +4,7 @@ import { users, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
-import { ensureV2StarterSkills } from "@/lib/server/v2Skills";
+import { ensureV2ClassSkills } from "@/lib/server/v2Skills";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
 
@@ -149,10 +149,9 @@ export async function POST(req: Request) {
           accessory: "v2_silver_ring",
         },
       });
-      // v2 스타터 스킬 6종 (강타/연격/회복/질주/행운/명상) — PR-2 (사용자 spec
-      // 2026-05-28). ensureV2StarterSkills 가 idempotent — 신규 분기에서 한 번 시드,
-      // 기존 staging 유저는 me/state 첫 호출 시 백필.
-      await ensureV2StarterSkills(tx, uid);
+      // v2 스킬 키트 = 직업 시그니처뿐 (교관/스타터 폐지). 신규 캐는 무직(none)이라
+      // 시드할 스킬 없음 — 직업 선택/전직 시 ensureV2ClassSkills 가 reconcile. idempotent.
+      await ensureV2ClassSkills(tx, uid);
       return profile;
     });
 

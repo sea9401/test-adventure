@@ -5,6 +5,7 @@ import {
   V2_CLASS_DEFS,
   parseV2Class,
   nextTierClassOf,
+  signaturesForClass,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -114,14 +115,13 @@ export async function POST() {
       gold: nextGold,
     });
 
-    // 2차 전용 스킬 자동 학습 — 이미 보유면 그대로.
-    const sig = V2_CLASS_DEFS[nextClass].signatureSkill;
-    if (sig && !skills.learned.includes(sig)) {
-      await upsertSave(tx, userId, "skills.v2", {
-        ...skills,
-        learned: [...skills.learned, sig],
-      });
-    }
+    // 키트 = 직업 시그니처 체인뿐 (교관/스타터 폐지). 전직 후 통째 reconcile + 자동 장착.
+    const sigs = signaturesForClass(nextClass);
+    await upsertSave(tx, userId, "skills.v2", {
+      ...skills,
+      learned: [...sigs],
+      equipped: [...sigs],
+    });
 
     return {
       status: 200,

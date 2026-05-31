@@ -35,6 +35,7 @@ import {
   parseV2Class,
   type V2Class,
 } from "@/adventure/data/v2/classes";
+import { parseProficiency } from "@/adventure/data/v2/proficiency";
 import { EVASION_PCT_CAP } from "@/adventure/data/stats";
 import {
   V2_STAT_KEYS,
@@ -69,10 +70,6 @@ type SavedCharacterV2 = {
   // PR-7a — equippedSpells 는 옛 spell 시스템 잔재. parse 단계에서 무시되며 PR-7b 마이그
   // 가 v2_skill_meditate 자동 학습 부여로 대체. 필드는 옛 캐릭 save 호환 위해 보존.
   equippedSpells?: unknown;
-};
-
-type SavedTrainingV2 = {
-  allocated?: Partial<Record<V2StatKey, number>>;
 };
 
 export type DerivedPlayerCombatV2 = {
@@ -222,8 +219,10 @@ export { V2_BASE_STATS, V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2S
 // arenaBots 가 saves 없이 봇 PlayerCombat 빌드할 때 호출. DB wrapper 는 saves 로드 후 위임.
 export type DerivePlayerCombatV2PureInput = {
   level: number;
-  /** training.allocated — V2_BASE_STATS 위에 더해질 분배 포인트. */
+  /** 1차 스탯 성장분 — V2_BASE_STATS 위에 더해질 값(랜덤 레벨 성장 grownStats). 옛 수동 분배 대체. */
   allocatedStats?: Partial<Record<V2StatKey, number>>;
+  /** stat 별 cap(수행으로 상향). 미지정 스탯/입력은 무클램프 — sim 등 호환. */
+  statCaps?: Partial<Record<V2StatKey, number>>;
   /** parseEquipmentSave().equipped — 슬롯별 장비 id. */
   v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   /** parseEquipmentSave().durability — id별 내구도. 0(broken)이면 그 장비 비활성(PR-4b). */
@@ -245,10 +244,13 @@ export function derivePlayerCombatV2Pure(
   const v2Equipped = input.v2Equipped ?? {};
   const equipAcc = aggregateV2Equipment(v2Equipped, input.v2Durability);
 
-  // baseAllocatedStats = V2_BASE_STATS + allocated (6 1차 스탯, 장비 제외).
+  // baseAllocatedStats = V2_BASE_STATS + 성장분, stat 별 cap 으로 클램프(수행으로 cap 상향).
+  // PR-prof — 랜덤 레벨 성장은 cap 까지만(docs §2). statCaps 미지정이면 무클램프(sim 호환).
   const baseAllocatedStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
     (acc, k) => {
-      acc[k] = (V2_BASE_STATS[k] ?? 0) + (input.allocatedStats?.[k] ?? 0);
+      const raw = (V2_BASE_STATS[k] ?? 0) + (input.allocatedStats?.[k] ?? 0);
+      const cap = input.statCaps?.[k];
+      acc[k] = cap != null ? Math.min(raw, cap) : raw;
       return acc;
     },
     emptyV2StatMap(),
@@ -396,28 +398,32 @@ export async function derivePlayerCombatV2(
         eq(savesKv.userId, userId),
         inArray(savesKv.key, [
           "character.v2",
-          "training.v2",
           "equipment.v2",
+          "proficiency.v2",
         ]),
       ),
     );
 
   let character: SavedCharacterV2 | undefined;
-  let training: SavedTrainingV2 = {};
   let equipmentSave: unknown = undefined;
+  let proficiencyRaw: unknown = undefined;
   for (const r of rows) {
     if (r.key === "character.v2") character = r.value as SavedCharacterV2;
-    else if (r.key === "training.v2") training = (r.value ?? {}) as SavedTrainingV2;
     else if (r.key === "equipment.v2") equipmentSave = r.value;
+    else if (r.key === "proficiency.v2") proficiencyRaw = r.value;
   }
   if (!character) return null;
 
   const { equipped: v2Equipped, durability: v2Durability } =
     parseEquipmentSave(equipmentSave);
+  // PR-prof — 1차 스탯 = 랜덤 레벨 성장(prof.grown), cap = 수행(prof.caps).
+  // 옛 수동 분배(training.allocated) 폐기.
+  const prof = parseProficiency(proficiencyRaw);
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
-    allocatedStats: training.allocated,
+    allocatedStats: prof.grown,
+    statCaps: prof.caps,
     v2Equipped,
     v2Durability,
     hp: character.hp,

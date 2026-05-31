@@ -26,6 +26,14 @@ function requiredExpToNextNullable(level: number): number | null {
 import { MONSTERS } from "@/adventure/data/monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  parseProficiency,
+  addEarned,
+  emptyProficiency,
+  V2_PROFICIENCY_PER_KILL,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
 import {
   elementDamageMult,
   elementMatchup,
@@ -652,6 +660,26 @@ export async function POST(req: Request) {
         points:
           curPoints + expResult.levelsGained * V2_STAT_POINTS_PER_LEVEL,
       });
+    }
+
+    // PR-prof — 승리 시 현재 직업군에 숙련도 적립(직업 마스터리). none(무직)은 적립 없음.
+    // 직업군 키 = tier1ClassOf(검술=swordsman 등). lock 순서: character.v2 다음(다른 키).
+    if (won) {
+      const group = tier1ClassOf(parseV2Class(charSave.class));
+      if (group !== "none") {
+        const profSave = await lockSaveForUpdate<V2ProficiencyState>(
+          tx,
+          userId,
+          "proficiency.v2",
+          emptyProficiency(),
+        );
+        const nextProf = addEarned(
+          parseProficiency(profSave),
+          group,
+          V2_PROFICIENCY_PER_KILL,
+        );
+        await upsertSave(tx, userId, "proficiency.v2", nextProf);
+      }
     }
 
     // 세금 transfer — 위에서 정렬된 순서로 이미 lock 한 ownerSave 에 gold 추가.

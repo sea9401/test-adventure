@@ -7,8 +7,22 @@ import {
   V2_ELEMENT_CYCLE,
   type V2Element,
 } from "./elements";
+import { V2_SKILLS } from "./v2Skills";
 
 describe("v2 dungeon", () => {
+  it("statusSkill 은 monsterOnly v2 스킬만, 1구역(신규)엔 없음 (PR-9)", () => {
+    for (const floor of MAIN_DUNGEON.floors) {
+      for (const e of floor.enemies) {
+        if (!e.statusSkill) continue;
+        const s = V2_SKILLS[e.statusSkill];
+        expect(s, `${e.key} statusSkill ${e.statusSkill} 미존재`).toBeDefined();
+        expect(s.monsterOnly, `${e.statusSkill} monsterOnly`).toBe(true);
+        // 1구역(Lv1~5)은 상태이상 없음 — 신규 온보딩 보호.
+        expect(floor.id, `${e.key} 가 1구역인데 statusSkill`).toBeGreaterThan(1);
+      }
+    }
+  });
+
   it("모든 enemy 이름이 라이브 MONSTERS 에 존재", () => {
     for (const floor of MAIN_DUNGEON.floors) {
       for (const enemy of floor.enemies) {

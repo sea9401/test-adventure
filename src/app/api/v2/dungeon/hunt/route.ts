@@ -378,6 +378,16 @@ export async function POST(req: Request) {
       name: enemyName,
       image: enemy.image ?? baseMonster.image,
       element: monsterElement, // PR-5b — 스킬 cast 상성 계산용.
+      // PR-9 — 사냥터 몹 상태이상. v2 전용(라이브 Monster 무수정, 이 enemyMonster 로컬 객체만).
+      // 엔진 적 페이즈가 enemy.v2Skills 를 cast → DoT/디버프 플레이어 적용. mpCost 0 라 자원 무관.
+      ...(enemy.statusSkill
+        ? {
+            v2Skills: {
+              learned: [enemy.statusSkill],
+              equipped: [enemy.statusSkill],
+            },
+          }
+        : {}),
     };
 
     // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".

@@ -120,3 +120,34 @@ describe("parseV2SkillsState", () => {
     expect(r.equipped).toEqual(ids);
   });
 });
+
+describe("몬스터 상태이상 스킬 (PR-9)", () => {
+  const MOB_SKILLS = [
+    "mob_venom_bite",
+    "mob_chilling_touch",
+    "mob_rending_claw",
+  ] as const;
+
+  it("3종 monsterOnly + learn 없음(플레이어 미학습) + mpCost 0", () => {
+    for (const id of MOB_SKILLS) {
+      const s = V2_SKILLS[id];
+      expect(s.monsterOnly, `${id} monsterOnly`).toBe(true);
+      expect(s.learn, `${id} learn`).toBeUndefined();
+      expect(s.mpCost, `${id} mp`).toBe(0);
+      // 순수 상태이상 — damage effect 없음, dot/enemyDebuff 만.
+      for (const e of s.effects) {
+        expect(["dot", "enemyDebuff"]).toContain(e.kind);
+      }
+    }
+  });
+
+  it("스타터/플레이어 학습 목록에 안 섞임 (UI 누출 방지)", () => {
+    for (const id of MOB_SKILLS) {
+      expect(V2_STARTER_SKILL_IDS).not.toContain(id);
+    }
+    // 플레이어 학습 가능 스킬(learn 보유)에 monsterOnly 가 하나도 없어야.
+    for (const s of Object.values(V2_SKILLS)) {
+      if (s.monsterOnly) expect(s.learn).toBeUndefined();
+    }
+  });
+});

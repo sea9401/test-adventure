@@ -26,7 +26,9 @@ import {
 const MAX_GRANT = 1_000_000_000;
 
 function clampInt(n: unknown, min: number, max: number): number {
-  if (typeof n !== "number" || !Number.isFinite(n)) return 0;
+  // 비-숫자/NaN 입력은 min 으로 — setLevel(min=1)이 0 으로 떨어져 level:0 을 저장하는
+  // 버그 방지. exp/gold/charges 는 min=0 이라 동작 동일(무효 입력 → 0 → 건너뜀).
+  if (typeof n !== "number" || !Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 

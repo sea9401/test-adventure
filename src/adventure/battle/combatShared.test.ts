@@ -18,6 +18,10 @@ import {
 } from "./combatShared";
 import type { PlayerCombat } from "./engine";
 import type { Potion } from "../data/potions";
+import {
+  V2_DOT_PRESETS,
+  V2_DEBUFF_PRESETS,
+} from "../data/v2/statusEffects";
 import { V2_SKILLS } from "../data/v2/v2Skills";
 
 afterEach(() => vi.restoreAllMocks());
@@ -194,6 +198,32 @@ function castFrameworkOnly(args: {
     target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
   });
 }
+
+describe("몬스터 상태이상 스킬 cast (PR-9 — 적→플레이어 적용)", () => {
+  it("독니(mob_venom_bite) → 대상에 중독 DoT 적용", () => {
+    const r = castFrameworkOnly({
+      skills: { learned: ["mob_venom_bite"], equipped: ["mob_venom_bite"] },
+      cooldowns: {},
+      mp: 0,
+    });
+    expect(r.castSkillId).toBe("mob_venom_bite");
+    expect(r.dotsToApplyToTarget).toContainEqual(V2_DOT_PRESETS.중독);
+    expect(r.enemyDamage).toBe(0); // 순수 상태이상 — 직접 피해 없음
+  });
+
+  it("한기(mob_chilling_touch) → 대상에 둔화(속도−) 디버프 적용", () => {
+    const r = castFrameworkOnly({
+      skills: {
+        learned: ["mob_chilling_touch"],
+        equipped: ["mob_chilling_touch"],
+      },
+      cooldowns: {},
+      mp: 0,
+    });
+    expect(r.castSkillId).toBe("mob_chilling_touch");
+    expect(r.enemyDebuffsToApply).toContainEqual(V2_DEBUFF_PRESETS.둔화);
+  });
+});
 
 describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
   it("발동 가능 — cd tick + MP 차감 + 발동 스킬 cd 세팅 (lockout = N 턴)", () => {

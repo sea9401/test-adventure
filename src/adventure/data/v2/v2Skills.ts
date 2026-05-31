@@ -13,6 +13,7 @@
 import type { StatKey } from "@/adventure/data/stats";
 import type { V2Class } from "./classes";
 import type { V2Element } from "./elements";
+import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -49,6 +50,11 @@ export type V2SkillId =
   | "v2_skill_meteor" // 대마법사 전용 — 메테오 (INT)
   | "v2_skill_blessing" // 주교 전용 — 축복의 빛 (SPI)
   | "v2_skill_shadow_clones" // 그림자 주인 전용 — 그림자 분신 (LUK)
+  // ── 몬스터 전용 상태이상 (PR-9) — 플레이어 미학습, 몹 v2Skills 로만 ──────
+  | "mob_venom_bite" // 독니 — 중독(DoT)
+  | "mob_chilling_touch" // 한기 — 둔화(속도−)
+  | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
+  // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
   | "dex_needle_flurry_t2" // DEX 바늘 연격
   | "dex_true_thrust_t2" // DEX 정밀 관통
   | "dex_mirage_step_t2" // DEX 잔영 보법
@@ -73,6 +79,12 @@ export type V2SkillId =
 // 물리 atk 없이도 데미지를 내는 별도 경로. DEF 는 물리·마법 공유(마법저항 미신설).
 // dot (PR-8) = 지속 피해 (DoT). label 은 UI 표시·중복 정책에 사용 (같은 label 박히면 turns refresh).
 // dmgPerTurn 은 raw 정수 — DEF 무시. 매 target turn 진입 시 적용.
+// PR-9 — 몬스터 전용 상태이상 스킬 id (DungeonEnemy.statusSkill 부착 타입 안전).
+export type V2MonsterStatusSkillId =
+  | "mob_venom_bite"
+  | "mob_chilling_touch"
+  | "mob_rending_claw";
+
 export type V2SkillEffect =
   | { kind: "damage"; statCoef: number; baseFlat?: number; scaling?: "physical" | "magic" }
   | { kind: "heal"; pctMaxHp?: number; flat?: number }
@@ -108,6 +120,8 @@ export type V2SkillDefinition = {
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
+  /** PR-9 — 몬스터 전용 스킬(상태이상 부착). 플레이어 교관/학습 UI 에서 제외, 몹만 v2Skills 로 보유. */
+  monsterOnly?: boolean;
   /** 스타터 (자동 보유) 는 learn 미사용. tier>=2 부터 교관 구매. */
   learn?: V2SkillLearnRequirement;
 };
@@ -721,6 +735,45 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
       { kind: "damage", statCoef: 2.6, baseFlat: 14, scaling: "physical" },
     ],
     learn: { goldCost: 0, requireClass: "nightblade" },
+  },
+
+  // ── 몬스터 전용 상태이상 (PR-9) — monsterOnly, learn 없음(플레이어 미학습), mpCost 0. ──
+  // 순수 상태이상 부착(직접 데미지 없음). 엔진 적 페이즈에서 플레이어에게 적용.
+  mob_venom_bite: {
+    id: "mob_venom_bite",
+    name: "독니",
+    stat: "vit",
+    category: "attack",
+    tier: 2,
+    description: "독을 주입해 중독시킨다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [{ kind: "dot", ...V2_DOT_PRESETS.중독 }],
+  },
+  mob_chilling_touch: {
+    id: "mob_chilling_touch",
+    name: "한기",
+    stat: "vit",
+    category: "attack",
+    tier: 2,
+    description: "냉기로 움직임을 둔하게 한다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [{ kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.둔화 }],
+  },
+  mob_rending_claw: {
+    id: "mob_rending_claw",
+    name: "살점 뜯기",
+    stat: "vit",
+    category: "attack",
+    tier: 2,
+    description: "깊은 상처로 출혈시킨다.",
+    mpCost: 0,
+    cooldown: 3,
+    monsterOnly: true,
+    effects: [{ kind: "dot", ...V2_DOT_PRESETS.출혈 }],
   },
 };
 

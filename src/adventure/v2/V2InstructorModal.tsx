@@ -48,7 +48,7 @@ export function V2InstructorModal({
   // 이 교관의 스킬 — stat 매칭 + tier 정렬.
   const skillsList = useMemo<V2SkillDefinition[]>(() => {
     return Object.values(V2_SKILLS)
-      .filter((s) => s.stat === instructor.stat)
+      .filter((s) => !s.monsterOnly && s.stat === instructor.stat)
       .sort((a, b) => a.tier - b.tier);
   }, [instructor.stat]);
 

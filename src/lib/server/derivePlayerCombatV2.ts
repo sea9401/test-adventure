@@ -198,13 +198,14 @@ const CRIT_DMG_PER_LUK = 0.006;
 // 크리 데미지 배수 안전 상한 — 현재 Lv100 LUK(luk~349)는 4.09× 라 미바인딩이지만, 미래
 // 장비/스탯 인플레가 무한정 키우지 않게 cap. luk 500 에서 바인딩(현 만렙 도달 불가).
 const CRIT_MULT_CAP = 5.0;
-// PR-magic — 마법 공격력(magicAtk = INT 환산). 물리 atk(str×0.2)와 분리된 별도 데미지 풀.
-// scaling="magic" 스킬(비전 화살·마력 폭발)만 이 값으로 스케일한다(combatShared.v2DamageAmount).
-// 마법 빌드는 평타가 약한(물리 atk ~7) 대신 스킬 coef 프리미엄(1.5/1.7)으로 버는 구조라
-// STR(0.2)보다 높게 둔다. 0.35 — sim-v2-progression --skills 캘리브: INT wr Lv25 82%·
-// Lv50 83%(STR 동률, winT 7.3 버스트형)로 pack 상중위. INT 0 빌드는 magicAtk 0 → 비활성.
-// 알려진 공백: Lv18 전엔 마법 공격 스킬(비전 화살)이 없어 INT 초반이 약함(상수 무관, 후속).
-const MAGIC_ATK_PER_INT = 0.35;
+// PR-magic — 마법 공격력(magicAtk = INT 환산 + 무기 위력). scaling="magic" 스킬만 이 값으로
+// 스케일(combatShared.v2DamageAmount). INT 0 빌드는 magicAtk 0(+무기 위력) → 마법 경로 비활성.
+// PR-8 캘리브 — 0.35 → **0.2 (= ATK_PER_STR 대칭)**. PR-4a 에서 무기 위력이 magicAtk 에 합산되며
+// "무기+지능" 데미지가 물리 "무기+힘"을 압도(sim --skills: INT winT 2.8~3.7 로 STR 7~9 의 2~3배)
+// → 문서 §8 의도대로 지능 단독계수를 힘과 대칭으로 낮춤. 재측정: INT winT Lv50 4.8·Lv75 6.5·
+// Lv100 6.6 으로 STR(7~9)과 동률대, wr 도 STR 동률(Lv75 89%). 마법 버스트 정체성은 스킬 coef
+// 프리미엄(메테오 2.8 등)으로 유지. 알려진 공백: Lv18 전 마법 공격 스킬 부재(상수 무관, 후속).
+const MAGIC_ATK_PER_INT = 0.2;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 

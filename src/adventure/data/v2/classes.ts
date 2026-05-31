@@ -55,10 +55,12 @@ export type V2ClassDef = {
   statBonusPct: number;
   /** 전용 스킬 — 이 직업 선택/전직 시 자동 학습, 타 직업은 학습 불가(requireClass 게이트). */
   signatureSkill?: V2SkillId;
-  /** 2차 전용 — 이 직업으로 전직하기 위한 선행 1차 직업. */
+  /** 상위 차수 전용 — 이 직업으로 전직하기 위한 직전 차수 직업. */
   advanceFrom?: V2Class;
-  /** 2차 전용 — 전직 가능 최소 레벨. */
+  /** 상위 차수 전용 — 전직 가능 최소 레벨. */
   advanceLevel?: number;
+  /** 3·4차 전용 — 전직에 필요한 모험의 서(재료 도감) 등재 종 수. 미지정 = 도감 요건 없음. */
+  advanceCodexMin?: number;
   description: string;
 };
 
@@ -222,6 +224,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_heaven_sword",
     advanceFrom: "swordmaster",
     advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    advanceCodexMin: 3,
     description: "검술 3차. 검이 손에 익는다. 힘 보정이 한층 깊어진다. 전용 스킬 쾌검.",
   },
   bowking: {
@@ -234,6 +237,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_sky_volley",
     advanceFrom: "sharpshooter",
     advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    advanceCodexMin: 3,
     description: "궁술 3차. 좀처럼 빗나가지 않는다. 민첩 보정이 한층 깊어진다. 전용 스킬 연사.",
   },
   fistemperor: {
@@ -246,6 +250,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_mountain_breaker",
     advanceFrom: "grandmaster",
     advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    advanceCodexMin: 3,
     description: "체술 3차. 주먹에 무게가 실린다. 활력 보정이 한층 깊어진다. 전용 스킬 붕격.",
   },
   sage: {
@@ -258,6 +263,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_void_eclipse",
     advanceFrom: "archmage",
     advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    advanceCodexMin: 3,
     description: "마술 3차. 마력을 더 깊이 다룬다. 지능 보정이 한층 깊어진다. 전용 스킬 공허탄.",
   },
   archbishop: {
@@ -270,6 +276,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_grand_heal",
     advanceFrom: "bishop",
     advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    advanceCodexMin: 3,
     description: "신술 3차. 가호가 넓어진다. 정신 보정이 한층 깊어진다. 전용 스킬 치유의 빛.",
   },
   shadowlord: {
@@ -282,6 +289,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_shadow_swarm",
     advanceFrom: "nightblade",
     advanceLevel: V2_TIER3_ADVANCE_LEVEL,
+    advanceCodexMin: 3,
     description: "인술 3차. 그림자를 다루기 시작한다. 행운 보정이 한층 깊어진다. 전용 스킬 암습.",
   },
   // ── 4차 (3차에서 Lv70+ 전직, 직업군 정점, 앵커 +35% + 4차 전용 스킬) ──
@@ -295,6 +303,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_infinity_blade",
     advanceFrom: "swordking",
     advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    advanceCodexMin: 5,
     description: "검술 정점. 검을 제 손발처럼 부린다. 힘 보정이 극에 달한다. 전용 스킬 절검.",
   },
   bowgod: {
@@ -307,6 +316,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_divine_arrow",
     advanceFrom: "bowking",
     advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    advanceCodexMin: 5,
     description: "궁술 정점. 노린 곳을 반드시 맞힌다. 민첩 보정이 극에 달한다. 전용 스킬 일점사.",
   },
   warlord: {
@@ -319,6 +329,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_titan_collapse",
     advanceFrom: "fistemperor",
     advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    advanceCodexMin: 5,
     description: "체술 정점. 무너지지 않는 몸과 주먹. 활력 보정이 극에 달한다. 전용 스킬 붕산권.",
   },
   magus: {
@@ -331,6 +342,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_apocalypse_flame",
     advanceFrom: "sage",
     advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    advanceCodexMin: 5,
     description: "마술 정점. 마력의 이치를 꿰뚫는다. 지능 보정이 극에 달한다. 전용 스킬 업화.",
   },
   pope: {
@@ -343,6 +355,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_holy_descent",
     advanceFrom: "archbishop",
     advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    advanceCodexMin: 5,
     description: "신술 정점. 가장 깊은 가호. 정신 보정이 극에 달한다. 전용 스킬 심판의 빛.",
   },
   voidwalker: {
@@ -355,6 +368,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     signatureSkill: "v2_skill_void_assassinate",
     advanceFrom: "shadowlord",
     advanceLevel: V2_TIER4_ADVANCE_LEVEL,
+    advanceCodexMin: 5,
     description: "인술 정점. 그림자에서 급소만 끊는다. 행운 보정이 극에 달한다. 전용 스킬 절명.",
   },
 };

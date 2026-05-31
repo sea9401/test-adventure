@@ -11,7 +11,7 @@ import {
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 치료소만 실제 동작, 상점·훈련장·대장간은 준비 중 placeholder.
+// 치료소·상점·수행(숙련도 cap)·학습(시그니처)·길드회관 동작, 대장간은 준비 중 placeholder.
 
 export type TownAction =
   | { kind: "open-healing" }
@@ -50,16 +50,16 @@ export function V2TownHome({
           onClick={() => onAction({ kind: "open-shop" })}
         />
         <EntryCard
-          icon={<Barbell size={28} weight="duotone" className="text-slate-400" />}
-          title="훈련장"
-          description="기초를 다지는 곳. 준비 중."
-          onClick={() => onAction({ kind: "open-training" })}
+          icon={<Sparkle size={28} weight="duotone" className="text-violet-400" />}
+          title="수행"
+          description="숙련도를 들여 능력치의 한계를 끌어올리는 곳."
+          onClick={() => onAction({ kind: "open-shrine" })}
         />
         <EntryCard
-          icon={<Sparkle size={28} weight="duotone" className="text-violet-400" />}
-          title="성장의 신전"
-          description="단련을 능력치로 새겨넣는 곳."
-          onClick={() => onAction({ kind: "open-shrine" })}
+          icon={<Barbell size={28} weight="duotone" className="text-sky-500" />}
+          title="학습"
+          description="숙련도로 직업 전용 스킬을 익히고 대련하는 곳."
+          onClick={() => onAction({ kind: "open-training" })}
         />
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}

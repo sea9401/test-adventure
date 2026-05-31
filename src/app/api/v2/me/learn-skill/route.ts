@@ -78,7 +78,18 @@ export async function POST(req: Request) {
         emptyV2SkillsState(),
       ),
     );
-    // 이미 학습 → 멱등(소모 없이 현 상태 반환).
+    // 락 순서(character→skills→proficiency) 유지 — 멱등 분기 응답에도 usable 을 실어
+    // 클라 계약(state.proficiency.current.usable)과 일치시키려 여기서 미리 잠가 읽는다.
+    const group = tier1ClassOf(cls);
+    const prof = parseProficiency(
+      await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      ),
+    );
+    // 이미 학습 → 멱등(소모 없이 현 상태 반환). usable 도 그대로 surface(변동 없음).
     if (skills.learned.includes(sig)) {
       return {
         status: 200,
@@ -86,6 +97,7 @@ export async function POST(req: Request) {
           ok: true as const,
           alreadyLearned: true as const,
           skillId,
+          usable: groupUsable(prof, group),
           learned: skills.learned,
           equipped: skills.equipped,
         },
@@ -96,15 +108,7 @@ export async function POST(req: Request) {
     const sigClass = signatureClassOf(skillId) ?? cls;
     const tier = V2_CLASS_DEFS[sigClass].tier;
     const cost = signatureLearnCost(tier);
-    const group = tier1ClassOf(cls);
 
-    const profSave = await lockSaveForUpdate<V2ProficiencyState>(
-      tx,
-      userId,
-      "proficiency.v2",
-      emptyProficiency(),
-    );
-    const prof = parseProficiency(profSave);
     const spent = spendProficiency(prof, group, cost);
     if (!spent) {
       return {

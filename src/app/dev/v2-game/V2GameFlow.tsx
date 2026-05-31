@@ -10,11 +10,11 @@ import {
 } from "@/adventure/v2/V2CharacterMenu";
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2CodexView } from "@/adventure/v2/V2CodexView";
-import { V2GrowthShrineView } from "@/adventure/v2/V2GrowthShrineView";
+import { V2CultivationView } from "@/adventure/v2/V2CultivationView";
 import { V2GuildHallView } from "@/adventure/v2/V2GuildHallView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
 import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
-import { V2TrainingView } from "@/adventure/v2/V2TrainingView";
+import { V2SkillLearnView } from "@/adventure/v2/V2SkillLearnView";
 import { V2SparringView } from "@/adventure/v2/V2SparringView";
 import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
@@ -70,7 +70,7 @@ function OutpostBackground({ type }: { type: OutpostType }) {
 // v2 게임 흐름 — 5탭(모험·전투·마을·캐릭터·길드) 기반 nav.
 // 모험: placeholder
 // 전투: sub-tab(던전·지도) — 던전 사냥 + 대륙 지도 + 거점 진입
-// 마을: 마을 home(default)/성장의 신전/치료소/상점/훈련장/대장간
+// 마을: 마을 home(default)/수행(shrine)/치료소/상점/학습(training)/대장간
 // 캐릭터: 메뉴(default)/내정보/인벤토리/스킬/장비 — 내정보 안의 슬롯 클릭으로 장비 진입
 // 길드: 길드 home
 
@@ -386,7 +386,7 @@ export function V2GameFlow() {
       {/* === 마을 탭 === */}
       {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
       {view.kind === "shrine" && (
-        <V2GrowthShrineView onBack={() => setView({ kind: "town" })} />
+        <V2CultivationView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "healing" && (
         <V2HealingView onBack={() => setView({ kind: "town" })} />
@@ -395,7 +395,7 @@ export function V2GameFlow() {
         <V2ShopView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "training" && (
-        <V2TrainingView
+        <V2SkillLearnView
           onBack={() => setView({ kind: "town" })}
           onStartSparring={() => setView({ kind: "sparring" })}
         />

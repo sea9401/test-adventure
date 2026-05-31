@@ -154,3 +154,7 @@
 9. **sim 캘리브** — 적립률·수행비용·전직임계·EXP·floor 균형.
 
 각 PR Codex 검증·worktree·브랜치-PR-머지. test-adventure 리셋 허용이라 마이그는 단순 wipe.
+
+## 13. 알려진 분기 / 후속
+
+- **autoHunt(api/hunt 4h 원정)는 라이브 combat 사용** — `src/lib/server/autoHunt.ts` 가 `derivePlayerCombat`(라이브) + `baseCharacter.stats` + `training.v2.allocated` 로 sim. v2 combat(derivePlayerCombatV2)·신 스탯(proficiency.grown/caps)을 안 씀. **v2 게임 UI 에서 호출되지 않음**(api/v2 무호출 확인)이라 v2 플레이어 도달 불가지만, 향후 v2 에서 자동사냥을 살리려면 **autoHunt 를 v2 combat 으로 이관**하는 별도 PR 필요(PR-3 의 grown 전환과 무관 — 라이브 경로). 그때까지 training.v2 는 autoHunt(라이브) 전용 잔재.

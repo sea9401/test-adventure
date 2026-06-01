@@ -51,6 +51,7 @@ import {
 } from "@/adventure/v2/stamina";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
 //
@@ -134,6 +135,7 @@ export async function GET() {
     gold?: number;
     materials?: unknown;
     lastVisitedOutpost?: { outpostId?: string; at?: number };
+    discoveredOutpostIds?: string[];
   };
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
@@ -284,6 +286,11 @@ export async function GET() {
     guild: guildId == null ? null : { id: guildId, name: guildName ?? "—" },
     resources,
     currentOutpost,
+    // 발견(안개) — 방문/인접으로 공개된 거점 id 목록. 없으면(신규) 시작 거점+인접 시드.
+    discoveredOutpostIds:
+      charSave.discoveredOutpostIds && charSave.discoveredOutpostIds.length > 0
+        ? charSave.discoveredOutpostIds
+        : seededDiscovery(),
     skills: parseV2SkillsState(skillsRow?.value),
     // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
     skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),

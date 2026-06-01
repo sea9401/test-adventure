@@ -7,6 +7,8 @@ import {
   shortestOutpostPath,
   resolveCurrentOutpostId,
   canMoveToOutpost,
+  seededDiscovery,
+  expandDiscovery,
 } from "./outpostGraph";
 
 describe("v2 거점 인접 그래프 (Gabriel)", () => {
@@ -161,6 +163,50 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
       expect(resolveCurrentOutpostId("garbage_id")).toBe(START_OUTPOST_ID);
       expect(canMoveToOutpost("garbage_id", adjId)).toBe(true);
       expect(canMoveToOutpost("garbage_id", farId)).toBe(false);
+    });
+  });
+
+  describe("발견(안개) — seededDiscovery / expandDiscovery", () => {
+    it("시드 = 시작 거점 + 그 인접", () => {
+      const seed = new Set(seededDiscovery());
+      expect(seed.has(START_OUTPOST_ID)).toBe(true);
+      for (const n of getOutpostNeighbors(START_OUTPOST_ID)) {
+        expect(seed.has(n), n).toBe(true);
+      }
+    });
+
+    it("빈 상태에서 확장하면 시드 + 방문지 + 방문지 인접 포함", () => {
+      const visited = getOutpostNeighbors(START_OUTPOST_ID)[0];
+      const out = new Set(expandDiscovery(undefined, visited));
+      expect(out.has(START_OUTPOST_ID)).toBe(true); // 시드 유지
+      expect(out.has(visited)).toBe(true);
+      for (const n of getOutpostNeighbors(visited)) expect(out.has(n), n).toBe(true);
+    });
+
+    it("기존 집합을 보존하며 방문지+인접만 더한다", () => {
+      const base = [START_OUTPOST_ID];
+      const visited = getOutpostNeighbors(START_OUTPOST_ID)[0];
+      const out = new Set(expandDiscovery(base, visited));
+      expect(out.has(START_OUTPOST_ID)).toBe(true);
+      expect(out.has(visited)).toBe(true);
+    });
+  });
+
+  describe("발견 제한 경로 — shortestOutpostPath(allowed)", () => {
+    it("목적지가 allowed 밖이면 null", () => {
+      const a = START_OUTPOST_ID;
+      const b = getOutpostNeighbors(a)[0];
+      expect(shortestOutpostPath(a, b, new Set([a]))).toBeNull();
+    });
+
+    it("allowed 안에서만 경로를 찾고, 경로의 모든 노드가 allowed", () => {
+      const a = START_OUTPOST_ID;
+      const allowed = new Set(seededDiscovery()); // 시작 + 인접
+      const b = getOutpostNeighbors(a)[0]; // 인접 = allowed 안
+      const path = shortestOutpostPath(a, b, allowed);
+      expect(path).toEqual([a, b]);
+      // from 은 allowed 와 무관하게 출발점으로 허용되지만, 나머지는 모두 allowed 안.
+      for (const id of path!.slice(1)) expect(allowed.has(id), id).toBe(true);
     });
   });
 });

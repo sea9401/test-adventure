@@ -184,6 +184,27 @@ export function areOutpostsAdjacent(a: string, b: string): boolean {
   return NEIGHBORS.get(a)?.has(b) ?? false;
 }
 
+// 발견(안개) — 신규 플레이어의 초기 발견 집합: 시작 거점 + 그 인접(첫 탐험 발판).
+export function seededDiscovery(): string[] {
+  return [START_OUTPOST_ID, ...getOutpostNeighbors(START_OUTPOST_ID)];
+}
+
+// 거점 방문 시 발견 확장 — 방문한 거점 + 그 인접을 더한다(인접은 "보이지만 미방문" 프런티어).
+// current 가 비어 있으면 시드(시작 거점+인접)부터 시작. 결과는 정렬 없이 유니크 id 목록.
+export function expandDiscovery(
+  current: readonly string[] | undefined,
+  visitedId: string,
+): string[] {
+  const set = new Set<string>(
+    current && current.length > 0 ? current : seededDiscovery(),
+  );
+  if (NEIGHBORS.has(visitedId)) {
+    set.add(visitedId);
+    for (const n of getOutpostNeighbors(visitedId)) set.add(n);
+  }
+  return [...set];
+}
+
 // 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라
 // 보통 항상 존재하고, 닿지 못하면 null. 다중 홉 자동 이동(경로 미리보기 + 한 칸씩 순차
 // 진입)에 쓴다. from===to 면 [from].
@@ -211,8 +232,15 @@ export function canMoveToOutpost(
 // 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라
 // 보통 항상 존재하고, 닿지 못하면 null. 다중 홉 자동 이동(경로 미리보기 + 한 칸씩 순차
 // 진입)에 쓴다. from===to 면 [from].
-export function shortestOutpostPath(from: string, to: string): string[] | null {
+// allowed 가 주어지면 그 집합 안의 거점만 거쳐간다(발견 게이트형 안개 — 미발견 지역은
+// 통과/목적지 불가). from(현재 위치)은 allowed 와 무관하게 늘 출발점으로 허용.
+export function shortestOutpostPath(
+  from: string,
+  to: string,
+  allowed?: ReadonlySet<string>,
+): string[] | null {
   if (!NEIGHBORS.has(from) || !NEIGHBORS.has(to)) return null;
+  if (allowed && !allowed.has(to)) return null;
   if (from === to) return [from];
   const prev = new Map<string, string>();
   const seen = new Set<string>([from]);
@@ -223,6 +251,7 @@ export function shortestOutpostPath(from: string, to: string): string[] | null {
     head += 1;
     for (const nb of NEIGHBORS.get(cur)!) {
       if (seen.has(nb)) continue;
+      if (allowed && !allowed.has(nb)) continue;
       seen.add(nb);
       prev.set(nb, cur);
       if (nb === to) {

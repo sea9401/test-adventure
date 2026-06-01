@@ -60,7 +60,10 @@ const TIER1: V2Class[] = [
 const STARTER_EQUIP = {
   weapon: "v2_iron_sword",
   armor: "v2_leather_armor",
-  accessory: "v2_silver_ring",
+  gloves: "v2_leather_gloves",
+  boots: "v2_leather_boots",
+  ring: "v2_silver_ring",
+  necklace: "v2_jade_amulet",
 } as const;
 
 // 대표 몬스터 EXP(추정, median~180×배율) — 킬→레벨 환산용. earned/킬 경제 컬럼만 영향

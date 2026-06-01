@@ -147,11 +147,21 @@ export async function POST(req: Request) {
       // equipment.v2 는 SYNCED_KEYS 화이트리스트에 없는 서버 권위 키라 STARTER_SAVES
       // (클라 부트스트랩) 경로로 시드 못 함. 신규 캐릭터 분기에서만 직접 박는다.
       await upsertSave(tx, uid, "equipment.v2", {
-        owned: ["v2_iron_sword", "v2_leather_armor", "v2_silver_ring"],
+        owned: [
+          "v2_iron_sword",
+          "v2_leather_armor",
+          "v2_leather_gloves",
+          "v2_leather_boots",
+          "v2_silver_ring",
+          "v2_jade_amulet",
+        ],
         equipped: {
           weapon: "v2_iron_sword",
           armor: "v2_leather_armor",
-          accessory: "v2_silver_ring",
+          gloves: "v2_leather_gloves",
+          boots: "v2_leather_boots",
+          ring: "v2_silver_ring",
+          necklace: "v2_jade_amulet",
         },
       });
       return profile;

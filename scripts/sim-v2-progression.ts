@@ -79,10 +79,17 @@ const ARMOR_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2Equipmen
   heavy: { 1: "v2_chain_mail", 2: "v2_plate_armor", 3: "v2_full_plate", 4: "v2_silver_plate", 5: "v2_mithril_plate" },
   light: { 1: "v2_leather_armor", 2: "v2_studded_leather", 3: "v2_shadow_cloak", 4: "v2_silken_armor", 5: "v2_windweave_cloak" },
 };
-const ACC_LINE: Record<"luck" | "mana", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  luck: { 1: "v2_silver_ring", 2: "v2_gold_ring", 3: "v2_lucky_charm", 4: "v2_stardust_ring", 5: "v2_fate_ring" },
-  mana: { 1: "v2_jade_amulet", 2: "v2_rune_pendant", 3: "v2_crystal_amulet", 4: "v2_starlight_pendant", 5: "v2_mana_essence" },
+const GLOVES_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
+  heavy: { 1: "v2_iron_gauntlets", 2: "v2_steel_gauntlets", 3: "v2_plate_gauntlets", 4: "v2_silver_gauntlets", 5: "v2_mithril_gauntlets" },
+  light: { 1: "v2_leather_gloves", 2: "v2_studded_gloves", 3: "v2_shadow_gloves", 4: "v2_silken_gloves", 5: "v2_windweave_gloves" },
 };
+const BOOTS_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
+  heavy: { 1: "v2_iron_boots", 2: "v2_steel_boots", 3: "v2_plate_boots", 4: "v2_silver_boots", 5: "v2_mithril_boots" },
+  light: { 1: "v2_leather_boots", 2: "v2_studded_boots", 3: "v2_shadow_boots", 4: "v2_silken_boots", 5: "v2_windweave_boots" },
+};
+// 반지(운)·목걸이(마법) — 6슬롯 전환 후 둘 다 착용(옛 ACC_LINE 분할).
+const RING_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_silver_ring", 2: "v2_gold_ring", 3: "v2_lucky_charm", 4: "v2_stardust_ring", 5: "v2_fate_ring" };
+const NECKLACE_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_jade_amulet", 2: "v2_rune_pendant", 3: "v2_crystal_amulet", 4: "v2_starlight_pendant", 5: "v2_mana_essence" };
 
 function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2EquipmentId>> {
   const tier = tierForLevel(level);
@@ -92,16 +99,15 @@ function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2Equi
       : arch === "INT"
         ? WEAPON_LINE.staff[tier]
         : WEAPON_LINE.sword[tier];
-  // VIT 와 STR 은 중갑 (vit+def, spd 페널티 감수). 나머지는 경갑.
-  const armor =
-    arch === "STR" || arch === "VIT" || arch === "LUK"
-      ? ARMOR_LINE.heavy[tier]
-      : ARMOR_LINE.light[tier];
-  const accessory =
-    arch === "INT" || arch === "BAL"
-      ? ACC_LINE.mana[tier]
-      : ACC_LINE.luck[tier];
-  return { weapon, armor, accessory };
+  // VIT 와 STR 은 중갑 (vit+def, spd 페널티 감수). 나머지는 경갑. 장갑·신발은 갑옷 결을 따른다.
+  const weight: "heavy" | "light" =
+    arch === "STR" || arch === "VIT" || arch === "LUK" ? "heavy" : "light";
+  const armor = ARMOR_LINE[weight][tier];
+  const gloves = GLOVES_LINE[weight][tier];
+  const boots = BOOTS_LINE[weight][tier];
+  const ring = RING_LINE[tier];
+  const necklace = NECKLACE_LINE[tier];
+  return { weapon, armor, gloves, boots, ring, necklace };
 }
 
 // 분배 — main 60% / sub 30% / 잔여 10% (BAL 만 5스탯 spread).

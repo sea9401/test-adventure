@@ -305,7 +305,7 @@ export async function POST(req: Request) {
       ...curDurability,
     };
     const equippedIds = (
-      ["weapon", "armor", "accessory"] as V2EquipSlot[]
+      ["weapon", "armor", "gloves", "boots", "ring", "necklace"] as V2EquipSlot[]
     ).flatMap((slot) => {
       const id = equippedSlots[slot];
       return id ? [id] : [];

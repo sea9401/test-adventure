@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Circle,
   Diamond,
+  HandFist,
   Shield,
+  Sneaker,
   Sword,
   type Icon,
 } from "@phosphor-icons/react";
@@ -22,15 +25,18 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
-// v2 인벤토리 — 위쪽 장착 슬롯 + 무기/방어구/장신구/재료 sub-tab.
+// v2 인벤토리 — 위쪽 장착 슬롯 + 무기/갑옷/장갑/신발/반지/목걸이/재료 sub-tab.
 // 행 우측 버튼으로 장착/해제 (POST /api/v2/me/equipment/equip).
 
 type TabKey = V2EquipSlot | "material";
 
 const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
   { key: "weapon", label: "무기" },
-  { key: "armor", label: "방어구" },
-  { key: "accessory", label: "장신구" },
+  { key: "armor", label: "갑옷" },
+  { key: "gloves", label: "장갑" },
+  { key: "boots", label: "신발" },
+  { key: "ring", label: "반지" },
+  { key: "necklace", label: "목걸이" },
   { key: "material", label: "재료" },
 ];
 
@@ -41,13 +47,11 @@ const EQUIP_SLOTS: {
   color: string;
 }[] = [
   { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
-  { slot: "armor", label: "방어구", Icon: Shield, color: "text-sky-500" },
-  {
-    slot: "accessory",
-    label: "장신구",
-    Icon: Diamond,
-    color: "text-violet-500",
-  },
+  { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
+  { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
+  { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
+  { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
+  { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
 
 
@@ -144,7 +148,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     const groups: Record<V2EquipSlot, V2EquipmentId[]> = {
       weapon: [],
       armor: [],
-      accessory: [],
+      gloves: [],
+      boots: [],
+      ring: [],
+      necklace: [],
     };
     const items = Object.values(V2_EQUIPMENT).sort((a, b) => {
       if (a.tier !== b.tier) return a.tier - b.tier;

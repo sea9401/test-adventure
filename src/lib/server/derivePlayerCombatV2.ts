@@ -87,7 +87,7 @@ export type DerivedPlayerCombatV2 = {
   weaponElement: V2Element;
 };
 
-// PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 3개에서 위력을 슬롯별로 분기 누적 +
+// PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 6개에서 위력을 슬롯별로 분기 누적 +
 // 무게 합산 + 옵션(crit/mp/eva/hp) 누적. 장비는 더 이상 6스탯 token 을 안 준다(정체성은
 // 훈련 분배). 단위 테스트가 검증할 수 있도록 export.
 export type V2EquipAggregate = {
@@ -122,22 +122,29 @@ export function aggregateV2Equipment(
   durability?: Partial<Record<V2EquipmentId, number>>,
 ): V2EquipAggregate {
   const acc = EMPTY_AGGREGATE();
-  for (const slot of ["weapon", "armor", "accessory"] as const) {
+  for (const slot of [
+    "weapon",
+    "armor",
+    "gloves",
+    "boots",
+    "ring",
+    "necklace",
+  ] as const) {
     const id = v2Equipped[slot];
     if (!id) continue;
     // PR-4b — 내구도 0(broken) 장비는 비활성: 위력·무게·옵션 전부 무시(슬롯 빈 것과 동일).
     if (isBroken(durabilityOf(durability, id))) continue;
     const item = V2_EQUIPMENT[id];
     const power = item.power ?? 0;
-    // 위력 슬롯별 분기: 무기=물공+마공 / 방어구=물방 / 장신구=물방+마방.
+    // 위력 슬롯별 분기: 무기=물공+마공 / 갑옷·장갑·신발=물방 / 반지·목걸이=마방.
     if (slot === "weapon") {
       acc.atk += power;
       acc.magicAtk += power;
-    } else if (slot === "armor") {
-      acc.def += power;
-    } else {
-      acc.def += power;
+    } else if (slot === "ring" || slot === "necklace") {
       acc.magicDef += power;
+    } else {
+      // armor / gloves / boots
+      acc.def += power;
     }
     acc.weight += item.weight ?? 0;
     const o = item.options ?? {};

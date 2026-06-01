@@ -36,6 +36,7 @@ import {
 import {
   V2_CLASS_DEFS,
   nextTierClassOf,
+  signaturesForClass,
   type V2Class,
 } from "../src/adventure/data/v2/classes";
 import { MONSTERS } from "../src/adventure/data/monsters";
@@ -184,16 +185,23 @@ function classForArchLevel(arch: Arch, level: number): V2Class {
   return c;
 }
 
+// --passives: 직업 패시브(시그니처) 반영. 도달 차수까지의 시그니처를 learned 로 줘서
+// derive 가 직업 패시브(추가타/받피감/마공/턴회복/명중·DoT/크리뎀)를 켠다. 기본 off =
+// 패시브 없는 baseline(기존 다이얼 비교용). BAL(무직)은 시그니처 없어 패시브 없음.
+const PASSIVES_MODE = process.argv.includes("--passives");
+
 function makePlayer(arch: Arch, level: number) {
   const allocated = allocate(arch, level);
   // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
   // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
   // PR-10 — playerClass 전달로 앵커 보정 반영(차수는 레벨로 결정).
+  const cls = classForArchLevel(arch, level);
   return derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
     v2Equipped: equipFor(arch, level),
-    playerClass: classForArchLevel(arch, level),
+    playerClass: cls,
+    learnedSkillIds: PASSIVES_MODE ? signaturesForClass(cls) : undefined,
     hp: undefined,
   });
 }
@@ -333,6 +341,11 @@ console.log(
   SKILLS_MODE
     ? "스킬 모드 ON (--skills): 각 빌드가 주력 스탯 스킬 장착(INT=마법 경로 magicAtk 측정)."
     : "스킬 모드 OFF: 일반 공격 baseline. INT 마법 측정하려면 --skills.",
+);
+console.log(
+  PASSIVES_MODE
+    ? "패시브 모드 ON (--passives): 도달 차수 직업 패시브 반영(BAL 제외)."
+    : "패시브 모드 OFF: 직업 패시브 없음 baseline. 패시브 측정하려면 --passives.",
 );
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);

@@ -339,6 +339,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                     sort={sort}
                     onSort={toggleSort}
                     align="left"
+                    grow
                   />
                   <SortTh
                     label="가격"
@@ -354,7 +355,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                     onSort={toggleSort}
                     align="right"
                   />
-                  <th className="w-px px-3" />
+                  <th className="whitespace-nowrap px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -466,12 +467,15 @@ function SortTh({
   sort,
   onSort,
   align,
+  grow,
 }: {
   label: string;
   sortKey: "name" | "price" | "power";
   sort: { key: "name" | "price" | "power"; dir: "asc" | "desc" } | null;
   onSort: (key: "name" | "price" | "power") => void;
   align: "left" | "right";
+  // 이 컬럼이 여분 폭을 전부 흡수(아이템). 나머지는 내용 폭(whitespace-nowrap)으로 우측 정렬.
+  grow?: boolean;
 }) {
   const active = sort?.key === sortKey;
   const arrow =
@@ -479,8 +483,8 @@ function SortTh({
   return (
     <th
       className={`px-3 py-2 font-semibold ${
-        align === "left" ? "text-left" : "text-right"
-      }`}
+        grow ? "w-full" : "whitespace-nowrap"
+      } ${align === "left" ? "text-left" : "text-right"}`}
     >
       <button
         type="button"

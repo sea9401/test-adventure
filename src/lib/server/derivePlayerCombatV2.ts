@@ -9,7 +9,7 @@
 //   str → atk 주력 (atk += str×0.2)
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
-//   spd → 다중공격 확률 (extra += spd×2%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
+//   spd → 다중공격 확률 (extra += spd×0.5%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
 //   luk → 치명 확률(crit += luk×0.15) + 치명 데미지(critMult += luk×0.006) + atk 보조(×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
@@ -210,10 +210,11 @@ const MAGIC_ATK_PER_INT = 0.2;
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 
-// v2 SPD → 다중공격: 라이브 모델 채택. SPD 1 당 +2%p 추가공격 확률.
-// SPD 50 = 100% (확정 +1타) · SPD 75 = 150% (확정 +1타 + 50% +1타) · SPD 200 = 400% (확정 +4타).
+// v2 SPD → 다중공격. SPD 1 당 +0.5%p 추가공격 확률 (옛 2 — 전 빌드 타수 과다로 0.5 하향).
+// SPD = DEX×2 라 추가확률 = DEX×1 %p. DEX 100 → 100%(확정 +1타) · DEX 200 → 200%(확정 +2타).
+// 다중공격을 DEX 특화 빌드의 강점으로 — 일반 빌드(DEX 15~60)는 1~1.6타.
 // rollAttackCount(combatShared) 가 100%↑를 정수부 확정 + 소수부 확률로 처리. cap 없음.
-const EXTRA_ATTACK_PCT_PER_SPD = 2;
+const EXTRA_ATTACK_PCT_PER_SPD = 0.5;
 
 // PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).
 // 여기서는 backward compat 을 위해 re-export.
@@ -344,7 +345,7 @@ export function derivePlayerCombatV2Pure(
     0,
     totalStats.dex * SPD_PER_DEX - equipAcc.weight * WEIGHT_SPD_PENALTY,
   );
-  // v2 다중공격 — SPD × 2%p 추가공격 확률 (50=100% 확정 +1, …).
+  // v2 다중공격 — SPD × 0.5%p 추가공격 확률 (SPD 200=100% 확정 +1, …).
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;
 
   // hp 클램프 (저장값이 maxHp 초과 안 되게)

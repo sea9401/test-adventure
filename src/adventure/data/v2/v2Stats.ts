@@ -12,7 +12,7 @@ export const V2_BASE_STATS: Record<V2StatKey, number> = {
   str: 15,
   dex: 15,
   vit: 15,
-  int: 0,
+  int: 15, // 옛 0(물리 캐릭 마법 차단용) → 15 로 대칭. 전원 maxMp 50→80, 약간의 마법 베이스라인.
   spi: 15,
   luk: 15,
 };

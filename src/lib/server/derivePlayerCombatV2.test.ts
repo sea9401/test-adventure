@@ -126,81 +126,81 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
 });
 
 describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
-  it("INT 0 신캐 (빈 장비) → maxMp = V2_BASE_MP", () => {
+  it("기본 int 15 신캐 (빈 장비) → maxMp = V2_BASE_MP + 15×2", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: {},
     });
-    expect(d.player.maxMp).toBe(V2_BASE_MP);
-    expect(d.totalStats.int).toBe(0);
+    expect(d.totalStats.int).toBe(15); // 기본 int 15
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 15 * 2); // 50 + 30 = 80
   });
 
   it("INT 투자 시 추가 (V2_BASE_MP + int × 2)", () => {
-    // INT 25 → maxMp = 50 + 25 × 2 = 100.
+    // 기본 15 + 할당 25 = 40 → maxMp = 50 + 40 × 2 = 130.
     const d = derivePlayerCombatV2Pure({
       level: 1,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 25 },
       v2Equipped: {},
     });
-    expect(d.totalStats.int).toBe(25);
-    expect(d.player.maxMp).toBe(V2_BASE_MP + 25 * 2);
+    expect(d.totalStats.int).toBe(40);
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 40 * 2);
   });
 
   it("mana accessory mp 옵션 가산 (스탯 token 없음 — PR-4a)", () => {
-    // 마나의 정수 T5: power 3, mp 옵션 30. 장비는 더 이상 int token 을 안 줌.
-    // maxMp = V2_BASE_MP(50) + mp 30 + INT(0)×2 = 80.
+    // 마나의 정수 T5: power 3, mp 옵션 30. 장비는 int token 안 줌.
+    // maxMp = V2_BASE_MP(50) + mp 30 + INT(기본15)×2 = 110.
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: { accessory: "v2_mana_essence" },
     });
-    expect(d.totalStats.int).toBe(0); // 장비 token 없음
-    expect(d.player.maxMp).toBe(V2_BASE_MP + 30);
+    expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 30 + 15 * 2);
   });
 });
 
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
-  it("INT 0 빌드 → magicAtk 0 (마법 경로 비활성)", () => {
+  it("기본 int 15 → magicAtk = floor(15×0.2) = 3 (마법 베이스라인)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 245, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
-    expect(d.totalStats.int).toBe(0);
-    expect(d.player.magicAtk).toBe(0);
+    expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.2)); // 3
   });
 
   it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.2) (PR-8 STR 대칭)", () => {
-    // 베이스 int 0 + 할당 100 = 100. magicAtk = floor(100 × 0.2) = 20.
+    // 기본 15 + 할당 100 = 115. magicAtk = floor(115 × 0.2) = 23.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 100 },
       v2Equipped: {},
     });
-    expect(d.totalStats.int).toBe(100);
-    expect(d.player.magicAtk).toBe(20);
+    expect(d.totalStats.int).toBe(115);
+    expect(d.player.magicAtk).toBe(Math.floor(115 * 0.2)); // 23
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
     // 별빛 지팡이 T5: power 17 (무기 → atk·magicAtk 둘 다). int token 없음.
-    // magicAtk = floor(int 0 × 0.2) + 위력 17 = 17. atk = floor(str 15×0.2 + 17) = 20.
+    // magicAtk = floor(int 15 × 0.2) + 위력 17 = 3 + 17 = 20. atk = floor(str 15×0.2) + 17 = 20.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starlit_staff" },
     });
-    expect(d.totalStats.int).toBe(0); // 장비 token 없음
-    expect(d.player.magicAtk).toBe(17);
+    expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.2) + 17); // 3 + 17 = 20
     expect(d.player.atk).toBe(Math.floor(15 * 0.2) + 17); // 3 + 17 = 20
   });
 
-  it("INT 0 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
-    // 참나무 지팡이: power 5. magicAtk = floor(0×0.2) + 5 = 5. 물리 빌드는 마법스킬을 안
-    // 배워 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
+  it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
+    // 참나무 지팡이: power 5. magicAtk = floor(15×0.2) + 5 = 3 + 5 = 8. 물리 빌드는 마법스킬을
+    // 안 배워 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: { weapon: "v2_oak_staff" }, // power 5
     });
-    expect(d.player.magicAtk).toBe(5);
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.2) + 5); // 8
   });
 });
 

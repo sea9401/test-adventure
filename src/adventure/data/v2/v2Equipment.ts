@@ -114,7 +114,14 @@ export type V2EquipmentId =
   | "v2_rune_pendant"
   | "v2_crystal_amulet"
   | "v2_starlight_pendant"
-  | "v2_mana_essence";
+  | "v2_mana_essence"
+  // 유니크 (드랍 전용, rarity:"unique") — 정규 컨셉×티어 그리드 밖 사이드그레이드. Phase 2 투입.
+  | "v2_uniq_shadow_garb"
+  | "v2_uniq_trickster_boots"
+  | "v2_uniq_giant_fist"
+  | "v2_uniq_berserker_fang"
+  | "v2_uniq_starcleaver"
+  | "v2_uniq_sage_seal";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -830,6 +837,85 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 0,
     options: { mp: 30 },
   },
+
+  // ── 유니크 (드랍 전용) ────────────────────────────────────────────
+  // 옵션 프로필로 슬롯 시그니처를 깬다(파워크리프 회피 사이드그레이드). tier 는 위력 밴드·드랍
+  // 층 기준. 상점·제작 제외(rarity), rollUniqueDrop 전용. 수치는 sim 다이얼.
+  v2_uniq_shadow_garb: {
+    id: "v2_uniq_shadow_garb",
+    slot: "armor",
+    concept: "light",
+    tier: 1,
+    name: "그림자 잠행복",
+    description:
+      "그림자처럼 검은 잠행복. 손끝은 매서워지나 천이 두꺼워 몸놀림이 굼뜬다.",
+    power: 1,
+    weight: 2, // 정규 경갑(무게 0)보다 무겁다 — 치명·회피를 속도로 치름(사이드그레이드)
+    options: { eva: 2, crit: 2 }, // 경갑인데 치명까지(보통 치명은 장갑·반지)
+    rarity: "unique",
+  },
+  v2_uniq_trickster_boots: {
+    id: "v2_uniq_trickster_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 2,
+    name: "요술쟁이의 장화",
+    description:
+      "마력이 깃들어 묵직해진 장화. 한 걸음마다 힘이 새지만 발이 무겁다.",
+    power: 1,
+    weight: 2, // 정규 경갑 신발(무게 0)보다 무겁다 — 회피·MP를 속도로 치름(사이드그레이드)
+    options: { eva: 2, mp: 16 }, // 신발인데 MP(보통 MP는 목걸이)
+    rarity: "unique",
+  },
+  v2_uniq_giant_fist: {
+    id: "v2_uniq_giant_fist",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 3,
+    name: "거인의 주먹",
+    description: "거인의 손을 본떠 벼린 건틀릿. 쥐기만 해도 몸이 단단해진다.",
+    power: 2,
+    weight: 2,
+    options: { crit: 2, hp: 50 }, // 장갑인데 HP까지
+    rarity: "unique",
+  },
+  v2_uniq_berserker_fang: {
+    id: "v2_uniq_berserker_fang",
+    slot: "necklace",
+    concept: "mana",
+    tier: 4,
+    name: "광전사의 송곳니",
+    description: "짐승의 송곳니를 꿴 목걸이. 이성을 갉아먹는 대신 일격을 벼린다.",
+    power: 1,
+    weight: 0,
+    options: { crit: 4 }, // 목걸이인데 MP 대신 치명
+    rarity: "unique",
+  },
+  v2_uniq_starcleaver: {
+    id: "v2_uniq_starcleaver",
+    slot: "weapon",
+    concept: "dex",
+    tier: 5,
+    name: "별을 가르는 단검",
+    description: "별빛을 머금은 가느다란 칼날. 무게는 깃털 같으나 빈틈을 놓치지 않는다.",
+    power: 12, // T5 정규 활(14)보다 낮은 위력 + 폭발 치명 = 사이드그레이드
+    weight: 1,
+    options: { crit: 5 },
+    element: "starlight",
+    rarity: "unique",
+  },
+  v2_uniq_sage_seal: {
+    id: "v2_uniq_sage_seal",
+    slot: "ring",
+    concept: "luck",
+    tier: 5,
+    name: "현자의 인장",
+    description: "오래된 현자가 남긴 반지. 끼고 있으면 마음이 깊고 단단해진다.",
+    power: 2,
+    weight: 0,
+    options: { mp: 24, hp: 40 }, // 반지인데 MP+HP(보통 반지는 치명)
+    rarity: "unique",
+  },
 };
 
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
@@ -951,7 +1037,9 @@ export function repairCostFor(
   currentDurability: number,
 ): number {
   const item = V2_EQUIPMENT[id];
-  const price = shopPriceOf(item) ?? 0;
+  // 수리 기준가는 (티어, 슬롯) 곡선 — 유니크(상점 비매, shopPriceOf undefined)도 수리 가능해야
+  // 하므로 shopPriceOf 가 아니라 shopPriceFor 사용. 정규 장비는 두 값이 동일(불변).
+  const price = shopPriceFor(item.tier, item.slot) ?? 0;
   const missing = Math.max(0, MAX_DURABILITY - currentDurability);
   if (missing <= 0) return 0;
   return Math.ceil(price * REPAIR_COST_FRACTION * (missing / MAX_DURABILITY));

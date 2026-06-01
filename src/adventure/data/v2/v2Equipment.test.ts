@@ -9,6 +9,7 @@ import {
   durabilityOf,
   isBroken,
   isLowDurability,
+  isUnique,
   parseEquipmentSave,
   repairCostFor,
   v2EquipStatRows,
@@ -133,14 +134,16 @@ function slotConceptLine(
   concept: V2EquipConcept,
 ): V2EquipTier[] {
   return v2EquipmentBySlot(slot)
-    .filter((i) => i.concept === concept)
+    .filter((i) => i.concept === concept && !isUnique(i)) // 그리드는 정규만(유니크 제외)
     .sort((a, b) => a.tier - b.tier)
     .map((i) => i.tier);
 }
 
 describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
-  it("총 55종", () => {
-    expect(Object.keys(V2_EQUIPMENT)).toHaveLength(55);
+  it("정규 55종 + 유니크 6종 = 61", () => {
+    const all = Object.values(V2_EQUIPMENT);
+    expect(all.filter((i) => !isUnique(i)), "정규").toHaveLength(55);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
   });
 
   it("각 (슬롯, 컨셉) 조합이 T1~T5 정확히 한 종씩", () => {
@@ -172,7 +175,7 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
     for (const slot of ALL_SLOTS) {
       for (const concept of SLOT_CONCEPTS[slot]) {
         const values = v2EquipmentBySlot(slot)
-          .filter((i) => i.concept === concept)
+          .filter((i) => i.concept === concept && !isUnique(i)) // 그리드는 정규만
           .sort((a, b) => a.tier - b.tier)
           .map((i) => i.power);
         for (let i = 1; i < values.length; i++) {
@@ -257,6 +260,12 @@ describe("내구도 (PR-4b)", () => {
     expect(repairCostFor("v2_mithril_sword", 0)).toBeGreaterThan(
       repairCostFor("v2_iron_sword", 0),
     );
+  });
+
+  it("유니크도 수리 가능 — 수리비 > 0 (상점 비매라도 tier/slot 기준가)", () => {
+    // 회귀 가드: shopPriceOf(유니크)=undefined 라 0 이 되면 수리 영구 불가였음.
+    expect(repairCostFor("v2_uniq_starcleaver", 0)).toBeGreaterThan(0);
+    expect(repairCostFor("v2_uniq_shadow_garb", 0)).toBeGreaterThan(0);
   });
 
   it("parseEquipmentSave — durability 유효 id + 0~MAX 클램프만 보존", () => {

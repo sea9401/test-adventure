@@ -13,6 +13,7 @@
 #     echo "1 15 * * 0 curl -fsS $H $U/cron/tower-weekly-cycle";
 #     echo "2 15 * * 0 curl -fsS $H $U/cron/pvp-season-rollover";
 #     echo "5 15 * * 0 curl -fsS $H $U/cron/pvp-season-rewards";
+#     echo "7 15 * * 0 curl -fsS $H $U/cron/fishing-season-rewards";
 #     echo "* * * * * curl -fsS $H $U/cron/coop-respawn"; } | crontab -
 #
 # (cron 의 SHELL 이 $SECRET 을 런타임에 치환. 시간대는 UTC — Vercel 과 동일.)
@@ -30,4 +31,5 @@ SECRET=<.env.production.local 의 CRON_SECRET>
 1 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/tower-weekly-cycle
 2 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-season-rollover
 5 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/pvp-season-rewards
+7 15 * * 0 curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/fishing-season-rewards
 * * * * * curl -fsS -H "Authorization: Bearer $SECRET" http://127.0.0.1:3000/api/cron/coop-respawn

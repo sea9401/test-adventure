@@ -912,3 +912,13 @@ export const fishingRecords = pgTable(
   ],
 );
 
+// 낚시 주간 시즌 정산 마커 — 종별 순위 코인 지급의 멱등성(시즌당 1회). id 는 ISO 주차.
+// 시즌은 fishing_records.seasonId 로 순수 계산되므로 startAt/endAt 은 불필요 —
+// 이 테이블의 유일한 역할은 rewardsGrantedAt 으로 중복 정산을 막는 것(+정산 요약).
+export const fishingSeasons = pgTable("fishing_seasons", {
+  id: text("id").primaryKey(),
+  rewardsGrantedAt: timestamp("rewards_granted_at"),
+  winners: integer("winners").notNull().default(0),
+  totalCoins: integer("total_coins").notNull().default(0),
+});
+

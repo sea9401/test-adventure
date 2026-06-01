@@ -19,6 +19,8 @@ export type LeaderboardEntry = {
 export type FishingLeaderboardData = {
   seasonId: string;
   endsAt: string; // ISO
+  // 내 낚시 코인 잔액(주간 정산으로 적립).
+  myCoins: number;
   // fishId -> 순위 오름차순 엔트리. top-N + (top 밖이면) 본인 행만.
   byFish: Record<string, LeaderboardEntry[]>;
 };
@@ -40,8 +42,14 @@ export function shapeLeaderboard(
   const byFish: Record<string, LeaderboardEntry[]> = {};
   for (const [fishId, list] of groups) {
     const entries: LeaderboardEntry[] = [];
+    // 표준 경쟁 순위(1224) — 정산(computeSeasonPayouts)과 동일하게 동률은 같은 순위.
+    let rank = 0;
+    let prevSize = Number.POSITIVE_INFINITY;
     list.forEach((r, i) => {
-      const rank = i + 1;
+      if (r.size < prevSize) {
+        rank = i + 1;
+        prevSize = r.size;
+      }
       const isMe = r.userId === meUserId;
       if (rank <= topN || isMe) {
         entries.push({

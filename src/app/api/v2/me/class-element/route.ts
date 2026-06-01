@@ -164,7 +164,7 @@ export async function POST(req: Request) {
     });
 
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).
-    // 락 순서 유지(character → skills → proficiency). earned/spent/caps/tier 는 보존.
+    // 락 순서 유지(character → skills → proficiency). points/caps/tier/cumLevel 은 보존.
     if (groupChanged) {
       const profSave = await lockSaveForUpdate<V2ProficiencyState>(
         tx,

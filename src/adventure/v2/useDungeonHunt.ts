@@ -129,7 +129,7 @@ export function useDungeonHunt({
               r.levelsGained > 0 ? ` · 레벨 +${r.levelsGained}` : "";
             const prof =
               (r.proficiencyGained ?? 0) > 0
-                ? ` · 숙련도 +${r.proficiencyGained}`
+                ? ` · 숙달 포인트 +${r.proficiencyGained}`
                 : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
             const repairNote = r.autoRepairSpent

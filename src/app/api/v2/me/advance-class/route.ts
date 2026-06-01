@@ -156,8 +156,8 @@ export async function POST() {
         .slice(0, slots),
     });
 
-    // 숙련도 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
-    // earned/spent 는 보존(누적 숙련도는 줄지 않음). 위에서 잠가 읽은 prof 재사용.
+    // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
+    // points/cumLevel/caps 는 보존(전직해도 잔액·누적레벨·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
     const nextProf = setGroupTier(
       setGrown(prof, {}),
       group,

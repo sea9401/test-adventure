@@ -82,7 +82,7 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
         </div>
         {summary.totalProficiency > 0 && (
           <div className="flex items-baseline justify-center gap-1.5">
-            <span className="text-zinc-500 dark:text-zinc-400">숙련도</span>
+            <span className="text-zinc-500 dark:text-zinc-400">숙달 포인트</span>
             <span className="font-medium tabular-nums text-violet-600 dark:text-violet-400">
               +{summary.totalProficiency.toLocaleString()}
             </span>

@@ -26,7 +26,7 @@ import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
-  addEarned,
+  addPoints,
   addCumLevel,
   setGrown,
   emptyProficiency,
@@ -659,7 +659,7 @@ export async function POST(req: Request) {
       let prof = parseProficiencyForChar(profSave, charSave);
       // 적립 — 승리 + 직업 보유 시.
       if (won && group !== "none") {
-        prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
+        prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL);
         proficiencyGained = V2_PROFICIENCY_PER_KILL;
       }
       // 레벨업 시 — 직군 누적 레벨 적립(floor·전직 게이트 입력) + 랜덤 스탯 성장.

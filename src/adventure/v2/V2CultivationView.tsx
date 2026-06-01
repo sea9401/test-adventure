@@ -35,9 +35,8 @@ type StateShape = {
     caps?: Partial<Record<V2StatKey, number>>;
     current?: {
       group: string;
-      earned: number;
       cumLevel: number;
-      usable: number;
+      points: number;
       cultivations: number;
       nextCost: number;
     };
@@ -72,7 +71,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       const cur = j?.proficiency?.current;
       if (j?.ok && cur) {
         setGroup(cur.group);
-        setUsable(cur.usable);
+        setUsable(cur.points);
         setCultivations(cur.cultivations);
         setNextCost(cur.nextCost);
         setCaps(j.proficiency?.caps ?? {});
@@ -114,7 +113,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         mult?: number;
         caps?: Partial<Record<V2StatKey, number>>;
         cultivations?: number;
-        usable?: number;
+        points?: number;
         nextCost?: number;
         required?: number;
         have?: number;
@@ -124,16 +123,16 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           j?.error === "no_class"
             ? "직업이 없어요 (먼저 직업을 선택하세요)"
             : j?.error === "insufficient_proficiency"
-              ? `숙련도 부족 (필요 ${j.required ?? nextCost}, 보유 ${j.have ?? usable})`
+              ? `숙달 포인트 부족 (필요 ${j.required ?? nextCost}, 보유 ${j.have ?? usable})`
               : (j?.error ?? `http ${res.status}`);
         setMsg(`✗ ${label}`);
         return;
       }
       const crit = (j.mult ?? 1) > 1 ? ` ⭐크리티컬 ×${j.mult}!` : "";
-      setMsg(`✓ 수행 완료 (숙련도 -${j.spent ?? nextCost})${crit}`);
+      setMsg(`✓ 수행 완료 (숙달 포인트 -${j.spent ?? nextCost})${crit}`);
       setCaps(j.caps ?? caps);
       setCultivations(j.cultivations ?? cultivations + 1);
-      setUsable(j.usable ?? Math.max(0, usable - nextCost));
+      setUsable(j.points ?? Math.max(0, usable - nextCost));
       setNextCost(j.nextCost ?? nextCost);
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -172,14 +171,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             {disciplineName ? `${disciplineName} 수행` : "수행"}
           </h2>
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            사용 가능 숙련도{" "}
+            숙달 포인트{" "}
             <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
               {usable}
             </strong>
           </div>
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙련도를 들여 직업 단련의 천장(스탯 한계치)을 끌어올린다. 레벨업 랜덤 성장이
+          숙달 포인트를 들여 직업 단련의 천장(스탯 한계치)을 끌어올린다. 레벨업 랜덤 성장이
           이 한계치까지 능력치를 채운다.
         </p>
 

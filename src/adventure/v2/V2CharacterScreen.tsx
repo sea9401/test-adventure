@@ -45,15 +45,14 @@ type StateResponse = {
   combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
-    total?: number;
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
     caps?: Partial<Record<V2StatKey, number>>;
     current?: {
       group: string;
-      earned: number;
-      // 직군 누적 레벨 — floor·전직 게이트 입력(earned 대체). 레벨업당 +1.
+      // 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1.
       cumLevel?: number;
-      usable: number;
+      // 숙달 포인트 잔액(사용가능). 옛 누적/사용가능 통합.
+      points?: number;
       cultivations?: number;
     };
   };
@@ -137,7 +136,7 @@ export function V2CharacterScreen({
       {character && state?.proficiency && (
         <Card padding="md">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold">직업 숙련도</h2>
+            <h2 className="text-sm font-semibold">직업 숙달</h2>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               현 직업군:{" "}
               {V2_CLASS_DEFS[
@@ -145,20 +144,15 @@ export function V2CharacterScreen({
               ]?.group ?? "—"}
             </span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
             <ProficiencyStat
               label="직군 누적 레벨"
               value={state.proficiency.current?.cumLevel ?? 0}
               tone="violet"
             />
             <ProficiencyStat
-              label="누적 숙련도"
-              value={state.proficiency.current?.earned ?? 0}
-              tone="violet"
-            />
-            <ProficiencyStat
-              label="사용 가능"
-              value={state.proficiency.current?.usable ?? 0}
+              label="숙달 포인트"
+              value={state.proficiency.current?.points ?? 0}
               tone="emerald"
             />
             <ProficiencyStat
@@ -168,8 +162,8 @@ export function V2CharacterScreen({
             />
           </div>
           <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-            직군 누적 레벨(레벨업당 +1)이 능력치 저점·전직을 좌우. 숙련도는 사냥으로 적립(킬당 +2),
-            사용 가능분으로 마을 「수행」에서 능력치 한계·스킬을 단련.
+            직군 누적 레벨(레벨업당 +1)이 능력치 저점·전직을 좌우. 숙달 포인트는 사냥으로 적립(킬당 +2),
+            마을 「수행」·「학습」에서 능력치 한계·스킬에 사용.
           </p>
         </Card>
       )}

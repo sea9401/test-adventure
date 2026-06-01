@@ -329,7 +329,7 @@ export function V2DungeonFloorView({
               <p>새로운 레벨에 도달했습니다. 캐릭터가 더 강해졌어요.</p>
               <p>
                 레벨이 오르면 능력치가 한계치까지 무작위로 성장합니다. 그 한계치를
-                더 끌어올리려면 사냥으로 모은 숙련도를 <strong>성장의 신전</strong>
+                더 끌어올리려면 사냥으로 모은 숙달 포인트를 <strong>성장의 신전</strong>
                 에서 수행에 쓰면 돼요.
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">

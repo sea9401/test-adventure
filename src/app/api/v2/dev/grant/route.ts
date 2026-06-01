@@ -6,8 +6,8 @@ import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
   emptyProficiency,
-  addEarned,
-  groupEarned,
+  addPoints,
+  groupUsable,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -25,7 +25,7 @@ import {
 // 본문(전부 선택, 들어온 것만 적용):
 //   { exp?, gold?, hpCharges?, mpCharges?, setLevel?,
 //     materials?: { [V2MaterialId]: number }, proficiency? }
-//   - proficiency: 현 직업군(tier1)의 누적 숙련도(earned) += 값. 수행/학습/전직 QA 시드용.
+//   - proficiency: 현 직업군(tier1)의 숙달 포인트 += 값. 수행/학습 QA 시드용.
 //
 // 본인(로그인 user)의 character.v2 / inventory.v2 / proficiency.v2 갱신.
 // 라이브 prod 에선 IS_STAGING 게이트 (staging 외 → 404). grant-equipment 와 동일.
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
       materials,
     });
 
-    // 숙련도 지급 — 현 직업군(tier1) earned += 값. 수행/학습/전직 QA 시드용.
+    // 숙달 포인트 지급 — 현 직업군(tier1) points += 값. 수행/학습 QA 시드용.
     // (옛 training.v2 단련 포인트 지급은 수동분배 폐지로 제거 — docs 숙련도 재설계.)
     let proficiencyEarned: number | null = null;
     if (proficiencyGain > 0) {
@@ -149,14 +149,14 @@ export async function POST(req: Request) {
           "proficiency.v2",
           emptyProficiency(),
         );
-        const nextProf = addEarned(
+        const nextProf = addPoints(
           // dev 도구가 같은 요청에서 레벨을 올릴 수 있어, cumLevel 시드는 갱신된 level 사용.
           parseProficiencyForChar(profSave, { class: charSave.class, level }),
           group,
           proficiencyGain,
         );
         await upsertSave(tx, userId, "proficiency.v2", nextProf);
-        proficiencyEarned = groupEarned(nextProf, group);
+        proficiencyEarned = groupUsable(nextProf, group);
       }
     }
 

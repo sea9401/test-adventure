@@ -163,7 +163,7 @@ export function V2DevToolsContents() {
             부여
           </Btn>
         </Row>
-        <Row label="숙련도">
+        <Row label="숙달 포인트">
           <NumInput value={proficiency} onChange={setProficiency} />
           <Btn
             disabled={busy}
@@ -171,7 +171,7 @@ export function V2DevToolsContents() {
               post(
                 "/api/v2/dev/grant",
                 { proficiency: num(proficiency) },
-                "숙련도 부여(현 직업군)",
+                "숙달 포인트 부여(현 직업군)",
               )
             }
           >

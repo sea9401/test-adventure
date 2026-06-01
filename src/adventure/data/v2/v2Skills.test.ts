@@ -204,8 +204,15 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("MP 0·무속성이면 MP·속성 칩 없음", () => {
-    // 검무(mpCost 0) → MP 칩 없음. (속성 불이라 속성 칩은 있음)
+    // 검무(카탈로그 mpCost 0, 인자 미전달) → MP 칩 없음. (속성 불이라 속성 칩은 있음)
     const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance);
     expect(chips.some((c) => c.startsWith("MP"))).toBe(false);
+  });
+
+  it("실효 MP 인자를 주면 그 값으로 MP 칩 표기(시그니처 차수별 비용)", () => {
+    // 시그니처는 카탈로그 0(센티넬)이라 인자 없으면 MP 칩이 없지만, 실효 비용(예: 12)을
+    // 넘기면 "MP 12" 로 정확히 표기 — UI 가 v2SkillMpCost 를 넘긴다.
+    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance, 12);
+    expect(chips).toContain("MP 12");
   });
 });

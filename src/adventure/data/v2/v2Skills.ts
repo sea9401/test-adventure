@@ -1119,9 +1119,16 @@ function describeV2Effect(e: V2SkillEffect): string {
 
 // 스킬의 상세 옵션을 칩 문자열 배열로 — 효과(피해/회복/버프/디버프/DoT) 먼저, 그 뒤
 // MP·쿨다운·속성 메타. UI(학습/장착 화면)에서 작은 칩으로 표기.
-export function describeV2Skill(skill: V2SkillDefinition): string[] {
+//
+// mpCost: 표시할 실효 MP. 시그니처(직업 전용)는 카탈로그 mpCost 가 0(센티넬)이고 실제
+// 비용은 엔진이 차수별로 산정(combatShared.v2SkillMpCost) — 그 실효값을 넘기면 "MP N" 으로
+// 정확히 표기된다. 미전달이면 카탈로그 mpCost(시그니처는 0=표기 생략).
+export function describeV2Skill(
+  skill: V2SkillDefinition,
+  mpCost: number = skill.mpCost,
+): string[] {
   const chips = skill.effects.map(describeV2Effect);
-  if (skill.mpCost > 0) chips.push(`MP ${skill.mpCost}`);
+  if (mpCost > 0) chips.push(`MP ${mpCost}`);
   if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}턴`);
   if (skill.element && skill.element !== "neutral") {
     chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);

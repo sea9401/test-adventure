@@ -9,6 +9,7 @@ import {
   describeV2Skill,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { v2SkillMpCost } from "@/adventure/battle/combatShared";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 
 // v2 학습 — 사용 가능 숙련도로 현 직업 체인의 시그니처 스킬을 습득한다.
@@ -57,7 +58,8 @@ function skillDesc(id: string): string {
 function SkillDetailChips({ skillId }: { skillId: string }) {
   const def = V2_SKILLS[skillId as V2SkillId];
   if (!def) return null;
-  const chips = describeV2Skill(def);
+  // 실효 MP — 시그니처는 카탈로그 0(센티넬), 엔진이 차수별 산정. 그 값을 표기.
+  const chips = describeV2Skill(def, v2SkillMpCost(def));
   if (chips.length === 0) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-1">

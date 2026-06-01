@@ -12,6 +12,7 @@ import {
   V2_HP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -321,5 +322,107 @@ describe("derivePlayerCombatV2Pure weaponElement (PR-5b 무기 속성)", () => {
         v2Durability: { v2_starsong_bow: 1 },
       }).weaponElement,
     ).toBe("starlight");
+  });
+});
+
+describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
+  const SIG_SWORDSMAN = V2_CLASS_DEFS.swordsman.signatureSkill!;
+  const SIG_MAGE = V2_CLASS_DEFS.mage.signatureSkill!;
+  const SIG_MARTIAL = V2_CLASS_DEFS.martial.signatureSkill!;
+  const SIG_PRIEST = V2_CLASS_DEFS.priest.signatureSkill!;
+  const SIG_NINJA = V2_CLASS_DEFS.ninja.signatureSkill!;
+  const STATS = { str: 40, dex: 40, vit: 40, int: 40, spi: 40, luk: 40 };
+
+  it("학습 시그니처 없으면 패시브 필드 미설정(no-op)", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "swordsman",
+    });
+    expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
+    expect(d.player.passiveTurnHealPctMaxHp).toBeUndefined();
+    expect(d.player.passiveOnHitDot).toBeUndefined();
+  });
+
+  it("검사 — 추가타 확률 가산(extraAttackChancePct)", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "swordsman",
+    }).player.extraAttackChancePct!;
+    const withPassive = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "swordsman",
+      learnedSkillIds: [SIG_SWORDSMAN],
+    }).player.extraAttackChancePct!;
+    expect(withPassive - base).toBeCloseTo(10, 5); // T1 +10%p
+  });
+
+  it("마법사 — 마법공격력 ×(1+%) + 소각 onHitDot", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "mage",
+    }).player.magicAtk!;
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "mage",
+      learnedSkillIds: [SIG_MAGE],
+    }).player;
+    expect(d.magicAtk).toBe(Math.floor(base * 1.08)); // T1 +8%
+    expect(d.passiveOnHitDot?.label).toBe("소각");
+    expect(d.passiveOnHitDot?.chancePct).toBeGreaterThan(0);
+  });
+
+  it("무도가 — 받피감 / 사제 — 턴회복 필드 셋", () => {
+    const martial = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "martial",
+      learnedSkillIds: [SIG_MARTIAL],
+    }).player;
+    expect(martial.passiveDamageTakenReductionPct).toBe(6); // T1
+
+    const priest = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "priest",
+      learnedSkillIds: [SIG_PRIEST],
+    }).player;
+    expect(priest.passiveTurnHealPctMaxHp).toBe(3); // T1
+  });
+
+  it("인술 — 크리뎀 배율 가산 + 중독 onHitDot, CRIT_MULT_CAP 클램프", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "ninja",
+    }).player.critMult!;
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "ninja",
+      learnedSkillIds: [SIG_NINJA],
+    }).player;
+    expect(d.critMult!).toBeCloseTo(Math.min(base + 0.2, 5.0), 5); // T1 +0.2
+    expect(d.passiveOnHitDot?.label).toBe("중독");
+  });
+
+  it("다른 직업군 시그니처 학습은 패시브 미적용", () => {
+    const d = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "mage",
+      learnedSkillIds: [SIG_SWORDSMAN], // 검사 시그니처 → 마법사 패시브 없음
+    }).player;
+    expect(d.passiveOnHitDot).toBeUndefined();
+    const baseMagic = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "mage",
+    }).player.magicAtk!;
+    expect(d.magicAtk).toBe(baseMagic); // 마공 증폭 없음
   });
 });

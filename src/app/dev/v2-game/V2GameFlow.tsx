@@ -22,6 +22,8 @@ import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { FishingPanel } from "@/adventure/v2/FishingPanel";
 import { FishingLeaderboardPanel } from "@/adventure/v2/FishingLeaderboardPanel";
 import { FishingShopPanel } from "@/adventure/v2/FishingShopPanel";
+import { TreasurePanel } from "@/adventure/v2/TreasurePanel";
+import { TreasureCollectionPanel } from "@/adventure/v2/TreasureCollectionPanel";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2ArenaView } from "@/adventure/v2/V2ArenaView";
 import { V2BattleHome, type BattleAction } from "@/adventure/v2/V2BattleHome";
@@ -128,6 +130,8 @@ type View =
   | { kind: "fishing" }
   | { kind: "fishing-leaderboard" }
   | { kind: "fishing-shop" }
+  | { kind: "treasure" }
+  | { kind: "treasure-collection" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -157,6 +161,8 @@ function tabOfView(view: View): TabId {
     case "fishing":
     case "fishing-leaderboard":
     case "fishing-shop":
+    case "treasure":
+    case "treasure-collection":
       return "town";
     case "character":
     case "character-info":
@@ -438,6 +444,9 @@ export function V2GameFlow() {
       case "open-fishing":
         setView({ kind: "fishing" });
         break;
+      case "open-treasure":
+        setView({ kind: "treasure" });
+        break;
     }
   };
 
@@ -585,6 +594,15 @@ export function V2GameFlow() {
       )}
       {view.kind === "fishing-shop" && (
         <FishingShopPanel onBack={() => setView({ kind: "fishing" })} />
+      )}
+      {view.kind === "treasure" && (
+        <TreasurePanel
+          onBack={() => setView({ kind: "town" })}
+          onOpenCollection={() => setView({ kind: "treasure-collection" })}
+        />
+      )}
+      {view.kind === "treasure-collection" && (
+        <TreasureCollectionPanel onBack={() => setView({ kind: "treasure" })} />
       )}
 
       {/* === 캐릭터 탭 === */}

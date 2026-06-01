@@ -48,6 +48,12 @@ import {
   discoveredFishIds,
   parseFishCodex,
 } from "@/adventure/v2/fishingCodex";
+import { ANTIQUE_TOTAL } from "@/adventure/data/v2/antique";
+import {
+  discoveredAntiqueIds,
+  parseTreasureCodex,
+} from "@/adventure/v2/treasureCodex";
+import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -90,6 +96,8 @@ export async function GET() {
     skillsRow,
     proficiencyRow,
     fishingCodexRow,
+    treasureCodexRow,
+    treasureFragmentsRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -136,6 +144,20 @@ export async function GET() {
       .select({ value: savesKv.value })
       .from(savesKv)
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "fishing-codex.v1")))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "treasure-codex.v1")))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, "treasure-fragments.v1")),
+      )
       .limit(1)
       .then((rows) => rows[0]),
   ]);
@@ -357,6 +379,16 @@ export async function GET() {
       for (const id of ids) best[id] = codex.fish[id].bestSize;
       return { discoveredIds: ids, total: FISH_TOTAL, best };
     })(),
+    // 유물 도감 진척 — V2CodexView 유물 탭 표시용. 종별 개인 최고 보존상태 동봉.
+    treasureCodex: (() => {
+      const codex = parseTreasureCodex(treasureCodexRow?.value);
+      const ids = discoveredAntiqueIds(codex);
+      const best: Record<string, number> = {};
+      for (const id of ids) best[id] = codex.antiques[id].bestCondition;
+      return { discoveredIds: ids, total: ANTIQUE_TOTAL, best };
+    })(),
+    // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
+    treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);

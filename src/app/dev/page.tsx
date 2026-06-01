@@ -10,6 +10,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/fishing-leaderboard", title: "주간 낚시 대회 — 종별 순위", desc: "낚시 PR-4 종별 top-10 + 본인 행. mock 데이터." },
   { href: "/dev/fishing-shop", title: "낚시 코인 상점 — 칭호 구매", desc: "낚시 PR-6 코인으로 칭호 구매. mock 코인/보유." },
   { href: "/dev/treasure", title: "보물 발굴 — 단서형 격자", desc: "보물 PR-3 지도 조각으로 발굴 지점 열고 뜨/차가움 단서로 매장지 추리. 로컬 mock(조각 15개)." },
+  { href: "/dev/treasure-collection", title: "발굴 보관함 — 골동품 목록", desc: "보물 PR-4 발굴한 골동품 감정가순 목록. mock 데이터." },
 ];
 
 export default function DevIndexPage() {

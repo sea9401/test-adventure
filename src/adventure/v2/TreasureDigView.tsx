@@ -79,7 +79,15 @@ type Result =
     }
   | null;
 
-export function TreasureDigView({ open, dig }: TreasureHandlers) {
+export function TreasureDigView({
+  open,
+  dig,
+  onBack,
+  onOpenCollection,
+}: TreasureHandlers & {
+  onBack?: () => void;
+  onOpenCollection?: () => void;
+}) {
   const [site, setSite] = useState<TreasureSitePublic | null>(null);
   const [result, setResult] = useState<Result>(null);
   const [busy, setBusy] = useState(false);
@@ -150,6 +158,30 @@ export function TreasureDigView({ open, dig }: TreasureHandlers) {
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-1 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+        {(onBack || onOpenCollection) && (
+          <div className="flex items-center justify-between">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              >
+                ← 마을로
+              </button>
+            ) : (
+              <span />
+            )}
+            {onOpenCollection && (
+              <button
+                type="button"
+                onClick={onOpenCollection}
+                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
+              >
+                발굴 보관함 →
+              </button>
+            )}
+          </div>
+        )}
         <h1 className="text-lg font-bold">보물 발굴</h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           지도 조각으로 발굴 지점을 열고, 단서(뜨거움/차가움)로 매장지를 좁혀 파내세요. 무엇이

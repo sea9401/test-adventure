@@ -5,14 +5,14 @@ import {
   FirstAid,
   Fish,
   Hammer,
-  Shield,
   Sparkle,
   Storefront,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 치료소·상점·수행(숙련도 cap)·학습(시그니처)·길드회관 동작, 대장간은 준비 중 placeholder.
+// 치료소·상점·수행(숙련도 cap)·학습(시그니처) 동작, 대장간은 준비 중 placeholder.
+// 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
 export type TownAction =
   | { kind: "open-healing" }
@@ -20,8 +20,7 @@ export type TownAction =
   | { kind: "open-training" }
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
-  | { kind: "open-fishing" }
-  | { kind: "open-guild-hall" };
+  | { kind: "open-fishing" };
 
 export function V2TownHome({
   onAction,
@@ -74,12 +73,6 @@ export function V2TownHome({
           title="낚시터"
           description="스태미나 없이 찌를 드리우는 곳. 잡은 물고기로 주간 대회에 도전한다."
           onClick={() => onAction({ kind: "open-fishing" })}
-        />
-        <EntryCard
-          icon={<Shield size={28} weight="duotone" className="text-indigo-500" />}
-          title="길드 회관"
-          description="새로운 길드를 세우거나 동료들과 깃발을 모은다."
-          onClick={() => onAction({ kind: "open-guild-hall" })}
         />
       </div>
     </main>

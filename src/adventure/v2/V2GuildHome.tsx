@@ -10,6 +10,7 @@ import type {
 } from "@/adventure/data/v2/types";
 import type { V2Resources } from "@/adventure/data/v2/resources";
 import { LineupCard } from "./LineupCard";
+import { GuildFoundCard } from "./GuildFoundCard";
 
 // 길드 탭 — sub-tab nav 로 4 영역 분리 (info / members / outposts / resources).
 // 라인업은 members 탭 안 (멤버 배치라 자연스러움).
@@ -84,10 +85,13 @@ export function V2GuildHome({
   viewerGuildId,
   viewerUserId,
   occupations,
+  onGuildChanged,
 }: {
   viewerGuildId: number | null;
   viewerUserId: string | null;
   occupations: Occupation[];
+  // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
+  onGuildChanged?: () => void;
 }) {
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
   const [state, setState] = useState<StateResponse | null>(null);
@@ -111,31 +115,38 @@ export function V2GuildHome({
     refresh();
   }, [refresh]);
 
+  // 길드 id — 방금 창단했으면 부모 prop(viewerGuildId)이 아직 stale 일 수 있어
+  // 자체 fetch 한 state.guild.id 를 우선한다(없으면 prop 폴백).
+  const guildId = state?.guild?.id ?? viewerGuildId;
+
   // 보유 거점.
   const ownedOutposts: Outpost[] =
-    viewerGuildId != null
+    guildId != null
       ? OUTPOSTS.filter((o) =>
           occupations.some(
             (occ) =>
-              occ.outpostId === o.id && occ.occupiedByGuildId === viewerGuildId,
+              occ.outpostId === o.id && occ.occupiedByGuildId === guildId,
           ),
         )
       : [];
   const occByOutpost = new Map(occupations.map((o) => [o.outpostId, o]));
 
-  // 무소속이면 안내만 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
+  // 무소속이면 창단 카드를 바로 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
   if (!loading && !state?.guild) {
     return (
       <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
         <header>
           <h1 className="text-lg font-bold">길드</h1>
-        </header>
-        <div className="rounded-md border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <p className="text-zinc-700 dark:text-zinc-300">아직 무소속이다.</p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            마을 → 길드 회관에서 새 길드를 창단하거나 초대를 기다리자.
+            아직 무소속이다. 새 길드를 창단하거나 초대를 기다리자.
           </p>
-        </div>
+        </header>
+        <GuildFoundCard
+          onCreated={() => {
+            refresh();
+            onGuildChanged?.();
+          }}
+        />
       </main>
     );
   }
@@ -241,7 +252,7 @@ export function V2GuildHome({
       )}
 
       {subTab === "outposts" && (
-        viewerGuildId == null ? (
+        guildId == null ? (
           <div className="text-sm text-zinc-500 dark:text-zinc-400">
             소속 길드가 없어요.
           </div>

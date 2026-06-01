@@ -55,7 +55,12 @@ export function FishingView({
   reel,
   onBack,
   onOpenLeaderboard,
-}: FishingHandlers & { onBack?: () => void; onOpenLeaderboard?: () => void }) {
+  onOpenShop,
+}: FishingHandlers & {
+  onBack?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenShop?: () => void;
+}) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,14 +169,27 @@ export function FishingView({
               입질이 오면 곧바로 챔질하자. 잡은 물고기는 어보에 기록된다.
             </p>
           </div>
-          {onOpenLeaderboard && (
-            <button
-              type="button"
-              onClick={onOpenLeaderboard}
-              className="shrink-0 rounded-full bg-zinc-200/70 px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-            >
-              주간 대회 순위
-            </button>
+          {(onOpenLeaderboard || onOpenShop) && (
+            <div className="flex shrink-0 flex-col gap-1.5">
+              {onOpenLeaderboard && (
+                <button
+                  type="button"
+                  onClick={onOpenLeaderboard}
+                  className="rounded-full bg-zinc-200/70 px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  주간 대회 순위
+                </button>
+              )}
+              {onOpenShop && (
+                <button
+                  type="button"
+                  onClick={onOpenShop}
+                  className="rounded-full bg-amber-200/70 px-3 py-1 text-xs font-medium text-amber-800 transition hover:bg-amber-300/70 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-800/60"
+                >
+                  코인 상점
+                </button>
+              )}
+            </div>
           )}
         </div>
       </header>

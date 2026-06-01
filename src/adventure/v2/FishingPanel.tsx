@@ -7,9 +7,11 @@ import { useFishing } from "./useFishing";
 export function FishingPanel({
   onBack,
   onOpenLeaderboard,
+  onOpenShop,
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
+  onOpenShop: () => void;
 }) {
   const handlers = useFishing();
   return (
@@ -17,6 +19,7 @@ export function FishingPanel({
       {...handlers}
       onBack={onBack}
       onOpenLeaderboard={onOpenLeaderboard}
+      onOpenShop={onOpenShop}
     />
   );
 }

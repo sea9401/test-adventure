@@ -21,7 +21,8 @@ export type TitleCategory =
   | "guild"
   | "tower"
   | "endgame"
-  | "pvp";
+  | "pvp"
+  | "fishing";
 
 export type Title = {
   id: TitleId;
@@ -49,6 +50,7 @@ export const TITLE_CATEGORY_ORDER: readonly {
   { id: "tower", label: "탑" },
   { id: "endgame", label: "별의 옥좌" },
   { id: "pvp", label: "투기장" },
+  { id: "fishing", label: "낚시" },
 ];
 
 export const TITLES: Record<TitleId, Title> = {
@@ -650,6 +652,35 @@ export const TITLES: Record<TitleId, Title> = {
     description: "투기장의 전설로 길이 회자되는 자.",
     condition: "투기장 상점에서 투기장 코인 2500으로 구매",
     category: "pvp",
+  },
+  // ── 낚시 코인 상점 칭호 (낚시 코인으로 구매) ──────────────────────────────
+  fishing_taegong: {
+    id: "fishing_taegong",
+    name: "강태공",
+    description: "물가에 앉아 세월을 낚는 느긋한 손맛의 주인.",
+    condition: "낚시 코인 상점에서 낚시 코인 150으로 구매",
+    category: "fishing",
+  },
+  fishing_trophy: {
+    id: "fishing_trophy",
+    name: "월척 사냥꾼",
+    description: "한 자가 넘는 대물만 노리는 집념의 낚시꾼.",
+    condition: "낚시 코인 상점에서 낚시 코인 600으로 구매",
+    category: "fishing",
+  },
+  fishing_deepsea: {
+    id: "fishing_deepsea",
+    name: "심해의 어부",
+    description: "깊고 어두운 바다의 괴물조차 끌어올리는 자.",
+    condition: "낚시 코인 상점에서 낚시 코인 1500으로 구매",
+    category: "fishing",
+  },
+  fishing_legend: {
+    id: "fishing_legend",
+    name: "바다의 전설",
+    description: "어보의 모든 페이지에 이름을 남긴 낚시의 전설.",
+    condition: "낚시 코인 상점에서 낚시 코인 3500으로 구매",
+    category: "fishing",
   },
 };
 

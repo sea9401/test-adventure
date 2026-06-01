@@ -22,6 +22,7 @@ import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { FishingPanel } from "@/adventure/v2/FishingPanel";
 import { FishingLeaderboardPanel } from "@/adventure/v2/FishingLeaderboardPanel";
+import { FishingShopPanel } from "@/adventure/v2/FishingShopPanel";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2ArenaView } from "@/adventure/v2/V2ArenaView";
 import { V2BattleHome, type BattleAction } from "@/adventure/v2/V2BattleHome";
@@ -127,6 +128,7 @@ type View =
   | { kind: "smithy" }
   | { kind: "fishing" }
   | { kind: "fishing-leaderboard" }
+  | { kind: "fishing-shop" }
   | { kind: "guild-hall" }
   | { kind: "character" }
   | { kind: "character-info" }
@@ -156,6 +158,7 @@ function tabOfView(view: View): TabId {
     case "smithy":
     case "fishing":
     case "fishing-leaderboard":
+    case "fishing-shop":
     case "guild-hall":
       return "town";
     case "character":
@@ -578,10 +581,14 @@ export function V2GameFlow() {
         <FishingPanel
           onBack={() => setView({ kind: "town" })}
           onOpenLeaderboard={() => setView({ kind: "fishing-leaderboard" })}
+          onOpenShop={() => setView({ kind: "fishing-shop" })}
         />
       )}
       {view.kind === "fishing-leaderboard" && (
         <FishingLeaderboardPanel onBack={() => setView({ kind: "fishing" })} />
+      )}
+      {view.kind === "fishing-shop" && (
+        <FishingShopPanel onBack={() => setView({ kind: "fishing" })} />
       )}
 
       {/* === 캐릭터 탭 === */}

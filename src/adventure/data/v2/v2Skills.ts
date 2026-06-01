@@ -11,6 +11,7 @@
 // 이 모듈은 카탈로그/타입/파싱 헬퍼만 — DB/UI/전투 wiring 은 후속 PR.
 
 import type { StatKey } from "@/adventure/data/stats";
+import { STAT_LABELS } from "@/adventure/data/stats";
 import type { V2Class } from "./classes";
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
@@ -1091,6 +1092,42 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_ELEMENTAL_SKILLS,
 };
+
+// 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
+function describeV2Effect(e: V2SkillEffect): string {
+  switch (e.kind) {
+    case "damage": {
+      const flat = e.baseFlat ? ` +${e.baseFlat}` : "";
+      const magic = e.scaling === "magic" ? " (마법)" : "";
+      return `피해 공격력×${e.statCoef}${flat}${magic}`;
+    }
+    case "heal":
+      return e.pctMaxHp != null
+        ? `회복 최대HP ${e.pctMaxHp}%`
+        : `회복 +${e.flat ?? 0}`;
+    case "selfBuff":
+      return `${STAT_LABELS[e.stat]} +${e.pct}% (${e.turns}턴)`;
+    case "enemyDebuff":
+      return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${e.turns}턴)`;
+    case "dot":
+      return `${e.label} 지속피해 ${e.dmgPerTurn}/턴 (${e.turns}턴)`;
+  }
+  // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
+  const _exhaustive: never = e;
+  return _exhaustive;
+}
+
+// 스킬의 상세 옵션을 칩 문자열 배열로 — 효과(피해/회복/버프/디버프/DoT) 먼저, 그 뒤
+// MP·쿨다운·속성 메타. UI(학습/장착 화면)에서 작은 칩으로 표기.
+export function describeV2Skill(skill: V2SkillDefinition): string[] {
+  const chips = skill.effects.map(describeV2Effect);
+  if (skill.mpCost > 0) chips.push(`MP ${skill.mpCost}`);
+  if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}턴`);
+  if (skill.element && skill.element !== "neutral") {
+    chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);
+  }
+  return chips;
+}
 
 // 모든 스타터 id — PR-2 스타터 지급/백필에서 사용.
 export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [

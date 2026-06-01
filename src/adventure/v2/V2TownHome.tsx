@@ -5,6 +5,7 @@ import {
   FirstAid,
   Fish,
   Hammer,
+  MagnifyingGlass,
   Sparkle,
   Storefront,
 } from "@phosphor-icons/react";
@@ -20,7 +21,8 @@ export type TownAction =
   | { kind: "open-training" }
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
-  | { kind: "open-fishing" };
+  | { kind: "open-fishing" }
+  | { kind: "open-treasure" };
 
 export function V2TownHome({
   onAction,
@@ -73,6 +75,18 @@ export function V2TownHome({
           title="낚시터"
           description="스태미나 없이 찌를 드리우는 곳. 잡은 물고기로 주간 대회에 도전한다."
           onClick={() => onAction({ kind: "open-fishing" })}
+        />
+        <EntryCard
+          icon={
+            <MagnifyingGlass
+              size={28}
+              weight="duotone"
+              className="text-amber-500"
+            />
+          }
+          title="발굴 감정소"
+          description="지도 조각으로 발굴 지점을 열고 단서로 매장지를 찾는 곳. 골동품을 캐낸다."
+          onClick={() => onAction({ kind: "open-treasure" })}
         />
       </div>
     </main>

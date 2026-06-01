@@ -20,7 +20,7 @@ import {
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
 import {
-  advanceProficiencyReq,
+  advanceCumLevelReq,
   V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { codexRequirement } from "@/adventure/data/v2/codex";
@@ -33,7 +33,7 @@ export function V2ClassElementPicker({
   level,
   gold,
   codex,
-  cumulativeProficiency,
+  cumLevel,
   onChanged,
 }: {
   currentClass: V2Class;
@@ -41,7 +41,8 @@ export function V2ClassElementPicker({
   level: number;
   gold: number;
   codex?: { discovered: number; total: number };
-  cumulativeProficiency: number;
+  // 직군 누적 레벨 — 전직 게이트 입력(earned 대체). 레벨업당 +1, 전직 리셋 불변.
+  cumLevel: number;
   onChanged: () => void;
 }) {
   // 드롭다운은 직업군(1차) 단위. 2차 캐릭은 자기 군 1차로 매핑해 표시.
@@ -63,12 +64,12 @@ export function V2ClassElementPicker({
   const cost = respecGoldCost(currentClass, cls, currentElement, elem, level);
   const cantAfford = paid && gold < cost;
 
-  // 전직(advance). 현 직업이 전직 가능한 다음 차수 + 누적 숙련도 + 레벨 50 + 도감(3·4차).
+  // 전직(advance). 현 직업이 전직 가능한 다음 차수 + 직군 누적 레벨 + 레벨 50 + 도감(3·4차).
   const advanceTo = nextTierClassOf(currentClass);
-  const advanceProfReq = advanceTo
-    ? advanceProficiencyReq(V2_CLASS_DEFS[advanceTo].tier)
+  const advanceCumReq = advanceTo
+    ? advanceCumLevelReq(V2_CLASS_DEFS[advanceTo].tier)
     : Infinity;
-  const advanceProfOk = cumulativeProficiency >= advanceProfReq;
+  const advanceCumOk = cumLevel >= advanceCumReq;
   const advanceLevelOk = level >= V2_ADVANCE_MIN_LEVEL;
   // 3·4차 모험의 서 요건 — 재료 도감 등재 종 수.
   const codexReq = advanceTo
@@ -93,8 +94,8 @@ export function V2ClassElementPicker({
         const label =
           j?.error === "level_too_low"
             ? `레벨 부족 (필요 Lv${j.required ?? V2_ADVANCE_MIN_LEVEL}, 현재 Lv${j.have ?? level})`
-            : j?.error === "insufficient_proficiency"
-              ? `숙련도 부족 (누적 ${j.have ?? cumulativeProficiency}/${j.required ?? advanceProfReq})`
+            : j?.error === "insufficient_cum_level"
+              ? `직군 누적 레벨 부족 (${j.have ?? cumLevel}/${j.required ?? advanceCumReq})`
               : j?.error === "codex_incomplete"
                 ? `모험의 서 부족 (재료 ${j.have ?? codexHave}/${j.required ?? codexReq} 등재)`
                 : (j?.error ?? `http ${res.status}`);
@@ -212,14 +213,14 @@ export function V2ClassElementPicker({
               {V2_CLASS_DEFS[advanceTo].tier}차 전직: <b>{V2_CLASS_DEFS[advanceTo].name}</b>
               <span className="text-emerald-700/70 dark:text-emerald-300/70">
                 {" "}
-                · Lv{V2_ADVANCE_MIN_LEVEL} · 누적 숙련도 {advanceProfReq}
+                · Lv{V2_ADVANCE_MIN_LEVEL} · 누적 레벨 {advanceCumReq}
                 {codexReq > 0 ? ` · 도감 ${codexReq}종` : ""}
               </span>
             </div>
             <button
               type="button"
               onClick={advance}
-              disabled={busy || !advanceLevelOk || !advanceProfOk || !codexOk}
+              disabled={busy || !advanceLevelOk || !advanceCumOk || !codexOk}
               className="shrink-0 rounded-md border border-emerald-500 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-400 dark:text-emerald-300"
             >
               전직
@@ -229,9 +230,9 @@ export function V2ClassElementPicker({
             <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
               Lv{V2_ADVANCE_MIN_LEVEL} 필요 (현재 Lv{level}) — 사냥으로 레벨을 올리세요
             </p>
-          ) : !advanceProfOk ? (
+          ) : !advanceCumOk ? (
             <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
-              누적 숙련도 {cumulativeProficiency}/{advanceProfReq} — 사냥으로 더 모으세요
+              직군 누적 레벨 {cumLevel}/{advanceCumReq} — 레벨을 더 올리세요
             </p>
           ) : !codexOk ? (
             <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">

@@ -51,6 +51,8 @@ type StateResponse = {
     current?: {
       group: string;
       earned: number;
+      // 직군 누적 레벨 — floor·전직 게이트 입력(earned 대체). 레벨업당 +1.
+      cumLevel?: number;
       usable: number;
       cultivations?: number;
     };
@@ -145,12 +147,12 @@ export function V2CharacterScreen({
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             <ProficiencyStat
-              label="총 숙련도"
-              value={state.proficiency.total ?? 0}
+              label="직군 누적 레벨"
+              value={state.proficiency.current?.cumLevel ?? 0}
               tone="violet"
             />
             <ProficiencyStat
-              label="누적(직업군)"
+              label="누적 숙련도"
               value={state.proficiency.current?.earned ?? 0}
               tone="violet"
             />
@@ -166,7 +168,8 @@ export function V2CharacterScreen({
             />
           </div>
           <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-            사냥으로 적립(킬당 +2). 사용 가능 숙련도로 마을 「수행」에서 능력치 한계·스킬을 단련.
+            직군 누적 레벨(레벨업당 +1)이 능력치 저점·전직을 좌우. 숙련도는 사냥으로 적립(킬당 +2),
+            사용 가능분으로 마을 「수행」에서 능력치 한계·스킬을 단련.
           </p>
         </Card>
       )}

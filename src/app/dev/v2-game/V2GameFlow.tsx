@@ -278,22 +278,23 @@ export function V2GameFlow() {
       setCurrentOutpost({ id: outpost.id, name: outpost.name });
       setView({ kind: "outpost", outpost });
       void (async () => {
+        let ok = false;
         try {
           const res = await fetch("/api/v2/me/visit-outpost", {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ outpostId: outpost.id }),
           });
-          if (!res.ok) {
-            // 서버가 인접 위반 등으로 거부 → 이동 직전의 위치·화면으로 롤백.
-            // (클라가 이미 인접만 허용하므로 정상 흐름에선 거의 안 일어난다.)
-            setCurrentOutpost(prevOutpost);
-            setView(prevView);
-          }
+          ok = res.ok;
         } catch {
-          // 네트워크 오류는 롤백하지 않음 — 낙관적 상태 유지(다음 로드에서 서버가 정정).
+          ok = false; // 네트워크 오류도 실패로 — 아래에서 롤백.
         } finally {
           visitInFlightRef.current = false;
+        }
+        if (!ok) {
+          // 서버 거부(인접 위반 등) 또는 네트워크 오류 → 이동 직전의 위치·화면으로 롤백.
+          setCurrentOutpost(prevOutpost);
+          setView(prevView);
         }
       })();
     },

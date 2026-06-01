@@ -24,6 +24,7 @@ import type {
   V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -115,6 +116,7 @@ export function V2DungeonFloorView({
     let levelsGained = 0;
     const drops: Partial<Record<V2MaterialId, number>> = {};
     const droppedEquipments: V2EquipmentId[] = [];
+    const statGains: Partial<Record<V2StatKey, number>> = {};
     let stoppedReason: BatchSummary["stoppedReason"] = null;
     let completed = 0;
 
@@ -137,6 +139,10 @@ export function V2DungeonFloorView({
         const key = id as V2MaterialId;
         drops[key] = (drops[key] ?? 0) + (n ?? 0);
       }
+      for (const [k, n] of Object.entries(r.statGains ?? {})) {
+        const key = k as V2StatKey;
+        statGains[key] = (statGains[key] ?? 0) + (n ?? 0);
+      }
       if (r.droppedEquipment) droppedEquipments.push(r.droppedEquipment);
       // 사망 또는 체력 부족(5% 미만)이면 다음 사냥이 어차피 서버에서 막히므로 중단.
       // 헛돈(409) 없이 즉시 멈추고, 패배(0)·생존했지만 저체력을 라벨로 구분.
@@ -158,6 +164,7 @@ export function V2DungeonFloorView({
       totalProficiency,
       totalGold,
       levelsGained,
+      statGains,
       drops,
       droppedEquipments,
       stoppedReason,
@@ -321,8 +328,9 @@ export function V2DungeonFloorView({
             <>
               <p>새로운 레벨에 도달했습니다. 캐릭터가 더 강해졌어요.</p>
               <p>
-                레벨업당 스탯 포인트 5점을 받습니다. <strong>훈련 탭</strong>
-                에서 STR/DEX/VIT/SPD/LUK/INT 에 분배할 수 있어요.
+                레벨이 오르면 능력치가 한계치까지 무작위로 성장합니다. 그 한계치를
+                더 끌어올리려면 사냥으로 모은 숙련도를 <strong>성장의 신전</strong>
+                에서 수행에 쓰면 돼요.
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 계속 사냥해 다음 구역 입장 레벨까지 도달해보세요.

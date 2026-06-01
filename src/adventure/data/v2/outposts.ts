@@ -197,7 +197,7 @@ const VILLAGES: Outpost[] = [
   // 라그나로드 영역 (붉은산)
   { id: "village_ashrock", name: "잿바위 마을", type: "village", tier: 1, position: { x: 8500, y: 4400 } },
   { id: "village_hammer_camp", name: "망치 야영 마을", type: "village", tier: 1, position: { x: 9100, y: 3200 } },
-  { id: "village_redspring", name: "붉은 샘 마을", type: "village", tier: 1, position: { x: 8400, y: 2500 } },
+  { id: "village_redspring", name: "붉은 샘 마을", type: "village", tier: 1, position: { x: 8700, y: 2700 } },
   { id: "village_redrock", name: "붉은 바위 마을", type: "village", tier: 1, position: { x: 9000, y: 3500 } },
   { id: "village_iron_camp", name: "철 야영 마을", type: "village", tier: 1, position: { x: 7300, y: 3300 } },
   { id: "village_summit", name: "정상 마을", type: "village", tier: 1, position: { x: 8500, y: 3000 } },

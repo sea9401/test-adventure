@@ -14,6 +14,7 @@ import {
   CastleTurret,
   Crown,
   House,
+  MapPin,
   Minus,
   Mountains,
   Plus,
@@ -95,6 +96,10 @@ const BIOME_REGIONS = [
   { label: "중앙 분쟁지대", center: { x: 5000, y: 2800 } },
 ] as const;
 
+// 박스를 그리지 않는 권역 — 중앙 분쟁지대는 어느 세력 영역도 아닌 가운데 격전지라
+// 점선 박스를 생략한다(거점 배정에는 계속 쓰여 주변 영역이 가운데로 늘어나는 것도 막음).
+const NO_BOX_LABELS = new Set<string>(["중앙 분쟁지대"]);
+
 type RegionBox = { label: string; x: number; y: number; w: number; h: number };
 
 const REGION_BOXES: RegionBox[] = (() => {
@@ -130,14 +135,16 @@ const REGION_BOXES: RegionBox[] = (() => {
       cur.maxY = Math.max(cur.maxY, o.position.y);
     }
   }
-  const PAD = 340;
-  return [...acc.entries()].map(([label, b]) => ({
-    label,
-    x: b.minX - PAD,
-    y: b.minY - PAD,
-    w: b.maxX - b.minX + PAD * 2,
-    h: b.maxY - b.minY + PAD * 2,
-  }));
+  const PAD = 260;
+  return [...acc.entries()]
+    .filter(([label]) => !NO_BOX_LABELS.has(label))
+    .map(([label, b]) => ({
+      label,
+      x: b.minX - PAD,
+      y: b.minY - PAD,
+      w: b.maxX - b.minX + PAD * 2,
+      h: b.maxY - b.minY + PAD * 2,
+    }));
 })();
 
 type OccupationLite = {
@@ -170,6 +177,7 @@ export function ContinentMap({
   }
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   // 컨테이너 크기 측정 — viewBox 비율 + 좌표 변환에 사용.
   const containerRef = useRef<HTMLDivElement>(null);
@@ -217,13 +225,40 @@ export function ContinentMap({
     });
   }, [containerSize]);
 
+  // 현재 거점을 화면 가운데로 — 적당한 줌(맵 너비의 42%)으로. 지도를 열 때 전체보기 대신
+  // "지금 있는 곳"으로 프레이밍한다. 현재 거점이 없으면 전체보기로 폴백.
+  const centerOnCurrent = useCallback(() => {
+    const cur = currentOutpostId ? OUTPOST_BY_ID.get(currentOutpostId) : null;
+    const { w: cw, h: ch } = containerSize;
+    if (!cur || cw === 0 || ch === 0) {
+      fitAll();
+      return;
+    }
+    const vbW = Math.min(MAX_VB_W, Math.max(MIN_VB_W, MAP_BOUNDS.width * 0.42));
+    const vbH = vbW * (ch / cw);
+    // clampVb 와 같은 규칙으로 월드 밖 넘침 방지(축소판).
+    const x =
+      vbW >= MAP_BOUNDS.width
+        ? (MAP_BOUNDS.width - vbW) / 2
+        : Math.max(0, Math.min(MAP_BOUNDS.width - vbW, cur.position.x - vbW / 2));
+    const y =
+      vbH >= MAP_BOUNDS.height
+        ? (MAP_BOUNDS.height - vbH) / 2
+        : Math.max(
+            0,
+            Math.min(MAP_BOUNDS.height - vbH, cur.position.y - vbH / 2),
+          );
+    setVb({ x, y, w: vbW, h: vbH });
+  }, [currentOutpostId, containerSize, fitAll]);
+
+  // 지도를 열면 한 번 현재 위치로 프레이밍.
   const didFitRef = useRef(false);
   useEffect(() => {
     if (didFitRef.current) return;
     if (containerSize.w === 0 || containerSize.h === 0) return;
-    fitAll();
+    centerOnCurrent();
     didFitRef.current = true;
-  }, [containerSize, fitAll]);
+  }, [containerSize, centerOnCurrent]);
 
   const clampVb = useCallback(
     (next: Vb): Vb => {
@@ -637,6 +672,16 @@ export function ContinentMap({
         </svg>
         {/* 줌 컨트롤 — 우상단 floating */}
         <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-1.5">
+          {currentOutpostId && (
+            <button
+              type="button"
+              onClick={centerOnCurrent}
+              aria-label="현재 위치로"
+              className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-emerald-400 bg-white/95 text-emerald-600 shadow-sm hover:bg-emerald-50 dark:border-emerald-700 dark:bg-zinc-900/90 dark:text-emerald-400 dark:hover:bg-zinc-800"
+            >
+              <MapPin size={18} weight="fill" />
+            </button>
+          )}
           <button
             type="button"
             onClick={fitAll}
@@ -661,6 +706,63 @@ export function ContinentMap({
           >
             <Minus size={16} weight="bold" />
           </button>
+        </div>
+
+        {/* 범례 — 좌상단. 기본 접힘, 버튼으로 펼침(모바일 공간 절약). */}
+        <div className="pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1.5">
+          <button
+            type="button"
+            onClick={() => setLegendOpen((v) => !v)}
+            aria-expanded={legendOpen}
+            className="pointer-events-auto inline-flex items-center rounded-md border border-zinc-300 bg-white/95 px-2.5 py-1.5 text-xs font-medium text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            범례
+          </button>
+          {legendOpen && (
+            <div className="pointer-events-auto space-y-1.5 rounded-md border border-zinc-300 bg-white/95 p-2.5 text-[11px] text-zinc-600 shadow-md backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-300">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <span className="flex items-center gap-1">
+                  <Crown size={13} weight="fill" className="text-zinc-500 dark:text-zinc-400" />
+                  왕국
+                </span>
+                <span className="flex items-center gap-1">
+                  <CastleTurret size={13} weight="fill" className="text-zinc-500 dark:text-zinc-400" />
+                  요새
+                </span>
+                <span className="flex items-center gap-1">
+                  <Sparkle size={13} weight="fill" className="text-zinc-500 dark:text-zinc-400" />
+                  마탑
+                </span>
+                <span className="flex items-center gap-1">
+                  <Mountains size={13} weight="fill" className="text-zinc-500 dark:text-zinc-400" />
+                  광산
+                </span>
+                <span className="flex items-center gap-1">
+                  <House size={13} weight="fill" className="text-zinc-500 dark:text-zinc-400" />
+                  마을
+                </span>
+              </div>
+              <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <span className="flex items-center gap-1">
+                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: "#10b981" }} />
+                  내 거점
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: "#dc2626" }} />
+                  적 점령
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: "#f4c842" }} />
+                  중립
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-3 w-3 shrink-0 rounded-sm border-2 border-dashed border-emerald-500" />
+                  현재 위치
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 진입 + X. 세부 정보는 진입 후 화면. */}

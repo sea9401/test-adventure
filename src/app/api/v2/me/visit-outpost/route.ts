@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { OUTPOSTS, START_OUTPOST_ID } from "@/adventure/data/v2/outposts";
-import { areOutpostsAdjacent } from "@/adventure/data/v2/outpostGraph";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { canMoveToOutpost } from "@/adventure/data/v2/outpostGraph";
 
 // POST /api/v2/me/visit-outpost — 현재 머무는 거점 갱신.
 //
@@ -47,15 +47,10 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+    // 이동 게이트(권위) — 저장된 현재 거점(없거나 미지값이면 시작 거점)에서 인접한 곳,
+    // 또는 같은 거점 재진입만 허용. 규칙은 outpostGraph.canMoveToOutpost 로 일원화(테스트됨).
     const savedId = charSave.lastVisitedOutpost?.outpostId;
-    // 저장된 현재 거점이 없거나(신규) 알 수 없는 값(레거시/손상)이면 시작 거점을 기준으로 —
-    // 클라 기본값과 동일하게 맞춰 정상적인 첫 이동이 잘못 거부되지 않게 한다.
-    const current =
-      savedId && OUTPOSTS.some((o) => o.id === savedId)
-        ? savedId
-        : START_OUTPOST_ID;
-    // 같은 거점 재진입은 허용(at 만 갱신). 그 외엔 인접해야 한다.
-    if (current !== outpostId && !areOutpostsAdjacent(current, outpostId)) {
+    if (!canMoveToOutpost(savedId, outpostId)) {
       notAdjacent = true;
       return; // 쓰기 없이 종료 — 위치 변경 안 함.
     }

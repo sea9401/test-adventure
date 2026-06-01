@@ -15,13 +15,17 @@
 //
 // 특정 구간을 손보고 싶으면 아래 MANUAL_ADD / MANUAL_REMOVE 에 [idA, idB] 한 줄.
 
-import { OUTPOSTS } from "./outposts";
+import { OUTPOSTS, START_OUTPOST_ID } from "./outposts";
 
 export type OutpostEdge = { a: string; b: string };
 
 // 추가 연결 밀도 — MST 외의 Gabriel 후보 중 이 비율만큼만 무작위로 더 잇는다.
 // 1.0 = 후보 전부(빽빽한 거미줄), 0 = 순수 트리(가장 성김). 0~1.
 const EXTRA_EDGE_FRACTION = 0.35;
+
+// 막다른 거점 완화 — 각 거점이 최소 이만큼의 연결을 갖도록 가장 가까운 미포함 후보를 더한다
+// (차수 1 = 들어가면 왔던 길로만 나오는 막다른 길). 후보가 모자라면 최선까지만.
+const MIN_OUTPOST_DEGREE = 2;
 
 // 수동 보정 훅 — 자동 그래프 위에 강제로 잇거나(ADD) 끊는다(REMOVE). 순서 무관.
 // REMOVE 가 ADD 보다 우선. (REMOVE 가 MST 간선을 끊으면 연결이 깨질 수 있으니 주의.)
@@ -116,6 +120,39 @@ function buildEdges(): OutpostEdge[] {
     // MST 간선은 무조건(연결 보장). 나머지 후보는 시드 해시로 일부만 — 거미줄 완화.
     if (mst.has(k) || hash01(k) < EXTRA_EDGE_FRACTION) byKey.set(k, e);
   }
+
+  // 막다른 거점 완화 — 차수 < MIN_OUTPOST_DEGREE 인 거점에 가장 가까운 미포함 후보를 더한다.
+  // 거점별 후보를 거리 오름차순으로 모아두고, OUTPOSTS 순서대로(결정적) 부족분을 채운다.
+  const degree = new Map<string, number>();
+  for (const o of OUTPOSTS) degree.set(o.id, 0);
+  for (const { a, b } of byKey.values()) {
+    degree.set(a, (degree.get(a) ?? 0) + 1);
+    degree.set(b, (degree.get(b) ?? 0) + 1);
+  }
+  const candByNode = new Map<string, { key: string; e: OutpostEdge; d: number }[]>();
+  for (const e of candidates) {
+    const k = pairKey(e.a, e.b);
+    if (removed.has(k)) continue;
+    const d = dist2(ID_INDEX.get(e.a)!, ID_INDEX.get(e.b)!);
+    for (const n of [e.a, e.b] as const) {
+      const list = candByNode.get(n) ?? candByNode.set(n, []).get(n)!;
+      list.push({ key: k, e, d });
+    }
+  }
+  // 거리 오름차순, 동점은 키 문자열로 — sort 안정성에 기대지 않고 결정성을 못박는다.
+  for (const list of candByNode.values()) {
+    list.sort((x, y) => x.d - y.d || (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
+  }
+  for (const o of OUTPOSTS) {
+    for (const { key, e } of candByNode.get(o.id) ?? []) {
+      if ((degree.get(o.id) ?? 0) >= MIN_OUTPOST_DEGREE) break;
+      if (byKey.has(key)) continue;
+      byKey.set(key, e);
+      degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
+      degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
+    }
+  }
+
   for (const [a, b] of MANUAL_ADD) {
     if (a === b) continue;
     const k = pairKey(a, b);
@@ -145,6 +182,30 @@ export function getOutpostNeighbors(id: string): string[] {
 
 export function areOutpostsAdjacent(a: string, b: string): boolean {
   return NEIGHBORS.get(a)?.has(b) ?? false;
+}
+
+// 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라
+// 보통 항상 존재하고, 닿지 못하면 null. 다중 홉 자동 이동(경로 미리보기 + 한 칸씩 순차
+// 진입)에 쓴다. from===to 면 [from].
+// 저장된 현재 거점 id 를 실제 기준점으로 정규화 — 없거나(신규) 알 수 없는 값(레거시/손상)
+// 이면 시작 거점(START_OUTPOST_ID)으로 폴백. 클라 기본값과 같아 정상 첫 이동이 잘못
+// 거부되지 않는다.
+export function resolveCurrentOutpostId(
+  savedOutpostId: string | null | undefined,
+): string {
+  return savedOutpostId && NEIGHBORS.has(savedOutpostId)
+    ? savedOutpostId
+    : START_OUTPOST_ID;
+}
+
+// 서버 이동 게이트의 권위 규칙(순수) — 저장된 현재 거점에서 target 으로 갈 수 있는가.
+// 같은 거점 재진입은 허용, 그 외엔 인접해야 한다. visit-outpost 라우트가 이걸 쓴다.
+export function canMoveToOutpost(
+  savedOutpostId: string | null | undefined,
+  targetId: string,
+): boolean {
+  const current = resolveCurrentOutpostId(savedOutpostId);
+  return current === targetId || areOutpostsAdjacent(current, targetId);
 }
 
 // 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라

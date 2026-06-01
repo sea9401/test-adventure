@@ -54,7 +54,8 @@ export function FishingView({
   cast,
   reel,
   onBack,
-}: FishingHandlers & { onBack?: () => void }) {
+  onOpenLeaderboard,
+}: FishingHandlers & { onBack?: () => void; onOpenLeaderboard?: () => void }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -156,11 +157,22 @@ export function FishingView({
             ← 돌아가기
           </button>
         )}
-        <div>
-          <h1 className="text-lg font-bold">낚시터</h1>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            입질이 오면 곧바로 챔질하자. 잡은 물고기는 어보에 기록된다.
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-lg font-bold">낚시터</h1>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              입질이 오면 곧바로 챔질하자. 잡은 물고기는 어보에 기록된다.
+            </p>
+          </div>
+          {onOpenLeaderboard && (
+            <button
+              type="button"
+              onClick={onOpenLeaderboard}
+              className="shrink-0 rounded-full bg-zinc-200/70 px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            >
+              주간 대회 순위
+            </button>
+          )}
         </div>
       </header>
 

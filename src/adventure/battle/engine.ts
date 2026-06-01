@@ -458,6 +458,19 @@ export type PlayerCombat = {
   // 매 플레이어 턴 첫 공격 시 슬롯 순서로 condition 만족 + cost<=AP 인 첫 1개 발동.
   // 한 턴 최대 1개. condition 미지정 슬롯은 always 로 해석.
   equippedAPSkills?: ReadonlyArray<EquippedAPSkill>;
+  // ── 직업 패시브 (v2 직업색 — 시그니처 대체) — v2Passives.ts·derive 가 채움 ──
+  // 무도가 — 받는 피해 상시 -%. enchantEndurePct 와 같은 지점에서 적용(별개 누적). 0/undefined=미보유.
+  passiveDamageTakenReductionPct?: number;
+  // 사제 — 매 플레이어 턴 시작 시 maxHp 의 %만큼 회복. enchantRegenPctPerTurn 과 별개 누적. 0/undefined=미보유.
+  passiveTurnHealPctMaxHp?: number;
+  // 궁/인/마 — 그 턴 피해를 입혔을 때 chancePct% 로 적에게 DoT 부여/갱신(출혈/중독/소각). undefined=미보유.
+  // enchantVenomChancePct(본타 % 출혈 스택) 와 같은 결의 확률 proc — 적용은 엔진(PR-3).
+  passiveOnHitDot?: {
+    chancePct: number;
+    label: string;
+    dmgPerTurn: number;
+    turns: number;
+  };
 };
 
 // 장착된 AP 스킬 + 사용자가 슬롯에 건 발동 조건.

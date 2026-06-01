@@ -146,3 +146,35 @@ export function getOutpostNeighbors(id: string): string[] {
 export function areOutpostsAdjacent(a: string, b: string): boolean {
   return NEIGHBORS.get(a)?.has(b) ?? false;
 }
+
+// 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라
+// 보통 항상 존재하고, 닿지 못하면 null. 다중 홉 자동 이동(경로 미리보기 + 한 칸씩 순차
+// 진입)에 쓴다. from===to 면 [from].
+export function shortestOutpostPath(from: string, to: string): string[] | null {
+  if (!NEIGHBORS.has(from) || !NEIGHBORS.has(to)) return null;
+  if (from === to) return [from];
+  const prev = new Map<string, string>();
+  const seen = new Set<string>([from]);
+  const queue: string[] = [from];
+  let head = 0;
+  while (head < queue.length) {
+    const cur = queue[head];
+    head += 1;
+    for (const nb of NEIGHBORS.get(cur)!) {
+      if (seen.has(nb)) continue;
+      seen.add(nb);
+      prev.set(nb, cur);
+      if (nb === to) {
+        const path: string[] = [to];
+        let c = to;
+        while (c !== from) {
+          c = prev.get(c)!;
+          path.push(c);
+        }
+        return path.reverse();
+      }
+      queue.push(nb);
+    }
+  }
+  return null;
+}

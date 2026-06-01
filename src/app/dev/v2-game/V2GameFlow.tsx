@@ -30,6 +30,7 @@ import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import { OUTPOSTS, START_OUTPOST_ID } from "@/adventure/data/v2/outposts";
+import { shortestOutpostPath } from "@/adventure/data/v2/outpostGraph";
 import type {
   DungeonFloorId,
   Outpost,
@@ -43,6 +44,11 @@ const OUTPOST_TYPE_BY_ID = new Map<string, OutpostType>(
 );
 // 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
 const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
+const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o] as const));
+
+// 다중 홉 자동 이동에서 한 칸 진입 사이의 간격(ms) — 마커가 길을 "걸어가는" 느낌.
+const TRAVEL_HOP_MS = 160;
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드는 추후 별도 이미지 예정.
 const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
 
@@ -166,6 +172,12 @@ function defaultViewOfTab(tab: TabId): View {
 export function V2GameFlow() {
   // 첫 시작 탭 — adventure (모험). 사용자가 진입 즉시 사냥/거점 흐름으로 안내.
   const [view, setView] = useState<View>(() => defaultViewOfTab("adventure"));
+  // 최신 view 를 비동기(다중 홉 이동) 완료 시점에 읽기 위한 거울. 이동 중 사용자가
+  // 다른 탭으로 옮겼으면 도착 시 거점 화면으로 강제 전환하지 않기 위함.
+  const viewRef = useRef(view);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
   const [occupations, setOccupations] = useState<Occupation[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
@@ -286,6 +298,52 @@ export function V2GameFlow() {
       })();
     },
     [currentOutpost, view],
+  );
+
+  // 다중 홉 자동 이동 — 현재 거점에서 목적지까지 최단 경로를 따라 한 칸씩 순차 진입한다.
+  // 워프가 아니라 길을 "걸어가는" 것: 각 홉마다 서버가 인접을 검증하고(경로가 인접 엣지만
+  // 따르므로 매번 통과), 마커가 한 칸씩 전진한 뒤 도착지 화면을 연다. 인접이면 1홉.
+  const travelTo = useCallback(
+    (target: Outpost) => {
+      if (visitInFlightRef.current) return;
+      const startId = currentOutpost?.id ?? START_OUTPOST_ID;
+      if (startId === target.id) {
+        setView({ kind: "outpost", outpost: target });
+        return;
+      }
+      const path = shortestOutpostPath(startId, target.id);
+      if (!path || path.length < 2) return; // 연결 그래프라 사실상 없음(방어).
+      visitInFlightRef.current = true;
+      void (async () => {
+        let reachedId = startId;
+        try {
+          for (let i = 1; i < path.length; i += 1) {
+            const stepId = path[i];
+            const res = await fetch("/api/v2/me/visit-outpost", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ outpostId: stepId }),
+            });
+            if (!res.ok) break; // 막히면 도달한 지점에서 멈춘다(부분 이동은 유효).
+            reachedId = stepId;
+            const o = OUTPOST_BY_ID.get(stepId);
+            if (o) setCurrentOutpost({ id: o.id, name: o.name });
+            if (i < path.length - 1) await delay(TRAVEL_HOP_MS);
+          }
+        } catch {
+          // 네트워크 오류 — 도달한 지점에서 멈춘다.
+        } finally {
+          visitInFlightRef.current = false;
+        }
+        // 한 칸이라도 이동했고, 사용자가 아직 지도를 보고 있으면 도달한 거점 화면을 연다.
+        // (이동 중 다른 탭으로 옮겼으면 강제로 끌어오지 않는다.)
+        const reached = OUTPOST_BY_ID.get(reachedId);
+        if (reachedId !== startId && reached && viewRef.current.kind === "map") {
+          setView({ kind: "outpost", outpost: reached });
+        }
+      })();
+    },
+    [currentOutpost],
   );
 
   const handleTabSelect = (tab: TabId) => {
@@ -486,6 +544,7 @@ export function V2GameFlow() {
       {view.kind === "map" && (
         <ContinentMap
           onOutpostEnter={enterOutpost}
+          onTravelTo={travelTo}
           occupations={occupations}
           viewerUserId={viewerUserId}
           currentOutpostId={currentOutpost?.id ?? null}

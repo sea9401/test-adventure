@@ -23,7 +23,7 @@ import {
 import { OUTPOSTS, MAP_BOUNDS } from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
-  areOutpostsAdjacent,
+  shortestOutpostPath,
 } from "@/adventure/data/v2/outpostGraph";
 import type {
   Outpost,
@@ -150,11 +150,15 @@ type Vb = { x: number; y: number; w: number; h: number };
 
 export function ContinentMap({
   onOutpostEnter,
+  onTravelTo,
   occupations,
   viewerUserId,
   currentOutpostId,
 }: {
+  // 현재 거점 자신 재진입(둘러보기)용 — 이동 없이 그 거점 화면을 연다.
   onOutpostEnter?: (o: Outpost) => void;
+  // 이동(1홉 진입 또는 다중 홉 자동 이동)용 — 경로를 따라 한 칸씩 진입한다.
+  onTravelTo?: (o: Outpost) => void;
   occupations?: OccupationLite[];
   viewerUserId?: string | null;
   // 플레이어의 현재 거점 — 인접 거점만 진입 가능하게 게이트 + 닿는 길 강조 + 마커 표식.
@@ -386,13 +390,15 @@ export function ContinentMap({
     });
   };
 
-  // 진입 가능 여부 — 인접 거점이거나, 현재 위치 자신(재진입), 또는 현재 위치가 아직
-  // 없을 때(부트스트랩)만. 빠른이동/워프는 없음 — 한 칸씩 인접 이동만.
-  const canEnterSelected =
-    !!selected &&
-    (!currentOutpostId ||
-      selected.id === currentOutpostId ||
-      areOutpostsAdjacent(currentOutpostId, selected.id));
+  // 선택 거점이 현재 위치 자신인가.
+  const isCurrentSelected = !!selected && selected.id === currentOutpostId;
+  // 현재 위치 → 선택 거점 최단 경로(거쳐갈 거점들). 워프는 없고, 이 경로를 따라 한 칸씩
+  // 이동한다(인접은 1홉). 그래프가 연결돼 있어 보통 항상 존재. 양 끝 포함.
+  const routePath =
+    selected && currentOutpostId && !isCurrentSelected
+      ? shortestOutpostPath(currentOutpostId, selected.id)
+      : null;
+  const routeHops = routePath ? routePath.length - 1 : 0;
 
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
@@ -508,6 +514,29 @@ export function ContinentMap({
                   stroke="#10b981"
                   strokeOpacity={0.95}
                   strokeWidth={22}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+
+          {/* 선택한 거점까지의 이동 경로 — 한 칸씩 따라갈 길을 또렷한 호박색으로 덧그린다.
+              인접이면 1홉, 멀면 여러 홉. 마커 바로 아래 레이어. */}
+          {routePath &&
+            routePath.length > 1 &&
+            routePath.slice(1).map((toId, i) => {
+              const oa = OUTPOST_BY_ID.get(routePath[i]);
+              const ob = OUTPOST_BY_ID.get(toId);
+              if (!oa || !ob) return null;
+              return (
+                <line
+                  key={`route-${routePath[i]}-${toId}`}
+                  x1={oa.position.x}
+                  y1={oa.position.y}
+                  x2={ob.position.x}
+                  y2={ob.position.y}
+                  stroke="#f59e0b"
+                  strokeOpacity={0.95}
+                  strokeWidth={26}
                   strokeLinecap="round"
                 />
               );
@@ -653,22 +682,30 @@ export function ContinentMap({
                   )}
                 </div>
               </div>
-              {onOutpostEnter &&
-                (canEnterSelected ? (
-                  <button
-                    type="button"
-                    onClick={() => onOutpostEnter(selected)}
-                    className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                  >
-                    {selected.id === currentOutpostId ? "둘러보기" : "진입"}
-                  </button>
-                ) : (
-                  <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
-                    인접한 거점에서만
-                    <br />
-                    갈 수 있다
-                  </span>
-                ))}
+              {isCurrentSelected
+                ? onOutpostEnter && (
+                    <button
+                      type="button"
+                      onClick={() => onOutpostEnter(selected)}
+                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      둘러보기
+                    </button>
+                  )
+                : onTravelTo &&
+                  (routePath ? (
+                    <button
+                      type="button"
+                      onClick={() => onTravelTo(selected)}
+                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      {routeHops <= 1 ? "진입" : `여기로 가기 (${routeHops}홉)`}
+                    </button>
+                  ) : (
+                    <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                      길이 닿지 않는다
+                    </span>
+                  ))}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

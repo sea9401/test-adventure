@@ -23,8 +23,6 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
-  totalEarned,
-  groupEarned,
   groupCumLevel,
   groupUsable,
   cultivationCount,
@@ -331,15 +329,14 @@ export async function GET() {
         effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(prof, k));
       }
       return {
-        total: totalEarned(prof),
         groups: prof.groups,
         caps: effectiveCaps,
         current: {
           group,
-          earned: groupEarned(prof, group),
-          // 직군 누적 레벨 — 전직 게이트·floor 입력(earned 대체). UI 전직 진척 표시용.
+          // 직군 누적 레벨 — 전직 게이트·floor 입력. UI 전직 진척 표시용.
           cumLevel: groupCumLevel(prof, group),
-          usable: groupUsable(prof, group),
+          // 숙달 포인트 잔액(사용가능). 옛 earned/usable 통합.
+          points: groupUsable(prof, group),
           cultivations: cultivationCount(prof, group),
           nextCost: cultivationCost(totalCapGains(prof)),
         },

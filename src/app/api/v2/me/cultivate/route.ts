@@ -16,7 +16,7 @@ import {
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 
-// POST /api/v2/me/cultivate — 수행 1회. 현 직업군 사용가능 숙련도로 stat cap 상승.
+// POST /api/v2/me/cultivate — 수행 1회. 현 직업군 숙달 포인트로 stat cap 상승.
 // docs/v2-proficiency-redesign.md §4. 골드/쿨다운 없음. lock 순서 character.v2 → proficiency.v2.
 export async function POST() {
   const userId = await ensureUser();
@@ -72,7 +72,7 @@ export async function POST() {
         group,
         caps: effectiveCaps,
         cultivations: nextCult,
-        usable: groupUsable(applied.next, group),
+        points: groupUsable(applied.next, group),
         nextCost: cultivationCost(totalCapGains(applied.next)),
       },
     };

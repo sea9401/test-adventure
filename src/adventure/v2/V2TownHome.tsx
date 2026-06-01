@@ -52,13 +52,13 @@ export function V2TownHome({
         <EntryCard
           icon={<Sparkle size={28} weight="duotone" className="text-violet-400" />}
           title="성장의 신전"
-          description="숙련도를 들여 능력치의 한계를 끌어올리는 곳."
+          description="숙달 포인트로 능력치의 한계를 끌어올리는 곳."
           onClick={() => onAction({ kind: "open-shrine" })}
         />
         <EntryCard
           icon={<Barbell size={28} weight="duotone" className="text-sky-500" />}
           title="훈련장"
-          description="숙련도로 직업 전용 스킬을 익히고 대련하는 곳."
+          description="숙달 포인트로 직업 전용 스킬을 익히고 대련하는 곳."
           onClick={() => onAction({ kind: "open-training" })}
         />
         <EntryCard

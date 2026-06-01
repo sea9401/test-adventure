@@ -22,7 +22,7 @@ type StateShape = {
   ok?: boolean;
   signatures?: SignatureRow[];
   skillSlots?: number;
-  proficiency?: { current?: { usable: number } };
+  proficiency?: { current?: { points: number } };
 };
 
 function skillName(id: string): string {
@@ -53,7 +53,7 @@ export function V2SkillLearnView({
       const j = (await res.json().catch(() => null)) as StateShape | null;
       if (j?.ok) {
         setSignatures(j.signatures ?? []);
-        setUsable(j.proficiency?.current?.usable ?? 0);
+        setUsable(j.proficiency?.current?.points ?? 0);
         setSlots(j.skillSlots ?? 0);
       }
     } catch {}
@@ -79,14 +79,14 @@ export function V2SkillLearnView({
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
-          usable?: number;
+          points?: number;
           required?: number;
           have?: number;
         } | null;
         if (!j?.ok) {
           const label =
             j?.error === "insufficient_proficiency"
-              ? `숙련도 부족 (필요 ${j.required ?? cost}, 보유 ${j.have ?? usable})`
+              ? `숙달 포인트 부족 (필요 ${j.required ?? cost}, 보유 ${j.have ?? usable})`
               : j?.error === "no_class"
                 ? "직업이 없어요 (먼저 직업을 선택하세요)"
                 : j?.error === "not_in_chain"
@@ -96,7 +96,7 @@ export function V2SkillLearnView({
           return;
         }
         setMsg(`✓ ${skillName(skillId)} 학습 완료`);
-        if (typeof j.usable === "number") setUsable(j.usable);
+        if (typeof j.points === "number") setUsable(j.points);
         setSignatures((prev) =>
           prev.map((s) => (s.skillId === skillId ? { ...s, learned: true } : s)),
         );
@@ -158,7 +158,7 @@ export function V2SkillLearnView({
           <h2 className="text-sm font-semibold">시그니처 학습 · 장착</h2>
           <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span>
-              숙련도{" "}
+              숙달 포인트{" "}
               <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
                 {usable}
               </strong>
@@ -172,7 +172,7 @@ export function V2SkillLearnView({
           </div>
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙련도를 들여 직업 전용 스킬을 익히고, 슬롯에 직접 장착한다. 장착한 스킬만 전투에서
+          숙달 포인트를 들여 직업 전용 스킬을 익히고, 슬롯에 직접 장착한다. 장착한 스킬만 전투에서
           발동한다(슬롯은 레벨에 비례, 전직으로 레벨이 리셋되면 줄어듦). 재전직해도 학습 기록은 남는다.
         </p>
 

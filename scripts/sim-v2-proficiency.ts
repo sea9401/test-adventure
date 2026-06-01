@@ -1,14 +1,14 @@
 // v2 숙련도 재설계 — 커리어 경제 sim (docs/v2-proficiency-redesign.md §10 캘리브).
 //
 // 모델(2026-06 cumLevel 전환): 한 직업군으로 사냥하며 레벨을 올려 전직(1→2→3→4)하는 한 "생애".
-//   - 킬당 earned += V2_PROFICIENCY_PER_KILL (수행·스킬 소비 통화로만 잔존).
+//   - 킬당 숙달 포인트(points) += V2_PROFICIENCY_PER_KILL (수행·스킬 소비 통화).
 //   - 킬당 exp 누적 → requiredExpToNext 곡선으로 레벨업 → 레벨업당 직군 누적 레벨(cumLevel) += 1.
 //   - 전직 게이트 = cumLevel ≥ V2_ADVANCE_CUMLEVEL_REQ[tier] AND 현 차수 레벨 ≥ V2_ADVANCE_MIN_LEVEL.
-//   - floor(저점) 입력 = cumLevel (earned 아님). cumLevel 은 레벨캡·차수 유한이라 천장을 가짐.
-//   - 전직 = 차수 레벨 1 리셋 + grown 리셋 + setGroupTier(floor tierMult↑). earned/cumLevel/caps 보존.
-//   - 사용가능(earned − spent)으로: 시그니처 학습(차수 비용) + 수행(앵커+2/관련+1, 8+cap×1.5).
+//   - floor(저점) 입력 = cumLevel (points 아님). cumLevel 은 레벨캡·차수 유한이라 천장을 가짐.
+//   - 전직 = 차수 레벨 1 리셋 + grown 리셋 + setGroupTier(floor tierMult↑). points/cumLevel/caps 보존.
+//   - 숙달 포인트로: 시그니처 학습(차수 비용) + 수행(앵커+2/관련+1, 8+cap×5).
 //
-// earned/킬 은 대표 몬스터 EXP(MONSTER_EXP) 가정의 근사 — 경제 컬럼은 ballpark.
+// 킬당 포인트 는 대표 몬스터 EXP(MONSTER_EXP) 가정의 근사 — 경제 컬럼은 ballpark.
 // floor/cap/파워 컬럼은 cumLevel(정확)로 계산.
 //
 // 측정(각 차수 도달 시점): 누적킬 / 학습누계 / 수행횟수 / 잔량 / 앵커 cap·floor·floor% / 성숙파워.
@@ -21,13 +21,12 @@ import {
   V2_ADVANCE_MIN_LEVEL,
   V2_SIGNATURE_LEARN_COST,
   emptyProficiency,
-  addEarned,
+  addPoints,
   addCumLevel,
   applyCultivation,
   spendProficiency,
   setGrown,
   setGroupTier,
-  groupEarned,
   groupCumLevel,
   groupUsable,
   cultivationCount,
@@ -149,7 +148,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
   // 1킬 — earned + exp 누적, 레벨업 수만큼 cumLevel++ (차수 레벨 캡 100).
   const doKill = () => {
-    prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
+    prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL);
     kills++;
     expBuf += MONSTER_EXP;
     while (tierLevel < MAX_LEVEL) {

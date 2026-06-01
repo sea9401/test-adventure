@@ -2,22 +2,25 @@
 //
 // 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). none(무직) 적립 없음.
 // 저장: proficiency.v2 = {
-//   groups: { [tier1classId]: { earned, spent, cultivations } },  // 직업별 숙련도 + 수행 횟수
+//   groups: { [tier1classId]: { points, cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - earned 누적(영구) · spent(수행·학습 소모 합) · cultivations(그 직업 수행 횟수, 비용 증가용).
-//   - 직업 사용가능 = earned − spent. 총 숙련도 = Σ earned. cap 미지정 = V2_STAT_CAP_BASE.
+//   - points = 숙달 포인트(사용가능 잔액). 킬당 +V2_PROFICIENCY_PER_KILL, 수행·스킬학습에 소모.
+//     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 — floor·전직은 cumLevel 이 담당하므로 누적
+//     추적 불필요. 단일 잔액으로 합침. 옛 세이브는 parse 가 earned−spent 로 마이그.)
+//   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력).
+//   - cap 미지정 = V2_STAT_CAP_BASE.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { tier1ClassOf, parseV2Class } from "./classes";
 
 export type V2ProficiencyGroup = {
-  earned: number;
-  spent: number;
+  // 숙달 포인트 — 사용가능 잔액(킬당 적립, 수행·스킬학습에 소모). 옛 earned/spent 통합(2026-06).
+  points: number;
   cultivations: number;
   tier: number; // 그 직업군에서 도달한 최고 차수(1~4). floor tierMult 에 사용.
-  // 직군 누적 레벨 — 레벨업마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(earned 대체, 2026-06).
-  // earned 는 수행·스킬 소비 통화로만 잔존. cumLevel 은 레벨캡·차수 유한이라 ~200-250 에서 천장.
+  // 직군 누적 레벨 — 레벨업마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(2026-06).
+  // 레벨캡·차수 유한이라 ~200-250 에서 천장. (누적 추적은 cumLevel 이 담당 → points 는 단일 잔액.)
   cumLevel: number;
 };
 export type V2ProficiencyState = {
@@ -49,7 +52,7 @@ export const V2_CULTIVATE_PROFILE: Record<
   ninja: { luk: 2, dex: 1, int: 1 }, // 인술
 };
 
-// 수행 비용(사용가능 숙련도) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
+// 수행 비용(숙달 포인트) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
 // 크리티컬 다중 수행이 더 많은 cap 을 한 번에 올리면 그만큼 다음 비용도 비싸진다(자연 throttle).
 // PER_CAP 1.5→5(2026-06): earned 가 floor·전직게이트에서 분리(cumLevel 전환)되며 수행 연료로
 // 과잉 → cap 인플레(t4 245). 비용계수 상향으로 diminishing 강화 → t4 cap ~169(옛 총cap 복귀).
@@ -112,8 +115,16 @@ export function parseProficiency(
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
       if (!v || typeof v !== "object") continue;
-      const earned = posInt((v as { earned?: unknown }).earned);
-      const spent = posInt((v as { spent?: unknown }).spent);
+      // 숙달 포인트(잔액) — 새 포맷은 points, 옛 포맷은 earned−spent 로 마이그(통합 2026-06).
+      const rawPoints = (v as { points?: unknown }).points;
+      const points =
+        typeof rawPoints === "number" && Number.isFinite(rawPoints)
+          ? Math.max(0, Math.floor(rawPoints))
+          : Math.max(
+              0,
+              posInt((v as { earned?: unknown }).earned) -
+                posInt((v as { spent?: unknown }).spent),
+            );
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
       // tier 1~4 클램프, 미지정(옛 세이브)=1.
       const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
@@ -126,15 +137,9 @@ export function parseProficiency(
         typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
           ? Math.floor(rawCum)
           : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
-      // earned > 0 인 그룹만. spent 는 earned 초과 불가(손상 방어).
-      if (earned > 0) {
-        groups[k] = {
-          earned,
-          spent: Math.min(spent, earned),
-          cultivations,
-          tier,
-          cumLevel,
-        };
+      // 의미 있는 데이터(잔액/누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
+      if (points > 0 || cumLevel > 0 || cultivations > 0 || tier > 1) {
+        groups[k] = { points, cultivations, tier, cumLevel };
       }
     }
   }
@@ -193,8 +198,7 @@ export function setGroupTier(
   if (!group || group === "none") return p;
   const t = Math.min(4, Math.max(1, Math.floor(tier)));
   const cur = p.groups[group] ?? {
-    earned: 0,
-    spent: 0,
+    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -220,7 +224,7 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
 export const V2_FLOOR_ANCHOR_WEIGHT = 1.0;
 export const V2_FLOOR_RELATED_WEIGHT = 0.4;
 
-// 시그니처 학습 비용(사용가능 숙련도) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
+// 시그니처 학습 비용(숙달 포인트) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
 export const V2_SIGNATURE_LEARN_COST: Record<number, number> = {
   1: 80,
   2: 150,
@@ -247,18 +251,7 @@ export function advanceCumLevelReq(tier: number): number {
 // 다음 승급 가능(누적 레벨 게이트와 이중). 리셋 루프의 레벨 의미 부여(2026-06).
 export const V2_ADVANCE_MIN_LEVEL = 50;
 
-// 총 숙련도 = 모든 직업군 earned 합.
-export function totalEarned(p: V2ProficiencyState): number {
-  let t = 0;
-  for (const v of Object.values(p.groups)) t += v.earned;
-  return t;
-}
-
-export function groupEarned(p: V2ProficiencyState, group: string): number {
-  return p.groups[group]?.earned ?? 0;
-}
-
-// 직군 누적 레벨 — floor·전직 게이트 입력(earned 대체). 레벨업당 +1, 전직 리셋에도 불변.
+// 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1, 전직 리셋에도 불변.
 export function totalCumLevel(p: V2ProficiencyState): number {
   let t = 0;
   for (const v of Object.values(p.groups)) t += v.cumLevel;
@@ -269,10 +262,9 @@ export function groupCumLevel(p: V2ProficiencyState, group: string): number {
   return p.groups[group]?.cumLevel ?? 0;
 }
 
-// 직업 사용가능 = earned − spent.
+// 숙달 포인트 잔액(사용가능). 옛 earned−spent 통합 → 단일 points.
 export function groupUsable(p: V2ProficiencyState, group: string): number {
-  const g = p.groups[group];
-  return g ? Math.max(0, g.earned - g.spent) : 0;
+  return p.groups[group]?.points ?? 0;
 }
 
 export function cultivationCount(p: V2ProficiencyState, group: string): number {
@@ -297,16 +289,15 @@ export function totalCapGains(p: V2ProficiencyState): number {
   return t;
 }
 
-// 적립 — group 의 earned += amount. 비파괴. none/빈 group/0 이하는 무변경.
-export function addEarned(
+// 숙달 포인트 적립 — group 의 points += amount(킬당). 비파괴. none/빈 group/0 이하는 무변경.
+export function addPoints(
   p: V2ProficiencyState,
   group: string,
   amount: number,
 ): V2ProficiencyState {
   if (amount <= 0 || !group || group === "none") return p;
   const cur = p.groups[group] ?? {
-    earned: 0,
-    spent: 0,
+    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -315,7 +306,7 @@ export function addEarned(
     ...p,
     groups: {
       ...p.groups,
-      [group]: { ...cur, earned: cur.earned + amount },
+      [group]: { ...cur, points: cur.points + amount },
     },
   };
 }
@@ -328,8 +319,7 @@ export function addCumLevel(
 ): V2ProficiencyState {
   if (amount <= 0 || !group || group === "none") return p;
   const cur = p.groups[group] ?? {
-    earned: 0,
-    spent: 0,
+    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -343,9 +333,9 @@ export function addCumLevel(
   };
 }
 
-// 수행 1회 — 사용가능 숙련도 cost 소모 + 현 직업 프로필 stat cap 상승 + cultivations++.
-// 사용가능 부족/유효하지 않은 직업군이면 null. 비파괴.
-// 수행 1회 — 사용가능 숙련도로 프로필 스탯 cap 헤드룸 상승. 비용 = 올린 cap 총합 비례.
+// 수행 1회 — 숙달 포인트 cost 소모 + 현 직업 프로필 stat cap 상승 + cultivations++.
+// 잔액 부족/유효하지 않은 직업군이면 null. 비파괴.
+// 수행 1회 — 숙달 포인트로 프로필 스탯 cap 헤드룸 상승. 비용 = 올린 cap 총합 비례.
 // rng 주면 낮은 확률로 다중 수행(크리티컬, mult×) — 1회 비용에 여러 배 cap. rng 없으면 ×1.
 export function applyCultivation(
   p: V2ProficiencyState,
@@ -358,8 +348,7 @@ export function applyCultivation(
   if (groupUsable(p, group) < cost) return null; // 사용가능 부족
   const mult = rng ? rollCultivationMult(rng) : 1;
   const cur = p.groups[group] ?? {
-    earned: 0,
-    spent: 0,
+    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -378,7 +367,7 @@ export function applyCultivation(
         ...p.groups,
         [group]: {
           ...cur,
-          spent: cur.spent + cost,
+          points: cur.points - cost,
           cultivations: cur.cultivations + 1,
         },
       },
@@ -387,8 +376,8 @@ export function applyCultivation(
   };
 }
 
-// 사용가능 숙련도 소모(시그니처 학습용) — cap/cultivations 불변, spent 만 증가.
-// 비파괴. 사용가능 부족이면 null. (수행과 달리 횟수 카운트 안 함 — 고정 비용.)
+// 숙달 포인트 소모(시그니처 학습용) — cap/cultivations 불변, points 만 차감.
+// 비파괴. 잔액 부족이면 null. (수행과 달리 횟수 카운트 안 함 — 고정 비용.)
 export function spendProficiency(
   p: V2ProficiencyState,
   group: string,
@@ -397,8 +386,7 @@ export function spendProficiency(
   if (amount <= 0) return p;
   if (groupUsable(p, group) < amount) return null;
   const cur = p.groups[group] ?? {
-    earned: 0,
-    spent: 0,
+    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -407,7 +395,7 @@ export function spendProficiency(
     ...p,
     groups: {
       ...p.groups,
-      [group]: { ...cur, spent: cur.spent + amount },
+      [group]: { ...cur, points: cur.points - amount },
     },
   };
 }

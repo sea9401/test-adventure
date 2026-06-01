@@ -46,13 +46,7 @@ describe("v2 스탯 floor", () => {
     // 입력 earned→cumLevel 전환(2026-06): FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
     const prof = parseProficiency({
       groups: {
-        swordsman: {
-          earned: 10,
-          spent: 0,
-          cultivations: 0,
-          tier: 1,
-          cumLevel: 200,
-        },
+        swordsman: { points: 10, cultivations: 0, tier: 1, cumLevel: 200 },
       },
     });
     const f = computeStatFloors(prof);
@@ -69,13 +63,7 @@ describe("v2 스탯 floor", () => {
       computeStatFloors(
         parseProficiency({
           groups: {
-            swordsman: {
-              earned: 10,
-              spent: 0,
-              cultivations: 0,
-              tier,
-              cumLevel: 200,
-            },
+            swordsman: { points: 10, cultivations: 0, tier, cumLevel: 200 },
           },
         }),
       );
@@ -84,10 +72,10 @@ describe("v2 스탯 floor", () => {
   });
 
   it("computeStatFloors — cumLevel 0(미적립)이면 직군 가중 없음, base + 총만", () => {
-    // earned 만 있고 cumLevel 0 → 직군 floor 기여 없음(입력이 cumLevel 이므로).
+    // 잔액(points)만 있고 cumLevel 0 → 직군 floor 기여 없음(floor 입력이 cumLevel 이므로).
     const prof = parseProficiency({
       groups: {
-        swordsman: { earned: 9999, spent: 0, cultivations: 0, tier: 4, cumLevel: 0 },
+        swordsman: { points: 9999, cultivations: 0, tier: 4, cumLevel: 0 },
       },
     });
     const f = computeStatFloors(prof);

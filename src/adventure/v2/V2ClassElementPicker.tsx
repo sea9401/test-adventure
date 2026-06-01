@@ -26,7 +26,7 @@ import {
 import { codexRequirement } from "@/adventure/data/v2/codex";
 
 // 직업·속성 선택/전직 UI. 첫 선택 무료, 직업군/속성 변경은 골드+쿨다운(비용 전직).
-// 차수 승급(전직)은 누적 숙련도 + 레벨 50 + (3·4차)도감 게이트. 마을 "수행"에 배치.
+// 차수 승급(전직)은 직군 누적 레벨 + 레벨 50 + (3·4차)도감 게이트. 마을 "수행"에 배치.
 export function V2ClassElementPicker({
   currentClass,
   currentElement,

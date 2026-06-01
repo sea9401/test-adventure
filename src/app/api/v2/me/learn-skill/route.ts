@@ -23,7 +23,7 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 
-// POST /api/v2/me/learn-skill — 시그니처 1종 학습. 그 차수 도달 + 사용가능 숙련도 비용 지불.
+// POST /api/v2/me/learn-skill — 시그니처 1종 학습. 그 차수 도달 + 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
 // equipped = 학습한 시그니처 ∩ 현 직업 체인(자동 장착, 슬롯 선택 없음 — #270 유지).
 // lock 순서: character.v2 → skills.v2 → proficiency.v2 (hunt·advance 와 동일).
@@ -78,8 +78,8 @@ export async function POST(req: Request) {
         emptyV2SkillsState(),
       ),
     );
-    // 락 순서(character→skills→proficiency) 유지 — 멱등 분기 응답에도 usable 을 실어
-    // 클라 계약(state.proficiency.current.usable)과 일치시키려 여기서 미리 잠가 읽는다.
+    // 락 순서(character→skills→proficiency) 유지 — 멱등 분기 응답에도 points 를 실어
+    // 클라 계약(state.proficiency.current.points)과 일치시키려 여기서 미리 잠가 읽는다.
     const group = tier1ClassOf(cls);
     const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
           ok: true as const,
           alreadyLearned: true as const,
           skillId,
-          usable: groupUsable(prof, group),
+          points: groupUsable(prof, group),
           learned: skills.learned,
           equipped: skills.equipped,
         },
@@ -140,7 +140,7 @@ export async function POST(req: Request) {
         tier,
         spent: cost,
         group,
-        usable: groupUsable(spent, group),
+        points: groupUsable(spent, group),
         learned: nextLearned,
         equipped: skills.equipped,
       },

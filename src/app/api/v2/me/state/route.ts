@@ -43,6 +43,11 @@ import {
   V2_CODEX_TOTAL,
   discoveredMaterialIds,
 } from "@/adventure/data/v2/codex";
+import { FISH_TOTAL } from "@/adventure/data/v2/fish";
+import {
+  discoveredFishIds,
+  parseFishCodex,
+} from "@/adventure/v2/fishingCodex";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
@@ -84,6 +89,7 @@ export async function GET() {
     resources,
     skillsRow,
     proficiencyRow,
+    fishingCodexRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -124,6 +130,12 @@ export async function GET() {
       .select({ value: savesKv.value })
       .from(savesKv)
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "proficiency.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "fishing-codex.v1")))
       .limit(1)
       .then((rows) => rows[0]),
   ]);
@@ -336,6 +348,14 @@ export async function GET() {
     codex: (() => {
       const ids = discoveredMaterialIds(charSave.materials);
       return { discovered: ids.length, total: V2_CODEX_TOTAL, discoveredIds: ids };
+    })(),
+    // 어보(낚시 도감) 진척 — V2CodexView 어보 탭 표시용. 종별 개인 최대어 동봉.
+    fishingCodex: (() => {
+      const codex = parseFishCodex(fishingCodexRow?.value);
+      const ids = discoveredFishIds(codex);
+      const best: Record<string, number> = {};
+      for (const id of ids) best[id] = codex.fish[id].bestSize;
+      return { discoveredIds: ids, total: FISH_TOTAL, best };
     })(),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {

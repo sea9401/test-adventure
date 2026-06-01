@@ -6,6 +6,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/stance-picker", title: "전술 선택기 (StancePicker)", desc: "#497 공세/수성/처형 선택 UI." },
   { href: "/dev/battle-log", title: "전투 로그 — 전술 안내", desc: "#502 전투 시작 로그의 전술 한 줄 노출." },
   { href: "/dev/growth-shrine", title: "성장의 신전 — 리스펙 골드", desc: "#499 되돌리기 포인트 level×20 골드 비용." },
+  { href: "/dev/fishing", title: "낚시터 — 반응 미니게임", desc: "낚시 PR-2 입질→챔질 반응 UI. 로컬 mock(서버 없이) 어획·어보 누적." },
 ];
 
 export default function DevIndexPage() {

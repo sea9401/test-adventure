@@ -2,7 +2,14 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
-import { V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
+import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  parseProficiency,
+  emptyProficiency,
+  addEarned,
+  groupEarned,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
 import {
   V2_MATERIALS,
   mergeDrops,
@@ -10,16 +17,17 @@ import {
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 
-// POST /api/v2/dev/grant — 테스트용 일괄 지급 (EXP / 레벨 / 골드 / 재료 / 충전약).
+// POST /api/v2/dev/grant — 테스트용 일괄 지급 (EXP / 레벨 / 골드 / 재료 / 충전약 / 숙련도).
 //
 // ⚠️ DEV 전용 도구. 지울 땐 이 폴더(src/app/api/v2/dev/grant)와
 //    src/app/dev/v2-tools 만 통째로 지우면 됨 — 게임 코드 의존 0.
 //
 // 본문(전부 선택, 들어온 것만 적용):
 //   { exp?, gold?, hpCharges?, mpCharges?, setLevel?,
-//     materials?: { [V2MaterialId]: number } }
+//     materials?: { [V2MaterialId]: number }, proficiency? }
+//   - proficiency: 현 직업군(tier1)의 누적 숙련도(earned) += 값. 수행/학습/전직 QA 시드용.
 //
-// 본인(로그인 user)의 character.v2 / training.v2 / inventory.v2 갱신.
+// 본인(로그인 user)의 character.v2 / inventory.v2 / proficiency.v2 갱신.
 // 라이브 prod 에선 IS_STAGING 게이트 (staging 외 → 404). grant-equipment 와 동일.
 
 // 입력 상한 — 오버플로/실수 방지. 충분히 큼.
@@ -52,6 +60,7 @@ export async function POST(req: Request) {
     mpCharges?: unknown;
     setLevel?: unknown;
     materials?: unknown;
+    proficiency?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -65,6 +74,7 @@ export async function POST(req: Request) {
   const mpChargeGain = clampInt(body.mpCharges, 0, MAX_GRANT);
   const setLevel =
     body.setLevel == null ? null : clampInt(body.setLevel, 1, MAX_LEVEL);
+  const proficiencyGain = clampInt(body.proficiency, 0, MAX_GRANT);
 
   // 재료 정리 — 유효 V2MaterialId + 양수만 통과.
   const matGrant: DropResult = {};
@@ -84,6 +94,7 @@ export async function POST(req: Request) {
       exp?: number;
       gold?: number;
       materials?: unknown;
+      class?: unknown;
       [k: string]: unknown;
     };
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -126,18 +137,26 @@ export async function POST(req: Request) {
       materials,
     });
 
-    // 레벨업분 단련 포인트 — hunt 라우트와 동일 규칙.
-    if (levelsGained > 0) {
-      const trainingSave = await lockSaveForUpdate<{
-        points?: number;
-        [k: string]: unknown;
-      }>(tx, userId, "training.v2", {});
-      await upsertSave(tx, userId, "training.v2", {
-        ...trainingSave,
-        points:
-          Math.max(0, trainingSave.points ?? 0) +
-          levelsGained * V2_STAT_POINTS_PER_LEVEL,
-      });
+    // 숙련도 지급 — 현 직업군(tier1) earned += 값. 수행/학습/전직 QA 시드용.
+    // (옛 training.v2 단련 포인트 지급은 수동분배 폐지로 제거 — docs 숙련도 재설계.)
+    let proficiencyEarned: number | null = null;
+    if (proficiencyGain > 0) {
+      const group = tier1ClassOf(parseV2Class(charSave.class));
+      if (group !== "none") {
+        const profSave = await lockSaveForUpdate<V2ProficiencyState>(
+          tx,
+          userId,
+          "proficiency.v2",
+          emptyProficiency(),
+        );
+        const nextProf = addEarned(
+          parseProficiency(profSave),
+          group,
+          proficiencyGain,
+        );
+        await upsertSave(tx, userId, "proficiency.v2", nextProf);
+        proficiencyEarned = groupEarned(nextProf, group);
+      }
     }
 
     // 충전약 (inventory.v2). 지급분이 있을 때만 갱신 + 응답에 포함.
@@ -163,6 +182,7 @@ export async function POST(req: Request) {
       gold,
       levelsGained,
       materials,
+      ...(proficiencyEarned != null ? { proficiencyEarned } : {}),
       ...charges,
     };
   });

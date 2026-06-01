@@ -53,7 +53,9 @@ export function ClaimResultCard({
             ? "주문서는 PvP 전용 (NPC 일기토 불가)"
             : result.error === "already_yours"
               ? "이미 자기 길드 점령"
-              : (result.error ?? "알 수 없는 오류");
+              : result.error === "no_supply_line"
+                ? "보급선 밖 — 우리 거점이나 중립 자유도시에 인접한 곳만 점령 가능"
+                : (result.error ?? "알 수 없는 오류");
     return (
       <ResultShell
         title="점령 실패"

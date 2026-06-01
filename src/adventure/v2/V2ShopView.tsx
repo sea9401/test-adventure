@@ -46,6 +46,8 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
 ];
 
 const SELL_PRICE_RATIO = 0.05;
+const BUY_GRID_CLASS =
+  "grid grid-cols-[minmax(0,1fr)_4.75rem_4.75rem_4.25rem] sm:grid-cols-[minmax(0,1fr)_6rem_6rem_5rem]";
 
 // 슬롯별 상점 취급 장비 id — concept 정렬 (티어는 표시하지 않지만 정렬엔 사용).
 const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
@@ -329,42 +331,40 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       <section>
         {mode === "buy" ? (
           <Card padding="none" className="overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full min-w-[20rem] table-fixed text-sm">
-              {/* 고정 컬럼폭 — 아이템(잔여) / 가격 / 위력·무게 / 구매. table-fixed 라 자동분배 없음. */}
-              <colgroup>
-                <col />
-                <col className="w-24" />
-                <col className="w-20" />
-                <col className="w-20" />
-              </colgroup>
-              <thead>
-                <tr className="border-b border-zinc-200 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                  <SortTh
-                    label="아이템"
-                    sortKey="name"
-                    sort={sort}
-                    onSort={toggleSort}
-                    align="left"
-                  />
-                  <SortTh
-                    label="가격"
-                    sortKey="price"
-                    sort={sort}
-                    onSort={toggleSort}
-                    align="right"
-                  />
-                  <SortTh
-                    label="위력/무게"
-                    sortKey="power"
-                    sort={sort}
-                    onSort={toggleSort}
-                    align="right"
-                  />
-                  <th className="whitespace-nowrap px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+            <div className="text-sm">
+              <div
+                className={`${BUY_GRID_CLASS} border-b border-zinc-200 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400`}
+                role="row"
+              >
+                <SortTh
+                  label="아이템"
+                  sortKey="name"
+                  sort={sort}
+                  onSort={toggleSort}
+                  align="left"
+                />
+                <SortTh
+                  label="가격"
+                  sortKey="price"
+                  sort={sort}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <SortTh
+                  label="위력/무게"
+                  sortKey="power"
+                  sort={sort}
+                  onSort={toggleSort}
+                  align="right"
+                />
+                <div
+                  className="min-w-0 whitespace-nowrap px-2 py-2 text-right font-semibold sm:px-3"
+                  role="columnheader"
+                >
+                  구매
+                </div>
+              </div>
+              <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
                 {sortedBuyIds.map((id) => (
                   <BuyEquipmentRow
                     key={id}
@@ -375,8 +375,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                     onOpenCard={(item, anchor) => setCard({ item, anchor })}
                   />
                 ))}
-              </tbody>
-            </table>
+              </div>
             </div>
           </Card>
         ) : subTab === "material" ? (
@@ -466,7 +465,7 @@ function EquipmentName({
   );
 }
 
-// 구매 표 정렬 헤더 셀 — 클릭 시 정렬 토글, 활성 시 방향 화살표(▲/▼).
+// 구매 목록 정렬 헤더 셀 — 클릭 시 정렬 토글, 활성 시 방향 화살표(▲/▼).
 function SortTh({
   label,
   sortKey,
@@ -484,22 +483,23 @@ function SortTh({
   const arrow =
     sort && sort.key === sortKey ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
   return (
-    <th
-      className={`whitespace-nowrap px-3 py-2 font-semibold ${
+    <div
+      className={`min-w-0 whitespace-nowrap px-2 py-2 font-semibold sm:px-3 ${
         align === "left" ? "text-left" : "text-right"
       }`}
+      role="columnheader"
     >
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center transition-colors hover:text-zinc-800 dark:hover:text-zinc-200 ${
+        className={`inline-flex max-w-full items-center whitespace-nowrap transition-colors hover:text-zinc-800 dark:hover:text-zinc-200 ${
           active ? "text-zinc-800 dark:text-zinc-200" : ""
         }`}
       >
-        {label}
-        <span className="tabular-nums">{arrow}</span>
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 tabular-nums">{arrow}</span>
       </button>
-    </th>
+    </div>
   );
 }
 
@@ -521,33 +521,39 @@ function BuyEquipmentRow({
   const buyPrice = shopPriceOf(item) ?? 0;
   const affordable = gold >= buyPrice;
   return (
-    <tr className="align-middle">
+    <div className={`${BUY_GRID_CLASS} items-center`} role="row">
       {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. */}
-      <td className="px-3 py-2">
+      <div className="min-w-0 px-2 py-2 sm:px-3" role="cell">
         <EquipmentName item={item} onOpenCard={onOpenCard} />
-      </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
+      </div>
+      <div
+        className="min-w-0 whitespace-nowrap px-2 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300 sm:px-3"
+        role="cell"
+      >
         {buyPrice.toLocaleString()}g
-      </td>
-      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-xs text-zinc-500 dark:text-zinc-400">
+      </div>
+      <div
+        className="min-w-0 whitespace-nowrap px-2 py-2 text-right tabular-nums text-xs text-zinc-500 dark:text-zinc-400 sm:px-3"
+        role="cell"
+      >
         {item.power}
         <span className="text-zinc-400 dark:text-zinc-500">
           {" "}
           / {item.weight}
         </span>
-      </td>
-      <td className="px-3 py-2 text-right">
+      </div>
+      <div className="min-w-0 px-2 py-2 text-right sm:px-3" role="cell">
         <button
           type="button"
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
           title={`${buyPrice.toLocaleString()} G 에 구매`}
-          className="whitespace-nowrap rounded-md border border-amber-600 bg-amber-600 px-2.5 py-1 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
+          className="inline-flex h-7 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-md border border-amber-600 bg-amber-600 px-2 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
         >
           {busy ? "…" : "구매"}
         </button>
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }
 

@@ -23,6 +23,7 @@ export function useFishingLeaderboard(): {
           setData({
             seasonId: String(j.seasonId ?? ""),
             endsAt: String(j.endsAt ?? ""),
+            myCoins: typeof j.myCoins === "number" ? j.myCoins : 0,
             byFish: j.byFish,
           });
         } else {

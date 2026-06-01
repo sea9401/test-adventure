@@ -295,6 +295,13 @@
       "when": 1780322935881,
       "tag": "0041_fishing_records",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1780324952882,
+      "tag": "0042_fishing_seasons",
+      "breakpoints": true
     }
   ]
 }

@@ -59,6 +59,7 @@ function buildMock(): FishingLeaderboardData {
     seasonId: "2026-W23",
     // dev mock 은 카운트다운 생략(""→뷰가 숨김) — Date.now 의존 제거로 SSR 불일치 회피.
     endsAt: "",
+    myCoins: 142,
     byFish: shapeLeaderboard(rows, "me", 10),
   };
 }

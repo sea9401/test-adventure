@@ -10,11 +10,13 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 
-// ⚠️ DEV 전용 지급 도구 UI. /api/v2/dev/grant + /api/v2/dev/grant-equipment 호출.
+// ⚠️ DEV 전용 도구 UI. /api/v2/dev/grant + /api/v2/dev/grant-equipment 로 지급,
+//    /api/v2/dev/reset-me 로 본인 캐릭터 초기화.
 // 로그인된 본인 캐릭터의 character.v2 / training.v2 / inventory.v2 / equipment.v2 갱신.
 // 게임 탭(/dev/v2-game)을 옆에 띄워두고 여기서 지급 → 게임 탭 새로고침해 확인.
 //
-// 지울 땐 이 폴더 + src/app/api/v2/dev/grant 만 지우면 됨 (게임 코드 의존 0).
+// 지울 땐 이 폴더 + src/app/api/v2/dev (grant / grant-equipment / reset-me) 만
+// 지우면 됨 (게임 코드 의존 0).
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -65,6 +67,44 @@ export function V2DevToolsContents() {
     const n = Number(s);
     return Number.isFinite(n) ? n : 0;
   };
+
+  async function resetMe() {
+    if (
+      !window.confirm(
+        "정말로 본인 캐릭터 데이터를 전부 초기화할까요?\n" +
+          "레벨·EXP·골드·장비·재료·길드 자원이 모두 삭제되며 되돌릴 수 없습니다.",
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/dev/reset-me", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: "RESET_MY_DATA" }),
+      });
+      const j = (await res.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; deletedKeys?: number }
+        | null;
+      if (!res.ok || !j || j.ok !== true) {
+        setMsg({
+          ok: false,
+          text: `✗ 캐릭터 초기화 실패: ${(j?.error as string) ?? `http ${res.status}`}`,
+        });
+        return;
+      }
+      setMsg({
+        ok: true,
+        text: `✓ 캐릭터 초기화 완료 (${j.deletedKeys ?? 0}개 키 삭제). 게임 탭을 새로고침하면 무소속 새 캐릭터로 시작한다.`,
+      });
+    } catch (e) {
+      setMsg({ ok: false, text: `✗ 캐릭터 초기화: ${(e as Error).message}` });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-[640px] space-y-5 p-6 text-zinc-900 dark:text-zinc-100">
@@ -210,6 +250,25 @@ export function V2DevToolsContents() {
           보유 목록에 추가된다. 장착은 게임 탭의 장비 화면에서.
         </p>
       </Section>
+
+      <section className="space-y-2 rounded-lg border border-rose-300 bg-rose-50/60 p-4 shadow-sm dark:border-rose-800 dark:bg-rose-950/20">
+        <h2 className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+          캐릭터 초기화 (위험)
+        </h2>
+        <p className="text-xs text-rose-600/80 dark:text-rose-400/80">
+          본인 캐릭터 데이터(레벨·EXP·골드·장비·재료·길드 자원)를 전부 삭제한다.
+          되돌릴 수 없으며, 게임 탭을 새로고침하면 무소속 새 캐릭터로 다시
+          시작한다.
+        </p>
+        <button
+          type="button"
+          onClick={resetMe}
+          disabled={busy}
+          className="rounded-md border border-rose-400 bg-rose-500/10 px-3 py-1.5 text-sm font-medium text-rose-700 transition-colors hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500 dark:text-rose-300"
+        >
+          내 데이터 전부 초기화
+        </button>
+      </section>
     </main>
   );
 }

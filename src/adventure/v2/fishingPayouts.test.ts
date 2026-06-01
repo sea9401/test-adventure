@@ -7,7 +7,7 @@ function rec(fishId: string, userId: string, size: number): PayoutRecord {
 }
 
 describe("computeSeasonPayouts", () => {
-  it("종별 사이즈 내림차순으로 순위 코인 지급(흔함 25/15/10)", () => {
+  it("종별 사이즈 내림차순으로 순위 코인 지급(흔함 18/11/7)", () => {
     const c = FISH_TIERS.common.recordCoins;
     const payouts = computeSeasonPayouts([
       rec("crucian_carp", "b", 30),

@@ -129,12 +129,12 @@ describe("종 추첨 (encounter)", () => {
 
 describe("종별 기록 보상 코인", () => {
   it("순위 경계: 1/2/3/4~10/11+", () => {
-    const id = "crucian_carp"; // common 25/15/10/6
-    expect(recordCoinForRank(id, 1)).toBe(25);
-    expect(recordCoinForRank(id, 2)).toBe(15);
-    expect(recordCoinForRank(id, 3)).toBe(10);
-    expect(recordCoinForRank(id, 4)).toBe(6);
-    expect(recordCoinForRank(id, 10)).toBe(6);
+    const id = "crucian_carp"; // common 18/11/7/4
+    expect(recordCoinForRank(id, 1)).toBe(18);
+    expect(recordCoinForRank(id, 2)).toBe(11);
+    expect(recordCoinForRank(id, 3)).toBe(7);
+    expect(recordCoinForRank(id, 4)).toBe(4);
+    expect(recordCoinForRank(id, 10)).toBe(4);
     expect(recordCoinForRank(id, 11)).toBe(0);
     expect(recordCoinForRank(id, 0)).toBe(0);
   });

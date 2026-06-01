@@ -4,7 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  V2_SKILLS,
+  describeV2Skill,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 
 // v2 학습 — 사용 가능 숙련도로 현 직업 체인의 시그니처 스킬을 습득한다.
@@ -47,6 +51,26 @@ function skillName(id: string): string {
 }
 function skillDesc(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.description ?? "";
+}
+
+// 스킬 상세 옵션 칩 — 피해/회복/버프/디버프/DoT + MP·쿨다운·속성.
+function SkillDetailChips({ skillId }: { skillId: string }) {
+  const def = V2_SKILLS[skillId as V2SkillId];
+  if (!def) return null;
+  const chips = describeV2Skill(def);
+  if (chips.length === 0) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {chips.map((c, i) => (
+        <span
+          key={i}
+          className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300"
+        >
+          {c}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function V2SkillLearnView({
@@ -232,6 +256,7 @@ export function V2SkillLearnView({
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                       {skillDesc(s.skillId)}
                     </p>
+                    <SkillDetailChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (
                     <button
@@ -295,6 +320,7 @@ export function V2SkillLearnView({
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                       {skillDesc(s.skillId)}
                     </p>
+                    <SkillDetailChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (
                     <button

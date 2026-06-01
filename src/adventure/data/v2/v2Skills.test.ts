@@ -5,6 +5,7 @@ import {
   parseV2SkillsState,
   emptyV2SkillsState,
   v2SkillSlotsForLevel,
+  describeV2Skill,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -166,5 +167,45 @@ describe("스킬 속성 전면 태깅", () => {
   it("힐/버프 전용 스킬엔 element 불필요 (데미지 없으면 미부여 허용)", () => {
     // 회복(v2_skill_recover) 은 데미지 없음 → element 없어도 됨.
     expect(V2_SKILLS.v2_skill_recover.effects.some((e) => e.kind === "damage")).toBe(false);
+  });
+});
+
+describe("describeV2Skill — 상세 옵션 칩", () => {
+  it("모든 스킬에서 예외 없이 문자열 배열 반환 + 'undefined' 미포함", () => {
+    for (const def of Object.values(V2_SKILLS)) {
+      const chips = describeV2Skill(def);
+      expect(Array.isArray(chips)).toBe(true);
+      for (const c of chips) {
+        expect(typeof c).toBe("string");
+        // 스탯 라벨 누락 등으로 칩에 "undefined" 가 새지 않아야(방어).
+        expect(c.includes("undefined"), `${def.id}: ${c}`).toBe(false);
+      }
+    }
+  });
+
+  it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
+    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance); // 검무: 불, coef 2.2
+    expect(chips.some((c) => c.includes("공격력×2.2"))).toBe(true);
+    expect(chips).toContain("속성 불");
+  });
+
+  it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
+    const chips = describeV2Skill(V2_SKILLS.str_intimidating_roar_t2);
+    expect(chips.some((c) => c.startsWith("적 힘 −"))).toBe(true);
+    expect(chips).toContain("MP 14");
+  });
+
+  it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
+    const chips = describeV2Skill(V2_SKILLS.mob_venom_bite);
+    expect(chips.some((c) => c.includes("중독") && c.includes("지속피해"))).toBe(
+      true,
+    );
+    expect(chips).toContain("쿨 3턴");
+  });
+
+  it("MP 0·무속성이면 MP·속성 칩 없음", () => {
+    // 검무(mpCost 0) → MP 칩 없음. (속성 불이라 속성 칩은 있음)
+    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance);
+    expect(chips.some((c) => c.startsWith("MP"))).toBe(false);
   });
 });

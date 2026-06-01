@@ -12,7 +12,7 @@ import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2CodexView } from "@/adventure/v2/V2CodexView";
 import { V2CultivationView } from "@/adventure/v2/V2CultivationView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
-import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
+import { V2CraftView } from "@/adventure/v2/V2CraftView";
 import { V2SkillLearnView } from "@/adventure/v2/V2SkillLearnView";
 import { V2SparringView } from "@/adventure/v2/V2SparringView";
 import { V2ShopView } from "@/adventure/v2/V2ShopView";
@@ -583,10 +583,7 @@ export function V2GameFlow() {
         />
       )}
       {view.kind === "smithy" && (
-        <V2PlaceholderView
-          title="대장간"
-          onBack={() => setView({ kind: "town" })}
-        />
+        <V2CraftView onBack={() => setView({ kind: "town" })} />
       )}
       {view.kind === "fishing" && (
         <FishingPanel

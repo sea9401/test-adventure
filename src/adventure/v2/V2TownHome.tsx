@@ -12,7 +12,7 @@ import {
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 치료소·상점·수행(숙련도 cap)·학습(시그니처) 동작, 대장간은 준비 중 placeholder.
+// 치료소·상점·수행(숙련도 cap)·학습(시그니처)·대장간(재료 직접 제작) 동작.
 // 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
 export type TownAction =
@@ -67,7 +67,7 @@ export function V2TownHome({
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
           title="대장간"
-          description="장비를 두드려 벼리는 곳. 준비 중."
+          description="던전에서 모은 재료로 장비를 벼리는 곳."
           onClick={() => onAction({ kind: "open-smithy" })}
         />
         <EntryCard

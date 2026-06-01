@@ -4,6 +4,7 @@ import {
   OUTPOST_EDGES,
   getOutpostNeighbors,
   areOutpostsAdjacent,
+  shortestOutpostPath,
 } from "./outpostGraph";
 
 describe("v2 거점 인접 그래프 (Gabriel)", () => {
@@ -80,5 +81,40 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
   it("없는 거점 id 는 이웃 없음 / 인접 아님", () => {
     expect(getOutpostNeighbors("does_not_exist")).toEqual([]);
     expect(areOutpostsAdjacent("does_not_exist", OUTPOSTS[0].id)).toBe(false);
+  });
+
+  describe("shortestOutpostPath (다중 홉 경로)", () => {
+    it("같은 거점이면 자기 자신만", () => {
+      const id = OUTPOSTS[0].id;
+      expect(shortestOutpostPath(id, id)).toEqual([id]);
+    });
+
+    it("없는 거점이면 null", () => {
+      expect(shortestOutpostPath("nope", OUTPOSTS[0].id)).toBeNull();
+      expect(shortestOutpostPath(OUTPOSTS[0].id, "nope")).toBeNull();
+    });
+
+    it("연결 그래프라 임의의 두 거점 사이에 경로가 있고, 각 단계가 실제 인접", () => {
+      const a = OUTPOSTS[0].id;
+      // 좌표상 먼 거점(마지막) 까지도 경로가 나와야 한다.
+      const b = OUTPOSTS[OUTPOSTS.length - 1].id;
+      const path = shortestOutpostPath(a, b);
+      expect(path).not.toBeNull();
+      const p = path!;
+      expect(p[0]).toBe(a);
+      expect(p[p.length - 1]).toBe(b);
+      // 경로의 인접 쌍이 모두 실제 엣지이고, 같은 거점을 두 번 거치지 않는다.
+      expect(new Set(p).size).toBe(p.length);
+      for (let i = 1; i < p.length; i += 1) {
+        expect(areOutpostsAdjacent(p[i - 1], p[i]), `${p[i - 1]}→${p[i]}`).toBe(
+          true,
+        );
+      }
+    });
+
+    it("인접한 두 거점은 2개짜리 경로(1홉)", () => {
+      const { a, b } = OUTPOST_EDGES[0];
+      expect(shortestOutpostPath(a, b)).toEqual([a, b]);
+    });
   });
 });

@@ -11,6 +11,10 @@ import {
 } from "react";
 import { ArrowsOut, Minus, Plus, X } from "@phosphor-icons/react";
 import { OUTPOSTS, MAP_BOUNDS } from "@/adventure/data/v2/outposts";
+import {
+  OUTPOST_EDGES,
+  areOutpostsAdjacent,
+} from "@/adventure/data/v2/outpostGraph";
 import type {
   Outpost,
   OutpostType,
@@ -69,6 +73,9 @@ const TIER_LABEL: Record<OutpostTier, string> = {
 const MIN_VB_W = MAP_BOUNDS.width * 0.15;
 const MAX_VB_W = MAP_BOUNDS.width * 1.0;
 
+// id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
+const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
+
 type OccupationLite = {
   outpostId: string;
   occupiedByUserId: string | null;
@@ -81,10 +88,13 @@ export function ContinentMap({
   onOutpostEnter,
   occupations,
   viewerUserId,
+  currentOutpostId,
 }: {
   onOutpostEnter?: (o: Outpost) => void;
   occupations?: OccupationLite[];
   viewerUserId?: string | null;
+  // 플레이어의 현재 거점 — 인접 거점만 진입 가능하게 게이트 + 닿는 길 강조 + 마커 표식.
+  currentOutpostId?: string | null;
 } = {}) {
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) {
@@ -312,6 +322,14 @@ export function ContinentMap({
     });
   };
 
+  // 진입 가능 여부 — 인접 거점이거나, 현재 위치 자신(재진입), 또는 현재 위치가 아직
+  // 없을 때(부트스트랩)만. 빠른이동/워프는 없음 — 한 칸씩 인접 이동만.
+  const canEnterSelected =
+    !!selected &&
+    (!currentOutpostId ||
+      selected.id === currentOutpostId ||
+      areOutpostsAdjacent(currentOutpostId, selected.id));
+
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
       <div
@@ -341,6 +359,48 @@ export function ContinentMap({
             preserveAspectRatio="none"
           />
 
+          {/* 거점 간 연결선 (Gabriel 그래프) — 인접 = 이동 가능 경로. 마커 아래 레이어.
+              전체를 옅게 깔고, 현재 위치에 닿는 길만 위에 또렷한 초록으로 덧그린다. */}
+          {OUTPOST_EDGES.map(({ a, b }) => {
+            const oa = OUTPOST_BY_ID.get(a);
+            const ob = OUTPOST_BY_ID.get(b);
+            if (!oa || !ob) return null;
+            return (
+              <line
+                key={`edge-${a}-${b}`}
+                x1={oa.position.x}
+                y1={oa.position.y}
+                x2={ob.position.x}
+                y2={ob.position.y}
+                stroke="#9ca3af"
+                strokeOpacity={0.45}
+                strokeWidth={12}
+                strokeLinecap="round"
+              />
+            );
+          })}
+          {currentOutpostId &&
+            OUTPOST_EDGES.filter(
+              ({ a, b }) => a === currentOutpostId || b === currentOutpostId,
+            ).map(({ a, b }) => {
+              const oa = OUTPOST_BY_ID.get(a);
+              const ob = OUTPOST_BY_ID.get(b);
+              if (!oa || !ob) return null;
+              return (
+                <line
+                  key={`edge-cur-${a}-${b}`}
+                  x1={oa.position.x}
+                  y1={oa.position.y}
+                  x2={ob.position.x}
+                  y2={ob.position.y}
+                  stroke="#10b981"
+                  strokeOpacity={0.95}
+                  strokeWidth={22}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+
           {[1, 2, 3, 4].flatMap((tier) =>
             OUTPOSTS.filter((o) => o.tier === tier).map((o) => {
               const r = TIER_RADIUS[o.tier];
@@ -348,8 +408,9 @@ export function ContinentMap({
               const isNeutral = o.neutral === true;
               const isSelected = selected?.id === o.id;
               const isHover = hover === o.id;
+              const isCurrent = o.id === currentOutpostId;
               const fill = isKingdom ? KINGDOM_FILL : TYPE_COLOR[o.type];
-              const showLabel = isSelected || isHover;
+              const showLabel = isSelected || isHover || isCurrent;
               const occ = occByOutpost.get(o.id);
               const isMine =
                 !!occ &&
@@ -379,6 +440,17 @@ export function ContinentMap({
                   onMouseLeave={() => setHover(null)}
                   className="cursor-pointer"
                 >
+                  {isCurrent && (
+                    <circle
+                      cx={o.position.x}
+                      cy={o.position.y}
+                      r={(showLabel ? r * 1.2 : r) + 24}
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth={12}
+                      strokeDasharray="36 26"
+                    />
+                  )}
                   {isKingdom ? (
                     <>
                       <polygon
@@ -483,15 +555,22 @@ export function ContinentMap({
                   )}
                 </div>
               </div>
-              {onOutpostEnter && (
-                <button
-                  type="button"
-                  onClick={() => onOutpostEnter(selected)}
-                  className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                >
-                  진입
-                </button>
-              )}
+              {onOutpostEnter &&
+                (canEnterSelected ? (
+                  <button
+                    type="button"
+                    onClick={() => onOutpostEnter(selected)}
+                    className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    {selected.id === currentOutpostId ? "둘러보기" : "진입"}
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                    인접한 거점에서만
+                    <br />
+                    갈 수 있다
+                  </span>
+                ))}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

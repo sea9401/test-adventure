@@ -3,6 +3,7 @@ import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import {
   V2_CLASS_PASSIVE,
   resolveClassPassive,
+  classPassiveTierText,
 } from "@/adventure/data/v2/v2Passives";
 import { V2_DOT_PRESETS } from "@/adventure/data/v2/statusEffects";
 
@@ -112,5 +113,21 @@ describe("resolveClassPassive", () => {
     expect(r!.tier).toBe(1);
     expect(r!.magicAtkMultPct).toBeGreaterThan(0);
     expect(r!.onHitDot?.label).toBe("소각");
+  });
+});
+
+describe("classPassiveTierText (학습창 표기)", () => {
+  it("직업군·차수별 효과 텍스트", () => {
+    expect(classPassiveTierText("swordsman", 1)).toContain("추가타");
+    expect(classPassiveTierText("martial", 2)).toContain("받는 피해");
+    expect(classPassiveTierText("mage", 1)).toContain("마법공격력");
+    expect(classPassiveTierText("mage", 1)).toContain("소각");
+    expect(classPassiveTierText("archer", 4)).toContain("출혈");
+    expect(classPassiveTierText("ninja", 1)).toContain("중독");
+  });
+  it("매핑/범위 밖이면 빈 문자열", () => {
+    expect(classPassiveTierText("none", 1)).toBe("");
+    expect(classPassiveTierText("swordsman", 0)).toBe("");
+    expect(classPassiveTierText("swordsman", 5)).toBe("");
   });
 });

@@ -155,3 +155,30 @@ export function resolveClassPassive(
   if (maxTier < 1) return null;
   return { group, tier: maxTier, ...table[maxTier - 1] };
 }
+
+// 패시브 효과 한 줄 설명(학습창 표기용). 채워진 필드만 " · " 로 잇는다.
+export function describeClassPassiveEffect(e: V2ClassPassiveEffect): string {
+  const parts: string[] = [];
+  if (e.extraAttackChancePct) parts.push(`평타 추가타 +${e.extraAttackChancePct}%`);
+  if (e.damageTakenReductionPct)
+    parts.push(`받는 피해 -${e.damageTakenReductionPct}%`);
+  if (e.magicAtkMultPct) parts.push(`마법공격력 +${e.magicAtkMultPct}%`);
+  if (e.turnHealPctMaxHp) parts.push(`매 턴 HP +${e.turnHealPctMaxHp}%`);
+  if (e.accuracyPct) parts.push(`명중 +${e.accuracyPct}%`);
+  if (e.critMultAdd) parts.push(`치명타 피해 +${e.critMultAdd}배`);
+  if (e.onHitDot)
+    parts.push(`공격 시 ${e.onHitDot.chancePct}% 확률 ${e.onHitDot.label}`);
+  return parts.join(" · ");
+}
+
+// 직업군 + 차수 → 그 차수의 패시브 효과 텍스트. 매핑/범위 밖이면 빈 문자열.
+export function classPassiveTierText(
+  playerClass: V2Class | null | undefined,
+  tier: number,
+): string {
+  const group = tier1ClassOf(playerClass ?? "none");
+  const table = V2_CLASS_PASSIVE[group];
+  if (!table || !Number.isInteger(tier) || tier < 1 || tier > table.length)
+    return "";
+  return describeClassPassiveEffect(table[tier - 1]);
+}

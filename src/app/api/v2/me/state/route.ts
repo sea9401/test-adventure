@@ -36,6 +36,7 @@ import {
   signatureLearnCost,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import { classPassiveTierText } from "@/adventure/data/v2/v2Passives";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -330,12 +331,12 @@ export async function GET() {
     skills: parseV2SkillsState(skillsRow?.value),
     // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
     skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
-    // 시그니처 현황 — 현 직업 체인의 각 시그니처 + 차수/비용/학습/장착여부(학습·장착 패널용).
+    // 직업 패시브 현황 — 현 직업 체인의 각 차수 + 비용/학습여부/효과 텍스트(패시브 학습 패널용).
+    // 시그니처는 패시브로 전환 — 장착 개념 없음(학습=해금). effect = 그 차수 패시브 효과 한 줄.
     signatures: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
-      const equippedSet = new Set<string>(skillsState.equipped);
       return signaturesForClass(cls).map((skillId) => {
         const sigClass = signatureClassOf(skillId) ?? cls;
         const tier = V2_CLASS_DEFS[sigClass].tier;
@@ -344,7 +345,7 @@ export async function GET() {
           tier,
           cost: signatureLearnCost(tier),
           learned: learnedSet.has(skillId),
-          equipped: equippedSet.has(skillId),
+          effect: classPassiveTierText(cls, tier),
         };
       });
     })(),

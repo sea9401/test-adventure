@@ -6,6 +6,7 @@ import {
   emptyTreasureFragments,
   parseTreasureFragments,
   rollFragmentDrop,
+  spendOneMap,
 } from "./treasureFragments";
 
 describe("parseTreasureFragments", () => {
@@ -43,6 +44,17 @@ describe("assemblableMaps", () => {
     expect(assemblableMaps({ fragments: FRAGMENTS_PER_MAP - 1 })).toBe(0);
     expect(assemblableMaps({ fragments: FRAGMENTS_PER_MAP })).toBe(1);
     expect(assemblableMaps({ fragments: FRAGMENTS_PER_MAP * 2 + 3 })).toBe(2);
+  });
+});
+
+describe("spendOneMap", () => {
+  it("K개 미만이면 null", () => {
+    expect(spendOneMap({ fragments: FRAGMENTS_PER_MAP - 1 })).toBeNull();
+    expect(spendOneMap({ fragments: 0 })).toBeNull();
+  });
+  it("K개 이상이면 K 차감", () => {
+    expect(spendOneMap({ fragments: FRAGMENTS_PER_MAP })).toEqual({ fragments: 0 });
+    expect(spendOneMap({ fragments: FRAGMENTS_PER_MAP + 2 })).toEqual({ fragments: 2 });
   });
 });
 

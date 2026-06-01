@@ -43,6 +43,12 @@ export function assemblableMaps(state: TreasureFragments): number {
   return Math.floor(state.fragments / FRAGMENTS_PER_MAP);
 }
 
+// 발굴 1회분(K개) 조각 소비(순수). 부족하면 null. 발굴 지점 개방(PR-3 open)에서 사용.
+export function spendOneMap(state: TreasureFragments): TreasureFragments | null {
+  if (state.fragments < FRAGMENTS_PER_MAP) return null;
+  return { fragments: state.fragments - FRAGMENTS_PER_MAP };
+}
+
 // 드랍 굴림 — 성공 시 1개. rng() ∈ [0, 1). chance 는 [0,1] 클램프.
 export function rollFragmentDrop(rng: () => number, chance: number): 0 | 1 {
   const c = Math.max(0, Math.min(1, chance));

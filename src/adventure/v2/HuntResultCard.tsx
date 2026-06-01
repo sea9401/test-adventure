@@ -18,6 +18,11 @@ import {
   type ElementMatchup,
   type V2Element,
 } from "@/adventure/data/v2/elements";
+import {
+  V2_STAT_KEYS,
+  V2_STAT_LABELS,
+  type V2StatKey,
+} from "@/adventure/data/v2/v2StatKeys";
 
 export type HuntResult = {
   floor: number;
@@ -29,6 +34,7 @@ export type HuntResult = {
   goldGross?: number;
   goldTaxed?: number;
   levelsGained: number;
+  statGains?: Partial<Record<V2StatKey, number>>; // 레벨업 랜덤 성장으로 오른 1차 스탯.
   turns: number;
   hpBefore: number;
   hpAfter: number;
@@ -58,6 +64,17 @@ function formatDropBanner(
   return `⭐ ${parts.join(", ")}을(를) 획득했다!`;
 }
 
+// 레벨업 스탯 성장 — "힘 +3 · 행운 +2" 식으로 1차 스탯 순서대로 합친다.
+export function formatStatGains(
+  statGains: Partial<Record<V2StatKey, number>> | undefined,
+): string | null {
+  if (!statGains) return null;
+  const parts = V2_STAT_KEYS.filter((k) => (statGains[k] ?? 0) > 0).map(
+    (k) => `${V2_STAT_LABELS[k]} +${statGains[k]}`,
+  );
+  return parts.length ? parts.join(" · ") : null;
+}
+
 export function HuntResultCard({ result }: { result: HuntResult }) {
   const won = result.won;
   const drops = result.drops
@@ -72,6 +89,7 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
     drops as Array<[string, number]>,
     droppedEquip?.name ?? null,
   );
+  const statGainsText = formatStatGains(result.statGains);
 
   return (
     <Card padding="sm">
@@ -136,6 +154,19 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
           </span>
         </div>
       </div>
+
+      {result.levelsGained > 0 && (
+        <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            레벨 업! +{result.levelsGained}
+          </span>
+          {statGainsText && (
+            <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+              {statGainsText}
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

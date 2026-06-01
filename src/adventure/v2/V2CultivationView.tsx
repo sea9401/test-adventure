@@ -150,7 +150,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="수행" onBack={onBack} />
+      <SubViewHeader title="성장의 신전" onBack={onBack} />
 
       {/* 직업·속성 선택/전직 — 캐릭터 정보에서 이리로 이동. */}
       {picker && (

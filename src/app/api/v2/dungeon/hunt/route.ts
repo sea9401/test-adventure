@@ -64,6 +64,13 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import { rollEquipDrop } from "@/adventure/data/v2/dungeonEquipDrops";
 import {
+  TREASURE_FRAGMENTS_KEY,
+  HUNT_FRAGMENT_DROP_CHANCE,
+  addFragments,
+  parseTreasureFragments,
+  rollFragmentDrop,
+} from "@/adventure/v2/treasureFragments";
+import {
   DURABILITY_WEAR_LOSS,
   DURABILITY_WEAR_WIN,
   MAX_DURABILITY,
@@ -682,6 +689,21 @@ export async function POST(req: Request) {
       await upsertSave(tx, userId, "proficiency.v2", prof);
     }
 
+    // 보물 탐사 — 사냥 승리 시 낮은 확률로 지도 조각 드랍(트리클). 굴림은 100% 서버.
+    // 드랍 났을 때만 키를 잠근다 — 락 순서상 가장 마지막. 조각 소비(발굴)는 PR-3.
+    const fragmentDrop = won
+      ? rollFragmentDrop(Math.random, HUNT_FRAGMENT_DROP_CHANCE)
+      : 0;
+    let fragmentsTotal = 0;
+    if (fragmentDrop > 0) {
+      const frags = parseTreasureFragments(
+        await lockSaveForUpdate(tx, userId, TREASURE_FRAGMENTS_KEY, {}),
+      );
+      const nextFrags = addFragments(frags, fragmentDrop);
+      await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, nextFrags);
+      fragmentsTotal = nextFrags.fragments;
+    }
+
     // 세금 transfer — 위에서 정렬된 순서로 이미 lock 한 ownerSave 에 gold 추가.
     if (goldTaxed > 0 && taxOwnerId && ownerSave) {
       const ownerNew = {
@@ -738,6 +760,9 @@ export async function POST(req: Request) {
           mpCharges: Math.max(0, invSave.mpCharges ?? 0),
           drops,
           droppedEquipment,
+          // 보물 탐사 — 이번 사냥 지도 조각 드랍 수 + 누적(0 = 안 떨어짐).
+          fragmentDrop,
+          fragmentsTotal,
           // PR-4b — 마모/자동수리 후 장착 장비 내구도 + 자동수리 비용(0=안 함). 클라가 경고 표시.
           equipmentDurability: workingDurability,
           autoRepairSpent: repairSpent,

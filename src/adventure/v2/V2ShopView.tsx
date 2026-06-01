@@ -330,7 +330,14 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         {mode === "buy" ? (
           <Card padding="none" className="overflow-hidden">
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[18rem] text-sm">
+            <table className="w-full min-w-[20rem] table-fixed text-sm">
+              {/* 고정 컬럼폭 — 아이템(잔여) / 가격 / 위력·무게 / 구매. table-fixed 라 자동분배 없음. */}
+              <colgroup>
+                <col />
+                <col className="w-24" />
+                <col className="w-20" />
+                <col className="w-20" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-zinc-200 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
                   <SortTh
@@ -339,7 +346,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                     sort={sort}
                     onSort={toggleSort}
                     align="left"
-                    grow
                   />
                   <SortTh
                     label="가격"
@@ -467,24 +473,21 @@ function SortTh({
   sort,
   onSort,
   align,
-  grow,
 }: {
   label: string;
   sortKey: "name" | "price" | "power";
   sort: { key: "name" | "price" | "power"; dir: "asc" | "desc" } | null;
   onSort: (key: "name" | "price" | "power") => void;
   align: "left" | "right";
-  // 이 컬럼이 여분 폭을 전부 흡수(아이템). 나머지는 내용 폭(whitespace-nowrap)으로 우측 정렬.
-  grow?: boolean;
 }) {
   const active = sort?.key === sortKey;
   const arrow =
     sort && sort.key === sortKey ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
   return (
     <th
-      className={`px-3 py-2 font-semibold ${
-        grow ? "w-full" : "whitespace-nowrap"
-      } ${align === "left" ? "text-left" : "text-right"}`}
+      className={`whitespace-nowrap px-3 py-2 font-semibold ${
+        align === "left" ? "text-left" : "text-right"
+      }`}
     >
       <button
         type="button"
@@ -539,7 +542,7 @@ function BuyEquipmentRow({
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
           title={`${buyPrice.toLocaleString()} G 에 구매`}
-          className="rounded-md border border-amber-600 bg-amber-600 px-2.5 py-1 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
+          className="whitespace-nowrap rounded-md border border-amber-600 bg-amber-600 px-2.5 py-1 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
         >
           {busy ? "…" : "구매"}
         </button>

@@ -23,6 +23,10 @@ export type OutpostEdge = { a: string; b: string };
 // 1.0 = 후보 전부(빽빽한 거미줄), 0 = 순수 트리(가장 성김). 0~1.
 const EXTRA_EDGE_FRACTION = 0.35;
 
+// 막다른 거점 완화 — 각 거점이 최소 이만큼의 연결을 갖도록 가장 가까운 미포함 후보를 더한다
+// (차수 1 = 들어가면 왔던 길로만 나오는 막다른 길). 후보가 모자라면 최선까지만.
+const MIN_OUTPOST_DEGREE = 2;
+
 // 수동 보정 훅 — 자동 그래프 위에 강제로 잇거나(ADD) 끊는다(REMOVE). 순서 무관.
 // REMOVE 가 ADD 보다 우선. (REMOVE 가 MST 간선을 끊으면 연결이 깨질 수 있으니 주의.)
 const MANUAL_ADD: ReadonlyArray<readonly [string, string]> = [];
@@ -116,6 +120,39 @@ function buildEdges(): OutpostEdge[] {
     // MST 간선은 무조건(연결 보장). 나머지 후보는 시드 해시로 일부만 — 거미줄 완화.
     if (mst.has(k) || hash01(k) < EXTRA_EDGE_FRACTION) byKey.set(k, e);
   }
+
+  // 막다른 거점 완화 — 차수 < MIN_OUTPOST_DEGREE 인 거점에 가장 가까운 미포함 후보를 더한다.
+  // 거점별 후보를 거리 오름차순으로 모아두고, OUTPOSTS 순서대로(결정적) 부족분을 채운다.
+  const degree = new Map<string, number>();
+  for (const o of OUTPOSTS) degree.set(o.id, 0);
+  for (const { a, b } of byKey.values()) {
+    degree.set(a, (degree.get(a) ?? 0) + 1);
+    degree.set(b, (degree.get(b) ?? 0) + 1);
+  }
+  const candByNode = new Map<string, { key: string; e: OutpostEdge; d: number }[]>();
+  for (const e of candidates) {
+    const k = pairKey(e.a, e.b);
+    if (removed.has(k)) continue;
+    const d = dist2(ID_INDEX.get(e.a)!, ID_INDEX.get(e.b)!);
+    for (const n of [e.a, e.b] as const) {
+      const list = candByNode.get(n) ?? candByNode.set(n, []).get(n)!;
+      list.push({ key: k, e, d });
+    }
+  }
+  // 거리 오름차순, 동점은 키 문자열로 — sort 안정성에 기대지 않고 결정성을 못박는다.
+  for (const list of candByNode.values()) {
+    list.sort((x, y) => x.d - y.d || (x.key < y.key ? -1 : x.key > y.key ? 1 : 0));
+  }
+  for (const o of OUTPOSTS) {
+    for (const { key, e } of candByNode.get(o.id) ?? []) {
+      if ((degree.get(o.id) ?? 0) >= MIN_OUTPOST_DEGREE) break;
+      if (byKey.has(key)) continue;
+      byKey.set(key, e);
+      degree.set(e.a, (degree.get(e.a) ?? 0) + 1);
+      degree.set(e.b, (degree.get(e.b) ?? 0) + 1);
+    }
+  }
+
   for (const [a, b] of MANUAL_ADD) {
     if (a === b) continue;
     const k = pairKey(a, b);

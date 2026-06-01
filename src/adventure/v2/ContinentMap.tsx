@@ -96,6 +96,10 @@ const BIOME_REGIONS = [
   { label: "중앙 분쟁지대", center: { x: 5000, y: 2800 } },
 ] as const;
 
+// 박스를 그리지 않는 권역 — 중앙 분쟁지대는 어느 세력 영역도 아닌 가운데 격전지라
+// 점선 박스를 생략한다(거점 배정에는 계속 쓰여 주변 영역이 가운데로 늘어나는 것도 막음).
+const NO_BOX_LABELS = new Set<string>(["중앙 분쟁지대"]);
+
 type RegionBox = { label: string; x: number; y: number; w: number; h: number };
 
 const REGION_BOXES: RegionBox[] = (() => {
@@ -131,14 +135,16 @@ const REGION_BOXES: RegionBox[] = (() => {
       cur.maxY = Math.max(cur.maxY, o.position.y);
     }
   }
-  const PAD = 340;
-  return [...acc.entries()].map(([label, b]) => ({
-    label,
-    x: b.minX - PAD,
-    y: b.minY - PAD,
-    w: b.maxX - b.minX + PAD * 2,
-    h: b.maxY - b.minY + PAD * 2,
-  }));
+  const PAD = 260;
+  return [...acc.entries()]
+    .filter(([label]) => !NO_BOX_LABELS.has(label))
+    .map(([label, b]) => ({
+      label,
+      x: b.minX - PAD,
+      y: b.minY - PAD,
+      w: b.maxX - b.minX + PAD * 2,
+      h: b.maxY - b.minY + PAD * 2,
+    }));
 })();
 
 type OccupationLite = {

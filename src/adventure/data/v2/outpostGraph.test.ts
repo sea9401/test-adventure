@@ -34,9 +34,9 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
     }
   });
 
-  it("모든 거점이 최소 1개 이웃 (고립 거점 없음)", () => {
+  it("모든 거점이 최소 2개 이웃 (고립·막다른 없음)", () => {
     for (const o of OUTPOSTS) {
-      expect(getOutpostNeighbors(o.id).length, o.name).toBeGreaterThan(0);
+      expect(getOutpostNeighbors(o.id).length, o.name).toBeGreaterThanOrEqual(2);
     }
   });
 

@@ -3,6 +3,7 @@ import { V2_EQUIPMENT, type V2EquipmentId } from "./v2Equipment";
 import { FLOOR_DROP_POOLS, V2_MATERIALS } from "./dungeonDrops";
 import {
   V2_RECIPES,
+  consumeIngredients,
   craftShortfall,
   recipeFor,
   type V2Recipe,
@@ -175,5 +176,51 @@ describe("craftShortfall", () => {
     expect(r.missingMaterials).toEqual([{ id: "v2_herb", need: 5, have: 4 }]);
     // 보유 5 → 충분.
     expect(craftShortfall(dupRecipe, { v2_herb: 5 }, 0).ok).toBe(true);
+  });
+});
+
+describe("consumeIngredients", () => {
+  const recipe = recipeFor("v2_iron_sword"); // rough_ore×2 + herb×2
+
+  it("정확히 소진하면 키 제거", () => {
+    expect(consumeIngredients({ v2_rough_ore: 2, v2_herb: 2 }, recipe)).toEqual(
+      {},
+    );
+  });
+
+  it("부분 차감 — 남은 양 유지", () => {
+    expect(consumeIngredients({ v2_rough_ore: 5, v2_herb: 5 }, recipe)).toEqual({
+      v2_rough_ore: 3,
+      v2_herb: 3,
+    });
+  });
+
+  it("레시피 무관 재료는 보존", () => {
+    expect(
+      consumeIngredients(
+        { v2_rough_ore: 2, v2_herb: 2, v2_mithril_ore: 9 },
+        recipe,
+      ),
+    ).toEqual({ v2_mithril_ore: 9 });
+  });
+
+  it("입력 불변(원본 맵 미변경)", () => {
+    const src = { v2_rough_ore: 5, v2_herb: 5 };
+    consumeIngredients(src, recipe);
+    expect(src).toEqual({ v2_rough_ore: 5, v2_herb: 5 });
+  });
+
+  it("같은 id 여러 줄도 누적 차감", () => {
+    const dup: V2Recipe = {
+      result: "v2_iron_sword",
+      ingredients: [
+        { id: "v2_herb", count: 2 },
+        { id: "v2_herb", count: 3 },
+      ],
+      gold: 0,
+    };
+    expect(consumeIngredients({ v2_herb: 5, v2_rough_ore: 1 }, dup)).toEqual({
+      v2_rough_ore: 1,
+    });
   });
 });

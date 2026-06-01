@@ -16,6 +16,7 @@ import {
   emptyProficiency,
   groupEarned,
   advanceProficiencyReq,
+  V2_ADVANCE_MIN_LEVEL,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -86,7 +87,21 @@ export async function POST() {
     }
     const group = tier1ClassOf(nextClass);
 
-    // 게이트 1 — 직업군 누적 숙련도(earned) 임계. 골드/레벨 없음(docs §7).
+    // 게이트 0 — 최소 레벨(전직마다 레벨 1 리셋이라 매 차수 사이 50까지 키워야 승급).
+    const level = Math.max(1, charSave.level ?? 1);
+    if (level < V2_ADVANCE_MIN_LEVEL) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "level_too_low" as const,
+          required: V2_ADVANCE_MIN_LEVEL,
+          have: level,
+        },
+      };
+    }
+
+    // 게이트 1 — 직업군 누적 숙련도(earned) 임계. 골드 없음(docs §7).
     const reqProf = advanceProficiencyReq(V2_CLASS_DEFS[nextClass].tier);
     const haveProf = groupEarned(prof, group);
     if (haveProf < reqProf) {

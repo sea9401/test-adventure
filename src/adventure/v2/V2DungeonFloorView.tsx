@@ -110,6 +110,7 @@ export function V2DungeonFloorView({
     let wins = 0;
     let losses = 0;
     let totalExp = 0;
+    let totalProficiency = 0;
     let totalGold = 0;
     let levelsGained = 0;
     const drops: Partial<Record<V2MaterialId, number>> = {};
@@ -129,6 +130,7 @@ export function V2DungeonFloorView({
       if (r.won) wins++;
       else losses++;
       totalExp += r.expGained;
+      totalProficiency += r.proficiencyGained ?? 0;
       totalGold += r.goldGained;
       levelsGained += r.levelsGained;
       for (const [id, n] of Object.entries(r.drops ?? {})) {
@@ -153,6 +155,7 @@ export function V2DungeonFloorView({
       wins,
       losses,
       totalExp,
+      totalProficiency,
       totalGold,
       levelsGained,
       drops,

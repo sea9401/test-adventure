@@ -643,6 +643,7 @@ export async function POST(req: Request) {
 
     // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
     // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
+    let proficiencyGained = 0; // 전투 결과 표시용.
     if (won || expResult.levelsGained > 0) {
       const playerClass = parseV2Class(charSave.class);
       const group = tier1ClassOf(playerClass);
@@ -656,6 +657,7 @@ export async function POST(req: Request) {
       // 적립 — 승리 + 직업 보유 시.
       if (won && group !== "none") {
         prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
+        proficiencyGained = V2_PROFICIENCY_PER_KILL;
       }
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       if (expResult.levelsGained > 0) {
@@ -705,6 +707,7 @@ export async function POST(req: Request) {
           enemyName,
           won,
           expGained,
+          proficiencyGained, // 직업군 숙련도 획득 (승리·직업 보유 시 +2).
           goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
           goldGross,
           goldTaxed,

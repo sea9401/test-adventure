@@ -35,7 +35,10 @@ import {
   parseV2Class,
   type V2Class,
 } from "@/adventure/data/v2/classes";
-import { parseProficiency } from "@/adventure/data/v2/proficiency";
+import {
+  parseProficiency,
+  effectiveStatCap,
+} from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { EVASION_PCT_CAP } from "@/adventure/data/stats";
 import {
@@ -251,11 +254,13 @@ export function derivePlayerCombatV2Pure(
   // PR-prof — 랜덤 레벨 성장은 cap 까지만(docs §2). statCaps 미지정이면 무클램프(sim 호환).
   const baseAllocatedStats: Record<V2StatKey, number> = V2_STAT_KEYS.reduce(
     (acc, k) => {
-      // floor(저점, base 포함) 위에 성장분 가산, cap 으로 클램프. floor 미지정=base.
+      // 스탯 = floor(저점) + 성장분, 유효 cap(=floor+헤드룸+수행이득)으로 클램프. floor 미지정=base.
+      // statCaps(수행 이득 맵) 미지정이면 무클램프(sim/테스트 호환).
       const floor = input.statFloors?.[k] ?? (V2_BASE_STATS[k] ?? 0);
       const raw = floor + (input.allocatedStats?.[k] ?? 0);
-      const cap = input.statCaps?.[k];
-      acc[k] = cap != null ? Math.min(raw, cap) : raw;
+      acc[k] = input.statCaps
+        ? Math.min(raw, effectiveStatCap(floor, input.statCaps[k] ?? 0))
+        : raw;
       return acc;
     },
     emptyV2StatMap(),

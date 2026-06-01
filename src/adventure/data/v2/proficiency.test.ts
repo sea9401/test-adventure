@@ -8,13 +8,13 @@ import {
   addEarned,
   cultivationCost,
   cultivationCount,
-  statCap,
+  capGain,
+  effectiveStatCap,
   applyCultivation,
   setGroupTier,
   spendProficiency,
   signatureLearnCost,
   advanceProficiencyReq,
-  V2_STAT_CAP_BASE,
   V2_SIGNATURE_LEARN_COST,
 } from "./proficiency";
 
@@ -51,15 +51,16 @@ describe("v2 직업 숙련도", () => {
     expect(p.groups.bad).toBeUndefined();
   });
 
-  it("parse — caps 는 base 초과만 보존(기본값/손상 폴백)", () => {
+  it("parse — caps 는 수행 이득(0<c<60)만 보존, 옛 절대값(≥60)·비수 드롭", () => {
     const p = parseProficiency({
       groups: {},
-      caps: { str: 90, dex: V2_STAT_CAP_BASE, vit: 10, int: "x" },
+      caps: { str: 30, dex: 0, vit: -4, int: "x", spi: 90 },
     });
-    expect(p.caps.str).toBe(90);
-    expect(p.caps.dex).toBeUndefined(); // base 와 동일 → 미저장
-    expect(p.caps.vit).toBeUndefined(); // base 미만 → 폴백
+    expect(p.caps.str).toBe(30); // 양수 이득 보존
+    expect(p.caps.dex).toBeUndefined(); // 0 → 미저장
+    expect(p.caps.vit).toBeUndefined(); // 음수 → 폴백
     expect(p.caps.int).toBeUndefined(); // 비수
+    expect(p.caps.spi).toBeUndefined(); // ≥60 = 옛 절대 cap → 마이그레이션 드롭
   });
 
   it("총/직업/사용가능", () => {
@@ -78,7 +79,7 @@ describe("v2 직업 숙련도", () => {
   it("addEarned — 비파괴, caps/cultivations 보존, none/0 무변경", () => {
     const p0 = parseProficiency({
       groups: { swordsman: { earned: 5, spent: 1, cultivations: 2 } },
-      caps: { str: 70 },
+      caps: { str: 30 },
     });
     const p1 = addEarned(p0, "swordsman", 3);
     expect(p1.groups.swordsman).toEqual({
@@ -87,46 +88,67 @@ describe("v2 직업 숙련도", () => {
       cultivations: 2,
       tier: 1,
     });
-    expect(p1.caps.str).toBe(70); // caps 보존
+    expect(p1.caps.str).toBe(30); // caps(이득) 보존
     expect(p0.groups.swordsman.earned).toBe(5); // 원본 비파괴
     expect(addEarned(p1, "none", 5)).toBe(p1);
     expect(addEarned(p1, "swordsman", 0)).toBe(p1);
   });
 
-  it("cultivationCost — 8×1.12ⁿ 기하 증가", () => {
-    expect(cultivationCost(0)).toBe(8);
-    expect(cultivationCost(1)).toBe(Math.round(8 * 1.12));
-    expect(cultivationCost(10)).toBeGreaterThan(cultivationCost(5));
-    expect(cultivationCost(5)).toBeGreaterThan(cultivationCost(0));
+  it("cultivationCost — 올린 cap 총합 비례(8 + 합×1.5)", () => {
+    expect(cultivationCost(0)).toBe(8); // 미수행
+    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 1.5)); // 23
+    expect(cultivationCost(100)).toBeGreaterThan(cultivationCost(10));
+    expect(cultivationCost(-5)).toBe(8); // 음수 클램프
   });
 
-  it("statCap — 기본 base, 수행으로 상향분 반영", () => {
-    const p = parseProficiency({ groups: {}, caps: { str: 90 } });
-    expect(statCap(p, "str")).toBe(90);
-    expect(statCap(p, "dex")).toBe(V2_STAT_CAP_BASE);
+  it("effectiveStatCap — floor + 헤드룸(45) + 수행이득, capGain", () => {
+    const p = parseProficiency({ groups: {}, caps: { str: 30 } });
+    expect(capGain(p, "str")).toBe(30);
+    expect(capGain(p, "dex")).toBe(0);
+    // floor 15 + 헤드룸 45 + 이득 30 = 90
+    expect(effectiveStatCap(15, capGain(p, "str"))).toBe(90);
+    // 이득 0 → floor 15 + 45 = 60 (fresh 시작 cap)
+    expect(effectiveStatCap(15, capGain(p, "dex"))).toBe(60);
+    // floor 가 높아도 항상 그 위(+45) — floor>cap 핀 없음
+    expect(effectiveStatCap(72, 0)).toBe(117);
   });
 
-  it("applyCultivation — 사용가능 소모 + 프로필 cap↑ + cultivations++", () => {
-    // 검사(swordsman): 힘+3·민첩+1·행운+1. 사용가능 100, 1회차 비용 8.
+  it("applyCultivation — 사용가능 소모 + 프로필 cap 이득(앵커+2/관련+1) + cultivations++", () => {
+    // 검사(swordsman): 힘+2·민첩+1·행운+1. 사용가능 100. 미수행 → 비용 8(cap합 0).
     const p = parseProficiency({
       groups: { swordsman: { earned: 100, spent: 0, cultivations: 0 } },
     });
     const r = applyCultivation(p, "swordsman");
     expect(r).not.toBeNull();
     expect(r!.cost).toBe(8);
+    expect(r!.mult).toBe(1); // rng 없음 → 크리 없음
     expect(r!.next.groups.swordsman).toEqual({
       earned: 100,
       spent: 8,
       cultivations: 1,
       tier: 1,
     });
-    expect(r!.next.caps.str).toBe(V2_STAT_CAP_BASE + 3);
-    expect(r!.next.caps.dex).toBe(V2_STAT_CAP_BASE + 1);
-    expect(r!.next.caps.luk).toBe(V2_STAT_CAP_BASE + 1);
+    // caps = 수행 이득(0부터 +프로필)
+    expect(r!.next.caps.str).toBe(2);
+    expect(r!.next.caps.dex).toBe(1);
+    expect(r!.next.caps.luk).toBe(1);
     expect(r!.next.caps.vit).toBeUndefined(); // 프로필 외 미변
     expect(cultivationCount(r!.next, "swordsman")).toBe(1);
+    // 2회차 비용 = 8 + (올린 cap합 4)×1.5 = 14
+    const r2 = applyCultivation(r!.next, "swordsman");
+    expect(r2!.cost).toBe(14);
     // 비파괴
     expect(p.groups.swordsman.spent).toBe(0);
+  });
+
+  it("applyCultivation — 크리티컬(rng) 으로 multX 이득", () => {
+    const p = parseProficiency({
+      groups: { swordsman: { earned: 1000, spent: 0, cultivations: 0 } },
+    });
+    const r = applyCultivation(p, "swordsman", () => 0); // r=0 < 0.015 → ×5
+    expect(r!.mult).toBe(5);
+    expect(r!.next.caps.str).toBe(2 * 5); // 앵커 2 ×5
+    expect(r!.next.caps.dex).toBe(1 * 5);
   });
 
   it("applyCultivation — 사용가능 부족/무직 직업군은 null", () => {

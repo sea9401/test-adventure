@@ -25,8 +25,13 @@ import {
   groupUsable,
   cultivationCount,
   cultivationCost,
+  totalCapGains,
+  capGain,
+  effectiveStatCap,
   signatureLearnCost,
 } from "@/adventure/data/v2/proficiency";
+import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -304,16 +309,22 @@ export async function GET() {
       const group = tier1ClassOf(
         parseV2Class((charSave as { class?: unknown }).class),
       );
+      // caps 는 유효 cap(= floor + 헤드룸 + 수행이득)으로 노출 — UI "한계" 표시용.
+      const floors = computeStatFloors(prof);
+      const effectiveCaps: Partial<Record<string, number>> = {};
+      for (const k of V2_STAT_KEYS) {
+        effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(prof, k));
+      }
       return {
         total: totalEarned(prof),
         groups: prof.groups,
-        caps: prof.caps,
+        caps: effectiveCaps,
         current: {
           group,
           earned: groupEarned(prof, group),
           usable: groupUsable(prof, group),
           cultivations: cultivationCount(prof, group),
-          nextCost: cultivationCost(cultivationCount(prof, group)),
+          nextCost: cultivationCost(totalCapGains(prof)),
         },
       };
     })(),

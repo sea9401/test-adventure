@@ -18,7 +18,6 @@ import {
   V2_PROFICIENCY_PER_KILL,
   V2_ADVANCE_PROFICIENCY_REQ,
   V2_SIGNATURE_LEARN_COST,
-  V2_STAT_CAP_BASE,
   emptyProficiency,
   addEarned,
   applyCultivation,
@@ -28,6 +27,8 @@ import {
   groupEarned,
   groupUsable,
   cultivationCount,
+  capGain,
+  effectiveStatCap,
   type V2ProficiencyState,
 } from "../src/adventure/data/v2/proficiency";
 import { computeStatFloors } from "../src/adventure/data/v2/statGrowth";
@@ -70,18 +71,19 @@ function maturePower(
   level: number,
 ): number {
   const floors = computeStatFloors(prof);
-  // grown = cap - floor (clamp ≥0) → derive 가 min(floor+grown, cap)=cap 로 클램프.
+  // caps = 수행 이득(gains). grown = 유효cap - floor (= 헤드룸+이득) 로 채워 stat=유효cap.
+  const gains: Partial<Record<V2StatKey, number>> = {};
   const allocated: Partial<Record<V2StatKey, number>> = {};
-  const caps: Partial<Record<V2StatKey, number>> = {};
   for (const k of V2_STAT_KEYS) {
-    const cap = prof.caps[k] ?? V2_STAT_CAP_BASE;
-    caps[k] = cap;
-    allocated[k] = Math.max(0, cap - (floors[k] ?? 0));
+    const gain = prof.caps[k] ?? 0;
+    gains[k] = gain;
+    const effCap = effectiveStatCap(floors[k] ?? 0, gain);
+    allocated[k] = Math.max(0, effCap - (floors[k] ?? 0));
   }
   const d = derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
-    statCaps: caps,
+    statCaps: gains,
     statFloors: floors,
     v2Equipped: STARTER_EQUIP,
     playerClass,
@@ -170,7 +172,7 @@ function simulateGroup(t1: V2Class): Row[] {
       learnedCost: learnedCostTotal,
       usableAfter: groupUsable(prof, group),
       cultivations: cultivationCount(prof, group),
-      anchorCap: prof.caps[anchor] ?? V2_STAT_CAP_BASE,
+      anchorCap: effectiveStatCap(floors[anchor] ?? 0, capGain(prof, anchor)),
       anchorFloor: floors[anchor] ?? 0,
       // 레벨 60 = "잘 키운" 대표값(전직은 PR-6 후 레벨 무관·숙련도 게이트라 차수별 최소레벨 없음).
       power: maturePower(prof, cls, 60),

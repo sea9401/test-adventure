@@ -8,9 +8,13 @@ import {
   emptyProficiency,
   groupUsable,
   cultivationCost,
-  cultivationCount,
+  totalCapGains,
+  capGain,
+  effectiveStatCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 
 // POST /api/v2/me/cultivate — 수행 1회. 현 직업군 사용가능 숙련도로 stat cap 상승.
 // docs/v2-proficiency-redesign.md §4. 골드/쿨다운 없음. lock 순서 character.v2 → proficiency.v2.
@@ -38,30 +42,38 @@ export async function POST() {
       emptyProficiency(),
     );
     const prof = parseProficiency(profSave);
-    const applied = applyCultivation(prof, group);
+    // 크리티컬 다중 수행 — Math.random 로 mult 굴림(낮은 확률 ×3/×5).
+    const applied = applyCultivation(prof, group, Math.random);
     if (!applied) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "insufficient_proficiency" as const,
-          required: cultivationCost(cultivationCount(prof, group)),
+          required: cultivationCost(totalCapGains(prof)),
           have: groupUsable(prof, group),
         },
       };
     }
     await upsertSave(tx, userId, "proficiency.v2", applied.next);
     const nextCult = applied.next.groups[group].cultivations;
+    // 유효 cap(= floor + 헤드룸 + 수행이득) 으로 반환 — state 와 일치.
+    const floors = computeStatFloors(applied.next);
+    const effectiveCaps: Partial<Record<string, number>> = {};
+    for (const k of V2_STAT_KEYS) {
+      effectiveCaps[k] = effectiveStatCap(floors[k] ?? 0, capGain(applied.next, k));
+    }
     return {
       status: 200,
       body: {
         ok: true as const,
         spent: applied.cost,
+        mult: applied.mult, // 크리티컬 배수(1/3/5) — UI 표시용.
         group,
-        caps: applied.next.caps,
+        caps: effectiveCaps,
         cultivations: nextCult,
         usable: groupUsable(applied.next, group),
-        nextCost: cultivationCost(nextCult),
+        nextCost: cultivationCost(totalCapGains(applied.next)),
       },
     };
   });

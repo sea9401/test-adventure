@@ -9,7 +9,17 @@ import {
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import { ArrowsOut, Minus, Plus, X } from "@phosphor-icons/react";
+import {
+  ArrowsOut,
+  CastleTurret,
+  Crown,
+  House,
+  Minus,
+  Mountains,
+  Plus,
+  Sparkle,
+  X,
+} from "@phosphor-icons/react";
 import { OUTPOSTS, MAP_BOUNDS } from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
@@ -43,18 +53,15 @@ const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
   4: true,
 };
 
-function starPoints(cx: number, cy: number, r: number): string {
-  const inner = r * 0.4;
-  const pts: string[] = [];
-  for (let i = 0; i < 10; i += 1) {
-    const radius = i % 2 === 0 ? r : inner;
-    const angle = (Math.PI / 5) * i - Math.PI / 2;
-    pts.push(`${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`);
-  }
-  return pts.join(" ");
-}
-
 const KINGDOM_FILL = "#b04535";
+
+// 거점 종류별 플랫 아이콘 — 마커 타일 위에 흰색 글리프로. 왕국(tier4)은 종류 무관 Crown.
+const TYPE_ICON: Record<OutpostType, typeof House> = {
+  mine: Mountains,
+  tower: Sparkle,
+  fort: CastleTurret,
+  village: House,
+};
 
 const TYPE_LABEL: Record<OutpostType, string> = {
   mine: "광산",
@@ -75,6 +82,63 @@ const MAX_VB_W = MAP_BOUNDS.width * 1.0;
 
 // id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
+
+// 바이옴 권역 — 각 거점을 가장 가까운 바이옴 중심에 배정해 점선 영역 박스로 묶는다.
+// 중심 좌표는 outposts.ts 상단 주석의 5 왕국 + 중앙 평원. 중립 거점은 어느 세력 영역도
+// 아니라 박스에서 제외(맵 가장자리라 박스를 늘려 지저분해지는 것도 방지).
+const BIOME_REGIONS = [
+  { label: "북부 빙원", center: { x: 1800, y: 1000 } },
+  { label: "동부 삼림", center: { x: 6500, y: 800 } },
+  { label: "서부 광산지대", center: { x: 1500, y: 3500 } },
+  { label: "동남 화산지대", center: { x: 8000, y: 3300 } },
+  { label: "남부 사막", center: { x: 5000, y: 4900 } },
+  { label: "중앙 분쟁지대", center: { x: 5000, y: 2800 } },
+] as const;
+
+type RegionBox = { label: string; x: number; y: number; w: number; h: number };
+
+const REGION_BOXES: RegionBox[] = (() => {
+  const acc = new Map<
+    string,
+    { minX: number; minY: number; maxX: number; maxY: number }
+  >();
+  for (const o of OUTPOSTS) {
+    if (o.neutral) continue;
+    let bestLabel: string = BIOME_REGIONS[0].label;
+    let bestD = Infinity;
+    for (const reg of BIOME_REGIONS) {
+      const dx = o.position.x - reg.center.x;
+      const dy = o.position.y - reg.center.y;
+      const d = dx * dx + dy * dy;
+      if (d < bestD) {
+        bestD = d;
+        bestLabel = reg.label;
+      }
+    }
+    const cur = acc.get(bestLabel);
+    if (!cur) {
+      acc.set(bestLabel, {
+        minX: o.position.x,
+        minY: o.position.y,
+        maxX: o.position.x,
+        maxY: o.position.y,
+      });
+    } else {
+      cur.minX = Math.min(cur.minX, o.position.x);
+      cur.minY = Math.min(cur.minY, o.position.y);
+      cur.maxX = Math.max(cur.maxX, o.position.x);
+      cur.maxY = Math.max(cur.maxY, o.position.y);
+    }
+  }
+  const PAD = 340;
+  return [...acc.entries()].map(([label, b]) => ({
+    label,
+    x: b.minX - PAD,
+    y: b.minY - PAD,
+    w: b.maxX - b.minX + PAD * 2,
+    h: b.maxY - b.minY + PAD * 2,
+  }));
+})();
 
 type OccupationLite = {
   outpostId: string;
@@ -350,14 +414,62 @@ export function ContinentMap({
           role="img"
           aria-label="대륙 지도"
         >
-          <image
-            href="/images/ui/v2-continent.webp"
+          {/* 보드 배경 — 사진 일러스트 대신 단색 + 옅은 격자. 마커·연결선이 또렷이 읽히게. */}
+          <defs>
+            <pattern
+              id="v2-grid"
+              width={400}
+              height={400}
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M 400 0 L 0 0 0 400"
+                fill="none"
+                className="stroke-zinc-300/60 dark:stroke-zinc-700/50"
+                strokeWidth={2}
+              />
+            </pattern>
+          </defs>
+          <rect
             x={0}
             y={0}
             width={MAP_BOUNDS.width}
             height={MAP_BOUNDS.height}
-            preserveAspectRatio="none"
+            className="fill-zinc-100 dark:fill-zinc-950"
           />
+          <rect
+            x={0}
+            y={0}
+            width={MAP_BOUNDS.width}
+            height={MAP_BOUNDS.height}
+            fill="url(#v2-grid)"
+          />
+
+          {/* 바이옴 권역 — 점선 영역 박스 + 라벨. 격자 위, 연결선/마커 아래. */}
+          {REGION_BOXES.map((b) => (
+            <g key={b.label}>
+              <rect
+                x={b.x}
+                y={b.y}
+                width={b.w}
+                height={b.h}
+                rx={140}
+                fill="none"
+                className="stroke-zinc-400/70 dark:stroke-zinc-600/70"
+                strokeWidth={6}
+                strokeDasharray="44 32"
+              />
+              <text
+                x={b.x + 48}
+                y={b.y + 96}
+                className="fill-zinc-500 dark:fill-zinc-500"
+                fontSize={72}
+                fontWeight={700}
+              >
+                {b.label}
+              </text>
+            </g>
+          ))}
 
           {/* 거점 간 연결선 (Gabriel 그래프) — 인접 = 이동 가능 경로. 마커 아래 레이어.
               전체를 옅게 깔고, 현재 위치에 닿는 길만 위에 또렷한 초록으로 덧그린다. */}
@@ -428,7 +540,9 @@ export function ContinentMap({
                     ? "#dc2626"
                     : fill;
               const markerStroke = showLabel ? "#fff1a8" : "#ffffff";
-              const innerStroke = "#000";
+              // 타일 반변 — hover/선택/현재일 때 살짝 키워 강조.
+              const half = showLabel ? r * 1.2 : r;
+              const Glyph = isKingdom ? Crown : TYPE_ICON[o.type];
               return (
                 <g
                   key={o.id}
@@ -441,57 +555,41 @@ export function ContinentMap({
                   className="cursor-pointer"
                 >
                   {isCurrent && (
-                    <circle
-                      cx={o.position.x}
-                      cy={o.position.y}
-                      r={(showLabel ? r * 1.2 : r) + 24}
+                    <rect
+                      x={o.position.x - half - 28}
+                      y={o.position.y - half - 28}
+                      width={(half + 28) * 2}
+                      height={(half + 28) * 2}
+                      rx={(half + 28) * 0.42}
                       fill="none"
                       stroke="#10b981"
                       strokeWidth={12}
-                      strokeDasharray="36 26"
+                      strokeDasharray="40 28"
                     />
                   )}
-                  {isKingdom ? (
-                    <>
-                      <polygon
-                        points={starPoints(o.position.x, o.position.y, r + 6)}
-                        fill="none"
-                        stroke={innerStroke}
-                        strokeWidth={8}
-                        strokeLinejoin="round"
-                      />
-                      <polygon
-                        points={starPoints(o.position.x, o.position.y, r)}
-                        fill={markerFill}
-                        stroke={markerStroke}
-                        strokeWidth={showLabel ? 16 : 10}
-                        strokeLinejoin="round"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <circle
-                        cx={o.position.x}
-                        cy={o.position.y}
-                        r={(showLabel ? r * 1.2 : r) + 4}
-                        fill="none"
-                        stroke={innerStroke}
-                        strokeWidth={5}
-                      />
-                      <circle
-                        cx={o.position.x}
-                        cy={o.position.y}
-                        r={showLabel ? r * 1.2 : r}
-                        fill={markerFill}
-                        stroke={markerStroke}
-                        strokeWidth={showLabel ? 12 : 8}
-                      />
-                    </>
-                  )}
+                  {/* 색 타일 + 흰색 아이콘 (플랫 마커). 색 = 점령 상태(내것/적/중립) 또는 종류. */}
+                  <rect
+                    x={o.position.x - half}
+                    y={o.position.y - half}
+                    width={half * 2}
+                    height={half * 2}
+                    rx={half * 0.42}
+                    fill={markerFill}
+                    stroke={markerStroke}
+                    strokeWidth={showLabel ? 14 : 9}
+                  />
+                  <Glyph
+                    x={o.position.x - half * 0.62}
+                    y={o.position.y - half * 0.62}
+                    width={half * 1.24}
+                    height={half * 1.24}
+                    color="#ffffff"
+                    weight="fill"
+                  />
                   {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
                     <text
                       x={o.position.x}
-                      y={o.position.y - r - 14}
+                      y={o.position.y - half - 14}
                       textAnchor="middle"
                       fontSize={isKingdom ? 95 : o.tier === 3 ? 65 : 60}
                       fontWeight={700}

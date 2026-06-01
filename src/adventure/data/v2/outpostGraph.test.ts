@@ -71,6 +71,12 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
     }
   });
 
+  it("적당히 솎였다 — 신장 트리 이상, 빽빽한 거미줄 미만", () => {
+    // 최소 신장 트리(N-1) 이상이어야 연결되고, 평균 차수 4 미만이어야 "거미줄" 이 아니다.
+    expect(OUTPOST_EDGES.length).toBeGreaterThanOrEqual(OUTPOSTS.length - 1);
+    expect(OUTPOST_EDGES.length).toBeLessThan(OUTPOSTS.length * 2);
+  });
+
   it("없는 거점 id 는 이웃 없음 / 인접 아님", () => {
     expect(getOutpostNeighbors("does_not_exist")).toEqual([]);
     expect(areOutpostsAdjacent("does_not_exist", OUTPOSTS[0].id)).toBe(false);

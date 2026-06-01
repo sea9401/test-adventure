@@ -47,7 +47,7 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
 
 const SELL_PRICE_RATIO = 0.05;
 const BUY_GRID_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_4.75rem_4.75rem_4.25rem] sm:grid-cols-[minmax(0,1fr)_6rem_6rem_5rem]";
+  "grid grid-cols-[minmax(0,1fr)_5rem_5rem_4.5rem] sm:grid-cols-[minmax(0,1fr)_6.5rem_6rem_5.25rem]";
 
 // 슬롯별 상점 취급 장비 id — concept 정렬 (티어는 표시하지 않지만 정렬엔 사용).
 const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
@@ -294,7 +294,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       </header>
       <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
         <Coins size={16} weight="fill" className="text-yellow-500" />
-        <span className="tabular-nums">{gold.toLocaleString()}g</span>
+        <span className="font-semibold tabular-nums">{gold.toLocaleString()}G</span>
       </div>
       {msg && (
         <div
@@ -330,10 +330,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
       <section>
         {mode === "buy" ? (
-          <Card padding="none" className="overflow-hidden">
+          <Card padding="none" className="overflow-hidden dark:border-zinc-700">
             <div className="text-sm">
               <div
-                className={`${BUY_GRID_CLASS} border-b border-zinc-200 text-[11px] text-zinc-500 dark:border-zinc-800 dark:text-zinc-400`}
+                className={`${BUY_GRID_CLASS} border-b border-zinc-200 bg-zinc-100/60 text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400`}
                 role="row"
               >
                 <SortTh
@@ -358,7 +358,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                   align="right"
                 />
                 <div
-                  className="min-w-0 whitespace-nowrap px-2 py-2 text-right font-semibold sm:px-3"
+                  className="min-w-0 whitespace-nowrap px-2 py-3 text-right font-semibold sm:px-3"
                   role="columnheader"
                 >
                   구매
@@ -484,7 +484,7 @@ function SortTh({
     sort && sort.key === sortKey ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
   return (
     <div
-      className={`min-w-0 whitespace-nowrap px-2 py-2 font-semibold sm:px-3 ${
+      className={`min-w-0 whitespace-nowrap px-2 py-3 font-semibold sm:px-3 ${
         align === "left" ? "text-left" : "text-right"
       }`}
       role="columnheader"
@@ -521,19 +521,22 @@ function BuyEquipmentRow({
   const buyPrice = shopPriceOf(item) ?? 0;
   const affordable = gold >= buyPrice;
   return (
-    <div className={`${BUY_GRID_CLASS} items-center`} role="row">
+    <div
+      className={`${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
+      role="row"
+    >
       {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. */}
-      <div className="min-w-0 px-2 py-2 sm:px-3" role="cell">
+      <div className="min-w-0 px-2 py-3 sm:px-3" role="cell">
         <EquipmentName item={item} onOpenCard={onOpenCard} />
       </div>
       <div
-        className="min-w-0 whitespace-nowrap px-2 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300 sm:px-3"
+        className="min-w-0 whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums text-zinc-900 dark:text-white sm:px-3"
         role="cell"
       >
-        {buyPrice.toLocaleString()}g
+        {buyPrice.toLocaleString()}G
       </div>
       <div
-        className="min-w-0 whitespace-nowrap px-2 py-2 text-right tabular-nums text-xs text-zinc-500 dark:text-zinc-400 sm:px-3"
+        className="min-w-0 whitespace-nowrap px-2 py-3 text-right tabular-nums text-xs text-zinc-500 dark:text-zinc-400 sm:px-3"
         role="cell"
       >
         {item.power}
@@ -542,13 +545,13 @@ function BuyEquipmentRow({
           / {item.weight}
         </span>
       </div>
-      <div className="min-w-0 px-2 py-2 text-right sm:px-3" role="cell">
+      <div className="min-w-0 px-2 py-3 text-right sm:px-3" role="cell">
         <button
           type="button"
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
           title={`${buyPrice.toLocaleString()} G 에 구매`}
-          className="inline-flex h-7 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-md border border-amber-600 bg-amber-600 px-2 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-amber-700"
+          className="inline-flex h-7 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-md border border-indigo-600 bg-indigo-600 px-2 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-indigo-700"
         >
           {busy ? "…" : "구매"}
         </button>

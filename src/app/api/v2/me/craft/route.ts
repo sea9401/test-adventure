@@ -57,10 +57,14 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
   const id = typeof body.id === "string" ? (body.id as V2EquipmentId) : null;
-  if (!id || !(id in V2_EQUIPMENT) || !(id in V2_RECIPES)) {
+  if (!id || !(id in V2_EQUIPMENT)) {
     return Response.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
+  // 유니크 등 레시피 없는 장비는 제작 불가(레시피 부재 = 제작 불가 신호).
   const recipe = V2_RECIPES[id];
+  if (!recipe) {
+    return Response.json({ ok: false, error: "invalid_id" }, { status: 400 });
+  }
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(

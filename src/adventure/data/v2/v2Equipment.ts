@@ -42,6 +42,11 @@ export type V2EquipConcept =
 
 export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
 
+// 희귀도 — 생략/"common" = 정규 카탈로그(상점·제작 대상). "unique" = 드랍 전용 유니크:
+// 정규 컨셉×티어 그리드 밖의 사이드그레이드(옵션 프로필로 슬롯 규칙을 깬다). 상점 구매·제작
+// 불가, 던전 초저확률 드랍 전용. Phase 2 에서 실제 유니크를 populate (지금은 0종).
+export type V2EquipRarity = "common" | "unique";
+
 // 55종 (무기 15 · 갑옷 10 · 장갑 10 · 신발 10 · 반지 5 · 목걸이 5).
 export type V2EquipmentId =
   // 무기-힘 (str/atk)
@@ -148,6 +153,8 @@ export type V2Equipment = {
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
   element?: V2Element;
+  /** 희귀도. 생략/"common" = 정규(상점·제작). "unique" = 드랍 전용(상점·제작·그리드 제외). */
+  rarity?: V2EquipRarity;
 };
 
 // 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
@@ -178,8 +185,15 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
+// 유니크는 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
 export function shopPriceOf(item: V2Equipment): number | undefined {
+  if (item.rarity === "unique") return undefined;
   return shopPriceFor(item.tier, item.slot);
+}
+
+// 유니크 여부 — 상점/제작/그리드 제외 판정에 공용.
+export function isUnique(item: V2Equipment): boolean {
+  return item.rarity === "unique";
 }
 
 // V2_EQUIPMENT — 35종, 컨셉×티어 그리드.

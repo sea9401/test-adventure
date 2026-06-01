@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { V2_EQUIPMENT, type V2EquipmentId } from "./v2Equipment";
+import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 import { FLOOR_DROP_POOLS, V2_MATERIALS } from "./dungeonDrops";
 import {
   V2_RECIPES,
@@ -10,6 +10,8 @@ import {
 } from "./v2Recipes";
 
 const ALL_IDS = Object.keys(V2_EQUIPMENT) as V2EquipmentId[];
+// 제작 대상 = 비유니크(유니크는 드랍 전용, 레시피 없음). Phase 1 은 유니크 0종이라 = ALL_IDS.
+const CRAFTABLE_IDS = ALL_IDS.filter((id) => !isUnique(V2_EQUIPMENT[id]));
 
 // 재료별 최소 드랍 층 (FLOOR_DROP_POOLS 에서 가장 얕은 층). 낮은 층은 항상 접근 가능하므로
 // "재료가 층 F 까지 확보 가능" = "minFloor ≤ F".
@@ -33,26 +35,31 @@ const DEEP_MATERIALS = new Set([
 ]);
 
 describe("V2_RECIPES catalog", () => {
-  it("모든 장비(55종)가 레시피를 가진다 + result == key", () => {
-    for (const id of ALL_IDS) {
+  it("정규(비유니크) 장비가 전부 레시피 보유 + result==key, 유니크는 레시피 없음", () => {
+    for (const id of CRAFTABLE_IDS) {
       const r = V2_RECIPES[id];
       expect(r, id).toBeDefined();
-      expect(r.result).toBe(id);
+      expect(r!.result).toBe(id);
     }
-    expect(Object.keys(V2_RECIPES).length).toBe(ALL_IDS.length);
+    expect(Object.keys(V2_RECIPES).length).toBe(CRAFTABLE_IDS.length);
+    for (const id of ALL_IDS) {
+      if (isUnique(V2_EQUIPMENT[id])) {
+        expect(V2_RECIPES[id], `${id} 유니크엔 레시피 없어야`).toBeUndefined();
+      }
+    }
   });
 
   it("모든 재료 id 가 V2_MATERIALS 에 존재 (오타·고아 없음)", () => {
-    for (const id of ALL_IDS) {
-      for (const ing of V2_RECIPES[id].ingredients) {
+    for (const id of CRAFTABLE_IDS) {
+      for (const ing of V2_RECIPES[id]!.ingredients) {
         expect(V2_MATERIALS[ing.id], `${id} → ${ing.id}`).toBeDefined();
       }
     }
   });
 
   it("재료 수량 > 0, 골드 > 0, 레시피 내 재료 id 중복 없음", () => {
-    for (const id of ALL_IDS) {
-      const r = V2_RECIPES[id];
+    for (const id of CRAFTABLE_IDS) {
+      const r = V2_RECIPES[id]!;
       expect(r.gold, id).toBeGreaterThan(0);
       expect(r.ingredients.length, id).toBeGreaterThan(0);
       const seen = new Set<string>();
@@ -71,18 +78,18 @@ describe("V2_RECIPES catalog", () => {
       .sort((a, b) => a.tier - b.tier);
     for (let i = 1; i < strSwords.length; i++) {
       expect(
-        V2_RECIPES[strSwords[i].id].gold,
+        V2_RECIPES[strSwords[i].id]!.gold,
         strSwords[i].id,
-      ).toBeGreaterThan(V2_RECIPES[strSwords[i - 1].id].gold);
+      ).toBeGreaterThan(V2_RECIPES[strSwords[i - 1].id]!.gold);
     }
   });
 
   it("티어↔층 정합 — Tn 레시피 재료는 전부 n층까지 확보 가능(드랍 깊이 ≤ 티어)", () => {
     // 5층=5티어 정렬. 어떤 재료도 그 티어가 유효한 층보다 깊게 게이트되면 안 됨
     // (rune_shard/slime_shard 류 소프트월 회귀 가드).
-    for (const id of ALL_IDS) {
+    for (const id of CRAFTABLE_IDS) {
       const tier = V2_EQUIPMENT[id].tier;
-      for (const ing of V2_RECIPES[id].ingredients) {
+      for (const ing of V2_RECIPES[id]!.ingredients) {
         const minFloor = MIN_FLOOR[ing.id];
         expect(minFloor, `${ing.id} 드랍 풀 없음`).toBeDefined();
         expect(
@@ -94,10 +101,10 @@ describe("V2_RECIPES catalog", () => {
   });
 
   it("T4·T5 는 깊은 층 게이트 재료를 최소 하나 요구", () => {
-    for (const id of ALL_IDS) {
+    for (const id of CRAFTABLE_IDS) {
       const item = V2_EQUIPMENT[id];
       if (item.tier < 4) continue;
-      const hasDeep = V2_RECIPES[id].ingredients.some((ing) =>
+      const hasDeep = V2_RECIPES[id]!.ingredients.some((ing) =>
         DEEP_MATERIALS.has(ing.id),
       );
       expect(hasDeep, `${id} (T${item.tier})`).toBe(true);
@@ -114,7 +121,7 @@ describe("V2_RECIPES catalog", () => {
             V2_EQUIPMENT[id].concept === concept &&
             V2_EQUIPMENT[id].tier === 3,
         )!
-      ];
+      ]!;
     expect(t3("str").ingredients.some((i) => i.id === "v2_steel_ingot")).toBe(
       true,
     );
@@ -128,7 +135,7 @@ describe("V2_RECIPES catalog", () => {
 });
 
 describe("craftShortfall", () => {
-  const recipe = recipeFor("v2_iron_sword"); // T1: rough_ore×2 + herb×2, gold 225
+  const recipe = recipeFor("v2_iron_sword")!; // T1: rough_ore×2 + herb×2, gold 225
   it("재료·골드 충분하면 ok", () => {
     const r = craftShortfall(
       recipe,
@@ -180,7 +187,7 @@ describe("craftShortfall", () => {
 });
 
 describe("consumeIngredients", () => {
-  const recipe = recipeFor("v2_iron_sword"); // rough_ore×2 + herb×2
+  const recipe = recipeFor("v2_iron_sword")!; // rough_ore×2 + herb×2
 
   it("정확히 소진하면 키 제거", () => {
     expect(consumeIngredients({ v2_rough_ore: 2, v2_herb: 2 }, recipe)).toEqual(

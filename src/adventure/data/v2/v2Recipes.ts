@@ -13,6 +13,7 @@
 
 import {
   V2_EQUIPMENT,
+  isUnique,
   shopPriceFor,
   type V2Equipment,
   type V2EquipConcept,
@@ -119,16 +120,20 @@ function buildRecipe(item: V2Equipment): V2Recipe {
   };
 }
 
-// V2_RECIPES — V2_EQUIPMENT 와 1:1 (전 55종). result == key.
-export const V2_RECIPES: Record<V2EquipmentId, V2Recipe> = (() => {
-  const out = {} as Record<V2EquipmentId, V2Recipe>;
+// V2_RECIPES — 정규 카탈로그와 1:1 (result == key). 유니크(드랍 전용)는 레시피 없음 →
+// 제작 불가. Partial — 유니크 id 는 키가 없다(없는 게 곧 "제작 불가" 신호).
+export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = (() => {
+  const out: Partial<Record<V2EquipmentId, V2Recipe>> = {};
   for (const id of Object.keys(V2_EQUIPMENT) as V2EquipmentId[]) {
-    out[id] = buildRecipe(V2_EQUIPMENT[id]);
+    const item = V2_EQUIPMENT[id];
+    if (isUnique(item)) continue; // 유니크는 제작 불가 — 레시피 미생성
+    out[id] = buildRecipe(item);
   }
   return out;
 })();
 
-export function recipeFor(id: V2EquipmentId): V2Recipe {
+// 레시피 조회 — 유니크 등 비제작 장비는 undefined.
+export function recipeFor(id: V2EquipmentId): V2Recipe | undefined {
   return V2_RECIPES[id];
 }
 

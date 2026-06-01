@@ -10,11 +10,7 @@ import {
   type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import {
-  V2_RECIPES,
-  craftShortfall,
-  type V2Recipe,
-} from "@/adventure/data/v2/v2Recipes";
+import { V2_RECIPES, craftShortfall } from "@/adventure/data/v2/v2Recipes";
 import {
   V2_MATERIALS,
   type V2MaterialId,
@@ -54,6 +50,7 @@ const CRAFT_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
     return a.id.localeCompare(b.id);
   });
   for (const it of items) {
+    if (!(it.id in V2_RECIPES)) continue; // 유니크 등 비제작 장비는 대장간에 안 뜸
     if (it.slot in groups) groups[it.slot as SlotTab].push(it.id);
   }
   return groups;
@@ -235,7 +232,9 @@ function RecipeRow({
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  const recipe: V2Recipe = V2_RECIPES[id];
+  const recipe = V2_RECIPES[id];
+  // 비제작(유니크) — CRAFT_IDS 에서 이미 제외되지만 타입·방어상 가드.
+  if (!recipe) return null;
   const shortfall = craftShortfall(recipe, materials, gold);
   const goldShort = gold < recipe.gold;
 

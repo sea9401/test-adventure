@@ -11,6 +11,7 @@
 import type { DungeonFloorId } from "./types";
 import {
   V2_EQUIPMENT,
+  isUnique,
   type V2EquipmentId,
   type V2EquipTier,
 } from "./v2Equipment";
@@ -86,6 +87,9 @@ export function rollEquipDrop(
   const candidates: V2EquipmentId[] = [];
   for (const item of Object.values(V2_EQUIPMENT)) {
     if (item.tier !== pickedTier) continue;
+    // 유니크는 정규 드랍 후보에서 제외 — 드랍 전용 유니크는 rollUniqueDrop(별도 초저확률
+    // 롤)로만 나온다. 이게 빠지면 Phase 2 유니크가 정규 티어 드랍으로 새 나간다.
+    if (isUnique(item)) continue;
     if (ownedSet.has(item.id)) continue;
     candidates.push(item.id);
   }

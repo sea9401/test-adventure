@@ -51,8 +51,10 @@ export const V2_CULTIVATE_PROFILE: Record<
 
 // 수행 비용(사용가능 숙련도) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
 // 크리티컬 다중 수행이 더 많은 cap 을 한 번에 올리면 그만큼 다음 비용도 비싸진다(자연 throttle).
+// PER_CAP 1.5→5(2026-06): earned 가 floor·전직게이트에서 분리(cumLevel 전환)되며 수행 연료로
+// 과잉 → cap 인플레(t4 245). 비용계수 상향으로 diminishing 강화 → t4 cap ~169(옛 총cap 복귀).
 export const V2_CULT_COST_BASE = 8;
-export const V2_CULT_COST_PER_CAP = 1.5;
+export const V2_CULT_COST_PER_CAP = 5;
 export function cultivationCost(totalCapGains: number): number {
   return Math.round(
     V2_CULT_COST_BASE + Math.max(0, totalCapGains) * V2_CULT_COST_PER_CAP,

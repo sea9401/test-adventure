@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ContinentMap } from "@/adventure/v2/ContinentMap";
 import { OutpostView } from "@/adventure/v2/OutpostView";
 import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
@@ -29,7 +29,7 @@ import { V2GuildHome } from "@/adventure/v2/V2GuildHome";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, START_OUTPOST_ID } from "@/adventure/data/v2/outposts";
 import type {
   DungeonFloorId,
   Outpost,
@@ -41,6 +41,8 @@ import type { Gender } from "@/adventure/profile/avatars";
 const OUTPOST_TYPE_BY_ID = new Map<string, OutpostType>(
   OUTPOSTS.map((o) => [o.id, o.type]),
 );
+// 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
+const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드는 추후 별도 이미지 예정.
 const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
 
@@ -169,9 +171,11 @@ export function V2GameFlow() {
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
   const [viewerName, setViewerName] = useState<string>("모험가");
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
+  // 기본값 = 시작 거점(선더홀드). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
+  // null 로 두지 않아 인접 이동 게이트가 첫 화면부터 일관되게 동작한다.
   const [currentOutpost, setCurrentOutpost] = useState<
     { id: string; name: string } | null
-  >(null);
+  >(() => ({ id: START_OUTPOST.id, name: START_OUTPOST.name }));
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   // nav 아래 sticky StaminaBar 가 표시 (모든 탭에서 동일).
   const [stamina, setStamina] = useState<StaminaState>(() =>
@@ -250,15 +254,39 @@ export function V2GameFlow() {
     })();
   }, [refreshOccupations]);
 
-  const enterOutpost = useCallback((outpost: Outpost) => {
-    setCurrentOutpost({ id: outpost.id, name: outpost.name });
-    setView({ kind: "outpost", outpost });
-    void fetch("/api/v2/me/visit-outpost", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ outpostId: outpost.id }),
-    }).catch(() => {});
-  }, []);
+  // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
+  // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.
+  const visitInFlightRef = useRef(false);
+  const enterOutpost = useCallback(
+    (outpost: Outpost) => {
+      if (visitInFlightRef.current) return;
+      const prevOutpost = currentOutpost;
+      const prevView = view;
+      visitInFlightRef.current = true;
+      setCurrentOutpost({ id: outpost.id, name: outpost.name });
+      setView({ kind: "outpost", outpost });
+      void (async () => {
+        try {
+          const res = await fetch("/api/v2/me/visit-outpost", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ outpostId: outpost.id }),
+          });
+          if (!res.ok) {
+            // 서버가 인접 위반 등으로 거부 → 이동 직전의 위치·화면으로 롤백.
+            // (클라가 이미 인접만 허용하므로 정상 흐름에선 거의 안 일어난다.)
+            setCurrentOutpost(prevOutpost);
+            setView(prevView);
+          }
+        } catch {
+          // 네트워크 오류는 롤백하지 않음 — 낙관적 상태 유지(다음 로드에서 서버가 정정).
+        } finally {
+          visitInFlightRef.current = false;
+        }
+      })();
+    },
+    [currentOutpost, view],
+  );
 
   const handleTabSelect = (tab: TabId) => {
     setView(defaultViewOfTab(tab));
@@ -460,6 +488,7 @@ export function V2GameFlow() {
           onOutpostEnter={enterOutpost}
           occupations={occupations}
           viewerUserId={viewerUserId}
+          currentOutpostId={currentOutpost?.id ?? null}
         />
       )}
       {view.kind === "outpost" && (

@@ -3,6 +3,7 @@ import { STAT_KEYS, STAT_LABELS } from "@/adventure/data/stats";
 export function StatsPanel({
   stats,
   totalStats,
+  caps,
   combat,
   statKeys = STAT_KEYS,
   statLabels = STAT_LABELS,
@@ -11,12 +12,15 @@ export function StatsPanel({
   stats: Record<string, number>;
   /** 베이스 + 분배 + 장비 합산된 최종 스탯. 미지정 시 stats 와 동일 (장비 보너스 표시 X). */
   totalStats?: Record<string, number>;
+  /** 각 스탯의 한계치(cap). 지정 시 "값(한계치)" 표기로 바뀌고 장비 보너스 분리는 숨긴다(v2 내 정보). */
+  caps?: Record<string, number | undefined>;
   /** 전투력 — 공격력/방어력. magicAtk(마법 공격력)은 v2 INT 빌드만, 0/미지정이면 숨김. */
   combat?: { atk: number; def: number; magicAtk?: number };
   /** 스탯 키/라벨 — 기본은 라이브 6스탯. v2 는 V2_STAT_KEYS/V2_STAT_LABELS 전달. */
   statKeys?: readonly string[];
   statLabels?: Record<string, string>;
 }) {
+  const showCaps = caps !== undefined;
   const total = totalStats ?? stats;
   return (
     <div className="space-y-4">
@@ -42,14 +46,17 @@ export function StatsPanel({
 
       <div>
         <div className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          능력치{totalStats ? " (기본 · 장비)" : ""}
+          능력치{!showCaps && totalStats ? " (기본 · 장비)" : ""}
         </div>
         <div className="mt-2 grid grid-cols-6 gap-2">
           {statKeys.map((k) => {
             const base = stats[k];
             const finalValue = total[k];
             const equipBonus = finalValue - base;
-            const hasBonus = totalStats !== undefined && equipBonus !== 0;
+            // caps 모드(v2 내 정보): 장비 분리 대신 "값(한계치)" 표기. 라이브는 종전 장비 분리 유지.
+            const hasBonus =
+              !showCaps && totalStats !== undefined && equipBonus !== 0;
+            const cap = caps?.[k];
             return (
               <div
                 key={k}
@@ -58,9 +65,14 @@ export function StatsPanel({
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   {statLabels[k]}
                 </div>
-                {/* 큰 글자 = 기본(베이스 + 분배). 장비 보너스가 있어야만 그 아래로 갈라진다. */}
+                {/* 큰 글자 = 기본(베이스 + 분배). caps 모드면 옆에 (한계치), 아니면 장비 보너스로 갈라진다. */}
                 <div className="mt-0.5 text-base font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
                   {base}
+                  {cap !== undefined && (
+                    <span className="ml-0.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                      ({cap})
+                    </span>
+                  )}
                 </div>
                 {hasBonus && (
                   <>

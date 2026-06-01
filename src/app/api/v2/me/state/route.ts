@@ -22,9 +22,10 @@ import {
   V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   totalEarned,
   groupEarned,
+  groupCumLevel,
   groupUsable,
   cultivationCount,
   cultivationCost,
@@ -312,7 +313,7 @@ export async function GET() {
     })(),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
-      const prof = parseProficiency(proficiencyRow?.value);
+      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
       const group = tier1ClassOf(
         parseV2Class((charSave as { class?: unknown }).class),
       );
@@ -329,6 +330,8 @@ export async function GET() {
         current: {
           group,
           earned: groupEarned(prof, group),
+          // 직군 누적 레벨 — 전직 게이트·floor 입력(earned 대체). UI 전직 진척 표시용.
+          cumLevel: groupCumLevel(prof, group),
           usable: groupUsable(prof, group),
           cultivations: cultivationCount(prof, group),
           nextCost: cultivationCost(totalCapGains(prof)),

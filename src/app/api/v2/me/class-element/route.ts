@@ -23,7 +23,7 @@ import {
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   setGrown,
   emptyProficiency,
   type V2ProficiencyState,
@@ -176,7 +176,7 @@ export async function POST(req: Request) {
         tx,
         userId,
         "proficiency.v2",
-        setGrown(parseProficiency(profSave), {}),
+        setGrown(parseProficiencyForChar(profSave, charSave), {}),
       );
     }
 

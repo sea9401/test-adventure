@@ -9,12 +9,16 @@
 //   - 직업 사용가능 = earned − spent. 총 숙련도 = Σ earned. cap 미지정 = V2_STAT_CAP_BASE.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
+import { tier1ClassOf, parseV2Class } from "./classes";
 
 export type V2ProficiencyGroup = {
   earned: number;
   spent: number;
   cultivations: number;
   tier: number; // 그 직업군에서 도달한 최고 차수(1~4). floor tierMult 에 사용.
+  // 직군 누적 레벨 — 레벨업마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(earned 대체, 2026-06).
+  // earned 는 수행·스킬 소비 통화로만 잔존. cumLevel 은 레벨캡·차수 유한이라 ~200-250 에서 천장.
+  cumLevel: number;
 };
 export type V2ProficiencyState = {
   groups: Record<string, V2ProficiencyGroup>;
@@ -92,7 +96,14 @@ function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
   return out;
 }
 
-export function parseProficiency(raw: unknown): V2ProficiencyState {
+// seed — cumLevel 필드가 없는 옛 세이브 마이그레이션용. 활성 직군(seed.group)은 현재 캐릭터
+// 레벨(seed.level)을 더해 시드 = (tier-1)×50 + level (현 차수 진행분 반영). 그 외 직군은 (tier-1)×50.
+// prof 를 write 하는 모든 라우트(hunt/advance/cultivate/learn-skill/grant)에 동일 seed 를 넘겨야
+// 첫 write-back 이 올바른 cumLevel 을 박제한다(시드 없이 0 박제 → 전직 영구차단 방지).
+export function parseProficiency(
+  raw: unknown,
+  seed?: { group: string; level: number },
+): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
   const obj = raw as { groups?: unknown; caps?: unknown; grown?: unknown };
   const groups: Record<string, V2ProficiencyGroup> = {};
@@ -104,9 +115,24 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
       // tier 1~4 클램프, 미지정(옛 세이브)=1.
       const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
+      // cumLevel(직군 누적 레벨) — 필드 있으면 그 값 그대로(이미 누적된 영구값).
+      // 없으면 마이그레이션 시드 = 완료 차수 (tier-1)×50 + 활성 직군이면 현재 레벨(현 차수 진행분).
+      // 비활성 직군은 과거 레벨을 알 수 없어 (tier-1)×50 만(보수적). 신규(tier1·미활성)=0.
+      const rawCum = (v as { cumLevel?: unknown }).cumLevel;
+      const seedLevel = seed && seed.group === k ? Math.max(0, seed.level) : 0;
+      const cumLevel =
+        typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
+          ? Math.floor(rawCum)
+          : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
       // earned > 0 인 그룹만. spent 는 earned 초과 불가(손상 방어).
       if (earned > 0) {
-        groups[k] = { earned, spent: Math.min(spent, earned), cultivations, tier };
+        groups[k] = {
+          earned,
+          spent: Math.min(spent, earned),
+          cultivations,
+          tier,
+          cumLevel,
+        };
       }
     }
   }
@@ -132,6 +158,22 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
   return { groups, caps, grown: parseStatMap(obj.grown) };
 }
 
+// charSave({class, level})에서 활성 직군 + 현재 레벨을 뽑아 cumLevel 시드와 함께 파싱.
+// prof 를 읽거나 write 하는 라우트는 bare parseProficiency 대신 이걸 써서, 옛 세이브의 cumLevel
+// 마이그레이션 시드가 현 차수 진행 레벨을 포함하게 한다(전직 영구차단 방지). 모든 write 경로가
+// 동일 시드를 쓰므로 어느 라우트가 먼저 write-back 하든 올바른 cumLevel 이 박제된다.
+export function parseProficiencyForChar(
+  raw: unknown,
+  charSave: { class?: unknown; level?: unknown },
+): V2ProficiencyState {
+  const group = tier1ClassOf(parseV2Class(charSave.class));
+  const level =
+    typeof charSave.level === "number" && Number.isFinite(charSave.level)
+      ? Math.max(1, Math.floor(charSave.level))
+      : 1;
+  return parseProficiency(raw, { group, level });
+}
+
 // 랜덤 레벨 성장분 교체(비파괴). 다른 필드 보존.
 export function setGrown(
   p: V2ProficiencyState,
@@ -148,17 +190,23 @@ export function setGroupTier(
 ): V2ProficiencyState {
   if (!group || group === "none") return p;
   const t = Math.min(4, Math.max(1, Math.floor(tier)));
-  const cur = p.groups[group] ?? { earned: 0, spent: 0, cultivations: 0, tier: 1 };
+  const cur = p.groups[group] ?? {
+    earned: 0,
+    spent: 0,
+    cultivations: 0,
+    tier: 1,
+    cumLevel: 0,
+  };
   if (cur.tier >= t) return p;
   return { ...p, groups: { ...p.groups, [group]: { ...cur, tier: t } } };
 }
 
-// floor(저점) 다이얼 — docs §5. 총 숙련도 일반 베이스 + 직업 숙련도(프로필·차수 가중).
-export const V2_FLOOR_GLOBAL = 0.004; // 총 숙련도 → 전 스탯 베이스.
-// 직업 earned → 프로필 스탯 floor. PR-9 캘리브: 0.02 → 0.01. earned 는 선형(3000까지)인데
-// cap 은 수행 지수비용(1.12ⁿ)에 throttle 돼 고차에서 floor 가 cap 을 추월(수행 무의미)했다.
-// floor 가 cap 의 ~30~50% 에 머물도록(저점<천장 + grown 이 메우는 여지) 계수+tierMult 하향.
-export const V2_FLOOR_PER_PROF = 0.01;
+// floor(저점) 다이얼 — docs §5. 입력을 earned(킬 누적) → 직군 누적 레벨(cumLevel)로 전환(2026-06).
+// cumLevel 은 레벨업당 +1 + 레벨캡·차수 유한이라 ~200-250 에서 천장 → 옛 earned 의 무한 선형
+// runaway 가 구조적으로 사라진다(저점이 cap 의 ~30~50%에서 멈춤). 계수는 cumLevel 스케일에 맞춰
+// 상향(earned 대비 ~1/15~1/40). 시작 다이얼 — sim 캘리브 대상.
+export const V2_FLOOR_GLOBAL = 0.015; // 총 누적레벨 → 전 스탯 베이스.
+export const V2_FLOOR_PER_PROF = 0.05; // 직군 누적레벨 → 프로필 스탯 floor.
 // 차수가 높을수록 floor 가 더 오르되(설계 의도), cap 을 넘지 않게 완만히. {1.5,2,3} → {1.15,1.3,1.5}.
 export const V2_TIER_FLOOR_MULT: Record<number, number> = {
   1: 1,
@@ -181,18 +229,20 @@ export function signatureLearnCost(tier: number): number {
   return V2_SIGNATURE_LEARN_COST[tier] ?? V2_SIGNATURE_LEARN_COST[1];
 }
 
-// 전직(차수 승급) 게이트 — 직업군 누적 숙련도(earned) 임계 + 최소 레벨. 골드 X(docs §7·§10).
-// key = 목표 차수. earned 는 안 줄어드는 영구값이라 spent 와 무관하게 누적 마스터리 척도.
-export const V2_ADVANCE_PROFICIENCY_REQ: Record<number, number> = {
-  2: 300,
-  3: 1200,
-  4: 3000,
+// 전직(차수 승급) 게이트 — 직군 누적 레벨(cumLevel) 임계. earned → cumLevel 전환(2026-06).
+// key = 목표 차수. cumLevel 은 레벨업당 +1(전직 리셋 불변)이라 킬 기반 earned 보다 쌓기 어렵고
+// EXP 곡선에 감속 → 전직이 "킬 수"가 아닌 "누적 레벨"로 게이트. Lv50 최소레벨과 이중(아래).
+// 시작 다이얼 — sim/실측 캘리브 대상.
+export const V2_ADVANCE_CUMLEVEL_REQ: Record<number, number> = {
+  2: 55,
+  3: 110,
+  4: 170,
 };
-export function advanceProficiencyReq(tier: number): number {
-  return V2_ADVANCE_PROFICIENCY_REQ[tier] ?? Infinity;
+export function advanceCumLevelReq(tier: number): number {
+  return V2_ADVANCE_CUMLEVEL_REQ[tier] ?? Infinity;
 }
 // 전직 최소 레벨 — 차수 승급 시 레벨이 1로 리셋되므로, 매 차수 사이 레벨 50 까지 키워야
-// 다음 승급 가능(누적 숙련도와 함께 이중 게이트). 리셋 루프의 레벨 의미 부여(2026-06).
+// 다음 승급 가능(누적 레벨 게이트와 이중). 리셋 루프의 레벨 의미 부여(2026-06).
 export const V2_ADVANCE_MIN_LEVEL = 50;
 
 // 총 숙련도 = 모든 직업군 earned 합.
@@ -204,6 +254,17 @@ export function totalEarned(p: V2ProficiencyState): number {
 
 export function groupEarned(p: V2ProficiencyState, group: string): number {
   return p.groups[group]?.earned ?? 0;
+}
+
+// 직군 누적 레벨 — floor·전직 게이트 입력(earned 대체). 레벨업당 +1, 전직 리셋에도 불변.
+export function totalCumLevel(p: V2ProficiencyState): number {
+  let t = 0;
+  for (const v of Object.values(p.groups)) t += v.cumLevel;
+  return t;
+}
+
+export function groupCumLevel(p: V2ProficiencyState, group: string): number {
+  return p.groups[group]?.cumLevel ?? 0;
 }
 
 // 직업 사용가능 = earned − spent.
@@ -246,12 +307,36 @@ export function addEarned(
     spent: 0,
     cultivations: 0,
     tier: 1,
+    cumLevel: 0,
   };
   return {
     ...p,
     groups: {
       ...p.groups,
       [group]: { ...cur, earned: cur.earned + amount },
+    },
+  };
+}
+
+// 직군 누적 레벨 적립 — group 의 cumLevel += amount(레벨업 수). 비파괴. none/빈 group/0 이하 무변경.
+export function addCumLevel(
+  p: V2ProficiencyState,
+  group: string,
+  amount: number,
+): V2ProficiencyState {
+  if (amount <= 0 || !group || group === "none") return p;
+  const cur = p.groups[group] ?? {
+    earned: 0,
+    spent: 0,
+    cultivations: 0,
+    tier: 1,
+    cumLevel: 0,
+  };
+  return {
+    ...p,
+    groups: {
+      ...p.groups,
+      [group]: { ...cur, cumLevel: cur.cumLevel + amount },
     },
   };
 }
@@ -275,6 +360,7 @@ export function applyCultivation(
     spent: 0,
     cultivations: 0,
     tier: 1,
+    cumLevel: 0,
   };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
   for (const stat of V2_STAT_KEYS) {
@@ -313,6 +399,7 @@ export function spendProficiency(
     spent: 0,
     cultivations: 0,
     tier: 1,
+    cumLevel: 0,
   };
   return {
     ...p,

@@ -3,7 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   applyCultivation,
   emptyProficiency,
   groupUsable,
@@ -41,7 +41,7 @@ export async function POST() {
       "proficiency.v2",
       emptyProficiency(),
     );
-    const prof = parseProficiency(profSave);
+    const prof = parseProficiencyForChar(profSave, charSave);
     // 크리티컬 다중 수행 — Math.random 로 mult 굴림(낮은 확률 ×3/×5).
     const applied = applyCultivation(prof, group, Math.random);
     if (!applied) {

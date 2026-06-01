@@ -10,12 +10,12 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   setGrown,
   setGroupTier,
   emptyProficiency,
-  groupEarned,
-  advanceProficiencyReq,
+  groupCumLevel,
+  advanceCumLevelReq,
   V2_ADVANCE_MIN_LEVEL,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
@@ -29,8 +29,9 @@ import {
   countDiscoveredMaterials,
 } from "@/adventure/data/v2/codex";
 
-// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직업군 누적 숙련도(earned)
-// 임계(t2=300·t3=1200·t4=3000) + (3·4차) 모험의 서 — 레벨/골드 X(docs §7, PR-6).
+// POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직군 누적 레벨(cumLevel)
+// 임계(t2=55·t3=110·t4=170) + 최소 Lv50 + (3·4차) 모험의 서 — 골드 X(docs §7, PR-6).
+// earned→cumLevel 전환(2026-06): 전직을 "킬 수"가 아닌 "누적 레벨"로 게이트.
 // 1→2→3→4 어느 단계든 nextTierClassOf 로 바로 위 차수로 승급. respec(직업군 변경,
 // 비용+쿨다운)과 별개 — 같은 직업군 안에서의 단계 승급. 새 차수 시그니처는 자동 학습이
 // 아니라 learn-skill 로 숙련도 학습(전직은 equipped 만 reconcile, docs §6).
@@ -66,13 +67,14 @@ export async function POST() {
     );
     const skills = parseV2SkillsState(skillsRaw);
     // 게이트(누적 숙련도)에 쓰므로 락 순서(character→skills→proficiency)대로 미리 잠가 읽는다.
-    const prof = parseProficiency(
+    const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
         tx,
         userId,
         "proficiency.v2",
         emptyProficiency(),
       ),
+      charSave,
     );
 
     const curClass = parseV2Class(charSave.class);
@@ -101,17 +103,17 @@ export async function POST() {
       };
     }
 
-    // 게이트 1 — 직업군 누적 숙련도(earned) 임계. 골드 없음(docs §7).
-    const reqProf = advanceProficiencyReq(V2_CLASS_DEFS[nextClass].tier);
-    const haveProf = groupEarned(prof, group);
-    if (haveProf < reqProf) {
+    // 게이트 1 — 직군 누적 레벨(cumLevel) 임계. earned→cumLevel 전환(2026-06). 골드 없음(docs §7).
+    const reqCumLevel = advanceCumLevelReq(V2_CLASS_DEFS[nextClass].tier);
+    const haveCumLevel = groupCumLevel(prof, group);
+    if (haveCumLevel < reqCumLevel) {
       return {
         status: 400,
         body: {
           ok: false as const,
-          error: "insufficient_proficiency" as const,
-          required: reqProf,
-          have: haveProf,
+          error: "insufficient_cum_level" as const,
+          required: reqCumLevel,
+          have: haveCumLevel,
         },
       };
     }

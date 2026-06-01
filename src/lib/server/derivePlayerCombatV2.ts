@@ -36,7 +36,7 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   effectiveStatCap,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
@@ -429,7 +429,7 @@ export async function derivePlayerCombatV2(
     parseEquipmentSave(equipmentSave);
   // PR-prof — 1차 스탯 = 랜덤 레벨 성장(prof.grown), cap = 수행(prof.caps).
   // 옛 수동 분배(training.allocated) 폐기.
-  const prof = parseProficiency(proficiencyRaw);
+  const prof = parseProficiencyForChar(proficiencyRaw, character);
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,

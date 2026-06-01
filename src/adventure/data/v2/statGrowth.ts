@@ -6,7 +6,8 @@ import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { V2_BASE_STATS } from "./v2Stats";
 import { V2_CLASS_DEFS, type V2Class } from "./classes";
 import {
-  statCap,
+  capGain,
+  V2_CAP_HEADROOM_BASE,
   totalEarned,
   V2_CULTIVATE_PROFILE,
   V2_FLOOR_GLOBAL,
@@ -58,12 +59,13 @@ export function rollLevelGrowth(
   const next: Partial<Record<V2StatKey, number>> = { ...grown };
   const anchor = V2_CLASS_DEFS[playerClass].anchorStat;
   for (let i = 0; i < V2_GROWTH_POINTS_PER_LEVEL; i++) {
-    // cap 미달 스탯만 후보, 앵커 가중.
+    // 헤드룸(= 기본 헤드룸 + 수행 이득) 미달 스탯만 후보, 앵커 가중. grown 이 floor→cap 사이를
+    // 채우므로 cap 미달 = grown < 헤드룸+이득 (floor 상쇄, stat=floor+grown<cap 와 동치).
     const pool: { k: V2StatKey; w: number }[] = [];
     let totalW = 0;
     for (const k of V2_STAT_KEYS) {
-      const cur = (V2_BASE_STATS[k] ?? 0) + (next[k] ?? 0);
-      if (cur < statCap(prof, k)) {
+      const room = V2_CAP_HEADROOM_BASE + capGain(prof, k);
+      if ((next[k] ?? 0) < room) {
         const w = playerClass === "none" ? 1 : k === anchor ? 3 : 1;
         pool.push({ k, w });
         totalW += w;

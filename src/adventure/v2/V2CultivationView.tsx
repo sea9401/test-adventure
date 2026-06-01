@@ -73,6 +73,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         ok?: boolean;
         error?: string;
         spent?: number;
+        mult?: number;
         caps?: Partial<Record<V2StatKey, number>>;
         cultivations?: number;
         usable?: number;
@@ -90,7 +91,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setMsg(`✗ ${label}`);
         return;
       }
-      setMsg(`✓ 수행 완료 (숙련도 -${j.spent ?? nextCost})`);
+      const crit = (j.mult ?? 1) > 1 ? ` ⭐크리티컬 ×${j.mult}!` : "";
+      setMsg(`✓ 수행 완료 (숙련도 -${j.spent ?? nextCost})${crit}`);
       setCaps(j.caps ?? caps);
       setCultivations(j.cultivations ?? cultivations + 1);
       setUsable(j.usable ?? Math.max(0, usable - nextCost));

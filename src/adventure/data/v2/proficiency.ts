@@ -24,24 +24,48 @@ export type V2ProficiencyState = {
 
 // §10 다이얼.
 export const V2_PROFICIENCY_PER_KILL = 2;
-export const V2_STAT_CAP_BASE = 60; // 시작 cap (전 스탯, 수행으로만 상향).
+// cap 은 floor 상대(저점 위 성장 여유). 유효 cap = floor + V2_CAP_HEADROOM_BASE + 수행이득.
+// fresh(floor=base15) → 15+45 = 60(옛 시작 cap 과 동일). floor 가 높아져도 cap 이 항상 그 위라
+// floor>cap 핀(수행 시 스탯 즉시 점프) 이 생기지 않는다 — 수행은 "여유(헤드룸)"만 늘리고
+// 실제 스탯은 레벨업 랜덤성장(grown)이 floor→cap 사이를 채운다.
+export const V2_CAP_HEADROOM_BASE = 45;
+// 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
+export const V2_STAT_CAP_BASE = 60;
 
-// 수행 1회 cap 상승 — 직업군별 프로필(앵커 +3, 관련 2스탯 +1). 키 = tier1ClassOf(직업군). docs §9.
+// 수행 1회 cap 헤드룸 상승 — 직업군별 프로필(앵커 +2, 관련 2스탯 +1). 키 = tier1ClassOf. docs §9.
 export const V2_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
 > = {
-  swordsman: { str: 3, dex: 1, luk: 1 }, // 검술
-  archer: { dex: 3, luk: 1, str: 1 }, // 궁술
-  martial: { vit: 3, str: 1, spi: 1 }, // 체술
-  mage: { int: 3, spi: 1, luk: 1 }, // 마술
-  priest: { spi: 3, int: 1, vit: 1 }, // 신술
-  ninja: { luk: 3, dex: 1, int: 1 }, // 인술
+  swordsman: { str: 2, dex: 1, luk: 1 }, // 검술
+  archer: { dex: 2, luk: 1, str: 1 }, // 궁술
+  martial: { vit: 2, str: 1, spi: 1 }, // 체술
+  mage: { int: 2, spi: 1, luk: 1 }, // 마술
+  priest: { spi: 2, int: 1, vit: 1 }, // 신술
+  ninja: { luk: 2, dex: 1, int: 1 }, // 인술
 };
 
-// n회차 수행 비용(사용가능 숙련도). 기하 증가 cost(n) = round(8 × 1.12ⁿ). §10 다이얼.
-export function cultivationCost(n: number): number {
-  return Math.round(8 * Math.pow(1.12, Math.max(0, n)));
+// 수행 비용(사용가능 숙련도) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
+// 크리티컬 다중 수행이 더 많은 cap 을 한 번에 올리면 그만큼 다음 비용도 비싸진다(자연 throttle).
+export const V2_CULT_COST_BASE = 8;
+export const V2_CULT_COST_PER_CAP = 1.5;
+export function cultivationCost(totalCapGains: number): number {
+  return Math.round(
+    V2_CULT_COST_BASE + Math.max(0, totalCapGains) * V2_CULT_COST_PER_CAP,
+  );
+}
+
+// 크리티컬 수행 — 낮은 확률로 1회 비용에 여러 배 cap 상승. 누적 임계(rng < p) 순.
+export const V2_CULT_CRIT_TABLE: { p: number; mult: number }[] = [
+  { p: 0.015, mult: 5 }, // 1.5% — ×5
+  { p: 0.095, mult: 3 }, // +8% (누적 9.5%) — ×3
+];
+export function rollCultivationMult(rng: () => number): number {
+  const r = rng();
+  for (const { p, mult } of V2_CULT_CRIT_TABLE) {
+    if (r < p) return mult;
+  }
+  return 1;
 }
 
 function posInt(raw: unknown): number {
@@ -86,13 +110,21 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       }
     }
   }
+  // caps[stat] = 수행으로 올린 cap 헤드룸 이득(floor+base 위 추가분). 양수만 저장.
+  // 마이그레이션 가드(수행개편 2026-06): 옛 포맷은 "절대 cap"(항상 ≥ 60+이득 = ≥61)을 저장했다.
+  // 새 이득은 실측상 < 60(t4 앵커 ~33). 60 이상 값은 옛 절대 cap 으로 보고 드롭(이득 0 리셋) —
+  // 새 의미로 재해석돼 cap/비용이 부풀지 않게. (staging 한정, 두 포맷이 60 에서 깔끔히 갈림.)
   const caps: Partial<Record<V2StatKey, number>> = {};
   if (obj.caps && typeof obj.caps === "object") {
     const rawCaps = obj.caps as Record<string, unknown>;
     for (const stat of V2_STAT_KEYS) {
       const c = rawCaps[stat];
-      // base 초과만 저장(기본값과 구분 — 줄어든 손상값은 base 로 폴백).
-      if (typeof c === "number" && Number.isFinite(c) && c > V2_STAT_CAP_BASE) {
+      if (
+        typeof c === "number" &&
+        Number.isFinite(c) &&
+        c > 0 &&
+        c < V2_STAT_CAP_BASE
+      ) {
         caps[stat] = Math.floor(c);
       }
     }
@@ -182,8 +214,21 @@ export function cultivationCount(p: V2ProficiencyState, group: string): number {
 }
 
 // stat cap — 수행으로 올린 값, 미지정이면 기본 cap.
-export function statCap(p: V2ProficiencyState, stat: V2StatKey): number {
-  return p.caps[stat] ?? V2_STAT_CAP_BASE;
+// 수행으로 올린 cap 헤드룸 이득(저점/base 위 추가 성장 여유). 미수행 = 0.
+export function capGain(p: V2ProficiencyState, stat: V2StatKey): number {
+  return p.caps[stat] ?? 0;
+}
+
+// 유효 cap = floor + 기본 헤드룸 + 수행 이득. floor 가 높아져도 cap 이 항상 그 위.
+export function effectiveStatCap(floorVal: number, gain: number): number {
+  return Math.floor(floorVal + V2_CAP_HEADROOM_BASE + Math.max(0, gain));
+}
+
+// 전 스탯 수행 이득 총합 — 수행 비용 산정(cap 비례)에 사용.
+export function totalCapGains(p: V2ProficiencyState): number {
+  let t = 0;
+  for (const stat of V2_STAT_KEYS) t += p.caps[stat] ?? 0;
+  return t;
 }
 
 // 적립 — group 의 earned += amount. 비파괴. none/빈 group/0 이하는 무변경.
@@ -210,14 +255,18 @@ export function addEarned(
 
 // 수행 1회 — 사용가능 숙련도 cost 소모 + 현 직업 프로필 stat cap 상승 + cultivations++.
 // 사용가능 부족/유효하지 않은 직업군이면 null. 비파괴.
+// 수행 1회 — 사용가능 숙련도로 프로필 스탯 cap 헤드룸 상승. 비용 = 올린 cap 총합 비례.
+// rng 주면 낮은 확률로 다중 수행(크리티컬, mult×) — 1회 비용에 여러 배 cap. rng 없으면 ×1.
 export function applyCultivation(
   p: V2ProficiencyState,
   group: string,
-): { next: V2ProficiencyState; cost: number } | null {
+  rng?: () => number,
+): { next: V2ProficiencyState; cost: number; mult: number } | null {
   const profile = V2_CULTIVATE_PROFILE[group];
   if (!profile) return null; // none/무효 직업군
-  const cost = cultivationCost(cultivationCount(p, group));
+  const cost = cultivationCost(totalCapGains(p));
   if (groupUsable(p, group) < cost) return null; // 사용가능 부족
+  const mult = rng ? rollCultivationMult(rng) : 1;
   const cur = p.groups[group] ?? {
     earned: 0,
     spent: 0,
@@ -226,11 +275,12 @@ export function applyCultivation(
   };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
   for (const stat of V2_STAT_KEYS) {
-    const gain = profile[stat] ?? 0;
-    if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? V2_STAT_CAP_BASE) + gain;
+    const gain = (profile[stat] ?? 0) * mult;
+    if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
   }
   return {
     cost,
+    mult,
     next: {
       ...p,
       groups: {

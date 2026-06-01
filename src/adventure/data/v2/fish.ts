@@ -81,31 +81,31 @@ export const FISH_TIERS: Record<FishTier, FishTierMeta> = {
     label: "흔함",
     encounterWeight: 40,
     sizeExponent: 3.0,
-    recordCoins: { rank1: 25, rank2: 15, rank3: 10, rank4to10: 6 },
+    recordCoins: { rank1: 18, rank2: 11, rank3: 7, rank4to10: 4 },
   },
   uncommon: {
     label: "보통",
     encounterWeight: 28,
     sizeExponent: 3.5,
-    recordCoins: { rank1: 35, rank2: 22, rank3: 15, rank4to10: 8 },
+    recordCoins: { rank1: 30, rank2: 19, rank3: 13, rank4to10: 7 },
   },
   rare: {
     label: "희귀",
     encounterWeight: 20,
     sizeExponent: 4.0,
-    recordCoins: { rank1: 50, rank2: 32, rank3: 22, rank4to10: 12 },
+    recordCoins: { rank1: 55, rank2: 35, rank3: 24, rank4to10: 13 },
   },
   epic: {
     label: "영웅",
     encounterWeight: 9,
     sizeExponent: 5.0,
-    recordCoins: { rank1: 80, rank2: 50, rank3: 35, rank4to10: 18 },
+    recordCoins: { rank1: 105, rank2: 68, rank3: 46, rank4to10: 24 },
   },
   legendary: {
     label: "전설",
     encounterWeight: 3,
     sizeExponent: 6.0,
-    recordCoins: { rank1: 140, rank2: 90, rank3: 60, rank4to10: 30 },
+    recordCoins: { rank1: 210, rank2: 135, rank3: 92, rank4to10: 48 },
   },
 };
 

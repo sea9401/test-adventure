@@ -22,7 +22,8 @@ export type TitleCategory =
   | "tower"
   | "endgame"
   | "pvp"
-  | "fishing";
+  | "fishing"
+  | "treasure";
 
 export type Title = {
   id: TitleId;
@@ -51,6 +52,7 @@ export const TITLE_CATEGORY_ORDER: readonly {
   { id: "endgame", label: "별의 옥좌" },
   { id: "pvp", label: "투기장" },
   { id: "fishing", label: "낚시" },
+  { id: "treasure", label: "발굴" },
 ];
 
 export const TITLES: Record<TitleId, Title> = {
@@ -681,6 +683,34 @@ export const TITLES: Record<TitleId, Title> = {
     description: "어보의 모든 페이지에 이름을 남긴 낚시의 전설.",
     condition: "낚시 코인 상점에서 낚시 코인 3500으로 구매",
     category: "fishing",
+  },
+  treasure_digger: {
+    id: "treasure_digger",
+    name: "흙먼지 사냥꾼",
+    description: "흙을 뒤져 옛 시대의 부스러기를 모으는 부지런한 손.",
+    condition: "발굴 코인 상점에서 발굴 코인 60으로 구매",
+    category: "treasure",
+  },
+  treasure_curator: {
+    id: "treasure_curator",
+    name: "골동품 수집가",
+    description: "남들이 흘려보낸 물건의 가치를 알아보는 눈.",
+    condition: "발굴 코인 상점에서 발굴 코인 250으로 구매",
+    category: "treasure",
+  },
+  treasure_relic: {
+    id: "treasure_relic",
+    name: "유물 추적자",
+    description: "지도 한 조각으로 잊힌 보물의 행방을 좇는 자.",
+    condition: "발굴 코인 상점에서 발굴 코인 700으로 구매",
+    category: "treasure",
+  },
+  treasure_legend: {
+    id: "treasure_legend",
+    name: "잊힌 보물의 발견자",
+    description: "전설로만 전하던 유물을 끝내 땅속에서 끌어올린 발굴의 대가.",
+    condition: "발굴 코인 상점에서 발굴 코인 1800으로 구매",
+    category: "treasure",
   },
 };
 

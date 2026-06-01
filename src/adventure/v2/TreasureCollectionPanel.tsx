@@ -1,17 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   TreasureCollectionView,
   type CollectionInstance,
 } from "./TreasureCollectionView";
 
-// 발굴 보관함 패널 — 마운트 시 /api/v2/treasure/collection 에서 인스턴스·조각 수를 가져와
-// TreasureCollectionView 에 주입. V2GameFlow 마을 탭에서 마운트.
-export function TreasureCollectionPanel({ onBack }: { onBack: () => void }) {
+// 발굴 보관함 패널 — /api/v2/treasure/collection 에서 인스턴스·조각·코인을 가져와 뷰에 주입.
+// 분해(/dismantle)는 보관함에서 제거 + 코인 적립. 상점 진입은 onOpenShop 으로 위임.
+export function TreasureCollectionPanel({
+  onBack,
+  onOpenShop,
+}: {
+  onBack: () => void;
+  onOpenShop: () => void;
+}) {
   const [instances, setInstances] = useState<CollectionInstance[]>([]);
   const [fragments, setFragments] = useState(0);
+  const [coins, setCoins] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [dismantling, setDismantling] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -24,6 +32,7 @@ export function TreasureCollectionPanel({ onBack }: { onBack: () => void }) {
             setInstances(j.instances as CollectionInstance[]);
           }
           if (typeof j.fragments === "number") setFragments(j.fragments);
+          if (typeof j.coins === "number") setCoins(j.coins);
         }
         setLoading(false);
       })
@@ -35,12 +44,36 @@ export function TreasureCollectionPanel({ onBack }: { onBack: () => void }) {
     };
   }, []);
 
+  const onDismantle = useCallback(async (instanceId: string) => {
+    setDismantling(instanceId);
+    try {
+      const res = await fetch("/api/v2/treasure/dismantle", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ instanceId }),
+      });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok) {
+        setInstances((xs) => xs.filter((x) => x.instanceId !== instanceId));
+        if (typeof j.coins === "number") setCoins(j.coins);
+      }
+    } catch {
+      // 무시 — 상태 유지(다음 시도 가능).
+    } finally {
+      setDismantling(null);
+    }
+  }, []);
+
   return (
     <TreasureCollectionView
       instances={instances}
       fragments={fragments}
+      coins={coins}
       loading={loading}
+      dismantling={dismantling}
       onBack={onBack}
+      onDismantle={onDismantle}
+      onOpenShop={onOpenShop}
     />
   );
 }

@@ -41,11 +41,11 @@ describe("buildBot", () => {
     expect(bot.combat.player.maxMp ?? 0).toBeGreaterThan(0);
   });
 
-  it("STR 봇은 INT 0 → maxMp 0", () => {
+  it("STR 봇은 INT 미투자 → 기본 int 15, maxMp = 50 + 15×2", () => {
     const strBot = BOT_TEMPLATES.find((x) => x.focus === "str")!;
     const bot = buildBot(strBot, 30);
-    expect(bot.combat.totalStats.int).toBe(0);
-    expect(bot.combat.player.maxMp ?? 0).toBe(0);
+    expect(bot.combat.totalStats.int).toBe(15); // 기본 int 15 (STR 봇은 int 미투자)
+    expect(bot.combat.player.maxMp ?? 0).toBe(50 + 15 * 2); // 80
   });
 
   it("음수·0 레벨은 1 로 클램프", () => {

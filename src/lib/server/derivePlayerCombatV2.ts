@@ -174,11 +174,13 @@ const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // 빌드 정체성 유지하면서 crit 도달 속도를 빠르게. STR/BAL 같이 LUK 부 투자 빌드도
 // 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
 const CRIT_PER_LUK = 0.15;
-const ATK_PER_STR = 0.2; // 옛 1. 5×STR × 0.2 = 1 atk (동등)
+const ATK_PER_STR = 0.15; // PR-무기위력 0.2→0.15 (무기 위력 ~2배 상향 상쇄, sim 캘리브).
 // PR-2 strict §4 — 물리공격력 = 힘(STR) 단독. dex/spd/luk atk 보조 폐기(Codex 매핑).
-// 옛 PR-T2~PR-9 의 atk 보조는 무기 위력이 빈약하던 시절 미봉책. PR-4 장비 모델에서 무기
-// 위력이 모든 빌드에 atk 바닥을 주므로 스탯-atk 는 STR 정체성만. DEX/SPD/LUK 데미지는 무기
-// 위력 + 다중공격·크리·스킬로. PR-4 전까진 저-atk 빌드 약세는 예상된 임시 상태.
+// 무기 위력 = 모든 빌드 atk 바닥. DEX/SPD/LUK 데미지는 무기 위력 + 다중공격·크리·스킬로.
+// PR-무기위력 재밸런스 — STR 빌드에선 무기가 atk 의 ~20% 뿐이라 무기 교체 체감이 약했고,
+// atk 가 거의 무기뿐인 off-STR 빌드(중반 골짜기)도 빈약 → 무기 위력 ~2배 + 이 계수 0.2→0.15.
+// 순수 STR/INT 는 정확히 중립(winT 불변), off-STR(DEX/LUK/SPI)·중반 골짜기는 상향(격차 압축).
+// sim-v2-progression --skills + sim-v2-pvp-weapon 검증: 천장 빌드 불변, 신규 지배자 없음.
 
 // 속도 = 민첩 파생 (1차 아님). 옛 base spd 30 ≈ dex 15 × 2.0.
 const SPD_PER_DEX = 2.0;
@@ -221,7 +223,7 @@ const CRIT_MULT_CAP = 5.0;
 // → 문서 §8 의도대로 지능 단독계수를 힘과 대칭으로 낮춤. 재측정: INT winT Lv50 4.8·Lv75 6.5·
 // Lv100 6.6 으로 STR(7~9)과 동률대, wr 도 STR 동률(Lv75 89%). 마법 버스트 정체성은 스킬 coef
 // 프리미엄(메테오 2.8 등)으로 유지. 알려진 공백: Lv18 전 마법 공격 스킬 부재(상수 무관, 후속).
-const MAGIC_ATK_PER_INT = 0.2;
+const MAGIC_ATK_PER_INT = 0.15; // PR-무기위력 0.2→0.15 (ATK_PER_STR 대칭 유지 + 지팡이 위력 상향 상쇄).
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 

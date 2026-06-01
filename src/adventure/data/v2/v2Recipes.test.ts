@@ -6,6 +6,7 @@ import {
   consumeIngredients,
   craftShortfall,
   recipeFor,
+  salvageYield,
   type V2Recipe,
 } from "./v2Recipes";
 
@@ -229,5 +230,34 @@ describe("consumeIngredients", () => {
     expect(consumeIngredients({ v2_herb: 5, v2_rough_ore: 1 }, dup)).toEqual({
       v2_rough_ore: 1,
     });
+  });
+});
+
+describe("salvageYield (분해 환수)", () => {
+  it("재료별 floor(count × 0.5), 0 은 생략", () => {
+    // iron_sword T1: rough_ore×2 + herb×2 → 각 1.
+    expect(salvageYield(recipeFor("v2_iron_sword")!)).toEqual({
+      v2_rough_ore: 1,
+      v2_herb: 1,
+    });
+  });
+
+  it("count 1 재료는 환수 0(생략)", () => {
+    // steel_sword T2: rough_ore×3 + steel_ingot×1 + slime×2 → ore 1, slime 1, steel(×1) 생략.
+    const y = salvageYield(recipeFor("v2_steel_sword")!);
+    expect(y.v2_steel_ingot).toBeUndefined();
+    expect(y.v2_rough_ore).toBe(1);
+    expect(y.v2_slime_shard).toBe(1);
+  });
+
+  it("모든 정규 레시피는 최소 1종 환수 + 환수 ≤ 투입(손실 보장)", () => {
+    for (const id of CRAFTABLE_IDS) {
+      const r = V2_RECIPES[id]!;
+      const y = salvageYield(r);
+      expect(Object.keys(y).length, `${id} 빈 환수`).toBeGreaterThan(0);
+      for (const ing of r.ingredients) {
+        expect(y[ing.id] ?? 0, `${id}/${ing.id}`).toBeLessThanOrEqual(ing.count);
+      }
+    }
   });
 });

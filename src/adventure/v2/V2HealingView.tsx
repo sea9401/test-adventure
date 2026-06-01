@@ -37,7 +37,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [maxMp, setMaxMp] = useState<number | null>(null);
   const [gold, setGold] = useState<number | null>(null);
   const [hpCharges, setHpCharges] = useState<number | null>(null);
-  const [mpCharges, setMpCharges] = useState<number | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -59,7 +58,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         ? ((await invRes.json().catch(() => null)) as InventoryResponse | null)
         : null;
       setHpCharges(invJ?.hpCharges ?? 0);
-      setMpCharges(invJ?.mpCharges ?? 0);
     } catch {}
   }, []);
 
@@ -123,10 +121,9 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
-        setMsg(`✓ ${kind === "hp" ? "HP" : "MP"} +${j.charged ?? amount} 충전`);
+        setMsg(`✓ HP +${j.charged ?? amount} 충전`);
         if (typeof j.gold === "number") setGold(j.gold);
         if (typeof j.hpCharges === "number") setHpCharges(j.hpCharges);
-        if (typeof j.mpCharges === "number") setMpCharges(j.mpCharges);
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
@@ -184,6 +181,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         <h2 className="text-sm font-semibold">충전약</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           1 G 당 1 충전, 최대 {MAX_CHARGE.toLocaleString()}. 사냥 후 부족분 만큼 자동 소모.
+          {/* MP 충전약 폐지 — MP 는 전투마다 풀충전(물리=버스트). HP 만 판매. */}
         </p>
         <ChargeRow
           label="HP 충전약"
@@ -191,14 +189,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           current={hpCharges ?? 0}
           gold={gold ?? 0}
           busy={busy === "hp"}
-          onBuy={buyCharge}
-        />
-        <ChargeRow
-          label="MP 충전약"
-          kind="mp"
-          current={mpCharges ?? 0}
-          gold={gold ?? 0}
-          busy={busy === "mp"}
           onBuy={buyCharge}
         />
       </Card>

@@ -122,13 +122,11 @@ export async function POST(req: Request) {
       };
     }
 
-    // learned += sig; equipped = 학습분 ∩ 현 체인 (체인 순서 = 발동 우선순위).
+    // learned += sig 만. 장착은 수동(equip-skill) — 학습이 자동장착하지 않는다(자동장착 폐지).
     const nextLearned = [...skills.learned, sig];
-    const learnedSet = new Set<string>(nextLearned);
-    const nextEquipped = chain.filter((s) => learnedSet.has(s));
     const nextSkills: V2SkillsState = {
       learned: nextLearned,
-      equipped: nextEquipped,
+      equipped: skills.equipped, // 불변
     };
     await upsertSave(tx, userId, "skills.v2", nextSkills);
     await upsertSave(tx, userId, "proficiency.v2", spent);
@@ -143,7 +141,7 @@ export async function POST(req: Request) {
         group,
         usable: groupUsable(spent, group),
         learned: nextLearned,
-        equipped: nextEquipped,
+        equipped: skills.equipped,
       },
     };
   });

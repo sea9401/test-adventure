@@ -12,6 +12,12 @@ describe("v2 outposts 데이터", () => {
     expect(new Set(names).size).toBe(names.length);
   });
 
+  it("좌표가 완전히 겹친 거점이 없음 (마커 포개짐 방지)", () => {
+    const coords = OUTPOSTS.map((o) => `${o.position.x},${o.position.y}`);
+    const dups = coords.filter((c, i) => coords.indexOf(c) !== i);
+    expect(dups, `중복 좌표: ${[...new Set(dups)].join(" / ")}`).toEqual([]);
+  });
+
   it("모든 좌표가 MAP_BOUNDS 안", () => {
     for (const o of OUTPOSTS) {
       expect(o.position.x).toBeGreaterThanOrEqual(0);

@@ -5,7 +5,7 @@ import {
   V2_CLASS_DEFS,
   parseV2Class,
   nextTierClassOf,
-  signaturesForClass,
+  elementalSkillsForClass,
   tier1ClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
@@ -144,9 +144,9 @@ export async function POST() {
     });
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
-    // — 새 체인 밖/미학습 장착 제거 + 레벨1 리셋이라 슬롯(3)으로 절단. 새 차수 시그니처는
-    // learn-skill 로 학습 후 equip-skill 로 직접 장착.
-    const chain = new Set<string>(signaturesForClass(nextClass));
+    // — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착). 새 그룹 풀 밖/미학습 제거 +
+    // 레벨1 리셋이라 슬롯(3)으로 절단. 시그니처 패시브는 learn-skill 학습만으로 자동 적용.
+    const chain = new Set<string>(elementalSkillsForClass(nextClass));
     const learnedSet = new Set<string>(skills.learned);
     const slots = v2SkillSlotsForLevel(1);
     await upsertSave(tx, userId, "skills.v2", {

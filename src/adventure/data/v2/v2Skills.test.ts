@@ -2,12 +2,16 @@ import { describe, it, expect } from "vitest";
 import {
   V2_SKILLS,
   V2_STARTER_SKILL_IDS,
+  V2_SIGNATURE_SKILL_IDS,
+  V2_ELEMENTAL_SKILLS_BY_CLASS,
+  isV2SignatureSkill,
   parseV2SkillsState,
   emptyV2SkillsState,
   v2SkillSlotsForLevel,
   describeV2Skill,
   type V2SkillId,
 } from "./v2Skills";
+import { V2_CLASS_DEFS } from "./classes";
 
 describe("v2Skills 카탈로그", () => {
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
@@ -214,5 +218,43 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     // 넘기면 "MP 12" 로 정확히 표기 — UI 가 v2SkillMpCost 를 넘긴다.
     const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance, 12);
     expect(chips).toContain("MP 12");
+  });
+});
+
+describe("직업 시그니처 식별 + 패시브 전환 (비장착화)", () => {
+  it("V2_SIGNATURE_SKILL_IDS 가 모든 직업의 signatureSkill 집합과 정확히 일치", () => {
+    const fromClassDefs = new Set<string>();
+    for (const def of Object.values(V2_CLASS_DEFS)) {
+      if (def.signatureSkill) fromClassDefs.add(def.signatureSkill);
+    }
+    const fromPredicate = new Set<string>(V2_SIGNATURE_SKILL_IDS);
+    expect(fromPredicate).toEqual(fromClassDefs);
+    expect(fromPredicate.size).toBeGreaterThanOrEqual(6); // 최소 6 직업군
+  });
+
+  it("isV2SignatureSkill — 시그니처 true, 엘리멘탈 false", () => {
+    expect(isV2SignatureSkill(V2_CLASS_DEFS.swordsman.signatureSkill!)).toBe(true);
+    expect(isV2SignatureSkill(V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0])).toBe(false);
+    expect(isV2SignatureSkill("nope")).toBe(false);
+  });
+
+  it("parseV2SkillsState — equipped 의 시그니처를 비파괴 제거(slot 회수), learned 는 보존", () => {
+    const sig = V2_CLASS_DEFS.swordsman.signatureSkill!;
+    const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0];
+    const parsed = parseV2SkillsState({
+      learned: [sig, elem],
+      equipped: [sig, elem], // 옛 세이브: 시그니처가 장착돼 있던 상태
+    });
+    // learned 에는 둘 다 남는다(시그니처=패시브 해금 표식).
+    expect(parsed.learned).toContain(sig);
+    expect(parsed.learned).toContain(elem);
+    // equipped 에서 시그니처는 빠지고 엘리멘탈만.
+    expect(parsed.equipped).toEqual([elem]);
+  });
+
+  it("idempotent — 시그니처 없는 equipped 는 그대로", () => {
+    const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.mage[1];
+    const parsed = parseV2SkillsState({ learned: [elem], equipped: [elem] });
+    expect(parsed.equipped).toEqual([elem]);
   });
 });

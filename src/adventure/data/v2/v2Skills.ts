@@ -1148,6 +1148,18 @@ export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [
 
 const VALID_SKILL_IDS: ReadonlySet<string> = new Set(Object.keys(V2_SKILLS));
 
+// 직업 시그니처 = learn.requireClass 가 있는 스킬(엘리멘탈 풀은 learn 자체가 없음).
+// 직업 패시브 전환으로 시그니처는 더 이상 슬롯 장착·시전 대상이 아니다 — learned 에는 남아
+// 패시브 해금 표식(derive 가 읽음). 식별만 여기서(직업 매핑은 classes.ts, 순환 방지).
+export const V2_SIGNATURE_SKILL_IDS: ReadonlySet<V2SkillId> = new Set(
+  (Object.keys(V2_SKILLS) as V2SkillId[]).filter(
+    (id) => V2_SKILLS[id].learn?.requireClass != null,
+  ),
+);
+export function isV2SignatureSkill(id: string): boolean {
+  return V2_SIGNATURE_SKILL_IDS.has(id as V2SkillId);
+}
+
 // === 슬롯 수 ─────────────────────────────────────────────────────────
 // 균등 33렙당 +1. Lv1-33: 3, Lv34-66: 4, Lv67-99: 5, Lv100: 6.
 // v2 전용 — 기존 라이브 skillLayout 재사용 폐기 (별 곡선).
@@ -1195,6 +1207,8 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     if (equippedSet.has(id)) continue;
     // 장착하려면 학습 보유 필요 (race 보정).
     if (!learnedSet.has(id)) continue;
+    // 직업 시그니처 → 패시브 전환. 슬롯 장착 대상 아님. 옛 세이브에 박혀있어도 비파괴 제거(슬롯 회수, idempotent).
+    if (isV2SignatureSkill(id)) continue;
     equippedSet.add(id);
     equipped.push(id as V2SkillId);
   }

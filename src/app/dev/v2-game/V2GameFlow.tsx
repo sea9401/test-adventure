@@ -25,6 +25,7 @@ import { FishingShopPanel } from "@/adventure/v2/FishingShopPanel";
 import { TreasurePanel } from "@/adventure/v2/TreasurePanel";
 import { TreasureCollectionPanel } from "@/adventure/v2/TreasureCollectionPanel";
 import { TreasureShopPanel } from "@/adventure/v2/TreasureShopPanel";
+import { TreasureLeaderboardPanel } from "@/adventure/v2/TreasureLeaderboardPanel";
 import { V2AdventureHome } from "@/adventure/v2/V2AdventureHome";
 import { V2ArenaView } from "@/adventure/v2/V2ArenaView";
 import { V2BattleHome, type BattleAction } from "@/adventure/v2/V2BattleHome";
@@ -134,6 +135,7 @@ type View =
   | { kind: "treasure" }
   | { kind: "treasure-collection" }
   | { kind: "treasure-shop" }
+  | { kind: "treasure-leaderboard" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -166,6 +168,7 @@ function tabOfView(view: View): TabId {
     case "treasure":
     case "treasure-collection":
     case "treasure-shop":
+    case "treasure-leaderboard":
       return "town";
     case "character":
     case "character-info":
@@ -602,6 +605,12 @@ export function V2GameFlow() {
         <TreasurePanel
           onBack={() => setView({ kind: "town" })}
           onOpenCollection={() => setView({ kind: "treasure-collection" })}
+          onOpenLeaderboard={() => setView({ kind: "treasure-leaderboard" })}
+        />
+      )}
+      {view.kind === "treasure-leaderboard" && (
+        <TreasureLeaderboardPanel
+          onBack={() => setView({ kind: "treasure" })}
         />
       )}
       {view.kind === "treasure-collection" && (

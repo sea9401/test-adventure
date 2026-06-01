@@ -302,6 +302,13 @@
       "when": 1780324952882,
       "tag": "0042_fishing_seasons",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1780346410672,
+      "tag": "0043_milky_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }

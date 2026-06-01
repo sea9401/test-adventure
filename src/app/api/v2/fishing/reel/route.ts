@@ -13,6 +13,8 @@ import {
   parseFishCodex,
   recordCatch,
 } from "@/adventure/v2/fishingCodex";
+import { currentFishingSeasonId } from "@/lib/server/fishing/season";
+import { upsertFishingRecord } from "@/lib/server/fishing/records";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -72,6 +74,16 @@ export async function POST(req: Request) {
     const isPersonalBest = session.size > prevBest;
     const next = recordCatch(codex, session.fishId, session.size, now);
     await upsertSave(tx, userId, FISHING_CODEX_KEY, next);
+
+    // 주간 종별 기록 upsert(개인 최대어) — 같은 tx. 리더보드/정산(PR-5)의 원천.
+    await upsertFishingRecord(
+      tx,
+      userId,
+      currentFishingSeasonId(new Date(now)),
+      session.fishId,
+      session.size,
+      new Date(now),
+    );
 
     return {
       caught: true as const,

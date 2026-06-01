@@ -288,6 +288,13 @@
       "when": 1780002162474,
       "tag": "0040_guild_gold",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1780322935881,
+      "tag": "0041_fishing_records",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import {
   boolean,
   check,
   numeric,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 
 // Auth.js(NextAuth) 와 게임 사용자 1:1 매핑.
@@ -882,6 +883,32 @@ export const fiefdomRaids = pgTable(
     // 본인 길드 raid 이력 (양방향) — 최근 N개.
     index("fiefdom_raids_defender_idx").on(t.defenderGuildId, t.createdAt),
     index("fiefdom_raids_attacker_idx").on(t.attackerGuildId, t.createdAt),
+  ],
+);
+
+// 낚시 주간 기록 — (userId, seasonId, fishId) 당 개인 최대어 1행. 종별 주간 리더보드의 원천.
+// seasonId 는 PvP 와 동일한 ISO 주차 키(월 00:00 KST 시작). 캐스팅 성공 시 더 크면 upsert.
+// 시즌 라이프사이클 테이블 + 코인 정산은 후속(PR-5) — 여기선 seasonId 를 순수 계산해 박는다.
+export const fishingRecords = pgTable(
+  "fishing_records",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seasonId: text("season_id").notNull(),
+    fishId: text("fish_id").notNull(),
+    // 길이(cm). 0.1 단위라 부동소수 — 순위/비교는 사이즈 내림차순.
+    bestSize: doublePrecision("best_size").notNull(),
+    caughtAt: timestamp("caught_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.seasonId, t.fishId] }),
+    // 종별 주간 순위 — 시즌·어종 묶어 사이즈 내림차순.
+    index("fishing_records_leaderboard_idx").on(
+      t.seasonId,
+      t.fishId,
+      sql`${t.bestSize} DESC`,
+    ),
   ],
 );
 

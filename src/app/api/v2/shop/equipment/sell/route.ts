@@ -73,12 +73,16 @@ export async function POST(req: Request) {
     if (remaining === 0 && nextEquipped[item.slot] === id) {
       delete nextEquipped[item.slot];
     }
+    // 마지막 개체 처분 → 개체 굴림 폐기(재획득 시 재굴림).
+    const nextStatRolls = { ...parsed.statRolls };
+    if (remaining === 0) delete nextStatRolls[id];
     const gold = Math.max(0, charSave.gold ?? 0);
     const newGold = gold + sellPrice;
     await upsertSave(tx, userId, "equipment.v2", {
       ...equipSave,
       owned: nextOwned,
       equipped: nextEquipped,
+      statRolls: nextStatRolls,
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,

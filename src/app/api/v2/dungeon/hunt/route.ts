@@ -75,6 +75,7 @@ import {
   DURABILITY_WEAR_LOSS,
   DURABILITY_WEAR_WIN,
   MAX_DURABILITY,
+  V2_EQUIPMENT,
   durabilityOf,
   isLowDurability,
   parseEquipmentSave,
@@ -83,6 +84,7 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import {
   PREFERENCES_V2_KEY,
   parseV2Preferences,
@@ -307,6 +309,7 @@ export async function POST(req: Request) {
       owned: ownedEquip,
       equipped: equippedSlots,
       durability: curDurability,
+      statRolls: curStatRolls,
     } = parseEquipmentSave(equipmentSave);
     // 마모/수리로 갱신해 나갈 작업 사본 — 전투 후 한 번에 기록.
     const workingDurability: Partial<Record<V2EquipmentId, number>> = {
@@ -579,11 +582,19 @@ export async function POST(req: Request) {
         nextOwned = [...nextOwned, droppedUnique];
       }
     }
-    // equipment.v2 한 번에 기록 — owned(+드랍) + durability(마모/자동수리).
+    // 드랍/유니크 획득분 개체 굴림 — 처음 획득이면 굴려 저장(keep-first, 같은 id 공유).
+    const nextStatRolls = { ...curStatRolls };
+    for (const dropped of [droppedEquipment, droppedUnique]) {
+      if (dropped && !nextStatRolls[dropped]) {
+        nextStatRolls[dropped] = rollItemStats(V2_EQUIPMENT[dropped], Math.random);
+      }
+    }
+    // equipment.v2 한 번에 기록 — owned(+드랍) + durability(마모/자동수리) + statRolls(굴림).
     await upsertSave(tx, userId, "equipment.v2", {
       ...equipmentSave,
       owned: nextOwned,
       durability: workingDurability,
+      statRolls: nextStatRolls,
     });
 
     // 세금 계산 — 위에서 결정한 taxOwnerId/npcTaxOutpostId/taxRate 사용.

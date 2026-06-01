@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { OUTPOSTS } from "./outposts";
+import { OUTPOSTS, START_OUTPOST_ID } from "./outposts";
 import {
   OUTPOST_EDGES,
   getOutpostNeighbors,
   areOutpostsAdjacent,
   shortestOutpostPath,
+  resolveCurrentOutpostId,
+  canMoveToOutpost,
 } from "./outpostGraph";
 
 describe("v2 거점 인접 그래프 (Gabriel)", () => {
@@ -115,6 +117,50 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
     it("인접한 두 거점은 2개짜리 경로(1홉)", () => {
       const { a, b } = OUTPOST_EDGES[0];
       expect(shortestOutpostPath(a, b)).toEqual([a, b]);
+    });
+  });
+
+  describe("이동 게이트 (canMoveToOutpost / resolveCurrentOutpostId)", () => {
+    const startNeighbors = getOutpostNeighbors(START_OUTPOST_ID);
+    const adjId = startNeighbors[0];
+    // 시작 거점과 인접하지 않은(그리고 시작 거점 자신도 아닌) 임의의 먼 거점.
+    const farId = OUTPOSTS.map((o) => o.id).find(
+      (id) => id !== START_OUTPOST_ID && !areOutpostsAdjacent(START_OUTPOST_ID, id),
+    )!;
+
+    it("시작 거점은 이웃이 하나 이상 있고, 비인접 거점도 존재(테스트 전제)", () => {
+      expect(adjId).toBeTruthy();
+      expect(farId).toBeTruthy();
+    });
+
+    it("같은 거점 재진입은 허용", () => {
+      expect(canMoveToOutpost(START_OUTPOST_ID, START_OUTPOST_ID)).toBe(true);
+      const { a } = OUTPOST_EDGES[0];
+      expect(canMoveToOutpost(a, a)).toBe(true);
+    });
+
+    it("현재 → 인접 허용 / 현재 → 비인접 거부", () => {
+      expect(canMoveToOutpost(START_OUTPOST_ID, adjId)).toBe(true);
+      expect(canMoveToOutpost(START_OUTPOST_ID, farId)).toBe(false);
+    });
+
+    it("실제 인접 엣지는 양방향 허용", () => {
+      const { a, b } = OUTPOST_EDGES[0];
+      expect(canMoveToOutpost(a, b)).toBe(true);
+      expect(canMoveToOutpost(b, a)).toBe(true);
+    });
+
+    it("저장값 없음(신규)은 시작 거점 기준(부트스트랩)", () => {
+      expect(resolveCurrentOutpostId(null)).toBe(START_OUTPOST_ID);
+      expect(resolveCurrentOutpostId(undefined)).toBe(START_OUTPOST_ID);
+      expect(canMoveToOutpost(null, adjId)).toBe(true);
+      expect(canMoveToOutpost(null, farId)).toBe(false);
+    });
+
+    it("저장값이 미지/손상이면 시작 거점으로 폴백", () => {
+      expect(resolveCurrentOutpostId("garbage_id")).toBe(START_OUTPOST_ID);
+      expect(canMoveToOutpost("garbage_id", adjId)).toBe(true);
+      expect(canMoveToOutpost("garbage_id", farId)).toBe(false);
     });
   });
 });

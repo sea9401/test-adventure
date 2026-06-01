@@ -136,9 +136,10 @@ describe("v2 직업 숙련도", () => {
     expect(addEarned(p1, "swordsman", 0)).toBe(p1);
   });
 
-  it("cultivationCost — 올린 cap 총합 비례(8 + 합×1.5)", () => {
+  it("cultivationCost — 올린 cap 총합 비례(8 + 합×5)", () => {
     expect(cultivationCost(0)).toBe(8); // 미수행
-    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 1.5)); // 23
+    expect(cultivationCost(1)).toBe(13); // 8 + 1×5
+    expect(cultivationCost(10)).toBe(Math.round(8 + 10 * 5)); // 58
     expect(cultivationCost(100)).toBeGreaterThan(cultivationCost(10));
     expect(cultivationCost(-5)).toBe(8); // 음수 클램프
   });
@@ -177,9 +178,9 @@ describe("v2 직업 숙련도", () => {
     expect(r!.next.caps.luk).toBe(1);
     expect(r!.next.caps.vit).toBeUndefined(); // 프로필 외 미변
     expect(cultivationCount(r!.next, "swordsman")).toBe(1);
-    // 2회차 비용 = 8 + (올린 cap합 4)×1.5 = 14
+    // 2회차 비용 = 8 + (올린 cap합 4)×5 = 28
     const r2 = applyCultivation(r!.next, "swordsman");
-    expect(r2!.cost).toBe(14);
+    expect(r2!.cost).toBe(28);
     // 비파괴
     expect(p.groups.swordsman.spent).toBe(0);
   });

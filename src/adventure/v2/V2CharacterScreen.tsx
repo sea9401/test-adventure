@@ -64,6 +64,8 @@ type StateResponse = {
   combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
+    // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
+    caps?: Partial<Record<V2StatKey, number>>;
     current?: { group: string; earned: number; usable: number };
   };
 };
@@ -159,7 +161,7 @@ export function V2CharacterScreen({
         <Card padding="md">
           <StatsPanel
             stats={stats.base}
-            totalStats={stats.total}
+            caps={state?.proficiency?.caps}
             combat={combat}
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}

@@ -3,6 +3,7 @@
 import {
   Barbell,
   FirstAid,
+  Fish,
   Hammer,
   Shield,
   Sparkle,
@@ -19,6 +20,7 @@ export type TownAction =
   | { kind: "open-training" }
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
+  | { kind: "open-fishing" }
   | { kind: "open-guild-hall" };
 
 export function V2TownHome({
@@ -66,6 +68,12 @@ export function V2TownHome({
           title="대장간"
           description="장비를 두드려 벼리는 곳. 준비 중."
           onClick={() => onAction({ kind: "open-smithy" })}
+        />
+        <EntryCard
+          icon={<Fish size={28} weight="duotone" className="text-cyan-500" />}
+          title="낚시터"
+          description="스태미나 없이 찌를 드리우는 곳. 잡은 물고기로 주간 대회에 도전한다."
+          onClick={() => onAction({ kind: "open-fishing" })}
         />
         <EntryCard
           icon={<Shield size={28} weight="duotone" className="text-indigo-500" />}

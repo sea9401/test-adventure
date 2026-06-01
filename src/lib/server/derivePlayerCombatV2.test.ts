@@ -39,6 +39,32 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.crit).toBe(0);
   });
 
+  it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
+    // 철검(카탈로그 power3/weight2)에 굴림 {power:10, weight:5} → atk·magicAtk=10, weight=5.
+    const sword = aggregateV2Equipment({ weapon: "v2_iron_sword" }, undefined, {
+      v2_iron_sword: { power: 10, weight: 5 },
+    });
+    expect(sword.atk).toBe(10);
+    expect(sword.magicAtk).toBe(10);
+    expect(sword.weight).toBe(5);
+
+    // 별노래궁(카탈로그 power14/crit2)에 굴림 {power:18, weight:3, crit:3}.
+    const bow = aggregateV2Equipment({ weapon: "v2_starsong_bow" }, undefined, {
+      v2_starsong_bow: { power: 18, weight: 3, options: { crit: 3 } },
+    });
+    expect(bow.atk).toBe(18);
+    expect(bow.weight).toBe(3);
+    expect(bow.crit).toBe(3);
+  });
+
+  it("statRolls 에 그 장비 굴림 없으면 카탈로그 그대로(비파괴)", () => {
+    const a = aggregateV2Equipment({ weapon: "v2_iron_sword" }, undefined, {
+      v2_steel_sword: { power: 99, weight: 0 },
+    });
+    expect(a.atk).toBe(3);
+    expect(a.weight).toBe(2);
+  });
+
   it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
     // 철검: power 3 weight 2 (무기 → atk·magicAtk)
     // 쇠사슬 갑옷: power 2 weight 2 (갑옷 → def)

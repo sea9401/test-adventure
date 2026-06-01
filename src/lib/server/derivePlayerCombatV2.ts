@@ -39,6 +39,8 @@ import {
   parseProficiencyForChar,
   effectiveStatCap,
 } from "@/adventure/data/v2/proficiency";
+import { resolveClassPassive } from "@/adventure/data/v2/v2Passives";
+import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { EVASION_PCT_CAP } from "@/adventure/data/stats";
 import {
@@ -249,6 +251,8 @@ export type DerivePlayerCombatV2PureInput = {
   selectedStanceRaw?: unknown;
   /** character.v2.class — 직업. 앵커 스탯 보정에 사용. 미지정 = none. */
   playerClass?: V2Class;
+  /** skills.v2.learned — 학습 스킬 id. 직업 패시브 티어 산정(시그니처만)에 사용. 미지정 = 패시브 없음. */
+  learnedSkillIds?: readonly string[];
 };
 
 export function derivePlayerCombatV2Pure(
@@ -363,6 +367,23 @@ export function derivePlayerCombatV2Pure(
   const savedMp = input.mp ?? maxMp;
   const mp = Math.max(0, Math.min(savedMp, maxMp));
 
+  // 직업 패시브 (시그니처 대체) — 현 직업군에서 학습한 시그니처 최고티어의 상시 효과.
+  // 기존 산출값에 가산/배수, 신규 패시브 필드 셋. 적용(받피감·턴회복·onHitDot)은 엔진(PR-3).
+  const passive = resolveClassPassive(
+    input.playerClass,
+    input.learnedSkillIds ?? [],
+  );
+  const finalMagicAtk = passive?.magicAtkMultPct
+    ? Math.floor(magicAtk * (1 + passive.magicAtkMultPct / 100))
+    : magicAtk;
+  const finalAccuracyPct = accuracyPct + (passive?.accuracyPct ?? 0);
+  const finalExtraAttackChancePct =
+    extraAttackChancePct + (passive?.extraAttackChancePct ?? 0);
+  const finalCritMult = Math.min(
+    critMult + (passive?.critMultAdd ?? 0),
+    CRIT_MULT_CAP,
+  );
+
   const player: PlayerCombat = {
     hp,
     maxHp,
@@ -370,21 +391,25 @@ export function derivePlayerCombatV2Pure(
     maxMp,
     intStat: totalStats.int,
     atk,
-    magicAtk,
+    magicAtk: finalMagicAtk,
     def,
     spd,
     evasionPct,
-    accuracyPct,
+    accuracyPct: finalAccuracyPct,
     attackCount: 1,
-    extraAttackChancePct,
+    extraAttackChancePct: finalExtraAttackChancePct,
     critChancePct,
-    critMult,
+    critMult: finalCritMult,
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
     magicDef,
     critResistPct,
     minDamage,
     healMult,
     baselineRegen: baselineRegenFor(maxHp),
+    // 직업 패시브 — 엔진(PR-3)이 읽어 적용. 미보유면 undefined(no-op).
+    passiveDamageTakenReductionPct: passive?.damageTakenReductionPct,
+    passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp,
+    passiveOnHitDot: passive?.onHitDot,
   };
 
   // PR-5b — 장착 무기 속성. 내구도 0(broken) 무기는 비활성 → neutral.
@@ -418,6 +443,7 @@ export async function derivePlayerCombatV2(
           "character.v2",
           "equipment.v2",
           "proficiency.v2",
+          "skills.v2",
         ]),
       ),
     );
@@ -425,10 +451,12 @@ export async function derivePlayerCombatV2(
   let character: SavedCharacterV2 | undefined;
   let equipmentSave: unknown = undefined;
   let proficiencyRaw: unknown = undefined;
+  let skillsRaw: unknown = undefined;
   for (const r of rows) {
     if (r.key === "character.v2") character = r.value as SavedCharacterV2;
     else if (r.key === "equipment.v2") equipmentSave = r.value;
     else if (r.key === "proficiency.v2") proficiencyRaw = r.value;
+    else if (r.key === "skills.v2") skillsRaw = r.value;
   }
   if (!character) return null;
 
@@ -437,6 +465,8 @@ export async function derivePlayerCombatV2(
   // PR-prof — 1차 스탯 = 랜덤 레벨 성장(prof.grown), cap = 수행(prof.caps).
   // 옛 수동 분배(training.allocated) 폐기.
   const prof = parseProficiencyForChar(proficiencyRaw, character);
+  // 직업 패시브 티어 산정용 — 학습 시그니처. equipped 는 무관(패시브는 장착 불요).
+  const learnedSkillIds = parseV2SkillsState(skillsRaw).learned;
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
@@ -449,5 +479,6 @@ export async function derivePlayerCombatV2(
     mp: character.mp,
     selectedStanceRaw: character.selectedStance,
     playerClass: parseV2Class(character.class),
+    learnedSkillIds,
   });
 }

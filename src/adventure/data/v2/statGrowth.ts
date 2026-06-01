@@ -8,7 +8,7 @@ import { V2_CLASS_DEFS, type V2Class } from "./classes";
 import {
   capGain,
   V2_CAP_HEADROOM_BASE,
-  totalEarned,
+  totalCumLevel,
   V2_CULTIVATE_PROFILE,
   V2_FLOOR_GLOBAL,
   V2_FLOOR_PER_PROF,
@@ -21,26 +21,27 @@ import {
 // 레벨업당 성장 포인트(옛 5/lv 와 동등 총량, 랜덤 분배). §10 다이얼.
 export const V2_GROWTH_POINTS_PER_LEVEL = 5;
 
-// 스탯 floor(저점) — base + 총숙련도(일반) + 직업 earned(프로필·차수 가중). docs §5.
-// 전직 시 레벨/grown 리셋돼도 스탯은 이 floor 부터 → prestige 루프.
+// 스탯 floor(저점) — base + 총 누적레벨(일반) + 직군 누적레벨(프로필·차수 가중). docs §5.
+// 입력 earned → cumLevel 전환(2026-06): 레벨 유한이라 floor 가 천장을 가짐(runaway 해소).
+// 전직 시 레벨/grown 리셋돼도 스탯은 이 floor 부터 → prestige 루프(cumLevel 은 리셋 안 됨).
 export function computeStatFloors(
   prof: V2ProficiencyState,
 ): Record<V2StatKey, number> {
-  const total = totalEarned(prof);
+  const total = totalCumLevel(prof);
   const floors = {} as Record<V2StatKey, number>;
   for (const stat of V2_STAT_KEYS) {
     floors[stat] = (V2_BASE_STATS[stat] ?? 0) + total * V2_FLOOR_GLOBAL;
   }
   for (const [group, g] of Object.entries(prof.groups)) {
     const profile = V2_CULTIVATE_PROFILE[group];
-    if (!profile || g.earned <= 0) continue;
+    if (!profile || g.cumLevel <= 0) continue;
     const tierMult = V2_TIER_FLOOR_MULT[g.tier] ?? 1;
     const anchor = V2_CLASS_DEFS[group as V2Class]?.anchorStat;
     for (const stat of V2_STAT_KEYS) {
       if ((profile[stat] ?? 0) <= 0) continue;
       const weight =
         stat === anchor ? V2_FLOOR_ANCHOR_WEIGHT : V2_FLOOR_RELATED_WEIGHT;
-      floors[stat] += g.earned * V2_FLOOR_PER_PROF * tierMult * weight;
+      floors[stat] += g.cumLevel * V2_FLOOR_PER_PROF * tierMult * weight;
     }
   }
   for (const stat of V2_STAT_KEYS) floors[stat] = Math.floor(floors[stat]);

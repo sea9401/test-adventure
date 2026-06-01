@@ -36,6 +36,7 @@ type StateShape = {
     current?: {
       group: string;
       earned: number;
+      cumLevel: number;
       usable: number;
       cultivations: number;
       nextCost: number;
@@ -50,14 +51,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [nextCost, setNextCost] = useState(0);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
-  // 직업·속성 피커용 — 캐릭터 + 코덱스 + 누적 숙련도.
+  // 직업·속성 피커용 — 캐릭터 + 코덱스 + 직군 누적 레벨(전직 게이트).
   const [picker, setPicker] = useState<{
     cls: V2Class;
     elem: V2Element;
     level: number;
     gold: number;
     codex?: { discovered: number; total: number };
-    earned: number;
+    cumLevel: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -83,7 +84,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             level: j.character.level ?? 1,
             gold: j.character.gold ?? 0,
             codex: j.codex,
-            earned: cur.earned ?? 0,
+            cumLevel: cur.cumLevel ?? 0,
           });
         }
       }
@@ -160,7 +161,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           level={picker.level}
           gold={picker.gold}
           codex={picker.codex}
-          cumulativeProficiency={picker.earned}
+          cumLevel={picker.cumLevel}
           onChanged={refresh}
         />
       )}

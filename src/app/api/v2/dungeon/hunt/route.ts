@@ -25,8 +25,9 @@ import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   addEarned,
+  addCumLevel,
   setGrown,
   emptyProficiency,
   V2_PROFICIENCY_PER_KILL,
@@ -655,14 +656,17 @@ export async function POST(req: Request) {
         "proficiency.v2",
         emptyProficiency(),
       );
-      let prof = parseProficiency(profSave);
+      let prof = parseProficiencyForChar(profSave, charSave);
       // 적립 — 승리 + 직업 보유 시.
       if (won && group !== "none") {
         prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
         proficiencyGained = V2_PROFICIENCY_PER_KILL;
       }
-      // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
+      // 레벨업 시 — 직군 누적 레벨 적립(floor·전직 게이트 입력) + 랜덤 스탯 성장.
       if (expResult.levelsGained > 0) {
+        // 직군 누적 레벨 += 오른 레벨 수(전직 리셋에도 불변, none 은 무변경). floor·전직 게이트 입력.
+        prof = addCumLevel(prof, group, expResult.levelsGained);
+        // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
         const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
         let grown = grownBefore;
         for (let i = 0; i < expResult.levelsGained; i++) {

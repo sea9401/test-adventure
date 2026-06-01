@@ -41,21 +41,27 @@ describe("v2 랜덤 레벨 성장", () => {
 });
 
 describe("v2 스탯 floor", () => {
-  it("computeStatFloors — 총(전 스탯) + 직업(프로필·차수 가중)", () => {
-    // 검술(swordsman) earned 1000, tier1. 총=1000×0.004=4(전 스탯). 직업: str(앵커1.0)·dex/luk(0.4).
-    // PR-9 캘리브: FLOOR_PER_PROF 0.02→0.01.
+  it("computeStatFloors — 총(전 스탯) + 직군 누적레벨(프로필·차수 가중)", () => {
+    // 검술(swordsman) cumLevel 200, tier1. 총=200×0.015=3(전 스탯). 직군: str(앵커1.0)·dex/luk(0.4).
+    // 입력 earned→cumLevel 전환(2026-06): FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
     const prof = parseProficiency({
       groups: {
-        swordsman: { earned: 1000, spent: 0, cultivations: 0, tier: 1 },
+        swordsman: {
+          earned: 10,
+          spent: 0,
+          cultivations: 0,
+          tier: 1,
+          cumLevel: 200,
+        },
       },
     });
     const f = computeStatFloors(prof);
-    // str = base + 4(총) + 1000×0.01×1×1.0 = base + 4 + 10
-    expect(f.str).toBe(V2_BASE_STATS.str + 4 + 10);
-    // dex = base + 4(총) + 1000×0.01×1×0.4 = base + 4 + 4
-    expect(f.dex).toBe(V2_BASE_STATS.dex + 4 + 4);
-    // int(프로필 외) = base + 4(총만)
-    expect(f.int).toBe(V2_BASE_STATS.int + 4);
+    // str = base + 3(총) + 200×0.05×1×1.0 = base + 3 + 10
+    expect(f.str).toBe(V2_BASE_STATS.str + 3 + 10);
+    // dex = base + 3(총) + 200×0.05×1×0.4 = base + 3 + 4
+    expect(f.dex).toBe(V2_BASE_STATS.dex + 3 + 4);
+    // int(프로필 외) = base + 3(총만)
+    expect(f.int).toBe(V2_BASE_STATS.int + 3);
   });
 
   it("computeStatFloors — 차수 높을수록 floor↑, 빈 숙련도는 base", () => {
@@ -63,11 +69,28 @@ describe("v2 스탯 floor", () => {
       computeStatFloors(
         parseProficiency({
           groups: {
-            swordsman: { earned: 1000, spent: 0, cultivations: 0, tier },
+            swordsman: {
+              earned: 10,
+              spent: 0,
+              cultivations: 0,
+              tier,
+              cumLevel: 200,
+            },
           },
         }),
       );
     expect(mk(3).str).toBeGreaterThan(mk(1).str);
     expect(computeStatFloors(emptyProficiency()).str).toBe(V2_BASE_STATS.str);
+  });
+
+  it("computeStatFloors — cumLevel 0(미적립)이면 직군 가중 없음, base + 총만", () => {
+    // earned 만 있고 cumLevel 0 → 직군 floor 기여 없음(입력이 cumLevel 이므로).
+    const prof = parseProficiency({
+      groups: {
+        swordsman: { earned: 9999, spent: 0, cultivations: 0, tier: 4, cumLevel: 0 },
+      },
+    });
+    const f = computeStatFloors(prof);
+    expect(f.str).toBe(V2_BASE_STATS.str);
   });
 });

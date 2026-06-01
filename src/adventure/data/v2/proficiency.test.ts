@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   parseProficiency,
+  parseProficiencyForChar,
   emptyProficiency,
   totalEarned,
   groupEarned,
@@ -14,7 +15,10 @@ import {
   setGroupTier,
   spendProficiency,
   signatureLearnCost,
-  advanceProficiencyReq,
+  advanceCumLevelReq,
+  addCumLevel,
+  groupCumLevel,
+  totalCumLevel,
   V2_SIGNATURE_LEARN_COST,
 } from "./proficiency";
 
@@ -40,6 +44,7 @@ describe("v2 직업 숙련도", () => {
       spent: 30,
       cultivations: 5,
       tier: 1,
+      cumLevel: 0, // 필드 없음 → 마이그레이션 시드 (tier1-1)×50 = 0
     });
     expect(p.groups.archer).toBeUndefined();
     expect(p.groups.mage).toEqual({
@@ -47,8 +52,44 @@ describe("v2 직업 숙련도", () => {
       spent: 50,
       cultivations: 0,
       tier: 1,
+      cumLevel: 0,
     });
     expect(p.groups.bad).toBeUndefined();
+  });
+
+  it("parse — cumLevel: 필드 있으면 보존, 없으면 (tier-1)×50 시드, 음수/비수 폴백", () => {
+    const p = parseProficiency({
+      groups: {
+        swordsman: { earned: 10, cumLevel: 137 }, // 명시값 보존
+        archer: { earned: 10, tier: 3 }, // 필드없음 → (3-1)×50 = 100 시드
+        mage: { earned: 10, tier: 2, cumLevel: -4 }, // 비수(음수) → (2-1)×50 = 50 시드
+      },
+    });
+    expect(p.groups.swordsman.cumLevel).toBe(137);
+    expect(p.groups.archer.cumLevel).toBe(100);
+    expect(p.groups.mage.cumLevel).toBe(50);
+  });
+
+  it("parseProficiencyForChar — 활성 직군은 현재 레벨 포함 시드, 비활성은 (tier-1)×50 (전직 영구차단 방지)", () => {
+    const raw = {
+      groups: {
+        swordsman: { earned: 10, tier: 1 }, // 활성·cumLevel 없음 → (1-1)×50 + level
+        archer: { earned: 10, tier: 2 }, // 비활성·cumLevel 없음 → (2-1)×50, 레벨 미포함
+      },
+    };
+    // 옛 t1 Lv100 캐릭(field 없음): 활성 직군 시드 = 0 + 100 = 100 ≥ t2 게이트 55 → 전직 가능.
+    const p = parseProficiencyForChar(raw, { class: "swordsman", level: 100 });
+    expect(p.groups.swordsman.cumLevel).toBe(100);
+    expect(p.groups.archer.cumLevel).toBe(50);
+    // field 가 있으면 그대로(시드 미적용).
+    const p2 = parseProficiencyForChar(
+      { groups: { swordsman: { earned: 10, tier: 1, cumLevel: 7 } } },
+      { class: "swordsman", level: 100 },
+    );
+    expect(p2.groups.swordsman.cumLevel).toBe(7);
+    // 무직(class 없음/none)·잘못된 레벨도 안전.
+    const p3 = parseProficiencyForChar(raw, { class: undefined, level: undefined });
+    expect(p3.groups.swordsman.cumLevel).toBe(0); // 활성 직군 매칭 안 됨 → (1-1)×50
   });
 
   it("parse — caps 는 수행 이득(0<c<60)만 보존, 옛 절대값(≥60)·비수 드롭", () => {
@@ -87,6 +128,7 @@ describe("v2 직업 숙련도", () => {
       spent: 1,
       cultivations: 2,
       tier: 1,
+      cumLevel: 0,
     });
     expect(p1.caps.str).toBe(30); // caps(이득) 보존
     expect(p0.groups.swordsman.earned).toBe(5); // 원본 비파괴
@@ -127,6 +169,7 @@ describe("v2 직업 숙련도", () => {
       spent: 8,
       cultivations: 1,
       tier: 1,
+      cumLevel: 0,
     });
     // caps = 수행 이득(0부터 +프로필)
     expect(r!.next.caps.str).toBe(2);
@@ -172,6 +215,7 @@ describe("v2 직업 숙련도", () => {
       spent: 0,
       cultivations: 0,
       tier: 2,
+      cumLevel: 0,
     });
   });
 
@@ -186,6 +230,7 @@ describe("v2 직업 숙련도", () => {
       spent: 90,
       cultivations: 2, // 학습은 수행 횟수 미증가
       tier: 1,
+      cumLevel: 0,
     });
     expect(next!.caps).toEqual(p.caps); // cap 불변
     expect(groupUsable(next!, "swordsman")).toBe(10);
@@ -210,11 +255,29 @@ describe("v2 직업 숙련도", () => {
     expect(signatureLearnCost(9)).toBe(V2_SIGNATURE_LEARN_COST[1]); // 폴백
   });
 
-  it("advanceProficiencyReq — 전직 차수별 누적 숙련도 임계, 1차/미지정은 Infinity", () => {
-    expect(advanceProficiencyReq(2)).toBe(300);
-    expect(advanceProficiencyReq(3)).toBe(1200);
-    expect(advanceProficiencyReq(4)).toBe(3000);
-    expect(advanceProficiencyReq(1)).toBe(Infinity); // 1차는 전직 도달점 아님
-    expect(advanceProficiencyReq(5)).toBe(Infinity);
+  it("advanceCumLevelReq — 전직 차수별 직군 누적 레벨 임계, 1차/미지정은 Infinity", () => {
+    expect(advanceCumLevelReq(2)).toBe(55);
+    expect(advanceCumLevelReq(3)).toBe(110);
+    expect(advanceCumLevelReq(4)).toBe(170);
+    expect(advanceCumLevelReq(1)).toBe(Infinity); // 1차는 전직 도달점 아님
+    expect(advanceCumLevelReq(5)).toBe(Infinity);
+  });
+
+  it("addCumLevel/groupCumLevel/totalCumLevel — 누적, 비파괴, none/0 무변경", () => {
+    const p0 = parseProficiency({
+      groups: {
+        swordsman: { earned: 10, cumLevel: 40 },
+        archer: { earned: 10, cumLevel: 20 },
+      },
+    });
+    expect(groupCumLevel(p0, "swordsman")).toBe(40);
+    expect(totalCumLevel(p0)).toBe(60); // 40 + 20
+    const p1 = addCumLevel(p0, "swordsman", 3); // 레벨 3 오름
+    expect(groupCumLevel(p1, "swordsman")).toBe(43);
+    expect(totalCumLevel(p1)).toBe(63);
+    expect(p0.groups.swordsman.cumLevel).toBe(40); // 원본 비파괴
+    expect(addCumLevel(p1, "none", 5)).toBe(p1); // none 무변경
+    expect(addCumLevel(p1, "swordsman", 0)).toBe(p1); // 0 무변경
+    expect(groupCumLevel(p0, "nonexistent")).toBe(0);
   });
 });

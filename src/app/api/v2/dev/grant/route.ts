@@ -4,7 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
-  parseProficiency,
+  parseProficiencyForChar,
   emptyProficiency,
   addEarned,
   groupEarned,
@@ -150,7 +150,8 @@ export async function POST(req: Request) {
           emptyProficiency(),
         );
         const nextProf = addEarned(
-          parseProficiency(profSave),
+          // dev 도구가 같은 요청에서 레벨을 올릴 수 있어, cumLevel 시드는 갱신된 level 사용.
+          parseProficiencyForChar(profSave, { class: charSave.class, level }),
           group,
           proficiencyGain,
         );

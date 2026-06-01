@@ -1,30 +1,34 @@
 // v2 숙련도 재설계 — 커리어 경제 sim (docs/v2-proficiency-redesign.md §10 캘리브).
 //
-// 모델: 한 직업군으로 사냥하며 누적 숙련도(earned)를 쌓아 전직(1→2→3→4)하는 한 "생애".
-//   - 킬당 earned += V2_PROFICIENCY_PER_KILL.
-//   - 전직 게이트 = 직업군 earned ≥ V2_ADVANCE_PROFICIENCY_REQ[tier] (earned 는 안 줄어듦).
-//   - 전직 = 레벨1 리셋 + grown 리셋 + setGroupTier(floor tierMult↑). earned/spent 보존.
-//   - 사용가능(earned − spent)으로: 시그니처 학습(차수 비용) + 수행(앵커+3/관련+1, 8×1.12ⁿ).
+// 모델(2026-06 cumLevel 전환): 한 직업군으로 사냥하며 레벨을 올려 전직(1→2→3→4)하는 한 "생애".
+//   - 킬당 earned += V2_PROFICIENCY_PER_KILL (수행·스킬 소비 통화로만 잔존).
+//   - 킬당 exp 누적 → requiredExpToNext 곡선으로 레벨업 → 레벨업당 직군 누적 레벨(cumLevel) += 1.
+//   - 전직 게이트 = cumLevel ≥ V2_ADVANCE_CUMLEVEL_REQ[tier] AND 현 차수 레벨 ≥ V2_ADVANCE_MIN_LEVEL.
+//   - floor(저점) 입력 = cumLevel (earned 아님). cumLevel 은 레벨캡·차수 유한이라 천장을 가짐.
+//   - 전직 = 차수 레벨 1 리셋 + grown 리셋 + setGroupTier(floor tierMult↑). earned/cumLevel/caps 보존.
+//   - 사용가능(earned − spent)으로: 시그니처 학습(차수 비용) + 수행(앵커+2/관련+1, 8+cap×1.5).
 //
-// 측정(각 차수 도달 시점):
-//   - 누적 킬 / 사용가능 잔량 / 학습 누계 / 수행 횟수
-//   - 앵커 스탯 cap·floor (floor > cap 이면 "수행이 floor 에 추월당함" 경고)
-//   - "성숙 파워" = 전 스탯을 cap 까지 채운(레벨 충분) derive 합성 파워 vs 그 차수 권장 floor min
+// earned/킬 은 대표 몬스터 EXP(MONSTER_EXP) 가정의 근사 — 경제 컬럼은 ballpark.
+// floor/cap/파워 컬럼은 cumLevel(정확)로 계산.
+//
+// 측정(각 차수 도달 시점): 누적킬 / 학습누계 / 수행횟수 / 잔량 / 앵커 cap·floor·floor% / 성숙파워.
 //
 // 실행: node --import tsx scripts/sim-v2-proficiency.ts
-// 전투 WR 은 sim-v2-progression(별 스크립트) 소관 — 여기선 prof→스탯→파워 경제만.
 
 import {
   V2_PROFICIENCY_PER_KILL,
-  V2_ADVANCE_PROFICIENCY_REQ,
+  V2_ADVANCE_CUMLEVEL_REQ,
+  V2_ADVANCE_MIN_LEVEL,
   V2_SIGNATURE_LEARN_COST,
   emptyProficiency,
   addEarned,
+  addCumLevel,
   applyCultivation,
   spendProficiency,
   setGrown,
   setGroupTier,
   groupEarned,
+  groupCumLevel,
   groupUsable,
   cultivationCount,
   capGain,
@@ -40,6 +44,7 @@ import {
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
+import { requiredExpToNext, MAX_LEVEL } from "../src/lib/leveling";
 import { V2_STAT_KEYS, type V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 
 // 6 직업군 1차 (representative). 각 군의 4차 체인을 따라간다.
@@ -58,6 +63,10 @@ const STARTER_EQUIP = {
   armor: "v2_leather_armor",
   accessory: "v2_silver_ring",
 } as const;
+
+// 대표 몬스터 EXP(추정, median~180×배율) — 킬→레벨 환산용. earned/킬 경제 컬럼만 영향
+// (floor 는 cumLevel 로 정확 계산). 실제 EXP 는 층·배율로 변동.
+const MONSTER_EXP = 350;
 
 // 권장 파워(층 min) — 1~5층(power kind)만. 차수↔층 매핑은 대략(1차=F1, 2차=F2~3, ...).
 const FLOOR_POWER_MIN: number[] = MAIN_DUNGEON.floors
@@ -115,8 +124,8 @@ function cultivateToEmpty(
 type Row = {
   tier: number;
   cls: string;
+  cumLevel: number;
   kills: number;
-  earned: number;
   learnedCost: number;
   usableAfter: number;
   cultivations: number;
@@ -133,22 +142,26 @@ function simulateGroup(t1: V2Class): Row[] {
   let prof = emptyProficiency();
   let cls: V2Class = t1;
   let kills = 0;
+  let tierLevel = 1; // 현 차수 레벨(전직 시 1 리셋)
+  let expBuf = 0;
   let learnedCostTotal = 0; // 누적 학습 지출(이미 배운 차수는 재지출 안 함 — learn-skill 멱등).
   const learnedTiers = new Set<number>();
 
-  // 각 차수: earned 임계까지 사냥 → 학습(새 차수 시그니처) → 수행(잔량 전부) → 측정 → 전직.
+  // 1킬 — earned + exp 누적, 레벨업 수만큼 cumLevel++ (차수 레벨 캡 100).
+  const doKill = () => {
+    prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
+    kills++;
+    expBuf += MONSTER_EXP;
+    while (tierLevel < MAX_LEVEL) {
+      const need = requiredExpToNext(tierLevel);
+      if (need == null || expBuf < need) break;
+      expBuf -= need;
+      tierLevel++;
+      prof = addCumLevel(prof, group, 1);
+    }
+  };
+
   for (let tier = 1; tier <= 4; tier++) {
-    // 이 차수에 도달하는 데 필요한 earned (1차는 0, 2~4차는 임계).
-    const need = tier === 1 ? 0 : (V2_ADVANCE_PROFICIENCY_REQ[tier] ?? 0);
-    while (groupEarned(prof, group) < need) {
-      prof = addEarned(prof, group, V2_PROFICIENCY_PER_KILL);
-      kills++;
-    }
-    // 전직(2차+) — 차수 기록 + 레벨/grown 리셋(earned/spent/caps 보존).
-    if (tier > 1) {
-      cls = nextTierClassOf(cls) ?? cls;
-      prof = setGroupTier(setGrown(prof, {}), group, tier);
-    }
     // 도달한 차수까지 아직 안 배운 시그니처만 학습(차수별 비용 1회 — learn-skill 멱등 반영).
     for (let t = 1; t <= tier; t++) {
       if (learnedTiers.has(t)) continue;
@@ -164,31 +177,48 @@ function simulateGroup(t1: V2Class): Row[] {
     prof = cultivateToEmpty(prof, group);
 
     const floors = computeStatFloors(prof);
+    const anchorFloor = floors[anchor] ?? 0;
+    const anchorCap = effectiveStatCap(anchorFloor, capGain(prof, anchor));
     rows.push({
       tier,
       cls: V2_CLASS_DEFS[cls].name,
+      cumLevel: groupCumLevel(prof, group),
       kills,
-      earned: groupEarned(prof, group),
       learnedCost: learnedCostTotal,
       usableAfter: groupUsable(prof, group),
       cultivations: cultivationCount(prof, group),
-      anchorCap: effectiveStatCap(floors[anchor] ?? 0, capGain(prof, anchor)),
-      anchorFloor: floors[anchor] ?? 0,
-      // 레벨 60 = "잘 키운" 대표값(전직은 PR-6 후 레벨 무관·숙련도 게이트라 차수별 최소레벨 없음).
-      power: maturePower(prof, cls, 60),
-      // 차수 N ↔ FN (1차=F1). FLOOR_POWER_MIN 은 0-인덱스라 tier-1.
+      anchorCap,
+      anchorFloor,
+      power: maturePower(prof, cls, tierLevel),
       floorMin:
         FLOOR_POWER_MIN[Math.min(tier - 1, FLOOR_POWER_MIN.length - 1)] ?? null,
     });
+
+    // 다음 차수로 전직 — cumLevel 게이트 + 현 차수 레벨 ≥ 50 까지 사냥.
+    if (tier < 4) {
+      const need = V2_ADVANCE_CUMLEVEL_REQ[tier + 1] ?? 0;
+      let guard = 0;
+      while (
+        (groupCumLevel(prof, group) < need ||
+          tierLevel < V2_ADVANCE_MIN_LEVEL) &&
+        guard++ < 1_000_000
+      ) {
+        doKill();
+      }
+      cls = nextTierClassOf(cls) ?? cls;
+      prof = setGroupTier(setGrown(prof, {}), group, tier + 1);
+      tierLevel = 1;
+      expBuf = 0;
+    }
   }
   return rows;
 }
 
-console.log("━━━ v2 숙련도 커리어 경제 sim ━━━");
+console.log("━━━ v2 숙련도 커리어 경제 sim (cumLevel 전환) ━━━");
 console.log(
-  `적립 +${V2_PROFICIENCY_PER_KILL}/킬 · 전직임계 ${JSON.stringify(V2_ADVANCE_PROFICIENCY_REQ)} · 학습 ${JSON.stringify(V2_SIGNATURE_LEARN_COST)}`,
+  `적립 +${V2_PROFICIENCY_PER_KILL}/킬 · 전직게이트 cumLevel ${JSON.stringify(V2_ADVANCE_CUMLEVEL_REQ)} (+Lv${V2_ADVANCE_MIN_LEVEL}) · 학습 ${JSON.stringify(V2_SIGNATURE_LEARN_COST)}`,
 );
-console.log(`권장 파워(F1~5) ${JSON.stringify(FLOOR_POWER_MIN)}`);
+console.log(`권장 파워(F1~5) ${JSON.stringify(FLOOR_POWER_MIN)} · 몬스터EXP(추정) ${MONSTER_EXP}`);
 console.log("");
 
 for (const t1 of TIER1) {
@@ -196,17 +226,18 @@ for (const t1 of TIER1) {
   const anchor = V2_CLASS_DEFS[t1].anchorStat.toUpperCase();
   console.log(`■ ${V2_CLASS_DEFS[t1].group} (앵커 ${anchor})`);
   console.log(
-    "  차수 | 직업           | 누적킬 | 학습비 | 수행 | 잔량 |  cap | floor | 파워 | 권장",
+    "  차수 | 직업           | 누적Lv | 누적킬 | 학습비 | 수행 | 잔량 |  cap | floor | floor% | 파워 | 권장",
   );
   console.log(
-    "  -----+----------------+--------+--------+------+------+------+-------+------+-----",
+    "  -----+----------------+--------+--------+--------+------+------+------+-------+--------+------+-----",
   );
   for (const r of rows) {
     const flag = r.anchorFloor > r.anchorCap ? " ⚠floor>cap" : "";
     const pflag =
       r.floorMin != null && r.power < r.floorMin ? " ⚠파워<권장" : "";
+    const floorPct = r.anchorCap > 0 ? Math.round((r.anchorFloor / r.anchorCap) * 100) : 0;
     console.log(
-      `  ${r.tier}차  | ${r.cls.padEnd(14)} | ${String(r.kills).padStart(6)} | ${String(r.learnedCost).padStart(6)} | ${String(r.cultivations).padStart(4)} | ${String(r.usableAfter).padStart(4)} | ${String(r.anchorCap).padStart(4)} | ${String(r.anchorFloor).padStart(5)} | ${String(r.power).padStart(4)} | ${String(r.floorMin ?? "-").padStart(4)}${flag}${pflag}`,
+      `  ${r.tier}차  | ${r.cls.padEnd(14)} | ${String(r.cumLevel).padStart(6)} | ${String(r.kills).padStart(6)} | ${String(r.learnedCost).padStart(6)} | ${String(r.cultivations).padStart(4)} | ${String(r.usableAfter).padStart(4)} | ${String(r.anchorCap).padStart(4)} | ${String(r.anchorFloor).padStart(5)} | ${String(floorPct + "%").padStart(6)} | ${String(r.power).padStart(4)} | ${String(r.floorMin ?? "-").padStart(4)}${flag}${pflag}`,
     );
   }
   console.log("");

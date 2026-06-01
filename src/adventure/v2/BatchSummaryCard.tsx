@@ -9,6 +9,8 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { formatStatGains } from "@/adventure/v2/HuntResultCard";
+import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
 
@@ -21,6 +23,7 @@ export type BatchSummary = {
   totalProficiency: number;
   totalGold: number;
   levelsGained: number;
+  statGains: Partial<Record<V2StatKey, number>>; // 일괄 사냥 동안 레벨업으로 오른 1차 스탯 합산.
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   stoppedReason?: "stamina" | "death" | "recovery" | "error" | null;
@@ -42,6 +45,8 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
   for (const name of eqNames) {
     dropParts.push(name);
   }
+
+  const statGainsText = formatStatGains(summary.statGains);
 
   return (
     <Card padding="sm">
@@ -90,6 +95,19 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
           </span>
         </div>
       </div>
+
+      {summary.levelsGained > 0 && (
+        <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center dark:border-amber-700 dark:bg-amber-950">
+          <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+            레벨 업! +{summary.levelsGained}
+          </span>
+          {statGainsText && (
+            <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+              {statGainsText}
+            </div>
+          )}
+        </div>
+      )}
       {summary.stoppedReason && summary.stoppedReason !== null && (
         <p className="mt-2 text-center text-xs text-amber-600 dark:text-amber-400">
           {summary.stoppedReason === "stamina"

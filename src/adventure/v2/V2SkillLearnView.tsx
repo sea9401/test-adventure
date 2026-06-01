@@ -151,7 +151,7 @@ export function V2SkillLearnView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="학습" onBack={onBack} />
+      <SubViewHeader title="훈련장" onBack={onBack} />
 
       <Card padding="md">
         <div className="flex flex-wrap items-baseline justify-between gap-2">

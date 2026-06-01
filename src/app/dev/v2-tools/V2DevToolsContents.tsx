@@ -28,6 +28,7 @@ export function V2DevToolsContents() {
   const [exp, setExp] = useState("10000");
   const [level, setLevel] = useState("");
   const [gold, setGold] = useState("100000");
+  const [proficiency, setProficiency] = useState("300");
   const [hpCharges, setHpCharges] = useState("1000");
   const [mpCharges, setMpCharges] = useState("1000");
   const [matId, setMatId] = useState<V2MaterialId>(MATERIAL_IDS[0]);
@@ -117,6 +118,21 @@ export function V2DevToolsContents() {
             disabled={busy}
             onClick={() =>
               post("/api/v2/dev/grant", { gold: num(gold) }, "골드 부여")
+            }
+          >
+            부여
+          </Btn>
+        </Row>
+        <Row label="숙련도">
+          <NumInput value={proficiency} onChange={setProficiency} />
+          <Btn
+            disabled={busy}
+            onClick={() =>
+              post(
+                "/api/v2/dev/grant",
+                { proficiency: num(proficiency) },
+                "숙련도 부여(현 직업군)",
+              )
             }
           >
             부여

@@ -17,6 +17,7 @@ import {
   v2EquipStatEntries,
   type V2Equipment,
   type V2EquipmentId,
+  type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
@@ -25,8 +26,8 @@ import {
 // 보유 목록을 슬롯·컨셉 그룹 + 티어 순으로 정렬해 흩어지지 않게 표시.
 // (장비 지급·캐릭터 초기화 등 dev 도구는 /dev/v2-tools 로 일원화.)
 
-function formatStats(item: V2Equipment): string {
-  return v2EquipStatEntries(item).join(" · ");
+function formatStats(item: V2Equipment, roll?: V2EquipRoll): string {
+  return v2EquipStatEntries(item, roll).join(" · ");
 }
 
 // PR-4b — 내구도 바. 0=파손(효과 없음, rose), 낮음(amber), 정상(emerald).
@@ -75,17 +76,20 @@ const SLOTS: V2EquipSlot[] = [
 
 type Equipped = Partial<Record<V2EquipSlot, V2EquipmentId>>;
 type Durability = Partial<Record<V2EquipmentId, number>>;
+type StatRolls = Partial<Record<V2EquipmentId, V2EquipRoll>>;
 type EquipmentResponse = {
   ok?: boolean;
   owned?: V2EquipmentId[];
   equipped?: Equipped;
   durability?: Durability;
+  statRolls?: StatRolls;
 };
 
 export function V2EquipmentView({ onBack }: { onBack: () => void }) {
   const [owned, setOwned] = useState<V2EquipmentId[]>([]);
   const [equipped, setEquipped] = useState<Equipped>({});
   const [durability, setDurability] = useState<Durability>({});
+  const [statRolls, setStatRolls] = useState<StatRolls>({});
   const [autoRepair, setAutoRepair] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -102,6 +106,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
       setOwned(j?.owned ?? []);
       setEquipped(j?.equipped ?? {});
       setDurability(j?.durability ?? {});
+      setStatRolls(j?.statRolls ?? {});
       setAutoRepair(
         (prefRes as { autoRepair?: boolean } | null)?.autoRepair ?? false,
       );
@@ -363,7 +368,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                                 )}
                               </div>
                               <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
-                                {formatStats(item)}
+                                {formatStats(item, statRolls[item.id])}
                               </div>
                               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                                 {item.description}

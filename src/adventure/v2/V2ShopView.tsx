@@ -306,7 +306,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                 <BuyEquipmentRow
                   key={id}
                   id={id}
-                  count={counts.get(id) ?? 0}
                   gold={gold}
                   busy={busyId === id}
                   onBuy={buy}
@@ -378,7 +377,8 @@ function EquipmentName({
   onOpenCard,
 }: {
   item: V2Equipment;
-  count: number;
+  // 보유 개수 — 지정 시에만 ×N 배지 표시. 구매 화면은 생략(판매 화면만 표기).
+  count?: number;
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   return (
@@ -391,7 +391,7 @@ function EquipmentName({
         <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {item.name}
         </span>
-        {count > 0 && (
+        {(count ?? 0) > 0 && (
           <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             ×{count}
           </span>
@@ -403,14 +403,12 @@ function EquipmentName({
 
 function BuyEquipmentRow({
   id,
-  count,
   gold,
   busy,
   onBuy,
   onOpenCard,
 }: {
   id: V2EquipmentId;
-  count: number;
   gold: number;
   busy: boolean;
   onBuy: (id: V2EquipmentId) => void;
@@ -421,7 +419,8 @@ function BuyEquipmentRow({
   const affordable = gold >= buyPrice;
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
-      <EquipmentName item={item} count={count} onOpenCard={onOpenCard} />
+      {/* 구매 화면은 보유 개수(×N) 미표기 — 사는 데 불필요. 판매 화면만 표기. */}
+      <EquipmentName item={item} onOpenCard={onOpenCard} />
       <button
         type="button"
         onClick={() => onBuy(id)}

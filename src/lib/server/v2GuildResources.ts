@@ -4,52 +4,24 @@ import { v2GuildResources } from "@/db/schema";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
-// PR-7b: 병사 시스템 폐기. soldiers DB 컬럼은 보존(데이터 안전), 헬퍼 타입에서
-// 제거 — 새 코드가 soldiers 안 보게. DROP COLUMN 마이그레이션은 후일 결정.
+// 길드 공용 자원 풀. 옛 stone/scrolls/soldiers 자원 경제는 폐기 — 남은 건 거점
+// 세금 회수로 누적되는 공용 gold 풀뿐. (DROP COLUMN 마이그레이션으로 정리 완료.)
 
 export type V2GuildResources = {
-  stone: number;
-  scrolls: number;
-  // PR-6 — 활성 주문서 만료 시점(epoch ms). null = 비활성. 활성 시 길드원의
-  // 토너먼트에 atk +SCROLL_ATK_BONUS_PCT% buff.
-  activeScrollExpiresAt: number | null;
   // 거점 세금 회수 시 90% 가 누적. 회수자 본인 10% 와 별개.
   gold: number;
 };
 
-// PR-6 다이얼.
-export const SCROLL_DURATION_MS = 60 * 60 * 1000; // 1시간
-export const SCROLL_ATK_BONUS_PCT = 10; // 활성 시 +10% atk
-
-export function isScrollActive(
-  expiresAt: number | null,
-  now: number = Date.now(),
-): boolean {
-  return expiresAt != null && expiresAt > now;
-}
-
-function rowToResources(row: {
-  stone: number | null;
-  scrolls: number | null;
-  activeScrollExpiresAt: Date | null;
-  gold: number | null;
-}): V2GuildResources {
-  return {
-    stone: Math.max(0, row.stone ?? 0),
-    scrolls: Math.max(0, row.scrolls ?? 0),
-    activeScrollExpiresAt: row.activeScrollExpiresAt
-      ? row.activeScrollExpiresAt.getTime()
-      : null,
-    gold: Math.max(0, row.gold ?? 0),
-  };
+function rowToResources(row: { gold: number | null }): V2GuildResources {
+  return { gold: Math.max(0, row.gold ?? 0) };
 }
 
 // row 가 없으면 빈 row 보장 (race-safe). SELECT FOR UPDATE 가 잠금 잡으려면
-// row 가 있어야 하므로. soldiers 컬럼은 기본값(0) 자동.
+// row 가 있어야 하므로.
 async function ensureRow(tx: Tx, guildId: number): Promise<void> {
   await tx
     .insert(v2GuildResources)
-    .values({ guildId, stone: 0, scrolls: 0, gold: 0 })
+    .values({ guildId, gold: 0 })
     .onConflictDoNothing();
 }
 
@@ -61,40 +33,16 @@ export async function lockGuildResources(
   await ensureRow(tx, guildId);
   const row = (
     await tx
-      .select({
-        stone: v2GuildResources.stone,
-        scrolls: v2GuildResources.scrolls,
-        activeScrollExpiresAt: v2GuildResources.activeScrollExpiresAt,
-        gold: v2GuildResources.gold,
-      })
+      .select({ gold: v2GuildResources.gold })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
       .for("update")
       .limit(1)
   )[0];
   if (!row) {
-    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null, gold: 0 };
+    return { gold: 0 };
   }
   return rowToResources(row);
-}
-
-// 두 길드의 자원을 사전 정렬 lock (cross-tx 데드락 회피).
-// 같은 길드 인자면 한 번만 lock — 호출자가 책임지고 같은 길드 안 넘김.
-export async function lockTwoGuildResources(
-  tx: Tx,
-  guildIdA: number,
-  guildIdB: number,
-): Promise<{ a: V2GuildResources; b: V2GuildResources }> {
-  if (guildIdA === guildIdB) {
-    throw new Error("lockTwoGuildResources: same guild");
-  }
-  const [first, second] = [guildIdA, guildIdB].sort((x, y) => x - y);
-  const firstRes = await lockGuildResources(tx, first);
-  const secondRes = await lockGuildResources(tx, second);
-  return {
-    a: guildIdA === first ? firstRes : secondRes,
-    b: guildIdA === first ? secondRes : firstRes,
-  };
 }
 
 export async function upsertGuildResources(
@@ -102,14 +50,7 @@ export async function upsertGuildResources(
   guildId: number,
   resources: V2GuildResources,
 ): Promise<void> {
-  const safe = {
-    stone: Math.max(0, resources.stone),
-    scrolls: Math.max(0, resources.scrolls),
-    activeScrollExpiresAt: resources.activeScrollExpiresAt
-      ? new Date(resources.activeScrollExpiresAt)
-      : null,
-    gold: Math.max(0, resources.gold),
-  };
+  const safe = { gold: Math.max(0, resources.gold) };
   await tx
     .insert(v2GuildResources)
     .values({
@@ -133,18 +74,13 @@ export async function readGuildResources(
 ): Promise<V2GuildResources> {
   const row = (
     await tx
-      .select({
-        stone: v2GuildResources.stone,
-        scrolls: v2GuildResources.scrolls,
-        activeScrollExpiresAt: v2GuildResources.activeScrollExpiresAt,
-        gold: v2GuildResources.gold,
-      })
+      .select({ gold: v2GuildResources.gold })
       .from(v2GuildResources)
       .where(eq(v2GuildResources.guildId, guildId))
       .limit(1)
   )[0];
   if (!row) {
-    return { stone: 0, scrolls: 0, activeScrollExpiresAt: null, gold: 0 };
+    return { gold: 0 };
   }
   return rowToResources(row);
 }

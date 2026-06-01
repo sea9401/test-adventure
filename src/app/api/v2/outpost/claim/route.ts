@@ -15,19 +15,10 @@ import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
-  lockGuildResources,
-  lockTwoGuildResources,
-  upsertGuildResources,
-  isScrollActive,
-  SCROLL_ATK_BONUS_PCT,
-  type V2GuildResources,
-} from "@/lib/server/v2GuildResources";
-import {
   fetchLineupCandidates,
   runTournamentForGuilds,
 } from "@/lib/server/v2RunTournament";
-// PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder/
-//        SCROLL_POWER_BONUS import 제거. 함수 자체 파일은 PR-7b 에서 정리.
+// PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder 제거.
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
@@ -69,7 +60,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { outpostId?: unknown; useScroll?: unknown };
+  let body: { outpostId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -78,7 +69,6 @@ export async function POST(req: Request) {
   if (typeof body.outpostId !== "string" || body.outpostId.length === 0) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
-  const useScroll = body.useScroll === true;
   const outpost = OUTPOSTS.find((o) => o.id === body.outpostId);
   if (!outpost) {
     return Response.json({ ok: false, error: "no_such_outpost" }, { status: 400 });
@@ -141,18 +131,6 @@ export async function POST(req: Request) {
         ok: false as const,
         status: 400,
         body: { ok: false as const, error: "no_supply_line" as const },
-      };
-    }
-
-    // useScroll 은 PvP 한정 (NPC 일기토는 본 전쟁 없어 효과 없음).
-    if (useScroll && defenderGuildId === null) {
-      return {
-        ok: false as const,
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "scroll_not_applicable_npc" as const,
-        },
       };
     }
 
@@ -267,47 +245,6 @@ export async function POST(req: Request) {
       };
     }
 
-    // 양측 길드 자원 풀 lock (PR-vi-b — 마스터 개인 saves_kv 가 아닌 길드 공용).
-    //   - PvP: 양측 lock (활성 주문서 buff 검사용) → guildId 사전 정렬.
-    //   - NPC: 공격자 길드만 lock.
-    //   - already_yours 분기에서 같은 길드 차단됨 → lockTwoGuildResources 안전.
-    let attackerResources: V2GuildResources = {
-      stone: 0,
-      scrolls: 0,
-      activeScrollExpiresAt: null,
-      gold: 0,
-    };
-    let defenderResources: V2GuildResources = {
-      stone: 0,
-      scrolls: 0,
-      activeScrollExpiresAt: null,
-      gold: 0,
-    };
-    if (pvpDefenderId && defenderGuildId !== null) {
-      const both = await lockTwoGuildResources(
-        tx,
-        attackerGuildId,
-        defenderGuildId,
-      );
-      attackerResources = both.a;
-      defenderResources = both.b;
-    } else {
-      attackerResources = await lockGuildResources(tx, attackerGuildId);
-    }
-
-    // useScroll — 공격자 길드 scrolls 1 차감. 부족하면 400.
-    if (useScroll && attackerResources.scrolls < 1) {
-      return {
-        ok: false as const,
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "not_enough_scrolls" as const,
-          have: attackerResources.scrolls,
-        },
-      };
-    }
-
     // hp 회복 + 병사 보정 적용
     const hpRegen = applyHpRegen(
       Math.max(0, charSave.hp ?? player.maxHp),
@@ -397,20 +334,6 @@ export async function POST(req: Request) {
         defenderUserIdForLog = pvpDefenderId;
 
         // 1단계 — 사전 단계에서 결정된 useTournament 분기.
-        // PR-6 활성 주문서 buff — 양측 독립. atk × (1 + SCROLL_ATK_BONUS_PCT/100).
-        // 단발 소비(useScroll, PR #57) 와 별 메커닉으로 같이 적용 가능.
-        const nowForBuff = Date.now();
-        const buffMult = 1 + SCROLL_ATK_BONUS_PCT / 100;
-        const attackerScrollActive = isScrollActive(
-          attackerResources.activeScrollExpiresAt,
-          nowForBuff,
-        );
-        const defenderScrollActive = isScrollActive(
-          defenderResources.activeScrollExpiresAt,
-          nowForBuff,
-        );
-        const attackerAtkMult = attackerScrollActive ? buffMult : 1;
-        const defenderAtkMult = defenderScrollActive ? buffMult : 1;
         if (useTournament) {
           // === 다인 길드 vs 다인 길드 — 3:3 토너먼트 (왕좌 모드) ===
           // 영웅 raw stat sim (병사 보정 X — 본 전쟁이 병사 layer).
@@ -420,7 +343,6 @@ export async function POST(req: Request) {
             tx,
             attackerLineupIds,
             defenderLineupIds,
-            { attackerAtkMult, defenderAtkMult },
           );
           duelWonByAttacker = t.result.attackerWon;
           turns = t.result.matches.reduce((s, m) => s + m.turns, 0);
@@ -438,18 +360,15 @@ export async function POST(req: Request) {
         } else {
           // === 1인 길드 vs 1인 길드 — 영웅 일기토 ===
           // PR-7: 병사 시스템 폐기 — 일기토에 병사 보정 제거 (applySoldierBoost X).
-          // PR-6 활성 주문서 buff 는 PvP 엔진 derive 결과로 들어가지 않으니 atk 직접 곱.
-          const attackerBuffed =
-            attackerAtkMult === 1
-              ? playerForBattle
-              : { ...playerForBattle, atk: Math.round(playerForBattle.atk * attackerAtkMult) };
-          const attackerStanced = applyStance(attackerBuffed, player.selectedStance);
+          const attackerStanced = applyStance(
+            playerForBattle,
+            player.selectedStance,
+          );
           const defenderBase = { ...defender.player, hp: defender.maxHp };
-          const defenderBuffed =
-            defenderAtkMult === 1
-              ? defenderBase
-              : { ...defenderBase, atk: Math.round(defenderBase.atk * defenderAtkMult) };
-          const defenderStanced = applyStance(defenderBuffed, defender.selectedStance);
+          const defenderStanced = applyStance(
+            defenderBase,
+            defender.selectedStance,
+          );
           const pvp = resolveBattlePvP(
             attackerStanced,
             defenderStanced,
@@ -466,15 +385,7 @@ export async function POST(req: Request) {
         }
 
         // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅(일기토/토너먼트) 결과로 결정.
-        // 병사 사상자·약탈·power 보정 모두 제거. useScroll(PR #57) 단발 소비도 의미
-        // 사라짐 — scrolls 차감 보존(데이터 정리는 PR-7b).
         won = duelWonByAttacker;
-        if (useScroll) {
-          await upsertGuildResources(tx, attackerGuildId, {
-            ...attackerResources,
-            scrolls: Math.max(0, attackerResources.scrolls - 1),
-          });
-        }
       }
     }
 
@@ -532,8 +443,6 @@ export async function POST(req: Request) {
             policy: "open",
             taxRate: "0.100",
             nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-            // 자원 anchor 도 리셋 — 옛 점령자가 쌓아둔 시간 공격자가 못 가져감.
-            lastHarvestedAt: newOccupiedAt,
           })
           .where(eq(outpostOccupations.outpostId, outpost.id));
         occupation = {

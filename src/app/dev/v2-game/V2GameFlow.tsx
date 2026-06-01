@@ -457,13 +457,13 @@ export function V2GameFlow() {
   };
 
   // OutpostView 의 enter-dungeon 은 폐기 (사용자 의도 — 사냥터를 전투 탭으로 이동).
-  // 그 외 action (back/claimed/harvested) 만 처리.
+  // 그 외 action (back/claimed) 만 처리.
   const handleOutpostAction = (action: {
-    kind: "back" | "enter-dungeon" | "claimed" | "harvested";
+    kind: "back" | "enter-dungeon" | "claimed";
   }) => {
     if (view.kind !== "outpost") return;
     if (action.kind === "back") setView({ kind: "map" });
-    if (action.kind === "claimed" || action.kind === "harvested") {
+    if (action.kind === "claimed") {
       refreshOccupations();
     }
   };
@@ -654,7 +654,6 @@ export function V2GameFlow() {
       {view.kind === "guild" && (
         <V2GuildHome
           viewerGuildId={viewerGuildId}
-          viewerUserId={viewerUserId}
           occupations={occupations}
           onGuildChanged={refreshGuildId}
         />

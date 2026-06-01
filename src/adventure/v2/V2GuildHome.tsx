@@ -8,7 +8,6 @@ import type {
   OutpostTier,
   OutpostType,
 } from "@/adventure/data/v2/types";
-import type { V2Resources } from "@/adventure/data/v2/resources";
 import { LineupCard } from "./LineupCard";
 import { GuildFoundCard } from "./GuildFoundCard";
 
@@ -41,7 +40,6 @@ type Occupation = {
 
 type StateResponse = {
   guild?: { id: number; name: string };
-  resources?: V2Resources;
 };
 
 type GuildInfoResponse = {
@@ -72,23 +70,20 @@ function fmtDate(iso: string): string {
   return `${y}-${m}-${day}`;
 }
 
-type GuildSubTab = "info" | "members" | "outposts" | "resources";
+type GuildSubTab = "info" | "members" | "outposts";
 
 const SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
   { key: "members", label: "길드원" },
   { key: "outposts", label: "보유 거점" },
-  { key: "resources", label: "공용 자원" },
 ];
 
 export function V2GuildHome({
   viewerGuildId,
-  viewerUserId,
   occupations,
   onGuildChanged,
 }: {
   viewerGuildId: number | null;
-  viewerUserId: string | null;
   occupations: Occupation[];
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
@@ -288,119 +283,8 @@ export function V2GuildHome({
         )
       )}
 
-      {subTab === "resources" && (
-        state?.resources ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <ResourceCell label="광물" value={state.resources.stone} />
-              <ResourceCell label="주문서" value={state.resources.scrolls} />
-            </div>
-            <ScrollActivationCard
-              resources={state.resources}
-              isMaster={viewerUserId != null && info?.guild?.masterId === viewerUserId}
-              onActivated={refresh}
-            />
-          </div>
-        ) : (
-          <div className="text-sm text-zinc-500 dark:text-zinc-400">
-            {loading ? "불러오는 중…" : "—"}
-          </div>
-        )
-      )}
     </main>
   );
 }
 
-// PR-6 주문서 활성화 카드 — 길드 자원 탭. 마스터만 활성화 버튼, 비마스터는 상태만.
-function ScrollActivationCard({
-  resources,
-  isMaster,
-  onActivated,
-}: {
-  resources: V2Resources;
-  isMaster: boolean;
-  onActivated: () => void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  // 1초마다 카운트다운 갱신 — 활성 중일 때만.
-  useEffect(() => {
-    const exp = resources.activeScrollExpiresAt;
-    if (!exp || exp <= now) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, [resources.activeScrollExpiresAt, now]);
-
-  const exp = resources.activeScrollExpiresAt;
-  const active = exp != null && exp > now;
-  const remaining = active && exp ? Math.max(0, exp - now) : 0;
-  const minutes = Math.floor(remaining / 60000);
-  const seconds = Math.floor((remaining % 60000) / 1000);
-
-  const handleActivate = async () => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/guild/scroll/activate", {
-        method: "POST",
-      });
-      const j = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string }
-        | null;
-      if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
-        return;
-      }
-      onActivated();
-    } catch (err) {
-      setMsg(`✗ network: ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="flex items-baseline justify-between">
-        <div className="text-sm font-medium">주문서 활성화</div>
-        {active ? (
-          <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-            활성 · {minutes}분 {String(seconds).padStart(2, "0")}초 남음
-          </span>
-        ) : (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">비활성</span>
-        )}
-      </div>
-      <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-        주문서 1 소비, 1시간 동안 길드원 모두의 토너먼트·본 병사 전쟁에서 atk +10%.
-      </div>
-      {isMaster && !active && (
-        <button
-          type="button"
-          onClick={handleActivate}
-          disabled={busy || resources.scrolls < 1}
-          className="mt-2 w-full rounded-md border border-indigo-600 bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busy ? "활성화 중…" : `활성화 (주문서 1 소비)`}
-        </button>
-      )}
-      {!isMaster && !active && (
-        <div className="mt-2 text-xs text-zinc-400">마스터만 활성화 가능.</div>
-      )}
-      {msg && (
-        <div className="mt-2 text-xs text-rose-600 dark:text-rose-400">{msg}</div>
-      )}
-    </div>
-  );
-}
-
-function ResourceCell({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="text-xs text-zinc-500 dark:text-zinc-400">{label}</div>
-      <div className="mt-0.5 text-base font-medium tabular-nums">{value}</div>
-    </div>
-  );
-}
 

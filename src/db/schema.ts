@@ -776,8 +776,6 @@ export const outpostOccupations = pgTable(
     taxRate: numeric("tax_rate", { precision: 4, scale: 3 })
       .notNull()
       .default("0"),
-    // 자원 산출 lazy 계산 anchor. 수확 시 갱신. 광산만 의미 있음.
-    lastHarvestedAt: timestamp("last_harvested_at").defaultNow().notNull(),
     // 다음 NPC 정기 공격 예정 시각. 점령 시 tier 기반 interval 으로 설정.
     // cron 또는 lazy 평가가 nextAttackAt < now 인 거점들을 처리.
     nextAttackAt: timestamp("next_attack_at").defaultNow().notNull(),
@@ -827,20 +825,12 @@ export const outpostClaimAttempts = pgTable(
   ],
 );
 
-// v2 길드 공용 자원 풀 — 길드별 stone/병사. 라이브에서는 마스터 개인 saves_kv 의
-// v2-resources 였으나 길드전 컨셉 정합 위해 길드 자원으로 통일.
-// 1인 길드도 같은 테이블 — 마스터 = 본인 자원.
+// v2 길드 공용 자원 풀. 옛 stone/scrolls/soldiers 자원 경제는 폐기 — 거점 세금
+// 회수로 누적되는 공용 gold 풀만 남음. 1인 길드도 같은 테이블 — 마스터 = 본인 자원.
 export const v2GuildResources = pgTable("v2_guild_resources", {
   guildId: integer("guild_id")
     .primaryKey()
     .references(() => guilds.id, { onDelete: "cascade" }),
-  stone: integer("stone").notNull().default(0),
-  soldiers: integer("soldiers").notNull().default(0),
-  // 주문서 — 마탑(tower) 거점에서 산출. claim 시 1 소비하면 본 전쟁 power +20%.
-  scrolls: integer("scrolls").notNull().default(0),
-  // v2 PR-6 — 활성화된 주문서 만료 시점. null = 비활성. 활성 시 길드원의 토너먼트/
-  // 본 병사 전쟁에 buff (atk +10%). claim 시 단발 소비(PR #57)와 별개 메커닉.
-  activeScrollExpiresAt: timestamp("active_scroll_expires_at"),
   // 거점 세금 회수 시 90% 가 누적되는 길드 공용 골드 풀. 회수자 본인 10% 와 별개.
   gold: integer("gold").notNull().default(0),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -7,15 +7,15 @@ import {
 } from "./v2EquipVariance";
 
 describe("rollItemStats", () => {
-  it("rng=0 → 각 스탯 최소값(별노래궁 power14/weight2/crit2)", () => {
-    // power spread round(14*0.3)=4 → [10,18]; weight spread 1 → [1,3]; crit spread 1 → [1,3].
+  it("rng=0 → 각 스탯 최소값(별노래궁 power30/weight2/crit2)", () => {
+    // power spread round(30*0.3)=9 → [21,39]; weight spread 1 → [1,3]; crit spread 1 → [1,3].
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0);
-    expect(r).toEqual({ power: 10, weight: 1, options: { crit: 1 } });
+    expect(r).toEqual({ power: 21, weight: 1, options: { crit: 1 } });
   });
 
   it("rng≈1 → 각 스탯 최대값", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0.999);
-    expect(r).toEqual({ power: 18, weight: 3, options: { crit: 3 } });
+    expect(r).toEqual({ power: 39, weight: 3, options: { crit: 3 } });
   });
 
   it("작은 값(spread 0)은 변동 없음 — 은가락지 power1/weight0/무옵션", () => {
@@ -29,10 +29,10 @@ describe("rollItemStats", () => {
     });
   });
 
-  it("옵션 없는 아이템은 굴림에 options 없음 — 철검 power3/weight2", () => {
+  it("옵션 없는 아이템은 굴림에 options 없음 — 철검 power4/weight2", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_iron_sword, () => 0);
     expect(r.options).toBeUndefined();
-    expect(r.power).toBe(2); // spread 1 → [2,4]
+    expect(r.power).toBe(3); // spread 1 → [3,5]
     expect(r.weight).toBe(1); // spread 1 → [1,3]
   });
 
@@ -67,11 +67,11 @@ describe("rollItemStats", () => {
 });
 
 describe("effectiveStats", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // power14, weight2, crit2
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // power30, weight2, crit2
 
   it("굴림 없으면 카탈로그 그대로", () => {
     expect(effectiveStats(bow, undefined)).toEqual({
-      power: 14,
+      power: 30,
       weight: 2,
       options: { crit: 2 },
     });

@@ -29,18 +29,18 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     });
   });
 
-  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=3 magicAtk=3 weight=2", () => {
-    // 철검: power 3, weight 2. 무기 위력은 atk·magicAtk 둘 다 먹인다.
+  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=4 magicAtk=4 weight=2", () => {
+    // 철검: power 4, weight 2. 무기 위력은 atk·magicAtk 둘 다 먹인다.
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.atk).toBe(3);
-    expect(a.magicAtk).toBe(3);
+    expect(a.atk).toBe(4);
+    expect(a.magicAtk).toBe(4);
     expect(a.weight).toBe(2);
     expect(a.def).toBe(0);
     expect(a.crit).toBe(0);
   });
 
   it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
-    // 철검(카탈로그 power3/weight2)에 굴림 {power:10, weight:5} → atk·magicAtk=10, weight=5.
+    // 철검(카탈로그 power4/weight2)에 굴림 {power:10, weight:5} → atk·magicAtk=10, weight=5.
     const sword = aggregateV2Equipment({ weapon: "v2_iron_sword" }, undefined, {
       v2_iron_sword: { power: 10, weight: 5 },
     });
@@ -61,12 +61,12 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" }, undefined, {
       v2_steel_sword: { power: 99, weight: 0 },
     });
-    expect(a.atk).toBe(3);
+    expect(a.atk).toBe(4);
     expect(a.weight).toBe(2);
   });
 
   it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
-    // 철검: power 3 weight 2 (무기 → atk·magicAtk)
+    // 철검: power 4 weight 2 (무기 → atk·magicAtk)
     // 쇠사슬 갑옷: power 2 weight 2 (갑옷 → def)
     // 은가락지: power 1 weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
@@ -74,8 +74,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       armor: "v2_chain_mail",
       ring: "v2_silver_ring",
     });
-    expect(a.atk).toBe(3);
-    expect(a.magicAtk).toBe(3);
+    expect(a.atk).toBe(4);
+    expect(a.magicAtk).toBe(4);
     expect(a.def).toBe(2); // 갑옷만(반지는 마방)
     expect(a.magicDef).toBe(1); // 반지 위력
     expect(a.weight).toBe(2 + 2 + 0);
@@ -94,7 +94,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("옵션 (crit/eva/mp) 합산 + 위력 분기 — T5 풀", () => {
-    // 별노래궁 T5: power 14 weight 2 crit 2
+    // 별노래궁 T5: power 30 weight 2 crit 2
     // 바람 망토 T5: power 4 weight 1 eva 3
     // 마나의 정수 T5: power 2 weight 0 mp 30 (목걸이 → 마방)
     const a = aggregateV2Equipment({
@@ -102,8 +102,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       armor: "v2_windweave_cloak",
       necklace: "v2_mana_essence",
     });
-    expect(a.atk).toBe(14);
-    expect(a.magicAtk).toBe(14);
+    expect(a.atk).toBe(30);
+    expect(a.magicAtk).toBe(30);
     expect(a.def).toBe(4); // 갑옷만
     expect(a.magicDef).toBe(2); // 목걸이 위력
     expect(a.weight).toBe(2 + 1 + 0);
@@ -198,48 +198,48 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
 });
 
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
-  it("기본 int 15 → magicAtk = floor(15×0.2) = 3 (마법 베이스라인)", () => {
+  it("기본 int 15 → magicAtk = floor(15×0.15) = 2 (마법 베이스라인)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 245, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.2)); // 3
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15)); // 2
   });
 
-  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.2) (PR-8 STR 대칭)", () => {
-    // 기본 15 + 할당 100 = 115. magicAtk = floor(115 × 0.2) = 23.
+  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.15) (STR 대칭)", () => {
+    // 기본 15 + 할당 100 = 115. magicAtk = floor(115 × 0.15) = 17.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 100 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(115);
-    expect(d.player.magicAtk).toBe(Math.floor(115 * 0.2)); // 23
+    expect(d.player.magicAtk).toBe(Math.floor(115 * 0.15)); // 17
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
-    // 별빛 지팡이 T5: power 17 (무기 → atk·magicAtk 둘 다). int token 없음.
-    // magicAtk = floor(int 15 × 0.2) + 위력 17 = 3 + 17 = 20. atk = floor(str 15×0.2) + 17 = 20.
+    // 별빛 지팡이 T5: power 36 (무기 → atk·magicAtk 둘 다). int token 없음.
+    // magicAtk = floor(int 15 × 0.15) + 위력 36 = 2 + 36 = 38. atk = floor(str 15×0.15) + 36 = 38.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starlit_staff" },
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.2) + 17); // 3 + 17 = 20
-    expect(d.player.atk).toBe(Math.floor(15 * 0.2) + 17); // 3 + 17 = 20
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15) + 36); // 2 + 36 = 38
+    expect(d.player.atk).toBe(Math.floor(15 * 0.15) + 36); // 2 + 36 = 38
   });
 
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
-    // 참나무 지팡이: power 5. magicAtk = floor(15×0.2) + 5 = 3 + 5 = 8. 물리 빌드는 마법스킬을
+    // 참나무 지팡이: power 7. magicAtk = floor(15×0.15) + 7 = 2 + 7 = 9. 물리 빌드는 마법스킬을
     // 안 배워 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
-      v2Equipped: { weapon: "v2_oak_staff" }, // power 5
+      v2Equipped: { weapon: "v2_oak_staff" }, // power 7
     });
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.2) + 5); // 8
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15) + 7); // 9
   });
 });
 

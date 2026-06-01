@@ -30,7 +30,10 @@ import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
 import { OUTPOSTS, START_OUTPOST_ID } from "@/adventure/data/v2/outposts";
-import { shortestOutpostPath } from "@/adventure/data/v2/outpostGraph";
+import {
+  shortestOutpostPath,
+  seededDiscovery,
+} from "@/adventure/data/v2/outpostGraph";
 import type {
   DungeonFloorId,
   Outpost,
@@ -193,6 +196,11 @@ export function V2GameFlow() {
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
+  // 발견(안개) — 공개된 거점 id 집합. me/state 에서 초기화, 이동 응답마다 확장.
+  // 기본값 = 시작 거점+인접(로드 전에도 일관 동작).
+  const [discoveredIds, setDiscoveredIds] = useState<Set<string>>(
+    () => new Set(seededDiscovery()),
+  );
   // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
   // null = 아직 미로딩. 로딩 후 사냥 게이트 동작 + 일괄 사냥 결과 밑 HP 바 표시 (서버가 최종 권위).
   const [hp, setHp] = useState<HpBarState | null>(null);
@@ -241,6 +249,7 @@ export function V2GameFlow() {
               stamina?: { current: number; lastUpdatedAt: number };
             };
             currentOutpost?: { id: string; name: string } | null;
+            discoveredOutpostIds?: string[];
           } | null;
           if (j?.character?.name) setViewerName(j.character.name);
           if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
@@ -261,6 +270,9 @@ export function V2GameFlow() {
             });
           }
           if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
+          if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
+            setDiscoveredIds(new Set(j.discoveredOutpostIds));
+          }
         }
       } catch {}
     })();
@@ -269,6 +281,28 @@ export function V2GameFlow() {
   // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
   // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.
   const visitInFlightRef = useRef(false);
+
+  // visit-outpost 응답의 stamina + discoveredOutpostIds 를 전역 상태에 반영.
+  const applyVisitResult = useCallback((json: unknown) => {
+    const j = json as {
+      stamina?: { current?: number; lastUpdatedAt?: number };
+      discoveredOutpostIds?: string[];
+    } | null;
+    if (
+      j?.stamina &&
+      typeof j.stamina.current === "number" &&
+      typeof j.stamina.lastUpdatedAt === "number"
+    ) {
+      setStamina({
+        current: j.stamina.current,
+        lastUpdatedAt: j.stamina.lastUpdatedAt,
+      });
+    }
+    if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
+      setDiscoveredIds(new Set(j.discoveredOutpostIds));
+    }
+  }, []);
+
   const enterOutpost = useCallback(
     (outpost: Outpost) => {
       if (visitInFlightRef.current) return;
@@ -286,6 +320,9 @@ export function V2GameFlow() {
             body: JSON.stringify({ outpostId: outpost.id }),
           });
           ok = res.ok;
+          const j = await res.json().catch(() => null);
+          // 성공·거부 무관하게 응답에 담긴 stamina(거부 시)·discovered(성공 시)를 반영.
+          applyVisitResult(j);
         } catch {
           ok = false; // 네트워크 오류도 실패로 — 아래에서 롤백.
         } finally {
@@ -298,7 +335,7 @@ export function V2GameFlow() {
         }
       })();
     },
-    [currentOutpost, view],
+    [currentOutpost, view, applyVisitResult],
   );
 
   // 다중 홉 자동 이동 — 현재 거점에서 목적지까지 최단 경로를 따라 한 칸씩 순차 진입한다.
@@ -312,8 +349,9 @@ export function V2GameFlow() {
         setView({ kind: "outpost", outpost: target });
         return;
       }
-      const path = shortestOutpostPath(startId, target.id);
-      if (!path || path.length < 2) return; // 연결 그래프라 사실상 없음(방어).
+      // 발견된 거점만 거쳐가는 최단 경로(안개 게이트). 목적지가 미발견이면 경로 없음.
+      const path = shortestOutpostPath(startId, target.id, discoveredIds);
+      if (!path || path.length < 2) return; // 미발견/미연결(방어).
       visitInFlightRef.current = true;
       void (async () => {
         let reachedId = startId;
@@ -325,7 +363,12 @@ export function V2GameFlow() {
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ outpostId: stepId }),
             });
-            if (!res.ok) break; // 막히면 도달한 지점에서 멈춘다(부분 이동은 유효).
+            const j = await res.json().catch(() => null);
+            // 성공이면 stamina+discovered, 거부(out_of_stamina 등)면 갱신된 stamina 만이라도
+            // 반영해 화면이 stale 하지 않게 한다.
+            applyVisitResult(j);
+            // 막히면(인접 위반·스태미나 부족·네트워크) 도달한 지점에서 멈춘다(부분 이동 유효).
+            if (!res.ok) break;
             reachedId = stepId;
             const o = OUTPOST_BY_ID.get(stepId);
             if (o) setCurrentOutpost({ id: o.id, name: o.name });
@@ -344,7 +387,7 @@ export function V2GameFlow() {
         }
       })();
     },
-    [currentOutpost],
+    [currentOutpost, discoveredIds, applyVisitResult],
   );
 
   const handleTabSelect = (tab: TabId) => {
@@ -549,6 +592,7 @@ export function V2GameFlow() {
           occupations={occupations}
           viewerUserId={viewerUserId}
           currentOutpostId={currentOutpost?.id ?? null}
+          discoveredIds={discoveredIds}
         />
       )}
       {view.kind === "outpost" && (

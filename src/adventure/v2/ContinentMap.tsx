@@ -161,6 +161,7 @@ export function ContinentMap({
   occupations,
   viewerUserId,
   currentOutpostId,
+  discoveredIds,
 }: {
   // 현재 거점 자신 재진입(둘러보기)용 — 이동 없이 그 거점 화면을 연다.
   onOutpostEnter?: (o: Outpost) => void;
@@ -170,6 +171,9 @@ export function ContinentMap({
   viewerUserId?: string | null;
   // 플레이어의 현재 거점 — 인접 거점만 진입 가능하게 게이트 + 닿는 길 강조 + 마커 표식.
   currentOutpostId?: string | null;
+  // 발견(안개) — 공개된 거점 id 집합. 미공개는 흐리게+비활성, 이동 목적지에서 제외.
+  // 미지정이면 전부 공개로 취급(예: 순수 시각 프리뷰 페이지).
+  discoveredIds?: ReadonlySet<string>;
 } = {}) {
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) {
@@ -425,13 +429,17 @@ export function ContinentMap({
     });
   };
 
+  // 발견 판정 — discoveredIds 미지정이면 전부 공개로 본다(순수 시각 프리뷰).
+  const isDiscovered = (id: string): boolean =>
+    !discoveredIds || discoveredIds.has(id);
+
   // 선택 거점이 현재 위치 자신인가.
   const isCurrentSelected = !!selected && selected.id === currentOutpostId;
   // 현재 위치 → 선택 거점 최단 경로(거쳐갈 거점들). 워프는 없고, 이 경로를 따라 한 칸씩
-  // 이동한다(인접은 1홉). 그래프가 연결돼 있어 보통 항상 존재. 양 끝 포함.
+  // 이동한다(인접은 1홉). 발견된 거점만 거쳐가고 목적지도 발견된 곳만(안개 게이트).
   const routePath =
     selected && currentOutpostId && !isCurrentSelected
-      ? shortestOutpostPath(currentOutpostId, selected.id)
+      ? shortestOutpostPath(currentOutpostId, selected.id, discoveredIds)
       : null;
   const routeHops = routePath ? routePath.length - 1 : 0;
 
@@ -518,6 +526,8 @@ export function ContinentMap({
             const oa = OUTPOST_BY_ID.get(a);
             const ob = OUTPOST_BY_ID.get(b);
             if (!oa || !ob) return null;
+            // 안개 — 양 끝이 모두 발견된 길만 그린다(미발견 지역의 길은 숨김).
+            if (!isDiscovered(a) || !isDiscovered(b)) return null;
             return (
               <line
                 key={`edge-${a}-${b}`}
@@ -539,6 +549,7 @@ export function ContinentMap({
               const oa = OUTPOST_BY_ID.get(a);
               const ob = OUTPOST_BY_ID.get(b);
               if (!oa || !ob) return null;
+              if (!isDiscovered(a) || !isDiscovered(b)) return null;
               return (
                 <line
                   key={`edge-cur-${a}-${b}`}
@@ -580,6 +591,19 @@ export function ContinentMap({
           {[1, 2, 3, 4].flatMap((tier) =>
             OUTPOSTS.filter((o) => o.tier === tier).map((o) => {
               const r = TIER_RADIUS[o.tier];
+              // 미발견(안개) — 흐린 점만 찍고 비활성(클릭/이름/아이콘 없음). 방문/인접으로
+              // 공개되면 아래의 정상 마커로 렌더된다.
+              if (!isDiscovered(o.id)) {
+                return (
+                  <circle
+                    key={o.id}
+                    cx={o.position.x}
+                    cy={o.position.y}
+                    r={r * 0.5}
+                    className="fill-zinc-400/25 dark:fill-zinc-600/25"
+                  />
+                );
+              }
               const isKingdom = o.tier === 4;
               const isNeutral = o.neutral === true;
               const isSelected = selected?.id === o.id;
@@ -759,6 +783,10 @@ export function ContinentMap({
                 <span className="flex items-center gap-1">
                   <span className="h-3 w-3 shrink-0 rounded-sm border-2 border-dashed border-emerald-500" />
                   현재 위치
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="h-3 w-3 shrink-0 rounded-full bg-zinc-400/30" />
+                  미발견
                 </span>
               </div>
             </div>

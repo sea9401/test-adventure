@@ -14,6 +14,7 @@
 export const MAX_STAMINA = 1000;
 export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
+export const OUTPOST_MOVE_COST = 1; // 거점 이동 1홉당 비용 (재진입은 무료)
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
 //   = 1000 * 30 s = 30000 s ≈ 8.33 시간.

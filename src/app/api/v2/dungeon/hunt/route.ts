@@ -63,6 +63,7 @@ import {
   type DropResult,
 } from "@/adventure/data/v2/dungeonDrops";
 import { rollEquipDrop } from "@/adventure/data/v2/dungeonEquipDrops";
+import { rollUniqueDrop } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   TREASURE_FRAGMENTS_KEY,
   HUNT_FRAGMENT_DROP_CHANCE,
@@ -557,6 +558,7 @@ export async function POST(req: Request) {
     // 장비 드랍 — 승리 시 1회 굴림. 이미 보유한 id 는 후보 제외 (장비 unique).
     // 풀이 마르거나 굴림 실패면 null. equipment.v2 는 조기 lock 한 걸 한 번에 기록.
     let droppedEquipment: V2EquipmentId | null = null;
+    let droppedUnique: V2EquipmentId | null = null;
     let nextOwned: V2EquipmentId[] = ownedEquip;
     if (won) {
       const ownedSet = new Set<V2EquipmentId>(ownedEquip);
@@ -567,7 +569,14 @@ export async function POST(req: Request) {
         newbieDropMult,
       );
       if (droppedEquipment !== null) {
-        nextOwned = [...ownedEquip, droppedEquipment];
+        nextOwned = [...nextOwned, droppedEquipment];
+        ownedSet.add(droppedEquipment);
+      }
+      // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 보유분 제외, 둘 다 떨어질 수도.
+      // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
+      droppedUnique = rollUniqueDrop(floor, ownedSet, Math.random, 1);
+      if (droppedUnique !== null) {
+        nextOwned = [...nextOwned, droppedUnique];
       }
     }
     // equipment.v2 한 번에 기록 — owned(+드랍) + durability(마모/자동수리).
@@ -763,6 +772,7 @@ export async function POST(req: Request) {
           // 보물 탐사 — 이번 사냥 지도 조각 드랍 수 + 누적(0 = 안 떨어짐).
           fragmentDrop,
           fragmentsTotal,
+          droppedUnique,
           // PR-4b — 마모/자동수리 후 장착 장비 내구도 + 자동수리 비용(0=안 함). 클라가 경고 표시.
           equipmentDurability: workingDurability,
           autoRepairSpent: repairSpent,

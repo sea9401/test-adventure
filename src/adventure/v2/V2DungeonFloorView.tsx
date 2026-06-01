@@ -119,6 +119,7 @@ export function V2DungeonFloorView({
     let levelsGained = 0;
     const drops: Partial<Record<V2MaterialId, number>> = {};
     const droppedEquipments: V2EquipmentId[] = [];
+    const droppedUniques: V2EquipmentId[] = [];
     const statGains: Partial<Record<V2StatKey, number>> = {};
     let stoppedReason: BatchSummary["stoppedReason"] = null;
     let completed = 0;
@@ -147,6 +148,7 @@ export function V2DungeonFloorView({
         statGains[key] = (statGains[key] ?? 0) + (n ?? 0);
       }
       if (r.droppedEquipment) droppedEquipments.push(r.droppedEquipment);
+      if (r.droppedUnique) droppedUniques.push(r.droppedUnique);
       // 사망 또는 체력 부족(5% 미만)이면 다음 사냥이 어차피 서버에서 막히므로 중단.
       // 헛돈(409) 없이 즉시 멈추고, 패배(0)·생존했지만 저체력을 라벨로 구분.
       if (!canHuntWithHp(r.hpAfter, r.maxHp)) {
@@ -170,6 +172,7 @@ export function V2DungeonFloorView({
       statGains,
       drops,
       droppedEquipments,
+      droppedUniques,
       stoppedReason,
     });
     setBatchProgress(null);

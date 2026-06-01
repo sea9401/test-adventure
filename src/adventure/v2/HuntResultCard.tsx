@@ -41,6 +41,7 @@ export type HuntResult = {
   maxHp: number;
   drops?: Partial<Record<V2MaterialId, number>>;
   droppedEquipment?: V2EquipmentId | null;
+  droppedUnique?: V2EquipmentId | null;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
   // PR-1 속성 상성 — 내 속성 vs 몬스터 속성 결과.
   playerElement?: V2Element;
@@ -83,6 +84,9 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
   const droppedEquip = result.droppedEquipment
     ? V2_EQUIPMENT[result.droppedEquipment]
     : null;
+  const droppedUniq = result.droppedUnique
+    ? V2_EQUIPMENT[result.droppedUnique]
+    : null;
   // 드랍 알림 배너 — 매 사냥마다 (드랍 있을 때만). 1회성 storyFlags 폐기 (사용자
   // 요청 2026-05-28): 매번 어떤 아이템 받았는지 명시적 알림이 후크에 더 효과적.
   const dropBannerText = formatDropBanner(
@@ -93,6 +97,11 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
 
   return (
     <Card padding="sm">
+      {droppedUniq && (
+        <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
+          ✨ 유니크 「{droppedUniq.name}」 획득!
+        </div>
+      )}
       {dropBannerText && (
         <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
           {dropBannerText}

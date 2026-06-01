@@ -26,6 +26,7 @@ export type BatchSummary = {
   statGains: Partial<Record<V2StatKey, number>>; // 일괄 사냥 동안 레벨업으로 오른 1차 스탯 합산.
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
+  droppedUniques: V2EquipmentId[];
   stoppedReason?: "stamina" | "death" | "recovery" | "error" | null;
 };
 
@@ -34,6 +35,9 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
     ([, n]) => (n ?? 0) > 0,
   ) as Array<[V2MaterialId, number]>;
   const eqNames = summary.droppedEquipments
+    .map((id) => V2_EQUIPMENT[id]?.name ?? id)
+    .filter(Boolean);
+  const uniqueNames = summary.droppedUniques
     .map((id) => V2_EQUIPMENT[id]?.name ?? id)
     .filter(Boolean);
 
@@ -50,6 +54,11 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
 
   return (
     <Card padding="sm">
+      {uniqueNames.length > 0 && (
+        <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
+          ✨ 유니크 {uniqueNames.join(", ")} 획득!
+        </div>
+      )}
       {dropParts.length > 0 && (
         <div className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-center text-xs font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
           ⭐ {dropParts.join(", ")}을(를) 획득했다!

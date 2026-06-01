@@ -1,16 +1,16 @@
 // v2 던전 유니크 드랍 — 드랍 전용 유니크(상점·제작 불가)의 초저확률 별도 롤.
 // 정규 장비 드랍(dungeonEquipDrops, rollEquipDrop) 위에 얹는 별개 굴림.
 //
-// 제작 척추 PR-5(Phase 1)는 **스캐폴드만** — 실제 유니크 0종, UNIQUE_FLOOR_POOLS 도 빈 풀이라
-// rollUniqueDrop 은 항상 null. Phase 2 에서 V2_EQUIPMENT 에 rarity:"unique" 항목을 추가하고
-// (층/보스 시그니처) 여기 풀을 채운 뒤 hunt 라우트에 배선한다. 그때까지 사냥에 무영향.
+// PR-5(Phase 1) 스캐폴드 → PR-6(Phase 2): 유니크 6종 populate + floors 1~5 시그니처 풀
+// (초저확률) + hunt 라우트 배선 완료. 5층은 2종(별을 가르는 단검·현자의 인장). 6~8층(엔드)은
+// 후속. 확률(0.003~0.005)은 sim/라이브 다이얼.
 //
 // 유니크 = id당 1개(ownedSet 제외) — 정규 장비와 동일 unique-per-id.
 
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 카탈로그의 유니크 id 목록 (rarity:"unique"). Phase 1 은 0종.
+// 카탈로그의 유니크 id 목록 (rarity:"unique"). Phase 2: 6종.
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
 ).filter((id) => isUnique(V2_EQUIPMENT[id]));
@@ -25,11 +25,12 @@ export type UniqueFloorPool = {
 };
 
 export const UNIQUE_FLOOR_POOLS: Record<DungeonFloorId, UniqueFloorPool> = {
-  1: { chance: 0, ids: [] },
-  2: { chance: 0, ids: [] },
-  3: { chance: 0, ids: [] },
-  4: { chance: 0, ids: [] },
-  5: { chance: 0, ids: [] },
+  1: { chance: 0.003, ids: ["v2_uniq_shadow_garb"] },
+  2: { chance: 0.003, ids: ["v2_uniq_trickster_boots"] },
+  3: { chance: 0.0035, ids: ["v2_uniq_giant_fist"] },
+  4: { chance: 0.004, ids: ["v2_uniq_berserker_fang"] },
+  5: { chance: 0.005, ids: ["v2_uniq_starcleaver", "v2_uniq_sage_seal"] },
+  // 6~8 층(엔드)은 후속 — 빈 풀.
   6: { chance: 0, ids: [] },
   7: { chance: 0, ids: [] },
   8: { chance: 0, ids: [] },

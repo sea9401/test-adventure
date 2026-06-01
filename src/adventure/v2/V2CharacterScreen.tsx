@@ -15,28 +15,9 @@ import type {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   V2_CLASS_DEFS,
-  V2_SELECTABLE_CLASSES,
   parseV2Class,
   tier1ClassOf,
-  nextTierClassOf,
-  type V2Class,
 } from "@/adventure/data/v2/classes";
-import {
-  V2_ELEMENT_LABEL,
-  V2_PLAYER_ELEMENTS,
-  parseV2Element,
-  type V2Element,
-} from "@/adventure/data/v2/elements";
-import {
-  isClassChange,
-  isPaidRespec,
-  respecGoldCost,
-} from "@/adventure/data/v2/respec";
-import {
-  advanceProficiencyReq,
-  V2_ADVANCE_MIN_LEVEL,
-} from "@/adventure/data/v2/proficiency";
-import { codexRequirement } from "@/adventure/data/v2/codex";
 
 // v2 캐릭터 "내 정보" 페이지 — 캐릭터 카드(장비 3슬롯 인라인 포함) + StatsPanel.
 // 장착/해제는 인벤토리에서.
@@ -64,9 +45,15 @@ type StateResponse = {
   combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
+    total?: number;
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
     caps?: Partial<Record<V2StatKey, number>>;
-    current?: { group: string; earned: number; usable: number };
+    current?: {
+      group: string;
+      earned: number;
+      usable: number;
+      cultivations?: number;
+    };
   };
 };
 
@@ -145,16 +132,43 @@ export function V2CharacterScreen({
         </Card>
       )}
 
-      {character && (
-        <ClassElementPicker
-          currentClass={parseV2Class(character.class)}
-          currentElement={parseV2Element(character.element)}
-          level={character.level}
-          gold={character.gold}
-          codex={state?.codex}
-          cumulativeProficiency={state?.proficiency?.current?.earned ?? 0}
-          onChanged={refresh}
-        />
+      {character && state?.proficiency && (
+        <Card padding="md">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">직업 숙련도</h2>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              현 직업군:{" "}
+              {V2_CLASS_DEFS[
+                tier1ClassOf(parseV2Class(character.class))
+              ]?.group ?? "—"}
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+            <ProficiencyStat
+              label="총 숙련도"
+              value={state.proficiency.total ?? 0}
+              tone="violet"
+            />
+            <ProficiencyStat
+              label="누적(직업군)"
+              value={state.proficiency.current?.earned ?? 0}
+              tone="violet"
+            />
+            <ProficiencyStat
+              label="사용 가능"
+              value={state.proficiency.current?.usable ?? 0}
+              tone="emerald"
+            />
+            <ProficiencyStat
+              label="수행 횟수"
+              value={state.proficiency.current?.cultivations ?? 0}
+              tone="zinc"
+            />
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            사냥으로 적립(킬당 +2). 사용 가능 숙련도로 마을 「수행」에서 능력치 한계·스킬을 단련.
+          </p>
+        </Card>
       )}
 
       {stats && combat && (
@@ -180,223 +194,28 @@ export function V2CharacterScreen({
   );
 }
 
-// PR-6 전투 재설계 — 직업·속성 선택/전직 UI. 첫 선택 무료, 변경은 골드+쿨다운(비용 전직).
-function ClassElementPicker({
-  currentClass,
-  currentElement,
-  level,
-  gold,
-  codex,
-  cumulativeProficiency,
-  onChanged,
+// 숙련도 수치 1칸 — 캐릭터 정보 패널용.
+function ProficiencyStat({
+  label,
+  value,
+  tone,
 }: {
-  currentClass: V2Class;
-  currentElement: V2Element;
-  level: number;
-  gold: number;
-  codex?: { discovered: number; total: number };
-  cumulativeProficiency: number;
-  onChanged: () => void;
+  label: string;
+  value: number;
+  tone: "violet" | "emerald" | "zinc";
 }) {
-  // 드롭다운은 직업군(1차) 단위. 2차 캐릭은 자기 군 1차로 매핑해 표시.
-  const [cls, setCls] = useState<V2Class>(
-    currentClass === "none" ? V2_SELECTABLE_CLASSES[0] : tier1ClassOf(currentClass),
-  );
-  const [elem, setElem] = useState<V2Element>(currentElement);
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  // 같은 직업군 1차를 골라도 현 직업 유지(서버와 동일) → 실제 적용될 직업.
-  const effectiveClass: V2Class =
-    currentClass === "none" || isClassChange(currentClass, cls)
-      ? cls
-      : currentClass;
-  const dirty = effectiveClass !== currentClass || elem !== currentElement;
-  // 비용 전직 — none/neutral 에서의 첫 선택은 무료, 직업군/속성 변경은 골드.
-  const paid = isPaidRespec(currentClass, cls, currentElement, elem);
-  const cost = respecGoldCost(currentClass, cls, currentElement, elem, level);
-  const cantAfford = paid && gold < cost;
-
-  // 전직(advance). 현 직업이 전직 가능한 다음 차수 + 누적 숙련도 + 레벨 50 + 도감(3·4차).
-  const advanceTo = nextTierClassOf(currentClass);
-  const advanceProfReq = advanceTo
-    ? advanceProficiencyReq(V2_CLASS_DEFS[advanceTo].tier)
-    : Infinity;
-  const advanceProfOk = cumulativeProficiency >= advanceProfReq;
-  const advanceLevelOk = level >= V2_ADVANCE_MIN_LEVEL;
-  // 3·4차 모험의 서 요건 — 재료 도감 등재 종 수.
-  const codexReq = advanceTo
-    ? codexRequirement(V2_CLASS_DEFS[advanceTo].advanceCodexMin)
-    : 0;
-  const codexHave = codex?.discovered ?? 0;
-  const codexOk = codexHave >= codexReq;
-
-  const advance = async () => {
-    if (!advanceTo) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/advance-class", { method: "POST" });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        required?: number;
-        have?: number;
-      } | null;
-      if (!j?.ok) {
-        const label =
-          j?.error === "level_too_low"
-            ? `레벨 부족 (필요 Lv${j.required ?? V2_ADVANCE_MIN_LEVEL}, 현재 Lv${j.have ?? level})`
-            : j?.error === "insufficient_proficiency"
-              ? `숙련도 부족 (누적 ${j.have ?? cumulativeProficiency}/${j.required ?? advanceProfReq})`
-              : j?.error === "codex_incomplete"
-                ? `모험의 서 부족 (재료 ${j.have ?? codexHave}/${j.required ?? codexReq} 등재)`
-                : (j?.error ?? `http ${res.status}`);
-        setMsg(`✗ ${label}`);
-        return;
-      }
-      setMsg(`✓ ${V2_CLASS_DEFS[advanceTo].name} 전직 완료`);
-      onChanged();
-    } catch (e) {
-      setMsg(`✗ ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const apply = async () => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/class-element", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ class: cls, element: elem }),
-      });
-      const j = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        required?: number;
-        cooldownUntil?: number;
-      } | null;
-      if (!j?.ok) {
-        const label =
-          j?.error === "insufficient_gold"
-            ? `골드 부족 (필요 ${(j.required ?? cost).toLocaleString()}G)`
-            : j?.error === "respec_cooldown"
-              ? `전직 쿨다운 중 — ${
-                  j.cooldownUntil
-                    ? new Date(j.cooldownUntil).toLocaleString()
-                    : "잠시"
-                } 이후 가능`
-              : (j?.error ?? `http ${res.status}`);
-        setMsg(`✗ ${label}`);
-        return;
-      }
-      setMsg(paid ? `✓ 전직 완료 (-${cost.toLocaleString()}G)` : "✓ 적용됨");
-      onChanged();
-    } catch (e) {
-      setMsg(`✗ ${(e as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
+  const toneClass =
+    tone === "violet"
+      ? "text-violet-600 dark:text-violet-400"
+      : tone === "emerald"
+        ? "text-emerald-700 dark:text-emerald-400"
+        : "text-zinc-700 dark:text-zinc-300";
   return (
-    <Card padding="md">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">직업 · 속성</h2>
-        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-          현재: {V2_CLASS_DEFS[currentClass].name} ·{" "}
-          {V2_ELEMENT_LABEL[currentElement]}
-        </span>
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{label}</div>
+      <div className={`mt-0.5 font-semibold tabular-nums ${toneClass}`}>
+        {value.toLocaleString()}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <select
-          value={cls}
-          onChange={(e) => setCls(e.target.value as V2Class)}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {V2_SELECTABLE_CLASSES.map((c) => (
-            <option key={c} value={c}>
-              {V2_CLASS_DEFS[c].name} ({V2_CLASS_DEFS[c].group})
-            </option>
-          ))}
-        </select>
-        <select
-          value={elem}
-          onChange={(e) => setElem(e.target.value as V2Element)}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          {V2_PLAYER_ELEMENTS.map((el) => (
-            <option key={el} value={el}>
-              {V2_ELEMENT_LABEL[el]}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          onClick={apply}
-          disabled={busy || !dirty || cantAfford}
-          className="rounded-md border border-indigo-400 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-300"
-        >
-          {busy ? "…" : paid ? `변경 (${cost.toLocaleString()}G)` : "적용"}
-        </button>
-        {msg && (
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">{msg}</span>
-        )}
-      </div>
-      {dirty && paid && (
-        <p
-          className={`mt-2 text-xs ${
-            cantAfford
-              ? "text-rose-600 dark:text-rose-400"
-              : "text-amber-600 dark:text-amber-400"
-          }`}
-        >
-          직업군/속성 변경 비용 {cost.toLocaleString()}G · 변경 후 24시간 쿨다운
-          {cantAfford ? ` (보유 ${gold.toLocaleString()}G — 부족)` : ""}
-        </p>
-      )}
-      {/* 전직(같은 직업군 다음 차수 승급, 쿨다운 없음). */}
-      {advanceTo && (
-        <div className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 p-2.5 dark:border-emerald-500/40 dark:bg-emerald-500/10">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs text-emerald-800 dark:text-emerald-200">
-              {V2_CLASS_DEFS[advanceTo].tier}차 전직: <b>{V2_CLASS_DEFS[advanceTo].name}</b>
-              <span className="text-emerald-700/70 dark:text-emerald-300/70">
-                {" "}
-                · Lv{V2_ADVANCE_MIN_LEVEL} · 누적 숙련도 {advanceProfReq}
-                {codexReq > 0 ? ` · 도감 ${codexReq}종` : ""}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={advance}
-              disabled={busy || !advanceLevelOk || !advanceProfOk || !codexOk}
-              className="shrink-0 rounded-md border border-emerald-500 bg-emerald-500/15 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-400 dark:text-emerald-300"
-            >
-              전직
-            </button>
-          </div>
-          {!advanceLevelOk ? (
-            <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
-              Lv{V2_ADVANCE_MIN_LEVEL} 필요 (현재 Lv{level}) — 사냥으로 레벨을 올리세요
-            </p>
-          ) : !advanceProfOk ? (
-            <p className="mt-1 text-[11px] text-emerald-700/70 dark:text-emerald-300/70">
-              누적 숙련도 {cumulativeProficiency}/{advanceProfReq} — 사냥으로 더 모으세요
-            </p>
-          ) : !codexOk ? (
-            <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
-              모험의 서 부족 — 재료 {codexHave}/{codexReq}종 등재 필요 (사냥으로 재료를 모으세요)
-            </p>
-          ) : null}
-        </div>
-      )}
-      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-        {V2_CLASS_DEFS[effectiveClass].description} · 속성 상성으로 사냥 데미지가 ±됩니다.
-      </p>
-    </Card>
+    </div>
   );
 }

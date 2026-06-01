@@ -11,6 +11,7 @@ import {
   consumeIngredients,
   craftShortfall,
 } from "@/adventure/data/v2/v2Recipes";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 
 // POST /api/v2/me/craft — 재료 직접 제작 (재료 + 골드 → 완성 장비).
 //
@@ -104,6 +105,11 @@ export async function POST(req: Request) {
     const nextGold = gold - recipe.gold;
     const parsed = parseEquipmentSave(equipSave);
     const nextOwned = [...parsed.owned, id];
+    // 개체 굴림 — 처음 획득이면 굴려 저장(keep-first). 이미 보유 굴림 있으면 유지(같은 id 공유).
+    const nextStatRolls = { ...parsed.statRolls };
+    if (!nextStatRolls[id]) {
+      nextStatRolls[id] = rollItemStats(V2_EQUIPMENT[id], Math.random);
+    }
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
@@ -113,6 +119,7 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, "equipment.v2", {
       ...equipSave,
       owned: nextOwned,
+      statRolls: nextStatRolls,
     });
 
     return {

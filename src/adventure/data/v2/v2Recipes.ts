@@ -196,3 +196,22 @@ export function consumeIngredients(
   }
   return next;
 }
+
+// === 분해 (salvage) =================================================
+// 장비를 재료로 되돌린다. 골드는 환수 안 함(골드는 싱크 방향) — 판매(골드)와 다른 통화라 공존.
+// 유니크는 레시피가 없어 분해 불가(호출부가 recipe 부재로 가드).
+
+// 환수율 — 레시피 재료의 이 비율(내림)만 돌려준다. 손실은 의도(무한 제작↔분해 무료 루프 방지).
+export const SALVAGE_FRACTION = 0.5;
+
+// 레시피 → 분해 시 돌려받는 재료(순수). 재료별 floor(count × SALVAGE_FRACTION), 0 은 생략.
+export function salvageYield(
+  recipe: V2Recipe,
+): Partial<Record<V2MaterialId, number>> {
+  const out: Partial<Record<V2MaterialId, number>> = {};
+  for (const ing of recipe.ingredients) {
+    const amt = Math.floor(ing.count * SALVAGE_FRACTION);
+    if (amt > 0) out[ing.id] = (out[ing.id] ?? 0) + amt;
+  }
+  return out;
+}

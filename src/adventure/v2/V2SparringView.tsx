@@ -13,10 +13,13 @@ export function V2SparringView({
   playerName,
   gender,
   onBack,
+  playerSubtitle,
 }: {
   playerName: string;
   gender: Gender;
   onBack: () => void;
+  // 전투 장면 플레이어 부제(레벨·직업·속성).
+  playerSubtitle?: string;
 }) {
   const { busy, lastResult, error, spar } = useSparring();
   const [round, setRound] = useState(0);
@@ -69,6 +72,7 @@ export function V2SparringView({
           gender={gender}
           exp={0}
           maxExp={1}
+          playerSubtitle={playerSubtitle}
         />
       )}
     </main>

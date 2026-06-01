@@ -48,6 +48,7 @@ export function V2DungeonFloorView({
   setHp,
   onSeekHealing,
   onBack,
+  playerSubtitle,
 }: {
   floorId: DungeonFloorId;
   outpostId: string;
@@ -64,6 +65,8 @@ export function V2DungeonFloorView({
   // "치료소로 가기" — 마을 치료소 뷰로 이동. 미전달이면 버튼 숨김.
   onSeekHealing?: () => void;
   onBack: () => void;
+  // 전투 장면 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성").
+  playerSubtitle?: string;
 }) {
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const { busy, lastResult, hunt } = useDungeonHunt({
@@ -353,6 +356,7 @@ export function V2DungeonFloorView({
           maxExp={lastResult.maxExpForBar ?? 1}
           hpCharges={lastResult.hpCharges}
           mpCharges={lastResult.mpCharges}
+          playerSubtitle={playerSubtitle}
         />
       )}
     </main>

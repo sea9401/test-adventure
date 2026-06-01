@@ -277,6 +277,7 @@ export function BattleScene({
   playerStatus,
   recentNotifications,
   layout = "stacked",
+  playerSubtitle,
 }: {
   state: BattleState;
   playerName: string;
@@ -284,6 +285,9 @@ export function BattleScene({
   recentNotifications?: AppNotification[];
   // "stacked" = 라이브(v1) 적 위 / 플레이어 아래. "split" = v2 좌(플레이어)/우(적) 반폭.
   layout?: "stacked" | "split";
+  // 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성"). split 레이아웃(v2)에서만 표시.
+  // 미전달 시 미표시 — 라이브(stacked)는 그대로.
+  playerSubtitle?: string;
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
@@ -316,6 +320,11 @@ export function BattleScene({
                 <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
                   {playerName}
                 </div>
+                {playerSubtitle && (
+                  <div className="-mt-1 truncate text-center text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {playerSubtitle}
+                  </div>
+                )}
                 <HpBar
                   compact
                   label="HP"

@@ -15,6 +15,13 @@ import {
 } from "@/adventure/v2/fishingCodex";
 import { currentFishingSeasonId } from "@/lib/server/fishing/season";
 import { upsertFishingRecord } from "@/lib/server/fishing/records";
+import {
+  TREASURE_FRAGMENTS_KEY,
+  FISHING_FRAGMENT_DROP_CHANCE,
+  addFragments,
+  parseTreasureFragments,
+  rollFragmentDrop,
+} from "@/adventure/v2/treasureFragments";
 
 // POST /api/v2/fishing/reel — 챔질. body: { castId, reactionMs }.
 //
@@ -85,6 +92,19 @@ export async function POST(req: Request) {
       new Date(now),
     );
 
+    // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
+    // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
+    const fragmentDrop = rollFragmentDrop(Math.random, FISHING_FRAGMENT_DROP_CHANCE);
+    let fragmentsTotal = 0;
+    if (fragmentDrop > 0) {
+      const frags = parseTreasureFragments(
+        await lockSaveForUpdate(tx, userId, TREASURE_FRAGMENTS_KEY, {}),
+      );
+      const nextFrags = addFragments(frags, fragmentDrop);
+      await upsertSave(tx, userId, TREASURE_FRAGMENTS_KEY, nextFrags);
+      fragmentsTotal = nextFrags.fragments;
+    }
+
     return {
       caught: true as const,
       fishId: session.fishId,
@@ -93,6 +113,8 @@ export async function POST(req: Request) {
       isPersonalBest,
       prevBest,
       codexCount: countDiscoveredFish(next),
+      fragmentDrop,
+      fragmentsTotal,
     };
   });
 
@@ -111,5 +133,8 @@ export async function POST(req: Request) {
     isPersonalBest: result.isPersonalBest,
     prevBest: result.prevBest,
     codexCount: result.codexCount,
+    // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
+    fragmentDrop: result.fragmentDrop,
+    fragmentsTotal: result.fragmentsTotal,
   });
 }

@@ -36,23 +36,29 @@ const TRIALS = Number(process.env.TRIALS ?? 500);
 const LEVEL = Number(process.env.LEVEL ?? 50);
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
-// 한 티어의 컨셉별 풀세팅 — 무기/방어구/장신구 각 1. 가장 흔한 빌드: str / heavy / luck.
+// 한 티어의 6슬롯 풀세팅. 가장 흔한 빌드: str 무기 / heavy 갑옷·장갑·신발 / 운 반지 / 마법 목걸이.
 // PR-4a — v2Equipped 슬롯 맵을 반환(derivePlayerCombatV2Pure 가 위력/무게로 처리).
 function loadoutForTier(
   tier: V2EquipTier | null,
 ): Partial<Record<V2EquipSlot, V2EquipmentId>> {
   if (tier === null) return {};
-  const byConceptTier = (concept: V2Equipment["concept"]) =>
+  const bySlotTier = (slot: V2EquipSlot, concept: V2Equipment["concept"]) =>
     Object.values(V2_EQUIPMENT).find(
-      (x) => x.concept === concept && x.tier === tier,
+      (x) => x.slot === slot && x.concept === concept && x.tier === tier,
     ) ?? null;
-  const w = byConceptTier("str");
-  const a = byConceptTier("heavy");
-  const c = byConceptTier("luck");
+  const w = bySlotTier("weapon", "str");
+  const armor = bySlotTier("armor", "heavy");
+  const gloves = bySlotTier("gloves", "heavy");
+  const boots = bySlotTier("boots", "heavy");
+  const ring = bySlotTier("ring", "luck");
+  const necklace = bySlotTier("necklace", "mana");
   const eq: Partial<Record<V2EquipSlot, V2EquipmentId>> = {};
   if (w) eq.weapon = w.id;
-  if (a) eq.armor = a.id;
-  if (c) eq.accessory = c.id;
+  if (armor) eq.armor = armor.id;
+  if (gloves) eq.gloves = gloves.id;
+  if (boots) eq.boots = boots.id;
+  if (ring) eq.ring = ring.id;
+  if (necklace) eq.necklace = necklace.id;
   return eq;
 }
 

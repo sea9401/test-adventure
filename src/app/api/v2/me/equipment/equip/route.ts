@@ -11,10 +11,17 @@ import {
 
 // POST /api/v2/me/equipment/equip — 한 슬롯의 장착 변경.
 //
-// 본문: { slot: "weapon"|"armor"|"accessory", equipmentId: V2EquipmentId | null }
+// 본문: { slot: 6슬롯 중 하나, equipmentId: V2EquipmentId | null }
 // equipmentId = null → 해제. 비-null → 보유 검증 + slot 일치 검증.
 
-const VALID_SLOTS = new Set<V2EquipSlot>(["weapon", "armor", "accessory"]);
+const VALID_SLOTS = new Set<V2EquipSlot>([
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+]);
 
 export async function POST(req: Request) {
   const userId = await ensureUser();

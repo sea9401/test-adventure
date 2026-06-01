@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import {
+  Circle,
   Diamond,
+  HandFist,
   Shield,
+  Sneaker,
   Sword,
   User as UserIcon,
   type Icon,
@@ -19,7 +22,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
-// v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 3슬롯 인라인 표시.
+// v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
 
 export type V2CharacterCardData = {
@@ -37,13 +40,11 @@ export type V2CharacterCardData = {
 
 const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] = [
   { slot: "weapon", label: "무기", Icon: Sword, color: "text-rose-500" },
-  { slot: "armor", label: "방어구", Icon: Shield, color: "text-sky-500" },
-  {
-    slot: "accessory",
-    label: "장신구",
-    Icon: Diamond,
-    color: "text-violet-500",
-  },
+  { slot: "armor", label: "갑옷", Icon: Shield, color: "text-sky-500" },
+  { slot: "gloves", label: "장갑", Icon: HandFist, color: "text-amber-500" },
+  { slot: "boots", label: "신발", Icon: Sneaker, color: "text-emerald-500" },
+  { slot: "ring", label: "반지", Icon: Circle, color: "text-violet-500" },
+  { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
 
 function CharacterPortrait({ gender }: { gender: Gender }) {
@@ -75,7 +76,7 @@ export function V2CharacterCard({
   titleName = null,
   // 카드 하단에 골드 한 줄 노출 여부.
   showGold = true,
-  // 있으면 카드 하단에 3슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
+  // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
   equipped,
 }: {
   character: V2CharacterCardData;

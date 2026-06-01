@@ -47,7 +47,14 @@ describe("무기 속성 전면 태깅", () => {
   });
 });
 
-const ALL_SLOTS: V2EquipSlot[] = ["weapon", "armor", "accessory"];
+const ALL_SLOTS: V2EquipSlot[] = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+];
 const ALL_CONCEPTS: V2EquipConcept[] = [
   "str",
   "dex",
@@ -110,36 +117,48 @@ describe("V2_EQUIPMENT catalog", () => {
     }
   });
 
-  it("무게 0 인 슬롯 정합 — 장신구는 전부 무게 0", () => {
-    for (const item of v2EquipmentBySlot("accessory")) {
+  it("무게 0 인 슬롯 정합 — 반지·목걸이는 전부 무게 0", () => {
+    for (const item of [
+      ...v2EquipmentBySlot("ring"),
+      ...v2EquipmentBySlot("necklace"),
+    ]) {
       expect(item.weight, `${item.id} 장신구 무게`).toBe(0);
     }
   });
 });
 
-describe("V2_EQUIPMENT grid (35종 — 7컨셉 × T1~T5)", () => {
-  it("총 35종", () => {
-    expect(Object.keys(V2_EQUIPMENT)).toHaveLength(35);
+// 한 (슬롯, 컨셉) 라인의 T1~T5 (티어 정렬).
+function slotConceptLine(
+  slot: V2EquipSlot,
+  concept: V2EquipConcept,
+): V2EquipTier[] {
+  return v2EquipmentBySlot(slot)
+    .filter((i) => i.concept === concept)
+    .sort((a, b) => a.tier - b.tier)
+    .map((i) => i.tier);
+}
+
+describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
+  it("총 55종", () => {
+    expect(Object.keys(V2_EQUIPMENT)).toHaveLength(55);
   });
 
-  it("모든 컨셉이 T1~T5 정확히 한 종씩", () => {
-    for (const concept of ALL_CONCEPTS) {
-      const items = v2EquipmentByConcept(concept);
-      expect(items, `concept=${concept}`).toHaveLength(5);
-      const tiers = items.map((i) => i.tier);
-      expect(tiers).toEqual(ALL_TIERS);
+  it("각 (슬롯, 컨셉) 조합이 T1~T5 정확히 한 종씩", () => {
+    for (const slot of ALL_SLOTS) {
+      for (const concept of SLOT_CONCEPTS[slot]) {
+        expect(slotConceptLine(slot, concept), `${slot}/${concept}`).toEqual(
+          ALL_TIERS,
+        );
+      }
     }
   });
 
-  it("SLOT_CONCEPTS 와 카탈로그의 슬롯-컨셉 매핑이 일관", () => {
-    for (const slot of ALL_SLOTS) {
-      for (const concept of SLOT_CONCEPTS[slot]) {
-        for (const item of v2EquipmentByConcept(concept)) {
-          expect(item.slot, `${item.id} 의 slot 이 SLOT_CONCEPTS 와 불일치`).toBe(
-            slot,
-          );
-        }
-      }
+  it("모든 아이템의 컨셉은 그 슬롯의 SLOT_CONCEPTS 안", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      expect(
+        SLOT_CONCEPTS[item.slot],
+        `${item.id} concept=${item.concept} 이 slot ${item.slot} 에 없음`,
+      ).toContain(item.concept);
     }
   });
 
@@ -147,22 +166,26 @@ describe("V2_EQUIPMENT grid (35종 — 7컨셉 × T1~T5)", () => {
     expect(new Set(Object.keys(CONCEPT_LABELS))).toEqual(new Set(ALL_CONCEPTS));
   });
 
-  it("같은 컨셉의 위력은 T1→T5 비감소 + 전체로 증가", () => {
-    // 저위력 장신구·경갑은 정수 plateau(T2=T3 등) 허용 — 차별화는 옵션/무게로.
-    // 단 컨셉 전체로는 T5 > T1 로 티어 진행이 위력 우상향이어야 함.
-    for (const concept of ALL_CONCEPTS) {
-      const items = v2EquipmentByConcept(concept);
-      const values = items.map((i) => i.power);
-      for (let i = 1; i < values.length; i++) {
+  it("각 (슬롯, 컨셉)의 위력은 T1→T5 비감소 + 전체로 증가", () => {
+    // 저위력 슬롯은 정수 plateau(T2=T3 등) 허용 — 차별화는 옵션/무게로.
+    // 단 라인 전체로는 T5 > T1 로 티어 진행이 위력 우상향이어야 함.
+    for (const slot of ALL_SLOTS) {
+      for (const concept of SLOT_CONCEPTS[slot]) {
+        const values = v2EquipmentBySlot(slot)
+          .filter((i) => i.concept === concept)
+          .sort((a, b) => a.tier - b.tier)
+          .map((i) => i.power);
+        for (let i = 1; i < values.length; i++) {
+          expect(
+            values[i],
+            `${slot}/${concept} T${i + 1} 위력 이 T${i} 보다 작음`,
+          ).toBeGreaterThanOrEqual(values[i - 1]);
+        }
         expect(
-          values[i],
-          `${concept} T${i + 1} 위력 이 T${i} 보다 작음`,
-        ).toBeGreaterThanOrEqual(values[i - 1]);
+          values[values.length - 1],
+          `${slot}/${concept} T5 위력 이 T1 이하`,
+        ).toBeGreaterThan(values[0]);
       }
-      expect(
-        values[values.length - 1],
-        `${concept} T5 위력 이 T1 이하`,
-      ).toBeGreaterThan(values[0]);
     }
   });
 
@@ -193,10 +216,10 @@ describe("v2EquipStatRows (표시 행)", () => {
   });
 
   it("mp 옵션은 % 없이 flat", () => {
-    // 마나의 정수 T5: power 3, weight 0, mp 30.
+    // 마나의 정수 T5: power 2, weight 0, mp 30.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
-      { label: "위력", value: "+3" },
+      { label: "위력", value: "+2" },
       { label: "MP", value: "+30" },
     ]);
   });
@@ -298,27 +321,34 @@ describe("parseEquipmentSave", () => {
     expect(r.equipped).toEqual({ weapon: "v2_iron_sword" });
   });
 
-  it("equipped 의 slot mismatch 는 거절", () => {
+  it("stored slot 무시하고 카탈로그 슬롯으로 배치 (3→6 마이그)", () => {
     const r = parseEquipmentSave({
-      owned: ["v2_iron_sword"],
-      // 무기를 방어구 슬롯에 박으면 거절
-      equipped: { armor: "v2_iron_sword" },
+      owned: ["v2_iron_sword", "v2_silver_ring"],
+      // 무기를 갑옷 키에, 옛 accessory 키에 반지 — 카탈로그 슬롯으로 재배정.
+      equipped: { armor: "v2_iron_sword", accessory: "v2_silver_ring" },
     });
-    expect(r.equipped).toEqual({});
+    expect(r.equipped).toEqual({
+      weapon: "v2_iron_sword",
+      ring: "v2_silver_ring",
+    });
   });
 
-  it("정상 raw 는 그대로 통과", () => {
+  it("정상 raw 통과 — 옛 accessory 는 카탈로그 슬롯으로 마이그", () => {
     const raw = {
       owned: ["v2_iron_sword", "v2_chain_mail", "v2_jade_amulet"],
       equipped: {
         weapon: "v2_iron_sword",
         armor: "v2_chain_mail",
-        accessory: "v2_jade_amulet",
+        accessory: "v2_jade_amulet", // 옛 슬롯 키 → jade_amulet(mana) 은 목걸이
       },
     };
     const r = parseEquipmentSave(raw);
     expect(r.owned).toEqual(raw.owned);
-    expect(r.equipped).toEqual(raw.equipped);
+    expect(r.equipped).toEqual({
+      weapon: "v2_iron_sword",
+      armor: "v2_chain_mail",
+      necklace: "v2_jade_amulet",
+    });
   });
 
   it("equipped 의 알 수 없는 슬롯 키는 무시", () => {

@@ -58,10 +58,20 @@ function DurabilityBar({ dur }: { dur: number }) {
 
 const SLOT_LABEL: Record<V2EquipSlot, string> = {
   weapon: "무기",
-  armor: "방어구",
-  accessory: "장신구",
+  armor: "갑옷",
+  gloves: "장갑",
+  boots: "신발",
+  ring: "반지",
+  necklace: "목걸이",
 };
-const SLOTS: V2EquipSlot[] = ["weapon", "armor", "accessory"];
+const SLOTS: V2EquipSlot[] = [
+  "weapon",
+  "armor",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
+];
 
 type Equipped = Partial<Record<V2EquipSlot, V2EquipmentId>>;
 type Durability = Partial<Record<V2EquipmentId, number>>;

@@ -6,18 +6,28 @@
 // PR-4a 전투 재설계 — 장비 데이터 모델을 **위력(power) / 무게(weight) / 옵션(options)** 으로
 // 통합 (옛 atk/def/matk 직접표기 + 6스탯 token 폐기). 효과는 **슬롯별 분기**(derive):
 //   - 무기: 위력 → 물리 공격력 + 마법 공격력 (둘 다). "무기는 빌드를 안 가린다."
-//   - 방어구: 위력 → 물리 방어력
-//   - 장신구: 위력 → 물리 방어력 + 마법 방어력
-//   - 무게 → 속도 −(선형). 빌드 트레이드오프(중갑 = 느림).
+//   - 갑옷/장갑/신발: 위력 → 물리 방어력 (물리 방어선 3슬롯).
+//   - 반지/목걸이: 위력 → 마법 방어력 (장신구선 2슬롯).
+//   - 무게 → 속도 −(선형). 빌드 트레이드오프(중갑 = 느림). 장갑·신발·장신구는 가볍다.
 //   - 옵션(crit/eva/mp/hp) → 위력 외 flavor 차별화. derive 결과 player 에 후-가산.
+//     장갑=치명 / 신발=회피 / 반지=치명 / 목걸이=MP 로 슬롯 시그니처를 가른다.
 // 스탯 정체성(힘/민/지…)은 이제 **훈련 분배 + 직업**에서 나온다 — 장비는 스탯 token 을 안 준다.
 //
-// 컨셉 7갈래(같은 부위 안의 결): 무기 str/dex/int · 방어 heavy/light · 장신 luck/mana.
-// 티어 T1~T5. 내구도/수리는 PR-4b. 위력·무게 계수는 sim 캘리브(PR-8).
+// 슬롯 6 + 컨셉(같은 부위 안의 결): 무기 str/dex/int · 갑옷/장갑/신발 heavy/light · 반지 luck · 목걸이 mana.
+// 티어 T1~T5. 3슬롯→6슬롯 확장(2026-06): 총량 중립(갑옷 유지·장갑/신발 소량def, 옛 장신구 분할).
 
 import type { V2Element } from "@/adventure/data/v2/elements";
 
-export type V2EquipSlot = "weapon" | "armor" | "accessory";
+// 6슬롯(2026-06): 무기 / 갑옷 / 장갑 / 신발 / 반지 / 목걸이.
+//   - 물리 방어선: 갑옷(주) + 장갑(+크리) + 신발(+회피·경량) → 위력=물방.
+//   - 장신구선: 반지(운, +크리) + 목걸이(마법, +MP) → 위력=마방.
+export type V2EquipSlot =
+  | "weapon"
+  | "armor"
+  | "gloves"
+  | "boots"
+  | "ring"
+  | "necklace";
 
 // 컨셉 = 같은 부위 안에서 빌드 결을 가르는 축.
 // 부위에 종속 — str/dex/int 는 무기, heavy/light 는 방어, luck/mana 는 장신.
@@ -32,7 +42,7 @@ export type V2EquipConcept =
 
 export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
 
-// PR-2: 35종.
+// 55종 (무기 15 · 갑옷 10 · 장갑 10 · 신발 10 · 반지 5 · 목걸이 5).
 export type V2EquipmentId =
   // 무기-힘 (str/atk)
   | "v2_iron_sword"
@@ -64,13 +74,37 @@ export type V2EquipmentId =
   | "v2_shadow_cloak"
   | "v2_silken_armor"
   | "v2_windweave_cloak"
-  // 장신-운 (luk/crit)
+  // 장갑-중갑 (heavy/def/crit)
+  | "v2_iron_gauntlets"
+  | "v2_steel_gauntlets"
+  | "v2_plate_gauntlets"
+  | "v2_silver_gauntlets"
+  | "v2_mithril_gauntlets"
+  // 장갑-경갑 (light/def/crit)
+  | "v2_leather_gloves"
+  | "v2_studded_gloves"
+  | "v2_shadow_gloves"
+  | "v2_silken_gloves"
+  | "v2_windweave_gloves"
+  // 신발-중갑 (heavy/def/eva)
+  | "v2_iron_boots"
+  | "v2_steel_boots"
+  | "v2_plate_boots"
+  | "v2_silver_boots"
+  | "v2_mithril_boots"
+  // 신발-경갑 (light/def/eva)
+  | "v2_leather_boots"
+  | "v2_studded_boots"
+  | "v2_shadow_boots"
+  | "v2_silken_boots"
+  | "v2_windweave_boots"
+  // 반지-운 (luck/마방/crit)
   | "v2_silver_ring"
   | "v2_gold_ring"
   | "v2_lucky_charm"
   | "v2_stardust_ring"
   | "v2_fate_ring"
-  // 장신-마법 (int/mp)
+  // 목걸이-마법 (mana/마방/mp)
   | "v2_jade_amulet"
   | "v2_rune_pendant"
   | "v2_crystal_amulet"
@@ -117,12 +151,9 @@ export type V2Equipment = {
 };
 
 // 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
-// 부위별 곱: 무기 ×1.5, 방어 ×1.0, 장신 ×0.5.
-//   T1 base 500   → 무기 750     / 방어 500    / 장신 250
-//   T2 base 3000  → 무기 4,500   / 방어 3,000  / 장신 1,500
-//   T3 base 18000 → 무기 27,000  / 방어 18,000 / 장신 9,000
-//   T4 base 108k  → 무기 162,000 / 방어 108,000 / 장신 54,000
-//   T5 base 648k  → 무기 972,000 / 방어 648,000 / 장신 324,000
+// 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
+//   T1 base 500   → 무기 750 / 갑옷 500 / 장갑·신발 300 / 반지·목걸이 250
+//   T5 base 648k  → 무기 972k / 갑옷 648k / 장갑·신발 388.8k / 반지·목걸이 324k
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 500,
   2: 3000,
@@ -133,7 +164,10 @@ const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
   armor: 1.0,
-  accessory: 0.5,
+  gloves: 0.6,
+  boots: 0.6,
+  ring: 0.5,
+  necklace: 0.5,
 };
 export function shopPriceFor(
   tier: V2EquipTier,
@@ -443,11 +477,237 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { eva: 3 },
   },
 
-  // ── 장신-운 (위력 = 물방+마방, 무게 0, 옵션 crit) ─────────────────────
-  // 장신구 위력은 물/마 방어 이중 역할이라 작게. 운 장신구는 치명 flavor.
+  // ── 장갑-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 crit) ──────────────
+  // 장갑은 방어 보조 + 치명 시그니처. 갑옷보다 위력 작게(총량 중립).
+  v2_iron_gauntlets: {
+    id: "v2_iron_gauntlets",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 1,
+    name: "철 건틀릿",
+    description: "쇠를 덧댄 손등 보호구. 주먹이 묵직해진다.",
+    power: 1,
+    weight: 1,
+  },
+  v2_steel_gauntlets: {
+    id: "v2_steel_gauntlets",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 2,
+    name: "강철 건틀릿",
+    description: "강철로 벼린 건틀릿. 타격에 무게가 실린다.",
+    power: 1,
+    weight: 1,
+    options: { crit: 1 },
+  },
+  v2_plate_gauntlets: {
+    id: "v2_plate_gauntlets",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 3,
+    name: "판금 건틀릿",
+    description: "판금을 이어 붙인 단단한 건틀릿.",
+    power: 1,
+    weight: 1,
+    options: { crit: 1 },
+  },
+  v2_silver_gauntlets: {
+    id: "v2_silver_gauntlets",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 4,
+    name: "은 건틀릿",
+    description: "은으로 도금한 건틀릿. 빛이 곱다.",
+    power: 2,
+    weight: 1,
+    options: { crit: 1 },
+  },
+  v2_mithril_gauntlets: {
+    id: "v2_mithril_gauntlets",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 5,
+    name: "미스릴 건틀릿",
+    description: "가볍고 단단한 미스릴 건틀릿.",
+    power: 2,
+    weight: 2,
+    options: { crit: 2 },
+  },
+
+  // ── 장갑-경갑 (위력 = 물방 소량, 무게 0, 옵션 crit) ───────────────────
+  v2_leather_gloves: {
+    id: "v2_leather_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 1,
+    name: "가죽 장갑",
+    description: "손에 익은 가죽 장갑. 가볍고 편하다.",
+    power: 1,
+    weight: 0,
+  },
+  v2_studded_gloves: {
+    id: "v2_studded_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 2,
+    name: "보강 장갑",
+    description: "쇠징을 박은 가죽 장갑.",
+    power: 1,
+    weight: 0,
+    options: { crit: 1 },
+  },
+  v2_shadow_gloves: {
+    id: "v2_shadow_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 3,
+    name: "그림자 장갑",
+    description: "손길을 죽이는 어두운 장갑.",
+    power: 1,
+    weight: 0,
+    options: { crit: 1 },
+  },
+  v2_silken_gloves: {
+    id: "v2_silken_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 4,
+    name: "비단 장갑",
+    description: "은사로 짠 얇은 장갑. 손끝이 예민해진다.",
+    power: 1,
+    weight: 0,
+    options: { crit: 2 },
+  },
+  v2_windweave_gloves: {
+    id: "v2_windweave_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 5,
+    name: "바람결 장갑",
+    description: "바람을 엮어 만든 가벼운 장갑.",
+    power: 2,
+    weight: 0,
+    options: { crit: 2 },
+  },
+
+  // ── 신발-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 eva) ───────────────
+  // 신발은 방어 보조 + 회피 시그니처. 갑옷보다 가볍다(경량).
+  v2_iron_boots: {
+    id: "v2_iron_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 1,
+    name: "철 장화",
+    description: "쇠를 덧댄 장화. 발을 든든히 감싼다.",
+    power: 1,
+    weight: 1,
+  },
+  v2_steel_boots: {
+    id: "v2_steel_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 2,
+    name: "강철 장화",
+    description: "강철로 벼린 장화. 디딤이 단단하다.",
+    power: 1,
+    weight: 1,
+    options: { eva: 1 },
+  },
+  v2_plate_boots: {
+    id: "v2_plate_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 3,
+    name: "판금 장화",
+    description: "판금을 두른 장화. 묵직하게 버틴다.",
+    power: 1,
+    weight: 1,
+    options: { eva: 1 },
+  },
+  v2_silver_boots: {
+    id: "v2_silver_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 4,
+    name: "은 장화",
+    description: "은판을 덧댄 장화. 은은히 빛난다.",
+    power: 2,
+    weight: 1,
+    options: { eva: 1 },
+  },
+  v2_mithril_boots: {
+    id: "v2_mithril_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 5,
+    name: "미스릴 장화",
+    description: "가볍고 단단한 미스릴 장화.",
+    power: 2,
+    weight: 1,
+    options: { eva: 2 },
+  },
+
+  // ── 신발-경갑 (위력 = 물방 소량, 무게 0, 옵션 eva) ────────────────────
+  v2_leather_boots: {
+    id: "v2_leather_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 1,
+    name: "가죽 신",
+    description: "부드러운 가죽 신. 발놀림이 가볍다.",
+    power: 1,
+    weight: 0,
+  },
+  v2_studded_boots: {
+    id: "v2_studded_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 2,
+    name: "보강 신",
+    description: "쇠징을 박은 가죽 신.",
+    power: 1,
+    weight: 0,
+    options: { eva: 1 },
+  },
+  v2_shadow_boots: {
+    id: "v2_shadow_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 3,
+    name: "그림자 신",
+    description: "자국을 남기지 않는 어두운 신.",
+    power: 1,
+    weight: 0,
+    options: { eva: 2 },
+  },
+  v2_silken_boots: {
+    id: "v2_silken_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 4,
+    name: "비단 신",
+    description: "은사로 짠 가벼운 신.",
+    power: 1,
+    weight: 0,
+    options: { eva: 2 },
+  },
+  v2_windweave_boots: {
+    id: "v2_windweave_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 5,
+    name: "바람결 신",
+    description: "바람을 밟듯 가벼운 신.",
+    power: 2,
+    weight: 0,
+    options: { eva: 3 },
+  },
+
+  // ── 반지-운 (위력 = 마방, 무게 0, 옵션 crit) ──────────────────────────
+  // 옛 장신-운 → 반지 슬롯. 위력은 마법 방어. 운 반지는 치명 flavor.
   v2_silver_ring: {
     id: "v2_silver_ring",
-    slot: "accessory",
+    slot: "ring",
     concept: "luck",
     tier: 1,
     name: "은가락지",
@@ -457,7 +717,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_gold_ring: {
     id: "v2_gold_ring",
-    slot: "accessory",
+    slot: "ring",
     concept: "luck",
     tier: 2,
     name: "황금 반지",
@@ -468,42 +728,43 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_lucky_charm: {
     id: "v2_lucky_charm",
-    slot: "accessory",
+    slot: "ring",
     concept: "luck",
     tier: 3,
     name: "행운의 부적",
     description: "닳은 패에 글자가 빛난다.",
-    power: 2,
+    power: 1,
     weight: 0,
     options: { crit: 1 },
   },
   v2_stardust_ring: {
     id: "v2_stardust_ring",
-    slot: "accessory",
+    slot: "ring",
     concept: "luck",
     tier: 4,
     name: "별모래 반지",
     description: "잘게 빻은 별모래가 박혀 있다.",
-    power: 2,
+    power: 1,
     weight: 0,
     options: { crit: 1 },
   },
   v2_fate_ring: {
     id: "v2_fate_ring",
-    slot: "accessory",
+    slot: "ring",
     concept: "luck",
     tier: 5,
     name: "운명의 반지",
     description: "보는 각도마다 색이 바뀌는 반지.",
-    power: 3,
+    power: 2,
     weight: 0,
     options: { crit: 2 },
   },
 
-  // ── 장신-마법 (위력 = 물방+마방, 무게 0, 옵션 mp) ─────────────────────
+  // ── 목걸이-마법 (위력 = 마방, 무게 0, 옵션 mp) ────────────────────────
+  // 옛 장신-마법 → 목걸이 슬롯. 위력은 마법 방어. 마법 목걸이는 MP flavor.
   v2_jade_amulet: {
     id: "v2_jade_amulet",
-    slot: "accessory",
+    slot: "necklace",
     concept: "mana",
     tier: 1,
     name: "옥 부적",
@@ -513,7 +774,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_rune_pendant: {
     id: "v2_rune_pendant",
-    slot: "accessory",
+    slot: "necklace",
     concept: "mana",
     tier: 2,
     name: "룬 펜던트",
@@ -524,34 +785,34 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_crystal_amulet: {
     id: "v2_crystal_amulet",
-    slot: "accessory",
+    slot: "necklace",
     concept: "mana",
     tier: 3,
     name: "수정 부적",
     description: "맑은 수정에 빛이 모인다.",
-    power: 2,
+    power: 1,
     weight: 0,
     options: { mp: 13 },
   },
   v2_starlight_pendant: {
     id: "v2_starlight_pendant",
-    slot: "accessory",
+    slot: "necklace",
     concept: "mana",
     tier: 4,
     name: "별빛 펜던트",
     description: "은사슬에 별빛이 묶여 있다.",
-    power: 2,
+    power: 1,
     weight: 0,
     options: { mp: 20 },
   },
   v2_mana_essence: {
     id: "v2_mana_essence",
-    slot: "accessory",
+    slot: "necklace",
     concept: "mana",
     tier: 5,
     name: "마나의 정수",
     description: "푸른 빛이 일렁이는 작은 결정.",
-    power: 3,
+    power: 2,
     weight: 0,
     options: { mp: 30 },
   },
@@ -576,7 +837,10 @@ export function v2EquipmentByConcept(concept: V2EquipConcept): V2Equipment[] {
 export const SLOT_CONCEPTS: Record<V2EquipSlot, V2EquipConcept[]> = {
   weapon: ["str", "dex", "int"],
   armor: ["heavy", "light"],
-  accessory: ["luck", "mana"],
+  gloves: ["heavy", "light"],
+  boots: ["heavy", "light"],
+  ring: ["luck"],
+  necklace: ["mana"],
 };
 
 export const CONCEPT_LABELS: Record<V2EquipConcept, string> = {
@@ -695,7 +959,10 @@ const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "weapon",
   "armor",
-  "accessory",
+  "gloves",
+  "boots",
+  "ring",
+  "necklace",
 ]);
 
 export function parseEquipmentSave(raw: unknown): {
@@ -716,14 +983,18 @@ export function parseEquipmentSave(raw: unknown): {
   const equippedRaw =
     v.equipped && typeof v.equipped === "object" ? v.equipped : {};
   const equipped: Partial<Record<V2EquipSlot, V2EquipmentId>> = {};
-  for (const slot of VALID_SLOTS_SET) {
-    const id = (equippedRaw as Record<string, unknown>)[slot];
-    if (typeof id !== "string" || !VALID_IDS.has(id)) continue;
-    const item = V2_EQUIPMENT[id as V2EquipmentId];
-    if (item.slot !== slot) continue;
+  // 카탈로그 슬롯(item.slot) 기준으로 배치 — stored slot 키는 신뢰하지 않는다. 3슬롯→6슬롯
+  // 마이그(2026-06): 옛 "accessory" 키에 담긴 반지/펜던트가 ring/necklace 로 자동 재배정된다.
+  for (const rawId of Object.values(
+    equippedRaw as Record<string, unknown>,
+  )) {
+    if (typeof rawId !== "string" || !VALID_IDS.has(rawId)) continue;
+    const id = rawId as V2EquipmentId;
+    const item = V2_EQUIPMENT[id];
+    if (!VALID_SLOTS_SET.has(item.slot)) continue;
     // 장착하려면 보유해야 함 (race 보정).
     if (!seen.has(id)) continue;
-    equipped[slot] = id as V2EquipmentId;
+    equipped[item.slot] = id;
   }
   // 내구도 — 유효 id + 0~MAX 클램프만 보존. 없으면 풀충(durabilityOf 가 처리).
   const durabilityRaw =

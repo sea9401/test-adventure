@@ -38,35 +38,47 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.crit).toBe(0);
   });
 
-  it("3슬롯 풀세팅 — 위력 슬롯별 분기 + 무게 합산 (T1)", () => {
+  it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
     // 철검: power 3 weight 2 (무기 → atk·magicAtk)
-    // 쇠사슬 갑옷: power 2 weight 2 (방어구 → def)
-    // 은가락지: power 1 weight 0 (장신구 → def·magicDef)
+    // 쇠사슬 갑옷: power 2 weight 2 (갑옷 → def)
+    // 은가락지: power 1 weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
       armor: "v2_chain_mail",
-      accessory: "v2_silver_ring",
+      ring: "v2_silver_ring",
     });
     expect(a.atk).toBe(3);
     expect(a.magicAtk).toBe(3);
-    expect(a.def).toBe(2 + 1); // 방어구 + 장신구 위력
-    expect(a.magicDef).toBe(1); // 장신구 위력만
+    expect(a.def).toBe(2); // 갑옷만(반지는 마방)
+    expect(a.magicDef).toBe(1); // 반지 위력
     expect(a.weight).toBe(2 + 2 + 0);
+  });
+
+  it("장갑·신발 위력 → 물방 (+ 시그니처 옵션 crit/eva)", () => {
+    // 미스릴 건틀릿 T5: power 2 crit 2 / 미스릴 장화 T5: power 2 eva 2.
+    const a = aggregateV2Equipment({
+      gloves: "v2_mithril_gauntlets",
+      boots: "v2_mithril_boots",
+    });
+    expect(a.def).toBe(2 + 2);
+    expect(a.magicDef).toBe(0);
+    expect(a.crit).toBe(2);
+    expect(a.eva).toBe(2);
   });
 
   it("옵션 (crit/eva/mp) 합산 + 위력 분기 — T5 풀", () => {
     // 별노래궁 T5: power 14 weight 2 crit 2
     // 바람 망토 T5: power 4 weight 1 eva 3
-    // 마나의 정수 T5: power 3 weight 0 mp 30
+    // 마나의 정수 T5: power 2 weight 0 mp 30 (목걸이 → 마방)
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
-      accessory: "v2_mana_essence",
+      necklace: "v2_mana_essence",
     });
     expect(a.atk).toBe(14);
     expect(a.magicAtk).toBe(14);
-    expect(a.def).toBe(4 + 3); // 방어구 + 장신구 위력
-    expect(a.magicDef).toBe(3); // 장신구 위력
+    expect(a.def).toBe(4); // 갑옷만
+    expect(a.magicDef).toBe(2); // 목걸이 위력
     expect(a.weight).toBe(2 + 1 + 0);
     expect(a.crit).toBe(2);
     expect(a.eva).toBe(3);
@@ -80,11 +92,11 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicDef).toBe(0); // 방어구는 마방 안 줌
   });
 
-  it("장신구 위력은 def·magicDef 둘 다, 무게 0", () => {
-    // 운명의 반지 T5: power 3 weight 0 crit 2.
-    const a = aggregateV2Equipment({ accessory: "v2_fate_ring" });
-    expect(a.def).toBe(3);
-    expect(a.magicDef).toBe(3);
+  it("반지·목걸이 위력은 마방만(물방 X), 무게 0", () => {
+    // 운명의 반지 T5: power 2 weight 0 crit 2 → 마방만.
+    const a = aggregateV2Equipment({ ring: "v2_fate_ring" });
+    expect(a.def).toBe(0); // 반지는 물방 안 줌
+    expect(a.magicDef).toBe(2);
     expect(a.weight).toBe(0);
     expect(a.crit).toBe(2);
   });
@@ -146,12 +158,12 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
     expect(d.player.maxMp).toBe(V2_BASE_MP + 40 * 2);
   });
 
-  it("mana accessory mp 옵션 가산 (스탯 token 없음 — PR-4a)", () => {
-    // 마나의 정수 T5: power 3, mp 옵션 30. 장비는 int token 안 줌.
+  it("mana 목걸이 mp 옵션 가산 (스탯 token 없음 — PR-4a)", () => {
+    // 마나의 정수 T5: power 2, mp 옵션 30. 장비는 int token 안 줌.
     // maxMp = V2_BASE_MP(50) + mp 30 + INT(기본15)×2 = 110.
     const d = derivePlayerCombatV2Pure({
       level: 1,
-      v2Equipped: { accessory: "v2_mana_essence" },
+      v2Equipped: { necklace: "v2_mana_essence" },
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.maxMp).toBe(V2_BASE_MP + 30 + 15 * 2);

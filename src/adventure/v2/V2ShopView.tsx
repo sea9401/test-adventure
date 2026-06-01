@@ -23,13 +23,16 @@ import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 // 장비 판매가 = 구매가의 5%. 재료는 고정 판매가(V2_MATERIAL_SELL_PRICE), 구매 불가.
 
 type Mode = "buy" | "sell";
-type SlotTab = "weapon" | "armor" | "accessory";
+type SlotTab = "weapon" | "armor" | "gloves" | "boots" | "ring" | "necklace";
 type SubTab = SlotTab | "material";
 
 const SLOT_TABS: ReadonlyArray<{ key: SubTab; label: string }> = [
   { key: "weapon", label: "무기" },
-  { key: "armor", label: "방어구" },
-  { key: "accessory", label: "장신구" },
+  { key: "armor", label: "갑옷" },
+  { key: "gloves", label: "장갑" },
+  { key: "boots", label: "신발" },
+  { key: "ring", label: "반지" },
+  { key: "necklace", label: "목걸이" },
 ];
 // 판매 탭에만 재료 추가 — 재료는 사고팔기 중 '판매(환금)'만 지원.
 const SELL_TABS: ReadonlyArray<{ key: SubTab; label: string }> = [
@@ -49,7 +52,10 @@ const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
   const groups: Record<SlotTab, V2EquipmentId[]> = {
     weapon: [],
     armor: [],
-    accessory: [],
+    gloves: [],
+    boots: [],
+    ring: [],
+    necklace: [],
   };
   const items = Object.values(V2_EQUIPMENT)
     .filter((it) => shopPriceOf(it) != null)

@@ -14,6 +14,7 @@ import {
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
+  v2SkillSlotsForLevel,
 } from "@/adventure/data/v2/v2Skills";
 import {
   RESPEC_COOLDOWN_MS,
@@ -85,10 +86,12 @@ export async function POST(req: Request) {
       curClass === "none" || isClassChange(curClass, nextClass)
         ? nextClass
         : curClass;
-    // 시그니처는 숙련도로 학습(자동부여 폐지, docs §6). 직업(군) 변경 시 learned 는
-    // 안 건드리고 equipped 만 학습분∩새 체인으로 reconcile — 새 직업 시그니처는 learn-skill 로 습득.
-    const chain = signaturesForClass(effectiveClass);
+    // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
+    // equipped 는 PRUNE 만(새 체인 밖/미학습 제거 + 슬롯 절단). 새 직업 시그니처는
+    // learn-skill 학습 후 equip-skill 로 직접 장착.
+    const chain = new Set<string>(signaturesForClass(effectiveClass));
     const learnedSet = new Set<string>(skills.learned);
+    const skillSlots = v2SkillSlotsForLevel(level);
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -141,11 +144,12 @@ export async function POST(req: Request) {
       lastRespecAt: nextLastRespecAt,
     });
 
-    // equipped 만 reconcile(학습분∩새 체인) — learned 는 보존(직업군 바뀌면 옛 시그니처는
-    // equipped 에서만 빠지고 기록은 유지). 새 직업 시그니처는 learn-skill 로 숙련도 학습.
+    // equipped PRUNE — 학습+새 체인 유효분만, 플레이어 선택 순서 유지, 슬롯 절단. learned 보존.
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      equipped: chain.filter((s) => learnedSet.has(s)),
+      equipped: skills.equipped
+        .filter((s) => learnedSet.has(s) && chain.has(s))
+        .slice(0, skillSlots),
     });
 
     return {

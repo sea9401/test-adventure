@@ -10,7 +10,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
-import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import {
+  parseV2SkillsState,
+  v2SkillSlotsForLevel,
+} from "@/adventure/data/v2/v2Skills";
 import {
   parseV2Class,
   tier1ClassOf,
@@ -282,11 +285,14 @@ export async function GET() {
     resources,
     currentOutpost,
     skills: parseV2SkillsState(skillsRow?.value),
-    // 시그니처 학습 현황 — 현 직업 체인의 각 시그니처 + 차수/비용/학습여부(UI 학습 패널용).
+    // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
+    skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
+    // 시그니처 현황 — 현 직업 체인의 각 시그니처 + 차수/비용/학습/장착여부(학습·장착 패널용).
     signatures: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
+      const equippedSet = new Set<string>(skillsState.equipped);
       return signaturesForClass(cls).map((skillId) => {
         const sigClass = signatureClassOf(skillId) ?? cls;
         const tier = V2_CLASS_DEFS[sigClass].tier;
@@ -295,6 +301,7 @@ export async function GET() {
           tier,
           cost: signatureLearnCost(tier),
           learned: learnedSet.has(skillId),
+          equipped: equippedSet.has(skillId),
         };
       });
     })(),

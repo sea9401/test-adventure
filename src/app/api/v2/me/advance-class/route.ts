@@ -21,6 +21,7 @@ import {
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
+  v2SkillSlotsForLevel,
 } from "@/adventure/data/v2/v2Skills";
 import {
   codexRequirement,
@@ -125,13 +126,17 @@ export async function POST() {
       exp: 0,
     });
 
-    // 시그니처는 숙련도로 학습(자동부여 폐지, docs §6). 전직은 learned 를 안 건드리고
-    // equipped 만 학습분∩새 체인으로 reconcile — 새 차수 시그니처는 learn-skill 로 따로 습득.
-    const chain = signaturesForClass(nextClass);
+    // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
+    // — 새 체인 밖/미학습 장착 제거 + 레벨1 리셋이라 슬롯(3)으로 절단. 새 차수 시그니처는
+    // learn-skill 로 학습 후 equip-skill 로 직접 장착.
+    const chain = new Set<string>(signaturesForClass(nextClass));
     const learnedSet = new Set<string>(skills.learned);
+    const slots = v2SkillSlotsForLevel(1);
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      equipped: chain.filter((s) => learnedSet.has(s)),
+      equipped: skills.equipped
+        .filter((s) => learnedSet.has(s) && chain.has(s))
+        .slice(0, slots),
     });
 
     // 숙련도 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).

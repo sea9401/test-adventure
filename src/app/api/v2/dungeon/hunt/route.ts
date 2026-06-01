@@ -419,6 +419,9 @@ export async function POST(req: Request) {
     const playerForBattle = {
       ...player.player,
       hp: regenResult.hp,
+      // MP 는 전투마다 풀충전 — "물리=버스트(매 전투)" 의도. 전투중 회복은 여전히 없음(throttle 유지).
+      // 옛 지속-MP 모델은 물리(저 maxMp) 캐릭이 1전투 후 영구 고갈→시그니처 발동 불가였다.
+      mp: player.player.maxMp ?? 0,
       atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
       magicAtk: Math.max(
         0,
@@ -585,7 +588,9 @@ export async function POST(req: Request) {
     // inventory.v2.{hpCharges, mpCharges} 보유량 만큼 부족분 자동 회복. 옛 POTIONS
     // 카탈로그 (heal_s/m/l 등) 폐기 후 단순 카운터.
     let afterHp = Math.max(0, battleResult.finalState.playerHp);
-    let afterMp = Math.max(0, battleResult.finalState.playerMp);
+    // MP 는 전투마다 풀충전 모델 — 전투 내 소모는 일시적, 저장은 항상 maxMp(다음 전투도 풀버스트).
+    // mpCharges(물약)는 더 이상 mp 회복에 안 씀(상시 풀). hpCharges 만 유지.
+    const afterMp = player.player.maxMp ?? 0;
 
     const invSave = await lockSaveForUpdate<{
       hpCharges?: number;
@@ -593,7 +598,6 @@ export async function POST(req: Request) {
       [k: string]: unknown;
     }>(tx, userId, "inventory.v2", {});
     let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
-    let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
 
     // HP 부족분 만큼 hpCharges 차감.
     if (afterHp > 0 && afterHp < player.maxHp && hpCharges > 0) {
@@ -602,18 +606,9 @@ export async function POST(req: Request) {
       afterHp += restore;
       hpCharges -= restore;
     }
-    // MP — INT 캐릭만.
-    const maxMp = player.player.maxMp ?? 0;
-    if (maxMp > 0 && afterMp < maxMp && mpCharges > 0) {
-      const need = maxMp - afterMp;
-      const restore = Math.min(need, mpCharges);
-      afterMp += restore;
-      mpCharges -= restore;
-    }
     await upsertSave(tx, userId, "inventory.v2", {
       ...invSave,
       hpCharges,
-      mpCharges,
     });
 
     // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).
@@ -722,9 +717,9 @@ export async function POST(req: Request) {
           playerElement,
           monsterElement,
           elementMatchup: playerElemMatchup,
-          // 충전식 회복약 잔량 (사냥 후 부족분 자동 소모 반영). 전투 화면 캐릭터 정보에 표기.
+          // 충전식 회복약 잔량 (HP 만 자동 소모 반영). MP 는 전투마다 풀충전이라 mpCharges 미소모.
           hpCharges,
-          mpCharges,
+          mpCharges: Math.max(0, invSave.mpCharges ?? 0),
           drops,
           droppedEquipment,
           // PR-4b — 마모/자동수리 후 장착 장비 내구도 + 자동수리 비용(0=안 함). 클라가 경고 표시.

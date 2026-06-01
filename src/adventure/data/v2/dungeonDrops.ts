@@ -180,14 +180,18 @@ export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
     { id: "v2_tough_hide", chance: 0.4, amountMin: 1, amountMax: 2 },
     { id: "v2_mana_dust", chance: 0.35, amountMin: 1, amountMax: 1 },
   ],
-  // 2층 — 변경 외곽 (Lv 6~13). 계열별 T2 재료 진입(소량).
+  // 2층 — 변경 외곽 (Lv 6~13). 3계열 중급 재료 진입(소량) — 금속/가죽/마력 동일 깊이로
+  // 둬야 T2 제작이 빌드 무관 동시에 풀린다(steel·silk·rune 셋 다 2층). slime_shard(T2 공용
+  // 접착)도 여기 둬 T2 제작이 2층에서 자기완결되도록(1층 되돌이 불필요).
   2: [
     { id: "v2_rough_ore", chance: 0.45, amountMin: 1, amountMax: 2 },
     { id: "v2_tough_hide", chance: 0.4, amountMin: 1, amountMax: 2 },
     { id: "v2_mana_dust", chance: 0.35, amountMin: 1, amountMax: 2 },
     { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 2 },
+    { id: "v2_slime_shard", chance: 0.25, amountMin: 1, amountMax: 2 },
     { id: "v2_steel_ingot", chance: 0.15, amountMin: 1, amountMax: 1 },
     { id: "v2_silk_thread", chance: 0.15, amountMin: 1, amountMax: 1 },
+    { id: "v2_rune_shard", chance: 0.15, amountMin: 1, amountMax: 1 },
   ],
   // 3층 — 산악 평원 (Lv 18~28). 광산 느낌 — 금속 편향 + 뼈/힘줄.
   3: [

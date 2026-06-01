@@ -4,7 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_SELECTABLE_CLASSES,
   parseV2Class,
-  signaturesForClass,
+  elementalSkillsForClass,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -97,8 +97,9 @@ export async function POST(req: Request) {
     const groupChanged = isClassChange(curClass, nextClass);
     const nextLevel = groupChanged ? 1 : level;
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
-    // equipped 는 PRUNE 만(새 체인 밖/미학습 제거 + 슬롯 절단, 리셋 후 레벨 기준).
-    const chain = new Set<string>(signaturesForClass(effectiveClass));
+    // equipped 는 PRUNE 만 — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착).
+    // 새 그룹 풀 밖/미학습 제거 + 슬롯 절단(리셋 후 레벨 기준).
+    const chain = new Set<string>(elementalSkillsForClass(effectiveClass));
     const learnedSet = new Set<string>(skills.learned);
     const skillSlots = v2SkillSlotsForLevel(nextLevel);
 

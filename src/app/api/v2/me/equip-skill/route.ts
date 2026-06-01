@@ -3,7 +3,6 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   parseV2Class,
-  signaturesForClass,
   elementalSkillsForClass,
 } from "@/adventure/data/v2/classes";
 import {
@@ -14,8 +13,8 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 
-// POST /api/v2/me/equip-skill — 학습한 시그니처를 슬롯에 직접 장착/해제(수동 착용 복귀).
-// body: { skillId, equip: boolean }. 장착 = 학습 + 현 직업 체인 + 슬롯 여유 필요.
+// POST /api/v2/me/equip-skill — 학습한 직업군 속성 스킬을 슬롯에 장착/해제. (시그니처는 패시브 전환 — 장착 불가)
+// body: { skillId, equip: boolean }. 장착 = 학습 + 현 직업군 속성 풀 + 슬롯 여유 필요.
 // 슬롯 수 = v2SkillSlotsForLevel(level)(레벨 33렙당+1, 3~6 — 레벨 리셋되면 줄어듦).
 // equipped 는 체인 순서로 정렬 보관(= 발동 우선순위). lock 순서 character.v2 → skills.v2.
 export async function POST(req: Request) {
@@ -42,11 +41,8 @@ export async function POST(req: Request) {
       level?: number;
     }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
-    // 장착 가능 = 현 직업 체인 시그니처 ∪ 직업군 속성 스킬 풀. 발동 순서도 이 순서.
-    const equippable = [
-      ...signaturesForClass(cls),
-      ...elementalSkillsForClass(cls),
-    ];
+    // 장착 가능 = 직업군 속성 스킬 풀만(발동 순서도 이 순서). 시그니처는 패시브 전환으로 장착 불가.
+    const equippable = [...elementalSkillsForClass(cls)];
     const slots = v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1));
 
     const skills = parseV2SkillsState(

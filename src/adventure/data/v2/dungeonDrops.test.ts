@@ -30,23 +30,30 @@ describe("rollDrops", () => {
   });
 
   it("rng 가 모두 0 이면 모든 룰 통과 + amountMin 획득", () => {
-    // 1층 룰 3개. 각 룰: chance 통과(0) + amount 굴림(0=Min).
-    const rng = seqRng([0, 0, 0, 0, 0, 0]);
+    // 1층 룰 6개. 각 룰: chance 통과(0) + amount 굴림(0=Min). 소진 후 seqRng=0.
+    const rng = seqRng([0]);
     const result = rollDrops(1, rng);
     expect(result.v2_stone_chip).toBe(1);
     expect(result.v2_herb).toBe(1);
     expect(result.v2_slime_shard).toBe(1);
+    expect(result.v2_rough_ore).toBe(1);
+    expect(result.v2_tough_hide).toBe(1);
+    expect(result.v2_mana_dust).toBe(1);
   });
 
   it("rng 가 chance 경계값보다 살짝 작으면 통과", () => {
-    // 1층 첫 룰 chance=0.5. 0.499 → 통과, 그 다음은 amount 굴림.
-    // 두 번째 룰 chance=0.3 → 0.999 거부. 세 번째 chance=0.1 → 0.999 거부.
-    const rng = seqRng([0.499, 0.99, 0.999, 0.999]);
+    // 1층 첫 룰(stone) chance=0.5. 0.499 → 통과, 그 다음은 amount 굴림(0.99).
+    // 나머지 5룰(herb 0.3·slime 0.1·rough_ore 0.4·tough_hide 0.4·mana_dust 0.35)은
+    // 0.999 로 전부 거부 → stone 만 남아야 함.
+    const rng = seqRng([0.499, 0.99, 0.999, 0.999, 0.999, 0.999, 0.999]);
     const result = rollDrops(1, rng);
     // amount=1+floor(0.99*2)=1+1=2
     expect(result.v2_stone_chip).toBe(2);
     expect(result.v2_herb).toBeUndefined();
     expect(result.v2_slime_shard).toBeUndefined();
+    expect(result.v2_rough_ore).toBeUndefined();
+    expect(result.v2_tough_hide).toBeUndefined();
+    expect(result.v2_mana_dust).toBeUndefined();
   });
 
   it("6·7·8층(엔드)은 빈 풀이라 항상 빈 결과", () => {
@@ -57,15 +64,17 @@ describe("rollDrops", () => {
   });
 
   it("chanceMult(신참 ×2) — chance 를 2배(1 cap), 미지정 1 동작 불변", () => {
-    // 1층 풀: stone 0.5 / herb 0.3 / slime 0.1. 상수 rng 0.55.
+    // 1층 풀: stone 0.5 / herb 0.3 / slime 0.1 / rough_ore 0.4 / tough_hide 0.4 /
+    // mana_dust 0.35. 상수 rng 0.55.
     const rng = () => 0.55;
     // 배율 1: 0.55 가 모든 chance 이상 → 드롭 없음 (미지정 기본도 동일).
     expect(rollDrops(1, rng)).toEqual({});
     expect(rollDrops(1, rng, 1)).toEqual({});
-    // 배율 2: stone 0.5×2=1.0(cap)·herb 0.3×2=0.6 통과, slime 0.1×2=0.2 실패.
+    // 배율 2: stone 1.0(cap)·herb 0.6·rough_ore 0.8 통과, slime 0.1×2=0.2 실패.
     const d = rollDrops(1, rng, 2);
     expect(d.v2_stone_chip).toBeGreaterThan(0);
     expect(d.v2_herb).toBeGreaterThan(0);
+    expect(d.v2_rough_ore).toBeGreaterThan(0);
     expect(d.v2_slime_shard).toBeUndefined();
   });
 });

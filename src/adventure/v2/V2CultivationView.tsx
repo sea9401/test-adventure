@@ -8,20 +8,34 @@ import {
   V2_CULTIVATE_PROFILE,
   V2_STAT_CAP_BASE,
 } from "@/adventure/data/v2/proficiency";
-import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
+import {
+  V2_CLASS_DEFS,
+  parseV2Class,
+  type V2Class,
+} from "@/adventure/data/v2/classes";
+import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
+import { V2ClassElementPicker } from "./V2ClassElementPicker";
 
-// v2 수행(修行) — 사용 가능 숙련도를 써서 현 직업군 스탯 한계치(cap)를 올린다.
+// v2 수행(修行) — 직업·속성 선택/전직(상단) + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
 // 옛 "성장의 신전"(수동 스탯 분배) 대체. 분배는 레벨업 랜덤 성장이 담당하고, 여기서는
 // 그 성장의 천장(cap)을 직업 프로필대로 끌어올린다. docs/v2-proficiency-redesign.md §4.
 
 type StateShape = {
   ok?: boolean;
+  character?: {
+    level?: number;
+    gold?: number;
+    class?: string;
+    element?: string;
+  };
+  codex?: { discovered: number; total: number };
   // stats.base = cap 클램프 후 현 스탯(직업보정 전 — cap 과 같은 스케일). 표시 "현스탯(cap)".
   stats?: { base?: Partial<Record<V2StatKey, number>> };
   proficiency?: {
     caps?: Partial<Record<V2StatKey, number>>;
     current?: {
       group: string;
+      earned: number;
       usable: number;
       cultivations: number;
       nextCost: number;
@@ -36,6 +50,15 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [nextCost, setNextCost] = useState(0);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
+  // 직업·속성 피커용 — 캐릭터 + 코덱스 + 누적 숙련도.
+  const [picker, setPicker] = useState<{
+    cls: V2Class;
+    elem: V2Element;
+    level: number;
+    gold: number;
+    codex?: { discovered: number; total: number };
+    earned: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -53,6 +76,16 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setNextCost(cur.nextCost);
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
+        if (j.character) {
+          setPicker({
+            cls: parseV2Class(j.character.class),
+            elem: parseV2Element(j.character.element),
+            level: j.character.level ?? 1,
+            gold: j.character.gold ?? 0,
+            codex: j.codex,
+            earned: cur.earned ?? 0,
+          });
+        }
       }
     } catch {}
     setLoading(false);
@@ -118,6 +151,19 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="수행" onBack={onBack} />
+
+      {/* 직업·속성 선택/전직 — 캐릭터 정보에서 이리로 이동. */}
+      {picker && (
+        <V2ClassElementPicker
+          currentClass={picker.cls}
+          currentElement={picker.elem}
+          level={picker.level}
+          gold={picker.gold}
+          codex={picker.codex}
+          cumulativeProficiency={picker.earned}
+          onChanged={refresh}
+        />
+      )}
 
       <Card padding="md">
         <div className="flex items-baseline justify-between gap-2">

@@ -3,6 +3,7 @@ import {
   addInstance,
   emptyTreasureCollection,
   parseTreasureCollection,
+  removeInstanceById,
 } from "./treasureCollection";
 import type { AntiqueInstance } from "./antiqueInstances";
 
@@ -35,5 +36,17 @@ describe("addInstance", () => {
     c = addInstance(c, inst("b"));
     c = addInstance(c, inst("a")); // dup
     expect(c.instances.map((i) => i.instanceId)).toEqual(["a", "b"]);
+  });
+});
+
+describe("removeInstanceById", () => {
+  it("제거 + removed 반환, 없으면 null", () => {
+    let c = emptyTreasureCollection();
+    c = addInstance(c, inst("a", "gold_coin"));
+    c = addInstance(c, inst("b", "clay_shard"));
+    expect(removeInstanceById(c, "zzz")).toBeNull();
+    const r = removeInstanceById(c, "a");
+    expect(r?.removed.instanceId).toBe("a");
+    expect(r?.collection.instances.map((i) => i.instanceId)).toEqual(["b"]);
   });
 });

@@ -33,3 +33,16 @@ export function addInstance(
   if (c.instances.some((i) => i.instanceId === inst.instanceId)) return c;
   return { instances: [...c.instances, inst] };
 }
+
+// instanceId 로 한 점 제거(순수). 분해(PR-6)에서 사용. 없으면 null(차감 대상 부재).
+export function removeInstanceById(
+  c: TreasureCollection,
+  instanceId: string,
+): { collection: TreasureCollection; removed: AntiqueInstance } | null {
+  const removed = c.instances.find((i) => i.instanceId === instanceId);
+  if (!removed) return null;
+  return {
+    collection: { instances: c.instances.filter((i) => i.instanceId !== instanceId) },
+    removed,
+  };
+}

@@ -18,6 +18,7 @@ export type BatchSummary = {
   wins: number;
   losses: number;
   totalExp: number;
+  totalProficiency: number;
   totalGold: number;
   levelsGained: number;
   drops: Partial<Record<V2MaterialId, number>>;
@@ -74,6 +75,14 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
             </span>
           )}
         </div>
+        {summary.totalProficiency > 0 && (
+          <div className="flex items-baseline justify-center gap-1.5">
+            <span className="text-zinc-500 dark:text-zinc-400">숙련도</span>
+            <span className="font-medium tabular-nums text-violet-600 dark:text-violet-400">
+              +{summary.totalProficiency.toLocaleString()}
+            </span>
+          </div>
+        )}
         <div className="flex items-baseline justify-center gap-1.5">
           <span className="text-zinc-500 dark:text-zinc-400">골드</span>
           <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">

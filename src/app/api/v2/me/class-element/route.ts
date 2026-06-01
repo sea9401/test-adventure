@@ -22,6 +22,12 @@ import {
   isPaidRespec,
   respecGoldCost,
 } from "@/adventure/data/v2/respec";
+import {
+  parseProficiency,
+  setGrown,
+  emptyProficiency,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
 
 // POST /api/v2/me/class-element — 직업·속성 선택/변경.
 // PR-6 비용 전직: 첫 선택(none/neutral 에서)은 무료. 변경은 레벨비례 골드 + 24h 쿨다운.
@@ -86,12 +92,15 @@ export async function POST(req: Request) {
       curClass === "none" || isClassChange(curClass, nextClass)
         ? nextClass
         : curClass;
+    // 직업군 변경(다른 직업으로 전직) = prestige 리셋 — 레벨 1·exp 0·grown 리셋(advance 와 동일).
+    // 새 직업군은 숙련도 0부터라 새로 키운다. 첫 선택(none→)·속성만 변경은 레벨 유지.
+    const groupChanged = isClassChange(curClass, nextClass);
+    const nextLevel = groupChanged ? 1 : level;
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
-    // equipped 는 PRUNE 만(새 체인 밖/미학습 제거 + 슬롯 절단). 새 직업 시그니처는
-    // learn-skill 학습 후 equip-skill 로 직접 장착.
+    // equipped 는 PRUNE 만(새 체인 밖/미학습 제거 + 슬롯 절단, 리셋 후 레벨 기준).
     const chain = new Set<string>(signaturesForClass(effectiveClass));
     const learnedSet = new Set<string>(skills.learned);
-    const skillSlots = v2SkillSlotsForLevel(level);
+    const skillSlots = v2SkillSlotsForLevel(nextLevel);
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -142,6 +151,8 @@ export async function POST(req: Request) {
       element: nextElement,
       gold: nextGold,
       lastRespecAt: nextLastRespecAt,
+      // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
+      ...(groupChanged ? { level: 1, exp: 0 } : {}),
     });
 
     // equipped PRUNE — 학습+새 체인 유효분만, 플레이어 선택 순서 유지, 슬롯 절단. learned 보존.
@@ -151,6 +162,23 @@ export async function POST(req: Request) {
         .filter((s) => learnedSet.has(s) && chain.has(s))
         .slice(0, skillSlots),
     });
+
+    // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).
+    // 락 순서 유지(character → skills → proficiency). earned/spent/caps/tier 는 보존.
+    if (groupChanged) {
+      const profSave = await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      );
+      await upsertSave(
+        tx,
+        userId,
+        "proficiency.v2",
+        setGrown(parseProficiency(profSave), {}),
+      );
+    }
 
     return {
       status: 200,

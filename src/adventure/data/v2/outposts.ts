@@ -238,6 +238,6 @@ export const OUTPOSTS: Outpost[] = [
 export const MAP_BOUNDS = { width: 10000, height: 6000 } as const;
 export const CONTINENT_NAME = "아스토리아 대륙";
 
-// 신규 플레이어 시작 거점 — 선더홀드 왕국("가장 평화로운 시작점"). 현재 위치가 아직
-// 기록되지 않았을 때(부트스트랩) 인접 이동 게이트의 기준점으로 쓴다.
-export const START_OUTPOST_ID = "kingdom_sunderhold";
+// 신규 플레이어 시작 거점 — 중앙 자유 도시(어느 세력에도 속하지 않는 중립 허브). 현재
+// 위치가 아직 기록되지 않았을 때(부트스트랩) 인접 이동 게이트·발견 시드의 기준점으로 쓴다.
+export const START_OUTPOST_ID = "neutral_haven_central";

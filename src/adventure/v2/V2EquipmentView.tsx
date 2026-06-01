@@ -21,9 +21,9 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 
 // v2 장비 화면 — 라이브 자산 (ITEMS/dropQuality 등) 분리. 자체 placeholder 풀.
-// PR-4a: 35종 그리드 (부위 3 × 컨셉 2~3 × 티어 5) — 위력/무게/옵션 모델.
-// 보유 목록과 dev grant 모두 슬롯·컨셉 그룹 + 티어 순으로 정렬해 35종이 cluttered
-// 하지 않게 표시.
+// PR-4a: 35종 (부위 3 × 컨셉 2~3 × 티어 5) — 위력/무게/옵션 모델.
+// 보유 목록을 슬롯·컨셉 그룹 + 티어 순으로 정렬해 흩어지지 않게 표시.
+// (장비 지급·캐릭터 초기화 등 dev 도구는 /dev/v2-tools 로 일원화.)
 
 function formatStats(item: V2Equipment): string {
   return v2EquipStatEntries(item).join(" · ");
@@ -183,66 +183,6 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  const grantDev = useCallback(
-    async (equipmentId: V2EquipmentId) => {
-      setBusy(true);
-      setMsg(null);
-      try {
-        const res = await fetch("/api/v2/dev/grant-equipment", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ equipmentId }),
-        });
-        const j = (await res.json().catch(() => null)) as
-          | { ok?: boolean; error?: string }
-          | null;
-        if (!j?.ok) {
-          setMsg(`✗ dev grant: ${j?.error ?? `http ${res.status}`}`);
-          return;
-        }
-        await refresh();
-      } catch (err) {
-        setMsg(`✗ network: ${(err as Error).message}`);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [refresh],
-  );
-
-  const resetMe = useCallback(async () => {
-    if (
-      !window.confirm(
-        "정말로 본인 캐릭터 데이터를 전부 초기화할까요?\n" +
-          "(레벨·EXP·골드·장비·재료·길드 자원 모두 삭제, 되돌릴 수 없음)",
-      )
-    ) {
-      return;
-    }
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/dev/reset-me", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ confirm: "RESET_MY_DATA" }),
-      });
-      const j = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; deletedKeys?: number }
-        | null;
-      if (!j?.ok) {
-        setMsg(`✗ reset: ${j?.error ?? `http ${res.status}`}`);
-        return;
-      }
-      setMsg(`✓ 초기화 완료 (${j.deletedKeys ?? 0}개 키 삭제). 새로고침 권장.`);
-      await refresh();
-    } catch (err) {
-      setMsg(`✗ network: ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }, [refresh]);
-
   // 보유 목록을 슬롯·컨셉·티어 순으로 정렬 — 35종이 무작위로 흩어지지 않게.
   const ownedSet = new Set(owned);
 
@@ -359,7 +299,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
           <EmptyState
             icon={<Backpack size={40} weight="duotone" />}
             title="보유 장비가 없습니다"
-            message="아래 dev 도구로 테스트 장비를 추가해 보세요."
+            message="사냥과 상점으로 장비를 획득하면 여기에 표시됩니다."
           />
         ) : (
           SLOTS.map((slot) => {
@@ -430,62 +370,6 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
           })
         )}
       </section>
-
-      {/* dev 도구 — staging 한정. 35종 → 슬롯·컨셉 그룹화 + 티어 순. */}
-      <Card padding="md">
-        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          dev 도구 — 테스트 장비 추가
-        </div>
-        <div className="mt-3 space-y-3">
-          {SLOTS.map((slot) => (
-            <div key={slot}>
-              <div className="px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {SLOT_LABEL[slot]}
-              </div>
-              <div className="mt-1 space-y-1">
-                {SLOT_CONCEPTS[slot].map((concept) => {
-                  const items = v2EquipmentByConcept(concept);
-                  return (
-                    <div key={concept} className="flex items-center gap-1.5">
-                      <div className="w-10 shrink-0 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                        {CONCEPT_LABELS[concept]}
-                      </div>
-                      <div className="grid flex-1 grid-cols-5 gap-1">
-                        {items.map((item) => {
-                          const has = ownedSet.has(item.id);
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => grantDev(item.id)}
-                              disabled={busy || has}
-                              title={`${item.name} · ${formatStats(item)}`}
-                              className="rounded border border-zinc-300 px-1 py-1 text-[10px] hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                            >
-                              {has ? `✓ T${item.tier}` : `T${item.tier}`}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-        {/* 데이터 wipe — 사냥 직접 검증용 staging dev 도구. */}
-        <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={resetMe}
-            disabled={busy}
-            className="rounded border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          >
-            내 데이터 초기화 (캐릭·장비·재료·길드 자원 wipe)
-          </button>
-        </div>
-      </Card>
 
       {msg && (
         <div className="text-xs text-rose-600 dark:text-rose-400">{msg}</div>

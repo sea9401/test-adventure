@@ -175,3 +175,19 @@ export function craftShortfall(
     goldShort,
   };
 }
+
+// 레시피 재료를 보유 맵에서 차감한 **새 맵** 반환(순수, 입력 불변). 0 이하가 된 키는 제거.
+// 사전조건: craftShortfall(...).ok === true (충분함이 이미 검증됨) — 음수 보유는 안 만든다.
+// 레시피 무관 재료는 그대로 보존. 같은 id 가 여러 줄이어도 순차 차감이라 누적 소비된다.
+export function consumeIngredients(
+  materials: Record<string, number>,
+  recipe: V2Recipe,
+): Record<string, number> {
+  const next: Record<string, number> = { ...materials };
+  for (const ing of recipe.ingredients) {
+    const remaining = (next[ing.id] ?? 0) - ing.count;
+    if (remaining > 0) next[ing.id] = remaining;
+    else delete next[ing.id];
+  }
+  return next;
+}

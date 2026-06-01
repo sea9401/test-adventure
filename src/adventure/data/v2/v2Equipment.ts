@@ -969,17 +969,45 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
 export type V2EquipStatRow = { label: string; value: string };
 
+// 적용 스탯 — 개체 굴림(V2EquipRoll) 있으면 그 값, 없으면 카탈로그(상점 구매·옛 데이터·옵션
+// 없는 아이템). 옵션은 **카탈로그 키로 스코프 + per-key 병합** — 카탈로그에 없는 옵션은
+// (손상/변조 세이브라도) 주입 안 하고, 카탈로그 옵션이 굴림에서 누락돼도 떨어뜨리지 않음.
+// derive·표시·UI 공용 단일 source (V2EquipRoll 타입은 아래에 선언, 타입 호이스팅으로 참조 가능).
+export function effectiveStats(
+  item: V2Equipment,
+  roll: V2EquipRoll | undefined,
+): { power: number; weight: number; options?: V2EquipOptions } {
+  if (!roll) {
+    return { power: item.power, weight: item.weight, options: item.options };
+  }
+  let options = item.options;
+  if (item.options) {
+    const merged: V2EquipOptions = {};
+    for (const k of V2_EQUIP_OPTION_KEYS) {
+      const cv = item.options[k];
+      if (cv == null) continue;
+      merged[k] = roll.options?.[k] ?? cv;
+    }
+    options = merged;
+  }
+  return { power: roll.power, weight: roll.weight, options };
+}
+
 // 장비 → {라벨, 값} 행 배열. 위력 → 무게 → 옵션 순. 0 값은 건너뜀.
-// 인벤토리·상점·아이템 카드가 공유하는 단일 source.
-export function v2EquipStatRows(item: V2Equipment): V2EquipStatRow[] {
+// roll 주면 개체 굴림값 표시(보유템), 없으면 카탈로그(상점·제작 미리보기). 단일 source.
+export function v2EquipStatRows(
+  item: V2Equipment,
+  roll?: V2EquipRoll,
+): V2EquipStatRow[] {
+  const eff = effectiveStats(item, roll);
   const out: V2EquipStatRow[] = [];
-  if (item.power) {
-    out.push({ label: "위력", value: `+${item.power}` });
+  if (eff.power) {
+    out.push({ label: "위력", value: `+${eff.power}` });
   }
-  if (item.weight) {
-    out.push({ label: "무게", value: `${item.weight}` });
+  if (eff.weight) {
+    out.push({ label: "무게", value: `${eff.weight}` });
   }
-  const opts = item.options ?? {};
+  const opts = eff.options ?? {};
   for (const k of V2_EQUIP_OPTION_KEYS) {
     const v = opts[k];
     if (!v) continue;
@@ -991,8 +1019,8 @@ export function v2EquipStatRows(item: V2Equipment): V2EquipStatRow[] {
 
 // 표시 문자열 배열 ("위력 +14", "무게 2", "치명 +2%" 등) — 한 줄 인라인용.
 // rows 를 합쳐 단일 source 유지.
-export function v2EquipStatEntries(item: V2Equipment): string[] {
-  return v2EquipStatRows(item).map((r) => `${r.label} ${r.value}`);
+export function v2EquipStatEntries(item: V2Equipment, roll?: V2EquipRoll): string[] {
+  return v2EquipStatRows(item, roll).map((r) => `${r.label} ${r.value}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────

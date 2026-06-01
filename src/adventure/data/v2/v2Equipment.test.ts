@@ -226,6 +226,19 @@ describe("v2EquipStatRows (표시 행)", () => {
       { label: "MP", value: "+30" },
     ]);
   });
+
+  it("굴림(roll) 주면 굴림값 표시 — 별노래궁 카탈로그(14/2/crit2) → 굴림(16/1/crit3)", () => {
+    const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow, {
+      power: 16,
+      weight: 1,
+      options: { crit: 3 },
+    });
+    expect(rows).toEqual([
+      { label: "위력", value: "+16" },
+      { label: "무게", value: "1" },
+      { label: "치명", value: "+3%" },
+    ]);
+  });
 });
 
 describe("내구도 (PR-4b)", () => {

@@ -46,27 +46,6 @@ export function rollItemStats(
   return roll;
 }
 
-// 적용 스탯 — 굴림 있으면 그것, 없으면 카탈로그(상점 구매·옛 데이터·옵션 없는 아이템).
-// 옵션은 굴림에 있으면 그것, 없으면 카탈로그 옵션(굴림이 옵션을 안 담은 경우 대비).
-export function effectiveStats(
-  item: V2Equipment,
-  roll: V2EquipRoll | undefined,
-): { power: number; weight: number; options?: V2EquipOptions } {
-  if (!roll) {
-    return { power: item.power, weight: item.weight, options: item.options };
-  }
-  // 옵션은 **카탈로그 키로 스코프** + per-key 병합 — 굴림 값 우선, 없으면 카탈로그.
-  // 카탈로그에 없는 옵션은(손상/변조 세이브라도) 주입 안 하고, 카탈로그 옵션이 굴림에서
-  // 누락돼도 떨어뜨리지 않는다(all-or-nothing 회피).
-  let options = item.options;
-  if (item.options) {
-    const merged: V2EquipOptions = {};
-    for (const k of V2_EQUIP_OPTION_KEYS) {
-      const cv = item.options[k];
-      if (cv == null) continue;
-      merged[k] = roll.options?.[k] ?? cv;
-    }
-    options = merged;
-  }
-  return { power: roll.power, weight: roll.weight, options };
-}
+// effectiveStats 는 v2Equipment.ts(순수 장비-모델 함수)로 이전 — v2EquipStatRows 가 순환
+// import 없이 쓰도록. 기존 import 경로(derive·테스트) 유지를 위해 여기서 re-export.
+export { effectiveStats } from "./v2Equipment";

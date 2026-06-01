@@ -6,6 +6,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import {
   v2EquipStatRows,
   type V2Equipment,
+  type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
@@ -29,10 +30,13 @@ export function V2ItemCard({
   item,
   anchor,
   onClose,
+  roll,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
   onClose: () => void;
+  // 보유템의 개체 굴림(편차). 주면 굴림값 표시, 없으면 카탈로그(상점·제작 미리보기).
+  roll?: V2EquipRoll;
 }) {
   useEscapeKey(onClose);
 
@@ -47,7 +51,7 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  const options = v2EquipStatRows(item);
+  const options = v2EquipStatRows(item, roll);
 
   // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;

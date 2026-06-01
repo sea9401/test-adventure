@@ -1,7 +1,11 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { parseV2Class, signaturesForClass } from "@/adventure/data/v2/classes";
+import {
+  parseV2Class,
+  signaturesForClass,
+  elementalSkillsForClass,
+} from "@/adventure/data/v2/classes";
 import {
   parseV2SkillsState,
   emptyV2SkillsState,
@@ -38,7 +42,11 @@ export async function POST(req: Request) {
       level?: number;
     }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
-    const chain = signaturesForClass(cls);
+    // 장착 가능 = 현 직업 체인 시그니처 ∪ 직업군 속성 스킬 풀. 발동 순서도 이 순서.
+    const equippable = [
+      ...signaturesForClass(cls),
+      ...elementalSkillsForClass(cls),
+    ];
     const slots = v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1));
 
     const skills = parseV2SkillsState(
@@ -56,7 +64,7 @@ export async function POST(req: Request) {
       if (!skills.learned.includes(skillId as V2SkillId)) {
         return { status: 400, body: { ok: false as const, error: "not_learned" as const } };
       }
-      if (!chain.includes(skillId as V2SkillId)) {
+      if (!equippable.includes(skillId as V2SkillId)) {
         return { status: 400, body: { ok: false as const, error: "not_in_chain" as const } };
       }
       if (!equippedSet.has(skillId) && equippedSet.size >= slots) {
@@ -70,8 +78,8 @@ export async function POST(req: Request) {
       equippedSet.delete(skillId);
     }
 
-    // 체인 순서로 정렬(발동 우선순위 = 차수 순). 체인 밖은 제외(안전).
-    const nextEquipped = chain.filter((s) => equippedSet.has(s));
+    // 장착 가능 순서로 정렬(발동 우선순위 = 시그니처 차수 순 → 속성 풀). 밖은 제외(안전).
+    const nextEquipped = equippable.filter((s) => equippedSet.has(s));
     const next: V2SkillsState = {
       learned: skills.learned,
       equipped: nextEquipped,

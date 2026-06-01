@@ -6,7 +6,11 @@
 // 전직은 비용 전직(골드+쿨다운, respec.ts) — 첫 선택 무료, 변경만 비용.
 
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import type { V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  V2_ELEMENTAL_SKILLS_BY_CLASS,
+  type V2SkillId,
+  type V2ElementalGroupClass,
+} from "@/adventure/data/v2/v2Skills";
 
 export const V2_CLASSES = [
   "none",
@@ -433,6 +437,14 @@ const SIGNATURE_TO_CLASS: Record<string, V2Class> = (() => {
 
 export function signatureClassOf(skillId: string): V2Class | null {
   return SIGNATURE_TO_CLASS[skillId] ?? null;
+}
+
+// 직업군 속성 스킬 풀 — 현 직업의 1차 직업군(검술/궁술/…)에 속한 7속성 스킬 id.
+// 시그니처와 별개로 숙련도 학습 가능한 풀. none·매핑 없으면 빈 배열.
+export function elementalSkillsForClass(c: V2Class): V2SkillId[] {
+  const group = tier1ClassOf(c);
+  if (group === "none") return [];
+  return V2_ELEMENTAL_SKILLS_BY_CLASS[group as V2ElementalGroupClass] ?? [];
 }
 
 export function signaturesForClass(c: V2Class): V2SkillId[] {

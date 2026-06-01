@@ -13,9 +13,41 @@
 import type { StatKey } from "@/adventure/data/stats";
 import type { V2Class } from "./classes";
 import type { V2Element } from "./elements";
+import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
+
+// === 직업군별 × 속성별 스킬 (6 1차 직업군 × 7 속성 = 42) ===============
+// 각 1차 직업군이 7속성 공격 스킬을 갖는다 — 적 상성/빌드에 맞춰 골라 쓰는 속성 유연성
+// 옵션. 시그니처(무료·강함)와 별개로 숙련도로 학습(learn-skill 라우트가 시그니처 체인 ∪
+// 이 속성 풀을 허용; group = tier1 직업). id = v2_skill_elem_<1차직업>_<속성>.
+// 그룹 키 = 1차 직업 id 그대로(검술=swordsman …). 속성은 무속성 제외 7종.
+const V2_ELEMENTAL_GROUP_CLASSES = [
+  "swordsman",
+  "archer",
+  "martial",
+  "mage",
+  "priest",
+  "ninja",
+] as const;
+export type V2ElementalGroupClass =
+  (typeof V2_ELEMENTAL_GROUP_CLASSES)[number];
+const V2_ELEMENTAL_SKILL_ELEMENTS = [
+  "water",
+  "fire",
+  "wind",
+  "starlight",
+  "void",
+  "earth",
+  "lightning",
+] as const satisfies readonly V2Element[];
+export type V2ElementalSkillId =
+  `v2_skill_elem_${V2ElementalGroupClass}_${(typeof V2_ELEMENTAL_SKILL_ELEMENTS)[number]}`;
+
+// 속성 스킬 학습 비용 — 숙련도(직군 사용가능)로 지불. 시그니처(1차 80)보다 싸게: 7종을
+// 모으는 사이드그레이드 풀이라 한 종 가격은 낮게. learn-skill 라우트가 참조.
+export const V2_ELEMENTAL_LEARN_COST = 60;
 
 // 스킬 카탈로그 id — union 으로 컴파일타임 검증.
 export type V2SkillId =
@@ -81,7 +113,9 @@ export type V2SkillId =
   | "luk_curse_mark_t2" // LUK 불길한 표식
   | "luk_death_lottery_t2" // LUK 사신의 제비
   | "int_mana_burst_t2" // INT 마력 폭발
-  | "int_mind_fog_t2"; // INT 정신 안개
+  | "int_mind_fog_t2" // INT 정신 안개
+  // ── 직업군별 × 속성별 (6 1차 직업군 × 7 속성 = 42, 숙련도 학습 풀) ─────
+  | V2ElementalSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -141,7 +175,9 @@ export type V2SkillDefinition = {
 // === 카탈로그 — 스타터 6종 (Tier 1) ──────────────────────────────────
 // 수치는 의도적으로 낮게 (사용자 spec "성장형 느낌"). 후속 PR 에서 강화 요소 도입.
 
-export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
+// 손으로 정의한 스킬들 (스타터·t2·시그니처·몹). 속성 풀 42종은 아래에서 생성해 합친다.
+// Partial 로 둬 완전성은 최종 V2_SKILLS(= base ∪ elemental)에서만 강제한다.
+const V2_BASE_SKILLS = {
   v2_skill_strike: {
     id: "v2_skill_strike",
     name: "강타",
@@ -977,6 +1013,83 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
     monsterOnly: true,
     effects: [{ kind: "dot", ...V2_DOT_PRESETS.출혈 }],
   },
+} satisfies Partial<Record<V2SkillId, V2SkillDefinition>>;
+
+// === 속성 풀 생성 — 6 1차 직업군 × 7 속성 = 42 ========================
+// 직업군마다 통일된 coef/스탯/스케일, 차별점은 element(상성) + 이름. 공격 스킬.
+// 가격(숙련도)·게이트는 learn-skill 라우트(group=tier1직업, V2_ELEMENTAL_LEARN_COST).
+type ElemGroupConfig = {
+  stat: StatKey;
+  scaling: "physical" | "magic";
+  coef: number;
+  baseFlat: number;
+  mpCost: number;
+  /** 이름 접미(원소 라벨 뒤에 붙임). 예: "검" → "불검". */
+  noun: string;
+  /** 직업군 표기명(설명문용). */
+  groupName: string;
+};
+const V2_ELEMENTAL_GROUP_CFG: Record<V2ElementalGroupClass, ElemGroupConfig> = {
+  swordsman: { stat: "str", scaling: "physical", coef: 1.55, baseFlat: 8, mpCost: 12, noun: "검", groupName: "검사" },
+  archer: { stat: "dex", scaling: "physical", coef: 1.5, baseFlat: 8, mpCost: 12, noun: "화살", groupName: "궁수" },
+  martial: { stat: "vit", scaling: "physical", coef: 1.5, baseFlat: 8, mpCost: 12, noun: "권", groupName: "무도가" },
+  mage: { stat: "int", scaling: "magic", coef: 1.6, baseFlat: 10, mpCost: 12, noun: "마탄", groupName: "마법사" },
+  priest: { stat: "int", scaling: "magic", coef: 1.5, baseFlat: 10, mpCost: 12, noun: "심판", groupName: "사제" },
+  ninja: { stat: "luk", scaling: "physical", coef: 1.55, baseFlat: 8, mpCost: 12, noun: "암격", groupName: "인술가" },
+};
+
+const elementalSkillId = (
+  cls: V2ElementalGroupClass,
+  el: V2Element,
+): V2ElementalSkillId => `v2_skill_elem_${cls}_${el}` as V2ElementalSkillId;
+
+// 직업군별 속성 스킬 id 목록(7종) — learn/equip/노출에서 "이 직업군의 풀" 기준.
+export const V2_ELEMENTAL_SKILLS_BY_CLASS: Record<
+  V2ElementalGroupClass,
+  V2ElementalSkillId[]
+> = (() => {
+  const out = {} as Record<V2ElementalGroupClass, V2ElementalSkillId[]>;
+  for (const cls of V2_ELEMENTAL_GROUP_CLASSES) {
+    out[cls] = V2_ELEMENTAL_SKILL_ELEMENTS.map((el) => elementalSkillId(cls, el));
+  }
+  return out;
+})();
+
+const V2_ELEMENTAL_SKILLS: Record<V2ElementalSkillId, V2SkillDefinition> =
+  (() => {
+    const out = {} as Record<V2ElementalSkillId, V2SkillDefinition>;
+    for (const cls of V2_ELEMENTAL_GROUP_CLASSES) {
+      const cfg = V2_ELEMENTAL_GROUP_CFG[cls];
+      for (const el of V2_ELEMENTAL_SKILL_ELEMENTS) {
+        const id = elementalSkillId(cls, el);
+        const label = V2_ELEMENT_LABEL[el];
+        out[id] = {
+          id,
+          name: `${label}${cfg.noun}`,
+          stat: cfg.stat,
+          category: "attack",
+          tier: 2,
+          description: `${cfg.groupName} 직업군 ${label} 속성 공격. 상성에 따라 피해가 늘거나 준다.`,
+          mpCost: cfg.mpCost,
+          cooldown: 0,
+          element: el,
+          effects: [
+            {
+              kind: "damage",
+              statCoef: cfg.coef,
+              baseFlat: cfg.baseFlat,
+              scaling: cfg.scaling,
+            },
+          ],
+        };
+      }
+    }
+    return out;
+  })();
+
+export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
+  ...V2_BASE_SKILLS,
+  ...V2_ELEMENTAL_SKILLS,
 };
 
 // 모든 스타터 id — PR-2 스타터 지급/백필에서 사용.

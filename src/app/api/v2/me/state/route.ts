@@ -13,11 +13,14 @@ import { ensureV2Character } from "@/lib/server/v2Character";
 import {
   parseV2SkillsState,
   v2SkillSlotsForLevel,
+  V2_SKILLS,
+  V2_ELEMENTAL_LEARN_COST,
 } from "@/adventure/data/v2/v2Skills";
 import {
   parseV2Class,
   tier1ClassOf,
   signaturesForClass,
+  elementalSkillsForClass,
   signatureClassOf,
   V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
@@ -306,6 +309,24 @@ export async function GET() {
           skillId,
           tier,
           cost: signatureLearnCost(tier),
+          learned: learnedSet.has(skillId),
+          equipped: equippedSet.has(skillId),
+        };
+      });
+    })(),
+    // 직업군 속성 스킬 풀 — 현 직업군의 7속성 스킬 + 학습/장착여부(학습 패널 속성 탭용).
+    elementalSkills: (() => {
+      const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const skillsState = parseV2SkillsState(skillsRow?.value);
+      const learnedSet = new Set<string>(skillsState.learned);
+      const equippedSet = new Set<string>(skillsState.equipped);
+      return elementalSkillsForClass(cls).map((skillId) => {
+        const def = V2_SKILLS[skillId];
+        return {
+          skillId,
+          name: def.name,
+          element: def.element ?? null,
+          cost: V2_ELEMENTAL_LEARN_COST,
           learned: learnedSet.has(skillId),
           equipped: equippedSet.has(skillId),
         };

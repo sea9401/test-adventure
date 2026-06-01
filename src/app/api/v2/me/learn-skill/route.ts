@@ -5,6 +5,7 @@ import {
   parseV2Class,
   tier1ClassOf,
   signaturesForClass,
+  elementalSkillsForClass,
   signatureClassOf,
   V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
@@ -19,6 +20,7 @@ import {
 import {
   parseV2SkillsState,
   emptyV2SkillsState,
+  V2_ELEMENTAL_LEARN_COST,
   type V2SkillsState,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
@@ -59,15 +61,18 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "no_class" as const } };
     }
 
-    // 학습 가능 = 현 직업 체인의 시그니처(그 차수 도달분)뿐.
+    // 학습 가능 = 현 직업 체인 시그니처(그 차수 도달분) ∪ 직업군 속성 스킬 풀(7종).
     const chain = signaturesForClass(cls);
-    if (!chain.includes(skillId as V2SkillId)) {
+    const elementalPool = elementalSkillsForClass(cls);
+    const isSignature = chain.includes(skillId as V2SkillId);
+    const isElemental = elementalPool.includes(skillId as V2SkillId);
+    if (!isSignature && !isElemental) {
       return {
         status: 400,
         body: { ok: false as const, error: "not_in_chain" as const },
       };
     }
-    // chain.includes 통과 = 유효 시그니처 → V2SkillId 로 확정.
+    // 게이트 통과 = 유효 학습 대상 → V2SkillId 로 확정.
     const sig = skillId as V2SkillId;
 
     const skills = parseV2SkillsState(
@@ -105,10 +110,12 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 = 시그니처 보유 직업의 차수.
+    // 비용 — 시그니처는 보유 직업 차수별, 속성 풀은 고정(V2_ELEMENTAL_LEARN_COST).
     const sigClass = signatureClassOf(skillId) ?? cls;
     const tier = V2_CLASS_DEFS[sigClass].tier;
-    const cost = signatureLearnCost(tier);
+    const cost = isElemental
+      ? V2_ELEMENTAL_LEARN_COST
+      : signatureLearnCost(tier);
 
     const spent = spendProficiency(prof, group, cost);
     if (!spent) {

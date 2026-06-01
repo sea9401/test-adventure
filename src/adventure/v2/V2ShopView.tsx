@@ -484,8 +484,10 @@ function SortTh({
     sort && sort.key === sortKey ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
   return (
     <div
-      className={`min-w-0 whitespace-nowrap px-2 py-3 font-semibold sm:px-3 ${
-        align === "left" ? "text-left" : "text-right"
+      className={`min-w-0 whitespace-nowrap py-3 font-semibold ${
+        align === "left"
+          ? "pl-4 pr-2 text-left sm:pl-5 sm:pr-3"
+          : "px-2 text-right sm:px-3"
       }`}
       role="columnheader"
     >
@@ -526,7 +528,7 @@ function BuyEquipmentRow({
       role="row"
     >
       {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. */}
-      <div className="min-w-0 px-2 py-3 sm:px-3" role="cell">
+      <div className="min-w-0 pl-4 pr-2 py-3 sm:pl-5 sm:pr-3" role="cell">
         <EquipmentName item={item} onOpenCard={onOpenCard} />
       </div>
       <div
@@ -551,7 +553,7 @@ function BuyEquipmentRow({
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
           title={`${buyPrice.toLocaleString()} G 에 구매`}
-          className="inline-flex h-7 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-md border border-indigo-600 bg-indigo-600 px-2 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-indigo-700"
+          className="inline-flex h-7 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-2 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
         >
           {busy ? "…" : "구매"}
         </button>

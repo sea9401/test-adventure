@@ -27,8 +27,7 @@ const TIER_LABEL: Record<OutpostTier, string> = {
 // 활동(claim/harvest/policy/병사 모집 등) 만.
 export type OutpostAction =
   | { kind: "back" }
-  | { kind: "claimed" }
-  | { kind: "harvested" };
+  | { kind: "claimed" };
 
 type OccupationLite = {
   outpostId: string;
@@ -91,15 +90,12 @@ export function OutpostView({
     null,
   );
   const [policyOpen, setPolicyOpen] = useState(false);
-  const [useScroll, setUseScroll] = useState(false);
 
   const claimDisabled = computeClaimDisabled(outpost, occupation, viewerUserId);
   const isOwner =
     !!occupation &&
     !!viewerUserId &&
     occupation.occupiedByUserId === viewerUserId;
-  // PvP claim 일 때만 주문서 의미 — 점령자 있고 자기 점령 아님.
-  const pvpTarget = !!occupation && !isOwner;
   // 점령 길드 멤버 — 침입자 토벌 패널 가시 조건. user 본인 점령이 아니어도
   // 같은 길드 멤버라면 토벌 가능.
   const isGuildMember =
@@ -126,7 +122,7 @@ export function OutpostView({
       const res = await fetch("/api/v2/outpost/claim", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ outpostId: outpost.id, useScroll }),
+        body: JSON.stringify({ outpostId: outpost.id }),
       });
       let json: ClaimResult | null = null;
       try {
@@ -238,18 +234,6 @@ export function OutpostView({
           loading={busy}
         />
 
-        {pvpTarget && !claimDisabled && (
-          <label className="flex items-center gap-2 px-3 py-1 text-xs text-zinc-600 dark:text-zinc-400">
-            <input
-              type="checkbox"
-              checked={useScroll}
-              onChange={(e) => setUseScroll(e.target.checked)}
-              disabled={busy}
-            />
-            주문서 1 사용 (본 전쟁 power +20%)
-          </label>
-        )}
-
         {lastClaimResult && (
           <ClaimResultCard
             result={lastClaimResult}
@@ -270,29 +254,6 @@ export function OutpostView({
         )}
 
         {isGuildMember && <IntruderPanel outpostId={outpost.id} />}
-
-        {/* PR-7b: fort 의 병사 모집 폐기. fort 거점은 점령권만 의미. */}
-        {(outpost.type === "mine" ||
-          outpost.type === "village" ||
-          outpost.type === "tower") &&
-          isOwner && (
-            <MineHarvestCard
-              outpost={outpost}
-              tier={outpost.tier}
-              outpostType={outpost.type}
-              onHarvested={() => onAction({ kind: "harvested" })}
-            />
-          )}
-        {(outpost.type === "mine" ||
-          outpost.type === "village" ||
-          outpost.type === "tower") &&
-          !isOwner && (
-            <ActionCard
-              title="자원 산출"
-              subtitle="점령자만 수확 가능."
-              disabled={{ reason: "점령자 전용" }}
-            />
-          )}
       </section>
     </main>
   );
@@ -331,102 +292,6 @@ function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {
       <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
         {overdue ? "곧 (cron 처리 대기)" : `${h}시간 ${m}분 후`}
       </span>
-    </div>
-  );
-}
-
-function MineHarvestCard({
-  outpost,
-  tier,
-  outpostType,
-  onHarvested,
-}: {
-  outpost: Outpost;
-  tier: OutpostTier;
-  outpostType: OutpostType;
-  onHarvested: () => void;
-}) {
-  const typeLabel =
-    outpostType === "village"
-      ? "마을 (보조)"
-      : outpostType === "tower"
-        ? "마탑 (주문서)"
-        : "광산";
-  const resourceLabel = outpostType === "tower" ? "주문서" : "광물";
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  async function harvest() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/outpost/harvest", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ outpostId: outpost.id }),
-      });
-      type HarvestResponse = {
-        ok?: boolean;
-        error?: string;
-        gained?: number;
-        gainedKind?: "stone" | "scrolls";
-        effectiveHours?: number;
-        resources?: { stone: number; scrolls: number };
-      };
-      let json: HarvestResponse | null = null;
-      try {
-        json = (await res.json()) as HarvestResponse;
-      } catch {
-        setMsg(`✗ http ${res.status} (응답 JSON 아님)`);
-        return;
-      }
-      if (json && json.ok) {
-        const cumulative =
-          json.gainedKind === "scrolls"
-            ? json.resources?.scrolls
-            : json.resources?.stone;
-        if ((json.gained ?? 0) > 0) {
-          setMsg(
-            `✓ ${resourceLabel} +${json.gained} (${(json.effectiveHours ?? 0).toFixed(1)}시간치) · 누적 ${cumulative}`,
-          );
-        } else {
-          setMsg(
-            `△ 아직 산출량 없음 (누적 시간 부족) · 보유 ${cumulative ?? 0}`,
-          );
-        }
-        // 성공 응답이면 (gained=0 포함) sticky bar 동기화 — 다른 탭에서 변경된 자원도 반영.
-        onHarvested();
-      } else {
-        setMsg(`✗ ${json?.error ?? `http ${res.status}`}`);
-      }
-    } catch (err) {
-      setMsg(`✗ network: ${(err as Error).message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
-      <button
-        type="button"
-        onClick={harvest}
-        disabled={busy}
-        className="block w-full px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-zinc-800"
-      >
-        <div className="font-medium">
-          광물 수확
-          {busy && <span className="ml-2 text-xs text-zinc-500">…</span>}
-        </div>
-        <div className="mt-0.5 text-xs text-zinc-500">
-          tier {tier} {typeLabel} — 시간당 산출 (최대 24시간 누적). 클릭 시 즉시 수확.
-        </div>
-      </button>
-      {msg && (
-        <div className="border-t border-zinc-200 px-3 py-2 text-xs font-mono dark:border-zinc-800">
-          {msg}
-        </div>
-      )}
     </div>
   );
 }

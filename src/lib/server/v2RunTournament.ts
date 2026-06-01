@@ -103,20 +103,6 @@ export type RunTournamentOutput = {
   defenderLineupCount: number;
 };
 
-export type RunTournamentBuffs = {
-  // PR-6 주문서 활성 시 atk 곱. 1.0 = 비활성. 양측 독립.
-  attackerAtkMult?: number;
-  defenderAtkMult?: number;
-};
-
-function applyAtkMult(members: TournamentMember[], mult: number): TournamentMember[] {
-  if (mult === 1) return members;
-  return members.map((m) => ({
-    ...m,
-    player: { ...m.player, atk: Math.round(m.player.atk * mult) },
-  }));
-}
-
 // 양측 길드의 토너먼트 sim 단판 실행. claim 라우트에서 호출.
 //
 // lock 책임: caller (claim 라우트) 가 attackerIds/defenderIds 합집합을 사전
@@ -124,20 +110,15 @@ function applyAtkMult(members: TournamentMember[], mult: number): TournamentMemb
 // 잠긴 ids 로만 derive 해서 lock 범위 밖 멤버 read 차단.
 //
 // 라인업 멤버 derive 모두 실패한 측은 자동 패배 (attackerWon=상대측).
-//
-// PR-6 buff: caller 가 활성 주문서 여부 확인 후 atk multiplier 전달.
 export async function runTournamentForGuilds(
   tx: Tx,
   attackerIds: string[],
   defenderIds: string[],
-  buffs: RunTournamentBuffs = {},
 ): Promise<RunTournamentOutput> {
-  const [attackersRaw, defendersRaw] = await Promise.all([
+  const [attackers, defenders] = await Promise.all([
     buildLineupMembersFromIds(tx, attackerIds),
     buildLineupMembersFromIds(tx, defenderIds),
   ]);
-  const attackers = applyAtkMult(attackersRaw, buffs.attackerAtkMult ?? 1);
-  const defenders = applyAtkMult(defendersRaw, buffs.defenderAtkMult ?? 1);
   const result = simulateTournament(attackers, defenders, pvpMatchSim);
   return {
     result,

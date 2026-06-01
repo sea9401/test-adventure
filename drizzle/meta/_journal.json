@@ -309,6 +309,13 @@
       "when": 1780346410672,
       "tag": "0043_milky_dreadnoughts",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1780351556316,
+      "tag": "0044_drop_outpost_resource_economy",
+      "breakpoints": true
     }
   ]
 }

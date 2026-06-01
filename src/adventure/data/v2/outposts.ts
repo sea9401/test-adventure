@@ -127,8 +127,8 @@ const CITIES: Outpost[] = [
 const OUTPOSTS_T2: Outpost[] = [
   // 중앙 분쟁지대 (평원)
   { id: "war_central_fort", name: "중앙 요새", type: "fort", tier: 2, position: { x: 4500, y: 2800 }, description: "중앙 분쟁지대의 핵심 요새. 시야와 방어 보너스." },
-  { id: "war_central_tower", name: "중앙 마탑", type: "tower", tier: 2, position: { x: 5500, y: 2800 }, description: "분쟁지대의 마탑. 점령 시 빠른 이동/사냥 효율." },
-  { id: "war_central_mine", name: "중앙 광산", type: "mine", tier: 2, position: { x: 4800, y: 2300 }, description: "분쟁지대의 광산. 영지 자원 산출." },
+  { id: "war_central_tower", name: "중앙 마탑", type: "tower", tier: 2, position: { x: 5500, y: 2800 }, description: "분쟁지대 중앙의 마탑. 영창과 시야의 요충지." },
+  { id: "war_central_mine", name: "중앙 광산", type: "mine", tier: 2, position: { x: 4800, y: 2300 }, description: "분쟁지대 중앙의 광산. 깊은 갱도가 뻗어 있다." },
   { id: "war_south_mine", name: "중앙 남광산", type: "mine", tier: 2, position: { x: 5200, y: 3400 } },
   // 평원 추가 거점 — 빈 공간 채움
   { id: "outpost_plain_fort", name: "평원 요새", type: "fort", tier: 2, position: { x: 3700, y: 2700 } },

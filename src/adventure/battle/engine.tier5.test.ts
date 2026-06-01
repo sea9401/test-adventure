@@ -66,7 +66,8 @@ describe("5티어 — 막다른 격노", () => {
 describe("5티어 — 약점 분석", () => {
   it("매 플레이어 턴 종료 시 적 ATK·DEF 페널티 누적", () => {
     const p: PlayerCombat = { ...PLAYER, analysisPerTurn: 2 };
-    let s = initialBattleState(p, enemy(9999), "용사");
+    // 적 atk/def 100 → 페널티 캡 floor(100×0.3)=30. +2 누적은 캡 한참 아래라 그대로 쌓임.
+    let s = initialBattleState(p, enemy(9999, { atk: 100, def: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 후 finishPlayerTurn → 페널티 +2
     expect(s.buffs.enemyAtkPenalty).toBe(2);
     expect(s.buffs.enemyDefPenalty).toBe(2);
@@ -76,15 +77,16 @@ describe("5티어 — 약점 분석", () => {
     expect(s.buffs.enemyDefPenalty).toBe(4);
   });
 
-  it("DEF 페널티가 플레이어 데미지에 반영 — 적 DEF 가 0 으로 클램프", () => {
-    const p: PlayerCombat = { ...PLAYER, analysisPerTurn: 10 };
-    // 적 def 3 — 1턴 후 페널티 10 → effective def = max(0, 3-10) = 0.
-    let s = initialBattleState(p, enemy(9999), "용사");
-    s = advanceTurn(s, p, "용사"); // 본타 atk10, def3 (페널티는 turn end 후 적용) → 7 피해
+  it("DEF 페널티(캡)가 플레이어 데미지에 반영 — 캡은 적 DEF 의 30%", () => {
+    const p: PlayerCombat = { ...PLAYER, atk: 50, analysisPerTurn: 20 };
+    // 적 def 30 → 페널티 캡 floor(30×0.3)=9. analysisPerTurn 20 이라도 9 에서 멈춤.
+    let s = initialBattleState(p, enemy(9999, { def: 30 }), "용사");
+    s = advanceTurn(s, p, "용사"); // 1번째 본타 → 턴 종료 시 페널티 9 (캡)
+    expect(s.buffs.enemyDefPenalty).toBe(9);
     s = advanceTurn(s, p, "용사"); // 적 턴
     const before = s.enemyHp;
-    s = advanceTurn(s, p, "용사"); // 2번째 본타 — 이때 페널티 10 적용 → damageBetween(10,0)=10
-    expect(before - s.enemyHp).toBe(10);
+    s = advanceTurn(s, p, "용사"); // 2번째 본타 — effective def = 30-9 = 21 → damageBetween(50,21)=29
+    expect(before - s.enemyHp).toBe(29);
   });
 });
 

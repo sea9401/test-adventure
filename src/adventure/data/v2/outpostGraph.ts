@@ -15,7 +15,7 @@
 //
 // 특정 구간을 손보고 싶으면 아래 MANUAL_ADD / MANUAL_REMOVE 에 [idA, idB] 한 줄.
 
-import { OUTPOSTS } from "./outposts";
+import { OUTPOSTS, START_OUTPOST_ID } from "./outposts";
 
 export type OutpostEdge = { a: string; b: string };
 
@@ -145,6 +145,30 @@ export function getOutpostNeighbors(id: string): string[] {
 
 export function areOutpostsAdjacent(a: string, b: string): boolean {
   return NEIGHBORS.get(a)?.has(b) ?? false;
+}
+
+// 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라
+// 보통 항상 존재하고, 닿지 못하면 null. 다중 홉 자동 이동(경로 미리보기 + 한 칸씩 순차
+// 진입)에 쓴다. from===to 면 [from].
+// 저장된 현재 거점 id 를 실제 기준점으로 정규화 — 없거나(신규) 알 수 없는 값(레거시/손상)
+// 이면 시작 거점(START_OUTPOST_ID)으로 폴백. 클라 기본값과 같아 정상 첫 이동이 잘못
+// 거부되지 않는다.
+export function resolveCurrentOutpostId(
+  savedOutpostId: string | null | undefined,
+): string {
+  return savedOutpostId && NEIGHBORS.has(savedOutpostId)
+    ? savedOutpostId
+    : START_OUTPOST_ID;
+}
+
+// 서버 이동 게이트의 권위 규칙(순수) — 저장된 현재 거점에서 target 으로 갈 수 있는가.
+// 같은 거점 재진입은 허용, 그 외엔 인접해야 한다. visit-outpost 라우트가 이걸 쓴다.
+export function canMoveToOutpost(
+  savedOutpostId: string | null | undefined,
+  targetId: string,
+): boolean {
+  const current = resolveCurrentOutpostId(savedOutpostId);
+  return current === targetId || areOutpostsAdjacent(current, targetId);
 }
 
 // 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라

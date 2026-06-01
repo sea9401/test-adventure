@@ -11,7 +11,6 @@ import {
 import { V2InventoryView } from "@/adventure/v2/V2InventoryView";
 import { V2CodexView } from "@/adventure/v2/V2CodexView";
 import { V2CultivationView } from "@/adventure/v2/V2CultivationView";
-import { V2GuildHallView } from "@/adventure/v2/V2GuildHallView";
 import { V2HealingView } from "@/adventure/v2/V2HealingView";
 import { V2PlaceholderView } from "@/adventure/v2/V2PlaceholderView";
 import { V2SkillLearnView } from "@/adventure/v2/V2SkillLearnView";
@@ -129,7 +128,6 @@ type View =
   | { kind: "fishing" }
   | { kind: "fishing-leaderboard" }
   | { kind: "fishing-shop" }
-  | { kind: "guild-hall" }
   | { kind: "character" }
   | { kind: "character-info" }
   | { kind: "inventory" }
@@ -159,7 +157,6 @@ function tabOfView(view: View): TabId {
     case "fishing":
     case "fishing-leaderboard":
     case "fishing-shop":
-    case "guild-hall":
       return "town";
     case "character":
     case "character-info":
@@ -233,24 +230,26 @@ export function V2GameFlow() {
     } catch {}
   }, []);
 
+  // 소속 길드 id 갱신 — mount + 길드 변경(창단 등) 시. 무소속이면 null.
+  const refreshGuildId = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/guild");
+      if (res.ok) {
+        const j = (await res.json()) as { guildId?: number | null } | null;
+        setViewerGuildId(typeof j?.guildId === "number" ? j.guildId : null);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     refreshOccupations();
+    refreshGuildId();
     (async () => {
       try {
         const res = await fetch("/api/auth/session");
         if (res.ok) {
           const j = (await res.json()) as { user?: { id?: string } } | null;
           if (j?.user?.id) setViewerUserId(j.user.id);
-        }
-      } catch {}
-    })();
-    (async () => {
-      try {
-        const res = await fetch("/api/v2/me/guild");
-        if (res.ok) {
-          const j = (await res.json()) as { guildId?: number | null } | null;
-          // 무소속이면 null — 상태 그대로 두면 점령/거점 UI 가 적절히 비활성화.
-          if (typeof j?.guildId === "number") setViewerGuildId(j.guildId);
         }
       } catch {}
     })();
@@ -301,7 +300,7 @@ export function V2GameFlow() {
         }
       } catch {}
     })();
-  }, [refreshOccupations]);
+  }, [refreshOccupations, refreshGuildId]);
 
   // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
   // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.
@@ -438,9 +437,6 @@ export function V2GameFlow() {
         break;
       case "open-fishing":
         setView({ kind: "fishing" });
-        break;
-      case "open-guild-hall":
-        setView({ kind: "guild-hall" });
         break;
     }
   };
@@ -618,9 +614,6 @@ export function V2GameFlow() {
       {view.kind === "codex" && (
         <V2CodexView onBack={() => setView({ kind: "character" })} />
       )}
-      {view.kind === "guild-hall" && (
-        <V2GuildHallView onBack={() => setView({ kind: "town" })} />
-      )}
 
       {/* === 길드 탭 === */}
       {view.kind === "guild" && (
@@ -628,6 +621,7 @@ export function V2GameFlow() {
           viewerGuildId={viewerGuildId}
           viewerUserId={viewerUserId}
           occupations={occupations}
+          onGuildChanged={refreshGuildId}
         />
       )}
 

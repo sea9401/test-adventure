@@ -21,7 +21,7 @@ type SignatureRow = {
   tier: number;
   cost: number;
   learned: boolean;
-  equipped: boolean;
+  effect: string;
 };
 
 type ElementalRow = {
@@ -105,9 +105,7 @@ export function V2SkillLearnView({
     setLoading(false);
   }, []);
 
-  const equippedCount =
-    signatures.filter((s) => s.equipped).length +
-    elementalSkills.filter((s) => s.equipped).length;
+  const equippedCount = elementalSkills.filter((s) => s.equipped).length;
 
   useEffect(() => {
     refresh();
@@ -187,9 +185,6 @@ export function V2SkillLearnView({
         }
         setMsg(`✓ ${skillName(skillId)} ${equip ? "장착" : "해제"}`);
         const eqSet = new Set(j.equipped ?? []);
-        setSignatures((prev) =>
-          prev.map((s) => ({ ...s, equipped: eqSet.has(s.skillId) })),
-        );
         setElementalSkills((prev) =>
           prev.map((s) => ({ ...s, equipped: eqSet.has(s.skillId) })),
         );
@@ -208,7 +203,7 @@ export function V2SkillLearnView({
 
       <Card padding="md">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">시그니처 학습 · 장착</h2>
+          <h2 className="text-sm font-semibold">직업 패시브</h2>
           <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
             <span>
               숙달 포인트{" "}
@@ -225,8 +220,8 @@ export function V2SkillLearnView({
           </div>
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙달 포인트를 들여 직업 전용 스킬을 익히고, 슬롯에 직접 장착한다. 장착한 스킬만 전투에서
-          발동한다(슬롯은 레벨에 비례, 전직으로 레벨이 리셋되면 줄어듦). 재전직해도 학습 기록은 남는다.
+          숙달 포인트를 들여 직업 패시브를 배우면 장착 없이 항상 적용된다. 단계가 오를수록 효과가
+          강해지며, 직업을 바꿔도 학습 기록은 남는다.
         </p>
 
         {loading ? (
@@ -235,7 +230,7 @@ export function V2SkillLearnView({
           </p>
         ) : signatures.length === 0 ? (
           <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
-            배울 시그니처가 없어요. 먼저 직업을 선택하세요.
+            배울 직업 패시브가 없어요. 먼저 직업을 선택하세요.
           </p>
         ) : (
           <ul className="mt-3 space-y-1.5">
@@ -256,9 +251,8 @@ export function V2SkillLearnView({
                       </span>
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {skillDesc(s.skillId)}
+                      {s.effect}
                     </p>
-                    <SkillDetailChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (
                     <button
@@ -269,24 +263,12 @@ export function V2SkillLearnView({
                     >
                       {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
                     </button>
-                  ) : s.equipped ? (
-                    <button
-                      type="button"
-                      onClick={() => equipSkill(s.skillId, false)}
-                      disabled={busy != null}
-                      className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-500/25 disabled:opacity-50 dark:text-sky-300"
-                    >
-                      {busy === s.skillId ? "…" : "장착 해제"}
-                    </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => equipSkill(s.skillId, true)}
-                      disabled={busy != null || equippedCount >= slots}
-                      className="shrink-0 rounded-md border border-zinc-400 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                    <span
+                      className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300"
                     >
-                      {busy === s.skillId ? "…" : "장착"}
-                    </button>
+                      적용 중
+                    </span>
                   )}
                 </li>
               );
@@ -300,7 +282,7 @@ export function V2SkillLearnView({
           <h2 className="text-sm font-semibold">속성 스킬 · 직업군</h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             직업군의 7속성 공격 스킬. 적 속성에 맞춰 골라 익히면 상성으로 피해가 늘어난다.
-            시그니처와 같은 슬롯에 장착한다.
+            슬롯에 장착한 스킬만 전투에서 발동한다(레벨 비례 슬롯).
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {

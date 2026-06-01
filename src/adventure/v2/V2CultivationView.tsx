@@ -16,6 +16,8 @@ import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
 
 type StateShape = {
   ok?: boolean;
+  // stats.base = cap 클램프 후 현 스탯(직업보정 전 — cap 과 같은 스케일). 표시 "현스탯(cap)".
+  stats?: { base?: Partial<Record<V2StatKey, number>> };
   proficiency?: {
     caps?: Partial<Record<V2StatKey, number>>;
     current?: {
@@ -33,6 +35,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [cultivations, setCultivations] = useState(0);
   const [nextCost, setNextCost] = useState(0);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
+  const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -49,6 +52,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setCultivations(cur.cultivations);
         setNextCost(cur.nextCost);
         setCaps(j.proficiency?.caps ?? {});
+        setStats(j.stats?.base ?? {});
       }
     } catch {}
     setLoading(false);
@@ -144,6 +148,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           <ul className="mt-3 space-y-1.5">
             {profileStats.map((k) => {
               const cap = caps[k] ?? V2_STAT_CAP_BASE;
+              const cur = stats[k] ?? 0;
               const gain = profile[k] ?? 0;
               return (
                 <li
@@ -159,11 +164,15 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2 tabular-nums text-sm">
-                    <span>
-                      한계 <span className="font-semibold">{cap}</span>
+                    {/* 현스탯(한계) — 예 200(300). 수행은 한계만 올림. */}
+                    <span className="font-semibold">
+                      {cur}
+                      <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                        ({cap})
+                      </span>
                     </span>
                     <span className="text-emerald-600 dark:text-emerald-400">
-                      +{gain}
+                      한계 +{gain}
                     </span>
                   </div>
                 </li>

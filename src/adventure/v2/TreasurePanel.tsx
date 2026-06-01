@@ -7,9 +7,11 @@ import { useTreasure } from "./useTreasure";
 export function TreasurePanel({
   onBack,
   onOpenCollection,
+  onOpenLeaderboard,
 }: {
   onBack: () => void;
   onOpenCollection: () => void;
+  onOpenLeaderboard: () => void;
 }) {
   const handlers = useTreasure();
   return (
@@ -17,6 +19,7 @@ export function TreasurePanel({
       {...handlers}
       onBack={onBack}
       onOpenCollection={onOpenCollection}
+      onOpenLeaderboard={onOpenLeaderboard}
     />
   );
 }

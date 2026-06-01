@@ -12,6 +12,7 @@ const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/treasure", title: "보물 발굴 — 단서형 격자", desc: "보물 PR-3 지도 조각으로 발굴 지점 열고 뜨/차가움 단서로 매장지 추리. 로컬 mock(조각 15개)." },
   { href: "/dev/treasure-collection", title: "발굴 보관함 — 골동품 목록", desc: "보물 PR-4/6 골동품 감정가순 목록 + 분해(코인). mock 데이터." },
   { href: "/dev/treasure-shop", title: "발굴 코인 상점 — 칭호 구매", desc: "보물 PR-6 발굴 코인으로 칭호 구매. mock 코인 500." },
+  { href: "/dev/treasure-leaderboard", title: "주간 발굴가치 대회 — 순위", desc: "보물 PR-7 이번 주 발굴가치 top-10 + 본인 행. mock 데이터." },
 ];
 
 export default function DevIndexPage() {

@@ -922,3 +922,33 @@ export const fishingSeasons = pgTable("fishing_seasons", {
   totalCoins: integer("total_coins").notNull().default(0),
 });
 
+// 보물 주간 발굴가치 점수 — (userId, seasonId) 당 그 주에 발굴한 골동품의 결정적 감정가 누적.
+// 주간 발굴가치 랭킹의 원천. dig 적중 시 += appraiseValue. seasonId 는 ISO 주차(월 00:00 KST).
+export const treasureScores = pgTable(
+  "treasure_scores",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    seasonId: text("season_id").notNull(),
+    totalValue: integer("total_value").notNull().default(0),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.seasonId] }),
+    // 주간 순위 — 시즌 묶어 발굴가치 내림차순.
+    index("treasure_scores_leaderboard_idx").on(
+      t.seasonId,
+      sql`${t.totalValue} DESC`,
+    ),
+  ],
+);
+
+// 보물 주간 정산 마커 — 순위 발굴 코인 지급의 멱등성(시즌당 1회). fishing_seasons 미러.
+export const treasureSeasons = pgTable("treasure_seasons", {
+  id: text("id").primaryKey(),
+  rewardsGrantedAt: timestamp("rewards_granted_at"),
+  winners: integer("winners").notNull().default(0),
+  totalCoins: integer("total_coins").notNull().default(0),
+});
+

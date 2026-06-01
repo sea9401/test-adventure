@@ -23,6 +23,8 @@ import {
   parseTreasureCodex,
   recordFind,
 } from "@/adventure/v2/treasureCodex";
+import { addTreasureScore } from "@/lib/server/treasure/records";
+import { currentTreasureSeasonId } from "@/lib/server/treasure/season";
 
 // POST /api/v2/treasure/dig — body { siteId, cell }. 격자 한 칸을 판다.
 //
@@ -87,6 +89,15 @@ export async function POST(req: Request) {
       );
       const nextCodex = recordFind(codex, session.antiqueId, session.condition, now);
       await upsertSave(tx, userId, TREASURE_CODEX_KEY, nextCodex);
+      // 주간 발굴가치 점수 += 결정적 감정가(주간 랭킹 원천, PR-7). 같은 tx 원자 증가.
+      const appraisedValue = appraiseValue(session.antiqueId, session.condition);
+      await addTreasureScore(
+        tx,
+        userId,
+        currentTreasureSeasonId(new Date(now)),
+        appraisedValue,
+        new Date(now),
+      );
       // 세션 종료.
       await upsertSave(tx, userId, TREASURE_SESSION_KEY, {});
 
@@ -99,7 +110,7 @@ export async function POST(req: Request) {
           name: a.name,
           tier: a.tier,
           condition: session.condition,
-          appraisedValue: appraiseValue(session.antiqueId, session.condition),
+          appraisedValue,
         },
         codexCount: countDiscoveredAntiques(nextCodex),
       };

@@ -84,9 +84,11 @@ export function TreasureDigView({
   dig,
   onBack,
   onOpenCollection,
+  onOpenLeaderboard,
 }: TreasureHandlers & {
   onBack?: () => void;
   onOpenCollection?: () => void;
+  onOpenLeaderboard?: () => void;
 }) {
   const [site, setSite] = useState<TreasureSitePublic | null>(null);
   const [result, setResult] = useState<Result>(null);
@@ -158,8 +160,8 @@ export function TreasureDigView({
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-1 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        {(onBack || onOpenCollection) && (
-          <div className="flex items-center justify-between">
+        {(onBack || onOpenCollection || onOpenLeaderboard) && (
+          <div className="flex items-center justify-between gap-2">
             {onBack ? (
               <button
                 type="button"
@@ -171,15 +173,26 @@ export function TreasureDigView({
             ) : (
               <span />
             )}
-            {onOpenCollection && (
-              <button
-                type="button"
-                onClick={onOpenCollection}
-                className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
-              >
-                발굴 보관함 →
-              </button>
-            )}
+            <span className="flex items-center gap-3">
+              {onOpenLeaderboard && (
+                <button
+                  type="button"
+                  onClick={onOpenLeaderboard}
+                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                >
+                  주간 순위
+                </button>
+              )}
+              {onOpenCollection && (
+                <button
+                  type="button"
+                  onClick={onOpenCollection}
+                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                >
+                  발굴 보관함 →
+                </button>
+              )}
+            </span>
           </div>
         )}
         <h1 className="text-lg font-bold">보물 발굴</h1>

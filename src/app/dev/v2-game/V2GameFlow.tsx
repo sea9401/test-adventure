@@ -34,6 +34,11 @@ import {
   shortestOutpostPath,
   seededDiscovery,
 } from "@/adventure/data/v2/outpostGraph";
+import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
+import {
+  parseV2Element,
+  V2_ELEMENT_LABEL,
+} from "@/adventure/data/v2/elements";
 import type {
   DungeonFloorId,
   Outpost,
@@ -186,6 +191,10 @@ export function V2GameFlow() {
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
   const [viewerName, setViewerName] = useState<string>("모험가");
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
+  // 전투 장면 부제(레벨·직업·속성) 표기용 — me/state 에서 초기화.
+  const [viewerLevel, setViewerLevel] = useState<number>(1);
+  const [viewerClass, setViewerClass] = useState<string>("none");
+  const [viewerElement, setViewerElement] = useState<string>("neutral");
   // 기본값 = 시작 거점(선더홀드). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
   // null 로 두지 않아 인접 이동 게이트가 첫 화면부터 일관되게 동작한다.
   const [currentOutpost, setCurrentOutpost] = useState<
@@ -244,6 +253,9 @@ export function V2GameFlow() {
             character?: {
               name?: string;
               gender?: string;
+              level?: number;
+              class?: string;
+              element?: string;
               hp?: number;
               maxHp?: number;
               stamina?: { current: number; lastUpdatedAt: number };
@@ -253,6 +265,10 @@ export function V2GameFlow() {
           } | null;
           if (j?.character?.name) setViewerName(j.character.name);
           if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
+          if (typeof j?.character?.level === "number")
+            setViewerLevel(j.character.level);
+          if (j?.character?.class) setViewerClass(j.character.class);
+          if (j?.character?.element) setViewerElement(j.character.element);
           if (j?.character?.stamina) {
             setStamina({
               current: j.character.stamina.current,
@@ -430,6 +446,10 @@ export function V2GameFlow() {
   };
 
   const currentTab = tabOfView(view);
+  // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
+  const playerSubtitle = `Lv.${viewerLevel} · ${
+    V2_CLASS_DEFS[parseV2Class(viewerClass)].name
+  } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
   // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
   const currentOutpostType: OutpostType = currentOutpost
     ? (OUTPOST_TYPE_BY_ID.get(currentOutpost.id) ?? "village")
@@ -496,6 +516,7 @@ export function V2GameFlow() {
           outpostName={currentOutpost.name}
           playerName={viewerName}
           playerGender={viewerGender}
+          playerSubtitle={playerSubtitle}
           stamina={stamina}
           setStamina={setStamina}
           hp={hp}
@@ -534,6 +555,7 @@ export function V2GameFlow() {
         <V2SparringView
           playerName={viewerName}
           gender={viewerGender}
+          playerSubtitle={playerSubtitle}
           onBack={() => setView({ kind: "training" })}
         />
       )}

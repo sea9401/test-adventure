@@ -24,6 +24,7 @@ export function ReplayBattleScene({
   maxExp,
   hpCharges,
   mpCharges,
+  playerSubtitle,
 }: {
   payload: ReplayPayload;
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
@@ -35,6 +36,8 @@ export function ReplayBattleScene({
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영). 캐릭터 정보에 충전량으로 표기.
   hpCharges?: number;
   mpCharges?: number;
+  // 플레이어 이름 아래 부제(레벨·직업·속성). BattleScene 으로 전달.
+  playerSubtitle?: string;
 }) {
   const derivedState = useMemo<BattleState>(() => {
     // finalState — 마지막 hp_bar entry 의 HP 가 최종.
@@ -77,6 +80,7 @@ export function ReplayBattleScene({
       playerName={playerName}
       playerStatus={playerStatus}
       layout="split"
+      playerSubtitle={playerSubtitle}
     />
   );
 }

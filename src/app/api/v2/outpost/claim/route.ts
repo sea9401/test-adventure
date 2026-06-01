@@ -29,6 +29,7 @@ import {
 // PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder/
 //        SCROLL_POWER_BONUS import 제거. 함수 자체 파일은 PR-7b 에서 정리.
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
@@ -121,6 +122,25 @@ export async function POST(req: Request) {
         ok: false as const,
         status: 400,
         body: { ok: false as const, error: "already_yours" as const },
+      };
+    }
+
+    // 보급선 게이트 — target 은 우리 길드가 이미 소유한 거점이나 중립 자유도시에 인접해야
+    // 점령 가능(영토 연속성). 우리 길드 소유 거점 목록을 읽어 인접 판정.
+    const ownedRows = await tx
+      .select({ outpostId: outpostOccupations.outpostId })
+      .from(outpostOccupations)
+      .where(eq(outpostOccupations.occupiedByGuildId, attackerGuildId));
+    if (
+      !canClaimOutpost(
+        outpost.id,
+        ownedRows.map((r) => r.outpostId),
+      )
+    ) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { ok: false as const, error: "no_supply_line" as const },
       };
     }
 

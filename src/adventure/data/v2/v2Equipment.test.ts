@@ -296,11 +296,13 @@ describe("parseEquipmentSave", () => {
       owned: [],
       equipped: {},
       durability: {},
+      statRolls: {},
     });
     expect(parseEquipmentSave(undefined)).toEqual({
       owned: [],
       equipped: {},
       durability: {},
+      statRolls: {},
     });
   });
 
@@ -369,5 +371,34 @@ describe("parseEquipmentSave", () => {
       } as Record<string, V2EquipmentId>,
     });
     expect(r.equipped).toEqual({ weapon: "v2_iron_sword" });
+  });
+
+  it("statRolls — 유효 굴림 보존(power≥1·weight≥0 클램프·옵션 정수), 무효 드롭", () => {
+    const r = parseEquipmentSave({
+      owned: ["v2_iron_sword"],
+      statRolls: {
+        v2_iron_sword: { power: 4, weight: 1 },
+        v2_starsong_bow: { power: 16, weight: 2, options: { crit: 3, bad: 9 } },
+        v2_silver_ring: { power: -5, weight: -2 }, // 클램프 → 1, 0
+        v2_fake_item: { power: 3, weight: 1 }, // 무효 id
+        v2_steel_sword: { weight: 2 }, // power 없음 → 드롭
+        v2_oak_staff: "x", // 객체 아님 → 드롭
+      },
+    });
+    expect(r.statRolls.v2_iron_sword).toEqual({ power: 4, weight: 1 });
+    expect(r.statRolls.v2_starsong_bow).toEqual({
+      power: 16,
+      weight: 2,
+      options: { crit: 3 }, // 허용 키만(bad 제거)
+    });
+    expect(r.statRolls.v2_silver_ring).toEqual({ power: 1, weight: 0 });
+    expect("v2_fake_item" in r.statRolls).toBe(false);
+    expect("v2_steel_sword" in r.statRolls).toBe(false);
+    expect("v2_oak_staff" in r.statRolls).toBe(false);
+  });
+
+  it("statRolls 없으면 빈 객체", () => {
+    const r = parseEquipmentSave({ owned: ["v2_iron_sword"] });
+    expect(r.statRolls).toEqual({});
   });
 });

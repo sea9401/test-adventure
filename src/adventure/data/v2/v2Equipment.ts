@@ -1051,10 +1051,20 @@ export function repairCostFor(
 // 라우트(GET·equip·grant) 와 derivePlayerCombatV2 가 공유한다. v2Equipment.ts 가
 // catalog 의 단일 source 이므로 파싱도 여기에 두는 게 자연스럽다.
 
+// 획득(드랍/제작) 시 굴린 개체 스탯 — 카탈로그 기준값 ±편차(위력·무게·옵션). 등급/이름 없음.
+// 상점 구매는 굴림 없음(정가 고정). per-id 저장(내구도와 같은 패턴) — id당 한 굴림 공유,
+// 0개 되면 삭제(재획득 시 재굴림). 굴림 없으면 derive·UI 가 카탈로그 값 사용.
+export type V2EquipRoll = {
+  power: number;
+  weight: number;
+  options?: V2EquipOptions;
+};
+
 export type EquipmentSave = {
   owned?: unknown;
   equipped?: unknown;
   durability?: unknown;
+  statRolls?: unknown;
 };
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
@@ -1071,6 +1081,7 @@ export function parseEquipmentSave(raw: unknown): {
   owned: V2EquipmentId[];
   equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   durability: Partial<Record<V2EquipmentId, number>>;
+  statRolls: Partial<Record<V2EquipmentId, V2EquipRoll>>;
 } {
   const v = (raw ?? {}) as EquipmentSave;
   const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
@@ -1112,5 +1123,34 @@ export function parseEquipmentSave(raw: unknown): {
       Math.min(MAX_DURABILITY, Math.floor(val)),
     );
   }
-  return { owned, equipped, durability };
+  // 개체 굴림 — 유효 id + power(≥1)/weight(≥0)/options(유효 키·정수)만 보존. 없으면 카탈로그.
+  const statRollsRaw =
+    v.statRolls && typeof v.statRolls === "object" ? v.statRolls : {};
+  const statRolls: Partial<Record<V2EquipmentId, V2EquipRoll>> = {};
+  for (const [id, val] of Object.entries(
+    statRollsRaw as Record<string, unknown>,
+  )) {
+    if (!VALID_IDS.has(id)) continue;
+    if (!val || typeof val !== "object") continue;
+    const r = val as { power?: unknown; weight?: unknown; options?: unknown };
+    if (typeof r.power !== "number" || !Number.isFinite(r.power)) continue;
+    if (typeof r.weight !== "number" || !Number.isFinite(r.weight)) continue;
+    const roll: V2EquipRoll = {
+      power: Math.max(1, Math.floor(r.power)),
+      weight: Math.max(0, Math.floor(r.weight)),
+    };
+    if (r.options && typeof r.options === "object") {
+      const opts: V2EquipOptions = {};
+      const rawOpts = r.options as Record<string, unknown>;
+      for (const k of V2_EQUIP_OPTION_KEYS) {
+        const ov = rawOpts[k];
+        if (typeof ov === "number" && Number.isFinite(ov)) {
+          opts[k] = Math.floor(ov);
+        }
+      }
+      if (Object.keys(opts).length > 0) roll.options = opts;
+    }
+    statRolls[id as V2EquipmentId] = roll;
+  }
+  return { owned, equipped, durability, statRolls };
 }

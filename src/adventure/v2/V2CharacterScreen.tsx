@@ -42,7 +42,13 @@ type StateResponse = {
     base: Record<V2StatKey, number>;
     total: Record<V2StatKey, number>;
   } | null;
-  combat?: { atk: number; def: number; spd: number; magicAtk?: number } | null;
+  combat?: {
+    atk: number;
+    def: number;
+    spd: number;
+    magicAtk?: number;
+    magicDef?: number;
+  } | null;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.

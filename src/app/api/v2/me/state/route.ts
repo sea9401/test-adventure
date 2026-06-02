@@ -284,6 +284,8 @@ export async function GET() {
         spd: combat.player.spd,
         // 마법 공격력 — INT 환산. 0(물리 빌드)이면 StatsPanel 이 숨김.
         magicAtk: combat.player.magicAtk ?? 0,
+        // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
+        magicDef: combat.player.magicDef ?? 0,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore({
           atk: combat.player.atk,

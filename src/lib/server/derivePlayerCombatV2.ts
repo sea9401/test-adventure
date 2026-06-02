@@ -228,6 +228,11 @@ const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 // rollAttackCount(combatShared) 가 100%↑를 정수부 확정 + 소수부 확률로 처리. cap 없음.
 const EXTRA_ATTACK_PCT_PER_SPD = 0.5;
 
+// 초반 난이도 완화 — 4대 전투 스탯(공격력·마법공격력·방어력·마법방어력)에 더하는 플랫 보너스.
+// 스탯이 작은 초반엔 비중이 커 체감 큰 완화, 후반엔 미미(Lv100 atk~75 대비 +5). 플레이어·아레나
+// 봇 모두 같은 derive 를 거치므로 PvP 중립. 난이도 재튜닝은 이 한 숫자만 조정한다.
+export const V2_BASE_COMBAT_BONUS = 5;
+
 // PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).
 // 여기서는 backward compat 을 위해 re-export.
 export { V2_BASE_STATS, V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
@@ -298,18 +303,26 @@ export function derivePlayerCombatV2Pure(
   // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
   // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
   // strict §4 — 물리공격력 = 힘 단독 + 장비 atk(무기 위력). dex/spd/luk atk 보조 없음.
-  const atk = Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk);
+  // 4대 전투 스탯엔 초반 완화용 플랫 보너스(V2_BASE_COMBAT_BONUS)를 가산.
+  const atk =
+    Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk) +
+    V2_BASE_COMBAT_BONUS;
   // 물리 방어력 — 활력 + 장비 def.
-  const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
-  // 마법 공격력 — 지능 + 무기 위력(magicAtk). INT 0·무기없음이면 0 → 마법 경로 비활성.
+  const def =
+    Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def) +
+    V2_BASE_COMBAT_BONUS;
+  // 마법 공격력 — 지능 + 무기 위력(magicAtk). +기본 보너스(마법 빌드 0 빌드도 베이스 확보).
   const magicAtk =
-    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.magicAtk;
+    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
+    equipAcc.magicAtk +
+    V2_BASE_COMBAT_BONUS;
   // 마법 방어력(신규) — 정신 major + 지능 minor + 장신구 위력. combatShared 가 마법 데미지에서 차감.
-  const magicDef = Math.floor(
-    totalStats.spi * MAGIC_DEF_PER_SPI +
-      totalStats.int * MAGIC_DEF_PER_INT +
-      equipAcc.magicDef,
-  );
+  const magicDef =
+    Math.floor(
+      totalStats.spi * MAGIC_DEF_PER_SPI +
+        totalStats.int * MAGIC_DEF_PER_INT +
+        equipAcc.magicDef,
+    ) + V2_BASE_COMBAT_BONUS;
   // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
   const minDamage = Math.floor(
     totalStats.str * MIN_DMG_PER_STR +

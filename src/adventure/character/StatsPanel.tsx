@@ -14,8 +14,9 @@ export function StatsPanel({
   totalStats?: Record<string, number>;
   /** 각 스탯의 한계치(cap). 지정 시 "값(한계치)" 표기로 바뀌고 장비 보너스 분리는 숨긴다(v2 내 정보). */
   caps?: Record<string, number | undefined>;
-  /** 전투력 — 공격력/방어력. magicAtk(마법 공격력)은 v2 INT 빌드만, 0/미지정이면 숨김. */
-  combat?: { atk: number; def: number; magicAtk?: number };
+  /** 전투력 — 공격력/방어력. magicAtk(마법 공격력)은 v2 INT 빌드만, 0/미지정이면 숨김.
+   *  magicDef(마법 방어력)은 v2 만 전달(undefined 면 숨김 — 라이브 caller 미영향). */
+  combat?: { atk: number; def: number; magicAtk?: number; magicDef?: number };
   /** 스탯 키/라벨 — 기본은 라이브 6스탯. v2 는 V2_STAT_KEYS/V2_STAT_LABELS 전달. */
   statKeys?: readonly string[];
   statLabels?: Record<string, string>;
@@ -38,6 +39,14 @@ export function StatsPanel({
                 label="마법 공격력"
                 value={combat.magicAtk}
                 accent="text-indigo-600 dark:text-indigo-400"
+              />
+            ) : null}
+            {/* 마법 방어력 — 마법 데미지를 막는 별개 방어 스탯. v2 만 값 전달(0 도 표시). */}
+            {combat.magicDef !== undefined ? (
+              <CombatStat
+                label="마법 방어력"
+                value={combat.magicDef}
+                accent="text-cyan-600 dark:text-cyan-400"
               />
             ) : null}
           </div>

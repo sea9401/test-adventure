@@ -428,3 +428,34 @@ describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
     expect(d.magicAtk).toBe(baseMagic); // 마공 증폭 없음
   });
 });
+
+describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
+  const SET = {
+    armor: "v2_field_leather_armor" as const,
+    gloves: "v2_field_leather_gloves" as const,
+    boots: "v2_field_leather_boots" as const,
+  };
+
+  it("3종 다 착용 → 세트 보너스 적용 (eva 1+1+3=5, hp 0+20=20)", () => {
+    const a = aggregateV2Equipment(SET);
+    expect(a.def).toBe(7); // 3 + 2 + 2 위력 → 물방
+    expect(a.crit).toBe(1); // 장갑 crit
+    expect(a.eva).toBe(5); // 갑옷1 + 신발1 + 세트3
+    expect(a.hp).toBe(20); // 세트 HP
+  });
+
+  it("2종만 착용 → 세트 보너스 없음", () => {
+    const a = aggregateV2Equipment({ armor: SET.armor, boots: SET.boots });
+    expect(a.eva).toBe(2); // 갑옷1 + 신발1, 세트 미적용
+    expect(a.hp).toBe(0);
+  });
+
+  it("다른 슬롯을 채워도 세트 3종이 빠지면 미적용", () => {
+    const a = aggregateV2Equipment({
+      armor: SET.armor,
+      gloves: SET.gloves,
+      weapon: "v2_meadow_bow",
+    });
+    expect(a.hp).toBe(0); // boots 빠짐 → 세트 미완성
+  });
+});

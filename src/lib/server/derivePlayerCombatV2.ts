@@ -56,6 +56,7 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
+  V2_EQUIP_SETS,
   parseEquipmentSave,
   type V2EquipmentId,
   type V2EquipRoll,
@@ -155,6 +156,27 @@ export function aggregateV2Equipment(
     acc.mp += o.mp ?? 0;
     acc.eva += o.eva ?? 0;
     acc.hp += o.hp ?? 0;
+  }
+  // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
+  const equippedIds = new Set<V2EquipmentId>();
+  for (const slot of [
+    "weapon",
+    "armor",
+    "gloves",
+    "boots",
+    "ring",
+    "necklace",
+  ] as const) {
+    const id = v2Equipped[slot];
+    if (id) equippedIds.add(id);
+  }
+  for (const set of V2_EQUIP_SETS) {
+    if (!set.pieces.every((p) => equippedIds.has(p))) continue;
+    const b = set.bonus;
+    acc.crit += b.crit ?? 0;
+    acc.eva += b.eva ?? 0;
+    acc.mp += b.mp ?? 0;
+    acc.hp += b.hp ?? 0;
   }
   return acc;
 }

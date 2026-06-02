@@ -4,8 +4,10 @@ import {
   SLOT_CONCEPTS,
   V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
+  V2_EQUIP_SETS,
   isUnique,
   parseEquipmentSave,
+  shopPriceOf,
   v2EquipStatRows,
   v2EquipmentByConcept,
   v2EquipmentBySlot,
@@ -128,16 +130,40 @@ function slotConceptLine(
   concept: V2EquipConcept,
 ): V2EquipTier[] {
   return v2EquipmentBySlot(slot)
-    .filter((i) => i.concept === concept && !isUnique(i)) // 그리드는 정규만(유니크 제외)
+    .filter((i) => i.concept === concept && !isUnique(i) && !i.craftOnly) // 그리드는 정규만(유니크·제작전용 제외)
     .sort((a, b) => a.tier - b.tier)
     .map((i) => i.tier);
 }
 
 describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
-  it("정규 55종 + 유니크 6종 = 61", () => {
+  it("정규 그리드 55종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
     const all = Object.values(V2_EQUIPMENT);
-    expect(all.filter((i) => !isUnique(i)), "정규").toHaveLength(55);
+    expect(
+      all.filter((i) => !isUnique(i) && !i.craftOnly),
+      "정규 그리드",
+    ).toHaveLength(55);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
+  });
+
+  it("제작전용(craftOnly) 은 상점 비매품 (shopPriceOf undefined)", () => {
+    const craftOnly = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
+    expect(craftOnly.length).toBe(7);
+    for (const it of craftOnly) {
+      expect(shopPriceOf(it), `${it.id} 비매품`).toBeUndefined();
+      expect(isUnique(it), `${it.id} 유니크아님`).toBe(false);
+    }
+  });
+
+  it("세트(V2_EQUIP_SETS) 조각 id 가 전부 실재 + setId 일치", () => {
+    for (const set of V2_EQUIP_SETS) {
+      expect(set.pieces.length).toBeGreaterThanOrEqual(2);
+      for (const id of set.pieces) {
+        const item = V2_EQUIPMENT[id];
+        expect(item, `${set.id} → ${id} 실재`).toBeDefined();
+        expect(item.setId, `${id} setId`).toBe(set.id);
+      }
+    }
   });
 
   it("각 (슬롯, 컨셉) 조합이 T1~T5 정확히 한 종씩", () => {
@@ -169,7 +195,7 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
     for (const slot of ALL_SLOTS) {
       for (const concept of SLOT_CONCEPTS[slot]) {
         const values = v2EquipmentBySlot(slot)
-          .filter((i) => i.concept === concept && !isUnique(i)) // 그리드는 정규만
+          .filter((i) => i.concept === concept && !isUnique(i) && !i.craftOnly) // 그리드는 정규만
           .sort((a, b) => a.tier - b.tier)
           .map((i) => i.power);
         for (let i = 1; i < values.length; i++) {

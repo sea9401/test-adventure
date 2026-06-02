@@ -23,12 +23,72 @@ export type V2Recipe = {
   gold: number;
 };
 
-// 2026-06-03: 제작 시스템 **통째 보류** — 레시피 카탈로그를 비웠다(재료 보류와 연동,
-// dungeonDrops.ts 참고). 대장간에 제작 가능 항목이 없어진다. 재료 계열 매핑·티어별 재료
-// 템플릿·규칙 기반 생성 로직은 제거(필요 시 git 이력에서 복원). 아래 순수 헬퍼
-// (recipeFor/craftShortfall/consumeIngredients/salvageYield)와 타입은 휴면으로 보존 —
-// 빈 카탈로그에서 무해하게 동작하며, 제작 재설계 시 V2_RECIPES 채우면 바로 되살아난다.
-export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = {};
+// 2026-06-03: 제작 재설계 — 옛 규칙기반 자동생성(전 장비) 폐기. 이제 **지역별 소수 제작
+// 전용 장비**만 명시 등재. 들판(1층) 7종: 흔함 재료 4(활·가죽 세트 3) + 희귀 재료 3
+// (단검·지팡이·목걸이, 희귀 재료 2개씩). 재료 id 는 dungeonDrops.V2_MATERIALS 의 들판 5종.
+export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = {
+  // ── 흔함 재료 ───────────────────────────────────────────────────
+  v2_meadow_bow: {
+    result: "v2_meadow_bow",
+    ingredients: [
+      { id: "v2_field_hide", count: 4 },
+      { id: "v2_field_grass", count: 3 },
+      { id: "v2_field_stone", count: 2 },
+    ],
+    gold: 300,
+  },
+  v2_field_leather_armor: {
+    result: "v2_field_leather_armor",
+    ingredients: [
+      { id: "v2_field_hide", count: 5 },
+      { id: "v2_field_grass", count: 2 },
+    ],
+    gold: 250,
+  },
+  v2_field_leather_gloves: {
+    result: "v2_field_leather_gloves",
+    ingredients: [
+      { id: "v2_field_hide", count: 3 },
+      { id: "v2_field_grass", count: 1 },
+    ],
+    gold: 150,
+  },
+  v2_field_leather_boots: {
+    result: "v2_field_leather_boots",
+    ingredients: [
+      { id: "v2_field_hide", count: 3 },
+      { id: "v2_field_grass", count: 1 },
+    ],
+    gold: 150,
+  },
+  // ── 희귀 재료 (희귀 2개씩) ──────────────────────────────────────
+  v2_spider_venom_dagger: {
+    result: "v2_spider_venom_dagger",
+    ingredients: [
+      { id: "v2_field_venom", count: 2 },
+      { id: "v2_field_hide", count: 3 },
+      { id: "v2_field_stone", count: 2 },
+    ],
+    gold: 400,
+  },
+  v2_wolffang_staff: {
+    result: "v2_wolffang_staff",
+    ingredients: [
+      { id: "v2_field_fang", count: 2 },
+      { id: "v2_field_grass", count: 3 },
+      { id: "v2_field_stone", count: 2 },
+    ],
+    gold: 400,
+  },
+  v2_fang_necklace: {
+    result: "v2_fang_necklace",
+    ingredients: [
+      { id: "v2_field_fang", count: 2 },
+      { id: "v2_field_hide", count: 2 },
+    ],
+    gold: 350,
+  },
+};
 
 // 레시피 조회 — 유니크 등 비제작 장비는 undefined.
 export function recipeFor(id: V2EquipmentId): V2Recipe | undefined {

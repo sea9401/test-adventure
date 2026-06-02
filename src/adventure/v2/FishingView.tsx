@@ -88,15 +88,17 @@ function BobberScene({ phase }: { phase: Phase }) {
             </>
           )}
 
-          {/* 찌 */}
-          <div className={`relative z-10 ${biting ? "fish-bob-bite" : "fish-bob-idle"}`}>
-            <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
-            <span
-              className={`block h-4 w-4 rounded-full shadow-sm ${
-                biting ? "bg-amber-500" : "bg-rose-500"
-              }`}
-            />
-            <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
+          {/* 찌 — 캐스팅 진입 시 포물선으로 날아와 안착(one-shot), 안에서 까닥/입질 */}
+          <div className="fish-cast-arc relative z-10">
+            <div className={biting ? "fish-bob-bite" : "fish-bob-idle"}>
+              <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
+              <span
+                className={`block h-4 w-4 rounded-full shadow-sm ${
+                  biting ? "bg-amber-500" : "bg-rose-500"
+                }`}
+              />
+              <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
+            </div>
           </div>
         </div>
       )}
@@ -120,6 +122,26 @@ function BobberScene({ phase }: { phase: Phase }) {
   );
 }
 
+// 반응속도 → 등급 라벨. 연출용일 뿐 보상·판정엔 영향 없음(공정성 유지).
+function reactionGrade(ms: number): { label: string; cls: string } {
+  if (ms < 250)
+    return { label: "완벽!", cls: "text-emerald-600 dark:text-emerald-400" };
+  if (ms < 450)
+    return { label: "좋음", cls: "text-sky-600 dark:text-sky-400" };
+  if (ms < 700)
+    return { label: "무난", cls: "text-zinc-500 dark:text-zinc-400" };
+  return { label: "아슬아슬", cls: "text-amber-600 dark:text-amber-400" };
+}
+
+// 티어별 "잡는 순간" 강조 — 희귀·대물일수록 크게 등장 + 발광.
+const TIER_REVEAL: Record<FishTier, { sizeCls: string; glow: boolean }> = {
+  common: { sizeCls: "text-3xl", glow: false },
+  uncommon: { sizeCls: "text-4xl", glow: false },
+  rare: { sizeCls: "text-5xl", glow: true },
+  epic: { sizeCls: "text-6xl", glow: true },
+  legendary: { sizeCls: "text-7xl", glow: true },
+};
+
 export function FishingView({
   cast,
   reel,
@@ -136,6 +158,10 @@ export function FishingView({
   const [error, setError] = useState<string | null>(null);
   // 성공 시 결과에 보여줄 "입질→챔질" 반응시간(ms). 판정과 무관한 표시용.
   const [lastReactionMs, setLastReactionMs] = useState<number | null>(null);
+  // 이번 판(세션) 기세 — 클라 표시뿐, 서버 저장·판정 무관.
+  const [sessionCount, setSessionCount] = useState(0);
+  const [sessionBest, setSessionBest] = useState(0);
+  const [streak, setStreak] = useState(0);
 
   const biteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const windowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,6 +196,13 @@ export function FishingView({
       try {
         const outcome = await reel(castId.current, reactionMs);
         if (!mounted.current) return;
+        if (outcome.caught) {
+          setSessionCount((c) => c + 1);
+          setSessionBest((b) => Math.max(b, outcome.size));
+          setStreak((s) => s + 1);
+        } else {
+          setStreak(0);
+        }
         setResult(outcome);
         setPhase("result");
       } catch {
@@ -273,6 +306,28 @@ export function FishingView({
         </div>
       </header>
 
+      {sessionCount > 0 && (
+        <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span>
+            이번 판{" "}
+            <b className="text-zinc-700 dark:text-zinc-200">{sessionCount}</b>마리
+          </span>
+          {sessionBest > 0 && (
+            <span>
+              최대{" "}
+              <b className="text-zinc-700 dark:text-zinc-200">
+                {formatFishSize(sessionBest)}
+              </b>
+            </span>
+          )}
+          {streak > 1 && (
+            <span className="text-amber-600 dark:text-amber-400">
+              🔥 연속 {streak}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* 탭 존 — 대기 중엔 찌가 잔잔히 까닥, 입질엔 확 빨려들며 떨린다. */}
       <button
         type="button"
@@ -296,7 +351,19 @@ export function FishingView({
             <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
           ) : result?.caught ? (
             <div className="space-y-1">
-              <div className="text-2xl">🐟</div>
+              <div className="relative mx-auto flex h-20 w-full items-center justify-center">
+                {/* 물보라 — 한 번 퍼지고 사라짐 */}
+                <span className="fish-splash absolute bottom-1 left-1/2 h-9 w-20 rounded-[100%] border-2 border-sky-400/50" />
+                {/* 희귀·대물 발광 */}
+                {TIER_REVEAL[result.tier].glow && (
+                  <span className="fish-glow absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-300/40 blur-md" />
+                )}
+                <div
+                  className={`fish-reveal relative ${TIER_REVEAL[result.tier].sizeCls}`}
+                >
+                  🐟
+                </div>
+              </div>
               <div className="text-base font-bold">
                 {result.name}{" "}
                 <span className="text-amber-600 dark:text-amber-400">
@@ -322,15 +389,28 @@ export function FishingView({
                 어보 {result.codexCount}/{FISH_TOTAL}종
               </div>
               {lastReactionMs != null && (
-                <div className="text-[11px] font-medium text-sky-600 dark:text-sky-400">
-                  {(lastReactionMs / 1000).toFixed(2)}초 만에 챔질!
+                <div className="text-[11px] font-medium">
+                  <span className={reactionGrade(lastReactionMs).cls}>
+                    {reactionGrade(lastReactionMs).label}
+                  </span>{" "}
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    {(lastReactionMs / 1000).toFixed(2)}초 만에 챔질!
+                  </span>
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {missMessage(result?.reason ?? "")}
-            </p>
+            <div className="space-y-1">
+              {/* 놓침 — 물고기가 휙 달아난다 */}
+              <div className="relative mx-auto h-8 w-full overflow-hidden">
+                <span className="fish-dart-away absolute bottom-0 left-1/2 text-2xl">
+                  🐟
+                </span>
+              </div>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {missMessage(result?.reason ?? "")}
+              </p>
+            </div>
           )}
         </div>
       )}

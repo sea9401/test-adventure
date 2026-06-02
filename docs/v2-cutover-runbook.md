@@ -29,10 +29,9 @@ v2(스테이징 `test-adventure` / `test.msmsge.com`)를 운영 `msmsge.com` 으
 - [ ] **OAuth 콜백** (유저/콘솔) — Google/Kakao 콘솔에 `https://msmsge.com/api/auth/callback/google`,
       `.../callback/kakao` 등록 확인. v1 앱 재사용이면 이미 있을 가능성 큼. 코드엔 콜백 하드코딩 없음
       (상대 `callbackUrl:"/"`), 링크 쿠키 host-scoped → 도메인 충돌 없음.
-- [ ] **XP 배율 결정** — `IS_STAGING` 제거 시 기본 XP 배율이 **2.2 → 1.0** 으로 떨어진다
-      (`src/lib/leveling.ts`). 의도적으로 정할 것:
-      - 빠른 페이스 유지 → `.env.production.local` 에 `NEXT_PUBLIC_XP_RATE_MULT=<원하는 값>` 명시.
-      - 기본(1.0) 수용 → 아무것도 안 함.
+- [x] **XP 배율 결정 (확정: 2.2)** — `IS_STAGING` 제거 시 기본이 2.2→1.0 으로 떨어지므로
+      (`src/lib/leveling.ts`), `.env.production.local` 에 **`NEXT_PUBLIC_XP_RATE_MULT=2.2`** 를
+      명시해 현 staging 과 동일한 페이스를 유지한다 (3b env 표 참조).
 - [ ] **(선택, 권장) PR-2 v1 잔존 표면 정리** — `/create`,`/profile`,`/manual`,`/sign-in`,`/admin` +
       v1 전용 api(`battle`,`hunt`,`shop`,`tower`,`craft`,`quests` …)가 도달 가능. v2-루트로도 무해하지만
       깔끔하게 리다이렉트/404 처리 권장 (별도 PR). 컷오버 자체의 블로커는 아님.
@@ -173,7 +172,7 @@ git -C "$PROD" log --oneline -1                           # test-adventure main 
 | `DATABASE_URL` | `…/test_adventurerpg` 로 변경 | 같은 RDS 호스트, db명만 `adventurerpg`→`test_adventurerpg` |
 | `AUTH_URL` | `https://msmsge.com` | |
 | `AUTH_TRUST_HOST` | `true` | nginx 뒤 |
-| `NEXT_PUBLIC_XP_RATE_MULT` | (0번 결정값) | 미설정 시 1.0 |
+| `NEXT_PUBLIC_XP_RATE_MULT` | **`2.2`** (확정) | staging 과 동일 빠른 페이스. 미설정 시 1.0 으로 떨어짐 |
 | `IS_STAGING` | **제거** | 게이트/`/dev` 노출 해제 |
 | `STAGING_OPEN` | **제거** | |
 | `V2_AS_ROOT` | **제거** | PR#356 이후 no-op |

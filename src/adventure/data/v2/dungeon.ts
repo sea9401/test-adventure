@@ -19,17 +19,11 @@ import type { Dungeon, DungeonEnemy, DungeonFloorId } from "./types";
 //   5구역(설원)부터 코스믹(별빛/공허) 편입, 6~8구역(별빛 권역) = 코스믹 우세 + 자연 혼합.
 //   8구역 보스는 무속성 우세(카운터 농사 차단). 속성은 다이얼 — sim/체감 보고 후속 조정.
 const FLOOR1_ENEMIES: DungeonEnemy[] = [
-  { key: "주정뱅이", name: "부랑자", image: "/images/monster/v2/field-vagrant.webp" },
-  { key: "슬라임", name: "점액 덩어리", image: "/images/monster/v2/field-slime.webp", element: "water" },
   { key: "들개", name: "들개", image: "/images/monster/v2/field-wild-dog.webp", element: "lightning" },
   { key: "두더지", name: "두더지", image: "/images/monster/v2/field-mole.webp", element: "earth" },
   { key: "박쥐", name: "멧토끼", image: "/images/monster/v2/field-hare.webp" },
   { key: "동굴뱀", name: "풀뱀", image: "/images/monster/v2/field-grass-snake.webp", element: "wind" },
   { key: "거미", name: "들거미", image: "/images/monster/v2/field-spider.webp", element: "earth" },
-  { key: "산적", name: "산적", image: "/images/monster/v2/field-bandit.webp" },
-  { key: "들까마귀 떼", name: "까마귀 떼", image: "/images/monster/v2/field-crows.webp", element: "wind" },
-  { key: "갈대 살쾡이", name: "살쾡이", image: "/images/monster/v2/field-wildcat.webp", element: "fire" },
-  { key: "노상강도", name: "노상강도", image: "/images/monster/v2/field-highwayman.webp" },
 ];
 
 // === 2구역 — 숲 (Lv 6~13) ============================================

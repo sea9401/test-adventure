@@ -1,11 +1,12 @@
 "use client";
 
 import { Bell, MapPin } from "@phosphor-icons/react";
+import { useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
-// 좌측: 현재 거점 위치 (없으면 "이동 중") — V2GameFlow 가 visit 시 갱신.
+// 좌측: 현재 거점 위치 (없으면 "이동 중") — 클릭 시 모험 탭(/)으로 이동.
 // 우측: 알림·채팅·설정. 채팅(ChatButton, 전역 /api/chat)·설정 wiring, 알림은 placeholder.
 
 export function V2TopBar({
@@ -17,14 +18,20 @@ export function V2TopBar({
   gameName: string | null;
   playerName: string;
 }) {
+  const router = useRouter();
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/90">
-      <div className="flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => router.push("/")}
+        aria-label="모험 탭으로 이동"
+        className="-mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition hover:bg-zinc-100 dark:hover:bg-zinc-800"
+      >
         <MapPin size={16} weight="fill" className="shrink-0 text-emerald-500" />
         <span className="truncate text-base font-semibold text-zinc-700 dark:text-zinc-200">
           {currentOutpost?.name ?? "이동 중"}
         </span>
-      </div>
+      </button>
       <nav className="flex shrink-0 items-center gap-1">
         <IconButton aria-label="알림">
           <Bell size={18} weight="duotone" />

@@ -72,23 +72,12 @@ import {
   rollFragmentDrop,
 } from "@/adventure/v2/treasureFragments";
 import {
-  DURABILITY_WEAR_LOSS,
-  DURABILITY_WEAR_WIN,
-  MAX_DURABILITY,
   V2_EQUIPMENT,
-  durabilityOf,
-  isLowDurability,
   parseEquipmentSave,
-  repairCostFor,
   type EquipmentSave,
   type V2EquipmentId,
-  type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
-import {
-  PREFERENCES_V2_KEY,
-  parseV2Preferences,
-} from "@/lib/server/v2Preferences";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
@@ -139,15 +128,12 @@ export async function POST(req: Request) {
   let body: {
     floor?: unknown;
     outpostId?: unknown;
-    confirmLowDurability?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  // PR-4b — 클라가 내구도 경고 프롬프트를 보고 "그대로 진행" 선택 시 게이트 우회.
-  const confirmLowDurability = body.confirmLowDurability === true;
   if (typeof body.floor !== "number" || !isValidFloor(body.floor)) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
@@ -299,29 +285,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // PR-4b — equipment.v2 조기 잠금 (내구도 게이트/마모/드랍 한 번에). lock 순서 char→equipment.
+    // equipment.v2 조기 잠금 (드랍/굴림 한 번에 기록). lock 순서 char→equipment.
     const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
       tx,
       userId,
       "equipment.v2",
       {},
     );
-    const {
-      owned: ownedEquip,
-      equipped: equippedSlots,
-      durability: curDurability,
-      statRolls: curStatRolls,
-    } = parseEquipmentSave(equipmentSave);
-    // 마모/수리로 갱신해 나갈 작업 사본 — 전투 후 한 번에 기록.
-    const workingDurability: Partial<Record<V2EquipmentId, number>> = {
-      ...curDurability,
-    };
-    const equippedIds = (
-      ["weapon", "armor", "gloves", "boots", "ring", "necklace"] as V2EquipSlot[]
-    ).flatMap((slot) => {
-      const id = equippedSlots[slot];
-      return id ? [id] : [];
-    });
+    const { owned: ownedEquip, statRolls: curStatRolls } =
+      parseEquipmentSave(equipmentSave);
 
     const now = Date.now();
     const stamina = parseStaminaFromSave(charSave.stamina, now);
@@ -461,59 +433,6 @@ export async function POST(req: Request) {
       };
     }
 
-    // PR-4b — 전투 전 내구도 게이트. 장착 장비 중 내구도 낮은 게 있으면:
-    //   - 자동수리 ON: 골드 되는 만큼 수리(전투 후 durability/골드에 반영).
-    //   - 자동수리 OFF + confirm 없음: 409 로 경고/수리 프롬프트(스태미나 미소모 — tx rollback).
-    const prefRow = (
-      await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(eq(savesKv.userId, userId), eq(savesKv.key, PREFERENCES_V2_KEY)),
-        )
-        .limit(1)
-    )[0];
-    const autoRepair = parseV2Preferences(prefRow?.value).autoRepair;
-    let repairSpent = 0;
-    const lowEquipped = equippedIds.filter((id) =>
-      isLowDurability(durabilityOf(workingDurability, id)),
-    );
-    if (lowEquipped.length > 0) {
-      if (autoRepair) {
-        const goldForRepair = Math.max(0, charSave.gold ?? 0);
-        for (const id of lowEquipped) {
-          const cost = repairCostFor(id, durabilityOf(workingDurability, id));
-          if (cost <= 0) continue;
-          if (repairSpent + cost > goldForRepair) continue; // 골드 부족분은 건너뜀
-          repairSpent += cost;
-          workingDurability[id] = MAX_DURABILITY;
-        }
-      } else if (!confirmLowDurability) {
-        return {
-          ok: false as const,
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "durability_low" as const,
-            stamina: applyRegen(stamina, now),
-            lowEquipment: lowEquipped.map((id) => ({
-              id,
-              durability: durabilityOf(workingDurability, id),
-              repairCost: repairCostFor(
-                id,
-                durabilityOf(workingDurability, id),
-              ),
-            })),
-            totalRepairCost: lowEquipped.reduce(
-              (s, id) =>
-                s + repairCostFor(id, durabilityOf(workingDurability, id)),
-              0,
-            ),
-          },
-        };
-      }
-    }
-
     // PR-4b — 플레이어의 v2 스킬 (learned/equipped) 을 lock 해서 read. cast hook 이 사용.
     const skillsRaw = await lockSaveForUpdate(
       tx,
@@ -550,15 +469,6 @@ export async function POST(req: Request) {
       : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
 
-    // PR-4b — 전투 후 마모: 장착 장비 내구도 차감 (승리 1 / 패배 2). 0 클램프.
-    const wear = won ? DURABILITY_WEAR_WIN : DURABILITY_WEAR_LOSS;
-    for (const id of equippedIds) {
-      workingDurability[id] = Math.max(
-        0,
-        durabilityOf(workingDurability, id) - wear,
-      );
-    }
-
     // 장비 드랍 — 승리 시 1회 굴림. 이미 보유한 id 는 후보 제외 (장비 unique).
     // 풀이 마르거나 굴림 실패면 null. equipment.v2 는 조기 lock 한 걸 한 번에 기록.
     let droppedEquipment: V2EquipmentId | null = null;
@@ -590,11 +500,10 @@ export async function POST(req: Request) {
         nextStatRolls[dropped] = rollItemStats(V2_EQUIPMENT[dropped], Math.random);
       }
     }
-    // equipment.v2 한 번에 기록 — owned(+드랍) + durability(마모/자동수리) + statRolls(굴림).
+    // equipment.v2 한 번에 기록 — owned(+드랍) + statRolls(굴림).
     await upsertSave(tx, userId, "equipment.v2", {
       ...equipmentSave,
       owned: nextOwned,
-      durability: workingDurability,
       statRolls: nextStatRolls,
     });
 
@@ -611,8 +520,7 @@ export async function POST(req: Request) {
     const curExp = Math.max(0, charSave.exp ?? 0);
     const expResult = applyExpGain(curLevel, curExp, expGained);
 
-    // PR-4b — 자동수리 비용은 골드에서 차감 (게이트에서 affordable 분만 repairSpent 누적).
-    const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet - repairSpent);
+    const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet);
 
     // 사냥 후 hp/mp — finalState 시작. 충전식 모델 (1g=1충전, 1000 cap):
     // inventory.v2.{hpCharges, mpCharges} 보유량 만큼 부족분 자동 회복. 옛 POTIONS
@@ -814,9 +722,6 @@ export async function POST(req: Request) {
           fragmentDrop,
           fragmentsTotal,
           droppedUnique,
-          // PR-4b — 마모/자동수리 후 장착 장비 내구도 + 자동수리 비용(0=안 함). 클라가 경고 표시.
-          equipmentDurability: workingDurability,
-          autoRepairSpent: repairSpent,
           ejected: ejectedNotice,
           // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
           // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay

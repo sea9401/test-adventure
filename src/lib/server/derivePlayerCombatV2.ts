@@ -56,8 +56,6 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
-  durabilityOf,
-  isBroken,
   parseEquipmentSave,
   type V2EquipmentId,
   type V2EquipRoll,
@@ -86,7 +84,7 @@ export type DerivedPlayerCombatV2 = {
   baseAllocatedStats: Record<V2StatKey, number>;
   maxHp: number;
   selectedStance: StanceId | null;
-  /** PR-5b — 장착 무기의 속성(평타/공격 속성). 무기 없음·미부여·내구도0 이면 neutral.
+  /** PR-5b — 장착 무기의 속성(평타/공격 속성). 무기 없음·미부여면 neutral.
    *  hunt·arena 가 basicAttackElement = weaponElement ?? characterElement 산출에 사용. */
   weaponElement: V2Element;
 };
@@ -123,7 +121,6 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
 
 export function aggregateV2Equipment(
   v2Equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>,
-  durability?: Partial<Record<V2EquipmentId, number>>,
   // PR-편차-9 — id별 개체 굴림. 있으면 카탈로그 대신 굴림값(effectiveStats). 없으면 카탈로그
   // (상점 구매·옛 세이브) → 기존 동작 그대로(비파괴).
   statRolls?: Partial<Record<V2EquipmentId, V2EquipRoll>>,
@@ -139,8 +136,6 @@ export function aggregateV2Equipment(
   ] as const) {
     const id = v2Equipped[slot];
     if (!id) continue;
-    // PR-4b — 내구도 0(broken) 장비는 비활성: 위력·무게·옵션 전부 무시(슬롯 빈 것과 동일).
-    if (isBroken(durabilityOf(durability, id))) continue;
     const item = V2_EQUIPMENT[id];
     const eff = effectiveStats(item, statRolls?.[id]);
     const power = eff.power;
@@ -249,8 +244,6 @@ export type DerivePlayerCombatV2PureInput = {
   statFloors?: Partial<Record<V2StatKey, number>>;
   /** parseEquipmentSave().equipped — 슬롯별 장비 id. */
   v2Equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
-  /** parseEquipmentSave().durability — id별 내구도. 0(broken)이면 그 장비 비활성(PR-4b). */
-  v2Durability?: Partial<Record<V2EquipmentId, number>>;
   /** parseEquipmentSave().statRolls — id별 개체 굴림(편차). 없으면 카탈로그. */
   v2StatRolls?: Partial<Record<V2EquipmentId, V2EquipRoll>>;
   /** 현재 hp. undefined 면 maxHp 풀충. maxHp 초과는 클램프. */
@@ -270,11 +263,7 @@ export function derivePlayerCombatV2Pure(
 ): DerivedPlayerCombatV2 {
   const level = Math.max(1, input.level ?? 1);
   const v2Equipped = input.v2Equipped ?? {};
-  const equipAcc = aggregateV2Equipment(
-    v2Equipped,
-    input.v2Durability,
-    input.v2StatRolls,
-  );
+  const equipAcc = aggregateV2Equipment(v2Equipped, input.v2StatRolls);
 
   // baseAllocatedStats = V2_BASE_STATS + 성장분, stat 별 cap 으로 클램프(수행으로 cap 상향).
   // PR-prof — 랜덤 레벨 성장은 cap 까지만(docs §2). statCaps 미지정이면 무클램프(sim 호환).
@@ -426,12 +415,11 @@ export function derivePlayerCombatV2Pure(
     passiveOnHitDot: passive?.onHitDot,
   };
 
-  // PR-5b — 장착 무기 속성. 내구도 0(broken) 무기는 비활성 → neutral.
+  // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.
   const weaponId = v2Equipped.weapon;
-  const weaponElement: V2Element =
-    weaponId && !isBroken(durabilityOf(input.v2Durability, weaponId))
-      ? (V2_EQUIPMENT[weaponId].element ?? "neutral")
-      : "neutral";
+  const weaponElement: V2Element = weaponId
+    ? (V2_EQUIPMENT[weaponId].element ?? "neutral")
+    : "neutral";
 
   return {
     player,
@@ -474,11 +462,8 @@ export async function derivePlayerCombatV2(
   }
   if (!character) return null;
 
-  const {
-    equipped: v2Equipped,
-    durability: v2Durability,
-    statRolls: v2StatRolls,
-  } = parseEquipmentSave(equipmentSave);
+  const { equipped: v2Equipped, statRolls: v2StatRolls } =
+    parseEquipmentSave(equipmentSave);
   // PR-prof — 1차 스탯 = 랜덤 레벨 성장(prof.grown), cap = 수행(prof.caps).
   // 옛 수동 분배(training.allocated) 폐기.
   const prof = parseProficiencyForChar(proficiencyRaw, character);
@@ -491,7 +476,6 @@ export async function derivePlayerCombatV2(
     statCaps: prof.caps,
     statFloors: computeStatFloors(prof),
     v2Equipped,
-    v2Durability,
     v2StatRolls,
     hp: character.hp,
     mp: character.mp,

@@ -1,6 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 type TabSize = "sm" | "md" | "lg";
 // underline: 기존 밑줄 탭(v1 전반). highlight: nav 바 레일은 유지하고 호버/선택 시 글자 색만 인디고로(v2 게임 탭).
@@ -58,17 +65,63 @@ export function TabBar<K extends string>({
   className,
   scrollable = false,
 }: TabBarProps<K>) {
+  const navRef = useRef<HTMLElement>(null);
+  // 가로 스크롤 시 좌/우 끝 도달 여부 — 안 닿은(=넘치는) 쪽 가장자리를 페이드해 "더 있음"을 알린다.
+  // scrollbar 를 숨겨(no-scrollbar) 잘린 탭이 마지막처럼 보이던 문제(예: 6번째 "광장")를 해소.
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const updateEdges = useCallback(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft < maxScroll - 1;
+    setEdges((prev) =>
+      prev.left === left && prev.right === right ? prev : { left, right },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!scrollable) return;
+    const el = navRef.current;
+    if (!el) return;
+    updateEdges();
+    el.addEventListener("scroll", updateEdges, { passive: true });
+    window.addEventListener("resize", updateEdges);
+    return () => {
+      el.removeEventListener("scroll", updateEdges);
+      window.removeEventListener("resize", updateEdges);
+    };
+  }, [scrollable, updateEdges, tabs.length]);
+
   const cls = [
     CONTAINER[variant],
-    scrollable
-      ? "no-scrollbar flex-nowrap overflow-x-auto"
-      : "",
+    scrollable ? "no-scrollbar flex-nowrap overflow-x-auto" : "",
     className,
   ]
     .filter(Boolean)
     .join(" ");
+
+  // 가장자리 페이드 마스크 — 넘치는 쪽만 흐린다. 둘 다 끝이면(안 넘침) 마스크 없음(데스크톱 등).
+  const fadeStyle: CSSProperties = {};
+  if (scrollable && (edges.left || edges.right)) {
+    const leftStops = edges.left ? "transparent 0, black 24px" : "black 0, black 24px";
+    const rightStops = edges.right
+      ? "black calc(100% - 24px), transparent 100%"
+      : "black calc(100% - 24px), black 100%";
+    const mask = `linear-gradient(to right, ${leftStops}, ${rightStops})`;
+    fadeStyle.maskImage = mask;
+    fadeStyle.WebkitMaskImage = mask;
+  }
+
   return (
-    <nav role="tablist" aria-label={ariaLabel} className={cls}>
+    <nav
+      ref={navRef}
+      role="tablist"
+      aria-label={ariaLabel}
+      className={cls}
+      style={fadeStyle}
+    >
       {tabs.map((t) => {
         const selected = active === t.key;
         const state = TAB_STATE[variant];

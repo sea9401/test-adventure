@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useProfile } from "@/adventure/profile/useProfile";
+import { useSavedValue } from "@/lib/storage/SaveProvider";
 import { CreateCharacterForm } from "@/components/CreateCharacterForm";
 import {
+  parseV2Class,
   V2_CLASS_DEFS,
   V2_SELECTABLE_CLASSES,
   type V2Class,
@@ -22,17 +24,23 @@ import {
 export function CreateCharacterFlow() {
   const router = useRouter();
   const { needsSetup, submit } = useProfile();
-  const [phase, setPhase] = useState<"profile" | "class">("profile");
+  // 직업 완료 여부 — 온보딩 완료는 "프로필(이름) + 직업" 둘 다. class none = 미선택.
+  const char = useSavedValue("character.v2") as { class?: unknown } | null;
+  const hasClass = parseV2Class(char?.class) !== "none";
+  // 초기 단계: 프로필 없으면 이름부터, 있으면(이름은 됐는데 직업 미선택) 직업부터.
+  const [phase, setPhase] = useState<"profile" | "class">(() =>
+    needsSetup ? "profile" : "class",
+  );
   const [cls, setCls] = useState<V2Class>(V2_SELECTABLE_CLASSES[0]);
   const [elem, setElem] = useState<V2Element>(V2_PLAYER_ELEMENTS[0]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // 프로필 단계에서 이미 캐릭터가 있으면 게임으로. 직업 단계는 방금 프로필을 만든
-  // 직후(needsSetup=false)라 리다이렉트하지 않는다 (phase 가드).
+  // 프로필 + 직업 모두 끝난(완전 온보딩) 유저가 들어오면 게임으로. 프로필만 끝난 중간
+  // 상태(직업 미선택)는 직업 단계를 마쳐야 하므로 리다이렉트하지 않는다 (B1 수정).
   useEffect(() => {
-    if (phase === "profile" && !needsSetup) router.replace("/");
-  }, [phase, needsSetup, router]);
+    if (!needsSetup && hasClass) router.replace("/");
+  }, [needsSetup, hasClass, router]);
 
   const finish = async () => {
     setBusy(true);

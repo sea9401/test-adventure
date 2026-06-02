@@ -7,6 +7,7 @@ import {
   tier1ClassOf,
   tier2ClassOf,
   nextTierClassOf,
+  classOfGroupTier,
   signaturesForClass,
   signatureClassOf,
 } from "./classes";
@@ -130,6 +131,17 @@ describe("v2 2차 전직 (PR-7)", () => {
   it("tier2ClassOf — 2차/none 은 null (1차만 전직 가능)", () => {
     expect(tier2ClassOf("swordmaster")).toBeNull();
     expect(tier2ClassOf("none")).toBeNull();
+  });
+
+  it("classOfGroupTier — 직업군 1차 + 차수 → 그 차수 직업 (도달 차수 복귀용), 범위 밖 클램프", () => {
+    expect(classOfGroupTier("swordsman", 1)).toBe("swordsman");
+    expect(classOfGroupTier("swordsman", 2)).toBe("swordmaster");
+    expect(classOfGroupTier("swordsman", 3)).toBe("swordking");
+    expect(classOfGroupTier("swordsman", 4)).toBe("swordgod");
+    expect(classOfGroupTier("mage", 3)).toBe("sage");
+    // 범위 밖 클램프 (0 → 1차, 9 → 4차 정점).
+    expect(classOfGroupTier("archer", 0)).toBe("archer");
+    expect(classOfGroupTier("archer", 9)).toBe("bowgod");
   });
 });
 

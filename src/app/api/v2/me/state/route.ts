@@ -20,6 +20,7 @@ import {
 import {
   parseV2Class,
   tier1ClassOf,
+  nextTierClassOf,
   signaturesForClass,
   elementalSkillsForClass,
   signatureClassOf,
@@ -35,6 +36,8 @@ import {
   capGain,
   effectiveStatCap,
   signatureLearnCost,
+  advanceCumLevelReq,
+  V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { classPassiveTierText } from "@/adventure/data/v2/v2Passives";
@@ -44,6 +47,7 @@ import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
   V2_CODEX_TOTAL,
   discoveredMaterialIds,
+  codexRequirement,
 } from "@/adventure/data/v2/codex";
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
@@ -425,6 +429,40 @@ export async function GET() {
           points: groupUsable(prof, group),
           cultivations: cultivationCount(prof, group),
           nextCost: cultivationCost(totalCapGains(prof)),
+          // 현 직업군 다음 차수 전직 가능 여부 — 신전 직업 그리드의 "전직 가능" 표시용.
+          // 게이트 3종(Lv50·직군 누적레벨·3·4차 도감)을 advance-class 와 동일 기준으로 산출.
+          advance: (() => {
+            const cur = parseV2Class((charSave as { class?: unknown }).class);
+            const next = nextTierClassOf(cur);
+            if (!next) return null;
+            const haveLevel = Math.max(
+              1,
+              (charSave as { level?: number }).level ?? 1,
+            );
+            const reqCum = advanceCumLevelReq(V2_CLASS_DEFS[next].tier);
+            const haveCum = groupCumLevel(prof, group);
+            const reqCodex = codexRequirement(
+              V2_CLASS_DEFS[next].advanceCodexMin,
+            );
+            const haveCodex = discoveredMaterialIds(
+              (charSave as { materials?: unknown }).materials,
+            ).length;
+            return {
+              nextClass: next,
+              nextName: V2_CLASS_DEFS[next].name,
+              nextTier: V2_CLASS_DEFS[next].tier,
+              reqLevel: V2_ADVANCE_MIN_LEVEL,
+              haveLevel,
+              reqCum,
+              haveCum,
+              reqCodex,
+              haveCodex,
+              canAdvance:
+                haveLevel >= V2_ADVANCE_MIN_LEVEL &&
+                haveCum >= reqCum &&
+                haveCodex >= reqCodex,
+            };
+          })(),
         },
       };
     })(),

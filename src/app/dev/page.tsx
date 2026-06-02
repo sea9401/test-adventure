@@ -2,6 +2,7 @@ import Link from "next/link";
 
 // dev 프리뷰 허브 — 로그인 없이 게이트-뒤 UI 를 시나리오별로 확인. production 에선 404(layout 가드).
 const PREVIEWS: { href: string; title: string; desc: string }[] = [
+  { href: "/dev/inventory", title: "인벤토리 — 보유 장비 카드 그리드", desc: "보유 장비 2열 카드(슬롯 아이콘·등급색 이름·위력/속성/티어·장착 배지). 카드 탭 → 상세·장착 팝오버. 표본 mock." },
   { href: "/dev/map-preview", title: "지도 — 권역 게이트 배너", desc: "#504 본토↔별빛 크로스맵 진입(잠금/해금/역방향). ?scenario=0~3 딥링크." },
   { href: "/dev/stance-picker", title: "전술 선택기 (StancePicker)", desc: "#497 공세/수성/처형 선택 UI." },
   { href: "/dev/battle-log", title: "전투 로그 — 전술 안내", desc: "#502 전투 시작 로그의 전술 한 줄 노출." },

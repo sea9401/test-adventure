@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  CheckCircle,
   Circle,
   Diamond,
   HandFist,
+  Lock,
   Shield,
   Sneaker,
   Sword,
@@ -23,7 +25,35 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+
+// 슬롯별 아이콘/색 — 카드 좌상단 표식.
+const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
+  weapon: { Icon: Sword, color: "text-rose-500" },
+  armor: { Icon: Shield, color: "text-sky-500" },
+  gloves: { Icon: HandFist, color: "text-amber-500" },
+  boots: { Icon: Sneaker, color: "text-emerald-500" },
+  ring: { Icon: Circle, color: "text-violet-500" },
+  necklace: { Icon: Diamond, color: "text-pink-500" },
+};
+
+// 이름 색 — 유니크만 강조(금색), 나머지는 기본.
+function rarityNameClass(item: V2Equipment): string {
+  return item.rarity === "unique"
+    ? "text-amber-600 dark:text-amber-400"
+    : "text-zinc-800 dark:text-zinc-100";
+}
+
+// 카드 스탯줄 — 위력 + (무기만)속성 + 티어. 비무기는 속성 생략(방어구·장신구 element 는 무시됨).
+function cardStatLine(item: V2Equipment): string {
+  const parts = [`위력 ${item.power}`];
+  if (item.slot === "weapon" && item.element && item.element !== "neutral") {
+    parts.push(V2_ELEMENT_LABEL[item.element]);
+  }
+  parts.push(`T${item.tier}`);
+  return parts.join(" · ");
+}
 
 // v2 인벤토리 — 위쪽 장착 슬롯 + 무기/갑옷/장갑/신발/반지/목걸이/재료 sub-tab.
 // 행 우측 버튼으로 장착/해제 (POST /api/v2/me/equipment/equip).
@@ -105,6 +135,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 setLoading)
     refresh();
   }, [refresh]);
 
@@ -282,14 +313,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       ) : tab === "material" ? (
         <MaterialList materials={ownedMaterials} />
       ) : (
-        <EquipmentList
-          ids={equipmentIds}
-          counts={counts}
-          equipped={equipped}
-          slot={tab}
-          busy={busy}
-          onEquip={(id) => applyEquip(tab as V2EquipSlot, id, id)}
-          onUnequip={() => applyEquip(tab as V2EquipSlot, null, tab as V2EquipSlot)}
+        <EquipmentCardGrid
+          cards={equipmentIds.map((id) => ({
+            id,
+            count: counts.get(id) ?? 0,
+            isEquipped: (equipped[tab as V2EquipSlot] ?? null) === id,
+          }))}
           onOpenCard={(item, anchor) => setCard({ item, anchor })}
         />
       )}
@@ -298,6 +327,13 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+          equip={{
+            isEquipped: (equipped[card.item.slot] ?? null) === card.item.id,
+            busy: busy === card.item.id || busy === card.item.slot,
+            onEquip: () =>
+              applyEquip(card.item.slot, card.item.id, card.item.id),
+            onUnequip: () => applyEquip(card.item.slot, null, card.item.slot),
+          }}
         />
       )}
     </main>
@@ -348,26 +384,22 @@ function MaterialList({
   );
 }
 
-function EquipmentList({
-  ids,
-  counts,
-  equipped,
-  slot,
-  busy,
-  onEquip,
-  onUnequip,
+export type EquipmentCard = {
+  id: V2EquipmentId;
+  count: number;
+  isEquipped: boolean;
+};
+
+// 보유 장비 2열 카드 그리드 — 슬롯 아이콘 + 장착 배지(✓/잠금) + 등급색 이름 + 스탯줄.
+// 카드 탭 → 옵션/장착 팝오버(V2ItemCard). 장착·해제는 팝오버 안에서.
+export function EquipmentCardGrid({
+  cards,
   onOpenCard,
 }: {
-  ids: V2EquipmentId[];
-  counts: Map<V2EquipmentId, number>;
-  equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>;
-  slot: V2EquipSlot;
-  busy: V2EquipmentId | V2EquipSlot | null;
-  onEquip: (id: V2EquipmentId) => void;
-  onUnequip: () => void;
+  cards: EquipmentCard[];
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
-  if (ids.length === 0) {
+  if (cards.length === 0) {
     return (
       <EmptyState
         icon={<Diamond size={40} weight="duotone" />}
@@ -376,87 +408,58 @@ function EquipmentList({
       />
     );
   }
-  const equippedId = equipped[slot] ?? null;
   return (
-    <Card padding="none" className="overflow-hidden">
-      <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-        {ids.map((id) => {
-          const isEquipped = equippedId === id;
-          return (
-            <EquipmentRow
-              key={id}
-              id={id}
-              count={counts.get(id) ?? 0}
-              isEquipped={isEquipped}
-              busy={busy === id || (isEquipped && busy === slot)}
-              onEquip={() => onEquip(id)}
-              onUnequip={onUnequip}
-              onOpenCard={onOpenCard}
-            />
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-function EquipmentRow({
-  id,
-  count,
-  isEquipped,
-  busy,
-  onEquip,
-  onUnequip,
-  onOpenCard,
-}: {
-  id: V2EquipmentId;
-  count: number;
-  isEquipped: boolean;
-  busy: boolean;
-  onEquip: () => void;
-  onUnequip: () => void;
-  onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
-}) {
-  const item = V2_EQUIPMENT[id];
-  return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
-      {/* 이름 영역 클릭 → 옵션 카드 팝오버 (옵션은 행에 인라인으로 적지 않음) */}
-      <button
-        type="button"
-        onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
-        className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
-      >
-        <div className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            {item.name}
-          </span>
-          <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            ×{count}
-          </span>
-        </div>
-      </button>
-
-      <div className="shrink-0 justify-self-end">
-        {isEquipped ? (
+    <div className="grid grid-cols-2 gap-2">
+      {cards.map(({ id, count, isEquipped }) => {
+        const item = V2_EQUIPMENT[id];
+        const { Icon, color } = SLOT_ICON[item.slot];
+        return (
           <button
+            key={id}
             type="button"
-            onClick={onUnequip}
-            disabled={busy}
-            className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700 transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+            aria-label={`${item.name} 정보`}
+            className={`relative flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
+              isEquipped
+                ? "border-emerald-400 bg-emerald-50/70 dark:border-emerald-600/70 dark:bg-emerald-950/30"
+                : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/50"
+            }`}
           >
-            {busy ? "…" : "해제"}
+            <div className="flex items-start justify-between">
+              <Icon size={20} weight="duotone" className={color} />
+              {isEquipped ? (
+                <CheckCircle
+                  size={18}
+                  weight="fill"
+                  className="text-emerald-500"
+                />
+              ) : (
+                <Lock
+                  size={13}
+                  weight="bold"
+                  className="text-zinc-300 dark:text-zinc-600"
+                  aria-hidden
+                />
+              )}
+            </div>
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <span
+                className={`truncate text-sm font-semibold ${rarityNameClass(item)}`}
+              >
+                {item.name}
+              </span>
+              {count > 1 && (
+                <span className="shrink-0 rounded bg-zinc-200 px-1 text-[10px] font-semibold tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                  ×{count}
+                </span>
+              )}
+            </div>
+            <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
+              {cardStatLine(item)}
+            </div>
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onEquip}
-            disabled={busy}
-            className="rounded-md border border-emerald-600 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
-          >
-            {busy ? "…" : "장착"}
-          </button>
-        )}
-      </div>
-    </li>
+        );
+      })}
+    </div>
   );
 }

@@ -13,22 +13,25 @@ export function ChatComposer({
   draft: string;
   onDraftChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
-  onOpenPicker: () => void;
+  /** 아이템 링크 피커 열기. 없으면(예: v2 — 인벤토리 미연결) 첨부 버튼을 숨긴다. */
+  onOpenPicker?: () => void;
 }) {
   return (
     <form
       onSubmit={onSubmit}
       className="flex items-center gap-2 border-t border-zinc-200 px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-zinc-800"
     >
-      <button
-        type="button"
-        onClick={onOpenPicker}
-        aria-label="보유 아이템 자랑하기"
-        title="보유 아이템 링크"
-        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-      >
-        <Backpack size={18} weight="duotone" />
-      </button>
+      {onOpenPicker && (
+        <button
+          type="button"
+          onClick={onOpenPicker}
+          aria-label="보유 아이템 자랑하기"
+          title="보유 아이템 링크"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          <Backpack size={18} weight="duotone" />
+        </button>
+      )}
       <input
         type="text"
         value={draft}

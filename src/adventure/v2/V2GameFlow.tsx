@@ -515,7 +515,11 @@ export function V2GameFlow() {
 
   return (
     <div>
-      <V2TopBar currentOutpost={currentOutpost} gameName={accountName} />
+      <V2TopBar
+        currentOutpost={currentOutpost}
+        gameName={accountName}
+        playerName={viewerName}
+      />
       {/* 탭 배경 — 현 위치 거점 종류별 이미지 (모험/마을/캐릭터). 전투·길드는 추후. */}
       {BG_TABS.has(currentTab) && (
         <OutpostBackground key={currentOutpostType} type={currentOutpostType} />

@@ -2,14 +2,9 @@
 
 import { useAsyncData } from "@/lib/useAsyncData";
 
-// 개인 metric 5종(레벨/명성/전투/이번주 고탑/도전 최고층) + 길드 누적 명성 1종.
-export type RankingMetric =
-  | "level"
-  | "fame"
-  | "battleCount"
-  | "towerWeek"
-  | "towerChallenge"
-  | "guild";
+// 개인 metric 2종(레벨/전투) + 길드 누적 명성 1종.
+// (명성·고탑(주간/도전) 탭은 v2 에서 제거 — API 는 여전히 지원하나 UI 노출 안 함.)
+export type RankingMetric = "level" | "battleCount" | "guild";
 
 export type RankingEntry = {
   rank: number;

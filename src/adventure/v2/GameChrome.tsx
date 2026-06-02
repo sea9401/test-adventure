@@ -101,6 +101,22 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       !pathname.startsWith("/map") &&
       !pathname.startsWith("/outpost"));
 
+  // 탭/화면별 배경 이미지 — 우선순위: 치료소 전용 > 거점 탭(모험/마을/캐릭터) > 길드 > 광장.
+  // 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적 이미지.
+  const background: { src: string; fallbackSrc?: string } | null =
+    pathname === "/town/healing"
+      ? { src: "/images/ui/healingcenter.webp" }
+      : BG_TABS.has(activeTab)
+        ? {
+            src: `/images/ui/${currentOutpostType}.webp`,
+            fallbackSrc: "/images/ui/village.webp",
+          }
+        : activeTab === "guild"
+          ? { src: "/images/ui/guild.webp" }
+          : activeTab === "plaza"
+            ? { src: "/images/ui/townhall.webp" }
+            : null;
+
   return (
     <div>
       <V2TopBar
@@ -108,14 +124,13 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         gameName={accountName}
         playerName={viewerName}
       />
-      {BG_TABS.has(activeTab) && (
+      {background && (
         <TabBackground
-          key={currentOutpostType}
-          src={`/images/ui/${currentOutpostType}.webp`}
-          fallbackSrc="/images/ui/village.webp"
+          key={background.src}
+          src={background.src}
+          fallbackSrc={background.fallbackSrc}
         />
       )}
-      {activeTab === "guild" && <TabBackground src="/images/ui/guild.webp" />}
       <div>
         <TabBar
           tabs={TABS}

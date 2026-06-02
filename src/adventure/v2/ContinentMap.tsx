@@ -793,7 +793,8 @@ export function ContinentMap({
           )}
         </div>
 
-        {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 진입 + X. 세부 정보는 진입 후 화면. */}
+        {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 이동(다른 거점)/둘러보기(현재) + X.
+            이동은 마커만 옮기고 지도에 머문다(연속 이동). 거점 화면은 「둘러보기」로 연다. */}
         {selected && (
           <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-center">
             <div className="pointer-events-auto flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-zinc-300 bg-white/95 px-3 py-2 shadow-md backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
@@ -829,7 +830,7 @@ export function ContinentMap({
                       onClick={() => onTravelTo(selected)}
                       className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                     >
-                      {routeHops <= 1 ? "진입" : `여기로 가기 (${routeHops}홉)`}
+                      {routeHops <= 1 ? "이동" : `이동 (${routeHops}홉)`}
                     </button>
                   ) : (
                     <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">

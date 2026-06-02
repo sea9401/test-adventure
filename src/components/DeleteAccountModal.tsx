@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Warning, X } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
@@ -49,7 +50,9 @@ export function DeleteAccountModal({
     }
   };
 
-  return (
+  // overlay 를 body 로 portal — backdrop-filter 부모(V2TopBar 헤더) 안에서 fixed 가 헤더
+  // 기준이 돼 튀어나가는 것 회피. 이 모달은 클릭 시에만 렌더(클라 only)라 SSR 안전.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -133,6 +136,7 @@ export function DeleteAccountModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

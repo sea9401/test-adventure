@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   CaretDown,
@@ -166,7 +167,10 @@ export function ChatPanel({
 
   if (!open) return null;
 
-  return (
+  // overlay 를 body 로 portal — V2TopBar 의 backdrop-blur(=backdrop-filter)가 fixed 자손의
+  // containing block 이 돼 패널이 헤더 기준으로 떠 화면 위로 튀어나가던 버그 회피. open 일
+  // 때만 렌더(=클릭 후 클라 only)라 SSR 에선 위 null 로 빠져 document.body 접근 안전.
+  return createPortal(
     <div
       onClick={onClose}
       className="fixed inset-0 z-40 flex items-end justify-end bg-black/40 sm:items-end sm:p-4"
@@ -319,6 +323,7 @@ export function ChatPanel({
           onClose={() => setPickerOpen(false)}
         />
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

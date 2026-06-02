@@ -52,12 +52,19 @@ function hrefOfTab(tab: TabId): string {
   return tab === "adventure" ? "/" : `/${tab}`;
 }
 
-// 현 위치 거점 종류별 배경. ui/{type}.webp 가 있으면 사용, 없으면 village 로 폴백.
-// 경로를 템플릿으로 둬서 check-images 누락 검사에 안 걸린다(파일 없어도 빌드 OK).
-// 런타임에 404 면 onError 로 village 로 교체. type 이 바뀌면 부모가 key 로 remount → errored 리셋.
-function OutpostBackground({ type }: { type: OutpostType }) {
+// 탭 배경 이미지 — fixed full-screen + 위에 반투명 dim 오버레이.
+// 거점 배경은 ui/{type}.webp 를 템플릿 경로로 쓰고(check-images 누락 검사 제외, 없으면
+// 404 시 fallbackSrc=village 로 교체), 길드 배경은 ui/guild.webp 정적 경로.
+// src 가 바뀌면 부모가 key 로 remount → errored 리셋.
+function TabBackground({
+  src,
+  fallbackSrc,
+}: {
+  src: string;
+  fallbackSrc?: string;
+}) {
   const [errored, setErrored] = useState(false);
-  const src = errored ? "/images/ui/village.webp" : `/images/ui/${type}.webp`;
+  const finalSrc = errored && fallbackSrc ? fallbackSrc : src;
   return (
     <div
       aria-hidden
@@ -65,9 +72,11 @@ function OutpostBackground({ type }: { type: OutpostType }) {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={finalSrc}
         alt=""
-        onError={() => setErrored(true)}
+        onError={() => {
+          if (fallbackSrc) setErrored(true);
+        }}
         className="h-full w-full object-cover"
       />
       <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
@@ -100,8 +109,13 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         playerName={viewerName}
       />
       {BG_TABS.has(activeTab) && (
-        <OutpostBackground key={currentOutpostType} type={currentOutpostType} />
+        <TabBackground
+          key={currentOutpostType}
+          src={`/images/ui/${currentOutpostType}.webp`}
+          fallbackSrc="/images/ui/village.webp"
+        />
       )}
+      {activeTab === "guild" && <TabBackground src="/images/ui/guild.webp" />}
       <div>
         <TabBar
           tabs={TABS}

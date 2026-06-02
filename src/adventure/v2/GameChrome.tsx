@@ -12,13 +12,7 @@ import type { OutpostType } from "@/adventure/data/v2/types";
 // v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경·스태미나).
 // (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
 
-type TabId =
-  | "adventure"
-  | "battle"
-  | "town"
-  | "character"
-  | "guild"
-  | "plaza";
+type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
 
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
@@ -102,24 +96,26 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       !pathname.startsWith("/map") &&
       !pathname.startsWith("/outpost"));
 
-  // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·사냥터) > 거점 탭(모험/마을/캐릭터)
+  // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·낚시터·사냥터) > 거점 탭(모험/마을/캐릭터)
   // > 길드 > 광장. 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적.
-  // 사냥터 = 던전 목록 + 층 전투(/battle/dungeon 하위).
+  // 낚시터 = 미니게임 + 대회/상점(/town/fishing 하위). 사냥터 = 던전 목록 + 층 전투(/battle/dungeon 하위).
   const background: { src: string; fallbackSrc?: string } | null =
     pathname === "/town/healing"
       ? { src: "/images/ui/healingcenter.webp" }
-      : pathname.startsWith("/battle/dungeon")
-        ? { src: "/images/ui/hunt.webp" }
-        : BG_TABS.has(activeTab)
-          ? {
-              src: `/images/ui/${currentOutpostType}.webp`,
-              fallbackSrc: "/images/ui/village.webp",
-            }
-          : activeTab === "guild"
-            ? { src: "/images/ui/guild.webp" }
-            : activeTab === "plaza"
-              ? { src: "/images/ui/townhall.webp" }
-              : null;
+      : pathname.startsWith("/town/fishing")
+        ? { src: "/images/ui/fishing.webp" }
+        : pathname.startsWith("/battle/dungeon")
+          ? { src: "/images/ui/hunt.webp" }
+          : BG_TABS.has(activeTab)
+            ? {
+                src: `/images/ui/${currentOutpostType}.webp`,
+                fallbackSrc: "/images/ui/village.webp",
+              }
+            : activeTab === "guild"
+              ? { src: "/images/ui/guild.webp" }
+              : activeTab === "plaza"
+                ? { src: "/images/ui/townhall.webp" }
+                : null;
 
   return (
     <div>

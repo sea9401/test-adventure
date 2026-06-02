@@ -421,8 +421,8 @@ export function EquipmentCardGrid({
             aria-label={`${item.name} 정보`}
             className={`relative flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
               isEquipped
-                ? "border-emerald-400 bg-emerald-50/70 dark:border-emerald-600/70 dark:bg-emerald-950/30"
-                : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/50 dark:hover:bg-zinc-800/50"
+                ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600/70 dark:bg-emerald-950"
+                : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
             }`}
           >
             <div className="flex items-start justify-between">

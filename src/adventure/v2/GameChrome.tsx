@@ -1,0 +1,125 @@
+"use client";
+
+import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { V2TopBar } from "@/adventure/v2/V2TopBar";
+import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { TabBar } from "@/components/ui/TabBar";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
+import type { OutpostType } from "@/adventure/data/v2/types";
+
+// v2 게임 chrome — 모든 라우트가 공유하는 영속 틀(상단바·탭바·배경·스태미나).
+// (game)/layout.tsx 안에 마운트되어 네비게이션마다 remount 되지 않는다 → 자식 page 만 교체.
+
+type TabId =
+  | "adventure"
+  | "battle"
+  | "town"
+  | "character"
+  | "guild"
+  | "plaza";
+
+const TABS: { key: TabId; label: string }[] = [
+  { key: "adventure", label: "모험" },
+  { key: "battle", label: "전투" },
+  { key: "town", label: "마을" },
+  { key: "character", label: "캐릭터" },
+  { key: "guild", label: "길드" },
+  { key: "plaza", label: "광장" },
+];
+
+// 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
+const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
+
+// 현재 경로 → 활성 탭. map/outpost 는 전투 탭으로 묶는다(현 tabOfView 와 동일).
+function tabOfPath(pathname: string): TabId {
+  if (pathname === "/") return "adventure";
+  if (
+    pathname.startsWith("/battle") ||
+    pathname.startsWith("/map") ||
+    pathname.startsWith("/outpost")
+  )
+    return "battle";
+  if (pathname.startsWith("/town")) return "town";
+  if (pathname.startsWith("/character")) return "character";
+  if (pathname.startsWith("/guild")) return "guild";
+  if (pathname.startsWith("/plaza")) return "plaza";
+  return "adventure";
+}
+
+function hrefOfTab(tab: TabId): string {
+  return tab === "adventure" ? "/" : `/${tab}`;
+}
+
+// 현 위치 거점 종류별 배경. ui/{type}.webp 가 있으면 사용, 없으면 village 로 폴백.
+// 경로를 템플릿으로 둬서 check-images 누락 검사에 안 걸린다(파일 없어도 빌드 OK).
+// 런타임에 404 면 onError 로 village 로 교체. type 이 바뀌면 부모가 key 로 remount → errored 리셋.
+function OutpostBackground({ type }: { type: OutpostType }) {
+  const [errored, setErrored] = useState(false);
+  const src = errored ? "/images/ui/village.webp" : `/images/ui/${type}.webp`;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        onError={() => setErrored(true)}
+        className="h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
+    </div>
+  );
+}
+
+export function GameChrome({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { currentOutpost, accountName, stamina, viewerName } = useGameState();
+
+  const activeTab = tabOfPath(pathname);
+  // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
+  const currentOutpostType: OutpostType = currentOutpost
+    ? (OUTPOST_TYPE_BY_ID.get(currentOutpost.id) ?? "village")
+    : "village";
+  // 스태미나 바 — 모험 탭, 또는 전투 탭에서 지도/거점이 아닌 화면일 때만.
+  const showStamina =
+    activeTab === "adventure" ||
+    (activeTab === "battle" &&
+      !pathname.startsWith("/map") &&
+      !pathname.startsWith("/outpost"));
+
+  return (
+    <div>
+      <V2TopBar
+        currentOutpost={currentOutpost}
+        gameName={accountName}
+        playerName={viewerName}
+      />
+      {BG_TABS.has(activeTab) && (
+        <OutpostBackground key={currentOutpostType} type={currentOutpostType} />
+      )}
+      <div>
+        <TabBar
+          tabs={TABS}
+          active={activeTab}
+          onChange={(t) => router.push(hrefOfTab(t))}
+          ariaLabel="메인 탭"
+          size="lg"
+          variant="highlight"
+          scrollable
+          className="mx-auto w-full max-w-[720px] px-4 sm:px-6 [&_button]:text-[1.0625rem]"
+        />
+        {showStamina && (
+          <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
+            <StaminaBar state={stamina} />
+          </div>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}

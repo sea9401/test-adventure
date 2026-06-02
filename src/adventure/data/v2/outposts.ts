@@ -235,6 +235,13 @@ export const OUTPOSTS: Outpost[] = [
   ...VILLAGES,
 ];
 
+// id → Outpost / id → type 역참조 맵. 라우트(`/outpost/[id]`)·배경 이미지 선택 등
+// 여러 곳에서 같은 맵을 쓰도록 단일 소스로 export (예전엔 V2GameFlow 안에 인라인 정의).
+export const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o] as const));
+export const OUTPOST_TYPE_BY_ID = new Map<string, Outpost["type"]>(
+  OUTPOSTS.map((o) => [o.id, o.type]),
+);
+
 export const MAP_BOUNDS = { width: 10000, height: 6000 } as const;
 export const CONTINENT_NAME = "아스토리아 대륙";
 

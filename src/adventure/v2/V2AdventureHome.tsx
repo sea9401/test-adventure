@@ -171,7 +171,7 @@ export function V2AdventureHome({
           <V2CharacterCard
             character={state.character}
             guild={state.guild ?? null}
-            showGold={false}
+            showGold={true}
             equipped={equipped}
           />
         )}

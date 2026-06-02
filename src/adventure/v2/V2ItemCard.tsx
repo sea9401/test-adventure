@@ -4,10 +4,29 @@ import { useEffect, type CSSProperties } from "react";
 import { X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import {
+  V2_EQUIP_SETS,
   v2EquipStatRows,
   type V2Equipment,
+  type V2EquipOptions,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
+
+// 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
+const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
+  crit: "치명",
+  eva: "회피",
+  mp: "MP",
+  hp: "HP",
+};
+function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
+  return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
+    .filter((k) => bonus[k])
+    .map((k) => {
+      const unit = k === "crit" || k === "eva" ? "%" : "";
+      return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
+    })
+    .join(", ");
+}
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
 // 전체화면 모달 아님: 스크림/스크롤락/포커스트랩 없이, 바깥 클릭·Esc 로만 닫힘.
@@ -62,6 +81,9 @@ export function V2ItemCard({
   }, [onClose]);
 
   const options = v2EquipStatRows(item, roll);
+  const set = item.setId
+    ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
+    : undefined;
 
   // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
@@ -121,6 +143,22 @@ export function V2ItemCard({
             ))
           )}
         </div>
+
+        {set && (
+          <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="font-medium text-amber-600 dark:text-amber-400">
+                {set.name} ({set.pieces.length}종)
+              </span>
+              <span className="tabular-nums text-amber-600 dark:text-amber-400">
+                {formatSetBonus(set.bonus)}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+              세트 조각을 모두 착용하면 적용됩니다.
+            </p>
+          </div>
+        )}
 
         {item.description && (
           <p className="mt-2 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">

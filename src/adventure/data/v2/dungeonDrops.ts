@@ -19,26 +19,13 @@ import type { DungeonFloorId } from "./types";
 
 // === 재료 정의 ======================================================
 
-export type V2MaterialId =
-  // 공용 (계열 무관 — 저~중티어 접착 + 별빛가루 T5 게이트)
-  | "v2_stone_chip"
-  | "v2_herb"
-  | "v2_slime_shard"
-  | "v2_bone_fragment"
-  | "v2_beast_sinew"
-  | "v2_starlit_dust"
-  // 금속 계열 (검·중갑)
-  | "v2_rough_ore"
-  | "v2_steel_ingot"
-  | "v2_mithril_ore"
-  // 가죽/직물 계열 (경갑·활)
-  | "v2_tough_hide"
-  | "v2_silk_thread"
-  | "v2_windweave_cloth"
-  // 마력 계열 (지팡이·반지·목걸이)
-  | "v2_mana_dust"
-  | "v2_rune_shard"
-  | "v2_arcane_crystal";
+// 2026-06-03: 재료 시스템 재설계 — 옛 15종(계열/티어) 통째 비운 뒤, **지역당 소수**로 다시
+// 채운다. 규칙: 한 지역 = 희귀 2종 + 흔함 3~4종, 드랍률은 낮게(잡재료 범람 방지). 타입은
+// string 으로 둬(세이브 키 호환·지역별 점진 추가 용이) 카탈로그에 등재된 것만 유효.
+// 현재: 들판(1층)만 정의. 나머지 지역은 보류(드랍 풀 빈 채).
+// ⚠️ 재료 수집이 3·4차 전직 요건(codex.ts)이라, V2_CODEX_TOTAL = 등재 재료 수.
+//    들판 5종 등재 → 전직 재료 요건이 min(요건, 5)로 부활(들판에서 전부 수집 가능).
+export type V2MaterialId = string;
 
 export type V2Material = {
   id: V2MaterialId;
@@ -47,113 +34,43 @@ export type V2Material = {
 };
 
 export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
-  // ── 공용 ────────────────────────────────────────────────────────
-  v2_stone_chip: {
-    id: "v2_stone_chip",
-    name: "돌멩이",
-    description: "흔히 굴러다니는 돌 조각. 다듬어 받침이나 숫돌로 쓴다.",
+  // ── 들판 (1층) — 흔함 3 ──────────────────────────────────────────
+  v2_field_grass: {
+    id: "v2_field_grass",
+    name: "들풀",
+    description: "들에 지천으로 자라는 풀. 달이거나 끈으로 엮어 쓴다.",
   },
-  v2_herb: {
-    id: "v2_herb",
-    name: "약초",
-    description: "들과 산에서 흔히 자라는 풀. 달여 마신다.",
+  v2_field_hide: {
+    id: "v2_field_hide",
+    name: "무른 가죽",
+    description: "작은 들짐승에게서 얻은 무른 가죽 조각.",
   },
-  v2_slime_shard: {
-    id: "v2_slime_shard",
-    name: "슬라임 조각",
-    description: "물컹한 점액 덩어리. 끈끈해서 무언가를 이어 붙일 때 쓴다.",
+  v2_field_stone: {
+    id: "v2_field_stone",
+    name: "돌조각",
+    description: "발끝에 차이는 흔한 돌 부스러기.",
   },
-  v2_bone_fragment: {
-    id: "v2_bone_fragment",
-    name: "뼛조각",
-    description: "오래된 뼈 부스러기. 단단해 손잡이나 보강재로 쓰인다.",
+  // ── 들판 (1층) — 희귀 2 ──────────────────────────────────────────
+  v2_field_fang: {
+    id: "v2_field_fang",
+    name: "들짐승 송곳니",
+    description: "단단한 들짐승의 송곳니. 드물게 온전한 것이 나온다.",
   },
-  v2_beast_sinew: {
-    id: "v2_beast_sinew",
-    name: "짐승 힘줄",
-    description: "질긴 짐승의 힘줄. 활시위나 매듭에 더없이 알맞다.",
-  },
-  v2_starlit_dust: {
-    id: "v2_starlit_dust",
-    name: "별빛 가루",
-    description: "별빛에 닿은 곳에서만 모이는 미세한 가루.",
-  },
-
-  // ── 금속 계열 ───────────────────────────────────────────────────
-  v2_rough_ore: {
-    id: "v2_rough_ore",
-    name: "거친 광석",
-    description: "막 캐낸 거친 광석. 제련하면 무기와 갑옷의 바탕이 된다.",
-  },
-  v2_steel_ingot: {
-    id: "v2_steel_ingot",
-    name: "강철 주괴",
-    description: "잘 벼린 강철 덩이. 단단한 장비의 뼈대가 된다.",
-  },
-  v2_mithril_ore: {
-    id: "v2_mithril_ore",
-    name: "미스릴 원석",
-    description: "가볍고도 단단한 귀한 광석. 다루기 까다롭다.",
-  },
-
-  // ── 가죽/직물 계열 ──────────────────────────────────────────────
-  v2_tough_hide: {
-    id: "v2_tough_hide",
-    name: "질긴 가죽",
-    description: "잘 손질한 질긴 가죽. 가벼운 방어구의 바탕이 된다.",
-  },
-  v2_silk_thread: {
-    id: "v2_silk_thread",
-    name: "비단실",
-    description: "곱게 자아낸 비단실. 가볍고 질긴 옷을 짜는 데 쓴다.",
-  },
-  v2_windweave_cloth: {
-    id: "v2_windweave_cloth",
-    name: "바람결 천",
-    description: "바람결을 머금은 듯 가벼운 천. 손에 닿는 느낌이 서늘하다.",
-  },
-
-  // ── 마력 계열 ───────────────────────────────────────────────────
-  v2_mana_dust: {
-    id: "v2_mana_dust",
-    name: "마력 가루",
-    description: "옅은 마력이 어린 가루. 주문 도구의 바탕에 섞는다.",
-  },
-  v2_rune_shard: {
-    id: "v2_rune_shard",
-    name: "룬 조각",
-    description: "룬이 새겨진 돌 조각. 쥐고 있으면 미세하게 떨린다.",
-  },
-  v2_arcane_crystal: {
-    id: "v2_arcane_crystal",
-    name: "비전 수정",
-    description: "맑은 수정 안에 마력이 응결되어 있다.",
+  v2_field_venom: {
+    id: "v2_field_venom",
+    name: "거미 독샘",
+    description: "들거미의 독을 머금은 작은 주머니. 좀처럼 터지지 않은 채 얻기 어렵다.",
   },
 };
 
-// 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용. 재료는 티어/등급 개념이
-// 없어 재료별 고정값으로 둔다(흔함순 차등). 구매는 불가. 제작 척추가 들어오면 주 소비처는
-// 제작이지만 환금 밸브로 남긴다. 계열 상위로 갈수록 값↑.
+// 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용(제작 보류 중이라 현 주 용도).
+// 흔함=헐값, 희귀=환금 가치. 등재 재료마다 값 필요.
 export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
-  // 공용
-  v2_stone_chip: 2,
-  v2_herb: 3,
-  v2_slime_shard: 4,
-  v2_bone_fragment: 6,
-  v2_beast_sinew: 8,
-  v2_starlit_dust: 20,
-  // 금속
-  v2_rough_ore: 3,
-  v2_steel_ingot: 9,
-  v2_mithril_ore: 26,
-  // 가죽/직물
-  v2_tough_hide: 3,
-  v2_silk_thread: 9,
-  v2_windweave_cloth: 24,
-  // 마력
-  v2_mana_dust: 4,
-  v2_rune_shard: 10,
-  v2_arcane_crystal: 28,
+  v2_field_grass: 2,
+  v2_field_hide: 3,
+  v2_field_stone: 2,
+  v2_field_fang: 16,
+  v2_field_venom: 22,
 };
 
 // === floor 별 드랍 풀 ===============================================
@@ -170,56 +87,23 @@ export type DropRule = {
   amountMax: number;
 };
 
+// 2026-06-03: 지역당 소수 재료 + 저드랍 규칙. 들판(1층)만 채움 — 흔함 3(0.10~0.14, 절반
+// 인하)·희귀 2(0.05~0.07, 유지). 기대 획득 ≈ 1마리당 0.5개(Lv30+; 신참 ×2 ≈ 1개).
+// 나머지 층은 보류(빈 풀 → 골드+exp 만).
 export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
-  // 1층 — 변경 입구 (Lv 1~5). 전 계열 T1 재료 입문. (앞 3행은 옛 테스트 호환 유지)
   1: [
-    { id: "v2_stone_chip", chance: 0.5, amountMin: 1, amountMax: 2 },
-    { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 1 },
-    { id: "v2_slime_shard", chance: 0.1, amountMin: 1, amountMax: 1 },
-    { id: "v2_rough_ore", chance: 0.4, amountMin: 1, amountMax: 2 },
-    { id: "v2_tough_hide", chance: 0.4, amountMin: 1, amountMax: 2 },
-    { id: "v2_mana_dust", chance: 0.35, amountMin: 1, amountMax: 1 },
+    // 흔함
+    { id: "v2_field_grass", chance: 0.14, amountMin: 1, amountMax: 2 },
+    { id: "v2_field_hide", chance: 0.11, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_stone", chance: 0.1, amountMin: 1, amountMax: 1 },
+    // 희귀
+    { id: "v2_field_fang", chance: 0.07, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_venom", chance: 0.05, amountMin: 1, amountMax: 1 },
   ],
-  // 2층 — 변경 외곽 (Lv 6~13). 3계열 중급 재료 진입(소량) — 금속/가죽/마력 동일 깊이로
-  // 둬야 T2 제작이 빌드 무관 동시에 풀린다(steel·silk·rune 셋 다 2층). slime_shard(T2 공용
-  // 접착)도 여기 둬 T2 제작이 2층에서 자기완결되도록(1층 되돌이 불필요).
-  2: [
-    { id: "v2_rough_ore", chance: 0.45, amountMin: 1, amountMax: 2 },
-    { id: "v2_tough_hide", chance: 0.4, amountMin: 1, amountMax: 2 },
-    { id: "v2_mana_dust", chance: 0.35, amountMin: 1, amountMax: 2 },
-    { id: "v2_herb", chance: 0.3, amountMin: 1, amountMax: 2 },
-    { id: "v2_slime_shard", chance: 0.25, amountMin: 1, amountMax: 2 },
-    { id: "v2_steel_ingot", chance: 0.15, amountMin: 1, amountMax: 1 },
-    { id: "v2_silk_thread", chance: 0.15, amountMin: 1, amountMax: 1 },
-    { id: "v2_rune_shard", chance: 0.15, amountMin: 1, amountMax: 1 },
-  ],
-  // 3층 — 산악 평원 (Lv 18~28). 광산 느낌 — 금속 편향 + 뼈/힘줄.
-  3: [
-    { id: "v2_rough_ore", chance: 0.45, amountMin: 1, amountMax: 3 },
-    { id: "v2_steel_ingot", chance: 0.3, amountMin: 1, amountMax: 2 },
-    { id: "v2_bone_fragment", chance: 0.2, amountMin: 1, amountMax: 1 },
-    { id: "v2_beast_sinew", chance: 0.18, amountMin: 1, amountMax: 1 },
-    { id: "v2_rune_shard", chance: 0.15, amountMin: 1, amountMax: 1 },
-    { id: "v2_silk_thread", chance: 0.12, amountMin: 1, amountMax: 1 },
-  ],
-  // 4층 — 화염 지대 (Lv 34~55). 고티어 재료 진입(미스릴·비전 수정·바람결 천).
-  4: [
-    { id: "v2_steel_ingot", chance: 0.3, amountMin: 1, amountMax: 2 },
-    { id: "v2_beast_sinew", chance: 0.25, amountMin: 1, amountMax: 2 },
-    { id: "v2_mithril_ore", chance: 0.12, amountMin: 1, amountMax: 1 },
-    { id: "v2_arcane_crystal", chance: 0.12, amountMin: 1, amountMax: 1 },
-    { id: "v2_windweave_cloth", chance: 0.1, amountMin: 1, amountMax: 1 },
-    { id: "v2_starlit_dust", chance: 0.08, amountMin: 1, amountMax: 1 },
-  ],
-  // 5층 — 별빛 회랑 (Lv 70~100). T5 게이트 — 상위 계열 + 별빛 가루 본격.
-  5: [
-    { id: "v2_mithril_ore", chance: 0.25, amountMin: 1, amountMax: 2 },
-    { id: "v2_windweave_cloth", chance: 0.2, amountMin: 1, amountMax: 2 },
-    { id: "v2_arcane_crystal", chance: 0.2, amountMin: 1, amountMax: 2 },
-    { id: "v2_beast_sinew", chance: 0.18, amountMin: 1, amountMax: 1 },
-    { id: "v2_starlit_dust", chance: 0.15, amountMin: 1, amountMax: 2 },
-  ],
-  // 6~8 층(엔드) 은 후속 PR 에서 채움. 빈 풀이라 사냥 보상 X.
+  2: [],
+  3: [],
+  4: [],
+  5: [],
   6: [],
   7: [],
   8: [],

@@ -115,6 +115,15 @@ export type V2EquipmentId =
   | "v2_crystal_amulet"
   | "v2_starlight_pendant"
   | "v2_mana_essence"
+  // 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외.
+  //   무기/목걸이 4종 + 들가죽 세트 3종(경갑, setId:"field_leather").
+  | "v2_meadow_bow"
+  | "v2_spider_venom_dagger"
+  | "v2_wolffang_staff"
+  | "v2_fang_necklace"
+  | "v2_field_leather_armor"
+  | "v2_field_leather_gloves"
+  | "v2_field_leather_boots"
   // 유니크 (드랍 전용, rarity:"unique") — 정규 컨셉×티어 그리드 밖 사이드그레이드. Phase 2 투입.
   | "v2_uniq_shadow_garb"
   | "v2_uniq_trickster_boots"
@@ -162,6 +171,10 @@ export type V2Equipment = {
   element?: V2Element;
   /** 희귀도. 생략/"common" = 정규(상점·제작). "unique" = 드랍 전용(상점·제작·그리드 제외). */
   rarity?: V2EquipRarity;
+  /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
+  craftOnly?: boolean;
+  /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
+  setId?: string;
 };
 
 // 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
@@ -193,9 +206,9 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
-// 유니크는 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
+// 유니크·제작전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
 export function shopPriceOf(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique") return undefined;
+  if (item.rarity === "unique" || item.craftOnly) return undefined;
   return shopPriceFor(item.tier, item.slot);
 }
 
@@ -203,6 +216,29 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";
 }
+
+// === 장비 세트 ======================================================
+// 한 세트의 조각을 전부 장착하면 보너스(옵션 후-가산, aggregateV2Equipment 에서 적용).
+export type V2EquipSet = {
+  id: string;
+  name: string;
+  pieces: readonly V2EquipmentId[];
+  /** 전 조각 장착 시 후-가산 보너스. V2EquipOptions 형태(crit/eva/mp/hp) 재사용. */
+  bonus: Readonly<V2EquipOptions>;
+};
+
+export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
+  {
+    id: "field_leather",
+    name: "들가죽 세트",
+    pieces: [
+      "v2_field_leather_armor",
+      "v2_field_leather_gloves",
+      "v2_field_leather_boots",
+    ],
+    bonus: { eva: 3, hp: 20 },
+  },
+];
 
 // V2_EQUIPMENT — 35종, 컨셉×티어 그리드.
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
@@ -919,6 +955,100 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 0,
     options: { mp: 24, hp: 40 }, // 반지인데 MP+HP(보통 반지는 치명)
     rarity: "unique",
+  },
+
+  // ── 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외 ─────────
+  // 흔함 재료 = T2 상점보다 조금 위. 희귀 재료(단검·지팡이·목걸이) = 그보다 좀 더 위.
+  v2_meadow_bow: {
+    id: "v2_meadow_bow",
+    slot: "weapon",
+    concept: "dex",
+    tier: 2,
+    name: "초원 활",
+    description: "들판의 질긴 가죽과 풀줄기로 멘 활. 가볍고 손에 붙는다.",
+    power: 9, // T2 정규 활(dex) 7 보다 조금 위
+    weight: 1,
+    options: { crit: 1 },
+    craftOnly: true,
+  },
+  v2_spider_venom_dagger: {
+    id: "v2_spider_venom_dagger",
+    slot: "weapon",
+    concept: "dex",
+    tier: 2,
+    name: "거미독 단검",
+    description: "들거미의 독을 날에 먹인 단검. 스치기만 해도 살을 문다.",
+    power: 11, // 희귀 — 초원 활(9)·T2(7) 위
+    weight: 1,
+    options: { crit: 1 },
+    element: "void", // 독 결
+    craftOnly: true,
+  },
+  v2_wolffang_staff: {
+    id: "v2_wolffang_staff",
+    slot: "weapon",
+    concept: "int",
+    tier: 2,
+    name: "늑대이빨 지팡이",
+    description: "들짐승 송곳니를 끝에 박은 지팡이. 쥐면 마력이 곤두선다.",
+    power: 15, // 희귀 — T2 정규 지팡이(int) 12 위
+    weight: 1,
+    options: { mp: 12 },
+    craftOnly: true,
+  },
+  v2_fang_necklace: {
+    id: "v2_fang_necklace",
+    slot: "necklace",
+    concept: "mana",
+    tier: 2,
+    name: "송곳니 목걸이",
+    description: "들짐승 송곳니를 엮어 건 목걸이. 마음을 가라앉힌다.",
+    power: 3, // 희귀 — T2 정규 목걸이(mana) 1 위
+    weight: 0,
+    options: { mp: 12 },
+    craftOnly: true,
+  },
+
+  // 들가죽 세트 (경갑 3종, setId:"field_leather") — 3종 다 착용 시 회피+3·HP+20.
+  // 흔함 재료. T2 정규 경갑보다 조금 위(갑옷 2→3 / 장갑·신발 1→2).
+  v2_field_leather_armor: {
+    id: "v2_field_leather_armor",
+    slot: "armor",
+    concept: "light",
+    tier: 2,
+    name: "들가죽 갑옷",
+    description: "들짐승 가죽을 두툼하게 덧댄 갑옷. 들가죽 세트의 몸통.",
+    power: 3,
+    weight: 0,
+    options: { eva: 1 },
+    craftOnly: true,
+    setId: "field_leather",
+  },
+  v2_field_leather_gloves: {
+    id: "v2_field_leather_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 2,
+    name: "들가죽 장갑",
+    description: "손마디를 가죽으로 감싼 장갑. 들가죽 세트의 손.",
+    power: 2,
+    weight: 0,
+    options: { crit: 1 },
+    craftOnly: true,
+    setId: "field_leather",
+  },
+  v2_field_leather_boots: {
+    id: "v2_field_leather_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 2,
+    name: "들가죽 신발",
+    description: "발목까지 가죽으로 올려 묶은 신. 들가죽 세트의 발.",
+    power: 2,
+    weight: 0,
+    options: { eva: 1 },
+    craftOnly: true,
+    setId: "field_leather",
   },
 };
 

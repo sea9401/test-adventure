@@ -67,7 +67,7 @@ export function V2TownHome({
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
           title="대장간"
-          description="던전에서 모은 재료로 장비를 벼리는 곳."
+          description="들판에서 모은 재료로 장비를 벼리는 곳."
           onClick={() => onAction({ kind: "open-smithy" })}
         />
         <EntryCard

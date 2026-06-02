@@ -79,7 +79,8 @@ function TabBackground({
         }}
         className="h-full w-full object-cover"
       />
-      <div className="absolute inset-0 bg-zinc-50/85 dark:bg-zinc-950/80" />
+      {/* dim 오버레이 — 라이트는 덜 가려 배경 이미지가 더 보이게(/85→/65), 다크는 유지(/80). */}
+      <div className="absolute inset-0 bg-zinc-50/65 dark:bg-zinc-950/80" />
     </div>
   );
 }

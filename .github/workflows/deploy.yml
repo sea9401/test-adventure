@@ -1,8 +1,9 @@
 name: Deploy to EC2
 
-# main 에 push 되면 EC2 로 SSH 접속해 코드 갱신 + 재빌드 + 재시작.
-# prod (~/adventure-rpg) 와 test (~/adventure-rpg-test) 를 두 step 으로 분리해
-# 배포한다 — test 실패는 prod 가 끝나 있다면 워크플로 자체를 빨간불로 만들지 않는다.
+# main 에 push 되면 EC2 로 SSH 접속해 prod (~/adventure-rpg) 코드 갱신 + 재빌드 + 재시작.
+# v2 운영 승격 후 prod-only. 옛 staging(~/adventure-rpg-test) 단계는 제거했다 — staging 이
+# 운영 DB(test_adventurerpg)와 분리된 자체 DB 를 받기 전까지 자동배포 대상에서 빼둔다.
+# (재도입 시 deploy-test.sh 가 운영 DB 를 건드리지 않도록 별도 DB 가드 먼저.)
 # 필요한 GitHub Secrets (Settings → Secrets and variables → Actions):
 #   EC2_HOST    — EC2 의 고정 IP 또는 도메인 (예: 54.180.28.29)
 #   EC2_SSH_KEY — EC2 접속용 private key 전체 (msmsge-key.pem 의 내용)
@@ -52,30 +53,3 @@ jobs:
             echo "▶ [prod] health"
             curl -fsS -o /dev/null -w 'prod=%{http_code}\n' http://127.0.0.1:3000/api/health || true
             echo "▶ [prod] done"
-
-      # ──────────────────────────────────────────────────────────────────
-      # test 배포 — best-effort. 별도 SSH 세션이라 prod 의 set -e 컨텍스트와 분리.
-      # continue-on-error: true + 디렉토리 부재 시 skip → 실패해도 워크플로는 success.
-      # 실제 배포 로직은 레포에 이미 있는 deploy/deploy-test.sh 에 위임.
-      # ──────────────────────────────────────────────────────────────────
-      - name: SSH & deploy [test]
-        if: success()
-        continue-on-error: true
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: false
-          command_timeout: 30m
-          script: |
-            if [ ! -d "$HOME/adventure-rpg-test" ]; then
-              echo "▶ [test] skipped (~/adventure-rpg-test not present)"
-              exit 0
-            fi
-            cd "$HOME/adventure-rpg-test"
-            if [ ! -x ./deploy/deploy-test.sh ]; then
-              echo "▶ [test] skipped (deploy-test.sh missing or not executable)"
-              exit 0
-            fi
-            ./deploy/deploy-test.sh

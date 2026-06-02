@@ -98,6 +98,7 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -802,6 +803,16 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  // 전체 소식 — 유니크 장비 드랍 broadcast. tx 커밋 후 side-effect 로 호출(중첩 트랜잭션
+  // 회피 — guild-lodge 데드락 교훈). insertFeedEntry 가 opt-out/디바운스/실패삼킴을 자체
+  // 처리하므로 응답엔 영향 없음. droppedUnique 는 승리 성공 응답 body 에만 존재.
+  const droppedUniqueId = (
+    result.body as { result?: { droppedUnique?: V2EquipmentId | null } }
+  ).result?.droppedUnique;
+  if (droppedUniqueId) {
+    await insertFeedEntry(userId, "unique_drop", { itemId: droppedUniqueId });
+  }
 
   return Response.json(result.body, { status: result.status });
 }

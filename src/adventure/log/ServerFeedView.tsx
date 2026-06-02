@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { ITEMS } from "@/adventure/data/items";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { formatRelative } from "@/lib/notifications";
 import {
   FEED_POLL_MS,
@@ -24,6 +25,9 @@ import {
 const PREVIEW_COUNT = 7;
 
 function itemName(itemId: string): string {
+  // v2 장비 카탈로그 우선(소식의 유니크 드랍은 v2 장비 id) → 없으면 v1 ITEMS → raw id.
+  const v2 = (V2_EQUIPMENT as Record<string, { name?: string }>)[itemId]?.name;
+  if (v2) return v2;
   return (ITEMS as Record<string, { name?: string }>)[itemId]?.name ?? itemId;
 }
 

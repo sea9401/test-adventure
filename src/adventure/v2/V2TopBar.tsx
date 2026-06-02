@@ -9,8 +9,10 @@ import { V2SettingsMenu } from "./V2SettingsMenu";
 
 export function V2TopBar({
   currentOutpost,
+  gameName,
 }: {
   currentOutpost: { id: string; name: string } | null;
+  gameName: string | null;
 }) {
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/90">
@@ -27,7 +29,7 @@ export function V2TopBar({
         <IconButton aria-label="채팅">
           <ChatCircle size={18} weight="duotone" />
         </IconButton>
-        <V2SettingsMenu />
+        <V2SettingsMenu gameName={gameName} />
       </nav>
     </header>
   );

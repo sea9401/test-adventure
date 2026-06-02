@@ -5,6 +5,7 @@ import {
   outpostOccupations,
   outpostTreasury,
   savesKv,
+  users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -295,8 +296,17 @@ export async function GET() {
       }
     : null;
 
+  // 회원 탈퇴 확인용 권위 닉네임(users.gameName). v2 는 이 컬럼을 안 채워 보통 null →
+  // DeleteAccountModal 이 "탈퇴" 폴백을 쓰고 /api/account/delete 도 같은 폴백을 기대 → 일치.
+  const [userRow] = await db
+    .select({ gameName: users.gameName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
   return Response.json({
     ok: true,
+    accountName: userRow?.gameName?.trim() || null,
     character: {
       name,
       gender,

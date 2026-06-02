@@ -167,17 +167,17 @@ export function ChatPanel({
 
   if (!open) return null;
 
-  // overlay 를 body 로 portal — V2TopBar 의 backdrop-blur(=backdrop-filter)가 fixed 자손의
+  // body 로 portal — V2TopBar 의 backdrop-blur(=backdrop-filter)가 fixed 자손의
   // containing block 이 돼 패널이 헤더 기준으로 떠 화면 위로 튀어나가던 버그 회피. open 일
   // 때만 렌더(=클릭 후 클라 only)라 SSR 에선 위 null 로 빠져 document.body 접근 안전.
+  //
+  // 비모달 도킹 — 바깥을 덮는 래퍼는 pointer-events-none(+dim 없음)이라 아래 게임 UI 를
+  // 그대로 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto.
+  // 바깥 탭으로 닫히지 않으며 닫기는 헤더 X 버튼뿐 — 화면을 옮겨도 떠 있다.
   return createPortal(
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-40 flex items-end justify-end bg-black/40 sm:items-end sm:p-4"
-    >
+    <div className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4">
       <div
-        onClick={(e) => e.stopPropagation()}
-        className="flex h-[85dvh] w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        className="pointer-events-auto flex h-[60dvh] w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
       >
         <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
@@ -317,11 +317,14 @@ export function ChatPanel({
       </div>
 
       {pickerOpen && inventory && (
-        <ChatItemPicker
-          inventory={inventory}
-          onPick={insertItemLink}
-          onClose={() => setPickerOpen(false)}
-        />
+        // 비차단 래퍼(pointer-events-none) 아래라 picker(자체 fixed 모달)도 명시적으로 살린다.
+        <div className="pointer-events-auto">
+          <ChatItemPicker
+            inventory={inventory}
+            onPick={insertItemLink}
+            onClose={() => setPickerOpen(false)}
+          />
+        </div>
       )}
     </div>,
     document.body,

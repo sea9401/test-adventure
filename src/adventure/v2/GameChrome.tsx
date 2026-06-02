@@ -101,21 +101,24 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       !pathname.startsWith("/map") &&
       !pathname.startsWith("/outpost"));
 
-  // 탭/화면별 배경 이미지 — 우선순위: 치료소 전용 > 거점 탭(모험/마을/캐릭터) > 길드 > 광장.
-  // 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적 이미지.
+  // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·사냥터) > 거점 탭(모험/마을/캐릭터)
+  // > 길드 > 광장. 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적.
+  // 사냥터 = 던전 목록 + 층 전투(/battle/dungeon 하위).
   const background: { src: string; fallbackSrc?: string } | null =
     pathname === "/town/healing"
       ? { src: "/images/ui/healingcenter.webp" }
-      : BG_TABS.has(activeTab)
-        ? {
-            src: `/images/ui/${currentOutpostType}.webp`,
-            fallbackSrc: "/images/ui/village.webp",
-          }
-        : activeTab === "guild"
-          ? { src: "/images/ui/guild.webp" }
-          : activeTab === "plaza"
-            ? { src: "/images/ui/townhall.webp" }
-            : null;
+      : pathname.startsWith("/battle/dungeon")
+        ? { src: "/images/ui/hunt.webp" }
+        : BG_TABS.has(activeTab)
+          ? {
+              src: `/images/ui/${currentOutpostType}.webp`,
+              fallbackSrc: "/images/ui/village.webp",
+            }
+          : activeTab === "guild"
+            ? { src: "/images/ui/guild.webp" }
+            : activeTab === "plaza"
+              ? { src: "/images/ui/townhall.webp" }
+              : null;
 
   return (
     <div>

@@ -1,18 +1,21 @@
 "use client";
 
-import { Bell, ChatCircle, MapPin } from "@phosphor-icons/react";
+import { Bell, MapPin } from "@phosphor-icons/react";
+import { ChatButton } from "@/components/ChatButton";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 현재 거점 위치 (없으면 "이동 중") — V2GameFlow 가 visit 시 갱신.
-// 우측: 알림·채팅·설정. 설정만 wiring (테마 토글 + 메뉴얼), 알림/채팅은 placeholder.
+// 우측: 알림·채팅·설정. 채팅(ChatButton, 전역 /api/chat)·설정 wiring, 알림은 placeholder.
 
 export function V2TopBar({
   currentOutpost,
   gameName,
+  playerName,
 }: {
   currentOutpost: { id: string; name: string } | null;
   gameName: string | null;
+  playerName: string;
 }) {
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-zinc-800 dark:bg-zinc-950/90">
@@ -26,9 +29,9 @@ export function V2TopBar({
         <IconButton aria-label="알림">
           <Bell size={18} weight="duotone" />
         </IconButton>
-        <IconButton aria-label="채팅">
-          <ChatCircle size={18} weight="duotone" />
-        </IconButton>
+        {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).
+            v2 는 인벤토리 미연결이라 아이템 링크 없이 텍스트 채팅만. */}
+        <ChatButton name={playerName} className="" title={null} />
         <V2SettingsMenu gameName={gameName} />
       </nav>
     </header>

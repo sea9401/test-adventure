@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ChatCircle } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
 import { ChatPanel, type ChatMessage } from "./ChatPanel";
+import type { InventoryState } from "@/adventure/inventory/useInventory";
 
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
@@ -36,12 +37,15 @@ export function ChatButton({
   className,
   title,
   onSent,
+  inventory,
 }: {
   name: string;
   className: string;
   title: string | null;
   /** 메시지 전송 성공 시 1회 호출 — '수다쟁이' 칭호 카운터 등에 사용. */
   onSent?: () => void;
+  /** 아이템 링크용 인벤토리. 없으면(예: v2) 텍스트 채팅만(첨부 버튼 숨김). */
+  inventory?: InventoryState;
 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -175,6 +179,7 @@ export function ChatButton({
         unreadChat={hasUnreadChat}
         unreadNotice={hasUnreadNotice}
         onSeen={handleSeen}
+        inventory={inventory}
       />
     </>
   );

@@ -13,8 +13,8 @@ import {
   encodeItemLink,
   type ChatItemRef,
 } from "@/lib/chat-item-link";
-import { useGame } from "@/adventure/GameContext";
 import { ChatItemPicker } from "./ChatItemPicker";
+import type { InventoryState } from "@/adventure/inventory/useInventory";
 import { postMessage, translateChatError } from "./chat/chatApi";
 import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
@@ -41,6 +41,7 @@ export function ChatPanel({
   unreadChat = false,
   unreadNotice = false,
   onSeen,
+  inventory,
 }: {
   open: boolean;
   onClose: () => void;
@@ -54,8 +55,9 @@ export function ChatPanel({
   unreadNotice?: boolean;
   /** 해당 탭의 최신 메시지를 본 것으로 처리. */
   onSeen?: (kind: "chat" | "notice", lastId: number) => void;
+  /** 아이템 링크용 인벤토리. 없으면(예: v2) 아이템 링크 비활성 — 텍스트 채팅만. */
+  inventory?: InventoryState;
 }) {
-  const game = useGame();
   const router = useRouter();
   const presence = usePresencePoll(open);
   const [presenceOpen, setPresenceOpen] = useState(false);
@@ -305,14 +307,14 @@ export function ChatPanel({
             draft={draft}
             onDraftChange={setDraft}
             onSubmit={submit}
-            onOpenPicker={() => setPickerOpen(true)}
+            onOpenPicker={inventory ? () => setPickerOpen(true) : undefined}
           />
         )}
       </div>
 
-      {pickerOpen && (
+      {pickerOpen && inventory && (
         <ChatItemPicker
-          inventory={game.inventory.state}
+          inventory={inventory}
           onPick={insertItemLink}
           onClose={() => setPickerOpen(false)}
         />

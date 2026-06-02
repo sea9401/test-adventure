@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { BASE_GOLD_RATE, monsterGoldReward } from "./monsterGold";
 
 describe("monsterGoldReward", () => {
-  it("exp × BASE_GOLD_RATE = exp (1.0 으로 100× 인상 — 2026-05-28)", () => {
-    expect(BASE_GOLD_RATE).toBe(1.0);
-    expect(monsterGoldReward({ exp: 300 })).toBe(300);
-    expect(monsterGoldReward({ exp: 25 })).toBe(25);
-    expect(monsterGoldReward({ exp: 5000 })).toBe(5000); // 보스급
+  it("exp × BASE_GOLD_RATE (2.0 으로 2× 인상 — 2026-06-03)", () => {
+    expect(BASE_GOLD_RATE).toBe(2.0);
+    expect(monsterGoldReward({ exp: 300 })).toBe(600);
+    expect(monsterGoldReward({ exp: 25 })).toBe(50);
+    expect(monsterGoldReward({ exp: 5000 })).toBe(10000); // 보스급
     expect(monsterGoldReward({ exp: 0 })).toBe(1); // exp 0 몬스터도 1 보장
   });
 

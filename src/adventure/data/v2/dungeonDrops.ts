@@ -19,11 +19,12 @@ import type { DungeonFloorId } from "./types";
 
 // === 재료 정의 ======================================================
 
-// 2026-06-03: v2 재료 시스템 **통째 보류** (제작 재설계 전 백지화). 재료 정의·드랍·판매·
-// 레시피·코덱스 집계를 전부 비웠다. 타입은 string 으로 완화(레시피/세이브 키 호환), 카탈로그는
-// 빈 객체. 되돌리려면 이 union/객체를 복원하면 끝(헬퍼·라우트·UI 구조는 그대로 둠).
-// ⚠️ 재료 수집이 3·4차 전직 요건(codex.ts)이라, 카탈로그가 비면 V2_CODEX_TOTAL=0 →
-//    codexRequirement=0 으로 전직 재료 요건이 자동 해제된다(의도: 보류 중 진행 막힘 방지).
+// 2026-06-03: 재료 시스템 재설계 — 옛 15종(계열/티어) 통째 비운 뒤, **지역당 소수**로 다시
+// 채운다. 규칙: 한 지역 = 희귀 2종 + 흔함 3~4종, 드랍률은 낮게(잡재료 범람 방지). 타입은
+// string 으로 둬(세이브 키 호환·지역별 점진 추가 용이) 카탈로그에 등재된 것만 유효.
+// 현재: 들판(1층)만 정의. 나머지 지역은 보류(드랍 풀 빈 채).
+// ⚠️ 재료 수집이 3·4차 전직 요건(codex.ts)이라, V2_CODEX_TOTAL = 등재 재료 수.
+//    들판 5종 등재 → 전직 재료 요건이 min(요건, 5)로 부활(들판에서 전부 수집 가능).
 export type V2MaterialId = string;
 
 export type V2Material = {
@@ -32,12 +33,45 @@ export type V2Material = {
   description: string;
 };
 
-export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {};
+export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
+  // ── 들판 (1층) — 흔함 3 ──────────────────────────────────────────
+  v2_field_grass: {
+    id: "v2_field_grass",
+    name: "들풀",
+    description: "들에 지천으로 자라는 풀. 달이거나 끈으로 엮어 쓴다.",
+  },
+  v2_field_hide: {
+    id: "v2_field_hide",
+    name: "무른 가죽",
+    description: "작은 들짐승에게서 얻은 무른 가죽 조각.",
+  },
+  v2_field_stone: {
+    id: "v2_field_stone",
+    name: "돌조각",
+    description: "발끝에 차이는 흔한 돌 부스러기.",
+  },
+  // ── 들판 (1층) — 희귀 2 ──────────────────────────────────────────
+  v2_field_fang: {
+    id: "v2_field_fang",
+    name: "들짐승 송곳니",
+    description: "단단한 들짐승의 송곳니. 드물게 온전한 것이 나온다.",
+  },
+  v2_field_venom: {
+    id: "v2_field_venom",
+    name: "거미 독샘",
+    description: "들거미의 독을 머금은 작은 주머니. 좀처럼 터지지 않은 채 얻기 어렵다.",
+  },
+};
 
-// 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용. 재료는 티어/등급 개념이
-// 없어 재료별 고정값으로 둔다(흔함순 차등). 구매는 불가. 제작 척추가 들어오면 주 소비처는
-// 제작이지만 환금 밸브로 남긴다. 계열 상위로 갈수록 값↑.
-export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {};
+// 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용(제작 보류 중이라 현 주 용도).
+// 흔함=헐값, 희귀=환금 가치. 등재 재료마다 값 필요.
+export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
+  v2_field_grass: 2,
+  v2_field_hide: 3,
+  v2_field_stone: 2,
+  v2_field_fang: 16,
+  v2_field_venom: 22,
+};
 
 // === floor 별 드랍 풀 ===============================================
 // chance = 0~1, 굴림 통과 시 [amountMin, amountMax] 사이 정수 개수 획득.
@@ -53,10 +87,19 @@ export type DropRule = {
   amountMax: number;
 };
 
-// 2026-06-03: 재료 보류로 전 층 드랍 풀 비움 — 사냥 보상은 골드+exp 만. 재료 시스템
-// 재설계 시 층별 풀을 다시 채운다.
+// 2026-06-03: 지역당 소수 재료 + 저드랍 규칙. 들판(1층)만 채움 — 흔함 3(0.10~0.14, 절반
+// 인하)·희귀 2(0.05~0.07, 유지). 기대 획득 ≈ 1마리당 0.5개(Lv30+; 신참 ×2 ≈ 1개).
+// 나머지 층은 보류(빈 풀 → 골드+exp 만).
 export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
-  1: [],
+  1: [
+    // 흔함
+    { id: "v2_field_grass", chance: 0.14, amountMin: 1, amountMax: 2 },
+    { id: "v2_field_hide", chance: 0.11, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_stone", chance: 0.1, amountMin: 1, amountMax: 1 },
+    // 희귀
+    { id: "v2_field_fang", chance: 0.07, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_venom", chance: 0.05, amountMin: 1, amountMax: 1 },
+  ],
   2: [],
   3: [],
   4: [],

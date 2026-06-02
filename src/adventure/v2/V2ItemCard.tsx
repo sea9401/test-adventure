@@ -26,17 +26,27 @@ const WIDTH = 256; // 카드 폭(px)
 const GAP = 6; // 앵커와 카드 사이 간격
 const MARGIN = 8; // 뷰포트 가장자리 여백
 
+export type ItemCardEquipAction = {
+  isEquipped: boolean;
+  busy: boolean;
+  onEquip: () => void;
+  onUnequip: () => void;
+};
+
 export function V2ItemCard({
   item,
   anchor,
   onClose,
   roll,
+  equip,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
   onClose: () => void;
   // 보유템의 개체 굴림(편차). 주면 굴림값 표시, 없으면 카탈로그(상점·제작 미리보기).
   roll?: V2EquipRoll;
+  // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
+  equip?: ItemCardEquipAction;
 }) {
   useEscapeKey(onClose);
 
@@ -116,6 +126,21 @@ export function V2ItemCard({
           <p className="mt-2 border-t border-zinc-200 pt-2 text-xs italic leading-relaxed text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
             {item.description}
           </p>
+        )}
+
+        {equip && (
+          <button
+            type="button"
+            onClick={equip.isEquipped ? equip.onUnequip : equip.onEquip}
+            disabled={equip.busy}
+            className={`mt-3 w-full rounded-md px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              equip.isEquipped
+                ? "border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
+          >
+            {equip.busy ? "처리 중…" : equip.isEquipped ? "해제" : "장착하기"}
+          </button>
         )}
       </div>
     </>

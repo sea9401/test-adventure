@@ -89,8 +89,8 @@ export function useGameState(): GameStateValue {
 
 export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  // 비동기(다중 홉 이동) 완료 시점에 "사용자가 아직 지도를 보고 있는가"를 판정하기 위한
-  // pathname 거울. 이동 중 다른 탭으로 옮겼으면 도착 시 거점 화면으로 강제 전환하지 않는다.
+  // enterOutpost 실패 롤백이 "사용자가 아직 그 거점 화면에 머무는가"를 판정하는 데 쓰는
+  // pathname 거울(비동기 visit POST 완료 시점). 느린 POST 중 다른 화면으로 옮겼으면 안 끌어온다.
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   useEffect(() => {
@@ -281,22 +281,19 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   // 다중 홉 자동 이동 — 현재 거점에서 목적지까지 최단 경로를 따라 한 칸씩 순차 진입한다.
-  // 워프가 아니라 길을 "걸어가는" 것: 홉마다 currentOutpost 만 갱신(주소는 /map 유지 →
-  // ContinentMap 이 마커를 전진)하고, 도착 후 사용자가 아직 지도면 거점 화면을 연다.
+  // 워프가 아니라 길을 "걸어가는" 것: 홉마다 currentOutpost(마커)만 갱신하고 지도에 머문다.
+  // 거점 화면은 열지 않는다(연속 이동 편의 — 한 칸씩 옮길 때 매번 지도 다시 안 켜도 됨).
+  // 거점 진입은 모험 탭 「거점 진입」 또는 지도에서 현재 거점 「둘러보기」로.
   const travelTo = useCallback(
     (target: Outpost) => {
       if (visitInFlightRef.current) return;
       const startId = currentOutpost?.id ?? START_OUTPOST_ID;
-      if (startId === target.id) {
-        router.push(`/outpost/${target.id}`);
-        return;
-      }
+      if (startId === target.id) return; // 이미 그 거점 — 이동 없음.
       // 발견된 거점만 거쳐가는 최단 경로(안개 게이트). 목적지가 미발견이면 경로 없음.
       const path = shortestOutpostPath(startId, target.id, discoveredIds);
       if (!path || path.length < 2) return; // 미발견/미연결(방어).
       visitInFlightRef.current = true;
       void (async () => {
-        let reachedId = startId;
         try {
           for (let i = 1; i < path.length; i += 1) {
             const stepId = path[i];
@@ -309,7 +306,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             applyVisitResult(j);
             // 막히면(인접 위반·스태미나 부족·네트워크) 도달한 지점에서 멈춘다(부분 이동 유효).
             if (!res.ok) break;
-            reachedId = stepId;
             const o = OUTPOST_BY_ID.get(stepId);
             if (o) setCurrentOutpost({ id: o.id, name: o.name });
             if (i < path.length - 1) await delay(TRAVEL_HOP_MS);
@@ -319,18 +315,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         } finally {
           visitInFlightRef.current = false;
         }
-        // 한 칸이라도 이동했고, 사용자가 아직 지도를 보고 있으면 도달한 거점 화면을 연다.
-        const reached = OUTPOST_BY_ID.get(reachedId);
-        if (
-          reachedId !== startId &&
-          reached &&
-          pathnameRef.current.startsWith("/map")
-        ) {
-          router.push(`/outpost/${reachedId}`);
-        }
+        // 거점 화면으로 이동하지 않는다 — 마커만 옮기고 지도에 머문다.
       })();
     },
-    [currentOutpost, discoveredIds, applyVisitResult, router],
+    [currentOutpost, discoveredIds, applyVisitResult],
   );
 
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.

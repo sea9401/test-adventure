@@ -1,18 +1,9 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { Suspense } from "react";
-import { SaveProvider } from "@/lib/storage/SaveProvider";
-import { STARTER_SAVES } from "@/adventure/starterSaves";
-import { CreateCharacterPage } from "./CreateCharacterPage";
-
-// 캐릭터 생성 전용 라우트. 모달 대신 별도 페이지로 분리 — 추후 회원가입/온보딩 흐름 확장 여지.
-// 인증 필요(미들웨어가 /sign-in 으로 가드). SaveProvider 로 감싸 프로필 hydrate.
-export default function Page() {
-  return (
-    <SaveProvider starters={STARTER_SAVES}>
-      <Suspense fallback={null}>
-        <CreateCharacterPage />
-      </Suspense>
-    </SaveProvider>
-  );
+// v1 캐릭터 생성 라우트 폐기 (v2 승격). v2 는 루트(/)에서 온보딩을 처리하고, 신규 유저는
+// OAuth 후 callbackUrl "/" 로 루트에 떨어진다 → /create 는 더 이상 흐름에 없는 고아.
+// 직접 진입 시 v1 캐릭터 생성기가 공유 savesKv 에 v1 포맷을 써 v2 캐릭터를 덮을 위험이
+// 있어, 루트로 리다이렉트해 진입 자체를 막는다.
+export default function CreatePage() {
+  redirect("/");
 }

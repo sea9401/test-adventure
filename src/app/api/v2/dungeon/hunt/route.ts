@@ -9,8 +9,7 @@ import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/battle/monsterGold";
 import {
   applyExpGain,
-  applyNewbieBonus,
-  getNewbieDropMultiplier,
+  applyNewbieExpBonusByBattles,
   requiredExpToNext,
   XP_RATE_MULT,
 } from "@/lib/leveling";
@@ -456,17 +455,35 @@ export async function POST(req: Request) {
 
     const won = battleResult.outcome === "win";
     const curLevel = Math.max(1, charSave.level ?? 1);
-    // EXP = monster.exp → 신참 보너스(Lv30 미만 ×2, 라이브와 동일) → 전역 배율(staging 기본
-    // 2.2/IS_STAGING, 라이브 1.0, NEXT_PUBLIC_XP_RATE_MULT override). 라이브 battleClaim 과 같은
-    // 순서(newbie 먼저, 그 다음 배율). levelBand 는 여전히 v2 미적용 — 별개 다이얼.
-    const baseExp = won ? applyNewbieBonus(enemyMonster.exp, curLevel).gained : 0;
+    // 신참 보너스 판정용 누적 전투 전적 — adventure-log.v2 의 monster kills 합 + 패배수.
+    // v2 는 재전직이 레벨을 1 로 리셋하므로 레벨이 아닌 전적으로 신참을 가린다(베테랑이
+    // 재전직할 때마다 보너스가 잘못 되살아나는 것 방지). read-only 스냅샷(게이트용)이라
+    // 비잠금 — 권위적 kill 증가는 아래 lock 구간(adventure-log.v2)에서 한다.
+    const logRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")),
+      )
+      .limit(1);
+    const logVal = (logRow[0]?.value ?? null) as {
+      monsters?: Record<string, { kills?: number }>;
+      battleLosses?: number;
+    } | null;
+    const battleCount =
+      Object.values(logVal?.monsters ?? {}).reduce(
+        (sum, m) => sum + (m?.kills ?? 0),
+        0,
+      ) + (logVal?.battleLosses ?? 0);
+    // EXP = monster.exp → 신참 보너스(전적 ≤ 3만 ×2, EXP 전용) → 전역 배율(staging 기본
+    // 2.2/IS_STAGING, 라이브 1.0). 라이브 battleClaim 과 같은 순서(newbie 먼저, 그 다음 배율).
+    const baseExp = won
+      ? applyNewbieExpBonusByBattles(enemyMonster.exp, battleCount).gained
+      : 0;
     const expGained = Math.round(baseExp * XP_RATE_MULT);
     const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
-    // 신참 드롭 보너스 — Lv30 미만 드롭률 ×2 (라이브와 동일).
-    const newbieDropMult = getNewbieDropMultiplier(curLevel);
-    const drops: DropResult = won
-      ? rollDrops(floor, Math.random, newbieDropMult)
-      : {};
+    // 신참 드롭 보너스 폐지 — 신참 혜택은 EXP 전용(사용자 결정). 드롭은 항상 ×1.
+    const drops: DropResult = won ? rollDrops(floor, Math.random, 1) : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
 
     // 장비 드랍 — 승리 시 1회 굴림. 이미 보유한 id 는 후보 제외 (장비 unique).
@@ -476,12 +493,7 @@ export async function POST(req: Request) {
     let nextOwned: V2EquipmentId[] = ownedEquip;
     if (won) {
       const ownedSet = new Set<V2EquipmentId>(ownedEquip);
-      droppedEquipment = rollEquipDrop(
-        floor,
-        ownedSet,
-        Math.random,
-        newbieDropMult,
-      );
+      droppedEquipment = rollEquipDrop(floor, ownedSet, Math.random, 1);
       if (droppedEquipment !== null) {
         nextOwned = [...nextOwned, droppedEquipment];
         ownedSet.add(droppedEquipment);

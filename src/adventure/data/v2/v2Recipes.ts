@@ -11,16 +11,7 @@
 // 이 PR 은 **데이터 + 순수 헬퍼만** — 실제 제작 실행(재료 소비·장비 grant)과 라우트/UI 는
 // PR-3/PR-4. 여기엔 catalog + 조회/제작가능판정(순수)만 둔다.
 
-import {
-  V2_EQUIPMENT,
-  isUnique,
-  shopPriceFor,
-  type V2Equipment,
-  type V2EquipConcept,
-  type V2EquipmentId,
-  type V2EquipSlot,
-  type V2EquipTier,
-} from "./v2Equipment";
+import type { V2EquipmentId } from "./v2Equipment";
 import type { V2MaterialId } from "./dungeonDrops";
 
 export type V2RecipeIngredient = { id: V2MaterialId; count: number };
@@ -32,105 +23,12 @@ export type V2Recipe = {
   gold: number;
 };
 
-// 재료 계열 — 슬롯/컨셉이 어느 계열 재료를 쓰나.
-//   금속(metal): 검(str) · 중갑(heavy 방어 3슬롯)
-//   가죽/직물(leather): 활(dex) · 경갑(light 방어 3슬롯)
-//   마력(magic): 지팡이(int) · 반지(luck) · 목걸이(mana)
-type Family = "metal" | "leather" | "magic";
-
-// 계열별 [저, 중, 고] 등급 재료. 티어에 따라 골라 쓴다 (드랍 층 게이팅과 정렬).
-const FAMILY_MATERIALS: Record<
-  Family,
-  readonly [V2MaterialId, V2MaterialId, V2MaterialId]
-> = {
-  metal: ["v2_rough_ore", "v2_steel_ingot", "v2_mithril_ore"],
-  leather: ["v2_tough_hide", "v2_silk_thread", "v2_windweave_cloth"],
-  magic: ["v2_mana_dust", "v2_rune_shard", "v2_arcane_crystal"],
-};
-
-function familyOf(slot: V2EquipSlot, concept: V2EquipConcept): Family {
-  if (slot === "weapon") {
-    if (concept === "str") return "metal";
-    if (concept === "dex") return "leather";
-    return "magic"; // int 지팡이
-  }
-  if (slot === "ring" || slot === "necklace") return "magic";
-  // armor / gloves / boots — heavy=금속, light=가죽
-  return concept === "heavy" ? "metal" : "leather";
-}
-
-// 골드 비용 = 상점 구매가 × 분율 (사는 것보다 싸게 — 제작이 정규 경로). sim 다이얼.
-const CRAFT_GOLD_FRACTION = 0.3;
-
-// 티어별 재료 템플릿. fam[0/1/2] = 계열 저/중/고. 공용은 티어별로 고정
-// (T1 약초 → T2 슬라임조각 → T3 뼛조각 → T4 짐승힘줄 → T5 별빛가루 + 짐승힘줄).
-// 고티어일수록 상위 계열 재료·수량↑. 고등급 계열 재료(고)·별빛가루는 깊은 층 게이트.
-function ingredientsFor(
-  family: Family,
-  tier: V2EquipTier,
-): V2RecipeIngredient[] {
-  const fam = FAMILY_MATERIALS[family];
-  switch (tier) {
-    case 1:
-      return [
-        { id: fam[0], count: 2 },
-        { id: "v2_herb", count: 2 },
-      ];
-    case 2:
-      return [
-        { id: fam[0], count: 3 },
-        { id: fam[1], count: 1 },
-        { id: "v2_slime_shard", count: 2 },
-      ];
-    case 3:
-      return [
-        { id: fam[1], count: 3 },
-        { id: "v2_bone_fragment", count: 2 },
-      ];
-    case 4:
-      return [
-        { id: fam[1], count: 2 },
-        { id: fam[2], count: 2 },
-        { id: "v2_beast_sinew", count: 2 },
-      ];
-    case 5:
-      return [
-        { id: fam[2], count: 4 },
-        { id: "v2_starlit_dust", count: 2 },
-        { id: "v2_beast_sinew", count: 2 },
-      ];
-    default:
-      // 티어는 1~5(V2EquipTier) — 도달 불가. 컴파일 타임 exhaustiveness(아래) +
-      // 런타임 방어(데이터 오염 시 잘못된 레시피 대신 즉시 실패).
-      return assertNever(tier);
-  }
-}
-
-// 도달 불가 경로 가드 — x 가 never 가 아니면(티어 추가 등) 컴파일 에러, 동시에 런타임 throw.
-function assertNever(x: never): never {
-  throw new Error(`v2Recipes: 예상치 못한 티어 ${JSON.stringify(x)}`);
-}
-
-function buildRecipe(item: V2Equipment): V2Recipe {
-  const shopPrice = shopPriceFor(item.tier, item.slot) ?? 0;
-  return {
-    result: item.id,
-    ingredients: ingredientsFor(familyOf(item.slot, item.concept), item.tier),
-    gold: Math.max(1, Math.round(shopPrice * CRAFT_GOLD_FRACTION)),
-  };
-}
-
-// V2_RECIPES — 정규 카탈로그와 1:1 (result == key). 유니크(드랍 전용)는 레시피 없음 →
-// 제작 불가. Partial — 유니크 id 는 키가 없다(없는 게 곧 "제작 불가" 신호).
-export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = (() => {
-  const out: Partial<Record<V2EquipmentId, V2Recipe>> = {};
-  for (const id of Object.keys(V2_EQUIPMENT) as V2EquipmentId[]) {
-    const item = V2_EQUIPMENT[id];
-    if (isUnique(item)) continue; // 유니크는 제작 불가 — 레시피 미생성
-    out[id] = buildRecipe(item);
-  }
-  return out;
-})();
+// 2026-06-03: 제작 시스템 **통째 보류** — 레시피 카탈로그를 비웠다(재료 보류와 연동,
+// dungeonDrops.ts 참고). 대장간에 제작 가능 항목이 없어진다. 재료 계열 매핑·티어별 재료
+// 템플릿·규칙 기반 생성 로직은 제거(필요 시 git 이력에서 복원). 아래 순수 헬퍼
+// (recipeFor/craftShortfall/consumeIngredients/salvageYield)와 타입은 휴면으로 보존 —
+// 빈 카탈로그에서 무해하게 동작하며, 제작 재설계 시 V2_RECIPES 채우면 바로 되살아난다.
+export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = {};
 
 // 레시피 조회 — 유니크 등 비제작 장비는 undefined.
 export function recipeFor(id: V2EquipmentId): V2Recipe | undefined {

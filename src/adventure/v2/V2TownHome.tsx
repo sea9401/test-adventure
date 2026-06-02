@@ -4,7 +4,6 @@ import {
   Barbell,
   FirstAid,
   Fish,
-  Hammer,
   MagnifyingGlass,
   Sparkle,
   Storefront,
@@ -64,12 +63,8 @@ export function V2TownHome({
           description="숙달 포인트로 직업 전용 스킬을 익히고 대련하는 곳."
           onClick={() => onAction({ kind: "open-training" })}
         />
-        <EntryCard
-          icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
-          title="대장간"
-          description="던전에서 모은 재료로 장비를 벼리는 곳."
-          onClick={() => onAction({ kind: "open-smithy" })}
-        />
+        {/* 대장간(제작) 진입 보류 — 재료/레시피 시스템 재설계 중. open-smithy 액션과
+            /town/smithy 라우트는 휴면으로 둠(복원 시 EntryCard 만 되살리면 됨). */}
         <EntryCard
           icon={<Fish size={28} weight="duotone" className="text-cyan-500" />}
           title="낚시터"

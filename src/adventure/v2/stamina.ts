@@ -11,14 +11,15 @@
 // 너무 빡빡 (만피 200 = STR Lv75 기준 3.3h 사냥, 회복 0→만피 16.7h). 일 1회 접속
 // 유저가 cap 손실 줄어들도록 총량 ×5, 회복 ×10 으로 확장.
 
-export const MAX_STAMINA = 1000;
+// 2026-06-03 사용자 결정 — cap 1000 → 5000 (밴킹 폭 확대, 일 1회 접속 유저의 cap 손실↓).
+export const MAX_STAMINA = 5000;
 export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1홉당 비용 (재진입은 무료)
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
-//   = 1000 * 30 s = 30000 s ≈ 8.33 시간.
-// 시간당 회복 = 120, 일 이론 회복 = 2880 (만피 cap 으로 16.7h 후 정체).
+//   = 5000 * 30 s = 150000 s ≈ 41.7 시간 (밴킹 cap — 평소엔 거의 안 비움).
+// 시간당 회복 = 120, 일 이론 회복 = 2880 (cap 5000 이라 ~41.7h 후 정체).
 
 // === 상태 ===========================================================
 

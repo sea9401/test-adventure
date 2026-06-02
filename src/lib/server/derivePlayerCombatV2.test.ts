@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateV2Equipment,
   derivePlayerCombatV2Pure,
+  V2_BASE_COMBAT_BONUS,
 } from "./derivePlayerCombatV2";
 import {
   V2_BASE_HP,
@@ -190,7 +191,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15)); // 2
+    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15) + V2_BASE_COMBAT_BONUS); // 2 + 5
   });
 
   it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.15) (STR 대칭)", () => {
@@ -201,7 +202,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(115);
-    expect(d.player.magicAtk).toBe(Math.floor(115 * 0.15)); // 17
+    expect(d.player.magicAtk).toBe(Math.floor(115 * 0.15) + V2_BASE_COMBAT_BONUS); // 17 + 5
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
@@ -212,8 +213,12 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: { weapon: "v2_starlit_staff" },
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15) + 36); // 2 + 36 = 38
-    expect(d.player.atk).toBe(Math.floor(15 * 0.15) + 36); // 2 + 36 = 38
+    expect(d.player.magicAtk).toBe(
+      Math.floor(15 * 0.15) + 36 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 36 + 5 = 43
+    expect(d.player.atk).toBe(
+      Math.floor(15 * 0.15) + 36 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 36 + 5 = 43
   });
 
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
@@ -224,7 +229,9 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: { weapon: "v2_oak_staff" }, // power 7
     });
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15) + 7); // 9
+    expect(d.player.magicAtk).toBe(
+      Math.floor(15 * 0.15) + 7 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 7 + 5 = 14
   });
 });
 

@@ -13,7 +13,7 @@ import {
 // ⚠️ DEV 전용 도구 UI. /api/v2/dev/grant + /api/v2/dev/grant-equipment 로 지급,
 //    /api/v2/dev/reset-me 로 본인 캐릭터 초기화.
 // 로그인된 본인 캐릭터의 character.v2 / training.v2 / inventory.v2 / equipment.v2 갱신.
-// 게임 탭(/dev/v2-game)을 옆에 띄워두고 여기서 지급 → 게임 탭 새로고침해 확인.
+// 게임 탭(루트 /)을 옆에 띄워두고 여기서 지급 → 게임 탭 새로고침해 확인.
 //
 // 지울 땐 이 폴더 + src/app/api/v2/dev (grant / grant-equipment / reset-me) 만
 // 지우면 됨 (게임 코드 의존 0).

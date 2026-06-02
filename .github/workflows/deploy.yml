@@ -19,6 +19,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # private repo fetch 용 GITHUB_TOKEN 에 contents:read 보장.
+    permissions:
+      contents: read
     steps:
       # ──────────────────────────────────────────────────────────────────
       # prod 배포 — 실패 시 워크플로 전체 실패. 91fb8d2 까지 잘 돌던 원형 스크립트
@@ -27,17 +30,22 @@ jobs:
       # ──────────────────────────────────────────────────────────────────
       - name: SSH & deploy [prod]
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: GH_TOKEN
           script_stop: true
           command_timeout: 30m
           script: |
             set -e
             cd ~/adventure-rpg
             echo "▶ [prod] git update"
-            git fetch --prune origin
+            # repo private — 박스 SSH origin 은 비대화형 deploy 컨텍스트에 키가 없어 fetch 실패.
+            # runner 의 GITHUB_TOKEN(ephemeral, contents:read)으로 HTTPS fetch 해 우회.
+            git fetch --prune "https://x-access-token:${GH_TOKEN}@github.com/sea9401/test-adventure.git" "+refs/heads/main:refs/remotes/origin/main"
             git checkout main
             git reset --hard origin/main
             echo "▶ [prod] deps"

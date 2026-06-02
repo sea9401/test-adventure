@@ -19,6 +19,7 @@ import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
+import { V2PlazaHome, type PlazaAction } from "@/adventure/v2/V2PlazaHome";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { BulletinBoardView } from "@/adventure/BulletinBoardView";
 import { RankingsView } from "@/adventure/rankings/RankingsView";
@@ -100,7 +101,7 @@ function OutpostBackground({ type }: { type: OutpostType }) {
 // 캐릭터: 메뉴(default)/내정보/인벤토리/스킬/장비 — 내정보 안의 슬롯 클릭으로 장비 진입
 // 길드: 길드 home
 
-type TabId = "adventure" | "battle" | "town" | "character" | "guild";
+type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
 
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
@@ -108,6 +109,7 @@ const TABS: { key: TabId; label: string }[] = [
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
   { key: "guild", label: "길드" },
+  { key: "plaza", label: "광장" },
 ];
 
 export type Occupation = {
@@ -145,6 +147,7 @@ type View =
   | { kind: "inventory" }
   | { kind: "codex" }
   | { kind: "guild" }
+  | { kind: "plaza" }
   | { kind: "bulletin" }
   | { kind: "rankings" }
   | { kind: "feed" }
@@ -176,10 +179,12 @@ function tabOfView(view: View): TabId {
     case "treasure-collection":
     case "treasure-shop":
     case "treasure-leaderboard":
+      return "town";
+    case "plaza":
     case "bulletin":
     case "rankings":
     case "feed":
-      return "town";
+      return "plaza";
     case "character":
     case "character-info":
     case "inventory":
@@ -202,6 +207,8 @@ function defaultViewOfTab(tab: TabId): View {
       return { kind: "character" };
     case "guild":
       return { kind: "guild" };
+    case "plaza":
+      return { kind: "plaza" };
   }
 }
 
@@ -467,6 +474,11 @@ export function V2GameFlow() {
       case "open-treasure":
         setView({ kind: "treasure" });
         break;
+    }
+  };
+
+  const handlePlazaAction = (action: PlazaAction) => {
+    switch (action.kind) {
       case "open-bulletin":
         setView({ kind: "bulletin" });
         break;
@@ -516,7 +528,8 @@ export function V2GameFlow() {
           ariaLabel="메인 탭"
           size="lg"
           variant="highlight"
-          className="mx-auto w-full max-w-[720px] px-4 sm:px-6"
+          scrollable
+          className="mx-auto w-full max-w-[720px] px-4 sm:px-6 [&_button]:text-[1.0625rem]"
         />
         {(currentTab === "adventure" ||
           (currentTab === "battle" &&
@@ -582,15 +595,18 @@ export function V2GameFlow() {
 
       {/* === 마을 탭 === */}
       {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
+
+      {/* === 광장 탭 (커뮤니티) === */}
+      {view.kind === "plaza" && <V2PlazaHome onAction={handlePlazaAction} />}
       {view.kind === "bulletin" && (
         <main className="mx-auto w-full max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-          <SubViewHeader title="게시판" onBack={() => setView({ kind: "town" })} />
+          <SubViewHeader title="게시판" onBack={() => setView({ kind: "plaza" })} />
           <BulletinBoardView />
         </main>
       )}
       {view.kind === "rankings" && (
         <main className="mx-auto w-full max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-          <SubViewHeader title="랭킹" onBack={() => setView({ kind: "town" })} />
+          <SubViewHeader title="랭킹" onBack={() => setView({ kind: "plaza" })} />
           <RankingsView />
         </main>
       )}
@@ -598,7 +614,7 @@ export function V2GameFlow() {
         <main className="mx-auto w-full max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
           <SubViewHeader
             title="전체 소식"
-            onBack={() => setView({ kind: "town" })}
+            onBack={() => setView({ kind: "plaza" })}
           />
           <ServerFeedView />
         </main>

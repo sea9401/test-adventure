@@ -48,6 +48,11 @@ type StateResponse = {
     spd: number;
     magicAtk?: number;
     magicDef?: number;
+    evasionPct?: number;
+    accuracyPct?: number;
+    critChancePct?: number;
+    critMult?: number;
+    extraAttackChancePct?: number;
   } | null;
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {

@@ -54,6 +54,16 @@ export default auth((req) => {
       });
     }
   }
+  // V2_AS_ROOT — 스테이징에서 루트(/)를 v2 게임(/dev/v2-game)으로 서빙. 운영 컷오버 리허설용.
+  // 플래그 켤 때만 + **staging 한정**(prod 오작동 방지 — 운영의 진짜 이전은 별건). URL 은 / 유지
+  // (rewrite). /dev/v2-game page 의 IS_STAGING 가드는 통과하므로 404 안 남. 플래그 끄면 즉시 원복.
+  if (
+    process.env.IS_STAGING === "true" &&
+    process.env.V2_AS_ROOT === "true" &&
+    req.nextUrl.pathname === "/"
+  ) {
+    return NextResponse.rewrite(new URL("/dev/v2-game", req.url));
+  }
 });
 
 export const config = {

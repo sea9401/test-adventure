@@ -10,7 +10,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 // 옛 V2ShopView 의 충전 섹션이 여기로 이전 — 상점은 장비만 취급.
 
 const HEAL_FREE_GOLD_THRESHOLD = 50;
-const MAX_CHARGE = 1000;
+const MAX_CHARGE = 10000;
 
 type StateResponse = {
   ok?: boolean;

@@ -14,9 +14,20 @@ export function StatsPanel({
   totalStats?: Record<string, number>;
   /** 각 스탯의 한계치(cap). 지정 시 "값(한계치)" 표기로 바뀌고 장비 보너스 분리는 숨긴다(v2 내 정보). */
   caps?: Record<string, number | undefined>;
-  /** 전투력 — 공격력/방어력. magicAtk(마법 공격력)은 v2 INT 빌드만, 0/미지정이면 숨김.
-   *  magicDef(마법 방어력)은 v2 만 전달(undefined 면 숨김 — 라이브 caller 미영향). */
-  combat?: { atk: number; def: number; magicAtk?: number; magicDef?: number };
+  /** 전투력 — 공격력/방어력 + (v2) 마법공·마방·회피·명중·치명타·속도. magicAtk 은 0이면 숨김.
+   *  v2 전용 필드(magicDef·회피 등)는 v2 caller 만 전달 — 라이브 caller(undefined)는 미표시. */
+  combat?: {
+    atk: number;
+    def: number;
+    magicAtk?: number;
+    magicDef?: number;
+    spd?: number;
+    evasionPct?: number;
+    accuracyPct?: number;
+    critChancePct?: number;
+    critMult?: number;
+    extraAttackChancePct?: number;
+  };
   /** 스탯 키/라벨 — 기본은 라이브 6스탯. v2 는 V2_STAT_KEYS/V2_STAT_LABELS 전달. */
   statKeys?: readonly string[];
   statLabels?: Record<string, string>;
@@ -49,6 +60,42 @@ export function StatsPanel({
                 accent="text-cyan-600 dark:text-cyan-400"
               />
             ) : null}
+            {/* 숨은 전투 축 — 전투엔 반영되나 그동안 미표시였던 회피/명중/치명타/속도.
+                v2 만 전달(evasionPct 가 marker) — 라이브 caller 는 undefined 라 숨김. */}
+            {combat.evasionPct !== undefined && (
+              <>
+                <CombatStat
+                  label="회피"
+                  value={`${Math.round(combat.evasionPct)}%`}
+                  accent="text-teal-600 dark:text-teal-400"
+                />
+                <CombatStat
+                  label="명중"
+                  value={`${Math.round(combat.accuracyPct ?? 0)}%`}
+                  accent="text-amber-600 dark:text-amber-400"
+                />
+                <CombatStat
+                  label="치명타 확률"
+                  value={`${Math.round(combat.critChancePct ?? 0)}%`}
+                  accent="text-orange-600 dark:text-orange-400"
+                />
+                <CombatStat
+                  label="치명타 배율"
+                  value={`×${(combat.critMult ?? 0).toFixed(2)}`}
+                  accent="text-pink-600 dark:text-pink-400"
+                />
+                <CombatStat
+                  label="속도"
+                  value={Math.round(combat.spd ?? 0)}
+                  accent="text-emerald-600 dark:text-emerald-400"
+                />
+                <CombatStat
+                  label="다중공격"
+                  value={`${Math.round(combat.extraAttackChancePct ?? 0)}%`}
+                  accent="text-violet-600 dark:text-violet-400"
+                />
+              </>
+            )}
           </div>
         </div>
       )}
@@ -115,7 +162,7 @@ function CombatStat({
   accent,
 }: {
   label: string;
-  value: number;
+  value: string | number;
   accent: string;
 }) {
   return (

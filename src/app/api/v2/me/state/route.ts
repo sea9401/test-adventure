@@ -286,6 +286,12 @@ export async function GET() {
         magicAtk: combat.player.magicAtk ?? 0,
         // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
         magicDef: combat.player.magicDef ?? 0,
+        // 숨은 전투 축 — 전투엔 반영되나 그동안 내 정보에 미표시. 회피/명중/치명타/다중공격.
+        evasionPct: combat.player.evasionPct,
+        accuracyPct: combat.player.accuracyPct,
+        critChancePct: combat.player.critChancePct,
+        critMult: combat.player.critMult,
+        extraAttackChancePct: combat.player.extraAttackChancePct,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore({
           atk: combat.player.atk,

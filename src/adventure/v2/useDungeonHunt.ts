@@ -1,24 +1,13 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { HuntResult } from "@/adventure/v2/HuntResultCard";
 import { MAX_STAMINA, type StaminaState } from "@/adventure/v2/stamina";
 import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import {
-  V2_EQUIPMENT,
-  type V2EquipmentId,
-} from "@/adventure/data/v2/v2Equipment";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
-
-// PR-4b — 전투 전 내구도 게이트(409) 응답 형태.
-type LowEquipmentEntry = {
-  id: V2EquipmentId;
-  durability: number;
-  repairCost: number;
-};
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
@@ -29,9 +18,6 @@ export type HuntResultPayload = HuntResult & {
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
   hpCharges?: number;
   mpCharges?: number;
-  // PR-4b — 마모/자동수리 후 장착 장비 내구도 + 자동수리 비용(0=안 함).
-  equipmentDurability?: Partial<Record<V2EquipmentId, number>>;
-  autoRepairSpent?: number;
 };
 
 type HuntResponse = {
@@ -39,9 +25,6 @@ type HuntResponse = {
   stamina?: StaminaState;
   error?: string;
   result?: HuntResultPayload;
-  // PR-4b durability_low (409) 추가 필드.
-  lowEquipment?: LowEquipmentEntry[];
-  totalRepairCost?: number;
 };
 
 function formatDrops(
@@ -70,8 +53,6 @@ export function useDungeonHunt({
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
   const [log, setLog] = useState<string[]>([]);
-  // PR-4b — 한 번 내구도 프롬프트에 "그대로 진행" 응답하면 세션 내내 재프롬프트 안 함.
-  const durabilityAckedRef = useRef(false);
 
   const pushLog = useCallback((line: string) => {
     setLog((prev) =>
@@ -85,7 +66,7 @@ export function useDungeonHunt({
       setBusy(true);
       setLastResult(null);
       try {
-        return await doHunt(floor, durabilityAckedRef.current);
+        return await doHunt(floor);
       } catch (err) {
         pushLog(`✗ network: ${(err as Error).message}`);
         return null;
@@ -93,18 +74,13 @@ export function useDungeonHunt({
         setBusy(false);
       }
 
-      // 내부 — confirmLow 로 게이트 우회 여부 제어. durability_low(409) 시 프롬프트 후 재귀.
-      async function doHunt(
-        f: number,
-        confirmLow: boolean,
-      ): Promise<HuntResultPayload | null> {
+      async function doHunt(f: number): Promise<HuntResultPayload | null> {
         const res = await fetch("/api/v2/dungeon/hunt", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             floor: f,
             outpostId,
-            confirmLowDurability: confirmLow,
           }),
         });
         let json: HuntResponse | null = null;
@@ -132,48 +108,13 @@ export function useDungeonHunt({
                 ? ` · 숙달 포인트 +${r.proficiencyGained}`
                 : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
-            const repairNote = r.autoRepairSpent
-              ? ` · 자동수리 -${r.autoRepairSpent}G`
-              : "";
             pushLog(
-              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)}${repairNote} · 스태미너 ${cur}/${MAX_STAMINA}`,
+              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
             return r;
           }
           pushLog(`✓ ${f}층 사냥 1회 — 스태미너 ${cur}/${MAX_STAMINA}`);
           return null;
-        }
-        // PR-4b — 전투 전 내구도 경고. 수리 후 진행 / 그대로 진행 프롬프트.
-        if (json.error === "durability_low") {
-          const low = json.lowEquipment ?? [];
-          const total = json.totalRepairCost ?? 0;
-          const names = low
-            .map((e) => `${V2_EQUIPMENT[e.id]?.name ?? e.id}(${e.durability})`)
-            .join(", ");
-          const repair = window.confirm(
-            `장비 내구도가 낮습니다: ${names}\n` +
-              `전체 수리 비용 ${total.toLocaleString()}G\n\n` +
-              `확인 = 수리 후 진행 / 취소 = 그대로 진행`,
-          );
-          if (repair) {
-            const rr = await fetch("/api/v2/me/equipment/repair", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ all: true }),
-            });
-            const rj = (await rr.json().catch(() => null)) as {
-              ok?: boolean;
-              spent?: number;
-              error?: string;
-            } | null;
-            if (rj?.ok) pushLog(`✓ 장비 수리 (-${(rj.spent ?? 0).toLocaleString()}G)`);
-            else pushLog(`✗ 수리 실패: ${rj?.error ?? `http ${rr.status}`}`);
-          } else {
-            // 그대로 진행 — 세션 동안 재프롬프트 안 함.
-            durabilityAckedRef.current = true;
-          }
-          // 재시도 — 수리했으면 게이트 통과, 안 했으면 confirm 으로 우회.
-          return await doHunt(f, true);
         }
         const err = json.error ?? "unknown";
         const errLabel =

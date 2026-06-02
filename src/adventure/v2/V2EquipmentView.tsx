@@ -8,11 +8,7 @@ import { Backpack } from "@phosphor-icons/react";
 import {
   V2_EQUIPMENT,
   CONCEPT_LABELS,
-  MAX_DURABILITY,
   SLOT_CONCEPTS,
-  durabilityOf,
-  isLowDurability,
-  repairCostFor,
   v2EquipmentByConcept,
   v2EquipStatEntries,
   type V2Equipment,
@@ -28,33 +24,6 @@ import {
 
 function formatStats(item: V2Equipment, roll?: V2EquipRoll): string {
   return v2EquipStatEntries(item, roll).join(" · ");
-}
-
-// PR-4b — 내구도 바. 0=파손(효과 없음, rose), 낮음(amber), 정상(emerald).
-function DurabilityBar({ dur }: { dur: number }) {
-  const pct = Math.max(0, Math.min(100, (dur / MAX_DURABILITY) * 100));
-  const broken = dur <= 0;
-  const low = isLowDurability(dur);
-  const barColor = broken
-    ? "bg-rose-500"
-    : low
-      ? "bg-amber-500"
-      : "bg-emerald-500";
-  const textColor = broken
-    ? "text-rose-600 dark:text-rose-400"
-    : low
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-zinc-400 dark:text-zinc-500";
-  return (
-    <div className="mt-1 flex items-center gap-1.5">
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-        <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className={`shrink-0 text-[10px] tabular-nums ${textColor}`}>
-        {broken ? "파손 (효과 없음)" : `${dur}/${MAX_DURABILITY}`}
-      </span>
-    </div>
-  );
 }
 
 const SLOT_LABEL: Record<V2EquipSlot, string> = {
@@ -75,22 +44,18 @@ const SLOTS: V2EquipSlot[] = [
 ];
 
 type Equipped = Partial<Record<V2EquipSlot, V2EquipmentId>>;
-type Durability = Partial<Record<V2EquipmentId, number>>;
 type StatRolls = Partial<Record<V2EquipmentId, V2EquipRoll>>;
 type EquipmentResponse = {
   ok?: boolean;
   owned?: V2EquipmentId[];
   equipped?: Equipped;
-  durability?: Durability;
   statRolls?: StatRolls;
 };
 
 export function V2EquipmentView({ onBack }: { onBack: () => void }) {
   const [owned, setOwned] = useState<V2EquipmentId[]>([]);
   const [equipped, setEquipped] = useState<Equipped>({});
-  const [durability, setDurability] = useState<Durability>({});
   const [statRolls, setStatRolls] = useState<StatRolls>({});
-  const [autoRepair, setAutoRepair] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -98,18 +63,13 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [eqRes, prefRes] = await Promise.all([
-        fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
-        fetch("/api/v2/me/preferences").then((r) => (r.ok ? r.json() : null)),
-      ]);
+      const eqRes = await fetch("/api/v2/me/equipment").then((r) =>
+        r.ok ? r.json() : null,
+      );
       const j = eqRes as EquipmentResponse | null;
       setOwned(j?.owned ?? []);
       setEquipped(j?.equipped ?? {});
-      setDurability(j?.durability ?? {});
       setStatRolls(j?.statRolls ?? {});
-      setAutoRepair(
-        (prefRes as { autoRepair?: boolean } | null)?.autoRepair ?? false,
-      );
     } catch {}
     setLoading(false);
   }, []);
@@ -145,59 +105,6 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
     [refresh],
   );
 
-  // PR-4b — 수리(한 개 또는 전체) + 자동수리 토글.
-  const repair = useCallback(
-    async (equipmentId?: V2EquipmentId) => {
-      setBusy(true);
-      setMsg(null);
-      try {
-        const res = await fetch("/api/v2/me/equipment/repair", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(equipmentId ? { equipmentId } : { all: true }),
-        });
-        const j = (await res.json().catch(() => null)) as
-          | { ok?: boolean; error?: string; spent?: number }
-          | null;
-        if (!j?.ok) {
-          setMsg(`✗ 수리: ${j?.error ?? `http ${res.status}`}`);
-          return;
-        }
-        setMsg(
-          j.spent
-            ? `✓ 수리 완료 (-${j.spent.toLocaleString()}G)`
-            : "✓ 수리할 장비가 없습니다",
-        );
-        await refresh();
-      } catch (err) {
-        setMsg(`✗ network: ${(err as Error).message}`);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [refresh],
-  );
-
-  const toggleAutoRepair = useCallback(async (next: boolean) => {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/preferences", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ autoRepair: next }),
-      });
-      const j = (await res.json().catch(() => null)) as
-        | { ok?: boolean; autoRepair?: boolean }
-        | null;
-      if (j?.ok) setAutoRepair(j.autoRepair ?? next);
-    } catch {
-      // 무시 — 토글 실패 시 상태 유지.
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
   // 보유 목록을 슬롯·컨셉·티어 순으로 정렬 — 35종이 무작위로 흩어지지 않게.
   const ownedSet = new Set(owned);
 
@@ -218,39 +125,13 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
       </header>
 
       <Card padding="md">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-            장착
-          </div>
-          <div className="flex items-center gap-3">
-            {/* 자동수리 토글 — 전투 전 손상 장비 자동 수리(골드 차감). 옵트인. */}
-            <label className="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
-              <input
-                type="checkbox"
-                checked={autoRepair}
-                disabled={busy}
-                onChange={(e) => toggleAutoRepair(e.target.checked)}
-                className="h-3.5 w-3.5 accent-indigo-500"
-              />
-              자동수리
-            </label>
-            <button
-              type="button"
-              onClick={() => repair()}
-              disabled={busy}
-              className="rounded border border-amber-400 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-500/50 dark:bg-amber-500/10 dark:text-amber-300"
-            >
-              전체 수리
-            </button>
-          </div>
+        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          장착
         </div>
         <ul className="mt-2 space-y-1.5">
           {SLOTS.map((slot) => {
             const id = equipped[slot];
             const item = id ? V2_EQUIPMENT[id] : null;
-            const dur = id ? durabilityOf(durability, id) : MAX_DURABILITY;
-            const low = item != null && isLowDurability(dur);
-            const cost = id ? repairCostFor(id, dur) : 0;
             return (
               <li
                 key={slot}
@@ -268,33 +149,16 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                       {formatStats(item)}
                     </div>
                   )}
-                  {item && <DurabilityBar dur={dur} />}
                 </div>
                 {item && (
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => equip(slot, null)}
-                      disabled={busy}
-                      className="rounded border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      해제
-                    </button>
-                    {cost > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => id && repair(id)}
-                        disabled={busy}
-                        className={`rounded border px-3 py-1 text-xs disabled:opacity-50 ${
-                          low
-                            ? "border-rose-400 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-300"
-                            : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-                        }`}
-                      >
-                        수리 {cost.toLocaleString()}G
-                      </button>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => equip(slot, null)}
+                    disabled={busy}
+                    className="shrink-0 rounded border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    해제
+                  </button>
                 )}
               </li>
             );

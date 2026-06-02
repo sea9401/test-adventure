@@ -41,26 +41,29 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
 
   it("개체 굴림(statRolls) 있으면 카탈로그 대신 굴림값 — 위력·무게·옵션", () => {
     // 철검(카탈로그 power4/weight2)에 굴림 {power:10, weight:5} → atk·magicAtk=10, weight=5.
-    const sword = aggregateV2Equipment({ weapon: "v2_iron_sword" }, undefined, {
-      v2_iron_sword: { power: 10, weight: 5 },
-    });
+    const sword = aggregateV2Equipment(
+      { weapon: "v2_iron_sword" },
+      { v2_iron_sword: { power: 10, weight: 5 } },
+    );
     expect(sword.atk).toBe(10);
     expect(sword.magicAtk).toBe(10);
     expect(sword.weight).toBe(5);
 
     // 별노래궁(카탈로그 power14/crit2)에 굴림 {power:18, weight:3, crit:3}.
-    const bow = aggregateV2Equipment({ weapon: "v2_starsong_bow" }, undefined, {
-      v2_starsong_bow: { power: 18, weight: 3, options: { crit: 3 } },
-    });
+    const bow = aggregateV2Equipment(
+      { weapon: "v2_starsong_bow" },
+      { v2_starsong_bow: { power: 18, weight: 3, options: { crit: 3 } } },
+    );
     expect(bow.atk).toBe(18);
     expect(bow.weight).toBe(3);
     expect(bow.crit).toBe(3);
   });
 
   it("statRolls 에 그 장비 굴림 없으면 카탈로그 그대로(비파괴)", () => {
-    const a = aggregateV2Equipment({ weapon: "v2_iron_sword" }, undefined, {
-      v2_steel_sword: { power: 99, weight: 0 },
-    });
+    const a = aggregateV2Equipment(
+      { weapon: "v2_iron_sword" },
+      { v2_steel_sword: { power: 99, weight: 0 } },
+    );
     expect(a.atk).toBe(4);
     expect(a.weight).toBe(2);
   });
@@ -144,24 +147,6 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     }
   });
 
-  it("내구도 0(broken) 장비는 비활성 — 위력·무게·옵션 무시 (PR-4b)", () => {
-    // 미스릴 갑옷: power 10, weight 8. 내구도 0 → def·weight 0.
-    const broken = aggregateV2Equipment(
-      { armor: "v2_mithril_plate" },
-      { v2_mithril_plate: 0 },
-    );
-    expect(broken.def).toBe(0);
-    expect(broken.weight).toBe(0);
-    // 내구도 1 = 정상 (binary gating — 0 만 비활성).
-    const alive = aggregateV2Equipment(
-      { armor: "v2_mithril_plate" },
-      { v2_mithril_plate: 1 },
-    );
-    expect(alive.def).toBe(10);
-    expect(alive.weight).toBe(8);
-    // durability 미지정 = 풀충 = 정상.
-    expect(aggregateV2Equipment({ armor: "v2_mithril_plate" }).def).toBe(10);
-  });
 });
 
 describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
@@ -333,22 +318,6 @@ describe("derivePlayerCombatV2Pure weaponElement (PR-5b 무기 속성)", () => {
     ).toBe("neutral");
   });
 
-  it("내구도 0(broken) 무기는 속성 비활성 → neutral", () => {
-    const d = derivePlayerCombatV2Pure({
-      level: 50,
-      v2Equipped: { weapon: "v2_starsong_bow" },
-      v2Durability: { v2_starsong_bow: 0 },
-    });
-    expect(d.weaponElement).toBe("neutral");
-    // 내구도 1 이면 정상.
-    expect(
-      derivePlayerCombatV2Pure({
-        level: 50,
-        v2Equipped: { weapon: "v2_starsong_bow" },
-        v2Durability: { v2_starsong_bow: 1 },
-      }).weaponElement,
-    ).toBe("starlight");
-  });
 });
 
 describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {

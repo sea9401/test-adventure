@@ -1,6 +1,6 @@
 // v2 EXP 페이싱 — 만렙 30~40일 목표로 다이얼 후보 비교.
 //
-// 현재 새 stamina (max 1000, regen 1분/2) 기준:
+// 현재 새 stamina (max 5000, regen 1분/2) 기준:
 //   시나리오 A (상시 접속) 43일 / 시나리오 B (일 1회) 89일
 // 목표: B 시나리오 30~40일.
 
@@ -14,7 +14,7 @@ import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "../src/adventure/data/v2/dungeon";
 
 const SECONDS_PER_TURN = 2;
-const NEW_MAX_STAMINA = 1000;
+const NEW_MAX_STAMINA = 5000;
 const STAMINA_REGEN_PER_HOUR = 120;
 
 type FloorInfo = { id: number; avgExp: number; lvMin?: number; lvMax?: number; tier?: string };
@@ -135,7 +135,7 @@ const dials: Dial[] = [
 ];
 
 console.log("━━━ 만렙 1→100 페이싱 (다이얼별 비교) ━━━");
-console.log("기준: stamina max 1000, 1분/2 회복, 1턴 2초, STR 빌드 sim winT");
+console.log("기준: stamina max 5000, 1분/2 회복, 1턴 2초, STR 빌드 sim winT");
 console.log("");
 console.log("다이얼                                              | A 상시   | B 일1회 | A→B 비");
 console.log("---------------------------------------------------+----------+---------+--------");

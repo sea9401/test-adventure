@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import {
   V2_SELECTABLE_CLASSES,
   parseV2Class,
@@ -146,7 +147,7 @@ export async function POST(req: Request) {
       cooldownUntil = now + RESPEC_COOLDOWN_MS;
     }
 
-    await upsertSave(tx, userId, "character.v2", {
+    const charUpdate: Record<string, unknown> = {
       ...charSave,
       class: effectiveClass,
       element: nextElement,
@@ -154,7 +155,23 @@ export async function POST(req: Request) {
       lastRespecAt: nextLastRespecAt,
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
-    });
+    };
+    await upsertSave(tx, userId, "character.v2", charUpdate);
+
+    // 캐릭터 생성(첫 직업 선택, none→) 시 풀피로 시작. 스타터 character.v2 의 hp 는 v1
+    // 기본값(97)이라 직업 확정 후 maxHp(예 150)와 불일치 → 갓 만든 캐릭이 97/150 으로
+    // 시작하는 문제. 직업이 정해져 maxHp 가 확정된 이 시점에 hp=maxHp 로 보정한다.
+    // (respec=curClass!=="none" 은 제외 — 무료 힐 악용 방지.)
+    if (curClass === "none") {
+      const combat = await derivePlayerCombatV2(userId, tx);
+      if (combat) {
+        await upsertSave(tx, userId, "character.v2", {
+          ...charUpdate,
+          hp: combat.maxHp,
+          hpRegenSince: now,
+        });
+      }
+    }
 
     // equipped PRUNE — 학습+새 체인 유효분만, 플레이어 선택 순서 유지, 슬롯 절단. learned 보존.
     await upsertSave(tx, userId, "skills.v2", {

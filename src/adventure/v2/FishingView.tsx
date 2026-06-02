@@ -50,6 +50,76 @@ function missMessage(reason: string): string {
   return MISS_MESSAGE[reason] ?? "물고기를 놓쳤다.";
 }
 
+// 찌 연출 — 상태만 받아 그림을 그린다(판정·타이밍은 부모 그대로).
+// waiting: 잔잔히 까닥 + 수면 잔물결·기포.  biting: 즉시 빨려들며 떨림 + 강한 물결.
+function BobberScene({ phase }: { phase: Phase }) {
+  const biting = phase === "biting";
+  const waiting = phase === "waiting";
+  const onWater = waiting || biting;
+
+  return (
+    <div className="pointer-events-none relative flex h-full w-full flex-col items-center justify-center">
+      {onWater && (
+        <div className="relative flex h-20 w-full items-end justify-center">
+          {/* 수면 잔물결 — 대기: 잔잔 다중, 입질: 강한 파동 */}
+          <span
+            className={`absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border ${
+              biting
+                ? "fish-ripple-bite border-amber-400/70"
+                : "fish-ripple border-sky-400/40"
+            }`}
+          />
+          {waiting && (
+            <>
+              <span
+                className="fish-ripple absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border border-sky-400/30"
+                style={{ animationDelay: "0.7s" }}
+              />
+              <span
+                className="fish-ripple absolute bottom-3 left-1/2 h-6 w-16 rounded-[100%] border border-sky-400/20"
+                style={{ animationDelay: "1.4s" }}
+              />
+              {/* 기포 */}
+              <span className="fish-bubble absolute bottom-4 left-[42%] h-1.5 w-1.5 rounded-full bg-sky-300/60" />
+              <span
+                className="fish-bubble absolute bottom-4 left-[56%] h-1 w-1 rounded-full bg-sky-300/50"
+                style={{ animationDelay: "1.6s" }}
+              />
+            </>
+          )}
+
+          {/* 찌 */}
+          <div className={`relative z-10 ${biting ? "fish-bob-bite" : "fish-bob-idle"}`}>
+            <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
+            <span
+              className={`block h-4 w-4 rounded-full shadow-sm ${
+                biting ? "bg-amber-500" : "bg-rose-500"
+              }`}
+            />
+            <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
+          </div>
+        </div>
+      )}
+
+      <div className="mt-2">
+        {phase === "idle" && <span className="text-sm">찌를 던져 보자</span>}
+        {phase === "casting" && <span className="text-sm">던지는 중…</span>}
+        {waiting && (
+          <>
+            <span className="block text-sm">입질을 기다리는 중…</span>
+            <span className="mt-0.5 block text-[11px] opacity-70">
+              아직 누르지 말 것
+            </span>
+          </>
+        )}
+        {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
+        {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
+        {phase === "result" && <span className="text-sm opacity-70">—</span>}
+      </div>
+    </div>
+  );
+}
+
 export function FishingView({
   cast,
   reel,
@@ -64,6 +134,8 @@ export function FishingView({
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // 성공 시 결과에 보여줄 "입질→챔질" 반응시간(ms). 판정과 무관한 표시용.
+  const [lastReactionMs, setLastReactionMs] = useState<number | null>(null);
 
   const biteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const windowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -112,6 +184,10 @@ export function FishingView({
   const onBite = useCallback(() => {
     biteShownAt.current = Date.now();
     setPhase("biting");
+    // 입질 햅틱 — 모바일에서 진동으로 입질을 알림(시각 신호와 동시 발생, 정보 우위 없음).
+    if (typeof navigator !== "undefined" && navigator.vibrate) {
+      navigator.vibrate(35);
+    }
     // 윈도우를 넘기면 자동 실패(여유를 약간 둬 네트워크 탭 지연 흡수).
     windowTimer.current = setTimeout(
       () => resolveReel(REACTION_WINDOW_MS + 500),
@@ -122,6 +198,7 @@ export function FishingView({
   const startCast = useCallback(async () => {
     setError(null);
     setResult(null);
+    setLastReactionMs(null);
     resolved.current = false;
     setPhase("casting");
     try {
@@ -143,7 +220,9 @@ export function FishingView({
       // 입질 전 챔질 = 성급함. 서버가 too_early 로 판정하도록 reel 호출(세션 소비).
       resolveReel(-1);
     } else if (phase === "biting") {
-      resolveReel(Date.now() - biteShownAt.current);
+      const rms = Date.now() - biteShownAt.current;
+      setLastReactionMs(rms);
+      resolveReel(rms);
     }
   }, [phase, resolveReel]);
 
@@ -194,38 +273,20 @@ export function FishingView({
         </div>
       </header>
 
-      {/* 탭 존 — 대기 중엔 잔잔, 입질엔 번쩍. */}
+      {/* 탭 존 — 대기 중엔 찌가 잔잔히 까닥, 입질엔 확 빨려들며 떨린다. */}
       <button
         type="button"
         disabled={!tapActive}
         onClick={onTapZone}
-        className={`flex h-48 w-full select-none flex-col items-center justify-center rounded-2xl border-2 text-center transition ${
+        className={`relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
           biting
-            ? "animate-pulse border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
+            ? "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
             : tapActive
-              ? "border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200"
+              ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
               : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
         }`}
       >
-        {phase === "idle" && <span className="text-sm">찌를 던져 보자</span>}
-        {phase === "casting" && <span className="text-sm">던지는 중…</span>}
-        {phase === "waiting" && (
-          <>
-            <span className="text-3xl">🎣</span>
-            <span className="mt-2 text-sm">입질을 기다리는 중…</span>
-            <span className="mt-1 text-[11px] opacity-70">
-              아직 누르지 말 것
-            </span>
-          </>
-        )}
-        {biting && (
-          <>
-            <span className="text-4xl">❗</span>
-            <span className="mt-1 text-xl font-extrabold">지금 챔질!</span>
-          </>
-        )}
-        {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
-        {phase === "result" && <span className="text-sm opacity-70">—</span>}
+        <BobberScene phase={phase} />
       </button>
 
       {/* 결과 */}
@@ -260,6 +321,11 @@ export function FishingView({
               <div className="pt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                 어보 {result.codexCount}/{FISH_TOTAL}종
               </div>
+              {lastReactionMs != null && (
+                <div className="text-[11px] font-medium text-sky-600 dark:text-sky-400">
+                  {(lastReactionMs / 1000).toFixed(2)}초 만에 챔질!
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">

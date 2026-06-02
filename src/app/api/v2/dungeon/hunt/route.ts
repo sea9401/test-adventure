@@ -671,6 +671,35 @@ export async function POST(req: Request) {
     };
     await upsertSave(tx, userId, "character.v2", next);
 
+    // 전투수 랭킹용 — 승리 시 adventure-log.v2 의 monster kill 카운터 누적(서버 권위).
+    // /api/rankings 가 monsters[*].kills 를 SUM 해 battleCount 를 낸다. v2 클라는 이 키를
+    // 안 건드려(hook 없음) 서버 단독 소유 → sync clobber 없음. v1 battleClaim 과 동일 키·키잉
+    // (enemyName). lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피).
+    if (won) {
+      const logSave = await lockSaveForUpdate<{
+        monsters?: Record<
+          string,
+          {
+            encountered?: boolean;
+            kills?: number;
+            firstSeenAt?: number;
+            lastKilledAt?: number;
+          }
+        >;
+        [k: string]: unknown;
+      }>(tx, userId, "adventure-log.v2", {});
+      const monsters = { ...(logSave.monsters ?? {}) };
+      const prevMon = monsters[enemyName];
+      monsters[enemyName] = {
+        ...prevMon,
+        encountered: true,
+        kills: (prevMon?.kills ?? 0) + 1,
+        firstSeenAt: prevMon?.firstSeenAt ?? now,
+        lastKilledAt: now,
+      };
+      await upsertSave(tx, userId, "adventure-log.v2", { ...logSave, monsters });
+    }
+
     // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
     // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
     let proficiencyGained = 0; // 전투 결과 표시용.

@@ -15,6 +15,10 @@ import {
 } from "@/adventure/data/v2/classes";
 import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 import { V2ClassElementPicker } from "./V2ClassElementPicker";
+import { TabBar } from "@/components/ui/TabBar";
+
+// 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
+type ShrineTab = "job" | "cultivate";
 
 // v2 수행(修行) — 직업·속성 선택/전직(상단) + 사용 가능 숙련도로 현 직업군 스탯 한계치(cap)↑.
 // 옛 "성장의 신전"(수동 스탯 분배) 대체. 분배는 레벨업 랜덤 성장이 담당하고, 여기서는
@@ -44,6 +48,8 @@ type StateShape = {
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
+  // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
+  const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
   const [usable, setUsable] = useState(0);
   const [cultivations, setCultivations] = useState(0);
@@ -152,20 +158,41 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="성장의 신전" onBack={onBack} />
 
-      {/* 직업·속성 선택/전직 — 캐릭터 정보에서 이리로 이동. */}
-      {picker && (
-        <V2ClassElementPicker
-          currentClass={picker.cls}
-          currentElement={picker.elem}
-          level={picker.level}
-          gold={picker.gold}
-          codex={picker.codex}
-          cumLevel={picker.cumLevel}
-          onChanged={refresh}
-        />
-      )}
+      <TabBar
+        tabs={[
+          { key: "job", label: "직업" },
+          { key: "cultivate", label: "수행" },
+        ]}
+        active={tab}
+        onChange={setTab}
+        ariaLabel="성장의 신전 탭"
+        size="md"
+      />
 
-      <Card padding="md">
+      {/* === 직업 탭 — 직업·속성 선택/전직 === */}
+      {tab === "job" &&
+        (picker ? (
+          <V2ClassElementPicker
+            currentClass={picker.cls}
+            currentElement={picker.elem}
+            level={picker.level}
+            gold={picker.gold}
+            codex={picker.codex}
+            cumLevel={picker.cumLevel}
+            onChanged={refresh}
+          />
+        ) : (
+          <Card padding="md">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {loading ? "불러오는 중…" : "직업 정보를 불러오지 못했어요."}
+            </p>
+          </Card>
+        ))}
+
+      {/* === 수행 탭 — 숙달 포인트로 스탯 한계치↑ === */}
+      {tab === "cultivate" && (
+        <>
+          <Card padding="md">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold">
             {disciplineName ? `${disciplineName} 수행` : "수행"}
@@ -253,16 +280,18 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         )}
       </Card>
 
-      {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
-          {msg}
-        </div>
+          {msg && (
+            <div
+              className={`rounded-md border px-3 py-1.5 text-xs ${
+                msg.startsWith("✓")
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                  : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
+              }`}
+            >
+              {msg}
+            </div>
+          )}
+        </>
       )}
     </main>
   );

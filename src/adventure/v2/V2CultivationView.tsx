@@ -14,7 +14,7 @@ import {
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
-import { V2ClassElementPicker } from "./V2ClassElementPicker";
+import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { TabBar } from "@/components/ui/TabBar";
 
 // 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
@@ -37,12 +37,14 @@ type StateShape = {
   stats?: { base?: Partial<Record<V2StatKey, number>> };
   proficiency?: {
     caps?: Partial<Record<V2StatKey, number>>;
+    groups?: Record<string, { tier?: number; cumLevel?: number }>;
     current?: {
       group: string;
       cumLevel: number;
       points: number;
       cultivations: number;
       nextCost: number;
+      advance?: V2AdvanceInfo | null;
     };
   };
 };
@@ -56,14 +58,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   const [nextCost, setNextCost] = useState(0);
   const [caps, setCaps] = useState<Partial<Record<V2StatKey, number>>>({});
   const [stats, setStats] = useState<Partial<Record<V2StatKey, number>>>({});
-  // 직업·속성 피커용 — 캐릭터 + 코덱스 + 직군 누적 레벨(전직 게이트).
+  // 직업 그리드용 — 캐릭터 + 6직업군 요약(도달차수·누적레벨) + 현 직업군 전직 가능 여부.
   const [picker, setPicker] = useState<{
     cls: V2Class;
     elem: V2Element;
     level: number;
     gold: number;
-    codex?: { discovered: number; total: number };
-    cumLevel: number;
+    groups: Record<string, { tier?: number; cumLevel?: number }>;
+    advance: V2AdvanceInfo | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -88,8 +90,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             elem: parseV2Element(j.character.element),
             level: j.character.level ?? 1,
             gold: j.character.gold ?? 0,
-            codex: j.codex,
-            cumLevel: cur.cumLevel ?? 0,
+            groups: j.proficiency?.groups ?? {},
+            advance: cur.advance ?? null,
           });
         }
       }
@@ -172,13 +174,13 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
       {/* === 직업 탭 — 직업·속성 선택/전직 === */}
       {tab === "job" &&
         (picker ? (
-          <V2ClassElementPicker
+          <V2ClassGrid
             currentClass={picker.cls}
             currentElement={picker.elem}
             level={picker.level}
             gold={picker.gold}
-            codex={picker.codex}
-            cumLevel={picker.cumLevel}
+            groups={picker.groups}
+            advance={picker.advance}
             onChanged={refresh}
           />
         ) : (

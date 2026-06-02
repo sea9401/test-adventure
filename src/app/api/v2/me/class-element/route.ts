@@ -6,6 +6,7 @@ import {
   V2_SELECTABLE_CLASSES,
   parseV2Class,
   elementalSkillsForClass,
+  classOfGroupTier,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -88,14 +89,29 @@ export async function POST(req: Request) {
       typeof charSave.lastRespecAt === "number" ? charSave.lastRespecAt : 0;
 
     // PR-7 — respec 은 직업군 단위. 같은 직업군의 1차를 골라도(2차 캐릭이 자기 군 1차 선택 등)
-    // 현 직업을 유지(다운그레이드 X). 첫 선택/타 직업군 변경만 effectiveClass 가 nextClass.
-    const effectiveClass: V2Class =
-      curClass === "none" || isClassChange(curClass, nextClass)
-        ? nextClass
-        : curClass;
-    // 직업군 변경(다른 직업으로 전직) = prestige 리셋 — 레벨 1·exp 0·grown 리셋(advance 와 동일).
-    // 새 직업군은 숙련도 0부터라 새로 키운다. 첫 선택(none→)·속성만 변경은 레벨 유지.
+    // 현 직업을 유지(다운그레이드 X).
     const groupChanged = isClassChange(curClass, nextClass);
+    // 직업군 변경(첫 선택 포함) 시 — 그 직업군의 "도달 차수"로 복귀(1차 추락 X, 2026-06).
+    // 예전에 검호(3차)까지 갔던 직업군으로 돌아오면 다시 검호. 게이트 입력이므로 락 순서
+    // (character→skills→proficiency)대로 미리 잠가 읽는다. 같은 직업군이면 현 직업 유지.
+    let prof: V2ProficiencyState | null = null;
+    let effectiveClass: V2Class = curClass;
+    if (groupChanged) {
+      prof = parseProficiencyForChar(
+        await lockSaveForUpdate<V2ProficiencyState>(
+          tx,
+          userId,
+          "proficiency.v2",
+          emptyProficiency(),
+        ),
+        charSave,
+      );
+      // nextClass 는 1차(=직업군 키). groups 도 1차 키라 직접 조회.
+      const reachedTier = prof.groups[nextClass]?.tier ?? 1;
+      effectiveClass = classOfGroupTier(nextClass, reachedTier);
+    }
+    // 직업군 변경(다른 직업으로 전직) = prestige 리셋 — 레벨 1·exp 0·grown 리셋(advance 와 동일).
+    // 도달 차수로 복귀해도 레벨은 1부터(차수 사이 50까지 재성장). 첫 선택·속성만 변경은 레벨 유지.
     const nextLevel = groupChanged ? 1 : level;
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
     // equipped 는 PRUNE 만 — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착).
@@ -182,20 +198,9 @@ export async function POST(req: Request) {
     });
 
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).
-    // 락 순서 유지(character → skills → proficiency). points/caps/tier/cumLevel 은 보존.
-    if (groupChanged) {
-      const profSave = await lockSaveForUpdate<V2ProficiencyState>(
-        tx,
-        userId,
-        "proficiency.v2",
-        emptyProficiency(),
-      );
-      await upsertSave(
-        tx,
-        userId,
-        "proficiency.v2",
-        setGrown(parseProficiencyForChar(profSave, charSave), {}),
-      );
+    // 위에서 이미 잠가 읽은 prof 재사용(중복 락 X). points/caps/tier/cumLevel 은 보존.
+    if (groupChanged && prof) {
+      await upsertSave(tx, userId, "proficiency.v2", setGrown(prof, {}));
     }
 
     return {

@@ -417,6 +417,19 @@ export function nextTierClassOf(c: V2Class): V2Class | null {
   return null;
 }
 
+// 직업군(1차 직업 id) + 차수 → 그 차수의 직업 id. "도달 차수 복귀"(respec)·아이콘 표시용.
+// tier 1 = 그 1차 직업 자신. 1~4 밖은 클램프, 체인이 끊기면 마지막 유효 차수.
+export function classOfGroupTier(tier1: V2Class, tier: number): V2Class {
+  let cur: V2Class = tier1;
+  const target = Math.max(1, Math.min(4, Math.floor(tier)));
+  for (let t = 1; t < target; t++) {
+    const next = nextTierClassOf(cur);
+    if (!next) break;
+    cur = next;
+  }
+  return cur;
+}
+
 // 1차 직업 c 가 전직 가능한 2차 직업 (없으면 null). c 가 1차가 아니면 null.
 // (tier2ClassOf 는 1차→2차 전용 — 테스트/하위호환. 일반 다음차수는 nextTierClassOf.)
 export function tier2ClassOf(c: V2Class): V2Class | null {

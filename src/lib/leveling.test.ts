@@ -2,9 +2,12 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   applyExpGain,
   applyNewbieBonus,
+  applyNewbieExpBonusByBattles,
   getLevelTable,
+  isNewbieBonusActiveByBattles,
   levelBandExpMultiplier,
   MAX_LEVEL,
+  NEWBIE_BONUS_BATTLE_THRESHOLD,
   requiredExpToNext,
 } from "./leveling";
 
@@ -71,6 +74,40 @@ describe("applyNewbieBonus (정밀 ×2)", () => {
     });
     expect(applyNewbieBonus(100, 99)).toEqual({
       gained: 100,
+      bonusApplied: false,
+    });
+  });
+});
+
+describe("v2 신참 보너스 (전적 기준, EXP 전용)", () => {
+  it("임계치(3만)는 30000", () => {
+    expect(NEWBIE_BONUS_BATTLE_THRESHOLD).toBe(30000);
+  });
+  it("전적 ≤ 3만이면 활성, 초과면 비활성 (경계 포함)", () => {
+    expect(isNewbieBonusActiveByBattles(0)).toBe(true);
+    expect(isNewbieBonusActiveByBattles(29999)).toBe(true);
+    expect(isNewbieBonusActiveByBattles(30000)).toBe(true);
+    expect(isNewbieBonusActiveByBattles(30001)).toBe(false);
+  });
+  it("전적 ≤ 3만은 EXP ×2 + 플래그", () => {
+    expect(applyNewbieExpBonusByBattles(100, 0)).toEqual({
+      gained: 200,
+      bonusApplied: true,
+    });
+    expect(applyNewbieExpBonusByBattles(100, 30000)).toEqual({
+      gained: 200,
+      bonusApplied: true,
+    });
+  });
+  it("전적 3만 초과는 무변화", () => {
+    expect(applyNewbieExpBonusByBattles(100, 30001)).toEqual({
+      gained: 100,
+      bonusApplied: false,
+    });
+  });
+  it("exp 0 이하는 보너스 미적용", () => {
+    expect(applyNewbieExpBonusByBattles(0, 0)).toEqual({
+      gained: 0,
       bonusApplied: false,
     });
   });

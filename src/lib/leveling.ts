@@ -59,6 +59,28 @@ export function getNewbieDropMultiplier(level: number): number {
   return isNewbieBonusActive(level) ? NEWBIE_DROP_MULTIPLIER : 1;
 }
 
+// === v2 신참 보너스 — 레벨 대신 누적 전투 전적 기준 ===================
+// 2026-06-03 사용자 결정 — v2 는 재전직 시 레벨이 1 로 리셋되므로(전직 prestige 루프)
+// 레벨 < 30 으로 신참을 가리면 베테랑이 재전직할 때마다 보너스가 잘못 되살아난다.
+// 그래서 v2 는 누적 전투 전적(처치+패배 = adventure-log.v2 의 kills 합 + battleLosses)
+// 으로 가린다. 또 v2 는 EXP 만 ×2 (드롭 보너스 없음 — 사용자 결정).
+export const NEWBIE_BONUS_BATTLE_THRESHOLD = 30000;
+
+export function isNewbieBonusActiveByBattles(battleCount: number): boolean {
+  return battleCount <= NEWBIE_BONUS_BATTLE_THRESHOLD;
+}
+
+// v2 사냥 EXP 신참 보너스 — 전적 ≤ 임계치면 ×2, 아니면 그대로. 드롭엔 미적용(EXP 전용).
+export function applyNewbieExpBonusByBattles(
+  exp: number,
+  battleCount: number,
+): { gained: number; bonusApplied: boolean } {
+  if (exp <= 0 || !isNewbieBonusActiveByBattles(battleCount)) {
+    return { gained: exp, bonusApplied: false };
+  }
+  return { gained: exp * NEWBIE_EXP_MULTIPLIER, bonusApplied: true };
+}
+
 // 35레벨 기준으로 지수를 1.5 → 2.5로 전환. 경계값이 동일하도록 계수를 맞춤:
 // 120 * 35^1.5 = (120/35) * 35^2.5  →  계수 = 120 / 35.
 const STEEP_LEVEL = 35;

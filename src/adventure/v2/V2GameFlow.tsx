@@ -208,6 +208,8 @@ export function V2GameFlow() {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
   const [viewerName, setViewerName] = useState<string>("모험가");
+  // 회원 탈퇴 확인 문구용 권위 닉네임(users.gameName). 보통 null → 모달 "탈퇴" 폴백.
+  const [accountName, setAccountName] = useState<string | null>(null);
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
   // 전투 장면 부제(레벨·직업·속성) 표기용 — me/state 에서 초기화.
   const [viewerLevel, setViewerLevel] = useState<number>(1);
@@ -282,8 +284,10 @@ export function V2GameFlow() {
             };
             currentOutpost?: { id: string; name: string } | null;
             discoveredOutpostIds?: string[];
+            accountName?: string | null;
           } | null;
           if (j?.character?.name) setViewerName(j.character.name);
+          setAccountName(j?.accountName ?? null);
           if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
           if (typeof j?.character?.level === "number")
             setViewerLevel(j.character.level);
@@ -480,7 +484,7 @@ export function V2GameFlow() {
 
   return (
     <div>
-      <V2TopBar currentOutpost={currentOutpost} />
+      <V2TopBar currentOutpost={currentOutpost} gameName={accountName} />
       {/* 탭 배경 — 현 위치 거점 종류별 이미지 (모험/마을/캐릭터). 전투·길드는 추후. */}
       {BG_TABS.has(currentTab) && (
         <OutpostBackground key={currentOutpostType} type={currentOutpostType} />

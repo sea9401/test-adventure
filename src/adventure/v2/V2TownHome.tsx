@@ -6,8 +6,11 @@ import {
   Fish,
   Hammer,
   MagnifyingGlass,
+  Megaphone,
+  Note,
   Sparkle,
   Storefront,
+  Trophy,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
@@ -22,7 +25,10 @@ export type TownAction =
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
   | { kind: "open-fishing" }
-  | { kind: "open-treasure" };
+  | { kind: "open-treasure" }
+  | { kind: "open-bulletin" }
+  | { kind: "open-rankings" }
+  | { kind: "open-feed" };
 
 export function V2TownHome({
   onAction,
@@ -87,6 +93,34 @@ export function V2TownHome({
           title="발굴 감정소"
           description="지도 조각으로 발굴 지점을 열고 단서로 매장지를 찾는 곳. 골동품을 캐낸다."
           onClick={() => onAction({ kind: "open-treasure" })}
+        />
+      </div>
+      <header className="pt-2">
+        <h2 className="text-sm font-bold">커뮤니티</h2>
+        <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          다른 모험가들과 소식을 나누는 곳.
+        </p>
+      </header>
+      <div className="space-y-2">
+        <EntryCard
+          icon={<Note size={28} weight="duotone" className="text-sky-500" />}
+          title="게시판"
+          description="모험가들이 글을 남기는 마을 게시판."
+          onClick={() => onAction({ kind: "open-bulletin" })}
+        />
+        <EntryCard
+          icon={<Trophy size={28} weight="duotone" className="text-amber-600" />}
+          title="랭킹"
+          description="모험가 명부 — 레벨·명성·전투 횟수 순위."
+          onClick={() => onAction({ kind: "open-rankings" })}
+        />
+        <EntryCard
+          icon={
+            <Megaphone size={28} weight="duotone" className="text-violet-400" />
+          }
+          title="전체 소식"
+          description="유니크 획득·걸작 제작 등 온 대륙에 퍼지는 소식."
+          onClick={() => onAction({ kind: "open-feed" })}
         />
       </div>
     </main>

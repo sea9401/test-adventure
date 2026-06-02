@@ -50,3 +50,96 @@ body {
 *::-webkit-scrollbar {
   display: none;
 }
+
+/* ── 낚시 미니게임 연출 ───────────────────────────────────────────
+   상태 머신·판정·공정성은 그대로 — waiting/biting 상태의 "찌" 그림만 표현한다.
+   대기: 잔잔히 까닥 + 수면 잔물결·기포.  입질: windup 없이 즉시 날카롭게 빨려들며
+   떨림 + 물결 파동(즉시 시작이라 반응 윈도우 공정성 유지). */
+
+@keyframes fish-bob-idle {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(2deg);
+  }
+}
+
+@keyframes fish-bob-bite {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  18% {
+    transform: translateY(11px) rotate(-7deg);
+  }
+  36% {
+    transform: translateY(6px) rotate(6deg);
+  }
+  54% {
+    transform: translateY(13px) rotate(-5deg);
+  }
+  72% {
+    transform: translateY(7px) rotate(5deg);
+  }
+  100% {
+    transform: translateY(10px) rotate(0deg);
+  }
+}
+
+@keyframes fish-ripple {
+  0% {
+    transform: translateX(-50%) scale(0.35);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translateX(-50%) scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes fish-bubble {
+  0% {
+    transform: translateY(2px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-26px);
+    opacity: 0;
+  }
+}
+
+.fish-bob-idle {
+  animation: fish-bob-idle 2.4s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+.fish-bob-bite {
+  animation: fish-bob-bite 0.45s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+.fish-ripple {
+  animation: fish-ripple 2.2s ease-out infinite;
+}
+.fish-ripple-bite {
+  animation: fish-ripple 0.9s ease-out infinite;
+}
+.fish-bubble {
+  animation: fish-bubble 3.2s ease-in infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fish-bob-idle,
+  .fish-bob-bite,
+  .fish-ripple,
+  .fish-ripple-bite,
+  .fish-bubble {
+    animation: none;
+  }
+  /* 모션을 끈 사용자도 입질을 인지하도록 찌를 정적으로 살짝 잠긴 위치에 둔다. */
+  .fish-bob-bite {
+    transform: translateY(9px);
+  }
+}

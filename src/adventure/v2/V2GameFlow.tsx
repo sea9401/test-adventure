@@ -17,6 +17,7 @@ import { V2SkillLearnView } from "@/adventure/v2/V2SkillLearnView";
 import { V2SparringView } from "@/adventure/v2/V2SparringView";
 import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
+import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
 import { V2PlazaHome, type PlazaAction } from "@/adventure/v2/V2PlazaHome";
@@ -232,6 +233,10 @@ export function V2GameFlow() {
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerClass, setViewerClass] = useState<string>("none");
   const [viewerElement, setViewerElement] = useState<string>("neutral");
+
+  // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
+  // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
+  usePresenceHeartbeat({ name: viewerName, className: viewerClass, title: null });
   // 기본값 = 시작 거점(선더홀드). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
   // null 로 두지 않아 인접 이동 게이트가 첫 화면부터 일관되게 동작한다.
   const [currentOutpost, setCurrentOutpost] = useState<

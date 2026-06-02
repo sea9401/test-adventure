@@ -19,6 +19,10 @@ import { V2ShopView } from "@/adventure/v2/V2ShopView";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2TownHome, type TownAction } from "@/adventure/v2/V2TownHome";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { BulletinBoardView } from "@/adventure/BulletinBoardView";
+import { RankingsView } from "@/adventure/rankings/RankingsView";
+import { ServerFeedView } from "@/adventure/log/ServerFeedView";
 import { FishingPanel } from "@/adventure/v2/FishingPanel";
 import { FishingLeaderboardPanel } from "@/adventure/v2/FishingLeaderboardPanel";
 import { FishingShopPanel } from "@/adventure/v2/FishingShopPanel";
@@ -141,6 +145,9 @@ type View =
   | { kind: "inventory" }
   | { kind: "codex" }
   | { kind: "guild" }
+  | { kind: "bulletin" }
+  | { kind: "rankings" }
+  | { kind: "feed" }
   | { kind: "map" }
   | { kind: "outpost"; outpost: Outpost };
 
@@ -169,6 +176,9 @@ function tabOfView(view: View): TabId {
     case "treasure-collection":
     case "treasure-shop":
     case "treasure-leaderboard":
+    case "bulletin":
+    case "rankings":
+    case "feed":
       return "town";
     case "character":
     case "character-info":
@@ -457,6 +467,15 @@ export function V2GameFlow() {
       case "open-treasure":
         setView({ kind: "treasure" });
         break;
+      case "open-bulletin":
+        setView({ kind: "bulletin" });
+        break;
+      case "open-rankings":
+        setView({ kind: "rankings" });
+        break;
+      case "open-feed":
+        setView({ kind: "feed" });
+        break;
     }
   };
 
@@ -563,6 +582,27 @@ export function V2GameFlow() {
 
       {/* === 마을 탭 === */}
       {view.kind === "town" && <V2TownHome onAction={handleTownAction} />}
+      {view.kind === "bulletin" && (
+        <main className="mx-auto w-full max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+          <SubViewHeader title="게시판" onBack={() => setView({ kind: "town" })} />
+          <BulletinBoardView />
+        </main>
+      )}
+      {view.kind === "rankings" && (
+        <main className="mx-auto w-full max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+          <SubViewHeader title="랭킹" onBack={() => setView({ kind: "town" })} />
+          <RankingsView />
+        </main>
+      )}
+      {view.kind === "feed" && (
+        <main className="mx-auto w-full max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+          <SubViewHeader
+            title="전체 소식"
+            onBack={() => setView({ kind: "town" })}
+          />
+          <ServerFeedView />
+        </main>
+      )}
       {view.kind === "shrine" && (
         <V2CultivationView onBack={() => setView({ kind: "town" })} />
       )}

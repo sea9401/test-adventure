@@ -166,14 +166,15 @@ export type V2Equipment = {
 
 // 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
 // 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
-//   T1 base 500   → 무기 750 / 갑옷 500 / 장갑·신발 300 / 반지·목걸이 250
-//   T5 base 648k  → 무기 972k / 갑옷 648k / 장갑·신발 388.8k / 반지·목걸이 324k
+//   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
+//   T5 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
+// 2026-06-03 ~40% 인하(base ×0.6) — 위력 −15% 동반. 판매가는 구매가 5% 라 자동 연동.
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
-  1: 500,
-  2: 3000,
-  3: 18000,
-  4: 108000,
-  5: 648000,
+  1: 300,
+  2: 1800,
+  3: 10800,
+  4: 64800,
+  5: 388800,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -220,7 +221,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "철검",
     description: "흔한 한손검. 무난한 무게와 균형.",
-    power: 4,
+    power: 3,
     weight: 2,
   },
   v2_steel_sword: {
@@ -230,7 +231,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "강철검",
     description: "단단한 강철 한손검. 한 손에 묵직하다.",
-    power: 8,
+    power: 7,
     weight: 2,
     element: "fire",
   },
@@ -241,7 +242,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "한타검",
     description: "두 손으로 거머쥐는 큰 검. 일격의 무게가 다르다.",
-    power: 14,
+    power: 12,
     weight: 3,
     element: "earth",
   },
@@ -252,7 +253,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은검",
     description: "은으로 벼린 검. 옅게 빛을 낸다.",
-    power: 22,
+    power: 19,
     weight: 3,
     element: "starlight",
   },
@@ -263,7 +264,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴검",
     description: "오래된 별빛이 어린 미스릴 검.",
-    power: 34,
+    power: 29,
     weight: 4,
     element: "void",
   },
@@ -277,7 +278,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "목궁",
     description: "참나무로 깎은 활. 가볍지만 사정거리 짧다.",
-    power: 4,
+    power: 3,
     weight: 1,
   },
   v2_recurve_bow: {
@@ -287,7 +288,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "합성궁",
     description: "휘어 만든 합성궁. 사거리가 늘었다.",
-    power: 8,
+    power: 7,
     weight: 1,
     element: "wind",
     options: { crit: 1 },
@@ -299,7 +300,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "각궁",
     description: "뿔과 힘줄을 덧대 만든 강한 활.",
-    power: 12,
+    power: 10,
     weight: 1,
     element: "lightning",
     options: { crit: 1 },
@@ -311,7 +312,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은활",
     description: "은으로 보강된 정교한 활.",
-    power: 20,
+    power: 17,
     weight: 2,
     element: "water",
     options: { crit: 2 },
@@ -323,7 +324,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "별노래궁",
     description: "시위가 별의 노래처럼 떨린다.",
-    power: 30,
+    power: 26,
     weight: 2,
     options: { crit: 2 },
     element: "starlight", // 별빛 무기.
@@ -339,7 +340,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "참나무 지팡이",
     description: "옹이가 굵은 지팡이. 무게가 손에 익는다.",
-    power: 7,
+    power: 6,
     weight: 1,
     options: { mp: 8 },
   },
@@ -350,7 +351,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "룬 지팡이",
     description: "룬을 새긴 지팡이. 미세하게 따뜻하다.",
-    power: 14,
+    power: 12,
     weight: 1,
     element: "fire",
     options: { mp: 16 },
@@ -362,7 +363,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "흑요석 지팡이",
     description: "검은 유리처럼 매끄러운 지팡이.",
-    power: 21,
+    power: 18,
     weight: 2,
     element: "void",
     options: { mp: 22 },
@@ -374,7 +375,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은 지팡이",
     description: "은으로 감은 정교한 지팡이.",
-    power: 26,
+    power: 22,
     weight: 2,
     element: "water",
     options: { mp: 28 },
@@ -386,7 +387,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "별빛 지팡이",
     description: "보석 끝에 별빛이 머문다.",
-    power: 36,
+    power: 31,
     weight: 2,
     options: { mp: 36 },
     element: "starlight", // 별빛 무기.
@@ -421,7 +422,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "완판 갑옷",
     description: "온몸을 두른 두꺼운 갑옷.",
-    power: 5,
+    power: 4,
     weight: 5,
   },
   v2_silver_plate: {
@@ -431,7 +432,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 4,
     name: "은판 갑옷",
     description: "은판으로 덧댄 갑옷. 빛이 묻어난다.",
-    power: 7,
+    power: 6,
     weight: 7,
   },
   v2_mithril_plate: {
@@ -441,7 +442,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴 갑옷",
     description: "가볍고 단단한 미스릴 갑옷.",
-    power: 10,
+    power: 9,
     weight: 8,
   },
 
@@ -496,7 +497,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "바람을 엮은 망토",
     description: "바람결을 짜 만든 가벼운 망토.",
-    power: 4,
+    power: 3,
     weight: 1,
     options: { eva: 3 },
   },

@@ -5,6 +5,7 @@ import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 
 // v2 치료소 — 만피 회복(라이브 룰: gold<50 무료, 1G 만피) + HP/MP 충전약 구매.
 // 옛 V2ShopView 의 충전 섹션이 여기로 이전 — 상점은 장비만 취급.
@@ -31,6 +32,8 @@ type InventoryResponse = {
 type ChargeKind = "hp" | "mp";
 
 export function V2HealingView({ onBack }: { onBack: () => void }) {
+  // 사냥터 게이트·상단 HP바가 읽는 공유 HP. 치료 직후 동기화해 stale "회복 필요" 차단 방지.
+  const { setHp: setSharedHp } = useGameState();
   const [hp, setHp] = useState<number | null>(null);
   const [maxHp, setMaxHp] = useState<number | null>(null);
   const [mp, setMp] = useState<number | null>(null);
@@ -89,13 +92,17 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
       if (typeof j.mp === "number") setMp(j.mp);
       if (typeof j.maxMp === "number") setMaxMp(j.maxMp);
       if (typeof j.gold === "number") setGold(j.gold);
+      // 공유 HP 도 동기화 — 안 하면 사냥터가 옛 HP 를 읽어 "회복 필요" 로 막는다.
+      if (typeof j.hp === "number" && typeof j.maxHp === "number") {
+        setSharedHp({ hp: j.hp, maxHp: j.maxHp, anchorMs: Date.now() });
+      }
       setMsg(`✓ 회복 완료 (${j.cost ?? 0} G)`);
     } catch (err) {
       setMsg(`✗ network: ${(err as Error).message}`);
     } finally {
       setBusy(null);
     }
-  }, []);
+  }, [setSharedHp]);
 
   const buyCharge = useCallback(
     async (kind: ChargeKind, amount: number) => {

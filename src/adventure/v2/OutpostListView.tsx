@@ -7,7 +7,7 @@ import type {
   OutpostTier,
   OutpostType,
 } from "@/adventure/data/v2/types";
-import type { Occupation } from "@/app/dev/v2-game/V2GameFlow";
+import type { Occupation } from "@/adventure/v2/V2GameFlow";
 
 // 거점 list 화면 — 라이브 TownScreen 패턴 차용 (EntryCard 와 유사한 형태).
 // 점령 상태(내 길드 / 다른 길드 / 빈 / 중립)별 색 칩 + tier·type 라벨.

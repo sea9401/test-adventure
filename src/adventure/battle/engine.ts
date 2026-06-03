@@ -645,7 +645,8 @@ function playerFacingEnemyDef(
 
 // 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은
 // combatShared.rollAttackCount 로 단일화 — PvP 엔진과 공유해 한쪽만 바뀌는 divergence 방지.
-function rollPlayerAttackCount(player: PlayerCombat): number {
+// export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일하게 다음 턴 공격수를 재굴림하도록.
+export function rollPlayerAttackCount(player: PlayerCombat): number {
   return rollAttackCount(player);
 }
 
@@ -954,7 +955,10 @@ function dealExtraEnemyDamage(
 
 // 플레이어 턴 종료 후 처리 — 그림자 분신 추가타 → 무피해 난무 추가타들 → 재생.
 // 추가타로 적이 죽으면 즉시 종료(이후 단계 건너뜀). 종전 applyRegenIfAny 호출을 이 함수로 대체.
-function finishPlayerTurn(
+// export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일한 턴 종료 효과(재생·격노 등)를 거치도록.
+// ⚠️ 선행조건: 호출 전에 state.turn.completedPlayerTurns 가 이미 +1 된 상태여야 한다
+// (막다른 격노 발동 턴·재생 주기 modulo 판정이 이 값을 기준으로 한다).
+export function finishPlayerTurn(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,

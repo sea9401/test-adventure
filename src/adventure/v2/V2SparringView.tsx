@@ -34,8 +34,9 @@ export function V2SparringView({
       <SubViewHeader title="허수아비치기" onBack={onBack} />
       <Card padding="md">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          보상도 손실도 없는 연습용 대결이다. 지금 능력치로 허수아비를 얼마나
-          빠르게 쓰러뜨리는지 전투 기록으로 살펴볼 수 있다.
+          보상도 손실도 없는 연습용 대결이다. 허수아비는 쓰러지지 않는다. 지금
+          능력치로 50턴 동안 얼마나 많은 피해를 누적하는지 전투 기록으로 살펴볼
+          수 있다.
         </p>
         <button
           type="button"
@@ -58,7 +59,9 @@ export function V2SparringView({
           <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">
             {lastResult.won
               ? `허수아비를 ${lastResult.turns}턴 만에 쓰러뜨렸다.`
-              : "허수아비를 쓰러뜨리지 못했다."}
+              : `${lastResult.turns}턴 동안 허수아비에게 ${(
+                  lastResult.damageDealt ?? 0
+                ).toLocaleString()} 데미지를 입혔다.`}
           </p>
         )}
       </Card>

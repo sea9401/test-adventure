@@ -2905,6 +2905,9 @@ export type ResolveContext = {
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
   v2Skills?: import("../data/v2/v2Skills").V2SkillsState;
+  // 무한 루프 가드 턴 상한(플레이어 턴 기준). 미지정이면 500(기본 안전캡). 스파링처럼
+  // "안 죽는 샌드백을 N턴만 두들기는" 용도면 낮춰 넘긴다(예: 50) — 도달 시 lose 로 종료.
+  maxTurns?: number;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로
@@ -3403,8 +3406,10 @@ export function resolveBattle(
     }
 
     // 무한 루프 가드 — 정상 전투는 보통 수십 턴 안에 끝난다. 만약 데미지 0/회피 100% 같은
-    // 병리적 조합이면 적의 타임아웃 패배로 강제 종료.
-    if (turns > 500) {
+    // 병리적 조합이면 적의 타임아웃 패배로 강제 종료. ctx.maxTurns 로 상한을 낮출 수 있다
+    // (스파링 = 안 죽는 샌드백을 maxTurns 턴까지 두들기고 lose 로 종료). turns 도달 시 그 턴에
+    // 멈추므로(>=) maxTurns 가 곧 표기 턴 수와 일치한다.
+    if (turns >= (ctx.maxTurns ?? 500)) {
       return {
         outcome: "lose",
         finalState: {

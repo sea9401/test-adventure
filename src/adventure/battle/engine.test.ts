@@ -356,6 +356,30 @@ describe("resolveBattle", () => {
     expect(r.turns).toBeGreaterThan(0);
   });
 
+  it("maxTurns 로 턴 상한을 낮추면 그 턴에 lose 로 종료(스파링 샌드백)", () => {
+    // 안 죽는 샌드백: HP 100만, atk/def 0. PLAYER(atk 10)는 50턴 안에 절대 못 깎는다.
+    const dummy = makeEnemy({ hp: 1_000_000, atk: 0, def: 0 });
+    const r = resolveBattle(PLAYER, dummy, "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      maxTurns: 50,
+    });
+    expect(r.outcome).toBe("lose"); // 타임아웃(처치 못 함)
+    expect(r.turns).toBe(50); // maxTurns 에 도달한 그 턴에 멈춘다(>=).
+    // 그동안 데미지는 누적되고, 샌드백은 살아있다.
+    const dealt = 1_000_000 - r.finalState.enemyHp;
+    expect(dealt).toBeGreaterThan(0);
+    expect(r.finalState.enemyHp).toBeGreaterThan(0);
+  });
+
+  it("maxTurns 미지정이면 기본 500 안전캡 — 평범한 적은 정상 승리", () => {
+    const r = resolveBattle(PLAYER, makeEnemy(), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+    });
+    expect(r.outcome).toBe("win");
+  });
+
   it("약한 플레이어는 패배 + final HP 0", () => {
     const fragile: PlayerCombat = { ...PLAYER, hp: 1, def: 0 };
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 회피 실패

@@ -9,6 +9,10 @@
 //
 // 결과 객체 (ClaimResponse) 받아서 분기 렌더링.
 
+import { ReplayBattleScene } from "./ReplayBattleScene";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Gender } from "@/adventure/profile/avatars";
+
 export type ClaimResult = {
   ok?: boolean;
   error?: string;
@@ -20,6 +24,12 @@ export type ClaimResult = {
   hpBefore?: number;
   hpAfter?: number;
   maxHp?: number;
+  // NPC 일기토 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
+  // PvP 1v1/토너먼트는 PvP replay 미구현이라 없음(텍스트 요약으로 폴백).
+  replay?: ReplayPayload | null;
+  startPlayerHp?: number;
+  playerName?: string;
+  gender?: string;
   requiredStamina?: number;
   tournament?: {
     matches: {
@@ -74,28 +84,41 @@ export function ClaimResultCard({
     result.raceLost ? "amber" : result.won ? "green" : "red";
 
   return (
-    <ResultShell
-      title={winLabel}
-      outpostName={outpostName}
-      accent={accent}
-      onClose={onClose}
-    >
-      <div className="flex flex-col gap-3">
-        {result.tournament && (
-          <TournamentSection tournament={result.tournament} />
-        )}
-        {!result.tournament && (
-          <DuelOnlySection
-            championName={result.championName ?? "?"}
-            turns={result.turns ?? 0}
-            won={!!result.won}
-            hpBefore={result.hpBefore}
-            hpAfter={result.hpAfter}
-            maxHp={result.maxHp}
-          />
-        )}
-      </div>
-    </ResultShell>
+    <div className="flex flex-col gap-3">
+      <ResultShell
+        title={winLabel}
+        outpostName={outpostName}
+        accent={accent}
+        onClose={onClose}
+      >
+        <div className="flex flex-col gap-3">
+          {result.tournament && (
+            <TournamentSection tournament={result.tournament} />
+          )}
+          {!result.tournament && (
+            <DuelOnlySection
+              championName={result.championName ?? "?"}
+              turns={result.turns ?? 0}
+              won={!!result.won}
+              hpBefore={result.hpBefore}
+              hpAfter={result.hpAfter}
+              maxHp={result.maxHp}
+            />
+          )}
+        </div>
+      </ResultShell>
+      {/* NPC 일기토 전투 리플레이 — 사냥/스파링과 동일한 BattleScene 으로 전투 진행 표시. */}
+      {result.replay && (
+        <ReplayBattleScene
+          payload={result.replay}
+          startPlayerHp={result.startPlayerHp}
+          playerName={result.playerName ?? "모험가"}
+          gender={(result.gender ?? "male1") as Gender}
+          exp={0}
+          maxExp={1}
+        />
+      )}
+    </div>
   );
 }
 

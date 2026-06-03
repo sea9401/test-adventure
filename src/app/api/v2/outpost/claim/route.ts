@@ -33,6 +33,10 @@ import {
   canHuntWithHp,
   parseHpRegenSince,
 } from "@/adventure/v2/hpRegen";
+import {
+  toReplayPayload,
+  type ReplayPayload,
+} from "@/adventure/data/v2/replayPayload";
 
 // POST /api/v2/outpost/claim — 거점 점령 시도 (1대1 일기토 NPC).
 //
@@ -277,12 +281,22 @@ export async function POST(req: Request) {
         and(eq(savesKv.userId, userId), eq(savesKv.key, "character-profile.v2")),
       )
       .limit(1);
-    const profile = (profileRow[0]?.value ?? null) as { name?: string } | null;
+    const profile = (profileRow[0]?.value ?? null) as {
+      name?: string;
+      gender?: string;
+    } | null;
     const playerName = profile?.name?.trim() || "모험가";
+    const playerGender =
+      typeof profile?.gender === "string" && profile.gender.length > 0
+        ? profile.gender
+        : "male1";
 
     let won: boolean;
     let turns: number;
     let battleFinalPlayerHp: number;
+    // NPC 일기토 전투 리플레이 — 사냥과 동일한 ReplayBattleScene 으로 표시. PvP 1v1/토너먼트는
+    // PvP replay 인프라 미구현(아레나 PR-8b/8c 대기)이라 null → 카드가 텍스트 요약으로 폴백.
+    let replay: ReplayPayload | null = null;
     let defenderLabel: string;
     let defenderUserIdForLog: string | null;
     let pvpFallbackToNpc = false;
@@ -407,6 +421,7 @@ export async function POST(req: Request) {
       won = battle.outcome === "win";
       turns = battle.turns;
       battleFinalPlayerHp = battle.finalState.playerHp;
+      replay = toReplayPayload(battle.finalState, 200);
     }
 
     // log attempt
@@ -506,6 +521,12 @@ export async function POST(req: Request) {
         hpBefore: hpRegen.hp,
         hpAfter: afterHp,
         maxHp: player.maxHp,
+        // NPC 일기토면 전투 리플레이 — ClaimResultCard 가 ReplayBattleScene 으로 표시.
+        // (PvP/토너먼트는 null.) startPlayerHp/이름/성별은 리플레이 BattleScene 용.
+        replay,
+        startPlayerHp: hpRegen.hp,
+        playerName,
+        gender: playerGender,
         occupation,
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)

@@ -1,0 +1,81 @@
+import { describe, it, expect } from "vitest";
+import {
+  V2_JOB_SPECS,
+  getJobSpec,
+  aggregateSpecPassives,
+} from "./v2JobSpecs";
+
+describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passives-plan.md)", () => {
+  it("전사 = 3계파, 각 계파 패시브 3개 고정 키트 + 무기 게이트", () => {
+    const warrior = V2_JOB_SPECS.warrior;
+    expect(warrior).toHaveLength(3);
+    for (const spec of warrior) {
+      expect(spec.passives).toHaveLength(3);
+      expect(spec.requiredWeaponType).toBeTruthy();
+      // 패시브 id 는 계파 내 유일
+      expect(new Set(spec.passives.map((p) => p.id)).size).toBe(3);
+    }
+  });
+
+  it("계파별 무기 게이트 매핑 — 광검류=대검 / 철벽검류=검방 / 혈풍검류=세검", () => {
+    expect(getJobSpec("warrior", "gwang")?.requiredWeaponType).toBe("greatsword");
+    expect(getJobSpec("warrior", "cheolbyeok")?.requiredWeaponType).toBe(
+      "sword_shield",
+    );
+    expect(getJobSpec("warrior", "hyeolpung")?.requiredWeaponType).toBe("rapier");
+    expect(getJobSpec("warrior", "nonexistent")).toBeUndefined();
+    expect(getJobSpec("mage", "gwang")).toBeUndefined();
+  });
+
+  it("패시브 id 는 직군 전역 유일(해금 저장 키 충돌 방지)", () => {
+    const ids = V2_JOB_SPECS.warrior.flatMap((s) => s.passives.map((p) => p.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
+  const gwang = getJobSpec("warrior", "gwang")!;
+
+  it("해금 패시브 효과 합산(무기 일치 시)", () => {
+    const eff = aggregateSpecPassives(
+      gwang,
+      ["gwang_cut", "gwang_pierce"],
+      "greatsword",
+    );
+    expect(eff.atkPctAdd).toBe(20); // 절단의 자세
+    expect(eff.defPenetrationPct).toBe(17); // 갑옷 가르기
+    expect(eff.critMultAdd).toBeUndefined(); // 일격필살 미해금
+  });
+
+  it("무기 게이트 불통과(종류 불일치/미장착) = 완전 비활성(빈 효과)", () => {
+    // 광검류인데 세검 착용 → 전부 OFF
+    expect(aggregateSpecPassives(gwang, ["gwang_cut"], "rapier")).toEqual({});
+    // 무기 미장착 → OFF
+    expect(aggregateSpecPassives(gwang, ["gwang_cut"], undefined)).toEqual({});
+  });
+
+  it("해금 0개 / spec 없음 = 빈 효과", () => {
+    expect(aggregateSpecPassives(gwang, [], "greatsword")).toEqual({});
+    expect(aggregateSpecPassives(undefined, ["gwang_cut"], "greatsword")).toEqual(
+      {},
+    );
+  });
+
+  it("3개 전부 해금 = 키트 완성(전 효과 합산)", () => {
+    const eff = aggregateSpecPassives(
+      gwang,
+      ["gwang_cut", "gwang_pierce", "gwang_crit"],
+      "greatsword",
+    );
+    expect(eff.atkPctAdd).toBe(20);
+    expect(eff.defPenetrationPct).toBe(17);
+    expect(eff.critMultAdd).toBe(0.35);
+  });
+
+  it("복수 필드 패시브(빠른 검끝 spd+acc) 합산", () => {
+    const hyeol = getJobSpec("warrior", "hyeolpung")!;
+    const eff = aggregateSpecPassives(hyeol, ["hyeol_swift"], "rapier");
+    expect(eff.spdPctAdd).toBe(14);
+    expect(eff.accuracyPctAdd).toBe(12);
+  });
+});

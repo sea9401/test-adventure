@@ -5,23 +5,34 @@ import { Envelope } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
+import {
+  acceptGuildInvite,
+  declineGuildInvite,
+  GuildError,
+} from "@/adventure/guild/api";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 
 // v2 우편함 — 받은 쪽지(user_message) + 마켓 정산·선물·길드 보상 등 수령.
 // 백엔드(/api/marketplace/inbox 목록 + /claim)는 이미 v2 호환(claim 이 character.v2 골드/
 // inventory.v2 에 적용). 옛 V1 InboxView 는 GameContext·V1 데이터에 얽혀 죽은 채 삭제됐고,
 // v2 엔 이 읽기/수령 UI 가 빠져 있어 신설한다(쪽지 보내기는 SendMessageModal 로 됨).
 
-// 길드 초대는 v2 에 수락/거절 UI 가 아직 없다(길드 탭은 둘러보기/가입신청만 처리). 그냥
-// 수령하면 수락 없이 dismiss 되어버리므로, 처리 경로가 생기기 전까진 우편함에서 숨긴다
-// (행은 DB 에 미수령으로 남음 — 후속에서 초대 수락 UI 붙일 때 노출). [[project-v1-cleanup-and-decouple]]
-const HIDDEN = (it: InboxItem) => it.kind === "guild_invite";
+// 길드 초대(guild_invite)는 수령(claim)이 아니라 수락/거절 — payload.invite_id 로 accept/decline.
+// 마켓 정산·선물 등 나머지는 수령(claim).
+const IS_INVITE = (it: InboxItem) => it.kind === "guild_invite";
 
 // 표시 본문 — user_message 는 본문이 payload.text 에 있고 message 컬럼은 비어있다(보내기
-// 라우트가 text 를 payload 에만 저장). 그 외 kind 는 서버 message 요약 ?? kind 라벨.
+// 라우트가 text 를 payload 에만 저장). guild_invite 는 길드명 안내. 그 외는 message ?? 라벨.
 function bodyOf(it: InboxItem): string {
   if (it.kind === "user_message") {
     const t = (it.payload as { text?: unknown })?.text;
     return typeof t === "string" && t.length > 0 ? t : "(내용 없음)";
+  }
+  if (it.kind === "guild_invite") {
+    const g = (it.payload as { guild_name?: unknown })?.guild_name;
+    return typeof g === "string" && g.length > 0
+      ? `${g} 길드에서 초대했어요.`
+      : (it.message ?? KIND_LABEL[it.kind]);
   }
   return it.message ?? KIND_LABEL[it.kind];
 }
@@ -49,6 +60,8 @@ function timeAgo(iso: string): string {
 }
 
 export function V2InboxView({ onBack }: { onBack: () => void }) {
+  // 초대 수락 시 공유 길드 상태(viewerGuildId) 갱신용 — 수락하면 길드에 합류하므로.
+  const { refreshGuildId } = useGameState();
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,8 +116,42 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
     [busy, load],
   );
 
-  const displayed = (items ?? []).filter((it) => !HIDDEN(it));
-  const claimableIds = displayed.map((i) => i.id);
+  const respondInvite = useCallback(
+    async (it: InboxItem, accept: boolean) => {
+      const inviteId = (it.payload as { invite_id?: unknown })?.invite_id;
+      if (typeof inviteId !== "number" || busy) return;
+      setBusy(true);
+      setError(null);
+      setMsg(null);
+      try {
+        if (accept) {
+          const r = await acceptGuildInvite(inviteId);
+          setMsg(`✓ ${r.guildName} 길드에 합류했어요.`);
+          // 합류로 소속이 바뀌었으니 공유 길드 상태 갱신(길드 탭·거점 로직이 viewerGuildId 사용).
+          await refreshGuildId();
+        } else {
+          await declineGuildInvite(inviteId);
+          setMsg("초대를 거절했어요.");
+        }
+        await load();
+      } catch (e) {
+        setError(
+          e instanceof GuildError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : "처리 실패",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, load, refreshGuildId],
+  );
+
+  const displayed = items ?? [];
+  // 길드 초대는 수락/거절(전체 수령에서 제외). 나머지가 claim 대상.
+  const claimableIds = displayed.filter((it) => !IS_INVITE(it)).map((i) => i.id);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -163,14 +210,35 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
                     {bodyOf(it)}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => claim([it.id])}
-                  disabled={busy}
-                  className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-                >
-                  {it.kind === "user_message" ? "확인" : "수령"}
-                </button>
+                {IS_INVITE(it) ? (
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => respondInvite(it, true)}
+                      disabled={busy}
+                      className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                      수락
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => respondInvite(it, false)}
+                      disabled={busy}
+                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                    >
+                      거절
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => claim([it.id])}
+                    disabled={busy}
+                    className="shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                  >
+                    {it.kind === "user_message" ? "확인" : "수령"}
+                  </button>
+                )}
               </div>
             </Card>
           ))}

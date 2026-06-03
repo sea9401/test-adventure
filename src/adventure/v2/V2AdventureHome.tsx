@@ -13,7 +13,7 @@ import type {
   OutpostTier,
 } from "@/adventure/data/v2/types";
 import type {
-  V2EquipmentId,
+  V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 
@@ -85,8 +85,9 @@ export function V2AdventureHome({
   const [state, setState] = useState<StateResponse | null>(null);
   // 모험 탭 간략 카드에 장착 장비를 표시 — me/state 는 장비를 안 담으므로 별도 fetch.
   const [equipped, setEquipped] = useState<
-    Partial<Record<V2EquipSlot, V2EquipmentId>>
+    Partial<Record<V2EquipSlot, string>>
   >({});
+  const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [claiming, setClaiming] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -101,9 +102,11 @@ export function V2AdventureHome({
       setState(j ?? { ok: false });
       if (equipRes && equipRes.ok) {
         const ej = (await equipRes.json().catch(() => null)) as {
-          equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+          owned?: V2EquipInstance[];
+          equipped?: Partial<Record<V2EquipSlot, string>>;
         } | null;
         setEquipped(ej?.equipped ?? {});
+        setOwned(ej?.owned ?? []);
       }
     } catch {
       setState({ ok: false });
@@ -111,6 +114,7 @@ export function V2AdventureHome({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
     refresh();
   }, [refresh]);
 
@@ -173,6 +177,7 @@ export function V2AdventureHome({
             guild={state.guild ?? null}
             showGold={true}
             equipped={equipped}
+            owned={owned}
           />
         )}
 

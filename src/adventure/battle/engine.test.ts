@@ -243,6 +243,30 @@ describe("advanceTurn (enemy phase)", () => {
     expect(s1.phase).toBe("ended");
     expect(s1.outcome).toBe("lose");
   });
+
+  it("계파 받피감(passiveDamageTakenReductionPct) — 받는 피해 %감소, 미보유=불변", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // 무조건 피격
+    const enemy = makeEnemy({ atk: 40 }); // base 피해 충분히 크게(반올림 영향 최소)
+    const base = damageBetween(enemy.atk, PLAYER.def);
+    // 받피감 50% → floor(base×0.5) 피해
+    const tanky: PlayerCombat = {
+      ...PLAYER,
+      passiveDamageTakenReductionPct: 50,
+    };
+    const s1 = advanceTurn(
+      { ...initialBattleState(tanky, enemy, "P"), phase: "enemy" as const },
+      tanky,
+      "P",
+    );
+    expect(s1.playerHp).toBe(tanky.hp - Math.max(1, Math.floor(base * 0.5)));
+    // 대조: 미보유 = full 피해(라이브 불변)
+    const s1b = advanceTurn(
+      { ...initialBattleState(PLAYER, enemy, "P"), phase: "enemy" as const },
+      PLAYER,
+      "P",
+    );
+    expect(s1b.playerHp).toBe(PLAYER.hp - base);
+  });
 });
 
 describe("applyPotionEffect", () => {

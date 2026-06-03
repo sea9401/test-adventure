@@ -468,6 +468,10 @@ export type PlayerCombat = {
   passiveCounterChancePct?: number;
   // 마법사 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
   passiveMagicBasicAttack?: boolean;
+  // 계파 패시브(철벽검류 등) — 받는 피해 -pct%(항상 활성, 곱연산). enchantEndurePct 와 동류,
+  // 가드/평탄감소 전. derive 가 계파 aggregate(받피감)로 채움. 0/undefined=미보유.
+  // docs/v2-job-spec-passives-plan.md §3-A·§6. (P3b 엔진 훅 — P3c derive 가 주입.)
+  passiveDamageTakenReductionPct?: number;
 };
 
 // 장착된 AP 스킬 + 사용자가 슬롯에 건 발동 조건.
@@ -2636,17 +2640,24 @@ export function advanceTurn(
       ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
       : rawDmg;
   const enduredApplied = enduredDmg < rawDmg;
+  // 계파 패시브 받피감(passiveDamageTakenReductionPct) — 받는 피해 -pct%(철벽검류 등). 항상 활성,
+  // 인내(endure) 다음·가드 전 곱연산. 최소 1 클램프. 0/undefined = 미보유(라이브 무변).
+  const passiveReducePct = player.passiveDamageTakenReductionPct ?? 0;
+  const passiveReduced =
+    passiveReducePct > 0
+      ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
+      : enduredDmg;
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
   const guard = player.guard;
   const guarded =
     guard && guard.turns > 0 && state.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, enduredDmg - guard.reduction)
-      : enduredDmg;
+      ? Math.max(0, passiveReduced - guard.reduction)
+      : passiveReduced;
   // 굳건한 의지 (2티어 특기) — 받은 피해 평탄 -(N) 감소. 가드 뒤에 적용.
   const steadfastFlat = player.steadfastWillFlat ?? 0;
   const dmg = steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
-  const guardApplied = guarded < enduredDmg;
+  const guardApplied = guarded < passiveReduced;
   const steadfastApplied = dmg < guarded;
   // 철벽 (4티어) — 보호막이 데미지를 먼저 흡수, 남은 만큼만 HP 에 적용. 무피해 난무는 dmgToHp 로 누적.
   const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);

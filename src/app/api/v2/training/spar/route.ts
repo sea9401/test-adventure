@@ -5,7 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/battle/engine";
 import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
-import { MONSTERS, SPAR_DUMMY_ID } from "@/adventure/data/monsters";
+import { V2_MONSTERS, V2_SPAR_DUMMY_ID } from "@/adventure/data/v2/v2Monsters";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -41,7 +41,7 @@ export async function POST() {
     );
   }
 
-  const baseDummy = MONSTERS[SPAR_DUMMY_ID];
+  const baseDummy = V2_MONSTERS[V2_SPAR_DUMMY_ID];
   if (!baseDummy) {
     return Response.json(
       { ok: false, error: "dummy_not_found" },

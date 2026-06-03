@@ -213,20 +213,6 @@ export const MIDLANDS_MONSTERS: Record<string, Monster> = {
     ],
     skill: { kind: "pierce", name: "급소 노리기", armorPierce: 3 },
   },
-  // v2 깊은 산(2층) 전용 — 「산적 궁수」 스탯 출처. 옛 노상강도(해안 저레벨 hp75/exp6)로는
-  // 깊은 산 체급에 한참 못 미쳐 전용 블록 신설. 멜리 산적(떠돌이 약탈자)보다 물렁하지만
-  // 더 빠르고(최고 spd) 한 방이 센 원거리 결 — exp 는 늑대(22)↔산적(28) 사이.
-  "산적 궁수": {
-    name: "산적 궁수",
-    tags: ["humanoid"],
-    image: "/images/monster/v2/field-highwayman.webp",
-    hp: 200,
-    atk: 23,
-    def: 7,
-    spd: 8,
-    exp: 24,
-    drops: [],
-  },
   // ── 다리 구간 — 잿빛 협로 (ashen_pass) ──────────────────────────────────
   "재먼지 골렘": {
     name: "재먼지 골렘",

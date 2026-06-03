@@ -19,7 +19,7 @@ import {
 function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
-import { MONSTERS } from "@/adventure/data/monsters";
+import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
@@ -337,7 +337,7 @@ export async function POST(req: Request) {
         },
       };
     }
-    const baseMonster = MONSTERS[enemy.key];
+    const baseMonster = V2_MONSTERS[enemy.key];
     if (!baseMonster) {
       return {
         ok: false as const,
@@ -350,8 +350,8 @@ export async function POST(req: Request) {
       };
     }
     // 구역 multiplier 적용 (hp/atk/def/exp). 표시 이름·초상화는 사냥터 고유 값으로 덮어쓴다 —
-    // spread 로 새 객체를 만들어 라이브 MONSTERS 원본을 mutate 하지 않는다.
-    // image: v2 전용 초상화 우선, 없으면 라이브 몬스터 이미지 폴백.
+    // spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.
+    // image: v2 전용 초상화 우선, 없으면 카탈로그 몬스터 이미지 폴백.
     const enemyName = enemy.name;
     // PR-1/5b 속성 상성 — 양방향 데미지 ±%.
     //   캐릭 속성(playerElement) = 방어(피격) 속성 + 스킬 기본 속성.

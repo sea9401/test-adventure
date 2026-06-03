@@ -11,7 +11,7 @@ import {
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
 import type {
-  V2EquipmentId,
+  V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2CharacterBasics } from "./V2CharacterBasics";
@@ -72,7 +72,8 @@ type StateResponse = {
 
 type EquipmentResponse = {
   ok?: boolean;
-  equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+  owned?: V2EquipInstance[];
+  equipped?: Partial<Record<V2EquipSlot, string>>;
 };
 
 export function V2CharacterScreen({
@@ -125,6 +126,7 @@ export function V2CharacterScreen({
           character={character}
           guild={guild}
           equipped={equipped}
+          owned={equipment?.owned ?? []}
         />
       ) : loading ? (
         <Card padding="md">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Circle,
   Diamond,
@@ -17,7 +17,8 @@ import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
 import {
   V2_EQUIPMENT,
   type V2Equipment,
-  type V2EquipmentId,
+  type V2EquipInstance,
+  type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
@@ -80,13 +81,16 @@ export function V2CharacterCard({
   // 카드 하단에 골드 한 줄 노출 여부.
   showGold = true,
   // 있으면 카드 하단에 6슬롯 인라인 표시 (display only — 장착/해제는 인벤토리에서).
+  // equipped 는 슬롯→iid(개체 식별자), owned 는 그 iid 를 카탈로그 아이템·굴림으로 푸는 개체 목록.
   equipped,
+  owned,
 }: {
   character: V2CharacterCardData;
   guild?: { name: string } | null;
   titleName?: string | null;
   showGold?: boolean;
-  equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+  equipped?: Partial<Record<V2EquipSlot, string>>;
+  owned?: V2EquipInstance[];
 }) {
   // v2 마법 풀 — 현재 mp 사용. PR-potion-auto-restore: 단판 풀충전 모델 폐기 후 mp 가
   // 사냥 사이 보존. me/state 가 mp 동봉 — undefined fallback 은 maxMp (옛 캐릭).
@@ -95,9 +99,16 @@ export function V2CharacterCard({
   // 직업명 — class 없거나 미선택이면 "무직".
   const jobName = V2_CLASS_DEFS[parseV2Class(character.class)].name;
 
-  // 장착 슬롯 클릭 시 띄울 아이템 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
+  // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
+  const byIid = useMemo(
+    () => new Map((owned ?? []).map((i) => [i.iid, i] as const)),
+    [owned],
+  );
+
+  // 장착 슬롯 클릭 시 띄울 아이템 + 개체 굴림 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
   const [selected, setSelected] = useState<{
     item: V2Equipment;
+    roll?: V2EquipRoll;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -153,8 +164,9 @@ export function V2CharacterCard({
       {equipped && (
         <div className="mt-3 grid grid-cols-3 gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
-            const id = equipped[slot];
-            const item = id ? V2_EQUIPMENT[id] : null;
+            const iid = equipped?.[slot];
+            const inst = iid ? byIid.get(iid) : undefined;
+            const item = inst ? V2_EQUIPMENT[inst.id] : null;
             const slotClass =
               "flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900";
             const inner = (
@@ -174,7 +186,11 @@ export function V2CharacterCard({
                 key={slot}
                 type="button"
                 onClick={(e) =>
-                  setSelected({ item, anchor: anchorOf(e.currentTarget) })
+                  setSelected({
+                    item,
+                    roll: inst?.roll,
+                    anchor: anchorOf(e.currentTarget),
+                  })
                 }
                 className={`${slotClass} transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800`}
               >
@@ -191,6 +207,7 @@ export function V2CharacterCard({
       {selected && (
         <V2ItemCard
           item={selected.item}
+          roll={selected.roll}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}
         />

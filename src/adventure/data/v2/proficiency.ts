@@ -341,6 +341,9 @@ export function applyCultivation(
   p: V2ProficiencyState,
   group: string,
   rng?: () => number,
+  // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 프로필 분산 대신 선택 스탯
+  // 한 곳에 동일 총량(profile 합 × mult) 투입(cap economy·비용 곡선 불변). 미지정 = 현 동작(분산).
+  targetStat?: V2StatKey,
 ): { next: V2ProficiencyState; cost: number; mult: number } | null {
   const profile = V2_CULTIVATE_PROFILE[group];
   if (!profile) return null; // none/무효 직업군
@@ -354,9 +357,16 @@ export function applyCultivation(
     cumLevel: 0,
   };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
-  for (const stat of V2_STAT_KEYS) {
-    const gain = (profile[stat] ?? 0) * mult;
-    if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+  if (targetStat) {
+    // 선택 스탯 한 곳 — 프로필 분산과 동일 총량(합 × mult)이라 비용/economy 불변.
+    const profileSum = V2_STAT_KEYS.reduce((s, k) => s + (profile[k] ?? 0), 0);
+    const gain = profileSum * mult;
+    if (gain > 0) nextCaps[targetStat] = (nextCaps[targetStat] ?? 0) + gain;
+  } else {
+    for (const stat of V2_STAT_KEYS) {
+      const gain = (profile[stat] ?? 0) * mult;
+      if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+    }
   }
   return {
     cost,
@@ -374,6 +384,16 @@ export function applyCultivation(
       caps: nextCaps,
     },
   };
+}
+
+// UI 가이드(자유 수행, docs §6) — 직군 권장 수행 스탯(프로필 가중 내림차순). "막지 않되 권장 표시" 용.
+// 자유 수행에서 플레이어가 아무 스탯이나 고를 수 있되, 이 목록을 추천으로 노출(트랩 빌드 완화).
+export function recommendedCultivationStats(group: string): V2StatKey[] {
+  const profile = V2_CULTIVATE_PROFILE[group];
+  if (!profile) return [];
+  return V2_STAT_KEYS.filter((k) => (profile[k] ?? 0) > 0).sort(
+    (a, b) => (profile[b] ?? 0) - (profile[a] ?? 0),
+  );
 }
 
 // 숙달 포인트 소모(시그니처 학습용) — cap/cultivations 불변, points 만 차감.

@@ -56,9 +56,14 @@ export function rollLevelGrowth(
   playerClass: V2Class,
   prof: V2ProficiencyState,
   rng: () => number,
+  // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 클래스 앵커 대신 이 스탯들에
+  // 성장 가중(3:1)을 둬 grown 이 선택 스탯으로 차오르게 한다. 미지정/빈 배열 = 현 동작(클래스 앵커).
+  targetStats?: readonly V2StatKey[],
 ): Partial<Record<V2StatKey, number>> {
   const next: Partial<Record<V2StatKey, number>> = { ...grown };
   const anchor = V2_CLASS_DEFS[playerClass].anchorStat;
+  const targetSet =
+    targetStats && targetStats.length > 0 ? new Set(targetStats) : null;
   for (let i = 0; i < V2_GROWTH_POINTS_PER_LEVEL; i++) {
     // 헤드룸(= 기본 헤드룸 + 수행 이득) 미달 스탯만 후보, 앵커 가중. grown 이 floor→cap 사이를
     // 채우므로 cap 미달 = grown < 헤드룸+이득 (floor 상쇄, stat=floor+grown<cap 와 동치).
@@ -67,7 +72,16 @@ export function rollLevelGrowth(
     for (const k of V2_STAT_KEYS) {
       const room = V2_CAP_HEADROOM_BASE + capGain(prof, k);
       if ((next[k] ?? 0) < room) {
-        const w = playerClass === "none" ? 1 : k === anchor ? 3 : 1;
+        // 자유 수행 지정 시 선택 스탯 가중 3(앵커 대체) — 클래스 무관. 미지정 = 기존 앵커 가중.
+        const w = targetSet
+          ? targetSet.has(k)
+            ? 3
+            : 1
+          : playerClass === "none"
+            ? 1
+            : k === anchor
+              ? 3
+              : 1;
         pool.push({ k, w });
         totalW += w;
       }

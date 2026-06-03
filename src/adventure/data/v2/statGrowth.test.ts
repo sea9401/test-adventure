@@ -38,6 +38,32 @@ describe("v2 랜덤 레벨 성장", () => {
     expect(total).toBe(2 + V2_GROWTH_POINTS_PER_LEVEL);
     expect(grown0.str).toBe(2); // 원본 비파괴
   });
+
+  it("targetStats(자유 수행) — 클래스 앵커 대신 선택 스탯이 최다 성장", () => {
+    // 결정론 LCG rng(테스트용) — 매번 새 인스턴스(같은 시드열).
+    const mkRng = () => {
+      let s = 12345;
+      return () => {
+        s = (s * 1103515245 + 12345) & 0x7fffffff;
+        return s / 0x7fffffff;
+      };
+    };
+    // swordsman 앵커=str. 자유 수행 target=[spi] → spi(앵커 아님)가 최다·str 추월.
+    const r = mkRng();
+    let g = rollLevelGrowth({}, "swordsman", emptyProficiency(), r, ["spi"]);
+    for (let i = 0; i < 11; i++)
+      g = rollLevelGrowth(g, "swordsman", emptyProficiency(), r, ["spi"]);
+    const top = Object.entries(g).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
+    expect(top[0]).toBe("spi"); // 최다 성장 = 선택 스탯(앵커 무시)
+    expect(g.spi ?? 0).toBeGreaterThan(g.str ?? 0); // 앵커보다 큼
+
+    // 대조: target 없으면 앵커(str)가 우세.
+    const r2 = mkRng();
+    let g2 = rollLevelGrowth({}, "swordsman", emptyProficiency(), r2);
+    for (let i = 0; i < 11; i++)
+      g2 = rollLevelGrowth(g2, "swordsman", emptyProficiency(), r2);
+    expect(g2.str ?? 0).toBeGreaterThan(g2.spi ?? 0); // 앵커 우세
+  });
 });
 
 describe("v2 스탯 floor", () => {

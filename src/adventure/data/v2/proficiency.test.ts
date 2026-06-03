@@ -10,6 +10,7 @@ import {
   capGain,
   effectiveStatCap,
   applyCultivation,
+  recommendedCultivationStats,
   setGroupTier,
   spendProficiency,
   signatureLearnCost,
@@ -198,6 +199,29 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(applyCultivation(poor, "swordsman")).toBeNull(); // 5 < 8
     expect(applyCultivation(poor, "none")).toBeNull();
     expect(applyCultivation(poor, "nonexistent")).toBeNull();
+  });
+
+  it("applyCultivation targetStat(자유 수행) — 선택 스탯 한 곳에 동일 총량(합 4), 비용/economy 불변", () => {
+    const p = parseProficiency({ groups: { swordsman: { points: 100 } } });
+    // 검사 프로필(str2/dex1/luk1, 합 4) 무시하고 int 에 전부.
+    const r = applyCultivation(p, "swordsman", undefined, "int");
+    expect(r!.cost).toBe(8); // no-target 과 동일 비용
+    expect(r!.next.caps.int).toBe(4); // 합 4 전부 int 로
+    expect(r!.next.caps.str).toBeUndefined(); // 프로필 분산 안 함
+    expect(r!.next.caps.dex).toBeUndefined();
+    // 2회차 비용도 동일(올린 cap합 4 → 8+4×5=28) = economy 불변
+    const r2 = applyCultivation(r!.next, "swordsman", undefined, "int");
+    expect(r2!.cost).toBe(28);
+    expect(r2!.next.caps.int).toBe(8);
+  });
+
+  it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none/무효는 빈 배열", () => {
+    const sw = recommendedCultivationStats("swordsman");
+    expect(sw[0]).toBe("str"); // 앵커(가중 최고) 먼저
+    expect(new Set(sw)).toEqual(new Set(["str", "dex", "luk"]));
+    expect(recommendedCultivationStats("priest")[0]).toBe("spi");
+    expect(recommendedCultivationStats("none")).toEqual([]);
+    expect(recommendedCultivationStats("nonexistent")).toEqual([]);
   });
 
   it("setGroupTier — max 차수 기록, 낮은 차수/none 무변경, 새 그룹 생성", () => {

@@ -8,15 +8,13 @@ import { LIST_ROW } from "@/components/ui/listRow";
 import { Backpack } from "@phosphor-icons/react";
 import {
   V2_EQUIPMENT,
-  CONCEPT_LABELS,
-  SLOT_CONCEPTS,
-  v2EquipmentByConcept,
   v2EquipStatEntries,
   type V2Equipment,
-  type V2EquipmentId,
+  type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2_RECIPES } from "@/adventure/data/v2/v2Recipes";
 
 // v2 장비 화면 — 라이브 자산 (ITEMS/dropQuality 등) 분리. 자체 placeholder 풀.
 // PR-4a: 35종 (부위 3 × 컨셉 2~3 × 티어 5) — 위력/무게/옵션 모델.
@@ -44,19 +42,16 @@ const SLOTS: V2EquipSlot[] = [
   "necklace",
 ];
 
-type Equipped = Partial<Record<V2EquipSlot, V2EquipmentId>>;
-type StatRolls = Partial<Record<V2EquipmentId, V2EquipRoll>>;
+type Equipped = Partial<Record<V2EquipSlot, string>>;
 type EquipmentResponse = {
   ok?: boolean;
-  owned?: V2EquipmentId[];
+  owned?: V2EquipInstance[];
   equipped?: Equipped;
-  statRolls?: StatRolls;
 };
 
 export function V2EquipmentView({ onBack }: { onBack: () => void }) {
-  const [owned, setOwned] = useState<V2EquipmentId[]>([]);
+  const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Equipped>({});
-  const [statRolls, setStatRolls] = useState<StatRolls>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -70,7 +65,6 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
       const j = eqRes as EquipmentResponse | null;
       setOwned(j?.owned ?? []);
       setEquipped(j?.equipped ?? {});
-      setStatRolls(j?.statRolls ?? {});
     } catch {}
     setLoading(false);
   }, []);
@@ -80,14 +74,14 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   const equip = useCallback(
-    async (slot: V2EquipSlot, equipmentId: V2EquipmentId | null) => {
+    async (slot: V2EquipSlot, iid: string | null) => {
       setBusy(true);
       setMsg(null);
       try {
         const res = await fetch("/api/v2/me/equipment/equip", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ slot, equipmentId }),
+          body: JSON.stringify({ slot, iid }),
         });
         const j = (await res.json().catch(() => null)) as
           | { ok?: boolean; error?: string }
@@ -106,8 +100,45 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
     [refresh],
   );
 
-  // 보유 목록을 슬롯·컨셉·티어 순으로 정렬 — 35종이 무작위로 흩어지지 않게.
-  const ownedSet = new Set(owned);
+  const salvage = useCallback(
+    async (iid: string) => {
+      setBusy(true);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/salvage", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid }),
+        });
+        const j = (await res.json().catch(() => null)) as
+          | { ok?: boolean; error?: string }
+          | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        await refresh();
+      } catch (err) {
+        setMsg(`✗ network: ${(err as Error).message}`);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh],
+  );
+
+  // 보유 목록은 개체 단위로 표시 — 같은 이름도 굴림이 다르면 별도 행.
+  const slotRank = new Map<V2EquipSlot, number>(SLOTS.map((s, i) => [s, i]));
+  const sortedOwned = [...owned].sort((a, b) => {
+    const ia = V2_EQUIPMENT[a.id];
+    const ib = V2_EQUIPMENT[b.id];
+    return (
+      (slotRank.get(ia.slot) ?? 0) - (slotRank.get(ib.slot) ?? 0) ||
+      ia.tier - ib.tier ||
+      ia.name.localeCompare(ib.name, "ko") ||
+      a.iid.localeCompare(b.iid)
+    );
+  });
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -125,8 +156,9 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
         </div>
         <ul className="mt-2 space-y-1.5">
           {SLOTS.map((slot) => {
-            const id = equipped[slot];
-            const item = id ? V2_EQUIPMENT[id] : null;
+            const iid = equipped[slot];
+            const inst = iid ? owned.find((i) => i.iid === iid) : undefined;
+            const item = inst ? V2_EQUIPMENT[inst.id] : null;
             return (
               <li
                 key={slot}
@@ -141,7 +173,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
                   </div>
                   {item && (
                     <div className="truncate text-xs text-emerald-700 dark:text-emerald-300">
-                      {formatStats(item)}
+                      {formatStats(item, inst?.roll)}
                     </div>
                   )}
                 </div>
@@ -176,72 +208,62 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
             message="사냥과 상점으로 장비를 획득하면 여기에 표시됩니다."
           />
         ) : (
-          SLOTS.map((slot) => {
-            const conceptsInSlot = SLOT_CONCEPTS[slot];
-            const hasAny = conceptsInSlot.some((c) =>
-              v2EquipmentByConcept(c).some((it) => ownedSet.has(it.id)),
-            );
-            if (!hasAny) return null;
-            return (
-              <div key={slot} className="space-y-1.5">
-                <div className="px-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {SLOT_LABEL[slot]}
-                </div>
-                {conceptsInSlot.map((concept) => {
-                  const items = v2EquipmentByConcept(concept).filter((it) =>
-                    ownedSet.has(it.id),
-                  );
-                  if (items.length === 0) return null;
-                  return (
-                    <div key={concept} className="space-y-1">
-                      <div className="px-1 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                        {CONCEPT_LABELS[concept]}
+          <ul className="space-y-1">
+            {sortedOwned.map((inst) => {
+              const item = V2_EQUIPMENT[inst.id];
+              const isEquipped = equipped[item.slot] === inst.iid;
+              const canSalvage = V2_RECIPES[inst.id] != null;
+              return (
+                <li key={inst.iid} className={LIST_ROW}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {item.name}{" "}
+                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                          T{item.tier}
+                        </span>
                       </div>
-                      <ul className="space-y-1">
-                        {items.map((item) => {
-                          const isEquipped = equipped[item.slot] === item.id;
-                          return (
-                            <li key={item.id} className={LIST_ROW}>
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="truncate text-sm font-medium">
-                                    {item.name}{" "}
-                                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                                      T{item.tier}
-                                    </span>
-                                  </div>
-                                </div>
-                                {isEquipped ? (
-                                  <span className="shrink-0 rounded bg-emerald-500 px-2 py-0.5 text-xs text-white">
-                                    장착 중
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => equip(item.slot, item.id)}
-                                    disabled={busy}
-                                    className="shrink-0 rounded border border-emerald-600 bg-emerald-600 px-3 py-1 text-xs text-white hover:bg-emerald-700 disabled:opacity-50"
-                                  >
-                                    장착
-                                  </button>
-                                )}
-                              </div>
-                              <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
-                                {formatStats(item, statRolls[item.id])}
-                              </div>
-                              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                                {item.description}
-                              </p>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                        {SLOT_LABEL[item.slot]}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {isEquipped ? (
+                        <span className="rounded bg-emerald-500 px-2 py-0.5 text-xs text-white">
+                          장착 중
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => equip(item.slot, inst.iid)}
+                          disabled={busy}
+                          className="rounded border border-emerald-600 bg-emerald-600 px-3 py-1 text-xs text-white hover:bg-emerald-700 disabled:opacity-50"
+                        >
+                          장착
+                        </button>
+                      )}
+                      {canSalvage && (
+                        <button
+                          type="button"
+                          onClick={() => salvage(inst.iid)}
+                          disabled={busy}
+                          className="rounded border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        >
+                          분해
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                    {formatStats(item, inst.roll)}
+                  </div>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    {item.description}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </section>
 

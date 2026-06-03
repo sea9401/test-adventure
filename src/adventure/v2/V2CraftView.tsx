@@ -9,6 +9,7 @@ import {
   CONCEPT_LABELS,
   V2_EQUIPMENT,
   type V2Equipment,
+  type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -69,9 +70,12 @@ const CRAFT_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
   return groups;
 })();
 
-function buildCountMap(owned: V2EquipmentId[]): Map<V2EquipmentId, number> {
+// 개체 배열 → id별 보유 카운트(분해 후보 표시용).
+function buildCountMap(
+  owned: V2EquipInstance[],
+): Map<V2EquipmentId, number> {
   const m = new Map<V2EquipmentId, number>();
-  for (const id of owned) m.set(id, (m.get(id) ?? 0) + 1);
+  for (const inst of owned) m.set(inst.id, (m.get(inst.id) ?? 0) + 1);
   return m;
 }
 
@@ -79,6 +83,9 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
   const [gold, setGold] = useState<number>(0);
   const [materials, setMaterials] = useState<Materials>({});
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
+  // 개체 목록 + 장착 iid — 분해 시 id → 미장착 개체(iid) 해석에 사용.
+  const [ownedInsts, setOwnedInsts] = useState<V2EquipInstance[]>([]);
+  const [equippedIids, setEquippedIids] = useState<Set<string>>(new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("craft");
@@ -99,13 +106,19 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         ? ((await stateRes.json()) as { character?: { gold?: number } })
         : null;
       const equipJ = equipRes.ok
-        ? ((await equipRes.json()) as { owned?: V2EquipmentId[] })
+        ? ((await equipRes.json()) as {
+            owned?: V2EquipInstance[];
+            equipped?: Record<string, string>;
+          })
         : null;
       const invJ = invRes.ok
         ? ((await invRes.json()) as { materials?: Materials })
         : null;
       setGold(stateJ?.character?.gold ?? 0);
-      setCounts(buildCountMap(equipJ?.owned ?? []));
+      const insts = equipJ?.owned ?? [];
+      setOwnedInsts(insts);
+      setCounts(buildCountMap(insts));
+      setEquippedIids(new Set(Object.values(equipJ?.equipped ?? {})));
       setMaterials(invJ?.materials ?? {});
     } catch {}
   }, []);
@@ -135,7 +148,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
             error?: string;
             gold?: number;
             materials?: Materials;
-            owned?: V2EquipmentId[];
+            owned?: V2EquipInstance[];
           }
         | null;
       if (!j?.ok) {
@@ -150,7 +163,10 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
       setMsg(`✓ ${item.name} 제작`);
       if (typeof j.gold === "number") setGold(j.gold);
       if (j.materials) setMaterials(j.materials);
-      if (j.owned) setCounts(buildCountMap(j.owned));
+      if (j.owned) {
+        setOwnedInsts(j.owned);
+        setCounts(buildCountMap(j.owned));
+      }
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
@@ -158,37 +174,51 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  const salvage = useCallback(async (id: V2EquipmentId) => {
-    setBusyId(id);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/salvage", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      const j = (await res.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            error?: string;
-            materials?: Materials;
-            owned?: V2EquipmentId[];
-          }
-        | null;
-      if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+  // 분해는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 푼다.
+  const salvage = useCallback(
+    async (id: V2EquipmentId) => {
+      const inst =
+        ownedInsts.find((i) => i.id === id && !equippedIids.has(i.iid)) ??
+        ownedInsts.find((i) => i.id === id);
+      if (!inst) {
+        setMsg("✗ 분해할 개체가 없습니다");
         return;
       }
-      const item = V2_EQUIPMENT[id];
-      setMsg(`✓ ${item.name} 분해 — 재료 환수`);
-      if (j.materials) setMaterials(j.materials);
-      if (j.owned) setCounts(buildCountMap(j.owned));
-    } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusyId(null);
-    }
-  }, []);
+      setBusyId(id);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/salvage", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid: inst.iid }),
+        });
+        const j = (await res.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              error?: string;
+              materials?: Materials;
+              owned?: V2EquipInstance[];
+            }
+          | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        const item = V2_EQUIPMENT[id];
+        setMsg(`✓ ${item.name} 분해 — 재료 환수`);
+        if (j.materials) setMaterials(j.materials);
+        if (j.owned) {
+          setOwnedInsts(j.owned);
+          setCounts(buildCountMap(j.owned));
+        }
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [ownedInsts, equippedIids],
+  );
 
   const craftIds = useMemo(() => CRAFT_IDS_BY_SLOT[subTab], [subTab]);
   // 분해 후보 — 그 부위의 레시피-보유 장비 중 실제 보유(count>0). 유니크는 CRAFT_IDS 에서 이미 제외.

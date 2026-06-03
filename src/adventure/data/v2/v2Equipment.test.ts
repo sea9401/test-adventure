@@ -261,28 +261,29 @@ describe("v2EquipStatRows (표시 행)", () => {
   });
 });
 
-describe("parseEquipmentSave", () => {
+describe("parseEquipmentSave (개체 instance 모델)", () => {
   it("null/undefined → 빈 결과", () => {
-    expect(parseEquipmentSave(null)).toEqual({
-      owned: [],
-      equipped: {},
-      statRolls: {},
-    });
-    expect(parseEquipmentSave(undefined)).toEqual({
-      owned: [],
-      equipped: {},
-      statRolls: {},
-    });
+    expect(parseEquipmentSave(null)).toEqual({ owned: [], equipped: {} });
+    expect(parseEquipmentSave(undefined)).toEqual({ owned: [], equipped: {} });
   });
 
-  it("owned 의 중복은 보존된다 (등장 횟수 = 보유 카운트)", () => {
+  it("옛 id[] owned → 개체 마이그(결정적 iid `id~n`), 중복 보존, 굴림 이식", () => {
     const r = parseEquipmentSave({
       owned: ["v2_iron_sword", "v2_iron_sword", "v2_leather_armor"],
+      statRolls: { v2_iron_sword: { power: 4, weight: 1 } },
     });
     expect(r.owned).toEqual([
-      "v2_iron_sword",
-      "v2_iron_sword",
-      "v2_leather_armor",
+      {
+        iid: "v2_iron_sword~0",
+        id: "v2_iron_sword",
+        roll: { power: 4, weight: 1 },
+      },
+      {
+        iid: "v2_iron_sword~1",
+        id: "v2_iron_sword",
+        roll: { power: 4, weight: 1 },
+      },
+      { iid: "v2_leather_armor~0", id: "v2_leather_armor" },
     ]);
   });
 
@@ -290,84 +291,79 @@ describe("parseEquipmentSave", () => {
     const r = parseEquipmentSave({
       owned: ["v2_iron_sword", "v2_fake_item", 42, null],
     });
-    expect(r.owned).toEqual(["v2_iron_sword"]);
+    expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
   });
 
-  it("equipped 는 보유한 아이템만 인정 (race 보정)", () => {
+  it("옛 equipped(slot→id) → 보유 개체 iid 로 마이그, 미보유는 제외", () => {
     const r = parseEquipmentSave({
       owned: ["v2_iron_sword"],
       equipped: { weapon: "v2_iron_sword", armor: "v2_leather_armor" },
     });
-    expect(r.equipped).toEqual({ weapon: "v2_iron_sword" });
+    expect(r.equipped).toEqual({ weapon: "v2_iron_sword~0" });
   });
 
-  it("stored slot 무시하고 카탈로그 슬롯으로 배치 (3→6 마이그)", () => {
+  it("stored slot 무시·카탈로그 슬롯 배치(3→6), accessory→ring/necklace, iid 매핑", () => {
     const r = parseEquipmentSave({
-      owned: ["v2_iron_sword", "v2_silver_ring"],
-      // 무기를 갑옷 키에, 옛 accessory 키에 반지 — 카탈로그 슬롯으로 재배정.
-      equipped: { armor: "v2_iron_sword", accessory: "v2_silver_ring" },
-    });
-    expect(r.equipped).toEqual({
-      weapon: "v2_iron_sword",
-      ring: "v2_silver_ring",
-    });
-  });
-
-  it("정상 raw 통과 — 옛 accessory 는 카탈로그 슬롯으로 마이그", () => {
-    const raw = {
-      owned: ["v2_iron_sword", "v2_chain_mail", "v2_jade_amulet"],
+      owned: ["v2_iron_sword", "v2_silver_ring", "v2_jade_amulet"],
       equipped: {
-        weapon: "v2_iron_sword",
-        armor: "v2_chain_mail",
-        accessory: "v2_jade_amulet", // 옛 슬롯 키 → jade_amulet(mana) 은 목걸이
+        armor: "v2_iron_sword",
+        accessory: "v2_silver_ring",
       },
-    };
-    const r = parseEquipmentSave(raw);
-    expect(r.owned).toEqual(raw.owned);
+    });
     expect(r.equipped).toEqual({
-      weapon: "v2_iron_sword",
-      armor: "v2_chain_mail",
-      necklace: "v2_jade_amulet",
+      weapon: "v2_iron_sword~0",
+      ring: "v2_silver_ring~0",
     });
   });
 
-  it("equipped 의 알 수 없는 슬롯 키는 무시", () => {
+  it("옛 statRolls → 개체 roll 이식(클램프·옵션 정수·무효는 roll 없음)", () => {
     const r = parseEquipmentSave({
-      owned: ["v2_iron_sword"],
-      equipped: {
-        weapon: "v2_iron_sword",
-        boots: "v2_iron_sword",
-      } as Record<string, V2EquipmentId>,
-    });
-    expect(r.equipped).toEqual({ weapon: "v2_iron_sword" });
-  });
-
-  it("statRolls — 유효 굴림 보존(power≥1·weight≥0 클램프·옵션 정수), 무효 드롭", () => {
-    const r = parseEquipmentSave({
-      owned: ["v2_iron_sword"],
+      owned: [
+        "v2_iron_sword",
+        "v2_starsong_bow",
+        "v2_silver_ring",
+        "v2_steel_sword",
+      ],
       statRolls: {
         v2_iron_sword: { power: 4, weight: 1 },
         v2_starsong_bow: { power: 16, weight: 2, options: { crit: 3, bad: 9 } },
         v2_silver_ring: { power: -5, weight: -2 }, // 클램프 → 1, 0
-        v2_fake_item: { power: 3, weight: 1 }, // 무효 id
-        v2_steel_sword: { weight: 2 }, // power 없음 → 드롭
-        v2_oak_staff: "x", // 객체 아님 → 드롭
+        v2_steel_sword: { weight: 2 }, // power 없음 → roll 드롭(개체는 남음)
       },
     });
-    expect(r.statRolls.v2_iron_sword).toEqual({ power: 4, weight: 1 });
-    expect(r.statRolls.v2_starsong_bow).toEqual({
+    const rollById = Object.fromEntries(r.owned.map((i) => [i.id, i.roll]));
+    expect(rollById.v2_iron_sword).toEqual({ power: 4, weight: 1 });
+    expect(rollById.v2_starsong_bow).toEqual({
       power: 16,
       weight: 2,
       options: { crit: 3 }, // 허용 키만(bad 제거)
     });
-    expect(r.statRolls.v2_silver_ring).toEqual({ power: 1, weight: 0 });
-    expect("v2_fake_item" in r.statRolls).toBe(false);
-    expect("v2_steel_sword" in r.statRolls).toBe(false);
-    expect("v2_oak_staff" in r.statRolls).toBe(false);
+    expect(rollById.v2_silver_ring).toEqual({ power: 1, weight: 0 });
+    expect(rollById.v2_steel_sword).toBeUndefined();
   });
 
-  it("statRolls 없으면 빈 객체", () => {
-    const r = parseEquipmentSave({ owned: ["v2_iron_sword"] });
-    expect(r.statRolls).toEqual({});
+  it("신 형식 — 개체(iid/id/roll)·equipped(slot→iid) 보존", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        { iid: "a1", id: "v2_iron_sword", roll: { power: 7, weight: 1 } },
+        { iid: "b2", id: "v2_iron_sword" },
+      ],
+      equipped: { weapon: "b2" },
+    });
+    expect(r.owned).toEqual([
+      { iid: "a1", id: "v2_iron_sword", roll: { power: 7, weight: 1 } },
+      { iid: "b2", id: "v2_iron_sword" },
+    ]);
+    expect(r.equipped).toEqual({ weapon: "b2" });
+  });
+
+  it("신 형식 — 알 수 없는 id 개체 제거", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        { iid: "a1", id: "v2_fake" },
+        { iid: "b2", id: "v2_iron_sword" },
+      ],
+    });
+    expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
   });
 });

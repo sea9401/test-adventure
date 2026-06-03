@@ -88,33 +88,6 @@ export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = {
     ],
     gold: 350,
   },
-  // ── 들개 우두머리 제작 (보스 전용 재료: 우두머리의 송곳니) ──────────────
-  // 송곳니는 들개 우두머리(필드 보스)만 드랍. 흔함 재료(무른 가죽)와 골드로 졸업 장비 제작.
-  // 송곳니 수량이 주 게이트(매 처치 2개) — sim/라이브 캘리브 다이얼.
-  v2_alpha_fang_dagger: {
-    result: "v2_alpha_fang_dagger",
-    ingredients: [
-      { id: "v2_boss_plains_fang", count: 3 },
-      { id: "v2_field_hide", count: 3 },
-    ],
-    gold: 800,
-  },
-  v2_alpha_hide_armor: {
-    result: "v2_alpha_hide_armor",
-    ingredients: [
-      { id: "v2_boss_plains_fang", count: 2 },
-      { id: "v2_field_hide", count: 4 },
-    ],
-    gold: 700,
-  },
-  v2_alpha_hide_gloves: {
-    result: "v2_alpha_hide_gloves",
-    ingredients: [
-      { id: "v2_boss_plains_fang", count: 2 },
-      { id: "v2_field_hide", count: 3 },
-    ],
-    gold: 400,
-  },
 };
 
 // 레시피 조회 — 유니크 등 비제작 장비는 undefined.

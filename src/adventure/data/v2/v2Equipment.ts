@@ -130,11 +130,7 @@ export type V2EquipmentId =
   | "v2_uniq_giant_fist"
   | "v2_uniq_berserker_fang"
   | "v2_uniq_starcleaver"
-  | "v2_uniq_sage_seal"
-  // 들개 우두머리 제작 (craftOnly) — 우두머리의 송곳니로 대장간 제작. 상점·정규 드랍 제외.
-  | "v2_alpha_fang_dagger"
-  | "v2_alpha_hide_armor"
-  | "v2_alpha_hide_gloves";
+  | "v2_uniq_sage_seal";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -1053,45 +1049,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { eva: 1 },
     craftOnly: true,
     setId: "field_leather",
-  },
-
-  // ── 들개 우두머리 제작 (craftOnly) — 우두머리의 송곳니로 대장간 제작 ───────
-  // "견실한 tier2 + 시그니처 옵션"(사용자 결정). 상점·정규 드랍 제외, 레시피로만.
-  v2_alpha_fang_dagger: {
-    id: "v2_alpha_fang_dagger",
-    slot: "weapon",
-    concept: "dex",
-    tier: 2,
-    name: "송곳니 단검",
-    description: "들개 우두머리의 송곳니를 갈아 벼린 날카로운 단검.",
-    power: 7,
-    weight: 1,
-    options: { crit: 3 },
-    craftOnly: true,
-  },
-  v2_alpha_hide_armor: {
-    id: "v2_alpha_hide_armor",
-    slot: "armor",
-    concept: "light",
-    tier: 2,
-    name: "우두머리 가죽 갑옷",
-    description: "우두머리의 두꺼운 가죽으로 지은 질긴 갑옷.",
-    power: 2,
-    weight: 0,
-    options: { hp: 8 },
-    craftOnly: true,
-  },
-  v2_alpha_hide_gloves: {
-    id: "v2_alpha_hide_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 2,
-    name: "우두머리 가죽 장갑",
-    description: "우두머리의 가죽을 덧대 손등을 보호하는 장갑.",
-    power: 2,
-    weight: 0,
-    options: { crit: 2 },
-    craftOnly: true,
   },
 };
 

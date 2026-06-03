@@ -12,9 +12,6 @@ export default function DungeonListPage() {
     <V2DungeonList
       currentOutpost={currentOutpost}
       onSelectFloor={(floorId) => router.push(`/battle/dungeon/${floorId}`)}
-      onSelectBoss={(floorId) =>
-        router.push(`/battle/dungeon/${floorId}/boss`)
-      }
       onOpenMap={() => router.push("/map")}
     />
   );

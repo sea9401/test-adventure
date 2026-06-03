@@ -136,19 +136,19 @@ function slotConceptLine(
 }
 
 describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
-  it("정규 그리드 55종 + 유니크 6 + 제작전용 10 (그리드 밖)", () => {
+  it("정규 그리드 55종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly),
       "정규 그리드",
     ).toHaveLength(55);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(10);
+    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
   });
 
   it("제작전용(craftOnly) 은 상점 비매품 (shopPriceOf undefined)", () => {
     const craftOnly = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
-    expect(craftOnly.length).toBe(10);
+    expect(craftOnly.length).toBe(7);
     for (const it of craftOnly) {
       expect(shopPriceOf(it), `${it.id} 비매품`).toBeUndefined();
       expect(isUnique(it), `${it.id} 유니크아님`).toBe(false);

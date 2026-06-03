@@ -6,12 +6,13 @@ import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
 import type { V2Element } from "@/adventure/data/v2/elements";
 
 // 변경 골드 = 레벨 × 계수. sim/체감 다이얼.
-// 2026-06-03 사용자 결정 — 직업군 변경 골드 무료(0). 자유로운 전직 우선. 24h 쿨다운 +
-// 레벨1 리셋은 유지(콘텐츠마다 갈아타 최적 수렴하는 건 여전히 억제). 속성 변경 골드는 그대로.
+// 2026-06-03 사용자 결정 — 자유로운 전직 우선. 직업군 변경 골드 무료(0) + 쿨다운 0.
+// 남는 억제책 = 레벨1 리셋(전직 prestige) — 갈아탈 때마다 레벨 초기화라 남용 자체가 손해.
+// 속성 변경 골드(200/lv)는 그대로.
 export const CLASS_CHANGE_GOLD_PER_LEVEL = 0;
 export const ELEMENT_CHANGE_GOLD_PER_LEVEL = 200;
-// 변경 후 쿨다운 — 콘텐츠마다 가볍게 갈아타 최적 수렴하는 걸 억제. 24h.
-export const RESPEC_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// 변경 후 쿨다운 — 0(제거). 자유 전직. (레벨1 리셋이 남용을 막는 commitment.)
+export const RESPEC_COOLDOWN_MS = 0;
 // PR-7 — 2차 전직(advance) 골드 = 레벨 × 계수. respec 과 별개(쿨다운 없음 = 진척).
 export const ADVANCE_GOLD_PER_LEVEL = 300;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
@@ -284,13 +285,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
             장비 판매가 = 구매가의 5% · 재료는 고정가 환금
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-md border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          ← 뒤로
-        </button>
+        <BackButton onClick={onBack} />
       </header>
       <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
         <Coins size={16} weight="fill" className="text-yellow-500" />

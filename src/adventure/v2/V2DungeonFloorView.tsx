@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
@@ -182,13 +183,7 @@ export function V2DungeonFloorView({
   if (!floor) {
     return (
       <main className="mx-auto max-w-[720px] space-y-4 p-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← 전투로
-        </button>
+        <BackButton onClick={onBack} />
         <div className="text-sm text-rose-600 dark:text-rose-400">
           알 수 없는 구역입니다.
         </div>
@@ -209,13 +204,7 @@ export function V2DungeonFloorView({
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← 전투로
-        </button>
+        <BackButton onClick={onBack} />
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-lg font-bold">{floor.name}</h1>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">

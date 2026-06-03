@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { BackButton } from "@/components/ui/BackButton";
 import type { TreasureLeaderboardData } from "./treasureLeaderboard";
 
 // 주간 발굴가치 리더보드 표시(단일 랭킹). 데이터는 주입(useTreasureLeaderboard 실 API / dev mock).
@@ -38,13 +39,7 @@ export function TreasureLeaderboardView({
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            ← 돌아가기
-          </button>
+          <BackButton onClick={onBack} />
         )}
         <div className="flex items-start justify-between gap-2">
           <div>

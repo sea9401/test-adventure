@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Sword, Coin, Trophy } from "@phosphor-icons/react";
+import { BackButton } from "@/components/ui/BackButton";
+import { Sword, Coin, Trophy } from "@phosphor-icons/react";
 
 // v2 1:1 아레나 — PR-8a 코어 UI.
 //
@@ -115,13 +116,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <button
-        type="button"
-        onClick={onBack}
-        className="inline-flex items-center gap-1 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-      >
-        <ArrowLeft size={16} /> 모험으로
-      </button>
+      <BackButton onClick={onBack} />
 
       <header className="flex items-center gap-3">
         <Sword size={28} weight="duotone" className="text-amber-600 dark:text-amber-400" />

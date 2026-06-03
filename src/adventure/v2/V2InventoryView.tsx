@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import {
   CheckCircle,
   Circle,
@@ -216,13 +217,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← 캐릭터로
-        </button>
+        <BackButton onClick={onBack} />
         <h1 className="text-lg font-bold">인벤토리</h1>
       </header>
 

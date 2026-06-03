@@ -18,18 +18,14 @@ import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 // read-only 시뮬레이션이다. 캐릭터 combat 을 derive 한 뒤 더미와 resolveBattle 1회 굴려
 // replay 페이로드만 돌려준다. 결과 표시는 사냥과 동일하게 ReplayBattleScene 이 담당.
 //
-// 더미 HP 정규화 — 왜 라이브 그대로(500000)를 안 쓰는가:
-//   라이브는 실시간 전투를 한 턴씩 관전하므로 "안 죽는 샌드백"(HP 50만)이 적절하다.
-//   하지만 v2 는 서버에서 전투를 끝까지 굴린 뒤 로그를 한 번에 보여주는 리플레이 모델이라,
-//   HP 50만이면 engine 의 turns>500 안전캡에 걸려 강제 패배 + 1뎀 반복의 무의미한 로그가 된다.
-//   그래서 플레이어 공격력에 비례해 ~12턴이면 쓰러질 HP 로 환산 — 어떤 빌드든 유한하고 깔끔한
-//   전투 기록이 나오고 항상 승리한다. 더미 atk/def 는 0 으로 둔다("공격력도 방어력도 없는
-//   허수아비" 라이브 설명 그대로): def 0 이라 HP×12 환산이 정확하고, atk 0 이라 받는 피해가
-//   거의 없다(엔진 DAMAGE_FLOOR 로 턴당 1 은 들어오지만, 도달 가능한 최저 공격력 atk~7 도
-//   ~43턴이면 끝나 최소 maxHp 150 보다 한참 적게 깎이므로 어떤 빌드도 죽지 않는다).
-const SPAR_TARGET_TURNS = 12;
-const SPAR_MIN_HP = 150;
-const SPAR_MAX_HP = 30000;
+// 허수아비 = 안 죽는 샌드백. HP 100만 고정 + 50턴 상한(maxTurns)으로 끊어, 그 동안 입힌
+// 데미지를 보여주는 DPS 구경용 모의전이다. v2 는 전투를 서버에서 끝까지 굴린 뒤 로그를 한 번에
+// 보여주는 리플레이 모델이라 턴 상한이 곧 로그 길이 — 50턴이면 적당하고, 어떤 빌드도 100만을
+// 못 깎아 항상 "안 죽는" 샌드백이 된다(엔진은 maxTurns 초과 시 lose 로 종료 → 화면은 승패 대신
+// "입힌 데미지"로 표기). 더미 atk/def 는 0("공격력도 방어력도 없는 허수아비" 라이브 설명 그대로):
+// def 0 이라 데미지가 깔끔히 들어가고, atk 0 이라 플레이어가 죽지 않는다.
+const SPAR_DUMMY_HP = 1_000_000;
+const SPAR_MAX_TURNS = 50;
 
 export async function POST() {
   const userId = await ensureUser();
@@ -78,29 +74,28 @@ export async function POST() {
   // 스파링은 만피로 시작 — 연습이라 현재 hp 와 무관(치료소 대용 악용도 무의미: 저장 안 함).
   const playerForBattle = { ...derived.player, hp: derived.maxHp };
 
-  // 공격력 기반 HP 정규화 (위 주석 참조). 물리 atk 만 기준으로 잡는다 — 자동 전투에서
-  // 마법 빌드는 MP 가 마르기 전까지만 스킬 버스트를 내고 이후엔 약한 평타로 떨어지므로
-  // magicAtk 를 HP 산정에 넣으면 물리 평타가 안전캡(500턴) 안에 못 깎아 강제 패배가 난다.
-  // 물리 atk × 12 로 잡으면 마법 버스트는 처치를 앞당길 뿐 절대 캡에 닿지 않는다(항상 승리).
-  const effDmg = Math.max(1, derived.player.atk);
-  const dummyHp = Math.max(
-    SPAR_MIN_HP,
-    Math.min(effDmg * SPAR_TARGET_TURNS, SPAR_MAX_HP),
-  );
-  // atk/def 0 — 위 주석 참조. def 0 으로 HP 환산 정확 + atk 0 으로 받피 최소(무사망).
-  const dummy = { ...baseDummy, hp: dummyHp, atk: 0, def: 0 };
+  // 안 죽는 샌드백 — HP 100만 고정, atk/def 0(위 주석 참조).
+  const dummy = { ...baseDummy, hp: SPAR_DUMMY_HP, atk: 0, def: 0 };
 
   const battleResult = resolveBattle(playerForBattle, dummy, playerName, {
     pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
     potions: {},
     v2Skills,
+    maxTurns: SPAR_MAX_TURNS, // 50턴이면 종료(샌드백은 안 죽으니 lose 로 끝남).
   });
+
+  // 처치 대신 입힌 누적 데미지(고정 HP − 잔여 HP)를 표시한다.
+  const damageDealt = Math.max(
+    0,
+    SPAR_DUMMY_HP - battleResult.finalState.enemyHp,
+  );
 
   return Response.json({
     ok: true,
     result: {
       won: battleResult.outcome === "win",
       turns: battleResult.turns,
+      damageDealt,
       enemyName: baseDummy.name,
       // 사냥과 동일 — BattleScene 이 보는 필드만 추출, 로그 마지막 200 cap.
       replay: toReplayPayload(battleResult.finalState, 200),

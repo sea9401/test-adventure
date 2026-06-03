@@ -8,6 +8,8 @@ import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 export type SparResult = {
   won: boolean;
   turns: number;
+  // 안 죽는 샌드백에 입힌 누적 데미지(처치 대신 표시).
+  damageDealt?: number;
   enemyName: string;
   replay?: ReplayPayload;
   startPlayerHp?: number;

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { MONSTERS } from "../monsters";
+import { V2_MONSTERS } from "./v2Monsters";
 import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
 
@@ -19,12 +20,12 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("모든 enemy 이름이 라이브 MONSTERS 에 존재", () => {
+  it("모든 enemy key 가 v2 전용 카탈로그(V2_MONSTERS)에 존재", () => {
     for (const floor of MAIN_DUNGEON.floors) {
       for (const enemy of floor.enemies) {
         expect(
-          MONSTERS[enemy.key],
-          `${floor.name} 의 ${enemy.key} 가 MONSTERS 에 없음`,
+          V2_MONSTERS[enemy.key],
+          `${floor.name} 의 ${enemy.key} 가 V2_MONSTERS 에 없음`,
         ).toBeDefined();
       }
     }

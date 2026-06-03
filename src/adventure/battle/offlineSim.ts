@@ -18,7 +18,9 @@ import { rollDropQuality, type DropQuality } from "../data/dropQuality";
 import { type SkillBookId } from "../data/skillBooks";
 import {
   advanceTurn,
+  finishPlayerTurn,
   initialBattleState,
+  rollPlayerAttackCount,
   setBattleLogCollection,
   type BattleState,
   type PlayerAction,
@@ -382,6 +384,33 @@ export function simulateOfflineHunt(input: OfflineSimInput): OfflineSimResult {
                 completedPlayerTurns: state.turn.completedPlayerTurns + 1,
               },
             };
+            continue;
+          }
+          // 비치명 시전 — resolveBattle 미러: 시전은 그 턴 전체를 소진한다(강타 OR 평타, 양립 X).
+          // 예전엔 여기서 빠져나가지 않고 아래 advanceTurn(평타)까지 같이 돌려, 시전 캐릭이 한 턴에
+          // "시전 + 평타" 를 둘 다 하던 divergence 가 있었다. resolveBattle 처럼 completedPlayerTurns +1
+          // + 턴 플래그 리셋 + finishPlayerTurn(턴 종료 효과) 를 거치고 적 페이즈로 넘어간다.
+          // (현재 어떤 호출부도 input.v2Skills 를 넘기지 않아 휴면 경로 — 미래 v2 일괄사냥 대비 정합성.)
+          if (cast.castSkillId) {
+            const ended: BattleState = {
+              ...state,
+              phase: "enemy",
+              playerAttacksLeft: rollPlayerAttackCount(playerForBattle),
+              turn: {
+                ...state.turn,
+                completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+                doubleStrikeUsedThisTurn: false,
+                lightspeedUsedThisTurn: false,
+                critThisTurn: false,
+                riposteUsedThisTurn: false,
+                firstAttackPending: true,
+                galeChainsThisTurn: 0,
+                weakpointUsedThisTurn: false,
+                fatedChainTriggeredThisTurn: false,
+                apSkillFiredThisTurn: null,
+              },
+            };
+            state = finishPlayerTurn(ended, playerForBattle, input.playerName);
             continue;
           }
         }

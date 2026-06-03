@@ -27,6 +27,22 @@ export type ReplayPayload = {
   log: BattleLogEntry[];
 };
 
+// 로그를 마지막 logCap 개로 자르되, 잘렸으면 깔끔하게 — 첫 turn_marker 앞의 잘린-턴 잔여
+// entry 를 떼어내(머리 없는 그룹 방지) 첫 그룹이 항상 "N턴" 헤더로 시작하게 하고, "앞선 턴 생략"
+// 안내를 맨 앞에 끼운다(전투가 끊긴 게 아니라 긴 전투의 뒷부분임을 명시). cap 이하면 원본 그대로.
+// 참고: 자른 경우 생략 안내는 의도적으로 *항상* 맨 앞에 붙인다 — tail 이 이미 turn_marker 로
+// 깔끔히 시작(firstMarker===0)하더라도 "앞이 생략됐다"는 신호 자체가 목적이라 그대로 붙인다.
+export function clampReplayLog(
+  log: BattleLogEntry[],
+  cap: number,
+): BattleLogEntry[] {
+  if (log.length <= cap) return log;
+  let tail = log.slice(-cap);
+  const firstMarker = tail.findIndex((e) => e.kind === "turn_marker");
+  if (firstMarker > 0) tail = tail.slice(firstMarker);
+  return [{ kind: "info", text: "앞선 턴 기록 생략 (긴 전투)" }, ...tail];
+}
+
 // 서버 — finalState 에서 필요 필드만 추출.
 export function toReplayPayload(
   finalState: BattleState,
@@ -41,7 +57,7 @@ export function toReplayPayload(
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
-    log: finalState.log.slice(-logCap),
+    log: clampReplayLog(finalState.log, logCap),
   };
 }
 

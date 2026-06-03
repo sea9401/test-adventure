@@ -20,6 +20,7 @@ import {
   V2_BOSS_STAMINA_COST,
 } from "@/adventure/data/v2/dungeonBosses";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -309,7 +310,17 @@ export function V2DungeonFloorView({
               {Object.entries(boss.reward.materials)
                 .map(([id, n]) => `${V2_MATERIALS[id]?.name ?? id} ${n}개`)
                 .join(", ")}
-              을 얻고, 처음 잡으면 칭호를 받습니다. (도전마다 스태미너{" "}
+              을 얻고
+              {boss.reward.equipment && boss.reward.equipment.length > 0 ? (
+                <>
+                  , 보스 전용 장비(
+                  {boss.reward.equipment
+                    .map((e) => V2_EQUIPMENT[e.id]?.name ?? e.id)
+                    .join(", ")}
+                  )도 확률로 나옵니다
+                </>
+              ) : null}
+              . 처음 잡으면 칭호를 받습니다. (도전마다 스태미너{" "}
               {V2_BOSS_STAMINA_COST})
             </p>
             {lastResult?.isBoss && (
@@ -327,6 +338,15 @@ export function V2DungeonFloorView({
                   : "패배했습니다. 더 강해진 뒤 다시 도전하세요."}
               </p>
             )}
+            {lastResult?.isBoss &&
+              (lastResult.bossEquipDrops?.length ?? 0) > 0 && (
+                <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                  장비 획득:{" "}
+                  {lastResult
+                    .bossEquipDrops!.map((id) => V2_EQUIPMENT[id]?.name ?? id)
+                    .join(", ")}
+                </p>
+              )}
             <button
               type="button"
               onClick={() => {

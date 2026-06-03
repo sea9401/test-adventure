@@ -92,6 +92,8 @@ export function rollEquipDrop(
     if (isUnique(item)) continue;
     // 제작 전용 장비도 정규 드랍 제외 — 레시피로만 획득.
     if (item.craftOnly) continue;
+    // 보스 전용 장비도 정규 드랍 제외 — 해당 보스 처치 드랍으로만.
+    if (item.bossOnly) continue;
     if (ownedSet.has(item.id)) continue;
     candidates.push(item.id);
   }

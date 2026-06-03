@@ -17,9 +17,19 @@ const FIELD_IDS = [
   "v2_field_venom",
 ];
 
+// 보스 전용 트로피 재료(codex:false) — 도감/전직 게이트 제외, FLOOR_DROP_POOLS 비포함.
+const BOSS_TROPHY_IDS = ["v2_boss_plains_fang"];
+
 describe("들판 재료 + 드랍 풀", () => {
-  it("들판 재료 5종 등재(흔함 3 + 희귀 2)", () => {
-    expect(Object.keys(V2_MATERIALS).sort()).toEqual([...FIELD_IDS].sort());
+  it("도감 재료 = 들판 5종(흔함 3 + 희귀 2), 보스 트로피는 도감 밖", () => {
+    const codexTracked = (Object.keys(V2_MATERIALS) as V2MaterialId[]).filter(
+      (id) => V2_MATERIALS[id].codex !== false,
+    );
+    expect(codexTracked.sort()).toEqual([...FIELD_IDS].sort());
+    const trophies = (Object.keys(V2_MATERIALS) as V2MaterialId[]).filter(
+      (id) => V2_MATERIALS[id].codex === false,
+    );
+    expect(trophies.sort()).toEqual([...BOSS_TROPHY_IDS].sort());
   });
 
   it("1층 풀 id 가 전부 카탈로그에 존재, 2~8층은 빈 풀", () => {

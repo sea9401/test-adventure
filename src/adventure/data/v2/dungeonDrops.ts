@@ -31,6 +31,9 @@ export type V2Material = {
   id: V2MaterialId;
   name: string;
   description: string;
+  /** false = 모험의 서 재료 도감/전직 게이트(V2_CODEX_TOTAL)에서 제외 — 보스 전용 트로피 재료용.
+   *  생략/true = 도감 포함(기본). */
+  codex?: boolean;
 };
 
 export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
@@ -61,6 +64,16 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
     name: "거미 독샘",
     description: "들거미의 독을 머금은 작은 주머니. 좀처럼 터지지 않은 채 얻기 어렵다.",
   },
+  // ── 필드 보스 전용 (들개 우두머리) — 도감 비포함 트로피 재료 ──────────
+  // codex:false → V2_CODEX_TOTAL/전직 게이트 제외 + 모험의 서 재료 탭 비노출(출처 없음).
+  // 인벤토리/상점 판매엔 정상 노출. 보스 처치 시 보장 지급.
+  v2_boss_plains_fang: {
+    id: "v2_boss_plains_fang",
+    name: "우두머리의 송곳니",
+    description:
+      "들개 무리를 이끌던 우두머리의 단단한 송곳니. 그 자체로 값나가는 전리품이다.",
+    codex: false,
+  },
 };
 
 // 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용(제작 보류 중이라 현 주 용도).
@@ -71,6 +84,7 @@ export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
   v2_field_stone: 2,
   v2_field_fang: 16,
   v2_field_venom: 22,
+  v2_boss_plains_fang: 45,
 };
 
 // === floor 별 드랍 풀 ===============================================

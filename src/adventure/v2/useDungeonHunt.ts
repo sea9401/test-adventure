@@ -7,6 +7,7 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
@@ -22,6 +23,7 @@ export type HuntResultPayload = HuntResult & {
   isBoss?: boolean;
   firstClear?: boolean; // 첫 처치(칭호 부여).
   titleGranted?: string | null;
+  bossEquipDrops?: V2EquipmentId[]; // 이번 처치로 획득한 보스 전용 장비.
 };
 
 type HuntResponse = {
@@ -166,8 +168,11 @@ export function useDungeonHunt({
               ? " · 첫 처치! 칭호 획득"
               : " · 보상 획득"
             : "";
+          const equip = (r.bossEquipDrops?.length ?? 0) > 0
+            ? ` · 장비 ${r.bossEquipDrops!.length}종 획득`
+            : "";
           pushLog(
-            `✓ 보스 ${r.enemyName} ${verdict} (${r.turns}턴)${reward} · EXP +${r.expGained}`,
+            `✓ 보스 ${r.enemyName} ${verdict} (${r.turns}턴)${reward}${equip} · EXP +${r.expGained}`,
           );
           return r;
         }

@@ -49,6 +49,15 @@ import {
   parseHpRegenSince,
 } from "@/adventure/v2/hpRegen";
 import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
+import {
+  V2_EQUIPMENT,
+  parseEquipmentSave,
+  genEquipIid,
+  type EquipmentSave,
+  type V2EquipInstance,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { grantTitleIfMissingInTx } from "@/lib/server/grantTitle";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
@@ -110,6 +119,16 @@ export async function POST(req: Request) {
       "character.v2",
       {},
     );
+
+    // equipment.v2 조기 잠금 — 락 순서 hunt 와 일관(character → equipment). 보스 장비 드랍 기록용.
+    const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const { owned: ownedEquip, equipped: equippedEquip } =
+      parseEquipmentSave(equipmentSave);
 
     const now = Date.now();
     const stamina = parseStaminaFromSave(charSave.stamina, now);
@@ -236,6 +255,32 @@ export async function POST(req: Request) {
     const expGained = Math.round(baseExp * XP_RATE_MULT);
     const drops: DropResult = won ? { ...boss.reward.materials } : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
+
+    // 보스 전용 완제품 장비 드랍 — 수집형(보유 id 제외 + 각자 chance). 승리 시만.
+    // 둘 다 모으면 이후엔 재료만 떨어진다(리롤 그라인드 방지). 드랍 = 새 개체 + 새 굴림.
+    const bossEquipDrops: V2EquipmentId[] = [];
+    let nextOwned: V2EquipInstance[] = ownedEquip;
+    if (won && boss.reward.equipment) {
+      const ownedIds = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
+      for (const e of boss.reward.equipment) {
+        if (ownedIds.has(e.id)) continue;
+        if (Math.random() >= e.chance) continue;
+        nextOwned = [
+          ...nextOwned,
+          {
+            iid: genEquipIid(),
+            id: e.id,
+            roll: rollItemStats(V2_EQUIPMENT[e.id], Math.random),
+          },
+        ];
+        ownedIds.add(e.id);
+        bossEquipDrops.push(e.id);
+      }
+    }
+    await upsertSave(tx, userId, "equipment.v2", {
+      owned: nextOwned,
+      equipped: equippedEquip,
+    });
 
     const curLevel = Math.max(1, charSave.level ?? 1);
     const curExp = Math.max(0, charSave.exp ?? 0);
@@ -373,6 +418,7 @@ export async function POST(req: Request) {
           hpCharges,
           mpCharges: Math.max(0, invSave.mpCharges ?? 0),
           drops,
+          bossEquipDrops,
           droppedEquipment: null,
           droppedUnique: null,
           fragmentDrop: 0,

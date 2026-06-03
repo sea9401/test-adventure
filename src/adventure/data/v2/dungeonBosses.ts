@@ -50,20 +50,22 @@ const PLAINS_BOSS: V2FieldBoss = {
   // 임시 — 들개 아트 재사용(전용 아트 추후). check-images 통과용 기존 참조 이미지.
   image: "/images/monster/v2/field-wild-dog.webp",
   recommendedPower: 110, // 깊은 산(2층) 진입 파워 = 다음 사냥터 기준.
+  // 난이도(사용자 결정): 깊은 산(2층) 잡몹(hp~240·atk~22·def~9~12)보다 한 단계 위 —
+  // 공/방/HP 모두 그 위 + 페이즈 벽. 들판 졸업 = 깊은 산 갈 실력 검증.
   monster: {
     name: "들개 우두머리",
     tags: ["beast"],
     image: "/images/monster/v2/field-wild-dog.webp",
-    hp: 360,
-    atk: 18,
-    def: 7,
-    spd: 5,
-    exp: 50,
+    hp: 420,
+    atk: 26,
+    def: 10,
+    spd: 6,
+    exp: 60,
     dropQualityBias: 3,
     armorVulnerable: 0.3, // 스펀지 방지 — 그 시대 정석 장비면 적정 시간에 잡힘.
     phaseTrigger: {
       hpFraction: 0.3,
-      defBonus: 5,
+      defBonus: 6,
       message: "들개 우두머리가 송곳니를 드러내며 사납게 버틴다.",
     },
     bonusAttackChancePct: 80, // 보스전 압박(광맥의 수호자 170 보다 가볍게).

@@ -59,6 +59,16 @@ describe("v2 비용 전직 (PR-6)", () => {
     expect(isPaidRespec("swordsman", "swordsman", "fire", "water")).toBe(true);
   });
 
+  it("첫 선택(none)은 element 가 오염돼도(non-neutral) 무료 — 생성 insufficient_gold 회귀", () => {
+    // 옛 불안정 배포 구간에 element 만 박히고 class 는 none 으로 남은 save 가 존재했다.
+    // 그 캐릭이 직업·속성을 처음 고를 때(curClass none) element 변경으로 오인돼 과금되면
+    // 신규 유저가 골드 부족(50<200)으로 캐릭터 생성을 못 한다. none 이면 무조건 무료여야 함.
+    expect(respecGoldCost("none", "swordsman", "fire", "water", 50)).toBe(0);
+    expect(respecGoldCost("none", "mage", "void", "fire", 1)).toBe(0);
+    expect(isPaidRespec("none", "swordsman", "fire", "water")).toBe(false);
+    expect(isPaidRespec("none", "mage", "void", "fire")).toBe(false);
+  });
+
   it("advanceGoldCost (PR-7 2차 전직) — 레벨 비례, level 최소 1", () => {
     expect(advanceGoldCost(30)).toBe(30 * ADVANCE_GOLD_PER_LEVEL);
     expect(advanceGoldCost(1)).toBe(ADVANCE_GOLD_PER_LEVEL);

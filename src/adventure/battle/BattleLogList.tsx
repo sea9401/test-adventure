@@ -16,7 +16,6 @@ type Sizes = {
   banner: string;
   turnMarker: string;
   hpBar: string;
-  bubblePadding: string;
   spacing: string;
 };
 
@@ -28,7 +27,6 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     banner: "text-base",
     turnMarker: "text-[12px]",
     hpBar: "text-[10px]",
-    bubblePadding: "px-3 py-2",
     spacing: "space-y-1.5",
   },
   compact: {
@@ -38,7 +36,6 @@ const SIZES: Record<"normal" | "compact", Sizes> = {
     banner: "text-[13px]",
     turnMarker: "text-[10px]",
     hpBar: "text-[9px]",
-    bubblePadding: "px-2 py-1",
     spacing: "space-y-1",
   },
 };
@@ -181,18 +178,12 @@ function AttackBubble({
   const { labels, body } = parseLabel(text);
   const isCrit = labels.some((l) => l === "크리" || l === "크리티컬");
   const displayBody = body || labels.join(" + ");
-  const bubbleColor = isPlayer
-    ? "border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-700/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-    : "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-700/50 dark:bg-rose-950/40 dark:text-rose-200";
-  const labelColor = isPlayer
-    ? "bg-emerald-200/70 text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200"
-    : "bg-rose-200/70 text-rose-900 dark:bg-rose-900/60 dark:text-rose-200";
+  // 색 박스(초록=아군/빨강=적) 폐지 — 좌우 정렬로만 아군(좌)·적(우) 구분, 글씨는 흰/기본(유저 요청).
+  // 피해량 숫자만 빨강 강조 유지(emphasizeNumbers). 상태 라벨 pill 은 v2StatusPillColor, 그 외 중립.
   return (
     <div className={`flex ${isPlayer ? "justify-start" : "justify-end"}`}>
       <div
-        className={`max-w-[85%] rounded-lg border ${sizes.bubblePadding} ${sizes.bubble} leading-snug shadow-sm ${bubbleColor} ${
-          isCrit ? "ring-1 ring-amber-400/70" : ""
-        }`}
+        className={`max-w-[85%] ${sizes.bubble} leading-snug text-zinc-800 dark:text-zinc-100`}
       >
         {(labels.length > 0 || isCrit) && (
           <div className="mb-0.5 flex flex-wrap gap-1">
@@ -205,7 +196,8 @@ function AttackBubble({
               <span
                 key={idx}
                 className={`rounded px-1.5 py-0.5 ${sizes.label} font-semibold uppercase tracking-wider ${
-                  v2StatusPillColor(l) ?? labelColor
+                  v2StatusPillColor(l) ??
+                  "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200"
                 }`}
               >
                 {l}

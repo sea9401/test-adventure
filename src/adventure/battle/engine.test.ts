@@ -90,6 +90,49 @@ describe("보스 부분 관통 (armorVulnerable / playerDefVulnerable)", () => {
   });
 });
 
+describe("사제 즉발 신성딜 (passiveTurnHolyDamage) — §C", () => {
+  it("매 플레이어 턴 적에게 관통 고정 피해 → 약공격이어도 처치", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // 크리·회피 미발동
+    const priest: PlayerCombat = {
+      ...PLAYER,
+      hp: 500,
+      maxHp: 500,
+      atk: 1, // 평타 거의 0 — 신성딜로만 잡아야
+      passiveTurnHolyDamage: 30,
+    };
+    const enemy = makeEnemy({ hp: 200, atk: 5, def: 100 }); // 평타로는 못 깎음(atk1<def100)
+    let s = initialBattleState(priest, enemy, "사제");
+    let guard = 0;
+    while (s.phase !== "ended" && guard++ < 60) {
+      s = advanceTurn(s, priest, "사제");
+    }
+    expect(s.outcome).toBe("win"); // 신성딜(30/턴)으로 200 처치
+    expect(guard).toBeLessThan(20); // ~7~10턴 내 (신성딜 없으면 영원히 못 깸)
+  });
+});
+
+describe("적 치명 저항 (critResistPct) — SIM §B 미러", () => {
+  it("적 critResist 가 플레이어 유효 치명 확률을 %p 차감 → 크리 발동 갈림", () => {
+    // Math.random=0.30 → 크리 굴림 30. 회피·추가타 굴림 없음(적 evasion 0, 추가타 0).
+    vi.spyOn(Math, "random").mockReturnValue(0.3);
+    const crit: PlayerCombat = {
+      ...PLAYER,
+      atk: 100,
+      critChancePct: 50,
+      critMult: 2,
+    };
+    const noResist = makeEnemy({ hp: 1000, def: 0 });
+    const resist = makeEnemy({ hp: 1000, def: 0, critResistPct: 30 }); // 유효 치명 20
+    const dmgNo =
+      1000 - advanceTurn(initialBattleState(crit, noResist, "u"), crit, "u").enemyHp;
+    const dmgRes =
+      1000 - advanceTurn(initialBattleState(crit, resist, "u"), crit, "u").enemyHp;
+    // 저항 없음: 유효 50 > 30 → 크리 ×2 = 200. 저항 30: 유효 20 < 30 → 비크리 = 100.
+    expect(dmgNo).toBe(200);
+    expect(dmgRes).toBe(100);
+  });
+});
+
 describe("appendLog", () => {
   it("로그를 자르지 않고 전부 누적한다 — 종료 후 알림에 전체 로그를 남기기 위함", () => {
     let log: BattleLogEntry[] = [];
@@ -354,30 +397,6 @@ describe("resolveBattle", () => {
     expect(r.finalState.phase).toBe("ended");
     expect(r.finalState.enemyHp).toBe(0);
     expect(r.turns).toBeGreaterThan(0);
-  });
-
-  it("maxTurns 로 턴 상한을 낮추면 그 턴에 lose 로 종료(스파링 샌드백)", () => {
-    // 안 죽는 샌드백: HP 100만, atk/def 0. PLAYER(atk 10)는 50턴 안에 절대 못 깎는다.
-    const dummy = makeEnemy({ hp: 1_000_000, atk: 0, def: 0 });
-    const r = resolveBattle(PLAYER, dummy, "P", {
-      pickAction: () => ({ kind: "attack" }),
-      potions: {},
-      maxTurns: 50,
-    });
-    expect(r.outcome).toBe("lose"); // 타임아웃(처치 못 함)
-    expect(r.turns).toBe(50); // maxTurns 에 도달한 그 턴에 멈춘다(>=).
-    // 그동안 데미지는 누적되고, 샌드백은 살아있다.
-    const dealt = 1_000_000 - r.finalState.enemyHp;
-    expect(dealt).toBeGreaterThan(0);
-    expect(r.finalState.enemyHp).toBeGreaterThan(0);
-  });
-
-  it("maxTurns 미지정이면 기본 500 안전캡 — 평범한 적은 정상 승리", () => {
-    const r = resolveBattle(PLAYER, makeEnemy(), "P", {
-      pickAction: () => ({ kind: "attack" }),
-      potions: {},
-    });
-    expect(r.outcome).toBe("win");
   });
 
   it("약한 플레이어는 패배 + final HP 0", () => {

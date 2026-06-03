@@ -649,7 +649,7 @@ const V2_BASE_SKILLS = {
     tier: 2,
     description: "견습 사제 전용. 성스러운 빛으로 자신을 치유하고 적을 정화한다.",
     mpCost: 0,
-    cooldown: 0,
+    cooldown: 3, // 힐 스팸·과생존 견제(매턴 시전 방지). 쿨 동안 평타+패시브 홀리로 딜.
     element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 22 },
@@ -750,7 +750,7 @@ const V2_BASE_SKILLS = {
     tier: 3,
     description: "사제 전용. 깊은 가호로 크게 치유하고 몸을 단단히 한다.",
     mpCost: 0,
-    cooldown: 0,
+    cooldown: 3, // 힐 스팸·과생존 견제.
     effects: [
       { kind: "heal", pctMaxHp: 30 },
       { kind: "selfBuff", stat: "vit", pct: 20, turns: 3 },
@@ -850,7 +850,7 @@ const V2_BASE_SKILLS = {
     tier: 3,
     description: "신관 전용. 가호의 빛으로 크게 치유하고 몸을 단단히 한다.",
     mpCost: 0,
-    cooldown: 0,
+    cooldown: 3, // 힐 스팸·과생존 견제.
     element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 38 },
@@ -950,7 +950,7 @@ const V2_BASE_SKILLS = {
     tier: 3,
     description: "주교 전용. 심판의 빛으로 크게 치유하고 적을 함께 친다.",
     mpCost: 0,
-    cooldown: 0,
+    cooldown: 3, // 힐 스팸·과생존 견제.
     element: "starlight",
     effects: [
       { kind: "heal", pctMaxHp: 45 },

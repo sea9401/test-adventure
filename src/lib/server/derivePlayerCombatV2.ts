@@ -56,9 +56,7 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
-  V2_EQUIP_SETS,
   parseEquipmentSave,
-  resolveEquippedForAggregate,
   type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
@@ -66,6 +64,10 @@ import {
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/battle/engine";
+import {
+  gearPowerScaleValue,
+  holyDamageScaleValue,
+} from "@/adventure/battle/combatShared";
 
 type SavedCharacterV2 = {
   hp?: number;
@@ -140,7 +142,8 @@ export function aggregateV2Equipment(
     if (!id) continue;
     const item = V2_EQUIPMENT[id];
     const eff = effectiveStats(item, statRolls?.[id]);
-    const power = eff.power;
+    // 장비 위력 스케일(A 방향) — 기본 1.0(불변). sim 캘리브가 ↑로 장비 양적 비중 조정.
+    const power = eff.power * gearPowerScaleValue();
     // 위력 슬롯별 분기: 무기=물공+마공 / 갑옷·장갑·신발=물방 / 반지·목걸이=마방.
     if (slot === "weapon") {
       acc.atk += power;
@@ -157,27 +160,6 @@ export function aggregateV2Equipment(
     acc.mp += o.mp ?? 0;
     acc.eva += o.eva ?? 0;
     acc.hp += o.hp ?? 0;
-  }
-  // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
-  const equippedIds = new Set<V2EquipmentId>();
-  for (const slot of [
-    "weapon",
-    "armor",
-    "gloves",
-    "boots",
-    "ring",
-    "necklace",
-  ] as const) {
-    const id = v2Equipped[slot];
-    if (id) equippedIds.add(id);
-  }
-  for (const set of V2_EQUIP_SETS) {
-    if (!set.pieces.every((p) => equippedIds.has(p))) continue;
-    const b = set.bonus;
-    acc.crit += b.crit ?? 0;
-    acc.eva += b.eva ?? 0;
-    acc.mp += b.mp ?? 0;
-    acc.hp += b.hp ?? 0;
   }
   return acc;
 }
@@ -220,6 +202,11 @@ const MAGIC_DEF_PER_SPI = 0.12;
 const MAGIC_DEF_PER_INT = 0.03;
 // 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p).
 const CRIT_RESIST_PER_SPI = 0.1;
+// 데미지 바닥 비율(§B) — 천장(atk−def) 대비 바닥%. 힘 major + 지능·활력 minor. 캡 0.9.
+// SIM-핸드오프 §D 시드: min(0.9, 0.3 + 0.0015×(str + 0.5·int + 0.3·vit)). 계수만 스윕, 캡 확정.
+const DAMAGE_FLOOR_PCT_BASE = 0.3;
+const DAMAGE_FLOOR_PCT_PER_WEIGHTED = 0.0015;
+const DAMAGE_FLOOR_PCT_CAP = 0.9;
 // 회복량 배수 — 활력·정신 (1.0 기준 + 비례).
 const HEAL_MULT_PER_VIT = 0.004;
 const HEAL_MULT_PER_SPI = 0.0025;
@@ -250,11 +237,6 @@ const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 // 다중공격을 DEX 특화 빌드의 강점으로 — 일반 빌드(DEX 15~60)는 1~1.6타.
 // rollAttackCount(combatShared) 가 100%↑를 정수부 확정 + 소수부 확률로 처리. cap 없음.
 const EXTRA_ATTACK_PCT_PER_SPD = 0.5;
-
-// 초반 난이도 완화 — 4대 전투 스탯(공격력·마법공격력·방어력·마법방어력)에 더하는 플랫 보너스.
-// 스탯이 작은 초반엔 비중이 커 체감 큰 완화, 후반엔 미미(Lv100 atk~75 대비 +5). 플레이어·아레나
-// 봇 모두 같은 derive 를 거치므로 PvP 중립. 난이도 재튜닝은 이 한 숫자만 조정한다.
-export const V2_BASE_COMBAT_BONUS = 5;
 
 // PR-S2: V2_BASE_STATS / V2_STAT_POINTS_PER_LEVEL 은 v2Stats.ts 로 분리 (클라 import 가능).
 // 여기서는 backward compat 을 위해 re-export.
@@ -326,26 +308,18 @@ export function derivePlayerCombatV2Pure(
   // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
   // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
   // strict §4 — 물리공격력 = 힘 단독 + 장비 atk(무기 위력). dex/spd/luk atk 보조 없음.
-  // 4대 전투 스탯엔 초반 완화용 플랫 보너스(V2_BASE_COMBAT_BONUS)를 가산.
-  const atk =
-    Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk) +
-    V2_BASE_COMBAT_BONUS;
+  const atk = Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk);
   // 물리 방어력 — 활력 + 장비 def.
-  const def =
-    Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def) +
-    V2_BASE_COMBAT_BONUS;
-  // 마법 공격력 — 지능 + 무기 위력(magicAtk). +기본 보너스(마법 빌드 0 빌드도 베이스 확보).
+  const def = Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def);
+  // 마법 공격력 — 지능 + 무기 위력(magicAtk). INT 0·무기없음이면 0 → 마법 경로 비활성.
   const magicAtk =
-    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
-    equipAcc.magicAtk +
-    V2_BASE_COMBAT_BONUS;
+    Math.floor(totalStats.int * MAGIC_ATK_PER_INT) + equipAcc.magicAtk;
   // 마법 방어력(신규) — 정신 major + 지능 minor + 장신구 위력. combatShared 가 마법 데미지에서 차감.
-  const magicDef =
-    Math.floor(
-      totalStats.spi * MAGIC_DEF_PER_SPI +
-        totalStats.int * MAGIC_DEF_PER_INT +
-        equipAcc.magicDef,
-    ) + V2_BASE_COMBAT_BONUS;
+  const magicDef = Math.floor(
+    totalStats.spi * MAGIC_DEF_PER_SPI +
+      totalStats.int * MAGIC_DEF_PER_INT +
+      equipAcc.magicDef,
+  );
   // 최소 데미지(신규) — 힘·지능 major + 활력 minor. 데미지 하한.
   const minDamage = Math.floor(
     totalStats.str * MIN_DMG_PER_STR +
@@ -376,6 +350,14 @@ export function derivePlayerCombatV2Pure(
   );
   // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p).
   const critResistPct = totalStats.spi * CRIT_RESIST_PER_SPI;
+  // 데미지 바닥 비율(신규, §B) — 천장 대비 바닥%. 힘·지능·활력 비례, 캡 0.9. §B 통합 평타
+  // 모델에서 천장×floorPct ~ 천장 uniform roll 의 바닥. 높을수록 데미지 변동 작음(일관 딜).
+  const damageFloorPct = Math.min(
+    DAMAGE_FLOOR_PCT_CAP,
+    DAMAGE_FLOOR_PCT_BASE +
+      DAMAGE_FLOOR_PCT_PER_WEIGHTED *
+        (totalStats.str + 0.5 * totalStats.int + 0.3 * totalStats.vit),
+  );
   // 회피 — 민첩 + 행운 minor + 장비.
   const evasionPct = Math.min(
     totalStats.dex * EVA_PER_DEX +
@@ -407,22 +389,31 @@ export function derivePlayerCombatV2Pure(
   const mp = Math.max(0, Math.min(savedMp, maxMp));
 
   // 직업 패시브 (시그니처 대체) — 현 직업군에서 학습한 시그니처 최고티어의 상시 효과.
-  // 2026-06-03 재설계: 직업군당 효과 1개. 검사=atk+STR계수·마법사=magicAtk+INT계수는 여기서,
-  // 궁수 방어관통·체술 카운터·마법사 평타마공화는 PlayerCombat 필드로 넘겨 엔진이 적용.
+  // 기존 산출값에 가산/배수, 신규 패시브 필드 셋. 적용(받피감·턴회복·onHitDot)은 엔진(PR-3).
   const passive = resolveClassPassive(
     input.playerClass,
     input.learnedSkillIds ?? [],
   );
-  // 검사 — 평타 공격력에 STR×계수 가산. 마법사 — 마법공격력에 INT×계수 가산.
-  const finalAtk =
-    atk + Math.floor(totalStats.str * (passive?.atkPerStrCoef ?? 0));
-  const finalMagicAtk =
-    magicAtk + Math.floor(totalStats.int * (passive?.magicAtkPerIntCoef ?? 0));
-  // 인술 — 치명타 피해 배율 가산 (cap). 명중·추가타는 패시브 미기여(평값 그대로).
+  const finalMagicAtk = passive?.magicAtkMultPct
+    ? Math.floor(magicAtk * (1 + passive.magicAtkMultPct / 100))
+    : magicAtk;
+  const finalAccuracyPct = accuracyPct + (passive?.accuracyPct ?? 0);
+  const finalExtraAttackChancePct =
+    extraAttackChancePct + (passive?.extraAttackChancePct ?? 0);
   const finalCritMult = Math.min(
     critMult + (passive?.critMultAdd ?? 0),
     CRIT_MULT_CAP,
   );
+  // 사제(§C) 즉발 신성딜 — 턴힐 회복량(maxHp × 턴힐%) × 계수. magicAtk 무관·관통. 매 턴 고정 데미지.
+  const passiveTurnHolyDamage =
+    passive?.holyStrikeHealCoef && passive?.turnHealPctMaxHp
+      ? Math.floor(
+          maxHp *
+            (passive.turnHealPctMaxHp / 100) *
+            passive.holyStrikeHealCoef *
+            holyDamageScaleValue(),
+        )
+      : 0;
 
   const player: PlayerCombat = {
     hp,
@@ -430,14 +421,14 @@ export function derivePlayerCombatV2Pure(
     mp,
     maxMp,
     intStat: totalStats.int,
-    atk: finalAtk,
+    atk,
     magicAtk: finalMagicAtk,
     def,
     spd,
     evasionPct,
-    accuracyPct,
+    accuracyPct: finalAccuracyPct,
     attackCount: 1,
-    extraAttackChancePct,
+    extraAttackChancePct: finalExtraAttackChancePct,
     critChancePct,
     critMult: finalCritMult,
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
@@ -445,12 +436,15 @@ export function derivePlayerCombatV2Pure(
     critResistPct,
     minDamage,
     healMult,
+    damageFloorPct,
     baselineRegen: baselineRegenFor(maxHp),
-    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op).
-    passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp, // 사제
-    passiveDefPenetrationPct: passive?.defPenetrationPct, // 궁수 (평타 방어관통)
-    passiveCounterChancePct: passive?.counterChancePct, // 무도가 (피격 반격)
-    passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사 (평타 마공화)
+    // 직업 패시브 — 엔진(PR-3)이 읽어 적용. 미보유면 undefined(no-op).
+    passiveDamageTakenReductionPct: passive?.damageTakenReductionPct,
+    passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp,
+    passiveOnHitDot: passive?.onHitDot,
+    // §C 신규 — 사제 즉발 신성딜(관통)·무도가 반사. 0/undefined = 미보유.
+    passiveTurnHolyDamage: passiveTurnHolyDamage > 0 ? passiveTurnHolyDamage : undefined,
+    passiveReflectPct: passive?.reflectPct,
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.
@@ -500,11 +494,8 @@ export async function derivePlayerCombatV2(
   }
   if (!character) return null;
 
-  const { owned: v2Owned, equipped: v2EquippedIids } =
-    parseEquipmentSave(equipmentSave);
-  // 개체(iid) → aggregate 입력(슬롯→id, id→굴림) 해석. aggregate 시그니처 불변 유지.
   const { equipped: v2Equipped, statRolls: v2StatRolls } =
-    resolveEquippedForAggregate(v2Owned, v2EquippedIids);
+    parseEquipmentSave(equipmentSave);
   // PR-prof — 1차 스탯 = 랜덤 레벨 성장(prof.grown), cap = 수행(prof.caps).
   // 옛 수동 분배(training.allocated) 폐기.
   const prof = parseProficiencyForChar(proficiencyRaw, character);

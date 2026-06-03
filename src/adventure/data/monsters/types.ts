@@ -90,6 +90,17 @@ export type Monster = {
   accuracy?: number;
   /** PR-5b v2 — 몬스터 속성(상성). v2 전투 경로만 사용. 라이브 몹은 미지정(neutral). */
   element?: V2Element;
+  /**
+   * SIM §B — 평타 데미지 바닥 비율(천장 대비, 0~0.9). v2 통합 전투 모델(setV2BattleModel) ON
+   * 평타에서만 사용. 미지정 시 엔진 기본값(DEFAULT_ENEMY_DAMAGE_FLOOR_PCT, 평균 몹 가정).
+   * 미러 몬스터(동레벨 유저 복제)는 유저 공식값을 실어 양측 변동폭을 맞출 수 있다.
+   */
+  damageFloorPct?: number;
+  /**
+   * SIM §B — 몬스터 치명 저항(%p). 플레이어 유효 치명 확률에서 차감(유효치명 = max(0, 치명 − 저항)).
+   * 미러 몹/보스(동레벨 유저 복제)가 정신(SPI) 비례로 보유. 미지정/0 = 차감 없음(라이브 잡몹·기존 동작).
+   */
+  critResistPct?: number;
   exp: number;
   drops?: MonsterDrop[];
   phaseTrigger?: MonsterPhaseTrigger;

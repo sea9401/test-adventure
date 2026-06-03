@@ -5,13 +5,12 @@
 //   **학습한 시그니처 중 최고 티어**(1~4). 전직이 다음 티어 학습을 열고, 학습해야 패시브가 오른다.
 //   (학습 비용은 기존 V2_SIGNATURE_LEARN_COST 그대로 — 숙련 포인트 싱크 보존.)
 //
-// 이 파일은 순수 데이터 + 해석 헬퍼. derive 가 결과를 반영한다 (2026-06-03 재설계 — 직업군당 효과 1개):
-//   검사 atkPerStrCoef → atk += STR×계수,  마법사 magicAtkPerIntCoef → magicAtk += INT×계수,
-//   인술 critMultAdd → critMult 가산  (이상 derive 에서 끝),
-//   사제 turnHealPctMaxHp / 궁수 defPenetrationPct / 무도가 counterChancePct / 마법사 magicBasicAttack
-//   은 PlayerCombat 필드로 넘겨 엔진이 적용.
+// 이 파일은 순수 데이터 + 해석 헬퍼. derive(PR-2)가 결과를 PlayerCombat 필드에 반영한다:
+//   extraAttackChancePct / accuracyPct / critMult 는 기존 필드에 가산,
+//   magicAtkMultPct 는 derive 가 magicAtk ×(1+%),
+//   damageTakenReductionPct / turnHealPctMaxHp / onHitDot 는 신규 PlayerCombat 패시브 필드.
 //
-// 수치는 전부 **미튜닝 초기값** — sim 캘리브 대상.
+// 수치는 전부 **미튜닝 초기값** — PR-6 sim 캘리브 대상.
 
 import {
   type V2Class,
@@ -19,24 +18,38 @@ import {
   signatureClassOf,
   tier1ClassOf,
 } from "@/adventure/data/v2/classes";
+import { V2_DOT_PRESETS } from "@/adventure/data/v2/statusEffects";
 
-// 한 티어분 패시브 효과. 직업군마다 자기 필드 하나만 채운다(없는 필드 = no-op).
-// 2026-06-03 재설계 — 직업군당 단순 효과 1개, 차수=계수업. DoT(소각/출혈/중독) 전면 제거.
+// 공격 적중(피해를 입힌 턴) 시 확률로 적에게 부여하는 DoT. label·turns 는 statusEffects 프리셋과 일치,
+// dmgPerTurn 은 티어별로 패시브가 따로 스케일(프리셋 기본값 대신 사용).
+export type V2PassiveOnHitDot = {
+  chancePct: number;
+  label: string;
+  dmgPerTurn: number;
+  turns: number;
+};
+
+// 한 티어분 패시브 효과. 직업군마다 자기 필드만 채운다(없는 필드 = no-op).
 export type V2ClassPassiveEffect = {
-  /** 검사(STR) — 평타 공격력에 STR×계수 가산 → derive 가 atk 에 더함. */
-  atkPerStrCoef?: number;
-  /** 궁수(DEX) — 평타 방어 관통(%) → PlayerCombat.passiveDefPenetrationPct. */
-  defPenetrationPct?: number;
-  /** 무도가(VIT) — 피격 생존 시 확률 반격(%) → PlayerCombat.passiveCounterChancePct. */
-  counterChancePct?: number;
-  /** 사제(SPI) — 매 플레이어 턴 maxHp 의 %만큼 회복 → PlayerCombat.passiveTurnHealPctMaxHp. */
+  /** 검사 — 평타 추가타 확률 가산(%p) → PlayerCombat.extraAttackChancePct 합산. */
+  extraAttackChancePct?: number;
+  /** 무도가 — 받는 피해 상시 감소(%) → PlayerCombat.passiveDamageTakenReductionPct. */
+  damageTakenReductionPct?: number;
+  /** 마법사 — 마법공격력 증폭(%) → derive 가 magicAtk ×(1+pct/100). */
+  magicAtkMultPct?: number;
+  /** 사제 — 매 플레이어 턴 maxHp 의 %만큼 회복 → PlayerCombat.passiveTurnHealPctMaxHp. */
   turnHealPctMaxHp?: number;
-  /** 마법사(INT) — 평타를 마법공격력 기반으로 전환 → PlayerCombat.passiveMagicBasicAttack. */
-  magicBasicAttack?: true;
-  /** 마법사(INT) — 마법공격력에 INT×계수 가산 → derive 가 magicAtk 에 더함. */
-  magicAtkPerIntCoef?: number;
-  /** 인술(LUK) — 치명타 피해 배율 가산 → PlayerCombat.critMult 합산. */
+  /** 사제(신규 §C) — 턴힐 발동 시 그 회복량 × 이 계수만큼 신성 피해(관통·즉발, magicAtk 무관).
+   *  신술 부족 딜 보완용 → 계수 작게. derive 가 maxHp×턴힐%×계수 로 즉발 데미지 환산. */
+  holyStrikeHealCoef?: number;
+  /** 무도가(신규 §C) — 받은 HP 피해의 %를 적에게 반사(VIT 공격 정체성). 상한 = engine REFLECT_CAP. */
+  reflectPct?: number;
+  /** 궁수 — 명중 가산(%p) → PlayerCombat.accuracyPct 합산. */
+  accuracyPct?: number;
+  /** 인술 — 크리티컬 데미지 배율 가산 → PlayerCombat.critMult 합산. */
   critMultAdd?: number;
+  /** 궁/인/마 — 공격 적중 시 확률 DoT → PlayerCombat.passiveOnHitDot. */
+  onHitDot?: V2PassiveOnHitDot;
 };
 
 // 해석 결과 — 직업군 + 적용 티어 + 효과.
@@ -45,7 +58,33 @@ export type V2ResolvedClassPassive = V2ClassPassiveEffect & {
   tier: number; // 1~4
 };
 
-// 직업군(1차 직업) → [T1, T2, T3, T4] 효과. 미튜닝 초기값(sim 캘리브 대상).
+// DoT 빌더 — label·turns 는 프리셋 고정, dmgPerTurn·chancePct 만 티어별로.
+function bleed(chancePct: number, dmgPerTurn: number): V2PassiveOnHitDot {
+  return {
+    chancePct,
+    label: V2_DOT_PRESETS.출혈.label,
+    dmgPerTurn,
+    turns: V2_DOT_PRESETS.출혈.turns,
+  };
+}
+function poison(chancePct: number, dmgPerTurn: number): V2PassiveOnHitDot {
+  return {
+    chancePct,
+    label: V2_DOT_PRESETS.중독.label,
+    dmgPerTurn,
+    turns: V2_DOT_PRESETS.중독.turns,
+  };
+}
+function burn(chancePct: number, dmgPerTurn: number): V2PassiveOnHitDot {
+  return {
+    chancePct,
+    label: V2_DOT_PRESETS.소각.label,
+    dmgPerTurn,
+    turns: V2_DOT_PRESETS.소각.turns,
+  };
+}
+
+// 직업군(1차 직업) → [T1, T2, T3, T4] 효과. 미튜닝 초기값(docs/v2-job-passives-plan.md).
 type PassiveByTier = readonly [
   V2ClassPassiveEffect,
   V2ClassPassiveEffect,
@@ -53,47 +92,47 @@ type PassiveByTier = readonly [
   V2ClassPassiveEffect,
 ];
 export const V2_CLASS_PASSIVE: Partial<Record<V2Class, PassiveByTier>> = {
-  // 검사(STR) — 평타 공격력에 STR 계수 추가.
+  // 검사(STR) — 평타 추가타.
   swordsman: [
-    { atkPerStrCoef: 0.05 },
-    { atkPerStrCoef: 0.09 },
-    { atkPerStrCoef: 0.13 },
-    { atkPerStrCoef: 0.18 },
+    { extraAttackChancePct: 10 },
+    { extraAttackChancePct: 16 },
+    { extraAttackChancePct: 22 },
+    { extraAttackChancePct: 30 },
   ],
-  // 무도가(VIT) — 피격 생존 시 확률 반격.
+  // 무도가(VIT) — 받는 피해 감소 + 반사(VIT 공격 정체성, §C 신규). reflect = 받은 피해 %.
   martial: [
-    { counterChancePct: 15 },
-    { counterChancePct: 24 },
-    { counterChancePct: 33 },
-    { counterChancePct: 45 },
+    { damageTakenReductionPct: 6, reflectPct: 10 },
+    { damageTakenReductionPct: 9, reflectPct: 14 },
+    { damageTakenReductionPct: 12, reflectPct: 18 },
+    { damageTakenReductionPct: 16, reflectPct: 24 },
   ],
-  // 마법사(INT) — 평타 마공화 + 마법공격력에 INT 계수 추가.
+  // 마법사(INT) — 마법공격력 증폭 + 소각(버스트).
   mage: [
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.05 },
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.09 },
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.13 },
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.18 },
+    { magicAtkMultPct: 8, onHitDot: burn(30, 8) },
+    { magicAtkMultPct: 13, onHitDot: burn(40, 11) },
+    { magicAtkMultPct: 18, onHitDot: burn(50, 14) },
+    { magicAtkMultPct: 25, onHitDot: burn(60, 18) },
   ],
-  // 사제(SPI) — 매 턴 자가회복(지속). 유지.
+  // 사제(SPI) — 매 턴 자가회복 + 회복량 비례 신성딜(관통, §C 신규 — 신술 부족 딜 보완).
   priest: [
-    { turnHealPctMaxHp: 3 },
-    { turnHealPctMaxHp: 4.5 },
-    { turnHealPctMaxHp: 6 },
-    { turnHealPctMaxHp: 8 },
+    { turnHealPctMaxHp: 3, holyStrikeHealCoef: 0.8 },
+    { turnHealPctMaxHp: 4.5, holyStrikeHealCoef: 1.0 },
+    { turnHealPctMaxHp: 6, holyStrikeHealCoef: 1.3 },
+    { turnHealPctMaxHp: 8, holyStrikeHealCoef: 1.6 },
   ],
-  // 궁수(DEX) — 평타 방어 관통. 전 차수 DEF_IGNORE_FRACTION(30%) 미만.
+  // 궁수(DEX) — 출혈 + 명중(견제).
   archer: [
-    { defPenetrationPct: 8 },
-    { defPenetrationPct: 14 },
-    { defPenetrationPct: 20 },
-    { defPenetrationPct: 28 },
+    { accuracyPct: 3, onHitDot: bleed(30, 5) },
+    { accuracyPct: 5, onHitDot: bleed(40, 7) },
+    { accuracyPct: 7, onHitDot: bleed(50, 9) },
+    { accuracyPct: 10, onHitDot: bleed(60, 12) },
   ],
-  // 인술(LUK) — 치명타 피해 배율 가산. 유지.
+  // 인술(LUK) — 크리뎀 + 중독(한방·교란).
   ninja: [
-    { critMultAdd: 0.2 },
-    { critMultAdd: 0.35 },
-    { critMultAdd: 0.5 },
-    { critMultAdd: 0.7 },
+    { critMultAdd: 0.2, onHitDot: poison(30, 4) },
+    { critMultAdd: 0.35, onHitDot: poison(40, 5) },
+    { critMultAdd: 0.5, onHitDot: poison(50, 6) },
+    { critMultAdd: 0.7, onHitDot: poison(60, 8) },
   ],
 };
 
@@ -125,14 +164,18 @@ export function resolveClassPassive(
 // 패시브 효과 한 줄 설명(학습창 표기용). 채워진 필드만 " · " 로 잇는다.
 export function describeClassPassiveEffect(e: V2ClassPassiveEffect): string {
   const parts: string[] = [];
-  if (e.atkPerStrCoef) parts.push(`평타 공격력 +STR×${e.atkPerStrCoef}`);
-  if (e.defPenetrationPct) parts.push(`방어 관통 ${e.defPenetrationPct}%`);
-  if (e.counterChancePct)
-    parts.push(`피격 시 ${e.counterChancePct}% 확률 반격`);
+  if (e.extraAttackChancePct) parts.push(`평타 추가타 +${e.extraAttackChancePct}%`);
+  if (e.damageTakenReductionPct)
+    parts.push(`받는 피해 -${e.damageTakenReductionPct}%`);
+  if (e.magicAtkMultPct) parts.push(`마법공격력 +${e.magicAtkMultPct}%`);
   if (e.turnHealPctMaxHp) parts.push(`매 턴 HP +${e.turnHealPctMaxHp}%`);
-  if (e.magicBasicAttack) parts.push("평타 마법화");
-  if (e.magicAtkPerIntCoef) parts.push(`마법공격력 +INT×${e.magicAtkPerIntCoef}`);
+  if (e.holyStrikeHealCoef)
+    parts.push(`회복량 ×${e.holyStrikeHealCoef} 신성 피해(관통)`);
+  if (e.reflectPct) parts.push(`받은 피해 ${e.reflectPct}% 반사`);
+  if (e.accuracyPct) parts.push(`명중 +${e.accuracyPct}%`);
   if (e.critMultAdd) parts.push(`치명타 피해 +${e.critMultAdd}배`);
+  if (e.onHitDot)
+    parts.push(`공격 시 ${e.onHitDot.chancePct}% 확률 ${e.onHitDot.label}`);
   return parts.join(" · ");
 }
 

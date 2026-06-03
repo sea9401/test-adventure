@@ -21,6 +21,40 @@ import type { EquippedAPSkill, PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
 
+// ── 전투 RNG 주입 (SIM-핸드오프 / 시드 재현) ────────────────────────────────
+// 두 엔진(PvE/PvP)과 모든 확률 굴림이 Math.random 대신 battleRandom() 을 쓴다. 기본은
+// Math.random 을 **매 호출 동적으로** 부르므로(참조 캡처 X) 테스트의 vi.spyOn(Math,"random")
+// 모킹이 그대로 먹힌다(기존 2698 테스트 불변). 시뮬은 setBattleRng(makeSeededRng(seed)) 로
+// 결정론 PRNG 를 주입해 "같은 시드 = 같은 전투" 재현 → 다이얼 전후 비교가 동일 전투 기준이 됨.
+let injectedBattleRng: (() => number) | null = null;
+
+/** 결정론 RNG 주입. null 이면 Math.random 으로 복귀(라이브·테스트 기본). */
+export function setBattleRng(fn: (() => number) | null): void {
+  injectedBattleRng = fn;
+}
+
+/** 전투 확률 굴림의 단일 소스. 주입 PRNG 있으면 그걸, 없으면 Math.random(동적 호출). */
+export function battleRandom(): number {
+  return injectedBattleRng ? injectedBattleRng() : Math.random();
+}
+
+/** 문자열 시드 → 결정론 PRNG(mulberry32 + 문자열 해시). 같은 시드 = 같은 난수열. */
+export function makeSeededRng(seed: string): () => number {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i += 1) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  let a = h >>> 0;
+  return function seededRandom(): number {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 type ApSkillSelectionState = {
   canFireApSkill: (equipped: EquippedAPSkill) => boolean;
 };
@@ -96,8 +130,126 @@ export function rollAttackCount(player: PlayerCombat): number {
   if (chance <= 0) return base;
   const guaranteed = Math.floor(chance / 100);
   const remainder = chance - guaranteed * 100;
-  const extra = guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
+  const extra = guaranteed + (battleRandom() * 100 < remainder ? 1 : 0);
   return base + extra;
+}
+
+// ── §B 통합 전투 모델 (SIM-핸드오프) ───────────────────────────────────────
+// 평타 데미지를 §B 모델로 계산하는 공유 헬퍼 (PvE/PvP/시뮬 공유 — divergence 방지).
+//   천장 = max(1, atk − def)
+//   바닥 = 천장 × floorPct (floorPct 캡 V2_DAMAGE_FLOOR_PCT_CAP = 0.9)
+//   variance ON → uniform(바닥, 천장) · OFF → 천장(결정론)
+//   × elementMult (§B 속성 상성, 미지정 = 1)
+//   정수 내림, 최소 1
+//
+// 플래그(setV2BattleModel)는 **기본 OFF** — 그때 엔진은 이 함수 대신 기존 damageBetween 을
+// 써 동작이 불변(기존 테스트 전부 그린). 시뮬이 setV2BattleModel(true) 로 켜 §B 를 측정·
+// 캘리브한다. 평타 속성 상성도 플래그 ON 일 때만 엔진이 직접 적용 — 라이브 hunt 는 속성을
+// atk 에 baked 하므로(이중적용 방지) OFF 유지. 라이브 채택은 후속(평타 결정성 테스트 마이그 후).
+export const V2_DAMAGE_FLOOR_PCT_CAP = 0.9;
+
+let v2BattleModelEnabled = false;
+export function setV2BattleModel(enabled: boolean): void {
+  v2BattleModelEnabled = enabled;
+}
+export function isV2BattleModelEnabled(): boolean {
+  return v2BattleModelEnabled;
+}
+
+// 비율경감(ratio mitigation) 모델 — 천장을 빼기(atk−def) 대신 비율(atk×C/(C+def))로.
+// def 가 절대 0(약공 벽)도, 절대 무력화(PvP 뚫림)도 안 됨 — 빼기 모델의 "절벽" 제거.
+// C = def 강도 다이얼(낮을수록 def 강함). null = 끔(기존 빼기). §B 모델 평타에서만 효과.
+let ratioDefC: number | null = null;
+export function setRatioDef(c: number | null): void {
+  ratioDefC = c != null && c > 0 ? c : null;
+}
+export function isRatioDefEnabled(): boolean {
+  return ratioDefC !== null;
+}
+
+// 장비 위력 스케일(A 방향) — 장비의 물공/마공/물방/마방 위력에 곱. 1.0=현재. 캘리브로 장비가
+// 양적 파워의 ~40~60% 되게 상향용. 옵션(crit/mp/eva/hp)·무게는 불변. 기본 1.0(라이브·테스트 무변).
+let gearPowerScale = 1;
+export function setGearPowerScale(s: number): void {
+  gearPowerScale = s > 0 ? s : 1;
+}
+export function gearPowerScaleValue(): number {
+  return gearPowerScale;
+}
+
+// 스킬 데미지 스케일 — v2 스킬(액티브) 데미지 계수에 곱. 1.0=현재. 스킬 버스트(2~5턴 처치)가
+// 전투를 지배해 winT 스프레드가 큰 것을 완화(전투 길이↑·빌드 간 균질화). 평타·미러(스킬無)는 불변.
+let skillDamageScale = 1;
+export function setSkillDamageScale(s: number): void {
+  skillDamageScale = s > 0 ? s : 1;
+}
+
+// 사제 즉발 신성딜 스케일 — derive 의 passiveTurnHolyDamage 에 곱. 1.0=현재. SPI 가 홀리 구동이라
+// 다른 빌드보다 느린(winT) 것을 맞추는 다이얼. 스킬 스케일과 독립.
+let holyDamageScale = 1;
+export function setHolyDamageScale(s: number): void {
+  holyDamageScale = s > 0 ? s : 1;
+}
+export function holyDamageScaleValue(): number {
+  return holyDamageScale;
+}
+
+// 사제 홀리딜 누적(ramp) — 턴마다 홀리딜이 base × (1 + 완료턴수 × ramp) 로 증가. "버틸수록 강해지는"
+// 지속/소모전 정체성. 기본 0 = 누적 없음(현재·라이브 무변). engine applyPassiveHolyStrikeIfAny 가 사용.
+let holyRamp = 0;
+export function setHolyRamp(r: number): void {
+  holyRamp = r >= 0 ? r : 0;
+}
+export function holyRampValue(): number {
+  return holyRamp;
+}
+
+// §B 명중 비율식 — hit% = clamp(10, 95, (acc + C)/(acc + eva×k + C)). §D 시드 k=1, C=0.
+// C↑ = 전반 명중↑(회피 약화), k↑ = 회피 강화. 빼기(%p) 모델의 "고회피=무적/저명중=헛방" 양극단 완화.
+// §B 모델(setV2BattleModel)에서만 엔진이 사용 — 라이브/테스트(OFF)는 기존 %p 차감 유지.
+let v2HitK = 1;
+let v2HitC = 0;
+export function setV2HitParams(k: number, c: number): void {
+  v2HitK = k >= 0 ? k : 1;
+  v2HitC = c >= 0 ? c : 0;
+}
+export function v2HitChancePct(acc: number, eva: number): number {
+  const a = Math.max(0, acc);
+  const e = Math.max(0, eva);
+  const denom = a + e * v2HitK + v2HitC;
+  if (denom <= 0) return 95; // acc·eva·C 전부 0 → 최대 명중
+  return Math.min(95, Math.max(10, ((a + v2HitC) / denom) * 100));
+}
+
+// §B 다단감쇠 — 턴 내 N번째 공격(0-base)의 데미지 배율. §D 시드: 1타 ×1.0·2타 ×0.5·3타+ ×0.3.
+// 多타 빌드(高속도/DEX)가 선형으로 강해지는 것 방지(수확체감). 크리·속성 발동기회는 안 줄임(데미지만).
+export const V2_MULTIHIT_FALLOFF: readonly number[] = [1, 0.5, 0.3];
+export function v2MultiHitFalloff(ordinal: number): number {
+  if (ordinal <= 0) return 1;
+  return ordinal < V2_MULTIHIT_FALLOFF.length
+    ? V2_MULTIHIT_FALLOFF[ordinal]
+    : V2_MULTIHIT_FALLOFF[V2_MULTIHIT_FALLOFF.length - 1];
+}
+
+export function rollV2BasicDamage(args: {
+  atk: number;
+  def: number;
+  /** §B damageFloorPct (0~0.9 캡). 천장 대비 바닥 비율. */
+  floorPct: number;
+  /** §B 속성 상성 배율. 미지정 = 1. */
+  elementMult?: number;
+}): number {
+  // 천장 — 빼기(atk−def) 또는 비율경감(atk×C/(C+def)). 비율이면 def 가 %로만 깎아 절벽 없음.
+  const ceiling =
+    ratioDefC !== null
+      ? Math.max(1, Math.round((args.atk * ratioDefC) / (ratioDefC + Math.max(0, args.def))))
+      : Math.max(1, args.atk - args.def);
+  const pct = Math.min(V2_DAMAGE_FLOOR_PCT_CAP, Math.max(0, args.floorPct));
+  const floorAmt = ceiling * pct;
+  const rolled = v2BattleModelEnabled
+    ? floorAmt + battleRandom() * (ceiling - floorAmt)
+    : ceiling;
+  return Math.max(1, Math.floor(rolled * (args.elementMult ?? 1)));
 }
 
 // 포션 회복량(정수, 현재 HP 클램프 전). computeHealAmount 에 potionHealPct(연단의 룬 등) 가산.
@@ -268,7 +420,8 @@ export function v2DamageAmount(args: {
     ? v2MagicBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs)
     : v2AtkBuffMult(args.attackerSelfBuffs, args.attackerSelfDebuffs);
   const defMult = v2DefBuffMult(args.targetSelfBuffs, args.targetSelfDebuffs);
-  const rawAtk = Math.floor(base * mult * args.statCoef) + args.baseFlat;
+  const rawAtk =
+    Math.floor(base * mult * args.statCoef * skillDamageScale) + args.baseFlat;
   // 마법 데미지는 마법 방어력으로 경감(미지정=물리 def 폴백). 물리는 물리 def.
   const defStat = isMagic ? args.targetMagicDef ?? args.targetDef : args.targetDef;
   const effectiveDef = Math.floor(defStat * defMult);

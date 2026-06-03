@@ -443,6 +443,7 @@ function buildSide(
       completedPlayerTurns: 0,
       enemyPhasesCompleted: 0,
       firstAttackPending: true,
+      attacksThisTurn: 0,
       doubleStrikeUsedThisTurn: false,
       lightspeedUsedThisTurn: false,
       galeChainsThisTurn: 0,

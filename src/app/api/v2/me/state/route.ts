@@ -20,7 +20,6 @@ import {
 import {
   parseV2Class,
   tier1ClassOf,
-  nextTierClassOf,
   signaturesForClass,
   elementalSkillsForClass,
   signatureClassOf,
@@ -36,8 +35,6 @@ import {
   capGain,
   effectiveStatCap,
   signatureLearnCost,
-  advanceCumLevelReq,
-  V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { classPassiveTierText } from "@/adventure/data/v2/v2Passives";
@@ -47,7 +44,6 @@ import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
   V2_CODEX_TOTAL,
   discoveredMaterialIds,
-  codexRequirement,
 } from "@/adventure/data/v2/codex";
 import { FISH_TOTAL } from "@/adventure/data/v2/fish";
 import {
@@ -104,7 +100,6 @@ export async function GET() {
     fishingCodexRow,
     treasureCodexRow,
     treasureFragmentsRow,
-    adventureLogRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -167,24 +162,7 @@ export async function GET() {
       )
       .limit(1)
       .then((rows) => rows[0]),
-    db
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")))
-      .limit(1)
-      .then((rows) => rows[0]),
   ]);
-
-  // 전투 횟수(전적) — adventure-log.v2 의 monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의).
-  const logVal = (adventureLogRow?.value ?? null) as {
-    monsters?: Record<string, { kills?: number }>;
-    battleLosses?: number;
-  } | null;
-  const battleCount =
-    Object.values(logVal?.monsters ?? {}).reduce(
-      (sum, m) => sum + (m?.kills ?? 0),
-      0,
-    ) + (logVal?.battleLosses ?? 0);
 
   const charSave = (charRow?.value ?? {}) as {
     level?: number;
@@ -306,22 +284,16 @@ export async function GET() {
         spd: combat.player.spd,
         // 마법 공격력 — INT 환산. 0(물리 빌드)이면 StatsPanel 이 숨김.
         magicAtk: combat.player.magicAtk ?? 0,
-        // 마법 방어력 — SPI(+INT 약간)+장신구 환산. 마법 데미지를 막는 별개 방어 스탯.
-        magicDef: combat.player.magicDef ?? 0,
-        // 숨은 전투 축 — 전투엔 반영되나 그동안 내 정보에 미표시. 회피/명중/치명타/다중공격.
-        evasionPct: combat.player.evasionPct,
-        accuracyPct: combat.player.accuracyPct,
-        critChancePct: combat.player.critChancePct,
-        critMult: combat.player.critMult,
-        extraAttackChancePct: combat.player.extraAttackChancePct,
         // 콘텐츠 파워(docs §8) — 던전 층 권장 파워와 비교용 합성 지표(PR-7).
         power: derivePowerScore({
           atk: combat.player.atk,
           magicAtk: combat.player.magicAtk ?? 0,
           def: combat.player.def,
+          magicDef: combat.player.magicDef ?? 0,
           spd: combat.player.spd,
           maxHp,
           maxMp,
+          critResistPct: combat.player.critResistPct ?? 0,
         }),
       }
     : null;
@@ -360,8 +332,6 @@ export async function GET() {
     },
     stats,
     combat: combatStats,
-    // 누적 전투 횟수(전적) — 내 정보 기본 정보 카드 표기용.
-    battleCount,
     guild: guildId == null ? null : { id: guildId, name: guildName ?? "—" },
     resources,
     currentOutpost,
@@ -455,40 +425,6 @@ export async function GET() {
           points: groupUsable(prof, group),
           cultivations: cultivationCount(prof, group),
           nextCost: cultivationCost(totalCapGains(prof)),
-          // 현 직업군 다음 차수 전직 가능 여부 — 신전 직업 그리드의 "전직 가능" 표시용.
-          // 게이트 3종(Lv50·직군 누적레벨·3·4차 도감)을 advance-class 와 동일 기준으로 산출.
-          advance: (() => {
-            const cur = parseV2Class((charSave as { class?: unknown }).class);
-            const next = nextTierClassOf(cur);
-            if (!next) return null;
-            const haveLevel = Math.max(
-              1,
-              (charSave as { level?: number }).level ?? 1,
-            );
-            const reqCum = advanceCumLevelReq(V2_CLASS_DEFS[next].tier);
-            const haveCum = groupCumLevel(prof, group);
-            const reqCodex = codexRequirement(
-              V2_CLASS_DEFS[next].advanceCodexMin,
-            );
-            const haveCodex = discoveredMaterialIds(
-              (charSave as { materials?: unknown }).materials,
-            ).length;
-            return {
-              nextClass: next,
-              nextName: V2_CLASS_DEFS[next].name,
-              nextTier: V2_CLASS_DEFS[next].tier,
-              reqLevel: V2_ADVANCE_MIN_LEVEL,
-              haveLevel,
-              reqCum,
-              haveCum,
-              reqCodex,
-              haveCodex,
-              canAdvance:
-                haveLevel >= V2_ADVANCE_MIN_LEVEL &&
-                haveCum >= reqCum &&
-                haveCodex >= reqCodex,
-            };
-          })(),
         },
       };
     })(),

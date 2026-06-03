@@ -24,6 +24,17 @@
 //   - 빌드 간 격차 = 메타 빌드 지배 신호.
 
 import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
+import {
+  setV2BattleModel,
+  setBattleRng,
+  makeSeededRng,
+  setRatioDef,
+  setV2HitParams,
+  setGearPowerScale,
+  setSkillDamageScale,
+  setHolyDamageScale,
+  setHolyRamp,
+} from "../src/adventure/battle/combatShared";
 import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
@@ -39,6 +50,22 @@ import {
   signaturesForClass,
   type V2Class,
 } from "../src/adventure/data/v2/classes";
+import {
+  emptyProficiency,
+  addPoints,
+  addCumLevel,
+  applyCultivation,
+  setGroupTier,
+  V2_PROFICIENCY_PER_KILL,
+  type V2ProficiencyState,
+} from "../src/adventure/data/v2/proficiency";
+import {
+  computeStatFloors,
+  rollLevelGrowth,
+} from "../src/adventure/data/v2/statGrowth";
+import { requiredExpToNext } from "../src/lib/leveling";
+import { derivePowerScore } from "../src/adventure/data/v2/power";
+import { V2_ELEMENT_CYCLE, type V2Element } from "../src/adventure/data/v2/elements";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
@@ -51,6 +78,19 @@ import type { Monster } from "../src/adventure/data/monsters/types";
 
 type Arch = "STR" | "DEX" | "VIT" | "INT" | "SPI" | "LUK" | "BAL";
 const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
+
+// SIM-핸드오프 작업5 — 빌드 속성(공격·캐릭). 7-순환을 7빌드에 하나씩 고르게 배정(임의 매핑 —
+// 디자이너가 재배정 가능). 몬스터도 풀에서 순환으로 고르게 → 빌드마다 유/불리/중립 매치가 섞임
+// (한 빌드가 전 매치 우위인 "필수 가위바위보" 회피). 속성은 §B 모델(--v2model) 평타에서만 작동.
+const BUILD_ELEMENT: Record<Arch, V2Element> = {
+  STR: "fire",
+  DEX: "wind",
+  VIT: "earth",
+  INT: "starlight",
+  SPI: "water",
+  LUK: "void",
+  BAL: "lightning",
+};
 
 type Milestone = { lvl: number; floor: 1 | 2 | 3 | 4 | 5 };
 const MILESTONES: Milestone[] = [
@@ -111,52 +151,58 @@ function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2Equi
   return { weapon, armor, gloves, boots, ring, necklace };
 }
 
-// 분배 — main 60% / sub 30% / 잔여 10% (BAL 만 5스탯 spread).
-// sub 는 빌드 성격에 맞게 — STR/VIT/LUK 는 vit (탱크 보강), DEX/SPD 는 spd (다중공격),
-// INT 는 vit (마법사도 hp 필요).
-// 빌드별 sub/filler — main 60% / sub 30% / filler 10% (셋 다 distinct). 속도는 파생이라 분배 안 함.
-const SUB_STAT: Record<V2StatKey, V2StatKey> = {
-  str: "vit",
-  dex: "luk",
-  vit: "str",
-  int: "vit",
-  spi: "vit",
-  luk: "dex",
-};
-const FILL_STAT: Record<V2StatKey, V2StatKey> = {
-  str: "luk",
-  dex: "vit",
-  vit: "luk",
-  int: "luk",
-  spi: "luk",
-  luk: "vit",
-};
-function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
-  const total = Math.max(0, level - 1) * V2_STAT_POINTS_PER_LEVEL;
-  const a: Record<V2StatKey, number> = {
-    str: 0,
-    dex: 0,
-    vit: 0,
-    int: 0,
-    spi: 0,
-    luk: 0,
-  };
-  if (total === 0) return a;
-  if (arch === "BAL") {
-    a.str = Math.round(total * 0.25);
-    a.vit = Math.round(total * 0.25);
-    a.dex = Math.round(total * 0.2);
-    a.luk = Math.round(total * 0.15);
-    a.spi = total - a.str - a.vit - a.dex - a.luk;
-    return a;
+// 성장 입력(SIM-핸드오프 작업2·3) — 옛 수동 60/30/10 분배 폐기. 실제 게임의 숙련도 랜덤성장을
+// 그대로 사용: 직군 누적레벨→floor(computeStatFloors), 수행(cultivation)→cap, 레벨업마다
+// rollLevelGrowth(앵커 3:1)로 grown 누적. 직업 프로필(앵커+관련2)은 V2_CULTIVATE_PROFILE(floor)
+// + rollLevelGrowth 앵커 가중에서 자동 반영 → 임의 sub/fill 폐기(작업3). 성장 rng 는 (arch,level)
+// 고정 시드라 매트릭스가 실행마다 재현(전투 --seed 와 독립).
+const GROWTH_MONSTER_EXP = 350; // 킬→포인트 환산 가정(sim-v2-proficiency 와 동일). cap 연료용.
+
+function cultivateToEmpty(
+  prof: V2ProficiencyState,
+  group: string,
+  rng: () => number,
+): V2ProficiencyState {
+  let cur = prof;
+  for (let i = 0; i < 1000; i++) {
+    const r = applyCultivation(cur, group, rng);
+    if (!r) break;
+    cur = r.next;
   }
-  const main = arch.toLowerCase() as V2StatKey;
-  const sub = SUB_STAT[main];
-  const filler = FILL_STAT[main];
-  a[main] = Math.round(total * 0.6);
-  a[sub] = Math.round(total * 0.3);
-  a[filler] = total - a[main] - a[sub];
-  return a;
+  return cur;
+}
+
+type GrowthResult = {
+  floors: Record<V2StatKey, number>;
+  caps: Partial<Record<V2StatKey, number>>;
+  grown: Partial<Record<V2StatKey, number>>;
+};
+
+// arch+level → 숙련도 floor/cap + 랜덤성장 grown. 단일 직군 커리어를 monotonic level 로 근사
+// (cumLevel=level). 도달 차수는 classForArchLevel 로 산정해 floor tierMult 반영(스냅샷 근사).
+function growForArchLevel(arch: Arch, level: number, variant = 0): GrowthResult {
+  const group = ARCH_CLASS_T1[arch];
+  const cls = classForArchLevel(arch, level);
+  const rng = makeSeededRng(`growth:${arch}:${level}:${variant}`);
+  let prof = emptyProficiency();
+  let grown: Partial<Record<V2StatKey, number>> = {};
+  // BAL(무직) — 적립·수행·floor 없음. 균등 랜덤성장(headroom 내).
+  if (group === "none") {
+    for (let lv = 1; lv < level; lv++) {
+      grown = rollLevelGrowth(grown, "none", prof, rng);
+    }
+    return { floors: computeStatFloors(prof), caps: prof.caps, grown };
+  }
+  prof = setGroupTier(prof, group, V2_CLASS_DEFS[cls].tier);
+  for (let lv = 1; lv < level; lv++) {
+    const need = requiredExpToNext(lv) ?? 0;
+    const kills = need > 0 ? Math.ceil(need / GROWTH_MONSTER_EXP) : 0;
+    prof = addPoints(prof, group, kills * V2_PROFICIENCY_PER_KILL);
+    prof = addCumLevel(prof, group, 1);
+    prof = cultivateToEmpty(prof, group, rng); // 잔여 포인트로 cap 헤드룸 상승.
+    grown = rollLevelGrowth(grown, cls, prof, rng); // 앵커 가중 랜덤성장(cap 바운드).
+  }
+  return { floors: computeStatFloors(prof), caps: prof.caps, grown };
 }
 
 // PR-10 — sim 충실도: 아키타입 → 직업군 1차, 레벨로 도달 차수(전직 레벨 게이트)를 산출해
@@ -190,20 +236,103 @@ function classForArchLevel(arch: Arch, level: number): V2Class {
 // 패시브 없는 baseline(기존 다이얼 비교용). BAL(무직)은 시그니처 없어 패시브 없음.
 const PASSIVES_MODE = process.argv.includes("--passives");
 
+// 결정된 전투 모델(2026-06 캘리브): §B(평타 천장×floorPct~천장 uniform roll + 속성 상성) +
+// 비율경감 def(아래 C=100)를 **기본 ON**. --legacy 면 옛 빼기 모델(§B·비율 끔)로 되돌려 비교.
+// (라이브 엔진 기본값은 별개 — setV2BattleModel 기본 OFF 유지, 라이브 채택은 테스트 마이그 후.)
+const LEGACY = process.argv.includes("--legacy");
+const V2_MODEL_MODE = !LEGACY;
+setV2BattleModel(V2_MODEL_MODE);
+
+// SIM-핸드오프 — 시드 재현. --seed=<문자열> 주면 전투마다 결정론 PRNG 로 재시드 →
+// "같은 시드 = 같은 전투" → 다이얼/공식 변경 전후를 동일 전투 기준으로 비교(noise 제거).
+// 미지정이면 Math.random(기존 동작). 재시드는 (셀×몹×trial) 단위(combatStats)에서 한다.
+const SEED_ARG = process.argv.find((a) => a.startsWith("--seed="));
+const SEED: string | null = SEED_ARG ? SEED_ARG.slice("--seed=".length) : null;
+
+// 작업5 — 속성 부여 끄기(A/B용). 켜면 빌드·몹 전부 neutral(상성 무효). 기본 = 속성 부여.
+const NEUTRAL_ELEM = process.argv.includes("--neutral-elem");
+
+// 작업6 — 몬스터 미러. 켜면 사냥터 풀 = 동레벨 유저 미러(4잡몹+보스1). 기본 = authored 몹.
+const MIRROR_MODE = process.argv.includes("--mirror");
+
+// 작업1 A측정 — 플레이어 장비 제거(몹/미러는 장비 유지). 전후 WR·파워 델타 = 장비 양적 기여(목표 ~60%).
+const NOEQUIP = process.argv.includes("--noequip");
+
+// 작업1 A상향 — 장비 위력 스케일. **결정: 기본 2.25**(장비 양적 비중 ~45%, 40~50% 타겟).
+// --gearscale=<배율> override, --legacy 면 1.0(옛). (라이브 채택은 별개 — V2_EQUIPMENT 위력 반영 or scale.)
+const GEARSCALE_ARG = process.argv.find((a) => a.startsWith("--gearscale="));
+const GEAR_SCALE = LEGACY
+  ? 1
+  : GEARSCALE_ARG
+    ? Number(GEARSCALE_ARG.split("=")[1]) || 2.25
+    : 2.25;
+setGearPowerScale(GEAR_SCALE);
+
+// 스킬 데미지 스케일 — **결정: 기본 0.5**(스킬 버스트 완화 → 빌드 winT 균질화, 코어 6~16t).
+// --skillscale=<배율> override, --legacy=1.0(옛 버스트).
+const SKILLSCALE_ARG = process.argv.find((a) => a.startsWith("--skillscale="));
+const SKILL_SCALE = LEGACY
+  ? 1
+  : SKILLSCALE_ARG
+    ? Number(SKILLSCALE_ARG.split("=")[1]) || 0.5
+    : 0.5;
+setSkillDamageScale(SKILL_SCALE);
+
+// 사제 홀리딜 스케일(--holyscale=<배율>, 기본 1). SPI winT 를 다른 빌드와 맞추는 다이얼.
+const HOLYSCALE_ARG = process.argv.find((a) => a.startsWith("--holyscale="));
+const HOLY_SCALE = HOLYSCALE_ARG ? Number(HOLYSCALE_ARG.split("=")[1]) || 1 : 1;
+setHolyDamageScale(HOLY_SCALE);
+
+// 사제 홀리딜 누적 — **결정: 기본 0.3**(딜만 누적, 힐 고정). 홀리 = base×(1+완료턴×ramp). 버틸수록 강함.
+// --holyramp=<r> override, --legacy=0. (라이브 채택은 패시브에 baked 후속.)
+const HOLYRAMP_ARG = process.argv.find((a) => a.startsWith("--holyramp="));
+const HOLY_RAMP = LEGACY
+  ? 0
+  : HOLYRAMP_ARG
+    ? Number(HOLYRAMP_ARG.split("=")[1]) || 0.3
+    : 0.3;
+setHolyRamp(HOLY_RAMP);
+
+// 비율경감 def 모델 — --ratiodef 또는 --ratiodef=<C>. 천장 = atk×C/(C+def)(빼기 대신). 기본 C=100.
+// §B 모델(--v2model) 평타에서만 효과. 약공 벽·PvP 뚫림(빼기 절벽) 완화 측정용.
+const RATIODEF_ARG = process.argv.find((a) => a.startsWith("--ratiodef"));
+const RATIODEF_C: number | null = LEGACY
+  ? null
+  : RATIODEF_ARG
+    ? Number(RATIODEF_ARG.split("=")[1] ?? "100") || 100
+    : 100; // 결정 모델 기본 C=100. --ratiodef=<C> 로 override, --legacy 로 끔.
+setRatioDef(RATIODEF_C);
+
+// 명중 비율식 다이얼(§D 시드 k=1, C=0). --hitk=<k> --hitc=<C>. §B 모델 평타에서만 사용.
+const HITK_ARG = process.argv.find((a) => a.startsWith("--hitk="));
+const HITC_ARG = process.argv.find((a) => a.startsWith("--hitc="));
+const HIT_K = HITK_ARG ? Number(HITK_ARG.split("=")[1]) || 1 : 1;
+const HIT_C = HITC_ARG ? Number(HITC_ARG.split("=")[1]) || 0 : 0;
+setV2HitParams(HIT_K, HIT_C);
+
 function makePlayer(arch: Arch, level: number) {
-  const allocated = allocate(arch, level);
-  // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
-  // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
   // PR-10 — playerClass 전달로 앵커 보정 반영(차수는 레벨로 결정).
   const cls = classForArchLevel(arch, level);
-  return derivePlayerCombatV2Pure({
+  // SIM-핸드오프 작업2 — 숙련도 랜덤성장(floor/cap/앵커) 입력. 옛 allocate() 수동분배 대체.
+  // floor/cap 을 derive 에 같이 넘겨 stat = floor+grown 이 유효 cap 으로 클램프되게(실 게임 경로 동일).
+  const { floors, caps, grown } = growForArchLevel(arch, level);
+  const d = derivePlayerCombatV2Pure({
     level,
-    allocatedStats: allocated,
-    v2Equipped: equipFor(arch, level),
+    allocatedStats: grown,
+    statFloors: floors,
+    statCaps: caps,
+    v2Equipped: NOEQUIP ? {} : equipFor(arch, level),
     playerClass: cls,
     learnedSkillIds: PASSIVES_MODE ? signaturesForClass(cls) : undefined,
     hp: undefined,
   });
+  // 작업5 — 평타/캐릭 속성 부여(§B 모델 평타가 elementMult 에 사용). neutral 모드면 미부여.
+  if (!NEUTRAL_ELEM) {
+    const el = BUILD_ELEMENT[arch];
+    d.player.attackElement = el;
+    d.player.characterElement = el;
+  }
+  return d;
 }
 
 // --skills: 각 빌드가 주력 스탯 스킬을 장착하고 싸우는 모드. INT 마법 경로(magicAtk) 캘리브용.
@@ -260,10 +389,73 @@ function floorMonsters(floor: 1 | 2 | 3 | 4 | 5): Monster[] {
   const f = MAIN_DUNGEON.floors.find((x) => x.id === floor);
   if (!f) return [];
   const out: Monster[] = [];
+  let idx = 0;
   for (const e of f.enemies) {
     const base = MONSTERS[e.key];
-    if (base) out.push(scaleMonsterForFloor(base, floor));
+    if (!base) continue;
+    const scaled = scaleMonsterForFloor(base, floor);
+    // 작업5 — 몬스터 속성: 풀에서 7-순환 고르게 배정(빌드마다 유/불리/중립 섞이게). neutral 모드면 미부여.
+    out.push(
+      NEUTRAL_ELEM
+        ? scaled
+        : { ...scaled, element: V2_ELEMENT_CYCLE[idx % V2_ELEMENT_CYCLE.length] },
+    );
+    idx += 1;
   }
+  return out;
+}
+
+// SIM-핸드오프 작업6 — 몬스터 미러. 동레벨 유저(makePlayer)를 derive 해 Monster 로 변환
+// (성장·속성·치명저항·바닥비율 그대로). 잡몹은 물리 위주 4직업(속성 고르게)·패시브 미보유
+// (Monster 변환이 패시브 효과 필드를 안 옮김 = baseline). 보스 = 탱키(VIT) 미러 ×1.5 스탯.
+// 미러의 본 가치 = 테스트 공정성(authored 몹·floor5 절벽 땜질 대신 동레벨 유저급 적).
+function mirrorMonster(
+  arch: Arch,
+  level: number,
+  boss: boolean,
+  variant: number,
+): Monster {
+  // 미러 전용 derive — 변주 시드 + 패시브 없음(잡몹 baseline). makePlayer 와 분리.
+  const cls = classForArchLevel(arch, level);
+  const { floors, caps, grown } = growForArchLevel(arch, level, variant);
+  const p = derivePlayerCombatV2Pure({
+    level,
+    allocatedStats: grown,
+    statFloors: floors,
+    statCaps: caps,
+    v2Equipped: equipFor(arch, level),
+    playerClass: cls,
+  }).player;
+  const mult = boss ? 1.5 : 1;
+  return {
+    name: `${boss ? "미러보스" : "미러"}-${arch}${variant}`,
+    tags: ["humanoid"],
+    hp: Math.max(1, Math.round(p.maxHp * mult)),
+    atk: Math.max(1, Math.round(p.atk * mult)),
+    def: Math.max(0, Math.round(p.def * mult)),
+    spd: p.spd,
+    evasionPct: p.evasionPct,
+    accuracy: p.accuracyPct, // 유저 명중 → 플레이어 회피 차감(대칭)
+    element: NEUTRAL_ELEM ? "neutral" : BUILD_ELEMENT[arch],
+    critResistPct: p.critResistPct, // 정신 비례 — 플레이어 크리 경감
+    damageFloorPct: p.damageFloorPct, // §B variance 대칭
+    exp: 0,
+  };
+}
+
+// 미러 풀 — 6직업 × 3변주(stat 변동) 잡몹 18 + 보스 2(탱키 VIT·딜러 STR) = 20종.
+// 풀 20종 → WR 5% 단위 해상도(옛 5종=20% 단위 대비 정밀). 직업·속성 분포 고르게.
+const MIRROR_ARCHES_ALL: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK"];
+const MIRROR_VARIANTS = 3;
+function mirrorPool(level: number): Monster[] {
+  const out: Monster[] = [];
+  for (const a of MIRROR_ARCHES_ALL) {
+    for (let v = 0; v < MIRROR_VARIANTS; v++) {
+      out.push(mirrorMonster(a, level, false, v));
+    }
+  }
+  out.push(mirrorMonster("VIT", level, true, 0));
+  out.push(mirrorMonster("STR", level, true, 1));
   return out;
 }
 
@@ -305,6 +497,8 @@ function combatStats(
   let lossHpPctSum = 0;
   for (const enemy of enemies) {
     for (let i = 0; i < TRIALS_PER_MONSTER; i++) {
+      // 시드 모드: 이 (몹×trial) 전투를 결정론으로 재현. 전후 비교 시 같은 전투 기준.
+      if (SEED !== null) setBattleRng(makeSeededRng(`${SEED}:${enemy.name}:${i}`));
       const r = resolveBattle({ ...player, hp: player.maxHp }, enemy, "Sim", {
         pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
         potions: {},
@@ -335,7 +529,7 @@ function combatStats(
 // ── 실행 ────────────────────────────────────────────────────
 console.log("v2 진행 시뮬레이션 — 7 archetype × 6 milestone (×5 스케일, 풀 평균)");
 console.log(
-  `가정: V2_STAT_POINTS_PER_LEVEL=${V2_STAT_POINTS_PER_LEVEL}, 60/30/10 분배(BAL spread), tier-by-level 장비, 층 전체 잡몹 × ${TRIALS_PER_MONSTER} trial 풀 평균.`,
+  `가정: 레벨당 성장 ${V2_STAT_POINTS_PER_LEVEL}pt, 숙련도 랜덤성장(floor/cap·직업 앵커 가중, 작업2·3), tier-by-level 장비, 층 전체 잡몹 × ${TRIALS_PER_MONSTER} trial 풀 평균.`,
 );
 console.log(
   SKILLS_MODE
@@ -346,6 +540,39 @@ console.log(
   PASSIVES_MODE
     ? "패시브 모드 ON (--passives): 도달 차수 직업 패시브 반영(BAL 제외)."
     : "패시브 모드 OFF: 직업 패시브 없음 baseline. 패시브 측정하려면 --passives.",
+);
+console.log(
+  V2_MODEL_MODE
+    ? "전투 모델: 결정 모델 ON (§B 평타 + 비율경감). 옛 빼기 비교는 --legacy."
+    : "전투 모델: LEGACY (--legacy) — 옛 결정론 빼기 평타(damageBetween).",
+);
+console.log(
+  SEED !== null
+    ? `시드 ON (--seed=${SEED}): 전투마다 재현. 같은 시드 재실행 = 동일 결과(전후 비교용).`
+    : "시드 OFF: Math.random(매 실행 변동). 재현·전후비교 하려면 --seed=<문자열>.",
+);
+console.log(
+  NEUTRAL_ELEM
+    ? "속성 OFF (--neutral-elem): 전부 neutral(상성 무효)."
+    : "속성 ON (작업5): 빌드=고정 속성·몹=풀 순환 배정. §B 모델(--v2model)서만 상성 작동.",
+);
+console.log(
+  MIRROR_MODE
+    ? "미러 ON (--mirror, 작업6): 사냥터 풀=동레벨 유저 미러(잡몹4직업+보스1·×1.5). authored 몹 대체."
+    : "미러 OFF: authored 몹 × 층배율. 동레벨 유저 미러로 보려면 --mirror.",
+);
+console.log(
+  RATIODEF_C !== null
+    ? `비율경감 ON (--ratiodef, C=${RATIODEF_C}): 천장=atk×C/(C+def). def 절벽 제거. §B 평타만.`
+    : "비율경감 OFF: 천장=atk−def(빼기). 비율 모델 보려면 --ratiodef[=C].",
+);
+console.log(
+  V2_MODEL_MODE
+    ? `명중 비율식 ON (k=${HIT_K}, C=${HIT_C}): hit%=(acc+C)/(acc+eva·k+C). --hitc= 로 명중 바닥 조정.`
+    : "명중: LEGACY %p 차감.",
+);
+console.log(
+  `장비 위력 스케일 ×${GEAR_SCALE} (장비 양적 비중 캘리브, 기본 2.25≈45%). --gearscale= override.`,
 );
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);
@@ -360,12 +587,12 @@ function turnCell(t: number, hasAny: boolean): string {
 
 for (const ms of MILESTONES) {
   const floorMeta = MAIN_DUNGEON.floors.find((f) => f.id === ms.floor);
-  const enemies = floorMonsters(ms.floor);
+  const enemies = MIRROR_MODE ? mirrorPool(ms.lvl) : floorMonsters(ms.floor);
   console.log(
     `\n━━━ Lv${ms.lvl} · ${floorMeta?.name ?? `Floor ${ms.floor}`} (pool: ${enemies.length}종) ━━━`,
   );
   console.log(
-    "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
+    "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL% │  pw",
   );
   for (const arch of ARCHES) {
     const d = makePlayer(arch, ms.lvl);
@@ -381,8 +608,18 @@ for (const ms of MILESTONES) {
       const hpL = r.wrPct < 100 ? r.lossEnemyHpPct.toFixed(0) + "%" : " -";
       combatCol = `│ ${pad(wrStr, 4)} ${pad(ciStr, 5)} ${pad(winT, 5)} ${pad(lossT, 5)} ${pad(hpL, 4)}`;
     }
+    const pw = derivePowerScore({
+      atk: p.atk,
+      magicAtk: p.magicAtk ?? 0,
+      def: p.def,
+      magicDef: p.magicDef ?? 0,
+      spd: p.spd,
+      maxHp: p.maxHp,
+      maxMp: p.maxMp ?? 0,
+      critResistPct: p.critResistPct ?? 0,
+    });
     console.log(
-      `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.int, 3)} ${pad(s.spi, 3)} ${pad(s.luk, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol}`,
+      `${arch.padEnd(5)} ${pad(s.str, 3)} ${pad(s.dex, 3)} ${pad(s.vit, 3)} ${pad(s.int, 3)} ${pad(s.spi, 3)} ${pad(s.luk, 3)} │ ${pad(p.atk, 3)} ${pad(p.def, 3)} ${pad(p.maxHp, 5)} ${pad(p.maxMp ?? 0, 5)} ${pct(p.critChancePct ?? 0)} ${pct(p.evasionPct ?? 0)} ${pct(p.accuracyPct ?? 0)} ${pct(p.extraAttackChancePct ?? 0)} ${combatCol} │ ${pad(pw, 4)}`,
     );
   }
 }

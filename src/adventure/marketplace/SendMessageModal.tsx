@@ -1,13 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import { USER_MESSAGE_MAX_LENGTH } from "@/lib/inbox-config";
-import { RECIPES } from "@/adventure/data/recipes";
-import { useGame } from "@/adventure/GameContext";
 import { sendUserMessage } from "./api";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { useModalA11y } from "@/lib/useModalA11y";
+
+// 플라자 쪽지 보내기 모달. 순수 텍스트 쪽지.
+// (옛 V1 "제작서 첨부 선물" 기능은 제거 — v2 엔 레시피 공유 토큰 개념이 없고, 그걸 위해
+//  GameContext(useGame) 를 쓰던 게 (game) 트리에 GameProvider 가 없어 크래시를 냈다.
+//  이 컴포넌트가 라이브 플라자의 유일한 GameContext 의존이었다.)
 
 type Props = {
   initialRecipient?: string;
@@ -23,30 +26,16 @@ export function SendMessageModal({
   useEscapeKey(onClose);
   const contentRef = useRef<HTMLDivElement>(null);
   useModalA11y(contentRef);
-  const { crafting } = useGame();
-  const shareableRecipes = crafting.state.shareable;
-  const consumeShare = crafting.consumeShare;
   const [recipient, setRecipient] = useState(initialRecipient);
   const [draft, setDraft] = useState("");
-  const [attachedRecipeId, setAttachedRecipeId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // 공유 토큰을 보유한 레시피만 선물 가능 — 이미 공유에 쓴 건 다시 습득해야 충전.
-  const giftable = useMemo(
-    () =>
-      RECIPES.filter(
-        (r) => r.tradable !== false && shareableRecipes.includes(r.id),
-      ),
-    [shareableRecipes],
-  );
-
   const trimmedRecipient = recipient.trim();
   const trimmedDraft = draft.trim();
-  // 첨부가 있으면 본문 비어도 전송 가능.
   const canSubmit =
     trimmedRecipient.length > 0 &&
-    (attachedRecipeId !== null || trimmedDraft.length > 0) &&
+    trimmedDraft.length > 0 &&
     trimmedDraft.length <= USER_MESSAGE_MAX_LENGTH &&
     !submitting;
 
@@ -55,13 +44,7 @@ export function SendMessageModal({
     setSubmitting(true);
     setErr(null);
     try {
-      const r = await sendUserMessage(
-        trimmedRecipient,
-        trimmedDraft,
-        attachedRecipeId,
-      );
-      // 서버가 토큰 차감 성공 → 클라 로컬 상태도 동일 변경.
-      if (attachedRecipeId) consumeShare(attachedRecipeId);
+      const r = await sendUserMessage(trimmedRecipient, trimmedDraft);
       onSent?.(r.recipientName);
       onClose();
     } catch (e) {
@@ -139,34 +122,6 @@ export function SendMessageModal({
           </span>
           {err && <span className="text-rose-600">{err}</span>}
         </div>
-
-        {giftable.length > 0 && (
-          <>
-            <label className="mt-3 block text-xs text-zinc-600 dark:text-zinc-400">
-              제작서 첨부 (선물 — 무료)
-            </label>
-            <select
-              value={attachedRecipeId ?? ""}
-              onChange={(e) =>
-                setAttachedRecipeId(e.target.value ? e.target.value : null)
-              }
-              disabled={submitting}
-              className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            >
-              <option value="">— 첨부 없음 —</option>
-              {giftable.map((r) => (
-                <option key={r.id} value={r.id}>
-                  📜 {r.name}
-                </option>
-              ))}
-            </select>
-            {attachedRecipeId ? (
-              <p className="mt-1 text-[11px] text-zinc-500">
-                상대가 이미 알고 있는 제작서면 자동으로 무시됩니다.
-              </p>
-            ) : null}
-          </>
-        )}
 
         <div className="mt-4 flex justify-end gap-2">
           <button

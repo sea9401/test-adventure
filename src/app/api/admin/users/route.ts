@@ -39,5 +39,19 @@ export async function GET(req: Request) {
     .orderBy(desc(presence.lastSeenAt), desc(users.createdAt))
     .limit(50);
 
-  return Response.json(rows);
+  // 타임스탬프는 명시적으로 ISO 문자열화 — AdminUserRow(string) 계약과 일치시키고,
+  // Date 직렬화가 환경별로 달라질 여지 차단(guilds/me·admin/stats 와 동일 패턴).
+  return Response.json(
+    rows.map((r) => ({
+      ...r,
+      lastSeenAt:
+        r.lastSeenAt instanceof Date
+          ? r.lastSeenAt.toISOString()
+          : (r.lastSeenAt ?? null),
+      createdAt:
+        r.createdAt instanceof Date
+          ? r.createdAt.toISOString()
+          : String(r.createdAt),
+    })),
+  );
 }

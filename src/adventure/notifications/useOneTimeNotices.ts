@@ -31,7 +31,7 @@ export function useOneTimeNotices(deps: {
     if (isNewbieBonusActive(level)) {
       addNotification(
         "info",
-        `신참 보너스 활성 — ${NEWBIE_BONUS_LEVEL_THRESHOLD}레벨 미만 동안 사냥/퀘스트 EXP ×2, 드롭률 ×2.`,
+        `신참 보너스 활성 — ${NEWBIE_BONUS_LEVEL_THRESHOLD}레벨 미만 동안 사냥/퀘스트 EXP ×2.`,
       );
     }
     // 시련 재개 안내 — 사용자가 실제 시련 화면(adventure/map) 으로 들어왔을 때만.

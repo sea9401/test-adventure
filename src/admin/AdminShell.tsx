@@ -4,33 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { AdminProvider, useAdmin } from "./AdminContext";
 import { OverviewTab } from "./tabs/OverviewTab";
-import { InventoryTab } from "./tabs/InventoryTab";
-import { QuestsTab } from "./tabs/QuestsTab";
-import { CraftingTab } from "./tabs/CraftingTab";
 import { LogTab } from "./tabs/LogTab";
-import { MapTab } from "./tabs/MapTab";
-import { RunesTab } from "./tabs/RunesTab";
 import { DataTab } from "./tabs/DataTab";
 import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
-import { MarketplaceTab } from "./tabs/MarketplaceTab";
-import { CoopTab } from "./tabs/CoopTab";
 import { GuildsTab } from "./tabs/GuildsTab";
 
-type TabKey =
-  | "overview"
-  | "users"
-  | "stats"
-  | "marketplace"
-  | "coop"
-  | "guilds"
-  | "inventory"
-  | "quests"
-  | "crafting"
-  | "log"
-  | "map"
-  | "runes"
-  | "data";
+// 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
+type TabKey = "overview" | "users" | "stats" | "guilds" | "log" | "data";
 
 type TabGroup = "system" | "edit" | "data";
 
@@ -38,15 +19,8 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "overview", label: "개요", group: "system" },
   { key: "users", label: "유저", group: "system" },
   { key: "stats", label: "통계", group: "system" },
-  { key: "marketplace", label: "거래소", group: "system" },
-  { key: "coop", label: "협동 보스", group: "system" },
   { key: "guilds", label: "길드 의뢰", group: "system" },
-  { key: "inventory", label: "인벤토리", group: "edit" },
-  { key: "quests", label: "퀘스트", group: "edit" },
-  { key: "crafting", label: "제작", group: "edit" },
   { key: "log", label: "모험의 서", group: "edit" },
-  { key: "map", label: "지도", group: "edit" },
-  { key: "runes", label: "룬", group: "edit" },
   { key: "data", label: "데이터", group: "data" },
 ];
 
@@ -162,15 +136,8 @@ function ShellInner() {
           {tab === "overview" && <OverviewTab />}
           {tab === "users" && <UsersTab />}
           {tab === "stats" && <StatsTab />}
-          {tab === "marketplace" && <MarketplaceTab />}
-          {tab === "coop" && <CoopTab />}
           {tab === "guilds" && <GuildsTab />}
-          {tab === "inventory" && <InventoryTab />}
-          {tab === "quests" && <QuestsTab />}
-          {tab === "crafting" && <CraftingTab />}
           {tab === "log" && <LogTab />}
-          {tab === "map" && <MapTab />}
-          {tab === "runes" && <RunesTab />}
           {tab === "data" && <DataTab />}
         </main>
       </div>

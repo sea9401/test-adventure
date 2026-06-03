@@ -19,6 +19,9 @@ export default function PlazaPage() {
           case "open-feed":
             router.push("/plaza/feed");
             break;
+          case "open-inbox":
+            router.push("/plaza/inbox");
+            break;
         }
       }}
     />

@@ -13,7 +13,9 @@ import type { Monster } from "../data/monsters";
 // 2026-06-03: 1.0 → 2.0 (2×). HP 충전(1g=1HP)이 곧 회복 통화라 실수령 = gross − 세금 −
 // 피해량. 1.0 은 킬당 골드 ≈ 충전 소모로 잡혀 net 이 0 에 수렴(특히 저~중반/적정레벨).
 // 회복비는 고정이므로 rate 만 2× 하면 net 은 2× 이상 개선된다. 단일 다이얼 — 라이브 재조정 용이.
-export const BASE_GOLD_RATE = 2.0;
+// 2026-06-04: 2.0 → 4.0 (2×). 라이브 체감상 수급이 여전히 짜서 추가 2배. 회복비 고정이라
+// net 은 2× 이상 개선. ⚠️ 배포 후 거래소 인플레/싱크 균형 재모니터.
+export const BASE_GOLD_RATE = 4.0;
 
 /** 한 마리 처치 시 부여되는 base 골드(부스트 전 raw). 최소 1 보장. */
 export function monsterGoldReward(monster: Pick<Monster, "exp">): number {

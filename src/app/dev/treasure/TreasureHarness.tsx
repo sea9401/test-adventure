@@ -47,6 +47,11 @@ export function TreasureHarness() {
     };
   }, []);
 
+  const loadFragments = useCallback(
+    async (): Promise<number | null> => fragments.current.fragments,
+    [],
+  );
+
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
       const s = session.current;
@@ -96,7 +101,7 @@ export function TreasureHarness() {
           초기화.
         </div>
       </div>
-      <TreasureDigView open={open} dig={dig} />
+      <TreasureDigView open={open} dig={dig} loadFragments={loadFragments} />
     </div>
   );
 }

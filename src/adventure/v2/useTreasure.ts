@@ -31,6 +31,16 @@ export function useTreasure(): TreasureHandlers {
     return { ok: false, reason: "error" };
   }, []);
 
+  // 보유 지도 조각 수 — 발굴 화면 진입 시 표시용. collection 라우트가 fragments 를 함께 반환한다.
+  const loadFragments = useCallback(async (): Promise<number | null> => {
+    try {
+      const res = await fetch("/api/v2/treasure/collection");
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok && typeof j.fragments === "number") return j.fragments;
+    } catch {}
+    return null;
+  }, []);
+
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
       const res = await fetch("/api/v2/treasure/dig", {
@@ -70,5 +80,5 @@ export function useTreasure(): TreasureHandlers {
     [],
   );
 
-  return { open, dig };
+  return { open, dig, loadFragments };
 }

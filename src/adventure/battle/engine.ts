@@ -1475,10 +1475,16 @@ export function advanceTurn(
       bonus > 0 && crushReduction > 0
         ? Math.max(0, baseDef - crushReduction)
         : baseDef;
-    const targetDef =
+    const afterIgnore =
       assassinFires || weakpointDefIgnore || apIgnoresDef
         ? Math.round(afterCrush * (1 - DEF_IGNORE_FRACTION))
         : afterCrush;
+    // 궁수 패시브 — 평타 방어 관통(%). 위 30% 무시 레이어 뒤에 곱연산(방어 투자가 항상 일부 유효).
+    const archerPenPct = player.passiveDefPenetrationPct ?? 0;
+    const targetDef =
+      archerPenPct > 0
+        ? Math.round(afterIgnore * (1 - archerPenPct / 100))
+        : afterIgnore;
     // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
     // berserkAtkPctPerLostHpPct=0.5 → 잃은 HP 1%당 ATK +0.5% → 보너스ATK = atk × lostFraction × 0.5.
     const lostHpFraction = Math.max(0, 1 - state.playerHp / state.playerMaxHp);
@@ -1564,8 +1570,13 @@ export function advanceTurn(
       nextBuffsTimed.playerAtkBuffTurnsLeft > 0 && nextBuffsTimed.playerAtkBuffPct > 0
         ? Math.floor((player.atk * nextBuffsTimed.playerAtkBuffPct) / 100)
         : 0;
+    // 마법사 패시브 — 평타를 마법공격력 기반으로 전환. PvE 적(몬스터)은 magicDef 가 없어
+    // targetDef(물방)로 경감된다(의도 — "마공 vs 물방"). PvP(아레나)는 engine-pvp 별도.
+    const basicAttackPower = player.passiveMagicBasicAttack
+      ? (player.magicAtk ?? player.atk)
+      : player.atk;
     const atkBeforeApMult =
-      player.atk +
+      basicAttackPower +
       state.buffs.rampageAtkBonus +
       bonus +
       berserkBonus +
@@ -2760,11 +2771,33 @@ export function advanceTurn(
       text: `[반격의 룬] ${state.enemy.name}에게 ${counterDmg} 반격 피해.`,
     });
   }
+  // 무도가 패시브 — 피격 생존 시 일정 확률로 ATK 반격(반격의 룬과 동일 패턴, 별개 누적).
+  const martialCounterPct = player.passiveCounterChancePct ?? 0;
+  let enemyHpAfterMartialCounter = enemyHpAfterRuneCounter;
+  if (
+    martialCounterPct > 0 &&
+    playerHp > 0 &&
+    enemyHpAfterRuneCounter > 0 &&
+    Math.random() * 100 < martialCounterPct
+  ) {
+    const v2AtkMultM = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+    const v2DefMultM = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
+    const counterDefM = playerFacingEnemyDef(state, player);
+    const counterDmgM = damageBetween(
+      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk,
+      v2DefMultM !== 1 ? Math.floor(counterDefM * v2DefMultM) : counterDefM,
+    );
+    enemyHpAfterMartialCounter = Math.max(0, enemyHpAfterRuneCounter - counterDmgM);
+    log = appendLog(log, {
+      kind: "player_attack",
+      text: `[반격] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
+    });
+  }
   if (playerHp <= 0) {
     return {
       ...state,
       playerHp,
-      enemyHp: enemyHpAfterRuneCounter,
+      enemyHp: enemyHpAfterMartialCounter,
       flags: {
         ...state.flags,
         enduranceTriggered,
@@ -2792,7 +2825,7 @@ export function advanceTurn(
       outcome: "lose",
     };
   }
-  if (enemyHpAfterRuneCounter <= 0) {
+  if (enemyHpAfterMartialCounter <= 0) {
     // 반사 / 반격 피해로 적이 쓰러짐 — 플레이어는 생존.
     return {
       ...state,
@@ -2828,7 +2861,7 @@ export function advanceTurn(
   return finishEnemyAttack({
     ...state,
     playerHp,
-    enemyHp: enemyHpAfterRuneCounter,
+    enemyHp: enemyHpAfterMartialCounter,
     flags: {
       ...state.flags,
       enduranceTriggered,

@@ -34,6 +34,7 @@ import {
   setSkillDamageScale,
   setHolyDamageScale,
   setHolyRamp,
+  setFlatHit,
 } from "../src/adventure/battle/combatShared";
 import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
@@ -309,6 +310,21 @@ const HITC_ARG = process.argv.find((a) => a.startsWith("--hitc="));
 const HIT_K = HITK_ARG ? Number(HITK_ARG.split("=")[1]) || 1 : 1;
 const HIT_C = HITC_ARG ? Number(HITC_ARG.split("=")[1]) || 0 : 0;
 setV2HitParams(HIT_K, HIT_C);
+
+// flat-base 명중 모델(디자이너 제안) — --flathit[=base] 로 켬. hit% = clamp(floor, base − eva×k, base).
+// 명중 축 은퇴(회피만 base 차감). --flatfloor=<n> 으로 적중 하한(PvP 회피불사 방지). 기본 base=95, floor=0.
+const FLATHIT_ARG = process.argv.find((a) => a.startsWith("--flathit"));
+const FLATFLOOR_ARG = process.argv.find((a) => a.startsWith("--flatfloor="));
+const FLAT_BASE: number | null = FLATHIT_ARG
+  ? Number(FLATHIT_ARG.split("=")[1] ?? "95") || 95
+  : null;
+const FLAT_FLOOR = FLATFLOOR_ARG ? Number(FLATFLOOR_ARG.split("=")[1]) || 0 : 0;
+setFlatHit(FLAT_BASE, FLAT_FLOOR);
+if (FLAT_BASE !== null) {
+  console.log(
+    `flat-base 명중 ON (--flathit, base=${FLAT_BASE}, floor=${FLAT_FLOOR}, eva×k=${HIT_K}): hit%=clamp(floor, base − eva×k, base). 명중 축 은퇴.`,
+  );
+}
 
 function makePlayer(arch: Arch, level: number) {
   // PR-10 — playerClass 전달로 앵커 보정 반영(차수는 레벨로 결정).

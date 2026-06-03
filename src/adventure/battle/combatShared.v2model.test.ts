@@ -6,6 +6,7 @@ import {
   setRatioDef,
   v2HitChancePct,
   setV2HitParams,
+  setFlatHit,
   v2MultiHitFalloff,
   V2_DAMAGE_FLOOR_PCT_CAP,
 } from "./combatShared";
@@ -18,6 +19,7 @@ describe("§B 통합 평타 데미지 (rollV2BasicDamage)", () => {
     setV2BattleModel(false);
     setRatioDef(null);
     setV2HitParams(1, 0);
+    setFlatHit(null);
     vi.restoreAllMocks();
   });
 
@@ -85,6 +87,17 @@ describe("§B 통합 평타 데미지 (rollV2BasicDamage)", () => {
     setV2HitParams(1, 50); // C=50
     // acc10·eva90 → (10+50)/(10+90+50)=60/150=40% (C=0이면 10%였음)
     expect(v2HitChancePct(10, 90)).toBe(40);
+  });
+
+  it("flat-base 명중(setFlatHit) — hit = clamp(floor, base − eva×k, base), 명중 무시", () => {
+    setFlatHit(95, 0); // base 95, floor 0
+    expect(v2HitChancePct(0, 0)).toBe(95); // 회피 0 → base
+    expect(v2HitChancePct(999, 20)).toBe(75); // 95 − 20 = 75 (명중 999 무시)
+    expect(v2HitChancePct(0, 90)).toBe(5); // 95 − 90 = 5 (floor 0)
+    setFlatHit(95, 40); // floor 40
+    expect(v2HitChancePct(0, 90)).toBe(40); // 95 − 90 = 5 → floor 40
+    setFlatHit(null); // 끄면 비율식 복귀
+    expect(v2HitChancePct(50, 50)).toBe(50);
   });
 
   it("다단감쇠(v2MultiHitFalloff) — 1타 1.0·2타 0.5·3타+ 0.3", () => {

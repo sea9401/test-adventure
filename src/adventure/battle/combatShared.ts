@@ -213,9 +213,25 @@ export function setV2HitParams(k: number, c: number): void {
   v2HitK = k >= 0 ? k : 1;
   v2HitC = c >= 0 ? c : 0;
 }
+
+// flat-base 명중 모델(디자이너 제안 탐색용) — hit% = clamp(floor, base − eva×k, base).
+// 명중(accuracy) 축은 은퇴(무시): 회피만 base 에서 차감. base=null 이면 끔(위 비율식 사용).
+// 비율식의 C·k·클램프 튜닝을 버리고 "기본 95% 깔고 상대 회피만큼 차감"하는 단순 모델 검증용.
+let flatHitBase: number | null = null;
+let flatHitFloor = 0;
+export function setFlatHit(base: number | null, floor = 0): void {
+  flatHitBase = base != null && base > 0 ? base : null;
+  // floor 는 [0, base] 로 클램프 — floor > base 면 floor 가 무력해지는 혼란 방지(Codex).
+  const f = floor >= 0 ? floor : 0;
+  flatHitFloor = flatHitBase !== null ? Math.min(f, flatHitBase) : f;
+}
 export function v2HitChancePct(acc: number, eva: number): number {
-  const a = Math.max(0, acc);
   const e = Math.max(0, eva);
+  // flat-base 모델 — 명중 무시, base 에서 회피만 차감(하한 floor, 상한 base).
+  if (flatHitBase !== null) {
+    return Math.min(flatHitBase, Math.max(flatHitFloor, flatHitBase - e * v2HitK));
+  }
+  const a = Math.max(0, acc);
   const denom = a + e * v2HitK + v2HitC;
   if (denom <= 0) return 95; // acc·eva·C 전부 0 → 최대 명중
   return Math.min(95, Math.max(10, ((a + v2HitC) / denom) * 100));

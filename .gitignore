@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# 비밀 아님 — 빌드 타임에 굽는 공개 페이싱 다이얼. 박스 .env.production.local 이
+# 이 키를 안 가져서 충돌 없음(.local 우선순위). 값 튜닝은 이 파일 한 줄 수정 + push.
+!.env.production
 
 # vercel
 .vercel

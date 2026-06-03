@@ -21,11 +21,12 @@ const FLOOR1_ENEMIES: DungeonEnemy[] = [
 
 // === 2구역 — 깊은 산 =================================================
 // 들판 다음 사냥터 — 산적 소굴 결. 산적·산적 궁수(사람형=무속성) + 늑대·곰·들소(짐승).
-// 스탯 출처(key)는 라이브 몬스터. ⚠️ "산적 궁수" 전용 아트 부재 → field-highwayman(노상강도)
-// 임시 이미지(빌드용, 추후 교체). 속성: 번개/대지/불 + 무속성 2.
+// 스탯 출처(key)는 라이브 몬스터. 산적 궁수는 깊은 산 체급 전용 블록(midlands "산적 궁수").
+// ⚠️ 산적 궁수 전용 아트 부재 → field-highwayman 임시 이미지(빌드용, 추후 교체).
+// 속성: 번개/대지/불 + 무속성 2.
 const FLOOR2_ENEMIES: DungeonEnemy[] = [
   { key: "떠돌이 약탈자", name: "산적", image: "/images/monster/v2/mountain-brigand.webp" },
-  { key: "노상강도", name: "산적 궁수", image: "/images/monster/v2/field-highwayman.webp" },
+  { key: "산적 궁수", name: "산적 궁수", image: "/images/monster/v2/field-highwayman.webp" },
   { key: "절벽 늑대", name: "늑대", image: "/images/monster/v2/mountain-cliff-wolf.webp", element: "lightning" },
   { key: "부서진 골렘", name: "곰", image: "/images/monster/v2/forest-bear.webp", element: "earth" },
   { key: "들소", name: "들소", image: "/images/monster/v2/mountain-bison.webp", element: "fire" },

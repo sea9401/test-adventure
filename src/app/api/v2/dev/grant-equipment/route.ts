@@ -4,6 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
+  genEquipIid,
   type EquipmentSave,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -52,12 +53,12 @@ export async function POST(req: Request) {
       {},
     );
     const { owned, equipped } = parseEquipmentSave(save);
-    if (owned.includes(equipmentId)) {
+    if (owned.some((i) => i.id === equipmentId)) {
       return { status: 200, body: { ok: true as const, owned, noOp: true } };
     }
-    const nextOwned = [...owned, equipmentId];
+    // 지급은 굴림 없음(기본값 고정) — roll 없는 개체.
+    const nextOwned = [...owned, { iid: genEquipIid(), id: equipmentId }];
     await upsertSave(tx, userId, "equipment.v2", {
-      ...save,
       owned: nextOwned,
       equipped,
     });

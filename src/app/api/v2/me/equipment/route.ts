@@ -28,7 +28,8 @@ export async function GET() {
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "equipment.v2")))
       .limit(1)
   )[0];
-  const { owned, equipped, statRolls } = parseEquipmentSave(row?.value);
+  // 개체 모델 — owned 는 {iid,id,roll?} 배열, equipped 는 슬롯→iid.
+  const { owned, equipped } = parseEquipmentSave(row?.value);
 
-  return Response.json({ ok: true, owned, equipped, statRolls });
+  return Response.json({ ok: true, owned, equipped });
 }

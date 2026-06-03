@@ -19,7 +19,9 @@ import {
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
+  genEquipIid,
   type EquipmentSave,
+  type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 
@@ -105,7 +107,7 @@ export async function POST(req: Request) {
       hpCharges?: number;
       mpCharges?: number;
       proficiencyEarned?: number | null;
-      equipmentOwned?: V2EquipmentId[];
+      equipmentOwned?: V2EquipInstance[];
       equipmentNoOp?: true;
     } = { ok: true };
 
@@ -169,12 +171,12 @@ export async function POST(req: Request) {
         {},
       );
       const { owned, equipped } = parseEquipmentSave(eq);
-      if (owned.includes(equipmentId)) {
+      if (owned.some((i) => i.id === equipmentId)) {
         out.equipmentNoOp = true;
       } else {
-        const nextOwned = [...owned, equipmentId];
+        // 지급은 굴림 없음(기본값 고정) — roll 없는 개체.
+        const nextOwned = [...owned, { iid: genEquipIid(), id: equipmentId }];
         await upsertSave(tx, userId, "equipment.v2", {
-          ...eq,
           owned: nextOwned,
           equipped,
         });

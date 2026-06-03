@@ -58,6 +58,7 @@ import {
   V2_EQUIPMENT,
   V2_EQUIP_SETS,
   parseEquipmentSave,
+  resolveEquippedForAggregate,
   type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
@@ -499,8 +500,11 @@ export async function derivePlayerCombatV2(
   }
   if (!character) return null;
 
-  const { equipped: v2Equipped, statRolls: v2StatRolls } =
+  const { owned: v2Owned, equipped: v2EquippedIids } =
     parseEquipmentSave(equipmentSave);
+  // 개체(iid) → aggregate 입력(슬롯→id, id→굴림) 해석. aggregate 시그니처 불변 유지.
+  const { equipped: v2Equipped, statRolls: v2StatRolls } =
+    resolveEquippedForAggregate(v2Owned, v2EquippedIids);
   // PR-prof — 1차 스탯 = 랜덤 레벨 성장(prof.grown), cap = 수행(prof.caps).
   // 옛 수동 분배(training.allocated) 폐기.
   const prof = parseProficiencyForChar(proficiencyRaw, character);

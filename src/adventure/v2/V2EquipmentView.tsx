@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { LIST_ROW } from "@/components/ui/listRow";
@@ -111,13 +112,7 @@ export function V2EquipmentView({ onBack }: { onBack: () => void }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← 내 정보로
-        </button>
+        <BackButton onClick={onBack} />
         <h1 className="text-lg font-bold">장비</h1>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           7갈래 컨셉 × T1~T5 = 35종. 효과는 캐릭터 스탯에 자동 반영.

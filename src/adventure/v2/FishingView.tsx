@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import {
   FISH_TIERS,
   formatFishSize,
@@ -266,13 +267,7 @@ export function FishingView({
     <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            ← 돌아가기
-          </button>
+          <BackButton onClick={onBack} />
         )}
         <div className="flex items-start justify-between gap-2">
           <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import {
   DIG_CLUE_LABEL,
   type DigClue,
@@ -163,13 +164,7 @@ export function TreasureDigView({
         {(onBack || onOpenCollection || onOpenLeaderboard) && (
           <div className="flex items-center justify-between gap-2">
             {onBack ? (
-              <button
-                type="button"
-                onClick={onBack}
-                className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-              >
-                ← 마을로
-              </button>
+              <BackButton onClick={onBack} />
             ) : (
               <span />
             )}

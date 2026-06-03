@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
@@ -114,13 +115,7 @@ export function V2CharacterScreen({
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-          >
-            ← 캐릭터로
-          </button>
+          <BackButton onClick={onBack} />
         )}
         <h1 className="mt-1 text-lg font-bold">내 정보</h1>
       </header>

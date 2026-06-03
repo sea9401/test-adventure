@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BackButton } from "@/components/ui/BackButton";
 import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { IntruderPanel } from "./IntruderPanel";
@@ -159,13 +160,7 @@ export function OutpostView({
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={() => onAction({ kind: "back" })}
-          className="text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-        >
-          ← 대륙 지도로
-        </button>
+        <BackButton onClick={() => onAction({ kind: "back" })} />
         <h1 className="text-lg font-bold">{outpost.name}</h1>
         <div className="flex flex-wrap gap-1 text-xs">
           <span className="rounded bg-zinc-200 px-2 py-0.5 dark:bg-zinc-800">

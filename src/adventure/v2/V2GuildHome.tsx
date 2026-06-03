@@ -11,6 +11,7 @@ import type {
 import {
   acceptJoinRequest,
   declineJoinRequest,
+  inviteToGuild,
   GuildError,
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
@@ -112,6 +113,7 @@ export function V2GuildHome({
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
+  const [inviteName, setInviteName] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -127,6 +129,7 @@ export function V2GuildHome({
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
     refresh();
   }, [refresh]);
 
@@ -162,6 +165,32 @@ export function V2GuildHome({
   // 길드 id — 방금 창단했으면 부모 prop(viewerGuildId)이 아직 stale 일 수 있어
   // 자체 fetch 한 state.guild.id 를 우선한다(없으면 prop 폴백).
   const guildId = state?.guild?.id ?? viewerGuildId;
+
+  // 마스터가 닉네임으로 멤버 초대 — 상대 우편함에 guild_invite 가 도착, 상대가 수락하면 합류.
+  const handleInvite = useCallback(async () => {
+    const name = inviteName.trim();
+    if (name.length === 0 || guildId == null || acting) return;
+    setActing(true);
+    setNotice(null);
+    try {
+      const r = await inviteToGuild(guildId, name);
+      setNotice({
+        kind: "ok",
+        text: `${r.targetName} 님을 초대했어요. 상대가 우편함에서 수락하면 합류합니다.`,
+      });
+      setInviteName("");
+    } catch (e) {
+      setNotice({
+        kind: "err",
+        text:
+          e instanceof GuildError
+            ? e.message
+            : "초대에 실패했어요. 잠시 후 다시 시도해 주세요.",
+      });
+    } finally {
+      setActing(false);
+    }
+  }, [inviteName, guildId, acting]);
 
   // 보유 거점.
   const ownedOutposts: Outpost[] =
@@ -292,6 +321,41 @@ export function V2GuildHome({
 
       {activeTab === "members" && (
         <div className="space-y-3">
+          {isMaster && guildId != null && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                멤버 초대
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                닉네임으로 초대하면 상대 우편함에 도착해요. 상대가 수락하면 합류합니다 (정원{" "}
+                {info?.members?.length ?? 0}/3).
+              </p>
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  placeholder="초대할 닉네임"
+                  disabled={acting}
+                  maxLength={64}
+                  className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-400"
+                />
+                <button
+                  type="button"
+                  onClick={handleInvite}
+                  disabled={acting || inviteName.trim().length === 0}
+                  className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  초대
+                </button>
+              </div>
+              {notice && (
+                <div className="mt-2">
+                  <NoticeBanner notice={notice} />
+                </div>
+              )}
+            </div>
+          )}
           {!info?.members || info.members.length === 0 ? (
             <div className="text-sm text-zinc-500 dark:text-zinc-400">
               {loading ? "불러오는 중…" : "—"}

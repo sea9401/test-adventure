@@ -1,6 +1,11 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { guildMembers, guilds, savesKv } from "@/db/schema";
+import {
+  guildJoinRequests,
+  guildMembers,
+  guilds,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 
 // GET /api/v2/me/guild/info — 길드 정보 + 멤버 list (V2GuildHome).
@@ -8,8 +13,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 // 응답:
 //   guild: { id, name, masterId, createdAt, fameTotal, description }
 //   members: [{ userId, role, joinedAt, name, level }]
+//   isMaster: 뷰어가 마스터인지
+//   pendingRequests: [{ requestId, userId, name, level, requestedAt }] — 마스터일 때만, 아니면 []
 //
-// 길드 미가입 → guild=null, members=[].
+// 길드 미가입 → guild=null, members=[], isMaster=false, pendingRequests=[].
 
 export async function GET() {
   const userId = await ensureUser();
@@ -26,7 +33,13 @@ export async function GET() {
       .limit(1)
   )[0];
   if (!memRow) {
-    return Response.json({ ok: true, guild: null, members: [] });
+    return Response.json({
+      ok: true,
+      guild: null,
+      members: [],
+      isMaster: false,
+      pendingRequests: [],
+    });
   }
   const guildId = memRow.guildId;
 
@@ -46,8 +59,15 @@ export async function GET() {
       .limit(1)
   )[0];
   if (!guildRow) {
-    return Response.json({ ok: true, guild: null, members: [] });
+    return Response.json({
+      ok: true,
+      guild: null,
+      members: [],
+      isMaster: false,
+      pendingRequests: [],
+    });
   }
+  const isMaster = guildRow.masterId === userId;
 
   // 3) 멤버 row (userId·role·joinedAt).
   const memberRows = await db
@@ -59,28 +79,49 @@ export async function GET() {
     .from(guildMembers)
     .where(eq(guildMembers.guildId, guildId));
 
-  // 4) 멤버 이름·레벨 — character.v2 + character-profile.v2 batch.
+  // 3-b) 대기 중인 가입 신청 — 마스터만 본다(수락/거절 권한도 마스터뿐).
+  const pendingRows = isMaster
+    ? await db
+        .select({
+          requestId: guildJoinRequests.id,
+          userId: guildJoinRequests.userId,
+          createdAt: guildJoinRequests.createdAt,
+        })
+        .from(guildJoinRequests)
+        .where(
+          and(
+            eq(guildJoinRequests.guildId, guildId),
+            eq(guildJoinRequests.status, "pending"),
+          ),
+        )
+        .orderBy(asc(guildJoinRequests.createdAt))
+    : [];
+
+  // 4) 멤버·신청자 이름·레벨 — character.v2 + character-profile.v2 batch (한 번에).
   const memberIds = memberRows.map((m) => m.userId);
+  const lookupIds = Array.from(
+    new Set([...memberIds, ...pendingRows.map((r) => r.userId)]),
+  );
   const [profileRows, charRows] = await Promise.all([
-    memberIds.length === 0
+    lookupIds.length === 0
       ? Promise.resolve([])
       : db
           .select({ userId: savesKv.userId, value: savesKv.value })
           .from(savesKv)
           .where(
             and(
-              inArray(savesKv.userId, memberIds),
+              inArray(savesKv.userId, lookupIds),
               eq(savesKv.key, "character-profile.v2"),
             ),
           ),
-    memberIds.length === 0
+    lookupIds.length === 0
       ? Promise.resolve([])
       : db
           .select({ userId: savesKv.userId, value: savesKv.value })
           .from(savesKv)
           .where(
             and(
-              inArray(savesKv.userId, memberIds),
+              inArray(savesKv.userId, lookupIds),
               eq(savesKv.key, "character.v2"),
             ),
           ),
@@ -111,9 +152,19 @@ export async function GET() {
     return new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime();
   });
 
+  const pendingRequests = pendingRows.map((r) => ({
+    requestId: r.requestId,
+    userId: r.userId,
+    name: nameByUser.get(r.userId) ?? "모험가",
+    level: levelByUser.get(r.userId) ?? 1,
+    requestedAt: r.createdAt,
+  }));
+
   return Response.json({
     ok: true,
     guild: guildRow,
     members,
+    isMaster,
+    pendingRequests,
   });
 }

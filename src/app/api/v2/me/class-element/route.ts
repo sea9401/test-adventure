@@ -91,12 +91,17 @@ export async function POST(req: Request) {
     // PR-7 — respec 은 직업군 단위. 같은 직업군의 1차를 골라도(2차 캐릭이 자기 군 1차 선택 등)
     // 현 직업을 유지(다운그레이드 X).
     const groupChanged = isClassChange(curClass, nextClass);
+    // 첫 선택(curClass none = 캐릭터 생성) — isClassChange 는 none 을 false 로 보므로
+    // groupChanged 만으로는 첫 선택이 effectiveClass 설정 블록을 안 타서 class 가 "none"
+    // 으로 남아 저장된다(#395 회귀: 신규 캐릭 직업 선택 불가 → 온보딩 게이트 무한 /create).
+    // 첫 선택도 nextClass 로 확정해야 함(none → reachedTier 1 → classOfGroupTier=nextClass).
+    const isFirstPick = curClass === "none";
     // 직업군 변경(첫 선택 포함) 시 — 그 직업군의 "도달 차수"로 복귀(1차 추락 X, 2026-06).
     // 예전에 검호(3차)까지 갔던 직업군으로 돌아오면 다시 검호. 게이트 입력이므로 락 순서
     // (character→skills→proficiency)대로 미리 잠가 읽는다. 같은 직업군이면 현 직업 유지.
     let prof: V2ProficiencyState | null = null;
     let effectiveClass: V2Class = curClass;
-    if (groupChanged) {
+    if (groupChanged || isFirstPick) {
       prof = parseProficiencyForChar(
         await lockSaveForUpdate<V2ProficiencyState>(
           tx,

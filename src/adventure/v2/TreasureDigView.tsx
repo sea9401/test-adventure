@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import {
   DIG_CLUE_LABEL,
+  DIGS_ALLOWED,
+  GRID_SIZE,
   type DigClue,
   type TreasureSitePublic,
 } from "./treasureDig";
+import { FRAGMENTS_PER_MAP } from "./treasureFragments";
 
 // 발굴 미니게임 뷰 — 핸들러(open/dig) 주입형. 실게임은 useTreasure(API), dev 는 로컬 mock.
 // 설계: docs/treasure-hunt-plan.md §4
@@ -39,6 +42,8 @@ export type DigOutcome =
 export type TreasureHandlers = {
   open: () => Promise<OpenOutcome>;
   dig: (siteId: string, cell: number) => Promise<DigOutcome>;
+  /** 보유 지도 조각 수 조회(표시용). 없으면 조각 수를 숨긴다. */
+  loadFragments?: () => Promise<number | null>;
 };
 
 const TIER_LABEL: Record<string, string> = {
@@ -83,6 +88,7 @@ type Result =
 export function TreasureDigView({
   open,
   dig,
+  loadFragments,
   onBack,
   onOpenCollection,
   onOpenLeaderboard,
@@ -95,16 +101,30 @@ export function TreasureDigView({
   const [result, setResult] = useState<Result>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // 보유 지도 조각 — 마운트 시 조회, open 응답(소비 후 잔량/부족 시 현재량)으로 갱신.
+  const [fragments, setFragments] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!loadFragments) return;
+    let alive = true;
+    void loadFragments().then((n) => {
+      if (alive && typeof n === "number") setFragments(n);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [loadFragments]);
 
   const handleOpen = useCallback(async () => {
     setBusy(true);
     setNotice(null);
     try {
       const r = await open();
+      if (typeof r.fragments === "number") setFragments(r.fragments);
       if (!r.ok) {
         setNotice(
           r.reason === "not_enough_fragments"
-            ? `지도 조각이 부족합니다 (${r.fragments ?? 0}/5). 낚시·사냥으로 모으세요.`
+            ? `지도 조각이 부족합니다 (${r.fragments ?? 0}/${FRAGMENTS_PER_MAP}). 낚시·사냥으로 모으세요.`
             : "발굴 지점을 열 수 없습니다.",
         );
       } else {
@@ -190,16 +210,54 @@ export function TreasureDigView({
             </span>
           </div>
         )}
-        <h1 className="text-lg font-bold">보물 발굴</h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-lg font-bold">보물 발굴</h1>
+          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
+            🗺 지도 조각 {fragments ?? "…"}개
+          </span>
+        </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          지도 조각으로 발굴 지점을 열고, 단서(뜨거움/차가움)로 매장지를 좁혀 파내세요. 무엇이
-          묻혔는지는 파봐야 압니다.
+          지도 조각으로 발굴 지점을 열고, 단서로 매장지를 좁혀 파내세요. 무엇이 묻혔는지는 파봐야
+          압니다.
         </p>
       </header>
 
       {notice && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           {notice}
+        </div>
+      )}
+
+      {/* 발굴 방법 — 아직 발굴 지점을 연 적 없는 첫 화면에서 안내 */}
+      {!grid && (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs leading-relaxed text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
+          <p className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            발굴 방법
+          </p>
+          <ol className="list-decimal space-y-1.5 pl-4">
+            <li>
+              지도 조각 {FRAGMENTS_PER_MAP}개로 발굴 지점을 엽니다. (조각은 낚시·사냥에서 모여요)
+            </li>
+            <li>
+              {GRID_SIZE}×{GRID_SIZE} 격자에서 칸을 골라 최대 {DIGS_ALLOWED}번까지 파볼 수 있어요.
+            </li>
+            <li>
+              파낸 칸이 매장지에서 얼마나 가까운지 알려줍니다 —{" "}
+              <span className="font-semibold text-zinc-800 dark:text-zinc-100">
+                뜨거울수록 가깝습니다.
+              </span>
+            </li>
+          </ol>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            <span>🔥 뜨거움 (바로 옆)</span>
+            <span>🌤 따뜻함</span>
+            <span>💧 미지근</span>
+            <span>❄️ 차가움 (멈)</span>
+          </p>
+          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            단서로 매장지를 정확히 파내면 골동품 발굴 성공! 무엇이 묻혔는지(희귀도·보존상태)는
+            운이라 파봐야 압니다.
+          </p>
         </div>
       )}
 
@@ -290,11 +348,15 @@ export function TreasureDigView({
       {!grid || result ? (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || (fragments !== null && fragments < FRAGMENTS_PER_MAP)}
           onClick={handleOpen}
           className="w-full rounded-lg bg-zinc-900 py-2.5 text-sm font-semibold text-zinc-50 transition hover:bg-zinc-800 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
         >
-          {busy ? "여는 중…" : result ? "다시 발굴하기" : "발굴 지점 열기 (지도 조각 5개)"}
+          {busy
+            ? "여는 중…"
+            : fragments !== null && fragments < FRAGMENTS_PER_MAP
+              ? `지도 조각 부족 (${fragments}/${FRAGMENTS_PER_MAP})`
+              : `${result ? "다시 발굴하기" : "발굴 지점 열기"} (지도 조각 ${FRAGMENTS_PER_MAP}개)`}
         </button>
       ) : null}
     </main>

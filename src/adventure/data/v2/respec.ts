@@ -5,8 +5,10 @@
 import { V2_CLASS_DEFS, type V2Class } from "@/adventure/data/v2/classes";
 import type { V2Element } from "@/adventure/data/v2/elements";
 
-// 변경 골드 = 레벨 × 계수 (고레벨일수록 투자 큼 → respec 비쌈). sim/체감 다이얼.
-export const CLASS_CHANGE_GOLD_PER_LEVEL = 500;
+// 변경 골드 = 레벨 × 계수. sim/체감 다이얼.
+// 2026-06-03 사용자 결정 — 직업군 변경 골드 무료(0). 자유로운 전직 우선. 24h 쿨다운 +
+// 레벨1 리셋은 유지(콘텐츠마다 갈아타 최적 수렴하는 건 여전히 억제). 속성 변경 골드는 그대로.
+export const CLASS_CHANGE_GOLD_PER_LEVEL = 0;
 export const ELEMENT_CHANGE_GOLD_PER_LEVEL = 200;
 // 변경 후 쿨다운 — 콘텐츠마다 가볍게 갈아타 최적 수렴하는 걸 억제. 24h.
 export const RESPEC_COOLDOWN_MS = 24 * 60 * 60 * 1000;

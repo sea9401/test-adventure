@@ -18,6 +18,10 @@ export type HuntResultPayload = HuntResult & {
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
   hpCharges?: number;
   mpCharges?: number;
+  // 필드 보스 도전(/api/v2/dungeon/boss) 응답 전용 — 일반 사냥엔 없음.
+  isBoss?: boolean;
+  firstClear?: boolean; // 첫 처치(칭호 부여).
+  titleGranted?: string | null;
 };
 
 type HuntResponse = {
@@ -133,10 +137,64 @@ export function useDungeonHunt({
     [outpostId, pushLog, setStamina],
   );
 
+  // 필드 보스 도전 — /api/v2/dungeon/boss. 응답은 hunt 와 호환(+보스 전용 필드)이라
+  // 결과 카드/리플레이를 그대로 재사용한다.
+  const challengeBoss = useCallback(
+    async (floor: number): Promise<HuntResultPayload | null> => {
+      setBusy(true);
+      setLastResult(null);
+      try {
+        const res = await fetch("/api/v2/dungeon/boss", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ floor }),
+        });
+        let json: HuntResponse | null = null;
+        try {
+          json = (await res.json()) as HuntResponse;
+        } catch {
+          pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
+          return null;
+        }
+        if (json?.stamina) setStamina(json.stamina);
+        if (json?.ok === true && json.result) {
+          const r = json.result;
+          setLastResult(r);
+          const verdict = r.won ? "승리" : "패배";
+          const reward = r.won
+            ? r.firstClear
+              ? " · 첫 처치! 칭호 획득"
+              : " · 보상 획득"
+            : "";
+          pushLog(
+            `✓ 보스 ${r.enemyName} ${verdict} (${r.turns}턴)${reward} · EXP +${r.expGained}`,
+          );
+          return r;
+        }
+        const err = json?.error ?? "unknown";
+        const errLabel =
+          err === "hp_zero"
+            ? "체력이 부족합니다 — 회복 후 다시 시도하세요 (스태미너 미소모)"
+            : err === "out_of_stamina"
+              ? "스태미너가 부족합니다"
+              : err;
+        pushLog(`✗ http ${res.status} ${errLabel}`);
+        return null;
+      } catch (err) {
+        pushLog(`✗ network: ${(err as Error).message}`);
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pushLog, setStamina],
+  );
+
   return {
     busy,
     lastResult,
     log,
     hunt,
+    challengeBoss,
   };
 }

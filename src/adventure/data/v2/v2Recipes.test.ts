@@ -22,10 +22,19 @@ const FIELD_CRAFT_IDS = [
   "v2_field_leather_boots",
 ] as const;
 
-describe("V2_RECIPES — 들판 제작 7종", () => {
-  it("레시피 7종, result==key, 대상은 전부 craftOnly 장비", () => {
-    expect(Object.keys(V2_RECIPES).sort()).toEqual([...FIELD_CRAFT_IDS].sort());
-    for (const id of FIELD_CRAFT_IDS) {
+// 들개 우두머리(필드 보스) 제작 — 우두머리의 송곳니로 제작하는 craftOnly 장비.
+const BOSS_CRAFT_IDS = [
+  "v2_alpha_fang_dagger",
+  "v2_alpha_hide_armor",
+  "v2_alpha_hide_gloves",
+] as const;
+
+const ALL_CRAFT_IDS = [...FIELD_CRAFT_IDS, ...BOSS_CRAFT_IDS];
+
+describe("V2_RECIPES — 제작 10종 (들판 7 + 들개 우두머리 3)", () => {
+  it("레시피 10종, result==key, 대상은 전부 craftOnly 장비", () => {
+    expect(Object.keys(V2_RECIPES).sort()).toEqual([...ALL_CRAFT_IDS].sort());
+    for (const id of ALL_CRAFT_IDS) {
       const r = recipeFor(id);
       expect(r, id).toBeDefined();
       expect(r!.result).toBe(id);
@@ -34,7 +43,7 @@ describe("V2_RECIPES — 들판 제작 7종", () => {
   });
 
   it("레시피 재료 id 가 전부 V2_MATERIALS 에 존재 + 수량>0 + 골드>0", () => {
-    for (const id of FIELD_CRAFT_IDS) {
+    for (const id of ALL_CRAFT_IDS) {
       const r = V2_RECIPES[id]!;
       expect(r.gold, id).toBeGreaterThan(0);
       expect(r.ingredients.length, id).toBeGreaterThan(0);
@@ -52,7 +61,7 @@ describe("V2_RECIPES — 들판 제작 7종", () => {
       "v2_wolffang_staff",
       "v2_fang_necklace",
     ]);
-    for (const id of FIELD_CRAFT_IDS) {
+    for (const id of ALL_CRAFT_IDS) {
       for (const ing of V2_RECIPES[id]!.ingredients) {
         if (!RARE.has(ing.id)) continue;
         expect(RARE_ITEMS.has(id), `${id} 가 희귀재료 사용`).toBe(true);

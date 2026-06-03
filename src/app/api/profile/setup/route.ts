@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
+import { genEquipIid } from "@/adventure/data/v2/v2Equipment";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { isValidAvatarId, type Avatar } from "@/adventure/profile/avatars";
 
@@ -143,26 +144,29 @@ export async function POST(req: Request) {
       // 장비 시드보다 먼저 호출 — reconcile 이 character.v2 → skills.v2 를 잠그므로 character-first
       // 락 순서(다른 경로의 character→equipment 와 prefix 일치)를 지켜 데드락을 막는다.
       await reconcileV2EquippedSkills(tx, uid);
-      // v2 시작 장비 — 균형형 세트 (철검 + 가죽갑옷 + 은가락지).
+      // v2 시작 장비 — 균형형 세트 (철검 + 가죽갑옷 + 은가락지). 개체(instance) 모델:
+      // 각 부위를 개체(iid)로 만들고 그 iid 를 슬롯에 장착. 시작 장비는 굴림 없음(기본값 고정).
       // equipment.v2 는 SYNCED_KEYS 화이트리스트에 없는 서버 권위 키라 STARTER_SAVES
       // (클라 부트스트랩) 경로로 시드 못 함. 신규 캐릭터 분기에서만 직접 박는다.
+      const starterDefs: Array<[string, string]> = [
+        ["weapon", "v2_iron_sword"],
+        ["armor", "v2_leather_armor"],
+        ["gloves", "v2_leather_gloves"],
+        ["boots", "v2_leather_boots"],
+        ["ring", "v2_silver_ring"],
+        ["necklace", "v2_jade_amulet"],
+      ];
+      const starterOwned = starterDefs.map(([, id]) => ({
+        iid: genEquipIid(),
+        id,
+      }));
+      const starterEquipped: Record<string, string> = {};
+      starterDefs.forEach(([slot], i) => {
+        starterEquipped[slot] = starterOwned[i].iid;
+      });
       await upsertSave(tx, uid, "equipment.v2", {
-        owned: [
-          "v2_iron_sword",
-          "v2_leather_armor",
-          "v2_leather_gloves",
-          "v2_leather_boots",
-          "v2_silver_ring",
-          "v2_jade_amulet",
-        ],
-        equipped: {
-          weapon: "v2_iron_sword",
-          armor: "v2_leather_armor",
-          gloves: "v2_leather_gloves",
-          boots: "v2_leather_boots",
-          ring: "v2_silver_ring",
-          necklace: "v2_jade_amulet",
-        },
+        owned: starterOwned,
+        equipped: starterEquipped,
       });
       return profile;
     });

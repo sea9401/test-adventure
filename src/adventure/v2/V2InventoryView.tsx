@@ -22,8 +22,10 @@ import {
 } from "@/adventure/data/v2/dungeonDrops";
 import {
   V2_EQUIPMENT,
+  effectiveStats,
   type V2Equipment,
-  type V2EquipmentId,
+  type V2EquipInstance,
+  type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
@@ -46,9 +48,10 @@ function rarityNameClass(item: V2Equipment): string {
     : "text-zinc-800 dark:text-zinc-100";
 }
 
-// 카드 스탯줄 — 위력 + (무기만)속성 + 티어. 비무기는 속성 생략(방어구·장신구 element 는 무시됨).
-function cardStatLine(item: V2Equipment): string {
-  const parts = [`위력 ${item.power}`];
+// 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 티어.
+function cardStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
+  const eff = effectiveStats(item, roll);
+  const parts = [`위력 ${eff.power}`];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }
@@ -57,7 +60,8 @@ function cardStatLine(item: V2Equipment): string {
 }
 
 // v2 인벤토리 — 위쪽 장착 슬롯 + 무기/갑옷/장갑/신발/반지/목걸이/재료 sub-tab.
-// 행 우측 버튼으로 장착/해제 (POST /api/v2/me/equipment/equip).
+// 개체(instance) 모델: 같은 종류라도 굴림이 다르면 별도 카드. 행 우측 버튼으로 장착/해제
+// (POST /api/v2/me/equipment/equip, iid 기준).
 
 type TabKey = V2EquipSlot | "material";
 
@@ -85,28 +89,22 @@ const EQUIP_SLOTS: {
   { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
 
-
-function buildCountMap(owned: V2EquipmentId[]): Map<V2EquipmentId, number> {
-  const m = new Map<V2EquipmentId, number>();
-  for (const id of owned) m.set(id, (m.get(id) ?? 0) + 1);
-  return m;
-}
-
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<TabKey>("weapon");
-  const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
+  const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
-    Partial<Record<V2EquipSlot, V2EquipmentId>>
+    Partial<Record<V2EquipSlot, string>>
   >({});
   const [materials, setMaterials] = useState<
     Partial<Record<V2MaterialId, number>>
   >({});
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<V2EquipmentId | V2EquipSlot | null>(null);
+  // busy key = 처리 중인 개체 iid 또는 슬롯(해제). null 이면 유휴.
+  const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  // 클릭 시 뜨는 옵션 카드 팝오버 — null 이면 닫힘.
+  // 클릭 시 뜨는 옵션 카드 팝오버 — null 이면 닫힘. 개체(iid+roll) 단위.
   const [card, setCard] = useState<{
-    item: V2Equipment;
+    inst: V2EquipInstance;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -125,10 +123,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       }
       if (equipRes.ok) {
         const j = (await equipRes.json()) as {
-          owned?: V2EquipmentId[];
-          equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+          owned?: V2EquipInstance[];
+          equipped?: Partial<Record<V2EquipSlot, string>>;
         };
-        setCounts(buildCountMap(j.owned ?? []));
+        setOwned(j.owned ?? []);
         setEquipped(j.equipped ?? {});
       }
     } catch {}
@@ -141,31 +139,26 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   const applyEquip = useCallback(
-    async (slot: V2EquipSlot, equipmentId: V2EquipmentId | null, busyKey: V2EquipmentId | V2EquipSlot) => {
+    async (slot: V2EquipSlot, iid: string | null, busyKey: string) => {
       setBusy(busyKey);
       setMsg(null);
       try {
         const res = await fetch("/api/v2/me/equipment/equip", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ slot, equipmentId }),
+          body: JSON.stringify({ slot, iid }),
         });
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
-          equipped?: Partial<Record<V2EquipSlot, V2EquipmentId>>;
+          equipped?: Partial<Record<V2EquipSlot, string>>;
         } | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
         setEquipped(j.equipped ?? {});
-        if (equipmentId == null) {
-          setMsg(`✓ 해제 완료`);
-        } else {
-          const item = V2_EQUIPMENT[equipmentId];
-          setMsg(`✓ ${item.name} 장착`);
-        }
+        setMsg(iid == null ? "✓ 해제 완료" : "✓ 장착 완료");
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
@@ -175,9 +168,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [],
   );
 
-  // 슬롯별 보유 장비 id 목록 — T1→T5, concept 정렬.
-  const equipmentBySlot = useMemo(() => {
-    const groups: Record<V2EquipSlot, V2EquipmentId[]> = {
+  // 슬롯별 보유 개체 — T1→T5, concept, 이름, iid 정렬(안정).
+  const ownedBySlot = useMemo(() => {
+    const groups: Record<V2EquipSlot, V2EquipInstance[]> = {
       weapon: [],
       armor: [],
       gloves: [],
@@ -185,18 +178,24 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       ring: [],
       necklace: [],
     };
-    const items = Object.values(V2_EQUIPMENT).sort((a, b) => {
-      if (a.tier !== b.tier) return a.tier - b.tier;
-      if (a.concept !== b.concept) return a.concept.localeCompare(b.concept);
-      return a.id.localeCompare(b.id);
-    });
-    for (const it of items) {
-      if ((counts.get(it.id) ?? 0) > 0) {
-        groups[it.slot].push(it.id);
-      }
+    for (const inst of owned) {
+      const item = V2_EQUIPMENT[inst.id];
+      if (item) groups[item.slot].push(inst);
+    }
+    for (const slot of Object.keys(groups) as V2EquipSlot[]) {
+      groups[slot].sort((a, b) => {
+        const ia = V2_EQUIPMENT[a.id];
+        const ib = V2_EQUIPMENT[b.id];
+        return (
+          ia.tier - ib.tier ||
+          ia.concept.localeCompare(ib.concept) ||
+          ia.name.localeCompare(ib.name, "ko") ||
+          a.iid.localeCompare(b.iid)
+        );
+      });
     }
     return groups;
-  }, [counts]);
+  }, [owned]);
 
   const ownedMaterials = useMemo(
     () =>
@@ -211,8 +210,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [materials],
   );
 
-  const equipmentIds: V2EquipmentId[] =
-    tab === "material" ? [] : equipmentBySlot[tab];
+  const tabInstances: V2EquipInstance[] =
+    tab === "material" ? [] : ownedBySlot[tab];
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -228,8 +227,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         </h2>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {EQUIP_SLOTS.map(({ slot, label, Icon, color }) => {
-            const id = equipped[slot] ?? null;
-            const item = id ? V2_EQUIPMENT[id] : null;
+            const iid = equipped[slot] ?? null;
+            const inst = iid ? owned.find((i) => i.iid === iid) : undefined;
+            const item = inst ? V2_EQUIPMENT[inst.id] : null;
             const slotInner = (
               <>
                 <Icon size={18} weight="duotone" className={color} />
@@ -246,12 +246,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 key={slot}
                 className="flex flex-col items-center gap-1 rounded-md bg-zinc-50 px-2 py-2 text-center dark:bg-zinc-900"
               >
-                {item ? (
+                {inst && item ? (
                   // 장착 아이템 클릭 → 옵션 카드 팝오버.
                   <button
                     type="button"
                     onClick={(e) =>
-                      setCard({ item, anchor: anchorOf(e.currentTarget) })
+                      setCard({ inst, anchor: anchorOf(e.currentTarget) })
                     }
                     className="flex flex-col items-center gap-1 rounded transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
@@ -260,7 +260,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 ) : (
                   slotInner
                 )}
-                {id ? (
+                {iid ? (
                   <button
                     type="button"
                     onClick={() => applyEquip(slot, null, slot)}
@@ -309,25 +309,32 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <MaterialList materials={ownedMaterials} />
       ) : (
         <EquipmentCardGrid
-          cards={equipmentIds.map((id) => ({
-            id,
-            count: counts.get(id) ?? 0,
-            isEquipped: (equipped[tab as V2EquipSlot] ?? null) === id,
+          cards={tabInstances.map((inst) => ({
+            inst,
+            isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
           }))}
-          onOpenCard={(item, anchor) => setCard({ item, anchor })}
+          onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
         />
       )}
       {card && (
         <V2ItemCard
-          item={card.item}
+          item={V2_EQUIPMENT[card.inst.id]}
+          roll={card.inst.roll}
           anchor={card.anchor}
           onClose={() => setCard(null)}
           equip={{
-            isEquipped: (equipped[card.item.slot] ?? null) === card.item.id,
-            busy: busy === card.item.id || busy === card.item.slot,
+            isEquipped:
+              (equipped[V2_EQUIPMENT[card.inst.id].slot] ?? null) ===
+              card.inst.iid,
+            busy: busy === card.inst.iid,
             onEquip: () =>
-              applyEquip(card.item.slot, card.item.id, card.item.id),
-            onUnequip: () => applyEquip(card.item.slot, null, card.item.slot),
+              applyEquip(
+                V2_EQUIPMENT[card.inst.id].slot,
+                card.inst.iid,
+                card.inst.iid,
+              ),
+            onUnequip: () =>
+              applyEquip(V2_EQUIPMENT[card.inst.id].slot, null, card.inst.iid),
           }}
         />
       )}
@@ -380,19 +387,18 @@ function MaterialList({
 }
 
 export type EquipmentCard = {
-  id: V2EquipmentId;
-  count: number;
+  inst: V2EquipInstance;
   isEquipped: boolean;
 };
 
-// 보유 장비 2열 카드 그리드 — 슬롯 아이콘 + 장착 배지(✓/잠금) + 등급색 이름 + 스탯줄.
-// 카드 탭 → 옵션/장착 팝오버(V2ItemCard). 장착·해제는 팝오버 안에서.
+// 보유 장비 2열 카드 그리드 — 개체(instance) 단위. 슬롯 아이콘 + 장착 배지(✓/잠금) +
+// 등급색 이름 + 굴림 반영 스탯줄. 카드 탭 → 옵션/장착 팝오버(V2ItemCard).
 export function EquipmentCardGrid({
   cards,
   onOpenCard,
 }: {
   cards: EquipmentCard[];
-  onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
+  onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
 }) {
   if (cards.length === 0) {
     return (
@@ -405,14 +411,14 @@ export function EquipmentCardGrid({
   }
   return (
     <div className="grid grid-cols-2 gap-2">
-      {cards.map(({ id, count, isEquipped }) => {
-        const item = V2_EQUIPMENT[id];
+      {cards.map(({ inst, isEquipped }) => {
+        const item = V2_EQUIPMENT[inst.id];
         const { Icon, color } = SLOT_ICON[item.slot];
         return (
           <button
-            key={id}
+            key={inst.iid}
             type="button"
-            onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+            onClick={(e) => onOpenCard(inst, anchorOf(e.currentTarget))}
             aria-label={`${item.name} 정보`}
             className={`relative flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
               isEquipped
@@ -443,14 +449,9 @@ export function EquipmentCardGrid({
               >
                 {item.name}
               </span>
-              {count > 1 && (
-                <span className="shrink-0 rounded bg-zinc-200 px-1 text-[10px] font-semibold tabular-nums text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                  ×{count}
-                </span>
-              )}
             </div>
             <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-              {cardStatLine(item)}
+              {cardStatLine(item, inst.roll)}
             </div>
           </button>
         );

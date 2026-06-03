@@ -4,6 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
+  genEquipIid,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -104,12 +105,15 @@ export async function POST(req: Request) {
     const nextMaterials = consumeIngredients(materials, recipe);
     const nextGold = gold - recipe.gold;
     const parsed = parseEquipmentSave(equipSave);
-    const nextOwned = [...parsed.owned, id];
-    // 개체 굴림 — 처음 획득이면 굴려 저장(keep-first). 이미 보유 굴림 있으면 유지(같은 id 공유).
-    const nextStatRolls = { ...parsed.statRolls };
-    if (!nextStatRolls[id]) {
-      nextStatRolls[id] = rollItemStats(V2_EQUIPMENT[id], Math.random);
-    }
+    // 개체 모델 — 제작은 매번 새 개체(iid) + 새 굴림(±편차). 같은 id 라도 개별 굴림.
+    const nextOwned = [
+      ...parsed.owned,
+      {
+        iid: genEquipIid(),
+        id,
+        roll: rollItemStats(V2_EQUIPMENT[id], Math.random),
+      },
+    ];
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
@@ -117,9 +121,8 @@ export async function POST(req: Request) {
       gold: nextGold,
     });
     await upsertSave(tx, userId, "equipment.v2", {
-      ...equipSave,
       owned: nextOwned,
-      statRolls: nextStatRolls,
+      equipped: parsed.equipped,
     });
 
     return {

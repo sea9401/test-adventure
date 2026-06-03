@@ -73,7 +73,9 @@ import {
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
+  genEquipIid,
   type EquipmentSave,
+  type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
@@ -292,7 +294,7 @@ export async function POST(req: Request) {
       "equipment.v2",
       {},
     );
-    const { owned: ownedEquip, statRolls: curStatRolls } =
+    const { owned: ownedEquip, equipped: equippedEquip } =
       parseEquipmentSave(equipmentSave);
 
     const now = Date.now();
@@ -491,33 +493,42 @@ export async function POST(req: Request) {
     // 풀이 마르거나 굴림 실패면 null. equipment.v2 는 조기 lock 한 걸 한 번에 기록.
     let droppedEquipment: V2EquipmentId | null = null;
     let droppedUnique: V2EquipmentId | null = null;
-    let nextOwned: V2EquipmentId[] = ownedEquip;
+    let nextOwned: V2EquipInstance[] = ownedEquip;
     if (won) {
-      const ownedSet = new Set<V2EquipmentId>(ownedEquip);
+      // 드랍 후보 제외는 보유 "id" 기준(이미 보유한 종류는 다시 안 떨어짐) — 개체 모델이라도
+      // 드랍은 종류당 1개 유지(중복 농사 방지). 개체별 굴림의 다양성은 제작 쪽에서.
+      const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
       droppedEquipment = rollEquipDrop(floor, ownedSet, Math.random, 1);
       if (droppedEquipment !== null) {
-        nextOwned = [...nextOwned, droppedEquipment];
+        // 드랍 = 새 개체 + 새 굴림(±편차).
+        nextOwned = [
+          ...nextOwned,
+          {
+            iid: genEquipIid(),
+            id: droppedEquipment,
+            roll: rollItemStats(V2_EQUIPMENT[droppedEquipment], Math.random),
+          },
+        ];
         ownedSet.add(droppedEquipment);
       }
       // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 보유분 제외, 둘 다 떨어질 수도.
       // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
       droppedUnique = rollUniqueDrop(floor, ownedSet, Math.random, 1);
       if (droppedUnique !== null) {
-        nextOwned = [...nextOwned, droppedUnique];
+        nextOwned = [
+          ...nextOwned,
+          {
+            iid: genEquipIid(),
+            id: droppedUnique,
+            roll: rollItemStats(V2_EQUIPMENT[droppedUnique], Math.random),
+          },
+        ];
       }
     }
-    // 드랍/유니크 획득분 개체 굴림 — 처음 획득이면 굴려 저장(keep-first, 같은 id 공유).
-    const nextStatRolls = { ...curStatRolls };
-    for (const dropped of [droppedEquipment, droppedUnique]) {
-      if (dropped && !nextStatRolls[dropped]) {
-        nextStatRolls[dropped] = rollItemStats(V2_EQUIPMENT[dropped], Math.random);
-      }
-    }
-    // equipment.v2 한 번에 기록 — owned(+드랍) + statRolls(굴림).
+    // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함.
     await upsertSave(tx, userId, "equipment.v2", {
-      ...equipmentSave,
       owned: nextOwned,
-      statRolls: nextStatRolls,
+      equipped: equippedEquip,
     });
 
     // 세금 계산 — 위에서 결정한 taxOwnerId/npcTaxOutpostId/taxRate 사용.

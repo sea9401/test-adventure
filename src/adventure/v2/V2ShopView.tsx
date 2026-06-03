@@ -9,6 +9,7 @@ import {
   V2_EQUIPMENT,
   shopPriceOf,
   type V2Equipment,
+  type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import {
@@ -75,18 +76,23 @@ const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
 
 const MATERIAL_IDS = Object.keys(V2_MATERIALS) as V2MaterialId[];
 
-// 보유 카운트 맵 빌드 — owned array 의 등장 횟수.
-function buildCountMap(owned: V2EquipmentId[]): Map<V2EquipmentId, number> {
+// 개체 배열 → id별 보유 카운트(판매 후보 표시용).
+function buildCountMap(
+  owned: V2EquipInstance[],
+): Map<V2EquipmentId, number> {
   const m = new Map<V2EquipmentId, number>();
-  for (const id of owned) m.set(id, (m.get(id) ?? 0) + 1);
+  for (const inst of owned) m.set(inst.id, (m.get(inst.id) ?? 0) + 1);
   return m;
 }
 
 export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [gold, setGold] = useState<number>(0);
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
-  // 현재 장착 중인 장비 id 집합 — 판매 화면에서 장착분 보호용.
+  // 장착 instance 가 있는 id 집합 — 판매 카드 잠금(장착분 보호, #426). count<=1 이면 locked.
   const [equipped, setEquipped] = useState<Set<V2EquipmentId>>(new Set());
+  // 개체 목록 + 장착 iid — 판매 시 id → 미장착 개체(iid) 해석에 사용.
+  const [ownedInsts, setOwnedInsts] = useState<V2EquipInstance[]>([]);
+  const [equippedIids, setEquippedIids] = useState<Set<string>>(new Set());
   const [materials, setMaterials] = useState<
     Partial<Record<V2MaterialId, number>>
   >({});
@@ -112,8 +118,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         : null;
       const equipJ = equipRes.ok
         ? ((await equipRes.json()) as {
-            owned?: V2EquipmentId[];
-            equipped?: Partial<Record<string, V2EquipmentId>>;
+            owned?: V2EquipInstance[];
+            equipped?: Record<string, string>;
           })
         : null;
       const invJ = invRes.ok
@@ -122,13 +128,14 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           })
         : null;
       setGold(stateJ?.character?.gold ?? 0);
-      setCounts(buildCountMap(equipJ?.owned ?? []));
+      const insts = equipJ?.owned ?? [];
+      const eqIids = new Set(Object.values(equipJ?.equipped ?? {}));
+      setOwnedInsts(insts);
+      setCounts(buildCountMap(insts));
+      setEquippedIids(eqIids);
+      // 장착 instance 가 있는 id 집합 — 카드 잠금(#426)용.
       setEquipped(
-        new Set(
-          Object.values(equipJ?.equipped ?? {}).filter(
-            Boolean,
-          ) as V2EquipmentId[],
-        ),
+        new Set(insts.filter((i) => eqIids.has(i.iid)).map((i) => i.id)),
       );
       setMaterials(invJ?.materials ?? {});
     } catch {}
@@ -155,7 +162,12 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         body: JSON.stringify({ id }),
       });
       const j = (await res.json().catch(() => null)) as
-        | { ok?: boolean; error?: string; gold?: number; owned?: V2EquipmentId[] }
+        | {
+            ok?: boolean;
+            error?: string;
+            gold?: number;
+            owned?: V2EquipInstance[];
+          }
         | null;
       if (!j?.ok) {
         setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
@@ -163,7 +175,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       }
       const item = V2_EQUIPMENT[id];
       setMsg(`✓ ${item.name} 구매`);
-      setCounts(buildCountMap(j.owned ?? []));
+      const insts = j.owned ?? [];
+      setOwnedInsts(insts);
+      setCounts(buildCountMap(insts));
       if (typeof j.gold === "number") setGold(j.gold);
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
@@ -172,44 +186,58 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  const sellEquipment = useCallback(async (id: V2EquipmentId) => {
-    setBusyId(id);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/shop/equipment/sell", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      const j = (await res.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            error?: string;
-            gold?: number;
-            owned?: V2EquipmentId[];
-            sellPrice?: number;
-          }
-        | null;
-      if (!j?.ok) {
-        const reason =
-          j?.error === "equipped"
-            ? "장착 중인 장비는 판매할 수 없습니다"
-            : (j?.error ?? `http ${res.status}`);
-        setMsg(`✗ ${reason}`);
-        // 서버가 장착분 판매를 막았으면 화면 상태를 최신으로 맞춘다.
-        if (j?.error === "equipped") refresh();
+  // 판매는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 판다.
+  // 장착분만 남은 경우(카드는 locked 라 보통 클릭 불가) 서버가 "equipped" 로 거부(#426).
+  const sellEquipment = useCallback(
+    async (id: V2EquipmentId) => {
+      const inst =
+        ownedInsts.find((i) => i.id === id && !equippedIids.has(i.iid)) ??
+        ownedInsts.find((i) => i.id === id);
+      if (!inst) {
+        setMsg("✗ 판매할 개체가 없습니다");
         return;
       }
-      const item = V2_EQUIPMENT[id];
-      setMsg(`✓ ${item.name} 판매 (+${j.sellPrice ?? 0} G)`);
-      setCounts(buildCountMap(j.owned ?? []));
-      if (typeof j.gold === "number") setGold(j.gold);
-    } catch (err) {
-      setMsg(`✗ ${(err as Error).message}`);
-    } finally {
-      setBusyId(null);
-    }
-  }, [refresh]);
+      setBusyId(id);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/shop/equipment/sell", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid: inst.iid }),
+        });
+        const j = (await res.json().catch(() => null)) as
+          | {
+              ok?: boolean;
+              error?: string;
+              gold?: number;
+              owned?: V2EquipInstance[];
+              sellPrice?: number;
+            }
+          | null;
+        if (!j?.ok) {
+          const reason =
+            j?.error === "equipped"
+              ? "장착 중인 장비는 판매할 수 없습니다"
+              : (j?.error ?? `http ${res.status}`);
+          setMsg(`✗ ${reason}`);
+          // 서버가 장착분 판매를 막았으면 화면 상태를 최신으로 맞춘다.
+          if (j?.error === "equipped") refresh();
+          return;
+        }
+        const item = V2_EQUIPMENT[id];
+        setMsg(`✓ ${item.name} 판매 (+${j.sellPrice ?? 0} G)`);
+        const insts = j.owned ?? [];
+        setOwnedInsts(insts);
+        setCounts(buildCountMap(insts));
+        if (typeof j.gold === "number") setGold(j.gold);
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [ownedInsts, equippedIids, refresh],
+  );
 
   // 재료는 보유 스택 전량을 한 번에 환금.
   const sellMaterial = useCallback(async (id: V2MaterialId) => {

@@ -1175,8 +1175,26 @@ export type V2EquipRoll = {
 export type EquipmentSave = {
   owned?: unknown;
   equipped?: unknown;
+  // 옛 id별 굴림맵 — 개체(instance) 모델로 마이그 후 미사용. 파싱 시 옛 세이브 변환에만 읽음.
   statRolls?: unknown;
 };
+
+// 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
+//   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
+export type V2EquipInstance = {
+  iid: string;
+  id: V2EquipmentId;
+  roll?: V2EquipRoll;
+};
+
+// 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
+export function genEquipIid(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return `eq_${c.randomUUID()}`;
+  return `eq_${Date.now().toString(36)}_${Math.floor(
+    Math.random() * 1e9,
+  ).toString(36)}`;
+}
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
@@ -1188,65 +1206,154 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "necklace",
 ]);
 
+// 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
+function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
+  if (!val || typeof val !== "object") return undefined;
+  const r = val as { power?: unknown; weight?: unknown; options?: unknown };
+  if (typeof r.power !== "number" || !Number.isFinite(r.power)) return undefined;
+  if (typeof r.weight !== "number" || !Number.isFinite(r.weight)) return undefined;
+  const roll: V2EquipRoll = {
+    power: Math.max(1, Math.floor(r.power)),
+    weight: Math.max(0, Math.floor(r.weight)),
+  };
+  if (r.options && typeof r.options === "object") {
+    const opts: V2EquipOptions = {};
+    const rawOpts = r.options as Record<string, unknown>;
+    for (const k of V2_EQUIP_OPTION_KEYS) {
+      const ov = rawOpts[k];
+      if (typeof ov === "number" && Number.isFinite(ov)) opts[k] = Math.floor(ov);
+    }
+    if (Object.keys(opts).length > 0) roll.options = opts;
+  }
+  return roll;
+}
+
+// equipment.v2 파싱 — 개체(instance) 모델. 옛 {owned:id[], statRolls, equipped:slot→id} 를
+// 자동 비파괴 마이그: 각 id 등장 → 개체 1개, 굴림은 옛 statRolls[id] 공유값을 이식(현재 스탯
+// 보존), equipped id → 해당 id의 개체 iid. 마이그 iid 는 결정적(`id~n`)이라 쓰기 전 반복 파싱에도
+// 안정적. 신 형식은 그대로 검증. 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신).
 export function parseEquipmentSave(raw: unknown): {
-  owned: V2EquipmentId[];
+  owned: V2EquipInstance[];
+  equipped: Partial<Record<V2EquipSlot, string>>;
+} {
+  const v = (raw ?? {}) as EquipmentSave;
+  const statRollsRaw =
+    v.statRolls && typeof v.statRolls === "object"
+      ? (v.statRolls as Record<string, unknown>)
+      : {};
+
+  const owned: V2EquipInstance[] = [];
+  const byIid = new Map<string, V2EquipInstance>();
+  const idSeq = new Map<string, number>();
+  const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
+  for (const entry of ownedRaw) {
+    if (typeof entry === "string") {
+      // 옛 형식 — id 문자열. 개체로 변환(굴림은 옛 공유맵에서 이식).
+      if (!VALID_IDS.has(entry)) continue;
+      const id = entry as V2EquipmentId;
+      const seq = idSeq.get(id) ?? 0;
+      idSeq.set(id, seq + 1);
+      const iid = `${id}~${seq}`;
+      if (byIid.has(iid)) continue;
+      const inst: V2EquipInstance = {
+        iid,
+        id,
+        roll: parseEquipRoll(statRollsRaw[id]),
+      };
+      owned.push(inst);
+      byIid.set(iid, inst);
+    } else if (entry && typeof entry === "object") {
+      // 신 형식 — {iid, id, roll?}.
+      const e = entry as { iid?: unknown; id?: unknown; roll?: unknown };
+      if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
+      const id = e.id as V2EquipmentId;
+      let iid = typeof e.iid === "string" && e.iid.length > 0 ? e.iid : "";
+      // 누락/중복 iid 는 마이그와 같은 결정적 스킴(`id~n`)으로 복구 — 랜덤이면 쓰기 전 반복
+      // 파싱에서 iid 가 매번 달라져 equip/sell 이 not_owned 로 깨지는 footgun 차단(read=write 안정).
+      if (!iid || byIid.has(iid)) {
+        do {
+          const seq = idSeq.get(id) ?? 0;
+          idSeq.set(id, seq + 1);
+          iid = `${id}~${seq}`;
+        } while (byIid.has(iid));
+      }
+      const inst: V2EquipInstance = { iid, id, roll: parseEquipRoll(e.roll) };
+      owned.push(inst);
+      byIid.set(iid, inst);
+    }
+  }
+
+  // equipped — 슬롯→iid. 옛(slot→id) 흡수: id 면 그 id 의 미배정 개체 하나를 잡는다.
+  const equipped: Partial<Record<V2EquipSlot, string>> = {};
+  const usedIid = new Set<string>();
+  const freeById = new Map<string, V2EquipInstance[]>();
+  for (const inst of owned) {
+    const arr = freeById.get(inst.id) ?? [];
+    arr.push(inst);
+    freeById.set(inst.id, arr);
+  }
+  const equippedRaw =
+    v.equipped && typeof v.equipped === "object"
+      ? (v.equipped as Record<string, unknown>)
+      : {};
+  for (const val of Object.values(equippedRaw)) {
+    if (typeof val !== "string") continue;
+    let inst: V2EquipInstance | undefined;
+    if (byIid.has(val) && !usedIid.has(val)) {
+      inst = byIid.get(val);
+    } else if (VALID_IDS.has(val)) {
+      const q = freeById.get(val);
+      while (q && q.length > 0) {
+        const cand = q.shift();
+        if (cand && !usedIid.has(cand.iid)) {
+          inst = cand;
+          break;
+        }
+      }
+    }
+    if (!inst) continue;
+    const item = V2_EQUIPMENT[inst.id];
+    if (!VALID_SLOTS_SET.has(item.slot)) continue;
+    if (equipped[item.slot]) continue; // 슬롯당 하나
+    equipped[item.slot] = inst.iid;
+    usedIid.add(inst.iid);
+  }
+
+  return { owned, equipped };
+}
+
+// 장착 개체 → aggregateV2Equipment 입력(슬롯→id, id→굴림)으로 해석.
+// aggregate 시그니처를 인스턴스 모델과 무관하게 유지하기 위한 어댑터(각 id 는 슬롯이 1개라 충돌 없음).
+export function resolveEquippedForAggregate(
+  owned: V2EquipInstance[],
+  equipped: Partial<Record<V2EquipSlot, string>>,
+): {
   equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>;
   statRolls: Partial<Record<V2EquipmentId, V2EquipRoll>>;
 } {
-  const v = (raw ?? {}) as EquipmentSave;
-  const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
-  // 같은 id 중복 허용 — 배열 등장 횟수 = 보유 카운트. seen 은 equipped 유효성 검증용만.
-  const owned: V2EquipmentId[] = [];
-  const seen = new Set<string>();
-  for (const id of ownedRaw) {
-    if (typeof id !== "string" || !VALID_IDS.has(id)) continue;
-    seen.add(id);
-    owned.push(id as V2EquipmentId);
+  const byIid = new Map(owned.map((i) => [i.iid, i]));
+  const eq: Partial<Record<V2EquipSlot, V2EquipmentId>> = {};
+  const rolls: Partial<Record<V2EquipmentId, V2EquipRoll>> = {};
+  for (const [slot, iid] of Object.entries(equipped) as [
+    V2EquipSlot,
+    string,
+  ][]) {
+    const inst = byIid.get(iid);
+    if (!inst) continue;
+    eq[slot] = inst.id;
+    if (inst.roll) rolls[inst.id] = inst.roll;
   }
-  const equippedRaw =
-    v.equipped && typeof v.equipped === "object" ? v.equipped : {};
-  const equipped: Partial<Record<V2EquipSlot, V2EquipmentId>> = {};
-  // 카탈로그 슬롯(item.slot) 기준으로 배치 — stored slot 키는 신뢰하지 않는다. 3슬롯→6슬롯
-  // 마이그(2026-06): 옛 "accessory" 키에 담긴 반지/펜던트가 ring/necklace 로 자동 재배정된다.
-  for (const rawId of Object.values(
-    equippedRaw as Record<string, unknown>,
-  )) {
-    if (typeof rawId !== "string" || !VALID_IDS.has(rawId)) continue;
-    const id = rawId as V2EquipmentId;
-    const item = V2_EQUIPMENT[id];
-    if (!VALID_SLOTS_SET.has(item.slot)) continue;
-    // 장착하려면 보유해야 함 (race 보정).
-    if (!seen.has(id)) continue;
-    equipped[item.slot] = id;
-  }
-  // 개체 굴림 — 유효 id + power(≥1)/weight(≥0)/options(유효 키·정수)만 보존. 없으면 카탈로그.
-  const statRollsRaw =
-    v.statRolls && typeof v.statRolls === "object" ? v.statRolls : {};
-  const statRolls: Partial<Record<V2EquipmentId, V2EquipRoll>> = {};
-  for (const [id, val] of Object.entries(
-    statRollsRaw as Record<string, unknown>,
-  )) {
-    if (!VALID_IDS.has(id)) continue;
-    if (!val || typeof val !== "object") continue;
-    const r = val as { power?: unknown; weight?: unknown; options?: unknown };
-    if (typeof r.power !== "number" || !Number.isFinite(r.power)) continue;
-    if (typeof r.weight !== "number" || !Number.isFinite(r.weight)) continue;
-    const roll: V2EquipRoll = {
-      power: Math.max(1, Math.floor(r.power)),
-      weight: Math.max(0, Math.floor(r.weight)),
-    };
-    if (r.options && typeof r.options === "object") {
-      const opts: V2EquipOptions = {};
-      const rawOpts = r.options as Record<string, unknown>;
-      for (const k of V2_EQUIP_OPTION_KEYS) {
-        const ov = rawOpts[k];
-        if (typeof ov === "number" && Number.isFinite(ov)) {
-          opts[k] = Math.floor(ov);
-        }
-      }
-      if (Object.keys(opts).length > 0) roll.options = opts;
-    }
-    statRolls[id as V2EquipmentId] = roll;
-  }
-  return { owned, equipped, statRolls };
+  return { equipped: eq, statRolls: rolls };
+}
+
+// 개체 배열에서 iid 로 1개 제거(없으면 원본 그대로) + 제거된 개체 반환. 처분(판매/분해) 공용.
+export function removeInstance(
+  owned: V2EquipInstance[],
+  iid: string,
+): { owned: V2EquipInstance[]; removed: V2EquipInstance | undefined } {
+  const idx = owned.findIndex((i) => i.iid === iid);
+  if (idx < 0) return { owned, removed: undefined };
+  const next = owned.slice();
+  const [removed] = next.splice(idx, 1);
+  return { owned: next, removed };
 }

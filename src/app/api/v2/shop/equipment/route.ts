@@ -4,6 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_EQUIPMENT,
   parseEquipmentSave,
+  genEquipIid,
   shopPriceOf,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
@@ -64,10 +65,11 @@ export async function POST(req: Request) {
         },
       };
     }
-    const nextOwned = [...parsed.owned, id];
+    // 상점 구매는 굴림 없음(정가 고정) — roll 없는 개체.
+    const nextOwned = [...parsed.owned, { iid: genEquipIid(), id }];
     await upsertSave(tx, userId, "equipment.v2", {
-      ...equipSave,
       owned: nextOwned,
+      equipped: parsed.equipped,
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,

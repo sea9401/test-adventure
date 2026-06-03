@@ -97,8 +97,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       !pathname.startsWith("/outpost"));
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·낚시터·사냥터) > 거점 탭(모험/마을/캐릭터)
-  // > 길드 > 광장. 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적.
+  // > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적.
   // 낚시터 = 미니게임 + 대회/상점(/town/fishing 하위). 사냥터 = 던전 목록 + 층 전투(/battle/dungeon 하위).
+  // 전투 탭의 나머지(전투 홈·아레나)는 battle.webp — 던전은 위에서 hunt.webp 로 더 구체 매핑.
   const background: { src: string; fallbackSrc?: string } | null =
     pathname === "/town/healing"
       ? { src: "/images/ui/healingcenter.webp" }
@@ -115,7 +116,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
               ? { src: "/images/ui/guild.webp" }
               : activeTab === "plaza"
                 ? { src: "/images/ui/townhall.webp" }
-                : null;
+                : activeTab === "battle"
+                  ? { src: "/images/ui/battle.webp" }
+                  : null;
 
   return (
     <div>

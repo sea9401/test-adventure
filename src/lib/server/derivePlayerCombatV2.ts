@@ -406,17 +406,18 @@ export function derivePlayerCombatV2Pure(
   const mp = Math.max(0, Math.min(savedMp, maxMp));
 
   // 직업 패시브 (시그니처 대체) — 현 직업군에서 학습한 시그니처 최고티어의 상시 효과.
-  // 기존 산출값에 가산/배수, 신규 패시브 필드 셋. 적용(받피감·턴회복·onHitDot)은 엔진(PR-3).
+  // 2026-06-03 재설계: 직업군당 효과 1개. 검사=atk+STR계수·마법사=magicAtk+INT계수는 여기서,
+  // 궁수 방어관통·체술 카운터·마법사 평타마공화는 PlayerCombat 필드로 넘겨 엔진이 적용.
   const passive = resolveClassPassive(
     input.playerClass,
     input.learnedSkillIds ?? [],
   );
-  const finalMagicAtk = passive?.magicAtkMultPct
-    ? Math.floor(magicAtk * (1 + passive.magicAtkMultPct / 100))
-    : magicAtk;
-  const finalAccuracyPct = accuracyPct + (passive?.accuracyPct ?? 0);
-  const finalExtraAttackChancePct =
-    extraAttackChancePct + (passive?.extraAttackChancePct ?? 0);
+  // 검사 — 평타 공격력에 STR×계수 가산. 마법사 — 마법공격력에 INT×계수 가산.
+  const finalAtk =
+    atk + Math.floor(totalStats.str * (passive?.atkPerStrCoef ?? 0));
+  const finalMagicAtk =
+    magicAtk + Math.floor(totalStats.int * (passive?.magicAtkPerIntCoef ?? 0));
+  // 인술 — 치명타 피해 배율 가산 (cap). 명중·추가타는 패시브 미기여(평값 그대로).
   const finalCritMult = Math.min(
     critMult + (passive?.critMultAdd ?? 0),
     CRIT_MULT_CAP,
@@ -428,14 +429,14 @@ export function derivePlayerCombatV2Pure(
     mp,
     maxMp,
     intStat: totalStats.int,
-    atk,
+    atk: finalAtk,
     magicAtk: finalMagicAtk,
     def,
     spd,
     evasionPct,
-    accuracyPct: finalAccuracyPct,
+    accuracyPct,
     attackCount: 1,
-    extraAttackChancePct: finalExtraAttackChancePct,
+    extraAttackChancePct,
     critChancePct,
     critMult: finalCritMult,
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
@@ -444,10 +445,11 @@ export function derivePlayerCombatV2Pure(
     minDamage,
     healMult,
     baselineRegen: baselineRegenFor(maxHp),
-    // 직업 패시브 — 엔진(PR-3)이 읽어 적용. 미보유면 undefined(no-op).
-    passiveDamageTakenReductionPct: passive?.damageTakenReductionPct,
-    passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp,
-    passiveOnHitDot: passive?.onHitDot,
+    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op).
+    passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp, // 사제
+    passiveDefPenetrationPct: passive?.defPenetrationPct, // 궁수 (평타 방어관통)
+    passiveCounterChancePct: passive?.counterChancePct, // 무도가 (피격 반격)
+    passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사 (평타 마공화)
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

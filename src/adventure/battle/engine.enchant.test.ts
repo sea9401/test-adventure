@@ -175,34 +175,6 @@ describe("endure — 받는 피해 -%", () => {
   });
 });
 
-describe("passiveDamageTakenReductionPct — 받는 피해 -%", () => {
-  it("passive 20% → 동일 조건보다 피해 감소", () => {
-    const baseline: PlayerCombat = { ...BASE_PLAYER, atk: 1 };
-    let s1 = initialBattleState(
-      baseline,
-      enemy({ spd: 100, atk: 50, hp: 10000, def: 0 }),
-      "용사",
-    );
-    s1 = advanceTurn(s1, baseline, "용사", { kind: "attack" });
-    const baseDmg = baseline.maxHp - s1.playerHp;
-
-    const reduced: PlayerCombat = {
-      ...BASE_PLAYER,
-      atk: 1,
-      passiveDamageTakenReductionPct: 20,
-    };
-    let s2 = initialBattleState(
-      reduced,
-      enemy({ spd: 100, atk: 50, hp: 10000, def: 0 }),
-      "용사",
-    );
-    s2 = advanceTurn(s2, reduced, "용사", { kind: "attack" });
-    const reducedDmg = reduced.maxHp - s2.playerHp;
-    expect(reducedDmg).toBeLessThan(baseDmg);
-    expect(s2.log.some((e) => e.text.includes("[경감]"))).toBe(true);
-  });
-});
-
 describe("execute — 적 HP 25% 이하 추가 피해", () => {
   it("적 HP 20% 일 때 enchantExecuteBonusPct 40 → 데미지 +40%", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // crit/luckystar 미발동
@@ -318,60 +290,6 @@ describe("venom — 공격 시 % 확률 출혈 스택", () => {
     state = advanceTurn(state, player, "용사", { kind: "attack" });
     expect(state.stacks.bleedStacks).toBe(before + 1);
     expect(state.log.some((e) => e.text.includes("[독공]"))).toBe(true);
-  });
-});
-
-describe("passiveOnHitDot — 공격 시 % 확률 v2 DoT", () => {
-  it("기본 공격 적중 시 enemyV2Dots 에 적용되고 다음 적 턴에 피해", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const player: PlayerCombat = {
-      ...BASE_PLAYER,
-      atk: 10,
-      passiveOnHitDot: {
-        chancePct: 100,
-        label: "표식",
-        dmgPerTurn: 7,
-        turns: 2,
-      },
-    };
-    let state = initialBattleState(player, enemy({ hp: 100, atk: 0, def: 0 }), "용사");
-    state = advanceTurn(state, player, "용사", { kind: "attack" });
-    expect(state.enemyV2Dots).toContainEqual({
-      label: "표식",
-      dmgPerTurn: 7,
-      turns: 2,
-    });
-    expect(state.log.some((e) => e.text.includes("[표식] 허수아비에게 표식 부여"))).toBe(true);
-
-    const result = resolveBattle(player, enemy({ hp: 20, atk: 0, def: 0 }), "용사", {
-      pickAction: () => ({ kind: "attack" }),
-      potions: {},
-    });
-    expect(result.finalState.log.some((e) => e.text.includes("[표식] 7 피해를 입혔다"))).toBe(true);
-  });
-
-  it("v2 스킬 피해에도 적용되고 enemy phase 진입 시 DoT 피해", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0);
-    const player: PlayerCombat = {
-      ...BASE_PLAYER,
-      atk: 10,
-      passiveOnHitDot: {
-        chancePct: 100,
-        label: "표식",
-        dmgPerTurn: 4,
-        turns: 2,
-      },
-    };
-    const result = resolveBattle(player, enemy({ hp: 20, atk: 0, def: 0 }), "용사", {
-      pickAction: () => ({ kind: "attack" }),
-      potions: {},
-      v2Skills: {
-        learned: ["v2_skill_strike"],
-        equipped: ["v2_skill_strike"],
-      },
-    });
-    expect(result.finalState.log.some((e) => e.text.includes("[표식] 허수아비에게 표식 부여"))).toBe(true);
-    expect(result.finalState.log.some((e) => e.text.includes("[표식] 4 피해를 입혔다"))).toBe(true);
   });
 });
 

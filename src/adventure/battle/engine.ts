@@ -459,18 +459,15 @@ export type PlayerCombat = {
   // 한 턴 최대 1개. condition 미지정 슬롯은 always 로 해석.
   equippedAPSkills?: ReadonlyArray<EquippedAPSkill>;
   // ── 직업 패시브 (v2 직업색 — 시그니처 대체) — v2Passives.ts·derive 가 채움 ──
-  // 무도가 — 받는 피해 상시 -%. enchantEndurePct 와 같은 지점에서 적용(별개 누적). 0/undefined=미보유.
-  passiveDamageTakenReductionPct?: number;
+  // 2026-06-03 재설계: 직업군당 효과 1개. (검사 atk+STR·인술 critMult 는 derive 에서 끝, 엔진 필드 없음.)
   // 사제 — 매 플레이어 턴 시작 시 maxHp 의 %만큼 회복. enchantRegenPctPerTurn 과 별개 누적. 0/undefined=미보유.
   passiveTurnHealPctMaxHp?: number;
-  // 궁/인/마 — 그 턴 피해를 입혔을 때 chancePct% 로 적에게 DoT 부여/갱신(출혈/중독/소각). undefined=미보유.
-  // enchantVenomChancePct(본타 % 출혈 스택) 와 같은 결의 확률 proc — 적용은 엔진(PR-3).
-  passiveOnHitDot?: {
-    chancePct: number;
-    label: string;
-    dmgPerTurn: number;
-    turns: number;
-  };
+  // 궁수 — 평타 방어 관통(%). 적 def 에서 그만큼 추가 무시(assassin/AP 30% 레이어 뒤 곱). 0/undefined=미보유.
+  passiveDefPenetrationPct?: number;
+  // 무도가 — 피격 생존 시 chancePct% 로 적에게 ATK 반격(반격의 룬과 동일 패턴). 0/undefined=미보유.
+  passiveCounterChancePct?: number;
+  // 마법사 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
+  passiveMagicBasicAttack?: boolean;
 };
 
 // 장착된 AP 스킬 + 사용자가 슬롯에 건 발동 조건.
@@ -1478,10 +1475,16 @@ export function advanceTurn(
       bonus > 0 && crushReduction > 0
         ? Math.max(0, baseDef - crushReduction)
         : baseDef;
-    const targetDef =
+    const afterIgnore =
       assassinFires || weakpointDefIgnore || apIgnoresDef
         ? Math.round(afterCrush * (1 - DEF_IGNORE_FRACTION))
         : afterCrush;
+    // 궁수 패시브 — 평타 방어 관통(%). 위 30% 무시 레이어 뒤에 곱연산(방어 투자가 항상 일부 유효).
+    const archerPenPct = player.passiveDefPenetrationPct ?? 0;
+    const targetDef =
+      archerPenPct > 0
+        ? Math.round(afterIgnore * (1 - archerPenPct / 100))
+        : afterIgnore;
     // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
     // berserkAtkPctPerLostHpPct=0.5 → 잃은 HP 1%당 ATK +0.5% → 보너스ATK = atk × lostFraction × 0.5.
     const lostHpFraction = Math.max(0, 1 - state.playerHp / state.playerMaxHp);
@@ -1567,8 +1570,13 @@ export function advanceTurn(
       nextBuffsTimed.playerAtkBuffTurnsLeft > 0 && nextBuffsTimed.playerAtkBuffPct > 0
         ? Math.floor((player.atk * nextBuffsTimed.playerAtkBuffPct) / 100)
         : 0;
+    // 마법사 패시브 — 평타를 마법공격력 기반으로 전환. PvE 적(몬스터)은 magicDef 가 없어
+    // targetDef(물방)로 경감된다(의도 — "마공 vs 물방"). PvP(아레나)는 engine-pvp 별도.
+    const basicAttackPower = player.passiveMagicBasicAttack
+      ? (player.magicAtk ?? player.atk)
+      : player.atk;
     const atkBeforeApMult =
-      player.atk +
+      basicAttackPower +
       state.buffs.rampageAtkBonus +
       bonus +
       berserkBonus +
@@ -1770,21 +1778,6 @@ export function advanceTurn(
         text: `[독공] ${state.enemy.name}에게 출혈 +1스택`,
       });
     }
-    const onHitDot = player.passiveOnHitDot;
-    const passiveOnHitDotFires =
-      totalDmg > 0 &&
-      !!onHitDot &&
-      (onHitDot.chancePct ?? 0) > 0 &&
-      Math.random() * 100 < onHitDot.chancePct;
-    const enemyV2DotsAfterPassive = passiveOnHitDotFires
-      ? applyV2DotsToTarget(state.enemyV2Dots, [onHitDot!])
-      : state.enemyV2Dots;
-    if (passiveOnHitDotFires) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[${onHitDot!.label}] ${state.enemy.name}에게 ${onHitDot!.label} 부여`,
-      });
-    }
     // 약점 적중 (2티어 특기) — 크리 발동 시 그 턴 1회, DEF 무시 큐 + 추가타 1회.
     const weakpointFires =
       critRoll &&
@@ -1939,7 +1932,7 @@ export function advanceTurn(
     const afterDamage = applyPhaseTriggerIfAny({
       ...state,
       enemyHp,
-      enemyV2Dots: enemyV2DotsAfterPassive,
+      enemyV2Dots: state.enemyV2Dots,
       playerHp: playerHpAfterMadSlash,
       log,
       ap: nextApAfter,
@@ -2197,12 +2190,7 @@ export function advanceTurn(
       endurePct > 0
         ? Math.floor(chillDmgAfterResolve * (1 - endurePct / 100))
         : chillDmgAfterResolve;
-    const passiveReducePct = player.passiveDamageTakenReductionPct ?? 0;
-    const chillDmgAfterPassiveReduce =
-      passiveReducePct > 0
-        ? Math.floor(chillDmgAfterEndure * (1 - passiveReducePct / 100))
-        : chillDmgAfterEndure;
-    const chillDmg = Math.max(1, chillDmgAfterPassiveReduce);
+    const chillDmg = Math.max(1, chillDmgAfterEndure);
     const afterChillHp = Math.max(0, state.playerHp - chillDmg);
     const chilled: BattleState = {
       ...state,
@@ -2644,23 +2632,17 @@ export function advanceTurn(
       ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
       : rawDmg;
   const enduredApplied = enduredDmg < rawDmg;
-  const passiveReducePct = player.passiveDamageTakenReductionPct ?? 0;
-  const passiveReducedDmg =
-    passiveReducePct > 0
-      ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
-      : enduredDmg;
-  const passiveReduceApplied = passiveReducedDmg < enduredDmg;
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
   const guard = player.guard;
   const guarded =
     guard && guard.turns > 0 && state.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, passiveReducedDmg - guard.reduction)
-      : passiveReducedDmg;
+      ? Math.max(0, enduredDmg - guard.reduction)
+      : enduredDmg;
   // 굳건한 의지 (2티어 특기) — 받은 피해 평탄 -(N) 감소. 가드 뒤에 적용.
   const steadfastFlat = player.steadfastWillFlat ?? 0;
   const dmg = steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
-  const guardApplied = guarded < passiveReducedDmg;
+  const guardApplied = guarded < enduredDmg;
   const steadfastApplied = dmg < guarded;
   // 철벽 (4티어) — 보호막이 데미지를 먼저 흡수, 남은 만큼만 HP 에 적용. 무피해 난무는 dmgToHp 로 누적.
   const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);
@@ -2698,16 +2680,10 @@ export function advanceTurn(
       text: `[인내] 피해 -${rawDmg - enduredDmg}`,
     });
   }
-  if (passiveReduceApplied) {
-    log = appendLog(log, {
-      kind: "info",
-      text: `[경감] 피해 -${enduredDmg - passiveReducedDmg}`,
-    });
-  }
   if (guardApplied) {
     log = appendLog(log, {
       kind: "info",
-      text: `[가드] 피해 -${passiveReducedDmg - guarded}`,
+      text: `[가드] 피해 -${enduredDmg - guarded}`,
     });
   }
   if (steadfastApplied) {
@@ -2795,11 +2771,33 @@ export function advanceTurn(
       text: `[반격의 룬] ${state.enemy.name}에게 ${counterDmg} 반격 피해.`,
     });
   }
+  // 무도가 패시브 — 피격 생존 시 일정 확률로 ATK 반격(반격의 룬과 동일 패턴, 별개 누적).
+  const martialCounterPct = player.passiveCounterChancePct ?? 0;
+  let enemyHpAfterMartialCounter = enemyHpAfterRuneCounter;
+  if (
+    martialCounterPct > 0 &&
+    playerHp > 0 &&
+    enemyHpAfterRuneCounter > 0 &&
+    Math.random() * 100 < martialCounterPct
+  ) {
+    const v2AtkMultM = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
+    const v2DefMultM = v2DefBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
+    const counterDefM = playerFacingEnemyDef(state, player);
+    const counterDmgM = damageBetween(
+      v2AtkMultM !== 1 ? Math.floor(player.atk * v2AtkMultM) : player.atk,
+      v2DefMultM !== 1 ? Math.floor(counterDefM * v2DefMultM) : counterDefM,
+    );
+    enemyHpAfterMartialCounter = Math.max(0, enemyHpAfterRuneCounter - counterDmgM);
+    log = appendLog(log, {
+      kind: "player_attack",
+      text: `[반격] ${state.enemy.name}에게 ${counterDmgM} 반격 피해.`,
+    });
+  }
   if (playerHp <= 0) {
     return {
       ...state,
       playerHp,
-      enemyHp: enemyHpAfterRuneCounter,
+      enemyHp: enemyHpAfterMartialCounter,
       flags: {
         ...state.flags,
         enduranceTriggered,
@@ -2827,7 +2825,7 @@ export function advanceTurn(
       outcome: "lose",
     };
   }
-  if (enemyHpAfterRuneCounter <= 0) {
+  if (enemyHpAfterMartialCounter <= 0) {
     // 반사 / 반격 피해로 적이 쓰러짐 — 플레이어는 생존.
     return {
       ...state,
@@ -2863,7 +2861,7 @@ export function advanceTurn(
   return finishEnemyAttack({
     ...state,
     playerHp,
-    enemyHp: enemyHpAfterRuneCounter,
+    enemyHp: enemyHpAfterMartialCounter,
     flags: {
       ...state.flags,
       enduranceTriggered,
@@ -3086,15 +3084,6 @@ export function resolveBattle(
         const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
         // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
         const nextEnemyDots = applyV2DotsToTarget(state.enemyV2Dots, result.dotsToApplyToTarget);
-        const onHitDot = player.passiveOnHitDot;
-        const passiveOnHitDotFires =
-          result.enemyDamage > 0 &&
-          !!onHitDot &&
-          (onHitDot.chancePct ?? 0) > 0 &&
-          Math.random() * 100 < onHitDot.chancePct;
-        const nextEnemyDotsAfterPassive = passiveOnHitDotFires
-          ? applyV2DotsToTarget(nextEnemyDots, [onHitDot!])
-          : nextEnemyDots;
         for (const b of result.selfBuffsToApply) {
           nextLog = appendLog(nextLog, {
             kind: "info",
@@ -3116,13 +3105,6 @@ export function resolveBattle(
             turn: "player",
           });
         }
-        if (passiveOnHitDotFires) {
-          nextLog = appendLog(nextLog, {
-            kind: "info",
-            text: `[${onHitDot!.label}] ${state.enemy.name}에게 ${onHitDot!.label} 부여`,
-            turn: "player",
-          });
-        }
         state = {
           ...state,
           playerHp: nextPlayerHp,
@@ -3132,7 +3114,7 @@ export function resolveBattle(
           v2SelfBuffs: nextSelfBuffs,
           v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
           enemyV2Debuffs: nextEnemyDebuffs,
-          enemyV2Dots: nextEnemyDotsAfterPassive,
+          enemyV2Dots: nextEnemyDots,
           log: nextLog,
         };
         // lethal 체크 — v2 damage 로 적 사망 시 정상 종료 처리 (옛 spell cast 분기와 일관).

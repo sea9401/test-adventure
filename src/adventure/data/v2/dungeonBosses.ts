@@ -21,7 +21,6 @@
 import type { Monster } from "@/adventure/data/monsters/types";
 import type { DungeonFloorId } from "./types";
 import type { DropResult } from "./dungeonDrops";
-import type { V2EquipmentId } from "./v2Equipment";
 
 // 필드 보스 도전 스태미너 비용 — 일반 사냥(HUNT_COST=1)의 20배. 일일 쿨다운 대신 이 비용이
 // 도전 빈도를 throttle 한다(사용자 결정 2026-06-03). 더 희귀하게 하려면 이 값만 올리면 됨.
@@ -39,12 +38,8 @@ export type V2FieldBoss = {
   // 첫 처치 1회성 칭호 (영구·멱등). grantTitle 이 첫 처치 판정도 겸함.
   firstClear: { titleId: string };
   // 처치 보상 — 이길 때마다 지급(쿨다운 없음, 스태미너가 throttle). exp 는 monster.exp 사용.
-  //   materials = 매 승리 보장. equipment = 각자 chance 로 굴림 + 보유 id 제외(수집형 — 둘 다
-  //   모으면 이후엔 재료만). bossOnly 장비라 일반 드랍/상점/제작엔 안 나옴.
-  reward: {
-    materials: DropResult;
-    equipment?: { id: V2EquipmentId; chance: number }[];
-  };
+  //   재료(트로피)만 드랍 — 장비는 이 재료로 대장간 제작(craftOnly, V2_RECIPES). 드랍 RNG 없음.
+  reward: { materials: DropResult };
 };
 
 // === 들판(1층) — 들개 우두머리 ======================================
@@ -77,13 +72,8 @@ const PLAINS_BOSS: V2FieldBoss = {
     titleId: "field_boss_plains",
   },
   reward: {
-    // 보스 전용 트로피 재료 보장 지급(매 승리).
+    // 보스 전용 재료 보장 지급(매 승리). 이 재료로 대장간에서 보스 장비(craftOnly) 제작.
     materials: { v2_boss_plains_fang: 2 },
-    // 보스 전용 완제품 장비 — 수집형(보유 시 재드랍 X). 둘 다 모으면 이후엔 재료만.
-    equipment: [
-      { id: "v2_alpha_fang_dagger", chance: 0.25 },
-      { id: "v2_alpha_hide_armor", chance: 0.25 },
-    ],
   },
 };
 

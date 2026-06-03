@@ -131,9 +131,10 @@ export type V2EquipmentId =
   | "v2_uniq_berserker_fang"
   | "v2_uniq_starcleaver"
   | "v2_uniq_sage_seal"
-  // 필드 보스 전용 (bossOnly) — 해당 보스 처치 드랍으로만. 상점·제작·정규/유니크 드랍 제외.
+  // 들개 우두머리 제작 (craftOnly) — 우두머리의 송곳니로 대장간 제작. 상점·정규 드랍 제외.
   | "v2_alpha_fang_dagger"
-  | "v2_alpha_hide_armor";
+  | "v2_alpha_hide_armor"
+  | "v2_alpha_hide_gloves";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -176,8 +177,6 @@ export type V2Equipment = {
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
   craftOnly?: boolean;
-  /** 필드 보스 전용 — true 면 상점 비매품·정규/유니크 드랍 제외(해당 보스 처치 드랍으로만). 분해 가능. */
-  bossOnly?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
 };
@@ -211,10 +210,9 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
-// 유니크·제작전용·보스전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
+// 유니크·제작전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
 export function shopPriceOf(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique" || item.craftOnly || item.bossOnly)
-    return undefined;
+  if (item.rarity === "unique" || item.craftOnly) return undefined;
   return shopPriceFor(item.tier, item.slot);
 }
 
@@ -1057,8 +1055,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "field_leather",
   },
 
-  // ── 필드 보스 전용 (bossOnly) — 들개 우두머리 처치 드랍 ─────────────────
-  // "견실한 tier2 + 시그니처 옵션"(사용자 결정). 상점·제작·정규/유니크 드랍 제외.
+  // ── 들개 우두머리 제작 (craftOnly) — 우두머리의 송곳니로 대장간 제작 ───────
+  // "견실한 tier2 + 시그니처 옵션"(사용자 결정). 상점·정규 드랍 제외, 레시피로만.
   v2_alpha_fang_dagger: {
     id: "v2_alpha_fang_dagger",
     slot: "weapon",
@@ -1069,7 +1067,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 7,
     weight: 1,
     options: { crit: 3 },
-    bossOnly: true,
+    craftOnly: true,
   },
   v2_alpha_hide_armor: {
     id: "v2_alpha_hide_armor",
@@ -1081,7 +1079,19 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 2,
     weight: 0,
     options: { hp: 8 },
-    bossOnly: true,
+    craftOnly: true,
+  },
+  v2_alpha_hide_gloves: {
+    id: "v2_alpha_hide_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 2,
+    name: "우두머리 가죽 장갑",
+    description: "우두머리의 가죽을 덧대 손등을 보호하는 장갑.",
+    power: 2,
+    weight: 0,
+    options: { crit: 2 },
+    craftOnly: true,
   },
 };
 

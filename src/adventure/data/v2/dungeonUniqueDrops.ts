@@ -10,12 +10,6 @@
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 보스 전용 장비 가드 — 보스 처치 드랍으로만 나와야 하므로 유니크 풀에서도 절대 안 나온다.
-// (현재 UNIQUE_FLOOR_POOLS 에 보스 장비 미등록이라 무영향이나, 미래 실수 방지 하드닝.)
-function uniqueDroppable(id: V2EquipmentId): boolean {
-  return !V2_EQUIPMENT[id].bossOnly;
-}
-
 // 카탈로그의 유니크 id 목록 (rarity:"unique"). Phase 2: 6종.
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
@@ -56,9 +50,7 @@ export function rollUniqueDrop(
   const pool = UNIQUE_FLOOR_POOLS[floor];
   if (!pool || pool.chance <= 0 || pool.ids.length === 0) return null;
   if (rng() >= Math.min(1, pool.chance * chanceMult)) return null;
-  const candidates = pool.ids.filter(
-    (id) => !ownedSet.has(id) && uniqueDroppable(id),
-  );
+  const candidates = pool.ids.filter((id) => !ownedSet.has(id));
   if (candidates.length === 0) return null;
   return candidates[Math.floor(rng() * candidates.length)];
 }

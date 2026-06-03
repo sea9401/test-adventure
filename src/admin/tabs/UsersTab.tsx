@@ -5,8 +5,6 @@ import { useAdmin } from "../AdminContext";
 import { Button, TextInput } from "../ui/Field";
 import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
 import type { Profile } from "@/adventure/profile/useProfile";
-import type { InventoryState } from "@/adventure/inventory/useInventory";
-import type { TowerState } from "@/adventure/tower/types";
 import type {
   AdminUserRow,
   SavesMap,
@@ -138,17 +136,6 @@ export function UsersTab() {
     }
   };
 
-  const updateInventory = async (next: InventoryState) => {
-    if (!selected) return;
-    try {
-      await patchKey(selected.id, "inventory.v2", next);
-      setSaves((s) => ({ ...(s ?? {}), "inventory.v2": next }));
-      showToast("인벤토리 저장됨. 대상 유저는 새로고침해야 반영됩니다.");
-    } catch (e) {
-      showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
-    }
-  };
-
   // v2 전용 지급(재료/장비/충전약/숙련도) — synced-keys 밖 키(equipment.v2/proficiency.v2)
   // 때문에 일반 PATCH 대신 전용 라우트. 성공 시 saves 리로드(재료/충전약은 보이고
   // equipment.v2/proficiency.v2 는 saves GET 비대상이라 토스트로만 확인).
@@ -191,42 +178,6 @@ export function UsersTab() {
     }
   };
 
-  const resetTowerDailyAttempts = async () => {
-    if (!selected) return;
-    // daily 를 null 로 비우면 서버 측 todayDaily 가 다음 start 때 0 으로 재초기화.
-    // progress / run 은 보존.
-    const current: TowerState = saves?.["tower.v1"] ?? {
-      progress: { highestFloor: 0, claimedMilestones: [] },
-      run: null,
-      daily: null,
-    };
-    const next: TowerState = { ...current, daily: null };
-    try {
-      await patchKey(selected.id, "tower.v1", next);
-      setSaves((s) => ({ ...(s ?? {}), "tower.v1": next }));
-      showToast("고탑 일일 입장 횟수 초기화됨. 대상 유저는 새로고침 필요.");
-    } catch (e) {
-      showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
-    }
-  };
-
-  const resetBossAttempts = async () => {
-    if (!selected) return;
-    const current = saves?.["character.v2"];
-    if (!current) {
-      showToast("캐릭터 데이터 없음 — 초기화할 카운터가 없습니다.");
-      return;
-    }
-    // bossAttempts 를 빈 객체로 비우면 getBossAttemptsToday 가 모든 region 에 0 반환.
-    const next: CharacterDynamicState = { ...current, bossAttempts: {} };
-    try {
-      await patchKey(selected.id, "character.v2", next);
-      setSaves((s) => ({ ...(s ?? {}), "character.v2": next }));
-      showToast("싱글 보스 일일 카운터 초기화됨. 대상 유저는 새로고침 필요.");
-    } catch (e) {
-      showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
-    }
-  };
 
   return (
     <div className="grid gap-4 md:grid-cols-[320px_1fr]">
@@ -308,10 +259,7 @@ export function UsersTab() {
             onUpdateProfile={updateProfile}
             onUpdateCharacter={updateCharacter}
             onUpdateTraining={updateTraining}
-            onUpdateInventory={updateInventory}
             onGrantV2={grantV2}
-            onResetTowerDailyAttempts={resetTowerDailyAttempts}
-            onResetBossAttempts={resetBossAttempts}
             onReload={() => loadSaves(selected.id)}
           />
         )}

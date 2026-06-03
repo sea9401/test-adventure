@@ -2,8 +2,6 @@ import type { CharacterDynamicState } from "@/adventure/character/useCharacterSt
 import type { Profile } from "@/adventure/profile/useProfile";
 import { ZERO_ALLOCATED } from "@/adventure/character/statMeta";
 import type { StatKey } from "@/adventure/data/stats";
-import type { InventoryState } from "@/adventure/inventory/useInventory";
-import type { TowerState } from "@/adventure/tower/types";
 
 export type TrainingPersisted = {
   endsAt: number | null;
@@ -38,8 +36,6 @@ export type SavesMap = {
   "character-profile.v2"?: Profile;
   "character.v2"?: CharacterDynamicState;
   "training.v2"?: TrainingPersisted;
-  "inventory.v2"?: InventoryState;
-  "tower.v1"?: TowerState;
   [key: string]: unknown;
 };
 

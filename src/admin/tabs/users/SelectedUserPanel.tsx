@@ -7,7 +7,6 @@ import { maxHpForLevel } from "@/adventure/character/defaults";
 import { V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
 import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
 import type { Profile } from "@/adventure/profile/useProfile";
-import { emptyInventory, type InventoryState } from "@/adventure/inventory/useInventory";
 import {
   emptyTraining,
   type AdminUserRow,
@@ -16,11 +15,7 @@ import {
   type V2GrantPayload,
 } from "./types";
 import { GuildCooldownSection } from "./GuildCooldownSection";
-import { ItemGrantSection } from "./ItemGrantSection";
 import { V2GrantSection } from "./V2GrantSection";
-import { RuneGrantSection } from "./RuneGrantSection";
-import { TowerSection } from "./TowerSection";
-import { BossSection } from "./BossSection";
 
 export function SelectedUserPanel({
   user,
@@ -31,10 +26,7 @@ export function SelectedUserPanel({
   onUpdateProfile,
   onUpdateCharacter,
   onUpdateTraining,
-  onUpdateInventory,
   onGrantV2,
-  onResetTowerDailyAttempts,
-  onResetBossAttempts,
   onReload,
 }: {
   user: AdminUserRow;
@@ -45,10 +37,7 @@ export function SelectedUserPanel({
   onUpdateProfile: (next: Profile) => void;
   onUpdateCharacter: (next: CharacterDynamicState) => void;
   onUpdateTraining: (next: TrainingPersisted) => void;
-  onUpdateInventory: (next: InventoryState) => void;
   onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
-  onResetTowerDailyAttempts: () => void;
-  onResetBossAttempts: () => void;
   onReload: () => void;
 }) {
   const character = saves?.["character.v2"] ?? initialCharacterState;
@@ -57,7 +46,6 @@ export function SelectedUserPanel({
     gender: "male1" as const,
   };
   const training = saves?.["training.v2"] ?? emptyTraining();
-  const inventory = saves?.["inventory.v2"] ?? emptyInventory();
   const requiredExp = requiredExpToNext(character.level) ?? 0;
 
   return (
@@ -272,33 +260,7 @@ export function SelectedUserPanel({
         </div>
       </section>
 
-      <ItemGrantSection
-        inventory={inventory}
-        readOnly={readOnly || loading}
-        onUpdateInventory={onUpdateInventory}
-      />
-
       <V2GrantSection readOnly={readOnly || loading} onGrant={onGrantV2} />
-
-      <RuneGrantSection
-        inventory={inventory}
-        readOnly={readOnly || loading}
-        onUpdateInventory={onUpdateInventory}
-      />
-
-      <TowerSection
-        tower={saves?.["tower.v1"]}
-        readOnly={readOnly}
-        loading={loading}
-        onResetDailyAttempts={onResetTowerDailyAttempts}
-      />
-
-      <BossSection
-        character={saves?.["character.v2"]}
-        readOnly={readOnly}
-        loading={loading}
-        onResetBossAttempts={onResetBossAttempts}
-      />
     </>
   );
 }

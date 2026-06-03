@@ -38,30 +38,29 @@ export function V2DungeonList({
           </button>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
           {MAIN_DUNGEON.floors.map((floor) => (
             <button
               key={floor.id}
               type="button"
               onClick={() => onSelectFloor(floor.id)}
-              className="block w-full text-left"
+              className="group block h-full text-left"
             >
-              <Card padding="sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-base font-medium">
-                      {floor.name}
-                    </div>
-                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      {floor.requirement.kind === "power"
-                        ? `권장 파워 ${floor.requirement.min}`
-                        : `엔드 ${floor.requirement.tier}`}
-                    </div>
-                  </div>
-                  <span className="shrink-0 rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                    입장
-                  </span>
+              <Card
+                padding="sm"
+                className="flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-md active:translate-y-0 active:shadow-sm dark:hover:border-rose-600"
+              >
+                <div className="truncate text-sm font-medium transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-400">
+                  {floor.name}
                 </div>
+                <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  {floor.requirement.kind === "power"
+                    ? `권장 파워 ${floor.requirement.min}`
+                    : `엔드 ${floor.requirement.tier}`}
+                </div>
+                <span className="mt-2 self-start rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 transition-colors group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600">
+                  입장
+                </span>
               </Card>
             </button>
           ))}

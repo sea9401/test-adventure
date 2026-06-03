@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Barbell,
   FirstAid,
   Fish,
   Hammer,
@@ -18,7 +17,6 @@ import { EntryCard } from "@/components/ui/EntryCard";
 export type TownAction =
   | { kind: "open-healing" }
   | { kind: "open-shop" }
-  | { kind: "open-training" }
   | { kind: "open-smithy" }
   | { kind: "open-shrine" }
   | { kind: "open-fishing" }
@@ -57,12 +55,6 @@ export function V2TownHome({
           title="성장의 신전"
           description="숙달 포인트로 능력치의 한계를 끌어올리는 곳."
           onClick={() => onAction({ kind: "open-shrine" })}
-        />
-        <EntryCard
-          icon={<Barbell size={28} weight="duotone" className="text-sky-500" />}
-          title="훈련장"
-          description="숙달 포인트로 직업 전용 스킬을 익히고 대련하는 곳."
-          onClick={() => onAction({ kind: "open-training" })}
         />
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}

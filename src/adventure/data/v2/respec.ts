@@ -38,6 +38,9 @@ export function respecGoldCost(
   nextElement: V2Element,
   level: number,
 ): number {
+  // 첫 선택(curClass none = 캐릭터 생성/온보딩 미완)은 무료 — element 가 어떤 값이든
+  // (옛 부분 생성으로 element 만 박힌 오염 save 포함) 비용 0. 변경(respec)만 과금.
+  if (curClass === "none") return 0;
   const lv = Math.max(1, Math.floor(level));
   let cost = 0;
   if (isClassChange(curClass, nextClass)) {
@@ -56,6 +59,9 @@ export function isPaidRespec(
   curElement: V2Element,
   nextElement: V2Element,
 ): boolean {
+  // 첫 선택(curClass none)은 무료 — class-element 라우트의 비용/쿨다운 분기를 건너뛴다.
+  // (isClassChange 는 이미 none 을 무료 처리하지만 element 축은 별도라 여기서 일괄 차단.)
+  if (curClass === "none") return false;
   return (
     isClassChange(curClass, nextClass) ||
     isElementChange(curElement, nextElement)

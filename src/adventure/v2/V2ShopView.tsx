@@ -85,6 +85,8 @@ function buildCountMap(owned: V2EquipmentId[]): Map<V2EquipmentId, number> {
 export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [gold, setGold] = useState<number>(0);
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
+  // 현재 장착 중인 장비 id 집합 — 판매 화면에서 장착분 보호용.
+  const [equipped, setEquipped] = useState<Set<V2EquipmentId>>(new Set());
   const [materials, setMaterials] = useState<
     Partial<Record<V2MaterialId, number>>
   >({});
@@ -109,7 +111,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         ? ((await stateRes.json()) as { character?: { gold?: number } })
         : null;
       const equipJ = equipRes.ok
-        ? ((await equipRes.json()) as { owned?: V2EquipmentId[] })
+        ? ((await equipRes.json()) as {
+            owned?: V2EquipmentId[];
+            equipped?: Partial<Record<string, V2EquipmentId>>;
+          })
         : null;
       const invJ = invRes.ok
         ? ((await invRes.json()) as {
@@ -118,6 +123,13 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         : null;
       setGold(stateJ?.character?.gold ?? 0);
       setCounts(buildCountMap(equipJ?.owned ?? []));
+      setEquipped(
+        new Set(
+          Object.values(equipJ?.equipped ?? {}).filter(
+            Boolean,
+          ) as V2EquipmentId[],
+        ),
+      );
       setMaterials(invJ?.materials ?? {});
     } catch {}
   }, []);
@@ -179,7 +191,13 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           }
         | null;
       if (!j?.ok) {
-        setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+        const reason =
+          j?.error === "equipped"
+            ? "장착 중인 장비는 판매할 수 없습니다"
+            : (j?.error ?? `http ${res.status}`);
+        setMsg(`✗ ${reason}`);
+        // 서버가 장착분 판매를 막았으면 화면 상태를 최신으로 맞춘다.
+        if (j?.error === "equipped") refresh();
         return;
       }
       const item = V2_EQUIPMENT[id];
@@ -191,7 +209,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [refresh]);
 
   // 재료는 보유 스택 전량을 한 번에 환금.
   const sellMaterial = useCallback(async (id: V2MaterialId) => {
@@ -401,6 +419,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                   key={id}
                   id={id}
                   count={counts.get(id) ?? 0}
+                  equipped={equipped.has(id)}
                   busy={busyId === id}
                   onSell={sellEquipment}
                   onOpenCard={(item, anchor) => setCard({ item, anchor })}
@@ -560,12 +579,14 @@ function BuyEquipmentRow({
 function SellEquipmentRow({
   id,
   count,
+  equipped,
   busy,
   onSell,
   onOpenCard,
 }: {
   id: V2EquipmentId;
   count: number;
+  equipped: boolean;
   busy: boolean;
   onSell: (id: V2EquipmentId) => void;
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
@@ -573,17 +594,30 @@ function SellEquipmentRow({
   const item = V2_EQUIPMENT[id];
   const buyPrice = shopPriceOf(item) ?? 0;
   const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
+  // 장착 중인 장비는 마지막 1개를 팔 수 없다 (여분이 있으면 여분만 판매 가능).
+  const locked = equipped && count <= 1;
   return (
     <li className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5">
-      <EquipmentName item={item} count={count} onOpenCard={onOpenCard} />
+      <div className="flex min-w-0 items-center gap-1.5">
+        <EquipmentName item={item} count={count} onOpenCard={onOpenCard} />
+        {equipped && (
+          <span className="shrink-0 rounded bg-sky-100 px-1 py-px text-[10px] font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+            장착 중
+          </span>
+        )}
+      </div>
       <button
         type="button"
         onClick={() => onSell(id)}
-        disabled={busy || count <= 0}
-        title={`${sellPrice.toLocaleString()} G 에 판매`}
+        disabled={busy || count <= 0 || locked}
+        title={
+          locked
+            ? "장착 중인 장비는 판매할 수 없습니다"
+            : `${sellPrice.toLocaleString()} G 에 판매`
+        }
         className="justify-self-end rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700 transition disabled:cursor-not-allowed disabled:opacity-30 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
-        {busy ? "…" : `판매 +${sellPrice.toLocaleString()}`}
+        {busy ? "…" : locked ? "장착 중" : `판매 +${sellPrice.toLocaleString()}`}
       </button>
     </li>
   );

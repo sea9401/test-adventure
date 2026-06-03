@@ -3137,13 +3137,34 @@ export function resolveBattle(
         }
         // cast 발동 시 그 턴 전체 소진 → phase=enemy 직행. 다대시(attacksLeft>1) 캐릭도
         // 강타 1번으로 그 턴 종료. 의도: 1턴 1행동 (강타 OR 일반공격, 양립 X).
+        //
+        // ⚠️ 시전도 "완료한 플레이어 턴" 이다 — 평타 종료 경로(아래 일반 공격 분기)와 똑같이
+        // completedPlayerTurns 를 +1 하고 턴 플래그를 리셋한 뒤 finishPlayerTurn(턴 종료 효과:
+        // 재생·막다른 격노·약점 분석 등)을 거쳐야 한다. 예전엔 여기서 증가를 빠뜨려서, 매 턴
+        // 마법을 시전하는 캐릭터(MP 충분한 버스트 마법사)는 completedPlayerTurns 가 0 에
+        // 고정됐다. 그 결과 사이클 종료 마커("N턴 · AP M")·턴별 HP 스냅샷이 completedPlayerTurns>0
+        // 게이트(아래 cycleEnded 블록)에 걸려 영영 안 찍히고, 전투 전체 행동이 첫 "1턴" 그룹에
+        // 쌓이는 버그가 났다. 턴 기반 효과(재생/강공격 주기/버프 감소/보스 턴 캡)도 같이 멈췄다.
         if (result.castSkillId) {
-          state = {
+          const ended: BattleState = {
             ...state,
             phase: "enemy",
             playerAttacksLeft: rollPlayerAttackCount(player),
-            turn: { ...state.turn, firstAttackPending: true },
+            turn: {
+              ...state.turn,
+              completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+              doubleStrikeUsedThisTurn: false,
+              lightspeedUsedThisTurn: false,
+              critThisTurn: false,
+              riposteUsedThisTurn: false,
+              firstAttackPending: true,
+              galeChainsThisTurn: 0,
+              weakpointUsedThisTurn: false,
+              fatedChainTriggeredThisTurn: false,
+              apSkillFiredThisTurn: null,
+            },
           };
+          state = finishPlayerTurn(ended, player, playerName);
           continue;
         }
       }

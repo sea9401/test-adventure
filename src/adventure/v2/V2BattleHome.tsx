@@ -1,6 +1,6 @@
 "use client";
 
-import { CompassRose, Sword, Trophy } from "@phosphor-icons/react";
+import { Barbell, CompassRose, Sword, Trophy } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 전투 탭 default — town/character 탭 패턴: EntryCard 던전/지도/아레나 진입.
@@ -9,7 +9,8 @@ import { EntryCard } from "@/components/ui/EntryCard";
 export type BattleAction =
   | { kind: "open-dungeons" }
   | { kind: "open-map" }
-  | { kind: "open-arena" };
+  | { kind: "open-arena" }
+  | { kind: "open-sparring" };
 
 export function V2BattleHome({
   onAction,
@@ -52,6 +53,14 @@ export function V2BattleHome({
           title="아레나"
           description="1:1 단판 결투 — 빌드 자랑의 무대."
           onClick={() => onAction({ kind: "open-arena" })}
+        />
+        <EntryCard
+          icon={
+            <Barbell size={28} weight="duotone" className="text-sky-500" />
+          }
+          title="허수아비"
+          description="보상도 손실도 없는 모의전. 빌드를 시험해 보는 곳."
+          onClick={() => onAction({ kind: "open-sparring" })}
         />
       </div>
     </main>

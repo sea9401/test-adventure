@@ -1,6 +1,11 @@
 "use client";
 
-import { Backpack, BookOpen, UserCircle } from "@phosphor-icons/react";
+import {
+  Backpack,
+  BookOpen,
+  Lightning,
+  UserCircle,
+} from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
@@ -9,6 +14,7 @@ import { EntryCard } from "@/components/ui/EntryCard";
 export type CharacterAction =
   | { kind: "open-info" }
   | { kind: "open-inventory" }
+  | { kind: "open-skills" }
   | { kind: "open-codex" };
 
 export function V2CharacterMenu({
@@ -37,6 +43,14 @@ export function V2CharacterMenu({
           title="인벤토리"
           description="보유 아이템과 재료."
           onClick={() => onAction({ kind: "open-inventory" })}
+        />
+        <EntryCard
+          icon={
+            <Lightning size={28} weight="duotone" className="text-violet-500" />
+          }
+          title="스킬"
+          description="직업 패시브와 스킬을 익히는 곳."
+          onClick={() => onAction({ kind: "open-skills" })}
         />
         <EntryCard
           icon={

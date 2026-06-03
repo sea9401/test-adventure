@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
@@ -12,9 +11,9 @@ import {
 import { v2SkillMpCost } from "@/adventure/battle/combatShared";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 
-// v2 학습 — 사용 가능 숙련도로 현 직업 체인의 시그니처 스킬을 습득한다.
-// 옛 "훈련장"(12시간 타이머 + 포인트 적립) 대체. 자동부여 폐지(docs §6) 후 스킬은
-// 여기서 숙련도를 들여 배운다. 대련(연습 전투)은 하단 링크로 보존.
+// v2 학습 — 사용 가능 숙련도로 직업 패시브 + 현 직업 체인의 시그니처 스킬을 습득한다.
+// 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
+// 전투 탭(/battle/sparring)으로 분리.
 
 type SignatureRow = {
   skillId: string;
@@ -77,10 +76,8 @@ function SkillDetailChips({ skillId }: { skillId: string }) {
 
 export function V2SkillLearnView({
   onBack,
-  onStartSparring,
 }: {
   onBack: () => void;
-  onStartSparring: () => void;
 }) {
   const [signatures, setSignatures] = useState<SignatureRow[]>([]);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
@@ -199,7 +196,7 @@ export function V2SkillLearnView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="훈련장" onBack={onBack} />
+      <SubViewHeader title="스킬" onBack={onBack} />
 
       <Card padding="md">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -340,25 +337,6 @@ export function V2SkillLearnView({
           </ul>
         </Card>
       )}
-
-      <Card padding="md">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-sm font-semibold">대련</h2>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              연습 상대와 겨뤄 전투 감각을 익힌다. 소모·보상 없음.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onStartSparring}
-            className="flex shrink-0 items-center gap-1.5 rounded-md border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            <Sword size={14} weight="bold" />
-            대련하기
-          </button>
-        </div>
-      </Card>
 
       {msg && (
         <div

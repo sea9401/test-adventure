@@ -15,6 +15,11 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import {
+  getFieldBoss,
+  V2_BOSS_STAMINA_COST,
+} from "@/adventure/data/v2/dungeonBosses";
+import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -70,7 +75,8 @@ export function V2DungeonFloorView({
   playerSubtitle?: string;
 }) {
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
-  const { busy, lastResult, hunt } = useDungeonHunt({
+  const boss = getFieldBoss(floorId);
+  const { busy, lastResult, hunt, challengeBoss } = useDungeonHunt({
     outpostId,
     setStamina,
   });
@@ -192,6 +198,7 @@ export function V2DungeonFloorView({
   }
 
   const lowStamina = stamina.current < HUNT_COST;
+  const bossLowStamina = stamina.current < V2_BOSS_STAMINA_COST;
   const oneActionDisabled = busy || batchRunning;
   // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).
   // hp 미로딩(null)이면 게이트 비활성 — 서버 가드가 최종 차단.
@@ -284,6 +291,64 @@ export function V2DungeonFloorView({
           </div>
         )}
       </Card>
+
+      {boss && (
+        <Card padding="md">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                필드 보스 · {boss.name}
+              </h2>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                권장 파워 {boss.recommendedPower}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              이 보스를 쓰러뜨리면 다음 사냥터로 넘어갈 준비가 된 셈입니다.
+              쓰러뜨릴 때마다{" "}
+              {Object.entries(boss.reward.materials)
+                .map(([id, n]) => `${V2_MATERIALS[id]?.name ?? id} ${n}개`)
+                .join(", ")}
+              을 얻고, 처음 잡으면 칭호를 받습니다. (도전마다 스태미너{" "}
+              {V2_BOSS_STAMINA_COST})
+            </p>
+            {lastResult?.isBoss && (
+              <p
+                className={`text-xs font-medium ${
+                  lastResult.won
+                    ? "text-amber-700 dark:text-amber-400"
+                    : "text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                {lastResult.won
+                  ? lastResult.firstClear
+                    ? "첫 처치 성공! 칭호를 얻었습니다."
+                    : "승리! 보상을 받았습니다."
+                  : "패배했습니다. 더 강해진 뒤 다시 도전하세요."}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setBatchSummary(null);
+                void challengeBoss(boss.floorId).then((r) => {
+                  if (r) recordHp(r);
+                });
+              }}
+              disabled={oneActionDisabled || bossLowStamina || needsRecovery}
+              className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              {busy
+                ? "도전 중…"
+                : needsRecovery
+                  ? "회복 필요"
+                  : bossLowStamina
+                    ? `스태미너 부족 (${V2_BOSS_STAMINA_COST} 필요)`
+                    : `보스 도전 (스태미너 ${V2_BOSS_STAMINA_COST})`}
+            </button>
+          </div>
+        </Card>
+      )}
 
       {needsRecovery && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">

@@ -63,6 +63,13 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "몬스터 1마리 처치",
     category: "battle",
   },
+  field_boss_plains: {
+    id: "field_boss_plains",
+    name: "들판의 지배자",
+    description: "들개 무리의 우두머리를 꺾고 들판을 평정한 자.",
+    condition: "들판의 들개 우두머리 처치",
+    category: "battle",
+  },
   frail: {
     id: "frail",
     name: "약골",

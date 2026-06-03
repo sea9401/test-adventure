@@ -87,18 +87,18 @@ export type DropRule = {
   amountMax: number;
 };
 
-// 2026-06-03: 지역당 소수 재료 + 저드랍 규칙. 들판(1층)만 채움 — 흔함 3(0.10~0.14, 절반
-// 인하)·희귀 2(0.05~0.07, 유지). 기대 획득 ≈ 1마리당 0.5개(Lv30+; 신참 ×2 ≈ 1개).
-// 나머지 층은 보류(빈 풀 → 골드+exp 만).
+// 2026-06-03: 지역당 소수 재료 + 저드랍 규칙. 들판(1층)만 채움 — 흔함 3(0.07~0.10)·희귀
+// 2(0.035~0.05). 체감 과다로 전체 ~30% 추가 인하. 기대 획득 ≈ 1마리당 0.39개.
+// ⚠️ v2 던전 드롭은 신참 배율 미적용(항상 ×1, 신참 혜택은 EXP 전용). 나머지 층은 보류.
 export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
   1: [
     // 흔함
-    { id: "v2_field_grass", chance: 0.14, amountMin: 1, amountMax: 2 },
-    { id: "v2_field_hide", chance: 0.11, amountMin: 1, amountMax: 1 },
-    { id: "v2_field_stone", chance: 0.1, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_grass", chance: 0.1, amountMin: 1, amountMax: 2 },
+    { id: "v2_field_hide", chance: 0.08, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_stone", chance: 0.07, amountMin: 1, amountMax: 1 },
     // 희귀
-    { id: "v2_field_fang", chance: 0.07, amountMin: 1, amountMax: 1 },
-    { id: "v2_field_venom", chance: 0.05, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_fang", chance: 0.05, amountMin: 1, amountMax: 1 },
+    { id: "v2_field_venom", chance: 0.035, amountMin: 1, amountMax: 1 },
   ],
   2: [],
   3: [],

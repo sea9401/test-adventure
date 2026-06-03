@@ -1267,9 +1267,16 @@ export function parseEquipmentSave(raw: unknown): {
       const e = entry as { iid?: unknown; id?: unknown; roll?: unknown };
       if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
       const id = e.id as V2EquipmentId;
-      let iid =
-        typeof e.iid === "string" && e.iid.length > 0 ? e.iid : genEquipIid();
-      while (byIid.has(iid)) iid = genEquipIid(); // 충돌(손상 세이브) 방지
+      let iid = typeof e.iid === "string" && e.iid.length > 0 ? e.iid : "";
+      // 누락/중복 iid 는 마이그와 같은 결정적 스킴(`id~n`)으로 복구 — 랜덤이면 쓰기 전 반복
+      // 파싱에서 iid 가 매번 달라져 equip/sell 이 not_owned 로 깨지는 footgun 차단(read=write 안정).
+      if (!iid || byIid.has(iid)) {
+        do {
+          const seq = idSeq.get(id) ?? 0;
+          idSeq.set(id, seq + 1);
+          iid = `${id}~${seq}`;
+        } while (byIid.has(iid));
+      }
       const inst: V2EquipInstance = { iid, id, roll: parseEquipRoll(e.roll) };
       owned.push(inst);
       byIid.set(iid, inst);

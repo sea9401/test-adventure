@@ -105,7 +105,8 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 //   - playerName placeholder "모험가"
 //   - drop 은 placeholder 풀 (`dungeonDrops.ts`) — 정식 재료 시스템 통째 교체 예정
 
-const VALID_FLOORS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+// 사냥 가능 층 — 2구역 축소(들판·깊은 산). 3~8 은 휴면(MAIN_DUNGEON 미노출).
+const VALID_FLOORS = [1, 2] as const;
 
 function isValidFloor(n: number): n is DungeonFloorId {
   return (VALID_FLOORS as readonly number[]).includes(n);

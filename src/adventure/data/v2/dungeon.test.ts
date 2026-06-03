@@ -2,11 +2,7 @@ import { describe, it, expect } from "vitest";
 import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { MONSTERS } from "../monsters";
-import {
-  V2_ELEMENTS,
-  V2_ELEMENT_CYCLE,
-  type V2Element,
-} from "./elements";
+import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
 
 describe("v2 dungeon", () => {
@@ -34,33 +30,21 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("8층 모두 정의됨", () => {
-    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  it("2층 정의됨 (들판·깊은 산) — 8→2 축소", () => {
+    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2]);
+    expect(MAIN_DUNGEON.floors.map((f) => f.name)).toEqual(["들판", "깊은 산"]);
   });
 
-  it("1~5층은 파워 requirement(단조 증가), 6~8층은 endgame requirement", () => {
+  it("활성 2층은 파워 requirement(단조 증가)", () => {
     const floors = MAIN_DUNGEON.floors;
     let prev = 0;
-    for (let i = 0; i < 5; i++) {
-      const req = floors[i].requirement;
-      expect(req.kind).toBe("power");
-      if (req.kind === "power") {
-        expect(req.min).toBeGreaterThan(prev); // 층이 올라갈수록 권장 파워↑
-        prev = req.min;
+    for (const floor of floors) {
+      expect(floor.requirement.kind).toBe("power");
+      if (floor.requirement.kind === "power") {
+        expect(floor.requirement.min).toBeGreaterThan(prev); // 층이 올라갈수록 권장 파워↑
+        prev = floor.requirement.min;
       }
     }
-    for (let i = 5; i < 8; i++) {
-      expect(floors[i].requirement.kind).toBe("endgame");
-    }
-  });
-
-  it("6~8구역 enemy 풀(스탯 출처)이 서로 겹치지 않음 (출처 → multiplier 일관)", () => {
-    const f6 = new Set(MAIN_DUNGEON.floors[5].enemies.map((e) => e.key));
-    const f7 = new Set(MAIN_DUNGEON.floors[6].enemies.map((e) => e.key));
-    const f8 = new Set(MAIN_DUNGEON.floors[7].enemies.map((e) => e.key));
-    for (const n of f6) expect(f7.has(n), `6·7 겹침: ${n}`).toBe(false);
-    for (const n of f6) expect(f8.has(n), `6·8 겹침: ${n}`).toBe(false);
-    for (const n of f7) expect(f8.has(n), `7·8 겹침: ${n}`).toBe(false);
   });
 
   it("FLOOR_DIFFICULTY 가 단조 비감소 (깊을수록 어려움)", () => {
@@ -114,14 +98,15 @@ describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
     }
   });
 
-  it("순환 7원소가 전부 어딘가에 등장 (전 게임 분포 커버)", () => {
+  it("활성 2구역은 코스믹(별빛/공허) 미등장 — 엔드 구역 축소", () => {
+    // 코스믹은 엔드 구역(6~8)에만 있었고 축소로 제거. 코스믹 외엔 전부 자연/무속성.
+    // (소수 몹 던전이라 자연 전 원소 커버는 비강제 — 한 층 ≥2 non-neutral 게이트는 위 테스트.)
     const used = new Set<V2Element>();
     for (const floor of MAIN_DUNGEON.floors) {
       for (const enemy of floor.enemies) used.add(elemOf(enemy));
     }
-    for (const e of V2_ELEMENT_CYCLE) {
-      expect(used.has(e), `순환 원소 ${e} 가 어디에도 안 쓰임`).toBe(true);
-    }
+    expect(used.has("starlight")).toBe(false);
+    expect(used.has("void")).toBe(false);
   });
 });
 

@@ -46,29 +46,29 @@ export function V2DungeonList({
           {MAIN_DUNGEON.floors.map((floor) => {
             const boss = getFieldBoss(floor.id);
             const floorButton = (
-              <button
+              <Card
+                as="button"
                 type="button"
                 onClick={() => onSelectFloor(floor.id)}
-                className="block h-full w-full text-left"
+                padding="sm"
+                className="group block h-full w-full cursor-pointer text-left transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md active:translate-y-0 active:shadow-sm dark:hover:border-emerald-500"
               >
-                <Card padding="sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate text-base font-medium">
-                        {floor.name}
-                      </div>
-                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        {floor.requirement.kind === "power"
-                          ? `권장 파워 ${floor.requirement.min}`
-                          : `엔드 ${floor.requirement.tier}`}
-                      </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-medium">
+                      {floor.name}
                     </div>
-                    <span className="shrink-0 rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                      입장
-                    </span>
+                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      {floor.requirement.kind === "power"
+                        ? `권장 파워 ${floor.requirement.min}`
+                        : `엔드 ${floor.requirement.tier}`}
+                    </div>
                   </div>
-                </Card>
-              </button>
+                  <span className="shrink-0 rounded bg-zinc-200 px-2 py-0.5 text-xs text-zinc-700 transition-colors group-hover:bg-emerald-200 group-hover:text-emerald-900 dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-emerald-800 dark:group-hover:text-emerald-100">
+                    입장
+                  </span>
+                </div>
+              </Card>
             );
 
             // 보스 없는 층 — 전폭 카드.
@@ -82,17 +82,11 @@ export function V2DungeonList({
                   type="button"
                   onClick={() => onSelectBoss(floor.id)}
                   aria-label={`${boss.name} 보스 입장`}
-                  className="flex basis-[30%] shrink-0 flex-col justify-center gap-0.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-left transition-colors hover:bg-amber-100 dark:border-amber-800/60 dark:bg-amber-950/40 dark:hover:bg-amber-900/40"
+                  className="flex basis-[30%] shrink-0 flex-col justify-center gap-0.5 rounded-lg border border-rose-700 bg-rose-700 px-3 py-2 text-left text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-rose-600 hover:shadow-md active:translate-y-0 active:shadow-sm dark:border-rose-600 dark:bg-rose-800 dark:hover:bg-rose-700"
                 >
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                    필드 보스
-                  </span>
-                  <span className="w-full truncate text-xs text-amber-800 dark:text-amber-300">
-                    {boss.name}
-                  </span>
-                  <span className="mt-0.5 text-[10px] text-amber-600 dark:text-amber-500">
-                    입장 →
-                  </span>
+                  <span className="text-xs font-bold">필드 보스</span>
+                  <span className="w-full truncate text-xs">{boss.name}</span>
+                  <span className="mt-0.5 text-[10px]">입장 →</span>
                 </button>
               </div>
             );

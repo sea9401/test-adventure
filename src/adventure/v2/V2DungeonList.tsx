@@ -82,7 +82,7 @@ export function V2DungeonList({
                   type="button"
                   onClick={() => onSelectBoss(floor.id)}
                   aria-label={`${boss.name} 보스 입장`}
-                  className="flex basis-[30%] shrink-0 flex-col justify-center gap-0.5 rounded-lg border border-rose-700 bg-rose-700 px-3 py-2 text-left text-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-rose-600 hover:shadow-md active:translate-y-0 active:shadow-sm dark:border-rose-600 dark:bg-rose-800 dark:hover:bg-rose-700"
+                  className="flex basis-[30%] shrink-0 flex-col justify-center gap-0.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-rose-700 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 hover:shadow-md active:translate-y-0 active:shadow-sm dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:border-rose-800 dark:hover:bg-rose-900"
                 >
                   <span className="text-xs font-bold">필드 보스</span>
                   <span className="w-full truncate text-xs">{boss.name}</span>

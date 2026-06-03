@@ -32,15 +32,15 @@ describe("들판 재료 + 드랍 풀", () => {
     }
   });
 
-  it("저드랍 — 희귀 ≤ 0.07, 흔함 ≤ 0.15 (잡재료 범람 방지)", () => {
+  it("저드랍 — 희귀 ≤ 0.06, 흔함 ≤ 0.12 (잡재료 범람 방지)", () => {
     const byId = Object.fromEntries(
       FLOOR_DROP_POOLS[1].map((r) => [r.id, r.chance]),
     );
-    expect(byId.v2_field_fang).toBeLessThanOrEqual(0.07);
-    expect(byId.v2_field_venom).toBeLessThanOrEqual(0.07);
-    expect(byId.v2_field_grass).toBeLessThanOrEqual(0.15);
-    expect(byId.v2_field_hide).toBeLessThanOrEqual(0.15);
-    expect(byId.v2_field_stone).toBeLessThanOrEqual(0.15);
+    expect(byId.v2_field_fang).toBeLessThanOrEqual(0.06);
+    expect(byId.v2_field_venom).toBeLessThanOrEqual(0.06);
+    expect(byId.v2_field_grass).toBeLessThanOrEqual(0.12);
+    expect(byId.v2_field_hide).toBeLessThanOrEqual(0.12);
+    expect(byId.v2_field_stone).toBeLessThanOrEqual(0.12);
   });
 });
 

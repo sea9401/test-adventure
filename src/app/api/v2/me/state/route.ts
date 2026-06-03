@@ -104,6 +104,7 @@ export async function GET() {
     fishingCodexRow,
     treasureCodexRow,
     treasureFragmentsRow,
+    adventureLogRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -166,7 +167,24 @@ export async function GET() {
       )
       .limit(1)
       .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
   ]);
+
+  // 전투 횟수(전적) — adventure-log.v2 의 monster kills 합 + 패배수 (랭킹 battleCount 와 동일 정의).
+  const logVal = (adventureLogRow?.value ?? null) as {
+    monsters?: Record<string, { kills?: number }>;
+    battleLosses?: number;
+  } | null;
+  const battleCount =
+    Object.values(logVal?.monsters ?? {}).reduce(
+      (sum, m) => sum + (m?.kills ?? 0),
+      0,
+    ) + (logVal?.battleLosses ?? 0);
 
   const charSave = (charRow?.value ?? {}) as {
     level?: number;
@@ -342,6 +360,8 @@ export async function GET() {
     },
     stats,
     combat: combatStats,
+    // 누적 전투 횟수(전적) — 내 정보 기본 정보 카드 표기용.
+    battleCount,
     guild: guildId == null ? null : { id: guildId, name: guildName ?? "—" },
     resources,
     currentOutpost,

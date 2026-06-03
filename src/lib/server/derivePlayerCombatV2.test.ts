@@ -341,51 +341,57 @@ describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
       allocatedStats: STATS,
       playerClass: "swordsman",
     });
-    expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
     expect(d.player.passiveTurnHealPctMaxHp).toBeUndefined();
-    expect(d.player.passiveOnHitDot).toBeUndefined();
+    expect(d.player.passiveDefPenetrationPct).toBeUndefined();
+    expect(d.player.passiveCounterChancePct).toBeUndefined();
+    expect(d.player.passiveMagicBasicAttack).toBeUndefined();
   });
 
-  it("검사 — 추가타 확률 가산(extraAttackChancePct)", () => {
+  it("검사 — 평타 공격력에 STR×계수 가산(atk 증가)", () => {
     const base = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "swordsman",
-    }).player.extraAttackChancePct!;
+    });
     const withPassive = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "swordsman",
       learnedSkillIds: [SIG_SWORDSMAN],
-    }).player.extraAttackChancePct!;
-    expect(withPassive - base).toBeCloseTo(10, 5); // T1 +10%p
+    });
+    // T1 atkPerStrCoef 0.05 → atk += floor(STR × 0.05).
+    expect(withPassive.player.atk - base.player.atk).toBe(
+      Math.floor(withPassive.totalStats.str * 0.05),
+    );
   });
 
-  it("마법사 — 마법공격력 ×(1+%) + 소각 onHitDot", () => {
+  it("마법사 — 평타 마공화 + magicAtk 에 INT×계수 가산", () => {
     const base = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "mage",
-    }).player.magicAtk!;
+    });
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "mage",
       learnedSkillIds: [SIG_MAGE],
-    }).player;
-    expect(d.magicAtk).toBe(Math.floor(base * 1.08)); // T1 +8%
-    expect(d.passiveOnHitDot?.label).toBe("소각");
-    expect(d.passiveOnHitDot?.chancePct).toBeGreaterThan(0);
+    });
+    expect(d.player.passiveMagicBasicAttack).toBe(true);
+    // T1 magicAtkPerIntCoef 0.05 → magicAtk += floor(INT × 0.05).
+    expect(d.player.magicAtk! - base.player.magicAtk!).toBe(
+      Math.floor(d.totalStats.int * 0.05),
+    );
   });
 
-  it("무도가 — 받피감 / 사제 — 턴회복 필드 셋", () => {
+  it("무도가 — 카운터 확률 / 사제 — 턴회복 필드 셋", () => {
     const martial = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "martial",
       learnedSkillIds: [SIG_MARTIAL],
     }).player;
-    expect(martial.passiveDamageTakenReductionPct).toBe(6); // T1
+    expect(martial.passiveCounterChancePct).toBe(15); // T1
 
     const priest = derivePlayerCombatV2Pure({
       level: 50,
@@ -396,7 +402,17 @@ describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
     expect(priest.passiveTurnHealPctMaxHp).toBe(3); // T1
   });
 
-  it("인술 — 크리뎀 배율 가산 + 중독 onHitDot, CRIT_MULT_CAP 클램프", () => {
+  it("궁수 — 방어 관통 필드 셋", () => {
+    const archer = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "archer",
+      learnedSkillIds: [V2_CLASS_DEFS.archer.signatureSkill!],
+    }).player;
+    expect(archer.passiveDefPenetrationPct).toBe(8); // T1
+  });
+
+  it("인술 — 크리뎀 배율 가산, CRIT_MULT_CAP 클램프", () => {
     const base = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
@@ -409,7 +425,6 @@ describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
       learnedSkillIds: [SIG_NINJA],
     }).player;
     expect(d.critMult!).toBeCloseTo(Math.min(base + 0.2, 5.0), 5); // T1 +0.2
-    expect(d.passiveOnHitDot?.label).toBe("중독");
   });
 
   it("다른 직업군 시그니처 학습은 패시브 미적용", () => {
@@ -419,7 +434,7 @@ describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
       playerClass: "mage",
       learnedSkillIds: [SIG_SWORDSMAN], // 검사 시그니처 → 마법사 패시브 없음
     }).player;
-    expect(d.passiveOnHitDot).toBeUndefined();
+    expect(d.passiveMagicBasicAttack).toBeUndefined();
     const baseMagic = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,

@@ -42,6 +42,14 @@ export type V2EquipConcept =
 
 export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
 
+// 무기 종류(계파 게이트용) — 직업 계파 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
+// 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 계파 게이트와도 매칭 X = 베이스만).
+// docs/v2-job-spec-passives-plan.md §4. 전사 3종으로 시작, 직군 확장 시 추가.
+export type V2WeaponType =
+  | "greatsword" // 대검 — 전사 광검류(극딜)
+  | "sword_shield" // 검방(검+방패, 단일 아이템) — 전사 철벽검류(방어)
+  | "rapier"; // 세검 — 전사 혈풍검류(속도·출혈)
+
 // 희귀도 — 생략/"common" = 정규 카탈로그(상점·제작 대상). "unique" = 드랍 전용 유니크:
 // 정규 컨셉×티어 그리드 밖의 사이드그레이드(옵션 프로필로 슬롯 규칙을 깬다). 상점 구매·제작
 // 불가, 던전 초저확률 드랍 전용. Phase 2 에서 실제 유니크를 populate (지금은 0종).
@@ -169,6 +177,9 @@ export type V2Equipment = {
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
   element?: V2Element;
+  /** 무기 종류 — 계파 패시브 게이트(docs/v2-job-spec-passives-plan.md §4). 무기 슬롯만 의미.
+   *  미지정 = 일반 무기(계파 게이트 매칭 X). */
+  weaponType?: V2WeaponType;
   /** 희귀도. 생략/"common" = 정규(상점·제작). "unique" = 드랍 전용(상점·제작·그리드 제외). */
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
@@ -215,6 +226,27 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 // 유니크 여부 — 상점/제작/그리드 제외 판정에 공용.
 export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";
+}
+
+// ── 계파 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) ──────────────────
+// 직업 계파 패시브가 "특정 무기 종류 착용 시에만" 발동(완전 비활성 폴백). derive 가 장착 무기의
+// 종류를 이 헬퍼로 판정해 계파 패시브 적용 여부를 가른다. 순수 함수(데이터 조회) — P1 토대.
+
+/** 장착 무기(카탈로그 id)의 종류. 미장착/일반 무기(타입 없음)면 undefined. */
+export function weaponTypeOf(
+  weaponId: V2EquipmentId | undefined | null,
+): V2WeaponType | undefined {
+  if (!weaponId) return undefined;
+  return V2_EQUIPMENT[weaponId]?.weaponType;
+}
+
+/** 계파 무기 게이트 — 장착 무기가 요구 종류와 일치하는지. required 없으면 게이트 없음(항상 통과). */
+export function weaponGateOpen(
+  weaponId: V2EquipmentId | undefined | null,
+  required: V2WeaponType | undefined,
+): boolean {
+  if (!required) return true;
+  return weaponTypeOf(weaponId) === required;
 }
 
 // === 장비 세트 ======================================================
@@ -281,6 +313,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 12,
     weight: 3,
     element: "earth",
+    weaponType: "greatsword", // 전사 광검류 게이트(자연 매핑). 계파 시스템 전까지 inert.
   },
   v2_silver_sword: {
     id: "v2_silver_sword",

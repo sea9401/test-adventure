@@ -11,6 +11,8 @@ import {
   v2EquipStatRows,
   v2EquipmentByConcept,
   v2EquipmentBySlot,
+  weaponGateOpen,
+  weaponTypeOf,
   type V2EquipConcept,
   type V2EquipmentId,
   type V2EquipSlot,
@@ -365,5 +367,29 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       ],
     });
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
+  });
+});
+
+// 계파 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) — 무기 종류 태깅 + 순수 헬퍼.
+describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)", () => {
+  it("weaponTypeOf — 태깅된 무기는 종류 반환, 일반 무기·미장착은 undefined", () => {
+    expect(weaponTypeOf("v2_greatsword")).toBe("greatsword"); // 태깅됨
+    expect(weaponTypeOf("v2_iron_sword")).toBeUndefined(); // 일반 무기(타입 없음)
+    expect(weaponTypeOf(undefined)).toBeUndefined();
+    expect(weaponTypeOf(null)).toBeUndefined();
+  });
+
+  it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
+    expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
+    expect(weaponGateOpen("v2_iron_sword", "greatsword")).toBe(false); // 일반 무기 → 완전 비활성
+    expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 계파 무기
+    expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
+    expect(weaponGateOpen("v2_iron_sword", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
+  });
+
+  it("weaponType 필드는 무기 슬롯에서만 — 방어구·장신구엔 미부여", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      if (item.weaponType !== undefined) expect(item.slot).toBe("weapon");
+    }
   });
 });

@@ -7,7 +7,12 @@ import type { CharacterDynamicState } from "@/adventure/character/useCharacterSt
 import type { Profile } from "@/adventure/profile/useProfile";
 import type { InventoryState } from "@/adventure/inventory/useInventory";
 import type { TowerState } from "@/adventure/tower/types";
-import type { AdminUserRow, SavesMap, TrainingPersisted } from "./users/types";
+import type {
+  AdminUserRow,
+  SavesMap,
+  TrainingPersisted,
+  V2GrantPayload,
+} from "./users/types";
 import { SelectedUserPanel } from "./users/SelectedUserPanel";
 
 function formatLastSeen(iso: string | null): string {
@@ -144,6 +149,48 @@ export function UsersTab() {
     }
   };
 
+  // v2 전용 지급(재료/장비/충전약/숙련도) — synced-keys 밖 키(equipment.v2/proficiency.v2)
+  // 때문에 일반 PATCH 대신 전용 라우트. 성공 시 saves 리로드(재료/충전약은 보이고
+  // equipment.v2/proficiency.v2 는 saves GET 비대상이라 토스트로만 확인).
+  const grantV2 = async (payload: V2GrantPayload) => {
+    if (!selected) return;
+    try {
+      const r = await fetch("/api/admin/v2-grant", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: selected.id, ...payload }),
+      });
+      const j = (await r.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        hpCharges?: number;
+        mpCharges?: number;
+        proficiencyEarned?: number | null;
+        equipmentOwned?: string[];
+        equipmentNoOp?: boolean;
+        materials?: Record<string, number>;
+      } | null;
+      if (!r.ok || !j?.ok) {
+        throw new Error(j?.error ?? `HTTP ${r.status}`);
+      }
+      const parts: string[] = [];
+      if (j.materials) parts.push("재료");
+      if (j.hpCharges != null) parts.push(`HP충전 ${j.hpCharges}`);
+      if (j.mpCharges != null) parts.push(`MP충전 ${j.mpCharges}`);
+      if (j.proficiencyEarned === null) parts.push("숙련(직업 없음 — 미지급)");
+      else if (j.proficiencyEarned != null)
+        parts.push(`숙련 보유 ${j.proficiencyEarned}`);
+      if (j.equipmentNoOp) parts.push("장비(이미 보유)");
+      else if (j.equipmentOwned) parts.push("장비 지급");
+      showToast(
+        `v2 지급 완료: ${parts.join(", ") || "변경 없음"}. 대상 유저 새로고침 필요.`,
+      );
+      await loadSaves(selected.id);
+    } catch (e) {
+      showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+  };
+
   const resetTowerDailyAttempts = async () => {
     if (!selected) return;
     // daily 를 null 로 비우면 서버 측 todayDaily 가 다음 start 때 0 으로 재초기화.
@@ -262,6 +309,7 @@ export function UsersTab() {
             onUpdateCharacter={updateCharacter}
             onUpdateTraining={updateTraining}
             onUpdateInventory={updateInventory}
+            onGrantV2={grantV2}
             onResetTowerDailyAttempts={resetTowerDailyAttempts}
             onResetBossAttempts={resetBossAttempts}
             onReload={() => loadSaves(selected.id)}

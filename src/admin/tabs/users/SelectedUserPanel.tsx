@@ -13,9 +13,11 @@ import {
   type AdminUserRow,
   type SavesMap,
   type TrainingPersisted,
+  type V2GrantPayload,
 } from "./types";
 import { GuildCooldownSection } from "./GuildCooldownSection";
 import { ItemGrantSection } from "./ItemGrantSection";
+import { V2GrantSection } from "./V2GrantSection";
 import { RuneGrantSection } from "./RuneGrantSection";
 import { TowerSection } from "./TowerSection";
 import { BossSection } from "./BossSection";
@@ -30,6 +32,7 @@ export function SelectedUserPanel({
   onUpdateCharacter,
   onUpdateTraining,
   onUpdateInventory,
+  onGrantV2,
   onResetTowerDailyAttempts,
   onResetBossAttempts,
   onReload,
@@ -43,6 +46,7 @@ export function SelectedUserPanel({
   onUpdateCharacter: (next: CharacterDynamicState) => void;
   onUpdateTraining: (next: TrainingPersisted) => void;
   onUpdateInventory: (next: InventoryState) => void;
+  onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
   onResetTowerDailyAttempts: () => void;
   onResetBossAttempts: () => void;
   onReload: () => void;
@@ -273,6 +277,8 @@ export function SelectedUserPanel({
         readOnly={readOnly || loading}
         onUpdateInventory={onUpdateInventory}
       />
+
+      <V2GrantSection readOnly={readOnly || loading} onGrant={onGrantV2} />
 
       <RuneGrantSection
         inventory={inventory}

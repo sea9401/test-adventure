@@ -42,3 +42,13 @@ export type SavesMap = {
   "tower.v1"?: TowerState;
   [key: string]: unknown;
 };
+
+// POST /api/admin/v2-grant 본문(userId 제외). 골드·EXP·레벨은 캐릭터 패널에서 편집하고
+// 여기는 synced-keys 밖이라 일반 saves PATCH 로 안 되는 v2 자원(재료/충전약/숙련도/장비).
+export type V2GrantPayload = {
+  materials?: Record<string, number>;
+  hpCharges?: number;
+  mpCharges?: number;
+  proficiency?: number;
+  equipmentId?: string;
+};

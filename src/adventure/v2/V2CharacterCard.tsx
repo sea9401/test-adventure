@@ -20,6 +20,7 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
@@ -36,6 +37,8 @@ export type V2CharacterCardData = {
   mp?: number;
   maxMp?: number;
   gold: number;
+  /** 직업 id (raw V2Class). 없으면 "무직"으로 표시. */
+  class?: string;
 };
 
 const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] = [
@@ -89,6 +92,8 @@ export function V2CharacterCard({
   // 사냥 사이 보존. me/state 가 mp 동봉 — undefined fallback 은 maxMp (옛 캐릭).
   const maxMp = character.maxMp ?? 0;
   const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
+  // 직업명 — class 없거나 미선택이면 "무직".
+  const jobName = V2_CLASS_DEFS[parseV2Class(character.class)].name;
 
   // 장착 슬롯 클릭 시 띄울 아이템 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
   const [selected, setSelected] = useState<{
@@ -110,6 +115,9 @@ export function V2CharacterCard({
             <span className="text-base font-semibold">{character.name}</span>
             <span className="text-sm text-zinc-400 dark:text-zinc-500">
               Lv.{character.level}
+            </span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+              · {jobName}
             </span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               · {guild ? guild.name : "무소속"}

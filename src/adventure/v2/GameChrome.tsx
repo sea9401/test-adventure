@@ -96,29 +96,36 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
       !pathname.startsWith("/map") &&
       !pathname.startsWith("/outpost"));
 
-  // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·낚시터·사냥터) > 거점 탭(모험/마을/캐릭터)
-  // > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별 이미지(없으면 village 폴백), 나머지는 정적.
+  // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·상점·대장간·낚시터·사냥터·아레나)
+  // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별
+  // 이미지(없으면 village 폴백), 나머지는 정적.
   // 낚시터 = 미니게임 + 대회/상점(/town/fishing 하위). 사냥터 = 던전 목록 + 층 전투(/battle/dungeon 하위).
-  // 전투 탭의 나머지(전투 홈·아레나)는 battle.webp — 던전은 위에서 hunt.webp 로 더 구체 매핑.
+  // 상점/대장간은 마을 탭이지만 전용 배경으로 더 구체 매핑, 아레나도 battle 홈과 구분.
   const background: { src: string; fallbackSrc?: string } | null =
     pathname === "/town/healing"
       ? { src: "/images/ui/healingcenter.webp" }
-      : pathname.startsWith("/town/fishing")
-        ? { src: "/images/ui/fishing.webp" }
-        : pathname.startsWith("/battle/dungeon")
-          ? { src: "/images/ui/hunt.webp" }
-          : BG_TABS.has(activeTab)
-            ? {
-                src: `/images/ui/${currentOutpostType}.webp`,
-                fallbackSrc: "/images/ui/village.webp",
-              }
-            : activeTab === "guild"
-              ? { src: "/images/ui/guild.webp" }
-              : activeTab === "plaza"
-                ? { src: "/images/ui/townhall.webp" }
-                : activeTab === "battle"
-                  ? { src: "/images/ui/battle.webp" }
-                  : null;
+      : pathname.startsWith("/town/shop")
+        ? { src: "/images/ui/shop.webp" }
+        : pathname.startsWith("/town/smithy")
+          ? { src: "/images/ui/forge.webp" }
+          : pathname.startsWith("/town/fishing")
+            ? { src: "/images/ui/fishing.webp" }
+            : pathname.startsWith("/battle/arena")
+              ? { src: "/images/ui/arena.webp" }
+              : pathname.startsWith("/battle/dungeon")
+                ? { src: "/images/ui/hunt.webp" }
+                : BG_TABS.has(activeTab)
+                  ? {
+                      src: `/images/ui/${currentOutpostType}.webp`,
+                      fallbackSrc: "/images/ui/village.webp",
+                    }
+                  : activeTab === "guild"
+                    ? { src: "/images/ui/guild.webp" }
+                    : activeTab === "plaza"
+                      ? { src: "/images/ui/townhall.webp" }
+                      : activeTab === "battle"
+                        ? { src: "/images/ui/battle.webp" }
+                        : null;
 
   return (
     <div>

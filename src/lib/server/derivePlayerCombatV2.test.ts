@@ -14,6 +14,7 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
+import { getJobSpec } from "@/adventure/data/v2/v2JobSpecs";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -472,5 +473,74 @@ describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
       weapon: "v2_meadow_bow",
     });
     expect(a.hp).toBe(0); // boots 빠짐 → 세트 미완성
+  });
+});
+
+describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job-spec-passives-plan)", () => {
+  const gwang = getJobSpec("warrior", "gwang")!; // 광검류(대검 게이트)
+  const base = {
+    level: 50,
+    allocatedStats: { str: 100 },
+    v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId }, // weaponType: greatsword
+  };
+
+  it("계파 미지정 = 효과 없음(inert) — 계파 필드 미설정", () => {
+    const d = derivePlayerCombatV2Pure(base);
+    expect(d.player.passiveDefPenetrationPct).toBeUndefined();
+    expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
+    expect(d.player.thornsPct).toBeUndefined();
+    expect(d.player.bleedDmgPerStack).toBeUndefined();
+  });
+
+  it("광검류 + 대검 + 해금 → atk%·방관·크리뎀 적용", () => {
+    const baseD = derivePlayerCombatV2Pure(base);
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      spec: gwang,
+      unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
+    });
+    expect(d.player.atk).toBe(Math.floor(baseD.player.atk * 1.2)); // atkPctAdd 20
+    expect(d.player.passiveDefPenetrationPct).toBe(17); // gwang_pierce
+    expect(d.player.critMult ?? 0).toBeCloseTo((baseD.player.critMult ?? 0) + 0.35, 5); // gwang_crit
+  });
+
+  it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {
+    const baseNoType = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId },
+    });
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId }, // 타입 없는 일반 검
+      spec: gwang,
+      unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
+    });
+    expect(d.player.atk).toBe(baseNoType.player.atk); // 효과 0
+    expect(d.player.passiveDefPenetrationPct).toBeUndefined();
+  });
+
+  it("해금 안 한 패시브는 미적용", () => {
+    const baseD = derivePlayerCombatV2Pure(base);
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      spec: gwang,
+      unlockedPassives: ["gwang_pierce"], // 방관만 해금, atk%·크리뎀 미해금
+    });
+    expect(d.player.passiveDefPenetrationPct).toBe(17); // 해금됨
+    expect(d.player.atk).toBe(baseD.player.atk); // gwang_cut 미해금 → atk 불변
+  });
+
+  it("철벽검류 + 검방 → 받피감·반격·반사(thornsPct) 매핑", () => {
+    const cheol = getJobSpec("warrior", "cheolbyeok")!;
+    // 검방 무기가 카탈로그에 아직 없으니 — 게이트 통과 케이스는 P3a 데이터 단위테스트가 커버.
+    // 여기선 매핑 경로만: 무기 불일치라 비활성 확인(현 카탈로그엔 sword_shield 아이템 0개).
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      spec: cheol,
+      unlockedPassives: ["cheol_guard", "cheol_counter", "cheol_reflect"],
+    });
+    // base 는 대검 → 검방 게이트 불통과 → 비활성
+    expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
+    expect(d.player.thornsPct).toBeUndefined();
   });
 });

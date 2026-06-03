@@ -59,10 +59,16 @@ import {
   V2_EQUIP_SETS,
   parseEquipmentSave,
   resolveEquippedForAggregate,
+  weaponTypeOf,
   type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  aggregateSpecPassives,
+  getSpecById,
+  type V2JobSpec,
+} from "@/adventure/data/v2/v2JobSpecs";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/battle/engine";
@@ -78,6 +84,10 @@ type SavedCharacterV2 = {
   // PR-7a — equippedSpells 는 옛 spell 시스템 잔재. parse 단계에서 무시되며 PR-7b 마이그
   // 가 v2_skill_meditate 자동 학습 부여로 대체. 필드는 옛 캐릭 save 호환 위해 보존.
   equippedSpells?: unknown;
+  // 계파(스펙) 시스템 — docs/v2-job-spec-passives-plan.md. specChoice = 선택 계파 id,
+  // unlockedPassives = 해금한 계파 패시브 id들. 둘 다 없으면(현 캐릭) 계파 효과 없음(inert).
+  specChoice?: unknown;
+  unlockedPassives?: unknown;
 };
 
 export type DerivedPlayerCombatV2 = {
@@ -284,6 +294,10 @@ export type DerivePlayerCombatV2PureInput = {
   playerClass?: V2Class;
   /** skills.v2.learned — 학습 스킬 id. 직업 패시브 티어 산정(시그니처만)에 사용. 미지정 = 패시브 없음. */
   learnedSkillIds?: readonly string[];
+  /** 선택 계파(스펙). 미지정 = 계파 효과 없음(inert). docs/v2-job-spec-passives-plan.md. */
+  spec?: V2JobSpec;
+  /** 해금한 계파 패시브 id들. spec 과 함께. 무기 게이트 통과 + 해금된 것만 적용. */
+  unlockedPassives?: readonly string[];
 };
 
 export function derivePlayerCombatV2Pure(
@@ -424,33 +438,73 @@ export function derivePlayerCombatV2Pure(
     CRIT_MULT_CAP,
   );
 
+  // ── 계파(스펙) 패시브 (docs/v2-job-spec-passives-plan.md §3·§6 — P3c flip) ───
+  // 선택 계파 + 해금 패시브 + 장착 무기 종류 → 합산 효과. 무기 게이트 불통과/spec 미지정 = {}.
+  // 현 캐릭(specChoice 없음) = {} → 전부 항등(byte-identical inert). 활성은 save 에
+  // specChoice/unlockedPassives 가 있을 때만(래퍼가 주입).
+  const specEff = aggregateSpecPassives(
+    input.spec,
+    input.unlockedPassives ?? [],
+    weaponTypeOf(v2Equipped.weapon),
+  );
+  // 합산(없거나 0 = undefined 유지 → 미보유 시 객체 모양 불변).
+  const sumOrUndef = (a: number | undefined, b: number | undefined) => {
+    const t = (a ?? 0) + (b ?? 0);
+    return t > 0 ? t : undefined;
+  };
+  // 물공%·속도% = 곱(0이면 곱/floor 미적용 — inert 보장). 명중%·크리뎀·추가타 = 가산(+0 항등).
+  const specAtk = specEff.atkPctAdd
+    ? Math.floor(finalAtk * (1 + specEff.atkPctAdd / 100))
+    : finalAtk;
+  const specSpd = specEff.spdPctAdd
+    ? Math.floor(spd * (1 + specEff.spdPctAdd / 100))
+    : spd;
+
   const player: PlayerCombat = {
     hp,
     maxHp,
     mp,
     maxMp,
     intStat: totalStats.int,
-    atk: finalAtk,
+    atk: specAtk,
     magicAtk: finalMagicAtk,
     def,
-    spd,
+    spd: specSpd,
     evasionPct,
-    accuracyPct,
+    accuracyPct: accuracyPct + (specEff.accuracyPctAdd ?? 0),
     attackCount: 1,
-    extraAttackChancePct,
+    extraAttackChancePct:
+      extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),
     critChancePct,
-    critMult: finalCritMult,
+    critMult: Math.min(
+      finalCritMult + (specEff.critMultAdd ?? 0),
+      CRIT_MULT_CAP,
+    ),
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
     magicDef,
     critResistPct,
     minDamage,
     healMult,
     baselineRegen: baselineRegenFor(maxHp),
-    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op).
+    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 계파 효과는 합산(sumOrUndef).
     passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp, // 사제
-    passiveDefPenetrationPct: passive?.defPenetrationPct, // 궁수 (평타 방어관통)
-    passiveCounterChancePct: passive?.counterChancePct, // 무도가 (피격 반격)
-    passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사 (평타 마공화)
+    passiveDefPenetrationPct: sumOrUndef(
+      passive?.defPenetrationPct,
+      specEff.defPenetrationPct,
+    ), // 궁수 + 광검류
+    passiveCounterChancePct: sumOrUndef(
+      passive?.counterChancePct,
+      specEff.counterChancePct,
+    ), // 무도가 + 철벽검류
+    passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사
+    // 계파 신규 효과 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈.
+    ...(specEff.damageTakenReductionPct
+      ? { passiveDamageTakenReductionPct: specEff.damageTakenReductionPct }
+      : {}),
+    ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
+    ...(specEff.bleedDmgPerStack
+      ? { bleedDmgPerStack: specEff.bleedDmgPerStack }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.
@@ -511,6 +565,16 @@ export async function derivePlayerCombatV2(
   // 직업 패시브 티어 산정용 — 학습 시그니처. equipped 는 무관(패시브는 장착 불요).
   const learnedSkillIds = parseV2SkillsState(skillsRaw).learned;
 
+  // 계파(스펙) — save 의 specChoice/unlockedPassives 방어 파싱. 없으면 undefined → inert.
+  const specId =
+    typeof character.specChoice === "string" ? character.specChoice : undefined;
+  const spec = specId ? getSpecById(specId) : undefined;
+  const unlockedPassives = Array.isArray(character.unlockedPassives)
+    ? character.unlockedPassives.filter(
+        (x): x is string => typeof x === "string",
+      )
+    : [];
+
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
     allocatedStats: prof.grown,
@@ -523,5 +587,7 @@ export async function derivePlayerCombatV2(
     selectedStanceRaw: character.selectedStance,
     playerClass: parseV2Class(character.class),
     learnedSkillIds,
+    spec,
+    unlockedPassives,
   });
 }

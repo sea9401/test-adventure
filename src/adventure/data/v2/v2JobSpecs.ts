@@ -104,6 +104,15 @@ export function getJobSpec(
   return V2_JOB_SPECS[job]?.find((s) => s.id === specId);
 }
 
+/** 계파 id 만으로 전역 조회(save 의 specChoice 해석용 — 직군 무관, id 전역 유일). */
+export function getSpecById(specId: string): V2JobSpec | undefined {
+  for (const specs of Object.values(V2_JOB_SPECS)) {
+    const found = specs.find((s) => s.id === specId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 /**
  * 선택 계파 + 해금한 패시브 ids + 장착 무기 종류 → 합산 효과.
  * 무기 게이트 불통과(종류 불일치)면 빈 효과(완전 비활성 폴백 — docs §4·§8-1).

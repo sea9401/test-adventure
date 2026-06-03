@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   V2_JOB_SPECS,
   getJobSpec,
+  getSpecById,
   aggregateSpecPassives,
 } from "./v2JobSpecs";
 
@@ -30,6 +31,16 @@ describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passiv
   it("패시브 id 는 직군 전역 유일(해금 저장 키 충돌 방지)", () => {
     const ids = V2_JOB_SPECS.warrior.flatMap((s) => s.passives.map((p) => p.id));
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("계파 id·패시브 id 는 전 직군 통틀어 전역 유일 (getSpecById 모호성 방지)", () => {
+    const all = Object.values(V2_JOB_SPECS).flat();
+    const specIds = all.map((s) => s.id);
+    expect(new Set(specIds).size).toBe(specIds.length); // 계파 id 전역 유일
+    const passiveIds = all.flatMap((s) => s.passives.map((p) => p.id));
+    expect(new Set(passiveIds).size).toBe(passiveIds.length); // 패시브 id 전역 유일
+    // getSpecById 가 각 계파를 정확히 찾음
+    for (const s of all) expect(getSpecById(s.id)?.id).toBe(s.id);
   });
 });
 

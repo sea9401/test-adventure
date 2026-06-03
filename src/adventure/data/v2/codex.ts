@@ -7,20 +7,14 @@
 import { V2_MATERIALS, type V2MaterialId } from "./dungeonDrops";
 
 // 코덱스 총 등재 가능 재료 수(= 알려진 재료 종). 재료가 늘면 자동으로 커진다.
-// 도감 추적 대상 재료 id — codex:false(보스 전용 트로피 등) 제외. 분모(총량)·분자(수집) 공용.
-const CODEX_MATERIAL_IDS = (Object.keys(V2_MATERIALS) as V2MaterialId[]).filter(
-  (id) => V2_MATERIALS[id].codex !== false,
-);
-
-// 코덱스 총 등재 가능 재료 수(= 도감 추적 재료 종). 재료가 늘면 자동으로 커진다.
-export const V2_CODEX_TOTAL = CODEX_MATERIAL_IDS.length;
+export const V2_CODEX_TOTAL = (Object.keys(V2_MATERIALS) as V2MaterialId[]).length;
 
 // character.v2.materials(Record<id, count>) 에서 수집한(유효 id + count>0) 재료 id 들.
-// 손상된 입력(객체 아님 등)은 빈 배열. 알려지지 않은/도감 비추적 id 는 무시.
+// 손상된 입력(객체 아님 등)은 빈 배열. 알려지지 않은 id 는 무시.
 export function discoveredMaterialIds(raw: unknown): V2MaterialId[] {
   if (!raw || typeof raw !== "object") return [];
   const map = raw as Record<string, unknown>;
-  return CODEX_MATERIAL_IDS.filter((id) => {
+  return (Object.keys(V2_MATERIALS) as V2MaterialId[]).filter((id) => {
     const v = map[id];
     return typeof v === "number" && Number.isFinite(v) && v > 0;
   });

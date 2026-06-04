@@ -4,9 +4,9 @@ import { outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattle } from "@/adventure/battle/engine";
-import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
-import { monsterGoldReward } from "@/adventure/battle/monsterGold";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
+import { monsterGoldReward } from "@/adventure/v2/combat/monsterGold";
 import {
   applyExpGain,
   applyNewbieExpBonusByBattles,

@@ -11,8 +11,8 @@
 // 실행: node --import tsx scripts/sim-v2-pvp-weapon.ts
 //   env: LEVELS="50,100"  TRIALS=150
 
-import { resolveBattlePvP } from "../src/adventure/battle/engine-pvp";
-import type { PlayerCombat } from "../src/adventure/battle/engine";
+import { resolveBattlePvP } from "../src/adventure/v2/combat/engine-pvp";
+import type { PlayerCombat } from "../src/adventure/v2/combat/engine";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import { emptyV2SkillsState } from "../src/adventure/data/v2/v2Skills";

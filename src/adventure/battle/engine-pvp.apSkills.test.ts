@@ -7,8 +7,8 @@ import {
   advanceTurnPvP,
   initialBattleStatePvP,
   type PvPBattleState,
-} from "./engine-pvp";
-import type { EquippedAPSkill, PlayerCombat } from "./engine";
+} from "../v2/combat/engine-pvp";
+import type { EquippedAPSkill, PlayerCombat } from "../v2/combat/engine";
 import {
   getAPSkillByName,
   DEFAULT_AP_SKILL_CONDITION,

@@ -15,8 +15,8 @@ import {
   v2DamageAmount,
   tickV2Dots,
   applyV2DotsToTarget,
-} from "./combatShared";
-import type { PlayerCombat } from "./engine";
+} from "../v2/combat/combatShared";
+import type { PlayerCombat } from "../v2/combat/engine";
 import type { Potion } from "../data/potions";
 import {
   V2_DOT_PRESETS,

@@ -6,7 +6,7 @@
 // 비활성. 1차 다이얼: INT 10 = MP 100. 마법 소비 비용은 PR-4+ 에서 같이 튜닝.
 export const MP_PER_INT = 10;
 
-import type { PlayerCombat } from "@/adventure/battle/engine";
+import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 import type { EquipItem } from "@/adventure/data/items";
 import {
   enchantCombatBonus,
@@ -37,7 +37,7 @@ import {
   DEFAULT_AP_SKILL_CONDITION,
   type APSkillCondition,
 } from "./apSkills";
-import type { EquippedAPSkill } from "@/adventure/battle/engine";
+import type { EquippedAPSkill } from "@/adventure/v2/combat/engine";
 import {
   acrobatEvadeHealFor,
   analysisPerTurnFor,

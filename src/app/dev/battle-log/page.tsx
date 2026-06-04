@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BattleLogList } from "@/adventure/battle/BattleLogList";
-import type { BattleLogEntry } from "@/adventure/battle/engine";
+import type { BattleLogEntry } from "@/adventure/v2/combat/engine";
 import { stanceBattleLogText, STANCE_IDS, type StanceId } from "@/adventure/character/stance";
 
 // #502 전투 시작 로그의 전술 안내 한 줄을 로그인 없이 확인.

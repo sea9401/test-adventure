@@ -5,7 +5,7 @@ import {
   resolveBattle,
   type EquippedAPSkill,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 import {
   AP_CAP,

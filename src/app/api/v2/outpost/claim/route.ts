@@ -9,9 +9,9 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattle } from "@/adventure/battle/engine";
-import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
-import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BattleState } from "./engine";
+import type { BattleState } from "../v2/combat/engine";
 import { BattleLogList } from "./BattleLogList";
 import { MONSTERS } from "../data/monsters";
 import {

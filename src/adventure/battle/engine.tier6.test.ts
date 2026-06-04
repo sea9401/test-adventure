@@ -4,7 +4,7 @@ import {
   initialBattleState,
   type BattleState,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10.

@@ -3,8 +3,8 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattle } from "@/adventure/battle/engine";
-import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { V2_MONSTERS, V2_SPAR_DUMMY_ID } from "@/adventure/data/v2/v2Monsters";
 import {
   emptyV2SkillsState,

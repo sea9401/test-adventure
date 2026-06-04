@@ -65,7 +65,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
-import type { PlayerCombat } from "@/adventure/battle/engine";
+import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 
 type SavedCharacterV2 = {
   hp?: number;

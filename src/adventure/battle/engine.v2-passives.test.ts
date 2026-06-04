@@ -4,7 +4,7 @@ import {
   initialBattleState,
   resolveBattle,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // v2 직업 패시브 엔진훅 단위 검증 (2026-06-03 재설계):

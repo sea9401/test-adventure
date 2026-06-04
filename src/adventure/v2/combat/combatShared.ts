@@ -6,17 +6,17 @@
 //
 // PlayerCombat 은 engine.ts 에서 정의 — type-only import 라 런타임 순환참조 없음(타입은 소거).
 
-import { computeHealAmount, type Potion } from "../data/potions";
-import type { APSkill, APSkillEffect } from "../character/apSkills";
+import { computeHealAmount, type Potion } from "@/adventure/data/potions";
+import type { APSkill, APSkillEffect } from "@/adventure/character/apSkills";
 import {
   V2_SKILLS,
   type V2SkillDefinition,
   type V2SkillId,
   type V2SkillsState,
-} from "../data/v2/v2Skills";
-import { V2_CLASS_DEFS } from "../data/v2/classes";
-import { elementDamageMult, type V2Element } from "../data/v2/elements";
-import type { StatKey } from "../data/stats";
+} from "@/adventure/data/v2/v2Skills";
+import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
+import { elementDamageMult, type V2Element } from "@/adventure/data/v2/elements";
+import type { StatKey } from "@/adventure/data/stats";
 import type { EquippedAPSkill, PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;

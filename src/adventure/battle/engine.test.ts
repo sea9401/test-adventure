@@ -9,7 +9,7 @@ import {
   type BattleLogEntry,
   type BattleState,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import {
   BLEED_MAX_STACKS,
   VENOM_PCT_HP_PER_POINT,

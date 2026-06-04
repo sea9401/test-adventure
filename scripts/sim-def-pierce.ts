@@ -19,9 +19,9 @@ import {
   type PlayerCombat,
   type EquippedAPSkill,
   DEF_IGNORE_FRACTION,
-} from "../src/adventure/battle/engine";
-import { resolveBattlePvP } from "../src/adventure/battle/engine-pvp";
-import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
+} from "../src/adventure/v2/combat/engine";
+import { resolveBattlePvP } from "../src/adventure/v2/combat/engine-pvp";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombat } from "../src/adventure/character/derivePlayerCombat";
 import { FEAT_NAMES, SKILL_NAMES } from "../src/adventure/character/skills";
 import { getAPSkillByName, type APSkillCondition } from "../src/adventure/character/apSkills";

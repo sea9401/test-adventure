@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { db as dbType } from "@/db";
 import { guildMembers, savesKv, v2GuildLineups } from "@/db/schema";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import {
   simulateTournament,
   type MatchSim,

@@ -5,7 +5,7 @@ import {
   BattleScene,
   type BattlePlayerStatus,
 } from "@/adventure/battle/BattleScene";
-import type { BattleState } from "@/adventure/battle/engine";
+import type { BattleState } from "@/adventure/v2/combat/engine";
 import {
   buildBattleStateFromReplay,
   type ReplayPayload,

@@ -14,7 +14,6 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "../data/v2/v2Skills";
-import { V2_CLASS_DEFS } from "../data/v2/classes";
 import { elementDamageMult, type V2Element } from "../data/v2/elements";
 import type { StatKey } from "../data/stats";
 import type { EquippedAPSkill, PlayerCombat } from "./engine";
@@ -291,21 +290,8 @@ export function v2HealAmount(args: {
 }
 
 // MP-throttle 모델 — 전 스킬 쿨다운 폐지(데이터 cooldown:0), MP 소모량이 유일 throttle.
-// 직업 시그니처(requireClass)는 mpCost:0 = "직업 차수별 자동 산정"(아래 표). 개별 비용을
-// 지정하려면 0 이 아닌 literal 을 박으면 override. 비-시그니처 학습 스킬은 literal 그대로.
-export const V2_SIGNATURE_MP_BY_TIER: Record<1 | 2 | 3 | 4, number> = {
-  1: 12,
-  2: 16,
-  3: 20,
-  4: 24,
-};
-
+// P4 — 구 시그니처 차수별 자동 MP 산정 폐지(시그니처 은퇴). 학습 스킬은 data 의 mpCost literal 그대로.
 export function v2SkillMpCost(def: V2SkillDefinition): number {
-  const rc = def.learn?.requireClass;
-  // 시그니처 + mpCost 미지정(0) → 직업 차수별 기본 비용. literal 박혀 있으면 그 값 우선.
-  if (rc && def.mpCost === 0) {
-    return V2_SIGNATURE_MP_BY_TIER[V2_CLASS_DEFS[rc].tier];
-  }
   return def.mpCost;
 }
 

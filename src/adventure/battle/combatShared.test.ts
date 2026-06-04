@@ -155,10 +155,10 @@ describe("pickAutoCastV2Skill (PR-4a)", () => {
   });
 
   it("MP 부족이면 skip → 다음 슬롯", () => {
-    // MP-throttle: blade_dance(시그니처 = 차수별 산정 12) 불가 + strike(8) 가능한 MP → strike.
+    // MP-throttle: str_cleave_t2(mpCost 14) 불가 + strike(8) 가능한 MP(10) → strike.
     expect(
       pickAutoCastV2Skill({
-        equipped: ["v2_skill_blade_dance", "v2_skill_strike"],
+        equipped: ["str_cleave_t2", "v2_skill_strike"],
         cooldowns: {},
         mp: 10,
       }),

@@ -32,7 +32,9 @@ import {
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
   V2_CLASS_DEFS,
+  V2_TIER_STAT_BONUS_PCT,
   parseV2Class,
+  tier1ClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -292,6 +294,8 @@ export type DerivePlayerCombatV2PureInput = {
   selectedStanceRaw?: unknown;
   /** character.v2.class — 직업. 앵커 스탯 보정에 사용. 미지정 = none. */
   playerClass?: V2Class;
+  /** 직업 차수(proficiency.groups[job].tier, 1~4). 앵커 보정 %를 차수로 조회. 미지정 = 1차. */
+  classTier?: number;
   /** skills.v2.learned — 학습 스킬 id. 직업 패시브 티어 산정(시그니처만)에 사용. 미지정 = 패시브 없음. */
   learnedSkillIds?: readonly string[];
   /** 선택 계파(스펙). 미지정 = 계파 효과 없음(inert). docs/v2-job-spec-passives-plan.md. */
@@ -326,13 +330,18 @@ export function derivePlayerCombatV2Pure(
   // (위력/무게/옵션만). 1차 스탯 정체성은 훈련 분배 + 직업 보정에서만 나온다.
   const totalStats: Record<V2StatKey, number> = { ...baseAllocatedStats };
 
-  // PR-1 직업 보정 — 직업 앵커 스탯에 statBonusPct%. (검사 = STR +10%)
-  const classDef = V2_CLASS_DEFS[input.playerClass ?? "none"];
-  if (classDef.statBonusPct > 0) {
+  // PR-1 직업 보정 — 직업 앵커 스탯에 차수별 보정 %. (전사 1차 = STR +10%, 4차 = +35%)
+  // 차수(classTier)는 proficiency.groups[job].tier 에서. none 은 보정 없음.
+  const playerClass = input.playerClass ?? "none";
+  const classDef = V2_CLASS_DEFS[playerClass];
+  const bonusPct =
+    playerClass === "none"
+      ? 0
+      : (V2_TIER_STAT_BONUS_PCT[Math.max(1, Math.floor(input.classTier ?? 1))] ??
+        0);
+  if (bonusPct > 0) {
     const k = classDef.anchorStat;
-    totalStats[k] = Math.floor(
-      totalStats[k] * (1 + classDef.statBonusPct / 100),
-    );
+    totalStats[k] = Math.floor(totalStats[k] * (1 + bonusPct / 100));
   }
 
   // PR-S1 5배 스케일 — float 누적 후 atk/def/maxHp/maxMp 만 최종 floor.
@@ -586,6 +595,9 @@ export async function derivePlayerCombatV2(
     mp: character.mp,
     selectedStanceRaw: character.selectedStance,
     playerClass: parseV2Class(character.class),
+    // 차수 = 현 직업의 proficiency.groups[job].tier (없으면 1차).
+    classTier:
+      prof.groups[tier1ClassOf(parseV2Class(character.class))]?.tier ?? 1,
     learnedSkillIds,
     spec,
     unlockedPassives,

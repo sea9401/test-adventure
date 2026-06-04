@@ -9,14 +9,14 @@ import { V2_BASE_STATS } from "./v2Stats";
 
 describe("v2 랜덤 레벨 성장", () => {
   it("레벨 1회 = POINTS 만큼 +1 (cap 여유 시)", () => {
-    const grown = rollLevelGrowth({}, "swordsman", emptyProficiency(), () => 0.5);
+    const grown = rollLevelGrowth({}, "warrior", emptyProficiency(), () => 0.5);
     const total = Object.values(grown).reduce((a, b) => a + (b ?? 0), 0);
     expect(total).toBe(V2_GROWTH_POINTS_PER_LEVEL);
   });
 
   it("앵커 가중 — rng 가 앵커 구간(작은 값)이면 앵커에 몰림", () => {
-    // 검사(swordsman) 앵커=str(가중 3/8). rng=0.1 → 매 포인트 str 선택.
-    const grown = rollLevelGrowth({}, "swordsman", emptyProficiency(), () => 0.1);
+    // 검사(warrior) 앵커=str(가중 3/8). rng=0.1 → 매 포인트 str 선택.
+    const grown = rollLevelGrowth({}, "warrior", emptyProficiency(), () => 0.1);
     expect(grown.str).toBe(V2_GROWTH_POINTS_PER_LEVEL);
     expect(grown.int).toBeUndefined();
   });
@@ -25,7 +25,7 @@ describe("v2 랜덤 레벨 성장", () => {
     const prof = parseProficiency({ groups: {}, caps: {} }); // 전 스탯 cap = 60 기본
     const base = V2_BASE_STATS.str;
     const grown0 = { str: 60 - base }; // str 이미 cap(60)
-    const grown = rollLevelGrowth(grown0, "swordsman", prof, () => 0.1);
+    const grown = rollLevelGrowth(grown0, "warrior", prof, () => 0.1);
     expect(grown.str).toBe(60 - base); // 안 오름
     const total = Object.values(grown).reduce((a, b) => a + (b ?? 0), 0);
     expect(total).toBe(60 - base + V2_GROWTH_POINTS_PER_LEVEL); // 5점 다른 스탯
@@ -48,31 +48,31 @@ describe("v2 랜덤 레벨 성장", () => {
         return s / 0x7fffffff;
       };
     };
-    // swordsman 앵커=str. 자유 수행 target=[spi] → spi(앵커 아님)가 최다·str 추월.
+    // warrior 앵커=str. 자유 수행 target=[spi] → spi(앵커 아님)가 최다·str 추월.
     const r = mkRng();
-    let g = rollLevelGrowth({}, "swordsman", emptyProficiency(), r, ["spi"]);
+    let g = rollLevelGrowth({}, "warrior", emptyProficiency(), r, ["spi"]);
     for (let i = 0; i < 11; i++)
-      g = rollLevelGrowth(g, "swordsman", emptyProficiency(), r, ["spi"]);
+      g = rollLevelGrowth(g, "warrior", emptyProficiency(), r, ["spi"]);
     const top = Object.entries(g).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))[0];
     expect(top[0]).toBe("spi"); // 최다 성장 = 선택 스탯(앵커 무시)
     expect(g.spi ?? 0).toBeGreaterThan(g.str ?? 0); // 앵커보다 큼
 
     // 대조: target 없으면 앵커(str)가 우세.
     const r2 = mkRng();
-    let g2 = rollLevelGrowth({}, "swordsman", emptyProficiency(), r2);
+    let g2 = rollLevelGrowth({}, "warrior", emptyProficiency(), r2);
     for (let i = 0; i < 11; i++)
-      g2 = rollLevelGrowth(g2, "swordsman", emptyProficiency(), r2);
+      g2 = rollLevelGrowth(g2, "warrior", emptyProficiency(), r2);
     expect(g2.str ?? 0).toBeGreaterThan(g2.spi ?? 0); // 앵커 우세
   });
 });
 
 describe("v2 스탯 floor", () => {
   it("computeStatFloors — 총(전 스탯) + 직군 누적레벨(프로필·차수 가중)", () => {
-    // 검술(swordsman) cumLevel 200, tier1. 총=200×0.015=3(전 스탯). 직군: str(앵커1.0)·dex/luk(0.4).
+    // 검술(warrior) cumLevel 200, tier1. 총=200×0.015=3(전 스탯). 직군: str(앵커1.0)·dex/luk(0.4).
     // 입력 earned→cumLevel 전환(2026-06): FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
     const prof = parseProficiency({
       groups: {
-        swordsman: { points: 10, cultivations: 0, tier: 1, cumLevel: 200 },
+        warrior: { points: 10, cultivations: 0, tier: 1, cumLevel: 200 },
       },
     });
     const f = computeStatFloors(prof);
@@ -89,7 +89,7 @@ describe("v2 스탯 floor", () => {
       computeStatFloors(
         parseProficiency({
           groups: {
-            swordsman: { points: 10, cultivations: 0, tier, cumLevel: 200 },
+            warrior: { points: 10, cultivations: 0, tier, cumLevel: 200 },
           },
         }),
       );
@@ -101,7 +101,7 @@ describe("v2 스탯 floor", () => {
     // 잔액(points)만 있고 cumLevel 0 → 직군 floor 기여 없음(floor 입력이 cumLevel 이므로).
     const prof = parseProficiency({
       groups: {
-        swordsman: { points: 9999, cultivations: 0, tier: 4, cumLevel: 0 },
+        warrior: { points: 9999, cultivations: 0, tier: 4, cumLevel: 0 },
       },
     });
     const f = computeStatFloors(prof);

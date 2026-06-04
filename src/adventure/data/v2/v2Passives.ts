@@ -13,12 +13,7 @@
 //
 // 수치는 전부 **미튜닝 초기값** — sim 캘리브 대상.
 
-import {
-  type V2Class,
-  V2_CLASS_DEFS,
-  signatureClassOf,
-  tier1ClassOf,
-} from "@/adventure/data/v2/classes";
+import { type V2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 
 // 한 티어분 패시브 효과. 직업군마다 자기 필드 하나만 채운다(없는 필드 = no-op).
 // 2026-06-03 재설계 — 직업군당 단순 효과 1개, 차수=계수업. DoT(소각/출혈/중독) 전면 제거.
@@ -52,50 +47,9 @@ type PassiveByTier = readonly [
   V2ClassPassiveEffect,
   V2ClassPassiveEffect,
 ];
-export const V2_CLASS_PASSIVE: Partial<Record<V2Class, PassiveByTier>> = {
-  // 검사(STR) — 평타 공격력에 STR 계수 추가.
-  swordsman: [
-    { atkPerStrCoef: 0.05 },
-    { atkPerStrCoef: 0.09 },
-    { atkPerStrCoef: 0.13 },
-    { atkPerStrCoef: 0.18 },
-  ],
-  // 무도가(VIT) — 피격 생존 시 확률 반격.
-  martial: [
-    { counterChancePct: 15 },
-    { counterChancePct: 24 },
-    { counterChancePct: 33 },
-    { counterChancePct: 45 },
-  ],
-  // 마법사(INT) — 평타 마공화 + 마법공격력에 INT 계수 추가.
-  mage: [
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.05 },
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.09 },
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.13 },
-    { magicBasicAttack: true, magicAtkPerIntCoef: 0.18 },
-  ],
-  // 사제(SPI) — 매 턴 자가회복(지속). 유지.
-  priest: [
-    { turnHealPctMaxHp: 3 },
-    { turnHealPctMaxHp: 4.5 },
-    { turnHealPctMaxHp: 6 },
-    { turnHealPctMaxHp: 8 },
-  ],
-  // 궁수(DEX) — 평타 방어 관통. 전 차수 DEF_IGNORE_FRACTION(30%) 미만.
-  archer: [
-    { defPenetrationPct: 8 },
-    { defPenetrationPct: 14 },
-    { defPenetrationPct: 20 },
-    { defPenetrationPct: 28 },
-  ],
-  // 인술(LUK) — 치명타 피해 배율 가산. 유지.
-  ninja: [
-    { critMultAdd: 0.2 },
-    { critMultAdd: 0.35 },
-    { critMultAdd: 0.5 },
-    { critMultAdd: 0.7 },
-  ],
-};
+// P4(2026-06-04) — 구 직업 패시브 은퇴. 계파(spec) 패시브가 대체(v2JobSpecs.ts + derive).
+// 빈 맵 → resolveClassPassive 항상 null → derive 에서 inert. 타입/헬퍼는 호환 위해 보존.
+export const V2_CLASS_PASSIVE: Partial<Record<V2Class, PassiveByTier>> = {};
 
 /**
  * 현재 직업의 패시브 효과를 해석한다.
@@ -107,19 +61,12 @@ export function resolveClassPassive(
   playerClass: V2Class | null | undefined,
   learnedSkillIds: readonly string[],
 ): V2ResolvedClassPassive | null {
+  // P4 — 구 직업 패시브 은퇴(계파 패시브로 대체). V2_CLASS_PASSIVE 빈 맵 → 항상 null.
   const group = tier1ClassOf(playerClass ?? "none");
   const table = V2_CLASS_PASSIVE[group];
   if (!table) return null;
-  let maxTier = 0;
-  for (const id of learnedSkillIds) {
-    const owner = signatureClassOf(id);
-    if (!owner) continue; // 시그니처가 아니면 무시(7속성 풀 등).
-    if (tier1ClassOf(owner) !== group) continue; // 다른 직업군 시그니처는 제외.
-    const t = V2_CLASS_DEFS[owner].tier;
-    if (t > maxTier) maxTier = t;
-  }
-  if (maxTier < 1) return null;
-  return { group, tier: maxTier, ...table[maxTier - 1] };
+  void learnedSkillIds;
+  return null;
 }
 
 // 패시브 효과 한 줄 설명(학습창 표기용). 채워진 필드만 " · " 로 잇는다.

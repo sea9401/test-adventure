@@ -12,7 +12,6 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 import { STAT_LABELS } from "@/adventure/data/stats";
-import type { V2Class } from "./classes";
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
@@ -146,8 +145,9 @@ export type V2SkillLearnRequirement = {
   stat?: { key: StatKey; min: number };
   /** 선행 스킬 — 모두 학습 보유해야. */
   prereqSkillIds?: readonly V2SkillId[];
-  /** 직업 전용 — 이 직업일 때만 학습 가능. 미지정 = 직업 무관. */
-  requireClass?: V2Class;
+  /** 직업 전용 게이트(레거시). P4 4직군 압축 후 비활성 — 옛 시그니처 정의의 구 class id 문자열
+   *  (swordsman/archer/…)을 담고 있을 수 있어 string 으로 둔다. 실 게이팅엔 미사용. */
+  requireClass?: string;
 };
 
 export type V2SkillDefinition = {

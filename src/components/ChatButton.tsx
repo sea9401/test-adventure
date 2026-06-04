@@ -147,8 +147,16 @@ export function ChatButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        aria-label={hasUnreadChat ? "전체 채팅 열기 (새 메시지 있음)" : "전체 채팅 열기"}
+        // 아이콘 토글 — 열려 있으면 다시 눌러 닫는다(X 버튼 외 추가 닫기 경로).
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={
+          open
+            ? "전체 채팅 닫기"
+            : hasUnreadChat
+              ? "전체 채팅 열기 (새 메시지 있음)"
+              : "전체 채팅 열기"
+        }
         title="전체 채팅"
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >

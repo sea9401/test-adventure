@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 
 // 내 정보 "기본 정보" 카드 — 옛 「직업 숙달」(누적 레벨·수행 횟수, 성장의 신전과 중복) 대체.
@@ -41,15 +42,21 @@ export function V2CharacterBasics({
     <Card padding="md">
       <h2 className="text-sm font-semibold">기본 정보</h2>
 
-      {/* 전투력 — 공격·방어·생존·속도 합산 콘텐츠 강도 지표(헤드라인). */}
-      <div className="mt-3 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+      {/* 전투력 — 공격·방어·생존·속도 합산 콘텐츠 강도 지표(헤드라인).
+          상단 요소라 툴팁은 아래(placement="bottom")로 띄워 헤더를 안 가린다. */}
+      <Tooltip
+        className="mt-3"
+        placement="bottom"
+        content="공격·방어·생존·속도를 모두 합산한 콘텐츠 강도 지표예요. 장비·능력치·숙련을 올리면 함께 오릅니다."
+        triggerClassName="flex w-full cursor-help items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-left transition-colors hover:border-amber-300 dark:border-amber-900/50 dark:bg-amber-950/30 dark:hover:border-amber-800"
+      >
         <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
           전투력
         </span>
         <span className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-300">
           {power.toLocaleString()}
         </span>
-      </div>
+      </Tooltip>
 
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <InfoTile
@@ -67,8 +74,7 @@ export function V2CharacterBasics({
       </div>
 
       <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-        전투력은 공격·방어·생존·속도를 합산한 강도 지표입니다. 직군 누적 레벨과 수행
-        횟수는 성장의 신전에서 확인할 수 있습니다.
+        직군 누적 레벨과 수행 횟수는 성장의 신전에서 확인할 수 있습니다.
       </p>
     </Card>
   );

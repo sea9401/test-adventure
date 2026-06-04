@@ -558,6 +558,13 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.poisonedEnemyDefReductionPct
       ? { poisonedEnemyDefReductionPct: specEff.poisonedEnemyDefReductionPct }
       : {}),
+    // 혈광 — 엔진이 적 출혈 중일 때 그 턴 공격 횟수 굴림에 추가 공격 확률 가산.
+    ...(specEff.extraAttackChancePctWhileEnemyBleeding
+      ? {
+          extraAttackChancePctWhileEnemyBleeding:
+            specEff.extraAttackChancePctWhileEnemyBleeding,
+        }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

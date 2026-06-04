@@ -44,8 +44,8 @@ export type V2SpecPassiveEffect = {
   atkFromDefPct?: number;
   /** 흘려막기 — 피격 시 % 확률로 피해 완전 무시. */
   damageNullifyChancePct?: number;
-  /** 혈광 — 적 출혈 중이면 자신 속도 % 가산. */
-  spdPctWhileEnemyBleeding?: number;
+  /** 혈광 — 적 출혈 중이면 추가 공격 확률 %p 가산(속도 = 연타). */
+  extraAttackChancePctWhileEnemyBleeding?: number;
   /** 강체 — 받은 피해의 % 만큼 방어력 누적(전투 내, 상한). */
   defGainOnHitPct?: number;
   /** 흡정공 — 가한 피해의 % 만큼 HP 회복(흡혈). */
@@ -124,7 +124,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     passives: [
       { id: "gladiator_combo", name: "찌르기 연계", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
       { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 8 } },
-      { id: "gladiator_swift", name: "혈광", desc: "적이 출혈 중이면 속도 증가", effect: { spdPctWhileEnemyBleeding: 15 } },
+      { id: "gladiator_swift", name: "혈광", desc: "적이 출혈 중이면 추가 공격 확률 증가", effect: { extraAttackChancePctWhileEnemyBleeding: 15 } },
     ],
   },
 ];

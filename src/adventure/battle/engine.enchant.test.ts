@@ -310,6 +310,37 @@ describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", (
   });
 });
 
+describe("extraAttackChancePctWhileEnemyBleeding — 검투사 혈광 (출혈 적에게 연타)", () => {
+  it("적 출혈 중이면 다음 턴 공격 횟수 굴림에 +확률 (100% → +1)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 1,
+      attackCount: 1,
+      extraAttackChancePctWhileEnemyBleeding: 100,
+    };
+    let state = initialBattleState(player, enemy({ hp: 100000, spd: 1 }), "용사");
+    state = { ...state, stacks: { ...state.stacks, bleedStacks: 3 } };
+    expect(state.playerAttacksLeft).toBe(1); // 첫 턴은 시작 시 굴림(출혈 적용 전)
+    state = advanceTurn(state, player, "용사", { kind: "attack" }); // 마지막 타 후 다음 턴 굴림
+    expect(state.phase).toBe("enemy");
+    expect(state.playerAttacksLeft).toBe(2); // 출혈 → +1 추가 공격
+  });
+
+  it("적 출혈 없으면 추가 공격 없음 (다음 턴 = base)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 1,
+      attackCount: 1,
+      extraAttackChancePctWhileEnemyBleeding: 100,
+    };
+    let state = initialBattleState(player, enemy({ hp: 100000, spd: 1 }), "용사");
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.playerAttacksLeft).toBe(1);
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

@@ -465,6 +465,8 @@ export type PlayerCombat = {
   extraHitDmgPct?: number;
   // 독사 부식 — 중독(출혈 스택)된 적의 DEF -pct%(playerFacingEnemyDef 곱연산). 0/undefined=미보유.
   poisonedEnemyDefReductionPct?: number;
+  // 검투사 혈광 — 적 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p(속도=연타). 0/undefined=미보유.
+  extraAttackChancePctWhileEnemyBleeding?: number;
 };
 
 
@@ -554,6 +556,23 @@ function playerFacingEnemyDef(
 // export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일하게 다음 턴 공격수를 재굴림하도록.
 export function rollPlayerAttackCount(player: PlayerCombat): number {
   return rollAttackCount(player);
+}
+
+// 혈광 (검투사 시그니처) — 적이 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p.
+// rollPlayerAttackCount 를 감싸 enemyBleeding 일 때만 extraAttackChancePct 를 부풀린다.
+// 미보유(0/undefined)·출혈 없음이면 그대로 통과 → 라이브/비계파 무변.
+function rollPlayerAttackCountWithBleed(
+  state: BattleState,
+  player: PlayerCombat,
+): number {
+  const bonus = player.extraAttackChancePctWhileEnemyBleeding ?? 0;
+  if (bonus <= 0 || state.stacks.bleedStacks <= 0) {
+    return rollPlayerAttackCount(player);
+  }
+  return rollPlayerAttackCount({
+    ...player,
+    extraAttackChancePct: (player.extraAttackChancePct ?? 0) + bonus,
+  });
 }
 
 // 한 번의 enemy phase 진입 시 결정되는 총 공격 횟수 — base 1 + bonusAttackChancePct 기반.
@@ -1175,7 +1194,7 @@ export function advanceTurn(
       return {
         ...next,
         phase: "enemy",
-        playerAttacksLeft: rollPlayerAttackCount(player),
+        playerAttacksLeft: rollPlayerAttackCountWithBleed(next, player),
         turn: { ...next.turn, firstAttackPending: true },
       };
     }
@@ -1250,7 +1269,7 @@ export function advanceTurn(
         ...state,
         log,
         phase: "enemy",
-        playerAttacksLeft: rollPlayerAttackCount(player),
+        playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
         turn: {
           ...state.turn,
           completedPlayerTurns: state.turn.completedPlayerTurns + 1,
@@ -1917,7 +1936,7 @@ export function advanceTurn(
     const ended: BattleState = {
       ...afterDamage,
       phase: "enemy",
-      playerAttacksLeft: rollPlayerAttackCount(player),
+      playerAttacksLeft: rollPlayerAttackCountWithBleed(afterDamage, player),
       turn: {
         ...afterDamage.turn,
         completedPlayerTurns: state.turn.completedPlayerTurns + 1,
@@ -2984,7 +3003,7 @@ export function resolveBattle(
           const ended: BattleState = {
             ...state,
             phase: "enemy",
-            playerAttacksLeft: rollPlayerAttackCount(player),
+            playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
             turn: {
               ...state.turn,
               completedPlayerTurns: state.turn.completedPlayerTurns + 1,

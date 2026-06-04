@@ -493,6 +493,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.poisonedEnemyDefReductionPct).toBe(20);
   });
 
+  it("검투사 + 세검 + 혈광 → extraAttackChancePctWhileEnemyBleeding 15", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_rapier" as V2EquipmentId },
+      spec: getJobSpec("warrior", "gladiator")!,
+      unlockedPassives: ["gladiator_swift"], // 혈광
+    });
+    expect(d.player.extraAttackChancePctWhileEnemyBleeding).toBe(15);
+  });
+
   it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
     const dbase = {
       ...base,

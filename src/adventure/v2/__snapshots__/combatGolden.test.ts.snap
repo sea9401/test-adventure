@@ -1,0 +1,302 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[archer] 1`] = `
+{
+  "accuracyPct": 7.925,
+  "atk": 33,
+  "attackCount": 1,
+  "baselineRegen": {
+    "amount": 7,
+    "interval": 5,
+  },
+  "critChancePct": 10.25,
+  "critMult": 2.36,
+  "critResistPct": 1.5,
+  "def": 6,
+  "evasionPct": 19.200000000000003,
+  "extraAttackChancePct": 147,
+  "healMult": 1.0975000000000001,
+  "hp": 395,
+  "intStat": 15,
+  "magicAtk": 33,
+  "magicDef": 7,
+  "maxHp": 395,
+  "maxMp": 80,
+  "minDamage": 2,
+  "mp": 80,
+  "passiveCounterChancePct": undefined,
+  "passiveDefPenetrationPct": undefined,
+  "passiveMagicBasicAttack": undefined,
+  "passiveTurnHealPctMaxHp": undefined,
+  "spd": 294,
+}
+`;
+
+exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[lowbie] 1`] = `
+{
+  "accuracyPct": 1.475,
+  "atk": 8,
+  "attackCount": 1,
+  "baselineRegen": {
+    "amount": 3,
+    "interval": 5,
+  },
+  "critChancePct": 2.25,
+  "critMult": 2.1399999999999997,
+  "critResistPct": 1.5,
+  "def": 6,
+  "evasionPct": 2.7,
+  "extraAttackChancePct": 15,
+  "healMult": 1.0975000000000001,
+  "hp": 170,
+  "intStat": 15,
+  "magicAtk": 7,
+  "magicDef": 7,
+  "maxHp": 170,
+  "maxMp": 80,
+  "minDamage": 3,
+  "mp": 80,
+  "passiveCounterChancePct": undefined,
+  "passiveDefPenetrationPct": undefined,
+  "passiveMagicBasicAttack": undefined,
+  "passiveTurnHealPctMaxHp": undefined,
+  "spd": 30,
+}
+`;
+
+exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[mage] 1`] = `
+{
+  "accuracyPct": 1.725,
+  "atk": 13,
+  "attackCount": 1,
+  "baselineRegen": {
+    "amount": 7,
+    "interval": 5,
+  },
+  "critChancePct": 2.25,
+  "critMult": 2.1199999999999997,
+  "critResistPct": 4.5,
+  "def": 6,
+  "evasionPct": 2.7,
+  "extraAttackChancePct": 14.5,
+  "healMult": 1.1725,
+  "hp": 395,
+  "intStat": 148,
+  "magicAtk": 33,
+  "magicDef": 14,
+  "maxHp": 395,
+  "maxMp": 354,
+  "minDamage": 9,
+  "mp": 354,
+  "passiveCounterChancePct": undefined,
+  "passiveDefPenetrationPct": undefined,
+  "passiveMagicBasicAttack": undefined,
+  "passiveTurnHealPctMaxHp": undefined,
+  "spd": 29,
+}
+`;
+
+exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[ninja] 1`] = `
+{
+  "accuracyPct": 3.275,
+  "atk": 18,
+  "attackCount": 1,
+  "baselineRegen": {
+    "amount": 7,
+    "interval": 5,
+  },
+  "critChancePct": 23.2,
+  "critMult": 2.9179999999999997,
+  "critResistPct": 1.5,
+  "def": 6,
+  "evasionPct": 17.34,
+  "extraAttackChancePct": 54.5,
+  "healMult": 1.0975000000000001,
+  "hp": 395,
+  "intStat": 15,
+  "magicAtk": 18,
+  "magicDef": 7,
+  "maxHp": 395,
+  "maxMp": 80,
+  "minDamage": 2,
+  "mp": 80,
+  "passiveCounterChancePct": undefined,
+  "passiveDefPenetrationPct": undefined,
+  "passiveMagicBasicAttack": undefined,
+  "passiveTurnHealPctMaxHp": undefined,
+  "spd": 109,
+}
+`;
+
+exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[tank] 1`] = `
+{
+  "accuracyPct": 1.875,
+  "atk": 11,
+  "attackCount": 1,
+  "baselineRegen": {
+    "amount": 11,
+    "interval": 5,
+  },
+  "critChancePct": 2.25,
+  "critMult": 2.1799999999999997,
+  "critResistPct": 1.5,
+  "def": 25,
+  "evasionPct": 3.7,
+  "extraAttackChancePct": 15,
+  "healMult": 1.7175000000000002,
+  "hp": 550,
+  "intStat": 15,
+  "magicAtk": 7,
+  "magicDef": 7,
+  "maxHp": 550,
+  "maxMp": 80,
+  "minDamage": 10,
+  "mp": 80,
+  "passiveCounterChancePct": undefined,
+  "passiveDefPenetrationPct": undefined,
+  "passiveMagicBasicAttack": undefined,
+  "passiveTurnHealPctMaxHp": undefined,
+  "spd": 30,
+}
+`;
+
+exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[warrior] 1`] = `
+{
+  "accuracyPct": 3.935,
+  "atk": 34,
+  "attackCount": 1,
+  "baselineRegen": {
+    "amount": 8,
+    "interval": 5,
+  },
+  "critChancePct": 2.25,
+  "critMult": 2.3859999999999997,
+  "critResistPct": 1.5,
+  "def": 13,
+  "evasionPct": 3.7,
+  "extraAttackChancePct": 14,
+  "healMult": 1.2575,
+  "hp": 435,
+  "intStat": 15,
+  "magicAtk": 14,
+  "magicDef": 7,
+  "maxHp": 435,
+  "maxMp": 80,
+  "minDamage": 17,
+  "mp": 80,
+  "passiveCounterChancePct": undefined,
+  "passiveDefPenetrationPct": undefined,
+  "passiveMagicBasicAttack": undefined,
+  "passiveTurnHealPctMaxHp": undefined,
+  "spd": 28,
+}
+`;
+
+exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭스 1`] = `
+[
+  {
+    "enemyHp": 0,
+    "label": "warrior_vs_들개",
+    "logSha": "a90f0eaf55dd1ad106ca31b02194a9fbb30dbfea",
+    "outcome": "win",
+    "playerHp": 435,
+    "playerMp": 80,
+    "turns": 6,
+  },
+  {
+    "enemyHp": 0,
+    "label": "warrior_vs_골렘",
+    "logSha": "18506adaa3f26dbf85e0c17d692b7bb2eb84ba49",
+    "outcome": "win",
+    "playerHp": 433,
+    "playerMp": 80,
+    "turns": 28,
+  },
+  {
+    "enemyHp": 0,
+    "label": "ninja_crit_vs_늑대",
+    "logSha": "c910e7dd317013296222efe59823449cccecf1c5",
+    "outcome": "win",
+    "playerHp": 265,
+    "playerMp": 80,
+    "turns": 67,
+  },
+  {
+    "enemyHp": 0,
+    "label": "archer_pen_vs_골렘",
+    "logSha": "b1cb80c292ebf5df34f88015948e81447b9b1a1f",
+    "outcome": "win",
+    "playerHp": 388,
+    "playerMp": 80,
+    "turns": 18,
+  },
+  {
+    "enemyHp": 0,
+    "label": "magic_vs_약탈자",
+    "logSha": "974c0266a05650c297571e945fd477a25cb11597",
+    "outcome": "win",
+    "playerHp": 178,
+    "playerMp": 354,
+    "turns": 54,
+  },
+  {
+    "enemyHp": 0,
+    "label": "counter_tank_vs_들소",
+    "logSha": "363ca09d806e5c82e0c18926909d3ed748bcbb4c",
+    "outcome": "win",
+    "playerHp": 328,
+    "playerMp": 80,
+    "turns": 464,
+  },
+  {
+    "enemyHp": 204,
+    "label": "heal_vs_들소_boss",
+    "logSha": "f548fc0ae578870c54750de8df8a60c119d7b25d",
+    "outcome": "lose",
+    "playerHp": 550,
+    "playerMp": 80,
+    "turns": 257,
+  },
+  {
+    "enemyHp": 0,
+    "label": "mage_skills_vs_골렘",
+    "logSha": "bdaa939208836de7cf7df90db1780e8bacd05fb3",
+    "outcome": "win",
+    "playerHp": 381,
+    "playerMp": 306,
+    "turns": 18,
+  },
+  {
+    "enemyHp": 0,
+    "label": "lowbie_vs_들개",
+    "logSha": "4441d30e3b1eac4e41b2d926060bf6afb91960df",
+    "outcome": "win",
+    "playerHp": 168,
+    "playerMp": 80,
+    "turns": 27,
+  },
+]
+`;
+
+exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트릭스 1`] = `
+[
+  {
+    "label": "warrior_vs_mage",
+    "logSha": "81d929e82b798c9044c4cb597f5ae6110759a09d",
+    "outcome": "p1_win",
+    "turns": 67,
+  },
+  {
+    "label": "archer_vs_ninja",
+    "logSha": "9d3b83a5501daefed2fa80183b41eced6898d4da",
+    "outcome": "p1_win",
+    "turns": 43,
+  },
+  {
+    "label": "tank_vs_warrior",
+    "logSha": "0a6e8089777f510106c33f4079c094b59c68fa57",
+    "outcome": "p2_win",
+    "turns": 222,
+  },
+]
+`;

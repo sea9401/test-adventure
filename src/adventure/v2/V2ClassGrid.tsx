@@ -3,10 +3,8 @@
 import { useCallback, useState } from "react";
 import {
   Sword,
-  Target,
   HandFist,
   MagicWand,
-  Cross,
   Knife,
   type Icon,
 } from "@phosphor-icons/react";
@@ -15,25 +13,22 @@ import {
   V2_CLASS_DEFS,
   V2_SELECTABLE_CLASSES,
   tier1ClassOf,
-  classOfGroupTier,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
 
-// 성장의 신전 "직업" 탭 — 6직업군 아이콘 그리드. 옛 드롭다운 피커 대체.
-//  · 각 아이콘 = 직업군. 도달 차수 이름 + 직군 누적레벨(cumLevel) 표시, 현 직업군은 하이라이트.
-//  · 현 직업군 클릭 = 다음 차수 전직(무료, 게이트 충족 시 아이콘이 다음 차수로 미리 바뀜).
-//  · 다른 직업군 클릭 = 갈아타기(무료·쿨다운 없음, 레벨1 리셋, "도달 차수로 복귀").
+// 성장의 신전 "직업" 탭 — 4직군(전사/무도가/마법사/도적) 아이콘 그리드.
+//  · 각 아이콘 = 직군. 도달 차수(N차) + 직군 누적레벨(cumLevel) 표시, 현 직업은 하이라이트.
+//  · 현 직업 클릭 = 다음 차수 전직(무료, 게이트 충족 시 "전직" 배지). class 는 불변, 차수만 +1.
+//  · 다른 직업 클릭 = 갈아타기(무료·쿨다운 없음, 레벨1 리셋, "도달 차수로 복귀").
 //  · 속성은 여기서 변경하지 않음 — 읽기 전용 표기만(변경은 별도 경로).
 
-const ICON_BY_GROUP: Record<string, Icon> = {
-  swordsman: Sword, // 검술
-  archer: Target, // 궁술
-  martial: HandFist, // 체술
-  mage: MagicWand, // 마술
-  priest: Cross, // 신술
-  ninja: Knife, // 인술
+const ICON_BY_JOB: Record<string, Icon> = {
+  warrior: Sword, // 전사
+  martial: HandFist, // 무도가
+  mage: MagicWand, // 마법사
+  rogue: Knife, // 도적
 };
 
 export type V2AdvanceInfo = {
@@ -69,7 +64,7 @@ export function V2ClassGrid({
   onChanged: () => void;
 }) {
   const activeGroup = tier1ClassOf(currentClass);
-  const [selected, setSelected] = useState<string>(
+  const [selected, setSelected] = useState<V2Class>(
     activeGroup === "none" ? V2_SELECTABLE_CLASSES[0] : activeGroup,
   );
   const [busy, setBusy] = useState(false);
@@ -108,15 +103,15 @@ export function V2ClassGrid({
   }, [onChanged]);
 
   const doSwitch = useCallback(
-    async (groupKey: string) => {
+    async (job: V2Class) => {
       setBusy(true);
       setMsg(null);
       try {
         const res = await fetch("/api/v2/me/class-element", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          // 직업군(1차 id)만 보냄 — 속성은 현재 값 유지(여기선 안 바꿈). 서버가 도달 차수로 해석.
-          body: JSON.stringify({ class: groupKey, element: currentElement }),
+          // 직군(job)만 보냄 — 속성은 현재 값 유지(여기선 안 바꿈). 서버가 도달 차수로 해석.
+          body: JSON.stringify({ class: job, element: currentElement }),
         });
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
@@ -149,17 +144,14 @@ export function V2ClassGrid({
     [currentElement, onChanged],
   );
 
-  // 선택된 직업군 상세.
+  // 선택된 직군 상세.
   const selReached = groups[selected]?.tier ?? 1;
   const selCum = groups[selected]?.cumLevel ?? 0;
   const isActiveSel = selected === activeGroup;
-  const selClass: V2Class = isActiveSel
-    ? currentClass
-    : classOfGroupTier(selected as V2Class, selReached);
   const isFirstPick = currentClass === "none";
   const switchCost = respecGoldCost(
     currentClass,
-    selected as V2Class,
+    selected,
     currentElement,
     currentElement,
     level,
@@ -175,26 +167,22 @@ export function V2ClassGrid({
         </span>
       </div>
 
-      {/* 6직업군 아이콘 그리드 */}
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        {V2_SELECTABLE_CLASSES.map((groupKey) => {
-          const isActive = groupKey === activeGroup;
-          const reached = groups[groupKey]?.tier ?? 1;
-          const cum = groups[groupKey]?.cumLevel ?? 0;
+      {/* 4직군 아이콘 그리드 */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {V2_SELECTABLE_CLASSES.map((job) => {
+          const isActive = job === activeGroup;
+          const reached = groups[job]?.tier ?? 1;
+          const cum = groups[job]?.cumLevel ?? 0;
           const ready = isActive && !!advance?.canAdvance;
-          // 현 직업군은 현재 직업, 전직 가능하면 다음 차수를 미리 보여줌. 타 직업군은 도달 차수.
-          const displayClass: V2Class = isActive
-            ? ready
-              ? advance!.nextClass
-              : currentClass
-            : classOfGroupTier(groupKey as V2Class, reached);
-          const IconCmp = ICON_BY_GROUP[groupKey] ?? Sword;
-          const isSel = groupKey === selected;
+          // 도달 차수 — 전직 가능하면 다음 차수를 미리 보여줌.
+          const showTier = ready && advance ? advance.nextTier : reached;
+          const IconCmp = ICON_BY_JOB[job] ?? Sword;
+          const isSel = job === selected;
           return (
             <button
-              key={groupKey}
+              key={job}
               type="button"
-              onClick={() => setSelected(groupKey)}
+              onClick={() => setSelected(job)}
               className={`relative flex flex-col items-center gap-1 rounded-xl border px-2 py-3 text-center transition ${
                 isSel
                   ? "border-sky-400 bg-sky-50 dark:border-sky-500 dark:bg-sky-950/40"
@@ -224,7 +212,10 @@ export function V2ClassGrid({
                 />
               </span>
               <span className="truncate text-[11px] font-medium leading-tight">
-                {V2_CLASS_DEFS[displayClass].name}
+                {V2_CLASS_DEFS[job].name}
+                <span className="ml-1 font-normal text-zinc-400 dark:text-zinc-500">
+                  {showTier}차
+                </span>
               </span>
               <span className="text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
                 {cum.toLocaleString()}
@@ -238,20 +229,19 @@ export function V2ClassGrid({
       <div className="mt-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-sm font-semibold">
-            {V2_CLASS_DEFS[selClass].name}
+            {V2_CLASS_DEFS[selected].name}
             <span className="ml-1 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
-              {V2_CLASS_DEFS[selClass].group} · 누적레벨{" "}
-              {selCum.toLocaleString()}
+              {selReached}차 · 누적레벨 {selCum.toLocaleString()}
             </span>
           </span>
           {isActiveSel && (
             <span className="text-[11px] text-sky-600 dark:text-sky-400">
-              현재 직업군
+              현재 직업
             </span>
           )}
         </div>
         <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-          {V2_CLASS_DEFS[selClass].description}
+          {V2_CLASS_DEFS[selected].description}
         </p>
 
         {isActiveSel ? (
@@ -294,14 +284,12 @@ export function V2ClassGrid({
                 disabled={busy || !advance.canAdvance}
                 className="mt-2 w-full rounded-md border border-emerald-500 bg-emerald-500/15 px-3 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-400 dark:text-emerald-300"
               >
-                {busy
-                  ? "…"
-                  : `${advance.nextName}(${advance.nextTier}차) 전직 — 레벨 1로 리셋`}
+                {busy ? "…" : `${advance.nextTier}차 전직 — 레벨 1로 리셋`}
               </button>
             </div>
           ) : (
             <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400">
-              이 직업군의 정점에 도달했습니다.
+              이 직군의 정점(4차)에 도달했습니다.
             </p>
           )
         ) : (
@@ -317,8 +305,8 @@ export function V2ClassGrid({
                 : isFirstPick
                   ? "이 직업 선택"
                   : switchCost > 0
-                    ? `이 직업군으로 전환 (${switchCost.toLocaleString()}G)`
-                    : "이 직업군으로 전환"}
+                    ? `이 직군으로 전환 (${switchCost.toLocaleString()}G)`
+                    : "이 직군으로 전환"}
             </button>
             {!isFirstPick && (
               <p

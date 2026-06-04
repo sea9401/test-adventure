@@ -39,17 +39,16 @@ export const V2_CAP_HEADROOM_BASE = 45;
 // 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
 export const V2_STAT_CAP_BASE = 60;
 
-// 수행 1회 cap 헤드룸 상승 — 직업군별 프로필(앵커 +2, 관련 2스탯 +1). 키 = tier1ClassOf. docs §9.
+// 수행 1회 cap 헤드룸 상승 — 4직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
+// 각 직군의 계파 서브스탯을 함께 담아 자유 수행 없이도 계파별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
 export const V2_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
 > = {
-  swordsman: { str: 2, dex: 1, luk: 1 }, // 검술
-  archer: { dex: 2, luk: 1, str: 1 }, // 궁술
-  martial: { vit: 2, str: 1, spi: 1 }, // 체술
-  mage: { int: 2, spi: 1, luk: 1 }, // 마술
-  priest: { spi: 2, int: 1, vit: 1 }, // 신술
-  ninja: { luk: 2, dex: 1, int: 1 }, // 인술
+  warrior: { str: 2, vit: 1, dex: 1 }, // 전사 — 광검(str)·철벽(vit)·혈풍(dex)
+  martial: { vit: 2, str: 1, spi: 1 }, // 무도가 — 맷집(vit)·흡혈/기공
+  mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
+  rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
 };
 
 // 수행 비용(숙달 포인트) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
@@ -115,6 +114,10 @@ export function parseProficiency(
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
       if (!v || typeof v !== "object") continue;
+      // 그룹 리키 마이그(P4 6→4): 구 그룹키(swordsman/archer/priest/ninja…) → 4직군 job 키.
+      // 같은 job 으로 합쳐지는 옛 그룹(궁술+인술→rogue, 마술+신술→mage)은 아래에서 머지.
+      const key = parseV2Class(k);
+      if (key === "none") continue; // 매핑 불가/none 그룹은 적립 없음.
       // 숙달 포인트(잔액) — 새 포맷은 points, 옛 포맷은 earned−spent 로 마이그(통합 2026-06).
       const rawPoints = (v as { points?: unknown }).points;
       const points =
@@ -132,14 +135,23 @@ export function parseProficiency(
       // 없으면 마이그레이션 시드 = 완료 차수 (tier-1)×50 + 활성 직군이면 현재 레벨(현 차수 진행분).
       // 비활성 직군은 과거 레벨을 알 수 없어 (tier-1)×50 만(보수적). 신규(tier1·미활성)=0.
       const rawCum = (v as { cumLevel?: unknown }).cumLevel;
-      const seedLevel = seed && seed.group === k ? Math.max(0, seed.level) : 0;
+      const seedLevel = seed && seed.group === key ? Math.max(0, seed.level) : 0;
       const cumLevel =
         typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
           ? Math.floor(rawCum)
           : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
       // 의미 있는 데이터(잔액/누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
       if (points > 0 || cumLevel > 0 || cultivations > 0 || tier > 1) {
-        groups[k] = { points, cultivations, tier, cumLevel };
+        // 머지(여러 옛 그룹 → 같은 job): 차수·누적레벨은 max, 포인트·수행 횟수는 합.
+        const prev = groups[key];
+        groups[key] = prev
+          ? {
+              points: prev.points + points,
+              cultivations: prev.cultivations + cultivations,
+              tier: Math.max(prev.tier, tier),
+              cumLevel: Math.max(prev.cumLevel, cumLevel),
+            }
+          : { points, cultivations, tier, cumLevel };
       }
     }
   }
@@ -341,6 +353,9 @@ export function applyCultivation(
   p: V2ProficiencyState,
   group: string,
   rng?: () => number,
+  // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 프로필 분산 대신 선택 스탯
+  // 한 곳에 동일 총량(profile 합 × mult) 투입(cap economy·비용 곡선 불변). 미지정 = 현 동작(분산).
+  targetStat?: V2StatKey,
 ): { next: V2ProficiencyState; cost: number; mult: number } | null {
   const profile = V2_CULTIVATE_PROFILE[group];
   if (!profile) return null; // none/무효 직업군
@@ -354,9 +369,16 @@ export function applyCultivation(
     cumLevel: 0,
   };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
-  for (const stat of V2_STAT_KEYS) {
-    const gain = (profile[stat] ?? 0) * mult;
-    if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+  if (targetStat) {
+    // 선택 스탯 한 곳 — 프로필 분산과 동일 총량(합 × mult)이라 비용/economy 불변.
+    const profileSum = V2_STAT_KEYS.reduce((s, k) => s + (profile[k] ?? 0), 0);
+    const gain = profileSum * mult;
+    if (gain > 0) nextCaps[targetStat] = (nextCaps[targetStat] ?? 0) + gain;
+  } else {
+    for (const stat of V2_STAT_KEYS) {
+      const gain = (profile[stat] ?? 0) * mult;
+      if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+    }
   }
   return {
     cost,
@@ -374,6 +396,16 @@ export function applyCultivation(
       caps: nextCaps,
     },
   };
+}
+
+// UI 가이드(자유 수행, docs §6) — 직군 권장 수행 스탯(프로필 가중 내림차순). "막지 않되 권장 표시" 용.
+// 자유 수행에서 플레이어가 아무 스탯이나 고를 수 있되, 이 목록을 추천으로 노출(트랩 빌드 완화).
+export function recommendedCultivationStats(group: string): V2StatKey[] {
+  const profile = V2_CULTIVATE_PROFILE[group];
+  if (!profile) return [];
+  return V2_STAT_KEYS.filter((k) => (profile[k] ?? 0) > 0).sort(
+    (a, b) => (profile[b] ?? 0) - (profile[a] ?? 0),
+  );
 }
 
 // 숙달 포인트 소모(시그니처 학습용) — cap/cultivations 불변, points 만 차감.

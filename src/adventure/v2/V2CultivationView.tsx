@@ -15,6 +15,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
+import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
 import { TabBar } from "@/components/ui/TabBar";
 
 // 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
@@ -47,6 +48,7 @@ type StateShape = {
       advance?: V2AdvanceInfo | null;
     };
   };
+  spec?: V2SpecState;
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
@@ -67,6 +69,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
   } | null>(null);
+  const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -84,6 +87,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         setNextCost(cur.nextCost);
         setCaps(j.proficiency?.caps ?? {});
         setStats(j.stats?.base ?? {});
+        setSpecState(j.spec ?? null);
         if (j.character) {
           setPicker({
             cls: parseV2Class(j.character.class),
@@ -171,18 +175,23 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         size="md"
       />
 
-      {/* === 직업 탭 — 직업·속성 선택/전직 === */}
+      {/* === 직업 탭 — 직업·속성 선택/전직 + 계파 === */}
       {tab === "job" &&
         (picker ? (
-          <V2ClassGrid
-            currentClass={picker.cls}
-            currentElement={picker.elem}
-            level={picker.level}
-            gold={picker.gold}
-            groups={picker.groups}
-            advance={picker.advance}
-            onChanged={refresh}
-          />
+          <>
+            <V2ClassGrid
+              currentClass={picker.cls}
+              currentElement={picker.elem}
+              level={picker.level}
+              gold={picker.gold}
+              groups={picker.groups}
+              advance={picker.advance}
+              onChanged={refresh}
+            />
+            {specState && picker.cls !== "none" && (
+              <V2SpecPanel spec={specState} onChanged={refresh} />
+            )}
+          </>
         ) : (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">

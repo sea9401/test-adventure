@@ -110,7 +110,7 @@ function fingerprintPvP(
 const builds = {
   warrior: derive({
     level: 50,
-    playerClass: "swordsman",
+    playerClass: "warrior",
     allocatedStats: { str: 120, vit: 40 },
     v2Equipped: { weapon: "v2_steel_sword", armor: "v2_field_leather_armor" },
   }),
@@ -122,13 +122,13 @@ const builds = {
   }),
   archer: derive({
     level: 50,
-    playerClass: "archer",
+    playerClass: "rogue",
     allocatedStats: { dex: 120, luk: 40 },
     v2Equipped: { weapon: "v2_starsong_bow" },
   }),
   ninja: derive({
     level: 50,
-    playerClass: "ninja",
+    playerClass: "rogue",
     allocatedStats: { luk: 120, dex: 40 },
     v2Equipped: { weapon: "v2_spider_venom_dagger" },
   }),
@@ -138,7 +138,7 @@ const builds = {
     allocatedStats: { vit: 140, str: 30 },
     v2Equipped: { armor: "v2_field_leather_armor" },
   }),
-  lowbie: derive({ level: 5, playerClass: "swordsman", allocatedStats: { str: 8 } }),
+  lowbie: derive({ level: 5, playerClass: "warrior", allocatedStats: { str: 8 } }),
 };
 
 describe("골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드)", () => {

@@ -38,7 +38,7 @@ import {
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
-} from "../character/skills";
+} from "../data/v2/v2CombatConstants";
 import {
   AP_BATTLE_START,
   AP_CAP,

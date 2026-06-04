@@ -28,7 +28,7 @@ import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   baselineRegenFor,
   CRIT_MULT_BASE,
-} from "@/adventure/character/skills";
+} from "@/adventure/data/v2/v2CombatConstants";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
   V2_CLASS_DEFS,

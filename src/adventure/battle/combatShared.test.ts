@@ -367,6 +367,24 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
     });
     expect(r.castSkillId).toBe("v2_skill_strike");
   });
+
+  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 40+30=70 → 롤 50 발동)", () => {
+    const fire = (bonus: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2_skill_fireball"],
+          equipped: ["v2_skill_fireball"],
+        },
+        cooldowns: {},
+        procRoll: 50,
+        procChanceBonus: bonus,
+        attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+    // 보너스 0: 40 → 50>=40 미발동. 보너스 30: 70 → 50<70 발동.
+    expect(fire(0).castSkillId).toBeNull();
+    expect(fire(30).castSkillId).toBe("v2_skill_fireball");
+  });
 });
 
 describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {

@@ -472,6 +472,8 @@ export type PlayerCombat = {
   // 가드/평탄감소 전. derive 가 계파 aggregate(받피감)로 채움. 0/undefined=미보유.
   // docs/v2-job-spec-passives-plan.md §3-A·§6. (P3b 엔진 훅 — P3c derive 가 주입.)
   passiveDamageTakenReductionPct?: number;
+  // 워메이지 주문 연사 — 스킬 발동 확률 %p 가산(resolveV2SkillCast 의 procChance 에 합산). 0/undefined=미보유.
+  skillProcChanceAdd?: number;
 };
 
 // 장착된 AP 스킬 + 사용자가 슬롯에 건 발동 조건.
@@ -3052,6 +3054,7 @@ export function resolveBattle(
           skills: state.v2Skills,
           cooldowns: state.v2SkillCooldowns,
           procRoll: Math.random() * 100,
+          procChanceBonus: player.skillProcChanceAdd ?? 0,
           attacker: {
             mp: state.playerMp,
             atk: player.atk,

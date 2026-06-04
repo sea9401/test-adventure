@@ -463,6 +463,53 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     );
   });
 
+  it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
+    const dbase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
+    };
+    const baseD = derivePlayerCombatV2Pure(dbase);
+    const d = derivePlayerCombatV2Pure({
+      ...dbase,
+      spec: getJobSpec("rogue", "assassin")!,
+      unlockedPassives: ["assassin_edge"], // 급습
+    });
+    expect(d.player.critChancePct).toBeCloseTo(
+      (baseD.player.critChancePct ?? 0) + 15,
+      5,
+    );
+  });
+
+  it("사제 + 지팡이 + 신성 회복 → passiveTurnHealPctMaxHp (기존 턴회복 훅 재사용)", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "cleric")!,
+      unlockedPassives: ["cleric_reflect"], // 신성 회복
+    });
+    expect(d.player.passiveTurnHealPctMaxHp).toBe(4);
+  });
+
+  it("혈권 + 권갑 + 흡정공 → enchantLifestealPct (기존 흡혈 훅 재사용)", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_gauntlet" as V2EquipmentId },
+      spec: getJobSpec("martial", "gigong")!,
+      unlockedPassives: ["gigong_endure"], // 흡정공
+    });
+    expect(d.player.enchantLifestealPct).toBe(10);
+  });
+
+  it("워메이지 + 지팡이 + 주문 연사 → skillProcChanceAdd 15", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      unlockedPassives: ["battlemage_blade"], // 주문 연사
+    });
+    expect(d.player.skillProcChanceAdd).toBe(15);
+  });
+
   it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,

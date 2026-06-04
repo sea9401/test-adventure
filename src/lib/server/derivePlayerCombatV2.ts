@@ -501,7 +501,7 @@ export function derivePlayerCombatV2Pure(
     attackCount: 1,
     extraAttackChancePct:
       extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),
-    critChancePct,
+    critChancePct: critChancePct + (specEff.critChancePctAdd ?? 0), // 급습
     critMult: Math.min(
       finalCritMult + (specEff.critMultAdd ?? 0),
       CRIT_MULT_CAP,
@@ -513,7 +513,10 @@ export function derivePlayerCombatV2Pure(
     healMult,
     baselineRegen: baselineRegenFor(maxHp),
     // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 계파 효과는 합산(sumOrUndef).
-    passiveTurnHealPctMaxHp: passive?.turnHealPctMaxHp, // 사제
+    passiveTurnHealPctMaxHp: sumOrUndef(
+      passive?.turnHealPctMaxHp,
+      specEff.hpRegenPctPerTurn,
+    ), // 사제 + 신성 회복(기존 턴회복 훅 재사용)
     passiveDefPenetrationPct: sumOrUndef(
       passive?.defPenetrationPct,
       specEff.defPenetrationPct,
@@ -530,6 +533,14 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
     ...(specEff.bleedDmgPerStack
       ? { bleedDmgPerStack: specEff.bleedDmgPerStack }
+      : {}),
+    // 흡정공 — 기존 흡혈 훅(enchantLifestealPct) 재사용: 가한 피해의 % HP 회복.
+    ...(specEff.lifestealPct
+      ? { enchantLifestealPct: specEff.lifestealPct }
+      : {}),
+    // 주문 연사 — 엔진이 resolveV2SkillCast 의 procChance 에 합산.
+    ...(specEff.skillProcChanceAdd
+      ? { skillProcChanceAdd: specEff.skillProcChanceAdd }
       : {}),
   };
 

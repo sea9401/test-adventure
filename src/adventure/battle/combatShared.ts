@@ -376,6 +376,8 @@ export type V2SkillCastInput = {
   /** 발동 확률 롤 (0~100). 엔진이 Math.random()*100 로 채움. procChance<100 스킬만 사용 —
    *  미지정이면 항상 발동(구 호출·테스트 호환). */
   procRoll?: number;
+  /** 발동 확률 보너스 %p (워메이지 주문연사 등 — 스킬 procChance 에 합산, 100 클램프). 미지정=0. */
+  procChanceBonus?: number;
   attacker: {
     mp: number;
     atk: number;
@@ -433,7 +435,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const def = V2_SKILLS[id];
   // 발동 확률 — procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
   // (쿨다운은 위에서 이미 tick 됨. procRoll 미지정이면 항상 발동 — 구 호출·테스트 호환.)
-  const procChance = def.procChance ?? 100;
+  const procChance = Math.min(
+    100,
+    (def.procChance ?? 100) + (input.procChanceBonus ?? 0),
+  );
   if (
     procChance < 100 &&
     input.procRoll !== undefined &&

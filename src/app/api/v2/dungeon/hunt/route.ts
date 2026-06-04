@@ -407,9 +407,9 @@ export async function POST(req: Request) {
     const playerForBattle = {
       ...player.player,
       hp: regenResult.hp,
-      // MP 는 전투마다 풀충전 — "물리=버스트(매 전투)" 의도. 전투중 회복은 여전히 없음(throttle 유지).
-      // 옛 지속-MP 모델은 물리(저 maxMp) 캐릭이 1전투 후 영구 고갈→시그니처 발동 불가였다.
-      mp: player.player.maxMp ?? 0,
+      // MP 실자원화 — 보존된 MP 로 전투 시작(derive 가 character.v2.mp 시드). 전투 후 mpCharges 가
+      // 부족분을 채우므로 충전약이 남는 한 사실상 풀로 시작하고, 떨어지면 줄어 마법 위력이 빠진다.
+      mp: player.player.mp,
       atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
       magicAtk: Math.max(
         0,
@@ -550,9 +550,10 @@ export async function POST(req: Request) {
     // inventory.v2.{hpCharges, mpCharges} 보유량 만큼 부족분 자동 회복. 옛 POTIONS
     // 카탈로그 (heal_s/m/l 등) 폐기 후 단순 카운터.
     let afterHp = Math.max(0, battleResult.finalState.playerHp);
-    // MP 는 전투마다 풀충전 모델 — 전투 내 소모는 일시적, 저장은 항상 maxMp(다음 전투도 풀버스트).
-    // mpCharges(물약)는 더 이상 mp 회복에 안 씀(상시 풀). hpCharges 만 유지.
-    const afterMp = player.player.maxMp ?? 0;
+    // MP 실자원화 — 전투 후 잔여 MP 를 mpCharges 로 충당(HP 와 대칭). 충전약이 남아 있으면
+    // 사실상 매 전투 풀충전처럼 보이고, 떨어지면 MP 가 줄어 마법 위력이 빠진다.
+    const maxMp = player.player.maxMp ?? 0;
+    let afterMp = Math.max(0, Math.min(maxMp, battleResult.finalState.playerMp));
 
     const invSave = await lockSaveForUpdate<{
       hpCharges?: number;
@@ -560,6 +561,7 @@ export async function POST(req: Request) {
       [k: string]: unknown;
     }>(tx, userId, "inventory.v2", {});
     let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
+    let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
 
     // HP 부족분 만큼 hpCharges 차감.
     if (afterHp > 0 && afterHp < player.maxHp && hpCharges > 0) {
@@ -568,9 +570,17 @@ export async function POST(req: Request) {
       afterHp += restore;
       hpCharges -= restore;
     }
+    // MP 부족분 만큼 mpCharges 차감.
+    if (afterMp < maxMp && mpCharges > 0) {
+      const need = maxMp - afterMp;
+      const restore = Math.min(need, mpCharges);
+      afterMp += restore;
+      mpCharges -= restore;
+    }
     await upsertSave(tx, userId, "inventory.v2", {
       ...invSave,
       hpCharges,
+      mpCharges,
     });
 
     // 침입자 트래킹 — 사냥 성공 시 lastHuntedOutpost 갱신 (outpost 사냥에 한해).
@@ -737,9 +747,9 @@ export async function POST(req: Request) {
           playerElement,
           monsterElement,
           elementMatchup: playerElemMatchup,
-          // 충전식 회복약 잔량 (HP 만 자동 소모 반영). MP 는 전투마다 풀충전이라 mpCharges 미소모.
+          // 충전식 회복약 잔량 — HP/MP 모두 전투 후 부족분 자동 소모 반영.
           hpCharges,
-          mpCharges: Math.max(0, invSave.mpCharges ?? 0),
+          mpCharges,
           drops,
           droppedEquipment,
           // 보물 탐사 — 이번 사냥 지도 조각 드랍 수 + 누적(0 = 안 떨어짐).

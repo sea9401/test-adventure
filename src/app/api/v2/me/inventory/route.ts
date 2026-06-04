@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
-import { MAX_CHARGE } from "@/app/api/v2/shop/charge/route";
+import { MAX_CHARGE } from "@/lib/v2-charge-config";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //

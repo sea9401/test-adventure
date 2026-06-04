@@ -18,8 +18,8 @@ export function TownContent() {
           보호).
         </li>
         <li>
-          <Em>HP 충전약</Em>도 여기서 삽니다 — 1 골드당 1 충전, 사냥 후 깎인 HP 를
-          자동으로 채웁니다.
+          <Em>HP·MP 충전약</Em>도 여기서 삽니다 — 1 골드당 1 충전. 사냥 후 깎인
+          HP·MP 를 자동으로 채웁니다(MP 충전약은 MP 를 쓰는 빌드에만 노출).
         </li>
       </UL>
 

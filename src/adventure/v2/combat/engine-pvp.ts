@@ -673,8 +673,6 @@ function applyDodgeEffects(
   return st;
 }
 
-// 회피된 attacker 의 AP +1 (행동 시도는 명중/회피 무관히 +1). engine.ts:687 미러.
-// equippedAPSkills 없으면 ap=0 유지로 무해. 회피 시 apSkillFires 는 발동/소비 안 함.
 // shadowStep dodge — 한 페이즈 통째로 회피 + dodge 효과 + 페이즈 종료.
 function applyShadowStepDodge(
   state: PvPBattleState,
@@ -2140,7 +2138,6 @@ export function resolveBattlePvP(
     enemyMp: s.p2.mp,
     enemyMaxMp: s.p2.maxMp,
   });
-  // p2 도전자(상대) 측 AP 표시도 살리려면 별도 hp_bar 가 필요하지만,
   let turns = 0;
   // v2 스킬 (PR-4a) — 각 side 의 턴 진입 시 1회 cast (framework only).
   // advanceTurnPvP 는 attacksLeft > 0 (다대시·블록 등) 일 때 같은 phase 를 반환하므로

@@ -38,6 +38,7 @@ import {
   V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -472,6 +473,38 @@ export async function GET() {
             };
           })(),
         },
+      };
+    })(),
+    // 계파(스펙) 현황 — docs/v2-job-spec-passives-plan.md §5. 직업 계파 목록 + 현 선택 + 해금 + 남은 픽.
+    spec: (() => {
+      const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+      const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
+      const jobSpecs = V2_JOB_SPECS[cls] ?? [];
+      const rawChoice = (charSave as { specChoice?: unknown }).specChoice;
+      const choice = typeof rawChoice === "string" ? rawChoice : null;
+      const rawUnlocked = (charSave as { unlockedPassives?: unknown })
+        .unlockedPassives;
+      const unlocked = Array.isArray(rawUnlocked)
+        ? rawUnlocked.filter((x): x is string => typeof x === "string")
+        : [];
+      return {
+        tier,
+        available: tier >= 2, // 2차 전직부터 계파 선택 가능
+        choice,
+        unlocked,
+        picksMax: Math.max(0, tier - 1), // 2차 1·3차 2·4차 3
+        picksUsed: unlocked.length,
+        specs: jobSpecs.map((s) => ({
+          id: s.id,
+          name: s.name,
+          requiredWeaponType: s.requiredWeaponType,
+          passives: s.passives.map((p) => ({
+            id: p.id,
+            name: p.name,
+            desc: p.desc,
+          })),
+        })),
       };
     })(),
   });

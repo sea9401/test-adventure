@@ -465,6 +465,9 @@ export function derivePlayerCombatV2Pure(
   const specAtk = specEff.atkPctAdd
     ? Math.floor(finalAtk * (1 + specEff.atkPctAdd / 100))
     : finalAtk;
+  const specMagicAtk = specEff.magicAtkPctAdd
+    ? Math.floor(finalMagicAtk * (1 + specEff.magicAtkPctAdd / 100))
+    : finalMagicAtk;
   const specSpd = specEff.spdPctAdd
     ? Math.floor(spd * (1 + specEff.spdPctAdd / 100))
     : spd;
@@ -476,7 +479,7 @@ export function derivePlayerCombatV2Pure(
     maxMp,
     intStat: totalStats.int,
     atk: specAtk,
-    magicAtk: finalMagicAtk,
+    magicAtk: specMagicAtk,
     def,
     spd: specSpd,
     evasionPct,
@@ -577,7 +580,12 @@ export async function derivePlayerCombatV2(
   // 계파(스펙) — save 의 specChoice/unlockedPassives 방어 파싱. 없으면 undefined → inert.
   const specId =
     typeof character.specChoice === "string" ? character.specChoice : undefined;
-  const spec = specId ? getSpecById(specId) : undefined;
+  const specCandidate = specId ? getSpecById(specId) : undefined;
+  // 계파는 직업 종속 — 현 직업의 계파가 아니면 무시(직업 변경 후 stale specChoice 누수 방지, 방어).
+  const spec =
+    specCandidate && specCandidate.job === parseV2Class(character.class)
+      ? specCandidate
+      : undefined;
   const unlockedPassives = Array.isArray(character.unlockedPassives)
     ? character.unlockedPassives.filter(
         (x): x is string => typeof x === "string",

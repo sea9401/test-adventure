@@ -42,6 +42,25 @@ describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passiv
     // getSpecById 가 각 계파를 정확히 찾음
     for (const s of all) expect(getSpecById(s.id)?.id).toBe(s.id);
   });
+
+  it("4직군 모두 3계파 × 3패시브 고정 키트 + job 일치 (P4b 뼈대)", () => {
+    for (const job of ["warrior", "martial", "mage", "rogue"]) {
+      const specs = V2_JOB_SPECS[job];
+      expect(specs, job).toHaveLength(3);
+      for (const s of specs) {
+        expect(s.job, s.id).toBe(job);
+        expect(s.passives).toHaveLength(3);
+        expect(s.requiredWeaponType).toBeTruthy();
+      }
+    }
+  });
+
+  it("계파별 무기 타입은 전 직군 통틀어 유일(게이트 충돌 방지)", () => {
+    const types = Object.values(V2_JOB_SPECS)
+      .flat()
+      .map((s) => s.requiredWeaponType);
+    expect(new Set(types).size).toBe(types.length);
+  });
 });
 
 describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
@@ -88,5 +107,16 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
     const eff = aggregateSpecPassives(hyeol, ["hyeol_swift"], "rapier");
     expect(eff.spdPctAdd).toBe(14);
     expect(eff.accuracyPctAdd).toBe(12);
+  });
+
+  it("마법사 화염술 — magicAtkPctAdd 합산(무기 일치) / 불일치면 비활성", () => {
+    const hwayeom = getJobSpec("mage", "hwayeom")!;
+    expect(
+      aggregateSpecPassives(hwayeom, ["hwayeom_power"], "staff").magicAtkPctAdd,
+    ).toBe(20);
+    // 무기 불일치(staff 아님) → 완전 비활성.
+    expect(
+      aggregateSpecPassives(hwayeom, ["hwayeom_power"], "greatsword"),
+    ).toEqual({});
   });
 });

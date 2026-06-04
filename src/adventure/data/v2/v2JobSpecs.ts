@@ -14,6 +14,8 @@ import type { V2WeaponType } from "./v2Equipment";
 export type V2SpecPassiveEffect = {
   /** 물리 공격력 % 가산 (엔진 훅 P3b). */
   atkPctAdd?: number;
+  /** 마법 공격력 % 가산 (derive 가 magicAtk 에 곱 — P4b, 마법사 계파용). */
+  magicAtkPctAdd?: number;
   /** 방어 관통 %p (passiveDefPenetrationPct). */
   defPenetrationPct?: number;
   /** 치명 데미지 가산 (critMult 가산분). */
@@ -91,9 +93,123 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
   },
 ];
 
-// 직군 → 계파 목록. 전사만 구체화, 나머지 3직군은 P0 설계 후 추가.
+// 무도가(martial) 3계파 — docs §3-B 스케치. P4b 뼈대(임시 수치, 밸런스 P6).
+const MARTIAL_SPECS: readonly V2JobSpec[] = [
+  {
+    id: "cheolsan", // 철산류 — 맷집·반격
+    name: "철산류",
+    job: "martial",
+    requiredWeaponType: "tonfa",
+    passives: [
+      { id: "cheolsan_guard", name: "철산고", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 16 } },
+      { id: "cheolsan_counter", name: "반격세", desc: "피격 후 확률 반격", effect: { counterChancePct: 20 } },
+      { id: "cheolsan_reflect", name: "강체", desc: "받은 피해 일부 반사", effect: { reflectPct: 12 } },
+    ],
+  },
+  {
+    id: "gigong", // 기공류 — 흡혈·지속
+    name: "기공류",
+    job: "martial",
+    requiredWeaponType: "gauntlet",
+    passives: [
+      { id: "gigong_power", name: "기공권", desc: "물리 공격력 증가", effect: { atkPctAdd: 15 } },
+      { id: "gigong_endure", name: "내공", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 10 } },
+      { id: "gigong_burn", name: "발경", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 6 } },
+    ],
+  },
+  {
+    id: "yeonhwan", // 연환권 — 연타
+    name: "연환권",
+    job: "martial",
+    requiredWeaponType: "claw",
+    passives: [
+      { id: "yeonhwan_combo", name: "연환격", desc: "추가타 확률", effect: { extraAttackChancePct: 20 } },
+      { id: "yeonhwan_power", name: "쾌권", desc: "물리 공격력 증가", effect: { atkPctAdd: 12 } },
+      { id: "yeonhwan_swift", name: "보법", desc: "속도 증가", effect: { spdPctAdd: 12 } },
+    ],
+  },
+];
+
+// 마법사(mage) 3계파 — docs §3-C 스케치. P4b 뼈대. 신성·치유/제어 정밀 효과는 P6(현재 가용 필드로 placeholder).
+const MAGE_SPECS: readonly V2JobSpec[] = [
+  {
+    id: "hwayeom", // 화염술 — 공격마법(INT)
+    name: "화염술",
+    job: "mage",
+    requiredWeaponType: "staff",
+    passives: [
+      { id: "hwayeom_power", name: "주문 증폭", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 20 } },
+      { id: "hwayeom_crit", name: "연소", desc: "치명 데미지 증가", effect: { critMultAdd: 0.3 } },
+      { id: "hwayeom_burn", name: "소각", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 8 } },
+    ],
+  },
+  {
+    id: "shinseong", // 신성술 — 가호·치유(SPI)
+    name: "신성술",
+    job: "mage",
+    requiredWeaponType: "relic",
+    passives: [
+      { id: "shinseong_ward", name: "가호", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
+      { id: "shinseong_power", name: "신성력", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 12 } },
+      { id: "shinseong_reflect", name: "성역", desc: "받은 피해 일부 반사", effect: { reflectPct: 10 } },
+    ],
+  },
+  {
+    id: "binggyeol", // 빙결술 — 제어(INT)
+    name: "빙결술",
+    job: "mage",
+    requiredWeaponType: "orb",
+    passives: [
+      { id: "binggyeol_power", name: "한기", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 16 } },
+      { id: "binggyeol_acc", name: "빙정", desc: "명중 증가", effect: { accuracyPctAdd: 12 } },
+      { id: "binggyeol_swift", name: "서리걸음", desc: "속도 증가", effect: { spdPctAdd: 12 } },
+    ],
+  },
+];
+
+// 도적(rogue) 3계파 — docs §3-D 스케치. P4b 뼈대. 궁수(DEX)·암살(LUK)·잠행.
+const ROGUE_SPECS: readonly V2JobSpec[] = [
+  {
+    id: "gungsul", // 궁술 — 원거리·다타(DEX)
+    name: "궁술",
+    job: "rogue",
+    requiredWeaponType: "bow",
+    passives: [
+      { id: "gungsul_volley", name: "연사", desc: "추가타 확률", effect: { extraAttackChancePct: 22 } },
+      { id: "gungsul_aim", name: "정조준", desc: "명중 증가", effect: { accuracyPctAdd: 15 } },
+      { id: "gungsul_pierce", name: "관통사격", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 14 } },
+    ],
+  },
+  {
+    id: "amsal", // 암살 — 크리·중독(LUK)
+    name: "암살",
+    job: "rogue",
+    requiredWeaponType: "dagger",
+    passives: [
+      { id: "amsal_crit", name: "급소", desc: "치명 데미지 증가", effect: { critMultAdd: 0.4 } },
+      { id: "amsal_poison", name: "맹독", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 8 } },
+      { id: "amsal_edge", name: "암습", desc: "물리 공격력 증가", effect: { atkPctAdd: 12 } },
+    ],
+  },
+  {
+    id: "jamhaeng", // 잠행 — 속도·회피
+    name: "잠행",
+    job: "rogue",
+    requiredWeaponType: "kunai",
+    passives: [
+      { id: "jamhaeng_swift", name: "축지", desc: "속도 증가", effect: { spdPctAdd: 16 } },
+      { id: "jamhaeng_acc", name: "표적", desc: "명중 증가", effect: { accuracyPctAdd: 12 } },
+      { id: "jamhaeng_combo", name: "기습", desc: "추가타 확률", effect: { extraAttackChancePct: 14 } },
+    ],
+  },
+];
+
+// 직군 → 계파 목록. 전사 구체화 + 나머지 3직군 뼈대(P4b, 밸런스 P6).
 export const V2_JOB_SPECS: Record<string, readonly V2JobSpec[]> = {
   warrior: WARRIOR_SPECS,
+  martial: MARTIAL_SPECS,
+  mage: MAGE_SPECS,
+  rogue: ROGUE_SPECS,
 };
 
 /** 계파 조회 — 직군·계파 id 로. 없으면 undefined. */

@@ -21,6 +21,32 @@ import type { PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
 
+// 시한부 버프/디버프 턴 카운터 — 매 플레이어 턴 진입 시 8개 TurnsLeft 필드 일괄 -1(0 하한).
+// PvE BattleBuffs / PvP PvPSideBuffs 공용(두 타입의 해당 필드 동형) — 단일 소스.
+type TimedBuffTurns = {
+  playerDmgReductionTurnsLeft: number;
+  playerAtkBuffTurnsLeft: number;
+  playerDefDebuffTurnsLeft: number;
+  playerSpdTurnsLeft: number;
+  enemyDefDebuffTurnsLeft: number;
+  enemySpdTurnsLeft: number;
+  enemySilenceTurnsLeft: number;
+  playerLifestealTurnsLeft: number;
+};
+export function decrementTimedBuffs<T extends TimedBuffTurns>(buffs: T): T {
+  return {
+    ...buffs,
+    playerDmgReductionTurnsLeft: Math.max(0, buffs.playerDmgReductionTurnsLeft - 1),
+    playerAtkBuffTurnsLeft: Math.max(0, buffs.playerAtkBuffTurnsLeft - 1),
+    playerDefDebuffTurnsLeft: Math.max(0, buffs.playerDefDebuffTurnsLeft - 1),
+    playerSpdTurnsLeft: Math.max(0, buffs.playerSpdTurnsLeft - 1),
+    enemyDefDebuffTurnsLeft: Math.max(0, buffs.enemyDefDebuffTurnsLeft - 1),
+    enemySpdTurnsLeft: Math.max(0, buffs.enemySpdTurnsLeft - 1),
+    enemySilenceTurnsLeft: Math.max(0, buffs.enemySilenceTurnsLeft - 1),
+    playerLifestealTurnsLeft: Math.max(0, buffs.playerLifestealTurnsLeft - 1),
+  };
+}
+
 export function isOffensiveApEffect(effect: APSkillEffect): boolean {
   return (
     effect.kind === "atk_multiplier" ||

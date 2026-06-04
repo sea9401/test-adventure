@@ -10,6 +10,7 @@ import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
   defaultV2MaxMpFor,
+  decrementTimedBuffs,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
@@ -1080,17 +1081,7 @@ export function initialBattleState(
 // 호출되어 결의/광기/약점 노출/둔화/폭주 의 turnsLeft 를 1씩 깎고 0 으로 클램프.
 // pct/mult 값은 그대로 두지만 turnsLeft 가 0 이면 적용 쪽에서 무시한다.
 function decrementTimedEffects(buffs: BattleBuffs): BattleBuffs {
-  return {
-    ...buffs,
-    playerDmgReductionTurnsLeft: Math.max(0, buffs.playerDmgReductionTurnsLeft - 1),
-    playerAtkBuffTurnsLeft: Math.max(0, buffs.playerAtkBuffTurnsLeft - 1),
-    playerDefDebuffTurnsLeft: Math.max(0, buffs.playerDefDebuffTurnsLeft - 1),
-    playerSpdTurnsLeft: Math.max(0, buffs.playerSpdTurnsLeft - 1),
-    enemyDefDebuffTurnsLeft: Math.max(0, buffs.enemyDefDebuffTurnsLeft - 1),
-    enemySpdTurnsLeft: Math.max(0, buffs.enemySpdTurnsLeft - 1),
-    enemySilenceTurnsLeft: Math.max(0, buffs.enemySilenceTurnsLeft - 1),
-    playerLifestealTurnsLeft: Math.max(0, buffs.playerLifestealTurnsLeft - 1),
-  };
+  return decrementTimedBuffs(buffs);
 }
 
 

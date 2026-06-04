@@ -9,13 +9,7 @@ import {
   Users,
   X,
 } from "@phosphor-icons/react";
-import { CHAT_MAX_LENGTH, isNoticeMessage } from "@/lib/chat-config";
-import {
-  encodeItemLink,
-  type ChatItemRef,
-} from "@/lib/chat-item-link";
-import { ChatItemPicker } from "./ChatItemPicker";
-import type { InventoryState } from "@/adventure/inventory/useInventory";
+import { isNoticeMessage } from "@/lib/chat-config";
 import { postMessage, translateChatError } from "./chat/chatApi";
 import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
@@ -42,7 +36,6 @@ export function ChatPanel({
   unreadChat = false,
   unreadNotice = false,
   onSeen,
-  inventory,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,15 +49,12 @@ export function ChatPanel({
   unreadNotice?: boolean;
   /** 해당 탭의 최신 메시지를 본 것으로 처리. */
   onSeen?: (kind: "chat" | "notice", lastId: number) => void;
-  /** 아이템 링크용 인벤토리. 없으면(예: v2) 아이템 링크 비활성 — 텍스트 채팅만. */
-  inventory?: InventoryState;
 }) {
   const router = useRouter();
   const presence = usePresencePoll(open);
   const [presenceOpen, setPresenceOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
   // 채팅 / 알림(협동 보스 등 시스템 메시지) 탭 분리.
   const [tab, setTab] = useState<"chat" | "notice">("chat");
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
@@ -150,19 +140,6 @@ export function ChatPanel({
       const msg = err instanceof Error ? err.message : "";
       setError(translateChatError(msg));
     }
-  };
-
-  // 아이템 피커에서 고른 장비를 토큰으로 입력창에 삽입. 200자 초과면 막는다.
-  const insertItemLink = (ref: ChatItemRef) => {
-    const token = encodeItemLink(ref);
-    const sep = draft && !/\s$/.test(draft) ? " " : "";
-    const next = `${draft}${sep}${token} `;
-    if (next.length > CHAT_MAX_LENGTH) {
-      setError("메시지가 너무 깁니다.");
-      return;
-    }
-    setError(null);
-    setDraft(next);
   };
 
   // 모바일 키보드 대응 — 오버레이를 시각 뷰포트(키보드로 줄어든 영역)에 맞춰
@@ -343,21 +320,9 @@ export function ChatPanel({
             draft={draft}
             onDraftChange={setDraft}
             onSubmit={submit}
-            onOpenPicker={inventory ? () => setPickerOpen(true) : undefined}
           />
         )}
       </div>
-
-      {pickerOpen && inventory && (
-        // 비차단 래퍼(pointer-events-none) 아래라 picker(자체 fixed 모달)도 명시적으로 살린다.
-        <div className="pointer-events-auto">
-          <ChatItemPicker
-            inventory={inventory}
-            onPick={insertItemLink}
-            onClose={() => setPickerOpen(false)}
-          />
-        </div>
-      )}
     </div>,
     document.body,
   );

@@ -49,6 +49,7 @@ import {
 import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
+  decrementTimedBuffs,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
@@ -212,17 +213,7 @@ function attackerFacingDef(
 // AP 지속 효과 라운드 카운터 -1. 새 attacker 페이즈 진입 시 호출.
 // pct/mult 값은 그대로 두지만 turnsLeft 가 0 이면 적용 쪽에서 무시.
 function decrementTimedEffects(buffs: PvPSideBuffs): PvPSideBuffs {
-  return {
-    ...buffs,
-    playerDmgReductionTurnsLeft: Math.max(0, buffs.playerDmgReductionTurnsLeft - 1),
-    playerAtkBuffTurnsLeft: Math.max(0, buffs.playerAtkBuffTurnsLeft - 1),
-    playerDefDebuffTurnsLeft: Math.max(0, buffs.playerDefDebuffTurnsLeft - 1),
-    playerSpdTurnsLeft: Math.max(0, buffs.playerSpdTurnsLeft - 1),
-    enemyDefDebuffTurnsLeft: Math.max(0, buffs.enemyDefDebuffTurnsLeft - 1),
-    enemySpdTurnsLeft: Math.max(0, buffs.enemySpdTurnsLeft - 1),
-    enemySilenceTurnsLeft: Math.max(0, buffs.enemySilenceTurnsLeft - 1),
-    playerLifestealTurnsLeft: Math.max(0, buffs.playerLifestealTurnsLeft - 1),
-  };
+  return decrementTimedBuffs(buffs);
 }
 
 

@@ -514,7 +514,7 @@ function playerFacingEnemyDef(
   state: BattleState,
   player: PlayerCombat,
   // 발동턴 AP 시한부 버프(약점 노출 등) 적용을 위해 buffs 를 별도 인자로 받을 수 있음.
-  // 기본은 state.buffs — 그 외 호출 측에서 applyTimedBuffFromApSkill 결과를 전달.
+  // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 state.buffs).
   buffs: BattleBuffs = state.buffs,
 ): number {
   // 약점 분석(5티어)의 누적 페널티는 raw def 에 직접 적용 → 음수 클램프.

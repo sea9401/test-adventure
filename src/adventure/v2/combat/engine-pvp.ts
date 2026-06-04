@@ -184,7 +184,7 @@ function attackerFacingDef(
   attacker: PvPSide,
   defender: PvPSide,
   // 발동턴 AP 시한부 버프(약점 노출 등) 적용을 위해 attacker buffs 를 별도 인자로 받을 수 있음.
-  // 기본은 attacker.buffs — 그 외 호출 측에서 applyTimedBuffFromApSkillPvP 결과를 전달.
+  // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 attacker.buffs).
   attackerBuffs: PvPSideBuffs = attacker.buffs,
 ): number {
   const raw = Math.max(0, defender.player.def - attackerBuffs.opponentDefPenalty);
@@ -1606,7 +1606,7 @@ export function advanceTurnPvP(
       text: `[${apOffensiveSkill!.name}] ${attacker.name}의 HP -${madSlashSelfDmg} (자해)`,
     });
   }
-  // 지속 효과 (PR-2 미러) — AP 시한부 버프는 위에서 applyTimedBuffFromApSkillPvP 로 적용 완료.
+  // 지속 효과 (PR-2 미러).
   // 여기는 cyclingChiBonus(매 턴 누적) 만 추가한다.
   const nextBuffsTimed: PvPSideBuffs = {
     ...nextBuffsTimedFromAp,

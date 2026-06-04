@@ -1,20 +1,17 @@
-import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { MAX_CHARGE } from "@/lib/v2-charge-config";
 
 // POST /api/v2/shop/charge — HP / MP 충전 구매.
 //
 // body: { kind: "hp" | "mp", amount: number }
-// 1g = 1 충전. 10000 cap. amount 가 cap 초과면 cap 까지 깎고 부족분 g 만 차감.
+// 1g = 1 충전. MAX_CHARGE cap. amount 가 cap 초과면 cap 까지 깎고 부족분 g 만 차감.
 //
 // response: { ok: true, gold, hpCharges, mpCharges } | { ok: false, error }
 //
-// 인벤토리 모델: inventory.v2.{ hpCharges, mpCharges } 0..10000 정수. 사냥 후 자동 회복에서
+// 인벤토리 모델: inventory.v2.{ hpCharges, mpCharges } 0..MAX_CHARGE 정수. 사냥 후 자동 회복에서
 // 부족분 만큼 차감 — POTIONS 카탈로그 (heal_s/m/l, mp_s/m/l) 폐기 후 단순 카운터.
-
-export const MAX_CHARGE = 10000;
 
 type CharSave = { gold?: number; [k: string]: unknown };
 type InvSave = {

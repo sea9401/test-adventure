@@ -6,12 +6,12 @@ import { Card } from "@/components/ui/Card";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { MAX_CHARGE } from "@/lib/v2-charge-config";
 
 // v2 치료소 — 만피 회복(라이브 룰: gold<50 무료, 1G 만피) + HP/MP 충전약 구매.
 // 옛 V2ShopView 의 충전 섹션이 여기로 이전 — 상점은 장비만 취급.
 
 const HEAL_FREE_GOLD_THRESHOLD = 50;
-const MAX_CHARGE = 10000;
 
 type StateResponse = {
   ok?: boolean;
@@ -40,6 +40,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [maxMp, setMaxMp] = useState<number | null>(null);
   const [gold, setGold] = useState<number | null>(null);
   const [hpCharges, setHpCharges] = useState<number | null>(null);
+  const [mpCharges, setMpCharges] = useState<number | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -61,10 +62,12 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         ? ((await invRes.json().catch(() => null)) as InventoryResponse | null)
         : null;
       setHpCharges(invJ?.hpCharges ?? 0);
+      setMpCharges(invJ?.mpCharges ?? 0);
     } catch {}
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 state 시드)
     refresh();
   }, [refresh]);
 
@@ -128,9 +131,12 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
         }
-        setMsg(`✓ HP +${j.charged ?? amount} 충전`);
+        setMsg(
+          `✓ ${kind === "hp" ? "HP" : "MP"} +${(j.charged ?? amount).toLocaleString()} 충전`,
+        );
         if (typeof j.gold === "number") setGold(j.gold);
         if (typeof j.hpCharges === "number") setHpCharges(j.hpCharges);
+        if (typeof j.mpCharges === "number") setMpCharges(j.mpCharges);
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
@@ -188,7 +194,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         <h2 className="text-sm font-semibold">충전약</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           1 G 당 1 충전, 최대 {MAX_CHARGE.toLocaleString()}. 사냥 후 부족분 만큼 자동 소모.
-          {/* MP 충전약 폐지 — MP 는 전투마다 풀충전(물리=버스트). HP 만 판매. */}
         </p>
         <ChargeRow
           label="HP 충전약"
@@ -198,6 +203,17 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           busy={busy === "hp"}
           onBuy={buyCharge}
         />
+        {/* MP 충전약 — MP 를 쓰는 빌드(maxMp>0)만 노출. MP 바와 동일 게이트. */}
+        {maxMp != null && maxMp > 0 && (
+          <ChargeRow
+            label="MP 충전약"
+            kind="mp"
+            current={mpCharges ?? 0}
+            gold={gold ?? 0}
+            busy={busy === "mp"}
+            onBuy={buyCharge}
+          />
+        )}
       </Card>
 
       {msg && (
@@ -232,7 +248,7 @@ function ChargeRow({
 }) {
   const room = MAX_CHARGE - current;
   const full = room <= 0;
-  const amounts = [10, 100, 1000];
+  const amounts = [100, 1000, 10000, 100000];
   return (
     <section className="mt-3 space-y-2">
       <div className="flex items-baseline justify-between gap-2">
@@ -254,7 +270,7 @@ function ChargeRow({
               disabled={busy || full || !affordable}
               className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
             >
-              +{amt} ({cost}g)
+              +{amt.toLocaleString()} ({cost.toLocaleString()}g)
             </button>
           );
         })}
@@ -264,7 +280,7 @@ function ChargeRow({
           disabled={busy || full || gold < room}
           className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
         >
-          꽉 채우기 ({room}g)
+          가득 ({room.toLocaleString()}g)
         </button>
       </div>
       {full && <p className="text-xs text-zinc-500 dark:text-zinc-400">최대치.</p>}

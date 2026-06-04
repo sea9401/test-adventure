@@ -34,6 +34,7 @@ import {
   appendLog,
   damageBetween,
   DEF_IGNORE_FRACTION,
+  type EquippedAPSkill,
 } from "./engine";
 import {
   CRIT_OVERFLOW_DMG_CAP,
@@ -52,7 +53,6 @@ import {
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
-  selectApSkillsToFire,
   tickV2BuffMap,
   tickV2Dots,
   v2AtkBuffMult,
@@ -69,11 +69,7 @@ import {
   RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
-  AP_BATTLE_START,
   AP_CAP,
-  type APSkill,
-  type APSkillCondition,
-  type APSkillEffect,
 } from "@/adventure/character/apSkills";
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -188,7 +184,7 @@ function attackerFacingDef(
   attacker: PvPSide,
   defender: PvPSide,
   // 발동턴 AP 시한부 버프(약점 노출 등) 적용을 위해 attacker buffs 를 별도 인자로 받을 수 있음.
-  // 기본은 attacker.buffs — 그 외 호출 측에서 applyTimedBuffFromApSkillPvP 결과를 전달.
+  // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 attacker.buffs).
   attackerBuffs: PvPSideBuffs = attacker.buffs,
 ): number {
   const raw = Math.max(0, defender.player.def - attackerBuffs.opponentDefPenalty);
@@ -229,157 +225,8 @@ function decrementTimedEffects(buffs: PvPSideBuffs): PvPSideBuffs {
   };
 }
 
-// AP 스킬이 set 하는 시한부 효과를 buffs 에 즉시 반영 — 발동턴 damage calc 부터 효과 받도록.
-// engine.ts 의 applyTimedBuffFromApSkill PvP 미러. 회피된 공격에서는 호출하지 않음.
-function applyTimedBuffFromApSkillPvP(
-  buffs: PvPSideBuffs,
-  apSkillFires: APSkill | null,
-): PvPSideBuffs {
-  if (!apSkillFires) return buffs;
-  const e = apSkillFires.effect;
-  switch (e.kind) {
-    case "player_dmg_reduction_turns":
-      return {
-        ...buffs,
-        playerDmgReductionPct: e.pct,
-        playerDmgReductionTurnsLeft: e.turns,
-      };
-    case "enemy_def_debuff_pct_turns":
-      return {
-        ...buffs,
-        enemyDefDebuffPct: e.pct,
-        enemyDefDebuffTurnsLeft: e.turns,
-      };
-    case "player_atk_buff_def_debuff_pct_turns":
-      return {
-        ...buffs,
-        playerAtkBuffPct: e.atkPct,
-        playerAtkBuffTurnsLeft: e.turns,
-        playerDefDebuffPct: e.defPct,
-        playerDefDebuffTurnsLeft: e.turns,
-      };
-    case "enemy_spd_mult_turns":
-      return {
-        ...buffs,
-        enemySpdMult: e.mult,
-        enemySpdTurnsLeft: e.turns,
-      };
-    case "player_spd_mult_turns":
-      return {
-        ...buffs,
-        playerSpdMult: e.mult,
-        playerSpdTurnsLeft: e.turns,
-      };
-    case "atk_multiplier_with_silence":
-      return {
-        ...buffs,
-        enemySilenceTurnsLeft: e.silenceTurns,
-      };
-    case "cleanse_debuffs":
-      return {
-        ...buffs,
-        playerDefDebuffPct: 0,
-        playerDefDebuffTurnsLeft: 0,
-      };
-    case "block_next_enemy_attack":
-      return {
-        ...buffs,
-        enemyAttackBlockedCount: buffs.enemyAttackBlockedCount + e.count,
-      };
-    case "lifesteal_dmg_pct_turns":
-      return {
-        ...buffs,
-        playerLifestealPct: e.pct,
-        playerLifestealTurnsLeft: e.turns,
-      };
-    default:
-      return buffs;
-  }
-}
 
-// 한 스킬 효과가 lingering 상태인지 — no_self_effect_active 조건이 사용.
-// engine.ts:isAPSkillEffectActive 의 PvP 미러. 필드 매핑만 attacker side 기준으로 변경.
-function isAPEffectActiveOnAttacker(
-  effect: APSkillEffect,
-  attacker: PvPSide,
-): boolean {
-  switch (effect.kind) {
-    case "atk_multiplier":
-    case "heal_pct":
-    case "atk_multiplier_with_silence":
-    case "multi_hit_self_damage":
-    case "atk_plus_spd_pct_bonus":
-    case "cleanse_debuffs":
-    case "crit_buff_next_attack":
-    case "extra_attack_this_turn":
-      return false;
-    case "apply_bleed":
-      return attacker.stacks.bleedStacksOnOpponent > 0;
-    case "add_guaranteed_evades":
-      return attacker.stacks.evadesRemaining > 0;
-    case "player_dmg_reduction_turns":
-      return attacker.buffs.playerDmgReductionTurnsLeft > 0;
-    case "enemy_def_debuff_pct_turns":
-      return attacker.buffs.enemyDefDebuffTurnsLeft > 0;
-    case "player_atk_buff_def_debuff_pct_turns":
-      return (
-        attacker.buffs.playerAtkBuffTurnsLeft > 0 ||
-        attacker.buffs.playerDefDebuffTurnsLeft > 0
-      );
-    case "enemy_spd_mult_turns":
-      return attacker.buffs.enemySpdTurnsLeft > 0;
-    case "player_spd_mult_turns":
-      return attacker.buffs.playerSpdTurnsLeft > 0;
-    case "queued_extra_attacks_next_turn":
-      return attacker.turn.queuedExtraAttacks > 0;
-    case "block_next_enemy_attack":
-      return attacker.buffs.enemyAttackBlockedCount > 0;
-    case "lifesteal_dmg_pct_turns":
-      return attacker.buffs.playerLifestealTurnsLeft > 0;
-  }
-}
 
-// 슬롯별 발동 조건 평가 — engine.ts:evaluateAPSkillCondition 의 PvP 어댑터.
-// state.playerHp/enemyHp 등은 attacker/defender 사이드로 매핑.
-function evaluateAPSkillConditionPvP(
-  condition: APSkillCondition,
-  attacker: PvPSide,
-  defender: PvPSide,
-  skill: APSkill,
-): boolean {
-  switch (condition.kind) {
-    case "always":
-      return true;
-    case "ap_at_least":
-      return attacker.ap >= condition.value;
-    case "ap_at_most":
-      return attacker.ap <= condition.value;
-    case "hp_below_pct":
-      return attacker.maxHp > 0
-        ? (attacker.hp / attacker.maxHp) * 100 < condition.value
-        : false;
-    case "hp_above_pct":
-      return attacker.maxHp > 0
-        ? (attacker.hp / attacker.maxHp) * 100 >= condition.value
-        : false;
-    case "enemy_hp_below_pct":
-      return defender.maxHp > 0
-        ? (defender.hp / defender.maxHp) * 100 < condition.value
-        : false;
-    case "enemy_hp_above_pct":
-      return defender.maxHp > 0
-        ? (defender.hp / defender.maxHp) * 100 >= condition.value
-        : false;
-    case "every_n_turns": {
-      const n = Math.max(1, Math.floor(condition.value));
-      return attacker.turn.completedPlayerTurns % n === 0;
-    }
-    case "enemy_max_hp_at_least":
-      return defender.maxHp >= condition.value;
-    case "no_self_effect_active":
-      return !isAPEffectActiveOnAttacker(skill.effect, attacker);
-  }
-}
 
 // 공격자가 가하는 effective ATK — analysis 페널티는 방어자 측 buffs 에 기록 (이 사이드의 적이 나에게
 // 적용한 페널티). 그래서 effectiveAtk = attacker.atk - defender.buffs.opponentAtkPenalty.
@@ -438,7 +285,7 @@ function buildSide(
     maxMp: sideMaxMp,
     attacksLeft: 0, // initialBattleStatePvP 에서 선공 측만 채움
     nextTurnAttackBonus: 0,
-    ap: (player.equippedAPSkills?.length ?? 0) > 0 ? AP_BATTLE_START : 0,
+    ap: 0,
     turn: {
       completedPlayerTurns: 0,
       enemyPhasesCompleted: 0,
@@ -1153,19 +1000,12 @@ export function advanceTurnPvP(
       : 0;
 
   // AP 스킬 — 그 턴 첫 공격 명중에 슬롯 순서로 최대 3개 발동. 공격형은 최대 1개.
-  const apSel =
-    isFirstAttackOfTurn &&
-    attacker.turn.apSkillFiredThisTurn === null &&
-    (attacker.player.equippedAPSkills?.length ?? 0) > 0
-      ? selectApSkillsToFire(
-          attacker.player.equippedAPSkills!,
-          {
-            canFireApSkill: (e) =>
-              evaluateAPSkillConditionPvP(e.condition, attacker, defender, e.skill),
-          },
-          attacker.ap,
-        )
-      : { offensive: null, utilities: [], totalCost: 0 };
+  // AP 스킬은 v2 미장착(equippedAPSkills 항상 빈값) — 발동 경로 제거, no-op 상수로 통과.
+  const apSel: {
+    offensive: EquippedAPSkill | null;
+    utilities: EquippedAPSkill[];
+    totalCost: number;
+  } = { offensive: null, utilities: [], totalCost: 0 };
   const apOffensiveFires = apSel.offensive;
   const apUtilityFires = apSel.utilities;
   const apAllFired = apOffensiveFires
@@ -1280,10 +1120,7 @@ export function advanceTurnPvP(
   // AP 스킬 시한부 버프 — 발동턴 damage calc 부터 효과 받도록 attacker.buffs 를 미리 갱신.
   // decrementTimedEffects 는 다음 attacker 페이즈 진입 시 -1 → 발동턴 + (turns-1) 후속 = 총 turns 턴.
   // dodge cascade 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 위에서 이미 return 된 상태.
-  const nextBuffsTimedFromAp = apAllFiredSkills.reduce(
-    (buffs, skill) => applyTimedBuffFromApSkillPvP(buffs, skill),
-    attacker.buffs,
-  );
+  const nextBuffsTimedFromAp = attacker.buffs;
 
   // 암살 (특기) — 전투 첫 공격 시 1회, DEF 무시 + 데미지 배수.
   const assassinFires =
@@ -1769,7 +1606,7 @@ export function advanceTurnPvP(
       text: `[${apOffensiveSkill!.name}] ${attacker.name}의 HP -${madSlashSelfDmg} (자해)`,
     });
   }
-  // 지속 효과 (PR-2 미러) — AP 시한부 버프는 위에서 applyTimedBuffFromApSkillPvP 로 적용 완료.
+  // 지속 효과 (PR-2 미러).
   // 여기는 cyclingChiBonus(매 턴 누적) 만 추가한다.
   const nextBuffsTimed: PvPSideBuffs = {
     ...nextBuffsTimedFromAp,
@@ -2320,8 +2157,8 @@ export function resolveBattlePvP(
     };
   }
   // hp_bar 용 apMax — AP 스킬 장착자만 핍 표시. 미장착 사이드는 0.
-  const p1ApMax = (p1Player.equippedAPSkills?.length ?? 0) > 0 ? AP_CAP : 0;
-  const p2ApMax = (p2Player.equippedAPSkills?.length ?? 0) > 0 ? AP_CAP : 0;
+  const p1ApMax = 0;
+  const p2ApMax = 0;
   // hp_bar 는 p1=player / p2=enemy 관점으로 박는다. challenge API 가 me=p1 로
   // 호출하므로 그대로 도전자 시점 렌더에 맞음. (대전자 시점 미러가 필요해지면
   // 동일 데이터를 그쪽 관점으로 swap 해 새 entry 생성.)

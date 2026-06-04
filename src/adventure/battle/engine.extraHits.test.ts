@@ -137,7 +137,6 @@ describe("추가타 on-hit — 미적용 항목 보존", () => {
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 1,
       flurryAttacks: 2,
-      equippedAPSkills: [], // AP 슬롯 빈 배열이면 AP_CAP=5, 회복 동작.
     };
     let s = initialBattleState(p, enemy(100), "용사");
     const startAp = s.ap;

@@ -14,7 +14,6 @@ import {
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
-  selectApSkillsToFire,
   tickV2BuffMap,
   tickV2Dots,
   v2AtkBuffMult,
@@ -40,9 +39,7 @@ import {
   RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
-  AP_BATTLE_START,
   AP_CAP,
-  DEFAULT_AP_SKILL_CONDITION,
   type APSkill,
   type APSkillCondition,
   type APSkillId,
@@ -435,8 +432,6 @@ export type PlayerCombat = {
   enchantRegenPctPerTurn?: number;
   // 보호막(barrier) — 전투 시작 시 maxHp의 % 를 playerShield 로 추가. bulwarkShield 와 별개 누적. 0/undefined = 미보유.
   enchantBarrierPctMaxHp?: number;
-  // 각성(awaken) — 매 플레이어 턴 시작 시 % 확률로 AP +1. AP_CAP 클램프. 0/undefined = 미보유.
-  enchantAwakenApChancePct?: number;
   // 관통(pierce) — flat. 플레이어가 굴리는 모든 공격에서 적 facing DEF 에서 직접 차감. 0/undefined = 미보유.
   enchantPierceFlat?: number;
   // 폭주(berserk) — 자신 HP 30% 이하일 때 ATK 곱연산 +%. atk 최종값에 멀티 적용. 0/undefined = 미보유.
@@ -454,10 +449,6 @@ export type PlayerCombat = {
   // 처형(execute) — 적 HP 25% 이하일 때 추가 피해(%). executionDamageMult 가 0 이면 25%/1+pct 로 자동 시드,
   // 기존 처형 스킬과 같이 보유 시 곱연산으로 더해진다. 0/undefined = 미보유.
   enchantExecuteBonusPct?: number;
-  // AP 스킬 — 학습 + 슬롯 장착 된 것만. 슬롯 순서 보존. 빈 배열/undefined = 미장착.
-  // 매 플레이어 턴 첫 공격 시 슬롯 순서로 condition 만족 + cost<=AP 인 첫 1개 발동.
-  // 한 턴 최대 1개. condition 미지정 슬롯은 always 로 해석.
-  equippedAPSkills?: ReadonlyArray<EquippedAPSkill>;
   // ── 직업 패시브 (v2 직업색 — 시그니처 대체) — v2Passives.ts·derive 가 채움 ──
   // 2026-06-03 재설계: 직업군당 효과 1개. (검사 atk+STR·인술 critMult 는 derive 에서 끝, 엔진 필드 없음.)
   // 사제 — 매 플레이어 턴 시작 시 maxHp 의 %만큼 회복. enchantRegenPctPerTurn 과 별개 누적. 0/undefined=미보유.
@@ -470,108 +461,11 @@ export type PlayerCombat = {
   passiveMagicBasicAttack?: boolean;
 };
 
-// 장착된 AP 스킬 + 사용자가 슬롯에 건 발동 조건.
-export type EquippedAPSkill = {
-  skill: APSkill;
-  condition: APSkillCondition;
-};
 
-// 슬롯 발동 조건 평가 — state 가 현재 시점에 조건을 만족하면 true.
-// AP affordable 체크와는 별개; 호출자가 둘 다 확인 후 발동.
-// no_self_effect_active 평가 시 slot 의 skill effect 가 필요하므로 skill 도 받는다.
-export function evaluateAPSkillCondition(
-  condition: APSkillCondition,
-  state: BattleState,
-  skill: APSkill,
-): boolean {
-  switch (condition.kind) {
-    case "always":
-      return true;
-    case "ap_at_least":
-      return state.ap >= condition.value;
-    case "ap_at_most":
-      return state.ap <= condition.value;
-    case "hp_below_pct":
-      return state.playerMaxHp > 0
-        ? (state.playerHp / state.playerMaxHp) * 100 < condition.value
-        : false;
-    case "hp_above_pct":
-      return state.playerMaxHp > 0
-        ? (state.playerHp / state.playerMaxHp) * 100 >= condition.value
-        : false;
-    case "enemy_hp_below_pct":
-      return state.enemy.hp > 0
-        ? (state.enemyHp / state.enemy.hp) * 100 < condition.value
-        : false;
-    case "enemy_hp_above_pct":
-      return state.enemy.hp > 0
-        ? (state.enemyHp / state.enemy.hp) * 100 >= condition.value
-        : false;
-    case "every_n_turns": {
-      // turn 1 (completedPlayerTurns = 0) 부터 시작해 X 의 배수마다. value < 1 이면 매 턴.
-      const n = Math.max(1, Math.floor(condition.value));
-      return state.turn.completedPlayerTurns % n === 0;
-    }
-    case "enemy_max_hp_at_least":
-      return state.enemy.hp >= condition.value;
-    case "no_self_effect_active":
-      return !isAPSkillEffectActive(skill.effect, state);
-  }
-}
 
-// 스킬 효과가 현재 활성 상태인지 — no_self_effect_active 조건이 사용.
-// 단발 효과 (atk_multiplier·heal_pct·cleanse_debuffs 등) 는 lingering 이 없으므로 항상 false.
-// 지속/스택 효과는 해당 state 필드 > 0 여부.
-function isAPSkillEffectActive(
-  effect: APSkill["effect"],
-  state: BattleState,
-): boolean {
-  switch (effect.kind) {
-    // 단발 — 즉시 적용 후 흔적 없음.
-    case "atk_multiplier":
-    case "heal_pct":
-    case "atk_multiplier_with_silence":
-    case "multi_hit_self_damage":
-    case "atk_plus_spd_pct_bonus":
-    case "cleanse_debuffs":
-    case "crit_buff_next_attack":
-    case "extra_attack_this_turn":
-      return false;
-    // 적에게 출혈 스택 부여 — 누적 스택이 1 이상이면 활성. (재시전은 보통 무의미.)
-    case "apply_bleed":
-      return state.stacks.bleedStacks > 0;
-    // 보장 회피 잔량 부여 — 잔량 > 0 이면 활성.
-    case "add_guaranteed_evades":
-      return state.stacks.evadesRemaining > 0;
-    // 결의 — 받는 피해 감소 지속.
-    case "player_dmg_reduction_turns":
-      return state.buffs.playerDmgReductionTurnsLeft > 0;
-    // 약점 노출 — 적 DEF 디버프 지속.
-    case "enemy_def_debuff_pct_turns":
-      return state.buffs.enemyDefDebuffTurnsLeft > 0;
-    // 광기 — 자신 ATK+ / DEF- 지속.
-    case "player_atk_buff_def_debuff_pct_turns":
-      return (
-        state.buffs.playerAtkBuffTurnsLeft > 0 ||
-        state.buffs.playerDefDebuffTurnsLeft > 0
-      );
-    // 둔화 — 적 SPD 감속 지속.
-    case "enemy_spd_mult_turns":
-      return state.buffs.enemySpdTurnsLeft > 0;
-    // 폭주 — 자신 SPD 가속 지속.
-    case "player_spd_mult_turns":
-      return state.buffs.playerSpdTurnsLeft > 0;
-    // 빛의 활공 — 다음 턴 추가 공격 큐잉. playerAttacksLeft 큐가 1 보다 큰 동안 활성으로 본다.
-    case "queued_extra_attacks_next_turn":
-      return state.playerAttacksLeft > 1;
-    // 잔상 — 적 공격 블록 잔량.
-    case "block_next_enemy_attack":
-      return state.buffs.enemyAttackBlockedCount > 0;
-    // 흡령 — 시한부 흡혈 지속.
-    case "lifesteal_dmg_pct_turns":
-      return state.buffs.playerLifestealTurnsLeft > 0;
-  }
-}
+// AP 스킬 발동 슬롯 형태 — v2 미장착이라 런타임 비활성이나, apSel no-op scaffolding 의
+// 타입 앵커로 유지(발동 경로·조건평가 함수는 제거됨).
+export type EquippedAPSkill = { skill: APSkill; condition: APSkillCondition };
 
 export type PlayerAction =
   | { kind: "attack" }
@@ -620,7 +514,7 @@ function playerFacingEnemyDef(
   state: BattleState,
   player: PlayerCombat,
   // 발동턴 AP 시한부 버프(약점 노출 등) 적용을 위해 buffs 를 별도 인자로 받을 수 있음.
-  // 기본은 state.buffs — 그 외 호출 측에서 applyTimedBuffFromApSkill 결과를 전달.
+  // 호출 측에서 시한부 버프가 반영된 buffs 를 전달(없으면 state.buffs).
   buffs: BattleBuffs = state.buffs,
 ): number {
   // 약점 분석(5티어)의 누적 페널티는 raw def 에 직접 적용 → 음수 클램프.
@@ -831,27 +725,6 @@ function applyPassiveTurnHealIfAny(
   };
 }
 
-// 별빛 각성(awaken) — 매 플레이어 턴 종료 시 % 확률로 AP +1. AP_CAP 클램프.
-// equippedAPSkills 미장착이면 AP 시스템 자체가 비활성이라 발동 무의미.
-function applyEnchantAwakenIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-): BattleState {
-  const pct = player.enchantAwakenApChancePct ?? 0;
-  if (pct <= 0) return state;
-  if (state.turn.completedPlayerTurns === 0) return state;
-  if ((player.equippedAPSkills?.length ?? 0) === 0) return state;
-  if (state.ap >= AP_CAP) return state;
-  if (Math.random() * 100 >= pct) return state;
-  return {
-    ...state,
-    ap: Math.min(AP_CAP, state.ap + 1),
-    log: appendLog(state.log, {
-      kind: "info",
-      text: `[각성] AP +1 (현 ${Math.min(AP_CAP, state.ap + 1)})`,
-    }),
-  };
-}
 
 // 부가 공격(분신/난무 등) 1회 — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
 // 로 설명된 효과는 함께 적용한다:
@@ -1057,7 +930,7 @@ export function finishPlayerTurn(
   st = applyRegenIfAny(st, player, playerName);
   st = applyEnchantRegenIfAny(st, player, playerName);
   st = applyPassiveTurnHealIfAny(st, player, playerName);
-  return applyEnchantAwakenIfAny(st, player);
+  return st;
 }
 
 // 선공 — SPD가 높은 쪽이 먼저 공격. 동점이면 플레이어 우선.
@@ -1180,7 +1053,7 @@ export function initialBattleState(
       weakpointDefIgnoreLeft: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
-    ap: (player.equippedAPSkills?.length ?? 0) > 0 ? AP_BATTLE_START : 0,
+    ap: 0,
     v2Skills,
     v2SkillCooldowns: {},
     v2SelfBuffs: {},
@@ -1220,74 +1093,6 @@ function decrementTimedEffects(buffs: BattleBuffs): BattleBuffs {
   };
 }
 
-// AP 스킬이 set 하는 시한부 효과를 buffs 에 즉시 반영 — 발동턴 damage calc 부터 효과 받도록.
-// decrementTimedEffects 는 다음 플레이어 턴 진입 시점에 -1 하므로, 발동턴 + (turns-1) 후속턴 = 총 turns 턴의 실효 효과.
-// 호출 측에서 evasion 통과 후에만 호출 — 적이 회피하면 AP 발동/소비 자체가 일어나지 않으므로 buffs 도 그대로.
-function applyTimedBuffFromApSkill(
-  buffs: BattleBuffs,
-  apSkillFires: APSkill | null,
-): BattleBuffs {
-  if (!apSkillFires) return buffs;
-  const e = apSkillFires.effect;
-  switch (e.kind) {
-    case "player_dmg_reduction_turns":
-      return {
-        ...buffs,
-        playerDmgReductionPct: e.pct,
-        playerDmgReductionTurnsLeft: e.turns,
-      };
-    case "enemy_def_debuff_pct_turns":
-      return {
-        ...buffs,
-        enemyDefDebuffPct: e.pct,
-        enemyDefDebuffTurnsLeft: e.turns,
-      };
-    case "player_atk_buff_def_debuff_pct_turns":
-      return {
-        ...buffs,
-        playerAtkBuffPct: e.atkPct,
-        playerAtkBuffTurnsLeft: e.turns,
-        playerDefDebuffPct: e.defPct,
-        playerDefDebuffTurnsLeft: e.turns,
-      };
-    case "enemy_spd_mult_turns":
-      return {
-        ...buffs,
-        enemySpdMult: e.mult,
-        enemySpdTurnsLeft: e.turns,
-      };
-    case "player_spd_mult_turns":
-      return {
-        ...buffs,
-        playerSpdMult: e.mult,
-        playerSpdTurnsLeft: e.turns,
-      };
-    case "atk_multiplier_with_silence":
-      return {
-        ...buffs,
-        enemySilenceTurnsLeft: e.silenceTurns,
-      };
-    case "cleanse_debuffs":
-      return {
-        ...buffs,
-        playerDefDebuffPct: 0,
-        playerDefDebuffTurnsLeft: 0,
-      };
-    case "block_next_enemy_attack":
-      return {
-        ...buffs,
-        enemyAttackBlockedCount: buffs.enemyAttackBlockedCount + e.count,
-      };
-    case "lifesteal_dmg_pct_turns":
-      return {
-        ...buffs,
-        playerLifestealPct: e.pct,
-        playerLifestealTurnsLeft: e.turns,
-      };
-    default:
-      return buffs;
-  }
-}
 
 // 한 턴 진행 — 현재 phase 측이 행동하고 결과를 다음 BattleState로 반환.
 // player phase는 action(공격 또는 물약)으로 분기. attack이면 attackCount 만큼 연속 공격.
@@ -1365,19 +1170,12 @@ export function advanceTurn(
         : 0;
 
     // AP 스킬 — 그 턴 첫 공격 명중에 슬롯 순서로 최대 3개 발동. 공격형은 최대 1개.
-    const apSel =
-      isFirstAttackOfTurn &&
-      state.turn.apSkillFiredThisTurn === null &&
-      (player.equippedAPSkills?.length ?? 0) > 0
-        ? selectApSkillsToFire(
-            player.equippedAPSkills!,
-            {
-              canFireApSkill: (e) =>
-                evaluateAPSkillCondition(e.condition, state, e.skill),
-            },
-            state.ap,
-          )
-        : { offensive: null, utilities: [], totalCost: 0 };
+    // AP 스킬은 v2 미장착(equippedAPSkills 항상 빈값) — 발동 경로 제거, no-op 상수로 통과.
+    const apSel: {
+      offensive: EquippedAPSkill | null;
+      utilities: EquippedAPSkill[];
+      totalCost: number;
+    } = { offensive: null, utilities: [], totalCost: 0 };
     const apOffensiveFires = apSel.offensive;
     const apUtilityFires = apSel.utilities;
     const apAllFired = apOffensiveFires
@@ -1456,10 +1254,7 @@ export function advanceTurn(
     // AP 스킬 시한부 버프 — 발동턴 damage calc 부터 효과 받도록 buffs 를 미리 갱신.
     // decrementTimedEffects 는 다음 플레이어 턴 진입 시 -1 → 발동턴 + (turns-1) 후속턴 = 총 turns 턴.
     // evasion 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 그 분기는 위에서 이미 return 된 상태.
-    const nextBuffsTimed = apAllFiredSkills.reduce(
-      (buffs, skill) => applyTimedBuffFromApSkill(buffs, skill),
-      state.buffs,
-    );
+    const nextBuffsTimed = state.buffs;
 
     // 암살 (특기) — 전투 첫 공격이면 발동: 적 DEF 무시 + 데미지 배수 (배수는 아래에서 적용).
     const assassinFires =
@@ -2944,7 +2739,7 @@ export function resolveBattle(
     `${turnNo}턴 · AP ${ap}`;
   // 그 시점 HP 스냅샷 — 매 턴 종료 시 + 전투 종료 시 로그 마지막에 박는다.
   // AP 스킬 장착자만 ap/apMax 가 의미 — 미장착은 ap=0, apMax=0 (UI 핍 미표시).
-  const apMaxForLog = (player.equippedAPSkills?.length ?? 0) > 0 ? AP_CAP : 0;
+  const apMaxForLog = 0;
   const hpBarEntry = (s: BattleState): BattleLogEntry => ({
     kind: "hp_bar",
     text: "",

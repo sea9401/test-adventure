@@ -1517,22 +1517,6 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
     expect(after.stacks.bleedStacks).toBe(BLEED_MAX_STACKS);
   });
 
-  it("정화는 누적된 한기를 제거한다", () => {
-    const purify = AP_SKILLS.find((s) => s.id === "purify")!;
-    const purifier: PlayerCombat = {
-      ...tank,
-      equippedAPSkills: [{ skill: purify, condition: DEFAULT_AP_SKILL_CONDITION }],
-    };
-    const enemy = chillEnemy();
-    const s0 = initialBattleState(purifier, enemy, "P");
-    const primed = {
-      ...s0,
-      stacks: { ...s0.stacks, chillStacks: 6 },
-    };
-    const after = advanceTurn(primed, purifier, "P");
-    expect(after.stacks.chillStacks).toBe(0);
-    expect(after.log.some((e) => e.text.includes("모든 디버프 해제"))).toBe(true);
-  });
 
   it("한기 DoT 는 결의 피해 감소를 적용한다", () => {
     const enemy = chillEnemy();

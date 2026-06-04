@@ -473,6 +473,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.damageNullifyChancePct).toBe(10);
   });
 
+  it("궁사 + 활 + 난사 → extraHitDmgPct 20", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_bow" as V2EquipmentId },
+      spec: getJobSpec("rogue", "archery")!,
+      unlockedPassives: ["archery_aim"], // 난사
+    });
+    expect(d.player.extraHitDmgPct).toBe(20);
+  });
+
   it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
     const dbase = {
       ...base,

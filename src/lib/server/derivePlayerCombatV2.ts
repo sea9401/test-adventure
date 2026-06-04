@@ -550,6 +550,10 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.damageNullifyChancePct
       ? { damageNullifyChancePct: specEff.damageNullifyChancePct }
       : {}),
+    // 난사 — 엔진이 추가타(첫 타 외) 데미지에 % 가산.
+    ...(specEff.extraHitDmgPct
+      ? { extraHitDmgPct: specEff.extraHitDmgPct }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

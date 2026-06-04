@@ -461,6 +461,8 @@ export type PlayerCombat = {
   mpRegenPerTurn?: number;
   // 기사 흘려막기 — 피격 시 % 확률로 피해 완전 무효(enchant 가드와 동류 지점). 0/undefined=미보유.
   damageNullifyChancePct?: number;
+  // 궁사 난사 — 그 턴 첫 타가 아닌 추가타 데미지 +%(다단 히트 본체 강화). 0/undefined=미보유.
+  extraHitDmgPct?: number;
 };
 
 
@@ -1456,9 +1458,16 @@ export function advanceTurn(
     // 별빛 파괴(enchant breaker) — 보스 적에게 가하는 피해 +pct%. 모든 배수 끝나고 마지막 곱연산.
     const breakerPct = player.enchantBreakerBossBonusPct ?? 0;
     const breakerActive = breakerPct > 0 && state.isBoss === true;
-    const dmg = breakerActive
+    const dmgAfterBreaker = breakerActive
       ? Math.max(1, Math.floor(dmgAfterBrace * (1 + breakerPct / 100)))
       : dmgAfterBrace;
+    // 난사 (궁사 시그니처) — 그 턴 첫 타(본타)가 아닌 추가타에 한해 데미지 +extraHitDmgPct%.
+    // 다단 히트(연사) 본체를 키우는 시그니처라 본타는 영향 없음. 모든 배수 뒤 마지막 곱.
+    const extraHitPct = player.extraHitDmgPct ?? 0;
+    const dmg =
+      extraHitPct > 0 && !isFirstAttackOfTurn
+        ? Math.max(1, Math.floor(dmgAfterBreaker * (1 + extraHitPct / 100)))
+        : dmgAfterBreaker;
     // 천명 (4티어) — 일정 확률로 적 현재 HP 의 일부를 추가 고정 피해 (이 공격의 보통 피해와 별개로 합산).
     // 보스 전투에는 BOSS_PCT_HP_DAMAGE_MULT 배 적용 (%HP 누진 폭딜 방지).
     const decreeFires =

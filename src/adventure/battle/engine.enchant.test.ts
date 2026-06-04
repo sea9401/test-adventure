@@ -228,6 +228,53 @@ describe("damageNullifyChancePct — 기사 흘려막기 (% 완전 무효)", () 
   });
 });
 
+describe("extraHitDmgPct — 궁사 난사 (추가타 데미지 +%)", () => {
+  it("첫 타는 평타, 둘째 타(추가타)는 +50%", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // 크리/행운의 별/회피 전부 미발동
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 30,
+      attackCount: 2,
+      extraHitDmgPct: 50,
+    };
+    let state = initialBattleState(
+      player,
+      enemy({ hp: 100000, def: 0, spd: 1 }),
+      "용사",
+    );
+    expect(state.phase).toBe("player");
+    const hp0 = state.enemyHp;
+    state = advanceTurn(state, player, "용사", { kind: "attack" }); // 첫 타(본타)
+    const hit1 = hp0 - state.enemyHp;
+    const hp1 = state.enemyHp;
+    state = advanceTurn(state, player, "용사", { kind: "attack" }); // 추가타
+    const hit2 = hp1 - state.enemyHp;
+    expect(hit1).toBeGreaterThan(0);
+    expect(hit2).toBe(Math.floor(hit1 * 1.5));
+  });
+
+  it("미보유면 추가타도 평타 (첫 타 == 둘째 타)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 30,
+      attackCount: 2,
+    };
+    let state = initialBattleState(
+      player,
+      enemy({ hp: 100000, def: 0, spd: 1 }),
+      "용사",
+    );
+    const hp0 = state.enemyHp;
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    const hit1 = hp0 - state.enemyHp;
+    const hp1 = state.enemyHp;
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    const hit2 = hp1 - state.enemyHp;
+    expect(hit2).toBe(hit1);
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

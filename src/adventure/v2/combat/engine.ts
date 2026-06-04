@@ -463,6 +463,8 @@ export type PlayerCombat = {
   damageNullifyChancePct?: number;
   // 궁사 난사 — 그 턴 첫 타가 아닌 추가타 데미지 +%(다단 히트 본체 강화). 0/undefined=미보유.
   extraHitDmgPct?: number;
+  // 독사 부식 — 중독(출혈 스택)된 적의 DEF -pct%(playerFacingEnemyDef 곱연산). 0/undefined=미보유.
+  poisonedEnemyDefReductionPct?: number;
 };
 
 
@@ -534,11 +536,17 @@ function playerFacingEnemyDef(
   const enchantPierce = player.enchantPierceFlat ?? 0;
   const afterEnchantPierce =
     enchantPierce > 0 ? Math.max(0, afterPierce - enchantPierce) : afterPierce;
-  // 약점 노출 (AP) — 적 DEF -pct%. 곱연산으로 마지막에 반영.
-  if (buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0) {
-    return Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100));
-  }
-  return afterEnchantPierce;
+  // 약점 노출 (AP) — 적 DEF -pct%. 곱연산.
+  const afterDebuff =
+    buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0
+      ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
+      : afterEnchantPierce;
+  // 부식 (독사 시그니처) — 중독(= 출혈 스택, 독사 맹독이 bleedStacks 로 누적)된 적의 DEF -pct%.
+  // 곱연산으로 마지막에. 출혈 스택이 없으면 비활성.
+  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  return corrodePct > 0 && state.stacks.bleedStacks > 0
+    ? Math.round(afterDebuff * (1 - corrodePct / 100))
+    : afterDebuff;
 }
 
 // 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은

@@ -483,6 +483,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.extraHitDmgPct).toBe(20);
   });
 
+  it("독사 + 단검 + 부식 → poisonedEnemyDefReductionPct 20", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
+      spec: getJobSpec("rogue", "venom")!,
+      unlockedPassives: ["venom_corrode"], // 부식
+    });
+    expect(d.player.poisonedEnemyDefReductionPct).toBe(20);
+  });
+
   it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
     const dbase = {
       ...base,

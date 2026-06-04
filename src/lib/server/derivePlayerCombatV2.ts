@@ -554,6 +554,10 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.extraHitDmgPct
       ? { extraHitDmgPct: specEff.extraHitDmgPct }
       : {}),
+    // 부식 — 엔진이 중독(출혈 스택)된 적의 DEF 를 % 감산(playerFacingEnemyDef).
+    ...(specEff.poisonedEnemyDefReductionPct
+      ? { poisonedEnemyDefReductionPct: specEff.poisonedEnemyDefReductionPct }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

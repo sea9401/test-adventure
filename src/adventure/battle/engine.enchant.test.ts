@@ -275,6 +275,41 @@ describe("extraHitDmgPct — 궁사 난사 (추가타 데미지 +%)", () => {
   });
 });
 
+describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", () => {
+  // 두 플레이어 모두 bleedDmgPerStack 미보유 → 출혈 틱 0 → 측정값 = 순수 본타 데미지.
+  const measure = (player: PlayerCombat, bleed: number) => {
+    let s = initialBattleState(
+      player,
+      enemy({ hp: 100000, def: 40, spd: 1 }),
+      "용사",
+    );
+    s = { ...s, stacks: { ...s.stacks, bleedStacks: bleed } };
+    const hp0 = s.enemyHp;
+    s = advanceTurn(s, player, "용사", { kind: "attack" });
+    return hp0 - s.enemyHp;
+  };
+
+  it("출혈 스택 있으면 적 DEF -50% → 데미지 증가", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // 크리/회피 미발동
+    const baseDmg = measure({ ...BASE_PLAYER, atk: 60 }, 3);
+    const corrodeDmg = measure(
+      { ...BASE_PLAYER, atk: 60, poisonedEnemyDefReductionPct: 50 },
+      3,
+    );
+    expect(corrodeDmg).toBeGreaterThan(baseDmg);
+  });
+
+  it("출혈 스택 0이면 부식 비활성 (평타와 동일)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const baseDmg = measure({ ...BASE_PLAYER, atk: 60 }, 0);
+    const corrodeDmg = measure(
+      { ...BASE_PLAYER, atk: 60, poisonedEnemyDefReductionPct: 50 },
+      0,
+    );
+    expect(corrodeDmg).toBe(baseDmg);
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

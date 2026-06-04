@@ -1,0 +1,31 @@
+# PR·main push 에서 타입체크(tsc)·테스트(vitest)를 돌려 회귀를 막는다.
+# deploy.yml(빌드+배포)와 별개 — 이건 머지 전 검증용. vitest 전 스위트(전투 골든 마스터 포함) 실행.
+# ⚠️ 이 워크플로 자체는 "체크"만 보고한다. 머지를 실제로 막으려면 GitHub 저장소 설정의
+#    Branch protection 에서 이 'check' 잡을 required status check 으로 지정해야 한다.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# 같은 ref 의 이전 실행 취소 — 연속 push 비용 절약.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (tsc --noEmit)
+        run: npx tsc --noEmit
+      - name: Tests (vitest)
+        run: npx vitest run

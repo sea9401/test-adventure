@@ -97,8 +97,7 @@ export const initialCharacterState: CharacterDynamicState = {
 };
 
 // 저장된 EquipItem 슬롯 매핑을 "지금" 데이터 정의로 다시 만들어 옛 인스턴스가 남지 않게.
-// 실제 변환은 rehydrateEquippedItem 공용 헬퍼 — 서버측 autoHunt/derivePlayerCombatFromSaves
-// 도 동일 헬퍼를 써야 craftTier/dropQuality 가 일관되게 반영된다.
+// 실제 변환은 rehydrateEquippedItem 공용 헬퍼 — craftTier/dropQuality 가 일관되게 반영되도록.
 function rehydrateEquipped(
   saved: CharacterDynamicState["equipped"],
 ): CharacterDynamicState["equipped"] {

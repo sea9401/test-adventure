@@ -8,6 +8,7 @@ import { V2CharacterCard } from "./V2CharacterCard";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
+  V2_STAT_DESCRIPTIONS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
 import type {
@@ -160,6 +161,7 @@ export function V2CharacterScreen({
             combat={combat}
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}
+            statDescriptions={V2_STAT_DESCRIPTIONS}
           />
         </Card>
       )}

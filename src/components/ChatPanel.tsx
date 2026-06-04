@@ -165,6 +165,35 @@ export function ChatPanel({
     setDraft(next);
   };
 
+  // 모바일 키보드 대응 — 오버레이를 시각 뷰포트(키보드로 줄어든 영역)에 맞춰
+  // 하단 입력창이 키보드 뒤로 가려지지 않게 한다. 패널엔 max-h-full 이 걸려 있어
+  // 줄어든 오버레이를 넘지 않으므로 헤더~입력창이 모두 보인다.
+  // visualViewport 미지원 브라우저는 인라인 스타일 미적용 → CSS(inset-0) 기본 동작 폴백.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    const el = overlayRef.current;
+    if (!vv || !el) return;
+    const apply = () => {
+      el.style.top = `${vv.offsetTop}px`;
+      el.style.height = `${vv.height}px`;
+      el.style.bottom = "auto";
+    };
+    apply();
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    return () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      // 닫힐 때 인라인 스타일 제거 → CSS(inset-0) 로 복귀.
+      // (effect 진입 때 캡처한 el — 이 effect 인스턴스가 다룬 바로 그 노드.)
+      el.style.top = "";
+      el.style.height = "";
+      el.style.bottom = "";
+    };
+  }, [open]);
+
   if (!open) return null;
 
   // body 로 portal — V2TopBar 의 backdrop-blur(=backdrop-filter)가 fixed 자손의
@@ -175,9 +204,12 @@ export function ChatPanel({
   // 그대로 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto.
   // 바깥 탭으로 닫히지 않으며 닫기는 헤더 X 버튼뿐 — 화면을 옮겨도 떠 있다.
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4">
+    <div
+      ref={overlayRef}
+      className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4"
+    >
       <div
-        className="pointer-events-auto flex h-[85dvh] w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        className="pointer-events-auto flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
       >
         <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">

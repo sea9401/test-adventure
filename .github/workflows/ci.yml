@@ -1,7 +1,7 @@
 # PR·main push 에서 타입체크(tsc)·테스트(vitest)를 돌려 회귀를 막는다.
 # deploy.yml(빌드+배포)와 별개 — 이건 머지 전 검증용. vitest 전 스위트(전투 골든 마스터 포함) 실행.
-# ⚠️ 이 워크플로 자체는 "체크"만 보고한다. 머지를 실제로 막으려면 GitHub 저장소 설정의
-#    Branch protection 에서 이 'check' 잡을 required status check 으로 지정해야 한다.
+# 머지 게이트: ruleset 'main-ci-gate'(repo → Settings → Rules) 가 이 'check' 잡 통과를
+# main 머지 필수로 강제한다(public 전환 후 활성). 게이트를 잠깐 풀려면 그 ruleset 을 Disabled 로.
 name: CI
 
 on:
@@ -25,6 +25,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Image refs (check-images)
+        run: npm run check-images
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
       - name: Tests (vitest)

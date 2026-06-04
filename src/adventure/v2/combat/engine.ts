@@ -457,6 +457,8 @@ export type PlayerCombat = {
   passiveDamageTakenReductionPct?: number;
   // 워메이지 주문 연사 — 스킬 발동 확률 %p 가산(resolveV2SkillCast 의 procChance 에 합산). 0/undefined=미보유.
   skillProcChanceAdd?: number;
+  // 워메이지 마력 순환 — 매 플레이어 턴 종료 시 MP 회복(flat). HP 회복과 독립. 0/undefined=미보유.
+  mpRegenPerTurn?: number;
 };
 
 
@@ -699,24 +701,47 @@ function applyEnchantRegenIfAny(
   };
 }
 
-// 직업 패시브 가호 — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
+// 매 플레이어 턴 종료 시 자가 회복 — 직업 패시브 가호(HP %) + 워메이지 마력 순환(MP flat).
 function applyPassiveTurnHealIfAny(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,
 ): BattleState {
+  // 워메이지 마력 순환 — MP 회복(flat). HP 회복과 독립이라 HP 가 가득이어도 돈다.
+  // MP 가 자원화된 v2 에서 시전 페이스를 받쳐 주는 시그니처.
+  let s = state;
+  const mpRegen = player.mpRegenPerTurn ?? 0;
+  if (
+    mpRegen > 0 &&
+    s.turn.completedPlayerTurns > 0 &&
+    s.playerMp < s.playerMaxMp
+  ) {
+    const newMp = Math.min(s.playerMaxMp, s.playerMp + mpRegen);
+    const actualMp = newMp - s.playerMp;
+    if (actualMp > 0) {
+      s = {
+        ...s,
+        playerMp: newMp,
+        log: appendLog(s.log, {
+          kind: "info",
+          text: `[마력 순환] ${playerName}의 MP +${actualMp}`,
+        }),
+      };
+    }
+  }
+
   const pct = player.passiveTurnHealPctMaxHp ?? 0;
-  if (pct <= 0) return state;
-  if (state.turn.completedPlayerTurns === 0) return state;
-  if (state.playerHp >= state.playerMaxHp) return state;
-  const heal = Math.floor((state.playerMaxHp * pct) / 100);
-  if (heal <= 0) return state;
-  const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
-  const actual = newHp - state.playerHp;
+  if (pct <= 0) return s;
+  if (s.turn.completedPlayerTurns === 0) return s;
+  if (s.playerHp >= s.playerMaxHp) return s;
+  const heal = Math.floor((s.playerMaxHp * pct) / 100);
+  if (heal <= 0) return s;
+  const newHp = Math.min(s.playerMaxHp, s.playerHp + heal);
+  const actual = newHp - s.playerHp;
   return {
-    ...state,
+    ...s,
     playerHp: newHp,
-    log: appendLog(state.log, {
+    log: appendLog(s.log, {
       kind: "info",
       text: `[가호] ${playerName}의 HP +${actual}`,
     }),

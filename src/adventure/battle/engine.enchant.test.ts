@@ -106,6 +106,49 @@ describe("passiveTurnHealPctMaxHp — 매 플레이어 턴 종료 시 maxHp %", 
   });
 });
 
+describe("mpRegenPerTurn — 워메이지 마력 순환 (매 턴 MP flat 회복)", () => {
+  it("MP 50/100, regen 8 → 58 (HP 가득이어도 발동)", () => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 1,
+      maxMp: 100,
+      mp: 50,
+      mpRegenPerTurn: 8,
+    };
+    let state = initialBattleState(player, enemy({ hp: 1000 }), "용사");
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.playerMp).toBe(58);
+    expect(state.log.some((e) => e.text.includes("[마력 순환]"))).toBe(true);
+  });
+
+  it("MP 가득이면 회복 없음 (over-cap 방지)", () => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 1,
+      maxMp: 100,
+      mp: 100,
+      mpRegenPerTurn: 8,
+    };
+    let state = initialBattleState(player, enemy({ hp: 1000 }), "용사");
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.playerMp).toBe(100);
+    expect(state.log.some((e) => e.text.includes("[마력 순환]"))).toBe(false);
+  });
+
+  it("mpRegenPerTurn 미보유 캐릭은 MP 불변 (회복 로그 없음)", () => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 1,
+      maxMp: 100,
+      mp: 50,
+    };
+    let state = initialBattleState(player, enemy({ hp: 1000 }), "용사");
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.playerMp).toBe(50);
+    expect(state.log.some((e) => e.text.includes("[마력 순환]"))).toBe(false);
+  });
+});
+
 describe("guard — 피격 시 % 확률 블록", () => {
   it("rng 0 → 무조건 발동, 피해 0", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);

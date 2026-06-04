@@ -542,6 +542,10 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.skillProcChanceAdd
       ? { skillProcChanceAdd: specEff.skillProcChanceAdd }
       : {}),
+    // 마력 순환 — 엔진이 매 플레이어 턴 종료 시 MP 를 flat 회복.
+    ...(specEff.mpRegenPerTurn
+      ? { mpRegenPerTurn: specEff.mpRegenPerTurn }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

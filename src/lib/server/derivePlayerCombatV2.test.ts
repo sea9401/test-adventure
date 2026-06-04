@@ -510,6 +510,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.skillProcChanceAdd).toBe(15);
   });
 
+  it("워메이지 + 지팡이 + 마력 순환 → mpRegenPerTurn 8", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      unlockedPassives: ["battlemage_ward"], // 마력 순환
+    });
+    expect(d.player.mpRegenPerTurn).toBe(8);
+  });
+
   it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,

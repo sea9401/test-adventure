@@ -74,7 +74,8 @@ export function StatsContent() {
           150.)
         </li>
         <li>
-          <Em>최대 MP</Em> = 50 + INT × 2. MP 는 매 전투마다 가득 회복됩니다.
+          <Em>최대 MP</Em> = 50 + INT × 2. MP 는 전투 후 잔여분이 유지되며,
+          부족분은 MP 충전약으로 채웁니다.
         </li>
       </UL>
 

@@ -55,11 +55,20 @@ describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passiv
     }
   });
 
-  it("계파별 무기 타입은 전 직군 통틀어 유일(게이트 충돌 방지)", () => {
-    const types = Object.values(V2_JOB_SPECS)
-      .flat()
-      .map((s) => s.requiredWeaponType);
-    expect(new Set(types).size).toBe(types.length);
+  it("무기 타입은 한 직군 안에서만 공유(직군 간 충돌 없음 — 통합 설계)", () => {
+    // 계파 통합으로 같은 직군 안 여러 계파가 한 무기 타입을 공유할 수 있다(예: 마법사 3계파=staff).
+    // 단 한 무기 타입이 여러 직군에 걸치면 게이트가 직군을 넘나들어 혼란 → 직군당 1개로 제한.
+    const typeToJobs = new Map<string, Set<string>>();
+    for (const specs of Object.values(V2_JOB_SPECS)) {
+      for (const s of specs) {
+        const set = typeToJobs.get(s.requiredWeaponType) ?? new Set<string>();
+        set.add(s.job);
+        typeToJobs.set(s.requiredWeaponType, set);
+      }
+    }
+    for (const [type, jobs] of typeToJobs) {
+      expect(jobs.size, `무기 ${type} 가 여러 직군에서 쓰임`).toBe(1);
+    }
   });
 });
 

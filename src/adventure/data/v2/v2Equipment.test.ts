@@ -132,7 +132,13 @@ function slotConceptLine(
   concept: V2EquipConcept,
 ): V2EquipTier[] {
   return v2EquipmentBySlot(slot)
-    .filter((i) => i.concept === concept && !isUnique(i) && !i.craftOnly) // 그리드는 정규만(유니크·제작전용 제외)
+    .filter(
+      (i) =>
+        i.concept === concept &&
+        !isUnique(i) &&
+        !i.craftOnly &&
+        !i.starterOnly,
+    ) // 그리드는 정규만(유니크·제작전용·계파스타터 제외)
     .sort((a, b) => a.tier - b.tier)
     .map((i) => i.tier);
 }
@@ -141,11 +147,12 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
   it("정규 그리드 55종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
     const all = Object.values(V2_EQUIPMENT);
     expect(
-      all.filter((i) => !isUnique(i) && !i.craftOnly),
+      all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
     ).toHaveLength(55);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
+    expect(all.filter((i) => i.starterOnly), "계파 스타터").toHaveLength(7);
   });
 
   it("제작전용(craftOnly) 은 상점 비매품 (shopPriceOf undefined)", () => {
@@ -197,7 +204,13 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
     for (const slot of ALL_SLOTS) {
       for (const concept of SLOT_CONCEPTS[slot]) {
         const values = v2EquipmentBySlot(slot)
-          .filter((i) => i.concept === concept && !isUnique(i) && !i.craftOnly) // 그리드는 정규만
+          .filter(
+            (i) =>
+              i.concept === concept &&
+              !isUnique(i) &&
+              !i.craftOnly &&
+              !i.starterOnly,
+          ) // 그리드는 정규만
           .sort((a, b) => a.tier - b.tier)
           .map((i) => i.power);
         for (let i = 1; i < values.length; i++) {

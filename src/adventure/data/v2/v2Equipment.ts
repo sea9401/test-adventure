@@ -88,6 +88,14 @@ export type V2EquipmentId =
   | "v2_obsidian_staff"
   | "v2_silver_staff"
   | "v2_starlit_staff"
+  // 계파 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
+  | "v2_starter_sword_shield"
+  | "v2_starter_rapier"
+  | "v2_starter_gauntlet"
+  | "v2_starter_claw"
+  | "v2_starter_staff"
+  | "v2_starter_bow"
+  | "v2_starter_dagger"
   // 방어-중갑 (vit/def)
   | "v2_chain_mail"
   | "v2_plate_armor"
@@ -197,6 +205,8 @@ export type V2Equipment = {
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
   craftOnly?: boolean;
+  /** 계파 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
+  starterOnly?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
 };
@@ -232,7 +242,8 @@ export function shopPriceFor(
 
 // 유니크·제작전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
 export function shopPriceOf(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique" || item.craftOnly) return undefined;
+  if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
+    return undefined;
   return shopPriceFor(item.tier, item.slot);
 }
 
@@ -349,6 +360,92 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 29,
     weight: 4,
     element: "void",
+  },
+
+  // ── 계파 스타터 무기 (전직 시 지급, weaponType 게이트 활성화용) — off-grid(starterOnly), 수치 임시 ──
+  v2_starter_sword_shield: {
+    id: "v2_starter_sword_shield",
+    slot: "weapon",
+    concept: "str",
+    tier: 1,
+    name: "수련용 검과 방패",
+    description: "기사 입문자의 검과 방패. 한 손엔 검, 한 손엔 방패.",
+    power: 5,
+    weight: 2,
+    weaponType: "sword_shield",
+    starterOnly: true,
+  },
+  v2_starter_rapier: {
+    id: "v2_starter_rapier",
+    slot: "weapon",
+    concept: "dex",
+    tier: 1,
+    name: "수련용 세검",
+    description: "검투사 입문자의 가느다란 찌르기 검.",
+    power: 5,
+    weight: 1,
+    weaponType: "rapier",
+    starterOnly: true,
+  },
+  v2_starter_gauntlet: {
+    id: "v2_starter_gauntlet",
+    slot: "weapon",
+    concept: "str",
+    tier: 1,
+    name: "수련용 권갑",
+    description: "무도가 입문자의 단단한 권갑.",
+    power: 5,
+    weight: 2,
+    weaponType: "gauntlet",
+    starterOnly: true,
+  },
+  v2_starter_claw: {
+    id: "v2_starter_claw",
+    slot: "weapon",
+    concept: "dex",
+    tier: 1,
+    name: "수련용 권조",
+    description: "연환 격투가의 갈퀴 권갑. 빠른 연타에 맞춰졌다.",
+    power: 5,
+    weight: 1,
+    weaponType: "claw",
+    starterOnly: true,
+  },
+  v2_starter_staff: {
+    id: "v2_starter_staff",
+    slot: "weapon",
+    concept: "int",
+    tier: 1,
+    name: "수련용 지팡이",
+    description: "마법사 입문자의 나무 지팡이.",
+    power: 5,
+    weight: 1,
+    weaponType: "staff",
+    starterOnly: true,
+  },
+  v2_starter_bow: {
+    id: "v2_starter_bow",
+    slot: "weapon",
+    concept: "dex",
+    tier: 1,
+    name: "수련용 활",
+    description: "궁사 입문자의 단궁.",
+    power: 5,
+    weight: 1,
+    weaponType: "bow",
+    starterOnly: true,
+  },
+  v2_starter_dagger: {
+    id: "v2_starter_dagger",
+    slot: "weapon",
+    concept: "dex",
+    tier: 1,
+    name: "수련용 단검",
+    description: "도적 입문자의 가벼운 단검.",
+    power: 5,
+    weight: 1,
+    weaponType: "dagger",
+    starterOnly: true,
   },
 
   // ── 무기-민 (위력 = 물공+마공, 가벼움, 옵션 crit) ─────────────────────
@@ -1240,6 +1337,33 @@ export function genEquipIid(): string {
   return `eq_${Date.now().toString(36)}_${Math.floor(
     Math.random() * 1e9,
   ).toString(36)}`;
+}
+
+// 계파 전직 지급용 스타터 무기 — weaponType → 무기 id. 통합 후 쓰는 8종만 매핑
+// (tonfa/spellblade/relic/needle 은 통합돼 미사용 → undefined: 지급 skip). 대검은 기존 v2_greatsword 재사용.
+export function starterWeaponForType(
+  type: V2WeaponType,
+): V2EquipmentId | undefined {
+  switch (type) {
+    case "greatsword":
+      return "v2_greatsword";
+    case "sword_shield":
+      return "v2_starter_sword_shield";
+    case "rapier":
+      return "v2_starter_rapier";
+    case "gauntlet":
+      return "v2_starter_gauntlet";
+    case "claw":
+      return "v2_starter_claw";
+    case "staff":
+      return "v2_starter_staff";
+    case "bow":
+      return "v2_starter_bow";
+    case "dagger":
+      return "v2_starter_dagger";
+    default:
+      return undefined;
+  }
 }
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));

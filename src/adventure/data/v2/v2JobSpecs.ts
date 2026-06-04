@@ -99,7 +99,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
     id: "cheolsan", // 철산류 — 맷집·반격
     name: "철산류",
     job: "martial",
-    requiredWeaponType: "tonfa",
+    requiredWeaponType: "gauntlet",
     passives: [
       { id: "cheolsan_guard", name: "철산고", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 16 } },
       { id: "cheolsan_counter", name: "반격세", desc: "피격 후 확률 반격", effect: { counterChancePct: 20 } },
@@ -148,7 +148,7 @@ const MAGE_SPECS: readonly V2JobSpec[] = [
     id: "battlemage", // 배틀메이지 — 마공+방어 하이브리드(잠정)
     name: "배틀메이지",
     job: "mage",
-    requiredWeaponType: "spellblade",
+    requiredWeaponType: "staff",
     passives: [
       { id: "battlemage_power", name: "전투 주문", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 16 } },
       { id: "battlemage_ward", name: "마법 방벽", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
@@ -159,7 +159,7 @@ const MAGE_SPECS: readonly V2JobSpec[] = [
     id: "cleric", // 성직자 — 신성·치유·가호(SPI)
     name: "성직자",
     job: "mage",
-    requiredWeaponType: "relic",
+    requiredWeaponType: "staff",
     passives: [
       { id: "cleric_ward", name: "가호", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
       { id: "cleric_power", name: "신성력", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 12 } },
@@ -196,7 +196,7 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
     id: "venom", // 맹독술사 — 독공(중독 DoT 누적)
     name: "맹독술사",
     job: "rogue",
-    requiredWeaponType: "needle",
+    requiredWeaponType: "dagger",
     passives: [
       { id: "venom_toxin", name: "맹독", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 10 } },
       { id: "venom_flurry", name: "연속 독격", desc: "추가타 확률(독 적중 증가)", effect: { extraAttackChancePct: 16 } },

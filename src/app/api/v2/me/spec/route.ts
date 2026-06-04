@@ -4,6 +4,11 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
 import {
+  starterWeaponForType,
+  genEquipIid,
+  parseEquipmentSave,
+} from "@/adventure/data/v2/v2Equipment";
+import {
   parseProficiencyForChar,
   emptyProficiency,
   type V2ProficiencyState,
@@ -102,6 +107,24 @@ export async function POST(req: Request) {
           ...charSave,
           specChoice: specId,
         });
+        // 계파 첫 선택 시 그 계파 무기 1회 지급(게이트 활성화). 이미 보유면 skip.
+        // lock 순서: character.v2 → proficiency.v2 → equipment.v2 (일관 순서, 데드락 회피).
+        const weaponId = starterWeaponForType(spec.requiredWeaponType);
+        if (weaponId) {
+          const equipRaw = await lockSaveForUpdate(
+            tx,
+            userId,
+            "equipment.v2",
+            {},
+          );
+          const { owned, equipped } = parseEquipmentSave(equipRaw);
+          if (!owned.some((i) => i.id === weaponId)) {
+            await upsertSave(tx, userId, "equipment.v2", {
+              owned: [...owned, { iid: genEquipIid(), id: weaponId }],
+              equipped,
+            });
+          }
+        }
       }
       return {
         status: 200,

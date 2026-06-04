@@ -90,8 +90,8 @@ export function rollEquipDrop(
     // 유니크는 정규 드랍 후보에서 제외 — 드랍 전용 유니크는 rollUniqueDrop(별도 초저확률
     // 롤)로만 나온다. 이게 빠지면 Phase 2 유니크가 정규 티어 드랍으로 새 나간다.
     if (isUnique(item)) continue;
-    // 제작 전용 장비도 정규 드랍 제외 — 레시피로만 획득.
-    if (item.craftOnly) continue;
+    // 제작 전용·계파 스타터도 정규 드랍 제외 — 레시피/전직 지급으로만 획득.
+    if (item.craftOnly || item.starterOnly) continue;
     if (ownedSet.has(item.id)) continue;
     candidates.push(item.id);
   }

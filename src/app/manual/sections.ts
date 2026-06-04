@@ -1,7 +1,7 @@
 // 메뉴얼 섹션 메타데이터. 슬러그 ↔ 제목/요약/그룹.
 // 본문은 별도 컴포넌트 파일(content/<slug>.tsx)로 분리해 정적 사이즈 부담을 줄인다.
 
-export type ManualGroup = "intro" | "combat" | "growth" | "world" | "endgame";
+export type ManualGroup = "intro" | "combat" | "growth" | "world" | "versus";
 
 export type ManualSection = {
   slug: string;
@@ -15,93 +15,117 @@ export const MANUAL_GROUP_LABEL: Record<ManualGroup, string> = {
   combat: "전투",
   growth: "성장",
   world: "세계",
-  endgame: "엔드게임",
+  versus: "겨루기",
 };
 
 export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "overview",
     title: "게임 개요",
-    summary: "이 게임이 어떤 게임인지, 무엇을 목표로 하는지.",
+    summary: "이 게임이 어떤 게임인지, 큰 흐름과 목표.",
     group: "intro",
   },
   {
     slug: "controls",
-    title: "화면 구성과 조작",
-    summary: "헤더·탭·서브뷰가 어떻게 짜여 있는지.",
+    title: "화면과 조작",
+    summary: "6개 메인 탭, 상단바, 화면 전환 방식.",
     group: "intro",
   },
   {
     slug: "combat",
     title: "전투 시스템",
-    summary: "턴 흐름, 데미지 계산, 회피·크리·반격 — 전투의 모든 것.",
+    summary: "턴 흐름, 데미지·방어, 속성, 치명·회피, 상태이상, 멀티히트.",
+    group: "combat",
+  },
+  {
+    slug: "hunting",
+    title: "사냥과 사냥터",
+    summary: "사냥터 2층, 단발·일괄 사냥, 스태미나, 전리품.",
     group: "combat",
   },
   {
     slug: "stats",
-    title: "스탯과 환산",
-    summary: "5대 스탯이 실제 전투 수치로 어떻게 환산되는지.",
+    title: "스탯과 성장",
+    summary: "6대 스탯의 전투 환산, 자동 성장과 한계치.",
+    group: "growth",
+  },
+  {
+    slug: "jobs",
+    title: "직업·숙련도·전직",
+    summary: "6직업군 4차수, 숙련도와 숙달 포인트, 전직, 수행.",
     group: "growth",
   },
   {
     slug: "skills",
-    title: "스킬과 특기",
-    summary: "스탯 임계에서 풀리는 스킬·특기, 슬롯 해금 조건.",
+    title: "스킬과 직업 패시브",
+    summary: "속성 스킬 습득·장착 슬롯, 직업별 상시 패시브.",
     group: "growth",
   },
   {
     slug: "leveling",
     title: "레벨과 경험치",
-    summary: "EXP 곡선, 신참 보너스, 만렙 100 까지의 구간별 가팔라짐.",
+    summary: "EXP 곡선, 경험치 배율, 신참 보너스, 전직 리셋.",
     group: "growth",
   },
   {
     slug: "equipment",
     title: "장비",
-    summary: "무기·방어구·장신구, 티어, 장비 검색.",
+    summary: "6슬롯 개체 장비, 위력→스탯 환산, 옵션 편차, 세트.",
     group: "growth",
   },
   {
-    slug: "runes",
-    title: "룬",
-    summary: "룬 10종 × 5등급, 합성, 효과 합산 규칙.",
+    slug: "crafting",
+    title: "제작과 분해",
+    summary: "대장간 제작·분해, 재료, 유니크 장비.",
     group: "growth",
   },
   {
-    slug: "potions",
-    title: "포션과 자동 포션",
-    summary: "회복량 공식, 보유 상한, 자동 발동 규칙.",
-    group: "combat",
-  },
-  {
-    slug: "hunting",
-    title: "사냥과 자동 사냥",
-    summary: "라이브 사냥 vs 위탁 원정. 효율·캡·부활.",
-    group: "combat",
-  },
-  {
-    slug: "town",
-    title: "마을과 시설",
-    summary: "치유소·상점·제작소·훈련장·길드.",
+    slug: "economy",
+    title: "골드·스태미나·회복",
+    summary: "골드의 쓰임, 스태미나 소모·회복, HP·MP 회복.",
     group: "world",
   },
   {
-    slug: "quests",
-    title: "의뢰와 길드",
-    summary: "길드 게시판, NPC 의뢰, 반복 쿨다운.",
+    slug: "town",
+    title: "마을 시설",
+    summary: "치료소·상점·성장의 신전·대장간·낚시터·발굴 감정소.",
+    group: "world",
+  },
+  {
+    slug: "guild",
+    title: "길드",
+    summary: "창단·가입 신청·초대, 길드 운영과 금고.",
+    group: "world",
+  },
+  {
+    slug: "outpost",
+    title: "거점과 영토",
+    summary: "거점 점령, 보급선, 인접 이동, 세금, 침입자 토벌.",
+    group: "world",
+  },
+  {
+    slug: "plaza",
+    title: "광장과 소통",
+    summary: "게시판·전체 소식·우편함·랭킹·공지·채팅.",
     group: "world",
   },
   {
     slug: "compendium",
-    title: "모험의 서 (도감)",
-    summary: "몬스터·NPC·장소가 어떻게 드러나는지.",
+    title: "모험의 서",
+    summary: "재료·어보·유물 도감과 전직 게이트.",
     group: "world",
   },
   {
-    slug: "tower",
-    title: "고탑",
-    summary: "솔로 무한 탑, 스케일링 공식, 마일스톤.",
-    group: "endgame",
+    slug: "arena",
+    title: "투기장과 대련",
+    summary: "1대1 투기장, 허수아비 대련(빌드 시험).",
+    group: "versus",
+  },
+  {
+    slug: "pastimes",
+    title: "낚시와 발굴",
+    summary: "낚시 미니게임·주간 대회, 보물 발굴과 거래.",
+    group: "versus",
   },
 ];
 

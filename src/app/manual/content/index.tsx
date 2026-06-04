@@ -2,32 +2,40 @@ import type { ReactNode } from "react";
 import { OverviewContent } from "./overview";
 import { ControlsContent } from "./controls";
 import { CombatContent } from "./combat";
+import { HuntingContent } from "./hunting";
 import { StatsContent } from "./stats";
+import { JobsContent } from "./jobs";
 import { SkillsContent } from "./skills";
 import { LevelingContent } from "./leveling";
 import { EquipmentContent } from "./equipment";
-import { RunesContent } from "./runes";
-import { PotionsContent } from "./potions";
-import { HuntingContent } from "./hunting";
+import { CraftingContent } from "./crafting";
+import { EconomyContent } from "./economy";
 import { TownContent } from "./town";
-import { QuestsContent } from "./quests";
+import { GuildContent } from "./guild";
+import { OutpostContent } from "./outpost";
+import { PlazaContent } from "./plaza";
 import { CompendiumContent } from "./compendium";
-import { TowerContent } from "./tower";
+import { ArenaContent } from "./arena";
+import { PastimesContent } from "./pastimes";
 
 // 슬러그 → 그 섹션의 본문 컴포넌트.
 export const MANUAL_CONTENT: Record<string, () => ReactNode> = {
   overview: OverviewContent,
   controls: ControlsContent,
   combat: CombatContent,
+  hunting: HuntingContent,
   stats: StatsContent,
+  jobs: JobsContent,
   skills: SkillsContent,
   leveling: LevelingContent,
   equipment: EquipmentContent,
-  runes: RunesContent,
-  potions: PotionsContent,
-  hunting: HuntingContent,
+  crafting: CraftingContent,
+  economy: EconomyContent,
   town: TownContent,
-  quests: QuestsContent,
+  guild: GuildContent,
+  outpost: OutpostContent,
+  plaza: PlazaContent,
   compendium: CompendiumContent,
-  tower: TowerContent,
+  arena: ArenaContent,
+  pastimes: PastimesContent,
 };

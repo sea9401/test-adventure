@@ -430,7 +430,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.bleedDmgPerStack).toBeUndefined();
   });
 
-  it("광검류 + 대검 + 해금 → atk%·방관·크리뎀 적용", () => {
+  it("광검 + 대검 + 해금 → atk%·방관 적용 (광폭 신규필드는 훅 미구현=inert)", () => {
     const baseD = derivePlayerCombatV2Pure(base);
     const d = derivePlayerCombatV2Pure({
       ...base,
@@ -439,7 +439,8 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     });
     expect(d.player.atk).toBe(Math.floor(baseD.player.atk * 1.2)); // atkPctAdd 20
     expect(d.player.passiveDefPenetrationPct).toBe(17); // gwang_pierce
-    expect(d.player.critMult ?? 0).toBeCloseTo((baseD.player.critMult ?? 0) + 0.35, 5); // gwang_crit
+    // 광폭(gwang_crit) = selfDefReductionPct+dmgDealtPctAdd — derive 훅 미구현이라 critMult 불변.
+    expect(d.player.critMult ?? 0).toBeCloseTo(baseD.player.critMult ?? 0, 5);
   });
 
   it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {

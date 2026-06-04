@@ -108,14 +108,15 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
     );
     expect(eff.atkPctAdd).toBe(20);
     expect(eff.defPenetrationPct).toBe(17);
-    expect(eff.critMultAdd).toBe(0.35);
+    // 광폭(gwang_crit) — 신규 필드(방어 감소 + 가하는 피해 증가).
+    expect(eff.selfDefReductionPct).toBe(20);
+    expect(eff.dmgDealtPctAdd).toBe(30);
   });
 
-  it("복수 필드 패시브(투기 spd+acc) 합산", () => {
-    const gladiator = getJobSpec("warrior", "gladiator")!;
-    const eff = aggregateSpecPassives(gladiator, ["gladiator_swift"], "rapier");
-    expect(eff.spdPctAdd).toBe(14);
-    expect(eff.accuracyPctAdd).toBe(12);
+  it("복수 필드 패시브(광폭 방깎+딜증) 합산", () => {
+    const eff = aggregateSpecPassives(gwang, ["gwang_crit"], "greatsword");
+    expect(eff.selfDefReductionPct).toBe(20);
+    expect(eff.dmgDealtPctAdd).toBe(30);
   });
 
   it("아크메이지 — magicAtkPctAdd 합산(무기 일치) / 불일치면 비활성", () => {

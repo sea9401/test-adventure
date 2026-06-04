@@ -462,15 +462,29 @@ export function derivePlayerCombatV2Pure(
     return t > 0 ? t : undefined;
   };
   // 물공%·속도% = 곱(0이면 곱/floor 미적용 — inert 보장). 명중%·크리뎀·추가타 = 가산(+0 항등).
-  const specAtk = specEff.atkPctAdd
+  let specAtk = specEff.atkPctAdd
     ? Math.floor(finalAtk * (1 + specEff.atkPctAdd / 100))
     : finalAtk;
-  const specMagicAtk = specEff.magicAtkPctAdd
+  let specMagicAtk = specEff.magicAtkPctAdd
     ? Math.floor(finalMagicAtk * (1 + specEff.magicAtkPctAdd / 100))
     : finalMagicAtk;
   const specSpd = specEff.spdPctAdd
     ? Math.floor(spd * (1 + specEff.spdPctAdd / 100))
     : spd;
+  // 광폭 — 자신 방어력 감소(derive). 미보유면 def 그대로(inert).
+  const specDef = specEff.selfDefReductionPct
+    ? Math.floor(def * (1 - specEff.selfDefReductionPct / 100))
+    : def;
+  // 방패치기 — 방어력의 일부를 공격력에 가산(derive). 방어 감소(광폭) 적용 후 def 기준.
+  if (specEff.atkFromDefPct) {
+    specAtk += Math.floor(specDef * (specEff.atkFromDefPct / 100));
+  }
+  // 광폭 — 가하는 피해 +%: atk·magicAtk 에 환산(평타·스킬 스케일 모두 반영, derive 근사).
+  if (specEff.dmgDealtPctAdd) {
+    const m = 1 + specEff.dmgDealtPctAdd / 100;
+    specAtk = Math.floor(specAtk * m);
+    specMagicAtk = Math.floor(specMagicAtk * m);
+  }
 
   const player: PlayerCombat = {
     hp,
@@ -480,7 +494,7 @@ export function derivePlayerCombatV2Pure(
     intStat: totalStats.int,
     atk: specAtk,
     magicAtk: specMagicAtk,
-    def,
+    def: specDef,
     spd: specSpd,
     evasionPct,
     accuracyPct: accuracyPct + (specEff.accuracyPctAdd ?? 0),

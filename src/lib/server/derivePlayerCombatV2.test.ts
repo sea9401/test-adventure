@@ -415,7 +415,8 @@ describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
 });
 
 describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job-spec-passives-plan)", () => {
-  const gwang = getJobSpec("warrior", "gwang")!; // 광검류(대검 게이트)
+  const gwang = getJobSpec("warrior", "gwang")!; // 광검(대검 게이트)
+  const knight = getJobSpec("warrior", "knight")!; // 기사(검방 게이트)
   const base = {
     level: 50,
     allocatedStats: { str: 100 },
@@ -430,17 +431,36 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.bleedDmgPerStack).toBeUndefined();
   });
 
-  it("광검 + 대검 + 해금 → atk%·방관 적용 (광폭 신규필드는 훅 미구현=inert)", () => {
+  it("광검 + 대검 + 해금 → atk%·광폭(딜증·방어감소)·방관 적용", () => {
     const baseD = derivePlayerCombatV2Pure(base);
     const d = derivePlayerCombatV2Pure({
       ...base,
       spec: gwang,
       unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
     });
-    expect(d.player.atk).toBe(Math.floor(baseD.player.atk * 1.2)); // atkPctAdd 20
-    expect(d.player.passiveDefPenetrationPct).toBe(17); // gwang_pierce
-    // 광폭(gwang_crit) = selfDefReductionPct+dmgDealtPctAdd — derive 훅 미구현이라 critMult 불변.
-    expect(d.player.critMult ?? 0).toBeCloseTo(baseD.player.critMult ?? 0, 5);
+    // 전투태세 atkPctAdd 20 → ×1.2, 광폭 dmgDealtPctAdd 30 → ×1.3 (floor 중첩).
+    expect(d.player.atk).toBe(
+      Math.floor(Math.floor(baseD.player.atk * 1.2) * 1.3),
+    );
+    // 광폭 selfDefReductionPct 20 → 방어 ×0.8.
+    expect(d.player.def).toBe(Math.floor(baseD.player.def * 0.8));
+    expect(d.player.passiveDefPenetrationPct).toBe(17); // 갑옷 가르기
+  });
+
+  it("기사 + 검방 + 방패치기 → 공격력에 방어력 40% 가산(derive)", () => {
+    const kbase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+    };
+    const baseD = derivePlayerCombatV2Pure(kbase);
+    const d = derivePlayerCombatV2Pure({
+      ...kbase,
+      spec: knight,
+      unlockedPassives: ["knight_counter"], // 방패치기 (atkFromDefPct 40)
+    });
+    expect(d.player.atk).toBe(
+      baseD.player.atk + Math.floor(baseD.player.def * 0.4),
+    );
   });
 
   it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {

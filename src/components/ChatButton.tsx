@@ -156,14 +156,14 @@ export function ChatButton({
         {hasUnreadChat ? (
           <span
             aria-hidden
-            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950"
+            className="absolute right-0.5 top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950"
           />
         ) : (
           hasUnreadNotice && (
             // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
             <span
               aria-hidden
-              className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950"
+              className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950"
             />
           )
         )}

@@ -10,7 +10,7 @@ import {
   resolveBattlePvP,
   type PvPResolveContext,
 } from "./engine-pvp";
-import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../character/skills";
+import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
 import { V2_SKILLS } from "../data/v2/v2Skills";
 

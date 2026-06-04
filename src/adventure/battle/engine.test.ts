@@ -14,7 +14,7 @@ import {
   BLEED_MAX_STACKS,
   VENOM_PCT_HP_PER_POINT,
   CRIT_MULT_BASE,
-} from "../character/skills";
+} from "../data/v2/v2CombatConstants";
 import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";

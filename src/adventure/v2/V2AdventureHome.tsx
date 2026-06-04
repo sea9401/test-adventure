@@ -6,6 +6,7 @@ import {
   V2CharacterCard,
   type V2CharacterCardData,
 } from "./V2CharacterCard";
+import { V2AnnouncementsPanel } from "./V2AnnouncementsPanel";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import type {
   Outpost,
@@ -180,6 +181,8 @@ export function V2AdventureHome({
             owned={owned}
           />
         )}
+
+        <V2AnnouncementsPanel />
 
         {outpost && (
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

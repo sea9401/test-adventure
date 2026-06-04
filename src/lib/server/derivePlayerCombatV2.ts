@@ -546,6 +546,10 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.mpRegenPerTurn
       ? { mpRegenPerTurn: specEff.mpRegenPerTurn }
       : {}),
+    // 흘려막기 — 엔진이 피격 시 % 확률로 피해 완전 무효(가드 동류 지점).
+    ...(specEff.damageNullifyChancePct
+      ? { damageNullifyChancePct: specEff.damageNullifyChancePct }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

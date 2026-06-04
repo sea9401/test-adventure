@@ -463,6 +463,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     );
   });
 
+  it("기사 + 검방 + 흘려막기 → damageNullifyChancePct 10", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+      spec: knight,
+      unlockedPassives: ["knight_reflect"], // 흘려막기
+    });
+    expect(d.player.damageNullifyChancePct).toBe(10);
+  });
+
   it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
     const dbase = {
       ...base,
@@ -546,17 +556,15 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.atk).toBe(baseD.player.atk); // gwang_cut 미해금 → atk 불변
   });
 
-  it("기사 + 검방 → 받피감·반격·반사(thornsPct) 매핑", () => {
+  it("기사 패시브 — 무기 게이트 불통과(대검)면 완전 비활성", () => {
     const knight = getJobSpec("warrior", "knight")!;
-    // 검방 무기가 카탈로그에 아직 없으니 — 게이트 통과 케이스는 P3a 데이터 단위테스트가 커버.
-    // 여기선 매핑 경로만: 무기 불일치라 비활성 확인(현 카탈로그엔 sword_shield 아이템 0개).
+    // base 는 대검(greatsword) → 검방(sword_shield) 게이트 불통과 → 픽했어도 전부 inert.
     const d = derivePlayerCombatV2Pure({
       ...base,
       spec: knight,
       unlockedPassives: ["knight_guard", "knight_counter", "knight_reflect"],
     });
-    // base 는 대검 → 검방 게이트 불통과 → 비활성
     expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
-    expect(d.player.thornsPct).toBeUndefined();
+    expect(d.player.damageNullifyChancePct).toBeUndefined();
   });
 });

@@ -459,6 +459,8 @@ export type PlayerCombat = {
   skillProcChanceAdd?: number;
   // 워메이지 마력 순환 — 매 플레이어 턴 종료 시 MP 회복(flat). HP 회복과 독립. 0/undefined=미보유.
   mpRegenPerTurn?: number;
+  // 기사 흘려막기 — 피격 시 % 확률로 피해 완전 무효(enchant 가드와 동류 지점). 0/undefined=미보유.
+  damageNullifyChancePct?: number;
 };
 
 
@@ -2281,6 +2283,23 @@ export function advanceTurn(
     const log = appendLog(state.log, {
       kind: "info",
       text: `[가드] ${playerName}이(가) ${state.enemy.name}의 공격을 흩어 냈다!`,
+    });
+    return finishEnemyAttack({
+      ...state,
+      turn: {
+        ...state.turn,
+        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+      },
+      log,
+    });
+  }
+  // 흘려막기 (기사 시그니처) — 낮은 확률로 피해를 통째로 흘려낸다. enchant 가드와 동류 지점:
+  // 회피·럭키 방패 계열과 나란히, 받아내기 전에 굴리는 % 완전 무효.
+  const nullifyPct = player.damageNullifyChancePct ?? 0;
+  if (nullifyPct > 0 && Math.random() * 100 < nullifyPct) {
+    const log = appendLog(state.log, {
+      kind: "info",
+      text: `[흘려막기] ${playerName}이(가) ${state.enemy.name}의 공격을 흘려냈다!`,
     });
     return finishEnemyAttack({
       ...state,

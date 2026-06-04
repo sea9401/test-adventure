@@ -189,6 +189,45 @@ describe("guard — 피격 시 % 확률 블록", () => {
   });
 });
 
+describe("damageNullifyChancePct — 기사 흘려막기 (% 완전 무효)", () => {
+  it("rng 0 → 발동, 피해 0 + [흘려막기] 로그", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      damageNullifyChancePct: 50,
+      atk: 1, // 적이 죽지 않게
+    };
+    let state = initialBattleState(
+      player,
+      enemy({ spd: 100, atk: 50, hp: 10000 }),
+      "용사",
+    );
+    expect(state.phase).toBe("enemy");
+    const before = state.playerHp;
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.playerHp).toBe(before);
+    expect(state.log.some((e) => e.text.includes("[흘려막기]"))).toBe(true);
+  });
+
+  it("rng 0.99 → 미발동, 정상 피해", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      damageNullifyChancePct: 50,
+      atk: 1,
+    };
+    let state = initialBattleState(
+      player,
+      enemy({ spd: 100, atk: 50, hp: 10000 }),
+      "용사",
+    );
+    const before = state.playerHp;
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.playerHp).toBeLessThan(before);
+    expect(state.log.some((e) => e.text.includes("[흘려막기]"))).toBe(false);
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

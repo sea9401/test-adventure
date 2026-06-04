@@ -17,7 +17,7 @@ function sampleEntries(stance: StanceId | null): BattleLogEntry[] {
   entries.push({ kind: "enemy_attack", text: "공격! 60 피해를 입혔다.", turn: "enemy" });
   entries.push({
     kind: "hp_bar", text: "", turn: "enemy",
-    playerHp: 540, playerMaxHp: 600, enemyHp: 380, enemyMaxHp: 600, ap: 0, apMax: 0,
+    playerHp: 540, playerMaxHp: 600, enemyHp: 380, enemyMaxHp: 600,
   });
   entries.push({ kind: "turn_marker", text: "2턴 · AP 0", turn: "player" });
   entries.push({ kind: "player_attack", text: "공격! 240 피해를 입혔다.", turn: "player" });

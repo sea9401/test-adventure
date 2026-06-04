@@ -70,7 +70,6 @@ import {
   RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
-  AP_CAP,
 } from "@/adventure/character/apSkills";
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -149,9 +148,6 @@ export type PvPSide = {
   // 시작 시 attacksLeft 에 더해지고 0 으로 리셋. PvE 의 enemy phase 내 직접 가산을
   // PvP 에선 페이즈 분리 때문에 별도 슬롯이 필요.
   nextTurnAttackBonus: number;
-  // AP 스킬 자원 — 매 공격 행동(명중/회피 무관) +1, cap=AP_CAP. 스킬 발동 시 cost 차감.
-  // equippedAPSkills 미장착이면 0 으로 두고 회복/소비 노옵. PvE engine.ts:138 미러.
-  ap: number;
   turn: BattleTurnState;
   flags: PvPSideFlags;
   buffs: PvPSideBuffs;
@@ -276,7 +272,6 @@ function buildSide(
     maxMp: sideMaxMp,
     attacksLeft: 0, // initialBattleStatePvP 에서 선공 측만 채움
     nextTurnAttackBonus: 0,
-    ap: 0,
     turn: {
       completedPlayerTurns: 0,
       enemyPhasesCompleted: 0,
@@ -288,7 +283,6 @@ function buildSide(
       riposteUsedThisTurn: false,
       weakpointUsedThisTurn: false,
       fatedChainTriggeredThisTurn: false,
-      apSkillFiredThisTurn: null,
       focusedBreathCritDmgBonusPct: 0,
       queuedExtraAttacks: 0,
       // PvP 엔진은 양쪽 player 라 enemy phase 자체가 없음 — 필드만 채워 BattleTurnState 형식 만족.
@@ -681,11 +675,6 @@ function applyDodgeEffects(
 
 // 회피된 attacker 의 AP +1 (행동 시도는 명중/회피 무관히 +1). engine.ts:687 미러.
 // equippedAPSkills 없으면 ap=0 유지로 무해. 회피 시 apSkillFires 는 발동/소비 안 함.
-function bumpAttackerAp(state: PvPBattleState, atkKey: "p1" | "p2"): PvPBattleState {
-  const a = state[atkKey];
-  return setSide(state, atkKey, { ...a, ap: Math.min(AP_CAP, a.ap + 1) });
-}
-
 // shadowStep dodge — 한 페이즈 통째로 회피 + dodge 효과 + 페이즈 종료.
 function applyShadowStepDodge(
   state: PvPBattleState,
@@ -694,7 +683,7 @@ function applyShadowStepDodge(
 ): PvPBattleState {
   const defender = state[defKey];
   const dodged = applyDodgeEffects(
-    bumpAttackerAp(state, atkKey),
+    state,
     atkKey,
     defKey,
     `[그림자 보법] ${defender.name}이(가) 모든 공격을 그림자처럼 흘려보냈다!`,
@@ -713,7 +702,7 @@ function applyPerAttackDodge(
   consumeEvade: boolean,
 ): PvPBattleState {
   const dodged = applyDodgeEffects(
-    bumpAttackerAp(state, atkKey),
+    state,
     atkKey,
     defKey,
     logText,
@@ -1026,7 +1015,6 @@ export function advanceTurnPvP(
     });
     const nextAttacker: PvPSide = {
       ...attacker,
-      ap: Math.min(AP_CAP, attacker.ap + 1),
       attacksLeft: attacker.attacksLeft - 1,
       turn: { ...attacker.turn, firstAttackPending: false },
     };
@@ -1478,11 +1466,6 @@ export function advanceTurnPvP(
       attacker.stacks.weakpointDefIgnoreLeft - (weakpointDefIgnore ? 1 : 0),
     ) + weakpointAdd;
   // ── AP 스킬 명중 시 부가 효과 dispatch (engine.ts:1189-1363 PvP 미러) ──────────
-  // AP 회복 +1(행동 1회 명중) 한 후 cost 차감. 회복 먼저라 ult cost 와 정확히 일치할 때도 발동.
-  const newApAfter = Math.max(
-    0,
-    Math.min(AP_CAP, attacker.ap + 1) - apSel.totalCost,
-  );
   // 즉시 효과 (atk_multiplier 계열 외):
   let attackerHpAfterAPHeal = newAttackerHp;
   let apBleedAdd = 0;
@@ -1608,7 +1591,6 @@ export function advanceTurnPvP(
   const newAttacker: PvPSide = {
     ...attacker,
     hp: attackerHpAfterMadSlash,
-    ap: newApAfter,
     flags: {
       ...attacker.flags,
       assassinateUsed: attacker.flags.assassinateUsed || assassinFires,
@@ -1633,10 +1615,6 @@ export function advanceTurnPvP(
         attacker.turn.fatedChainTriggeredThisTurn || fatedChainFires,
       weakpointUsedThisTurn:
         attacker.turn.weakpointUsedThisTurn || weakpointFires,
-      apSkillFiredThisTurn:
-        apOffensiveSkill?.id ??
-        apUtilityFires[0]?.skill.id ??
-        attacker.turn.apSkillFiredThisTurn,
       // 집중의 호흡 — 발동되면 큐잉, 큐 활성 중 평타 1회 발사 시 0 으로 소비.
       focusedBreathCritDmgBonusPct: focusedBreathQueueBonusPct > 0
         ? focusedBreathQueueBonusPct
@@ -1826,7 +1804,6 @@ function endAttackerPhase(
       galeChainsThisTurn: 0,
       weakpointUsedThisTurn: false,
       fatedChainTriggeredThisTurn: false,
-      apSkillFiredThisTurn: null,
     },
   });
   // 공격자 턴 후처리 (분신/난무/막다른 격노/약점 분석/재생).
@@ -2147,9 +2124,6 @@ export function resolveBattlePvP(
       log: [...state.log, { kind: "info", text: ctx.openingNote, turn: "player" }],
     };
   }
-  // hp_bar 용 apMax — AP 스킬 장착자만 핍 표시. 미장착 사이드는 0.
-  const p1ApMax = 0;
-  const p2ApMax = 0;
   // hp_bar 는 p1=player / p2=enemy 관점으로 박는다. challenge API 가 me=p1 로
   // 호출하므로 그대로 도전자 시점 렌더에 맞음. (대전자 시점 미러가 필요해지면
   // 동일 데이터를 그쪽 관점으로 swap 해 새 entry 생성.)
@@ -2160,8 +2134,6 @@ export function resolveBattlePvP(
     playerMaxHp: s.p1.maxHp,
     enemyHp: s.p2.hp,
     enemyMaxHp: s.p2.maxHp,
-    ap: s.p1.ap,
-    apMax: p1ApMax,
     // v2 MP — p1 시점 (challenge API 가 me=p1 로 호출). p1 INT 0 = 둘 다 0 → UI 비표시.
     playerMp: s.p1.mp,
     playerMaxMp: s.p1.maxMp,
@@ -2169,8 +2141,6 @@ export function resolveBattlePvP(
     enemyMaxMp: s.p2.maxMp,
   });
   // p2 도전자(상대) 측 AP 표시도 살리려면 별도 hp_bar 가 필요하지만,
-  // 지금은 도전자(p1) 시점만. p2ApMax 는 향후 미러용으로 유지.
-  void p2ApMax;
   let turns = 0;
   // v2 스킬 (PR-4a) — 각 side 의 턴 진입 시 1회 cast (framework only).
   // advanceTurnPvP 는 attacksLeft > 0 (다대시·블록 등) 일 때 같은 phase 를 반환하므로

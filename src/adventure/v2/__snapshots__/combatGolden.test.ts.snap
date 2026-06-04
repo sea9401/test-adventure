@@ -197,7 +197,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "warrior_vs_들개",
-    "logSha": "a90f0eaf55dd1ad106ca31b02194a9fbb30dbfea",
+    "logSha": "181f2a788e966eb72d2d0fa553f77a1a6e2f5aea",
     "outcome": "win",
     "playerHp": 435,
     "playerMp": 80,
@@ -206,7 +206,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "warrior_vs_골렘",
-    "logSha": "18506adaa3f26dbf85e0c17d692b7bb2eb84ba49",
+    "logSha": "ecc6023893c2de73905ad1dffed62acf60c0b563",
     "outcome": "win",
     "playerHp": 433,
     "playerMp": 80,
@@ -215,7 +215,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "ninja_crit_vs_늑대",
-    "logSha": "c910e7dd317013296222efe59823449cccecf1c5",
+    "logSha": "3bc817e79a7cd9533a795ae2f5efb52f5f12182c",
     "outcome": "win",
     "playerHp": 265,
     "playerMp": 80,
@@ -224,7 +224,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "archer_pen_vs_골렘",
-    "logSha": "b1cb80c292ebf5df34f88015948e81447b9b1a1f",
+    "logSha": "89de2ea6e0330d02a6817b91da066dd1efeff837",
     "outcome": "win",
     "playerHp": 388,
     "playerMp": 80,
@@ -233,7 +233,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "magic_vs_약탈자",
-    "logSha": "974c0266a05650c297571e945fd477a25cb11597",
+    "logSha": "e7c464cd79c4326816004de3fba1a725370f6f36",
     "outcome": "win",
     "playerHp": 178,
     "playerMp": 354,
@@ -242,7 +242,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "counter_tank_vs_들소",
-    "logSha": "363ca09d806e5c82e0c18926909d3ed748bcbb4c",
+    "logSha": "f09be27e3db147a142b69bee5ea64e80c5b0aac1",
     "outcome": "win",
     "playerHp": 328,
     "playerMp": 80,
@@ -251,7 +251,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 204,
     "label": "heal_vs_들소_boss",
-    "logSha": "f548fc0ae578870c54750de8df8a60c119d7b25d",
+    "logSha": "f40920fd46bec6c609dc3e6fcc4c5ed6a3db9e19",
     "outcome": "lose",
     "playerHp": 550,
     "playerMp": 80,
@@ -260,7 +260,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "mage_skills_vs_골렘",
-    "logSha": "bdaa939208836de7cf7df90db1780e8bacd05fb3",
+    "logSha": "a99b942a5026c111788c875abbc1ee1333d9dcac",
     "outcome": "win",
     "playerHp": 381,
     "playerMp": 306,
@@ -269,7 +269,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "lowbie_vs_들개",
-    "logSha": "4441d30e3b1eac4e41b2d926060bf6afb91960df",
+    "logSha": "30c90a8c65db8f69709984f4e5bb16f7840a3fa2",
     "outcome": "win",
     "playerHp": 168,
     "playerMp": 80,
@@ -282,19 +282,19 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "81d929e82b798c9044c4cb597f5ae6110759a09d",
+    "logSha": "b5ff0402f0b73c983787d5166e8497525078c469",
     "outcome": "p1_win",
     "turns": 67,
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "9d3b83a5501daefed2fa80183b41eced6898d4da",
+    "logSha": "f9170028f89e64ce8594e34668e92db4d269777a",
     "outcome": "p1_win",
     "turns": 43,
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "0a6e8089777f510106c33f4079c094b59c68fa57",
+    "logSha": "e4e83e8d8eed3f2757379b16667afececb13aaef",
     "outcome": "p2_win",
     "turns": 222,
   },

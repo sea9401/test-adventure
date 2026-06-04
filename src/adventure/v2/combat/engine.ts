@@ -40,10 +40,8 @@ import {
   RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
-  AP_CAP,
   type APSkill,
   type APSkillCondition,
-  type APSkillId,
 } from "@/adventure/character/apSkills";
 
 export type BattleLogEntry =
@@ -75,9 +73,6 @@ export type BattleLogEntry =
       playerMaxHp: number;
       enemyHp: number;
       enemyMaxHp: number;
-      /** 그 시점의 AP. apMax=0 이면 AP 스킬 미장착 — UI 는 핍 안 그림. */
-      ap: number;
-      apMax: number;
       /**
        * v2 마법 시스템 MP 스냅샷. playerMaxMp=0 이면 INT 0(라이브 캐릭) — UI 는 바 안 그림.
        * 옛 로그(서버 캐시·DB)는 미동봉 → optional. PR-5b 부터 채움.
@@ -118,7 +113,6 @@ export type BattleTurnState = {
   // 연쇄 운명 (2티어 특기) — 이번 턴에 연쇄 운명 트리거가 이미 발동했는지. 턴 종료 시 리셋. 턴당 1회.
   fatedChainTriggeredThisTurn: boolean;
   // 이번 턴에 발동한 AP 스킬 id — null = 미발동. 턴 종료 시 null 로 리셋. 한 턴 최대 1개 정책.
-  apSkillFiredThisTurn: APSkillId | null;
   // 집중의 호흡 (AP) — 큐된 크리뎀 +pct%. 다음 평타 1번에 critRoll 강제 + 크리뎀 멀티 보너스.
   // 0 = 미큐. 발동 즉시 비활성 (1발 소비). 턴 종료에는 리셋 안 됨 — 턴 가로질러 유지.
   focusedBreathCritDmgBonusPct: number;
@@ -256,9 +250,6 @@ export type BattleState = {
   flags: BattleFlags;
   buffs: BattleBuffs;
   stacks: BattleStacks;
-  // AP 스킬 자원 — 매 플레이어 행동 +1, cap=AP_CAP, 전투 시작 시 AP_BATTLE_START.
-  // 스킬 발동 시 cost 만큼 차감. equippedAPSkills 미장착이면 0 으로 두고 무시.
-  ap: number;
   /** 보스 전투 여부 — 충돌파/천명 같은 %HP 효과가 BOSS_PCT_HP_DAMAGE_MULT 로 감산. */
   isBoss?: boolean;
 };
@@ -1007,7 +998,6 @@ export function initialBattleState(
       riposteUsedThisTurn: false,
       weakpointUsedThisTurn: false,
       fatedChainTriggeredThisTurn: false,
-      apSkillFiredThisTurn: null,
       focusedBreathCritDmgBonusPct: 0,
       queuedExtraAttacks: 0,
       enemyAttacksLeft: 0,
@@ -1054,7 +1044,6 @@ export function initialBattleState(
       weakpointDefIgnoreLeft: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
-    ap: 0,
     v2Skills,
     v2SkillCooldowns: {},
     v2SelfBuffs: {},
@@ -1205,15 +1194,11 @@ export function advanceTurn(
         kind: "player_attack",
         text: `${state.enemy.name}이(가) 공격을 피했다.`,
       });
-      // AP 회복 — 공격 시도 자체가 행동이므로 회피되어도 +1 (cap 클램프).
-      // AP 스킬은 회피 시 발동/소비 안 함 (apSkillFires 는 첫 공격 명중에만 적용).
-      const nextAp = Math.min(AP_CAP, state.ap + 1);
       const attacksLeft = state.playerAttacksLeft - 1;
       if (attacksLeft > 0) {
         return {
           ...state,
           log,
-          ap: nextAp,
           playerAttacksLeft: attacksLeft,
           turn: { ...state.turn, firstAttackPending: false },
         };
@@ -1221,7 +1206,6 @@ export function advanceTurn(
       const ended: BattleState = {
         ...state,
         log,
-        ap: nextAp,
         phase: "enemy",
         playerAttacksLeft: rollPlayerAttackCount(player),
         turn: {
@@ -1235,7 +1219,6 @@ export function advanceTurn(
           galeChainsThisTurn: 0,
           weakpointUsedThisTurn: false,
           fatedChainTriggeredThisTurn: false,
-          apSkillFiredThisTurn: null,
           // fatedChainCritPending 은 "다음 공격" 까지 살아 있어야 하므로 턴 경계에서 리셋 안 함.
         },
       };
@@ -1595,12 +1578,6 @@ export function advanceTurn(
     const newWeakpointDefIgnoreLeft =
       Math.max(0, state.stacks.weakpointDefIgnoreLeft - (weakpointDefIgnore ? 1 : 0)) +
       weakpointAdd;
-    // AP 회복 +1 (행동 1회 = 공격 1회 명중), 발동된 AP 스킬 있으면 cost 차감.
-    // 회복이 먼저 — 그 턴 첫 공격이 ult cost 와 정확히 일치할 때도 예상대로 발동.
-    const nextApAfter = Math.max(
-      0,
-      Math.min(AP_CAP, state.ap + 1) - apSel.totalCost,
-    );
     // 비-atk_multiplier AP 효과 처리 — 본타와 같이 발동되는 부가 효과.
     let playerHpAfterAPHeal = newPlayerHp;
     let apBleedAdd = 0;
@@ -1725,7 +1702,6 @@ export function advanceTurn(
       enemyV2Dots: state.enemyV2Dots,
       playerHp: playerHpAfterMadSlash,
       log,
-      ap: nextApAfter,
       flags: {
         ...state.flags,
         assassinateUsed: state.flags.assassinateUsed || assassinFires,
@@ -1754,10 +1730,6 @@ export function advanceTurn(
         fatedChainTriggeredThisTurn:
           state.turn.fatedChainTriggeredThisTurn || fatedChainFires,
         weakpointUsedThisTurn: state.turn.weakpointUsedThisTurn || weakpointFires,
-        apSkillFiredThisTurn:
-          apOffensiveSkill?.id ??
-          apUtilityFires[0]?.skill.id ??
-          state.turn.apSkillFiredThisTurn,
         // 집중의 호흡 — 발동되면 이번 fire 후부터 큐잉, 큐 활성 중 평타 1회 발사 시 0 으로 소비.
         focusedBreathCritDmgBonusPct: focusedBreathQueueBonusPct > 0
           ? focusedBreathQueueBonusPct
@@ -1907,7 +1879,6 @@ export function advanceTurn(
         galeChainsThisTurn: 0,
         weakpointUsedThisTurn: false,
         fatedChainTriggeredThisTurn: false,
-        apSkillFiredThisTurn: null,
       },
     };
     return finishPlayerTurn(ended, player, playerName);
@@ -2726,11 +2697,8 @@ export function resolveBattle(
   // 마커는 사이클 끝 시점에 다음 사이클 번호를 박는다 (단, 첫 사이클의 "1턴" 마커는 루프 진입 전 이미 박힘).
   const playerFirstStrike = state.phase === "player";
   // 턴 마커 — 그 턴 시작 시점 AP 동봉. 미장착 캐릭터도 그대로 노출 (시스템 발견용).
-  const turnMarkerText = (turnNo: number, ap: number): string =>
-    `${turnNo}턴 · AP ${ap}`;
+  const turnMarkerText = (turnNo: number): string => `${turnNo}턴`;
   // 그 시점 HP 스냅샷 — 매 턴 종료 시 + 전투 종료 시 로그 마지막에 박는다.
-  // AP 스킬 장착자만 ap/apMax 가 의미 — 미장착은 ap=0, apMax=0 (UI 핍 미표시).
-  const apMaxForLog = 0;
   const hpBarEntry = (s: BattleState): BattleLogEntry => ({
     kind: "hp_bar",
     text: "",
@@ -2739,8 +2707,6 @@ export function resolveBattle(
     playerMaxHp: s.playerMaxHp,
     enemyHp: s.enemyHp,
     enemyMaxHp: s.enemy.hp,
-    ap: s.ap,
-    apMax: apMaxForLog,
     playerMp: s.playerMp,
     playerMaxMp: s.playerMaxMp,
     enemyMp: s.enemyMp,
@@ -2758,7 +2724,7 @@ export function resolveBattle(
       ...openingExtra,
       {
         kind: "turn_marker",
-        text: turnMarkerText(1, state.ap),
+        text: turnMarkerText(1),
         turn: "player" as const,
       },
     ],
@@ -2935,7 +2901,7 @@ export function resolveBattle(
         // completedPlayerTurns 를 +1 하고 턴 플래그를 리셋한 뒤 finishPlayerTurn(턴 종료 효과:
         // 재생·막다른 격노·약점 분석 등)을 거쳐야 한다. 예전엔 여기서 증가를 빠뜨려서, 매 턴
         // 마법을 시전하는 캐릭터(MP 충분한 버스트 마법사)는 completedPlayerTurns 가 0 에
-        // 고정됐다. 그 결과 사이클 종료 마커("N턴 · AP M")·턴별 HP 스냅샷이 completedPlayerTurns>0
+        // 고정됐다. 그 결과 사이클 종료 마커("N턴")·턴별 HP 스냅샷이 completedPlayerTurns>0
         // 게이트(아래 cycleEnded 블록)에 걸려 영영 안 찍히고, 전투 전체 행동이 첫 "1턴" 그룹에
         // 쌓이는 버그가 났다. 턴 기반 효과(재생/강공격 주기/버프 감소/보스 턴 캡)도 같이 멈췄다.
         if (result.castSkillId) {
@@ -2954,7 +2920,6 @@ export function resolveBattle(
               galeChainsThisTurn: 0,
               weakpointUsedThisTurn: false,
               fatedChainTriggeredThisTurn: false,
-              apSkillFiredThisTurn: null,
             },
           };
           state = finishPlayerTurn(ended, player, playerName);
@@ -3156,7 +3121,7 @@ export function resolveBattle(
           appendLog(state.log, hpBarEntry(state)),
           {
             kind: "turn_marker",
-            text: turnMarkerText(turnNo, state.ap),
+            text: turnMarkerText(turnNo),
             turn: "player",
           },
         ),

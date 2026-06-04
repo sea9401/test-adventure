@@ -130,18 +130,3 @@ describe("추가타 on-hit — 천명 (확률 100% 강제)", () => {
   });
 });
 
-describe("추가타 on-hit — 미적용 항목 보존", () => {
-  it("AP 는 분신/난무로 안 오른다 (본타 1회분만)", () => {
-    const p: PlayerCombat = {
-      ...PLAYER,
-      shadowCloneAtkPct: 50,
-      shadowLegionExtraClones: 1,
-      flurryAttacks: 2,
-    };
-    let s = initialBattleState(p, enemy(100), "용사");
-    const startAp = s.ap;
-    s = advanceTurn(s, p, "용사");
-    // 본타 1회 → +1. 분신/군단/난무는 AP 회복 X.
-    expect(s.ap).toBe(startAp + 1);
-  });
-});

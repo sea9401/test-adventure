@@ -76,8 +76,6 @@ export function BattleLogList({
           playerMaxHp={entry.playerMaxHp}
           enemyHp={entry.enemyHp}
           enemyMaxHp={entry.enemyMaxHp}
-          ap={entry.ap}
-          apMax={entry.apMax}
           playerMp={entry.playerMp}
           playerMaxMp={entry.playerMaxMp}
           enemyMp={entry.enemyMp}
@@ -274,8 +272,6 @@ function HpBar({
   playerMaxHp,
   enemyHp,
   enemyMaxHp,
-  ap,
-  apMax,
   playerMp,
   playerMaxMp,
   enemyMp,
@@ -286,8 +282,6 @@ function HpBar({
   playerMaxHp: number;
   enemyHp: number;
   enemyMaxHp: number;
-  ap: number;
-  apMax: number;
   playerMp?: number;
   playerMaxMp?: number;
   enemyMp?: number;
@@ -302,25 +296,6 @@ function HpBar({
     <div
       className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
     >
-      {apMax > 0 && (
-        // AP 핍 — 플레이어 HP 막대 바로 위. 미장착(apMax=0) 은 그리지 않아 라인 공간 절약.
-        <div className="mb-1 flex items-center gap-1">
-          {Array.from({ length: apMax }, (_, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className={
-                i < ap
-                  ? "h-2 w-2 rounded-full border border-violet-600 bg-violet-500 dark:border-violet-400 dark:bg-violet-400"
-                  : "h-2 w-2 rounded-full border border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800"
-              }
-            />
-          ))}
-          <span className="ml-1 text-zinc-500 dark:text-zinc-400">
-            AP {ap}/{apMax}
-          </span>
-        </div>
-      )}
       <div className="grid grid-cols-2 gap-3">
         <InlineBar
           label="HP"

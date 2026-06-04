@@ -12,15 +12,21 @@ type Align = "start" | "center" | "end";
 export function Tooltip({
   content,
   align = "center",
+  placement = "top",
   triggerClassName,
+  className,
   children,
 }: {
   /** 툴팁 본문. */
   content: ReactNode;
   /** 트리거 기준 가로 정렬 — 그리드 가장자리 셀은 start/end 로 잘림 방지. */
   align?: Align;
+  /** 트리거 위/아래 — 상단 요소(위가 막힌 경우)는 bottom 으로 아래에 띄움. */
+  placement?: "top" | "bottom";
   /** 트리거 버튼 클래스(셀 모양 그대로 넘겨받음). */
   triggerClassName?: string;
+  /** 외곽 래퍼 클래스 — 여백(mt 등) 전달용. */
+  className?: string;
   /** 트리거 내부(셀 내용). */
   children: ReactNode;
 }) {
@@ -53,11 +59,13 @@ export function Tooltip({
       : align === "end"
         ? "right-0"
         : "left-1/2 -translate-x-1/2";
+  const placementClass =
+    placement === "bottom" ? "top-full mt-1.5" : "bottom-full mb-1.5";
 
   return (
     <div
       ref={wrapRef}
-      className={`relative ${open ? "z-20" : ""}`}
+      className={`relative ${className ?? ""} ${open ? "z-20" : ""}`}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
@@ -73,7 +81,7 @@ export function Tooltip({
         <div
           id={id}
           role="tooltip"
-          className={`pointer-events-none absolute bottom-full mb-1.5 w-44 max-w-[60vw] whitespace-normal break-keep rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-normal leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 ${alignClass}`}
+          className={`pointer-events-none absolute w-44 max-w-[60vw] whitespace-normal break-keep rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 text-left text-[11px] font-normal leading-relaxed text-zinc-600 shadow-lg dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 ${placementClass} ${alignClass}`}
         >
           {content}
         </div>

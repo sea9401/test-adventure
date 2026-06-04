@@ -13,7 +13,7 @@ import {
   type BattleLogEntry,
   type BattleState,
   type PlayerCombat,
-} from "@/adventure/battle/engine";
+} from "@/adventure/v2/combat/engine";
 import { AP_CAP } from "@/adventure/character/apSkills";
 import { MONSTERS, type Monster } from "@/adventure/data/monsters";
 

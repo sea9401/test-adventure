@@ -13,8 +13,8 @@
 //
 // 결과는 표 형식으로 stdout.
 
-import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
-import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
+import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/engine";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";

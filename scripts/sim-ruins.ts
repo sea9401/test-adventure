@@ -10,8 +10,8 @@ import { MONSTERS } from "../src/adventure/data/monsters";
 import {
   resolveBattle,
   type PlayerCombat,
-} from "../src/adventure/battle/engine";
-import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
+} from "../src/adventure/v2/combat/engine";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { maxHpForLevel } from "../src/adventure/character/defaults";
 import { WORLD_MAP, pickEnemyName } from "../src/adventure/data/world";
 

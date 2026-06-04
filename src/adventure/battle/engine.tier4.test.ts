@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠르므로 항상 선공.

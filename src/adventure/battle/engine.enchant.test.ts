@@ -4,7 +4,7 @@ import {
   initialBattleState,
   resolveBattle,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 별빛 마법부여 발동형 affix 의 engine wiring 단위 검증.

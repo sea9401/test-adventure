@@ -1,11 +1,11 @@
-import type { Monster } from "../data/monsters";
-import type { V2Element } from "../data/v2/elements";
-import { statusNameForDebuffStat } from "../data/v2/statusEffects";
+import type { Monster } from "@/adventure/data/monsters";
+import type { V2Element } from "@/adventure/data/v2/elements";
+import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import {
   computeMpRestoreAmount,
   type Potion,
   type PotionId,
-} from "../data/potions";
+} from "@/adventure/data/potions";
 import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
@@ -25,7 +25,7 @@ import {
   CRIT_OVERFLOW_DMG_PER_PCT,
   CRIT_PCT_CAP,
   EVASION_PCT_CAP,
-} from "../data/stats";
+} from "@/adventure/data/stats";
 import {
   ANALYSIS_PENALTY_CAP_PCT,
   BLEED_MAX_STACKS,
@@ -38,7 +38,7 @@ import {
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
-} from "../data/v2/v2CombatConstants";
+} from "@/adventure/data/v2/v2CombatConstants";
 import {
   AP_BATTLE_START,
   AP_CAP,
@@ -46,7 +46,7 @@ import {
   type APSkill,
   type APSkillCondition,
   type APSkillId,
-} from "../character/apSkills";
+} from "@/adventure/character/apSkills";
 
 export type BattleLogEntry =
   | {
@@ -225,7 +225,7 @@ export type BattleState = {
   // v2 스킬 (v2_skill_*) 시스템 — PR-4a framework. 옛 spell 시스템 폐기 (PR-7a) — 모든 마법
   // 시전은 V2_SKILLS 카탈로그 + V2SkillsState 로 통합. MP 풀은 단판 풀충전 모델 (시작 = maxMp).
   // equipped 빈 배열이면 cast 분기 no-op. cooldown 맵은 키 없음 = ready.
-  v2Skills: import("../data/v2/v2Skills").V2SkillsState;
+  v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState;
   v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
   // v2 스킬 selfBuff/enemyDebuff (PR-4b/PR-5b). AP buff slot 과 별개 — 동거 가능. pct 는 정수 퍼센트.
   // 매 그 사이드의 turn 진입 시 turns -1, 0 도달이면 제거.
@@ -240,7 +240,7 @@ export type BattleState = {
   enemyV2Debuffs: import("./combatShared").V2BuffMap;
   // PR-5b — monster 의 v2 자원. equipped 가 있고 maxMp > 0 일 때만 cast 활성.
   // 라이브 잡몹(v2Skills 미장착)은 둘 다 0 → cast no-op. 단판 풀충전 모델.
-  enemyV2Skills: import("../data/v2/v2Skills").V2SkillsState;
+  enemyV2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState;
   enemyV2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
   enemyMp: number;
   enemyMaxMp: number;
@@ -1065,7 +1065,7 @@ export function initialBattleState(
   player: PlayerCombat,
   enemy: Monster,
   playerName: string,
-  v2Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): BattleState {
   const playerFirst = player.spd >= enemy.spd;
   const initiator = playerFirst ? playerName : enemy.name;
@@ -2390,7 +2390,7 @@ export function advanceTurn(
         outcome: "win",
       };
     }
-    let next: BattleState = {
+    const next: BattleState = {
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
@@ -2469,7 +2469,7 @@ export function advanceTurn(
         outcome: "win",
       };
     }
-    let next: BattleState = {
+    const next: BattleState = {
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
@@ -2535,7 +2535,7 @@ export function advanceTurn(
         outcome: "win",
       };
     }
-    let next: BattleState = {
+    const next: BattleState = {
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
@@ -2904,7 +2904,7 @@ export type ResolveContext = {
   openingNote?: string;
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
-  v2Skills?: import("../data/v2/v2Skills").V2SkillsState;
+  v2Skills?: import("@/adventure/data/v2/v2Skills").V2SkillsState;
   // 무한 루프 가드 턴 상한(플레이어 턴 기준). 미지정이면 500(기본 안전캡). 스파링처럼
   // "안 죽는 샌드백을 N턴만 두들기는" 용도면 낮춰 넘긴다(예: 50) — 도달 시 lose 로 종료.
   maxTurns?: number;
@@ -2923,7 +2923,7 @@ export type BattleResolution = {
 
 export function resolveBattle(
   player: PlayerCombat,
-  enemy: import("../data/monsters").Monster,
+  enemy: import("@/adventure/data/monsters").Monster,
   playerName: string,
   ctx: ResolveContext,
 ): BattleResolution {

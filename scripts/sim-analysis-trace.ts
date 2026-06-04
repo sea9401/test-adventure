@@ -1,7 +1,7 @@
 // ANALYSIS 8배 폭발 메커니즘 진단 — 단일 전투 turn-by-turn 로그.
 // Lv 80 DEX 빌드, 폐도 잡몹 1체씩 vs ANALYSIS 활성/비활성.
-import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
-import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
+import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/engine";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombat } from "../src/adventure/character/derivePlayerCombat";
 import { SKILL_NAMES, FEAT_NAMES } from "../src/adventure/character/skills";
 import { ITEMS } from "../src/adventure/data/items";

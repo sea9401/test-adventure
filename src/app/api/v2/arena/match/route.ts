@@ -4,7 +4,7 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import {
   BOT_LEVEL_BAND,
@@ -237,7 +237,7 @@ export async function POST() {
     }
 
     // 9. 상대 PlayerCombat 준비.
-    let oppPlayer: import("@/adventure/battle/engine").PlayerCombat;
+    let oppPlayer: import("@/adventure/v2/combat/engine").PlayerCombat;
     let oppName: string;
     let oppLevel: number;
     let oppScore: number;
@@ -296,7 +296,7 @@ export async function POST() {
     const oppAttackElement: V2Element =
       oppWeaponElement !== "neutral" ? oppWeaponElement : oppElement;
     const withElemMult = (
-      p: import("@/adventure/battle/engine").PlayerCombat,
+      p: import("@/adventure/v2/combat/engine").PlayerCombat,
       mult: number,
       attackElement: V2Element,
       characterElement: V2Element,

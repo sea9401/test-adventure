@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { simulateCoopAttack } from "./simulate";
-import type { BattleLogEntry, PlayerCombat } from "@/adventure/battle/engine";
+import type { BattleLogEntry, PlayerCombat } from "@/adventure/v2/combat/engine";
 
 // 충분히 약해서 보스 hp 를 깎지 못하고, 보스 데미지가 약해서 죽지도 않는 더미 캐릭터.
 // "캡까지 전부 도는지" 만 본다.

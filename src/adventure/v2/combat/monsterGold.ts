@@ -1,4 +1,4 @@
-import type { Monster } from "../data/monsters";
+import type { Monster } from "@/adventure/data/monsters";
 
 // 전투 킬당 기본 골드 — 몬스터 exp 비례. exp 가 이미 진행도/강함을 인코딩하므로 단일 계수
 // 하나로 전 구간이 자동 스케일된다(데이터 몬스터별 골드 필드 불필요).

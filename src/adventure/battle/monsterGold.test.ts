@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BASE_GOLD_RATE, monsterGoldReward } from "./monsterGold";
+import { BASE_GOLD_RATE, monsterGoldReward } from "../v2/combat/monsterGold";
 
 describe("monsterGoldReward", () => {
   it("exp × BASE_GOLD_RATE (4.0 으로 추가 2× 인상 — 2026-06-04)", () => {

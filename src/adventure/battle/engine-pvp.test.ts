@@ -3,13 +3,13 @@
 // 반사회피/유격/반격/가드/굳건한의지/철벽/불굴/흡혈갑옷/반격의룬.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PlayerCombat } from "./engine";
+import type { PlayerCombat } from "../v2/combat/engine";
 import {
   advanceTurnPvP,
   initialBattleStatePvP,
   resolveBattlePvP,
   type PvPResolveContext,
-} from "./engine-pvp";
+} from "../v2/combat/engine-pvp";
 import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
 import { V2_SKILLS } from "../data/v2/v2Skills";

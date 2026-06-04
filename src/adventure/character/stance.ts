@@ -15,7 +15,7 @@
 //
 // 수치는 전부 초안 — 실측 후 튜닝(다른 밸런스 다이얼과 동일).
 
-import type { PlayerCombat } from "@/adventure/battle/engine";
+import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 
 export const STANCE_IDS = ["onslaught", "bulwark", "execution"] as const;
 export type StanceId = (typeof STANCE_IDS)[number];

@@ -8,7 +8,7 @@ import {
   describeV2Skill,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
-import { v2SkillMpCost } from "@/adventure/battle/combatShared";
+import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 
 // v2 학습 — 사용 가능 숙련도로 직업 패시브 + 현 직업 체인의 시그니처 스킬을 습득한다.

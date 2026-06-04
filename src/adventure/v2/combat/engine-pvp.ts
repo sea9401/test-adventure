@@ -39,12 +39,12 @@ import {
   CRIT_OVERFLOW_DMG_CAP,
   CRIT_OVERFLOW_DMG_PER_PCT,
   CRIT_PCT_CAP,
-} from "../data/stats";
+} from "@/adventure/data/stats";
 import {
   computeMpRestoreAmount,
   type Potion,
   type PotionId,
-} from "../data/potions";
+} from "@/adventure/data/potions";
 import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
@@ -67,14 +67,14 @@ import {
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
-} from "../data/v2/v2CombatConstants";
+} from "@/adventure/data/v2/v2CombatConstants";
 import {
   AP_BATTLE_START,
   AP_CAP,
   type APSkill,
   type APSkillCondition,
   type APSkillEffect,
-} from "../character/apSkills";
+} from "@/adventure/character/apSkills";
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
 
@@ -160,7 +160,7 @@ export type PvPSide = {
   buffs: PvPSideBuffs;
   stacks: PvPSideStacks;
   // v2 스킬 (v2_skill_*) — PR-4a framework. 라이브 spells.ts 와 별개. equipped 빈 배열이면 no-op.
-  v2Skills: import("../data/v2/v2Skills").V2SkillsState;
+  v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState;
   v2SkillCooldowns: import("./combatShared").V2SkillCooldowns;
   // v2 스킬 buff slot (PR-4b). pct 정수, turns 매 attacker turn 진입 시 -1.
   // v2SelfBuffs: 이 side 가 자기에게 건 강화. v2SelfDebuffs: 상대가 이 side 에 건 약화.
@@ -191,7 +191,7 @@ function attackerFacingDef(
   // 기본은 attacker.buffs — 그 외 호출 측에서 applyTimedBuffFromApSkillPvP 결과를 전달.
   attackerBuffs: PvPSideBuffs = attacker.buffs,
 ): number {
-  let raw = Math.max(0, defender.player.def - attackerBuffs.opponentDefPenalty);
+  const raw = Math.max(0, defender.player.def - attackerBuffs.opponentDefPenalty);
   const frac = attacker.player.armorPierceFraction ?? 0;
   let afterPierce = frac > 0 ? Math.round(raw * (1 - frac)) : raw;
   if (
@@ -420,7 +420,7 @@ function actorKeys(phase: PvPPhase): { atkKey: "p1" | "p2"; defKey: "p1" | "p2" 
 function buildSide(
   player: PlayerCombat,
   name: string,
-  v2Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  v2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): PvPSide {
   const startShield = player.bulwarkShield ?? 0;
   const sideMaxMp = Math.max(0, player.maxMp ?? 0);
@@ -501,8 +501,8 @@ export function initialBattleStatePvP(
   p2Player: PlayerCombat,
   p1Name: string,
   p2Name: string,
-  p1Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
-  p2Skills: import("../data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  p1Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
+  p2Skills: import("@/adventure/data/v2/v2Skills").V2SkillsState = { learned: [], equipped: [] },
 ): PvPBattleState {
   const p1Side = buildSide(p1Player, p1Name, p1Skills);
   const p2Side = buildSide(p2Player, p2Name, p2Skills);
@@ -1206,7 +1206,7 @@ export function advanceTurnPvP(
         enemyAttackBlockedCount: defender.buffs.enemyAttackBlockedCount - 1,
       },
     };
-    let nextSt = setSide(
+    const nextSt = setSide(
       setSide({ ...state, log: blockedLog }, atkKey, nextAttacker),
       defKey,
       nextDefender,
@@ -2107,8 +2107,8 @@ export type PvPResolveContext = {
   // v2 스킬 상태 (PR-4a) — saves_kv "skills.v2" 의 learned/equipped, 양 side 별도. 미지정/빈 배열이면
   // v2 스킬 cast no-op. 라우트가 saves_kv 에서 읽어 넘긴다.
   v2Skills?: {
-    p1?: import("../data/v2/v2Skills").V2SkillsState;
-    p2?: import("../data/v2/v2Skills").V2SkillsState;
+    p1?: import("@/adventure/data/v2/v2Skills").V2SkillsState;
+    p2?: import("@/adventure/data/v2/v2Skills").V2SkillsState;
   };
 };
 
@@ -2348,7 +2348,7 @@ export function resolveBattlePvP(
   // advanceTurnPvP 는 attacksLeft > 0 (다대시·블록 등) 일 때 같은 phase 를 반환하므로
   // loop iteration 하나가 곧 한 turn 은 아니다 — per-side phase-entry flag 로 dedupe.
   // 효과 적용은 PR-4b. 옛 applyStartOfBattleSpellsPvP (battle-start one-shot) 와 별개.
-  let v2CastedThisPhase: { p1: boolean; p2: boolean } = { p1: false, p2: false };
+  const v2CastedThisPhase: { p1: boolean; p2: boolean } = { p1: false, p2: false };
   while (state.phase !== "ended") {
     const who: "p1" | "p2" = state.phase === "p1" ? "p1" : "p2";
     const other: "p1" | "p2" = who === "p1" ? "p2" : "p1";

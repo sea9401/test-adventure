@@ -23,8 +23,8 @@
 //   - hpL%  = 패배 시 적 HP 평균 잔량 % (0% 완전 처치 직전, 100% 못 깎음)
 //   - 빌드 간 격차 = 메타 빌드 지배 신호.
 
-import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
-import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
+import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/engine";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import {

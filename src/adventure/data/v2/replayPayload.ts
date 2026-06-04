@@ -7,7 +7,7 @@
 import type {
   BattleLogEntry,
   BattleState,
-} from "@/adventure/battle/engine";
+} from "@/adventure/v2/combat/engine";
 import type { Monster } from "@/adventure/data/monsters/types";
 
 // enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면

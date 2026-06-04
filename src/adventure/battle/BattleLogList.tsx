@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { BattleLogEntry } from "./engine";
+import type { BattleLogEntry } from "../v2/combat/engine";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.

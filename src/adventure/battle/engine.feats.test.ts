@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 크리 cap 75% 도입 후, 결정적 크리 발동을 위해 Math.random 을 0 으로 모킹(이전엔

@@ -1,10 +1,10 @@
 // 추가타(그림자 분신/군단, 무피해 난무) 에 본인 빌드 on-hit 효과 적용 회귀.
 // 본타 정체성(크리/강공격/충돌파/약점/연참/암살/AP 스킬/AP +1) 은 여전히 미적용.
 //
-// 실행: npm test -- src/adventure/battle/engine.extraHits.test.ts
+// 실행: npm test -- src/adventure/v2/combat/engine.extraHits.test.ts
 
 import { describe, expect, it } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 const PLAYER: PlayerCombat = {

@@ -7,7 +7,7 @@
 // PlayerCombat 은 engine.ts 에서 정의 — type-only import 라 런타임 순환참조 없음(타입은 소거).
 
 import { computeHealAmount, type Potion } from "@/adventure/data/potions";
-import type { APSkill, APSkillEffect } from "@/adventure/character/apSkills";
+import type { APSkillEffect } from "@/adventure/character/apSkills";
 import {
   V2_SKILLS,
   type V2SkillDefinition,
@@ -17,13 +17,9 @@ import {
 import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { elementDamageMult, type V2Element } from "@/adventure/data/v2/elements";
 import type { StatKey } from "@/adventure/data/stats";
-import type { EquippedAPSkill, PlayerCombat } from "./engine";
+import type { PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
-
-type ApSkillSelectionState = {
-  canFireApSkill: (equipped: EquippedAPSkill) => boolean;
-};
 
 export function isOffensiveApEffect(effect: APSkillEffect): boolean {
   return (
@@ -34,33 +30,6 @@ export function isOffensiveApEffect(effect: APSkillEffect): boolean {
   );
 }
 
-export function selectApSkillsToFire(
-  equipped: ReadonlyArray<EquippedAPSkill>,
-  state: ApSkillSelectionState,
-  budgetAp: number,
-): { offensive: EquippedAPSkill | null; utilities: EquippedAPSkill[]; totalCost: number } {
-  let remainingAp = budgetAp;
-  let offensive: EquippedAPSkill | null = null;
-  const utilities: EquippedAPSkill[] = [];
-  let count = 0;
-
-  for (const e of equipped) {
-    if (count >= AP_SKILLS_PER_TURN_CAP) break;
-    const skill: APSkill = e.skill;
-    if (skill.apCost > remainingAp) continue;
-    if (!state.canFireApSkill(e)) continue;
-
-    const isOffensive = isOffensiveApEffect(skill.effect);
-    if (isOffensive && offensive) continue;
-
-    if (isOffensive) offensive = e;
-    else utilities.push(e);
-    remainingAp -= skill.apCost;
-    count += 1;
-  }
-
-  return { offensive, utilities, totalCost: budgetAp - remainingAp };
-}
 
 // AP 스킬 effect → 공격 배수/방어무시/회피무시/타격수. atk_multiplier 계열(광살참
 // multi_hit_self_damage·천뢰 일격 atk_multiplier_with_silence 포함)이 atkMult/ignoresDef/

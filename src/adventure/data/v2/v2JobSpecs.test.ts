@@ -18,12 +18,12 @@ describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passiv
     }
   });
 
-  it("계파별 무기 게이트 매핑 — 광검류=대검 / 철벽검류=검방 / 혈풍검류=세검", () => {
+  it("계파별 무기 게이트 매핑 — 광검=대검 / 기사=검방 / 검투사=세검", () => {
     expect(getJobSpec("warrior", "gwang")?.requiredWeaponType).toBe("greatsword");
-    expect(getJobSpec("warrior", "cheolbyeok")?.requiredWeaponType).toBe(
+    expect(getJobSpec("warrior", "knight")?.requiredWeaponType).toBe(
       "sword_shield",
     );
-    expect(getJobSpec("warrior", "hyeolpung")?.requiredWeaponType).toBe("rapier");
+    expect(getJobSpec("warrior", "gladiator")?.requiredWeaponType).toBe("rapier");
     expect(getJobSpec("warrior", "nonexistent")).toBeUndefined();
     expect(getJobSpec("mage", "gwang")).toBeUndefined();
   });
@@ -102,21 +102,21 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
     expect(eff.critMultAdd).toBe(0.35);
   });
 
-  it("복수 필드 패시브(빠른 검끝 spd+acc) 합산", () => {
-    const hyeol = getJobSpec("warrior", "hyeolpung")!;
-    const eff = aggregateSpecPassives(hyeol, ["hyeol_swift"], "rapier");
+  it("복수 필드 패시브(투기 spd+acc) 합산", () => {
+    const gladiator = getJobSpec("warrior", "gladiator")!;
+    const eff = aggregateSpecPassives(gladiator, ["gladiator_swift"], "rapier");
     expect(eff.spdPctAdd).toBe(14);
     expect(eff.accuracyPctAdd).toBe(12);
   });
 
-  it("마법사 화염술 — magicAtkPctAdd 합산(무기 일치) / 불일치면 비활성", () => {
-    const hwayeom = getJobSpec("mage", "hwayeom")!;
+  it("아크메이지 — magicAtkPctAdd 합산(무기 일치) / 불일치면 비활성", () => {
+    const arcane = getJobSpec("mage", "arcane")!;
     expect(
-      aggregateSpecPassives(hwayeom, ["hwayeom_power"], "staff").magicAtkPctAdd,
+      aggregateSpecPassives(arcane, ["arcane_power"], "staff").magicAtkPctAdd,
     ).toBe(20);
-    // 무기 불일치(staff 아님) → 완전 비활성.
+    // 무기 불일치(지팡이 아님) → 완전 비활성.
     expect(
-      aggregateSpecPassives(hwayeom, ["hwayeom_power"], "greatsword"),
+      aggregateSpecPassives(arcane, ["arcane_power"], "greatsword"),
     ).toEqual({});
   });
 });

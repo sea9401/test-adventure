@@ -59,8 +59,8 @@ export type V2JobSpec = {
 // 전사(warrior) 3계파 — docs §3-A 샘플. 수치 가안(balance 미정).
 const WARRIOR_SPECS: readonly V2JobSpec[] = [
   {
-    id: "gwang", // 광검류 — 극딜
-    name: "광검류",
+    id: "gwang", // 광검 — 극딜
+    name: "광검",
     job: "warrior",
     requiredWeaponType: "greatsword",
     passives: [
@@ -70,25 +70,25 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     ],
   },
   {
-    id: "cheolbyeok", // 철벽검류 — 방어·반격
-    name: "철벽검류",
+    id: "knight", // 기사 — 방어·반격
+    name: "기사",
     job: "warrior",
     requiredWeaponType: "sword_shield",
     passives: [
-      { id: "cheol_guard", name: "방패 숙련", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
-      { id: "cheol_counter", name: "응수", desc: "피격 후 확률 반격", effect: { counterChancePct: 24 } },
-      { id: "cheol_reflect", name: "검면 반사", desc: "받은 피해 일부 반사", effect: { reflectPct: 14 } },
+      { id: "knight_guard", name: "방패 숙련", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
+      { id: "knight_counter", name: "응수", desc: "피격 후 확률 반격", effect: { counterChancePct: 24 } },
+      { id: "knight_reflect", name: "가시 방패", desc: "받은 피해 일부 반사", effect: { reflectPct: 14 } },
     ],
   },
   {
-    id: "hyeolpung", // 혈풍검류 — 속도·출혈
-    name: "혈풍검류",
+    id: "gladiator", // 검투사 — 속도·출혈 (A안 유지)
+    name: "검투사",
     job: "warrior",
     requiredWeaponType: "rapier",
     passives: [
-      { id: "hyeol_combo", name: "찌르기 연계", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
-      { id: "hyeol_bleed", name: "개방상", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 8 } },
-      { id: "hyeol_swift", name: "빠른 검끝", desc: "속도·명중 증가", effect: { spdPctAdd: 14, accuracyPctAdd: 12 } },
+      { id: "gladiator_combo", name: "찌르기 연계", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
+      { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 8 } },
+      { id: "gladiator_swift", name: "투기", desc: "속도·명중 증가", effect: { spdPctAdd: 14, accuracyPctAdd: 12 } },
     ],
   },
 ];
@@ -130,76 +130,77 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
   },
 ];
 
-// 마법사(mage) 3계파 — docs §3-C 스케치. P4b 뼈대. 신성·치유/제어 정밀 효과는 P6(현재 가용 필드로 placeholder).
+// 마법사(mage) 3계파 — 아크메이지(정통)/배틀메이지(하이브리드)/성직자(신성). P4b 뼈대(수치 임시·밸런스 P6).
+// ⚠️ 배틀메이지 하이브리드 축(마공+물방 vs 마검근접)은 미확정 — 현재 마공+받피감+물공 placeholder.
 const MAGE_SPECS: readonly V2JobSpec[] = [
   {
-    id: "hwayeom", // 화염술 — 공격마법(INT)
-    name: "화염술",
+    id: "arcane", // 아크메이지 — 정통 원소마법(INT)
+    name: "아크메이지",
     job: "mage",
     requiredWeaponType: "staff",
     passives: [
-      { id: "hwayeom_power", name: "주문 증폭", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 20 } },
-      { id: "hwayeom_crit", name: "연소", desc: "치명 데미지 증가", effect: { critMultAdd: 0.3 } },
-      { id: "hwayeom_burn", name: "소각", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 8 } },
+      { id: "arcane_power", name: "주문 증폭", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 20 } },
+      { id: "arcane_burst", name: "원소 폭발", desc: "치명 데미지 증가", effect: { critMultAdd: 0.3 } },
+      { id: "arcane_ignite", name: "발화", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 8 } },
     ],
   },
   {
-    id: "shinseong", // 신성술 — 가호·치유(SPI)
-    name: "신성술",
+    id: "battlemage", // 배틀메이지 — 마공+방어 하이브리드(잠정)
+    name: "배틀메이지",
+    job: "mage",
+    requiredWeaponType: "spellblade",
+    passives: [
+      { id: "battlemage_power", name: "전투 주문", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 16 } },
+      { id: "battlemage_ward", name: "마법 방벽", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
+      { id: "battlemage_blade", name: "마검술", desc: "물리 공격력 증가", effect: { atkPctAdd: 12 } },
+    ],
+  },
+  {
+    id: "cleric", // 성직자 — 신성·치유·가호(SPI)
+    name: "성직자",
     job: "mage",
     requiredWeaponType: "relic",
     passives: [
-      { id: "shinseong_ward", name: "가호", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
-      { id: "shinseong_power", name: "신성력", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 12 } },
-      { id: "shinseong_reflect", name: "성역", desc: "받은 피해 일부 반사", effect: { reflectPct: 10 } },
-    ],
-  },
-  {
-    id: "binggyeol", // 빙결술 — 제어(INT)
-    name: "빙결술",
-    job: "mage",
-    requiredWeaponType: "orb",
-    passives: [
-      { id: "binggyeol_power", name: "한기", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 16 } },
-      { id: "binggyeol_acc", name: "빙정", desc: "명중 증가", effect: { accuracyPctAdd: 12 } },
-      { id: "binggyeol_swift", name: "서리걸음", desc: "속도 증가", effect: { spdPctAdd: 12 } },
+      { id: "cleric_ward", name: "가호", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
+      { id: "cleric_power", name: "신성력", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 12 } },
+      { id: "cleric_reflect", name: "성역", desc: "받은 피해 일부 반사", effect: { reflectPct: 10 } },
     ],
   },
 ];
 
-// 도적(rogue) 3계파 — docs §3-D 스케치. P4b 뼈대. 궁수(DEX)·암살(LUK)·잠행.
+// 도적(rogue) 3계파 — 아쳐(원거리)/어쌔신(치명타 다단)/맹독술사(독공). P4b 뼈대(수치 임시·밸런스 P6).
 const ROGUE_SPECS: readonly V2JobSpec[] = [
   {
-    id: "gungsul", // 궁술 — 원거리·다타(DEX)
-    name: "궁술",
+    id: "archery", // 아쳐 — 원거리·다타(DEX)
+    name: "아쳐",
     job: "rogue",
     requiredWeaponType: "bow",
     passives: [
-      { id: "gungsul_volley", name: "연사", desc: "추가타 확률", effect: { extraAttackChancePct: 22 } },
-      { id: "gungsul_aim", name: "정조준", desc: "명중 증가", effect: { accuracyPctAdd: 15 } },
-      { id: "gungsul_pierce", name: "관통사격", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 14 } },
+      { id: "archery_volley", name: "연사", desc: "추가타 확률", effect: { extraAttackChancePct: 22 } },
+      { id: "archery_aim", name: "정조준", desc: "명중 증가", effect: { accuracyPctAdd: 15 } },
+      { id: "archery_pierce", name: "관통사격", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 14 } },
     ],
   },
   {
-    id: "amsal", // 암살 — 크리·중독(LUK)
-    name: "암살",
+    id: "assassin", // 어쌔신 — 치명타 다단공격(LUK·크리 + 추가타)
+    name: "어쌔신",
     job: "rogue",
     requiredWeaponType: "dagger",
     passives: [
-      { id: "amsal_crit", name: "급소", desc: "치명 데미지 증가", effect: { critMultAdd: 0.4 } },
-      { id: "amsal_poison", name: "맹독", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 8 } },
-      { id: "amsal_edge", name: "암습", desc: "물리 공격력 증가", effect: { atkPctAdd: 12 } },
+      { id: "assassin_crit", name: "급소", desc: "치명 데미지 증가", effect: { critMultAdd: 0.4 } },
+      { id: "assassin_flurry", name: "그림자 연격", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
+      { id: "assassin_edge", name: "암습", desc: "물리 공격력 증가", effect: { atkPctAdd: 12 } },
     ],
   },
   {
-    id: "jamhaeng", // 잠행 — 속도·회피
-    name: "잠행",
+    id: "venom", // 맹독술사 — 독공(중독 DoT 누적)
+    name: "맹독술사",
     job: "rogue",
-    requiredWeaponType: "kunai",
+    requiredWeaponType: "needle",
     passives: [
-      { id: "jamhaeng_swift", name: "축지", desc: "속도 증가", effect: { spdPctAdd: 16 } },
-      { id: "jamhaeng_acc", name: "표적", desc: "명중 증가", effect: { accuracyPctAdd: 12 } },
-      { id: "jamhaeng_combo", name: "기습", desc: "추가타 확률", effect: { extraAttackChancePct: 14 } },
+      { id: "venom_toxin", name: "맹독", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 10 } },
+      { id: "venom_flurry", name: "연속 독격", desc: "추가타 확률(독 적중 증가)", effect: { extraAttackChancePct: 16 } },
+      { id: "venom_corrode", name: "독 침투", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 12 } },
     ],
   },
 ];

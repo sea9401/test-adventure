@@ -33,10 +33,10 @@ const WEAPON_LABEL: Record<string, string> = {
   claw: "권조",
   staff: "지팡이",
   relic: "성물",
-  orb: "보주",
+  spellblade: "마검",
   bow: "활",
   dagger: "단검",
-  kunai: "표창",
+  needle: "독침",
 };
 
 export function V2SpecPanel({

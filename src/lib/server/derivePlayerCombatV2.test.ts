@@ -468,14 +468,14 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.atk).toBe(baseD.player.atk); // gwang_cut 미해금 → atk 불변
   });
 
-  it("철벽검류 + 검방 → 받피감·반격·반사(thornsPct) 매핑", () => {
-    const cheol = getJobSpec("warrior", "cheolbyeok")!;
+  it("기사 + 검방 → 받피감·반격·반사(thornsPct) 매핑", () => {
+    const knight = getJobSpec("warrior", "knight")!;
     // 검방 무기가 카탈로그에 아직 없으니 — 게이트 통과 케이스는 P3a 데이터 단위테스트가 커버.
     // 여기선 매핑 경로만: 무기 불일치라 비활성 확인(현 카탈로그엔 sword_shield 아이템 0개).
     const d = derivePlayerCombatV2Pure({
       ...base,
-      spec: cheol,
-      unlockedPassives: ["cheol_guard", "cheol_counter", "cheol_reflect"],
+      spec: knight,
+      unlockedPassives: ["knight_guard", "knight_counter", "knight_reflect"],
     });
     // base 는 대검 → 검방 게이트 불통과 → 비활성
     expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();

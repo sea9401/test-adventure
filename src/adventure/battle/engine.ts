@@ -3051,6 +3051,7 @@ export function resolveBattle(
         const result = resolveV2SkillCast({
           skills: state.v2Skills,
           cooldowns: state.v2SkillCooldowns,
+          procRoll: Math.random() * 100,
           attacker: {
             mp: state.playerMp,
             atk: player.atk,
@@ -3234,6 +3235,7 @@ export function resolveBattle(
         const result = resolveV2SkillCast({
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
+          procRoll: Math.random() * 100,
           attacker: {
             mp: state.enemyMp,
             atk: state.enemy.atk,

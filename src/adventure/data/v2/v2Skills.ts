@@ -63,6 +63,8 @@ export type V2SkillId =
   // 기본 마법 공격이 필요. 스타터(자동지급)로 두면 비-INT 빌드가 1뎀 마법을 잘못
   // 시전하므로 학습형 + int 요구치로 게이트.
   | "int_magic_bolt_t1" // INT 마법 탄 (기본 마법 공격)
+  // ── 프로토타입 — 발동확률(procChance) 시스템 토대(임시, 수치/획득 후속 조정) ──
+  | "v2_skill_fireball" // INT 화염구 (발동확률 40%)
   // ── Tier 2 (교관 학습, PR-3 도입) ─────────────────────────────────
   | "str_cleave_t2" // STR 횡베기
   | "str_crushing_blow_t2" // STR 분쇄 강타
@@ -163,6 +165,9 @@ export type V2SkillDefinition = {
   mpCost: number;
   /** 발동 후 N턴 동안 재발동 불가. 0 = 매 턴 가능. */
   cooldown: number;
+  /** 발동 확률 % (0~100). 미지정=100=조건 충족 시 항상 발동. <100 이면 매 발동 판정마다
+   *  procRoll 롤 — 실패하면 미발동(평타로 폴백, MP·쿨다운 미소모). 스킬 발동확률 패시브 토대. */
+  procChance?: number;
   effects: readonly V2SkillEffect[];
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
@@ -179,6 +184,21 @@ export type V2SkillDefinition = {
 // 손으로 정의한 스킬들 (스타터·t2·시그니처·몹). 속성 풀 42종은 아래에서 생성해 합친다.
 // Partial 로 둬 완전성은 최종 V2_SKILLS(= base ∪ elemental)에서만 강제한다.
 const V2_BASE_SKILLS = {
+  // 프로토타입 — 스킬 발동확률(procChance) 시스템 검증용 화염구. 학습형(교관). 수치 임시.
+  v2_skill_fireball: {
+    id: "v2_skill_fireball",
+    name: "화염구",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "불의 구를 던진다. 가끔 발동하지만 한 방이 묵직하다.",
+    mpCost: 10,
+    cooldown: 0,
+    procChance: 40,
+    element: "fire",
+    effects: [{ kind: "damage", statCoef: 1.4, baseFlat: 8, scaling: "magic" }],
+    learn: { goldCost: 1500, level: 5, stat: { key: "int", min: 20 } },
+  },
   v2_skill_strike: {
     id: "v2_skill_strike",
     name: "강타",

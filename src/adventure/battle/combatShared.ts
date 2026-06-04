@@ -373,6 +373,9 @@ export type V2SkillCastResult = {
 export type V2SkillCastInput = {
   skills: V2SkillsState;
   cooldowns: V2SkillCooldowns;
+  /** 발동 확률 롤 (0~100). 엔진이 Math.random()*100 로 채움. procChance<100 스킬만 사용 —
+   *  미지정이면 항상 발동(구 호출·테스트 호환). */
+  procRoll?: number;
   attacker: {
     mp: number;
     atk: number;
@@ -428,6 +431,22 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  // 발동 확률 — procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
+  // (쿨다운은 위에서 이미 tick 됨. procRoll 미지정이면 항상 발동 — 구 호출·테스트 호환.)
+  const procChance = def.procChance ?? 100;
+  if (
+    procChance < 100 &&
+    input.procRoll !== undefined &&
+    input.procRoll >= procChance
+  ) {
+    return {
+      ...EMPTY_CAST_RESULT_BASE,
+      nextMp: input.attacker.mp,
+      nextCooldowns: ticked,
+      castSkillId: null,
+      castSkillName: null,
+    };
+  }
   // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
   // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.
   const attackEl = input.attacker.attackElement ?? "neutral";

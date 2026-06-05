@@ -3,7 +3,7 @@
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[archer] 1`] = `
 {
   "accuracyPct": 7.925,
-  "atk": 33,
+  "atk": 45,
   "attackCount": 1,
   "baselineRegen": {
     "amount": 7,
@@ -90,7 +90,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "mp": 354,
   "passiveCounterChancePct": undefined,
   "passiveDefPenetrationPct": undefined,
-  "passiveMagicBasicAttack": undefined,
+  "passiveMagicBasicAttack": true,
   "passiveTurnHealPctMaxHp": undefined,
   "spd": 29,
 }
@@ -99,7 +99,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[ninja] 1`] = `
 {
   "accuracyPct": 3.525,
-  "atk": 18,
+  "atk": 23,
   "attackCount": 1,
   "baselineRegen": {
     "amount": 7,
@@ -215,20 +215,20 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "ninja_crit_vs_늑대",
-    "logSha": "1e98a375938caa2d64cd4221b9a132aed3d90503",
+    "logSha": "c70edb7de439140c202aaf9e68de46b7cf6a83e2",
     "outcome": "win",
-    "playerHp": 233,
+    "playerHp": 306,
     "playerMp": 80,
-    "turns": 68,
+    "turns": 44,
   },
   {
     "enemyHp": 0,
     "label": "archer_pen_vs_골렘",
-    "logSha": "e7e4583908802b1a260db88904bd44f55cbacd46",
+    "logSha": "04c7da6ef7be18b0203a4b1415117d7c849d9bf2",
     "outcome": "win",
     "playerHp": 388,
     "playerMp": 80,
-    "turns": 18,
+    "turns": 13,
   },
   {
     "enemyHp": 0,
@@ -288,9 +288,9 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "8d280011a89336529c9b6ac312bbe1992f584de4",
+    "logSha": "36b7066937b0f950ae595ece547cefbb469f8e78",
     "outcome": "p1_win",
-    "turns": 43,
+    "turns": 33,
   },
   {
     "label": "tank_vs_warrior",

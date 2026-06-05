@@ -208,6 +208,9 @@ const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
 const CRIT_PER_LUK = 0.15;
 const ATK_PER_STR = 0.15; // PR-무기위력 0.2→0.15 (무기 위력 ~2배 상향 상쇄, sim 캘리브).
+// 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
+// 스킬 재설계(docs/v2-skill-system-plan.md). sim 캘리브 대상.
+const ROGUE_ATK_PER_DEX = 0.08;
 // PR-2 strict §4 — 물리공격력 = 힘(STR) 단독. dex/spd/luk atk 보조 폐기(Codex 매핑).
 // 무기 위력 = 모든 빌드 atk 바닥. DEX/SPD/LUK 데미지는 무기 위력 + 다중공격·크리·스킬로.
 // PR-무기위력 재밸런스 — STR 빌드에선 무기가 atk 의 ~20% 뿐이라 무기 교체 체감이 약했고,
@@ -354,8 +357,12 @@ export function derivePlayerCombatV2Pure(
   // strict §4 — 물리공격력 = 힘 단독 + 장비 atk(무기 위력). dex/spd/luk atk 보조 없음.
   // 4대 전투 스탯엔 초반 완화용 플랫 보너스(V2_BASE_COMBAT_BONUS)를 가산.
   const atk =
-    Math.floor(totalStats.str * ATK_PER_STR + equipAcc.atk) +
-    V2_BASE_COMBAT_BONUS;
+    Math.floor(
+      totalStats.str * ATK_PER_STR +
+        // 예기(도적 직군 패시브) — DEX 보조 공격력.
+        (playerClass === "rogue" ? totalStats.dex * ROGUE_ATK_PER_DEX : 0) +
+        equipAcc.atk,
+    ) + V2_BASE_COMBAT_BONUS;
   // 물리 방어력 — 활력 + 장비 def.
   const def =
     Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def) +
@@ -560,7 +567,9 @@ export function derivePlayerCombatV2Pure(
       passive?.counterChancePct,
       specEff.counterChancePct,
     ), // 무도가 + 철벽검류
-    passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사
+    // 마력구(마법사 직군 패시브) — 평타를 마법공격력 기반으로. 모든 마법사 상시(무료 패시브).
+    passiveMagicBasicAttack:
+      playerClass === "mage" ? true : passive?.magicBasicAttack,
     // 계파 신규 효과 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
     // 받피감=방패숙련/가호 + 강철 특성, 출혈=유혈/내상 + 출혈숙련, 중독=독사 맹독.
     ...(totalDamageTakenReductionPct > 0

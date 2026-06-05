@@ -40,8 +40,10 @@ import {
   type V2Class,
 } from "../src/adventure/data/v2/classes";
 import { MONSTERS } from "../src/adventure/data/monsters";
-import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
+import { enemiesForDepth, depthName } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
+import { floorPowerGate } from "../src/adventure/data/v2/dungeonLadder";
+import { derivePowerScore } from "../src/adventure/data/v2/power";
 import type {
   V2EquipmentId,
   V2EquipSlot,
@@ -52,15 +54,9 @@ import type { Monster } from "../src/adventure/data/monsters/types";
 type Arch = "STR" | "DEX" | "VIT" | "INT" | "SPI" | "LUK" | "BAL";
 const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
 
-type Milestone = { lvl: number; floor: 1 | 2 | 3 | 4 | 5 };
-const MILESTONES: Milestone[] = [
-  { lvl: 3, floor: 1 },
-  { lvl: 10, floor: 2 },
-  { lvl: 25, floor: 3 },
-  { lvl: 50, floor: 4 },
-  { lvl: 75, floor: 5 },
-  { lvl: 100, floor: 5 },
-];
+// 깊이 sweep — 각 깊이의 권장 파워(floorPowerGate)에 매칭되는 레벨로 전 아키타입 sim.
+// 깊이 1·2=authored(들판/깊은산), 3+=프론티어 풀 스케일. 무한 깊이서 난이도/def 절벽/spi-luk 검증.
+const SIM_DEPTHS = [1, 2, 3, 5, 8, 10, 20, 50];
 
 function tierForLevel(level: number): 1 | 2 | 3 | 4 | 5 {
   if (level < 10) return 1;
@@ -244,16 +240,33 @@ function skillsFor(
   return { learned: ids, equipped };
 }
 
-// 층 전체 풀 — 잡몹 이름→scaled Monster. 미정의 이름은 스킵.
-function floorMonsters(floor: 1 | 2 | 3 | 4 | 5): Monster[] {
-  const f = MAIN_DUNGEON.floors.find((x) => x.id === floor);
-  if (!f) return [];
+// 깊이 풀 — enemiesForDepth(깊이) → scaled Monster(깊이 배율). 미정의 이름 스킵.
+function depthMonsters(depth: number): Monster[] {
   const out: Monster[] = [];
-  for (const e of f.enemies) {
+  for (const e of enemiesForDepth(depth)) {
     const base = MONSTERS[e.key];
-    if (base) out.push(scaleMonsterForFloor(base, floor));
+    if (base) out.push(scaleMonsterForFloor(base, depth));
   }
   return out;
+}
+
+// 깊이 권장 파워에 맞는 레벨 — 참조 빌드(BAL) power ≥ floorPowerGate(depth) 인 최소 레벨.
+// (sim 은 레벨 분배 프록시 — 라이브는 cumLevel→floor 로 같은 power 도달. 전투 밸런스엔 동치.)
+function levelForDepth(depth: number): number {
+  const target = floorPowerGate(depth);
+  for (let lv = 1; lv <= 2000; lv++) {
+    const p = makePlayer("BAL", lv).player;
+    const pw = derivePowerScore({
+      atk: p.atk,
+      magicAtk: p.magicAtk,
+      def: p.def,
+      spd: p.spd,
+      maxHp: p.maxHp,
+      maxMp: p.maxMp,
+    });
+    if (pw >= target) return lv;
+  }
+  return 2000;
 }
 
 // 잡몹 1종당 trial 수. 풀 크기 ~10~20 → 총 ~300~600 sim/cell. 옛 100 단일 잡몹 대비 ~3~6x.
@@ -322,7 +335,7 @@ function combatStats(
 }
 
 // ── 실행 ────────────────────────────────────────────────────
-console.log("v2 진행 시뮬레이션 — 7 archetype × 6 milestone (×5 스케일, 풀 평균)");
+console.log("v2 진행 시뮬레이션 — 7 archetype × 깊이 sweep (프론티어, 권장파워-매칭 레벨)");
 console.log(
   `가정: V2_STAT_POINTS_PER_LEVEL=${V2_STAT_POINTS_PER_LEVEL}, 60/30/10 분배(BAL spread), tier-by-level 장비, 층 전체 잡몹 × ${TRIALS_PER_MONSTER} trial 풀 평균.`,
 );
@@ -345,22 +358,23 @@ function turnCell(t: number, hasAny: boolean): string {
   return t.toFixed(1);
 }
 
-for (const ms of MILESTONES) {
-  const floorMeta = MAIN_DUNGEON.floors.find((f) => f.id === ms.floor);
-  const enemies = floorMonsters(ms.floor);
+for (const depth of SIM_DEPTHS) {
+  const lvl = levelForDepth(depth);
+  const enemies = depthMonsters(depth);
+  const gate = floorPowerGate(depth);
   console.log(
-    `\n━━━ Lv${ms.lvl} · ${floorMeta?.name ?? `Floor ${ms.floor}`} (pool: ${enemies.length}종) ━━━`,
+    `\n━━━ 깊이 ${depth} · ${depthName(depth)} (권장파워 ${gate} ≈ Lv${lvl}, pool: ${enemies.length}종) ━━━`,
   );
   console.log(
     "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
   );
   for (const arch of ARCHES) {
-    const d = makePlayer(arch, ms.lvl);
+    const d = makePlayer(arch, lvl);
     const s = d.totalStats;
     const p = d.player;
     let combatCol = "│   -    -    -    -    -";
     if (enemies.length > 0) {
-      const r = combatStats(p, enemies, skillsFor(arch, ms.lvl, s));
+      const r = combatStats(p, enemies, skillsFor(arch, lvl, s));
       const wrStr = `${r.wrPct}%`;
       const ciStr = `±${r.wrCiPct.toFixed(1)}`;
       const winT = turnCell(r.winTurns, r.wrPct > 0);

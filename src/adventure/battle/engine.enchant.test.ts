@@ -341,6 +341,53 @@ describe("extraAttackChancePctWhileEnemyBleeding — 검투사 혈광 (출혈 �
   });
 });
 
+describe("defGainOnHitPct — 금강 강체 (받은 피해만큼 DEF 누적)", () => {
+  it("적에게 맞으면 braceDefBonus 누적 (상한 = 기본 DEF)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      maxHp: 100000,
+      hp: 100000,
+      def: 10,
+      atk: 1,
+      defGainOnHitPct: 50,
+    };
+    let state = initialBattleState(
+      player,
+      enemy({ atk: 100, def: 0, spd: 100, hp: 100000 }),
+      "용사",
+    );
+    expect(state.phase).toBe("enemy"); // 적 선공
+    expect(state.stacks.braceDefBonus).toBe(0);
+    state = advanceTurn(state, player, "용사", { kind: "attack" });
+    expect(state.stacks.braceDefBonus).toBeGreaterThan(0);
+    expect(state.stacks.braceDefBonus).toBeLessThanOrEqual(10); // 상한 = 기본 DEF
+  });
+
+  it("braceDefBonus 가 클수록 받는 피해가 줄어든다", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      maxHp: 100000,
+      hp: 100000,
+      def: 10,
+      atk: 1,
+    };
+    const takeOneHit = (brace: number) => {
+      let s = initialBattleState(
+        player,
+        enemy({ atk: 100, def: 0, spd: 100, hp: 100000 }),
+        "용사",
+      );
+      s = { ...s, stacks: { ...s.stacks, braceDefBonus: brace } };
+      const hp0 = s.playerHp;
+      s = advanceTurn(s, player, "용사", { kind: "attack" });
+      return hp0 - s.playerHp;
+    };
+    expect(takeOneHit(50)).toBeLessThan(takeOneHit(0));
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

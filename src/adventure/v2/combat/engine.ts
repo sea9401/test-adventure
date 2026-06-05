@@ -202,6 +202,17 @@ export type BattleStacks = {
   damageTakenThisCombat: number;
   // 약점 적중 — DEF 무시 큐 남은 카운트. 트리거 시 weakpointExtraAttacks 만큼 누적, 공격당 1 감산.
   weakpointDefIgnoreLeft: number;
+  // ── 계파 시그니처(c) 전투내 누적 — 신규. 0 = 미보유/미누적. ──
+  // 강체(금강) — 받은 HP 피해 비례로 누적된 DEF 보너스(전투 내, 상한 = 기본 DEF).
+  braceDefBonus: number;
+  // 연격세(연환) — 적중할 때마다 누적된 ATK 보너스(전투 내, 상한).
+  comboAtkBonus: number;
+  // 절초(연환) — 전투 내 누적 적중 횟수(마무리 강타 주기 판정용).
+  comboHitCount: number;
+  // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
+  spellCastCount: number;
+  // 약점 노출(마도사) — 적에 누적된 마법 취약 스택(스택당 받는 마법 피해 +%).
+  enemyMagicVulnStacks: number;
 };
 
 export type BattleState = {
@@ -467,6 +478,17 @@ export type PlayerCombat = {
   poisonedEnemyDefReductionPct?: number;
   // 검투사 혈광 — 적 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p(속도=연타). 0/undefined=미보유.
   extraAttackChancePctWhileEnemyBleeding?: number;
+  // ── 계파 시그니처(c) 전투내 누적형 ──
+  // 금강 강체 — 받은 HP 피해의 %를 DEF 로 누적(state.stacks.braceDefBonus, 상한=기본 DEF). 0/undefined=미보유.
+  defGainOnHitPct?: number;
+  // 연환 연격세 — 적중당 ATK 의 %를 ATK 로 누적(state.stacks.comboAtkBonus). 0/undefined=미보유.
+  comboAtkPctPerHit?: number;
+  // 연환 절초 — COMBO_FINISHER_PERIOD 타째 본타에 데미지 +%(마무리 강타). 0/undefined=미보유.
+  comboFinisherBonusPct?: number;
+  // 워메이지 주문 중첩 — 스킬 시전마다 그 이후 스킬 데미지 +%(state.stacks.spellCastCount × pct). 0/undefined=미보유.
+  skillDmgPctPerCast?: number;
+  // 마도사 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 마법피해 +%. 0/undefined=미보유.
+  enemyMagicVulnPctPerStack?: number;
 };
 
 
@@ -1104,6 +1126,11 @@ export function initialBattleState(
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
       weakpointDefIgnoreLeft: 0,
+      braceDefBonus: 0,
+      comboAtkBonus: 0,
+      comboHitCount: 0,
+      spellCastCount: 0,
+      enemyMagicVulnStacks: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     v2Skills,
@@ -2425,8 +2452,13 @@ export function advanceTurn(
       : state.buffs.enemyAtkBonus;
   const enrageTriggered = state.flags.enrageTriggered || enrageReady;
   // 관통 — 잡몹 pierce 스킬의 고정 관통 먼저, 그 위에 보스 playerDefVulnerable 비례 관통.
+  // 강체 (금강 시그니처) — 전투 내 누적 DEF 보너스를 기본 DEF 에 더해 진짜 방어력처럼 취급
+  // (pierce/취약 곱연산 대상). 미보유면 braceDefBonus=0 → 무변.
+  const defWithBrace = player.def + state.stacks.braceDefBonus;
   const pierced =
-    skill?.kind === "pierce" ? Math.max(0, player.def - skill.armorPierce) : player.def;
+    skill?.kind === "pierce"
+      ? Math.max(0, defWithBrace - skill.armorPierce)
+      : defWithBrace;
   // 광기 (AP) — 자신 DEF -pct%. pierce 후, vulnerable 전에 곱연산.
   const piercedDebuffed =
     state.buffs.playerDefDebuffTurnsLeft > 0 && state.buffs.playerDefDebuffPct > 0
@@ -2520,6 +2552,17 @@ export function advanceTurn(
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
       : playerHpAfterDmg;
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
+  // 강체 (금강 시그니처) — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적(상한 = 기본 DEF).
+  // 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
+  const braceGainPct = player.defGainOnHitPct ?? 0;
+  const nextBraceDefBonus =
+    braceGainPct > 0 && dmgToHp > 0
+      ? Math.min(
+          player.def,
+          state.stacks.braceDefBonus +
+            Math.floor((dmgToHp * braceGainPct) / 100),
+        )
+      : state.stacks.braceDefBonus;
   // 로그 — 격노 발동 → 가드 → (강타 라벨 포함) 공격 → 불굴 순.
   let log = state.log;
   if (enrageReady && skill?.kind === "enrage") {
@@ -2666,6 +2709,7 @@ export function advanceTurn(
         playerShield: newShield,
         chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+        braceDefBonus: nextBraceDefBonus,
       },
       turn: {
         ...state.turn,
@@ -2699,6 +2743,7 @@ export function advanceTurn(
         playerShield: newShield,
         chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+        braceDefBonus: nextBraceDefBonus,
       },
       turn: {
         ...state.turn,
@@ -2730,6 +2775,7 @@ export function advanceTurn(
       playerShield: newShield,
       chillStacks: chillStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+      braceDefBonus: nextBraceDefBonus,
     },
     turn: {
       ...state.turn,

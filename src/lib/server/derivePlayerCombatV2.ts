@@ -565,6 +565,26 @@ export function derivePlayerCombatV2Pure(
             specEff.extraAttackChancePctWhileEnemyBleeding,
         }
       : {}),
+    // 강체 — 엔진이 받은 피해 비례로 DEF 누적(state.stacks.braceDefBonus).
+    ...(specEff.defGainOnHitPct
+      ? { defGainOnHitPct: specEff.defGainOnHitPct }
+      : {}),
+    // 연격세 — 엔진이 적중당 ATK 누적(state.stacks.comboAtkBonus).
+    ...(specEff.comboAtkPctPerHit
+      ? { comboAtkPctPerHit: specEff.comboAtkPctPerHit }
+      : {}),
+    // 절초 — 엔진이 N타째 본타에 마무리 강타 데미지 가산.
+    ...(specEff.comboFinisherBonusPct
+      ? { comboFinisherBonusPct: specEff.comboFinisherBonusPct }
+      : {}),
+    // 주문 중첩 — 엔진이 스킬 시전 누적당 스킬 데미지 가산.
+    ...(specEff.skillDmgPctPerCast
+      ? { skillDmgPctPerCast: specEff.skillDmgPctPerCast }
+      : {}),
+    // 약점 노출 — 엔진이 스킬 적중 시 적 마법취약 스택 누적(받는 마법피해 +%).
+    ...(specEff.enemyMagicVulnPctPerStack
+      ? { enemyMagicVulnPctPerStack: specEff.enemyMagicVulnPctPerStack }
+      : {}),
   };
 
   // PR-5b — 장착 무기 속성. 무기 없음·무속성이면 neutral.

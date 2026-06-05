@@ -6,7 +6,7 @@ import {
   V2_SELECTABLE_CLASSES,
   parseV2Class,
   elementalSkillsForClass,
-  classOfGroupTier,
+  tier1ClassOf,
   type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
@@ -28,6 +28,7 @@ import {
   parseProficiencyForChar,
   setGrown,
   emptyProficiency,
+  tierLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 
@@ -111,9 +112,29 @@ export async function POST(req: Request) {
         ),
         charSave,
       );
-      // nextClass 는 1차(=직업군 키). groups 도 1차 키라 직접 조회.
-      const reachedTier = prof.groups[nextClass]?.tier ?? 1;
-      effectiveClass = classOfGroupTier(nextClass, reachedTier);
+      // P4 — 4직군에선 class 자체가 직군. 차수는 proficiency.groups[job].tier 에 보존되므로
+      // "도달 차수로 복귀"는 자동(class 만 바꾸면 됨, 별도 매핑 불필요).
+      effectiveClass = nextClass;
+    }
+
+    // design A(§3.2·§6) — 직업군 변경(횡환생)은 4차 정점(만렙) 전용. 자유 respec 폐기로
+    // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군·속성변경은 면제.
+    // (잘못 고른 초반 캐릭의 탈출구는 신전 초기화 — respec 과 별개.)
+    if (groupChanged && !isFirstPick) {
+      const curGroupTier = prof?.groups[tier1ClassOf(curClass)]?.tier ?? 1;
+      if (curGroupTier !== 4 || level < tierLevelCap(4)) {
+        return {
+          status: 400,
+          body: {
+            ok: false as const,
+            error: "not_at_apex" as const,
+            requiredTier: 4,
+            requiredLevel: tierLevelCap(4),
+            haveTier: curGroupTier,
+            haveLevel: level,
+          },
+        };
+      }
     }
     // 직업군 변경(다른 직업으로 전직) = prestige 리셋 — 레벨 1·exp 0·grown 리셋(advance 와 동일).
     // 도달 차수로 복귀해도 레벨은 1부터(차수 사이 50까지 재성장). 첫 선택·속성만 변경은 레벨 유지.
@@ -177,6 +198,12 @@ export async function POST(req: Request) {
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
     };
+    // 계파(spec)는 직업 종속 — 직업군 변경 시 옛 계파/해금 패시브를 비운다(새 직업 계파 재선택).
+    // (안 비우면 stale specChoice 가 새 직업 계파 선택을 잠그고 derive 누수 위험.)
+    if (groupChanged) {
+      delete charUpdate.specChoice;
+      delete charUpdate.unlockedPassives;
+    }
     await upsertSave(tx, userId, "character.v2", charUpdate);
 
     // 캐릭터 생성(첫 직업 선택, none→) 시 풀피로 시작. 스타터 character.v2 의 hp 는 v1

@@ -44,6 +44,27 @@ export type V2EquipConcept =
 
 export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
 
+// 무기 종류(계파 게이트용) — 직업 계파 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
+// 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 계파 게이트와도 매칭 X = 베이스만).
+// docs/v2-job-spec-passives-plan.md §4. 전사 3종으로 시작, 직군 확장 시 추가.
+export type V2WeaponType =
+  // 전사 — docs §3-A
+  | "greatsword" // 대검 — 광검(극딜)
+  | "sword_shield" // 검방(검+방패, 단일 아이템) — 기사(방어·반격)
+  | "rapier" // 세검 — 검투사(속도·출혈)
+  // 무도가 — docs §3-B (P4b 뼈대, 계파명 보류)
+  | "tonfa" // 봉권 — 철산류(맷집·반격)
+  | "gauntlet" // 권갑 — 기공류(흡혈·지속)
+  | "claw" // 권조 — 연환권(연타)
+  // 마법사 — docs §3-C (P4b 뼈대)
+  | "staff" // 지팡이 — 아크메이지(정통 원소마법)
+  | "relic" // 성물 — 성직자(신성·치유)
+  | "spellblade" // 마검 — 배틀메이지(마공+방어 하이브리드)
+  // 도적 — docs §3-D (P4b 뼈대)
+  | "bow" // 활 — 아쳐(원거리·다타)
+  | "dagger" // 단검 — 어쌔신(치명타·다단)
+  | "needle"; // 독침 — 맹독술사(중독 DoT)
+
 // 희귀도 — 생략/"common" = 정규 카탈로그(상점·제작 대상). "unique" = 드랍 전용 유니크:
 // 정규 컨셉×티어 그리드 밖의 사이드그레이드(옵션 프로필로 슬롯 규칙을 깬다). 상점 구매·제작
 // 불가, 던전 초저확률 드랍 전용. Phase 2 에서 실제 유니크를 populate (지금은 0종).
@@ -69,6 +90,14 @@ export type V2EquipmentId =
   | "v2_obsidian_staff"
   | "v2_silver_staff"
   | "v2_starlit_staff"
+  // 계파 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
+  | "v2_starter_sword_shield"
+  | "v2_starter_rapier"
+  | "v2_starter_gauntlet"
+  | "v2_starter_claw"
+  | "v2_starter_staff"
+  | "v2_starter_bow"
+  | "v2_starter_dagger"
   // 방어-중갑 (vit/def)
   | "v2_chain_mail"
   | "v2_plate_armor"
@@ -171,10 +200,15 @@ export type V2Equipment = {
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
   element?: V2Element;
+  /** 무기 종류 — 계파 패시브 게이트(docs/v2-job-spec-passives-plan.md §4). 무기 슬롯만 의미.
+   *  미지정 = 일반 무기(계파 게이트 매칭 X). */
+  weaponType?: V2WeaponType;
   /** 희귀도. 생략/"common" = 정규(상점·제작). "unique" = 드랍 전용(상점·제작·그리드 제외). */
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
   craftOnly?: boolean;
+  /** 계파 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
+  starterOnly?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
 };
@@ -210,13 +244,35 @@ export function shopPriceFor(
 
 // 유니크·제작전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
 export function shopPriceOf(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique" || item.craftOnly) return undefined;
+  if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
+    return undefined;
   return shopPriceFor(item.tier, item.slot);
 }
 
 // 유니크 여부 — 상점/제작/그리드 제외 판정에 공용.
 export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";
+}
+
+// ── 계파 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) ──────────────────
+// 직업 계파 패시브가 "특정 무기 종류 착용 시에만" 발동(완전 비활성 폴백). derive 가 장착 무기의
+// 종류를 이 헬퍼로 판정해 계파 패시브 적용 여부를 가른다. 순수 함수(데이터 조회) — P1 토대.
+
+/** 장착 무기(카탈로그 id)의 종류. 미장착/일반 무기(타입 없음)면 undefined. */
+export function weaponTypeOf(
+  weaponId: V2EquipmentId | undefined | null,
+): V2WeaponType | undefined {
+  if (!weaponId) return undefined;
+  return V2_EQUIPMENT[weaponId]?.weaponType;
+}
+
+/** 계파 무기 게이트 — 장착 무기가 요구 종류와 일치하는지. required 없으면 게이트 없음(항상 통과). */
+export function weaponGateOpen(
+  weaponId: V2EquipmentId | undefined | null,
+  required: V2WeaponType | undefined,
+): boolean {
+  if (!required) return true;
+  return weaponTypeOf(weaponId) === required;
 }
 
 // === 장비 세트 ======================================================
@@ -384,6 +440,33 @@ export function genEquipIid(): string {
   return `eq_${Date.now().toString(36)}_${Math.floor(
     Math.random() * 1e9,
   ).toString(36)}`;
+}
+
+// 계파 전직 지급용 스타터 무기 — weaponType → 무기 id. 통합 후 쓰는 8종만 매핑
+// (tonfa/spellblade/relic/needle 은 통합돼 미사용 → undefined: 지급 skip). 대검은 기존 v2_greatsword 재사용.
+export function starterWeaponForType(
+  type: V2WeaponType,
+): V2EquipmentId | undefined {
+  switch (type) {
+    case "greatsword":
+      return "v2_greatsword";
+    case "sword_shield":
+      return "v2_starter_sword_shield";
+    case "rapier":
+      return "v2_starter_rapier";
+    case "gauntlet":
+      return "v2_starter_gauntlet";
+    case "claw":
+      return "v2_starter_claw";
+    case "staff":
+      return "v2_starter_staff";
+    case "bow":
+      return "v2_starter_bow";
+    case "dagger":
+      return "v2_starter_dagger";
+    default:
+      return undefined;
+  }
 }
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));

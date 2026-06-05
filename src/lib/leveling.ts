@@ -152,17 +152,21 @@ export function applyExpGain(
   level: number,
   exp: number,
   gain: number,
+  // 레벨 상한 — 기본 만렙(100). v2 환생: 차수별 레벨캡(tierLevelCap)을 넘겨 차수 안에서만 성장.
+  // 캡 도달 시 잉여 exp 는 overflowExp 로 반환되고 nextExp=0(버림, advance/환생 전까지 정지).
+  maxLevel: number = MAX_LEVEL,
 ): {
   level: number;
   exp: number;
   levelsGained: number;
-  /** 만렙 도달로 캡된 잉여 EXP. 만렙 미도달이거나 정확히 임계치면 0. */
+  /** 캡(maxLevel) 도달로 잘린 잉여 EXP. 캡 미도달이거나 정확히 임계치면 0. */
   overflowExp: number;
 } {
-  let nextLevel = Math.max(1, Math.min(MAX_LEVEL, level));
+  const cap = Math.min(MAX_LEVEL, Math.max(1, Math.floor(maxLevel)));
+  let nextLevel = Math.max(1, Math.min(cap, level));
   let nextExp = Math.max(0, exp + gain);
   let levelsGained = 0;
-  while (nextLevel < MAX_LEVEL) {
+  while (nextLevel < cap) {
     const need = requiredExpToNext(nextLevel)!;
     if (nextExp < need) break;
     nextExp -= need;
@@ -170,7 +174,7 @@ export function applyExpGain(
     levelsGained += 1;
   }
   let overflowExp = 0;
-  if (nextLevel >= MAX_LEVEL) {
+  if (nextLevel >= cap) {
     overflowExp = nextExp;
     nextExp = 0;
   }

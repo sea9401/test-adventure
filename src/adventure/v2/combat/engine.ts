@@ -202,6 +202,17 @@ export type BattleStacks = {
   damageTakenThisCombat: number;
   // 약점 적중 — DEF 무시 큐 남은 카운트. 트리거 시 weakpointExtraAttacks 만큼 누적, 공격당 1 감산.
   weakpointDefIgnoreLeft: number;
+  // ── 계파 시그니처(c) 전투내 누적 — 신규. 0 = 미보유/미누적. ──
+  // 강체(금강) — 받은 HP 피해 비례로 누적된 DEF 보너스(전투 내, 상한 = 기본 DEF).
+  braceDefBonus: number;
+  // 연격세(연환) — 적중할 때마다 누적된 ATK 보너스(전투 내, 상한).
+  comboAtkBonus: number;
+  // 절초(연환) — 전투 내 누적 적중 횟수(마무리 강타 주기 판정용).
+  comboHitCount: number;
+  // 주문 중첩(워메이지) — 전투 내 누적 스킬 시전 횟수(시전당 스킬 데미지 가산).
+  spellCastCount: number;
+  // 약점 노출(마도사) — 적에 누적된 마법 취약 스택(스택당 받는 마법 피해 +%).
+  enemyMagicVulnStacks: number;
 };
 
 export type BattleState = {
@@ -256,6 +267,12 @@ export type BattleState = {
 
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
+
+// 절초 (연환 시그니처) — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
+const COMBO_FINISHER_PERIOD = 4;
+// 주문 중첩(워메이지)·약점 노출(마도사) 누적 상한 — 무한 인플레 방지(위력은 데이터 pct 다이얼).
+const SPELL_STACK_CAP = 10;
+const MAGIC_VULN_STACK_CAP = 10;
 
 export type PlayerCombat = {
   hp: number;
@@ -451,6 +468,35 @@ export type PlayerCombat = {
   passiveCounterChancePct?: number;
   // 마법사 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
   passiveMagicBasicAttack?: boolean;
+  // 계파 패시브(철벽검류 등) — 받는 피해 -pct%(항상 활성, 곱연산). enchantEndurePct 와 동류,
+  // 가드/평탄감소 전. derive 가 계파 aggregate(받피감)로 채움. 0/undefined=미보유.
+  // docs/v2-job-spec-passives-plan.md §3-A·§6. (P3b 엔진 훅 — P3c derive 가 주입.)
+  passiveDamageTakenReductionPct?: number;
+  // 워메이지 주문 연사 — 스킬 발동 확률 %p 가산(resolveV2SkillCast 의 procChance 에 합산). 0/undefined=미보유.
+  skillProcChanceAdd?: number;
+  // 워메이지 마력 순환 — 매 플레이어 턴 종료 시 MP 회복(flat). HP 회복과 독립. 0/undefined=미보유.
+  mpRegenPerTurn?: number;
+  // 기사 흘려막기 — 피격 시 % 확률로 피해 완전 무효(enchant 가드와 동류 지점). 0/undefined=미보유.
+  damageNullifyChancePct?: number;
+  // 궁사 난사 — 그 턴 첫 타가 아닌 추가타 데미지 +%(다단 히트 본체 강화). 0/undefined=미보유.
+  extraHitDmgPct?: number;
+  // 독사 부식 — 중독(출혈 스택)된 적의 DEF -pct%(playerFacingEnemyDef 곱연산). 0/undefined=미보유.
+  poisonedEnemyDefReductionPct?: number;
+  // 검투사 혈광 — 적 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p(속도=연타). 0/undefined=미보유.
+  extraAttackChancePctWhileEnemyBleeding?: number;
+  // ── 계파 시그니처(c) 전투내 누적형 ──
+  // 금강 강체 — 받은 HP 피해의 %를 DEF 로 누적(state.stacks.braceDefBonus, 상한=기본 DEF). 0/undefined=미보유.
+  defGainOnHitPct?: number;
+  // 연환 연격세 — 적중당 ATK 의 %를 ATK 로 누적(state.stacks.comboAtkBonus). 0/undefined=미보유.
+  comboAtkPctPerHit?: number;
+  // 연환 절초 — COMBO_FINISHER_PERIOD 타째 본타에 데미지 +%(마무리 강타). 0/undefined=미보유.
+  comboFinisherBonusPct?: number;
+  // 워메이지 주문 중첩 — 스킬 시전마다 그 이후 스킬 데미지 +%(state.stacks.spellCastCount × pct). 0/undefined=미보유.
+  skillDmgPctPerCast?: number;
+  // 마도사 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 마법피해 +%. 0/undefined=미보유.
+  enemyMagicVulnPctPerStack?: number;
+  // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
+  mpCostReductionPct?: number;
 };
 
 
@@ -522,11 +568,17 @@ function playerFacingEnemyDef(
   const enchantPierce = player.enchantPierceFlat ?? 0;
   const afterEnchantPierce =
     enchantPierce > 0 ? Math.max(0, afterPierce - enchantPierce) : afterPierce;
-  // 약점 노출 (AP) — 적 DEF -pct%. 곱연산으로 마지막에 반영.
-  if (buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0) {
-    return Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100));
-  }
-  return afterEnchantPierce;
+  // 약점 노출 (AP) — 적 DEF -pct%. 곱연산.
+  const afterDebuff =
+    buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0
+      ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
+      : afterEnchantPierce;
+  // 부식 (독사 시그니처) — 중독(= 출혈 스택, 독사 맹독이 bleedStacks 로 누적)된 적의 DEF -pct%.
+  // 곱연산으로 마지막에. 출혈 스택이 없으면 비활성.
+  const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
+  return corrodePct > 0 && state.stacks.bleedStacks > 0
+    ? Math.round(afterDebuff * (1 - corrodePct / 100))
+    : afterDebuff;
 }
 
 // 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은
@@ -534,6 +586,23 @@ function playerFacingEnemyDef(
 // export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일하게 다음 턴 공격수를 재굴림하도록.
 export function rollPlayerAttackCount(player: PlayerCombat): number {
   return rollAttackCount(player);
+}
+
+// 혈광 (검투사 시그니처) — 적이 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p.
+// rollPlayerAttackCount 를 감싸 enemyBleeding 일 때만 extraAttackChancePct 를 부풀린다.
+// 미보유(0/undefined)·출혈 없음이면 그대로 통과 → 라이브/비계파 무변.
+function rollPlayerAttackCountWithBleed(
+  state: BattleState,
+  player: PlayerCombat,
+): number {
+  const bonus = player.extraAttackChancePctWhileEnemyBleeding ?? 0;
+  if (bonus <= 0 || state.stacks.bleedStacks <= 0) {
+    return rollPlayerAttackCount(player);
+  }
+  return rollPlayerAttackCount({
+    ...player,
+    extraAttackChancePct: (player.extraAttackChancePct ?? 0) + bonus,
+  });
 }
 
 // 한 번의 enemy phase 진입 시 결정되는 총 공격 횟수 — base 1 + bonusAttackChancePct 기반.
@@ -693,24 +762,47 @@ function applyEnchantRegenIfAny(
   };
 }
 
-// 직업 패시브 가호 — 매 플레이어 턴 종료 시 maxHp 의 %만큼 회복.
+// 매 플레이어 턴 종료 시 자가 회복 — 직업 패시브 가호(HP %) + 워메이지 마력 순환(MP flat).
 function applyPassiveTurnHealIfAny(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,
 ): BattleState {
+  // 워메이지 마력 순환 — MP 회복(flat). HP 회복과 독립이라 HP 가 가득이어도 돈다.
+  // MP 가 자원화된 v2 에서 시전 페이스를 받쳐 주는 시그니처.
+  let s = state;
+  const mpRegen = player.mpRegenPerTurn ?? 0;
+  if (
+    mpRegen > 0 &&
+    s.turn.completedPlayerTurns > 0 &&
+    s.playerMp < s.playerMaxMp
+  ) {
+    const newMp = Math.min(s.playerMaxMp, s.playerMp + mpRegen);
+    const actualMp = newMp - s.playerMp;
+    if (actualMp > 0) {
+      s = {
+        ...s,
+        playerMp: newMp,
+        log: appendLog(s.log, {
+          kind: "info",
+          text: `[마력 순환] ${playerName}의 MP +${actualMp}`,
+        }),
+      };
+    }
+  }
+
   const pct = player.passiveTurnHealPctMaxHp ?? 0;
-  if (pct <= 0) return state;
-  if (state.turn.completedPlayerTurns === 0) return state;
-  if (state.playerHp >= state.playerMaxHp) return state;
-  const heal = Math.floor((state.playerMaxHp * pct) / 100);
-  if (heal <= 0) return state;
-  const newHp = Math.min(state.playerMaxHp, state.playerHp + heal);
-  const actual = newHp - state.playerHp;
+  if (pct <= 0) return s;
+  if (s.turn.completedPlayerTurns === 0) return s;
+  if (s.playerHp >= s.playerMaxHp) return s;
+  const heal = Math.floor((s.playerMaxHp * pct) / 100);
+  if (heal <= 0) return s;
+  const newHp = Math.min(s.playerMaxHp, s.playerHp + heal);
+  const actual = newHp - s.playerHp;
   return {
-    ...state,
+    ...s,
     playerHp: newHp,
-    log: appendLog(state.log, {
+    log: appendLog(s.log, {
       kind: "info",
       text: `[가호] ${playerName}의 HP +${actual}`,
     }),
@@ -1042,6 +1134,11 @@ export function initialBattleState(
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
       weakpointDefIgnoreLeft: 0,
+      braceDefBonus: 0,
+      comboAtkBonus: 0,
+      comboHitCount: 0,
+      spellCastCount: 0,
+      enemyMagicVulnStacks: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     v2Skills,
@@ -1132,7 +1229,7 @@ export function advanceTurn(
       return {
         ...next,
         phase: "enemy",
-        playerAttacksLeft: rollPlayerAttackCount(player),
+        playerAttacksLeft: rollPlayerAttackCountWithBleed(next, player),
         turn: { ...next.turn, firstAttackPending: true },
       };
     }
@@ -1207,7 +1304,7 @@ export function advanceTurn(
         ...state,
         log,
         phase: "enemy",
-        playerAttacksLeft: rollPlayerAttackCount(player),
+        playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
         turn: {
           ...state.turn,
           completedPlayerTurns: state.turn.completedPlayerTurns + 1,
@@ -1356,7 +1453,9 @@ export function advanceTurn(
       enchantBerserkBonus +
       gustBonus +
       enduringStrikeBonus +
-      madnessAtkBonus;
+      madnessAtkBonus +
+      // 연격세 (연환 시그니처) — 전투 내 누적 ATK 보너스. 미보유면 0 → 무변.
+      state.stacks.comboAtkBonus;
     // PR-5a: v2 buff/debuff 격리 해제 — 일반 공격 damage 에도 atk 곱셈으로 반영.
     // attacker 의 v2 self buff (str/dex/spd/luk) 합산, target 의 v2 vit debuff/buff 가 def 곱셈.
     const v2AtkMultPlayer = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
@@ -1423,9 +1522,40 @@ export function advanceTurn(
     // 별빛 파괴(enchant breaker) — 보스 적에게 가하는 피해 +pct%. 모든 배수 끝나고 마지막 곱연산.
     const breakerPct = player.enchantBreakerBossBonusPct ?? 0;
     const breakerActive = breakerPct > 0 && state.isBoss === true;
-    const dmg = breakerActive
+    const dmgAfterBreaker = breakerActive
       ? Math.max(1, Math.floor(dmgAfterBrace * (1 + breakerPct / 100)))
       : dmgAfterBrace;
+    // 난사 (궁사 시그니처) — 그 턴 첫 타(본타)가 아닌 추가타에 한해 데미지 +extraHitDmgPct%.
+    // 다단 히트(연사) 본체를 키우는 시그니처라 본타는 영향 없음. 모든 배수 뒤 마지막 곱.
+    const extraHitPct = player.extraHitDmgPct ?? 0;
+    const dmgAfterExtraHit =
+      extraHitPct > 0 && !isFirstAttackOfTurn
+        ? Math.max(1, Math.floor(dmgAfterBreaker * (1 + extraHitPct / 100)))
+        : dmgAfterBreaker;
+    // 절초 (연환 시그니처) — 누적 적중 COMBO_FINISHER_PERIOD 타째 본타에 마무리 강타 +%.
+    // comboHitCount 는 이 적중이 적용되면 afterDamage 에서 +1 → (현재 count + 1) 이 이번 타 순번.
+    const comboFinisherPct = player.comboFinisherBonusPct ?? 0;
+    const comboFinisherFires =
+      comboFinisherPct > 0 &&
+      (state.stacks.comboHitCount + 1) % COMBO_FINISHER_PERIOD === 0;
+    const dmg = comboFinisherFires
+      ? Math.max(1, Math.floor(dmgAfterExtraHit * (1 + comboFinisherPct / 100)))
+      : dmgAfterExtraHit;
+    // 연격세 (연환 시그니처) — 이 적중으로 ATK 보너스 누적(상한 = 기본 ATK).
+    const comboAtkPct = player.comboAtkPctPerHit ?? 0;
+    const nextComboAtkBonus =
+      comboAtkPct > 0
+        ? Math.min(
+            player.atk,
+            state.stacks.comboAtkBonus +
+              Math.floor((player.atk * comboAtkPct) / 100),
+          )
+        : state.stacks.comboAtkBonus;
+    // 절초 — 적중 누적 카운트 +1(절초 보유 시에만 증가, 미보유는 0 고정).
+    const nextComboHitCount =
+      comboFinisherPct > 0
+        ? state.stacks.comboHitCount + 1
+        : state.stacks.comboHitCount;
     // 천명 (4티어) — 일정 확률로 적 현재 HP 의 일부를 추가 고정 피해 (이 공격의 보통 피해와 별개로 합산).
     // 보스 전투에는 BOSS_PCT_HP_DAMAGE_MULT 배 적용 (%HP 누진 폭딜 방지).
     const decreeFires =
@@ -1723,6 +1853,8 @@ export function advanceTurn(
         chillStacks: shouldCleanseDebuffs ? 0 : state.stacks.chillStacks,
         evadesRemaining: state.stacks.evadesRemaining + apEvadesAdd,
         weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
+        comboAtkBonus: nextComboAtkBonus,
+        comboHitCount: nextComboHitCount,
       },
       turn: {
         ...state.turn,
@@ -1867,7 +1999,7 @@ export function advanceTurn(
     const ended: BattleState = {
       ...afterDamage,
       phase: "enemy",
-      playerAttacksLeft: rollPlayerAttackCount(player),
+      playerAttacksLeft: rollPlayerAttackCountWithBleed(afterDamage, player),
       turn: {
         ...afterDamage.turn,
         completedPlayerTurns: state.turn.completedPlayerTurns + 1,
@@ -2260,6 +2392,23 @@ export function advanceTurn(
       log,
     });
   }
+  // 흘려막기 (기사 시그니처) — 낮은 확률로 피해를 통째로 흘려낸다. enchant 가드와 동류 지점:
+  // 회피·럭키 방패 계열과 나란히, 받아내기 전에 굴리는 % 완전 무효.
+  const nullifyPct = player.damageNullifyChancePct ?? 0;
+  if (nullifyPct > 0 && Math.random() * 100 < nullifyPct) {
+    const log = appendLog(state.log, {
+      kind: "info",
+      text: `[흘려막기] ${playerName}이(가) ${state.enemy.name}의 공격을 흘려냈다!`,
+    });
+    return finishEnemyAttack({
+      ...state,
+      turn: {
+        ...state.turn,
+        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+      },
+      log,
+    });
+  }
   // 행운의 방패 (특기) — 위 회피가 모두 실패해도 일정 확률로 피해 무효 (행운 회피).
   const luckyBlockPct = player.luckyShieldBlockPct ?? 0;
   if (luckyBlockPct > 0 && Math.random() * 100 < luckyBlockPct) {
@@ -2339,8 +2488,13 @@ export function advanceTurn(
       : state.buffs.enemyAtkBonus;
   const enrageTriggered = state.flags.enrageTriggered || enrageReady;
   // 관통 — 잡몹 pierce 스킬의 고정 관통 먼저, 그 위에 보스 playerDefVulnerable 비례 관통.
+  // 강체 (금강 시그니처) — 전투 내 누적 DEF 보너스를 기본 DEF 에 더해 진짜 방어력처럼 취급
+  // (pierce/취약 곱연산 대상). 미보유면 braceDefBonus=0 → 무변.
+  const defWithBrace = player.def + state.stacks.braceDefBonus;
   const pierced =
-    skill?.kind === "pierce" ? Math.max(0, player.def - skill.armorPierce) : player.def;
+    skill?.kind === "pierce"
+      ? Math.max(0, defWithBrace - skill.armorPierce)
+      : defWithBrace;
   // 광기 (AP) — 자신 DEF -pct%. pierce 후, vulnerable 전에 곱연산.
   const piercedDebuffed =
     state.buffs.playerDefDebuffTurnsLeft > 0 && state.buffs.playerDefDebuffPct > 0
@@ -2393,17 +2547,24 @@ export function advanceTurn(
       ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
       : rawDmg;
   const enduredApplied = enduredDmg < rawDmg;
+  // 계파 패시브 받피감(passiveDamageTakenReductionPct) — 받는 피해 -pct%(철벽검류 등). 항상 활성,
+  // 인내(endure) 다음·가드 전 곱연산. 최소 1 클램프. 0/undefined = 미보유(라이브 무변).
+  const passiveReducePct = player.passiveDamageTakenReductionPct ?? 0;
+  const passiveReduced =
+    passiveReducePct > 0
+      ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
+      : enduredDmg;
   // 가드 — 첫 N번의 적 페이즈 동안 받는 피해 -reduction. 선공자에 무관하게
   // enemyPhasesCompleted 가 N 미만이면 이번 페이즈가 그 N 중 하나.
   const guard = player.guard;
   const guarded =
     guard && guard.turns > 0 && state.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, enduredDmg - guard.reduction)
-      : enduredDmg;
+      ? Math.max(0, passiveReduced - guard.reduction)
+      : passiveReduced;
   // 굳건한 의지 (2티어 특기) — 받은 피해 평탄 -(N) 감소. 가드 뒤에 적용.
   const steadfastFlat = player.steadfastWillFlat ?? 0;
   const dmg = steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
-  const guardApplied = guarded < enduredDmg;
+  const guardApplied = guarded < passiveReduced;
   const steadfastApplied = dmg < guarded;
   // 철벽 (4티어) — 보호막이 데미지를 먼저 흡수, 남은 만큼만 HP 에 적용. 무피해 난무는 dmgToHp 로 누적.
   const shieldAbsorbed = Math.min(state.stacks.playerShield, dmg);
@@ -2427,6 +2588,17 @@ export function advanceTurn(
       ? Math.min(state.playerMaxHp, playerHpAfterDmg + bloodfeastHeal)
       : playerHpAfterDmg;
   const enduranceTriggered = state.flags.enduranceTriggered || enduranceFires;
+  // 강체 (금강 시그니처) — 이번에 받은 HP 피해의 % 만큼 DEF 보너스 누적(상한 = 기본 DEF).
+  // 받은 만큼 단단해지는 탱커. dmgToHp(보호막 흡수 후 실제 HP 피해) 기준.
+  const braceGainPct = player.defGainOnHitPct ?? 0;
+  const nextBraceDefBonus =
+    braceGainPct > 0 && dmgToHp > 0
+      ? Math.min(
+          player.def,
+          state.stacks.braceDefBonus +
+            Math.floor((dmgToHp * braceGainPct) / 100),
+        )
+      : state.stacks.braceDefBonus;
   // 로그 — 격노 발동 → 가드 → (강타 라벨 포함) 공격 → 불굴 순.
   let log = state.log;
   if (enrageReady && skill?.kind === "enrage") {
@@ -2573,6 +2745,7 @@ export function advanceTurn(
         playerShield: newShield,
         chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+        braceDefBonus: nextBraceDefBonus,
       },
       turn: {
         ...state.turn,
@@ -2606,6 +2779,7 @@ export function advanceTurn(
         playerShield: newShield,
         chillStacks: chillStacksNext,
         damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+        braceDefBonus: nextBraceDefBonus,
       },
       turn: {
         ...state.turn,
@@ -2637,6 +2811,7 @@ export function advanceTurn(
       playerShield: newShield,
       chillStacks: chillStacksNext,
       damageTakenThisCombat: state.stacks.damageTakenThisCombat + dmgToHp,
+      braceDefBonus: nextBraceDefBonus,
     },
     turn: {
       ...state.turn,
@@ -2792,6 +2967,8 @@ export function resolveBattle(
         const result = resolveV2SkillCast({
           skills: state.v2Skills,
           cooldowns: state.v2SkillCooldowns,
+          procRoll: Math.random() * 100,
+          procChanceBonus: player.skillProcChanceAdd ?? 0,
           attacker: {
             mp: state.playerMp,
             atk: player.atk,
@@ -2814,6 +2991,46 @@ export function resolveBattle(
             element: state.enemy.element,
           },
         });
+        // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
+        //   주문중첩: 누적 시전 횟수 × skillDmgPctPerCast.  약점노출: 적 마법취약 스택 × enemyMagicVulnPctPerStack.
+        // 둘 다 미보유면 스택 0 → 배수 1 → 무변. 적중 후 아래에서 스택 증가.
+        const spellStackMult =
+          1 +
+          (state.stacks.spellCastCount * (player.skillDmgPctPerCast ?? 0)) / 100;
+        const magicVulnMult =
+          1 +
+          (state.stacks.enemyMagicVulnStacks *
+            (player.enemyMagicVulnPctPerStack ?? 0)) /
+            100;
+        const boostedSkillDamage = Math.floor(
+          result.enemyDamage * spellStackMult * magicVulnMult,
+        );
+        // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
+        const nextSpellCastCount =
+          (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
+            ? Math.min(SPELL_STACK_CAP, state.stacks.spellCastCount + 1)
+            : state.stacks.spellCastCount;
+        const nextMagicVulnStacks =
+          (player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
+          result.castSkillId &&
+          result.enemyDamage > 0
+            ? Math.min(
+                MAGIC_VULN_STACK_CAP,
+                state.stacks.enemyMagicVulnStacks + 1,
+              )
+            : state.stacks.enemyMagicVulnStacks;
+        // 절제(워메이지 특성) — 스킬 마나 소모 -%. resolveV2SkillCast 가 이미 풀 코스트를 깐
+        // result.nextMp 에, 소모분(costPaid)의 pct% 를 환급. 미시전이면 costPaid 0 → 무변.
+        const mpCostReduction = player.mpCostReductionPct ?? 0;
+        const costPaid = state.playerMp - result.nextMp;
+        const mpRefund =
+          mpCostReduction > 0 && costPaid > 0
+            ? Math.floor((costPaid * mpCostReduction) / 100)
+            : 0;
+        const adjustedNextMp = Math.min(
+          state.playerMaxMp,
+          result.nextMp + mpRefund,
+        );
         // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
         let nextEnemyHp = state.enemyHp;
         let nextPlayerHp = state.playerHp;
@@ -2821,10 +3038,10 @@ export function resolveBattle(
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // damage 효과: 일반 공격과 같은 player_attack kind, "[강타] 적에게 N 피해를 입혔다."
         if (result.enemyDamage > 0 && result.castSkillName) {
-          nextEnemyHp = Math.max(0, nextEnemyHp - result.enemyDamage);
+          nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
           nextLog = appendLog(nextLog, {
             kind: "player_attack",
-            text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
+            text: `[${result.castSkillName}] ${boostedSkillDamage} 피해를 입혔다.`,
           });
         }
         // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
@@ -2868,12 +3085,17 @@ export function resolveBattle(
           ...state,
           playerHp: nextPlayerHp,
           enemyHp: nextEnemyHp,
-          playerMp: result.nextMp,
+          playerMp: adjustedNextMp,
           v2SkillCooldowns: result.nextCooldowns,
           v2SelfBuffs: nextSelfBuffs,
           v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
           enemyV2Debuffs: nextEnemyDebuffs,
           enemyV2Dots: nextEnemyDots,
+          stacks: {
+            ...state.stacks,
+            spellCastCount: nextSpellCastCount,
+            enemyMagicVulnStacks: nextMagicVulnStacks,
+          },
           log: nextLog,
         };
         // lethal 체크 — v2 damage 로 적 사망 시 정상 종료 처리 (옛 spell cast 분기와 일관).
@@ -2908,7 +3130,7 @@ export function resolveBattle(
           const ended: BattleState = {
             ...state,
             phase: "enemy",
-            playerAttacksLeft: rollPlayerAttackCount(player),
+            playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
             turn: {
               ...state.turn,
               completedPlayerTurns: state.turn.completedPlayerTurns + 1,
@@ -2974,6 +3196,7 @@ export function resolveBattle(
         const result = resolveV2SkillCast({
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
+          procRoll: Math.random() * 100,
           attacker: {
             mp: state.enemyMp,
             atk: state.enemy.atk,

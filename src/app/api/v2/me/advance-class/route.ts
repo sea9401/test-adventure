@@ -2,21 +2,18 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  V2_CLASS_DEFS,
   parseV2Class,
-  nextTierClassOf,
+  nextAdvanceTier,
+  tierCodexMin,
   elementalSkillsForClass,
   tier1ClassOf,
-  type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
   setGrown,
   setGroupTier,
   emptyProficiency,
-  groupCumLevel,
-  advanceCumLevelReq,
-  V2_ADVANCE_MIN_LEVEL,
+  tierLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -78,67 +75,62 @@ export async function POST() {
     );
 
     const curClass = parseV2Class(charSave.class);
-
-    // 전직 가능한 다음 차수 직업 (none 이거나 이미 정점(4차)이면 불가).
-    const nextClass: V2Class | null = nextTierClassOf(curClass);
-    if (!nextClass) {
+    if (curClass === "none") {
       return {
         status: 400,
         body: { ok: false as const, error: "no_advance" as const },
       };
     }
-    const group = tier1ClassOf(nextClass);
+    // P4 — 전직 = 그 직군 차수(proficiency.tier) +1. 4직군에선 class 자체가 그룹.
+    // 환생(§3.1·design A) — 4차 정점에서 진행하면 차수→1 리셋(종환생), cumLevel/points/caps 보존.
+    const group = tier1ClassOf(curClass);
+    const curTier = prof.groups[group]?.tier ?? 1;
 
-    // 게이트 0 — 최소 레벨(전직마다 레벨 1 리셋이라 매 차수 사이 50까지 키워야 승급).
+    // 게이트 — 현 차수 레벨 캡 도달(전직·환생 공통). 캡까지 올려야 진행.
+    // 옛 cumLevel 게이트(55/110/170)는 레벨캡과 충돌(1차 캡 50 < 게이트 55 = 소프트락)이라 폐지.
     const level = Math.max(1, charSave.level ?? 1);
-    if (level < V2_ADVANCE_MIN_LEVEL) {
+    const reqLevel = tierLevelCap(curTier);
+    if (level < reqLevel) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "level_too_low" as const,
-          required: V2_ADVANCE_MIN_LEVEL,
+          required: reqLevel,
           have: level,
         },
       };
     }
 
-    // 게이트 1 — 직군 누적 레벨(cumLevel) 임계. earned→cumLevel 전환(2026-06). 골드 없음(docs §7).
-    const reqCumLevel = advanceCumLevelReq(V2_CLASS_DEFS[nextClass].tier);
-    const haveCumLevel = groupCumLevel(prof, group);
-    if (haveCumLevel < reqCumLevel) {
-      return {
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "insufficient_cum_level" as const,
-          required: reqCumLevel,
-          have: haveCumLevel,
-        },
-      };
-    }
-    // 게이트 2 — 3·4차 모험의 서: 재료 도감 등재 종 수가 요건 미만이면 차단.
-    const codexReq = codexRequirement(V2_CLASS_DEFS[nextClass].advanceCodexMin);
-    if (codexReq > 0) {
-      const discovered = countDiscoveredMaterials(charSave.materials);
-      if (discovered < codexReq) {
-        return {
-          status: 400,
-          body: {
-            ok: false as const,
-            error: "codex_incomplete" as const,
-            required: codexReq,
-            have: discovered,
-          },
-        };
+    // 4차 정점 = 환생(차수→1, cumLevel 보존). 그 외 = 다음 차수 전직.
+    const isReincarnate = curTier >= 4;
+    const nextTier = isReincarnate ? 1 : (nextAdvanceTier(curTier) ?? 1);
+
+    // 게이트 2 — 모험의 서(3·4차 승급만). 환생(→1차)은 면제(이미 등재 보유).
+    if (!isReincarnate) {
+      const codexReq = codexRequirement(tierCodexMin(nextTier));
+      if (codexReq > 0) {
+        const discovered = countDiscoveredMaterials(charSave.materials);
+        if (discovered < codexReq) {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "codex_incomplete" as const,
+              required: codexReq,
+              have: discovered,
+            },
+          };
+        }
       }
     }
 
     // PR-prof — 전직 시 레벨 1 리셋 + 랜덤 성장(grown) 리셋. 스탯은 floor(숙련도 누적)부터
     // 다시 키운다(prestige 루프, docs §2·§5). exp 도 0. 골드 변동 없음(PR-6).
+    // P4 — class 는 불변(차수는 proficiency 에). 레벨/exp 만 리셋.
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      class: nextClass,
+      class: curClass,
       level: 1,
       exp: 0,
     });
@@ -146,7 +138,7 @@ export async function POST() {
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
     // — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착). 새 그룹 풀 밖/미학습 제거 +
     // 레벨1 리셋이라 슬롯(3)으로 절단. 시그니처 패시브는 learn-skill 학습만으로 자동 적용.
-    const chain = new Set<string>(elementalSkillsForClass(nextClass));
+    const chain = new Set<string>(elementalSkillsForClass(curClass));
     const learnedSet = new Set<string>(skills.learned);
     const slots = v2SkillSlotsForLevel(1);
     await upsertSave(tx, userId, "skills.v2", {
@@ -158,18 +150,16 @@ export async function POST() {
 
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
     // points/cumLevel/caps 는 보존(전직해도 잔액·누적레벨·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
-    const nextProf = setGroupTier(
-      setGrown(prof, {}),
-      group,
-      V2_CLASS_DEFS[nextClass].tier,
-    );
+    const nextProf = setGroupTier(setGrown(prof, {}), group, nextTier);
     await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
     return {
       status: 200,
       body: {
         ok: true as const,
-        class: nextClass,
+        class: curClass,
+        tier: nextTier,
+        reincarnated: isReincarnate,
       },
     };
   });

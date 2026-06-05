@@ -155,10 +155,10 @@ describe("pickAutoCastV2Skill (PR-4a)", () => {
   });
 
   it("MP 부족이면 skip → 다음 슬롯", () => {
-    // MP-throttle: blade_dance(시그니처 = 차수별 산정 12) 불가 + strike(8) 가능한 MP → strike.
+    // MP-throttle: str_cleave_t2(mpCost 14) 불가 + strike(8) 가능한 MP(10) → strike.
     expect(
       pickAutoCastV2Skill({
-        equipped: ["v2_skill_blade_dance", "v2_skill_strike"],
+        equipped: ["str_cleave_t2", "v2_skill_strike"],
         cooldowns: {},
         mp: 10,
       }),
@@ -292,6 +292,98 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
       mp: cur.nextMp,
     });
     expect(ready.castSkillId).toBe("v2_skill_strike");
+  });
+});
+
+describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
+  const fireballMp = V2_SKILLS["v2_skill_fireball"].mpCost;
+
+  it("화염구 procChance=40 — 롤 < 40 이면 발동 (MP 차감 + 피해)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_fireball"],
+        equipped: ["v2_skill_fireball"],
+      },
+      cooldowns: {},
+      procRoll: 30,
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBe("v2_skill_fireball");
+    expect(r.nextMp).toBe(100 - fireballMp);
+    expect(r.enemyDamage).toBeGreaterThan(0);
+  });
+
+  it("화염구 procChance=40 — 롤 >= 40 이면 미발동 (평타 폴백, MP·발동 없음)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_fireball"],
+        equipped: ["v2_skill_fireball"],
+      },
+      cooldowns: {},
+      procRoll: 50,
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBeNull();
+    expect(r.nextMp).toBe(100); // MP 미소모
+    expect(r.enemyDamage).toBe(0);
+  });
+
+  it("경계값 — 롤 === procChance 는 미발동 (>= 이면 실패)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_fireball"],
+        equipped: ["v2_skill_fireball"],
+      },
+      cooldowns: {},
+      procRoll: 40,
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBeNull();
+  });
+
+  it("procRoll 미지정 — 항상 발동 (구 호출·테스트 호환)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2_skill_fireball"],
+        equipped: ["v2_skill_fireball"],
+      },
+      cooldowns: {},
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBe("v2_skill_fireball");
+  });
+
+  it("procChance 미지정(=100) 스킬은 롤 무관 항상 발동 (기존 스킬 무영향)", () => {
+    const r = resolveV2SkillCast({
+      skills: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      cooldowns: {},
+      procRoll: 99,
+      attacker: { mp: 100, atk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBe("v2_skill_strike");
+  });
+
+  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 40+30=70 → 롤 50 발동)", () => {
+    const fire = (bonus: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2_skill_fireball"],
+          equipped: ["v2_skill_fireball"],
+        },
+        cooldowns: {},
+        procRoll: 50,
+        procChanceBonus: bonus,
+        attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+    // 보너스 0: 40 → 50>=40 미발동. 보너스 30: 70 → 50<70 발동.
+    expect(fire(0).castSkillId).toBeNull();
+    expect(fire(30).castSkillId).toBe("v2_skill_fireball");
   });
 });
 

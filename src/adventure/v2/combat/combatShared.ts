@@ -286,21 +286,8 @@ export function v2HealAmount(args: {
 }
 
 // MP-throttle 모델 — 전 스킬 쿨다운 폐지(데이터 cooldown:0), MP 소모량이 유일 throttle.
-// 직업 시그니처(requireClass)는 mpCost:0 = "직업 차수별 자동 산정"(아래 표). 개별 비용을
-// 지정하려면 0 이 아닌 literal 을 박으면 override. 비-시그니처 학습 스킬은 literal 그대로.
-export const V2_SIGNATURE_MP_BY_TIER: Record<1 | 2 | 3 | 4, number> = {
-  1: 12,
-  2: 16,
-  3: 20,
-  4: 24,
-};
-
+// P4 — 구 시그니처 차수별 자동 MP 산정 폐지(시그니처 은퇴). 학습 스킬은 data 의 mpCost literal 그대로.
 export function v2SkillMpCost(def: V2SkillDefinition): number {
-  const rc = def.learn?.requireClass;
-  // 시그니처 + mpCost 미지정(0) → 직업 차수별 기본 비용. literal 박혀 있으면 그 값 우선.
-  if (rc && def.mpCost === 0) {
-    return V2_SIGNATURE_MP_BY_TIER[V2_CLASS_DEFS[rc].tier];
-  }
   return def.mpCost;
 }
 
@@ -382,6 +369,11 @@ export type V2SkillCastResult = {
 export type V2SkillCastInput = {
   skills: V2SkillsState;
   cooldowns: V2SkillCooldowns;
+  /** 발동 확률 롤 (0~100). 엔진이 Math.random()*100 로 채움. procChance<100 스킬만 사용 —
+   *  미지정이면 항상 발동(구 호출·테스트 호환). */
+  procRoll?: number;
+  /** 발동 확률 보너스 %p (워메이지 주문연사 등 — 스킬 procChance 에 합산, 100 클램프). 미지정=0. */
+  procChanceBonus?: number;
   attacker: {
     mp: number;
     atk: number;
@@ -437,6 +429,25 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
+  // 발동 확률 — procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
+  // (쿨다운은 위에서 이미 tick 됨. procRoll 미지정이면 항상 발동 — 구 호출·테스트 호환.)
+  const procChance = Math.min(
+    100,
+    (def.procChance ?? 100) + (input.procChanceBonus ?? 0),
+  );
+  if (
+    procChance < 100 &&
+    input.procRoll !== undefined &&
+    input.procRoll >= procChance
+  ) {
+    return {
+      ...EMPTY_CAST_RESULT_BASE,
+      nextMp: input.attacker.mp,
+      nextCooldowns: ticked,
+      castSkillId: null,
+      castSkillName: null,
+    };
+  }
   // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
   // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.
   const attackEl = input.attacker.attackElement ?? "neutral";

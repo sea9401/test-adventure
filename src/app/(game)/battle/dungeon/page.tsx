@@ -4,15 +4,16 @@ import { useRouter } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 
-// /battle/dungeon — 현재 거점의 사냥터 층 목록.
+// /battle/dungeon — 무한 프론티어 사냥터 목록.
 export default function DungeonListPage() {
   const router = useRouter();
-  const { currentOutpost } = useGameState();
+  const { currentOutpost, frontierDepth } = useGameState();
   return (
     <V2DungeonList
       currentOutpost={currentOutpost}
-      onSelectFloor={(floorId) => router.push(`/battle/dungeon/${floorId}`)}
+      onSelectFloor={(depth) => router.push(`/battle/dungeon/${depth}`)}
       onOpenMap={() => router.push("/map")}
+      frontierDepth={frontierDepth}
     />
   );
 }

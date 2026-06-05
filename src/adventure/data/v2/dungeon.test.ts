@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "./dungeon";
+import { MAIN_DUNGEON, enemiesForDepth, depthName } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
+import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
 import { V2_ELEMENTS, type V2Element } from "./elements";
@@ -31,12 +32,24 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("2층 정의됨 (들판·깊은 산) — 8→2 축소", () => {
+  it("단일 무한 프론티어 — authored 깊이 1·2(들판·깊은 산)만 MAIN_DUNGEON, 3+ 는 생성", () => {
     expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2]);
-    expect(MAIN_DUNGEON.floors.map((f) => f.name)).toEqual(["들판", "깊은 산"]);
+    expect(MAIN_DUNGEON.floors[0].name).toBe("들판");
+    expect(MAIN_DUNGEON.floors[1].name).toBe("깊은 산");
   });
 
-  it("활성 2층은 파워 requirement(단조 증가)", () => {
+  it("enemiesForDepth / depthName — 1=들판·2=깊은산·3+=프론티어(무한)", () => {
+    expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies);
+    expect(enemiesForDepth(2)).toBe(MAIN_DUNGEON.floors[1].enemies);
+    // 3+ = 프론티어 풀(현재 깊은 산 재사용) — 비어있지 않고, 무한 깊이도 동일 풀
+    expect(enemiesForDepth(3).length).toBeGreaterThan(0);
+    expect(enemiesForDepth(99)).toBe(enemiesForDepth(3));
+    expect(depthName(1)).toBe("들판");
+    expect(depthName(2)).toBe("깊은 산");
+    expect(depthName(50)).toContain("50");
+  });
+
+  it("전 층 파워 requirement(단조 증가)", () => {
     const floors = MAIN_DUNGEON.floors;
     let prev = 0;
     for (const floor of floors) {
@@ -48,11 +61,11 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("FLOOR_DIFFICULTY 가 단조 비감소 (깊을수록 어려움)", () => {
+  it("사다리 스탯 배율 단조 비감소 (깊을수록 어려움)", () => {
     for (let i = 1; i < 8; i++) {
-      const a = FLOOR_DIFFICULTY[i as 1 | 2 | 3 | 4 | 5 | 6 | 7];
-      const b = FLOOR_DIFFICULTY[(i + 1) as 2 | 3 | 4 | 5 | 6 | 7 | 8];
-      expect(a).toBeLessThanOrEqual(b);
+      const a = floorStatMult(i as 1 | 2 | 3 | 4 | 5 | 6 | 7);
+      const b = floorStatMult((i + 1) as 2 | 3 | 4 | 5 | 6 | 7 | 8);
+      expect(b).toBeGreaterThanOrEqual(a);
     }
   });
 });
@@ -114,47 +127,24 @@ describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
 describe("scaleMonsterForFloor", () => {
   const base = MONSTERS["별빛 박쥐"];
 
-  it("floor 1~4 (×1.0) 은 동일 객체 반환 (cap/배율 미적용)", () => {
+  it("floor 1·2 (×1.0) 은 동일 객체 반환", () => {
     const weak = MONSTERS["슬라임"];
     expect(scaleMonsterForFloor(weak, 1)).toBe(weak);
     expect(scaleMonsterForFloor(weak, 2)).toBe(weak);
-    expect(scaleMonsterForFloor(weak, 3)).toBe(weak);
-    expect(scaleMonsterForFloor(weak, 4)).toBe(weak);
   });
 
-  it("floor 5 — 라이브 엔드보스 압축(난이도 ×0.4 + def cap 26), exp 는 분리(base ×1.0)", () => {
-    // 잠든 황좌 거인 = 라이브 5막 엔드보스 (hp2070/atk136/def82/exp280).
-    const giant = MONSTERS["잠든 황좌 거인"];
-    const scaled = scaleMonsterForFloor(giant, 5);
-    expect(scaled).not.toBe(giant);
-    expect(scaled.hp).toBe(Math.round(2070 * 0.4)); // 828 — 난이도(hp) ×0.4
-    expect(scaled.atk).toBe(Math.round(136 * 0.4)); // 54
-    expect(scaled.def).toBe(26); // min(round(82×0.4)=33, cap 26)
-    // exp 는 난이도 배율과 분리 — base(×1.0). Lv70~100 leveling 페이스 보존(난이도에 안 묶음).
-    expect(scaled.exp).toBe(280);
-    expect(scaled.spd).toBe(giant.spd); // hp/atk/def/exp 외 필드 보존
-    expect(giant.hp).toBe(2070); // 원본 불변 (mutation 가드)
-  });
-
-  it("floor 5 변동성 보존 — 배율이라 작은 몹 < 거인 순서 유지", () => {
-    const small = scaleMonsterForFloor(MONSTERS["별점술사 잔영"], 5);
-    const giant = scaleMonsterForFloor(MONSTERS["잠든 황좌 거인"], 5);
-    expect(small.hp).toBeLessThan(giant.hp); // 314 < 828
-    expect(small.atk).toBeLessThan(giant.atk); // 28 < 54
-  });
-
-  it("6층 ×1.2 — hp/atk/def/exp 만 곱, 새 객체", () => {
-    const scaled = scaleMonsterForFloor(base, 6);
+  it("floor 3+ 사다리 배율 — hp/atk 선형·def 댐핑·exp 곡선, 새 객체", () => {
+    const scaled = scaleMonsterForFloor(base, 8);
     expect(scaled).not.toBe(base);
-    expect(scaled.hp).toBe(Math.round(base.hp * 1.2));
-    expect(scaled.atk).toBe(Math.round(base.atk * 1.2));
-    expect(scaled.def).toBe(Math.round(base.def * 1.2));
-    expect(scaled.exp).toBe(Math.round(base.exp * 1.2));
-    expect(scaled.spd).toBe(base.spd);
+    expect(scaled.hp).toBe(Math.round(base.hp * floorStatMult(8)));
+    expect(scaled.atk).toBe(Math.round(base.atk * floorStatMult(8)));
+    expect(scaled.def).toBe(Math.round(base.def * floorDefMult(8)));
+    expect(scaled.exp).toBe(Math.round(base.exp * floorExpMult(8)));
+    expect(scaled.spd).toBe(base.spd); // hp/atk/def/exp 외 필드 보존
     expect(scaled.name).toBe(base.name);
   });
 
-  it("8층 ×4.0 — 베이스 변형 없음 (mutation 가드)", () => {
+  it("베이스 변형 없음 (mutation 가드)", () => {
     const beforeHp = base.hp;
     scaleMonsterForFloor(base, 8);
     expect(base.hp).toBe(beforeHp);

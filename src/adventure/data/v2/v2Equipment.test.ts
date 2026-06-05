@@ -11,6 +11,8 @@ import {
   v2EquipStatRows,
   v2EquipmentByConcept,
   v2EquipmentBySlot,
+  weaponGateOpen,
+  weaponTypeOf,
   type V2EquipConcept,
   type V2EquipmentId,
   type V2EquipSlot,
@@ -130,7 +132,13 @@ function slotConceptLine(
   concept: V2EquipConcept,
 ): V2EquipTier[] {
   return v2EquipmentBySlot(slot)
-    .filter((i) => i.concept === concept && !isUnique(i) && !i.craftOnly) // 그리드는 정규만(유니크·제작전용 제외)
+    .filter(
+      (i) =>
+        i.concept === concept &&
+        !isUnique(i) &&
+        !i.craftOnly &&
+        !i.starterOnly,
+    ) // 그리드는 정규만(유니크·제작전용·계파스타터 제외)
     .sort((a, b) => a.tier - b.tier)
     .map((i) => i.tier);
 }
@@ -139,11 +147,12 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
   it("정규 그리드 55종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
     const all = Object.values(V2_EQUIPMENT);
     expect(
-      all.filter((i) => !isUnique(i) && !i.craftOnly),
+      all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
     ).toHaveLength(55);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
+    expect(all.filter((i) => i.starterOnly), "계파 스타터").toHaveLength(7);
   });
 
   it("제작전용(craftOnly) 은 상점 비매품 (shopPriceOf undefined)", () => {
@@ -195,7 +204,13 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
     for (const slot of ALL_SLOTS) {
       for (const concept of SLOT_CONCEPTS[slot]) {
         const values = v2EquipmentBySlot(slot)
-          .filter((i) => i.concept === concept && !isUnique(i) && !i.craftOnly) // 그리드는 정규만
+          .filter(
+            (i) =>
+              i.concept === concept &&
+              !isUnique(i) &&
+              !i.craftOnly &&
+              !i.starterOnly,
+          ) // 그리드는 정규만
           .sort((a, b) => a.tier - b.tier)
           .map((i) => i.power);
         for (let i = 1; i < values.length; i++) {
@@ -365,5 +380,29 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       ],
     });
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
+  });
+});
+
+// 계파 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) — 무기 종류 태깅 + 순수 헬퍼.
+describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)", () => {
+  it("weaponTypeOf — 태깅된 무기는 종류 반환, 일반 무기·미장착은 undefined", () => {
+    expect(weaponTypeOf("v2_greatsword")).toBe("greatsword"); // 태깅됨
+    expect(weaponTypeOf("v2_iron_sword")).toBeUndefined(); // 일반 무기(타입 없음)
+    expect(weaponTypeOf(undefined)).toBeUndefined();
+    expect(weaponTypeOf(null)).toBeUndefined();
+  });
+
+  it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
+    expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
+    expect(weaponGateOpen("v2_iron_sword", "greatsword")).toBe(false); // 일반 무기 → 완전 비활성
+    expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 계파 무기
+    expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
+    expect(weaponGateOpen("v2_iron_sword", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
+  });
+
+  it("weaponType 필드는 무기 슬롯에서만 — 방어구·장신구엔 미부여", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      if (item.weaponType !== undefined) expect(item.slot).toBe("weapon");
+    }
   });
 });

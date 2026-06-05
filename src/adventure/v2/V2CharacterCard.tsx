@@ -76,6 +76,7 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
 export function V2CharacterCard({
   character,
   guild,
+  levelCap = null,
   // 칭호 — v2 시스템 없음. 있을 때만 노출.
   titleName = null,
   // 카드 하단에 골드 한 줄 노출 여부.
@@ -87,6 +88,7 @@ export function V2CharacterCard({
 }: {
   character: V2CharacterCardData;
   guild?: { name: string } | null;
+  levelCap?: number | null;
   titleName?: string | null;
   showGold?: boolean;
   equipped?: Partial<Record<V2EquipSlot, string>>;
@@ -98,6 +100,11 @@ export function V2CharacterCard({
   const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
   // 직업명 — class 없거나 미선택이면 "무직".
   const jobName = V2_CLASS_DEFS[parseV2Class(character.class)].name;
+  const cappedLevel =
+    typeof levelCap === "number" && Number.isFinite(levelCap)
+      ? Math.max(1, Math.floor(levelCap))
+      : null;
+  const isAtCap = cappedLevel != null && character.level >= cappedLevel;
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
@@ -125,7 +132,7 @@ export function V2CharacterCard({
             )}
             <span className="text-base font-semibold">{character.name}</span>
             <span className="text-sm text-zinc-400 dark:text-zinc-500">
-              Lv.{character.level}
+              {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}
             </span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               · {jobName}
@@ -134,6 +141,11 @@ export function V2CharacterCard({
               · {guild ? guild.name : "무소속"}
             </span>
           </div>
+          {isAtCap && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              현재 차수 레벨 한계입니다. 성장의 신전에서 전직/환생을 진행하세요.
+            </p>
+          )}
           <div className="space-y-1.5">
             <StatBar
               label="HP"

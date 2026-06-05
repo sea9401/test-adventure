@@ -4,10 +4,10 @@ import { useEffect } from "react";
 import { notFound, useParams, useRouter } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
-import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
-import type { DungeonFloorId } from "@/adventure/data/v2/types";
 
-// /battle/dungeon/[floorId] — 던전 층 전투. floorId 검증 + 거점 없음 안전 폴백.
+// /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
+// floorId 는 depth 숫자(1→들판, 2→깊은 산, 3+→프론티어). 1·2 는 authored 층, 3+ 는 데이터 도출.
+// 최고 도달 깊이(frontierDepth)+1 까지 입장 가능 — 서버에서 depth_locked 로 최종 차단.
 export default function DungeonFloorPage() {
   const router = useRouter();
   const params = useParams<{ floorId: string }>();
@@ -20,14 +20,16 @@ export default function DungeonFloorPage() {
     setStamina,
     hp,
     setHp,
+    frontierDepth,
+    setFrontierDepth,
   } = useGameState();
 
   const n = Number(params.floorId);
+  // 유효한 깊이: 양의 정수, 최고 도달+1 이하.
   const valid =
-    Number.isInteger(n) && MAIN_DUNGEON.floors.some((f) => f.id === n);
+    Number.isInteger(n) && n >= 1 && n <= frontierDepth + 1;
 
-  // 거점이 사라진 사고용 안전 — 사냥터 목록으로 복귀. 보통 currentOutpost 는 시작 거점으로
-  // 시드돼 null 이 아니므로 방어적 경로.
+  // 거점이 사라진 사고용 안전 — 사냥터 목록으로 복귀.
   useEffect(() => {
     if (valid && !currentOutpost) router.replace("/battle/dungeon");
   }, [valid, currentOutpost, router]);
@@ -35,10 +37,9 @@ export default function DungeonFloorPage() {
   if (!valid) notFound();
   if (!currentOutpost) return null;
 
-  const floorId = n as DungeonFloorId;
   return (
     <V2DungeonFloorView
-      floorId={floorId}
+      floorId={n}
       outpostId={currentOutpost.id}
       outpostName={currentOutpost.name}
       playerName={viewerName}
@@ -50,6 +51,8 @@ export default function DungeonFloorPage() {
       setHp={setHp}
       onSeekHealing={() => router.push("/town/healing")}
       onBack={() => router.push("/battle/dungeon")}
+      frontierDepth={frontierDepth}
+      onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
     />
   );
 }

@@ -20,10 +20,9 @@ import {
 import {
   parseV2Class,
   tier1ClassOf,
-  nextTierClassOf,
-  signaturesForClass,
+  nextAdvanceTier,
+  tierCodexMin,
   elementalSkillsForClass,
-  signatureClassOf,
   V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
 import {
@@ -35,12 +34,15 @@ import {
   totalCapGains,
   capGain,
   effectiveStatCap,
-  signatureLearnCost,
   advanceCumLevelReq,
   V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
-import { classPassiveTierText } from "@/adventure/data/v2/v2Passives";
+import {
+  V2_JOB_SPECS,
+  resolveSpecTrait,
+  describeSpecTraitEffect,
+} from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -196,6 +198,7 @@ export async function GET() {
     materials?: unknown;
     lastVisitedOutpost?: { outpostId?: string; at?: number };
     discoveredOutpostIds?: string[];
+    frontierDepth?: unknown;
   };
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
@@ -373,24 +376,8 @@ export async function GET() {
     skills: parseV2SkillsState(skillsRow?.value),
     // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
     skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
-    // 직업 패시브 현황 — 현 직업 체인의 각 차수 + 비용/학습여부/효과 텍스트(패시브 학습 패널용).
-    // 시그니처는 패시브로 전환 — 장착 개념 없음(학습=해금). effect = 그 차수 패시브 효과 한 줄.
-    signatures: (() => {
-      const cls = parseV2Class((charSave as { class?: unknown }).class);
-      const skillsState = parseV2SkillsState(skillsRow?.value);
-      const learnedSet = new Set<string>(skillsState.learned);
-      return signaturesForClass(cls).map((skillId) => {
-        const sigClass = signatureClassOf(skillId) ?? cls;
-        const tier = V2_CLASS_DEFS[sigClass].tier;
-        return {
-          skillId,
-          tier,
-          cost: signatureLearnCost(tier),
-          learned: learnedSet.has(skillId),
-          effect: classPassiveTierText(cls, tier),
-        };
-      });
-    })(),
+    // P4 — 시그니처 직업 패시브 은퇴(계파 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 계파 UI 대체).
+    signatures: [] as never[],
     // 직업군 속성 스킬 풀 — 현 직업군의 7속성 스킬 + 학습/장착여부(학습 패널 속성 탭용).
     elementalSkills: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
@@ -432,6 +419,8 @@ export async function GET() {
     })(),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
+    // 무한 프론티어 최고 도달 깊이 (기본 2 = 들판+깊은산 해금).
+    frontierDepth: Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
@@ -459,24 +448,25 @@ export async function GET() {
           // 게이트 3종(Lv50·직군 누적레벨·3·4차 도감)을 advance-class 와 동일 기준으로 산출.
           advance: (() => {
             const cur = parseV2Class((charSave as { class?: unknown }).class);
-            const next = nextTierClassOf(cur);
-            if (!next) return null;
+            if (cur === "none") return null;
+            // P4 — 전직 = class 불변, proficiency.tier +1. 다음 차수(2/3/4), 정점이면 null.
+            const curTier = prof.groups[group]?.tier ?? 1;
+            const nextTier = nextAdvanceTier(curTier);
+            if (!nextTier) return null;
             const haveLevel = Math.max(
               1,
               (charSave as { level?: number }).level ?? 1,
             );
-            const reqCum = advanceCumLevelReq(V2_CLASS_DEFS[next].tier);
+            const reqCum = advanceCumLevelReq(nextTier);
             const haveCum = groupCumLevel(prof, group);
-            const reqCodex = codexRequirement(
-              V2_CLASS_DEFS[next].advanceCodexMin,
-            );
+            const reqCodex = codexRequirement(tierCodexMin(nextTier));
             const haveCodex = discoveredMaterialIds(
               (charSave as { materials?: unknown }).materials,
             ).length;
             return {
-              nextClass: next,
-              nextName: V2_CLASS_DEFS[next].name,
-              nextTier: V2_CLASS_DEFS[next].tier,
+              nextClass: cur,
+              nextName: V2_CLASS_DEFS[cur].name,
+              nextTier,
               reqLevel: V2_ADVANCE_MIN_LEVEL,
               haveLevel,
               reqCum,
@@ -490,6 +480,46 @@ export async function GET() {
             };
           })(),
         },
+      };
+    })(),
+    // 계파(스펙) 현황 — docs/v2-job-spec-passives-plan.md §5. 직업 계파 목록 + 현 선택 + 해금 + 남은 픽.
+    spec: (() => {
+      const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+      const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
+      const jobSpecs = V2_JOB_SPECS[cls] ?? [];
+      const rawChoice = (charSave as { specChoice?: unknown }).specChoice;
+      const choice = typeof rawChoice === "string" ? rawChoice : null;
+      const rawUnlocked = (charSave as { unlockedPassives?: unknown })
+        .unlockedPassives;
+      const unlocked = Array.isArray(rawUnlocked)
+        ? rawUnlocked.filter((x): x is string => typeof x === "string")
+        : [];
+      return {
+        tier,
+        available: tier >= 2, // 2차 전직부터 계파 선택 가능
+        choice,
+        unlocked,
+        picksMax: Math.max(0, tier - 1), // 2차 1·3차 2·4차 3
+        picksUsed: unlocked.length,
+        specs: jobSpecs.map((s) => ({
+          id: s.id,
+          name: s.name,
+          requiredWeaponType: s.requiredWeaponType,
+          passives: s.passives.map((p) => ({
+            id: p.id,
+            name: p.name,
+            desc: p.desc,
+          })),
+          // 직업 특성 — 전직 시 자동(픽 아님), 차수 성장. effectText 는 현재 차수 기준 환산값.
+          trait: s.trait
+            ? {
+                name: s.trait.name,
+                desc: s.trait.desc,
+                effectText: describeSpecTraitEffect(resolveSpecTrait(s, tier)),
+              }
+            : null,
+        })),
       };
     })(),
   });

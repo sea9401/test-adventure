@@ -5,6 +5,21 @@ import type { V2SkillId, V2SkillDefinition } from "./v2Skills";
 import { V2_DEBUFF_PRESETS, V2_DOT_PRESETS } from "./statusEffects";
 
 export const V2_BASE_SKILLS = {
+  // 프로토타입 — 스킬 발동확률(procChance) 시스템 검증용 화염구. 학습형(교관). 수치 임시.
+  v2_skill_fireball: {
+    id: "v2_skill_fireball",
+    name: "화염구",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "불의 구를 던진다. 가끔 발동하지만 한 방이 묵직하다.",
+    mpCost: 10,
+    cooldown: 0,
+    procChance: 40,
+    element: "fire",
+    effects: [{ kind: "damage", statCoef: 1.4, baseFlat: 8, scaling: "magic" }],
+    learn: { goldCost: 1500, level: 5, stat: { key: "int", min: 20 } },
+  },
   v2_skill_strike: {
     id: "v2_skill_strike",
     name: "강타",

@@ -13,7 +13,7 @@ import {
   V2_HP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
+import { getJobSpec, resolveSpecTrait } from "@/adventure/data/v2/v2JobSpecs";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -327,120 +327,59 @@ describe("derivePlayerCombatV2Pure weaponElement (PR-5b 무기 속성)", () => {
 
 });
 
-describe("PR-2 직업 패시브 배선 (derivePlayerCombatV2Pure)", () => {
-  const SIG_SWORDSMAN = V2_CLASS_DEFS.swordsman.signatureSkill!;
-  const SIG_MAGE = V2_CLASS_DEFS.mage.signatureSkill!;
-  const SIG_MARTIAL = V2_CLASS_DEFS.martial.signatureSkill!;
-  const SIG_PRIEST = V2_CLASS_DEFS.priest.signatureSkill!;
-  const SIG_NINJA = V2_CLASS_DEFS.ninja.signatureSkill!;
+describe("P4 — 구 직업 패시브 은퇴 + 차수 앵커 보정", () => {
   const STATS = { str: 40, dex: 40, vit: 40, int: 40, spi: 40, luk: 40 };
 
-  it("학습 시그니처 없으면 패시브 필드 미설정(no-op)", () => {
+  it("구 직업 패시브 필드는 (레거시 시그니처 학습해도) 미설정 — 은퇴", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
-      playerClass: "swordsman",
-    });
-    expect(d.player.passiveTurnHealPctMaxHp).toBeUndefined();
-    expect(d.player.passiveDefPenetrationPct).toBeUndefined();
-    expect(d.player.passiveCounterChancePct).toBeUndefined();
-    expect(d.player.passiveMagicBasicAttack).toBeUndefined();
-  });
-
-  it("검사 — 평타 공격력에 STR×계수 가산(atk 증가)", () => {
-    const base = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "swordsman",
-    });
-    const withPassive = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "swordsman",
-      learnedSkillIds: [SIG_SWORDSMAN],
-    });
-    // T1 atkPerStrCoef 0.05 → atk += floor(STR × 0.05).
-    expect(withPassive.player.atk - base.player.atk).toBe(
-      Math.floor(withPassive.totalStats.str * 0.05),
-    );
-  });
-
-  it("마법사 — 평타 마공화 + magicAtk 에 INT×계수 가산", () => {
-    const base = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "mage",
-    });
-    const d = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "mage",
-      learnedSkillIds: [SIG_MAGE],
-    });
-    expect(d.player.passiveMagicBasicAttack).toBe(true);
-    // T1 magicAtkPerIntCoef 0.05 → magicAtk += floor(INT × 0.05).
-    expect(d.player.magicAtk! - base.player.magicAtk!).toBe(
-      Math.floor(d.totalStats.int * 0.05),
-    );
-  });
-
-  it("무도가 — 카운터 확률 / 사제 — 턴회복 필드 셋", () => {
-    const martial = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "martial",
-      learnedSkillIds: [SIG_MARTIAL],
+      playerClass: "warrior",
+      learnedSkillIds: ["v2_skill_blade_dance"],
     }).player;
-    expect(martial.passiveCounterChancePct).toBe(15); // T1
-
-    const priest = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "priest",
-      learnedSkillIds: [SIG_PRIEST],
-    }).player;
-    expect(priest.passiveTurnHealPctMaxHp).toBe(3); // T1
-  });
-
-  it("궁수 — 방어 관통 필드 셋", () => {
-    const archer = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "archer",
-      learnedSkillIds: [V2_CLASS_DEFS.archer.signatureSkill!],
-    }).player;
-    expect(archer.passiveDefPenetrationPct).toBe(8); // T1
-  });
-
-  it("인술 — 크리뎀 배율 가산, CRIT_MULT_CAP 클램프", () => {
-    const base = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "ninja",
-    }).player.critMult!;
-    const d = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "ninja",
-      learnedSkillIds: [SIG_NINJA],
-    }).player;
-    expect(d.critMult!).toBeCloseTo(Math.min(base + 0.2, 5.0), 5); // T1 +0.2
-  });
-
-  it("다른 직업군 시그니처 학습은 패시브 미적용", () => {
-    const d = derivePlayerCombatV2Pure({
-      level: 50,
-      allocatedStats: STATS,
-      playerClass: "mage",
-      learnedSkillIds: [SIG_SWORDSMAN], // 검사 시그니처 → 마법사 패시브 없음
-    }).player;
+    expect(d.passiveTurnHealPctMaxHp).toBeUndefined();
+    expect(d.passiveDefPenetrationPct).toBeUndefined();
+    expect(d.passiveCounterChancePct).toBeUndefined();
     expect(d.passiveMagicBasicAttack).toBeUndefined();
-    const baseMagic = derivePlayerCombatV2Pure({
+  });
+
+  it("차수 앵커 보정 — 전사 STR: 1차 +10%, 4차 +35% (차수가 prof.tier 에서 옴)", () => {
+    const none = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
-      playerClass: "mage",
-    }).player.magicAtk!;
-    expect(d.magicAtk).toBe(baseMagic); // 마공 증폭 없음
+      playerClass: "none",
+      classTier: 1,
+    }).totalStats.str; // 보정 없음 = floor(=base+40)
+    const t1 = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "warrior",
+      classTier: 1,
+    }).totalStats.str;
+    const t4 = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "warrior",
+      classTier: 4,
+    }).totalStats.str;
+    expect(t1).toBe(Math.floor(none * 1.1));
+    expect(t4).toBe(Math.floor(none * 1.35));
+    expect(t4).toBeGreaterThan(t1);
+  });
+
+  it("classTier 미지정 = 1차 보정", () => {
+    const t1 = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "warrior",
+      classTier: 1,
+    }).totalStats.str;
+    const dflt = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: STATS,
+      playerClass: "warrior",
+    }).totalStats.str;
+    expect(dflt).toBe(t1);
   });
 });
 
@@ -472,5 +411,313 @@ describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
       weapon: "v2_meadow_bow",
     });
     expect(a.hp).toBe(0); // boots 빠짐 → 세트 미완성
+  });
+});
+
+describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job-spec-passives-plan)", () => {
+  const gwang = getJobSpec("warrior", "gwang")!; // 광검(대검 게이트)
+  const knight = getJobSpec("warrior", "knight")!; // 기사(검방 게이트)
+  const base = {
+    level: 50,
+    allocatedStats: { str: 100 },
+    v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId }, // weaponType: greatsword
+  };
+
+  it("계파 미지정 = 효과 없음(inert) — 계파 필드 미설정", () => {
+    const d = derivePlayerCombatV2Pure(base);
+    expect(d.player.passiveDefPenetrationPct).toBeUndefined();
+    expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
+    expect(d.player.thornsPct).toBeUndefined();
+    expect(d.player.bleedDmgPerStack).toBeUndefined();
+  });
+
+  it("광검 + 대검 + 해금 → atk%·광폭(딜증·방어감소)·방관 적용", () => {
+    const baseD = derivePlayerCombatV2Pure(base);
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      spec: gwang,
+      unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
+    });
+    // 전투태세 atkPctAdd 20 → ×1.2, 광폭 dmgDealtPctAdd 30 → ×1.3 (floor 중첩).
+    expect(d.player.atk).toBe(
+      Math.floor(Math.floor(baseD.player.atk * 1.2) * 1.3),
+    );
+    // 광폭 selfDefReductionPct 20 → 방어 ×0.8.
+    expect(d.player.def).toBe(Math.floor(baseD.player.def * 0.8));
+    expect(d.player.passiveDefPenetrationPct).toBe(17); // 갑옷 가르기
+  });
+
+  it("기사 + 검방 + 방패치기 → 공격력에 방어력 40% 가산(derive)", () => {
+    const kbase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+    };
+    const baseD = derivePlayerCombatV2Pure(kbase);
+    const d = derivePlayerCombatV2Pure({
+      ...kbase,
+      spec: knight,
+      unlockedPassives: ["knight_counter"], // 방패치기 (atkFromDefPct 40)
+    });
+    expect(d.player.atk).toBe(
+      baseD.player.atk + Math.floor(baseD.player.def * 0.4),
+    );
+  });
+
+  it("키트픽 차수 게이트 — classTier 1(환생 직후)=픽 비활성, 2=자동복원 (③A·design A 권능리셋)", () => {
+    const kbase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+    };
+    const baseD = derivePlayerCombatV2Pure(kbase);
+    // classTier 1 — 픽 보유해도 한도 0 → 방패치기 비활성 → atk 보너스 없음(권능 리셋).
+    const t1 = derivePlayerCombatV2Pure({
+      ...kbase,
+      spec: knight,
+      unlockedPassives: ["knight_counter"],
+      classTier: 1,
+    });
+    expect(t1.player.atk).toBe(baseD.player.atk);
+    // classTier 2 — 한도 1 → 방패치기 활성 → atk += def×40% (자동복원).
+    const t2 = derivePlayerCombatV2Pure({
+      ...kbase,
+      spec: knight,
+      unlockedPassives: ["knight_counter"],
+      classTier: 2,
+    });
+    expect(t2.player.atk).toBe(
+      baseD.player.atk + Math.floor(baseD.player.def * 0.4),
+    );
+  });
+
+  it("기사 + 검방 + 흘려막기 → damageNullifyChancePct 10", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+      spec: knight,
+      unlockedPassives: ["knight_reflect"], // 흘려막기
+    });
+    expect(d.player.damageNullifyChancePct).toBe(10);
+  });
+
+  it("궁사 + 활 + 난사 → extraHitDmgPct 20", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_bow" as V2EquipmentId },
+      spec: getJobSpec("rogue", "archery")!,
+      unlockedPassives: ["archery_aim"], // 난사
+    });
+    expect(d.player.extraHitDmgPct).toBe(20);
+  });
+
+  it("독사 + 단검 + 부식 → poisonedEnemyDefReductionPct 20", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
+      spec: getJobSpec("rogue", "venom")!,
+      unlockedPassives: ["venom_corrode"], // 부식
+    });
+    expect(d.player.poisonedEnemyDefReductionPct).toBe(20);
+  });
+
+  it("검투사 + 세검 + 혈광 → extraAttackChancePctWhileEnemyBleeding 15", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_rapier" as V2EquipmentId },
+      spec: getJobSpec("warrior", "gladiator")!,
+      unlockedPassives: ["gladiator_swift"], // 혈광
+    });
+    expect(d.player.extraAttackChancePctWhileEnemyBleeding).toBe(15);
+  });
+
+  it("금강 + 권갑 + 강체 → defGainOnHitPct 15", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_gauntlet" as V2EquipmentId },
+      spec: getJobSpec("martial", "cheolsan")!,
+      unlockedPassives: ["cheolsan_reflect"], // 강체
+    });
+    expect(d.player.defGainOnHitPct).toBe(15);
+  });
+
+  it("연환 + 권갑(claw) + 연격세/절초 → combo 필드 매핑", () => {
+    const yeonhwan = getJobSpec("martial", "yeonhwan")!;
+    const ybase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_claw" as V2EquipmentId },
+      spec: yeonhwan,
+    };
+    const power = derivePlayerCombatV2Pure({
+      ...ybase,
+      unlockedPassives: ["yeonhwan_power"], // 연격세
+    });
+    expect(power.player.comboAtkPctPerHit).toBe(4);
+    const swift = derivePlayerCombatV2Pure({
+      ...ybase,
+      unlockedPassives: ["yeonhwan_swift"], // 절초
+    });
+    expect(swift.player.comboFinisherBonusPct).toBe(150);
+  });
+
+  it("워메이지 + 지팡이 + 주문 중첩 → skillDmgPctPerCast 6", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      unlockedPassives: ["battlemage_power"], // 주문 중첩
+    });
+    expect(d.player.skillDmgPctPerCast).toBe(6);
+  });
+
+  it("마도사 + 지팡이 + 약점 노출 → enemyMagicVulnPctPerStack 5", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "arcane")!,
+      unlockedPassives: ["arcane_ignite"], // 약점 노출
+    });
+    expect(d.player.enemyMagicVulnPctPerStack).toBe(5);
+  });
+
+  it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
+    const dbase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
+    };
+    const baseD = derivePlayerCombatV2Pure(dbase);
+    const d = derivePlayerCombatV2Pure({
+      ...dbase,
+      spec: getJobSpec("rogue", "assassin")!,
+      unlockedPassives: ["assassin_edge"], // 급습
+    });
+    expect(d.player.critChancePct).toBeCloseTo(
+      (baseD.player.critChancePct ?? 0) + 15,
+      5,
+    );
+  });
+
+  it("사제 + 지팡이 + 신성 회복 → passiveTurnHealPctMaxHp (기존 턴회복 훅 재사용)", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "cleric")!,
+      unlockedPassives: ["cleric_reflect"], // 신성 회복
+    });
+    expect(d.player.passiveTurnHealPctMaxHp).toBe(4);
+  });
+
+  it("혈권 + 권갑 + 흡정공 → enchantLifestealPct (기존 흡혈 훅 재사용)", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_gauntlet" as V2EquipmentId },
+      spec: getJobSpec("martial", "gigong")!,
+      unlockedPassives: ["gigong_endure"], // 흡정공
+    });
+    expect(d.player.enchantLifestealPct).toBe(10);
+  });
+
+  it("워메이지 + 지팡이 + 주문 연사 → skillProcChanceAdd 15", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      unlockedPassives: ["battlemage_blade"], // 주문 연사
+    });
+    expect(d.player.skillProcChanceAdd).toBe(15);
+  });
+
+  it("워메이지 + 지팡이 + 마력 순환 → mpRegenPerTurn 8", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      unlockedPassives: ["battlemage_ward"], // 마력 순환
+    });
+    expect(d.player.mpRegenPerTurn).toBe(8);
+  });
+
+  it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {
+    const baseNoType = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId },
+    });
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId }, // 타입 없는 일반 검
+      spec: gwang,
+      unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
+    });
+    expect(d.player.atk).toBe(baseNoType.player.atk); // 효과 0
+    expect(d.player.passiveDefPenetrationPct).toBeUndefined();
+  });
+
+  it("해금 안 한 패시브는 미적용", () => {
+    const baseD = derivePlayerCombatV2Pure(base);
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      spec: gwang,
+      unlockedPassives: ["gwang_pierce"], // 방관만 해금, atk%·크리뎀 미해금
+    });
+    expect(d.player.passiveDefPenetrationPct).toBe(17); // 해금됨
+    expect(d.player.atk).toBe(baseD.player.atk); // gwang_cut 미해금 → atk 불변
+  });
+
+  it("직업 특성 — resolveSpecTrait 차수 스케일(2차×1·3차×2·4차×3), 1차/미지정=inert", () => {
+    expect(resolveSpecTrait(gwang, 1)).toEqual({}); // 1차 = 특성 없음
+    expect(resolveSpecTrait(gwang, 2)).toEqual({ atkPctAdd: 4 });
+    expect(resolveSpecTrait(gwang, 3)).toEqual({ atkPctAdd: 8 });
+    expect(resolveSpecTrait(gwang, 4)).toEqual({ atkPctAdd: 12 });
+    expect(resolveSpecTrait(getJobSpec("rogue", "assassin"), 4)).toEqual({
+      critMultAdd: 0.45, // 0.15 × 3
+    });
+    expect(resolveSpecTrait(undefined, 3)).toEqual({});
+  });
+
+  it("광기(광검 특성) — 차수 3 → 공격력 +8%. 강철(기사)은 atk 무관(같은 차수 비교)", () => {
+    const gwang3 = derivePlayerCombatV2Pure({
+      ...base,
+      spec: gwang,
+      unlockedPassives: [],
+      classTier: 3,
+    });
+    const knight3 = derivePlayerCombatV2Pure({
+      ...base,
+      spec: knight,
+      unlockedPassives: [],
+      classTier: 3,
+    });
+    expect(gwang3.player.atk).toBe(Math.floor(knight3.player.atk * 1.08));
+  });
+
+  it("직업 특성은 계파 시그니처와 합산 — 사제 신성회복(4) + 신성 특성(차수4=+6) = 턴회복 10", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "cleric")!,
+      unlockedPassives: ["cleric_reflect"], // 신성 회복 4
+      classTier: 4, // 신성 특성 2 × 3 = 6
+    });
+    expect(d.player.passiveTurnHealPctMaxHp).toBe(10);
+  });
+
+  it("절제(워메이지 특성) → mpCostReductionPct (차수 3 = 8×2 = 16)", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      classTier: 3,
+    });
+    expect(d.player.mpCostReductionPct).toBe(16);
+  });
+
+  it("기사 패시브 — 무기 게이트 불통과(대검)면 완전 비활성", () => {
+    const knight = getJobSpec("warrior", "knight")!;
+    // base 는 대검(greatsword) → 검방(sword_shield) 게이트 불통과 → 픽했어도 전부 inert.
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      spec: knight,
+      unlockedPassives: ["knight_guard", "knight_counter", "knight_reflect"],
+    });
+    expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
+    expect(d.player.damageNullifyChancePct).toBeUndefined();
   });
 });

@@ -34,14 +34,16 @@ import {
   type V2SkillsState,
 } from "../src/adventure/data/v2/v2Skills";
 import {
-  V2_CLASS_DEFS,
-  nextTierClassOf,
-  signaturesForClass,
+  V2_TIER2_ADVANCE_LEVEL,
+  V2_TIER3_ADVANCE_LEVEL,
+  V2_TIER4_ADVANCE_LEVEL,
   type V2Class,
 } from "../src/adventure/data/v2/classes";
 import { MONSTERS } from "../src/adventure/data/monsters";
-import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
+import { enemiesForDepth, depthName } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
+import { floorPowerGate } from "../src/adventure/data/v2/dungeonLadder";
+import { derivePowerScore } from "../src/adventure/data/v2/power";
 import type {
   V2EquipmentId,
   V2EquipSlot,
@@ -52,15 +54,9 @@ import type { Monster } from "../src/adventure/data/monsters/types";
 type Arch = "STR" | "DEX" | "VIT" | "INT" | "SPI" | "LUK" | "BAL";
 const ARCHES: Arch[] = ["STR", "DEX", "VIT", "INT", "SPI", "LUK", "BAL"];
 
-type Milestone = { lvl: number; floor: 1 | 2 | 3 | 4 | 5 };
-const MILESTONES: Milestone[] = [
-  { lvl: 3, floor: 1 },
-  { lvl: 10, floor: 2 },
-  { lvl: 25, floor: 3 },
-  { lvl: 50, floor: 4 },
-  { lvl: 75, floor: 5 },
-  { lvl: 100, floor: 5 },
-];
+// 깊이 sweep — 각 깊이의 권장 파워(floorPowerGate)에 매칭되는 레벨로 전 아키타입 sim.
+// 깊이 1·2=authored(들판/깊은산), 3+=프론티어 풀 스케일. 무한 깊이서 난이도/def 절벽/spi-luk 검증.
+const SIM_DEPTHS = [1, 2, 3, 5, 8, 10, 20, 50];
 
 function tierForLevel(level: number): 1 | 2 | 3 | 4 | 5 {
   if (level < 10) return 1;
@@ -159,49 +155,48 @@ function allocate(arch: Arch, level: number): Record<V2StatKey, number> {
   return a;
 }
 
-// PR-10 — sim 충실도: 아키타입 → 직업군 1차, 레벨로 도달 차수(전직 레벨 게이트)를 산출해
-// 앵커 보정(statBonusPct) + 차수별 시그니처가 실제처럼 반영되게. BAL 은 무직(보정 없음).
+// P4 — 아키타입 → 4직군, 레벨로 도달 차수를 산출해 앵커 보정(V2_TIER_STAT_BONUS_PCT)이
+// 실제처럼 반영되게. SPI=마법사(신성), LUK=도적(암살). BAL 은 무직(보정 없음).
 const ARCH_CLASS_T1: Record<Arch, V2Class> = {
-  STR: "swordsman",
-  DEX: "archer",
+  STR: "warrior",
+  DEX: "rogue",
   VIT: "martial",
   INT: "mage",
-  SPI: "priest",
-  LUK: "ninja",
+  SPI: "mage",
+  LUK: "rogue",
   BAL: "none",
 };
 
-// 직업군 1차에서 레벨이 충족하는 만큼 전직(advanceLevel 게이트)해 도달한 차수 직업 반환.
-function classForArchLevel(arch: Arch, level: number): V2Class {
-  let c = ARCH_CLASS_T1[arch];
-  if (c === "none") return c;
-  for (;;) {
-    const next = nextTierClassOf(c);
-    if (!next) break;
-    const reqLvl = V2_CLASS_DEFS[next].advanceLevel ?? Infinity;
-    if (level >= reqLvl) c = next;
-    else break;
-  }
-  return c;
+// 직군 + 레벨 → 도달 차수(차수 게이트 레벨 30/50/70). class 는 불변(차수는 proficiency.tier).
+function classForArchLevel(
+  arch: Arch,
+  level: number,
+): { cls: V2Class; tier: number } {
+  const cls = ARCH_CLASS_T1[arch];
+  if (cls === "none") return { cls, tier: 1 };
+  const tier =
+    level >= V2_TIER4_ADVANCE_LEVEL
+      ? 4
+      : level >= V2_TIER3_ADVANCE_LEVEL
+        ? 3
+        : level >= V2_TIER2_ADVANCE_LEVEL
+          ? 2
+          : 1;
+  return { cls, tier };
 }
-
-// --passives: 직업 패시브(시그니처) 반영. 도달 차수까지의 시그니처를 learned 로 줘서
-// derive 가 직업 패시브(추가타/받피감/마공/턴회복/명중·DoT/크리뎀)를 켠다. 기본 off =
-// 패시브 없는 baseline(기존 다이얼 비교용). BAL(무직)은 시그니처 없어 패시브 없음.
-const PASSIVES_MODE = process.argv.includes("--passives");
 
 function makePlayer(arch: Arch, level: number) {
   const allocated = allocate(arch, level);
   // PR-7a — 옛 spell 시스템 폐기. v2 스킬 시스템으로 통합돼 sim 도 spells 인자 폐기.
   // 스킬 장착은 SKILLS_MODE(--skills) 일 때만 — 기본은 일반 공격 기반 progression baseline.
-  // PR-10 — playerClass 전달로 앵커 보정 반영(차수는 레벨로 결정).
-  const cls = classForArchLevel(arch, level);
+  // P4 — playerClass + classTier 로 차수별 앵커 보정 반영. 구 직업 패시브는 은퇴(learnedSkillIds 무효).
+  const { cls, tier } = classForArchLevel(arch, level);
   return derivePlayerCombatV2Pure({
     level,
     allocatedStats: allocated,
     v2Equipped: equipFor(arch, level),
     playerClass: cls,
-    learnedSkillIds: PASSIVES_MODE ? signaturesForClass(cls) : undefined,
+    classTier: tier,
     hp: undefined,
   });
 }
@@ -219,21 +214,11 @@ function skillsFor(
 ): V2SkillsState {
   if (!SKILLS_MODE) return { learned: [], equipped: [] };
   const mainStat: V2StatKey = arch === "BAL" ? "str" : (arch.toLowerCase() as V2StatKey);
-  // PR-10 — 시그니처(requireClass)는 도달한 차수까지만 보유(레벨로 전직 차수 결정).
-  const cls = classForArchLevel(arch, level);
-  const curTier = V2_CLASS_DEFS[cls].tier;
-  const curGroup = V2_CLASS_DEFS[cls].group;
   const ids = (Object.keys(V2_SKILLS) as V2SkillId[]).filter((id) => {
     const def = V2_SKILLS[id];
     if (def.monsterOnly) return false;
-    const rc = def.learn?.requireClass;
-    if (rc) {
-      // 직업 시그니처 — 직업군 + 도달한 차수(tier ≤ 현 차수)로만 판정. def.stat 무관:
-      // 신관 힐 시그니처는 stat="int"(라이브 StatKey 에 spi 없음)이지만 신술(spi) 직업 것이라
-      // mainStat 필터로 거르면 SPI 가 힐조차 못 껴 0% 과장됨(Codex). BAL(무직)은 시그니처 없음.
-      const rd = V2_CLASS_DEFS[rc];
-      return rd.group === curGroup && rd.tier <= curTier;
-    }
+    // P4 — 직업 시그니처는 은퇴(비장착). requireClass 가진 레거시 시그니처는 제외.
+    if (def.learn?.requireClass) return false;
     // 비-시그니처 학습 스킬 — 주력 스탯 일치 + 레벨/스탯 게이트.
     if (def.stat !== mainStat) return false;
     if (!def.learn) return true; // 스타터 = 항상 보유
@@ -255,16 +240,33 @@ function skillsFor(
   return { learned: ids, equipped };
 }
 
-// 층 전체 풀 — 잡몹 이름→scaled Monster. 미정의 이름은 스킵.
-function floorMonsters(floor: 1 | 2 | 3 | 4 | 5): Monster[] {
-  const f = MAIN_DUNGEON.floors.find((x) => x.id === floor);
-  if (!f) return [];
+// 깊이 풀 — enemiesForDepth(깊이) → scaled Monster(깊이 배율). 미정의 이름 스킵.
+function depthMonsters(depth: number): Monster[] {
   const out: Monster[] = [];
-  for (const e of f.enemies) {
+  for (const e of enemiesForDepth(depth)) {
     const base = MONSTERS[e.key];
-    if (base) out.push(scaleMonsterForFloor(base, floor));
+    if (base) out.push(scaleMonsterForFloor(base, depth));
   }
   return out;
+}
+
+// 깊이 권장 파워에 맞는 레벨 — 참조 빌드(BAL) power ≥ floorPowerGate(depth) 인 최소 레벨.
+// (sim 은 레벨 분배 프록시 — 라이브는 cumLevel→floor 로 같은 power 도달. 전투 밸런스엔 동치.)
+function levelForDepth(depth: number): number {
+  const target = floorPowerGate(depth);
+  for (let lv = 1; lv <= 2000; lv++) {
+    const p = makePlayer("BAL", lv).player;
+    const pw = derivePowerScore({
+      atk: p.atk,
+      magicAtk: p.magicAtk,
+      def: p.def,
+      spd: p.spd,
+      maxHp: p.maxHp,
+      maxMp: p.maxMp,
+    });
+    if (pw >= target) return lv;
+  }
+  return 2000;
 }
 
 // 잡몹 1종당 trial 수. 풀 크기 ~10~20 → 총 ~300~600 sim/cell. 옛 100 단일 잡몹 대비 ~3~6x.
@@ -333,7 +335,7 @@ function combatStats(
 }
 
 // ── 실행 ────────────────────────────────────────────────────
-console.log("v2 진행 시뮬레이션 — 7 archetype × 6 milestone (×5 스케일, 풀 평균)");
+console.log("v2 진행 시뮬레이션 — 7 archetype × 깊이 sweep (프론티어, 권장파워-매칭 레벨)");
 console.log(
   `가정: V2_STAT_POINTS_PER_LEVEL=${V2_STAT_POINTS_PER_LEVEL}, 60/30/10 분배(BAL spread), tier-by-level 장비, 층 전체 잡몹 × ${TRIALS_PER_MONSTER} trial 풀 평균.`,
 );
@@ -343,9 +345,7 @@ console.log(
     : "스킬 모드 OFF: 일반 공격 baseline. INT 마법 측정하려면 --skills.",
 );
 console.log(
-  PASSIVES_MODE
-    ? "패시브 모드 ON (--passives): 도달 차수 직업 패시브 반영(BAL 제외)."
-    : "패시브 모드 OFF: 직업 패시브 없음 baseline. 패시브 측정하려면 --passives.",
+  "P4 — 구 직업 패시브 은퇴(계파 패시브로 대체). 차수별 앵커 보정만 반영.",
 );
 
 const pad = (s: string | number, w: number) => String(s).padStart(w);
@@ -358,22 +358,23 @@ function turnCell(t: number, hasAny: boolean): string {
   return t.toFixed(1);
 }
 
-for (const ms of MILESTONES) {
-  const floorMeta = MAIN_DUNGEON.floors.find((f) => f.id === ms.floor);
-  const enemies = floorMonsters(ms.floor);
+for (const depth of SIM_DEPTHS) {
+  const lvl = levelForDepth(depth);
+  const enemies = depthMonsters(depth);
+  const gate = floorPowerGate(depth);
   console.log(
-    `\n━━━ Lv${ms.lvl} · ${floorMeta?.name ?? `Floor ${ms.floor}`} (pool: ${enemies.length}종) ━━━`,
+    `\n━━━ 깊이 ${depth} · ${depthName(depth)} (권장파워 ${gate} ≈ Lv${lvl}, pool: ${enemies.length}종) ━━━`,
   );
   console.log(
     "Arch  STR DEX VIT INT SPI LUK │ atk def maxHp maxMp crit% eva% acc% extra% │  wr   ±95 winT lossT hpL%",
   );
   for (const arch of ARCHES) {
-    const d = makePlayer(arch, ms.lvl);
+    const d = makePlayer(arch, lvl);
     const s = d.totalStats;
     const p = d.player;
     let combatCol = "│   -    -    -    -    -";
     if (enemies.length > 0) {
-      const r = combatStats(p, enemies, skillsFor(arch, ms.lvl, s));
+      const r = combatStats(p, enemies, skillsFor(arch, lvl, s));
       const wrStr = `${r.wrPct}%`;
       const ciStr = `±${r.wrCiPct.toFixed(1)}`;
       const winT = turnCell(r.winTurns, r.wrPct > 0);

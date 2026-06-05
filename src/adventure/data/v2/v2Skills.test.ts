@@ -11,7 +11,6 @@ import {
   describeV2Skill,
   type V2SkillId,
 } from "./v2Skills";
-import { V2_CLASS_DEFS } from "./classes";
 
 describe("v2Skills 카탈로그", () => {
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
@@ -221,25 +220,23 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 });
 
-describe("직업 시그니처 식별 + 패시브 전환 (비장착화)", () => {
-  it("V2_SIGNATURE_SKILL_IDS 가 모든 직업의 signatureSkill 집합과 정확히 일치", () => {
-    const fromClassDefs = new Set<string>();
-    for (const def of Object.values(V2_CLASS_DEFS)) {
-      if (def.signatureSkill) fromClassDefs.add(def.signatureSkill);
-    }
-    const fromPredicate = new Set<string>(V2_SIGNATURE_SKILL_IDS);
-    expect(fromPredicate).toEqual(fromClassDefs);
-    expect(fromPredicate.size).toBeGreaterThanOrEqual(6); // 최소 6 직업군
+describe("직업 시그니처 식별 (레거시 — P4 비장착화 유지)", () => {
+  // P4 — 구 시그니처는 은퇴(계파 패시브로 대체)됐지만, 옛 세이브 호환 위해 식별/비장착 로직은 유지.
+  const SIG = "v2_skill_blade_dance"; // 레거시 시그니처(requireClass 보유) 예.
+
+  it("V2_SIGNATURE_SKILL_IDS — 레거시 시그니처 id 를 식별(비어있지 않음)", () => {
+    expect(V2_SIGNATURE_SKILL_IDS.size).toBeGreaterThan(0);
+    expect(isV2SignatureSkill(SIG)).toBe(true);
   });
 
   it("isV2SignatureSkill — 시그니처 true, 엘리멘탈 false", () => {
-    expect(isV2SignatureSkill(V2_CLASS_DEFS.swordsman.signatureSkill!)).toBe(true);
+    expect(isV2SignatureSkill(SIG)).toBe(true);
     expect(isV2SignatureSkill(V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0])).toBe(false);
     expect(isV2SignatureSkill("nope")).toBe(false);
   });
 
   it("parseV2SkillsState — equipped 의 시그니처를 비파괴 제거(slot 회수), learned 는 보존", () => {
-    const sig = V2_CLASS_DEFS.swordsman.signatureSkill!;
+    const sig = SIG;
     const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0];
     const parsed = parseV2SkillsState({
       learned: [sig, elem],

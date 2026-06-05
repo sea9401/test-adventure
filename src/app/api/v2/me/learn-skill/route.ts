@@ -4,16 +4,12 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   parseV2Class,
   tier1ClassOf,
-  signaturesForClass,
   elementalSkillsForClass,
-  signatureClassOf,
-  V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
   emptyProficiency,
   spendProficiency,
-  signatureLearnCost,
   groupUsable,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
@@ -61,12 +57,10 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "no_class" as const } };
     }
 
-    // 학습 가능 = 현 직업 체인 시그니처(그 차수 도달분) ∪ 직업군 속성 스킬 풀(7종).
-    const chain = signaturesForClass(cls);
+    // P4 — 시그니처 은퇴(계파 패시브로 대체). 학습 가능 = 직업군 속성 스킬 풀(7종)만.
     const elementalPool = elementalSkillsForClass(cls);
-    const isSignature = chain.includes(skillId as V2SkillId);
     const isElemental = elementalPool.includes(skillId as V2SkillId);
-    if (!isSignature && !isElemental) {
+    if (!isElemental) {
       return {
         status: 400,
         body: { ok: false as const, error: "not_in_chain" as const },
@@ -110,12 +104,8 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 시그니처는 보유 직업 차수별, 속성 풀은 고정(V2_ELEMENTAL_LEARN_COST).
-    const sigClass = signatureClassOf(skillId) ?? cls;
-    const tier = V2_CLASS_DEFS[sigClass].tier;
-    const cost = isElemental
-      ? V2_ELEMENTAL_LEARN_COST
-      : signatureLearnCost(tier);
+    // 비용 — 속성 스킬 고정(V2_ELEMENTAL_LEARN_COST). 시그니처 학습 경로는 P4 에서 폐지.
+    const cost = V2_ELEMENTAL_LEARN_COST;
 
     const spent = spendProficiency(prof, group, cost);
     if (!spent) {
@@ -144,7 +134,6 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         skillId,
-        tier,
         spent: cost,
         group,
         points: groupUsable(spent, group),

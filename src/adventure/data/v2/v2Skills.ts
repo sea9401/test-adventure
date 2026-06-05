@@ -12,7 +12,6 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 import { STAT_LABELS } from "@/adventure/data/stats";
-import type { V2Class } from "./classes";
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
@@ -64,6 +63,8 @@ export type V2SkillId =
   // 기본 마법 공격이 필요. 스타터(자동지급)로 두면 비-INT 빌드가 1뎀 마법을 잘못
   // 시전하므로 학습형 + int 요구치로 게이트.
   | "int_magic_bolt_t1" // INT 마법 탄 (기본 마법 공격)
+  // ── 프로토타입 — 발동확률(procChance) 시스템 토대(임시, 수치/획득 후속 조정) ──
+  | "v2_skill_fireball" // INT 화염구 (발동확률 40%)
   // ── Tier 2 (교관 학습, PR-3 도입) ─────────────────────────────────
   | "str_cleave_t2" // STR 횡베기
   | "str_crushing_blow_t2" // STR 분쇄 강타
@@ -146,8 +147,9 @@ export type V2SkillLearnRequirement = {
   stat?: { key: StatKey; min: number };
   /** 선행 스킬 — 모두 학습 보유해야. */
   prereqSkillIds?: readonly V2SkillId[];
-  /** 직업 전용 — 이 직업일 때만 학습 가능. 미지정 = 직업 무관. */
-  requireClass?: V2Class;
+  /** 직업 전용 게이트(레거시). P4 4직군 압축 후 비활성 — 옛 시그니처 정의의 구 class id 문자열
+   *  (swordsman/archer/…)을 담고 있을 수 있어 string 으로 둔다. 실 게이팅엔 미사용. */
+  requireClass?: string;
 };
 
 export type V2SkillDefinition = {
@@ -163,6 +165,9 @@ export type V2SkillDefinition = {
   mpCost: number;
   /** 발동 후 N턴 동안 재발동 불가. 0 = 매 턴 가능. */
   cooldown: number;
+  /** 발동 확률 % (0~100). 미지정=100=조건 충족 시 항상 발동. <100 이면 매 발동 판정마다
+   *  procRoll 롤 — 실패하면 미발동(평타로 폴백, MP·쿨다운 미소모). 스킬 발동확률 패시브 토대. */
+  procChance?: number;
   effects: readonly V2SkillEffect[];
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */

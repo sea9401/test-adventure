@@ -543,8 +543,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         attackerAtk: input.attacker.atk,
         attackerMagicAtk: input.attacker.magicAtk,
         attackerMinDamage: input.attacker.minDamage,
-        // PR2: scaling "def"(방어비례딜) 실제 배선 전까지 physical 대체. 해당 스킬 데이터는 PR2 동반.
-        scaling: effect.scaling === "def" ? "physical" : effect.scaling,
+        // PR2-B: scaling "def"(방어비례딜)·"vit"(활력비례딜) 실제 배선 전까지 physical 대체.
+        scaling:
+          effect.scaling === "def" || effect.scaling === "vit"
+            ? "physical"
+            : effect.scaling,
         targetDef: input.target.def,
         targetMagicDef: input.target.magicDef,
         statCoef: effect.statCoef,

@@ -16,6 +16,7 @@ import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
 import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
+import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -91,7 +92,9 @@ export type V2SkillId =
   // ── 직업군별 × 속성별 (6 1차 직업군 × 7 속성 = 42, 숙련도 학습 풀) ─────
   | V2ElementalSkillId
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
-  | V2CommonSkillId;
+  | V2CommonSkillId
+  // ── 스킬 재설계 — 계파 액티브 36종 (12계파 × 3, 차수 해금/성장) ──────────
+  | V2SpecSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -109,13 +112,15 @@ export type V2MonsterStatusSkillId =
 // baseFlatByTier: 계파 스킬 차수 flat 성장(2/3/4차). 지정 시 시전자 차수로 baseFlat 대체(엔진 PR2).
 //   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
 // scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
+// scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.
+//   def/vit 은 시전자 def/vit 값이 필요 → 엔진 PR2-B 배선(그 전엔 physical 대체).
 export type V2SkillEffect =
   | {
       kind: "damage";
       statCoef: number;
       baseFlat?: number;
       baseFlatByTier?: readonly [number, number, number];
-      scaling?: "physical" | "magic" | "def";
+      scaling?: "physical" | "magic" | "def" | "vit";
     }
   // pctLostHp: 잃은 체력 비례 회복(기공 순환).
   | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }
@@ -295,6 +300,7 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_ELEMENTAL_SKILLS,
   ...V2_COMMON_SKILLS,
+  ...V2_SPEC_SKILLS,
 };
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
@@ -313,9 +319,10 @@ function flatChip(baseFlat?: number, byTier?: readonly [number, number, number])
   if (byTier) return ` +${byTier[0]}~${byTier[2]}`;
   return baseFlat ? ` +${baseFlat}` : "";
 }
-function scalingChip(scaling?: "physical" | "magic" | "def"): string {
+function scalingChip(scaling?: "physical" | "magic" | "def" | "vit"): string {
   if (scaling === "magic") return " (마법)";
   if (scaling === "def") return " (방어비례)";
+  if (scaling === "vit") return " (활력비례)";
   return "";
 }
 

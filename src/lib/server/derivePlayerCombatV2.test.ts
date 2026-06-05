@@ -330,12 +330,12 @@ describe("derivePlayerCombatV2Pure weaponElement (무기 속성 폐지 — 항�
 describe("P4 — 구 직업 패시브 은퇴 + 차수 앵커 보정", () => {
   const STATS = { str: 40, dex: 40, vit: 40, int: 40, spi: 40, luk: 40 };
 
-  it("구 직업 패시브 필드는 (레거시 시그니처 학습해도) 미설정 — 은퇴", () => {
+  it("구 직업 패시브 필드는 (스킬 학습해도) 미설정 — 은퇴", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: STATS,
       playerClass: "warrior",
-      learnedSkillIds: ["v2_skill_blade_dance"],
+      learnedSkillIds: ["v2_skill_strike"],
     }).player;
     expect(d.passiveTurnHealPctMaxHp).toBeUndefined();
     expect(d.passiveDefPenetrationPct).toBeUndefined();

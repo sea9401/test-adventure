@@ -753,11 +753,11 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBeLessThan(100);
   });
 
-  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 연소 DoT", () => {
-    // 비전 폭발: statCoef 2.2, baseFlat 12, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 연소는 enemyDamage 에 미포함)
+  it("resolveV2SkillCast — 마법 탄(scaling magic)은 magicAtk 로 스케일", () => {
+    // 마법 탄: statCoef 0.45, baseFlat 10, scaling magic. atk 는 약하지만(5) magicAtk 80.
+    // 기대 직격: floor(80 × 0.45) + 10 - def 0 = 46.
     const result = resolveV2SkillCast({
-      skills: { learned: ["v2_skill_arcane_nova"], equipped: ["v2_skill_arcane_nova"] },
+      skills: { learned: ["int_magic_bolt_t1"], equipped: ["int_magic_bolt_t1"] },
       cooldowns: {},
       attacker: {
         mp: 999,
@@ -769,18 +769,29 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.castSkillName).toBe("비전 폭발");
-    expect(result.enemyDamage).toBe(188);
-    // DoT(연소) 는 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
+    expect(result.castSkillName).toBe("마법 탄");
+    expect(result.enemyDamage).toBe(46);
+  });
+
+  it("resolveV2SkillCast — dot 효과 스킬은 dotsToApplyToTarget 에 적재(출혈)", () => {
+    // mob_rending_claw(살점 뜯기): kind:"dot" 출혈만. sourceAtk 은 시전자 atk 로 채워진다.
+    const result = resolveV2SkillCast({
+      skills: { learned: ["mob_rending_claw"], equipped: ["mob_rending_claw"] },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        magicAtk: 80,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(result.castSkillName).toBe("살점 뜯기");
+    // DoT 는 별도 경로로 적용 대기 목록에 실린다(프리셋 + 시전자 atk).
     expect(result.dotsToApplyToTarget).toContainEqual({
-      tag: "burn",
-      label: "연소",
-      stacks: 1,
-      maxStacks: 1,
-      turns: 2,
-      flatPerStack: 8,
-      atkCoefPerStack: 0,
-      pctMaxHpPerStack: 0,
+      ...V2_DOT_PRESETS.출혈,
       sourceAtk: 5,
     });
   });

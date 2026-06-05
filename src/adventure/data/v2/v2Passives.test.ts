@@ -13,7 +13,7 @@ describe("v2Passives — P4 은퇴", () => {
 
   it("resolveClassPassive 는 어떤 입력에도 null", () => {
     expect(resolveClassPassive(null, [])).toBeNull();
-    expect(resolveClassPassive("warrior", ["v2_skill_blade_dance"])).toBeNull();
+    expect(resolveClassPassive("warrior", ["v2_skill_strike"])).toBeNull();
     expect(resolveClassPassive("mage", [])).toBeNull();
     expect(resolveClassPassive("none", [])).toBeNull();
   });

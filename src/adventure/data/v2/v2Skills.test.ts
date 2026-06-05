@@ -2,9 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   V2_SKILLS,
   V2_STARTER_SKILL_IDS,
-  V2_SIGNATURE_SKILL_IDS,
   V2_ELEMENTAL_SKILLS_BY_CLASS,
-  isV2SignatureSkill,
   parseV2SkillsState,
   emptyV2SkillsState,
   v2SkillSlotsForLevel,
@@ -187,8 +185,8 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance); // 검무: 불, coef 2.2
-    expect(chips.some((c) => c.includes("공격력×2.2"))).toBe(true);
+    const chips = describeV2Skill(V2_SKILLS.v2_skill_fireball); // 화염구: 불, coef 1.4 (마법)
+    expect(chips.some((c) => c.includes("공격력×1.4"))).toBe(true);
     expect(chips).toContain("속성 불");
   });
 
@@ -207,49 +205,36 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("MP 0·무속성이면 MP·속성 칩 없음", () => {
-    // 검무(카탈로그 mpCost 0, 인자 미전달) → MP 칩 없음. (속성 불이라 속성 칩은 있음)
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance);
+    // 몹 독니(카탈로그 mpCost 0, element 없음, 인자 미전달) → MP·속성 칩 모두 없음.
+    const chips = describeV2Skill(V2_SKILLS.mob_venom_bite);
     expect(chips.some((c) => c.startsWith("MP"))).toBe(false);
+    expect(chips.some((c) => c.startsWith("속성"))).toBe(false);
   });
 
-  it("실효 MP 인자를 주면 그 값으로 MP 칩 표기(시그니처 차수별 비용)", () => {
-    // 시그니처는 카탈로그 0(센티넬)이라 인자 없으면 MP 칩이 없지만, 실효 비용(예: 12)을
-    // 넘기면 "MP 12" 로 정확히 표기 — UI 가 v2SkillMpCost 를 넘긴다.
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance, 12);
+  it("실효 MP 인자를 주면 그 값으로 MP 칩 표기", () => {
+    // 카탈로그 mpCost 0 스킬도 실효 비용(예: 12)을 넘기면 "MP 12" 로 정확히 표기 —
+    // UI 가 v2SkillMpCost 를 넘긴다.
+    const chips = describeV2Skill(V2_SKILLS.mob_venom_bite, 12);
     expect(chips).toContain("MP 12");
   });
 });
 
-describe("직업 시그니처 식별 (레거시 — P4 비장착화 유지)", () => {
-  // P4 — 구 시그니처는 은퇴(계파 패시브로 대체)됐지만, 옛 세이브 호환 위해 식별/비장착 로직은 유지.
-  const SIG = "v2_skill_blade_dance"; // 레거시 시그니처(requireClass 보유) 예.
+describe("레거시 시그니처 id 제거 (P4 은퇴 + 카탈로그 청소)", () => {
+  // 구 직업 시그니처(검무·폭풍 화살 등 requireClass 스킬)는 카탈로그에서 제거됐다.
+  // 옛 세이브에 박혀있어도 parseV2SkillsState 가 유효 id 가 아니라 안전하게 걸러낸다.
+  const REMOVED_SIG = "v2_skill_blade_dance"; // 제거된 레거시 시그니처 id 예.
 
-  it("V2_SIGNATURE_SKILL_IDS — 레거시 시그니처 id 를 식별(비어있지 않음)", () => {
-    expect(V2_SIGNATURE_SKILL_IDS.size).toBeGreaterThan(0);
-    expect(isV2SignatureSkill(SIG)).toBe(true);
-  });
-
-  it("isV2SignatureSkill — 시그니처 true, 엘리멘탈 false", () => {
-    expect(isV2SignatureSkill(SIG)).toBe(true);
-    expect(isV2SignatureSkill(V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0])).toBe(false);
-    expect(isV2SignatureSkill("nope")).toBe(false);
-  });
-
-  it("parseV2SkillsState — equipped 의 시그니처를 비파괴 제거(slot 회수), learned 는 보존", () => {
-    const sig = SIG;
+  it("parseV2SkillsState — 제거된 시그니처 id 는 learned·equipped 에서 모두 탈락, 엘리멘탈은 보존", () => {
     const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0];
     const parsed = parseV2SkillsState({
-      learned: [sig, elem],
-      equipped: [sig, elem], // 옛 세이브: 시그니처가 장착돼 있던 상태
+      learned: [REMOVED_SIG, elem],
+      equipped: [REMOVED_SIG, elem], // 옛 세이브: 제거된 시그니처가 장착돼 있던 상태
     });
-    // learned 에는 둘 다 남는다(시그니처=패시브 해금 표식).
-    expect(parsed.learned).toContain(sig);
-    expect(parsed.learned).toContain(elem);
-    // equipped 에서 시그니처는 빠지고 엘리멘탈만.
+    expect(parsed.learned).toEqual([elem]);
     expect(parsed.equipped).toEqual([elem]);
   });
 
-  it("idempotent — 시그니처 없는 equipped 는 그대로", () => {
+  it("idempotent — 유효 엘리멘탈만 있는 equipped 는 그대로", () => {
     const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.mage[1];
     const parsed = parseV2SkillsState({ learned: [elem], equipped: [elem] });
     expect(parsed.equipped).toEqual([elem]);

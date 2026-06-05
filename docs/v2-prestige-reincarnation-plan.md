@@ -127,7 +127,11 @@ felt-growth 는 시간을 일정하게 잡아서가 아니라 **위 사냥터로
    **남은 것**: (a) **UI** — state에 frontierDepth 표면화 + 프론티어 깊이 선택 뷰(Codex 위임 후보).
    (b) sim 캘리브(`sim-v2-exp-pacing` 프론티어=5일·`sim-v2-progression` 난이도/spi-luk).
    (c) 콘텐츠 — 깊이 밴드별 테마 몹 세트·재료 드랍(현 빈 풀)·아트(선택, 내 페이스).
-2. **(캘리브 전 손볼 것) power 지표 spd 가중** — SPD 死축인데 power 공식에 들어가 도적 게이트 부풀림.
+2. ~~power 지표 spd 가중(死축)~~ **정정(2026-06-05): SPD는 死축 아님 = 주력 축**. 코드 검증:
+   다중공격(`EXTRA_ATTACK_PCT_PER_SPD 0.5`: DEX→SPD→추가타, 곱연산 DPS) + 선공(`player.spd>=enemy.spd`)
+   + 천칭. 메모리의 "SPD 死축"은 *런타임 속도 버프*가 죽은 것(추가타가 derive서 baked→mid-combat
+   미반영). base SPD는 살아있어 power가 spd 세는 건 정당. 남은 건 버그 아닌 튜닝 — 추가타는 곱연산인데
+   power는 spd×0.5 선형이라 극단서 어긋날 수 있음 → sim 캘리브에서 함께.
 3. **(선택) 하드 power 게이트** — 현재 소프트(난이도)만. 깊이 게이트는 수동 푸시(frontierDepth)가
    이미 함 → 별 이슈 없음. 옛 "들판 50 vs 신캐 43" 온보딩 얽힘은 권장치(소프트)라 무관.
 

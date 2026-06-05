@@ -72,6 +72,9 @@ type GameStateValue = {
   occupations: Occupation[];
   refreshOccupations: () => Promise<void>;
   refreshGuildId: () => Promise<void>;
+  // 무한 프론티어 — 최고 도달 깊이(기본 2). 사냥터 목록·층 뷰에 전달.
+  frontierDepth: number;
+  setFrontierDepth: React.Dispatch<React.SetStateAction<number>>;
   // 네비게이션 부수효과 (거점 진입/이동 — visit-outpost POST + 라우팅)
   enterOutpost: (outpost: Outpost) => void;
   travelTo: (target: Outpost) => void;
@@ -121,6 +124,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [discoveredIds, setDiscoveredIds] = useState<Set<string>>(
     () => new Set(seededDiscovery()),
   );
+  // 무한 프론티어 최고 도달 깊이 — me/state 에서 초기화(기본 2), 도전 성공 시 갱신.
+  const [frontierDepth, setFrontierDepth] = useState<number>(2);
   // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
   const [hp, setHp] = useState<HpBarState | null>(null);
 
@@ -179,6 +184,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             currentOutpost?: { id: string; name: string } | null;
             discoveredOutpostIds?: string[];
             accountName?: string | null;
+            frontierDepth?: number;
           } | null;
           if (j?.character?.name) setViewerName(j.character.name);
           setAccountName(j?.accountName ?? null);
@@ -206,6 +212,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
           if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
             setDiscoveredIds(new Set(j.discoveredOutpostIds));
+          }
+          if (typeof j?.frontierDepth === "number") {
+            setFrontierDepth(Math.max(2, j.frontierDepth));
           }
         }
       } catch {}
@@ -347,6 +356,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     occupations,
     refreshOccupations,
     refreshGuildId,
+    frontierDepth,
+    setFrontierDepth,
     enterOutpost,
     travelTo,
   };

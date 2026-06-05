@@ -47,6 +47,8 @@ export type HuntResult = {
   playerElement?: V2Element;
   monsterElement?: V2Element;
   elementMatchup?: ElementMatchup;
+  // 도전(미정복) 구역 클리어 시 갱신된 최고 도달 깊이.
+  maxDepth?: number;
 };
 
 // 드랍 배너용 — 재료(×N)와 장비 이름들을 자연스러운 한국어 문장으로 합친다.

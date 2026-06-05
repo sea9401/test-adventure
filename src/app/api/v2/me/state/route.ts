@@ -198,6 +198,7 @@ export async function GET() {
     materials?: unknown;
     lastVisitedOutpost?: { outpostId?: string; at?: number };
     discoveredOutpostIds?: string[];
+    frontierDepth?: unknown;
   };
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
@@ -418,6 +419,8 @@ export async function GET() {
     })(),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
+    // 무한 프론티어 최고 도달 깊이 (기본 2 = 들판+깊은산 해금).
+    frontierDepth: Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);

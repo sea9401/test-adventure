@@ -14,7 +14,8 @@ import {
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
-import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import { MAIN_DUNGEON, depthName } from "@/adventure/data/v2/dungeon";
+import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -26,7 +27,6 @@ import type {
 } from "@/adventure/data/v2/dungeonDrops";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10회 일괄 사냥 (한 번에 N회, 합산 결과).
@@ -50,8 +50,11 @@ export function V2DungeonFloorView({
   onSeekHealing,
   onBack,
   playerSubtitle,
+  frontierDepth = 2,
+  onFrontierUnlocked,
 }: {
-  floorId: DungeonFloorId;
+  // 깊이 숫자 (1=들판, 2=깊은 산, 3+=프론티어 — DungeonFloorId(1~8) 초과 가능).
+  floorId: number;
   outpostId: string;
   outpostName: string;
   playerName: string;
@@ -68,8 +71,20 @@ export function V2DungeonFloorView({
   onBack: () => void;
   // 전투 장면 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성").
   playerSubtitle?: string;
+  // 무한 프론티어 — 현재 최고 도달 깊이. floorId 가 이를 초과하면 도전(미정복) 구역.
+  frontierDepth?: number;
+  // 도전 성공 시 최고 깊이 갱신 콜백.
+  onFrontierUnlocked?: (newMaxDepth: number) => void;
 }) {
+  // 깊이 1·2 는 authored 층 객체 사용(이름/요구사항). 3+ 는 depthName/floorPowerGate 로 도출.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
+  const depth = Number(floorId);
+  const displayName = floor?.name ?? depthName(depth);
+  const powerGate = floor
+    ? (floor.requirement.kind === "power" ? floor.requirement.min : floorPowerGate(depth))
+    : floorPowerGate(depth);
+  // 도전(미정복) 여부 — 최고 도달 깊이+1 이 현재 깊이.
+  const isChallenge = depth > frontierDepth;
   const { busy, lastResult, hunt } = useDungeonHunt({
     outpostId,
     setStamina,
@@ -106,7 +121,6 @@ export function V2DungeonFloorView({
     !storyFlags.flags.includes(TUTORIAL_V2_FIRST_LEVELUP);
 
   const runBatch = async (count: number) => {
-    if (!floor) return;
     setSettingsOpen(false);
     setBatchSummary(null);
     setBatchRunning(true);
@@ -126,12 +140,15 @@ export function V2DungeonFloorView({
     let completed = 0;
 
     for (let i = 0; i < count; i++) {
-      const r = await hunt(floor.id);
+      const r = await hunt(depth);
       if (!r) {
         stoppedReason = "error";
         break;
       }
       recordHp(r);
+      if (isChallenge && r.won && r.maxDepth != null && r.maxDepth > frontierDepth) {
+        onFrontierUnlocked?.(r.maxDepth);
+      }
       completed++;
       setBatchProgress({ done: completed, total: count });
       if (r.won) wins++;
@@ -180,7 +197,8 @@ export function V2DungeonFloorView({
     setBatchRunning(false);
   };
 
-  if (!floor) {
+  // 깊이 1·2 는 authored 층 필수. 3+ 는 floor 없어도 OK (프론티어 — 데이터 도출).
+  if (!floor && depth < 3) {
     return (
       <main className="mx-auto max-w-[720px] space-y-4 p-6">
         <BackButton onClick={onBack} />
@@ -206,15 +224,20 @@ export function V2DungeonFloorView({
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         <BackButton onClick={onBack} />
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-lg font-bold">{floor.name}</h1>
+          <h1 className="text-lg font-bold">
+            {displayName}
+            {isChallenge && (
+              <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-normal text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                도전
+              </span>
+            )}
+          </h1>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {outpostName}
           </span>
         </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          {floor.requirement.kind === "power"
-            ? `권장 파워 ${floor.requirement.min}`
-            : `엔드 컨텐츠 ${floor.requirement.tier}`}
+          권장 파워 {powerGate}
         </p>
       </header>
 
@@ -225,8 +248,13 @@ export function V2DungeonFloorView({
             onClick={() => {
               setBatchSummary(null);
               if (huntCount === 1) {
-                void hunt(floor.id).then((r) => {
-                  if (r) recordHp(r);
+                void hunt(depth).then((r) => {
+                  if (r) {
+                    recordHp(r);
+                    if (isChallenge && r.won && r.maxDepth != null && r.maxDepth > frontierDepth) {
+                      onFrontierUnlocked?.(r.maxDepth);
+                    }
+                  }
                 });
               } else {
                 void runBatch(huntCount);

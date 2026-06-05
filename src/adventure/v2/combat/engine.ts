@@ -2977,6 +2977,12 @@ export function resolveBattle(
             minDamage: player.minDamage,
             healMult: player.healMult,
             maxHp: state.playerMaxHp,
+            // PR2-B — def/vit 비례 딜·현재HP(사혈격/기공순환)·maxMp(보호막/명상)·차수 flat.
+            def: player.def,
+            vit: player.vitStat,
+            currentHp: state.playerHp,
+            maxMp: state.playerMaxMp,
+            classTier: player.classTier,
             selfBuffs: tickedSelfBuffs,
             selfDebuffs: tickedSelfDebuffs,
             // PR-5b — 플레이어 평타 속성(baked) + 캐릭 속성(스킬 기본).
@@ -2990,6 +2996,12 @@ export function resolveBattle(
             selfDebuffs: tickedEnemyDebuffs,
             // PR-5b — 피격 몬스터 속성(상성).
             element: state.enemy.element,
+            // PR2-B — 처단(처형 임계)·스택 payoff(참절/중독폭발/비전작렬).
+            currentHp: state.enemyHp,
+            maxHp: state.enemy.hp,
+            bleedStacks: state.enemyV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
+            poisonStacks: state.enemyV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
+            magicVulnStacks: state.stacks.enemyMagicVulnStacks,
           },
         });
         // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
@@ -3165,6 +3177,10 @@ export function resolveBattle(
             mp: state.enemyMp,
             atk: state.enemy.atk,
             maxHp: state.enemy.hp, // monster.hp = max hp (정적)
+            // PR2-B — 상대 caster(Monster 타입)는 def/현재HP/maxMp 만(vit/차수 없음 → 기본값 안전).
+            def: state.enemy.def,
+            currentHp: state.enemyHp,
+            maxMp: state.enemyMaxMp,
             selfBuffs: tickedEnemySelfBuffs,
             selfDebuffs: tickedEnemyDebuffsLocal,
             // PR-5b — 몬스터 평타·스킬 모두 자기 속성(atk 에 baked). 보정=1(이중계산 방지).
@@ -3178,6 +3194,11 @@ export function resolveBattle(
             selfDebuffs: tickedPlayerDebuffs,
             // PR-5b — 피격 플레이어의 방어 속성(캐릭 속성).
             element: player.characterElement,
+            // PR2-B — 상대(플레이어)의 처단/스택 payoff 대상 = 시전자 player.
+            currentHp: state.playerHp,
+            maxHp: state.playerMaxHp,
+            bleedStacks: state.playerV2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
+            poisonStacks: state.playerV2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
           },
         });
         let nextPlayerHp = state.playerHp;

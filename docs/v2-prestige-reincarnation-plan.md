@@ -127,7 +127,9 @@ felt-growth 는 시간을 일정하게 잡아서가 아니라 **위 사냥터로
    (최고 도달, 구세이브 기본 2). hunt가 깊이 1~frontierDepth+1만 허용, +1 승리 시 해금. tsc0·
    1204테·Codex SHIP. ⚠️계수 전부 임시.
    **남은 것**: (a) **UI** — state에 frontierDepth 표면화 + 프론티어 깊이 선택 뷰(Codex 위임 후보).
-   (b) sim 캘리브(`sim-v2-exp-pacing` 프론티어=5일·`sim-v2-progression` 난이도/spi-luk).
+   (b) ✅ sim 셋업 완료(둘 다 프론티어 대응): exp-pacing=환생 루프(캡13=5.1일 역산), progression=
+       깊이 sweep(권장파워-매칭). 발견: **def 절벽 없음**(댐핑^0.6 정상)·DEX/LUK 깊이↑강화(SPD 확인)·
+       **INT/SPI baseline 약세=--skills 필요**(kit 문제, floor와 별개). 잔여=--skills 재측정·실측 교차.
    (c) 콘텐츠 — 깊이 밴드별 테마 몹 세트·재료 드랍(현 빈 풀)·아트(선택, 내 페이스).
 2. ~~power 지표 spd 가중(死축)~~ **정정(2026-06-05): SPD는 死축 아님 = 주력 축**. 코드 검증:
    다중공격(`EXTRA_ATTACK_PCT_PER_SPD 0.5`: DEX→SPD→추가타, 곱연산 DPS) + 선공(`player.spd>=enemy.spd`)

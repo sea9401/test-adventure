@@ -13,7 +13,7 @@ import {
   V2_HP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import { getJobSpec } from "@/adventure/data/v2/v2JobSpecs";
+import { getJobSpec, resolveSpecTrait } from "@/adventure/data/v2/v2JobSpecs";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -633,6 +633,54 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     });
     expect(d.player.passiveDefPenetrationPct).toBe(17); // 해금됨
     expect(d.player.atk).toBe(baseD.player.atk); // gwang_cut 미해금 → atk 불변
+  });
+
+  it("직업 특성 — resolveSpecTrait 차수 스케일(2차×1·3차×2·4차×3), 1차/미지정=inert", () => {
+    expect(resolveSpecTrait(gwang, 1)).toEqual({}); // 1차 = 특성 없음
+    expect(resolveSpecTrait(gwang, 2)).toEqual({ atkPctAdd: 4 });
+    expect(resolveSpecTrait(gwang, 3)).toEqual({ atkPctAdd: 8 });
+    expect(resolveSpecTrait(gwang, 4)).toEqual({ atkPctAdd: 12 });
+    expect(resolveSpecTrait(getJobSpec("rogue", "assassin"), 4)).toEqual({
+      critMultAdd: 0.45, // 0.15 × 3
+    });
+    expect(resolveSpecTrait(undefined, 3)).toEqual({});
+  });
+
+  it("광기(광검 특성) — 차수 3 → 공격력 +8%. 강철(기사)은 atk 무관(같은 차수 비교)", () => {
+    const gwang3 = derivePlayerCombatV2Pure({
+      ...base,
+      spec: gwang,
+      unlockedPassives: [],
+      classTier: 3,
+    });
+    const knight3 = derivePlayerCombatV2Pure({
+      ...base,
+      spec: knight,
+      unlockedPassives: [],
+      classTier: 3,
+    });
+    expect(gwang3.player.atk).toBe(Math.floor(knight3.player.atk * 1.08));
+  });
+
+  it("직업 특성은 계파 시그니처와 합산 — 사제 신성회복(4) + 신성 특성(차수4=+6) = 턴회복 10", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "cleric")!,
+      unlockedPassives: ["cleric_reflect"], // 신성 회복 4
+      classTier: 4, // 신성 특성 2 × 3 = 6
+    });
+    expect(d.player.passiveTurnHealPctMaxHp).toBe(10);
+  });
+
+  it("절제(워메이지 특성) → mpCostReductionPct (차수 3 = 8×2 = 16)", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      classTier: 3,
+    });
+    expect(d.player.mpCostReductionPct).toBe(16);
   });
 
   it("기사 패시브 — 무기 게이트 불통과(대검)면 완전 비활성", () => {

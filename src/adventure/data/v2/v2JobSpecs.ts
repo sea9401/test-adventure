@@ -80,6 +80,42 @@ export type V2SpecPassive = {
   effect: V2SpecPassiveEffect;
 };
 
+// 직업 특성(trait) — 계파마다 1개, 전직 시 자동 부여(픽 아님). 값은 "차수당 기본값" 으로,
+// resolveSpecTrait 가 차수(classTier)로 스케일한다: 2차=×1, 3차=×2, 4차=×3 (1차=계파 없음=0).
+// 효과는 계파 시그니처와 같은 방향으로 강화 → 같은 직군 계파끼리 차별. 전부 기존 PlayerCombat
+// 필드 재사용(절제 mpCostReductionPctAdd 만 신규 시전 훅). 수치 가안(balance P6).
+export type V2SpecTraitEffect = {
+  /** 광기 — 물리 공격력 +%(차수당). */
+  atkPctAdd?: number;
+  /** 강철 — 받는 피해 -%(차수당). */
+  damageTakenReductionPctAdd?: number;
+  /** 출혈숙련/맹독 — 출혈(중독) 피해/스택 +(차수당). */
+  bleedDmgPerStackAdd?: number;
+  /** 유연 — 회피 +%(차수당). */
+  evasionPctAdd?: number;
+  /** 흡정 — 흡혈 +%(차수당). */
+  lifestealPctAdd?: number;
+  /** 연계 — 추가 공격 확률 +%p(차수당). */
+  extraAttackChancePctAdd?: number;
+  /** 원소통달 — 마법 공격력 +%(차수당). */
+  magicAtkPctAdd?: number;
+  /** 절제 — 스킬 마나 소모 -%(차수당). */
+  mpCostReductionPctAdd?: number;
+  /** 신성 — 매 턴 maxHp 회복 +%(차수당). */
+  turnHealPctMaxHpAdd?: number;
+  /** 정밀 — 치명타 확률 +%p(차수당). */
+  critChancePctAdd?: number;
+  /** 암살 — 치명타 피해 배율 +(차수당). */
+  critMultAdd?: number;
+};
+
+export type V2SpecTrait = {
+  name: string;
+  desc: string;
+  /** 차수당 효과(2차=×1·3차=×2·4차=×3). resolveSpecTrait 가 스케일. */
+  effect: V2SpecTraitEffect;
+};
+
 export type V2JobSpec = {
   /** specChoice 저장 키. */
   id: string;
@@ -90,6 +126,8 @@ export type V2JobSpec = {
   requiredWeaponType: V2WeaponType;
   /** 3개 고정 키트(전직마다 1개씩 해금). */
   passives: readonly [V2SpecPassive, V2SpecPassive, V2SpecPassive];
+  /** 직업 특성 — 전직 시 자동 부여, 차수 성장. 무기 게이트 무관(계파 정체성 보강). */
+  trait?: V2SpecTrait;
 };
 
 // 전사(warrior) 3계파 — 극딜/탱/출혈. 수치 가안(balance P6).
@@ -104,6 +142,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
       { id: "gwang_pierce", name: "갑옷 가르기", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 17 } },
       { id: "gwang_crit", name: "광폭", desc: "방어를 버려 가하는 피해 증가", effect: { selfDefReductionPct: 20, dmgDealtPctAdd: 30 } },
     ],
+    trait: { name: "광기", desc: "공격력 증가(차수 성장)", effect: { atkPctAdd: 4 } },
   },
   {
     id: "knight", // 기사 — 몸빵 깡딜 탱
@@ -115,6 +154,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
       { id: "knight_counter", name: "방패치기", desc: "공격력에 방어력의 일부를 더함", effect: { atkFromDefPct: 40 } },
       { id: "knight_reflect", name: "흘려막기", desc: "낮은 확률로 피해를 완전히 무시", effect: { damageNullifyChancePct: 10 } },
     ],
+    trait: { name: "강철", desc: "받는 피해 감소(차수 성장)", effect: { damageTakenReductionPctAdd: 4 } },
   },
   {
     id: "gladiator", // 검투사 — 출혈 듀얼리스트
@@ -126,6 +166,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
       { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 8 } },
       { id: "gladiator_swift", name: "혈광", desc: "적이 출혈 중이면 추가 공격 확률 증가", effect: { extraAttackChancePctWhileEnemyBleeding: 15 } },
     ],
+    trait: { name: "출혈숙련", desc: "출혈 피해 증가(차수 성장)", effect: { bleedDmgPerStackAdd: 3 } },
   },
 ];
 
@@ -141,6 +182,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
       { id: "cheolsan_counter", name: "반격세", desc: "피격 후 확률 반격", effect: { counterChancePct: 20 } },
       { id: "cheolsan_reflect", name: "강체", desc: "받은 피해만큼 방어력 누적", effect: { defGainOnHitPct: 15 } },
     ],
+    trait: { name: "유연", desc: "회피 증가(차수 성장)", effect: { evasionPctAdd: 4 } },
   },
   {
     id: "gigong", // 혈권 — 흡혈 브루저
@@ -152,6 +194,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
       { id: "gigong_endure", name: "흡정공", desc: "가한 피해의 일부만큼 체력 흡수", effect: { lifestealPct: 10 } },
       { id: "gigong_burn", name: "내상", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 6 } },
     ],
+    trait: { name: "흡정", desc: "흡혈 증가(차수 성장)", effect: { lifestealPctAdd: 3 } },
   },
   {
     id: "yeonhwan", // 연환 — 콤보 격투가
@@ -163,6 +206,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
       { id: "yeonhwan_power", name: "연격세", desc: "적중할 때마다 공격력 누적", effect: { comboAtkPctPerHit: 4 } },
       { id: "yeonhwan_swift", name: "절초", desc: "연속 N타째 마무리 강타", effect: { comboFinisherBonusPct: 150 } },
     ],
+    trait: { name: "연계", desc: "추가 공격 확률 증가(차수 성장)", effect: { extraAttackChancePctAdd: 5 } },
   },
 ];
 
@@ -178,6 +222,7 @@ const MAGE_SPECS: readonly V2JobSpec[] = [
       { id: "arcane_burst", name: "원소 폭발", desc: "치명 데미지 증가", effect: { critMultAdd: 0.3 } },
       { id: "arcane_ignite", name: "약점 노출", desc: "스킬 적중 시 대상 받는 마법피해 증가(중첩)", effect: { enemyMagicVulnPctPerStack: 5 } },
     ],
+    trait: { name: "원소통달", desc: "마법 공격력 증가(차수 성장)", effect: { magicAtkPctAdd: 5 } },
   },
   {
     id: "battlemage", // 워메이지 — 시전 누적 난사
@@ -189,6 +234,7 @@ const MAGE_SPECS: readonly V2JobSpec[] = [
       { id: "battlemage_ward", name: "마력 순환", desc: "매 턴 마나 회복", effect: { mpRegenPerTurn: 8 } },
       { id: "battlemage_blade", name: "주문 연사", desc: "스킬 발동 확률 증가", effect: { skillProcChanceAdd: 15 } },
     ],
+    trait: { name: "절제", desc: "스킬 마나 소모 감소(차수 성장)", effect: { mpCostReductionPctAdd: 8 } },
   },
   {
     id: "cleric", // 사제 — 자힐 신성 탱
@@ -200,6 +246,7 @@ const MAGE_SPECS: readonly V2JobSpec[] = [
       { id: "cleric_power", name: "신성력", desc: "마법 공격력 증가", effect: { magicAtkPctAdd: 12 } },
       { id: "cleric_reflect", name: "신성 회복", desc: "매 턴 체력 회복(자힐)", effect: { hpRegenPctPerTurn: 4 } },
     ],
+    trait: { name: "신성", desc: "매 턴 체력 회복 증가(차수 성장)", effect: { turnHealPctMaxHpAdd: 2 } },
   },
 ];
 
@@ -215,6 +262,7 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
       { id: "archery_aim", name: "난사", desc: "추가타로 적중 시 그 타격 피해 증가", effect: { extraHitDmgPct: 20 } },
       { id: "archery_pierce", name: "관통사격", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 14 } },
     ],
+    trait: { name: "정밀", desc: "치명타 확률 증가(차수 성장)", effect: { critChancePctAdd: 3 } },
   },
   {
     id: "assassin", // 자객 — 크리 폭발
@@ -226,6 +274,7 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
       { id: "assassin_flurry", name: "그림자 연격", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
       { id: "assassin_edge", name: "급습", desc: "치명타 확률 증가", effect: { critChancePctAdd: 15 } },
     ],
+    trait: { name: "암살", desc: "치명타 피해 증가(차수 성장)", effect: { critMultAdd: 0.15 } },
   },
   {
     id: "venom", // 독사 — 독 부식
@@ -237,6 +286,7 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
       { id: "venom_flurry", name: "연속 독격", desc: "추가타 확률(독 적중 증가)", effect: { extraAttackChancePct: 16 } },
       { id: "venom_corrode", name: "부식", desc: "중독된 적 방어력 감소", effect: { poisonedEnemyDefReductionPct: 20 } },
     ],
+    trait: { name: "맹독", desc: "중독 피해 증가(차수 성장)", effect: { bleedDmgPerStackAdd: 4 } },
   },
 ];
 
@@ -263,6 +313,29 @@ export function getSpecById(specId: string): V2JobSpec | undefined {
     if (found) return found;
   }
   return undefined;
+}
+
+/**
+ * 직업 특성을 차수(classTier)로 스케일한 효과를 반환한다.
+ * trait.effect 는 "차수당 기본값" — 2차=×1, 3차=×2, 4차=×3 (steps = classTier-1).
+ * spec/trait 없음·1차(steps≤0)면 빈 효과(inert). 무기 게이트와 무관(계파 정체성 보강).
+ * 순수 함수 — derive 가 이 결과를 PlayerCombat 필드에 합산한다.
+ */
+export function resolveSpecTrait(
+  spec: V2JobSpec | undefined,
+  classTier: number | undefined,
+): V2SpecTraitEffect {
+  if (!spec?.trait) return {};
+  const steps = Math.max(0, Math.floor(classTier ?? 1) - 1);
+  if (steps <= 0) return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(spec.trait.effect)) {
+    // 반올림(4자리) — critMultAdd 0.15×3 같은 float 드리프트 제거(0.4499… → 0.45).
+    if (typeof v === "number" && v !== 0) {
+      out[k] = Math.round(v * steps * 10000) / 10000;
+    }
+  }
+  return out as V2SpecTraitEffect;
 }
 
 /**

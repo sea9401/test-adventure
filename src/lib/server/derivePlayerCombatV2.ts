@@ -69,6 +69,7 @@ import {
 import {
   aggregateSpecPassives,
   getSpecById,
+  resolveSpecTrait,
   type V2JobSpec,
 } from "@/adventure/data/v2/v2JobSpecs";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
@@ -456,17 +457,24 @@ export function derivePlayerCombatV2Pure(
     input.unlockedPassives ?? [],
     weaponTypeOf(v2Equipped.weapon),
   );
+  // 직업 특성 — 계파별 자동 부여, 차수(classTier) 성장. 무기 게이트 무관. 계파 시그니처와
+  // 같은 방향으로 합산되어 정체성 강화. spec 없음·1차면 {} (inert). 수치 가안(P6).
+  const traitEff = resolveSpecTrait(input.spec, input.classTier);
   // 합산(없거나 0 = undefined 유지 → 미보유 시 객체 모양 불변).
   const sumOrUndef = (a: number | undefined, b: number | undefined) => {
     const t = (a ?? 0) + (b ?? 0);
     return t > 0 ? t : undefined;
   };
   // 물공%·속도% = 곱(0이면 곱/floor 미적용 — inert 보장). 명중%·크리뎀·추가타 = 가산(+0 항등).
-  let specAtk = specEff.atkPctAdd
-    ? Math.floor(finalAtk * (1 + specEff.atkPctAdd / 100))
+  // 직업 특성(광기 atk%·원소통달 magicAtk%)은 계파 %와 가산 후 한 번에 곱.
+  const totalAtkPct = (specEff.atkPctAdd ?? 0) + (traitEff.atkPctAdd ?? 0);
+  let specAtk = totalAtkPct
+    ? Math.floor(finalAtk * (1 + totalAtkPct / 100))
     : finalAtk;
-  let specMagicAtk = specEff.magicAtkPctAdd
-    ? Math.floor(finalMagicAtk * (1 + specEff.magicAtkPctAdd / 100))
+  const totalMagicAtkPct =
+    (specEff.magicAtkPctAdd ?? 0) + (traitEff.magicAtkPctAdd ?? 0);
+  let specMagicAtk = totalMagicAtkPct
+    ? Math.floor(finalMagicAtk * (1 + totalMagicAtkPct / 100))
     : finalMagicAtk;
   const specSpd = specEff.spdPctAdd
     ? Math.floor(spd * (1 + specEff.spdPctAdd / 100))
@@ -486,6 +494,17 @@ export function derivePlayerCombatV2Pure(
     specMagicAtk = Math.floor(specMagicAtk * m);
   }
 
+  // 직업 특성 — 계파 시그니처와 같은 훅을 공유하는 효과는 합산(강철↔받피감, 출혈숙련/맹독↔출혈,
+  // 흡정↔흡정공). 0 이면 spread 생략(inert). 절제(mpCostReductionPct)는 신규 시전 훅.
+  const totalDamageTakenReductionPct =
+    (specEff.damageTakenReductionPct ?? 0) +
+    (traitEff.damageTakenReductionPctAdd ?? 0);
+  const totalBleedDmgPerStack =
+    (specEff.bleedDmgPerStack ?? 0) + (traitEff.bleedDmgPerStackAdd ?? 0);
+  const totalLifestealPct =
+    (specEff.lifestealPct ?? 0) + (traitEff.lifestealPctAdd ?? 0);
+  const mpCostReductionPct = traitEff.mpCostReductionPctAdd ?? 0;
+
   const player: PlayerCombat = {
     hp,
     maxHp,
@@ -496,14 +515,19 @@ export function derivePlayerCombatV2Pure(
     magicAtk: specMagicAtk,
     def: specDef,
     spd: specSpd,
-    evasionPct,
+    evasionPct: evasionPct + (traitEff.evasionPctAdd ?? 0), // + 유연
     accuracyPct: accuracyPct + (specEff.accuracyPctAdd ?? 0),
     attackCount: 1,
     extraAttackChancePct:
-      extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),
-    critChancePct: critChancePct + (specEff.critChancePctAdd ?? 0), // 급습
+      extraAttackChancePct +
+      (specEff.extraAttackChancePct ?? 0) +
+      (traitEff.extraAttackChancePctAdd ?? 0), // + 연계
+    critChancePct:
+      critChancePct +
+      (specEff.critChancePctAdd ?? 0) + // 급습
+      (traitEff.critChancePctAdd ?? 0), // + 정밀
     critMult: Math.min(
-      finalCritMult + (specEff.critMultAdd ?? 0),
+      finalCritMult + (specEff.critMultAdd ?? 0) + (traitEff.critMultAdd ?? 0), // + 암살
       CRIT_MULT_CAP,
     ),
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
@@ -515,8 +539,8 @@ export function derivePlayerCombatV2Pure(
     // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 계파 효과는 합산(sumOrUndef).
     passiveTurnHealPctMaxHp: sumOrUndef(
       passive?.turnHealPctMaxHp,
-      specEff.hpRegenPctPerTurn,
-    ), // 사제 + 신성 회복(기존 턴회복 훅 재사용)
+      (specEff.hpRegenPctPerTurn ?? 0) + (traitEff.turnHealPctMaxHpAdd ?? 0),
+    ), // 사제 신성회복 + 신성 특성(기존 턴회복 훅 재사용)
     passiveDefPenetrationPct: sumOrUndef(
       passive?.defPenetrationPct,
       specEff.defPenetrationPct,
@@ -527,16 +551,21 @@ export function derivePlayerCombatV2Pure(
     ), // 무도가 + 철벽검류
     passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사
     // 계파 신규 효과 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈.
-    ...(specEff.damageTakenReductionPct
-      ? { passiveDamageTakenReductionPct: specEff.damageTakenReductionPct }
+    // 받피감=방패숙련/가호 + 강철 특성, 출혈=유혈/내상/맹독 + 출혈숙련/맹독 특성 합산.
+    ...(totalDamageTakenReductionPct > 0
+      ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }
       : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
-    ...(specEff.bleedDmgPerStack
-      ? { bleedDmgPerStack: specEff.bleedDmgPerStack }
+    ...(totalBleedDmgPerStack > 0
+      ? { bleedDmgPerStack: totalBleedDmgPerStack }
       : {}),
-    // 흡정공 — 기존 흡혈 훅(enchantLifestealPct) 재사용: 가한 피해의 % HP 회복.
-    ...(specEff.lifestealPct
-      ? { enchantLifestealPct: specEff.lifestealPct }
+    // 흡정공/흡정 — 기존 흡혈 훅(enchantLifestealPct) 재사용: 가한 피해의 % HP 회복.
+    ...(totalLifestealPct > 0
+      ? { enchantLifestealPct: totalLifestealPct }
+      : {}),
+    // 절제(워메이지 특성) — 스킬 마나 소모 -%. 엔진 시전부가 v2SkillMpCost 에 곱연산.
+    ...(mpCostReductionPct > 0
+      ? { mpCostReductionPct: mpCostReductionPct }
       : {}),
     // 주문 연사 — 엔진이 resolveV2SkillCast 의 procChance 에 합산.
     ...(specEff.skillProcChanceAdd

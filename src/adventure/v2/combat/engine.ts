@@ -495,6 +495,8 @@ export type PlayerCombat = {
   skillDmgPctPerCast?: number;
   // 마도사 약점 노출 — 스킬 적중 시 적 마법취약 +1스택, 스택당 받는 마법피해 +%. 0/undefined=미보유.
   enemyMagicVulnPctPerStack?: number;
+  // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
+  mpCostReductionPct?: number;
 };
 
 
@@ -3017,6 +3019,18 @@ export function resolveBattle(
                 state.stacks.enemyMagicVulnStacks + 1,
               )
             : state.stacks.enemyMagicVulnStacks;
+        // 절제(워메이지 특성) — 스킬 마나 소모 -%. resolveV2SkillCast 가 이미 풀 코스트를 깐
+        // result.nextMp 에, 소모분(costPaid)의 pct% 를 환급. 미시전이면 costPaid 0 → 무변.
+        const mpCostReduction = player.mpCostReductionPct ?? 0;
+        const costPaid = state.playerMp - result.nextMp;
+        const mpRefund =
+          mpCostReduction > 0 && costPaid > 0
+            ? Math.floor((costPaid * mpCostReduction) / 100)
+            : 0;
+        const adjustedNextMp = Math.min(
+          state.playerMaxMp,
+          result.nextMp + mpRefund,
+        );
         // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
         let nextEnemyHp = state.enemyHp;
         let nextPlayerHp = state.playerHp;
@@ -3071,7 +3085,7 @@ export function resolveBattle(
           ...state,
           playerHp: nextPlayerHp,
           enemyHp: nextEnemyHp,
-          playerMp: result.nextMp,
+          playerMp: adjustedNextMp,
           v2SkillCooldowns: result.nextCooldowns,
           v2SelfBuffs: nextSelfBuffs,
           v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)

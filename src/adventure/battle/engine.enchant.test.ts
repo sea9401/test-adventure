@@ -494,6 +494,36 @@ describe("주문중첩/약점노출 — 스킬 데미지 스택 (resolveBattle �
   });
 });
 
+describe("mpCostReductionPct — 워메이지 절제 (스킬 마나 소모 환급)", () => {
+  // 1방 시전으로 적 처치(적 선공 전) → finalState.playerMp = 시작MP − 순소모.
+  const run = (over: Partial<PlayerCombat>) => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 100,
+      maxMp: 1000,
+      mp: 1000,
+      ...over,
+    };
+    const r = resolveBattle(player, enemy({ hp: 50, def: 0, spd: 1 }), "용사", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2_skill_strike"],
+        equipped: ["v2_skill_strike"],
+      },
+    });
+    return r.finalState;
+  };
+
+  it("마나 소모 -50% → 1회 시전 후 MP 가 평타보다 더 남음", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const plain = run({});
+    const frugal = run({ mpCostReductionPct: 50 });
+    expect(plain.outcome).toBe("win");
+    expect(frugal.playerMp).toBeGreaterThan(plain.playerMp); // 소모분 환급
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

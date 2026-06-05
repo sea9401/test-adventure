@@ -7,7 +7,13 @@
 // 표시 이름(name)은 지형에 맞춘 v2 고유 이름이고, 스탯/스킬 출처(key)는 라이브 MONSTERS.
 // 둘이 분리돼 있어 출처가 무엇이든 지형에 맞는 이름을 붙인다.
 
-import type { Dungeon, DungeonEnemy, DungeonFloorId } from "./types";
+import type {
+  Dungeon,
+  DungeonEnemy,
+  DungeonFloor,
+  DungeonFloorId,
+} from "./types";
+import { floorPowerGate } from "./dungeonLadder";
 
 // === 1구역 — 들판 ====================================================
 // 신캐 Lv1 도 안전한 풀. 상태이상 없음(온보딩 보호). 자연 속성만.
@@ -32,19 +38,28 @@ const FLOOR2_ENEMIES: DungeonEnemy[] = [
   { key: "들소", name: "들소", image: "/images/monster/v2/mountain-bison.webp", element: "fire" },
 ];
 
-// === 구역별 난이도 multiplier =======================================
-// hp/atk/def/exp 에 동시 적용. 활성 구역(1·2)은 ×1.0. 3~8 키는 휴면(도달 불가)이나
-// DungeonFloorId(1~8)·scaleMonsterForFloor 호환 위해 보존.
-export const FLOOR_DIFFICULTY: Record<DungeonFloorId, number> = {
-  1: 1.0,
-  2: 1.0,
-  3: 1.0,
-  4: 1.0,
-  5: 1.0,
-  6: 1.2,
-  7: 2.0,
-  8: 4.0,
+// === 구역별 난이도 = 사다리 제너레이터 ================================
+// 난이도/exp 배율은 dungeonLadder(floorStatMult/DefMult/ExpMult)가 깊은 산(2) 앵커 대비
+// 자동 산출 → scaleMonsterForFloor 가 적용. (옛 FLOOR_DIFFICULTY Record 폐지, 공식으로 일원화.)
+
+// floors 3~8 — 사다리 자동 생성. 권장 파워 = floorPowerGate(§5.1, K=2 간격 40).
+// ⚠️ 플레이스홀더: 몹은 깊은 산 풀 재사용·이름은 임시 테마. 추후 권역별 몹/아트/이름 테마링 필요.
+const LADDER_FLOOR_NAMES: Record<number, string> = {
+  3: "협곡",
+  4: "빙하 지대",
+  5: "화산",
+  6: "고대 폐허",
+  7: "심연",
+  8: "정점",
 };
+const LADDER_FLOORS: DungeonFloor[] = (
+  [3, 4, 5, 6, 7, 8] as DungeonFloorId[]
+).map((id) => ({
+  id,
+  name: LADDER_FLOOR_NAMES[id],
+  requirement: { kind: "power", min: floorPowerGate(id) },
+  enemies: FLOOR2_ENEMIES,
+}));
 
 export const MAIN_DUNGEON: Dungeon = {
   id: "main",
@@ -53,14 +68,15 @@ export const MAIN_DUNGEON: Dungeon = {
     {
       id: 1,
       name: "들판",
-      requirement: { kind: "power", min: 50 },
+      requirement: { kind: "power", min: floorPowerGate(1) },
       enemies: FLOOR1_ENEMIES,
     },
     {
       id: 2,
       name: "깊은 산",
-      requirement: { kind: "power", min: 110 },
+      requirement: { kind: "power", min: floorPowerGate(2) },
       enemies: FLOOR2_ENEMIES,
     },
+    ...LADDER_FLOORS,
   ],
 };

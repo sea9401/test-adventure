@@ -11,7 +11,9 @@ import {
   MAX_LEVEL,
 } from "../src/lib/leveling";
 import { MONSTERS } from "../src/adventure/data/monsters";
-import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "../src/adventure/data/v2/dungeon";
+import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
+import { floorExpMult } from "../src/adventure/data/v2/dungeonLadder";
+import type { DungeonFloorId } from "../src/adventure/data/v2/types";
 
 const SECONDS_PER_TURN = 2;
 const NEW_MAX_STAMINA = 5000;
@@ -72,8 +74,8 @@ type Dial = {
 };
 
 function expPerHuntForDial(lv: number, floor: FloorInfo, dial: Dial): number {
-  const diffMult = FLOOR_DIFFICULTY[floor.id as 1] ?? 1;
-  const mobExp = floor.avgExp * diffMult;
+  const expMult = floorExpMult(floor.id as DungeonFloorId);
+  const mobExp = floor.avgExp * expMult;
   const band = dial.bandOverride ? dial.bandOverride(lv) : levelBandExpMultiplier(lv);
   const newbie = applyNewbieBonus(1, lv).gained;
   const rate = dial.xpRate ?? 1;

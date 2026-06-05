@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
+import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -68,6 +69,7 @@ type StateResponse = {
       points?: number;
       cultivations?: number;
     };
+    groups?: Record<string, { tier?: number }>;
   };
 };
 
@@ -112,6 +114,12 @@ export function V2CharacterScreen({
   const stats = state?.stats;
   const combat = state?.combat;
   const equipped = equipment?.equipped ?? {};
+  const currentGroup = state?.proficiency?.current?.group ?? "none";
+  const currentTier =
+    currentGroup === "none"
+      ? null
+      : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+  const levelCap = currentTier == null ? null : tierLevelCap(currentTier);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -126,6 +134,7 @@ export function V2CharacterScreen({
         <V2CharacterCard
           character={character}
           guild={guild}
+          levelCap={levelCap}
           equipped={equipped}
           owned={equipment?.owned ?? []}
         />

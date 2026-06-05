@@ -26,6 +26,7 @@ import {
   parseV2Element,
   V2_ELEMENT_LABEL,
 } from "@/adventure/data/v2/elements";
+import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -55,6 +56,7 @@ type GameStateValue = {
   accountName: string | null;
   viewerGender: Gender;
   viewerLevel: number;
+  viewerLevelCap: number | null;
   viewerClass: string;
   viewerElement: string;
   playerSubtitle: string;
@@ -72,6 +74,7 @@ type GameStateValue = {
   occupations: Occupation[];
   refreshOccupations: () => Promise<void>;
   refreshGuildId: () => Promise<void>;
+  refreshGameState: () => Promise<void>;
   // 무한 프론티어 — 최고 도달 깊이(기본 2). 사냥터 목록·층 뷰에 전달.
   frontierDepth: number;
   setFrontierDepth: React.Dispatch<React.SetStateAction<number>>;
@@ -109,6 +112,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
   // 전투 장면 부제(레벨·직업·속성) 표기용 — me/state 에서 초기화.
   const [viewerLevel, setViewerLevel] = useState<number>(1);
+  const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
   const [viewerElement, setViewerElement] = useState<string>("neutral");
   // 기본값 = 시작 거점(중앙 자유 도시). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
@@ -154,6 +158,72 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const refreshGameState = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/state");
+      if (res.ok) {
+        const j = (await res.json()) as {
+          character?: {
+            name?: string;
+            gender?: string;
+            level?: number;
+            class?: string;
+            element?: string;
+            hp?: number;
+            maxHp?: number;
+            stamina?: { current: number; lastUpdatedAt: number };
+          };
+          currentOutpost?: { id: string; name: string } | null;
+          discoveredOutpostIds?: string[];
+          accountName?: string | null;
+          frontierDepth?: number;
+          proficiency?: {
+            groups?: Record<string, { tier?: number }>;
+            current?: { group?: string };
+          };
+        } | null;
+        if (j?.character?.name) setViewerName(j.character.name);
+        setAccountName(j?.accountName ?? null);
+        if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
+        if (typeof j?.character?.level === "number")
+          setViewerLevel(j.character.level);
+        if (j?.character?.class) setViewerClass(j.character.class);
+        if (j?.character?.element) setViewerElement(j.character.element);
+        const currentGroup = j?.proficiency?.current?.group ?? "none";
+        const currentTier =
+          currentGroup === "none"
+            ? null
+            : (j?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+        setViewerLevelCap(
+          currentTier == null ? null : tierLevelCap(currentTier),
+        );
+        if (j?.character?.stamina) {
+          setStamina({
+            current: j.character.stamina.current,
+            lastUpdatedAt: j.character.stamina.lastUpdatedAt,
+          });
+        }
+        if (
+          typeof j?.character?.hp === "number" &&
+          typeof j?.character?.maxHp === "number"
+        ) {
+          setHp({
+            hp: j.character.hp,
+            maxHp: j.character.maxHp,
+            anchorMs: Date.now(),
+          });
+        }
+        if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
+        if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
+          setDiscoveredIds(new Set(j.discoveredOutpostIds));
+        }
+        if (typeof j?.frontierDepth === "number") {
+          setFrontierDepth(Math.max(2, j.frontierDepth));
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     refreshOccupations();
     refreshGuildId();
@@ -166,60 +236,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
     })();
-    (async () => {
-      try {
-        const res = await fetch("/api/v2/me/state");
-        if (res.ok) {
-          const j = (await res.json()) as {
-            character?: {
-              name?: string;
-              gender?: string;
-              level?: number;
-              class?: string;
-              element?: string;
-              hp?: number;
-              maxHp?: number;
-              stamina?: { current: number; lastUpdatedAt: number };
-            };
-            currentOutpost?: { id: string; name: string } | null;
-            discoveredOutpostIds?: string[];
-            accountName?: string | null;
-            frontierDepth?: number;
-          } | null;
-          if (j?.character?.name) setViewerName(j.character.name);
-          setAccountName(j?.accountName ?? null);
-          if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
-          if (typeof j?.character?.level === "number")
-            setViewerLevel(j.character.level);
-          if (j?.character?.class) setViewerClass(j.character.class);
-          if (j?.character?.element) setViewerElement(j.character.element);
-          if (j?.character?.stamina) {
-            setStamina({
-              current: j.character.stamina.current,
-              lastUpdatedAt: j.character.stamina.lastUpdatedAt,
-            });
-          }
-          if (
-            typeof j?.character?.hp === "number" &&
-            typeof j?.character?.maxHp === "number"
-          ) {
-            setHp({
-              hp: j.character.hp,
-              maxHp: j.character.maxHp,
-              anchorMs: Date.now(),
-            });
-          }
-          if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
-          if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
-            setDiscoveredIds(new Set(j.discoveredOutpostIds));
-          }
-          if (typeof j?.frontierDepth === "number") {
-            setFrontierDepth(Math.max(2, j.frontierDepth));
-          }
-        }
-      } catch {}
-    })();
-  }, [refreshOccupations, refreshGuildId]);
+    void refreshGameState();
+  }, [refreshOccupations, refreshGuildId, refreshGameState]);
 
   // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
   // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.
@@ -331,7 +349,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
-  const playerSubtitle = `Lv.${viewerLevel} · ${
+  const playerLevelText = viewerLevelCap
+    ? `Lv ${viewerLevel} / ${viewerLevelCap}`
+    : `Lv.${viewerLevel}`;
+  const playerSubtitle = `${playerLevelText} · ${
     V2_CLASS_DEFS[parseV2Class(viewerClass)].name
   } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
 
@@ -342,6 +363,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     accountName,
     viewerGender,
     viewerLevel,
+    viewerLevelCap,
     viewerClass,
     viewerElement,
     playerSubtitle,
@@ -356,6 +378,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     occupations,
     refreshOccupations,
     refreshGuildId,
+    refreshGameState,
     frontierDepth,
     setFrontierDepth,
     enterOutpost,

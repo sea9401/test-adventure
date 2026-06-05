@@ -17,6 +17,7 @@ import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
 import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
 import { TabBar } from "@/components/ui/TabBar";
+import { useGameState } from "./GameStateProvider";
 
 // 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
 type ShrineTab = "job" | "cultivate";
@@ -52,6 +53,7 @@ type StateShape = {
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
+  const { refreshGameState } = useGameState();
   // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
@@ -186,7 +188,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
               gold={picker.gold}
               groups={picker.groups}
               advance={picker.advance}
-              onChanged={refresh}
+              onChanged={async () => {
+                await Promise.all([refresh(), refreshGameState()]);
+              }}
             />
             {specState && picker.cls !== "none" && (
               <V2SpecPanel spec={specState} onChanged={refresh} />

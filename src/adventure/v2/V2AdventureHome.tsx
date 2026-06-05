@@ -17,6 +17,7 @@ import type {
   V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 
 // 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
@@ -34,6 +35,10 @@ type StateResponse = {
   ok?: boolean;
   character?: V2CharacterCardData;
   guild?: { id: number; name: string } | null;
+  proficiency?: {
+    groups?: Record<string, { tier?: number }>;
+    current?: { group?: string };
+  };
   currentOutpost?: {
     id: string;
     name: string;
@@ -128,6 +133,12 @@ export function V2AdventureHome({
   );
 
   const occupation = state?.currentOutpost?.occupation ?? null;
+  const currentGroup = state?.proficiency?.current?.group ?? "none";
+  const currentTier =
+    currentGroup === "none"
+      ? null
+      : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+  const levelCap = currentTier == null ? null : tierLevelCap(currentTier);
   const treasuryGold = state?.currentOutpost?.treasuryGold ?? 0;
   const viewerGuildId = state?.guild?.id ?? null;
   // 점령 길드원인지 — 세금 회수 권한 판정.
@@ -176,6 +187,7 @@ export function V2AdventureHome({
           <V2CharacterCard
             character={state.character}
             guild={state.guild ?? null}
+            levelCap={levelCap}
             showGold={true}
             equipped={equipped}
             owned={owned}

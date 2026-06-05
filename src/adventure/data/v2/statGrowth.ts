@@ -14,7 +14,6 @@ import {
   V2_FLOOR_PER_PROF,
   V2_TIER_FLOOR_MULT,
   V2_FLOOR_ANCHOR_WEIGHT,
-  V2_FLOOR_RELATED_WEIGHT,
   type V2ProficiencyState,
 } from "./proficiency";
 
@@ -36,11 +35,13 @@ export function computeStatFloors(
     const profile = V2_CULTIVATE_PROFILE[group];
     if (!profile || g.cumLevel <= 0) continue;
     const tierMult = V2_TIER_FLOOR_MULT[g.tier] ?? 1;
-    const anchor = V2_CLASS_DEFS[group as V2Class]?.anchorStat;
+    // 프로필 값 비례 가중 — 최댓값 스탯(직군 주력)=1.0, 나머지는 값 비율. cap(수행)과 동일 규칙.
+    // 앵커-이진 폐기: mage {int:2,spi:2} 의 spi 가 int 와 동급 floor 를 받는다(spi/luk 고향 부여).
+    const maxVal = Math.max(...V2_STAT_KEYS.map((s) => profile[s] ?? 0));
     for (const stat of V2_STAT_KEYS) {
-      if ((profile[stat] ?? 0) <= 0) continue;
-      const weight =
-        stat === anchor ? V2_FLOOR_ANCHOR_WEIGHT : V2_FLOOR_RELATED_WEIGHT;
+      const pv = profile[stat] ?? 0;
+      if (pv <= 0) continue;
+      const weight = (pv / maxVal) * V2_FLOOR_ANCHOR_WEIGHT;
       floors[stat] += g.cumLevel * V2_FLOOR_PER_PROF * tierMult * weight;
     }
   }

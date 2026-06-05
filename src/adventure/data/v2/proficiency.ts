@@ -232,9 +232,9 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
   3: 1.3,
   4: 1.5,
 };
-// 직업 프로필 floor 가중 — 앵커 1.0, 관련 0.4.
-export const V2_FLOOR_ANCHOR_WEIGHT = 1.0;
-export const V2_FLOOR_RELATED_WEIGHT = 0.4;
+// 직업 프로필 floor 가중 — 프로필 값 비례(최댓값 스탯=1.0, 나머지는 값 비율). cap(수행)과 동일
+// 규칙. 옛 앵커-이진(1.0/0.4)은 mage {int:2,spi:2} 의 spi 를 0.4 로 홀대 → 값 비례로 통일.
+export const V2_FLOOR_ANCHOR_WEIGHT = 1.0; // 프로필 최댓값 스탯(직군 주력)의 floor 가중.
 
 // 시그니처 학습 비용(숙달 포인트) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
 export const V2_SIGNATURE_LEARN_COST: Record<number, number> = {

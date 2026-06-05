@@ -68,8 +68,8 @@ describe("v2 랜덤 레벨 성장", () => {
 
 describe("v2 스탯 floor", () => {
   it("computeStatFloors — 총(전 스탯) + 직군 누적레벨(프로필·차수 가중)", () => {
-    // 검술(warrior) cumLevel 200, tier1. 총=200×0.015=3(전 스탯). 직군: str(앵커1.0)·dex/luk(0.4).
-    // 입력 earned→cumLevel 전환(2026-06): FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
+    // 전사(warrior {str:2,vit:1,dex:1}) cumLevel 200, tier1. 총=200×0.015=3(전 스탯).
+    // 프로필 값 비례: str(2/2=1.0)·vit/dex(1/2=0.5). FLOOR_GLOBAL 0.015·FLOOR_PER_PROF 0.05.
     const prof = parseProficiency({
       groups: {
         warrior: { points: 10, cultivations: 0, tier: 1, cumLevel: 200 },
@@ -78,10 +78,29 @@ describe("v2 스탯 floor", () => {
     const f = computeStatFloors(prof);
     // str = base + 3(총) + 200×0.05×1×1.0 = base + 3 + 10
     expect(f.str).toBe(V2_BASE_STATS.str + 3 + 10);
-    // dex = base + 3(총) + 200×0.05×1×0.4 = base + 3 + 4
-    expect(f.dex).toBe(V2_BASE_STATS.dex + 3 + 4);
+    // dex = base + 3(총) + 200×0.05×1×0.5 = base + 3 + 5
+    expect(f.dex).toBe(V2_BASE_STATS.dex + 3 + 5);
     // int(프로필 외) = base + 3(총만)
     expect(f.int).toBe(V2_BASE_STATS.int + 3);
+  });
+
+  it("computeStatFloors — 프로필 값 비례: 마법사 spi=int·도적 luk=dex (값2 동급)", () => {
+    // 옛 앵커-이진에선 spi/luk 이 0.4 로 홀대됐으나, 값 비례에서 값2는 모두 1.0(주력 동급).
+    const mage = computeStatFloors(
+      parseProficiency({
+        groups: { mage: { points: 0, cultivations: 0, tier: 1, cumLevel: 200 } },
+      }),
+    );
+    // mage {int:2, spi:2} — 둘 다 최댓값 → floor 1.0 동급 = base + 3 + 10.
+    expect(mage.int).toBe(V2_BASE_STATS.int + 3 + 10);
+    expect(mage.spi).toBe(mage.int);
+    const rogue = computeStatFloors(
+      parseProficiency({
+        groups: { rogue: { points: 0, cultivations: 0, tier: 1, cumLevel: 200 } },
+      }),
+    );
+    // rogue {dex:2, luk:2} — luk 이 dex 와 동급.
+    expect(rogue.luk).toBe(rogue.dex);
   });
 
   it("computeStatFloors — 차수 높을수록 floor↑, 빈 숙련도는 base", () => {

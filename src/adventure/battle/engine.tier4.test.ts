@@ -23,13 +23,13 @@ function enemy(hp = 100): Monster {
 
 describe("4티어 — 출혈", () => {
   it("적중 시 스택 누적, 다음 적 턴 시작에 스택당 고정 피해(DEF 무시)", () => {
-    const p: PlayerCombat = { ...PLAYER, bleedDmgPerStack: 3 };
+    const p: PlayerCombat = { ...PLAYER, bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 } };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 플레이어 턴: 7 피해 → 93, 출혈 1스택
     expect(s.enemyHp).toBe(93);
-    expect(s.stacks.bleedStacks).toBe(1);
-    s = advanceTurn(s, p, "용사"); // 적 턴: 출혈 1×3 → 90, 그 뒤 적 공격 3 → 플레이어 47
-    expect(s.enemyHp).toBe(90);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(1);
+    s = advanceTurn(s, p, "용사"); // 적 턴: 출혈 1×(3 + ATK×0.08) → 89.2, 그 뒤 적 공격 3 → 플레이어 47
+    expect(s.enemyHp).toBe(89.2);
     expect(s.playerHp).toBe(47);
     expect(s.stacks.damageTakenThisCombat).toBe(3);
   });

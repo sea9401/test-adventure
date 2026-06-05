@@ -8,8 +8,7 @@
 //     양쪽 모두에 대칭으로 적용. (포션은 PvP 디자인상 사용 불가 — 라우트가 미전달.)
 //   - state.enemy.X → defender.player.X (현재 페이즈에서 방어자 측)
 //   - state.buffs/flags/stacks/turn → attacker.buffs/flags/stacks/turn (현재 페이즈에서 공격자 측)
-//   - 출혈 도트는 "공격자가 상대에게 쌓아둔 스택" 으로 attacker.stacks.bleedStacksOnOpponent 에 보관.
-//     상대(defender) 턴 시작 시, attacker(=직전 페이즈에서 공격자였던 쪽) 의 bleedDmgPerStack 으로 도트 데미지.
+//   - 출혈/중독/소각은 defender.v2Dots 에 tagged DoT 로 보관된다.
 //   - 승패: 양쪽 모두 HP 0 → 무승부(draw). 100턴(PVP_TURN_CAP) 초과 시 잔여 HP 비율 높은
 //     쪽 승, 동률이면 draw. resolveBattlePvP 가 처리.
 //
@@ -51,6 +50,8 @@ import {
   applyV2DotsToTarget,
   decrementTimedBuffs,
   extractApEffect,
+  makeBleedDot,
+  makePoisonDot,
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
@@ -126,9 +127,7 @@ export type PvPSideBuffs = {
   playerLifestealTurnsLeft: number;
 };
 
-// 각 사이드별 가변 자원. bleedStacks → bleedStacksOnOpponent (이 사이드가 상대에게 쌓은 출혈).
 export type PvPSideStacks = {
-  bleedStacksOnOpponent: number;
   playerShield: number;
   evadesRemaining: number;
   damageTakenThisCombat: number;
@@ -203,6 +202,10 @@ function attackerFacingDef(
       afterPierce * (1 - attackerBuffs.enemyDefDebuffPct / 100),
     );
   }
+  const corrodePct = attacker.player.poisonedEnemyDefReductionPct ?? 0;
+  if (corrodePct > 0 && sideHasDot(defender, "poison")) {
+    afterPierce = Math.round(afterPierce * (1 - corrodePct / 100));
+  }
   return Math.max(0, afterPierce);
 }
 
@@ -232,6 +235,52 @@ function effectiveAttackerAtk(attacker: PvPSide, defender: PvPSide): number {
       attacker.buffs.rampageAtkBonus -
       defender.buffs.opponentAtkPenalty,
   );
+}
+
+function sideHasDot(side: PvPSide, tag: import("./combatShared").V2DotTag): boolean {
+  return side.v2Dots.some((d) => d.tag === tag && d.stacks > 0 && d.turns > 0);
+}
+
+function rollPvPAttackCount(attacker: PvPSide, defender: PvPSide): number {
+  const bonus = attacker.player.extraAttackChancePctWhileEnemyBleeding ?? 0;
+  if (bonus <= 0 || !sideHasDot(defender, "bleed")) {
+    return rollAttackCount(attacker.player);
+  }
+  return rollAttackCount({
+    ...attacker.player,
+    extraAttackChancePct: (attacker.player.extraAttackChancePct ?? 0) + bonus,
+  });
+}
+
+function applyPvPOnHitDots(
+  defender: PvPSide,
+  attacker: PvPSide,
+  add?: { bleedStacks?: number; poisonStacks?: number },
+): PvPSide {
+  const dots: import("./combatShared").V2Dot[] = [];
+  const bleedStacks =
+    (add?.bleedStacks ?? 0) + (attacker.player.bleedOnHit ? 1 : 0);
+  if (bleedStacks > 0) {
+    dots.push(makeBleedDot({
+      stacks: bleedStacks,
+      flatPerStack: attacker.player.bleedOnHit?.flatPerStack ?? 0,
+      sourceAtk: attacker.player.atk,
+    }));
+  }
+  const poisonStacks =
+    (add?.poisonStacks ?? 0) + (attacker.player.poisonOnHit ? 1 : 0);
+  if (attacker.player.poisonOnHit && poisonStacks > 0) {
+    dots.push(makePoisonDot({
+      stacks: poisonStacks,
+      pctMaxHpPerStack: attacker.player.poisonOnHit.pctMaxHpPerStack,
+      sourceAtk: attacker.player.atk,
+    }));
+  }
+  if (dots.length === 0) return defender;
+  return {
+    ...defender,
+    v2Dots: applyV2DotsToTarget(defender.v2Dots, dots),
+  };
 }
 
 // 사이드 갱신 헬퍼 — p1 또는 p2 슬롯에 새 사이드 객체 박기.
@@ -318,7 +367,6 @@ function buildSide(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
-      bleedStacksOnOpponent: 0,
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
@@ -357,7 +405,7 @@ export function initialBattleStatePvP(
   }
   const attackerWithCount: PvPSide = {
     ...firstAttacker,
-    attacksLeft: rollAttackCount(firstAttacker.player) + vanguardBonus,
+    attacksLeft: rollPvPAttackCount(firstAttacker, otherSide) + vanguardBonus,
   };
   // 철벽 보호막 알림 — 양쪽 다 표기.
   if (p1Side.stacks.playerShield > 0) {
@@ -476,21 +524,18 @@ function dealExtraDamage(
   const newAtkHp =
     totalHeal > 0 ? Math.min(attacker.maxHp, attacker.hp + totalHeal) : attacker.hp;
   const actualHeal = newAtkHp - attacker.hp;
-  // 출혈 +1 (attacker 가 defender 에 누적).
-  const newBleedOnOpponent =
-    (player.bleedDmgPerStack ?? 0) > 0
-      ? attacker.stacks.bleedStacksOnOpponent + 1
-      : attacker.stacks.bleedStacksOnOpponent;
-
   const dmgLabels: string[] = [label];
   if (luckyStarFires) dmgLabels.push("행운의 별");
   if (decreeFires) dmgLabels.push("천명");
 
-  let next = setSide(state, defKey, { ...defender, hp: newDefHp });
+  let next = setSide(
+    state,
+    defKey,
+    applyPvPOnHitDots({ ...defender, hp: newDefHp }, attacker),
+  );
   next = setSide(next, atkKey, {
     ...next[atkKey],
     hp: newAtkHp,
-    stacks: { ...next[atkKey].stacks, bleedStacksOnOpponent: newBleedOnOpponent },
   });
   next = {
     ...next,
@@ -958,7 +1003,7 @@ export function advanceTurnPvP(
     const a = st[atkKey];
     st = setSide(st, atkKey, {
       ...a,
-      attacksLeft: rollAttackCount(a.player),
+      attacksLeft: rollPvPAttackCount(a, st[defKey]),
       turn: { ...a.turn, firstAttackPending: true },
     });
     return endAttackerPhase(st, atkKey, defKey);
@@ -1428,11 +1473,7 @@ export function advanceTurnPvP(
       text: `[${lsLabels.join(" + ")}] ${attacker.name}의 HP +${actualLifesteal}`,
     });
   }
-  // 출혈 — 적중하면 attacker.stacks.bleedStacksOnOpponent +1 (이 사이드가 상대에게 누적).
-  const newBleedOnOpponent =
-    (attacker.player.bleedDmgPerStack ?? 0) > 0
-      ? attacker.stacks.bleedStacksOnOpponent + 1
-      : attacker.stacks.bleedStacksOnOpponent;
+  // 출혈/중독 — 적중 시 defender.v2Dots 에 tagged DoT 로 누적.
   // 약점 적중 — 크리 발동 시 그 턴 1회, DEF 무시 큐 추가 + 추가타.
   const weakpointFires =
     critRoll &&
@@ -1602,7 +1643,6 @@ export function advanceTurnPvP(
     buffs: nextBuffsTimed,
     stacks: {
       ...attacker.stacks,
-      bleedStacksOnOpponent: newBleedOnOpponent + apBleedAdd,
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
     },
@@ -1625,7 +1665,7 @@ export function advanceTurnPvP(
         : attacker.turn.queuedExtraAttacks,
     },
   };
-  const newDefender: PvPSide = {
+  const newDefender: PvPSide = applyPvPOnHitDots({
     ...defender,
     hp: newDefenderHp,
     flags: {
@@ -1637,7 +1677,7 @@ export function advanceTurnPvP(
       playerShield: newShield,
       damageTakenThisCombat: defender.stacks.damageTakenThisCombat + dmgToHp,
     },
-  };
+  }, attacker, { bleedStacks: apBleedAdd });
   let next: PvPBattleState = setSide(
     setSide({ ...state, log }, atkKey, newAttacker),
     defKey,
@@ -1807,20 +1847,24 @@ function endAttackerPhase(
   // 공격자 턴 후처리 (분신/난무/막다른 격노/약점 분석/재생).
   next = finishAttackerTurn(next, atkKey, defKey);
   if (next.phase === "ended") return next;
-  // 방어자 페이즈 시작 — 출혈 도트(공격자가 누적한 stack × 공격자의 bleedDmgPerStack) 가 defender HP 에 적용.
-  const attackerForBleed = next[atkKey];
-  const defenderBefore = next[defKey];
-  const bleedStacks = attackerForBleed.stacks.bleedStacksOnOpponent;
-  const bleedDmgPer = attackerForBleed.player.bleedDmgPerStack ?? 0;
-  if (bleedStacks > 0 && bleedDmgPer > 0) {
-    const bleedDmg = bleedStacks * bleedDmgPer;
-    const newHp = Math.max(0, defenderBefore.hp - bleedDmg);
-    next = setSide(next, defKey, { ...defenderBefore, hp: newHp });
+  // 방어자 페이즈 시작 — 방어자가 받는 tagged DoT 를 한 번 tick.
+  const defenderBeforeDot = next[defKey];
+  const dotTick = tickV2Dots(defenderBeforeDot.v2Dots, defenderBeforeDot.maxHp);
+  if (dotTick.totalDmg > 0) {
+    const newHp = Math.max(0, defenderBeforeDot.hp - dotTick.totalDmg);
+    next = setSide(next, defKey, {
+      ...defenderBeforeDot,
+      hp: newHp,
+      v2Dots: dotTick.nextDots,
+    });
     next = {
       ...next,
       log: appendLog(next.log, {
         kind: "info",
-        text: `[출혈] ${defenderBefore.name}이(가) 출혈로 ${bleedDmg} 피해 (스택 ${bleedStacks})`,
+        text: `[${defenderBeforeDot.v2Dots
+          .filter((d) => d.turns > 0)
+          .map((d) => d.label)
+          .join(" + ")}] ${defenderBeforeDot.name}이(가) ${dotTick.totalDmg} 피해를 입었다.`,
       }),
     };
     if (newHp <= 0) {
@@ -1828,12 +1872,17 @@ function endAttackerPhase(
         ...next,
         log: appendLog(next.log, {
           kind: "info",
-          text: `${defenderBefore.name}이(가) 쓰러졌다.`,
+          text: `${defenderBeforeDot.name}이(가) 쓰러졌다.`,
         }),
         phase: "ended",
         outcome: atkKey === "p1" ? "p1_win" : "p2_win",
       };
     }
+  } else {
+    next = setSide(next, defKey, {
+      ...defenderBeforeDot,
+      v2Dots: dotTick.nextDots,
+    });
   }
   // 방어자(다음 공격자) 의 enemyPhasesCompleted +1 — 이번 라운드에서 방어를 1회 마침 (가드 카운터에 사용).
   const defenderAfterBleed = next[defKey];
@@ -1849,7 +1898,7 @@ function endAttackerPhase(
   next = setSide(next, defKey, {
     ...newNextAttacker,
     attacksLeft:
-      rollAttackCount(newNextAttacker.player) +
+      rollPvPAttackCount(newNextAttacker, next[atkKey]) +
       newNextAttacker.nextTurnAttackBonus,
     nextTurnAttackBonus: 0,
     turn: { ...newNextAttacker.turn, firstAttackPending: true },
@@ -1936,44 +1985,9 @@ function castV2SkillOnAttackerTurnPvP(
 ): PvPBattleState {
   const sideStart = state[who];
   const otherKey: "p1" | "p2" = who === "p1" ? "p2" : "p1";
-  // 0) PR-8 — side 가 받는 DoT tick (상대가 박은 dot). DEF 무시. lethal 처리는 호출자 main loop.
-  const dotTick = tickV2Dots(sideStart.v2Dots);
   let st = state;
   let preLog = state.log;
-  if (dotTick.totalDmg > 0) {
-    const before = sideStart.hp;
-    const newHp = Math.max(0, before - dotTick.totalDmg);
-    const dotLabels = sideStart.v2Dots
-      .filter((d) => d.turns > 0)
-      .map((d) => d.label)
-      .join(" + ");
-    // 상대가 박은 dot 이 자기에게 가해진 피해 → 상대 측 행동으로 표시 (otherKey).
-    preLog = appendLog(preLog, {
-      kind: "player_attack",
-      text: `[${dotLabels}] ${sideStart.name}이(가) ${dotTick.totalDmg} 피해를 입었다.`,
-      side: otherKey,
-    });
-    st = setSide({ ...st, log: preLog }, who, {
-      ...sideStart,
-      hp: newHp,
-      v2Dots: dotTick.nextDots,
-    });
-    // lethal: side 가 dot 으로 사망 → outcome 처리 + 종료. PvE lethal / 옛 bleed lethal 미러.
-    if (newHp <= 0) {
-      return {
-        ...st,
-        log: appendLog(st.log, {
-          kind: "info",
-          text: `${sideStart.name}이(가) 쓰러졌다.`,
-          side: who,
-        }),
-        outcome: who === "p1" ? "p2_win" : "p1_win",
-        phase: "ended",
-      };
-    }
-  } else {
-    st = setSide({ ...st, log: preLog }, who, { ...sideStart, v2Dots: dotTick.nextDots });
-  }
+  st = setSide({ ...st, log: preLog }, who, sideStart);
   const side = st[who];
   const opp = st[otherKey];
   // 1) buff/debuff tick (cast 전에 — 새 buff 는 발동턴부터 turns 만큼 유지).
@@ -2058,7 +2072,7 @@ function castV2SkillOnAttackerTurnPvP(
   for (const dot of result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? dot.label}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+      text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}턴)`,
       side: who,
     });
   }

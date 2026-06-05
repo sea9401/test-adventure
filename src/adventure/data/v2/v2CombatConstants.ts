@@ -5,7 +5,10 @@
 export const POWER_ATTACK_TURN_INTERVAL = 3;
 export const CRIT_MULT_BASE = 2.0;
 export const BLEED_MAX_STACKS = 10;
-export const VENOM_PCT_HP_PER_POINT = 0.0001;
+export const POISON_MAX_STACKS = 10;
+export const BLEED_ATK_COEF_PER_STACK = 0.08;
+export const POISON_PCT_PER_POINT = 0.0004;
+export const POISON_CAP_ATK_COEF = 0.6;
 export const HEAVEN_DECREE_HP_PCT = 5;
 export const RAMPAGE_START_TURN = 3;
 export const ANALYSIS_PENALTY_CAP_PCT = 0.3;

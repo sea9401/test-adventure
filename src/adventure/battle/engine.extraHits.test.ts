@@ -25,35 +25,35 @@ describe("추가타 on-hit — 출혈", () => {
   it("그림자 분신이 출혈 스택을 누적한다 (본타 1 + 분신 1 = 2)", () => {
     const p: PlayerCombat = {
       ...PLAYER,
-      bleedDmgPerStack: 3,
+      bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 },
       shadowCloneAtkPct: 50,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 + 분신 1회
-    expect(s.stacks.bleedStacks).toBe(2);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(2);
   });
 
   it("그림자 군단 (분신 +1 = 2회) 도 각 hit 가 출혈 +1", () => {
     const p: PlayerCombat = {
       ...PLAYER,
-      bleedDmgPerStack: 3,
+      bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 },
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 1,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 + 분신×2 = 3
-    expect(s.stacks.bleedStacks).toBe(3);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(3);
   });
 
   it("무피해 난무 추가타도 각 hit 가 출혈 +1", () => {
     const p: PlayerCombat = {
       ...PLAYER,
-      bleedDmgPerStack: 3,
+      bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 },
       flurryAttacks: 2,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 + 난무×2 = 3
-    expect(s.stacks.bleedStacks).toBe(3);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(3);
   });
 });
 
@@ -129,4 +129,3 @@ describe("추가타 on-hit — 천명 (확률 100% 강제)", () => {
     expect(100 - s.enemyHp).toBeGreaterThan(100 - s2.enemyHp);
   });
 });
-

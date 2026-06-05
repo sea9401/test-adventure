@@ -125,8 +125,7 @@ export type V2SkillId =
 // scaling (PR-magic): damage 가 어느 공격력으로 스케일하는지. 미지정/"physical" = 물리 atk,
 // "magic" = 마법 공격력(magicAtk = INT 환산). INT 공격 스킬만 "magic" — 마법 빌드가
 // 물리 atk 없이도 데미지를 내는 별도 경로. DEF 는 물리·마법 공유(마법저항 미신설).
-// dot (PR-8) = 지속 피해 (DoT). label 은 UI 표시·중복 정책에 사용 (같은 label 박히면 turns refresh).
-// dmgPerTurn 은 raw 정수 — DEF 무시. 매 target turn 진입 시 적용.
+// dot = 지속 피해 (DoT). tag 별로 스택 누적, label 은 UI 표시용. DEF 무시.
 // PR-9 — 몬스터 전용 상태이상 스킬 id (DungeonEnemy.statusSkill 부착 타입 안전).
 export type V2MonsterStatusSkillId =
   | "mob_venom_bite"
@@ -138,7 +137,17 @@ export type V2SkillEffect =
   | { kind: "heal"; pctMaxHp?: number; flat?: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
   | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number }
-  | { kind: "dot"; label: string; dmgPerTurn: number; turns: number };
+  | {
+      kind: "dot";
+      tag: "bleed" | "poison" | "burn";
+      label: string;
+      stacks: number;
+      maxStacks: number;
+      turns: number;
+      flatPerStack: number;
+      atkCoefPerStack: number;
+      pctMaxHpPerStack: number;
+    };
 
 // 학습 조건 — 교관 화면에서 사용. 충족 안 되면 구매 차단.
 export type V2SkillLearnRequirement = {
@@ -278,7 +287,7 @@ function describeV2Effect(e: V2SkillEffect): string {
     case "enemyDebuff":
       return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${e.turns}턴)`;
     case "dot":
-      return `${e.label} 지속피해 ${e.dmgPerTurn}/턴 (${e.turns}턴)`;
+      return `${e.label} 지속피해 +${e.stacks}스택 (${e.turns}턴)`;
   }
   // 모든 효과 종류 처리됨 — 새 kind 추가 시 컴파일 에러로 누락 방지.
   const _exhaustive: never = e;

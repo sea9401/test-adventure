@@ -208,7 +208,10 @@ describe("몬스터 상태이상 스킬 cast (PR-9 — 적→플레이어 적용
       mp: 0,
     });
     expect(r.castSkillId).toBe("mob_venom_bite");
-    expect(r.dotsToApplyToTarget).toContainEqual(V2_DOT_PRESETS.중독);
+    expect(r.dotsToApplyToTarget).toContainEqual({
+      ...V2_DOT_PRESETS.중독,
+      sourceAtk: 0,
+    });
     expect(r.enemyDamage).toBe(0); // 순수 상태이상 — 직접 피해 없음
   });
 
@@ -770,9 +773,15 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     expect(result.enemyDamage).toBe(188);
     // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
     expect(result.dotsToApplyToTarget).toContainEqual({
+      tag: "burn",
       label: "소각",
-      dmgPerTurn: 8,
+      stacks: 1,
+      maxStacks: 1,
       turns: 2,
+      flatPerStack: 8,
+      atkCoefPerStack: 0,
+      pctMaxHpPerStack: 0,
+      sourceAtk: 5,
     });
   });
 });
@@ -780,30 +789,62 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
 describe("v2 DoT (PR-8) — tick + apply", () => {
   it("tickV2Dots — 양수 turns -1, turns 1 도달 시 drop. 누적 dmg 합산", () => {
     const r = tickV2Dots([
-      { label: "출혈", dmgPerTurn: 6, turns: 3 },
-      { label: "소각", dmgPerTurn: 8, turns: 1 },
+      {
+        tag: "bleed",
+        label: "출혈",
+        stacks: 2,
+        maxStacks: 10,
+        turns: 3,
+        flatPerStack: 6,
+        atkCoefPerStack: 0,
+        pctMaxHpPerStack: 0,
+        sourceAtk: 0,
+      },
+      {
+        tag: "burn",
+        label: "소각",
+        stacks: 1,
+        maxStacks: 1,
+        turns: 1,
+        flatPerStack: 8,
+        atkCoefPerStack: 0,
+        pctMaxHpPerStack: 0,
+        sourceAtk: 0,
+      },
     ]);
-    expect(r.totalDmg).toBe(14);
-    expect(r.nextDots).toEqual([{ label: "출혈", dmgPerTurn: 6, turns: 2 }]);
+    expect(r.totalDmg).toBe(20);
+    expect(r.nextDots).toEqual([
+      {
+        tag: "bleed",
+        label: "출혈",
+        stacks: 2,
+        maxStacks: 10,
+        turns: 2,
+        flatPerStack: 6,
+        atkCoefPerStack: 0,
+        pctMaxHpPerStack: 0,
+        sourceAtk: 0,
+      },
+    ]);
   });
 
   it("tickV2Dots — 빈 배열 → 빈 결과", () => {
     expect(tickV2Dots([])).toEqual({ nextDots: [], totalDmg: 0 });
   });
 
-  it("applyV2DotsToTarget — 같은 label refresh, 새 label append", () => {
+  it("applyV2DotsToTarget — 같은 tag stack+refresh, 새 tag append", () => {
     const current = [
-      { label: "출혈", dmgPerTurn: 5, turns: 2 },
-      { label: "한기", dmgPerTurn: 3, turns: 1 },
+      { tag: "bleed" as const, label: "출혈", stacks: 2, maxStacks: 10, turns: 2, flatPerStack: 5, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "poison" as const, label: "중독", stacks: 1, maxStacks: 10, turns: 1, flatPerStack: 0, atkCoefPerStack: 0, pctMaxHpPerStack: 0.001, sourceAtk: 10 },
     ];
     const result = applyV2DotsToTarget(current, [
-      { label: "출혈", dmgPerTurn: 8, turns: 3 }, // refresh
-      { label: "소각", dmgPerTurn: 6, turns: 2 }, // 새 append
+      { tag: "bleed", label: "출혈", stacks: 3, maxStacks: 10, turns: 3, flatPerStack: 8, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "burn", label: "소각", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
     ]);
     expect(result).toEqual([
-      { label: "출혈", dmgPerTurn: 8, turns: 3 },
-      { label: "한기", dmgPerTurn: 3, turns: 1 },
-      { label: "소각", dmgPerTurn: 6, turns: 2 },
+      { tag: "bleed", label: "출혈", stacks: 5, maxStacks: 10, turns: 3, flatPerStack: 8, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "poison", label: "중독", stacks: 1, maxStacks: 10, turns: 1, flatPerStack: 0, atkCoefPerStack: 0, pctMaxHpPerStack: 0.001, sourceAtk: 10 },
+      { tag: "burn", label: "소각", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
     ]);
   });
 
@@ -812,7 +853,7 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
     // T1 tick: dmg, drop to 2. T2: dmg, drop to 1. T3: dmg, drop (turns 1 → drop).
     let dots: ReturnType<typeof tickV2Dots>["nextDots"] = applyV2DotsToTarget(
       [],
-      [{ label: "출혈", dmgPerTurn: 5, turns: 3 }],
+      [{ tag: "bleed", label: "출혈", stacks: 1, maxStacks: 10, turns: 3, flatPerStack: 5, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 }],
     );
     expect(dots[0].turns).toBe(3);
     let activeCount = 0;

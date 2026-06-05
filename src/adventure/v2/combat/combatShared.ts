@@ -111,8 +111,21 @@ export function potionHealAmount(
 // 매 target 의 turn 진입 시 tick — 각 dot 의 turns -= 1 + dmgPerTurn 합산하여 target HP 차감.
 // turns <= 0 dot 은 drop. DEF 무시.
 // 같은 label 박히면 refresh (turns 새 값으로 덮어쓰기) — 정책 단순화.
+//
+// ⚠️ DoT 는 v2 에 두 갈래로 갈라져 있다 (docs/v2-bleed-unify-plan.md):
+//   · 갈래 A = 이 V2Dot 리스트 (스킬 캐스트 DoT, 정액 × 고정 turns, refresh).
+//   · 갈래 B = engine.ts 의 bleedStacks 스택 풀 (패시브·독공·부식, 스택 × 스택당, 캡10).
+// 두 갈래는 같은 1틱 피해 공식 dotTickDamage 와 같은 "출혈 중?" 술어(engine.isEnemyBleeding)를
+// 공유한다(PR-1). 저장소·틱 사이트 병합은 PR-2.
 export type V2Dot = { label: string; dmgPerTurn: number; turns: number };
 export type V2DotList = readonly V2Dot[];
+
+// 모든 v2 DoT 의 1틱 피해 = 스택 수 × 스택당 피해 (음수 클램프). 갈래 A(리스트 dot, stacks=1)와
+// 갈래 B(출혈·독공 스택 풀)가 공유하는 단일 공식. 스택당 피해의 구성(정액 vs 정액+독공%HP)은
+// 출처별로 다르며 호출부에서 합성한다. PR-2 에서 두 저장소를 통합 entry 로 합칠 토대.
+export function dotTickDamage(stacks: number, perStack: number): number {
+  return Math.max(0, stacks * perStack);
+}
 
 // tick: dot 들 turns -1 + 총 dmg 합산. turns 0 도달 dot drop.
 // turns +0 시드 정책 — applyV2DotsToTarget 가 그대로 박음 (cd/buff 의 +1 시드와 다름).
@@ -122,7 +135,7 @@ export function tickV2Dots(dots: V2DotList): { nextDots: V2Dot[]; totalDmg: numb
   let totalDmg = 0;
   for (const d of dots) {
     if (d.turns <= 0) continue;
-    totalDmg += Math.max(0, d.dmgPerTurn);
+    totalDmg += dotTickDamage(1, d.dmgPerTurn);
     if (d.turns > 1) nextDots.push({ ...d, turns: d.turns - 1 });
     // turns === 1 → drop (이번 turn 이 마지막 적용).
   }

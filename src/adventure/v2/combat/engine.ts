@@ -11,6 +11,7 @@ import {
   applyV2DotsToTarget,
   defaultV2MaxMpFor,
   decrementTimedBuffs,
+  dotTickDamage,
   extractApEffect,
   potionHealAmount,
   resolveV2SkillCast,
@@ -576,9 +577,17 @@ function playerFacingEnemyDef(
   // 부식 (독사 시그니처) — 중독(= 출혈 스택, 독사 맹독이 bleedStacks 로 누적)된 적의 DEF -pct%.
   // 곱연산으로 마지막에. 출혈 스택이 없으면 비활성.
   const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
-  return corrodePct > 0 && state.stacks.bleedStacks > 0
+  return corrodePct > 0 && isEnemyBleeding(state)
     ? Math.round(afterDebuff * (1 - corrodePct / 100))
     : afterDebuff;
+}
+
+// "적이 출혈/중독 중인가" — 현재 부식·혈광이 공유하는 단일 술어. 지금은 한 풀(bleedStacks)이라
+// 출혈·중독·독공이 다 같이 잡힌다 (검투사 혈광이 독·독공 스택에도 발동하는 오발동 포함). PR-2 에서
+// 출혈(bleed)/중독(poison) status 분리 시 혈광→isEnemyBleeding·부식→isEnemyPoisoned 로 쪼갠다.
+// (docs/v2-bleed-unify-plan.md)
+function isEnemyBleeding(state: BattleState): boolean {
+  return state.stacks.bleedStacks > 0;
 }
 
 // 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은
@@ -596,7 +605,7 @@ function rollPlayerAttackCountWithBleed(
   player: PlayerCombat,
 ): number {
   const bonus = player.extraAttackChancePctWhileEnemyBleeding ?? 0;
-  if (bonus <= 0 || state.stacks.bleedStacks <= 0) {
+  if (bonus <= 0 || !isEnemyBleeding(state)) {
     return rollPlayerAttackCount(player);
   }
   return rollPlayerAttackCount({
@@ -2028,8 +2037,8 @@ export function advanceTurn(
       ? Math.floor(state.enemy.hp * venomStrength * VENOM_PCT_HP_PER_POINT)
       : 0;
   const bleedPerStack = bleedFixedPerStack + venomPctPerStack;
-  if (enteringEnemyPhase && state.stacks.bleedStacks > 0 && bleedPerStack > 0) {
-    const bleedDmg = state.stacks.bleedStacks * bleedPerStack;
+  if (enteringEnemyPhase && isEnemyBleeding(state) && bleedPerStack > 0) {
+    const bleedDmg = dotTickDamage(state.stacks.bleedStacks, bleedPerStack);
     const afterBleedHp = Math.max(0, state.enemyHp - bleedDmg);
     const bled = applyPhaseTriggerIfAny({
       ...state,

@@ -582,9 +582,10 @@ function playerFacingEnemyDef(
     : afterDebuff;
 }
 
-// "적이 출혈 중인가" — 부식·혈광 시그니처가 조회하는 단일 술어. 현재는 갈래 B(bleedStacks 스택 풀)만
-// 본다. 중독·독공도 같은 풀에 누적되므로 함께 잡힌다. 갈래 A(스킬 출혈 리스트 dot)는 PR-2 에서
-// 같은 풀로 병합되면 자동 포함. (docs/v2-bleed-unify-plan.md)
+// "적이 출혈/중독 중인가" — 현재 부식·혈광이 공유하는 단일 술어. 지금은 한 풀(bleedStacks)이라
+// 출혈·중독·독공이 다 같이 잡힌다 (검투사 혈광이 독·독공 스택에도 발동하는 오발동 포함). PR-2 에서
+// 출혈(bleed)/중독(poison) status 분리 시 혈광→isEnemyBleeding·부식→isEnemyPoisoned 로 쪼갠다.
+// (docs/v2-bleed-unify-plan.md)
 function isEnemyBleeding(state: BattleState): boolean {
   return state.stacks.bleedStacks > 0;
 }

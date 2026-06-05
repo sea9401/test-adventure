@@ -58,20 +58,14 @@ describe("v2Skills 카탈로그", () => {
 });
 
 describe("v2SkillSlotsForLevel", () => {
-  it("Lv1-33 = 3 슬롯", () => {
+  // 스킬 재설계 — 스킬칸 3~4 (Lv1-49: 3, Lv50+: 4).
+  it("Lv1-49 = 3 슬롯", () => {
     expect(v2SkillSlotsForLevel(1)).toBe(3);
-    expect(v2SkillSlotsForLevel(33)).toBe(3);
+    expect(v2SkillSlotsForLevel(49)).toBe(3);
   });
-  it("Lv34-66 = 4 슬롯", () => {
-    expect(v2SkillSlotsForLevel(34)).toBe(4);
-    expect(v2SkillSlotsForLevel(66)).toBe(4);
-  });
-  it("Lv67-99 = 5 슬롯", () => {
-    expect(v2SkillSlotsForLevel(67)).toBe(5);
-    expect(v2SkillSlotsForLevel(99)).toBe(5);
-  });
-  it("Lv100 = 6 슬롯", () => {
-    expect(v2SkillSlotsForLevel(100)).toBe(6);
+  it("Lv50+ = 4 슬롯", () => {
+    expect(v2SkillSlotsForLevel(50)).toBe(4);
+    expect(v2SkillSlotsForLevel(100)).toBe(4);
   });
   it("Lv0 이하는 Lv1 처럼 3 슬롯 (방어적)", () => {
     expect(v2SkillSlotsForLevel(0)).toBe(3);

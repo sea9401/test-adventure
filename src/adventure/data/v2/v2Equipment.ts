@@ -230,6 +230,9 @@ export type V2Equipment = {
   craftOnly?: boolean;
   /** 계파 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
   starterOnly?: boolean;
+  /** 드랍 제외 — true 면 정규 드랍 풀에서 빠진다(상점·그리드는 유지). 계파 무기=상점 전용,
+   *  드랍은 후속 추가 예정. starterOnly/craftOnly 와 달리 상점 판매는 그대로. */
+  noDrop?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
 };

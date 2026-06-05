@@ -920,6 +920,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 검+방패(기사) — 중위력·고무게(묵직한 탱딜).
   v2_guard_blade: {
     id: "v2_guard_blade",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 2,
@@ -931,6 +932,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_knight_blade: {
     id: "v2_knight_blade",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 3,
@@ -942,6 +944,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_royal_blade: {
     id: "v2_royal_blade",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 4,
@@ -953,6 +956,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_paladin_blade: {
     id: "v2_paladin_blade",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 5,
@@ -965,6 +969,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 세검(검투사) — 저위력·저무게(빠른 다단/출혈).
   v2_duel_rapier: {
     id: "v2_duel_rapier",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 2,
@@ -976,6 +981,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_swift_rapier: {
     id: "v2_swift_rapier",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 3,
@@ -987,6 +993,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_master_rapier: {
     id: "v2_master_rapier",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 4,
@@ -998,6 +1005,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_gale_rapier: {
     id: "v2_gale_rapier",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 5,
@@ -1010,6 +1018,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 권갑(금강·혈권) — 중위력·중무게.
   v2_brawl_gauntlet: {
     id: "v2_brawl_gauntlet",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 2,
@@ -1021,6 +1030,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_fighter_gauntlet: {
     id: "v2_fighter_gauntlet",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 3,
@@ -1032,6 +1042,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_ironfist_gauntlet: {
     id: "v2_ironfist_gauntlet",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 4,
@@ -1043,6 +1054,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_vajra_gauntlet: {
     id: "v2_vajra_gauntlet",
+    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 5,
@@ -1055,6 +1067,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 권조(연환) — 저위력·저무게(빠른 콤보).
   v2_beast_claw: {
     id: "v2_beast_claw",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 2,
@@ -1066,6 +1079,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_keen_claw: {
     id: "v2_keen_claw",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 3,
@@ -1077,6 +1091,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_fierce_claw: {
     id: "v2_fierce_claw",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 4,
@@ -1088,6 +1103,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_dragon_claw: {
     id: "v2_dragon_claw",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 5,
@@ -1100,6 +1116,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 단검(자객·독사) — 저위력·저무게(빠른 크리/독).
   v2_steel_dagger: {
     id: "v2_steel_dagger",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 2,
@@ -1111,6 +1128,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_assassin_dagger: {
     id: "v2_assassin_dagger",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 3,
@@ -1122,6 +1140,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_shadow_dagger: {
     id: "v2_shadow_dagger",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 4,
@@ -1133,6 +1152,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_toxic_dagger: {
     id: "v2_toxic_dagger",
+    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 5,

@@ -92,6 +92,8 @@ export function rollEquipDrop(
     if (isUnique(item)) continue;
     // 제작 전용·계파 스타터도 정규 드랍 제외 — 레시피/전직 지급으로만 획득.
     if (item.craftOnly || item.starterOnly) continue;
+    // 드랍 제외(noDrop) — 계파 무기는 상점 전용(드랍은 후속 추가 예정).
+    if (item.noDrop) continue;
     if (ownedSet.has(item.id)) continue;
     candidates.push(item.id);
   }

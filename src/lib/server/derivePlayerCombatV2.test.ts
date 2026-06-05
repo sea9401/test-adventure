@@ -301,14 +301,14 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
   });
 });
 
-describe("derivePlayerCombatV2Pure weaponElement (PR-5b 무기 속성)", () => {
-  it("속성 무기 장착 → weaponElement = 무기 속성", () => {
-    // 별노래궁 = starlight 무기.
+describe("derivePlayerCombatV2Pure weaponElement (무기 속성 폐지 — 항상 neutral)", () => {
+  it("무기 속성 폐지 → 어떤 무기든 weaponElement = neutral", () => {
+    // 속성 무기가 더는 없음 → 평타 속성은 캐릭터 선택으로(hunt/arena 가 weaponElement!==neutral 분기).
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starsong_bow" },
     });
-    expect(d.weaponElement).toBe("starlight");
+    expect(d.weaponElement).toBe("neutral");
   });
 
   it("무속성 무기/미장착 → neutral", () => {
@@ -443,8 +443,8 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.atk).toBe(
       Math.floor(Math.floor(baseD.player.atk * 1.2) * 1.3),
     );
-    // 광폭 selfDefReductionPct 20 → 방어 ×0.8.
-    expect(d.player.def).toBe(Math.floor(baseD.player.def * 0.8));
+    // 광폭 selfDefReductionPct 65 → 방어 ×0.35 (캘리브: 유리대포 페널티 강화).
+    expect(d.player.def).toBe(Math.floor(baseD.player.def * 0.35));
     expect(d.player.passiveDefPenetrationPct).toBe(17); // 갑옷 가르기
   });
 
@@ -579,7 +579,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.enemyMagicVulnPctPerStack).toBe(5);
   });
 
-  it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
+  it("자객 + 단검 + 급습 → 치명타 확률 +22%p (캘리브: 자객 버프 15→22)", () => {
     const dbase = {
       ...base,
       v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
@@ -591,7 +591,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
       unlockedPassives: ["assassin_edge"], // 급습
     });
     expect(d.player.critChancePct).toBeCloseTo(
-      (baseD.player.critChancePct ?? 0) + 15,
+      (baseD.player.critChancePct ?? 0) + 22,
       5,
     );
   });
@@ -636,14 +636,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.mpRegenPerTurn).toBe(8);
   });
 
-  it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {
+  it("무기 게이트 불통과(미태깅 무기) = 완전 비활성", () => {
+    // 정규 무기는 이제 전부 계파타입 태깅 → 미태깅은 제작무기(v2_meadow_bow)뿐.
+    // greatsword 가 아니므로 광검 게이트 불통과.
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_meadow_bow" as V2EquipmentId },
     });
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId }, // 타입 없는 일반 검
+      v2Equipped: { weapon: "v2_meadow_bow" as V2EquipmentId }, // 타입 없는 무기
       spec: gwang,
       unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
     });

@@ -1,6 +1,6 @@
 // PR-2 통합 DoT — 의도된 동작을 못박는 검증 테스트.
 // 골든마스터는 행동 변경으로 재생성되므로 "정답"을 구분 못 한다. 이 파일이 진짜 오라클:
-//   ① 피해 공식 (출혈=flat+ATK계수 / 중독=%최대HP + ATK연동 A상한 / 소각=flat)
+//   ① 피해 공식 (출혈=flat+ATK계수 / 중독=%최대HP + ATK연동 A상한 / 연소=flat)
 //   ② 보스 A상한이 실제로 과녹임을 막는지 (저HP=무상한 / 고HP=상한)
 //   ③ tag 분리 — 출혈·중독 공존, 같은 tag 누적
 //   ④ 라이브 경로(resolveBattle)에서 적 DoT 가 실제로 틱하는지 (틱 사이트 이전 검증)
@@ -60,10 +60,10 @@ describe("PR-2 DoT 피해 공식", () => {
     expect(50000 * 0.004).toBeGreaterThan(cap);
   });
 
-  it("소각 = flatPerStack (HP·ATK 무관)", () => {
+  it("연소 = flatPerStack (HP·ATK 무관)", () => {
     const burn: V2Dot = {
       tag: "burn",
-      label: "소각",
+      label: "연소",
       stacks: 1,
       maxStacks: 1,
       turns: 2,

@@ -8,7 +8,7 @@
 //     양쪽 모두에 대칭으로 적용. (포션은 PvP 디자인상 사용 불가 — 라우트가 미전달.)
 //   - state.enemy.X → defender.player.X (현재 페이즈에서 방어자 측)
 //   - state.buffs/flags/stacks/turn → attacker.buffs/flags/stacks/turn (현재 페이즈에서 공격자 측)
-//   - 출혈/중독/소각은 defender.v2Dots 에 tagged DoT 로 보관된다.
+//   - 출혈/중독/연소는 defender.v2Dots 에 tagged DoT 로 보관된다.
 //   - 승패: 양쪽 모두 HP 0 → 무승부(draw). 100턴(PVP_TURN_CAP) 초과 시 잔여 HP 비율 높은
 //     쪽 승, 동률이면 draw. resolveBattlePvP 가 처리.
 //

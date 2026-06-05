@@ -753,9 +753,9 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBeLessThan(100);
   });
 
-  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 소각 DoT", () => {
+  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 연소 DoT", () => {
     // 비전 폭발: statCoef 2.2, baseFlat 12, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 소각은 enemyDamage 에 미포함)
+    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 연소는 enemyDamage 에 미포함)
     const result = resolveV2SkillCast({
       skills: { learned: ["v2_skill_arcane_nova"], equipped: ["v2_skill_arcane_nova"] },
       cooldowns: {},
@@ -771,10 +771,10 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
     expect(result.castSkillName).toBe("비전 폭발");
     expect(result.enemyDamage).toBe(188);
-    // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
+    // DoT(연소) 는 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
     expect(result.dotsToApplyToTarget).toContainEqual({
       tag: "burn",
-      label: "소각",
+      label: "연소",
       stacks: 1,
       maxStacks: 1,
       turns: 2,
@@ -802,7 +802,7 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
       },
       {
         tag: "burn",
-        label: "소각",
+        label: "연소",
         stacks: 1,
         maxStacks: 1,
         turns: 1,
@@ -839,12 +839,12 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
     ];
     const result = applyV2DotsToTarget(current, [
       { tag: "bleed", label: "출혈", stacks: 3, maxStacks: 10, turns: 3, flatPerStack: 8, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
-      { tag: "burn", label: "소각", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "burn", label: "연소", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
     ]);
     expect(result).toEqual([
       { tag: "bleed", label: "출혈", stacks: 5, maxStacks: 10, turns: 3, flatPerStack: 8, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
       { tag: "poison", label: "중독", stacks: 1, maxStacks: 10, turns: 1, flatPerStack: 0, atkCoefPerStack: 0, pctMaxHpPerStack: 0.001, sourceAtk: 10 },
-      { tag: "burn", label: "소각", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "burn", label: "연소", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
     ]);
   });
 

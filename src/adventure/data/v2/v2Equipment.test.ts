@@ -17,32 +17,14 @@ import {
   type V2EquipmentId,
   type V2EquipSlot,
   type V2EquipTier,
+  type V2WeaponType,
 } from "./v2Equipment";
-import { V2_ELEMENTS, V2_ELEMENT_CYCLE } from "./elements";
 
-describe("무기 속성 전면 태깅", () => {
-  it("무기 element 는 유효 V2Element, 방어구·장신구는 element 없음", () => {
+describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위력 전담)", () => {
+  it("모든 장비(무기 포함)에 element 없음 — 평타 속성은 캐릭터 선택으로", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
-      if (item.element !== undefined) {
-        expect(V2_ELEMENTS, `${item.id}`).toContain(item.element);
-      }
-      // element 는 무기 슬롯에만 의미 — 방어구·장신구엔 미부여.
-      if (item.slot !== "weapon") {
-        expect(item.element, `${item.id} 비무기 element`).toBeUndefined();
-      }
+      expect(item.element, `${item.id} element 폐지`).toBeUndefined();
     }
-  });
-
-  it("무기 속성이 7-ring 전부 커버 + 일부 무속성(starter)", () => {
-    const weaponEls = v2EquipmentBySlot("weapon")
-      .map((w) => w.element)
-      .filter((e): e is NonNullable<typeof e> => Boolean(e));
-    const set = new Set(weaponEls);
-    for (const e of V2_ELEMENT_CYCLE) {
-      expect(set.has(e), `무기에 ${e} 없음`).toBe(true);
-    }
-    // 무속성 무기(저티어 starter)도 존재 — 캐릭 속성 선택 살림.
-    expect(v2EquipmentBySlot("weapon").some((w) => !w.element)).toBe(true);
   });
 });
 
@@ -143,13 +125,44 @@ function slotConceptLine(
     .map((i) => i.tier);
 }
 
-describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
-  it("정규 그리드 55종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
+// 무기는 weaponType 별 라인(8 계파타입). 그리드 검증은 컨셉이 아니라 weaponType 으로.
+const WEAPON_TYPES: V2WeaponType[] = [
+  "greatsword",
+  "sword_shield",
+  "rapier",
+  "gauntlet",
+  "claw",
+  "staff",
+  "bow",
+  "dagger",
+];
+// weaponType 라인의 정규 티어(정렬). 스타터·제작·유니크 제외.
+function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipTier[] {
+  return v2EquipmentBySlot("weapon")
+    .filter(
+      (i) =>
+        i.weaponType === wt && !isUnique(i) && !i.craftOnly && !i.starterOnly,
+    )
+    .map((i) => i.tier)
+    .sort((a, b) => a - b);
+}
+// 정규 + 스타터(전직 지급, T1) 합집합 — 5 신규타입은 스타터가 T1 을 채운다.
+function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
+  const tiers = new Set<V2EquipTier>();
+  for (const i of v2EquipmentBySlot("weapon")) {
+    if (i.weaponType === wt && !isUnique(i) && !i.craftOnly) tiers.add(i.tier);
+  }
+  return [...tiers].sort((a, b) => a - b);
+}
+
+describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
+  it("정규 그리드 75종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
+    // 기존 정규 55 + 계파무기 20(5신규타입 × T2~T5; T1=스타터 off-grid) = 75.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
-    ).toHaveLength(55);
+    ).toHaveLength(75);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
     expect(all.filter((i) => i.starterOnly), "계파 스타터").toHaveLength(7);
@@ -175,13 +188,22 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
     }
   });
 
-  it("각 (슬롯, 컨셉) 조합이 T1~T5 정확히 한 종씩", () => {
+  it("정규 그리드 완전성 — 비무기는 (슬롯,컨셉) T1~T5, 무기는 weaponType별 T1~T5", () => {
+    // 비무기 슬롯: (슬롯, 컨셉) 라인이 T1~T5 한 종씩.
     for (const slot of ALL_SLOTS) {
+      if (slot === "weapon") continue;
       for (const concept of SLOT_CONCEPTS[slot]) {
         expect(slotConceptLine(slot, concept), `${slot}/${concept}`).toEqual(
           ALL_TIERS,
         );
       }
+    }
+    // 무기: 8 계파타입별 라인. 정규 티어는 중복 없음 + (정규 ∪ 스타터 T1) = T1~T5.
+    // greatsword/bow/staff = 기존 라인 태깅(정규 T1~T5), 5신규타입 = 정규 T2~T5 + 스타터 T1.
+    for (const wt of WEAPON_TYPES) {
+      const reg = weaponTypeRegularTiers(wt);
+      expect(new Set(reg).size, `${wt} 정규 티어 중복`).toBe(reg.length);
+      expect(weaponTypeTiersWithStarter(wt), `weapon/${wt}`).toEqual(ALL_TIERS);
     }
   });
 
@@ -198,10 +220,24 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
     expect(new Set(Object.keys(CONCEPT_LABELS))).toEqual(new Set(ALL_CONCEPTS));
   });
 
-  it("각 (슬롯, 컨셉)의 위력은 T1→T5 비감소 + 전체로 증가", () => {
+  it("위력은 라인별 T1→T5 비감소 + 전체로 증가 (비무기=컨셉, 무기=weaponType)", () => {
     // 저위력 슬롯은 정수 plateau(T2=T3 등) 허용 — 차별화는 옵션/무게로.
-    // 단 라인 전체로는 T5 > T1 로 티어 진행이 위력 우상향이어야 함.
+    // 단 라인 전체로는 T-last > T-first 로 티어 진행이 위력 우상향이어야 함.
+    const checkMono = (values: number[], label: string) => {
+      for (let i = 1; i < values.length; i++) {
+        expect(
+          values[i],
+          `${label} T${i + 1} 위력 이 T${i} 보다 작음`,
+        ).toBeGreaterThanOrEqual(values[i - 1]);
+      }
+      expect(
+        values[values.length - 1],
+        `${label} 마지막 위력 이 첫 이하`,
+      ).toBeGreaterThan(values[0]);
+    };
+    // 비무기 슬롯: (슬롯, 컨셉) 라인.
     for (const slot of ALL_SLOTS) {
+      if (slot === "weapon") continue;
       for (const concept of SLOT_CONCEPTS[slot]) {
         const values = v2EquipmentBySlot(slot)
           .filter(
@@ -210,20 +246,25 @@ describe("V2_EQUIPMENT grid (55종 — 6슬롯)", () => {
               !isUnique(i) &&
               !i.craftOnly &&
               !i.starterOnly,
-          ) // 그리드는 정규만
+          )
           .sort((a, b) => a.tier - b.tier)
           .map((i) => i.power);
-        for (let i = 1; i < values.length; i++) {
-          expect(
-            values[i],
-            `${slot}/${concept} T${i + 1} 위력 이 T${i} 보다 작음`,
-          ).toBeGreaterThanOrEqual(values[i - 1]);
-        }
-        expect(
-          values[values.length - 1],
-          `${slot}/${concept} T5 위력 이 T1 이하`,
-        ).toBeGreaterThan(values[0]);
+        checkMono(values, `${slot}/${concept}`);
       }
+    }
+    // 무기: weaponType 라인(정규만).
+    for (const wt of WEAPON_TYPES) {
+      const values = v2EquipmentBySlot("weapon")
+        .filter(
+          (i) =>
+            i.weaponType === wt &&
+            !isUnique(i) &&
+            !i.craftOnly &&
+            !i.starterOnly,
+        )
+        .sort((a, b) => a.tier - b.tier)
+        .map((i) => i.power);
+      checkMono(values, `weapon/${wt}`);
     }
   });
 
@@ -387,17 +428,18 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
 describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)", () => {
   it("weaponTypeOf — 태깅된 무기는 종류 반환, 일반 무기·미장착은 undefined", () => {
     expect(weaponTypeOf("v2_greatsword")).toBe("greatsword"); // 태깅됨
-    expect(weaponTypeOf("v2_iron_sword")).toBeUndefined(); // 일반 무기(타입 없음)
+    // 정규 무기는 이제 전부 계파타입 태깅. 미태깅은 제작전용(v2_meadow_bow 등)·유니크뿐.
+    expect(weaponTypeOf("v2_meadow_bow")).toBeUndefined(); // 제작무기(타입 없음)
     expect(weaponTypeOf(undefined)).toBeUndefined();
     expect(weaponTypeOf(null)).toBeUndefined();
   });
 
   it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
     expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
-    expect(weaponGateOpen("v2_iron_sword", "greatsword")).toBe(false); // 일반 무기 → 완전 비활성
+    expect(weaponGateOpen("v2_meadow_bow", "greatsword")).toBe(false); // 미태깅 무기 → 완전 비활성
     expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 계파 무기
     expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
-    expect(weaponGateOpen("v2_iron_sword", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
+    expect(weaponGateOpen("v2_meadow_bow", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
   });
 
   it("weaponType 필드는 무기 슬롯에서만 — 방어구·장신구엔 미부여", () => {

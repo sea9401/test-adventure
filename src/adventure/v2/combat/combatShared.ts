@@ -113,7 +113,7 @@ export function potionHealAmount(
 }
 
 // ── v2 DoT ────────────────────────────────────────────────────────────────
-// 지속 피해 (출혈/중독/소각). 모든 출처는 tag 별 V2Dot entry 로 target 에 박힌다.
+// 지속 피해 (출혈/중독/연소). 모든 출처는 tag 별 V2Dot entry 로 target 에 박힌다.
 // 매 target 의 turn 진입 시 tick — entry 별 스택 피해 합산 후 turns -= 1, turns <= 0 drop.
 // DEF 무시. 같은 tag 는 스택 누적 + turns refresh + 데미지 파라미터 최신값으로 덮어쓰기.
 export type V2DotTag = "bleed" | "poison" | "burn";

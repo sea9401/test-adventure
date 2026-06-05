@@ -23,6 +23,7 @@ import {
 } from "../src/adventure/data/v2/v2Skills";
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import { starterWeaponForType } from "../src/adventure/data/v2/v2Equipment";
+import { V2_EQUIPMENT } from "../src/adventure/data/v2/v2EquipmentCatalog";
 import type {
   V2EquipmentId,
   V2EquipSlot,
@@ -124,18 +125,26 @@ function skillsFor(skillStat: "str" | "int"): V2SkillsState {
   return { learned: ids, equipped: ids.slice(0, v2SkillSlotsForLevel(LEVEL)) };
 }
 
+// 그 weaponType 의 최고티어 정규 무기 id(스타터·제작·유니크 제외). 없으면 스타터 폴백.
+function bestWeaponForType(wt: V2WeaponType): V2EquipmentId | undefined {
+  let best: { id: V2EquipmentId; tier: number } | null = null;
+  for (const e of Object.values(V2_EQUIPMENT)) {
+    if (e.slot !== "weapon" || e.weaponType !== wt) continue;
+    if (e.starterOnly || e.craftOnly || e.rarity === "unique") continue;
+    if (!best || e.tier > best.tier) best = { id: e.id, tier: e.tier };
+  }
+  return best?.id ?? starterWeaponForType(wt);
+}
+
 function buildPlayer(
   spec: V2JobSpec | undefined,
   weaponType: V2WeaponType,
   job: JobCfg,
   cls: V2Class,
 ): PlayerCombat {
-  // greatsword 는 스타터가 없음(v2_greatsword 가 그 타입) → 폴백. ⚠️ power 가 스타터(5)보다
-  // 높을 수 있어 광검 절대치는 약간 부풀 수 있음(직군 내 비교엔 영향 적음).
-  const weapon =
-    weaponType === "greatsword"
-      ? ("v2_greatsword" as V2EquipmentId)
-      : starterWeaponForType(weaponType);
+  // 계파 무기세트 구축 후 — 그 타입의 최고티어(T5) 정규 무기를 장착(실전 기어 반영).
+  // 스타터(T1 power5) 대신 T5 를 써야 전투 길이가 정상으로 떨어진다.
+  const weapon = bestWeaponForType(weaponType);
   const set = ARMOR[job.weight];
   const equipped: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
     ...(weapon ? { weapon } : {}),

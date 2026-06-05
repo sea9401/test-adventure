@@ -38,7 +38,11 @@ import {
   V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
-import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
+import {
+  V2_JOB_SPECS,
+  resolveSpecTrait,
+  describeSpecTraitEffect,
+} from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -504,6 +508,14 @@ export async function GET() {
             name: p.name,
             desc: p.desc,
           })),
+          // 직업 특성 — 전직 시 자동(픽 아님), 차수 성장. effectText 는 현재 차수 기준 환산값.
+          trait: s.trait
+            ? {
+                name: s.trait.name,
+                desc: s.trait.desc,
+                effectText: describeSpecTraitEffect(resolveSpecTrait(s, tier)),
+              }
+            : null,
         })),
       };
     })(),

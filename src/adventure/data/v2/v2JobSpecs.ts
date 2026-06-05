@@ -338,6 +338,26 @@ export function resolveSpecTrait(
   return out as V2SpecTraitEffect;
 }
 
+/** 직업 특성 효과(스케일된 값)를 한 줄 텍스트로. UI 표기용. 빈 효과면 "". */
+export function describeSpecTraitEffect(e: V2SpecTraitEffect): string {
+  const parts: string[] = [];
+  if (e.atkPctAdd) parts.push(`공격력 +${e.atkPctAdd}%`);
+  if (e.magicAtkPctAdd) parts.push(`마법 공격력 +${e.magicAtkPctAdd}%`);
+  if (e.damageTakenReductionPctAdd)
+    parts.push(`받는 피해 -${e.damageTakenReductionPctAdd}%`);
+  if (e.bleedDmgPerStackAdd) parts.push(`출혈 피해 +${e.bleedDmgPerStackAdd}`);
+  if (e.evasionPctAdd) parts.push(`회피 +${e.evasionPctAdd}%`);
+  if (e.lifestealPctAdd) parts.push(`흡혈 +${e.lifestealPctAdd}%`);
+  if (e.extraAttackChancePctAdd)
+    parts.push(`추가 공격 확률 +${e.extraAttackChancePctAdd}%`);
+  if (e.mpCostReductionPctAdd)
+    parts.push(`마나 소모 -${e.mpCostReductionPctAdd}%`);
+  if (e.turnHealPctMaxHpAdd) parts.push(`매 턴 HP +${e.turnHealPctMaxHpAdd}%`);
+  if (e.critChancePctAdd) parts.push(`치명타 확률 +${e.critChancePctAdd}%`);
+  if (e.critMultAdd) parts.push(`치명타 피해 +${e.critMultAdd}배`);
+  return parts.join(" · ");
+}
+
 /**
  * 선택 계파 + 해금한 패시브 ids + 장착 무기 종류 → 합산 효과.
  * 무기 게이트 불통과(종류 불일치)면 빈 효과(완전 비활성 폴백 — docs §4·§8-1).

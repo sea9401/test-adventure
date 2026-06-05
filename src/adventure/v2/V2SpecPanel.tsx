@@ -8,11 +8,17 @@ import { Card } from "@/components/ui/Card";
 // (리치 폴리시 — 무기 게이트 상태·전투 로그 피드백은 P5.)
 
 export type V2SpecPassiveInfo = { id: string; name: string; desc: string };
+export type V2SpecTraitInfo = {
+  name: string;
+  desc: string;
+  effectText: string;
+};
 export type V2SpecInfo = {
   id: string;
   name: string;
   requiredWeaponType: string;
   passives: V2SpecPassiveInfo[];
+  trait: V2SpecTraitInfo | null;
 };
 export type V2SpecState = {
   tier: number;
@@ -28,15 +34,11 @@ const WEAPON_LABEL: Record<string, string> = {
   greatsword: "대검",
   sword_shield: "검+방패",
   rapier: "세검",
-  tonfa: "봉권",
   gauntlet: "권갑",
   claw: "권조",
   staff: "지팡이",
-  relic: "성물",
-  spellblade: "마검",
   bow: "활",
   dagger: "단검",
-  needle: "독침",
 };
 
 export function V2SpecPanel({
@@ -157,7 +159,9 @@ export function V2SpecPanel({
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-sm font-semibold">{s.name}</span>
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  무기 {WEAPON_LABEL[s.requiredWeaponType] ?? s.requiredWeaponType}
+                  무기{" "}
+                  {WEAPON_LABEL[s.requiredWeaponType] ?? s.requiredWeaponType}{" "}
+                  · 선택 시 지급
                 </span>
               </div>
               <ul className="mt-1 space-y-0.5">
@@ -170,6 +174,15 @@ export function V2SpecPanel({
                   </li>
                 ))}
               </ul>
+              {s.trait && (
+                <p className="mt-1.5 text-[11px] text-amber-700 dark:text-amber-400">
+                  특성 · {s.trait.name}
+                  {s.trait.effectText ? ` — ${s.trait.effectText}` : ""}{" "}
+                  <span className="text-zinc-400 dark:text-zinc-500">
+                    (전직 시 자동·차수 성장)
+                  </span>
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => post({ specId: s.id }, `${s.name} 선택`)}
@@ -229,6 +242,21 @@ export function V2SpecPanel({
               );
             })}
           </ul>
+          {chosen.trait && (
+            <div className="mt-2.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  특성 · {chosen.trait.name}
+                </span>
+                <span className="shrink-0 text-[11px] text-amber-700 dark:text-amber-400">
+                  자동 · 차수 성장
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                {chosen.trait.effectText || chosen.trait.desc}
+              </p>
+            </div>
+          )}
           <button
             type="button"
             onClick={resetSpec}

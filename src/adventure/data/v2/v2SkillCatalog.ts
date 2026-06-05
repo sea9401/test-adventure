@@ -473,10 +473,10 @@ export const V2_BASE_SKILLS = {
     mpCost: 0,
     cooldown: 0,
     element: "void",
-    // 소각(DoT) — 마법사 계열 시그니처 상태이상.
+    // 연소(DoT) — 마법사 계열 시그니처 상태이상.
     effects: [
       { kind: "damage", statCoef: 2.2, baseFlat: 12, scaling: "magic" },
-      { kind: "dot", ...V2_DOT_PRESETS.소각 },
+      { kind: "dot", ...V2_DOT_PRESETS.연소 },
     ],
     learn: { goldCost: 0, requireClass: "mage" },
   },
@@ -575,10 +575,10 @@ export const V2_BASE_SKILLS = {
     mpCost: 0,
     cooldown: 0,
     element: "starlight", // 별을 떨구는 마법.
-    // 소각(DoT) — 마법사 계열 시그니처 상태이상(2차).
+    // 연소(DoT) — 마법사 계열 시그니처 상태이상(2차).
     effects: [
       { kind: "damage", statCoef: 2.8, baseFlat: 14, scaling: "magic" },
-      { kind: "dot", ...V2_DOT_PRESETS.소각 },
+      { kind: "dot", ...V2_DOT_PRESETS.연소 },
     ],
     learn: { goldCost: 0, requireClass: "archmage" },
   },
@@ -676,10 +676,10 @@ export const V2_BASE_SKILLS = {
     mpCost: 0,
     cooldown: 0,
     element: "void",
-    // 소각(DoT) — 마법사 계열 시그니처 상태이상(3차).
+    // 연소(DoT) — 마법사 계열 시그니처 상태이상(3차).
     effects: [
       { kind: "damage", statCoef: 3.4, baseFlat: 16, scaling: "magic" },
-      { kind: "dot", ...V2_DOT_PRESETS.소각 },
+      { kind: "dot", ...V2_DOT_PRESETS.연소 },
     ],
     learn: { goldCost: 0, requireClass: "sage" },
   },
@@ -776,10 +776,10 @@ export const V2_BASE_SKILLS = {
     mpCost: 0,
     cooldown: 0,
     element: "fire",
-    // 소각(DoT) — 마법사 계열 시그니처 상태이상(4차).
+    // 연소(DoT) — 마법사 계열 시그니처 상태이상(4차).
     effects: [
       { kind: "damage", statCoef: 4.2, baseFlat: 18, scaling: "magic" },
-      { kind: "dot", ...V2_DOT_PRESETS.소각 },
+      { kind: "dot", ...V2_DOT_PRESETS.연소 },
     ],
     learn: { goldCost: 0, requireClass: "magus" },
   },

@@ -750,9 +750,9 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBeLessThan(100);
   });
 
-  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 소각 DoT", () => {
+  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 연소 DoT", () => {
     // 비전 폭발: statCoef 2.2, baseFlat 12, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 소각은 enemyDamage 에 미포함)
+    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 연소는 enemyDamage 에 미포함)
     const result = resolveV2SkillCast({
       skills: { learned: ["v2_skill_arcane_nova"], equipped: ["v2_skill_arcane_nova"] },
       cooldowns: {},
@@ -768,9 +768,9 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     });
     expect(result.castSkillName).toBe("비전 폭발");
     expect(result.enemyDamage).toBe(188);
-    // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
+    // DoT(연소) 는 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
     expect(result.dotsToApplyToTarget).toContainEqual({
-      label: "소각",
+      label: "연소",
       dmgPerTurn: 8,
       turns: 2,
     });
@@ -781,7 +781,7 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
   it("tickV2Dots — 양수 turns -1, turns 1 도달 시 drop. 누적 dmg 합산", () => {
     const r = tickV2Dots([
       { label: "출혈", dmgPerTurn: 6, turns: 3 },
-      { label: "소각", dmgPerTurn: 8, turns: 1 },
+      { label: "연소", dmgPerTurn: 8, turns: 1 },
     ]);
     expect(r.totalDmg).toBe(14);
     expect(r.nextDots).toEqual([{ label: "출혈", dmgPerTurn: 6, turns: 2 }]);
@@ -798,12 +798,12 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
     ];
     const result = applyV2DotsToTarget(current, [
       { label: "출혈", dmgPerTurn: 8, turns: 3 }, // refresh
-      { label: "소각", dmgPerTurn: 6, turns: 2 }, // 새 append
+      { label: "연소", dmgPerTurn: 6, turns: 2 }, // 새 append
     ]);
     expect(result).toEqual([
       { label: "출혈", dmgPerTurn: 8, turns: 3 },
       { label: "한기", dmgPerTurn: 3, turns: 1 },
-      { label: "소각", dmgPerTurn: 6, turns: 2 },
+      { label: "연소", dmgPerTurn: 6, turns: 2 },
     ]);
   });
 

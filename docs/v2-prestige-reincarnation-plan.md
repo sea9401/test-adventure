@@ -126,7 +126,9 @@ felt-growth 는 시간을 일정하게 잡아서가 아니라 **위 사냥터로
    (`dungeonLadder`)가 무한 깊이 스탯/exp/추천파워 산출. **수동 푸시**=`character.v2.frontierDepth`
    (최고 도달, 구세이브 기본 2). hunt가 깊이 1~frontierDepth+1만 허용, +1 승리 시 해금. tsc0·
    1204테·Codex SHIP. ⚠️계수 전부 임시.
-   **남은 것**: (a) **UI** — state에 frontierDepth 표면화 + 프론티어 깊이 선택 뷰(Codex 위임 후보).
+   **남은 것**: (a) ✅ **UI 완료**(commit 9620ab9f, Codex) — state frontierDepth 표면화·GameStateProvider
+   배선·V2DungeonList 깊이선택(1~최고+1·도전칸)·V2DungeonFloorView 깊이구동·[floorId] 게이트. tsc0·1204테.
+   ⚠️시각 QA 배포후. ⚠️ **별개로 §3 직업 차수 환생(레벨캡·design A·game-feel)은 설계만, 미구현 = 다음 큰 작업.**
    (b) ✅ sim 셋업 완료(둘 다 프론티어 대응): exp-pacing=환생 루프(캡13=5.1일 역산), progression=
        깊이 sweep(권장파워-매칭). 발견: **def 절벽 없음**(댐핑^0.6 정상)·DEX/LUK 깊이↑강화(SPD 확인)·
        **INT/SPI baseline 약세=--skills 필요**(kit 문제, floor와 별개). 잔여=--skills 재측정·실측 교차.

@@ -452,9 +452,16 @@ export function derivePlayerCombatV2Pure(
   // 선택 계파 + 해금 패시브 + 장착 무기 종류 → 합산 효과. 무기 게이트 불통과/spec 미지정 = {}.
   // 현 캐릭(specChoice 없음) = {} → 전부 항등(byte-identical inert). 활성은 save 에
   // specChoice/unlockedPassives 가 있을 때만(래퍼가 주입).
+  // 키트픽 차수 게이트 — 환생(차수→1) 시 상위차수 초과 픽 비활성, 재등반하며 자동복원
+  // (game-feel ③A·design A 권능 리셋). classTier 명시(라이브 wrapper=proficiency.tier)면 한도
+  // tier−1 로 슬라이스, 미명시(레거시/단위테스트)=무제한(하위호환). 정상 플레이는 해금이 tier−1
+  // 로 제한돼 무영향 — 환생 후 보존된 초과 픽에서만 차이.
+  const pickLimit =
+    input.classTier != null ? Math.max(0, input.classTier - 1) : Infinity;
+  const activePicks = (input.unlockedPassives ?? []).slice(0, pickLimit);
   const specEff = aggregateSpecPassives(
     input.spec,
-    input.unlockedPassives ?? [],
+    activePicks,
     weaponTypeOf(v2Equipped.weapon),
   );
   // 직업 특성 — 계파별 자동 부여, 차수(classTier) 성장. 무기 게이트 무관. 계파 시그니처와

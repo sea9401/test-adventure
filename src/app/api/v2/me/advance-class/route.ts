@@ -81,20 +81,13 @@ export async function POST() {
         body: { ok: false as const, error: "no_advance" as const },
       };
     }
-    // P4 — 전직 = class 변경이 아니라 그 직군 차수(proficiency.tier) +1. 4직군에선 class 자체가 그룹.
+    // P4 — 전직 = 그 직군 차수(proficiency.tier) +1. 4직군에선 class 자체가 그룹.
+    // 환생(§3.1·design A) — 4차 정점에서 진행하면 차수→1 리셋(종환생), cumLevel/points/caps 보존.
     const group = tier1ClassOf(curClass);
     const curTier = prof.groups[group]?.tier ?? 1;
-    const nextTier = nextAdvanceTier(curTier); // 정점(4차)이면 null.
-    if (!nextTier) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "no_advance" as const },
-      };
-    }
 
-    // 게이트 — 현 차수 레벨 캡 도달(환생 §3.1). 각 차수는 캡까지만 올리고, 캡 도달 시에만 승급.
-    // 옛 cumLevel 게이트(55/110/170)는 레벨캡과 충돌(1차 캡 50 < 게이트 55 = 도달 불가 소프트락)
-    // 이라 폐지 — 레벨캡으로 페이싱 일원화. cumLevel 은 floor·환생 누적용으로만 계속 쌓임.
+    // 게이트 — 현 차수 레벨 캡 도달(전직·환생 공통). 캡까지 올려야 진행.
+    // 옛 cumLevel 게이트(55/110/170)는 레벨캡과 충돌(1차 캡 50 < 게이트 55 = 소프트락)이라 폐지.
     const level = Math.max(1, charSave.level ?? 1);
     const reqLevel = tierLevelCap(curTier);
     if (level < reqLevel) {
@@ -108,20 +101,27 @@ export async function POST() {
         },
       };
     }
-    // 게이트 2 — 3·4차 모험의 서: 재료 도감 등재 종 수가 요건 미만이면 차단.
-    const codexReq = codexRequirement(tierCodexMin(nextTier));
-    if (codexReq > 0) {
-      const discovered = countDiscoveredMaterials(charSave.materials);
-      if (discovered < codexReq) {
-        return {
-          status: 400,
-          body: {
-            ok: false as const,
-            error: "codex_incomplete" as const,
-            required: codexReq,
-            have: discovered,
-          },
-        };
+
+    // 4차 정점 = 환생(차수→1, cumLevel 보존). 그 외 = 다음 차수 전직.
+    const isReincarnate = curTier >= 4;
+    const nextTier = isReincarnate ? 1 : (nextAdvanceTier(curTier) ?? 1);
+
+    // 게이트 2 — 모험의 서(3·4차 승급만). 환생(→1차)은 면제(이미 등재 보유).
+    if (!isReincarnate) {
+      const codexReq = codexRequirement(tierCodexMin(nextTier));
+      if (codexReq > 0) {
+        const discovered = countDiscoveredMaterials(charSave.materials);
+        if (discovered < codexReq) {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "codex_incomplete" as const,
+              required: codexReq,
+              have: discovered,
+            },
+          };
+        }
       }
     }
 
@@ -159,6 +159,7 @@ export async function POST() {
         ok: true as const,
         class: curClass,
         tier: nextTier,
+        reincarnated: isReincarnate,
       },
     };
   });

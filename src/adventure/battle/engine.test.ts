@@ -698,7 +698,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   });
 
   it("PR-8 — dot effect 스킬 발동 후 적 hp 가 후속 turn tick 으로 추가 감소", () => {
-    // v2_skill_piercing_shot(관통 사격): damage + dot (출혈 6/turn × 3턴). 궁수 시그니처.
+    // mob_rending_claw(살점 뜯기): dot (출혈 3턴). 스킬 kind:"dot" 효과 경로 검증 픽스처.
     const dexPlayer: PlayerCombat = {
       ...PLAYER,
       atk: 50,
@@ -716,8 +716,8 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         pickAction: () => ({ kind: "attack" }),
         potions: {},
         v2Skills: {
-          learned: ["v2_skill_flurry", "v2_skill_piercing_shot"],
-          equipped: ["v2_skill_piercing_shot"],
+          learned: ["v2_skill_flurry", "mob_rending_claw"],
+          equipped: ["mob_rending_claw"],
         },
       },
     );

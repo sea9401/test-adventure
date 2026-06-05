@@ -69,35 +69,6 @@ export type V2SkillId =
   | "str_cleave_t2" // STR 횡베기
   | "str_crushing_blow_t2" // STR 분쇄 강타
   | "str_intimidating_roar_t2" // STR 위압의 함성
-  // ── 직업 전용 (PR-1 슬라이스) ─────────────────────────────────────
-  | "v2_skill_blade_dance" // 견습 검사 전용 — 검무
-  // ── 직업 전용 (PR-6 직업 확장) — 5직업 시그니처 ──────────────────────
-  | "v2_skill_piercing_shot" // 견습 궁수 전용 — 관통 사격 (DEX)
-  | "v2_skill_iron_fist" // 견습 무도가 전용 — 철권난타 (VIT)
-  | "v2_skill_arcane_nova" // 견습 마법사 전용 — 비전 폭발 (INT)
-  | "v2_skill_divine_light" // 견습 사제 전용 — 신성한 빛 (SPI)
-  | "v2_skill_shadow_strike" // 견습 인술가 전용 — 그림자 일격 (LUK)
-  // ── 직업 2차 전용 (PR-7 전직) — 6 2차 시그니처 ──────────────────────
-  | "v2_skill_moonlight_slash" // 검사 전용 — 월광검 (STR)
-  | "v2_skill_storm_arrows" // 궁수 전용 — 폭풍 화살 (DEX)
-  | "v2_skill_collapsing_fist" // 무도가 전용 — 붕권 (VIT)
-  | "v2_skill_meteor" // 마법사 전용 — 메테오 (INT)
-  | "v2_skill_blessing" // 사제 전용 — 축복의 빛 (SPI)
-  | "v2_skill_shadow_clones" // 인술가 전용 — 그림자 분신 (LUK)
-  // ── 직업 3차 전용 — 6 3차 시그니처 ──────────────────────────────────
-  | "v2_skill_heaven_sword" // 검호 전용 — 쾌검 (STR)
-  | "v2_skill_sky_volley" // 명궁 전용 — 연사 (DEX)
-  | "v2_skill_mountain_breaker" // 권사 전용 — 붕격 (VIT)
-  | "v2_skill_void_eclipse" // 마도사 전용 — 공허탄 (INT)
-  | "v2_skill_grand_heal" // 신관 전용 — 치유의 빛 (SPI)
-  | "v2_skill_shadow_swarm" // 그림자 자객 전용 — 암습 (LUK)
-  // ── 직업 4차 전용 — 6 4차 시그니처 (직업군 정점) ────────────────────
-  | "v2_skill_infinity_blade" // 검왕 전용 — 절검 (STR)
-  | "v2_skill_divine_arrow" // 궁왕 전용 — 일점사 (DEX)
-  | "v2_skill_titan_collapse" // 권왕 전용 — 붕산권 (VIT)
-  | "v2_skill_apocalypse_flame" // 현자 전용 — 업화 (INT)
-  | "v2_skill_holy_descent" // 주교 전용 — 심판의 빛 (SPI)
-  | "v2_skill_void_assassinate" // 그림자 주인 전용 — 절명 (LUK)
   // ── 몬스터 전용 상태이상 (PR-9) — 플레이어 미학습, 몹 v2Skills 로만 ──────
   | "mob_venom_bite" // 독니 — 중독(DoT)
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
@@ -156,9 +127,6 @@ export type V2SkillLearnRequirement = {
   stat?: { key: StatKey; min: number };
   /** 선행 스킬 — 모두 학습 보유해야. */
   prereqSkillIds?: readonly V2SkillId[];
-  /** 직업 전용 게이트(레거시). P4 4직군 압축 후 비활성 — 옛 시그니처 정의의 구 class id 문자열
-   *  (swordsman/archer/…)을 담고 있을 수 있어 string 으로 둔다. 실 게이팅엔 미사용. */
-  requireClass?: string;
 };
 
 export type V2SkillDefinition = {
@@ -325,18 +293,6 @@ export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [
 
 const VALID_SKILL_IDS: ReadonlySet<string> = new Set(Object.keys(V2_SKILLS));
 
-// 직업 시그니처 = learn.requireClass 가 있는 스킬(엘리멘탈 풀은 learn 자체가 없음).
-// 직업 패시브 전환으로 시그니처는 더 이상 슬롯 장착·시전 대상이 아니다 — learned 에는 남아
-// 패시브 해금 표식(derive 가 읽음). 식별만 여기서(직업 매핑은 classes.ts, 순환 방지).
-export const V2_SIGNATURE_SKILL_IDS: ReadonlySet<V2SkillId> = new Set(
-  (Object.keys(V2_SKILLS) as V2SkillId[]).filter(
-    (id) => V2_SKILLS[id].learn?.requireClass != null,
-  ),
-);
-export function isV2SignatureSkill(id: string): boolean {
-  return V2_SIGNATURE_SKILL_IDS.has(id as V2SkillId);
-}
-
 // === 슬롯 수 ─────────────────────────────────────────────────────────
 // 균등 33렙당 +1. Lv1-33: 3, Lv34-66: 4, Lv67-99: 5, Lv100: 6.
 // v2 전용 — 기존 라이브 skillLayout 재사용 폐기 (별 곡선).
@@ -384,8 +340,6 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     if (equippedSet.has(id)) continue;
     // 장착하려면 학습 보유 필요 (race 보정).
     if (!learnedSet.has(id)) continue;
-    // 직업 시그니처 → 패시브 전환. 슬롯 장착 대상 아님. 옛 세이브에 박혀있어도 비파괴 제거(슬롯 회수, idempotent).
-    if (isV2SignatureSkill(id)) continue;
     equippedSet.add(id);
     equipped.push(id as V2SkillId);
   }

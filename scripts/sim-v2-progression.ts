@@ -217,9 +217,7 @@ function skillsFor(
   const ids = (Object.keys(V2_SKILLS) as V2SkillId[]).filter((id) => {
     const def = V2_SKILLS[id];
     if (def.monsterOnly) return false;
-    // P4 — 직업 시그니처는 은퇴(비장착). requireClass 가진 레거시 시그니처는 제외.
-    if (def.learn?.requireClass) return false;
-    // 비-시그니처 학습 스킬 — 주력 스탯 일치 + 레벨/스탯 게이트.
+    // 학습 스킬 — 주력 스탯 일치 + 레벨/스탯 게이트.
     if (def.stat !== mainStat) return false;
     if (!def.learn) return true; // 스타터 = 항상 보유
     if (level < (def.learn.level ?? 0)) return false;

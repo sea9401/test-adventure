@@ -109,7 +109,6 @@ function skillsFor(skillStat: "str" | "int"): V2SkillsState {
     .filter((id) => {
       const def = V2_SKILLS[id];
       if (def.monsterOnly) return false;
-      if (def.learn?.requireClass) return false;
       if (def.stat !== skillStat) return false;
       if (def.learn && LEVEL < (def.learn.level ?? 0)) return false;
       return true;

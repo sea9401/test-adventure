@@ -301,14 +301,14 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
   });
 });
 
-describe("derivePlayerCombatV2Pure weaponElement (PR-5b 무기 속성)", () => {
-  it("속성 무기 장착 → weaponElement = 무기 속성", () => {
-    // 별노래궁 = starlight 무기.
+describe("derivePlayerCombatV2Pure weaponElement (무기 속성 폐지 — 항상 neutral)", () => {
+  it("무기 속성 폐지 → 어떤 무기든 weaponElement = neutral", () => {
+    // 속성 무기가 더는 없음 → 평타 속성은 캐릭터 선택으로(hunt/arena 가 weaponElement!==neutral 분기).
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starsong_bow" },
     });
-    expect(d.weaponElement).toBe("starlight");
+    expect(d.weaponElement).toBe("neutral");
   });
 
   it("무속성 무기/미장착 → neutral", () => {

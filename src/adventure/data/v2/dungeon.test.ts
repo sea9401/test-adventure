@@ -38,21 +38,40 @@ describe("v2 dungeon", () => {
     expect(MAIN_DUNGEON.floors[1].name).toBe("깊은 산");
   });
 
-  it("enemiesForDepth / depthName — 1=들판·2=깊은산·3~7=마른 협곡(밴드A)·8+=프론티어", () => {
+  it("enemiesForDepth / depthName — 1·2 authored, 3+ 밴드 A~F", () => {
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies);
     expect(enemiesForDepth(2)).toBe(MAIN_DUNGEON.floors[1].enemies);
-    // 3~7 = 밴드 A 마른 협곡(5종), 8+ = 깊은 산 플레이스홀더 — 둘은 다른 풀.
-    expect(enemiesForDepth(3).length).toBe(5);
-    expect(enemiesForDepth(7)).toBe(enemiesForDepth(3));
-    expect(enemiesForDepth(8)).not.toBe(enemiesForDepth(3));
-    expect(enemiesForDepth(99)).toBe(enemiesForDepth(8)); // 8+ 동일(미테마) 풀
-    // 밴드 A 키 전부 V2_MONSTERS 에 존재(hunt 가 stat 출처로 조회).
-    for (const e of enemiesForDepth(3)) {
-      expect(V2_MONSTERS[e.key], `밴드A ${e.key} V2_MONSTERS 부재`).toBeDefined();
+    // 밴드 경계 — 각 밴드는 5종, 인접 밴드와 다른 풀.
+    const bandReps = [3, 8, 15, 22, 29, 36]; // A·B·C·D·E·F 대표 깊이
+    const bandNames = ["마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴"];
+    for (let i = 0; i < bandReps.length; i++) {
+      const pool = enemiesForDepth(bandReps[i]);
+      expect(pool.length, `${bandNames[i]} 5종`).toBe(5);
+      expect(depthName(bandReps[i]), `${bandNames[i]} 이름`).toContain(bandNames[i]);
+      if (i > 0) {
+        expect(pool, `${bandNames[i]} ≠ ${bandNames[i - 1]}`).not.toBe(
+          enemiesForDepth(bandReps[i - 1]),
+        );
+      }
+    }
+    // 밴드 경계 정확성(상한 inclusive·다음 깊이 전환).
+    expect(enemiesForDepth(7)).toBe(enemiesForDepth(3)); // A 상한
+    expect(enemiesForDepth(14)).toBe(enemiesForDepth(8)); // B 상한
+    expect(enemiesForDepth(35)).toBe(enemiesForDepth(29)); // E 상한
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(36)); // F 무한 반복
+    // 전 밴드 키 V2_MONSTERS 존재 + statusSkill 은 monsterOnly v2 스킬.
+    for (const d of bandReps) {
+      for (const e of enemiesForDepth(d)) {
+        expect(V2_MONSTERS[e.key], `${e.key} V2_MONSTERS 부재`).toBeDefined();
+        if (e.statusSkill) {
+          const s = V2_SKILLS[e.statusSkill];
+          expect(s, `${e.statusSkill} 미존재`).toBeDefined();
+          expect(s.monsterOnly, `${e.statusSkill} monsterOnly`).toBe(true);
+        }
+      }
     }
     expect(depthName(1)).toBe("들판");
     expect(depthName(2)).toBe("깊은 산");
-    expect(depthName(5)).toContain("마른 협곡");
     expect(depthName(50)).toContain("50");
   });
 

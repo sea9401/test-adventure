@@ -1,7 +1,7 @@
 // v2 상태이상(status effect) 카탈로그 — PR-9. 디버프 시스템 정식화.
 //
 // 두 갈래만:
-//   - DoT (지속피해): 출혈·중독·소각 — 매 턴 flat 피해(DEF 무시). label 중복 시 turns refresh.
+//   - DoT (지속피해): 출혈·중독·연소 — 매 턴 flat 피해(DEF 무시). label 중복 시 turns refresh.
 //   - 스탯 디버프: 둔화(속도−)·약화(공격 stat−)·무력(방어 vit−).
 // **행동불가(기절·빙결·턴 스킵)는 의도적으로 제외** — 턴 주고받는 자동전투에 과함(사용자 결정).
 //
@@ -11,11 +11,11 @@
 import type { StatKey } from "@/adventure/data/stats";
 
 // DoT 프리셋 — { label, dmgPerTurn, turns }. label = 상태이상 이름(전투 dot 키).
-//   출혈: 강하고 짧게 / 중독: 약하고 길게 / 소각: 폭발적·아주 짧게.
+//   출혈: 강하고 짧게 / 중독: 약하고 길게 / 연소: 폭발적·아주 짧게.
 export const V2_DOT_PRESETS = {
   출혈: { label: "출혈" as const, dmgPerTurn: 6, turns: 3 },
   중독: { label: "중독" as const, dmgPerTurn: 4, turns: 5 },
-  소각: { label: "소각" as const, dmgPerTurn: 8, turns: 2 },
+  연소: { label: "연소" as const, dmgPerTurn: 8, turns: 2 },
 } as const;
 export type V2DotName = keyof typeof V2_DOT_PRESETS;
 
@@ -32,7 +32,7 @@ export type V2DebuffName = keyof typeof V2_DEBUFF_PRESETS;
 export const V2_STATUS_KINDS = {
   출혈: "dot",
   중독: "dot",
-  소각: "dot",
+  연소: "dot",
   둔화: "debuff",
   약화: "debuff",
   무력: "debuff",
@@ -40,11 +40,11 @@ export const V2_STATUS_KINDS = {
 export type V2StatusName = keyof typeof V2_STATUS_KINDS;
 
 // PR-statuscolor — 전투 로그의 상태이상 라벨 pill 색(아이콘 대신 표시색). 상태별 톤 구분.
-//   출혈 적 · 중독 라임 · 소각 주황 · 둔화 하늘 · 약화 보라 · 무력 호박.
+//   출혈 적 · 중독 라임 · 연소 주황 · 둔화 하늘 · 약화 보라 · 무력 호박.
 export const V2_STATUS_PILL_COLORS: Record<V2StatusName, string> = {
   출혈: "bg-rose-200/70 text-rose-900 dark:bg-rose-900/60 dark:text-rose-200",
   중독: "bg-lime-200/70 text-lime-900 dark:bg-lime-900/60 dark:text-lime-200",
-  소각:
+  연소:
     "bg-orange-200/70 text-orange-900 dark:bg-orange-900/60 dark:text-orange-200",
   둔화: "bg-sky-200/70 text-sky-900 dark:bg-sky-900/60 dark:text-sky-200",
   약화:

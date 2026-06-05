@@ -16,7 +16,7 @@
 import { type V2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 
 // 한 티어분 패시브 효과. 직업군마다 자기 필드 하나만 채운다(없는 필드 = no-op).
-// 2026-06-03 재설계 — 직업군당 단순 효과 1개, 차수=계수업. DoT(소각/출혈/중독) 전면 제거.
+// 2026-06-03 재설계 — 직업군당 단순 효과 1개, 차수=계수업. DoT(연소/출혈/중독) 전면 제거.
 export type V2ClassPassiveEffect = {
   /** 검사(STR) — 평타 공격력에 STR×계수 가산 → derive 가 atk 에 더함. */
   atkPerStrCoef?: number;

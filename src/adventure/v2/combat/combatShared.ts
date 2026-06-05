@@ -107,7 +107,7 @@ export function potionHealAmount(
 }
 
 // ── v2 DoT (PR-8) ─────────────────────────────────────────────────────────
-// 지속 피해 (출혈/소각/한기/독 등). v2 스킬 effect kind "dot" 의 결과로 target 에 박힘.
+// 지속 피해 (출혈/연소/한기/독 등). v2 스킬 effect kind "dot" 의 결과로 target 에 박힘.
 // 매 target 의 turn 진입 시 tick — 각 dot 의 turns -= 1 + dmgPerTurn 합산하여 target HP 차감.
 // turns <= 0 dot 은 drop. DEF 무시.
 // 같은 label 박히면 refresh (turns 새 값으로 덮어쓰기) — 정책 단순화.

@@ -9,47 +9,48 @@
 //
 // ⚠️ 계수(STEP·DEF_DAMP·EXP_EXP·EXP_PLATEAU)는 전부 임시 — sim-v2-exp-pacing /
 //   sim-v2-progression 으로 "프론티어 = 5일" 역산해 캘리브할 대상.
+//
+// 단일 무한 프론티어 모델: 깊이(depth) 1=들판·2=깊은산(authored 풀, 배율 ×1.0)·3+=프론티어
+//   풀(공식 스케일). depth 는 number 무한 — 함수가 임의 깊이를 산출(고정 1~8 캡 없음).
 
-import type { DungeonFloorId } from "./types";
-
-const FLOOR1_POWER = 50; // 들판 — authored
-export const LADDER_ANCHOR_FLOOR = 2; // 깊은 산 = 앵커
+const FLOOR1_POWER = 50; // 들판(깊이 1) — authored
+export const LADDER_ANCHOR_DEPTH = 2; // 깊은 산 = 앵커
 export const LADDER_ANCHOR_POWER = 110; // 깊은 산 권장 파워
-export const LADDER_POWER_STEP = 40; // K=2 × power/루프 ~20 (게이트 간격)
+export const LADDER_POWER_STEP = 40; // K=2 × power/루프 ~20 (깊이당 간격)
 
-// 권장 파워 게이트. floor 1·2 = 기존 authored, 3+ = 앵커 + (floor−2)×step 선형.
-// (power 가 cumLevel 선형이라 선형 간격 = 일정 K/사냥터.)
-export function floorPowerGate(floor: DungeonFloorId): number {
-  if (floor <= 1) return FLOOR1_POWER;
-  if (floor === LADDER_ANCHOR_FLOOR) return LADDER_ANCHOR_POWER;
+// 권장 파워 게이트. 깊이 1·2 = authored, 3+ = 앵커 + (depth−2)×step 선형(무한).
+// (power 가 cumLevel 선형이라 선형 간격 = 일정 K/깊이.)
+export function floorPowerGate(depth: number): number {
+  if (depth <= 1) return FLOOR1_POWER;
+  if (depth === LADDER_ANCHOR_DEPTH) return LADDER_ANCHOR_POWER;
   return (
-    LADDER_ANCHOR_POWER + (floor - LADDER_ANCHOR_FLOOR) * LADDER_POWER_STEP
+    LADDER_ANCHOR_POWER + (depth - LADDER_ANCHOR_DEPTH) * LADDER_POWER_STEP
   );
 }
 
-// 스탯 배율 — 깊은 산 앵커 대비. floor 1·2 = ×1.0(authored 몹 그대로). 3+ = gate/anchor.
-// hp·atk 에 선형 적용.
-export function floorStatMult(floor: DungeonFloorId): number {
-  if (floor <= LADDER_ANCHOR_FLOOR) return 1;
-  return floorPowerGate(floor) / LADDER_ANCHOR_POWER;
+// 스탯 배율 — 깊은 산 앵커 대비. 깊이 1·2 = ×1.0(authored 몹 그대로). 3+ = gate/anchor.
+// hp·atk 에 선형 적용. 무한 깊이.
+export function floorStatMult(depth: number): number {
+  if (depth <= LADDER_ANCHOR_DEPTH) return 1;
+  return floorPowerGate(depth) / LADDER_ANCHOR_POWER;
 }
 
 // def 댐핑 — v2 는 관통 0 이라 def 가 hp/atk 따라 선형 오르면 데미지 절벽(floor-5 사고 교훈).
 // 지수 < 1 로 def 가 더 천천히 오르게 → 플레이어 atk 가 항상 뚫는다.
 export const LADDER_DEF_DAMP = 0.6;
-export function floorDefMult(floor: DungeonFloorId): number {
-  if (floor <= LADDER_ANCHOR_FLOOR) return 1;
-  return Math.pow(floorStatMult(floor), LADDER_DEF_DAMP);
+export function floorDefMult(depth: number): number {
+  if (depth <= LADDER_ANCHOR_DEPTH) return 1;
+  return Math.pow(floorStatMult(depth), LADDER_DEF_DAMP);
 }
 
-// exp 배율 — 램프(볼록) 후 플래토. 저티어 낮음(느림) → 상위로 갈수록 가속 → 상단 캡에서
-// 수렴(프론티어 ~5일, 분단위 붕괴 방지). floor 1·2 = ×1.0.
+// exp 배율 — 램프(볼록) 후 플래토. 저깊이 낮음(느림) → 깊을수록 가속 → 상단 캡에서
+// 수렴(프론티어 ~5일, 분단위 붕괴 방지). 깊이 1·2 = ×1.0.
 export const LADDER_EXP_EXP = 2.0; // 볼록 지수
 export const LADDER_EXP_PLATEAU = 10; // 상단 캡(프론티어 cadence 고정)
-export function floorExpMult(floor: DungeonFloorId): number {
-  if (floor <= LADDER_ANCHOR_FLOOR) return 1;
+export function floorExpMult(depth: number): number {
+  if (depth <= LADDER_ANCHOR_DEPTH) return 1;
   return Math.min(
-    Math.pow(floorStatMult(floor), LADDER_EXP_EXP),
+    Math.pow(floorStatMult(depth), LADDER_EXP_EXP),
     LADDER_EXP_PLATEAU,
   );
 }

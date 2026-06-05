@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MAIN_DUNGEON } from "./dungeon";
+import { MAIN_DUNGEON, enemiesForDepth, depthName } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
@@ -32,10 +32,21 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("8층 정의됨 (들판·깊은 산 + 사다리 3~8 재활성)", () => {
-    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  it("단일 무한 프론티어 — authored 깊이 1·2(들판·깊은 산)만 MAIN_DUNGEON, 3+ 는 생성", () => {
+    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2]);
     expect(MAIN_DUNGEON.floors[0].name).toBe("들판");
     expect(MAIN_DUNGEON.floors[1].name).toBe("깊은 산");
+  });
+
+  it("enemiesForDepth / depthName — 1=들판·2=깊은산·3+=프론티어(무한)", () => {
+    expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies);
+    expect(enemiesForDepth(2)).toBe(MAIN_DUNGEON.floors[1].enemies);
+    // 3+ = 프론티어 풀(현재 깊은 산 재사용) — 비어있지 않고, 무한 깊이도 동일 풀
+    expect(enemiesForDepth(3).length).toBeGreaterThan(0);
+    expect(enemiesForDepth(99)).toBe(enemiesForDepth(3));
+    expect(depthName(1)).toBe("들판");
+    expect(depthName(2)).toBe("깊은 산");
+    expect(depthName(50)).toContain("50");
   });
 
   it("전 층 파워 requirement(단조 증가)", () => {

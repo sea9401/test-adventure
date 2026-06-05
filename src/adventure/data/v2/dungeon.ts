@@ -7,12 +7,7 @@
 // 표시 이름(name)은 지형에 맞춘 v2 고유 이름이고, 스탯/스킬 출처(key)는 라이브 MONSTERS.
 // 둘이 분리돼 있어 출처가 무엇이든 지형에 맞는 이름을 붙인다.
 
-import type {
-  Dungeon,
-  DungeonEnemy,
-  DungeonFloor,
-  DungeonFloorId,
-} from "./types";
+import type { Dungeon, DungeonEnemy } from "./types";
 import { floorPowerGate } from "./dungeonLadder";
 
 // === 1구역 — 들판 ====================================================
@@ -38,29 +33,13 @@ const FLOOR2_ENEMIES: DungeonEnemy[] = [
   { key: "들소", name: "들소", image: "/images/monster/v2/mountain-bison.webp", element: "fire" },
 ];
 
-// === 구역별 난이도 = 사다리 제너레이터 ================================
-// 난이도/exp 배율은 dungeonLadder(floorStatMult/DefMult/ExpMult)가 깊은 산(2) 앵커 대비
-// 자동 산출 → scaleMonsterForFloor 가 적용. (옛 FLOOR_DIFFICULTY Record 폐지, 공식으로 일원화.)
+// === 무한 프론티어 ===================================================
+// 단일 사냥터, 깊이(depth) 1→∞. 깊이 1=들판·2=깊은 산(아래 authored 풀)·3+=프론티어 풀.
+// 깊이별 스탯/exp/추천파워 = dungeonLadder 제너레이터(무한, ×1.0~). 수동 푸시: 깊이 1~최고도달+1.
+// ⚠️ 프론티어 풀 = 깊은 산 풀 재사용(플레이스홀더). 추후 깊이 밴드별 테마 몹 세트 얹기.
+const FRONTIER_ENEMIES: DungeonEnemy[] = FLOOR2_ENEMIES;
 
-// floors 3~8 — 사다리 자동 생성. 권장 파워 = floorPowerGate(§5.1, K=2 간격 40).
-// ⚠️ 플레이스홀더: 몹은 깊은 산 풀 재사용·이름은 임시 테마. 추후 권역별 몹/아트/이름 테마링 필요.
-const LADDER_FLOOR_NAMES: Record<number, string> = {
-  3: "협곡",
-  4: "빙하 지대",
-  5: "화산",
-  6: "고대 폐허",
-  7: "심연",
-  8: "정점",
-};
-const LADDER_FLOORS: DungeonFloor[] = (
-  [3, 4, 5, 6, 7, 8] as DungeonFloorId[]
-).map((id) => ({
-  id,
-  name: LADDER_FLOOR_NAMES[id],
-  requirement: { kind: "power", min: floorPowerGate(id) },
-  enemies: FLOOR2_ENEMIES,
-}));
-
+// 들판·깊은 산 = 깊이 1·2 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
 export const MAIN_DUNGEON: Dungeon = {
   id: "main",
   name: "사냥터",
@@ -77,6 +56,19 @@ export const MAIN_DUNGEON: Dungeon = {
       requirement: { kind: "power", min: floorPowerGate(2) },
       enemies: FLOOR2_ENEMIES,
     },
-    ...LADDER_FLOORS,
   ],
 };
+
+// 깊이 → 적 풀. 1=들판·2=깊은 산(authored)·3+=프론티어. 무한 깊이.
+export function enemiesForDepth(depth: number): DungeonEnemy[] {
+  if (depth <= 1) return FLOOR1_ENEMIES;
+  if (depth === 2) return FLOOR2_ENEMIES;
+  return FRONTIER_ENEMIES;
+}
+
+// 깊이 → 표시 이름. 1·2 = authored, 3+ = 프론티어 깊이.
+export function depthName(depth: number): string {
+  if (depth <= 1) return "들판";
+  if (depth === 2) return "깊은 산";
+  return `프론티어 깊이 ${depth}`;
+}

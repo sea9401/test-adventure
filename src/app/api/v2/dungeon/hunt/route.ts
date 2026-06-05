@@ -20,7 +20,7 @@ function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -107,12 +107,9 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 //   - playerName placeholder "모험가"
 //   - drop 은 placeholder 풀 (`dungeonDrops.ts`) — 정식 재료 시스템 통째 교체 예정
 
-// 사냥 가능 층 — 사다리 재활성(들판·깊은 산 + 제너레이터 3~8, dungeonLadder §5.1).
-const VALID_FLOORS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-
-function isValidFloor(n: number): n is DungeonFloorId {
-  return (VALID_FLOORS as readonly number[]).includes(n);
-}
+// 단일 무한 프론티어 — 깊이(depth) 1→∞. 조기 검증은 정수·≥1 만, 실제 게이트(최고도달+1)는
+// character.v2 lock 후. 드랍 풀은 깊이를 DungeonFloorId(1~8)로 클램프해 조회(8 이상=8 풀).
+const DROP_FLOOR_CAP = 8 as DungeonFloorId;
 
 function pickRandomEnemy(
   enemies: readonly DungeonEnemy[],
@@ -128,7 +125,7 @@ export async function POST(req: Request) {
   }
 
   let body: {
-    floor?: unknown;
+    floor?: unknown; // = 프론티어 깊이(depth). 클라 호환 위해 키 이름 유지.
     outpostId?: unknown;
   };
   try {
@@ -136,14 +133,16 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  if (typeof body.floor !== "number" || !isValidFloor(body.floor)) {
+  // floor = 깊이(무한). 정수·≥1 만 조기 검증 — 최고도달+1 게이트는 save lock 후(아래).
+  if (
+    typeof body.floor !== "number" ||
+    !Number.isInteger(body.floor) ||
+    body.floor < 1
+  ) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
-  const floor = body.floor;
-  const floorData = MAIN_DUNGEON.floors.find((f) => f.id === floor);
-  if (!floorData) {
-    return Response.json({ ok: false, error: "bad_floor" }, { status: 400 });
-  }
+  const depth = body.floor;
+  const dropFloor = Math.min(depth, DROP_FLOOR_CAP) as DungeonFloorId;
 
   // outpostId 는 선택적. 있으면 점령자 lookup + 골드 세금 transfer.
   // 없으면(또는 모르는 id) 세금 없이 사냥자가 100% gold.
@@ -297,6 +296,24 @@ export async function POST(req: Request) {
     const { owned: ownedEquip, equipped: equippedEquip } =
       parseEquipmentSave(equipmentSave);
 
+    // 프론티어 깊이 게이트(수동 푸시) — 깊이 1~최고도달+1 만. 도달은 character.v2.frontierDepth.
+    // 들판·깊은 산(1·2)은 기본 해금(min 2). 잠긴 깊이는 stamina 소모 전 거부.
+    const frontierDepth = Math.max(
+      2,
+      Math.floor(Number(charSave.frontierDepth) || 2),
+    );
+    if (depth > frontierDepth + 1) {
+      return {
+        ok: false as const,
+        status: 403,
+        body: {
+          ok: false as const,
+          error: "depth_locked" as const,
+          maxDepth: frontierDepth,
+        },
+      };
+    }
+
     const now = Date.now();
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const afterStamina = tryConsume(stamina, HUNT_COST, now);
@@ -325,7 +342,7 @@ export async function POST(req: Request) {
       };
     }
 
-    const enemy = pickRandomEnemy(floorData.enemies);
+    const enemy = pickRandomEnemy(enemiesForDepth(depth));
     if (!enemy) {
       return {
         ok: false as const,
@@ -366,7 +383,7 @@ export async function POST(req: Request) {
     const playerElemMult = elementDamageMult(basicAttackElement, monsterElement); // 내 평타
     const monsterElemMult = elementDamageMult(monsterElement, playerElement); // 적 공격(내 방어속성 대상)
     const playerElemMatchup = elementMatchup(basicAttackElement, monsterElement);
-    const scaledEnemy = scaleMonsterForFloor(baseMonster, floor);
+    const scaledEnemy = scaleMonsterForFloor(baseMonster, depth);
     const enemyMonster = {
       ...scaledEnemy,
       atk: Math.max(1, Math.round(scaledEnemy.atk * monsterElemMult)),
@@ -486,7 +503,7 @@ export async function POST(req: Request) {
     const expGained = Math.round(baseExp * XP_RATE_MULT);
     const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
     // 신참 드롭 보너스 폐지 — 신참 혜택은 EXP 전용(사용자 결정). 드롭은 항상 ×1.
-    const drops: DropResult = won ? rollDrops(floor, Math.random, 1) : {};
+    const drops: DropResult = won ? rollDrops(dropFloor, Math.random, 1) : {};
     const nextMaterials = mergeDrops(charSave.materials, drops);
 
     // 장비 드랍 — 승리 시 1회 굴림. 이미 보유한 id 는 후보 제외 (장비 unique).
@@ -498,7 +515,7 @@ export async function POST(req: Request) {
       // 드랍 후보 제외는 보유 "id" 기준(이미 보유한 종류는 다시 안 떨어짐) — 개체 모델이라도
       // 드랍은 종류당 1개 유지(중복 농사 방지). 개체별 굴림의 다양성은 제작 쪽에서.
       const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
-      droppedEquipment = rollEquipDrop(floor, ownedSet, Math.random, 1);
+      droppedEquipment = rollEquipDrop(dropFloor, ownedSet, Math.random, 1);
       if (droppedEquipment !== null) {
         // 드랍 = 새 개체 + 새 굴림(±편차).
         nextOwned = [
@@ -513,7 +530,7 @@ export async function POST(req: Request) {
       }
       // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 보유분 제외, 둘 다 떨어질 수도.
       // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
-      droppedUnique = rollUniqueDrop(floor, ownedSet, Math.random, 1);
+      droppedUnique = rollUniqueDrop(dropFloor, ownedSet, Math.random, 1);
       if (droppedUnique !== null) {
         nextOwned = [
           ...nextOwned,
@@ -608,6 +625,8 @@ export async function POST(req: Request) {
       exp: expResult.exp,
       gold: newGold,
       materials: nextMaterials,
+      // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지(min 2 정규화).
+      frontierDepth: won && depth > frontierDepth ? depth : frontierDepth,
       // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
       ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
     };
@@ -729,7 +748,8 @@ export async function POST(req: Request) {
         ok: true as const,
         stamina: afterStamina,
         result: {
-          floor,
+          floor: depth, // 깊이(클라 호환 키)
+          maxDepth: won && depth > frontierDepth ? depth : frontierDepth, // 최고 도달(수동 푸시)
           enemyName,
           won,
           expGained,

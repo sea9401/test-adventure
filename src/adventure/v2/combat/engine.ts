@@ -268,6 +268,9 @@ export type BattleState = {
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 
+// 절초 (연환 시그니처) — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
+const COMBO_FINISHER_PERIOD = 4;
+
 export type PlayerCombat = {
   hp: number;
   maxHp: number;
@@ -1445,7 +1448,9 @@ export function advanceTurn(
       enchantBerserkBonus +
       gustBonus +
       enduringStrikeBonus +
-      madnessAtkBonus;
+      madnessAtkBonus +
+      // 연격세 (연환 시그니처) — 전투 내 누적 ATK 보너스. 미보유면 0 → 무변.
+      state.stacks.comboAtkBonus;
     // PR-5a: v2 buff/debuff 격리 해제 — 일반 공격 damage 에도 atk 곱셈으로 반영.
     // attacker 의 v2 self buff (str/dex/spd/luk) 합산, target 의 v2 vit debuff/buff 가 def 곱셈.
     const v2AtkMultPlayer = v2AtkBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
@@ -1518,10 +1523,34 @@ export function advanceTurn(
     // 난사 (궁사 시그니처) — 그 턴 첫 타(본타)가 아닌 추가타에 한해 데미지 +extraHitDmgPct%.
     // 다단 히트(연사) 본체를 키우는 시그니처라 본타는 영향 없음. 모든 배수 뒤 마지막 곱.
     const extraHitPct = player.extraHitDmgPct ?? 0;
-    const dmg =
+    const dmgAfterExtraHit =
       extraHitPct > 0 && !isFirstAttackOfTurn
         ? Math.max(1, Math.floor(dmgAfterBreaker * (1 + extraHitPct / 100)))
         : dmgAfterBreaker;
+    // 절초 (연환 시그니처) — 누적 적중 COMBO_FINISHER_PERIOD 타째 본타에 마무리 강타 +%.
+    // comboHitCount 는 이 적중이 적용되면 afterDamage 에서 +1 → (현재 count + 1) 이 이번 타 순번.
+    const comboFinisherPct = player.comboFinisherBonusPct ?? 0;
+    const comboFinisherFires =
+      comboFinisherPct > 0 &&
+      (state.stacks.comboHitCount + 1) % COMBO_FINISHER_PERIOD === 0;
+    const dmg = comboFinisherFires
+      ? Math.max(1, Math.floor(dmgAfterExtraHit * (1 + comboFinisherPct / 100)))
+      : dmgAfterExtraHit;
+    // 연격세 (연환 시그니처) — 이 적중으로 ATK 보너스 누적(상한 = 기본 ATK).
+    const comboAtkPct = player.comboAtkPctPerHit ?? 0;
+    const nextComboAtkBonus =
+      comboAtkPct > 0
+        ? Math.min(
+            player.atk,
+            state.stacks.comboAtkBonus +
+              Math.floor((player.atk * comboAtkPct) / 100),
+          )
+        : state.stacks.comboAtkBonus;
+    // 절초 — 적중 누적 카운트 +1(절초 보유 시에만 증가, 미보유는 0 고정).
+    const nextComboHitCount =
+      comboFinisherPct > 0
+        ? state.stacks.comboHitCount + 1
+        : state.stacks.comboHitCount;
     // 천명 (4티어) — 일정 확률로 적 현재 HP 의 일부를 추가 고정 피해 (이 공격의 보통 피해와 별개로 합산).
     // 보스 전투에는 BOSS_PCT_HP_DAMAGE_MULT 배 적용 (%HP 누진 폭딜 방지).
     const decreeFires =
@@ -1819,6 +1848,8 @@ export function advanceTurn(
         chillStacks: shouldCleanseDebuffs ? 0 : state.stacks.chillStacks,
         evadesRemaining: state.stacks.evadesRemaining + apEvadesAdd,
         weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
+        comboAtkBonus: nextComboAtkBonus,
+        comboHitCount: nextComboHitCount,
       },
       turn: {
         ...state.turn,

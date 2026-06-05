@@ -513,6 +513,25 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.defGainOnHitPct).toBe(15);
   });
 
+  it("연환 + 권갑(claw) + 연격세/절초 → combo 필드 매핑", () => {
+    const yeonhwan = getJobSpec("martial", "yeonhwan")!;
+    const ybase = {
+      ...base,
+      v2Equipped: { weapon: "v2_starter_claw" as V2EquipmentId },
+      spec: yeonhwan,
+    };
+    const power = derivePlayerCombatV2Pure({
+      ...ybase,
+      unlockedPassives: ["yeonhwan_power"], // 연격세
+    });
+    expect(power.player.comboAtkPctPerHit).toBe(4);
+    const swift = derivePlayerCombatV2Pure({
+      ...ybase,
+      unlockedPassives: ["yeonhwan_swift"], // 절초
+    });
+    expect(swift.player.comboFinisherBonusPct).toBe(150);
+  });
+
   it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
     const dbase = {
       ...base,

@@ -388,6 +388,58 @@ describe("defGainOnHitPct — 금강 강체 (받은 피해만큼 DEF 누적)", (
   });
 });
 
+describe("comboAtkPctPerHit — 연환 연격세 (적중마다 ATK 누적)", () => {
+  it("적중할수록 뒤 타격이 더 세진다 (누적 ATK)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 100,
+      attackCount: 3,
+      comboAtkPctPerHit: 50, // 적중당 +50% atk 누적(상한 = 기본 atk)
+    };
+    let s = initialBattleState(
+      player,
+      enemy({ hp: 1000000, def: 0, spd: 1 }),
+      "용사",
+    );
+    const hits: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const hp0 = s.enemyHp;
+      s = advanceTurn(s, player, "용사", { kind: "attack" });
+      hits.push(hp0 - s.enemyHp);
+    }
+    expect(s.stacks.comboAtkBonus).toBeGreaterThan(0);
+    expect(hits[1]).toBeGreaterThan(hits[0]);
+    expect(hits[2]).toBeGreaterThan(hits[1]);
+  });
+});
+
+describe("comboFinisherBonusPct — 연환 절초 (4타째 마무리 강타)", () => {
+  it("4타째만 +150%, 그 외는 평타", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99);
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      atk: 100,
+      attackCount: 5,
+      comboFinisherBonusPct: 150,
+    };
+    let s = initialBattleState(
+      player,
+      enemy({ hp: 1000000, def: 0, spd: 1 }),
+      "용사",
+    );
+    const hits: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const hp0 = s.enemyHp;
+      s = advanceTurn(s, player, "용사", { kind: "attack" });
+      hits.push(hp0 - s.enemyHp);
+    }
+    expect(hits[1]).toBe(hits[0]); // 2타 = 평타
+    expect(hits[3]).toBe(Math.floor(hits[0] * 2.5)); // 4타 = 마무리 +150%
+    expect(hits[4]).toBe(hits[0]); // 5타 = 평타 복귀
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

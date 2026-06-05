@@ -19,31 +19,12 @@ import {
   type V2EquipTier,
   type V2WeaponType,
 } from "./v2Equipment";
-import { V2_ELEMENTS, V2_ELEMENT_CYCLE } from "./elements";
 
-describe("무기 속성 전면 태깅", () => {
-  it("무기 element 는 유효 V2Element, 방어구·장신구는 element 없음", () => {
+describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위력 전담)", () => {
+  it("모든 장비(무기 포함)에 element 없음 — 평타 속성은 캐릭터 선택으로", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
-      if (item.element !== undefined) {
-        expect(V2_ELEMENTS, `${item.id}`).toContain(item.element);
-      }
-      // element 는 무기 슬롯에만 의미 — 방어구·장신구엔 미부여.
-      if (item.slot !== "weapon") {
-        expect(item.element, `${item.id} 비무기 element`).toBeUndefined();
-      }
+      expect(item.element, `${item.id} element 폐지`).toBeUndefined();
     }
-  });
-
-  it("무기 속성이 7-ring 전부 커버 + 일부 무속성(starter)", () => {
-    const weaponEls = v2EquipmentBySlot("weapon")
-      .map((w) => w.element)
-      .filter((e): e is NonNullable<typeof e> => Boolean(e));
-    const set = new Set(weaponEls);
-    for (const e of V2_ELEMENT_CYCLE) {
-      expect(set.has(e), `무기에 ${e} 없음`).toBe(true);
-    }
-    // 무속성 무기(저티어 starter)도 존재 — 캐릭 속성 선택 살림.
-    expect(v2EquipmentBySlot("weapon").some((w) => !w.element)).toBe(true);
   });
 });
 

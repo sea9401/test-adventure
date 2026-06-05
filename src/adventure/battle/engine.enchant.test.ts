@@ -440,6 +440,60 @@ describe("comboFinisherBonusPct — 연환 절초 (4타째 마무리 강타)", (
   });
 });
 
+describe("주문중첩/약점노출 — 스킬 데미지 스택 (resolveBattle 풀 전투)", () => {
+  // 시전(cast)은 resolveBattle 의 while 루프에서만 일어난다(advanceTurn 단발은 평타).
+  // v2_skill_strike: procChance 100(항상 시전)·cd 0·mpCost 8·물리.
+  const run = (over: Partial<PlayerCombat>) => {
+    const player: PlayerCombat = {
+      ...BASE_PLAYER,
+      maxHp: 100000,
+      hp: 100000,
+      atk: 100,
+      maxMp: 100000,
+      mp: 100000,
+      ...over,
+    };
+    const r = resolveBattle(
+      player,
+      enemy({ hp: 3000, def: 0, spd: 1 }),
+      "용사",
+      {
+        pickAction: () => ({ kind: "attack" }),
+        potions: {},
+        v2Skills: {
+          learned: ["v2_skill_strike"],
+          equipped: ["v2_skill_strike"],
+        },
+      },
+    );
+    return r.finalState;
+  };
+
+  it("주문 중첩 — 시전 누적으로 더 빨리 처치 + spellCastCount 누적", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const stacked = run({ skillDmgPctPerCast: 50 });
+    const plain = run({});
+    expect(stacked.outcome).toBe("win");
+    expect(stacked.stacks.spellCastCount).toBeGreaterThan(0);
+    expect(plain.stacks.spellCastCount).toBe(0); // 미보유 → 누적 없음
+    expect(stacked.turn.completedPlayerTurns).toBeLessThan(
+      plain.turn.completedPlayerTurns,
+    );
+  });
+
+  it("약점 노출 — 적중 누적으로 더 빨리 처치 + enemyMagicVulnStacks 누적", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const stacked = run({ enemyMagicVulnPctPerStack: 50 });
+    const plain = run({});
+    expect(stacked.outcome).toBe("win");
+    expect(stacked.stacks.enemyMagicVulnStacks).toBeGreaterThan(0);
+    expect(plain.stacks.enemyMagicVulnStacks).toBe(0);
+    expect(stacked.turn.completedPlayerTurns).toBeLessThan(
+      plain.turn.completedPlayerTurns,
+    );
+  });
+});
+
 describe("endure — 받는 피해 -%", () => {
   it("endurePct 50 → 피해 절반", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // guard 미발동

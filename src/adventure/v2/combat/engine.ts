@@ -270,6 +270,9 @@ export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 
 // 절초 (연환 시그니처) — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
 const COMBO_FINISHER_PERIOD = 4;
+// 주문 중첩(워메이지)·약점 노출(마도사) 누적 상한 — 무한 인플레 방지(위력은 데이터 pct 다이얼).
+const SPELL_STACK_CAP = 10;
+const MAGIC_VULN_STACK_CAP = 10;
 
 export type PlayerCombat = {
   hp: number;
@@ -2986,6 +2989,34 @@ export function resolveBattle(
             element: state.enemy.element,
           },
         });
+        // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
+        //   주문중첩: 누적 시전 횟수 × skillDmgPctPerCast.  약점노출: 적 마법취약 스택 × enemyMagicVulnPctPerStack.
+        // 둘 다 미보유면 스택 0 → 배수 1 → 무변. 적중 후 아래에서 스택 증가.
+        const spellStackMult =
+          1 +
+          (state.stacks.spellCastCount * (player.skillDmgPctPerCast ?? 0)) / 100;
+        const magicVulnMult =
+          1 +
+          (state.stacks.enemyMagicVulnStacks *
+            (player.enemyMagicVulnPctPerStack ?? 0)) /
+            100;
+        const boostedSkillDamage = Math.floor(
+          result.enemyDamage * spellStackMult * magicVulnMult,
+        );
+        // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
+        const nextSpellCastCount =
+          (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
+            ? Math.min(SPELL_STACK_CAP, state.stacks.spellCastCount + 1)
+            : state.stacks.spellCastCount;
+        const nextMagicVulnStacks =
+          (player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
+          result.castSkillId &&
+          result.enemyDamage > 0
+            ? Math.min(
+                MAGIC_VULN_STACK_CAP,
+                state.stacks.enemyMagicVulnStacks + 1,
+              )
+            : state.stacks.enemyMagicVulnStacks;
         // 3) state 업데이트 — MP, cooldown, buff/debuff map, HP delta, log.
         let nextEnemyHp = state.enemyHp;
         let nextPlayerHp = state.playerHp;
@@ -2993,10 +3024,10 @@ export function resolveBattle(
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // damage 효과: 일반 공격과 같은 player_attack kind, "[강타] 적에게 N 피해를 입혔다."
         if (result.enemyDamage > 0 && result.castSkillName) {
-          nextEnemyHp = Math.max(0, nextEnemyHp - result.enemyDamage);
+          nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
           nextLog = appendLog(nextLog, {
             kind: "player_attack",
-            text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
+            text: `[${result.castSkillName}] ${boostedSkillDamage} 피해를 입혔다.`,
           });
         }
         // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
@@ -3046,6 +3077,11 @@ export function resolveBattle(
           v2SelfDebuffs: tickedSelfDebuffs, // (PvE 는 적이 enemyDebuff 안 박아서 갱신 X — tick 만 반영)
           enemyV2Debuffs: nextEnemyDebuffs,
           enemyV2Dots: nextEnemyDots,
+          stacks: {
+            ...state.stacks,
+            spellCastCount: nextSpellCastCount,
+            enemyMagicVulnStacks: nextMagicVulnStacks,
+          },
           log: nextLog,
         };
         // lethal 체크 — v2 damage 로 적 사망 시 정상 종료 처리 (옛 spell cast 분기와 일관).

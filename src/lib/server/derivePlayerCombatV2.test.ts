@@ -532,6 +532,26 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(swift.player.comboFinisherBonusPct).toBe(150);
   });
 
+  it("워메이지 + 지팡이 + 주문 중첩 → skillDmgPctPerCast 6", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "battlemage")!,
+      unlockedPassives: ["battlemage_power"], // 주문 중첩
+    });
+    expect(d.player.skillDmgPctPerCast).toBe(6);
+  });
+
+  it("마도사 + 지팡이 + 약점 노출 → enemyMagicVulnPctPerStack 5", () => {
+    const d = derivePlayerCombatV2Pure({
+      ...base,
+      v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },
+      spec: getJobSpec("mage", "arcane")!,
+      unlockedPassives: ["arcane_ignite"], // 약점 노출
+    });
+    expect(d.player.enemyMagicVulnPctPerStack).toBe(5);
+  });
+
   it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
     const dbase = {
       ...base,

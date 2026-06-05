@@ -806,6 +806,12 @@ export async function POST(req: Request) {
           // (사냥 후 변동은 결과 카드로 분리).
           expForBar: curExp,
           maxExpForBar: requiredExpToNextNullable(curLevel) ?? curExp,
+          // 사냥 후 EXP/maxExp — 일괄(5/10회) 사냥 합산 결과 아래 캐릭터 정보 카드가
+          // 현재 진행도(다음 레벨까지)를 정확히 보일 때 사용. 레벨업이 섞여도 맞도록
+          // 서버의 applyExpGain 결과(expResult)를 그대로 노출.
+          expAfter: expResult.exp,
+          maxExpAfter:
+            requiredExpToNextNullable(expResult.level) ?? expResult.exp,
         },
       },
     };

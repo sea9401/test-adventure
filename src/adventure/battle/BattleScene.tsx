@@ -40,7 +40,7 @@ const RECENT_KIND_COLOR: Record<NotificationKind, string> = {
 
 const RECENT_NOTIFICATIONS_VISIBLE = 3;
 
-function HpBar({
+export function HpBar({
   label,
   value,
   max,
@@ -119,7 +119,7 @@ function ChargeReadout({
 
 // 회복약 한 줄 — v2 는 충전식 잔량(recoveryCharges), v1 은 개수(hpPotionCount).
 // 두 레이아웃(stacked/split) 공용. center 면 가운데 정렬(split 칸용).
-function RecoveryReadout({
+export function RecoveryReadout({
   playerStatus,
   hasMp,
   center = false,
@@ -232,7 +232,7 @@ function EnemyAvatar({
   );
 }
 
-function PlayerAvatar({
+export function PlayerAvatar({
   gender,
   name,
   hp,

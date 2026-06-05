@@ -15,6 +15,10 @@ export type HuntResultPayload = HuntResult & {
   startPlayerHp?: number;
   expForBar?: number;
   maxExpForBar?: number;
+  // 사냥 후 EXP/maxExp — 일괄 사냥 합산 결과 아래 캐릭터 정보 카드의 EXP 바용
+  // (expForBar 는 사냥 "전" 값이라 마지막 1회분이 빠진다 — 여기로 현재 진행도 표기).
+  expAfter?: number;
+  maxExpAfter?: number;
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
   hpCharges?: number;
   mpCharges?: number;

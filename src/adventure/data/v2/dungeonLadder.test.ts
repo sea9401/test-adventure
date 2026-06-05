@@ -50,6 +50,6 @@ describe("dungeonLadder 제너레이터 (§5.1)", () => {
     for (const f of FLOORS) {
       expect(floorExpMult(f)).toBeLessThanOrEqual(LADDER_EXP_PLATEAU);
     }
-    expect(floorExpMult(8)).toBe(LADDER_EXP_PLATEAU); // 3.18^2 > 10 → 캡
+    expect(floorExpMult(15)).toBe(LADDER_EXP_PLATEAU); // 깊은 깊이(statMult²>캡)는 캡에 닿음
   });
 });

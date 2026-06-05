@@ -46,7 +46,9 @@ export function floorDefMult(depth: number): number {
 // exp 배율 — 램프(볼록) 후 플래토. 저깊이 낮음(느림) → 깊을수록 가속 → 상단 캡에서
 // 수렴(프론티어 ~5일, 분단위 붕괴 방지). 깊이 1·2 = ×1.0.
 export const LADDER_EXP_EXP = 2.0; // 볼록 지수
-export const LADDER_EXP_PLATEAU = 10; // 상단 캡(프론티어 cadence 고정)
+// 상단 캡(프론티어 cadence 고정). sim-v2-exp-pacing 캘리브(2026-06-05): 10→13 = 프론티어
+// (플래토, 깊이 10+) 루프 ~5.1일(현 XP_RATE 4 유지·온보딩 깊이 3~9 불변). loop일수 ∝ 1/캡.
+export const LADDER_EXP_PLATEAU = 13;
 export function floorExpMult(depth: number): number {
   if (depth <= LADDER_ANCHOR_DEPTH) return 1;
   return Math.min(

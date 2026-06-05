@@ -285,6 +285,9 @@ export type PlayerCombat = {
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
+  // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 계파 스킬 차수 flat(baseFlatByTier) 해석용 차수.
+  vitStat?: number;
+  classTier?: number;
   atk: number;
   // v2 마법 공격력(magicAtk = INT 환산). scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
   // 0/undefined(라이브·STR/DEX 빌드·적) = 마법 경로 비활성, v2DamageAmount 가 atk 로 폴백.

@@ -529,6 +529,9 @@ export function derivePlayerCombatV2Pure(
     mp,
     maxMp,
     intStat: totalStats.int,
+    // 스킬 스케일/차수용 — 나한권(vit 비례 딜)·계파 스킬 차수 flat(baseFlatByTier).
+    vitStat: totalStats.vit,
+    classTier: input.classTier,
     atk: specAtk,
     magicAtk: specMagicAtk,
     def: specDef,

@@ -428,6 +428,12 @@ export function pickAutoCastV2Skill(args: {
 //     - dotsToApplyToTarget: tagged dot entry 목록 — caller 가 target.v2Dots 갱신.
 export type V2SkillBuffApply = { stat: StatKey; pct: number; turns: number };
 export type V2SkillDotApply = V2Dot;
+// PR2-B 파생 스탯 버프 — 회피(선풍각)·크리율(연환집중)·받피감 등 StatKey 밖.
+export type V2SkillPctBuffApply = {
+  target: "evasion" | "crit" | "damageReduction";
+  pct: number;
+  turns: number;
+};
 export type V2SkillCastResult = {
   nextMp: number;
   nextCooldowns: V2SkillCooldowns;
@@ -438,6 +444,12 @@ export type V2SkillCastResult = {
   selfBuffsToApply: V2SkillBuffApply[];
   enemyDebuffsToApply: V2SkillBuffApply[];
   dotsToApplyToTarget: V2SkillDotApply[];
+  // PR2-B 신규 메커닉 — caller(엔진 PvE/PvP)가 적용.
+  selfHpCost: number; // 사혈격 — 시전자 HP 소모량(절대값)
+  selfBuffPctToApply: V2SkillPctBuffApply[]; // 파생 스탯 버프
+  shieldToApply?: { hp: number; mp: number; turns: number }; // 마나 보호막(흡수량)
+  selfRegenToApply?: { pctMaxHpPerTurn: number; turns: number }; // 운기 리젠
+  enemyVulnToApply?: { pct: number; turns: number }; // 속박 취약(받는 피해 +%)
 };
 
 // PR-4b — attacker/target ctx 로 묶음. PR-4a 의 단순 mp/cd 입력에서 확장.
@@ -459,6 +471,13 @@ export type V2SkillCastInput = {
     minDamage?: number;
     healMult?: number;
     maxHp: number;
+    // PR2-B 스킬 메커닉 — def/vit 비례 딜(방패가격·나한권), 현재HP(사혈격·기공순환),
+    //   maxMp(마나보호막·명상), 차수(계파 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
+    def?: number;
+    vit?: number;
+    currentHp?: number;
+    maxMp?: number;
+    classTier?: number;
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
     // PR-5b — 평타 속성(무기 ?? 캐릭, atk 에 baked)·캐릭 속성(스킬 기본). 미지정=neutral.
@@ -469,6 +488,12 @@ export type V2SkillCastInput = {
     def: number;
     // PR-2 v2 — 마법 방어력 (마법 데미지 경감, 미지정=물리 def 폴백).
     magicDef?: number;
+    // PR2-B — execute(처단 처형 임계)·스택 payoff(참절/중독폭발/비전작렬). 미지정=폴백.
+    currentHp?: number;
+    maxHp?: number;
+    bleedStacks?: number;
+    poisonStacks?: number;
+    magicVulnStacks?: number;
     // PR-5a: target buff/debuff 둘 다 필요 — target.vit buff 가 def 증폭, vit debuff 가 def 감소.
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
@@ -483,6 +508,8 @@ const EMPTY_CAST_RESULT_BASE = {
   selfBuffsToApply: [] as V2SkillBuffApply[],
   enemyDebuffsToApply: [] as V2SkillBuffApply[],
   dotsToApplyToTarget: [] as V2SkillDotApply[],
+  selfHpCost: 0,
+  selfBuffPctToApply: [] as V2SkillPctBuffApply[],
 };
 
 export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
@@ -534,49 +561,111 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 3) effect 별 결과 누산.
   let enemyDamage = 0;
   let selfHeal = 0;
+  let selfHpCost = 0;
+  let manaRestore = 0;
   const selfBuffsToApply: V2SkillBuffApply[] = [];
   const enemyDebuffsToApply: V2SkillBuffApply[] = [];
   const dotsToApplyToTarget: V2SkillDotApply[] = [];
+  const selfBuffPctToApply: V2SkillPctBuffApply[] = [];
+  let shieldToApply: V2SkillCastResult["shieldToApply"];
+  let selfRegenToApply: V2SkillCastResult["selfRegenToApply"];
+  let enemyVulnToApply: V2SkillCastResult["enemyVulnToApply"];
+
+  // 계파 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
+  const tierIdx = Math.min(2, Math.max(0, (input.attacker.classTier ?? 2) - 2));
+  const flatOf = (
+    baseFlat: number | undefined,
+    byTier: readonly [number, number, number] | undefined,
+  ): number => (byTier ? byTier[tierIdx] : baseFlat ?? 0);
+
+  // 데미지 — scaling physical/magic + def/vit(그 값을 attackerAtk 로 써서 물리 경로). extraFlat=추가 flat.
+  const damageWith = (
+    statCoef: number,
+    baseFlat: number,
+    scaling: "physical" | "magic" | "def" | "vit" | undefined,
+    extraFlat = 0,
+  ): number => {
+    let attackerAtk = input.attacker.atk;
+    let scale: "physical" | "magic" = "physical";
+    if (scaling === "magic") scale = "magic";
+    else if (scaling === "def") attackerAtk = input.attacker.def ?? input.attacker.atk;
+    else if (scaling === "vit") attackerAtk = input.attacker.vit ?? input.attacker.atk;
+    return v2DamageAmount({
+      attackerAtk,
+      attackerMagicAtk: scale === "magic" ? input.attacker.magicAtk : undefined,
+      attackerMinDamage: input.attacker.minDamage,
+      scaling: scale,
+      targetDef: input.target.def,
+      targetMagicDef: input.target.magicDef,
+      statCoef,
+      baseFlat: baseFlat + extraFlat,
+      attackerSelfBuffs: input.attacker.selfBuffs,
+      attackerSelfDebuffs: input.attacker.selfDebuffs,
+      targetSelfBuffs: input.target.selfBuffs,
+      targetSelfDebuffs: input.target.selfDebuffs,
+      elementMult: skillElementMult,
+    });
+  };
+
   for (const effect of def.effects) {
     if (effect.kind === "damage") {
-      enemyDamage += v2DamageAmount({
-        attackerAtk: input.attacker.atk,
-        attackerMagicAtk: input.attacker.magicAtk,
-        attackerMinDamage: input.attacker.minDamage,
-        // PR2-B: scaling "def"(방어비례딜)·"vit"(활력비례딜) 실제 배선 전까지 physical 대체.
-        scaling:
-          effect.scaling === "def" || effect.scaling === "vit"
-            ? "physical"
-            : effect.scaling,
-        targetDef: input.target.def,
-        targetMagicDef: input.target.magicDef,
-        statCoef: effect.statCoef,
-        baseFlat: effect.baseFlat ?? 0,
-        attackerSelfBuffs: input.attacker.selfBuffs,
-        attackerSelfDebuffs: input.attacker.selfDebuffs,
-        targetSelfBuffs: input.target.selfBuffs,
-        targetSelfDebuffs: input.target.selfDebuffs,
-        elementMult: skillElementMult,
-      });
+      enemyDamage += damageWith(effect.statCoef, flatOf(effect.baseFlat, effect.baseFlatByTier), effect.scaling);
     } else if (effect.kind === "heal") {
-      selfHeal += v2HealAmount({
-        attackerMaxHp: input.attacker.maxHp,
-        pctMaxHp: effect.pctMaxHp ?? 0,
-        flat: effect.flat ?? 0,
-        healMult: input.attacker.healMult,
-      });
+      if (effect.pctLostHp != null) {
+        // 잃은 체력 비례 회복(기공 순환).
+        const lost = Math.max(0, input.attacker.maxHp - (input.attacker.currentHp ?? input.attacker.maxHp));
+        selfHeal += Math.floor(((lost * effect.pctLostHp) / 100) * (input.attacker.healMult ?? 1));
+      } else {
+        selfHeal += v2HealAmount({
+          attackerMaxHp: input.attacker.maxHp,
+          pctMaxHp: effect.pctMaxHp ?? 0,
+          flat: effect.flat ?? 0,
+          healMult: input.attacker.healMult,
+        });
+      }
     } else if (effect.kind === "selfBuff") {
-      selfBuffsToApply.push({
-        stat: effect.stat,
-        pct: effect.pct,
+      selfBuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
+    } else if (effect.kind === "selfBuffPct") {
+      selfBuffPctToApply.push({ target: effect.target, pct: effect.pct, turns: effect.turns });
+    } else if (effect.kind === "selfRegen") {
+      selfRegenToApply = { pctMaxHpPerTurn: effect.pctMaxHpPerTurn, turns: effect.turns };
+    } else if (effect.kind === "shield") {
+      const hp = Math.floor((input.attacker.maxHp * (effect.pctMaxHp ?? 0)) / 100);
+      const mp = Math.floor(((input.attacker.maxMp ?? 0) * (effect.pctMaxMp ?? 0)) / 100);
+      shieldToApply = {
+        hp: (shieldToApply?.hp ?? 0) + hp,
+        mp: (shieldToApply?.mp ?? 0) + mp,
         turns: effect.turns,
-      });
+      };
+    } else if (effect.kind === "manaRestore") {
+      manaRestore += Math.floor(((input.attacker.maxMp ?? 0) * effect.pctMaxMp) / 100);
     } else if (effect.kind === "enemyDebuff") {
-      enemyDebuffsToApply.push({
-        stat: effect.stat,
-        pct: effect.pct,
-        turns: effect.turns,
-      });
+      enemyDebuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
+    } else if (effect.kind === "enemyVuln") {
+      enemyVulnToApply = { pct: effect.pct, turns: effect.turns };
+    } else if (effect.kind === "hpCostDamage") {
+      // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
+      const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
+      selfHpCost += cost;
+      enemyDamage += damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling, Math.floor(cost * effect.soakRatio));
+    } else if (effect.kind === "healToDamage") {
+      // 신성 강타 — 자힐 후 힐량×damageRatio 적에게 딜.
+      const atkBase = (effect.scaling === "magic" ? input.attacker.magicAtk ?? input.attacker.atk : input.attacker.atk) * effect.healStatCoef;
+      const heal = Math.floor((atkBase + flatOf(undefined, effect.healFlatByTier)) * (input.attacker.healMult ?? 1));
+      selfHeal += heal;
+      enemyDamage += Math.floor(heal * effect.damageRatio * skillElementMult);
+    } else if (effect.kind === "executeDamage") {
+      // 처단 — 적 HP 임계 이하면 ×bonusMult.
+      const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
+      const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
+      enemyDamage += frac <= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base;
+    } else if (effect.kind === "stackPayoffDamage") {
+      // 참절/중독폭발/비전작렬 — 적 DoT/취약 스택당 추가딜.
+      const stacks =
+        effect.tag === "bleed" ? input.target.bleedStacks ?? 0
+        : effect.tag === "poison" ? input.target.poisonStacks ?? 0
+        : input.target.magicVulnStacks ?? 0;
+      enemyDamage += damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat, effect.scaling);
     } else if (effect.kind === "dot") {
       dotsToApplyToTarget.push({
         tag: effect.tag,
@@ -591,9 +680,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       });
     }
   }
-  // 4) MP 차감 + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
+  // 4) MP 차감(+명상 회복) + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
   return {
-    nextMp: input.attacker.mp - v2SkillMpCost(def),
+    nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
     castSkillId: id,
     castSkillName: def.name,
@@ -602,6 +691,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     selfBuffsToApply,
     enemyDebuffsToApply,
     dotsToApplyToTarget,
+    selfHpCost,
+    selfBuffPctToApply,
+    shieldToApply,
+    selfRegenToApply,
+    enemyVulnToApply,
   };
 }
 

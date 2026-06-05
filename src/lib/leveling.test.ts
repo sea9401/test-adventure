@@ -197,6 +197,18 @@ describe("applyExpGain", () => {
     const r = applyExpGain(2, 50, -100);
     expect(r).toEqual({ level: 2, exp: 0, levelsGained: 0, overflowExp: 0 });
   });
+
+  it("maxLevel(차수캡) 도달 시 그 레벨서 정지, 잉여는 overflow (v2 환생)", () => {
+    // 차수1 캡 50 — 대량 exp 줘도 Lv50 에서 멈추고 잉여 버림(overflow).
+    const r = applyExpGain(1, 0, 999_999_999, 50);
+    expect(r.level).toBe(50);
+    expect(r.exp).toBe(0);
+    expect(r.overflowExp).toBeGreaterThan(0);
+  });
+
+  it("maxLevel 미지정 = 만렙 100 기본 (하위호환)", () => {
+    expect(applyExpGain(1, 0, 500)).toEqual(applyExpGain(1, 0, 500, MAX_LEVEL));
+  });
 });
 
 describe("getLevelTable", () => {

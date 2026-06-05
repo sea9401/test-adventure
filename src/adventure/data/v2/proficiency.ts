@@ -263,6 +263,20 @@ export function advanceCumLevelReq(tier: number): number {
 // 다음 승급 가능(누적 레벨 게이트와 이중). 리셋 루프의 레벨 의미 부여(2026-06).
 export const V2_ADVANCE_MIN_LEVEL = 50;
 
+// 차수별 레벨 캡 — 환생(prestige) 설계 §3.1. 각 차수는 이 레벨까지만 오르고(applyExpGain
+// maxLevel), 캡 도달 시에만 다음 차수 전직(4차 캡=환생). 캡 위로는 exp 버림(advance 전까지 정지).
+// 1·2·3차 캡 < 만렙 100 이라 차수마다 레벨 의미 구간이 분리됨.
+export const V2_TIER_LEVEL_CAP: Record<number, number> = {
+  1: 50,
+  2: 65,
+  3: 80,
+  4: 100,
+};
+// 차수 → 레벨 캡. 미정의 차수(클램프)는 4차(100) 취급.
+export function tierLevelCap(tier: number): number {
+  return V2_TIER_LEVEL_CAP[Math.min(4, Math.max(1, Math.floor(tier)))] ?? 100;
+}
+
 // 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1, 전직 리셋에도 불변.
 export function totalCumLevel(p: V2ProficiencyState): number {
   let t = 0;

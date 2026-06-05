@@ -15,6 +15,7 @@ import {
   spendProficiency,
   signatureLearnCost,
   advanceCumLevelReq,
+  tierLevelCap,
   addCumLevel,
   groupCumLevel,
   totalCumLevel,
@@ -343,5 +344,23 @@ describe("v2 직업 숙달 — 6→4 그룹 리키 마이그(P4)", () => {
       tier: 2,
       cumLevel: 70,
     });
+  });
+});
+
+describe("tierLevelCap (환생 차수별 레벨캡 §3.1)", () => {
+  it("1·2·3·4차 = 50·65·80·100", () => {
+    expect(tierLevelCap(1)).toBe(50);
+    expect(tierLevelCap(2)).toBe(65);
+    expect(tierLevelCap(3)).toBe(80);
+    expect(tierLevelCap(4)).toBe(100);
+  });
+  it("범위 밖 차수는 클램프 (≤1→1차, ≥4→4차)", () => {
+    expect(tierLevelCap(0)).toBe(50);
+    expect(tierLevelCap(9)).toBe(100);
+  });
+  it("단조 증가", () => {
+    expect(tierLevelCap(1)).toBeLessThan(tierLevelCap(2));
+    expect(tierLevelCap(2)).toBeLessThan(tierLevelCap(3));
+    expect(tierLevelCap(3)).toBeLessThan(tierLevelCap(4));
   });
 });

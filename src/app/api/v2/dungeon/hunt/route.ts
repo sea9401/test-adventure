@@ -29,6 +29,7 @@ import {
   addCumLevel,
   setGrown,
   emptyProficiency,
+  tierLevelCap,
   V2_PROFICIENCY_PER_KILL,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
@@ -558,8 +559,26 @@ export async function POST(req: Request) {
     }
     const goldNet = goldGross - goldTaxed;
 
+    // 차수별 레벨 캡(환생 §3.1) — 현 직군 차수의 캡까지만 성장. proficiency tier 비잠금 읽기
+    // (캡 산출 전용 — 권위 cumLevel 쓰기는 아래 락). none/읽기실패 = 만렙(4차 캡 100).
+    const capGroup = tier1ClassOf(parseV2Class(charSave.class));
+    let levelCap = tierLevelCap(4);
+    if (capGroup !== "none") {
+      const profRows = await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(eq(savesKv.userId, userId), eq(savesKv.key, "proficiency.v2")),
+        )
+        .limit(1);
+      const capTier =
+        parseProficiencyForChar(profRows[0]?.value, charSave).groups[capGroup]
+          ?.tier ?? 1;
+      levelCap = tierLevelCap(capTier);
+    }
+
     const curExp = Math.max(0, charSave.exp ?? 0);
-    const expResult = applyExpGain(curLevel, curExp, expGained);
+    const expResult = applyExpGain(curLevel, curExp, expGained, levelCap);
 
     const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet);
 

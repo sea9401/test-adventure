@@ -13,9 +13,7 @@ import {
   setGrown,
   setGroupTier,
   emptyProficiency,
-  groupCumLevel,
-  advanceCumLevelReq,
-  V2_ADVANCE_MIN_LEVEL,
+  tierLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -94,31 +92,19 @@ export async function POST() {
       };
     }
 
-    // 게이트 0 — 최소 레벨(전직마다 레벨 1 리셋이라 매 차수 사이 50까지 키워야 승급).
+    // 게이트 — 현 차수 레벨 캡 도달(환생 §3.1). 각 차수는 캡까지만 올리고, 캡 도달 시에만 승급.
+    // 옛 cumLevel 게이트(55/110/170)는 레벨캡과 충돌(1차 캡 50 < 게이트 55 = 도달 불가 소프트락)
+    // 이라 폐지 — 레벨캡으로 페이싱 일원화. cumLevel 은 floor·환생 누적용으로만 계속 쌓임.
     const level = Math.max(1, charSave.level ?? 1);
-    if (level < V2_ADVANCE_MIN_LEVEL) {
+    const reqLevel = tierLevelCap(curTier);
+    if (level < reqLevel) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "level_too_low" as const,
-          required: V2_ADVANCE_MIN_LEVEL,
+          required: reqLevel,
           have: level,
-        },
-      };
-    }
-
-    // 게이트 1 — 직군 누적 레벨(cumLevel) 임계. earned→cumLevel 전환(2026-06). 골드 없음(docs §7).
-    const reqCumLevel = advanceCumLevelReq(nextTier);
-    const haveCumLevel = groupCumLevel(prof, group);
-    if (haveCumLevel < reqCumLevel) {
-      return {
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "insufficient_cum_level" as const,
-          required: reqCumLevel,
-          have: haveCumLevel,
         },
       };
     }

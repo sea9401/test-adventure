@@ -101,7 +101,9 @@ function allocate(job: JobCfg): Record<V2StatKey, number> {
   return a;
 }
 
+const NO_SKILLS = process.argv.includes("--noskills");
 function skillsFor(skillStat: "str" | "int"): V2SkillsState {
+  if (NO_SKILLS) return { learned: [], equipped: [] };
   const ids = (Object.keys(V2_SKILLS) as V2SkillId[])
     .filter((id) => {
       const def = V2_SKILLS[id];

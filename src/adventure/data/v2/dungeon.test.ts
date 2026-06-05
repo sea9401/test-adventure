@@ -38,14 +38,21 @@ describe("v2 dungeon", () => {
     expect(MAIN_DUNGEON.floors[1].name).toBe("깊은 산");
   });
 
-  it("enemiesForDepth / depthName — 1=들판·2=깊은산·3+=프론티어(무한)", () => {
+  it("enemiesForDepth / depthName — 1=들판·2=깊은산·3~7=마른 협곡(밴드A)·8+=프론티어", () => {
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies);
     expect(enemiesForDepth(2)).toBe(MAIN_DUNGEON.floors[1].enemies);
-    // 3+ = 프론티어 풀(현재 깊은 산 재사용) — 비어있지 않고, 무한 깊이도 동일 풀
-    expect(enemiesForDepth(3).length).toBeGreaterThan(0);
-    expect(enemiesForDepth(99)).toBe(enemiesForDepth(3));
+    // 3~7 = 밴드 A 마른 협곡(5종), 8+ = 깊은 산 플레이스홀더 — 둘은 다른 풀.
+    expect(enemiesForDepth(3).length).toBe(5);
+    expect(enemiesForDepth(7)).toBe(enemiesForDepth(3));
+    expect(enemiesForDepth(8)).not.toBe(enemiesForDepth(3));
+    expect(enemiesForDepth(99)).toBe(enemiesForDepth(8)); // 8+ 동일(미테마) 풀
+    // 밴드 A 키 전부 V2_MONSTERS 에 존재(hunt 가 stat 출처로 조회).
+    for (const e of enemiesForDepth(3)) {
+      expect(V2_MONSTERS[e.key], `밴드A ${e.key} V2_MONSTERS 부재`).toBeDefined();
+    }
     expect(depthName(1)).toBe("들판");
     expect(depthName(2)).toBe("깊은 산");
+    expect(depthName(5)).toContain("마른 협곡");
     expect(depthName(50)).toContain("50");
   });
 

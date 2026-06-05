@@ -69,6 +69,55 @@ export const V2_MONSTERS: Record<string, Monster> = {
     skill: { kind: "heavy_blow", name: "들이받기", everyPhases: 3, multiplier: 1.5 },
   },
 
+  // ── 프론티어 밴드 A — 마른 협곡 (깊이 3~7). 깊은 산 앵커 스케일(깊이가 배율↑). ──────
+  모래도마뱀: {
+    name: "모래도마뱀",
+    tags: ["beast"],
+    hp: 220,
+    atk: 18,
+    def: 9,
+    spd: 6,
+    exp: 20,
+  },
+  "협곡 도적": {
+    name: "협곡 도적",
+    tags: ["humanoid"],
+    hp: 195,
+    atk: 23,
+    def: 6,
+    spd: 7,
+    exp: 22,
+  },
+  "바위 골렘": {
+    name: "바위 골렘",
+    tags: ["golem"],
+    hp: 330,
+    atk: 16,
+    def: 14,
+    spd: 2,
+    exp: 26,
+    skill: { kind: "heavy_blow", name: "내리찍기", everyPhases: 3, multiplier: 1.5 },
+  },
+  "회오리 매": {
+    name: "회오리 매",
+    tags: ["beast"],
+    hp: 160,
+    atk: 20,
+    def: 5,
+    spd: 9,
+    exp: 21,
+  },
+  "스파크 전갈": {
+    name: "스파크 전갈",
+    tags: ["beast"],
+    hp: 210,
+    atk: 19,
+    def: 8,
+    spd: 6,
+    exp: 22,
+    skill: { kind: "pierce", name: "독침", armorPierce: 3 },
+  },
+
   // ── 훈련장 허수아비 — dungeon 을 안 거치고 spar 가 직접 조회. HP 고정 샌드백. ──
   "훈련용 허수아비": {
     name: "훈련용 허수아비",

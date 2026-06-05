@@ -36,8 +36,18 @@ const FLOOR2_ENEMIES: DungeonEnemy[] = [
 // === 무한 프론티어 ===================================================
 // 단일 사냥터, 깊이(depth) 1→∞. 깊이 1=들판·2=깊은 산(아래 authored 풀)·3+=프론티어 풀.
 // 깊이별 스탯/exp/추천파워 = dungeonLadder 제너레이터(무한, ×1.0~). 수동 푸시: 깊이 1~최고도달+1.
-// ⚠️ 프론티어 풀 = 깊은 산 풀 재사용(플레이스홀더). 추후 깊이 밴드별 테마 몹 세트 얹기.
+// ⚠️ 프론티어 풀 = 깊은 산 풀 재사용(플레이스홀더). 깊이 밴드별 테마 몹 세트로 점진 교체.
 const FRONTIER_ENEMIES: DungeonEnemy[] = FLOOR2_ENEMIES;
+
+// 프론티어 밴드 A — 마른 협곡 (깊이 3~7). 땅·바람·번개 + 무. 스탯은 V2_MONSTERS(깊은 산 앵커
+// 스케일)에, 깊이가 dungeonLadder 배율로 올림. ⚠️ 아트는 기존 이미지 재사용(플레이스홀더) — 교체 예정.
+const BAND_A_CANYON_ENEMIES: DungeonEnemy[] = [
+  { key: "모래도마뱀", name: "모래도마뱀", image: "/images/monster/v2/field-grass-snake.webp", element: "earth" },
+  { key: "협곡 도적", name: "협곡 도적", image: "/images/monster/v2/mountain-brigand.webp" },
+  { key: "바위 골렘", name: "바위 골렘", image: "/images/monster/v2/volcano-ash-golem.webp", element: "earth" },
+  { key: "회오리 매", name: "회오리 매", image: "/images/monster/v2/volcano-firebird.webp", element: "wind" },
+  { key: "스파크 전갈", name: "스파크 전갈", image: "/images/monster/v2/field-spider.webp", element: "lightning" },
+];
 
 // 들판·깊은 산 = 깊이 1·2 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
 export const MAIN_DUNGEON: Dungeon = {
@@ -59,16 +69,18 @@ export const MAIN_DUNGEON: Dungeon = {
   ],
 };
 
-// 깊이 → 적 풀. 1=들판·2=깊은 산(authored)·3+=프론티어. 무한 깊이.
+// 깊이 → 적 풀. 1=들판·2=깊은 산(authored)·3~7=마른 협곡(밴드 A)·8+=프론티어 플레이스홀더. 무한 깊이.
 export function enemiesForDepth(depth: number): DungeonEnemy[] {
   if (depth <= 1) return FLOOR1_ENEMIES;
   if (depth === 2) return FLOOR2_ENEMIES;
-  return FRONTIER_ENEMIES;
+  if (depth <= 7) return BAND_A_CANYON_ENEMIES; // 밴드 A — 마른 협곡
+  return FRONTIER_ENEMIES; // 8+ — 밴드 B 전까지 깊은 산 플레이스홀더
 }
 
-// 깊이 → 표시 이름. 1·2 = authored, 3+ = 프론티어 깊이.
+// 깊이 → 표시 이름. 1·2 = authored, 3~7 = 마른 협곡(밴드 A), 8+ = 미테마 프론티어.
 export function depthName(depth: number): string {
   if (depth <= 1) return "들판";
   if (depth === 2) return "깊은 산";
+  if (depth <= 7) return `마른 협곡 깊이 ${depth}`;
   return `프론티어 깊이 ${depth}`;
 }

@@ -81,7 +81,7 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
       ["gwang_cut", "gwang_pierce"],
       "greatsword",
     );
-    expect(eff.atkPctAdd).toBe(20); // 절단의 자세
+    expect(eff.atkPctAdd).toBe(20); // 전투태세 (캘리브: 데미지 강함 유지)
     expect(eff.defPenetrationPct).toBe(17); // 갑옷 가르기
     expect(eff.critMultAdd).toBeUndefined(); // 일격필살 미해금
   });
@@ -108,14 +108,14 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
     );
     expect(eff.atkPctAdd).toBe(20);
     expect(eff.defPenetrationPct).toBe(17);
-    // 광폭(gwang_crit) — 신규 필드(방어 감소 + 가하는 피해 증가).
-    expect(eff.selfDefReductionPct).toBe(20);
+    // 광폭(gwang_crit) — 캘리브: 유리대포 = 데미지 강함 유지(딜+30), 페널티 강화(방어−65).
+    expect(eff.selfDefReductionPct).toBe(65);
     expect(eff.dmgDealtPctAdd).toBe(30);
   });
 
   it("복수 필드 패시브(광폭 방깎+딜증) 합산", () => {
     const eff = aggregateSpecPassives(gwang, ["gwang_crit"], "greatsword");
-    expect(eff.selfDefReductionPct).toBe(20);
+    expect(eff.selfDefReductionPct).toBe(65);
     expect(eff.dmgDealtPctAdd).toBe(30);
   });
 

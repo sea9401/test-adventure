@@ -442,8 +442,8 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.atk).toBe(
       Math.floor(Math.floor(baseD.player.atk * 1.2) * 1.3),
     );
-    // 광폭 selfDefReductionPct 20 → 방어 ×0.8.
-    expect(d.player.def).toBe(Math.floor(baseD.player.def * 0.8));
+    // 광폭 selfDefReductionPct 65 → 방어 ×0.35 (캘리브: 유리대포 페널티 강화).
+    expect(d.player.def).toBe(Math.floor(baseD.player.def * 0.35));
     expect(d.player.passiveDefPenetrationPct).toBe(17); // 갑옷 가르기
   });
 
@@ -578,7 +578,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.enemyMagicVulnPctPerStack).toBe(5);
   });
 
-  it("자객 + 단검 + 급습 → 치명타 확률 +15%p", () => {
+  it("자객 + 단검 + 급습 → 치명타 확률 +22%p (캘리브: 자객 버프 15→22)", () => {
     const dbase = {
       ...base,
       v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
@@ -590,7 +590,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
       unlockedPassives: ["assassin_edge"], // 급습
     });
     expect(d.player.critChancePct).toBeCloseTo(
-      (baseD.player.critChancePct ?? 0) + 15,
+      (baseD.player.critChancePct ?? 0) + 22,
       5,
     );
   });

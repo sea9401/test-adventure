@@ -140,7 +140,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     passives: [
       { id: "gwang_cut", name: "전투태세", desc: "물리 공격력 증가", effect: { atkPctAdd: 20 } },
       { id: "gwang_pierce", name: "갑옷 가르기", desc: "적 방어 일부 관통", effect: { defPenetrationPct: 17 } },
-      { id: "gwang_crit", name: "광폭", desc: "방어를 버려 가하는 피해 증가", effect: { selfDefReductionPct: 20, dmgDealtPctAdd: 30 } },
+      { id: "gwang_crit", name: "광폭", desc: "방어를 크게 버려 가하는 피해 증가", effect: { selfDefReductionPct: 65, dmgDealtPctAdd: 30 } },
     ],
     trait: { name: "광기", desc: "공격력 증가(차수 성장)", effect: { atkPctAdd: 4 } },
   },
@@ -272,7 +272,7 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
     passives: [
       { id: "assassin_crit", name: "급소", desc: "치명 데미지 증가", effect: { critMultAdd: 0.4 } },
       { id: "assassin_flurry", name: "그림자 연격", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
-      { id: "assassin_edge", name: "급습", desc: "치명타 확률 증가", effect: { critChancePctAdd: 15 } },
+      { id: "assassin_edge", name: "급습", desc: "치명타 확률 증가", effect: { critChancePctAdd: 22 } },
     ],
     trait: { name: "암살", desc: "치명타 피해 증가(차수 성장)", effect: { critMultAdd: 0.15 } },
   },

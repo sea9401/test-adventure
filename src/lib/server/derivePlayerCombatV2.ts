@@ -26,8 +26,10 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
+  BLEED_ATK_COEF_PER_STACK,
   baselineRegenFor,
   CRIT_MULT_BASE,
+  POISON_PCT_PER_POINT,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { normalizeStance, type StanceId } from "@/adventure/character/stance";
 import {
@@ -501,13 +503,15 @@ export function derivePlayerCombatV2Pure(
     specMagicAtk = Math.floor(specMagicAtk * m);
   }
 
-  // 직업 특성 — 계파 시그니처와 같은 훅을 공유하는 효과는 합산(강철↔받피감, 출혈숙련/맹독↔출혈,
+  // 직업 특성 — 계파 시그니처와 같은 훅을 공유하는 효과는 합산(강철↔받피감, 출혈숙련↔출혈,
   // 흡정↔흡정공). 0 이면 spread 생략(inert). 절제(mpCostReductionPct)는 신규 시전 훅.
   const totalDamageTakenReductionPct =
     (specEff.damageTakenReductionPct ?? 0) +
     (traitEff.damageTakenReductionPctAdd ?? 0);
   const totalBleedDmgPerStack =
     (specEff.bleedDmgPerStack ?? 0) + (traitEff.bleedDmgPerStackAdd ?? 0);
+  const totalPoisonStrength =
+    (specEff.poisonPctPerStackBase ?? 0) + (traitEff.poisonPctPerStackAdd ?? 0);
   const totalLifestealPct =
     (specEff.lifestealPct ?? 0) + (traitEff.lifestealPctAdd ?? 0);
   const mpCostReductionPct = traitEff.mpCostReductionPctAdd ?? 0;
@@ -557,14 +561,26 @@ export function derivePlayerCombatV2Pure(
       specEff.counterChancePct,
     ), // 무도가 + 철벽검류
     passiveMagicBasicAttack: passive?.magicBasicAttack, // 마법사
-    // 계파 신규 효과 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈.
-    // 받피감=방패숙련/가호 + 강철 특성, 출혈=유혈/내상/맹독 + 출혈숙련/맹독 특성 합산.
+    // 계파 신규 효과 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
+    // 받피감=방패숙련/가호 + 강철 특성, 출혈=유혈/내상 + 출혈숙련, 중독=독사 맹독.
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }
       : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
     ...(totalBleedDmgPerStack > 0
-      ? { bleedDmgPerStack: totalBleedDmgPerStack }
+      ? {
+          bleedOnHit: {
+            flatPerStack: totalBleedDmgPerStack,
+            atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+          },
+        }
+      : {}),
+    ...(totalPoisonStrength > 0
+      ? {
+          poisonOnHit: {
+            pctMaxHpPerStack: totalPoisonStrength * POISON_PCT_PER_POINT,
+          },
+        }
       : {}),
     // 흡정공/흡정 — 기존 흡혈 훅(enchantLifestealPct) 재사용: 가한 피해의 % HP 회복.
     ...(totalLifestealPct > 0
@@ -590,7 +606,7 @@ export function derivePlayerCombatV2Pure(
     ...(specEff.extraHitDmgPct
       ? { extraHitDmgPct: specEff.extraHitDmgPct }
       : {}),
-    // 부식 — 엔진이 중독(출혈 스택)된 적의 DEF 를 % 감산(playerFacingEnemyDef).
+    // 부식 — 엔진이 중독된 적의 DEF 를 % 감산(playerFacingEnemyDef).
     ...(specEff.poisonedEnemyDefReductionPct
       ? { poisonedEnemyDefReductionPct: specEff.poisonedEnemyDefReductionPct }
       : {}),

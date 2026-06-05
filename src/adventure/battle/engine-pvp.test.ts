@@ -233,36 +233,34 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     expect(s.p1.buffs.opponentAtkPenalty).toBe(s.p1.buffs.opponentDefPenalty);
   });
 
-  it("출혈 (bleed) — p1 의 hits 가 attacker.stacks.bleedStacksOnOpponent 에 누적", () => {
+  it("출혈 (bleed) — p1 의 hits 가 p2.v2Dots 에 누적", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 20, bleedDmgPerStack: 3, hp: 1000, maxHp: 1000, attackCount: 2 }),
+      makePlayer({ spd: 15, atk: 20, bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 }, hp: 1000, maxHp: 1000, attackCount: 2 }),
       makePlayer({ spd: 5, atk: 1, hp: 1000, maxHp: 1000 }),
       "P1",
       "P2",
     );
     let s = s0;
-    // p1 의 2회 공격 → p1.stacks.bleedStacksOnOpponent = 2.
+    // p1 의 2회 공격 → p2.v2Dots bleed = 2.
     s = advanceTurnPvP(s);
     s = advanceTurnPvP(s);
-    expect(s.p1.stacks.bleedStacksOnOpponent).toBe(2);
+    expect(s.p2.v2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(2);
   });
 
-  it("출혈 도트 — p1 의 공격 페이즈 종료 시점에 p2.hp 가 (스택 × bleedDmgPerStack) 만큼 추가 감소", () => {
+  it("출혈 도트 — p2 페이즈 진입 시 p2.hp 가 tagged bleed 만큼 추가 감소", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 20, def: 0, bleedDmgPerStack: 5, hp: 1000, maxHp: 1000 }),
+      makePlayer({ spd: 15, atk: 20, def: 0, bleedOnHit: { flatPerStack: 5, atkCoefPerStack: 0.08 }, hp: 1000, maxHp: 1000 }),
       makePlayer({ spd: 5, atk: 1, def: 0, hp: 500, maxHp: 500 }),
       "P1",
       "P2",
     );
-    // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1 + 페이즈 종료 시 출혈 도트 5 dmg.
+    // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1, p2 턴 진입 시 출혈 tick.
     const s1 = advanceTurnPvP(s0);
     expect(s1.phase).toBe("p2");
-    expect(s1.p1.stacks.bleedStacksOnOpponent).toBe(1);
-    // 500 - 20(본타) - 5(도트) = 475.
-    expect(s1.p2.hp).toBe(475);
-    expect(s1.log.some((e) => e.text.includes("출혈") && e.text.includes("스택 1"))).toBe(true);
+    expect(s1.p2.hp).toBe(500 - 20 - (5 + 20 * 0.08));
+    expect(s1.log.some((e) => e.text.includes("출혈"))).toBe(true);
   });
 
   it("그림자 분신 (shadowClone) — p1 턴 종료 시 분신 추가 데미지", () => {
@@ -1032,4 +1030,3 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     );
   });
 });
-

@@ -6,17 +6,17 @@ import {
 } from "./statusEffects";
 
 describe("v2 상태이상 카탈로그 (PR-9)", () => {
-  it("DoT 프리셋 — label 일치 + dmgPerTurn·turns > 0", () => {
+  it("DoT 프리셋 — label/tag 일치 + stacks·turns > 0", () => {
     for (const [name, p] of Object.entries(V2_DOT_PRESETS)) {
       expect(p.label, `${name} label`).toBe(name);
-      expect(p.dmgPerTurn, `${name} dmg`).toBeGreaterThan(0);
+      expect(p.stacks, `${name} stacks`).toBeGreaterThan(0);
+      expect(p.maxStacks, `${name} maxStacks`).toBeGreaterThanOrEqual(p.stacks);
       expect(p.turns, `${name} turns`).toBeGreaterThan(0);
     }
     // 중독 = 약하고 길게 / 출혈 = 강하고 짧게 (정체성).
     expect(V2_DOT_PRESETS.중독.turns).toBeGreaterThan(V2_DOT_PRESETS.출혈.turns);
-    expect(V2_DOT_PRESETS.중독.dmgPerTurn).toBeLessThan(
-      V2_DOT_PRESETS.출혈.dmgPerTurn,
-    );
+    expect(V2_DOT_PRESETS.중독.pctMaxHpPerStack).toBeGreaterThan(0);
+    expect(V2_DOT_PRESETS.출혈.atkCoefPerStack).toBeGreaterThan(0);
   });
 
   it("디버프 프리셋 — pct·turns > 0, 유효 stat (행동불가 없음)", () => {

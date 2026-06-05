@@ -6,6 +6,7 @@ import {
   type PlayerCombat,
 } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
+import { makeBleedDot, makePoisonDot } from "../v2/combat/combatShared";
 
 // 별빛 마법부여 발동형 affix 의 engine wiring 단위 검증.
 //
@@ -276,35 +277,39 @@ describe("extraHitDmgPct — 궁사 난사 (추가타 데미지 +%)", () => {
 });
 
 describe("poisonedEnemyDefReductionPct — 독사 부식 (중독 적 DEF -%)", () => {
-  // 두 플레이어 모두 bleedDmgPerStack 미보유 → 출혈 틱 0 → 측정값 = 순수 본타 데미지.
-  const measure = (player: PlayerCombat, bleed: number) => {
+  const measure = (player: PlayerCombat, poisoned: boolean) => {
     let s = initialBattleState(
       player,
       enemy({ hp: 100000, def: 40, spd: 1 }),
       "용사",
     );
-    s = { ...s, stacks: { ...s.stacks, bleedStacks: bleed } };
+    s = {
+      ...s,
+      enemyV2Dots: poisoned
+        ? [makePoisonDot({ stacks: 3, pctMaxHpPerStack: 0, sourceAtk: 0 })]
+        : [],
+    };
     const hp0 = s.enemyHp;
     s = advanceTurn(s, player, "용사", { kind: "attack" });
     return hp0 - s.enemyHp;
   };
 
-  it("출혈 스택 있으면 적 DEF -50% → 데미지 증가", () => {
+  it("중독 상태면 적 DEF -50% → 데미지 증가", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 크리/회피 미발동
-    const baseDmg = measure({ ...BASE_PLAYER, atk: 60 }, 3);
+    const baseDmg = measure({ ...BASE_PLAYER, atk: 60 }, true);
     const corrodeDmg = measure(
       { ...BASE_PLAYER, atk: 60, poisonedEnemyDefReductionPct: 50 },
-      3,
+      true,
     );
     expect(corrodeDmg).toBeGreaterThan(baseDmg);
   });
 
-  it("출혈 스택 0이면 부식 비활성 (평타와 동일)", () => {
+  it("중독 상태가 아니면 부식 비활성 (평타와 동일)", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
-    const baseDmg = measure({ ...BASE_PLAYER, atk: 60 }, 0);
+    const baseDmg = measure({ ...BASE_PLAYER, atk: 60 }, false);
     const corrodeDmg = measure(
       { ...BASE_PLAYER, atk: 60, poisonedEnemyDefReductionPct: 50 },
-      0,
+      false,
     );
     expect(corrodeDmg).toBe(baseDmg);
   });
@@ -320,7 +325,10 @@ describe("extraAttackChancePctWhileEnemyBleeding — 검투사 혈광 (출혈 �
       extraAttackChancePctWhileEnemyBleeding: 100,
     };
     let state = initialBattleState(player, enemy({ hp: 100000, spd: 1 }), "용사");
-    state = { ...state, stacks: { ...state.stacks, bleedStacks: 3 } };
+    state = {
+      ...state,
+      enemyV2Dots: [makeBleedDot({ stacks: 3, flatPerStack: 0, sourceAtk: 0 })],
+    };
     expect(state.playerAttacksLeft).toBe(1); // 첫 턴은 시작 시 굴림(출혈 적용 전)
     state = advanceTurn(state, player, "용사", { kind: "attack" }); // 마지막 타 후 다음 턴 굴림
     expect(state.phase).toBe("enemy");
@@ -654,20 +662,17 @@ describe("lifesteal — 가한 피해의 % HP 회복", () => {
   });
 });
 
-describe("venom — 공격 시 % 확률 출혈 스택", () => {
-  it("rng 0 → 무조건 발동, 출혈 스택 +1", () => {
+describe("poisonOnHit — 공격 시 중독 스택", () => {
+  it("적중 시 중독 스택 +1", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const player: PlayerCombat = {
       ...BASE_PLAYER,
       atk: 1,
-      enchantVenomChancePct: 50,
-      enchantVenomDmgPerStack: 5,
+      poisonOnHit: { pctMaxHpPerStack: 0.001 },
     };
     let state = initialBattleState(player, enemy({ hp: 1000 }), "용사");
-    const before = state.stacks.bleedStacks;
     state = advanceTurn(state, player, "용사", { kind: "attack" });
-    expect(state.stacks.bleedStacks).toBe(before + 1);
-    expect(state.log.some((e) => e.text.includes("[독공]"))).toBe(true);
+    expect(state.enemyV2Dots.find((d) => d.tag === "poison")?.stacks).toBe(1);
   });
 });
 

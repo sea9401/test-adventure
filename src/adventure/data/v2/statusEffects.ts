@@ -9,13 +9,46 @@
 // 단일 튜닝 source — 같은 상태이상은 어디서 걸든 같은 수치.
 
 import type { StatKey } from "@/adventure/data/stats";
+import {
+  BLEED_ATK_COEF_PER_STACK,
+  BLEED_MAX_STACKS,
+  POISON_MAX_STACKS,
+  POISON_PCT_PER_POINT,
+} from "./v2CombatConstants";
 
-// DoT 프리셋 — { label, dmgPerTurn, turns }. label = 상태이상 이름(전투 dot 키).
+// DoT 프리셋 — tag 로 누적되고 label 은 표시용. sourceAtk 은 시전 시점에 엔진이 채운다.
 //   출혈: 강하고 짧게 / 중독: 약하고 길게 / 연소: 폭발적·아주 짧게.
 export const V2_DOT_PRESETS = {
-  출혈: { label: "출혈" as const, dmgPerTurn: 6, turns: 3 },
-  중독: { label: "중독" as const, dmgPerTurn: 4, turns: 5 },
-  연소: { label: "연소" as const, dmgPerTurn: 8, turns: 2 },
+  출혈: {
+    tag: "bleed" as const,
+    label: "출혈" as const,
+    stacks: 1,
+    maxStacks: BLEED_MAX_STACKS,
+    turns: 3,
+    flatPerStack: 6,
+    atkCoefPerStack: BLEED_ATK_COEF_PER_STACK,
+    pctMaxHpPerStack: 0,
+  },
+  중독: {
+    tag: "poison" as const,
+    label: "중독" as const,
+    stacks: 1,
+    maxStacks: POISON_MAX_STACKS,
+    turns: 5,
+    flatPerStack: 0,
+    atkCoefPerStack: 0,
+    pctMaxHpPerStack: 4 * POISON_PCT_PER_POINT,
+  },
+  연소: {
+    tag: "burn" as const,
+    label: "연소" as const,
+    stacks: 1,
+    maxStacks: 1,
+    turns: 2,
+    flatPerStack: 8,
+    atkCoefPerStack: 0,
+    pctMaxHpPerStack: 0,
+  },
 } as const;
 export type V2DotName = keyof typeof V2_DOT_PRESETS;
 

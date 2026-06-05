@@ -428,7 +428,8 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.passiveDefPenetrationPct).toBeUndefined();
     expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
     expect(d.player.thornsPct).toBeUndefined();
-    expect(d.player.bleedDmgPerStack).toBeUndefined();
+    expect(d.player.bleedOnHit).toBeUndefined();
+    expect(d.player.poisonOnHit).toBeUndefined();
   });
 
   it("광검 + 대검 + 해금 → atk%·광폭(딜증·방어감소)·방관 적용", () => {

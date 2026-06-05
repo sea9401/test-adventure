@@ -12,9 +12,11 @@ import {
 } from "../v2/combat/engine";
 import {
   BLEED_MAX_STACKS,
-  VENOM_PCT_HP_PER_POINT,
+  POISON_CAP_ATK_COEF,
+  POISON_PCT_PER_POINT,
   CRIT_MULT_BASE,
 } from "../data/v2/v2CombatConstants";
+import { makeBleedDot, makePoisonDot } from "../v2/combat/combatShared";
 import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
@@ -719,9 +721,9 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
-    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명] N/턴 (M턴).
+    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명 + 출혈] +N스택 (M턴).
     const dotApplyLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("/턴") && e.text.includes("(3턴)"),
+      (e) => e.kind === "info" && e.text.includes("스택") && e.text.includes("(3턴)"),
     );
     expect(dotApplyLog).toBeDefined();
     // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격 패턴 (player_attack + "[출혈]").
@@ -1471,13 +1473,13 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
   });
 
   it("다대시 적이어도 출혈 DoT 는 적 페이즈당 1회만 발동한다", () => {
-    const bleeder: PlayerCombat = { ...tank, bleedDmgPerStack: 4 };
+    const bleeder: PlayerCombat = { ...tank };
     const enemy = chillEnemy({ bonusAttackChancePct: 100, skill: undefined });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
       ...s0,
       phase: "enemy" as const,
-      stacks: { ...s0.stacks, bleedStacks: 3 },
+      enemyV2Dots: [makeBleedDot({ stacks: 3, flatPerStack: 4, sourceAtk: 0 })],
     };
     const after1 = advanceTurn(primed, bleeder, "P");
     const after2 = advanceTurn(after1, bleeder, "P");
@@ -1486,39 +1488,37 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
   });
 
   it("출혈(기본 DoT)은 STR 기반 고정 — 적 HP 와 무관", () => {
-    // 출혈만(독공 없음): perStack = bleedDmgPerStack 고정. 고HP 적이어도 %HP 안 붙음.
-    const bleeder: PlayerCombat = { ...tank, hp: 10000, maxHp: 10000, bleedDmgPerStack: 4 };
+    const bleeder: PlayerCombat = { ...tank, hp: 10000, maxHp: 10000 };
     const enemy = makeEnemy({ hp: 50000, atk: 5 });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
       ...s0,
       phase: "enemy" as const,
       enemyHp: 50000,
-      stacks: { ...s0.stacks, bleedStacks: 3 },
+      enemyV2Dots: [makeBleedDot({ stacks: 3, flatPerStack: 4, sourceAtk: 0 })],
     };
     const after = advanceTurn(primed, bleeder, "P");
     expect(after.enemyHp).toBe(50000 - 3 * 4); // 49988 — 고정 4, %HP 아님
   });
 
-  it("독공(체력% DoT)은 적 최대HP × venom강도 비례", () => {
-    // 독공만: perStack = floor(적 최대HP × venom강도 × VENOM_PCT_HP_PER_POINT).
+  it("중독(체력% DoT)은 적 최대HP 비례 + ATK cap", () => {
     const venomer: PlayerCombat = {
       ...tank,
       hp: 10000,
       maxHp: 10000,
-      enchantVenomDmgPerStack: 20,
     };
     const enemy = makeEnemy({ hp: 50000, atk: 5 });
     const s0 = initialBattleState(venomer, enemy, "P");
+    const pct = 20 * POISON_PCT_PER_POINT;
     const primed = {
       ...s0,
       phase: "enemy" as const,
       enemyHp: 50000,
-      stacks: { ...s0.stacks, bleedStacks: 3 },
+      enemyV2Dots: [makePoisonDot({ stacks: 3, pctMaxHpPerStack: pct, sourceAtk: 1000 })],
     };
     const after = advanceTurn(primed, venomer, "P");
-    const venomPer = Math.floor(50000 * 20 * VENOM_PCT_HP_PER_POINT); // 100
-    expect(after.enemyHp).toBe(50000 - 3 * venomPer); // 49700 — %HP
+    const poisonPer = Math.min(50000 * pct, 1000 * POISON_CAP_ATK_COEF);
+    expect(after.enemyHp).toBe(50000 - 3 * poisonPer);
   });
 
   it("출혈 스택은 BLEED_MAX_STACKS 로 캡된다", () => {
@@ -1527,18 +1527,18 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       hp: 10000,
       maxHp: 10000,
       atk: 1000,
-      bleedDmgPerStack: 4,
+      bleedOnHit: { flatPerStack: 4, atkCoefPerStack: 0.08 },
     };
     const enemy = makeEnemy({ hp: 50000, def: 0, atk: 5, evasionPct: 0 });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
       ...s0,
       phase: "player" as const,
-      stacks: { ...s0.stacks, bleedStacks: BLEED_MAX_STACKS },
+      enemyV2Dots: [makeBleedDot({ stacks: BLEED_MAX_STACKS, flatPerStack: 4, sourceAtk: 1000 })],
     };
     // 이미 캡인데 플레이어 적중(+1) → 캡 유지.
     const after = advanceTurn(primed, bleeder, "P");
-    expect(after.stacks.bleedStacks).toBe(BLEED_MAX_STACKS);
+    expect(after.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(BLEED_MAX_STACKS);
   });
 
 

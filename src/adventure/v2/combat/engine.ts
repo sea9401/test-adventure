@@ -11,8 +11,9 @@ import {
   applyV2DotsToTarget,
   defaultV2MaxMpFor,
   decrementTimedBuffs,
-  dotTickDamage,
   extractApEffect,
+  makeBleedDot,
+  makePoisonDot,
   potionHealAmount,
   resolveV2SkillCast,
   rollAttackCount,
@@ -29,8 +30,6 @@ import {
 } from "@/adventure/data/stats";
 import {
   ANALYSIS_PENALTY_CAP_PCT,
-  BLEED_MAX_STACKS,
-  VENOM_PCT_HP_PER_POINT,
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
   GALE_CHAIN_MAX_PER_TURN,
@@ -189,8 +188,6 @@ export type BattleBuffs = {
 
 // 가변 자원 스택 / 잔량 카운트.
 export type BattleStacks = {
-  // 출혈 (4티어) — 누적 스택. 매 적 턴 시작 시 스택당 bleedDmgPerStack 만큼 적 HP 감소 (DEF 무시).
-  bleedStacks: number;
   // 한기 (chill 스킬) — 플레이어에 누적되는 추위 스택. 적 chill 공격이 적중할 때마다 +perHit.
   // 적 페이즈 시작 시 threshold 이상이면 스택당 dmgPerStack 만큼 플레이어 HP 감소 (DEF·보호막 무시).
   // 출혈의 미러(적→플레이어). 무한 탱킹 차단용 시간압.
@@ -356,8 +353,8 @@ export type PlayerCombat = {
   // 행운의 방패 — 피격을 무효화할 확률(%). 0/undefined = 미장착.
   luckyShieldBlockPct?: number;
   // ── 4티어 ──────────────────────────────────────────────────────────────
-  // 출혈 — 적중 시 출혈 1스택, 매 적 턴마다 스택당 이만큼 고정 피해(DEF 무시). 0/undefined = 미보유.
-  bleedDmgPerStack?: number;
+  // 출혈 — 적중 시 tagged DoT 로 출혈 1스택. flat + ATK 계수, DEF 무시.
+  bleedOnHit?: { flatPerStack: number; atkCoefPerStack: number };
   // 그림자 분신 — 매 플레이어 턴 종료 시 분신이 ATK 의 N% 로 추가 공격 1회. 0/undefined = 미보유.
   shadowCloneAtkPct?: number;
   // 철벽 — 전투 시작 시 받는 보호막. 0/undefined = 미보유.
@@ -450,12 +447,8 @@ export type PlayerCombat = {
   enchantBreakerBossBonusPct?: number;
   // 흡혈(lifesteal) — 가한 피해의 % 만큼 HP 회복. runeLifestealPct 와 합산되는 별개 라벨. 0/undefined = 미보유.
   enchantLifestealPct?: number;
-  // 독공(venom) — 본타 공격 시 % 확률로 적에게 출혈 스택 1 부여 (bleed). 발동 확률 별개. 0/undefined = 미보유.
-  enchantVenomChancePct?: number;
-  // 독공 강도 — 출혈 스택당 "체력% DoT"의 세기(venom affix value 합, 5~45). 스택당 피해는
-  // floor(적 최대HP × 이 값 × VENOM_PCT_HP_PER_POINT)로 환산(DEF 무시). 출혈 고정 피해와 합산.
-  // 0/undefined = 미보유. (옛 flat 피해 의미에서 %HP 계수로 변경 — DoT 컨셉 분리.)
-  enchantVenomDmgPerStack?: number;
+  // 중독 — 적중 시 tagged DoT 로 중독 1스택. 최대HP 비례 + ATK cap, DEF 무시.
+  poisonOnHit?: { pctMaxHpPerStack: number };
   // 처형(execute) — 적 HP 25% 이하일 때 추가 피해(%). executionDamageMult 가 0 이면 25%/1+pct 로 자동 시드,
   // 기존 처형 스킬과 같이 보유 시 곱연산으로 더해진다. 0/undefined = 미보유.
   enchantExecuteBonusPct?: number;
@@ -574,20 +567,50 @@ function playerFacingEnemyDef(
     buffs.enemyDefDebuffTurnsLeft > 0 && buffs.enemyDefDebuffPct > 0
       ? Math.round(afterEnchantPierce * (1 - buffs.enemyDefDebuffPct / 100))
       : afterEnchantPierce;
-  // 부식 (독사 시그니처) — 중독(= 출혈 스택, 독사 맹독이 bleedStacks 로 누적)된 적의 DEF -pct%.
-  // 곱연산으로 마지막에. 출혈 스택이 없으면 비활성.
+  // 부식 (독사 시그니처) — 중독된 적의 DEF -pct%. 곱연산으로 마지막에.
   const corrodePct = player.poisonedEnemyDefReductionPct ?? 0;
-  return corrodePct > 0 && isEnemyBleeding(state)
+  return corrodePct > 0 && isEnemyPoisoned(state)
     ? Math.round(afterDebuff * (1 - corrodePct / 100))
     : afterDebuff;
 }
 
-// "적이 출혈/중독 중인가" — 현재 부식·혈광이 공유하는 단일 술어. 지금은 한 풀(bleedStacks)이라
-// 출혈·중독·독공이 다 같이 잡힌다 (검투사 혈광이 독·독공 스택에도 발동하는 오발동 포함). PR-2 에서
-// 출혈(bleed)/중독(poison) status 분리 시 혈광→isEnemyBleeding·부식→isEnemyPoisoned 로 쪼갠다.
-// (docs/v2-bleed-unify-plan.md)
 function isEnemyBleeding(state: BattleState): boolean {
-  return state.stacks.bleedStacks > 0;
+  return state.enemyV2Dots.some((d) => d.tag === "bleed" && d.stacks > 0 && d.turns > 0);
+}
+
+function isEnemyPoisoned(state: BattleState): boolean {
+  return state.enemyV2Dots.some((d) => d.tag === "poison" && d.stacks > 0 && d.turns > 0);
+}
+
+function applyPlayerOnHitDots(
+  state: BattleState,
+  player: PlayerCombat,
+  add?: { bleedStacks?: number; poisonStacks?: number },
+): BattleState {
+  const dots: import("./combatShared").V2Dot[] = [];
+  const bleedStacks =
+    (add?.bleedStacks ?? 0) + (player.bleedOnHit ? 1 : 0);
+  if (bleedStacks > 0) {
+    dots.push(makeBleedDot({
+      stacks: bleedStacks,
+      flatPerStack: player.bleedOnHit?.flatPerStack ?? 0,
+      sourceAtk: player.atk,
+    }));
+  }
+  const poisonStacks =
+    (add?.poisonStacks ?? 0) + (player.poisonOnHit ? 1 : 0);
+  if (player.poisonOnHit && poisonStacks > 0) {
+    dots.push(makePoisonDot({
+      stacks: poisonStacks,
+      pctMaxHpPerStack: player.poisonOnHit.pctMaxHpPerStack,
+      sourceAtk: player.atk,
+    }));
+  }
+  if (dots.length === 0) return state;
+  return {
+    ...state,
+    enemyV2Dots: applyV2DotsToTarget(state.enemyV2Dots, dots),
+  };
 }
 
 // 다음 플레이어 턴의 공격 횟수. 로직(100% 초과 = 정수부 확정 추가타 + 나머지 확률)은
@@ -873,12 +896,6 @@ function dealExtraEnemyDamage(
       ? Math.min(state.playerMaxHp, state.playerHp + totalHeal)
       : state.playerHp;
   const actualHeal = newPlayerHp - state.playerHp;
-  // 출혈 +1 — 적중 시 매번. (본타와 같은 룰.) 스택은 BLEED_MAX_STACKS 로 캡.
-  const bleedStacks =
-    (player.bleedDmgPerStack ?? 0) > 0
-      ? Math.min(BLEED_MAX_STACKS, state.stacks.bleedStacks + 1)
-      : state.stacks.bleedStacks;
-
   // 메인 데미지 라인 — 라벨에 행운의 별/천명 합쳐 박는다.
   const dmgLabels: string[] = [label];
   if (luckyStarFires) dmgLabels.push("행운의 별");
@@ -898,13 +915,12 @@ function dealExtraEnemyDamage(
     });
   }
 
-  let next = applyPhaseTriggerIfAny({
+  let next = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
     ...state,
     enemyHp,
     playerHp: newPlayerHp,
-    stacks: { ...state.stacks, bleedStacks },
     log,
-  });
+  }, player));
   if (enemyHp <= 0) {
     next = {
       ...next,
@@ -1137,7 +1153,6 @@ export function initialBattleState(
       playerLifestealTurnsLeft: 0,
     },
     stacks: {
-      bleedStacks: 0,
       chillStacks: 0,
       playerShield: startShield,
       evadesRemaining: player.guaranteedEvades ?? 0,
@@ -1204,6 +1219,35 @@ export function advanceTurn(
         enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
       },
     };
+    const enemyDotTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
+    if (enemyDotTick.totalDmg > 0) {
+      const newHp = Math.max(0, state.enemyHp - enemyDotTick.totalDmg);
+      state = applyPhaseTriggerIfAny({
+        ...state,
+        enemyHp: newHp,
+        enemyV2Dots: enemyDotTick.nextDots,
+        log: appendLog(state.log, {
+          kind: "player_attack",
+          text: `[${state.enemyV2Dots
+            .filter((d) => d.turns > 0)
+            .map((d) => d.label)
+            .join(" + ")}] ${enemyDotTick.totalDmg} 피해를 입혔다.`,
+        }),
+      });
+      if (state.enemyHp <= 0) {
+        return {
+          ...state,
+          log: appendLog(state.log, {
+            kind: "info",
+            text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+          }),
+          phase: "ended",
+          outcome: "win",
+        };
+      }
+    } else {
+      state = { ...state, enemyV2Dots: enemyDotTick.nextDots };
+    }
   }
 
   // 새 플레이어 턴 진입 시 지속 효과 turnsLeft -1 (직전 enemy 페이즈 완료 후).
@@ -1672,24 +1716,7 @@ export function advanceTurn(
       });
     }
     const enemyHp = Math.max(0, state.enemyHp - totalDmg);
-    // 출혈 (4티어) — 적중하면 출혈 1스택 누적 (다음 적 턴부터 도트).
-    // 별빛 독공(enchant venom) — % 확률로 출혈 1스택 추가. 같은 출혈 스택을 공유하되 피해 축은
-    // 다르다: 출혈 = STR 고정(기본 DoT), 독공 = 적 최대HP 비례(체력% DoT). 둘 다 turnstart 에서 합산.
-    const venomFires =
-      (player.enchantVenomChancePct ?? 0) > 0 &&
-      Math.random() * 100 < player.enchantVenomChancePct!;
-    const bleedAddSkill = (player.bleedDmgPerStack ?? 0) > 0 ? 1 : 0;
-    const bleedAddVenom = venomFires ? 1 : 0;
-    const bleedStacks = Math.min(
-      BLEED_MAX_STACKS,
-      state.stacks.bleedStacks + bleedAddSkill + bleedAddVenom,
-    );
-    if (venomFires) {
-      log = appendLog(log, {
-        kind: "info",
-        text: `[독공] ${state.enemy.name}에게 출혈 +1스택`,
-      });
-    }
+    // 출혈/중독 — 적중 시 tagged DoT 로 누적 (다음 적 턴부터 tick).
     // 약점 적중 (2티어 특기) — 크리 발동 시 그 턴 1회, DEF 무시 큐 + 추가타 1회.
     const weakpointFires =
       critRoll &&
@@ -1835,7 +1862,7 @@ export function advanceTurn(
     }
     // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
     // 같은 턴 후속 공격(다중공격/연타)에 즉시 반영된다.
-    const afterDamage = applyPhaseTriggerIfAny({
+    const afterDamage = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
       ...state,
       enemyHp,
       enemyV2Dots: state.enemyV2Dots,
@@ -1858,7 +1885,6 @@ export function advanceTurn(
       },
       stacks: {
         ...state.stacks,
-        bleedStacks: Math.min(BLEED_MAX_STACKS, bleedStacks + apBleedAdd),
         chillStacks: shouldCleanseDebuffs ? 0 : state.stacks.chillStacks,
         evadesRemaining: state.stacks.evadesRemaining + apEvadesAdd,
         weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
@@ -1882,7 +1908,7 @@ export function advanceTurn(
           ? queuedExtraAttacksAdd
           : state.turn.queuedExtraAttacks,
       },
-    });
+    }, player, { bleedStacks: apBleedAdd }));
     if (enemyHp <= 0) {
       return {
         ...afterDamage,
@@ -2023,43 +2049,6 @@ export function advanceTurn(
       },
     };
     return finishPlayerTurn(ended, player, playerName);
-  }
-
-  // ── 출혈/독공 (4티어 + 별빛 부여) — 적 턴 시작 시 스택당 피해 (DEF 무시) ──────────
-  // 같은 스택 풀을 공유하되 피해 축이 다르다:
-  //   · 출혈(BLOODLET): STR 기반 고정 = 기본 DoT, 타깃 HP 무관 신뢰성.
-  //   · 독공(venom 부여): 적 최대HP × venom강도 비례 = 체력% DoT, 고HP 보스 녹이는 엔드게임 스케일.
-  // 스택 캡(BLEED_MAX_STACKS)이 무한 누적을 막는다. 다대시 보스도 적 페이즈당 1회만 틱.
-  const bleedFixedPerStack = player.bleedDmgPerStack ?? 0;
-  const venomStrength = player.enchantVenomDmgPerStack ?? 0;
-  const venomPctPerStack =
-    venomStrength > 0
-      ? Math.floor(state.enemy.hp * venomStrength * VENOM_PCT_HP_PER_POINT)
-      : 0;
-  const bleedPerStack = bleedFixedPerStack + venomPctPerStack;
-  if (enteringEnemyPhase && isEnemyBleeding(state) && bleedPerStack > 0) {
-    const bleedDmg = dotTickDamage(state.stacks.bleedStacks, bleedPerStack);
-    const afterBleedHp = Math.max(0, state.enemyHp - bleedDmg);
-    const bled = applyPhaseTriggerIfAny({
-      ...state,
-      enemyHp: afterBleedHp,
-      log: appendLog(state.log, {
-        kind: "info",
-        text: `[출혈] ${state.enemy.name}이(가) 출혈로 ${bleedDmg} 피해 (스택 ${state.stacks.bleedStacks})`,
-      }),
-    });
-    if (afterBleedHp <= 0) {
-      return {
-        ...bled,
-        log: appendLog(bled.log, {
-          kind: "info",
-          text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
-        }),
-        phase: "ended",
-        outcome: "win",
-      };
-    }
-    state = bled;
   }
 
   // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
@@ -2934,7 +2923,7 @@ export function resolveBattle(
         v2CastedThisPlayerPhase = true;
         // 0) PR-8 — player 가 받는 DoT tick (적이 박은 dot). DEF 무시. lethal 처리.
         // 적이 박은 dot 이므로 enemy_attack 로그 (오른쪽 적 레인).
-        const playerDotTick = tickV2Dots(state.playerV2Dots);
+        const playerDotTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
         if (playerDotTick.totalDmg > 0) {
           const before = state.playerHp;
           const newHp = Math.max(0, before - playerDotTick.totalDmg);
@@ -3086,7 +3075,7 @@ export function resolveBattle(
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}턴)`,
             turn: "player",
           });
         }
@@ -3162,43 +3151,6 @@ export function resolveBattle(
       v2CastedThisPlayerPhase = false;
       if (!v2CastedThisEnemyPhase) {
         v2CastedThisEnemyPhase = true;
-        // 0) PR-8 — enemy 가 받는 DoT tick (player 가 박은 dot). DEF 무시. lethal 처리.
-        const enemyDotTick = tickV2Dots(state.enemyV2Dots);
-        if (enemyDotTick.totalDmg > 0) {
-          const before = state.enemyHp;
-          const newHp = Math.max(0, before - enemyDotTick.totalDmg);
-          state = {
-            ...state,
-            enemyHp: newHp,
-            enemyV2Dots: enemyDotTick.nextDots,
-            log: appendLog(state.log, {
-              kind: "player_attack",
-              text: `[${state.enemyV2Dots
-                .filter((d) => d.turns > 0)
-                .map((d) => d.label)
-                .join(" + ")}] ${enemyDotTick.totalDmg} 피해를 입혔다.`,
-            }),
-          };
-          if (state.enemyHp <= 0) {
-            state = {
-              ...state,
-              log: appendLog(state.log, {
-                kind: "info",
-                text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
-                turn: "enemy",
-              }),
-              outcome: "win",
-              phase: "ended",
-              turn: {
-                ...state.turn,
-                completedPlayerTurns: state.turn.completedPlayerTurns + 1,
-              },
-            };
-            continue;
-          }
-        } else {
-          state = { ...state, enemyV2Dots: enemyDotTick.nextDots };
-        }
         const tickedEnemySelfBuffs = tickV2BuffMap(state.enemyV2SelfBuffs);
         const tickedEnemyDebuffsLocal = tickV2BuffMap(state.enemyV2Debuffs);
         const tickedPlayerDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
@@ -3271,7 +3223,7 @@ export function resolveBattle(
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] ${dot.dmgPerTurn}/턴 (${dot.turns}턴)`,
+            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}턴)`,
             turn: "enemy",
           });
         }

@@ -28,6 +28,8 @@ export type V2SpecPassiveEffect = {
   extraAttackChancePct?: number;
   /** 출혈/지속 — 적중 시 스택, 스택당 고정 피해. */
   bleedDmgPerStack?: number;
+  /** 중독 — 적중 시 스택, 값은 POISON_PCT_PER_POINT 로 최대HP 비례율에 환산. */
+  poisonPctPerStackBase?: number;
   /** 속도 % 가산. */
   spdPctAdd?: number;
   // ── 레거시(현 계파 데이터 미사용 — derive 호환 위해 타입 보존) ─────────
@@ -91,6 +93,8 @@ export type V2SpecTraitEffect = {
   damageTakenReductionPctAdd?: number;
   /** 출혈숙련/맹독 — 출혈(중독) 피해/스택 +(차수당). */
   bleedDmgPerStackAdd?: number;
+  /** 맹독 — 중독 강도 +(차수당), POISON_PCT_PER_POINT 로 최대HP 비례율에 환산. */
+  poisonPctPerStackAdd?: number;
   /** 유연 — 회피 +%(차수당). */
   evasionPctAdd?: number;
   /** 흡정 — 흡혈 +%(차수당). */
@@ -282,11 +286,11 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
     job: "rogue",
     requiredWeaponType: "dagger",
     passives: [
-      { id: "venom_toxin", name: "맹독", desc: "적중 시 지속 피해", effect: { bleedDmgPerStack: 10 } },
+      { id: "venom_toxin", name: "맹독", desc: "적중 시 중독", effect: { poisonPctPerStackBase: 10 } },
       { id: "venom_flurry", name: "연속 독격", desc: "추가타 확률(독 적중 증가)", effect: { extraAttackChancePct: 16 } },
       { id: "venom_corrode", name: "부식", desc: "중독된 적 방어력 감소", effect: { poisonedEnemyDefReductionPct: 20 } },
     ],
-    trait: { name: "맹독", desc: "중독 피해 증가(차수 성장)", effect: { bleedDmgPerStackAdd: 4 } },
+    trait: { name: "맹독", desc: "중독 피해 증가(차수 성장)", effect: { poisonPctPerStackAdd: 4 } },
   },
 ];
 

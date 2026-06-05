@@ -12,6 +12,7 @@ import {
   type BatchSummary,
 } from "@/adventure/v2/BatchSummaryCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
+import { PlayerStatusCard } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
@@ -309,6 +310,20 @@ export function V2DungeonFloorView({
       {batchSummary ? (
         <>
           <BatchSummaryCard summary={batchSummary} />
+          {/* 일괄 사냥 후에도 캐릭터 정보(EXP 진행도·직업·회복약)를 확인 — lastResult 는
+              마지막 사냥의 최종 상태. expAfter = 사냥 후 EXP(합산분 모두 반영). */}
+          {lastResult && (
+            <PlayerStatusCard
+              gender={playerGender}
+              name={playerName}
+              subtitle={playerSubtitle}
+              exp={lastResult.expAfter ?? lastResult.expForBar ?? 0}
+              maxExp={lastResult.maxExpAfter ?? lastResult.maxExpForBar ?? 1}
+              hpCharges={lastResult.hpCharges}
+              mpCharges={lastResult.mpCharges}
+              hasMp={(lastResult.replay?.playerMaxMp ?? 0) > 0}
+            />
+          )}
           {/* 일괄(5/10회) 사냥 직후에만 잔여 체력 바 노출 — 연속 사냥으로 깎인 HP 확인용. */}
           {hp && <HpBar state={hp} />}
         </>

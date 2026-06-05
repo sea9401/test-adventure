@@ -15,6 +15,7 @@ import { STAT_LABELS } from "@/adventure/data/stats";
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
+import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -88,7 +89,9 @@ export type V2SkillId =
   | "int_mana_burst_t2" // INT 마력 폭발
   | "int_mind_fog_t2" // INT 정신 안개
   // ── 직업군별 × 속성별 (6 1차 직업군 × 7 속성 = 42, 숙련도 학습 풀) ─────
-  | V2ElementalSkillId;
+  | V2ElementalSkillId
+  // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
+  | V2CommonSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -291,6 +294,7 @@ const V2_ELEMENTAL_SKILLS: Record<V2ElementalSkillId, V2SkillDefinition> =
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_ELEMENTAL_SKILLS,
+  ...V2_COMMON_SKILLS,
 };
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.

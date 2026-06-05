@@ -98,6 +98,27 @@ export type V2EquipmentId =
   | "v2_starter_staff"
   | "v2_starter_bow"
   | "v2_starter_dagger"
+  // 계파 무기 정규 라인 (상점 T2~T5) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
+  | "v2_guard_blade"
+  | "v2_knight_blade"
+  | "v2_royal_blade"
+  | "v2_paladin_blade"
+  | "v2_duel_rapier"
+  | "v2_swift_rapier"
+  | "v2_master_rapier"
+  | "v2_gale_rapier"
+  | "v2_brawl_gauntlet"
+  | "v2_fighter_gauntlet"
+  | "v2_ironfist_gauntlet"
+  | "v2_vajra_gauntlet"
+  | "v2_beast_claw"
+  | "v2_keen_claw"
+  | "v2_fierce_claw"
+  | "v2_dragon_claw"
+  | "v2_steel_dagger"
+  | "v2_assassin_dagger"
+  | "v2_shadow_dagger"
+  | "v2_toxic_dagger"
   // 방어-중갑 (vit/def)
   | "v2_chain_mail"
   | "v2_plate_armor"
@@ -209,6 +230,9 @@ export type V2Equipment = {
   craftOnly?: boolean;
   /** 계파 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
   starterOnly?: boolean;
+  /** 드랍 제외 — true 면 정규 드랍 풀에서 빠진다(상점·그리드는 유지). 계파 무기=상점 전용,
+   *  드랍은 후속 추가 예정. starterOnly/craftOnly 와 달리 상점 판매는 그대로. */
+  noDrop?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
 };

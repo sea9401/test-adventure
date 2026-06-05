@@ -635,14 +635,16 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.mpRegenPerTurn).toBe(8);
   });
 
-  it("무기 게이트 불통과(일반 검) = 완전 비활성", () => {
+  it("무기 게이트 불통과(미태깅 무기) = 완전 비활성", () => {
+    // 정규 무기는 이제 전부 계파타입 태깅 → 미태깅은 제작무기(v2_meadow_bow)뿐.
+    // greatsword 가 아니므로 광검 게이트 불통과.
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_meadow_bow" as V2EquipmentId },
     });
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_iron_sword" as V2EquipmentId }, // 타입 없는 일반 검
+      v2Equipped: { weapon: "v2_meadow_bow" as V2EquipmentId }, // 타입 없는 무기
       spec: gwang,
       unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
     });

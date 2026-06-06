@@ -156,6 +156,7 @@ export function UsersTab() {
         equipmentOwned?: string[];
         equipmentNoOp?: boolean;
         materials?: Record<string, number>;
+        staminaRefilled?: number;
       } | null;
       if (!r.ok || !j?.ok) {
         throw new Error(j?.error ?? `HTTP ${r.status}`);
@@ -169,6 +170,7 @@ export function UsersTab() {
         parts.push(`숙련 보유 ${j.proficiencyEarned}`);
       if (j.equipmentNoOp) parts.push("장비(이미 보유)");
       else if (j.equipmentOwned) parts.push("장비 지급");
+      if (j.staminaRefilled != null) parts.push(`스태미나 ${j.staminaRefilled}`);
       showToast(
         `v2 지급 완료: ${parts.join(", ") || "변경 없음"}. 대상 유저 새로고침 필요.`,
       );

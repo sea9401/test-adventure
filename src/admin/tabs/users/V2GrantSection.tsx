@@ -138,6 +138,19 @@ export function V2GrantSection({
           지급
         </Button>
       </div>
+
+      {/* 스태미나 (character.v2.stamina) — 최대치로 회복 */}
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          스태미나를 최대치로 회복합니다.
+        </p>
+        <Button
+          disabled={readOnly}
+          onClick={() => onGrant({ refillStamina: true })}
+        >
+          스태미나 가득 채우기
+        </Button>
+      </div>
     </section>
   );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FLOOR_DROP_POOLS,
   V2_MATERIALS,
+  V2_MATERIALS_ENABLED,
   mergeDrops,
   rollDrops,
   type V2MaterialId,
@@ -45,9 +46,14 @@ describe("들판 재료 + 드랍 풀", () => {
 });
 
 describe("rollDrops", () => {
-  it("들판(1층) — 통과 굴림이면 등재 재료를 amountMin 만큼 획득", () => {
+  it("들판(1층) — 통과 굴림이면 등재 재료 획득 (재료 보류 시엔 빈 결과)", () => {
     const result = rollDrops(1, () => 0);
-    for (const id of FIELD_IDS) expect(result[id]).toBe(1);
+    if (V2_MATERIALS_ENABLED) {
+      for (const id of FIELD_IDS) expect(result[id]).toBe(1);
+    } else {
+      // 재료 보류 중 — 어떤 굴림이든 드랍 없음(단일 게이트).
+      expect(result).toEqual({});
+    }
   });
 
   it("굴림이 모두 chance 이상이면 빈 결과", () => {

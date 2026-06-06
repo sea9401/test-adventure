@@ -4,7 +4,7 @@
 // 3·4차 전직이 이 진척을 요건으로 건다(설계: 직업 해금을 모험의 서 진척에 묶는다).
 // 클라(프리뷰)·서버(권위) 공용 — 서버가 최종 판정.
 
-import { V2_MATERIALS, type V2MaterialId } from "./dungeonDrops";
+import { V2_MATERIALS, V2_MATERIALS_ENABLED, type V2MaterialId } from "./dungeonDrops";
 
 // 코덱스 총 등재 가능 재료 수(= 알려진 재료 종). 재료가 늘면 자동으로 커진다.
 export const V2_CODEX_TOTAL = (Object.keys(V2_MATERIALS) as V2MaterialId[]).length;
@@ -27,6 +27,8 @@ export function countDiscoveredMaterials(raw: unknown): number {
 // 목표 직업의 도감 요건 — advanceCodexMin 을 코덱스 총량으로 클램프(총량보다 클 수 없음).
 // 미지정/0 이면 요건 없음(0).
 export function codexRequirement(advanceCodexMin: number | undefined): number {
+  // 재료 보류 중 — 전직 재료 요건 해제(레벨/숙련도로만 전직). 클라 프리뷰·서버 권위 공용.
+  if (!V2_MATERIALS_ENABLED) return 0;
   if (!advanceCodexMin || advanceCodexMin <= 0) return 0;
   return Math.min(advanceCodexMin, V2_CODEX_TOTAL);
 }

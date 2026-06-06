@@ -23,11 +23,6 @@ import {
   TUTORIAL_V2_FIRST_LEVELUP,
 } from "@/adventure/tutorial/flags";
 import { useStoryFlags } from "@/adventure/storyFlags/useStoryFlags";
-import type {
-  V2MaterialId,
-} from "@/adventure/data/v2/dungeonDrops";
-import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
-import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { Gender } from "@/adventure/profile/avatars";
 
 // 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
@@ -45,7 +40,9 @@ function loadHuntCount(): HuntCount {
   if (typeof window === "undefined") return 1;
   try {
     const n = Number(localStorage.getItem(HUNT_COUNT_STORAGE_KEY));
-    return (HUNT_COUNTS as readonly number[]).includes(n) ? (n as HuntCount) : 1;
+    return (HUNT_COUNTS as readonly number[]).includes(n)
+      ? (n as HuntCount)
+      : 1;
   } catch {
     return 1;
   }
@@ -105,21 +102,19 @@ export function V2DungeonFloorView({
   const depth = Number(floorId);
   const displayName = depthName(depth);
   const powerGate = floor
-    ? (floor.requirement.kind === "power" ? floor.requirement.min : floorPowerGate(depth))
+    ? floor.requirement.kind === "power"
+      ? floor.requirement.min
+      : floorPowerGate(depth)
     : floorPowerGate(depth);
   // 도전(미정복) 여부 — 최고 도달 깊이+1 이 현재 깊이.
   const isChallenge = depth > frontierDepth;
-  const { busy, lastResult, hunt } = useDungeonHunt({
+  const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
     outpostId,
     setStamina,
   });
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
-  const [batchProgress, setBatchProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
@@ -175,83 +170,45 @@ export function V2DungeonFloorView({
     storyFlags.flags.includes(TUTORIAL_ENABLED_FLAG) &&
     !storyFlags.flags.includes(TUTORIAL_V2_FIRST_LEVELUP);
 
+  // 일괄 사냥 — 서버가 count 회를 한 트랜잭션으로 처리(한 왕복, 딸깍). 합산 결과만 받아 표시 +
+  //   최종 HP/깊이/레벨을 한 번만 반영(옛 클라 50회 루프·드르륵 카운터 폐기).
   const runBatch = async (count: number) => {
     setSettingsOpen(false);
     setBatchSummary(null);
     setBatchRunning(true);
-    setBatchProgress({ done: 0, total: count });
-
-    let wins = 0;
-    let losses = 0;
-    let totalExp = 0;
-    let totalProficiency = 0;
-    let totalGold = 0;
-    let levelsGained = 0;
-    const drops: Partial<Record<V2MaterialId, number>> = {};
-    const droppedEquipments: V2EquipmentId[] = [];
-    const droppedUniques: V2EquipmentId[] = [];
-    const statGains: Partial<Record<V2StatKey, number>> = {};
-    let stoppedReason: BatchSummary["stoppedReason"] = null;
-    let completed = 0;
-
-    for (let i = 0; i < count; i++) {
-      const r = await hunt(depth);
-      if (!r) {
-        stoppedReason = "error";
-        break;
+    try {
+      const b = await huntBatch(depth, count);
+      if (!b) return; // 네트워크/서버 오류 — hook 이 로그 남김. 요약 없이 종료.
+      setBatchSummary({
+        attempted: b.attempted,
+        completed: b.completed,
+        wins: b.wins,
+        losses: b.losses,
+        totalExp: b.totalExp,
+        totalProficiency: b.totalProficiency,
+        totalGold: b.totalGold,
+        levelsGained: b.levelsGained,
+        statGains: b.statGains,
+        drops: b.drops,
+        droppedEquipments: b.droppedEquipments,
+        droppedUniques: b.droppedUniques,
+        stoppedReason: b.stoppedReason,
+      });
+      // 부수효과 — 서버가 합산해 준 마지막 상태로 한 번만.
+      if (b.finalHpAfter != null && b.finalMaxHp != null) {
+        recordHp({ hpAfter: b.finalHpAfter, maxHp: b.finalMaxHp });
       }
-      recordHp(r);
-      if (isChallenge && r.won && r.maxDepth != null && r.maxDepth > frontierDepth) {
-        onFrontierUnlocked?.(r.maxDepth);
+      if (
+        isChallenge &&
+        b.finalMaxDepth != null &&
+        b.finalMaxDepth > frontierDepth
+      ) {
+        onFrontierUnlocked?.(b.finalMaxDepth);
       }
-      completed++;
-      setBatchProgress({ done: completed, total: count });
-      if (r.won) wins++;
-      else losses++;
-      totalExp += r.expGained;
-      totalProficiency += r.proficiencyGained ?? 0;
-      totalGold += r.goldGained;
-      levelsGained += r.levelsGained;
-      for (const [id, n] of Object.entries(r.drops ?? {})) {
-        const key = id as V2MaterialId;
-        drops[key] = (drops[key] ?? 0) + (n ?? 0);
-      }
-      for (const [k, n] of Object.entries(r.statGains ?? {})) {
-        const key = k as V2StatKey;
-        statGains[key] = (statGains[key] ?? 0) + (n ?? 0);
-      }
-      if (r.droppedEquipment) droppedEquipments.push(r.droppedEquipment);
-      if (r.droppedUnique) droppedUniques.push(r.droppedUnique);
-      // 사망 또는 체력 부족(5% 미만)이면 다음 사냥이 어차피 서버에서 막히므로 중단.
-      // 헛돈(409) 없이 즉시 멈추고, 패배(0)·생존했지만 저체력을 라벨로 구분.
-      if (!canHuntWithHp(r.hpAfter, r.maxHp)) {
-        stoppedReason = r.hpAfter <= 0 ? "death" : "recovery";
-        break;
-      }
-      // 다음 사냥 전 스태미너 사전 검사 — 직전 응답의 잔량 기준.
-      // (response 의 stamina 가 setStamina 됐지만 React state 라 await 즉시 안 보임.
-      //  마지막 hunt 가 실패 시 다음 시도가 error 로 처리되니 안전.)
+      if (b.levelsGained > 0) onLevelUp?.();
+    } finally {
+      setBatchRunning(false);
     }
-
-    setBatchSummary({
-      attempted: count,
-      completed,
-      wins,
-      losses,
-      totalExp,
-      totalProficiency,
-      totalGold,
-      levelsGained,
-      statGains,
-      drops,
-      droppedEquipments,
-      droppedUniques,
-      stoppedReason,
-    });
-    setBatchProgress(null);
-    setBatchRunning(false);
-    // 일괄 사냥 중 레벨업이 있었으면 전역 캐릭터 상태를 한 번만 재조회(부제/스탯 갱신).
-    if (levelsGained > 0) onLevelUp?.();
   };
 
   // 깊이 1·2 는 authored 층 필수. 3+ 는 floor 없어도 OK (프론티어 — 데이터 도출).
@@ -334,15 +291,13 @@ export function V2DungeonFloorView({
             disabled={oneActionDisabled || lowStamina || needsRecovery}
             className="flex-1 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {batchRunning && batchProgress
-              ? `${batchProgress.done}/${batchProgress.total} 처리 중…`
-              : busy
-                ? "사냥 중…"
-                : needsRecovery
-                  ? "회복 필요"
-                  : huntCount === 1
-                    ? "사냥 (스태미너 1)"
-                    : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
+            {batchRunning || busy
+              ? "사냥 중…"
+              : needsRecovery
+                ? "회복 필요"
+                : huntCount === 1
+                  ? "사냥 (스태미너 1)"
+                  : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
           <button
             type="button"
@@ -439,8 +394,9 @@ export function V2DungeonFloorView({
             <>
               <p>새로운 레벨에 도달했습니다. 캐릭터가 더 강해졌어요.</p>
               <p>
-                레벨이 오르면 능력치가 한계치까지 무작위로 성장합니다. 그 한계치를
-                더 끌어올리려면 사냥으로 모은 숙달 포인트를 <strong>성장의 신전</strong>
+                레벨이 오르면 능력치가 한계치까지 무작위로 성장합니다. 그
+                한계치를 더 끌어올리려면 사냥으로 모은 숙달 포인트를{" "}
+                <strong>성장의 신전</strong>
                 에서 수행에 쓰면 돼요.
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">

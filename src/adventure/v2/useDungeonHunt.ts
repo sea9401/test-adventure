@@ -8,6 +8,8 @@ import {
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
@@ -29,6 +31,36 @@ type HuntResponse = {
   stamina?: StaminaState;
   error?: string;
   result?: HuntResultPayload;
+};
+
+// 일괄(batch) 사냥 응답 — 서버가 N회를 한 번에 돌리고 합산해서 돌려준다.
+// BatchSummary(표시용) 필드 + 클라 부수효과용(최종 HP/깊이/EXP).
+export type BatchHuntPayload = {
+  attempted: number;
+  completed: number;
+  wins: number;
+  losses: number;
+  totalExp: number;
+  totalProficiency: number;
+  totalGold: number;
+  levelsGained: number;
+  statGains: Partial<Record<V2StatKey, number>>;
+  drops: Partial<Record<V2MaterialId, number>>;
+  droppedEquipments: V2EquipmentId[];
+  droppedUniques: V2EquipmentId[];
+  stoppedReason: "stamina" | "death" | "recovery" | "error" | null;
+  finalHpAfter: number | null;
+  finalMaxHp: number | null;
+  finalMaxDepth: number | null;
+  expAfter: number | null;
+  maxExpAfter: number | null;
+};
+
+type BatchHuntResponse = {
+  ok?: boolean;
+  stamina?: StaminaState;
+  error?: string;
+  batch?: BatchHuntPayload;
 };
 
 function formatDrops(
@@ -137,10 +169,58 @@ export function useDungeonHunt({
     [outpostId, pushLog, setStamina],
   );
 
+  // 일괄 사냥 — 서버에서 count 회를 한 트랜잭션으로 처리(한 왕복). 합산 결과 반환, 실패 시 null.
+  const huntBatch = useCallback(
+    async (floor: number, count: number): Promise<BatchHuntPayload | null> => {
+      setBusy(true);
+      setLastResult(null);
+      try {
+        const res = await fetch("/api/v2/dungeon/hunt", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ floor, count, outpostId }),
+        });
+        let json: BatchHuntResponse | null = null;
+        try {
+          json = (await res.json()) as BatchHuntResponse;
+        } catch {
+          pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
+          return null;
+        }
+        if (!json) {
+          pushLog(`✗ http ${res.status} (빈 응답)`);
+          return null;
+        }
+        if (json.stamina) setStamina(json.stamina);
+        if (json.ok === true && json.batch) {
+          const b = json.batch;
+          const cur = json.stamina?.current ?? "?";
+          pushLog(
+            `✓ 일괄 ${b.completed}/${b.attempted}회 · 승 ${b.wins}/패 ${b.losses} · EXP +${b.totalExp} · GOLD +${b.totalGold}${b.levelsGained ? ` · 레벨 +${b.levelsGained}` : ""}${formatDrops(b.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+          );
+          return b;
+        }
+        const err = json.error ?? "unknown";
+        const after = json.stamina
+          ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`
+          : "";
+        pushLog(`✗ http ${res.status} ${err}${after}`);
+        return null;
+      } catch (err) {
+        pushLog(`✗ network: ${(err as Error).message}`);
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [outpostId, pushLog, setStamina],
+  );
+
   return {
     busy,
     lastResult,
     log,
     hunt,
+    huntBatch,
   };
 }

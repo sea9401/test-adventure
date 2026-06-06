@@ -24,6 +24,11 @@ import {
 } from "@/adventure/data/v2/v2CombatConstants";
 import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
+import {
+  evaluateCombatPattern,
+  type V2CombatPattern,
+  type V2PatternCtx,
+} from "./combatPattern";
 
 // 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
 // 않고 가벼운 상수 파일에서 읽도록). 두 엔진은 여전히 combatShared 에서 import 하므로 재노출.
@@ -471,6 +476,12 @@ export type V2SkillCastInput = {
   procRoll?: number;
   /** 발동 확률 보너스 %p (워메이지 주문연사 등 — 스킬 procChance 에 합산, 100 클램프). 미지정=0. */
   procChanceBonus?: number;
+  /** 전투 패턴(갬빗) — 주어지면 슬롯순서+procChance 대신 우선순위 평가로 스킬 선택(조건 충족=확정
+   *  발동, proc 은퇴). 미지정이면 옛 경로(pickAutoCastV2Skill + procRoll). 엔진이 플레이어 cast 에만
+   *  주입(몹 cast 는 미주입 = 옛 경로). 플래그 V2_COMBAT_PATTERN_ENABLED 가 엔진단 게이트. */
+  combatPattern?: V2CombatPattern;
+  /** 현재 턴(1-based) — combatPattern 의 turn 조건용. 미지정=1. */
+  turn?: number;
   attacker: {
     mp: number;
     atk: number;
@@ -523,15 +534,55 @@ const EMPTY_CAST_RESULT_BASE = {
   selfBuffPctToApply: [] as V2SkillPctBuffApply[],
 };
 
+// 전투 패턴 조건 평가용 ctx — cast 입력(공격자/대상 상태)에서 합성. 자버프 활성 스탯 = selfBuffs 키.
+function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
+  const a = input.attacker;
+  const t = input.target;
+  const maxHp = Math.max(1, a.maxHp);
+  const maxMp = Math.max(1, a.maxMp ?? 1);
+  const enemyMaxHp = Math.max(1, t.maxHp ?? 1);
+  return {
+    selfHpPct: ((a.currentHp ?? a.maxHp) / maxHp) * 100,
+    selfMpPct: (a.mp / maxMp) * 100,
+    // 활성 자버프 스탯만(turns>0). 엔진은 tick 으로 만료 키를 제거하지만, 비-엔진 호출의 stale
+    //   0턴 키가 false-positive(버프 활성) 내지 않게 방어적 필터.
+    selfBuffStats: new Set(
+      (Object.entries(a.selfBuffs) as [StatKey, V2BuffEntry | undefined][])
+        .filter(([, e]) => e != null && e.turns > 0)
+        .map(([k]) => k),
+    ),
+    enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
+    enemyBleed: t.bleedStacks ?? 0,
+    enemyPoison: t.poisonStacks ?? 0,
+    enemyVuln: t.magicVulnStacks ?? 0,
+    turn: input.turn ?? 1,
+  };
+}
+
 export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   // 1) cd tick.
   const ticked = tickV2SkillCooldowns(input.cooldowns);
-  // 2) 발동 후보 선택.
-  const id = pickAutoCastV2Skill({
-    equipped: input.skills.equipped,
-    cooldowns: ticked,
-    mp: input.attacker.mp,
-  });
+  // 2) 발동 후보 선택 — 전투 패턴(갬빗)이 주어지면 우선순위 평가, 아니면 옛 슬롯순서+proc.
+  const viaPattern = input.combatPattern != null;
+  // 패턴 경로도 "장착 스킬만 발동"(옛 pickAutoCastV2Skill 의 equipped 풀 의미 유지) — 커스텀 패턴이
+  //   미장착/미학습 스킬 id 를 참조해도 발동 안 함. + 효과 있음·쿨다운·MP 게이트.
+  const equippedSet = new Set<string>(input.skills.equipped);
+  const id: V2SkillId | null = viaPattern
+    ? (evaluateCombatPattern(input.combatPattern!, buildPatternCtx(input), (sid) => {
+        if (!equippedSet.has(sid)) return false;
+        const d = V2_SKILLS[sid as V2SkillId];
+        return (
+          !!d &&
+          d.effects.length > 0 &&
+          (ticked[sid as V2SkillId] ?? 0) === 0 &&
+          input.attacker.mp >= v2SkillMpCost(d)
+        );
+      }) as V2SkillId | null)
+    : pickAutoCastV2Skill({
+        equipped: input.skills.equipped,
+        cooldowns: ticked,
+        mp: input.attacker.mp,
+      });
   if (!id) {
     return {
       ...EMPTY_CAST_RESULT_BASE,
@@ -542,24 +593,27 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
-  // 발동 확률 — procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
+  // 발동 확률 — 패턴 경로(viaPattern)는 procChance 은퇴(조건 충족 = 확정 발동). 옛 경로만 롤:
+  // procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
   // (쿨다운은 위에서 이미 tick 됨. procRoll 미지정이면 항상 발동 — 구 호출·테스트 호환.)
-  const procChance = Math.min(
-    100,
-    (def.procChance ?? 100) + (input.procChanceBonus ?? 0),
-  );
-  if (
-    procChance < 100 &&
-    input.procRoll !== undefined &&
-    input.procRoll >= procChance
-  ) {
-    return {
-      ...EMPTY_CAST_RESULT_BASE,
-      nextMp: input.attacker.mp,
-      nextCooldowns: ticked,
-      castSkillId: null,
-      castSkillName: null,
-    };
+  if (!viaPattern) {
+    const procChance = Math.min(
+      100,
+      (def.procChance ?? 100) + (input.procChanceBonus ?? 0),
+    );
+    if (
+      procChance < 100 &&
+      input.procRoll !== undefined &&
+      input.procRoll >= procChance
+    ) {
+      return {
+        ...EMPTY_CAST_RESULT_BASE,
+        nextMp: input.attacker.mp,
+        nextCooldowns: ticked,
+        castSkillId: null,
+        castSkillName: null,
+      };
+    }
   }
   // PR-5b — 스킬 속성 보정. atk 엔 평타속성(무기??캐릭)이 baked 되어 있으므로, 스킬 데미지는
   // 스킬속성(없으면 캐릭속성) 기준으로 재정규화: ×(M_skill / M_basic). 둘 다 neutral 이면 1.

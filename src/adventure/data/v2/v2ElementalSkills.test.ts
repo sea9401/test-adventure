@@ -70,20 +70,18 @@ describe("직업군별 속성 스킬 (6 직업군 × 7 속성 = 42)", () => {
     for (const n of elem) expect(base.has(n), n).toBe(false); // 기존과 충돌 없음
   });
 
-  it("elementalSkillsForClass — 4직군 각각 대표 구 원소그룹 7종, none 은 빈", () => {
-    expect(elementalSkillsForClass("warrior")).toEqual(
-      V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman,
-    );
-    expect(elementalSkillsForClass("rogue")).toEqual(
-      V2_ELEMENTAL_SKILLS_BY_CLASS.archer,
-    );
-    expect(elementalSkillsForClass("mage")).toEqual(
-      V2_ELEMENTAL_SKILLS_BY_CLASS.mage,
-    );
-    expect(elementalSkillsForClass("martial")).toEqual(
-      V2_ELEMENTAL_SKILLS_BY_CLASS.martial,
-    );
-    expect(elementalSkillsForClass("warrior")).toHaveLength(7);
+  it("elementalSkillsForClass — 스킬 재설계 후 공용+계파 풀 반환(구 원소 은퇴), none 은 빈", () => {
+    // 구 원소 풀은 학습 목록서 은퇴 → 함수가 더 이상 V2_ELEMENTAL_SKILLS_BY_CLASS 를 반환하지 않음.
+    // 새 풀 = 공용(직군) + 계파(직군 9). 전사/무도가=5공용, 마법사/도적=4공용(마력구/예기 패시브 제외).
+    const warrior = elementalSkillsForClass("warrior");
+    expect(warrior).toContain("v2c_warrior_strike"); // 공용
+    expect(warrior).toContain("v2s_gwang_greatcleave"); // 계파
+    expect(warrior).toHaveLength(5 + 9);
+    expect(elementalSkillsForClass("mage")).toHaveLength(4 + 9); // 마력구 패시브 제외
+    // 구 원소 스킬은 더 이상 포함 안 됨.
+    for (const id of V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman) {
+      expect(warrior).not.toContain(id);
+    }
     expect(elementalSkillsForClass("none")).toEqual([]);
   });
 

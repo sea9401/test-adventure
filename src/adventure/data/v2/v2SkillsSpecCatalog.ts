@@ -249,6 +249,31 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
   },
 };
 
+// 직군 → 그 직군 3계파의 스킬 9종 (학습 풀 — PR1-3 느슨 게이팅: 직군 단위 학습.
+// "내 계파만 / 차수당 1해금" 엄격 게이팅은 후속 정제. spec id 는 v2JobSpecs 와 일치.
+export const V2_SPEC_SKILLS_BY_JOB: Record<string, readonly V2SpecSkillId[]> = {
+  warrior: [
+    "v2s_gwang_greatcleave", "v2s_gwang_skysplit", "v2s_gwang_resolve",
+    "v2s_knight_shieldbash", "v2s_knight_bulwark", "v2s_knight_taunt",
+    "v2s_gladiator_frenzy", "v2s_gladiator_laceration", "v2s_gladiator_exsanguinate",
+  ],
+  martial: [
+    "v2s_cheolsan_arhat", "v2s_cheolsan_stomp", "v2s_cheolsan_smash",
+    "v2s_gigong_drain", "v2s_gigong_multistrike", "v2s_gigong_bloodlet",
+    "v2s_yeonhwan_barrage", "v2s_yeonhwan_focus", "v2s_yeonhwan_skybreak",
+  ],
+  mage: [
+    "v2s_arcane_meteor", "v2s_arcane_burst", "v2s_arcane_detonate",
+    "v2s_battlemage_rapidcast", "v2s_battlemage_chain", "v2s_battlemage_blast",
+    "v2s_cleric_smite", "v2s_cleric_judgment", "v2s_cleric_condemn",
+  ],
+  rogue: [
+    "v2s_archery_powershot", "v2s_archery_explosivearrow", "v2s_archery_bind",
+    "v2s_assassin_darkstrike", "v2s_assassin_execute", "v2s_assassin_twinstrike",
+    "v2s_venom_poisonslash", "v2s_venom_poisoncloud", "v2s_venom_detonate",
+  ],
+};
+
 // 계파 id → 계파 스킬 id 3종 (해금/학습 게이팅 — 차수당 1개 해금). spec id 는 v2JobSpecs 와 일치.
 export const V2_SPEC_SKILLS_BY_SPEC: Record<string, readonly V2SpecSkillId[]> = {
   gwang: ["v2s_gwang_greatcleave", "v2s_gwang_skysplit", "v2s_gwang_resolve"],

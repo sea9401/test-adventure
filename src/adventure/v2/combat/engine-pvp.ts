@@ -2053,7 +2053,7 @@ function castV2SkillOnAttackerTurnPvP(
   const tickedSelfBuffs = tickV2BuffMap(side.v2SelfBuffs);
   const tickedSelfDebuffs = tickV2BuffMap(side.v2SelfDebuffs);
   // 2) cast 결정 + 효과 계산. target = 상대 side (opp).
-  const result = resolveV2SkillCast({
+  let result = resolveV2SkillCast({
     skills: side.v2Skills,
     cooldowns: side.v2SkillCooldowns,
     // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
@@ -2094,6 +2094,26 @@ function castV2SkillOnAttackerTurnPvP(
       poisonStacks: opp.v2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
     },
   });
+  // 스킬도 명중 영향 — 데미지 스킬 발동 후 미스 판정(평타와 같은 공식). 미스면 적 효과만 무효
+  //   (MP·쿨다운 소모됨·자버프/자힐 유지). 데미지>0 일 때만 롤(RNG 드리프트 방지).
+  let skillMissed = false;
+  if (result.castSkillId && result.enemyDamage > 0) {
+    const sMissPct = Math.max(
+      0,
+      V2_BASE_MISS_PCT +
+        opp.player.evasionPct * (side.player.precisionEvasionMult ?? 1) -
+        (side.player.accuracyPct ?? 0),
+    );
+    if (sMissPct > 0 && Math.random() * 100 < sMissPct) {
+      skillMissed = true;
+      result = {
+        ...result,
+        enemyDamage: 0,
+        dotsToApplyToTarget: [],
+        enemyDebuffsToApply: [],
+      };
+    }
+  }
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
   // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
   let nextLog = st.log;
@@ -2105,6 +2125,12 @@ function castV2SkillOnAttackerTurnPvP(
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
       text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
+      side: who,
+    });
+  } else if (skillMissed && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "player_attack",
+      text: `[${result.castSkillName}] 빗나갔다.`,
       side: who,
     });
   }

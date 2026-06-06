@@ -262,6 +262,10 @@ const CRIT_MULT_CAP = 5.0;
 const MAGIC_ATK_PER_INT = 0.15; // PR-무기위력 0.2→0.15 (ATK_PER_STR 대칭 유지 + 지팡이 위력 상향 상쇄).
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
+// 궁사 활 패시브 — 100% 적중 임계(기본 명중 90% → 명중 10 이면 적중 100%) 초과 명중을 공격력으로
+// 변환. "명중률 컨셉" 궁사가 남는 명중을 딜로 환원. 활 무기 한정. coef·임계는 sim 캘리브 대상.
+const BOW_HIT_THRESHOLD = 10; // = combatShared V2_BASE_MISS_PCT (명중 이만큼이면 적중 100%)
+const BOW_ACCURACY_TO_ATK_COEF = 3;
 
 // v2 SPD → 다중공격. SPD 1 당 +0.5%p 추가공격 확률 (옛 2 — 전 빌드 타수 과다로 0.5 하향).
 // SPD = DEX×2 라 추가확률 = DEX×1 %p. DEX 100 → 100%(확정 +1타) · DEX 200 → 200%(확정 +2타).
@@ -510,6 +514,13 @@ export function derivePlayerCombatV2Pure(
     specMagicAtk = Math.floor(specMagicAtk * m);
   }
 
+  // 궁사 활 패시브 — 100% 적중 임계 초과 명중을 공격력으로 변환(활 무기 한정). 남는 명중을 딜로.
+  const finalAccuracyPct = accuracyPct + (specEff.accuracyPctAdd ?? 0);
+  if (weaponTypeOf(v2Equipped.weapon) === "bow") {
+    const excessAccuracy = Math.max(0, finalAccuracyPct - BOW_HIT_THRESHOLD);
+    specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
+  }
+
   // 직업 특성 — 계파 시그니처와 같은 훅을 공유하는 효과는 합산(강철↔받피감, 출혈숙련↔출혈,
   // 흡정↔흡정공). 0 이면 spread 생략(inert). 절제(mpCostReductionPct)는 신규 시전 훅.
   const totalDamageTakenReductionPct =
@@ -537,7 +548,7 @@ export function derivePlayerCombatV2Pure(
     def: specDef,
     spd: specSpd,
     evasionPct: evasionPct + (traitEff.evasionPctAdd ?? 0), // + 유연
-    accuracyPct: accuracyPct + (specEff.accuracyPctAdd ?? 0),
+    accuracyPct: finalAccuracyPct,
     attackCount: 1,
     extraAttackChancePct:
       extraAttackChancePct +

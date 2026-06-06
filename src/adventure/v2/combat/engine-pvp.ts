@@ -54,6 +54,7 @@ import {
   makePoisonDot,
   potionHealAmount,
   resolveV2SkillCast,
+  distributeBoostedHits,
   rollAttackCount,
   tickV2BuffMap,
   tickV2Dots,
@@ -2168,11 +2169,19 @@ function castV2SkillOnAttackerTurnPvP(
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
-    nextLog = appendLog(nextLog, {
-      kind: "player_attack",
-      text: `${result.castSkillName}! ${skillDamage} 피해를 입혔다.`,
-      side: who,
-    });
+    // 다단 스킬은 타마다 한 줄(PvE 미러). 부스트는 타당 raw 비율 분배(합 = skillDamage).
+    const perHit =
+      result.hitDamages.length > 1
+        ? distributeBoostedHits(result.hitDamages, skillDamage)
+        : [skillDamage];
+    for (const hit of perHit) {
+      if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
+      nextLog = appendLog(nextLog, {
+        kind: "player_attack",
+        text: `${result.castSkillName}! ${hit} 피해를 입혔다.`,
+        side: who,
+      });
+    }
   } else if (skillMissed && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "player_attack",

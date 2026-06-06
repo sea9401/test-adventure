@@ -743,6 +743,33 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     expect(dotTickLogs.length).toBeGreaterThan(0);
   });
 
+  it("PR2-B — temp 버프(보호막) 시전이 PvE 전투 로그에 표기된다", () => {
+    // 이전엔 PvE 가 temp 버프 적용을 로그에 안 남겨 보이지 않던 회귀 가드(PvP 는 표기됨).
+    vi.spyOn(Math, "random").mockReturnValue(0); // procChance 발동 강제
+    const mage: PlayerCombat = {
+      ...PLAYER,
+      atk: 30,
+      maxMp: 2000,
+      hp: 500,
+      maxHp: 500,
+      spd: 100,
+    };
+    const r = resolveBattle(mage, makeEnemy({ hp: 3000, atk: 5 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2c_mage_shield"],
+        equipped: ["v2c_mage_shield"],
+      },
+    });
+    // 보호막 적용 로그 — PvE cast 표기 확인.
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("보호막 +"),
+      ),
+    ).toBe(true);
+  });
+
   // PR-cast-attack 부터 cast 가 attacksLeft 를 소모해 일반 공격 대체 (포션 패턴).
   // PR-5a 격리 해제 검증은 unit 테스트 (combatShared.test 의 v2AtkBuffMult) 가 cover —
   // 통합 비교 (with-skill vs no-skill 누적 데미지) 는 cast 가 attack 대체라 의미 변경.

@@ -47,9 +47,18 @@ const V2_ELEMENTAL_SKILL_ELEMENTS = [
 export type V2ElementalSkillId =
   `v2_skill_elem_${V2ElementalGroupClass}_${(typeof V2_ELEMENTAL_SKILL_ELEMENTS)[number]}`;
 
-// 속성 스킬 학습 비용 — 숙련도(직군 사용가능)로 지불. 시그니처(1차 80)보다 싸게: 7종을
-// 모으는 사이드그레이드 풀이라 한 종 가격은 낮게. learn-skill 라우트가 참조.
-export const V2_ELEMENTAL_LEARN_COST = 60;
+// 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 캐릭 성장 비례: 직군 누적 레벨(cumLevel)에
+// 따라 상승해 후반에 배우는 스킬(특히 차수 해금 계파 스킬)일수록 비싸진다. base 는 신참(cumLevel 0)
+// 가격, perCumLevel 이 램프 기울기. fresh(0)=200 · 중반(75)≈313 · 천장(200)≈500.
+// 킬당 +V2_PROFICIENCY_PER_KILL(=2) 포인트 기준 → 신참 ~100킬/종, 천장 ~250킬/종. learn-skill 라우트가 참조.
+export const V2_SKILL_LEARN_COST_BASE = 200; // 신참 base(cumLevel 0 가격).
+export const V2_SKILL_LEARN_COST_PER_CUMLEVEL = 1.5;
+export function v2SkillLearnCost(cumLevel: number): number {
+  return Math.round(
+    V2_SKILL_LEARN_COST_BASE +
+      Math.max(0, cumLevel) * V2_SKILL_LEARN_COST_PER_CUMLEVEL,
+  );
+}
 
 // 스킬 카탈로그 id — union 으로 컴파일타임 검증.
 export type V2SkillId =
@@ -226,7 +235,7 @@ export type V2SkillDefinition = {
 
 // === 속성 풀 생성 — 6 1차 직업군 × 7 속성 = 42 ========================
 // 직업군마다 통일된 coef/스탯/스케일, 차별점은 element(상성) + 이름. 공격 스킬.
-// 가격(숙련도)·게이트는 learn-skill 라우트(group=tier1직업, V2_ELEMENTAL_LEARN_COST).
+// 가격(숙련도)·게이트는 learn-skill 라우트(group=tier1직업, V2_SKILL_LEARN_COST_BASE).
 type ElemGroupConfig = {
   stat: StatKey;
   scaling: "physical" | "magic";

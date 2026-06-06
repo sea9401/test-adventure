@@ -15,7 +15,7 @@ import {
   parseV2SkillsState,
   v2SkillSlotsForLevel,
   V2_SKILLS,
-  V2_ELEMENTAL_LEARN_COST,
+  v2SkillLearnCost,
 } from "@/adventure/data/v2/v2Skills";
 import {
   parseV2Class,
@@ -385,7 +385,10 @@ export async function GET() {
       const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
       const specChoice = typeof rawSpec === "string" ? rawSpec : null;
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-      const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
+      const group = tier1ClassOf(cls);
+      const tier = prof.groups[group]?.tier ?? 1;
+      // 학습 비용은 캐릭 성장(직군 누적 레벨) 비례 — 모든 행이 현 시점 같은 가격(learn-skill 과 동일 산식).
+      const learnCost = v2SkillLearnCost(prof.groups[group]?.cumLevel ?? 0);
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
       const equippedSet = new Set<string>(skillsState.equipped);
@@ -394,7 +397,7 @@ export async function GET() {
         return {
           skillId,
           name: def.name,
-          cost: V2_ELEMENTAL_LEARN_COST,
+          cost: learnCost,
           learned: learnedSet.has(skillId),
           equipped: equippedSet.has(skillId),
         };

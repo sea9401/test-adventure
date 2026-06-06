@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   V2_SKILLS,
   V2_ELEMENTAL_SKILLS_BY_CLASS,
-  V2_ELEMENTAL_LEARN_COST,
+  V2_SKILL_LEARN_COST_BASE,
+  v2SkillLearnCost,
 } from "./v2Skills";
 import { elementalSkillsForClass } from "./classes";
 
@@ -117,6 +118,17 @@ describe("직업군별 속성 스킬 (6 직업군 × 7 속성 = 42)", () => {
   });
 
   it("학습 비용은 양수", () => {
-    expect(V2_ELEMENTAL_LEARN_COST).toBeGreaterThan(0);
+    expect(V2_SKILL_LEARN_COST_BASE).toBeGreaterThan(0);
+  });
+
+  it("학습 비용은 캐릭 성장(cumLevel) 비례로 단조 상승", () => {
+    // 신참(cumLevel 0) = base, 음수 cumLevel 도 base 로 클램프.
+    expect(v2SkillLearnCost(0)).toBe(V2_SKILL_LEARN_COST_BASE);
+    expect(v2SkillLearnCost(-50)).toBe(V2_SKILL_LEARN_COST_BASE);
+    // 누적 레벨이 오를수록 비싸진다(엄격 단조).
+    expect(v2SkillLearnCost(75)).toBeGreaterThan(v2SkillLearnCost(0));
+    expect(v2SkillLearnCost(200)).toBeGreaterThan(v2SkillLearnCost(75));
+    // 정수 포인트(반올림).
+    expect(Number.isInteger(v2SkillLearnCost(33))).toBe(true);
   });
 });

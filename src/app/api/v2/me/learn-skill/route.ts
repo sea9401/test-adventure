@@ -16,7 +16,7 @@ import {
 import {
   parseV2SkillsState,
   emptyV2SkillsState,
-  V2_ELEMENTAL_LEARN_COST,
+  v2SkillLearnCost,
   type V2SkillsState,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
@@ -103,8 +103,10 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 속성 스킬 고정(V2_ELEMENTAL_LEARN_COST). 시그니처 학습 경로는 P4 에서 폐지.
-    const cost = V2_ELEMENTAL_LEARN_COST;
+    // 비용 — 캐릭 성장(직군 누적 레벨) 비례(v2SkillLearnCost). 후반 스킬일수록 비싸진다.
+    // 시그니처 학습 경로는 P4 에서 폐지.
+    const cumLevel = prof.groups[group]?.cumLevel ?? 0;
+    const cost = v2SkillLearnCost(cumLevel);
 
     const spent = spendProficiency(prof, group, cost);
     if (!spent) {

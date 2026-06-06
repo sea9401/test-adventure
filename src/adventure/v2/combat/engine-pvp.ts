@@ -2098,19 +2098,22 @@ function castV2SkillOnAttackerTurnPvP(
   //   (MP·쿨다운 소모됨·자버프/자힐 유지). 데미지>0 일 때만 롤(RNG 드리프트 방지).
   let skillMissed = false;
   if (result.castSkillId && result.enemyDamage > 0) {
-    // 평타 미스 공식과 동일한 4항(방어자 회피·이중행운·만물행운·회전운기) − 공격자 명중
-    //   (Codex 검토: 스킬이 평타보다 잘 맞던 불일치 수정). ⚠️ 위 평타 missPct(1114~)와 동기화 유지.
+    // 평타 미스 공식과 동일한 5항(방어자 회피·이중행운·만물행운·회전운기·선풍각) − 공격자 명중
+    //   (Codex 검토: 스킬이 평타보다 잘 맞던 불일치 수정). ⚠️ 위 평타 missPct(1153~)와 동기화 유지.
     const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
     const sLuckEvadeBonus = opp.flags.luckyBuffActive
       ? opp.player.doubleLuck?.evade ?? 0
       : 0;
+    const sSkillEvadeBonus =
+      opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
     const sMissPct = Math.max(
       0,
       V2_BASE_MISS_PCT +
         opp.player.evasionPct * sPrecisionMult +
         sLuckEvadeBonus +
         (opp.player.universalLuckBonusPct ?? 0) +
-        opp.buffs.cyclingChiBonus -
+        opp.buffs.cyclingChiBonus +
+        sSkillEvadeBonus -
         (side.player.accuracyPct ?? 0),
     );
     if (sMissPct > 0 && Math.random() * 100 < sMissPct) {

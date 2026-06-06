@@ -239,13 +239,15 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
   },
   v2s_venom_poisoncloud: {
     id: "v2s_venom_poisoncloud", name: "독무", stat: "str", category: "attack", tier: 3,
+    // sim 캘리브: 독사 DPS 아웃라이어(killT 47.7, 5.8배 격차) → 스택 4→2 너프.
     description: "독 안개로 대량 중독시킨다.", mpCost: 30, cooldown: 0, procChance: 35,
-    effects: [{ kind: "dot", ...V2_DOT_PRESETS.중독, stacks: 4 }],
+    effects: [{ kind: "dot", ...V2_DOT_PRESETS.중독, stacks: 2 }],
   },
   v2s_venom_detonate: {
     id: "v2s_venom_detonate", name: "중독 폭발", stat: "str", category: "attack", tier: 3,
+    // sim 캘리브: perStackFlat 50→25 (독사 아웃라이어 너프).
     description: "쌓인 독을 터뜨린다.", mpCost: 36, cooldown: 0, procChance: 10,
-    effects: [{ kind: "stackPayoffDamage", tag: "poison", statCoef: 0.5, baseFlatByTier: [80, 110, 140], perStackFlat: 50 }],
+    effects: [{ kind: "stackPayoffDamage", tag: "poison", statCoef: 0.5, baseFlatByTier: [80, 110, 140], perStackFlat: 25 }],
   },
 };
 

@@ -173,7 +173,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[warrior] 1`] = `
 {
   "accuracyPct": 4.234999999999999,
-  "atk": 34,
+  "atk": 39,
   "attackCount": 1,
   "baselineRegen": {
     "amount": 8,
@@ -185,11 +185,11 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critResistPct": 1.5,
   "def": 13,
   "evasionPct": 3.7,
-  "extraAttackChancePct": 14,
+  "extraAttackChancePct": 13.5,
   "healMult": 1.2575,
   "hp": 435,
   "intStat": 15,
-  "magicAtk": 14,
+  "magicAtk": 19,
   "magicDef": 7,
   "maxHp": 435,
   "maxMp": 80,
@@ -199,7 +199,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 28,
+  "spd": 27,
   "vitStat": 55,
 }
 `;
@@ -209,20 +209,20 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "warrior_vs_들개",
-    "logSha": "e0c70c2f7584fe146c1c6a477bb0b1091b837127",
+    "logSha": "b9e7d3cff6f410d014019e2a5f1e23f74f565c8c",
     "outcome": "win",
-    "playerHp": 434,
+    "playerHp": 435,
     "playerMp": 80,
-    "turns": 10,
+    "turns": 6,
   },
   {
     "enemyHp": 0,
     "label": "warrior_vs_골렘",
-    "logSha": "ecc6023893c2de73905ad1dffed62acf60c0b563",
+    "logSha": "5120e8496a8afe9241a5b1e230b0089264660d0a",
     "outcome": "win",
-    "playerHp": 433,
+    "playerHp": 427,
     "playerMp": 80,
-    "turns": 28,
+    "turns": 23,
   },
   {
     "enemyHp": 0,
@@ -294,9 +294,9 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "3fffd28e8bb56b14cec499e8bd8fe5afd8987055",
+    "logSha": "04b708d5dd3e7508bcaf0c068d88923ac1dbe0b6",
     "outcome": "p1_win",
-    "turns": 69,
+    "turns": 59,
   },
   {
     "label": "archer_vs_ninja",
@@ -306,7 +306,7 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "209787f5134180283daa654b7adb7d8c0633d2d4",
+    "logSha": "8d2d5d530d42e2f50639d9cea021201c82d48a69",
     "outcome": "p2_win",
     "turns": 222,
   },

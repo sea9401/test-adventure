@@ -65,7 +65,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("statRolls 에 그 장비 굴림 없으면 카탈로그 그대로(비파괴)", () => {
     const a = aggregateV2Equipment(
       { weapon: "v2_iron_sword" },
-      { v2_steel_sword: { power: 99, weight: 0 } },
+      { v2_greatsword: { power: 99, weight: 0 } },
     );
     expect(a.atk).toBe(3);
     expect(a.weight).toBe(2);
@@ -137,9 +137,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("luck 컨셉 5종은 옵션이 crit 만 (정체성 일관성)", () => {
     for (const id of [
       "v2_silver_ring",
-      "v2_gold_ring",
       "v2_lucky_charm",
-      "v2_stardust_ring",
       "v2_fate_ring",
     ] as const) {
       const item = V2_EQUIPMENT[id as V2EquipmentId];

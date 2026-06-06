@@ -105,15 +105,14 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     expect(rollEquipDrop(1, ownedT1, rng)).toBeNull();
   });
 
-  it("가중 풀에 없는 티어는 반환되지 않음 (1층은 T3 이상 안 떨어짐)", () => {
-    // 1층 풀 = T1/T2 만. 여러 굴림 해도 T3 이상 안 나옴.
+  it("가중 풀에 없는 티어는 반환되지 않음 (1층은 T5 안 떨어짐)", () => {
+    // 티어 5→3 축소 후 1층 풀 = T1/T3 만(T5 가중치 0). 여러 굴림 해도 T5 안 나옴.
     for (let seed = 0; seed < 100; seed++) {
       const rng = seqRng([0.0, seed / 100, seed / 100]);
       const got = rollEquipDrop(1, empty, rng);
       if (got) {
         const tier = V2_EQUIPMENT[got].tier;
-        expect(tier).toBeLessThanOrEqual(2);
-        expect(tier).toBeGreaterThanOrEqual(1);
+        expect([1, 3]).toContain(tier);
       }
     }
   });

@@ -170,7 +170,7 @@ describe("salvageYield (분해 환수)", () => {
 
   it("count 1 재료는 환수 0(생략)", () => {
     const steel: V2Recipe = {
-      result: "v2_steel_sword",
+      result: "v2_greatsword",
       ingredients: [
         { id: "v2_rough_ore", count: 3 },
         { id: "v2_steel_ingot", count: 1 },

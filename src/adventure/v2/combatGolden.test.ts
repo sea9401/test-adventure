@@ -112,7 +112,7 @@ const builds = {
     level: 50,
     playerClass: "warrior",
     allocatedStats: { str: 120, vit: 40 },
-    v2Equipped: { weapon: "v2_steel_sword", armor: "v2_field_leather_armor" },
+    v2Equipped: { weapon: "v2_greatsword", armor: "v2_field_leather_armor" },
   }),
   mage: derive({
     level: 50,

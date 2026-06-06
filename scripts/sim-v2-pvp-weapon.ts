@@ -39,24 +39,24 @@ function tierForLevel(level: number): 1 | 2 | 3 | 4 | 5 {
 
 // progression sim 과 동일 장비 라인.
 const WEAPON_LINE: Record<"sword" | "bow" | "staff", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  sword: { 1: "v2_iron_sword", 2: "v2_steel_sword", 3: "v2_greatsword", 4: "v2_silver_sword", 5: "v2_mithril_sword" },
-  bow: { 1: "v2_wooden_bow", 2: "v2_recurve_bow", 3: "v2_horn_bow", 4: "v2_silver_bow", 5: "v2_starsong_bow" },
-  staff: { 1: "v2_oak_staff", 2: "v2_runed_staff", 3: "v2_obsidian_staff", 4: "v2_silver_staff", 5: "v2_starlit_staff" },
+  sword: { 1: "v2_iron_sword", 2: "v2_greatsword", 3: "v2_greatsword", 4: "v2_mithril_sword", 5: "v2_mithril_sword" },
+  bow: { 1: "v2_wooden_bow", 2: "v2_horn_bow", 3: "v2_horn_bow", 4: "v2_starsong_bow", 5: "v2_starsong_bow" },
+  staff: { 1: "v2_oak_staff", 2: "v2_obsidian_staff", 3: "v2_obsidian_staff", 4: "v2_starlit_staff", 5: "v2_starlit_staff" },
 };
 const ARMOR_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_chain_mail", 2: "v2_plate_armor", 3: "v2_full_plate", 4: "v2_silver_plate", 5: "v2_mithril_plate" },
-  light: { 1: "v2_leather_armor", 2: "v2_studded_leather", 3: "v2_shadow_cloak", 4: "v2_silken_armor", 5: "v2_windweave_cloak" },
+  heavy: { 1: "v2_chain_mail", 2: "v2_full_plate", 3: "v2_full_plate", 4: "v2_mithril_plate", 5: "v2_mithril_plate" },
+  light: { 1: "v2_leather_armor", 2: "v2_shadow_cloak", 3: "v2_shadow_cloak", 4: "v2_windweave_cloak", 5: "v2_windweave_cloak" },
 };
 const GLOVES_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_iron_gauntlets", 2: "v2_steel_gauntlets", 3: "v2_plate_gauntlets", 4: "v2_silver_gauntlets", 5: "v2_mithril_gauntlets" },
-  light: { 1: "v2_leather_gloves", 2: "v2_studded_gloves", 3: "v2_shadow_gloves", 4: "v2_silken_gloves", 5: "v2_windweave_gloves" },
+  heavy: { 1: "v2_iron_gauntlets", 2: "v2_plate_gauntlets", 3: "v2_plate_gauntlets", 4: "v2_mithril_gauntlets", 5: "v2_mithril_gauntlets" },
+  light: { 1: "v2_leather_gloves", 2: "v2_shadow_gloves", 3: "v2_shadow_gloves", 4: "v2_windweave_gloves", 5: "v2_windweave_gloves" },
 };
 const BOOTS_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_iron_boots", 2: "v2_steel_boots", 3: "v2_plate_boots", 4: "v2_silver_boots", 5: "v2_mithril_boots" },
-  light: { 1: "v2_leather_boots", 2: "v2_studded_boots", 3: "v2_shadow_boots", 4: "v2_silken_boots", 5: "v2_windweave_boots" },
+  heavy: { 1: "v2_iron_boots", 2: "v2_plate_boots", 3: "v2_plate_boots", 4: "v2_mithril_boots", 5: "v2_mithril_boots" },
+  light: { 1: "v2_leather_boots", 2: "v2_shadow_boots", 3: "v2_shadow_boots", 4: "v2_windweave_boots", 5: "v2_windweave_boots" },
 };
-const RING_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_silver_ring", 2: "v2_gold_ring", 3: "v2_lucky_charm", 4: "v2_stardust_ring", 5: "v2_fate_ring" };
-const NECKLACE_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_jade_amulet", 2: "v2_rune_pendant", 3: "v2_crystal_amulet", 4: "v2_starlight_pendant", 5: "v2_mana_essence" };
+const RING_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_silver_ring", 2: "v2_lucky_charm", 3: "v2_lucky_charm", 4: "v2_fate_ring", 5: "v2_fate_ring" };
+const NECKLACE_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_jade_amulet", 2: "v2_crystal_amulet", 3: "v2_crystal_amulet", 4: "v2_mana_essence", 5: "v2_mana_essence" };
 
 function equipFor(arch: Arch, level: number): Partial<Record<V2EquipSlot, V2EquipmentId>> {
   const tier = tierForLevel(level);

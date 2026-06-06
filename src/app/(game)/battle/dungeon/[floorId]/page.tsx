@@ -22,6 +22,7 @@ export default function DungeonFloorPage() {
     setHp,
     frontierDepth,
     setFrontierDepth,
+    refreshGameState,
   } = useGameState();
 
   const n = Number(params.floorId);
@@ -53,6 +54,7 @@ export default function DungeonFloorPage() {
       onBack={() => router.push("/battle/dungeon")}
       frontierDepth={frontierDepth}
       onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
+      onLevelUp={refreshGameState}
     />
   );
 }

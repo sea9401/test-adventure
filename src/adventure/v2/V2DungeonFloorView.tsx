@@ -53,6 +53,7 @@ export function V2DungeonFloorView({
   playerSubtitle,
   frontierDepth = 2,
   onFrontierUnlocked,
+  onLevelUp,
 }: {
   // 깊이 숫자 (1=들판, 2=깊은 산, 3+=프론티어 — DungeonFloorId(1~8) 초과 가능).
   floorId: number;
@@ -76,6 +77,9 @@ export function V2DungeonFloorView({
   frontierDepth?: number;
   // 도전 성공 시 최고 깊이 갱신 콜백.
   onFrontierUnlocked?: (newMaxDepth: number) => void;
+  // 레벨업 발생 시 호출 — 전역 캐릭터 상태(레벨/스탯/부제) 재조회용. 미전달이면 no-op.
+  // (HP 는 recordHp 가 매 사냥 갱신하지만 레벨/스탯/부제는 viewerLevel 출처라 따로 새로고침 필요.)
+  onLevelUp?: () => void;
 }) {
   // 깊이 1·2 는 authored 층 객체 사용(이름/요구사항). 3+ 는 depthName/floorPowerGate 로 도출.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
@@ -196,6 +200,8 @@ export function V2DungeonFloorView({
     });
     setBatchProgress(null);
     setBatchRunning(false);
+    // 일괄 사냥 중 레벨업이 있었으면 전역 캐릭터 상태를 한 번만 재조회(부제/스탯 갱신).
+    if (levelsGained > 0) onLevelUp?.();
   };
 
   // 깊이 1·2 는 authored 층 필수. 3+ 는 floor 없어도 OK (프론티어 — 데이터 도출).
@@ -252,6 +258,7 @@ export function V2DungeonFloorView({
                 void hunt(depth).then((r) => {
                   if (r) {
                     recordHp(r);
+                    if (r.levelsGained > 0) onLevelUp?.();
                     if (isChallenge && r.won && r.maxDepth != null && r.maxDepth > frontierDepth) {
                       onFrontierUnlocked?.(r.maxDepth);
                     }

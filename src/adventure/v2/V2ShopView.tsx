@@ -9,6 +9,7 @@ import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
   shopPriceOf,
+  v2ItemTypeLabel,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipmentId,
@@ -49,8 +50,9 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
 ];
 
 const SELL_PRICE_RATIO = 0.05;
+// 구매 표 열: 아이템 | 종류 | 가격 | 위력/무게 | 구매. 종류는 이름과 가격 사이.
 const BUY_GRID_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_5rem_5rem_4.5rem] sm:grid-cols-[minmax(0,1fr)_6.5rem_6rem_5.25rem]";
+  "grid grid-cols-[minmax(0,1fr)_3rem_4.25rem_4.25rem_3.5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
 
 // 슬롯별 상점 취급 장비 id — concept 정렬 (티어는 표시하지 않지만 정렬엔 사용).
 const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
@@ -280,10 +282,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
   // 구매 표 정렬 — 헤더 클릭으로 토글. null = 카탈로그 기본순(티어·컨셉).
   const [sort, setSort] = useState<{
-    key: "name" | "price" | "power";
+    key: "name" | "type" | "price" | "power";
     dir: "asc" | "desc";
   } | null>(null);
-  const toggleSort = useCallback((key: "name" | "price" | "power") => {
+  const toggleSort = useCallback((key: "name" | "type" | "price" | "power") => {
     setSort((prev) =>
       prev?.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
@@ -305,6 +307,11 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       const ib = V2_EQUIPMENT[b];
       let cmp = 0;
       if (sort.key === "name") cmp = ia.name.localeCompare(ib.name, "ko");
+      else if (sort.key === "type")
+        // 종류(무기는 세검/대검/활…, 그 외 부위)별 묶음. 같은 종류는 이름순 안정 정렬.
+        cmp =
+          v2ItemTypeLabel(ia).localeCompare(v2ItemTypeLabel(ib), "ko") ||
+          ia.name.localeCompare(ib.name, "ko");
       else if (sort.key === "price")
         cmp = (shopPriceOf(ia) ?? 0) - (shopPriceOf(ib) ?? 0);
       else cmp = ia.power - ib.power || ia.weight - ib.weight;
@@ -381,6 +388,13 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                 <SortTh
                   label="아이템"
                   sortKey="name"
+                  sort={sort}
+                  onSort={toggleSort}
+                  align="left"
+                />
+                <SortTh
+                  label="종류"
+                  sortKey="type"
                   sort={sort}
                   onSort={toggleSort}
                   align="left"
@@ -482,11 +496,14 @@ function EquipmentName({
   item,
   count,
   onOpenCard,
+  showTypeChip = true,
 }: {
   item: V2Equipment;
   // 보유 개수 — 지정 시에만 ×N 배지 표시. 구매 화면은 생략(판매 화면만 표기).
   count?: number;
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
+  // 종류 칩 — 구매 표는 별도 '종류' 열이 있어 false(중복 방지). 판매 목록은 기본 true.
+  showTypeChip?: boolean;
 }) {
   return (
     <button
@@ -498,7 +515,7 @@ function EquipmentName({
         <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {item.name}
         </span>
-        <ItemTypeChip item={item} />
+        {showTypeChip && <ItemTypeChip item={item} />}
         {(count ?? 0) > 0 && (
           <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             ×{count}
@@ -518,9 +535,12 @@ function SortTh({
   align,
 }: {
   label: string;
-  sortKey: "name" | "price" | "power";
-  sort: { key: "name" | "price" | "power"; dir: "asc" | "desc" } | null;
-  onSort: (key: "name" | "price" | "power") => void;
+  sortKey: "name" | "type" | "price" | "power";
+  sort: {
+    key: "name" | "type" | "price" | "power";
+    dir: "asc" | "desc";
+  } | null;
+  onSort: (key: "name" | "type" | "price" | "power") => void;
   align: "left" | "right";
 }) {
   const active = sort?.key === sortKey;
@@ -571,9 +591,16 @@ function BuyEquipmentRow({
       className={`${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
       role="row"
     >
-      {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. */}
+      {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. 종류 칩은 별도 열로 빼서
+          이름 옆 칩은 숨긴다(중복 방지). */}
       <div className="min-w-0 pl-4 pr-2 py-3 sm:pl-5 sm:pr-3" role="cell">
-        <EquipmentName item={item} onOpenCard={onOpenCard} />
+        <EquipmentName item={item} onOpenCard={onOpenCard} showTypeChip={false} />
+      </div>
+      <div
+        className="flex min-w-0 items-center px-2 py-3 sm:px-3"
+        role="cell"
+      >
+        <ItemTypeChip item={item} />
       </div>
       <div
         className="min-w-0 whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums text-zinc-900 dark:text-white sm:px-3"

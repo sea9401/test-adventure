@@ -2076,9 +2076,11 @@ function castV2SkillOnAttackerTurnPvP(
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
     procChanceBonus: side.player.skillProcChanceAdd ?? 0,
     // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(PvP 양쪽 다 플레이어). off 면 옛 슬롯순서+proc.
+    // 저장된 커스텀 패턴 우선, 없으면 장착 슬롯 기본 패턴.
     turn: side.turn.completedPlayerTurns + 1,
     combatPattern: V2_COMBAT_PATTERN_ENABLED
-      ? defaultPatternFromEquipped(side.v2Skills.equipped)
+      ? (side.v2Skills.pattern ??
+        defaultPatternFromEquipped(side.v2Skills.equipped))
       : undefined,
     attacker: {
       mp: side.mp,

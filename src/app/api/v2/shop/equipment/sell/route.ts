@@ -5,7 +5,7 @@ import {
   V2_EQUIPMENT,
   parseEquipmentSave,
   removeInstance,
-  shopPriceOf,
+  shopPriceForSell,
 } from "@/adventure/data/v2/v2Equipment";
 
 // POST /api/v2/shop/equipment/sell — 보유 장비 개체 1개 판매 (개체 모델, iid 기준).
@@ -65,14 +65,14 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "equipped" as const },
       };
     }
-    const buyPrice = shopPriceOf(item);
-    if (buyPrice == null) {
+    const basePrice = shopPriceForSell(item);
+    if (basePrice == null) {
       return {
         status: 400,
         body: { ok: false as const, error: "not_for_sale" as const },
       };
     }
-    const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
+    const sellPrice = Math.max(1, Math.floor(basePrice * SELL_PRICE_RATIO));
     const { owned: nextOwned } = removeInstance(parsed.owned, iid);
     // 장착 중이 아니므로 equipped 는 불변.
     const gold = Math.max(0, charSave.gold ?? 0);

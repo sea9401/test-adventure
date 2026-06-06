@@ -953,8 +953,9 @@ function dealExtraEnemyDamage(
 // export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일한 턴 종료 효과(재생·격노 등)를 거치도록.
 // ⚠️ 선행조건: 호출 전에 state.turn.completedPlayerTurns 가 이미 +1 된 상태여야 한다
 // (막다른 격노 발동 턴·재생 주기 modulo 판정이 이 값을 기준으로 한다).
-// PR2-B-2c — 스킬 temp 버프(운기/연환집중/선풍각/속박)를 cast 결과로 갱신. 새 효과면 turns+1
-// 시드(턴 종료 tick 이 -1 → 정확히 N턴), 없으면 기존 유지.
+// PR2-B-2c — 스킬 temp 버프(운기/연환집중/선풍각/속박)를 cast 결과로 갱신. tick 이 턴 종료
+// (finishPlayerTurn)에 효과 적용 후 -1 하므로, 시드 = turns 그대로(시전 턴 포함 정확히 N턴).
+// (구 +1 시드는 버그 — Codex 검토: 3턴 선언이 4번 발동했음.)
 function applySkillTempBuffs(
   prev: BattleStacks,
   result: V2SkillCastResult,
@@ -964,13 +965,13 @@ function applySkillTempBuffs(
   return {
     ...prev,
     skillRegenPct: result.selfRegenToApply?.pctMaxHpPerTurn ?? prev.skillRegenPct,
-    skillRegenTurns: result.selfRegenToApply ? result.selfRegenToApply.turns + 1 : prev.skillRegenTurns,
+    skillRegenTurns: result.selfRegenToApply ? result.selfRegenToApply.turns : prev.skillRegenTurns,
     skillCritPct: crit?.pct ?? prev.skillCritPct,
-    skillCritTurns: crit ? crit.turns + 1 : prev.skillCritTurns,
+    skillCritTurns: crit ? crit.turns : prev.skillCritTurns,
     skillEvasionPct: eva?.pct ?? prev.skillEvasionPct,
-    skillEvasionTurns: eva ? eva.turns + 1 : prev.skillEvasionTurns,
+    skillEvasionTurns: eva ? eva.turns : prev.skillEvasionTurns,
     enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
-    enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns + 1 : prev.enemyVulnTurns,
+    enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns : prev.enemyVulnTurns,
   };
 }
 

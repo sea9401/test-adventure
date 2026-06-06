@@ -294,21 +294,21 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "b5ff0402f0b73c983787d5166e8497525078c469",
+    "logSha": "eac8f6cb35bce367c860f73a304b890c99f8fd94",
     "outcome": "p1_win",
-    "turns": 67,
+    "turns": 72,
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "36b7066937b0f950ae595ece547cefbb469f8e78",
+    "logSha": "285a21f96196759e6b9bd6aaa27f1d74d1faa816",
     "outcome": "p1_win",
-    "turns": 33,
+    "turns": 27,
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "e4e83e8d8eed3f2757379b16667afececb13aaef",
+    "logSha": "66ff5f38d7bbed9c0490a871bbcaf94b9ac28a56",
     "outcome": "p2_win",
-    "turns": 222,
+    "turns": 220,
   },
 ]
 `;

@@ -29,9 +29,13 @@ export const V2_BASE_MP = 50;
 
 // v2 베이스 HP — Lv1 vit 15 신캐 maxHp = 135 + 15 = 150 (어정쩡한 112 → 깔끔 150).
 // 라이브 baseCharacter.maxHp(97) 와 분리 — V2_BASE_MP 와 대칭. v2 만 영향.
-// 레벨 성장은 HP_PER_LEVEL(=5) 그대로 — Lv100 = 135 + 99×5 + vit = 630 + vit.
+// 레벨 성장은 V2_HP_PER_LEVEL(=10) — Lv100 = 135 + 99×10 + vit = 1125 + vit.
 export const V2_BASE_HP = 135;
 
-// 레벨업 시 추가되는 maxHp. v2 / 라이브 공유 상수였으나 명확성 위해 v2 도 여기서 참조.
-// 옛 defaults.ts:HP_PER_LEVEL 와 동일 값 (5). 변경 시 양쪽 일관 유지.
-export const V2_HP_PER_LEVEL = 5;
+// 레벨업 시 추가되는 maxHp(레벨당 고정 성장분). 여기에 VIT 성장분(HP_PER_VIT)이 더해진다.
+// v2 전용(라이브는 별도 defaults.ts:HP_PER_LEVEL). 튜닝 다이얼.
+export const V2_HP_PER_LEVEL = 10;
+
+// 레벨업 시 추가되는 maxMp(레벨당 고정 성장분). 여기에 INT 성장분(MP_PER_INT)이 더해진다.
+// HP 와 대칭 — INT 안 키우는 직업도 레벨마다 MP 가 자라 스킬 자원이 늘게. 튜닝 다이얼.
+export const V2_MP_PER_LEVEL = 3;

@@ -57,6 +57,7 @@ import {
   V2_BASE_MP,
   V2_BASE_STATS,
   V2_HP_PER_LEVEL,
+  V2_MP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import {
   V2_EQUIPMENT,
@@ -209,6 +210,20 @@ export function aggregateV2Equipment(
 // 모두 float — 합산은 derive 내부에서 누적 후 최종 floor 한 번만.
 const MP_PER_INT = 2; // 옛 10. 5×INT × 2 = 10 MP (동등)
 const HP_PER_VIT = 1; // 옛 5.  5×VIT × 1 = 5 HP (동등)
+
+// 레벨업 1회분 maxHp/maxMp 성장량 — maxHp/maxMp 파생식과 동일 계수(드리프트 방지). 레벨업
+// 결과 카드 표기용. HP = 레벨당 고정(V2_HP_PER_LEVEL) + 오른 VIT × HP_PER_VIT,
+// MP = 레벨당 고정(V2_MP_PER_LEVEL) + 오른 INT × MP_PER_INT. 모든 계수 정수라 floor 불필요.
+export function v2LevelGrowthHpMp(args: {
+  levelsGained: number;
+  vitGained: number;
+  intGained: number;
+}): { hp: number; mp: number } {
+  return {
+    hp: args.levelsGained * V2_HP_PER_LEVEL + args.vitGained * HP_PER_VIT,
+    mp: args.levelsGained * V2_MP_PER_LEVEL + args.intGained * MP_PER_INT,
+  };
+}
 const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // PR-T3: 0.1 → 0.15 (×1.5 버프). sim-v2-progression 측정에서 LUK 가 Lv75 wr 2%·
 // hpL% 80% (crit-only axis 라 atk 부족 + Lv100 도 crit 48% 로 cap 도달 못 함). LUK
@@ -417,7 +432,10 @@ export function derivePlayerCombatV2Pure(
       equipAcc.hp,
   );
   const maxMp = Math.floor(
-    V2_BASE_MP + totalStats.int * MP_PER_INT + equipAcc.mp,
+    V2_BASE_MP +
+      Math.max(0, level - 1) * V2_MP_PER_LEVEL +
+      totalStats.int * MP_PER_INT +
+      equipAcc.mp,
   );
   const critChancePct = totalStats.luk * CRIT_PER_LUK + equipAcc.crit;
   // 치명타 피해 — 행운 major + 힘 minor.

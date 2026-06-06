@@ -199,6 +199,8 @@ export function V2DungeonFloorView({
         totalGold: b.totalGold,
         levelsGained: b.levelsGained,
         statGains: b.statGains,
+        hpGained: b.hpGained,
+        mpGained: b.mpGained,
         drops: b.drops,
         droppedEquipments: b.droppedEquipments,
         droppedUniques: b.droppedUniques,

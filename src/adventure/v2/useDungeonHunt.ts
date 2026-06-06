@@ -24,6 +24,9 @@ export type HuntResultPayload = HuntResult & {
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
   hpCharges?: number;
   mpCharges?: number;
+  // 레벨업으로 오른 maxHp/maxMp (레벨 고정분 + VIT/INT) — 결과 카드 표기용.
+  hpGain?: number;
+  mpGain?: number;
 };
 
 type HuntResponse = {
@@ -45,6 +48,9 @@ export type BatchHuntPayload = {
   totalGold: number;
   levelsGained: number;
   statGains: Partial<Record<V2StatKey, number>>;
+  // 일괄 동안 레벨업으로 오른 maxHp/maxMp 합산 — 결과 카드 표기용.
+  hpGained: number;
+  mpGained: number;
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];

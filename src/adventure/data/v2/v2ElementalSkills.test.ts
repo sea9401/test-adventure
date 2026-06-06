@@ -97,6 +97,25 @@ describe("직업군별 속성 스킬 (6 직업군 × 7 속성 = 42)", () => {
     expect(elementalSkillsForClass("none", "gwang")).toEqual([]);
   });
 
+  it("elementalSkillsForClass — 계파 스킬은 차수당 1개씩 해금(2차=1·3차=2·4차=3)", () => {
+    // 배열 순서 = 해금 순서. gwang = [greatcleave(2차), skysplit(3차), resolve(4차)].
+    const common = 5; // 전사 공용
+    expect(elementalSkillsForClass("warrior", "gwang", 1)).toHaveLength(common); // 1차 = 계파 0
+    const t2 = elementalSkillsForClass("warrior", "gwang", 2);
+    expect(t2).toHaveLength(common + 1);
+    expect(t2).toContain("v2s_gwang_greatcleave"); // 첫 해금
+    expect(t2).not.toContain("v2s_gwang_skysplit");
+    const t3 = elementalSkillsForClass("warrior", "gwang", 3);
+    expect(t3).toHaveLength(common + 2);
+    expect(t3).toContain("v2s_gwang_skysplit"); // 두 번째 해금
+    expect(t3).not.toContain("v2s_gwang_resolve");
+    const t4 = elementalSkillsForClass("warrior", "gwang", 4);
+    expect(t4).toHaveLength(common + 3);
+    expect(t4).toContain("v2s_gwang_resolve"); // 마지막 해금
+    // tier 미지정 = 게이팅 없음(전부) — 하위호환.
+    expect(elementalSkillsForClass("warrior", "gwang")).toHaveLength(common + 3);
+  });
+
   it("학습 비용은 양수", () => {
     expect(V2_ELEMENTAL_LEARN_COST).toBeGreaterThan(0);
   });

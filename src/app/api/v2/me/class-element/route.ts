@@ -81,6 +81,16 @@ export async function POST(req: Request) {
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
     const skills = parseV2SkillsState(skillsRaw);
+    // 차수(도달차수 복귀·계파 스킬 차수 해금)에 사용 — 항상 읽는다(락 순서 character→skills→proficiency).
+    const prof = parseProficiencyForChar(
+      await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      ),
+      charSave,
+    );
 
     const curClass = parseV2Class(charSave.class);
     const curElement = parseV2Element(charSave.element);
@@ -100,18 +110,8 @@ export async function POST(req: Request) {
     // 직업군 변경(첫 선택 포함) 시 — 그 직업군의 "도달 차수"로 복귀(1차 추락 X, 2026-06).
     // 예전에 검호(3차)까지 갔던 직업군으로 돌아오면 다시 검호. 게이트 입력이므로 락 순서
     // (character→skills→proficiency)대로 미리 잠가 읽는다. 같은 직업군이면 현 직업 유지.
-    let prof: V2ProficiencyState | null = null;
     let effectiveClass: V2Class = curClass;
     if (groupChanged || isFirstPick) {
-      prof = parseProficiencyForChar(
-        await lockSaveForUpdate<V2ProficiencyState>(
-          tx,
-          userId,
-          "proficiency.v2",
-          emptyProficiency(),
-        ),
-        charSave,
-      );
       // P4 — 4직군에선 class 자체가 직군. 차수는 proficiency.groups[job].tier 에 보존되므로
       // "도달 차수로 복귀"는 자동(class 만 바꾸면 됨, 별도 매핑 불필요).
       effectiveClass = nextClass;
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
     // "싼 저차수 farming·snap-back" 익스플로잇 구조 차단. 첫 선택·같은 직업군·속성변경은 면제.
     // (잘못 고른 초반 캐릭의 탈출구는 신전 초기화 — respec 과 별개.)
     if (groupChanged && !isFirstPick) {
-      const curGroupTier = prof?.groups[tier1ClassOf(curClass)]?.tier ?? 1;
+      const curGroupTier = prof.groups[tier1ClassOf(curClass)]?.tier ?? 1;
       if (curGroupTier !== 4 || level < tierLevelCap(4)) {
         return {
           status: 400,
@@ -140,13 +140,20 @@ export async function POST(req: Request) {
     // 도달 차수로 복귀해도 레벨은 1부터(차수 사이 50까지 재성장). 첫 선택·속성만 변경은 레벨 유지.
     const nextLevel = groupChanged ? 1 : level;
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
-    // equipped 는 PRUNE 만 — 장착 가능 = 공용 + 선택한 계파의 스킬만.
+    // equipped 는 PRUNE 만 — 장착 가능 = 공용 + 선택 계파의 차수 해금분.
     // 새 그룹 풀 밖/미학습 제거 + 슬롯 절단(리셋 후 레벨 기준).
     // 직업군 변경 시엔 계파가 비워지므로(아래) 공용만, 유지면 기존 계파 풀 적용.
+    // 차수 — 새 직군(또는 유지 직군)의 도달 차수로 계파 스킬 해금분을 게이팅(차수당 1개).
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const effectiveTier =
+      prof.groups[tier1ClassOf(effectiveClass)]?.tier ?? 1;
     const chain = new Set<string>(
-      elementalSkillsForClass(effectiveClass, groupChanged ? null : specChoice),
+      elementalSkillsForClass(
+        effectiveClass,
+        groupChanged ? null : specChoice,
+        effectiveTier,
+      ),
     );
     const learnedSet = new Set<string>(skills.learned);
     const skillSlots = v2SkillSlotsForLevel(nextLevel);
@@ -236,7 +243,7 @@ export async function POST(req: Request) {
 
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).
     // 위에서 이미 잠가 읽은 prof 재사용(중복 락 X). points/caps/tier/cumLevel 은 보존.
-    if (groupChanged && prof) {
+    if (groupChanged) {
       await upsertSave(tx, userId, "proficiency.v2", setGrown(prof, {}));
     }
 

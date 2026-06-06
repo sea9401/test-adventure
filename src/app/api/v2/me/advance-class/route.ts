@@ -136,12 +136,13 @@ export async function POST() {
     });
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
-    // — 장착 가능 = 공용 + 선택한 계파(전직)의 스킬만. 풀 밖/미학습 제거 +
-    // 레벨1 리셋이라 슬롯(3)으로 절단. 계파 미선택이면 공용만 남는다.
+    // — 장착 가능 = 공용 + 선택 계파의 차수 해금분(차수당 1개). 풀 밖/미학습 제거 +
+    // 레벨1 리셋이라 슬롯(3)으로 절단. 차수는 전직 후 값(nextTier) — 환생(→1차)이면
+    // 계파 스킬이 다시 잠겨 equipped 에서 회수(재등반하며 자동 복원).
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
     const chain = new Set<string>(
-      elementalSkillsForClass(curClass, specChoice),
+      elementalSkillsForClass(curClass, specChoice, nextTier),
     );
     const learnedSet = new Set<string>(skills.learned);
     const slots = v2SkillSlotsForLevel(1);

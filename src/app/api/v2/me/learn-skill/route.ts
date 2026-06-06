@@ -55,20 +55,6 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "no_class" as const } };
     }
 
-    // 학습 가능 = 공용(직군) + 선택한 계파(전직)의 스킬만. 계파 미선택이면 공용만.
-    const specChoice =
-      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-    const elementalPool = elementalSkillsForClass(cls, specChoice);
-    const isElemental = elementalPool.includes(skillId as V2SkillId);
-    if (!isElemental) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "not_in_chain" as const },
-      };
-    }
-    // 게이트 통과 = 유효 학습 대상 → V2SkillId 로 확정.
-    const sig = skillId as V2SkillId;
-
     const skills = parseV2SkillsState(
       await lockSaveForUpdate<V2SkillsState>(
         tx,
@@ -89,6 +75,19 @@ export async function POST(req: Request) {
       ),
       charSave,
     );
+    const tier = prof.groups[group]?.tier ?? 1;
+    // 학습 가능 = 공용(직군) + 선택 계파(전직)의 차수 해금분(차수당 1개)만. 계파 미선택이면 공용만.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const elementalPool = elementalSkillsForClass(cls, specChoice, tier);
+    if (!elementalPool.includes(skillId as V2SkillId)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "not_in_chain" as const },
+      };
+    }
+    const sig = skillId as V2SkillId;
+
     // 이미 학습 → 멱등(소모 없이 현 상태 반환). usable 도 그대로 surface(변동 없음).
     if (skills.learned.includes(sig)) {
       return {

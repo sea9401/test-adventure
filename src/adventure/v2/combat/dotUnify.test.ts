@@ -81,6 +81,14 @@ describe("PR-2 DoT 피해 공식", () => {
     const r = tickV2Dots([bleed, poison], 1000);
     expect(r.totalDmg).toBe(42 + 8);
   });
+
+  it("tick 피해는 정수로 내림 (소수점 누수 차단)", () => {
+    // perStack = 6 + 37×0.08 = 8.96 → 3스택 = 26.88 → floor 26 (26.88 아님).
+    const bleed = makeBleedDot({ stacks: 3, flatPerStack: 6, sourceAtk: 37 });
+    const r = tickV2Dots([bleed], 1000);
+    expect(r.totalDmg).toBe(26);
+    expect(Number.isInteger(r.totalDmg)).toBe(true);
+  });
 });
 
 describe("PR-2 DoT tag 분리·누적", () => {

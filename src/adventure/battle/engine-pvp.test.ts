@@ -261,7 +261,7 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1, p2 턴 진입 시 출혈 tick.
     const s1 = advanceTurnPvP(s0);
     expect(s1.phase).toBe("p2");
-    expect(s1.p2.hp).toBe(500 - 20 - (5 + 20 * 0.08));
+    expect(s1.p2.hp).toBe(500 - 20 - Math.floor(5 + 20 * 0.08)); // 출혈 floor(6.6)=6
     expect(s1.log.some((e) => e.text.includes("출혈"))).toBe(true);
   });
 

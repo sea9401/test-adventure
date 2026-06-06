@@ -134,11 +134,14 @@ export type V2Dot = {
 };
 export type V2DotList = readonly V2Dot[];
 
-// 모든 v2 DoT 의 1틱 피해 = 스택 수 × 스택당 피해 (음수 클램프). 갈래 A(리스트 dot, stacks=1)와
-// 갈래 B(출혈·독공 스택 풀)가 공유하는 단일 공식. 스택당 피해의 구성(정액 vs 정액+독공%HP)은
-// 출처별로 다르며 호출부에서 합성한다. PR-2 에서 두 저장소를 통합 entry 로 합칠 토대.
+// 모든 v2 DoT 의 1틱 피해 = floor(스택 수 × 스택당 피해) (음수 클램프). 갈래 A(리스트 dot,
+// stacks=1)와 갈래 B(출혈·독공 스택 풀)가 공유하는 단일 공식. 스택당 피해의 구성(정액 vs
+// 정액+독공%HP)은 출처별로 다르며 호출부에서 합성한다.
+//   floor — 평타 데미지(v2DamageAmount)와 동일하게 정수로 떨어뜨린다. ATK 계수(0.08)·%최대HP
+//   비례라 곱이 소수로 나오는데, 그대로 HP·로그에 들어가면 "출혈 12.84 피해"처럼 지저분해진다.
+//   곱을 floor(스택당이 아니라) — 원시값에 가장 충실(예 3×8.96=26.88 → 26).
 export function dotTickDamage(stacks: number, perStack: number): number {
-  return Math.max(0, stacks * perStack);
+  return Math.max(0, Math.floor(stacks * perStack));
 }
 
 export function v2DotPerStackDamage(dot: V2Dot, targetMaxHp: number): number {

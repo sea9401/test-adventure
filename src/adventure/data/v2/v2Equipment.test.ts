@@ -45,7 +45,7 @@ const ALL_CONCEPTS: V2EquipConcept[] = [
   "luck",
   "mana",
 ];
-const ALL_TIERS: V2EquipTier[] = [1, 2, 3, 4, 5];
+const ALL_TIERS: V2EquipTier[] = [1, 3, 5];
 
 describe("V2_EQUIPMENT catalog", () => {
   it("모든 id 는 키와 일치해야 함 (self-id 일관성)", () => {
@@ -156,13 +156,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 }
 
 describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
-  it("정규 그리드 75종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
-    // 기존 정규 55 + 계파무기 20(5신규타입 × T2~T5; T1=스타터 off-grid) = 75.
+  it("정규 그리드 43종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
+    // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
+    //   (greatsword/bow/staff 각 3 + 계파5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
-    ).toHaveLength(75);
+    ).toHaveLength(43);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
     expect(all.filter((i) => i.starterOnly), "계파 스타터").toHaveLength(7);
@@ -421,6 +422,40 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
       ],
     });
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
+  });
+
+  // 티어 5→3 축소 마이그 — 제거된 옛 id(T2/T4)를 잔존 id 로 치환(고아 방지).
+  it("제거 id(옛 형식 문자열) → 잔존 id 치환 + 굴림 리셋", () => {
+    const r = parseEquipmentSave({
+      owned: ["v2_steel_sword", "v2_silver_plate"],
+      statRolls: { v2_steel_sword: { power: 99, weight: 9 } },
+    });
+    expect(r.owned.map((i) => i.id).sort()).toEqual(
+      ["v2_greatsword", "v2_mithril_plate"].sort(),
+    );
+    // 치환분은 굴림 리셋(옛 99 위력 굴림이 새 아이템에 안 붙음).
+    expect(r.owned.find((i) => i.id === "v2_greatsword")?.roll).toBeUndefined();
+  });
+
+  it("제거 id(신 형식 개체) → id 치환 + iid 보존(장착 정합)", () => {
+    const r = parseEquipmentSave({
+      owned: [{ iid: "keep1", id: "v2_silver_bow", roll: { power: 50, weight: 0 } }],
+      equipped: { weapon: "keep1" }, // iid 로 장착 → 치환 후에도 정합 유지
+    });
+    expect(r.owned).toHaveLength(1);
+    expect(r.owned[0].id).toBe("v2_starsong_bow"); // 치환됨
+    expect(r.owned[0].iid).toBe("keep1"); // iid 보존
+    expect(r.owned[0].roll).toBeUndefined(); // 치환분 굴림 리셋
+    expect(r.equipped.weapon).toBe("keep1"); // 장착 슬롯 정합
+  });
+
+  it("제거 id(옛 slot→id 장착 형식) → 치환된 개체로 장착", () => {
+    const r = parseEquipmentSave({
+      owned: ["v2_gold_ring"],
+      equipped: { ring: "v2_gold_ring" }, // 옛 형식: slot→id
+    });
+    expect(r.owned[0].id).toBe("v2_lucky_charm");
+    expect(r.equipped.ring).toBe(r.owned[0].iid); // 치환 개체로 장착됨
   });
 });
 

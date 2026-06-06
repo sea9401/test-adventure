@@ -56,18 +56,18 @@ const ARMOR: Record<
   Record<"armor" | "gloves" | "boots", V2EquipmentId>
 > = {
   heavy: {
-    armor: "v2_silver_plate",
-    gloves: "v2_silver_gauntlets",
-    boots: "v2_silver_boots",
+    armor: "v2_mithril_plate",
+    gloves: "v2_mithril_gauntlets",
+    boots: "v2_mithril_boots",
   },
   light: {
-    armor: "v2_silken_armor",
-    gloves: "v2_silken_gloves",
-    boots: "v2_silken_boots",
+    armor: "v2_windweave_cloak",
+    gloves: "v2_windweave_gloves",
+    boots: "v2_windweave_boots",
   },
 };
-const RING: V2EquipmentId = "v2_stardust_ring";
-const NECKLACE: V2EquipmentId = "v2_starlight_pendant";
+const RING: V2EquipmentId = "v2_fate_ring";
+const NECKLACE: V2EquipmentId = "v2_mana_essence";
 
 type JobCfg = {
   main: V2StatKey;

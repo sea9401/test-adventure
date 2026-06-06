@@ -26,17 +26,17 @@ export type FloorEquipDropPool = {
 // 곡선 — 층 올라갈수록 chance 상승 + 고티어 가중치 상승.
 // 상점에서 T1~T3 판매 시작 후 드랍률 1/3 컷 (희귀한 보상 느낌). 티어 가중치는 그대로.
 export const EQUIP_FLOOR_POOLS: Record<DungeonFloorId, FloorEquipDropPool> = {
-  1: { chance: 0.05, tierWeights: { 1: 7, 2: 2 } },
-  2: { chance: 0.05, tierWeights: { 1: 5, 2: 3, 3: 1 } },
-  3: { chance: 0.05, tierWeights: { 1: 3, 2: 5, 3: 2 } },
-  4: { chance: 0.06, tierWeights: { 2: 4, 3: 5, 4: 2 } },
-  5: { chance: 0.06, tierWeights: { 2: 3, 3: 5, 4: 3, 5: 1 } },
-  6: { chance: 0.08, tierWeights: { 3: 3, 4: 5, 5: 3 } },
-  7: { chance: 0.1, tierWeights: { 4: 3, 5: 7 } },
+  1: { chance: 0.05, tierWeights: { 1: 8, 3: 2 } },
+  2: { chance: 0.05, tierWeights: { 1: 6, 3: 4 } },
+  3: { chance: 0.05, tierWeights: { 1: 4, 3: 5, 5: 1 } },
+  4: { chance: 0.06, tierWeights: { 1: 2, 3: 6, 5: 2 } },
+  5: { chance: 0.06, tierWeights: { 3: 6, 5: 4 } },
+  6: { chance: 0.08, tierWeights: { 3: 4, 5: 6 } },
+  7: { chance: 0.1, tierWeights: { 3: 2, 5: 8 } },
   8: { chance: 0.12, tierWeights: { 5: 10 } },
 };
 
-const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3, 4, 5]);
+const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 3, 5]);
 
 // 결정적 테스트 + 서버 무작위 모두 같은 함수 시그니처. rng() ∈ [0, 1).
 // 굴림 실패·티어 후보 풀 0·이미 다 보유 → null.

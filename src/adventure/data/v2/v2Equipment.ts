@@ -42,7 +42,7 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
+export type V2EquipTier = 1 | 3 | 5;
 
 // 무기 종류(계파 게이트용) — 직업 계파 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 계파 게이트와도 매칭 X = 베이스만).
@@ -71,21 +71,15 @@ export type V2EquipRarity = "common" | "unique";
 export type V2EquipmentId =
   // 무기-힘 (str/atk)
   | "v2_iron_sword"
-  | "v2_steel_sword"
   | "v2_greatsword"
-  | "v2_silver_sword"
   | "v2_mithril_sword"
   // 무기-민 (dex/atk/crit)
   | "v2_wooden_bow"
-  | "v2_recurve_bow"
   | "v2_horn_bow"
-  | "v2_silver_bow"
   | "v2_starsong_bow"
   // 무기-지 (int/atk/mp)
   | "v2_oak_staff"
-  | "v2_runed_staff"
   | "v2_obsidian_staff"
-  | "v2_silver_staff"
   | "v2_starlit_staff"
   // 계파 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
   | "v2_starter_sword_shield"
@@ -96,73 +90,47 @@ export type V2EquipmentId =
   | "v2_starter_bow"
   | "v2_starter_dagger"
   // 계파 무기 정규 라인 (상점 T2~T5) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
-  | "v2_guard_blade"
   | "v2_knight_blade"
-  | "v2_royal_blade"
   | "v2_paladin_blade"
-  | "v2_duel_rapier"
   | "v2_swift_rapier"
-  | "v2_master_rapier"
   | "v2_gale_rapier"
-  | "v2_brawl_gauntlet"
   | "v2_fighter_gauntlet"
-  | "v2_ironfist_gauntlet"
   | "v2_vajra_gauntlet"
-  | "v2_beast_claw"
   | "v2_keen_claw"
-  | "v2_fierce_claw"
   | "v2_dragon_claw"
-  | "v2_steel_dagger"
   | "v2_assassin_dagger"
-  | "v2_shadow_dagger"
   | "v2_toxic_dagger"
   // 방어-중갑 (vit/def)
   | "v2_chain_mail"
-  | "v2_plate_armor"
   | "v2_full_plate"
-  | "v2_silver_plate"
   | "v2_mithril_plate"
   // 방어-경갑 (dex/def/eva)
   | "v2_leather_armor"
-  | "v2_studded_leather"
   | "v2_shadow_cloak"
-  | "v2_silken_armor"
   | "v2_windweave_cloak"
   // 장갑-중갑 (heavy/def/crit)
   | "v2_iron_gauntlets"
-  | "v2_steel_gauntlets"
   | "v2_plate_gauntlets"
-  | "v2_silver_gauntlets"
   | "v2_mithril_gauntlets"
   // 장갑-경갑 (light/def/crit)
   | "v2_leather_gloves"
-  | "v2_studded_gloves"
   | "v2_shadow_gloves"
-  | "v2_silken_gloves"
   | "v2_windweave_gloves"
   // 신발-중갑 (heavy/def/eva)
   | "v2_iron_boots"
-  | "v2_steel_boots"
   | "v2_plate_boots"
-  | "v2_silver_boots"
   | "v2_mithril_boots"
   // 신발-경갑 (light/def/eva)
   | "v2_leather_boots"
-  | "v2_studded_boots"
   | "v2_shadow_boots"
-  | "v2_silken_boots"
   | "v2_windweave_boots"
   // 반지-운 (luck/마방/crit)
   | "v2_silver_ring"
-  | "v2_gold_ring"
   | "v2_lucky_charm"
-  | "v2_stardust_ring"
   | "v2_fate_ring"
   // 목걸이-마법 (mana/마방/mp)
   | "v2_jade_amulet"
-  | "v2_rune_pendant"
   | "v2_crystal_amulet"
-  | "v2_starlight_pendant"
   | "v2_mana_essence"
   // 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외.
   //   무기/목걸이 4종 + 들가죽 세트 3종(경갑, setId:"field_leather").
@@ -249,9 +217,7 @@ export type V2Equipment = {
 // 2026-06-03 ~40% 인하(base ×0.6) — 위력 −15% 동반. 판매가는 구매가 5% 라 자동 연동.
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 300,
-  2: 1800,
   3: 10800,
-  4: 64800,
   5: 388800,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
@@ -539,6 +505,45 @@ export function starterWeaponForType(
 }
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
+
+// 티어 5→3 축소(2026-06)로 제거된 옛 id(각 라인 T2/T4) → 잔존 id(다음 잔존 티어). 보유/장착
+//   장비가 고아화되지 않게 치환(데이터 손실 방지 — rune/enchant 손실 incident 교훈). 치환분은
+//   굴림을 카탈로그로 리셋(옛 티어 굴림이 새 티어 아이템에 오접되어 약화/과강되는 것 차단).
+//   보유 아이템 자체는 보존. 비치환 id 는 그대로.
+const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
+  v2_plate_armor: "v2_full_plate",
+  v2_silver_plate: "v2_mithril_plate",
+  v2_studded_leather: "v2_shadow_cloak",
+  v2_silken_armor: "v2_windweave_cloak",
+  v2_steel_boots: "v2_plate_boots",
+  v2_silver_boots: "v2_mithril_boots",
+  v2_studded_boots: "v2_shadow_boots",
+  v2_silken_boots: "v2_windweave_boots",
+  v2_steel_gauntlets: "v2_plate_gauntlets",
+  v2_silver_gauntlets: "v2_mithril_gauntlets",
+  v2_studded_gloves: "v2_shadow_gloves",
+  v2_silken_gloves: "v2_windweave_gloves",
+  v2_rune_pendant: "v2_crystal_amulet",
+  v2_starlight_pendant: "v2_mana_essence",
+  v2_gold_ring: "v2_lucky_charm",
+  v2_stardust_ring: "v2_fate_ring",
+  v2_recurve_bow: "v2_horn_bow",
+  v2_silver_bow: "v2_starsong_bow",
+  v2_runed_staff: "v2_obsidian_staff",
+  v2_silver_staff: "v2_starlit_staff",
+  v2_steel_sword: "v2_greatsword",
+  v2_silver_sword: "v2_mithril_sword",
+  v2_beast_claw: "v2_keen_claw",
+  v2_fierce_claw: "v2_dragon_claw",
+  v2_steel_dagger: "v2_assassin_dagger",
+  v2_shadow_dagger: "v2_toxic_dagger",
+  v2_duel_rapier: "v2_swift_rapier",
+  v2_master_rapier: "v2_gale_rapier",
+  v2_brawl_gauntlet: "v2_fighter_gauntlet",
+  v2_ironfist_gauntlet: "v2_vajra_gauntlet",
+  v2_guard_blade: "v2_knight_blade",
+  v2_royal_blade: "v2_paladin_blade",
+};
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "weapon",
   "armor",
@@ -590,9 +595,10 @@ export function parseEquipmentSave(raw: unknown): {
   const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
   for (const entry of ownedRaw) {
     if (typeof entry === "string") {
-      // 옛 형식 — id 문자열. 개체로 변환(굴림은 옛 공유맵에서 이식).
-      if (!VALID_IDS.has(entry)) continue;
-      const id = entry as V2EquipmentId;
+      // 옛 형식 — id 문자열. 개체로 변환(굴림은 옛 공유맵에서 이식). 제거 id 는 잔존으로 치환.
+      const remapped = LEGACY_ID_REMAP[entry] ?? entry;
+      if (!VALID_IDS.has(remapped)) continue;
+      const id = remapped as V2EquipmentId;
       const seq = idSeq.get(id) ?? 0;
       idSeq.set(id, seq + 1);
       const iid = `${id}~${seq}`;
@@ -600,15 +606,19 @@ export function parseEquipmentSave(raw: unknown): {
       const inst: V2EquipInstance = {
         iid,
         id,
-        roll: parseEquipRoll(statRollsRaw[id]),
+        // 치환분은 굴림 카탈로그 리셋, 아니면 옛 공유맵에서 이식.
+        roll: remapped !== entry ? undefined : parseEquipRoll(statRollsRaw[id]),
       };
       owned.push(inst);
       byIid.set(iid, inst);
     } else if (entry && typeof entry === "object") {
-      // 신 형식 — {iid, id, roll?}.
+      // 신 형식 — {iid, id, roll?}. 제거 id 는 잔존으로 치환(iid 보존 → 장착 정합 유지).
       const e = entry as { iid?: unknown; id?: unknown; roll?: unknown };
-      if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
-      const id = e.id as V2EquipmentId;
+      if (typeof e.id !== "string") continue;
+      const remapped = LEGACY_ID_REMAP[e.id] ?? e.id;
+      if (!VALID_IDS.has(remapped)) continue;
+      const id = remapped as V2EquipmentId;
+      const wasRemapped = remapped !== e.id;
       let iid = typeof e.iid === "string" && e.iid.length > 0 ? e.iid : "";
       // 누락/중복 iid 는 마이그와 같은 결정적 스킴(`id~n`)으로 복구 — 랜덤이면 쓰기 전 반복
       // 파싱에서 iid 가 매번 달라져 equip/sell 이 not_owned 로 깨지는 footgun 차단(read=write 안정).
@@ -619,7 +629,11 @@ export function parseEquipmentSave(raw: unknown): {
           iid = `${id}~${seq}`;
         } while (byIid.has(iid));
       }
-      const inst: V2EquipInstance = { iid, id, roll: parseEquipRoll(e.roll) };
+      const inst: V2EquipInstance = {
+        iid,
+        id,
+        roll: wasRemapped ? undefined : parseEquipRoll(e.roll),
+      };
       owned.push(inst);
       byIid.set(iid, inst);
     }
@@ -643,13 +657,17 @@ export function parseEquipmentSave(raw: unknown): {
     let inst: V2EquipInstance | undefined;
     if (byIid.has(val) && !usedIid.has(val)) {
       inst = byIid.get(val);
-    } else if (VALID_IDS.has(val)) {
-      const q = freeById.get(val);
-      while (q && q.length > 0) {
-        const cand = q.shift();
-        if (cand && !usedIid.has(cand.iid)) {
-          inst = cand;
-          break;
+    } else {
+      // 옛 slot→id 형식. 제거 id 면 잔존으로 치환해 그 종류 미배정 개체를 잡는다.
+      const remappedVal = LEGACY_ID_REMAP[val] ?? val;
+      if (VALID_IDS.has(remappedVal)) {
+        const q = freeById.get(remappedVal);
+        while (q && q.length > 0) {
+          const cand = q.shift();
+          if (cand && !usedIid.has(cand.iid)) {
+            inst = cand;
+            break;
+          }
         }
       }
     }

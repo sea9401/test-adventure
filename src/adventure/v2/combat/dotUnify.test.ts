@@ -121,7 +121,7 @@ describe("PR-2 라이브 경로 — 적 DoT 가 resolveBattle 에서 실제로 �
       level: 50,
       playerClass: "warrior",
       allocatedStats: { str: 120, vit: 40 },
-      v2Equipped: { weapon: "v2_steel_sword" } as never,
+      v2Equipped: { weapon: "v2_greatsword" } as never,
     }).player,
     ...over,
   });

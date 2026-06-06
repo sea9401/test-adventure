@@ -40,7 +40,7 @@ const FLOOR2_ENEMIES: DungeonEnemy[] = [
 // 후반일수록 능력 밀도/개성 강화: A 2/5 → B 둔화 → C 기습 → D 마법버스트 → E DoT 늪 → F 정예.
 // ⚠️ 아트는 기존 이미지 재사용(플레이스홀더, orphan snow/throne/runs/volcano 재활용) — 교체 예정.
 
-// 밴드 A — 마른 협곡 (깊이 3~7). 땅·바람·번개 + 무. 능력 2/5(강타·관통).
+// 마른 협곡 — 땅·바람·번개 + 무. 능력 2/5(강타·관통). (테마 순서·깊이는 DUNGEON_THEMES)
 const BAND_A_CANYON_ENEMIES: DungeonEnemy[] = [
   { key: "모래도마뱀", name: "모래도마뱀", image: "/images/monster/v2/field-grass-snake.webp", element: "earth" },
   { key: "협곡 도적", name: "협곡 도적", image: "/images/monster/v2/mountain-brigand.webp" },
@@ -49,7 +49,7 @@ const BAND_A_CANYON_ENEMIES: DungeonEnemy[] = [
   { key: "스파크 전갈", name: "스파크 전갈", image: "/images/monster/v2/field-spider.webp", element: "lightning" },
 ];
 
-// 밴드 B — 얼음 호수 (깊이 8~14). water·wind, 둔중·탱키. statusSkill 한기(둔화) ×2.
+// 얼음 호수 — water·wind, 둔중·탱키. statusSkill 한기(둔화) ×2.
 const BAND_B_LAKE_ENEMIES: DungeonEnemy[] = [
   { key: "서리 늑대", name: "서리 늑대", image: "/images/monster/v2/snow-leopard.webp", element: "water" },
   { key: "빙벽 골렘", name: "빙벽 골렘", image: "/images/monster/v2/snow-ice-colossus.webp", element: "water" },
@@ -58,7 +58,7 @@ const BAND_B_LAKE_ENEMIES: DungeonEnemy[] = [
   { key: "호수 망령", name: "호수 망령", image: "/images/monster/v2/snow-wraith.webp", element: "water", statusSkill: "mob_chilling_touch" },
 ];
 
-// 밴드 C — 심층 동굴 (깊이 15~21). earth·void, 기습(SPD 편차). 중독·출혈 첫 등장.
+// 심층 동굴 — earth·void, 기습(SPD 편차). 중독·출혈 첫 등장.
 const BAND_C_CAVE_ENEMIES: DungeonEnemy[] = [
   { key: "동굴 거미", name: "동굴 거미", image: "/images/monster/v2/forest-crayfish.webp", element: "earth", statusSkill: "mob_venom_bite" },
   { key: "암반 골렘", name: "암반 골렘", image: "/images/monster/v2/mountain-spike-golem.webp", element: "earth" },
@@ -67,7 +67,7 @@ const BAND_C_CAVE_ENEMIES: DungeonEnemy[] = [
   { key: "동굴 포식자", name: "동굴 포식자", image: "/images/monster/v2/mountain-alpha-wolf.webp", element: "void", statusSkill: "mob_rending_claw" },
 ];
 
-// 밴드 D — 잊힌 성소 (깊이 22~28). starlight·earth, 마법 버스트(ATK 편차).
+// 잊힌 성소 — starlight·earth, 마법 버스트(ATK 편차).
 const BAND_D_SANCTUM_ENEMIES: DungeonEnemy[] = [
   { key: "수호 석상", name: "수호 석상", image: "/images/monster/v2/throne-guardian.webp", element: "earth" },
   { key: "성소 망령", name: "성소 망령", image: "/images/monster/v2/ruins-wraith.webp", element: "starlight", statusSkill: "mob_rending_claw" },
@@ -76,7 +76,7 @@ const BAND_D_SANCTUM_ENEMIES: DungeonEnemy[] = [
   { key: "별빛 수문장", name: "별빛 수문장", image: "/images/monster/v2/throne-gatekeeper.webp", element: "starlight", statusSkill: "mob_chilling_touch" },
 ];
 
-// 밴드 E — 리자드 늪지 (깊이 29~35). water·earth, DoT 늪(중독·출혈 다수, 매 전투 독 압박).
+// 리자드 늪지 — water·earth, DoT 늪(중독·출혈 다수, 매 전투 독 압박).
 const BAND_E_SWAMP_ENEMIES: DungeonEnemy[] = [
   { key: "리자드맨 전사", name: "리자드맨 전사", image: "/images/monster/v2/volcano-flame-lizard.webp", element: "earth" },
   { key: "늪 독수", name: "늪 독수", image: "/images/monster/v2/ruins-viper.webp", element: "water", statusSkill: "mob_venom_bite" },
@@ -85,7 +85,7 @@ const BAND_E_SWAMP_ENEMIES: DungeonEnemy[] = [
   { key: "늪지 도마뱀왕", name: "늪지 도마뱀왕", image: "/images/monster/v2/forest-salamander.webp", element: "earth", statusSkill: "mob_venom_bite" },
 ];
 
-// 밴드 F — 짐승의 소굴 (깊이 36+, 무한 반복). 자연 혼합+void 정예, 고공격·관통 강. 능력 5/5.
+// 짐승의 소굴 — 자연 혼합+void 정예, 고공격·관통 강. 능력 5/5. (마지막 테마 = 무한 반복)
 const BAND_F_DEN_ENEMIES: DungeonEnemy[] = [
   { key: "거대 곰", name: "거대 곰", image: "/images/monster/v2/forest-bear.webp", element: "earth" },
   { key: "우두머리 늑대", name: "우두머리 늑대", image: "/images/monster/v2/forest-grey-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
@@ -114,26 +114,43 @@ export const MAIN_DUNGEON: Dungeon = {
   ],
 };
 
-// 깊이 → 적 풀. 1=들판·2=깊은 산(authored)·3+=밴드 A~F. F(36+)는 무한 반복. 무한 깊이.
-export function enemiesForDepth(depth: number): DungeonEnemy[] {
-  if (depth <= 1) return FLOOR1_ENEMIES;
-  if (depth === 2) return FLOOR2_ENEMIES;
-  if (depth <= 7) return BAND_A_CANYON_ENEMIES; // A 마른 협곡 (3~7)
-  if (depth <= 14) return BAND_B_LAKE_ENEMIES; // B 얼음 호수 (8~14)
-  if (depth <= 21) return BAND_C_CAVE_ENEMIES; // C 심층 동굴 (15~21)
-  if (depth <= 28) return BAND_D_SANCTUM_ENEMIES; // D 잊힌 성소 (22~28)
-  if (depth <= 35) return BAND_E_SWAMP_ENEMIES; // E 리자드 늪지 (29~35)
-  return BAND_F_DEN_ENEMIES; // F 짐승의 소굴 (36+, 무한 반복)
+// 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판·깊은 산 onboarding 풀도 6깊이.
+// 마지막(짐승의 소굴)은 무한 반복(인덱스 클램프, 로컬 번호는 6 넘어 계속 증가). 표시는
+// "테마명 + 테마 내 로컬 번호(1~)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
+// 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
+const THEME_DEPTH_SPAN = 6;
+const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
+  { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
+  { name: "깊은 산", enemies: FLOOR2_ENEMIES }, // 7~12
+  { name: "마른 협곡", enemies: BAND_A_CANYON_ENEMIES }, // 13~18
+  { name: "얼음 호수", enemies: BAND_B_LAKE_ENEMIES }, // 19~24
+  { name: "심층 동굴", enemies: BAND_C_CAVE_ENEMIES }, // 25~30
+  { name: "잊힌 성소", enemies: BAND_D_SANCTUM_ENEMIES }, // 31~36
+  { name: "리자드 늪지", enemies: BAND_E_SWAMP_ENEMIES }, // 37~42
+  { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 43~48, 49+ 무한
+];
+
+// 깊이(1+) → 테마 + 테마 내 로컬 번호. 마지막 테마는 인덱스 클램프(로컬 번호 무한 증가).
+function themeForDepth(depth: number): {
+  name: string;
+  enemies: DungeonEnemy[];
+  localIndex: number;
+} {
+  const d = Math.max(1, Math.floor(depth));
+  const idx = Math.min(
+    DUNGEON_THEMES.length - 1,
+    Math.floor((d - 1) / THEME_DEPTH_SPAN),
+  );
+  return { ...DUNGEON_THEMES[idx], localIndex: d - idx * THEME_DEPTH_SPAN };
 }
 
-// 깊이 → 표시 이름. 1·2 = authored, 3+ = 밴드 테마 이름 + 깊이.
+// 깊이 → 적 풀. 테마당 6깊이(들판·깊은 산 onboarding 포함). 무한 깊이.
+export function enemiesForDepth(depth: number): DungeonEnemy[] {
+  return themeForDepth(depth).enemies;
+}
+
+// 깊이 → 표시 이름. "테마명 + 테마 내 로컬 번호"(예: 들판 1·깊은 산 3·짐승의 소굴 7).
 export function depthName(depth: number): string {
-  if (depth <= 1) return "들판";
-  if (depth === 2) return "깊은 산";
-  if (depth <= 7) return `마른 협곡 깊이 ${depth}`;
-  if (depth <= 14) return `얼음 호수 깊이 ${depth}`;
-  if (depth <= 21) return `심층 동굴 깊이 ${depth}`;
-  if (depth <= 28) return `잊힌 성소 깊이 ${depth}`;
-  if (depth <= 35) return `리자드 늪지 깊이 ${depth}`;
-  return `짐승의 소굴 깊이 ${depth}`;
+  const { name, localIndex } = themeForDepth(depth);
+  return `${name} ${localIndex}`;
 }

@@ -24,6 +24,7 @@ import {
 import {
   V2_EQUIPMENT,
   effectiveStats,
+  v2EquipStatRows,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
@@ -49,14 +50,18 @@ function rarityNameClass(item: V2Equipment): string {
     : "text-zinc-800 dark:text-zinc-100";
 }
 
-// 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 티어.
+// 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
+//   치명피해). 티어 숫자 표기는 제거(이름·위력·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
 function cardStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
   const eff = effectiveStats(item, roll);
   const parts = [`위력 ${eff.power}`];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }
-  parts.push(`T${item.tier}`);
+  for (const row of v2EquipStatRows(item, roll)) {
+    if (row.label === "위력" || row.label === "무게") continue;
+    parts.push(`${row.label} ${row.value}`);
+  }
   return parts.join(" · ");
 }
 

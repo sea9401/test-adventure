@@ -358,7 +358,7 @@ function ItemHead({
         <ItemTypeChip item={item} />
       </div>
       <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-        T{item.tier} · {CONCEPT_LABELS[item.concept]}
+        {CONCEPT_LABELS[item.concept]}
       </span>
       {ownedCount > 0 && (
         <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">

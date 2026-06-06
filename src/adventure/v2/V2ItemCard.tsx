@@ -36,7 +36,7 @@ function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
 // 전체화면 모달 아님: 스크림/스크롤락/포커스트랩 없이, 바깥 클릭·Esc 로만 닫힘.
-// 내용은 이름·티어·옵션(스탯)·설명만. 컨셉 태그(힘/민/지 등)는 노출 안 함.
+// 내용은 이름·옵션(스탯 행)·세트·설명만. 티어 숫자·컨셉 태그(힘/민/지 등)는 노출 안 함.
 
 // 클릭한 슬롯의 화면 좌표 — 이 근처에 카드를 띄운다 (DOMRect 의 필요한 값만).
 export type ItemCardAnchor = { top: number; bottom: number; left: number };

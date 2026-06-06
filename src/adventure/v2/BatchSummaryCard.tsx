@@ -9,7 +9,7 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { formatStatGains } from "@/adventure/v2/HuntResultCard";
+import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
@@ -24,6 +24,8 @@ export type BatchSummary = {
   totalGold: number;
   levelsGained: number;
   statGains: Partial<Record<V2StatKey, number>>; // 일괄 사냥 동안 레벨업으로 오른 1차 스탯 합산.
+  hpGained?: number; // 일괄 동안 레벨업으로 오른 maxHp 합산.
+  mpGained?: number; // 일괄 동안 레벨업으로 오른 maxMp 합산.
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
@@ -51,6 +53,7 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
   }
 
   const statGainsText = formatStatGains(summary.statGains);
+  const hpMpGainsText = formatHpMpGains(summary.hpGained, summary.mpGained);
 
   return (
     <Card padding="sm">
@@ -113,6 +116,11 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
           {statGainsText && (
             <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
               {statGainsText}
+            </div>
+          )}
+          {hpMpGainsText && (
+            <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+              {hpMpGainsText}
             </div>
           )}
         </div>

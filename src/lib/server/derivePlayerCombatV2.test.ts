@@ -11,6 +11,7 @@ import {
   V2_BASE_HP,
   V2_BASE_MP,
   V2_HP_PER_LEVEL,
+  V2_MP_PER_LEVEL,
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { getJobSpec, resolveSpecTrait } from "@/adventure/data/v2/v2JobSpecs";
@@ -184,6 +185,12 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.maxMp).toBe(V2_BASE_MP + 50 + 15 * 2);
   });
+
+  it("레벨 성장 — Lv100 → maxMp += (level−1)×V2_MP_PER_LEVEL", () => {
+    // Lv100 빈 장비(int 15) → 50 + 99×V2_MP_PER_LEVEL + 15×2.
+    const d = derivePlayerCombatV2Pure({ level: 100, v2Equipped: {} });
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 99 * V2_MP_PER_LEVEL + 15 * 2);
+  });
 });
 
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
@@ -283,13 +290,13 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
     expect(d.maxHp).toBe(150);
   });
 
-  it("레벨 성장 — Lv100 = V2_BASE_HP + 99×5 + vit", () => {
+  it("레벨 성장 — Lv100 = V2_BASE_HP + 99×10 + vit", () => {
     const d = derivePlayerCombatV2Pure({
       level: 100,
       v2Equipped: {},
     });
     expect(d.maxHp).toBe(V2_BASE_HP + 99 * V2_HP_PER_LEVEL + 15);
-    expect(d.maxHp).toBe(135 + 495 + 15); // 645
+    expect(d.maxHp).toBe(135 + 990 + 15); // 1140
   });
 
   it("vit 투자 시 추가 (HP_PER_VIT 1)", () => {

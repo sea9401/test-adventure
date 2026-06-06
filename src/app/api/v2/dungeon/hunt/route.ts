@@ -3,7 +3,10 @@ import { db } from "@/db";
 import { outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import {
+  derivePlayerCombatV2,
+  v2LevelGrowthHpMp,
+} from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { monsterGoldReward } from "@/adventure/v2/combat/monsterGold";
@@ -757,6 +760,15 @@ export async function POST(req: Request) {
         }
         await upsertSave(tx, userId, "proficiency.v2", prof);
       }
+      // 레벨업 HP/MP 성장량 — 결과 카드 표시용(레벨당 고정분 + 오른 VIT·INT). 파생식과 동일 계수.
+      const { hp: hpGain, mp: mpGain } =
+        expResult.levelsGained > 0
+          ? v2LevelGrowthHpMp({
+              levelsGained: expResult.levelsGained,
+              vitGained: statGains.vit ?? 0,
+              intGained: statGains.int ?? 0,
+            })
+          : { hp: 0, mp: 0 };
 
       // 보물 탐사 — 사냥 승리 시 낮은 확률로 지도 조각 드랍(트리클). 굴림은 100% 서버.
       // 드랍 났을 때만 키를 잠근다 — 락 순서상 가장 마지막. 조각 소비(발굴)는 PR-3.
@@ -817,6 +829,8 @@ export async function POST(req: Request) {
             goldTaxed,
             levelsGained: expResult.levelsGained,
             statGains, // 레벨업 랜덤 성장으로 오른 1차 스탯 ({} = 레벨업 없음).
+            hpGain, // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
+            mpGain, // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
             turns: battleResult.turns,
             hpBefore: regenResult.hp,
             hpAfter: afterHp,
@@ -870,6 +884,8 @@ export async function POST(req: Request) {
     let totalGold = 0;
     let levelsGained = 0;
     const statGains: Partial<Record<V2StatKey, number>> = {};
+    let hpGained = 0; // 일괄 동안 레벨업으로 오른 maxHp 합산.
+    let mpGained = 0; // 일괄 동안 레벨업으로 오른 maxMp 합산.
     const drops: DropResult = {};
     const droppedEquipments: V2EquipmentId[] = [];
     const droppedUniques: V2EquipmentId[] = [];
@@ -912,6 +928,8 @@ export async function POST(req: Request) {
         const key = k as V2StatKey;
         statGains[key] = (statGains[key] ?? 0) + (n ?? 0);
       }
+      hpGained += res.hpGain ?? 0;
+      mpGained += res.mpGain ?? 0;
       for (const [id, n] of Object.entries(res.drops)) {
         const key = id as keyof DropResult;
         drops[key] = (drops[key] ?? 0) + (n ?? 0);
@@ -955,6 +973,8 @@ export async function POST(req: Request) {
           totalGold,
           levelsGained,
           statGains,
+          hpGained,
+          mpGained,
           drops,
           droppedEquipments,
           droppedUniques,

@@ -35,6 +35,8 @@ export type HuntResult = {
   goldTaxed?: number;
   levelsGained: number;
   statGains?: Partial<Record<V2StatKey, number>>; // 레벨업 랜덤 성장으로 오른 1차 스탯.
+  hpGain?: number; // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
+  mpGain?: number; // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
   turns: number;
   hpBefore: number;
   hpAfter: number;
@@ -78,6 +80,17 @@ export function formatStatGains(
   return parts.length ? parts.join(" · ") : null;
 }
 
+// 레벨업 HP/MP 성장 — "HP +17 · MP +6". 0 이하면 생략(레벨업이면 둘 다 양수).
+export function formatHpMpGains(
+  hpGain: number | undefined,
+  mpGain: number | undefined,
+): string | null {
+  const parts: string[] = [];
+  if ((hpGain ?? 0) > 0) parts.push(`HP +${hpGain}`);
+  if ((mpGain ?? 0) > 0) parts.push(`MP +${mpGain}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 export function HuntResultCard({ result }: { result: HuntResult }) {
   const won = result.won;
   const drops = result.drops
@@ -96,6 +109,7 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
     droppedEquip?.name ?? null,
   );
   const statGainsText = formatStatGains(result.statGains);
+  const hpMpGainsText = formatHpMpGains(result.hpGain, result.mpGain);
 
   return (
     <Card padding="sm">
@@ -174,6 +188,11 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
           {statGainsText && (
             <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
               {statGainsText}
+            </div>
+          )}
+          {hpMpGainsText && (
+            <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+              {hpMpGainsText}
             </div>
           )}
         </div>

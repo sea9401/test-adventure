@@ -122,8 +122,8 @@ export async function POST(req: Request) {
     // learned += sig 만. 장착은 수동(equip-skill) — 학습이 자동장착하지 않는다(자동장착 폐지).
     const nextLearned = [...skills.learned, sig];
     const nextSkills: V2SkillsState = {
+      ...skills, // equipped·pattern 보존(combat-pattern 라우트만 pattern 변경).
       learned: nextLearned,
-      equipped: skills.equipped, // 불변
     };
     await upsertSave(tx, userId, "skills.v2", nextSkills);
     await upsertSave(tx, userId, "proficiency.v2", spent);

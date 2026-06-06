@@ -17,6 +17,10 @@ import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
 import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
 import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
+import {
+  parseCombatPattern,
+  type V2CombatPattern,
+} from "@/adventure/v2/combat/combatPattern";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -294,6 +298,9 @@ export type V2SkillsState = {
   learned: V2SkillId[];
   /** 슬롯 장착 스킬 id 목록 (배열 순서 = 자동 발동 우선순위, learned 의 부분집합). */
   equipped: V2SkillId[];
+  /** 전투 패턴(갬빗, C2) — 우선순위 {조건→행동} 블록. 미설정(undefined)이면 엔진이 장착 슬롯에서
+   *  기본 패턴 도출(defaultPatternFromEquipped). combat-pattern 라우트만 변경. */
+  pattern?: V2CombatPattern;
 };
 
 export function emptyV2SkillsState(): V2SkillsState {
@@ -325,5 +332,9 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     equippedSet.add(id);
     equipped.push(id as V2SkillId);
   }
-  return { learned, equipped };
+  // 전투 패턴 — 있으면 검증 파싱(블록 단위 drop), 없으면 미설정(undefined → 엔진 기본 패턴).
+  const rawPattern = (raw as { pattern?: unknown }).pattern;
+  const pattern =
+    rawPattern != null ? parseCombatPattern(rawPattern) : undefined;
+  return pattern ? { learned, equipped, pattern } : { learned, equipped };
 }

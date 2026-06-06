@@ -4,9 +4,11 @@ import {
   Backpack,
   BookOpen,
   Lightning,
+  Strategy,
   UserCircle,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { V2_COMBAT_PATTERN_ENABLED } from "@/adventure/v2/combat/combatPattern";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
 // 장비 장착/해제는 인벤토리 안에서 처리. 모험의 서는 도감(우선 재료) — 맨 아래에 둔다.
@@ -15,6 +17,7 @@ export type CharacterAction =
   | { kind: "open-info" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
+  | { kind: "open-combat-pattern" }
   | { kind: "open-codex" };
 
 export function V2CharacterMenu({
@@ -52,6 +55,16 @@ export function V2CharacterMenu({
           description="직업 패시브와 스킬을 익히는 곳."
           onClick={() => onAction({ kind: "open-skills" })}
         />
+        {V2_COMBAT_PATTERN_ENABLED && (
+          <EntryCard
+            icon={
+              <Strategy size={28} weight="duotone" className="text-indigo-500" />
+            }
+            title="전투 패턴"
+            description="조건별 스킬 발동 순서를 짜는 곳(갬빗)."
+            onClick={() => onAction({ kind: "open-combat-pattern" })}
+          />
+        )}
         <EntryCard
           icon={
             <BookOpen size={28} weight="duotone" className="text-sky-500" />

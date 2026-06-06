@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     // 장착 가능 순서로 정렬(발동 우선순위 = 시그니처 차수 순 → 속성 풀). 밖은 제외(안전).
     const nextEquipped = equippable.filter((s) => equippedSet.has(s));
     const next: V2SkillsState = {
-      learned: skills.learned,
+      ...skills, // learned·pattern 보존(combat-pattern 라우트만 pattern 변경).
       equipped: nextEquipped,
     };
     await upsertSave(tx, userId, "skills.v2", next);

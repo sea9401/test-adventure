@@ -129,3 +129,74 @@ export function defaultPatternFromEquipped(
     })),
   };
 }
+
+// === 저장/파싱 (C2 — 커스텀 패턴 영속) ================================
+// 손상/구버전 raw 도 안전하게 정규화: 블록 단위 검증, 알 수 없는 조건·행동 kind 나 잘못된
+// 파라미터는 그 블록을 drop(통째 폐기 아님). skillId 는 문자열만 확인(실재 여부는 런타임 게이트).
+export const V2_COMBAT_PATTERN_MAX_BLOCKS = 16; // 폭주 방지 상한.
+
+function isFinitePct(v: unknown): v is number {
+  return typeof v === "number" && Number.isFinite(v);
+}
+
+function parseCondition(raw: unknown): V2CombatCondition | null {
+  if (!raw || typeof raw !== "object") return null;
+  const c = raw as Record<string, unknown>;
+  switch (c.kind) {
+    case "always":
+      return { kind: "always" };
+    case "self_hp":
+    case "self_mp":
+    case "enemy_hp": {
+      const op = c.op === "below" || c.op === "above" ? c.op : null;
+      if (!op || !isFinitePct(c.pct)) return null;
+      return { kind: c.kind, op, pct: Math.max(0, Math.min(100, c.pct)) };
+    }
+    case "self_buff": {
+      if (typeof c.stat !== "string" || typeof c.active !== "boolean") return null;
+      return { kind: "self_buff", stat: c.stat as StatKey, active: c.active };
+    }
+    case "enemy_status": {
+      const tag =
+        c.tag === "bleed" || c.tag === "poison" || c.tag === "vuln" ? c.tag : null;
+      const op = c.op === "atLeast" || c.op === "none" ? c.op : null;
+      if (!tag || !op || !isFinitePct(c.stacks)) return null;
+      return { kind: "enemy_status", tag, op, stacks: Math.max(0, Math.floor(c.stacks)) };
+    }
+    case "turn": {
+      const op =
+        c.op === "atMost" || c.op === "atLeast" || c.op === "every" ? c.op : null;
+      if (!op || !isFinitePct(c.value)) return null;
+      return { kind: "turn", op, value: Math.max(1, Math.floor(c.value)) };
+    }
+    default:
+      return null;
+  }
+}
+
+function parseAction(raw: unknown): V2CombatAction | null {
+  if (!raw || typeof raw !== "object") return null;
+  const a = raw as Record<string, unknown>;
+  if (a.kind === "skill" && typeof a.skillId === "string" && a.skillId.length > 0) {
+    return { kind: "skill", skillId: a.skillId };
+  }
+  return null;
+}
+
+export function parseCombatPattern(raw: unknown): V2CombatPattern {
+  if (!raw || typeof raw !== "object") return { blocks: [] };
+  const rawBlocks = (raw as { blocks?: unknown }).blocks;
+  if (!Array.isArray(rawBlocks)) return { blocks: [] };
+  // 비정상 거대 입력은 통째 거부(상한 16의 8배 초과 = 손상/공격). 전부 순회 전에 컷.
+  if (rawBlocks.length > V2_COMBAT_PATTERN_MAX_BLOCKS * 8) return { blocks: [] };
+  const blocks: V2CombatBlock[] = [];
+  for (const rb of rawBlocks) {
+    if (blocks.length >= V2_COMBAT_PATTERN_MAX_BLOCKS) break;
+    if (!rb || typeof rb !== "object") continue;
+    const condition = parseCondition((rb as { condition?: unknown }).condition);
+    const action = parseAction((rb as { action?: unknown }).action);
+    if (!condition || !action) continue;
+    blocks.push({ condition, action });
+  }
+  return { blocks };
+}

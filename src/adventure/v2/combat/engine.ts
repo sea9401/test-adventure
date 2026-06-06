@@ -3061,10 +3061,11 @@ export function resolveBattle(
           procRoll: Math.random() * 100,
           procChanceBonus: player.skillProcChanceAdd ?? 0,
           // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(플레이어 cast). off 면 옛 슬롯순서+proc.
-          // C1: 커스텀 패턴 저장 전이라 장착 스킬을 "항상→스킬"로 마이그(슬롯순서 재현, proc 없음).
+          // 저장된 커스텀 패턴(C2) 우선, 없으면 장착 슬롯에서 "항상→스킬" 기본 패턴(슬롯순서 재현).
           turn: state.turn.completedPlayerTurns + 1,
           combatPattern: V2_COMBAT_PATTERN_ENABLED
-            ? defaultPatternFromEquipped(state.v2Skills.equipped)
+            ? (state.v2Skills.pattern ??
+              defaultPatternFromEquipped(state.v2Skills.equipped))
             : undefined,
           attacker: {
             mp: state.playerMp,

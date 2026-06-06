@@ -3,6 +3,8 @@ import {
   conditionPasses,
   evaluateCombatPattern,
   defaultPatternFromEquipped,
+  parseCombatPattern,
+  V2_COMBAT_PATTERN_MAX_BLOCKS,
   type V2PatternCtx,
   type V2CombatPattern,
 } from "./combatPattern";
@@ -104,6 +106,46 @@ describe("evaluateCombatPattern", () => {
       ],
     };
     expect(evaluateCombatPattern(noFallback, ctx(), all)).toBeNull();
+  });
+});
+
+describe("parseCombatPattern (저장 검증)", () => {
+  it("유효 블록만 통과, 잘못된 블록은 drop", () => {
+    const raw = {
+      blocks: [
+        { condition: { kind: "self_hp", op: "below", pct: 30 }, action: { kind: "skill", skillId: "heal" } },
+        { condition: { kind: "always" }, action: { kind: "skill", skillId: "strike" } },
+        { condition: { kind: "bogus" }, action: { kind: "skill", skillId: "x" } }, // 잘못된 조건 → drop
+        { condition: { kind: "always" }, action: { kind: "nope" } }, // 잘못된 행동 → drop
+        { condition: { kind: "self_hp", op: "below" }, action: { kind: "skill", skillId: "x" } }, // pct 누락 → drop
+      ],
+    };
+    const p = parseCombatPattern(raw);
+    expect(p.blocks).toHaveLength(2);
+    expect(p.blocks[0].action).toEqual({ kind: "skill", skillId: "heal" });
+    expect(p.blocks[1].condition).toEqual({ kind: "always" });
+  });
+
+  it("비객체/blocks 누락 → 빈 패턴", () => {
+    expect(parseCombatPattern(null).blocks).toEqual([]);
+    expect(parseCombatPattern("x").blocks).toEqual([]);
+    expect(parseCombatPattern({}).blocks).toEqual([]);
+    expect(parseCombatPattern({ blocks: "no" }).blocks).toEqual([]);
+  });
+
+  it("pct/stacks 클램프 + 블록 상한", () => {
+    const p = parseCombatPattern({
+      blocks: [{ condition: { kind: "enemy_hp", op: "below", pct: 999 }, action: { kind: "skill", skillId: "a" } }],
+    });
+    expect(p.blocks[0].condition).toEqual({ kind: "enemy_hp", op: "below", pct: 100 });
+    // 상한 초과 → 잘림.
+    const many = parseCombatPattern({
+      blocks: Array.from({ length: V2_COMBAT_PATTERN_MAX_BLOCKS + 5 }, () => ({
+        condition: { kind: "always" },
+        action: { kind: "skill", skillId: "a" },
+      })),
+    });
+    expect(many.blocks).toHaveLength(V2_COMBAT_PATTERN_MAX_BLOCKS);
   });
 });
 

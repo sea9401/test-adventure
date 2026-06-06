@@ -39,7 +39,7 @@ import {
   V2_TIER4_ADVANCE_LEVEL,
   type V2Class,
 } from "../src/adventure/data/v2/classes";
-import { MONSTERS } from "../src/adventure/data/monsters";
+import { V2_MONSTERS } from "../src/adventure/data/v2/v2Monsters";
 import { enemiesForDepth, depthName } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
 import { floorPowerGate } from "../src/adventure/data/v2/dungeonLadder";
@@ -242,7 +242,7 @@ function skillsFor(
 function depthMonsters(depth: number): Monster[] {
   const out: Monster[] = [];
   for (const e of enemiesForDepth(depth)) {
-    const base = MONSTERS[e.key];
+    const base = V2_MONSTERS[e.key];
     if (base) out.push(scaleMonsterForFloor(base, depth));
   }
   return out;

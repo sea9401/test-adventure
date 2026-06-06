@@ -9,6 +9,7 @@ import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
   shopPriceOf,
+  shopPriceForSell,
   v2ItemTypeLabel,
   type V2Equipment,
   type V2EquipInstance,
@@ -318,13 +319,30 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       return cmp * sign;
     });
   }, [buyIds, sort]);
-  const sellEquipIds = useMemo(
-    () =>
-      subTab === "material"
-        ? []
-        : SHOP_IDS_BY_SLOT[subTab].filter((id) => (counts.get(id) ?? 0) > 0),
-    [subTab, counts],
-  );
+  // 판매 목록 = 그 슬롯에서 보유 중인 모든 판매가능 id (상점 미판매 드랍 T3/T5 포함 — 상점이
+  //   스타터 전용이 된 뒤에도 파밍 장비를 팔 수 있어야). 비매(유니크/제작/스타터)는 제외. 티어→이름순.
+  const sellEquipIds = useMemo(() => {
+    if (subTab === "material") return [];
+    return [...counts.keys()]
+      .filter((id) => {
+        const it = V2_EQUIPMENT[id];
+        return (
+          it &&
+          it.slot === subTab &&
+          (counts.get(id) ?? 0) > 0 &&
+          shopPriceForSell(it) != null
+        );
+      })
+      .sort((a, b) => {
+        const ia = V2_EQUIPMENT[a];
+        const ib = V2_EQUIPMENT[b];
+        return (
+          ia.tier - ib.tier ||
+          ia.concept.localeCompare(ib.concept) ||
+          ia.id.localeCompare(ib.id)
+        );
+      });
+  }, [subTab, counts]);
   const ownedMaterialIds = useMemo(
     () => MATERIAL_IDS.filter((id) => (materials[id] ?? 0) > 0),
     [materials],
@@ -649,8 +667,9 @@ function SellEquipmentRow({
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  const buyPrice = shopPriceOf(item) ?? 0;
-  const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
+  // 판매가는 shopPriceForSell(티어 무관) — 상점 미판매(드랍 전용 T3/T5)도 팔 수 있다.
+  const sellBase = shopPriceForSell(item) ?? 0;
+  const sellPrice = Math.max(1, Math.floor(sellBase * SELL_PRICE_RATIO));
   // 장착 중인 장비는 마지막 1개를 팔 수 없다 (여분이 있으면 여분만 판매 가능).
   const locked = equipped && count <= 1;
   return (

@@ -237,8 +237,18 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
-// 유니크·제작전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
+// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·계파스타터는 비매품. T2 폐지·T3/T5 는
+//   드랍 전용(상점=처음 갖추는 구간만, 진짜 장비는 파밍). 판매가는 shopPriceForSell(티어 무관).
 export function shopPriceOf(item: V2Equipment): number | undefined {
+  if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
+    return undefined;
+  if (item.tier !== 1) return undefined; // 상점 구매는 스타터 티어(T1)만
+  return shopPriceFor(item.tier, item.slot);
+}
+
+// 판매가 산정용 — 구매 가능(상점 비치) 여부와 무관. 드랍으로 얻은 T3/T5 도 팔 수 있어야 하므로
+//   티어 게이트 없이 (티어, 슬롯) 곡선. 유니크·제작전용·스타터만 비매(상점 비치 아이템과 동일 제외).
+export function shopPriceForSell(item: V2Equipment): number | undefined {
   if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
     return undefined;
   return shopPriceFor(item.tier, item.slot);

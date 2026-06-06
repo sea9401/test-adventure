@@ -8,6 +8,7 @@ import {
   isUnique,
   parseEquipmentSave,
   shopPriceOf,
+  shopPriceForSell,
   v2EquipStatRows,
   v2EquipmentByConcept,
   v2EquipmentBySlot,
@@ -175,6 +176,22 @@ describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
     for (const it of craftOnly) {
       expect(shopPriceOf(it), `${it.id} 비매품`).toBeUndefined();
       expect(isUnique(it), `${it.id} 유니크아님`).toBe(false);
+    }
+  });
+
+  it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
+    const grid = Object.values(V2_EQUIPMENT).filter(
+      (i) => !isUnique(i) && !i.craftOnly && !i.starterOnly,
+    );
+    for (const it of grid) {
+      if (it.tier === 1) {
+        expect(shopPriceOf(it), `${it.id} T1 구매가능`).toBeGreaterThan(0);
+      } else {
+        // T3/T5 = 드랍 전용 → 구매 불가
+        expect(shopPriceOf(it), `${it.id} T${it.tier} 구매불가`).toBeUndefined();
+      }
+      // 정규 그리드는 티어 무관 전부 판매 가능(드랍 장비 환금).
+      expect(shopPriceForSell(it), `${it.id} 판매가능`).toBeGreaterThan(0);
     }
   });
 

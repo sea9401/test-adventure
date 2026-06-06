@@ -1997,8 +1997,9 @@ function castV2SkillOnAttackerTurnPvP(
   const result = resolveV2SkillCast({
     skills: side.v2Skills,
     cooldowns: side.v2SkillCooldowns,
-    // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스 적용(이전 미전달 = 매턴 발동 버그).
-    procRoll: Math.random() * 100,
+    // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
+    //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
+    procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
     procChanceBonus: side.player.skillProcChanceAdd ?? 0,
     attacker: {
       mp: side.mp,
@@ -2067,7 +2068,9 @@ function castV2SkillOnAttackerTurnPvP(
   }
   // ⚠️ PR2-B 미배선(PvP follow-up): result.shieldToApply(마나 보호막)·selfBuffPctToApply(선풍각 회피·
   //   연환집중 크리)·selfRegenToApply(운기)·enemyVulnToApply(속박)는 PvPSide 가 해당 상태/사이트가
-  //   없어 아레나에선 아직 미적용. 해당 4스킬+보호막은 PvP 에서 효과 일부 누락(데미지·평타·proc 은 정상).
+  //   없어 아레나에선 아직 미적용. 또 비전 작렬(마법취약 payoff)도 PvP 엔 magicVuln 트래커가 없어
+  //   stack=0 no-op(target.magicVulnStacks 미전달). 위 4스킬+보호막+비전작렬 PvP 효과 일부 누락
+  //   (데미지·평타·proc·HP소모·출혈/독 payoff 는 정상).
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   // enemyDebuff 결과는 상대 side 의 v2SelfDebuffs 에 박힌다.
   const nextOppSelfDebuffs = applyV2BuffsToMap(

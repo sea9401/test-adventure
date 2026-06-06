@@ -17,6 +17,7 @@ import {
   potionHealAmount,
   resolveV2SkillCast,
   type V2SkillCastResult,
+  distributeBoostedHits,
   rollAttackCount,
   tickV2BuffMap,
   tickV2Dots,
@@ -3164,10 +3165,19 @@ export function resolveBattle(
         //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
         if (result.enemyDamage > 0 && result.castSkillName) {
           nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
-          nextLog = appendLog(nextLog, {
-            kind: "player_attack",
-            text: `${result.castSkillName}! ${boostedSkillDamage} 피해를 입혔다.`,
-          });
+          // 다단 스킬은 타마다 한 줄. 부스트는 타당 raw 비율로 분배(합 = boostedSkillDamage).
+          // 단일타는 그대로 한 줄(기존과 동일).
+          const perHit =
+            result.hitDamages.length > 1
+              ? distributeBoostedHits(result.hitDamages, boostedSkillDamage)
+              : [boostedSkillDamage];
+          for (const hit of perHit) {
+            if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
+            nextLog = appendLog(nextLog, {
+              kind: "player_attack",
+              text: `${result.castSkillName}! ${hit} 피해를 입혔다.`,
+            });
+          }
         } else if (skillMissed && result.castSkillName) {
           nextLog = appendLog(nextLog, {
             kind: "player_attack",

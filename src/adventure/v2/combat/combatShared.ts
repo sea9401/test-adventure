@@ -446,6 +446,9 @@ export type V2SkillCastResult = {
   castSkillId: V2SkillId | null;
   castSkillName: string | null;
   enemyDamage: number;
+  /** 적에게 가한 damage 효과별 개별 피해(다단 스킬 = 타당 1개). 합 = enemyDamage.
+   *  엔진이 전투 로그를 타마다 한 줄로 쪼개는 데 사용(부스트는 distributeBoostedHits 로 분배). */
+  hitDamages: number[];
   selfHeal: number;
   selfBuffsToApply: V2SkillBuffApply[];
   enemyDebuffsToApply: V2SkillBuffApply[];
@@ -510,6 +513,7 @@ export type V2SkillCastInput = {
 
 const EMPTY_CAST_RESULT_BASE = {
   enemyDamage: 0,
+  hitDamages: [] as number[],
   selfHeal: 0,
   selfBuffsToApply: [] as V2SkillBuffApply[],
   enemyDebuffsToApply: [] as V2SkillBuffApply[],
@@ -566,6 +570,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const skillElementMult = mBasic > 0 ? mSkill / mBasic : 1;
   // 3) effect 별 결과 누산.
   let enemyDamage = 0;
+  // 개별 damage 효과(다단 스킬 = 타당 1개)를 따로 모아 둔다 — 엔진이 로그를 타마다 쪼갬.
+  const hitDamages: number[] = [];
+  const dealDamage = (x: number): void => {
+    enemyDamage += x;
+    hitDamages.push(x);
+  };
   let selfHeal = 0;
   let selfHpCost = 0;
   let manaRestore = 0;
@@ -618,7 +628,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
 
   for (const effect of def.effects) {
     if (effect.kind === "damage") {
-      enemyDamage += damageWith(effect.statCoef, flatOf(effect.baseFlat, effect.baseFlatByTier), effect.scaling);
+      dealDamage(damageWith(effect.statCoef, flatOf(effect.baseFlat, effect.baseFlatByTier), effect.scaling));
     } else if (effect.kind === "heal") {
       if (effect.pctLostHp != null) {
         // 잃은 체력 비례 회복(기공 순환).
@@ -656,25 +666,25 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
       const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
       selfHpCost += cost;
-      enemyDamage += damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling, Math.floor(cost * effect.soakRatio));
+      dealDamage(damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling, Math.floor(cost * effect.soakRatio)));
     } else if (effect.kind === "healToDamage") {
       // 신성 강타 — 자힐 후 힐량×damageRatio 적에게 딜.
       const atkBase = (effect.scaling === "magic" ? input.attacker.magicAtk ?? input.attacker.atk : input.attacker.atk) * effect.healStatCoef;
       const heal = Math.floor((atkBase + flatOf(undefined, effect.healFlatByTier)) * (input.attacker.healMult ?? 1));
       selfHeal += heal;
-      enemyDamage += Math.floor(heal * effect.damageRatio * skillElementMult);
+      dealDamage(Math.floor(heal * effect.damageRatio * skillElementMult));
     } else if (effect.kind === "executeDamage") {
       // 처단 — 적 HP 임계 이하면 ×bonusMult.
       const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
-      enemyDamage += frac <= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base;
+      dealDamage(frac <= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
     } else if (effect.kind === "stackPayoffDamage") {
       // 참절/중독폭발/비전작렬 — 적 DoT/취약 스택당 추가딜.
       const stacks =
         effect.tag === "bleed" ? input.target.bleedStacks ?? 0
         : effect.tag === "poison" ? input.target.poisonStacks ?? 0
         : input.target.magicVulnStacks ?? 0;
-      enemyDamage += damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat, effect.scaling);
+      dealDamage(damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat, effect.scaling));
     } else if (effect.kind === "dot") {
       dotsToApplyToTarget.push({
         tag: effect.tag,
@@ -696,6 +706,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     castSkillId: id,
     castSkillName: def.name,
     enemyDamage,
+    hitDamages,
     selfHeal,
     selfBuffsToApply,
     enemyDebuffsToApply,
@@ -706,6 +717,38 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     selfRegenToApply,
     enemyVulnToApply,
   };
+}
+
+// 다단 스킬 로그용 — 엔진이 부스트(주문중첩·취약 등)를 적용한 최종 총합(boostedTotal)을
+// 타당 raw 피해(rawHits) 비율로 정수 분배한다. 반환 합 == boostedTotal(반올림 누수 없음 —
+// 마지막 칸이 나머지를 흡수). 엔진 HP 차감은 boostedTotal 단일값을 그대로 쓰고, 이 함수는
+// 표시(로그 줄 쪼개기) 전용. rawHits 가 비었으면 [] (호출부에서 단일 라인으로 폴백).
+export function distributeBoostedHits(
+  rawHits: readonly number[],
+  boostedTotal: number,
+): number[] {
+  const n = rawHits.length;
+  if (n === 0) return [];
+  if (n === 1) return [boostedTotal];
+  const rawSum = rawHits.reduce((a, b) => a + b, 0);
+  const out: number[] = [];
+  let allocated = 0;
+  if (rawSum <= 0) {
+    // 퇴화(전부 0) — 균등 분배.
+    const base = Math.floor(boostedTotal / n);
+    for (let i = 0; i < n - 1; i += 1) {
+      out.push(base);
+      allocated += base;
+    }
+  } else {
+    for (let i = 0; i < n - 1; i += 1) {
+      const share = Math.floor((boostedTotal * rawHits[i]) / rawSum);
+      out.push(share);
+      allocated += share;
+    }
+  }
+  out.push(boostedTotal - allocated); // 마지막 칸이 나머지 흡수 → 합 정확.
+  return out;
 }
 
 // V2BuffMap 갱신 — selfBuff/enemyDebuff effect 의 결과를 stat 키에 박는다.

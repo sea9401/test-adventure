@@ -18,15 +18,14 @@ describe("rollItemStats", () => {
     expect(r).toEqual({ power: 34, weight: 3, options: { crit: 3 } });
   });
 
-  it("작은 값(spread 0)은 변동 없음 — 은가락지 power1/weight0/무옵션", () => {
-    expect(rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0)).toEqual({
-      power: 1,
-      weight: 0,
-    });
-    expect(rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0.999)).toEqual({
-      power: 1,
-      weight: 0,
-    });
+  it("작은 위력/무게(spread 0)는 변동 없음 — 은가락지 power1/weight0", () => {
+    // critMult 옵션은 별도 굴림 — 여기선 위력/무게가 안 변하는 것만 검증.
+    const lo = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0);
+    expect(lo.power).toBe(1);
+    expect(lo.weight).toBe(0);
+    const hi = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0.999);
+    expect(hi.power).toBe(1);
+    expect(hi.weight).toBe(0);
   });
 
   it("옵션 없는 아이템은 굴림에 options 없음 — 철검 power3/weight2", () => {

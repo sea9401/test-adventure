@@ -135,6 +135,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "고리를 엮은 갑옷. 무겁지만 든든하다.",
     power: 2,
     weight: 2,
+    options: { hp: 20 },
   },
   v2_full_plate: {
     id: "v2_full_plate",
@@ -145,6 +146,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "온몸을 두른 두꺼운 갑옷.",
     power: 4,
     weight: 5,
+    options: { hp: 40 },
   },
   v2_mithril_plate: {
     id: "v2_mithril_plate",
@@ -155,6 +157,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "가볍고 단단한 미스릴 갑옷.",
     power: 9,
     weight: 8,
+    options: { hp: 80 },
   },
 
   // ── 방어-경갑 (위력 = 물방, 가벼움, 옵션 eva) ─────────────────────────
@@ -167,6 +170,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "들개 가죽을 손질해 만든 가벼운 갑옷.",
     power: 1,
     weight: 0,
+    options: { hp: 20 },
   },
   v2_shadow_cloak: {
     id: "v2_shadow_cloak",
@@ -177,7 +181,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "발걸음을 가리는 어두운 망토.",
     power: 2,
     weight: 1,
-    options: { eva: 2 },
+    options: { eva: 2, hp: 40 },
   },
   v2_windweave_cloak: {
     id: "v2_windweave_cloak",
@@ -188,7 +192,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "바람결을 짜 만든 가벼운 망토.",
     power: 3,
     weight: 1,
-    options: { eva: 3 },
+    options: { eva: 3, hp: 80 },
   },
 
   // ── 장갑-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 crit) ──────────────
@@ -202,6 +206,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "쇠를 덧댄 손등 보호구. 주먹이 묵직해진다.",
     power: 1,
     weight: 1,
+    options: { crit: 4 },
   },
   v2_plate_gauntlets: {
     id: "v2_plate_gauntlets",
@@ -212,7 +217,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "판금을 이어 붙인 단단한 건틀릿.",
     power: 1,
     weight: 1,
-    options: { crit: 1 },
+    options: { crit: 8 },
   },
   v2_mithril_gauntlets: {
     id: "v2_mithril_gauntlets",
@@ -223,7 +228,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "가볍고 단단한 미스릴 건틀릿.",
     power: 2,
     weight: 2,
-    options: { crit: 2 },
+    options: { crit: 12 },
   },
 
   // ── 장갑-경갑 (위력 = 물방 소량, 무게 0, 옵션 crit) ───────────────────
@@ -236,6 +241,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "손에 익은 가죽 장갑. 가볍고 편하다.",
     power: 1,
     weight: 0,
+    options: { crit: 4 },
   },
   v2_shadow_gloves: {
     id: "v2_shadow_gloves",
@@ -246,7 +252,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "손길을 죽이는 어두운 장갑.",
     power: 1,
     weight: 0,
-    options: { crit: 1 },
+    options: { crit: 8 },
   },
   v2_windweave_gloves: {
     id: "v2_windweave_gloves",
@@ -257,7 +263,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "바람을 엮어 만든 가벼운 장갑.",
     power: 2,
     weight: 0,
-    options: { crit: 2 },
+    options: { crit: 12 },
   },
 
   // ── 신발-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 eva) ───────────────
@@ -271,6 +277,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "쇠를 덧댄 장화. 발을 든든히 감싼다.",
     power: 1,
     weight: 1,
+    options: { eva: 4, spd: 2 },
   },
   v2_plate_boots: {
     id: "v2_plate_boots",
@@ -281,7 +288,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "판금을 두른 장화. 묵직하게 버틴다.",
     power: 1,
     weight: 1,
-    options: { eva: 1 },
+    options: { eva: 8, spd: 4 },
   },
   v2_mithril_boots: {
     id: "v2_mithril_boots",
@@ -292,7 +299,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "가볍고 단단한 미스릴 장화.",
     power: 2,
     weight: 1,
-    options: { eva: 2 },
+    options: { eva: 12, spd: 6 },
   },
 
   // ── 신발-경갑 (위력 = 물방 소량, 무게 0, 옵션 eva) ────────────────────
@@ -305,6 +312,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "부드러운 가죽 신. 발놀림이 가볍다.",
     power: 1,
     weight: 0,
+    options: { eva: 4, spd: 2 },
   },
   v2_shadow_boots: {
     id: "v2_shadow_boots",
@@ -315,7 +323,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "자국을 남기지 않는 어두운 신.",
     power: 1,
     weight: 0,
-    options: { eva: 2 },
+    options: { eva: 8, spd: 4 },
   },
   v2_windweave_boots: {
     id: "v2_windweave_boots",
@@ -326,7 +334,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "바람을 밟듯 가벼운 신.",
     power: 2,
     weight: 0,
-    options: { eva: 3 },
+    options: { eva: 12, spd: 6 },
   },
 
   // ── 반지-운 (위력 = 마방, 무게 0, 옵션 crit) ──────────────────────────
@@ -340,6 +348,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "흠집 없는 은반지. 광택이 곱다.",
     power: 1,
     weight: 0,
+    options: { critMult: 10 },
   },
   v2_lucky_charm: {
     id: "v2_lucky_charm",
@@ -350,7 +359,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "닳은 패에 글자가 빛난다.",
     power: 1,
     weight: 0,
-    options: { crit: 1 },
+    options: { critMult: 20 },
   },
   v2_fate_ring: {
     id: "v2_fate_ring",
@@ -361,7 +370,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "보는 각도마다 색이 바뀌는 반지.",
     power: 2,
     weight: 0,
-    options: { crit: 2 },
+    options: { critMult: 30 },
   },
 
   // ── 목걸이-마법 (위력 = 마방, 무게 0, 옵션 mp) ────────────────────────
@@ -375,6 +384,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "옥 조각에 끈을 꿴 부적. 묘하게 안심된다.",
     power: 1,
     weight: 0,
+    options: { mp: 15 },
   },
   v2_crystal_amulet: {
     id: "v2_crystal_amulet",
@@ -385,7 +395,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "맑은 수정에 빛이 모인다.",
     power: 1,
     weight: 0,
-    options: { mp: 13 },
+    options: { mp: 30 },
   },
   v2_mana_essence: {
     id: "v2_mana_essence",
@@ -396,7 +406,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "푸른 빛이 일렁이는 작은 결정.",
     power: 2,
     weight: 0,
-    options: { mp: 30 },
+    options: { mp: 50 },
   },
 
   // ── 유니크 (드랍 전용) ────────────────────────────────────────────

@@ -155,7 +155,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     requiredWeaponType: "sword_shield",
     passives: [
       { id: "knight_guard", name: "방패 숙련", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
-      { id: "knight_counter", name: "방패치기", desc: "공격력에 방어력의 일부를 더함", effect: { atkFromDefPct: 40 } },
+      { id: "knight_counter", name: "방패치기", desc: "공격력에 방어력의 일부를 더함", effect: { atkFromDefPct: 80 } },
       { id: "knight_reflect", name: "흘려막기", desc: "낮은 확률로 피해를 완전히 무시", effect: { damageNullifyChancePct: 10 } },
     ],
     trait: { name: "강철", desc: "받는 피해 감소(차수 성장)", effect: { damageTakenReductionPctAdd: 4 } },
@@ -167,10 +167,10 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     requiredWeaponType: "rapier",
     passives: [
       { id: "gladiator_combo", name: "찌르기 연계", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
-      { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 8 } },
+      { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 5 } },
       { id: "gladiator_swift", name: "혈광", desc: "적이 출혈 중이면 추가 공격 확률 증가", effect: { extraAttackChancePctWhileEnemyBleeding: 15 } },
     ],
-    trait: { name: "출혈숙련", desc: "출혈 피해 증가(차수 성장)", effect: { bleedDmgPerStackAdd: 3 } },
+    trait: { name: "출혈숙련", desc: "출혈 피해 증가(차수 성장)", effect: { bleedDmgPerStackAdd: 2 } },
   },
 ];
 
@@ -182,7 +182,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
     job: "martial",
     requiredWeaponType: "gauntlet",
     passives: [
-      { id: "cheolsan_guard", name: "금강신", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 16 } },
+      { id: "cheolsan_guard", name: "금강신", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 16, atkPctAdd: 15 } },
       { id: "cheolsan_counter", name: "반격세", desc: "피격 후 확률 반격", effect: { counterChancePct: 20 } },
       { id: "cheolsan_reflect", name: "강체", desc: "받은 피해만큼 방어력 누적", effect: { defGainOnHitPct: 15 } },
     ],
@@ -286,11 +286,11 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
     job: "rogue",
     requiredWeaponType: "dagger",
     passives: [
-      { id: "venom_toxin", name: "맹독", desc: "적중 시 중독", effect: { poisonPctPerStackBase: 10 } },
-      { id: "venom_flurry", name: "연속 독격", desc: "추가타 확률(독 적중 증가)", effect: { extraAttackChancePct: 16 } },
+      { id: "venom_toxin", name: "맹독", desc: "적중 시 중독", effect: { poisonPctPerStackBase: 5 } },
+      { id: "venom_flurry", name: "연속 독격", desc: "추가타 확률(독 적중 증가)", effect: { extraAttackChancePct: 12 } },
       { id: "venom_corrode", name: "부식", desc: "중독된 적 방어력 감소", effect: { poisonedEnemyDefReductionPct: 20 } },
     ],
-    trait: { name: "맹독", desc: "중독 피해 증가(차수 성장)", effect: { poisonPctPerStackAdd: 4 } },
+    trait: { name: "맹독", desc: "중독 피해 증가(차수 성장)", effect: { poisonPctPerStackAdd: 2 } },
   },
 ];
 

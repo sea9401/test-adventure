@@ -448,7 +448,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(d.player.passiveDefPenetrationPct).toBe(17); // 갑옷 가르기
   });
 
-  it("기사 + 검방 + 방패치기 → 공격력에 방어력 40% 가산(derive)", () => {
+  it("기사 + 검방 + 방패치기 → 공격력에 방어력 80% 가산(derive)", () => {
     const kbase = {
       ...base,
       v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
@@ -457,10 +457,10 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     const d = derivePlayerCombatV2Pure({
       ...kbase,
       spec: knight,
-      unlockedPassives: ["knight_counter"], // 방패치기 (atkFromDefPct 40)
+      unlockedPassives: ["knight_counter"], // 방패치기 (atkFromDefPct 80)
     });
     expect(d.player.atk).toBe(
-      baseD.player.atk + Math.floor(baseD.player.def * 0.4),
+      baseD.player.atk + Math.floor(baseD.player.def * 0.8),
     );
   });
 
@@ -478,7 +478,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
       classTier: 1,
     });
     expect(t1.player.atk).toBe(baseD.player.atk);
-    // classTier 2 — 한도 1 → 방패치기 활성 → atk += def×40% (자동복원).
+    // classTier 2 — 한도 1 → 방패치기 활성 → atk += def×80% (자동복원).
     const t2 = derivePlayerCombatV2Pure({
       ...kbase,
       spec: knight,
@@ -486,7 +486,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
       classTier: 2,
     });
     expect(t2.player.atk).toBe(
-      baseD.player.atk + Math.floor(baseD.player.def * 0.4),
+      baseD.player.atk + Math.floor(baseD.player.def * 0.8),
     );
   });
 

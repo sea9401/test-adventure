@@ -43,7 +43,12 @@ const LEVEL = 75;
 const TIER = 4;
 const TRIALS = argNum("--trials=", 400);
 const DUMMY_HP = argNum("--hp=", 8000);
-const DUMMY_ATK = argNum("--atk=", 120);
+// --survival: 생존가치 모드. 더미가 위협적으로 반격(--atk>0)해 탱(피감·반격·흡혈·리젠)의
+//   "처치 전에 죽지 않고 버티는" 가치를 측정. killT 모드(--atk=0)는 더미 무반격이라 생존 미반영.
+//   지표 = 승률(생존 레이스) + 승리 시 잔여HP%(여유) + 패배 시 사망턴(버팀). 더미 atk 기본 40
+//   (lv75 빌드가 일부 죽는 위협 구간 — 평타딜은 빠르게 이기고 탱은 버텨서 이긴다). --atk 로 조절.
+const SURVIVAL = process.argv.includes("--survival");
+const DUMMY_ATK = argNum("--atk=", SURVIVAL ? 40 : 120);
 
 // tier-4 방어구 세트 (progression sim 과 동일 라인).
 const ARMOR: Record<
@@ -181,6 +186,9 @@ function dummy(): Monster {
 function sim(player: PlayerCombat, skills: V2SkillsState) {
   let wins = 0;
   let winT = 0;
+  let winHpPctSum = 0; // 승리 시 잔여 HP% 합(여유 — 탱일수록 높음)
+  let losses = 0;
+  let lossTurnsSum = 0; // 패배 시 사망까지 버틴 턴 합(버팀 — 탱일수록 높음)
   for (let i = 0; i < TRIALS; i++) {
     const r = resolveBattle({ ...player, hp: player.maxHp }, dummy(), "Sim", {
       pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
@@ -190,14 +198,32 @@ function sim(player: PlayerCombat, skills: V2SkillsState) {
     if (r.outcome === "win") {
       wins++;
       winT += r.turns;
+      winHpPctSum += (Math.max(0, r.finalState.playerHp) / player.maxHp) * 100;
+    } else {
+      losses++;
+      lossTurnsSum += r.turns;
     }
   }
-  return { wrPct: (wins / TRIALS) * 100, winTurns: wins ? winT / wins : 0 };
+  return {
+    wrPct: (wins / TRIALS) * 100,
+    winTurns: wins ? winT / wins : 0,
+    winHpPct: wins ? winHpPctSum / wins : 0,
+    lossTurns: losses ? lossTurnsSum / losses : 0,
+  };
+}
+
+// 한 결과의 지표 컬럼 — killT 모드(기본) vs 생존가치 모드(--survival).
+function metricCols(r: ReturnType<typeof sim>): string {
+  return SURVIVAL
+    ? `wr ${r.wrPct.toFixed(0).padStart(3)}%  survHP ${r.winHpPct.toFixed(0).padStart(3)}%  dieT ${r.lossTurns.toFixed(0).padStart(4)}`
+    : `wr ${r.wrPct.toFixed(0).padStart(3)}%  killT ${r.winTurns.toFixed(1).padStart(5)}`;
 }
 
 console.log(
   `v2 계파 밸런스 — lv${LEVEL} tier${TIER} 풀킷(3픽+특성), 더미 HP${DUMMY_HP}/atk${DUMMY_ATK}, ${TRIALS} trial\n` +
-    `(wr=승률·killT=처치턴↓강함·vs base=무계파 killT 대비)\n`,
+    (SURVIVAL
+      ? `[생존가치 모드] wr=생존승률(↑탱)·survHP=승리 시 잔여HP%(↑여유)·dieT=패배 시 사망턴(↑버팀)\n`
+      : `(wr=승률·killT=처치턴↓강함·vs base=무계파 killT 대비)\n`),
 );
 for (const [jobId, specs] of Object.entries(V2_JOB_SPECS)) {
   const job = JOB[jobId];
@@ -206,17 +232,16 @@ for (const [jobId, specs] of Object.entries(V2_JOB_SPECS)) {
   const skills = skillsFor(job.skillStat);
   const baseWeapon = specs[0].requiredWeaponType;
   const base = sim(buildPlayer(undefined, baseWeapon, job, cls), skills);
-  console.log(
-    `[${jobId}] baseline(무계파)  wr ${base.wrPct.toFixed(0)}%  killT ${base.winTurns.toFixed(1)}`,
-  );
+  console.log(`[${jobId}] baseline(무계파)  ${metricCols(base)}`);
   for (const spec of specs) {
     const r = sim(buildPlayer(spec, spec.requiredWeaponType, job, cls), skills);
     const dt =
       base.winTurns > 0 && r.winTurns > 0
         ? (r.winTurns / base.winTurns - 1) * 100
         : 0;
+    const tail = SURVIVAL ? "" : `  (${dt >= 0 ? "+" : ""}${dt.toFixed(0)}% vs base)`;
     console.log(
-      `   ${spec.name.padEnd(4)} ${`(${spec.trait?.name ?? "-"})`.padEnd(8)}  wr ${r.wrPct.toFixed(0).padStart(3)}%  killT ${r.winTurns.toFixed(1).padStart(5)}  (${dt >= 0 ? "+" : ""}${dt.toFixed(0)}% vs base)`,
+      `   ${spec.name.padEnd(4)} ${`(${spec.trait?.name ?? "-"})`.padEnd(8)}  ${metricCols(r)}${tail}`,
     );
   }
   console.log();

@@ -885,12 +885,13 @@ export async function POST(req: Request) {
     for (let i = 0; i < count; i++) {
       const r = await runOneHunt();
       if (!r.ok) {
-        // 첫 사냥부터 실패 — 스태미나/HP 면 중단(완료 0 요약), 그 외 설정오류(정책/깊이/캐릭없음)
-        //   는 완료분 없으면 에러 그대로 반환, 있으면 error 라벨로 중단.
+        // 첫 사냥부터 실패면 단판과 동일하게 에러 응답 그대로(409 스태미나/HP·403 정책 등).
+        //   버튼이 스태미나/회복 상태에선 비활성이라 실사용상 드물다. 중간(완료>0) 실패는
+        //   완료분 요약 + 라벨로 중단(스태미나 소진·저체력·기타).
+        if (completed === 0) return r;
         const err = (r.body as { error?: string }).error;
         if (err === "out_of_stamina") stoppedReason = "stamina";
         else if (err === "hp_zero") stoppedReason = "recovery";
-        else if (completed === 0) return r;
         else stoppedReason = "error";
         lastStamina = (r.body as { stamina?: unknown }).stamina ?? lastStamina;
         break;

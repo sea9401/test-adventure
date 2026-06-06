@@ -54,6 +54,10 @@ export type BatchHuntPayload = {
   finalMaxDepth: number | null;
   expAfter: number | null;
   maxExpAfter: number | null;
+  // 합산 결과 아래 캐릭터 정보 카드용 — 마지막 사냥 후 회복약 충전량 + MP 보유 여부.
+  hpCharges: number | null;
+  mpCharges: number | null;
+  playerMaxMp: number | null;
 };
 
 type BatchHuntResponse = {

@@ -116,6 +116,15 @@ export function V2DungeonFloorView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  // 일괄 사냥 후 캐릭터 정보 카드용 — 서버 일괄 처리는 단판 lastResult 를 세우지 않으므로
+  // 합산 응답의 마지막 상태(EXP 진행도·회복약 충전량)를 따로 담는다.
+  const [batchStatus, setBatchStatus] = useState<{
+    exp: number;
+    maxExp: number;
+    hpCharges?: number;
+    mpCharges?: number;
+    hasMp: boolean;
+  } | null>(null);
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
   // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
@@ -175,6 +184,7 @@ export function V2DungeonFloorView({
   const runBatch = async (count: number) => {
     setSettingsOpen(false);
     setBatchSummary(null);
+    setBatchStatus(null);
     setBatchRunning(true);
     try {
       const b = await huntBatch(depth, count);
@@ -193,6 +203,14 @@ export function V2DungeonFloorView({
         droppedEquipments: b.droppedEquipments,
         droppedUniques: b.droppedUniques,
         stoppedReason: b.stoppedReason,
+      });
+      // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
+      setBatchStatus({
+        exp: b.expAfter ?? 0,
+        maxExp: b.maxExpAfter ?? 1,
+        hpCharges: b.hpCharges ?? undefined,
+        mpCharges: b.mpCharges ?? undefined,
+        hasMp: (b.playerMaxMp ?? 0) > 0,
       });
       // 부수효과 — 서버가 합산해 준 마지막 상태로 한 번만.
       if (b.finalHpAfter != null && b.finalMaxHp != null) {
@@ -366,18 +384,18 @@ export function V2DungeonFloorView({
       {batchSummary ? (
         <>
           <BatchSummaryCard summary={batchSummary} />
-          {/* 일괄 사냥 후에도 캐릭터 정보(EXP 진행도·직업·회복약)를 확인 — lastResult 는
-              마지막 사냥의 최종 상태. expAfter = 사냥 후 EXP(합산분 모두 반영). */}
-          {lastResult && (
+          {/* 일괄 사냥 후에도 캐릭터 정보(EXP 진행도·직업·회복약)를 확인 — 서버 일괄 처리는
+              단판 lastResult 를 세우지 않으므로 합산 응답의 마지막 상태(batchStatus)로 표기. */}
+          {batchStatus && (
             <PlayerStatusCard
               gender={playerGender}
               name={playerName}
               subtitle={playerSubtitle}
-              exp={lastResult.expAfter ?? lastResult.expForBar ?? 0}
-              maxExp={lastResult.maxExpAfter ?? lastResult.maxExpForBar ?? 1}
-              hpCharges={lastResult.hpCharges}
-              mpCharges={lastResult.mpCharges}
-              hasMp={(lastResult.replay?.playerMaxMp ?? 0) > 0}
+              exp={batchStatus.exp}
+              maxExp={batchStatus.maxExp}
+              hpCharges={batchStatus.hpCharges}
+              mpCharges={batchStatus.mpCharges}
+              hasMp={batchStatus.hasMp}
             />
           )}
           {/* 일괄(5/10/50회) 사냥 직후에만 잔여 체력 바 노출 — 연속 사냥으로 깎인 HP 확인용. */}

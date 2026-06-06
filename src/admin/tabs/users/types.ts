@@ -47,4 +47,5 @@ export type V2GrantPayload = {
   mpCharges?: number;
   proficiency?: number;
   equipmentId?: string;
+  refillStamina?: boolean;
 };

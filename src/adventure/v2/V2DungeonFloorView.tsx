@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -110,6 +110,31 @@ export function V2DungeonFloorView({
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
+  }, []);
+
+  // 스페이스바로 메인 사냥 버튼 발동. 훅이 early-return 앞이라야 해서 ref 로 최신 핸들러를 참조한다
+  //   (아래 triggerHunt 가 매 렌더 ref.current 갱신). 입력창·포커스된 버튼·키 반복(꾹 누름)에선
+  //   무시 — 타이핑/중복 발동/스크롤 방지. 비활성(busy·스태미너·회복) 가드는 triggerHunt 안에서.
+  const triggerHuntRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON" ||
+        t?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      triggerHuntRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // 사냥 응답의 최종 HP 로 전역 HP 갱신 — anchor = 지금(응답 수신 시각 ≈ 서버 now).
@@ -226,6 +251,31 @@ export function V2DungeonFloorView({
   const needsRecovery =
     hp != null && liveHp != null && !canHuntWithHp(liveHp, hp.maxHp);
 
+  // 메인 사냥 버튼 발동(클릭·스페이스바 공용). 비활성 조건에선 무발동.
+  const triggerHunt = () => {
+    if (oneActionDisabled || lowStamina || needsRecovery) return;
+    setBatchSummary(null);
+    if (huntCount === 1) {
+      void hunt(depth).then((r) => {
+        if (r) {
+          recordHp(r);
+          if (r.levelsGained > 0) onLevelUp?.();
+          if (
+            isChallenge &&
+            r.won &&
+            r.maxDepth != null &&
+            r.maxDepth > frontierDepth
+          ) {
+            onFrontierUnlocked?.(r.maxDepth);
+          }
+        }
+      });
+    } else {
+      void runBatch(huntCount);
+    }
+  };
+  triggerHuntRef.current = triggerHunt;
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
@@ -252,22 +302,7 @@ export function V2DungeonFloorView({
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => {
-              setBatchSummary(null);
-              if (huntCount === 1) {
-                void hunt(depth).then((r) => {
-                  if (r) {
-                    recordHp(r);
-                    if (r.levelsGained > 0) onLevelUp?.();
-                    if (isChallenge && r.won && r.maxDepth != null && r.maxDepth > frontierDepth) {
-                      onFrontierUnlocked?.(r.maxDepth);
-                    }
-                  }
-                });
-              } else {
-                void runBatch(huntCount);
-              }
-            }}
+            onClick={triggerHunt}
             disabled={oneActionDisabled || lowStamina || needsRecovery}
             className="flex-1 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >

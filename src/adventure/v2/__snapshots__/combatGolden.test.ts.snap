@@ -2,7 +2,7 @@
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[archer] 1`] = `
 {
-  "accuracyPct": 7.925,
+  "accuracyPct": 8.225,
   "atk": 45,
   "attackCount": 1,
   "baselineRegen": {
@@ -36,7 +36,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[lowbie] 1`] = `
 {
-  "accuracyPct": 1.475,
+  "accuracyPct": 1.775,
   "atk": 8,
   "attackCount": 1,
   "baselineRegen": {
@@ -70,7 +70,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[mage] 1`] = `
 {
-  "accuracyPct": 1.725,
+  "accuracyPct": 4.685,
   "atk": 13,
   "attackCount": 1,
   "baselineRegen": {
@@ -104,7 +104,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[ninja] 1`] = `
 {
-  "accuracyPct": 3.525,
+  "accuracyPct": 3.8249999999999997,
   "atk": 23,
   "attackCount": 1,
   "baselineRegen": {
@@ -138,7 +138,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[tank] 1`] = `
 {
-  "accuracyPct": 1.875,
+  "accuracyPct": 2.175,
   "atk": 11,
   "attackCount": 1,
   "baselineRegen": {
@@ -172,7 +172,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[warrior] 1`] = `
 {
-  "accuracyPct": 3.935,
+  "accuracyPct": 4.234999999999999,
   "atk": 34,
   "attackCount": 1,
   "baselineRegen": {
@@ -245,11 +245,11 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "magic_vs_약탈자",
-    "logSha": "64fa5a68a728b173468b478f2d87bf588b0c5ffb",
+    "logSha": "4f9519b2b27194ea9c86ebf241846f32f2cc221c",
     "outcome": "win",
-    "playerHp": 136,
+    "playerHp": 115,
     "playerMp": 354,
-    "turns": 61,
+    "turns": 65,
   },
   {
     "enemyHp": 0,

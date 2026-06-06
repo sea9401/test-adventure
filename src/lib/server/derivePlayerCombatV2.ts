@@ -227,8 +227,11 @@ const WEIGHT_SPD_PENALTY = 1.0;
 const MIN_DMG_PER_STR = 0.1;
 const MIN_DMG_PER_INT = 0.05;
 const MIN_DMG_PER_VIT = 0.03;
-// 명중 — 힘·정신 minor (민첩은 ACCURACY_PCT_PER_DEX). 회피 — 행운 minor (민첩은 EVA_PER_DEX).
+// 명중 — 힘·지능·정신 minor (민첩은 ACCURACY_PCT_PER_DEX). 회피 — 행운 minor (민첩은 EVA_PER_DEX).
+//   지능(ACC_PER_INT)=마법사 명중 바닥: 명중 기여 스탯이 없던 순수 INT 빌드가 회피·기본미스를
+//   홀로 떠안던 문제 해소(STR 과 대칭). 마법도 빗나가지 않게.
 const ACC_PER_STR = 0.02;
+const ACC_PER_INT = 0.02; // 마법사 명중 바닥(STR 대칭).
 const ACC_PER_SPI = 0.015;
 const EVA_PER_LUK = 0.08;
 // 치명타 피해 — 힘 minor (행운은 CRIT_DMG_PER_LUK major).
@@ -262,9 +265,14 @@ const CRIT_MULT_CAP = 5.0;
 const MAGIC_ATK_PER_INT = 0.15; // PR-무기위력 0.2→0.15 (ATK_PER_STR 대칭 유지 + 지팡이 위력 상향 상쇄).
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
-// 궁사 활 패시브 — 100% 적중 임계(기본 명중 90% → 명중 10 이면 적중 100%) 초과 명중을 공격력으로
-// 변환. "명중률 컨셉" 궁사가 남는 명중을 딜로 환원. 활 무기 한정. coef·임계는 sim 캘리브 대상.
-const BOW_HIT_THRESHOLD = 10; // = combatShared V2_BASE_MISS_PCT (명중 이만큼이면 적중 100%)
+// 명중 상한 — 명중이 스탯(STR·INT·SPI·DEX) 비례라 후반엔 수백까지 치솟아 몬스터 회피를
+//   무조건 상쇄했다(회피축 무력화). cap 으로 제한 → 명중을 cap 까지 채우면 회피를 상쇄,
+//   덜 채운/저명중 빌드는 회피만큼 빗나감 → 회피가 유효한 축이 된다. sim 캘리브 대상.
+const ACCURACY_PCT_CAP = 35;
+// 궁사 활 패시브 — 적중 임계(=base miss 10, 명중 이만큼이면 0-회피 적중 100%) 초과 명중을 공격력
+//   으로 변환. 활 한정. cap(35)은 hit 에만 적용 — 궁사는 명중 특화라 명중을 hit+딜 양쪽으로 활용
+//   (의도된 이중 활용; 다른 빌드는 hit 한 번만). coef·임계는 sim 캘리브 대상.
+const BOW_HIT_THRESHOLD = 10;
 const BOW_ACCURACY_TO_ATK_COEF = 3;
 
 // v2 SPD → 다중공격. SPD 1 당 +0.5%p 추가공격 확률 (옛 2 — 전 빌드 타수 과다로 0.5 하향).
@@ -425,6 +433,7 @@ export function derivePlayerCombatV2Pure(
     0,
     totalStats.dex * ACCURACY_PCT_PER_DEX +
       totalStats.str * ACC_PER_STR +
+      totalStats.int * ACC_PER_INT +
       totalStats.spi * ACC_PER_SPI,
   );
   // 속도 = 민첩 파생(1차 아님) − 장비 무게×계수(중갑일수록 느림). 음수 0 클램프.
@@ -514,12 +523,14 @@ export function derivePlayerCombatV2Pure(
     specMagicAtk = Math.floor(specMagicAtk * m);
   }
 
-  // 궁사 활 패시브 — 100% 적중 임계 초과 명중을 공격력으로 변환(활 무기 한정). 남는 명중을 딜로.
-  const finalAccuracyPct = accuracyPct + (specEff.accuracyPctAdd ?? 0);
+  // 명중 — 상한 적용 전 raw(스탯+계파). 궁사 활 패시브는 이 raw 의 적중 임계 초과분을 공격력으로.
+  const rawAccuracyPct = accuracyPct + (specEff.accuracyPctAdd ?? 0);
   if (weaponTypeOf(v2Equipped.weapon) === "bow") {
-    const excessAccuracy = Math.max(0, finalAccuracyPct - BOW_HIT_THRESHOLD);
+    const excessAccuracy = Math.max(0, rawAccuracyPct - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
   }
+  // hit 에 쓰는 명중은 cap 으로 클램프(궁사의 잉여 딜 환원은 위 raw 기준이라 영향 없음).
+  const finalAccuracyPct = Math.min(ACCURACY_PCT_CAP, rawAccuracyPct);
 
   // 직업 특성 — 계파 시그니처와 같은 훅을 공유하는 효과는 합산(강철↔받피감, 출혈숙련↔출혈,
   // 흡정↔흡정공). 0 이면 spread 생략(inert). 절제(mpCostReductionPct)는 신규 시전 훅.

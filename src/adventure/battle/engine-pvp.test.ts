@@ -1029,4 +1029,31 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       castCount,
     );
   });
+
+  it("PR2-B — 계파 temp 버프(속박/enemyVuln)가 PvP 캐스트에서 적용된다", () => {
+    // 이전엔 PvPSide 가 temp 버프 상태가 없어 아레나에서 미적용이었던 회귀 가드.
+    vi.spyOn(Math, "random").mockReturnValue(0); // procRoll 0 < procChance → 발동 강제
+    const p1 = makePlayer({ spd: 100, atk: 60, maxMp: 500, hp: 300, maxHp: 300 });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 400, maxHp: 400 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["v2s_archery_bind"],
+          equipped: ["v2s_archery_bind"],
+        },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // 속박(enemyVuln) 적용 로그 — PvP cast 배선 확인.
+    expect(
+      r.finalState.log.some(
+        (e) =>
+          e.kind === "info" &&
+          e.text.includes("속박 사격") &&
+          e.text.includes("가하는 피해 +30%"),
+      ),
+    ).toBe(true);
+  });
 });

@@ -132,6 +132,15 @@ export type PvPSideStacks = {
   evadesRemaining: number;
   damageTakenThisCombat: number;
   weakpointDefIgnoreLeft: number;
+  // PR2-B 계파 스킬 temp 버프 — PvE BattleStacks 미러. 전부 0/turns=0 이면 inert(골든 불변).
+  skillRegenPct: number; // 운기 — 매 자기 턴 maxHp %
+  skillRegenTurns: number;
+  skillCritPct: number; // 연환집중 — 치명률 +%p
+  skillCritTurns: number;
+  skillEvasionPct: number; // 선풍각 — 회피 +%p (PvP 는 회피 유효축)
+  skillEvasionTurns: number;
+  enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
+  enemyVulnTurns: number;
 };
 
 export type PvPSide = {
@@ -371,6 +380,14 @@ function buildSide(
       evadesRemaining: player.guaranteedEvades ?? 0,
       damageTakenThisCombat: 0,
       weakpointDefIgnoreLeft: 0,
+      skillRegenPct: 0,
+      skillRegenTurns: 0,
+      skillCritPct: 0,
+      skillCritTurns: 0,
+      skillEvasionPct: 0,
+      skillEvasionTurns: 0,
+      enemyVulnPct: 0,
+      enemyVulnTurns: 0,
     },
   };
 }
@@ -963,6 +980,29 @@ function finishAttackerTurn(
       }),
     };
   }
+  // PR2-B 운기 — 매 자기 턴 maxHp % 회복(temp 버프). turns 감소는 cast hook(턴 시작)에서 처리.
+  {
+    const side = st[atkKey];
+    const s = side.stacks;
+    if (s.skillRegenTurns > 0 && s.skillRegenPct > 0 && side.hp > 0) {
+      const heal = Math.floor((side.maxHp * s.skillRegenPct) / 100);
+      const nextHp = Math.min(side.maxHp, side.hp + heal);
+      if (nextHp > side.hp) {
+        st = setSide(
+          {
+            ...st,
+            log: appendLog(st.log, {
+              kind: "info",
+              text: `[운기] ${side.name}의 HP +${nextHp - side.hp}`,
+              side: atkKey,
+            }),
+          },
+          atkKey,
+          { ...side, hp: nextHp },
+        );
+      }
+    }
+  }
   st = applyBaselineRegen(st, atkKey);
   st = applyRegen(st, atkKey);
   return st;
@@ -1110,12 +1150,16 @@ export function advanceTurnPvP(
     // v2 명중률(PR-6): 공격자 accuracyPct 가 방어자 evasion 에서 %p 차감.
     // 0/undefined = 차감 없음(라이브 기존 동작 보존).
     const attackerAccuracy = attacker.player.accuracyPct ?? 0;
+    // PR2-B 선풍각 — 회피 temp 버프(%p). PvP 는 회피가 유효축이라 실제 작동.
+    const skillEvadeBonus =
+      defender.stacks.skillEvasionTurns > 0 ? defender.stacks.skillEvasionPct : 0;
     const effectiveEvadePct = Math.max(
       0,
       defender.player.evasionPct * precisionMult +
         luckEvadeBonus +
         universalLuckEvadeBonus +
-        defender.buffs.cyclingChiBonus -
+        defender.buffs.cyclingChiBonus +
+        skillEvadeBonus -
         attackerAccuracy,
     );
     if (effectiveEvadePct > 0 && Math.random() * 100 < effectiveEvadePct) {
@@ -1214,13 +1258,17 @@ export function advanceTurnPvP(
         )
       : 0;
   const universalLuckBonus = attacker.player.universalLuckBonusPct ?? 0;
+  // PR2-B 연환집중 — 치명률 temp 버프(%p).
+  const skillCritThisTurn =
+    attacker.stacks.skillCritTurns > 0 ? attacker.stacks.skillCritPct : 0;
   // 크리 확률 CRIT_PCT_CAP 캡 + 초과분 → 크리뎀 변환 (PvE 와 대칭, engine.ts 동일 패턴).
   const rawCritPct =
     baseCritPct +
     luckCritBonus +
     balanceCritBonus +
     universalLuckBonus +
-    cyclingChiThisTurn;
+    cyclingChiThisTurn +
+    skillCritThisTurn;
   // PR-2 — 피격자(defender)의 치명타 저항(정신)만큼 공격자 크리 확률 차감. PvE 몹은 크리 없어 PvP 한정.
   const effectiveCritPct = Math.max(
     0,
@@ -1328,7 +1376,15 @@ export function advanceTurnPvP(
     apMultEffect?.kind === "atk_plus_spd_pct_bonus"
       ? Math.floor((attacker.player.atk * apMultEffect.spdPct) / 100)
       : 0;
-  const totalDmg = dmg + decreeDmg + impactDmg + stormBonus;
+  const totalDmgBeforeVuln = dmg + decreeDmg + impactDmg + stormBonus;
+  // PR2-B 속박 — 시전자(attacker)가 속박 활성 시 가하는 피해 +%. 모든 평타 배수 끝 마지막 곱(PvE 미러).
+  const totalDmg =
+    attacker.stacks.enemyVulnTurns > 0
+      ? Math.max(
+          1,
+          Math.floor(totalDmgBeforeVuln * (1 + attacker.stacks.enemyVulnPct / 100)),
+        )
+      : totalDmgBeforeVuln;
   const labels: string[] = [];
   if (powerBonus > 0) labels.push("강공격");
   if (powerBonus > 0 && crushReduction > 0) labels.push("분쇄");
@@ -1986,7 +2042,7 @@ function castV2SkillOnAttackerTurnPvP(
   const sideStart = state[who];
   const otherKey: "p1" | "p2" = who === "p1" ? "p2" : "p1";
   let st = state;
-  let preLog = state.log;
+  const preLog = state.log;
   st = setSide({ ...st, log: preLog }, who, sideStart);
   const side = st[who];
   const opp = st[otherKey];
@@ -2066,11 +2122,73 @@ function castV2SkillOnAttackerTurnPvP(
   if (result.selfHpCost > 0) {
     nextSideHp = Math.max(1, nextSideHp - result.selfHpCost);
   }
-  // ⚠️ PR2-B 미배선(PvP follow-up): result.shieldToApply(마나 보호막)·selfBuffPctToApply(선풍각 회피·
-  //   연환집중 크리)·selfRegenToApply(운기)·enemyVulnToApply(속박)는 PvPSide 가 해당 상태/사이트가
-  //   없어 아레나에선 아직 미적용. 또 비전 작렬(마법취약 payoff)도 PvP 엔 magicVuln 트래커가 없어
-  //   stack=0 no-op(target.magicVulnStacks 미전달). 위 4스킬+보호막+비전작렬 PvP 효과 일부 누락
-  //   (데미지·평타·proc·HP소모·출혈/독 payoff 는 정상).
+  // PR2-B — 보호막 + temp 버프(운기/연환집중/선풍각/속박) 적용(PvE applySkillTempBuffs/shield 미러).
+  //   보호막 흡수는 기존 로직(stacks.playerShield)이 처리, 4 버프는 stacks 에 기록 후 전투에서 소비.
+  //   (비전 작렬=마법취약 payoff 는 PvP magicVuln 트래커 없어 여전히 no-op — 별도 follow-up.)
+  const shieldGain = result.shieldToApply
+    ? result.shieldToApply.hp + result.shieldToApply.mp
+    : 0;
+  const critBuff = result.selfBuffPctToApply.find((b) => b.target === "crit");
+  const evaBuff = result.selfBuffPctToApply.find((b) => b.target === "evasion");
+  // 차수… 아니라 temp 버프 turns 감소는 **자기 턴 시작(여기, cast hook = phase 당 1회)**에서.
+  // 새 버프 시전이면 그 turns 로 리셋, 아니면 -1. 턴 시작 감소라 방어용 선풍각(상대 턴에 소비)도
+  // 시전 턴 직후 1턴 손실 없이 N 턴 유지(PvE 는 자기 턴에 소비/감소라 turn-end, PvP 는 turn-start).
+  const nextStacks: PvPSideStacks = {
+    ...side.stacks,
+    playerShield: side.stacks.playerShield + shieldGain,
+    skillRegenPct:
+      result.selfRegenToApply?.pctMaxHpPerTurn ?? side.stacks.skillRegenPct,
+    skillRegenTurns: result.selfRegenToApply
+      ? result.selfRegenToApply.turns
+      : Math.max(0, side.stacks.skillRegenTurns - 1),
+    skillCritPct: critBuff?.pct ?? side.stacks.skillCritPct,
+    skillCritTurns: critBuff
+      ? critBuff.turns
+      : Math.max(0, side.stacks.skillCritTurns - 1),
+    skillEvasionPct: evaBuff?.pct ?? side.stacks.skillEvasionPct,
+    skillEvasionTurns: evaBuff
+      ? evaBuff.turns
+      : Math.max(0, side.stacks.skillEvasionTurns - 1),
+    enemyVulnPct: result.enemyVulnToApply?.pct ?? side.stacks.enemyVulnPct,
+    enemyVulnTurns: result.enemyVulnToApply
+      ? result.enemyVulnToApply.turns
+      : Math.max(0, side.stacks.enemyVulnTurns - 1),
+  };
+  if (shieldGain > 0) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "보호막"}] ${side.name} 보호막 +${shieldGain}`,
+      side: who,
+    });
+  }
+  if (result.selfRegenToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "운기"}] 매 턴 HP +${result.selfRegenToApply.pctMaxHpPerTurn}% (${result.selfRegenToApply.turns}턴)`,
+      side: who,
+    });
+  }
+  if (critBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuff.pct}%p (${critBuff.turns}턴)`,
+      side: who,
+    });
+  }
+  if (evaBuff) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuff.pct}%p (${evaBuff.turns}턴)`,
+      side: who,
+    });
+  }
+  if (result.enemyVulnToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}턴)`,
+      side: who,
+    });
+  }
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   // enemyDebuff 결과는 상대 side 의 v2SelfDebuffs 에 박힌다.
   const nextOppSelfDebuffs = applyV2BuffsToMap(
@@ -2107,6 +2225,7 @@ function castV2SkillOnAttackerTurnPvP(
     v2SkillCooldowns: result.nextCooldowns,
     v2SelfBuffs: nextSelfBuffs,
     v2SelfDebuffs: tickedSelfDebuffs,
+    stacks: nextStacks,
   };
   const nextOpp: PvPSide = {
     ...opp,

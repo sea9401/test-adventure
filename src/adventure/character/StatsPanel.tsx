@@ -1,5 +1,9 @@
 import { STAT_KEYS, STAT_LABELS } from "@/adventure/data/stats";
+import { V2_BASE_MISS_PCT } from "@/adventure/data/v2/v2CombatConstants";
 import { Tooltip } from "@/components/ui/Tooltip";
+
+// 기본 명중률 — 평타는 기본 90% 적중(100 − 기본 빗나감). 명중 스탯은 이 위에 더해진다.
+const V2_BASE_HIT_PCT = 100 - V2_BASE_MISS_PCT;
 
 // 상세(전투 세부) 스탯 한 줄 설명 — 어떤 1차 스탯이 올려주는지 위주.
 // derivePlayerCombatV2 의 계수 매핑을 사람말로 요약.
@@ -10,7 +14,7 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   "마법 방어력":
     "받는 마법 피해를 줄입니다. 정신(SPI)·지능(INT)이 높을수록 커집니다.",
   회피: "적의 공격을 피할 확률. 민첩(DEX)·행운(LUK)이 높을수록 커집니다.",
-  명중: "적의 회피를 뚫고 맞힐 확률. 민첩(DEX)·힘(STR)·정신(SPI)이 보조합니다.",
+  명중: "기본 명중 90%에 명중 스탯을 더한 값. 100%를 넘는 만큼은 적 회피와 빗나감을 상쇄하는 여유입니다. 민첩(DEX)·힘(STR)·정신(SPI)이 보조합니다.",
   "치명타 확률": "공격이 치명타로 터질 확률. 행운(LUK)이 높을수록 커집니다.",
   "치명타 배율":
     "치명타가 터졌을 때 피해 배수. 행운(LUK)·힘(STR)이 높을수록 커집니다.",
@@ -62,8 +66,10 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
         accent: "text-teal-600 dark:text-teal-400",
       },
       {
+        // 기본 명중 90% 를 포함해 표기 — "명중 N%" 가 적중률로 읽히게. 100% 초과분은
+        // 적 회피·빗나감을 상쇄하는 여유(명중 스탯은 derive 에서 이미 35 상한).
         label: "명중",
-        value: `${Math.round(combat.accuracyPct ?? 0)}%`,
+        value: `${Math.round(V2_BASE_HIT_PCT + (combat.accuracyPct ?? 0))}%`,
         accent: "text-amber-600 dark:text-amber-400",
       },
       {

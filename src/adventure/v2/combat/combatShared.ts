@@ -25,13 +25,11 @@ import {
 import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
 
-export const AP_SKILLS_PER_TURN_CAP = 3;
+// 기본 명중 상수는 v2CombatConstants 로 이관(UI StatsPanel 이 무거운 combatShared 를 끌어오지
+// 않고 가벼운 상수 파일에서 읽도록). 두 엔진은 여전히 combatShared 에서 import 하므로 재노출.
+export { V2_BASE_MISS_PCT } from "@/adventure/data/v2/v2CombatConstants";
 
-// 기본 명중 — 평타는 기본 90% 적중(= 10% 빗나감). 명중(accuracyPct)이 빗나감을 줄이고(상한 100%
-//   적중 = 빗나감 0 도달 가능), 적 회피가 늘린다. 하한(빗나감 상한) 없음 — 고회피(PvP)는 그대로
-//   유효(강제 회피 보존). 스킬 패치로 캐릭터 강해진 만큼 모드한 파워 다운 + 죽어있던 명중/DEX 축
-//   부활(2026-06-06).
-export const V2_BASE_MISS_PCT = 10;
+export const AP_SKILLS_PER_TURN_CAP = 3;
 
 // 시한부 버프/디버프 턴 카운터 — 매 플레이어 턴 진입 시 8개 TurnsLeft 필드 일괄 -1(0 하한).
 // PvE BattleBuffs / PvP PvPSideBuffs 공용(두 타입의 해당 필드 동형) — 단일 소스.

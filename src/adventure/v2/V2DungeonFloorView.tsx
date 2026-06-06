@@ -252,8 +252,11 @@ export function V2DungeonFloorView({
     hp != null && liveHp != null && !canHuntWithHp(liveHp, hp.maxHp);
 
   // 메인 사냥 버튼 발동(클릭·스페이스바 공용). 비활성 조건에선 무발동.
+  //   레벨업 모달이 열렸으면 무발동 — 스페이스바 전역 리스너가 모달 오버레이를 우회해 뒤에서
+  //   사냥이 돌지 않게(클릭은 오버레이가 막지만 키는 막지 못함).
   const triggerHunt = () => {
-    if (oneActionDisabled || lowStamina || needsRecovery) return;
+    if (oneActionDisabled || lowStamina || needsRecovery || showLevelupModal)
+      return;
     setBatchSummary(null);
     if (huntCount === 1) {
       void hunt(depth).then((r) => {

@@ -22,6 +22,7 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
+  V2_BASE_MISS_PCT,
 } from "./combatShared";
 import {
   CRIT_OVERFLOW_DMG_CAP,
@@ -1408,15 +1409,18 @@ export function advanceTurn(
     const precisionMult = player.precisionEvasionMult ?? 1;
     const rawEnemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
     const playerAccuracy = player.accuracyPct ?? 0;
-    const enemyEvasionPct = Math.max(0, rawEnemyEvasionPct - playerAccuracy);
-    if (
-      !apIgnoresEvasion &&
-      enemyEvasionPct > 0 &&
-      Math.random() * 100 < enemyEvasionPct
-    ) {
+    // 기본 명중 90%(빗나감 10%) + 적 회피 − 내 명중 (하한 없음 — 고회피 적은 그대로).
+    const missPct = Math.max(
+      0,
+      V2_BASE_MISS_PCT + rawEnemyEvasionPct - playerAccuracy,
+    );
+    if (!apIgnoresEvasion && missPct > 0 && Math.random() * 100 < missPct) {
       const log = appendLog(state.log, {
         kind: "player_attack",
-        text: `${state.enemy.name}이(가) 공격을 피했다.`,
+        text:
+          rawEnemyEvasionPct > 0
+            ? `${state.enemy.name}이(가) 공격을 피했다.`
+            : "공격이 빗나갔다.",
       });
       const attacksLeft = state.playerAttacksLeft - 1;
       if (attacksLeft > 0) {
@@ -3046,7 +3050,7 @@ export function resolveBattle(
         const tickedSelfDebuffs = tickV2BuffMap(state.v2SelfDebuffs);
         const tickedEnemyDebuffs = tickV2BuffMap(state.enemyV2Debuffs);
         // 2) cast 결정 + 효과 계산.
-        const result = resolveV2SkillCast({
+        let result = resolveV2SkillCast({
           skills: state.v2Skills,
           cooldowns: state.v2SkillCooldowns,
           procRoll: Math.random() * 100,
@@ -3085,6 +3089,27 @@ export function resolveBattle(
             magicVulnStacks: state.stacks.enemyMagicVulnStacks,
           },
         });
+        // 스킬도 명중 영향(2026-06-06) — 데미지 스킬은 발동 후 미스 판정(평타와 같은 공식). 미스면 적
+        //   효과(데미지·DoT·디버프)만 무효, MP·쿨다운은 발동 시점에 소모됨·자버프/자힐은 유지. 데미지>0
+        //   일 때만 롤(스킬 안 터졌거나 자버프 스킬엔 롤 안 함 → RNG 드리프트 방지).
+        let skillMissed = false;
+        if (result.castSkillId && result.enemyDamage > 0) {
+          const sMissPct = Math.max(
+            0,
+            V2_BASE_MISS_PCT +
+              (state.enemy.evasionPct ?? 0) * (player.precisionEvasionMult ?? 1) -
+              (player.accuracyPct ?? 0),
+          );
+          if (sMissPct > 0 && Math.random() * 100 < sMissPct) {
+            skillMissed = true;
+            result = {
+              ...result,
+              enemyDamage: 0,
+              dotsToApplyToTarget: [],
+              enemyDebuffsToApply: [],
+            };
+          }
+        }
         // 주문 중첩(워메이지)·약점 노출(마도사) — 스킬 데미지 배수(현재 누적 스택 기준, 적용은 이번 시전부터).
         //   주문중첩: 누적 시전 횟수 × skillDmgPctPerCast.  약점노출: 적 마법취약 스택 × enemyMagicVulnPctPerStack.
         // 둘 다 미보유면 스택 0 → 배수 1 → 무변. 적중 후 아래에서 스택 증가.
@@ -3141,6 +3166,11 @@ export function resolveBattle(
           nextLog = appendLog(nextLog, {
             kind: "player_attack",
             text: `[${result.castSkillName}] ${boostedSkillDamage} 피해를 입혔다.`,
+          });
+        } else if (skillMissed && result.castSkillName) {
+          nextLog = appendLog(nextLog, {
+            kind: "player_attack",
+            text: `[${result.castSkillName}] 빗나갔다.`,
           });
         }
         // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.

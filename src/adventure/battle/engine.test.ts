@@ -22,6 +22,7 @@ import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
 
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 50,
   maxHp: 50,
   atk: 10,
@@ -252,6 +253,7 @@ describe("advanceTurn (enemy phase)", () => {
     const base = damageBetween(enemy.atk, PLAYER.def);
     // 받피감 50% → floor(base×0.5) 피해
     const tanky: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       passiveDamageTakenReductionPct: 50,
     };
@@ -569,6 +571,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
   // 한 턴 건너뛰던 문제 (Codex Q2). phase-entry flag 로 교체 후 정상 동작 확인.
   it("포션-only 턴 후 다음 player phase 에서도 정상 cast (dedupe phase-entry 기반)", () => {
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       maxMp: 10000,
       attackCount: 1,
@@ -609,6 +612,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     // atk 50, def 5 의 적 → strike (coef 1.0) → 50 - 5 = 45 데미지/cast
     // 적 hp 200 → 적어도 1회 cast 후 HP 차감 확인.
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 50,
       maxMp: 1000,
@@ -643,6 +647,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     // recover: pctMaxHp=10, maxHp=200 → 20 heal.
     // 시작 HP=50 (낮춤) → cast 후 HP 70 이상.
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 50,
       maxHp: 200,
@@ -670,6 +675,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   it("selfBuff effect — dash 발동 시 [강화] 로그 + v2SelfBuffs 갱신", () => {
     // dash: selfBuff spd +10% 3턴
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       maxMp: 1000,
       hp: 200,
@@ -700,6 +706,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   it("PR-8 — dot effect 스킬 발동 후 적 hp 가 후속 turn tick 으로 추가 감소", () => {
     // mob_rending_claw(살점 뜯기): dot (출혈 3턴). 스킬 kind:"dot" 효과 경로 검증 픽스처.
     const dexPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 50,
       maxMp: 1000,
@@ -743,6 +750,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   it("damage 누계 + 첫 cast 가 lethal — outcome win 처리", () => {
     // 적 HP 30, strike 데미지 (atk 50 - def 5 = 45) > 30 → 1발에 처치.
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 50,
       maxMp: 1000,
@@ -861,6 +869,7 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
 describe("강공격 (powerAttackBonus)", () => {
   // 적 def 0, 플레이어 atk 1 → 일반 공격 1 데미지 / 강공격 (atk+2) = 3 데미지.
   const minimal: PlayerCombat = {
+  accuracyPct: 100,
     ...PLAYER,
     atk: 1,
     spd: 100, // 항상 선공
@@ -955,6 +964,7 @@ describe("회피 강화 (guaranteedEvades)", () => {
 describe("연타 (extraAttackEveryNTurns)", () => {
   it("매 5턴마다 마지막 공격 후 추가 1회 공격", () => {
     const dbl: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       attackCount: 1,
       extraAttackEveryNTurns: 2,
@@ -1010,6 +1020,7 @@ describe("가드 (guard)", () => {
   it("적 선공일 때 첫 N번의 적 페이즈 동안 받는 데미지 -reduction, 이후엔 정상", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 회피 미발동
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       guard: { turns: 2, reduction: 1 },
     };
@@ -1033,6 +1044,7 @@ describe("가드 (guard)", () => {
     // 회귀 — 과거엔 completedPlayerTurns 기준이라 플레이어 선공이면 N-1번만 발동.
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 회피 미발동
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       guard: { turns: 3, reduction: 1 },
     };
@@ -1057,6 +1069,7 @@ describe("처형 (executionDamageMult)", () => {
     // enemy hp 100, fraction 0.3 → HP 30 미만일 때만 처형. 첫 공격은 100/100 → 비활성.
     const enemy = makeEnemy({ hp: 100, def: 0 });
     const exec: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       executionDamageMult: 1.5,
@@ -1070,6 +1083,7 @@ describe("처형 (executionDamageMult)", () => {
     // enemy hp 100, 시작 hp 25 (= 25%), fraction 0.3
     const enemy = makeEnemy({ hp: 100, def: 0 });
     const exec: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       executionDamageMult: 1.5,
@@ -1090,6 +1104,8 @@ describe("정확 (precisionEvasionMult)", () => {
       ...PLAYER,
       atk: 10,
       precisionEvasionMult: 0.5,
+      // 기본 명중 90% 상쇄 — 명중=기본빗나감(10)이면 적 회피(정확 적용분)만 미스로 남아 원래 임계 복원.
+      accuracyPct: 10,
     };
     // 첫 공격에 0.05 굴림 (5%) → 정확 적용된 10% 임계 안 → 회피 발동.
     vi.spyOn(Math, "random").mockReturnValue(0.05);
@@ -1105,6 +1121,8 @@ describe("정확 (precisionEvasionMult)", () => {
       ...PLAYER,
       atk: 10,
       precisionEvasionMult: 0.5,
+      // 기본 명중 90% 상쇄 — 명중=기본빗나감(10)이면 적 회피(정확 적용분)만 미스로 남아 원래 임계 복원.
+      accuracyPct: 10,
     };
     // 정확 적용 후 임계 10% — 0.12 = 12% 는 임계 위 → 회피 실패 → 명중.
     vi.spyOn(Math, "random").mockReturnValue(0.12);
@@ -1118,6 +1136,7 @@ describe("불굴 (enduranceActive)", () => {
   it("HP 0 데미지 받으면 HP 1 로 버틴다", () => {
     const enemy = makeEnemy({ atk: 100, def: 0 }); // 강한 적
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 30,
       maxHp: 30,
@@ -1136,6 +1155,7 @@ describe("불굴 (enduranceActive)", () => {
   it("두 번째 치명 피해에서는 사망 — 전투당 1회만 발동", () => {
     const enemy = makeEnemy({ hp: 1000, atk: 100, def: 0 });
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 30,
       maxHp: 30,
@@ -1158,6 +1178,7 @@ describe("광속 (lightspeedExtraAttackPct)", () => {
   it("마지막 공격 후 확률 굴림 통과 시 추가 1회 공격", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 0 });
     const swift: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       lightspeedExtraAttackPct: 50, // 50% 확률 — 굴림 0.4 면 통과
@@ -1174,6 +1195,7 @@ describe("광속 (lightspeedExtraAttackPct)", () => {
   it("같은 턴에 두 번 발동 X — 한 번 사용 후 게이트 차단", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 0 });
     const swift: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       lightspeedExtraAttackPct: 100, // 항상 발동
@@ -1194,6 +1216,7 @@ describe("만개 (critMult / critChance) 누적", () => {
     // 만개 슬롯 시 호출 측이 critMult 에 base + bloom 보너스 합산해서 넘긴다.
     // 여기서는 엔진이 그 값을 그대로 사용함을 확인.
     const lucky: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       critChancePct: 75,
@@ -1408,6 +1431,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       },
     });
     const dodgy: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 500,
       maxHp: 500,
@@ -1503,6 +1527,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
 
   it("중독(체력% DoT)은 적 최대HP 비례 + ATK cap", () => {
     const venomer: PlayerCombat = {
+  accuracyPct: 100,
       ...tank,
       hp: 10000,
       maxHp: 10000,
@@ -1523,6 +1548,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
 
   it("출혈 스택은 BLEED_MAX_STACKS 로 캡된다", () => {
     const bleeder: PlayerCombat = {
+  accuracyPct: 100,
       ...tank,
       hp: 10000,
       maxHp: 10000,

@@ -5,6 +5,7 @@ import type { Monster } from "../data/monsters";
 // 기본 PLAYER: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠르므로 항상 선공.
 // 적 회피 0 / 플레이어 추가공격 확률 0 → 아래 테스트들은 전부 결정적 (천명은 확률 100% 로 강제).
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 50,
   maxHp: 50,
   atk: 10,

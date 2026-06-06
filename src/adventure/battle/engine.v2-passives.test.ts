@@ -11,6 +11,7 @@ import type { Monster } from "../data/monsters";
 //   마법사 — 평타 마공화, 궁수 — 평타 방어관통, 무도가 — 피격 반격.
 
 const BASE: PlayerCombat = {
+  accuracyPct: 100,
   hp: 1000,
   maxHp: 1000,
   atk: 50,
@@ -86,6 +87,7 @@ describe("무도가 — 피격 시 반격 (passiveCounterChancePct)", () => {
   it("확률 100% + 치명 반격으로 적 처치 → 승리 + [반격] 로그", () => {
     vi.spyOn(Math, "random").mockReturnValue(0); // 반격 항상 발동 (0 < 100)
     const player: PlayerCombat = {
+  accuracyPct: 100,
       ...BASE,
       atk: 30,
       spd: 1, // 적 선공 — 피격을 받게

@@ -27,6 +27,12 @@ import type { PlayerCombat } from "./engine";
 
 export const AP_SKILLS_PER_TURN_CAP = 3;
 
+// 기본 명중 — 평타는 기본 90% 적중(= 10% 빗나감). 명중(accuracyPct)이 빗나감을 줄이고(상한 100%
+//   적중 = 빗나감 0 도달 가능), 적 회피가 늘린다. 하한(빗나감 상한) 없음 — 고회피(PvP)는 그대로
+//   유효(강제 회피 보존). 스킬 패치로 캐릭터 강해진 만큼 모드한 파워 다운 + 죽어있던 명중/DEX 축
+//   부활(2026-06-06).
+export const V2_BASE_MISS_PCT = 10;
+
 // 시한부 버프/디버프 턴 카운터 — 매 플레이어 턴 진입 시 8개 TurnsLeft 필드 일괄 -1(0 하한).
 // PvE BattleBuffs / PvP PvPSideBuffs 공용(두 타입의 해당 필드 동형) — 단일 소스.
 type TimedBuffTurns = {

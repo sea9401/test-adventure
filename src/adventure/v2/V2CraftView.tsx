@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/BackButton";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   CONCEPT_LABELS,
   V2_EQUIPMENT,
@@ -344,15 +345,18 @@ function ItemHead({
 }) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-      <button
-        type="button"
-        onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
-        className="min-w-0 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
-      >
-        <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-          {item.name}
-        </span>
-      </button>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+          className="flex min-w-0 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
+        >
+          <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {item.name}
+          </span>
+        </button>
+        <ItemTypeChip item={item} />
+      </div>
       <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
         T{item.tier} · {CONCEPT_LABELS[item.concept]}
       </span>

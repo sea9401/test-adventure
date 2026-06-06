@@ -3,6 +3,7 @@
 import { useEffect, type CSSProperties } from "react";
 import { X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIP_SETS,
   v2EquipStatRows,
@@ -107,10 +108,11 @@ export function V2ItemCard({
         className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-baseline gap-1.5">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {item.name}
             </h2>
+            <ItemTypeChip item={item} />
           </div>
           <button
             type="button"

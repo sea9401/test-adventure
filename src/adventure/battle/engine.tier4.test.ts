@@ -29,8 +29,8 @@ describe("4티어 — 출혈", () => {
     s = advanceTurn(s, p, "용사"); // 플레이어 턴: 7 피해 → 93, 출혈 1스택
     expect(s.enemyHp).toBe(93);
     expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(1);
-    s = advanceTurn(s, p, "용사"); // 적 턴: 출혈 1×(3 + ATK×0.08) → 89.2, 그 뒤 적 공격 3 → 플레이어 47
-    expect(s.enemyHp).toBe(89.2);
+    s = advanceTurn(s, p, "용사"); // 적 턴: 출혈 1×floor(3 + ATK×0.08=3.8)=3 → 90, 그 뒤 적 공격 3 → 플레이어 47
+    expect(s.enemyHp).toBe(90);
     expect(s.playerHp).toBe(47);
     expect(s.stacks.damageTakenThisCombat).toBe(3);
   });

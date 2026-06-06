@@ -70,19 +70,31 @@ describe("직업군별 속성 스킬 (6 직업군 × 7 속성 = 42)", () => {
     for (const n of elem) expect(base.has(n), n).toBe(false); // 기존과 충돌 없음
   });
 
-  it("elementalSkillsForClass — 스킬 재설계 후 공용+계파 풀 반환(구 원소 은퇴), none 은 빈", () => {
-    // 구 원소 풀은 학습 목록서 은퇴 → 함수가 더 이상 V2_ELEMENTAL_SKILLS_BY_CLASS 를 반환하지 않음.
-    // 새 풀 = 공용(직군) + 계파(직군 9). 전사/무도가=5공용, 마법사/도적=4공용(마력구/예기 패시브 제외).
-    const warrior = elementalSkillsForClass("warrior");
-    expect(warrior).toContain("v2c_warrior_strike"); // 공용
-    expect(warrior).toContain("v2s_gwang_greatcleave"); // 계파
-    expect(warrior).toHaveLength(5 + 9);
-    expect(elementalSkillsForClass("mage")).toHaveLength(4 + 9); // 마력구 패시브 제외
+  it("elementalSkillsForClass — 공용은 항상, 계파 스킬은 선택 계파(전직)일 때만 노출", () => {
+    // 구 원소 풀은 은퇴. 풀 = 공용(직군) + 선택 계파 3종. 계파 미선택이면 공용만(계파 숨김).
+    // 전사/무도가=5공용, 마법사/도적=4공용(마력구/예기 패시브 제외).
+    const warriorNoSpec = elementalSkillsForClass("warrior");
+    expect(warriorNoSpec).toContain("v2c_warrior_strike"); // 공용
+    expect(warriorNoSpec).not.toContain("v2s_gwang_greatcleave"); // 계파 미선택 → 숨김
+    expect(warriorNoSpec).toHaveLength(5);
+    expect(elementalSkillsForClass("mage")).toHaveLength(4); // 마력구 패시브 제외
+
+    // 계파 선택 → 공용 + 그 계파 3종만(같은 직군의 다른 계파는 숨김).
+    const gwang = elementalSkillsForClass("warrior", "gwang");
+    expect(gwang).toContain("v2c_warrior_strike"); // 공용 유지
+    expect(gwang).toContain("v2s_gwang_greatcleave"); // 선택 계파
+    expect(gwang).not.toContain("v2s_knight_shieldbash"); // 다른 계파 숨김
+    expect(gwang).toHaveLength(5 + 3);
+
+    // 직군 불일치 stale 계파(도적 계파 archery 를 전사에) → 교집합으로 탈락, 공용만.
+    expect(elementalSkillsForClass("warrior", "archery")).toHaveLength(5);
+
     // 구 원소 스킬은 더 이상 포함 안 됨.
     for (const id of V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman) {
-      expect(warrior).not.toContain(id);
+      expect(warriorNoSpec).not.toContain(id);
     }
     expect(elementalSkillsForClass("none")).toEqual([]);
+    expect(elementalSkillsForClass("none", "gwang")).toEqual([]);
   });
 
   it("학습 비용은 양수", () => {

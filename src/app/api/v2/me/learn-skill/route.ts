@@ -46,19 +46,19 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
-    const charSave = await lockSaveForUpdate<{ class?: unknown }>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
+    const charSave = await lockSaveForUpdate<{
+      class?: unknown;
+      specChoice?: unknown;
+    }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
     if (cls === "none") {
       return { status: 400, body: { ok: false as const, error: "no_class" as const } };
     }
 
-    // P4 — 시그니처 은퇴(계파 패시브로 대체). 학습 가능 = 직업군 속성 스킬 풀(7종)만.
-    const elementalPool = elementalSkillsForClass(cls);
+    // 학습 가능 = 공용(직군) + 선택한 계파(전직)의 스킬만. 계파 미선택이면 공용만.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const elementalPool = elementalSkillsForClass(cls, specChoice);
     const isElemental = elementalPool.includes(skillId as V2SkillId);
     if (!isElemental) {
       return {

@@ -15,7 +15,10 @@ import {
   type V2ElementalGroupClass,
 } from "@/adventure/data/v2/v2Skills";
 import { V2_COMMON_SKILLS_BY_JOB } from "@/adventure/data/v2/v2SkillsCommonCatalog";
-import { V2_SPEC_SKILLS_BY_JOB } from "@/adventure/data/v2/v2SkillsSpecCatalog";
+import {
+  V2_SPEC_SKILLS_BY_JOB,
+  V2_SPEC_SKILLS_BY_SPEC,
+} from "@/adventure/data/v2/v2SkillsSpecCatalog";
 
 export const V2_CLASSES = [
   "none",
@@ -183,12 +186,23 @@ const ELEMENTAL_GROUP_BY_JOB: Record<
   rogue: "archer",
 };
 
-// 학습/장착 가능 스킬 풀 — 스킬 재설계 후 **공용(직군 5) + 계파(직군 9)** 반환.
+// 학습/장착 가능 스킬 풀 — 공용(직군) + **선택한 계파(전직)의 스킬만**.
 // 구 원소 풀(V2_ELEMENTAL_SKILLS_BY_CLASS)은 은퇴(학습 목록서 제외, 카탈로그·기존 save 는 보존).
-// 이름은 호출부(라우트 5곳) 호환 위해 유지. 계파 스킬은 PR1-3 느슨 게이팅(직군 단위).
-export function elementalSkillsForClass(c: V2Class): V2SkillId[] {
+// 이름은 호출부(라우트 5곳) 호환 위해 유지.
+// 계파 게이팅(엄격): specId 가 현 직군의 계파일 때만 그 계파 3종을 노출 — 미선택/타직군
+// stale specChoice 는 직군 계파 집합(V2_SPEC_SKILLS_BY_JOB)과 교집합으로 걸러진다(방어).
+// 계파 미선택(전직 전)이면 공용만. 호출부는 raw specChoice 문자열을 그대로 넘기면 된다.
+export function elementalSkillsForClass(
+  c: V2Class,
+  specId?: string | null,
+): V2SkillId[] {
   if (c === "none") return [];
   const common = (V2_COMMON_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
-  const spec = (V2_SPEC_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
+  const jobSpecSkills = (V2_SPEC_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
+  const chosen = specId
+    ? ((V2_SPEC_SKILLS_BY_SPEC[specId] ?? []) as readonly V2SkillId[])
+    : [];
+  // 교집합 — 선택 계파가 현 직군 소속일 때만 통과(stale/타직군 specChoice 차단).
+  const spec = chosen.filter((id) => jobSpecSkills.includes(id));
   return [...common, ...spec];
 }

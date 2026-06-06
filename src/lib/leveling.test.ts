@@ -3,6 +3,7 @@ import {
   applyExpGain,
   applyNewbieBonus,
   applyNewbieExpBonusByBattles,
+  EARLY_LEVEL_EXP_FACTOR,
   getLevelTable,
   isNewbieBonusActiveByBattles,
   levelBandExpMultiplier,
@@ -12,8 +13,8 @@ import {
 } from "./leveling";
 
 describe("requiredExpToNext", () => {
-  it("Lv1→2는 120", () => {
-    expect(requiredExpToNext(1)).toBe(120);
+  it("Lv1→2는 30 (1차 가속 ×0.25, 옛 120)", () => {
+    expect(requiredExpToNext(1)).toBe(Math.floor(120 * EARLY_LEVEL_EXP_FACTOR));
   });
 
   it("레벨이 오르면 단조 증가", () => {
@@ -41,15 +42,16 @@ describe("requiredExpToNext", () => {
     expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.55 * 0.85));
   });
 
-  it("35~49 reduction 램프 — 35 ×1.00 / 50 ×0.85 / 사이 선형", () => {
+  it("35~49 reduction 램프 — 35 ×1.00 / 50 ×0.85 / 사이 선형 (전 구간 1차 ×0.25 가속)", () => {
     const base = (lv: number) => (120 / 35) * Math.pow(lv, 2.5);
+    const E = EARLY_LEVEL_EXP_FACTOR; // L1~50 가속(0.25)
     // 35 경계는 reduction 1.0 — 35^1.5 기준 lower 곡선과 자연 연속.
-    expect(requiredExpToNext(35)).toBe(Math.floor(base(35) * 1.0));
+    expect(requiredExpToNext(35)).toBe(Math.floor(base(35) * 1.0 * E));
     // 50 부터 floor 0.85 도달.
-    expect(requiredExpToNext(50)).toBe(Math.floor(base(50) * 0.85));
+    expect(requiredExpToNext(50)).toBe(Math.floor(base(50) * 0.85 * E));
     // 중간 — 1.00 → 0.85 선형. lv42 (절반) 시 ~0.925.
     const mult42 = 1 - 0.15 * ((42 - 35) / 15);
-    expect(requiredExpToNext(42)).toBe(Math.floor(base(42) * mult42));
+    expect(requiredExpToNext(42)).toBe(Math.floor(base(42) * mult42 * E));
   });
 });
 
@@ -150,30 +152,31 @@ describe("90-99 곡선 완화 (막판 벽)", () => {
     }
   });
 
-  it("전체 1→100 누적 요구치 회귀 고정 (개편 후 ~ -7.1%)", () => {
+  it("전체 1→100 누적 요구치 회귀 고정 (1차 L1~50 ×0.25 가속 반영)", () => {
     let sum = 0;
     for (let lv = 1; lv < MAX_LEVEL; lv += 1) sum += requiredExpToNext(lv)!;
-    expect(sum).toBe(11_031_503);
+    expect(sum).toBe(10_242_616);
   });
 });
 
 describe("applyExpGain", () => {
   it("임계치 미달이면 EXP만 누적", () => {
-    const r = applyExpGain(1, 30, 50);
-    expect(r).toEqual({ level: 1, exp: 80, levelsGained: 0, overflowExp: 0 });
+    // req(1)=30 (1차 ×0.25 가속) — 25 는 미달.
+    const r = applyExpGain(1, 10, 15);
+    expect(r).toEqual({ level: 1, exp: 25, levelsGained: 0, overflowExp: 0 });
   });
 
   it("임계치 정확히 도달하면 1 레벨업, 잉여 0", () => {
-    const r = applyExpGain(1, 0, 120);
+    const r = applyExpGain(1, 0, 30); // req(1)=30
     expect(r).toEqual({ level: 2, exp: 0, levelsGained: 1, overflowExp: 0 });
   });
 
   it("한 번에 여러 레벨도 처리", () => {
-    // Lv1 need = 120, Lv2 need = floor(120 * 2^1.5) = 339 → 합산 459
+    // 1차 ×0.25 가속: req(1)=30, req(2)=84, req(3)=155, req(4)=240 → 500 으로 3레벨업.
     const r = applyExpGain(1, 0, 500);
-    expect(r.level).toBe(3);
-    expect(r.levelsGained).toBe(2);
-    expect(r.exp).toBe(500 - 120 - 339);
+    expect(r.level).toBe(4);
+    expect(r.levelsGained).toBe(3);
+    expect(r.exp).toBe(500 - 30 - 84 - 155);
     expect(r.overflowExp).toBe(0);
   });
 

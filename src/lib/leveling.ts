@@ -1,6 +1,8 @@
 // 캐릭터 레벨링 시스템.
 // - 만렙 100.
-// - Lv 1~34: floor(120 * level^1.5).  Lv1→2 = 120.
+// - 1차 가속(2026-06-07): L1~50 요구치 ×EARLY_LEVEL_EXP_FACTOR(0.25), 50→55 선형 복귀.
+//   들판=1차(레벨 1~50) 디자인 — 1차 50까지 ≈ 1,750 사냥(스태미나). 아래 base 곡선 위에 곱해진다.
+// - Lv 1~34: floor(120 * level^1.5).  Lv1→2 = 120 (×0.25 가속 후 30).
 // - Lv 35~49: floor(120 * level^2.5 / 35) × (1.00→0.85 선형 램프).  35 경계 연속.
 // - Lv 50~59: 위 곡선 × 0.85.
 // - Lv 60~69: 위 곡선 × 0.85 × (1.00→1.30) 선형 램프. 엔드게임 진입.
@@ -134,14 +136,34 @@ export function levelBandExpMultiplier(level: number): number {
   return 1.55; // L90-100
 }
 
+// 1차 구간(L1~50) 페이싱 압축 — 들판=1차(레벨 1~50) 디자인에 맞춰 "1차 50까지 ≈ 1,500~2,000
+// 스태미나(사냥)" 목표. 요구치를 ×EARLY_LEVEL_EXP_FACTOR(현 0.25 = ~4배 가속; sim 기준 1차 ~7,000
+// → ~1,750 사냥). L50 까지 풀 적용, 50→55 에서 1.0 으로 선형 복귀(2차+ 가 1~50 통과 후 절벽 없이
+// 원곡선 복귀; 2~4차 페이스는 후속 sim 캘리브 대상). EARLY_LEVEL_EXP_FACTOR 가 1차 속도 다이얼.
+export const EARLY_LEVEL_EXP_FACTOR = 0.25;
+const EARLY_RAMP_START = 50;
+const EARLY_RAMP_END = 55;
+function earlyLevelExpFactor(level: number): number {
+  if (level <= EARLY_RAMP_START) return EARLY_LEVEL_EXP_FACTOR;
+  if (level >= EARLY_RAMP_END) return 1;
+  const span = EARLY_RAMP_END - EARLY_RAMP_START; // 5
+  return (
+    EARLY_LEVEL_EXP_FACTOR +
+    (1 - EARLY_LEVEL_EXP_FACTOR) * ((level - EARLY_RAMP_START) / span)
+  );
+}
+
 export function requiredExpToNext(level: number): number | null {
   if (level >= MAX_LEVEL) return null;
   if (level < 1) return null;
+  const early = earlyLevelExpFactor(level);
   if (level < STEEP_LEVEL) {
-    return Math.floor(120 * Math.pow(level, 1.5));
+    return Math.floor(120 * Math.pow(level, 1.5) * early);
   }
   const base = STEEP_COEFF * Math.pow(level, 2.5);
-  return Math.floor(base * endgameMultiplier(level) * reductionMultiplier(level));
+  return Math.floor(
+    base * endgameMultiplier(level) * reductionMultiplier(level) * early,
+  );
 }
 
 // EXP 누적 적용 + 자동 레벨업 처리.

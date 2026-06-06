@@ -3233,6 +3233,48 @@ export function resolveBattle(
             turn: "player",
           });
         }
+        // PR2-B temp 버프 적용 로그 — PvP(engine-pvp) 와 동일하게 시전 시점에 표기(보호막·운기·
+        //   연환집중·선풍각·속박). 미보유 스킬은 전부 undefined/빈 배열 → 무로그(골든 불변).
+        const shieldGainForLog = result.shieldToApply
+          ? result.shieldToApply.hp + result.shieldToApply.mp
+          : 0;
+        if (shieldGainForLog > 0) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "보호막"}] 보호막 +${shieldGainForLog}`,
+            turn: "player",
+          });
+        }
+        if (result.selfRegenToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "운기"}] 매 턴 HP +${result.selfRegenToApply.pctMaxHpPerTurn}% (${result.selfRegenToApply.turns}턴)`,
+            turn: "player",
+          });
+        }
+        const critBuffForLog = result.selfBuffPctToApply.find((b) => b.target === "crit");
+        if (critBuffForLog) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "집중"}] 치명 +${critBuffForLog.pct}%p (${critBuffForLog.turns}턴)`,
+            turn: "player",
+          });
+        }
+        const evaBuffForLog = result.selfBuffPctToApply.find((b) => b.target === "evasion");
+        if (evaBuffForLog) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "회피"}] 회피 +${evaBuffForLog.pct}%p (${evaBuffForLog.turns}턴)`,
+            turn: "player",
+          });
+        }
+        if (result.enemyVulnToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}턴)`,
+            turn: "player",
+          });
+        }
         state = {
           ...state,
           playerHp: nextPlayerHp,

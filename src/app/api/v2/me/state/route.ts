@@ -394,7 +394,6 @@ export async function GET() {
         return {
           skillId,
           name: def.name,
-          element: def.element ?? null,
           cost: V2_ELEMENTAL_LEARN_COST,
           learned: learnedSet.has(skillId),
           equipped: equippedSet.has(skillId),

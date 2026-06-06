@@ -9,7 +9,6 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
-import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 
 // v2 학습 — 사용 가능 숙련도로 직업 패시브 + 현 직업 체인의 시그니처 스킬을 습득한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
@@ -26,7 +25,6 @@ type SignatureRow = {
 type ElementalRow = {
   skillId: string;
   name: string;
-  element: string | null;
   cost: number;
   learned: boolean;
   equipped: boolean;
@@ -39,12 +37,6 @@ type StateShape = {
   skillSlots?: number;
   proficiency?: { current?: { points: number } };
 };
-
-function elementLabel(el: string | null): string {
-  return el && el in V2_ELEMENT_LABEL
-    ? V2_ELEMENT_LABEL[el as V2Element]
-    : "무속성";
-}
 
 function skillName(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.name ?? id;
@@ -276,10 +268,10 @@ export function V2SkillLearnView({
 
       {!loading && elementalSkills.length > 0 && (
         <Card padding="md">
-          <h2 className="text-sm font-semibold">속성 스킬 · 직업군</h2>
+          <h2 className="text-sm font-semibold">직업군 · 계파 스킬</h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            직업군의 7속성 공격 스킬. 적 속성에 맞춰 골라 익히면 상성으로 피해가 늘어난다.
-            슬롯에 장착한 스킬만 전투에서 발동한다(레벨 비례 슬롯).
+            직업군 공용 스킬과 선택한 계파의 스킬을 익힌다. 슬롯에 장착한 스킬만 전투에서
+            자동으로 발동한다(레벨 비례 슬롯).
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {
@@ -293,9 +285,6 @@ export function V2SkillLearnView({
                     <div className="flex items-baseline gap-2">
                       <span className="truncate text-sm font-semibold">
                         {s.name}
-                      </span>
-                      <span className="shrink-0 rounded bg-zinc-200 px-1.5 text-[10px] text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                        {elementLabel(s.element)}
                       </span>
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">

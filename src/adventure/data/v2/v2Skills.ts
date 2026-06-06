@@ -20,33 +20,6 @@ import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
-// === 직업군별 × 속성별 스킬 (6 1차 직업군 × 7 속성 = 42) ===============
-// 각 1차 직업군이 7속성 공격 스킬을 갖는다 — 적 상성/빌드에 맞춰 골라 쓰는 속성 유연성
-// 옵션. 시그니처(무료·강함)와 별개로 숙련도로 학습(learn-skill 라우트가 시그니처 체인 ∪
-// 이 속성 풀을 허용; group = tier1 직업). id = v2_skill_elem_<1차직업>_<속성>.
-// 그룹 키 = 1차 직업 id 그대로(검술=swordsman …). 속성은 무속성 제외 7종.
-const V2_ELEMENTAL_GROUP_CLASSES = [
-  "swordsman",
-  "archer",
-  "martial",
-  "mage",
-  "priest",
-  "ninja",
-] as const;
-export type V2ElementalGroupClass =
-  (typeof V2_ELEMENTAL_GROUP_CLASSES)[number];
-const V2_ELEMENTAL_SKILL_ELEMENTS = [
-  "water",
-  "fire",
-  "wind",
-  "starlight",
-  "void",
-  "earth",
-  "lightning",
-] as const satisfies readonly V2Element[];
-export type V2ElementalSkillId =
-  `v2_skill_elem_${V2ElementalGroupClass}_${(typeof V2_ELEMENTAL_SKILL_ELEMENTS)[number]}`;
-
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 캐릭 성장 비례: 직군 누적 레벨(cumLevel)에
 // 따라 상승해 후반에 배우는 스킬(특히 차수 해금 계파 스킬)일수록 비싸진다. base 는 신참(cumLevel 0)
 // 가격, perCumLevel 이 램프 기울기. fresh(0)=200 · 중반(75)≈313 · 천장(200)≈500.
@@ -69,37 +42,11 @@ export type V2SkillId =
   | "v2_skill_dash" // SPD 질주
   | "v2_skill_fortune" // LUK 행운
   | "v2_skill_meditate" // INT 명상
-  // ── Tier 1 학습형 — INT 기본 마법 공격 (교관 구매) ──────────────────
-  // INT 는 물리 atk 가 안 붙어 평타가 무의미하므로, STR/DEX 의 평타 역할을 대신할
-  // 기본 마법 공격이 필요. 스타터(자동지급)로 두면 비-INT 빌드가 1뎀 마법을 잘못
-  // 시전하므로 학습형 + int 요구치로 게이트.
-  | "int_magic_bolt_t1" // INT 마법 탄 (기본 마법 공격)
-  // ── 프로토타입 — 발동확률(procChance) 시스템 토대(임시, 수치/획득 후속 조정) ──
-  | "v2_skill_fireball" // INT 화염구 (발동확률 40%)
-  // ── Tier 2 (교관 학습, PR-3 도입) ─────────────────────────────────
-  | "str_cleave_t2" // STR 횡베기
-  | "str_crushing_blow_t2" // STR 분쇄 강타
-  | "str_intimidating_roar_t2" // STR 위압의 함성
   // ── 몬스터 전용 상태이상 (PR-9) — 플레이어 미학습, 몹 v2Skills 로만 ──────
   | "mob_venom_bite" // 독니 — 중독(DoT)
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
-  | "dex_true_thrust_t2" // DEX 정밀 관통
-  | "dex_mirage_step_t2" // DEX 잔영 보법
-  | "vit_greater_recover_t2" // VIT 강화 회복
-  | "vit_guard_shell_t2" // VIT 철벽 호흡
-  | "vit_provoking_shout_t2" // VIT 도발의 외침
-  | "spd_first_wind_t2" // SPD 선풍
-  | "spd_afterimage_counter_t2" // SPD 역풍 자세
-  | "spd_gale_cut_t2" // SPD 질풍 베기
-  | "luk_critical_omen_t2" // LUK 치명 예감
-  | "luk_curse_mark_t2" // LUK 불길한 표식
-  | "luk_death_lottery_t2" // LUK 사신의 제비
-  | "int_mana_burst_t2" // INT 마력 폭발
-  | "int_mind_fog_t2" // INT 정신 안개
-  // ── 직업군별 × 속성별 (6 1차 직업군 × 7 속성 = 42, 숙련도 학습 풀) ─────
-  | V2ElementalSkillId
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
   | V2CommonSkillId
   // ── 스킬 재설계 — 계파 액티브 36종 (12계파 × 3, 차수 해금/성장) ──────────
@@ -230,84 +177,9 @@ export type V2SkillDefinition = {
 // === 카탈로그 — 스타터 6종 (Tier 1) ──────────────────────────────────
 // 수치는 의도적으로 낮게 (사용자 spec "성장형 느낌"). 후속 PR 에서 강화 요소 도입.
 
-// 손으로 정의한 스킬들 (스타터·t2·시그니처·몹). 속성 풀 42종은 아래에서 생성해 합친다.
-// Partial 로 둬 완전성은 최종 V2_SKILLS(= base ∪ elemental)에서만 강제한다.
-
-// === 속성 풀 생성 — 6 1차 직업군 × 7 속성 = 42 ========================
-// 직업군마다 통일된 coef/스탯/스케일, 차별점은 element(상성) + 이름. 공격 스킬.
-// 가격(숙련도)·게이트는 learn-skill 라우트(group=tier1직업, V2_SKILL_LEARN_COST_BASE).
-type ElemGroupConfig = {
-  stat: StatKey;
-  scaling: "physical" | "magic";
-  coef: number;
-  baseFlat: number;
-  mpCost: number;
-  /** 이름 접미(원소 라벨 뒤에 붙임). 예: "검" → "불검". */
-  noun: string;
-  /** 직업군 표기명(설명문용). */
-  groupName: string;
-};
-const V2_ELEMENTAL_GROUP_CFG: Record<V2ElementalGroupClass, ElemGroupConfig> = {
-  swordsman: { stat: "str", scaling: "physical", coef: 1.55, baseFlat: 8, mpCost: 12, noun: "검", groupName: "검사" },
-  archer: { stat: "dex", scaling: "physical", coef: 1.5, baseFlat: 8, mpCost: 12, noun: "화살", groupName: "궁수" },
-  martial: { stat: "vit", scaling: "physical", coef: 1.5, baseFlat: 8, mpCost: 12, noun: "권", groupName: "무도가" },
-  mage: { stat: "int", scaling: "magic", coef: 1.6, baseFlat: 10, mpCost: 12, noun: "마탄", groupName: "마법사" },
-  priest: { stat: "int", scaling: "magic", coef: 1.5, baseFlat: 10, mpCost: 12, noun: "심판", groupName: "사제" },
-  ninja: { stat: "luk", scaling: "physical", coef: 1.55, baseFlat: 8, mpCost: 12, noun: "암격", groupName: "인술가" },
-};
-
-const elementalSkillId = (
-  cls: V2ElementalGroupClass,
-  el: V2Element,
-): V2ElementalSkillId => `v2_skill_elem_${cls}_${el}` as V2ElementalSkillId;
-
-// 직업군별 속성 스킬 id 목록(7종) — learn/equip/노출에서 "이 직업군의 풀" 기준.
-export const V2_ELEMENTAL_SKILLS_BY_CLASS: Record<
-  V2ElementalGroupClass,
-  V2ElementalSkillId[]
-> = (() => {
-  const out = {} as Record<V2ElementalGroupClass, V2ElementalSkillId[]>;
-  for (const cls of V2_ELEMENTAL_GROUP_CLASSES) {
-    out[cls] = V2_ELEMENTAL_SKILL_ELEMENTS.map((el) => elementalSkillId(cls, el));
-  }
-  return out;
-})();
-
-const V2_ELEMENTAL_SKILLS: Record<V2ElementalSkillId, V2SkillDefinition> =
-  (() => {
-    const out = {} as Record<V2ElementalSkillId, V2SkillDefinition>;
-    for (const cls of V2_ELEMENTAL_GROUP_CLASSES) {
-      const cfg = V2_ELEMENTAL_GROUP_CFG[cls];
-      for (const el of V2_ELEMENTAL_SKILL_ELEMENTS) {
-        const id = elementalSkillId(cls, el);
-        const label = V2_ELEMENT_LABEL[el];
-        out[id] = {
-          id,
-          name: `${label}${cfg.noun}`,
-          stat: cfg.stat,
-          category: "attack",
-          tier: 2,
-          description: `${cfg.groupName} 직업군 ${label} 속성 공격. 상성에 따라 피해가 늘거나 준다.`,
-          mpCost: cfg.mpCost,
-          cooldown: 0,
-          element: el,
-          effects: [
-            {
-              kind: "damage",
-              statCoef: cfg.coef,
-              baseFlat: cfg.baseFlat,
-              scaling: cfg.scaling,
-            },
-          ],
-        };
-      }
-    }
-    return out;
-  })();
 
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
-  ...V2_ELEMENTAL_SKILLS,
   ...V2_COMMON_SKILLS,
   ...V2_SPEC_SKILLS,
 };

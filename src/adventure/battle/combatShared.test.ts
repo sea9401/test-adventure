@@ -155,10 +155,10 @@ describe("pickAutoCastV2Skill (PR-4a)", () => {
   });
 
   it("MP 부족이면 skip → 다음 슬롯", () => {
-    // MP-throttle: str_cleave_t2(mpCost 14) 불가 + strike(8) 가능한 MP(10) → strike.
+    // MP-throttle: 화염구(mpCost 38) 불가 + strike(8) 가능한 MP(10) → strike.
     expect(
       pickAutoCastV2Skill({
-        equipped: ["str_cleave_t2", "v2_skill_strike"],
+        equipped: ["v2c_mage_fireball", "v2_skill_strike"],
         cooldowns: {},
         mp: 10,
       }),
@@ -299,29 +299,29 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
 });
 
 describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
-  const fireballMp = V2_SKILLS["v2_skill_fireball"].mpCost;
+  const fireballMp = V2_SKILLS["v2c_mage_fireball"].mpCost;
 
-  it("화염구 procChance=40 — 롤 < 40 이면 발동 (MP 차감 + 피해)", () => {
+  it("화염구 procChance=30 — 롤 < 30 이면 발동 (MP 차감 + 피해)", () => {
     const r = resolveV2SkillCast({
       skills: {
-        learned: ["v2_skill_fireball"],
-        equipped: ["v2_skill_fireball"],
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
-      procRoll: 30,
+      procRoll: 20,
       attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(r.castSkillId).toBe("v2_skill_fireball");
+    expect(r.castSkillId).toBe("v2c_mage_fireball");
     expect(r.nextMp).toBe(100 - fireballMp);
     expect(r.enemyDamage).toBeGreaterThan(0);
   });
 
-  it("화염구 procChance=40 — 롤 >= 40 이면 미발동 (평타 폴백, MP·발동 없음)", () => {
+  it("화염구 procChance=30 — 롤 >= 30 이면 미발동 (평타 폴백, MP·발동 없음)", () => {
     const r = resolveV2SkillCast({
       skills: {
-        learned: ["v2_skill_fireball"],
-        equipped: ["v2_skill_fireball"],
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
       procRoll: 50,
@@ -336,11 +336,11 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
   it("경계값 — 롤 === procChance 는 미발동 (>= 이면 실패)", () => {
     const r = resolveV2SkillCast({
       skills: {
-        learned: ["v2_skill_fireball"],
-        equipped: ["v2_skill_fireball"],
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
-      procRoll: 40,
+      procRoll: 30,
       attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
@@ -350,14 +350,14 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
   it("procRoll 미지정 — 항상 발동 (구 호출·테스트 호환)", () => {
     const r = resolveV2SkillCast({
       skills: {
-        learned: ["v2_skill_fireball"],
-        equipped: ["v2_skill_fireball"],
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
       },
       cooldowns: {},
       attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(r.castSkillId).toBe("v2_skill_fireball");
+    expect(r.castSkillId).toBe("v2c_mage_fireball");
   });
 
   it("procChance 미지정(=100) 스킬은 롤 무관 항상 발동 (기존 스킬 무영향)", () => {
@@ -371,12 +371,12 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
     expect(r.castSkillId).toBe("v2_skill_strike");
   });
 
-  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 40+30=70 → 롤 50 발동)", () => {
+  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 30+30=60 → 롤 50 발동)", () => {
     const fire = (bonus: number) =>
       resolveV2SkillCast({
         skills: {
-          learned: ["v2_skill_fireball"],
-          equipped: ["v2_skill_fireball"],
+          learned: ["v2c_mage_fireball"],
+          equipped: ["v2c_mage_fireball"],
         },
         cooldowns: {},
         procRoll: 50,
@@ -384,9 +384,9 @@ describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 �
         attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
         target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
       });
-    // 보너스 0: 40 → 50>=40 미발동. 보너스 30: 70 → 50<70 발동.
+    // 보너스 0: 30 → 50>=30 미발동. 보너스 30: 60 → 50<60 발동.
     expect(fire(0).castSkillId).toBeNull();
-    expect(fire(30).castSkillId).toBe("v2_skill_fireball");
+    expect(fire(30).castSkillId).toBe("v2c_mage_fireball");
   });
 });
 
@@ -501,12 +501,12 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(result.enemyDamage).toBe(90);
   });
 
-  it("복수 effect 한 스킬 — Tier 2 분쇄 강타 (damage + enemyDebuff vit)", () => {
-    // str_crushing_blow_t2: damage statCoef 1.65 + enemyDebuff vit pct 14 turns 3
+  it("복수 effect 한 스킬 — 파쇄 (damage + enemyDebuff vit)", () => {
+    // v2c_warrior_sunder(파쇄): damage statCoef 0.7 baseFlat 90 + enemyDebuff vit(무력) pct 15 turns 3
     const result = resolveV2SkillCast({
       skills: {
-        learned: ["v2_skill_strike", "str_crushing_blow_t2"],
-        equipped: ["str_crushing_blow_t2"],
+        learned: ["v2_skill_strike", "v2c_warrior_sunder"],
+        equipped: ["v2c_warrior_sunder"],
       },
       cooldowns: {},
       attacker: {
@@ -518,10 +518,10 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // floor(100 × 1.65) - 20 = 165 - 20 = 145
-    expect(result.enemyDamage).toBe(145);
+    // floor(100 × 0.7 + 90) - 20 = 160 - 20 = 140
+    expect(result.enemyDamage).toBe(140);
     expect(result.enemyDebuffsToApply).toEqual([
-      { stat: "vit", pct: 14, turns: 3 },
+      { stat: "vit", pct: 15, turns: 3 },
     ]);
   });
 });
@@ -753,11 +753,11 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBeLessThan(100);
   });
 
-  it("resolveV2SkillCast — 마법 탄(scaling magic)은 magicAtk 로 스케일", () => {
-    // 마법 탄: statCoef 0.45, baseFlat 10, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 0.45) + 10 - def 0 = 46.
+  it("resolveV2SkillCast — 화염구(scaling magic)은 magicAtk 로 스케일", () => {
+    // 화염구: statCoef 1.0, baseFlat 180, scaling magic. atk 는 약하지만(5) magicAtk 80.
+    // 기대 직격: floor(80 × 1.0 + 180) - def 0 = 260. (procChance 30 이나 procRoll 미지정 = 항상 발동)
     const result = resolveV2SkillCast({
-      skills: { learned: ["int_magic_bolt_t1"], equipped: ["int_magic_bolt_t1"] },
+      skills: { learned: ["v2c_mage_fireball"], equipped: ["v2c_mage_fireball"] },
       cooldowns: {},
       attacker: {
         mp: 999,
@@ -769,8 +769,8 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.castSkillName).toBe("마법 탄");
-    expect(result.enemyDamage).toBe(46);
+    expect(result.castSkillName).toBe("화염구");
+    expect(result.enemyDamage).toBe(260);
   });
 
   it("resolveV2SkillCast — dot 효과 스킬은 dotsToApplyToTarget 에 적재(출혈)", () => {

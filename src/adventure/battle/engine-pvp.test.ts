@@ -1077,8 +1077,8 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       potions: { p1: {}, p2: {} },
       v2Skills: {
         p1: {
-          learned: ["int_magic_bolt_t1"],
-          equipped: ["int_magic_bolt_t1"],
+          learned: ["v2c_mage_fireball"],
+          equipped: ["v2c_mage_fireball"],
         },
       },
     };
@@ -1106,8 +1106,8 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       potions: { p1: {}, p2: {} },
       v2Skills: {
         p1: {
-          learned: ["int_magic_bolt_t1"],
-          equipped: ["int_magic_bolt_t1"],
+          learned: ["v2c_mage_fireball"],
+          equipped: ["v2c_mage_fireball"],
         },
       },
     };

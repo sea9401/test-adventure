@@ -22,6 +22,9 @@ export default function CharacterPage() {
           case "open-skills":
             router.push("/character/skills");
             break;
+          case "open-combat-pattern":
+            router.push("/character/combat-pattern");
+            break;
           case "open-codex":
             router.push("/character/codex");
             break;

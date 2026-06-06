@@ -187,6 +187,8 @@ export function parseCombatPattern(raw: unknown): V2CombatPattern {
   if (!raw || typeof raw !== "object") return { blocks: [] };
   const rawBlocks = (raw as { blocks?: unknown }).blocks;
   if (!Array.isArray(rawBlocks)) return { blocks: [] };
+  // 비정상 거대 입력은 통째 거부(상한 16의 8배 초과 = 손상/공격). 전부 순회 전에 컷.
+  if (rawBlocks.length > V2_COMBAT_PATTERN_MAX_BLOCKS * 8) return { blocks: [] };
   const blocks: V2CombatBlock[] = [];
   for (const rb of rawBlocks) {
     if (blocks.length >= V2_COMBAT_PATTERN_MAX_BLOCKS) break;

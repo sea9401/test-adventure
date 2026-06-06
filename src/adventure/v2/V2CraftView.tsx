@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/BackButton";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   CONCEPT_LABELS,
   V2_EQUIPMENT,
@@ -353,6 +354,7 @@ function ItemHead({
           {item.name}
         </span>
       </button>
+      <ItemTypeChip item={item} />
       <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
         T{item.tier} · {CONCEPT_LABELS[item.concept]}
       </span>

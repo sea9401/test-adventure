@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/BackButton";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
   shopPriceOf,
@@ -493,10 +494,11 @@ function EquipmentName({
       onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
       className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
     >
-      <div className="flex min-w-0 items-baseline gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
         <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
           {item.name}
         </span>
+        <ItemTypeChip item={item} />
         {(count ?? 0) > 0 && (
           <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             ×{count}

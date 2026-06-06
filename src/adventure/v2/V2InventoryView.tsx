@@ -16,6 +16,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_MATERIALS,
   type V2MaterialId,
@@ -443,12 +444,13 @@ export function EquipmentCardGrid({
                 />
               )}
             </div>
-            <div className="flex min-w-0 items-baseline gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <span
                 className={`truncate text-sm font-semibold ${rarityNameClass(item)}`}
               >
                 {item.name}
               </span>
+              <ItemTypeChip item={item} />
             </div>
             <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
               {cardStatLine(item, inst.roll)}

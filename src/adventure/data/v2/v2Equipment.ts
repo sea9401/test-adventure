@@ -357,6 +357,44 @@ export const CONCEPT_LABELS: Record<V2EquipConcept, string> = {
   mana: "마법",
 };
 
+// 무기 종류 한글 라벨 — V2WeaponType 표시용(아이템 종류 칩 등).
+export const WEAPON_TYPE_LABELS: Record<V2WeaponType, string> = {
+  greatsword: "대검",
+  sword_shield: "검방",
+  rapier: "세검",
+  tonfa: "봉권",
+  gauntlet: "권갑",
+  claw: "권조",
+  staff: "지팡이",
+  relic: "성물",
+  spellblade: "마검",
+  bow: "활",
+  dagger: "단검",
+  needle: "독침",
+};
+
+// 슬롯 한글 라벨 — 여러 뷰가 인라인으로 중복하던 것을 단일 출처로.
+export const V2_SLOT_LABEL: Record<V2EquipSlot, string> = {
+  weapon: "무기",
+  armor: "갑옷",
+  gloves: "장갑",
+  boots: "신발",
+  ring: "반지",
+  necklace: "목걸이",
+};
+
+// 아이템 "종류" 표시 라벨 — 무기는 무기 종류(세검/대검/활 등), 그 외 슬롯은 부위명(갑옷/장갑 등).
+//   종류 미지정 일반 무기는 "무기"로 폴백.
+export function v2ItemTypeLabel(item: V2Equipment): string {
+  if (item.slot === "weapon") {
+    return (
+      (item.weaponType && WEAPON_TYPE_LABELS[item.weaponType]) ||
+      V2_SLOT_LABEL.weapon
+    );
+  }
+  return V2_SLOT_LABEL[item.slot];
+}
+
 const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   crit: "치명",
   eva: "회피",

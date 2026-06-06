@@ -3069,6 +3069,18 @@ export function resolveBattle(
             });
           }
         }
+        // PR2-B 사혈격 — 현재 HP 소모(자살 방지 최소 1).
+        if (result.selfHpCost > 0) {
+          const cost = Math.min(Math.max(0, nextPlayerHp - 1), result.selfHpCost);
+          if (cost > 0) {
+            nextPlayerHp -= cost;
+            nextLog = appendLog(nextLog, {
+              kind: "info",
+              text: `[${result.castSkillName ?? "사혈"}] 생명력 ${cost} 소모`,
+              turn: "player",
+            });
+          }
+        }
         const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
         const nextEnemyDebuffs = applyV2BuffsToMap(tickedEnemyDebuffs, result.enemyDebuffsToApply);
         // PR-8 — dot effect 결과를 적 측 v2Dots 에 박음. 같은 label refresh.
@@ -3108,6 +3120,12 @@ export function resolveBattle(
             ...state.stacks,
             spellCastCount: nextSpellCastCount,
             enemyMagicVulnStacks: nextMagicVulnStacks,
+            // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.
+            playerShield:
+              state.stacks.playerShield +
+              (result.shieldToApply
+                ? result.shieldToApply.hp + result.shieldToApply.mp
+                : 0),
           },
           log: nextLog,
         };
@@ -3224,6 +3242,10 @@ export function resolveBattle(
               text: `[${result.castSkillName}] ${state.enemy.name} HP ${actual} 회복했다.`,
             });
           }
+        }
+        // PR2-B 사혈격(상대 시전) — 상대 HP 소모(자살 방지 최소 1).
+        if (result.selfHpCost > 0) {
+          nextEnemyHp = Math.max(1, nextEnemyHp - result.selfHpCost);
         }
         const nextEnemySelfBuffs = applyV2BuffsToMap(tickedEnemySelfBuffs, result.selfBuffsToApply);
         // enemyDebuff effect (적이 player 에 거는 약화) → state.v2SelfDebuffs 갱신.

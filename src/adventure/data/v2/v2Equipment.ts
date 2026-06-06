@@ -183,7 +183,9 @@ export type V2EquipmentId =
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
-//   mp, hp: flat 정수
+//   mp, hp, spd: flat 정수
+//   critMult: 백분의 일(×) 정수 — 100 = +1.0× 치명피해. derive 에서 /100 환산(예 30 → +0.30×).
+//     (정수 저장 = 굴림 rollStat/표시 일관. 슬롯 고유 축 C: 반지=critMult, 신발=spd.)
 export type V2EquipOptions = {
   /** critChancePct 후-가산, 퍼센트 정수. */
   crit?: number;
@@ -193,6 +195,10 @@ export type V2EquipOptions = {
   mp?: number;
   /** maxHp 후-가산, flat. */
   hp?: number;
+  /** critMult 후-가산, 백분의 일 정수(100=+1.0×). derive 에서 /100. 반지 슬롯 고유 축. */
+  critMult?: number;
+  /** spd 후-가산, flat 정수. 신발 슬롯 고유 축. */
+  spd?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -200,6 +206,8 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "eva",
   "mp",
   "hp",
+  "critMult",
+  "spd",
 ];
 
 export type V2Equipment = {
@@ -393,6 +401,8 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   eva: "회피",
   mp: "MP",
   hp: "HP",
+  critMult: "치명피해",
+  spd: "속도",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
@@ -446,8 +456,12 @@ export function v2EquipStatRows(
   for (const k of V2_EQUIP_OPTION_KEYS) {
     const v = opts[k];
     if (!v) continue;
-    const unit = OPTION_PERCENT_KEYS.has(k) ? "%" : "";
-    out.push({ label: OPTION_LABELS[k], value: `+${v}${unit}` });
+    // critMult 는 백분의 일 정수 저장(30 = +0.30×) → 배수 표기. 그 외 %/flat.
+    const value =
+      k === "critMult"
+        ? `+${(v / 100).toFixed(2)}×`
+        : `+${v}${OPTION_PERCENT_KEYS.has(k) ? "%" : ""}`;
+    out.push({ label: OPTION_LABELS[k], value });
   }
   return out;
 }

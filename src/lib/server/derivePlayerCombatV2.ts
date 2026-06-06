@@ -122,6 +122,8 @@ export type V2EquipAggregate = {
   mp: number;
   eva: number;
   hp: number;
+  critMult: number; // 백분의 일 정수 합(100=+1.0×). derive 에서 /100 환산.
+  spd: number; // flat 속도 합.
 };
 
 const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
@@ -134,6 +136,8 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   mp: 0,
   eva: 0,
   hp: 0,
+  critMult: 0,
+  spd: 0,
 });
 
 export function aggregateV2Equipment(
@@ -172,6 +176,8 @@ export function aggregateV2Equipment(
     acc.mp += o.mp ?? 0;
     acc.eva += o.eva ?? 0;
     acc.hp += o.hp ?? 0;
+    acc.critMult += o.critMult ?? 0;
+    acc.spd += o.spd ?? 0;
   }
   // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
   const equippedIds = new Set<V2EquipmentId>();
@@ -193,6 +199,8 @@ export function aggregateV2Equipment(
     acc.eva += b.eva ?? 0;
     acc.mp += b.mp ?? 0;
     acc.hp += b.hp ?? 0;
+    acc.critMult += b.critMult ?? 0;
+    acc.spd += b.spd ?? 0;
   }
   return acc;
 }
@@ -416,7 +424,8 @@ export function derivePlayerCombatV2Pure(
   const critMult = Math.min(
     CRIT_MULT_BASE +
       totalStats.luk * CRIT_DMG_PER_LUK +
-      totalStats.str * CRIT_DMG_PER_STR,
+      totalStats.str * CRIT_DMG_PER_STR +
+      equipAcc.critMult / 100, // 반지 슬롯 고유 축(백분의 일 정수 → 배수).
     CRIT_MULT_CAP,
   );
   // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p).
@@ -439,7 +448,9 @@ export function derivePlayerCombatV2Pure(
   // 속도 = 민첩 파생(1차 아님) − 장비 무게×계수(중갑일수록 느림). 음수 0 클램프.
   const spd = Math.max(
     0,
-    totalStats.dex * SPD_PER_DEX - equipAcc.weight * WEIGHT_SPD_PENALTY,
+    totalStats.dex * SPD_PER_DEX -
+      equipAcc.weight * WEIGHT_SPD_PENALTY +
+      equipAcc.spd, // 신발 슬롯 고유 축.
   );
   // v2 다중공격 — SPD × 0.5%p 추가공격 확률 (SPD 200=100% 확정 +1, …).
   const extraAttackChancePct = spd * EXTRA_ATTACK_PCT_PER_SPD;

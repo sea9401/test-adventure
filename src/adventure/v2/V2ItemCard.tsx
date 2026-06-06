@@ -18,11 +18,16 @@ const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   eva: "회피",
   mp: "MP",
   hp: "HP",
+  critMult: "치명피해",
+  spd: "속도",
 };
 function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
     .filter((k) => bonus[k])
     .map((k) => {
+      // critMult 은 백분의 일 정수(30=+0.30×). crit/eva = %, 그 외 flat.
+      if (k === "critMult")
+        return `${SET_BONUS_LABEL[k]} +${((bonus[k] ?? 0) / 100).toFixed(2)}×`;
       const unit = k === "crit" || k === "eva" ? "%" : "";
       return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
     })

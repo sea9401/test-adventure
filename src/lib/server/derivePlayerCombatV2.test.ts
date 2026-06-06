@@ -27,6 +27,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       mp: 0,
       eva: 0,
       hp: 0,
+      critMult: 0,
+      spd: 0,
     });
   });
 

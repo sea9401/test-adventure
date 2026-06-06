@@ -16,6 +16,7 @@ import {
   makePoisonDot,
   potionHealAmount,
   resolveV2SkillCast,
+  type V2SkillCastResult,
   rollAttackCount,
   tickV2BuffMap,
   tickV2Dots,
@@ -211,6 +212,15 @@ export type BattleStacks = {
   spellCastCount: number;
   // 약점 노출(마도사) — 적에 누적된 마법 취약 스택(스택당 받는 마법 피해 +%).
   enemyMagicVulnStacks: number;
+  // ── PR2-B-2c 스킬 temp 버프 — pct + 남은 턴(턴>0 일 때만 적용). 매 플레이어 턴 tick. ──
+  skillRegenPct: number; // 운기 — 매턴 maxHP% 회복
+  skillRegenTurns: number;
+  skillCritPct: number; // 연환집중 — 치명률 +%
+  skillCritTurns: number;
+  skillEvasionPct: number; // 선풍각 — 회피 +%(PvE 죽은축, PvP 유효)
+  skillEvasionTurns: number;
+  enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
+  enemyVulnTurns: number;
 };
 
 export type BattleState = {
@@ -943,12 +953,63 @@ function dealExtraEnemyDamage(
 // export — offlineSim 의 시전 턴 종료가 resolveBattle 과 동일한 턴 종료 효과(재생·격노 등)를 거치도록.
 // ⚠️ 선행조건: 호출 전에 state.turn.completedPlayerTurns 가 이미 +1 된 상태여야 한다
 // (막다른 격노 발동 턴·재생 주기 modulo 판정이 이 값을 기준으로 한다).
+// PR2-B-2c — 스킬 temp 버프(운기/연환집중/선풍각/속박)를 cast 결과로 갱신. 새 효과면 turns+1
+// 시드(턴 종료 tick 이 -1 → 정확히 N턴), 없으면 기존 유지.
+function applySkillTempBuffs(
+  prev: BattleStacks,
+  result: V2SkillCastResult,
+): BattleStacks {
+  const crit = result.selfBuffPctToApply.find((b) => b.target === "crit");
+  const eva = result.selfBuffPctToApply.find((b) => b.target === "evasion");
+  return {
+    ...prev,
+    skillRegenPct: result.selfRegenToApply?.pctMaxHpPerTurn ?? prev.skillRegenPct,
+    skillRegenTurns: result.selfRegenToApply ? result.selfRegenToApply.turns + 1 : prev.skillRegenTurns,
+    skillCritPct: crit?.pct ?? prev.skillCritPct,
+    skillCritTurns: crit ? crit.turns + 1 : prev.skillCritTurns,
+    skillEvasionPct: eva?.pct ?? prev.skillEvasionPct,
+    skillEvasionTurns: eva ? eva.turns + 1 : prev.skillEvasionTurns,
+    enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
+    enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns + 1 : prev.enemyVulnTurns,
+  };
+}
+
 export function finishPlayerTurn(
   state: BattleState,
   player: PlayerCombat,
   playerName: string,
 ): BattleState {
   let st = state;
+  // PR2-B-2c — 운기 리젠(매턴 maxHP%) 적용 후 전 temp 버프 tick(turns -1).
+  {
+    const s = st.stacks;
+    if (s.skillRegenTurns > 0 && s.skillRegenPct > 0 && st.playerHp > 0) {
+      const heal = Math.floor((st.playerMaxHp * s.skillRegenPct) / 100);
+      const before = st.playerHp;
+      const nextHp = Math.min(st.playerMaxHp, before + heal);
+      if (nextHp > before) {
+        st = {
+          ...st,
+          playerHp: nextHp,
+          log: appendLog(st.log, {
+            kind: "info",
+            text: `[운기] ${playerName}의 HP +${nextHp - before}`,
+            turn: "player",
+          }),
+        };
+      }
+    }
+    st = {
+      ...st,
+      stacks: {
+        ...st.stacks,
+        skillRegenTurns: Math.max(0, s.skillRegenTurns - 1),
+        skillCritTurns: Math.max(0, s.skillCritTurns - 1),
+        skillEvasionTurns: Math.max(0, s.skillEvasionTurns - 1),
+        enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
+      },
+    };
+  }
   // 분신/난무 추가타 ATK — 메인 공격이 적용한 AP 시한부 ATK 버프(광기 등) 를 동일하게 반영.
   // state.buffs 는 이 시점에 이번 턴의 timed buff 가 박힌 상태.
   const buffedAtkPct =
@@ -1166,6 +1227,14 @@ export function initialBattleState(
       comboHitCount: 0,
       spellCastCount: 0,
       enemyMagicVulnStacks: 0,
+      skillRegenPct: 0,
+      skillRegenTurns: 0,
+      skillCritPct: 0,
+      skillCritTurns: 0,
+      skillEvasionPct: 0,
+      skillEvasionTurns: 0,
+      enemyVulnPct: 0,
+      enemyVulnTurns: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     v2Skills,
@@ -1443,7 +1512,10 @@ export function advanceTurn(
       state.buffs.cyclingChiBonus +
       (isFirstAttackOfTurn ? player.cyclingChiPerTurn ?? 0 : 0);
     // 크리티컬 — 매 공격마다 critChancePct 확률로 발동. 이중 행운 발동 후엔 +crit 보너스.
-    const baseCritPct = player.critChancePct ?? 0;
+    const baseCritPct =
+      (player.critChancePct ?? 0) +
+      // PR2-B-2c 연환집중 — 치명률 temp 버프.
+      (state.stacks.skillCritTurns > 0 ? state.stacks.skillCritPct : 0);
     const luckCritBonus = state.flags.luckyBuffActive
       ? player.doubleLuck?.crit ?? 0
       : 0;
@@ -1594,9 +1666,14 @@ export function advanceTurn(
     const comboFinisherFires =
       comboFinisherPct > 0 &&
       (state.stacks.comboHitCount + 1) % COMBO_FINISHER_PERIOD === 0;
-    const dmg = comboFinisherFires
+    const dmgBeforeVuln = comboFinisherFires
       ? Math.max(1, Math.floor(dmgAfterExtraHit * (1 + comboFinisherPct / 100)))
       : dmgAfterExtraHit;
+    // PR2-B-2c 속박 — 적 취약(받는 피해 +%). 모든 평타 배수 끝 마지막 곱.
+    const dmg =
+      state.stacks.enemyVulnTurns > 0
+        ? Math.max(1, Math.floor(dmgBeforeVuln * (1 + state.stacks.enemyVulnPct / 100)))
+        : dmgBeforeVuln;
     // 연격세 (연환 시그니처) — 이 적중으로 ATK 보너스 누적(상한 = 기본 ATK).
     const comboAtkPct = player.comboAtkPctPerHit ?? 0;
     const nextComboAtkBonus =
@@ -2326,7 +2403,9 @@ export function advanceTurn(
       player.evasionPct +
         luckEvadeBonus +
         universalLuckEvadeBonus +
-        state.buffs.cyclingChiBonus,
+        state.buffs.cyclingChiBonus +
+        // PR2-B-2c 선풍각 — 회피 temp 버프.
+        (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0),
     ) - chillSlowPct - enemyAccuracy,
   );
   if (Math.random() * 100 < effectiveEvadePct) {
@@ -3015,8 +3094,13 @@ export function resolveBattle(
           (state.stacks.enemyMagicVulnStacks *
             (player.enemyMagicVulnPctPerStack ?? 0)) /
             100;
+        // PR2-B-2c 속박 — 적 취약(받는 피해 +%) 가산.
+        const vulnMult =
+          state.stacks.enemyVulnTurns > 0
+            ? 1 + state.stacks.enemyVulnPct / 100
+            : 1;
         const boostedSkillDamage = Math.floor(
-          result.enemyDamage * spellStackMult * magicVulnMult,
+          result.enemyDamage * spellStackMult * magicVulnMult * vulnMult,
         );
         // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
         const nextSpellCastCount =
@@ -3117,7 +3201,8 @@ export function resolveBattle(
           enemyV2Debuffs: nextEnemyDebuffs,
           enemyV2Dots: nextEnemyDots,
           stacks: {
-            ...state.stacks,
+            // PR2-B-2c — 운기/연환집중/선풍각/속박 temp 버프 갱신.
+            ...applySkillTempBuffs(state.stacks, result),
             spellCastCount: nextSpellCastCount,
             enemyMagicVulnStacks: nextMagicVulnStacks,
             // PR2-B 마나 보호막 — 흡수량(maxHP%+maxMP%)을 playerShield 풀에 누적.

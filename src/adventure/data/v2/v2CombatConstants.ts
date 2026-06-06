@@ -2,6 +2,12 @@
 // v1 25스킬 카탈로그는 v2 전투에서 미사용(死) → skills.ts 는 Stage 4 에서 삭제 예정.
 // 여기 값들은 skills.ts 에서 verbatim 복사 — 동작 불변(골든 마스터 가드).
 
+// 기본 명중 — 평타는 기본 90% 적중(= 10% 빗나감). 명중(accuracyPct)이 빗나감을 줄이고(상한 100%
+//   적중 = 빗나감 0 도달 가능), 적 회피가 늘린다. 하한(빗나감 상한) 없음 — 고회피(PvP)는 그대로
+//   유효(강제 회피 보존). 스킬 패치로 캐릭터 강해진 만큼 모드한 파워 다운 + 죽어있던 명중/DEX 축
+//   부활(2026-06-06). 두 엔진은 combatShared 재노출로, UI(StatsPanel)는 여기서 직접 읽는다.
+export const V2_BASE_MISS_PCT = 10;
+
 export const POWER_ATTACK_TURN_INTERVAL = 3;
 export const CRIT_MULT_BASE = 2.0;
 export const BLEED_MAX_STACKS = 10;

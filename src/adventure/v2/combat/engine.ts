@@ -3160,17 +3160,18 @@ export function resolveBattle(
         let nextPlayerHp = state.playerHp;
         let nextLog = state.log;
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
-        // damage 효과: 일반 공격과 같은 player_attack kind, "[강타] 적에게 N 피해를 입혔다."
+        // damage 효과: 일반 공격과 같은 player_attack kind. 스킬명을 평타 "공격!" 자리의 액션
+        //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
         if (result.enemyDamage > 0 && result.castSkillName) {
           nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
           nextLog = appendLog(nextLog, {
             kind: "player_attack",
-            text: `[${result.castSkillName}] ${boostedSkillDamage} 피해를 입혔다.`,
+            text: `${result.castSkillName}! ${boostedSkillDamage} 피해를 입혔다.`,
           });
         } else if (skillMissed && result.castSkillName) {
           nextLog = appendLog(nextLog, {
             kind: "player_attack",
-            text: `[${result.castSkillName}] 빗나갔다.`,
+            text: `${result.castSkillName}! 빗나갔다.`,
           });
         }
         // heal 효과: damage 없는 회복형 스킬 (회복/강화회복) — player_attack kind 로 통일.
@@ -3181,7 +3182,7 @@ export function resolveBattle(
           if (actual > 0) {
             nextLog = appendLog(nextLog, {
               kind: "player_attack",
-              text: `[${result.castSkillName}] HP ${actual} 회복했다.`,
+              text: `${result.castSkillName}! HP ${actual} 회복했다.`,
             });
           }
         }
@@ -3192,7 +3193,7 @@ export function resolveBattle(
             nextPlayerHp -= cost;
             nextLog = appendLog(nextLog, {
               kind: "info",
-              text: `[${result.castSkillName ?? "사혈"}] 생명력 ${cost} 소모`,
+              text: `${result.castSkillName ?? "사혈"}! 생명력 ${cost} 소모`,
               turn: "player",
             });
           }
@@ -3345,7 +3346,7 @@ export function resolveBattle(
           nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
           nextLog = appendLog(nextLog, {
             kind: "enemy_attack",
-            text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
+            text: `${result.castSkillName}! ${result.enemyDamage} 피해를 입혔다.`,
           });
         }
         // 적의 self heal — enemy_attack kind (적 측 행동).
@@ -3356,7 +3357,7 @@ export function resolveBattle(
           if (actual > 0) {
             nextLog = appendLog(nextLog, {
               kind: "enemy_attack",
-              text: `[${result.castSkillName}] ${state.enemy.name} HP ${actual} 회복했다.`,
+              text: `${result.castSkillName}! ${state.enemy.name} HP ${actual} 회복했다.`,
             });
           }
         }

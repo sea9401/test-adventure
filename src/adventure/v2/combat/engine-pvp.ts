@@ -2170,13 +2170,13 @@ function castV2SkillOnAttackerTurnPvP(
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `[${result.castSkillName}] ${skillDamage} 피해를 입혔다.`,
+      text: `${result.castSkillName}! ${skillDamage} 피해를 입혔다.`,
       side: who,
     });
   } else if (skillMissed && result.castSkillName) {
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `[${result.castSkillName}] 빗나갔다.`,
+      text: `${result.castSkillName}! 빗나갔다.`,
       side: who,
     });
   }
@@ -2188,7 +2188,7 @@ function castV2SkillOnAttackerTurnPvP(
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
-        text: `[${result.castSkillName}] ${side.name} HP ${actual} 회복했다.`,
+        text: `${result.castSkillName}! ${side.name} HP ${actual} 회복했다.`,
         side: who,
       });
     }

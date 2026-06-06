@@ -520,7 +520,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     // 로그에 강타 prefix 가 박힌 player_attack 존재 (일반 공격과 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "player_attack" && e.text.includes("강타!"),
       ),
     ).toBe(true);
   });
@@ -539,7 +539,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     expect(r.finalState.v2SkillCooldowns).toEqual({});
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "player_attack" && e.text.includes("강타!"),
       ),
     ).toBe(false);
   });
@@ -556,10 +556,10 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     });
     // 두 스킬 모두 한 번 이상 발동 — player_attack 로그에 prefix.
     const strikeFired = r.finalState.log.some(
-      (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+      (e) => e.kind === "player_attack" && e.text.includes("강타!"),
     );
     const flurryFired = r.finalState.log.some(
-      (e) => e.kind === "player_attack" && e.text.includes("[연격]"),
+      (e) => e.kind === "player_attack" && e.text.includes("연격!"),
     );
     expect(strikeFired).toBe(true);
     // 전투 길이에 따라 flurry 도 cd 사이에 발동될 수 있음.
@@ -601,7 +601,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     );
     // 강타 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
     const castLogs = r.finalState.log.filter(
-      (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+      (e) => e.kind === "player_attack" && e.text.includes("강타!"),
     );
     expect(castLogs.length).toBeGreaterThanOrEqual(2);
   });
@@ -785,7 +785,7 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
     // enemy v2 cast 발동 로그 없음 (강타 prefix 없음 — 일반 적 공격 enemy_attack 와 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "enemy_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "enemy_attack" && e.text.includes("강타!"),
       ),
     ).toBe(false);
     // enemy v2 state 빈 그대로.
@@ -809,7 +809,7 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
     // enemy 강타 발동 로그 존재.
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "enemy_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "enemy_attack" && e.text.includes("강타!"),
       ),
     ).toBe(true);
     // enemy MP 차감됨.

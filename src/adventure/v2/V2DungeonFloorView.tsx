@@ -38,6 +38,24 @@ import type { Gender } from "@/adventure/profile/avatars";
 const HUNT_COUNTS = [1, 5, 10, 50] as const;
 type HuntCount = (typeof HUNT_COUNTS)[number];
 
+// 사냥 횟수 기본값을 localStorage 에 영속 — 사냥터 재진입마다 1 로 리셋되는 번거로움 제거.
+// 유효 옵션(HUNT_COUNTS) 외 저장값(옵션 변경·손상)은 1 로 폴백.
+const HUNT_COUNT_STORAGE_KEY = "v2-hunt-count.v1";
+function loadHuntCount(): HuntCount {
+  if (typeof window === "undefined") return 1;
+  try {
+    const n = Number(localStorage.getItem(HUNT_COUNT_STORAGE_KEY));
+    return (HUNT_COUNTS as readonly number[]).includes(n) ? (n as HuntCount) : 1;
+  } catch {
+    return 1;
+  }
+}
+function saveHuntCount(n: HuntCount): void {
+  try {
+    localStorage.setItem(HUNT_COUNT_STORAGE_KEY, String(n));
+  } catch {}
+}
+
 export function V2DungeonFloorView({
   floorId,
   outpostId,
@@ -104,6 +122,12 @@ export function V2DungeonFloorView({
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
   // 선택한 사냥 횟수 — 메인 버튼이 단판/일괄을 이 값으로 결정. 기본 1(단판).
   const [huntCount, setHuntCount] = useState<HuntCount>(1);
+  // 저장된 기본값 로드(마운트 1회). SSR/hydration mismatch 피하려 default 1 후 effect 에서 적용
+  // (useAutoPotionConfig 와 동일 패턴 — 클라 전용 localStorage 하이드레이션).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHuntCount(loadHuntCount());
+  }, []);
 
   // HP 게이트용 1초 틱 — 시간 재생으로 회복되면 사냥 버튼이 자동 재활성된다. (HpBar 와 같은 패턴)
   const [now, setNow] = useState(() => Date.now());
@@ -341,7 +365,10 @@ export function V2DungeonFloorView({
                   <button
                     key={n}
                     type="button"
-                    onClick={() => setHuntCount(n)}
+                    onClick={() => {
+                      setHuntCount(n);
+                      saveHuntCount(n);
+                    }}
                     aria-pressed={selected}
                     disabled={batchRunning}
                     className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors disabled:opacity-50 ${

@@ -30,12 +30,12 @@ import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// 한 층 전용 던전 페이지. 1회 사냥 + 5/10회 일괄 사냥 (한 번에 N회, 합산 결과).
+// 한 층 전용 던전 페이지. 1회 사냥 + 5/10/50회 일괄 사냥 (한 번에 N회, 합산 결과).
 // 옛 무한 자동/연속 useEffect 트리거 폐기 — runBatch 가 직접 for-loop with await.
 
 // 사냥 버튼이 한 번에 처리할 횟수. 전투 설정에서 고르면 메인 사냥 버튼이 이 값을 반영한다.
-// 1 이면 단판(hunt), 5/10 이면 일괄(runBatch).
-const HUNT_COUNTS = [1, 5, 10] as const;
+// 1 이면 단판(hunt), 5/10/50 이면 일괄(runBatch).
+const HUNT_COUNTS = [1, 5, 10, 50] as const;
 type HuntCount = (typeof HUNT_COUNTS)[number];
 
 export function V2DungeonFloorView({
@@ -359,7 +359,7 @@ export function V2DungeonFloorView({
               hasMp={(lastResult.replay?.playerMaxMp ?? 0) > 0}
             />
           )}
-          {/* 일괄(5/10회) 사냥 직후에만 잔여 체력 바 노출 — 연속 사냥으로 깎인 HP 확인용. */}
+          {/* 일괄(5/10/50회) 사냥 직후에만 잔여 체력 바 노출 — 연속 사냥으로 깎인 HP 확인용. */}
           {hp && <HpBar state={hp} />}
         </>
       ) : (

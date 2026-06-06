@@ -9,6 +9,7 @@ import {
   capGain,
   V2_CAP_HEADROOM_BASE,
   totalCumLevel,
+  diminishedCumLevel,
   V2_CULTIVATE_PROFILE,
   V2_FLOOR_GLOBAL,
   V2_FLOOR_PER_PROF,
@@ -26,10 +27,14 @@ export const V2_GROWTH_POINTS_PER_LEVEL = 5;
 export function computeStatFloors(
   prof: V2ProficiencyState,
 ): Record<V2StatKey, number> {
-  const total = totalCumLevel(prof);
+  // 환생 누적 완화 — 총 누적레벨 기준 밴드 감쇠율(decayMult)을 global·profile 양쪽에 균일 적용
+  // (천장 없이 증가율↓). 단일 직군은 선형과 동일, 다직군(respec)도 총량 기준이라 일관(차수별
+  // 밴드 리셋로 덜 깎이는 비대칭 제거). rawTotal×decayMult = diminishedCumLevel(rawTotal).
+  const rawTotal = totalCumLevel(prof);
+  const decayMult = rawTotal > 0 ? diminishedCumLevel(rawTotal) / rawTotal : 1;
   const floors = {} as Record<V2StatKey, number>;
   for (const stat of V2_STAT_KEYS) {
-    floors[stat] = (V2_BASE_STATS[stat] ?? 0) + total * V2_FLOOR_GLOBAL;
+    floors[stat] = (V2_BASE_STATS[stat] ?? 0) + rawTotal * decayMult * V2_FLOOR_GLOBAL;
   }
   for (const [group, g] of Object.entries(prof.groups)) {
     const profile = V2_CULTIVATE_PROFILE[group];
@@ -42,7 +47,7 @@ export function computeStatFloors(
       const pv = profile[stat] ?? 0;
       if (pv <= 0) continue;
       const weight = (pv / maxVal) * V2_FLOOR_ANCHOR_WEIGHT;
-      floors[stat] += g.cumLevel * V2_FLOOR_PER_PROF * tierMult * weight;
+      floors[stat] += g.cumLevel * decayMult * V2_FLOOR_PER_PROF * tierMult * weight;
     }
   }
   for (const stat of V2_STAT_KEYS) floors[stat] = Math.floor(floors[stat]);

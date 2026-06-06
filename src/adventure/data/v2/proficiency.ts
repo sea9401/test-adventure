@@ -236,6 +236,32 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
 // 규칙. 옛 앵커-이진(1.0/0.4)은 mage {int:2,spi:2} 의 spi 를 0.4 로 홀대 → 값 비례로 통일.
 export const V2_FLOOR_ANCHOR_WEIGHT = 1.0; // 프로필 최댓값 스탯(직군 주력)의 floor 가중.
 
+// 환생 누적 성장 완화(2026-06-07) — cumLevel floor 가 선형 무한이라 환생할수록 스탯이 끝없이.
+// 천장은 두지 않되 증가율을 ~10환생(cumLevel BAND)마다 한 단계씩 낮춘다(밴드 b: ×max(MIN,1−DECAY×b)).
+// MIN 에서 멈춰 무한 유지(천장 X). 첫 밴드(b=0, ~0~10환생)는 ×1.0 = 현행 동일.
+//   diminishedCumLevel = 선형 cumLevel 을 밴드별 감쇠율로 적분한 "유효 누적레벨" — floor 식의
+//   cumLevel/total 자리에 대입하면 piecewise-concave(증가율↓, 천장 없음). EXP·레벨 곡선과 무관.
+export const V2_FLOOR_DECAY_BAND = 3000; // ≈ 10환생(캠페인당 cumLevel ~291 × ~10).
+export const V2_FLOOR_DECAY_PER_BAND = 0.12; // 밴드당 증가율 −12%.
+export const V2_FLOOR_DECAY_MIN = 0.4; // 최소 증가율(천장 방지). 50환생+ 부터 이 비율 무한 유지.
+export function diminishedCumLevel(cumLevel: number): number {
+  if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0; // Infinity/NaN/0/음수 가드(무한루프 방지).
+  let eff = 0;
+  let remain = cumLevel;
+  let band = 0;
+  while (remain > 0) {
+    const seg = Math.min(remain, V2_FLOOR_DECAY_BAND);
+    const mult = Math.max(
+      V2_FLOOR_DECAY_MIN,
+      1 - V2_FLOOR_DECAY_PER_BAND * band,
+    );
+    eff += seg * mult;
+    remain -= seg;
+    band += 1;
+  }
+  return eff;
+}
+
 // 시그니처 학습 비용(숙달 포인트) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
 export const V2_SIGNATURE_LEARN_COST: Record<number, number> = {
   1: 80,

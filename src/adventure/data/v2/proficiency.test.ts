@@ -19,8 +19,41 @@ import {
   addCumLevel,
   groupCumLevel,
   totalCumLevel,
+  diminishedCumLevel,
+  V2_FLOOR_DECAY_BAND,
+  V2_FLOOR_DECAY_MIN,
   V2_SIGNATURE_LEARN_COST,
 } from "./proficiency";
+
+describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
+  it("Infinity/NaN/음수 가드 — 0 반환(무한루프 방지)", () => {
+    expect(diminishedCumLevel(Infinity)).toBe(0);
+    expect(diminishedCumLevel(Number.NaN)).toBe(0);
+    expect(diminishedCumLevel(-5)).toBe(0);
+  });
+
+  it("첫 밴드(<BAND)는 선형 그대로 — 현행 유지", () => {
+    expect(diminishedCumLevel(0)).toBe(0);
+    expect(diminishedCumLevel(V2_FLOOR_DECAY_BAND - 100)).toBe(
+      V2_FLOOR_DECAY_BAND - 100,
+    );
+    expect(diminishedCumLevel(V2_FLOOR_DECAY_BAND)).toBe(V2_FLOOR_DECAY_BAND);
+  });
+
+  it("밴드 경계 위는 감쇠 — 선형보다 작음", () => {
+    const cum = V2_FLOOR_DECAY_BAND * 2;
+    expect(diminishedCumLevel(cum)).toBeLessThan(cum);
+  });
+
+  it("단조 증가·천장 없음 — 큰 입력도 최소 증가율(MIN) 이상 계속 오름", () => {
+    const lo = V2_FLOOR_DECAY_BAND * 20;
+    const hi = lo + V2_FLOOR_DECAY_BAND;
+    // 바닥 밴드(MIN)에서도 한 밴드당 ≥ BAND×MIN 만큼 증가(천장 아님).
+    expect(diminishedCumLevel(hi) - diminishedCumLevel(lo)).toBeGreaterThanOrEqual(
+      V2_FLOOR_DECAY_BAND * V2_FLOOR_DECAY_MIN - 1,
+    );
+  });
+});
 
 // P4 — 직군 키는 4직군(warrior/martial/mage/rogue). 프로필: warrior {str2,vit1,dex1}.
 describe("v2 직업 숙달 (숙달 포인트)", () => {

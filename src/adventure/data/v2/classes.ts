@@ -14,6 +14,8 @@ import {
   type V2SkillId,
   type V2ElementalGroupClass,
 } from "@/adventure/data/v2/v2Skills";
+import { V2_COMMON_SKILLS_BY_JOB } from "@/adventure/data/v2/v2SkillsCommonCatalog";
+import { V2_SPEC_SKILLS_BY_JOB } from "@/adventure/data/v2/v2SkillsSpecCatalog";
 
 export const V2_CLASSES = [
   "none",
@@ -181,8 +183,12 @@ const ELEMENTAL_GROUP_BY_JOB: Record<
   rogue: "archer",
 };
 
+// 학습/장착 가능 스킬 풀 — 스킬 재설계 후 **공용(직군 5) + 계파(직군 9)** 반환.
+// 구 원소 풀(V2_ELEMENTAL_SKILLS_BY_CLASS)은 은퇴(학습 목록서 제외, 카탈로그·기존 save 는 보존).
+// 이름은 호출부(라우트 5곳) 호환 위해 유지. 계파 스킬은 PR1-3 느슨 게이팅(직군 단위).
 export function elementalSkillsForClass(c: V2Class): V2SkillId[] {
   if (c === "none") return [];
-  const group = ELEMENTAL_GROUP_BY_JOB[c];
-  return V2_ELEMENTAL_SKILLS_BY_CLASS[group] ?? [];
+  const common = (V2_COMMON_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
+  const spec = (V2_SPEC_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
+  return [...common, ...spec];
 }

@@ -15,6 +15,8 @@ import { STAT_LABELS } from "@/adventure/data/stats";
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
+import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
+import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
@@ -88,7 +90,11 @@ export type V2SkillId =
   | "int_mana_burst_t2" // INT 마력 폭발
   | "int_mind_fog_t2" // INT 정신 안개
   // ── 직업군별 × 속성별 (6 1차 직업군 × 7 속성 = 42, 숙련도 학습 풀) ─────
-  | V2ElementalSkillId;
+  | V2ElementalSkillId
+  // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
+  | V2CommonSkillId
+  // ── 스킬 재설계 — 계파 액티브 36종 (12계파 × 3, 차수 해금/성장) ──────────
+  | V2SpecSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -103,11 +109,68 @@ export type V2MonsterStatusSkillId =
   | "mob_chilling_touch"
   | "mob_rending_claw";
 
+// baseFlatByTier: 계파 스킬 차수 flat 성장(2/3/4차). 지정 시 시전자 차수로 baseFlat 대체(엔진 PR2).
+//   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
+// scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
+// scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.
+//   def/vit 은 시전자 def/vit 값이 필요 → 엔진 PR2-B 배선(그 전엔 physical 대체).
 export type V2SkillEffect =
-  | { kind: "damage"; statCoef: number; baseFlat?: number; scaling?: "physical" | "magic" }
-  | { kind: "heal"; pctMaxHp?: number; flat?: number }
+  | {
+      kind: "damage";
+      statCoef: number;
+      baseFlat?: number;
+      baseFlatByTier?: readonly [number, number, number];
+      scaling?: "physical" | "magic" | "def" | "vit";
+    }
+  // pctLostHp: 잃은 체력 비례 회복(기공 순환).
+  | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }
   | { kind: "selfBuff"; stat: StatKey; pct: number; turns: number }
+  // 파생 스탯 버프 — StatKey 밖(회피=선풍각, 크리율=연환 집중, 받피감 등).
+  | { kind: "selfBuffPct"; target: "evasion" | "crit" | "damageReduction"; pct: number; turns: number }
+  // 매턴 HP 리젠(운기).
+  | { kind: "selfRegen"; pctMaxHpPerTurn: number; turns: number }
+  // 보호막 — maxHP·maxMP 비례 흡수(마나 보호막).
+  | { kind: "shield"; pctMaxHp?: number; pctMaxMp?: number; turns: number }
+  // 마나 회복(명상).
+  | { kind: "manaRestore"; pctMaxMp: number }
   | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number }
+  // 취약 — 적 받는 피해 +%(속박 사격). 스턴 금지 룰 대체.
+  | { kind: "enemyVuln"; pct: number; turns: number }
+  // HP 소모 딜 — 현재 HP pctCurrentHp% 소모 + 소모량×soakRatio 추가딜(사혈격).
+  | {
+      kind: "hpCostDamage";
+      pctCurrentHp: number;
+      statCoef: number;
+      baseFlatByTier?: readonly [number, number, number];
+      soakRatio: number;
+      scaling?: "physical" | "magic";
+    }
+  // 힐→딜 — 자힐 후 힐량×damageRatio 적에게 딜(신성 강타).
+  | {
+      kind: "healToDamage";
+      healStatCoef: number;
+      healFlatByTier?: readonly [number, number, number];
+      damageRatio: number;
+      scaling?: "physical" | "magic";
+    }
+  // 처형 — 적 HP hpThresholdPct% 이하 시 데미지×bonusMult(처단).
+  | {
+      kind: "executeDamage";
+      statCoef: number;
+      baseFlatByTier?: readonly [number, number, number];
+      hpThresholdPct: number;
+      bonusMult: number;
+      scaling?: "physical" | "magic";
+    }
+  // 스택 비례 딜 — 적 DoT/취약 스택당 추가딜(참절·중독 폭발·비전 작렬).
+  | {
+      kind: "stackPayoffDamage";
+      tag: "bleed" | "poison" | "magicVuln";
+      statCoef: number;
+      baseFlatByTier?: readonly [number, number, number];
+      perStackFlat: number;
+      scaling?: "physical" | "magic";
+    }
   | {
       kind: "dot";
       tag: "bleed" | "poison" | "burn";
@@ -236,24 +299,66 @@ const V2_ELEMENTAL_SKILLS: Record<V2ElementalSkillId, V2SkillDefinition> =
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_ELEMENTAL_SKILLS,
+  ...V2_COMMON_SKILLS,
+  ...V2_SPEC_SKILLS,
 };
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
+const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction", string> = {
+  evasion: "회피",
+  crit: "치명률",
+  damageReduction: "받는 피해 감소",
+};
+const STACK_TAG_LABEL: Record<"bleed" | "poison" | "magicVuln", string> = {
+  bleed: "출혈",
+  poison: "중독",
+  magicVuln: "마법취약",
+};
+// 차수 flat(baseFlatByTier) 이면 범위로, 아니면 단일 baseFlat 으로 표기.
+function flatChip(baseFlat?: number, byTier?: readonly [number, number, number]): string {
+  if (byTier) return ` +${byTier[0]}~${byTier[2]}`;
+  return baseFlat ? ` +${baseFlat}` : "";
+}
+function scalingChip(scaling?: "physical" | "magic" | "def" | "vit"): string {
+  if (scaling === "magic") return " (마법)";
+  if (scaling === "def") return " (방어비례)";
+  if (scaling === "vit") return " (활력비례)";
+  return "";
+}
+
 function describeV2Effect(e: V2SkillEffect): string {
   switch (e.kind) {
-    case "damage": {
-      const flat = e.baseFlat ? ` +${e.baseFlat}` : "";
-      const magic = e.scaling === "magic" ? " (마법)" : "";
-      return `피해 공격력×${e.statCoef}${flat}${magic}`;
-    }
+    case "damage":
+      return `피해 공격력×${e.statCoef}${flatChip(e.baseFlat, e.baseFlatByTier)}${scalingChip(e.scaling)}`;
     case "heal":
-      return e.pctMaxHp != null
-        ? `회복 최대HP ${e.pctMaxHp}%`
-        : `회복 +${e.flat ?? 0}`;
+      if (e.pctLostHp != null) return `회복 잃은 체력 ${e.pctLostHp}%`;
+      return e.pctMaxHp != null ? `회복 최대HP ${e.pctMaxHp}%` : `회복 +${e.flat ?? 0}`;
     case "selfBuff":
       return `${STAT_LABELS[e.stat]} +${e.pct}% (${e.turns}턴)`;
+    case "selfBuffPct":
+      return `${DERIVED_BUFF_LABEL[e.target]} +${e.pct}% (${e.turns}턴)`;
+    case "selfRegen":
+      return `매턴 최대HP ${e.pctMaxHpPerTurn}% 회복 (${e.turns}턴)`;
+    case "shield": {
+      const parts: string[] = [];
+      if (e.pctMaxHp) parts.push(`최대HP ${e.pctMaxHp}%`);
+      if (e.pctMaxMp) parts.push(`최대MP ${e.pctMaxMp}%`);
+      return `보호막 (${parts.join(" + ")}) (${e.turns}턴)`;
+    }
+    case "manaRestore":
+      return `마나 ${e.pctMaxMp}% 회복`;
     case "enemyDebuff":
       return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${e.turns}턴)`;
+    case "enemyVuln":
+      return `적 받는 피해 +${e.pct}% (${e.turns}턴)`;
+    case "hpCostDamage":
+      return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
+    case "healToDamage":
+      return `자힐 공격력×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
+    case "executeDamage":
+      return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult})`;
+    case "stackPayoffDamage":
+      return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 +${e.perStackFlat}`;
     case "dot":
       return `${e.label} 지속피해 +${e.stacks}스택 (${e.turns}턴)`;
   }
@@ -294,13 +399,10 @@ export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [
 const VALID_SKILL_IDS: ReadonlySet<string> = new Set(Object.keys(V2_SKILLS));
 
 // === 슬롯 수 ─────────────────────────────────────────────────────────
-// 균등 33렙당 +1. Lv1-33: 3, Lv34-66: 4, Lv67-99: 5, Lv100: 6.
-// v2 전용 — 기존 라이브 skillLayout 재사용 폐기 (별 곡선).
+// 스킬칸 3~4 (스킬 재설계 — 평타 척추 + 소수 스킬). Lv1-49: 3, Lv50+: 4.
+// 마력구·예기 등 무료 직군 패시브는 슬롯을 차지하지 않음(엔진 PR2).
 export function v2SkillSlotsForLevel(level: number): number {
-  if (level >= 100) return 6;
-  if (level >= 67) return 5;
-  if (level >= 34) return 4;
-  return 3;
+  return level >= 50 ? 4 : 3;
 }
 
 // === 저장 형태 ───────────────────────────────────────────────────────

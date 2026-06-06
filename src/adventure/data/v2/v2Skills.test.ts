@@ -58,20 +58,14 @@ describe("v2Skills 카탈로그", () => {
 });
 
 describe("v2SkillSlotsForLevel", () => {
-  it("Lv1-33 = 3 슬롯", () => {
+  // 스킬 재설계 — 스킬칸 3~4 (Lv1-49: 3, Lv50+: 4).
+  it("Lv1-49 = 3 슬롯", () => {
     expect(v2SkillSlotsForLevel(1)).toBe(3);
-    expect(v2SkillSlotsForLevel(33)).toBe(3);
+    expect(v2SkillSlotsForLevel(49)).toBe(3);
   });
-  it("Lv34-66 = 4 슬롯", () => {
-    expect(v2SkillSlotsForLevel(34)).toBe(4);
-    expect(v2SkillSlotsForLevel(66)).toBe(4);
-  });
-  it("Lv67-99 = 5 슬롯", () => {
-    expect(v2SkillSlotsForLevel(67)).toBe(5);
-    expect(v2SkillSlotsForLevel(99)).toBe(5);
-  });
-  it("Lv100 = 6 슬롯", () => {
-    expect(v2SkillSlotsForLevel(100)).toBe(6);
+  it("Lv50+ = 4 슬롯", () => {
+    expect(v2SkillSlotsForLevel(50)).toBe(4);
+    expect(v2SkillSlotsForLevel(100)).toBe(4);
   });
   it("Lv0 이하는 Lv1 처럼 3 슬롯 (방어적)", () => {
     expect(v2SkillSlotsForLevel(0)).toBe(3);
@@ -155,12 +149,14 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
 });
 
 describe("스킬 속성 전면 태깅", () => {
-  it("모든 데미지 스킬은 element 보유 (몹 상태스킬 제외)", () => {
+  it("원소 풀 스킬은 element 보유 / 그 외는 미부여 허용(캐릭터 속성 상속)", () => {
+    // 스킬 재설계 — 공용/계파 스킬은 의도적 elementless: 시전 시 캐릭터가 고른 속성 상속
+    // (def.element ?? characterElement). "화염구"도 void 마법사가 쓰면 void 상성.
+    // 원소 풀(v2_skill_elem_*)만 속성이 정체성이라 반드시 태깅(회귀 가드).
     for (const s of Object.values(V2_SKILLS)) {
       if (s.monsterOnly) continue;
-      const hasDamage = s.effects.some((e) => e.kind === "damage");
-      if (hasDamage) {
-        expect(s.element, `${s.id} 데미지 스킬인데 element 없음`).toBeTruthy();
+      if (s.id.startsWith("v2_skill_elem_")) {
+        expect(s.element, `${s.id} 원소 스킬인데 element 없음`).toBeTruthy();
       }
     }
   });

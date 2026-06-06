@@ -1997,6 +1997,10 @@ function castV2SkillOnAttackerTurnPvP(
   const result = resolveV2SkillCast({
     skills: side.v2Skills,
     cooldowns: side.v2SkillCooldowns,
+    // PR2-B(Codex) — PvP 도 발동확률 게이트 + 워메이지 proc 보너스. 단 스킬 미보유 전투자에게
+    //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
+    procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
+    procChanceBonus: side.player.skillProcChanceAdd ?? 0,
     attacker: {
       mp: side.mp,
       atk: side.player.atk,
@@ -2004,6 +2008,12 @@ function castV2SkillOnAttackerTurnPvP(
       minDamage: side.player.minDamage,
       healMult: side.player.healMult,
       maxHp: side.maxHp,
+      // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
+      def: side.player.def,
+      vit: side.player.vitStat,
+      currentHp: side.hp,
+      maxMp: side.maxMp,
+      classTier: side.player.classTier,
       selfBuffs: tickedSelfBuffs,
       selfDebuffs: tickedSelfDebuffs,
       // PR-5b — 시전자 평타 속성(baked) + 캐릭 속성(스킬 기본).
@@ -2018,6 +2028,11 @@ function castV2SkillOnAttackerTurnPvP(
       selfDebuffs: opp.v2SelfDebuffs,
       // PR-5b — 피격 상대의 방어 속성(캐릭 속성).
       element: opp.player.characterElement,
+      // PR2-B — 처단(처형 임계)·스택 payoff(참절/중독폭발) 대상 = 상대 side.
+      currentHp: opp.hp,
+      maxHp: opp.maxHp,
+      bleedStacks: opp.v2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
+      poisonStacks: opp.v2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
     },
   });
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
@@ -2047,6 +2062,15 @@ function castV2SkillOnAttackerTurnPvP(
       });
     }
   }
+  // PR2-B 사혈격(PvP) — 시전자 HP 소모(자살 방지 최소 1).
+  if (result.selfHpCost > 0) {
+    nextSideHp = Math.max(1, nextSideHp - result.selfHpCost);
+  }
+  // ⚠️ PR2-B 미배선(PvP follow-up): result.shieldToApply(마나 보호막)·selfBuffPctToApply(선풍각 회피·
+  //   연환집중 크리)·selfRegenToApply(운기)·enemyVulnToApply(속박)는 PvPSide 가 해당 상태/사이트가
+  //   없어 아레나에선 아직 미적용. 또 비전 작렬(마법취약 payoff)도 PvP 엔 magicVuln 트래커가 없어
+  //   stack=0 no-op(target.magicVulnStacks 미전달). 위 4스킬+보호막+비전작렬 PvP 효과 일부 누락
+  //   (데미지·평타·proc·HP소모·출혈/독 payoff 는 정상).
   const nextSelfBuffs = applyV2BuffsToMap(tickedSelfBuffs, result.selfBuffsToApply);
   // enemyDebuff 결과는 상대 side 의 v2SelfDebuffs 에 박힌다.
   const nextOppSelfDebuffs = applyV2BuffsToMap(

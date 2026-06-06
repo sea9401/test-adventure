@@ -41,6 +41,7 @@ import {
   MAGIC_VULN_STACK_CAP,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
+  SPELL_STACK_CAP,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
   type APSkill,
@@ -280,9 +281,8 @@ export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 
 // 절초 (연환 시그니처) — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
 const COMBO_FINISHER_PERIOD = 4;
-// 주문 중첩(워메이지) 누적 상한 — 무한 인플레 방지(위력은 데이터 pct 다이얼).
-// (약점 노출 MAGIC_VULN_STACK_CAP 은 v2CombatConstants 로 이관 — PvP 공용.)
-const SPELL_STACK_CAP = 10;
+// SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP(주문중첩·약점노출 누적 상한)은 v2CombatConstants 로
+// 이관 — PvE/PvP 공용(무한 인플레 방지, 위력은 데이터 pct 다이얼).
 
 export type PlayerCombat = {
   hp: number;

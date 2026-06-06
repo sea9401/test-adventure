@@ -71,6 +71,7 @@ import {
   MAGIC_VULN_STACK_CAP,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
+  SPELL_STACK_CAP,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
 } from "@/adventure/character/apSkills";
@@ -146,6 +147,9 @@ export type PvPSideStacks = {
   // 약점 노출(마도사) — 이 side 에 누적된 마법취약 스택(상대가 부착). 스택당 받는 스킬피해 +%
   // (상대 enemyMagicVulnPctPerStack), 비전 작렬 payoff 가 소비. 감쇠 없음·MAGIC_VULN_STACK_CAP 상한.
   magicVulnStacks: number;
+  // 주문 중첩(워메이지) — 이 side(시전자)의 누적 스킬 시전 횟수. 스택당 스킬피해 +skillDmgPctPerCast%.
+  // 감쇠 없음·SPELL_STACK_CAP 상한.
+  spellCastCount: number;
 };
 
 export type PvPSide = {
@@ -394,6 +398,7 @@ function buildSide(
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
       magicVulnStacks: 0,
+      spellCastCount: 0,
     },
   };
 }
@@ -2138,16 +2143,28 @@ function castV2SkillOnAttackerTurnPvP(
   let nextLog = st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
-  // 약점 노출(마도사) — 상대 누적 마법취약 스택 × 시전자 enemyMagicVulnPctPerStack 만큼 스킬피해 가산
-  //   (현재 스택 기준, 적중 후 아래에서 +1). 미보유/스택 0 = 배수 1 → 무변(PvE engine.ts 미러).
+  // 스킬 데미지 배수 — 주문중첩(워메이지)·약점노출(마도사 magicVuln)·속박(enemyVuln). 현재 누적
+  //   기준, 적용은 이번 시전부터(적중 후 아래에서 스택 증가). 전부 미보유면 배수 1 → 무변(PvE 미러).
+  const spellStackMult =
+    1 + (side.stacks.spellCastCount * (side.player.skillDmgPctPerCast ?? 0)) / 100;
   const magicVulnMult =
     1 +
     (opp.stacks.magicVulnStacks * (side.player.enemyMagicVulnPctPerStack ?? 0)) /
       100;
-  const skillDamage =
-    magicVulnMult !== 1
-      ? Math.floor(result.enemyDamage * magicVulnMult)
-      : result.enemyDamage;
+  // 속박(enemyVuln) 이번 턴 유효값 — turn-start 감소(또는 새 시전 set) 적용 후. 스킬 cast 와
+  //   같은 턴 평타가 동일 값을 쓰도록 nextStacks 와 공유(평타는 post-hook nextStacks 를 읽음).
+  //   pre-decay 를 쓰면 속박 마지막 턴에 스킬만 증폭/평타는 미증폭 불일치(Codex).
+  //   주의: 현 속박 스킬(속박 사격)은 무피해라 자가증폭 없음. 향후 "피해+속박" 콤보 스킬이 생기면
+  //   이 cast 의 자기 피해도 방금 건 속박으로 증폭됨(의도된 동작).
+  const nextEnemyVulnTurns = result.enemyVulnToApply
+    ? result.enemyVulnToApply.turns
+    : Math.max(0, side.stacks.enemyVulnTurns - 1);
+  const nextEnemyVulnPct =
+    result.enemyVulnToApply?.pct ?? side.stacks.enemyVulnPct;
+  const vulnMult = nextEnemyVulnTurns > 0 ? 1 + nextEnemyVulnPct / 100 : 1;
+  const skillDamage = Math.floor(
+    result.enemyDamage * spellStackMult * magicVulnMult * vulnMult,
+  );
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
@@ -2207,10 +2224,14 @@ function castV2SkillOnAttackerTurnPvP(
     skillEvasionTurns: evaBuff
       ? evaBuff.turns
       : Math.max(0, side.stacks.skillEvasionTurns - 1),
-    enemyVulnPct: result.enemyVulnToApply?.pct ?? side.stacks.enemyVulnPct,
-    enemyVulnTurns: result.enemyVulnToApply
-      ? result.enemyVulnToApply.turns
-      : Math.max(0, side.stacks.enemyVulnTurns - 1),
+    // 속박 — 위 스킬피해 배수와 동일 값(turn-start 감소/set) 사용 → 같은 턴 스킬·평타 일관.
+    enemyVulnPct: nextEnemyVulnPct,
+    enemyVulnTurns: nextEnemyVulnTurns,
+    // 주문 중첩 — 패시브 보유 + 시전 시 +1(데미지 무관, cap). PvE increment 미러.
+    spellCastCount:
+      (side.player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
+        ? Math.min(SPELL_STACK_CAP, side.stacks.spellCastCount + 1)
+        : side.stacks.spellCastCount,
   };
   if (shieldGain > 0) {
     nextLog = appendLog(nextLog, {

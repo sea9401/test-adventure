@@ -1087,4 +1087,33 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(r.finalState.p2.stacks.magicVulnStacks).toBeGreaterThan(0);
     expect(r.finalState.p2.stacks.magicVulnStacks).toBeLessThanOrEqual(10);
   });
+
+  it("PR2-B — 주문 중첩(워메이지)이 PvP 스킬 시전마다 누적된다", () => {
+    // 이전엔 PvP 스킬 cast 가 주문중첩 배수를 미적용(spellCastCount 트래커 없음)이던 회귀 가드.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p1 = makePlayer({
+      spd: 100,
+      atk: 40,
+      magicAtk: 60,
+      maxMp: 9999,
+      hp: 300,
+      maxHp: 300,
+      skillDmgPctPerCast: 20, // 워메이지 주문 중첩 패시브
+    });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 2000, maxHp: 2000 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["int_magic_bolt_t1"],
+          equipped: ["int_magic_bolt_t1"],
+        },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // 시전자(p1) 주문 중첩 누적(>0), 상한 10 클램프.
+    expect(r.finalState.p1.stacks.spellCastCount).toBeGreaterThan(0);
+    expect(r.finalState.p1.stacks.spellCastCount).toBeLessThanOrEqual(10);
+  });
 });

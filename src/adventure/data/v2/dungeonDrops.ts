@@ -17,6 +17,14 @@
 
 import type { DungeonFloorId } from "./types";
 
+// === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
+// 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
+//   ① 사냥 재료 드랍 중단 (rollDrops 가 빈 결과 — 모든 호출처/sim 커버)
+//   ② 전직 모험의 서 재료 요건 해제 (codexRequirement → 0, codex.ts) — 전직은 레벨/숙련도로만
+// 대장간·제작 UI 는 그대로 둔다(재료가 안 나와 자연히 제작 안 됨). 기존 세이브의 재료는
+// 비파괴로 남는다(보유분/판매 가능). 제작을 다시 도입하려면 이 한 줄만 true 로 되돌리면 된다.
+export const V2_MATERIALS_ENABLED = false;
+
 // === 재료 정의 ======================================================
 
 // 2026-06-03: 재료 시스템 재설계 — 옛 15종(계열/티어) 통째 비운 뒤, **지역당 소수**로 다시
@@ -154,6 +162,8 @@ export function rollDrops(
   // 드롭 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. 칸당 chance×배율(1 cap).
   chanceMult: number = 1,
 ): DropResult {
+  // 재료 보류 중 — 어떤 floor 든 드랍 없음(단일 게이트, 모든 호출처 커버).
+  if (!V2_MATERIALS_ENABLED) return {};
   const pool = FLOOR_DROP_POOLS[floor];
   const out: DropResult = {};
   for (const rule of pool) {

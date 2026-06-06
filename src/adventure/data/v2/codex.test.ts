@@ -5,6 +5,7 @@ import {
   countDiscoveredMaterials,
   codexRequirement,
 } from "./codex";
+import { V2_MATERIALS_ENABLED } from "./dungeonDrops";
 
 // 2026-06-03: 재료 재설계 — 들판 5종 등재. V2_CODEX_TOTAL = 등재 재료 수(5). 전직 재료
 // 요건은 min(요건, 총량)로 클램프(완성 불가 게이트 방지).
@@ -37,10 +38,18 @@ describe("v2 코덱스(재료 도감) 진척 — 들판 5종", () => {
     expect(countDiscoveredMaterials(undefined)).toBe(0);
   });
 
-  it("codexRequirement — 총량(5)으로 클램프, 미지정/0 은 요건 없음", () => {
+  it("codexRequirement — 재료 활성 시 총량(5) 클램프 / 보류 시 항상 0", () => {
+    // 미지정/0 은 어느 경우든 요건 없음.
     expect(codexRequirement(undefined)).toBe(0);
     expect(codexRequirement(0)).toBe(0);
-    expect(codexRequirement(3)).toBe(3);
-    expect(codexRequirement(9999)).toBe(5);
+    if (V2_MATERIALS_ENABLED) {
+      // 재료 활성 — min(요건, 총량) 클램프.
+      expect(codexRequirement(3)).toBe(3);
+      expect(codexRequirement(9999)).toBe(5);
+    } else {
+      // 재료 보류 중 — 전직 재료 요건 해제(클램프 로직은 휴면, 플래그 true 복귀 시 부활).
+      expect(codexRequirement(3)).toBe(0);
+      expect(codexRequirement(9999)).toBe(0);
+    }
   });
 });

@@ -67,6 +67,7 @@ import {
   HEAVEN_DECREE_HP_PCT,
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
+  MAGIC_VULN_STACK_CAP,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
 } from "@/adventure/data/v2/v2CombatConstants";
@@ -141,6 +142,9 @@ export type PvPSideStacks = {
   skillEvasionTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;
+  // 약점 노출(마도사) — 이 side 에 누적된 마법취약 스택(상대가 부착). 스택당 받는 스킬피해 +%
+  // (상대 enemyMagicVulnPctPerStack), 비전 작렬 payoff 가 소비. 감쇠 없음·MAGIC_VULN_STACK_CAP 상한.
+  magicVulnStacks: number;
 };
 
 export type PvPSide = {
@@ -388,6 +392,7 @@ function buildSide(
       skillEvasionTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      magicVulnStacks: 0,
     },
   };
 }
@@ -2089,6 +2094,8 @@ function castV2SkillOnAttackerTurnPvP(
       maxHp: opp.maxHp,
       bleedStacks: opp.v2Dots.filter((d) => d.tag === "bleed").reduce((s, d) => s + d.stacks, 0),
       poisonStacks: opp.v2Dots.filter((d) => d.tag === "poison").reduce((s, d) => s + d.stacks, 0),
+      // 약점 노출 — 비전 작렬(magicVuln payoff)이 상대 누적 스택을 읽어 추가딜.
+      magicVulnStacks: opp.stacks.magicVulnStacks,
     },
   });
   // 3) state 업데이트. state → st 의 log 가 dot tick 결과 누적.
@@ -2096,12 +2103,22 @@ function castV2SkillOnAttackerTurnPvP(
   let nextLog = st.log;
   let nextSideHp = side.hp;
   let nextOppHp = opp.hp;
+  // 약점 노출(마도사) — 상대 누적 마법취약 스택 × 시전자 enemyMagicVulnPctPerStack 만큼 스킬피해 가산
+  //   (현재 스택 기준, 적중 후 아래에서 +1). 미보유/스택 0 = 배수 1 → 무변(PvE engine.ts 미러).
+  const magicVulnMult =
+    1 +
+    (opp.stacks.magicVulnStacks * (side.player.enemyMagicVulnPctPerStack ?? 0)) /
+      100;
+  const skillDamage =
+    magicVulnMult !== 1
+      ? Math.floor(result.enemyDamage * magicVulnMult)
+      : result.enemyDamage;
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
-    nextOppHp = Math.max(0, nextOppHp - result.enemyDamage);
+    nextOppHp = Math.max(0, nextOppHp - skillDamage);
     nextLog = appendLog(nextLog, {
       kind: "player_attack",
-      text: `[${result.castSkillName}] ${result.enemyDamage} 피해를 입혔다.`,
+      text: `[${result.castSkillName}] ${skillDamage} 피해를 입혔다.`,
       side: who,
     });
   }
@@ -2227,11 +2244,19 @@ function castV2SkillOnAttackerTurnPvP(
     v2SelfDebuffs: tickedSelfDebuffs,
     stacks: nextStacks,
   };
+  // 약점 노출 — 시전자가 패시브 보유 + 시전 + 데미지 적중이면 상대 마법취약 +1(상한 클램프, 감쇠 없음).
+  const nextOppMagicVuln =
+    (side.player.enemyMagicVulnPctPerStack ?? 0) > 0 &&
+    result.castSkillId &&
+    result.enemyDamage > 0
+      ? Math.min(MAGIC_VULN_STACK_CAP, opp.stacks.magicVulnStacks + 1)
+      : opp.stacks.magicVulnStacks;
   const nextOpp: PvPSide = {
     ...opp,
     hp: nextOppHp,
     v2SelfDebuffs: nextOppSelfDebuffs,
     v2Dots: nextOppDots,
+    stacks: { ...opp.stacks, magicVulnStacks: nextOppMagicVuln },
   };
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);

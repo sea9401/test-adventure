@@ -6,6 +6,8 @@ export const POWER_ATTACK_TURN_INTERVAL = 3;
 export const CRIT_MULT_BASE = 2.0;
 export const BLEED_MAX_STACKS = 10;
 export const POISON_MAX_STACKS = 10;
+// 약점 노출(마도사) 마법취약 누적 상한 — 무한 인플레 방지. PvE/PvP 공용.
+export const MAGIC_VULN_STACK_CAP = 10;
 export const BLEED_ATK_COEF_PER_STACK = 0.08;
 export const POISON_PCT_PER_POINT = 0.0004;
 export const POISON_CAP_ATK_COEF = 0.6;

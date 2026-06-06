@@ -1056,4 +1056,33 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       ),
     ).toBe(true);
   });
+
+  it("PR2-B — 약점 노출(마법취약) 스택이 PvP 에서 상대에게 누적된다", () => {
+    // 이전엔 PvPSide 에 magicVuln 트래커가 없어 비전 작렬 payoff 가 no-op 이던 회귀 가드.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p1 = makePlayer({
+      spd: 100,
+      atk: 40,
+      magicAtk: 60,
+      maxMp: 9999,
+      hp: 300,
+      maxHp: 300,
+      enemyMagicVulnPctPerStack: 50, // 마도사 약점 노출 패시브
+    });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 2000, maxHp: 2000 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["int_magic_bolt_t1"],
+          equipped: ["int_magic_bolt_t1"],
+        },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // 시전자 패시브로 상대(p2)에 마법취약 누적(>0), 상한 10 클램프.
+    expect(r.finalState.p2.stacks.magicVulnStacks).toBeGreaterThan(0);
+    expect(r.finalState.p2.stacks.magicVulnStacks).toBeLessThanOrEqual(10);
+  });
 });

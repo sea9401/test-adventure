@@ -136,9 +136,13 @@ export async function POST() {
     });
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
-    // — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착). 새 그룹 풀 밖/미학습 제거 +
-    // 레벨1 리셋이라 슬롯(3)으로 절단. 시그니처 패시브는 learn-skill 학습만으로 자동 적용.
-    const chain = new Set<string>(elementalSkillsForClass(curClass));
+    // — 장착 가능 = 공용 + 선택한 계파(전직)의 스킬만. 풀 밖/미학습 제거 +
+    // 레벨1 리셋이라 슬롯(3)으로 절단. 계파 미선택이면 공용만 남는다.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const chain = new Set<string>(
+      elementalSkillsForClass(curClass, specChoice),
+    );
     const learnedSet = new Set<string>(skills.learned);
     const slots = v2SkillSlotsForLevel(1);
     await upsertSave(tx, userId, "skills.v2", {

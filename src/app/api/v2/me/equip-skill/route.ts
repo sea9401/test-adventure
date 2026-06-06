@@ -39,10 +39,13 @@ export async function POST(req: Request) {
     const charSave = await lockSaveForUpdate<{
       class?: unknown;
       level?: number;
+      specChoice?: unknown;
     }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
-    // 장착 가능 = 직업군 속성 스킬 풀만(발동 순서도 이 순서). 시그니처는 패시브 전환으로 장착 불가.
-    const equippable = [...elementalSkillsForClass(cls)];
+    // 장착 가능 = 공용 + 선택한 계파(전직)의 스킬만(발동 순서도 이 순서). 계파 미선택이면 공용만.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const equippable = [...elementalSkillsForClass(cls, specChoice)];
     const slots = v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1));
 
     const skills = parseV2SkillsState(

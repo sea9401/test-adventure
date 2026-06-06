@@ -140,9 +140,14 @@ export async function POST(req: Request) {
     // 도달 차수로 복귀해도 레벨은 1부터(차수 사이 50까지 재성장). 첫 선택·속성만 변경은 레벨 유지.
     const nextLevel = groupChanged ? 1 : level;
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
-    // equipped 는 PRUNE 만 — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착).
+    // equipped 는 PRUNE 만 — 장착 가능 = 공용 + 선택한 계파의 스킬만.
     // 새 그룹 풀 밖/미학습 제거 + 슬롯 절단(리셋 후 레벨 기준).
-    const chain = new Set<string>(elementalSkillsForClass(effectiveClass));
+    // 직업군 변경 시엔 계파가 비워지므로(아래) 공용만, 유지면 기존 계파 풀 적용.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const chain = new Set<string>(
+      elementalSkillsForClass(effectiveClass, groupChanged ? null : specChoice),
+    );
     const learnedSet = new Set<string>(skills.learned);
     const skillSlots = v2SkillSlotsForLevel(nextLevel);
 

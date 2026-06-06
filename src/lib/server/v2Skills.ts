@@ -23,12 +23,11 @@ export async function reconcileV2EquippedSkills(
   executor: DbExecutor,
   userId: string,
 ): Promise<V2SkillsState> {
-  const charSave = await lockSaveForUpdate<{ class?: unknown; level?: number }>(
-    executor,
-    userId,
-    "character.v2",
-    {},
-  );
+  const charSave = await lockSaveForUpdate<{
+    class?: unknown;
+    level?: number;
+    specChoice?: unknown;
+  }>(executor, userId, "character.v2", {});
   const current = parseV2SkillsState(
     await lockSaveForUpdate<V2SkillsState>(
       executor,
@@ -38,7 +37,9 @@ export async function reconcileV2EquippedSkills(
     ),
   );
   const cls = parseV2Class(charSave.class);
-  const chain = new Set<string>(elementalSkillsForClass(cls));
+  const specChoice =
+    typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+  const chain = new Set<string>(elementalSkillsForClass(cls, specChoice));
   const learnedSet = new Set<string>(current.learned);
   const slots = v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1));
   // 유효 장착만 보존(학습 + 현 직업군 속성 풀), 플레이어가 고른 순서 유지, 슬롯 수 초과분 절단.

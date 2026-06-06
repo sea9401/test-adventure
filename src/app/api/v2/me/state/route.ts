@@ -378,13 +378,16 @@ export async function GET() {
     skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
     // P4 — 시그니처 직업 패시브 은퇴(계파 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 계파 UI 대체).
     signatures: [] as never[],
-    // 직업군 속성 스킬 풀 — 현 직업군의 7속성 스킬 + 학습/장착여부(학습 패널 속성 탭용).
+    // 학습 가능 스킬 풀 — 공용(직군) + 선택한 계파(전직)의 스킬 + 학습/장착여부(학습 패널용).
+    // 계파 미선택이면 공용만 노출(다른 계파 스킬은 숨김).
     elementalSkills: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
+      const specChoice = typeof rawSpec === "string" ? rawSpec : null;
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
       const equippedSet = new Set<string>(skillsState.equipped);
-      return elementalSkillsForClass(cls).map((skillId) => {
+      return elementalSkillsForClass(cls, specChoice).map((skillId) => {
         const def = V2_SKILLS[skillId];
         return {
           skillId,

@@ -20,17 +20,16 @@ import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
-// 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 캐릭 성장 비례: 직군 누적 레벨(cumLevel)에
-// 따라 상승해 후반에 배우는 스킬(특히 차수 해금 계파 스킬)일수록 비싸진다. base 는 신참(cumLevel 0)
-// 가격, perCumLevel 이 램프 기울기. fresh(0)=200 · 중반(75)≈313 · 천장(200)≈500.
-// 킬당 +V2_PROFICIENCY_PER_KILL(=2) 포인트 기준 → 신참 ~100킬/종, 천장 ~250킬/종. learn-skill 라우트가 참조.
-export const V2_SKILL_LEARN_COST_BASE = 200; // 신참 base(cumLevel 0 가격).
-export const V2_SKILL_LEARN_COST_PER_CUMLEVEL = 1.5;
-export function v2SkillLearnCost(cumLevel: number): number {
-  return Math.round(
-    V2_SKILL_LEARN_COST_BASE +
-      Math.max(0, cumLevel) * V2_SKILL_LEARN_COST_PER_CUMLEVEL,
-  );
+// 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
+// 공용(1차 직업) 스킬 = COMMON, 계파 스킬 = SPEC(계파색이 짙어 더 비싸다). 스타터(자동 보유)는
+// 학습 경로를 타지 않는다. 킬당 +V2_PROFICIENCY_PER_KILL(=2) 포인트 기준 → 공용 750킬/종,
+// 계파 2500킬/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+export const V2_SKILL_LEARN_COST_COMMON = 1500; // 공용/1차 직업 스킬.
+export const V2_SKILL_LEARN_COST_SPEC = 5000; // 계파 스킬.
+export function v2SkillLearnCost(skillId: V2SkillId): number {
+  return skillId in V2_SPEC_SKILLS
+    ? V2_SKILL_LEARN_COST_SPEC
+    : V2_SKILL_LEARN_COST_COMMON;
 }
 
 // 스킬 카탈로그 id — union 으로 컴파일타임 검증.

@@ -32,35 +32,47 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("단일 무한 프론티어 — authored 깊이 1·2(들판·깊은 산)만 MAIN_DUNGEON, 3+ 는 생성", () => {
+  it("MAIN_DUNGEON.floors = 들판·깊은 산 onboarding 풀(코덱스/dev용, 2종)", () => {
     expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2]);
     expect(MAIN_DUNGEON.floors[0].name).toBe("들판");
     expect(MAIN_DUNGEON.floors[1].name).toBe("깊은 산");
   });
 
-  it("enemiesForDepth / depthName — 1·2 authored, 3+ 밴드 A~F", () => {
-    expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies);
-    expect(enemiesForDepth(2)).toBe(MAIN_DUNGEON.floors[1].enemies);
-    // 밴드 경계 — 각 밴드는 5종, 인접 밴드와 다른 풀.
-    const bandReps = [3, 8, 15, 22, 29, 36]; // A·B·C·D·E·F 대표 깊이
-    const bandNames = ["마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴"];
-    for (let i = 0; i < bandReps.length; i++) {
-      const pool = enemiesForDepth(bandReps[i]);
-      expect(pool.length, `${bandNames[i]} 5종`).toBe(5);
-      expect(depthName(bandReps[i]), `${bandNames[i]} 이름`).toContain(bandNames[i]);
+  it("enemiesForDepth / depthName — 테마당 6깊이, 테마 내 로컬 번호 표시", () => {
+    // 들판(1~6)·깊은산(7~12)·마른협곡(13~18)·얼음호수(19~24)·심층동굴(25~30)·
+    // 잊힌성소(31~36)·리자드늪지(37~42)·짐승의소굴(43~48, 49+ 무한).
+    expect(depthName(1)).toBe("들판 1");
+    expect(depthName(6)).toBe("들판 6");
+    expect(depthName(7)).toBe("깊은 산 1");
+    expect(depthName(12)).toBe("깊은 산 6");
+    expect(depthName(13)).toBe("마른 협곡 1");
+    expect(depthName(43)).toBe("짐승의 소굴 1");
+    expect(depthName(48)).toBe("짐승의 소굴 6");
+    expect(depthName(50)).toBe("짐승의 소굴 8"); // 무한 — 로컬 번호 6 넘어 계속
+
+    // 풀: 들판/깊은 산 = authored(MAIN_DUNGEON), 나머지 = 밴드.
+    expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies); // 들판
+    expect(enemiesForDepth(6)).toBe(enemiesForDepth(1)); // 들판 6깊이 동일 풀
+    expect(enemiesForDepth(7)).toBe(MAIN_DUNGEON.floors[1].enemies); // 깊은 산
+    expect(enemiesForDepth(13)).not.toBe(enemiesForDepth(12)); // 깊은산→마른협곡 전환
+    expect(enemiesForDepth(48)).toBe(enemiesForDepth(43)); // 짐승의 소굴 상한
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(43)); // 무한 반복
+
+    // 8테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
+    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43];
+    const themeNames = ["들판", "깊은 산", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴"];
+    for (let i = 0; i < themeReps.length; i++) {
+      const pool = enemiesForDepth(themeReps[i]);
+      expect(pool.length, `${themeNames[i]} 5종`).toBe(5);
+      expect(depthName(themeReps[i]), `${themeNames[i]} 이름`).toContain(themeNames[i]);
       if (i > 0) {
-        expect(pool, `${bandNames[i]} ≠ ${bandNames[i - 1]}`).not.toBe(
-          enemiesForDepth(bandReps[i - 1]),
+        expect(pool, `${themeNames[i]} ≠ ${themeNames[i - 1]}`).not.toBe(
+          enemiesForDepth(themeReps[i - 1]),
         );
       }
     }
-    // 밴드 경계 정확성(상한 inclusive·다음 깊이 전환).
-    expect(enemiesForDepth(7)).toBe(enemiesForDepth(3)); // A 상한
-    expect(enemiesForDepth(14)).toBe(enemiesForDepth(8)); // B 상한
-    expect(enemiesForDepth(35)).toBe(enemiesForDepth(29)); // E 상한
-    expect(enemiesForDepth(999)).toBe(enemiesForDepth(36)); // F 무한 반복
-    // 전 밴드 키 V2_MONSTERS 존재 + statusSkill 은 monsterOnly v2 스킬.
-    for (const d of bandReps) {
+    // 전 테마 키 V2_MONSTERS 존재 + statusSkill 은 monsterOnly v2 스킬.
+    for (const d of themeReps) {
       for (const e of enemiesForDepth(d)) {
         expect(V2_MONSTERS[e.key], `${e.key} V2_MONSTERS 부재`).toBeDefined();
         if (e.statusSkill) {
@@ -70,9 +82,6 @@ describe("v2 dungeon", () => {
         }
       }
     }
-    expect(depthName(1)).toBe("들판");
-    expect(depthName(2)).toBe("깊은 산");
-    expect(depthName(50)).toContain("50");
   });
 
   it("전 층 파워 requirement(단조 증가)", () => {

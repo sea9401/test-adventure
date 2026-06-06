@@ -73,7 +73,7 @@ export function V2DungeonFloorView({
   onFrontierUnlocked,
   onLevelUp,
 }: {
-  // 깊이 숫자 (1=들판, 2=깊은 산, 3+=프론티어 — DungeonFloorId(1~8) 초과 가능).
+  // 깊이 숫자 (테마당 6깊이: 1~6 들판·7~12 깊은 산·13+ 프론티어 밴드). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
   outpostId: string;
   outpostName: string;
@@ -99,10 +99,11 @@ export function V2DungeonFloorView({
   // (HP 는 recordHp 가 매 사냥 갱신하지만 레벨/스탯/부제는 viewerLevel 출처라 따로 새로고침 필요.)
   onLevelUp?: () => void;
 }) {
-  // 깊이 1·2 는 authored 층 객체 사용(이름/요구사항). 3+ 는 depthName/floorPowerGate 로 도출.
+  // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
+  // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const depth = Number(floorId);
-  const displayName = floor?.name ?? depthName(depth);
+  const displayName = depthName(depth);
   const powerGate = floor
     ? (floor.requirement.kind === "power" ? floor.requirement.min : floorPowerGate(depth))
     : floorPowerGate(depth);

@@ -103,10 +103,8 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 캐릭 성장(직군 누적 레벨) 비례(v2SkillLearnCost). 후반 스킬일수록 비싸진다.
-    // 시그니처 학습 경로는 P4 에서 폐지.
-    const cumLevel = prof.groups[group]?.cumLevel ?? 0;
-    const cost = v2SkillLearnCost(cumLevel);
+    // 비용 — 스킬 종류별 고정(v2SkillLearnCost): 공용 1500 · 계파 5000.
+    const cost = v2SkillLearnCost(sig);
 
     const spent = spendProficiency(prof, group, cost);
     if (!spent) {

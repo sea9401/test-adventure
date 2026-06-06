@@ -880,6 +880,10 @@ export async function POST(req: Request) {
     let finalMaxDepth: number | null = null;
     let expAfter: number | null = null;
     let maxExpAfter: number | null = null;
+    // 일괄 결과 아래 캐릭터 정보 카드용 — 마지막 사냥 후 회복약 충전량 + MP 보유 여부.
+    let hpCharges: number | null = null;
+    let mpCharges: number | null = null;
+    let playerMaxMp: number | null = null;
     let ejected: EjectedFrom | null = null;
 
     for (let i = 0; i < count; i++) {
@@ -921,6 +925,9 @@ export async function POST(req: Request) {
       finalMaxDepth = res.maxDepth;
       expAfter = res.expAfter;
       maxExpAfter = res.maxExpAfter;
+      hpCharges = res.hpCharges ?? hpCharges;
+      mpCharges = res.mpCharges ?? mpCharges;
+      playerMaxMp = res.replay?.playerMaxMp ?? playerMaxMp;
       // 사망/저체력이면 다음 사냥이 서버에서 막히므로 즉시 중단(라벨 구분: 사망 vs 회복필요).
       if (res.hpAfter <= 0) {
         stoppedReason = "death";
@@ -957,6 +964,9 @@ export async function POST(req: Request) {
           finalMaxDepth,
           expAfter,
           maxExpAfter,
+          hpCharges,
+          mpCharges,
+          playerMaxMp,
           ejected,
         },
       },

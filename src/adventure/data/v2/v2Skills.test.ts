@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   V2_SKILLS,
   V2_STARTER_SKILL_IDS,
-  V2_ELEMENTAL_SKILLS_BY_CLASS,
   parseV2SkillsState,
   emptyV2SkillsState,
   v2SkillSlotsForLevel,
@@ -39,21 +38,6 @@ describe("v2Skills 카탈로그", () => {
     expect(stats).toEqual(
       new Set(["str", "dex", "vit", "spd", "luk", "int"]),
     );
-  });
-
-  it("마법 탄(tier1 학습형 INT) — magic 스케일·학습형·스타터 아님·int 요구", () => {
-    const bolt = V2_SKILLS.int_magic_bolt_t1;
-    expect(bolt.stat).toBe("int");
-    expect(bolt.tier).toBe(1);
-    expect(bolt.category).toBe("attack");
-    // magic 스케일 damage effect (magicAtk 로 침)
-    const dmg = bolt.effects.find((e) => e.kind === "damage");
-    expect(dmg).toBeDefined();
-    expect(dmg?.kind === "damage" && dmg.scaling).toBe("magic");
-    // 스타터 아님 — 비-INT 빌드 자동지급 방지. 학습형 + int 요구치로 게이트.
-    expect(V2_STARTER_SKILL_IDS).not.toContain("int_magic_bolt_t1");
-    expect(bolt.learn).toBeDefined();
-    expect(bolt.learn?.stat?.key).toBe("int");
   });
 });
 
@@ -181,15 +165,15 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_fireball); // 화염구: 불, coef 1.4 (마법)
-    expect(chips.some((c) => c.includes("공격력×1.4"))).toBe(true);
-    expect(chips).toContain("속성 불");
+    const chips = describeV2Skill(V2_SKILLS.v2_skill_strike); // 강타: 대지, coef 1.0
+    expect(chips.some((c) => c.includes("공격력×1"))).toBe(true);
+    expect(chips).toContain("속성 대지");
   });
 
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
-    const chips = describeV2Skill(V2_SKILLS.str_intimidating_roar_t2);
+    const chips = describeV2Skill(V2_SKILLS.v2s_knight_taunt);
     expect(chips.some((c) => c.startsWith("적 힘 −"))).toBe(true);
-    expect(chips).toContain("MP 14");
+    expect(chips).toContain("MP 26");
   });
 
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
@@ -220,19 +204,19 @@ describe("레거시 시그니처 id 제거 (P4 은퇴 + 카탈로그 청소)", (
   // 옛 세이브에 박혀있어도 parseV2SkillsState 가 유효 id 가 아니라 안전하게 걸러낸다.
   const REMOVED_SIG = "v2_skill_blade_dance"; // 제거된 레거시 시그니처 id 예.
 
-  it("parseV2SkillsState — 제거된 시그니처 id 는 learned·equipped 에서 모두 탈락, 엘리멘탈은 보존", () => {
-    const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0];
+  it("parseV2SkillsState — 제거된 시그니처 id 는 learned·equipped 에서 모두 탈락, 유효 스킬은 보존", () => {
+    const valid = "v2c_warrior_strike"; // 살아있는 공용 스킬
     const parsed = parseV2SkillsState({
-      learned: [REMOVED_SIG, elem],
-      equipped: [REMOVED_SIG, elem], // 옛 세이브: 제거된 시그니처가 장착돼 있던 상태
+      learned: [REMOVED_SIG, valid],
+      equipped: [REMOVED_SIG, valid], // 옛 세이브: 제거된 시그니처가 장착돼 있던 상태
     });
-    expect(parsed.learned).toEqual([elem]);
-    expect(parsed.equipped).toEqual([elem]);
+    expect(parsed.learned).toEqual([valid]);
+    expect(parsed.equipped).toEqual([valid]);
   });
 
-  it("idempotent — 유효 엘리멘탈만 있는 equipped 는 그대로", () => {
-    const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.mage[1];
-    const parsed = parseV2SkillsState({ learned: [elem], equipped: [elem] });
-    expect(parsed.equipped).toEqual([elem]);
+  it("idempotent — 유효 공용 스킬만 있는 equipped 는 그대로", () => {
+    const valid = "v2c_mage_fireball";
+    const parsed = parseV2SkillsState({ learned: [valid], equipped: [valid] });
+    expect(parsed.equipped).toEqual([valid]);
   });
 });

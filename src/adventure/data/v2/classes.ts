@@ -9,11 +9,7 @@
 // 직업이 주는 것: ① 권장 앵커 스탯(자유 수행이 강제하진 않음) ② 차수별 앵커 보정(V2_TIER_STAT_BONUS_PCT).
 
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
-import {
-  V2_ELEMENTAL_SKILLS_BY_CLASS,
-  type V2SkillId,
-  type V2ElementalGroupClass,
-} from "@/adventure/data/v2/v2Skills";
+import { type V2SkillId } from "@/adventure/data/v2/v2Skills";
 import { V2_COMMON_SKILLS_BY_JOB } from "@/adventure/data/v2/v2SkillsCommonCatalog";
 import {
   V2_SPEC_SKILLS_BY_JOB,
@@ -174,21 +170,9 @@ export function nextAdvanceTier(curTier: number): 2 | 3 | 4 | null {
   return null;
 }
 
-// 직업군 속성 스킬 풀 — 4 job → 대표 구 원소그룹 매핑. 숙련도 학습 가능한 7속성 풀.
-// (신술·인술의 옛 풀은 마법사·도적 흡수로 비대표 → 미노출, 의도적.)
-const ELEMENTAL_GROUP_BY_JOB: Record<
-  Exclude<V2Class, "none">,
-  V2ElementalGroupClass
-> = {
-  warrior: "swordsman",
-  martial: "martial",
-  mage: "mage",
-  rogue: "archer",
-};
-
 // 학습/장착 가능 스킬 풀 — 공용(직군) + **선택한 계파(전직)의 스킬, 차수만큼만**.
-// 구 원소 풀(V2_ELEMENTAL_SKILLS_BY_CLASS)은 은퇴(학습 목록서 제외, 카탈로그·기존 save 는 보존).
-// 이름은 호출부(라우트 5곳) 호환 위해 유지.
+// 구 원소 풀·옛 학습 스킬(스타터/Tier-2)은 은퇴 — 스타터만 테스트 픽스처로 카탈로그에 보존.
+// 함수명 elementalSkillsForClass 는 호출부(라우트 5곳) 호환 위해 유지(레거시 명칭).
 // 계파 게이팅(엄격): specId 가 현 직군의 계파일 때만 그 계파 스킬을 노출 — 미선택/타직군
 // stale specChoice 는 직군 계파 집합(V2_SPEC_SKILLS_BY_JOB)과 교집합으로 걸러진다(방어).
 // 차수 해금: 계파 스킬은 **차수당 1개씩**(2차=1·3차=2·4차=3) — 배열 순서(V2_SPEC_SKILLS_BY_SPEC)

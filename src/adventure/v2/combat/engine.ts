@@ -22,6 +22,7 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
+  V2_BASE_MISS_PCT,
 } from "./combatShared";
 import {
   CRIT_OVERFLOW_DMG_CAP,
@@ -1407,15 +1408,18 @@ export function advanceTurn(
     const precisionMult = player.precisionEvasionMult ?? 1;
     const rawEnemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
     const playerAccuracy = player.accuracyPct ?? 0;
-    const enemyEvasionPct = Math.max(0, rawEnemyEvasionPct - playerAccuracy);
-    if (
-      !apIgnoresEvasion &&
-      enemyEvasionPct > 0 &&
-      Math.random() * 100 < enemyEvasionPct
-    ) {
+    // 기본 명중 90%(빗나감 10%) + 적 회피 − 내 명중 (하한 없음 — 고회피 적은 그대로).
+    const missPct = Math.max(
+      0,
+      V2_BASE_MISS_PCT + rawEnemyEvasionPct - playerAccuracy,
+    );
+    if (!apIgnoresEvasion && missPct > 0 && Math.random() * 100 < missPct) {
       const log = appendLog(state.log, {
         kind: "player_attack",
-        text: `${state.enemy.name}이(가) 공격을 피했다.`,
+        text:
+          rawEnemyEvasionPct > 0
+            ? `${state.enemy.name}이(가) 공격을 피했다.`
+            : "공격이 빗나갔다.",
       });
       const attacksLeft = state.playerAttacksLeft - 1;
       if (attacksLeft > 0) {

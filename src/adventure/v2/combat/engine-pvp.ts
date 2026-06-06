@@ -59,6 +59,7 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
+  V2_BASE_MISS_PCT,
 } from "./combatShared";
 import {
   CRIT_MULT_BASE,
@@ -1153,16 +1154,18 @@ export function advanceTurnPvP(
     // PR2-B 선풍각 — 회피 temp 버프(%p). PvP 는 회피가 유효축이라 실제 작동.
     const skillEvadeBonus =
       defender.stacks.skillEvasionTurns > 0 ? defender.stacks.skillEvasionPct : 0;
-    const effectiveEvadePct = Math.max(
+    // 기본 명중 90%(빗나감 10%) + 방어자 회피 − 공격자 명중 (하한 없음 — 고회피 빌드 그대로).
+    const missPct = Math.max(
       0,
-      defender.player.evasionPct * precisionMult +
+      V2_BASE_MISS_PCT +
+        defender.player.evasionPct * precisionMult +
         luckEvadeBonus +
         universalLuckEvadeBonus +
         defender.buffs.cyclingChiBonus +
         skillEvadeBonus -
         attackerAccuracy,
     );
-    if (effectiveEvadePct > 0 && Math.random() * 100 < effectiveEvadePct) {
+    if (missPct > 0 && Math.random() * 100 < missPct) {
       return applyPerAttackDodge(
         state,
         atkKey,

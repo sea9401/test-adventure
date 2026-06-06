@@ -9,6 +9,7 @@ import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10.
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 9999,
   maxHp: 9999,
   atk: 10,
@@ -82,6 +83,7 @@ describe("6티어 — 그림자 군단", () => {
     // 분신 1회 데미지: damageBetween(floor(10×0.5)=5, 3) = 2
     // 매 턴: 본타 7 + 분신×3=6 → 13 피해
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 2,
@@ -97,6 +99,7 @@ describe("6티어 — 그림자 군단", () => {
     // 매 턴: 본타 7 + 분신×2 = 4 → 11 피해. 단 군단만 set 한 경우 코드 흐름 (atkPct 0이면 cloneCount=0).
     // 그래서 군단 단독 = derivePlayerCombat 의 fallback 으로 atkPct 가 set 되어야 — 단위 테스트는 직접 set 으로 검증.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 2,
@@ -131,6 +134,7 @@ describe("6티어 — 흡혈 갑옷", () => {
   it("불굴로 HP 1 로 버틴 후엔 흡혈 발동 (조합)", () => {
     // 적 atk 9999, 불굴 활성 + 흡혈 50%. HP 1 로 버틴 후 흡혈 floor(9999×50/100)=4999 회복 → maxHp 캡 1000.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 50,
       maxHp: 1000,
@@ -150,6 +154,7 @@ describe("6티어 — 무한 풍사슬", () => {
     // 기존 5티어만: 광속1회 + 풍사슬 캡 3회 = 본타 5회로 끝.
     // 무한: 통계적으로 더 많이. 100% 라면 ABSOLUTE_CAP(30) 까지.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       lightspeedExtraAttackPct: 100,
       galeChainChancePct: 100,
@@ -173,6 +178,7 @@ describe("6티어 — 무한 풍사슬", () => {
   it("eternalGaleBonusPct 가 확률에 가산된다", () => {
     // 광속 + 풍사슬 50 + 보너스 50 = 100% 발동, noCap=false 라 캡 3 까지만.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       lightspeedExtraAttackPct: 100,
       galeChainChancePct: 50,
@@ -196,6 +202,7 @@ describe("6티어 — 만물 행운", () => {
     // Math.random 0 mock 으로 결정적 발동(75% 굴림 통과). damageBetween(10,3)=7, ×2 = 14.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       critChancePct: 0,
       universalLuckBonusPct: 75,

@@ -23,6 +23,8 @@ function makePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
     spd: 10,
     evasionPct: 0,
     attackCount: 1,
+    // 기본 명중 90% 도입(2026-06-06) — 테스트 캐릭은 결정적 적중(드리프트 방지)을 위해 명중 충분히 부여.
+    accuracyPct: 100,
     ...over,
   };
 }

@@ -63,6 +63,10 @@ import {
   V2_BASE_MISS_PCT,
 } from "./combatShared";
 import {
+  V2_COMBAT_PATTERN_ENABLED,
+  defaultPatternFromEquipped,
+} from "./combatPattern";
+import {
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
   GALE_CHAIN_MAX_PER_TURN,
@@ -2071,6 +2075,11 @@ function castV2SkillOnAttackerTurnPvP(
     //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
     procChanceBonus: side.player.skillProcChanceAdd ?? 0,
+    // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(PvP 양쪽 다 플레이어). off 면 옛 슬롯순서+proc.
+    turn: side.turn.completedPlayerTurns + 1,
+    combatPattern: V2_COMBAT_PATTERN_ENABLED
+      ? defaultPatternFromEquipped(side.v2Skills.equipped)
+      : undefined,
     attacker: {
       mp: side.mp,
       atk: side.player.atk,

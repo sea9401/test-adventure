@@ -4,6 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   parseV2Class,
   elementalSkillsForClass,
+  tier1ClassOf,
 } from "@/adventure/data/v2/classes";
 import {
   parseV2SkillsState,
@@ -12,11 +13,16 @@ import {
   type V2SkillsState,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import {
+  parseProficiencyForChar,
+  emptyProficiency,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
 
 // POST /api/v2/me/equip-skill — 학습한 직업군 속성 스킬을 슬롯에 장착/해제. (시그니처는 패시브 전환 — 장착 불가)
 // body: { skillId, equip: boolean }. 장착 = 학습 + 현 직업군 속성 풀 + 슬롯 여유 필요.
 // 슬롯 수 = v2SkillSlotsForLevel(level)(레벨 33렙당+1, 3~6 — 레벨 리셋되면 줄어듦).
-// equipped 는 체인 순서로 정렬 보관(= 발동 우선순위). lock 순서 character.v2 → skills.v2.
+// equipped 는 체인 순서로 정렬 보관(= 발동 우선순위). lock 순서 character.v2 → skills.v2 → proficiency.v2.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -42,10 +48,8 @@ export async function POST(req: Request) {
       specChoice?: unknown;
     }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
-    // 장착 가능 = 공용 + 선택한 계파(전직)의 스킬만(발동 순서도 이 순서). 계파 미선택이면 공용만.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-    const equippable = [...elementalSkillsForClass(cls, specChoice)];
     const slots = v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1));
 
     const skills = parseV2SkillsState(
@@ -57,6 +61,20 @@ export async function POST(req: Request) {
       ),
     );
     const equippedSet = new Set<string>(skills.equipped);
+
+    // 차수 — 계파 스킬은 차수당 1개 해금. lock 순서 character→skills→proficiency.
+    const prof = parseProficiencyForChar(
+      await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      ),
+      charSave,
+    );
+    const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
+    // 장착 가능 = 공용 + 선택 계파(전직)의 차수 해금분만(발동 순서도 이 순서). 계파 미선택이면 공용만.
+    const equippable = [...elementalSkillsForClass(cls, specChoice, tier)];
 
     if (equip) {
       // 장착 — 학습 + 현 체인 + 슬롯 여유.

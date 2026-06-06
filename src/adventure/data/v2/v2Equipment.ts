@@ -46,24 +46,21 @@ export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
 
 // 무기 종류(계파 게이트용) — 직업 계파 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 계파 게이트와도 매칭 X = 베이스만).
-// docs/v2-job-spec-passives-plan.md §4. 전사 3종으로 시작, 직군 확장 시 추가.
+// docs/v2-job-spec-passives-plan.md §4. 12계파가 쓰는 8종 — 무기 종류를 의도적으로 줄여 통합
+//   (마법사 전 계파=지팡이 / 도적=활·단검 / 무도가=권갑·권조). 봉권·성물·마검·독침은 미사용(제거).
 export type V2WeaponType =
-  // 전사 — docs §3-A
-  | "greatsword" // 대검 — 광검(극딜)
-  | "sword_shield" // 검방(검+방패, 단일 아이템) — 기사(방어·반격)
-  | "rapier" // 세검 — 검투사(속도·출혈)
-  // 무도가 — docs §3-B (P4b 뼈대, 계파명 보류)
-  | "tonfa" // 봉권 — 철산류(맷집·반격)
-  | "gauntlet" // 권갑 — 기공류(흡혈·지속)
-  | "claw" // 권조 — 연환권(연타)
-  // 마법사 — docs §3-C (P4b 뼈대)
-  | "staff" // 지팡이 — 아크메이지(정통 원소마법)
-  | "relic" // 성물 — 성직자(신성·치유)
-  | "spellblade" // 마검 — 배틀메이지(마공+방어 하이브리드)
-  // 도적 — docs §3-D (P4b 뼈대)
-  | "bow" // 활 — 아쳐(원거리·다타)
-  | "dagger" // 단검 — 어쌔신(치명타·다단)
-  | "needle"; // 독침 — 맹독술사(중독 DoT)
+  // 전사 — 광검/기사/검투사
+  | "greatsword" // 대검 — 광검
+  | "sword_shield" // 검방 — 기사
+  | "rapier" // 세검 — 검투사
+  // 무도가 — 금강·혈권/연환
+  | "gauntlet" // 권갑 — 금강·혈권
+  | "claw" // 권조 — 연환
+  // 마법사 — 전 계파 지팡이로 통합
+  | "staff" // 지팡이 — 마도사·워메이지·사제
+  // 도적 — 궁사/자객·독사
+  | "bow" // 활 — 궁사
+  | "dagger"; // 단검 — 자객·독사
 
 // 희귀도 — 생략/"common" = 정규 카탈로그(상점·제작 대상). "unique" = 드랍 전용 유니크:
 // 정규 컨셉×티어 그리드 밖의 사이드그레이드(옵션 프로필로 슬롯 규칙을 깬다). 상점 구매·제작
@@ -362,15 +359,11 @@ export const WEAPON_TYPE_LABELS: Record<V2WeaponType, string> = {
   greatsword: "대검",
   sword_shield: "검방",
   rapier: "세검",
-  tonfa: "봉권",
   gauntlet: "권갑",
   claw: "권조",
   staff: "지팡이",
-  relic: "성물",
-  spellblade: "마검",
   bow: "활",
   dagger: "단검",
-  needle: "독침",
 };
 
 // 슬롯 한글 라벨 — 여러 뷰가 인라인으로 중복하던 것을 단일 출처로.

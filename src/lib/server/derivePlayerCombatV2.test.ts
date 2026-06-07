@@ -4,6 +4,8 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateV2Equipment,
+  derivePlayerCombatV2,
+  derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
   V2_BASE_COMBAT_BONUS,
 } from "./derivePlayerCombatV2";
@@ -732,5 +734,94 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
     });
     expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
     expect(d.player.damageNullifyChancePct).toBeUndefined();
+  });
+});
+
+describe("derivePlayerCombatV2FromSaves (사냥 라우트 dedup용 — select 래퍼와 동등)", () => {
+  // 모든 필드 optional 인 SavedCharacterV2 구조에 맞는 픽스처(변수로 둬 excess-property 회피).
+  const character = {
+    level: 50,
+    hp: 500,
+    mp: 100,
+    class: "warrior",
+    selectedStance: null,
+    specChoice: null,
+    unlockedPassives: [],
+  };
+
+  it("character 없으면 null (래퍼와 동일)", () => {
+    expect(
+      derivePlayerCombatV2FromSaves({
+        character: undefined,
+        equipmentSave: {},
+        proficiencyRaw: {},
+        skillsRaw: {},
+      }),
+    ).toBeNull();
+  });
+
+  it("4 save → derive: select 래퍼(derivePlayerCombatV2)와 byte-동일 결과", async () => {
+    const saves = {
+      character,
+      equipmentSave: { owned: [], equipped: {} },
+      proficiencyRaw: {},
+      skillsRaw: { learned: [], equipped: [] },
+    };
+    // 래퍼는 4개 row 를 select 후 FromSaves 호출 — mock executor 로 그 row 들을 돌려준다.
+    const rows = [
+      { key: "character.v2", value: saves.character },
+      { key: "equipment.v2", value: saves.equipmentSave },
+      { key: "proficiency.v2", value: saves.proficiencyRaw },
+      { key: "skills.v2", value: saves.skillsRaw },
+    ];
+    const mockExecutor = {
+      select: () => ({ from: () => ({ where: async () => rows }) }),
+    } as never;
+
+    const viaWrapper = await derivePlayerCombatV2("u1", mockExecutor);
+    const viaSaves = derivePlayerCombatV2FromSaves(saves);
+    expect(viaWrapper).not.toBeNull();
+    expect(viaWrapper).toEqual(viaSaves); // 리팩터 동등성 — 래퍼 = select + FromSaves
+    expect(viaSaves!.player.atk).toBeGreaterThan(0);
+  });
+});
+
+describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select 제거)", () => {
+  const character = {
+    level: 50, hp: 500, mp: 100, class: "warrior",
+    selectedStance: null, specChoice: null, unlockedPassives: [],
+  };
+  const equipmentSave = { owned: [], equipped: {} };
+  const profVal = {};
+  const skillsVal = { learned: [], equipped: [] };
+
+  it("preloaded char+equip → prof/skills 만 select 해도 full derive 와 동일", async () => {
+    // full: 4-key select.
+    const fullRows = [
+      { key: "character.v2", value: character },
+      { key: "equipment.v2", value: equipmentSave },
+      { key: "proficiency.v2", value: profVal },
+      { key: "skills.v2", value: skillsVal },
+    ];
+    const fullExec = {
+      select: () => ({ from: () => ({ where: async () => fullRows }) }),
+    } as never;
+    const baseline = await derivePlayerCombatV2("u", fullExec);
+
+    // preloaded: char/equip 안 넘어옴 → select 는 prof/skills 만 반환(2-key) 시뮬.
+    const partialRows = [
+      { key: "proficiency.v2", value: profVal },
+      { key: "skills.v2", value: skillsVal },
+    ];
+    const partialExec = {
+      select: () => ({ from: () => ({ where: async () => partialRows }) }),
+    } as never;
+    const viaPreloaded = await derivePlayerCombatV2("u", partialExec, {
+      character,
+      equipmentSave,
+    });
+
+    expect(baseline).not.toBeNull();
+    expect(viaPreloaded).toEqual(baseline); // char/equip 재select 없이 동일 결과
   });
 });

@@ -716,35 +716,17 @@ export function derivePlayerCombatV2Pure(
   };
 }
 
-export async function derivePlayerCombatV2(
-  userId: string,
-  executor: DbExecutor = db,
-): Promise<DerivedPlayerCombatV2 | null> {
-  const rows = await executor
-    .select({ key: savesKv.key, value: savesKv.value })
-    .from(savesKv)
-    .where(
-      and(
-        eq(savesKv.userId, userId),
-        inArray(savesKv.key, [
-          "character.v2",
-          "equipment.v2",
-          "proficiency.v2",
-          "skills.v2",
-        ]),
-      ),
-    );
-
-  let character: SavedCharacterV2 | undefined;
-  let equipmentSave: unknown = undefined;
-  let proficiencyRaw: unknown = undefined;
-  let skillsRaw: unknown = undefined;
-  for (const r of rows) {
-    if (r.key === "character.v2") character = r.value as SavedCharacterV2;
-    else if (r.key === "equipment.v2") equipmentSave = r.value;
-    else if (r.key === "proficiency.v2") proficiencyRaw = r.value;
-    else if (r.key === "skills.v2") skillsRaw = r.value;
-  }
+// 이미 읽은 4개 save 값(character/equipment/proficiency/skills)에서 전투 스탯 derive — DB select
+//   없이. derivePlayerCombatV2(select 래퍼)가 read 후 호출한다. 사냥 라우트처럼 save 를 이미
+//   lock-read 한 곳이 중복 select 없이 직접 derive 하도록 분리(behavior 는 래퍼와 byte-동일).
+//   character 없으면 null(래퍼와 동일).
+export function derivePlayerCombatV2FromSaves(saves: {
+  character: SavedCharacterV2 | undefined;
+  equipmentSave: unknown;
+  proficiencyRaw: unknown;
+  skillsRaw: unknown;
+}): DerivedPlayerCombatV2 | null {
+  const { character, equipmentSave, proficiencyRaw, skillsRaw } = saves;
   if (!character) return null;
 
   const { owned: v2Owned, equipped: v2EquippedIids } =
@@ -790,5 +772,45 @@ export async function derivePlayerCombatV2(
     learnedSkillIds,
     spec,
     unlockedPassives,
+  });
+}
+
+// DB select 래퍼 — v2 save 를 read 후 FromSaves 로 derive. 9개 라우트가 그대로 사용.
+//   preloaded — 호출부가 이미 lock-read 한 character/equipment 를 넘기면 그 키는 재select 하지
+//   않는다(사냥 배치의 판당 중복 read 절감). 미지정 키만 select(proficiency/skills 는 항상 select).
+//   넘긴 값은 같은 tx 의 락-read 라 select 결과와 동일 → derive 결과 byte-동일.
+export async function derivePlayerCombatV2(
+  userId: string,
+  executor: DbExecutor = db,
+  preloaded?: { character?: SavedCharacterV2; equipmentSave?: unknown },
+): Promise<DerivedPlayerCombatV2 | null> {
+  const haveChar = preloaded?.character !== undefined;
+  const haveEquip = preloaded?.equipmentSave !== undefined;
+  const keys = [
+    ...(haveChar ? [] : (["character.v2"] as const)),
+    ...(haveEquip ? [] : (["equipment.v2"] as const)),
+    "proficiency.v2" as const,
+    "skills.v2" as const,
+  ];
+  const rows = await executor
+    .select({ key: savesKv.key, value: savesKv.value })
+    .from(savesKv)
+    .where(and(eq(savesKv.userId, userId), inArray(savesKv.key, keys)));
+
+  let character: SavedCharacterV2 | undefined = preloaded?.character;
+  let equipmentSave: unknown = preloaded?.equipmentSave;
+  let proficiencyRaw: unknown = undefined;
+  let skillsRaw: unknown = undefined;
+  for (const r of rows) {
+    if (r.key === "character.v2") character = r.value as SavedCharacterV2;
+    else if (r.key === "equipment.v2") equipmentSave = r.value;
+    else if (r.key === "proficiency.v2") proficiencyRaw = r.value;
+    else if (r.key === "skills.v2") skillsRaw = r.value;
+  }
+  return derivePlayerCombatV2FromSaves({
+    character,
+    equipmentSave,
+    proficiencyRaw,
+    skillsRaw,
   });
 }

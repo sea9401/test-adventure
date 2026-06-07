@@ -75,11 +75,11 @@ export type BandUniquePool = {
 
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
-    // 마른 협곡(밴드 A, 깊이 13~18). 무기 8(8 무기타입 1종씩) + 마른땅 갑주 세트 3 = 11종.
-    // chance 0.055 / 11 균등 → 시작 시 종류당 0.5%.
+    // 마른 협곡(밴드 A, 깊이 13~18). 무기 8(8 무기타입 1종씩) + 마른땅 갑주 3 + 바위문 수호구 3
+    // + 모래바람 장신구 2 = 16종. chance 0.08 / 16 균등 → 시작 시 종류당 0.5%(종 추가 시 chance 비례 조정).
     minDepth: 13,
     maxDepth: 18,
-    chance: 0.055,
+    chance: 0.08,
     ids: [
       "v2_canyon_greatsword",
       "v2_canyon_knightblade",
@@ -92,6 +92,11 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_canyon_set_armor",
       "v2_canyon_set_gloves",
       "v2_canyon_set_boots",
+      "v2_canyon_bulwark_armor",
+      "v2_canyon_bulwark_gloves",
+      "v2_canyon_bulwark_boots",
+      "v2_canyon_sand_ring",
+      "v2_canyon_sand_necklace",
     ],
   },
 ];

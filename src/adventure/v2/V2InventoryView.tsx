@@ -101,16 +101,18 @@ const EQUIP_SLOTS: {
 ];
 
 type SortMode = "default" | "roll" | "power";
-// 정렬 순환 — 단일 버튼이 누를 때마다 다음으로(기본 → 굴림순 → 위력순 → 기본).
+// 정렬 순환 — 단일 버튼이 누를 때마다 다음으로(기본 → 품질순 → 위력순 → 기본).
 const SORT_CYCLE: { key: SortMode; label: string }[] = [
   { key: "default", label: "기본" },
-  { key: "roll", label: "굴림순" },
+  { key: "roll", label: "품질순" },
   { key: "power", label: "위력순" },
 ];
 
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<TabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
+  // 일괄 판매 품질 임계값(%) — 이 값 이하 품질 장비를 정리. 사용자가 직접 조정(0~100).
+  const [sellQualityPct, setSellQualityPct] = useState(40);
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
     Partial<Record<V2EquipSlot, string>>
@@ -322,7 +324,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     if (tab === "material") return [];
     const list = ownedBySlot[tab];
     if (sortMode === "roll") {
-      // 굴림순 — 높은 굴림 먼저, 굴림 없는(상점 정가) 것은 뒤로. 안정 위해 기존 순서 보존.
+      // 품질순 — 높은 품질(굴림) 먼저, 굴림 없는(상점 정가) 것은 뒤로. 안정 위해 기존 순서 보존.
       return [...list].sort((a, b) => {
         const qa = rollQualityPct(V2_EQUIPMENT[a.id], a.roll);
         const qb = rollQualityPct(V2_EQUIPMENT[b.id], b.roll);
@@ -450,18 +452,39 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
                   정리
                 </span>
+                {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
+                <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  품질
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={sellQualityPct}
+                    onChange={(e) =>
+                      setSellQualityPct(
+                        Math.max(
+                          0,
+                          Math.min(100, Math.floor(Number(e.target.value) || 0)),
+                        ),
+                      )
+                    }
+                    aria-label="일괄 판매 품질 임계값(%)"
+                    className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                  />
+                  %
+                </label>
                 <button
                   type="button"
                   onClick={() =>
                     applyBulkSell(
-                      { slot: tab as V2EquipSlot, belowPct: 40 },
-                      `${tabLabel} 굴림 40% 미만`,
+                      { slot: tab as V2EquipSlot, belowPct: sellQualityPct },
+                      `${tabLabel} 품질 ${sellQualityPct}% 이하`,
                     )
                   }
                   disabled={busy !== null}
                   className="rounded border border-amber-300 px-2 py-0.5 text-[11px] text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/40"
                 >
-                  굴림 40% 미만 판매
+                  이하 판매
                 </button>
                 <button
                   type="button"
@@ -477,10 +500,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   미장착 전부 판매
                 </button>
               </div>
-              {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 굴림순 → 위력순). */}
+              {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
               <button
                 type="button"
-                title="누를 때마다 정렬 전환 (기본 → 굴림순 → 위력순)"
+                title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
                 onClick={() =>
                   setSortMode((m) => {
                     const idx = SORT_CYCLE.findIndex((s) => s.key === m);

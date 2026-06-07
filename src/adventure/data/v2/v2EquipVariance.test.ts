@@ -193,7 +193,7 @@ describe("selectBulkSell", () => {
     expect(plan.gold).toBe(sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0);
   });
 
-  it("belowPct — 굴림% < N 만, 굴림 없는 건 제외", () => {
+  it("belowPct — 품질% ≤ N 만(이하), 굴림 없는 건 제외", () => {
     const bows: V2EquipInstance[] = [
       {
         iid: "low",
@@ -209,5 +209,8 @@ describe("selectBulkSell", () => {
     ];
     const plan = selectBulkSell(bows, {}, { belowPct: 40 });
     expect(plan.iids).toEqual(["low"]);
+    // 경계 포함(이하) — belowPct=100 이면 100% 품질도 포함(미만이면 제외됐을 것).
+    const all = selectBulkSell(bows, {}, { belowPct: 100 });
+    expect(all.iids).toEqual(["low", "high"]);
   });
 });

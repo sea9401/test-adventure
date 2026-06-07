@@ -177,7 +177,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         size="md"
       />
 
-      {/* === 직업 탭 — 직업·속성 선택/전직 + 계파 === */}
+      {/* === 직업 탭 — 직업·속성 선택/전직 + 전문화 === */}
       {tab === "job" &&
         (picker ? (
           <>

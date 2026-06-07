@@ -509,7 +509,7 @@ export type V2SkillCastInput = {
     healMult?: number;
     maxHp: number;
     // PR2-B 스킬 메커닉 — def/vit 비례 딜(방패가격·나한권), 현재HP(사혈격·기공순환),
-    //   maxMp(마나보호막·명상), 차수(계파 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
+    //   maxMp(마나보호막·명상), 차수(전문화 스킬 baseFlatByTier flat 성장). 미지정=안전 폴백.
     def?: number;
     vit?: number;
     currentHp?: number;
@@ -658,7 +658,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let selfRegenToApply: V2SkillCastResult["selfRegenToApply"];
   let enemyVulnToApply: V2SkillCastResult["enemyVulnToApply"];
 
-  // 계파 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
+  // 전문화 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
   const tierIdx = Math.min(2, Math.max(0, (input.attacker.classTier ?? 2) - 2));
   const flatOf = (
     baseFlat: number | undefined,

@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     );
     const equippedSet = new Set<string>(skills.equipped);
 
-    // 차수 — 계파 스킬은 차수당 1개 해금. lock 순서 character→skills→proficiency.
+    // 차수 — 전문화 스킬은 차수당 1개 해금. lock 순서 character→skills→proficiency.
     const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
         tx,
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
       charSave,
     );
     const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
-    // 장착 가능 = 공용 + 선택 계파(전직)의 차수 해금분만(발동 순서도 이 순서). 계파 미선택이면 공용만.
+    // 장착 가능 = 공용 + 선택 전문화(전직)의 차수 해금분만(발동 순서도 이 순서). 전문화 미선택이면 공용만.
     const equippable = [...elementalSkillsForClass(cls, specChoice, tier)];
 
     if (equip) {

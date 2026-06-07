@@ -247,7 +247,7 @@ describe("advanceTurn (enemy phase)", () => {
     expect(s1.outcome).toBe("lose");
   });
 
-  it("계파 받피감(passiveDamageTakenReductionPct) — 받는 피해 %감소, 미보유=불변", () => {
+  it("전문화 받피감(passiveDamageTakenReductionPct) — 받는 피해 %감소, 미보유=불변", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 무조건 피격
     const enemy = makeEnemy({ atk: 40 }); // base 피해 충분히 크게(반올림 영향 최소)
     const base = damageBetween(enemy.atk, PLAYER.def);

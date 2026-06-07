@@ -140,7 +140,7 @@ export type PvPSideStacks = {
   evadesRemaining: number;
   damageTakenThisCombat: number;
   weakpointDefIgnoreLeft: number;
-  // PR2-B 계파 스킬 temp 버프 — PvE BattleStacks 미러. 전부 0/turns=0 이면 inert(골든 불변).
+  // PR2-B 전문화 스킬 temp 버프 — PvE BattleStacks 미러. 전부 0/turns=0 이면 inert(골든 불변).
   skillRegenPct: number; // 운기 — 매 자기 턴 maxHp %
   skillRegenTurns: number;
   skillCritPct: number; // 연환집중 — 치명률 +%p

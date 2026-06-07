@@ -2,10 +2,10 @@
 //
 // 2026-06-04 P4 재설계 — 6직군 24-class-id 선형 체계 → **4직군(전사/무도가/마법사/도적)**.
 //   · class id 는 직업 정체성만(warrior/martial/mage/rogue). 차수(tier)는 id 에서 떼어
-//     proficiency.v2.groups[job].tier 로 이동. 계파(spec)는 별도 축(character.v2.specChoice).
+//     proficiency.v2.groups[job].tier 로 이동. 전문화(spec)는 별도 축(character.v2.specChoice).
 //   · 전직(advance) = class 변경이 아니라 groups[job].tier +1. 갈아타기(respec) = class=다른 job.
 //   · 구 24 class id (swordsman/archer/priest/ninja …)는 parseV2Class 가 4 job 으로 마이그.
-//   · 구 직업 패시브(v2Passives)는 은퇴 → 계파 패시브가 대체(derive 가 specChoice 로 적용).
+//   · 구 직업 패시브(v2Passives)는 은퇴 → 전문화 패시브가 대체(derive 가 specChoice 로 적용).
 // 직업이 주는 것: ① 권장 앵커 스탯(자유 수행이 강제하진 않음) ② 차수별 앵커 보정(V2_TIER_STAT_BONUS_PCT).
 
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
@@ -77,7 +77,7 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
     group: "전사",
     anchorStat: "str",
     description:
-      "힘(STR) 기반 물리 근접. 계파에 따라 극딜(광검류)·방어 반격(철벽검류)·속도 출혈(혈풍검류)로 갈린다.",
+      "힘(STR) 기반 물리 근접. 전문화에 따라 극딜(광검류)·방어 반격(철벽검류)·속도 출혈(혈풍검류)로 갈린다.",
   },
   martial: {
     id: "martial",
@@ -170,14 +170,14 @@ export function nextAdvanceTier(curTier: number): 2 | 3 | 4 | null {
   return null;
 }
 
-// 학습/장착 가능 스킬 풀 — 공용(직군) + **선택한 계파(전직)의 스킬, 차수만큼만**.
+// 학습/장착 가능 스킬 풀 — 공용(직군) + **선택한 전문화(전직)의 스킬, 차수만큼만**.
 // 구 원소 풀·옛 학습 스킬(스타터/Tier-2)은 은퇴 — 스타터만 테스트 픽스처로 카탈로그에 보존.
 // 함수명 elementalSkillsForClass 는 호출부(라우트 5곳) 호환 위해 유지(레거시 명칭).
-// 계파 게이팅(엄격): specId 가 현 직군의 계파일 때만 그 계파 스킬을 노출 — 미선택/타직군
-// stale specChoice 는 직군 계파 집합(V2_SPEC_SKILLS_BY_JOB)과 교집합으로 걸러진다(방어).
-// 차수 해금: 계파 스킬은 **차수당 1개씩**(2차=1·3차=2·4차=3) — 배열 순서(V2_SPEC_SKILLS_BY_SPEC)
+// 전문화 게이팅(엄격): specId 가 현 직군의 전문화일 때만 그 전문화 스킬을 노출 — 미선택/타직군
+// stale specChoice 는 직군 전문화 집합(V2_SPEC_SKILLS_BY_JOB)과 교집합으로 걸러진다(방어).
+// 차수 해금: 전문화 스킬은 **차수당 1개씩**(2차=1·3차=2·4차=3) — 배열 순서(V2_SPEC_SKILLS_BY_SPEC)
 //   = 해금 순서(index 0 → 2차). 패시브 픽(pickLimit=tier−1)과 동일 곡선. specTier 미지정이면
-//   게이팅 없이 전부(단위 테스트/하위호환). 계파 미선택(전직 전)이면 공용만.
+//   게이팅 없이 전부(단위 테스트/하위호환). 전문화 미선택(전직 전)이면 공용만.
 // 호출부는 raw specChoice 문자열 + 그 직군 차수(proficiency.tier)를 넘기면 된다.
 export function elementalSkillsForClass(
   c: V2Class,
@@ -190,7 +190,7 @@ export function elementalSkillsForClass(
   const chosen = specId
     ? ((V2_SPEC_SKILLS_BY_SPEC[specId] ?? []) as readonly V2SkillId[])
     : [];
-  // 교집합 — 선택 계파가 현 직군 소속일 때만 통과(stale/타직군 specChoice 차단).
+  // 교집합 — 선택 전문화가 현 직군 소속일 때만 통과(stale/타직군 specChoice 차단).
   const inJob = chosen.filter((id) => jobSpecSkills.includes(id));
   // 차수당 1개 해금(2차=1·3차=2·4차=3). 미지정 = 게이팅 없음(전부).
   const spec =

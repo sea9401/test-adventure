@@ -580,7 +580,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "field_leather",
   },
 
-  // ── 계파 스타터 무기 (전직 시 지급, weaponType 게이트 활성화용) — off-grid(starterOnly), 수치 임시 ──
+  // ── 전문화 스타터 무기 (전직 시 지급, weaponType 게이트 활성화용) — off-grid(starterOnly), 수치 임시 ──
   v2_starter_sword_shield: {
     id: "v2_starter_sword_shield",
     slot: "weapon",
@@ -666,7 +666,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     starterOnly: true,
   },
 
-  // === 계파 무기 — 8타입 게이트용 정규 라인 (상점 T2~T5, T1=전직 지급 스타터). ===
+  // === 전문화 무기 — 8타입 게이트용 정규 라인 (상점 T2~T5, T1=전직 지급 스타터). ===
   // greatsword/bow/staff 는 기존 검·활·지팡이 라인에 weaponType 태그로 재활용. 아래는 나머지 5타입.
   // power 는 기존 곡선 매칭, 타입별 정체성은 power/weight 로. element/세트는 후속(중립).
   // 검+방패(기사) — 중위력·고무게(묵직한 탱딜).

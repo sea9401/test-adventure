@@ -1,8 +1,8 @@
-// v2 계파 스킬 카탈로그 — 12계파 × 3 = 36종. 스킬 재설계(docs/v2-skill-system-plan.md).
+// v2 전문화 스킬 카탈로그 — 12전문화 × 3 = 36종. 스킬 재설계(docs/v2-skill-system-plan.md).
 //
-// 계파 패시브(시그니처)·직업특성과 별개의 액티브 레이어. 원칙: 스킬은 패시브를 복제하지
+// 전문화 패시브(시그니처)·직업특성과 별개의 액티브 레이어. 원칙: 스킬은 패시브를 복제하지
 // 않고 보완(버스트·제압·페이오프). 차수 성장 = 해금 1/차수(2/3/4) + baseFlatByTier flat 성장.
-// procChance = §4 성능 밸런스 반영(강계파 낮음·약계파 높음·궁사 명중 플레이버).
+// procChance = §4 성능 밸런스 반영(강전문화 낮음·약전문화 높음·궁사 명중 플레이버).
 // 신규 effect kind(def/vit scaling·hpCostDamage·healToDamage·executeDamage·
 //   stackPayoffDamage·enemyVuln)는 엔진 PR2-B 배선. 수치는 가안(sim 캘리브).
 
@@ -36,7 +36,7 @@ export type V2SpecSkillId =
   | "v2s_venom_poisonslash" | "v2s_venom_poisoncloud" | "v2s_venom_detonate";
 
 type Tri = readonly [number, number, number];
-// 차수 flat 데미지(계파 스킬 — baseFlatByTier).
+// 차수 flat 데미지(전문화 스킬 — baseFlatByTier).
 const dmgT = (statCoef: number, byTier: Tri, scaling?: "physical" | "magic" | "def" | "vit"): V2SkillEffect => ({
   kind: "damage", statCoef, baseFlatByTier: byTier, ...(scaling ? { scaling } : {}),
 });
@@ -44,7 +44,7 @@ const hitsT = (n: number, statCoef: number, byTier: Tri, scaling?: "physical" | 
   Array.from({ length: n }, () => dmgT(statCoef, byTier, scaling));
 
 export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
-  // ═══ 광검(극딜) — proc 낮음(강계파) ═══
+  // ═══ 광검(극딜) — proc 낮음(강전문화) ═══
   v2s_gwang_greatcleave: {
     id: "v2s_gwang_greatcleave", name: "대참격", stat: "str", category: "attack", tier: 3,
     description: "온 힘을 실어 내려친다.", mpCost: 38, cooldown: 0, procChance: 10,
@@ -61,7 +61,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     effects: [{ kind: "selfBuff", stat: "str", pct: 20, turns: 2 }],
   },
 
-  // ═══ 기사(딜탱) — proc 높음(약계파) ═══
+  // ═══ 기사(딜탱) — proc 높음(약전문화) ═══
   v2s_knight_shieldbash: {
     id: "v2s_knight_shieldbash", name: "방패 가격", stat: "vit", category: "attack", tier: 3,
     description: "방패로 짓이긴다. 방어가 단단할수록 아프다.", mpCost: 34, cooldown: 0, procChance: 38,
@@ -78,7 +78,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     effects: [{ kind: "enemyDebuff", stat: "str", pct: 25, turns: 3 }],
   },
 
-  // ═══ 검투사(출혈) — proc 낮음(강계파) ═══
+  // ═══ 검투사(출혈) — proc 낮음(강전문화) ═══
   v2s_gladiator_frenzy: {
     id: "v2s_gladiator_frenzy", name: "난자", stat: "str", category: "attack", tier: 3,
     description: "세검으로 난자해 피를 본다.", mpCost: 32, cooldown: 0, procChance: 30,
@@ -95,7 +95,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     effects: [{ kind: "stackPayoffDamage", tag: "bleed", statCoef: 0.5, baseFlatByTier: [60, 80, 100], perStackFlat: 50 }],
   },
 
-  // ═══ 금강(회피탱) — proc 높음(약계파) ═══
+  // ═══ 금강(회피탱) — proc 높음(약전문화) ═══
   v2s_cheolsan_arhat: {
     id: "v2s_cheolsan_arhat", name: "나한권", stat: "vit", category: "attack", tier: 3,
     description: "단단한 육체로 짓이긴다.", mpCost: 34, cooldown: 0, procChance: 42,
@@ -129,7 +129,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     effects: [{ kind: "hpCostDamage", pctCurrentHp: 10, statCoef: 1.0, baseFlatByTier: [150, 210, 270], soakRatio: 1.0 }],
   },
 
-  // ═══ 연환(콤보) — proc 낮음(강계파) ═══
+  // ═══ 연환(콤보) — proc 낮음(강전문화) ═══
   v2s_yeonhwan_barrage: {
     id: "v2s_yeonhwan_barrage", name: "연환 폭격", stat: "str", category: "attack", tier: 3,
     description: "여섯 번 몰아치는 연환.", mpCost: 34, cooldown: 0, procChance: 32,
@@ -180,7 +180,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     effects: [dmgT(1.0, [200, 280, 360], "magic")],
   },
 
-  // ═══ 사제(탱키 서포트) — proc 높음(약계파) ═══
+  // ═══ 사제(탱키 서포트) — proc 높음(약전문화) ═══
   v2s_cleric_smite: {
     id: "v2s_cleric_smite", name: "신성 강타", stat: "int", category: "attack", tier: 3,
     description: "치유의 빛으로 자신을 회복하고 그만큼 적을 친다.", mpCost: 36, cooldown: 0, procChance: 42,
@@ -231,7 +231,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     effects: hitsT(2, 0.6, [70, 95, 120]),
   },
 
-  // ═══ 독사(중독) — proc 낮음(강계파) ═══
+  // ═══ 독사(중독) — proc 낮음(강전문화) ═══
   v2s_venom_poisonslash: {
     id: "v2s_venom_poisonslash", name: "독참", stat: "str", category: "attack", tier: 3,
     description: "독 묻은 칼로 베어 중독시킨다.", mpCost: 32, cooldown: 0, procChance: 30,
@@ -251,8 +251,8 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
   },
 };
 
-// 직군 → 그 직군 3계파의 스킬 9종 (학습 풀 — PR1-3 느슨 게이팅: 직군 단위 학습.
-// "내 계파만 / 차수당 1해금" 엄격 게이팅은 후속 정제. spec id 는 v2JobSpecs 와 일치.
+// 직군 → 그 직군 3전문화의 스킬 9종 (학습 풀 — PR1-3 느슨 게이팅: 직군 단위 학습.
+// "내 전문화만 / 차수당 1해금" 엄격 게이팅은 후속 정제. spec id 는 v2JobSpecs 와 일치.
 export const V2_SPEC_SKILLS_BY_JOB: Record<string, readonly V2SpecSkillId[]> = {
   warrior: [
     "v2s_gwang_greatcleave", "v2s_gwang_skysplit", "v2s_gwang_resolve",
@@ -276,7 +276,7 @@ export const V2_SPEC_SKILLS_BY_JOB: Record<string, readonly V2SpecSkillId[]> = {
   ],
 };
 
-// 계파 id → 계파 스킬 id 3종 (해금/학습 게이팅 — 차수당 1개 해금). spec id 는 v2JobSpecs 와 일치.
+// 전문화 id → 전문화 스킬 id 3종 (해금/학습 게이팅 — 차수당 1개 해금). spec id 는 v2JobSpecs 와 일치.
 export const V2_SPEC_SKILLS_BY_SPEC: Record<string, readonly V2SpecSkillId[]> = {
   gwang: ["v2s_gwang_greatcleave", "v2s_gwang_skysplit", "v2s_gwang_resolve"],
   knight: ["v2s_knight_shieldbash", "v2s_knight_bulwark", "v2s_knight_taunt"],

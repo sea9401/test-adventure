@@ -376,10 +376,10 @@ export async function GET() {
     skills: parseV2SkillsState(skillsRow?.value),
     // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
     skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
-    // P4 — 시그니처 직업 패시브 은퇴(계파 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 계파 UI 대체).
+    // P4 — 시그니처 직업 패시브 은퇴(전문화 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 전문화 UI 대체).
     signatures: [] as never[],
-    // 학습 가능 스킬 풀 — 공용(직군) + 선택한 계파(전직)의 차수 해금분 + 학습/장착여부(학습 패널용).
-    // 계파 미선택이면 공용만 노출(다른 계파 스킬은 숨김). 계파 스킬은 차수당 1개씩 해금.
+    // 학습 가능 스킬 풀 — 공용(직군) + 선택한 전문화(전직)의 차수 해금분 + 학습/장착여부(학습 패널용).
+    // 전문화 미선택이면 공용만 노출(다른 전문화 스킬은 숨김). 전문화 스킬은 차수당 1개씩 해금.
     elementalSkills: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
       const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
@@ -387,7 +387,7 @@ export async function GET() {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
       const group = tier1ClassOf(cls);
       const tier = prof.groups[group]?.tier ?? 1;
-      // 학습 비용은 스킬 종류별 고정 — 공용 1500 · 계파 5000(learn-skill 과 동일 산식).
+      // 학습 비용은 스킬 종류별 고정 — 공용 1500 · 전문화 5000(learn-skill 과 동일 산식).
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
       const equippedSet = new Set<string>(skillsState.equipped);
@@ -488,7 +488,7 @@ export async function GET() {
         },
       };
     })(),
-    // 계파(스펙) 현황 — docs/v2-job-spec-passives-plan.md §5. 직업 계파 목록 + 현 선택 + 해금 + 남은 픽.
+    // 전문화(스펙) 현황 — docs/v2-job-spec-passives-plan.md §5. 직업 전문화 목록 + 현 선택 + 해금 + 남은 픽.
     spec: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
@@ -503,7 +503,7 @@ export async function GET() {
         : [];
       return {
         tier,
-        available: tier >= 2, // 2차 전직부터 계파 선택 가능
+        available: tier >= 2, // 2차 전직부터 전문화 선택 가능
         choice,
         unlocked,
         picksMax: Math.max(0, tier - 1), // 2차 1·3차 2·4차 3

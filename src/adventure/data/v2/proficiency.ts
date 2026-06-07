@@ -40,7 +40,7 @@ export const V2_CAP_HEADROOM_BASE = 45;
 export const V2_STAT_CAP_BASE = 60;
 
 // 수행 1회 cap 헤드룸 상승 — 4직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
-// 각 직군의 계파 서브스탯을 함께 담아 자유 수행 없이도 계파별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
+// 각 직군의 전문화 서브스탯을 함께 담아 자유 수행 없이도 전문화별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
 export const V2_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>

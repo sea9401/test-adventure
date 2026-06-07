@@ -211,7 +211,7 @@ export type BattleStacks = {
   damageTakenThisCombat: number;
   // 약점 적중 — DEF 무시 큐 남은 카운트. 트리거 시 weakpointExtraAttacks 만큼 누적, 공격당 1 감산.
   weakpointDefIgnoreLeft: number;
-  // ── 계파 시그니처(c) 전투내 누적 — 신규. 0 = 미보유/미누적. ──
+  // ── 전문화 시그니처(c) 전투내 누적 — 신규. 0 = 미보유/미누적. ──
   // 강체(금강) — 받은 HP 피해 비례로 누적된 DEF 보너스(전투 내, 상한 = 기본 DEF).
   braceDefBonus: number;
   // 연격세(연환) — 적중할 때마다 누적된 ATK 보너스(전투 내, 상한).
@@ -304,7 +304,7 @@ export type PlayerCombat = {
   // v2 스킬 데미지 계산용 INT total (derive 결과 totalStats.int 그대로). v2 스킬에서 int stat
   // buff/debuff 보정 등에 사용. 0/undefined = no-op.
   intStat?: number;
-  // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 계파 스킬 차수 flat(baseFlatByTier) 해석용 차수.
+  // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 전문화 스킬 차수 flat(baseFlatByTier) 해석용 차수.
   vitStat?: number;
   classTier?: number;
   atk: number;
@@ -482,8 +482,8 @@ export type PlayerCombat = {
   passiveCounterChancePct?: number;
   // 마법사 — 평타를 마법공격력(magicAtk) 기반으로 전환, 적 magicDef(없으면 def 폴백)로 경감. undefined=미보유.
   passiveMagicBasicAttack?: boolean;
-  // 계파 패시브(철벽검류 등) — 받는 피해 -pct%(항상 활성, 곱연산). enchantEndurePct 와 동류,
-  // 가드/평탄감소 전. derive 가 계파 aggregate(받피감)로 채움. 0/undefined=미보유.
+  // 전문화 패시브(철벽검류 등) — 받는 피해 -pct%(항상 활성, 곱연산). enchantEndurePct 와 동류,
+  // 가드/평탄감소 전. derive 가 전문화 aggregate(받피감)로 채움. 0/undefined=미보유.
   // docs/v2-job-spec-passives-plan.md §3-A·§6. (P3b 엔진 훅 — P3c derive 가 주입.)
   passiveDamageTakenReductionPct?: number;
   // 워메이지 주문 연사 — 스킬 발동 확률 %p 가산(resolveV2SkillCast 의 procChance 에 합산). 0/undefined=미보유.
@@ -498,7 +498,7 @@ export type PlayerCombat = {
   poisonedEnemyDefReductionPct?: number;
   // 검투사 혈광 — 적 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p(속도=연타). 0/undefined=미보유.
   extraAttackChancePctWhileEnemyBleeding?: number;
-  // ── 계파 시그니처(c) 전투내 누적형 ──
+  // ── 전문화 시그니처(c) 전투내 누적형 ──
   // 금강 강체 — 받은 HP 피해의 %를 DEF 로 누적(state.stacks.braceDefBonus, 상한=기본 DEF). 0/undefined=미보유.
   defGainOnHitPct?: number;
   // 연환 연격세 — 적중당 ATK 의 %를 ATK 로 누적(state.stacks.comboAtkBonus). 0/undefined=미보유.
@@ -635,7 +635,7 @@ export function rollPlayerAttackCount(player: PlayerCombat): number {
 
 // 혈광 (검투사 시그니처) — 적이 출혈 중이면 그 턴 공격 횟수 굴림에 추가 공격 확률 +%p.
 // rollPlayerAttackCount 를 감싸 enemyBleeding 일 때만 extraAttackChancePct 를 부풀린다.
-// 미보유(0/undefined)·출혈 없음이면 그대로 통과 → 라이브/비계파 무변.
+// 미보유(0/undefined)·출혈 없음이면 그대로 통과 → 라이브/비전문화 무변.
 function rollPlayerAttackCountWithBleed(
   state: BattleState,
   player: PlayerCombat,
@@ -2607,7 +2607,7 @@ export function advanceTurn(
       ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
       : rawDmg;
   const enduredApplied = enduredDmg < rawDmg;
-  // 계파 패시브 받피감(passiveDamageTakenReductionPct) — 받는 피해 -pct%(철벽검류 등). 항상 활성,
+  // 전문화 패시브 받피감(passiveDamageTakenReductionPct) — 받는 피해 -pct%(철벽검류 등). 항상 활성,
   // 인내(endure) 다음·가드 전 곱연산. 최소 1 클램프. 0/undefined = 미보유(라이브 무변).
   const passiveReducePct = player.passiveDamageTakenReductionPct ?? 0;
   const passiveReduced =

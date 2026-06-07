@@ -47,7 +47,7 @@ type PassiveByTier = readonly [
   V2ClassPassiveEffect,
   V2ClassPassiveEffect,
 ];
-// P4(2026-06-04) — 구 직업 패시브 은퇴. 계파(spec) 패시브가 대체(v2JobSpecs.ts + derive).
+// P4(2026-06-04) — 구 직업 패시브 은퇴. 전문화(spec) 패시브가 대체(v2JobSpecs.ts + derive).
 // 빈 맵 → resolveClassPassive 항상 null → derive 에서 inert. 타입/헬퍼는 호환 위해 보존.
 export const V2_CLASS_PASSIVE: Partial<Record<V2Class, PassiveByTier>> = {};
 
@@ -61,7 +61,7 @@ export function resolveClassPassive(
   playerClass: V2Class | null | undefined,
   learnedSkillIds: readonly string[],
 ): V2ResolvedClassPassive | null {
-  // P4 — 구 직업 패시브 은퇴(계파 패시브로 대체). V2_CLASS_PASSIVE 빈 맵 → 항상 null.
+  // P4 — 구 직업 패시브 은퇴(전문화 패시브로 대체). V2_CLASS_PASSIVE 빈 맵 → 항상 null.
   const group = tier1ClassOf(playerClass ?? "none");
   const table = V2_CLASS_PASSIVE[group];
   if (!table) return null;

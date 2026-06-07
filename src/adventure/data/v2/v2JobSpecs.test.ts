@@ -6,19 +6,19 @@ import {
   aggregateSpecPassives,
 } from "./v2JobSpecs";
 
-describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passives-plan.md)", () => {
-  it("전사 = 3계파, 각 계파 패시브 3개 고정 키트 + 무기 게이트", () => {
+describe("v2 직업 전문화(스펙) — 데이터 모델 (docs/v2-job-spec-passives-plan.md)", () => {
+  it("전사 = 3전문화, 각 전문화 패시브 3개 고정 키트 + 무기 게이트", () => {
     const warrior = V2_JOB_SPECS.warrior;
     expect(warrior).toHaveLength(3);
     for (const spec of warrior) {
       expect(spec.passives).toHaveLength(3);
       expect(spec.requiredWeaponType).toBeTruthy();
-      // 패시브 id 는 계파 내 유일
+      // 패시브 id 는 전문화 내 유일
       expect(new Set(spec.passives.map((p) => p.id)).size).toBe(3);
     }
   });
 
-  it("계파별 무기 게이트 매핑 — 광검=대검 / 기사=검방 / 검투사=세검", () => {
+  it("전문화별 무기 게이트 매핑 — 광검=대검 / 기사=검방 / 검투사=세검", () => {
     expect(getJobSpec("warrior", "gwang")?.requiredWeaponType).toBe("greatsword");
     expect(getJobSpec("warrior", "knight")?.requiredWeaponType).toBe(
       "sword_shield",
@@ -33,17 +33,17 @@ describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passiv
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("계파 id·패시브 id 는 전 직군 통틀어 전역 유일 (getSpecById 모호성 방지)", () => {
+  it("전문화 id·패시브 id 는 전 직군 통틀어 전역 유일 (getSpecById 모호성 방지)", () => {
     const all = Object.values(V2_JOB_SPECS).flat();
     const specIds = all.map((s) => s.id);
-    expect(new Set(specIds).size).toBe(specIds.length); // 계파 id 전역 유일
+    expect(new Set(specIds).size).toBe(specIds.length); // 전문화 id 전역 유일
     const passiveIds = all.flatMap((s) => s.passives.map((p) => p.id));
     expect(new Set(passiveIds).size).toBe(passiveIds.length); // 패시브 id 전역 유일
-    // getSpecById 가 각 계파를 정확히 찾음
+    // getSpecById 가 각 전문화를 정확히 찾음
     for (const s of all) expect(getSpecById(s.id)?.id).toBe(s.id);
   });
 
-  it("4직군 모두 3계파 × 3패시브 고정 키트 + job 일치 (P4b 뼈대)", () => {
+  it("4직군 모두 3전문화 × 3패시브 고정 키트 + job 일치 (P4b 뼈대)", () => {
     for (const job of ["warrior", "martial", "mage", "rogue"]) {
       const specs = V2_JOB_SPECS[job];
       expect(specs, job).toHaveLength(3);
@@ -56,7 +56,7 @@ describe("v2 직업 계파(스펙) — 데이터 모델 (docs/v2-job-spec-passiv
   });
 
   it("무기 타입은 한 직군 안에서만 공유(직군 간 충돌 없음 — 통합 설계)", () => {
-    // 계파 통합으로 같은 직군 안 여러 계파가 한 무기 타입을 공유할 수 있다(예: 마법사 3계파=staff).
+    // 전문화 통합으로 같은 직군 안 여러 전문화가 한 무기 타입을 공유할 수 있다(예: 마법사 3전문화=staff).
     // 단 한 무기 타입이 여러 직군에 걸치면 게이트가 직군을 넘나들어 혼란 → 직군당 1개로 제한.
     const typeToJobs = new Map<string, Set<string>>();
     for (const specs of Object.values(V2_JOB_SPECS)) {

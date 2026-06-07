@@ -14,6 +14,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
@@ -118,6 +119,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2MaterialId, number>>
   >({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   // busy key = 처리 중인 개체 iid 또는 슬롯(해제). null 이면 유휴.
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -129,6 +131,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const [invRes, equipRes] = await Promise.all([
         fetch("/api/v2/me/inventory"),
@@ -148,7 +151,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setOwned(j.owned ?? []);
         setEquipped(j.equipped ?? {});
       }
-    } catch {}
+    } catch {
+      setLoadError(true);
+    }
     setLoading(false);
   }, []);
 
@@ -411,6 +416,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           {msg}
         </div>
       )}
+
+      {loadError && <LoadErrorBanner onRetry={refresh} />}
 
       {loading ? (
         <div className="text-sm text-zinc-500 dark:text-zinc-400">

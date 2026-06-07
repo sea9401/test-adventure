@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
@@ -43,8 +44,10 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [mpCharges, setMpCharges] = useState<number | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const refresh = useCallback(async () => {
+    setLoadError(false);
     try {
       const [stateRes, invRes] = await Promise.all([
         fetch("/api/v2/me/state"),
@@ -63,7 +66,9 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         : null;
       setHpCharges(invJ?.hpCharges ?? 0);
       setMpCharges(invJ?.mpCharges ?? 0);
-    } catch {}
+    } catch {
+      setLoadError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -155,6 +160,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="치료소" onBack={onBack} />
+      {loadError && <LoadErrorBanner onRetry={refresh} />}
       <Card padding="md">
         <div className="flex items-center gap-3">
           <FirstAid

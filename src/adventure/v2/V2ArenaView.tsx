@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Sword, Coin, Trophy } from "@phosphor-icons/react";
 
 // v2 1:1 아레나 — PR-8a 코어 UI.
@@ -49,22 +50,25 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     Extract<MatchResp, { ok: true }> | null
   >(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  const loadState = useCallback(async () => {
+    setLoadError(false);
+    try {
+      const res = await fetch("/api/v2/arena/state");
+      const j = (await res.json().catch(() => null)) as StateResp | null;
+      setState(j);
+      if (j == null) setLoadError(true);
+    } catch {
+      setState(null);
+      setLoadError(true);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/v2/arena/state");
-        const j = (await res.json().catch(() => null)) as StateResp | null;
-        if (!cancelled) setState(j);
-      } catch {
-        if (!cancelled) setState(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(loadState 가 state 시드)
+    loadState();
+  }, [loadState]);
 
   const challenge = useCallback(async () => {
     if (busy) return;
@@ -122,6 +126,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
         <Sword size={28} weight="duotone" className="text-amber-600 dark:text-amber-400" />
         <h1 className="text-xl font-bold">아레나</h1>
       </header>
+
+      {loadError && <LoadErrorBanner onRetry={loadState} />}
 
       <section className="grid grid-cols-2 gap-3">
         <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">

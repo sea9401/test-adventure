@@ -1,7 +1,7 @@
 import type { Monster } from "@/adventure/data/monsters/types";
 
-// v2 전용 몬스터 카탈로그 — v2 사냥터(dungeon hunt)·훈련장(spar)이 쓰는 11종을 V1 MONSTERS
-// 에서 분리해 v2 가 직접 소유한다. 옛 구조는 v2 가 V1 region/quest 몹을 stat 출처로 빌려 써서,
+// v2 전용 몬스터 카탈로그 — v2 사냥터(dungeon hunt)·훈련장(spar)이 쓰는 몹을 V1 MONSTERS
+// 에서 분리해 v2 가 직접 소유한다(콘텐츠 링 확장으로 종 수는 계속 늘어남 — 수치 주석 생략). 옛 구조는 v2 가 V1 region/quest 몹을 stat 출처로 빌려 써서,
 // v2 몹 하나 고치려 해도 "이게 V1 퀘스트랑 공유되나?"를 매번 확인해야 했다(예: 산적 궁수가
 // 옛 노상강도 공유). 이제 v2 는 여기만 보면 된다.
 //

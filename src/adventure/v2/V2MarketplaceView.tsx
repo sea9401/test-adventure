@@ -15,6 +15,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 
 // v2 거래소 — 장비 개체 + 재료 거래(고정가). 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   판매세는 서버 권위 — 여기 0.05 는 순수령 미리보기용(표시 advisory).
@@ -98,6 +99,12 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>({});
   const [ttlDays, setTtlDays] = useState<number | null>(null); // 매물 만료 일수(서버 다이얼).
+  // 아이템 옵션 카드(클릭 시 뜨는 팝오버) — 장비만(재료는 옵션 없음). V2ItemCard 재사용(읽기전용).
+  const [card, setCard] = useState<{
+    item: V2Equipment;
+    roll?: V2EquipRoll;
+    anchor: ItemCardAnchor;
+  } | null>(null);
 
   const loadBrowse = useCallback(async (mineOnly: boolean) => {
     const res = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
@@ -261,6 +268,16 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     void buy(l);
   };
 
+  // 아이템 클릭 → 옵션 카드(장비만). itemId 카탈로그 조회 후 클릭 위치에 앵커.
+  const openCardFor = (
+    itemId: string,
+    roll: V2EquipRoll | undefined,
+    el: HTMLElement,
+  ) => {
+    const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
+    if (item) setCard({ item, roll, anchor: anchorOf(el) });
+  };
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
@@ -363,6 +380,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               )
             }
             priceRef={priceRef}
+            onOpenCard={openCardFor}
           />
         </>
       )}
@@ -373,6 +391,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           emptyText="등록한 매물이 없어요."
           priceRef={priceRef}
           expiryDays={ttlDays ?? undefined}
+          onOpenCard={openCardFor}
           action={(l) => (
             <button
               type="button"
@@ -403,9 +422,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                 return (
                   <Card key={inst.iid} padding="sm">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={(e) => openCardFor(inst.id, inst.roll, e.currentTarget)}
+                        className="group min-w-0 text-left"
+                      >
                         <div>
-                          <span className="text-sm font-medium">{V2_EQUIPMENT[inst.id]?.name ?? inst.id}</span>
+                          <span className="text-sm font-medium group-hover:underline group-focus-visible:underline">{V2_EQUIPMENT[inst.id]?.name ?? inst.id}</span>
                           {detail?.pct != null && (
                             <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
                           )}
@@ -418,7 +441,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                         <div className="mt-0.5">
                           <PriceRefLine stat={priceRef[inst.id]} />
                         </div>
-                      </div>
+                      </button>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <PriceInput
                           value={prices[inst.iid] ?? ""}
@@ -503,6 +526,15 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           busy={busy}
           onConfirm={confirmedBuy}
           onCancel={() => setConfirmBuy(null)}
+        />
+      )}
+
+      {card && (
+        <V2ItemCard
+          item={card.item}
+          roll={card.roll}
+          anchor={card.anchor}
+          onClose={() => setCard(null)}
         />
       )}
     </main>
@@ -663,12 +695,15 @@ function ListingList({
   action,
   priceRef,
   expiryDays,
+  onOpenCard,
 }: {
   rows: Listing[] | null;
   emptyText: string;
   action: (l: Listing) => React.ReactNode;
   priceRef: Record<string, PriceStat>;
   expiryDays?: number;
+  // 장비 클릭 → 옵션 카드. (재료는 옵션 없어 미클릭.)
+  onOpenCard?: (itemId: string, roll: V2EquipRoll | undefined, el: HTMLElement) => void;
 }) {
   if (rows === null) {
     return (
@@ -690,40 +725,57 @@ function ListingList({
   return (
     <div className="space-y-2">
       {rows.map((l) => {
-        const detail =
+        const roll =
           l.kind === "equip"
-            ? equipDetail(l.itemId, (l.instancePayload as V2EquipRoll | null) ?? undefined)
-            : null;
+            ? ((l.instancePayload as V2EquipRoll | null) ?? undefined)
+            : undefined;
+        const detail = l.kind === "equip" ? equipDetail(l.itemId, roll) : null;
+        const clickable = l.kind === "equip" && !!onOpenCard;
+        const info = (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className={`text-sm font-medium ${clickable ? "group-hover:underline group-focus-visible:underline" : ""}`}>
+                {l.itemName}
+              </span>
+              {l.kind === "material" && l.quantity > 1 && (
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
+              )}
+              {detail?.pct != null && (
+                <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
+              )}
+            </div>
+            {detail && (
+              <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
+                {detail.line}
+              </div>
+            )}
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                {l.price.toLocaleString()}골드
+              </span>
+              <PriceRefLine stat={priceRef[l.itemId]} />
+              {expiryLabel(l.createdAt, expiryDays) && (
+                <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                  {expiryLabel(l.createdAt, expiryDays)}
+                </span>
+              )}
+            </div>
+          </>
+        );
         return (
           <Card key={l.id} padding="sm">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-medium">{l.itemName}</span>
-                  {l.kind === "material" && l.quantity > 1 && (
-                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
-                  )}
-                  {detail?.pct != null && (
-                    <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
-                  )}
-                </div>
-                {detail && (
-                  <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
-                    {detail.line}
-                  </div>
-                )}
-                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                    {l.price.toLocaleString()}골드
-                  </span>
-                  <PriceRefLine stat={priceRef[l.itemId]} />
-                  {expiryLabel(l.createdAt, expiryDays) && (
-                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                      {expiryLabel(l.createdAt, expiryDays)}
-                    </span>
-                  )}
-                </div>
-              </div>
+              {clickable ? (
+                <button
+                  type="button"
+                  onClick={(e) => onOpenCard!(l.itemId, roll, e.currentTarget)}
+                  className="group min-w-0 text-left"
+                >
+                  {info}
+                </button>
+              ) : (
+                <div className="min-w-0">{info}</div>
+              )}
               {action(l)}
             </div>
           </Card>

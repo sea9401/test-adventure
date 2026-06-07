@@ -278,6 +278,7 @@ export function BattleScene({
   recentNotifications,
   layout = "stacked",
   playerSubtitle,
+  logAnchor = "bottom",
 }: {
   state: BattleState;
   playerName: string;
@@ -288,14 +289,16 @@ export function BattleScene({
   // 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성"). split 레이아웃(v2)에서만 표시.
   // 미전달 시 미표시 — 라이브(stacked)는 그대로.
   playerSubtitle?: string;
+  // 로그 스크롤 기준 — "bottom"=최신 추적(라이브 턴별), "top"=1턴부터(전투 후 전체 로그 리플레이).
+  logAnchor?: "top" | "bottom";
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [state.log]);
+    if (el) el.scrollTop = logAnchor === "top" ? 0 : el.scrollHeight;
+  }, [state.log, logAnchor]);
 
   const recents = (recentNotifications ?? []).slice(
     0,

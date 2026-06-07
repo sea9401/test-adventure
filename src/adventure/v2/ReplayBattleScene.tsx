@@ -81,6 +81,7 @@ export function ReplayBattleScene({
       playerStatus={playerStatus}
       layout="split"
       playerSubtitle={playerSubtitle}
+      logAnchor="top"
     />
   );
 }

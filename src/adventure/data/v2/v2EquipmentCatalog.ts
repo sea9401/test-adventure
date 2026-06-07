@@ -798,7 +798,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 마른땅 갑주 세트 3종. 위력은 정규 최고(전 장비 ×2 후 48~62)보다 +52% 헤드룸 — 밴드 드랍이
   // 확실한 업그레이드로 느껴지게(이 위력은 ×2 감산 대상 아님, 자체 프리미엄). 대지·바람·번개를
   // 두른 협곡 테마는 이름·설명(플레이버)으로만 — 무기 element 부여는 폐지 정책(속성=캐릭터 선택).
-  // 드랍 = 마른 협곡 전용 밴드 풀(dungeonUniqueDrops, BAND_UNIQUE_POOLS), 종류당 약 0.5%.
+  // 드랍 = 마른 협곡 전용 밴드 풀(dungeonUniqueDrops, BAND_UNIQUE_POOLS), 1회 사냥당 총 1%(종류당 ≈0.06%).
   // 상점·제작 불가(유니크).
   v2_canyon_greatsword: {
     id: "v2_canyon_greatsword",

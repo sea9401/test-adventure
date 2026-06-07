@@ -79,12 +79,13 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
   const empty = new Set<V2EquipmentId>();
   const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
 
-  it("마른 협곡 밴드 = 깊이 13~18, 16종(무기 8 + 세트 8), 종류당 ~0.5%", () => {
+  it("마른 협곡 밴드 = 깊이 13~18, 16종(무기 8 + 세트 8), 총 1%·종류당 ≈0.06%", () => {
     expect(canyon).toBeDefined();
     expect(canyon.maxDepth).toBe(18);
     expect(canyon.ids).toHaveLength(16);
-    // chance 0.08 / 16 균등 → 시작 시 종류당 0.5%.
-    expect(canyon.chance / canyon.ids.length).toBeCloseTo(0.005, 5);
+    // chance 0.01 = 1회 사냥당 총 1% / 16 균등 → 종류당 ≈0.06%.
+    expect(canyon.chance).toBe(0.01);
+    expect(canyon.chance / canyon.ids.length).toBeCloseTo(0.000625, 6);
   });
 
   it("마른 협곡 깊이 매칭 — 12 이하는 null(레거시 층 롤과 비중복), 13~18 캐년", () => {
@@ -124,11 +125,12 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호�
   const empty = new Set<V2EquipmentId>();
   const lake = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 19)!;
 
-  it("얼음 호수 밴드 = 깊이 19~24, 16종(무기 8 + 세트 8), 종류당 ~0.5%", () => {
+  it("얼음 호수 밴드 = 깊이 19~24, 16종(무기 8 + 세트 8), 총 1%·종류당 ≈0.06%", () => {
     expect(lake).toBeDefined();
     expect(lake.maxDepth).toBe(24);
     expect(lake.ids).toHaveLength(16);
-    expect(lake.chance / lake.ids.length).toBeCloseTo(0.005, 5);
+    expect(lake.chance).toBe(0.01);
+    expect(lake.chance / lake.ids.length).toBeCloseTo(0.000625, 6);
   });
 
   it("깊이 매칭 — 18 이하는 호수 아님, 19~24 만 매칭(25+는 다음 밴드)", () => {
@@ -154,11 +156,12 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동�
   const empty = new Set<V2EquipmentId>();
   const cave = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
 
-  it("심층 동굴 밴드 = 깊이 25~30, 16종(무기 8 + 세트 8), 종류당 ~0.5%", () => {
+  it("심층 동굴 밴드 = 깊이 25~30, 16종(무기 8 + 세트 8), 총 1%·종류당 ≈0.06%", () => {
     expect(cave).toBeDefined();
     expect(cave.maxDepth).toBe(30);
     expect(cave.ids).toHaveLength(16);
-    expect(cave.chance / cave.ids.length).toBeCloseTo(0.005, 5);
+    expect(cave.chance).toBe(0.01);
+    expect(cave.chance / cave.ids.length).toBeCloseTo(0.000625, 6);
   });
 
   it("깊이 매칭 — 24 이하/31 이상은 동굴 아님, 25~30 만 매칭", () => {

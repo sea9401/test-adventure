@@ -218,7 +218,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   );
 
   // 일괄 판매 — 클라에서 selectBulkSell 로 미리보기(개수·골드) 후 확인, 서버가 권위 판매.
-  // 장착·잠금·비매품은 자동 제외. 응답의 owned 로 갱신.
+  // 장착·잠금 개체만 자동 제외(전 장비 판매 가능 — 유니크 등도 포함). 응답의 owned 로 갱신.
   const applyBulkSell = useCallback(
     async (opts: BulkSellOpts, label: string) => {
       const plan = selectBulkSell(owned, equipped, opts);
@@ -228,7 +228,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       }
       if (
         !window.confirm(
-          `${label}\n${plan.count}개 판매 → +${plan.gold.toLocaleString()}골드\n(장착·잠금·비매품 제외) 진행할까요?`,
+          `${label}\n${plan.count}개 판매 → +${plan.gold.toLocaleString()}골드\n(장착·잠금만 제외) 진행할까요?`,
         )
       ) {
         return;
@@ -422,7 +422,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <>
           {tabInstances.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금·비매 제외 */}
+              {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
               <div className="flex items-center gap-1">
                 <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
                   정리

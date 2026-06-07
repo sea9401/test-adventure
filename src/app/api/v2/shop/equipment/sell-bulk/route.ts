@@ -8,7 +8,8 @@ import type { V2EquipSlot } from "@/adventure/data/v2/v2Equipment";
 // POST /api/v2/shop/equipment/sell-bulk — 보유 장비 일괄 판매 (개체 모델).
 //
 // body: { slot?: 6슬롯 중 하나, belowPct?: number }
-// 미장착 + 미잠금 + 판매가능(유니크 등 비매 제외) 개체를 일괄 판매. slot 주면 그 슬롯만,
+// 미장착 + 미잠금 개체를 일괄 판매(전 장비 판매 가능 — 유니크·수련용·제작도 포함, 2026-06-07).
+//   slot 주면 그 슬롯만,
 // belowPct 주면 굴림% < belowPct 만(굴림 없는 상점템은 belowPct 모드서 제외).
 // 선택 로직은 selectBulkSell(클라 미리보기와 공용) — 서버가 권위.
 

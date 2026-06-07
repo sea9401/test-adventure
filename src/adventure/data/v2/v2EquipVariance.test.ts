@@ -172,17 +172,18 @@ describe("selectBulkSell", () => {
     { iid: "lock", id: id("v2_iron_sword"), locked: true }, // 잠금 → 제외
     { iid: "sell1", id: id("v2_iron_sword") }, // 판매(무기)
     { iid: "sell2", id: id("v2_leather_armor") }, // 판매(갑옷)
-    { iid: "uniq", id: id("v2_uniq_shadow_garb") }, // 유니크 비매 → 제외
+    { iid: "uniq", id: id("v2_uniq_shadow_garb") }, // 유니크도 이제 판매 가능(잠금으로만 보호)
   ];
   const equipped = { weapon: "eq" };
 
-  it("미장착·미잠금·판매가능만 — 장착/잠금/유니크 제외", () => {
+  it("미장착·미잠금만 — 장착/잠금만 제외 (유니크·수련용·제작 모두 판매 가능)", () => {
     const plan = selectBulkSell(owned, equipped, {});
-    expect([...plan.iids].sort()).toEqual(["sell1", "sell2"]);
-    expect(plan.count).toBe(2);
+    expect([...plan.iids].sort()).toEqual(["sell1", "sell2", "uniq"]);
+    expect(plan.count).toBe(3);
     expect(plan.gold).toBe(
       (sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0) +
-        (sellPriceOf(V2_EQUIPMENT.v2_leather_armor) ?? 0),
+        (sellPriceOf(V2_EQUIPMENT.v2_leather_armor) ?? 0) +
+        (sellPriceOf(V2_EQUIPMENT.v2_uniq_shadow_garb) ?? 0),
     );
   });
 

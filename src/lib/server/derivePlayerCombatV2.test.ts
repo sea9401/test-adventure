@@ -824,4 +824,37 @@ describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select
     expect(baseline).not.toBeNull();
     expect(viaPreloaded).toEqual(baseline); // char/equip 재select 없이 동일 결과
   });
+
+  it("preloaded 4개 모두(char+equip+prof+skills) → select 0회 + full derive 와 동일", async () => {
+    // baseline — 4-key select.
+    const fullRows = [
+      { key: "character.v2", value: character },
+      { key: "equipment.v2", value: equipmentSave },
+      { key: "proficiency.v2", value: profVal },
+      { key: "skills.v2", value: skillsVal },
+    ];
+    const baseline = await derivePlayerCombatV2("u", {
+      select: () => ({ from: () => ({ where: async () => fullRows }) }),
+    } as never);
+
+    // 4개 모두 preload → keys 빈 배열 → executor.select 호출 0(사냥 라우트 경로). select 가
+    // 호출되면 throw 하는 executor 로 "왕복 0" 을 강제 검증.
+    let selectCalls = 0;
+    const noQueryExec = {
+      select: () => {
+        selectCalls++;
+        throw new Error("preloaded 4개면 select 가 호출되면 안 된다");
+      },
+    } as never;
+    const viaAllPreloaded = await derivePlayerCombatV2("u", noQueryExec, {
+      character,
+      equipmentSave,
+      proficiencyRaw: profVal,
+      skillsRaw: skillsVal,
+    });
+
+    expect(selectCalls).toBe(0); // DB 왕복 0
+    expect(viaAllPreloaded).not.toBeNull();
+    expect(viaAllPreloaded).toEqual(baseline); // 재select 없이 동일 결과
+  });
 });

@@ -32,6 +32,25 @@ export async function lockSaveForUpdate<T = Record<string, unknown>>(
   return (row?.value ?? fallback) as T;
 }
 
+// 잠그지 않고 save 키 한 행을 읽어 값(또는 fallback)을 돌려준다. lockSaveForUpdate 와 달리
+// FOR UPDATE 가 없어 행 락/락 순서에 끼지 않는다 — 권위적 read-modify-write 가 아닌 곳
+// (이름 표시·신참 전적 스냅샷 등 읽기 전용 게이트)에서 사용. 행이 없으면 fallback.
+export async function readSave<T = Record<string, unknown>>(
+  tx: DbExecutor,
+  userId: string,
+  key: string,
+  fallback: T,
+): Promise<T> {
+  const row = (
+    await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, userId), eq(savesKv.key, key)))
+      .limit(1)
+  )[0];
+  return (row?.value ?? fallback) as T;
+}
+
 export async function upsertSave(
   executor: DbExecutor,
   userId: string,

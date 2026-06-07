@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   derivePlayerCombatV2,
   v2LevelGrowthHpMp,
@@ -355,11 +355,34 @@ export async function POST(req: Request) {
         };
       }
 
-      // PR-perf — 이미 lock-read 한 charSave/equipmentSave 를 derive 에 넘겨 중복 select 제거
-      //   (배치 판당 char+equip 2 row read 절감). proficiency/skills 는 derive 가 select(현행 유지).
+      // PR-perf — character/equipment 에 더해 skills/proficiency 도 derive 전에 한 번 lock-read 해서
+      //   4개 save 를 모두 preload → derive 의 중복 select 자체를 제거(판당 prof 2read→1·skills
+      //   2read→1·derive 왕복 0). #571 이 캡 산출 select 를 이미 제거했으니, 남은 prof read 는
+      //   derive 의 SELECT 와 권위 쓰기 락 둘 — 이 둘을 upfront 락 하나로 합친다. 같은 락 결과를
+      //   아래 cast hook·권위적 proficiency 쓰기에서 재사용(동일 tx 스냅샷·중간 쓰기 없음 →
+      //   결과 byte-동일). 레벨 캡은 #571 처럼 derive 가 노출한 player.classTier 를 쓴다.
+      //   lock 순서: character→equipment→
+      //   skills→proficiency. 모든 라우트가 character.v2 를 가장 먼저 잠그므로 같은 유저 동시 tx 는
+      //   character.v2 에서 직렬화 → 이후 같은-유저 키 락 순서는 데드락과 무관(dev/admin grant 도
+      //   이미 proficiency→inventory 순이라 이 순서가 외려 더 일관).
+      const skillsRaw = await lockSaveForUpdate(
+        tx,
+        userId,
+        "skills.v2",
+        emptyV2SkillsState() as unknown as Record<string, unknown>,
+      );
+      const v2Skills = parseV2SkillsState(skillsRaw);
+      const proficiencyRaw = await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      );
       const player = await derivePlayerCombatV2(userId, tx, {
         character: charSave,
         equipmentSave,
+        proficiencyRaw,
+        skillsRaw,
       });
       if (!player) {
         return {
@@ -442,19 +465,12 @@ export async function POST(req: Request) {
       };
 
       // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
-      const profileRow = await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(
-            eq(savesKv.userId, userId),
-            eq(savesKv.key, "character-profile.v2"),
-          ),
-        )
-        .limit(1);
-      const profile = (profileRow[0]?.value ?? null) as {
-        name?: string;
-      } | null;
+      const profile = await readSave<{ name?: string } | null>(
+        tx,
+        userId,
+        "character-profile.v2",
+        null,
+      );
       const playerName = profile?.name?.trim() || "모험가";
 
       // 사냥 전 hp 회복 — 마지막 사냥 이후 흐른 시간만큼 충전.
@@ -496,15 +512,7 @@ export async function POST(req: Request) {
         };
       }
 
-      // PR-4b — 플레이어의 v2 스킬 (learned/equipped) 을 lock 해서 read. cast hook 이 사용.
-      const skillsRaw = await lockSaveForUpdate(
-        tx,
-        userId,
-        "skills.v2",
-        emptyV2SkillsState() as unknown as Record<string, unknown>,
-      );
-      const v2Skills = parseV2SkillsState(skillsRaw);
-
+      // v2Skills 는 위(derive 직전)에서 이미 lock-read·parse 했다. cast hook 이 그대로 사용.
       const battleResult = resolveBattle(
         playerForBattle,
         enemyMonster,
@@ -523,17 +531,10 @@ export async function POST(req: Request) {
       // v2 는 재전직이 레벨을 1 로 리셋하므로 레벨이 아닌 전적으로 신참을 가린다(베테랑이
       // 재전직할 때마다 보너스가 잘못 되살아나는 것 방지). read-only 스냅샷(게이트용)이라
       // 비잠금 — 권위적 kill 증가는 아래 lock 구간(adventure-log.v2)에서 한다.
-      const logRow = await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")),
-        )
-        .limit(1);
-      const logVal = (logRow[0]?.value ?? null) as {
+      const logVal = await readSave<{
         monsters?: Record<string, { kills?: number }>;
         battleLosses?: number;
-      } | null;
+      } | null>(tx, userId, "adventure-log.v2", null);
       const battleCount =
         Object.values(logVal?.monsters ?? {}).reduce(
           (sum, m) => sum + (m?.kills ?? 0),
@@ -738,13 +739,9 @@ export async function POST(req: Request) {
       if (won || expResult.levelsGained > 0) {
         const playerClass = parseV2Class(charSave.class);
         const group = tier1ClassOf(playerClass);
-        const profSave = await lockSaveForUpdate<V2ProficiencyState>(
-          tx,
-          userId,
-          "proficiency.v2",
-          emptyProficiency(),
-        );
-        let prof = parseProficiencyForChar(profSave, charSave);
+        // PR-perf — 위에서 upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷, 중간
+        //   proficiency 쓰기 없음 → 새 lock 과 동일 base). 중복 lock-read 제거.
+        let prof = parseProficiencyForChar(proficiencyRaw, charSave);
         // 적립 — 승리 + 직업 보유 시.
         if (won && group !== "none") {
           prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL);

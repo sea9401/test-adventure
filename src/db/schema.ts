@@ -348,6 +348,52 @@ export const marketplaceInbox = pgTable(
   ],
 );
 
+// v2 거래소 listing — V1 marketplaceListings(grade c±N/dN, V1 인벤 모델)와 별개 신규 테이블.
+//   v2 장비는 개체(instance) 모델({iid,id,roll})·재료는 스택(charSave.materials). grade 개념 없음.
+// kind:  'equip'(장비 개체, quantity=1) | 'material'(재료 스택, quantity=N).
+// itemId: V2EquipmentId | V2MaterialId. itemName/sellerName 은 등록 시점 스냅샷.
+// price:  정수 골드 — listing 전체 가격(단가 아님). 성사 시 판매세 차감분만 판매자에 정산(우편).
+// instancePayload: equip 인스턴스 roll 스냅샷(V2EquipRoll, iid 제외) — 구매 시 새 개체로 복원. material=null.
+// status: active→sold|cancelled (활성/종료 모두 보관, 감사).
+// 에스크로: 등록 시 판매자 save 에서 빠져 이 행으로 묶임 → 구매=구매자 save 합류, 취소=판매자 반환.
+export const marketplaceListingsV2 = pgTable(
+  "marketplace_listings_v2",
+  {
+    id: serial("id").primaryKey(),
+    sellerId: text("seller_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sellerName: text("seller_name").notNull(),
+    kind: text("kind").notNull(), // 'equip' | 'material'
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    quantity: integer("quantity").notNull(),
+    price: integer("price").notNull(),
+    instancePayload: jsonb("instance_payload"),
+    status: text("status").notNull().default("active"), // 'active'|'sold'|'cancelled'
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    closedAt: timestamp("closed_at"),
+    buyerId: text("buyer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    // 활성 매물 둘러보기(종류·최신순).
+    index("listings_v2_browse_idx")
+      .on(t.kind, t.createdAt)
+      .where(sql`${t.status} = 'active'`),
+    // 내 매물 / 슬롯 카운트.
+    index("listings_v2_seller_idx").on(t.sellerId, t.status, t.createdAt),
+    check("listings_v2_kind_valid", sql`${t.kind} IN ('equip','material')`),
+    check(
+      "listings_v2_status_valid",
+      sql`${t.status} IN ('active','sold','cancelled')`,
+    ),
+    check("listings_v2_qty_pos", sql`${t.quantity} > 0`),
+    check("listings_v2_price_pos", sql`${t.price} > 0`),
+  ],
+);
+
 // 랭킹 — opt-in. 사용자가 명시적으로 등록한 경우에만 row 가 존재한다.
 // 갱신은 수동 (RankingsView 의 '갱신' 버튼). DELETE 로 빠질 수 있음.
 // name 은 등록/갱신 시점 스냅샷 — 이후 닉네임 변경되면 다음 갱신에서 반영.

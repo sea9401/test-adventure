@@ -289,6 +289,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         ariaLabel="부위"
         size="sm"
         variant="highlight"
+        scrollable
       />
 
       <section>

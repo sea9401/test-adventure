@@ -54,3 +54,69 @@ export function rollUniqueDrop(
   if (candidates.length === 0) return null;
   return candidates[Math.floor(rng() * candidates.length)];
 }
+
+// ── 프론티어 깊이 밴드 유니크 (심층 13+) ───────────────────────────────────────
+// 층(floor 1~8) 기반 레거시 UNIQUE_FLOOR_POOLS 와 별개로 **깊이 범위**로 키. 심층 프론티어
+// 밴드 콘텐츠 전용 유니크 드랍. 마른 협곡(13~18)부터.
+//
+// pool.chance = 풀 통과(총 드랍률). 통과 시 후보 균등 pick → 후보(미보유) 1종당 chance/len.
+//   마른 협곡 = 11종 × 0.5% → chance 0.055(시작 시 종류당 0.5%). 보유분 제외돼 후보가 줄면
+//   남은 종류 확률이 올라간다(수집 가속 = 컬렉션 추격). ← 드랍률 다이얼.
+export type BandUniquePool = {
+  /** 밴드 시작 깊이(포함). */
+  minDepth: number;
+  /** 밴드 끝 깊이(포함). */
+  maxDepth: number;
+  /** 사냥 1회당 풀 통과 확률 [0, 1] = 총 드랍률. 후보 균등 분배. */
+  chance: number;
+  /** 통과 시 후보 유니크 id. 이미 보유한 건 제외하고 균등 pick. */
+  ids: V2EquipmentId[];
+};
+
+export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
+  {
+    // 마른 협곡(밴드 A, 깊이 13~18). 무기 8(8 무기타입 1종씩) + 마른땅 갑주 세트 3 = 11종.
+    // chance 0.055 / 11 균등 → 시작 시 종류당 0.5%.
+    minDepth: 13,
+    maxDepth: 18,
+    chance: 0.055,
+    ids: [
+      "v2_canyon_greatsword",
+      "v2_canyon_knightblade",
+      "v2_canyon_rapier",
+      "v2_canyon_gauntlet",
+      "v2_canyon_claw",
+      "v2_canyon_staff",
+      "v2_canyon_bow",
+      "v2_canyon_dagger",
+      "v2_canyon_set_armor",
+      "v2_canyon_set_gloves",
+      "v2_canyon_set_boots",
+    ],
+  },
+];
+
+// 깊이 → 밴드 유니크 풀(없으면 null). 밴드는 겹치지 않게 정의.
+export function bandUniquePoolForDepth(depth: number): BandUniquePool | null {
+  for (const p of BAND_UNIQUE_POOLS) {
+    if (depth >= p.minDepth && depth <= p.maxDepth) return p;
+  }
+  return null;
+}
+
+// 밴드 유니크 드랍 굴림(순수) — rollUniqueDrop 의 깊이-밴드 버전. rng() ∈ [0, 1).
+// 밴드 밖 깊이 → pool null → rng 미소비하고 null(레거시 floor 롤과 ?? 합성해도 rng 안 샘).
+export function rollBandUniqueDrop(
+  depth: number,
+  ownedSet: ReadonlySet<V2EquipmentId>,
+  rng: () => number,
+  // 통과 굴림 chance 배율. 미지정 1. chance×배율(1 cap).
+  chanceMult: number = 1,
+): V2EquipmentId | null {
+  const pool = bandUniquePoolForDepth(depth);
+  if (!pool || pool.chance <= 0 || pool.ids.length === 0) return null;
+  if (rng() >= Math.min(1, pool.chance * chanceMult)) return null;
+  const candidates = pool.ids.filter((id) => !ownedSet.has(id));
+  if (candidates.length === 0) return null;
+  return candidates[Math.floor(rng() * candidates.length)];
+}

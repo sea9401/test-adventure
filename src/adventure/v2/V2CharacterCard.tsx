@@ -23,7 +23,12 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -197,7 +202,13 @@ export function V2CharacterCard({
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   {label}
                 </div>
-                <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                <div
+                  className={`truncate text-xs font-medium ${
+                    item
+                      ? powerNameClass(item)
+                      : "text-zinc-400 dark:text-zinc-600"
+                  }`}
+                >
                   {item?.name ?? "—"}
                 </div>
               </>

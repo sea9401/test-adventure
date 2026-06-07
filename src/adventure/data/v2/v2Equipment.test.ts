@@ -7,6 +7,8 @@ import {
   V2_EQUIP_SETS,
   isUnique,
   parseEquipmentSave,
+  powerBandOf,
+  POWER_BAND_COUNT,
   setInstanceLock,
   sellPriceOf,
   shopPriceOf,
@@ -16,6 +18,7 @@ import {
   v2EquipmentBySlot,
   weaponGateOpen,
   weaponTypeOf,
+  type V2Equipment,
   type V2EquipConcept,
   type V2EquipmentId,
   type V2EquipSlot,
@@ -27,6 +30,41 @@ describe("무기 속성 폐지 (속성 = 캐릭터 선택/스킬, 무기는 위�
   it("모든 장비(무기 포함)에 element 없음 — 평타 속성은 캐릭터 선택으로", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       expect(item.element, `${item.id} element 폐지`).toBeUndefined();
+    }
+  });
+});
+
+describe("powerBandOf — 등급 대신 절대 위력 색 구간(부위별 step)", () => {
+  // powerBandOf 는 item.slot·item.power 만 읽음 → 최소 객체로 경계 검증.
+  const mk = (slot: V2EquipSlot, power: number) =>
+    ({ slot, power }) as V2Equipment;
+
+  it("무기는 75 단위로 색 구간 상승", () => {
+    expect(powerBandOf(mk("weapon", 0))).toBe(0);
+    expect(powerBandOf(mk("weapon", 74))).toBe(0);
+    expect(powerBandOf(mk("weapon", 75))).toBe(1);
+    expect(powerBandOf(mk("weapon", 149))).toBe(1);
+    expect(powerBandOf(mk("weapon", 150))).toBe(2);
+  });
+
+  it("부위별 step 차등 — 같은 위력도 부위 따라 구간 다름", () => {
+    // 위력 11: 반지(step 5)=floor(11/5)=2, 무기(step 75)=0.
+    expect(powerBandOf(mk("ring", 11))).toBe(2);
+    expect(powerBandOf(mk("weapon", 11))).toBe(0);
+  });
+
+  it("굴림 무관 — 카탈로그 절대 위력만(같은 종류는 굴림 달라도 동일 색)", () => {
+    // powerBandOf 시그니처에 roll 없음 — 위력만으로 결정.
+    expect(powerBandOf(mk("armor", 25))).toBe(1);
+    expect(powerBandOf(mk("armor", 24))).toBe(0);
+  });
+
+  it("구간은 0…POWER_BAND_COUNT-1 클램프(초고위력도 상한)", () => {
+    expect(powerBandOf(mk("weapon", 99999))).toBe(POWER_BAND_COUNT - 1);
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      const b = powerBandOf(item);
+      expect(b).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThanOrEqual(POWER_BAND_COUNT - 1);
     }
   });
 });

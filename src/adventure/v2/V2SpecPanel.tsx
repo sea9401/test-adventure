@@ -206,6 +206,21 @@ export function V2SpecPanel({
               착용 시 발동
             </span>
           </div>
+          {chosen.trait && (
+            <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  특성 · {chosen.trait.name}
+                </span>
+                <span className="shrink-0 text-[11px] text-amber-700 dark:text-amber-400">
+                  자동 · 차수 성장
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+                {chosen.trait.effectText || chosen.trait.desc}
+              </p>
+            </div>
+          )}
           <ul className="mt-2 space-y-1.5">
             {chosen.passives.map((p) => {
               const isUnlocked = unlockedSet.has(p.id);
@@ -242,21 +257,6 @@ export function V2SpecPanel({
               );
             })}
           </ul>
-          {chosen.trait && (
-            <div className="mt-2.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                  특성 · {chosen.trait.name}
-                </span>
-                <span className="shrink-0 text-[11px] text-amber-700 dark:text-amber-400">
-                  자동 · 차수 성장
-                </span>
-              </div>
-              <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
-                {chosen.trait.effectText || chosen.trait.desc}
-              </p>
-            </div>
-          )}
           <button
             type="button"
             onClick={resetSpec}

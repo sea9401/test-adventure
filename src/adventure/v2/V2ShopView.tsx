@@ -22,7 +22,12 @@ import {
   V2_MATERIAL_SELL_PRICE,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -537,7 +542,9 @@ function EquipmentName({
       className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
     >
       <div className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+        <span
+          className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
+        >
           {item.name}
         </span>
         {showTypeChip && <ItemTypeChip item={item} />}

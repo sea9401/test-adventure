@@ -40,6 +40,7 @@ import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   V2ItemCard,
   anchorOf,
+  powerNameClass,
   rollPctClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
@@ -53,13 +54,6 @@ const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
   ring: { Icon: Circle, color: "text-violet-500" },
   necklace: { Icon: Diamond, color: "text-pink-500" },
 };
-
-// 이름 색 — 유니크만 강조(금색), 나머지는 기본.
-function rarityNameClass(item: V2Equipment): string {
-  return item.rarity === "unique"
-    ? "text-amber-600 dark:text-amber-400"
-    : "text-zinc-800 dark:text-zinc-100";
-}
 
 // 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
 //   치명피해). 티어 숫자 표기는 제거(이름·위력·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
@@ -661,7 +655,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
               <span
-                className={`truncate text-sm font-semibold ${rarityNameClass(item)}`}
+                className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
               >
                 {item.name}
               </span>

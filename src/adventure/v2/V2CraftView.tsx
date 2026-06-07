@@ -22,7 +22,12 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 
 // v2 대장간 — 제작 / 분해.
 //   제작: 재료(+골드) → 완성 장비. 부위별 티어·컨셉 순 레시피 카드. 충분할 때만 제작 버튼 활성.
@@ -361,7 +366,9 @@ function ItemHead({
           onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
           className="flex min-w-0 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
         >
-          <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+          <span
+            className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
+          >
             {item.name}
           </span>
         </button>

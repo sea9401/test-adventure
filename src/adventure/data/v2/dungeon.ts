@@ -154,3 +154,25 @@ export function depthName(depth: number): string {
   const { name, localIndex } = themeForDepth(depth);
   return `${name} ${localIndex}`;
 }
+
+// 표시용 — 깊이 1..maxDepth 를 THEME_DEPTH_SPAN(6) 깊이 블록(=사냥터 카드)으로 묶는다. 사냥터
+// 목록 2단 UI: 테마 카드 누르면 그 안에서 깊이 카드 6개. 무한 마지막 테마(짐승의 소굴)도 6깊이씩
+// 블록 유지(이름은 클램프) → 한 블록당 항상 ≤6 깊이. 각 그룹 = { name, depths[] }.
+export function dungeonThemeGroups(
+  maxDepth: number,
+): { name: string; depths: number[] }[] {
+  const groups: { name: string; depths: number[] }[] = [];
+  let curBlock = -1;
+  const end = Math.max(1, Math.floor(maxDepth));
+  for (let depth = 1; depth <= end; depth++) {
+    const block = Math.floor((depth - 1) / THEME_DEPTH_SPAN);
+    if (block !== curBlock) {
+      curBlock = block;
+      const name =
+        DUNGEON_THEMES[Math.min(block, DUNGEON_THEMES.length - 1)].name;
+      groups.push({ name, depths: [] });
+    }
+    groups[groups.length - 1].depths.push(depth);
+  }
+  return groups;
+}

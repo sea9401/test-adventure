@@ -124,6 +124,31 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_lake_chill_necklace",
     ],
   },
+  {
+    // 심층 동굴(밴드 C, 깊이 25~30). 무기 8 + 심연 갑주 3 + 흑요 수호구 3 + 공허 장신구 2 = 16종.
+    // chance 0.08 / 16 균등 → 시작 시 종류당 0.5%.
+    minDepth: 25,
+    maxDepth: 30,
+    chance: 0.08,
+    ids: [
+      "v2_cave_greatsword",
+      "v2_cave_knightblade",
+      "v2_cave_rapier",
+      "v2_cave_gauntlet",
+      "v2_cave_claw",
+      "v2_cave_staff",
+      "v2_cave_bow",
+      "v2_cave_dagger",
+      "v2_cave_abyss_armor",
+      "v2_cave_abyss_gloves",
+      "v2_cave_abyss_boots",
+      "v2_cave_obsidian_armor",
+      "v2_cave_obsidian_gloves",
+      "v2_cave_obsidian_boots",
+      "v2_cave_void_ring",
+      "v2_cave_void_necklace",
+    ],
+  },
 ];
 
 // 깊이 → 밴드 유니크 풀(없으면 null). 밴드는 겹치지 않게 정의.

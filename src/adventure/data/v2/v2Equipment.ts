@@ -182,7 +182,24 @@ export type V2EquipmentId =
   | "v2_lake_bulwark_gloves"
   | "v2_lake_bulwark_boots"
   | "v2_lake_chill_ring"
-  | "v2_lake_chill_necklace";
+  | "v2_lake_chill_necklace"
+  // 심층 동굴 밴드 드랍 (밴드 C, 깊이 25~30) — 무기 8종 + 세트 3종(심연 갑주·흑요 수호구·공허 장신구).
+  | "v2_cave_greatsword"
+  | "v2_cave_knightblade"
+  | "v2_cave_rapier"
+  | "v2_cave_gauntlet"
+  | "v2_cave_claw"
+  | "v2_cave_staff"
+  | "v2_cave_bow"
+  | "v2_cave_dagger"
+  | "v2_cave_abyss_armor"
+  | "v2_cave_abyss_gloves"
+  | "v2_cave_abyss_boots"
+  | "v2_cave_obsidian_armor"
+  | "v2_cave_obsidian_gloves"
+  | "v2_cave_obsidian_boots"
+  | "v2_cave_void_ring"
+  | "v2_cave_void_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -403,6 +420,35 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "한기 장신구",
     pieces: ["v2_lake_chill_ring", "v2_lake_chill_necklace"],
     bonus: { crit: 8, mp: 40 },
+  },
+  {
+    // 심층 동굴 공격형 세트(중갑 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명+6·치명피해+0.6×·HP+50.
+    id: "abyss_plate",
+    name: "심연 갑주",
+    pieces: [
+      "v2_cave_abyss_armor",
+      "v2_cave_abyss_gloves",
+      "v2_cave_abyss_boots",
+    ],
+    bonus: { crit: 6, critMult: 60, hp: 50 },
+  },
+  {
+    // 심층 동굴 방어형 세트(중갑 3종). 심연 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+160·회피+7.
+    id: "obsidian_bulwark",
+    name: "흑요 수호구",
+    pieces: [
+      "v2_cave_obsidian_armor",
+      "v2_cave_obsidian_gloves",
+      "v2_cave_obsidian_boots",
+    ],
+    bonus: { hp: 160, eva: 7 },
+  },
+  {
+    // 심층 동굴 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 치명/마력 유틸. 2종 보너스 치명+10·MP+50.
+    id: "void_charm",
+    name: "공허 장신구",
+    pieces: ["v2_cave_void_ring", "v2_cave_void_necklace"],
+    bonus: { crit: 10, mp: 50 },
   },
 ];
 

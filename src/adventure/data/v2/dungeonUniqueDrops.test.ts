@@ -26,9 +26,9 @@ function seqRng(values: number[]): () => number {
   return () => (i < values.length ? values[i++] : 0);
 }
 
-describe("유니크 카탈로그 (38종 — 기존 6 + 마른 협곡 16 + 얼음 호수 16)", () => {
-  it("V2_UNIQUE_IDS 38종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(38);
+describe("유니크 카탈로그 (54종 — 기존 6 + 협곡 16 + 호수 16 + 동굴 16)", () => {
+  it("V2_UNIQUE_IDS 54종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(54);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -130,11 +130,12 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호�
     expect(lake.chance / lake.ids.length).toBeCloseTo(0.005, 5);
   });
 
-  it("깊이 매칭 — 18 이하/25 이상은 얼음 호수 아님, 19~24 만 매칭", () => {
+  it("깊이 매칭 — 18 이하는 호수 아님, 19~24 만 매칭(25+는 다음 밴드)", () => {
     expect(bandUniquePoolForDepth(18)).not.toBe(lake);
     expect(bandUniquePoolForDepth(19)).toBe(lake);
     expect(bandUniquePoolForDepth(24)).toBe(lake);
-    expect(bandUniquePoolForDepth(25)).toBeNull();
+    // 25+ 는 더 이상 null 이 아니라 다음 밴드(심층 동굴). 호수 풀이 아님만 확인.
+    expect(bandUniquePoolForDepth(25)).not.toBe(lake);
   });
 
   it("통과 굴림(rng<chance) → 얼음 호수 유니크 반환", () => {
@@ -144,6 +145,37 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호�
   it("마른 협곡과 후보 풀이 겹치지 않음(밴드 분리)", () => {
     const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
     const overlap = lake.ids.filter((id) => canyon.ids.includes(id));
+    expect(overlap).toEqual([]);
+  });
+});
+
+describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동굴)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const cave = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
+
+  it("심층 동굴 밴드 = 깊이 25~30, 16종(무기 8 + 세트 8), 종류당 ~0.5%", () => {
+    expect(cave).toBeDefined();
+    expect(cave.maxDepth).toBe(30);
+    expect(cave.ids).toHaveLength(16);
+    expect(cave.chance / cave.ids.length).toBeCloseTo(0.005, 5);
+  });
+
+  it("깊이 매칭 — 24 이하/31 이상은 동굴 아님, 25~30 만 매칭", () => {
+    expect(bandUniquePoolForDepth(24)).not.toBe(cave);
+    expect(bandUniquePoolForDepth(25)).toBe(cave);
+    expect(bandUniquePoolForDepth(30)).toBe(cave);
+    expect(bandUniquePoolForDepth(31)).toBeNull();
+  });
+
+  it("통과 굴림(rng<chance) → 심층 동굴 유니크 반환", () => {
+    expect(rollBandUniqueDrop(25, empty, seqRng([0, 0]))).toBe(cave.ids[0]);
+  });
+
+  it("다른 밴드(협곡·호수)와 후보 풀이 겹치지 않음", () => {
+    const others = BAND_UNIQUE_POOLS.filter((p) => p.minDepth !== 25).flatMap(
+      (p) => p.ids,
+    );
+    const overlap = cave.ids.filter((id) => others.includes(id));
     expect(overlap).toEqual([]);
   });
 });

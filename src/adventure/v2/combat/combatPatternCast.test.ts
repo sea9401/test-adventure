@@ -3,7 +3,10 @@ import {
   resolveV2SkillCast,
   type V2SkillCastInput,
 } from "./combatShared";
-import type { V2CombatPattern } from "./combatPattern";
+import {
+  V2_PATTERN_SKILL_POWER_MULT,
+  type V2CombatPattern,
+} from "./combatPattern";
 
 // 전투 패턴이 resolveV2SkillCast 에 주입됐을 때: (1) procChance 은퇴(확정 발동), (2) 조건 게이팅.
 function castInput(equipped: string[], over: Partial<V2SkillCastInput> = {}): V2SkillCastInput {
@@ -30,6 +33,19 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
+  it("위력 중립 — 패턴 경로 스킬 피해는 ×V2_PATTERN_SKILL_POWER_MULT (proc 은퇴 보정)", () => {
+    // 옛 경로(procRoll 미지정 = 항상 발동): 풀 위력.
+    const full = resolveV2SkillCast(castInput([SKILL]));
+    // 패턴 경로: 같은 입력, 피해 ×mult.
+    const scaled = resolveV2SkillCast(castInput([SKILL], { combatPattern: always }));
+    expect(full.castSkillId).toBe(SKILL);
+    expect(scaled.castSkillId).toBe(SKILL);
+    expect(full.enemyDamage).toBeGreaterThan(0);
+    expect(scaled.enemyDamage).toBe(
+      Math.round(full.enemyDamage * V2_PATTERN_SKILL_POWER_MULT),
+    );
+  });
+
   it("패턴 경로는 procChance 은퇴 — procRoll 실패해도 확정 발동", () => {
     // 옛 경로: procRoll 99 >= procChance 40 → 미발동.
     const old = resolveV2SkillCast(castInput([SKILL], { procRoll: 99 }));

@@ -26,6 +26,7 @@ import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
 import {
   evaluateCombatPattern,
+  V2_PATTERN_SKILL_POWER_MULT,
   type V2CombatPattern,
   type V2PatternCtx,
 } from "./combatPattern";
@@ -755,14 +756,19 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     }
   }
   // 4) MP 차감(+명상 회복) + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
+  // 패턴 경로(proc 은퇴 — 위력 중립 재밸런스): proc 없이 확정 발동이라 스킬 빈도가 ~5배.
+  //   빈도는 갬빗답게 두되, 스킬 피해·회복에 V2_PATTERN_SKILL_POWER_MULT 를 곱해 총 위력(처치
+  //   시간)을 옛 proc 수준으로 맞춘다(단일 다이얼, sim 캘리브). hitDamages 는 비율용이라 미스케일
+  //   (엔진이 enemyDamage 총합을 distributeBoostedHits 로 재분배). DoT/버프는 1차 미적용(후속).
+  const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT : 1;
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
     castSkillId: id,
     castSkillName: def.name,
-    enemyDamage,
+    enemyDamage: skillMult === 1 ? enemyDamage : Math.round(enemyDamage * skillMult),
     hitDamages,
-    selfHeal,
+    selfHeal: skillMult === 1 ? selfHeal : Math.round(selfHeal * skillMult),
     selfBuffsToApply,
     enemyDebuffsToApply,
     dotsToApplyToTarget,

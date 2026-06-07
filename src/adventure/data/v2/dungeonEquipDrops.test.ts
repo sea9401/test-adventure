@@ -94,15 +94,17 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     }
   });
 
-  it("같은 티어의 모든 후보를 이미 보유 → null", () => {
-    // 1층 T1 후보 7개 모두 보유. 통과 + T1 선택돼도 후보 0 → null.
+  it("중복 드랍 — 모두 보유여도 후보에 포함되어 드랍됨(no-dup off)", () => {
+    // 1층 T1 후보 전부 보유해도 ownedSet 무시 → 같은 종류가 새 굴림으로 재드랍.
     const ownedT1 = new Set<V2EquipmentId>();
     for (const item of Object.values(V2_EQUIPMENT)) {
       if (item.tier === 1) ownedT1.add(item.id);
     }
-    // rng[1]=0.0 → 가중 합 9 의 첫 슬롯 T1 선택
+    // rng[1]=0.0 → 가중 합 9 의 첫 슬롯 T1 선택. 보유 제외 안 하므로 null 아님.
     const rng = seqRng([0.01, 0.0, 0.0]);
-    expect(rollEquipDrop(1, ownedT1, rng)).toBeNull();
+    const got = rollEquipDrop(1, ownedT1, rng);
+    expect(got).not.toBeNull();
+    if (got) expect(V2_EQUIPMENT[got].tier).toBe(1);
   });
 
   it("가중 풀에 없는 티어는 반환되지 않음 (1층은 T5 안 떨어짐)", () => {
@@ -127,18 +129,19 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     }
   });
 
-  it("ownedSet 안의 id 는 결코 반환되지 않음", () => {
+  it("중복 드랍 — 보유한 id 도 반환될 수 있음(no-dup off)", () => {
+    // 보유분이 후보에서 제외되지 않음 → 여러 굴림 중 보유 id 가 적어도 한 번은 나온다.
     const ownedSome = new Set<V2EquipmentId>([
       "v2_iron_sword",
       "v2_chain_mail",
     ]);
+    let sawOwned = false;
     for (let seed = 0; seed < 200; seed++) {
       const rng = seqRng([0.0, seed / 200, seed / 200]);
       const got = rollEquipDrop(1, ownedSome, rng);
-      if (got) {
-        expect(ownedSome.has(got)).toBe(false);
-      }
+      if (got && ownedSome.has(got)) sawOwned = true;
     }
+    expect(sawOwned).toBe(true);
   });
 
   it("티어 가중 끝점 — roll = totalWeight - epsilon 일 때 마지막 티어 (overflow 안전)", () => {

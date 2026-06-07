@@ -45,9 +45,14 @@ const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 3, 5]);
 // rng 호출 순서:
 //   1) 통과 굴림 (pool.chance)
 //   2) 통과 시 티어 pick
-//   3) 티어 안에서 보유 제외 후 컨셉 균등 pick
+//   3) 티어 안에서 컨셉 균등 pick (보유분 포함 — 중복 드랍 허용)
+//
+// ⚠️ 중복 드랍(no-dup off): 보유한 종류도 후보에 포함 → 같은 종류가 새 굴림으로 재드랍.
+//   god-roll 추격 엔진(편차 0.65 와 짝). ownedSet 은 더 이상 후보 필터에 안 쓰지만 시그니처는
+//   유지(호출부·rollUniqueDrop 대칭 — 유니크는 dedup 유지). 첫카피 보호 없음(순수 균등 랜덤).
 export function rollEquipDrop(
   floor: DungeonFloorId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 중복 드랍 허용 후 미사용(시그니처 유지)
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
   // 통과 굴림 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. chance×배율(1 cap).
@@ -83,8 +88,8 @@ export function rollEquipDrop(
     roll -= w;
   }
 
-  // 3) 같은 티어의 후보 — 이미 보유 제외 후 균등 pick.
-  // 모두 보유면 null (PR-3 단순화, PR-4 에서 다른 티어 fallback 여부 결정).
+  // 3) 같은 티어의 후보 — 균등 pick. 보유분 포함(중복 드랍 허용) → 보유한 종류도 새 굴림으로
+  //    재드랍해 god-roll 추격이 성립. (드랍 전용 제외만 적용 — 유니크/제작/스타터/noDrop.)
   const candidates: V2EquipmentId[] = [];
   for (const item of Object.values(V2_EQUIPMENT)) {
     if (item.tier !== pickedTier) continue;
@@ -95,10 +100,9 @@ export function rollEquipDrop(
     if (item.craftOnly || item.starterOnly) continue;
     // 드랍 제외(noDrop) — 계파 무기는 상점 전용(드랍은 후속 추가 예정).
     if (item.noDrop) continue;
-    if (ownedSet.has(item.id)) continue;
     candidates.push(item.id);
   }
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return null; // 티어에 드랍 가능 종류가 0(데이터상)일 때만
 
   const idx = Math.floor(rng() * candidates.length);
   return candidates[idx];

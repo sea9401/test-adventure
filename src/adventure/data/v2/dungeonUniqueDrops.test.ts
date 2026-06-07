@@ -95,14 +95,20 @@ describe("rollUniqueDrop", () => {
 });
 
 describe("정규 장비 드랍은 유니크를 절대 안 뱉음 (누수 가드)", () => {
-  it("정규 T1 전부 보유 + T1 강제 pick 이어도 유니크(shadow_garb) 안 나옴 → null", () => {
-    // 1층 유니크 shadow_garb 는 T1. 정규 T1 전량 보유 시 후보는 비어야(유니크 제외) null.
-    // 가드 빠지면 미보유 shadow_garb 가 유일 후보로 반환됨 → 회귀 가드.
+  it("정규 T1 전부 보유 + 여러 굴림 — 유니크(shadow_garb)는 절대 안 나옴(중복 드랍이어도)", () => {
+    // 1층 유니크 shadow_garb 는 T1. 중복 드랍(no-dup off)이라 정규 T1 전량 보유여도 정규 T1
+    // dup 은 나오지만, 유니크는 정규 후보에서 제외되므로 결코 안 나온다 → 누수 회귀 가드.
     const t1NonUnique = Object.values(V2_EQUIPMENT)
       .filter((i) => i.tier === 1 && !isUnique(i))
       .map((i) => i.id);
     const owned = new Set<V2EquipmentId>(t1NonUnique);
-    // rng: pass(0<0.02) → tier pick(0 → tier1) → candidate pick(미사용).
-    expect(rollEquipDrop(1, owned, seqRng([0, 0, 0]))).toBeNull();
+    for (let seed = 0; seed < 100; seed++) {
+      // rng: pass(0<0.02) → tier pick(0 → tier1) → candidate pick(seed).
+      const got = rollEquipDrop(1, owned, seqRng([0, 0, seed / 100]));
+      if (got) {
+        expect(isUnique(V2_EQUIPMENT[got])).toBe(false);
+        expect(got).not.toBe("v2_uniq_shadow_garb");
+      }
+    }
   });
 });

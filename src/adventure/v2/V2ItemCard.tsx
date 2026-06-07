@@ -25,8 +25,8 @@ export function rollPctClass(pct: number): string {
   return "text-amber-600 dark:text-amber-500";
 }
 
-// 위력 색 구간(powerBandOf, 0…4) → 아이템 이름 색. 등급/유니크 대신 "절대 위력"으로 분류
-// (사용자 결정). 옅은 보라색 계열 — 위력 낮음(회색)에서 높을수록 연보라→보라→진보라.
+// 위력 색 구간(powerBandOf, 0…6) → 아이템 이름 색. 등급/유니크 대신 실효(굴림 반영) 위력으로
+// 분류(사용자 결정). 옅은 보라색 계열 — 위력 낮음(회색)에서 높을수록 연보라→보라→진보라.
 // 인벤 이름·카드 제목·제작·상점·캐릭터 슬롯 공유.
 // 라이트=진하게(흰 배경 대비)/다크=옅게(옅은 보라 느낌) — 두 모드 모두 가독.
 // 보라색 위로 자홍→장미→진홍 3단계 미리 준비(향후 더 높은 위력 콘텐츠 대비). 현재 위력대는
@@ -40,8 +40,8 @@ const POWER_BAND_CLASS = [
   "text-rose-600 dark:text-rose-400", // 5 장미(향후)
   "text-red-600 dark:text-red-500", // 6 진홍 — 최상(향후)
 ] as const;
-export function powerNameClass(item: V2Equipment): string {
-  return POWER_BAND_CLASS[powerBandOf(item)] ?? POWER_BAND_CLASS[0];
+export function powerNameClass(item: V2Equipment, roll?: V2EquipRoll): string {
+  return POWER_BAND_CLASS[powerBandOf(item, roll)] ?? POWER_BAND_CLASS[0];
 }
 
 // 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
@@ -167,7 +167,7 @@ export function V2ItemCard({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-1.5">
             <h2
-              className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
+              className={`truncate text-sm font-semibold ${powerNameClass(item, roll)}`}
             >
               {item.name}
             </h2>

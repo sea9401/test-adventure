@@ -702,7 +702,7 @@ export function EquipmentCardGrid({
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
               <span
-                className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
+                className={`truncate text-sm font-semibold ${powerNameClass(item, inst.roll)}`}
               >
                 {item.name}
               </span>

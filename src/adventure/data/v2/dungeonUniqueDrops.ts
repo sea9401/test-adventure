@@ -5,7 +5,7 @@
 //   ① 레거시 층 풀(UNIQUE_FLOOR_POOLS, floor 1~8 키): 들판 구간(깊이 1~6)의 유니크 6종.
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
 //   ② 심층 밴드 풀(BAND_UNIQUE_POOLS, 깊이 범위 키): 프론티어 밴드 드랍. 밴드마다 16종
-//      (무기 8 + 세트 3종 8), chance 0.08/16 = 종류당 0.5%. 현재 마른 협곡(13~18)·얼음 호수
+//      (무기 8 + 세트 3종 8), chance 0.01 = 1회 사냥당 총 1%(1종당 ≈0.06%). 현재 마른 협곡(13~18)·얼음 호수
 //      (19~24)·심층 동굴(25~30) 3밴드 = 48종. 신규 밴드는 BAND_UNIQUE_POOLS 에 항목 1개 추가.
 //
 // 유니크 = id당 1개(ownedSet 제외) — 정규 장비와 동일 unique-per-id.
@@ -63,8 +63,9 @@ export function rollUniqueDrop(
 // 밴드 콘텐츠 전용 유니크 드랍. 마른 협곡(13~18)부터.
 //
 // pool.chance = 풀 통과(총 드랍률). 통과 시 전 종류 균등 pick → 1종당 chance/len.
-//   마른 협곡 = 16종 × 0.5% → chance 0.08. **중복 드랍 허용**(2026-06-08): 보유분 포함 전 종류
-//   균등이라 같은 종류도 새 굴림으로 재드랍(god-roll/편차 추격), 다 모아도 드랍 계속. ← 드랍률 다이얼.
+//   chance = 1회 사냥당 총 드랍률(현 0.01 = 1%), 1종당 chance/len(16종 → ≈0.06%). **중복 드랍 허용**
+//   (2026-06-08): 보유분 포함 전 종류 균등이라 같은 종류도 새 굴림으로 재드랍(god-roll/편차 추격),
+//   다 모아도 드랍 계속. ← 드랍률 다이얼(2026-06-08 0.08→0.01: 8%/판이 과해 1%/판으로 하향).
 export type BandUniquePool = {
   /** 밴드 시작 깊이(포함). */
   minDepth: number;
@@ -79,10 +80,10 @@ export type BandUniquePool = {
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
     // 마른 협곡(밴드 A, 깊이 13~18). 무기 8(8 무기타입 1종씩) + 마른땅 갑주 3 + 바위문 수호구 3
-    // + 모래바람 장신구 2 = 16종. chance 0.08 / 16 균등 → 종류당 0.5%(중복 허용·고정 균등, 종 추가 시 chance 비례 조정).
+    // + 모래바람 장신구 2 = 16종. chance 0.01(총 1%) / 16 균등 → 종류당 ≈0.06%(중복 허용·고정 균등).
     minDepth: 13,
     maxDepth: 18,
-    chance: 0.08,
+    chance: 0.01,
     ids: [
       "v2_canyon_greatsword",
       "v2_canyon_knightblade",
@@ -104,10 +105,10 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   },
   {
     // 얼음 호수(밴드 B, 깊이 19~24). 무기 8 + 서리 갑주 3 + 빙벽 수호구 3 + 한기 장신구 2 = 16종.
-    // chance 0.08 / 16 균등 → 종류당 0.5%(중복 허용·고정 균등).
+    // chance 0.01(총 1%) / 16 균등 → 종류당 ≈0.06%(중복 허용·고정 균등).
     minDepth: 19,
     maxDepth: 24,
-    chance: 0.08,
+    chance: 0.01,
     ids: [
       "v2_lake_greatsword",
       "v2_lake_knightblade",
@@ -129,10 +130,10 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   },
   {
     // 심층 동굴(밴드 C, 깊이 25~30). 무기 8 + 심연 갑주 3 + 흑요 수호구 3 + 공허 장신구 2 = 16종.
-    // chance 0.08 / 16 균등 → 종류당 0.5%(중복 허용·고정 균등).
+    // chance 0.01(총 1%) / 16 균등 → 종류당 ≈0.06%(중복 허용·고정 균등).
     minDepth: 25,
     maxDepth: 30,
-    chance: 0.08,
+    chance: 0.01,
     ids: [
       "v2_cave_greatsword",
       "v2_cave_knightblade",

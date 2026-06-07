@@ -19,7 +19,6 @@ import {
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
-  v2SkillSlotsForLevel,
 } from "@/adventure/data/v2/v2Skills";
 import {
   codexRequirement,
@@ -137,20 +136,16 @@ export async function POST() {
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
     // — 장착 가능 = 공용 + 선택 전문화의 차수 해금분(차수당 1개). 풀 밖/미학습 제거 +
-    // 레벨1 리셋이라 슬롯(3)으로 절단. 차수는 전직 후 값(nextTier) — 환생(→1차)이면
-    // 전문화 스킬이 다시 잠겨 equipped 에서 회수(재등반하며 자동 복원).
+    // equipped = 학습한 스킬 중 새 체인 유효분 전부(장착 슬롯 폐지·상한 없음). 차수는 전직 후
+    // 값(nextTier) — 환생(→1차)이면 전문화 스킬이 다시 잠겨 빠지고, 재등반하며 자동 복원.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
     const chain = new Set<string>(
       elementalSkillsForClass(curClass, specChoice, nextTier),
     );
-    const learnedSet = new Set<string>(skills.learned);
-    const slots = v2SkillSlotsForLevel(1);
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      equipped: skills.equipped
-        .filter((s) => learnedSet.has(s) && chain.has(s))
-        .slice(0, slots),
+      equipped: skills.learned.filter((s) => chain.has(s)),
     });
 
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).

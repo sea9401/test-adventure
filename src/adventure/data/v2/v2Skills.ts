@@ -285,13 +285,6 @@ export const V2_STARTER_SKILL_IDS: readonly V2SkillId[] = [
 
 const VALID_SKILL_IDS: ReadonlySet<string> = new Set(Object.keys(V2_SKILLS));
 
-// === 슬롯 수 ─────────────────────────────────────────────────────────
-// 스킬칸 3~4 (스킬 재설계 — 평타 척추 + 소수 스킬). Lv1-49: 3, Lv50+: 4.
-// 마력구·예기 등 무료 직군 패시브는 슬롯을 차지하지 않음(엔진 PR2).
-export function v2SkillSlotsForLevel(level: number): number {
-  return level >= 50 ? 4 : 3;
-}
-
 // === 저장 형태 ───────────────────────────────────────────────────────
 // saves_kv 키 "skills.v2" — 서버 권위 (equipment.v2 와 동일 패턴, SYNCED_KEYS 외).
 // 학습: 교관 NPC API 만 변경 가능. 장착: equip API 만 변경 가능.

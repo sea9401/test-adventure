@@ -17,7 +17,6 @@ import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2
 import { V2_JOB_SPECS, type V2JobSpec } from "../src/adventure/data/v2/v2JobSpecs";
 import {
   V2_SKILLS,
-  v2SkillSlotsForLevel,
   type V2SkillId,
   type V2SkillsState,
 } from "../src/adventure/data/v2/v2Skills";
@@ -126,7 +125,8 @@ function skillsFor(skillStat: "str" | "int"): V2SkillsState {
       if (atkA !== atkB) return atkB - atkA;
       return db.tier - da.tier;
     });
-  return { learned: ids, equipped: ids.slice(0, v2SkillSlotsForLevel(LEVEL)) };
+  // 장착 슬롯 폐지 — 학습한 스킬 전부가 전투 풀(상한 없음).
+  return { learned: ids, equipped: ids };
 }
 
 // 그 weaponType 의 최고티어 정규 무기 id(스타터·제작·유니크 제외). 없으면 스타터 폴백.

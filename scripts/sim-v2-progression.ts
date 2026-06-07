@@ -29,7 +29,6 @@ import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2
 import { V2_STAT_POINTS_PER_LEVEL } from "../src/adventure/data/v2/v2Stats";
 import {
   V2_SKILLS,
-  v2SkillSlotsForLevel,
   type V2SkillId,
   type V2SkillsState,
 } from "../src/adventure/data/v2/v2Skills";
@@ -234,8 +233,8 @@ function skillsFor(
     if (atkA !== atkB) return atkB - atkA;
     return db.tier - da.tier;
   });
-  const equipped = ordered.slice(0, v2SkillSlotsForLevel(level));
-  return { learned: ids, equipped };
+  // 장착 슬롯 폐지 — 학습한 스킬 전부가 전투 풀(상한 없음).
+  return { learned: ids, equipped: ordered };
 }
 
 // 깊이 풀 — enemiesForDepth(깊이) → scaled Monster(깊이 배율). 미정의 이름 스킵.

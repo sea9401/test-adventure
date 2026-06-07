@@ -119,11 +119,14 @@ export async function POST(req: Request) {
       };
     }
 
-    // learned += sig 만. 장착은 수동(equip-skill) — 학습이 자동장착하지 않는다(자동장착 폐지).
+    // 장착 슬롯 폐지 — 학습한 스킬은 현 체인(공용+전문화) 유효분 전부 자동으로 전투 풀에 든다.
+    // equipped = learned ∩ elementalPool (상한 없음). 전투/패턴이 이 풀에서 발동.
     const nextLearned = [...skills.learned, sig];
+    const nextEquipped = nextLearned.filter((s) => elementalPool.includes(s));
     const nextSkills: V2SkillsState = {
-      ...skills, // equipped·pattern 보존(combat-pattern 라우트만 pattern 변경).
+      ...skills, // pattern 보존(combat-pattern 라우트만 pattern 변경).
       learned: nextLearned,
+      equipped: nextEquipped,
     };
     await upsertSave(tx, userId, "skills.v2", nextSkills);
     await upsertSave(tx, userId, "proficiency.v2", spent);
@@ -137,7 +140,7 @@ export async function POST(req: Request) {
         group,
         points: groupUsable(spent, group),
         learned: nextLearned,
-        equipped: skills.equipped,
+        equipped: nextEquipped,
       },
     };
   });

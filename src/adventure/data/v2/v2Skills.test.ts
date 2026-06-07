@@ -4,7 +4,6 @@ import {
   V2_STARTER_SKILL_IDS,
   parseV2SkillsState,
   emptyV2SkillsState,
-  v2SkillSlotsForLevel,
   describeV2Skill,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
@@ -40,22 +39,6 @@ describe("v2Skills 카탈로그", () => {
     expect(stats).toEqual(
       new Set(["str", "dex", "vit", "spd", "luk", "int"]),
     );
-  });
-});
-
-describe("v2SkillSlotsForLevel", () => {
-  // 스킬 재설계 — 스킬칸 3~4 (Lv1-49: 3, Lv50+: 4).
-  it("Lv1-49 = 3 슬롯", () => {
-    expect(v2SkillSlotsForLevel(1)).toBe(3);
-    expect(v2SkillSlotsForLevel(49)).toBe(3);
-  });
-  it("Lv50+ = 4 슬롯", () => {
-    expect(v2SkillSlotsForLevel(50)).toBe(4);
-    expect(v2SkillSlotsForLevel(100)).toBe(4);
-  });
-  it("Lv0 이하는 Lv1 처럼 3 슬롯 (방어적)", () => {
-    expect(v2SkillSlotsForLevel(0)).toBe(3);
-    expect(v2SkillSlotsForLevel(-5)).toBe(3);
   });
 });
 

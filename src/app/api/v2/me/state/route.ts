@@ -13,7 +13,6 @@ import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import {
   parseV2SkillsState,
-  v2SkillSlotsForLevel,
   V2_SKILLS,
   v2SkillLearnCost,
 } from "@/adventure/data/v2/v2Skills";
@@ -374,8 +373,6 @@ export async function GET() {
         ? charSave.discoveredOutpostIds
         : seededDiscovery(),
     skills: parseV2SkillsState(skillsRow?.value),
-    // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
-    skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
     // P4 — 시그니처 직업 패시브 은퇴(전문화 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 전문화 UI 대체).
     signatures: [] as never[],
     // 학습 가능 스킬 풀 — 공용(직군) + 선택한 전문화(전직)의 차수 해금분 + 학습/장착여부(학습 패널용).

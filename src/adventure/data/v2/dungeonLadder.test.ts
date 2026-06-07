@@ -4,21 +4,21 @@ import {
   floorStatMult,
   floorDefMult,
   floorExpMult,
-  LADDER_ANCHOR_POWER,
-  LADDER_POWER_STEP,
+  LADDER_STAT_STEP,
+  ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_PLATEAU,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
 
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
-describe("dungeonLadder 제너레이터 (§5.1)", () => {
-  it("권장 파워 게이트 — 들판(1~6) 50→95 완만, 7+ 선형(간격 STEP), 단조 증가", () => {
+describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램프)", () => {
+  it("권장 파워 게이트 — 들판(1~6) 50→95, 7+ statMult 비례 단일 램프, 단조 증가", () => {
     expect(floorPowerGate(1)).toBe(50);
     expect(floorPowerGate(6)).toBe(95); // 들판 상한
-    // 깊은 산(7+) = 앵커 + (depth−2)×step — 들판 평탄화와 무관(불변).
-    expect(floorPowerGate(7)).toBe(LADDER_ANCHOR_POWER + 5 * LADDER_POWER_STEP); // 310
-    expect(floorPowerGate(8)).toBe(LADDER_ANCHOR_POWER + 6 * LADDER_POWER_STEP); // 350
+    // 깊이 7+ = statMult × 110. 옛 앵커 점프(310)보다 훨씬 완만.
+    expect(floorPowerGate(7)).toBeGreaterThan(95);
+    expect(floorPowerGate(7)).toBeLessThan(280); // 옛 점프(310) 가드 — STEP 튜닝 여유
     for (let i = 1; i < FLOORS.length; i++) {
       expect(floorPowerGate(FLOORS[i])).toBeGreaterThan(
         floorPowerGate(FLOORS[i - 1]),
@@ -26,17 +26,19 @@ describe("dungeonLadder 제너레이터 (§5.1)", () => {
     }
   });
 
-  it("스탯 배율 — 들판(1~6) ×1.0→×1.3 완만, 7+ = gate/앵커(불변)", () => {
+  it("스탯 배율 — 들판 ×1.0→×1.3, 7+ = 1.3 에서 깊이당 +STEP 단일 램프 (절벽 없음)", () => {
     expect(floorStatMult(1)).toBe(1);
     expect(floorStatMult(6)).toBeCloseTo(1.3, 5); // 들판 상한
-    // 깊이 7+ 는 평탄화 전과 동일 — gate/앵커.
-    expect(floorStatMult(7)).toBeCloseTo(310 / 110, 5);
-    expect(floorStatMult(8)).toBeCloseTo(350 / 110, 5);
-    // 들판 내부 단조 증가
-    for (const f of [2, 3, 4, 5, 6] as DungeonFloorId[]) {
-      expect(floorStatMult(f)).toBeGreaterThan(
-        floorStatMult((f - 1) as DungeonFloorId),
-      );
+    // 깊이 7 = 들판 끝(1.3)에서 STEP 만큼만 — 옛 점프(2.82) 없음.
+    expect(floorStatMult(7)).toBeCloseTo(
+      ONBOARDING_MAX_STAT_MULT + LADDER_STAT_STEP,
+      5,
+    );
+    // 절벽 가드 — 들판→깊은 산 경계 배율 점프가 옛 2.17× 보다 훨씬 작아야.
+    expect(floorStatMult(7) / floorStatMult(6)).toBeLessThan(1.7);
+    // 전 구간 단조 증가
+    for (const d of [2, 3, 4, 5, 6, 7, 8, 12, 20]) {
+      expect(floorStatMult(d)).toBeGreaterThan(floorStatMult(d - 1));
     }
   });
 
@@ -48,16 +50,17 @@ describe("dungeonLadder 제너레이터 (§5.1)", () => {
     }
   });
 
-  it("exp 배율 — 들판 완만, 램프(볼록) 후 플래토 캡, 깊이 7+ 불변", () => {
+  it("exp 배율 — 전 구간 완만 램프(볼록) 후 플래토 캡, 경계 절벽 없음", () => {
     expect(floorExpMult(1)).toBe(1);
-    // 램프: 들판(완만) < 깊은 산(캡 전)
-    expect(floorExpMult(6)).toBeLessThan(floorExpMult(7));
-    // 볼록: 캡 전(floor 7)은 statMult^2 — 깊이 7+ 불변
+    // 들판→깊은 산 경계 — 옛 절벽(×4.7) 대비 절반 이하로 완만.
+    expect(floorExpMult(7)).toBeGreaterThan(floorExpMult(6));
+    expect(floorExpMult(7) / floorExpMult(6)).toBeLessThan(2.5);
+    // 볼록: 캡 전은 statMult²
     expect(floorExpMult(7)).toBeCloseTo(Math.pow(floorStatMult(7), 2), 5);
-    // 플래토 — 어떤 floor 도 캡 초과 안 함, 최상위는 캡에 닿음
+    // 플래토 — 어떤 깊이도 캡 초과 안 함, 깊은 깊이는 캡에 닿음
     for (const f of FLOORS) {
       expect(floorExpMult(f)).toBeLessThanOrEqual(LADDER_EXP_PLATEAU);
     }
-    expect(floorExpMult(15)).toBe(LADDER_EXP_PLATEAU); // 깊은 깊이(statMult²>캡)는 캡에 닿음
+    expect(floorExpMult(30)).toBe(LADDER_EXP_PLATEAU); // 깊은 깊이(statMult²>캡)는 캡
   });
 });

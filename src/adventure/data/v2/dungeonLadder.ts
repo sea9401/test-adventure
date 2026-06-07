@@ -13,29 +13,48 @@
 // 단일 무한 프론티어 모델 + 테마당 6깊이(THEME_DEPTH_SPAN): 깊이 1~6=들판(온보딩)·
 //   7~12=깊은 산·13+=프론티어 밴드. depth 는 number 무한 — 함수가 임의 깊이를 산출(캡 없음).
 //
-// ⚠️ 들판 평탄화(2026-06-07): 들판이 깊이 1~6 전체인데 사다리 앵커는 깊이 2라, 평탄화 전엔
-//   같은 들판 몹이 깊이 3~6 에서 ×1.36~×2.45 로 부풀어 "들판인데 27턴" 이 됐다. 설계 기준
-//   "스타터(T1 상점 장비)로 들판 6까지 무난히 클리어" 에 맞춰 들판 구간만 ×1.0→×1.3 완만
-//   램프로 고정. 실제 난이도 램프는 깊은 산(깊이 7)부터 — 깊이 7+ 스탯/def/exp/게이트는 전부
-//   불변(프론티어 exp 페이싱·밴드 베이스 캘리브 보존).
+// ⚠️ 전곡선 평탄화(2026-06-07): 옛 모델은 들판(1~6)만 ×1.0→×1.3 완만이고 깊이 7부터 앵커
+//   사다리(110+(d−2)×40)로 점프해, 들판6→깊은산1 경계에서 statMult 1.3→2.82·exp 1.69→7.94
+//   (×4.7) 절벽이 났다("경험치 차이 너무 큼"). 들판 끝(1.3)에서 깊이당 +LADDER_STAT_STEP 단일
+//   램프로 통합 — 들판~프론티어 전 구간 곡선·exp 가 절벽 없이 매끄럽게 이어진다. exp 플래토 캡
+//   (LADDER_EXP_PLATEAU)은 그대로라 프론티어(플래토) cadence 보존, 램프(들판→캡)만 완만해짐.
 
 const FLOOR1_POWER = 50; // 들판(깊이 1) — authored
-export const LADDER_ANCHOR_DEPTH = 2; // 깊이 7+ 램프의 기준 깊이(power 110 divisor 의 짝)
-export const LADDER_ANCHOR_POWER = 110; // 앵커 권장 파워 — 깊이 7+ 스탯 배율 divisor
-export const LADDER_POWER_STEP = 40; // K=2 × power/루프 ~20 (깊이당 간격)
 
 // 들판 = 깊이 1~6 온보딩 평탄 구간. 같은 들판 몹이라 깊이마다 부풀지 않게 완만하게만.
 const ONBOARDING_END_DEPTH = 6;
 const ONBOARDING_MAX_POWER = 95; // 들판 6 권장 파워(완만 — 표시 일관성)
 export const ONBOARDING_MAX_STAT_MULT = 1.3; // 들판 6 스탯 배율 상한(깊이 1 대비)
 
+// 깊이 7+ 램프 — 들판 끝(statMult 1.3·power 95)에서 이어지는 단일 완만 선형(2026-06-07 전곡선
+//   평탄화). 옛 앵커 점프(깊이7 statMult 1.3→2.82·exp 1.69→7.94 절벽) 제거 → 들판~프론티어
+//   전 구간 곡선·exp 가 매끄럽게 이어진다. statMult 가 1차 동인, powerGate(=권장파워, 매칭레벨)는
+//   비례 파생(난이도 ↔ 레벨 균형 유지). def/exp 도 statMult 파생. exp 플래토 캡은 그대로라
+//   프론티어(플래토) cadence 보존 — 램프(들판→캡)만 완만해진다. ← 튜닝 다이얼.
+export const LADDER_STAT_STEP = 0.6; // 깊이당 statMult 증가(들판 0.06 대비 완만 램프)
+// 권장파워(매칭레벨) = statMult × 110. 110 은 옛 난이도 캘리브 상수(statMult=powerGate/110 →
+// at-level 100% 클리어). 플레이어 파워는 레벨에 초선형이라 이 결합비를 낮추면(예 73) 같은 몹도
+// 어려워진다 — 캘리브 유지 위해 110 고정. (들판은 온보딩이라 자체 powerGate 50→95 로 더 후함.)
+const POWER_PER_STAT = 110;
+
 // 들판 진행도 0..1 — 깊이 1→6 선형.
 function onboardingT(depth: number): number {
   return (Math.max(1, depth) - 1) / (ONBOARDING_END_DEPTH - 1);
 }
 
+// 스탯 배율(hp·atk). 들판(1~6)=×1.0→×1.3 완만, 7+=1.3 에서 깊이당 +STEP 단일 램프(무한·절벽 없음).
+export function floorStatMult(depth: number): number {
+  if (depth <= 1) return 1;
+  if (depth <= ONBOARDING_END_DEPTH) {
+    return 1 + onboardingT(depth) * (ONBOARDING_MAX_STAT_MULT - 1);
+  }
+  return (
+    ONBOARDING_MAX_STAT_MULT + (depth - ONBOARDING_END_DEPTH) * LADDER_STAT_STEP
+  );
+}
+
 // 권장 파워 게이트(표시 전용 — 실제 진입 게이트는 frontierDepth). 들판(1~6)=50→95 완만,
-// 7+ = 앵커 + (depth−2)×step 선형(무한).
+// 7+ = statMult 비례(난이도=레벨 균형). 무한 깊이.
 export function floorPowerGate(depth: number): number {
   if (depth <= 1) return FLOOR1_POWER;
   if (depth <= ONBOARDING_END_DEPTH) {
@@ -43,16 +62,7 @@ export function floorPowerGate(depth: number): number {
       FLOOR1_POWER + onboardingT(depth) * (ONBOARDING_MAX_POWER - FLOOR1_POWER),
     );
   }
-  return LADDER_ANCHOR_POWER + (depth - LADDER_ANCHOR_DEPTH) * LADDER_POWER_STEP;
-}
-
-// 스탯 배율(hp·atk). 들판(1~6) = ×1.0→×1.3 완만, 7+ = gate/앵커(불변). 무한 깊이.
-export function floorStatMult(depth: number): number {
-  if (depth <= 1) return 1;
-  if (depth <= ONBOARDING_END_DEPTH) {
-    return 1 + onboardingT(depth) * (ONBOARDING_MAX_STAT_MULT - 1);
-  }
-  return floorPowerGate(depth) / LADDER_ANCHOR_POWER;
+  return Math.round(floorStatMult(depth) * POWER_PER_STAT);
 }
 
 // def 댐핑 — v2 는 관통 0 이라 def 가 hp/atk 따라 선형 오르면 데미지 절벽(floor-5 사고 교훈).

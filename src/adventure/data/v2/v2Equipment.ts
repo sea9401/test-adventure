@@ -159,7 +159,13 @@ export type V2EquipmentId =
   | "v2_canyon_dagger"
   | "v2_canyon_set_armor"
   | "v2_canyon_set_gloves"
-  | "v2_canyon_set_boots";
+  | "v2_canyon_set_boots"
+  // 마른 협곡 추가 세트 — 바위문 수호구(중갑 탱커 3종) + 모래바람 장신구(반지·목걸이 2종).
+  | "v2_canyon_bulwark_armor"
+  | "v2_canyon_bulwark_gloves"
+  | "v2_canyon_bulwark_boots"
+  | "v2_canyon_sand_ring"
+  | "v2_canyon_sand_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -333,6 +339,24 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_canyon_set_boots",
     ],
     bonus: { crit: 4, critMult: 40, hp: 30 },
+  },
+  {
+    // 마른 협곡 방어형 세트(중갑 3종). 마른땅 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+90·회피+5.
+    id: "canyon_bulwark",
+    name: "바위문 수호구",
+    pieces: [
+      "v2_canyon_bulwark_armor",
+      "v2_canyon_bulwark_gloves",
+      "v2_canyon_bulwark_boots",
+    ],
+    bonus: { hp: 90, eva: 5 },
+  },
+  {
+    // 마른 협곡 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 치명/마력 유틸. 2종 보너스 치명+6·MP+30.
+    id: "canyon_sandstorm",
+    name: "모래바람 장신구",
+    pieces: ["v2_canyon_sand_ring", "v2_canyon_sand_necklace"],
+    bonus: { crit: 6, mp: 30 },
   },
 ];
 

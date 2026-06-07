@@ -25,9 +25,9 @@ function seqRng(values: number[]): () => number {
   return () => (i < values.length ? values[i++] : 0);
 }
 
-describe("유니크 카탈로그 (17종 — 기존 6 + 마른 협곡 밴드 11)", () => {
-  it("V2_UNIQUE_IDS 17종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(17);
+describe("유니크 카탈로그 (22종 — 기존 6 + 마른 협곡 밴드 16)", () => {
+  it("V2_UNIQUE_IDS 22종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(22);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -78,11 +78,11 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
   const empty = new Set<V2EquipmentId>();
   const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
 
-  it("마른 협곡 밴드 = 깊이 13~18, 11종(무기 8 + 세트 3), 종류당 ~0.5%", () => {
+  it("마른 협곡 밴드 = 깊이 13~18, 16종(무기 8 + 세트 8), 종류당 ~0.5%", () => {
     expect(canyon).toBeDefined();
     expect(canyon.maxDepth).toBe(18);
-    expect(canyon.ids).toHaveLength(11);
-    // chance 0.055 / 11 균등 → 시작 시 종류당 0.5%.
+    expect(canyon.ids).toHaveLength(16);
+    // chance 0.08 / 16 균등 → 시작 시 종류당 0.5%.
     expect(canyon.chance / canyon.ids.length).toBeCloseTo(0.005, 5);
   });
 

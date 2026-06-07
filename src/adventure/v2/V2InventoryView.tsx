@@ -438,118 +438,120 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         </div>
       </Card>
 
-      <TabBar
-        tabs={TABS}
-        active={tab}
-        onChange={setTab}
-        ariaLabel="인벤토리 카테고리"
-        size="sm"
-        variant="highlight"
-      />
+      <Card padding="md" className="space-y-3">
+        <TabBar
+          tabs={TABS}
+          active={tab}
+          onChange={setTab}
+          ariaLabel="인벤토리 카테고리"
+          size="sm"
+          variant="highlight"
+        />
 
-      {msg && (
-        <div
-          className={`rounded-md border px-3 py-1.5 text-xs ${
-            msg.startsWith("✓")
-              ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-              : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-          }`}
-        >
-          {msg}
-        </div>
-      )}
+        {msg && (
+          <div
+            className={`rounded-md border px-3 py-1.5 text-xs ${
+              msg.startsWith("✓")
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
+            }`}
+          >
+            {msg}
+          </div>
+        )}
 
-      {loadError && <LoadErrorBanner onRetry={refresh} />}
+        {loadError && <LoadErrorBanner onRetry={refresh} />}
 
-      {loading ? (
-        <div className="text-sm text-zinc-500 dark:text-zinc-400">
-          불러오는 중…
-        </div>
-      ) : tab === "material" ? (
-        <MaterialList materials={ownedMaterials} />
-      ) : (
-        <>
-          {tabInstances.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
-              <div className="flex items-center gap-1">
-                <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-                  정리
-                </span>
-                {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
-                <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  품질
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={sellQualityPct}
-                    onChange={(e) =>
-                      setSellQualityPct(
-                        Math.max(
-                          0,
-                          Math.min(100, Math.floor(Number(e.target.value) || 0)),
-                        ),
+        {loading ? (
+          <div className="text-sm text-zinc-500 dark:text-zinc-400">
+            불러오는 중…
+          </div>
+        ) : tab === "material" ? (
+          <MaterialList materials={ownedMaterials} />
+        ) : (
+          <>
+            {tabInstances.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
+                <div className="flex items-center gap-1">
+                  <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                    정리
+                  </span>
+                  {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
+                  <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                    품질
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={sellQualityPct}
+                      onChange={(e) =>
+                        setSellQualityPct(
+                          Math.max(
+                            0,
+                            Math.min(100, Math.floor(Number(e.target.value) || 0)),
+                          ),
+                        )
+                      }
+                      aria-label="일괄 판매 품질 임계값(%)"
+                      className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                    />
+                    %
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      applyBulkSell(
+                        { slot: tab as V2EquipSlot, belowPct: sellQualityPct },
+                        `${tabLabel} 품질 ${sellQualityPct}% 이하`,
                       )
                     }
-                    aria-label="일괄 판매 품질 임계값(%)"
-                    className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
-                  />
-                  %
-                </label>
+                    disabled={busy !== null}
+                    className="rounded border border-amber-300 px-2 py-0.5 text-[11px] text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/40"
+                  >
+                    이하 판매
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      applyBulkSell(
+                        { slot: tab as V2EquipSlot },
+                        `${tabLabel} 미장착 전부`,
+                      )
+                    }
+                    disabled={busy !== null}
+                    className="rounded border border-rose-300 px-2 py-0.5 text-[11px] text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                  >
+                    미장착 전부 판매
+                  </button>
+                </div>
+                {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
                 <button
                   type="button"
+                  title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
                   onClick={() =>
-                    applyBulkSell(
-                      { slot: tab as V2EquipSlot, belowPct: sellQualityPct },
-                      `${tabLabel} 품질 ${sellQualityPct}% 이하`,
-                    )
+                    setSortMode((m) => {
+                      const idx = SORT_CYCLE.findIndex((s) => s.key === m);
+                      return SORT_CYCLE[(idx + 1) % SORT_CYCLE.length].key;
+                    })
                   }
-                  disabled={busy !== null}
-                  className="rounded border border-amber-300 px-2 py-0.5 text-[11px] text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/40"
+                  className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  이하 판매
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    applyBulkSell(
-                      { slot: tab as V2EquipSlot },
-                      `${tabLabel} 미장착 전부`,
-                    )
-                  }
-                  disabled={busy !== null}
-                  className="rounded border border-rose-300 px-2 py-0.5 text-[11px] text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                >
-                  미장착 전부 판매
+                  정렬 ⇅{" "}
+                  {SORT_CYCLE.find((s) => s.key === sortMode)?.label ?? "기본"}
                 </button>
               </div>
-              {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
-              <button
-                type="button"
-                title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
-                onClick={() =>
-                  setSortMode((m) => {
-                    const idx = SORT_CYCLE.findIndex((s) => s.key === m);
-                    return SORT_CYCLE[(idx + 1) % SORT_CYCLE.length].key;
-                  })
-                }
-                className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              >
-                정렬 ⇅{" "}
-                {SORT_CYCLE.find((s) => s.key === sortMode)?.label ?? "기본"}
-              </button>
-            </div>
-          )}
-          <EquipmentCardGrid
-            cards={tabInstances.map((inst) => ({
-              inst,
-              isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
-            }))}
-            onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
-          />
-        </>
-      )}
+            )}
+            <EquipmentCardGrid
+              cards={tabInstances.map((inst) => ({
+                inst,
+                isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
+              }))}
+              onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+            />
+          </>
+        )}
+      </Card>
       {card && (
         <V2ItemCard
           item={V2_EQUIPMENT[card.inst.id]}

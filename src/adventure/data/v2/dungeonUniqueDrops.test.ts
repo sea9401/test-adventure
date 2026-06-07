@@ -25,9 +25,9 @@ function seqRng(values: number[]): () => number {
   return () => (i < values.length ? values[i++] : 0);
 }
 
-describe("유니크 카탈로그 (22종 — 기존 6 + 마른 협곡 밴드 16)", () => {
-  it("V2_UNIQUE_IDS 22종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(22);
+describe("유니크 카탈로그 (38종 — 기존 6 + 마른 협곡 16 + 얼음 호수 16)", () => {
+  it("V2_UNIQUE_IDS 38종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(38);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -86,11 +86,12 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
     expect(canyon.chance / canyon.ids.length).toBeCloseTo(0.005, 5);
   });
 
-  it("밴드 안 깊이만 풀 매칭 — 12 이하/19 이상은 null(레거시 층 롤과 비중복)", () => {
+  it("마른 협곡 깊이 매칭 — 12 이하는 null(레거시 층 롤과 비중복), 13~18 캐년", () => {
     expect(bandUniquePoolForDepth(12)).toBeNull();
     expect(bandUniquePoolForDepth(13)).toBe(canyon);
     expect(bandUniquePoolForDepth(18)).toBe(canyon);
-    expect(bandUniquePoolForDepth(19)).toBeNull();
+    // 19+ 는 더 이상 null 이 아니라 다음 밴드(얼음 호수). 캐년 풀이 아님만 확인.
+    expect(bandUniquePoolForDepth(19)).not.toBe(canyon);
   });
 
   it("통과 굴림(rng<chance) → 그 밴드 유니크 반환 (pick 0 → 첫 id)", () => {
@@ -114,6 +115,35 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
   it("보유분 제외 후 후보 0 → null", () => {
     const owned = new Set<V2EquipmentId>(canyon.ids);
     expect(rollBandUniqueDrop(13, owned, seqRng([0, 0]))).toBeNull();
+  });
+});
+
+describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호수)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const lake = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 19)!;
+
+  it("얼음 호수 밴드 = 깊이 19~24, 16종(무기 8 + 세트 8), 종류당 ~0.5%", () => {
+    expect(lake).toBeDefined();
+    expect(lake.maxDepth).toBe(24);
+    expect(lake.ids).toHaveLength(16);
+    expect(lake.chance / lake.ids.length).toBeCloseTo(0.005, 5);
+  });
+
+  it("깊이 매칭 — 18 이하/25 이상은 얼음 호수 아님, 19~24 만 매칭", () => {
+    expect(bandUniquePoolForDepth(18)).not.toBe(lake);
+    expect(bandUniquePoolForDepth(19)).toBe(lake);
+    expect(bandUniquePoolForDepth(24)).toBe(lake);
+    expect(bandUniquePoolForDepth(25)).toBeNull();
+  });
+
+  it("통과 굴림(rng<chance) → 얼음 호수 유니크 반환", () => {
+    expect(rollBandUniqueDrop(19, empty, seqRng([0, 0]))).toBe(lake.ids[0]);
+  });
+
+  it("마른 협곡과 후보 풀이 겹치지 않음(밴드 분리)", () => {
+    const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
+    const overlap = lake.ids.filter((id) => canyon.ids.includes(id));
+    expect(overlap).toEqual([]);
   });
 });
 

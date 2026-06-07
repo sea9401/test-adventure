@@ -102,7 +102,7 @@ describe("정규 장비 드랍은 유니크를 절대 안 뱉음 (누수 가드)
       .filter((i) => i.tier === 1 && !isUnique(i))
       .map((i) => i.id);
     const owned = new Set<V2EquipmentId>(t1NonUnique);
-    // rng: pass(0<0.05) → tier pick(0 → tier1) → candidate pick(미사용).
+    // rng: pass(0<0.02) → tier pick(0 → tier1) → candidate pick(미사용).
     expect(rollEquipDrop(1, owned, seqRng([0, 0, 0]))).toBeNull();
   });
 });

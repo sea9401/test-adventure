@@ -106,7 +106,13 @@ const EQUIP_SLOTS: {
   { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
 
-type SortMode = "default" | "roll";
+type SortMode = "default" | "roll" | "power";
+// 정렬 순환 — 단일 버튼이 누를 때마다 다음으로(기본 → 굴림순 → 위력순 → 기본).
+const SORT_CYCLE: { key: SortMode; label: string }[] = [
+  { key: "default", label: "기본" },
+  { key: "roll", label: "굴림순" },
+  { key: "power", label: "위력순" },
+];
 
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<TabKey>("weapon");
@@ -315,16 +321,26 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const tabInstances: V2EquipInstance[] = useMemo(() => {
     if (tab === "material") return [];
     const list = ownedBySlot[tab];
-    if (sortMode !== "roll") return list;
-    // 굴림순 — 높은 굴림 먼저, 굴림 없는(상점 정가) 것은 뒤로. 안정 위해 기존 순서 보존.
-    return [...list].sort((a, b) => {
-      const qa = rollQualityPct(V2_EQUIPMENT[a.id], a.roll);
-      const qb = rollQualityPct(V2_EQUIPMENT[b.id], b.roll);
-      if (qa == null && qb == null) return 0;
-      if (qa == null) return 1;
-      if (qb == null) return -1;
-      return qb - qa;
-    });
+    if (sortMode === "roll") {
+      // 굴림순 — 높은 굴림 먼저, 굴림 없는(상점 정가) 것은 뒤로. 안정 위해 기존 순서 보존.
+      return [...list].sort((a, b) => {
+        const qa = rollQualityPct(V2_EQUIPMENT[a.id], a.roll);
+        const qb = rollQualityPct(V2_EQUIPMENT[b.id], b.roll);
+        if (qa == null && qb == null) return 0;
+        if (qa == null) return 1;
+        if (qb == null) return -1;
+        return qb - qa;
+      });
+    }
+    if (sortMode === "power") {
+      // 위력순 — 굴림 반영 실효 위력 높은 순(effectiveStats). 동률은 기존 순서 보존(안정).
+      return [...list].sort(
+        (a, b) =>
+          effectiveStats(V2_EQUIPMENT[b.id], b.roll).power -
+          effectiveStats(V2_EQUIPMENT[a.id], a.roll).power,
+      );
+    }
+    return list; // default
   }, [tab, ownedBySlot, sortMode]);
 
   const tabLabel = TABS.find((t) => t.key === tab)?.label ?? "";
@@ -461,32 +477,21 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   미장착 전부 판매
                 </button>
               </div>
-              {/* 정렬 */}
-              <div className="flex items-center gap-1">
-                <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-                  정렬
-                </span>
-                {(
-                  [
-                    { key: "default", label: "기본" },
-                    { key: "roll", label: "굴림순" },
-                  ] as const
-                ).map((s) => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    onClick={() => setSortMode(s.key)}
-                    aria-pressed={sortMode === s.key}
-                    className={`rounded border px-2 py-0.5 text-[11px] transition ${
-                      sortMode === s.key
-                        ? "border-zinc-400 bg-zinc-100 font-medium text-zinc-800 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
-                        : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
+              {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 굴림순 → 위력순). */}
+              <button
+                type="button"
+                title="누를 때마다 정렬 전환 (기본 → 굴림순 → 위력순)"
+                onClick={() =>
+                  setSortMode((m) => {
+                    const idx = SORT_CYCLE.findIndex((s) => s.key === m);
+                    return SORT_CYCLE[(idx + 1) % SORT_CYCLE.length].key;
+                  })
+                }
+                className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              >
+                정렬 ⇅{" "}
+                {SORT_CYCLE.find((s) => s.key === sortMode)?.label ?? "기본"}
+              </button>
             </div>
           )}
           <EquipmentCardGrid

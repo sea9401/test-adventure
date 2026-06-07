@@ -10,6 +10,7 @@ import {
   V2_EQUIPMENT,
   shopPriceOf,
   shopPriceForSell,
+  sellPriceOf,
   v2ItemTypeLabel,
   type V2Equipment,
   type V2EquipInstance,
@@ -50,7 +51,6 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
   { key: "sell", label: "판매" },
 ];
 
-const SELL_PRICE_RATIO = 0.05;
 // 구매 표 열: 아이템 | 종류 | 가격 | 위력/무게 | 구매. 종류는 이름과 가격 사이.
 const BUY_GRID_CLASS =
   "grid grid-cols-[minmax(0,1fr)_3rem_4.25rem_4.25rem_3.5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
@@ -667,9 +667,8 @@ function SellEquipmentRow({
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  // 판매가는 shopPriceForSell(티어 무관) — 상점 미판매(드랍 전용 T3/T5)도 팔 수 있다.
-  const sellBase = shopPriceForSell(item) ?? 0;
-  const sellPrice = Math.max(1, Math.floor(sellBase * SELL_PRICE_RATIO));
+  // 판매가는 sellPriceOf(구매가 5%, 티어 무관) — 상점 미판매(드랍 전용 T3/T5)도 팔 수 있다.
+  const sellPrice = sellPriceOf(item) ?? 0;
   // 장착 중인 장비는 마지막 1개를 팔 수 없다 (여분이 있으면 여분만 판매 가능).
   const locked = equipped && count <= 1;
   return (

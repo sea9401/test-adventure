@@ -254,6 +254,16 @@ export function shopPriceForSell(item: V2Equipment): number | undefined {
   return shopPriceFor(item.tier, item.slot);
 }
 
+// 판매가 비율 — 구매가의 5%(floor). 단건/일괄 판매 공용 단일 소스(드리프트 방지).
+export const SELL_PRICE_RATIO = 0.05;
+
+// 개체 1개 판매가 — 비매품(유니크 등)이면 null.
+export function sellPriceOf(item: V2Equipment): number | null {
+  const base = shopPriceForSell(item);
+  if (base == null) return null;
+  return Math.max(1, Math.floor(base * SELL_PRICE_RATIO));
+}
+
 // 유니크 여부 — 상점/제작/그리드 제외 판정에 공용.
 export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";
@@ -472,10 +482,12 @@ export type EquipmentSave = {
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
+//   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
 export type V2EquipInstance = {
   iid: string;
   id: V2EquipmentId;
   roll?: V2EquipRoll;
+  locked?: boolean;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -622,8 +634,13 @@ export function parseEquipmentSave(raw: unknown): {
       owned.push(inst);
       byIid.set(iid, inst);
     } else if (entry && typeof entry === "object") {
-      // 신 형식 — {iid, id, roll?}. 제거 id 는 잔존으로 치환(iid 보존 → 장착 정합 유지).
-      const e = entry as { iid?: unknown; id?: unknown; roll?: unknown };
+      // 신 형식 — {iid, id, roll?, locked?}. 제거 id 는 잔존으로 치환(iid 보존 → 장착 정합 유지).
+      const e = entry as {
+        iid?: unknown;
+        id?: unknown;
+        roll?: unknown;
+        locked?: unknown;
+      };
       if (typeof e.id !== "string") continue;
       const remapped = LEGACY_ID_REMAP[e.id] ?? e.id;
       if (!VALID_IDS.has(remapped)) continue;
@@ -644,6 +661,7 @@ export function parseEquipmentSave(raw: unknown): {
         id,
         roll: wasRemapped ? undefined : parseEquipRoll(e.roll),
       };
+      if (e.locked === true) inst.locked = true;
       owned.push(inst);
       byIid.set(iid, inst);
     }
@@ -726,4 +744,20 @@ export function removeInstance(
   const next = owned.slice();
   const [removed] = next.splice(idx, 1);
   return { owned: next, removed };
+}
+
+// 개체 잠금 토글 — iid 의 locked 설정. true 만 유지(false 는 키 제거 → 세이브 클린).
+// 못 찾으면 원본 그대로. 잠금 = 일괄/실수 판매 방지.
+export function setInstanceLock(
+  owned: V2EquipInstance[],
+  iid: string,
+  locked: boolean,
+): V2EquipInstance[] {
+  return owned.map((i) => {
+    if (i.iid !== iid) return i;
+    if (locked) return { ...i, locked: true };
+    const next = { ...i };
+    delete next.locked;
+    return next;
+  });
 }

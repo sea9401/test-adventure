@@ -7,6 +7,7 @@ import {
   Circle,
   Diamond,
   HandFist,
+  Lock,
   Shield,
   Sneaker,
   Sword,
@@ -29,7 +30,11 @@ import {
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  rollQualityPct,
+  selectBulkSell,
+  type BulkSellOpts,
+} from "@/adventure/data/v2/v2EquipVariance";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   V2ItemCard,
@@ -182,6 +187,84 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [],
   );
 
+  // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
+  const applyLock = useCallback(
+    async (iid: string, locked: boolean) => {
+      setBusy(iid);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/equipment/lock", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid, locked }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          owned?: V2EquipInstance[];
+        } | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        setOwned(j.owned ?? []);
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [],
+  );
+
+  // 일괄 판매 — 클라에서 selectBulkSell 로 미리보기(개수·골드) 후 확인, 서버가 권위 판매.
+  // 장착·잠금·비매품은 자동 제외. 응답의 owned 로 갱신.
+  const applyBulkSell = useCallback(
+    async (opts: BulkSellOpts, label: string) => {
+      const plan = selectBulkSell(owned, equipped, opts);
+      if (plan.count === 0) {
+        setMsg(`✗ ${label}: 판매할 장비가 없습니다`);
+        return;
+      }
+      if (
+        !window.confirm(
+          `${label}\n${plan.count}개 판매 → +${plan.gold.toLocaleString()}골드\n(장착·잠금·비매품 제외) 진행할까요?`,
+        )
+      ) {
+        return;
+      }
+      setBusy("bulk");
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/shop/equipment/sell-bulk", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(opts),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          owned?: V2EquipInstance[];
+          soldCount?: number;
+          soldGold?: number;
+        } | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        setOwned(j.owned ?? []);
+        setMsg(
+          `✓ ${j.soldCount ?? 0}개 판매 (+${(j.soldGold ?? 0).toLocaleString()}골드)`,
+        );
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [owned, equipped],
+  );
+
   // 슬롯별 보유 개체 — T1→T5, concept, 이름, iid 정렬(안정).
   const ownedBySlot = useMemo(() => {
     const groups: Record<V2EquipSlot, V2EquipInstance[]> = {
@@ -238,6 +321,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       return qb - qa;
     });
   }, [tab, ownedBySlot, sortMode]);
+
+  const tabLabel = TABS.find((t) => t.key === tab)?.label ?? "";
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -336,30 +421,65 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       ) : (
         <>
           {tabInstances.length > 0 && (
-            <div className="flex items-center justify-end gap-1">
-              <span className="mr-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                정렬
-              </span>
-              {(
-                [
-                  { key: "default", label: "기본" },
-                  { key: "roll", label: "굴림순" },
-                ] as const
-              ).map((s) => (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금·비매 제외 */}
+              <div className="flex items-center gap-1">
+                <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  정리
+                </span>
                 <button
-                  key={s.key}
                   type="button"
-                  onClick={() => setSortMode(s.key)}
-                  aria-pressed={sortMode === s.key}
-                  className={`rounded border px-2 py-0.5 text-[11px] transition ${
-                    sortMode === s.key
-                      ? "border-zinc-400 bg-zinc-100 font-medium text-zinc-800 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
-                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                  }`}
+                  onClick={() =>
+                    applyBulkSell(
+                      { slot: tab as V2EquipSlot, belowPct: 40 },
+                      `${tabLabel} 굴림 40% 미만`,
+                    )
+                  }
+                  disabled={busy !== null}
+                  className="rounded border border-amber-300 px-2 py-0.5 text-[11px] text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/40"
                 >
-                  {s.label}
+                  굴림 40% 미만 판매
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    applyBulkSell(
+                      { slot: tab as V2EquipSlot },
+                      `${tabLabel} 미장착 전부`,
+                    )
+                  }
+                  disabled={busy !== null}
+                  className="rounded border border-rose-300 px-2 py-0.5 text-[11px] text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                >
+                  미장착 전부 판매
+                </button>
+              </div>
+              {/* 정렬 */}
+              <div className="flex items-center gap-1">
+                <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  정렬
+                </span>
+                {(
+                  [
+                    { key: "default", label: "기본" },
+                    { key: "roll", label: "굴림순" },
+                  ] as const
+                ).map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setSortMode(s.key)}
+                    aria-pressed={sortMode === s.key}
+                    className={`rounded border px-2 py-0.5 text-[11px] transition ${
+                      sortMode === s.key
+                        ? "border-zinc-400 bg-zinc-100 font-medium text-zinc-800 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
+                        : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           <EquipmentCardGrid
@@ -390,6 +510,17 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               ),
             onUnequip: () =>
               applyEquip(V2_EQUIPMENT[card.inst.id].slot, null, card.inst.iid),
+          }}
+          lock={{
+            // 토글 후 owned 갱신되므로 라이브 잠금 상태를 owned 에서 조회(card.inst 는 stale 가능).
+            locked:
+              owned.find((i) => i.iid === card.inst.iid)?.locked ?? false,
+            busy: busy === card.inst.iid,
+            onToggle: () =>
+              applyLock(
+                card.inst.iid,
+                !(owned.find((i) => i.iid === card.inst.iid)?.locked ?? false),
+              ),
           }}
         />
       )}
@@ -483,7 +614,17 @@ export function EquipmentCardGrid({
             }`}
           >
             <div className="flex items-start justify-between gap-1">
-              <Icon size={20} weight="duotone" className={color} />
+              <span className="flex items-center gap-1">
+                <Icon size={20} weight="duotone" className={color} />
+                {inst.locked && (
+                  <Lock
+                    size={13}
+                    weight="fill"
+                    className="text-amber-500"
+                    aria-label="잠금됨"
+                  />
+                )}
+              </span>
               {isEquipped ? (
                 <CheckCircle
                   size={18}

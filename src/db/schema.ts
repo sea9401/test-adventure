@@ -387,7 +387,7 @@ export const marketplaceListingsV2 = pgTable(
     check("listings_v2_kind_valid", sql`${t.kind} IN ('equip','material')`),
     check(
       "listings_v2_status_valid",
-      sql`${t.status} IN ('active','sold','cancelled')`,
+      sql`${t.status} IN ('active','sold','cancelled','expired')`,
     ),
     check("listings_v2_qty_pos", sql`${t.quantity} > 0`),
     check("listings_v2_price_pos", sql`${t.price} > 0`),

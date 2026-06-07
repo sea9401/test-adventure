@@ -97,6 +97,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [sort, setSort] = useState<"new" | "price_asc" | "price_desc" | "roll_desc">("new");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
   const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>({});
+  const [ttlDays, setTtlDays] = useState<number | null>(null); // 매물 만료 일수(서버 다이얼).
 
   const loadBrowse = useCallback(async (mineOnly: boolean) => {
     const res = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
@@ -104,11 +105,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       ok?: boolean;
       viewerId?: string;
       viewerGold?: number;
+      ttlDays?: number;
       listings?: Listing[];
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
     if (j.viewerId) setViewerId(j.viewerId);
     if (typeof j.viewerGold === "number") setGold(j.viewerGold);
+    if (typeof j.ttlDays === "number") setTtlDays(j.ttlDays);
     if (mineOnly) setMine(j.listings ?? []);
     else setListings(j.listings ?? []);
   }, []);
@@ -369,6 +372,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           rows={mine}
           emptyText="등록한 매물이 없어요."
           priceRef={priceRef}
+          expiryDays={ttlDays ?? undefined}
           action={(l) => (
             <button
               type="button"
@@ -643,16 +647,28 @@ function PriceInput({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
+// 등록 후 경과 → 만료까지 남은 일수(올림). expiryDays(TTL) 없으면 null.
+function expiryLabel(createdAt: string, ttlDays?: number): string | null {
+  if (!ttlDays) return null;
+  const elapsedMs = Date.now() - new Date(createdAt).getTime();
+  const leftDays = ttlDays - elapsedMs / (24 * 60 * 60 * 1000);
+  if (leftDays <= 0) return "곧 만료";
+  if (leftDays < 1) return "만료까지 1일 미만";
+  return `만료까지 ${Math.ceil(leftDays)}일`;
+}
+
 function ListingList({
   rows,
   emptyText,
   action,
   priceRef,
+  expiryDays,
 }: {
   rows: Listing[] | null;
   emptyText: string;
   action: (l: Listing) => React.ReactNode;
   priceRef: Record<string, PriceStat>;
+  expiryDays?: number;
 }) {
   if (rows === null) {
     return (
@@ -701,6 +717,11 @@ function ListingList({
                     {l.price.toLocaleString()}골드
                   </span>
                   <PriceRefLine stat={priceRef[l.itemId]} />
+                  {expiryLabel(l.createdAt, expiryDays) && (
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                      {expiryLabel(l.createdAt, expiryDays)}
+                    </span>
+                  )}
                 </div>
               </div>
               {action(l)}

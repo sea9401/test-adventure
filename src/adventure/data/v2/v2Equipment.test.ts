@@ -298,29 +298,29 @@ describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
 
 describe("v2EquipStatRows (표시 행)", () => {
   it("위력 → 무게 → 옵션 순, 0 은 생략", () => {
-    // 별노래궁 T5: 위력 130(×5), weight 2, crit 2.
+    // 별노래궁 T5: 위력 78(×3), weight 2, crit 2.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
-      { label: "위력", value: "+130" },
+      { label: "위력", value: "+78" },
       { label: "무게", value: "2" },
       { label: "치명", value: "+2%" },
     ]);
   });
 
   it("반지 critMult 옵션 — 위력 + 치명피해 배수 표기(+0.10×)", () => {
-    // 은가락지 T1: 위력 5(×5), weight 0, critMult 10(백분의일) → "+0.10×".
+    // 은가락지 T1: 위력 3(×3), weight 0, critMult 10(백분의일) → "+0.10×".
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
     expect(rows).toEqual([
-      { label: "위력", value: "+5" },
+      { label: "위력", value: "+3" },
       { label: "치명피해", value: "+0.10×" },
     ]);
   });
 
   it("mp 옵션은 % 없이 flat", () => {
-    // 마나의 정수 T5: 위력 10(×5), weight 0, mp 50.
+    // 마나의 정수 T5: 위력 6(×3), weight 0, mp 50.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
-      { label: "위력", value: "+10" },
+      { label: "위력", value: "+6" },
       { label: "MP", value: "+50" },
     ]);
   });

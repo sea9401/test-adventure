@@ -33,7 +33,7 @@ type MatchResp =
       scoreAfter: number;
       scoreDelta: number;
       goldGained: number;
-      opponent: { name: string; level: number; score: number; isBot: boolean };
+      opponent: { name: string; level: number; score: number };
       dailyRemaining: number;
       dailyResetAt: string;
     }
@@ -98,6 +98,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       } else if (j && !j.ok) {
         if (j.error === "daily_exhausted") {
           setError("오늘 할당된 매치를 모두 사용했어요.");
+        } else if (j.error === "no_opponent") {
+          setError(
+            "지금은 상대할 모험가가 없어요. 다른 모험가가 늘어나면 다시 도전할 수 있어요. (매치는 차감되지 않았어요)",
+          );
         } else if (j.error === "no_character") {
           setError("캐릭터가 없어 매치를 진행할 수 없습니다.");
         } else if (j.error === "unauthorized") {
@@ -198,7 +202,6 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
             상대 <strong>{lastResult.opponent.name}</strong>
             <span className="ml-1 text-zinc-500">
               Lv.{lastResult.opponent.level}
-              {lastResult.opponent.isBot ? " · 봇" : ""}
             </span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">

@@ -7,7 +7,6 @@ import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
 import {
-  BOT_LEVEL_BAND,
   MAX_DAILY_MATCHES,
   applyDailyReset,
   applyScoreDelta,
@@ -21,7 +20,6 @@ import {
   type ArenaMatchOutcome,
   type ArenaOpponentRef,
 } from "@/lib/server/arena";
-import { buildBotsAroundLevel, type ArenaBot } from "@/adventure/data/v2/arenaBots";
 import {
   elementDamageMult,
   elementMatchup,
@@ -41,9 +39,9 @@ import {
 //   3. 본인 derivePlayerCombatV2.
 //   4. 후보 풀 — 본인 제외 character.v2 보유 유저 (snapshot). 각 candidate 의
 //      arena-state.v2.score 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
-//   5. 후보 0명 → buildBotsAroundLevel 봇 풀로 폴백.
+//   5. 유저 전용 — 후보 0명이면 no_opponent 반환(봇 폴백 폐지, 매치 미소모).
 //   6. weightForCandidate 가중 랜덤 추첨.
-//   7. 선정된 상대만 derive (real user) 또는 미리 derive 된 봇 사용.
+//   7. 선정된 상대만 derive (real user snapshot).
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
 //   9. outcome → 점수 변동(0 미만 클램프), 골드 보상.
 //  10. arena-state.v2(score/dailyUsed/recentOpponents) + character.v2(gold) 저장.
@@ -202,89 +200,60 @@ export async function POST() {
       score: scoreByUser.get(r.userId) ?? 0,
     }));
 
-    // 7. 봇 풀 — 실유저 0명일 때만.
-    let botPool: ArenaBot[] = [];
+    // 7. 유저 전용 매칭 — 실유저만 상대(봇 폴백 폐지). 상대할 다른 모험가가 없으면 매치 불가.
+    //    상태 변경(매치 카운트 차감) 전이라 매치를 소모하지 않는다. 클라가 친화적 안내 표시.
     if (realCandidates.length === 0) {
-      botPool = buildBotsAroundLevel(myLevel, BOT_LEVEL_BAND);
+      return {
+        status: 200,
+        body: { ok: false as const, error: "no_opponent" as const },
+      };
     }
 
-    // 8. 가중 추첨 — 실유저 우선, 봇은 폴백.
-    const allCandidates: Array<{ kind: "user" | "bot"; cand: CandidateInternal; bot?: ArenaBot }> =
-      realCandidates.length > 0
-        ? realCandidates.map((c) => ({ kind: "user" as const, cand: c }))
-        : botPool.map((b) => ({
-            kind: "bot" as const,
-            cand: { botId: b.id, name: b.name, level: b.level, score: b.score },
-            bot: b,
-          }));
-
-    const weighted = allCandidates.map((entry) => ({
-      item: entry,
+    // 8. 가중 추첨 — 실유저 풀에서 점수/레벨 근접 + recentOpponents 페널티 가중.
+    const weighted = realCandidates.map((cand) => ({
+      item: cand,
       weight: weightForCandidate(
         myScore,
         myLevel,
-        entry.cand,
+        cand,
         arenaResetApplied.recentOpponents,
       ),
     }));
     const picked = weightedPick(weighted, Math.random);
     if (!picked) {
-      // 봇 폴백조차 0 (이론상 불가 — buildBotsAroundLevel 은 ≥ 1 보장).
+      // realCandidates ≥ 1 이면 weightForCandidate 가 floor(>0)라 항상 추첨됨 — 방어적.
       return {
-        status: 500,
+        status: 200,
         body: { ok: false as const, error: "no_opponent" as const },
       };
     }
 
-    // 9. 상대 PlayerCombat 준비.
-    let oppPlayer: import("@/adventure/v2/combat/engine").PlayerCombat;
-    let oppName: string;
-    let oppLevel: number;
-    let oppScore: number;
-    let oppRef: ArenaOpponentRef;
-    let oppElement: V2Element = "neutral";
-    let oppWeaponElement: V2Element = "neutral"; // PR-5b — 상대 무기 속성(평타).
-    if (picked.kind === "user") {
-      const opponentCombat = await derivePlayerCombatV2(picked.cand.userId!, tx);
-      if (!opponentCombat) {
-        // 후보 derive 실패 — 봇 폴백 한 번 시도. 못 만들면 500.
-        // 단순화: 이번 호출은 실패로 반환 — 클라가 재시도하면 다음 풀에서 다시 추첨.
-        return {
-          status: 500,
-          body: { ok: false as const, error: "opponent_derive_failed" as const },
-        };
-      }
-      // 상대 이름 조회.
-      const oppProfileRow = await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(
-            eq(savesKv.userId, picked.cand.userId!),
-            eq(savesKv.key, PROFILE_KEY),
-          ),
-        )
-        .limit(1);
-      oppName = nameOf(oppProfileRow[0]?.value, "모험가");
-      oppPlayer = { ...opponentCombat.player, hp: opponentCombat.maxHp };
-      oppLevel = picked.cand.level;
-      oppScore = picked.cand.score;
-      oppRef = { userId: picked.cand.userId, at: now.toISOString() };
-      oppElement = elementByUser.get(picked.cand.userId!) ?? "neutral";
-      oppWeaponElement = opponentCombat.weaponElement;
-    } else {
-      const bot = picked.bot!;
-      oppName = bot.name;
-      oppPlayer = {
-        ...bot.combat.player,
-        hp: bot.combat.maxHp,
+    // 9. 상대 PlayerCombat 준비 (실유저 snapshot — 봇 없음).
+    const oppUserId = picked.userId!;
+    const opponentCombat = await derivePlayerCombatV2(oppUserId, tx);
+    if (!opponentCombat) {
+      // 후보 derive 실패(상대 캐릭 손상 등) — 이번 호출은 실패 반환, 클라 재시도 시 재추첨.
+      return {
+        status: 500,
+        body: { ok: false as const, error: "opponent_derive_failed" as const },
       };
-      oppLevel = bot.level;
-      oppScore = bot.score;
-      oppRef = { botId: bot.id, at: now.toISOString() };
-      oppElement = bot.element;
-      oppWeaponElement = bot.combat.weaponElement;
     }
+    // 상대 이름 조회.
+    const oppProfileRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, PROFILE_KEY)))
+      .limit(1);
+    const oppName = nameOf(oppProfileRow[0]?.value, "모험가");
+    let oppPlayer: import("@/adventure/v2/combat/engine").PlayerCombat = {
+      ...opponentCombat.player,
+      hp: opponentCombat.maxHp,
+    };
+    const oppLevel = picked.level;
+    const oppScore = picked.score;
+    const oppRef: ArenaOpponentRef = { userId: oppUserId, at: now.toISOString() };
+    const oppElement: V2Element = elementByUser.get(oppUserId) ?? "neutral";
+    const oppWeaponElement: V2Element = opponentCombat.weaponElement; // PR-5b — 상대 무기 속성(평타).
 
     // 본인 HP 도 풀충전 — 단판 모델.
     // PR-5/5b — 속성 상성. 평타 속성 = 무기 ?? 캐릭(공격), 방어 = 캐릭. atk 에 평타속성 baked +
@@ -323,7 +292,6 @@ export async function POST() {
     );
 
     // PR-4b — 양측 v2 스킬 wiring. 본인은 lock, 상대는 plain read (다른 user row lock = deadlock 위험).
-    // 상대가 봇이면 빈 배열 (사용자 결정 — PR-5+ 에서 봇 적형 확장 검토).
     const mySkillsRaw = await lockSaveForUpdate(
       tx,
       userId,
@@ -331,20 +299,12 @@ export async function POST() {
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
     const mySkills = parseV2SkillsState(mySkillsRaw);
-    let oppSkills = emptyV2SkillsState();
-    if (picked.cand && picked.cand.userId) {
-      const oppSkillsRow = await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(
-            eq(savesKv.userId, picked.cand.userId),
-            eq(savesKv.key, "skills.v2"),
-          ),
-        )
-        .limit(1);
-      oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
-    }
+    const oppSkillsRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, "skills.v2")))
+      .limit(1);
+    const oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
 
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {
@@ -397,7 +357,6 @@ export async function POST() {
           name: oppName,
           level: oppLevel,
           score: oppScore,
-          isBot: picked.kind === "bot",
           element: oppElement,
         },
         dailyRemaining: Math.max(

@@ -316,7 +316,8 @@ export const V2_BASE_COMBAT_BONUS = 5;
 export { V2_BASE_STATS, V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
 
 // PR-S2: pure 함수 추출 — DB 의존 없이 (level/allocated/v2Equipped/hp) 입력으로 derive.
-// arenaBots 가 saves 없이 봇 PlayerCombat 빌드할 때 호출. DB wrapper 는 saves 로드 후 위임.
+// saves 없이 PlayerCombat 을 빌드해야 하는 곳(sim·단위 테스트)에서 호출. DB wrapper 는
+// saves 로드 후 이 함수에 위임(FromSaves → Pure).
 export type DerivePlayerCombatV2PureInput = {
   level: number;
   /** 1차 스탯 성장분 — V2_BASE_STATS 위에 더해질 값(랜덤 레벨 성장 grownStats). 옛 수동 분배 대체. */

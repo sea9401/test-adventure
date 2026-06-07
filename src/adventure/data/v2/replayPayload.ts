@@ -61,6 +61,45 @@ export function toReplayPayload(
   };
 }
 
+// PvP(아레나) 배틀 → ReplayPayload 변환. resolveBattlePvP 의 finalState 는 p1/p2 두 사이드 +
+// actor-relative 로그(모든 공격이 kind:"player_attack" + side 태그)를 들고 있다. 호출부는 항상
+// "나=p1" 관점이므로(arena: myPlayer 가 p1), side==="p2" 엔트리를 적 레인으로 재매핑한다
+// (player_attack→enemy_attack, turn→enemy). hp_bar 는 엔진이 이미 playerHp=p1·enemyHp=p2 로
+// 채워 그대로 둔다. enemy.hp = 상대 maxHp(바 분모), playerMax* = p1 사이드 값.
+type PvpReplaySide = { maxHp: number; maxMp: number; mp: number };
+export function toPvpReplayPayload(
+  finalState: {
+    p1: PvpReplaySide;
+    p2: { maxHp: number };
+    log: BattleLogEntry[];
+  },
+  opponentName: string,
+  logCap: number,
+): ReplayPayload {
+  const remapped: BattleLogEntry[] = finalState.log.map((e) => {
+    if (e.kind === "hp_bar") return e; // 이미 p1=player / p2=enemy 프레이밍
+    if (e.side === "p2") {
+      // 상대(p2) 액터 → 적 레인. 공격은 enemy_attack 으로, info/phase 는 kind 유지 + turn 만 enemy.
+      return {
+        ...e,
+        kind: e.kind === "player_attack" ? "enemy_attack" : e.kind,
+        turn: "enemy" as const,
+      };
+    }
+    // p1(나)·미태그(turn_marker 등) → 플레이어 레인. turn_marker 는 사이드 없는 헤더라 그대로.
+    return e.kind === "turn_marker"
+      ? e
+      : { ...e, turn: e.turn ?? ("player" as const) };
+  });
+  return {
+    enemy: { name: opponentName, hp: finalState.p2.maxHp },
+    playerMaxHp: finalState.p1.maxHp,
+    playerMaxMp: finalState.p1.maxMp,
+    playerMp: finalState.p1.mp,
+    log: clampReplayLog(remapped, logCap),
+  };
+}
+
 // 일괄(batch) 사냥용 경량 payload — 클라 배치 집계는 playerMaxMp 만 읽고 log/enemy 는 버린다.
 //   full toReplayPayload 의 clampReplayLog(최대 200 entry slice + scan)을 건너뛰어 판마다 발생하던
 //   로그 복사/할당을 없앤다. log 는 [](미사용). 단판(count===1)은 full payload 그대로 — 무변경.

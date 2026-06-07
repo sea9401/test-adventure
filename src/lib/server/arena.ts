@@ -9,10 +9,14 @@
 //
 // 라이브 PvP 코드 직접 이식 X — 신규 모듈. resolveBattlePvP 엔진만 재사용.
 
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+
 // ─── 상수 (튜닝 다이얼) ─────────────────────────────────────────────────────
 
 export const MAX_DAILY_MATCHES = 10;
 export const RECENT_OPPONENT_TRACK = 5;
+// 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
+export const ARENA_HISTORY_MAX = 10;
 
 // 점수 공식
 export const SCORE_WIN = 20;
@@ -64,6 +68,52 @@ export type ArenaCandidate = {
   level: number;
   score: number;
 };
+
+// 전투 기록 한 판 — 결과 요약 + 리플레이(다시보기용). arena-history.v2 에 최근순 ≤ MAX 저장.
+export type ArenaHistoryEntry = {
+  /** 고유 키(UI list key·다시보기 선택). at + 짧은 난수. */
+  id: string;
+  /** ISO 시각. */
+  at: string;
+  outcome: ArenaMatchOutcome;
+  opponent: { name: string; level: number };
+  scoreBefore: number;
+  scoreAfter: number;
+  scoreDelta: number;
+  goldGained: number;
+  turns: number;
+  /** 전투 로그 다시보기 — ReplayBattleScene 페이로드(나=player 관점). */
+  replay: ReplayPayload;
+};
+
+// 방어적 파싱 — 배열 + 필수 필드(outcome·opponent·replay.log) 있는 엔트리만, 최근순 ≤ MAX.
+export function parseArenaHistory(value: unknown): ArenaHistoryEntry[] {
+  if (!Array.isArray(value)) return [];
+  const out: ArenaHistoryEntry[] = [];
+  for (const e of value) {
+    if (!e || typeof e !== "object") continue;
+    const o = e as Record<string, unknown>;
+    if (o.outcome !== "win" && o.outcome !== "loss" && o.outcome !== "draw") {
+      continue;
+    }
+    if (!o.opponent || typeof o.opponent !== "object") continue;
+    const replay = o.replay as { log?: unknown } | null;
+    if (!replay || typeof replay !== "object" || !Array.isArray(replay.log)) {
+      continue;
+    }
+    out.push(e as ArenaHistoryEntry);
+    if (out.length >= ARENA_HISTORY_MAX) break;
+  }
+  return out;
+}
+
+// 새 기록을 맨 앞에 끼우고 최근순 ≤ MAX 로 자른다.
+export function pushArenaHistory(
+  list: ArenaHistoryEntry[],
+  entry: ArenaHistoryEntry,
+): ArenaHistoryEntry[] {
+  return [entry, ...list].slice(0, ARENA_HISTORY_MAX);
+}
 
 // ─── State 파싱·기본값 ──────────────────────────────────────────────────────
 

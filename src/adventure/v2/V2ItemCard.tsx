@@ -174,7 +174,7 @@ export function V2ItemCard({
 
         {pct != null && (
           <div className="mt-2 flex items-baseline justify-between gap-2 border-b border-zinc-100 pb-1.5 text-xs dark:border-zinc-800">
-            <span className="text-zinc-500 dark:text-zinc-400">굴림 품질</span>
+            <span className="text-zinc-500 dark:text-zinc-400">품질</span>
             <span className={`font-semibold tabular-nums ${rollPctClass(pct)}`}>
               {pct}%
             </span>

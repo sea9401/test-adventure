@@ -84,9 +84,11 @@ const MAX_VB_W = MAP_BOUNDS.width * 1.0;
 // id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
 
-// 바이옴 권역 — 각 거점을 가장 가까운 바이옴 중심에 배정해 점선 영역 박스로 묶는다.
+// 바이옴 권역 — 5 왕국 영역(점선 박스) + 중앙 분쟁지대(박스 없음).
 // 중심 좌표는 outposts.ts 상단 주석의 5 왕국 + 중앙 평원. 중립 거점은 어느 세력 영역도
 // 아니라 박스에서 제외(맵 가장자리라 박스를 늘려 지저분해지는 것도 방지).
+// 배정 규칙(2026-06-08): 중앙에서 CONFLICT_RADIUS 안의 땅만 무소속 분쟁지대로 남고, 그 밖의
+// 모든 땅은 최근접 왕국 영역에 소속된다(종전엔 중앙이 먼 땅까지 빨아들였음 — 예: 서리 관문).
 const BIOME_REGIONS = [
   { label: "북부 빙원", center: { x: 1800, y: 1000 } },
   { label: "동부 삼림", center: { x: 6500, y: 800 } },
@@ -100,6 +102,14 @@ const BIOME_REGIONS = [
 // 점선 박스를 생략한다(거점 배정에는 계속 쓰여 주변 영역이 가운데로 늘어나는 것도 막음).
 const NO_BOX_LABELS = new Set<string>(["중앙 분쟁지대"]);
 
+// 중앙 분쟁지대 핵심 반경 — 중심에서 이 거리(맵 좌표) 안의 땅만 무소속 분쟁지대로 남고,
+// 그 밖은 전부 최근접 왕국 소속. 키우면 분쟁지대가 넓어지고 줄이면 왕국령이 넓어진다.
+const CONFLICT_LABEL = "중앙 분쟁지대";
+const CONFLICT_RADIUS = 800;
+const CONFLICT_CENTER = BIOME_REGIONS.find((r) => r.label === CONFLICT_LABEL)!
+  .center;
+const KINGDOM_REGIONS = BIOME_REGIONS.filter((r) => r.label !== CONFLICT_LABEL);
+
 type RegionBox = { label: string; x: number; y: number; w: number; h: number };
 
 const REGION_BOXES: RegionBox[] = (() => {
@@ -109,15 +119,23 @@ const REGION_BOXES: RegionBox[] = (() => {
   >();
   for (const o of OUTPOSTS) {
     if (o.neutral) continue;
-    let bestLabel: string = BIOME_REGIONS[0].label;
-    let bestD = Infinity;
-    for (const reg of BIOME_REGIONS) {
-      const dx = o.position.x - reg.center.x;
-      const dy = o.position.y - reg.center.y;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) {
-        bestD = d;
-        bestLabel = reg.label;
+    // 중앙 핵심 반경 안이면 분쟁지대(무소속), 아니면 최근접 왕국 영역에 배정.
+    const cdx = o.position.x - CONFLICT_CENTER.x;
+    const cdy = o.position.y - CONFLICT_CENTER.y;
+    let bestLabel: string;
+    if (cdx * cdx + cdy * cdy <= CONFLICT_RADIUS * CONFLICT_RADIUS) {
+      bestLabel = CONFLICT_LABEL;
+    } else {
+      bestLabel = KINGDOM_REGIONS[0].label;
+      let bestD = Infinity;
+      for (const reg of KINGDOM_REGIONS) {
+        const dx = o.position.x - reg.center.x;
+        const dy = o.position.y - reg.center.y;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          bestLabel = reg.label;
+        }
       }
     }
     const cur = acc.get(bestLabel);

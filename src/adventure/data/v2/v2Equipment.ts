@@ -165,7 +165,24 @@ export type V2EquipmentId =
   | "v2_canyon_bulwark_gloves"
   | "v2_canyon_bulwark_boots"
   | "v2_canyon_sand_ring"
-  | "v2_canyon_sand_necklace";
+  | "v2_canyon_sand_necklace"
+  // 얼음 호수 밴드 드랍 (밴드 B, 깊이 19~24) — 무기 8종 + 세트 3종(서리 갑주·빙벽 수호구·한기 장신구).
+  | "v2_lake_greatsword"
+  | "v2_lake_knightblade"
+  | "v2_lake_rapier"
+  | "v2_lake_gauntlet"
+  | "v2_lake_claw"
+  | "v2_lake_staff"
+  | "v2_lake_bow"
+  | "v2_lake_dagger"
+  | "v2_lake_frost_armor"
+  | "v2_lake_frost_gloves"
+  | "v2_lake_frost_boots"
+  | "v2_lake_bulwark_armor"
+  | "v2_lake_bulwark_gloves"
+  | "v2_lake_bulwark_boots"
+  | "v2_lake_chill_ring"
+  | "v2_lake_chill_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -357,6 +374,35 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "모래바람 장신구",
     pieces: ["v2_canyon_sand_ring", "v2_canyon_sand_necklace"],
     bonus: { crit: 6, mp: 30 },
+  },
+  {
+    // 얼음 호수 공격형 세트(중갑 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·치명피해+0.5×·HP+40.
+    id: "frost_plate",
+    name: "서리 갑주",
+    pieces: [
+      "v2_lake_frost_armor",
+      "v2_lake_frost_gloves",
+      "v2_lake_frost_boots",
+    ],
+    bonus: { crit: 5, critMult: 50, hp: 40 },
+  },
+  {
+    // 얼음 호수 방어형 세트(중갑 3종). 서리 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+120·회피+6.
+    id: "ice_bulwark",
+    name: "빙벽 수호구",
+    pieces: [
+      "v2_lake_bulwark_armor",
+      "v2_lake_bulwark_gloves",
+      "v2_lake_bulwark_boots",
+    ],
+    bonus: { hp: 120, eva: 6 },
+  },
+  {
+    // 얼음 호수 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 치명/마력 유틸. 2종 보너스 치명+8·MP+40.
+    id: "chill_charm",
+    name: "한기 장신구",
+    pieces: ["v2_lake_chill_ring", "v2_lake_chill_necklace"],
+    bonus: { crit: 8, mp: 40 },
   },
 ];
 

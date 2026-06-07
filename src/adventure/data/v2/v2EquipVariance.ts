@@ -105,13 +105,13 @@ export function rollQualityPct(
 export type BulkSellOpts = {
   // 한 슬롯만(미지정 = 전 슬롯).
   slot?: V2EquipSlot;
-  // 굴림 품질이 이 % 미만인 것만(미지정 = 판매 가능 전부). 굴림 없는 상점템은 belowPct 모드서 제외.
+  // 품질(굴림 품질)이 이 % 이하인 것만(미지정 = 판매 가능 전부). 굴림 없는 상점템은 belowPct 모드서 제외.
   belowPct?: number;
 };
 export type BulkSellPlan = { iids: string[]; gold: number; count: number };
 
 // 미장착 + 미잠금 + 판매 가능(유니크 등 비매 제외) 개체를 골라 판매 계획 산출.
-// equipped 의 iid 는 제외. locked 개체는 제외. belowPct 주면 굴림% < belowPct 만(굴림 없으면 제외).
+// equipped 의 iid 는 제외. locked 개체는 제외. belowPct 주면 품질% ≤ belowPct 만(굴림 없으면 제외).
 export function selectBulkSell(
   owned: V2EquipInstance[],
   equipped: Partial<Record<V2EquipSlot, string>>,
@@ -130,7 +130,7 @@ export function selectBulkSell(
     if (price == null) continue; // 비매품(유니크·제작전용·스타터)
     if (opts.belowPct != null) {
       const q = rollQualityPct(item, inst.roll);
-      if (q == null || q >= opts.belowPct) continue; // 굴림 없거나 임계 이상은 유지
+      if (q == null || q > opts.belowPct) continue; // 굴림 없거나 임계 초과는 유지(임계 이하만 판매)
     }
     iids.push(inst.iid);
     gold += price;

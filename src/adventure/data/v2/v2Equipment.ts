@@ -247,10 +247,10 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
 }
 
 // 판매가 산정용 — 구매 가능(상점 비치) 여부와 무관. 드랍으로 얻은 T3/T5 도 팔 수 있어야 하므로
-//   티어 게이트 없이 (티어, 슬롯) 곡선. 유니크·제작전용·스타터만 비매(상점 비치 아이템과 동일 제외).
+//   티어 게이트 없이 (티어, 슬롯) 곡선. **전 장비 판매 가능**(2026-06-07 사용자 결정): 유니크·제작
+//   전용·전문화 스타터(수련용)도 판매 허용 — 인벤 클러터(전직 지급 수련용 등) 정리. 실수 판매는
+//   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 스타터 T1만(유니크 등 비매=구매 불가 유지).
 export function shopPriceForSell(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
-    return undefined;
   return shopPriceFor(item.tier, item.slot);
 }
 

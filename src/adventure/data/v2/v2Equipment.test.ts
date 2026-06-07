@@ -8,6 +8,7 @@ import {
   isUnique,
   parseEquipmentSave,
   setInstanceLock,
+  sellPriceOf,
   shopPriceOf,
   shopPriceForSell,
   v2EquipStatRows,
@@ -193,6 +194,20 @@ describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
       }
       // 정규 그리드는 티어 무관 전부 판매 가능(드랍 장비 환금).
       expect(shopPriceForSell(it), `${it.id} 판매가능`).toBeGreaterThan(0);
+    }
+  });
+
+  it("전 장비 판매 가능 — 유니크·제작전용·수련용도 판매 OK (구매는 여전히 불가)", () => {
+    // 2026-06-07 사용자 결정: 인벤 클러터(전직 지급 수련용 등) 정리 위해 전 장비 판매 허용.
+    //   실수 판매는 잠금으로 방지. 단 구매(상점 비치)는 여전히 스타터 T1 만.
+    const offGrid = Object.values(V2_EQUIPMENT).filter(
+      (i) => isUnique(i) || i.craftOnly || i.starterOnly,
+    );
+    expect(offGrid.length).toBeGreaterThan(0);
+    for (const it of offGrid) {
+      expect(shopPriceForSell(it), `${it.id} 판매가능`).toBeGreaterThan(0);
+      expect(sellPriceOf(it), `${it.id} sellPrice 비-null`).not.toBeNull();
+      expect(shopPriceOf(it), `${it.id} 구매불가 유지`).toBeUndefined();
     }
   });
 

@@ -6,6 +6,7 @@ import {
   bandUniquePoolForDepth,
   rollBandUniqueDrop,
   rollUniqueDrop,
+  uniqueIdsForDepthRange,
 } from "./dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
@@ -193,5 +194,38 @@ describe("정규 장비 드랍은 유니크를 절대 안 뱉음 (누수 가드)
         expect(got).not.toBe("v2_uniq_shadow_garb");
       }
     }
+  });
+});
+
+describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
+  it("들판(1~6) — floor 풀 1~5 시그니처 유니크 합집합(6종)", () => {
+    const ids = uniqueIdsForDepthRange(1, 6);
+    // floor 1~5 풀 id 전부 포함, 중복 없음.
+    const expected = new Set(
+      [1, 2, 3, 4, 5].flatMap((f) => UNIQUE_FLOOR_POOLS[f as 1].ids),
+    );
+    expect(new Set(ids)).toEqual(expected);
+    expect(ids.length).toBe(expected.size);
+  });
+
+  it("깊은 산(7~12) — 유니크 없음(floor 6~8 빈 풀·밴드 밖)", () => {
+    expect(uniqueIdsForDepthRange(7, 12)).toEqual([]);
+  });
+
+  it("정의된 각 밴드 범위 — 그 밴드 유니크 풀과 일치", () => {
+    // 밴드가 늘어나도(협곡·얼음호수·…) 자동 검증 — 각 밴드 깊이 범위로 조회하면 그 풀과 같다.
+    for (const band of BAND_UNIQUE_POOLS) {
+      const ids = uniqueIdsForDepthRange(band.minDepth, band.maxDepth);
+      expect(new Set(ids), `밴드 ${band.minDepth}~${band.maxDepth}`).toEqual(
+        new Set(band.ids),
+      );
+    }
+  });
+
+  it("모든 밴드보다 깊고 floor 풀(≤8) 밖 — 빈 배열 (미정의 구간)", () => {
+    // 밴드가 추가돼도 깨지지 않게: 현재 최대 밴드 깊이 너머 = 아직 콘텐츠 없는 구간.
+    const beyond =
+      Math.max(8, ...BAND_UNIQUE_POOLS.map((p) => p.maxDepth)) + 1;
+    expect(uniqueIdsForDepthRange(beyond, beyond + 5)).toEqual([]);
   });
 });

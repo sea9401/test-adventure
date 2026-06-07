@@ -4,6 +4,7 @@ import {
   enemiesForDepth,
   depthName,
   dungeonThemeGroups,
+  dungeonThemeCatalog,
 } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
@@ -220,5 +221,40 @@ describe("scaleMonsterForFloor", () => {
     const beforeHp = base.hp;
     scaleMonsterForFloor(base, 8);
     expect(base.hp).toBe(beforeHp);
+  });
+});
+
+describe("dungeonThemeCatalog (코덱스 사냥터 도감)", () => {
+  it("도달 전(maxDepth<1) → 빈 배열", () => {
+    expect(dungeonThemeCatalog(0)).toEqual([]);
+    expect(dungeonThemeCatalog(-3)).toEqual([]);
+  });
+
+  it("부분 도달 — 닿은 테마만, depthEnd 는 도달 깊이로 클램프", () => {
+    const c = dungeonThemeCatalog(2); // 들판(1~6) 중 깊이 2까지
+    expect(c).toHaveLength(1);
+    expect(c[0].name).toBe("들판");
+    expect(c[0].depthStart).toBe(1);
+    expect(c[0].depthEnd).toBe(2); // 도달 깊이로 클램프("처리한 깊이 기준")
+    expect(c[0].enemies.length).toBeGreaterThan(0);
+  });
+
+  it("깊은 산 진입 — 들판 풀 + 깊은 산(7~clamp)", () => {
+    const c = dungeonThemeCatalog(8);
+    expect(c.map((t) => t.name)).toEqual(["들판", "깊은 산"]);
+    expect(c[0].depthEnd).toBe(6); // 들판은 풀 6
+    expect(c[1].depthStart).toBe(7);
+    expect(c[1].depthEnd).toBe(8); // 도달 8
+  });
+
+  it("무한 마지막 테마(짐승의 소굴) — 중복 카드 없이 한 장으로 합침", () => {
+    const c = dungeonThemeCatalog(50);
+    expect(c).toHaveLength(8); // 8 테마, 중복 없음
+    const last = c[c.length - 1];
+    expect(last.name).toBe("짐승의 소굴");
+    expect(last.depthStart).toBe(43);
+    expect(last.depthEnd).toBe(50); // 무한 테마는 maxDepth 까지 한 카드
+    // 테마명 중복 없음
+    expect(new Set(c.map((t) => t.name)).size).toBe(c.length);
   });
 });

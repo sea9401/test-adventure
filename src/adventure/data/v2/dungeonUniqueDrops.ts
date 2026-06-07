@@ -150,3 +150,23 @@ export function rollBandUniqueDrop(
   if (candidates.length === 0) return null;
   return candidates[Math.floor(rng() * candidates.length)];
 }
+
+// 코덱스(모험의 서) 사냥터 도감용 — 깊이 [start, end] 구간에서 떨어질 수 있는 유니크 id 목록.
+//   floor 풀(1~8, 레거시 시그니처)과 밴드 풀(깊이 범위)을 합집합. 굴림 안 함(표시 전용).
+export function uniqueIdsForDepthRange(
+  start: number,
+  end: number,
+): V2EquipmentId[] {
+  const ids = new Set<V2EquipmentId>();
+  const lo = Math.max(1, Math.floor(start));
+  const hi = Math.floor(end);
+  for (let d = lo; d <= Math.min(hi, 8); d++) {
+    const pool = UNIQUE_FLOOR_POOLS[d as DungeonFloorId];
+    if (pool && pool.chance > 0) for (const id of pool.ids) ids.add(id);
+  }
+  for (const p of BAND_UNIQUE_POOLS) {
+    if (p.chance > 0 && p.maxDepth >= start && p.minDepth <= end)
+      for (const id of p.ids) ids.add(id);
+  }
+  return [...ids];
+}

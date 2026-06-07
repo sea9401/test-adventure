@@ -61,6 +61,23 @@ export function toReplayPayload(
   };
 }
 
+// 일괄(batch) 사냥용 경량 payload — 클라 배치 집계는 playerMaxMp 만 읽고 log/enemy 는 버린다.
+//   full toReplayPayload 의 clampReplayLog(최대 200 entry slice + scan)을 건너뛰어 판마다 발생하던
+//   로그 복사/할당을 없앤다. log 는 [](미사용). 단판(count===1)은 full payload 그대로 — 무변경.
+export function toReplayPayloadLite(finalState: BattleState): ReplayPayload {
+  return {
+    enemy: {
+      name: finalState.enemy.name,
+      hp: finalState.enemy.hp,
+      image: finalState.enemy.image,
+    },
+    playerMaxHp: finalState.playerMaxHp,
+    playerMaxMp: finalState.playerMaxMp,
+    playerMp: finalState.playerMp,
+    log: [],
+  };
+}
+
 // 클라 — BattleScene 에 줄 BattleState 만들기. 안 보는 필드는 minimal default.
 // BattleScene 이 보는 필드 = enemy.{name,hp,image}, enemyHp, playerHp, playerMaxHp, log.
 // 그 외(phase/turn/flags/buffs/stacks/etc) 는 안 보지만 type 상 required 라

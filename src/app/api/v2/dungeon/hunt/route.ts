@@ -83,7 +83,10 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
-import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
+import {
+  toReplayPayload,
+  toReplayPayloadLite,
+} from "@/adventure/data/v2/replayPayload";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
   parseEjectedFrom,
@@ -187,7 +190,8 @@ export async function POST(req: Request) {
     // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
     //   루프로 N회 호출한다. 매 호출이 character.v2/equipment 등을 재-락·재-read 하므로 직전
     //   사냥의 레벨/HP/스태미나/드랍이 DB 재read 로 자동 이월된다(수동 스레딩 불필요).
-    async function runOneHunt() {
+    //   forBatch=true 면 replay 를 경량 payload 로(배치 집계는 playerMaxMp 만 읽음 — 무거운 log 회피).
+    async function runOneHunt(forBatch: boolean) {
       // === 1. outpost 점령 조회 (FOR UPDATE) ===
       // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
       // FOR UPDATE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
@@ -853,7 +857,9 @@ export async function POST(req: Request) {
             // BattleScene replay 용 — BattleScene 이 실제로 보는 필드만 추출
             // (enemy.{name,hp,image}, playerMaxHp, log). 클라가 buildBattleStateFromReplay
             // 로 BattleState 형태로 재구성. log 는 마지막 200 cap.
-            replay: toReplayPayload(battleResult.finalState, 200),
+            replay: forBatch
+              ? toReplayPayloadLite(battleResult.finalState)
+              : toReplayPayload(battleResult.finalState, 200),
             // replay UI 의 시작 HP — 사전 회복 적용 후 사냥 진입 시점.
             startPlayerHp: regenResult.hp,
             // 이 사냥의 시작 EXP/maxExp — replay UI 의 EXP 바 표시용
@@ -872,9 +878,9 @@ export async function POST(req: Request) {
     } // ← runOneHunt 끝
 
     // === 일괄(batch) 루프 ===
-    // count===1 은 기존 단판 응답 그대로(리플레이 포함, 무변경).
+    // count===1 은 기존 단판 응답 그대로(full 리플레이 포함, 무변경).
     if (count === 1) {
-      return await runOneHunt();
+      return await runOneHunt(false);
     }
     // count>1 — 한 트랜잭션에서 N회. 스태미나 부족·HP 부족·사망이면 중단(완료분은 커밋).
     let completed = 0;
@@ -904,7 +910,7 @@ export async function POST(req: Request) {
     let ejected: EjectedFrom | null = null;
 
     for (let i = 0; i < count; i++) {
-      const r = await runOneHunt();
+      const r = await runOneHunt(true);
       if (!r.ok) {
         // 첫 사냥부터 실패면 단판과 동일하게 에러 응답 그대로(409 스태미나/HP·403 정책 등).
         //   버튼이 스태미나/회복 상태에선 비활성이라 실사용상 드물다. 중간(완료>0) 실패는

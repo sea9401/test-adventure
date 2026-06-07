@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { Trophy, Crown } from "@phosphor-icons/react";
+import { Trophy, Crown, CaretRight } from "@phosphor-icons/react";
 
 type RankEntry = {
   rank: number;
+  userId: string;
   name: string;
   level: number;
   score: number;
@@ -20,6 +22,7 @@ type RankingResp = {
 };
 
 export function V2ArenaRankingTab() {
+  const router = useRouter();
   const [data, setData] = useState<RankingResp | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(false);
@@ -73,36 +76,40 @@ export function V2ArenaRankingTab() {
       ) : (
         <ul className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-700">
           {top.map((e) => (
-            <li
-              key={e.rank}
-              className={
-                "flex items-center gap-3 px-3 py-2 text-sm " +
-                (e.isMe ? "bg-amber-50 dark:bg-amber-950/30" : "bg-white dark:bg-zinc-900")
-              }
-            >
-              <span
+            <li key={e.rank}>
+              <button
+                type="button"
+                onClick={() => router.push(`/character/${e.userId}`)}
                 className={
-                  "w-7 shrink-0 text-center font-bold tabular-nums " +
-                  (e.rank <= 3 ? "text-amber-500" : "text-zinc-400")
+                  "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
+                  (e.isMe ? "bg-amber-50 dark:bg-amber-950/30" : "bg-white dark:bg-zinc-900")
                 }
               >
-                {e.rank}
-              </span>
-              {e.rank === 1 ? (
-                <Crown size={16} weight="fill" className="shrink-0 text-amber-500" />
-              ) : (
-                <Trophy size={14} className="shrink-0 text-zinc-300 dark:text-zinc-600" />
-              )}
-              <span className="min-w-0 flex-1 truncate">
-                {e.name}
-                <span className="ml-1 text-xs text-zinc-500">Lv.{e.level}</span>
-                {e.isMe && (
-                  <span className="ml-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                    (나)
-                  </span>
+                <span
+                  className={
+                    "w-7 shrink-0 text-center font-bold tabular-nums " +
+                    (e.rank <= 3 ? "text-amber-500" : "text-zinc-400")
+                  }
+                >
+                  {e.rank}
+                </span>
+                {e.rank === 1 ? (
+                  <Crown size={16} weight="fill" className="shrink-0 text-amber-500" />
+                ) : (
+                  <Trophy size={14} className="shrink-0 text-zinc-300 dark:text-zinc-600" />
                 )}
-              </span>
-              <span className="shrink-0 font-semibold tabular-nums">{e.score}점</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {e.name}
+                  <span className="ml-1 text-xs text-zinc-500">Lv.{e.level}</span>
+                  {e.isMe && (
+                    <span className="ml-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                      (나)
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">{e.score}점</span>
+                <CaretRight size={14} className="shrink-0 text-zinc-300 dark:text-zinc-600" />
+              </button>
             </li>
           ))}
         </ul>

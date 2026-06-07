@@ -341,7 +341,7 @@ export async function POST() {
       id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
       at: now.toISOString(),
       outcome,
-      opponent: { name: oppName, level: oppLevel },
+      opponent: { name: oppName, level: oppLevel, userId: oppUserId },
       scoreBefore: myScore,
       scoreAfter: newScore,
       scoreDelta,
@@ -394,6 +394,7 @@ export async function POST() {
           level: oppLevel,
           score: oppScore,
           element: oppElement,
+          userId: oppUserId,
         },
         // 전투 로그 다시보기 + 전투 기록 1판(클라가 즉시 replay 표시 + 기록 목록 prepend).
         historyEntry,

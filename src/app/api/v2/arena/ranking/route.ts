@@ -62,6 +62,8 @@ export async function GET() {
 
   const entries = top.map((t, i) => ({
     rank: i + 1,
+    // userId — 플레이어 정보 페이지(/character/[id]) 링크용.
+    userId: t.userId,
     name: nameByUser.get(t.userId) ?? "모험가",
     level: levelByUser.get(t.userId) ?? 1,
     score: t.score,

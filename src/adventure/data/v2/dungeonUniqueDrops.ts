@@ -62,24 +62,24 @@ export function rollUniqueDrop(
 // 층(floor 1~8) 기반 레거시 UNIQUE_FLOOR_POOLS 와 별개로 **깊이 범위**로 키. 심층 프론티어
 // 밴드 콘텐츠 전용 유니크 드랍. 마른 협곡(13~18)부터.
 //
-// pool.chance = 풀 통과(총 드랍률). 통과 시 후보 균등 pick → 후보(미보유) 1종당 chance/len.
-//   마른 협곡 = 11종 × 0.5% → chance 0.055(시작 시 종류당 0.5%). 보유분 제외돼 후보가 줄면
-//   남은 종류 확률이 올라간다(수집 가속 = 컬렉션 추격). ← 드랍률 다이얼.
+// pool.chance = 풀 통과(총 드랍률). 통과 시 전 종류 균등 pick → 1종당 chance/len.
+//   마른 협곡 = 16종 × 0.5% → chance 0.08. **중복 드랍 허용**(2026-06-08): 보유분 포함 전 종류
+//   균등이라 같은 종류도 새 굴림으로 재드랍(god-roll/편차 추격), 다 모아도 드랍 계속. ← 드랍률 다이얼.
 export type BandUniquePool = {
   /** 밴드 시작 깊이(포함). */
   minDepth: number;
   /** 밴드 끝 깊이(포함). */
   maxDepth: number;
-  /** 사냥 1회당 풀 통과 확률 [0, 1] = 총 드랍률. 후보 균등 분배. */
+  /** 사냥 1회당 풀 통과 확률 [0, 1] = 총 드랍률. 전 종류 균등 분배. */
   chance: number;
-  /** 통과 시 후보 유니크 id. 이미 보유한 건 제외하고 균등 pick. */
+  /** 통과 시 후보 id. 전 종류 균등 pick(중복 드랍 허용 — 보유분 포함). */
   ids: V2EquipmentId[];
 };
 
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
     // 마른 협곡(밴드 A, 깊이 13~18). 무기 8(8 무기타입 1종씩) + 마른땅 갑주 3 + 바위문 수호구 3
-    // + 모래바람 장신구 2 = 16종. chance 0.08 / 16 균등 → 시작 시 종류당 0.5%(종 추가 시 chance 비례 조정).
+    // + 모래바람 장신구 2 = 16종. chance 0.08 / 16 균등 → 종류당 0.5%(중복 허용·고정 균등, 종 추가 시 chance 비례 조정).
     minDepth: 13,
     maxDepth: 18,
     chance: 0.08,
@@ -104,7 +104,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   },
   {
     // 얼음 호수(밴드 B, 깊이 19~24). 무기 8 + 서리 갑주 3 + 빙벽 수호구 3 + 한기 장신구 2 = 16종.
-    // chance 0.08 / 16 균등 → 시작 시 종류당 0.5%.
+    // chance 0.08 / 16 균등 → 종류당 0.5%(중복 허용·고정 균등).
     minDepth: 19,
     maxDepth: 24,
     chance: 0.08,
@@ -129,7 +129,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   },
   {
     // 심층 동굴(밴드 C, 깊이 25~30). 무기 8 + 심연 갑주 3 + 흑요 수호구 3 + 공허 장신구 2 = 16종.
-    // chance 0.08 / 16 균등 → 시작 시 종류당 0.5%.
+    // chance 0.08 / 16 균등 → 종류당 0.5%(중복 허용·고정 균등).
     minDepth: 25,
     maxDepth: 30,
     chance: 0.08,
@@ -162,10 +162,14 @@ export function bandUniquePoolForDepth(depth: number): BandUniquePool | null {
   return null;
 }
 
-// 밴드 유니크 드랍 굴림(순수) — rollUniqueDrop 의 깊이-밴드 버전. rng() ∈ [0, 1).
+// 밴드 유니크 드랍 굴림(순수) — rollEquipDrop 처럼 **중복 드랍 허용**(2026-06-08 사용자 요청).
+// 보유분도 후보에 포함 → 같은 종류도 새 굴림으로 재드랍(god-roll/편차 추격), 16종 다 모아도
+// 드랍 계속(컬렉션 다 채워도 끝나지 않음). 프론티어 밴드 장비=컬렉션이 아니라 무한 파밍 풀.
+// (레거시 rollUniqueDrop[1~8층 시그니처 유니크]은 dedup 유지 — 거긴 진짜 종류당 1개 유니크.)
 // 밴드 밖 깊이 → pool null → rng 미소비하고 null(레거시 floor 롤과 ?? 합성해도 rng 안 샘).
 export function rollBandUniqueDrop(
   depth: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 중복 드랍 허용 후 미사용(시그니처 유지, rollEquipDrop 대칭)
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
   // 통과 굴림 chance 배율. 미지정 1. chance×배율(1 cap).
@@ -174,9 +178,8 @@ export function rollBandUniqueDrop(
   const pool = bandUniquePoolForDepth(depth);
   if (!pool || pool.chance <= 0 || pool.ids.length === 0) return null;
   if (rng() >= Math.min(1, pool.chance * chanceMult)) return null;
-  const candidates = pool.ids.filter((id) => !ownedSet.has(id));
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(rng() * candidates.length)];
+  // 중복 드랍 허용 — 보유분 제외 안 함(전 종류 균등 pick). ownedSet 미사용.
+  return pool.ids[Math.floor(rng() * pool.ids.length)];
 }
 
 // 코덱스(모험의 서) 사냥터 도감용 — 깊이 [start, end] 구간에서 떨어질 수 있는 유니크 id 목록.

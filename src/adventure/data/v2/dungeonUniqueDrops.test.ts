@@ -113,9 +113,10 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
     expect(calls).toBe(0); // 풀 null → rng 호출 없음
   });
 
-  it("보유분 제외 후 후보 0 → null", () => {
+  it("중복 드랍 허용 — 16종 다 보유해도 후보에서 안 빠지고 재드랍(god-roll 추격)", () => {
     const owned = new Set<V2EquipmentId>(canyon.ids);
-    expect(rollBandUniqueDrop(13, owned, seqRng([0, 0]))).toBeNull();
+    // 보유분 제외 안 함 → 전 종류 균등 pick. pick 0 → 첫 id 그대로 재드랍.
+    expect(rollBandUniqueDrop(13, owned, seqRng([0, 0]))).toBe(canyon.ids[0]);
   });
 });
 

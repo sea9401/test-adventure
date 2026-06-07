@@ -162,10 +162,13 @@ describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
 describe("scaleMonsterForFloor", () => {
   const base = MONSTERS["별빛 박쥐"];
 
-  it("floor 1·2 (×1.0) 은 동일 객체 반환", () => {
+  it("들판 1 (×1.0) 은 동일 객체, 들판 6 은 완만 스케일(평탄화)", () => {
     const weak = MONSTERS["슬라임"];
-    expect(scaleMonsterForFloor(weak, 1)).toBe(weak);
-    expect(scaleMonsterForFloor(weak, 2)).toBe(weak);
+    expect(scaleMonsterForFloor(weak, 1)).toBe(weak); // 깊이 1 = ×1.0 identity
+    // 들판 평탄화: 깊이 2~6 은 ×1.06→×1.3 완만. 들판 6 = ×1.3 새 객체.
+    const d6 = scaleMonsterForFloor(weak, 6);
+    expect(d6).not.toBe(weak);
+    expect(d6.hp).toBe(Math.round(weak.hp * floorStatMult(6)));
   });
 
   it("floor 3+ 사다리 배율 — hp/atk 선형·def 댐핑·exp 곡선, 새 객체", () => {

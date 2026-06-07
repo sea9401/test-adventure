@@ -104,6 +104,9 @@ export type DerivedPlayerCombatV2 = {
   /** PR-5b — 장착 무기의 속성(평타/공격 속성). 무기 없음·미부여면 neutral.
    *  hunt·arena 가 basicAttackElement = weaponElement ?? characterElement 산출에 사용. */
   weaponElement: V2Element;
+  /** 직업 차수(입력 classTier, 1~4; 미지정 1). 앵커 보정에 쓰인 값을 그대로 노출 —
+   *  사냥 라우트가 레벨 캡(tierLevelCap) 산출 시 proficiency 재select 없이 재사용. */
+  classTier: number;
 };
 
 // PR-4a 장비 위력/무게 합산 — equipment.v2 슬롯 6개에서 위력을 슬롯별로 분기 누적 +
@@ -713,6 +716,7 @@ export function derivePlayerCombatV2Pure(
     maxHp,
     selectedStance: normalizeStance(input.selectedStanceRaw),
     weaponElement,
+    classTier: input.classTier ?? 1,
   };
 }
 

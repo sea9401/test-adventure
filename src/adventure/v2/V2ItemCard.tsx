@@ -25,20 +25,20 @@ export function rollPctClass(pct: number): string {
   return "text-amber-600 dark:text-amber-500";
 }
 
-// 위력 색 구간(powerBandOf, 0…6) → 아이템 이름 색. 등급/유니크 대신 실효(굴림 반영) 위력으로
-// 분류(사용자 결정). 옅은 보라색 계열 — 위력 낮음(회색)에서 높을수록 연보라→보라→진보라.
-// 인벤 이름·카드 제목·제작·상점·캐릭터 슬롯 공유.
-// 라이트=진하게(흰 배경 대비)/다크=옅게(옅은 보라 느낌) — 두 모드 모두 가독.
-// 보라색 위로 자홍→장미→진홍 3단계 미리 준비(향후 더 높은 위력 콘텐츠 대비). 현재 위력대는
-// 0~2(회색/옅은보라/보라)까지 도달, 3~6 은 여유분 — 추가 색은 POWER_BAND_COUNT 만 올리면 활성.
+// 위력 색 구간(powerBandOf, 0…7) → 아이템 이름 색. 등급/유니크 대신 실효(굴림 반영) 위력으로
+// 분류(사용자 결정). 8단계: 회색→에메랄드→약간푸른빛→보라→노랑→자홍→장미→진홍(낮음→높음).
+// 인벤 이름·카드 제목·제작·상점·캐릭터 슬롯 공유. 라이트=진하게(흰 배경 대비)/다크=옅게.
+// 현재 위력대는 0~2(회색/에메랄드/약간푸른빛)까지 도달, 3~7 은 향후 고위력 콘텐츠 여유분
+// (추가 색은 POWER_BAND_COUNT 만 올리면 활성).
 const POWER_BAND_CLASS = [
-  "text-zinc-500 dark:text-zinc-400", // 0 위력 낮음(기본)
-  "text-violet-500 dark:text-violet-300", // 1 옅은 보라
-  "text-violet-600 dark:text-violet-400", // 2 보라
-  "text-purple-700 dark:text-purple-400", // 3 진보라(향후)
-  "text-fuchsia-700 dark:text-fuchsia-400", // 4 자홍(향후)
-  "text-rose-600 dark:text-rose-400", // 5 장미(향후)
-  "text-red-600 dark:text-red-500", // 6 진홍 — 최상(향후)
+  "text-zinc-500 dark:text-zinc-400", // 0 회색 (위력 낮음)
+  "text-emerald-600 dark:text-emerald-400", // 1 에메랄드
+  "text-sky-600 dark:text-sky-400", // 2 약간 푸른빛
+  "text-violet-600 dark:text-violet-400", // 3 보라
+  "text-amber-600 dark:text-amber-400", // 4 노란 계열
+  "text-fuchsia-600 dark:text-fuchsia-400", // 5 자홍
+  "text-rose-600 dark:text-rose-400", // 6 장미
+  "text-red-600 dark:text-red-500", // 7 진홍 — 최상
 ] as const;
 export function powerNameClass(item: V2Equipment, roll?: V2EquipRoll): string {
   return POWER_BAND_CLASS[powerBandOf(item, roll)] ?? POWER_BAND_CLASS[0];

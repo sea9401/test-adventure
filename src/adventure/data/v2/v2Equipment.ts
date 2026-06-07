@@ -579,9 +579,9 @@ const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
   necklace: 5,
 };
 
-// 위력 색 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). 현재 위력대는 0~2 사용, 3~6 은 향후
-//   더 높은 위력 콘텐츠 여유분(보라 위로 자홍/장미/진홍 색 미리 준비). step·구간수는 다이얼.
-export const POWER_BAND_COUNT = 7;
+// 위력 색 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). 8단계(회색→에메랄드→약간푸른빛→보라
+//   →노랑→자홍→장미→진홍). 현재 위력대는 0~2 사용, 3~7 은 향후 고위력 콘텐츠 여유분. step·구간수는 다이얼.
+export const POWER_BAND_COUNT = 8;
 
 // 위력 → 색 구간(0…6). 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
 export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {

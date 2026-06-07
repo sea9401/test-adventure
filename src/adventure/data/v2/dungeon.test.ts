@@ -1,11 +1,45 @@
 import { describe, it, expect } from "vitest";
-import { MAIN_DUNGEON, enemiesForDepth, depthName } from "./dungeon";
+import {
+  MAIN_DUNGEON,
+  enemiesForDepth,
+  depthName,
+  dungeonThemeGroups,
+} from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
 import { V2_ELEMENTS, type V2Element } from "./elements";
 import { V2_SKILLS } from "./v2Skills";
+
+describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
+  it("깊이 1..maxDepth 를 ≤6깊이 블록으로 묶고, 전부 빠짐없이 단조 커버", () => {
+    for (const max of [3, 8, 14, 25, 50]) {
+      const groups = dungeonThemeGroups(max);
+      const flat = groups.flatMap((g) => g.depths);
+      // 1..max 전부, 순서대로, 중복 없음.
+      expect(flat).toEqual(Array.from({ length: max }, (_, i) => i + 1));
+      // 한 블록은 항상 ≤6 깊이.
+      for (const g of groups) {
+        expect(g.depths.length).toBeLessThanOrEqual(6);
+        expect(g.depths.length).toBeGreaterThan(0);
+        expect(g.name.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("블록 이름은 테마 순서대로, 무한 마지막 테마는 6깊이씩 블록 분할", () => {
+    const groups = dungeonThemeGroups(50);
+    expect(groups[0].name).toBe("들판"); // 1~6
+    expect(groups[0].depths).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(groups[1].name).toBe("깊은 산"); // 7~12
+    // 50깊이 → 짐승의 소굴(43~48, 49~50) 두 블록(무한 테마도 ≤6).
+    const den = groups.filter((g) => g.name === "짐승의 소굴");
+    expect(den.length).toBe(2);
+    expect(den[0].depths).toEqual([43, 44, 45, 46, 47, 48]);
+    expect(den[1].depths).toEqual([49, 50]);
+  });
+});
 
 describe("v2 dungeon", () => {
   it("statusSkill 은 monsterOnly v2 스킬만, 1구역(신규)엔 없음 (PR-9)", () => {

@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
-import { depthName } from "@/adventure/data/v2/dungeon";
+import { depthName, dungeonThemeGroups } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 
-// 무한 프론티어 사냥터 목록. 깊이 1(들판)~최고도달+1(도전)까지 표시.
-// frontierDepth = 최고 도달 깊이(기본 2). 그 이상은 "도전(미정복)" 구역.
+// 무한 프론티어 사냥터 목록 — 2단. 테마(들판·깊은 산·…) 카드 → 누르면 그 안에서 깊이 카드 6개.
+// 뒤로 갈수록 깊이가 한 화면에 너무 많아지는 걸 테마별로 접어 해소. frontierDepth = 최고 도달
+// 깊이(기본 2). 그 이상은 "도전(미정복)" 구역(= maxDepth+1).
 
 export function V2DungeonList({
   currentOutpost,
@@ -19,19 +21,30 @@ export function V2DungeonList({
   onOpenMap: () => void;
   frontierDepth?: number;
 }) {
-  // 표시할 깊이: 1 ~ frontierDepth+1
   const maxDepth = Math.max(2, frontierDepth);
-  const depths = Array.from({ length: maxDepth + 1 }, (_, i) => i + 1);
+  const challengeDepth = maxDepth + 1; // 도전(미정복)
+  // 깊이 1 ~ 도전까지를 테마 블록(≤6깊이)으로 묶는다.
+  const groups = dungeonThemeGroups(challengeDepth);
+  // 열린 테마 — 블록의 첫 깊이로 식별(배열 인덱스보다 안정적, frontierDepth 변동에도 견고).
+  const [openDepth, setOpenDepth] = useState<number | null>(null);
+  const openGroup =
+    openDepth != null
+      ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
+      : null;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
-        <BackButton onClick={onOpenMap} />
-        <h1 className="mt-3 text-lg font-bold">사냥터</h1>
+        <BackButton onClick={openGroup ? () => setOpenDepth(null) : onOpenMap} />
+        <h1 className="mt-3 text-lg font-bold">
+          {openGroup ? openGroup.name : "사냥터"}
+        </h1>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {currentOutpost
-            ? `${currentOutpost.name} — 구역을 선택해 입장.`
-            : "거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능."}
+          {openGroup
+            ? "구역을 선택해 입장."
+            : currentOutpost
+              ? `${currentOutpost.name} — 사냥터를 선택.`
+              : "거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능."}
         </p>
       </header>
 
@@ -45,50 +58,65 @@ export function V2DungeonList({
             지도 열기
           </button>
         </Card>
-      ) : (
+      ) : openGroup ? (
+        // 이너 — 선택한 테마의 깊이 카드 6개.
         <div className="grid grid-cols-2 gap-2">
-          {depths.map((depth) => {
-            const isChallenge = depth === maxDepth + 1;
+          {openGroup.depths.map((depth) => (
+            <DepthCard
+              key={depth}
+              depth={depth}
+              isChallenge={depth === challengeDepth}
+              onSelect={onSelectFloor}
+            />
+          ))}
+        </div>
+      ) : (
+        // 테마(사냥터) 카드.
+        <div className="grid grid-cols-2 gap-2">
+          {groups.map((g) => {
+            const hasChallenge = g.depths.includes(challengeDepth);
+            const from = g.depths[0];
+            const to = g.depths[g.depths.length - 1];
             return (
               <button
-                key={depth}
+                key={from}
                 type="button"
-                onClick={() => onSelectFloor(depth)}
+                onClick={() => setOpenDepth(from)}
                 className="group block h-full text-left"
               >
                 <Card
                   padding="sm"
                   className={`flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
-                    isChallenge
+                    hasChallenge
                       ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
                       : "hover:border-rose-300 dark:hover:border-rose-600"
                   }`}
                 >
                   <div
                     className={`truncate text-sm font-medium transition-colors ${
-                      isChallenge
+                      hasChallenge
                         ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
                         : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
                     }`}
                   >
-                    {depthName(depth)}
+                    {g.name}
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    권장 파워 {floorPowerGate(depth)}
+                    {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
                   </div>
-                  {isChallenge && (
+                  {hasChallenge && (
                     <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      도전 (미정복)
+                      도전 구역 포함
                     </div>
                   )}
                   <span
                     className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
-                      isChallenge
+                      hasChallenge
                         ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
                         : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
                     }`}
                   >
-                    입장
+                    열기
                   </span>
                 </Card>
               </button>
@@ -97,5 +125,60 @@ export function V2DungeonList({
         </div>
       )}
     </main>
+  );
+}
+
+// 깊이 1개 카드 — 입장. (이너 뷰에서 테마의 각 깊이.)
+function DepthCard({
+  depth,
+  isChallenge,
+  onSelect,
+}: {
+  depth: number;
+  isChallenge: boolean;
+  onSelect: (depth: number) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(depth)}
+      className="group block h-full text-left"
+    >
+      <Card
+        padding="sm"
+        className={`flex h-full flex-col transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:shadow-sm ${
+          isChallenge
+            ? "border-amber-400 hover:border-amber-500 dark:border-amber-600 dark:hover:border-amber-400"
+            : "hover:border-rose-300 dark:hover:border-rose-600"
+        }`}
+      >
+        <div
+          className={`truncate text-sm font-medium transition-colors ${
+            isChallenge
+              ? "text-amber-700 dark:text-amber-400 group-hover:text-amber-800 dark:group-hover:text-amber-300"
+              : "group-hover:text-rose-600 dark:group-hover:text-rose-400"
+          }`}
+        >
+          {depthName(depth)}
+        </div>
+        <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+          권장 파워 {floorPowerGate(depth)}
+        </div>
+        {isChallenge && (
+          <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+            도전 (미정복)
+          </div>
+        )}
+        <span
+          className={`mt-2 self-start rounded px-2 py-0.5 text-xs transition-colors ${
+            isChallenge
+              ? "bg-amber-100 text-amber-800 group-hover:bg-amber-500 group-hover:text-white dark:bg-amber-900 dark:text-amber-100 dark:group-hover:bg-amber-600"
+              : "bg-zinc-200 text-zinc-700 group-hover:bg-rose-500 group-hover:text-white dark:bg-zinc-800 dark:text-zinc-200 dark:group-hover:bg-rose-600"
+          }`}
+        >
+          입장
+        </span>
+      </Card>
+    </button>
   );
 }

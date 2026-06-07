@@ -64,7 +64,7 @@ const NEUTRAL_OUTPOSTS: Outpost[] = [
 const KINGDOMS: Outpost[] = [
   {
     id: "kingdom_tatiholm",
-    name: "타티홀름 왕국",
+    name: "에이라 왕국",
     type: "fort",
     tier: 4,
     position: { x: 1800, y: 1000 },
@@ -72,7 +72,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_silverbance",
-    name: "실버벤스 왕국",
+    name: "로렌 왕국",
     type: "tower",
     tier: 4,
     position: { x: 6500, y: 800 },
@@ -80,7 +80,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_blackforge",
-    name: "블랙포지 왕국",
+    name: "코린 왕국",
     type: "mine",
     tier: 4,
     position: { x: 1500, y: 3500 },
@@ -88,7 +88,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_sunderhold",
-    name: "선더홀드 왕국",
+    name: "세라 왕국",
     type: "village",
     tier: 4,
     position: { x: 5000, y: 4900 },
@@ -96,7 +96,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_ragnarod",
-    name: "라그나로드 왕국",
+    name: "발렌 왕국",
     type: "fort",
     tier: 4,
     position: { x: 8000, y: 3300 },
@@ -106,19 +106,19 @@ const KINGDOMS: Outpost[] = [
 
 // 도시 (tier 3) — 왕국 근처 2개씩.
 const CITIES: Outpost[] = [
-  // 타티홀름 영역 (빙하)
-  { id: "city_glacier_market", name: "빙하 시장", type: "village", tier: 3, position: { x: 2800, y: 1300 }, description: "타티홀름 인근 교역 도시." },
+  // 에이라 영역 (빙하)
+  { id: "city_glacier_market", name: "빙하 시장", type: "village", tier: 3, position: { x: 2800, y: 1300 }, description: "에이라 인근 교역 도시." },
   { id: "city_aurora_keep", name: "오로라 성채", type: "fort", tier: 3, position: { x: 1679, y: 1525 } },
-  // 실버벤스 영역 (숲)
+  // 로렌 영역 (숲)
   { id: "city_silverleaf", name: "은잎 도시", type: "tower", tier: 3, position: { x: 7800, y: 1100 } },
   { id: "city_oakheart", name: "참나무 심부", type: "village", tier: 3, position: { x: 9000, y: 2300 } },
-  // 블랙포지 영역 (보라산)
+  // 코린 영역 (보라산)
   { id: "city_iron_pit", name: "철광 분지", type: "mine", tier: 3, position: { x: 2400, y: 4200 } },
   { id: "city_swamp_market", name: "늪 시장", type: "village", tier: 3, position: { x: 1100, y: 4200 } },
-  // 선더홀드 영역 (사막)
+  // 세라 영역 (사막)
   { id: "city_goldfield", name: "황금 들", type: "village", tier: 3, position: { x: 4000, y: 4700 } },
   { id: "city_river_haven", name: "강의 안식처", type: "village", tier: 3, position: { x: 5900, y: 4700 } },
-  // 라그나로드 영역 (붉은산)
+  // 발렌 영역 (붉은산)
   { id: "city_ironpeak", name: "철봉", type: "fort", tier: 3, position: { x: 7000, y: 4100 } },
   { id: "city_thunder_camp", name: "천둥 야영지", type: "fort", tier: 3, position: { x: 9000, y: 4200 } },
 ];
@@ -140,11 +140,11 @@ const OUTPOSTS_T2: Outpost[] = [
   { id: "outpost_frostgate", name: "서리 관문", type: "fort", tier: 2, position: { x: 3800, y: 1300 } },
   { id: "outpost_misttower", name: "안개 첨탑", type: "tower", tier: 2, position: { x: 7200, y: 2000 } },
   { id: "outpost_north_mine", name: "북부 광산", type: "mine", tier: 2, position: { x: 4500, y: 1700 } },
-  // 보라산 (블랙포지) 영역
+  // 보라산 (코린) 영역
   { id: "outpost_west_fort", name: "서부 요새", type: "fort", tier: 2, position: { x: 1500, y: 2700 } },
   { id: "outpost_west_mine", name: "서부 갱도", type: "mine", tier: 2, position: { x: 2700, y: 3200 } },
   { id: "outpost_blackvein", name: "검은 광맥 거점", type: "mine", tier: 2, position: { x: 1100, y: 3400 } },
-  // 붉은산 (라그나로드) 영역
+  // 붉은산 (발렌) 영역
   { id: "outpost_east_tower", name: "동부 마탑", type: "tower", tier: 2, position: { x: 8400, y: 2500 } },
   { id: "outpost_east_fort", name: "동부 요새", type: "fort", tier: 2, position: { x: 8000, y: 4000 } },
   { id: "outpost_red_smith", name: "붉은 대장간", type: "fort", tier: 2, position: { x: 9000, y: 4700 } },
@@ -154,9 +154,9 @@ const OUTPOSTS_T2: Outpost[] = [
   { id: "outpost_south_tower", name: "남부 마탑", type: "tower", tier: 2, position: { x: 4400, y: 4400 } },
   { id: "outpost_south_tower_2", name: "남부 외곽 마탑", type: "tower", tier: 2, position: { x: 5600, y: 4400 } },
   { id: "outpost_desert_caravan", name: "사막 대상 거점", type: "village", tier: 2, position: { x: 6200, y: 5280 } },
-  // 빙하 (타티홀름) 추가
+  // 빙하 (에이라) 추가
   { id: "outpost_glacier_watch", name: "빙하 망루", type: "tower", tier: 2, position: { x: 3200, y: 600 } },
-  // 숲 (실버벤스) 추가
+  // 숲 (로렌) 추가
   { id: "outpost_forest_watch", name: "숲의 망루", type: "tower", tier: 2, position: { x: 8800, y: 1900 } },
   // 평원 광장 거점 — 분쟁지대 위쪽
   { id: "outpost_plain_square", name: "평원 광장 거점", type: "fort", tier: 2, position: { x: 4953, y: 2543 } },
@@ -164,14 +164,14 @@ const OUTPOSTS_T2: Outpost[] = [
 
 // 마을 (tier 1) — biome 안 산재.
 const VILLAGES: Outpost[] = [
-  // 타티홀름 영역 (빙하)
+  // 에이라 영역 (빙하)
   { id: "village_snowbrook", name: "눈시내 마을", type: "village", tier: 1, position: { x: 1170, y: 1190 } },
   { id: "village_frostpine", name: "서릿솔 마을", type: "village", tier: 1, position: { x: 2500, y: 500 } },
   { id: "village_silverpoint", name: "은점 마을", type: "village", tier: 1, position: { x: 2400, y: 1600 } },
   { id: "village_glacier_pass", name: "빙하 고개 마을", type: "village", tier: 1, position: { x: 1500, y: 500 } },
   { id: "village_iceshelf", name: "얼음 선반 마을", type: "village", tier: 1, position: { x: 3000, y: 1900 } },
   { id: "village_northern_fjord", name: "북부 협만 마을", type: "village", tier: 1, position: { x: 2200, y: 500 } },
-  // 실버벤스 영역 (숲)
+  // 로렌 영역 (숲)
   { id: "village_birchgrove", name: "자작나무 숲 마을", type: "village", tier: 1, position: { x: 8500, y: 500 } },
   { id: "village_mosslake", name: "이끼 호수 마을", type: "village", tier: 1, position: { x: 9000, y: 1500 } },
   { id: "village_dewfall", name: "이슬골 마을", type: "village", tier: 1, position: { x: 6000, y: 1500 } },
@@ -179,7 +179,7 @@ const VILLAGES: Outpost[] = [
   { id: "village_deepwood", name: "깊은 숲 마을", type: "village", tier: 1, position: { x: 7000, y: 500 } },
   { id: "village_forest_clearing", name: "숲 공터 마을", type: "village", tier: 1, position: { x: 9000, y: 800 } },
   { id: "village_oakshade", name: "참나무 그늘 마을", type: "village", tier: 1, position: { x: 5500, y: 600 } },
-  // 블랙포지 영역 (보라산)
+  // 코린 영역 (보라산)
   { id: "village_dustford", name: "먼지 여울 마을", type: "village", tier: 1, position: { x: 1100, y: 4900 } },
   { id: "village_marshend", name: "늪끝 마을", type: "village", tier: 1, position: { x: 2300, y: 4500 } },
   { id: "village_oremouth", name: "광맥 어귀 마을", type: "village", tier: 1, position: { x: 1900, y: 3000 } },
@@ -187,14 +187,14 @@ const VILLAGES: Outpost[] = [
   { id: "village_purple_ridge", name: "보라 능선 마을", type: "village", tier: 1, position: { x: 1000, y: 4500 } },
   { id: "village_deep_cavern", name: "깊은 동굴 마을", type: "village", tier: 1, position: { x: 2700, y: 4400 } },
   { id: "village_obsidian", name: "흑요석 마을", type: "village", tier: 1, position: { x: 1700, y: 3900 } },
-  // 선더홀드 영역 (사막)
+  // 세라 영역 (사막)
   { id: "village_oxford", name: "소나무 들 마을", type: "village", tier: 1, position: { x: 3700, y: 5200 } },
   { id: "village_wheatfield", name: "밀밭 마을", type: "village", tier: 1, position: { x: 4819, y: 4009 } },
   { id: "village_orchard", name: "과수원 마을", type: "village", tier: 1, position: { x: 4525, y: 3614 } },
   { id: "village_dune_market", name: "사구 시장 마을", type: "village", tier: 1, position: { x: 4500, y: 5250 } },
   { id: "village_oasis", name: "오아시스 마을", type: "village", tier: 1, position: { x: 5500, y: 5280 } },
   { id: "village_sandstone", name: "사암 마을", type: "village", tier: 1, position: { x: 3300, y: 5200 } },
-  // 라그나로드 영역 (붉은산)
+  // 발렌 영역 (붉은산)
   { id: "village_ashrock", name: "잿바위 마을", type: "village", tier: 1, position: { x: 8500, y: 4400 } },
   { id: "village_hammer_camp", name: "망치 야영 마을", type: "village", tier: 1, position: { x: 9100, y: 3200 } },
   { id: "village_redspring", name: "붉은 샘 마을", type: "village", tier: 1, position: { x: 8700, y: 2700 } },

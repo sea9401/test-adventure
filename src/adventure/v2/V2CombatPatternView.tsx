@@ -18,7 +18,7 @@ import {
 
 // "전투 패턴"(갬빗) 에디터 — 우선순위 {조건→행동} 블록을 배열하면 전투에서 위에서부터 조건 맞는
 // 첫 스킬을 발동(procChance 은퇴=확정). 조건 어휘는 1:1 자동전투 기준(내HP/MP/버프·적HP/상태·턴).
-// 행동은 장착 스킬 사용(스킬은 캐릭터>스킬 탭에서 장착). 저장 = POST /api/v2/me/combat-pattern.
+// 행동은 학습한 스킬 사용(캐릭터>스킬 탭에서 학습). 저장 = POST /api/v2/me/combat-pattern.
 
 const STAT_KEYS: StatKey[] = ["str", "dex", "vit", "spd", "luk", "int"];
 
@@ -88,7 +88,7 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
         if (saved && saved.length > 0) {
           setBlocks(saved);
         } else {
-          // 기본 — 장착 스킬 종류별 스마트 조건(엔진과 동일 소스). 유틸은 매 턴 스팸 안 함.
+          // 기본 — 학습한 스킬 종류별 스마트 조건(엔진과 동일 소스). 유틸은 매 턴 스팸 안 함.
           setBlocks(smartDefaultPatternFromEquipped(eq).blocks);
         }
       } catch {}
@@ -251,7 +251,7 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
       <SubViewHeader title="전투 패턴" onBack={onBack} />
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
         위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
-        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 캐릭터 &gt; 스킬에서 장착하세요.
+        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 캐릭터 &gt; 스킬에서 학습하세요.
       </p>
 
       {loading ? (
@@ -350,7 +350,7 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
                       update(i, { action: { kind: "skill", skillId: e.target.value } })
                     }
                   >
-                    {equipped.length === 0 && <option value="">(장착 스킬 없음)</option>}
+                    {equipped.length === 0 && <option value="">(학습한 스킬 없음)</option>}
                     {equipped.map((id) => (
                       <option key={id} value={id}>{skillName(id)}</option>
                     ))}

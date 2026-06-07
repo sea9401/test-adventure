@@ -20,13 +20,11 @@ type ElementalRow = {
   name: string;
   cost: number;
   learned: boolean;
-  equipped: boolean;
 };
 
 type StateShape = {
   ok?: boolean;
   elementalSkills?: ElementalRow[];
-  skillSlots?: number;
   proficiency?: { current?: { points: number } };
   spec?: V2SpecState;
 };
@@ -67,7 +65,6 @@ export function V2SkillLearnView({
   const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [usable, setUsable] = useState(0);
-  const [slots, setSlots] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -81,13 +78,10 @@ export function V2SkillLearnView({
         setSpecState(j.spec ?? null);
         setElementalSkills(j.elementalSkills ?? []);
         setUsable(j.proficiency?.current?.points ?? 0);
-        setSlots(j.skillSlots ?? 0);
       }
     } catch {}
     setLoading(false);
   }, []);
-
-  const equippedCount = elementalSkills.filter((s) => s.equipped).length;
 
   useEffect(() => {
     refresh();
@@ -136,45 +130,6 @@ export function V2SkillLearnView({
     [usable],
   );
 
-  const equipSkill = useCallback(
-    async (skillId: string, equip: boolean) => {
-      setBusy(skillId);
-      setMsg(null);
-      try {
-        const res = await fetch("/api/v2/me/equip-skill", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ skillId, equip }),
-        });
-        const j = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          equipped?: string[];
-          slots?: number;
-        } | null;
-        if (!j?.ok) {
-          const label =
-            j?.error === "slots_full"
-              ? `장착 슬롯이 가득 찼어요 (${j.slots ?? slots}칸). 먼저 해제하세요`
-              : j?.error === "not_learned"
-                ? "먼저 학습해야 장착할 수 있어요"
-                : (j?.error ?? `http ${res.status}`);
-          setMsg(`✗ ${label}`);
-          return;
-        }
-        setMsg(`✓ ${skillName(skillId)} ${equip ? "장착" : "해제"}`);
-        const eqSet = new Set(j.equipped ?? []);
-        setElementalSkills((prev) =>
-          prev.map((s) => ({ ...s, equipped: eqSet.has(s.skillId) })),
-        );
-      } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
-      } finally {
-        setBusy(null);
-      }
-    },
-    [slots],
-  );
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
@@ -195,16 +150,10 @@ export function V2SkillLearnView({
                   {usable}
                 </strong>
               </span>
-              <span>
-                장착{" "}
-                <strong className="tabular-nums text-sky-600 dark:text-sky-400">
-                  {equippedCount}/{slots}
-                </strong>
-              </span>
             </div>
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            장착한 스킬만 전투에서 자동 발동하며, 슬롯은 레벨에 비례해 늘어납니다.
+            학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 전투 패턴에서 설정하세요.
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {
@@ -234,24 +183,10 @@ export function V2SkillLearnView({
                     >
                       {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
                     </button>
-                  ) : s.equipped ? (
-                    <button
-                      type="button"
-                      onClick={() => equipSkill(s.skillId, false)}
-                      disabled={busy != null}
-                      className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-500/25 disabled:opacity-50 dark:text-sky-300"
-                    >
-                      {busy === s.skillId ? "…" : "장착 해제"}
-                    </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => equipSkill(s.skillId, true)}
-                      disabled={busy != null || equippedCount >= slots}
-                      className="shrink-0 rounded-md border border-zinc-400 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      {busy === s.skillId ? "…" : "장착"}
-                    </button>
+                    <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                      보유
+                    </span>
                   )}
                 </li>
               );

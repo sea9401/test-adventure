@@ -16,7 +16,6 @@ import {
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
-  v2SkillSlotsForLevel,
 } from "@/adventure/data/v2/v2Skills";
 import {
   RESPEC_COOLDOWN_MS,
@@ -155,8 +154,6 @@ export async function POST(req: Request) {
         effectiveTier,
       ),
     );
-    const learnedSet = new Set<string>(skills.learned);
-    const skillSlots = v2SkillSlotsForLevel(nextLevel);
 
     // PR-6 비용 전직 — 변경(none/neutral 에서의 첫 선택 제외) 시 골드+쿨다운.
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
@@ -233,12 +230,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // equipped PRUNE — 학습+새 체인 유효분만, 플레이어 선택 순서 유지, 슬롯 절단. learned 보존.
+    // equipped = 학습한 스킬 중 새 체인 유효분 전부(장착 슬롯 폐지·상한 없음). learned 보존.
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      equipped: skills.equipped
-        .filter((s) => learnedSet.has(s) && chain.has(s))
-        .slice(0, skillSlots),
+      equipped: skills.learned.filter((s) => chain.has(s)),
     });
 
     // 직업군 변경 시 grown(랜덤 성장분) 리셋 — 레벨 1 = 성장분 0, floor 부터 재시작(advance 와 동일).

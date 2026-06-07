@@ -547,7 +547,8 @@ export async function POST(req: Request) {
         // ownedSet 은 rollUniqueDrop 의 유니크 dedup 용(유니크는 종류당 1개). 정규 rollEquipDrop
         // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
         const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
-        droppedEquipment = rollEquipDrop(dropFloor, ownedSet, Math.random, 1);
+        // 정규 장비 드랍은 raw depth(스타터 구간 1~12만, 13+ 는 null). 재료·유니크는 dropFloor 유지.
+        droppedEquipment = rollEquipDrop(depth, ownedSet, Math.random, 1);
         if (droppedEquipment !== null) {
           // 드랍 = 새 개체 + 새 굴림(±편차).
           nextOwned = [

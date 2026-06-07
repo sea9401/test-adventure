@@ -8,7 +8,6 @@
 // 컨셉 균등 = "어떤 빌드든 펜션 비슷한 속도" 의 단순화. PR-4 sim 캘리브 단계에서 가중·
 // 확률 튜닝.
 
-import type { DungeonFloorId } from "./types";
 import {
   V2_EQUIPMENT,
   isUnique,
@@ -23,19 +22,21 @@ export type FloorEquipDropPool = {
   tierWeights: Partial<Record<V2EquipTier, number>>;
 };
 
-// 곡선 — 층 올라갈수록 chance 상승 + 고티어 가중치 상승.
-// 드랍이 T2/T3 의 유일 획득처(상점은 스타터 T1 만 판매)라 "희귀한 보상" 쪽으로 낮춤:
-// 깊이 1~3 = 2% 기준, 깊이 8 = 6%(베이스 ×3, 깊이 보상은 유지). 티어 1/3/5→1/2/3 리넘버(키 리키).
-export const EQUIP_FLOOR_POOLS: Record<DungeonFloorId, FloorEquipDropPool> = {
-  1: { chance: 0.02, tierWeights: { 1: 8, 2: 2 } },
-  2: { chance: 0.02, tierWeights: { 1: 6, 2: 4 } },
-  3: { chance: 0.02, tierWeights: { 1: 4, 2: 5, 3: 1 } },
-  4: { chance: 0.025, tierWeights: { 1: 2, 2: 6, 3: 2 } },
-  5: { chance: 0.03, tierWeights: { 2: 6, 3: 4 } },
-  6: { chance: 0.04, tierWeights: { 2: 4, 3: 6 } },
-  7: { chance: 0.05, tierWeights: { 2: 2, 3: 8 } },
-  8: { chance: 0.06, tierWeights: { 3: 10 } },
+// 드랍 = 스타터 구간(들판/깊은산, 깊이 1~12)에서만. 단일 풀 균일 — 깊이별 램프 없이 한 값.
+//   처치당 T1 3% / T2 2% / T3 1% (총 6%, 고티어일수록 희귀). 티어 = "초보자 졸업 키트"(진행 축
+//   아님, 표기 숨김 #525). 프론티어(깊이 13+)는 밴드 콘텐츠(C) 구간이라 정규 티어 드랍 없음.
+//   신참 보너스는 EXP 전용(드랍 ×1 고정, hunt route). ← 드랍률 다이얼.
+export const STARTER_END_DEPTH = 12; // 들판(1~6) + 깊은산(7~12) = 스타터 구간
+export const STARTER_DROP_POOL: FloorEquipDropPool = {
+  chance: 0.06, // 총 드랍률. tierWeights 3:2:1 → 처치당 T1 3% / T2 2% / T3 1%.
+  tierWeights: { 1: 3, 2: 2, 3: 1 },
 };
+
+// 깊이 → 드랍 풀. 스타터 구간(1~12)만 풀, 프론티어(13+)는 null(밴드 콘텐츠 C 전 정규 드랍 없음).
+export function dropPoolForDepth(depth: number): FloorEquipDropPool | null {
+  if (depth >= 1 && depth <= STARTER_END_DEPTH) return STARTER_DROP_POOL;
+  return null;
+}
 
 const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3]);
 
@@ -51,14 +52,15 @@ const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3]);
 //   god-roll 추격 엔진(편차 0.65 와 짝). ownedSet 은 더 이상 후보 필터에 안 쓰지만 시그니처는
 //   유지(호출부·rollUniqueDrop 대칭 — 유니크는 dedup 유지). 첫카피 보호 없음(순수 균등 랜덤).
 export function rollEquipDrop(
-  floor: DungeonFloorId,
+  depth: number,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 중복 드랍 허용 후 미사용(시그니처 유지)
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
   // 통과 굴림 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. chance×배율(1 cap).
   chanceMult: number = 1,
 ): V2EquipmentId | null {
-  const pool = EQUIP_FLOOR_POOLS[floor];
+  // 스타터 구간(1~12)만 드랍. 프론티어(13+)는 풀 없음(null) → 정규 드랍 없음.
+  const pool = dropPoolForDepth(depth);
   if (!pool) return null;
 
   // 1) 통과 굴림

@@ -11,10 +11,12 @@ import {
   type V2Equipment,
   type V2EquipInstance,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 
 // 인벤토리 카드 그리드 프리뷰 — 보유 데이터(/api/v2/me/*)는 로그인 필요라, 정적 카탈로그
 // (V2_EQUIPMENT)에서 표본을 뽑아 개체(instance)로 감싸 EquipmentCardGrid 를 그대로 렌더한다
 // (로그인/DB 없이 QA). 장착 토글은 로컬 상태(서버 무관) — 카드 배지/팝오버 장착 동작 확인용.
+// 일부 표본에 굴림(고/중/저)을 입혀 굴림% 배지·색·정렬 QA. 굴림 없는 것도 섞어(상점템 = 배지 X).
 export default function InventoryPreview() {
   const sample = useMemo<V2EquipInstance[]>(() => {
     const all = Object.values(V2_EQUIPMENT);
@@ -23,7 +25,16 @@ export default function InventoryPreview() {
       .filter((i) => i.id !== unique?.id)
       .slice(0, unique ? 7 : 8);
     const items: V2Equipment[] = unique ? [unique, ...base] : base;
-    return items.map((it, i) => ({ iid: `dev-${it.id}-${i}`, id: it.id }));
+    // rng 고정으로 다양한 굴림 — god(0.999)/저(0)/중(0.5)/없음 순환.
+    const rngs = [() => 0.999, () => 0, () => 0.5, null];
+    return items.map((it, i) => {
+      const rng = rngs[i % rngs.length];
+      return {
+        iid: `dev-${it.id}-${i}`,
+        id: it.id,
+        roll: rng ? rollItemStats(it, rng) : undefined,
+      };
+    });
   }, []);
 
   const [equipped, setEquipped] = useState<Set<string>>(

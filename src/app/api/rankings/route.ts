@@ -39,6 +39,8 @@ type RankRow = {
   userId: string;
   name: string;
   level: number;
+  /** 총 누적 레벨 = 모든 직군 cumLevel 합(환생/전직 누적, 리셋 안 됨). level 탭 정렬·표시. */
+  cumLevel: number;
   /** 파라곤 레벨 = 적립 EXP 로 획득한 총 포인트(0~150). 만렙 미만은 0. level 탭 표시·정렬용. */
   paragonLevel: number;
   fame: number;
@@ -62,12 +64,12 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
   if (metric === "towerWeek") return fetchTowerWeekRows();
   if (metric === "towerChallenge") return fetchTowerChallengeRows();
   // metric 은 isMetric 으로 검증된 닫힌 enum — sql 템플릿에 안전하게 합성.
-  // level 탭은 "실효 레벨"(만렙 + 파라곤) 순. 파라곤 EXP 는 만렙 도달 후에만 적립되므로
-  // (battleClaim 의 atMax 분기) 만렙 미만은 paragon_exp=0 → level DESC, paragon_exp DESC 정렬이
-  // level + 파라곤레벨(pointsFromExp 단조증가) 순서와 정확히 일치한다. SQL 에서 곡선 환산 불필요.
+  // level 탭 = "총 누적 레벨"(cum_level) 순. cumLevel 은 환생으로 리셋되지 않는 직군 누적 레벨이라
+  // 차수 환생/전직 진행이 그대로 반영된다(현재 레벨은 차수 안에서 리셋되므로 랭킹 부적합).
+  // 동률은 현재 레벨 → 갱신시각 순.
   const orderBy =
     metric === "level"
-      ? sql`level DESC, paragon_exp DESC, updated_at ASC`
+      ? sql`cum_level DESC, level DESC, updated_at ASC`
       : metric === "fame"
         ? sql`fame DESC, updated_at ASC`
         : sql`battle_count DESC, updated_at ASC`;
@@ -80,6 +82,18 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::int, 0) AS fame,
+        -- 총 누적 레벨 — proficiency.v2 의 모든 직군 cumLevel 합(환생/전직 누적, 리셋 안 됨).
+        -- prof 미기록(옛 세이브)이면 0 → 현재 레벨로 바닥 처리(GREATEST). 차수 진행분 반영.
+        -- 정수 문자열만 캐스트(regex 가드) — 단 한 행이라도 비정수면 ::int 가 쿼리 전체를
+        -- 터뜨리므로 방어. cumLevel 은 항상 음 아닌 정수(posInt)라 ^[0-9]+$ 로 충분.
+        GREATEST(
+          COALESCE((
+            SELECT SUM((g.value->>'cumLevel')::int)
+            FROM jsonb_each(pr.value->'groups') AS g
+            WHERE (g.value->>'cumLevel') ~ '^[0-9]+$'
+          ), 0),
+          COALESCE((c.value->>'level')::int, 1)
+        ) AS cum_level,
         -- 파라곤 적립 EXP. 큰 값(만렙 후 누적)이라 bigint. 포인트 환산은 JS(pointsFromExp).
         COALESCE((pg.value->>'paragonExp')::bigint, 0) AS paragon_exp,
         (
@@ -96,6 +110,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       LEFT JOIN saves_kv l ON l.user_id = u.id AND l.key = 'adventure-log.v2'
       LEFT JOIN saves_kv p ON p.user_id = u.id AND p.key = 'character-profile.v2'
       LEFT JOIN saves_kv pg ON pg.user_id = u.id AND pg.key = 'paragon.v1'
+      LEFT JOIN saves_kv pr ON pr.user_id = u.id AND pr.key = 'proficiency.v2'
       WHERE COALESCE(u.game_name, p.value->>'name') IS NOT NULL
         ${excludeAdminEmails()}
     ),
@@ -103,7 +118,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
       SELECT *, ROW_NUMBER() OVER (ORDER BY ${orderBy})::int AS rank
       FROM stats
     )
-    SELECT user_id, name, level, paragon_exp, fame, battle_count, rank
+    SELECT user_id, name, level, cum_level, paragon_exp, fame, battle_count, rank
     FROM ranked
     ORDER BY rank
   `);
@@ -112,6 +127,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     user_id: string;
     name: string;
     level: number;
+    cum_level: number;
     // node-postgres 는 bigint(int8) 를 문자열로 반환할 수 있어 number|string 모두 수용.
     paragon_exp: number | string;
     fame: number;
@@ -122,6 +138,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
+    cumLevel: Number(r.cum_level),
     paragonLevel: pointsFromExp(Number(r.paragon_exp)),
     fame: Number(r.fame),
     battleCount: Number(r.battle_count),
@@ -173,6 +190,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
+    cumLevel: 0, // 고탑 탭은 누적레벨 미사용.
     paragonLevel: 0, // 고탑(주간) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
@@ -222,6 +240,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
     userId: String(r.user_id),
     name: String(r.name),
     level: Number(r.level),
+    cumLevel: 0, // 고탑 탭은 누적레벨 미사용.
     paragonLevel: 0, // 고탑(도전) 탭은 층(F.) 표시 — 파라곤 미사용.
     fame: Number(r.fame),
     battleCount: 0,
@@ -281,6 +300,7 @@ export async function GET(req: Request) {
     rank: r.rank,
     name: r.name,
     level: r.level,
+    cumLevel: r.cumLevel,
     paragonLevel: r.paragonLevel,
     fame: r.fame,
     battleCount: r.battleCount,
@@ -295,6 +315,7 @@ export async function GET(req: Request) {
         rank: myRow.rank,
         name: myRow.name,
         level: myRow.level,
+        cumLevel: myRow.cumLevel,
         paragonLevel: myRow.paragonLevel,
         fame: myRow.fame,
         battleCount: myRow.battleCount,

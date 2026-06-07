@@ -20,7 +20,7 @@ import {
 } from "./useRankings";
 
 const TABS: { key: RankingMetric; label: string }[] = [
-  { key: "level", label: "레벨" },
+  { key: "level", label: "누적 레벨" },
   { key: "battleCount", label: "전투 횟수" },
   { key: "guild", label: "길드 랭킹" },
 ];
@@ -70,10 +70,10 @@ function LevelMetricPill() {
     <Card as="section" padding="sm">
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-medium text-violet-700 dark:text-violet-300">
-          실효 레벨
+          누적 레벨
         </span>
         <span className="text-zinc-500 dark:text-zinc-400">
-          만렙 도달 후 쌓은 파라곤 레벨을 더해 매깁니다. 옆의 +N 이 파라곤 레벨입니다.
+          환생·전직으로 리셋되지 않는 총 누적 레벨 순으로 매깁니다.
         </span>
       </div>
     </Card>
@@ -247,14 +247,7 @@ function RankingRow({
       </span>
       <span className="shrink-0 text-sm tabular-nums text-zinc-700 dark:text-zinc-200">
         {metric === "level" ? (
-          <>
-            Lv. {entry.level}
-            {entry.paragonLevel > 0 && (
-              <span className="ml-1 font-semibold text-violet-600 dark:text-violet-400">
-                +{entry.paragonLevel}
-              </span>
-            )}
-          </>
+          <>누적 Lv. {entry.cumLevel.toLocaleString()}</>
         ) : (
           <>전투 {entry.battleCount}</>
         )}

@@ -1,0 +1,2 @@
+ALTER TABLE "marketplace_listings_v2" DROP CONSTRAINT "listings_v2_status_valid";--> statement-breakpoint
+ALTER TABLE "marketplace_listings_v2" ADD CONSTRAINT "listings_v2_status_valid" CHECK ("marketplace_listings_v2"."status" IN ('active','sold','cancelled','expired'));

@@ -4,6 +4,7 @@ import { marketplaceListingsV2, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   MARKETPLACE_V2_BROWSE_LIMIT,
+  MARKETPLACE_V2_LISTING_TTL_DAYS,
   isMarketKind,
 } from "@/lib/server/marketplaceV2";
 
@@ -56,5 +57,11 @@ export async function GET(req: Request) {
   );
   const viewerGold = Number.isFinite(rawGold) ? Math.max(0, Math.floor(rawGold)) : 0;
 
-  return Response.json({ ok: true, viewerId: userId, viewerGold, listings: rows });
+  return Response.json({
+    ok: true,
+    viewerId: userId,
+    viewerGold,
+    ttlDays: MARKETPLACE_V2_LISTING_TTL_DAYS,
+    listings: rows,
+  });
 }

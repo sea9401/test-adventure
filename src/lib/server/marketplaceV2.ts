@@ -22,6 +22,9 @@ export const MARKETPLACE_V2_MATERIAL_QTY_MAX = 9999;
 export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
 // 시세 — 최근 며칠간 판매 완료(sold) 기록을 종목별 집계. 가격 판단 참고용.
 export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
+// 매물 만료 — 등록 후 이 일수가 지나면 cron 이 만료(status='expired') + 판매자에게 아이템 반환.
+//   묵은 매물이 영원히 쌓여 둘러보기 한도(100)를 밀어내는 것 방지. 단일 다이얼.
+export const MARKETPLACE_V2_LISTING_TTL_DAYS = 7;
 
 export type MarketKind = "equip" | "material";
 

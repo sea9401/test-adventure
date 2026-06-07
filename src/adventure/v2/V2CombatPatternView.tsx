@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   V2_SKILLS,
+  describeV2Skill,
   smartDefaultPatternFromEquipped,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
@@ -128,6 +129,13 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
   }, [equipped]);
 
   const save = useCallback(async () => {
+    // 스킬 안 고른 빈 블록은 서버가 조용히 버린다(parseCombatPattern) → "저장 완료"인데 사라지는
+    //   데이터 손실. 저장 전에 막아 사용자가 스킬을 고르거나 블록을 지우게 한다.
+    const emptyCount = blocks.filter((b) => !b.action.skillId).length;
+    if (emptyCount > 0) {
+      setMsg(`✗ 스킬을 안 고른 블록이 ${emptyCount}개 있습니다 — 스킬을 고르거나 블록(✕)을 지워주세요`);
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -301,6 +309,16 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
             </div>
           </section>
 
+          {equipped.length === 0 ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              장착한 스킬이 없어 전투 패턴을 짤 수 없습니다.
+              <br />
+              <span className="text-amber-600/80 dark:text-amber-400/80">
+                캐릭터 &gt; 스킬에서 스킬을 학습·장착한 뒤 돌아오세요.
+              </span>
+            </div>
+          ) : (
+          <>
           <ul className="space-y-2">
             {blocks.map((b, i) => (
               <li
@@ -350,12 +368,34 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
                       update(i, { action: { kind: "skill", skillId: e.target.value } })
                     }
                   >
-                    {equipped.length === 0 && <option value="">(학습한 스킬 없음)</option>}
+                    {equipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
                     {equipped.map((id) => (
                       <option key={id} value={id}>{skillName(id)}</option>
                     ))}
                   </select>
                 </div>
+
+                {/* 선택 스킬 정보 칩(MP·피해·효과) — 무엇을 발동하는지 한눈에. */}
+                {(() => {
+                  const def = V2_SKILLS[b.action.skillId as V2SkillId];
+                  if (!def) return null;
+                  return (
+                    <div className="mt-1.5 flex flex-wrap gap-1 pl-10">
+                      {describeV2Skill(def).map((chip, ci) => (
+                        <span key={ci}
+                          className="rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {/* 미장착 스킬 경고 — 저장돼도 전투에서 발동 안 함(평타 폴백). */}
+                {b.action.skillId && !equipped.includes(b.action.skillId) && (
+                  <p className="mt-1 pl-10 text-[11px] text-amber-600 dark:text-amber-400">
+                    ⚠ 미장착 스킬 — 이 블록은 전투에서 발동하지 않습니다
+                  </p>
+                )}
               </li>
             ))}
           </ul>
@@ -370,13 +410,17 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
               {busy ? "저장 중…" : "저장"}
             </button>
           </div>
+          </>
+          )}
 
           {msg && (
-            <div className={`rounded-md border px-3 py-1.5 text-xs ${
-              msg.startsWith("✓")
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-            }`}>{msg}</div>
+            <div
+              role={msg.startsWith("✓") ? "status" : "alert"}
+              className={`rounded-md border px-3 py-1.5 text-xs ${
+                msg.startsWith("✓")
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                  : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
+              }`}>{msg}</div>
           )}
         </>
       )}

@@ -1,14 +1,15 @@
 "use client";
 
-import { Envelope, Megaphone, Note, Trophy } from "@phosphor-icons/react";
+import { Envelope, Megaphone, Note, Storefront, Trophy } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
-// 광장 탭 default — 커뮤니티(게시판/랭킹/전체 소식/우편함). 마을(시설)에서 분리.
+// 광장 탭 default — 커뮤니티(게시판/랭킹/전체 소식/우편함/거래소). 마을(시설)에서 분리.
 export type PlazaAction =
   | { kind: "open-bulletin" }
   | { kind: "open-rankings" }
   | { kind: "open-feed" }
-  | { kind: "open-inbox" };
+  | { kind: "open-inbox" }
+  | { kind: "open-market" };
 
 export function V2PlazaHome({
   onAction,
@@ -43,6 +44,14 @@ export function V2PlazaHome({
           title="전체 소식"
           description="유니크 획득·걸작 제작 등 온 대륙에 퍼지는 소식."
           onClick={() => onAction({ kind: "open-feed" })}
+        />
+        <EntryCard
+          icon={
+            <Storefront size={28} weight="duotone" className="text-rose-500" />
+          }
+          title="거래소"
+          description="다른 모험가와 장비·재료를 사고파는 곳."
+          onClick={() => onAction({ kind: "open-market" })}
         />
         <EntryCard
           icon={

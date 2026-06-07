@@ -108,11 +108,35 @@ const SORT_CYCLE: { key: SortMode; label: string }[] = [
   { key: "power", label: "위력순" },
 ];
 
+// 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
+const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
+
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<TabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 일괄 판매 품질 임계값(%) — 이 값 이하 품질 장비를 정리. 사용자가 직접 조정(0~100).
+  // 기본 40 으로 시작하고, 마운트 후 localStorage 값으로 복원(SSR hydration mismatch 회피).
   const [sellQualityPct, setSellQualityPct] = useState(40);
+  const [sellPctHydrated, setSellPctHydrated] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SELL_PCT_STORAGE_KEY);
+      if (raw != null) {
+        const n = Math.floor(Number(raw));
+        if (Number.isFinite(n)) {
+          // eslint-disable-next-line react-hooks/set-state-in-effect
+          setSellQualityPct(Math.max(0, Math.min(100, n)));
+        }
+      }
+    } catch {}
+    setSellPctHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!sellPctHydrated) return; // 복원 전 초기값(40)으로 덮어쓰는 것 방지.
+    try {
+      localStorage.setItem(SELL_PCT_STORAGE_KEY, String(sellQualityPct));
+    } catch {}
+  }, [sellPctHydrated, sellQualityPct]);
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
     Partial<Record<V2EquipSlot, string>>
@@ -469,7 +493,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                       )
                     }
                     aria-label="일괄 판매 품질 임계값(%)"
-                    className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
+                    className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
                   />
                   %
                 </label>

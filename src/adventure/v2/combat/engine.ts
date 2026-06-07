@@ -46,6 +46,7 @@ import {
   MAGIC_VULN_STACK_CAP,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
+  SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
@@ -3106,8 +3107,19 @@ export function resolveBattle(
           state.stacks.enemyVulnTurns > 0
             ? 1 + state.stacks.enemyVulnPct / 100
             : 1;
+        // 스킬 치명타 — 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT 로
+        //   분리(평타 critMult 비연동 → 비폭주). 오버플로(캡 초과분 크리뎀)는 평타 전용, 스킬은 flat.
+        //   데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → 기존 RNG 스트림 보존).
+        const skillCritFired =
+          result.enemyDamage > 0 &&
+          (player.critChancePct ?? 0) > 0 &&
+          Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0);
         const boostedSkillDamage = Math.floor(
-          result.enemyDamage * spellStackMult * magicVulnMult * vulnMult,
+          result.enemyDamage *
+            spellStackMult *
+            magicVulnMult *
+            vulnMult *
+            (skillCritFired ? SKILL_CRIT_MULT : 1),
         );
         // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
         const nextSpellCastCount =
@@ -3154,7 +3166,7 @@ export function resolveBattle(
             if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
             nextLog = appendLog(nextLog, {
               kind: "player_attack",
-              text: `${result.castSkillName}! ${hit} 피해를 입혔다.`,
+              text: `${result.castSkillName}!${skillCritFired ? " [크리티컬]" : ""} ${hit} 피해를 입혔다.`,
             });
           }
         } else if (skillMissed && result.castSkillName) {

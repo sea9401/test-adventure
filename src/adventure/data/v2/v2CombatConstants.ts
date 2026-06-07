@@ -10,6 +10,13 @@ export const V2_BASE_MISS_PCT = 10;
 
 export const POWER_ATTACK_TURN_INTERVAL = 3;
 export const CRIT_MULT_BASE = 2.0;
+// 스킬(액티브) 치명타 배수 — 평타와 같은 크리 확률(min(critChancePct, CRIT_PCT_CAP))을 공유하되,
+// 곱해지는 배수는 평타 critMult(LUK 비례 2~5×)와 분리한 별도 고정 다이얼. 스킬은 계수·발동이 평타보다
+// 커서 평타 배수를 그대로 곱하면 폭주(특히 프론티어 critMult 4~5× 구간) → flat 으로 캡. 오버플로(캡
+// 초과분 크리뎀)도 스킬엔 미적용(평타 전용) → 크리캡 75% 에 묶여 최대 스킬딜 +37.5% 로 상한.
+// sim-v2-progression --skills 실측(2026-06-08, s=1.5): 현실 레벨대 스킬 의존 빌드 처치턴 −5~14%,
+// 평타·다중공격 척추(LUK) 빌드 −1%(무영향)로 격차 압축. 약하면 1.75 까지 상향 여지(라이브 재캘리브).
+export const SKILL_CRIT_MULT = 1.5;
 export const BLEED_MAX_STACKS = 10;
 export const POISON_MAX_STACKS = 10;
 // 약점 노출(마도사) 마법취약 / 주문 중첩(워메이지) 누적 상한 — 무한 인플레 방지. PvE/PvP 공용.

@@ -91,7 +91,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
-    // 슬롯 고유 축(C): 미스릴 건틀릿 T5 위력 4(×2) crit 12 / 미스릴 장화 T5 위력 4 eva 12 spd 6.
+    // 슬롯 고유 축(C): 미스릴 건틀릿 T5 위력 4(×2) crit 12 / 미스릴 장화 T5 위력 4 eva 12 spd 14.
     const a = aggregateV2Equipment({
       gloves: "v2_mithril_gauntlets",
       boots: "v2_mithril_boots",
@@ -100,7 +100,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicDef).toBe(0);
     expect(a.crit).toBe(12);
     expect(a.eva).toBe(12);
-    expect(a.spd).toBe(6);
+    expect(a.spd).toBe(14);
   });
 
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
@@ -131,13 +131,13 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("반지·목걸이 위력은 마방만(물방 X), 무게 0", () => {
-    // 운명의 반지 T3: 위력 4(×2) weight 0 critMult 26(+0.26×) + spd 3 → 마방 + 치명피해(반지 축) + 속공 갈래.
+    // 운명의 반지 T3: 위력 4(×2) weight 0 critMult 26(+0.26×) + spd 7 → 마방 + 치명피해(반지 축) + 속공 갈래.
     const a = aggregateV2Equipment({ ring: "v2_fate_ring" });
     expect(a.def).toBe(0); // 반지는 물방 안 줌
     expect(a.magicDef).toBe(4);
     expect(a.weight).toBe(0);
     expect(a.critMult).toBe(26);
-    expect(a.spd).toBe(3);
+    expect(a.spd).toBe(7);
     expect(a.crit).toBe(0);
   });
 

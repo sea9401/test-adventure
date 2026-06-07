@@ -2,7 +2,8 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 63종 (정규 그리드 43 + 유니크 6 + 제작전용 7 + 전문화 스타터 7).
+// V2_EQUIPMENT — 111종 (정규 그리드 43 + 유니크 54 + 제작전용 7 + 전문화 스타터 7).
+//   유니크 54 = 레거시 6 + 심층 밴드 드랍 48(마른 협곡·얼음 호수·심층 동굴 각 16: 무기 8 + 세트 3종 8).
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (물방+마방 이중 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
 //   - sim 캘리브(PR-8)에서 정식 튜닝.
@@ -503,7 +504,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "초원 활",
     description: "들판의 질긴 가죽과 풀줄기로 멘 활. 가볍고 손에 붙는다.",
-    power: 18, // 무기위력 ×2 (craftOnly — E 단계서 정리 예정)
+    power: 18, // 무기위력 ×2 (craftOnly)
     weight: 1,
     options: { crit: 1 },
     craftOnly: true,
@@ -515,7 +516,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "거미독 단검",
     description: "들거미의 독을 날에 먹인 단검. 스치기만 해도 살을 문다.",
-    power: 22, // 무기위력 ×2 (craftOnly — E 단계서 정리 예정)
+    power: 22, // 무기위력 ×2 (craftOnly)
     weight: 1,
     options: { crit: 1 },
     craftOnly: true,
@@ -527,7 +528,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 2,
     name: "늑대이빨 지팡이",
     description: "들짐승 송곳니를 끝에 박은 지팡이. 쥐면 마력이 곤두선다.",
-    power: 30, // 무기위력 ×2 (craftOnly — E 단계서 정리 예정)
+    power: 30, // 무기위력 ×2 (craftOnly)
     weight: 1,
     options: { mp: 12 },
     craftOnly: true,
@@ -808,7 +809,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "한 번의 내리침으로 협곡을 쪼개려는 듯 묵직한 대검.",
     power: 88,
     weight: 4,
-    options: { critMult: 40 },    weaponType: "greatsword",
+    options: { critMult: 40 },
+    weaponType: "greatsword",
     rarity: "unique",
   },
   v2_canyon_knightblade: {
@@ -820,7 +822,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "협곡 어귀 바위문을 지키던 기사의 검. 막아선 자리에서 단단하다.",
     power: 82,
     weight: 4,
-    options: { hp: 60 },    weaponType: "sword_shield",
+    options: { hp: 60 },
+    weaponType: "sword_shield",
     rarity: "unique",
   },
   v2_canyon_rapier: {
@@ -832,7 +835,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "마른 바람에 흩날리는 먼지 사이로 빈틈만 골라 찌르는 가는 검.",
     power: 74,
     weight: 2,
-    options: { crit: 5 },    weaponType: "rapier",
+    options: { crit: 5 },
+    weaponType: "rapier",
     rarity: "unique",
   },
   v2_canyon_gauntlet: {
@@ -844,7 +848,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "협곡 암맥에서 캐낸 광석을 두드려 만든 권갑. 주먹마다 바위가 실린다.",
     power: 80,
     weight: 3,
-    options: { hp: 50 },    weaponType: "gauntlet",
+    options: { hp: 50 },
+    weaponType: "gauntlet",
     rarity: "unique",
   },
   v2_canyon_claw: {
@@ -856,7 +861,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "깎아지른 절벽을 맨손으로 오르던 짐승의 발톱을 본떠 벼린 권조.",
     power: 74,
     weight: 2,
-    options: { crit: 4, spd: 2 },    weaponType: "claw",
+    options: { crit: 4, spd: 2 },
+    weaponType: "claw",
     rarity: "unique",
   },
   v2_canyon_staff: {
@@ -868,7 +874,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "마른 하늘에 갑자기 떨어지는 마른벼락을 담아둔 지팡이.",
     power: 94,
     weight: 2,
-    options: { mp: 40, crit: 2 },    weaponType: "staff",
+    options: { mp: 40, crit: 2 },
+    weaponType: "staff",
     rarity: "unique",
   },
   v2_canyon_bow: {
@@ -880,7 +887,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "메마른 바람을 시위에 먹여 쏘는 활. 화살이 먼 곳까지 곧게 난다.",
     power: 80,
     weight: 2,
-    options: { crit: 4, eva: 2 },    weaponType: "bow",
+    options: { crit: 4, eva: 2 },
+    weaponType: "bow",
     rarity: "unique",
   },
   v2_canyon_dagger: {
@@ -892,7 +900,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "번개처럼 빠르게 파고드는 짧은 칼. 협곡 독사의 송곳니를 닮았다.",
     power: 74,
     weight: 1,
-    options: { critMult: 40 },    weaponType: "dagger",
+    options: { critMult: 40 },
+    weaponType: "dagger",
     rarity: "unique",
   },
 

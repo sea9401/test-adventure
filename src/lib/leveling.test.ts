@@ -34,12 +34,12 @@ describe("requiredExpToNext", () => {
     expect(requiredExpToNext(-1)).toBeNull();
   });
 
-  it("엔드게임 multiplier 구간 경계 — Lv60 ×1.00 / Lv70 ×1.30 / Lv90 ×1.55 + 35+ 완화 ×0.85", () => {
-    // 50 이상은 reduction floor 0.85 풀반영. endgame multiplier 가 그 위에 곱해진다.
+  it("엔드게임 multiplier 구간 경계 — Lv60 ×1.00 / Lv70 ×1.05 / Lv90+ ×1.15(캡) + 35+ 완화 ×0.85", () => {
+    // 50 이상은 reduction floor 0.85 풀반영. endgame multiplier(60→89 1.00→1.15 선형, 90+ 1.15 캡)가 위에 곱해진다.
     const base = (lv: number) => (120 / 35) * Math.pow(lv, 2.5);
     expect(requiredExpToNext(60)).toBe(Math.floor(base(60) * 1.0 * 0.85));
-    expect(requiredExpToNext(70)).toBe(Math.floor(base(70) * 1.3 * 0.85));
-    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.55 * 0.85));
+    expect(requiredExpToNext(70)).toBe(Math.floor(base(70) * 1.05 * 0.85));
+    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.15 * 0.85));
   });
 
   it("35~49 reduction 램프 — 35 ×1.00 / 50 ×0.85 / 사이 선형 (전 구간 1차 ×0.25 가속)", () => {
@@ -130,18 +130,17 @@ describe("levelBandExpMultiplier (EXP 페이싱 개편)", () => {
   });
 });
 
-describe("90-99 곡선 완화 (막판 벽)", () => {
+describe("엔드게임 세금 캡 1.15 (70→100 완화)", () => {
   const base = (lv: number) => (120 / 35) * Math.pow(lv, 2.5);
 
-  it("L90 요구치 불변 — 1.55 유지(경계 점프 없음)", () => {
-    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.55 * 0.85));
+  it("L90+ 는 엔드게임 세금 캡 1.15 풀반영", () => {
+    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.15 * 0.85));
+    expect(requiredExpToNext(99)).toBe(Math.floor(base(99) * 1.15 * 0.85));
   });
 
-  it("L99 막판 벽 완화 — 종전(×1.955)보다 작고 -15% 램프(×1.3175)", () => {
-    const oldReq = Math.floor(base(99) * 1.955 * 0.85);
+  it("막판 벽 완화 — L99 가 종전 곡선(×1.55)보다 작다", () => {
+    const oldReq = Math.floor(base(99) * 1.55 * 0.85);
     expect(requiredExpToNext(99)!).toBeLessThan(oldReq);
-    const eg99 = 1.55 - ((99 - 90) * (1.55 * 0.15)) / 9; // = 1.3175
-    expect(requiredExpToNext(99)).toBe(Math.floor(base(99) * eg99 * 0.85));
   });
 
   it("90-99 도 단조 증가 유지(역전 없음)", () => {
@@ -152,10 +151,10 @@ describe("90-99 곡선 완화 (막판 벽)", () => {
     }
   });
 
-  it("전체 1→100 누적 요구치 회귀 고정 (1차 L1~50 ×0.25 가속 반영)", () => {
+  it("전체 1→100 누적 요구치 회귀 고정 (엔드게임 세금 1.15 캡 + 1차 L1~50 ×0.25 가속 반영)", () => {
     let sum = 0;
     for (let lv = 1; lv < MAX_LEVEL; lv += 1) sum += requiredExpToNext(lv)!;
-    expect(sum).toBe(10_242_616);
+    expect(sum).toBe(8_312_961);
   });
 });
 

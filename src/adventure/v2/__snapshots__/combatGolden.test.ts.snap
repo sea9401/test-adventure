@@ -129,7 +129,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critChancePct": 2.25,
   "critMult": 2.1799999999999997,
   "critResistPct": 1.5,
-  "def": 25,
+  "def": 37,
   "evasionPct": 3.7,
   "extraAttackChancePct": 15,
   "healMult": 1.7175000000000002,
@@ -159,7 +159,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critChancePct": 2.25,
   "critMult": 2.3859999999999997,
   "critResistPct": 1.5,
-  "def": 13,
+  "def": 25,
   "evasionPct": 3.7,
   "extraAttackChancePct": 13.5,
   "healMult": 1.2575,
@@ -270,7 +270,7 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "50e68df9fc45ad1de4c37330446f17f0e9434ac7",
+    "logSha": "0c0a0115ca4ae15a6dc7af7dfda0589e6fe8cc37",
     "outcome": "p1_win",
     "turns": 33,
   },
@@ -282,9 +282,9 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "e38d4161ecf68d2e283926817f52edf9899f05b7",
+    "logSha": "c386d53ae8d7531fd94599cab8b87ce6cce84121",
     "outcome": "p2_win",
-    "turns": 63,
+    "turns": 85,
   },
 ]
 `;

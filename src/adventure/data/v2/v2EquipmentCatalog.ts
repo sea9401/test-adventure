@@ -9,10 +9,13 @@ import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 //   - PR-무기위력 — 무기 위력 ~2배 상향(고티어일수록 가파르게: 검 3/5/8/11/16 → 4/8/14/22/34,
 //     활·지팡이 동일 램프). ATK_PER_STR·MAGIC_ATK_PER_INT 0.2→0.15 로 STR/INT 빌드는 중립 유지,
 //     무기 교체 체감↑ + off-STR 빌드 atk 바닥↑(격차 압축). 방어구·장신구 위력은 불변.
-//   - **무기 위력 ×5 (2026-06-07)** — 루트 게임답게 "무기 = 데미지 주력". 전엔 STR(레벨)이 atk를
-//     지배(Lv100 T5 무기 비중 36%)했으나, ×5 후 T5≈74% 비중으로 무기가 주력·STR은 보조(26%).
-//     god-roll 추격(편차 0.65)을 실제 파워로 살림. 몹 스케일·편차는 유지(사용자 결정) — 킬타임은
-//     빨라지고 깊은산 게이트는 장비로 넘기 쉬워짐. 방어구·장신구 위력은 불변. 다이얼=×5 곱수.
+//   - **전 장비 위력 ×5 (2026-06-07)** — 루트 게임답게 "장비 = 공·방 주력". 전엔 STR/VIT(레벨)이
+//     지배(Lv100 T5 무기 36%·갑옷 30% 비중)했으나, ×5 후 무기≈74%·갑옷≈68% 비중으로 장비가
+//     주력·스탯은 보조(~26~32%). god-roll 추격(편차 0.65)을 실제 파워로 살림. 무기 먼저(#543),
+//     방어구·장신구 뒤따름. 장갑/신발/반지/목걸이 위력은 1~2라 ×5 해도 소폭(정체성=옵션). 몹
+//     스케일·편차는 유지(사용자 결정) — 킬·생존 둘 다 장비로 빨라지고 깊은산 게이트 완화. 다이얼=×5.
+//   - **계파 무기 noDrop 제거 (2026-06-07)** — 상점=T1만(#523) 후 계파 무기 T3/T5 10종이 비매+
+//     noDrop=획득불가였던 구멍 해소. 정규 드랍 풀 합류 → 8무기타입 균일("T1 스타터 + T3/T5 드랍").
 export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // ── 무기-힘 (위력 = 물공+마공, 중간 무게, 옵션 없음) ──────────────────
   // 검은 물리 무기지만 위력은 물/마 둘 다 먹인다(빌드 안 가림). str 정체성은 훈련 분배.
@@ -137,7 +140,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "쇠사슬 갑옷",
     description: "고리를 엮은 갑옷. 무겁지만 든든하다.",
-    power: 2,
+    power: 10,
     weight: 2,
     options: { hp: 20 },
   },
@@ -148,7 +151,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "완판 갑옷",
     description: "온몸을 두른 두꺼운 갑옷.",
-    power: 4,
+    power: 20,
     weight: 5,
     options: { hp: 40 },
   },
@@ -159,7 +162,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴 갑옷",
     description: "가볍고 단단한 미스릴 갑옷.",
-    power: 9,
+    power: 45,
     weight: 8,
     options: { hp: 80 },
   },
@@ -172,7 +175,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "가죽 갑옷",
     description: "들개 가죽을 손질해 만든 가벼운 갑옷.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { hp: 20 },
   },
@@ -183,7 +186,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "그림자 망토",
     description: "발걸음을 가리는 어두운 망토.",
-    power: 2,
+    power: 10,
     weight: 1,
     options: { eva: 2, hp: 40 },
   },
@@ -194,7 +197,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "바람을 엮은 망토",
     description: "바람결을 짜 만든 가벼운 망토.",
-    power: 3,
+    power: 15,
     weight: 1,
     options: { eva: 3, hp: 80 },
   },
@@ -208,7 +211,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "철 건틀릿",
     description: "쇠를 덧댄 손등 보호구. 주먹이 묵직해진다.",
-    power: 1,
+    power: 5,
     weight: 1,
     options: { crit: 4 },
   },
@@ -219,7 +222,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "판금 건틀릿",
     description: "판금을 이어 붙인 단단한 건틀릿.",
-    power: 1,
+    power: 5,
     weight: 1,
     options: { crit: 8 },
   },
@@ -230,7 +233,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴 건틀릿",
     description: "가볍고 단단한 미스릴 건틀릿.",
-    power: 2,
+    power: 10,
     weight: 2,
     options: { crit: 12 },
   },
@@ -243,7 +246,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "가죽 장갑",
     description: "손에 익은 가죽 장갑. 가볍고 편하다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { crit: 4 },
   },
@@ -254,7 +257,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "그림자 장갑",
     description: "손길을 죽이는 어두운 장갑.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { crit: 8 },
   },
@@ -265,7 +268,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "바람결 장갑",
     description: "바람을 엮어 만든 가벼운 장갑.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { crit: 12 },
   },
@@ -279,7 +282,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "철 장화",
     description: "쇠를 덧댄 장화. 발을 든든히 감싼다.",
-    power: 1,
+    power: 5,
     weight: 1,
     options: { eva: 4, spd: 2 },
   },
@@ -290,7 +293,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "판금 장화",
     description: "판금을 두른 장화. 묵직하게 버틴다.",
-    power: 1,
+    power: 5,
     weight: 1,
     options: { eva: 8, spd: 4 },
   },
@@ -301,7 +304,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "미스릴 장화",
     description: "가볍고 단단한 미스릴 장화.",
-    power: 2,
+    power: 10,
     weight: 1,
     options: { eva: 12, spd: 6 },
   },
@@ -314,7 +317,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "가죽 신",
     description: "부드러운 가죽 신. 발놀림이 가볍다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { eva: 4, spd: 2 },
   },
@@ -325,7 +328,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "그림자 신",
     description: "자국을 남기지 않는 어두운 신.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { eva: 8, spd: 4 },
   },
@@ -336,7 +339,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "바람결 신",
     description: "바람을 밟듯 가벼운 신.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { eva: 12, spd: 6 },
   },
@@ -350,7 +353,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "은가락지",
     description: "흠집 없는 은반지. 광택이 곱다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { critMult: 10 },
   },
@@ -361,7 +364,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "행운의 부적",
     description: "닳은 패에 글자가 빛난다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { critMult: 20 },
   },
@@ -372,7 +375,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "운명의 반지",
     description: "보는 각도마다 색이 바뀌는 반지.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { critMult: 30 },
   },
@@ -386,7 +389,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 1,
     name: "옥 부적",
     description: "옥 조각에 끈을 꿴 부적. 묘하게 안심된다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { mp: 15 },
   },
@@ -397,7 +400,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "수정 부적",
     description: "맑은 수정에 빛이 모인다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { mp: 30 },
   },
@@ -408,7 +411,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "마나의 정수",
     description: "푸른 빛이 일렁이는 작은 결정.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { mp: 50 },
   },
@@ -424,7 +427,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     name: "그림자 잠행복",
     description:
       "그림자처럼 검은 잠행복. 손끝은 매서워지나 천이 두꺼워 몸놀림이 굼뜬다.",
-    power: 1,
+    power: 5,
     weight: 2, // 정규 경갑(무게 0)보다 무겁다 — 치명·회피를 속도로 치름(사이드그레이드)
     options: { eva: 2, crit: 2 }, // 경갑인데 치명까지(보통 치명은 장갑·반지)
     rarity: "unique",
@@ -437,7 +440,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     name: "요술쟁이의 장화",
     description:
       "마력이 깃들어 묵직해진 장화. 한 걸음마다 힘이 새지만 발이 무겁다.",
-    power: 1,
+    power: 5,
     weight: 2, // 정규 경갑 신발(무게 0)보다 무겁다 — 회피·MP를 속도로 치름(사이드그레이드)
     options: { eva: 2, mp: 16 }, // 신발인데 MP(보통 MP는 목걸이)
     rarity: "unique",
@@ -449,7 +452,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "거인의 주먹",
     description: "거인의 손을 본떠 벼린 건틀릿. 쥐기만 해도 몸이 단단해진다.",
-    power: 2,
+    power: 10,
     weight: 2,
     options: { crit: 2, hp: 50 }, // 장갑인데 HP까지
     rarity: "unique",
@@ -461,7 +464,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "광전사의 송곳니",
     description: "짐승의 송곳니를 꿴 목걸이. 이성을 갉아먹는 대신 일격을 벼린다.",
-    power: 1,
+    power: 5,
     weight: 0,
     options: { crit: 4 }, // 목걸이인데 MP 대신 치명
     rarity: "unique",
@@ -485,7 +488,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 5,
     name: "현자의 인장",
     description: "오래된 현자가 남긴 반지. 끼고 있으면 마음이 깊고 단단해진다.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { mp: 24, hp: 40 }, // 반지인데 MP+HP(보통 반지는 치명)
     rarity: "unique",
@@ -536,7 +539,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "송곳니 목걸이",
     description: "들짐승 송곳니를 엮어 건 목걸이. 마음을 가라앉힌다.",
-    power: 3, // 희귀 — T2 정규 목걸이(mana) 1 위
+    power: 15, // 희귀 — T2 정규 목걸이(mana) 1 위
     weight: 0,
     options: { mp: 12 },
     craftOnly: true,
@@ -551,7 +554,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "들가죽 갑옷",
     description: "들짐승 가죽을 두툼하게 덧댄 갑옷. 들가죽 세트의 몸통.",
-    power: 3,
+    power: 15,
     weight: 0,
     options: { eva: 1 },
     craftOnly: true,
@@ -564,7 +567,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "들가죽 장갑",
     description: "손마디를 가죽으로 감싼 장갑. 들가죽 세트의 손.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { crit: 1 },
     craftOnly: true,
@@ -577,7 +580,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     tier: 3,
     name: "들가죽 신발",
     description: "발목까지 가죽으로 올려 묶은 신. 들가죽 세트의 발.",
-    power: 2,
+    power: 10,
     weight: 0,
     options: { eva: 1 },
     craftOnly: true,
@@ -676,7 +679,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 검+방패(기사) — 중위력·고무게(묵직한 탱딜).
   v2_knight_blade: {
     id: "v2_knight_blade",
-    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 3,
@@ -688,7 +690,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_paladin_blade: {
     id: "v2_paladin_blade",
-    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 5,
@@ -701,7 +702,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 세검(검투사) — 저위력·저무게(빠른 다단/출혈).
   v2_swift_rapier: {
     id: "v2_swift_rapier",
-    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 3,
@@ -713,7 +713,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_gale_rapier: {
     id: "v2_gale_rapier",
-    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 5,
@@ -726,7 +725,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 권갑(금강·혈권) — 중위력·중무게.
   v2_fighter_gauntlet: {
     id: "v2_fighter_gauntlet",
-    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 3,
@@ -738,7 +736,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_vajra_gauntlet: {
     id: "v2_vajra_gauntlet",
-    noDrop: true,
     slot: "weapon",
     concept: "str",
     tier: 5,
@@ -751,7 +748,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 권조(연환) — 저위력·저무게(빠른 콤보).
   v2_keen_claw: {
     id: "v2_keen_claw",
-    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 3,
@@ -763,7 +759,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_dragon_claw: {
     id: "v2_dragon_claw",
-    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 5,
@@ -776,7 +771,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 단검(자객·독사) — 저위력·저무게(빠른 크리/독).
   v2_assassin_dagger: {
     id: "v2_assassin_dagger",
-    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 3,
@@ -788,7 +782,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
   v2_toxic_dagger: {
     id: "v2_toxic_dagger",
-    noDrop: true,
     slot: "weapon",
     concept: "dex",
     tier: 5,

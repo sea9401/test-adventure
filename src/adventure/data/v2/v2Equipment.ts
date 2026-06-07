@@ -199,7 +199,20 @@ export type V2EquipmentId =
   | "v2_cave_obsidian_gloves"
   | "v2_cave_obsidian_boots"
   | "v2_cave_void_ring"
-  | "v2_cave_void_necklace";
+  | "v2_cave_void_necklace"
+  // 무기 포함 특화 세트 (밴드 드랍) — 맹독/마법/방어비례/금강.
+  | "v2_canyon_rustfang_dagger"
+  | "v2_canyon_rustfang_gloves"
+  | "v2_lake_frostarcane_staff"
+  | "v2_lake_frostarcane_necklace"
+  | "v2_lake_bloodvajra_gauntlet"
+  | "v2_lake_bloodvajra_boots"
+  | "v2_cave_judgment_sword"
+  | "v2_cave_judgment_armor"
+  | "v2_cave_judgment_ring"
+  | "v2_cave_venomlord_dagger"
+  | "v2_cave_venomlord_ring"
+  | "v2_cave_venomlord_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -453,6 +466,51 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "공허 장신구",
     pieces: ["v2_cave_void_ring", "v2_cave_void_necklace"],
     bonus: { mp: 50, spd: 6 },
+  },
+
+  // ── 무기 포함 특화 세트 ──────────────────────────────────────────────────────
+  {
+    // 녹슨 독니(협곡, 맹독 속공) — 단검+장갑 2종. 독=ATK 스케일이라 무기 위력이 핵심, 세트는 속도/회피.
+    id: "rust_fang",
+    name: "녹슨 독니",
+    pieces: ["v2_canyon_rustfang_dagger", "v2_canyon_rustfang_gloves"],
+    bonus: { spd: 5, eva: 3 },
+  },
+  {
+    // 백서리 비전(호수, 마법) — 지팡이+목걸이 2종. 마법=지팡이 위력 스케일, 세트는 MP·치명.
+    id: "frostarcane",
+    name: "백서리 비전",
+    pieces: ["v2_lake_frostarcane_staff", "v2_lake_frostarcane_necklace"],
+    bonus: { mp: 60, crit: 4 },
+  },
+  {
+    // 혈금강(호수, VIT 금강) — 권갑+신발 2종. VIT 보정축 없어 HP·속도로 "오래 치는 구조".
+    id: "bloodvajra",
+    name: "혈금강",
+    pieces: ["v2_lake_bloodvajra_gauntlet", "v2_lake_bloodvajra_boots"],
+    bonus: { hp: 90, spd: 4 },
+  },
+  {
+    // 심판의 성벽(동굴, 방어비례 기사) — 검방패+갑옷+반지 3종. def 옵션(신설) 풀로 방어비례딜+탱.
+    id: "judgment_bulwark",
+    name: "심판의 성벽",
+    pieces: [
+      "v2_cave_judgment_sword",
+      "v2_cave_judgment_armor",
+      "v2_cave_judgment_ring",
+    ],
+    bonus: { def: 35, hp: 120 },
+  },
+  {
+    // 흑맥 독왕(동굴, 후반 맹독) — 단검+반지+목걸이 3종. 독 전용 속공-회피-생존 엔진.
+    id: "venomlord",
+    name: "흑맥 독왕",
+    pieces: [
+      "v2_cave_venomlord_dagger",
+      "v2_cave_venomlord_ring",
+      "v2_cave_venomlord_necklace",
+    ],
+    bonus: { spd: 5, eva: 4, hp: 60 },
   },
 ];
 

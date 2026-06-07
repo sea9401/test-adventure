@@ -372,7 +372,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_canyon_set_gloves",
       "v2_canyon_set_boots",
     ],
-    bonus: { crit: 4, critMult: 40, hp: 30 },
+    bonus: { crit: 5, critMult: 30, hp: 30 },
   },
   {
     // 마른 협곡 방어형 세트(중갑 3종). 마른땅 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+90·회피+5.
@@ -386,14 +386,14 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { hp: 90, eva: 5 },
   },
   {
-    // 마른 협곡 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 치명/마력 유틸. 2종 보너스 치명+6·MP+30.
+    // 마른 협곡 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 버스트 유틸. 2종 보너스 치명+8·속도+4.
     id: "canyon_sandstorm",
     name: "모래바람 장신구",
     pieces: ["v2_canyon_sand_ring", "v2_canyon_sand_necklace"],
-    bonus: { crit: 6, mp: 30 },
+    bonus: { crit: 8, spd: 4 },
   },
   {
-    // 얼음 호수 공격형 세트(중갑 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·치명피해+0.5×·HP+40.
+    // 얼음 호수 공격형 세트(중갑 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·속도+4·HP+40 (속공 크리 결).
     id: "frost_plate",
     name: "서리 갑주",
     pieces: [
@@ -401,10 +401,10 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_lake_frost_gloves",
       "v2_lake_frost_boots",
     ],
-    bonus: { crit: 5, critMult: 50, hp: 40 },
+    bonus: { crit: 5, spd: 4, hp: 40 },
   },
   {
-    // 얼음 호수 방어형 세트(중갑 3종). 서리 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+120·회피+6.
+    // 얼음 호수 방어형 세트(중갑 3종). 서리 갑주와 슬롯 택일 — 순수 탱커(회피형). 3종 보너스 HP+100·회피+8.
     id: "ice_bulwark",
     name: "빙벽 수호구",
     pieces: [
@@ -412,17 +412,17 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_lake_bulwark_gloves",
       "v2_lake_bulwark_boots",
     ],
-    bonus: { hp: 120, eva: 6 },
+    bonus: { hp: 100, eva: 8 },
   },
   {
-    // 얼음 호수 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 치명/마력 유틸. 2종 보너스 치명+8·MP+40.
+    // 얼음 호수 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 회피/지속 유틸. 2종 보너스 회피+6·HP+60.
     id: "chill_charm",
     name: "한기 장신구",
     pieces: ["v2_lake_chill_ring", "v2_lake_chill_necklace"],
-    bonus: { crit: 8, mp: 40 },
+    bonus: { eva: 6, hp: 60 },
   },
   {
-    // 심층 동굴 공격형 세트(중갑 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명+6·치명피해+0.6×·HP+50.
+    // 심층 동굴 공격형 세트(중갑 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터 결).
     id: "abyss_plate",
     name: "심연 갑주",
     pieces: [
@@ -430,10 +430,10 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_cave_abyss_gloves",
       "v2_cave_abyss_boots",
     ],
-    bonus: { crit: 6, critMult: 60, hp: 50 },
+    bonus: { critMult: 50, mp: 40, hp: 50 },
   },
   {
-    // 심층 동굴 방어형 세트(중갑 3종). 심연 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+160·회피+7.
+    // 심층 동굴 방어형 세트(중갑 3종). 심연 갑주와 슬롯 택일 — 순수 탱커(HP+템포). 3종 보너스 HP+160·속도+4.
     id: "obsidian_bulwark",
     name: "흑요 수호구",
     pieces: [
@@ -441,14 +441,14 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_cave_obsidian_gloves",
       "v2_cave_obsidian_boots",
     ],
-    bonus: { hp: 160, eva: 7 },
+    bonus: { hp: 160, spd: 4 },
   },
   {
-    // 심층 동굴 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 치명/마력 유틸. 2종 보너스 치명+10·MP+50.
+    // 심층 동굴 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 마력/엔진 유틸. 2종 보너스 MP+50·속도+4.
     id: "void_charm",
     name: "공허 장신구",
     pieces: ["v2_cave_void_ring", "v2_cave_void_necklace"],
-    bonus: { crit: 10, mp: 50 },
+    bonus: { mp: 50, spd: 4 },
   },
 ];
 

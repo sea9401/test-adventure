@@ -363,21 +363,22 @@ describe("v2EquipStatRows (표시 행)", () => {
     ]);
   });
 
-  it("반지 critMult 옵션 — 위력 + 치명피해 배수 표기(+0.10×)", () => {
-    // 은가락지 T1: 위력 2(×2), weight 0, critMult 10(백분의일) → "+0.10×".
+  it("반지 critMult 옵션 — 위력 + 치명피해 배수 표기(+0.12×)", () => {
+    // 은가락지 T1: 위력 2(×2), weight 0, critMult 12(백분의일) → "+0.12×".
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_silver_ring);
     expect(rows).toEqual([
       { label: "위력", value: "+2" },
-      { label: "치명피해", value: "+0.10×" },
+      { label: "치명피해", value: "+0.12×" },
     ]);
   });
 
   it("mp 옵션은 % 없이 flat", () => {
-    // 마나의 정수 T5: 위력 4(×2), weight 0, mp 50.
+    // 마나의 정수 T3: 위력 4(×2), weight 0, mp 48 + eva 3 (워드 갈래).
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
       { label: "위력", value: "+4" },
-      { label: "MP", value: "+50" },
+      { label: "회피", value: "+3%" },
+      { label: "MP", value: "+48" },
     ]);
   });
 

@@ -106,7 +106,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
     // 별노래궁 T5: 위력 52(×2) weight 2 crit 2
     // 바람 망토 T5: 위력 6(×2) weight 1 eva 3 hp 80 (갑옷 축: 방어+HP)
-    // 마나의 정수 T5: 위력 4(×2) weight 0 mp 50 (목걸이 → 마방)
+    // 마나의 정수 T3: 위력 4(×2) weight 0 mp 48 + eva 3 (목걸이 → 마방, 워드 갈래)
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
@@ -118,9 +118,9 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.magicDef).toBe(4); // 목걸이 위력
     expect(a.weight).toBe(2 + 1 + 0);
     expect(a.crit).toBe(2);
-    expect(a.eva).toBe(3);
+    expect(a.eva).toBe(6); // 바람망토 3 + 마나의 정수 3
     expect(a.hp).toBe(80);
-    expect(a.mp).toBe(50);
+    expect(a.mp).toBe(48);
   });
 
   it("중갑 무게 — 미스릴 갑옷 T5 = def 18(×2), weight 8", () => {
@@ -131,16 +131,19 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("반지·목걸이 위력은 마방만(물방 X), 무게 0", () => {
-    // 운명의 반지 T5: 위력 4(×2) weight 0 critMult 30(+0.3×) → 마방 + 치명피해(반지 축).
+    // 운명의 반지 T3: 위력 4(×2) weight 0 critMult 26(+0.26×) + spd 3 → 마방 + 치명피해(반지 축) + 속공 갈래.
     const a = aggregateV2Equipment({ ring: "v2_fate_ring" });
     expect(a.def).toBe(0); // 반지는 물방 안 줌
     expect(a.magicDef).toBe(4);
     expect(a.weight).toBe(0);
-    expect(a.critMult).toBe(30);
+    expect(a.critMult).toBe(26);
+    expect(a.spd).toBe(3);
     expect(a.crit).toBe(0);
   });
 
-  it("luck 컨셉 3종은 옵션이 critMult 만 (반지 축 — 치명피해)", () => {
+  it("luck 컨셉 반지는 critMult 1차 축 보유 (2차 축은 갈래별 다양)", () => {
+    // 2026-06-08 다양화: 반지=치명피해 1차 축 유지 + 2차 축(crit/spd 등)으로 아키타입 갈래.
+    //   단일 축 강제(critMult 만)는 폐지 — 슬롯 시그니처는 1차 축으로만 보존.
     for (const id of [
       "v2_silver_ring",
       "v2_lucky_charm",
@@ -148,9 +151,10 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     ] as const) {
       const item = V2_EQUIPMENT[id as V2EquipmentId];
       expect(item.power, `${id}.power`).toBeGreaterThanOrEqual(1);
-      for (const k of Object.keys(item.options ?? {})) {
-        expect(k, `${id}.options.${k} 는 luck 컨셉 외 옵션`).toBe("critMult");
-      }
+      expect(
+        item.options?.critMult ?? 0,
+        `${id} 는 반지 1차 축(critMult) 보유`,
+      ).toBeGreaterThan(0);
     }
   });
 
@@ -178,14 +182,14 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
   });
 
   it("mana 목걸이 mp 옵션 가산 (스탯 token 없음 — PR-4a)", () => {
-    // 마나의 정수 T5: power 2, mp 옵션 50. 장비는 int token 안 줌.
-    // maxMp = V2_BASE_MP(50) + mp 50 + INT(기본15)×2 = 130.
+    // 마나의 정수 T3: power 2, mp 옵션 48(+eva 3). 장비는 int token 안 줌.
+    // maxMp = V2_BASE_MP(50) + mp 48 + INT(기본15)×2 = 128.
     const d = derivePlayerCombatV2Pure({
       level: 1,
       v2Equipped: { necklace: "v2_mana_essence" },
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
-    expect(d.player.maxMp).toBe(V2_BASE_MP + 50 + 15 * 2);
+    expect(d.player.maxMp).toBe(V2_BASE_MP + 48 + 15 * 2);
   });
 
   it("레벨 성장 — Lv100 → maxMp += (level−1)×V2_MP_PER_LEVEL", () => {

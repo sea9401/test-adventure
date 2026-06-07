@@ -6,6 +6,8 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIP_SETS,
+  V2_EQUIPMENT,
+  V2_SLOT_LABEL,
   v2EquipStatRows,
   type V2Equipment,
   type V2EquipOptions,
@@ -213,7 +215,34 @@ export function V2ItemCard({
                 {formatSetBonus(set.bonus)}
               </span>
             </div>
-            <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+            {/* 세트 구성 — 무엇을 모아야 하는지 알 수 있게 멤버 전부 나열, 현재 아이템은 강조. */}
+            <ul className="mt-1 space-y-px">
+              {set.pieces.map((pid) => {
+                const piece = V2_EQUIPMENT[pid];
+                const isCurrent = pid === item.id;
+                return (
+                  <li
+                    key={pid}
+                    className={`flex items-baseline gap-1 text-[11px] ${
+                      isCurrent
+                        ? "font-medium text-zinc-700 dark:text-zinc-200"
+                        : "text-zinc-500 dark:text-zinc-400"
+                    }`}
+                  >
+                    <span className="shrink-0 text-amber-500/70">
+                      {isCurrent ? "▸" : "·"}
+                    </span>
+                    <span className="truncate">{piece?.name ?? pid}</span>
+                    {piece && (
+                      <span className="ml-auto shrink-0 text-zinc-400 dark:text-zinc-500">
+                        {V2_SLOT_LABEL[piece.slot]}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
               세트 조각을 모두 착용하면 적용됩니다.
             </p>
           </div>

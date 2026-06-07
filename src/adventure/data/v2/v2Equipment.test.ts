@@ -48,7 +48,7 @@ const ALL_CONCEPTS: V2EquipConcept[] = [
   "luck",
   "mana",
 ];
-const ALL_TIERS: V2EquipTier[] = [1, 3, 5];
+const ALL_TIERS: V2EquipTier[] = [1, 2, 3];
 
 describe("V2_EQUIPMENT catalog", () => {
   it("모든 id 는 키와 일치해야 함 (self-id 일관성)", () => {

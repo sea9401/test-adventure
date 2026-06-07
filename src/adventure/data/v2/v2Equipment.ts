@@ -14,7 +14,7 @@
 // 스탯 정체성(힘/민/지…)은 이제 **훈련 분배 + 직업**에서 나온다 — 장비는 스탯 token 을 안 준다.
 //
 // 슬롯 6 + 컨셉(같은 부위 안의 결): 무기 str/dex/int · 갑옷/장갑/신발 heavy/light · 반지 luck · 목걸이 mana.
-// 티어 T1~T5. 3슬롯→6슬롯 확장(2026-06): 총량 중립(갑옷 유지·장갑/신발 소량def, 옛 장신구 분할).
+// 티어 T1~T3. 3슬롯→6슬롯 확장(2026-06): 총량 중립(갑옷 유지·장갑/신발 소량def, 옛 장신구 분할).
 
 import type { V2Element } from "@/adventure/data/v2/elements";
 
@@ -42,7 +42,7 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 3 | 5;
+export type V2EquipTier = 1 | 2 | 3;
 
 // 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
@@ -89,7 +89,7 @@ export type V2EquipmentId =
   | "v2_starter_staff"
   | "v2_starter_bow"
   | "v2_starter_dagger"
-  // 전문화 무기 정규 라인 (상점 T2~T5) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
+  // 전문화 무기 정규 라인 (드랍 T2/T3, T1=전직 지급 스타터) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
   | "v2_knight_blade"
   | "v2_paladin_blade"
   | "v2_swift_rapier"
@@ -210,15 +210,15 @@ export type V2Equipment = {
   setId?: string;
 };
 
-// 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
+// 마을 상점 판매가 — T1~T3 전부 판매. ×36 가파른 곡선 (각 티어 다음이 36배).
 // 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
 //   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
-//   T5 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
-// 2026-06-03 ~40% 인하(base ×0.6) — 위력 −15% 동반. 판매가는 구매가 5% 라 자동 연동.
+//   T3 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
+// 2026-06-07 티어 1/3/5 → 1/2/3 리넘버(표기 숨김 후 연속번호). 곡선·매그니튜드는 불변(키만 리키).
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 300,
-  3: 10800,
-  5: 388800,
+  2: 10800,
+  3: 388800,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -237,7 +237,7 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
-// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·전문화스타터는 비매품. T2 폐지·T3/T5 는
+// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·전문화스타터는 비매품. T2/T3 는
 //   드랍 전용(상점=처음 갖추는 구간만, 진짜 장비는 파밍). 판매가는 shopPriceForSell(티어 무관).
 export function shopPriceOf(item: V2Equipment): number | undefined {
   if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
@@ -246,7 +246,7 @@ export function shopPriceOf(item: V2Equipment): number | undefined {
   return shopPriceFor(item.tier, item.slot);
 }
 
-// 판매가 산정용 — 구매 가능(상점 비치) 여부와 무관. 드랍으로 얻은 T3/T5 도 팔 수 있어야 하므로
+// 판매가 산정용 — 구매 가능(상점 비치) 여부와 무관. 드랍으로 얻은 T2/T3 도 팔 수 있어야 하므로
 //   티어 게이트 없이 (티어, 슬롯) 곡선. **전 장비 판매 가능**(2026-06-07 사용자 결정): 유니크·제작
 //   전용·전문화 스타터(수련용)도 판매 허용 — 인벤 클러터(전직 지급 수련용 등) 정리. 실수 판매는
 //   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 스타터 T1만(유니크 등 비매=구매 불가 유지).
@@ -320,7 +320,7 @@ export function v2EquipmentBySlot(slot: V2EquipSlot): V2Equipment[] {
     .filter((e) => e.slot === slot);
 }
 
-// 컨셉별 catalog — 같은 컨셉의 T1~T5 가 줄 서 나옴.
+// 컨셉별 catalog — 같은 컨셉의 T1~T3 가 줄 서 나옴.
 export function v2EquipmentByConcept(concept: V2EquipConcept): V2Equipment[] {
   return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[])
     .map((id) => V2_EQUIPMENT[id])

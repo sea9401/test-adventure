@@ -149,8 +149,8 @@ console.log(headers.map((s) => s.padEnd(14)).join(""));
 const setups: { label: string; tier: V2EquipTier | null }[] = [
   { label: "장비없음", tier: null },
   { label: "T1 풀세팅", tier: 1 },
+  { label: "T2 풀세팅", tier: 2 },
   { label: "T3 풀세팅", tier: 3 },
-  { label: "T5 풀세팅", tier: 5 },
 ];
 
 for (const setup of setups) {

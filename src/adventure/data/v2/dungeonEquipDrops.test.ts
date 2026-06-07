@@ -61,9 +61,9 @@ describe("EQUIP_FLOOR_POOLS — sanity", () => {
     }
   });
 
-  it("최고층 (8) 의 가중 풀은 T5 만 포함", () => {
+  it("최고층 (8) 의 가중 풀은 최고티어(T3) 만 포함", () => {
     const tiers = Object.keys(EQUIP_FLOOR_POOLS[8].tierWeights).map(Number);
-    expect(tiers).toEqual([5]);
+    expect(tiers).toEqual([3]);
   });
 
   it("1층 풀은 T1 을 포함", () => {
@@ -107,24 +107,24 @@ describe("rollEquipDrop — 굴림 결정성", () => {
     if (got) expect(V2_EQUIPMENT[got].tier).toBe(1);
   });
 
-  it("가중 풀에 없는 티어는 반환되지 않음 (1층은 T5 안 떨어짐)", () => {
-    // 티어 5→3 축소 후 1층 풀 = T1/T3 만(T5 가중치 0). 여러 굴림 해도 T5 안 나옴.
+  it("가중 풀에 없는 티어는 반환되지 않음 (1층은 최고티어 T3 안 떨어짐)", () => {
+    // 티어 1/2/3 리넘버 후 1층 풀 = T1/T2 만(T3 가중치 0). 여러 굴림 해도 T3 안 나옴.
     for (let seed = 0; seed < 100; seed++) {
       const rng = seqRng([0.0, seed / 100, seed / 100]);
       const got = rollEquipDrop(1, empty, rng);
       if (got) {
         const tier = V2_EQUIPMENT[got].tier;
-        expect([1, 3]).toContain(tier);
+        expect([1, 2]).toContain(tier);
       }
     }
   });
 
-  it("8층은 항상 T5 만 (통과 시)", () => {
+  it("8층은 항상 최고티어 T3 만 (통과 시)", () => {
     for (let seed = 0; seed < 50; seed++) {
       const rng = seqRng([0.0, seed / 50, seed / 50]);
       const got = rollEquipDrop(8, empty, rng);
       if (got) {
-        expect(V2_EQUIPMENT[got].tier).toBe(5);
+        expect(V2_EQUIPMENT[got].tier).toBe(3);
       }
     }
   });
@@ -145,13 +145,12 @@ describe("rollEquipDrop — 굴림 결정성", () => {
   });
 
   it("티어 가중 끝점 — roll = totalWeight - epsilon 일 때 마지막 티어 (overflow 안전)", () => {
-    // 5층 풀 [T2:3, T3:5, T4:3, T5:1] 합=12.
-    // rng[1] = 11.99/12 ≈ 0.9991 → roll ≈ 11.99 → T5 도달.
+    // 5층 풀 {T2:6, T3:4} 합=10. rng[1] = 0.9991 → roll ≈ 9.99 → 마지막 티어 T3 도달.
     const rng = seqRng([0.0, 0.9991, 0.0]);
     const got = rollEquipDrop(5, new Set(), rng);
     expect(got).not.toBeNull();
     if (got) {
-      expect(V2_EQUIPMENT[got].tier).toBe(5);
+      expect(V2_EQUIPMENT[got].tier).toBe(3);
     }
   });
 

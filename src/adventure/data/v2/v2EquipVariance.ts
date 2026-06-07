@@ -7,10 +7,14 @@
 // VARIANCE_FRACTION·바닥은 sim/라이브 다이얼.
 
 import {
+  V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
+  sellPriceOf,
   type V2Equipment,
+  type V2EquipInstance,
   type V2EquipOptions,
   type V2EquipRoll,
+  type V2EquipSlot,
 } from "./v2Equipment";
 
 export const VARIANCE_FRACTION = 0.3;
@@ -95,6 +99,43 @@ export function rollQualityPct(
   }
   if (weightSum === 0) return null; // 변동 가능한 스탯 0 — 굴림 의미 없음
   return Math.round((acc / weightSum) * 100);
+}
+
+// ── 일괄 판매 선택 — 클라(미리보기 확인)·서버(권위 판매) 공용 단일 소스(드리프트 방지) ──
+export type BulkSellOpts = {
+  // 한 슬롯만(미지정 = 전 슬롯).
+  slot?: V2EquipSlot;
+  // 굴림 품질이 이 % 미만인 것만(미지정 = 판매 가능 전부). 굴림 없는 상점템은 belowPct 모드서 제외.
+  belowPct?: number;
+};
+export type BulkSellPlan = { iids: string[]; gold: number; count: number };
+
+// 미장착 + 미잠금 + 판매 가능(유니크 등 비매 제외) 개체를 골라 판매 계획 산출.
+// equipped 의 iid 는 제외. locked 개체는 제외. belowPct 주면 굴림% < belowPct 만(굴림 없으면 제외).
+export function selectBulkSell(
+  owned: V2EquipInstance[],
+  equipped: Partial<Record<V2EquipSlot, string>>,
+  opts: BulkSellOpts = {},
+): BulkSellPlan {
+  const equippedIids = new Set(Object.values(equipped));
+  const iids: string[] = [];
+  let gold = 0;
+  for (const inst of owned) {
+    if (equippedIids.has(inst.iid)) continue;
+    if (inst.locked) continue;
+    const item = V2_EQUIPMENT[inst.id];
+    if (!item) continue;
+    if (opts.slot && item.slot !== opts.slot) continue;
+    const price = sellPriceOf(item);
+    if (price == null) continue; // 비매품(유니크·제작전용·스타터)
+    if (opts.belowPct != null) {
+      const q = rollQualityPct(item, inst.roll);
+      if (q == null || q >= opts.belowPct) continue; // 굴림 없거나 임계 이상은 유지
+    }
+    iids.push(inst.iid);
+    gold += price;
+  }
+  return { iids, gold, count: iids.length };
 }
 
 // effectiveStats 는 v2Equipment.ts(순수 장비-모델 함수)로 이전 — v2EquipStatRows 가 순환

@@ -254,6 +254,16 @@ export function shopPriceForSell(item: V2Equipment): number | undefined {
   return shopPriceFor(item.tier, item.slot);
 }
 
+// 판매가 비율 — 구매가의 5%(floor). 단건/일괄 판매 공용 단일 소스(드리프트 방지).
+export const SELL_PRICE_RATIO = 0.05;
+
+// 개체 1개 판매가 — 비매품(유니크 등)이면 null.
+export function sellPriceOf(item: V2Equipment): number | null {
+  const base = shopPriceForSell(item);
+  if (base == null) return null;
+  return Math.max(1, Math.floor(base * SELL_PRICE_RATIO));
+}
+
 // 유니크 여부 — 상점/제작/그리드 제외 판정에 공용.
 export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";

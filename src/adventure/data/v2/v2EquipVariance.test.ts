@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { V2_EQUIPMENT } from "./v2Equipment";
+import {
+  V2_EQUIPMENT,
+  sellPriceOf,
+  type V2EquipInstance,
+  type V2EquipmentId,
+} from "./v2Equipment";
 import {
   VARIANCE_FRACTION,
   effectiveStats,
   rollItemStats,
   rollQualityPct,
+  selectBulkSell,
 } from "./v2EquipVariance";
 
 describe("rollItemStats", () => {
@@ -162,5 +168,51 @@ describe("rollQualityPct", () => {
     if (!hasVariance) {
       expect(rollQualityPct(ring, { power: 1, weight: 0 })).toBeNull();
     }
+  });
+});
+
+describe("selectBulkSell", () => {
+  const id = (s: string) => s as V2EquipmentId;
+  const owned: V2EquipInstance[] = [
+    { iid: "eq", id: id("v2_iron_sword") }, // 장착 → 제외
+    { iid: "lock", id: id("v2_iron_sword"), locked: true }, // 잠금 → 제외
+    { iid: "sell1", id: id("v2_iron_sword") }, // 판매(무기)
+    { iid: "sell2", id: id("v2_leather_armor") }, // 판매(갑옷)
+    { iid: "uniq", id: id("v2_uniq_shadow_garb") }, // 유니크 비매 → 제외
+  ];
+  const equipped = { weapon: "eq" };
+
+  it("미장착·미잠금·판매가능만 — 장착/잠금/유니크 제외", () => {
+    const plan = selectBulkSell(owned, equipped, {});
+    expect([...plan.iids].sort()).toEqual(["sell1", "sell2"]);
+    expect(plan.count).toBe(2);
+    expect(plan.gold).toBe(
+      (sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0) +
+        (sellPriceOf(V2_EQUIPMENT.v2_leather_armor) ?? 0),
+    );
+  });
+
+  it("slot 필터 — weapon 만(sell1), 갑옷 sell2 제외", () => {
+    const plan = selectBulkSell(owned, equipped, { slot: "weapon" });
+    expect(plan.iids).toEqual(["sell1"]);
+    expect(plan.gold).toBe(sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0);
+  });
+
+  it("belowPct — 굴림% < N 만, 굴림 없는 건 제외", () => {
+    const bows: V2EquipInstance[] = [
+      {
+        iid: "low",
+        id: id("v2_starsong_bow"),
+        roll: { power: 18, weight: 3, options: { crit: 1 } }, // 0%
+      },
+      {
+        iid: "high",
+        id: id("v2_starsong_bow"),
+        roll: { power: 34, weight: 1, options: { crit: 3 } }, // 100%
+      },
+      { iid: "noroll", id: id("v2_starsong_bow") }, // 굴림 없음 → 제외
+    ];
+    const plan = selectBulkSell(bows, {}, { belowPct: 40 });
+    expect(plan.iids).toEqual(["low"]);
   });
 });

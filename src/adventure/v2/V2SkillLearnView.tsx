@@ -9,18 +9,11 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
+import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
 
-// v2 학습 — 사용 가능 숙련도로 직업 패시브 + 현 직업 체인의 시그니처 스킬을 습득한다.
+// v2 학습 — 전문화 선택/패시브 픽(V2SpecPanel) + 숙달 포인트로 공용·전문화 스킬을 습득한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
 // 전투 탭(/battle/sparring)으로 분리.
-
-type SignatureRow = {
-  skillId: string;
-  tier: number;
-  cost: number;
-  learned: boolean;
-  effect: string;
-};
 
 type ElementalRow = {
   skillId: string;
@@ -32,10 +25,10 @@ type ElementalRow = {
 
 type StateShape = {
   ok?: boolean;
-  signatures?: SignatureRow[];
   elementalSkills?: ElementalRow[];
   skillSlots?: number;
   proficiency?: { current?: { points: number } };
+  spec?: V2SpecState;
 };
 
 function skillName(id: string): string {
@@ -71,7 +64,7 @@ export function V2SkillLearnView({
 }: {
   onBack: () => void;
 }) {
-  const [signatures, setSignatures] = useState<SignatureRow[]>([]);
+  const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [usable, setUsable] = useState(0);
   const [slots, setSlots] = useState(0);
@@ -85,7 +78,7 @@ export function V2SkillLearnView({
       const res = await fetch("/api/v2/me/state");
       const j = (await res.json().catch(() => null)) as StateShape | null;
       if (j?.ok) {
-        setSignatures(j.signatures ?? []);
+        setSpecState(j.spec ?? null);
         setElementalSkills(j.elementalSkills ?? []);
         setUsable(j.proficiency?.current?.points ?? 0);
         setSlots(j.skillSlots ?? 0);
@@ -131,9 +124,6 @@ export function V2SkillLearnView({
         }
         setMsg(`✓ ${skillName(skillId)} 학습 완료`);
         if (typeof j.points === "number") setUsable(j.points);
-        setSignatures((prev) =>
-          prev.map((s) => (s.skillId === skillId ? { ...s, learned: true } : s)),
-        );
         setElementalSkills((prev) =>
           prev.map((s) => (s.skillId === skillId ? { ...s, learned: true } : s)),
         );
@@ -190,85 +180,29 @@ export function V2SkillLearnView({
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="스킬" onBack={onBack} />
 
-      <Card padding="md">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">직업 패시브</h2>
-          <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>
-              숙달 포인트{" "}
-              <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
-                {usable}
-              </strong>
-            </span>
-            <span>
-              장착{" "}
-              <strong className="tabular-nums text-sky-600 dark:text-sky-400">
-                {equippedCount}/{slots}
-              </strong>
-            </span>
-          </div>
-        </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙달 포인트를 들여 직업 패시브를 배우면 장착 없이 항상 적용된다. 단계가 오를수록 효과가
-          강해지며, 직업을 바꿔도 학습 기록은 남는다.
-        </p>
-
-        {loading ? (
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-            불러오는 중…
-          </p>
-        ) : signatures.length === 0 ? (
-          <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
-            배울 직업 패시브가 없어요. 먼저 직업을 선택하세요.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-1.5">
-            {signatures.map((s) => {
-              const affordable = usable >= s.cost;
-              return (
-                <li
-                  key={s.skillId}
-                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="truncate text-sm font-semibold">
-                        {skillName(s.skillId)}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500">
-                        {s.tier}차
-                      </span>
-                    </div>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {s.effect}
-                    </p>
-                  </div>
-                  {!s.learned ? (
-                    <button
-                      type="button"
-                      onClick={() => learn(s.skillId, s.cost)}
-                      disabled={busy != null || !affordable}
-                      className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
-                    </button>
-                  ) : (
-                    <span
-                      className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300"
-                    >
-                      적용 중
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+      {specState && specState.specs.length > 0 && (
+        <V2SpecPanel spec={specState} onChanged={refresh} />
+      )}
 
       {!loading && elementalSkills.length > 0 && (
         <Card padding="md">
-          <h2 className="text-sm font-semibold">스킬</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">스킬</h2>
+            <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <span>
+                숙달 포인트{" "}
+                <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                  {usable}
+                </strong>
+              </span>
+              <span>
+                장착{" "}
+                <strong className="tabular-nums text-sky-600 dark:text-sky-400">
+                  {equippedCount}/{slots}
+                </strong>
+              </span>
+            </div>
+          </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             장착한 스킬만 전투에서 자동 발동하며, 슬롯은 레벨에 비례해 늘어납니다.
           </p>

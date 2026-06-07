@@ -85,16 +85,25 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gold, setGold] = useState<number | null>(null);
+  // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
+  const [confirmBuy, setConfirmBuy] = useState<Listing | null>(null);
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<"all" | "equip" | "material">("all");
+  const [slotFilter, setSlotFilter] = useState<"all" | V2EquipSlot>("all");
+  const [sort, setSort] = useState<"new" | "price_asc" | "price_desc" | "roll_desc">("new");
 
   const loadBrowse = useCallback(async (mineOnly: boolean) => {
     const res = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
     const j = (await res.json().catch(() => null)) as {
       ok?: boolean;
       viewerId?: string;
+      viewerGold?: number;
       listings?: Listing[];
     } | null;
     if (!res.ok || !j?.ok) throw new Error(`목록 로드 실패 (${res.status})`);
     if (j.viewerId) setViewerId(j.viewerId);
+    if (typeof j.viewerGold === "number") setGold(j.viewerGold);
     if (mineOnly) setMine(j.listings ?? []);
     else setListings(j.listings ?? []);
   }, []);
@@ -200,11 +209,46 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     (id) => (materials[id] ?? 0) > 0,
   );
 
+  // 둘러보기 표시 매물 — 클라이언트측 필터(종류/슬롯/검색) + 정렬. 반환된 활성 매물 위에서만.
+  const slotOf = (l: Listing): V2EquipSlot | null =>
+    l.kind === "equip" ? (V2_EQUIPMENT[l.itemId as keyof typeof V2_EQUIPMENT]?.slot ?? null) : null;
+  const rollPctOfListing = (l: Listing): number =>
+    l.kind === "equip"
+      ? (equipDetail(l.itemId, (l.instancePayload as V2EquipRoll | null) ?? undefined)?.pct ?? -1)
+      : -1;
+  const q = search.trim().toLowerCase();
+  const displayedListings = (listings ?? [])
+    .filter((l) => kindFilter === "all" || l.kind === kindFilter)
+    .filter((l) => slotFilter === "all" || slotOf(l) === slotFilter)
+    .filter((l) => !q || l.itemName.toLowerCase().includes(q))
+    .slice()
+    .sort((a, b) => {
+      if (sort === "price_asc") return a.price - b.price;
+      if (sort === "price_desc") return b.price - a.price;
+      if (sort === "roll_desc") return rollPctOfListing(b) - rollPctOfListing(a);
+      return 0; // new — 서버 최신순 유지
+    });
+
+  // 구매 확인 모달에서 확정.
+  const confirmedBuy = () => {
+    const l = confirmBuy;
+    if (!l) return;
+    setConfirmBuy(null);
+    void buy(l);
+  };
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <BackButton onClick={onBack} />
-        <h1 className="mt-1 text-lg font-bold">거래소</h1>
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <h1 className="text-lg font-bold">거래소</h1>
+          {gold !== null && (
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              보유 {gold.toLocaleString()}골드
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           다른 모험가와 장비·재료를 사고팝니다. 판매 시 대금의 {Math.round(TAX_RATE_DISPLAY * 100)}%가 거래세로 빠집니다.
         </p>
@@ -235,24 +279,67 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       {error && <div className="text-sm text-rose-600 dark:text-rose-400">{error}</div>}
 
       {tab === "browse" && (
-        <ListingList
-          rows={listings}
-          emptyText="등록된 매물이 없어요."
-          action={(l) =>
-            l.sellerId === viewerId ? (
-              <span className="shrink-0 text-[11px] text-zinc-400">내 매물</span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => buy(l)}
-                disabled={busy}
-                className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-              >
-                구매
-              </button>
-            )
-          }
-        />
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <input
+              type="text"
+              placeholder="이름 검색"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <SelectControl
+              value={kindFilter}
+              onChange={(v) => setKindFilter(v as typeof kindFilter)}
+              options={[
+                ["all", "전체 종류"],
+                ["equip", "장비"],
+                ["material", "재료"],
+              ]}
+            />
+            <SelectControl
+              value={slotFilter}
+              onChange={(v) => setSlotFilter(v as typeof slotFilter)}
+              options={[
+                ["all", "전체 부위"],
+                ["weapon", "무기"],
+                ["armor", "갑옷"],
+                ["gloves", "장갑"],
+                ["boots", "신발"],
+                ["ring", "반지"],
+                ["necklace", "목걸이"],
+              ]}
+            />
+            <SelectControl
+              value={sort}
+              onChange={(v) => setSort(v as typeof sort)}
+              options={[
+                ["new", "최신순"],
+                ["price_asc", "가격↑"],
+                ["price_desc", "가격↓"],
+                ["roll_desc", "굴림%↓"],
+              ]}
+            />
+          </div>
+          <ListingList
+            rows={listings === null ? null : displayedListings}
+            emptyText={listings && listings.length > 0 ? "조건에 맞는 매물이 없어요." : "등록된 매물이 없어요."}
+            action={(l) =>
+              l.sellerId === viewerId ? (
+                <span className="shrink-0 text-[11px] text-zinc-400">내 매물</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmBuy(l)}
+                  disabled={busy}
+                  className="shrink-0 rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                >
+                  구매
+                </button>
+              )
+            }
+          />
+        </>
       )}
 
       {tab === "mine" && (
@@ -375,7 +462,128 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           </section>
         </div>
       )}
+
+      {confirmBuy && (
+        <BuyConfirm
+          listing={confirmBuy}
+          gold={gold}
+          busy={busy}
+          onConfirm={confirmedBuy}
+          onCancel={() => setConfirmBuy(null)}
+        />
+      )}
     </main>
+  );
+}
+
+// 구매 확인 모달 — 골드가 HP 회복 통화라 오클릭 방지. 잔액 부족이면 확정 비활성.
+function BuyConfirm({
+  listing,
+  gold,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  listing: Listing;
+  gold: number | null;
+  busy: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const detail =
+    listing.kind === "equip"
+      ? equipDetail(listing.itemId, (listing.instancePayload as V2EquipRoll | null) ?? undefined)
+      : null;
+  const enough = gold === null || gold >= listing.price;
+  const after = gold === null ? null : gold - listing.price;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-700 dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-bold">구매 확인</h2>
+        <div className="mt-3 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-medium">{listing.itemName}</span>
+            {listing.kind === "material" && listing.quantity > 1 && (
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{listing.quantity}</span>
+            )}
+            {detail?.pct != null && (
+              <span className="text-[11px] text-amber-600 dark:text-amber-400">굴림 {detail.pct}%</span>
+            )}
+          </div>
+          {detail && (
+            <div className="text-[11px] text-zinc-600 dark:text-zinc-300">{detail.line}</div>
+          )}
+        </div>
+        <div className="mt-3 space-y-0.5 text-sm">
+          <div className="flex justify-between">
+            <span className="text-zinc-500 dark:text-zinc-400">가격</span>
+            <span className="font-medium text-amber-700 dark:text-amber-400">
+              {listing.price.toLocaleString()}골드
+            </span>
+          </div>
+          {gold !== null && (
+            <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
+              <span>구매 후 골드</span>
+              <span className={enough ? "" : "text-rose-600 dark:text-rose-400"}>
+                {gold.toLocaleString()} → {(after ?? 0).toLocaleString()}
+              </span>
+            </div>
+          )}
+        </div>
+        {!enough && (
+          <div className="mt-2 text-xs text-rose-600 dark:text-rose-400">골드가 부족해요.</div>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy || !enough}
+            className="flex-1 rounded-md border border-emerald-700 bg-emerald-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            구매
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          >
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 셀렉트 컨트롤 — 둘러보기 필터/정렬.
+function SelectControl({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: [string, string][];
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+    >
+      {options.map(([v, label]) => (
+        <option key={v} value={v}>
+          {label}
+        </option>
+      ))}
+    </select>
   );
 }
 

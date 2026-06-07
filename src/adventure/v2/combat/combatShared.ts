@@ -26,6 +26,7 @@ import type { StatKey } from "@/adventure/data/stats";
 import type { PlayerCombat } from "./engine";
 import {
   evaluateCombatPattern,
+  V2_PATTERN_DOT_POWER_MULT,
   V2_PATTERN_SKILL_POWER_MULT,
   type V2CombatPattern,
   type V2PatternCtx,
@@ -109,6 +110,17 @@ export function rollAttackCount(player: PlayerCombat): number {
   const remainder = chance - guaranteed * 100;
   const extra = guaranteed + (Math.random() * 100 < remainder ? 1 : 0);
   return base + extra;
+}
+
+// 평타 데미지 하한 비율 — 평타는 def 가 atk 를 초과해도 atk 의 이 비율은 보장(0 딜 방지).
+//   v2DamageAmount(스킬)의 minDamage 하한과는 별개 — 평타 전용 바닥이다.
+export const DAMAGE_FLOOR_FRACTION = 0.15;
+
+// 평타 1타 데미지 = max(1, ceil(atk×하한비율), atk−def). 엔진 평타·패턴 "평타 바닥" 모델 공유.
+//   (구 engine.ts 정의를 여기로 이전 — combatShared 가 더 하위 레이어라 engine 이 재노출.)
+export function damageBetween(atk: number, def: number): number {
+  const minByAtk = Math.ceil(Math.max(0, atk) * DAMAGE_FLOOR_FRACTION);
+  return Math.max(1, minByAtk, atk - def);
 }
 
 // 포션 회복량(정수, 현재 HP 클램프 전). computeHealAmount 에 potionHealPct(연단의 룬 등) 가산.
@@ -486,6 +498,9 @@ export type V2SkillCastInput = {
   attacker: {
     mp: number;
     atk: number;
+    // 한 턴 평타 횟수(>=1). 패턴 경로 "평타 기준 보너스" 모델의 평타 바닥 = 단타 평타 × 이 값.
+    // 미지정=1(구 호출·테스트 호환). 패턴 경로(viaPattern)에서만 쓰인다.
+    attackCount?: number;
     // 마법 공격력(INT 환산). 미지정이면 v2DamageAmount 가 atk 로 폴백 — 적·구 호출 무영향.
     // scaling="magic" 데미지 스킬만 이 값을 쓴다.
     magicAtk?: number;
@@ -742,31 +757,69 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
         : input.target.magicVulnStacks ?? 0;
       dealDamage(damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier) + stacks * effect.perStackFlat, effect.scaling));
     } else if (effect.kind === "dot") {
+      // 패턴 경로 DoT throttle — 확정 발동으로 자주 적용되는 DoT 틱 위력을 깎는다(평타 바닥 보호로
+      //   직타는 안 깎이므로 DoT 만 줄여도 빌드가 평타 이하로 안 떨어짐). off/몹 cast 는 미적용.
+      const dm = viaPattern ? V2_PATTERN_DOT_POWER_MULT : 1;
       dotsToApplyToTarget.push({
         tag: effect.tag,
         label: effect.label,
         stacks: effect.stacks,
         maxStacks: effect.maxStacks,
         turns: effect.turns,
-        flatPerStack: effect.flatPerStack,
-        atkCoefPerStack: effect.atkCoefPerStack,
-        pctMaxHpPerStack: effect.pctMaxHpPerStack,
+        flatPerStack: effect.flatPerStack * dm,
+        atkCoefPerStack: effect.atkCoefPerStack * dm,
+        pctMaxHpPerStack: effect.pctMaxHpPerStack * dm,
         sourceAtk: input.attacker.atk,
       });
     }
   }
   // 4) MP 차감(+명상 회복) + cd 세팅 (cd=N → N+1 저장으로 다음 tick 후 정확히 N 유지).
   // 패턴 경로(proc 은퇴 — 위력 중립 재밸런스): proc 없이 확정 발동이라 스킬 빈도가 ~5배.
-  //   빈도는 갬빗답게 두되, 스킬 피해·회복에 V2_PATTERN_SKILL_POWER_MULT 를 곱해 총 위력(처치
-  //   시간)을 옛 proc 수준으로 맞춘다(단일 다이얼, sim 캘리브). hitDamages 는 비율용이라 미스케일
-  //   (엔진이 enemyDamage 총합을 distributeBoostedHits 로 재분배). DoT/버프는 1차 미적용(후속).
+  //   "평타 기준 보너스" 모델 — 스킬 피해를 단순 ×배율로 깎으면 강스킬은 중립이어도 약스킬·DoT
+  //   빌드는 평타 이하로 떨어져 너프된다(빌드별 중립 불가). 대신 평타 바닥(평타로 때렸을 한 턴
+  //   피해)은 보존하고 그 위 초과분만 V2_PATTERN_SKILL_POWER_MULT 로 깎는다:
+  //     패턴피해 = 평타바닥 + max(0, 스킬피해 − 평타바닥) × mult
+  //   → 어떤 스킬도 평타보다 나빠지지 않고(바닥 보장), 패턴이 주는 "초과 위력"만 중립화. 평타바닥은
+  //   스킬 주피해 속성(마법/물리)·attackCount 로 산출(damageBetween — 엔진 평타와 동일 공식).
+  //   hitDamages 는 비율용이라 미스케일(엔진이 enemyDamage 총합을 distributeBoostedHits 로 재분배).
+  //   DoT 는 평타 등가가 없어 위 모델 대신 V2_PATTERN_DOT_POWER_MULT 로 별도 throttle(위 dot 분기).
+  //   selfHeal 도 동일 ×skillMult throttle. 버프/디버프/마나회복은 미적용.
   const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT : 1;
+  const scaledEnemyDamage = ((): number => {
+    if (!viaPattern || enemyDamage <= 0) return enemyDamage;
+    // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
+    //   하나라도 있으면 마법 평타로(마법사 평타 등가), 아니면 물리 평타로 바닥을 잡는다.
+    //   (물리+마법 혼합 효과 스킬은 전체 바닥을 마법으로 잡게 되나, 현 데이터엔 혼합 스킬 없음.)
+    const magic = def.effects.some(
+      (e) =>
+        (e.kind === "damage" ||
+          e.kind === "hpCostDamage" ||
+          e.kind === "executeDamage" ||
+          e.kind === "stackPayoffDamage" ||
+          e.kind === "healToDamage") &&
+        e.scaling === "magic",
+    );
+    // 평타 1타 = damageBetween(유효 atk, 유효 def) — 엔진 평타와 동일 공식(minDamage 하한이 아닌
+    //   atk×0.15 하한). 마법 스킬이면 마법 평타(마공 vs 물방, PvE 평타와 동일). v2 자버프/적 def
+    //   버프 곱은 엔진 평타(engine.ts v2EffectiveAtk/Def)와 맞춘다. 상황 보너스(크리·AP·속성)는 제외.
+    const basicPower = magic
+      ? input.attacker.magicAtk ?? input.attacker.atk
+      : input.attacker.atk;
+    const atkMult = v2AtkBuffMult(input.attacker.selfBuffs, input.attacker.selfDebuffs);
+    const defMult = v2DefBuffMult(input.target.selfBuffs, input.target.selfDebuffs);
+    const effAtk = atkMult !== 1 ? Math.floor(basicPower * atkMult) : basicPower;
+    const effDef = defMult !== 1 ? Math.floor(input.target.def * defMult) : input.target.def;
+    const basicFloor =
+      damageBetween(effAtk, effDef) * Math.max(1, input.attacker.attackCount ?? 1);
+    const surplus = Math.max(0, enemyDamage - basicFloor);
+    return Math.round(basicFloor + surplus * V2_PATTERN_SKILL_POWER_MULT);
+  })();
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,
     nextCooldowns: { ...ticked, [id]: def.cooldown + 1 },
     castSkillId: id,
     castSkillName: def.name,
-    enemyDamage: skillMult === 1 ? enemyDamage : Math.round(enemyDamage * skillMult),
+    enemyDamage: scaledEnemyDamage,
     hitDamages,
     selfHeal: skillMult === 1 ? selfHeal : Math.round(selfHeal * skillMult),
     selfBuffsToApply,

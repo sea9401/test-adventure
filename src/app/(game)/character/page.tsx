@@ -6,7 +6,7 @@ import {
   type CharacterAction,
 } from "@/adventure/v2/V2CharacterMenu";
 
-// /character — 캐릭터 탭 home. 내 정보/인벤토리/스킬/모험의 서 진입.
+// /character — 캐릭터 탭 home. 내 정보/인벤토리/스킬/전투 패턴/성장의 신전/모험의 서 진입.
 export default function CharacterPage() {
   const router = useRouter();
   return (
@@ -24,6 +24,9 @@ export default function CharacterPage() {
             break;
           case "open-combat-pattern":
             router.push("/character/combat-pattern");
+            break;
+          case "open-shrine":
+            router.push("/character/shrine");
             break;
           case "open-codex":
             router.push("/character/codex");

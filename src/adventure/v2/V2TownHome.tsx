@@ -5,20 +5,18 @@ import {
   Fish,
   Hammer,
   MagnifyingGlass,
-  Sparkle,
   Storefront,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 치료소·상점·수행(숙련도 cap)·학습(시그니처)·대장간(재료 직접 제작) 동작.
+// 치료소·상점·대장간·낚시·보물 동작. 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
 // 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
 export type TownAction =
   | { kind: "open-healing" }
   | { kind: "open-shop" }
   | { kind: "open-smithy" }
-  | { kind: "open-shrine" }
   | { kind: "open-fishing" }
   | { kind: "open-treasure" };
 
@@ -49,12 +47,6 @@ export function V2TownHome({
           title="상점"
           description="HP·MP 물약을 구매. 골드를 들고 들르는 곳."
           onClick={() => onAction({ kind: "open-shop" })}
-        />
-        <EntryCard
-          icon={<Sparkle size={28} weight="duotone" className="text-violet-400" />}
-          title="성장의 신전"
-          description="숙달 포인트로 능력치의 한계를 끌어올리는 곳."
-          onClick={() => onAction({ kind: "open-shrine" })}
         />
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}

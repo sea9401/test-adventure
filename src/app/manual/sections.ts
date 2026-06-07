@@ -88,7 +88,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "town",
     title: "마을 시설",
-    summary: "치료소·상점·성장의 신전·대장간·낚시터·발굴 감정소.",
+    summary: "치료소·상점·대장간·낚시터·발굴 감정소.",
     group: "world",
   },
   {

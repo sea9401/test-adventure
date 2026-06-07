@@ -4,6 +4,7 @@ import {
   Backpack,
   BookOpen,
   Lightning,
+  Sparkle,
   Strategy,
   UserCircle,
 } from "@phosphor-icons/react";
@@ -18,6 +19,7 @@ export type CharacterAction =
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
   | { kind: "open-combat-pattern" }
+  | { kind: "open-shrine" }
   | { kind: "open-codex" };
 
 export function V2CharacterMenu({
@@ -65,6 +67,14 @@ export function V2CharacterMenu({
             onClick={() => onAction({ kind: "open-combat-pattern" })}
           />
         )}
+        <EntryCard
+          icon={
+            <Sparkle size={28} weight="duotone" className="text-violet-400" />
+          }
+          title="성장의 신전"
+          description="숙달 포인트로 능력치의 한계를 끌어올리는 곳."
+          onClick={() => onAction({ kind: "open-shrine" })}
+        />
         <EntryCard
           icon={
             <BookOpen size={28} weight="duotone" className="text-sky-500" />

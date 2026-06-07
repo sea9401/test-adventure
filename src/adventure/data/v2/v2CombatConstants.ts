@@ -9,7 +9,11 @@
 export const V2_BASE_MISS_PCT = 10;
 
 export const POWER_ATTACK_TURN_INTERVAL = 3;
-export const CRIT_MULT_BASE = 2.0;
+// 치명타 기본 배수 — 모든 크리가 받는 바닥값. 2.0→1.4 하향(2026-06-08): ×2 base 는 무투자
+//   크리도 이미 큰 한방이라 크리가 지배적·스윙적(자동전투 원샷 압박)이었다. 1.4 로 낮춰 "무투자
+//   크리=스파이크, 큰 크리=LUK 투자 보상"으로 교정. LUK 보전 위해 CRIT_DMG_PER_LUK 0.006→0.007
+//   동반(derivePlayerCombatV2). 고럭 엔드빌드는 cap(5.0) 바인딩이라 거의 불변, 무/저투자 크리만 약화.
+export const CRIT_MULT_BASE = 1.4;
 // 스킬(액티브) 치명타 배수 — 평타와 같은 크리 확률(min(critChancePct, CRIT_PCT_CAP))을 공유하되,
 // 곱해지는 배수는 평타 critMult(LUK 비례 2~5×)와 분리한 별도 고정 다이얼. 스킬은 계수·발동이 평타보다
 // 커서 평타 배수를 그대로 곱하면 폭주(특히 프론티어 critMult 4~5× 구간) → flat 으로 캡. 오버플로(캡

@@ -248,26 +248,26 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
 });
 
 describe("derivePlayerCombatV2Pure critMult (PR-luk-critdmg — LUK 크리 데미지)", () => {
-  it("luk 미투자(물리빌드) → critMult ≈ base 2.0 (+ 베이스 luk 15)", () => {
+  it("luk 미투자(물리빌드) → critMult ≈ base 1.4 (+ 베이스 luk 15)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
-    // PR-2 strict §4: critMult = base 2.0 + luk 15×0.006 + str 15×0.002 (행운 major + 힘 minor).
+    // critMult = base 1.4 + luk 15×0.007 + str 15×0.002 (행운 major + 힘 minor). 2026-06-08 base 2.0→1.4·perluk 0.006→0.007.
     expect(d.totalStats.luk).toBe(15);
-    expect(d.player.critMult).toBeCloseTo(2.0 + 15 * 0.006 + 15 * 0.002);
+    expect(d.player.critMult).toBeCloseTo(1.4 + 15 * 0.007 + 15 * 0.002);
   });
 
-  it("luk 투자 → critMult = 2.0 + luk × 0.006 (투자 비례 크리 데미지)", () => {
+  it("luk 투자 → critMult = 1.4 + luk × 0.007 (투자 비례 크리 데미지)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 200, int: 0 },
       v2Equipped: {},
     });
-    // 베이스 15 + 투자 200 = 215. critMult = 2.0 + 215×0.006 + str 15×0.002 (힘 minor).
+    // 베이스 15 + 투자 200 = 215. critMult = 1.4 + 215×0.007 + str 15×0.002 (힘 minor).
     expect(d.totalStats.luk).toBe(215);
-    expect(d.player.critMult).toBeCloseTo(2.0 + 215 * 0.006 + 15 * 0.002);
+    expect(d.player.critMult).toBeCloseTo(1.4 + 215 * 0.007 + 15 * 0.002);
   });
 
   it("critMult 안전 상한 cap 5.0 — 극단 luk 도 초과 안 함", () => {

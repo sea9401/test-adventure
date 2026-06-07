@@ -1,17 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_DAILY_MATCHES,
+  ARENA_MATCH_COOLDOWN_MS,
   RECENT_OPPONENT_TRACK,
   SCORE_LOSS,
   SCORE_UPSET_BONUS,
   SCORE_UPSET_PENALTY,
   SCORE_WIN,
-  applyDailyReset,
+  arenaCooldownRemainingMs,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
   defaultArenaState,
-  nextKstMidnight,
   parseArenaState,
   pushRecentOpponent,
   weightForCandidate,
@@ -65,42 +64,35 @@ describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
   });
 });
 
-describe("nextKstMidnight", () => {
-  it("KST 자정은 UTC 의 전날 15:00", () => {
-    // UTC 2026-05-26T10:00:00Z = KST 2026-05-26T19:00. 다음 KST 자정 = 2026-05-27T00:00 KST = 2026-05-26T15:00Z
-    const now = new Date("2026-05-26T10:00:00Z");
-    const next = nextKstMidnight(now);
-    expect(next.toISOString()).toBe("2026-05-26T15:00:00.000Z");
-  });
-
-  it("KST 자정 정각 직후엔 다음 날 자정으로 넘어감", () => {
-    // UTC 15:00:01 (= KST 00:00:01) → 다음 자정 = 다음날 KST 00:00
-    const now = new Date("2026-05-26T15:00:01Z");
-    const next = nextKstMidnight(now);
-    expect(next.toISOString()).toBe("2026-05-27T15:00:00.000Z");
-  });
-});
-
 describe("parseArenaState", () => {
-  const now = new Date("2026-05-26T10:00:00Z");
-
   it("null/undefined 면 기본값", () => {
-    const s = parseArenaState(null, now);
+    const s = parseArenaState(null);
     expect(s.score).toBe(0);
-    expect(s.dailyUsed).toBe(0);
     expect(s.recentOpponents).toEqual([]);
     expect(s.milestonesReached).toEqual([]);
+    // 기본 lastMatchAt = 에폭 → 쿨타임 없음(즉시 도전 가능).
+    expect(new Date(s.lastMatchAt).getTime()).toBe(0);
   });
 
   it("부분 필드만 있어도 안전 처리", () => {
-    const s = parseArenaState({ score: 42 }, now);
+    const s = parseArenaState({ score: 42 });
     expect(s.score).toBe(42);
-    expect(s.dailyUsed).toBe(0);
   });
 
   it("음수 점수는 0 으로 클램프", () => {
-    const s = parseArenaState({ score: -50 }, now);
+    const s = parseArenaState({ score: -50 });
     expect(s.score).toBe(0);
+  });
+
+  it("lastMatchAt 문자열 보존, 빈/비문자열은 기본값(에폭)", () => {
+    const iso = "2026-06-08T00:00:00.000Z";
+    expect(parseArenaState({ lastMatchAt: iso }).lastMatchAt).toBe(iso);
+    expect(
+      new Date(parseArenaState({ lastMatchAt: "" }).lastMatchAt).getTime(),
+    ).toBe(0);
+    expect(
+      new Date(parseArenaState({ lastMatchAt: 123 }).lastMatchAt).getTime(),
+    ).toBe(0);
   });
 
   it("recentOpponents 알 수 없는 항목 제거 + cap", () => {
@@ -113,7 +105,7 @@ describe("parseArenaState", () => {
       { userId: "u4", at: "b" },
       { userId: "u5", at: "c" },
     ];
-    const s = parseArenaState({ recentOpponents: opps }, now);
+    const s = parseArenaState({ recentOpponents: opps });
     expect(s.recentOpponents.length).toBeLessThanOrEqual(RECENT_OPPONENT_TRACK);
     expect(s.recentOpponents.map((o) => o.userId ?? o.botId)).toEqual([
       "b1",
@@ -125,45 +117,41 @@ describe("parseArenaState", () => {
   });
 
   it("기타 모르는 필드는 무시", () => {
-    const s = parseArenaState({ extraStuff: 1, score: 10 }, now);
+    const s = parseArenaState({ extraStuff: 1, score: 10 });
     expect(s.score).toBe(10);
   });
 });
 
-describe("applyDailyReset", () => {
-  it("dailyResetAt 이 과거면 dailyUsed=0 으로 리셋", () => {
-    const now = new Date("2026-05-26T10:00:00Z");
+describe("arenaCooldownRemainingMs", () => {
+  const now = new Date("2026-06-08T12:00:00.000Z");
+
+  it("최근 매치가 쿨타임 이내면 남은 ms (>0)", () => {
     const state = {
-      ...defaultArenaState(now),
-      dailyUsed: 7,
-      dailyResetAt: "2026-05-25T15:00:00.000Z", // 과거
+      ...defaultArenaState(),
+      lastMatchAt: new Date(now.getTime() - 3000).toISOString(),
     };
-    const { state: next, wasReset } = applyDailyReset(state, now);
-    expect(wasReset).toBe(true);
-    expect(next.dailyUsed).toBe(0);
-    expect(new Date(next.dailyResetAt).getTime()).toBeGreaterThan(now.getTime());
+    expect(arenaCooldownRemainingMs(state, now)).toBe(
+      ARENA_MATCH_COOLDOWN_MS - 3000,
+    );
   });
 
-  it("dailyResetAt 이 미래면 noop", () => {
-    const now = new Date("2026-05-26T10:00:00Z");
+  it("쿨타임 경과 후엔 0", () => {
     const state = {
-      ...defaultArenaState(now),
-      dailyUsed: 3,
-      dailyResetAt: "2026-05-27T15:00:00.000Z",
+      ...defaultArenaState(),
+      lastMatchAt: new Date(
+        now.getTime() - ARENA_MATCH_COOLDOWN_MS - 1,
+      ).toISOString(),
     };
-    const { state: next, wasReset } = applyDailyReset(state, now);
-    expect(wasReset).toBe(false);
-    expect(next.dailyUsed).toBe(3);
+    expect(arenaCooldownRemainingMs(state, now)).toBe(0);
   });
 
-  it("dailyResetAt 파싱 불능이면 안전하게 리셋", () => {
-    const now = new Date("2026-05-26T10:00:00Z");
-    const state = {
-      ...defaultArenaState(now),
-      dailyResetAt: "garbage",
-    };
-    const { wasReset } = applyDailyReset(state, now);
-    expect(wasReset).toBe(true);
+  it("기본 상태(lastMatchAt 에폭)는 쿨타임 0 — 즉시 도전 가능", () => {
+    expect(arenaCooldownRemainingMs(defaultArenaState(), now)).toBe(0);
+  });
+
+  it("lastMatchAt 파싱 불능이면 0", () => {
+    const state = { ...defaultArenaState(), lastMatchAt: "garbage" };
+    expect(arenaCooldownRemainingMs(state, now)).toBe(0);
   });
 });
 
@@ -289,8 +277,8 @@ describe("applyScoreDelta", () => {
   });
 });
 
-describe("Daily cap constant sanity", () => {
-  it("MAX_DAILY_MATCHES 는 의도된 1차 다이얼 값 (9.1 확정 = 10)", () => {
-    expect(MAX_DAILY_MATCHES).toBe(10);
+describe("Cooldown 다이얼 sanity", () => {
+  it("ARENA_MATCH_COOLDOWN_MS = 10초", () => {
+    expect(ARENA_MATCH_COOLDOWN_MS).toBe(10_000);
   });
 });

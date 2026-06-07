@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
     const skills = parseV2SkillsState(skillsRaw);
-    // 차수(도달차수 복귀·계파 스킬 차수 해금)에 사용 — 항상 읽는다(락 순서 character→skills→proficiency).
+    // 차수(도달차수 복귀·전문화 스킬 차수 해금)에 사용 — 항상 읽는다(락 순서 character→skills→proficiency).
     const prof = parseProficiencyForChar(
       await lockSaveForUpdate<V2ProficiencyState>(
         tx,
@@ -140,10 +140,10 @@ export async function POST(req: Request) {
     // 도달 차수로 복귀해도 레벨은 1부터(차수 사이 50까지 재성장). 첫 선택·속성만 변경은 레벨 유지.
     const nextLevel = groupChanged ? 1 : level;
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 직업(군) 변경 시 learned 불변,
-    // equipped 는 PRUNE 만 — 장착 가능 = 공용 + 선택 계파의 차수 해금분.
+    // equipped 는 PRUNE 만 — 장착 가능 = 공용 + 선택 전문화의 차수 해금분.
     // 새 그룹 풀 밖/미학습 제거 + 슬롯 절단(리셋 후 레벨 기준).
-    // 직업군 변경 시엔 계파가 비워지므로(아래) 공용만, 유지면 기존 계파 풀 적용.
-    // 차수 — 새 직군(또는 유지 직군)의 도달 차수로 계파 스킬 해금분을 게이팅(차수당 1개).
+    // 직업군 변경 시엔 전문화가 비워지므로(아래) 공용만, 유지면 기존 전문화 풀 적용.
+    // 차수 — 새 직군(또는 유지 직군)의 도달 차수로 전문화 스킬 해금분을 게이팅(차수당 1개).
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
     const effectiveTier =
@@ -210,8 +210,8 @@ export async function POST(req: Request) {
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
     };
-    // 계파(spec)는 직업 종속 — 직업군 변경 시 옛 계파/해금 패시브를 비운다(새 직업 계파 재선택).
-    // (안 비우면 stale specChoice 가 새 직업 계파 선택을 잠그고 derive 누수 위험.)
+    // 전문화(spec)는 직업 종속 — 직업군 변경 시 옛 전문화/해금 패시브를 비운다(새 직업 전문화 재선택).
+    // (안 비우면 stale specChoice 가 새 직업 전문화 선택을 잠그고 derive 누수 위험.)
     if (groupChanged) {
       delete charUpdate.specChoice;
       delete charUpdate.unlockedPassives;

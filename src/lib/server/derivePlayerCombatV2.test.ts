@@ -424,7 +424,7 @@ describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
   });
 });
 
-describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job-spec-passives-plan)", () => {
+describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-job-spec-passives-plan)", () => {
   const gwang = getJobSpec("warrior", "gwang")!; // 광검(대검 게이트)
   const knight = getJobSpec("warrior", "knight")!; // 기사(검방 게이트)
   const base = {
@@ -433,7 +433,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId }, // weaponType: greatsword
   };
 
-  it("계파 미지정 = 효과 없음(inert) — 계파 필드 미설정", () => {
+  it("전문화 미지정 = 효과 없음(inert) — 전문화 필드 미설정", () => {
     const d = derivePlayerCombatV2Pure(base);
     expect(d.player.passiveDefPenetrationPct).toBeUndefined();
     expect(d.player.passiveDamageTakenReductionPct).toBeUndefined();
@@ -647,7 +647,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
   });
 
   it("무기 게이트 불통과(미태깅 무기) = 완전 비활성", () => {
-    // 정규 무기는 이제 전부 계파타입 태깅 → 미태깅은 제작무기(v2_meadow_bow)뿐.
+    // 정규 무기는 이제 전부 전문화타입 태깅 → 미태깅은 제작무기(v2_meadow_bow)뿐.
     // greatsword 가 아니므로 광검 게이트 불통과.
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,
@@ -701,7 +701,7 @@ describe("derivePlayerCombatV2Pure 계파(스펙) 패시브 (P3c — docs/v2-job
     expect(gwang3.player.atk).toBe(Math.floor(knight3.player.atk * 1.08));
   });
 
-  it("직업 특성은 계파 시그니처와 합산 — 사제 신성회복(4) + 신성 특성(차수4=+6) = 턴회복 10", () => {
+  it("직업 특성은 전문화 시그니처와 합산 — 사제 신성회복(4) + 신성 특성(차수4=+6) = 턴회복 10", () => {
     const d = derivePlayerCombatV2Pure({
       ...base,
       v2Equipped: { weapon: "v2_starter_staff" as V2EquipmentId },

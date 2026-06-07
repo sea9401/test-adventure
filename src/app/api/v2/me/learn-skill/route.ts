@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       charSave,
     );
     const tier = prof.groups[group]?.tier ?? 1;
-    // 학습 가능 = 공용(직군) + 선택 계파(전직)의 차수 해금분(차수당 1개)만. 계파 미선택이면 공용만.
+    // 학습 가능 = 공용(직군) + 선택 전문화(전직)의 차수 해금분(차수당 1개)만. 전문화 미선택이면 공용만.
     const specChoice =
       typeof charSave.specChoice === "string" ? charSave.specChoice : null;
     const elementalPool = elementalSkillsForClass(cls, specChoice, tier);
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 스킬 종류별 고정(v2SkillLearnCost): 공용 1500 · 계파 5000.
+    // 비용 — 스킬 종류별 고정(v2SkillLearnCost): 공용 1500 · 전문화 5000.
     const cost = v2SkillLearnCost(sig);
 
     const spent = spendProficiency(prof, group, cost);

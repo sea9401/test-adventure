@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { V2SpecPanel, type V2SpecState } from "@/adventure/v2/V2SpecPanel";
 
-// 계파(spec) 패널 프리뷰 — 로그인 없이 선택/픽 UI + 직업 특성 표기 확인.
+// 전문화(spec) 패널 프리뷰 — 로그인 없이 선택/픽 UI + 직업 특성 표기 확인.
 // (prod 404 은 /dev layout 가드.) 차수 3 기준 특성 effectText 환산값 노출.
 
-// 전사 3계파 mock — 시그니처 + 직업 특성(차수 3 = 차수당 ×2). API 응답 모양과 동일.
+// 전사 3전문화 mock — 시그니처 + 직업 특성(차수 3 = 차수당 ×2). API 응답 모양과 동일.
 const WARRIOR_SPECS: V2SpecState["specs"] = [
   {
     id: "gwang",

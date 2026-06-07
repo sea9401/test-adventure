@@ -6,34 +6,34 @@ import {
 } from "./v2Skills";
 import { elementalSkillsForClass } from "./classes";
 
-// 구 원소 풀(직업군 × 속성 42종)은 은퇴·제거됨. 남은 elementalSkillsForClass 의 공용 + 계파
+// 구 원소 풀(직업군 × 속성 42종)은 은퇴·제거됨. 남은 elementalSkillsForClass 의 공용 + 전문화
 // (전직·차수) 게이팅만 검증한다. (함수명 elementalSkillsForClass 는 레거시 — 호출부 호환.)
-describe("elementalSkillsForClass — 공용 + 계파(전직·차수) 게이팅", () => {
-  it("공용은 항상, 계파 스킬은 선택 계파(전직)일 때만 노출", () => {
-    // 계파 미선택 → 공용만(계파 숨김). 전사=5공용, 마법사=4공용(마력구 패시브 제외).
+describe("elementalSkillsForClass — 공용 + 전문화(전직·차수) 게이팅", () => {
+  it("공용은 항상, 전문화 스킬은 선택 전문화(전직)일 때만 노출", () => {
+    // 전문화 미선택 → 공용만(전문화 숨김). 전사=5공용, 마법사=4공용(마력구 패시브 제외).
     const warriorNoSpec = elementalSkillsForClass("warrior");
     expect(warriorNoSpec).toContain("v2c_warrior_strike"); // 공용
-    expect(warriorNoSpec).not.toContain("v2s_gwang_greatcleave"); // 계파 미선택 → 숨김
+    expect(warriorNoSpec).not.toContain("v2s_gwang_greatcleave"); // 전문화 미선택 → 숨김
     expect(warriorNoSpec).toHaveLength(5);
     expect(elementalSkillsForClass("mage")).toHaveLength(4); // 마력구 패시브 제외
 
-    // 계파 선택 → 공용 + 그 계파 3종만(같은 직군의 다른 계파는 숨김).
+    // 전문화 선택 → 공용 + 그 전문화 3종만(같은 직군의 다른 전문화는 숨김).
     const gwang = elementalSkillsForClass("warrior", "gwang");
     expect(gwang).toContain("v2c_warrior_strike"); // 공용 유지
-    expect(gwang).toContain("v2s_gwang_greatcleave"); // 선택 계파
-    expect(gwang).not.toContain("v2s_knight_shieldbash"); // 다른 계파 숨김
+    expect(gwang).toContain("v2s_gwang_greatcleave"); // 선택 전문화
+    expect(gwang).not.toContain("v2s_knight_shieldbash"); // 다른 전문화 숨김
     expect(gwang).toHaveLength(5 + 3);
 
-    // 직군 불일치 stale 계파(도적 계파 archery 를 전사에) → 교집합으로 탈락, 공용만.
+    // 직군 불일치 stale 전문화(도적 전문화 archery 를 전사에) → 교집합으로 탈락, 공용만.
     expect(elementalSkillsForClass("warrior", "archery")).toHaveLength(5);
     expect(elementalSkillsForClass("none")).toEqual([]);
     expect(elementalSkillsForClass("none", "gwang")).toEqual([]);
   });
 
-  it("계파 스킬은 차수당 1개씩 해금(2차=1·3차=2·4차=3)", () => {
+  it("전문화 스킬은 차수당 1개씩 해금(2차=1·3차=2·4차=3)", () => {
     // 배열 순서 = 해금 순서. gwang = [greatcleave(2차), skysplit(3차), resolve(4차)].
     const common = 5; // 전사 공용
-    expect(elementalSkillsForClass("warrior", "gwang", 1)).toHaveLength(common); // 1차 = 계파 0
+    expect(elementalSkillsForClass("warrior", "gwang", 1)).toHaveLength(common); // 1차 = 전문화 0
     const t2 = elementalSkillsForClass("warrior", "gwang", 2);
     expect(t2).toHaveLength(common + 1);
     expect(t2).toContain("v2s_gwang_greatcleave"); // 첫 해금
@@ -49,13 +49,13 @@ describe("elementalSkillsForClass — 공용 + 계파(전직·차수) 게이팅"
     expect(elementalSkillsForClass("warrior", "gwang")).toHaveLength(common + 3);
   });
 
-  it("학습 비용은 스킬 종류별 고정 — 공용 1500 · 계파 5000", () => {
+  it("학습 비용은 스킬 종류별 고정 — 공용 1500 · 전문화 5000", () => {
     // 공용(1차 직업) 스킬.
     expect(v2SkillLearnCost("v2c_warrior_strike")).toBe(
       V2_SKILL_LEARN_COST_COMMON,
     );
     expect(V2_SKILL_LEARN_COST_COMMON).toBe(1500);
-    // 계파 스킬은 더 비싸다.
+    // 전문화 스킬은 더 비싸다.
     expect(v2SkillLearnCost("v2s_gwang_greatcleave")).toBe(
       V2_SKILL_LEARN_COST_SPEC,
     );

@@ -16,9 +16,9 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import { lockSaveForUpdate, upsertSave, type DbExecutor } from "./savesKv";
 
-// 장착 가능 = 공용 + 선택 계파의 차수 해금분(시그니처는 패시브 전환 — learned 에만 남고 비장착,
+// 장착 가능 = 공용 + 선택 전문화의 차수 해금분(시그니처는 패시브 전환 — learned 에만 남고 비장착,
 // parseV2SkillsState 가 equipped 에서 제거). 여기서는 equipped 를 PRUNE 만 한다(자동 추가 X):
-//   - 학습 안 했거나 현 풀 밖(타계파·차수 미해금)인 장착 제거(재전직/환생/계파 변경 정리).
+//   - 학습 안 했거나 현 풀 밖(타전문화·차수 미해금)인 장착 제거(재전직/환생/전문화 변경 정리).
 //   - 레벨 슬롯 수(v2SkillSlotsForLevel, 레벨 리셋되면 줄어듦) 초과분 절단.
 // learned 는 절대 안 건드림. 플레이어가 비운/고른 슬롯은 보존(자동 채우지 않음).
 // idempotent — 이미 유효하면 noop. none(무직)/미학습 = equipped 비움.
@@ -45,7 +45,7 @@ export async function reconcileV2EquippedSkills(
   const cls = parseV2Class(charSave.class);
   const specChoice =
     typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-  // 차수 — 계파 스킬은 차수당 1개 해금(환생으로 차수 하락 시 상위 스킬 회수). lock 마지막.
+  // 차수 — 전문화 스킬은 차수당 1개 해금(환생으로 차수 하락 시 상위 스킬 회수). lock 마지막.
   const prof = parseProficiencyForChar(
     await lockSaveForUpdate<V2ProficiencyState>(
       executor,

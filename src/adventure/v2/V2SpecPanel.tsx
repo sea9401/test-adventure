@@ -3,8 +3,8 @@
 import { useCallback, useState } from "react";
 import { Card } from "@/components/ui/Card";
 
-// 계파(스펙) 선택 + 차수별 패시브 픽 패널 — 신전 "직업" 탭, V2ClassGrid 아래.
-// docs/v2-job-spec-passives-plan.md §5. 2차 전직부터 계파 선택, 전직마다 패시브 1픽.
+// 전문화(스펙) 선택 + 차수별 패시브 픽 패널 — 신전 "직업" 탭, V2ClassGrid 아래.
+// docs/v2-job-spec-passives-plan.md §5. 2차 전직부터 전문화 선택, 전직마다 패시브 1픽.
 // (리치 폴리시 — 무기 게이트 상태·전투 로그 피드백은 P5.)
 
 export type V2SpecPassiveInfo = { id: string; name: string; desc: string };
@@ -70,11 +70,11 @@ export function V2SpecPanel({
             j?.error === "tier_too_low"
               ? "2차 전직 후 가능"
               : j?.error === "spec_locked"
-                ? "이미 다른 계파 선택 (신전 초기화로만 변경)"
+                ? "이미 다른 전문화 선택 (신전 초기화로만 변경)"
                 : j?.error === "no_picks_left"
                   ? "이번 차수 픽을 모두 썼어요 (다음 전직에 해금)"
                   : j?.error === "no_spec"
-                    ? "계파를 먼저 선택하세요"
+                    ? "전문화를 먼저 선택하세요"
                     : (j?.error ?? `http ${res.status}`);
           setMsg(`✗ ${label}`);
           return;
@@ -100,7 +100,7 @@ export function V2SpecPanel({
         setMsg(`✗ http ${res.status}`);
         return;
       }
-      setMsg("✓ 계파 초기화 완료 — 다시 고를 수 있어요");
+      setMsg("✓ 전문화 초기화 완료 — 다시 고를 수 있어요");
       onChanged();
     } catch (e) {
       setMsg(`✗ ${(e as Error).message}`);
@@ -109,13 +109,13 @@ export function V2SpecPanel({
     }
   }, [onChanged]);
 
-  // 2차 미만 — 계파 잠금 안내.
+  // 2차 미만 — 전문화 잠금 안내.
   if (!spec.available) {
     return (
       <Card padding="md">
-        <h2 className="text-sm font-semibold">계파</h2>
+        <h2 className="text-sm font-semibold">전문화</h2>
         <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-          2차 전직 후 계파를 선택할 수 있어요. (현재 {spec.tier}차)
+          2차 전직 후 전문화를 선택할 수 있어요. (현재 {spec.tier}차)
         </p>
       </Card>
     );
@@ -128,7 +128,7 @@ export function V2SpecPanel({
   return (
     <Card padding="md">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold">계파</h2>
+        <h2 className="text-sm font-semibold">전문화</h2>
         {chosen && (
           <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
             남은 픽{" "}
@@ -146,10 +146,10 @@ export function V2SpecPanel({
       </div>
 
       {!chosen ? (
-        // 계파 선택 — job 의 계파 카드들.
+        // 전문화 선택 — job 의 전문화 카드들.
         <div className="mt-2 space-y-2">
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            계파를 하나 고르세요. 선택 후엔 신전 초기화로만 바꿀 수 있어요.
+            전문화를 하나 고르세요. 선택 후엔 신전 초기화로만 바꿀 수 있어요.
           </p>
           {spec.specs.map((s) => (
             <div
@@ -195,7 +195,7 @@ export function V2SpecPanel({
           ))}
         </div>
       ) : (
-        // 선택된 계파 — 3패시브 키트 + 픽 버튼.
+        // 선택된 전문화 — 3패시브 키트 + 픽 버튼.
         <div className="mt-2">
           <div className="flex items-baseline gap-2">
             <span className="text-sm font-semibold">{chosen.name}</span>
@@ -263,7 +263,7 @@ export function V2SpecPanel({
             disabled={busy}
             className="mt-2.5 text-[11px] text-zinc-400 underline-offset-2 transition hover:text-rose-500 hover:underline disabled:opacity-50 dark:text-zinc-500"
           >
-            계파 초기화 (테스트 기간 무료)
+            전문화 초기화 (테스트 기간 무료)
           </button>
         </div>
       )}

@@ -157,7 +157,7 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
 
 describe("스킬 속성 전면 태깅", () => {
   it("원소 풀 스킬은 element 보유 / 그 외는 미부여 허용(캐릭터 속성 상속)", () => {
-    // 스킬 재설계 — 공용/계파 스킬은 의도적 elementless: 시전 시 캐릭터가 고른 속성 상속
+    // 스킬 재설계 — 공용/전문화 스킬은 의도적 elementless: 시전 시 캐릭터가 고른 속성 상속
     // (def.element ?? characterElement). "화염구"도 void 마법사가 쓰면 void 상성.
     // 원소 풀(v2_skill_elem_*)만 속성이 정체성이라 반드시 태깅(회귀 가드).
     for (const s of Object.values(V2_SKILLS)) {

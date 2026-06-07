@@ -122,12 +122,12 @@ function slotConceptLine(
         !isUnique(i) &&
         !i.craftOnly &&
         !i.starterOnly,
-    ) // 그리드는 정규만(유니크·제작전용·계파스타터 제외)
+    ) // 그리드는 정규만(유니크·제작전용·전문화스타터 제외)
     .sort((a, b) => a.tier - b.tier)
     .map((i) => i.tier);
 }
 
-// 무기는 weaponType 별 라인(8 계파타입). 그리드 검증은 컨셉이 아니라 weaponType 으로.
+// 무기는 weaponType 별 라인(8 전문화타입). 그리드 검증은 컨셉이 아니라 weaponType 으로.
 const WEAPON_TYPES: V2WeaponType[] = [
   "greatsword",
   "sword_shield",
@@ -160,7 +160,7 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
   it("정규 그리드 43종 + 유니크 6 + 제작전용 7 (그리드 밖)", () => {
     // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
-    //   (greatsword/bow/staff 각 3 + 계파5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
+    //   (greatsword/bow/staff 각 3 + 전문화5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
@@ -168,7 +168,7 @@ describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
     ).toHaveLength(43);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(6);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
-    expect(all.filter((i) => i.starterOnly), "계파 스타터").toHaveLength(7);
+    expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(7);
   });
 
   it("제작전용(craftOnly) 은 상점 비매품 (shopPriceOf undefined)", () => {
@@ -217,7 +217,7 @@ describe("V2_EQUIPMENT grid (75종 — 6슬롯)", () => {
         );
       }
     }
-    // 무기: 8 계파타입별 라인. 정규 티어는 중복 없음 + (정규 ∪ 스타터 T1) = T1~T5.
+    // 무기: 8 전문화타입별 라인. 정규 티어는 중복 없음 + (정규 ∪ 스타터 T1) = T1~T5.
     // greatsword/bow/staff = 기존 라인 태깅(정규 T1~T5), 5신규타입 = 정규 T2~T5 + 스타터 T1.
     for (const wt of WEAPON_TYPES) {
       const reg = weaponTypeRegularTiers(wt);
@@ -523,11 +523,11 @@ describe("setInstanceLock", () => {
   });
 });
 
-// 계파 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) — 무기 종류 태깅 + 순수 헬퍼.
+// 전문화 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) — 무기 종류 태깅 + 순수 헬퍼.
 describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)", () => {
   it("weaponTypeOf — 태깅된 무기는 종류 반환, 일반 무기·미장착은 undefined", () => {
     expect(weaponTypeOf("v2_greatsword")).toBe("greatsword"); // 태깅됨
-    // 정규 무기는 이제 전부 계파타입 태깅. 미태깅은 제작전용(v2_meadow_bow 등)·유니크뿐.
+    // 정규 무기는 이제 전부 전문화타입 태깅. 미태깅은 제작전용(v2_meadow_bow 등)·유니크뿐.
     expect(weaponTypeOf("v2_meadow_bow")).toBeUndefined(); // 제작무기(타입 없음)
     expect(weaponTypeOf(undefined)).toBeUndefined();
     expect(weaponTypeOf(null)).toBeUndefined();
@@ -536,7 +536,7 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
   it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
     expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
     expect(weaponGateOpen("v2_meadow_bow", "greatsword")).toBe(false); // 미태깅 무기 → 완전 비활성
-    expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 계파 무기
+    expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 전문화 무기
     expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
     expect(weaponGateOpen("v2_meadow_bow", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
   });

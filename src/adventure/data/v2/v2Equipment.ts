@@ -44,10 +44,10 @@ export type V2EquipConcept =
 
 export type V2EquipTier = 1 | 3 | 5;
 
-// 무기 종류(계파 게이트용) — 직업 계파 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
-// 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 계파 게이트와도 매칭 X = 베이스만).
-// docs/v2-job-spec-passives-plan.md §4. 12계파가 쓰는 8종 — 무기 종류를 의도적으로 줄여 통합
-//   (마법사 전 계파=지팡이 / 도적=활·단검 / 무도가=권갑·권조). 봉권·성물·마검·독침은 미사용(제거).
+// 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
+// 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
+// docs/v2-job-spec-passives-plan.md §4. 12전문화가 쓰는 8종 — 무기 종류를 의도적으로 줄여 통합
+//   (마법사 전 전문화=지팡이 / 도적=활·단검 / 무도가=권갑·권조). 봉권·성물·마검·독침은 미사용(제거).
 export type V2WeaponType =
   // 전사 — 광검/기사/검투사
   | "greatsword" // 대검 — 광검
@@ -56,7 +56,7 @@ export type V2WeaponType =
   // 무도가 — 금강·혈권/연환
   | "gauntlet" // 권갑 — 금강·혈권
   | "claw" // 권조 — 연환
-  // 마법사 — 전 계파 지팡이로 통합
+  // 마법사 — 전 전문화 지팡이로 통합
   | "staff" // 지팡이 — 마도사·워메이지·사제
   // 도적 — 궁사/자객·독사
   | "bow" // 활 — 궁사
@@ -81,7 +81,7 @@ export type V2EquipmentId =
   | "v2_oak_staff"
   | "v2_obsidian_staff"
   | "v2_starlit_staff"
-  // 계파 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
+  // 전문화 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
   | "v2_starter_sword_shield"
   | "v2_starter_rapier"
   | "v2_starter_gauntlet"
@@ -89,7 +89,7 @@ export type V2EquipmentId =
   | "v2_starter_staff"
   | "v2_starter_bow"
   | "v2_starter_dagger"
-  // 계파 무기 정규 라인 (상점 T2~T5) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
+  // 전문화 무기 정규 라인 (상점 T2~T5) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
   | "v2_knight_blade"
   | "v2_paladin_blade"
   | "v2_swift_rapier"
@@ -194,16 +194,16 @@ export type V2Equipment = {
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
   element?: V2Element;
-  /** 무기 종류 — 계파 패시브 게이트(docs/v2-job-spec-passives-plan.md §4). 무기 슬롯만 의미.
-   *  미지정 = 일반 무기(계파 게이트 매칭 X). */
+  /** 무기 종류 — 전문화 패시브 게이트(docs/v2-job-spec-passives-plan.md §4). 무기 슬롯만 의미.
+   *  미지정 = 일반 무기(전문화 게이트 매칭 X). */
   weaponType?: V2WeaponType;
   /** 희귀도. 생략/"common" = 정규(상점·제작). "unique" = 드랍 전용(상점·제작·그리드 제외). */
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
   craftOnly?: boolean;
-  /** 계파 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
+  /** 전문화 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
   starterOnly?: boolean;
-  /** 드랍 제외 — true 면 정규 드랍 풀에서 빠진다(상점·그리드는 유지). 계파 무기=상점 전용,
+  /** 드랍 제외 — true 면 정규 드랍 풀에서 빠진다(상점·그리드는 유지). 전문화 무기=상점 전용,
    *  드랍은 후속 추가 예정. starterOnly/craftOnly 와 달리 상점 판매는 그대로. */
   noDrop?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
@@ -237,7 +237,7 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
-// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·계파스타터는 비매품. T2 폐지·T3/T5 는
+// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·전문화스타터는 비매품. T2 폐지·T3/T5 는
 //   드랍 전용(상점=처음 갖추는 구간만, 진짜 장비는 파밍). 판매가는 shopPriceForSell(티어 무관).
 export function shopPriceOf(item: V2Equipment): number | undefined {
   if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
@@ -269,9 +269,9 @@ export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";
 }
 
-// ── 계파 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) ──────────────────
-// 직업 계파 패시브가 "특정 무기 종류 착용 시에만" 발동(완전 비활성 폴백). derive 가 장착 무기의
-// 종류를 이 헬퍼로 판정해 계파 패시브 적용 여부를 가른다. 순수 함수(데이터 조회) — P1 토대.
+// ── 전문화 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) ──────────────────
+// 직업 전문화 패시브가 "특정 무기 종류 착용 시에만" 발동(완전 비활성 폴백). derive 가 장착 무기의
+// 종류를 이 헬퍼로 판정해 전문화 패시브 적용 여부를 가른다. 순수 함수(데이터 조회) — P1 토대.
 
 /** 장착 무기(카탈로그 id)의 종류. 미장착/일반 무기(타입 없음)면 undefined. */
 export function weaponTypeOf(
@@ -281,7 +281,7 @@ export function weaponTypeOf(
   return V2_EQUIPMENT[weaponId]?.weaponType;
 }
 
-/** 계파 무기 게이트 — 장착 무기가 요구 종류와 일치하는지. required 없으면 게이트 없음(항상 통과). */
+/** 전문화 무기 게이트 — 장착 무기가 요구 종류와 일치하는지. required 없으면 게이트 없음(항상 통과). */
 export function weaponGateOpen(
   weaponId: V2EquipmentId | undefined | null,
   required: V2WeaponType | undefined,
@@ -499,7 +499,7 @@ export function genEquipIid(): string {
   ).toString(36)}`;
 }
 
-// 계파 전직 지급용 스타터 무기 — weaponType → 무기 id. 통합 후 쓰는 8종만 매핑
+// 전문화 전직 지급용 스타터 무기 — weaponType → 무기 id. 통합 후 쓰는 8종만 매핑
 // (tonfa/spellblade/relic/needle 은 통합돼 미사용 → undefined: 지급 skip). 대검은 기존 v2_greatsword 재사용.
 export function starterWeaponForType(
   type: V2WeaponType,

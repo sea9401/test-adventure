@@ -27,11 +27,11 @@ import {
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
-// 공용(1차 직업) 스킬 = COMMON, 계파 스킬 = SPEC(계파색이 짙어 더 비싸다). 스타터(자동 보유)는
+// 공용(1차 직업) 스킬 = COMMON, 전문화 스킬 = SPEC(전문화색이 짙어 더 비싸다). 스타터(자동 보유)는
 // 학습 경로를 타지 않는다. 킬당 +V2_PROFICIENCY_PER_KILL(=2) 포인트 기준 → 공용 750킬/종,
-// 계파 2500킬/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+// 전문화 2500킬/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
 export const V2_SKILL_LEARN_COST_COMMON = 1500; // 공용/1차 직업 스킬.
-export const V2_SKILL_LEARN_COST_SPEC = 5000; // 계파 스킬.
+export const V2_SKILL_LEARN_COST_SPEC = 5000; // 전문화 스킬.
 export function v2SkillLearnCost(skillId: V2SkillId): number {
   return skillId in V2_SPEC_SKILLS
     ? V2_SKILL_LEARN_COST_SPEC
@@ -54,7 +54,7 @@ export type V2SkillId =
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
   | V2CommonSkillId
-  // ── 스킬 재설계 — 계파 액티브 36종 (12계파 × 3, 차수 해금/성장) ──────────
+  // ── 스킬 재설계 — 전문화 액티브 36종 (12전문화 × 3, 차수 해금/성장) ──────────
   | V2SpecSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
@@ -70,7 +70,7 @@ export type V2MonsterStatusSkillId =
   | "mob_chilling_touch"
   | "mob_rending_claw";
 
-// baseFlatByTier: 계파 스킬 차수 flat 성장(2/3/4차). 지정 시 시전자 차수로 baseFlat 대체(엔진 PR2).
+// baseFlatByTier: 전문화 스킬 차수 flat 성장(2/3/4차). 지정 시 시전자 차수로 baseFlat 대체(엔진 PR2).
 //   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
 // scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
 // scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.

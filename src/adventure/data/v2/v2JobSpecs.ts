@@ -1,6 +1,6 @@
-// 직업 계파(스펙) 패시브 — docs/v2-job-spec-passives-plan.md.
-// 4직군(전사/무도가/마법사/도적) 각각 3 계파, 계파당 패시브 3개 "고정 키트"(전직마다 1개씩 해금,
-// 순서만 선택). 계파 패시브는 특정 무기 종류 착용 시에만 발동(완전 비활성 폴백 — requiredWeaponType).
+// 직업 전문화(스펙) 패시브 — docs/v2-job-spec-passives-plan.md.
+// 4직군(전사/무도가/마법사/도적) 각각 3 전문화, 전문화당 패시브 3개 "고정 키트"(전직마다 1개씩 해금,
+// 순서만 선택). 전문화 패시브는 특정 무기 종류 착용 시에만 발동(완전 비활성 폴백 — requiredWeaponType).
 //
 // 이 파일 = 데이터 모델 + 순수 집계. 효과는 엔진/derive 개념에 매핑되는 정규화 필드.
 // ⚠️ 재설계 데이터 적용(시그니처/개명) 완료. 신규 효과필드(아래 "신규" 구역)는 엔진/derive 훅이
@@ -9,7 +9,7 @@
 
 import type { V2WeaponType } from "./v2Equipment";
 
-// 정규화된 계파 패시브 효과 — 합산 가능(같은 필드는 더함). 미지정 = 0/무효.
+// 정규화된 전문화 패시브 효과 — 합산 가능(같은 필드는 더함). 미지정 = 0/무효.
 export type V2SpecPassiveEffect = {
   // ── 기존 엔진 훅 (재사용/일부 훅 미완) ───────────────────────────────
   /** 물리 공격력 % 가산. */
@@ -32,7 +32,7 @@ export type V2SpecPassiveEffect = {
   poisonPctPerStackBase?: number;
   /** 속도 % 가산. */
   spdPctAdd?: number;
-  // ── 레거시(현 계파 데이터 미사용 — derive 호환 위해 타입 보존) ─────────
+  // ── 레거시(현 전문화 데이터 미사용 — derive 호환 위해 타입 보존) ─────────
   /** 받은 피해 반사 % (현 설계 미사용). */
   reflectPct?: number;
   /** 명중 %p (라이브 PvE 死축 — 현 설계 미사용). */
@@ -82,9 +82,9 @@ export type V2SpecPassive = {
   effect: V2SpecPassiveEffect;
 };
 
-// 직업 특성(trait) — 계파마다 1개, 전직 시 자동 부여(픽 아님). 값은 "차수당 기본값" 으로,
-// resolveSpecTrait 가 차수(classTier)로 스케일한다: 2차=×1, 3차=×2, 4차=×3 (1차=계파 없음=0).
-// 효과는 계파 시그니처와 같은 방향으로 강화 → 같은 직군 계파끼리 차별. 전부 기존 PlayerCombat
+// 직업 특성(trait) — 전문화마다 1개, 전직 시 자동 부여(픽 아님). 값은 "차수당 기본값" 으로,
+// resolveSpecTrait 가 차수(classTier)로 스케일한다: 2차=×1, 3차=×2, 4차=×3 (1차=전문화 없음=0).
+// 효과는 전문화 시그니처와 같은 방향으로 강화 → 같은 직군 전문화끼리 차별. 전부 기존 PlayerCombat
 // 필드 재사용(절제 mpCostReductionPctAdd 만 신규 시전 훅). 수치 가안(balance P6).
 export type V2SpecTraitEffect = {
   /** 광기 — 물리 공격력 +%(차수당). */
@@ -126,15 +126,15 @@ export type V2JobSpec = {
   name: string;
   /** 소속 직군(4직군 id). */
   job: string;
-  /** 무기 게이트 — 이 종류 착용 시에만 계파 패시브 발동. */
+  /** 무기 게이트 — 이 종류 착용 시에만 전문화 패시브 발동. */
   requiredWeaponType: V2WeaponType;
   /** 3개 고정 키트(전직마다 1개씩 해금). */
   passives: readonly [V2SpecPassive, V2SpecPassive, V2SpecPassive];
-  /** 직업 특성 — 전직 시 자동 부여, 차수 성장. 무기 게이트 무관(계파 정체성 보강). */
+  /** 직업 특성 — 전직 시 자동 부여, 차수 성장. 무기 게이트 무관(전문화 정체성 보강). */
   trait?: V2SpecTrait;
 };
 
-// 전사(warrior) 3계파 — 극딜/탱/출혈. 수치 가안(balance P6).
+// 전사(warrior) 3전문화 — 극딜/탱/출혈. 수치 가안(balance P6).
 const WARRIOR_SPECS: readonly V2JobSpec[] = [
   {
     id: "gwang", // 광검 — 유리대포 극딜
@@ -174,7 +174,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
   },
 ];
 
-// 무도가(martial) 3계파 — 회피탱/흡혈/콤보. 수치 가안(balance P6).
+// 무도가(martial) 3전문화 — 회피탱/흡혈/콤보. 수치 가안(balance P6).
 const MARTIAL_SPECS: readonly V2JobSpec[] = [
   {
     id: "cheolsan", // 금강 — 회피·버팀 탱
@@ -214,7 +214,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
   },
 ];
 
-// 마법사(mage) 3계파 — 버스트 나커/시전 난사/자힐 탱. 수치 가안(balance P6).
+// 마법사(mage) 3전문화 — 버스트 나커/시전 난사/자힐 탱. 수치 가안(balance P6).
 const MAGE_SPECS: readonly V2JobSpec[] = [
   {
     id: "arcane", // 마도사 — 버스트 원소 나커
@@ -254,7 +254,7 @@ const MAGE_SPECS: readonly V2JobSpec[] = [
   },
 ];
 
-// 도적(rogue) 3계파 — 물량 다단/크리 폭발/독 부식. 수치 가안(balance P6).
+// 도적(rogue) 3전문화 — 물량 다단/크리 폭발/독 부식. 수치 가안(balance P6).
 const ROGUE_SPECS: readonly V2JobSpec[] = [
   {
     id: "archery", // 궁사 — 물량 다단
@@ -294,7 +294,7 @@ const ROGUE_SPECS: readonly V2JobSpec[] = [
   },
 ];
 
-// 직군 → 계파 목록. 12계파 재설계 데이터 적용(수치 가안, balance P6).
+// 직군 → 전문화 목록. 12전문화 재설계 데이터 적용(수치 가안, balance P6).
 export const V2_JOB_SPECS: Record<string, readonly V2JobSpec[]> = {
   warrior: WARRIOR_SPECS,
   martial: MARTIAL_SPECS,
@@ -302,7 +302,7 @@ export const V2_JOB_SPECS: Record<string, readonly V2JobSpec[]> = {
   rogue: ROGUE_SPECS,
 };
 
-/** 계파 조회 — 직군·계파 id 로. 없으면 undefined. */
+/** 전문화 조회 — 직군·전문화 id 로. 없으면 undefined. */
 export function getJobSpec(
   job: string,
   specId: string,
@@ -310,7 +310,7 @@ export function getJobSpec(
   return V2_JOB_SPECS[job]?.find((s) => s.id === specId);
 }
 
-/** 계파 id 만으로 전역 조회(save 의 specChoice 해석용 — 직군 무관, id 전역 유일). */
+/** 전문화 id 만으로 전역 조회(save 의 specChoice 해석용 — 직군 무관, id 전역 유일). */
 export function getSpecById(specId: string): V2JobSpec | undefined {
   for (const specs of Object.values(V2_JOB_SPECS)) {
     const found = specs.find((s) => s.id === specId);
@@ -322,7 +322,7 @@ export function getSpecById(specId: string): V2JobSpec | undefined {
 /**
  * 직업 특성을 차수(classTier)로 스케일한 효과를 반환한다.
  * trait.effect 는 "차수당 기본값" — 2차=×1, 3차=×2, 4차=×3 (steps = classTier-1).
- * spec/trait 없음·1차(steps≤0)면 빈 효과(inert). 무기 게이트와 무관(계파 정체성 보강).
+ * spec/trait 없음·1차(steps≤0)면 빈 효과(inert). 무기 게이트와 무관(전문화 정체성 보강).
  * 순수 함수 — derive 가 이 결과를 PlayerCombat 필드에 합산한다.
  */
 export function resolveSpecTrait(
@@ -363,7 +363,7 @@ export function describeSpecTraitEffect(e: V2SpecTraitEffect): string {
 }
 
 /**
- * 선택 계파 + 해금한 패시브 ids + 장착 무기 종류 → 합산 효과.
+ * 선택 전문화 + 해금한 패시브 ids + 장착 무기 종류 → 합산 효과.
  * 무기 게이트 불통과(종류 불일치)면 빈 효과(완전 비활성 폴백 — docs §4·§8-1).
  * 순수 함수 — derive 가 이 결과를 PlayerCombat 필드로 매핑한다.
  */
@@ -373,7 +373,7 @@ export function aggregateSpecPassives(
   equippedWeaponType: V2WeaponType | undefined,
 ): V2SpecPassiveEffect {
   if (!spec) return {};
-  // 무기 게이트 — 완전 비활성. 종류 불일치/미장착이면 계파 패시브 전부 OFF.
+  // 무기 게이트 — 완전 비활성. 종류 불일치/미장착이면 전문화 패시브 전부 OFF.
   if (equippedWeaponType !== spec.requiredWeaponType) return {};
   const unlocked = new Set(unlockedPassiveIds);
   const out: V2SpecPassiveEffect = {};

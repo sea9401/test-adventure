@@ -212,12 +212,20 @@ describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
     expect(uniqueIdsForDepthRange(7, 12)).toEqual([]);
   });
 
-  it("마른 협곡(13~18) — 밴드 A 유니크 풀 전체", () => {
-    const ids = uniqueIdsForDepthRange(13, 18);
-    expect(new Set(ids)).toEqual(new Set(BAND_UNIQUE_POOLS[0].ids));
+  it("정의된 각 밴드 범위 — 그 밴드 유니크 풀과 일치", () => {
+    // 밴드가 늘어나도(협곡·얼음호수·…) 자동 검증 — 각 밴드 깊이 범위로 조회하면 그 풀과 같다.
+    for (const band of BAND_UNIQUE_POOLS) {
+      const ids = uniqueIdsForDepthRange(band.minDepth, band.maxDepth);
+      expect(new Set(ids), `밴드 ${band.minDepth}~${band.maxDepth}`).toEqual(
+        new Set(band.ids),
+      );
+    }
   });
 
-  it("아직 밴드 없는 깊이(19~24) — 빈 배열", () => {
-    expect(uniqueIdsForDepthRange(19, 24)).toEqual([]);
+  it("모든 밴드보다 깊고 floor 풀(≤8) 밖 — 빈 배열 (미정의 구간)", () => {
+    // 밴드가 추가돼도 깨지지 않게: 현재 최대 밴드 깊이 너머 = 아직 콘텐츠 없는 구간.
+    const beyond =
+      Math.max(8, ...BAND_UNIQUE_POOLS.map((p) => p.maxDepth)) + 1;
+    expect(uniqueIdsForDepthRange(beyond, beyond + 5)).toEqual([]);
   });
 });

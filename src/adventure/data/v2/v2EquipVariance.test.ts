@@ -26,14 +26,14 @@ describe("rollItemStats", () => {
     expect(r).toEqual({ power: 215, weight: 3, options: { crit: 3 } });
   });
 
-  it("값 0(무게)은 spread 0 → 변동 없음, 위력 1은 ±1(0.65)", () => {
-    // 0.65: 무게 0 → spread round(0)=0 고정. 위력 1 → spread round(0.65)=1 → [1,2](바닥 1).
+  it("값 0(무게)은 spread 0 → 변동 없음, 위력은 ±편차(0.65)", () => {
+    // 은가락지 위력 5(×5): spread round(5*0.65)=3 → [2,8]. 무게 0 → spread 0 고정.
     const lo = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0);
     expect(lo.weight).toBe(0); // 무게 0 고정
-    expect(lo.power).toBe(1); // 위력 [1,2] 의 하단
+    expect(lo.power).toBe(2); // 위력 [2,8] 의 하단
     const hi = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0.999);
     expect(hi.weight).toBe(0); // 무게 0 고정
-    expect(hi.power).toBe(2); // 위력 [1,2] 의 상단
+    expect(hi.power).toBe(8); // 위력 [2,8] 의 상단
   });
 
   it("옵션 없는 아이템은 굴림에 options 없음 — 철검 위력15/weight2", () => {

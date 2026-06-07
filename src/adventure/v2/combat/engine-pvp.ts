@@ -74,6 +74,7 @@ import {
   MAGIC_VULN_STACK_CAP,
   POWER_ATTACK_TURN_INTERVAL,
   RAMPAGE_START_TURN,
+  SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
@@ -2148,8 +2149,18 @@ function castV2SkillOnAttackerTurnPvP(
   const nextEnemyVulnPct =
     result.enemyVulnToApply?.pct ?? side.stacks.enemyVulnPct;
   const vulnMult = nextEnemyVulnTurns > 0 ? 1 + nextEnemyVulnPct / 100 : 1;
+  // 스킬 치명타 — PvE 미러. 평타와 같은 크리 확률(min(critChancePct, 75%)) 공유, 배수만 SKILL_CRIT_MULT
+  //   로 분리. 데미지>0 일 때만 롤(자버프·무피해 스킬엔 롤 안 함 → RNG 스트림 보존).
+  const skillCritFired =
+    result.enemyDamage > 0 &&
+    (side.player.critChancePct ?? 0) > 0 &&
+    Math.random() * 100 < Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0);
   const skillDamage = Math.floor(
-    result.enemyDamage * spellStackMult * magicVulnMult * vulnMult,
+    result.enemyDamage *
+      spellStackMult *
+      magicVulnMult *
+      vulnMult *
+      (skillCritFired ? SKILL_CRIT_MULT : 1),
   );
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
@@ -2163,7 +2174,7 @@ function castV2SkillOnAttackerTurnPvP(
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
         kind: "player_attack",
-        text: `${result.castSkillName}! ${hit} 피해를 입혔다.`,
+        text: `${result.castSkillName}!${skillCritFired ? " [크리티컬]" : ""} ${hit} 피해를 입혔다.`,
         side: who,
       });
     }

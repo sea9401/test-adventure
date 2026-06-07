@@ -117,6 +117,11 @@ export function evaluateCombatPattern(
   return null;
 }
 
+// 패턴 경로 스킬 위력 배율 (C3 — proc 은퇴 재밸런스, "위력 중립"). 패턴은 proc 없이 확정 발동이라
+// 스킬 빈도가 ~5배 → 빈도는 갬빗답게 두되 스킬 피해·회복에 이 배율을 곱해 총 위력(처치 시간)을
+// 옛 proc 수준으로 맞춘다. sim 캘리브 다이얼 — 작을수록 약함. (DoT/버프는 1차 미적용, 후속.)
+export const V2_PATTERN_SKILL_POWER_MULT = 0.28;
+
 // 기본 패턴 — 장착 스킬을 슬롯 순서대로 "항상 → 스킬" 블록으로. 커스텀 패턴(C2 UI) 없을 때의
 // 폴백 + 기존 캐릭 마이그(옛 슬롯순서 발동을 재현, 단 procChance 없이 확정 발동).
 export function defaultPatternFromEquipped(

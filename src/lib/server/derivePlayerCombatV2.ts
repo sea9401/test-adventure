@@ -27,7 +27,6 @@ import { savesKv } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
   BLEED_ATK_COEF_PER_STACK,
-  baselineRegenFor,
   CRIT_MULT_BASE,
   POISON_PCT_PER_POINT,
 } from "@/adventure/data/v2/v2CombatConstants";
@@ -607,7 +606,6 @@ export function derivePlayerCombatV2Pure(
     critResistPct,
     minDamage,
     healMult,
-    baselineRegen: baselineRegenFor(maxHp),
     // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 계파 효과는 합산(sumOrUndef).
     passiveTurnHealPctMaxHp: sumOrUndef(
       passive?.turnHealPctMaxHp,

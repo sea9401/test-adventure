@@ -25,17 +25,3 @@ export const GALE_CHAIN_MAX_PER_TURN = 3;
 export const LUCKY_STAR_DAMAGE_MULT = 2;
 export const IMPACT_WAVE_INTERVAL = 3;
 export const ETERNAL_GALE_ABSOLUTE_CAP = 30;
-
-// 자연 회복 — 매 BASELINE_REGEN_INTERVAL 플레이어 턴 종료 시 HP +max(1, floor(maxHp × pct)).
-export const BASELINE_REGEN_INTERVAL = 5;
-export const BASELINE_REGEN_HP_PCT = 0.02;
-
-export function baselineRegenFor(maxHp: number): {
-  interval: number;
-  amount: number;
-} {
-  return {
-    interval: BASELINE_REGEN_INTERVAL,
-    amount: Math.max(1, Math.floor(maxHp * BASELINE_REGEN_HP_PCT)),
-  };
-}

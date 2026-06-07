@@ -268,10 +268,9 @@ export function V2SkillLearnView({
 
       {!loading && elementalSkills.length > 0 && (
         <Card padding="md">
-          <h2 className="text-sm font-semibold">직업군 · 계파 스킬</h2>
+          <h2 className="text-sm font-semibold">스킬</h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            직업군 공용 스킬과 선택한 계파의 스킬을 익힌다. 슬롯에 장착한 스킬만 전투에서
-            자동으로 발동한다(레벨 비례 슬롯).
+            장착한 스킬만 전투에서 자동 발동하며, 슬롯은 레벨에 비례해 늘어납니다.
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {

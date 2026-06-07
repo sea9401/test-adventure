@@ -5,9 +5,10 @@
 // - Lv 1~34: floor(120 * level^1.5).  Lv1→2 = 120 (×0.25 가속 후 30).
 // - Lv 35~49: floor(120 * level^2.5 / 35) × (1.00→0.85 선형 램프).  35 경계 연속.
 // - Lv 50~59: 위 곡선 × 0.85.
-// - Lv 60~69: 위 곡선 × 0.85 × (1.00→1.30) 선형 램프. 엔드게임 진입.
-// - Lv 70~89: 위 곡선 × 0.85 × (1.30→1.55) 선형 램프. 만렙 확장 컨텐츠 구간, 완만.
-// - Lv 90~99: 위 곡선 × 0.85 × (1.55→2.00) 선형 램프. 막판 가파름.
+// - Lv 60~89: 위 곡선 × 0.85 × (1.00→1.15) 선형 램프. 엔드게임 세금 완만.
+// - Lv 90~99: 위 곡선 × 0.85 × 1.15 (캡). 막판 벽 없음.
+// 2026-06-08: 엔드게임 세금 상한 1.55→1.15 로 하향 — 70→100 요구치 -21% (사용자 피드백:
+//   70 이후 100까지 EXP 요구가 과함. 종전 70→100 실효 그라인드가 50→70 의 ~4배였다).
 // - 레벨업당 스탯 포인트 1점 획득(호출측에서 분배).
 // 2026-05-19: 중후반 체감 완화 — Lv 35 이상에 ×0.85 적용. 35~49 는 연속성 유지를 위해
 // 1.00→0.85 램프, 50 부터 풀반영. 누적 1→100 약 -14% (13.87M → 11.87M).
@@ -99,25 +100,21 @@ function reductionMultiplier(level: number): number {
   return 1 - (1 - REDUCTION_FLOOR) * ((level - STEEP_LEVEL) / span);
 }
 
-// 엔드게임 가산 — 기본 곡선에 구간별 선형 multiplier 를 곱한다.
-// 각 구간 경계는 자연스럽게 연속 (시작값이 이전 구간 끝값과 매칭).
+// 엔드게임 가산 — 기본 곡선에 60→89 선형으로 1.00→1.15 를 곱하고 90+ 는 1.15 로 캡.
+// 2026-06-08: 종전엔 70~89 가 1.30→1.54, 90~99 가 1.55→1.32 라 엔드게임 세금이 과해
+// 70→100 실효 그라인드가 50→70 의 ~4배였다(사용자 피드백). 세금 상한을 1.55→1.15 로 낮춰
+// 70→99 요구치 -21%. 60~69 도 같이 완만해지지만(L70 을 L69 보다 크게 두려면 후반-60대를
+// 함께 낮춰야 단조 증가가 유지됨) 의도된 부수효과.
 const ENDGAME_LEVEL = 60; // ×1.00 시작
-const MID_ENDGAME_LEVEL = 70; // ×1.30 부터
-const LATE_ENDGAME_LEVEL = 90; // ×1.55 부터
+const ENDGAME_CAP_LEVEL = 90; // 이 레벨부터 ENDGAME_MAX_MULT 로 캡
+const ENDGAME_MAX_MULT = 1.15; // 엔드게임 세금 상한 (종전 1.55)
 
 function endgameMultiplier(level: number): number {
   if (level < ENDGAME_LEVEL) return 1;
-  if (level < MID_ENDGAME_LEVEL) {
-    // Lv 60→69: 1.00 → 1.27 (다음 구간 시작값 1.30)
-    return 1 + (level - ENDGAME_LEVEL) / 30;
-  }
-  if (level < LATE_ENDGAME_LEVEL) {
-    // Lv 70→89: 1.30 → 1.5375 (다음 구간 시작값 1.55)
-    return 1.3 + ((level - MID_ENDGAME_LEVEL) * 0.25) / 20;
-  }
-  // Lv 90→99: 1.55 → 1.3175 (막판 EXP 벽 완화 — L99 에서 -15%, L90 은 1.55 유지로 경계 점프 없음).
-  // 종전엔 1.55→1.955 로 막판이 폭발 → "대기=진행" 의 진원지였다(game-fun-audit 2순위).
-  return 1.55 - ((level - LATE_ENDGAME_LEVEL) * (1.55 * 0.15)) / 9;
+  if (level >= ENDGAME_CAP_LEVEL) return ENDGAME_MAX_MULT;
+  // Lv 60→89: 1.00 → ~1.145 선형 (90 의 1.15 와 연속).
+  const span = ENDGAME_CAP_LEVEL - ENDGAME_LEVEL; // 30
+  return 1 + (ENDGAME_MAX_MULT - 1) * ((level - ENDGAME_LEVEL) / span);
 }
 
 // 유입(income) 밴드 배율 — EXP 페이싱 개편(game-fun-audit 2순위). monster.exp / 퀘스트 EXP

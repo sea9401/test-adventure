@@ -52,7 +52,7 @@ export function V2CharacterMenu({
             <Lightning size={28} weight="duotone" className="text-violet-500" />
           }
           title="스킬"
-          description="직업 패시브와 스킬을 익히는 곳."
+          description="전문화와 스킬을 익히는 곳."
           onClick={() => onAction({ kind: "open-skills" })}
         />
         {V2_COMBAT_PATTERN_ENABLED && (

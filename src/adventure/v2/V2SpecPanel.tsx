@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { Card } from "@/components/ui/Card";
 
-// 전문화(스펙) 선택 + 차수별 패시브 픽 패널 — 신전 "직업" 탭, V2ClassGrid 아래.
+// 전문화(스펙) 선택 + 차수별 패시브 픽 패널 — 캐릭터 "스킬" 화면(V2SkillLearnView) 상단.
 // docs/v2-job-spec-passives-plan.md §5. 2차 전직부터 전문화 선택, 전직마다 패시브 1픽.
 // (리치 폴리시 — 무기 게이트 상태·전투 로그 피드백은 P5.)
 

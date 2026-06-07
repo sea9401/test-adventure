@@ -485,30 +485,6 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
   return next;
 }
 
-// 자연회복 (baselineRegen) — 같은 로직, 다른 슬롯.
-function applyBaselineRegen(
-  state: PvPBattleState,
-  key: "p1" | "p2",
-): PvPBattleState {
-  const side = state[key];
-  const r = side.player.baselineRegen;
-  if (!r || r.interval <= 0 || r.amount <= 0) return state;
-  if (side.turn.completedPlayerTurns === 0) return state;
-  if (side.turn.completedPlayerTurns % r.interval !== 0) return state;
-  if (side.hp >= side.maxHp) return state;
-  const newHp = Math.min(side.maxHp, side.hp + r.amount);
-  const actual = newHp - side.hp;
-  let next = setSide(state, key, { ...side, hp: newHp });
-  next = {
-    ...next,
-    log: appendLog(next.log, {
-      kind: "info",
-      text: `[자연회복] ${side.name}의 HP +${actual}`,
-    }),
-  };
-  return next;
-}
-
 // 부가 공격 1회 (분신/난무) — 본인 빌드로 발동시킨 추가타라 "**모든 공격**" / "**매 공격마다**"
 // 효과는 함께 적용: 출혈 +1, 행운의 별 ×배수, 천명 %HP, 흡혈류 (비크리 기반만).
 // 미적용: 크리/강공격/충돌파/약점적중/연참/연쇄운명/암살/AP 스킬 발동, AP +1 (페이싱 보호).
@@ -896,7 +872,7 @@ function maybeApplyRuneCounter(
   return { state: st, attackerKilled: false };
 }
 
-// 공격 턴 종료 후 처리 — 그림자 분신 → 무피해 난무 → 막다른 격노 → 약점 분석 → 재생/자연회복.
+// 공격 턴 종료 후 처리 — 그림자 분신 → 무피해 난무 → 막다른 격노 → 약점 분석 → 재생.
 // PvE 의 finishPlayerTurn 미러.
 function finishAttackerTurn(
   state: PvPBattleState,
@@ -1019,7 +995,6 @@ function finishAttackerTurn(
       }
     }
   }
-  st = applyBaselineRegen(st, atkKey);
   st = applyRegen(st, atkKey);
   return st;
 }

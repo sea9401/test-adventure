@@ -354,8 +354,6 @@ export type PlayerCombat = {
   guard?: { turns: number; reduction: number };
   // 재생 — interval 턴마다 HP +amount. 둘 다 0 이면 스킬 미보유.
   regen?: { interval: number; amount: number };
-  // 자연회복 — 모든 빌드 공통 상시 baseline. interval 턴마다 HP +amount.
-  baselineRegen?: { interval: number; amount: number };
   // 처형 — 적 HP 비율이 hpFraction 미만일 때 데미지 ×mult. mult <= 1 또는 hpFraction <= 0 = 미보유.
   executionDamageMult?: number;
   executionHpFraction?: number;
@@ -457,7 +455,7 @@ export type PlayerCombat = {
   enchantEndurePct?: number;
   // 반사(reflect) — 받은 HP 피해의 %를 적에게 반사. thorns/bramble 과 합산되는 별개 라벨. 0/undefined = 미보유.
   enchantReflectPct?: number;
-  // 재생(regen) — 매 플레이어 턴 시작 시 maxHp의 %만큼 회복. baselineRegen 과 별개. 0/undefined = 미보유.
+  // 재생(regen) — 매 플레이어 턴 시작 시 maxHp의 %만큼 회복(별빛 인챈트). 0/undefined = 미보유.
   enchantRegenPctPerTurn?: number;
   // 보호막(barrier) — 전투 시작 시 maxHp의 % 를 playerShield 로 추가. bulwarkShield 와 별개 누적. 0/undefined = 미보유.
   enchantBarrierPctMaxHp?: number;
@@ -757,29 +755,6 @@ function applyRegenIfAny(
     log: appendLog(state.log, {
       kind: "info",
       text: `[재생] ${playerName}의 HP +${actual}`,
-    }),
-  };
-}
-
-// 자연회복 — 모든 빌드 공통. applyRegenIfAny 와 같은 로직, 다른 interval/amount.
-function applyBaselineRegenIfAny(
-  state: BattleState,
-  player: PlayerCombat,
-  playerName: string,
-): BattleState {
-  const r = player.baselineRegen;
-  if (!r || r.interval <= 0 || r.amount <= 0) return state;
-  if (state.turn.completedPlayerTurns === 0) return state;
-  if (state.turn.completedPlayerTurns % r.interval !== 0) return state;
-  if (state.playerHp >= state.playerMaxHp) return state;
-  const newHp = Math.min(state.playerMaxHp, state.playerHp + r.amount);
-  const actual = newHp - state.playerHp;
-  return {
-    ...state,
-    playerHp: newHp,
-    log: appendLog(state.log, {
-      kind: "info",
-      text: `[자연회복] ${playerName}의 HP +${actual}`,
     }),
   };
 }
@@ -1102,7 +1077,6 @@ export function finishPlayerTurn(
       };
     }
   }
-  st = applyBaselineRegenIfAny(st, player, playerName);
   st = applyRegenIfAny(st, player, playerName);
   st = applyEnchantRegenIfAny(st, player, playerName);
   st = applyPassiveTurnHealIfAny(st, player, playerName);

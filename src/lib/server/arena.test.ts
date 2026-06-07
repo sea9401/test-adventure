@@ -16,8 +16,54 @@ import {
   pushRecentOpponent,
   weightForCandidate,
   weightedPick,
+  ARENA_HISTORY_MAX,
+  parseArenaHistory,
+  pushArenaHistory,
   type ArenaCandidate,
+  type ArenaHistoryEntry,
 } from "./arena";
+
+const histEntry = (id: string): ArenaHistoryEntry => ({
+  id,
+  at: "2026-06-08T00:00:00.000Z",
+  outcome: "win",
+  opponent: { name: "상대", level: 30 },
+  scoreBefore: 100,
+  scoreAfter: 120,
+  scoreDelta: 20,
+  goldGained: 1500,
+  turns: 12,
+  replay: { enemy: { name: "상대", hp: 450 }, playerMaxHp: 600, playerMaxMp: 100, log: [] },
+});
+
+describe("전투 기록 — parseArenaHistory / pushArenaHistory", () => {
+  it("배열 아님/필수필드 누락 엔트리는 버린다", () => {
+    expect(parseArenaHistory(null)).toEqual([]);
+    expect(parseArenaHistory("nope")).toEqual([]);
+    const mixed = [
+      histEntry("a"),
+      { outcome: "win" }, // opponent/replay 없음 → 제거
+      { outcome: "bogus", opponent: {}, replay: { log: [] } }, // outcome 무효 → 제거
+      { outcome: "loss", opponent: { name: "x", level: 1 }, replay: { log: "nope" } }, // log 배열 아님 → 제거
+    ];
+    expect(parseArenaHistory(mixed)).toHaveLength(1);
+  });
+
+  it("pushArenaHistory — 최근순 prepend + MAX 로 cap", () => {
+    let list: ArenaHistoryEntry[] = [];
+    for (let i = 0; i < ARENA_HISTORY_MAX + 5; i++) {
+      list = pushArenaHistory(list, histEntry(`m${i}`));
+    }
+    expect(list).toHaveLength(ARENA_HISTORY_MAX);
+    expect(list[0]!.id).toBe(`m${ARENA_HISTORY_MAX + 4}`); // 최신이 맨 앞
+    expect(list.at(-1)!.id).toBe(`m5`); // 오래된 5판은 밀려남
+  });
+
+  it("parseArenaHistory 도 MAX 로 자른다(오염 세이브 방어)", () => {
+    const big = Array.from({ length: ARENA_HISTORY_MAX + 10 }, (_, i) => histEntry(`x${i}`));
+    expect(parseArenaHistory(big)).toHaveLength(ARENA_HISTORY_MAX);
+  });
+});
 
 describe("nextKstMidnight", () => {
   it("KST 자정은 UTC 의 전날 15:00", () => {

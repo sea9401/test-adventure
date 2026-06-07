@@ -5,18 +5,26 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
-import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
+import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
+import {
+  ARENA_STATE_KEY,
+  ARENA_HISTORY_KEY,
+  CHARACTER_STATE_KEY,
+} from "@/lib/storage-keys";
 import {
   MAX_DAILY_MATCHES,
   applyDailyReset,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
+  parseArenaHistory,
   parseArenaState,
+  pushArenaHistory,
   pushRecentOpponent,
   weightForCandidate,
   weightedPick,
   type ArenaCandidate,
+  type ArenaHistoryEntry,
   type ArenaMatchOutcome,
   type ArenaOpponentRef,
 } from "@/lib/server/arena";
@@ -45,8 +53,7 @@ import {
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
 //   9. outcome → 점수 변동(0 미만 클램프), 골드 보상.
 //  10. arena-state.v2(score/dailyUsed/recentOpponents) + character.v2(gold) 저장.
-//
-// PR-8a 범위 — UI 결과 카드 표시만. replay 페이로드/매치 히스토리 X (PR-8b/8c).
+//  11. 전투 로그(나=p1 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX, 다시보기).
 
 type CharSaveShape = {
   level?: number;
@@ -61,6 +68,9 @@ type ProfileShape = {
 type CandidateInternal = ArenaCandidate;
 
 const PROFILE_KEY = "character-profile.v2";
+// 전투 로그 다시보기 — 저장/표시 로그 길이 상한(PvP 100턴 ≈ 300+ 엔트리 → cap 으로 바운드,
+// 초과 시 clampReplayLog 가 "앞선 턴 생략" 안내 + 뒷부분만). 기록 MAX(10)판 × 이 cap 이 세이브 크기.
+const ARENA_REPLAY_LOG_CAP = 150;
 
 function nameOf(value: unknown, fallback: string): string {
   if (!value || typeof value !== "object") return fallback;
@@ -325,6 +335,21 @@ export async function POST() {
     const newScore = applyScoreDelta(myScore, scoreDelta);
     const goldGain = computeGoldReward(myLevel, outcome);
 
+    // 11b. 전투 로그(다시보기) — 나=p1 관점 ReplayPayload + 전투 기록 1판.
+    const replay = toPvpReplayPayload(battle.finalState, oppName, ARENA_REPLAY_LOG_CAP);
+    const historyEntry: ArenaHistoryEntry = {
+      id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      at: now.toISOString(),
+      outcome,
+      opponent: { name: oppName, level: oppLevel },
+      scoreBefore: myScore,
+      scoreAfter: newScore,
+      scoreDelta,
+      goldGained: goldGain,
+      turns: battle.turns,
+      replay,
+    };
+
     // 12. 상태 저장.
     const nextArena = {
       ...arenaResetApplied,
@@ -333,6 +358,17 @@ export async function POST() {
       recentOpponents: pushRecentOpponent(arenaResetApplied.recentOpponents, oppRef),
     };
     await upsertSave(tx, userId, ARENA_STATE_KEY, nextArena);
+
+    // 전투 기록 — 최근순 ≤ MAX 저장(리플레이 포함). character.v2 를 먼저 락했으므로 같은 유저
+    //   동시 매치는 직렬화 → read-modify-write 안전(lockSaveForUpdate 로 일관 유지).
+    const rawHistory = await lockSaveForUpdate<unknown>(
+      tx,
+      userId,
+      ARENA_HISTORY_KEY,
+      [],
+    );
+    const nextHistory = pushArenaHistory(parseArenaHistory(rawHistory), historyEntry);
+    await upsertSave(tx, userId, ARENA_HISTORY_KEY, nextHistory);
 
     const nextChar = {
       ...charSave,
@@ -359,6 +395,8 @@ export async function POST() {
           score: oppScore,
           element: oppElement,
         },
+        // 전투 로그 다시보기 + 전투 기록 1판(클라가 즉시 replay 표시 + 기록 목록 prepend).
+        historyEntry,
         dailyRemaining: Math.max(
           0,
           MAX_DAILY_MATCHES - nextArena.dailyUsed,

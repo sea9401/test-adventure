@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { Sword, Coin, Trophy } from "@phosphor-icons/react";
+import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { Sword, Coin, Trophy, FilmStrip } from "@phosphor-icons/react";
 
-// v2 1:1 아레나 — PR-8a 코어 UI.
-//
-// 디자인 doc 9.1 확정안 그대로:
-//   - 헤더: 점수 · 일일 잔여
-//   - 본문: 도전 버튼 → 결과 카드
-//   - PR-8a 는 결과 카드 간소형 (승패·턴·점수 변동·골드만). 최근 매치 리스트·마일스톤
-//     진행도는 PR-8b 에서 추가.
+// v2 1:1 아레나 — 결과 카드 + 전투 로그(리플레이) + 전투 기록(최근 ≤10판, 다시보기).
 
 type StateResp = {
   ok?: boolean;
@@ -24,6 +21,19 @@ type StateResp = {
   maxDaily?: number;
 };
 
+type ArenaHistoryEntry = {
+  id: string;
+  at: string;
+  outcome: "win" | "loss" | "draw";
+  opponent: { name: string; level: number };
+  scoreBefore: number;
+  scoreAfter: number;
+  scoreDelta: number;
+  goldGained: number;
+  turns: number;
+  replay: ReplayPayload;
+};
+
 type MatchResp =
   | {
       ok: true;
@@ -34,6 +44,7 @@ type MatchResp =
       scoreDelta: number;
       goldGained: number;
       opponent: { name: string; level: number; score: number };
+      historyEntry: ArenaHistoryEntry;
       dailyRemaining: number;
       dailyResetAt: string;
     }
@@ -43,22 +54,60 @@ type MatchResp =
       dailyResetAt?: string;
     };
 
+const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
+  win: "승리",
+  loss: "패배",
+  draw: "무승부",
+};
+
+function outcomeColor(outcome: ArenaHistoryEntry["outcome"]): string {
+  return outcome === "win"
+    ? "text-emerald-600 dark:text-emerald-400"
+    : outcome === "loss"
+      ? "text-rose-600 dark:text-rose-400"
+      : "text-zinc-600 dark:text-zinc-400";
+}
+
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const diff = Date.now() - then;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "방금";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
+  const { viewerName, viewerGender, playerSubtitle } = useGameState();
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<
     Extract<MatchResp, { ok: true }> | null
   >(null);
+  const [history, setHistory] = useState<ArenaHistoryEntry[]>([]);
+  // 다시보기 중인 기록(방금 싸운 판 또는 목록에서 고른 과거 판). null = 리플레이 닫힘.
+  const [replayEntry, setReplayEntry] = useState<ArenaHistoryEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   const loadState = useCallback(async () => {
     setLoadError(false);
     try {
-      const res = await fetch("/api/v2/arena/state");
-      const j = (await res.json().catch(() => null)) as StateResp | null;
-      setState(j);
-      if (j == null) setLoadError(true);
+      const [stateRes, histRes] = await Promise.all([
+        fetch("/api/v2/arena/state"),
+        fetch("/api/v2/arena/history"),
+      ]);
+      const sj = (await stateRes.json().catch(() => null)) as StateResp | null;
+      setState(sj);
+      if (sj == null) setLoadError(true);
+      const hj = (await histRes.json().catch(() => null)) as {
+        ok?: boolean;
+        history?: ArenaHistoryEntry[];
+      } | null;
+      if (hj?.ok && Array.isArray(hj.history)) setHistory(hj.history);
     } catch {
       setState(null);
       setLoadError(true);
@@ -66,7 +115,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(loadState 가 state 시드)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch
     loadState();
   }, [loadState]);
 
@@ -79,7 +128,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const j = (await res.json().catch(() => null)) as MatchResp | null;
       if (j && j.ok) {
         setLastResult(j);
-        // GET state 다시 안 해도 응답에 dailyRemaining 들어옴 → 로컬 갱신.
+        setHistory((prev) => [j.historyEntry, ...prev].slice(0, 10));
+        setReplayEntry(j.historyEntry); // 방금 싸운 판 전투 로그 자동 표시
         setState((prev) =>
           prev?.state
             ? {
@@ -87,8 +137,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 state: {
                   ...prev.state,
                   score: j.scoreAfter,
-                  dailyUsed:
-                    (prev.maxDaily ?? 10) - j.dailyRemaining,
+                  dailyUsed: (prev.maxDaily ?? 10) - j.dailyRemaining,
                   dailyRemaining: j.dailyRemaining,
                   dailyResetAt: j.dailyResetAt,
                 },
@@ -177,21 +226,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>
-              <div
-                className={
-                  "mt-0.5 text-lg font-bold " +
-                  (lastResult.outcome === "win"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : lastResult.outcome === "loss"
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-zinc-600 dark:text-zinc-400")
-                }
-              >
-                {lastResult.outcome === "win"
-                  ? "승리"
-                  : lastResult.outcome === "loss"
-                    ? "패배"
-                    : "무승부"}
+              <div className={"mt-0.5 text-lg font-bold " + outcomeColor(lastResult.outcome)}>
+                {OUTCOME_LABEL[lastResult.outcome]}
               </div>
             </div>
             <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
@@ -200,9 +236,7 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           </div>
           <div className="mt-3 text-sm">
             상대 <strong>{lastResult.opponent.name}</strong>
-            <span className="ml-1 text-zinc-500">
-              Lv.{lastResult.opponent.level}
-            </span>
+            <span className="ml-1 text-zinc-500">Lv.{lastResult.opponent.level}</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
@@ -235,6 +269,90 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               </div>
             </div>
           </div>
+        </section>
+      )}
+
+      {/* 전투 로그(리플레이) — 방금 싸운 판 또는 기록에서 고른 판 */}
+      {replayEntry && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <FilmStrip size={16} className="text-amber-600 dark:text-amber-400" />
+              전투 로그 ·{" "}
+              <span className="font-normal text-zinc-500">
+                vs {replayEntry.opponent?.name || "상대"} Lv.
+                {replayEntry.opponent?.level ?? "?"} ·{" "}
+                <span className={outcomeColor(replayEntry.outcome)}>
+                  {OUTCOME_LABEL[replayEntry.outcome]}
+                </span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplayEntry(null)}
+              className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              닫기
+            </button>
+          </div>
+          <ReplayBattleScene
+            key={replayEntry.id}
+            payload={replayEntry.replay}
+            playerName={viewerName}
+            gender={viewerGender}
+            exp={0}
+            maxExp={1}
+            playerSubtitle={playerSubtitle}
+          />
+        </section>
+      )}
+
+      {/* 전투 기록 — 최근 ≤10판. 클릭 시 그 판 전투 로그 다시보기 */}
+      {history.length > 0 && (
+        <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="mb-2 text-sm font-semibold">전투 기록</div>
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {history.map((h) => (
+              <li key={h.id}>
+                <button
+                  type="button"
+                  onClick={() => setReplayEntry(h)}
+                  className={
+                    "flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
+                    (replayEntry?.id === h.id ? "bg-amber-50 dark:bg-amber-950/30" : "")
+                  }
+                >
+                  <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
+                    {OUTCOME_LABEL[h.outcome]}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {h.opponent?.name || "상대"}
+                    <span className="ml-1 text-xs text-zinc-500">
+                      Lv.{h.opponent?.level ?? "?"}
+                    </span>
+                  </span>
+                  <span
+                    className={
+                      "shrink-0 tabular-nums " +
+                      (h.scoreDelta > 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : h.scoreDelta < 0
+                          ? "text-rose-600 dark:text-rose-400"
+                          : "text-zinc-500")
+                    }
+                  >
+                    {h.scoreDelta >= 0 ? "+" : ""}
+                    {h.scoreDelta}
+                  </span>
+                  <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
+                    {h.turns}턴
+                  </span>
+                  <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
+                  <FilmStrip size={14} className="shrink-0 text-zinc-400" />
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </main>

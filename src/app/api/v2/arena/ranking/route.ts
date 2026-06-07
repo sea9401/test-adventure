@@ -15,14 +15,13 @@ export async function GET() {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const now = new Date();
   const rows = await db
     .select({ userId: savesKv.userId, value: savesKv.value })
     .from(savesKv)
     .where(eq(savesKv.key, ARENA_STATE_KEY));
 
   const scored = rows
-    .map((r) => ({ userId: r.userId, score: parseArenaState(r.value, now).score }))
+    .map((r) => ({ userId: r.userId, score: parseArenaState(r.value).score }))
     .sort((a, b) => b.score - a.score || (a.userId < b.userId ? -1 : 1));
 
   const myIndex = scored.findIndex((s) => s.userId === userId);

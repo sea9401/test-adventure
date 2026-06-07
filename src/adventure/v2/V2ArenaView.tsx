@@ -16,11 +16,9 @@ type StateResp = {
   ok?: boolean;
   state?: {
     score: number;
-    dailyUsed: number;
-    dailyRemaining: number;
-    dailyResetAt: string;
+    cooldownRemainingMs: number;
   };
-  maxDaily?: number;
+  cooldownMs?: number;
 };
 
 type ArenaHistoryEntry = {
@@ -47,13 +45,12 @@ type MatchResp =
       goldGained: number;
       opponent: { name: string; level: number; score: number };
       historyEntry: ArenaHistoryEntry;
-      dailyRemaining: number;
-      dailyResetAt: string;
+      cooldownMs: number;
     }
   | {
       ok: false;
       error: string;
-      dailyResetAt?: string;
+      cooldownMs?: number;
     };
 
 type Tab = "main" | "history" | "ranking" | "loadout";
@@ -64,6 +61,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "ranking", label: "순위표" },
   { id: "loadout", label: "세팅" },
 ];
+
+// 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
+const FALLBACK_COOLDOWN_MS = 10_000;
 
 const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
   win: "승리",
@@ -104,6 +104,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
   const [replayEntry, setReplayEntry] = useState<ArenaHistoryEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  // 재도전 쿨타임 — cooldownUntil(epoch ms, 0=없음). nowMs 틱으로 카운트다운 렌더.
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const loadState = useCallback(async () => {
     setLoadError(false);
@@ -115,6 +118,12 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const sj = (await stateRes.json().catch(() => null)) as StateResp | null;
       setState(sj);
       if (sj == null) setLoadError(true);
+      // 새로고침 후에도 남은 쿨타임 이어서 표시.
+      const rem = sj?.state?.cooldownRemainingMs ?? 0;
+      if (rem > 0) {
+        setNowMs(Date.now());
+        setCooldownUntil(Date.now() + rem);
+      }
       const hj = (await histRes.json().catch(() => null)) as {
         ok?: boolean;
         history?: ArenaHistoryEntry[];
@@ -131,6 +140,20 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     loadState();
   }, [loadState]);
 
+  // 쿨타임 카운트다운 틱 + 종료 시 자동 해제. cooldownUntil 변경 시 재설정.
+  useEffect(() => {
+    if (cooldownUntil <= 0) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 250);
+    const timeout = setTimeout(
+      () => setCooldownUntil(0),
+      Math.max(0, cooldownUntil - Date.now()) + 50,
+    );
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [cooldownUntil]);
+
   const challenge = useCallback(async () => {
     if (busy) return;
     setBusy(true);
@@ -144,21 +167,16 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
         setReplayEntry(j.historyEntry); // 방금 싸운 판 전투 로그 자동 표시
         setState((prev) =>
           prev?.state
-            ? {
-                ...prev,
-                state: {
-                  ...prev.state,
-                  score: j.scoreAfter,
-                  dailyUsed: (prev.maxDaily ?? 10) - j.dailyRemaining,
-                  dailyRemaining: j.dailyRemaining,
-                  dailyResetAt: j.dailyResetAt,
-                },
-              }
+            ? { ...prev, state: { ...prev.state, score: j.scoreAfter } }
             : prev,
         );
+        setNowMs(Date.now());
+        setCooldownUntil(Date.now() + (j.cooldownMs ?? FALLBACK_COOLDOWN_MS));
       } else if (j && !j.ok) {
-        if (j.error === "daily_exhausted") {
-          setError("오늘 할당된 매치를 모두 사용했어요.");
+        if (j.error === "cooldown") {
+          setNowMs(Date.now());
+          setCooldownUntil(Date.now() + (j.cooldownMs ?? FALLBACK_COOLDOWN_MS));
+          setError("재도전 쿨타임이에요. 잠시 후 다시 도전해 주세요.");
         } else if (j.error === "no_opponent") {
           setError(
             "지금은 상대할 모험가가 없어요. 다른 모험가가 늘어나면 다시 도전할 수 있어요. (매치는 차감되지 않았어요)",
@@ -180,8 +198,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     }
   }, [busy]);
 
-  const dailyRemaining = state?.state?.dailyRemaining ?? 0;
-  const canChallenge = !busy && dailyRemaining > 0;
+  const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
+  const onCooldown = cooldownLeftMs > 0;
+  const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
+  const canChallenge = !busy && !onCooldown;
 
   const replayBlock = replayEntry && (
     <section className="space-y-2">
@@ -249,23 +269,12 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
 
       {tab === "main" && (
         <>
-          <section className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <Trophy size={14} /> 점수
-              </div>
-              <div className="mt-1 text-2xl font-bold tabular-nums">
-                {state?.state?.score ?? 0}
-              </div>
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <Trophy size={14} /> 점수
             </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">오늘 잔여</div>
-              <div className="mt-1 text-2xl font-bold tabular-nums">
-                {dailyRemaining}
-                <span className="ml-1 text-sm font-normal text-zinc-500">
-                  / {state?.maxDaily ?? 10}
-                </span>
-              </div>
+            <div className="mt-1 text-2xl font-bold tabular-nums">
+              {state?.state?.score ?? 0}
             </div>
           </section>
 
@@ -277,9 +286,9 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           >
             {busy
               ? "매치 진행 중..."
-              : dailyRemaining > 0
-                ? "도전"
-                : "내일 다시 시도해 주세요"}
+              : onCooldown
+                ? `재도전까지 ${cooldownLeftSec}초`
+                : "도전"}
           </button>
 
           {error && (

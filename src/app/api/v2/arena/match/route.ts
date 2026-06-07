@@ -12,8 +12,8 @@ import {
   CHARACTER_STATE_KEY,
 } from "@/lib/storage-keys";
 import {
-  MAX_DAILY_MATCHES,
-  applyDailyReset,
+  ARENA_MATCH_COOLDOWN_MS,
+  arenaCooldownRemainingMs,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
@@ -43,7 +43,7 @@ import {
 //
 // 서버 권위:
 //   1. 본인 character.v2 + arena-state.v2 lock (read-modify-write 안전).
-//   2. 일일 리셋 적용 (자정 KST). dailyUsed >= MAX_DAILY_MATCHES → 409.
+//   2. 재도전 쿨타임 검사. lastMatchAt + ARENA_MATCH_COOLDOWN_MS 전이면 429 (cooldown).
 //   3. 본인 derivePlayerCombatV2.
 //   4. 후보 풀 — 본인 제외 character.v2 보유 유저 (snapshot). 각 candidate 의
 //      arena-state.v2.score 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
@@ -52,7 +52,7 @@ import {
 //   7. 선정된 상대만 derive (real user snapshot).
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
 //   9. outcome → 점수 변동(0 미만 클램프), 골드 보상.
-//  10. arena-state.v2(score/dailyUsed/recentOpponents) + character.v2(gold) 저장.
+//  10. arena-state.v2(score/lastMatchAt/recentOpponents) + character.v2(gold) 저장.
 //  11. 전투 로그(나=p1 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX, 다시보기).
 
 type CharSaveShape = {
@@ -124,17 +124,17 @@ export async function POST() {
       };
     }
 
-    const parsedArena = parseArenaState(rawArena, now);
-    const { state: arenaResetApplied } = applyDailyReset(parsedArena, now);
+    const parsedArena = parseArenaState(rawArena);
 
-    // 3. 일일 카운터 검사.
-    if (arenaResetApplied.dailyUsed >= MAX_DAILY_MATCHES) {
+    // 3. 재도전 쿨타임 검사 — 일일 제한 폐지, 매치 간 ARENA_MATCH_COOLDOWN_MS 쿨타임.
+    const cooldownMs = arenaCooldownRemainingMs(parsedArena, now);
+    if (cooldownMs > 0) {
       return {
-        status: 409,
+        status: 429,
         body: {
           ok: false as const,
-          error: "daily_exhausted" as const,
-          dailyResetAt: arenaResetApplied.dailyResetAt,
+          error: "cooldown" as const,
+          cooldownMs,
         },
       };
     }
@@ -148,7 +148,7 @@ export async function POST() {
       };
     }
     const myLevel = levelOf(charSave);
-    const myScore = arenaResetApplied.score;
+    const myScore = parsedArena.score;
 
     // 5. 본인 프로필 이름 — 전투 로그·결과 카드용.
     const viewerProfileRow = await tx
@@ -194,8 +194,8 @@ export async function POST() {
           ),
         );
       for (const r of arenaRows) {
-        const parsed = parseArenaState(r.value, now);
-        // 후보의 dailyReset 은 매칭에 무관 — score 만 사용.
+        const parsed = parseArenaState(r.value);
+        // 후보는 score 만 사용(쿨타임/매칭 무관).
         scoreByUser.set(r.userId, parsed.score);
       }
     }
@@ -226,7 +226,7 @@ export async function POST() {
         myScore,
         myLevel,
         cand,
-        arenaResetApplied.recentOpponents,
+        parsedArena.recentOpponents,
       ),
     }));
     const picked = weightedPick(weighted, Math.random);
@@ -352,10 +352,10 @@ export async function POST() {
 
     // 12. 상태 저장.
     const nextArena = {
-      ...arenaResetApplied,
+      ...parsedArena,
       score: newScore,
-      dailyUsed: arenaResetApplied.dailyUsed + 1,
-      recentOpponents: pushRecentOpponent(arenaResetApplied.recentOpponents, oppRef),
+      lastMatchAt: now.toISOString(),
+      recentOpponents: pushRecentOpponent(parsedArena.recentOpponents, oppRef),
     };
     await upsertSave(tx, userId, ARENA_STATE_KEY, nextArena);
 
@@ -397,11 +397,8 @@ export async function POST() {
         },
         // 전투 로그 다시보기 + 전투 기록 1판(클라가 즉시 replay 표시 + 기록 목록 prepend).
         historyEntry,
-        dailyRemaining: Math.max(
-          0,
-          MAX_DAILY_MATCHES - nextArena.dailyUsed,
-        ),
-        dailyResetAt: nextArena.dailyResetAt,
+        // 재도전 쿨타임(ms) — 클라가 버튼 카운트다운 시작에 사용.
+        cooldownMs: ARENA_MATCH_COOLDOWN_MS,
       },
     };
   });

@@ -62,10 +62,8 @@ import {
   v2DefBuffMult,
   V2_BASE_MISS_PCT,
 } from "./combatShared";
-import {
-  V2_COMBAT_PATTERN_ENABLED,
-  defaultPatternFromEquipped,
-} from "./combatPattern";
+import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
+import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
 import {
   CRIT_MULT_BASE,
   ETERNAL_GALE_ABSOLUTE_CAP,
@@ -2051,11 +2049,11 @@ function castV2SkillOnAttackerTurnPvP(
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
     procChanceBonus: side.player.skillProcChanceAdd ?? 0,
     // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(PvP 양쪽 다 플레이어). off 면 옛 슬롯순서+proc.
-    // 저장된 커스텀 패턴 우선, 없으면 장착 슬롯 기본 패턴.
+    // 저장된 커스텀 패턴 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
     turn: side.turn.completedPlayerTurns + 1,
     combatPattern: V2_COMBAT_PATTERN_ENABLED
       ? (side.v2Skills.pattern ??
-        defaultPatternFromEquipped(side.v2Skills.equipped))
+        smartDefaultPatternFromEquipped(side.v2Skills.equipped))
       : undefined,
     attacker: {
       mp: side.mp,
@@ -2188,6 +2186,14 @@ function castV2SkillOnAttackerTurnPvP(
         side: who,
       });
     }
+  }
+  // 마나 회복(명상 등) — 로그 한 줄(빈 턴 갭 방지). PvE 미러.
+  if (result.manaRestored > 0 && result.castSkillName) {
+    nextLog = appendLog(nextLog, {
+      kind: "player_attack",
+      text: `${result.castSkillName}! ${side.name} 마나 ${result.manaRestored} 회복했다.`,
+      side: who,
+    });
   }
   // PR2-B 사혈격(PvP) — 시전자 HP 소모(자살 방지 최소 1).
   if (result.selfHpCost > 0) {

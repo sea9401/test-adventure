@@ -20,6 +20,7 @@ import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
+  type V2CombatCondition,
   type V2CombatPattern,
   type V2CombatPreset,
 } from "@/adventure/v2/combat/combatPattern";
@@ -349,4 +350,66 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
     ? { learned, equipped, pattern }
     : { learned, equipped };
   return presets.length > 0 ? { ...base, presets } : base;
+}
+
+// === 스마트 기본 패턴 (커스텀 패턴 미설정 시) =============================
+// combatPattern 의 defaultPatternFromEquipped 는 모든 스킬에 "항상"을 깐다 → 유틸 스킬(명상·버프·
+// 힐)이 매 턴 스팸되고 공격을 안 하는 자해 루프가 생긴다(특히 명상=0코스트·0쿨이라 매 턴 발동).
+// 여기선 카탈로그를 봐서 스킬 종류별 합리적 기본 조건을 깐다 — 공격은 "항상", 유틸은 필요할 때만.
+//   (combatPattern 은 순수 모듈이라 카탈로그를 못 봐서, 카탈로그가 있는 이 레이어에 둔다.)
+// "적에게 피해" = 직접 피해 + 지속피해(DoT) 적용. 순수 DoT 공격 스킬(자상·독무 = dot 효과만,
+//   직접 데미지 없음)도 매 턴 발동해야 하는 공격기라 포함한다(빠지면 첫 턴만 발동하고 죽는다).
+const DAMAGE_EFFECT_KINDS = new Set([
+  "damage",
+  "dot",
+  "hpCostDamage",
+  "healToDamage",
+  "executeDamage",
+  "stackPayoffDamage",
+]);
+
+// 스킬 1종의 기본 발동 조건 — 적에게 피해를 주면(직접/DoT) "항상"(평타 자리), 순수 유틸은 종류별 조건.
+export function smartDefaultConditionForSkill(
+  def: V2SkillDefinition,
+): V2CombatCondition {
+  const effs = def.effects;
+  // 적에게 피해를 주는 스킬(부가 DoT/디버프 동반 포함)은 평타 대체 = 항상 발동.
+  if (effs.some((e) => DAMAGE_EFFECT_KINDS.has(e.kind))) return { kind: "always" };
+  // 순수 유틸 — 매 턴 스팸 방지로 종류별 조건.
+  if (effs.some((e) => e.kind === "heal")) {
+    return { kind: "self_hp", op: "below", pct: 50 }; // 힐 = HP 낮을 때.
+  }
+  if (effs.some((e) => e.kind === "shield" || e.kind === "selfRegen")) {
+    return { kind: "self_hp", op: "below", pct: 60 }; // 보호막·리젠 = 피해 입을 때.
+  }
+  if (effs.some((e) => e.kind === "manaRestore")) {
+    return { kind: "self_mp", op: "below", pct: 40 }; // 마나 회복(명상) = MP 낮을 때.
+  }
+  const statBuff = effs.find((e) => e.kind === "selfBuff");
+  if (statBuff && statBuff.kind === "selfBuff") {
+    return { kind: "self_buff", stat: statBuff.stat, active: false }; // 스탯 버프 = 안 걸렸을 때.
+  }
+  if (effs.some((e) => e.kind === "enemyVuln")) {
+    return { kind: "enemy_status", tag: "vuln", op: "none", stacks: 0 }; // 취약 = 적이 취약 아닐 때.
+  }
+  // 그 외(파생 버프 회피/크리·순수 디버프 등) — 깔끔한 조건이 없어 오프너로(첫 턴만, 스팸 방지).
+  return { kind: "turn", op: "atMost", value: 1 };
+}
+
+// 장착 스킬을 스마트 기본 조건으로 묶은 패턴(슬롯 순서 = 우선순위 유지). 미설정 캐릭의 폴백.
+//   카탈로그에 없는 id 는 안전하게 "항상". 엔진·에디터·PvP 가 공유(단일 소스).
+export function smartDefaultPatternFromEquipped(
+  equipped: readonly string[],
+): V2CombatPattern {
+  return {
+    blocks: equipped.map((skillId) => {
+      const def = V2_SKILLS[skillId as V2SkillId];
+      return {
+        condition: def
+          ? smartDefaultConditionForSkill(def)
+          : ({ kind: "always" } as V2CombatCondition),
+        action: { kind: "skill" as const, skillId },
+      };
+    }),
+  };
 }

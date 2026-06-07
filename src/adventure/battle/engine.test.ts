@@ -760,6 +760,13 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
       v2Skills: {
         learned: ["v2c_mage_shield"],
         equipped: ["v2c_mage_shield"],
+        // 스마트 기본 패턴은 보호막을 "HP 낮을 때"로 깔아 풀피선 미발동 → 로그 표기 검증 위해
+        //   명시 패턴으로 "항상 보호막" 강제(이 테스트는 발동 정책이 아니라 cast 로그 메커니즘 검증).
+        pattern: {
+          blocks: [
+            { condition: { kind: "always" }, action: { kind: "skill", skillId: "v2c_mage_shield" } },
+          ],
+        },
       },
     });
     // 보호막 적용 로그 — PvE cast 표기 확인.

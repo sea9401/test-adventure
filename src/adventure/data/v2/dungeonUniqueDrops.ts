@@ -4,16 +4,17 @@
 // 두 갈래:
 //   ① 레거시 층 풀(UNIQUE_FLOOR_POOLS, floor 1~8 키): 들판 구간(깊이 1~6)의 유니크 6종.
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
-//   ② 심층 밴드 풀(BAND_UNIQUE_POOLS, 깊이 범위 키): 프론티어 밴드 드랍. 밴드마다 16종
-//      (무기 8 + 세트 3종 8), chance 0.01 = 1회 사냥당 총 1%(1종당 ≈0.06%). 현재 마른 협곡(13~18)·얼음 호수
-//      (19~24)·심층 동굴(25~30) 3밴드 = 48종. 신규 밴드는 BAND_UNIQUE_POOLS 에 항목 1개 추가.
+//   ② 심층 밴드 풀(BAND_UNIQUE_POOLS, 깊이 범위 키): 프론티어 밴드 드랍. 밴드마다 기본 16종(무기 8 +
+//      세트 3종 8) + 무기포함 특화세트 + 컨셉 사이드그레이드. chance 0.01 = 1회 사냥당 총 1%(per-item 희석).
+//      현재 마른 협곡(13~18, 20종)·얼음 호수(19~24, 22종)·심층 동굴(25~30, 26종) 3밴드 = 68종.
+//      신규 밴드는 BAND_UNIQUE_POOLS 에 항목 1개 추가.
 //
 // 유니크 = id당 1개(ownedSet 제외) — 정규 장비와 동일 unique-per-id.
 
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 54종(레거시 6 + 밴드 드랍 48).
+// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 74종(레거시 6 + 밴드 드랍 68).
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
 ).filter((id) => isUnique(V2_EQUIPMENT[id]));
@@ -79,8 +80,8 @@ export type BandUniquePool = {
 
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
-    // 마른 협곡(밴드 A, 깊이 13~18). 16종 + 녹슨 독니 세트 2 = 18종. chance 0.01(총 1% 유지) / 18
-    // 균등 → 종류당 ≈0.056%(아이템 추가 시 총 1% 고정·per-item 희석. 종류당 유지하려면 chance↑).
+    // 마른 협곡(밴드 A, 깊이 13~18). 16종 + 녹슨 독니 세트 2 + 사이드그레이드 2(날렵한 세검·바람 보행화)
+    // = 20종. chance 0.01(총 1% 유지) / 20 균등 → 종류당 ≈0.05%(아이템 추가 시 총 1% 고정·per-item 희석).
     minDepth: 13,
     maxDepth: 18,
     chance: 0.01,
@@ -103,11 +104,13 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_canyon_sand_necklace",
       "v2_canyon_rustfang_dagger",
       "v2_canyon_rustfang_gloves",
+      "v2_canyon_swift_rapier",
+      "v2_canyon_wind_boots",
     ],
   },
   {
-    // 얼음 호수(밴드 B, 깊이 19~24). 16종 + 백서리 비전 2 + 혈금강 2 = 20종. chance 0.01(총 1% 유지)
-    // / 20 균등 → 종류당 ≈0.05%.
+    // 얼음 호수(밴드 B, 깊이 19~24). 16종 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2(묵직한 거검·회피
+    // 망토) = 22종. chance 0.01(총 1% 유지) / 22 균등 → 종류당 ≈0.045%.
     minDepth: 19,
     maxDepth: 24,
     chance: 0.01,
@@ -132,11 +135,13 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_lake_frostarcane_necklace",
       "v2_lake_bloodvajra_gauntlet",
       "v2_lake_bloodvajra_boots",
+      "v2_lake_brutal_greatsword",
+      "v2_lake_dodge_cloak",
     ],
   },
   {
-    // 심층 동굴(밴드 C, 깊이 25~30). 16종 + 심판의 성벽 3 + 흑맥 독왕 3 = 22종. chance 0.01(총 1% 유지)
-    // / 22 균등 → 종류당 ≈0.045%.
+    // 심층 동굴(밴드 C, 깊이 25~30). 16종 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4(철벽 흉갑·
+    // 뿌리내린 각화·파괴 권갑·집중의 반지) = 26종. chance 0.01(총 1% 유지) / 26 균등 → 종류당 ≈0.038%.
     minDepth: 25,
     maxDepth: 30,
     chance: 0.01,
@@ -163,6 +168,10 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_cave_venomlord_dagger",
       "v2_cave_venomlord_ring",
       "v2_cave_venomlord_necklace",
+      "v2_cave_fortress_armor",
+      "v2_cave_rooted_boots",
+      "v2_cave_ruin_gloves",
+      "v2_cave_focus_ring",
     ],
   },
 ];

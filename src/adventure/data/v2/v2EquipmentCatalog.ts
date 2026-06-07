@@ -2,9 +2,10 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 123종 (정규 그리드 43 + 유니크 66 + 제작전용 7 + 전문화 스타터 7).
-//   유니크 66 = 레거시 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(맹독/마법/방어비례/금강 — rust_fang
-//   2·frostarcane 2·bloodvajra 2·judgment_bulwark 3·venomlord 3).
+// V2_EQUIPMENT — 131종 (정규 그리드 43 + 유니크 74 + 제작전용 7 + 전문화 스타터 7).
+//   유니크 74 = 레거시 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(맹독/마법/방어비례/금강 — rust_fang
+//   2·frostarcane 2·bloodvajra 2·judgment_bulwark 3·venomlord 3) + 컨셉 사이드그레이드 8(위력↔속도/무게/
+//   회피 트레이드·슬롯 비전형 — 협곡 2·호수 2·동굴 4, 세트 아님).
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (물방+마방 이중 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
 //   - sim 캘리브(PR-8)에서 정식 튜닝.
@@ -1634,5 +1635,115 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { mp: 50, eva: 4 },
     rarity: "unique",
     setId: "venomlord",
+  },
+
+  // ── 컨셉 사이드그레이드 (밴드 드랍, rarity:"unique") ───────────────────────────
+  // 무조건 우상향이 아니라 "다른 축으로 트레이드"하는 사이드그레이드. 위력↓속도↑(날렵/바람) /
+  // 위력↑무게↑(묵직/철벽 — 무게 페널티 2.0과 맞물려 진짜 트레이드오프) / 슬롯 비전형(뿌리내린=신발인데
+  // 속도 대신 회피·위력 / 파괴=장갑인데 치명 대신 치명피해). 메인 사다리 옆에 군데군데, 세트 아님.
+
+  // 협곡 — 날렵한 세검(위력↓ 속도↑) + 바람 보행화(속도 특화).
+  v2_canyon_swift_rapier: {
+    id: "v2_canyon_swift_rapier",
+    slot: "weapon",
+    concept: "dex",
+    tier: 3,
+    name: "날렵한 세검",
+    description: "깃털처럼 가벼워 손이 먼저 닿는 가는 검. 한 방은 가벼워도 빠르다.",
+    power: 62,
+    weight: 2,
+    options: { spd: 5, crit: 3 },
+    weaponType: "rapier",
+    rarity: "unique",
+  },
+  v2_canyon_wind_boots: {
+    id: "v2_canyon_wind_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 3,
+    name: "바람 보행화",
+    description: "바람을 밟듯 가벼운 신. 단단함은 버리고 빠르기만 좇았다.",
+    power: 4,
+    weight: 1,
+    options: { spd: 7, eva: 2 },
+    rarity: "unique",
+  },
+
+  // 호수 — 묵직한 거검(위력↑ 무게↑=느림) + 회피 망토(방어 버리고 회피 특화).
+  v2_lake_brutal_greatsword: {
+    id: "v2_lake_brutal_greatsword",
+    slot: "weapon",
+    concept: "str",
+    tier: 3,
+    name: "묵직한 거검",
+    description: "들기조차 버거운 큰 검. 휘두르는 데 시간이 걸려도 한 방이 무겁다.",
+    power: 134,
+    weight: 8,
+    options: { critMult: 50 },
+    weaponType: "greatsword",
+    rarity: "unique",
+  },
+  v2_lake_dodge_cloak: {
+    id: "v2_lake_dodge_cloak",
+    slot: "armor",
+    concept: "light",
+    tier: 3,
+    name: "회피 망토",
+    description: "천 한 겹처럼 얇은 망토. 막기를 포기하고 흘리기에 모든 걸 걸었다.",
+    power: 12,
+    weight: 1,
+    options: { eva: 10, hp: 40 },
+    rarity: "unique",
+  },
+
+  // 동굴 — 철벽 흉갑(위력↑ 무게↑ 순수 HP·탱앵커) + 뿌리내린 각화(신발인데 속도 0, 위력·회피) +
+  //   파괴 권갑(장갑인데 치명 대신 치명피해) + 집중의 반지(위력↓ 치명피해·MP 버스트).
+  v2_cave_fortress_armor: {
+    id: "v2_cave_fortress_armor",
+    slot: "armor",
+    concept: "heavy",
+    tier: 3,
+    name: "철벽 흉갑",
+    description: "성문처럼 두껍게 두른 흉갑. 느려지더라도 무너지지 않는다.",
+    power: 68,
+    weight: 10,
+    options: { hp: 120 },
+    rarity: "unique",
+  },
+  v2_cave_rooted_boots: {
+    id: "v2_cave_rooted_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 3,
+    name: "뿌리내린 각화",
+    description: "땅에 뿌리내린 듯 묵직한 신. 빠르진 않아도 디딘 자리가 단단하다.",
+    power: 18,
+    weight: 5,
+    options: { eva: 6 },
+    rarity: "unique",
+  },
+  v2_cave_ruin_gloves: {
+    id: "v2_cave_ruin_gloves",
+    slot: "gloves",
+    concept: "heavy",
+    tier: 3,
+    name: "파괴 권갑",
+    description: "한 방의 무게를 키우려 벼린 권갑. 자주는 아니어도 터지면 크다.",
+    power: 18,
+    weight: 5,
+    options: { critMult: 50 },
+    rarity: "unique",
+  },
+  v2_cave_focus_ring: {
+    id: "v2_cave_focus_ring",
+    slot: "ring",
+    concept: "luck",
+    tier: 3,
+    name: "집중의 반지",
+    description: "한 점에 마음을 모으는 반지. 방어를 줄이고 일격과 주문에 힘을 싣는다.",
+    power: 9,
+    weight: 0,
+    options: { critMult: 60, mp: 40 },
+    rarity: "unique",
   },
 };

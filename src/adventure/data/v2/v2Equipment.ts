@@ -212,7 +212,16 @@ export type V2EquipmentId =
   | "v2_cave_judgment_ring"
   | "v2_cave_venomlord_dagger"
   | "v2_cave_venomlord_ring"
-  | "v2_cave_venomlord_necklace";
+  | "v2_cave_venomlord_necklace"
+  // 컨셉 사이드그레이드 (밴드 드랍) — 위력↔속도/무게/회피 트레이드, 슬롯 비전형.
+  | "v2_canyon_swift_rapier"
+  | "v2_canyon_wind_boots"
+  | "v2_lake_brutal_greatsword"
+  | "v2_lake_dodge_cloak"
+  | "v2_cave_fortress_armor"
+  | "v2_cave_rooted_boots"
+  | "v2_cave_ruin_gloves"
+  | "v2_cave_focus_ring";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)

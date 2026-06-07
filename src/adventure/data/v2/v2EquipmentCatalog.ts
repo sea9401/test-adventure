@@ -356,7 +356,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "흠집 없는 은반지. 광택이 곱다.",
     power: 2,
     weight: 0,
-    options: { critMult: 10 },
+    options: { critMult: 12 },
   },
   v2_lucky_charm: {
     id: "v2_lucky_charm",
@@ -367,7 +367,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "닳은 패에 글자가 빛난다.",
     power: 2,
     weight: 0,
-    options: { critMult: 20 },
+    options: { critMult: 18, crit: 3 },
   },
   v2_fate_ring: {
     id: "v2_fate_ring",
@@ -378,7 +378,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "보는 각도마다 색이 바뀌는 반지.",
     power: 4,
     weight: 0,
-    options: { critMult: 30 },
+    options: { critMult: 26, spd: 3 },
   },
 
   // ── 목걸이-마법 (위력 = 마방, 무게 0, 옵션 mp) ────────────────────────
@@ -403,7 +403,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "맑은 수정에 빛이 모인다.",
     power: 2,
     weight: 0,
-    options: { mp: 30 },
+    options: { mp: 30, hp: 30 },
   },
   v2_mana_essence: {
     id: "v2_mana_essence",
@@ -414,7 +414,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "푸른 빛이 일렁이는 작은 결정.",
     power: 4,
     weight: 0,
-    options: { mp: 50 },
+    options: { mp: 48, eva: 3 },
   },
 
   // ── 유니크 (드랍 전용) ────────────────────────────────────────────
@@ -905,7 +905,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     rarity: "unique",
   },
 
-  // 마른땅 갑주 세트 (중갑 3종, setId:"dry_canyon") — 3종 다 착용 시 치명+4·치명피해+0.4×·HP+30.
+  // 마른땅 갑주 세트 (중갑 3종, setId:"dry_canyon") — 3종 다 착용 시 치명+5·치명피해+0.3×·HP+30.
   v2_canyon_set_armor: {
     id: "v2_canyon_set_armor",
     slot: "armor",
@@ -990,7 +990,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   },
 
   // 모래바람 장신구 세트 (반지+목걸이 2종, setId:"canyon_sandstorm") — 갑주와 동시 착용 가능.
-  // 치명/마력 유틸: 반지=치명피해(반지 축)·목걸이=MP(목걸이 축). 2종 보너스 치명+6·MP+30.
+  // 버스트 유틸: 반지=치명피해 1차축+2차 갈래·목걸이=MP. 2종 보너스 치명+8·속도+4.
   v2_canyon_sand_ring: {
     id: "v2_canyon_sand_ring",
     slot: "ring",
@@ -1000,7 +1000,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "마른 모래바람을 가둔 듯 끝없이 맴도는 무늬가 새겨진 반지.",
     power: 6,
     weight: 0,
-    options: { critMult: 50 },
+    options: { critMult: 50, crit: 4 },
     rarity: "unique",
     setId: "canyon_sandstorm",
   },
@@ -1013,7 +1013,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "협곡을 휩쓰는 모래바람 소리가 깃든 목걸이. 마음이 멀리까지 트인다.",
     power: 6,
     weight: 0,
-    options: { mp: 50 },
+    options: { mp: 40, crit: 4 },
     rarity: "unique",
     setId: "canyon_sandstorm",
   },
@@ -1128,7 +1128,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     rarity: "unique",
   },
 
-  // 서리 갑주 세트 (공격형 중갑 3종, setId:"frost_plate") — 3종 보너스 치명+5·치명피해+0.5×·HP+40.
+  // 서리 갑주 세트 (공격형 중갑 3종, setId:"frost_plate") — 3종 보너스 치명+5·속도+4·HP+40 (속공 크리).
   v2_lake_frost_armor: {
     id: "v2_lake_frost_armor",
     slot: "armor",
@@ -1169,7 +1169,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "frost_plate",
   },
 
-  // 빙벽 수호구 세트 (방어형 중갑 3종, setId:"ice_bulwark") — 순수 탱커. 3종 보너스 HP+120·회피+6.
+  // 빙벽 수호구 세트 (방어형 중갑 3종, setId:"ice_bulwark") — 순수 탱커(회피형). 3종 보너스 HP+100·회피+8.
   // 빙벽 골렘 결. 서리 갑주(공격)와 슬롯 택일.
   v2_lake_bulwark_armor: {
     id: "v2_lake_bulwark_armor",
@@ -1211,7 +1211,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "ice_bulwark",
   },
 
-  // 한기 장신구 세트 (반지+목걸이 2종, setId:"chill_charm") — 갑주와 동시 착용 가능. 2종 보너스 치명+8·MP+40.
+  // 한기 장신구 세트 (반지+목걸이 2종, setId:"chill_charm") — 갑주와 동시 착용 가능. 2종 보너스 회피+6·HP+60 (회피/지속).
   v2_lake_chill_ring: {
     id: "v2_lake_chill_ring",
     slot: "ring",
@@ -1221,7 +1221,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "끼면 손끝부터 서늘해지는 반지. 빈틈을 노리는 눈이 날카로워진다.",
     power: 8,
     weight: 0,
-    options: { critMult: 60 },
+    options: { critMult: 45, eva: 4 },
     rarity: "unique",
     setId: "chill_charm",
   },
@@ -1234,7 +1234,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "얼음 호수의 고요한 한기가 깃든 목걸이. 마음이 맑고 깊어진다.",
     power: 8,
     weight: 0,
-    options: { mp: 60 },
+    options: { mp: 45, eva: 4 },
     rarity: "unique",
     setId: "chill_charm",
   },
@@ -1349,7 +1349,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     rarity: "unique",
   },
 
-  // 심연 갑주 세트 (공격형 중갑 3종, setId:"abyss_plate") — 3종 보너스 치명+6·치명피해+0.6×·HP+50.
+  // 심연 갑주 세트 (공격형 중갑 3종, setId:"abyss_plate") — 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터).
   v2_cave_abyss_armor: {
     id: "v2_cave_abyss_armor",
     slot: "armor",
@@ -1390,7 +1390,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "abyss_plate",
   },
 
-  // 흑요 수호구 세트 (방어형 중갑 3종, setId:"obsidian_bulwark") — 순수 탱커. 3종 보너스 HP+160·회피+7.
+  // 흑요 수호구 세트 (방어형 중갑 3종, setId:"obsidian_bulwark") — 순수 탱커(HP+템포). 3종 보너스 HP+160·속도+4.
   // 심연 갑주(공격)와 슬롯 택일.
   v2_cave_obsidian_armor: {
     id: "v2_cave_obsidian_armor",
@@ -1432,7 +1432,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "obsidian_bulwark",
   },
 
-  // 공허 장신구 세트 (반지+목걸이 2종, setId:"void_charm") — 갑주와 동시 착용 가능. 2종 보너스 치명+10·MP+50.
+  // 공허 장신구 세트 (반지+목걸이 2종, setId:"void_charm") — 갑주와 동시 착용 가능. 2종 보너스 MP+50·속도+4 (마력/엔진).
   v2_cave_void_ring: {
     id: "v2_cave_void_ring",
     slot: "ring",
@@ -1442,7 +1442,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "끼면 손끝이 텅 빈 듯 서늘해지는 반지. 어둠 속 빈틈이 또렷이 보인다.",
     power: 11,
     weight: 0,
-    options: { critMult: 70 },
+    options: { critMult: 55, mp: 30 },
     rarity: "unique",
     setId: "void_charm",
   },
@@ -1455,7 +1455,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "텅 빈 어둠의 고요가 깃든 목걸이. 마음이 끝없이 가라앉으며 맑아진다.",
     power: 11,
     weight: 0,
-    options: { mp: 70 },
+    options: { mp: 60, hp: 50 },
     rarity: "unique",
     setId: "void_charm",
   },

@@ -81,12 +81,12 @@ type EquipmentResponse = {
 
 export function V2CharacterScreen({
   onBack,
-  // 다른 모험가 공개 보기 — userId. 있으면 /api/v2/player/[id] 에서 공개 정보만 받고
+  // 다른 모험가 공개 보기 — 닉네임. 있으면 /api/v2/player/[name] 에서 공개 정보만 받고
   // 골드/EXP 등 사적 값은 숨긴다. 없으면 본인 /me 정보(기존 동작).
-  playerId,
+  playerName,
 }: {
   onBack?: () => void;
-  playerId?: string;
+  playerName?: string;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
@@ -95,10 +95,10 @@ export function V2CharacterScreen({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      if (playerId) {
+      if (playerName) {
         // 공개 보기 — 단일 응답에 state 필드 + equipment 동봉.
         const res = (await fetch(
-          `/api/v2/player/${encodeURIComponent(playerId)}`,
+          `/api/v2/player/${encodeURIComponent(playerName)}`,
         ).then((r) => (r.ok ? r.json() : null))) as
           | (StateResponse & { equipment?: EquipmentResponse })
           | null;
@@ -124,7 +124,7 @@ export function V2CharacterScreen({
     } finally {
       setLoading(false);
     }
-  }, [playerId]);
+  }, [playerName]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 setLoading)
@@ -150,7 +150,7 @@ export function V2CharacterScreen({
           <BackButton onClick={onBack} />
         )}
         <h1 className="mt-1 text-lg font-bold">
-          {playerId ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
+          {playerName ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
         </h1>
       </header>
 
@@ -162,7 +162,7 @@ export function V2CharacterScreen({
           equipped={equipped}
           owned={equipment?.owned ?? []}
           // 공개 보기엔 골드 숨김(사적 정보).
-          showGold={!playerId}
+          showGold={!playerName}
         />
       ) : loading ? (
         <Card padding="md">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Envelope } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import {
   acceptGuildInvite,
@@ -203,7 +204,11 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
                     <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       {KIND_LABEL[it.kind]}
                     </span>
-                    {it.fromName && <span>· {it.fromName}</span>}
+                    {it.fromName && (
+                      <span>
+                        · <PlayerNameLink name={it.fromName} />
+                      </span>
+                    )}
                     <span>· {timeAgo(it.createdAt)}</span>
                   </div>
                   <div className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">

@@ -1,6 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, guilds, savesKv } from "@/db/schema";
+import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -12,22 +13,41 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 
-// GET /api/v2/player/[id] — 다른 모험가의 공개 캐릭터 정보. "내 정보" 화면과 같은 항목
-//   (레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련 차수)을 돌려준다. 단 골드/HP/EXP 같은
-//   사적·일시 값은 제외(공개 보기). 로그인 필요. read-only.
+// GET /api/v2/player/[name] — 다른 모험가의 공개 캐릭터 정보. URL 의 [name] = 닉네임.
+//   "내 정보" 화면과 같은 항목(레벨·직업·속성·능력치·전투 스탯·장착 장비·숙련 차수)을 돌려준다.
+//   단 골드/HP/EXP 같은 사적·일시 값은 제외(공개 보기). 로그인 필요. read-only.
 //
 // /me/state 의 공개 부분만 추린 경량판 — V2CharacterScreen 이 그대로 렌더(StateResponse 호환).
 
-type Ctx = { params: Promise<{ id: string }> };
+type Ctx = { params: Promise<{ name: string }> };
 
 export async function GET(_req: Request, ctx: Ctx) {
   const viewerId = await ensureUser();
   if (!viewerId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const { id: targetId } = await ctx.params;
-  if (!targetId) {
+  // Next 가 동적 세그먼트를 이미 URL-디코드해 넘긴다 — 추가 decodeURIComponent 금지
+  //   (이름에 '%' 포함 시 URIError). trim 만.
+  const { name: rawName } = await ctx.params;
+  const lookupName = (rawName ?? "").trim();
+  if (!lookupName) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+
+  // 닉네임 → userId 해석. 이름은 유니크(check-name 가 보장) · 대소문자 무시.
+  const [match] = await db
+    .select({ userId: savesKv.userId })
+    .from(savesKv)
+    .where(
+      and(
+        eq(savesKv.key, PROFILE_STORAGE_KEY),
+        sql`lower(${savesKv.value}->>'name') = lower(${lookupName})`,
+      ),
+    )
+    .limit(1);
+  const targetId = match?.userId;
+  if (!targetId) {
+    return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }
 
   // 대상 유저의 공개 save 들 일괄 조회.

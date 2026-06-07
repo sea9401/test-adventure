@@ -213,11 +213,11 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           전투 로그 ·{" "}
           <span className="font-normal text-zinc-500">
             vs{" "}
-            {replayEntry.opponent?.userId ? (
+            {replayEntry.opponent?.name ? (
               <button
                 type="button"
                 onClick={() =>
-                  router.push(`/character/${replayEntry.opponent!.userId}`)
+                  router.push(`/character/${encodeURIComponent(replayEntry.opponent!.name)}`)
                 }
                 className="text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
               >
@@ -327,10 +327,10 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
               </div>
               <div className="mt-3 text-sm">
                 상대{" "}
-                {lastResult.opponent.userId ? (
+                {lastResult.opponent.name ? (
                   <button
                     type="button"
-                    onClick={() => router.push(`/character/${lastResult.opponent.userId}`)}
+                    onClick={() => router.push(`/character/${encodeURIComponent(lastResult.opponent.name)}`)}
                     className="font-semibold text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
                   >
                     {lastResult.opponent.name}

@@ -4,7 +4,10 @@ import {
   evaluateCombatPattern,
   defaultPatternFromEquipped,
   parseCombatPattern,
+  parseCombatPresets,
   V2_COMBAT_PATTERN_MAX_BLOCKS,
+  V2_COMBAT_PATTERN_MAX_PRESETS,
+  V2_COMBAT_PRESET_NAME_MAXLEN,
   type V2PatternCtx,
   type V2CombatPattern,
 } from "./combatPattern";
@@ -158,5 +161,59 @@ describe("defaultPatternFromEquipped", () => {
     // 평가 시 슬롯 순서대로 첫 사용가능 스킬(옛 동작 재현, proc 없음).
     expect(evaluateCombatPattern(p, ctx(), () => true)).toBe("a");
     expect(evaluateCombatPattern(p, ctx(), (id) => id !== "a")).toBe("b");
+  });
+});
+
+describe("parseCombatPresets (C4 저장 검증)", () => {
+  it("유효 항목 통과 + 이름 trim/길이 클램프 + pattern 재검증", () => {
+    const out = parseCombatPresets([
+      {
+        name: "  보스용  ",
+        pattern: {
+          blocks: [
+            { condition: { kind: "always" }, action: { kind: "skill", skillId: "strike" } },
+            { condition: { kind: "bogus" }, action: { kind: "skill", skillId: "x" } }, // 블록 drop
+          ],
+        },
+      },
+      { name: "x".repeat(40), pattern: { blocks: [] } }, // 이름 길이 클램프
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out[0].name).toBe("보스용"); // trim
+    expect(out[0].pattern.blocks).toHaveLength(1); // 잘못된 블록 drop(parseCombatPattern 재사용)
+    expect(out[1].name).toHaveLength(V2_COMBAT_PRESET_NAME_MAXLEN);
+  });
+
+  it("이름 없는/비객체 항목은 drop", () => {
+    const out = parseCombatPresets([
+      { pattern: { blocks: [] } }, // 이름 없음 → drop
+      { name: "   ", pattern: { blocks: [] } }, // 공백뿐 → drop
+      "nope", // 비객체 → drop
+      { name: "유효", pattern: { blocks: [] } },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].name).toBe("유효");
+  });
+
+  it("중복 이름 drop — 이름 = 키(first-wins)", () => {
+    const out = parseCombatPresets([
+      { name: "보스용", pattern: { blocks: [{ condition: { kind: "always" }, action: { kind: "skill", skillId: "a" } }] } },
+      { name: "보스용", pattern: { blocks: [] } }, // 중복 → drop(첫 항목 유지)
+      { name: " 보스용 ", pattern: { blocks: [] } }, // trim 후 중복 → drop
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].pattern.blocks).toHaveLength(1);
+  });
+
+  it("배열 아님 → 빈 라이브러리, 개수 상한 적용", () => {
+    expect(parseCombatPresets(null)).toEqual([]);
+    expect(parseCombatPresets({ presets: [] })).toEqual([]);
+    const many = parseCombatPresets(
+      Array.from({ length: V2_COMBAT_PATTERN_MAX_PRESETS + 5 }, (_, i) => ({
+        name: `p${i}`,
+        pattern: { blocks: [] },
+      })),
+    );
+    expect(many).toHaveLength(V2_COMBAT_PATTERN_MAX_PRESETS);
   });
 });

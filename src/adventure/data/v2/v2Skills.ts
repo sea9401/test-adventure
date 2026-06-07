@@ -19,7 +19,9 @@ import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog"
 import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 import {
   parseCombatPattern,
+  parseCombatPresets,
   type V2CombatPattern,
+  type V2CombatPreset,
 } from "@/adventure/v2/combat/combatPattern";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
@@ -301,6 +303,9 @@ export type V2SkillsState = {
   /** 전투 패턴(갬빗, C2) — 우선순위 {조건→행동} 블록. 미설정(undefined)이면 엔진이 장착 슬롯에서
    *  기본 패턴 도출(defaultPatternFromEquipped). combat-pattern 라우트만 변경. */
   pattern?: V2CombatPattern;
+  /** 전투 패턴 프리셋(C4) — 이름 붙인 패턴 라이브러리(빠른 스왑용). 활성 패턴(pattern)과 별개,
+   *  엔진 미사용(순수 저장). combat-pattern/presets 라우트만 변경. 미설정=빈 라이브러리. */
+  presets?: V2CombatPreset[];
 };
 
 export function emptyV2SkillsState(): V2SkillsState {
@@ -336,5 +341,12 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
   const rawPattern = (raw as { pattern?: unknown }).pattern;
   const pattern =
     rawPattern != null ? parseCombatPattern(rawPattern) : undefined;
-  return pattern ? { learned, equipped, pattern } : { learned, equipped };
+  // 프리셋(C4) — 있으면 검증 파싱(항목 단위 drop), 비었으면 키 생략(하위호환).
+  const rawPresets = (raw as { presets?: unknown }).presets;
+  const presets =
+    rawPresets != null ? parseCombatPresets(rawPresets) : [];
+  const base: V2SkillsState = pattern
+    ? { learned, equipped, pattern }
+    : { learned, equipped };
+  return presets.length > 0 ? { ...base, presets } : base;
 }

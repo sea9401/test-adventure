@@ -352,7 +352,12 @@ export async function POST(req: Request) {
         };
       }
 
-      const player = await derivePlayerCombatV2(userId, tx);
+      // PR-perf — 이미 lock-read 한 charSave/equipmentSave 를 derive 에 넘겨 중복 select 제거
+      //   (배치 판당 char+equip 2 row read 절감). proficiency/skills 는 derive 가 select(현행 유지).
+      const player = await derivePlayerCombatV2(userId, tx, {
+        character: charSave,
+        equipmentSave,
+      });
       if (!player) {
         return {
           ok: false as const,

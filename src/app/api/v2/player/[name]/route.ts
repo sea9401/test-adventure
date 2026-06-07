@@ -34,18 +34,20 @@ export async function GET(_req: Request, ctx: Ctx) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
-  // 닉네임 → userId 해석. 이름은 유니크(check-name 가 보장) · 대소문자 무시.
-  const [match] = await db
-    .select({ userId: savesKv.userId })
-    .from(savesKv)
-    .where(
-      and(
-        eq(savesKv.key, PROFILE_STORAGE_KEY),
-        sql`lower(${savesKv.value}->>'name') = lower(${lookupName})`,
-      ),
-    )
-    .limit(1);
-  const targetId = match?.userId;
+  // 닉네임 → userId 해석. **표시 이름과 동일 규칙으로** 찾는다 — game_name 우선, 없으면(빈 문자열
+  //   포함) character-profile.v2.name (resolveActor·/api/profile/by-name 과 일치). 채팅·랭킹 등에서
+  //   보이는 이름이 game_name 이어도 해석되게 한다(이름은 check-name 가 유니크 보장 · 대소문자 무시).
+  const resolved = await db.execute(sql`
+    SELECT u.id AS user_id
+    FROM users u
+    LEFT JOIN saves_kv p
+      ON p.user_id = u.id AND p.key = ${PROFILE_STORAGE_KEY}
+    WHERE lower(COALESCE(NULLIF(btrim(u.game_name), ''), btrim(p.value->>'name')))
+        = lower(${lookupName})
+    LIMIT 1
+  `);
+  const targetId = (resolved.rows[0] as { user_id?: string } | undefined)
+    ?.user_id;
   if (!targetId) {
     return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   }

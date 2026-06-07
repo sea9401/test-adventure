@@ -14,15 +14,16 @@ import {
 } from "./v2EquipVariance";
 
 describe("rollItemStats", () => {
-  it("rng=0 → 각 스탯 최소값(별노래궁 power26/weight2/crit2)", () => {
-    // VARIANCE 0.65: power spread round(26*0.65)=17 → [9,43]; weight 1 → [1,3]; crit 1 → [1,3].
+  it("rng=0 → 각 스탯 최소값(별노래궁 위력130/weight2/crit2)", () => {
+    // 무기위력 ×5(26→130) + VARIANCE 0.65: power spread round(130*0.65)=85 → [45,215];
+    // weight 1 → [1,3]; crit 1 → [1,3]. (무게·옵션은 ×5 대상 아님.)
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0);
-    expect(r).toEqual({ power: 9, weight: 1, options: { crit: 1 } });
+    expect(r).toEqual({ power: 45, weight: 1, options: { crit: 1 } });
   });
 
   it("rng≈1 → 각 스탯 최대값", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0.999);
-    expect(r).toEqual({ power: 43, weight: 3, options: { crit: 3 } });
+    expect(r).toEqual({ power: 215, weight: 3, options: { crit: 3 } });
   });
 
   it("값 0(무게)은 spread 0 → 변동 없음, 위력 1은 ±1(0.65)", () => {
@@ -35,10 +36,10 @@ describe("rollItemStats", () => {
     expect(hi.power).toBe(2); // 위력 [1,2] 의 상단
   });
 
-  it("옵션 없는 아이템은 굴림에 options 없음 — 철검 power3/weight2", () => {
+  it("옵션 없는 아이템은 굴림에 options 없음 — 철검 위력15/weight2", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_iron_sword, () => 0);
     expect(r.options).toBeUndefined();
-    expect(r.power).toBe(1); // spread round(3*0.65)=2 → [1,5]
+    expect(r.power).toBe(5); // ×5(3→15): spread round(15*0.65)=10 → [5,25]
     expect(r.weight).toBe(1); // spread round(2*0.65)=1 → [1,3]
   });
 
@@ -73,11 +74,11 @@ describe("rollItemStats", () => {
 });
 
 describe("effectiveStats", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // power26, weight2, crit2
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력130(×5), weight2, crit2
 
   it("굴림 없으면 카탈로그 그대로", () => {
     expect(effectiveStats(bow, undefined)).toEqual({
-      power: 26,
+      power: 130,
       weight: 2,
       options: { crit: 2 },
     });
@@ -124,32 +125,31 @@ describe("effectiveStats", () => {
 });
 
 describe("rollQualityPct", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // power[18,34], weight[1,3], crit[1,3]; w 위력2·무게1·옵션1
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // ×5+0.65: power[45,215], weight[1,3], crit[1,3]; w 위력2·무게1·옵션1
 
-  // 0.65: 별노래궁 power[9,43]·weight[1,3]·crit[1,3].
   it("god-roll(전 스탯 최대·무게 최소) = 100%", () => {
     expect(
-      rollQualityPct(bow, { power: 43, weight: 1, options: { crit: 3 } }),
+      rollQualityPct(bow, { power: 215, weight: 1, options: { crit: 3 } }),
     ).toBe(100);
   });
 
   it("최저 굴림(전 스탯 최소·무게 최대) = 0%", () => {
     expect(
-      rollQualityPct(bow, { power: 9, weight: 3, options: { crit: 1 } }),
+      rollQualityPct(bow, { power: 45, weight: 3, options: { crit: 1 } }),
     ).toBe(0);
   });
 
   it("카탈로그 기준값(가운데) = 50%", () => {
-    // 26 = (9+43)/2 가운데, weight 2·crit 2 도 가운데.
+    // 130 = (45+215)/2 가운데, weight 2·crit 2 도 가운데.
     expect(
-      rollQualityPct(bow, { power: 26, weight: 2, options: { crit: 2 } }),
+      rollQualityPct(bow, { power: 130, weight: 2, options: { crit: 2 } }),
     ).toBe(50);
   });
 
   it("위력만 god(나머지 가운데) — 위력 가중 2 → 75%", () => {
     // power 1.0(w2) + weight 0.5(w1) + crit 0.5(w1) = 3/4
     expect(
-      rollQualityPct(bow, { power: 43, weight: 2, options: { crit: 2 } }),
+      rollQualityPct(bow, { power: 215, weight: 2, options: { crit: 2 } }),
     ).toBe(75);
   });
 

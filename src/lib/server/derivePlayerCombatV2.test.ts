@@ -33,11 +33,11 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     });
   });
 
-  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=3 magicAtk=3 weight=2", () => {
-    // 철검: power 3, weight 2. 무기 위력은 atk·magicAtk 둘 다 먹인다.
+  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=15 magicAtk=15 weight=2", () => {
+    // 철검: 위력 15(×5), weight 2. 무기 위력은 atk·magicAtk 둘 다 먹인다.
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.atk).toBe(3);
-    expect(a.magicAtk).toBe(3);
+    expect(a.atk).toBe(15);
+    expect(a.magicAtk).toBe(15);
     expect(a.weight).toBe(2);
     expect(a.def).toBe(0);
     expect(a.crit).toBe(0);
@@ -68,12 +68,12 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       { weapon: "v2_iron_sword" },
       { v2_greatsword: { power: 99, weight: 0 } },
     );
-    expect(a.atk).toBe(3);
+    expect(a.atk).toBe(15);
     expect(a.weight).toBe(2);
   });
 
   it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
-    // 철검: power 3 weight 2 (무기 → atk·magicAtk)
+    // 철검: 위력 15(×5) weight 2 (무기 → atk·magicAtk)
     // 쇠사슬 갑옷: power 2 weight 2 (갑옷 → def)
     // 은가락지: power 1 weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
@@ -81,8 +81,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       armor: "v2_chain_mail",
       ring: "v2_silver_ring",
     });
-    expect(a.atk).toBe(3);
-    expect(a.magicAtk).toBe(3);
+    expect(a.atk).toBe(15);
+    expect(a.magicAtk).toBe(15);
     expect(a.def).toBe(2); // 갑옷만(반지는 마방)
     expect(a.magicDef).toBe(1); // 반지 위력
     expect(a.weight).toBe(2 + 2 + 0);
@@ -102,7 +102,7 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
-    // 별노래궁 T5: power 26 weight 2 crit 2
+    // 별노래궁 T5: 위력 130(×5) weight 2 crit 2
     // 바람 망토 T5: power 3 weight 1 eva 3 hp 80 (갑옷 축: 방어+HP)
     // 마나의 정수 T5: power 2 weight 0 mp 50 (목걸이 → 마방)
     const a = aggregateV2Equipment({
@@ -110,8 +110,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       armor: "v2_windweave_cloak",
       necklace: "v2_mana_essence",
     });
-    expect(a.atk).toBe(26);
-    expect(a.magicAtk).toBe(26);
+    expect(a.atk).toBe(130);
+    expect(a.magicAtk).toBe(130);
     expect(a.def).toBe(3); // 갑옷만
     expect(a.magicDef).toBe(2); // 목걸이 위력
     expect(a.weight).toBe(2 + 1 + 0);
@@ -216,32 +216,32 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
-    // 별빛 지팡이 T5: power 31 (무기 → atk·magicAtk 둘 다). int token 없음.
-    // magicAtk = floor(int 15 × 0.15) + 위력 31 = 2 + 31 = 33. atk = floor(str 15×0.15) + 31 = 33.
+    // 별빛 지팡이 T5: 위력 155(×5, 무기 → atk·magicAtk 둘 다). int token 없음.
+    // magicAtk = floor(int 15 × 0.15) + 위력 155 = 2 + 155. atk = floor(str 15×0.15) + 155.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starlit_staff" },
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * 0.15) + 31 + V2_BASE_COMBAT_BONUS,
-    ); // 2 + 31 + 5 = 38
+      Math.floor(15 * 0.15) + 155 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 155 + 5 = 162
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15) + 31 + V2_BASE_COMBAT_BONUS,
-    ); // 2 + 31 + 5 = 38
+      Math.floor(15 * 0.15) + 155 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 155 + 5 = 162
   });
 
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
-    // 참나무 지팡이: power 6. magicAtk = floor(15×0.15) + 6 = 2 + 6 = 8. 물리 빌드는 마법스킬을
+    // 참나무 지팡이: 위력 30(×5). magicAtk = floor(15×0.15) + 30 = 2 + 30. 물리 빌드는 마법스킬을
     // 안 배워 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
-      v2Equipped: { weapon: "v2_oak_staff" }, // power 6
+      v2Equipped: { weapon: "v2_oak_staff" }, // 위력 30
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * 0.15) + 6 + V2_BASE_COMBAT_BONUS,
-    ); // 2 + 6 + 5 = 13
+      Math.floor(15 * 0.15) + 30 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 30 + 5 = 37
   });
 });
 

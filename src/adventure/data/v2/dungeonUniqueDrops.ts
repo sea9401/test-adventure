@@ -99,6 +99,31 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_canyon_sand_necklace",
     ],
   },
+  {
+    // 얼음 호수(밴드 B, 깊이 19~24). 무기 8 + 서리 갑주 3 + 빙벽 수호구 3 + 한기 장신구 2 = 16종.
+    // chance 0.08 / 16 균등 → 시작 시 종류당 0.5%.
+    minDepth: 19,
+    maxDepth: 24,
+    chance: 0.08,
+    ids: [
+      "v2_lake_greatsword",
+      "v2_lake_knightblade",
+      "v2_lake_rapier",
+      "v2_lake_gauntlet",
+      "v2_lake_claw",
+      "v2_lake_staff",
+      "v2_lake_bow",
+      "v2_lake_dagger",
+      "v2_lake_frost_armor",
+      "v2_lake_frost_gloves",
+      "v2_lake_frost_boots",
+      "v2_lake_bulwark_armor",
+      "v2_lake_bulwark_gloves",
+      "v2_lake_bulwark_boots",
+      "v2_lake_chill_ring",
+      "v2_lake_chill_necklace",
+    ],
+  },
 ];
 
 // 깊이 → 밴드 유니크 풀(없으면 null). 밴드는 겹치지 않게 정의.

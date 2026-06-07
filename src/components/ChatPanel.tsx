@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -24,6 +30,13 @@ export type ChatMessage = {
   createdAt: number;
   mine: boolean;
 };
+
+// 데스크톱 채팅창 크기 영속 + 최소 크기(드래그 리사이즈).
+const CHAT_SIZE_KEY = "chat-panel-size.v1";
+const CHAT_MIN_W = 320;
+const CHAT_MIN_H = 320;
+const clampInt = (v: number, min: number, max: number) =>
+  Math.round(Math.max(min, Math.min(max, v)));
 
 export function ChatPanel({
   open,
@@ -60,6 +73,83 @@ export function ChatPanel({
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
+
+  // 데스크톱 채팅창 크기 조절 — 좌상단 모서리 드래그(우하단 고정 패널이라 좌/위로 키운다).
+  //   localStorage 영속. 모바일(<sm)은 전체폭이라 미적용. 기본 = max-w-md(448) × 600(현행).
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 448, h: 600 });
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    try {
+      const raw = localStorage.getItem(CHAT_SIZE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { w?: unknown; h?: unknown };
+        if (typeof p.w === "number" && typeof p.h === "number") {
+          setSize({
+            w: clampInt(p.w, CHAT_MIN_W, 4000),
+            h: clampInt(p.h, CHAT_MIN_H, 4000),
+          });
+        }
+      }
+    } catch {
+      /* 손상/미설정 무시 — 기본값 사용 */
+    }
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // 진행 중인 리사이즈 정리 함수 보관 — 드래그 도중 패널이 사라져도(언마운트) 누수 없게.
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      resizeCleanupRef.current?.();
+    },
+    [],
+  );
+
+  // 좌상단 핸들 포인터 드래그 → 크기 변경(우하단 고정). 종료(up/cancel) 시 localStorage 저장.
+  const startResize = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = size.w;
+    const startH = size.h;
+    const maxW = Math.round(window.innerWidth * 0.95);
+    const maxH = Math.round(
+      (window.visualViewport?.height ?? window.innerHeight) * 0.9,
+    );
+    let latest = { w: startW, h: startH };
+    const onMove = (ev: PointerEvent) => {
+      latest = {
+        w: clampInt(startW - (ev.clientX - startX), CHAT_MIN_W, maxW),
+        h: clampInt(startH - (ev.clientY - startY), CHAT_MIN_H, maxH),
+      };
+      setSize(latest);
+    };
+    // 리스너/스타일 원복 — onEnd(정상 종료)와 언마운트 cleanup 양쪽에서 호출(멱등).
+    function cleanup() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("pointercancel", onEnd);
+      document.body.style.userSelect = "";
+      resizeCleanupRef.current = null;
+    }
+    function onEnd() {
+      cleanup();
+      try {
+        localStorage.setItem(CHAT_SIZE_KEY, JSON.stringify(latest));
+      } catch {
+        /* 저장 실패 무시 */
+      }
+    }
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("pointercancel", onEnd);
+    resizeCleanupRef.current = cleanup;
+  };
 
   // 권위적 messages + 낙관적 pending 을 합쳐 화면용 리스트 생성.
   // 서버 echo 와 임시 메시지가 일시적으로 겹쳐 보이지 않도록, 본인이 보낸
@@ -186,8 +276,39 @@ export function ChatPanel({
       className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4"
     >
       <div
-        className="pointer-events-auto flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        className="pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        // 데스크톱만 크기 조절(인라인이 sm:max-w-md/sm:h-[600px] 보다 우선). 모바일은 전체폭 유지.
+        style={
+          isDesktop
+            ? {
+                width: size.w,
+                height: size.h,
+                maxWidth: "95vw",
+                maxHeight: "90dvh",
+              }
+            : undefined
+        }
       >
+        {/* 크기 조절 핸들 — 좌상단 모서리(우하단 고정 패널). 데스크톱 전용. */}
+        {isDesktop && (
+          <div
+            onPointerDown={startResize}
+            role="separator"
+            aria-label="채팅창 크기 조절"
+            title="드래그해서 크기 조절"
+            className="absolute left-0 top-0 z-20 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-lg p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+              <path
+                d="M9 1 L1 9 M9 5 L5 9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        )}
         <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             <ChatCircle size={20} weight="duotone" />

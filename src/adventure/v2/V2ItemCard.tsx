@@ -11,6 +11,15 @@ import {
   type V2EquipOptions,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
+
+// 굴림 품질 % → 색. 높을수록 좋은 굴림(emerald)·중간(zinc)·낮음(amber).
+// 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
+export function rollPctClass(pct: number): string {
+  if (pct >= 75) return "text-emerald-600 dark:text-emerald-400";
+  if (pct >= 40) return "text-zinc-500 dark:text-zinc-400";
+  return "text-amber-600 dark:text-amber-500";
+}
 
 // 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
 const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
@@ -87,6 +96,7 @@ export function V2ItemCard({
   }, [onClose]);
 
   const options = v2EquipStatRows(item, roll);
+  const pct = rollQualityPct(item, roll);
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
     : undefined;
@@ -128,6 +138,15 @@ export function V2ItemCard({
             <X size={16} weight="bold" />
           </button>
         </div>
+
+        {pct != null && (
+          <div className="mt-2 flex items-baseline justify-between gap-2 border-b border-zinc-100 pb-1.5 text-xs dark:border-zinc-800">
+            <span className="text-zinc-500 dark:text-zinc-400">굴림 품질</span>
+            <span className={`font-semibold tabular-nums ${rollPctClass(pct)}`}>
+              {pct}%
+            </span>
+          </div>
+        )}
 
         <div className="mt-2 space-y-0.5">
           {options.length === 0 ? (

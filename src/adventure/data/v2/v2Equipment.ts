@@ -219,6 +219,9 @@ export type V2EquipOptions = {
   critMult?: number;
   /** spd 후-가산, flat 정수. 신발 슬롯 고유 축. */
   spd?: number;
+  /** 물리 방어력(def) 후-가산, flat 정수. 방어비례 스킬(기사) 특화 + 탱킹 공방일체 옵션
+   *  (2026-06-08 신설). 갑옷 위력(def)과 같은 축 — aggregate 가 acc.def 에 더한다. */
+  def?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -228,6 +231,7 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "hp",
   "critMult",
   "spd",
+  "def",
 ];
 
 export type V2Equipment = {
@@ -528,6 +532,7 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   hp: "HP",
   critMult: "치명피해",
   spd: "속도",
+  def: "방어",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.

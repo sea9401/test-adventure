@@ -382,6 +382,18 @@ describe("v2EquipStatRows (표시 행)", () => {
     ]);
   });
 
+  it("def 옵션(신설) — 방어 라벨 + flat 표기(+N), 키 등록", () => {
+    expect(V2_EQUIP_OPTION_KEYS).toContain("def");
+    // 카탈로그 def 아이템은 PR2 에서 추가 — 여기선 표시/키만(임의 옵션 주입).
+    const fake = {
+      ...V2_EQUIPMENT.v2_mithril_plate,
+      options: { def: 20, hp: 40 },
+    };
+    const rows = v2EquipStatRows(fake);
+    expect(rows).toContainEqual({ label: "방어", value: "+20" });
+    expect(rows).toContainEqual({ label: "HP", value: "+40" });
+  });
+
   it("굴림(roll) 주면 굴림값 표시 — 별노래궁 카탈로그(14/2/crit2) → 굴림(16/1/crit3)", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow, {
       power: 16,

@@ -52,6 +52,7 @@ const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   hp: "HP",
   critMult: "치명피해",
   spd: "속도",
+  def: "방어",
 };
 function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])

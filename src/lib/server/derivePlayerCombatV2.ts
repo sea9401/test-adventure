@@ -181,6 +181,7 @@ export function aggregateV2Equipment(
     acc.hp += o.hp ?? 0;
     acc.critMult += o.critMult ?? 0;
     acc.spd += o.spd ?? 0;
+    acc.def += o.def ?? 0; // 물방 옵션(신설) — 갑옷 위력 def 와 같은 축에 가산.
   }
   // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
   const equippedIds = new Set<V2EquipmentId>();
@@ -204,6 +205,7 @@ export function aggregateV2Equipment(
     acc.hp += b.hp ?? 0;
     acc.critMult += b.critMult ?? 0;
     acc.spd += b.spd ?? 0;
+    acc.def += b.def ?? 0; // 세트 보너스 def(신설).
   }
   return acc;
 }

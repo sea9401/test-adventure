@@ -276,7 +276,10 @@ const HEAL_MULT_PER_SPI = 0.0025;
 // sim-v2-progression --skills 캘리브 0.006: LUK Lv75 67→75%·Lv100 85→89%(DEX/BAL 동률,
 // 파크 진입), winT 대폭↓(킬 속도 개선). Lv50 은 크리율 29% 로 낮아 보너스 발동이 적어 67%
 // 유지(DEX 동률 — 크리/피네스 빌드의 중반 변동성, LUK 단독 문제 아님).
-const CRIT_DMG_PER_LUK = 0.006;
+// 0.006→0.007 상향(2026-06-08): CRIT_MULT_BASE 2.0→1.4 동반 하향의 LUK 보전 — 바닥(무투자
+//   크리)은 내리고 LUK 투자분은 per-luk 로 되살려 "크리 데미지=LUK 투자 보상"으로. 고럭 엔드빌드는
+//   cap(5.0) 바인딩이라 거의 불변, 무/저투자 크리만 약화(스윙·원샷 완화). sim 재검증=LUK 비최약.
+const CRIT_DMG_PER_LUK = 0.007;
 // 크리 데미지 배수 안전 상한 — 현재 Lv100 LUK(luk~349)는 4.09× 라 미바인딩이지만, 미래
 // 장비/스탯 인플레가 무한정 키우지 않게 cap. luk 500 에서 바인딩(현 만렙 도달 불가).
 const CRIT_MULT_CAP = 5.0;

@@ -33,11 +33,11 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     });
   });
 
-  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=15 magicAtk=15 weight=2", () => {
-    // 철검: 위력 15(×5), weight 2. 무기 위력은 atk·magicAtk 둘 다 먹인다.
+  it("철검 T1 (위력 → 물공+마공 둘 다) → atk=9 magicAtk=9 weight=2", () => {
+    // 철검: 위력 9(×3), weight 2. 무기 위력은 atk·magicAtk 둘 다 먹인다.
     const a = aggregateV2Equipment({ weapon: "v2_iron_sword" });
-    expect(a.atk).toBe(15);
-    expect(a.magicAtk).toBe(15);
+    expect(a.atk).toBe(9);
+    expect(a.magicAtk).toBe(9);
     expect(a.weight).toBe(2);
     expect(a.def).toBe(0);
     expect(a.crit).toBe(0);
@@ -68,33 +68,33 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       { weapon: "v2_iron_sword" },
       { v2_greatsword: { power: 99, weight: 0 } },
     );
-    expect(a.atk).toBe(15);
+    expect(a.atk).toBe(9);
     expect(a.weight).toBe(2);
   });
 
   it("슬롯별 분기 + 무게 합산 (T1) — 무기·갑옷·반지", () => {
-    // 철검: 위력 15(×5) weight 2 (무기 → atk·magicAtk)
-    // 쇠사슬 갑옷: 위력 10(×5) weight 2 (갑옷 → def)
-    // 은가락지: 위력 5(×5) weight 0 (반지 → magicDef)
+    // 철검: 위력 9(×3) weight 2 (무기 → atk·magicAtk)
+    // 쇠사슬 갑옷: 위력 6(×3) weight 2 (갑옷 → def)
+    // 은가락지: 위력 3(×3) weight 0 (반지 → magicDef)
     const a = aggregateV2Equipment({
       weapon: "v2_iron_sword",
       armor: "v2_chain_mail",
       ring: "v2_silver_ring",
     });
-    expect(a.atk).toBe(15);
-    expect(a.magicAtk).toBe(15);
-    expect(a.def).toBe(10); // 갑옷만(반지는 마방)
-    expect(a.magicDef).toBe(5); // 반지 위력
+    expect(a.atk).toBe(9);
+    expect(a.magicAtk).toBe(9);
+    expect(a.def).toBe(6); // 갑옷만(반지는 마방)
+    expect(a.magicDef).toBe(3); // 반지 위력
     expect(a.weight).toBe(2 + 2 + 0);
   });
 
   it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
-    // 슬롯 고유 축(C): 미스릴 건틀릿 T5 위력 10(×5) crit 12 / 미스릴 장화 T5 위력 10 eva 12 spd 6.
+    // 슬롯 고유 축(C): 미스릴 건틀릿 T5 위력 6(×3) crit 12 / 미스릴 장화 T5 위력 6 eva 12 spd 6.
     const a = aggregateV2Equipment({
       gloves: "v2_mithril_gauntlets",
       boots: "v2_mithril_boots",
     });
-    expect(a.def).toBe(10 + 10);
+    expect(a.def).toBe(6 + 6);
     expect(a.magicDef).toBe(0);
     expect(a.crit).toBe(12);
     expect(a.eva).toBe(12);
@@ -102,18 +102,18 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("옵션 (crit/eva/mp/hp) 합산 + 위력 분기 — T5 풀", () => {
-    // 별노래궁 T5: 위력 130(×5) weight 2 crit 2
-    // 바람 망토 T5: 위력 15(×5) weight 1 eva 3 hp 80 (갑옷 축: 방어+HP)
-    // 마나의 정수 T5: 위력 10(×5) weight 0 mp 50 (목걸이 → 마방)
+    // 별노래궁 T5: 위력 78(×3) weight 2 crit 2
+    // 바람 망토 T5: 위력 9(×3) weight 1 eva 3 hp 80 (갑옷 축: 방어+HP)
+    // 마나의 정수 T5: 위력 6(×3) weight 0 mp 50 (목걸이 → 마방)
     const a = aggregateV2Equipment({
       weapon: "v2_starsong_bow",
       armor: "v2_windweave_cloak",
       necklace: "v2_mana_essence",
     });
-    expect(a.atk).toBe(130);
-    expect(a.magicAtk).toBe(130);
-    expect(a.def).toBe(15); // 갑옷만
-    expect(a.magicDef).toBe(10); // 목걸이 위력
+    expect(a.atk).toBe(78);
+    expect(a.magicAtk).toBe(78);
+    expect(a.def).toBe(9); // 갑옷만
+    expect(a.magicDef).toBe(6); // 목걸이 위력
     expect(a.weight).toBe(2 + 1 + 0);
     expect(a.crit).toBe(2);
     expect(a.eva).toBe(3);
@@ -121,18 +121,18 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.mp).toBe(50);
   });
 
-  it("중갑 무게 — 미스릴 갑옷 T5 = def 45(×5), weight 8", () => {
+  it("중갑 무게 — 미스릴 갑옷 T5 = def 27(×3), weight 8", () => {
     const a = aggregateV2Equipment({ armor: "v2_mithril_plate" });
-    expect(a.def).toBe(45);
+    expect(a.def).toBe(27);
     expect(a.weight).toBe(8);
     expect(a.magicDef).toBe(0); // 방어구는 마방 안 줌
   });
 
   it("반지·목걸이 위력은 마방만(물방 X), 무게 0", () => {
-    // 운명의 반지 T5: 위력 10(×5) weight 0 critMult 30(+0.3×) → 마방 + 치명피해(반지 축).
+    // 운명의 반지 T5: 위력 6(×3) weight 0 critMult 30(+0.3×) → 마방 + 치명피해(반지 축).
     const a = aggregateV2Equipment({ ring: "v2_fate_ring" });
     expect(a.def).toBe(0); // 반지는 물방 안 줌
-    expect(a.magicDef).toBe(10);
+    expect(a.magicDef).toBe(6);
     expect(a.weight).toBe(0);
     expect(a.critMult).toBe(30);
     expect(a.crit).toBe(0);
@@ -216,32 +216,32 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
-    // 별빛 지팡이 T5: 위력 155(×5, 무기 → atk·magicAtk 둘 다). int token 없음.
-    // magicAtk = floor(int 15 × 0.15) + 위력 155 = 2 + 155. atk = floor(str 15×0.15) + 155.
+    // 별빛 지팡이 T5: 위력 93(×3, 무기 → atk·magicAtk 둘 다). int token 없음.
+    // magicAtk = floor(int 15 × 0.15) + 위력 93 = 2 + 93. atk = floor(str 15×0.15) + 93.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: { weapon: "v2_starlit_staff" },
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * 0.15) + 155 + V2_BASE_COMBAT_BONUS,
-    ); // 2 + 155 + 5 = 162
+      Math.floor(15 * 0.15) + 93 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 93 + 5 = 100
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15) + 155 + V2_BASE_COMBAT_BONUS,
-    ); // 2 + 155 + 5 = 162
+      Math.floor(15 * 0.15) + 93 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 93 + 5 = 100
   });
 
   it("기본 int 물리빌드도 지팡이 위력만큼 magicAtk — 마법스킬 없으면 무용", () => {
-    // 참나무 지팡이: 위력 30(×5). magicAtk = floor(15×0.15) + 30 = 2 + 30. 물리 빌드는 마법스킬을
+    // 참나무 지팡이: 위력 18(×3). magicAtk = floor(15×0.15) + 18 = 2 + 18. 물리 빌드는 마법스킬을
     // 안 배워 실제 데미지엔 안 쓰이지만 derive 합산 자체는 정상.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
-      v2Equipped: { weapon: "v2_oak_staff" }, // 위력 30
+      v2Equipped: { weapon: "v2_oak_staff" }, // 위력 18
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * 0.15) + 30 + V2_BASE_COMBAT_BONUS,
-    ); // 2 + 30 + 5 = 37
+      Math.floor(15 * 0.15) + 18 + V2_BASE_COMBAT_BONUS,
+    ); // 2 + 18 + 5 = 25
   });
 });
 
@@ -402,7 +402,7 @@ describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
 
   it("3종 다 착용 → 세트 보너스 적용 (eva 1+1+3=5, hp 0+20=20)", () => {
     const a = aggregateV2Equipment(SET);
-    expect(a.def).toBe(35); // 15 + 10 + 10 위력(×5) → 물방
+    expect(a.def).toBe(21); // 9 + 6 + 6 위력(×3) → 물방
     expect(a.crit).toBe(1); // 장갑 crit
     expect(a.eva).toBe(5); // 갑옷1 + 신발1 + 세트3
     expect(a.hp).toBe(20); // 세트 HP

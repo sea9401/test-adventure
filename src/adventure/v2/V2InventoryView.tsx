@@ -276,6 +276,12 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [owned, equipped],
   );
 
+  // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).
+  const equippedItemIds = useMemo(() => {
+    const iids = new Set(Object.values(equipped));
+    return new Set(owned.filter((i) => iids.has(i.iid)).map((i) => i.id));
+  }, [owned, equipped]);
+
   // 슬롯별 보유 개체 — T1→T5, concept, 이름, iid 정렬(안정).
   const ownedBySlot = useMemo(() => {
     const groups: Record<V2EquipSlot, V2EquipInstance[]> = {
@@ -509,6 +515,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           roll={card.inst.roll}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+          equippedIds={equippedItemIds}
           equip={{
             isEquipped:
               (equipped[V2_EQUIPMENT[card.inst.id].slot] ?? null) ===

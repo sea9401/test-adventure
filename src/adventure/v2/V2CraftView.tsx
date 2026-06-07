@@ -221,6 +221,15 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
     [ownedInsts, equippedIids],
   );
 
+  // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(iid → id).
+  const equippedItemIds = useMemo(
+    () =>
+      new Set(
+        ownedInsts.filter((i) => equippedIids.has(i.iid)).map((i) => i.id),
+      ),
+    [ownedInsts, equippedIids],
+  );
+
   const craftIds = useMemo(() => CRAFT_IDS_BY_SLOT[subTab], [subTab]);
   // 분해 후보 — 그 부위의 레시피-보유 장비 중 실제 보유(count>0). 유니크는 CRAFT_IDS 에서 이미 제외.
   const salvageIds = useMemo(
@@ -319,6 +328,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+          equippedIds={equippedItemIds}
         />
       )}
     </main>

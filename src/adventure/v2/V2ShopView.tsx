@@ -501,6 +501,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+          equippedIds={equipped}
         />
       )}
     </main>

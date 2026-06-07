@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { TabBar } from "@/components/ui/TabBar";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import type {
   Outpost,
@@ -375,7 +376,7 @@ export function V2GuildHome({
                         </span>
                       )}
                       <span className="truncate text-sm font-medium">
-                        {m.name}
+                        <PlayerNameLink name={m.name} />
                       </span>
                     </div>
                     <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
@@ -416,7 +417,7 @@ export function V2GuildHome({
                 >
                   <div className="min-w-0 flex-1">
                     <span className="truncate text-sm font-medium">
-                      {r.name}
+                      <PlayerNameLink name={r.name} />
                     </span>
                     <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                       Lv.{r.level} · 신청 {fmtDate(r.requestedAt)}

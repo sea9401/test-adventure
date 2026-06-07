@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import {
   FISH,
   FISH_IDS,
@@ -130,7 +131,7 @@ export function FishingLeaderboardView({
                                   <span className="inline-block w-7 shrink-0 tabular-nums">
                                     {rankLabel(e.rank)}
                                   </span>
-                                  {e.name}
+                                  <PlayerNameLink name={e.name} />
                                   {e.isMe && (
                                     <span className="rounded bg-sky-200/80 px-1 text-[10px] text-sky-800 dark:bg-sky-800/70 dark:text-sky-100">
                                       나

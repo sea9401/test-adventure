@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import type { TreasureLeaderboardData } from "./treasureLeaderboard";
 
 // 주간 발굴가치 리더보드 표시(단일 랭킹). 데이터는 주입(useTreasureLeaderboard 실 API / dev mock).
@@ -82,7 +83,7 @@ export function TreasureLeaderboardView({
                     {rankLabel(e.rank)}
                   </span>
                   <span className="truncate text-sm font-medium">
-                    {e.name}
+                    <PlayerNameLink name={e.name} />
                     {e.isMe && (
                       <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
                         나

@@ -79,7 +79,7 @@ export function V2ArenaRankingTab() {
             <li key={e.rank}>
               <button
                 type="button"
-                onClick={() => router.push(`/character/${e.userId}`)}
+                onClick={() => router.push(`/character/${encodeURIComponent(e.name)}`)}
                 className={
                   "flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
                   (e.isMe ? "bg-amber-50 dark:bg-amber-950/30" : "bg-white dark:bg-zinc-900")

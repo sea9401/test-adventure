@@ -198,17 +198,18 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (123종 — 6슬롯)", () => {
-  it("정규 그리드 43종 + 유니크 66 + 제작전용 7 (그리드 밖)", () => {
+describe("V2_EQUIPMENT grid (131종 — 6슬롯)", () => {
+  it("정규 그리드 43종 + 유니크 74 + 제작전용 7 (그리드 밖)", () => {
     // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
     //   (greatsword/bow/staff 각 3 + 전문화5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
-    // 유니크 66 = 기존 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(녹슨 독니 2·백서리 비전 2·혈금강 2·심판의 성벽 3·흑맥 독왕 3).
+    // 유니크 74 = 기존 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(녹슨 독니 2·백서리 비전 2·혈금강 2·심판의 성벽 3·흑맥 독왕 3)
+    //   + 컨셉 사이드그레이드 8(협곡 2·호수 2·동굴 4 — 위력↔속도/무게/회피 트레이드, 세트 아님).
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
     ).toHaveLength(43);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(66);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(74);
     expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(7);
   });

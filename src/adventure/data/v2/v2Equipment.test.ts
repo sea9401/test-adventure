@@ -7,6 +7,7 @@ import {
   V2_EQUIP_SETS,
   isUnique,
   parseEquipmentSave,
+  setInstanceLock,
   shopPriceOf,
   shopPriceForSell,
   v2EquipStatRows,
@@ -444,6 +445,22 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
   });
 
+  it("locked:true 는 보존, false/누락/비boolean 은 미잠금(키 없음)", () => {
+    const r = parseEquipmentSave({
+      owned: [
+        { iid: "a1", id: "v2_iron_sword", locked: true },
+        { iid: "b2", id: "v2_iron_sword", locked: false },
+        { iid: "c3", id: "v2_iron_sword" },
+        { iid: "d4", id: "v2_iron_sword", locked: "yes" },
+      ],
+    });
+    expect(r.owned.find((i) => i.iid === "a1")?.locked).toBe(true);
+    // false/누락/비boolean → locked 키 없음(세이브 클린).
+    expect(r.owned.find((i) => i.iid === "b2")).not.toHaveProperty("locked");
+    expect(r.owned.find((i) => i.iid === "c3")).not.toHaveProperty("locked");
+    expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("locked");
+  });
+
   // 티어 5→3 축소 마이그 — 제거된 옛 id(T2/T4)를 잔존 id 로 치환(고아 방지).
   it("제거 id(옛 형식 문자열) → 잔존 id 치환 + 굴림 리셋", () => {
     const r = parseEquipmentSave({
@@ -476,6 +493,33 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     });
     expect(r.owned[0].id).toBe("v2_lucky_charm");
     expect(r.equipped.ring).toBe(r.owned[0].iid); // 치환 개체로 장착됨
+  });
+});
+
+describe("setInstanceLock", () => {
+  const owned = [
+    { iid: "a1", id: "v2_iron_sword" as V2EquipmentId },
+    { iid: "b2", id: "v2_iron_sword" as V2EquipmentId, locked: true },
+  ];
+
+  it("lock=true → 해당 iid 에 locked:true, 나머지 불변", () => {
+    const next = setInstanceLock(owned, "a1", true);
+    expect(next.find((i) => i.iid === "a1")?.locked).toBe(true);
+    expect(next.find((i) => i.iid === "b2")?.locked).toBe(true);
+    // 불변(새 배열·새 객체) — 원본 안 깨짐.
+    expect(owned[0]).not.toHaveProperty("locked");
+  });
+
+  it("lock=false → locked 키 제거(세이브 클린)", () => {
+    const next = setInstanceLock(owned, "b2", false);
+    expect(next.find((i) => i.iid === "b2")).not.toHaveProperty("locked");
+  });
+
+  it("없는 iid → 원본 그대로(값 동일)", () => {
+    const next = setInstanceLock(owned, "zzz", true);
+    expect(next.map((i) => ({ iid: i.iid, locked: i.locked }))).toEqual(
+      owned.map((i) => ({ iid: i.iid, locked: i.locked })),
+    );
   });
 });
 

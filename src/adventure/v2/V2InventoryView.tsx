@@ -7,6 +7,7 @@ import {
   Circle,
   Diamond,
   HandFist,
+  Lock,
   Shield,
   Sneaker,
   Sword,
@@ -173,6 +174,36 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         }
         setEquipped(j.equipped ?? {});
         setMsg(iid == null ? "✓ 해제 완료" : "✓ 장착 완료");
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBusy(null);
+      }
+    },
+    [],
+  );
+
+  // 즐겨찾기 잠금 토글 — 일괄/실수 판매 보호. 응답의 owned 로 갱신.
+  const applyLock = useCallback(
+    async (iid: string, locked: boolean) => {
+      setBusy(iid);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/equipment/lock", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ iid, locked }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          owned?: V2EquipInstance[];
+        } | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
+          return;
+        }
+        setOwned(j.owned ?? []);
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
@@ -391,6 +422,17 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             onUnequip: () =>
               applyEquip(V2_EQUIPMENT[card.inst.id].slot, null, card.inst.iid),
           }}
+          lock={{
+            // 토글 후 owned 갱신되므로 라이브 잠금 상태를 owned 에서 조회(card.inst 는 stale 가능).
+            locked:
+              owned.find((i) => i.iid === card.inst.iid)?.locked ?? false,
+            busy: busy === card.inst.iid,
+            onToggle: () =>
+              applyLock(
+                card.inst.iid,
+                !(owned.find((i) => i.iid === card.inst.iid)?.locked ?? false),
+              ),
+          }}
         />
       )}
     </main>
@@ -483,7 +525,17 @@ export function EquipmentCardGrid({
             }`}
           >
             <div className="flex items-start justify-between gap-1">
-              <Icon size={20} weight="duotone" className={color} />
+              <span className="flex items-center gap-1">
+                <Icon size={20} weight="duotone" className={color} />
+                {inst.locked && (
+                  <Lock
+                    size={13}
+                    weight="fill"
+                    className="text-amber-500"
+                    aria-label="잠금됨"
+                  />
+                )}
+              </span>
               {isEquipped ? (
                 <CheckCircle
                   size={18}

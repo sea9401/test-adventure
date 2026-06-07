@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, type CSSProperties } from "react";
-import { X } from "@phosphor-icons/react";
+import { Lock, LockOpen, X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
@@ -67,12 +67,20 @@ export type ItemCardEquipAction = {
   onUnequip: () => void;
 };
 
+// 인벤토리에서만 주입 — 즐겨찾기 잠금 토글(헤더). 잠금 = 일괄/실수 판매 방지.
+export type ItemCardLockAction = {
+  locked: boolean;
+  busy: boolean;
+  onToggle: () => void;
+};
+
 export function V2ItemCard({
   item,
   anchor,
   onClose,
   roll,
   equip,
+  lock,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
@@ -81,6 +89,8 @@ export function V2ItemCard({
   roll?: V2EquipRoll;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
+  // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
+  lock?: ItemCardLockAction;
 }) {
   useEscapeKey(onClose);
 
@@ -129,14 +139,37 @@ export function V2ItemCard({
             </h2>
             <ItemTypeChip item={item} />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="-mr-1.5 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-          >
-            <X size={16} weight="bold" />
-          </button>
+          <div className="-mr-1.5 -mt-1 flex shrink-0 items-center">
+            {lock && (
+              <button
+                type="button"
+                onClick={lock.onToggle}
+                disabled={lock.busy}
+                aria-label={lock.locked ? "잠금 해제" : "잠금"}
+                aria-pressed={lock.locked}
+                title={lock.locked ? "잠금됨 — 일괄 판매 보호" : "잠그기"}
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-50 ${
+                  lock.locked
+                    ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                {lock.locked ? (
+                  <Lock size={16} weight="fill" />
+                ) : (
+                  <LockOpen size={16} weight="bold" />
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <X size={16} weight="bold" />
+            </button>
+          </div>
         </div>
 
         {pct != null && (

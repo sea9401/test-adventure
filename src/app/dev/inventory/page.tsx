@@ -33,6 +33,7 @@ export default function InventoryPreview() {
         iid: `dev-${it.id}-${i}`,
         id: it.id,
         roll: rng ? rollItemStats(it, rng) : undefined,
+        locked: i === 0 || undefined, // 첫 카드 잠금 — 잠금 배지 QA.
       };
     });
   }, []);

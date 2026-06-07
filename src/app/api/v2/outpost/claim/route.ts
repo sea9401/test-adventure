@@ -20,6 +20,8 @@ import {
 } from "@/lib/server/v2RunTournament";
 // PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder 제거.
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
+import { derivePowerScore } from "@/adventure/data/v2/power";
 import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -271,6 +273,35 @@ export async function POST(req: Request) {
           stamina: applyRegen(stamina, now),
         },
       };
+    }
+
+    // 수비 전투력 게이트 — 왕국 소속 거점은 거리 비례 수비 전투력(중심 5000 → 외곽 1500).
+    //   내 합성 전투력(derivePowerScore)이 그에 못 미치면 점령 시도 불가. upsert 전 early
+    //   return 이라 스태미나 미소모. 중립·분쟁지대(defense 0)는 게이트 없음 — 기존 난이도.
+    const outpostDefense = outpostDefensePower(outpost);
+    if (outpostDefense > 0) {
+      // state 라우트의 combat.power 와 동일 입력(= 화면 "내 전투력")으로 계산해 일치 보장.
+      const myPower = derivePowerScore({
+        atk: player.player.atk,
+        magicAtk: player.player.magicAtk ?? 0,
+        def: player.player.def,
+        spd: player.player.spd,
+        maxHp: player.maxHp,
+        maxMp: player.player.maxMp,
+      });
+      if (myPower < outpostDefense) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "insufficient_power" as const,
+            requiredPower: outpostDefense,
+            playerPower: myPower,
+            stamina: applyRegen(stamina, now),
+          },
+        };
+      }
     }
 
     // playerName fetch (공격자)

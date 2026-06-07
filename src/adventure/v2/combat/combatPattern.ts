@@ -11,7 +11,7 @@ import type { StatKey } from "@/adventure/data/stats";
 
 // 🚩 기능 플래그 — C1~C3(데이터/엔진·UI·재밸런스) 완성 전까지 off. on 이면 엔진이 패턴 평가기로
 //    스킬을 고르고 procChance 를 건너뛴다(확정 발동). off 면 옛 슬롯순서+proc 경로 유지(무변).
-export const V2_COMBAT_PATTERN_ENABLED = false;
+export const V2_COMBAT_PATTERN_ENABLED = true;
 
 // 적 상태 태그 — 적에게 쌓인 DoT/취약 스택(combatShared V2Dot tag + magicVuln).
 export type V2PatternEnemyStatus = "bleed" | "poison" | "vuln";

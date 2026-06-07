@@ -214,3 +214,36 @@ export function parseCombatPattern(raw: unknown): V2CombatPattern {
   }
   return { blocks };
 }
+
+// === 프리셋 (C4 — 명명 패턴 라이브러리) =================================
+// 플레이어가 패턴을 이름 붙여 여러 개 저장해두고 빠르게 바꿔 끼우는 라이브러리. 엔진이 쓰는 "활성
+// 패턴"(V2SkillsState.pattern)과는 별개 — 프리셋 불러오기 = 그 블록을 활성 패턴으로 적용(combat-
+// pattern 라우트). 엔진은 프리셋을 모름(C4 는 순수 저장+UI). 보스용/사냥용 등 빌드 스왑 용도.
+export const V2_COMBAT_PATTERN_MAX_PRESETS = 8; // 폭주 방지 상한.
+export const V2_COMBAT_PRESET_NAME_MAXLEN = 24;
+
+export type V2CombatPreset = { name: string; pattern: V2CombatPattern };
+
+// 손상/구버전 raw 도 안전하게 정규화: 항목 단위 검증, 이름 없는 항목 drop, 이름 trim+길이 클램프,
+// pattern 은 parseCombatPattern 재사용(블록 단위 drop). 상한 초과분은 잘라낸다.
+export function parseCombatPresets(raw: unknown): V2CombatPreset[] {
+  if (!Array.isArray(raw)) return [];
+  // 비정상 거대 입력은 통째 거부(상한의 8배 초과 = 손상/공격). 전부 순회 전에 컷.
+  if (raw.length > V2_COMBAT_PATTERN_MAX_PRESETS * 8) return [];
+  const out: V2CombatPreset[] = [];
+  const seen = new Set<string>(); // 이름 = 키(UI React key·덮어쓰기 의미) — 중복 이름 drop(first-wins).
+  for (const rp of raw) {
+    if (out.length >= V2_COMBAT_PATTERN_MAX_PRESETS) break;
+    if (!rp || typeof rp !== "object") continue;
+    const nameRaw = (rp as { name?: unknown }).name;
+    const name =
+      typeof nameRaw === "string"
+        ? nameRaw.trim().slice(0, V2_COMBAT_PRESET_NAME_MAXLEN)
+        : "";
+    if (!name || seen.has(name)) continue; // 이름 없음/중복 → drop.
+    seen.add(name);
+    const pattern = parseCombatPattern((rp as { pattern?: unknown }).pattern);
+    out.push({ name, pattern });
+  }
+  return out;
+}

@@ -99,6 +99,29 @@ describe("parseV2SkillsState", () => {
     const r = parseV2SkillsState({ learned: ids, equipped: ids });
     expect(r.equipped).toEqual(ids);
   });
+
+  it("프리셋(C4) 라운드트립 — 검증 파싱 후 보존, 빈 라이브러리는 키 생략", () => {
+    const withPresets = parseV2SkillsState({
+      learned: ["v2_skill_strike"],
+      equipped: ["v2_skill_strike"],
+      presets: [
+        {
+          name: "보스용",
+          pattern: {
+            blocks: [
+              { condition: { kind: "always" }, action: { kind: "skill", skillId: "v2_skill_strike" } },
+            ],
+          },
+        },
+      ],
+    });
+    expect(withPresets.presets).toHaveLength(1);
+    expect(withPresets.presets?.[0].name).toBe("보스용");
+    expect(withPresets.presets?.[0].pattern.blocks).toHaveLength(1);
+    // 프리셋 없으면 키 자체 생략(하위호환).
+    const none = parseV2SkillsState({ learned: [], equipped: [] });
+    expect(none.presets).toBeUndefined();
+  });
 });
 
 describe("몬스터 상태이상 스킬 (PR-9)", () => {

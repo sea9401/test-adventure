@@ -6,7 +6,11 @@ import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import {
   V2_EQUIPMENT,
+  effectiveStats,
+  v2EquipStatRows,
+  type V2Equipment,
   type V2EquipInstance,
+  type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
@@ -16,6 +20,25 @@ import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrop
 //   판매세는 서버 권위 — 여기 0.05 는 순수령 미리보기용(표시 advisory).
 const TAX_RATE_DISPLAY = 0.05;
 const netPreview = (price: number) => Math.floor(price * (1 - TAX_RATE_DISPLAY));
+
+// 장비 스탯 한 줄(개체 굴림 반영) — 위력 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
+//   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.
+function equipStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
+  const eff = effectiveStats(item, roll);
+  const parts = [`위력 ${eff.power}`, `무게 ${eff.weight}`];
+  for (const row of v2EquipStatRows(item, roll)) {
+    if (row.label === "위력" || row.label === "무게") continue;
+    parts.push(`${row.label} ${row.value}`);
+  }
+  return parts.join(" · ");
+}
+
+// 장비 매물/개체의 굴림% + 스탯줄 — itemId(카탈로그) + roll(개체 편차).
+function equipDetail(itemId: string, roll: V2EquipRoll | undefined) {
+  const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
+  if (!item) return null;
+  return { pct: rollQualityPct(item, roll), line: equipStatLine(item, roll) };
+}
 
 type Listing = {
   id: number;
@@ -47,12 +70,6 @@ const ERR_LABEL: Record<string, string> = {
   not_active: "이미 종료된 매물이에요.",
   not_owner: "내 매물이 아니에요.",
 };
-
-function rollPctOf(inst: V2EquipInstance): number | null {
-  const item = V2_EQUIPMENT[inst.id];
-  if (!item) return null;
-  return rollQualityPct(item, inst.roll);
-}
 
 export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<Tab>("browse");
@@ -267,15 +284,22 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               </Card>
             ) : (
               sellableEquip.map((inst) => {
-                const pct = rollPctOf(inst);
+                const detail = equipDetail(inst.id, inst.roll);
                 const price = Number(prices[inst.iid]);
                 return (
                   <Card key={inst.iid} padding="sm">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <span className="text-sm font-medium">{V2_EQUIPMENT[inst.id]?.name ?? inst.id}</span>
-                        {pct !== null && (
-                          <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">굴림 {pct}%</span>
+                        <div>
+                          <span className="text-sm font-medium">{V2_EQUIPMENT[inst.id]?.name ?? inst.id}</span>
+                          {detail?.pct != null && (
+                            <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">굴림 {detail.pct}%</span>
+                          )}
+                        </div>
+                        {detail && (
+                          <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
+                            {detail.line}
+                          </div>
                         )}
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
@@ -396,24 +420,38 @@ function ListingList({
   }
   return (
     <div className="space-y-2">
-      {rows.map((l) => (
-        <Card key={l.id} padding="sm">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-medium">{l.itemName}</span>
-                {l.kind === "material" && l.quantity > 1 && (
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
+      {rows.map((l) => {
+        const detail =
+          l.kind === "equip"
+            ? equipDetail(l.itemId, (l.instancePayload as V2EquipRoll | null) ?? undefined)
+            : null;
+        return (
+          <Card key={l.id} padding="sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-medium">{l.itemName}</span>
+                  {l.kind === "material" && l.quantity > 1 && (
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
+                  )}
+                  {detail?.pct != null && (
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400">굴림 {detail.pct}%</span>
+                  )}
+                </div>
+                {detail && (
+                  <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
+                    {detail.line}
+                  </div>
                 )}
+                <div className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  {l.price.toLocaleString()}골드
+                </div>
               </div>
-              <div className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                {l.sellerName} · {l.price.toLocaleString()}골드
-              </div>
+              {action(l)}
             </div>
-            {action(l)}
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 }

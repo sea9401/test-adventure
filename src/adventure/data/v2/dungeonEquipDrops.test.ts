@@ -75,7 +75,7 @@ describe("rollEquipDrop — 굴림 결정성", () => {
   const empty = new Set<V2EquipmentId>();
 
   it("rng 통과 굴림 실패 (≥ chance) → null", () => {
-    // 1층 chance=0.15. 첫 rng=0.99 → 실패.
+    // 1층 chance=0.02. 첫 rng=0.99 → 실패.
     const rng = seqRng([0.99]);
     expect(rollEquipDrop(1, empty, rng)).toBeNull();
   });
@@ -162,13 +162,13 @@ describe("rollEquipDrop — 굴림 결정성", () => {
   });
 
   it("chanceMult(신참 ×2) — 통과 chance 를 2배(1 cap), 미지정 1 불변", () => {
-    // 1층 통과 chance 0.05. rng 0.07 (seqRng 는 소진 후 0 반환 → 티어/아이템 pick = 0).
-    // 배율 1(또는 미지정): 0.07 >= 0.05 → null.
-    expect(rollEquipDrop(1, empty, seqRng([0.07]))).toBeNull();
-    expect(rollEquipDrop(1, empty, seqRng([0.07]), 1)).toBeNull();
-    // 배율 2: 0.05×2=0.10, 0.07 < 0.10 → 통과 → 아이템 반환(보유 없음).
-    expect(rollEquipDrop(1, empty, seqRng([0.07]), 2)).not.toBeNull();
-    // cap: 0.05×30=1.5 → 1.0, rng 0.99 < 1.0 → 통과.
-    expect(rollEquipDrop(1, empty, seqRng([0.99]), 30)).not.toBeNull();
+    // 1층 통과 chance 0.02. rng 0.03 (seqRng 는 소진 후 0 반환 → 티어/아이템 pick = 0).
+    // 배율 1(또는 미지정): 0.03 >= 0.02 → null.
+    expect(rollEquipDrop(1, empty, seqRng([0.03]))).toBeNull();
+    expect(rollEquipDrop(1, empty, seqRng([0.03]), 1)).toBeNull();
+    // 배율 2: 0.02×2=0.04, 0.03 < 0.04 → 통과 → 아이템 반환(보유 없음).
+    expect(rollEquipDrop(1, empty, seqRng([0.03]), 2)).not.toBeNull();
+    // cap: 0.02×60=1.2 → 1.0, rng 0.99 < 1.0 → 통과.
+    expect(rollEquipDrop(1, empty, seqRng([0.99]), 60)).not.toBeNull();
   });
 });

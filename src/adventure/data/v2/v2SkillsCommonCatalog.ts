@@ -91,15 +91,18 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 
   // ═══ 무도가 (STR 딜 · VIT 앵커) — 콤보/지속/기동 ═══
+  // 역할 분리(스킬 감사 1차 가안 — sim 재캘리브 사용자 몫): 붕권 = flat 무거운 단일타(저-atk
+  //   구간/대-DEF 버스트), 연환 난타 = 계수형 다단(고-atk 스케일 + 5타 크리 + 더 쌈). 둘이 닮아
+  //   연환난타가 붕권을 완전 지배하던 것(계수·flat·코스트 전부 우위)을 교차 구간으로 분리.
   v2c_martial_burst: {
     id: "v2c_martial_burst", name: "붕권", stat: "str", category: "attack", tier: 1,
-    description: "기를 모아 내지르는 일권.", mpCost: 30, cooldown: 0, procChance: 30,
-    effects: [dmg(1.0, 140)],
+    description: "기를 모아 내지르는 묵직한 일권.", mpCost: 30, cooldown: 0, procChance: 30,
+    effects: [dmg(1.0, 230)],
   },
   v2c_martial_combo: {
     id: "v2c_martial_combo", name: "연환 난타", stat: "str", category: "attack", tier: 1,
-    description: "다섯 번 연속으로 두들긴다.", mpCost: 28, cooldown: 0, procChance: 40,
-    effects: hits(5, 0.25, 40),
+    description: "다섯 번 연속으로 두들긴다.", mpCost: 24, cooldown: 0, procChance: 40,
+    effects: hits(5, 0.25, 36),
   },
   v2c_martial_whirl: {
     id: "v2c_martial_whirl", name: "선풍각", stat: "str", category: "attack", tier: 2,

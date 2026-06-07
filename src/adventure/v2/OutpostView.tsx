@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
+import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { IntruderPanel } from "./IntruderPanel";
 import type { StaminaState } from "./stamina";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
@@ -91,8 +92,33 @@ export function OutpostView({
     null,
   );
   const [policyOpen, setPolicyOpen] = useState(false);
+  // 내 합성 전투력(derivePowerScore) — 수비 전투력 게이트 비교용. state 라우트서 1회 로드.
+  const [viewerPower, setViewerPower] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/v2/me/state")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && typeof j?.combat?.power === "number") {
+          setViewerPower(j.combat.power);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const claimDisabled = computeClaimDisabled(outpost, occupation, viewerUserId);
+  // 거점 수비 전투력 (왕국 중심 5000 → 외곽 1500, 분쟁지대·중립은 0=게이트 없음).
+  const defensePower = outpostDefensePower(outpost);
+
+  const claimDisabled = computeClaimDisabled(
+    outpost,
+    occupation,
+    viewerUserId,
+    defensePower,
+    viewerPower,
+  );
   const isOwner =
     !!occupation &&
     !!viewerUserId &&
@@ -139,6 +165,18 @@ export function OutpostView({
         setLastClaimResult({
           ok: false,
           error: `http ${res.status} (빈 응답)`,
+        });
+        return;
+      }
+      // 수비 전투력 부족 — 필요/현재 전투력으로 친절한 메시지 (서버가 race 등으로 막은 경우).
+      const raw = json as ClaimResult & {
+        requiredPower?: number;
+        playerPower?: number;
+      };
+      if (!raw.ok && raw.error === "insufficient_power") {
+        setLastClaimResult({
+          ok: false,
+          error: `수비 전투력 ${(raw.requiredPower ?? 0).toLocaleString()} 필요 — 내 전투력 ${(raw.playerPower ?? 0).toLocaleString()}`,
         });
         return;
       }
@@ -192,6 +230,29 @@ export function OutpostView({
         {outpost.description && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
             {outpost.description}
+          </p>
+        )}
+        {defensePower > 0 && (
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            수비 전투력{" "}
+            <strong className="tabular-nums">
+              {defensePower.toLocaleString()}
+            </strong>
+            {viewerPower != null && (
+              <span
+                className={
+                  "ml-1 " +
+                  (viewerPower < defensePower
+                    ? "text-rose-600 dark:text-rose-400"
+                    : "text-emerald-600 dark:text-emerald-400")
+                }
+              >
+                · 내 전투력{" "}
+                <span className="tabular-nums">
+                  {viewerPower.toLocaleString()}
+                </span>
+              </span>
+            )}
           </p>
         )}
         {isOwner && occupation?.nextAttackAt && (
@@ -258,13 +319,25 @@ function computeClaimDisabled(
   outpost: Outpost,
   occupation: OccupationLite,
   viewerUserId: string | null,
+  defensePower: number,
+  viewerPower: number | null,
 ): { reason: string } | null {
   if (outpost.neutral) return { reason: "절대 중립 거점 (점령 불가)" };
-  if (!occupation) return null; // 비점령 — NPC 일기토 시도 가능
-  if (viewerUserId && occupation.occupiedByUserId === viewerUserId) {
+  if (
+    occupation &&
+    viewerUserId &&
+    occupation.occupiedByUserId === viewerUserId
+  ) {
     return { reason: "이미 내 점령지" };
   }
-  return null; // 다른 세력 점령 — PvP 결투 시도 가능
+  // 수비 전투력 게이트 — 내 전투력이 거점 수비 전투력에 못 미치면 시도 불가.
+  // viewerPower 로딩 전(null)엔 막지 않는다(서버가 권위로 한 번 더 차단).
+  if (defensePower > 0 && viewerPower != null && viewerPower < defensePower) {
+    return {
+      reason: `수비 전투력 ${defensePower.toLocaleString()} 필요 (내 전투력 ${viewerPower.toLocaleString()})`,
+    };
+  }
+  return null; // 비점령(NPC 일기토) 또는 다른 세력 점령(PvP 결투) 시도 가능
 }
 
 function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {

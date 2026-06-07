@@ -2085,6 +2085,7 @@ function castV2SkillOnAttackerTurnPvP(
     attacker: {
       mp: side.mp,
       atk: side.player.atk,
+      attackCount: side.player.attackCount,
       magicAtk: side.player.magicAtk ?? side.player.atk,
       minDamage: side.player.minDamage,
       healMult: side.player.healMult,

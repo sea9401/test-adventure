@@ -9,6 +9,8 @@ import {
 import {
   applyV2BuffsToMap,
   applyV2DotsToTarget,
+  damageBetween,
+  DAMAGE_FLOOR_FRACTION,
   defaultV2MaxMpFor,
   decrementTimedBuffs,
   extractApEffect,
@@ -543,21 +545,14 @@ export function appendLog(
   return battleLogCollectionEnabled ? [...log, entry] : log;
 }
 
-// 데미지 최소 비율 — 순수 감산(atk-def)이 0 이하가 되는 "방어력 임계 초과 = 1딜 고정" 절벽을 완화.
-// 공격력의 이 비율(올림)만큼은 항상 들어간다. 정상 장비 구간에선 atk-def 가 항상 더 커서 무의미하고,
-// def 가 atk 의 ~0.85 배를 넘는 (= 한참 저장비/저레벨) 구간에서만 체감된다.
-// 플레이어↔적 양쪽 공격에 모두 적용 — 방어력을 무한 적층해 무피격이 되는 것도 같이 막힌다.
-export const DAMAGE_FLOOR_FRACTION = 0.15;
+// 데미지 최소 비율(DAMAGE_FLOOR_FRACTION)·평타 데미지(damageBetween)는 combatShared 로 이전
+//   (패턴 "평타 바닥" 모델이 같은 공식을 써야 해서 더 하위 레이어로 내림). 여기선 재노출만.
+export { DAMAGE_FLOOR_FRACTION, damageBetween };
 
 // 방어 관통 비율 — 암살/약점 적중/DEF무시 AP 스킬이 무시하는 적 DEF 비율.
 // 2026-05-23: 완전 무시(DEF 0)가 "선턴 이김"·방어 무력화의 주범이라, 0.3(30%)만 무시하도록
 // 완화. 방어 투자가 70% 는 항상 유효. (정확 스킬의 비례 관통도 같은 0.3 캡 — skills.ts)
 export const DEF_IGNORE_FRACTION = 0.3;
-
-export function damageBetween(atk: number, def: number): number {
-  const minByAtk = Math.ceil(Math.max(0, atk) * DAMAGE_FLOOR_FRACTION);
-  return Math.max(1, minByAtk, atk - def);
-}
 
 // 플레이어 공격이 마주하는 적 DEF — 누적 페이즈 보너스 포함, 보스 취약(armorVulnerable)·
 // 정확 스킬(armorPierceFraction) 비례 관통을 차례로 적용. 본타는 여기에 분쇄(고정 감산)/
@@ -3070,6 +3065,7 @@ export function resolveBattle(
           attacker: {
             mp: state.playerMp,
             atk: player.atk,
+            attackCount: player.attackCount,
             magicAtk: player.magicAtk ?? player.atk,
             minDamage: player.minDamage,
             healMult: player.healMult,

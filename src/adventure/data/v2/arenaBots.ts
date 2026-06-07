@@ -1,11 +1,11 @@
-// v2 아레나 봇 — 실유저 매칭 풀이 비었을 때 폴백 (PR-8a).
+// v2 아레나 봇 아키타입 — ⚠️ 이제 sim 전용 (라이브 아레나는 유저 전용 매칭, 봇 폴백 폐지).
+//   라이브 match 라우트는 더 이상 이 파일을 import 하지 않는다. scripts/sim-v2-pvp-weapon
+//   등 밸런스 sim 이 스파링 상대(직군 아키타입)로 사용한다.
 //
-// 봇은 라이브 PvP 의 NPC 데이터를 이식하지 않는다 (라이브 코드 영향 0 룰).
 // 6 스탯 분배 + 레벨만 가진 가벼운 템플릿. derivePlayerCombatV2Pure 로 PlayerCombat
-// 변환 — 장비/룬/스킬/파라곤 모두 비워서 라이브 시스템 의존 0.
+// 변환 — 장비/룬/스킬/파라곤 모두 비워서 라이브 시스템 의존 0(sim 기준 비교용 베이스라인).
 //
-// PR-7a: 옛 spell 시스템 (equippedSpells/learnedSpellsForInt) 폐기. 봇은 현재 v2 스킬 미장착
-// (PR-5b 처럼 monster v2 카탈로그 도입은 가능하나 봇 디자인은 후속 PR 에서).
+// PR-7a: 옛 spell 시스템 (equippedSpells/learnedSpellsForInt) 폐기. 봇은 v2 스킬 미장착.
 
 import {
   derivePlayerCombatV2Pure,

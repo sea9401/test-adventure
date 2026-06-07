@@ -35,9 +35,6 @@ export const LEVEL_WEIGHT_FLOOR = 0.3;
 export const LEVEL_WEIGHT_SPAN = 20; // 레벨 차 ±20 = 0.3
 export const RECENT_OPPONENT_PENALTY = 0.2; // 최근 5매치 상대 가중치 ×
 
-// 봇 폴백 — 본인 레벨 ±BOT_LEVEL_BAND 안 프리셋
-export const BOT_LEVEL_BAND = 5;
-
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
 export type ArenaMatchOutcome = "win" | "loss" | "draw";

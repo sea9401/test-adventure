@@ -205,7 +205,7 @@ export function V2CharacterCard({
                 <div
                   className={`truncate text-xs font-medium ${
                     item
-                      ? powerNameClass(item)
+                      ? powerNameClass(item, inst?.roll)
                       : "text-zinc-400 dark:text-zinc-600"
                   }`}
                 >

@@ -565,7 +565,9 @@ export function effectiveStats(
 
 // ── 위력 색 분류 (등급/희귀도 대신) ──────────────────────────────────────────
 // 사용자 결정(2026-06-08): 아이템을 티어/유니크 등급이 아니라 "절대 위력"으로 색 분류.
-//   굴림 품질은 색에 무관 — 카탈로그 절대 위력만 본다("품질은 관계없고 그냥 절대 위력 수치로").
+//   **표시되는(실효) 위력 기준** — 굴림으로 오른 개체는 그 굴림 위력으로 색 결정(색이 표시 위력과
+//   일치). "품질 무관"=품질 %(정규화 위치)는 색에 안 쓴다는 뜻이지, 굴림 위력 자체를 무시하는 건
+//   아니다(예: 기본 110 서리방패 검이 166 으로 굴리면 옅은보라가 아니라 보라).
 //   위력 step 마다 색이 한 단계 오른다. 부위마다 위력 스케일이 크게 달라(무기 6~170 · 장신구 2~11)
 //   step 도 부위별로 다르다(사용자: "무기는 75 단위"). 색 매핑은 UI(powerNameClass).
 const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
@@ -581,12 +583,13 @@ const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
 //   더 높은 위력 콘텐츠 여유분(보라 위로 자홍/장미/진홍 색 미리 준비). step·구간수는 다이얼.
 export const POWER_BAND_COUNT = 7;
 
-// 위력 → 색 구간(0…4). 카탈로그 절대 위력 ÷ 부위 step(내림), 상한 클램프. 굴림 무관.
-export function powerBandOf(item: V2Equipment): number {
+// 위력 → 색 구간(0…6). 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
+export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
   const step = SLOT_POWER_STEP[item.slot] ?? 1;
+  const power = effectiveStats(item, roll).power;
   return Math.max(
     0,
-    Math.min(POWER_BAND_COUNT - 1, Math.floor(item.power / step)),
+    Math.min(POWER_BAND_COUNT - 1, Math.floor(power / step)),
   );
 }
 

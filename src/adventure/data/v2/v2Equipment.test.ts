@@ -53,10 +53,12 @@ describe("powerBandOf — 등급 대신 절대 위력 색 구간(부위별 step)
     expect(powerBandOf(mk("weapon", 11))).toBe(0);
   });
 
-  it("굴림 무관 — 카탈로그 절대 위력만(같은 종류는 굴림 달라도 동일 색)", () => {
-    // powerBandOf 시그니처에 roll 없음 — 위력만으로 결정.
-    expect(powerBandOf(mk("armor", 25))).toBe(1);
-    expect(powerBandOf(mk("armor", 24))).toBe(0);
+  it("실효 위력 반영 — 굴림으로 오른 위력으로 색 결정(표시 위력과 일치)", () => {
+    // 기본 위력 110(무기 step 75) = 옅은보라(1). 굴림 166 이면 보라(2) — 표시 위력 따라 색 상승.
+    const w = mk("weapon", 110);
+    expect(powerBandOf(w)).toBe(1); // roll 없음 → 카탈로그 110
+    expect(powerBandOf(w, { power: 166, weight: 0 })).toBe(2); // 굴림 166 → floor(166/75)=2
+    expect(powerBandOf(w, { power: 60, weight: 0 })).toBe(0); // 굴림 60 → floor(60/75)=0
   });
 
   it("구간은 0…POWER_BAND_COUNT-1 클램프(초고위력도 상한)", () => {

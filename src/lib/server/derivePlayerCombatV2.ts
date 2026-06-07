@@ -247,9 +247,12 @@ const ROGUE_ATK_PER_DEX = 0.08;
 
 // 속도 = 민첩 파생 (1차 아님). 옛 base spd 30 ≈ dex 15 × 2.0.
 const SPD_PER_DEX = 2.0;
-// PR-4a 무게 → 속도 페널티 (선형). k=1.0 — 무게 1 = 속도 −1. 옛 중갑 spd 페널티(−2..−8)를
-// 무게값으로 그대로 승계(미스릴 갑옷 무게 8 = 속도 −8). sim 캘리브(PR-8)에서 정식 튜닝.
-const WEIGHT_SPD_PENALTY = 1.0;
+// 무게 → 속도 페널티 (선형). 무게 1 = 속도 −WEIGHT_SPD_PENALTY.
+// 1.0→2.0 (2026-06-08): 전 장비 위력 ×2 됐는데 무게는 그대로라 "무게당 위력"이 2배 = 무거운
+//   장비의 속도 대가가 상대적으로 절반으로 약해짐. 페널티 2.0 으로 ×2 위력에 맞춰 트레이드오프 복원.
+//   풀 중갑 무게~20 → −40 spd = −20% 추가공격(전 −10%). 속도는 DEX·신발·spd옵션으로 보전 가능.
+//   weight 값 자체는 불변(per-item churn 회피) — 단일 다이얼. sim-v2-progression 으로 탱커 비파괴 확인.
+const WEIGHT_SPD_PENALTY = 2.0;
 // 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
 const MIN_DMG_PER_STR = 0.1;
 const MIN_DMG_PER_INT = 0.05;

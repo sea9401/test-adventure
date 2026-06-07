@@ -11,7 +11,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critResistPct": 1.5,
   "def": 6,
   "evasionPct": 19.200000000000003,
-  "extraAttackChancePct": 147,
+  "extraAttackChancePct": 146,
   "healMult": 1.0975000000000001,
   "hp": 640,
   "intStat": 15,
@@ -25,7 +25,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 294,
+  "spd": 292,
   "vitStat": 15,
 }
 `;
@@ -71,7 +71,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critResistPct": 4.5,
   "def": 6,
   "evasionPct": 2.7,
-  "extraAttackChancePct": 14.5,
+  "extraAttackChancePct": 14,
   "healMult": 1.1725,
   "hp": 640,
   "intStat": 148,
@@ -85,7 +85,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": true,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 29,
+  "spd": 28,
   "vitStat": 15,
 }
 `;
@@ -101,7 +101,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critResistPct": 1.5,
   "def": 6,
   "evasionPct": 16.8,
-  "extraAttackChancePct": 59.5,
+  "extraAttackChancePct": 59,
   "healMult": 1.0975000000000001,
   "hp": 640,
   "intStat": 15,
@@ -115,7 +115,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 119,
+  "spd": 118,
   "vitStat": 15,
 }
 `;
@@ -161,7 +161,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "critResistPct": 1.5,
   "def": 16,
   "evasionPct": 3.7,
-  "extraAttackChancePct": 13.5,
+  "extraAttackChancePct": 12,
   "healMult": 1.2575,
   "hp": 680,
   "intStat": 15,
@@ -175,7 +175,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 27,
+  "spd": 24,
   "vitStat": 55,
 }
 `;

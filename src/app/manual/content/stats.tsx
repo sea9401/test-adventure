@@ -33,7 +33,7 @@ export function StatsContent() {
           [
             <Em key="r2">DEX</Em>,
             <Code key="t2">회피 +0.1%p / 명중 +0.05</Code>,
-            "속도 = DEX × 2 − 무게",
+            "속도 = DEX × 2 − 무게 × 2",
           ],
           [
             <Em key="r3">VIT</Em>,

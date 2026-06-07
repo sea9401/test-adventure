@@ -22,7 +22,7 @@ export function EquipmentContent() {
       <H2>장비의 다른 속성</H2>
       <UL>
         <li>
-          <Em>무게</Em> — 속도를 깎습니다(속도 = DEX × 2 − 무게). 무거운 장비는
+          <Em>무게</Em> — 속도를 깎습니다(속도 = DEX × 2 − 무게 × 2). 무거운 장비는
           추가타가 줄어듭니다.
         </li>
         <li>

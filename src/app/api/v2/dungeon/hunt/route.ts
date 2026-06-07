@@ -66,7 +66,10 @@ import {
   type DropResult,
 } from "@/adventure/data/v2/dungeonDrops";
 import { rollEquipDrop } from "@/adventure/data/v2/dungeonEquipDrops";
-import { rollUniqueDrop } from "@/adventure/data/v2/dungeonUniqueDrops";
+import {
+  rollBandUniqueDrop,
+  rollUniqueDrop,
+} from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
   TREASURE_FRAGMENTS_KEY,
   HUNT_FRAGMENT_DROP_CHANCE,
@@ -572,7 +575,12 @@ export async function POST(req: Request) {
         }
         // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 보유분 제외, 둘 다 떨어질 수도.
         // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
-        droppedUnique = rollUniqueDrop(dropFloor, ownedSet, Math.random, 1);
+        // 두 갈래: 레거시 층 풀(rollUniqueDrop, 깊이 1~6 들판) + 심층 밴드 풀(rollBandUniqueDrop,
+        // 마른 협곡 13~18 등). 깊이 범위가 겹치지 않아 둘 중 하나만 rng 소비 — ?? 합성 안전
+        // (밴드 밖이면 bandUniquePoolForDepth=null → rng 미소비, dropFloor 8 풀은 chance 0 → 미소비).
+        droppedUnique =
+          rollBandUniqueDrop(depth, ownedSet, Math.random, 1) ??
+          rollUniqueDrop(dropFloor, ownedSet, Math.random, 1);
         if (droppedUnique !== null) {
           nextOwned = [
             ...nextOwned,

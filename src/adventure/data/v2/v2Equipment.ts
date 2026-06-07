@@ -147,7 +147,19 @@ export type V2EquipmentId =
   | "v2_uniq_giant_fist"
   | "v2_uniq_berserker_fang"
   | "v2_uniq_starcleaver"
-  | "v2_uniq_sage_seal";
+  | "v2_uniq_sage_seal"
+  // 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique") — 8 무기타입 1종씩 + 마른땅 갑주 세트 3종.
+  | "v2_canyon_greatsword"
+  | "v2_canyon_knightblade"
+  | "v2_canyon_rapier"
+  | "v2_canyon_gauntlet"
+  | "v2_canyon_claw"
+  | "v2_canyon_staff"
+  | "v2_canyon_bow"
+  | "v2_canyon_dagger"
+  | "v2_canyon_set_armor"
+  | "v2_canyon_set_gloves"
+  | "v2_canyon_set_boots";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -310,6 +322,17 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_field_leather_boots",
     ],
     bonus: { eva: 3, hp: 20 },
+  },
+  {
+    // 마른 협곡 밴드 드랍 세트(중갑 3종). 드랍 전용 유니크. 3종 다 착용 시 치명·치명피해·HP.
+    id: "dry_canyon",
+    name: "마른땅 갑주",
+    pieces: [
+      "v2_canyon_set_armor",
+      "v2_canyon_set_gloves",
+      "v2_canyon_set_boots",
+    ],
+    bonus: { crit: 4, critMult: 40, hp: 30 },
   },
 ];
 

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  BAND_UNIQUE_POOLS,
   UNIQUE_FLOOR_POOLS,
   V2_UNIQUE_IDS,
+  bandUniquePoolForDepth,
+  rollBandUniqueDrop,
   rollUniqueDrop,
 } from "./dungeonUniqueDrops";
 import {
@@ -22,9 +25,9 @@ function seqRng(values: number[]): () => number {
   return () => (i < values.length ? values[i++] : 0);
 }
 
-describe("유니크 카탈로그 (Phase 2 — 6종)", () => {
-  it("V2_UNIQUE_IDS 6종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(6);
+describe("유니크 카탈로그 (17종 — 기존 6 + 마른 협곡 밴드 11)", () => {
+  it("V2_UNIQUE_IDS 17종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(17);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -50,7 +53,7 @@ describe("UNIQUE_FLOOR_POOLS", () => {
     }
   });
 
-  it("풀의 모든 id 가 유효 유니크 + 6종 전부 어느 층엔가 등장(고아 없음)", () => {
+  it("풀의 모든 id 가 유효 유니크 + 17종 전부 어느 풀엔가 등장(층 또는 밴드, 고아 없음)", () => {
     const inPools = new Set<string>();
     for (const f of FLOORS) {
       for (const id of UNIQUE_FLOOR_POOLS[f].ids) {
@@ -58,9 +61,59 @@ describe("UNIQUE_FLOOR_POOLS", () => {
         inPools.add(id);
       }
     }
-    for (const id of V2_UNIQUE_IDS) {
-      expect(inPools.has(id), `${id} 어느 층에도 안 떨어짐`).toBe(true);
+    // 심층 밴드 풀(마른 협곡 등)의 유니크도 합산 — 깊이 밴드 드랍.
+    for (const pool of BAND_UNIQUE_POOLS) {
+      for (const id of pool.ids) {
+        expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
+        inPools.add(id);
+      }
     }
+    for (const id of V2_UNIQUE_IDS) {
+      expect(inPools.has(id), `${id} 어느 풀에도 안 떨어짐`).toBe(true);
+    }
+  });
+});
+
+describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협곡)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
+
+  it("마른 협곡 밴드 = 깊이 13~18, 11종(무기 8 + 세트 3), 종류당 ~0.5%", () => {
+    expect(canyon).toBeDefined();
+    expect(canyon.maxDepth).toBe(18);
+    expect(canyon.ids).toHaveLength(11);
+    // chance 0.055 / 11 균등 → 시작 시 종류당 0.5%.
+    expect(canyon.chance / canyon.ids.length).toBeCloseTo(0.005, 5);
+  });
+
+  it("밴드 안 깊이만 풀 매칭 — 12 이하/19 이상은 null(레거시 층 롤과 비중복)", () => {
+    expect(bandUniquePoolForDepth(12)).toBeNull();
+    expect(bandUniquePoolForDepth(13)).toBe(canyon);
+    expect(bandUniquePoolForDepth(18)).toBe(canyon);
+    expect(bandUniquePoolForDepth(19)).toBeNull();
+  });
+
+  it("통과 굴림(rng<chance) → 그 밴드 유니크 반환 (pick 0 → 첫 id)", () => {
+    expect(rollBandUniqueDrop(13, empty, seqRng([0, 0]))).toBe(canyon.ids[0]);
+  });
+
+  it("굴림 실패(rng≥chance) → null", () => {
+    expect(rollBandUniqueDrop(13, empty, () => 0.5)).toBeNull();
+  });
+
+  it("밴드 밖 깊이 → rng 미소비하고 null (레거시 롤과 ?? 합성 안전)", () => {
+    let calls = 0;
+    const rng = () => {
+      calls++;
+      return 0;
+    };
+    expect(rollBandUniqueDrop(10, empty, rng)).toBeNull();
+    expect(calls).toBe(0); // 풀 null → rng 호출 없음
+  });
+
+  it("보유분 제외 후 후보 0 → null", () => {
+    const owned = new Set<V2EquipmentId>(canyon.ids);
+    expect(rollBandUniqueDrop(13, owned, seqRng([0, 0]))).toBeNull();
   });
 });
 

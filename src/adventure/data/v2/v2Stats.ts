@@ -18,8 +18,8 @@ export const V2_BASE_STATS: Record<V2StatKey, number> = {
 };
 
 // 레벨업 grant — training.v2.points 에 (levelsGained × 5).
-// 현재 사용처: v2 hunt route + arenaBots (봇 포인트 산정). autoHunt/useLevelUpDetection
-// 은 라이브 derive 와 결합돼 ×5 로 올리면 5× 인플레 — v2 derive 마이그까지 ×1 유지.
+// 현재 사용처: v2 hunt route + arenaBots(sim 스파링 봇 포인트 산정). autoHunt/
+// useLevelUpDetection 은 라이브 derive 와 결합돼 ×5 로 올리면 5× 인플레 — v2 derive 마이그까지 ×1 유지.
 export const V2_STAT_POINTS_PER_LEVEL = 5;
 
 // v2 베이스 MP — 신캐도 INT 0 으로 v2 스킬 일부 cast 가능하게 (강타 15 / 회복 20 / 명상 18

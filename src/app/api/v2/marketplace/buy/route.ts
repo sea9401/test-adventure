@@ -1,0 +1,131 @@
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { marketplaceInbox, marketplaceListingsV2 } from "@/db/schema";
+import { ensureUser } from "@/lib/server/ensureUser";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { inboxValues } from "@/lib/server/inboxPayload";
+import {
+  genEquipIid,
+  parseEquipmentSave,
+  type V2EquipmentId,
+  type V2EquipRoll,
+} from "@/adventure/data/v2/v2Equipment";
+import {
+  resolvePlayerName,
+  saleProceeds,
+} from "@/lib/server/marketplaceV2";
+
+// POST /api/v2/marketplace/buy — 매물 구매(원자적).
+//   body: { listingId:int }
+// 흐름: listing 행 FOR UPDATE 잠금 → status active 재확인 → 본인 매물 금지 → 구매자 골드 차감
+//   → 아이템을 구매자 save 합류(장비=새 개체, 재료=수량 가산) → listing sold 마킹
+//   → 판매자에게 sale_proceeds 우편(대금−판매세; 세금분 소각). 판매자 save 는 잠그지 않음(우편 정산).
+// 잠금 순서: listing → 구매자 character.v2 → 구매자 equipment.v2 (교차 유저 save 락 없음 = 데드락 회피).
+
+type CharSave = {
+  gold?: number;
+  materials?: Record<string, number>;
+  [k: string]: unknown;
+};
+
+function bad(error: string, status = 400) {
+  return Response.json({ ok: false, error }, { status });
+}
+
+export async function POST(req: Request) {
+  const userId = await ensureUser();
+  if (!userId) return bad("unauthorized", 401);
+
+  let body: { listingId?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return bad("invalid_json");
+  }
+  if (typeof body.listingId !== "number" || !Number.isInteger(body.listingId)) {
+    return bad("bad_listingId");
+  }
+  const listingId = body.listingId;
+
+  const result = await db.transaction(async (tx) => {
+    // 1) listing 행 잠금 + 활성 재확인(동시 구매 직렬화).
+    const [listing] = await tx
+      .select()
+      .from(marketplaceListingsV2)
+      .where(eq(marketplaceListingsV2.id, listingId))
+      .for("update");
+    if (!listing) return { status: 404, body: { ok: false as const, error: "not_found" } };
+    if (listing.status !== "active") {
+      return { status: 409, body: { ok: false as const, error: "not_available" } };
+    }
+    if (listing.sellerId === userId) {
+      return { status: 400, body: { ok: false as const, error: "own_listing" } };
+    }
+
+    // 2) 구매자 골드 차감.
+    const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
+    const gold = Math.max(0, Math.floor(charSave.gold ?? 0));
+    if (gold < listing.price) {
+      return { status: 400, body: { ok: false as const, error: "insufficient_gold" } };
+    }
+    let nextChar: CharSave = { ...charSave, gold: gold - listing.price };
+
+    // 3) 아이템을 구매자에게 지급.
+    if (listing.kind === "equip") {
+      const equipSave = await lockSaveForUpdate<Record<string, unknown>>(
+        tx,
+        userId,
+        "equipment.v2",
+        {},
+      );
+      const { owned, equipped } = parseEquipmentSave(equipSave);
+      const roll = (listing.instancePayload as V2EquipRoll | null) ?? undefined;
+      const nextOwned = [
+        ...owned,
+        { iid: genEquipIid(), id: listing.itemId as V2EquipmentId, roll },
+      ];
+      await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });
+      await upsertSave(tx, userId, "character.v2", nextChar);
+    } else {
+      // material — 구매자 재료 수량 가산(character.v2 에 누적).
+      const mats = { ...(nextChar.materials ?? {}) };
+      mats[listing.itemId] = Math.max(0, Math.floor(mats[listing.itemId] ?? 0)) + listing.quantity;
+      nextChar = { ...nextChar, materials: mats };
+      await upsertSave(tx, userId, "character.v2", nextChar);
+    }
+
+    // 4) listing sold 마킹.
+    await tx
+      .update(marketplaceListingsV2)
+      .set({ status: "sold", buyerId: userId, closedAt: new Date() })
+      .where(eq(marketplaceListingsV2.id, listingId));
+
+    // 5) 판매자 정산 우편 — 대금 − 판매세(세금분 소각). 판매자 오프라인이어도 우편으로 수령.
+    const proceeds = saleProceeds(listing.price);
+    const buyerName = (await resolvePlayerName(tx, userId)) ?? "구매자";
+    if (proceeds > 0) {
+      await tx.insert(marketplaceInbox).values(
+        inboxValues({
+          userId: listing.sellerId,
+          payload: { kind: "sale_proceeds", gold: proceeds },
+          message: `${listing.itemName} 판매 대금 ${proceeds.toLocaleString()}골드`,
+          listingId,
+          fromUserId: userId,
+          fromName: buyerName,
+        }),
+      );
+    }
+
+    return {
+      status: 200,
+      body: {
+        ok: true as const,
+        itemName: listing.itemName,
+        paid: listing.price,
+        gold: nextChar.gold,
+      },
+    };
+  });
+
+  return Response.json(result.body, { status: result.status });
+}

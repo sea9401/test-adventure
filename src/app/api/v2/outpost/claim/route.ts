@@ -37,6 +37,7 @@ import {
 } from "@/adventure/v2/hpRegen";
 import {
   toReplayPayload,
+  toPvpReplayPayload,
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
 
@@ -325,8 +326,9 @@ export async function POST(req: Request) {
     let won: boolean;
     let turns: number;
     let battleFinalPlayerHp: number;
-    // NPC 일기토 전투 리플레이 — 사냥과 동일한 ReplayBattleScene 으로 표시. PvP 1v1/토너먼트는
-    // PvP replay 인프라 미구현(아레나 PR-8b/8c 대기)이라 null → 카드가 텍스트 요약으로 폴백.
+    // 전투 리플레이 — 사냥/아레나와 동일한 ReplayBattleScene 으로 표시(나=p1 관점).
+    // NPC 일기토 + PvP 1v1 모두 생성. 다인 길드 3:3 토너먼트는 단일 finalState 가 없어
+    // null → 카드가 매치별 텍스트 요약으로 폴백.
     let replay: ReplayPayload | null = null;
     let defenderLabel: string;
     let defenderUserIdForLog: string | null;
@@ -427,6 +429,8 @@ export async function POST(req: Request) {
           duelWonByAttacker = pvp.outcome === "p1_win";
           turns = pvp.turns;
           battleFinalPlayerHp = pvp.finalState.p1.hp;
+          // PvP 일기토 리플레이(나=p1·상대=수비자). 승패 무관 — 전투 진행을 로그로 표시.
+          replay = toPvpReplayPayload(pvp.finalState, defenderLabel, 200);
         }
 
         // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅(일기토/토너먼트) 결과로 결정.

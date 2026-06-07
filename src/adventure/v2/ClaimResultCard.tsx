@@ -24,8 +24,8 @@ export type ClaimResult = {
   hpBefore?: number;
   hpAfter?: number;
   maxHp?: number;
-  // NPC 일기토 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
-  // PvP 1v1/토너먼트는 PvP replay 미구현이라 없음(텍스트 요약으로 폴백).
+  // 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
+  // NPC 일기토 + PvP 1v1 생성. 3:3 토너먼트만 없음(매치별 텍스트 요약으로 폴백).
   replay?: ReplayPayload | null;
   startPlayerHp?: number;
   playerName?: string;
@@ -107,7 +107,7 @@ export function ClaimResultCard({
           )}
         </div>
       </ResultShell>
-      {/* NPC 일기토 전투 리플레이 — 사냥/스파링과 동일한 BattleScene 으로 전투 진행 표시. */}
+      {/* 전투 리플레이 — 사냥/아레나와 동일한 BattleScene 으로 전투 진행 표시(NPC·PvP 1v1). */}
       {result.replay && (
         <ReplayBattleScene
           payload={result.replay}

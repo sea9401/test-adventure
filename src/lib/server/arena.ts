@@ -76,7 +76,7 @@ export type ArenaHistoryEntry = {
   /** ISO 시각. */
   at: string;
   outcome: ArenaMatchOutcome;
-  opponent: { name: string; level: number };
+  opponent: { name: string; level: number; userId?: string };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BackButton } from "@/components/ui/BackButton";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
@@ -27,7 +28,7 @@ type ArenaHistoryEntry = {
   id: string;
   at: string;
   outcome: "win" | "loss" | "draw";
-  opponent: { name: string; level: number };
+  opponent: { name: string; level: number; userId?: string };
   scoreBefore: number;
   scoreAfter: number;
   scoreDelta: number;
@@ -45,7 +46,7 @@ type MatchResp =
       scoreAfter: number;
       scoreDelta: number;
       goldGained: number;
-      opponent: { name: string; level: number; score: number };
+      opponent: { name: string; level: number; score: number; userId?: string };
       historyEntry: ArenaHistoryEntry;
       dailyRemaining: number;
       dailyResetAt: string;
@@ -92,6 +93,7 @@ function timeAgo(iso: string): string {
 }
 
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
+  const router = useRouter();
   const { viewerName, viewerGender, playerSubtitle } = useGameState();
   const [tab, setTab] = useState<Tab>("main");
   const [state, setState] = useState<StateResp | null>(null);
@@ -190,8 +192,21 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
           <FilmStrip size={16} className="text-amber-600 dark:text-amber-400" />
           전투 로그 ·{" "}
           <span className="font-normal text-zinc-500">
-            vs {replayEntry.opponent?.name || "상대"} Lv.
-            {replayEntry.opponent?.level ?? "?"} ·{" "}
+            vs{" "}
+            {replayEntry.opponent?.userId ? (
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(`/character/${replayEntry.opponent!.userId}`)
+                }
+                className="text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
+              >
+                {replayEntry.opponent?.name || "상대"}
+              </button>
+            ) : (
+              (replayEntry.opponent?.name || "상대")
+            )}{" "}
+            Lv.{replayEntry.opponent?.level ?? "?"} ·{" "}
             <span className={outcomeColor(replayEntry.outcome)}>
               {OUTCOME_LABEL[replayEntry.outcome]}
             </span>
@@ -302,7 +317,18 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
               <div className="mt-3 text-sm">
-                상대 <strong>{lastResult.opponent.name}</strong>
+                상대{" "}
+                {lastResult.opponent.userId ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/character/${lastResult.opponent.userId}`)}
+                    className="font-semibold text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
+                  >
+                    {lastResult.opponent.name}
+                  </button>
+                ) : (
+                  <strong>{lastResult.opponent.name}</strong>
+                )}
                 <span className="ml-1 text-zinc-500">Lv.{lastResult.opponent.level}</span>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">

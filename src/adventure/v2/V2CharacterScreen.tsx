@@ -81,8 +81,12 @@ type EquipmentResponse = {
 
 export function V2CharacterScreen({
   onBack,
+  // 다른 모험가 공개 보기 — userId. 있으면 /api/v2/player/[id] 에서 공개 정보만 받고
+  // 골드/EXP 등 사적 값은 숨긴다. 없으면 본인 /me 정보(기존 동작).
+  playerId,
 }: {
   onBack?: () => void;
+  playerId?: string;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
@@ -91,6 +95,24 @@ export function V2CharacterScreen({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
+      if (playerId) {
+        // 공개 보기 — 단일 응답에 state 필드 + equipment 동봉.
+        const res = (await fetch(
+          `/api/v2/player/${encodeURIComponent(playerId)}`,
+        ).then((r) => (r.ok ? r.json() : null))) as
+          | (StateResponse & { equipment?: EquipmentResponse })
+          | null;
+        if (res?.ok) {
+          setState(res);
+          setEquipment(
+            res.equipment ? { ok: true, ...res.equipment } : null,
+          );
+        } else {
+          setState({ ok: false });
+          setEquipment(null);
+        }
+        return;
+      }
       const [stateRes, equipRes] = await Promise.all([
         fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
@@ -102,7 +124,7 @@ export function V2CharacterScreen({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [playerId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 setLoading)
@@ -127,7 +149,9 @@ export function V2CharacterScreen({
         {onBack && (
           <BackButton onClick={onBack} />
         )}
-        <h1 className="mt-1 text-lg font-bold">내 정보</h1>
+        <h1 className="mt-1 text-lg font-bold">
+          {playerId ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
+        </h1>
       </header>
 
       {character ? (
@@ -137,6 +161,8 @@ export function V2CharacterScreen({
           levelCap={levelCap}
           equipped={equipped}
           owned={equipment?.owned ?? []}
+          // 공개 보기엔 골드 숨김(사적 정보).
+          showGold={!playerId}
         />
       ) : loading ? (
         <Card padding="md">

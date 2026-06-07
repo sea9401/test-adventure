@@ -404,6 +404,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         ariaLabel="분류"
         size="sm"
         variant="highlight"
+        scrollable
       />
 
       <section>

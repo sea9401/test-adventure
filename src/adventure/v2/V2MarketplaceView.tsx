@@ -21,6 +21,9 @@ import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrop
 const TAX_RATE_DISPLAY = 0.05;
 const netPreview = (price: number) => Math.floor(price * (1 - TAX_RATE_DISPLAY));
 
+// 시세 집계(/api/v2/marketplace/prices) — itemId 별 최근 판매 통계.
+type PriceStat = { n: number; avg: number; min: number; max: number };
+
 // 장비 스탯 한 줄(개체 굴림 반영) — 위력 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
 //   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.
 function equipStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
@@ -92,6 +95,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [kindFilter, setKindFilter] = useState<"all" | "equip" | "material">("all");
   const [slotFilter, setSlotFilter] = useState<"all" | V2EquipSlot>("all");
   const [sort, setSort] = useState<"new" | "price_asc" | "price_desc" | "roll_desc">("new");
+  // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
+  const [priceRef, setPriceRef] = useState<Record<string, PriceStat>>({});
 
   const loadBrowse = useCallback(async (mineOnly: boolean) => {
     const res = await fetch(`/api/v2/marketplace/browse${mineOnly ? "?mine=1" : ""}`);
@@ -129,14 +134,30 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  // 탭 전환 시 해당 데이터 로드.
+  const loadPrices = useCallback(async () => {
+    const res = await fetch("/api/v2/marketplace/prices");
+    if (!res.ok) return;
+    const j = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      prices?: Record<string, PriceStat>;
+    } | null;
+    if (j?.ok && j.prices) setPriceRef(j.prices);
+  }, []);
+
+  // 탭 전환 시 해당 데이터 로드. 둘러보기·팔기는 시세도 함께(가격 판단 참고).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭 전환 시 이전 에러 클리어
     setError(null);
-    if (tab === "browse") void loadBrowse(false).catch((e) => setError(String(e.message ?? e)));
-    else if (tab === "mine") void loadBrowse(true).catch((e) => setError(String(e.message ?? e)));
-    else void loadInventory().catch(() => setError("인벤토리 로드 실패"));
-  }, [tab, loadBrowse, loadInventory]);
+    if (tab === "browse") {
+      void loadBrowse(false).catch((e) => setError(String(e.message ?? e)));
+      void loadPrices();
+    } else if (tab === "mine") {
+      void loadBrowse(true).catch((e) => setError(String(e.message ?? e)));
+    } else {
+      void loadInventory().catch(() => setError("인벤토리 로드 실패"));
+      void loadPrices();
+    }
+  }, [tab, loadBrowse, loadInventory, loadPrices]);
 
   const act = useCallback(
     async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
@@ -317,7 +338,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                 ["new", "최신순"],
                 ["price_asc", "가격↑"],
                 ["price_desc", "가격↓"],
-                ["roll_desc", "굴림%↓"],
+                ["roll_desc", "품질%↓"],
               ]}
             />
           </div>
@@ -338,6 +359,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                 </button>
               )
             }
+            priceRef={priceRef}
           />
         </>
       )}
@@ -346,6 +368,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
         <ListingList
           rows={mine}
           emptyText="등록한 매물이 없어요."
+          priceRef={priceRef}
           action={(l) => (
             <button
               type="button"
@@ -380,7 +403,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                         <div>
                           <span className="text-sm font-medium">{V2_EQUIPMENT[inst.id]?.name ?? inst.id}</span>
                           {detail?.pct != null && (
-                            <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">굴림 {detail.pct}%</span>
+                            <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
                           )}
                         </div>
                         {detail && (
@@ -388,6 +411,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                             {detail.line}
                           </div>
                         )}
+                        <div className="mt-0.5">
+                          <PriceRefLine stat={priceRef[inst.id]} />
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <PriceInput
@@ -430,6 +456,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                       <span className="text-sm font-medium">
                         {V2_MATERIALS[matId]?.name ?? matId}
                         <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
+                        <span className="ml-1.5">
+                          <PriceRefLine stat={priceRef[matId]} />
+                        </span>
                       </span>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <input
@@ -513,7 +542,7 @@ function BuyConfirm({
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{listing.quantity}</span>
             )}
             {detail?.pct != null && (
-              <span className="text-[11px] text-amber-600 dark:text-amber-400">굴림 {detail.pct}%</span>
+              <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
             )}
           </div>
           {detail && (
@@ -587,6 +616,20 @@ function SelectControl({
   );
 }
 
+// 시세 한 줄 — 최근 거래가 참고. 기록 없으면 표시 안 함.
+function PriceRefLine({ stat }: { stat?: PriceStat }) {
+  if (!stat || stat.n <= 0) return null;
+  const range =
+    stat.min === stat.max
+      ? ""
+      : ` · ${stat.min.toLocaleString()}~${stat.max.toLocaleString()}`;
+  return (
+    <span className="text-[11px] text-sky-600 dark:text-sky-400">
+      시세 평균 {stat.avg.toLocaleString()}골드 ({stat.n}건{range})
+    </span>
+  );
+}
+
 function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <input
@@ -604,10 +647,12 @@ function ListingList({
   rows,
   emptyText,
   action,
+  priceRef,
 }: {
   rows: Listing[] | null;
   emptyText: string;
   action: (l: Listing) => React.ReactNode;
+  priceRef: Record<string, PriceStat>;
 }) {
   if (rows === null) {
     return (
@@ -643,7 +688,7 @@ function ListingList({
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>
                   )}
                   {detail?.pct != null && (
-                    <span className="text-[11px] text-amber-600 dark:text-amber-400">굴림 {detail.pct}%</span>
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
                   )}
                 </div>
                 {detail && (
@@ -651,8 +696,11 @@ function ListingList({
                     {detail.line}
                   </div>
                 )}
-                <div className="mt-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                  {l.price.toLocaleString()}골드
+                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    {l.price.toLocaleString()}골드
+                  </span>
+                  <PriceRefLine stat={priceRef[l.itemId]} />
                 </div>
               </div>
               {action(l)}

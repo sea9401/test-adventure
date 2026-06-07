@@ -20,6 +20,8 @@ export const MARKETPLACE_V2_PRICE_MAX = 999_999_999; // < 2^31 — integer 컬�
 export const MARKETPLACE_V2_MATERIAL_QTY_MAX = 9999;
 // 둘러보기 1회 최대 반환 행.
 export const MARKETPLACE_V2_BROWSE_LIMIT = 100;
+// 시세 — 최근 며칠간 판매 완료(sold) 기록을 종목별 집계. 가격 판단 참고용.
+export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 
 export type MarketKind = "equip" | "material";
 

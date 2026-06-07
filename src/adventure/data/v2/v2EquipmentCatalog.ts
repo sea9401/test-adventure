@@ -285,7 +285,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "쇠를 덧댄 장화. 발을 든든히 감싼다.",
     power: 2,
     weight: 1,
-    options: { eva: 4, spd: 2 },
+    options: { eva: 4, spd: 4 },
   },
   v2_plate_boots: {
     id: "v2_plate_boots",
@@ -296,7 +296,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "판금을 두른 장화. 묵직하게 버틴다.",
     power: 2,
     weight: 1,
-    options: { eva: 8, spd: 4 },
+    options: { eva: 8, spd: 8 },
   },
   v2_mithril_boots: {
     id: "v2_mithril_boots",
@@ -307,7 +307,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "가볍고 단단한 미스릴 장화.",
     power: 4,
     weight: 1,
-    options: { eva: 12, spd: 6 },
+    options: { eva: 12, spd: 14 },
   },
 
   // ── 신발-경갑 (위력 = 물방 소량, 무게 0, 옵션 eva) ────────────────────
@@ -320,7 +320,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "부드러운 가죽 신. 발놀림이 가볍다.",
     power: 2,
     weight: 0,
-    options: { eva: 4, spd: 2 },
+    options: { eva: 4, spd: 4 },
   },
   v2_shadow_boots: {
     id: "v2_shadow_boots",
@@ -331,7 +331,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "자국을 남기지 않는 어두운 신.",
     power: 2,
     weight: 0,
-    options: { eva: 8, spd: 4 },
+    options: { eva: 8, spd: 8 },
   },
   v2_windweave_boots: {
     id: "v2_windweave_boots",
@@ -342,7 +342,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "바람을 밟듯 가벼운 신.",
     power: 4,
     weight: 0,
-    options: { eva: 12, spd: 6 },
+    options: { eva: 12, spd: 14 },
   },
 
   // ── 반지-운 (위력 = 마방, 무게 0, 옵션 crit) ──────────────────────────
@@ -378,7 +378,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "보는 각도마다 색이 바뀌는 반지.",
     power: 4,
     weight: 0,
-    options: { critMult: 26, spd: 3 },
+    options: { critMult: 26, spd: 7 },
   },
 
   // ── 목걸이-마법 (위력 = 마방, 무게 0, 옵션 mp) ────────────────────────
@@ -941,7 +941,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "자갈밭을 디뎌도 미끄러지지 않게 굽을 박은 신. 마른땅 갑주의 발.",
     power: 6,
     weight: 3,
-    options: { spd: 5, eva: 2 },
+    options: { spd: 12, eva: 2 },
     rarity: "unique",
     setId: "dry_canyon",
   },
@@ -1164,7 +1164,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "언 바닥에도 미끄러지지 않게 날을 박은 신. 디딤이 가볍고 빠르다.",
     power: 9,
     weight: 3,
-    options: { spd: 6, eva: 3 },
+    options: { spd: 15, eva: 3 },
     rarity: "unique",
     setId: "frost_plate",
   },
@@ -1385,7 +1385,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "어둠 속에서도 발소리를 죽이는 신. 디딤이 가볍고 은밀하다.",
     power: 12,
     weight: 3,
-    options: { spd: 7, eva: 3 },
+    options: { spd: 18, eva: 3 },
     rarity: "unique",
     setId: "abyss_plate",
   },

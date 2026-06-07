@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
-import { Package } from "@phosphor-icons/react";
+import { Package, Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -12,8 +12,21 @@ import {
   type V2MaterialId,
   type MaterialDropSource,
 } from "@/adventure/data/v2/dungeonDrops";
-import { MAIN_DUNGEON } from "@/adventure/data/v2/dungeon";
+import {
+  MAIN_DUNGEON,
+  dungeonThemeCatalog,
+} from "@/adventure/data/v2/dungeon";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
+import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
+import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
+import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  dropPoolForDepth,
+  type FloorEquipDropPool,
+} from "@/adventure/data/v2/dungeonEquipDrops";
+import { uniqueIdsForDepthRange } from "@/adventure/data/v2/dungeonUniqueDrops";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   FISH,
   FISH_IDS,
@@ -71,10 +84,24 @@ const TIER_BADGE: Record<FishTier, string> = {
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
 
-type CodexTab = "materials" | "fish" | "treasure";
+type CodexTab = "huntground" | "materials" | "fish" | "treasure";
+
+// 장비 드랍 풀 → 티어별 처치당 확률(pool.chance 를 tierWeights 비율로 분배).
+function equipTierChances(
+  pool: FloorEquipDropPool,
+): { tier: number; pct: number }[] {
+  const total = Object.values(pool.tierWeights).reduce(
+    (a, b) => a + (b ?? 0),
+    0,
+  );
+  if (total <= 0) return [];
+  return Object.entries(pool.tierWeights)
+    .map(([t, w]) => ({ tier: Number(t), pct: (pool.chance * (w ?? 0)) / total }))
+    .sort((a, b) => a.tier - b.tier);
+}
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<CodexTab>("materials");
+  const [tab, setTab] = useState<CodexTab>("huntground");
 
   // 내 도감 진척 — /me/state 가 권위. 재료: 수집한 id 집합. 어보: 발견 id + 종별 최대어.
   // 유물: 발견 id + 종별 최고 보존상태.
@@ -83,6 +110,8 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [fishBest, setFishBest] = useState<Record<string, number>>({});
   const [antiqueDiscovered, setAntiqueDiscovered] = useState<Set<string>>(new Set());
   const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
+  // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
+  const [frontierDepth, setFrontierDepth] = useState(0);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -106,6 +135,9 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         if (j?.treasureCodex?.best && typeof j.treasureCodex.best === "object") {
           setAntiqueBest(j.treasureCodex.best as Record<string, number>);
         }
+        if (typeof j?.frontierDepth === "number") {
+          setFrontierDepth(j.frontierDepth);
+        }
       })
       .catch(() => {});
     return () => {
@@ -124,8 +156,16 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     .filter((e) => e.sources.length > 0)
     .sort((a, b) => a.material.name.localeCompare(b.material.name));
 
+  // 도달한 깊이까지의 사냥터 테마(들판/깊은 산/…) — 테마당 1개.
+  const themes = dungeonThemeCatalog(frontierDepth);
+
   const subtitle =
-    tab === "materials"
+    tab === "huntground"
+      ? {
+          text: "사냥터 — 도달한 구역의 몬스터와 드랍 정보(처리한 깊이 기준).",
+          count: `${themes.length} 구역`,
+        }
+      : tab === "materials"
       ? {
           text: "재료 — 어느 구역에서 어떤 재료가 떨어지는지 한눈에.",
           count: `등재 ${materialEntries.filter((e) => discovered.has(e.id)).length}/${materialEntries.length}종`,
@@ -156,6 +196,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         <div className="flex gap-1.5">
           {(
             [
+              ["huntground", "사냥터"],
               ["materials", "재료"],
               ["fish", "어보"],
               ["treasure", "유물"],
@@ -176,6 +217,121 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           ))}
         </div>
       </header>
+
+      {tab === "huntground" &&
+        (themes.length === 0 ? (
+          <EmptyState
+            icon={<Sword size={40} weight="duotone" />}
+            title="아직 도달한 사냥터가 없습니다"
+            message="사냥을 떠나 새로운 구역을 개척하면 여기에 몬스터와 드랍 정보가 기록됩니다."
+          />
+        ) : (
+          <div className="space-y-3">
+            {themes.map((theme) => {
+              const pool = dropPoolForDepth(theme.depthStart);
+              const tiers = pool ? equipTierChances(pool) : [];
+              const uniqueIds = uniqueIdsForDepthRange(
+                theme.depthStart,
+                theme.depthEnd,
+              );
+              return (
+                <Card key={theme.name} padding="md">
+                  <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
+                    <h2 className="text-sm font-bold">{theme.name}</h2>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      깊이 {theme.depthStart}~{theme.depthEnd}
+                    </span>
+                  </div>
+
+                  {/* 몬스터 — 처리한(최고 도달) 깊이 기준 스탯. */}
+                  <p className="mb-1 text-[10px] text-zinc-400 dark:text-zinc-500">
+                    몬스터 스탯 = 도달한 깊이 {theme.depthEnd} 기준 (속성 상성 전)
+                  </p>
+                  <div className="space-y-1.5">
+                    {theme.enemies.map((e) => {
+                      const base = V2_MONSTERS[e.key];
+                      if (!base) return null;
+                      const m = scaleMonsterForFloor(base, theme.depthEnd);
+                      const elem = e.element ? V2_ELEMENT_LABEL[e.element] : null;
+                      const status = e.statusSkill
+                        ? (V2_SKILLS[e.statusSkill as V2SkillId]?.name ?? null)
+                        : null;
+                      // 이미지 — 사냥(hunt)과 동일 우선순위(enemy override ?? 몬스터 카탈로그).
+                      const img = e.image ?? base.image;
+                      return (
+                        <div
+                          key={e.key}
+                          className="flex items-center gap-2 rounded-md bg-zinc-50 px-2 py-1.5 dark:bg-zinc-900/60"
+                        >
+                          {img ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={img}
+                              alt=""
+                              className="h-8 w-8 shrink-0 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-zinc-200 text-zinc-400 dark:bg-zinc-800">
+                              <Sword size={16} weight="duotone" />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate text-sm font-medium">
+                                {e.name}
+                              </span>
+                              {elem && elem !== "무" && (
+                                <span className="rounded bg-zinc-200 px-1 text-[10px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                  {elem}
+                                </span>
+                              )}
+                              {status && (
+                                <span className="rounded bg-rose-100 px-1 text-[10px] text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                  {status}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+                              HP {m.hp} · 공 {m.atk} · 방 {m.def} · EXP {m.exp}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 드랍 — 장비 풀(티어 확률) + 유니크. */}
+                  <div className="mt-2.5 space-y-1 border-t border-zinc-200 pt-2 text-xs dark:border-zinc-800">
+                    <div className="flex gap-1.5">
+                      <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
+                        장비
+                      </span>
+                      <span className="text-zinc-700 dark:text-zinc-200">
+                        {tiers.length > 0
+                          ? `처치당 ${tiers
+                              .map((t) => `T${t.tier} ${formatChance(t.pct)}`)
+                              .join(" · ")} (무작위 슬롯·컨셉)`
+                          : "일반 장비 드랍 없음 (밴드 콘텐츠 준비 중)"}
+                      </span>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
+                        유니크
+                      </span>
+                      <span className="text-zinc-700 dark:text-zinc-200">
+                        {uniqueIds.length > 0
+                          ? `${uniqueIds
+                              .map((id) => V2_EQUIPMENT[id]?.name ?? id)
+                              .join(", ")} (매우 낮은 확률)`
+                          : "없음"}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        ))}
 
       {tab === "materials" && (
         materialEntries.length === 0 ? (

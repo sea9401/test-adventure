@@ -6,6 +6,7 @@ import {
   bandUniquePoolForDepth,
   rollBandUniqueDrop,
   rollUniqueDrop,
+  uniqueIdsForDepthRange,
 } from "./dungeonUniqueDrops";
 import {
   V2_EQUIPMENT,
@@ -163,5 +164,30 @@ describe("정규 장비 드랍은 유니크를 절대 안 뱉음 (누수 가드)
         expect(got).not.toBe("v2_uniq_shadow_garb");
       }
     }
+  });
+});
+
+describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
+  it("들판(1~6) — floor 풀 1~5 시그니처 유니크 합집합(6종)", () => {
+    const ids = uniqueIdsForDepthRange(1, 6);
+    // floor 1~5 풀 id 전부 포함, 중복 없음.
+    const expected = new Set(
+      [1, 2, 3, 4, 5].flatMap((f) => UNIQUE_FLOOR_POOLS[f as 1].ids),
+    );
+    expect(new Set(ids)).toEqual(expected);
+    expect(ids.length).toBe(expected.size);
+  });
+
+  it("깊은 산(7~12) — 유니크 없음(floor 6~8 빈 풀·밴드 밖)", () => {
+    expect(uniqueIdsForDepthRange(7, 12)).toEqual([]);
+  });
+
+  it("마른 협곡(13~18) — 밴드 A 유니크 풀 전체", () => {
+    const ids = uniqueIdsForDepthRange(13, 18);
+    expect(new Set(ids)).toEqual(new Set(BAND_UNIQUE_POOLS[0].ids));
+  });
+
+  it("아직 밴드 없는 깊이(19~24) — 빈 배열", () => {
+    expect(uniqueIdsForDepthRange(19, 24)).toEqual([]);
   });
 });

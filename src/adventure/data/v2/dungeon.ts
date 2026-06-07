@@ -176,3 +176,40 @@ export function dungeonThemeGroups(
   }
   return groups;
 }
+
+// 코덱스(모험의 서) 사냥터 도감용 — 깊이 1..maxDepth 가 닿는 테마를 테마당 1개로(들판/깊은 산/…),
+//   각 테마의 깊이 범위 + 적 풀. depthEnd = 도달한 그 테마의 최고 깊이(= min(maxDepth, 테마 끝)) —
+//   "그 사냥터를 처리했을 때 기준" 스탯 표시용 대표 깊이. 마지막 테마(짐승의 소굴, 무한)는 한 카드로
+//   합쳐 중복 카드 방지. maxDepth < 1 이면 빈 배열(도달 전).
+export function dungeonThemeCatalog(maxDepth: number): {
+  name: string;
+  depthStart: number;
+  depthEnd: number;
+  enemies: DungeonEnemy[];
+}[] {
+  const end = Math.floor(maxDepth);
+  if (end < 1) return [];
+  const lastBlock = DUNGEON_THEMES.length - 1;
+  const reached = Math.min(lastBlock, Math.floor((end - 1) / THEME_DEPTH_SPAN));
+  const out: {
+    name: string;
+    depthStart: number;
+    depthEnd: number;
+    enemies: DungeonEnemy[];
+  }[] = [];
+  for (let block = 0; block <= reached; block++) {
+    const depthStart = block * THEME_DEPTH_SPAN + 1;
+    // 마지막(무한) 테마는 maxDepth 까지 한 카드로, 그 외엔 테마 6깊이 끝(클램프).
+    const depthEnd =
+      block === lastBlock
+        ? end
+        : Math.min(end, depthStart + THEME_DEPTH_SPAN - 1);
+    out.push({
+      name: DUNGEON_THEMES[block].name,
+      depthStart,
+      depthEnd,
+      enemies: DUNGEON_THEMES[block].enemies,
+    });
+  }
+  return out;
+}

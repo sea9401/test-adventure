@@ -79,8 +79,8 @@ export type BandUniquePool = {
 
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
-    // 마른 협곡(밴드 A, 깊이 13~18). 무기 8(8 무기타입 1종씩) + 마른땅 갑주 3 + 바위문 수호구 3
-    // + 모래바람 장신구 2 = 16종. chance 0.01(총 1%) / 16 균등 → 종류당 ≈0.06%(중복 허용·고정 균등).
+    // 마른 협곡(밴드 A, 깊이 13~18). 16종 + 녹슨 독니 세트 2 = 18종. chance 0.01(총 1% 유지) / 18
+    // 균등 → 종류당 ≈0.056%(아이템 추가 시 총 1% 고정·per-item 희석. 종류당 유지하려면 chance↑).
     minDepth: 13,
     maxDepth: 18,
     chance: 0.01,
@@ -101,11 +101,13 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_canyon_bulwark_boots",
       "v2_canyon_sand_ring",
       "v2_canyon_sand_necklace",
+      "v2_canyon_rustfang_dagger",
+      "v2_canyon_rustfang_gloves",
     ],
   },
   {
-    // 얼음 호수(밴드 B, 깊이 19~24). 무기 8 + 서리 갑주 3 + 빙벽 수호구 3 + 한기 장신구 2 = 16종.
-    // chance 0.01(총 1%) / 16 균등 → 종류당 ≈0.06%(중복 허용·고정 균등).
+    // 얼음 호수(밴드 B, 깊이 19~24). 16종 + 백서리 비전 2 + 혈금강 2 = 20종. chance 0.01(총 1% 유지)
+    // / 20 균등 → 종류당 ≈0.05%.
     minDepth: 19,
     maxDepth: 24,
     chance: 0.01,
@@ -126,11 +128,15 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_lake_bulwark_boots",
       "v2_lake_chill_ring",
       "v2_lake_chill_necklace",
+      "v2_lake_frostarcane_staff",
+      "v2_lake_frostarcane_necklace",
+      "v2_lake_bloodvajra_gauntlet",
+      "v2_lake_bloodvajra_boots",
     ],
   },
   {
-    // 심층 동굴(밴드 C, 깊이 25~30). 무기 8 + 심연 갑주 3 + 흑요 수호구 3 + 공허 장신구 2 = 16종.
-    // chance 0.01(총 1%) / 16 균등 → 종류당 ≈0.06%(중복 허용·고정 균등).
+    // 심층 동굴(밴드 C, 깊이 25~30). 16종 + 심판의 성벽 3 + 흑맥 독왕 3 = 22종. chance 0.01(총 1% 유지)
+    // / 22 균등 → 종류당 ≈0.045%.
     minDepth: 25,
     maxDepth: 30,
     chance: 0.01,
@@ -151,6 +157,12 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_cave_obsidian_boots",
       "v2_cave_void_ring",
       "v2_cave_void_necklace",
+      "v2_cave_judgment_sword",
+      "v2_cave_judgment_armor",
+      "v2_cave_judgment_ring",
+      "v2_cave_venomlord_dagger",
+      "v2_cave_venomlord_ring",
+      "v2_cave_venomlord_necklace",
     ],
   },
 ];

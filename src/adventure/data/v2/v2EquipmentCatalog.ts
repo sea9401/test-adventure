@@ -2,8 +2,9 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 111종 (정규 그리드 43 + 유니크 54 + 제작전용 7 + 전문화 스타터 7).
-//   유니크 54 = 레거시 6 + 심층 밴드 드랍 48(마른 협곡·얼음 호수·심층 동굴 각 16: 무기 8 + 세트 3종 8).
+// V2_EQUIPMENT — 123종 (정규 그리드 43 + 유니크 66 + 제작전용 7 + 전문화 스타터 7).
+//   유니크 66 = 레거시 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(맹독/마법/방어비례/금강 — rust_fang
+//   2·frostarcane 2·bloodvajra 2·judgment_bulwark 3·venomlord 3).
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (물방+마방 이중 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
 //   - sim 캘리브(PR-8)에서 정식 튜닝.
@@ -1458,5 +1459,180 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { mp: 60, hp: 50 },
     rarity: "unique",
     setId: "void_charm",
+  },
+
+  // ── 무기 포함 특화 세트 (밴드 드랍, rarity:"unique") ───────────────────────────
+  // 빌드 특화: 맹독(ATK 스케일 독 DoT)·마법(지팡이 위력)·방어비례(기사, def 옵션)·VIT(금강).
+  // 무기를 세트 조각으로 포함 → 6슬롯서 무기세트 ↔ 갑주/장신구 세트 슬롯 경쟁(완성=다른 세트 일부 포기).
+
+  // 녹슨 독니 (협곡 13~18, 맹독 속공) — 단검+장갑 2종. 독이 ATK 스케일이라 고위력 단검 + 속도/회피로 독 틱·생존.
+  v2_canyon_rustfang_dagger: {
+    id: "v2_canyon_rustfang_dagger",
+    slot: "weapon",
+    concept: "dex",
+    tier: 3,
+    name: "녹슨 독니검",
+    description: "오래 묵은 독이 날에 거뭇하게 엉겨 있는 단검. 스친 자리부터 곪아든다.",
+    power: 78,
+    weight: 1,
+    options: { spd: 3 },
+    weaponType: "dagger",
+    rarity: "unique",
+    setId: "rust_fang",
+  },
+  v2_canyon_rustfang_gloves: {
+    id: "v2_canyon_rustfang_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 3,
+    name: "녹슨 독장갑",
+    description: "독을 다루는 손을 가벼이 놀리게 짠 장갑. 손끝이 빠르고 은밀하다.",
+    power: 7,
+    weight: 2,
+    options: { spd: 4, eva: 2 },
+    rarity: "unique",
+    setId: "rust_fang",
+  },
+
+  // 백서리 비전 (호수 19~24, 마법) — 지팡이+목걸이 2종. 마법이 지팡이 위력 스케일이라 고위력 지팡이 + MP.
+  v2_lake_frostarcane_staff: {
+    id: "v2_lake_frostarcane_staff",
+    slot: "weapon",
+    concept: "int",
+    tier: 3,
+    name: "백서리 지팡이",
+    description: "끝에 맺힌 흰 서리가 마력을 끌어 모아 응결시키는 지팡이.",
+    power: 126,
+    weight: 2,
+    options: { mp: 50 },
+    weaponType: "staff",
+    rarity: "unique",
+    setId: "frostarcane",
+  },
+  v2_lake_frostarcane_necklace: {
+    id: "v2_lake_frostarcane_necklace",
+    slot: "necklace",
+    concept: "mana",
+    tier: 3,
+    name: "백서리 부적",
+    description: "차가운 마력이 고요히 도는 부적. 주문을 거듭해도 마음이 식지 않는다.",
+    power: 8,
+    weight: 0,
+    options: { mp: 45, crit: 3 },
+    rarity: "unique",
+    setId: "frostarcane",
+  },
+
+  // 혈금강 (호수 19~24, VIT 금강) — 권갑+신발 2종. VIT 직접보정 축 없어 "오래 치는 구조"(HP/속도).
+  v2_lake_bloodvajra_gauntlet: {
+    id: "v2_lake_bloodvajra_gauntlet",
+    slot: "weapon",
+    concept: "str",
+    tier: 3,
+    name: "혈금강 권갑",
+    description: "끓는 피처럼 단단히 벼린 권갑. 맞을수록 오히려 더 깊이 파고든다.",
+    power: 108,
+    weight: 3,
+    options: { hp: 70 },
+    weaponType: "gauntlet",
+    rarity: "unique",
+    setId: "bloodvajra",
+  },
+  v2_lake_bloodvajra_boots: {
+    id: "v2_lake_bloodvajra_boots",
+    slot: "boots",
+    concept: "heavy",
+    tier: 3,
+    name: "혈금강 각반",
+    description: "묵직한 금강석을 덧댄 각반. 버티고 선 자리에서 끈질기게 압박한다.",
+    power: 10,
+    weight: 4,
+    options: { hp: 50, spd: 3 },
+    rarity: "unique",
+    setId: "bloodvajra",
+  },
+
+  // 심판의 성벽 (동굴 25~30, 방어비례 기사) — 검방패+갑옷+반지 3종. def 옵션(신설)로 방어비례딜+탱 공방일체.
+  v2_cave_judgment_sword: {
+    id: "v2_cave_judgment_sword",
+    slot: "weapon",
+    concept: "str",
+    tier: 3,
+    name: "심판의 방패검",
+    description: "단단한 방패와 한 벌인 검. 막아선 그 자리에서 단죄가 떨어진다.",
+    power: 148,
+    weight: 4,
+    options: { def: 25, hp: 60 },
+    weaponType: "sword_shield",
+    rarity: "unique",
+    setId: "judgment_bulwark",
+  },
+  v2_cave_judgment_armor: {
+    id: "v2_cave_judgment_armor",
+    slot: "armor",
+    concept: "heavy",
+    tier: 3,
+    name: "심판의 흉갑",
+    description: "성벽을 깎아 두른 듯 두꺼운 흉갑. 굳건할수록 더 무겁게 내리친다.",
+    power: 46,
+    weight: 8,
+    options: { def: 25, hp: 80 },
+    rarity: "unique",
+    setId: "judgment_bulwark",
+  },
+  v2_cave_judgment_ring: {
+    id: "v2_cave_judgment_ring",
+    slot: "ring",
+    concept: "luck",
+    tier: 3,
+    name: "심판의 인장",
+    description: "굳건한 의지를 새긴 반지. 단단히 버틴 만큼 일격이 매서워진다.",
+    power: 11,
+    weight: 0,
+    options: { critMult: 40, hp: 40 },
+    rarity: "unique",
+    setId: "judgment_bulwark",
+  },
+
+  // 흑맥 독왕 (동굴 25~30, 후반 맹독) — 단검+반지+목걸이 3종. 독 전용 속공-회피-생존 엔진.
+  v2_cave_venomlord_dagger: {
+    id: "v2_cave_venomlord_dagger",
+    slot: "weapon",
+    concept: "dex",
+    tier: 3,
+    name: "흑맥 독니",
+    description: "검은 암맥에서 자란 독을 벼려 넣은 단검. 한 번 베이면 독이 핏줄을 타고 번진다.",
+    power: 135,
+    weight: 1,
+    options: { spd: 3 },
+    weaponType: "dagger",
+    rarity: "unique",
+    setId: "venomlord",
+  },
+  v2_cave_venomlord_ring: {
+    id: "v2_cave_venomlord_ring",
+    slot: "ring",
+    concept: "luck",
+    tier: 3,
+    name: "흑맥 반지",
+    description: "독사의 송곳니를 박은 반지. 빈틈을 노리는 손이 한층 빨라진다.",
+    power: 11,
+    weight: 0,
+    options: { critMult: 50, spd: 3 },
+    rarity: "unique",
+    setId: "venomlord",
+  },
+  v2_cave_venomlord_necklace: {
+    id: "v2_cave_venomlord_necklace",
+    slot: "necklace",
+    concept: "mana",
+    tier: 3,
+    name: "흑맥 목걸이",
+    description: "독 안개가 자욱이 깃든 목걸이. 몸을 흐릿하게 흩어 적의 일격을 흘린다.",
+    power: 11,
+    weight: 0,
+    options: { mp: 50, eva: 4 },
+    rarity: "unique",
+    setId: "venomlord",
   },
 };

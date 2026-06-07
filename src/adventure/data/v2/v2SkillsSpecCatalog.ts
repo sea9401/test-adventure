@@ -50,10 +50,13 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
     description: "온 힘을 실어 내려친다.", mpCost: 38, cooldown: 0, procChance: 10,
     effects: [dmgT(1.0, [200, 280, 360])],
   },
+  // 역할 분리(스킬 감사 1차 가안 — sim 재캘리브 사용자 몫): 대참격(프리미엄 단발 버스트)과
+  //   같은 총계수(1.0)인데 flat 이 절반이라 지배당하던 것 → 파천검을 "싼 2타 예산기"로(MP 34→26,
+  //   flat 소폭↑). 전사 MP(~100 무재생)에서 쌈 = 마나 떨어졌을 때 굴리는 가성비 슬롯.
   v2s_gwang_skysplit: {
     id: "v2s_gwang_skysplit", name: "파천검", stat: "str", category: "attack", tier: 3,
-    description: "하늘을 가르는 두 번의 참격.", mpCost: 34, cooldown: 0, procChance: 22,
-    effects: hitsT(2, 0.5, [65, 90, 115]),
+    description: "하늘을 가르는 두 번의 빠른 참격.", mpCost: 26, cooldown: 0, procChance: 22,
+    effects: hitsT(2, 0.5, [75, 105, 135]),
   },
   v2s_gwang_resolve: {
     id: "v2s_gwang_resolve", name: "결전", stat: "str", category: "buff", tier: 3,

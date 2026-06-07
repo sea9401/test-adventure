@@ -10,6 +10,7 @@ import {
   V2_SLOT_LABEL,
   v2EquipStatRows,
   type V2Equipment,
+  type V2EquipmentId,
   type V2EquipOptions,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
@@ -83,6 +84,7 @@ export function V2ItemCard({
   roll,
   equip,
   lock,
+  equippedIds,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
@@ -93,6 +95,9 @@ export function V2ItemCard({
   equip?: ItemCardEquipAction;
   // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
   lock?: ItemCardLockAction;
+  // 현재 착용 중인 장비 id 집합 — 세트 발동(전 부위 착용) 판정 + 부위별 착용 하이라이트.
+  //   미지정이면 착용 정보 없음으로 간주(전부 미착용·세트 미발동 표시).
+  equippedIds?: ReadonlySet<V2EquipmentId>;
 }) {
   useEscapeKey(onClose);
 
@@ -112,6 +117,11 @@ export function V2ItemCard({
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
     : undefined;
+  // 세트 발동 = 세트의 전 조각을 현재 착용 중(서버 aggregateV2Equipment 와 동일 기준).
+  const equippedSetCount = set
+    ? set.pieces.filter((p) => equippedIds?.has(p)).length
+    : 0;
+  const setActive = set != null && equippedSetCount === set.pieces.length;
 
   // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
@@ -208,29 +218,48 @@ export function V2ItemCard({
         {set && (
           <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
             <div className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="font-medium text-amber-600 dark:text-amber-400">
+              {/* 세트명·보너스 — 발동(전 부위 착용) 시 amber, 미발동 시 회색으로 상태 인지. */}
+              <span
+                className={`font-medium ${
+                  setActive
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
                 {set.name} ({set.pieces.length}종)
               </span>
-              <span className="tabular-nums text-amber-600 dark:text-amber-400">
+              <span
+                className={`tabular-nums ${
+                  setActive
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
                 {formatSetBonus(set.bonus)}
               </span>
             </div>
-            {/* 세트 구성 — 무엇을 모아야 하는지 알 수 있게 멤버 전부 나열, 현재 아이템은 강조. */}
+            {/* 세트 구성 — 착용 중인 부위는 밝게(흰색) 하이라이트로 몇 부위 모았는지 한눈에. */}
             <ul className="mt-1 space-y-px">
               {set.pieces.map((pid) => {
                 const piece = V2_EQUIPMENT[pid];
-                const isCurrent = pid === item.id;
+                const isWorn = equippedIds?.has(pid) ?? false;
                 return (
                   <li
                     key={pid}
                     className={`flex items-baseline gap-1 text-[11px] ${
-                      isCurrent
-                        ? "font-medium text-zinc-700 dark:text-zinc-200"
-                        : "text-zinc-500 dark:text-zinc-400"
+                      isWorn
+                        ? "font-medium text-zinc-800 dark:text-zinc-100"
+                        : "text-zinc-400 dark:text-zinc-500"
                     }`}
                   >
-                    <span className="shrink-0 text-amber-500/70">
-                      {isCurrent ? "▸" : "·"}
+                    <span
+                      className={`shrink-0 ${
+                        isWorn
+                          ? "text-emerald-500"
+                          : "text-zinc-300 dark:text-zinc-600"
+                      }`}
+                    >
+                      {isWorn ? "✓" : "·"}
                     </span>
                     <span className="truncate">{piece?.name ?? pid}</span>
                     {piece && (
@@ -242,9 +271,16 @@ export function V2ItemCard({
                 );
               })}
             </ul>
-            <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-              세트 조각을 모두 착용하면 적용됩니다.
-            </p>
+            {/* 발동 상태 + 진행도(N/M 착용) 텍스트 보강. */}
+            {setActive ? (
+              <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                세트 발동 중 ({set.pieces.length}/{set.pieces.length} 착용)
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                {equippedSetCount}/{set.pieces.length} 착용 중 — 모두 착용하면 발동
+              </p>
+            )}
           </div>
         )}
 

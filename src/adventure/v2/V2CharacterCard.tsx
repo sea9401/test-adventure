@@ -18,6 +18,7 @@ import {
   V2_EQUIPMENT,
   type V2Equipment,
   type V2EquipInstance,
+  type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
@@ -111,6 +112,15 @@ export function V2CharacterCard({
     () => new Map((owned ?? []).map((i) => [i.iid, i] as const)),
     [owned],
   );
+  // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).
+  const equippedItemIds = useMemo(() => {
+    const ids = new Set<V2EquipmentId>();
+    for (const iid of Object.values(equipped ?? {})) {
+      const inst = byIid.get(iid);
+      if (inst) ids.add(inst.id);
+    }
+    return ids;
+  }, [equipped, byIid]);
 
   // 장착 슬롯 클릭 시 띄울 아이템 + 개체 굴림 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
   const [selected, setSelected] = useState<{
@@ -222,6 +232,7 @@ export function V2CharacterCard({
           roll={selected.roll}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}
+          equippedIds={equippedItemIds}
         />
       )}
     </Card>

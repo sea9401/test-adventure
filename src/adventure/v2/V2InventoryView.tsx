@@ -7,7 +7,6 @@ import {
   Circle,
   Diamond,
   HandFist,
-  Lock,
   Shield,
   Sneaker,
   Sword,
@@ -30,8 +29,14 @@ import {
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  rollPctClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
 
 // 슬롯별 아이콘/색 — 카드 좌상단 표식.
 const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
@@ -95,8 +100,11 @@ const EQUIP_SLOTS: {
   { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
 
+type SortMode = "default" | "roll";
+
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<TabKey>("weapon");
+  const [sortMode, setSortMode] = useState<SortMode>("default");
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
     Partial<Record<V2EquipSlot, string>>
@@ -216,8 +224,20 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     [materials],
   );
 
-  const tabInstances: V2EquipInstance[] =
-    tab === "material" ? [] : ownedBySlot[tab];
+  const tabInstances: V2EquipInstance[] = useMemo(() => {
+    if (tab === "material") return [];
+    const list = ownedBySlot[tab];
+    if (sortMode !== "roll") return list;
+    // 굴림순 — 높은 굴림 먼저, 굴림 없는(상점 정가) 것은 뒤로. 안정 위해 기존 순서 보존.
+    return [...list].sort((a, b) => {
+      const qa = rollQualityPct(V2_EQUIPMENT[a.id], a.roll);
+      const qb = rollQualityPct(V2_EQUIPMENT[b.id], b.roll);
+      if (qa == null && qb == null) return 0;
+      if (qa == null) return 1;
+      if (qb == null) return -1;
+      return qb - qa;
+    });
+  }, [tab, ownedBySlot, sortMode]);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -314,13 +334,42 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       ) : tab === "material" ? (
         <MaterialList materials={ownedMaterials} />
       ) : (
-        <EquipmentCardGrid
-          cards={tabInstances.map((inst) => ({
-            inst,
-            isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
-          }))}
-          onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
-        />
+        <>
+          {tabInstances.length > 0 && (
+            <div className="flex items-center justify-end gap-1">
+              <span className="mr-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                정렬
+              </span>
+              {(
+                [
+                  { key: "default", label: "기본" },
+                  { key: "roll", label: "굴림순" },
+                ] as const
+              ).map((s) => (
+                <button
+                  key={s.key}
+                  type="button"
+                  onClick={() => setSortMode(s.key)}
+                  aria-pressed={sortMode === s.key}
+                  className={`rounded border px-2 py-0.5 text-[11px] transition ${
+                    sortMode === s.key
+                      ? "border-zinc-400 bg-zinc-100 font-medium text-zinc-800 dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-100"
+                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <EquipmentCardGrid
+            cards={tabInstances.map((inst) => ({
+              inst,
+              isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
+            }))}
+            onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+          />
+        </>
       )}
       {card && (
         <V2ItemCard
@@ -420,6 +469,7 @@ export function EquipmentCardGrid({
       {cards.map(({ inst, isEquipped }) => {
         const item = V2_EQUIPMENT[inst.id];
         const { Icon, color } = SLOT_ICON[item.slot];
+        const pct = rollQualityPct(item, inst.roll);
         return (
           <button
             key={inst.iid}
@@ -432,7 +482,7 @@ export function EquipmentCardGrid({
                 : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
             }`}
           >
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-1">
               <Icon size={20} weight="duotone" className={color} />
               {isEquipped ? (
                 <CheckCircle
@@ -440,14 +490,14 @@ export function EquipmentCardGrid({
                   weight="fill"
                   className="text-emerald-500"
                 />
-              ) : (
-                <Lock
-                  size={13}
-                  weight="bold"
-                  className="text-zinc-300 dark:text-zinc-600"
-                  aria-hidden
-                />
-              )}
+              ) : pct != null ? (
+                <span
+                  className={`shrink-0 text-[11px] font-semibold tabular-nums ${rollPctClass(pct)}`}
+                  title="굴림 품질"
+                >
+                  {pct}%
+                </span>
+              ) : null}
             </div>
             <div className="flex min-w-0 items-center gap-1.5">
               <span

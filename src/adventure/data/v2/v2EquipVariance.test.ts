@@ -4,6 +4,7 @@ import {
   VARIANCE_FRACTION,
   effectiveStats,
   rollItemStats,
+  rollQualityPct,
 } from "./v2EquipVariance";
 
 describe("rollItemStats", () => {
@@ -113,5 +114,53 @@ describe("effectiveStats", () => {
     expect(r.power).toBe(4);
     expect(r.weight).toBe(1);
     expect(r.options).toBeUndefined();
+  });
+});
+
+describe("rollQualityPct", () => {
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // power[18,34], weight[1,3], crit[1,3]; w 위력2·무게1·옵션1
+
+  it("god-roll(전 스탯 최대·무게 최소) = 100%", () => {
+    expect(
+      rollQualityPct(bow, { power: 34, weight: 1, options: { crit: 3 } }),
+    ).toBe(100);
+  });
+
+  it("최저 굴림(전 스탯 최소·무게 최대) = 0%", () => {
+    expect(
+      rollQualityPct(bow, { power: 18, weight: 3, options: { crit: 1 } }),
+    ).toBe(0);
+  });
+
+  it("카탈로그 기준값(가운데) = 50%", () => {
+    expect(
+      rollQualityPct(bow, { power: 26, weight: 2, options: { crit: 2 } }),
+    ).toBe(50);
+  });
+
+  it("위력만 god(나머지 가운데) — 위력 가중 2 → 75%", () => {
+    // power 1.0(w2) + weight 0.5(w1) + crit 0.5(w1) = 3/4
+    expect(
+      rollQualityPct(bow, { power: 34, weight: 2, options: { crit: 2 } }),
+    ).toBe(75);
+  });
+
+  it("굴림 없으면(상점 정가) null", () => {
+    expect(rollQualityPct(bow, undefined)).toBeNull();
+  });
+
+  it("변동 가능한 스탯이 0이면 null — 은가락지(위력1·무게0)", () => {
+    // 위력 spread round(1*0.3)=0, 무게 spread 0 → 변동 스탯 없음(옵션도 없으면 null).
+    const ring = V2_EQUIPMENT.v2_silver_ring;
+    const hasVariance =
+      Math.round(ring.power * VARIANCE_FRACTION) > 0 ||
+      Math.round(ring.weight * VARIANCE_FRACTION) > 0 ||
+      Object.values(ring.options ?? {}).some(
+        (v) => Math.round((v ?? 0) * VARIANCE_FRACTION) > 0,
+      );
+    // 은가락지가 변동 0 이면 null 이어야(테스트 전제 — 변동 있으면 이 단언은 skip 의미).
+    if (!hasVariance) {
+      expect(rollQualityPct(ring, { power: 1, weight: 0 })).toBeNull();
+    }
   });
 });

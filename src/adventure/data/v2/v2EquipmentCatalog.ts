@@ -2,7 +2,7 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 35종, 컨셉×티어 그리드.
+// V2_EQUIPMENT — 63종 (정규 그리드 43 + 유니크 6 + 제작전용 7 + 전문화 스타터 7).
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (물방+마방 이중 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
 //   - sim 캘리브(PR-8)에서 정식 튜닝.

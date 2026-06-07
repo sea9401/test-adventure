@@ -40,7 +40,7 @@ function skillDesc(id: string): string {
 function SkillDetailChips({ skillId }: { skillId: string }) {
   const def = V2_SKILLS[skillId as V2SkillId];
   if (!def) return null;
-  // 실효 MP — 시그니처는 카탈로그 0(센티넬), 엔진이 차수별 산정. 그 값을 표기.
+  // 실효 MP — 시그니처 차수별 자동 산정은 은퇴(v2SkillMpCost = def.mpCost 리터럴 그대로 반환).
   const chips = describeV2Skill(def, v2SkillMpCost(def));
   if (chips.length === 0) return null;
   return (

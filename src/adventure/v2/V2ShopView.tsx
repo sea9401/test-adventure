@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
@@ -103,6 +104,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("buy");
+  const [loadError, setLoadError] = useState(false);
   const [subTab, setSubTab] = useState<SubTab>("weapon");
   // 클릭 시 뜨는 옵션 카드 팝오버 (장비 전용) — null 이면 닫힘.
   const [card, setCard] = useState<{
@@ -111,6 +113,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   const refresh = useCallback(async () => {
+    setLoadError(false);
     try {
       const [stateRes, equipRes, invRes] = await Promise.all([
         fetch("/api/v2/me/state"),
@@ -142,7 +145,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         new Set(insts.filter((i) => eqIids.has(i.iid)).map((i) => i.id)),
       );
       setMaterials(invJ?.materials ?? {});
-    } catch {}
+    } catch {
+      setLoadError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -359,6 +364,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         </div>
         <BackButton onClick={onBack} />
       </header>
+      {loadError && <LoadErrorBanner onRetry={refresh} />}
       <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
         <Coins size={16} weight="fill" className="text-yellow-500" />
         <span className="font-semibold tabular-nums">{gold.toLocaleString()}G</span>

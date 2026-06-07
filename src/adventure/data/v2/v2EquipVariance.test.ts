@@ -15,31 +15,31 @@ import {
 
 describe("rollItemStats", () => {
   it("rng=0 → 각 스탯 최소값(별노래궁 power26/weight2/crit2)", () => {
-    // power spread round(26*0.3)=8 → [18,34]; weight spread 1 → [1,3]; crit spread 1 → [1,3].
+    // VARIANCE 0.65: power spread round(26*0.65)=17 → [9,43]; weight 1 → [1,3]; crit 1 → [1,3].
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0);
-    expect(r).toEqual({ power: 18, weight: 1, options: { crit: 1 } });
+    expect(r).toEqual({ power: 9, weight: 1, options: { crit: 1 } });
   });
 
   it("rng≈1 → 각 스탯 최대값", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0.999);
-    expect(r).toEqual({ power: 34, weight: 3, options: { crit: 3 } });
+    expect(r).toEqual({ power: 43, weight: 3, options: { crit: 3 } });
   });
 
-  it("작은 위력/무게(spread 0)는 변동 없음 — 은가락지 power1/weight0", () => {
-    // critMult 옵션은 별도 굴림 — 여기선 위력/무게가 안 변하는 것만 검증.
+  it("값 0(무게)은 spread 0 → 변동 없음, 위력 1은 ±1(0.65)", () => {
+    // 0.65: 무게 0 → spread round(0)=0 고정. 위력 1 → spread round(0.65)=1 → [1,2](바닥 1).
     const lo = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0);
-    expect(lo.power).toBe(1);
-    expect(lo.weight).toBe(0);
+    expect(lo.weight).toBe(0); // 무게 0 고정
+    expect(lo.power).toBe(1); // 위력 [1,2] 의 하단
     const hi = rollItemStats(V2_EQUIPMENT.v2_silver_ring, () => 0.999);
-    expect(hi.power).toBe(1);
-    expect(hi.weight).toBe(0);
+    expect(hi.weight).toBe(0); // 무게 0 고정
+    expect(hi.power).toBe(2); // 위력 [1,2] 의 상단
   });
 
   it("옵션 없는 아이템은 굴림에 options 없음 — 철검 power3/weight2", () => {
     const r = rollItemStats(V2_EQUIPMENT.v2_iron_sword, () => 0);
     expect(r.options).toBeUndefined();
-    expect(r.power).toBe(2); // spread 1 → [2,4]
-    expect(r.weight).toBe(1); // spread 1 → [1,3]
+    expect(r.power).toBe(1); // spread round(3*0.65)=2 → [1,5]
+    expect(r.weight).toBe(1); // spread round(2*0.65)=1 → [1,3]
   });
 
   it("전 아이템: 굴림이 항상 바닥·범위 안 (LCG 다수 시행)", () => {
@@ -126,19 +126,21 @@ describe("effectiveStats", () => {
 describe("rollQualityPct", () => {
   const bow = V2_EQUIPMENT.v2_starsong_bow; // power[18,34], weight[1,3], crit[1,3]; w 위력2·무게1·옵션1
 
+  // 0.65: 별노래궁 power[9,43]·weight[1,3]·crit[1,3].
   it("god-roll(전 스탯 최대·무게 최소) = 100%", () => {
     expect(
-      rollQualityPct(bow, { power: 34, weight: 1, options: { crit: 3 } }),
+      rollQualityPct(bow, { power: 43, weight: 1, options: { crit: 3 } }),
     ).toBe(100);
   });
 
   it("최저 굴림(전 스탯 최소·무게 최대) = 0%", () => {
     expect(
-      rollQualityPct(bow, { power: 18, weight: 3, options: { crit: 1 } }),
+      rollQualityPct(bow, { power: 9, weight: 3, options: { crit: 1 } }),
     ).toBe(0);
   });
 
   it("카탈로그 기준값(가운데) = 50%", () => {
+    // 26 = (9+43)/2 가운데, weight 2·crit 2 도 가운데.
     expect(
       rollQualityPct(bow, { power: 26, weight: 2, options: { crit: 2 } }),
     ).toBe(50);
@@ -147,7 +149,7 @@ describe("rollQualityPct", () => {
   it("위력만 god(나머지 가운데) — 위력 가중 2 → 75%", () => {
     // power 1.0(w2) + weight 0.5(w1) + crit 0.5(w1) = 3/4
     expect(
-      rollQualityPct(bow, { power: 34, weight: 2, options: { crit: 2 } }),
+      rollQualityPct(bow, { power: 43, weight: 2, options: { crit: 2 } }),
     ).toBe(75);
   });
 
@@ -155,19 +157,11 @@ describe("rollQualityPct", () => {
     expect(rollQualityPct(bow, undefined)).toBeNull();
   });
 
-  it("변동 가능한 스탯이 0이면 null — 은가락지(위력1·무게0)", () => {
-    // 위력 spread round(1*0.3)=0, 무게 spread 0 → 변동 스탯 없음(옵션도 없으면 null).
+  it("0.65 에선 저값 아이템도 변동 생김 — 은가락지(위력1=±1)는 굴림% 반환", () => {
+    // 0.3 때는 위력1 spread 0 이라 null 이었으나, 0.65 면 spread 1(변동) → 점수화됨.
     const ring = V2_EQUIPMENT.v2_silver_ring;
-    const hasVariance =
-      Math.round(ring.power * VARIANCE_FRACTION) > 0 ||
-      Math.round(ring.weight * VARIANCE_FRACTION) > 0 ||
-      Object.values(ring.options ?? {}).some(
-        (v) => Math.round((v ?? 0) * VARIANCE_FRACTION) > 0,
-      );
-    // 은가락지가 변동 0 이면 null 이어야(테스트 전제 — 변동 있으면 이 단언은 skip 의미).
-    if (!hasVariance) {
-      expect(rollQualityPct(ring, { power: 1, weight: 0 })).toBeNull();
-    }
+    expect(Math.round(ring.power * VARIANCE_FRACTION)).toBeGreaterThan(0);
+    expect(rollQualityPct(ring, { power: 1, weight: 0 })).not.toBeNull();
   });
 });
 

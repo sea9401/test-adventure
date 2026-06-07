@@ -2,9 +2,9 @@
 // 등급/이름 없음(숫자 편차만). 상점 구매는 미적용(정가 고정). 굴림은 equipment.v2.statRolls
 // 에 per-id 저장(V2EquipRoll). derive·UI 는 굴림 있으면 그 값, 없으면 카탈로그.
 //
-// spread = round(값 × VARIANCE_FRACTION). 값이 작아 spread 0 이면 그 스탯은 변동 없음
-// (저티어 1 값 안정). 바닥: 위력 ≥1, 무게 ≥0, 옵션 ≥1(옵션이 사라지진 않음).
-// VARIANCE_FRACTION·바닥은 sim/라이브 다이얼.
+// spread = round(값 × VARIANCE_FRACTION). 값이 0(무게 등)이면 변동 없음. 바닥: 위력 ≥1,
+// 무게 ≥0, 옵션 ≥1(옵션이 사라지진 않음). god-roll 추격이 엔드게임이라 편차를 크게
+// (0.65 = ±65%) — 같은 종류라도 굴림이 크게 갈려 추격 가치. VARIANCE_FRACTION·바닥은 다이얼.
 
 import {
   V2_EQUIPMENT,
@@ -17,7 +17,7 @@ import {
   type V2EquipSlot,
 } from "./v2Equipment";
 
-export const VARIANCE_FRACTION = 0.3;
+export const VARIANCE_FRACTION = 0.65;
 
 // 한 스탯 굴림 — [max(floor, value−spread), value+spread] 균등. spread 0 이면 value 그대로.
 function rollStat(value: number, floor: number, rng: () => number): number {

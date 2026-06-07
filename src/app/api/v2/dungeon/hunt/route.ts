@@ -538,14 +538,14 @@ export async function POST(req: Request) {
       const drops: DropResult = won ? rollDrops(dropFloor, Math.random, 1) : {};
       const nextMaterials = mergeDrops(charSave.materials, drops);
 
-      // 장비 드랍 — 승리 시 1회 굴림. 이미 보유한 id 는 후보 제외 (장비 unique).
-      // 풀이 마르거나 굴림 실패면 null. equipment.v2 는 조기 lock 한 걸 한 번에 기록.
+      // 장비 드랍 — 승리 시 1회 굴림. 정규 장비는 중복 드랍 허용(보유분도 새 굴림으로 재드랍 =
+      // god-roll 추격). 풀이 마르거나 굴림 실패면 null. equipment.v2 는 조기 lock 한 걸 한 번에 기록.
       let droppedEquipment: V2EquipmentId | null = null;
       let droppedUnique: V2EquipmentId | null = null;
       let nextOwned: V2EquipInstance[] = ownedEquip;
       if (won) {
-        // 드랍 후보 제외는 보유 "id" 기준(이미 보유한 종류는 다시 안 떨어짐) — 개체 모델이라도
-        // 드랍은 종류당 1개 유지(중복 농사 방지). 개체별 굴림의 다양성은 제작 쪽에서.
+        // ownedSet 은 rollUniqueDrop 의 유니크 dedup 용(유니크는 종류당 1개). 정규 rollEquipDrop
+        // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
         const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
         droppedEquipment = rollEquipDrop(dropFloor, ownedSet, Math.random, 1);
         if (droppedEquipment !== null) {

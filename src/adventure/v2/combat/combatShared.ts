@@ -478,6 +478,7 @@ export type V2SkillCastResult = {
   shieldToApply?: { hp: number; mp: number; turns: number }; // 마나 보호막(흡수량)
   selfRegenToApply?: { pctMaxHpPerTurn: number; turns: number }; // 운기 리젠
   enemyVulnToApply?: { pct: number; turns: number }; // 속박 취약(받는 피해 +%)
+  manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
 };
 
 // PR-4b — attacker/target ctx 로 묶음. PR-4a 의 단순 mp/cd 입력에서 확장.
@@ -548,6 +549,7 @@ const EMPTY_CAST_RESULT_BASE = {
   dotsToApplyToTarget: [] as V2SkillDotApply[],
   selfHpCost: 0,
   selfBuffPctToApply: [] as V2SkillPctBuffApply[],
+  manaRestored: 0,
 };
 
 // 전투 패턴 조건 평가용 ctx — cast 입력(공격자/대상 상태)에서 합성. 자버프 활성 스탯 = selfBuffs 키.
@@ -830,6 +832,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     shieldToApply,
     selfRegenToApply,
     enemyVulnToApply,
+    manaRestored: manaRestore,
   };
 }
 

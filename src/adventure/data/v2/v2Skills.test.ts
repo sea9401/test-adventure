@@ -6,6 +6,8 @@ import {
   emptyV2SkillsState,
   v2SkillSlotsForLevel,
   describeV2Skill,
+  smartDefaultConditionForSkill,
+  smartDefaultPatternFromEquipped,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -121,6 +123,48 @@ describe("parseV2SkillsState", () => {
     // 프리셋 없으면 키 자체 생략(하위호환).
     const none = parseV2SkillsState({ learned: [], equipped: [] });
     expect(none.presets).toBeUndefined();
+  });
+});
+
+describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
+  it("스킬 종류별 합리적 기본 조건", () => {
+    // 공격(강타) → 항상.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2_skill_strike)).toEqual({ kind: "always" });
+    // 마나 회복(명상) → MP 낮을 때(매 턴 스팸 방지 — 0코스트라 "항상"이면 무한 발동).
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_mage_meditate)).toEqual({
+      kind: "self_mp", op: "below", pct: 40,
+    });
+    // 힐(기공 순환) → HP 낮을 때.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_chi)).toEqual({
+      kind: "self_hp", op: "below", pct: 50,
+    });
+    // 스탯 버프(함성) → 그 버프 없을 때(재버프 낭비 방지).
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warrior_warcry)).toEqual({
+      kind: "self_buff", stat: "str", active: false,
+    });
+  });
+
+  it("명상은 기본 패턴에서 '항상' 이 아니다 (매 턴 발동 → 공격 안 함 버그 방지)", () => {
+    const p = smartDefaultPatternFromEquipped(["v2c_mage_meditate", "v2_skill_strike"]);
+    expect(p.blocks).toHaveLength(2);
+    // 슬롯 순서(우선순위) 보존.
+    expect(p.blocks[0].action).toEqual({ kind: "skill", skillId: "v2c_mage_meditate" });
+    expect(p.blocks[1].action).toEqual({ kind: "skill", skillId: "v2_skill_strike" });
+    // 명상은 조건부, 강타는 항상.
+    expect(p.blocks[0].condition.kind).toBe("self_mp");
+    expect(p.blocks[1].condition).toEqual({ kind: "always" });
+  });
+
+  it("순수 DoT 공격 스킬(자상·독무)도 '항상' — 첫 턴만 발동하는 회귀 방지", () => {
+    // dot 효과만 있고 직접 데미지 없는 공격기. damage 버킷에서 빠지면 opener(turn atMost 1)로
+    //   잘못 분류돼 첫 턴 후 안 나간다(Codex BLOCK). dot 도 "적 피해"라 항상 발동.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2s_gladiator_laceration)).toEqual({ kind: "always" });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2s_venom_poisoncloud)).toEqual({ kind: "always" });
+  });
+
+  it("카탈로그에 없는 id 는 안전하게 '항상'", () => {
+    const p = smartDefaultPatternFromEquipped(["__nonexistent__"]);
+    expect(p.blocks[0].condition).toEqual({ kind: "always" });
   });
 });
 

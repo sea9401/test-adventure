@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
+import {
+  V2_SKILLS,
+  smartDefaultPatternFromEquipped,
+  type V2SkillId,
+} from "@/adventure/data/v2/v2Skills";
 import { STAT_LABELS, type StatKey } from "@/adventure/data/stats";
 import {
   V2_COMBAT_PATTERN_MAX_PRESETS,
@@ -84,13 +88,8 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
         if (saved && saved.length > 0) {
           setBlocks(saved);
         } else {
-          // 기본 — 장착 스킬을 "항상→스킬" 로.
-          setBlocks(
-            eq.map((id) => ({
-              condition: { kind: "always" as const },
-              action: { kind: "skill" as const, skillId: id },
-            })),
-          );
+          // 기본 — 장착 스킬 종류별 스마트 조건(엔진과 동일 소스). 유틸은 매 턴 스팸 안 함.
+          setBlocks(smartDefaultPatternFromEquipped(eq).blocks);
         }
       } catch {}
       setLoading(false);

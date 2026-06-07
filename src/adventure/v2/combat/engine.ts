@@ -1,6 +1,7 @@
 import type { Monster } from "@/adventure/data/monsters";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
+import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
 import {
   computeMpRestoreAmount,
   type Potion,
@@ -27,10 +28,7 @@ import {
   v2DefBuffMult,
   V2_BASE_MISS_PCT,
 } from "./combatShared";
-import {
-  V2_COMBAT_PATTERN_ENABLED,
-  defaultPatternFromEquipped,
-} from "./combatPattern";
+import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
   CRIT_OVERFLOW_DMG_CAP,
   CRIT_OVERFLOW_DMG_PER_PCT,
@@ -3030,11 +3028,11 @@ export function resolveBattle(
           procRoll: Math.random() * 100,
           procChanceBonus: player.skillProcChanceAdd ?? 0,
           // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(플레이어 cast). off 면 옛 슬롯순서+proc.
-          // 저장된 커스텀 패턴(C2) 우선, 없으면 장착 슬롯에서 "항상→스킬" 기본 패턴(슬롯순서 재현).
+          // 저장된 커스텀 패턴(C2) 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
           turn: state.turn.completedPlayerTurns + 1,
           combatPattern: V2_COMBAT_PATTERN_ENABLED
             ? (state.v2Skills.pattern ??
-              defaultPatternFromEquipped(state.v2Skills.equipped))
+              smartDefaultPatternFromEquipped(state.v2Skills.equipped))
             : undefined,
           attacker: {
             mp: state.playerMp,
@@ -3176,6 +3174,14 @@ export function resolveBattle(
               text: `${result.castSkillName}! HP ${actual} 회복했다.`,
             });
           }
+        }
+        // 마나 회복(명상 등) — 로그 한 줄(없으면 빈 턴처럼 보이는 갭 방지). 1턴 1행동이라
+        //   이 턴은 공격 대신 마나를 채운 것. HP 회복 로그와 동형.
+        if (result.manaRestored > 0 && result.castSkillName) {
+          nextLog = appendLog(nextLog, {
+            kind: "player_attack",
+            text: `${result.castSkillName}! 마나 ${result.manaRestored} 회복했다.`,
+          });
         }
         // PR2-B 사혈격 — 현재 HP 소모(자살 방지 최소 1).
         if (result.selfHpCost > 0) {

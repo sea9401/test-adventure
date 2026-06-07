@@ -634,7 +634,7 @@ export function EquipmentCardGrid({
               ) : pct != null ? (
                 <span
                   className={`shrink-0 text-[11px] font-semibold tabular-nums ${rollPctClass(pct)}`}
-                  title="굴림 품질"
+                  title="품질"
                 >
                   {pct}%
                 </span>

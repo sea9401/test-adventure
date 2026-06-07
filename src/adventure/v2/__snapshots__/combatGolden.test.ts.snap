@@ -272,11 +272,11 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "mage_skills_vs_골렘",
-    "logSha": "7ce86f2f3af4744bb906b1258e92b1181ae8aa25",
+    "logSha": "ab5e8074c64cb583c15133aae7c45451cc97dc54",
     "outcome": "win",
-    "playerHp": 640,
-    "playerMp": 463,
-    "turns": 7,
+    "playerHp": 612,
+    "playerMp": 311,
+    "turns": 30,
   },
   {
     "enemyHp": 0,

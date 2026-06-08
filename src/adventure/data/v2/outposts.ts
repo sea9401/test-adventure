@@ -259,7 +259,8 @@ export const KINGDOM_COLORS: Record<string, string> = {
 // 거점 → 소속 왕국색. 소속 = 지리적으로 가장 가까운 왕국 수도(거점 방어 게이트와 동일 기준).
 // 모든 거점(중립·분쟁지대 포함)이 어느 한 왕국 영역에 든다. 수도 자신은 자기 색.
 // 모듈 로드 시 1회 precompute (렌더마다 최근접 재계산 회피).
-const KINGDOM_COLOR_BY_OUTPOST: Map<string, string> = (() => {
+// 거점 → 소속 왕국 수도 id. 색·이름 모두 이걸로 파생.
+const KINGDOM_ID_BY_OUTPOST: Map<string, string> = (() => {
   const capitals = OUTPOSTS.filter((o) => o.tier === 4);
   const map = new Map<string, string>();
   for (const o of OUTPOSTS) {
@@ -275,14 +276,26 @@ const KINGDOM_COLOR_BY_OUTPOST: Map<string, string> = (() => {
         bestId = c.id;
       }
     }
-    map.set(o.id, (bestId && KINGDOM_COLORS[bestId]) || "#5d5d68");
+    if (bestId) map.set(o.id, bestId);
   }
   return map;
 })();
 
+// 거점이 속한 왕국 수도 id (지리적 최근).
+export function kingdomIdOf(o: Outpost): string | undefined {
+  return KINGDOM_ID_BY_OUTPOST.get(o.id);
+}
+
 // 지도 마커 채움색 — 거점이 속한 왕국의 고유색. 미등록 시 회색 폴백.
 export function kingdomColorOf(o: Outpost): string {
-  return KINGDOM_COLOR_BY_OUTPOST.get(o.id) ?? "#5d5d68";
+  const id = KINGDOM_ID_BY_OUTPOST.get(o.id);
+  return (id && KINGDOM_COLORS[id]) || "#5d5d68";
+}
+
+// 거점이 속한 왕국 이름(예: "에이라 왕국"). NPC 운영 거점 표기(소속 왕국)에 사용.
+export function kingdomNameOf(o: Outpost): string | undefined {
+  const id = KINGDOM_ID_BY_OUTPOST.get(o.id);
+  return id ? OUTPOST_BY_ID.get(id)?.name : undefined;
 }
 
 // 분쟁지대(중앙 자유 도시 인근) 마커 채움색 — 어느 왕국색과도 구분되는 무소속 슬레이트.

@@ -56,6 +56,15 @@ export async function toggleLike(
   return res.json();
 }
 
+// 조회 기록(유저당 1회) — 상세 열람 시 호출. 응답: { count } 고유 조회수.
+export async function recordView(
+  postId: number,
+): Promise<{ count: number }> {
+  const res = await fetch(`/api/bulletin/${postId}/view`, { method: "POST" });
+  if (!res.ok) throw new Error(`view failed: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchComments(
   postId: number,
 ): Promise<BulletinComment[]> {

@@ -4,11 +4,12 @@ import { useState } from "react";
 import {
   ArrowLeft,
   ChatCircle,
+  Eye,
   Heart,
   Trash,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
-import { formatRelative } from "@/lib/notifications";
+import { formatDateTime } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { toggleLike } from "./api";
 import { CommentsPanel } from "./CommentsPanel";
@@ -97,7 +98,7 @@ export function PostDetailPage({
                 {post.name}
               </button>
             )}
-            <span>{formatRelative(post.createdAt)}</span>
+            <span>{formatDateTime(post.createdAt)}</span>
           </div>
           {post.mine && (
             <button
@@ -137,6 +138,13 @@ export function PostDetailPage({
           <div className="inline-flex items-center gap-1 px-2 py-1 text-zinc-500 dark:text-zinc-400">
             <ChatCircle size={14} weight="regular" />
             <span className="tabular-nums">{post.commentCount}</span>
+          </div>
+          <div
+            className="inline-flex items-center gap-1 px-2 py-1 text-zinc-500 dark:text-zinc-400"
+            aria-label={`조회 ${post.viewCount}회`}
+          >
+            <Eye size={14} weight="regular" />
+            <span className="tabular-nums">{post.viewCount}</span>
           </div>
         </div>
       </Card>

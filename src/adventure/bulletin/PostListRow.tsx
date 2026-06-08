@@ -1,8 +1,8 @@
 "use client";
 
 import { memo } from "react";
-import { ChatCircle, Heart } from "@phosphor-icons/react";
-import { formatRelative } from "@/lib/notifications";
+import { ChatCircle, Eye, Heart } from "@phosphor-icons/react";
+import { formatDate } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { CATEGORY_BADGE, type BulletinPost } from "./types";
 
@@ -55,10 +55,17 @@ function PostListRowImpl({ post, onOpen }: Props) {
           <span className="truncate font-medium text-zinc-700 dark:text-zinc-300">
             {post.name}
           </span>
-          <span className="shrink-0">{formatRelative(post.createdAt)}</span>
+          <span className="shrink-0">{formatDate(post.createdAt)}</span>
+          <span
+            className="ml-auto inline-flex shrink-0 items-center gap-0.5"
+            aria-label={`조회 ${post.viewCount}회`}
+          >
+            <Eye size={11} weight="regular" />
+            <span className="tabular-nums">{post.viewCount}</span>
+          </span>
           {post.likeCount > 0 && (
             <span
-              className="ml-auto inline-flex shrink-0 items-center gap-0.5"
+              className="inline-flex shrink-0 items-center gap-0.5"
               aria-label={`좋아요 ${post.likeCount}개`}
             >
               <Heart

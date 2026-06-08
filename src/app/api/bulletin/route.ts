@@ -1,6 +1,11 @@
 import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { bulletinComments, bulletinLikes, bulletinPosts } from "@/db/schema";
+import {
+  bulletinComments,
+  bulletinLikes,
+  bulletinPosts,
+  bulletinViews,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
@@ -72,38 +77,48 @@ export async function GET(req: Request) {
   const postIds = posts.map((p) => p.id);
   // 인덱스: bulletin_likes 는 PK(postId,userId), bulletin_comments 는
   // (postId, createdAt) — 셋 다 postId 가 선행 컬럼이라 GROUP/IN 모두 인덱스 스캔.
-  const [likeCountRows, commentCountRows, likedByMeRows] = await Promise.all([
-    db
-      .select({
-        postId: bulletinLikes.postId,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(bulletinLikes)
-      .where(inArray(bulletinLikes.postId, postIds))
-      .groupBy(bulletinLikes.postId),
-    db
-      .select({
-        postId: bulletinComments.postId,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(bulletinComments)
-      .where(inArray(bulletinComments.postId, postIds))
-      .groupBy(bulletinComments.postId),
-    db
-      .select({ postId: bulletinLikes.postId })
-      .from(bulletinLikes)
-      .where(
-        and(
-          eq(bulletinLikes.userId, userId),
-          inArray(bulletinLikes.postId, postIds),
+  const [likeCountRows, commentCountRows, viewCountRows, likedByMeRows] =
+    await Promise.all([
+      db
+        .select({
+          postId: bulletinLikes.postId,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(bulletinLikes)
+        .where(inArray(bulletinLikes.postId, postIds))
+        .groupBy(bulletinLikes.postId),
+      db
+        .select({
+          postId: bulletinComments.postId,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(bulletinComments)
+        .where(inArray(bulletinComments.postId, postIds))
+        .groupBy(bulletinComments.postId),
+      db
+        .select({
+          postId: bulletinViews.postId,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(bulletinViews)
+        .where(inArray(bulletinViews.postId, postIds))
+        .groupBy(bulletinViews.postId),
+      db
+        .select({ postId: bulletinLikes.postId })
+        .from(bulletinLikes)
+        .where(
+          and(
+            eq(bulletinLikes.userId, userId),
+            inArray(bulletinLikes.postId, postIds),
+          ),
         ),
-      ),
-  ]);
+    ]);
 
   const likeCountMap = new Map(likeCountRows.map((r) => [r.postId, r.count]));
   const commentCountMap = new Map(
     commentCountRows.map((r) => [r.postId, r.count]),
   );
+  const viewCountMap = new Map(viewCountRows.map((r) => [r.postId, r.count]));
   const likedSet = new Set(likedByMeRows.map((r) => r.postId));
 
   const result = posts.map((r) => ({
@@ -117,6 +132,7 @@ export async function GET(req: Request) {
     mine: r.mine === userId,
     likeCount: likeCountMap.get(r.id) ?? 0,
     commentCount: commentCountMap.get(r.id) ?? 0,
+    viewCount: viewCountMap.get(r.id) ?? 0,
     likedByMe: likedSet.has(r.id),
   }));
 
@@ -204,6 +220,7 @@ export async function POST(req: Request) {
     mine: true,
     likeCount: 0,
     commentCount: 0,
+    viewCount: 0,
     likedByMe: false,
   });
 }

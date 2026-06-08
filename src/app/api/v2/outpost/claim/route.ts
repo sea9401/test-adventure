@@ -1,11 +1,13 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
   outpostOccupations,
   outpostClaimAttempts,
   savesKv,
+  v2GuildResources,
 } from "@/db/schema";
+import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -26,8 +28,10 @@ import {
   FORT_MAX_HP,
   SIEGE_DAMAGE_PER_WIN,
   POST_CAPTURE_PROTECT_MS,
+  REPAIR_GOLD_PER_HP,
   currentFortHp,
   isOutpostProtected,
+  repairHpFromGold,
 } from "@/adventure/data/v2/outpostSiege";
 import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
@@ -525,10 +529,43 @@ export async function POST(req: Request) {
       ? currentFortHp(occRow.fortHp, fortMaxHp, occRow.fortUpdatedAt, new Date(now))
       : FORT_MAX_HP;
     let captured = false;
+    let repairedHp = 0;
+    let repairGoldSpent = 0;
     if (won!) {
       const newOccupiedAt = new Date();
       if (stillHasOccRow) {
-        // 공성 — 승리 1회당 성벽 SIEGE_DAMAGE_PER_WIN 감소.
+        // 길드 금고 자동 수리(B안) — 데미지 전, 수비 길드 금고 골드로 결손분 보강.
+        //   원자적 조건부 차감(WHERE gold>=cost). 금고가 한도라 마르면 함락.
+        //   race 로 차감 실패 시 이번 타격은 수리 없음(드묾·음수잔액 불가).
+        //   🔒 락순서: guild_resources 는 이 tx 의 occupation+character.v2 락 이후 마지막에만
+        //   건드린다. treasury/claim 도 guild_resources 를 character.v2 이후 마지막에 잡고
+        //   eject 는 안 건드림 → occupation→character→guild_resources 단일 순서, 사이클 없음.
+        if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
+          const guildGold = (await readGuildResources(tx, defenderGuildId)).gold;
+          const hp = repairHpFromGold(fortMaxHp - fortHpAfter, guildGold);
+          if (hp > 0) {
+            const cost = hp * REPAIR_GOLD_PER_HP;
+            const deducted = await tx
+              .update(v2GuildResources)
+              .set({
+                gold: sql`${v2GuildResources.gold} - ${cost}`,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(v2GuildResources.guildId, defenderGuildId),
+                  gte(v2GuildResources.gold, cost),
+                ),
+              )
+              .returning({ gold: v2GuildResources.gold });
+            if (deducted.length > 0) {
+              repairedHp = hp;
+              repairGoldSpent = cost;
+              fortHpAfter += hp;
+            }
+          }
+        }
+        // 공성 — 승리 1회당 성벽 SIEGE_DAMAGE_PER_WIN 감소(수리 반영 후).
         const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
         if (damaged <= 0) {
           // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막.
@@ -635,6 +672,9 @@ export async function POST(req: Request) {
         captured,
         fortHp: fortHpAfter,
         fortMaxHp,
+        // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
+        repairedHp,
+        repairGoldSpent,
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
         tournament: tournamentSummary,

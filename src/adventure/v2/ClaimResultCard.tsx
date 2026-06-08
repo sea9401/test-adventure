@@ -29,6 +29,9 @@ export type ClaimResult = {
   captured?: boolean;
   fortHp?: number;
   fortMaxHp?: number;
+  // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
+  repairedHp?: number;
+  repairGoldSpent?: number;
   // 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
   // NPC 일기토 + PvP 1v1 생성. 3:3 토너먼트만 없음(매치별 텍스트 요약으로 폴백).
   replay?: ReplayPayload | null;
@@ -112,6 +115,12 @@ export function ClaimResultCard({
         onClose={onClose}
       >
         <div className="flex flex-col gap-3">
+          {result.repairedHp != null && result.repairedHp > 0 && (
+            <div className="rounded-md bg-sky-500/10 px-3 py-1.5 text-xs text-sky-700 dark:text-sky-300">
+              🛡 수비 길드가 금고로 성벽 +{result.repairedHp} 수리 (−
+              {(result.repairGoldSpent ?? 0).toLocaleString()} 골드)
+            </div>
+          )}
           {result.tournament && (
             <TournamentSection tournament={result.tournament} />
           )}

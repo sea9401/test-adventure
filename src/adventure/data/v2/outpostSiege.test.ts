@@ -3,8 +3,10 @@ import {
   FORT_MAX_HP,
   SIEGE_DAMAGE_PER_WIN,
   FORT_REGEN_PER_HOUR,
+  REPAIR_GOLD_PER_HP,
   currentFortHp,
   isOutpostProtected,
+  repairHpFromGold,
 } from "./outpostSiege";
 
 describe("currentFortHp (성벽 lazy 재생)", () => {
@@ -38,6 +40,21 @@ describe("isOutpostProtected (보호막)", () => {
   it("과거/현재면 해제", () => {
     expect(isOutpostProtected(new Date(now.getTime() - 1), now)).toBe(false);
     expect(isOutpostProtected(now, now)).toBe(false);
+  });
+});
+
+describe("repairHpFromGold (길드 금고 자동 수리)", () => {
+  it("결손/금고 0 이면 0", () => {
+    expect(repairHpFromGold(0, 10000)).toBe(0);
+    expect(repairHpFromGold(40, 0)).toBe(0);
+  });
+  it("금고가 충분하면 결손분 전부", () => {
+    expect(repairHpFromGold(40, 40 * REPAIR_GOLD_PER_HP)).toBe(40);
+    expect(repairHpFromGold(5, 100000)).toBe(5);
+  });
+  it("금고가 한도면 살 수 있는 만큼만(내림)", () => {
+    // 금고 = 9.5 HP 어치 → 9 HP.
+    expect(repairHpFromGold(40, Math.floor(9.5 * REPAIR_GOLD_PER_HP))).toBe(9);
   });
 });
 

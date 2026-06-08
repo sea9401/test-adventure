@@ -48,15 +48,29 @@ export function BattleLogList({
   compact?: boolean;
 }) {
   const s = compact ? SIZES.compact : SIZES.normal;
-  // 턴별 그룹화 — turn_marker 가 그룹 헤더. 시작 전 entries (적 등장/선공 등) 는 별도 그룹.
+  // 턴별 그룹화 — turn_marker 가 그룹 헤더(PvE). 시작 전 entries(적 등장/선공 등)는 별도 그룹.
+  // PvP 로그(아레나·공성 일기토)는 turn_marker 가 없고 매 행동 뒤 hp_bar 가 붙는다 → 그대로 두면
+  //   한 박스에 전부 뭉쳐 가독성이 떨어진다. turn_marker 가 없으면 hp_bar 를 교전 경계로 박스를
+  //   나눈다(표시 단 처리라 엔진·저장된 리플레이 모두 분리됨).
+  const hasTurnMarker = entries.some((e) => e.kind === "turn_marker");
   const groups: BattleLogEntry[][] = [];
   let cur: BattleLogEntry[] = [];
-  for (const e of entries) {
-    if (e.kind === "turn_marker") {
-      if (cur.length > 0) groups.push(cur);
-      cur = [e];
-    } else {
+  if (hasTurnMarker) {
+    for (const e of entries) {
+      if (e.kind === "turn_marker") {
+        if (cur.length > 0) groups.push(cur);
+        cur = [e];
+      } else {
+        cur.push(e);
+      }
+    }
+  } else {
+    for (const e of entries) {
       cur.push(e);
+      if (e.kind === "hp_bar") {
+        groups.push(cur);
+        cur = [];
+      }
     }
   }
   if (cur.length > 0) groups.push(cur);

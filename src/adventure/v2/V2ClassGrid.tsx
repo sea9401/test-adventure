@@ -351,8 +351,8 @@ export function V2ClassGrid({
                 : isFirstPick
                   ? "이 직업 선택"
                   : switchCost > 0
-                    ? `이 직군으로 전환 (${switchCost.toLocaleString()}G)`
-                    : "이 직군으로 전환"}
+                    ? `직업 변경 (${switchCost.toLocaleString()}G)`
+                    : "직업 변경"}
             </button>
             {!isFirstPick && (
               <>

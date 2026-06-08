@@ -2,7 +2,7 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 131종 (정규 그리드 43 + 유니크 74 + 제작전용 7 + 전문화 스타터 7).
+// V2_EQUIPMENT — 124종 (정규 그리드 43 + 유니크 74 + 전문화 스타터 7). 제작전용은 2026-06-08 제거.
 //   유니크 74 = 레거시 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(맹독/마법/방어비례/금강 — rust_fang
 //   2·frostarcane 2·bloodvajra 2·judgment_bulwark 3·venomlord 3) + 컨셉 사이드그레이드 8(위력↔속도/무게/
 //   회피 트레이드·슬롯 비전형 — 협곡 2·호수 2·동굴 4, 세트 아님).
@@ -495,99 +495,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 0,
     options: { mp: 24, hp: 40 }, // 반지인데 MP+HP(보통 반지는 치명)
     rarity: "unique",
-  },
-
-  // ── 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외 ─────────
-  // 흔함 재료 = T2 상점보다 조금 위. 희귀 재료(단검·지팡이·목걸이) = 그보다 좀 더 위.
-  v2_meadow_bow: {
-    id: "v2_meadow_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 2,
-    name: "초원 활",
-    description: "들판의 질긴 가죽과 풀줄기로 멘 활. 가볍고 손에 붙는다.",
-    power: 18, // 무기위력 ×2 (craftOnly)
-    weight: 1,
-    options: { crit: 1 },
-    craftOnly: true,
-  },
-  v2_spider_venom_dagger: {
-    id: "v2_spider_venom_dagger",
-    slot: "weapon",
-    concept: "dex",
-    tier: 2,
-    name: "거미독 단검",
-    description: "들거미의 독을 날에 먹인 단검. 스치기만 해도 살을 문다.",
-    power: 22, // 무기위력 ×2 (craftOnly)
-    weight: 1,
-    options: { crit: 1 },
-    craftOnly: true,
-  },
-  v2_wolffang_staff: {
-    id: "v2_wolffang_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 2,
-    name: "늑대이빨 지팡이",
-    description: "들짐승 송곳니를 끝에 박은 지팡이. 쥐면 마력이 곤두선다.",
-    power: 30, // 무기위력 ×2 (craftOnly)
-    weight: 1,
-    options: { mp: 12 },
-    craftOnly: true,
-  },
-  v2_fang_necklace: {
-    id: "v2_fang_necklace",
-    slot: "necklace",
-    concept: "mana",
-    tier: 2,
-    name: "송곳니 목걸이",
-    description: "들짐승 송곳니를 엮어 건 목걸이. 마음을 가라앉힌다.",
-    power: 6, // 희귀 — T2 정규 목걸이(mana) 1 위
-    weight: 0,
-    options: { mp: 12 },
-    craftOnly: true,
-  },
-
-  // 들가죽 세트 (경갑 3종, setId:"field_leather") — 3종 다 착용 시 회피+3·HP+20.
-  // 흔함 재료. T2 정규 경갑보다 조금 위(갑옷 2→3 / 장갑·신발 1→2).
-  v2_field_leather_armor: {
-    id: "v2_field_leather_armor",
-    slot: "armor",
-    concept: "light",
-    tier: 2,
-    name: "들가죽 갑옷",
-    description: "들짐승 가죽을 두툼하게 덧댄 갑옷. 들가죽 세트의 몸통.",
-    power: 6,
-    weight: 0,
-    options: { eva: 1 },
-    craftOnly: true,
-    setId: "field_leather",
-  },
-  v2_field_leather_gloves: {
-    id: "v2_field_leather_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 2,
-    name: "들가죽 장갑",
-    description: "손마디를 가죽으로 감싼 장갑. 들가죽 세트의 손.",
-    power: 4,
-    weight: 0,
-    options: { crit: 1 },
-    craftOnly: true,
-    setId: "field_leather",
-  },
-  v2_field_leather_boots: {
-    id: "v2_field_leather_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 2,
-    name: "들가죽 신발",
-    description: "발목까지 가죽으로 올려 묶은 신. 들가죽 세트의 발.",
-    power: 4,
-    weight: 0,
-    options: { eva: 1 },
-    craftOnly: true,
-    setId: "field_leather",
   },
 
   // ── 전문화 스타터 무기 (전직 시 지급, weaponType 게이트 활성화용) — off-grid(starterOnly), 수치 임시 ──

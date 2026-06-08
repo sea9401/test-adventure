@@ -1,66 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  V2_RECIPES,
   consumeIngredients,
   craftShortfall,
-  recipeFor,
   salvageYield,
   type V2Recipe,
 } from "./v2Recipes";
-import { V2_EQUIPMENT } from "./v2Equipment";
-import { V2_MATERIALS } from "./dungeonDrops";
 
-// 2026-06-03: 제작 재설계 — 들판 제작 전용 7종만 등재(무기/목걸이 4 + 들가죽 세트 3).
-
-const FIELD_CRAFT_IDS = [
-  "v2_meadow_bow",
-  "v2_spider_venom_dagger",
-  "v2_wolffang_staff",
-  "v2_fang_necklace",
-  "v2_field_leather_armor",
-  "v2_field_leather_gloves",
-  "v2_field_leather_boots",
-] as const;
-
-describe("V2_RECIPES — 들판 제작 7종", () => {
-  it("레시피 7종, result==key, 대상은 전부 craftOnly 장비", () => {
-    expect(Object.keys(V2_RECIPES).sort()).toEqual([...FIELD_CRAFT_IDS].sort());
-    for (const id of FIELD_CRAFT_IDS) {
-      const r = recipeFor(id);
-      expect(r, id).toBeDefined();
-      expect(r!.result).toBe(id);
-      expect(V2_EQUIPMENT[id].craftOnly, `${id} craftOnly`).toBe(true);
-    }
-  });
-
-  it("레시피 재료 id 가 전부 V2_MATERIALS 에 존재 + 수량>0 + 골드>0", () => {
-    for (const id of FIELD_CRAFT_IDS) {
-      const r = V2_RECIPES[id]!;
-      expect(r.gold, id).toBeGreaterThan(0);
-      expect(r.ingredients.length, id).toBeGreaterThan(0);
-      for (const ing of r.ingredients) {
-        expect(V2_MATERIALS[ing.id], `${id} → ${ing.id}`).toBeDefined();
-        expect(ing.count, `${id} → ${ing.id}`).toBeGreaterThan(0);
-      }
-    }
-  });
-
-  it("희귀 재료(fang/venom)는 단검·지팡이·목걸이만 + 수량 ≤ 2", () => {
-    const RARE = new Set(["v2_field_fang", "v2_field_venom"]);
-    const RARE_ITEMS = new Set([
-      "v2_spider_venom_dagger",
-      "v2_wolffang_staff",
-      "v2_fang_necklace",
-    ]);
-    for (const id of FIELD_CRAFT_IDS) {
-      for (const ing of V2_RECIPES[id]!.ingredients) {
-        if (!RARE.has(ing.id)) continue;
-        expect(RARE_ITEMS.has(id), `${id} 가 희귀재료 사용`).toBe(true);
-        expect(ing.count, `${id} → ${ing.id} 수량`).toBeLessThanOrEqual(2);
-      }
-    }
-  });
-});
+// 2026-06-08: 대장간 제작 콘텐츠 제거 — V2_RECIPES 는 빈 카탈로그(검증할 등재 레시피 없음).
+// 제작/분해 순수 헬퍼는 보존하므로 합성 레시피로 헬퍼 계약만 검증한다(카탈로그 비의존).
 
 // 합성 레시피 — 헬퍼 계약 검증용(카탈로그 비의존). T1 형태(거친광석×2 + 약초×2, 골드 225).
 const RECIPE: V2Recipe = {

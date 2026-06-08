@@ -5,30 +5,20 @@ import {
   countDiscoveredMaterials,
   codexRequirement,
 } from "./codex";
-import { V2_MATERIALS_ENABLED } from "./dungeonDrops";
 
-// 2026-06-03: 재료 재설계 — 들판 5종 등재. V2_CODEX_TOTAL = 등재 재료 수(5). 전직 재료
-// 요건은 min(요건, 총량)로 클램프(완성 불가 게이트 방지).
+// 2026-06-08: 재료 콘텐츠 제거 — 등재 재료 0종. V2_CODEX_TOTAL = 0, 도감 진척은 항상 빈 상태.
+// 순수 헬퍼는 보존(재료 재도입 시 자동 부활)하므로 빈 카탈로그에서의 안전 동작만 검증한다.
 
-describe("v2 코덱스(재료 도감) 진척 — 들판 5종", () => {
-  it("V2_CODEX_TOTAL = 5 (등재 재료 수)", () => {
-    expect(V2_CODEX_TOTAL).toBe(5);
+describe("v2 코덱스(재료 도감) 진척 — 재료 제거(0종)", () => {
+  it("V2_CODEX_TOTAL = 0 (등재 재료 없음)", () => {
+    expect(V2_CODEX_TOTAL).toBe(0);
   });
 
-  it("discoveredMaterialIds — count>0 유효 재료만 (0/음수/미등재 제외)", () => {
-    const r = discoveredMaterialIds({
-      v2_field_grass: 3,
-      v2_field_stone: 1,
-      v2_field_hide: 0, // 미수집
-      v2_field_fang: -2, // 음수
-      unknown_material_id: 5, // 미등재
-    });
-    expect(r.slice().sort()).toEqual(
-      ["v2_field_grass", "v2_field_stone"].sort(),
-    );
+  it("discoveredMaterialIds — 등재 재료가 없으면 어떤 보유분도 진척에 안 잡힘", () => {
     expect(
-      countDiscoveredMaterials({ v2_field_grass: 3, v2_field_stone: 1 }),
-    ).toBe(2);
+      discoveredMaterialIds({ v2_field_grass: 3, v2_field_stone: 1 }),
+    ).toEqual([]);
+    expect(countDiscoveredMaterials({ v2_field_grass: 3 })).toBe(0);
   });
 
   it("비객체/null/undefined 입력은 빈 진척", () => {
@@ -38,18 +28,10 @@ describe("v2 코덱스(재료 도감) 진척 — 들판 5종", () => {
     expect(countDiscoveredMaterials(undefined)).toBe(0);
   });
 
-  it("codexRequirement — 재료 활성 시 총량(5) 클램프 / 보류 시 항상 0", () => {
-    // 미지정/0 은 어느 경우든 요건 없음.
+  it("codexRequirement — 등재 0종이라 항상 0 (보류 플래그·요건값과 무관하게 클램프 결과 0)", () => {
     expect(codexRequirement(undefined)).toBe(0);
     expect(codexRequirement(0)).toBe(0);
-    if (V2_MATERIALS_ENABLED) {
-      // 재료 활성 — min(요건, 총량) 클램프.
-      expect(codexRequirement(3)).toBe(3);
-      expect(codexRequirement(9999)).toBe(5);
-    } else {
-      // 재료 보류 중 — 전직 재료 요건 해제(클램프 로직은 휴면, 플래그 true 복귀 시 부활).
-      expect(codexRequirement(3)).toBe(0);
-      expect(codexRequirement(9999)).toBe(0);
-    }
+    expect(codexRequirement(3)).toBe(0);
+    expect(codexRequirement(9999)).toBe(0);
   });
 });

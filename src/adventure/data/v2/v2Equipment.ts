@@ -132,15 +132,6 @@ export type V2EquipmentId =
   | "v2_jade_amulet"
   | "v2_crystal_amulet"
   | "v2_mana_essence"
-  // 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외.
-  //   무기/목걸이 4종 + 들가죽 세트 3종(경갑, setId:"field_leather").
-  | "v2_meadow_bow"
-  | "v2_spider_venom_dagger"
-  | "v2_wolffang_staff"
-  | "v2_fang_necklace"
-  | "v2_field_leather_armor"
-  | "v2_field_leather_gloves"
-  | "v2_field_leather_boots"
   // 유니크 (드랍 전용, rarity:"unique") — 정규 컨셉×티어 그리드 밖 사이드그레이드. Phase 2 투입.
   | "v2_uniq_shadow_garb"
   | "v2_uniq_trickster_boots"
@@ -379,16 +370,6 @@ export type V2EquipSet = {
 };
 
 export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
-  {
-    id: "field_leather",
-    name: "들가죽 세트",
-    pieces: [
-      "v2_field_leather_armor",
-      "v2_field_leather_gloves",
-      "v2_field_leather_boots",
-    ],
-    bonus: { eva: 3, hp: 20 },
-  },
   {
     // 마른 협곡 밴드 드랍 세트(중갑 3종). 드랍 전용 유니크. 3종 다 착용 시 치명·치명피해·HP.
     id: "dry_canyon",
@@ -768,6 +749,11 @@ export function starterWeaponForType(
 }
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
+
+// 2026-06-08: 대장간 제작 콘텐츠 제거로 craftOnly 7종(v2_meadow_bow·v2_spider_venom_dagger·
+//   v2_wolffang_staff·v2_fang_necklace·v2_field_leather_armor/gloves/boots)을 카탈로그에서 삭제.
+//   이들은 LEGACY_ID_REMAP 에 의도적으로 넣지 않는다 — 보유/장착분은 parseEquipmentSave 가
+//   VALID_IDS 미포함으로 무음 제거(들가죽 세트 보너스도 소실). 보상 없이 드롭하는 것이 사용자 결정.
 
 // 티어 5→3 축소(2026-06)로 제거된 옛 id(각 라인 T2/T4) → 잔존 id(다음 잔존 티어). 보유/장착
 //   장비가 고아화되지 않게 치환(데이터 손실 방지 — rune/enchant 손실 incident 교훈). 치환분은

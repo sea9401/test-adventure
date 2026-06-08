@@ -85,21 +85,17 @@ describe("tradable 판정 + 이름 스냅샷", () => {
     expect(isTradableEquip("constructor")).toBe(false);
   });
 
-  it("실재 재료 id 만 isTradableMaterial", () => {
-    const matId = Object.keys(V2_MATERIALS)[0];
-    expect(isTradableMaterial(matId)).toBe(true);
+  it("재료 카탈로그 비어 있음(2026-06-08 제거) — isTradableMaterial 은 항상 false", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(0);
     expect(isTradableMaterial("nope")).toBe(false);
     expect(isTradableMaterial("toString")).toBe(false);
   });
 
-  it("itemDisplayName — 카탈로그 표시명, 미존재면 null", () => {
+  it("itemDisplayName — 장비는 카탈로그 표시명, 미존재/재료(제거)면 null", () => {
     const eqId = Object.keys(V2_EQUIPMENT)[0];
     expect(itemDisplayName("equip", eqId)).toBe(V2_EQUIPMENT[eqId as keyof typeof V2_EQUIPMENT].name);
     expect(itemDisplayName("equip", "nope")).toBeNull();
-    const matId = Object.keys(V2_MATERIALS)[0];
-    expect(itemDisplayName("material", matId)).toBe(
-      V2_MATERIALS[matId as keyof typeof V2_MATERIALS].name,
-    );
+    // 재료 카탈로그가 비어 어떤 재료 id 든 표시명 null.
     expect(itemDisplayName("material", "nope")).toBeNull();
   });
 });

@@ -2,67 +2,32 @@ import { describe, expect, it } from "vitest";
 import {
   FLOOR_DROP_POOLS,
   V2_MATERIALS,
-  V2_MATERIALS_ENABLED,
   mergeDrops,
   rollDrops,
   type V2MaterialId,
 } from "./dungeonDrops";
 
-// 2026-06-03: 재료 재설계 — 지역당 소수(희귀 2 + 흔함 3~4), 저드랍. 현재 들판(1층)만 등재.
+// 2026-06-08: 재료 콘텐츠 제거 — 등재 재료 0종, 전 층 드랍 풀 빈 상태. 순수 헬퍼(rollDrops/
+// mergeDrops)는 보존하므로 빈 카탈로그에서의 안전 동작을 검증한다. mergeDrops 는 카탈로그
+// 비의존(임의 키 합산)이라 합성 키로 계약을 그대로 검증한다.
 
-const FIELD_IDS = [
-  "v2_field_grass",
-  "v2_field_hide",
-  "v2_field_stone",
-  "v2_field_fang",
-  "v2_field_venom",
-];
-
-describe("들판 재료 + 드랍 풀", () => {
-  it("들판 재료 5종 등재(흔함 3 + 희귀 2)", () => {
-    expect(Object.keys(V2_MATERIALS).sort()).toEqual([...FIELD_IDS].sort());
+describe("재료 카탈로그 + 드랍 풀 (제거됨)", () => {
+  it("등재 재료 0종", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(0);
   });
 
-  it("1층 풀 id 가 전부 카탈로그에 존재, 2~8층은 빈 풀", () => {
-    for (const rule of FLOOR_DROP_POOLS[1]) {
-      expect(V2_MATERIALS[rule.id]).toBeDefined();
-    }
-    expect(FLOOR_DROP_POOLS[1]).toHaveLength(5);
-    for (const f of [2, 3, 4, 5, 6, 7, 8] as const) {
+  it("전 층(1~8) 드랍 풀이 빈 상태", () => {
+    for (const f of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
       expect(FLOOR_DROP_POOLS[f]).toEqual([]);
     }
-  });
-
-  it("저드랍 — 희귀 ≤ 0.06, 흔함 ≤ 0.12 (잡재료 범람 방지)", () => {
-    const byId = Object.fromEntries(
-      FLOOR_DROP_POOLS[1].map((r) => [r.id, r.chance]),
-    );
-    expect(byId.v2_field_fang).toBeLessThanOrEqual(0.06);
-    expect(byId.v2_field_venom).toBeLessThanOrEqual(0.06);
-    expect(byId.v2_field_grass).toBeLessThanOrEqual(0.12);
-    expect(byId.v2_field_hide).toBeLessThanOrEqual(0.12);
-    expect(byId.v2_field_stone).toBeLessThanOrEqual(0.12);
   });
 });
 
 describe("rollDrops", () => {
-  it("들판(1층) — 통과 굴림이면 등재 재료 획득 (재료 보류 시엔 빈 결과)", () => {
-    const result = rollDrops(1, () => 0);
-    if (V2_MATERIALS_ENABLED) {
-      for (const id of FIELD_IDS) expect(result[id]).toBe(1);
-    } else {
-      // 재료 보류 중 — 어떤 굴림이든 드랍 없음(단일 게이트).
-      expect(result).toEqual({});
-    }
-  });
-
-  it("굴림이 모두 chance 이상이면 빈 결과", () => {
-    expect(rollDrops(1, () => 0.99)).toEqual({});
-  });
-
-  it("들판 외(2~8층)은 빈 풀이라 항상 빈 결과", () => {
-    for (const f of [2, 3, 4, 5, 6, 7, 8] as const) {
+  it("어떤 층·굴림이든 빈 결과 (드랍 풀 비었고 재료 보류)", () => {
+    for (const f of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
       expect(rollDrops(f, () => 0)).toEqual({});
+      expect(rollDrops(f, () => 0.99)).toEqual({});
     }
   });
 });

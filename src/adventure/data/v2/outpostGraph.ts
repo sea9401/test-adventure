@@ -180,6 +180,33 @@ export function getOutpostNeighbors(id: string): string[] {
   return [...(NEIGHBORS.get(id) ?? [])];
 }
 
+// 중심 거점에서 maxHops 홉(칸) 이내 거점 id 집합 (BFS, 중심 포함).
+export function outpostsWithinHops(centerId: string, maxHops: number): Set<string> {
+  const seen = new Set<string>([centerId]);
+  let frontier = [centerId];
+  for (let h = 0; h < maxHops; h++) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const nb of getOutpostNeighbors(id)) {
+        if (!seen.has(nb)) {
+          seen.add(nb);
+          next.push(nb);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return seen;
+}
+
+// 분쟁지대 — 중앙 자유 도시(START_OUTPOST_ID)에서 2홉(칸) 이내 거점. 지도에서 왕국색 대신
+//   무소속 색으로 칠한다(중앙 격전지가 인접 왕국색으로 물들어 헷갈린다는 피드백, 2026-06-09).
+//   다이얼 = 홉 수. 모듈 로드 시 1회 계산.
+export const CONFLICT_ZONE_IDS: Set<string> = outpostsWithinHops(
+  START_OUTPOST_ID,
+  2,
+);
+
 export function areOutpostsAdjacent(a: string, b: string): boolean {
   return NEIGHBORS.get(a)?.has(b) ?? false;
 }

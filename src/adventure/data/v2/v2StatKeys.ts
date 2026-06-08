@@ -23,7 +23,7 @@ export const V2_STAT_LABELS: Record<V2StatKey, string> = {
 // 단련/성장 UI 의 스탯 설명. (Codex §4 매핑 요약.)
 export const V2_STAT_DESCRIPTIONS: Record<V2StatKey, string> = {
   str: "물리 공격력·최소 데미지. 명중·치명타 피해 보조.",
-  dex: "속도(행동 순서·다중공격). 명중·회피 보조.",
+  dex: "속도. 명중·회피 보조.",
   vit: "물리 방어력·최대 HP·회복량.",
   int: "마법 공격력·최소 데미지. 마법 방어 소량.",
   spi: "마법 방어력·치명타 저항·회복·명중.",

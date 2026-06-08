@@ -825,6 +825,13 @@ export const outpostOccupations = pgTable(
     // 다음 NPC 정기 공격 예정 시각. 점령 시 tier 기반 interval 으로 설정.
     // cron 또는 lazy 평가가 nextAttackAt < now 인 거점들을 처리.
     nextAttackAt: timestamp("next_attack_at").defaultNow().notNull(),
+    // 거점 공성(성벽 HP) — docs/v2-outpost-siege-plan.md. 점령 시도 승리마다 깎이고 0이면 함락.
+    // 성벽은 fortUpdatedAt 기준 lazy 재생. 기존 행은 default 로 풀성벽·보호막 없음(즉시 공성).
+    fortHp: integer("fort_hp").notNull().default(100),
+    fortMaxHp: integer("fort_max_hp").notNull().default(100),
+    fortUpdatedAt: timestamp("fort_updated_at").defaultNow().notNull(),
+    // 함락 직후 재공성 금지 시각. 기본 now() = 기존 점령은 즉시 공성 가능.
+    protectedUntil: timestamp("protected_until").defaultNow().notNull(),
   },
   (t) => [
     // cron 의 due 검색 효율 (WHERE next_attack_at <= now AND occupied_by_user_id IS NOT NULL).

@@ -46,6 +46,10 @@ export type Occupation = {
   policy: string;
   taxRate: string;
   nextAttackAt: string;
+  // 거점 공성(성벽 HP) — 재생 반영 현재값. protectedUntil = 함락 후 보호막 만료 시각.
+  fortHp: number;
+  fortMaxHp: number;
+  protectedUntil: string;
 };
 
 type GameStateValue = {

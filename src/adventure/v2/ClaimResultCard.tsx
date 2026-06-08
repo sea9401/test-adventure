@@ -24,6 +24,11 @@ export type ClaimResult = {
   hpBefore?: number;
   hpAfter?: number;
   maxHp?: number;
+  // 공성 — captured=소유권 이전(함락/점령). fortHp/fortMaxHp=타격 후 성벽.
+  // won && !captured = 성벽만 깎인 공성 진행.
+  captured?: boolean;
+  fortHp?: number;
+  fortMaxHp?: number;
   // 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
   // NPC 일기토 + PvP 1v1 생성. 3:3 토너먼트만 없음(매치별 텍스트 요약으로 폴백).
   replay?: ReplayPayload | null;
@@ -61,7 +66,9 @@ export function ClaimResultCard({
           ? "이미 자기 길드 점령"
           : result.error === "no_supply_line"
             ? "보급선 밖 — 우리 거점이나 중립 자유도시에 인접한 곳만 점령 가능"
-            : (result.error ?? "알 수 없는 오류");
+            : result.error === "protected"
+              ? "함락 직후 보호막 — 잠시 후 다시 공성 가능"
+              : (result.error ?? "알 수 없는 오류");
     return (
       <ResultShell
         title="점령 실패"
@@ -74,14 +81,27 @@ export function ClaimResultCard({
     );
   }
 
-  // 결과 머리말 — ✓ / △ (race) / ✗
+  // 결과 머리말 — 함락(점령) / 공성 진행 / 패배 / race.
+  const wallText =
+    result.fortHp != null && result.fortMaxHp != null
+      ? ` (남은 성벽 ${result.fortHp}/${result.fortMaxHp})`
+      : "";
   const winLabel = result.raceLost
     ? "△ 다른 세력이 먼저 점령 — 스태미너만 차감"
-    : result.won
-      ? "✓ 점령 성공"
-      : "✗ 점령 실패";
-  const accent: "green" | "amber" | "red" =
-    result.raceLost ? "amber" : result.won ? "green" : "red";
+    : result.captured
+      ? result.pvp
+        ? "✓ 함락 — 점령 성공"
+        : "✓ 점령 성공"
+      : result.won
+        ? `⚔ 공성 — 성벽을 깎았다${wallText}`
+        : `✗ 패배${wallText}`;
+  const accent: "green" | "amber" | "red" = result.raceLost
+    ? "amber"
+    : result.captured
+      ? "green"
+      : result.won
+        ? "amber"
+        : "red";
 
   return (
     <div className="flex flex-col gap-3">

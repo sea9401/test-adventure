@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CaretRight } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
@@ -108,6 +110,7 @@ export function V2GuildHome({
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
 }) {
+  const router = useRouter();
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
@@ -463,21 +466,32 @@ export function V2GuildHome({
               const occ = occByOutpost.get(o.id);
               const policy = occ?.policy ?? "open";
               return (
-                <li
-                  key={o.id}
-                  className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {o.name}
+                <li key={o.id}>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/outpost/${o.id}`)}
+                    className="flex w-full items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {o.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                          {TIER_LABEL[o.tier]} · {TYPE_LABEL[o.type]}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                        정책 {POLICY_LABEL[policy] ?? policy} · 관리하기
+                      </span>
                     </span>
-                    <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                      {TIER_LABEL[o.tier]} · {TYPE_LABEL[o.type]}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    정책 {POLICY_LABEL[policy] ?? policy}
-                  </div>
+                    <CaretRight
+                      size={16}
+                      weight="bold"
+                      aria-hidden
+                      className="shrink-0 text-zinc-400 dark:text-zinc-500"
+                    />
+                  </button>
                 </li>
               );
             })}

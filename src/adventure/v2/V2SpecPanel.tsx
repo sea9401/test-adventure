@@ -261,9 +261,9 @@ export function V2SpecPanel({
             type="button"
             onClick={resetSpec}
             disabled={busy}
-            className="mt-2.5 text-[11px] text-zinc-400 underline-offset-2 transition hover:text-rose-500 hover:underline disabled:opacity-50 dark:text-zinc-500"
+            className="mt-3 w-full rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-100 disabled:opacity-50 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
           >
-            전문화 초기화 (테스트 기간 무료)
+            {busy ? "…" : "전문화 초기화 (테스트 기간 무료)"}
           </button>
         </div>
       )}

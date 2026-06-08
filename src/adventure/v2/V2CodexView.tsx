@@ -55,7 +55,7 @@ const FLOOR_LABEL: Record<DungeonFloorId, string> = (() => {
   for (const f of MAIN_DUNGEON.floors) {
     const req =
       f.requirement.kind === "power"
-        ? ` (권장 파워 ${f.requirement.min})`
+        ? ` (권장 전투력 ${f.requirement.min})`
         : "";
     out[f.id] = `${f.name}${req}`;
   }

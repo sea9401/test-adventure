@@ -47,9 +47,6 @@ export function FishingShopView({
         <div className="flex items-start justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold">낚시 코인 상점</h1>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              주간 대회로 모은 낚시 코인으로 칭호를 손에 넣는다.
-            </p>
           </div>
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
             🪙 {coins.toLocaleString()}

@@ -290,9 +290,6 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             </span>
           )}
         </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          다른 모험가와 장비·재료를 사고팝니다. 판매 시 대금의 {Math.round(TAX_RATE_DISPLAY * 100)}%가 거래세로 빠집니다.
-        </p>
       </header>
 
       <div className="flex gap-1.5">

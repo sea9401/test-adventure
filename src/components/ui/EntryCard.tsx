@@ -9,7 +9,7 @@ export function EntryCard({
 }: {
   icon: ReactNode;
   title: string;
-  description: string;
+  description?: string;
   onClick: () => void;
 }) {
   return (
@@ -28,9 +28,11 @@ export function EntryCard({
         <span className="block text-base font-medium text-zinc-900 dark:text-zinc-100">
           {title}
         </span>
-        <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">
-          {description}
-        </span>
+        {description ? (
+          <span className="block truncate text-sm text-zinc-500 dark:text-zinc-400">
+            {description}
+          </span>
+        ) : null}
       </span>
       <CaretRight
         size={16}

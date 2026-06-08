@@ -118,7 +118,7 @@ export const MAIN_DUNGEON: Dungeon = {
 // 마지막(짐승의 소굴)은 무한 반복(인덱스 클램프, 로컬 번호는 6 넘어 계속 증가). 표시는
 // "테마명 + 테마 내 로컬 번호(1~)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
-const THEME_DEPTH_SPAN = 6;
+export const THEME_DEPTH_SPAN = 6;
 const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
   { name: "깊은 산", enemies: FLOOR2_ENEMIES }, // 7~12
@@ -130,6 +130,16 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 43~48, 49+ 무한
 ];
 
+// 깊이(1+) → 0-based 테마 인덱스(DUNGEON_THEMES). 마지막 테마(무한)는 클램프.
+// 테마별 보스(dungeonBosses)가 깊이→테마 해석에 쓰는 공용 단일 소스.
+export function themeIndexForDepth(depth: number): number {
+  const d = Math.max(1, Math.floor(depth));
+  return Math.min(
+    DUNGEON_THEMES.length - 1,
+    Math.floor((d - 1) / THEME_DEPTH_SPAN),
+  );
+}
+
 // 깊이(1+) → 테마 + 테마 내 로컬 번호. 마지막 테마는 인덱스 클램프(로컬 번호 무한 증가).
 function themeForDepth(depth: number): {
   name: string;
@@ -137,10 +147,7 @@ function themeForDepth(depth: number): {
   localIndex: number;
 } {
   const d = Math.max(1, Math.floor(depth));
-  const idx = Math.min(
-    DUNGEON_THEMES.length - 1,
-    Math.floor((d - 1) / THEME_DEPTH_SPAN),
-  );
+  const idx = themeIndexForDepth(d);
   return { ...DUNGEON_THEMES[idx], localIndex: d - idx * THEME_DEPTH_SPAN };
 }
 

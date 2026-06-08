@@ -702,6 +702,50 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weaponType: "dagger",
   },
 
+  // ── 테마 보스 전용 유니크 (rarity:"unique", 보스 처치 드랍만) ───────────────
+  // 테마별 보스 처치로만 드랍(dungeonBosses, 일반 사냥 풀·상점·제작 제외). 보스 도전이 의도적
+  // 고스태미나 단판이라 드랍률은 밴드 풀보다 높게(보스당 단일 풀). 위력은 그 밴드 정규 유니크보다
+  // 한 끗 위 — "보스 처치 = 그 테마 최고 트로피" 체감. 아트는 보스 이미지와 결만 맞춘 플레이버.
+  v2_boss_mountain_axe: {
+    id: "v2_boss_mountain_axe",
+    slot: "weapon",
+    concept: "str",
+    tier: 3,
+    name: "산왕의 쌍도끼",
+    description: "깊은 산을 호령하던 두목이 휘두르던 쌍도끼. 한 번 떨어지면 바위도 갈라진다.",
+    power: 90,
+    weight: 5,
+    options: { hp: 80, critMult: 30 },
+    weaponType: "greatsword",
+    rarity: "unique",
+  },
+  v2_boss_canyon_fang: {
+    id: "v2_boss_canyon_fang",
+    slot: "weapon",
+    concept: "dex",
+    tier: 3,
+    name: "사구 군주의 독니",
+    description: "마른 협곡을 지배하던 포식자의 송곳니로 벼린 단검. 빈틈을 놓치지 않는다.",
+    power: 86,
+    weight: 1,
+    options: { crit: 6, critMult: 30 },
+    weaponType: "dagger",
+    rarity: "unique",
+  },
+  v2_boss_lake_maul: {
+    id: "v2_boss_lake_maul",
+    slot: "weapon",
+    concept: "str",
+    tier: 3,
+    name: "동결의 권갑",
+    description: "얼음 호수 깊은 곳의 군주가 두르던 권갑. 닿는 것마다 얼어붙는다.",
+    power: 96,
+    weight: 3,
+    options: { hp: 70, crit: 3 },
+    weaponType: "gauntlet",
+    rarity: "unique",
+  },
+
   // ── 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique" 드랍 전용) ───────────────
   // 심층 프론티어 첫 밴드(마른 협곡) 전용 유니크. 8 무기타입 1종씩(12 전문화 전부 발동 가능) +
   // 마른땅 갑주 세트 3종. 위력은 정규 최고(전 장비 ×2 후 48~62)보다 +52% 헤드룸 — 밴드 드랍이

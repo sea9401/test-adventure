@@ -17,6 +17,11 @@ import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { MAIN_DUNGEON, depthName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
+import {
+  getThemeBossDef,
+  bossRecommendedPower,
+  BOSS_HUNT_COST,
+} from "@/adventure/data/v2/dungeonBosses";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
 import {
   TUTORIAL_ENABLED_FLAG,
@@ -69,6 +74,7 @@ export function V2DungeonFloorView({
   frontierDepth = 2,
   onFrontierUnlocked,
   onLevelUp,
+  bossMode = false,
 }: {
   // 깊이 숫자 (테마당 6깊이: 1~6 들판·7~12 깊은 산·13+ 프론티어 밴드). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
@@ -95,19 +101,26 @@ export function V2DungeonFloorView({
   // 레벨업 발생 시 호출 — 전역 캐릭터 상태(레벨/스탯/부제) 재조회용. 미전달이면 no-op.
   // (HP 는 recordHp 가 매 사냥 갱신하지만 레벨/스탯/부제는 viewerLevel 출처라 따로 새로고침 필요.)
   onLevelUp?: () => void;
+  // 테마 보스 도전 모드 — true 면 일반 사냥/일괄 대신 단판 보스 도전(높은 스태미나·전용 드랍/칭호).
+  bossMode?: boolean;
 }) {
   // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
   // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const depth = Number(floorId);
-  const displayName = depthName(depth);
-  const powerGate = floor
-    ? floor.requirement.kind === "power"
-      ? floor.requirement.min
-      : floorPowerGate(depth)
-    : floorPowerGate(depth);
-  // 도전(미정복) 여부 — 최고 도달 깊이+1 이 현재 깊이.
-  const isChallenge = depth > frontierDepth;
+  // 보스 모드 — 이 깊이가 속한 테마의 보스(anchorDepth 로 스케일). 보스 없으면 일반 사냥 폴백.
+  const bossDef = bossMode ? getThemeBossDef(depth) : null;
+  const isBoss = bossMode && !!bossDef;
+  const displayName = isBoss ? bossDef!.name : depthName(depth);
+  const powerGate = isBoss
+    ? (bossRecommendedPower(depth) ?? floorPowerGate(depth))
+    : floor
+      ? floor.requirement.kind === "power"
+        ? floor.requirement.min
+        : floorPowerGate(depth)
+      : floorPowerGate(depth);
+  // 도전(미정복) 여부 — 최고 도달 깊이+1 이 현재 깊이. (보스 모드는 표기 안 함.)
+  const isChallenge = !isBoss && depth > frontierDepth;
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
     outpostId,
     setStamina,
@@ -281,6 +294,20 @@ export function V2DungeonFloorView({
   };
   triggerHuntRef.current = triggerHunt;
 
+  // 보스 도전 — 단판, 높은 스태미나(BOSS_HUNT_COST), isBoss 전투. 일괄/설정 없음.
+  const bossLowStamina = stamina.current < BOSS_HUNT_COST;
+  const bossDisabled = oneActionDisabled || bossLowStamina || needsRecovery;
+  const triggerBoss = () => {
+    if (bossDisabled) return;
+    setBatchSummary(null);
+    void hunt(depth, true).then((r) => {
+      if (r) {
+        recordHp(r);
+        if (r.levelsGained > 0) onLevelUp?.();
+      }
+    });
+  };
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
@@ -303,7 +330,28 @@ export function V2DungeonFloorView({
         </p>
       </header>
 
-      <Card padding="md">
+      {isBoss ? (
+        <Card padding="md">
+          <button
+            type="button"
+            onClick={triggerBoss}
+            disabled={bossDisabled}
+            className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-3 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+          >
+            {busy
+              ? "전투 중…"
+              : needsRecovery
+                ? "회복 필요"
+                : bossLowStamina
+                  ? `스태미너 부족 (${BOSS_HUNT_COST} 필요)`
+                  : `보스 도전 (스태미너 ${BOSS_HUNT_COST})`}
+          </button>
+          <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            이 테마의 보스 — 잡으면 전용 유니크 드랍 + 첫 처치 칭호. 쿨다운 없이 스태미너만 듭니다.
+          </p>
+        </Card>
+      ) : (
+        <Card padding="md">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -360,7 +408,20 @@ export function V2DungeonFloorView({
             </div>
           </div>
         )}
-      </Card>
+        </Card>
+      )}
+
+      {/* 보스 첫 처치 — 칭호 획득 배너(전용 유니크는 HuntResultCard 의 droppedUnique 로 표시). */}
+      {isBoss && lastResult?.bossFirstKill && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800/60 dark:bg-amber-950/30">
+          <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+            🏆 보스 첫 처치 — 칭호 획득!
+          </p>
+          <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+            도감 · 칭호에서 확인할 수 있어요.
+          </p>
+        </div>
+      )}
 
       {needsRecovery && (
         <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">

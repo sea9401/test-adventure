@@ -14,6 +14,7 @@ export default function DungeonListPage() {
       onSelectFloor={(depth) => router.push(`/battle/dungeon/${depth}`)}
       onOpenMap={() => router.push("/map")}
       frontierDepth={frontierDepth}
+      onSelectBoss={(depth) => router.push(`/battle/dungeon/${depth}?boss=1`)}
     />
   );
 }

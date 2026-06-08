@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { notFound, useParams, useRouter } from "next/navigation";
+import {
+  notFound,
+  useParams,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 
@@ -11,6 +16,8 @@ import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 export default function DungeonFloorPage() {
   const router = useRouter();
   const params = useParams<{ floorId: string }>();
+  // ?boss=1 = 테마 보스 도전 모드(V2DungeonList 보스 도전 버튼이 themeStartDepth 로 라우팅).
+  const bossMode = useSearchParams().get("boss") === "1";
   const {
     currentOutpost,
     viewerName,
@@ -55,6 +62,7 @@ export default function DungeonFloorPage() {
       frontierDepth={frontierDepth}
       onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
       onLevelUp={refreshGameState}
+      bossMode={bossMode}
     />
   );
 }

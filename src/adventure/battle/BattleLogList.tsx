@@ -48,32 +48,7 @@ export function BattleLogList({
   compact?: boolean;
 }) {
   const s = compact ? SIZES.compact : SIZES.normal;
-  // 턴별 그룹화 — turn_marker 가 그룹 헤더(PvE). 시작 전 entries(적 등장/선공 등)는 별도 그룹.
-  // PvP 로그(아레나·공성 일기토)는 turn_marker 가 없고 매 행동 뒤 hp_bar 가 붙는다 → 그대로 두면
-  //   한 박스에 전부 뭉쳐 가독성이 떨어진다. turn_marker 가 없으면 hp_bar 를 교전 경계로 박스를
-  //   나눈다(표시 단 처리라 엔진·저장된 리플레이 모두 분리됨).
-  const hasTurnMarker = entries.some((e) => e.kind === "turn_marker");
-  const groups: BattleLogEntry[][] = [];
-  let cur: BattleLogEntry[] = [];
-  if (hasTurnMarker) {
-    for (const e of entries) {
-      if (e.kind === "turn_marker") {
-        if (cur.length > 0) groups.push(cur);
-        cur = [e];
-      } else {
-        cur.push(e);
-      }
-    }
-  } else {
-    for (const e of entries) {
-      cur.push(e);
-      if (e.kind === "hp_bar") {
-        groups.push(cur);
-        cur = [];
-      }
-    }
-  }
-  if (cur.length > 0) groups.push(cur);
+  const groups = groupBattleLogEntries(entries);
 
   const renderEntry = (entry: BattleLogEntry, i: number) => {
     if (entry.kind === "phase_trigger") {
@@ -128,6 +103,54 @@ export function BattleLogList({
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────
+
+// 로그 항목이 어느 쪽(player/enemy) 턴인지. 공격은 kind 로, info/페이즈는 turn 필드로.
+// hp_bar 등 턴 정보 없는 항목은 null → 현재 박스에 흡수된다.
+function entryTurnSide(e: BattleLogEntry): "player" | "enemy" | null {
+  if (e.kind === "player_attack") return "player";
+  if (e.kind === "enemy_attack") return "enemy";
+  if (e.kind === "hp_bar") return null;
+  return e.turn ?? null; // info / phase_trigger / turn_marker
+}
+
+// 전투 로그를 박스(그룹) 단위로 묶는다.
+//   - PvE(turn_marker 있음): turn_marker 를 그룹 헤더로. 시작 전 entries(적 등장/선공 등)는 별도 그룹.
+//   - PvP(아레나·공성 일기토, turn_marker 없음): 턴(공격 주체 player↔enemy)이 바뀔 때마다 새 박스 =
+//     "턴 단위". 옛 구현은 hp_bar 마다 박스를 잘랐는데, PvP 는 매 행동 뒤 hp_bar 가 붙어 결국
+//     "행동 단위"로 쪼개져 보기 불편했다. 같은 턴의 멀티공격·HP 스냅샷(hp_bar)·턴 없는 info 는
+//     한 박스에 모인다(표시 단 처리 — 엔진/저장 리플레이 불변).
+export function groupBattleLogEntries(
+  entries: BattleLogEntry[],
+): BattleLogEntry[][] {
+  const hasTurnMarker = entries.some((e) => e.kind === "turn_marker");
+  const groups: BattleLogEntry[][] = [];
+  let cur: BattleLogEntry[] = [];
+  if (hasTurnMarker) {
+    for (const e of entries) {
+      if (e.kind === "turn_marker") {
+        if (cur.length > 0) groups.push(cur);
+        cur = [e];
+      } else {
+        cur.push(e);
+      }
+    }
+  } else {
+    let curTurn: "player" | "enemy" | null = null;
+    for (const e of entries) {
+      const t = entryTurnSide(e);
+      // 턴 주체가 바뀌면(직전 박스에 내용이 있을 때) 새 박스 시작. 턴 없는 항목(hp_bar 등)은
+      //   현재 박스에 그대로 붙는다.
+      if (t !== null && curTurn !== null && t !== curTurn && cur.length > 0) {
+        groups.push(cur);
+        cur = [];
+      }
+      if (t !== null) curTurn = t;
+      cur.push(e);
+    }
+  }
+  if (cur.length > 0) groups.push(cur);
+  return groups;
+}
 
 // 데미지·회복·스탯 수치를 강조. 피해량(N 피해) 은 빨강 + 굵게, 나머지는 굵게.
 function emphasizeNumbers(text: string): ReactNode[] {

@@ -32,6 +32,15 @@ describe("toReplayPayloadLite (일괄 사냥 경량 payload)", () => {
     expect(p.log).toEqual([]); // log 는 복사 안 함(배치는 미사용)
   });
 
+  it("몹 속성(element) 전달 — 전투 화면 뱃지용", () => {
+    const fs = {
+      ...fixture(3),
+      enemy: { name: "불도마뱀", hp: 200, image: "x.webp", element: "fire" },
+    } as unknown as BattleState;
+    expect(toReplayPayload(fs, 200).enemy.element).toBe("fire");
+    expect(toReplayPayloadLite(fs).enemy.element).toBe("fire");
+  });
+
   it("full toReplayPayload 와 메타 필드는 동일 — log 만 다름(단판 무변경 보증)", () => {
     const fs = fixture(10);
     const full = toReplayPayload(fs, 200);

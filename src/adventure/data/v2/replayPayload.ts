@@ -9,6 +9,7 @@ import type {
   BattleState,
 } from "@/adventure/v2/combat/engine";
 import type { Monster } from "@/adventure/data/monsters/types";
+import type { V2Element } from "@/adventure/data/v2/elements";
 
 // enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면
 // 클라 MONSTERS 카탈로그(`MONSTERS[name]?.image`)로 폴백한다.
@@ -17,6 +18,8 @@ export type ReplayPayload = {
     name: string;
     hp: number; // max HP
     image?: string;
+    // PR-속성표시 — 전투 화면에 몹 속성 뱃지. neutral/undefined 면 표시 안 함.
+    element?: V2Element;
   };
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
@@ -53,6 +56,7 @@ export function toReplayPayload(
       name: finalState.enemy.name,
       hp: finalState.enemy.hp,
       image: finalState.enemy.image,
+      element: finalState.enemy.element,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
@@ -109,6 +113,7 @@ export function toReplayPayloadLite(finalState: BattleState): ReplayPayload {
       name: finalState.enemy.name,
       hp: finalState.enemy.hp,
       image: finalState.enemy.image,
+      element: finalState.enemy.element,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,

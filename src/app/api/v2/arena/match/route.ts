@@ -32,6 +32,8 @@ import {
   elementDamageMult,
   elementMatchup,
   parseV2Element,
+  V2_ELEMENT_ADV_PCT_PVP,
+  V2_ELEMENT_DIS_PCT_PVP,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
@@ -286,8 +288,19 @@ export async function POST() {
       attackElement,
       characterElement,
     });
-    const myElemMult = elementDamageMult(viewerAttackElement, oppElement);
-    const oppElemMult = elementDamageMult(oppAttackElement, viewerElement);
+    // PvP 는 별도 계수(±15, 양방향) — PvE 약점찌르기(25/0)와 분리(속성이 장비/스탯 압도 방지).
+    const myElemMult = elementDamageMult(
+      viewerAttackElement,
+      oppElement,
+      V2_ELEMENT_ADV_PCT_PVP,
+      V2_ELEMENT_DIS_PCT_PVP,
+    );
+    const oppElemMult = elementDamageMult(
+      oppAttackElement,
+      viewerElement,
+      V2_ELEMENT_ADV_PCT_PVP,
+      V2_ELEMENT_DIS_PCT_PVP,
+    );
     const myPlayer = withElemMult(
       { ...viewerCombat.player, hp: viewerCombat.maxHp },
       myElemMult,

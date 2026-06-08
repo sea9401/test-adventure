@@ -439,8 +439,8 @@ export async function POST(req: Request) {
       const playerElemMult = elementDamageMult(
         basicAttackElement,
         monsterElement,
-      ); // 내 평타
-      const monsterElemMult = elementDamageMult(monsterElement, playerElement); // 적 공격(내 방어속성 대상)
+      ); // 내 평타(약점 찌르기 — 유리 +25%, 불리 페널티 없음)
+      // 약점 찌르기 = 공격 전용(2026-06-08): 몹→플레이어 속성 피해는 제거(중립). 페널티/피격↑ 없음.
       const playerElemMatchup = elementMatchup(
         basicAttackElement,
         monsterElement,
@@ -448,7 +448,6 @@ export async function POST(req: Request) {
       const scaledEnemy = scaleMonsterForFloor(baseMonster, depth);
       const enemyMonster = {
         ...scaledEnemy,
-        atk: Math.max(1, Math.round(scaledEnemy.atk * monsterElemMult)),
         name: enemyName,
         image: enemy.image ?? baseMonster.image,
         element: monsterElement, // PR-5b — 스킬 cast 상성 계산용.

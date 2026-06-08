@@ -8,8 +8,17 @@ import { V2CharacterScreen } from "@/adventure/v2/V2CharacterScreen";
 export default function PlayerCharacterPage() {
   const params = useParams<{ name: string }>();
   const router = useRouter();
-  // useParams 는 이미 디코드된 값을 준다 — 추가 decodeURIComponent 금지('%' 포함 이름 URIError).
+  // ⚠️ Next 16 비대칭: client useParams() 와 server page params 는 RAW(URL-인코딩) 값을 준다
+  //   (반면 route handler 의 params 는 디코드됨). 한글 등 멀티바이트 이름은 여기서 "%EC%88%98…"
+  //   처럼 인코딩된 채 온다 → 디코드해 표시 이름으로 복원해야 V2CharacterScreen 이 API 호출 시
+  //   encodeURIComponent 로 정확히 한 번만 인코딩한다. 디코드를 빠뜨리면 이중 인코딩(%25…)→404.
+  //   이미 디코드된 값/ literal-% 이름엔 decodeURIComponent 가 throw 할 수 있어 try/catch 로 안전.
   const raw = Array.isArray(params.name) ? params.name[0] : params.name;
-  const name = raw ?? "";
+  let name = raw ?? "";
+  try {
+    name = decodeURIComponent(name);
+  } catch {
+    // malformed 시퀀스/이미 디코드됨 → 원본 그대로 사용.
+  }
   return <V2CharacterScreen playerName={name} onBack={() => router.back()} />;
 }

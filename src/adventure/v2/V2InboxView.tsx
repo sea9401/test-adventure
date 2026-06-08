@@ -171,9 +171,6 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
             </button>
           )}
         </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          받은 쪽지와 마켓 정산·보상을 확인하고 수령합니다.
-        </p>
       </header>
 
       {msg && (

@@ -363,9 +363,6 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       <header className="flex items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold">상점</h1>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            장비 판매가 = 구매가의 5% · 재료는 고정가 환금
-          </p>
         </div>
         <BackButton onClick={onBack} />
       </header>

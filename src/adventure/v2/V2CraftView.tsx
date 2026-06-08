@@ -241,9 +241,6 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
       <header className="flex items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold">대장간</h1>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            던전 재료로 장비를 만들거나, 안 쓰는 장비를 재료로 되돌리는 곳.
-          </p>
         </div>
         <BackButton onClick={onBack} />
       </header>

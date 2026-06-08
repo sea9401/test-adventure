@@ -38,7 +38,6 @@ export function V2CharacterMenu({
             <UserCircle size={28} weight="duotone" className="text-amber-500" />
           }
           title="내 정보"
-          description="레벨·능력치·장비."
           onClick={() => onAction({ kind: "open-info" })}
         />
         <EntryCard
@@ -46,7 +45,6 @@ export function V2CharacterMenu({
             <Backpack size={28} weight="duotone" className="text-emerald-600" />
           }
           title="인벤토리"
-          description="보유 아이템과 재료."
           onClick={() => onAction({ kind: "open-inventory" })}
         />
         <EntryCard
@@ -54,7 +52,6 @@ export function V2CharacterMenu({
             <Lightning size={28} weight="duotone" className="text-violet-500" />
           }
           title="스킬"
-          description="전문화와 스킬을 익히는 곳."
           onClick={() => onAction({ kind: "open-skills" })}
         />
         {V2_COMBAT_PATTERN_ENABLED && (
@@ -63,7 +60,6 @@ export function V2CharacterMenu({
               <Strategy size={28} weight="duotone" className="text-indigo-500" />
             }
             title="전투 패턴"
-            description="조건별 스킬 발동 순서를 짜는 곳(갬빗)."
             onClick={() => onAction({ kind: "open-combat-pattern" })}
           />
         )}
@@ -72,7 +68,6 @@ export function V2CharacterMenu({
             <Sparkle size={28} weight="duotone" className="text-violet-400" />
           }
           title="성장의 신전"
-          description="숙달 포인트로 능력치의 한계를 끌어올리는 곳."
           onClick={() => onAction({ kind: "open-shrine" })}
         />
         <EntryCard
@@ -80,7 +75,6 @@ export function V2CharacterMenu({
             <BookOpen size={28} weight="duotone" className="text-sky-500" />
           }
           title="모험의 서"
-          description="재료 도감 — 구역별 드랍."
           onClick={() => onAction({ kind: "open-codex" })}
         />
       </div>

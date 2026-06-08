@@ -21,9 +21,6 @@ export function V2BattleHome({
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <header>
         <h1 className="text-lg font-bold">전투</h1>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          모험가가 향할 사냥터.
-        </p>
       </header>
       <div className="space-y-2">
         <EntryCard
@@ -31,7 +28,6 @@ export function V2BattleHome({
             <Sword size={28} weight="duotone" className="text-rose-500" />
           }
           title="사냥터"
-          description="현재 거점의 사냥터. 구역을 선택해 입장."
           onClick={() => onAction({ kind: "open-dungeons" })}
         />
         <EntryCard
@@ -43,7 +39,6 @@ export function V2BattleHome({
             />
           }
           title="지도"
-          description="대륙 지도. 거점 정보 확인 + 다른 거점으로 이동."
           onClick={() => onAction({ kind: "open-map" })}
         />
         <EntryCard
@@ -51,7 +46,6 @@ export function V2BattleHome({
             <Trophy size={28} weight="duotone" className="text-amber-500" />
           }
           title="아레나"
-          description="1:1 단판 결투 — 빌드 자랑의 무대."
           onClick={() => onAction({ kind: "open-arena" })}
         />
         <EntryCard
@@ -59,7 +53,6 @@ export function V2BattleHome({
             <Barbell size={28} weight="duotone" className="text-sky-500" />
           }
           title="허수아비"
-          description="보상도 손실도 없는 모의전. 빌드를 시험해 보는 곳."
           onClick={() => onAction({ kind: "open-sparring" })}
         />
       </div>

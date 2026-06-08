@@ -211,10 +211,6 @@ export function V2GuildHome({
       <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
         <header>
           <h1 className="text-lg font-bold">길드</h1>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            아직 무소속이다. 새 길드를 창단하거나, 마음에 드는 길드에 가입
-            신청하자.
-          </p>
         </header>
 
         {notice && <NoticeBanner notice={notice} />}

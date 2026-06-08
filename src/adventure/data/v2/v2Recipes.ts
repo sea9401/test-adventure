@@ -23,72 +23,10 @@ export type V2Recipe = {
   gold: number;
 };
 
-// 2026-06-03: 제작 재설계 — 옛 규칙기반 자동생성(전 장비) 폐기. 이제 **지역별 소수 제작
-// 전용 장비**만 명시 등재. 들판(1층) 7종: 흔함 재료 4(활·가죽 세트 3) + 희귀 재료 3
-// (단검·지팡이·목걸이, 희귀 재료 2개씩). 재료 id 는 dungeonDrops.V2_MATERIALS 의 들판 5종.
-export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = {
-  // ── 흔함 재료 ───────────────────────────────────────────────────
-  v2_meadow_bow: {
-    result: "v2_meadow_bow",
-    ingredients: [
-      { id: "v2_field_hide", count: 4 },
-      { id: "v2_field_grass", count: 3 },
-      { id: "v2_field_stone", count: 2 },
-    ],
-    gold: 300,
-  },
-  v2_field_leather_armor: {
-    result: "v2_field_leather_armor",
-    ingredients: [
-      { id: "v2_field_hide", count: 5 },
-      { id: "v2_field_grass", count: 2 },
-    ],
-    gold: 250,
-  },
-  v2_field_leather_gloves: {
-    result: "v2_field_leather_gloves",
-    ingredients: [
-      { id: "v2_field_hide", count: 3 },
-      { id: "v2_field_grass", count: 1 },
-    ],
-    gold: 150,
-  },
-  v2_field_leather_boots: {
-    result: "v2_field_leather_boots",
-    ingredients: [
-      { id: "v2_field_hide", count: 3 },
-      { id: "v2_field_grass", count: 1 },
-    ],
-    gold: 150,
-  },
-  // ── 희귀 재료 (희귀 2개씩) ──────────────────────────────────────
-  v2_spider_venom_dagger: {
-    result: "v2_spider_venom_dagger",
-    ingredients: [
-      { id: "v2_field_venom", count: 2 },
-      { id: "v2_field_hide", count: 3 },
-      { id: "v2_field_stone", count: 2 },
-    ],
-    gold: 400,
-  },
-  v2_wolffang_staff: {
-    result: "v2_wolffang_staff",
-    ingredients: [
-      { id: "v2_field_fang", count: 2 },
-      { id: "v2_field_grass", count: 3 },
-      { id: "v2_field_stone", count: 2 },
-    ],
-    gold: 400,
-  },
-  v2_fang_necklace: {
-    result: "v2_fang_necklace",
-    ingredients: [
-      { id: "v2_field_fang", count: 2 },
-      { id: "v2_field_hide", count: 2 },
-    ],
-    gold: 350,
-  },
-};
+// 2026-06-08: 대장간 제작 콘텐츠 제거 — 들판 제작 전용 장비 7종과 그 재료를 게임에서 들어냈다.
+// 레시피 카탈로그를 빈 채로 둔다(대장간 제작 목록 비어 있음). 제작/분해 헬퍼와 타입은 보존
+// (라우트·UI 가 빈 데이터에서도 정상 동작) — 제작을 다시 도입하려면 여기에 레시피를 채우면 된다.
+export const V2_RECIPES: Partial<Record<V2EquipmentId, V2Recipe>> = {};
 
 // 레시피 조회 — 유니크 등 비제작 장비는 undefined.
 export function recipeFor(id: V2EquipmentId): V2Recipe | undefined {

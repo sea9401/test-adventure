@@ -198,29 +198,21 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (131종 — 6슬롯)", () => {
-  it("정규 그리드 43종 + 유니크 74 + 제작전용 7 (그리드 밖)", () => {
+describe("V2_EQUIPMENT grid (124종 — 6슬롯)", () => {
+  it("정규 그리드 43종 + 유니크 74 + 전문화 스타터 7 (제작전용 0 — 대장간 제작 콘텐츠 제거)", () => {
     // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
     //   (greatsword/bow/staff 각 3 + 전문화5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
     // 유니크 74 = 기존 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(녹슨 독니 2·백서리 비전 2·혈금강 2·심판의 성벽 3·흑맥 독왕 3)
     //   + 컨셉 사이드그레이드 8(협곡 2·호수 2·동굴 4 — 위력↔속도/무게/회피 트레이드, 세트 아님).
+    // 2026-06-08: 들판 제작 전용 7종(+재료) 제거 → craftOnly 0, 총 131→124.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
     ).toHaveLength(43);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(74);
-    expect(all.filter((i) => i.craftOnly), "제작전용").toHaveLength(7);
+    expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(7);
-  });
-
-  it("제작전용(craftOnly) 은 상점 비매품 (shopPriceOf undefined)", () => {
-    const craftOnly = Object.values(V2_EQUIPMENT).filter((i) => i.craftOnly);
-    expect(craftOnly.length).toBe(7);
-    for (const it of craftOnly) {
-      expect(shopPriceOf(it), `${it.id} 비매품`).toBeUndefined();
-      expect(isUnique(it), `${it.id} 유니크아님`).toBe(false);
-    }
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -597,18 +589,18 @@ describe("setInstanceLock", () => {
 describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)", () => {
   it("weaponTypeOf — 태깅된 무기는 종류 반환, 일반 무기·미장착은 undefined", () => {
     expect(weaponTypeOf("v2_greatsword")).toBe("greatsword"); // 태깅됨
-    // 정규 무기는 이제 전부 전문화타입 태깅. 미태깅은 제작전용(v2_meadow_bow 등)·유니크뿐.
-    expect(weaponTypeOf("v2_meadow_bow")).toBeUndefined(); // 제작무기(타입 없음)
+    // 정규 무기는 이제 전부 전문화타입 태깅. 미태깅은 유니크(드랍 전용)뿐.
+    expect(weaponTypeOf("v2_uniq_starcleaver")).toBeUndefined(); // 유니크 무기(타입 없음)
     expect(weaponTypeOf(undefined)).toBeUndefined();
     expect(weaponTypeOf(null)).toBeUndefined();
   });
 
   it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
     expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
-    expect(weaponGateOpen("v2_meadow_bow", "greatsword")).toBe(false); // 미태깅 무기 → 완전 비활성
+    expect(weaponGateOpen("v2_uniq_starcleaver", "greatsword")).toBe(false); // 미태깅 무기 → 완전 비활성
     expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 전문화 무기
     expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
-    expect(weaponGateOpen("v2_meadow_bow", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
+    expect(weaponGateOpen("v2_uniq_starcleaver", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
   });
 
   it("weaponType 필드는 무기 슬롯에서만 — 방어구·장신구엔 미부여", () => {

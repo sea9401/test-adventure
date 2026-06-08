@@ -399,34 +399,32 @@ describe("P4 — 구 직업 패시브 은퇴 + 차수 앵커 보정", () => {
   });
 });
 
-describe("세트 보너스 (들가죽 — 회피+3, HP+20)", () => {
-  const SET = {
-    armor: "v2_field_leather_armor" as const,
-    gloves: "v2_field_leather_gloves" as const,
-    boots: "v2_field_leather_boots" as const,
+describe("세트 보너스 (aggregateV2Equipment — 전 조각 장착 시 후-가산)", () => {
+  // 마른땅 갑주(dry_canyon, 중갑 3종) — 3종 다 착용 시 crit+5·HP+30.
+  // (들가죽 세트는 2026-06-08 대장간 제작 콘텐츠 제거와 함께 삭제 → 잔존 세트로 메커니즘 검증.)
+  // 개별 조각 수치에 비의존: "풀세트 집계 − 조각별 집계 합 = 세트 보너스" 델타로만 검증.
+  const FULL = {
+    armor: "v2_canyon_set_armor" as const,
+    gloves: "v2_canyon_set_gloves" as const,
+    boots: "v2_canyon_set_boots" as const,
   };
 
-  it("3종 다 착용 → 세트 보너스 적용 (eva 1+1+3=5, hp 0+20=20)", () => {
-    const a = aggregateV2Equipment(SET);
-    expect(a.def).toBe(14); // 6 + 4 + 4 위력(×2) → 물방
-    expect(a.crit).toBe(1); // 장갑 crit
-    expect(a.eva).toBe(5); // 갑옷1 + 신발1 + 세트3
-    expect(a.hp).toBe(20); // 세트 HP
+  it("3종 다 착용 → 세트 보너스 적용 (개별 합 대비 델타 = crit+5·critMult+30·hp+30)", () => {
+    const full = aggregateV2Equipment(FULL);
+    const a = aggregateV2Equipment({ armor: FULL.armor });
+    const g = aggregateV2Equipment({ gloves: FULL.gloves });
+    const b = aggregateV2Equipment({ boots: FULL.boots });
+    expect(full.crit - (a.crit + g.crit + b.crit)).toBe(5);
+    expect(full.critMult - (a.critMult + g.critMult + b.critMult)).toBe(30);
+    expect(full.hp - (a.hp + g.hp + b.hp)).toBe(30);
   });
 
-  it("2종만 착용 → 세트 보너스 없음", () => {
-    const a = aggregateV2Equipment({ armor: SET.armor, boots: SET.boots });
-    expect(a.eva).toBe(2); // 갑옷1 + 신발1, 세트 미적용
-    expect(a.hp).toBe(0);
-  });
-
-  it("다른 슬롯을 채워도 세트 3종이 빠지면 미적용", () => {
-    const a = aggregateV2Equipment({
-      armor: SET.armor,
-      gloves: SET.gloves,
-      weapon: "v2_meadow_bow",
-    });
-    expect(a.hp).toBe(0); // boots 빠짐 → 세트 미완성
+  it("일부(2종)만 착용 → 세트 보너스 없음 (개별 합과 동일)", () => {
+    const partial = aggregateV2Equipment({ armor: FULL.armor, gloves: FULL.gloves });
+    const a = aggregateV2Equipment({ armor: FULL.armor });
+    const g = aggregateV2Equipment({ gloves: FULL.gloves });
+    expect(partial.crit).toBe(a.crit + g.crit);
+    expect(partial.hp).toBe(a.hp + g.hp);
   });
 });
 
@@ -653,15 +651,15 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   });
 
   it("무기 게이트 불통과(미태깅 무기) = 완전 비활성", () => {
-    // 정규 무기는 이제 전부 전문화타입 태깅 → 미태깅은 제작무기(v2_meadow_bow)뿐.
+    // 정규 무기는 이제 전부 전문화타입 태깅 → 미태깅은 유니크(드랍 전용)뿐.
     // greatsword 가 아니므로 광검 게이트 불통과.
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_meadow_bow" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_uniq_starcleaver" as V2EquipmentId },
     });
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_meadow_bow" as V2EquipmentId }, // 타입 없는 무기
+      v2Equipped: { weapon: "v2_uniq_starcleaver" as V2EquipmentId }, // 타입 없는 무기
       spec: gwang,
       unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
     });

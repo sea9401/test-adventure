@@ -112,7 +112,7 @@ const builds = {
     level: 50,
     playerClass: "warrior",
     allocatedStats: { str: 120, vit: 40 },
-    v2Equipped: { weapon: "v2_greatsword", armor: "v2_field_leather_armor" },
+    v2Equipped: { weapon: "v2_greatsword", armor: "v2_full_plate" },
   }),
   mage: derive({
     level: 50,
@@ -130,13 +130,13 @@ const builds = {
     level: 50,
     playerClass: "rogue",
     allocatedStats: { luk: 120, dex: 40 },
-    v2Equipped: { weapon: "v2_spider_venom_dagger" },
+    v2Equipped: { weapon: "v2_assassin_dagger" },
   }),
   tank: derive({
     level: 50,
     playerClass: "martial",
     allocatedStats: { vit: 140, str: 30 },
-    v2Equipped: { armor: "v2_field_leather_armor" },
+    v2Equipped: { armor: "v2_full_plate" },
   }),
   lowbie: derive({ level: 5, playerClass: "warrior", allocatedStats: { str: 8 } }),
 };

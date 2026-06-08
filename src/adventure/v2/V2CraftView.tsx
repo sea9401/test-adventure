@@ -77,9 +77,7 @@ const CRAFT_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
 })();
 
 // 개체 배열 → id별 보유 카운트(분해 후보 표시용).
-function buildCountMap(
-  owned: V2EquipInstance[],
-): Map<V2EquipmentId, number> {
+function buildCountMap(owned: V2EquipInstance[]): Map<V2EquipmentId, number> {
   const m = new Map<V2EquipmentId, number>();
   for (const inst of owned) m.set(inst.id, (m.get(inst.id) ?? 0) + 1);
   return m;
@@ -148,15 +146,13 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const j = (await res.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            error?: string;
-            gold?: number;
-            materials?: Materials;
-            owned?: V2EquipInstance[];
-          }
-        | null;
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        gold?: number;
+        materials?: Materials;
+        owned?: V2EquipInstance[];
+      } | null;
       if (!j?.ok) {
         setMsg(
           j?.error === "insufficient"
@@ -198,14 +194,12 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ iid: inst.iid }),
         });
-        const j = (await res.json().catch(() => null)) as
-          | {
-              ok?: boolean;
-              error?: string;
-              materials?: Materials;
-              owned?: V2EquipInstance[];
-            }
-          | null;
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          materials?: Materials;
+          owned?: V2EquipInstance[];
+        } | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
@@ -294,22 +288,29 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
 
       <section>
         {mode === "craft" ? (
-          <Card padding="none" className="overflow-hidden dark:border-zinc-700">
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {craftIds.map((id) => (
-                <RecipeRow
-                  key={id}
-                  id={id}
-                  gold={gold}
-                  materials={materials}
-                  ownedCount={counts.get(id) ?? 0}
-                  busy={busyId === id}
-                  onCraft={craft}
-                  onOpenCard={(item, anchor) => setCard({ item, anchor })}
-                />
-              ))}
-            </ul>
-          </Card>
+          craftIds.length === 0 ? (
+            <EmptyHint text="제작할 수 있는 장비가 없습니다." />
+          ) : (
+            <Card
+              padding="none"
+              className="overflow-hidden dark:border-zinc-700"
+            >
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {craftIds.map((id) => (
+                  <RecipeRow
+                    key={id}
+                    id={id}
+                    gold={gold}
+                    materials={materials}
+                    ownedCount={counts.get(id) ?? 0}
+                    busy={busyId === id}
+                    onCraft={craft}
+                    onOpenCard={(item, anchor) => setCard({ item, anchor })}
+                  />
+                ))}
+              </ul>
+            </Card>
+          )
         ) : salvageIds.length === 0 ? (
           <EmptyHint text="분해할 장비가 없습니다. 던전·제작으로 모아보세요. (유니크는 분해 불가)" />
         ) : (
@@ -420,7 +421,11 @@ function RecipeRow({
       <div className="flex items-start justify-between gap-3">
         {/* 좌 — 헤더 + 재료 */}
         <div className="min-w-0 flex-1">
-          <ItemHead item={item} ownedCount={ownedCount} onOpenCard={onOpenCard} />
+          <ItemHead
+            item={item}
+            ownedCount={ownedCount}
+            onOpenCard={onOpenCard}
+          />
           {/* 재료 칩 — 보유/필요. 부족하면 rose. */}
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {recipe.ingredients.map((ing) => {
@@ -497,7 +502,11 @@ function SalvageRow({
     <li className="px-3 py-3 sm:px-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <ItemHead item={item} ownedCount={ownedCount} onOpenCard={onOpenCard} />
+          <ItemHead
+            item={item}
+            ownedCount={ownedCount}
+            onOpenCard={onOpenCard}
+          />
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
               환수
@@ -508,7 +517,9 @@ function SalvageRow({
                 className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
               >
                 <span className="truncate">{V2_MATERIALS[mid].name}</span>
-                <span className="shrink-0 tabular-nums font-semibold">×{n}</span>
+                <span className="shrink-0 tabular-nums font-semibold">
+                  ×{n}
+                </span>
               </span>
             ))}
           </div>

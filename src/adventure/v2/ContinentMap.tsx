@@ -169,6 +169,7 @@ type OccupationLite = {
   outpostId: string;
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
+  occupiedByGuildName: string | null;
 };
 
 type Vb = { x: number; y: number; w: number; h: number };
@@ -460,6 +461,17 @@ export function ContinentMap({
       ? shortestOutpostPath(currentOutpostId, selected.id, discoveredIds)
       : null;
   const routeHops = routePath ? routePath.length - 1 : 0;
+
+  // 선택 거점의 점령 주체 — 팝업에 "○○ 길드 점령" 표시. 중립 거점은 배지로 충분해 생략.
+  const selectedOcc = selected ? occByOutpost.get(selected.id) : undefined;
+  const selectedOwnerLabel =
+    selected && !selected.neutral
+      ? selectedOcc?.occupiedByGuildName
+        ? `${selectedOcc.occupiedByGuildName} 길드 점령`
+        : selectedOcc?.occupiedByUserId
+          ? "솔로 점령자"
+          : "NPC 운영"
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
@@ -830,6 +842,11 @@ export function ContinentMap({
                     </span>
                   )}
                 </div>
+                {selectedOwnerLabel && (
+                  <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                    {selectedOwnerLabel}
+                  </div>
+                )}
               </div>
               {isCurrentSelected
                 ? onOutpostEnter && (

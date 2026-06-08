@@ -299,7 +299,7 @@ export function V2DungeonFloorView({
           </span>
         </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          권장 파워 {powerGate}
+          권장 전투력 {powerGate}
         </p>
       </header>
 

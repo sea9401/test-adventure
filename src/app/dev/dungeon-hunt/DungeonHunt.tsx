@@ -52,7 +52,7 @@ export function DungeonHunt({
             <span className="font-medium">{floor.name}</span>
             <span className="text-xs text-zinc-500">
               {floor.requirement.kind === "power"
-                ? `권장 파워 ${floor.requirement.min}`
+                ? `권장 전투력 ${floor.requirement.min}`
                 : `엔드 ${floor.requirement.tier}`}
             </span>
           </button>

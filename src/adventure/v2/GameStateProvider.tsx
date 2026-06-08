@@ -42,6 +42,7 @@ export type Occupation = {
   outpostId: string;
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
+  occupiedByGuildName: string | null;
   occupiedAt: string;
   policy: string;
   taxRate: string;

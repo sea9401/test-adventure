@@ -39,13 +39,11 @@ export function V2DungeonList({
         <h1 className="mt-3 text-lg font-bold">
           {openGroup ? openGroup.name : "사냥터"}
         </h1>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {openGroup
-            ? "구역을 선택해 입장."
-            : currentOutpost
-              ? `${currentOutpost.name} — 사냥터를 선택.`
-              : "거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능."}
-        </p>
+        {!currentOutpost && (
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능.
+          </p>
+        )}
       </header>
 
       {!currentOutpost ? (
@@ -162,7 +160,7 @@ function DepthCard({
           {depthName(depth)}
         </div>
         <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          권장 파워 {floorPowerGate(depth)}
+          권장 전투력 {floorPowerGate(depth)}
         </div>
         {isChallenge && (
           <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">

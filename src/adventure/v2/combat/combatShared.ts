@@ -496,6 +496,9 @@ export type V2SkillCastInput = {
   combatPattern?: V2CombatPattern;
   /** 현재 턴(1-based) — combatPattern 의 turn 조건용. 미지정=1. */
   turn?: number;
+  /** 속성 상성 계수(%) — 스킬 속성 보정용. 미지정=PvE 기본(25/0). PvP(engine-pvp)는 PvP 계수(15/15) 전달. */
+  elementAdvPct?: number;
+  elementDisPct?: number;
   attacker: {
     mp: number;
     atk: number;
@@ -638,8 +641,18 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const attackEl = input.attacker.attackElement ?? "neutral";
   const charEl = input.attacker.characterElement ?? "neutral";
   const targetEl = input.target.element ?? "neutral";
-  const mBasic = elementDamageMult(attackEl, targetEl);
-  const mSkill = elementDamageMult(def.element ?? charEl, targetEl);
+  const mBasic = elementDamageMult(
+    attackEl,
+    targetEl,
+    input.elementAdvPct,
+    input.elementDisPct,
+  );
+  const mSkill = elementDamageMult(
+    def.element ?? charEl,
+    targetEl,
+    input.elementAdvPct,
+    input.elementDisPct,
+  );
   const skillElementMult = mBasic > 0 ? mSkill / mBasic : 1;
   // 3) effect 별 결과 누산.
   let enemyDamage = 0;

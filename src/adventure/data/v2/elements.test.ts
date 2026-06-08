@@ -4,6 +4,8 @@ import {
   V2_ELEMENT_CYCLE,
   V2_ELEMENT_ADV_PCT,
   V2_ELEMENT_DIS_PCT,
+  V2_ELEMENT_ADV_PCT_PVP,
+  V2_ELEMENT_DIS_PCT_PVP,
   elementMatchup,
   elementDamageMult,
   parseV2Element,
@@ -65,15 +67,24 @@ describe("v2 속성 단일 순환 (PR-5 7-ring)", () => {
     }
   });
 
-  it("배율 — 우위 +15% / 열세 −15% / 중립 1 (±15 시작값)", () => {
-    expect(V2_ELEMENT_ADV_PCT).toBe(15);
-    expect(V2_ELEMENT_DIS_PCT).toBe(15);
-    // 물>불 우위.
-    expect(elementDamageMult("water", "fire")).toBeCloseTo(1.15);
-    expect(elementDamageMult("fire", "water")).toBeCloseTo(0.85);
-    // 별빛>공허 (코스믹도 동일 순환).
-    expect(elementDamageMult("starlight", "void")).toBeCloseTo(1.15);
-    expect(elementDamageMult("void", "starlight")).toBeCloseTo(0.85);
+  it("배율 — 약점찌르기: 유리 +25% / 불리 페널티 0 / 중립 1 (PvE)", () => {
+    expect(V2_ELEMENT_ADV_PCT).toBe(25);
+    expect(V2_ELEMENT_DIS_PCT).toBe(0);
+    // 물>불 유리 = +25%, 반대(불리)는 페널티 없음(중립 1.0).
+    expect(elementDamageMult("water", "fire")).toBeCloseTo(1.25);
+    expect(elementDamageMult("fire", "water")).toBeCloseTo(1.0);
+    // 별빛>공허 동일.
+    expect(elementDamageMult("starlight", "void")).toBeCloseTo(1.25);
+    expect(elementDamageMult("void", "starlight")).toBeCloseTo(1.0);
+  });
+
+  it("PvP 계수(±15) 명시 전달 — 양방향 대칭 유지(메타 불변)", () => {
+    expect(V2_ELEMENT_ADV_PCT_PVP).toBe(15);
+    expect(V2_ELEMENT_DIS_PCT_PVP).toBe(15);
+    const adv = V2_ELEMENT_ADV_PCT_PVP;
+    const dis = V2_ELEMENT_DIS_PCT_PVP;
+    expect(elementDamageMult("water", "fire", adv, dis)).toBeCloseTo(1.15);
+    expect(elementDamageMult("fire", "water", adv, dis)).toBeCloseTo(0.85);
   });
 
   it("빛/어둠 폐지 — V2_ELEMENTS 에 없음, 별빛/공허 로 대체", () => {

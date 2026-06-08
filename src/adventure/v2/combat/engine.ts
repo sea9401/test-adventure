@@ -3360,6 +3360,10 @@ export function resolveBattle(
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
           procRoll: Math.random() * 100,
+          // 약점 찌르기 = 공격 전용(PvE): 몹→플레이어 스킬 속성 보정도 중립(0/0). 평타(hunt route
+          //   monsterElemMult 제거)와 일관 — 몹이 플레이어 속성을 카운터해도 추가 피해 없음.
+          elementAdvPct: 0,
+          elementDisPct: 0,
           attacker: {
             mp: state.enemyMp,
             atk: state.enemy.atk,

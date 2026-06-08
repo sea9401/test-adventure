@@ -330,6 +330,13 @@
       "when": 1780863616227,
       "tag": "0046_complete_dracula",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1780878444810,
+      "tag": "0047_typical_shocker",
+      "breakpoints": true
     }
   ]
 }

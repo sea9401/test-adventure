@@ -22,6 +22,13 @@ import {
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { derivePowerScore } from "@/adventure/data/v2/power";
+import {
+  FORT_MAX_HP,
+  SIEGE_DAMAGE_PER_WIN,
+  POST_CAPTURE_PROTECT_MS,
+  currentFortHp,
+  isOutpostProtected,
+} from "@/adventure/data/v2/outpostSiege";
 import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
@@ -150,6 +157,37 @@ export async function POST(req: Request) {
         : null;
 
     const now = Date.now();
+
+    // 공성 보호막 — 함락 직후 일정 시간 재공성 불가(핑퐁 방지). stamina 소모 전 early return.
+    //   단, 점령자 캐릭이 없는 stale 점령은 막지 않는다(아래 PvP fallback 이 row 삭제 후 NPC
+    //   claim 으로 정리 — 빈 거점이 보호막 동안 잠기는 것 방지). live 체크는 보호막 거점만(드묾).
+    if (occRow && isOutpostProtected(occRow.protectedUntil, new Date(now))) {
+      const occupierLive =
+        occRow.occupiedByUserId != null &&
+        (
+          await tx
+            .select({ k: savesKv.key })
+            .from(savesKv)
+            .where(
+              and(
+                eq(savesKv.userId, occRow.occupiedByUserId),
+                eq(savesKv.key, "character.v2"),
+              ),
+            )
+            .limit(1)
+        ).length > 0;
+      if (occupierLive) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "protected" as const,
+            protectedUntil: occRow.protectedUntil.toISOString(),
+          },
+        };
+      }
+    }
 
     // === stamina pre-check (lock 없이 read) ===
     // 락 전 빠른 거부. 부족 시 사전 정렬 lock 안 잡고 early return.
@@ -470,9 +508,10 @@ export async function POST(req: Request) {
       turns: turns!,
     });
 
-    // 점령 성공 → occupations 처리.
-    //   - NPC claim 신규: INSERT (race 시 23505 catch → raceLost)
-    //   - PvP claim 인수: UPDATE (점령권 이전, 정책·세율·자원 anchor 리셋)
+    // 점령/공성 처리 (docs/v2-outpost-siege-plan.md).
+    //   - 비점령(NPC) 신규: INSERT — 단판(승리 즉시 점령). race 시 23505 → raceLost.
+    //   - 점령된 거점(다른 길드): 공성 — 승리 시 성벽 깎기. 0 이하면 함락(소유권 이전 +
+    //     성벽 풀충전 + 보호막). 아니면 성벽만 줄고 소유권 유지.
     let occupation: {
       outpostId: string;
       occupiedByUserId: string;
@@ -480,29 +519,51 @@ export async function POST(req: Request) {
       occupiedAt: string;
     } | null = null;
     let raceLost = false;
+    // 응답용 성벽 상태 — 점령된 거점이면 재생 반영 현재값, 비점령이면 풀성벽(표시용).
+    const fortMaxHp = occRow?.fortMaxHp ?? FORT_MAX_HP;
+    let fortHpAfter = occRow
+      ? currentFortHp(occRow.fortHp, fortMaxHp, occRow.fortUpdatedAt, new Date(now))
+      : FORT_MAX_HP;
+    let captured = false;
     if (won!) {
       const newOccupiedAt = new Date();
       if (stillHasOccRow) {
-        // PvP 인수 — UPDATE
-        await tx
-          .update(outpostOccupations)
-          .set({
+        // 공성 — 승리 1회당 성벽 SIEGE_DAMAGE_PER_WIN 감소.
+        const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
+        if (damaged <= 0) {
+          // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막.
+          captured = true;
+          await tx
+            .update(outpostOccupations)
+            .set({
+              occupiedByUserId: userId,
+              occupiedByGuildId: attackerGuildId,
+              occupiedAt: newOccupiedAt,
+              policy: "open",
+              taxRate: "0.100",
+              nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+              fortHp: fortMaxHp,
+              fortUpdatedAt: newOccupiedAt,
+              protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
+            })
+            .where(eq(outpostOccupations.outpostId, outpost.id));
+          occupation = {
+            outpostId: outpost.id,
             occupiedByUserId: userId,
             occupiedByGuildId: attackerGuildId,
-            occupiedAt: newOccupiedAt,
-            policy: "open",
-            taxRate: "0.100",
-            nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-          })
-          .where(eq(outpostOccupations.outpostId, outpost.id));
-        occupation = {
-          outpostId: outpost.id,
-          occupiedByUserId: userId,
-          occupiedByGuildId: attackerGuildId,
-          occupiedAt: newOccupiedAt.toISOString(),
-        };
+            occupiedAt: newOccupiedAt.toISOString(),
+          };
+          fortHpAfter = fortMaxHp;
+        } else {
+          // 성벽만 감소 — 소유권 유지(공성 진행). fortUpdatedAt 갱신으로 재생 재시작.
+          await tx
+            .update(outpostOccupations)
+            .set({ fortHp: damaged, fortUpdatedAt: newOccupiedAt })
+            .where(eq(outpostOccupations.outpostId, outpost.id));
+          fortHpAfter = damaged;
+        }
       } else {
-        // NPC 신규 claim — INSERT (race 시 catch)
+        // 비점령(NPC) 신규 claim — 단판. 승리 즉시 점령(풀성벽 + 보호막). race 시 catch.
         try {
           await tx.insert(outpostOccupations).values({
             outpostId: outpost.id,
@@ -511,13 +572,19 @@ export async function POST(req: Request) {
             policy: "open",
             taxRate: "0.100",
             nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+            fortHp: FORT_MAX_HP,
+            fortMaxHp: FORT_MAX_HP,
+            fortUpdatedAt: newOccupiedAt,
+            protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
           });
+          captured = true;
           occupation = {
             outpostId: outpost.id,
             occupiedByUserId: userId,
             occupiedByGuildId: attackerGuildId,
             occupiedAt: newOccupiedAt.toISOString(),
           };
+          fortHpAfter = FORT_MAX_HP;
         } catch (e) {
           const code = (e as { code?: string }).code;
           if (code === "23505") {
@@ -563,6 +630,11 @@ export async function POST(req: Request) {
         playerName,
         gender: playerGender,
         occupation,
+        // 공성 — captured=소유권 이전 여부, fortHp/fortMaxHp=이번 타격 후 성벽(승리 시 −SIEGE).
+        //   won && !captured = 성벽만 깎인 공성 진행. 비점령 단판 점령은 captured=true.
+        captured,
+        fortHp: fortHpAfter,
+        fortMaxHp,
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
         tournament: tournamentSummary,

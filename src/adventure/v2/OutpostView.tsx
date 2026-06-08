@@ -38,6 +38,10 @@ type OccupationLite = {
   policy?: string;
   taxRate?: string;
   nextAttackAt?: string;
+  // 거점 공성(성벽 HP) — 재생 반영 현재값 + 보호막 만료.
+  fortHp?: number;
+  fortMaxHp?: number;
+  protectedUntil?: string;
 } | null;
 
 const POLICY_LABELS: Record<string, string> = {
@@ -255,6 +259,15 @@ export function OutpostView({
             )}
           </p>
         )}
+        {occupation &&
+          occupation.fortHp != null &&
+          occupation.fortMaxHp != null && (
+            <FortBar
+              fortHp={occupation.fortHp}
+              fortMaxHp={occupation.fortMaxHp}
+              protectedUntil={occupation.protectedUntil}
+            />
+          )}
         {isOwner && occupation?.nextAttackAt && (
           <NextAttackInfo nextAttackAt={occupation.nextAttackAt} />
         )}
@@ -276,13 +289,13 @@ export function OutpostView({
             claimDisabled
               ? "점령 시도"
               : occupation
-                ? "점령 시도 (PvP 결투)"
+                ? "공성 시도 (PvP 결투)"
                 : "점령 시도 (NPC 일기토)"
           }
           subtitle={
             claimDisabled?.reason ??
             (occupation
-              ? "점령자 영웅과 1대1 결투. 승리 시 점령권 이전 (스태미너 소모)."
+              ? "점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락 (스태미너 소모)."
               : "거점 NPC 영웅과 1대1 결투. 승리 시 점령 (스태미너 소모).")
           }
           onClick={attemptClaim}
@@ -330,6 +343,13 @@ function computeClaimDisabled(
   ) {
     return { reason: "이미 내 점령지" };
   }
+  // 함락 직후 보호막 — 재공성 불가(핑퐁 방지).
+  if (
+    occupation?.protectedUntil &&
+    new Date(occupation.protectedUntil).getTime() > Date.now()
+  ) {
+    return { reason: "함락 직후 보호막 — 잠시 후 공성 가능" };
+  }
   // 수비 전투력 게이트 — 내 전투력이 거점 수비 전투력에 못 미치면 시도 불가.
   // viewerPower 로딩 전(null)엔 막지 않는다(서버가 권위로 한 번 더 차단).
   if (defensePower > 0 && viewerPower != null && viewerPower < defensePower) {
@@ -338,6 +358,45 @@ function computeClaimDisabled(
     };
   }
   return null; // 비점령(NPC 일기토) 또는 다른 세력 점령(PvP 결투) 시도 가능
+}
+
+// 성벽 HP 바 — 점령된 거점의 공성 진행도. 0 이 되면 함락. 보호막 활성 시 배지 표시.
+function FortBar({
+  fortHp,
+  fortMaxHp,
+  protectedUntil,
+}: {
+  fortHp: number;
+  fortMaxHp: number;
+  protectedUntil?: string;
+}) {
+  // 마운트 시각 기준(보호막은 시간 단위라 라이브 틱 불요) — 렌더 중 Date.now() 직접 호출 회피.
+  const [nowMs] = useState(() => Date.now());
+  const pct = Math.max(0, Math.min(100, Math.round((fortHp / fortMaxHp) * 100)));
+  const protectedMsLeft = protectedUntil
+    ? new Date(protectedUntil).getTime() - nowMs
+    : 0;
+  const isProtected = protectedMsLeft > 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
+        <span>
+          성벽 <strong className="tabular-nums">{fortHp}</strong> / {fortMaxHp}
+        </span>
+        {isProtected && (
+          <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] text-sky-600 dark:text-sky-400">
+            보호막 ~{Math.ceil(protectedMsLeft / 3_600_000)}시간
+          </span>
+        )}
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div
+          className="h-full rounded-full bg-amber-500 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {

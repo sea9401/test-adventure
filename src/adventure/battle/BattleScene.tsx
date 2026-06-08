@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -367,8 +368,15 @@ export function BattleScene({
                 size="sm"
               />
               <div className="w-full space-y-1.5">
-                <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
-                  {state.enemy.name}
+                <div className="flex items-center justify-center gap-1">
+                  <span className="truncate text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
+                    {state.enemy.name}
+                  </span>
+                  {state.enemy.element && state.enemy.element !== "neutral" && (
+                    <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                      {V2_ELEMENT_LABEL[state.enemy.element]}
+                    </span>
+                  )}
                 </div>
                 <HpBar
                   compact

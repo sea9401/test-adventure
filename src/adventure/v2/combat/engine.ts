@@ -3114,13 +3114,22 @@ export function resolveBattle(
           result.enemyDamage > 0 &&
           (player.critChancePct ?? 0) > 0 &&
           Math.random() * 100 < Math.min(CRIT_PCT_CAP, player.critChancePct ?? 0);
-        const boostedSkillDamage = Math.floor(
+        // 스킬 다단히트 — 이 턴 추가 공격 확률로 굴려둔 공격 횟수(playerAttacksLeft)만큼 데미지
+        //   스킬을 반복 타격한다. 평타 빌드가 누리는 SPD(추가 공격) 가치를 스킬 빌드에도 부여.
+        //   데미지 스킬에만 적용(버프/힐/마나/DoT 부여는 1회 — 다중 적용 X). 새 RNG 미소비(이미
+        //   굴린 값 재사용) → 추가 공격 0(평타 1타) 빌드는 skillHitCount=1 로 기존과 byte-동일.
+        const skillHitCount =
+          result.castSkillId && result.enemyDamage > 0
+            ? Math.max(1, state.playerAttacksLeft)
+            : 1;
+        const singleSkillDamage = Math.floor(
           result.enemyDamage *
             spellStackMult *
             magicVulnMult *
             vulnMult *
             (skillCritFired ? SKILL_CRIT_MULT : 1),
         );
+        const boostedSkillDamage = singleSkillDamage * skillHitCount;
         // 시전이 발동(castSkillId)했으면 누적 증가. 주문중첩=매 시전, 약점노출=적중(데미지>0) 시. 상한 클램프.
         const nextSpellCastCount =
           (player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
@@ -3156,12 +3165,14 @@ export function resolveBattle(
         //   라벨로 표기("강타! N 피해를 입혔다."). 브라켓 태그 대신 발동 스킬을 앞세운다.
         if (result.enemyDamage > 0 && result.castSkillName) {
           nextEnemyHp = Math.max(0, nextEnemyHp - boostedSkillDamage);
-          // 다단 스킬은 타마다 한 줄. 부스트는 타당 raw 비율로 분배(합 = boostedSkillDamage).
-          // 단일타는 그대로 한 줄(기존과 동일).
-          const perHit =
+          // 다단 스킬은 타마다 한 줄. 부스트는 타당 raw 비율로 분배(합 = 1회분 singleSkillDamage).
+          // 다단히트(추가 공격)면 1회분 타격 묶음을 skillHitCount 번 반복해 보여준다.
+          const singleHits =
             result.hitDamages.length > 1
-              ? distributeBoostedHits(result.hitDamages, boostedSkillDamage)
-              : [boostedSkillDamage];
+              ? distributeBoostedHits(result.hitDamages, singleSkillDamage)
+              : [singleSkillDamage];
+          const perHit: number[] = [];
+          for (let h = 0; h < skillHitCount; h++) perHit.push(...singleHits);
           for (const hit of perHit) {
             if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
             nextLog = appendLog(nextLog, {

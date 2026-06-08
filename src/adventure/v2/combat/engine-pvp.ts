@@ -2162,21 +2162,31 @@ function castV2SkillOnAttackerTurnPvP(
     result.enemyDamage > 0 &&
     (side.player.critChancePct ?? 0) > 0 &&
     Math.random() * 100 < Math.min(CRIT_PCT_CAP, side.player.critChancePct ?? 0);
-  const skillDamage = Math.floor(
+  // 스킬 다단히트(PvE 미러) — 시전자가 이 턴 굴려둔 공격 횟수(attacksLeft)만큼 데미지 스킬 반복 타격.
+  //   데미지 스킬에만(버프/힐/마나/DoT 부여는 1회). 추가 공격 0 빌드는 skillHitCount=1 → 기존 byte-동일.
+  const skillHitCount =
+    result.castSkillId && result.enemyDamage > 0
+      ? Math.max(1, side.attacksLeft)
+      : 1;
+  const singleSkillDamage = Math.floor(
     result.enemyDamage *
       spellStackMult *
       magicVulnMult *
       vulnMult *
       (skillCritFired ? SKILL_CRIT_MULT : 1),
   );
+  const skillDamage = singleSkillDamage * skillHitCount;
   // damage: 일반 공격 player_attack kind 미러.
   if (result.enemyDamage > 0 && result.castSkillName) {
     nextOppHp = Math.max(0, nextOppHp - skillDamage);
-    // 다단 스킬은 타마다 한 줄(PvE 미러). 부스트는 타당 raw 비율 분배(합 = skillDamage).
-    const perHit =
+    // 다단 스킬은 타마다 한 줄(PvE 미러). 부스트는 타당 raw 비율 분배(합 = 1회분 singleSkillDamage).
+    // 다단히트(추가 공격)면 1회분 타격 묶음을 skillHitCount 번 반복.
+    const singleHits =
       result.hitDamages.length > 1
-        ? distributeBoostedHits(result.hitDamages, skillDamage)
-        : [skillDamage];
+        ? distributeBoostedHits(result.hitDamages, singleSkillDamage)
+        : [singleSkillDamage];
+    const perHit: number[] = [];
+    for (let h = 0; h < skillHitCount; h++) perHit.push(...singleHits);
     for (const hit of perHit) {
       if (hit <= 0) continue; // 분배 반올림으로 0 이 된 타는 줄 생략(합은 이미 차감됨).
       nextLog = appendLog(nextLog, {
@@ -2343,6 +2353,22 @@ function castV2SkillOnAttackerTurnPvP(
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
+  // 스킬 데미지로 상대가 쓰러지면 즉시 전투 종료 (PvE resolveBattle 의 enemyHp<=0 가드 미러).
+  //   이 가드가 없으면 상대 HP 0 인 채로 시전자의 후속 액션이 한 스텝 더 진행된다 — 평타면 시체를
+  //   한 번 더 때려(cosmetic) 결국 종료되지만, 포션 등 비공격 액션이면 죽은 쪽으로 페이즈가 넘어가는
+  //   잠재 버그. 다단히트로 치명 시전이 흔해져 가드 필수. main loop 가 phase==="ended" 를 받아 처리.
+  if (nextOppHp <= 0 && next.phase !== "ended") {
+    return {
+      ...next,
+      log: appendLog(next.log, {
+        kind: "info",
+        text: `${opp.name}이(가) 쓰러졌다.`,
+        side: who,
+      }),
+      phase: "ended",
+      outcome: who === "p1" ? "p1_win" : "p2_win",
+    };
+  }
   return next;
 }
 

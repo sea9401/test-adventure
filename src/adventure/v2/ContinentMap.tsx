@@ -71,12 +71,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   fort: "요새",
   village: "마을",
 };
-const TIER_LABEL: Record<OutpostTier, string> = {
-  1: "마을",
-  2: "거점",
-  3: "도시",
-  4: "왕국",
-};
 
 // 줌 한계 — viewBox 너비. 작을수록 확대. 0.15 * world = 약 6.6배 확대 max.
 const MIN_VB_W = MAP_BOUNDS.width * 0.15;
@@ -892,7 +886,7 @@ export function ContinentMap({
                     {selected.name}
                   </span>
                   <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                    {TIER_LABEL[selected.tier]} · {TYPE_LABEL[selected.type]}
+                    {TYPE_LABEL[selected.type]}
                   </span>
                   {selected.neutral && (
                     <span className="shrink-0 rounded bg-yellow-400 px-1.5 py-0.5 text-[10px] text-yellow-900">

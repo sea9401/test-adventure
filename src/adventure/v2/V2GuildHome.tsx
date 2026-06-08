@@ -6,11 +6,7 @@ import { CaretRight } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
-import type {
-  Outpost,
-  OutpostTier,
-  OutpostType,
-} from "@/adventure/data/v2/types";
+import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import {
   acceptJoinRequest,
   declineJoinRequest,
@@ -29,12 +25,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   tower: "마탑",
   fort: "요새",
   village: "마을",
-};
-const TIER_LABEL: Record<OutpostTier, string> = {
-  1: "마을",
-  2: "거점",
-  3: "도시",
-  4: "왕국",
 };
 const POLICY_LABEL: Record<string, string> = {
   open: "자유 입장",
@@ -478,7 +468,7 @@ export function V2GuildHome({
                           {o.name}
                         </span>
                         <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                          {TIER_LABEL[o.tier]} · {TYPE_LABEL[o.type]}
+                          {TYPE_LABEL[o.type]}
                         </span>
                       </span>
                       <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">

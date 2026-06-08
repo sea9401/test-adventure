@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
-import type { Outpost, OutpostType, OutpostTier } from "@/adventure/data/v2/types";
+import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { IntruderPanel } from "./IntruderPanel";
@@ -17,12 +17,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   tower: "마탑",
   fort: "요새",
   village: "마을",
-};
-const TIER_LABEL: Record<OutpostTier, string> = {
-  1: "마을",
-  2: "거점",
-  3: "도시",
-  4: "왕국",
 };
 
 // 던전 입장은 전투 탭으로 이동 (V2BattleHome) — OutpostView 에서는 outpost 자체
@@ -205,9 +199,6 @@ export function OutpostView({
         <BackButton onClick={() => onAction({ kind: "back" })} />
         <h1 className="text-lg font-bold">{outpost.name}</h1>
         <div className="flex flex-wrap gap-1 text-xs">
-          <span className="rounded bg-zinc-200 px-2 py-0.5 dark:bg-zinc-800">
-            {TIER_LABEL[outpost.tier]}
-          </span>
           <span className="rounded bg-zinc-200 px-2 py-0.5 dark:bg-zinc-800">
             {TYPE_LABEL[outpost.type]}
           </span>

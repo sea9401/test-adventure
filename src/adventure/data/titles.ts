@@ -308,6 +308,28 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "창공의 주재 처치",
     category: "battle",
   },
+  // ── 테마 보스 첫 처치 칭호 (사냥터 테마별 보스, dungeonBosses) ────────────────
+  v2_boss_mountain: {
+    id: "v2_boss_mountain",
+    name: "산을 넘은 자",
+    description: "깊은 산의 두목을 자기 손으로 쓰러뜨리고 그 너머로 발을 내디딘 자.",
+    condition: "깊은 산 보스 처치",
+    category: "battle",
+  },
+  v2_boss_canyon: {
+    id: "v2_boss_canyon",
+    name: "협곡의 지배자",
+    description: "마른 협곡을 지배하던 포식자를 베어내고 그 자리를 대신한 자.",
+    condition: "마른 협곡 보스 처치",
+    category: "battle",
+  },
+  v2_boss_lake: {
+    id: "v2_boss_lake",
+    name: "얼음을 깨뜨린 자",
+    description: "얼어붙은 호수 깊은 곳의 군주를 끌어내려 그 한기를 잠재운 자.",
+    condition: "얼음 호수 보스 처치",
+    category: "battle",
+  },
   // ── 5막 잔영 처치 칭호 3종 + 셋 모두 처치 시 컬렉션 칭호 ────────────────────
   starlit_giant_breaker: {
     id: "starlit_giant_breaker",

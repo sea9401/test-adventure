@@ -16,6 +16,7 @@ import {
 } from "./v2Equipment";
 import { V2_RECIPES } from "./v2Recipes";
 import { rollEquipDrop } from "./dungeonEquipDrops";
+import { BOSS_UNIQUE_IDS } from "./dungeonBosses";
 import type { DungeonFloorId } from "./types";
 
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -26,9 +27,9 @@ function seqRng(values: number[]): () => number {
   return () => (i < values.length ? values[i++] : 0);
 }
 
-describe("유니크 카탈로그 (74종 — 기존 6 + 밴드 48 + 무기특화세트 12 + 사이드그레이드 8)", () => {
-  it("V2_UNIQUE_IDS 74종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(74);
+describe("유니크 카탈로그 (77종 — 기존 6 + 밴드 48 + 무기특화세트 12 + 사이드그레이드 8 + 보스 3)", () => {
+  it("V2_UNIQUE_IDS 77종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(77);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -68,6 +69,11 @@ describe("UNIQUE_FLOOR_POOLS", () => {
         expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
         inPools.add(id);
       }
+    }
+    // 테마 보스 전용 유니크(보스 처치 드랍) — 일반 풀엔 없지만 보스 풀에 등장.
+    for (const id of BOSS_UNIQUE_IDS) {
+      expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
+      inPools.add(id);
     }
     for (const id of V2_UNIQUE_IDS) {
       expect(inPools.has(id), `${id} 어느 풀에도 안 떨어짐`).toBe(true);

@@ -139,6 +139,10 @@ export type V2EquipmentId =
   | "v2_uniq_berserker_fang"
   | "v2_uniq_starcleaver"
   | "v2_uniq_sage_seal"
+  // 테마 보스 전용 유니크 (보스 처치 드랍만, rarity:"unique") — dungeonBosses.
+  | "v2_boss_mountain_axe"
+  | "v2_boss_canyon_fang"
+  | "v2_boss_lake_maul"
   // 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique") — 8 무기타입 1종씩 + 마른땅 갑주 세트 3종.
   | "v2_canyon_greatsword"
   | "v2_canyon_knightblade"

@@ -198,19 +198,19 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (124종 — 6슬롯)", () => {
-  it("정규 그리드 43종 + 유니크 74 + 전문화 스타터 7 (제작전용 0 — 대장간 제작 콘텐츠 제거)", () => {
+describe("V2_EQUIPMENT grid (127종 — 6슬롯)", () => {
+  it("정규 그리드 43종 + 유니크 77 + 전문화 스타터 7 (제작전용 0 — 대장간 제작 콘텐츠 제거)", () => {
     // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
     //   (greatsword/bow/staff 각 3 + 전문화5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
-    // 유니크 74 = 기존 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(녹슨 독니 2·백서리 비전 2·혈금강 2·심판의 성벽 3·흑맥 독왕 3)
-    //   + 컨셉 사이드그레이드 8(협곡 2·호수 2·동굴 4 — 위력↔속도/무게/회피 트레이드, 세트 아님).
-    // 2026-06-08: 들판 제작 전용 7종(+재료) 제거 → craftOnly 0, 총 131→124.
+    // 유니크 77 = 기존 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(녹슨 독니 2·백서리 비전 2·혈금강 2·심판의 성벽 3·흑맥 독왕 3)
+    //   + 컨셉 사이드그레이드 8(협곡 2·호수 2·동굴 4) + 테마 보스 전용 3(깊은 산·협곡·호수 — dungeonBosses).
+    // 2026-06-08: 들판 제작 전용 7종(+재료) 제거 → craftOnly 0. 보스 유니크 3 추가 → 총 124→127.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
       "정규 그리드",
     ).toHaveLength(43);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(74);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(77);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(7);
   });

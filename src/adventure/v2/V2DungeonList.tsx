@@ -5,6 +5,11 @@ import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
 import { depthName, dungeonThemeGroups } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
+import {
+  getThemeBossDef,
+  themeStartDepth,
+  bossRecommendedPower,
+} from "@/adventure/data/v2/dungeonBosses";
 
 // 무한 프론티어 사냥터 목록 — 2단. 테마(들판·깊은 산·…) 카드 → 누르면 그 안에서 깊이 카드 6개.
 // 뒤로 갈수록 깊이가 한 화면에 너무 많아지는 걸 테마별로 접어 해소. frontierDepth = 최고 도달
@@ -15,11 +20,14 @@ export function V2DungeonList({
   onSelectFloor,
   onOpenMap,
   frontierDepth = 2,
+  onSelectBoss,
 }: {
   currentOutpost: { id: string; name: string } | null;
   onSelectFloor: (depth: number) => void;
   onOpenMap: () => void;
   frontierDepth?: number;
+  // 테마 보스 도전 — 그 테마 보스의 대표 깊이(themeStartDepth)로 호출. 미전달이면 버튼 숨김.
+  onSelectBoss?: (depth: number) => void;
 }) {
   const maxDepth = Math.max(2, frontierDepth);
   const challengeDepth = maxDepth + 1; // 도전(미정복)
@@ -31,6 +39,8 @@ export function V2DungeonList({
     openDepth != null
       ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
       : null;
+  // 열린 테마의 보스(있으면) — 보스 도전 버튼 표시용. depths[0] = 테마 시작 깊이.
+  const openGroupBoss = openGroup ? getThemeBossDef(openGroup.depths[0]) : null;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -57,16 +67,37 @@ export function V2DungeonList({
           </button>
         </Card>
       ) : openGroup ? (
-        // 이너 — 선택한 테마의 깊이 카드 6개.
-        <div className="grid grid-cols-2 gap-2">
-          {openGroup.depths.map((depth) => (
-            <DepthCard
-              key={depth}
-              depth={depth}
-              isChallenge={depth === challengeDepth}
-              onSelect={onSelectFloor}
-            />
-          ))}
+        // 이너 — 선택한 테마의 깊이 카드 6개 + (보스 있는 테마면) 보스 도전.
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {openGroup.depths.map((depth) => (
+              <DepthCard
+                key={depth}
+                depth={depth}
+                isChallenge={depth === challengeDepth}
+                onSelect={onSelectFloor}
+              />
+            ))}
+          </div>
+          {onSelectBoss && openGroupBoss && (
+            <button
+              type="button"
+              onClick={() => onSelectBoss(themeStartDepth(openGroup.depths[0]))}
+              className="block w-full rounded-lg border border-amber-400 bg-amber-50 px-4 py-3 text-left transition hover:border-amber-500 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                  ⚔ {openGroupBoss.name} 도전
+                </span>
+                <span className="shrink-0 text-[11px] text-amber-700 dark:text-amber-400">
+                  권장 전투력 {bossRecommendedPower(openGroup.depths[0])}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-amber-700/80 dark:text-amber-400/80">
+                이 테마의 보스 — 전용 유니크 + 첫 처치 칭호.
+              </p>
+            </button>
+          )}
         </div>
       ) : (
         // 테마(사냥터) 카드.

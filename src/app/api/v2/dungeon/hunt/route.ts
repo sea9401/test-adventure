@@ -71,6 +71,13 @@ import {
   rollUniqueDrop,
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
+  getThemeBoss,
+  getThemeBossDef,
+  themeStartDepth,
+  rollBossUniqueDrop,
+  BOSS_HUNT_COST,
+} from "@/adventure/data/v2/dungeonBosses";
+import {
   TREASURE_FRAGMENTS_KEY,
   HUNT_FRAGMENT_DROP_CHANCE,
   addFragments,
@@ -144,6 +151,7 @@ export async function POST(req: Request) {
     floor?: unknown; // = 프론티어 깊이(depth). 클라 호환 위해 키 이름 유지.
     outpostId?: unknown;
     count?: unknown; // 일괄 사냥 횟수(없으면 1=단판).
+    boss?: unknown; // true = 테마 보스 도전(단판·고스태미나·isBoss 전투·보스 전용 드랍/칭호).
   };
   try {
     body = (await req.json()) as typeof body;
@@ -161,6 +169,12 @@ export async function POST(req: Request) {
   const depth = body.floor;
   const dropFloor = Math.min(depth, DROP_FLOOR_CAP) as DungeonFloorId;
 
+  // 테마 보스 도전 — 그 테마에 보스가 정의돼 있어야(파일럿 3테마). 없으면 조기 거부.
+  const isBossHunt = body.boss === true;
+  if (isBossHunt && !getThemeBossDef(depth)) {
+    return Response.json({ ok: false, error: "no_boss" }, { status: 400 });
+  }
+
   // outpostId 는 선택적. 있으면 점령자 lookup + 골드 세금 transfer.
   // 없으면(또는 모르는 id) 세금 없이 사냥자가 100% gold.
   let outpostId: string | null = null;
@@ -170,11 +184,10 @@ export async function POST(req: Request) {
     }
   }
 
-  // 일괄 사냥 횟수 — 1~MAX. 미전달/비정상이면 1(단판, 기존 동작).
-  const count = Math.max(
-    1,
-    Math.min(MAX_HUNT_BATCH, Math.floor(Number(body.count) || 1)),
-  );
+  // 일괄 사냥 횟수 — 1~MAX. 미전달/비정상이면 1(단판, 기존 동작). 보스 도전은 항상 단판.
+  const count = isBossHunt
+    ? 1
+    : Math.max(1, Math.min(MAX_HUNT_BATCH, Math.floor(Number(body.count) || 1)));
 
   const result = await db.transaction(async (tx) => {
     type CharSave = {
@@ -328,7 +341,13 @@ export async function POST(req: Request) {
         2,
         Math.floor(Number(charSave.frontierDepth) || 2),
       );
-      if (depth > frontierDepth + 1) {
+      // 보스 도전 = 그 테마에 진입 가능(테마 첫 깊이를 사냥할 수 있는) 상태면 허용 — anchorDepth
+      //   (밴드 최상단)로 스케일된 보스라 밴드를 끝내기 전엔 어렵지만 "졸업 시험" 도전 자체는 진입
+      //   즉시 가능. 일반 사냥 = 깊이 1~최고도달+1 게이트.
+      const gateBlocked = isBossHunt
+        ? frontierDepth + 1 < themeStartDepth(depth)
+        : depth > frontierDepth + 1;
+      if (gateBlocked) {
         return {
           ok: false as const,
           status: 403,
@@ -342,7 +361,8 @@ export async function POST(req: Request) {
 
       const now = Date.now();
       const stamina = parseStaminaFromSave(charSave.stamina, now);
-      const afterStamina = tryConsume(stamina, HUNT_COST, now);
+      const huntCost = isBossHunt ? BOSS_HUNT_COST : HUNT_COST;
+      const afterStamina = tryConsume(stamina, huntCost, now);
       if (!afterStamina) {
         return {
           ok: false as const,
@@ -396,34 +416,6 @@ export async function POST(req: Request) {
         };
       }
 
-      const enemy = pickRandomEnemy(enemiesForDepth(depth));
-      if (!enemy) {
-        return {
-          ok: false as const,
-          status: 400,
-          body: {
-            ok: false as const,
-            error: "empty_floor" as const,
-            stamina: afterStamina,
-          },
-        };
-      }
-      const baseMonster = V2_MONSTERS[enemy.key];
-      if (!baseMonster) {
-        return {
-          ok: false as const,
-          status: 500,
-          body: {
-            ok: false as const,
-            error: "monster_not_found" as const,
-            stamina: afterStamina,
-          },
-        };
-      }
-      // 구역 multiplier 적용 (hp/atk/def/exp). 표시 이름·초상화는 사냥터 고유 값으로 덮어쓴다 —
-      // spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.
-      // image: v2 전용 초상화 우선, 없으면 카탈로그 몬스터 이미지 폴백.
-      const enemyName = enemy.name;
       // PR-1/5b 속성 상성 — 양방향 데미지 ±%.
       //   캐릭 속성(playerElement) = 방어(피격) 속성 + 스킬 기본 속성.
       //   평타/공격 속성(basicAttackElement) = 무기 속성 ?? 캐릭 속성 (PR-5b 무기 속성 우선).
@@ -435,7 +427,74 @@ export async function POST(req: Request) {
         player.weaponElement !== "neutral"
           ? player.weaponElement
           : playerElement;
-      const monsterElement: V2Element = enemy.element ?? "neutral";
+
+      // 적 — 보스 도전이면 테마 보스(anchorDepth 로 이미 스케일·이름/이미지/속성/스킬/페이즈 보유),
+      //   일반이면 깊이 풀에서 랜덤 픽 후 깊이 스케일(이름·초상화는 사냥터 고유 값으로 덮어씀).
+      //   spread 로 새 객체를 만들어 V2_MONSTERS 카탈로그 원본을 mutate 하지 않는다.
+      let enemyName: string;
+      let monsterElement: V2Element;
+      let enemyMonster: import("@/adventure/data/monsters/types").Monster;
+      if (isBossHunt) {
+        const bossMon = getThemeBoss(depth);
+        if (!bossMon) {
+          return {
+            ok: false as const,
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "no_boss" as const,
+              stamina: afterStamina,
+            },
+          };
+        }
+        enemyMonster = bossMon;
+        enemyName = bossMon.name;
+        monsterElement = bossMon.element ?? "neutral";
+      } else {
+        const enemy = pickRandomEnemy(enemiesForDepth(depth));
+        if (!enemy) {
+          return {
+            ok: false as const,
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "empty_floor" as const,
+              stamina: afterStamina,
+            },
+          };
+        }
+        const baseMonster = V2_MONSTERS[enemy.key];
+        if (!baseMonster) {
+          return {
+            ok: false as const,
+            status: 500,
+            body: {
+              ok: false as const,
+              error: "monster_not_found" as const,
+              stamina: afterStamina,
+            },
+          };
+        }
+        enemyName = enemy.name;
+        monsterElement = enemy.element ?? "neutral";
+        const scaledEnemy = scaleMonsterForFloor(baseMonster, depth);
+        enemyMonster = {
+          ...scaledEnemy,
+          name: enemyName,
+          image: enemy.image ?? baseMonster.image,
+          element: monsterElement, // PR-5b — 스킬 cast 상성 계산용.
+          // PR-9 — 사냥터 몹 상태이상. v2 전용(라이브 Monster 무수정, 이 enemyMonster 로컬 객체만).
+          // 엔진 적 페이즈가 enemy.v2Skills 를 cast → DoT/디버프 플레이어 적용. mpCost 0 라 자원 무관.
+          ...(enemy.statusSkill
+            ? {
+                v2Skills: {
+                  learned: [enemy.statusSkill],
+                  equipped: [enemy.statusSkill],
+                },
+              }
+            : {}),
+        };
+      }
       const playerElemMult = elementDamageMult(
         basicAttackElement,
         monsterElement,
@@ -445,23 +504,6 @@ export async function POST(req: Request) {
         basicAttackElement,
         monsterElement,
       );
-      const scaledEnemy = scaleMonsterForFloor(baseMonster, depth);
-      const enemyMonster = {
-        ...scaledEnemy,
-        name: enemyName,
-        image: enemy.image ?? baseMonster.image,
-        element: monsterElement, // PR-5b — 스킬 cast 상성 계산용.
-        // PR-9 — 사냥터 몹 상태이상. v2 전용(라이브 Monster 무수정, 이 enemyMonster 로컬 객체만).
-        // 엔진 적 페이즈가 enemy.v2Skills 를 cast → DoT/디버프 플레이어 적용. mpCost 0 라 자원 무관.
-        ...(enemy.statusSkill
-          ? {
-              v2Skills: {
-                learned: [enemy.statusSkill],
-                equipped: [enemy.statusSkill],
-              },
-            }
-          : {}),
-      };
 
       // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
       const profile = await readSave<{ name?: string } | null>(
@@ -521,6 +563,7 @@ export async function POST(req: Request) {
             pickAutoAction(state, { rules: [], potions: {} }),
           potions: {},
           v2Skills,
+          isBoss: isBossHunt, // 보스전 — %HP 효과 감산 + breaker 보너스 활성.
         },
       );
 
@@ -547,7 +590,9 @@ export async function POST(req: Request) {
       const expGained = Math.round(baseExp * XP_RATE_MULT);
       const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
       // 신참 드롭 보너스 폐지 — 신참 혜택은 EXP 전용(사용자 결정). 드롭은 항상 ×1.
-      const drops: DropResult = won ? rollDrops(dropFloor, Math.random, 1) : {};
+      // 보스는 재료 드랍 없음(전용 유니크만) — 일반 사냥만 재료 풀 굴림.
+      const drops: DropResult =
+        won && !isBossHunt ? rollDrops(dropFloor, Math.random, 1) : {};
       const nextMaterials = mergeDrops(charSave.materials, drops);
 
       // 장비 드랍 — 승리 시 1회 굴림. 정규 장비는 중복 드랍 허용(보유분도 새 굴림으로 재드랍 =
@@ -559,29 +604,34 @@ export async function POST(req: Request) {
         // ownedSet 은 rollUniqueDrop 의 유니크 dedup 용(유니크는 종류당 1개). 정규 rollEquipDrop
         // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
         const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
-        // 정규 장비 드랍은 raw depth(스타터 구간 1~12만, 13+ 는 null). 재료·유니크는 dropFloor 유지.
-        droppedEquipment = rollEquipDrop(depth, ownedSet, Math.random, 1);
-        if (droppedEquipment !== null) {
-          // 드랍 = 새 개체 + 새 굴림(±편차).
-          nextOwned = [
-            ...nextOwned,
-            {
-              iid: genEquipIid(),
-              id: droppedEquipment,
-              roll: rollItemStats(V2_EQUIPMENT[droppedEquipment], Math.random),
-            },
-          ];
-          ownedSet.add(droppedEquipment);
+        if (isBossHunt) {
+          // 보스 = 전용 유니크 단일 풀만(일반 장비·밴드/레거시 유니크 제외). 중복 드랍 허용(반복 추격).
+          droppedUnique = rollBossUniqueDrop(depth, Math.random, 1);
+        } else {
+          // 정규 장비 드랍은 raw depth(스타터 구간 1~12만, 13+ 는 null). 재료·유니크는 dropFloor 유지.
+          droppedEquipment = rollEquipDrop(depth, ownedSet, Math.random, 1);
+          if (droppedEquipment !== null) {
+            // 드랍 = 새 개체 + 새 굴림(±편차).
+            nextOwned = [
+              ...nextOwned,
+              {
+                iid: genEquipIid(),
+                id: droppedEquipment,
+                roll: rollItemStats(V2_EQUIPMENT[droppedEquipment], Math.random),
+              },
+            ];
+            ownedSet.add(droppedEquipment);
+          }
+          // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 정규 장비와 둘 다 떨어질 수도.
+          // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
+          // 두 갈래: 레거시 층 풀(rollUniqueDrop, 깊이 1~6 들판 — 보유분 제외 dedup, 종류당 1개) +
+          // 심층 밴드 풀(rollBandUniqueDrop, 마른 협곡 13~18 등 — 중복 드랍 허용, 보유분도 재드랍).
+          // 깊이 범위가 겹치지 않아 둘 중 하나만 rng 소비 — ?? 합성 안전
+          // (밴드 밖이면 bandUniquePoolForDepth=null → rng 미소비, dropFloor 8 풀은 chance 0 → 미소비).
+          droppedUnique =
+            rollBandUniqueDrop(depth, ownedSet, Math.random, 1) ??
+            rollUniqueDrop(dropFloor, ownedSet, Math.random, 1);
         }
-        // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 정규 장비와 둘 다 떨어질 수도.
-        // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
-        // 두 갈래: 레거시 층 풀(rollUniqueDrop, 깊이 1~6 들판 — 보유분 제외 dedup, 종류당 1개) +
-        // 심층 밴드 풀(rollBandUniqueDrop, 마른 협곡 13~18 등 — 중복 드랍 허용, 보유분도 재드랍).
-        // 깊이 범위가 겹치지 않아 둘 중 하나만 rng 소비 — ?? 합성 안전
-        // (밴드 밖이면 bandUniquePoolForDepth=null → rng 미소비, dropFloor 8 풀은 chance 0 → 미소비).
-        droppedUnique =
-          rollBandUniqueDrop(depth, ownedSet, Math.random, 1) ??
-          rollUniqueDrop(dropFloor, ownedSet, Math.random, 1);
         if (droppedUnique !== null) {
           nextOwned = [
             ...nextOwned,
@@ -693,7 +743,9 @@ export async function POST(req: Request) {
         gold: newGold,
         materials: nextMaterials,
         // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지(min 2 정규화).
-        frontierDepth: won && depth > frontierDepth ? depth : frontierDepth,
+        // 보스는 anchorDepth(밴드 최상단)로 스케일돼도 프론티어를 밀지 않음(졸업 시험일 뿐, 깊이 해금 X).
+        frontierDepth:
+          won && !isBossHunt && depth > frontierDepth ? depth : frontierDepth,
         // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
         ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
       };
@@ -703,6 +755,7 @@ export async function POST(req: Request) {
       // /api/rankings 가 monsters[*].kills 를 SUM 해 battleCount 를 낸다. v2 클라는 이 키를
       // 안 건드려(hook 없음) 서버 단독 소유 → sync clobber 없음. v1 battleClaim 과 동일 키·키잉
       // (enemyName). lock 순서: character.v2 다음 → proficiency.v2 앞(일관 순서, 데드락 회피).
+      let bossFirstKill = false; // 보스 첫 처치 = 칭호 신규 획득(결과 카드 연출용).
       if (won) {
         const logSave = await lockSaveForUpdate<{
           monsters?: Record<
@@ -714,6 +767,7 @@ export async function POST(req: Request) {
               lastKilledAt?: number;
             }
           >;
+          titles?: Record<string, { obtainedAt: number }>;
           [k: string]: unknown;
         }>(tx, userId, "adventure-log.v2", {});
         const monsters = { ...(logSave.monsters ?? {}) };
@@ -725,9 +779,20 @@ export async function POST(req: Request) {
           firstSeenAt: prevMon?.firstSeenAt ?? now,
           lastKilledAt: now,
         };
+        // 보스 첫 처치 칭호 — 같은 adventure-log.v2 락 안에서 titles 맵에 멱등 추가
+        //   (별도 grantTitle 호출은 이 upsert 에 덮어쓰일 수 있어 여기 통합). 이미 있으면 firstKill=false.
+        let titles = logSave.titles;
+        if (isBossHunt) {
+          const titleId = getThemeBossDef(depth)?.titleId;
+          if (titleId && !(logSave.titles ?? {})[titleId]) {
+            titles = { ...(logSave.titles ?? {}), [titleId]: { obtainedAt: now } };
+            bossFirstKill = true;
+          }
+        }
         await upsertSave(tx, userId, "adventure-log.v2", {
           ...logSave,
           monsters,
+          ...(titles ? { titles } : {}),
         });
       }
 
@@ -824,7 +889,13 @@ export async function POST(req: Request) {
           stamina: afterStamina,
           result: {
             floor: depth, // 깊이(클라 호환 키)
-            maxDepth: won && depth > frontierDepth ? depth : frontierDepth, // 최고 도달(수동 푸시)
+            maxDepth:
+              won && !isBossHunt && depth > frontierDepth
+                ? depth
+                : frontierDepth, // 최고 도달(수동 푸시 — 보스는 안 밂)
+            // 보스 도전 결과 — 결과 카드가 보스 연출(전용 유니크·첫처치 칭호)에 사용.
+            isBoss: isBossHunt,
+            bossFirstKill,
             enemyName,
             won,
             expGained,

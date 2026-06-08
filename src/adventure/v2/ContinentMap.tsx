@@ -26,10 +26,12 @@ import {
   MAP_BOUNDS,
   kingdomColorOf,
   KINGDOM_COLORS,
+  OUTPOST_CONFLICT_COLOR,
 } from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
   shortestOutpostPath,
+  CONFLICT_ZONE_IDS,
 } from "@/adventure/data/v2/outpostGraph";
 import type {
   Outpost,
@@ -655,8 +657,11 @@ export function ContinentMap({
                 !!occ &&
                 occ.occupiedByUserId !== null &&
                 occ.occupiedByUserId !== viewerUserId;
-              const markerFill = kingdomColorOf(o);
-              // 소유(내 길드/적/중립)는 테두리 링으로 표시 — 채움(왕국색)과 독립.
+              // 채움 = 분쟁지대(중앙 2홉 이내)면 무소속 색, 아니면 소속 왕국색.
+              const markerFill = CONFLICT_ZONE_IDS.has(o.id)
+                ? OUTPOST_CONFLICT_COLOR
+                : kingdomColorOf(o);
+              // 소유(내 길드/적/중립)는 테두리 링으로 표시 — 채움(왕국/분쟁색)과 독립.
               const ownerStroke = isMine
                 ? "#10b981" // 내 길드 — 초록 링
                 : isHostile
@@ -819,6 +824,13 @@ export function ContinentMap({
                     {k.name}
                   </span>
                 ))}
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ background: OUTPOST_CONFLICT_COLOR }}
+                  />
+                  분쟁지대
+                </span>
               </div>
               <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
               {/* 테두리 = 소유 */}

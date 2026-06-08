@@ -285,6 +285,10 @@ export function kingdomColorOf(o: Outpost): string {
   return KINGDOM_COLOR_BY_OUTPOST.get(o.id) ?? "#5d5d68";
 }
 
+// 분쟁지대(중앙 자유 도시 인근) 마커 채움색 — 어느 왕국색과도 구분되는 무소속 슬레이트.
+// 어느 거점이 분쟁지대인지(중앙에서 N홉)는 그래프 의존이라 outpostGraph.CONFLICT_ZONE_IDS 참고.
+export const OUTPOST_CONFLICT_COLOR = "#64748b";
+
 // 신규 플레이어 시작 거점 — 중앙 자유 도시(어느 세력에도 속하지 않는 중립 허브). 현재
 // 위치가 아직 기록되지 않았을 때(부트스트랩) 인접 이동 게이트·발견 시드의 기준점으로 쓴다.
 export const START_OUTPOST_ID = "neutral_haven_central";

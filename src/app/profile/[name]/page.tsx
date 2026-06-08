@@ -9,6 +9,8 @@ export default async function Page({
   params: Promise<{ name: string }>;
 }) {
   const { name } = await params;
-  // params.name 은 디코드된 값 — /character 세그먼트로 재인코딩.
-  redirect(`/character/${encodeURIComponent(name)}`);
+  // ⚠️ Next 16: server page 의 params.name 은 RAW(URL-인코딩) 세그먼트다 (route handler 는 디코드,
+  //   page/useParams 는 raw — 비대칭). 그대로 통과시킨다. encodeURIComponent 로 재인코딩하면 redirect
+  //   가 Location 헤더용으로 한 번 더 인코딩해 이중(%25…)이 되어 /character 가 이름을 못 찾는다.
+  redirect(`/character/${name}`);
 }

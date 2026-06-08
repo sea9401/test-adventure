@@ -5,12 +5,24 @@
 // (lazy 계산) 지속 압박이 있어야 함락한다. 비점령 NPC 거점은 단판 점령(성벽 없음).
 
 // 다이얼 (라이브 실측 후 캘리브) ───────────────────────────────────────────
+// 불변식: FORT_MAX_HP > SIEGE_DAMAGE_PER_WIN — 풀충전/완전수리된 성벽이 한 방에 함락되지
+//   않아야 "금고 충분하면 방어" 가 성립(금고 자동 수리 PR-2 전제).
 export const FORT_MAX_HP = 100;
 export const SIEGE_DAMAGE_PER_WIN = 20; // ≈ 5승 함락
 export const FORT_REGEN_PER_HOUR = 5; // 하루 120 회복 ≈ 6승분
 export const POST_CAPTURE_PROTECT_HOURS = 18; // 함락 후 재공성 금지
 
 export const POST_CAPTURE_PROTECT_MS = POST_CAPTURE_PROTECT_HOURS * 3_600_000;
+
+// 길드 금고 자동 수리(PR-2) — 공성 타격 시 데미지 전, 수비 길드 금고 골드로 성벽을 보강.
+// HP 1 당 비용. 별도 일일 캡 없이 금고 잔액이 한도 — 금고가 마르면 수리 중단(골드 소진 공성).
+export const REPAIR_GOLD_PER_HP = 50;
+
+// 결손(deficit = fortMaxHp − 현재성벽)과 길드 금고로 보강 가능한 HP. 금고가 한도.
+export function repairHpFromGold(deficit: number, guildGold: number): number {
+  if (deficit <= 0 || guildGold <= 0) return 0;
+  return Math.max(0, Math.min(deficit, Math.floor(guildGold / REPAIR_GOLD_PER_HP)));
+}
 
 // 마지막 갱신(fortUpdatedAt) 이후 경과로 재생한 현재 성벽(상한 fortMaxHp). lazy — 크론 불요.
 export function currentFortHp(

@@ -245,6 +245,46 @@ export const OUTPOST_TYPE_BY_ID = new Map<string, Outpost["type"]>(
 export const MAP_BOUNDS = { width: 10000, height: 6000 } as const;
 export const CONTINENT_NAME = "아스토리아 대륙";
 
+// === 왕국 고유색 (지도 구분용) =======================================
+// 거점 종류는 아이콘으로 구분하므로, 마커 채움색은 "소속 왕국"을 나타낸다(5 왕국 distinct hue).
+// 소유 표시 링 색(내 길드=초록·적=빨강·중립=금·NPC=흰)과 겹치지 않는 색으로 고른다.
+export const KINGDOM_COLORS: Record<string, string> = {
+  kingdom_tatiholm: "#3b82f6", // 에이라 — 북부 빙하(청)
+  kingdom_silverbance: "#8b5cf6", // 로렌 — 동부 마법(보라)
+  kingdom_blackforge: "#ec4899", // 코린 — 서남 광산(자홍)
+  kingdom_sunderhold: "#06b6d4", // 세라 — 중남 사막(청록)
+  kingdom_ragnarod: "#f97316", // 발렌 — 동남 전쟁(주황)
+};
+
+// 거점 → 소속 왕국색. 소속 = 지리적으로 가장 가까운 왕국 수도(거점 방어 게이트와 동일 기준).
+// 모든 거점(중립·분쟁지대 포함)이 어느 한 왕국 영역에 든다. 수도 자신은 자기 색.
+// 모듈 로드 시 1회 precompute (렌더마다 최근접 재계산 회피).
+const KINGDOM_COLOR_BY_OUTPOST: Map<string, string> = (() => {
+  const capitals = OUTPOSTS.filter((o) => o.tier === 4);
+  const map = new Map<string, string>();
+  for (const o of OUTPOSTS) {
+    let bestId = capitals[0]?.id;
+    let bestD = Infinity;
+    for (const c of capitals) {
+      const d = Math.hypot(
+        o.position.x - c.position.x,
+        o.position.y - c.position.y,
+      );
+      if (d < bestD) {
+        bestD = d;
+        bestId = c.id;
+      }
+    }
+    map.set(o.id, (bestId && KINGDOM_COLORS[bestId]) || "#5d5d68");
+  }
+  return map;
+})();
+
+// 지도 마커 채움색 — 거점이 속한 왕국의 고유색. 미등록 시 회색 폴백.
+export function kingdomColorOf(o: Outpost): string {
+  return KINGDOM_COLOR_BY_OUTPOST.get(o.id) ?? "#5d5d68";
+}
+
 // 신규 플레이어 시작 거점 — 중앙 자유 도시(어느 세력에도 속하지 않는 중립 허브). 현재
 // 위치가 아직 기록되지 않았을 때(부트스트랩) 인접 이동 게이트·발견 시드의 기준점으로 쓴다.
 export const START_OUTPOST_ID = "neutral_haven_central";

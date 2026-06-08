@@ -213,8 +213,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           </div>
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙달 포인트를 들여 직업 단련의 천장(스탯 한계치)을 끌어올린다. 레벨업 랜덤 성장이
-          이 한계치까지 능력치를 채운다.
+          숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
         </p>
 
         {loading ? (

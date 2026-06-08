@@ -169,6 +169,22 @@ export const bulletinLikes = pgTable(
   ],
 );
 
+// 게시판 조회 — (postId, userId) composite PK 로 1유저 1조회(고유 조회수).
+// 같은 유저 재방문은 onConflictDoNothing 으로 흡수. 카운트는 매 조회마다 COUNT 집계.
+export const bulletinViews = pgTable(
+  "bulletin_views",
+  {
+    postId: integer("post_id")
+      .notNull()
+      .references(() => bulletinPosts.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.userId] })],
+);
+
 // 게시판 댓글 — name/className 스냅샷, 글 삭제 시 cascade.
 export const bulletinComments = pgTable(
   "bulletin_comments",

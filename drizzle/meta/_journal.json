@@ -337,6 +337,13 @@
       "when": 1780878444810,
       "tag": "0047_typical_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780953974658,
+      "tag": "0048_awesome_living_tribunal",
+      "breakpoints": true
     }
   ]
 }

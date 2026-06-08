@@ -24,6 +24,7 @@ import {
   fetchPermissions,
   fetchPosts,
   postPost,
+  recordView,
 } from "./bulletin/api";
 import { ComposePage } from "./bulletin/ComposePage";
 import { PostListRow } from "./bulletin/PostListRow";
@@ -151,9 +152,25 @@ export function BulletinBoardView() {
     setPmTarget(name);
   }, []);
 
-  const handleOpenDetail = useCallback((postId: number) => {
-    setMode({ kind: "detail", postId });
+  const handleViewCount = useCallback((postId: number, count: number) => {
+    setPosts(
+      (prev) =>
+        prev?.map((p) =>
+          p.id === postId ? { ...p, viewCount: count } : p,
+        ) ?? null,
+    );
   }, []);
+
+  const handleOpenDetail = useCallback(
+    (postId: number) => {
+      setMode({ kind: "detail", postId });
+      // 조회 기록(유저당 1회, 서버 dedupe) — 성공 시 고유 조회수 반영. 실패는 무시(비핵심).
+      recordView(postId)
+        .then((r) => handleViewCount(postId, r.count))
+        .catch(() => {});
+    },
+    [handleViewCount],
+  );
 
   const handleBackToList = useCallback(() => {
     setMode({ kind: "list" });

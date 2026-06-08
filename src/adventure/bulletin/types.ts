@@ -13,6 +13,7 @@ export type BulletinPost = {
   mine: boolean;
   likeCount: number;
   commentCount: number;
+  viewCount: number;
   likedByMe: boolean;
 };
 

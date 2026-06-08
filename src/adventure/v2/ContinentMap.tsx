@@ -25,6 +25,7 @@ import {
   OUTPOSTS,
   MAP_BOUNDS,
   kingdomColorOf,
+  kingdomNameOf,
   KINGDOM_COLORS,
   OUTPOST_CONFLICT_COLOR,
 } from "@/adventure/data/v2/outposts";
@@ -470,15 +471,21 @@ export function ContinentMap({
       : null;
   const routeHops = routePath ? routePath.length - 1 : 0;
 
-  // 선택 거점의 점령 주체 — 팝업에 "○○ 길드 점령" 표시. 중립 거점은 배지로 충분해 생략.
+  // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
+  //   미점령은 소속 왕국을 길드명처럼 "○○ 왕국령"으로(NPC 운영 대신). 중립 거점은 배지로 충분해 생략.
   const selectedOcc = selected ? occByOutpost.get(selected.id) : undefined;
+  const selectedKingdomName = selected ? kingdomNameOf(selected) : undefined;
   const selectedOwnerLabel =
     selected && !selected.neutral
       ? selectedOcc?.occupiedByGuildName
         ? `${selectedOcc.occupiedByGuildName} 길드 점령`
         : selectedOcc?.occupiedByUserId
           ? "솔로 점령자"
-          : "NPC 운영"
+          : CONFLICT_ZONE_IDS.has(selected.id)
+            ? "분쟁지대 · 무소속"
+            : selectedKingdomName
+              ? `${selectedKingdomName}령`
+              : "무소속"
       : null;
 
   return (

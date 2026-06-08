@@ -48,10 +48,11 @@ const TIER_RADIUS: Record<OutpostTier, number> = {
   4: 110,
 };
 
+// 상시 라벨 = 왕국(tier4)만. tier3 이하는 hover/선택 시에만(개요 라벨 밀도↓, Codex 가독성 권고).
 const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
   1: false,
   2: false,
-  3: true,
+  3: false,
   4: true,
 };
 
@@ -541,16 +542,16 @@ export function ContinentMap({
                 height={b.h}
                 rx={140}
                 fill="none"
-                className="stroke-zinc-400/70 dark:stroke-zinc-600/70"
-                strokeWidth={6}
+                className="stroke-zinc-400/25 dark:stroke-zinc-600/25"
+                strokeWidth={3}
                 strokeDasharray="44 32"
               />
               <text
                 x={b.x + 48}
                 y={b.y + 96}
                 className="fill-zinc-500 dark:fill-zinc-500"
-                fontSize={72}
-                fontWeight={700}
+                fontSize={52}
+                fontWeight={600}
               >
                 {b.label}
               </text>
@@ -573,8 +574,8 @@ export function ContinentMap({
                 x2={ob.position.x}
                 y2={ob.position.y}
                 stroke="#9ca3af"
-                strokeOpacity={0.45}
-                strokeWidth={12}
+                strokeOpacity={0.18}
+                strokeWidth={6}
                 strokeLinecap="round"
               />
             );
@@ -596,7 +597,7 @@ export function ContinentMap({
                   y2={ob.position.y}
                   stroke="#10b981"
                   strokeOpacity={0.95}
-                  strokeWidth={22}
+                  strokeWidth={16}
                   strokeLinecap="round"
                 />
               );
@@ -619,7 +620,7 @@ export function ContinentMap({
                   y2={ob.position.y}
                   stroke="#f59e0b"
                   strokeOpacity={0.95}
-                  strokeWidth={26}
+                  strokeWidth={18}
                   strokeLinecap="round"
                 />
               );
@@ -716,6 +717,7 @@ export function ContinentMap({
                     height={half * 1.24}
                     color="#ffffff"
                     weight="fill"
+                    opacity={showLabel ? 1 : 0.7}
                   />
                   {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
                     <text
@@ -727,7 +729,7 @@ export function ContinentMap({
                       fill="#fff"
                       paintOrder="stroke"
                       stroke="#000"
-                      strokeWidth={12}
+                      strokeWidth={8}
                     >
                       {o.name}
                     </text>

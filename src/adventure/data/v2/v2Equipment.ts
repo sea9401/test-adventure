@@ -216,7 +216,20 @@ export type V2EquipmentId =
   | "v2_cave_fortress_armor"
   | "v2_cave_rooted_boots"
   | "v2_cave_ruin_gloves"
-  | "v2_cave_focus_ring";
+  | "v2_cave_focus_ring"
+  // 추가 2피스 세트 (밴드 드랍) — 장신구 외 부위·크로스 조합, 무기 비포함.
+  | "v2_canyon_dune_gloves"
+  | "v2_canyon_dune_boots"
+  | "v2_canyon_bond_armor"
+  | "v2_canyon_bond_ring"
+  | "v2_lake_trek_armor"
+  | "v2_lake_trek_boots"
+  | "v2_lake_seal_gloves"
+  | "v2_lake_seal_necklace"
+  | "v2_cave_onyx_armor"
+  | "v2_cave_onyx_gloves"
+  | "v2_cave_drift_boots"
+  | "v2_cave_drift_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -505,6 +518,50 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_cave_venomlord_necklace",
     ],
     bonus: { spd: 5, eva: 4, hp: 60 },
+  },
+  // ── 추가 2피스 세트 (무기 비포함, 밴드 드랍) — 6슬롯 자유 세팅용. 장신구 외 부위·크로스 조합.
+  //    3피스보다 약하게(작은 세트 둘 + 단일 혼합 전제). 라이브/sim 재캘리브 여지.
+  {
+    // 사막 주파구(협곡 A) — 장갑+신발. 민첩 경량.
+    id: "canyon_dunestride",
+    name: "사막 주파구",
+    pieces: ["v2_canyon_dune_gloves", "v2_canyon_dune_boots"],
+    bonus: { eva: 5, spd: 5 },
+  },
+  {
+    // 사암 결속(협곡 A) — 갑옷+반지. 방어·치명 크로스.
+    id: "canyon_sandbond",
+    name: "사암 결속",
+    pieces: ["v2_canyon_bond_armor", "v2_canyon_bond_ring"],
+    bonus: { hp: 50, crit: 4 },
+  },
+  {
+    // 서리 보행갑(호수 B) — 갑옷+신발. 방어.
+    id: "lake_frosttrek",
+    name: "서리 보행갑",
+    pieces: ["v2_lake_trek_armor", "v2_lake_trek_boots"],
+    bonus: { hp: 70, def: 12 },
+  },
+  {
+    // 빙결 인장(호수 B) — 장갑+목걸이. 마법·생존 크로스.
+    id: "lake_frostseal",
+    name: "빙결 인장",
+    pieces: ["v2_lake_seal_gloves", "v2_lake_seal_necklace"],
+    bonus: { mp: 40, hp: 45 },
+  },
+  {
+    // 흑요 완갑(동굴 C) — 갑옷+장갑. 공격.
+    id: "cave_onyxgrip",
+    name: "흑요 완갑",
+    pieces: ["v2_cave_onyx_armor", "v2_cave_onyx_gloves"],
+    bonus: { crit: 4, critMult: 25 },
+  },
+  {
+    // 공허 보행(동굴 C) — 신발+목걸이. 속도·마법 크로스.
+    id: "cave_voiddrift",
+    name: "공허 보행",
+    pieces: ["v2_cave_drift_boots", "v2_cave_drift_necklace"],
+    bonus: { spd: 6, mp: 40 },
   },
 ];
 

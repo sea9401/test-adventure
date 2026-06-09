@@ -149,6 +149,12 @@ export const BOSS_UNIQUE_IDS: V2EquipmentId[] = [
   ...new Set(Object.values(THEME_BOSSES).flatMap((b) => b.uniqueDrop.ids)),
 ];
 
+// 전 보스 첫 처치 칭호 id 합집합. adventure-log.v2.titles 에 이 중 하나라도 있으면 "보스 처치 경험"
+// (가이드 퀘스트 판정 등). 보스가 늘면 자동 반영.
+export const BOSS_TITLE_IDS: string[] = [
+  ...new Set(Object.values(THEME_BOSSES).map((b) => b.titleId)),
+];
+
 // 깊이 → 그 테마의 보스 정의(없으면 null). 보스 없는 테마(들판·심층 동굴 이후 등)는 null.
 export function getThemeBossDef(depth: number): ThemeBoss | null {
   return THEME_BOSSES[themeIndexForDepth(depth)] ?? null;

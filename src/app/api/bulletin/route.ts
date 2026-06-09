@@ -123,7 +123,8 @@ export async function GET(req: Request) {
 
   const result = posts.map((r) => ({
     id: r.id,
-    name: r.name,
+    // 공지(notice)는 작성자를 항상 "운영자" 로 노출 — 실제 작성 admin 닉을 가린다.
+    name: r.category === "notice" ? "운영자" : r.name,
     className: r.className,
     category: r.category as BulletinCategory,
     title: r.title,

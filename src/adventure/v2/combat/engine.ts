@@ -2110,6 +2110,20 @@ export function advanceTurn(
     return finishPlayerTurn(ended, player, playerName);
   }
 
+  return resolveEnemyPhase(state, player, playerName, enteringEnemyPhase);
+}
+
+// 적 페이즈 전체 — advanceTurn 에서 플레이어 페이즈(평타·스킬)와 분량을 가르기 위해 분리한다.
+// 한기 틱 → 잔상(AP 블록) → 회피 캐스케이드(그림자보법·보장회피·%회피·별빛가드·흘려막기·
+// 행운의방패) → 적 데미지 적용(반사·반격·보호막) 순. 이 구간의 지역 상태(evadeHeal·무한가시·
+// 반사회피 추정데미지 등)는 전부 이 함수 안에 갇혀 advanceTurn 으로의 변수 threading 이 0이다.
+// 동작은 advanceTurn 인라인이던 시절과 1비트도 다르지 않다(combatGolden 적 페이즈 매트릭스 가드).
+function resolveEnemyPhase(
+  state: BattleState,
+  player: PlayerCombat,
+  playerName: string,
+  enteringEnemyPhase: boolean,
+): BattleState {
   // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
   // 출혈의 미러. threshold 이상부터 발동. 스택은 적 chill 공격 적중 시 누적(아래 적 공격부).
   // 이미 몸에 스민 추위는 천뢰 일격 silence 와 무관하게 틱한다.

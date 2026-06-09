@@ -204,7 +204,7 @@ export function V2CharacterScreen({
       {character && stats == null && !loading && (
         <Card padding="md">
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            능력치 정보가 아직 만들어지지 않았어요. 사냥을 한 번 시도하면 자동 생성됩니다.
+            아직 능력치 정보가 없어요. 사냥을 한 번 하면 자동으로 만들어집니다.
           </div>
         </Card>
       )}

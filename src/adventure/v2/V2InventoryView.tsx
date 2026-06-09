@@ -15,6 +15,8 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePagination } from "@/lib/usePagination";
 import { TabBar } from "@/components/ui/TabBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
@@ -107,6 +109,9 @@ const SORT_CYCLE: { key: SortMode; label: string }[] = [
   { key: "roll", label: "품질순" },
   { key: "power", label: "위력순" },
 ];
+
+// 한 페이지에 보여줄 아이템 수 — 목록이 길어지면 < 1 2 3 … > 로 나눈다.
+const INVENTORY_PAGE_SIZE = 20;
 
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
@@ -369,6 +374,15 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     return list; // default
   }, [tab, ownedBySlot, sortMode]);
 
+  // 목록이 길어지면 페이지로 나눈다(한 페이지 20개). 장비 탭은 탭·정렬을 바꾸면 1페이지로 리셋
+  //   (resetKey), 재료 탭은 탭 진입 시 리셋.
+  const equipPager = usePagination(
+    tabInstances,
+    INVENTORY_PAGE_SIZE,
+    `${tab}:${sortMode}`,
+  );
+  const materialPager = usePagination(ownedMaterials, INVENTORY_PAGE_SIZE, tab);
+
   const tabLabel = TABS.find((t) => t.key === tab)?.label ?? "";
 
   return (
@@ -474,7 +488,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             불러오는 중…
           </div>
         ) : tab === "material" ? (
-          <MaterialList materials={ownedMaterials} />
+          <>
+            <MaterialList materials={materialPager.pageItems} />
+            <Pagination
+              page={materialPager.page}
+              pageCount={materialPager.pageCount}
+              setPage={materialPager.setPage}
+            />
+          </>
         ) : (
           <>
             {tabInstances.length > 0 && (
@@ -550,11 +571,16 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
               </div>
             )}
             <EquipmentCardGrid
-              cards={tabInstances.map((inst) => ({
+              cards={equipPager.pageItems.map((inst) => ({
                 inst,
                 isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
               }))}
               onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+            />
+            <Pagination
+              page={equipPager.page}
+              pageCount={equipPager.pageCount}
+              setPage={equipPager.setPage}
             />
           </>
         )}

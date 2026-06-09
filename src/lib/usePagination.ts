@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 export function usePagination<T>(
   items: T[],
   pageSize: number = 10,
+  resetKey?: unknown,
 ): {
   page: number;
   pageCount: number;
@@ -17,6 +18,12 @@ export function usePagination<T>(
 } {
   const [page, setPageState] = useState(0);
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+
+  // resetKey 가 바뀌면(탭/정렬 등 목록 교체) 1페이지로. 미지정이면 undefined 라 변하지 않아 무효과.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPageState(0);
+  }, [resetKey]);
 
   // items 가 변해서 현재 페이지가 빈 상태로 떨어지면 마지막 유효 페이지로 보정.
   // page=0 은 항상 유효 (빈 목록이어도 "1/1" 표시) — pageCount 가 1 인 경우 포함.

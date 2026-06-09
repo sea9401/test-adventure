@@ -493,6 +493,9 @@ export async function GET() {
       const jobSpecs = V2_JOB_SPECS[cls] ?? [];
       const rawChoice = (charSave as { specChoice?: unknown }).specChoice;
       const choice = typeof rawChoice === "string" ? rawChoice : null;
+      // 선택한 전문화가 현 직업 것인지 — 환생(같은 직업, 차수→1) 후 1차여도 패널에 유지 표시.
+      //   직업 변경 후 stale choice(타직업 전문화)는 false → tier 게이트 유지(새 직업 전문화 새로 선택).
+      const choiceValid = choice != null && jobSpecs.some((s) => s.id === choice);
       const rawUnlocked = (charSave as { unlockedPassives?: unknown })
         .unlockedPassives;
       const unlocked = Array.isArray(rawUnlocked)
@@ -500,7 +503,8 @@ export async function GET() {
         : [];
       return {
         tier,
-        available: tier >= 2, // 2차 전직부터 전문화 선택 가능
+        // 2차 전직부터 선택 가능 + 이미 고른 전문화는 환생(차수→1)해도 패널에 유지(choiceValid).
+        available: tier >= 2 || choiceValid,
         choice,
         unlocked,
         picksMax: Math.max(0, tier - 1), // 2차 1·3차 2·4차 3

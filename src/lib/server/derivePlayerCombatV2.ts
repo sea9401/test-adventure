@@ -514,13 +514,11 @@ export function derivePlayerCombatV2Pure(
   // 선택 전문화 + 해금 패시브 + 장착 무기 종류 → 합산 효과. 무기 게이트 불통과/spec 미지정 = {}.
   // 현 캐릭(specChoice 없음) = {} → 전부 항등(byte-identical inert). 활성은 save 에
   // specChoice/unlockedPassives 가 있을 때만(래퍼가 주입).
-  // 키트픽 차수 게이트 — 환생(차수→1) 시 상위차수 초과 픽 비활성, 재등반하며 자동복원
-  // (game-feel ③A·design A 권능 리셋). classTier 명시(라이브 wrapper=proficiency.tier)면 한도
-  // tier−1 로 슬라이스, 미명시(레거시/단위테스트)=무제한(하위호환). 정상 플레이는 해금이 tier−1
-  // 로 제한돼 무영향 — 환생 후 보존된 초과 픽에서만 차이.
-  const pickLimit =
-    input.classTier != null ? Math.max(0, input.classTier - 1) : Infinity;
-  const activePicks = (input.unlockedPassives ?? []).slice(0, pickLimit);
+  // 전문화 픽은 차수와 무관하게 전부 유지 — 환생(차수→1, 같은 직업) 후에도 이미 해금한 전문화
+  //   패시브가 비활성화되지 않게(2026-06-09 사용자 결정: "같은 직업 환생인데 전문화 초기화 막기").
+  //   정상 진행 중엔 해금 수가 차수−1 이하라(spec route 가 cap) 무영향 — 환생 후 보존 픽에서만 차이.
+  //   직업 변경 시엔 위에서 spec(직업 종속)이 undefined 라 어차피 무효 → stale 픽이 새지 않는다.
+  const activePicks = input.unlockedPassives ?? [];
   const specEff = aggregateSpecPassives(
     input.spec,
     activePicks,

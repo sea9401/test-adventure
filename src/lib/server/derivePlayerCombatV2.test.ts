@@ -478,30 +478,29 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
     );
   });
 
-  it("키트픽 차수 게이트 — classTier 1(환생 직후)=픽 비활성, 2=자동복원 (③A·design A 권능리셋)", () => {
+  it("전문화 픽은 차수 무관 유지 — 환생(차수→1) 직후에도 활성 (2026-06-09: 같은 직업 환생 전문화 보존)", () => {
     const kbase = {
       ...base,
       v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
     };
     const baseD = derivePlayerCombatV2Pure(kbase);
-    // classTier 1 — 픽 보유해도 한도 0 → 방패치기 비활성 → atk 보너스 없음(권능 리셋).
+    const expected = baseD.player.atk + Math.floor(baseD.player.def * 0.8);
+    // classTier 1(환생 직후) — 해금한 방패치기가 그대로 활성(전문화 비초기화) → atk += def×80%.
     const t1 = derivePlayerCombatV2Pure({
       ...kbase,
       spec: knight,
       unlockedPassives: ["knight_counter"],
       classTier: 1,
     });
-    expect(t1.player.atk).toBe(baseD.player.atk);
-    // classTier 2 — 한도 1 → 방패치기 활성 → atk += def×80% (자동복원).
+    expect(t1.player.atk).toBe(expected);
+    // classTier 2 — 동일(차수 무관 유지).
     const t2 = derivePlayerCombatV2Pure({
       ...kbase,
       spec: knight,
       unlockedPassives: ["knight_counter"],
       classTier: 2,
     });
-    expect(t2.player.atk).toBe(
-      baseD.player.atk + Math.floor(baseD.player.def * 0.8),
-    );
+    expect(t2.player.atk).toBe(expected);
   });
 
   it("기사 + 검방 + 흘려막기 → damageNullifyChancePct 10", () => {

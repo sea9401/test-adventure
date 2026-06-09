@@ -16,6 +16,17 @@ import {
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import { TabBar } from "@/components/ui/TabBar";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePagination } from "@/lib/usePagination";
+import {
+  V2_ITEM_TABS,
+  nextSortMode,
+  sortModeLabel,
+  sortEquipInstances,
+  type V2ItemTabKey,
+  type SortMode,
+} from "./v2ItemListShared";
 
 // v2 거래소 — 장비 개체 + 재료 거래(고정가). 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   판매세는 서버 권위 — 여기 0.05 는 순수령 미리보기용(표시 advisory).
@@ -59,6 +70,9 @@ type Listing = {
 
 type Tab = "browse" | "mine" | "sell";
 
+// 판매 탭 한 페이지에 보여줄 아이템 수 — 인벤토리와 동일.
+const SELL_PAGE_SIZE = 20;
+
 // 서버 에러 코드 → 사용자 안내.
 const ERR_LABEL: Record<string, string> = {
   slot_full: "활성 매물이 가득 찼어요 (최대 10개).",
@@ -77,6 +91,9 @@ const ERR_LABEL: Record<string, string> = {
 
 export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<Tab>("browse");
+  // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
+  const [sellTab, setSellTab] = useState<V2ItemTabKey>("weapon");
+  const [sellSort, setSellSort] = useState<SortMode>("default");
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [mine, setMine] = useState<Listing[] | null>(null);
@@ -239,6 +256,21 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
     (id) => (materials[id] ?? 0) > 0,
   );
+  // 판매 탭(슬롯)에 해당하는 장비만 + 정렬. 재료 탭이면 빈 목록.
+  const sellTabEquip =
+    sellTab === "material"
+      ? []
+      : sortEquipInstances(
+          sellableEquip.filter((i) => V2_EQUIPMENT[i.id]?.slot === sellTab),
+          sellSort,
+        );
+  // 한 페이지 20개. 탭/정렬 바뀌면 1페이지로(resetKey).
+  const sellEquipPager = usePagination(
+    sellTabEquip,
+    SELL_PAGE_SIZE,
+    `${sellTab}:${sellSort}`,
+  );
+  const sellMatPager = usePagination(sellableMats, SELL_PAGE_SIZE, sellTab);
 
   // 둘러보기 표시 매물 — 클라이언트측 필터(종류/슬롯/검색) + 정렬. 반환된 활성 매물 위에서만.
   const slotOf = (l: Listing): V2EquipSlot | null =>
@@ -404,16 +436,90 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
       {tab === "sell" && (
         <div className="space-y-3">
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold">장비 ({sellableEquip.length})</h2>
-            {sellableEquip.length === 0 ? (
+          {/* 슬롯 서브탭 — 인벤토리와 동일 구성 */}
+          <TabBar
+            tabs={V2_ITEM_TABS}
+            active={sellTab}
+            onChange={setSellTab}
+            ariaLabel="판매 슬롯"
+            size="sm"
+            scrollable
+          />
+
+          {sellTab === "material" ? (
+            sellableMats.length === 0 ? (
               <Card padding="sm">
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  팔 수 있는 장비가 없어요. (장착·잠금 장비는 제외)
+                  팔 수 있는 재료가 없어요.
                 </div>
               </Card>
             ) : (
-              sellableEquip.map((inst) => {
+              <div className="space-y-2">
+                {sellMatPager.pageItems.map((matId) => {
+                  const have = materials[matId] ?? 0;
+                  return (
+                    <Card key={matId} padding="sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium">
+                          {V2_MATERIALS[matId]?.name ?? matId}
+                          <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
+                          <span className="ml-1.5">
+                            <PriceRefLine stat={priceRef[matId]} />
+                          </span>
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={1}
+                            max={have}
+                            placeholder="수량"
+                            value={qtys[matId] ?? ""}
+                            onChange={(e) => setQtys((q) => ({ ...q, [matId]: e.target.value }))}
+                            className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                          />
+                          <PriceInput
+                            value={prices[matId] ?? ""}
+                            onChange={(v) => setPrices((p) => ({ ...p, [matId]: v }))}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => listMaterial(matId)}
+                            disabled={busy}
+                            className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                          >
+                            등록
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+                <Pagination
+                  page={sellMatPager.page}
+                  pageCount={sellMatPager.pageCount}
+                  setPage={sellMatPager.setPage}
+                />
+              </div>
+            )
+          ) : sellTabEquip.length === 0 ? (
+            <Card padding="sm">
+              <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                팔 수 있는 장비가 없어요. (장착·잠금 장비는 제외)
+              </div>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
+                  onClick={() => setSellSort((m) => nextSortMode(m))}
+                  className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  정렬 ⇅ {sortModeLabel(sellSort)}
+                </button>
+              </div>
+              {sellEquipPager.pageItems.map((inst) => {
                 const detail = equipDetail(inst.id, inst.roll);
                 const price = Number(prices[inst.iid]);
                 return (
@@ -461,58 +567,14 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                     )}
                   </Card>
                 );
-              })
-            )}
-          </section>
-
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold">재료 ({sellableMats.length})</h2>
-            {sellableMats.length === 0 ? (
-              <Card padding="sm">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">팔 수 있는 재료가 없어요.</div>
-              </Card>
-            ) : (
-              sellableMats.map((matId) => {
-                const have = materials[matId] ?? 0;
-                return (
-                  <Card key={matId} padding="sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium">
-                        {V2_MATERIALS[matId]?.name ?? matId}
-                        <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
-                        <span className="ml-1.5">
-                          <PriceRefLine stat={priceRef[matId]} />
-                        </span>
-                      </span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <input
-                          type="number"
-                          min={1}
-                          max={have}
-                          placeholder="수량"
-                          value={qtys[matId] ?? ""}
-                          onChange={(e) => setQtys((q) => ({ ...q, [matId]: e.target.value }))}
-                          className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                        />
-                        <PriceInput
-                          value={prices[matId] ?? ""}
-                          onChange={(v) => setPrices((p) => ({ ...p, [matId]: v }))}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => listMaterial(matId)}
-                          disabled={busy}
-                          className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                        >
-                          등록
-                        </button>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })
-            )}
-          </section>
+              })}
+              <Pagination
+                page={sellEquipPager.page}
+                pageCount={sellEquipPager.pageCount}
+                setPage={sellEquipPager.setPage}
+              />
+            </div>
+          )}
         </div>
       )}
 

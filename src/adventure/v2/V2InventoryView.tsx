@@ -46,6 +46,14 @@ import {
   rollPctClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
+import {
+  V2_ITEM_TABS,
+  nextSortMode,
+  sortModeLabel,
+  sortEquipInstances,
+  type V2ItemTabKey,
+  type SortMode,
+} from "./v2ItemListShared";
 
 // 슬롯별 아이콘/색 — 카드 좌상단 표식.
 const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
@@ -76,18 +84,6 @@ function cardStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
 // 개체(instance) 모델: 같은 종류라도 굴림이 다르면 별도 카드. 행 우측 버튼으로 장착/해제
 // (POST /api/v2/me/equipment/equip, iid 기준).
 
-type TabKey = V2EquipSlot | "material";
-
-const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
-  { key: "weapon", label: "무기" },
-  { key: "armor", label: "갑옷" },
-  { key: "gloves", label: "장갑" },
-  { key: "boots", label: "신발" },
-  { key: "ring", label: "반지" },
-  { key: "necklace", label: "목걸이" },
-  { key: "material", label: "재료" },
-];
-
 const EQUIP_SLOTS: {
   slot: V2EquipSlot;
   label: string;
@@ -102,14 +98,6 @@ const EQUIP_SLOTS: {
   { slot: "necklace", label: "목걸이", Icon: Diamond, color: "text-pink-500" },
 ];
 
-type SortMode = "default" | "roll" | "power";
-// 정렬 순환 — 단일 버튼이 누를 때마다 다음으로(기본 → 품질순 → 위력순 → 기본).
-const SORT_CYCLE: { key: SortMode; label: string }[] = [
-  { key: "default", label: "기본" },
-  { key: "roll", label: "품질순" },
-  { key: "power", label: "위력순" },
-];
-
 // 한 페이지에 보여줄 아이템 수 — 목록이 길어지면 < 1 2 3 … > 로 나눈다.
 const INVENTORY_PAGE_SIZE = 20;
 
@@ -117,7 +105,7 @@ const INVENTORY_PAGE_SIZE = 20;
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<TabKey>("weapon");
+  const [tab, setTab] = useState<V2ItemTabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 일괄 판매 품질 임계값(%) — 이 값 이하 품질 장비를 정리. 사용자가 직접 조정(0~100).
   // 기본 40 으로 시작하고, 마운트 후 localStorage 값으로 복원(SSR hydration mismatch 회피).
@@ -351,27 +339,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   const tabInstances: V2EquipInstance[] = useMemo(() => {
     if (tab === "material") return [];
-    const list = ownedBySlot[tab];
-    if (sortMode === "roll") {
-      // 품질순 — 높은 품질(굴림) 먼저, 굴림 없는(상점 정가) 것은 뒤로. 안정 위해 기존 순서 보존.
-      return [...list].sort((a, b) => {
-        const qa = rollQualityPct(V2_EQUIPMENT[a.id], a.roll);
-        const qb = rollQualityPct(V2_EQUIPMENT[b.id], b.roll);
-        if (qa == null && qb == null) return 0;
-        if (qa == null) return 1;
-        if (qb == null) return -1;
-        return qb - qa;
-      });
-    }
-    if (sortMode === "power") {
-      // 위력순 — 굴림 반영 실효 위력 높은 순(effectiveStats). 동률은 기존 순서 보존(안정).
-      return [...list].sort(
-        (a, b) =>
-          effectiveStats(V2_EQUIPMENT[b.id], b.roll).power -
-          effectiveStats(V2_EQUIPMENT[a.id], a.roll).power,
-      );
-    }
-    return list; // default
+    return sortEquipInstances(ownedBySlot[tab], sortMode);
   }, [tab, ownedBySlot, sortMode]);
 
   // 목록이 길어지면 페이지로 나눈다(한 페이지 20개). 장비 탭은 탭·정렬을 바꾸면 1페이지로 리셋
@@ -383,7 +351,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   );
   const materialPager = usePagination(ownedMaterials, INVENTORY_PAGE_SIZE, tab);
 
-  const tabLabel = TABS.find((t) => t.key === tab)?.label ?? "";
+  const tabLabel = V2_ITEM_TABS.find((t) => t.key === tab)?.label ?? "";
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -460,7 +428,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
       <Card padding="md" className="space-y-3">
         <TabBar
-          tabs={TABS}
+          tabs={V2_ITEM_TABS}
           active={tab}
           onChange={setTab}
           ariaLabel="인벤토리 카테고리"
@@ -557,16 +525,10 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                 <button
                   type="button"
                   title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
-                  onClick={() =>
-                    setSortMode((m) => {
-                      const idx = SORT_CYCLE.findIndex((s) => s.key === m);
-                      return SORT_CYCLE[(idx + 1) % SORT_CYCLE.length].key;
-                    })
-                  }
+                  onClick={() => setSortMode((m) => nextSortMode(m))}
                   className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  정렬 ⇅{" "}
-                  {SORT_CYCLE.find((s) => s.key === sortMode)?.label ?? "기본"}
+                  정렬 ⇅ {sortModeLabel(sortMode)}
                 </button>
               </div>
             )}

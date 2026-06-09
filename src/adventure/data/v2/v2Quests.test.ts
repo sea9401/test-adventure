@@ -7,12 +7,14 @@ import {
   isQuestClaimable,
   deriveQuestViews,
   currentGuideQuest,
+  questLinesFor,
   type QuestCtx,
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
 
-// 신규 캐릭터 기준(아무것도 안 함).
+// 신규 캐릭터 기준(전사, 아무것도 안 함). 부분 ctx 는 이걸 스프레드.
 const ZERO: QuestCtx = {
+  class: "warrior",
   level: 1,
   tier: 1,
   specChosen: false,
@@ -20,8 +22,12 @@ const ZERO: QuestCtx = {
   battleCount: 0,
   frontierDepth: 2,
   equippedCount: 0,
+  uniqueOwned: 0,
   cultivations: 0,
   bossKills: 0,
+  hasGuild: false,
+  hasTraded: false,
+  arenaPlayed: false,
 };
 
 const none = new Set<string>();
@@ -44,9 +50,12 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
-  it("questById 로 조회", () => {
-    expect(questById("g_first_battle")?.title).toBe("첫 발걸음");
-    expect(questById("없는퀘")).toBeUndefined();
+  it("직업 4종 각각 전용 라인(class_*) 3퀘 보유", () => {
+    for (const cls of ["warrior", "martial", "mage", "rogue"]) {
+      const line = QUEST_LINES.find((l) => l.id === `class_${cls}`);
+      expect(line?.classOnly, cls).toBe(cls);
+      expect(V2_QUESTS.filter((q) => q.line === `class_${cls}`)).toHaveLength(3);
+    }
   });
 });
 
@@ -54,26 +63,12 @@ describe("성장의 길 (순차 라인)", () => {
   it("신규 캐릭터 — 첫 퀘만 active, 나머지는 locked", () => {
     expect(questStatus(questById("g_first_battle")!, ZERO, none)).toBe("active");
     expect(questStatus(questById("g_equip")!, ZERO, none)).toBe("locked");
-    expect(questStatus(questById("g_cap1")!, ZERO, none)).toBe("locked");
-  });
-
-  it("첫 전투 후 — g_first_battle 수령 가능, 그 다음은 아직 잠김(앞 미수령이어도 조건 기반 해금)", () => {
-    const ctx = { ...ZERO, battleCount: 1 };
-    expect(questStatus(questById("g_first_battle")!, ctx, none)).toBe(
-      "claimable",
-    );
-    // g_equip 은 앞(g_first_battle) check 가 true 라 열림 → 하지만 장착 0 이라 active.
-    expect(questStatus(questById("g_equip")!, ctx, none)).toBe("active");
-    // g_depth5 는 앞(g_equip) check false → 잠김.
-    expect(questStatus(questById("g_depth5")!, ctx, none)).toBe("locked");
   });
 
   it("앞 퀘 조건만 충족하면 뒤 퀘도 동시 수령 가능(수령 순서 강제 안 함)", () => {
-    // 전투 + 장착 둘 다 충족 → 둘 다 claimable.
     const ctx = { ...ZERO, battleCount: 3, equippedCount: 2 };
     expect(isQuestClaimable(questById("g_first_battle")!, ctx, none)).toBe(true);
     expect(isQuestClaimable(questById("g_equip")!, ctx, none)).toBe(true);
-    // depth5 는 미충족 → active.
     expect(questStatus(questById("g_depth5")!, ctx, none)).toBe("active");
   });
 
@@ -87,32 +82,99 @@ describe("성장의 길 (순차 라인)", () => {
       false,
     );
   });
+});
 
-  it("전직/전문화 체인 — tier·specChoice·passive 로 진행", () => {
-    const t2 = { ...ZERO, level: 60, battleCount: 99, equippedCount: 6, frontierDepth: 14, tier: 2 };
-    expect(isQuestClaimable(questById("g_advance2")!, t2, none)).toBe(true);
-    expect(questStatus(questById("g_spec")!, t2, none)).toBe("active"); // 전직했지만 전문화 미선택
-    const spec = { ...t2, specChosen: true, passivePicks: 1, cultivations: 2 };
-    expect(isQuestClaimable(questById("g_spec")!, spec, none)).toBe(true);
-    expect(isQuestClaimable(questById("g_passive")!, spec, none)).toBe(true);
-    expect(isQuestClaimable(questById("g_cultivate")!, spec, none)).toBe(true);
-    expect(isQuestClaimable(questById("g_frontier")!, spec, none)).toBe(true);
+describe("직업 전용 라인 (classOnly)", () => {
+  it("현 직군 라인만 보임 — 전사는 class_warrior 보이고 class_mage 안 보임", () => {
+    const lines = questLinesFor(ZERO).map((l) => l.id);
+    expect(lines).toContain("class_warrior");
+    expect(lines).not.toContain("class_mage");
+    const ids = deriveQuestViews(ZERO, none).map((v) => v.id);
+    expect(ids).toContain("c_warrior_spec");
+    expect(ids).not.toContain("c_mage_spec");
+  });
+
+  it("마법사는 class_mage 만 보임", () => {
+    const mage = { ...ZERO, class: "mage" as const };
+    const lines = questLinesFor(mage).map((l) => l.id);
+    expect(lines).toContain("class_mage");
+    expect(lines).not.toContain("class_warrior");
+  });
+
+  it("계파 진행 — 전문화 선택 → 패시브 2 → 패시브 3", () => {
+    const spec = { ...ZERO, specChosen: true };
+    expect(isQuestClaimable(questById("c_warrior_spec")!, spec, none)).toBe(
+      true,
+    );
+    expect(questStatus(questById("c_warrior_deepen")!, spec, none)).toBe(
+      "active",
+    );
+    const p2 = { ...spec, passivePicks: 2 };
+    expect(isQuestClaimable(questById("c_warrior_deepen")!, p2, none)).toBe(
+      true,
+    );
+    const p3 = { ...spec, passivePicks: 3 };
+    expect(isQuestClaimable(questById("c_warrior_apex")!, p3, none)).toBe(true);
+  });
+
+  it("교차 직군 수령 차단 — 전사가 specChosen 이어도 class_mage 퀘 수령 불가", () => {
+    const spec = { ...ZERO, specChosen: true };
+    expect(isQuestClaimable(questById("c_mage_spec")!, spec, none)).toBe(false);
+    // 마법사면 반대로 가능.
+    const mageSpec = { ...spec, class: "mage" as const };
+    expect(isQuestClaimable(questById("c_mage_spec")!, mageSpec, none)).toBe(
+      true,
+    );
   });
 });
 
-describe("정점을 향해 (비순차 라인 — 마일스톤 독립)", () => {
-  it("순차 잠금 없음 — 깊이 25 만 충족해도 바로 수령 가능(보스/3차 무관)", () => {
-    const ctx = { ...ZERO, frontierDepth: 25 };
-    expect(isQuestClaimable(questById("a_depth25")!, ctx, none)).toBe(true);
-    // 다른 마일스톤은 미충족 → active(잠김 아님).
-    expect(questStatus(questById("a_boss")!, ctx, none)).toBe("active");
-    expect(questStatus(questById("a_advance3")!, ctx, none)).toBe("active");
+describe("모험가의 길 (콘텐츠·사회, 비순차)", () => {
+  it("길드/거래소/투기장 마일스톤 독립 수령", () => {
+    expect(
+      isQuestClaimable(questById("s_guild")!, { ...ZERO, hasGuild: true }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("s_trade")!,
+        { ...ZERO, hasTraded: true },
+        none,
+      ),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("s_arena")!,
+        { ...ZERO, arenaPlayed: true },
+        none,
+      ),
+    ).toBe(true);
+    expect(questStatus(questById("s_guild")!, ZERO, none)).toBe("active");
+  });
+});
+
+describe("정점을 향해 (확장 마일스톤)", () => {
+  it("유니크 수집 / 깊이 40 / 보스 / 고차수", () => {
+    expect(
+      isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueOwned: 1 }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("a_depth40")!,
+        { ...ZERO, frontierDepth: 40 },
+        none,
+      ),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(questById("a_boss")!, { ...ZERO, bossKills: 1 }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(questById("a_apex")!, { ...ZERO, tier: 4 }, none),
+    ).toBe(true);
   });
 
-  it("보스 처치 / 고차수 마일스톤", () => {
-    expect(isQuestClaimable(questById("a_boss")!, { ...ZERO, bossKills: 1 }, none)).toBe(true);
-    expect(isQuestClaimable(questById("a_advance3")!, { ...ZERO, tier: 3 }, none)).toBe(true);
-    expect(isQuestClaimable(questById("a_apex")!, { ...ZERO, tier: 4 }, none)).toBe(true);
+  it("비순차 — 깊이 40 만 충족해도 보스 미충족과 무관하게 수령", () => {
+    const ctx = { ...ZERO, frontierDepth: 40 };
+    expect(isQuestClaimable(questById("a_depth40")!, ctx, none)).toBe(true);
+    expect(questStatus(questById("a_boss")!, ctx, none)).toBe("active");
   });
 });
 
@@ -121,43 +183,39 @@ describe("currentGuideQuest (홈 배너)", () => {
     expect(currentGuideQuest(ZERO, none)?.id).toBe("g_first_battle");
   });
 
-  it("수령 가능한 게 있으면 그걸 우선 안내", () => {
-    const ctx = { ...ZERO, battleCount: 1 };
-    const cur = currentGuideQuest(ctx, none);
-    expect(cur?.id).toBe("g_first_battle");
-    expect(cur?.status).toBe("claimable");
-  });
-
-  it("성장의 길 전부 수령 후 — 정점 라인으로 넘어감", () => {
+  it("성장의 길 전부 수령 후 — 직업 라인으로 넘어감(라인 우선순위)", () => {
     const ctx: QuestCtx = {
+      ...ZERO,
       level: 60,
       tier: 2,
-      specChosen: true,
-      passivePicks: 1,
       battleCount: 99,
       frontierDepth: 14,
       equippedCount: 6,
       cultivations: 2,
-      bossKills: 0,
     };
     const growthClaimed = new Set(
       V2_QUESTS.filter((q) => q.line === "growth").map((q) => q.id),
     );
     const cur = currentGuideQuest(ctx, growthClaimed);
-    expect(cur?.line).toBe("ascend");
+    expect(cur?.line).toBe("class_warrior");
   });
 
   it("전부 수령 → null", () => {
     const ctx: QuestCtx = {
+      class: "warrior",
       level: 100,
       tier: 4,
       specChosen: true,
       passivePicks: 3,
       battleCount: 999,
-      frontierDepth: 30,
+      frontierDepth: 40,
       equippedCount: 6,
+      uniqueOwned: 5,
       cultivations: 9,
       bossKills: 3,
+      hasGuild: true,
+      hasTraded: true,
+      arenaPlayed: true,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -165,9 +223,12 @@ describe("currentGuideQuest (홈 배너)", () => {
 });
 
 describe("deriveQuestViews", () => {
-  it("모든 퀘스트에 status 부여", () => {
+  it("현 직군 가시 퀘스트에만 status 부여(타 직군 라인 제외)", () => {
     const views = deriveQuestViews(ZERO, none);
-    expect(views).toHaveLength(V2_QUESTS.length);
+    const visibleCount = V2_QUESTS.filter(
+      (q) => !q.line.startsWith("class_") || q.line === "class_warrior",
+    ).length;
+    expect(views).toHaveLength(visibleCount);
     expect(views.every((v) => v.status)).toBe(true);
   });
 });

@@ -4,17 +4,18 @@
 // 두 갈래:
 //   ① 레거시 층 풀(UNIQUE_FLOOR_POOLS, floor 1~8 키): 들판 구간(깊이 1~6)의 유니크 6종.
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
-//   ② 심층 밴드 풀(BAND_UNIQUE_POOLS, 깊이 범위 키): 프론티어 밴드 드랍. 밴드마다 기본 16종(무기 8 +
-//      세트 3종 8) + 무기포함 특화세트 + 컨셉 사이드그레이드. chance 0.01 = 1회 사냥당 총 1%(per-item 희석).
-//      현재 마른 협곡(13~18, 24종)·얼음 호수(19~24, 26종)·심층 동굴(25~30, 30종) 3밴드 = 80종.
-//      신규 밴드는 BAND_UNIQUE_POOLS 에 항목 1개 추가.
+//   ② 심층 밴드 풀(깊이 범위 키): 프론티어 밴드 드랍. 2026-06-09 흔한/유니크 분리 —
+//      BAND_COMMON_POOLS(흔한 밴드 장비, 밴드당 13종: 무기 8 + 기본세트 3 + 기본장신구 2, noDrop
+//      normal, 로컬 깊이 램프 2~4%) + BAND_UNIQUE_POOLS(특화세트+사이드그레이드+추가 2피스, 협곡 11·
+//      호수 13·동굴 17 = 41종, chance 0.01 고정). 신규 밴드는 두 풀에 항목 1개씩 추가.
 //
-// 유니크 = id당 1개(ownedSet 제외) — 정규 장비와 동일 unique-per-id.
+// 밴드 드랍은 중복 허용(보유분 포함 균등 pick). 레거시 층 유니크만 id당 1개(ownedSet 제외).
 
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 89종(레거시 6 + 밴드 드랍 80 + 보스 3).
+// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 50종(레거시 6 + 밴드 유니크 41 + 보스 3).
+//   밴드 흔한 39종은 noDrop normal 로 분리(BAND_COMMON_POOLS) — 유니크 아님.
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
 ).filter((id) => isUnique(V2_EQUIPMENT[id]));
@@ -67,24 +68,27 @@ export function rollUniqueDrop(
 //   chance = 1회 사냥당 총 드랍률(현 0.01 = 1%), 1종당 chance/len(16종 → ≈0.06%). **중복 드랍 허용**
 //   (2026-06-08): 보유분 포함 전 종류 균등이라 같은 종류도 새 굴림으로 재드랍(god-roll/편차 추격),
 //   다 모아도 드랍 계속. ← 드랍률 다이얼(2026-06-08 0.08→0.01: 8%/판이 과해 1%/판으로 하향).
-export type BandUniquePool = {
+// 밴드 장비를 흔한(normal·드랍 전용)/유니크(특화·추격) 두 풀로 분리(2026-06-09). 옛 BAND_UNIQUE_POOLS
+//   는 밴드 전 장비를 rarity:"unique" 로 묶어 "전부 유니크 취급"이 됐다. 이제:
+//   - 흔한 13종/밴드(무기 8 + 기본 방어세트 3 + 기본 장신구 2) = noDrop normal. 빵앤버터 진행 장비.
+//     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→2% / 3·4→3% / 5·6→4%). droppedEquipment 슬롯.
+//   - 유니크 = 특화 세트(맹독/마법/방어비례/금강) + 컨셉 사이드그레이드 + 추가 2피스 세트. chance 0.01
+//     고정(어디서나 귀함·종당으로도 흔한보다 귀하게). droppedUnique 슬롯. 흔한과 별개 굴림(둘 다 가능).
+export type BandPool = {
   /** 밴드 시작 깊이(포함). */
   minDepth: number;
   /** 밴드 끝 깊이(포함). */
   maxDepth: number;
-  /** 사냥 1회당 풀 통과 확률 [0, 1] = 총 드랍률. 전 종류 균등 분배. */
-  chance: number;
   /** 통과 시 후보 id. 전 종류 균등 pick(중복 드랍 허용 — 보유분 포함). */
   ids: V2EquipmentId[];
 };
 
-export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
+// 흔한 밴드 장비 풀(noDrop normal). 무기 8 + 기본 방어세트 3 + 기본 장신구 2 = 밴드당 13종.
+export const BAND_COMMON_POOLS: readonly BandPool[] = [
   {
-    // 마른 협곡(밴드 A, 깊이 13~18). 16종 + 녹슨 독니 세트 2 + 사이드그레이드 2 + 추가 2피스 4(사막주파구·사암결속)
-    // = 24종. chance 0.01(총 1% 유지) / 24 균등 → 종류당 ≈0.042%(아이템 추가 시 총 1% 고정·per-item 희석).
+    // 마른 협곡(밴드 A, 13~18) 흔한 13: 무기 8 + 마른땅 갑주 세트 3 + 모래바람 장신구 2.
     minDepth: 13,
     maxDepth: 18,
-    chance: 0.01,
     ids: [
       "v2_canyon_greatsword",
       "v2_canyon_knightblade",
@@ -97,27 +101,14 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_canyon_set_armor",
       "v2_canyon_set_gloves",
       "v2_canyon_set_boots",
-      "v2_canyon_bulwark_armor",
-      "v2_canyon_bulwark_gloves",
-      "v2_canyon_bulwark_boots",
       "v2_canyon_sand_ring",
       "v2_canyon_sand_necklace",
-      "v2_canyon_rustfang_dagger",
-      "v2_canyon_rustfang_gloves",
-      "v2_canyon_swift_rapier",
-      "v2_canyon_wind_boots",
-      "v2_canyon_dune_gloves",
-      "v2_canyon_dune_boots",
-      "v2_canyon_bond_armor",
-      "v2_canyon_bond_ring",
     ],
   },
   {
-    // 얼음 호수(밴드 B, 깊이 19~24). 16종 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2 + 추가 2피스 4
-    // (서리보행갑·빙결인장) = 26종. chance 0.01(총 1% 유지) / 26 균등 → 종류당 ≈0.038%.
+    // 얼음 호수(밴드 B, 19~24) 흔한 13: 무기 8 + 서리 갑주 세트 3 + 한기 장신구 2.
     minDepth: 19,
     maxDepth: 24,
-    chance: 0.01,
     ids: [
       "v2_lake_greatsword",
       "v2_lake_knightblade",
@@ -130,11 +121,88 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_lake_frost_armor",
       "v2_lake_frost_gloves",
       "v2_lake_frost_boots",
+      "v2_lake_chill_ring",
+      "v2_lake_chill_necklace",
+    ],
+  },
+  {
+    // 심층 동굴(밴드 C, 25~30) 흔한 13: 무기 8 + 심연 갑주 세트 3 + 공허 장신구 2.
+    minDepth: 25,
+    maxDepth: 30,
+    ids: [
+      "v2_cave_greatsword",
+      "v2_cave_knightblade",
+      "v2_cave_rapier",
+      "v2_cave_gauntlet",
+      "v2_cave_claw",
+      "v2_cave_staff",
+      "v2_cave_bow",
+      "v2_cave_dagger",
+      "v2_cave_abyss_armor",
+      "v2_cave_abyss_gloves",
+      "v2_cave_abyss_boots",
+      "v2_cave_void_ring",
+      "v2_cave_void_necklace",
+    ],
+  },
+];
+
+// 흔한 밴드 장비 드랍률 — 밴드 내 로컬 깊이(1~6)로 램프. 깊을수록 잘 나옴. ⚠️ 캘리브 다이얼.
+export function bandCommonChance(localDepth: number): number {
+  if (localDepth <= 2) return 0.02;
+  if (localDepth <= 4) return 0.03;
+  return 0.04;
+}
+
+export function bandCommonPoolForDepth(depth: number): BandPool | null {
+  for (const p of BAND_COMMON_POOLS) {
+    if (depth >= p.minDepth && depth <= p.maxDepth) return p;
+  }
+  return null;
+}
+
+export type BandUniquePool = {
+  /** 밴드 시작 깊이(포함). */
+  minDepth: number;
+  /** 밴드 끝 깊이(포함). */
+  maxDepth: number;
+  /** 사냥 1회당 풀 통과 확률 [0, 1] = 총 드랍률. 전 종류 균등 분배. */
+  chance: number;
+  /** 통과 시 후보 id. 전 종류 균등 pick(중복 드랍 허용 — 보유분 포함). */
+  ids: V2EquipmentId[];
+};
+
+// 밴드 유니크 풀 — 특화 세트 + 컨셉 사이드그레이드 + 추가 2피스 세트(흔한 장비는 BAND_COMMON_POOLS).
+//   chance 0.01 고정. 협곡 11·호수 13·동굴 17 = 41종.
+export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
+  {
+    // 마른 협곡(밴드 A, 13~18) 유니크 11: 바위문 수호구 3 + 녹슨 독니 2 + 사이드그레이드 2 + 추가 2피스 4.
+    minDepth: 13,
+    maxDepth: 18,
+    chance: 0.01,
+    ids: [
+      "v2_canyon_bulwark_armor",
+      "v2_canyon_bulwark_gloves",
+      "v2_canyon_bulwark_boots",
+      "v2_canyon_rustfang_dagger",
+      "v2_canyon_rustfang_gloves",
+      "v2_canyon_swift_rapier",
+      "v2_canyon_wind_boots",
+      "v2_canyon_dune_gloves",
+      "v2_canyon_dune_boots",
+      "v2_canyon_bond_armor",
+      "v2_canyon_bond_ring",
+    ],
+  },
+  {
+    // 얼음 호수(밴드 B, 19~24) 유니크 13: 바위문 수호구 3 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2 + 추가 2피스 4.
+    minDepth: 19,
+    maxDepth: 24,
+    chance: 0.01,
+    ids: [
       "v2_lake_bulwark_armor",
       "v2_lake_bulwark_gloves",
       "v2_lake_bulwark_boots",
-      "v2_lake_chill_ring",
-      "v2_lake_chill_necklace",
       "v2_lake_frostarcane_staff",
       "v2_lake_frostarcane_necklace",
       "v2_lake_bloodvajra_gauntlet",
@@ -148,28 +216,14 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 심층 동굴(밴드 C, 깊이 25~30). 16종 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4 + 추가 2피스 4
-    // (흑요완갑·공허보행) = 30종. chance 0.01(총 1% 유지) / 30 균등 → 종류당 ≈0.033%.
+    // 심층 동굴(밴드 C, 25~30) 유니크 17: 흑요석 3 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4 + 추가 2피스 4.
     minDepth: 25,
     maxDepth: 30,
     chance: 0.01,
     ids: [
-      "v2_cave_greatsword",
-      "v2_cave_knightblade",
-      "v2_cave_rapier",
-      "v2_cave_gauntlet",
-      "v2_cave_claw",
-      "v2_cave_staff",
-      "v2_cave_bow",
-      "v2_cave_dagger",
-      "v2_cave_abyss_armor",
-      "v2_cave_abyss_gloves",
-      "v2_cave_abyss_boots",
       "v2_cave_obsidian_armor",
       "v2_cave_obsidian_gloves",
       "v2_cave_obsidian_boots",
-      "v2_cave_void_ring",
-      "v2_cave_void_necklace",
       "v2_cave_judgment_sword",
       "v2_cave_judgment_armor",
       "v2_cave_judgment_ring",
@@ -213,6 +267,23 @@ export function rollBandUniqueDrop(
   if (!pool || pool.chance <= 0 || pool.ids.length === 0) return null;
   if (rng() >= Math.min(1, pool.chance * chanceMult)) return null;
   // 중복 드랍 허용 — 보유분 제외 안 함(전 종류 균등 pick). ownedSet 미사용.
+  return pool.ids[Math.floor(rng() * pool.ids.length)];
+}
+
+// 흔한 밴드 장비 드랍 굴림(순수) — 밴드 내 로컬 깊이로 램프한 확률(bandCommonChance). 통과 시 전 종류
+//   균등 pick(중복 드랍 허용). 밴드 밖 깊이 → null(rng 미소비, rollEquipDrop 결과와 ?? 합성 안전).
+//   정규 장비 슬롯(droppedEquipment)로 드랍 — 스타터 정규 풀(rollEquipDrop)이 13+ 에서 null 이라 그 자리 채움.
+export function rollBandCommonDrop(
+  depth: number,
+  rng: () => number,
+  // 통과 굴림 chance 배율(신참 보너스 등). 미지정 1. chance×배율(1 cap).
+  chanceMult: number = 1,
+): V2EquipmentId | null {
+  const pool = bandCommonPoolForDepth(depth);
+  if (!pool || pool.ids.length === 0) return null;
+  const localDepth = depth - pool.minDepth + 1;
+  const chance = bandCommonChance(localDepth);
+  if (rng() >= Math.min(1, chance * chanceMult)) return null;
   return pool.ids[Math.floor(rng() * pool.ids.length)];
 }
 

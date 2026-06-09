@@ -68,6 +68,7 @@ import {
 import { rollEquipDrop } from "@/adventure/data/v2/dungeonEquipDrops";
 import {
   rollBandUniqueDrop,
+  rollBandCommonDrop,
   rollUniqueDrop,
 } from "@/adventure/data/v2/dungeonUniqueDrops";
 import {
@@ -608,8 +609,12 @@ export async function POST(req: Request) {
           // 보스 = 전용 유니크 단일 풀만(일반 장비·밴드/레거시 유니크 제외). 중복 드랍 허용(반복 추격).
           droppedUnique = rollBossUniqueDrop(depth, Math.random, 1);
         } else {
-          // 정규 장비 드랍은 raw depth(스타터 구간 1~12만, 13+ 는 null). 재료·유니크는 dropFloor 유지.
-          droppedEquipment = rollEquipDrop(depth, ownedSet, Math.random, 1);
+          // 정규 장비 드랍: 스타터(1~12)=rollEquipDrop(6%), 프론티어 밴드(13~30)=흔한 밴드 장비
+          //   (rollBandCommonDrop, 로컬 깊이 램프 2~4%). rollEquipDrop 이 13+ 에서 null → ?? 로 밴드
+          //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
+          droppedEquipment =
+            rollEquipDrop(depth, ownedSet, Math.random, 1) ??
+            rollBandCommonDrop(depth, Math.random, 1);
           if (droppedEquipment !== null) {
             // 드랍 = 새 개체 + 새 굴림(±편차).
             nextOwned = [

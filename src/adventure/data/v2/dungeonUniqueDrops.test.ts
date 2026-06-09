@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   BAND_UNIQUE_POOLS,
+  BAND_COMMON_POOLS,
   UNIQUE_FLOOR_POOLS,
   V2_UNIQUE_IDS,
   bandUniquePoolForDepth,
+  bandCommonPoolForDepth,
+  bandCommonChance,
   rollBandUniqueDrop,
+  rollBandCommonDrop,
   rollUniqueDrop,
   uniqueIdsForDepthRange,
 } from "./dungeonUniqueDrops";
@@ -27,9 +31,58 @@ function seqRng(values: number[]): () => number {
   return () => (i < values.length ? values[i++] : 0);
 }
 
-describe("유니크 카탈로그 (89종 — 기존 6 + 밴드 48 + 무기특화세트 12 + 사이드그레이드 8 + 보스 3 + 추가 2피스 세트 12)", () => {
-  it("V2_UNIQUE_IDS 89종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(89);
+describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => {
+  it("밴드당 흔한 13종(무기 8 + 기본세트 3 + 기본장신구 2), 깊이 13~30 커버", () => {
+    expect(BAND_COMMON_POOLS).toHaveLength(3);
+    for (const p of BAND_COMMON_POOLS) {
+      expect(p.ids).toHaveLength(13);
+      for (const id of p.ids) {
+        expect(V2_EQUIPMENT[id], id).toBeDefined();
+        expect(isUnique(V2_EQUIPMENT[id]), `${id} 흔한=비유니크`).toBe(false);
+        expect(V2_EQUIPMENT[id].noDrop, `${id} noDrop`).toBe(true);
+      }
+    }
+  });
+
+  it("흔한/유니크 풀이 겹치지 않음(같은 밴드 내 분리)", () => {
+    for (const cp of BAND_COMMON_POOLS) {
+      const up = BAND_UNIQUE_POOLS.find((u) => u.minDepth === cp.minDepth)!;
+      const overlap = cp.ids.filter((id) => up.ids.includes(id));
+      expect(overlap, `밴드 ${cp.minDepth} 겹침`).toEqual([]);
+    }
+  });
+
+  it("드랍률 램프 — 밴드 로컬 깊이 1·2=2% / 3·4=3% / 5·6=4%", () => {
+    expect(bandCommonChance(1)).toBe(0.02);
+    expect(bandCommonChance(2)).toBe(0.02);
+    expect(bandCommonChance(3)).toBe(0.03);
+    expect(bandCommonChance(4)).toBe(0.03);
+    expect(bandCommonChance(5)).toBe(0.04);
+    expect(bandCommonChance(6)).toBe(0.04);
+  });
+
+  it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
+    const canyon = bandCommonPoolForDepth(13)!;
+    expect(rollBandCommonDrop(13, seqRng([0.01, 0]))).toBe(canyon.ids[0]); // 로컬1 0.02 통과
+    expect(rollBandCommonDrop(13, () => 0.03)).toBeNull(); // 0.03≥0.02 실패
+    expect(rollBandCommonDrop(17, seqRng([0.03, 0]))).toBe(canyon.ids[0]); // 로컬5 0.04 통과
+  });
+
+  it("밴드 밖 깊이 → rng 미소비하고 null (rollEquipDrop 결과와 ?? 합성 안전)", () => {
+    let calls = 0;
+    const rng = () => {
+      calls++;
+      return 0;
+    };
+    expect(rollBandCommonDrop(12, rng)).toBeNull();
+    expect(rollBandCommonDrop(31, rng)).toBeNull();
+    expect(calls).toBe(0);
+  });
+});
+
+describe("유니크 카탈로그 (50종 — 기존 6 + 밴드 유니크 41[특화세트+사이드그레이드+추가 2피스] + 보스 3)", () => {
+  it("V2_UNIQUE_IDS 50종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(50);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -85,13 +138,12 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
   const empty = new Set<V2EquipmentId>();
   const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
 
-  it("마른 협곡 밴드 = 깊이 13~18, 24종(+녹슨 독니 2·사이드그레이드 2·추가 2피스 4), 총 1%·종류당 ≈0.042%", () => {
+  it("마른 협곡 유니크 = 깊이 13~18, 11종(바위문 수호구 3·녹슨 독니 2·사이드그레이드 2·추가 2피스 4), 총 1% 고정", () => {
     expect(canyon).toBeDefined();
     expect(canyon.maxDepth).toBe(18);
-    expect(canyon.ids).toHaveLength(24);
-    // chance 0.01 = 1회 사냥당 총 1% / 20 균등 → 종류당 ≈0.05%(총 1% 유지·per-item 희석).
+    expect(canyon.ids).toHaveLength(11);
+    // chance 0.01 고정(흔한 장비와 별개·어디서나 귀함). 흔한 13종은 BAND_COMMON_POOLS.
     expect(canyon.chance).toBe(0.01);
-    expect(canyon.chance / canyon.ids.length).toBeCloseTo(0.01 / 24, 9);
   });
 
   it("마른 협곡 깊이 매칭 — 12 이하는 null(레거시 층 롤과 비중복), 13~18 캐년", () => {
@@ -131,12 +183,11 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호�
   const empty = new Set<V2EquipmentId>();
   const lake = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 19)!;
 
-  it("얼음 호수 밴드 = 깊이 19~24, 26종(+백서리 비전 2·혈금강 2·사이드그레이드 2·추가 2피스 4), 총 1%·종류당 ≈0.038%", () => {
+  it("얼음 호수 유니크 = 깊이 19~24, 13종(바위문 수호구 3·백서리 비전 2·혈금강 2·사이드그레이드 2·추가 2피스 4), 총 1% 고정", () => {
     expect(lake).toBeDefined();
     expect(lake.maxDepth).toBe(24);
-    expect(lake.ids).toHaveLength(26);
+    expect(lake.ids).toHaveLength(13);
     expect(lake.chance).toBe(0.01);
-    expect(lake.chance / lake.ids.length).toBeCloseTo(0.01 / 26, 9);
   });
 
   it("깊이 매칭 — 18 이하는 호수 아님, 19~24 만 매칭(25+는 다음 밴드)", () => {
@@ -162,12 +213,11 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동�
   const empty = new Set<V2EquipmentId>();
   const cave = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
 
-  it("심층 동굴 밴드 = 깊이 25~30, 30종(+심판의 성벽 3·흑맥 독왕 3·사이드그레이드 4·추가 2피스 4), 총 1%·종류당 ≈0.033%", () => {
+  it("심층 동굴 유니크 = 깊이 25~30, 17종(흑요석 3·심판의 성벽 3·흑맥 독왕 3·사이드그레이드 4·추가 2피스 4), 총 1% 고정", () => {
     expect(cave).toBeDefined();
     expect(cave.maxDepth).toBe(30);
-    expect(cave.ids).toHaveLength(30);
+    expect(cave.ids).toHaveLength(17);
     expect(cave.chance).toBe(0.01);
-    expect(cave.chance / cave.ids.length).toBeCloseTo(0.01 / 30, 9);
   });
 
   it("깊이 매칭 — 24 이하/31 이상은 동굴 아님, 25~30 만 매칭", () => {

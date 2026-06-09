@@ -764,7 +764,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
     options: { critMult: 40 },
     weaponType: "greatsword",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_knightblade: {
     id: "v2_canyon_knightblade",
@@ -777,7 +777,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
     options: { hp: 60 },
     weaponType: "sword_shield",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_rapier: {
     id: "v2_canyon_rapier",
@@ -790,7 +790,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 5 },
     weaponType: "rapier",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_gauntlet: {
     id: "v2_canyon_gauntlet",
@@ -803,7 +803,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 3,
     options: { hp: 50 },
     weaponType: "gauntlet",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_claw: {
     id: "v2_canyon_claw",
@@ -816,7 +816,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 4, spd: 2 },
     weaponType: "claw",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_staff: {
     id: "v2_canyon_staff",
@@ -829,7 +829,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { mp: 40, crit: 2 },
     weaponType: "staff",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_bow: {
     id: "v2_canyon_bow",
@@ -842,7 +842,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 4, eva: 2 },
     weaponType: "bow",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_canyon_dagger: {
     id: "v2_canyon_dagger",
@@ -855,7 +855,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 1,
     options: { critMult: 40 },
     weaponType: "dagger",
-    rarity: "unique",
+    noDrop: true,
   },
 
   // 마른땅 갑주 세트 (중갑 3종, setId:"dry_canyon") — 3종 다 착용 시 치명+5·치명피해+0.3×·HP+30.
@@ -869,7 +869,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 26,
     weight: 6,
     options: { hp: 90 },
-    rarity: "unique",
+    noDrop: true,
     setId: "dry_canyon",
   },
   v2_canyon_set_gloves: {
@@ -882,7 +882,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 7,
     weight: 3,
     options: { crit: 8 },
-    rarity: "unique",
+    noDrop: true,
     setId: "dry_canyon",
   },
   v2_canyon_set_boots: {
@@ -895,7 +895,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 6,
     weight: 3,
     options: { spd: 12, eva: 2 },
-    rarity: "unique",
+    noDrop: true,
     setId: "dry_canyon",
   },
 
@@ -954,7 +954,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 6,
     weight: 0,
     options: { critMult: 50, crit: 4 },
-    rarity: "unique",
+    noDrop: true,
     setId: "canyon_sandstorm",
   },
   v2_canyon_sand_necklace: {
@@ -967,7 +967,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 6,
     weight: 0,
     options: { mp: 40, crit: 4 },
-    rarity: "unique",
+    noDrop: true,
     setId: "canyon_sandstorm",
   },
 
@@ -987,7 +987,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
     options: { critMult: 50 },
     weaponType: "greatsword",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_knightblade: {
     id: "v2_lake_knightblade",
@@ -1000,7 +1000,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
     options: { hp: 80 },
     weaponType: "sword_shield",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_rapier: {
     id: "v2_lake_rapier",
@@ -1013,7 +1013,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 6 },
     weaponType: "rapier",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_gauntlet: {
     id: "v2_lake_gauntlet",
@@ -1026,7 +1026,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 3,
     options: { hp: 70 },
     weaponType: "gauntlet",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_claw: {
     id: "v2_lake_claw",
@@ -1039,7 +1039,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 5, spd: 3 },
     weaponType: "claw",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_staff: {
     id: "v2_lake_staff",
@@ -1052,7 +1052,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { mp: 50, crit: 3 },
     weaponType: "staff",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_bow: {
     id: "v2_lake_bow",
@@ -1065,7 +1065,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 5, eva: 3 },
     weaponType: "bow",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_lake_dagger: {
     id: "v2_lake_dagger",
@@ -1078,7 +1078,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 1,
     options: { critMult: 50 },
     weaponType: "dagger",
-    rarity: "unique",
+    noDrop: true,
   },
 
   // 서리 갑주 세트 (공격형 중갑 3종, setId:"frost_plate") — 3종 보너스 치명+5·속도+4·HP+40 (속공 크리).
@@ -1092,7 +1092,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 36,
     weight: 6,
     options: { hp: 120 },
-    rarity: "unique",
+    noDrop: true,
     setId: "frost_plate",
   },
   v2_lake_frost_gloves: {
@@ -1105,7 +1105,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 10,
     weight: 3,
     options: { crit: 10 },
-    rarity: "unique",
+    noDrop: true,
     setId: "frost_plate",
   },
   v2_lake_frost_boots: {
@@ -1118,7 +1118,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 9,
     weight: 3,
     options: { spd: 15, eva: 3 },
-    rarity: "unique",
+    noDrop: true,
     setId: "frost_plate",
   },
 
@@ -1175,7 +1175,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 8,
     weight: 0,
     options: { critMult: 45, eva: 4 },
-    rarity: "unique",
+    noDrop: true,
     setId: "chill_charm",
   },
   v2_lake_chill_necklace: {
@@ -1188,7 +1188,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 8,
     weight: 0,
     options: { mp: 45, eva: 4 },
-    rarity: "unique",
+    noDrop: true,
     setId: "chill_charm",
   },
 
@@ -1208,7 +1208,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
     options: { critMult: 60 },
     weaponType: "greatsword",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_knightblade: {
     id: "v2_cave_knightblade",
@@ -1221,7 +1221,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 4,
     options: { hp: 90 },
     weaponType: "sword_shield",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_rapier: {
     id: "v2_cave_rapier",
@@ -1234,7 +1234,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 7 },
     weaponType: "rapier",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_gauntlet: {
     id: "v2_cave_gauntlet",
@@ -1247,7 +1247,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 3,
     options: { hp: 80 },
     weaponType: "gauntlet",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_claw: {
     id: "v2_cave_claw",
@@ -1260,7 +1260,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 6, spd: 3 },
     weaponType: "claw",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_staff: {
     id: "v2_cave_staff",
@@ -1273,7 +1273,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { mp: 60, crit: 4 },
     weaponType: "staff",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_bow: {
     id: "v2_cave_bow",
@@ -1286,7 +1286,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 2,
     options: { crit: 6, eva: 3 },
     weaponType: "bow",
-    rarity: "unique",
+    noDrop: true,
   },
   v2_cave_dagger: {
     id: "v2_cave_dagger",
@@ -1299,7 +1299,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 1,
     options: { critMult: 60 },
     weaponType: "dagger",
-    rarity: "unique",
+    noDrop: true,
   },
 
   // 심연 갑주 세트 (공격형 중갑 3종, setId:"abyss_plate") — 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터).
@@ -1313,7 +1313,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 48,
     weight: 6,
     options: { hp: 140 },
-    rarity: "unique",
+    noDrop: true,
     setId: "abyss_plate",
   },
   v2_cave_abyss_gloves: {
@@ -1326,7 +1326,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 13,
     weight: 3,
     options: { crit: 12 },
-    rarity: "unique",
+    noDrop: true,
     setId: "abyss_plate",
   },
   v2_cave_abyss_boots: {
@@ -1339,7 +1339,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 12,
     weight: 3,
     options: { spd: 18, eva: 3 },
-    rarity: "unique",
+    noDrop: true,
     setId: "abyss_plate",
   },
 
@@ -1396,7 +1396,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 11,
     weight: 0,
     options: { critMult: 55, mp: 30 },
-    rarity: "unique",
+    noDrop: true,
     setId: "void_charm",
   },
   v2_cave_void_necklace: {
@@ -1409,7 +1409,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     power: 11,
     weight: 0,
     options: { mp: 60, hp: 50 },
-    rarity: "unique",
+    noDrop: true,
     setId: "void_charm",
   },
 

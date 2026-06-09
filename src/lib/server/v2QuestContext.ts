@@ -29,6 +29,8 @@ type CharSave = {
   frontierDepth?: unknown;
   specChoice?: unknown;
   unlockedPassives?: unknown;
+  gold?: unknown;
+  discoveredOutpostIds?: unknown;
 };
 
 type AdventureLog = {
@@ -41,6 +43,7 @@ export type QuestExtras = {
   hasGuild: boolean;
   hasTraded: boolean;
   arenaPlayed: boolean;
+  arenaWins: number;
 };
 
 export function buildQuestCtx(args: {
@@ -92,6 +95,8 @@ export function buildQuestCtx(args: {
     ) + num(advLog.battleLosses);
   const titles = advLog.titles ?? {};
   const bossKills = BOSS_TITLE_IDS.filter((id) => titles[id] != null).length;
+  const titleCount =
+    titles && typeof titles === "object" ? Object.keys(titles).length : 0;
 
   const { owned, equipped } = parseEquipmentSave(args.equipmentRaw);
   const equippedCount = Object.values(equipped).filter(
@@ -101,6 +106,11 @@ export function buildQuestCtx(args: {
     const def = V2_EQUIPMENT[it.id as V2EquipmentId];
     return def ? isUnique(def) : false;
   }).length;
+
+  const gold = num(charSave.gold);
+  const outpostsDiscovered = Array.isArray(charSave.discoveredOutpostIds)
+    ? charSave.discoveredOutpostIds.length
+    : 0;
 
   return {
     class: cls,
@@ -117,6 +127,10 @@ export function buildQuestCtx(args: {
     hasGuild: args.extras.hasGuild,
     hasTraded: args.extras.hasTraded,
     arenaPlayed: args.extras.arenaPlayed,
+    arenaWins: args.extras.arenaWins,
+    gold,
+    outpostsDiscovered,
+    titleCount,
   };
 }
 
@@ -147,10 +161,12 @@ export async function assembleQuestExtras(
       .limit(1),
     readSave(ex, userId, ARENA_HISTORY_KEY, {}),
   ]);
+  const arenaHistory = parseArenaHistory(arenaRaw);
   return {
     hasGuild: guildRows.length > 0,
     hasTraded: tradeRows.length > 0,
-    arenaPlayed: parseArenaHistory(arenaRaw).length > 0,
+    arenaPlayed: arenaHistory.length > 0,
+    arenaWins: arenaHistory.filter((e) => e.outcome === "win").length,
   };
 }
 

@@ -55,6 +55,14 @@ export type QuestCtx = {
   hasTraded: boolean;
   /** 투기장 전투 기록 ≥1. arena-history.v2. */
   arenaPlayed: boolean;
+  /** 투기장 승리 수. arena-history.v2 outcome==='win'. */
+  arenaWins: number;
+  /** 보유 골드. character.v2.gold. */
+  gold: number;
+  /** 발견한 거점 수. character.v2.discoveredOutpostIds. */
+  outpostsDiscovered: number;
+  /** 획득한 칭호 수. adventure-log.v2.titles. */
+  titleCount: number;
 };
 
 export type QuestDef = {
@@ -233,6 +241,50 @@ const SOCIAL: QuestDef[] = [
     reward: { gold: 500 },
     check: (c) => c.arenaPlayed,
   },
+  {
+    id: "s_arena_win",
+    line: "social",
+    title: "투기장의 승자",
+    desc: "투기장에서 1승을 거두세요.",
+    reward: { gold: 700 },
+    check: (c) => c.arenaWins >= 1,
+  },
+];
+
+// ── 수집과 탐험(마일스톤, 독립) ─────────────────────────────────────────────
+const COLLECT: QuestDef[] = [
+  {
+    id: "x_full_gear",
+    line: "collect",
+    title: "완전 무장",
+    desc: "장비 6부위를 모두 장착하세요.",
+    reward: { gold: 400 },
+    check: (c) => c.equippedCount >= 6,
+  },
+  {
+    id: "x_outposts",
+    line: "collect",
+    title: "거점 탐험가",
+    desc: "거점 10곳을 발견하세요.",
+    reward: { gold: 600 },
+    check: (c) => c.outpostsDiscovered >= 10,
+  },
+  {
+    id: "x_rich",
+    line: "collect",
+    title: "재력가",
+    desc: "골드 10,000을 보유하세요.",
+    reward: { gold: 800 },
+    check: (c) => c.gold >= 10000,
+  },
+  {
+    id: "x_titles",
+    line: "collect",
+    title: "칭호 수집가",
+    desc: "칭호 3개를 획득하세요.",
+    reward: { gold: 1000 },
+    check: (c) => c.titleCount >= 3,
+  },
 ];
 
 // ── 정점을 향해(마일스톤, 독립) ─────────────────────────────────────────────
@@ -278,6 +330,30 @@ const ASCEND: QuestDef[] = [
     check: (c) => c.frontierDepth >= 40,
   },
   {
+    id: "a_boss_master",
+    line: "ascend",
+    title: "보스 마스터",
+    desc: "테마 보스 3종을 모두 처치하세요.",
+    reward: { gold: 3000 },
+    check: (c) => c.bossKills >= 3,
+  },
+  {
+    id: "a_unique5",
+    line: "ascend",
+    title: "유니크 컬렉터",
+    desc: "유니크 장비를 5개 이상 수집하세요.",
+    reward: { gold: 2500 },
+    check: (c) => c.uniqueOwned >= 5,
+  },
+  {
+    id: "a_depth48",
+    line: "ascend",
+    title: "프론티어의 끝",
+    desc: "사냥터 깊이 48(마지막 테마 밴드)까지 진출하세요.",
+    reward: { gold: 4000 },
+    check: (c) => c.frontierDepth >= 48,
+  },
+  {
     id: "a_apex",
     line: "ascend",
     title: "정점",
@@ -303,6 +379,12 @@ export const QUEST_LINES: readonly QuestLine[] = [
     sequential: false,
   },
   {
+    id: "collect",
+    name: "수집과 탐험",
+    subtitle: "장비·거점·골드·칭호 — 모으고 누비세요.",
+    sequential: false,
+  },
+  {
     id: "ascend",
     name: "정점을 향해",
     subtitle: "더 깊은 곳과 높은 차수를 향한 마일스톤.",
@@ -314,6 +396,7 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...GROWTH,
   ...CLASS_QUESTS,
   ...SOCIAL,
+  ...COLLECT,
   ...ASCEND,
 ];
 

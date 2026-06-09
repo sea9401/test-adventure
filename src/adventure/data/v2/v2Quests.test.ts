@@ -28,6 +28,10 @@ const ZERO: QuestCtx = {
   hasGuild: false,
   hasTraded: false,
   arenaPlayed: false,
+  arenaWins: 0,
+  gold: 0,
+  outpostsDiscovered: 0,
+  titleCount: 0,
 };
 
 const none = new Set<string>();
@@ -176,6 +180,41 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     expect(isQuestClaimable(questById("a_depth40")!, ctx, none)).toBe(true);
     expect(questStatus(questById("a_boss")!, ctx, none)).toBe("active");
   });
+
+  it("배치2 정점 — 보스 마스터(3종)·유니크 5·깊이 48", () => {
+    expect(
+      isQuestClaimable(questById("a_boss_master")!, { ...ZERO, bossKills: 3 }, none),
+    ).toBe(true);
+    // 보스 1종만으론 미충족.
+    expect(questStatus(questById("a_boss_master")!, { ...ZERO, bossKills: 1 }, none)).toBe("active");
+    expect(
+      isQuestClaimable(questById("a_unique5")!, { ...ZERO, uniqueOwned: 5 }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(questById("a_depth48")!, { ...ZERO, frontierDepth: 48 }, none),
+    ).toBe(true);
+  });
+});
+
+describe("배치2 — 수집과 탐험 + 사회 추가", () => {
+  it("완전 무장 / 거점 / 골드 / 칭호", () => {
+    expect(isQuestClaimable(questById("x_full_gear")!, { ...ZERO, equippedCount: 6 }, none)).toBe(true);
+    expect(questStatus(questById("x_full_gear")!, { ...ZERO, equippedCount: 5 }, none)).toBe("active");
+    expect(isQuestClaimable(questById("x_outposts")!, { ...ZERO, outpostsDiscovered: 10 }, none)).toBe(true);
+    expect(isQuestClaimable(questById("x_rich")!, { ...ZERO, gold: 10000 }, none)).toBe(true);
+    expect(isQuestClaimable(questById("x_titles")!, { ...ZERO, titleCount: 3 }, none)).toBe(true);
+  });
+
+  it("투기장 승리 — arenaWins 기반(플레이만으론 미충족)", () => {
+    expect(isQuestClaimable(questById("s_arena_win")!, { ...ZERO, arenaWins: 1 }, none)).toBe(true);
+    expect(questStatus(questById("s_arena_win")!, { ...ZERO, arenaPlayed: true }, none)).toBe("active");
+  });
+
+  it("수집과 탐험은 전 직군 공통(직업 전용 아님)", () => {
+    const mage = { ...ZERO, class: "mage" as const };
+    const lines = deriveQuestViews(mage, none).map((v) => v.line);
+    expect(lines).toContain("collect");
+  });
 });
 
 describe("currentGuideQuest (홈 배너)", () => {
@@ -190,7 +229,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       tier: 2,
       battleCount: 99,
       frontierDepth: 14,
-      equippedCount: 6,
+      equippedCount: 1, // 6 미만 — x_full_gear(수집) 이 claimable 안 되게(라인 우선순위 검증용)
       cultivations: 2,
     };
     const growthClaimed = new Set(
@@ -208,7 +247,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       specChosen: true,
       passivePicks: 3,
       battleCount: 999,
-      frontierDepth: 40,
+      frontierDepth: 48,
       equippedCount: 6,
       uniqueOwned: 5,
       cultivations: 9,
@@ -216,6 +255,10 @@ describe("currentGuideQuest (홈 배너)", () => {
       hasGuild: true,
       hasTraded: true,
       arenaPlayed: true,
+      arenaWins: 3,
+      gold: 20000,
+      outpostsDiscovered: 20,
+      titleCount: 5,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();

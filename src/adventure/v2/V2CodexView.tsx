@@ -25,8 +25,16 @@ import {
   dropPoolForDepth,
   type FloorEquipDropPool,
 } from "@/adventure/data/v2/dungeonEquipDrops";
-import { uniqueIdsForDepthRange } from "@/adventure/data/v2/dungeonUniqueDrops";
-import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import {
+  uniqueIdsForDepthRange,
+  bandCommonPoolForDepth,
+  bandCommonChance,
+} from "@/adventure/data/v2/dungeonUniqueDrops";
+import {
+  V2_EQUIPMENT,
+  isUnique,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
 import {
   FISH,
   FISH_IDS,
@@ -86,18 +94,29 @@ const TIER_BADGE: Record<FishTier, string> = {
 
 type CodexTab = "huntground" | "materials" | "fish" | "treasure";
 
-// 장비 드랍 풀 → 티어별 처치당 확률(pool.chance 를 tierWeights 비율로 분배).
-function equipTierChances(
-  pool: FloorEquipDropPool,
-): { tier: number; pct: number }[] {
-  const total = Object.values(pool.tierWeights).reduce(
-    (a, b) => a + (b ?? 0),
-    0,
+// 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
+function equipPoolChance(pool: FloorEquipDropPool): number {
+  return pool.chance;
+}
+
+// 스타터 풀(깊이 1~12)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 티어 가중 후 무작위 슬롯·컨셉으로
+//   뽑히므로 그 티어들의 그리드 전 종류가 후보. 유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
+function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
+  const tiers = new Set(
+    Object.entries(pool.tierWeights)
+      .filter(([, w]) => (w ?? 0) > 0)
+      .map(([t]) => Number(t)),
   );
-  if (total <= 0) return [];
-  return Object.entries(pool.tierWeights)
-    .map(([t, w]) => ({ tier: Number(t), pct: (pool.chance * (w ?? 0)) / total }))
-    .sort((a, b) => a.tier - b.tier);
+  return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[]).filter((id) => {
+    const it = V2_EQUIPMENT[id];
+    return (
+      tiers.has(it.tier) &&
+      !isUnique(it) &&
+      !it.craftOnly &&
+      !it.starterOnly &&
+      !it.noDrop
+    );
+  });
 }
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
@@ -229,11 +248,32 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           <div className="space-y-3">
             {themes.map((theme) => {
               const pool = dropPoolForDepth(theme.depthStart);
-              const tiers = pool ? equipTierChances(pool) : [];
+              const band = bandCommonPoolForDepth(theme.depthStart);
               const uniqueIds = uniqueIdsForDepthRange(
                 theme.depthStart,
                 theme.depthEnd,
               );
+              // 일반 장비 드랍 목록 — 밴드 흔한 13종(13~48) 또는 스타터 그리드(1~12). + 처치당 확률 라벨.
+              const regularIds: V2EquipmentId[] = band
+                ? band.ids
+                : pool
+                  ? starterGridIds(pool)
+                  : [];
+              const regularChance = band
+                ? (() => {
+                    const lo = bandCommonChance(
+                      theme.depthStart - band.minDepth + 1,
+                    );
+                    const hi = bandCommonChance(
+                      theme.depthEnd - band.minDepth + 1,
+                    );
+                    return lo === hi
+                      ? `처치당 ${(lo * 100).toFixed(1)}%`
+                      : `처치당 ${(lo * 100).toFixed(1)}~${(hi * 100).toFixed(1)}%`;
+                  })()
+                : pool
+                  ? `처치당 ${(equipPoolChance(pool) * 100).toFixed(0)}% · 무작위 1종`
+                  : "";
               return (
                 <Card key={theme.name} padding="md">
                   <div className="mb-2 flex items-baseline justify-between gap-2 border-b border-zinc-200 pb-1.5 dark:border-zinc-800">
@@ -300,31 +340,63 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                     })}
                   </div>
 
-                  {/* 드랍 — 장비 풀(티어 확률) + 유니크. */}
-                  <div className="mt-2.5 space-y-1 border-t border-zinc-200 pt-2 text-xs dark:border-zinc-800">
-                    <div className="flex gap-1.5">
-                      <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
-                        장비
-                      </span>
-                      <span className="text-zinc-700 dark:text-zinc-200">
-                        {tiers.length > 0
-                          ? `처치당 ${tiers
-                              .map((t) => `T${t.tier} ${formatChance(t.pct)}`)
-                              .join(" · ")} (무작위 슬롯·컨셉)`
-                          : "일반 장비 드랍 없음 (밴드 콘텐츠 준비 중)"}
-                      </span>
+                  {/* 드랍 — 일반 장비 목록 + 유니크 목록(아이템명 칩). */}
+                  <div className="mt-2.5 space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                    <div>
+                      <div className="mb-1 flex items-baseline gap-1.5">
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          장비
+                        </span>
+                        {regularIds.length > 0 && (
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                            {regularChance}
+                          </span>
+                        )}
+                      </div>
+                      {regularIds.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {regularIds.map((id) => (
+                            <span
+                              key={id}
+                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                            >
+                              {V2_EQUIPMENT[id]?.name ?? id}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                          일반 장비 드랍 없음
+                        </span>
+                      )}
                     </div>
-                    <div className="flex gap-1.5">
-                      <span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">
-                        유니크
-                      </span>
-                      <span className="text-zinc-700 dark:text-zinc-200">
-                        {uniqueIds.length > 0
-                          ? `${uniqueIds
-                              .map((id) => V2_EQUIPMENT[id]?.name ?? id)
-                              .join(", ")} (매우 낮은 확률)`
-                          : "없음"}
-                      </span>
+                    <div>
+                      <div className="mb-1 flex items-baseline gap-1.5">
+                        <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                          유니크
+                        </span>
+                        {uniqueIds.length > 0 && (
+                          <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                            매우 낮은 확률
+                          </span>
+                        )}
+                      </div>
+                      {uniqueIds.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {uniqueIds.map((id) => (
+                            <span
+                              key={id}
+                              className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                            >
+                              {V2_EQUIPMENT[id]?.name ?? id}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                          없음
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Card>

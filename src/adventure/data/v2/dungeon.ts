@@ -42,11 +42,11 @@ const FLOOR2_ENEMIES: DungeonEnemy[] = [
 
 // 마른 협곡 — 땅·바람·번개 + 무. 능력 2/5(강타·관통). (테마 순서·깊이는 DUNGEON_THEMES)
 const BAND_A_CANYON_ENEMIES: DungeonEnemy[] = [
-  { key: "모래도마뱀", name: "모래도마뱀", image: "/images/monster/v2/field-grass-snake.webp", element: "earth" },
-  { key: "협곡 도적", name: "협곡 도적", image: "/images/monster/v2/mountain-brigand.webp" },
+  { key: "모래도마뱀", name: "모래도마뱀", image: "/images/monster/v2/canyon-sand-lizard.webp", element: "earth" },
+  { key: "협곡 도적", name: "협곡 도적", image: "/images/monster/v2/canyon-bandit.webp" },
   { key: "바위 골렘", name: "바위 골렘", image: "/images/monster/v2/volcano-ash-golem.webp", element: "earth" },
   { key: "회오리 매", name: "회오리 매", image: "/images/monster/v2/volcano-firebird.webp", element: "wind" },
-  { key: "스파크 전갈", name: "스파크 전갈", image: "/images/monster/v2/field-spider.webp", element: "lightning" },
+  { key: "스파크 전갈", name: "스파크 전갈", image: "/images/monster/v2/canyon-spark-scorpion.webp", element: "lightning" },
 ];
 
 // 얼음 호수 — water·wind, 둔중·탱키. statusSkill 한기(둔화) ×2.
@@ -87,7 +87,7 @@ const BAND_E_SWAMP_ENEMIES: DungeonEnemy[] = [
 
 // 짐승의 소굴 — 자연 혼합+void 정예, 고공격·관통 강. 능력 5/5. (마지막 테마 = 무한 반복)
 const BAND_F_DEN_ENEMIES: DungeonEnemy[] = [
-  { key: "거대 곰", name: "거대 곰", image: "/images/monster/v2/forest-bear.webp", element: "earth" },
+  { key: "거대 곰", name: "거대 곰", image: "/images/monster/v2/den-giant-bear.webp", element: "earth" },
   { key: "우두머리 늑대", name: "우두머리 늑대", image: "/images/monster/v2/forest-grey-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
   { key: "화염 표범", name: "화염 표범", image: "/images/monster/v2/field-wildcat.webp", element: "fire" },
   { key: "뇌격 들소", name: "뇌격 들소", image: "/images/monster/v2/forest-boar.webp", element: "lightning" },

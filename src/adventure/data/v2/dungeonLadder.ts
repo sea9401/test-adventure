@@ -4,10 +4,10 @@
 // (페이싱 붕괴)하므로, 깊은 산(floor 2, 권장 파워 110)을 앵커로 **공식에서 자동 산출**한다.
 //
 // 페이싱(§5.1): K(사냥터당 루프)=2 → 게이트 간격 40(power/루프 ~20 가정). 루프 시간은
-//   프론티어(최상위) 기준 ~5일, 저티어는 더뎌도 OK. exp 곡선 = 램프(볼록) 후 플래토
-//   (프론티어 5일 수렴·분단위 붕괴 방지). 몹 스탯은 hp/atk 선형·def 댐핑(관통 0 절벽 회피).
+//   프론티어(최상위) 기준 ~5일, 저티어는 더뎌도 OK. exp 곡선 = 램프(볼록) 후 소프트캡에서
+//   선형 우상향(깊을수록 보상↑·분단위 붕괴 방지). 몹 스탯은 hp/atk 선형·def 댐핑(관통 0 절벽 회피).
 //
-// ⚠️ 계수(STEP·DEF_DAMP·EXP_EXP·EXP_PLATEAU)는 전부 임시 — sim-v2-exp-pacing /
+// ⚠️ 계수(STEP·DEF_DAMP·EXP_EXP·EXP_SOFTCAP·EXP_POST_SLOPE)는 전부 임시 — sim-v2-exp-pacing /
 //   sim-v2-progression 으로 "프론티어 = 5일" 역산해 캘리브할 대상.
 //
 // 단일 무한 프론티어 모델 + 테마당 6깊이(THEME_DEPTH_SPAN): 깊이 1~6=들판(온보딩)·
@@ -16,8 +16,9 @@
 // ⚠️ 전곡선 평탄화(2026-06-07): 옛 모델은 들판(1~6)만 ×1.0→×1.3 완만이고 깊이 7부터 앵커
 //   사다리(110+(d−2)×40)로 점프해, 들판6→깊은산1 경계에서 statMult 1.3→2.82·exp 1.69→7.94
 //   (×4.7) 절벽이 났다("경험치 차이 너무 큼"). 들판 끝(1.3)에서 깊이당 +LADDER_STAT_STEP 단일
-//   램프로 통합 — 들판~프론티어 전 구간 곡선·exp 가 절벽 없이 매끄럽게 이어진다. exp 플래토 캡
-//   (LADDER_EXP_PLATEAU)은 그대로라 프론티어(플래토) cadence 보존, 램프(들판→캡)만 완만해짐.
+//   램프로 통합 — 들판~프론티어 전 구간 곡선·exp 가 절벽 없이 매끄럽게 이어진다. exp 소프트캡
+//   (LADDER_EXP_SOFTCAP)까지 cadence 보존 — 단 그 이후는 평평(plateau)이 아니라 깊이 따라
+//   계속 우상향한다(2026-06-09, "깊을수록 보상↑". floorExpMult 참고).
 
 const FLOOR1_POWER = 50; // 들판(깊이 1) — authored
 
@@ -29,8 +30,8 @@ export const ONBOARDING_MAX_STAT_MULT = 1.3; // 들판 6 스탯 배율 상한(�
 // 깊이 7+ 램프 — 들판 끝(statMult 1.3·power 95)에서 이어지는 단일 완만 선형(2026-06-07 전곡선
 //   평탄화). 옛 앵커 점프(깊이7 statMult 1.3→2.82·exp 1.69→7.94 절벽) 제거 → 들판~프론티어
 //   전 구간 곡선·exp 가 매끄럽게 이어진다. statMult 가 1차 동인, powerGate(=권장파워, 매칭레벨)는
-//   비례 파생(난이도 ↔ 레벨 균형 유지). def/exp 도 statMult 파생. exp 플래토 캡은 그대로라
-//   프론티어(플래토) cadence 보존 — 램프(들판→캡)만 완만해진다. ← 튜닝 다이얼.
+//   비례 파생(난이도 ↔ 레벨 균형 유지). def/exp 도 statMult 파생. exp 는 소프트캡까지 동일
+//   cadence·이후 깊이 따라 우상향(깊을수록 보상↑). ← 튜닝 다이얼.
 export const LADDER_STAT_STEP = 0.6; // 깊이당 statMult 증가(들판 0.06 대비 완만 램프)
 // 권장파워(매칭레벨) = statMult × 110. 110 은 옛 난이도 캘리브 상수(statMult=powerGate/110 →
 // at-level 100% 클리어). 플레이어 파워는 레벨에 초선형이라 이 결합비를 낮추면(예 73) 같은 몹도
@@ -73,16 +74,24 @@ export function floorDefMult(depth: number): number {
   return Math.pow(floorStatMult(depth), LADDER_DEF_DAMP);
 }
 
-// exp 배율 — 램프(볼록) 후 플래토. 들판(1~6)은 난이도 따라 완만(낮음), 깊을수록 가속 →
-// 상단 캡에서 수렴(프론티어 ~5일, 분단위 붕괴 방지). statMult 에서 파생.
-export const LADDER_EXP_EXP = 2.0; // 볼록 지수
-// 상단 캡(프론티어 cadence 고정). sim-v2-exp-pacing 캘리브(2026-06-05): 10→13 = 프론티어
-// (플래토, 깊이 10+) 루프 ~5.1일(현 XP_RATE 4 유지). loop일수 ∝ 1/캡.
-export const LADDER_EXP_PLATEAU = 13;
+// exp 배율 — 초반 볼록 램프 후 소프트캡에서 선형 우상향(평평 아님). 들판(1~6)은 완만(낮음),
+// 깊을수록 가속해 소프트캡 도달 후엔 깊이 따라 계속 오른다(깊을수록 보상↑). statMult 에서 파생.
+export const LADDER_EXP_EXP = 2.0; // 볼록 지수 (초반 램프)
+// 소프트캡 — 볼록 램프(들판→깊이~10)가 여기서 "선형 우상향"으로 꺾인다. 옛날엔 여기서 평평하게
+// 캡(plateau)이라 밴드 A~F 보상이 전부 같았다(깊이=보상 동기 없음·깊을수록 시간당 보상↓).
+// 2026-06-09: 캡 대신, 소프트캡 이후 깊이 따라 계속 오르게 해 "깊을수록 보상↑"(난이도 비례).
+// 소프트캡 값 13 유지 → 거기까지 cadence 동일(sim-v2-exp-pacing 캘리브 보존). 이후 기울기=POST_SLOPE.
+export const LADDER_EXP_SOFTCAP = 13;
+// 소프트캡 이후 statMult 1 증가당 추가되는 exp 배율(선형, 상한 없음). statMult 는 깊이당 +0.6(STEP)
+// 이라 깊이당 ≈ +(POST_SLOPE×0.6) exp배율. 0 이면 옛 플래토(평평)와 동일, 키우면 깊이 보상 가팔라짐.
+// gold = 몹 exp×4 라 이 다이얼이 깊이별 골드 곡선도 함께 결정. ⚠️프론티어 cadence 다이얼 — 라이브/sim 재캘리브.
+export const LADDER_EXP_POST_SLOPE = 1.0;
 export function floorExpMult(depth: number): number {
   if (depth <= 1) return 1;
-  return Math.min(
-    Math.pow(floorStatMult(depth), LADDER_EXP_EXP),
-    LADDER_EXP_PLATEAU,
-  );
+  const sMult = floorStatMult(depth);
+  const convex = Math.pow(sMult, LADDER_EXP_EXP);
+  if (convex <= LADDER_EXP_SOFTCAP) return convex; // 소프트캡 전 — 기존과 동일(byte-exact)
+  // 소프트캡 이후 — statMult 에 선형 비례해 계속 우상향(평평하지 않음).
+  const sMultAtCap = Math.pow(LADDER_EXP_SOFTCAP, 1 / LADDER_EXP_EXP); // √13 ≈ 3.606
+  return LADDER_EXP_SOFTCAP + (sMult - sMultAtCap) * LADDER_EXP_POST_SLOPE;
 }

@@ -6,7 +6,7 @@ import {
   floorExpMult,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
-  LADDER_EXP_PLATEAU,
+  LADDER_EXP_SOFTCAP,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
 
@@ -50,17 +50,22 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
     }
   });
 
-  it("exp 배율 — 전 구간 완만 램프(볼록) 후 플래토 캡, 경계 절벽 없음", () => {
+  it("exp 배율 — 초반 볼록 램프 후 소프트캡에서 선형 우상향(평평하지 않음, 경계 절벽 없음)", () => {
     expect(floorExpMult(1)).toBe(1);
     // 들판→깊은 산 경계 — 옛 절벽(×4.7) 대비 절반 이하로 완만.
     expect(floorExpMult(7)).toBeGreaterThan(floorExpMult(6));
     expect(floorExpMult(7) / floorExpMult(6)).toBeLessThan(2.5);
-    // 볼록: 캡 전은 statMult²
+    // 소프트캡 전은 볼록(statMult²)
     expect(floorExpMult(7)).toBeCloseTo(Math.pow(floorStatMult(7), 2), 5);
-    // 플래토 — 어떤 깊이도 캡 초과 안 함, 깊은 깊이는 캡에 닿음
-    for (const f of FLOORS) {
-      expect(floorExpMult(f)).toBeLessThanOrEqual(LADDER_EXP_PLATEAU);
+    // 소프트캡 이후 — 평평(plateau)이 아니라 깊이 따라 계속 상승(밴드 A~F 보상 차등).
+    expect(floorExpMult(30)).toBeGreaterThan(LADDER_EXP_SOFTCAP);
+    expect(floorExpMult(48)).toBeGreaterThan(floorExpMult(30));
+    expect(floorExpMult(30)).toBeGreaterThan(floorExpMult(20));
+    // 전 구간 단조 증가(절벽 없음) — 소프트캡 경계 포함.
+    for (let d = 2; d <= 60; d++) {
+      expect(floorExpMult(d)).toBeGreaterThan(floorExpMult(d - 1));
     }
-    expect(floorExpMult(30)).toBe(LADDER_EXP_PLATEAU); // 깊은 깊이(statMult²>캡)는 캡
+    // 소프트캡 경계 연속성 — 기울기는 꺾이되 점프(절벽) 없음.
+    expect(floorExpMult(10) / floorExpMult(9)).toBeLessThan(1.5);
   });
 });

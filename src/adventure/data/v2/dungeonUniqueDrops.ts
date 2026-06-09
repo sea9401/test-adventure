@@ -14,8 +14,8 @@
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 50종(레거시 6 + 밴드 유니크 41 + 보스 3).
-//   밴드 흔한 39종은 noDrop normal 로 분리(BAND_COMMON_POOLS) — 유니크 아님.
+// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 87종(레거시 6 + 밴드 유니크 78 + 보스 3).
+//   밴드 흔한 78종은 noDrop normal 로 분리(BAND_COMMON_POOLS) — 유니크 아님.
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
 ).filter((id) => isUnique(V2_EQUIPMENT[id]));
@@ -145,6 +145,66 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_cave_void_necklace",
     ],
   },
+  {
+    // 잊힌 성소(밴드 D, 31~36) 흔한 13: 무기 8 + 별무리 갑주 세트 3 + 성운 장신구 2.
+    minDepth: 31,
+    maxDepth: 36,
+    ids: [
+      "v2_sanctum_greatsword",
+      "v2_sanctum_knightblade",
+      "v2_sanctum_rapier",
+      "v2_sanctum_gauntlet",
+      "v2_sanctum_claw",
+      "v2_sanctum_staff",
+      "v2_sanctum_bow",
+      "v2_sanctum_dagger",
+      "v2_sanctum_set_armor",
+      "v2_sanctum_set_gloves",
+      "v2_sanctum_set_boots",
+      "v2_sanctum_arcana_ring",
+      "v2_sanctum_arcana_necklace",
+    ],
+  },
+  {
+    // 리자드 늪지(밴드 E, 37~42) 흔한 13: 무기 8 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
+    minDepth: 37,
+    maxDepth: 42,
+    ids: [
+      "v2_swamp_greatsword",
+      "v2_swamp_knightblade",
+      "v2_swamp_rapier",
+      "v2_swamp_gauntlet",
+      "v2_swamp_claw",
+      "v2_swamp_staff",
+      "v2_swamp_bow",
+      "v2_swamp_dagger",
+      "v2_swamp_set_armor",
+      "v2_swamp_set_gloves",
+      "v2_swamp_set_boots",
+      "v2_swamp_heart_ring",
+      "v2_swamp_heart_necklace",
+    ],
+  },
+  {
+    // 짐승의 소굴(밴드 F, 43~48) 흔한 13: 무기 8 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
+    minDepth: 43,
+    maxDepth: 48,
+    ids: [
+      "v2_den_greatsword",
+      "v2_den_knightblade",
+      "v2_den_rapier",
+      "v2_den_gauntlet",
+      "v2_den_claw",
+      "v2_den_staff",
+      "v2_den_bow",
+      "v2_den_dagger",
+      "v2_den_set_armor",
+      "v2_den_set_gloves",
+      "v2_den_set_boots",
+      "v2_den_alpha_ring",
+      "v2_den_alpha_necklace",
+    ],
+  },
 ];
 
 // 흔한 밴드 장비 드랍률 — 밴드 내 로컬 깊이(1~6)로 램프. 깊을수록 잘 나옴. ⚠️ 캘리브 다이얼.
@@ -238,6 +298,67 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_cave_onyx_gloves",
       "v2_cave_drift_boots",
       "v2_cave_drift_necklace",
+    ],
+  },
+  {
+    // 잊힌 성소(밴드 D, 31~36) 유니크 12: 성소 수호구 3 + 별점 비전 2 + 성벽의 계시 3 + 사이드그레이드 2 + 성광 보행 2.
+    minDepth: 31,
+    maxDepth: 36,
+    chance: 0.01,
+    ids: [
+      "v2_sanctum_bulwark_armor",
+      "v2_sanctum_bulwark_gloves",
+      "v2_sanctum_bulwark_boots",
+      "v2_sanctum_astral_staff",
+      "v2_sanctum_astral_necklace",
+      "v2_sanctum_revelation_sword",
+      "v2_sanctum_revelation_armor",
+      "v2_sanctum_revelation_ring",
+      "v2_sanctum_anchor_armor",
+      "v2_sanctum_nova_ring",
+      "v2_sanctum_lumen_gloves",
+      "v2_sanctum_lumen_boots",
+    ],
+  },
+  {
+    // 리자드 늪지(밴드 E, 37~42) 유니크 12: 수렁 수호구 3 + 맹독 군주 3 + 진흙 금강 2 + 사이드그레이드 2 + 이끼 보호 2.
+    minDepth: 37,
+    maxDepth: 42,
+    chance: 0.01,
+    ids: [
+      "v2_swamp_bulwark_armor",
+      "v2_swamp_bulwark_gloves",
+      "v2_swamp_bulwark_boots",
+      "v2_swamp_venomlord_dagger",
+      "v2_swamp_venomlord_ring",
+      "v2_swamp_venomlord_necklace",
+      "v2_swamp_vajra_gauntlet",
+      "v2_swamp_vajra_boots",
+      "v2_swamp_mire_boots",
+      "v2_swamp_bruiser_armor",
+      "v2_swamp_moss_armor",
+      "v2_swamp_moss_gloves",
+    ],
+  },
+  {
+    // 짐승의 소굴(밴드 F, 43~48) 유니크 13: 공허 수호구 3 + 공허 사냥꾼 3 + 야수쇄도 2 + 사이드그레이드 3 + 맹수 보행 2.
+    minDepth: 43,
+    maxDepth: 48,
+    chance: 0.01,
+    ids: [
+      "v2_den_void_armor",
+      "v2_den_void_gloves",
+      "v2_den_void_boots",
+      "v2_den_hunter_claw",
+      "v2_den_hunter_ring",
+      "v2_den_hunter_necklace",
+      "v2_den_rush_greatsword",
+      "v2_den_rush_gloves",
+      "v2_den_mauler_gloves",
+      "v2_den_ghost_boots",
+      "v2_den_hide_armor",
+      "v2_den_beastgait_boots",
+      "v2_den_beastgait_necklace",
     ],
   },
 ];

@@ -52,20 +52,20 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     }
   });
 
-  it("드랍률 램프 — 밴드 로컬 깊이 1·2=2% / 3·4=3% / 5·6=4%", () => {
-    expect(bandCommonChance(1)).toBe(0.02);
-    expect(bandCommonChance(2)).toBe(0.02);
-    expect(bandCommonChance(3)).toBe(0.03);
-    expect(bandCommonChance(4)).toBe(0.03);
-    expect(bandCommonChance(5)).toBe(0.04);
-    expect(bandCommonChance(6)).toBe(0.04);
+  it("드랍률 램프 — 밴드 로컬 깊이 1·2=0.5% / 3·4=0.7% / 5·6=0.9%", () => {
+    expect(bandCommonChance(1)).toBe(0.005);
+    expect(bandCommonChance(2)).toBe(0.005);
+    expect(bandCommonChance(3)).toBe(0.007);
+    expect(bandCommonChance(4)).toBe(0.007);
+    expect(bandCommonChance(5)).toBe(0.009);
+    expect(bandCommonChance(6)).toBe(0.009);
   });
 
   it("rollBandCommonDrop — 깊이별 chance 로 통과/실패, 통과 시 흔한 후보 반환", () => {
     const canyon = bandCommonPoolForDepth(13)!;
-    expect(rollBandCommonDrop(13, seqRng([0.01, 0]))).toBe(canyon.ids[0]); // 로컬1 0.02 통과
-    expect(rollBandCommonDrop(13, () => 0.03)).toBeNull(); // 0.03≥0.02 실패
-    expect(rollBandCommonDrop(17, seqRng([0.03, 0]))).toBe(canyon.ids[0]); // 로컬5 0.04 통과
+    expect(rollBandCommonDrop(13, seqRng([0.001, 0]))).toBe(canyon.ids[0]); // 로컬1 0.005 통과
+    expect(rollBandCommonDrop(13, () => 0.03)).toBeNull(); // 0.03≥0.005 실패
+    expect(rollBandCommonDrop(17, seqRng([0.005, 0]))).toBe(canyon.ids[0]); // 로컬5 0.009 통과
   });
 
   it("밴드 밖 깊이 → rng 미소비하고 null (rollEquipDrop 결과와 ?? 합성 안전)", () => {
@@ -142,8 +142,8 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
     expect(canyon).toBeDefined();
     expect(canyon.maxDepth).toBe(18);
     expect(canyon.ids).toHaveLength(11);
-    // chance 0.01 고정(흔한 장비와 별개·어디서나 귀함). 흔한 13종은 BAND_COMMON_POOLS.
-    expect(canyon.chance).toBe(0.01);
+    // chance 0.005 고정(흔한 장비와 별개·어디서나 귀함). 흔한 13종은 BAND_COMMON_POOLS.
+    expect(canyon.chance).toBe(0.005);
   });
 
   it("마른 협곡 깊이 매칭 — 12 이하는 null(레거시 층 롤과 비중복), 13~18 캐년", () => {
@@ -187,7 +187,7 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호�
     expect(lake).toBeDefined();
     expect(lake.maxDepth).toBe(24);
     expect(lake.ids).toHaveLength(13);
-    expect(lake.chance).toBe(0.01);
+    expect(lake.chance).toBe(0.005);
   });
 
   it("깊이 매칭 — 18 이하는 호수 아님, 19~24 만 매칭(25+는 다음 밴드)", () => {
@@ -217,7 +217,7 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동�
     expect(cave).toBeDefined();
     expect(cave.maxDepth).toBe(30);
     expect(cave.ids).toHaveLength(17);
-    expect(cave.chance).toBe(0.01);
+    expect(cave.chance).toBe(0.005);
   });
 
   it("깊이 매칭 — 24 이하는 동굴 아님, 25~30 만 매칭(31+는 다음 밴드)", () => {
@@ -248,8 +248,8 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 잊힌 성�
     expect(sanctum).toBeDefined();
     expect(sanctum.maxDepth).toBe(36);
     expect(sanctum.ids).toHaveLength(12);
-    expect(sanctum.chance).toBe(0.01);
-    expect(sanctum.chance / sanctum.ids.length).toBeCloseTo(0.01 / 12);
+    expect(sanctum.chance).toBe(0.005);
+    expect(sanctum.chance / sanctum.ids.length).toBeCloseTo(0.005 / 12);
   });
 
   it("깊이 매칭 — 30 이하는 성소 아님, 31~36 만 매칭(37+는 다음 밴드)", () => {
@@ -274,8 +274,8 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 리자드 �
     expect(swamp).toBeDefined();
     expect(swamp.maxDepth).toBe(42);
     expect(swamp.ids).toHaveLength(12);
-    expect(swamp.chance).toBe(0.01);
-    expect(swamp.chance / swamp.ids.length).toBeCloseTo(0.01 / 12);
+    expect(swamp.chance).toBe(0.005);
+    expect(swamp.chance / swamp.ids.length).toBeCloseTo(0.005 / 12);
   });
 
   it("깊이 매칭 — 36 이하는 늪지 아님, 37~42 만 매칭(43+는 다음 밴드)", () => {
@@ -298,8 +298,8 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 짐승의 �
     expect(den).toBeDefined();
     expect(den.maxDepth).toBe(48);
     expect(den.ids).toHaveLength(13);
-    expect(den.chance).toBe(0.01);
-    expect(den.chance / den.ids.length).toBeCloseTo(0.01 / 13);
+    expect(den.chance).toBe(0.005);
+    expect(den.chance / den.ids.length).toBeCloseTo(0.005 / 13);
   });
 
   it("깊이 매칭 — 42 이하는 소굴 아님, 43~48 만 매칭, 49 이상은 null", () => {

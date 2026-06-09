@@ -6,8 +6,8 @@
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
 //   ② 심층 밴드 풀(깊이 범위 키): 프론티어 밴드 드랍. 2026-06-09 흔한/유니크 분리 —
 //      BAND_COMMON_POOLS(흔한 밴드 장비, 밴드당 13종: 무기 8 + 기본세트 3 + 기본장신구 2, noDrop
-//      normal, 로컬 깊이 램프 2~4%) + BAND_UNIQUE_POOLS(특화세트+사이드그레이드+추가 2피스, 협곡 11·
-//      호수 13·동굴 17 = 41종, chance 0.01 고정). 신규 밴드는 두 풀에 항목 1개씩 추가.
+//      normal, 로컬 깊이 램프 0.5~0.9%) + BAND_UNIQUE_POOLS(특화세트+사이드그레이드+추가 2피스,
+//      chance 0.005 고정). 신규 밴드는 두 풀에 항목 1개씩 추가.
 //
 // 밴드 드랍은 중복 허용(보유분 포함 균등 pick). 레거시 층 유니크만 id당 1개(ownedSet 제외).
 
@@ -65,14 +65,14 @@ export function rollUniqueDrop(
 // 밴드 콘텐츠 전용 유니크 드랍. 마른 협곡(13~18)부터.
 //
 // pool.chance = 풀 통과(총 드랍률). 통과 시 전 종류 균등 pick → 1종당 chance/len.
-//   chance = 1회 사냥당 총 드랍률(현 0.01 = 1%), 1종당 chance/len(16종 → ≈0.06%). **중복 드랍 허용**
+//   chance = 1회 사냥당 총 드랍률(현 0.005 = 0.5%), 1종당 chance/len. **중복 드랍 허용**
 //   (2026-06-08): 보유분 포함 전 종류 균등이라 같은 종류도 새 굴림으로 재드랍(god-roll/편차 추격),
-//   다 모아도 드랍 계속. ← 드랍률 다이얼(2026-06-08 0.08→0.01: 8%/판이 과해 1%/판으로 하향).
+//   다 모아도 드랍 계속. ← 드랍률 다이얼(0.08→0.01→0.005: 라이브 체감 과해 단계적 하향, 2026-06-09).
 // 밴드 장비를 흔한(normal·드랍 전용)/유니크(특화·추격) 두 풀로 분리(2026-06-09). 옛 BAND_UNIQUE_POOLS
 //   는 밴드 전 장비를 rarity:"unique" 로 묶어 "전부 유니크 취급"이 됐다. 이제:
 //   - 흔한 13종/밴드(무기 8 + 기본 방어세트 3 + 기본 장신구 2) = noDrop normal. 빵앤버터 진행 장비.
-//     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→2% / 3·4→3% / 5·6→4%). droppedEquipment 슬롯.
-//   - 유니크 = 특화 세트(맹독/마법/방어비례/금강) + 컨셉 사이드그레이드 + 추가 2피스 세트. chance 0.01
+//     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→0.5% / 3·4→0.7% / 5·6→0.9%). droppedEquipment 슬롯.
+//   - 유니크 = 특화 세트(맹독/마법/방어비례/금강) + 컨셉 사이드그레이드 + 추가 2피스 세트. chance 0.005
 //     고정(어디서나 귀함·종당으로도 흔한보다 귀하게). droppedUnique 슬롯. 흔한과 별개 굴림(둘 다 가능).
 export type BandPool = {
   /** 밴드 시작 깊이(포함). */
@@ -209,9 +209,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
 
 // 흔한 밴드 장비 드랍률 — 밴드 내 로컬 깊이(1~6)로 램프. 깊을수록 잘 나옴. ⚠️ 캘리브 다이얼.
 export function bandCommonChance(localDepth: number): number {
-  if (localDepth <= 2) return 0.02;
-  if (localDepth <= 4) return 0.03;
-  return 0.04;
+  if (localDepth <= 2) return 0.005;
+  if (localDepth <= 4) return 0.007;
+  return 0.009;
 }
 
 export function bandCommonPoolForDepth(depth: number): BandPool | null {
@@ -233,13 +233,13 @@ export type BandUniquePool = {
 };
 
 // 밴드 유니크 풀 — 특화 세트 + 컨셉 사이드그레이드 + 추가 2피스 세트(흔한 장비는 BAND_COMMON_POOLS).
-//   chance 0.01 고정. 협곡 11·호수 13·동굴 17 = 41종.
+//   chance 0.005 고정(2026-06-09 0.01→0.005 하향).
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
     // 마른 협곡(밴드 A, 13~18) 유니크 11: 바위문 수호구 3 + 녹슨 독니 2 + 사이드그레이드 2 + 추가 2피스 4.
     minDepth: 13,
     maxDepth: 18,
-    chance: 0.01,
+    chance: 0.005,
     ids: [
       "v2_canyon_bulwark_armor",
       "v2_canyon_bulwark_gloves",
@@ -258,7 +258,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 얼음 호수(밴드 B, 19~24) 유니크 13: 바위문 수호구 3 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2 + 추가 2피스 4.
     minDepth: 19,
     maxDepth: 24,
-    chance: 0.01,
+    chance: 0.005,
     ids: [
       "v2_lake_bulwark_armor",
       "v2_lake_bulwark_gloves",
@@ -279,7 +279,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 심층 동굴(밴드 C, 25~30) 유니크 17: 흑요석 3 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4 + 추가 2피스 4.
     minDepth: 25,
     maxDepth: 30,
-    chance: 0.01,
+    chance: 0.005,
     ids: [
       "v2_cave_obsidian_armor",
       "v2_cave_obsidian_gloves",
@@ -304,7 +304,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 잊힌 성소(밴드 D, 31~36) 유니크 12: 성소 수호구 3 + 별점 비전 2 + 성벽의 계시 3 + 사이드그레이드 2 + 성광 보행 2.
     minDepth: 31,
     maxDepth: 36,
-    chance: 0.01,
+    chance: 0.005,
     ids: [
       "v2_sanctum_bulwark_armor",
       "v2_sanctum_bulwark_gloves",
@@ -324,7 +324,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 리자드 늪지(밴드 E, 37~42) 유니크 12: 수렁 수호구 3 + 맹독 군주 3 + 진흙 금강 2 + 사이드그레이드 2 + 이끼 보호 2.
     minDepth: 37,
     maxDepth: 42,
-    chance: 0.01,
+    chance: 0.005,
     ids: [
       "v2_swamp_bulwark_armor",
       "v2_swamp_bulwark_gloves",
@@ -344,7 +344,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 짐승의 소굴(밴드 F, 43~48) 유니크 13: 공허 수호구 3 + 공허 사냥꾼 3 + 야수쇄도 2 + 사이드그레이드 3 + 맹수 보행 2.
     minDepth: 43,
     maxDepth: 48,
-    chance: 0.01,
+    chance: 0.005,
     ids: [
       "v2_den_void_armor",
       "v2_den_void_gloves",

@@ -338,7 +338,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           <EmptyState
             icon={<Package size={40} weight="duotone" />}
             title="아직 기록된 재료가 없습니다"
-            message="사냥터 구역에 재료가 배치되면 여기에서 출처를 확인할 수 있습니다."
+            message="사냥터에서 재료를 얻으면 여기에 출처가 표시됩니다."
           />
         ) : (
           <Card padding="none" className="overflow-hidden">

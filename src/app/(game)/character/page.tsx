@@ -28,6 +28,9 @@ export default function CharacterPage() {
           case "open-shrine":
             router.push("/character/shrine");
             break;
+          case "open-quests":
+            router.push("/quests");
+            break;
           case "open-codex":
             router.push("/character/codex");
             break;

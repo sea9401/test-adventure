@@ -3,6 +3,7 @@
 import {
   Backpack,
   BookOpen,
+  Compass,
   Lightning,
   Sparkle,
   Strategy,
@@ -20,6 +21,7 @@ export type CharacterAction =
   | { kind: "open-skills" }
   | { kind: "open-combat-pattern" }
   | { kind: "open-shrine" }
+  | { kind: "open-quests" }
   | { kind: "open-codex" };
 
 export function V2CharacterMenu({
@@ -63,6 +65,13 @@ export function V2CharacterMenu({
             onClick={() => onAction({ kind: "open-combat-pattern" })}
           />
         )}
+        <EntryCard
+          icon={
+            <Compass size={28} weight="duotone" className="text-rose-400" />
+          }
+          title="성장 안내"
+          onClick={() => onAction({ kind: "open-quests" })}
+        />
         <EntryCard
           icon={
             <Sparkle size={28} weight="duotone" className="text-violet-400" />

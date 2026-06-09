@@ -288,3 +288,71 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
 ]
 `;
+
+exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 페이즈 메커닉 매트릭스 1`] = `
+[
+  {
+    "enemyHp": 0,
+    "label": "enemy_dot_tick",
+    "logSha": "aa58d007f4fd0901513e45a8d2c41b337478f811",
+    "outcome": "win",
+    "playerHp": 676,
+    "playerMp": 227,
+    "turns": 17,
+  },
+  {
+    "enemyHp": 101,
+    "label": "chill_enemy",
+    "logSha": "acd23bfddaf15919db3e7da9ee63e37881651494",
+    "outcome": "lose",
+    "playerHp": 0,
+    "playerMp": 227,
+    "turns": 70,
+  },
+  {
+    "enemyHp": 0,
+    "label": "thorns_reflect",
+    "logSha": "165309655bbf38a8b2e0bba0263ab1fb8414c417",
+    "outcome": "win",
+    "playerHp": 795,
+    "playerMp": 227,
+    "turns": 134,
+  },
+  {
+    "enemyHp": 0,
+    "label": "evade_reflect",
+    "logSha": "184778a90c7c0b24922824b57ef381eff93c6829",
+    "outcome": "win",
+    "playerHp": 565,
+    "playerMp": 227,
+    "turns": 37,
+  },
+  {
+    "enemyHp": 0,
+    "label": "enrage_enemy",
+    "logSha": "327f1c444dca69a8ebc4d909560fc2cf10c6c252",
+    "outcome": "win",
+    "playerHp": 669,
+    "playerMp": 227,
+    "turns": 20,
+  },
+  {
+    "enemyHp": 0,
+    "label": "brace_enemy",
+    "logSha": "663e5c5577af259d9b014340ee616cae939bca42",
+    "outcome": "win",
+    "playerHp": 674,
+    "playerMp": 227,
+    "turns": 19,
+  },
+  {
+    "enemyHp": 17,
+    "label": "heavyblow_enemy",
+    "logSha": "db9f66eea2a7acc6c5e87a9eff3512b347c0c689",
+    "outcome": "lose",
+    "playerHp": 0,
+    "playerMp": 227,
+    "turns": 590,
+  },
+]
+`;

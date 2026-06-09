@@ -206,6 +206,96 @@ describe("골든: resolveBattle PvE 지문 (엔진 가드)", () => {
   });
 });
 
+// ── 적 페이즈 메커닉 커버리지 (advanceTurn 적 페이즈 헬퍼 추출 가드) ──
+// 기존 PvE 매트릭스는 기본 직군의 평타 위주라 적 페이즈 분기(DoT 틱·한기·반사·회피
+// 캐스케이드·잡몹 스킬)를 거의 안 밟는다. advanceTurn 을 phase 헬퍼로 쪼갤 때 이 경로들이
+// 1비트도 안 바뀜을 보증하기 위해 각 메커닉을 강제로 켠 케이스를 별도로 못박는다.
+describe("골든: 적 페이즈 메커닉 커버리지 (리팩터 가드)", () => {
+  const m = (k: string): Monster => V2_MONSTERS[k];
+  const withSkill = (base: Monster, skill: Monster["skill"]): Monster => ({
+    ...base,
+    skill,
+  });
+
+  // 적에 출혈·중독 부착 → 적 페이즈 진입 시 enemy DoT 틱 경로.
+  const dotter: PlayerCombat = {
+    ...builds.warrior,
+    bleedOnHit: { flatPerStack: 4, atkCoefPerStack: 0.08 },
+    poisonOnHit: { pctMaxHpPerStack: 0.01 },
+  } as PlayerCombat;
+
+  // 피격 분기 — 무한 가시 + 가시 갑옷 반사 + 굳건한 의지 평탄 감소.
+  const thornTank: PlayerCombat = {
+    ...builds.tank,
+    infiniteThornsAtkPct: 30,
+    bramblePct: 25,
+    steadfastWillFlat: 5,
+  } as PlayerCombat;
+
+  // 회피 캐스케이드 — 그림자 보법 + 보장 회피 + 회피 반사.
+  const evader: PlayerCombat = {
+    ...builds.ninja,
+    reflexEvadeMult: 0.5,
+    shadowStepPct: 30,
+    guaranteedEvades: 2,
+  } as PlayerCombat;
+
+  const cases = [
+    fingerprintPvE("enemy_dot_tick", dotter, m("부서진 골렘"), { seed: 21 }),
+    fingerprintPvE(
+      "chill_enemy",
+      builds.tank,
+      withSkill(m("부서진 골렘"), {
+        kind: "chill",
+        name: "한기",
+        perHit: 2,
+        dmgPerStack: 6,
+        threshold: 2,
+        maxStacks: 20,
+      }),
+      { seed: 22 },
+    ),
+    fingerprintPvE("thorns_reflect", thornTank, m("부서진 골렘"), { seed: 23 }),
+    fingerprintPvE("evade_reflect", evader, m("들소"), { seed: 24 }),
+    fingerprintPvE(
+      "enrage_enemy",
+      builds.warrior,
+      withSkill(m("부서진 골렘"), {
+        kind: "enrage",
+        name: "격노",
+        hpFraction: 0.5,
+        atkBonus: 10,
+      }),
+      { seed: 25 },
+    ),
+    fingerprintPvE(
+      "brace_enemy",
+      builds.warrior,
+      withSkill(m("부서진 골렘"), {
+        kind: "brace",
+        name: "방어 태세",
+        damageReduction: 8,
+      }),
+      { seed: 26 },
+    ),
+    fingerprintPvE(
+      "heavyblow_enemy",
+      builds.tank,
+      withSkill(m("들소"), {
+        kind: "heavy_blow",
+        name: "강타",
+        everyPhases: 2,
+        multiplier: 2,
+      }),
+      { seed: 27 },
+    ),
+  ];
+
+  it("적 페이즈 메커닉 매트릭스", () => {
+    expect(cases).toMatchSnapshot();
+  });
+});
+
 describe("골든: resolveBattlePvP 지문 (PvP 엔진 가드)", () => {
   const cases = [
     fingerprintPvP("warrior_vs_mage", builds.warrior, builds.mage, 1),

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CheckCircle, Lock, Circle, Gift } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
 import {
   type QuestLine,
@@ -36,6 +37,8 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  // 탭 — 진행 중(미수령 = claimable/active/locked) / 완료(claimed). 퀘스트가 늘어도 깔끔히 분리.
+  const [tab, setTab] = useState<"active" | "done">("active");
 
   const refresh = useCallback(async () => {
     try {
@@ -112,40 +115,74 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           </p>
         </Card>
       ) : (
-        lines.map((line) => {
-          const lineQuests = quests.filter((q) => q.line === line.id);
-          if (lineQuests.length === 0) return null;
-          const doneCount = lineQuests.filter(
-            (q) => q.status === "claimed",
-          ).length;
-          return (
-            <Card key={line.id} padding="md">
-              <div className="flex items-baseline justify-between gap-2">
-                <h2 className="text-sm font-semibold">{line.name}</h2>
-                <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                  {doneCount}/{lineQuests.length}
-                </span>
-              </div>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                {line.subtitle}
-              </p>
-
-              <ul className="mt-3 space-y-1.5">
-                {lineQuests.map((q) => (
-                  <QuestRow
-                    key={q.id}
-                    quest={q}
-                    busy={busy === q.id}
-                    onClaim={() => claim(q)}
-                  />
-                ))}
-              </ul>
-            </Card>
-          );
-        })
+        renderTabs()
       )}
     </main>
   );
+
+  function renderTabs() {
+    const isDone = (q: QuestView) => q.status === "claimed";
+    const activeCount = quests.filter((q) => !isDone(q)).length;
+    const doneCount = quests.filter(isDone).length;
+    const shown = quests.filter((q) => (tab === "done" ? isDone(q) : !isDone(q)));
+
+    return (
+      <>
+        <TabBar
+          tabs={[
+            { key: "active", label: `진행 중 (${activeCount})` },
+            { key: "done", label: `완료 (${doneCount})` },
+          ]}
+          active={tab}
+          onChange={setTab}
+          ariaLabel="퀘스트 탭"
+          size="md"
+        />
+
+        {shown.length === 0 ? (
+          <Card padding="md">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {tab === "done"
+                ? "아직 완료한 퀘스트가 없어요."
+                : "진행 중인 퀘스트가 없어요. 🎉"}
+            </p>
+          </Card>
+        ) : (
+          lines.map((line) => {
+            const lineQuests = shown.filter((q) => q.line === line.id);
+            if (lineQuests.length === 0) return null;
+            // 진행도 표기는 탭 무관 전체 기준(라인 N개 중 완료 M).
+            const all = quests.filter((q) => q.line === line.id);
+            const done = all.filter(isDone).length;
+            return (
+              <Card key={line.id} padding="md">
+                <div className="flex items-baseline justify-between gap-2">
+                  <h2 className="text-sm font-semibold">{line.name}</h2>
+                  <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {done}/{all.length}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  {line.subtitle}
+                </p>
+
+                <ul className="mt-3 space-y-1.5">
+                  {lineQuests.map((q) => (
+                    <QuestRow
+                      key={q.id}
+                      quest={q}
+                      busy={busy === q.id}
+                      onClaim={() => claim(q)}
+                    />
+                  ))}
+                </ul>
+              </Card>
+            );
+          })
+        )}
+      </>
+    );
+  }
 }
 
 function QuestRow({

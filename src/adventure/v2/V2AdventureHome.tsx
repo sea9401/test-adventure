@@ -7,6 +7,7 @@ import {
   type V2CharacterCardData,
 } from "./V2CharacterCard";
 import { V2AnnouncementsPanel } from "./V2AnnouncementsPanel";
+import { GuideQuestBanner } from "./GuideQuestBanner";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import type {
@@ -183,6 +184,8 @@ export function V2AdventureHome({
             owned={owned}
           />
         )}
+
+        <GuideQuestBanner />
 
         <V2AnnouncementsPanel />
 

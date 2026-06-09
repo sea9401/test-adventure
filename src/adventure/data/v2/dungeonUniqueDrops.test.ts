@@ -32,8 +32,8 @@ function seqRng(values: number[]): () => number {
 }
 
 describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => {
-  it("밴드당 흔한 13종(무기 8 + 기본세트 3 + 기본장신구 2), 깊이 13~30 커버", () => {
-    expect(BAND_COMMON_POOLS).toHaveLength(3);
+  it("밴드당 흔한 13종(무기 8 + 기본세트 3 + 기본장신구 2), 깊이 13~48 커버", () => {
+    expect(BAND_COMMON_POOLS).toHaveLength(6);
     for (const p of BAND_COMMON_POOLS) {
       expect(p.ids).toHaveLength(13);
       for (const id of p.ids) {
@@ -75,14 +75,14 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
       return 0;
     };
     expect(rollBandCommonDrop(12, rng)).toBeNull();
-    expect(rollBandCommonDrop(31, rng)).toBeNull();
+    expect(rollBandCommonDrop(49, rng)).toBeNull();
     expect(calls).toBe(0);
   });
 });
 
-describe("유니크 카탈로그 (50종 — 기존 6 + 밴드 유니크 41[특화세트+사이드그레이드+추가 2피스] + 보스 3)", () => {
-  it("V2_UNIQUE_IDS 50종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(50);
+describe("유니크 카탈로그 (87종 — 기존 6 + 밴드 유니크 78[특화세트+사이드그레이드+추가 2피스] + 보스 3)", () => {
+  it("V2_UNIQUE_IDS 87종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(87);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -172,7 +172,7 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
     expect(calls).toBe(0); // 풀 null → rng 호출 없음
   });
 
-  it("중복 드랍 허용 — 16종 다 보유해도 후보에서 안 빠지고 재드랍(god-roll 추격)", () => {
+  it("중복 드랍 허용 — 전종 다 보유해도 후보에서 안 빠지고 재드랍(god-roll 추격)", () => {
     const owned = new Set<V2EquipmentId>(canyon.ids);
     // 보유분 제외 안 함 → 전 종류 균등 pick. pick 0 → 첫 id 그대로 재드랍.
     expect(rollBandUniqueDrop(13, owned, seqRng([0, 0]))).toBe(canyon.ids[0]);
@@ -220,11 +220,11 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동�
     expect(cave.chance).toBe(0.01);
   });
 
-  it("깊이 매칭 — 24 이하/31 이상은 동굴 아님, 25~30 만 매칭", () => {
+  it("깊이 매칭 — 24 이하는 동굴 아님, 25~30 만 매칭(31+는 다음 밴드)", () => {
     expect(bandUniquePoolForDepth(24)).not.toBe(cave);
     expect(bandUniquePoolForDepth(25)).toBe(cave);
     expect(bandUniquePoolForDepth(30)).toBe(cave);
-    expect(bandUniquePoolForDepth(31)).toBeNull();
+    expect(bandUniquePoolForDepth(31)).not.toBe(cave);
   });
 
   it("통과 굴림(rng<chance) → 심층 동굴 유니크 반환", () => {
@@ -237,6 +237,80 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동�
     );
     const overlap = cave.ids.filter((id) => others.includes(id));
     expect(overlap).toEqual([]);
+  });
+});
+
+describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 잊힌 성소)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const sanctum = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
+
+  it("잊힌 성소 유니크 = 깊이 31~36, 12종(성소 수호구 3·별점 비전 2·성벽의 계시 3·사이드그레이드 2·성광 보행 2), 총 1% 고정", () => {
+    expect(sanctum).toBeDefined();
+    expect(sanctum.maxDepth).toBe(36);
+    expect(sanctum.ids).toHaveLength(12);
+    expect(sanctum.chance).toBe(0.01);
+    expect(sanctum.chance / sanctum.ids.length).toBeCloseTo(0.01 / 12);
+  });
+
+  it("깊이 매칭 — 30 이하는 성소 아님, 31~36 만 매칭(37+는 다음 밴드)", () => {
+    expect(bandUniquePoolForDepth(30)).not.toBe(sanctum);
+    expect(bandUniquePoolForDepth(31)).toBe(sanctum);
+    expect(bandUniquePoolForDepth(36)).toBe(sanctum);
+    expect(bandUniquePoolForDepth(37)).not.toBe(sanctum);
+  });
+
+  it("통과 굴림(rng<chance) → 잊힌 성소 유니크 반환", () => {
+    expect(rollBandUniqueDrop(31, empty, seqRng([0, 0]))).toBe(
+      sanctum.ids[0],
+    );
+  });
+});
+
+describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 리자드 늪지)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 37)!;
+
+  it("리자드 늪지 유니크 = 깊이 37~42, 12종(수렁 수호구 3·맹독 군주 3·진흙 금강 2·사이드그레이드 2·이끼 보호 2), 총 1% 고정", () => {
+    expect(swamp).toBeDefined();
+    expect(swamp.maxDepth).toBe(42);
+    expect(swamp.ids).toHaveLength(12);
+    expect(swamp.chance).toBe(0.01);
+    expect(swamp.chance / swamp.ids.length).toBeCloseTo(0.01 / 12);
+  });
+
+  it("깊이 매칭 — 36 이하는 늪지 아님, 37~42 만 매칭(43+는 다음 밴드)", () => {
+    expect(bandUniquePoolForDepth(36)).not.toBe(swamp);
+    expect(bandUniquePoolForDepth(37)).toBe(swamp);
+    expect(bandUniquePoolForDepth(42)).toBe(swamp);
+    expect(bandUniquePoolForDepth(43)).not.toBe(swamp);
+  });
+
+  it("통과 굴림(rng<chance) → 리자드 늪지 유니크 반환", () => {
+    expect(rollBandUniqueDrop(37, empty, seqRng([0, 0]))).toBe(swamp.ids[0]);
+  });
+});
+
+describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 짐승의 소굴)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const den = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 43)!;
+
+  it("짐승의 소굴 유니크 = 깊이 43~48, 13종(공허 수호구 3·공허 사냥꾼 3·야수쇄도 2·사이드그레이드 3·맹수 보행 2), 총 1% 고정", () => {
+    expect(den).toBeDefined();
+    expect(den.maxDepth).toBe(48);
+    expect(den.ids).toHaveLength(13);
+    expect(den.chance).toBe(0.01);
+    expect(den.chance / den.ids.length).toBeCloseTo(0.01 / 13);
+  });
+
+  it("깊이 매칭 — 42 이하는 소굴 아님, 43~48 만 매칭, 49 이상은 null", () => {
+    expect(bandUniquePoolForDepth(42)).not.toBe(den);
+    expect(bandUniquePoolForDepth(43)).toBe(den);
+    expect(bandUniquePoolForDepth(48)).toBe(den);
+    expect(bandUniquePoolForDepth(49)).toBeNull();
+  });
+
+  it("통과 굴림(rng<chance) → 짐승의 소굴 유니크 반환", () => {
+    expect(rollBandUniqueDrop(43, empty, seqRng([0, 0]))).toBe(den.ids[0]);
   });
 });
 

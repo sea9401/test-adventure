@@ -229,7 +229,86 @@ export type V2EquipmentId =
   | "v2_cave_onyx_armor"
   | "v2_cave_onyx_gloves"
   | "v2_cave_drift_boots"
-  | "v2_cave_drift_necklace";
+  | "v2_cave_drift_necklace"
+  // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 31~36).
+  | "v2_sanctum_greatsword"
+  | "v2_sanctum_knightblade"
+  | "v2_sanctum_rapier"
+  | "v2_sanctum_gauntlet"
+  | "v2_sanctum_claw"
+  | "v2_sanctum_staff"
+  | "v2_sanctum_bow"
+  | "v2_sanctum_dagger"
+  | "v2_sanctum_set_armor"
+  | "v2_sanctum_set_gloves"
+  | "v2_sanctum_set_boots"
+  | "v2_sanctum_arcana_ring"
+  | "v2_sanctum_arcana_necklace"
+  | "v2_sanctum_bulwark_armor"
+  | "v2_sanctum_bulwark_gloves"
+  | "v2_sanctum_bulwark_boots"
+  | "v2_sanctum_astral_staff"
+  | "v2_sanctum_astral_necklace"
+  | "v2_sanctum_revelation_sword"
+  | "v2_sanctum_revelation_armor"
+  | "v2_sanctum_revelation_ring"
+  | "v2_sanctum_anchor_armor"
+  | "v2_sanctum_nova_ring"
+  | "v2_sanctum_lumen_gloves"
+  | "v2_sanctum_lumen_boots"
+  // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 37~42).
+  | "v2_swamp_greatsword"
+  | "v2_swamp_knightblade"
+  | "v2_swamp_rapier"
+  | "v2_swamp_gauntlet"
+  | "v2_swamp_claw"
+  | "v2_swamp_staff"
+  | "v2_swamp_bow"
+  | "v2_swamp_dagger"
+  | "v2_swamp_set_armor"
+  | "v2_swamp_set_gloves"
+  | "v2_swamp_set_boots"
+  | "v2_swamp_heart_ring"
+  | "v2_swamp_heart_necklace"
+  | "v2_swamp_bulwark_armor"
+  | "v2_swamp_bulwark_gloves"
+  | "v2_swamp_bulwark_boots"
+  | "v2_swamp_venomlord_dagger"
+  | "v2_swamp_venomlord_ring"
+  | "v2_swamp_venomlord_necklace"
+  | "v2_swamp_vajra_gauntlet"
+  | "v2_swamp_vajra_boots"
+  | "v2_swamp_mire_boots"
+  | "v2_swamp_bruiser_armor"
+  | "v2_swamp_moss_armor"
+  | "v2_swamp_moss_gloves"
+  // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 43~48).
+  | "v2_den_greatsword"
+  | "v2_den_knightblade"
+  | "v2_den_rapier"
+  | "v2_den_gauntlet"
+  | "v2_den_claw"
+  | "v2_den_staff"
+  | "v2_den_bow"
+  | "v2_den_dagger"
+  | "v2_den_set_armor"
+  | "v2_den_set_gloves"
+  | "v2_den_set_boots"
+  | "v2_den_alpha_ring"
+  | "v2_den_alpha_necklace"
+  | "v2_den_void_armor"
+  | "v2_den_void_gloves"
+  | "v2_den_void_boots"
+  | "v2_den_hunter_claw"
+  | "v2_den_hunter_ring"
+  | "v2_den_hunter_necklace"
+  | "v2_den_rush_greatsword"
+  | "v2_den_rush_gloves"
+  | "v2_den_mauler_gloves"
+  | "v2_den_ghost_boots"
+  | "v2_den_hide_armor"
+  | "v2_den_beastgait_boots"
+  | "v2_den_beastgait_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -562,6 +641,146 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "공허 보행",
     pieces: ["v2_cave_drift_boots", "v2_cave_drift_necklace"],
     bonus: { spd: 6, mp: 40 },
+  },
+  {
+    id: "starlight_plate",
+    name: "별무리 갑주",
+    pieces: [
+      "v2_sanctum_set_armor",
+      "v2_sanctum_set_gloves",
+      "v2_sanctum_set_boots",
+    ],
+    bonus: { critMult: 70, mp: 55, hp: 70 },
+  },
+  {
+    id: "sanctum_arcana",
+    name: "성운 장신구",
+    pieces: ["v2_sanctum_arcana_ring", "v2_sanctum_arcana_necklace"],
+    bonus: { mp: 70, spd: 8 },
+  },
+  {
+    id: "sanctum_bulwark",
+    name: "성소 수호구",
+    pieces: [
+      "v2_sanctum_bulwark_armor",
+      "v2_sanctum_bulwark_gloves",
+      "v2_sanctum_bulwark_boots",
+    ],
+    bonus: { hp: 215, spd: 8 },
+  },
+  {
+    id: "sanctum_astral",
+    name: "별점 비전",
+    pieces: ["v2_sanctum_astral_staff", "v2_sanctum_astral_necklace"],
+    bonus: { mp: 80, crit: 5 },
+  },
+  {
+    id: "sanctum_revelation",
+    name: "성벽의 계시",
+    pieces: [
+      "v2_sanctum_revelation_sword",
+      "v2_sanctum_revelation_armor",
+      "v2_sanctum_revelation_ring",
+    ],
+    bonus: { def: 47, hp: 160 },
+  },
+  {
+    id: "sanctum_lumen",
+    name: "성광 보행",
+    pieces: ["v2_sanctum_lumen_gloves", "v2_sanctum_lumen_boots"],
+    bonus: { eva: 6, spd: 6 },
+  },
+  {
+    id: "swamp_mist",
+    name: "독안개 갑주",
+    pieces: [
+      "v2_swamp_set_armor",
+      "v2_swamp_set_gloves",
+      "v2_swamp_set_boots",
+    ],
+    bonus: { spd: 10, eva: 7, hp: 80 },
+  },
+  {
+    id: "swamp_heart",
+    name: "늪심장 장신구",
+    pieces: ["v2_swamp_heart_ring", "v2_swamp_heart_necklace"],
+    bonus: { hp: 100, eva: 10 },
+  },
+  {
+    id: "swamp_bulwark",
+    name: "수렁 수호구",
+    pieces: [
+      "v2_swamp_bulwark_armor",
+      "v2_swamp_bulwark_gloves",
+      "v2_swamp_bulwark_boots",
+    ],
+    bonus: { hp: 260, eva: 10 },
+  },
+  {
+    id: "swamp_venomlord",
+    name: "맹독 군주",
+    pieces: [
+      "v2_swamp_venomlord_dagger",
+      "v2_swamp_venomlord_ring",
+      "v2_swamp_venomlord_necklace",
+    ],
+    bonus: { spd: 8, eva: 6, hp: 95 },
+  },
+  {
+    id: "swamp_vajra",
+    name: "진흙 금강",
+    pieces: ["v2_swamp_vajra_gauntlet", "v2_swamp_vajra_boots"],
+    bonus: { hp: 145, spd: 6 },
+  },
+  {
+    id: "swamp_moss",
+    name: "이끼 보호",
+    pieces: ["v2_swamp_moss_armor", "v2_swamp_moss_gloves"],
+    bonus: { hp: 90, eva: 5 },
+  },
+  {
+    id: "den_predator",
+    name: "포식자 갑주",
+    pieces: [
+      "v2_den_set_armor",
+      "v2_den_set_gloves",
+      "v2_den_set_boots",
+    ],
+    bonus: { critMult: 100, mp: 80, hp: 100 },
+  },
+  {
+    id: "den_alpha",
+    name: "우두머리 장신구",
+    pieces: ["v2_den_alpha_ring", "v2_den_alpha_necklace"],
+    bonus: { mp: 100, spd: 12 },
+  },
+  {
+    id: "den_void",
+    name: "공허 수호구",
+    pieces: ["v2_den_void_armor", "v2_den_void_gloves", "v2_den_void_boots"],
+    bonus: { hp: 310, spd: 12 },
+  },
+  {
+    id: "den_hunter",
+    name: "공허 사냥꾼",
+    pieces: [
+      "v2_den_hunter_claw",
+      "v2_den_hunter_ring",
+      "v2_den_hunter_necklace",
+    ],
+    bonus: { spd: 10, eva: 8, hp: 120 },
+  },
+  {
+    id: "den_rush",
+    name: "야수쇄도",
+    pieces: ["v2_den_rush_greatsword", "v2_den_rush_gloves"],
+    bonus: { critMult: 100, hp: 120 },
+  },
+  {
+    id: "den_beastgait",
+    name: "맹수 보행",
+    pieces: ["v2_den_beastgait_boots", "v2_den_beastgait_necklace"],
+    bonus: { spd: 8, mp: 50 },
   },
 ];
 

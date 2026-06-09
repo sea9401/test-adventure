@@ -6,7 +6,7 @@
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
 //   ② 심층 밴드 풀(BAND_UNIQUE_POOLS, 깊이 범위 키): 프론티어 밴드 드랍. 밴드마다 기본 16종(무기 8 +
 //      세트 3종 8) + 무기포함 특화세트 + 컨셉 사이드그레이드. chance 0.01 = 1회 사냥당 총 1%(per-item 희석).
-//      현재 마른 협곡(13~18, 20종)·얼음 호수(19~24, 22종)·심층 동굴(25~30, 26종) 3밴드 = 68종.
+//      현재 마른 협곡(13~18, 24종)·얼음 호수(19~24, 26종)·심층 동굴(25~30, 30종) 3밴드 = 80종.
 //      신규 밴드는 BAND_UNIQUE_POOLS 에 항목 1개 추가.
 //
 // 유니크 = id당 1개(ownedSet 제외) — 정규 장비와 동일 unique-per-id.
@@ -14,7 +14,7 @@
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 74종(레거시 6 + 밴드 드랍 68).
+// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 89종(레거시 6 + 밴드 드랍 80 + 보스 3).
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
 ).filter((id) => isUnique(V2_EQUIPMENT[id]));
@@ -80,8 +80,8 @@ export type BandUniquePool = {
 
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
-    // 마른 협곡(밴드 A, 깊이 13~18). 16종 + 녹슨 독니 세트 2 + 사이드그레이드 2(날렵한 세검·바람 보행화)
-    // = 20종. chance 0.01(총 1% 유지) / 20 균등 → 종류당 ≈0.05%(아이템 추가 시 총 1% 고정·per-item 희석).
+    // 마른 협곡(밴드 A, 깊이 13~18). 16종 + 녹슨 독니 세트 2 + 사이드그레이드 2 + 추가 2피스 4(사막주파구·사암결속)
+    // = 24종. chance 0.01(총 1% 유지) / 24 균등 → 종류당 ≈0.042%(아이템 추가 시 총 1% 고정·per-item 희석).
     minDepth: 13,
     maxDepth: 18,
     chance: 0.01,
@@ -106,11 +106,15 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_canyon_rustfang_gloves",
       "v2_canyon_swift_rapier",
       "v2_canyon_wind_boots",
+      "v2_canyon_dune_gloves",
+      "v2_canyon_dune_boots",
+      "v2_canyon_bond_armor",
+      "v2_canyon_bond_ring",
     ],
   },
   {
-    // 얼음 호수(밴드 B, 깊이 19~24). 16종 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2(묵직한 거검·회피
-    // 망토) = 22종. chance 0.01(총 1% 유지) / 22 균등 → 종류당 ≈0.045%.
+    // 얼음 호수(밴드 B, 깊이 19~24). 16종 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2 + 추가 2피스 4
+    // (서리보행갑·빙결인장) = 26종. chance 0.01(총 1% 유지) / 26 균등 → 종류당 ≈0.038%.
     minDepth: 19,
     maxDepth: 24,
     chance: 0.01,
@@ -137,11 +141,15 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_lake_bloodvajra_boots",
       "v2_lake_brutal_greatsword",
       "v2_lake_dodge_cloak",
+      "v2_lake_trek_armor",
+      "v2_lake_trek_boots",
+      "v2_lake_seal_gloves",
+      "v2_lake_seal_necklace",
     ],
   },
   {
-    // 심층 동굴(밴드 C, 깊이 25~30). 16종 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4(철벽 흉갑·
-    // 뿌리내린 각화·파괴 권갑·집중의 반지) = 26종. chance 0.01(총 1% 유지) / 26 균등 → 종류당 ≈0.038%.
+    // 심층 동굴(밴드 C, 깊이 25~30). 16종 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4 + 추가 2피스 4
+    // (흑요완갑·공허보행) = 30종. chance 0.01(총 1% 유지) / 30 균등 → 종류당 ≈0.033%.
     minDepth: 25,
     maxDepth: 30,
     chance: 0.01,
@@ -172,6 +180,10 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
       "v2_cave_rooted_boots",
       "v2_cave_ruin_gloves",
       "v2_cave_focus_ring",
+      "v2_cave_onyx_armor",
+      "v2_cave_onyx_gloves",
+      "v2_cave_drift_boots",
+      "v2_cave_drift_necklace",
     ],
   },
 ];

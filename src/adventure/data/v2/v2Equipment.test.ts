@@ -162,8 +162,9 @@ function slotConceptLine(
         i.concept === concept &&
         !isUnique(i) &&
         !i.craftOnly &&
-        !i.starterOnly,
-    ) // 그리드는 정규만(유니크·제작전용·전문화스타터 제외)
+        !i.starterOnly &&
+        !i.noDrop,
+    ) // 그리드는 정규만(유니크·제작전용·전문화스타터·밴드 흔한[noDrop] 제외)
     .sort((a, b) => a.tier - b.tier)
     .map((i) => i.tier);
 }
@@ -184,7 +185,11 @@ function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipTier[] {
   return v2EquipmentBySlot("weapon")
     .filter(
       (i) =>
-        i.weaponType === wt && !isUnique(i) && !i.craftOnly && !i.starterOnly,
+        i.weaponType === wt &&
+        !isUnique(i) &&
+        !i.craftOnly &&
+        !i.starterOnly &&
+        !i.noDrop,
     )
     .map((i) => i.tier)
     .sort((a, b) => a - b);
@@ -193,7 +198,8 @@ function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipTier[] {
 function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   const tiers = new Set<V2EquipTier>();
   for (const i of v2EquipmentBySlot("weapon")) {
-    if (i.weaponType === wt && !isUnique(i) && !i.craftOnly) tiers.add(i.tier);
+    if (i.weaponType === wt && !isUnique(i) && !i.craftOnly && !i.noDrop)
+      tiers.add(i.tier);
   }
   return [...tiers].sort((a, b) => a - b);
 }
@@ -202,19 +208,21 @@ describe("V2_EQUIPMENT grid (139종 — 6슬롯)", () => {
   it("정규 그리드 43종 + 유니크 89 + 전문화 스타터 7 (제작전용 0 — 대장간 제작 콘텐츠 제거)", () => {
     // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
     //   (greatsword/bow/staff 각 3 + 전문화5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
-    // 유니크 89 = 기존 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(녹슨 독니 2·백서리 비전 2·혈금강 2·심판의 성벽 3·흑맥 독왕 3)
-    //   + 컨셉 사이드그레이드 8(협곡 2·호수 2·동굴 4) + 테마 보스 전용 3(깊은 산·협곡·호수 — dungeonBosses)
-    //   + 추가 2피스 세트 12(협곡 사막주파구·사암결속 / 호수 서리보행갑·빙결인장 / 동굴 흑요완갑·공허보행).
-    // 2026-06-08: 들판 제작 전용 7종(+재료) 제거 → craftOnly 0. 보스 유니크 3 추가 → 124→127.
-    // 2026-06-09: 추가 2피스 세트 12 → 총 127→139.
+    // 2026-06-09 밴드 흔한/유니크 분리: 마른 협곡~심층 동굴 밴드 장비 중 무기 8+기본세트 3+기본장신구 2
+    //   = 밴드당 13(×3밴드 = 39)을 rarity:unique → noDrop normal 로 재분류(흔한 밴드 장비, 드랍 전용).
+    //   남은 유니크 50 = 기존 6 + 밴드 유니크 41(특화세트+사이드그레이드+추가 2피스: 협곡 11·호수 13·동굴 17) + 보스 3.
+    // 총 139 = 정규 그리드 43 + 유니크 50 + 전문화 스타터 7 + 밴드 흔한 39.
     const all = Object.values(V2_EQUIPMENT);
     expect(
-      all.filter((i) => !isUnique(i) && !i.craftOnly && !i.starterOnly),
+      all.filter(
+        (i) => !isUnique(i) && !i.craftOnly && !i.starterOnly && !i.noDrop,
+      ),
       "정규 그리드",
     ).toHaveLength(43);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(89);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(50);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(7);
+    expect(all.filter((i) => i.noDrop), "밴드 흔한(드랍 전용)").toHaveLength(39);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {

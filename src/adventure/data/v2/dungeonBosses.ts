@@ -52,7 +52,7 @@ const THEME_BOSSES: Record<number, ThemeBoss> = {
     base: {
       name: "산적 두목",
       tags: ["humanoid"],
-      image: "/images/monster/v2/mountain-brigand.webp",
+      image: "/images/monster/v2/boss-mountain-chief.webp",
       hp: 620,
       atk: 30,
       def: 14,
@@ -86,7 +86,7 @@ const THEME_BOSSES: Record<number, ThemeBoss> = {
     base: {
       name: "사구의 포식자",
       tags: ["beast"],
-      image: "/images/monster/v2/mountain-alpha-wolf.webp",
+      image: "/images/monster/v2/boss-canyon-predator.webp",
       element: "earth",
       hp: 600,
       atk: 31,
@@ -116,7 +116,7 @@ const THEME_BOSSES: Record<number, ThemeBoss> = {
     base: {
       name: "호심의 군주",
       tags: ["golem"],
-      image: "/images/monster/v2/snow-ice-colossus.webp",
+      image: "/images/monster/v2/boss-lake-sovereign.webp",
       element: "water",
       hp: 680,
       atk: 29,

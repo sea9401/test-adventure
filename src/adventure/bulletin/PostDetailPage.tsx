@@ -84,7 +84,8 @@ export function PostDetailPage({
             >
               {BULLETIN_CATEGORY_LABELS[post.category].name}
             </span>
-            {post.mine ? (
+            {post.mine || post.category === "notice" ? (
+              // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
               <span className="font-semibold text-zinc-700 dark:text-zinc-200">
                 {post.name}
               </span>

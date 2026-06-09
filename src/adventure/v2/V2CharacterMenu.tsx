@@ -69,7 +69,7 @@ export function V2CharacterMenu({
           icon={
             <Compass size={28} weight="duotone" className="text-rose-400" />
           }
-          title="성장 안내"
+          title="퀘스트"
           onClick={() => onAction({ kind: "open-quests" })}
         />
         <EntryCard

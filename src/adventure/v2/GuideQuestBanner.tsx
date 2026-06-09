@@ -49,7 +49,7 @@ export function GuideQuestBanner() {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[11px] font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            성장 안내
+            퀘스트
           </span>
           {claimable && (
             <span className="rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white">

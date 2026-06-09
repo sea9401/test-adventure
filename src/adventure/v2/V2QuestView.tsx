@@ -91,7 +91,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="성장 안내" onBack={onBack} />
+      <SubViewHeader title="퀘스트" onBack={onBack} />
 
       {msg && (
         <div

@@ -3,6 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   buildQuestCtx,
+  assembleQuestExtras,
   parseClaimed,
   GUIDE_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
@@ -61,12 +62,14 @@ export async function POST(req: Request) {
     );
     const proficiencyRaw = await readSave(tx, userId, "proficiency.v2", {});
     const advLogRaw = await readSave(tx, userId, "adventure-log.v2", {});
+    const extras = await assembleQuestExtras(tx, userId);
 
     const ctx = buildQuestCtx({
       charRaw: charSave,
       proficiencyRaw,
       advLogRaw,
       equipmentRaw: equipSave,
+      extras,
     });
     const claimed = parseClaimed(guideSave);
 

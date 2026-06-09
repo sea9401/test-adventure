@@ -6,7 +6,7 @@ import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
 // 결과는 새 객체 — 호출자가 mutate 해도 베이스 MONSTERS 안 깨짐.
 //
 // 배율 출처 = dungeonLadder(§5.1): 들판(깊이 1~6) = ×1.0→×1.3 완만(온보딩 평탄), 7+ = 깊은 산
-//   앵커 대비 hp/atk 선형 · def 댐핑(관통 0 절벽 회피) · exp 램프→플래토. depth 무한.
+//   앵커 대비 hp/atk 선형 · def 댐핑(관통 0 절벽 회피) · exp 램프→소프트캡 후 우상향. depth 무한.
 //   ⚠️ 계수 sim 캘리브 대상.
 export function scaleMonsterForFloor(
   monster: Monster,

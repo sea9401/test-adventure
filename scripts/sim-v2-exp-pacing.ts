@@ -12,7 +12,7 @@ import {
 } from "../src/lib/leveling";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
-import { floorExpMult, LADDER_EXP_PLATEAU } from "../src/adventure/data/v2/dungeonLadder";
+import { floorExpMult, LADDER_EXP_SOFTCAP } from "../src/adventure/data/v2/dungeonLadder";
 import type { DungeonFloorId } from "../src/adventure/data/v2/types";
 
 const SECONDS_PER_TURN = 2;
@@ -230,7 +230,7 @@ const XP_DIALS: Dial[] = [
 
 console.log("\n\n━━━ 프론티어 루프 페이싱 (환생, loop=1→4차 풀등반 ≈ 18.5M EXP) ━━━");
 console.log(`프론티어 풀 평균 몹 exp=${FRONTIER_BASE_EXP.toFixed(1)} · 처치량 A(상시)=${DAILY_KILLS_A}/일 · B(일1회 재생)=${DAILY_KILLS_B}/일`);
-console.log(`표: 한 루프 소요 일수 (A 상시 기준). floorExpMult 깊이별 램프→플래토(캡 ${LADDER_EXP_PLATEAU}) 반영.\n`);
+console.log(`표: 한 루프 소요 일수 (A 상시 기준). floorExpMult 깊이별 램프→소프트캡(${LADDER_EXP_SOFTCAP}) 후 우상향 반영.\n`);
 const header = "깊이 | exp×    | " + XP_DIALS.map((d) => d.name.padStart(13)).join(" | ");
 console.log(header);
 console.log("-".repeat(header.length));

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { WarTicker } from "@/adventure/v2/WarTicker";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
@@ -152,6 +153,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           scrollable
           className="mx-auto w-full max-w-[720px] px-4 sm:px-6 [&_button]:text-[1.0625rem]"
         />
+        {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
+        <WarTicker />
         {showStamina && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
             <StaminaBar state={stamina} />

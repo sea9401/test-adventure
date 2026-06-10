@@ -5,6 +5,10 @@ import { BackButton } from "@/components/ui/BackButton";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import { OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
+import {
+  SIEGE_DAMAGE_PER_WIN,
+  siegeWinsToFall,
+} from "@/adventure/data/v2/outpostSiege";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { IntruderPanel } from "./IntruderPanel";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
@@ -82,6 +86,37 @@ export function OutpostView({
 
   // 거점 수비 전투력 (왕국 중심 5000 → 외곽 1500, 분쟁지대·중립은 0=게이트 없음).
   const defensePower = outpostDefensePower(outpost);
+
+  // 라인업 미설정 경고 — 적대 길드 점령 거점(공성=3:3 토너먼트 가능)에서 내가 2인+ 길드
+  // 소속인데 라인업이 없으면, 마스터 단독 출전 폴백(fetchLineupCandidates)을 미리 알린다.
+  const enemyGuildSiege =
+    !!occupation &&
+    occupation.occupiedByGuildId != null &&
+    viewerGuildId != null &&
+    occupation.occupiedByGuildId !== viewerGuildId;
+  const [lineupWarning, setLineupWarning] = useState(false);
+  useEffect(() => {
+    if (!enemyGuildSiege) return;
+    let alive = true;
+    fetch("/api/v2/guild/me/lineup")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (j: {
+          ok?: boolean;
+          members?: unknown[];
+          lineup?: string[] | null;
+        } | null) => {
+          if (!alive || !j?.ok) return;
+          const memberCount = j.members?.length ?? 0;
+          const lineupCount = j.lineup?.length ?? 0;
+          setLineupWarning(memberCount >= 2 && lineupCount < 2);
+        },
+      )
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [enemyGuildSiege]);
 
   const claimDisabled = computeClaimDisabled(
     outpost,
@@ -257,6 +292,12 @@ export function OutpostView({
           </div>
         )}
 
+        {lineupWarning && !claimDisabled && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+            ⚠️ 3:3 라인업 미설정 — 공성 시 마스터 혼자 출전합니다. 길드 탭
+            길드원에서 라인업을 설정하세요.
+          </div>
+        )}
         <ActionCard
           title={
             claimDisabled
@@ -367,6 +408,11 @@ function FortBar({
           className="h-full rounded-full bg-amber-500 transition-all"
           style={{ width: `${pct}%` }}
         />
+      </div>
+      {/* 공성 메커니즘 명문화 — 1승당 데미지와 함락까지 남은 승수(재생 무시 근사). */}
+      <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+        공성 1승당 −{SIEGE_DAMAGE_PER_WIN} · 약 {siegeWinsToFall(fortHp)}
+        승이면 함락
       </div>
     </div>
   );

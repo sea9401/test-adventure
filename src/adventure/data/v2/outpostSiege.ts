@@ -45,3 +45,11 @@ export function currentFortHp(
 export function isOutpostProtected(protectedUntil: Date, now: Date): boolean {
   return protectedUntil.getTime() > now.getTime();
 }
+
+// 전황(war/overview) "최근" 범위 — 이 시간 안의 공성 시도·점령 변동을 교전/함락으로 집계.
+export const WAR_OVERVIEW_WINDOW_H = 48;
+
+// 현재 성벽 기준 함락까지 필요한 공성 승수 — UI "약 N승으로 함락" 표기용(재생 무시 근사).
+export function siegeWinsToFall(fortHp: number): number {
+  return Math.max(1, Math.ceil(fortHp / SIEGE_DAMAGE_PER_WIN));
+}

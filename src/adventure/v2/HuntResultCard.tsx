@@ -33,6 +33,8 @@ export type HuntResult = {
   goldGained: number;
   goldGross?: number;
   goldTaxed?: number;
+  // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
+  taxOwnerLabel?: string;
   levelsGained: number;
   statGains?: Partial<Record<V2StatKey, number>>; // 레벨업 랜덤 성장으로 오른 1차 스탯.
   hpGain?: number; // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
@@ -178,6 +180,11 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
             +{result.goldGained}
           </span>
         </div>
+        {(result.goldTaxed ?? 0) > 0 && (
+          <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            세금 −{result.goldTaxed} G → {result.taxOwnerLabel ?? "점령자"}
+          </div>
+        )}
       </div>
 
       {result.levelsGained > 0 && (

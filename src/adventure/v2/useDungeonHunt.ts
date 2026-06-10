@@ -49,6 +49,9 @@ export type BatchHuntPayload = {
   totalExp: number;
   totalProficiency: number;
   totalGold: number;
+  totalGoldGross: number; // 세전 합산 — 결과 카드 세금 줄 표기용.
+  totalGoldTaxed: number;
+  taxOwnerLabel?: string; // 세금 수취자 — 세금 있을 때만 서버가 채움.
   levelsGained: number;
   statGains: Partial<Record<V2StatKey, number>>;
   // 일괄 동안 레벨업으로 오른 maxHp/maxMp 합산 — 결과 카드 표기용.
@@ -162,7 +165,7 @@ export function useDungeonHunt({
                 : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
             pushLog(
-              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감${r.taxOwnerLabel ? ` → ${r.taxOwnerLabel}` : ""}, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
             return r;
           }
@@ -213,7 +216,7 @@ export function useDungeonHunt({
           const b = json.batch;
           const cur = json.stamina?.current ?? "?";
           pushLog(
-            `✓ 일괄 ${b.completed}/${b.attempted}회 · 승 ${b.wins}/패 ${b.losses} · EXP +${b.totalExp} · GOLD +${b.totalGold}${b.levelsGained ? ` · 레벨 +${b.levelsGained}` : ""}${formatDrops(b.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+            `✓ 일괄 ${b.completed}/${b.attempted}회 · 승 ${b.wins}/패 ${b.losses} · EXP +${b.totalExp} · GOLD +${b.totalGold}${b.totalGoldTaxed ? ` (세금 ${b.totalGoldTaxed} 차감${b.taxOwnerLabel ? ` → ${b.taxOwnerLabel}` : ""})` : ""}${b.levelsGained ? ` · 레벨 +${b.levelsGained}` : ""}${formatDrops(b.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
           );
           return b;
         }

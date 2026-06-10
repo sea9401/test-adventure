@@ -1,7 +1,8 @@
 // 사냥 라우트(POST /api/v2/dungeon/hunt) 통합 테스트 — 핸들러를 in-memory savesKv 스토어
 // 위에서 end-to-end 로 돌린다. DB I/O 경계(savesKv 헬퍼·db.transaction·ensureUser·getGuildId·
 // serverFeed)만 모킹하고 라우트 본문(전투 resolve·EXP·드랍·숙련도·세이브 변형)은 REAL 코드를
-// 그대로 실행한다. outpostId 없는(솔로) 경로라 outpost/세금 테이블·tx 는 건드리지 않는다.
+// 그대로 실행한다. tx 모킹은 raw 쿼리를 "항상 빈 결과/no-op" 로 받는 최소 체인 — outpostId
+// 경로에서 occupations FOR UPDATE 가 빈 결과 = 미점령(NPC 세금) 거점으로 동작한다.
 //
 // PR-perf(사냥 배치 read 폴드)의 안전망: skills/proficiency 를 upfront lock-read 해 derive 에
 // 4개 모두 preload 한다. preload 가 빠지면(회귀) REAL derive 래퍼가 더미 tx({}) 에 .select() 를
@@ -20,13 +21,30 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
 }));
 vi.mock("@/lib/server/serverFeed", () => ({
   insertFeedEntry: vi.fn(async () => {}),
+  resolveUserDisplayName: vi.fn(async () => "이름 없는 모험가"),
 }));
-// tx 는 솔로 경로에서 raw 쿼리에 안 쓰인다(모든 save I/O 가 savesKv mock 경유, derive 는 preload).
-vi.mock("@/db", () => ({
-  db: {
-    transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({})),
-  },
-}));
+// tx/db raw 쿼리 — 모든 select 체인은 빈 결과, insert 는 no-op. 솔로 경로는 안 타고,
+// outpostId 경로에선 occupations FOR UPDATE [] = 미점령(NPC 세금→거점 금고) 으로 동작.
+// 세금 라벨 해석(db.select, tx 밖)도 같은 빈 체인 → "거점 금고".
+vi.mock("@/db", () => {
+  const chain: Record<string, unknown> = {};
+  chain.from = () => chain;
+  chain.where = () => chain;
+  chain.for = () => chain;
+  chain.limit = async () => [];
+  const tx = {
+    select: () => chain,
+    insert: () => ({
+      values: () => ({ onConflictDoUpdate: async () => undefined }),
+    }),
+  };
+  return {
+    db: {
+      transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(tx)),
+      select: () => chain,
+    },
+  };
+});
 // savesKv 헬퍼 — 단일 유저 in-memory 스토어. lock/read 는 같은 read(테스트는 동시성 미검증),
 // upsert 는 덮어쓰기. read-your-writes(배치 판간 이월)가 store 갱신으로 자연히 재현된다.
 vi.mock("@/lib/server/savesKv", () => ({
@@ -43,6 +61,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import { V2_PROFICIENCY_PER_KILL } from "@/adventure/data/v2/proficiency";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 function seedStrongWarrior() {
   store.clear();
@@ -160,6 +179,54 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       groups: { warrior: { points: number } };
     };
     expect(prof.groups.warrior.points).toBe(5 * V2_PROFICIENCY_PER_KILL);
+  });
+
+  it("거점(미점령) 사냥 — NPC 세금 차감 + 수취 라벨 '거점 금고'", async () => {
+    const res = await POST(huntReq({ floor: 1, outpostId: OUTPOSTS[0].id }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      result: {
+        won: boolean;
+        goldGained: number;
+        goldGross: number;
+        goldTaxed: number;
+        taxOwnerLabel?: string;
+      };
+    };
+    expect(json.ok).toBe(true);
+    expect(json.result.won).toBe(true);
+    // 미점령 거점 = NPC 세율 — 승리·gross>0 이면 최소 1G 차감 + net 정합.
+    expect(json.result.goldGross).toBeGreaterThan(0);
+    expect(json.result.goldTaxed).toBeGreaterThan(0);
+    expect(json.result.goldGained).toBe(
+      json.result.goldGross - json.result.goldTaxed,
+    );
+    expect(json.result.taxOwnerLabel).toBe("거점 금고");
+  });
+
+  it("배치 + 거점 — totalGoldGross/totalGoldTaxed 합산 + 수취 라벨", async () => {
+    const res = await POST(
+      huntReq({ floor: 1, count: 3, outpostId: OUTPOSTS[0].id }),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      batch: {
+        completed: number;
+        totalGold: number;
+        totalGoldGross: number;
+        totalGoldTaxed: number;
+        taxOwnerLabel?: string;
+      };
+    };
+    expect(json.ok).toBe(true);
+    expect(json.batch.completed).toBe(3);
+    expect(json.batch.totalGoldTaxed).toBeGreaterThan(0);
+    expect(json.batch.totalGold).toBe(
+      json.batch.totalGoldGross - json.batch.totalGoldTaxed,
+    );
+    expect(json.batch.taxOwnerLabel).toBe("거점 금고");
   });
 
   it("스태미나 부족 — 첫 판부터 막히면 409(단판과 동일 에러)", async () => {

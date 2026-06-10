@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
+import { OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { IntruderPanel } from "./IntruderPanel";
@@ -193,6 +194,15 @@ export function OutpostView({
                 적대 점령
               </span>
             )}
+          {/* 세율 상시 표기 — 사냥 골드에서 떼어가는 비율. 점령 거점은 점령자 설정값,
+              미점령은 NPC 고정 세율(거점 금고 적립). 같은 길드 멤버는 실제론 면제. */}
+          <span className="rounded bg-zinc-200 px-2 py-0.5 tabular-nums dark:bg-zinc-800">
+            세율{" "}
+            {occupation?.occupiedByUserId
+              ? Math.round(Number(occupation.taxRate ?? "0") * 100)
+              : Math.round(OUTPOST_NPC_TAX_RATE * 100)}
+            %
+          </span>
         </div>
         {outpost.description && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">

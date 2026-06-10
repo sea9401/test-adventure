@@ -39,6 +39,17 @@ async function resolveActorName(
   return "이름 없는 모험가";
 }
 
+// userId 만으로 표시 이름 해석 — 피드 actorName 과 동일 규칙(gameName → profile → 기본값)을
+// 다른 서버 코드(사냥 세금 수취자 라벨 등)에서도 쓰도록 공개한 wrapper.
+export async function resolveUserDisplayName(userId: string): Promise<string> {
+  const [u] = await db
+    .select({ gameName: users.gameName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return resolveActorName(userId, u?.gameName ?? null);
+}
+
 export async function insertFeedEntry(
   userId: string,
   type: FeedType,

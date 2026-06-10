@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
+import { guilds, outpostOccupations, outpostTreasury, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
@@ -106,7 +106,10 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
+import {
+  insertFeedEntry,
+  resolveUserDisplayName,
+} from "@/lib/server/serverFeed";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -913,6 +916,29 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   };
 } // ← runOneHunt 끝
 
+// 세금 수취자 표시 라벨 — 점령 길드명 > 솔로 점령자 닉네임 > 미점령(NPC) "거점 금고".
+// runOneHunt 의 세금 owner 결정(§4)과 같은 분기를 표기용으로만 따라간다.
+async function resolveTaxOwnerLabel(outpostId: string): Promise<string> {
+  const [occ] = await db
+    .select({
+      occupiedByUserId: outpostOccupations.occupiedByUserId,
+      occupiedByGuildId: outpostOccupations.occupiedByGuildId,
+    })
+    .from(outpostOccupations)
+    .where(eq(outpostOccupations.outpostId, outpostId))
+    .limit(1);
+  if (!occ?.occupiedByUserId) return "거점 금고";
+  if (occ.occupiedByGuildId != null) {
+    const [g] = await db
+      .select({ name: guilds.name })
+      .from(guilds)
+      .where(eq(guilds.id, occ.occupiedByGuildId))
+      .limit(1);
+    if (g?.name) return `${g.name} 길드`;
+  }
+  return resolveUserDisplayName(occ.occupiedByUserId);
+}
+
 export async function POST(req: Request) {
   const maybeUserId = await ensureUser();
   if (!maybeUserId) {
@@ -985,6 +1011,8 @@ export async function POST(req: Request) {
     let totalExp = 0;
     let totalProficiency = 0;
     let totalGold = 0;
+    let totalGoldGross = 0; // 세전 합산 — 결과 카드 세금 줄 표기용.
+    let totalGoldTaxed = 0;
     let levelsGained = 0;
     const statGains: Partial<Record<V2StatKey, number>> = {};
     let hpGained = 0; // 일괄 동안 레벨업으로 오른 maxHp 합산.
@@ -1026,6 +1054,8 @@ export async function POST(req: Request) {
       totalExp += res.expGained;
       totalProficiency += res.proficiencyGained;
       totalGold += res.goldGained;
+      totalGoldGross += res.goldGross ?? res.goldGained;
+      totalGoldTaxed += res.goldTaxed ?? 0;
       levelsGained += res.levelsGained;
       for (const [k, n] of Object.entries(res.statGains)) {
         const key = k as V2StatKey;
@@ -1074,6 +1104,8 @@ export async function POST(req: Request) {
           totalExp,
           totalProficiency,
           totalGold,
+          totalGoldGross,
+          totalGoldTaxed,
           levelsGained,
           statGains,
           hpGained,
@@ -1100,8 +1132,16 @@ export async function POST(req: Request) {
   // 회피 — guild-lodge 데드락 교훈). insertFeedEntry 가 opt-out/디바운스/실패삼킴을 자체
   // 처리하므로 응답엔 영향 없음. droppedUnique 는 승리 성공 응답 body 에만 존재.
   const resultBody = result.body as {
-    result?: { droppedUnique?: V2EquipmentId | null };
-    batch?: { droppedUniques?: V2EquipmentId[] };
+    result?: {
+      droppedUnique?: V2EquipmentId | null;
+      goldTaxed?: number;
+      taxOwnerLabel?: string;
+    };
+    batch?: {
+      droppedUniques?: V2EquipmentId[];
+      totalGoldTaxed?: number;
+      taxOwnerLabel?: string;
+    };
   };
   const uniqueIds = resultBody.batch
     ? (resultBody.batch.droppedUniques ?? [])
@@ -1110,6 +1150,22 @@ export async function POST(req: Request) {
       : [];
   for (const itemId of uniqueIds) {
     await insertFeedEntry(userId, "unique_drop", { itemId });
+  }
+
+  // 세금 수취자 라벨 — 결과에 세금이 있을 때만 1회 해석해 응답에 붙인다(일괄도 거점은
+  // 요청 내내 동일하므로 1회면 충분). tx 밖 비잠금 read 라 직후 점령 변동과 어긋날 수
+  // 있으나 표기 전용이라 허용. 실패해도 사냥 응답엔 영향 없어야 하므로 삼킨다.
+  const taxedTotal = resultBody.batch
+    ? (resultBody.batch.totalGoldTaxed ?? 0)
+    : (resultBody.result?.goldTaxed ?? 0);
+  if (outpostId && taxedTotal > 0) {
+    try {
+      const label = await resolveTaxOwnerLabel(outpostId);
+      if (resultBody.batch) resultBody.batch.taxOwnerLabel = label;
+      else if (resultBody.result) resultBody.result.taxOwnerLabel = label;
+    } catch (err) {
+      console.warn("[hunt] tax owner label resolve failed", err);
+    }
   }
 
   return Response.json(result.body, { status: result.status });

@@ -22,6 +22,9 @@ export type BatchSummary = {
   totalExp: number;
   totalProficiency: number;
   totalGold: number;
+  totalGoldGross?: number; // 세전 합산 — 세금 줄 표기용.
+  totalGoldTaxed?: number;
+  taxOwnerLabel?: string; // 세금 수취자 — 점령 길드명/솔로 점령자/거점 금고.
   levelsGained: number;
   statGains: Partial<Record<V2StatKey, number>>; // 일괄 사냥 동안 레벨업으로 오른 1차 스탯 합산.
   hpGained?: number; // 일괄 동안 레벨업으로 오른 maxHp 합산.
@@ -106,6 +109,12 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
             +{summary.totalGold.toLocaleString()}
           </span>
         </div>
+        {(summary.totalGoldTaxed ?? 0) > 0 && (
+          <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            세금 −{(summary.totalGoldTaxed ?? 0).toLocaleString()} G →{" "}
+            {summary.taxOwnerLabel ?? "점령자"}
+          </div>
+        )}
       </div>
 
       {summary.levelsGained > 0 && (

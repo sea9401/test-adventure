@@ -7,6 +7,7 @@ import {
   currentFortHp,
   isOutpostProtected,
   repairHpFromGold,
+  siegeWinsToFall,
 } from "./outpostSiege";
 
 describe("currentFortHp (성벽 lazy 재생)", () => {
@@ -61,5 +62,19 @@ describe("repairHpFromGold (길드 금고 자동 수리)", () => {
 describe("다이얼 sanity", () => {
   it("함락까지 ≈ 5승 (FORT_MAX_HP / SIEGE_DAMAGE_PER_WIN)", () => {
     expect(Math.ceil(FORT_MAX_HP / SIEGE_DAMAGE_PER_WIN)).toBe(5);
+  });
+});
+
+describe("siegeWinsToFall (함락까지 승수 표기)", () => {
+  it("경계 — 정확히 나누어떨어지면 그 몫", () => {
+    expect(siegeWinsToFall(SIEGE_DAMAGE_PER_WIN * 3)).toBe(3);
+    expect(siegeWinsToFall(FORT_MAX_HP)).toBe(5);
+  });
+  it("나머지가 있으면 올림", () => {
+    expect(siegeWinsToFall(SIEGE_DAMAGE_PER_WIN * 2 + 1)).toBe(3);
+  });
+  it("0 이하라도 최소 1승 (이미 함락 직전 표기 안정)", () => {
+    expect(siegeWinsToFall(0)).toBe(1);
+    expect(siegeWinsToFall(1)).toBe(1);
   });
 });

@@ -173,6 +173,9 @@ type OccupationLite = {
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
   occupiedByGuildName: string | null;
+  // 성벽 — 재생 반영 현재값(occupations GET). 최대 미만이면 교전 중 표시.
+  fortHp?: number;
+  fortMaxHp?: number;
 };
 
 type Vb = { x: number; y: number; w: number; h: number };
@@ -659,6 +662,13 @@ export function ContinentMap({
                 !!occ &&
                 occ.occupiedByUserId !== null &&
                 occ.occupiedByUserId !== viewerUserId;
+              // 교전 중 — 성벽이 깎인 점령 거점(공성 진행). 펄스 링으로 전황 노출.
+              const isUnderSiege =
+                !!occ &&
+                occ.occupiedByUserId !== null &&
+                occ.fortHp != null &&
+                occ.fortMaxHp != null &&
+                occ.fortHp < occ.fortMaxHp;
               // 채움 = 분쟁지대(중앙 2홉 이내)면 무소속 색, 아니면 소속 왕국색.
               const markerFill = CONFLICT_ZONE_IDS.has(o.id)
                 ? OUTPOST_CONFLICT_COLOR
@@ -699,6 +709,26 @@ export function ContinentMap({
                       strokeWidth={12}
                       strokeDasharray="40 28"
                     />
+                  )}
+                  {/* 교전 중 — 성벽 깎인 거점에 붉은 펄스 링 (SMIL — JS 타이머 불요). */}
+                  {isUnderSiege && (
+                    <rect
+                      x={o.position.x - half - 16}
+                      y={o.position.y - half - 16}
+                      width={(half + 16) * 2}
+                      height={(half + 16) * 2}
+                      rx={(half + 16) * 0.42}
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth={14}
+                    >
+                      <animate
+                        attributeName="opacity"
+                        values="1;0.15;1"
+                        dur="1.6s"
+                        repeatCount="indefinite"
+                      />
+                    </rect>
                   )}
                   {/* 색 타일 + 흰색 아이콘 (플랫 마커). 채움 = 소속 왕국색, 테두리 = 소유(내것/적/중립). */}
                   <rect

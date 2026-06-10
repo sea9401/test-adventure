@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { V2BattleHome, type BattleAction } from "@/adventure/v2/V2BattleHome";
 
-// /battle — 전투 탭 home. 사냥터/지도/아레나/허수아비 진입.
+// /battle — 전투 탭 home. 사냥터/지도/전황/아레나/허수아비 진입.
 export default function BattlePage() {
   const router = useRouter();
   return (
@@ -11,6 +11,7 @@ export default function BattlePage() {
       onAction={(a: BattleAction) => {
         if (a.kind === "open-dungeons") router.push("/battle/dungeon");
         else if (a.kind === "open-map") router.push("/map");
+        else if (a.kind === "open-war") router.push("/battle/war");
         else if (a.kind === "open-arena") router.push("/battle/arena");
         else if (a.kind === "open-sparring") router.push("/battle/sparring");
       }}

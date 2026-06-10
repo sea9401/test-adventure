@@ -51,6 +51,26 @@ body {
   display: none;
 }
 
+/* ── 전쟁 전광판(WarTicker) ───────────────────────────────────────
+   navbar 아래 전역 한 줄 띠 — 글자가 좌로 흘러간다. 내용을 2벌 이어붙이고
+   -50% 까지 이동해 이음새 없는 무한 루프. 속도는 컴포넌트가 길이 비례로
+   animation-duration 을 인라인 지정. */
+
+@keyframes war-ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .war-ticker-scroll {
+    animation: none !important;
+  }
+}
+
 /* ── 낚시 미니게임 연출 ───────────────────────────────────────────
    상태 머신·판정·공정성은 그대로 — waiting/biting 상태의 "찌" 그림만 표현한다.
    대기: 잔잔히 까닥 + 수면 잔물결·기포.  입질: windup 없이 즉시 날카롭게 빨려들며

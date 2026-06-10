@@ -28,6 +28,18 @@ export const FEED_TYPES = [
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
+// 전쟁 사건 묶음 — GET /api/feed?types=war 서버 필터 + 전광판 티커(WarTicker) 소비.
+// 서버 필터인 이유: FEED_FETCH_LIMIT 안에서 자랑거리 도배에 전쟁 사건이 밀려나는 것 방지.
+export const WAR_FEED_TYPES: readonly FeedType[] = [
+  "outpost_capture",
+  "outpost_siege",
+  "outpost_eject",
+];
+
+// 전광판(티커) 표시 범위 — 이 시간 안의 전쟁 사건만 순환. 0건이면 띠 자체를 숨긴다
+// (빈 전광판이 "전쟁 없음"을 광고하는 역효과 방지).
+export const WAR_TICKER_WINDOW_H = 24;
+
 // type 별 payload. 아이템/거점 이름은 클라에서 카탈로그로 해석 — id 만 저장.
 // 길드명은 시점 스냅샷 문자열(클라에 길드 카탈로그가 없음).
 export type FeedPayload =

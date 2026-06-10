@@ -46,7 +46,13 @@ export type FeedPayload =
   | { itemId: string } // unique_drop · masterpiece
   // outpost_capture — 함락/점령. lostToNpc=true 면 NPC 정기공격에 점령이 무너진 것
   // (actor = 잃은 점령자). 아니면 actor/guildName = 새 점령자.
-  | { outpostId: string; guildName?: string | null; lostToNpc?: boolean }
+  // treasuryGold — 점령 시 자동 회수한 거점 금고 총액(잭팟 표기, 0/없으면 생략).
+  | {
+      outpostId: string;
+      guildName?: string | null;
+      lostToNpc?: boolean;
+      treasuryGold?: number;
+    }
   // outpost_siege — 성벽 타격(승리한 공성만). fortHp = 타격 후 잔량.
   | {
       outpostId: string;

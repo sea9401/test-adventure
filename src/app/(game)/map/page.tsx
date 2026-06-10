@@ -9,6 +9,7 @@ export default function MapPage() {
     enterOutpost,
     travelTo,
     occupations,
+    treasuries,
     viewerUserId,
     currentOutpost,
     discoveredIds,
@@ -18,6 +19,7 @@ export default function MapPage() {
       onOutpostEnter={enterOutpost}
       onTravelTo={travelTo}
       occupations={occupations}
+      treasuries={treasuries}
       viewerUserId={viewerUserId}
       currentOutpostId={currentOutpost?.id ?? null}
       discoveredIds={discoveredIds}

@@ -1,10 +1,11 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
   guilds,
   outpostClaimAttempts,
   outpostOccupations,
+  outpostTreasury,
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -31,6 +32,7 @@ import {
 // 모든 read 는 비잠금 — 표시 전용 스냅샷이라 정합 race 허용.
 
 const RECENT_ATTACKS_PER_OUTPOST = 5;
+const TREASURE_LIST_LIMIT = 8;
 
 type AttackEntry = {
   attackerName: string;
@@ -48,14 +50,21 @@ export async function GET() {
   const now = new Date();
   const since = new Date(now.getTime() - WAR_OVERVIEW_WINDOW_H * 3_600_000);
 
-  // 점령 전체 + 윈도 내 공성 로그 — 두 테이블이 전황의 전부.
-  const [occRows, attackRows] = await Promise.all([
+  // 점령 전체 + 윈도 내 공성 로그 + 금고 — 세 테이블이 전황의 전부.
+  const [occRows, attackRows, treasuryRows] = await Promise.all([
     db.select().from(outpostOccupations),
     db
       .select()
       .from(outpostClaimAttempts)
       .where(gte(outpostClaimAttempts.createdAt, since))
       .orderBy(desc(outpostClaimAttempts.createdAt)),
+    db
+      .select({
+        outpostId: outpostTreasury.outpostId,
+        gold: outpostTreasury.gold,
+      })
+      .from(outpostTreasury)
+      .where(gt(outpostTreasury.gold, 0)),
   ]);
 
   // 길드 이름 일괄 해석 — 점령 길드 + 공격측 길드 (N+1 회피).
@@ -240,5 +249,12 @@ export async function GET() {
     };
   }
 
-  return Response.json({ ok: true, sieges, recentCaptures, myGuild });
+  // 노다지 거점 — 금고 쌓인 미점령 거점, 금액 desc 상위. 점령(자동 회수) 유인.
+  const occupiedIds = new Set(occupied.map((r) => r.outpostId));
+  const treasures = treasuryRows
+    .filter((t) => !occupiedIds.has(t.outpostId))
+    .sort((a, b) => b.gold - a.gold)
+    .slice(0, TREASURE_LIST_LIMIT);
+
+  return Response.json({ ok: true, sieges, recentCaptures, treasures, myGuild });
 }

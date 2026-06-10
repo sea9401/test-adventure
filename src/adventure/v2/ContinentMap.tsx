@@ -184,6 +184,7 @@ export function ContinentMap({
   onOutpostEnter,
   onTravelTo,
   occupations,
+  treasuries,
   viewerUserId,
   currentOutpostId,
   discoveredIds,
@@ -193,6 +194,8 @@ export function ContinentMap({
   // 이동(1홉 진입 또는 다중 홉 자동 이동)용 — 경로를 따라 한 칸씩 진입한다.
   onTravelTo?: (o: Outpost) => void;
   occupations?: OccupationLite[];
+  // 금고 쌓인 거점 — 팝업에 "금고 N G" 표시(점령 유인).
+  treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
   // 플레이어의 현재 거점 — 인접 거점만 진입 가능하게 게이트 + 닿는 길 강조 + 마커 표식.
   currentOutpostId?: string | null;
@@ -203,6 +206,10 @@ export function ContinentMap({
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) {
     for (const o of occupations) occByOutpost.set(o.outpostId, o);
+  }
+  const treasuryByOutpost = new Map<string, number>();
+  if (treasuries) {
+    for (const t of treasuries) treasuryByOutpost.set(t.outpostId, t.gold);
   }
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
@@ -927,6 +934,12 @@ export function ContinentMap({
                 {selectedOwnerLabel && (
                   <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
                     {selectedOwnerLabel}
+                  </div>
+                )}
+                {(treasuryByOutpost.get(selected.id) ?? 0) > 0 && (
+                  <div className="mt-0.5 truncate text-xs font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+                    금고 {treasuryByOutpost.get(selected.id)!.toLocaleString()}{" "}
+                    G — 점령 시 획득
                   </div>
                 )}
               </div>

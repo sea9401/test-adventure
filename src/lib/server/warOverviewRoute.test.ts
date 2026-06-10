@@ -49,6 +49,7 @@ import {
   guilds,
   outpostClaimAttempts,
   outpostOccupations,
+  outpostTreasury,
   savesKv,
 } from "@/db/schema";
 import { FORT_MAX_HP } from "@/adventure/data/v2/outpostSiege";
@@ -95,6 +96,7 @@ describe("GET /api/v2/war/overview", () => {
     tableRows.clear();
     tableRows.set(outpostOccupations, []);
     tableRows.set(outpostClaimAttempts, []);
+    tableRows.set(outpostTreasury, []);
     tableRows.set(guilds, []);
     tableRows.set(guildMembers, []);
     tableRows.set(savesKv, []);
@@ -183,5 +185,21 @@ describe("GET /api/v2/war/overview", () => {
     // 내 길드 점령 거점은 라벨이 길드명으로 — sieges 에도 동일 점령이 잡힌다.
     const hit = json.sieges.find((s) => s.outpostId === "op-hit")!;
     expect(hit.ownerLabel).toBe("우리길드 길드");
+  });
+
+  it("노다지 거점 — 미점령만, 금액 내림차순 (점령 거점 금고는 제외)", async () => {
+    tableRows.set(outpostOccupations, [occRow({ outpostId: "op-occupied" })]);
+    tableRows.set(outpostTreasury, [
+      { outpostId: "op-small", gold: 120 },
+      { outpostId: "op-big", gold: 3400 },
+      { outpostId: "op-occupied", gold: 999 }, // 점령 중 — 목록 제외
+    ]);
+    const json = (await (await GET()).json()) as Overview & {
+      treasures: Array<{ outpostId: string; gold: number }>;
+    };
+    expect(json.treasures.map((t) => t.outpostId)).toEqual([
+      "op-big",
+      "op-small",
+    ]);
   });
 });

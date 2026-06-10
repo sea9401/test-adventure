@@ -54,12 +54,15 @@ export function OutpostView({
   viewerUserId,
   viewerGuildId,
   occupation,
+  treasuryGold = 0,
   onAction,
 }: {
   outpost: Outpost;
   viewerUserId: string | null;
   viewerGuildId: number | null;
   occupation: OccupationLite;
+  // 거점 금고 잔액 — 점령/함락 시 자동 회수되는 점령 유인(occupations GET 동봉).
+  treasuryGold?: number;
   onAction: (action: OutpostAction) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -239,6 +242,11 @@ export function OutpostView({
                 적대 점령
               </span>
             )}
+          {(treasuryGold ?? 0) > 0 && (
+            <span className="rounded bg-yellow-400/20 px-2 py-0.5 font-medium tabular-nums text-yellow-700 dark:text-yellow-400">
+              금고 {treasuryGold.toLocaleString()} G
+            </span>
+          )}
           {/* 세율 상시 표기 — 사냥 골드에서 떼어가는 비율. 점령 거점은 점령자 설정값,
               미점령은 NPC 고정 세율(거점 금고 적립). 같은 길드 멤버는 실제론 면제. */}
           <span className="rounded bg-zinc-200 px-2 py-0.5 tabular-nums dark:bg-zinc-800">

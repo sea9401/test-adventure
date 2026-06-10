@@ -100,6 +100,7 @@ function entryText(e: FeedEntry): React.ReactNode {
       outpostId: string;
       guildName?: string | null;
       lostToNpc?: boolean;
+      treasuryGold?: number;
     };
     const where = (
       <span className="font-medium text-rose-600 dark:text-rose-400">
@@ -113,16 +114,22 @@ function entryText(e: FeedEntry): React.ReactNode {
         </>
       );
     }
+    const jackpot = (p.treasuryGold ?? 0) > 0 && (
+      <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+        {" "}
+        — 금고 {p.treasuryGold!.toLocaleString()} G 획득!
+      </span>
+    );
     return p.guildName ? (
       <>
         <span className="font-medium text-zinc-700 dark:text-zinc-200">
           {p.guildName} 길드
         </span>
-        가 {where} 점령!
+        가 {where} 점령!{jackpot}
       </>
     ) : (
       <>
-        {name} 님이 {where} 점령!
+        {name} 님이 {where} 점령!{jackpot}
       </>
     );
   }

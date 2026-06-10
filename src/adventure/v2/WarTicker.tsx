@@ -26,12 +26,16 @@ export function warTickerText(e: FeedEntry): string | null {
       outpostId: string;
       guildName?: string | null;
       lostToNpc?: boolean;
+      treasuryGold?: number;
     };
     if (p.lostToNpc) {
       return `${e.actorName}의 ${outpostName(p.outpostId)} 점령이 NPC 수비대에 무너졌다`;
     }
     const subject = p.guildName ? `${p.guildName} 길드` : e.actorName;
-    return `${subject}, ${outpostName(p.outpostId)} 점령!`;
+    const jackpot = (p.treasuryGold ?? 0) > 0
+      ? ` — 금고 ${p.treasuryGold!.toLocaleString()}G 획득!`
+      : "";
+    return `${subject}, ${outpostName(p.outpostId)} 점령!${jackpot}`;
   }
   if (e.type === "outpost_siege") {
     const p = e.payload as {

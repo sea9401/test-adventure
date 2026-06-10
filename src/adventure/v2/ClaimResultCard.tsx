@@ -32,6 +32,12 @@ export type ClaimResult = {
   // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
   repairedHp?: number;
   repairGoldSpent?: number;
+  // 거점 금고 탈환 — 점령/함락 시 자동 회수분(본인/길드 분배). 없으면 null.
+  treasuryCaptured?: {
+    total: number;
+    capturerShare: number;
+    guildShare: number;
+  } | null;
   // 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
   // NPC 일기토 + PvP 1v1 생성. 3:3 토너먼트만 없음(매치별 텍스트 요약으로 폴백).
   replay?: ReplayPayload | null;
@@ -115,6 +121,14 @@ export function ClaimResultCard({
         onClose={onClose}
       >
         <div className="flex flex-col gap-3">
+          {result.treasuryCaptured && result.treasuryCaptured.total > 0 && (
+            <div className="rounded-md border border-yellow-400/60 bg-yellow-400/10 px-3 py-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
+              🪙 거점 금고 {result.treasuryCaptured.total.toLocaleString()} G
+              획득! (내 몫 +
+              {result.treasuryCaptured.capturerShare.toLocaleString()} G · 길드
+              금고 +{result.treasuryCaptured.guildShare.toLocaleString()} G)
+            </div>
+          )}
           {result.repairedHp != null && result.repairedHp > 0 && (
             <div className="rounded-md bg-sky-500/10 px-3 py-1.5 text-xs text-sky-700 dark:text-sky-300">
               🛡 수비 길드가 금고로 성벽 +{result.repairedHp} 수리 (−

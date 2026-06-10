@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CastleTurret, Flag, ShieldWarning } from "@phosphor-icons/react";
+import { CastleTurret, Coins, Flag, ShieldWarning } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
@@ -27,6 +27,8 @@ type SiegeEntry = {
 
 type CaptureEntry = { outpostId: string; ownerLabel: string; at: string };
 
+type TreasureEntry = { outpostId: string; gold: number };
+
 type MyGuildEntry = {
   guildId: number;
   outposts: Array<{
@@ -42,6 +44,7 @@ type OverviewResponse = {
   ok?: boolean;
   sieges?: SiegeEntry[];
   recentCaptures?: CaptureEntry[];
+  treasures?: TreasureEntry[];
   myGuild?: MyGuildEntry | null;
 };
 
@@ -100,6 +103,7 @@ export function V2WarView({
 
   const sieges = data?.sieges ?? [];
   const captures = data?.recentCaptures ?? [];
+  const treasures = data?.treasures ?? [];
   const myGuild = data?.myGuild ?? null;
 
   return (
@@ -218,6 +222,40 @@ export function V2WarView({
               </Card>
             ))}
           </section>
+
+          {/* 노다지 거점 — 금고 쌓인 미점령 거점(점령 시 자동 회수). */}
+          {treasures.length > 0 && (
+            <section className="space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <Coins size={14} weight="duotone" />
+                노다지 거점
+              </div>
+              <Card padding="sm">
+                <ul className="space-y-1 text-xs">
+                  {treasures.map((t) => (
+                    <li
+                      key={t.outpostId}
+                      className="flex items-baseline justify-between gap-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onOpenOutpost(t.outpostId)}
+                        className="truncate text-left font-medium hover:underline"
+                      >
+                        {outpostName(t.outpostId)}
+                      </button>
+                      <span className="shrink-0 tabular-nums text-yellow-600 dark:text-yellow-400">
+                        금고 {t.gold.toLocaleString()} G
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[10px] text-zinc-500">
+                  미점령 거점의 NPC 세금 적립분 — 점령하면 자동 획득
+                </p>
+              </Card>
+            </section>
+          )}
 
           {/* 최근 점령/함락. */}
           <section className="space-y-2">

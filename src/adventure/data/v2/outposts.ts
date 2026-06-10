@@ -17,8 +17,21 @@
 import type { Outpost } from "./types";
 
 // 미점령(NPC 운영) 거점의 기본 세율. 사냥 골드의 이만큼이 거점 금고에 누적되며
-// (outpost_treasury 테이블), 추후 점령 전쟁의 보상으로 사용된다.
+// (outpost_treasury 테이블), 점령/함락 시 자동 회수 + 수동 세금 회수의 재원이 된다.
 export const OUTPOST_NPC_TAX_RATE = 0.15;
+
+// 거점 금고 분배 — 회수자/점령자 본인 몫 %. 나머지는 길드 공용 금고로.
+// 수동 회수(treasury/claim)와 점령 자동 회수(outpost/claim 함락·점령)가 공유하는 단일 출처.
+export const TREASURY_CLAIMER_SHARE_PCT = 10;
+
+export function treasuryShares(total: number): {
+  claimerShare: number;
+  guildShare: number;
+} {
+  const t = Math.max(0, Math.floor(total));
+  const claimerShare = Math.floor((t * TREASURY_CLAIMER_SHARE_PCT) / 100);
+  return { claimerShare, guildShare: t - claimerShare };
+}
 
 // 절대 중립 거점 — NPC 영구 운영.
 const NEUTRAL_OUTPOSTS: Outpost[] = [

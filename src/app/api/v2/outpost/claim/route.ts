@@ -5,6 +5,7 @@ import {
   guilds,
   outpostOccupations,
   outpostClaimAttempts,
+  outpostTreasury,
   savesKv,
   v2GuildResources,
 } from "@/db/schema";
@@ -14,7 +15,11 @@ import {
 } from "@/lib/server/serverFeed";
 import { insertNotificationMany } from "@/lib/server/v2Notifications";
 import { WAR_NOTIF_DEBOUNCE_MS } from "@/lib/v2-notification-config";
-import { readGuildResources } from "@/lib/server/v2GuildResources";
+import {
+  lockGuildResources,
+  readGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -28,7 +33,7 @@ import {
   runTournamentForGuilds,
 } from "@/lib/server/v2RunTournament";
 // PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder 제거.
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, treasuryShares } from "@/adventure/data/v2/outposts";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -645,13 +650,60 @@ export async function POST(req: Request) {
     // (안 그러면 저장 hp 가 다음 regen tick 의 base max 캡까지 의미상 잉여)
     const afterHp = Math.min(player.maxHp, Math.max(0, battleFinalPlayerHp!));
 
+    // 거점 금고 탈환 — 점령/함락 시 자동 회수. 미점령 기간 NPC 세금이 쌓인 금고를
+    // 수동 회수와 같은 분배(본인/길드 — treasuryShares 단일 출처)로 즉시 지급.
+    // 점령 중엔 세금이 점령자에게 직접 가서 금고가 안 쌓이므로 PvP 함락은 보통 0.
+    // 락 순서: occupation → character(위에서 lock 됨) → treasury → guild_resources(마지막)
+    // — treasury/claim 과는 양쪽 다 occupation FOR UPDATE 선행이라 같은 거점은 직렬화.
+    let treasuryCaptured: {
+      total: number;
+      capturerShare: number;
+      guildShare: number;
+    } | null = null;
+    if (captured) {
+      const tRow = (
+        await tx
+          .select()
+          .from(outpostTreasury)
+          .where(eq(outpostTreasury.outpostId, outpost.id))
+          .for("update")
+          .limit(1)
+      )[0];
+      const total = Math.max(0, tRow?.gold ?? 0);
+      if (total > 0) {
+        const { claimerShare, guildShare } = treasuryShares(total);
+        await tx
+          .update(outpostTreasury)
+          .set({ gold: 0, updatedAt: sql`now()` })
+          .where(eq(outpostTreasury.outpostId, outpost.id));
+        treasuryCaptured = { total, capturerShare: claimerShare, guildShare };
+      }
+    }
+
     const next = {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
       hpRegenSince: now,
+      // 금고 탈환 본인 몫 — 없으면 기존 gold 그대로(키 자체 불변).
+      ...(treasuryCaptured
+        ? {
+            gold:
+              Math.max(0, (charSave as { gold?: number }).gold ?? 0) +
+              treasuryCaptured.capturerShare,
+          }
+        : {}),
     };
     await upsertSave(tx, userId, "character.v2", next);
+
+    // 금고 탈환 길드 몫 — guild_resources 는 항상 tx 마지막(금고 수리와 동일 락 순서).
+    if (treasuryCaptured && treasuryCaptured.guildShare > 0) {
+      const resources = await lockGuildResources(tx, attackerGuildId);
+      await upsertGuildResources(tx, attackerGuildId, {
+        ...resources,
+        gold: resources.gold + treasuryCaptured.guildShare,
+      });
+    }
 
     return {
       ok: true as const,
@@ -682,6 +734,8 @@ export async function POST(req: Request) {
         // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
         repairedHp,
         repairGoldSpent,
+        // 거점 금고 탈환 — 점령/함락 시 자동 회수분 (없으면 null).
+        treasuryCaptured,
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
         tournament: tournamentSummary,
@@ -703,6 +757,7 @@ export async function POST(req: Request) {
     raceLost?: boolean;
     fortHp?: number;
     fortMaxHp?: number;
+    treasuryCaptured?: { total: number } | null;
     _notify?: {
       defenderGuildId: number | null;
       defenderUserId: string | null;
@@ -723,7 +778,14 @@ export async function POST(req: Request) {
       await insertFeedEntry(
         userId,
         "outpost_capture",
-        { outpostId: outpost.id, guildName },
+        {
+          outpostId: outpost.id,
+          guildName,
+          // 금고 잭팟 — 자동 회수 총액을 전광판/피드에 노출(없으면 생략).
+          ...(fb.treasuryCaptured?.total
+            ? { treasuryGold: fb.treasuryCaptured.total }
+            : {}),
+        },
         { force: true },
       );
     } else {

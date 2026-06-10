@@ -8,7 +8,11 @@ import {
 } from "./V2CharacterCard";
 import { V2AnnouncementsPanel } from "./V2AnnouncementsPanel";
 import { GuideQuestBanner } from "./GuideQuestBanner";
-import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
+import {
+  OUTPOSTS,
+  OUTPOST_NPC_TAX_RATE,
+  treasuryShares,
+} from "@/adventure/data/v2/outposts";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import type {
   V2EquipInstance,
@@ -269,7 +273,7 @@ export function V2AdventureHome({
                   {claiming
                     ? "회수 중…"
                     : treasuryGold > 0
-                      ? `세금 회수 (본인 +${Math.floor((treasuryGold * 10) / 100).toLocaleString()} G)`
+                      ? `세금 회수 (본인 +${treasuryShares(treasuryGold).claimerShare.toLocaleString()} G)`
                       : "세금 회수 (금고 비어있음)"}
                 </button>
               )}

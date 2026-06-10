@@ -10,8 +10,13 @@ import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 export default function OutpostPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const { viewerUserId, viewerGuildId, occupations, refreshOccupations } =
-    useGameState();
+  const {
+    viewerUserId,
+    viewerGuildId,
+    occupations,
+    treasuries,
+    refreshOccupations,
+  } = useGameState();
 
   const outpost = OUTPOST_BY_ID.get(params.id);
   if (!outpost) notFound();
@@ -23,6 +28,9 @@ export default function OutpostPage() {
       viewerGuildId={viewerGuildId}
       occupation={
         occupations.find((o) => o.outpostId === outpost.id) ?? null
+      }
+      treasuryGold={
+        treasuries.find((t) => t.outpostId === outpost.id)?.gold ?? 0
       }
       onAction={(a) => {
         if (a.kind === "back") router.push("/map");

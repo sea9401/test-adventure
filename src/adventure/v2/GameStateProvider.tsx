@@ -38,6 +38,9 @@ const TRAVEL_HOP_MS = 160;
 const delay = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// 거점 금고 잔액 — occupations GET 동봉(gold>0 만).
+export type TreasuryEntry = { outpostId: string; gold: number };
+
 export type Occupation = {
   outpostId: string;
   occupiedByUserId: string | null;
@@ -77,6 +80,8 @@ type GameStateValue = {
   discoveredIds: Set<string>;
   setDiscoveredIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   occupations: Occupation[];
+  // 금고 쌓인 거점(주로 미점령·NPC 세금) — 지도/거점 화면의 점령 유인 표시.
+  treasuries: TreasuryEntry[];
   refreshOccupations: () => Promise<void>;
   refreshGuildId: () => Promise<void>;
   refreshGameState: () => Promise<void>;
@@ -109,6 +114,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const [occupations, setOccupations] = useState<Occupation[]>([]);
+  const [treasuries, setTreasuries] = useState<TreasuryEntry[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
   const [viewerName, setViewerName] = useState<string>("모험가");
@@ -146,8 +152,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/v2/outpost/occupations");
       if (res.ok) {
-        const json = (await res.json()) as { occupations: Occupation[] };
+        const json = (await res.json()) as {
+          occupations: Occupation[];
+          treasuries?: TreasuryEntry[];
+        };
         setOccupations(json.occupations);
+        setTreasuries(json.treasuries ?? []);
       }
     } catch {}
   }, []);
@@ -230,6 +240,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // 비동기 fetch 후 setState 라 cascading render 가 아니지만 린트는 호출 그래프만
+    // 보고 발화(ServerFeedView 동일 패턴).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshOccupations();
     refreshGuildId();
     (async () => {
@@ -381,6 +394,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     discoveredIds,
     setDiscoveredIds,
     occupations,
+    treasuries,
     refreshOccupations,
     refreshGuildId,
     refreshGameState,

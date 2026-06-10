@@ -1011,3 +1011,26 @@ export const treasureSeasons = pgTable("treasure_seasons", {
   totalCoins: integer("total_coins").notNull().default(0),
 });
 
+
+// v2 전용 알림 — 전쟁(거점 피격/함락/토벌당함) 등 개인 타겟 사건. 우편함(아이템·정산
+// 첨부)과 분리된 "읽고 끝" 채널 — docs/v2-war-visibility-plan.md PR-5. 타입은 범용이라
+// 추후 아레나/길드 가입신청 알림으로 확장 가능. insert 시 유저당 NOTIF_MAX_PER_USER
+// 초과분 trim (serverFeed 관례 미러 — cron 없음).
+export const v2Notifications = pgTable(
+  "v2_notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull(),
+    // null = 미읽음. POST /api/v2/notifications/read 가 일괄로 채운다.
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // 내 알림 최신순 조회 + 미읽음 카운트 둘 다 이 인덱스로.
+    index("v2_notifications_user_idx").on(t.userId, sql`${t.id} DESC`),
+  ],
+);

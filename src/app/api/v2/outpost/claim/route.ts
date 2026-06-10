@@ -8,7 +8,12 @@ import {
   savesKv,
   v2GuildResources,
 } from "@/db/schema";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
+import {
+  insertFeedEntry,
+  resolveUserDisplayName,
+} from "@/lib/server/serverFeed";
+import { insertNotificationMany } from "@/lib/server/v2Notifications";
+import { WAR_NOTIF_DEBOUNCE_MS } from "@/lib/v2-notification-config";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -680,6 +685,11 @@ export async function POST(req: Request) {
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
         tournament: tournamentSummary,
+        // 내부 전용 — 알림 수신자 결정용 수비측 스냅샷(점령돼 있던 경우만).
+        // 응답 직전에 제거(클라 불필요 + occupations GET 으로 이미 공개인 정보).
+        _notify: stillHasOccRow
+          ? { defenderGuildId, defenderUserId: pvpDefenderId }
+          : null,
       },
     };
   });
@@ -693,7 +703,13 @@ export async function POST(req: Request) {
     raceLost?: boolean;
     fortHp?: number;
     fortMaxHp?: number;
+    _notify?: {
+      defenderGuildId: number | null;
+      defenderUserId: string | null;
+    } | null;
   };
+  const notifyTarget = fb._notify ?? null;
+  delete fb._notify; // 내부 전용 — 응답에서 제거.
   if (fb.ok && fb.won && !fb.raceLost) {
     // 공격자 길드명 — 길드 점령이면 길드 단위 사건으로 표기(없을 일 없지만 null 허용).
     const [g] = await db
@@ -723,6 +739,42 @@ export async function POST(req: Request) {
         },
         { force: true },
       );
+    }
+
+    // 개인 알림 — 수비측(점령돼 있던 거점만). 피격=거점당 6h 디바운스, 함락=즉시.
+    // 길드 점령이면 길드 전원(정원 3), 솔로면 점령자 본인.
+    if (notifyTarget) {
+      const attackerLabel = guildName
+        ? `${guildName} 길드`
+        : await resolveUserDisplayName(userId);
+      let recipients: string[] = [];
+      if (notifyTarget.defenderGuildId != null) {
+        const members = await db
+          .select({ userId: guildMembers.userId })
+          .from(guildMembers)
+          .where(eq(guildMembers.guildId, notifyTarget.defenderGuildId));
+        recipients = members.map((m) => m.userId);
+      } else if (notifyTarget.defenderUserId) {
+        recipients = [notifyTarget.defenderUserId];
+      }
+      if (fb.captured) {
+        await insertNotificationMany(recipients, "outpost_lost", {
+          outpostId: outpost.id,
+          attackerLabel,
+        });
+      } else {
+        await insertNotificationMany(
+          recipients,
+          "outpost_attacked",
+          {
+            outpostId: outpost.id,
+            fortHp: fb.fortHp ?? 0,
+            fortMaxHp: fb.fortMaxHp ?? FORT_MAX_HP,
+            attackerLabel,
+          },
+          { debounceMs: WAR_NOTIF_DEBOUNCE_MS },
+        );
+      }
     }
   }
 

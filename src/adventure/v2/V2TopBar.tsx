@@ -1,13 +1,14 @@
 "use client";
 
-import { Bell, MapPin } from "@phosphor-icons/react";
+import { MapPin } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
+import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
 // v2 메인 화면 타이틀 줄.
 // 좌측: 현재 거점 위치 (없으면 "이동 중") — 클릭 시 모험 탭(/)으로 이동.
-// 우측: 알림·채팅·설정. 채팅(ChatButton, 전역 /api/chat)·설정 wiring, 알림은 placeholder.
+// 우측: 알림(미읽음 뱃지 → /notifications)·채팅·설정.
 
 export function V2TopBar({
   currentOutpost,
@@ -33,36 +34,12 @@ export function V2TopBar({
         </span>
       </button>
       <nav className="flex shrink-0 items-center gap-1">
-        <IconButton aria-label="알림">
-          <Bell size={18} weight="duotone" />
-        </IconButton>
+        <NotificationBell />
         {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).
             v2 는 인벤토리 미연결이라 아이템 링크 없이 텍스트 채팅만. */}
         <ChatButton name={playerName} className="" title={null} />
         <V2SettingsMenu gameName={gameName} />
       </nav>
     </header>
-  );
-}
-
-// no-op 아이콘 버튼 — 클릭 무시. 미래에 onClick prop 추가.
-function IconButton({
-  children,
-  ...rest
-}: {
-  children: React.ReactNode;
-  "aria-label": string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        /* TODO: 기능 wiring (알림/채팅/설정) */
-      }}
-      className="rounded p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-      {...rest}
-    >
-      {children}
-    </button>
   );
 }

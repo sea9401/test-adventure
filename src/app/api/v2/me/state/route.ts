@@ -62,6 +62,10 @@ import {
 } from "@/adventure/v2/treasureCodex";
 import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import {
+  isIntruderActive,
+  parseLastHuntedOutpost,
+} from "@/adventure/data/v2/intruderTracking";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
@@ -198,6 +202,7 @@ export async function GET() {
     lastVisitedOutpost?: { outpostId?: string; at?: number };
     discoveredOutpostIds?: string[];
     frontierDepth?: unknown;
+    lastHuntedOutpost?: unknown;
   };
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
@@ -336,9 +341,18 @@ export async function GET() {
     .where(eq(users.id, userId))
     .limit(1);
 
+  // 침입 상태 — 다른 길드 점령 거점에서 사냥한 TTL 내 기록(intruderTracking 과 동일 판정).
+  // OutpostView 가 "이 거점에 침입 중 (토벌 가능)" 배너에 사용. 없으면 null.
+  const lastHunted = parseLastHuntedOutpost(charSave.lastHuntedOutpost);
+  const intrusion =
+    lastHunted && isIntruderActive(lastHunted, lastHunted.outpostId, now)
+      ? { outpostId: lastHunted.outpostId, at: lastHunted.at }
+      : null;
+
   return Response.json({
     ok: true,
     accountName: userRow?.gameName?.trim() || null,
+    intrusion,
     character: {
       name,
       gender,

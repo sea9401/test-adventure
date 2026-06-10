@@ -36,132 +36,40 @@ import {
   POWER_ATTACK_TURN_INTERVAL,
 } from "@/adventure/data/v2/v2CombatConstants";
 
-// 플레이어 페이즈 전체 — advanceTurn 에서 적 페이즈(resolveEnemyPhase)와 대칭으로 분리한다.
-// 평타 1회 해상도: 포션 → 강공격/AP 선택 → 회피(미스) 판정 → 데미지 파이프라인(분쇄·처형·크리·
-// 흡혈·천명·충돌파 등) → 적중 후 추가타 캐스케이드(연타·광속·풍사슬·연참) → finishPlayerTurn.
-// state.phase === "player" 가드는 호출부(advanceTurn)에 남고 이 함수는 진입 직후 상태를 받는다.
-// 모든 경로가 return 으로 끝나며 동작은 인라인 시절과 1비트도 다르지 않다(combatGolden 가드).
-export function resolvePlayerPhase(
+type AttackDamageResult = {
+  assassinFires: boolean;
+  breakerActive: boolean;
+  critRoll: boolean;
+  crushReduction: number;
+  cyclingChiThisTurn: number;
+  decreeFires: boolean;
+  dmg: number;
+  enchantBerserkActive: boolean;
+  enchantExeActive: boolean;
+  enduringStrikeBonus: number;
+  executionActive: boolean;
+  fatedChainConsumed: boolean;
+  focusedBreathConsumed: boolean;
+  impactFires: boolean;
+  luckyStarFires: boolean;
+  nextComboAtkBonus: number;
+  nextComboHitCount: number;
+  totalDmg: number;
+  weakpointDefIgnore: boolean;
+};
+
+function computeAttackDamage(
   state: BattleState,
   player: PlayerCombat,
-  playerName: string,
-  action: PlayerAction,
-): BattleState {
-  if (action.kind === "use_potion") {
-    const next = applyPotionEffect(state, action.potion, playerName);
-    // 포션은 공격이 아니라 그 턴의 공격 "1회" 를 소모한다. 추가타 빌드(attackCount>1)는
-    // 마신 뒤에도 남은 공격으로 계속 싸울 수 있고, 마지막 1회였다면 적 페이즈로 넘어간다.
-    // (기본 1회 공격 캐릭터는 attacksLeft 가 0 이 되어 기존과 동일하게 턴이 끝난다.)
-    // turn 플래그(firstAttackPending 등)는 그대로 둔다 — 포션은 공격이 아니므로 다음 실제
-    // 공격이 여전히 그 턴의 첫 공격(강공격/AP 트리거)으로 취급된다.
-    const attacksLeft = next.playerAttacksLeft - 1;
-    if (attacksLeft > 0) {
-      return { ...next, playerAttacksLeft: attacksLeft };
-    }
-    return {
-      ...next,
-      phase: "enemy",
-      playerAttacksLeft: rollPlayerAttackCountWithBleed(next, player),
-      turn: { ...next.turn, firstAttackPending: true },
-    };
-  }
-
-  // 강공격 발동 — POWER_ATTACK_TURN_INTERVAL 턴마다 그 턴의 첫 공격이 ATK + bonus.
-  // 진행 중인 턴 번호 = completedPlayerTurns + 1. 첫 공격 여부는 firstAttackPending 으로 판단
-  // (확률 기반 추가 공격 / 기습 보너스로 attackCount 비교가 신뢰할 수 없음).
-  const turnNumber = state.turn.completedPlayerTurns + 1;
-  const isFirstAttackOfTurn = state.turn.firstAttackPending;
-  const bonus =
-    isFirstAttackOfTurn &&
-    turnNumber % POWER_ATTACK_TURN_INTERVAL === 0 &&
-    (player.powerAttackBonus ?? 0) > 0
-      ? player.powerAttackBonus!
-      : 0;
-
-  // AP 스킬 — 그 턴 첫 공격 명중에 슬롯 순서로 최대 3개 발동. 공격형은 최대 1개.
-  // AP 스킬은 v2 미장착(equippedAPSkills 항상 빈값) — 발동 경로 제거, no-op 상수로 통과.
-  const apSel: {
-    offensive: EquippedAPSkill | null;
-    utilities: EquippedAPSkill[];
-    totalCost: number;
-  } = { offensive: null, utilities: [], totalCost: 0 };
-  const apOffensiveFires = apSel.offensive;
-  const apUtilityFires = apSel.utilities;
-  const apAllFired = apOffensiveFires
-    ? [apOffensiveFires, ...apUtilityFires]
-    : apUtilityFires;
-  const apOffensiveSkill = apOffensiveFires?.skill ?? null;
-  const apAllFiredSkills = apAllFired.map((e) => e.skill);
-  // atk_multiplier 계열 효과 — 광살참(multi_hit_self_damage)과 천뢰 일격
-  // (atk_multiplier_with_silence) 도 atkMult/ignoresDef/ignoresEvasion 을 공유.
-  // apMultEffect 는 아래(atk_plus_spd_pct_bonus·multi_hit_self_damage 자해)에서도 쓰여 유지.
-  // atkMult/ignoresDef/ignoresEvasion/hits 파생은 combatShared.extractApEffect 로 단일화
-  // (PvP 엔진과 공유 — ignoresEvasion = true 면 적 회피 굴림 스킵, 광살참 hits = N 번 누적).
-  const apMultEffect = apOffensiveSkill?.effect;
-  const {
-    atkMult: apAtkMult,
-    ignoresDef: apIgnoresDef,
-    ignoresEvasion: apIgnoresEvasion,
-    hits: apHits,
-  } = extractApEffect(apMultEffect);
-
-  // 적 회피 — 데미지 굴리기 전에 1차 판정. 회피하면 공격 1회가 그대로 빗나간다.
-  // 정확 슬롯 시 적 evasion 에 배수(<1) 가 곱해져 부분 무력화.
-  // v2 명중률(PR-6): player.accuracyPct 가 적 evasion 에서 %p 차감. 0/undefined =
-  // 차감 없음(라이브 기존 동작 보존). 라이브 enemy.accuracy 와 대칭.
-  // AP 스킬의 ignoresEvasion = true 면 회피 판정 자체 스킵.
-  const precisionMult = player.precisionEvasionMult ?? 1;
-  const rawEnemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
-  const playerAccuracy = player.accuracyPct ?? 0;
-  // 기본 명중 90%(빗나감 10%) + 적 회피 − 내 명중 (하한 없음 — 고회피 적은 그대로).
-  const missPct = Math.max(
-    0,
-    V2_BASE_MISS_PCT + rawEnemyEvasionPct - playerAccuracy,
-  );
-  if (!apIgnoresEvasion && missPct > 0 && Math.random() * 100 < missPct) {
-    const log = appendLog(state.log, {
-      kind: "player_attack",
-      text:
-        rawEnemyEvasionPct > 0
-          ? `${state.enemy.name}이(가) 공격을 피했다.`
-          : "공격이 빗나갔다.",
-    });
-    const attacksLeft = state.playerAttacksLeft - 1;
-    if (attacksLeft > 0) {
-      return {
-        ...state,
-        log,
-        playerAttacksLeft: attacksLeft,
-        turn: { ...state.turn, firstAttackPending: false },
-      };
-    }
-    const ended: BattleState = {
-      ...state,
-      log,
-      phase: "enemy",
-      playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
-      turn: {
-        ...state.turn,
-        completedPlayerTurns: state.turn.completedPlayerTurns + 1,
-        doubleStrikeUsedThisTurn: false,
-        lightspeedUsedThisTurn: false,
-        critThisTurn: false,
-        riposteUsedThisTurn: false,
-        firstAttackPending: true,
-        galeChainsThisTurn: 0,
-        weakpointUsedThisTurn: false,
-        fatedChainTriggeredThisTurn: false,
-        // fatedChainCritPending 은 "다음 공격" 까지 살아 있어야 하므로 턴 경계에서 리셋 안 함.
-      },
-    };
-    return finishPlayerTurn(ended, player, playerName);
-  }
-
-  // AP 스킬 시한부 버프 — 발동턴 damage calc 부터 효과 받도록 buffs 를 미리 갱신.
-  // decrementTimedEffects 는 다음 플레이어 턴 진입 시 -1 → 발동턴 + (turns-1) 후속턴 = 총 turns 턴.
-  // evasion 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 그 분기는 위에서 이미 return 된 상태.
-  const nextBuffsTimed = state.buffs;
-
+  bonus: number,
+  isFirstAttackOfTurn: boolean,
+  turnNumber: number,
+  nextBuffsTimed: BattleState["buffs"],
+  apMultEffect: Parameters<typeof extractApEffect>[0],
+  apAtkMult: number,
+  apHits: number,
+  apIgnoresDef: boolean,
+): AttackDamageResult {
   // 암살 (특기) — 전투 첫 공격이면 발동: 적 DEF 무시 + 데미지 배수 (배수는 아래에서 적용).
   const assassinFires =
     (player.assassinateDmgMult ?? 0) > 1 &&
@@ -423,6 +331,168 @@ export function resolvePlayerPhase(
     ? Math.floor(impactBaseDmg * BOSS_PCT_HP_DAMAGE_MULT)
     : impactBaseDmg;
   const totalDmg = dmg + decreeDmg + impactDmg + stormBonus;
+
+  return {
+    assassinFires,
+    breakerActive,
+    critRoll,
+    crushReduction,
+    cyclingChiThisTurn,
+    decreeFires,
+    dmg,
+    enchantBerserkActive,
+    enchantExeActive,
+    enduringStrikeBonus,
+    executionActive,
+    fatedChainConsumed,
+    focusedBreathConsumed,
+    impactFires,
+    luckyStarFires,
+    nextComboAtkBonus,
+    nextComboHitCount,
+    totalDmg,
+    weakpointDefIgnore,
+  };
+}
+
+// 플레이어 페이즈 전체 — advanceTurn 에서 적 페이즈(resolveEnemyPhase)와 대칭으로 분리한다.
+// 평타 1회 해상도: 포션 → 강공격/AP 선택 → 회피(미스) 판정 → 데미지 파이프라인(분쇄·처형·크리·
+// 흡혈·천명·충돌파 등) → 적중 후 추가타 캐스케이드(연타·광속·풍사슬·연참) → finishPlayerTurn.
+// state.phase === "player" 가드는 호출부(advanceTurn)에 남고 이 함수는 진입 직후 상태를 받는다.
+// 모든 경로가 return 으로 끝나며 동작은 인라인 시절과 1비트도 다르지 않다(combatGolden 가드).
+export function resolvePlayerPhase(
+  state: BattleState,
+  player: PlayerCombat,
+  playerName: string,
+  action: PlayerAction,
+): BattleState {
+  if (action.kind === "use_potion") {
+    const next = applyPotionEffect(state, action.potion, playerName);
+    // 포션은 공격이 아니라 그 턴의 공격 "1회" 를 소모한다. 추가타 빌드(attackCount>1)는
+    // 마신 뒤에도 남은 공격으로 계속 싸울 수 있고, 마지막 1회였다면 적 페이즈로 넘어간다.
+    // (기본 1회 공격 캐릭터는 attacksLeft 가 0 이 되어 기존과 동일하게 턴이 끝난다.)
+    // turn 플래그(firstAttackPending 등)는 그대로 둔다 — 포션은 공격이 아니므로 다음 실제
+    // 공격이 여전히 그 턴의 첫 공격(강공격/AP 트리거)으로 취급된다.
+    const attacksLeft = next.playerAttacksLeft - 1;
+    if (attacksLeft > 0) {
+      return { ...next, playerAttacksLeft: attacksLeft };
+    }
+    return {
+      ...next,
+      phase: "enemy",
+      playerAttacksLeft: rollPlayerAttackCountWithBleed(next, player),
+      turn: { ...next.turn, firstAttackPending: true },
+    };
+  }
+
+  // 강공격 발동 — POWER_ATTACK_TURN_INTERVAL 턴마다 그 턴의 첫 공격이 ATK + bonus.
+  // 진행 중인 턴 번호 = completedPlayerTurns + 1. 첫 공격 여부는 firstAttackPending 으로 판단
+  // (확률 기반 추가 공격 / 기습 보너스로 attackCount 비교가 신뢰할 수 없음).
+  const turnNumber = state.turn.completedPlayerTurns + 1;
+  const isFirstAttackOfTurn = state.turn.firstAttackPending;
+  const bonus =
+    isFirstAttackOfTurn &&
+    turnNumber % POWER_ATTACK_TURN_INTERVAL === 0 &&
+    (player.powerAttackBonus ?? 0) > 0
+      ? player.powerAttackBonus!
+      : 0;
+
+  // AP 스킬 — 그 턴 첫 공격 명중에 슬롯 순서로 최대 3개 발동. 공격형은 최대 1개.
+  // AP 스킬은 v2 미장착(equippedAPSkills 항상 빈값) — 발동 경로 제거, no-op 상수로 통과.
+  const apSel: {
+    offensive: EquippedAPSkill | null;
+    utilities: EquippedAPSkill[];
+    totalCost: number;
+  } = { offensive: null, utilities: [], totalCost: 0 };
+  const apOffensiveFires = apSel.offensive;
+  const apUtilityFires = apSel.utilities;
+  const apAllFired = apOffensiveFires
+    ? [apOffensiveFires, ...apUtilityFires]
+    : apUtilityFires;
+  const apOffensiveSkill = apOffensiveFires?.skill ?? null;
+  const apAllFiredSkills = apAllFired.map((e) => e.skill);
+  // atk_multiplier 계열 효과 — 광살참(multi_hit_self_damage)과 천뢰 일격
+  // (atk_multiplier_with_silence) 도 atkMult/ignoresDef/ignoresEvasion 을 공유.
+  // apMultEffect 는 아래(atk_plus_spd_pct_bonus·multi_hit_self_damage 자해)에서도 쓰여 유지.
+  // atkMult/ignoresDef/ignoresEvasion/hits 파생은 combatShared.extractApEffect 로 단일화
+  // (PvP 엔진과 공유 — ignoresEvasion = true 면 적 회피 굴림 스킵, 광살참 hits = N 번 누적).
+  const apMultEffect = apOffensiveSkill?.effect;
+  const {
+    atkMult: apAtkMult,
+    ignoresDef: apIgnoresDef,
+    ignoresEvasion: apIgnoresEvasion,
+    hits: apHits,
+  } = extractApEffect(apMultEffect);
+
+  // 적 회피 — 데미지 굴리기 전에 1차 판정. 회피하면 공격 1회가 그대로 빗나간다.
+  // 정확 슬롯 시 적 evasion 에 배수(<1) 가 곱해져 부분 무력화.
+  // v2 명중률(PR-6): player.accuracyPct 가 적 evasion 에서 %p 차감. 0/undefined =
+  // 차감 없음(라이브 기존 동작 보존). 라이브 enemy.accuracy 와 대칭.
+  // AP 스킬의 ignoresEvasion = true 면 회피 판정 자체 스킵.
+  const precisionMult = player.precisionEvasionMult ?? 1;
+  const rawEnemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
+  const playerAccuracy = player.accuracyPct ?? 0;
+  // 기본 명중 90%(빗나감 10%) + 적 회피 − 내 명중 (하한 없음 — 고회피 적은 그대로).
+  const missPct = Math.max(
+    0,
+    V2_BASE_MISS_PCT + rawEnemyEvasionPct - playerAccuracy,
+  );
+  if (!apIgnoresEvasion && missPct > 0 && Math.random() * 100 < missPct) {
+    const log = appendLog(state.log, {
+      kind: "player_attack",
+      text:
+        rawEnemyEvasionPct > 0
+          ? `${state.enemy.name}이(가) 공격을 피했다.`
+          : "공격이 빗나갔다.",
+    });
+    const attacksLeft = state.playerAttacksLeft - 1;
+    if (attacksLeft > 0) {
+      return {
+        ...state,
+        log,
+        playerAttacksLeft: attacksLeft,
+        turn: { ...state.turn, firstAttackPending: false },
+      };
+    }
+    const ended: BattleState = {
+      ...state,
+      log,
+      phase: "enemy",
+      playerAttacksLeft: rollPlayerAttackCountWithBleed(state, player),
+      turn: {
+        ...state.turn,
+        completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+        doubleStrikeUsedThisTurn: false,
+        lightspeedUsedThisTurn: false,
+        critThisTurn: false,
+        riposteUsedThisTurn: false,
+        firstAttackPending: true,
+        galeChainsThisTurn: 0,
+        weakpointUsedThisTurn: false,
+        fatedChainTriggeredThisTurn: false,
+        // fatedChainCritPending 은 "다음 공격" 까지 살아 있어야 하므로 턴 경계에서 리셋 안 함.
+      },
+    };
+    return finishPlayerTurn(ended, player, playerName);
+  }
+
+  // AP 스킬 시한부 버프 — 발동턴 damage calc 부터 효과 받도록 buffs 를 미리 갱신.
+  // decrementTimedEffects 는 다음 플레이어 턴 진입 시 -1 → 발동턴 + (turns-1) 후속턴 = 총 turns 턴.
+  // evasion 직후이라 — 회피된 공격에는 AP 가 발동 안 하니 그 분기는 위에서 이미 return 된 상태.
+  const nextBuffsTimed = state.buffs;
+
+  const { assassinFires, breakerActive, critRoll, crushReduction, cyclingChiThisTurn, decreeFires, dmg, enchantBerserkActive, enchantExeActive, enduringStrikeBonus, executionActive, fatedChainConsumed, focusedBreathConsumed, impactFires, luckyStarFires, nextComboAtkBonus, nextComboHitCount, totalDmg, weakpointDefIgnore } = computeAttackDamage(
+    state,
+    player,
+    bonus,
+    isFirstAttackOfTurn,
+    turnNumber,
+    nextBuffsTimed,
+    apMultEffect,
+    apAtkMult,
+    apHits,
+    apIgnoresDef,
+  );
   const labels: string[] = [];
   if (bonus > 0) labels.push("강공격");
   if (bonus > 0 && crushReduction > 0) labels.push("분쇄");

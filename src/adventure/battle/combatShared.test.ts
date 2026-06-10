@@ -120,7 +120,6 @@ describe("tickV2SkillCooldowns (PR-4a)", () => {
 });
 
 describe("pickAutoCastV2Skill (PR-4a)", () => {
-  const strike = V2_SKILLS["v2_skill_strike"];
   const recover = V2_SKILLS["v2_skill_recover"];
   const flurry = V2_SKILLS["v2_skill_flurry"];
 

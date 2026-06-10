@@ -378,7 +378,7 @@ export function bandUniquePoolForDepth(depth: number): BandUniquePool | null {
 // 밴드 밖 깊이 → pool null → rng 미소비하고 null(레거시 floor 롤과 ?? 합성해도 rng 안 샘).
 export function rollBandUniqueDrop(
   depth: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 중복 드랍 허용 후 미사용(시그니처 유지, rollEquipDrop 대칭)
+  // 중복 드랍 허용 후 미사용(시그니처 유지, rollEquipDrop 대칭)
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
   // 통과 굴림 chance 배율. 미지정 1. chance×배율(1 cap).

@@ -6,7 +6,6 @@ import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { IntruderPanel } from "./IntruderPanel";
-import type { StaminaState } from "./stamina";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
@@ -44,33 +43,6 @@ const POLICY_LABELS: Record<string, string> = {
 };
 const POLICY_OPTIONS = ["open", "guild-only"] as const;
 const TAX_RATE_MAX = 0.5;
-
-type TournamentSummary = {
-  matches: {
-    attackerName: string;
-    defenderName: string;
-    winnerSide: "attacker" | "defender";
-    turns: number;
-  }[];
-  attackerLineupCount: number;
-  defenderLineupCount: number;
-};
-
-type ClaimResponse = {
-  ok?: boolean;
-  error?: string;
-  won?: boolean;
-  raceLost?: boolean;
-  pvp?: boolean;
-  championName?: string;
-  turns?: number;
-  stamina?: StaminaState;
-  hpBefore?: number;
-  hpAfter?: number;
-  maxHp?: number;
-  requiredStamina?: number;
-  tournament?: TournamentSummary | null;
-};
 
 export function OutpostView({
   outpost,

@@ -196,7 +196,7 @@ export function V2WarView({
                       {s.recentAttacks.map((a, i) => (
                         <li key={i} className="flex justify-between gap-2">
                           <span className="truncate">
-                            {a.attackerName} 의 공성{" "}
+                            {a.attackerName}의 공성{" "}
                             <span
                               className={
                                 a.won

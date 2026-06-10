@@ -20,6 +20,7 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { insertNotification } from "@/lib/server/v2Notifications";
 
 // POST /api/v2/outpost/eject — 점령 길드 멤버가 침입자 1v1 토벌.
 //
@@ -248,7 +249,12 @@ export async function POST(req: Request) {
   });
 
   // 전쟁 피드 — 토벌 성공은 공적 사건(force). tx 커밋 후 부수효과.
-  const fb = result.body as { ok?: boolean; won?: boolean; defenderName?: string };
+  const fb = result.body as {
+    ok?: boolean;
+    won?: boolean;
+    attackerName?: string;
+    defenderName?: string;
+  };
   if (fb.ok && fb.won) {
     await insertFeedEntry(
       userId,
@@ -256,6 +262,11 @@ export async function POST(req: Request) {
       { outpostId, targetName: fb.defenderName ?? "침입자" },
       { force: true },
     );
+    // 개인 알림 — 토벌당한 침입자 본인에게 즉시.
+    await insertNotification(targetUserId, "ejected", {
+      outpostId,
+      byName: fb.attackerName ?? "수비대",
+    });
   }
 
   return Response.json(result.body, { status: result.status });

@@ -68,15 +68,25 @@ export function OutpostView({
   );
   const [policyOpen, setPolicyOpen] = useState(false);
   // 내 합성 전투력(derivePowerScore) — 수비 전투력 게이트 비교용. state 라우트서 1회 로드.
+  // intrusion(침입 상태)도 같은 응답에서 — "이 거점에 침입 중" 배너용.
   const [viewerPower, setViewerPower] = useState<number | null>(null);
+  const [intrusionOutpostId, setIntrusionOutpostId] = useState<string | null>(
+    null,
+  );
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (alive && typeof j?.combat?.power === "number") {
+        if (!alive) return;
+        if (typeof j?.combat?.power === "number") {
           setViewerPower(j.combat.power);
         }
+        setIntrusionOutpostId(
+          typeof j?.intrusion?.outpostId === "string"
+            ? j.intrusion.outpostId
+            : null,
+        );
       })
       .catch(() => {});
     return () => {
@@ -289,6 +299,14 @@ export function OutpostView({
         {dungeonDisabled && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
             ⚠️ {dungeonDisabled.reason} — 사냥 불가
+          </div>
+        )}
+
+        {/* 침입자 본인 상태 — 다른 길드 점령 거점에서 사냥한 TTL 내. 점령 길드의
+            토벌 대상임을 본인도 알게(전쟁의 "당하는 쪽" 가시화, PR-5). */}
+        {intrusionOutpostId === outpost.id && enemyGuildSiege && (
+          <div className="rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200">
+            🗡 이 거점에 침입 중 — 점령 길드가 당신을 토벌할 수 있습니다
           </div>
         )}
 

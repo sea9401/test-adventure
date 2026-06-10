@@ -23,15 +23,20 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
-  DEF_IGNORE_FRACTION,
   appendLog,
   damageBetween,
   type EquippedAPSkill,
   type PlayerAction,
 } from "./engine";
 import {
-  CRIT_OVERFLOW_DMG_CAP,
-  CRIT_OVERFLOW_DMG_PER_PCT,
+  applyDefIgnore,
+  computeAfterCrush,
+  computeBalanceCritBonus,
+  computeBerserkBonus,
+  computeCritOverflowBonus,
+  computeStormBonus,
+} from "./engine.damageHelpers";
+import {
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
 import {
@@ -73,25 +78,19 @@ function computeAttackDamagePvP(
   // engine.ts 와 동일 — 분쇄(고정 감산) 후 30% 곱연산 관통.
   const crushReduction = attacker.player.crushDefReduction ?? 0;
   const baseDef = attackerFacingDef(attacker, defender, nextBuffsTimedFromAp);
-  const afterCrush =
-    powerBonus > 0 && crushReduction > 0
-      ? Math.max(0, baseDef - crushReduction)
-      : baseDef;
-  const targetDef =
-    assassinFires || weakpointDefIgnore || apIgnoresDef
-      ? Math.round(afterCrush * (1 - DEF_IGNORE_FRACTION))
-      : afterCrush;
+  const afterCrush = computeAfterCrush(baseDef, powerBonus, crushReduction);
+  const targetDef = applyDefIgnore(
+    afterCrush,
+    assassinFires || weakpointDefIgnore || apIgnoresDef,
+  );
 
   // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
-  const lostHpFraction = Math.max(0, 1 - attacker.hp / attacker.maxHp);
-  const berserkBonus =
-    (attacker.player.berserkAtkPctPerLostHpPct ?? 0) > 0
-      ? Math.floor(
-          attacker.player.atk *
-            lostHpFraction *
-            attacker.player.berserkAtkPctPerLostHpPct!,
-        )
-      : 0;
+  const berserkBonus = computeBerserkBonus(
+    attacker.player.atk,
+    attacker.hp,
+    attacker.maxHp,
+    attacker.player.berserkAtkPctPerLostHpPct,
+  );
   // 질풍검 — 턴 첫 공격에 (그 턴 공격 횟수 × N).
   const gustBonus =
     (attacker.player.gustAtkPerAttack ?? 0) > 0 && isFirstAttackOfTurn
@@ -122,13 +121,11 @@ function computeAttackDamagePvP(
     nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
       ? defender.player.spd * nextBuffsTimedFromAp.enemySpdMult
       : defender.player.spd;
-  const balanceCritBonus =
-    (attacker.player.balanceCritPctPerSpdDiff ?? 0) > 0
-      ? Math.floor(
-          Math.max(0, effectiveAtkSpd - effectiveDefSpd) *
-            attacker.player.balanceCritPctPerSpdDiff!,
-        )
-      : 0;
+  const balanceCritBonus = computeBalanceCritBonus(
+    effectiveAtkSpd,
+    effectiveDefSpd,
+    attacker.player.balanceCritPctPerSpdDiff,
+  );
   const universalLuckBonus = attacker.player.universalLuckBonusPct ?? 0;
   // PR2-B 연환집중 — 치명률 temp 버프(%p).
   const skillCritThisTurn =
@@ -146,10 +143,7 @@ function computeAttackDamagePvP(
     0,
     Math.min(CRIT_PCT_CAP, rawCritPct) - (defender.player.critResistPct ?? 0),
   );
-  const critOverflowDmgBonus = Math.min(
-    CRIT_OVERFLOW_DMG_CAP,
-    Math.max(0, rawCritPct - CRIT_PCT_CAP) * CRIT_OVERFLOW_DMG_PER_PCT,
-  );
+  const critOverflowDmgBonus = computeCritOverflowBonus(rawCritPct);
   // 연쇄 운명 — 큐가 있으면 강제 크리. 큐는 이번 공격에 소비.
   const fatedChainConsumed = attacker.flags.fatedChainCritPending;
   // 집중의 호흡 (AP) — 큐가 있으면 이 공격 크리 강제 + 크리뎀 보너스. 1회 소비.
@@ -244,10 +238,7 @@ function computeAttackDamagePvP(
     ? Math.floor((defender.hp * impactPct) / 100)
     : 0;
   // 폭풍 일격 (AP) — fire 시 (player.atk × spdPct/100) 추가 고정 데미지. targetDef 무시.
-  const stormBonus =
-    apMultEffect?.kind === "atk_plus_spd_pct_bonus"
-      ? Math.floor((attacker.player.atk * apMultEffect.spdPct) / 100)
-      : 0;
+  const stormBonus = computeStormBonus(attacker.player.atk, apMultEffect);
   const totalDmgBeforeVuln = dmg + decreeDmg + impactDmg + stormBonus;
   // PR2-B 속박 — 시전자(attacker)가 속박 활성 시 가하는 피해 +%. 모든 평타 배수 끝 마지막 곱(PvE 미러).
   const totalDmg =

@@ -1,7 +1,6 @@
 import {
   BOSS_PCT_HP_DAMAGE_MULT,
   COMBO_FINISHER_PERIOD,
-  DEF_IGNORE_FRACTION,
   appendLog,
   applyPhaseTriggerIfAny,
   applyPlayerOnHitDots,
@@ -15,6 +14,14 @@ import {
   type PlayerCombat,
 } from "./engine";
 import {
+  applyDefIgnore,
+  computeAfterCrush,
+  computeBalanceCritBonus,
+  computeBerserkBonus,
+  computeCritOverflowBonus,
+  computeStormBonus,
+} from "./engine.damageHelpers";
+import {
   V2_BASE_MISS_PCT,
   damageBetween,
   extractApEffect,
@@ -22,8 +29,6 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
-  CRIT_OVERFLOW_DMG_CAP,
-  CRIT_OVERFLOW_DMG_PER_PCT,
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
 import {
@@ -84,14 +89,11 @@ function computeAttackDamage(
   // 분쇄(고정 감산) 후 30% 관통을 곱연산으로 적용 — 방어 투자가 70% 는 항상 유효.
   const crushReduction = player.crushDefReduction ?? 0;
   const baseDef = playerFacingEnemyDef(state, player, nextBuffsTimed);
-  const afterCrush =
-    bonus > 0 && crushReduction > 0
-      ? Math.max(0, baseDef - crushReduction)
-      : baseDef;
-  const afterIgnore =
-    assassinFires || weakpointDefIgnore || apIgnoresDef
-      ? Math.round(afterCrush * (1 - DEF_IGNORE_FRACTION))
-      : afterCrush;
+  const afterCrush = computeAfterCrush(baseDef, bonus, crushReduction);
+  const afterIgnore = applyDefIgnore(
+    afterCrush,
+    assassinFires || weakpointDefIgnore || apIgnoresDef,
+  );
   // 궁수 패시브 — 평타 방어 관통(%). 위 30% 무시 레이어 뒤에 곱연산(방어 투자가 항상 일부 유효).
   const archerPenPct = player.passiveDefPenetrationPct ?? 0;
   const targetDef =
@@ -100,13 +102,12 @@ function computeAttackDamage(
       : afterIgnore;
   // 광전사 (특기) — 잃은 HP 비율만큼 ATK 가산.
   // berserkAtkPctPerLostHpPct=0.5 → 잃은 HP 1%당 ATK +0.5% → 보너스ATK = atk × lostFraction × 0.5.
-  const lostHpFraction = Math.max(0, 1 - state.playerHp / state.playerMaxHp);
-  const berserkBonus =
-    (player.berserkAtkPctPerLostHpPct ?? 0) > 0
-      ? Math.floor(
-          player.atk * lostHpFraction * player.berserkAtkPctPerLostHpPct!,
-        )
-      : 0;
+  const berserkBonus = computeBerserkBonus(
+    player.atk,
+    state.playerHp,
+    state.playerMaxHp,
+    player.berserkAtkPctPerLostHpPct,
+  );
   // 별빛 폭주(enchant berserk) — 자신 HP 30% 이하일 때 atk +pct%. 단계형 (광전사 특기와
   // 별개 누적).
   const enchantBerserkPct = player.enchantBerserkBonusPct ?? 0;
@@ -147,13 +148,11 @@ function computeAttackDamage(
     nextBuffsTimed.enemySpdTurnsLeft > 0
       ? state.enemy.spd * nextBuffsTimed.enemySpdMult
       : state.enemy.spd;
-  const balanceCritBonus =
-    (player.balanceCritPctPerSpdDiff ?? 0) > 0
-      ? Math.floor(
-          Math.max(0, effectivePlayerSpd - effectiveEnemySpd) *
-            player.balanceCritPctPerSpdDiff!,
-        )
-      : 0;
+  const balanceCritBonus = computeBalanceCritBonus(
+    effectivePlayerSpd,
+    effectiveEnemySpd,
+    player.balanceCritPctPerSpdDiff,
+  );
   // 만물 행운 (6티어) — 크리티컬 확률 +N%.
   const universalLuckBonus = player.universalLuckBonusPct ?? 0;
   // 크리 확률은 CRIT_PCT_CAP(75%) 캡. 초과분은 크리 데미지로 자동 변환 — 캡 도달 후에도
@@ -161,10 +160,7 @@ function computeAttackDamage(
   const rawCritPct =
     baseCritPct + luckCritBonus + balanceCritBonus + universalLuckBonus + cyclingChiThisTurn;
   const effectiveCritPct = Math.min(CRIT_PCT_CAP, rawCritPct);
-  const critOverflowDmgBonus = Math.min(
-    CRIT_OVERFLOW_DMG_CAP,
-    Math.max(0, rawCritPct - CRIT_PCT_CAP) * CRIT_OVERFLOW_DMG_PER_PCT,
-  );
+  const critOverflowDmgBonus = computeCritOverflowBonus(rawCritPct);
   // 연쇄 운명 (2티어 특기) — 큐가 있으면 이 공격 크리 강제. 큐는 아래에서 소비.
   const fatedChainConsumed = state.flags.fatedChainCritPending;
   // 집중의 호흡 (AP) — 큐가 있으면 이 공격 크리 강제 + 크리뎀 보너스. 1회 소비.
@@ -215,10 +211,7 @@ function computeAttackDamage(
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복 데미지. apHits=1 이면 baseDmgSingleHit 그대로.
   const baseDmg = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
   // 폭풍 일격 (AP) — fire 시 (player.atk × spdPct/100) 추가 고정 데미지. targetDef 무시.
-  const stormBonus =
-    apMultEffect?.kind === "atk_plus_spd_pct_bonus"
-      ? Math.floor((player.atk * apMultEffect.spdPct) / 100)
-      : 0;
+  const stormBonus = computeStormBonus(player.atk, apMultEffect);
   // 처형 — 적 HP 비율 < executionHpFraction 일 때 데미지 ×executionDamageMult.
   // 강공격/분쇄 후 데미지에 곱하고, 크리티컬은 그 위에 다시 곱한다 (다단 누적).
   const exMult = player.executionDamageMult ?? 1;

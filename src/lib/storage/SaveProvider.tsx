@@ -173,11 +173,9 @@ export function SaveProvider({
       if (s.kind === "session-expired") {
         // 플레이 중 PATCH 가 401 — 로그인 세션이 만료/무효해졌다. reload 로는 못 푸니
         // 전용 화면에서 재로그인 유도. 못 보낸 큐는 remote 가 보존(재로그인 후 재시도).
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState({ status: "session-expired" });
       }
       if (s.kind === "session-invalidated") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState({ status: "session-invalidated" });
       }
     });

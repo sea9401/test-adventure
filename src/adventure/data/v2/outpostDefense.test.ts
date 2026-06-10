@@ -6,7 +6,8 @@ import {
   OUTPOST_DEFENSE_EDGE,
 } from "./outpostDefense";
 
-const byName = (n: string) => OUTPOSTS.find((o) => o.name === n)!;
+// id 기반 lookup — 표시 이름은 콘텐츠 리네이밍으로 바뀔 수 있다(2026-06 고유명사화).
+const byId = (id: string) => OUTPOSTS.find((o) => o.id === id)!;
 
 describe("outpostDefensePower", () => {
   it("왕국 중심(tier 4)은 최대 수비 전투력", () => {
@@ -24,12 +25,14 @@ describe("outpostDefensePower", () => {
   });
 
   it("중앙 분쟁지대 거점은 0 (기존 산적 난이도 유지)", () => {
-    expect(outpostDefensePower(byName("중앙 요새"))).toBe(0);
-    expect(outpostDefensePower(byName("평원 광장 거점"))).toBe(0);
+    expect(outpostDefensePower(byId("war_central_fort"))).toBe(0);
+    expect(outpostDefensePower(byId("outpost_plain_square"))).toBe(0);
   });
 
   it("왕국 소속 최외곽 땅은 EDGE(1500) 로 수렴", () => {
-    expect(outpostDefensePower(byName("풀밭 마을"))).toBe(OUTPOST_DEFENSE_EDGE);
+    expect(outpostDefensePower(byId("village_meadow"))).toBe(
+      OUTPOST_DEFENSE_EDGE,
+    );
   });
 
   it("모든 거점 수비 전투력은 0 또는 [EDGE, CENTER] 범위", () => {

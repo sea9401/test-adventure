@@ -2,11 +2,13 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
+  guilds,
   outpostOccupations,
   outpostClaimAttempts,
   savesKv,
   v2GuildResources,
 } from "@/db/schema";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
@@ -681,6 +683,48 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  // 전쟁 피드 — tx 커밋 후 부수효과(중첩 트랜잭션 회피 — guild-lodge 데드락 교훈).
+  // 공적 사건이라 shareFeed opt-out 무시(force). insertFeedEntry 가 디바운스/실패삼킴 자체 처리.
+  const fb = result.body as {
+    ok?: boolean;
+    won?: boolean;
+    captured?: boolean;
+    raceLost?: boolean;
+    fortHp?: number;
+    fortMaxHp?: number;
+  };
+  if (fb.ok && fb.won && !fb.raceLost) {
+    // 공격자 길드명 — 길드 점령이면 길드 단위 사건으로 표기(없을 일 없지만 null 허용).
+    const [g] = await db
+      .select({ name: guilds.name })
+      .from(guildMembers)
+      .innerJoin(guilds, eq(guildMembers.guildId, guilds.id))
+      .where(eq(guildMembers.userId, userId))
+      .limit(1);
+    const guildName = g?.name ?? null;
+    if (fb.captured) {
+      await insertFeedEntry(
+        userId,
+        "outpost_capture",
+        { outpostId: outpost.id, guildName },
+        { force: true },
+      );
+    } else {
+      // 점령된 거점 공성 승리(성벽 타격) — 함락 못 한 진행 타격.
+      await insertFeedEntry(
+        userId,
+        "outpost_siege",
+        {
+          outpostId: outpost.id,
+          fortHp: fb.fortHp ?? 0,
+          fortMaxHp: fb.fortMaxHp ?? FORT_MAX_HP,
+          guildName,
+        },
+        { force: true },
+      );
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

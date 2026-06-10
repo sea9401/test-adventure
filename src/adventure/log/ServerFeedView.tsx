@@ -8,13 +8,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CaretDown,
   CaretRight,
+  Flag,
   Hammer,
   Megaphone,
+  ShieldCheck,
   Sparkle,
+  Sword,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { ITEMS } from "@/adventure/data/items";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { formatRelative } from "@/lib/notifications";
 import {
   FEED_POLL_MS,
@@ -46,7 +50,32 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       className="shrink-0 text-amber-500 dark:text-amber-400"
     />
   ),
+  outpost_capture: (
+    <Flag
+      size={14}
+      weight="fill"
+      className="shrink-0 text-rose-500 dark:text-rose-400"
+    />
+  ),
+  outpost_siege: (
+    <Sword
+      size={14}
+      weight="fill"
+      className="shrink-0 text-orange-500 dark:text-orange-400"
+    />
+  ),
+  outpost_eject: (
+    <ShieldCheck
+      size={14}
+      weight="fill"
+      className="shrink-0 text-emerald-500 dark:text-emerald-400"
+    />
+  ),
 };
+
+function outpostName(outpostId: string): string {
+  return OUTPOST_BY_ID.get(outpostId)?.name ?? outpostId;
+}
 
 function entryText(e: FeedEntry): React.ReactNode {
   const name = (
@@ -55,22 +84,90 @@ function entryText(e: FeedEntry): React.ReactNode {
     </span>
   );
   if (e.type === "unique_drop") {
+    const p = e.payload as { itemId: string };
     return (
       <>
         {name} 님이 유실된 명품{" "}
         <span className="font-medium text-violet-600 dark:text-violet-400">
-          {itemName(e.payload.itemId)}
+          {itemName(p.itemId)}
         </span>{" "}
         발견!
       </>
     );
   }
+  if (e.type === "outpost_capture") {
+    const p = e.payload as {
+      outpostId: string;
+      guildName?: string | null;
+      lostToNpc?: boolean;
+    };
+    const where = (
+      <span className="font-medium text-rose-600 dark:text-rose-400">
+        {outpostName(p.outpostId)}
+      </span>
+    );
+    if (p.lostToNpc) {
+      return (
+        <>
+          {name} 님의 {where} 점령이 NPC 수비대에 무너졌다
+        </>
+      );
+    }
+    return p.guildName ? (
+      <>
+        <span className="font-medium text-zinc-700 dark:text-zinc-200">
+          {p.guildName} 길드
+        </span>
+        가 {where} 점령!
+      </>
+    ) : (
+      <>
+        {name} 님이 {where} 점령!
+      </>
+    );
+  }
+  if (e.type === "outpost_siege") {
+    const p = e.payload as {
+      outpostId: string;
+      fortHp: number;
+      fortMaxHp: number;
+      guildName?: string | null;
+    };
+    const subject = p.guildName ? (
+      <span className="font-medium text-zinc-700 dark:text-zinc-200">
+        {p.guildName} 길드
+      </span>
+    ) : (
+      <>{name} 님</>
+    );
+    return (
+      <>
+        {subject}이 {outpostName(p.outpostId)} 성벽 공격{" "}
+        <span className="tabular-nums text-orange-600 dark:text-orange-400">
+          ({p.fortHp}/{p.fortMaxHp})
+        </span>
+      </>
+    );
+  }
+  if (e.type === "outpost_eject") {
+    const p = e.payload as { outpostId: string; targetName: string };
+    return (
+      <>
+        {name} 님이 {outpostName(p.outpostId)}에서 침입자{" "}
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+          {p.targetName}
+        </span>{" "}
+        토벌!
+      </>
+    );
+  }
   // masterpiece
+  const p = e.payload as { itemId: string };
   return (
     <>
       {name} 님이 걸작{" "}
       <span className="font-medium text-amber-600 dark:text-amber-400">
-        {itemName(e.payload.itemId)}
+        {itemName(p.itemId)}
       </span>{" "}
       제작!
     </>

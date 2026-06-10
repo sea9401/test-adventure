@@ -17,14 +17,33 @@ export const FEED_DEBOUNCE_MS = 60_000;
 // 클라이언트 패널 폴링 주기.
 export const FEED_POLL_MS = 30_000;
 
-// 피드 항목 종류. v2 에서 'milestone' 등 추가.
-export const FEED_TYPES = ["unique_drop", "masterpiece"] as const;
+// 피드 항목 종류. outpost_* 3종 = 전쟁 사건(docs/v2-war-visibility-plan.md PR-3) —
+// 공적 행위라 shareFeed opt-out 을 무시하고 기록된다(insertFeedEntry force).
+export const FEED_TYPES = [
+  "unique_drop",
+  "masterpiece",
+  "outpost_capture",
+  "outpost_siege",
+  "outpost_eject",
+] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
-// type 별 payload. 아이템 이름은 클라에서 ITEMS 로 해석 — itemId 만 저장.
+// type 별 payload. 아이템/거점 이름은 클라에서 카탈로그로 해석 — id 만 저장.
+// 길드명은 시점 스냅샷 문자열(클라에 길드 카탈로그가 없음).
 export type FeedPayload =
-  | { itemId: string } // unique_drop
-  | { itemId: string }; // masterpiece (항상 걸작 등급)
+  | { itemId: string } // unique_drop · masterpiece
+  // outpost_capture — 함락/점령. lostToNpc=true 면 NPC 정기공격에 점령이 무너진 것
+  // (actor = 잃은 점령자). 아니면 actor/guildName = 새 점령자.
+  | { outpostId: string; guildName?: string | null; lostToNpc?: boolean }
+  // outpost_siege — 성벽 타격(승리한 공성만). fortHp = 타격 후 잔량.
+  | {
+      outpostId: string;
+      fortHp: number;
+      fortMaxHp: number;
+      guildName?: string | null;
+    }
+  // outpost_eject — 침입자 토벌. actor = 토벌자, targetName = 토벌당한 침입자.
+  | { outpostId: string; targetName: string };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

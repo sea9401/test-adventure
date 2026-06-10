@@ -7,6 +7,7 @@ import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 // PR-7b: 병사 시스템 폐기 — applySoldierBoost / readGuildResources soldiers 보정 제거.
 // 점령자 영웅 단신으로 NPC 챔피언과 단판.
 
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      let lostOwnerId: string | null = null; // 점령 풀림 — tx 커밋 후 피드 발화용.
       await db.transaction(async (tx) => {
         // tx 안에서 다시 lock (다른 cron / claim 과 race 방지).
         const lockedOcc = (
@@ -136,9 +138,19 @@ export async function POST(req: Request) {
             .delete(outpostOccupations)
             .where(eq(outpostOccupations.outpostId, outpost.id));
           summary.lost += 1;
+          lostOwnerId = ownerId;
         }
         summary.evaluated += 1;
       });
+      // 전쟁 피드 — 점령 풀림은 공적 사건(force). tx 커밋 후 부수효과, actor = 잃은 점령자.
+      if (lostOwnerId) {
+        await insertFeedEntry(
+          lostOwnerId,
+          "outpost_capture",
+          { outpostId: outpost.id, lostToNpc: true },
+          { force: true },
+        );
+      }
     } catch (e) {
       console.error("[npc-attacks] outpost error", occ.outpostId, e);
       summary.skipped += 1;

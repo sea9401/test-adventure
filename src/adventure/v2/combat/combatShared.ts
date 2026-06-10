@@ -14,7 +14,6 @@ import {
   type V2SkillId,
   type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
-import { V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { elementDamageMult, type V2Element } from "@/adventure/data/v2/elements";
 import {
   BLEED_ATK_COEF_PER_STACK,

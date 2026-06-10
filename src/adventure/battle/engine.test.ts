@@ -17,7 +17,6 @@ import {
   CRIT_MULT_BASE,
 } from "../data/v2/v2CombatConstants";
 import { makeBleedDot, makePoisonDot } from "../v2/combat/combatShared";
-import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
 

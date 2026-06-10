@@ -14,7 +14,6 @@ import {
   shopPriceOf,
   shopPriceForSell,
   v2EquipStatRows,
-  v2EquipmentByConcept,
   v2EquipmentBySlot,
   weaponGateOpen,
   weaponTypeOf,

@@ -53,7 +53,7 @@ const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3]);
 //   유지(호출부·rollUniqueDrop 대칭 — 유니크는 dedup 유지). 첫카피 보호 없음(순수 균등 랜덤).
 export function rollEquipDrop(
   depth: number,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 중복 드랍 허용 후 미사용(시그니처 유지)
+  // 중복 드랍 허용 후 미사용(시그니처 유지)
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
   // 통과 굴림 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. chance×배율(1 cap).

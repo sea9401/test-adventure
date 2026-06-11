@@ -16,10 +16,12 @@ import {
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
 import { LineupCard } from "./LineupCard";
+import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 import { GuildFoundCard } from "./GuildFoundCard";
 
-// 길드 탭 — sub-tab nav 로 4 영역 분리 (info / members / outposts / resources).
+// 길드 탭 — sub-tab nav 분리 (info / members / manage / outposts).
 // 라인업은 members 탭 안 (멤버 배치라 자연스러움).
+// 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·거점 정책/세율·직책.
 
 const TYPE_LABEL: Record<OutpostType, string> = {
   mine: "광산",
@@ -37,6 +39,7 @@ type Occupation = {
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
   policy?: string;
+  taxRate?: string;
 };
 
 type StateResponse = {
@@ -69,6 +72,7 @@ type GuildInfoResponse = {
     level: number;
   }[];
   isMaster?: boolean;
+  isManager?: boolean;
   pendingRequests?: PendingRequest[];
 };
 
@@ -81,7 +85,7 @@ function fmtDate(iso: string): string {
   return `${y}-${m}-${day}`;
 }
 
-type GuildSubTab = "info" | "members" | "requests" | "outposts";
+type GuildSubTab = "info" | "members" | "manage" | "outposts";
 
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
@@ -95,11 +99,14 @@ export function V2GuildHome({
   viewerGuildId,
   occupations,
   onGuildChanged,
+  onOccupationsChanged,
 }: {
   viewerGuildId: number | null;
   occupations: Occupation[];
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
+  // 관리탭에서 거점 정책/세율 저장 후 부모 occupations 재조회.
+  onOccupationsChanged?: () => void;
 }) {
   const router = useRouter();
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
@@ -109,6 +116,8 @@ export function V2GuildHome({
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
   const [inviteName, setInviteName] = useState("");
+  // 관리탭 — 거점 정책 에디터 펼침 (한 번에 하나).
+  const [policyOpenId, setPolicyOpenId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -187,6 +196,45 @@ export function V2GuildHome({
     }
   }, [inviteName, guildId, acting]);
 
+  // 마스터가 관리자 임명/해임 — guild_members.role 토글.
+  const handleRole = useCallback(
+    async (targetUserId: string, name: string, role: "manager" | "member") => {
+      setActing(true);
+      setNotice(null);
+      try {
+        const res = await fetch("/api/v2/guild/role", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ targetUserId, role }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+        } | null;
+        if (j?.ok) {
+          setNotice({
+            kind: "ok",
+            text:
+              role === "manager"
+                ? `${name} 님을 관리자로 임명했어요.`
+                : `${name} 님의 관리자 직책을 해제했어요.`,
+          });
+          await refresh();
+        } else {
+          setNotice({
+            kind: "err",
+            text: `처리에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+          });
+        }
+      } catch {
+        setNotice({ kind: "err", text: "처리에 실패했어요. 잠시 후 다시 시도해 주세요." });
+      } finally {
+        setActing(false);
+      }
+    },
+    [refresh],
+  );
+
   // 보유 거점.
   const ownedOutposts: Outpost[] =
     guildId != null
@@ -232,18 +280,20 @@ export function V2GuildHome({
     );
   }
 
-  // 마스터에게만 "가입 신청" 탭을 추가(대기 건수 뱃지). 길드원 다음, 거점 앞.
+  // 마스터/관리자에게만 "관리" 탭을 추가(가입 신청 대기 건수 뱃지). 길드원 다음, 거점 앞.
   const isMaster = info?.isMaster ?? false;
+  const isManager = info?.isManager ?? false;
+  const canManage = isMaster || isManager;
   const pendingRequests = info?.pendingRequests ?? [];
-  const subTabs: { key: GuildSubTab; label: string }[] = isMaster
+  const subTabs: { key: GuildSubTab; label: string }[] = canManage
     ? [
         ...BASE_SUB_TABS.slice(0, 2),
         {
-          key: "requests",
+          key: "manage",
           label:
             pendingRequests.length > 0
-              ? `가입 신청 (${pendingRequests.length})`
-              : "가입 신청",
+              ? `관리 (${pendingRequests.length})`
+              : "관리",
         },
         ...BASE_SUB_TABS.slice(2),
       ]
@@ -312,7 +362,59 @@ export function V2GuildHome({
 
       {activeTab === "members" && (
         <div className="space-y-3">
-          {isMaster && guildId != null && (
+          {/* 멤버 초대는 관리 탭으로 이동 (마스터/관리자 전용). */}
+          {!info?.members || info.members.length === 0 ? (
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">
+              {loading ? "불러오는 중…" : "—"}
+            </div>
+          ) : (
+            <ul className="space-y-1.5">
+              {info.members.map((m) => (
+                <li
+                  key={m.userId}
+                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      {m.role === "master" && (
+                        <span className="rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
+                          마스터
+                        </span>
+                      )}
+                      {m.role === "manager" && (
+                        <span className="rounded bg-sky-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          관리자
+                        </span>
+                      )}
+                      <span className="truncate text-sm font-medium">
+                        <PlayerNameLink name={m.name} />
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                      Lv.{m.level} · 가입 {fmtDate(m.joinedAt)}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* 라인업 — 멤버 배치라 같은 탭에 */}
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="px-3 pt-2 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              3:3 토너먼트 라인업
+            </div>
+            <LineupCard />
+          </div>
+        </div>
+      )}
+
+      {activeTab === "manage" && canManage && (
+        <div className="space-y-4">
+          {notice && <NoticeBanner notice={notice} />}
+
+          {/* 멤버 초대 — 길드원 탭에서 이동 */}
+          {guildId != null && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 멤버 초대
@@ -340,104 +442,148 @@ export function V2GuildHome({
                   초대
                 </button>
               </div>
-              {notice && (
-                <div className="mt-2">
-                  <NoticeBanner notice={notice} />
-                </div>
-              )}
             </div>
           )}
-          {!info?.members || info.members.length === 0 ? (
-            <div className="text-sm text-zinc-500 dark:text-zinc-400">
-              {loading ? "불러오는 중…" : "—"}
+
+          {/* 가입 신청 — 옛 전용 탭에서 이동 */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              가입 신청
             </div>
-          ) : (
-            <ul className="space-y-1.5">
-              {info.members.map((m) => (
-                <li
-                  key={m.userId}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      {m.role === "master" && (
-                        <span className="rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                          마스터
-                        </span>
-                      )}
+            {pendingRequests.length === 0 ? (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                {loading ? "불러오는 중…" : "대기 중인 가입 신청이 없어요."}
+              </div>
+            ) : (
+              <ul className="space-y-1.5">
+                {pendingRequests.map((r) => (
+                  <li
+                    key={r.requestId}
+                    className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                  >
+                    <div className="min-w-0 flex-1">
                       <span className="truncate text-sm font-medium">
-                        <PlayerNameLink name={m.name} />
+                        <PlayerNameLink name={r.name} />
                       </span>
+                      <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        Lv.{r.level} · 신청 {fmtDate(r.requestedAt)}
+                      </div>
                     </div>
-                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      Lv.{m.level} · 가입 {fmtDate(m.joinedAt)}
+                    <div className="flex shrink-0 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleRequest(r.requestId, r.name, "accept")
+                        }
+                        disabled={acting}
+                        className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                      >
+                        수락
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleRequest(r.requestId, r.name, "decline")
+                        }
+                        disabled={acting}
+                        className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        거절
+                      </button>
                     </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* 라인업 — 멤버 배치라 같은 탭에 */}
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="px-3 pt-2 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              3:3 토너먼트 라인업
-            </div>
-            <LineupCard />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        </div>
-      )}
 
-      {activeTab === "requests" && isMaster && (
-        <div className="space-y-2">
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            가입 신청을 수락하면 길드원으로 합류해요. 정원은 {info?.members?.length ?? 0}/3.
-          </p>
-          {notice && <NoticeBanner notice={notice} />}
-          {pendingRequests.length === 0 ? (
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-              {loading ? "불러오는 중…" : "대기 중인 가입 신청이 없어요."}
+          {/* 보유 거점 정책·세율 — 점령자 본인이 아니어도 마스터/관리자가 일괄 관리 */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              보유 거점 정책·세율
             </div>
-          ) : (
-            <ul className="space-y-1.5">
-              {pendingRequests.map((r) => (
-                <li
-                  key={r.requestId}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="truncate text-sm font-medium">
-                      <PlayerNameLink name={r.name} />
-                    </span>
-                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      Lv.{r.level} · 신청 {fmtDate(r.requestedAt)}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleRequest(r.requestId, r.name, "accept")
+            {ownedOutposts.length === 0 ? (
+              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                점령한 거점이 아직 없어요.
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {ownedOutposts.map((o) => {
+                  const occ = occByOutpost.get(o.id);
+                  return (
+                    <OutpostPolicyEditor
+                      key={o.id}
+                      outpostId={o.id}
+                      title={`${o.name} (${TYPE_LABEL[o.type]})`}
+                      currentPolicy={occ?.policy ?? "open"}
+                      currentTaxRate={Number(occ?.taxRate ?? "0")}
+                      open={policyOpenId === o.id}
+                      onToggle={() =>
+                        setPolicyOpenId((cur) => (cur === o.id ? null : o.id))
                       }
-                      disabled={acting}
-                      className="rounded-md border border-emerald-700 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                      onSaved={() => onOccupationsChanged?.()}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 직책 관리 — 마스터 전용. 관리자 임명/해임. */}
+          {isMaster && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                직책 관리
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                관리자는 이 관리 탭(초대·가입 신청·거점 정책/세율)을 쓸 수 있어요.
+              </p>
+              <ul className="space-y-1.5">
+                {(info?.members ?? [])
+                  .filter((m) => m.role !== "master")
+                  .map((m) => (
+                    <li
+                      key={m.userId}
+                      className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
                     >
-                      수락
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleRequest(r.requestId, r.name, "decline")
-                      }
-                      disabled={acting}
-                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      거절
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        {m.role === "manager" && (
+                          <span className="shrink-0 rounded bg-sky-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                            관리자
+                          </span>
+                        )}
+                        <span className="truncate text-sm font-medium">
+                          <PlayerNameLink name={m.name} />
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void handleRole(
+                            m.userId,
+                            m.name,
+                            m.role === "manager" ? "member" : "manager",
+                          )
+                        }
+                        disabled={acting}
+                        className={
+                          m.role === "manager"
+                            ? "shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                            : "shrink-0 rounded-md border border-sky-700 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
+                        }
+                      >
+                        {m.role === "manager" ? "관리자 해임" : "관리자 임명"}
+                      </button>
+                    </li>
+                  ))}
+                {(info?.members ?? []).filter((m) => m.role !== "master")
+                  .length === 0 && (
+                  <li className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                    임명할 길드원이 없어요.
+                  </li>
+                )}
+              </ul>
+            </div>
           )}
         </div>
       )}

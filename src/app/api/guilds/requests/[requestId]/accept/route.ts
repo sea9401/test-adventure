@@ -50,7 +50,20 @@ export async function POST(
       const guild = guildRows[0];
       if (!guild) return { error: "guild_not_found", status: 404 as const };
       if (guild.masterId !== userId) {
-        return { error: "not_master", status: 403 as const };
+        // 관리자(manager)도 처리 가능 — 길드 관리탭 권한.
+        const memRows = await tx
+          .select({ role: guildMembers.role })
+          .from(guildMembers)
+          .where(
+            and(
+              eq(guildMembers.guildId, guild.id),
+              eq(guildMembers.userId, userId),
+            ),
+          )
+          .limit(1);
+        if (memRows[0]?.role !== "manager") {
+          return { error: "not_master", status: 403 as const };
+        }
       }
 
       const applicantMembership = await tx

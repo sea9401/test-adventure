@@ -196,9 +196,13 @@ export function V2GuildHome({
     }
   }, [inviteName, guildId, acting]);
 
-  // 마스터가 관리자 임명/해임 — guild_members.role 토글.
+  // 마스터가 직책 변경 — guild_members.role (부마스터/관리자/일반).
   const handleRole = useCallback(
-    async (targetUserId: string, name: string, role: "manager" | "member") => {
+    async (
+      targetUserId: string,
+      name: string,
+      role: "vice_master" | "manager" | "member",
+    ) => {
       setActing(true);
       setNotice(null);
       try {
@@ -215,9 +219,11 @@ export function V2GuildHome({
           setNotice({
             kind: "ok",
             text:
-              role === "manager"
-                ? `${name} 님을 관리자로 임명했어요.`
-                : `${name} 님의 관리자 직책을 해제했어요.`,
+              role === "vice_master"
+                ? `${name} 님을 부마스터로 임명했어요.`
+                : role === "manager"
+                  ? `${name} 님을 관리자로 임명했어요.`
+                  : `${name} 님의 직책을 해제했어요.`,
           });
           await refresh();
         } else {
@@ -381,6 +387,11 @@ export function V2GuildHome({
                           마스터
                         </span>
                       )}
+                      {m.role === "vice_master" && (
+                        <span className="rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                          부마스터
+                        </span>
+                      )}
                       {m.role === "manager" && (
                         <span className="rounded bg-sky-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
                           관리자
@@ -536,7 +547,8 @@ export function V2GuildHome({
                 직책 관리
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                관리자는 이 관리 탭(초대·가입 신청·거점 정책/세율)을 쓸 수 있어요.
+                부마스터·관리자는 이 관리 탭(초대·가입 신청·거점 정책/세율)을 쓸
+                수 있어요.
               </p>
               <ul className="space-y-1.5">
                 {(info?.members ?? [])
@@ -547,6 +559,11 @@ export function V2GuildHome({
                       className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
                     >
                       <div className="flex min-w-0 items-center gap-1.5">
+                        {m.role === "vice_master" && (
+                          <span className="shrink-0 rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                            부마스터
+                          </span>
+                        )}
                         {m.role === "manager" && (
                           <span className="shrink-0 rounded bg-sky-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
                             관리자
@@ -556,24 +573,29 @@ export function V2GuildHome({
                           <PlayerNameLink name={m.name} />
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
+                      <select
+                        value={
+                          m.role === "vice_master" || m.role === "manager"
+                            ? m.role
+                            : "member"
+                        }
+                        onChange={(e) =>
                           void handleRole(
                             m.userId,
                             m.name,
-                            m.role === "manager" ? "member" : "manager",
+                            e.target.value as
+                              | "vice_master"
+                              | "manager"
+                              | "member",
                           )
                         }
                         disabled={acting}
-                        className={
-                          m.role === "manager"
-                            ? "shrink-0 rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                            : "shrink-0 rounded-md border border-sky-700 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-700 disabled:opacity-50"
-                        }
+                        className="shrink-0 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
                       >
-                        {m.role === "manager" ? "관리자 해임" : "관리자 임명"}
-                      </button>
+                        <option value="member">일반</option>
+                        <option value="manager">관리자</option>
+                        <option value="vice_master">부마스터</option>
+                      </select>
                     </li>
                   ))}
                 {(info?.members ?? []).filter((m) => m.role !== "master")

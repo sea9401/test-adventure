@@ -2,16 +2,24 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { GUILD_ROLE_MANAGER } from "@/lib/server/guildAdmin";
+import {
+  GUILD_ROLE_MANAGER,
+  GUILD_ROLE_VICE_MASTER,
+} from "@/lib/server/guildAdmin";
 
 // POST /api/v2/guild/role — 길드원 직책 변경 (마스터 전용).
 //
-// body: { targetUserId, role: "manager" | "member" }
-//   - manager(관리자): 길드 관리탭 접근 — 초대·가입 신청 수락/거절·거점 세율/정책.
-//   - member: 관리자 해임.
+// body: { targetUserId, role: "vice_master" | "manager" | "member" }
+//   - vice_master(부마스터)·manager(관리자): 길드 관리탭 접근 — 초대·가입 신청
+//     수락/거절·거점 세율/정책. (권한 동일 — 부마스터는 서열 표시용 상급 직책.)
+//   - member: 직책 해임.
 // 제약: 마스터 본인(=masterId) 직책은 변경 불가, 같은 길드 멤버만.
 
-const ASSIGNABLE_ROLES = [GUILD_ROLE_MANAGER, "member"] as const;
+const ASSIGNABLE_ROLES = [
+  GUILD_ROLE_VICE_MASTER,
+  GUILD_ROLE_MANAGER,
+  "member",
+] as const;
 
 export async function POST(req: Request) {
   const userId = await ensureUser();

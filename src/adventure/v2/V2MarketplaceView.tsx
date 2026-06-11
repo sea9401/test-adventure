@@ -20,6 +20,10 @@ import {
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import {
+  RARE_MAP_KINDS,
+  type RareMapInstance,
+} from "@/adventure/data/v2/rareMaps";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 import { TabBar } from "@/components/ui/TabBar";
 import { Pagination } from "@/components/ui/Pagination";
@@ -33,7 +37,8 @@ import {
   type SortMode,
 } from "./v2ItemListShared";
 
-// v2 거래소 — 장비 개체 + 재료 거래(고정가). 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
+// v2 거래소 — 장비 개체 + 재료 + 소모품(레어맵) 거래(고정가).
+// 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
 //   판매세는 서버 권위 — 여기 0.05 는 순수령 미리보기용(표시 advisory).
 const TAX_RATE_DISPLAY = 0.05;
 const netPreview = (price: number) => Math.floor(price * (1 - TAX_RATE_DISPLAY));
@@ -119,6 +124,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
   const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
+  const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
+  // 만료 표기 기준 시각 — render 중 Date.now() 회피(로드 시점 고정).
+  const [rareMapsNow, setRareMapsNow] = useState(() => Date.now());
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -128,7 +136,9 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 둘러보기 — 구매 확인 모달 + 정렬/필터/검색(클라이언트측, 반환된 매물 위).
   const [confirmBuy, setConfirmBuy] = useState<Listing | null>(null);
   const [search, setSearch] = useState("");
-  const [kindFilter, setKindFilter] = useState<"all" | "equip" | "material">("all");
+  const [kindFilter, setKindFilter] = useState<
+    "all" | "equip" | "material" | "consumable"
+  >("all");
   const [slotFilter, setSlotFilter] = useState<"all" | V2EquipSlot>("all");
   const [sort, setSort] = useState<"new" | "price_asc" | "price_desc" | "roll_desc">("new");
   // 시세 — itemId → 최근 거래 집계(건수·평균·최저·최고). 가격 판단 참고용.
@@ -159,9 +169,10 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   }, []);
 
   const loadInventory = useCallback(async () => {
-    const [eq, inv] = await Promise.all([
+    const [eq, inv, rm] = await Promise.all([
       fetch("/api/v2/me/equipment"),
       fetch("/api/v2/me/inventory"),
+      fetch("/api/v2/me/rare-maps"),
     ]);
     if (eq.ok) {
       const j = (await eq.json()) as {
@@ -176,6 +187,11 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
         materials?: Partial<Record<V2MaterialId, number>>;
       };
       setMaterials(j.materials ?? {});
+    }
+    if (rm.ok) {
+      const j = (await rm.json()) as { rareMaps?: RareMapInstance[] };
+      setRareMaps(j.rareMaps ?? []);
+      setRareMapsNow(Date.now());
     }
   }, []);
 
@@ -269,6 +285,21 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     );
   };
 
+  // 소모품(레어맵) 등록 — 개체 단위(가격만 입력).
+  const listConsumable = (iid: string) => {
+    const price = Number(prices[iid] ?? "");
+    if (!Number.isInteger(price) || price < 1) {
+      setError("가격은 1 이상 정수로 입력하세요.");
+      return;
+    }
+    return act(
+      "/api/v2/marketplace/list",
+      { kind: "consumable", iid, price },
+      "✓ 지도 등록",
+      loadInventory,
+    );
+  };
+
   const equippedIids = new Set(Object.values(equipped));
   const sellableEquip = owned.filter((i) => !i.locked && !equippedIids.has(i.iid));
   const sellableMats = (Object.keys(materials) as V2MaterialId[]).filter(
@@ -276,7 +307,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   );
   // 판매 탭(슬롯)에 해당하는 장비만 + 정렬. 재료 탭이면 빈 목록.
   const sellTabEquip =
-    sellTab === "material"
+    sellTab === "material" || sellTab === "consumable"
       ? []
       : sortEquipInstances(
           sellableEquip.filter((i) => V2_EQUIPMENT[i.id]?.slot === sellTab),
@@ -383,6 +414,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                 ["all", "전체 종류"],
                 ["equip", "장비"],
                 ["material", "재료"],
+                ["consumable", "소모품"],
               ]}
             />
             <SelectControl
@@ -464,7 +496,60 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             scrollable
           />
 
-          {sellTab === "material" ? (
+          {sellTab === "consumable" ? (
+            rareMaps.length === 0 ? (
+              <Card padding="sm">
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  팔 수 있는 소모품이 없어요. 레어맵은 사냥 중 아주 낮은
+                  확률로 발견됩니다.
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {rareMaps.map((m) => {
+                  const def = RARE_MAP_KINDS[m.kind];
+                  const hoursLeft = Math.max(
+                    0,
+                    Math.floor((m.expiresAt - rareMapsNow) / 3_600_000),
+                  );
+                  return (
+                    <Card key={m.iid} padding="sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 text-sm font-medium">
+                          🗺 {def?.name ?? m.kind}
+                          <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            깊이 {m.depth} · 남은 {m.runsLeft}판 ·{" "}
+                            {hoursLeft < 1
+                              ? "1시간 안에 만료"
+                              : `${hoursLeft}시간 후 만료`}
+                          </span>
+                          <span className="ml-1.5">
+                            <PriceRefLine stat={priceRef[m.kind]} />
+                          </span>
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <PriceInput
+                            value={prices[m.iid] ?? ""}
+                            onChange={(v) =>
+                              setPrices((p) => ({ ...p, [m.iid]: v }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => listConsumable(m.iid)}
+                            disabled={busy}
+                            className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
+                          >
+                            등록
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )
+          ) : sellTab === "material" ? (
             sellableMats.length === 0 ? (
               <Card padding="sm">
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">

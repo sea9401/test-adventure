@@ -279,7 +279,7 @@ export const presence = pgTable(
 );
 
 // 거래소 listing — 활성/판매됨/취소됨 모두 보관 (분석/감사용).
-// item_kind: 'equip' | 'material' — 인벤토리 카테고리 매핑.
+// item_kind: 'equip' | 'material' | 'consumable' — 인벤토리 카테고리 매핑.
 // item_name/seller_name 은 등록 시점 스냅샷 (이후 닉네임 변경되어도 표시 안정).
 // price 는 정수 골드 (최대 999,999,999 < 2^31 이라 integer 충분).
 // grade: 'base'|'c-2'|'c-1'|'c1'|'c2'|'d1'|'d2' — equip 만 의미 있음 (다른 kind 는 항상 'base').
@@ -382,7 +382,7 @@ export const marketplaceListingsV2 = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     sellerName: text("seller_name").notNull(),
-    kind: text("kind").notNull(), // 'equip' | 'material'
+    kind: text("kind").notNull(), // 'equip' | 'material' | 'consumable'(레어맵 등)
     itemId: text("item_id").notNull(),
     itemName: text("item_name").notNull(),
     quantity: integer("quantity").notNull(),
@@ -402,7 +402,10 @@ export const marketplaceListingsV2 = pgTable(
       .where(sql`${t.status} = 'active'`),
     // 내 매물 / 슬롯 카운트.
     index("listings_v2_seller_idx").on(t.sellerId, t.status, t.createdAt),
-    check("listings_v2_kind_valid", sql`${t.kind} IN ('equip','material')`),
+    check(
+      "listings_v2_kind_valid",
+      sql`${t.kind} IN ('equip','material','consumable')`,
+    ),
     check(
       "listings_v2_status_valid",
       sql`${t.status} IN ('active','sold','cancelled','expired')`,

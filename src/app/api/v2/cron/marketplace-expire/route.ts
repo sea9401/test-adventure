@@ -9,6 +9,7 @@ import {
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { MARKETPLACE_V2_LISTING_TTL_DAYS } from "@/lib/server/marketplaceV2";
+import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 
 // POST /api/v2/cron/marketplace-expire — 만료 매물 sweep (cron 주기 호출, 예: 매시간). CRON_SECRET.
 //   등록 후 TTL(MARKETPLACE_V2_LISTING_TTL_DAYS) 지난 active 매물을 판매자에게 반환(장비=새 개체,
@@ -16,7 +17,11 @@ import { MARKETPLACE_V2_LISTING_TTL_DAYS } from "@/lib/server/marketplaceV2";
 //   per-listing tx + listing FOR UPDATE 재확인 → 동시 구매와 직렬화(막 팔린 건 skip, 아이템 중복/소실 0).
 //   잠금 순서 listing → 판매자 save (buy/cancel 과 일관 = 데드락 회피).
 
-type CharSave = { materials?: Record<string, number>; [k: string]: unknown };
+type CharSave = {
+  materials?: Record<string, number>;
+  rareMaps?: unknown;
+  [k: string]: unknown;
+};
 const BATCH = 200; // 1회 처리 상한(폭주/장기 tx 방지 — 다음 cron 이 나머지 처리).
 
 export async function POST(req: Request) {
@@ -63,6 +68,16 @@ export async function POST(req: Request) {
           owned: [...owned, { iid: genEquipIid(), id: l.itemId as V2EquipmentId, roll }],
           equipped,
         });
+      } else if (l.kind === "consumable") {
+        // 레어맵 — 실물이 살아 있으면 판매자 반환(캡 무관 — 회수), 만료면 자연 소멸.
+        const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});
+        const inst = parseRareMaps([l.instancePayload], Date.now())[0];
+        if (inst) {
+          await upsertSave(tx, l.sellerId, "character.v2", {
+            ...charSave,
+            rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
+          });
+        }
       } else {
         const charSave = await lockSaveForUpdate<CharSave>(tx, l.sellerId, "character.v2", {});
         const mats = { ...(charSave.materials ?? {}) };

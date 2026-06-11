@@ -9,8 +9,8 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 
-// 슬롯 6종 + 재료. 인벤토리·거래소 판매 탭 공용.
-export type V2ItemTabKey = V2EquipSlot | "material";
+// 슬롯 6종 + 재료 + 소모품(레어맵 등). 인벤토리·거래소 판매 탭 공용.
+export type V2ItemTabKey = V2EquipSlot | "material" | "consumable";
 
 export const V2_ITEM_TABS: ReadonlyArray<{ key: V2ItemTabKey; label: string }> =
   [
@@ -21,6 +21,7 @@ export const V2_ITEM_TABS: ReadonlyArray<{ key: V2ItemTabKey; label: string }> =
     { key: "ring", label: "반지" },
     { key: "necklace", label: "목걸이" },
     { key: "material", label: "재료" },
+    { key: "consumable", label: "소모품" },
   ];
 
 export type SortMode = "default" | "roll" | "power";

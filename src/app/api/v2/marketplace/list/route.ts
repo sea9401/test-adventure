@@ -5,6 +5,10 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { parseEquipmentSave } from "@/adventure/data/v2/v2Equipment";
 import {
+  RARE_MAP_KINDS,
+  parseRareMaps,
+} from "@/adventure/data/v2/rareMaps";
+import {
   MARKETPLACE_V2_SLOT_LIMIT,
   isMarketKind,
   isTradableEquip,
@@ -17,13 +21,15 @@ import {
 } from "@/lib/server/marketplaceV2";
 
 // POST /api/v2/marketplace/list — 매물 등록(에스크로: 내 save 에서 빼서 listing 으로 묶음).
-//   body(장비):  { kind:"equip", iid:string, price:int }
-//   body(재료):  { kind:"material", itemId:string, quantity:int, price:int }
+//   body(장비):   { kind:"equip", iid:string, price:int }
+//   body(재료):   { kind:"material", itemId:string, quantity:int, price:int }
+//   body(소모품): { kind:"consumable", iid:string, price:int } — 레어맵 개체(판수/만료 스냅샷)
 // 활성 매물 슬롯 상한 체크. 장비=미장착·미잠금 개체만. 가격은 정수 [1, 999,999,999].
 
 type CharSave = {
   gold?: number;
   materials?: Record<string, number>;
+  rareMaps?: unknown;
   [k: string]: unknown;
 };
 
@@ -115,6 +121,40 @@ export async function POST(req: Request) {
                   ...(inst.enhance ? { enhance: inst.enhance } : {}),
                 }
               : null,
+        })
+        .returning({ id: marketplaceListingsV2.id });
+      return { status: 200, body: { ok: true as const, listingId: row.id } };
+    }
+
+    if (kind === "consumable") {
+      // 레어맵 개체 — character.v2.rareMaps 에서 에스크로(만료/소진은 parse 가 걸러
+      // not_owned 처리). payload 에 개체 통째 스냅샷(판수·만료 유지 — 만료는 구매 시 재검).
+      if (typeof body.iid !== "string") {
+        return { status: 400, body: { ok: false as const, error: "bad_iid" } };
+      }
+      const iid = body.iid;
+      const maps = parseRareMaps(charSave.rareMaps, Date.now());
+      const inst = maps.find((m) => m.iid === iid);
+      if (!inst) {
+        return { status: 400, body: { ok: false as const, error: "not_owned" } };
+      }
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        rareMaps: maps.filter((m) => m.iid !== iid),
+      });
+      const kindName = RARE_MAP_KINDS[inst.kind].name;
+      const [row] = await tx
+        .insert(marketplaceListingsV2)
+        .values({
+          sellerId: userId,
+          sellerName,
+          kind: "consumable",
+          itemId: inst.kind,
+          // 깊이가 가치의 핵심이라 이름에 박는다(둘러보기에서 바로 보이게).
+          itemName: `${kindName} (깊이 ${inst.depth})`,
+          quantity: 1,
+          price,
+          instancePayload: inst,
         })
         .returning({ id: marketplaceListingsV2.id });
       return { status: 200, body: { ok: true as const, listingId: row.id } };

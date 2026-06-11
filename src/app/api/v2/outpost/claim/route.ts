@@ -62,7 +62,9 @@ import {
   toReplayPayload,
   toPvpReplayPayload,
   type ReplayPayload,
+  type StoredReplayEnvelope,
 } from "@/adventure/data/v2/replayPayload";
+import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 
 // POST /api/v2/outpost/claim — 거점 점령 시도 (1대1 일기토 NPC).
 //
@@ -513,7 +515,8 @@ export async function POST(req: Request) {
       replay = toReplayPayload(battle.finalState, 200);
     }
 
-    // log attempt
+    // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷. 1v1 리플레이 없는
+    // 시도(3:3 토너먼트)는 null. 보존은 거점당 최신 N 건 (tx 후 trim).
     await tx.insert(outpostClaimAttempts).values({
       outpostId: outpost.id,
       attackerUserId: userId,
@@ -522,6 +525,13 @@ export async function POST(req: Request) {
       defenderUserId: defenderUserIdForLog!,
       won: won!,
       turns: turns!,
+      replay: replay
+        ? ({
+            payload: replay,
+            playerName,
+            gender: playerGender,
+          } satisfies StoredReplayEnvelope)
+        : null,
     });
 
     // 점령/공성 처리 (docs/v2-outpost-siege-plan.md).
@@ -784,6 +794,8 @@ export async function POST(req: Request) {
   };
   const notifyTarget = fb._notify ?? null;
   delete fb._notify; // 내부 전용 — 응답에서 제거.
+  // 리플레이 보존 trim — 시도가 기록된 경우(ok)만. 실패 삼킴(부수효과).
+  if (fb.ok) await trimAttackReplays(outpost.id);
   if (fb.ok && fb.won && !fb.raceLost) {
     // 공격자 길드명 — 길드 점령이면 길드 단위 사건으로 표기(없을 일 없지만 null 허용).
     const [g] = await db

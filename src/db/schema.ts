@@ -886,6 +886,10 @@ export const outpostClaimAttempts = pgTable(
     }),
     won: boolean("won").notNull(),
     turns: integer("turns").notNull().default(0),
+    // 전투 리플레이 봉투(StoredReplayEnvelope) — 공격 기록 "다시보기"용. 거점당 최신
+    // N 건만 보존(insert 시 오래된 행 null 트림 — outpostAttackLog.trimAttackReplays).
+    // 3:3 토너먼트 등 1v1 리플레이 없는 시도는 null.
+    replay: jsonb("replay"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [

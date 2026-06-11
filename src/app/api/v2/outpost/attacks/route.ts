@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guilds,
@@ -32,6 +32,9 @@ type AttackRow = {
   attackerWon: boolean;
   turns: number;
   at: string;
+  // 전투 리플레이 존재 여부 — 본문은 attacks/replay GET 으로 단건 조회 (목록
+  // 응답에 jsonb 통째 동봉하면 20건 × 수십 KB 비대).
+  hasReplay: boolean;
 };
 
 export async function GET(req: Request) {
@@ -73,7 +76,16 @@ export async function GET(req: Request) {
   }
 
   const rows = await db
-    .select()
+    .select({
+      id: outpostClaimAttempts.id,
+      attackerUserId: outpostClaimAttempts.attackerUserId,
+      attackerGuildId: outpostClaimAttempts.attackerGuildId,
+      defenderName: outpostClaimAttempts.defenderName,
+      won: outpostClaimAttempts.won,
+      turns: outpostClaimAttempts.turns,
+      createdAt: outpostClaimAttempts.createdAt,
+      hasReplay: sql<boolean>`(${outpostClaimAttempts.replay} is not null)`,
+    })
     .from(outpostClaimAttempts)
     .where(eq(outpostClaimAttempts.outpostId, outpostId))
     .orderBy(desc(outpostClaimAttempts.id))
@@ -124,6 +136,7 @@ export async function GET(req: Request) {
       attackerWon: npc ? !r.won : r.won,
       turns: r.turns,
       at: r.createdAt.toISOString(),
+      hasReplay: r.hasReplay,
     };
   });
 

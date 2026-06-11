@@ -30,6 +30,16 @@ export type ReplayPayload = {
   log: BattleLogEntry[];
 };
 
+// 공격 기록(outpost_claim_attempts.replay) 저장용 봉투 — payload 만으로는 "player"
+// 사이드가 누구인지 알 수 없어 표시 정보를 함께 스냅샷. claim 공격이면 공격자,
+// NPC 정기 공격이면 점령자(수비) 시점이다.
+export type StoredReplayEnvelope = {
+  payload: ReplayPayload;
+  playerName: string;
+  // 프로필 아바타 성별 — 없으면 클라가 기본값 폴백 (NPC 정기 공격 등).
+  gender?: string;
+};
+
 // 로그를 마지막 logCap 개로 자르되, 잘렸으면 깔끔하게 — 첫 turn_marker 앞의 잘린-턴 잔여
 // entry 를 떼어내(머리 없는 그룹 방지) 첫 그룹이 항상 "N턴" 헤더로 시작하게 하고, "앞선 턴 생략"
 // 안내를 맨 앞에 끼운다(전투가 끊긴 게 아니라 긴 전투의 뒷부분임을 명시). cap 이하면 원본 그대로.

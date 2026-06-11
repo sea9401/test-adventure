@@ -43,7 +43,7 @@ export function V2BattleHome({
               className="text-violet-500"
             />
           }
-          title="전황"
+          title="전쟁"
           onClick={() => onAction({ kind: "open-war" })}
         />
         <EntryCard

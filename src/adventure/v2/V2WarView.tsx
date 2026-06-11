@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { CastleTurret, Coins, Flag, ShieldWarning } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
+import { TabBar } from "@/components/ui/TabBar";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { siegeWinsToFall } from "@/adventure/data/v2/outpostSiege";
 
-// 전황 — 지금 어디서 전쟁 중인가(상태 스냅샷). docs/v2-war-visibility-plan.md PR-2.
-// ① 교전 중 거점(성벽 진행도 + 최근 공격 기록) ② 최근 점령/함락 ③ 내 길드 거점.
-// 사건 스트림(전광판/피드, PR-3·4)과 역할 분담 — 여긴 "현재 상태"만.
+// 전쟁 — 전쟁 허브(탭: 전황 / 지도). docs/v2-war-visibility-plan.md PR-2 의 전황 화면을
+// 허브로 승격(2026-06-11).
+// 전황 탭: ① 교전 중 거점 ② 노다지 ③ 최근 점령 ④ 내 길드 거점 — "현재 상태" 스냅샷.
+// 지도 탭: 현 위치 2홉 이내만 보이는 작전 지도 — page 가 mapSlot 으로 주입
+//   (ContinentMap visibleIds 국지 모드, 데이터는 GameStateProvider).
 
 type SiegeEntry = {
   outpostId: string;
@@ -73,13 +76,19 @@ function FortMiniBar({ fortHp, fortMaxHp }: { fortHp: number; fortMaxHp: number 
   );
 }
 
+type WarTab = "status" | "map";
+
 export function V2WarView({
   onBack,
   onOpenOutpost,
+  mapSlot,
 }: {
   onBack: () => void;
   onOpenOutpost: (outpostId: string) => void;
+  // 지도 탭 내용 — page 가 ContinentMap(국지 모드)을 주입. 미지정이면 지도 탭 숨김.
+  mapSlot?: ReactNode;
 }) {
+  const [tab, setTab] = useState<WarTab>("status");
   const [data, setData] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,19 +119,32 @@ export function V2WarView({
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
         <BackButton onClick={onBack} />
-        <h1 className="text-lg font-bold">전황</h1>
+        <h1 className="text-lg font-bold">전쟁</h1>
+        {mapSlot && (
+          <TabBar
+            tabs={[
+              { key: "status", label: "전황" },
+              { key: "map", label: "지도" },
+            ]}
+            active={tab}
+            onChange={(t) => setTab(t)}
+            ariaLabel="전쟁 탭"
+          />
+        )}
       </header>
 
-      {error && (
+      {tab === "map" && mapSlot}
+
+      {tab === "status" && error && (
         <p className="text-center text-sm text-rose-600 dark:text-rose-400">
           {error}
         </p>
       )}
-      {!data && !error && (
+      {tab === "status" && !data && !error && (
         <p className="text-center text-sm text-zinc-500">불러오는 중…</p>
       )}
 
-      {data && (
+      {tab === "status" && data && (
         <>
           {/* 내 길드 거점 — 위협 먼저. 길드 소속 + 점령 거점 있을 때만 섹션 표시. */}
           {myGuild && myGuild.outposts.length > 0 && (

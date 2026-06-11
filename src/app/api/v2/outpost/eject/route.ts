@@ -221,6 +221,15 @@ export async function POST(req: Request) {
         hpRegenSince: now,
         ejectedFrom: ejectedNotice,
       });
+      // 전쟁의 길 퀘 신호 — 토벌 승리 누적. lock 순서: character.v2 다음(hunt 와 동일).
+      const logSave = await lockSaveForUpdate<{
+        warEjectWins?: unknown;
+        [k: string]: unknown;
+      }>(tx, userId, "adventure-log.v2", {});
+      await upsertSave(tx, userId, "adventure-log.v2", {
+        ...logSave,
+        warEjectWins: (Number(logSave.warEjectWins) || 0) + 1,
+      });
     } else {
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSave,

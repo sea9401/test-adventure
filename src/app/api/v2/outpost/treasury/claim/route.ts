@@ -105,6 +105,16 @@ export async function POST(req: Request) {
       gold: newCharGold,
     });
 
+    // 5.5) 전쟁의 길 퀘 신호 — 금고 회수 골드 누적. lock 순서: character 다음(hunt 동일).
+    const logSave = await lockSaveForUpdate<{
+      warTreasuryGold?: unknown;
+      [k: string]: unknown;
+    }>(tx, userId, "adventure-log.v2", {});
+    await upsertSave(tx, userId, "adventure-log.v2", {
+      ...logSave,
+      warTreasuryGold: (Number(logSave.warTreasuryGold) || 0) + total,
+    });
+
     // 6) 길드 공용 자원 풀 gold += guildShare
     const resources = await lockGuildResources(tx, occupyingGuildId);
     const newGuildGold = resources.gold + guildShare;

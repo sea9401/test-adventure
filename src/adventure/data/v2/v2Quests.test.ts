@@ -32,6 +32,16 @@ const ZERO: QuestCtx = {
   gold: 0,
   outpostsDiscovered: 0,
   titleCount: 0,
+  cumLevel: 1,
+  speciesKilled: 0,
+  claimAttempted: false,
+  hasOutpost: false,
+  siegeWins: 0,
+  warCaptures: 0,
+  warEjectWins: 0,
+  warTreasuryGold: 0,
+  fishSpecies: 0,
+  antiquesFound: 0,
 };
 
 const none = new Set<string>();
@@ -228,7 +238,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       level: 60,
       tier: 2,
       battleCount: 99,
-      frontierDepth: 14,
+      frontierDepth: 12, // 13 미만 — b_band_canyon(도감) claimable 방지(라인 우선순위 검증용)
       equippedCount: 1, // 6 미만 — x_full_gear(수집) 이 claimable 안 되게(라인 우선순위 검증용)
       cultivations: 2,
     };
@@ -259,6 +269,16 @@ describe("currentGuideQuest (홈 배너)", () => {
       gold: 20000,
       outpostsDiscovered: 20,
       titleCount: 5,
+      cumLevel: 2500,
+      speciesKilled: 41,
+      claimAttempted: true,
+      hasOutpost: true,
+      siegeWins: 9,
+      warCaptures: 9,
+      warEjectWins: 3,
+      warTreasuryGold: 99999,
+      fishSpecies: 30,
+      antiquesFound: 24,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -273,5 +293,37 @@ describe("deriveQuestViews", () => {
     ).length;
     expect(views).toHaveLength(visibleCount);
     expect(views.every((v) => v.status)).toBe(true);
+  });
+});
+
+describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
+  it("전쟁의 길 — 순차 진행 + 신호별 충족", () => {
+    expect(questById("w_first_claim")!.check(ZERO)).toBe(false);
+    expect(questById("w_first_claim")!.check({ ...ZERO, claimAttempted: true })).toBe(true);
+    // 보유 OR 함락 누적 어느 쪽이든 "깃발을 꽂다" 충족.
+    expect(questById("w_hold")!.check({ ...ZERO, hasOutpost: true })).toBe(true);
+    expect(questById("w_hold")!.check({ ...ZERO, warCaptures: 1 })).toBe(true);
+    expect(questById("w_treasury")!.check({ ...ZERO, warTreasuryGold: 2999 })).toBe(false);
+    expect(questById("w_treasury")!.check({ ...ZERO, warTreasuryGold: 3000 })).toBe(true);
+    // 순차 라인 — 앞(첫 출정) 미완료면 뒤는 locked.
+    expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("locked");
+  });
+
+  it("윤회의 길 — 누적레벨 경계 (첫 환생 = 101)", () => {
+    expect(questById("r_first")!.check({ ...ZERO, cumLevel: 100 })).toBe(false);
+    expect(questById("r_first")!.check({ ...ZERO, cumLevel: 101 })).toBe(true);
+    expect(questById("r_2000")!.check({ ...ZERO, cumLevel: 2000 })).toBe(true);
+  });
+
+  it("생활의 달인 — 도감 카운트", () => {
+    expect(questById("l_fish25")!.check({ ...ZERO, fishSpecies: 24 })).toBe(false);
+    expect(questById("l_fish25")!.check({ ...ZERO, fishSpecies: 25 })).toBe(true);
+    expect(questById("l_antique20")!.check({ ...ZERO, antiquesFound: 20 })).toBe(true);
+  });
+
+  it("토벌 도감 — 종 수·밴드·누적 전투", () => {
+    expect(questById("b_species35")!.check({ ...ZERO, speciesKilled: 35 })).toBe(true);
+    expect(questById("b_band_swamp")!.check({ ...ZERO, frontierDepth: 37 })).toBe(true);
+    expect(questById("b_battles5000")!.check({ ...ZERO, battleCount: 5000 })).toBe(true);
   });
 });

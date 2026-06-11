@@ -22,6 +22,7 @@ import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
 import { BOSS_TITLE_IDS } from "@/adventure/data/v2/dungeonBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
+import type { RepeatSignals } from "@/adventure/data/v2/v2RepeatQuests";
 import { readSave, type DbExecutor } from "@/lib/server/savesKv";
 import {
   guildMembers,
@@ -67,6 +68,10 @@ export type QuestExtras = {
   // 생활의 달인 — 도감 세이브 파생(fishing-codex.v1 / treasure-codex.v1).
   fishSpecies: number;
   antiquesFound: number;
+  // 반복 퀘스트(차분 판정) — 누적치/타임스탬프.
+  siegeAttempts: number;
+  fishCaught: number;
+  arenaTimes: number[];
 };
 
 export function buildQuestCtx(args: {
@@ -239,6 +244,7 @@ export async function assembleQuestExtras(
     hasOutpost = occ.length > 0;
   }
 
+  const fishCodex = parseFishCodex(fishRaw);
   return {
     hasGuild: guildRows.length > 0,
     hasTraded: tradeRows.length > 0,
@@ -247,8 +253,16 @@ export async function assembleQuestExtras(
     claimAttempted: (claimAgg[0]?.total ?? 0) > 0,
     hasOutpost,
     siegeWins: claimAgg[0]?.wins ?? 0,
-    fishSpecies: Object.keys(parseFishCodex(fishRaw).fish).length,
+    fishSpecies: Object.keys(fishCodex.fish).length,
     antiquesFound: Object.keys(parseTreasureCodex(treasureRaw).antiques).length,
+    siegeAttempts: claimAgg[0]?.total ?? 0,
+    fishCaught: Object.values(fishCodex.fish).reduce(
+      (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),
+      0,
+    ),
+    arenaTimes: arenaHistory
+      .map((e) => new Date(e.at).getTime())
+      .filter((t) => Number.isFinite(t)),
   };
 }
 
@@ -260,3 +274,32 @@ export function parseClaimed(raw: unknown): Set<string> {
 }
 
 export const GUIDE_QUESTS_KEY = "guide-quests.v2";
+export const REPEAT_QUESTS_KEY = "repeat-quests.v2";
+
+// 반복 퀘스트 신호 — adventure-log 누적치 + extras. ctx(가이드용)와 분리된 얇은 조립.
+export function buildRepeatSignals(
+  advLogRaw: unknown,
+  extras: QuestExtras,
+): RepeatSignals {
+  const advLog = (advLogRaw ?? {}) as AdventureLog & {
+    enhanceAttempts?: unknown;
+  };
+  const n = (v: unknown): number => {
+    const x = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(x) ? Math.max(0, x) : 0;
+  };
+  const battleCount =
+    Object.values(advLog.monsters ?? {}).reduce(
+      (sum, m) => sum + n(m?.kills),
+      0,
+    ) + n(advLog.battleLosses);
+  return {
+    battleCount,
+    siegeAttempts: extras.siegeAttempts,
+    siegeWins: extras.siegeWins,
+    warTreasuryGold: n(advLog.warTreasuryGold),
+    fishCaught: extras.fishCaught,
+    enhanceAttempts: n(advLog.enhanceAttempts),
+    arenaTimes: extras.arenaTimes,
+  };
+}

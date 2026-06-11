@@ -216,6 +216,17 @@ export async function POST(req: Request) {
       nextEquipped = cleared;
     }
 
+    // 반복 퀘스트 신호 — 강화 시도 누적(성공/실패 무관). lock 순서: character →
+    // equipment → adventure-log (hunt 의 character→…→adventure-log 와 정합).
+    const logSave = await lockSaveForUpdate<{
+      enhanceAttempts?: unknown;
+      [k: string]: unknown;
+    }>(tx, userId, "adventure-log.v2", {});
+    await upsertSave(tx, userId, "adventure-log.v2", {
+      ...logSave,
+      enhanceAttempts: (Number(logSave.enhanceAttempts) || 0) + 1,
+    });
+
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
       equipped: nextEquipped,

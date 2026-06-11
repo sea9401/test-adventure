@@ -19,6 +19,11 @@
 import type { V2Element } from "@/adventure/data/v2/elements";
 
 import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
+import {
+  enhancedPower,
+  parseEnhance,
+  type V2EnhanceState,
+} from "./v2Enhance";
 export { V2_EQUIPMENT };
 // 6슬롯(2026-06): 무기 / 갑옷 / 장갑 / 신발 / 반지 / 목걸이.
 //   - 물리 방어선: 갑옷(주) + 장갑(+크리) + 신발(+회피·경량) → 위력=물방.
@@ -990,6 +995,8 @@ export type V2EquipInstance = {
   id: V2EquipmentId;
   roll?: V2EquipRoll;
   locked?: boolean;
+  /** 강화 상태(+레벨·누적 위력 보너스 %p) — 미강화는 부재. v2Enhance 참고. */
+  enhance?: V2EnhanceState;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -1147,6 +1154,7 @@ export function parseEquipmentSave(raw: unknown): {
         id?: unknown;
         roll?: unknown;
         locked?: unknown;
+        enhance?: unknown;
       };
       if (typeof e.id !== "string") continue;
       const remapped = LEGACY_ID_REMAP[e.id] ?? e.id;
@@ -1169,6 +1177,8 @@ export function parseEquipmentSave(raw: unknown): {
         roll: wasRemapped ? undefined : parseEquipRoll(e.roll),
       };
       if (e.locked === true) inst.locked = true;
+      const enhance = parseEnhance(e.enhance);
+      if (enhance) inst.enhance = enhance;
       owned.push(inst);
       byIid.set(iid, inst);
     }
@@ -1236,7 +1246,20 @@ export function resolveEquippedForAggregate(
     const inst = byIid.get(iid);
     if (!inst) continue;
     eq[slot] = inst.id;
-    if (inst.roll) rolls[inst.id] = inst.roll;
+    // 강화 — 위력만 배율(옵션·무게 불변)을 합성 roll 로 내려보냄. aggregate/엔진 무수정.
+    // roll 없는 개체(상점 구매 등)도 카탈로그 위력 기준으로 강화 반영(weight 는 카탈로그,
+    // options 미지정 = effectiveStats 가 카탈로그 옵션 사용 — 미강화와 동일 의미).
+    if (inst.enhance && inst.enhance.bonusPct > 0) {
+      const item = V2_EQUIPMENT[inst.id];
+      const basePower = inst.roll?.power ?? item.power;
+      rolls[inst.id] = {
+        power: enhancedPower(basePower, inst.enhance),
+        weight: inst.roll?.weight ?? item.weight,
+        ...(inst.roll?.options ? { options: inst.roll.options } : {}),
+      };
+    } else if (inst.roll) {
+      rolls[inst.id] = inst.roll;
+    }
   }
   return { equipped: eq, statRolls: rolls };
 }

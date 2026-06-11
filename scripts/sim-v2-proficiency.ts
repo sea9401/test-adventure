@@ -1,7 +1,8 @@
 // v2 숙련도 재설계 — 커리어 경제 sim (docs/v2-proficiency-redesign.md §10 캘리브).
 //
 // 모델(2026-06 cumLevel 전환): 한 직업군으로 사냥하며 레벨을 올려 전직(1→2→3→4)하는 한 "생애".
-//   - 킬당 숙달 포인트(points) += V2_PROFICIENCY_PER_KILL (수행·스킬 소비 통화).
+//   - 킬당 숙달 포인트(points) += V2_PROFICIENCY_PER_KILL_BASE (수행·스킬 소비 통화).
+//     ⚠️라이브는 깊이 밴드 비례 2~5(proficiencyPerKillAtDepth) — sim 은 보수적 바닥(들판 2) 고정.
 //   - 킬당 exp 누적 → requiredExpToNext 곡선으로 레벨업 → 레벨업당 직군 누적 레벨(cumLevel) += 1.
 //   - 전직 게이트 = cumLevel ≥ V2_ADVANCE_CUMLEVEL_REQ[tier] AND 현 차수 레벨 ≥ V2_ADVANCE_MIN_LEVEL.
 //   - floor(저점) 입력 = cumLevel (points 아님). cumLevel 은 레벨캡·차수 유한이라 천장을 가짐.
@@ -16,7 +17,7 @@
 // 실행: node --import tsx scripts/sim-v2-proficiency.ts
 
 import {
-  V2_PROFICIENCY_PER_KILL,
+  V2_PROFICIENCY_PER_KILL_BASE,
   V2_ADVANCE_CUMLEVEL_REQ,
   V2_ADVANCE_MIN_LEVEL,
   V2_SIGNATURE_LEARN_COST,
@@ -145,7 +146,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
   // 1킬 — earned + exp 누적, 레벨업 수만큼 cumLevel++ (차수 레벨 캡 100).
   const doKill = () => {
-    prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL);
+    prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL_BASE);
     kills++;
     expBuf += MONSTER_EXP;
     while (tierLevel < MAX_LEVEL) {
@@ -211,7 +212,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
 console.log("━━━ v2 숙련도 커리어 경제 sim (cumLevel 전환) ━━━");
 console.log(
-  `적립 +${V2_PROFICIENCY_PER_KILL}/킬 · 전직게이트 cumLevel ${JSON.stringify(V2_ADVANCE_CUMLEVEL_REQ)} (+Lv${V2_ADVANCE_MIN_LEVEL}) · 학습 ${JSON.stringify(V2_SIGNATURE_LEARN_COST)}`,
+  `적립 +${V2_PROFICIENCY_PER_KILL_BASE}/킬 · 전직게이트 cumLevel ${JSON.stringify(V2_ADVANCE_CUMLEVEL_REQ)} (+Lv${V2_ADVANCE_MIN_LEVEL}) · 학습 ${JSON.stringify(V2_SIGNATURE_LEARN_COST)}`,
 );
 console.log(`권장 파워(F1~5) ${JSON.stringify(FLOOR_POWER_MIN)} · 몬스터EXP(추정) ${MONSTER_EXP}`);
 console.log("");

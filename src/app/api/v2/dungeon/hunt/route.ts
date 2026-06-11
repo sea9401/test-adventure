@@ -33,7 +33,7 @@ import {
   setGrown,
   emptyProficiency,
   tierLevelCap,
-  V2_PROFICIENCY_PER_KILL,
+  proficiencyPerKillAtDepth,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
@@ -782,10 +782,11 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     // PR-perf — 위에서 upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷, 중간
     //   proficiency 쓰기 없음 → 새 lock 과 동일 base). 중복 lock-read 제거.
     let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립 — 승리 + 직업 보유 시.
+    // 적립 — 승리 + 직업 보유 시. 적립량은 깊이 밴드 비례(2~5, 테마 2개당 +1).
     if (won && group !== "none") {
-      prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL);
-      proficiencyGained = V2_PROFICIENCY_PER_KILL;
+      const perKill = proficiencyPerKillAtDepth(depth);
+      prof = addPoints(prof, group, perKill);
+      proficiencyGained = perKill;
     }
     // 레벨업 시 — 직군 누적 레벨 적립(floor·전직 게이트 입력) + 랜덤 스탯 성장.
     if (expResult.levelsGained > 0) {

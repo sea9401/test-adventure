@@ -23,6 +23,7 @@ import {
   V2_FLOOR_DECAY_BAND,
   V2_FLOOR_DECAY_MIN,
   V2_SIGNATURE_LEARN_COST,
+  proficiencyPerKillAtDepth,
 } from "./proficiency";
 
 describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
@@ -395,5 +396,30 @@ describe("tierLevelCap (환생 차수별 레벨캡 §3.1)", () => {
     expect(tierLevelCap(1)).toBeLessThan(tierLevelCap(2));
     expect(tierLevelCap(2)).toBeLessThan(tierLevelCap(3));
     expect(tierLevelCap(3)).toBeLessThan(tierLevelCap(4));
+  });
+});
+
+describe("proficiencyPerKillAtDepth (킬당 숙달 — 깊이 밴드 비례)", () => {
+  it("테마 2개당 +1 — 들판·깊은 산 2 / 협곡·호수 3 / 동굴·성소 4 / 늪지·소굴 5", () => {
+    // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값.
+    expect(proficiencyPerKillAtDepth(1)).toBe(2); // 들판 1
+    expect(proficiencyPerKillAtDepth(6)).toBe(2); // 들판 6
+    expect(proficiencyPerKillAtDepth(12)).toBe(2); // 깊은 산 6
+    expect(proficiencyPerKillAtDepth(13)).toBe(3); // 마른 협곡 1
+    expect(proficiencyPerKillAtDepth(24)).toBe(3); // 얼음 호수 6
+    expect(proficiencyPerKillAtDepth(25)).toBe(4); // 심층 동굴 1
+    expect(proficiencyPerKillAtDepth(36)).toBe(4); // 잊힌 성소 6
+    expect(proficiencyPerKillAtDepth(37)).toBe(5); // 리자드 늪지 1
+    expect(proficiencyPerKillAtDepth(48)).toBe(5); // 짐승의 소굴 6
+  });
+
+  it("마지막 테마(짐승의 소굴) 무한 — 49+ 깊이도 5 로 클램프", () => {
+    expect(proficiencyPerKillAtDepth(49)).toBe(5);
+    expect(proficiencyPerKillAtDepth(120)).toBe(5);
+  });
+
+  it("비정상 입력 가드 — 0 이하·소수도 들판(2)으로 처리", () => {
+    expect(proficiencyPerKillAtDepth(0)).toBe(2);
+    expect(proficiencyPerKillAtDepth(1.9)).toBe(2);
   });
 });

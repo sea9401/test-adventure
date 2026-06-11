@@ -20,15 +20,15 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
-  ENHANCE_DEMOTE_FROM_LEVEL,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
+  ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
-  enhanceChoiceProfile,
+  enhanceBonusPct,
   enhancedPower,
   enhanceGoldCost,
+  enhanceOutcomeRow,
   enhanceStoneCost,
-  enhanceSuccessPct,
   type EnhanceChoice,
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
@@ -49,8 +49,7 @@ const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
 type EnhanceResponse = {
   ok?: boolean;
   error?: string;
-  success?: boolean;
-  demoted?: boolean;
+  outcome?: "success" | "keep" | "demote" | "destroy";
   enhance?: V2EnhanceState | null;
   stones?: { red: number; blue: number };
   gold?: number;
@@ -125,7 +124,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const selected = owned.find((o) => o.iid === selectedIid) ?? null;
   const item = selected ? V2_EQUIPMENT[selected.id] : null;
   const level = selected?.enhance?.level ?? 0;
-  const bonusPct = selected?.enhance?.bonusPct ?? 0;
   const maxed = level >= ENHANCE_MAX_LEVEL;
   const uniqueMult = item && isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
   const basePower =
@@ -133,9 +131,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const curPower = enhancedPower(basePower, selected?.enhance);
   const nextPower = enhancedPower(basePower, {
     level: level + 1,
-    bonusPct: bonusPct + enhanceChoiceProfile(stone).bonusPct,
+    bonusPct: enhanceBonusPct(level + 1),
   });
-  const successPct = enhanceSuccessPct(level, stone);
+  const stoneRequired = level >= ENHANCE_STONE_REQUIRED_FROM;
+  const outcomeRow = enhanceOutcomeRow(level, stone);
+  const successPct = outcomeRow[0];
   const stoneCost = enhanceStoneCost(level) * uniqueMult;
   const goldCost = item ? enhanceGoldCost(basePower, level) * uniqueMult : 0;
   // 먹이 후보 — 같은 id·다른 개체·미장착·미잠금.
@@ -153,6 +153,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const haveStones =
     stone === "red" ? stones.red : stone === "blue" ? stones.blue : 0;
   const stoneShort = stone !== "none" && !feedIid && haveStones < stoneCost;
+  const goldOnlyBlocked = stoneRequired && stone === "none";
 
   const doEnhance = useCallback(async () => {
     if (!selected || busy) return;
@@ -177,24 +178,38 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               ? "강화석이 부족합니다"
               : json.error === "insufficient_gold"
                 ? "골드가 부족합니다"
-                : `실패: ${json.error ?? "unknown"}`,
+                : json.error === "stone_required"
+                  ? "+8부터는 강화석이 필요합니다"
+                  : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
       if (json.stones) setStones(json.stones);
       setFeedIid(null);
-      if (json.success) {
+      if (json.outcome === "success") {
         setMsg({
           kind: "success",
           text: `✨ 강화 성공! +${json.enhance?.level} (위력 +${json.enhance?.bonusPct}%)`,
         });
-      } else if (json.demoted) {
+        if (
+          (json.enhance?.level ?? 0) >= ENHANCE_STONE_REQUIRED_FROM &&
+          stone === "none"
+        ) {
+          setStone("blue");
+        }
+      } else if (json.outcome === "demote") {
         setMsg({
           kind: "fail",
-          text: `💥 강화 실패 — 한 단계 하락… +${json.enhance?.level ?? 0}`,
+          text: `📉 강화 실패 — 한 단계 하락… +${json.enhance?.level ?? 0}`,
         });
+      } else if (json.outcome === "destroy") {
+        setMsg({
+          kind: "fail",
+          text: "💥 장비가 산산조각 났습니다… (파괴)",
+        });
+        setSelectedIid(null);
       } else {
-        setMsg({ kind: "fail", text: "강화 실패 — 재료가 사라졌습니다" });
+        setMsg({ kind: "fail", text: "강화 실패 — 수치 유지, 재료만 소모" });
       }
       await refresh();
     } catch {
@@ -258,39 +273,65 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     (성공 시 +{level + 1})
                   </span>
                 </div>
-                {/* 강화 방식 — 골드만(기본) / 돌 부스터 선택 */}
+                {/* 강화 방식 — 골드만(+7까지) / 돌. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 방지 */}
                 <div className="flex gap-2">
-                  {(["none", "blue", "red"] as const).map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => {
-                        setStone(s);
-                        if (s === "none") setFeedIid(null);
-                      }}
-                      className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition ${
-                        stone === s
-                          ? s === "red"
-                            ? "border-rose-400 bg-rose-50 dark:border-rose-600 dark:bg-rose-950"
-                            : s === "blue"
-                              ? "border-sky-400 bg-sky-50 dark:border-sky-600 dark:bg-sky-950"
-                              : "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-950"
-                          : "border-zinc-200 dark:border-zinc-700"
-                      }`}
-                    >
-                      <div className="font-medium">
-                        {s === "none"
-                          ? "💰 골드만"
-                          : s === "red"
-                            ? "🔴 붉은 강화석"
-                            : "🔵 푸른 강화석"}
-                      </div>
-                      <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
-                        성공 {enhanceSuccessPct(level, s)}% · +
-                        {enhanceChoiceProfile(s).bonusPct}%p
-                      </div>
-                    </button>
-                  ))}
+                  {(["none", "blue", "red"] as const).map((s) => {
+                    const disabled = s === "none" && stoneRequired;
+                    const row = enhanceOutcomeRow(level, s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          setStone(s);
+                          if (s === "none") setFeedIid(null);
+                        }}
+                        className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition disabled:opacity-40 ${
+                          stone === s
+                            ? s === "red"
+                              ? "border-rose-400 bg-rose-50 dark:border-rose-600 dark:bg-rose-950"
+                              : s === "blue"
+                                ? "border-sky-400 bg-sky-50 dark:border-sky-600 dark:bg-sky-950"
+                                : "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-950"
+                            : "border-zinc-200 dark:border-zinc-700"
+                        }`}
+                      >
+                        <div className="font-medium">
+                          {s === "none"
+                            ? disabled
+                              ? "💰 골드만 (+7까지)"
+                              : "💰 골드만"
+                            : s === "red"
+                              ? "🔴 붉은 (맹렬)"
+                              : "🔵 푸른 (단단)"}
+                        </div>
+                        <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
+                          성공 {row[0]}%
+                          {row[3] > 0 ? ` · 파괴 ${row[3]}%` : ""}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* 결과 확률 — 선택한 방식의 4결과 분포 */}
+                <div className="flex justify-between rounded-md bg-zinc-100 px-2 py-1 text-[11px] tabular-nums dark:bg-zinc-800/60">
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    성공 {outcomeRow[0]}%
+                  </span>
+                  <span className="text-zinc-500">유지 {outcomeRow[1]}%</span>
+                  <span className="text-amber-600 dark:text-amber-400">
+                    하락 {outcomeRow[2]}%
+                  </span>
+                  <span
+                    className={
+                      outcomeRow[3] > 0
+                        ? "font-semibold text-rose-600 dark:text-rose-400"
+                        : "text-zinc-400"
+                    }
+                  >
+                    파괴 {outcomeRow[3]}%
+                  </span>
                 </div>
                 {/* 먹이 — 동일 장비 소모로 강화석 면제 */}
                 {stone !== "none" && feedCandidates.length > 0 && (
@@ -316,24 +357,25 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "🔴" : "🔵"} ×${stoneCost}`} + ${goldCost.toLocaleString()} G`}
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
-                  {level + 1 > ENHANCE_DEMOTE_FROM_LEVEL && (
-                    <span className="text-rose-500">실패 시 −1 하락</span>
-                  )}
-                  {level === ENHANCE_DEMOTE_FROM_LEVEL && (
-                    <span className="text-rose-500">실패 시 −1 하락</span>
+                  {outcomeRow[3] > 0 && stone !== "blue" && (
+                    <span className="font-semibold text-rose-500">
+                      ⚠️ 파괴 위험 — 푸른 돌이 막아줍니다
+                    </span>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => void doEnhance()}
-                  disabled={busy || stoneShort}
+                  disabled={busy || stoneShort || goldOnlyBlocked}
                   className="w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
                 >
                   {busy
                     ? "강화 중…"
-                    : stoneShort
-                      ? "강화석 부족"
-                      : `강화 (${successPct}%)`}
+                    : goldOnlyBlocked
+                      ? "+8부터는 강화석 필요"
+                      : stoneShort
+                        ? "강화석 부족"
+                        : `강화 (성공 ${successPct}%)`}
                 </button>
               </>
             )}
@@ -382,6 +424,13 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               setSelectedIid(inst.iid);
               setMsg(null);
               setFeedIid(null);
+              // +8부터 돌 필수 — 골드만 선택 상태면 푸른으로 자동 전환.
+              if (
+                (inst.enhance?.level ?? 0) >= ENHANCE_STONE_REQUIRED_FROM &&
+                stone === "none"
+              ) {
+                setStone("blue");
+              }
             }}
           />
           <Pagination

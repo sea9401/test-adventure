@@ -1,8 +1,8 @@
 // 장비 강화 밸런스 sim — 풀강(+10)이 PvE 승률·PvP 매치업에 주는 격차 측정.
 // 설계 docs/v2-equipment-enhance-plan.md PR-4. ENHANCE 보너스 %p 캘리브 입력.
 //
-// 레퍼런스: 전사 4차(누적 2000·보통 수행)·소굴 BiS. 강화 시나리오 = 무강 / +5 순푸(+10%) /
-// +10 순푸(+20%) / +10 순붉(+30%) — 6슬롯 전부 동일 적용.
+// 레퍼런스: 전사 4차(누적 2000·보통 수행)·소굴 BiS. 강화 = 구간제 누적 보너스
+// (+5=10% +7=16% +10=34%) — 6슬롯 전부 동일 적용.
 //
 // 실행: node --import tsx scripts/sim-v2-enhance.ts
 
@@ -105,9 +105,9 @@ function pveWr(d: ReturnType<typeof makeRef>["d"], depth: number): number {
 
 const SCENARIOS: { label: string; enhance: V2EnhanceState | undefined }[] = [
   { label: "무강", enhance: undefined },
-  { label: "+5 순푸(+10%)", enhance: { level: 5, bonusPct: 10 } },
-  { label: "+10 순푸(+20%)", enhance: { level: 10, bonusPct: 20 } },
-  { label: "+10 순붉(+30%)", enhance: { level: 10, bonusPct: 30 } },
+  { label: "+5 (10%)", enhance: { level: 5, bonusPct: 10 } },
+  { label: "+7 (16%)", enhance: { level: 7, bonusPct: 16 } },
+  { label: "+10 (34%)", enhance: { level: 10, bonusPct: 34 } },
 ];
 
 console.log("시나리오 | power | 깊이48 | 깊이56 | 깊이64 | 깊이72");

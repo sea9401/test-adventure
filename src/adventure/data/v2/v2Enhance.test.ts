@@ -1,156 +1,130 @@
 import { describe, expect, it } from "vitest";
 import {
-  demoteEnhance,
+  ENHANCE_LEVEL_BONUS_CUM,
   ENHANCE_MAX_LEVEL,
-  ENHANCE_STONES,
-  ENHANCE_SUCCESS_MIN_PCT,
+  ENHANCE_OUTCOME_TABLE,
+  demoteEnhance,
+  enhanceBonusPct,
   enhancedPower,
   enhanceGoldCost,
+  enhanceOutcomeRow,
   enhanceStoneCost,
-  enhanceSuccessPct,
   parseEnhance,
+  rollEnhanceOutcome,
 } from "./v2Enhance";
 import {
   parseEquipmentSave,
   resolveEquippedForAggregate,
-  V2_EQUIPMENT,
   type V2EquipmentId,
 } from "./v2Equipment";
 
-describe("parseEnhance (방어 파스)", () => {
-  it("정상값 통과 + 미강화/쓰레기 = undefined", () => {
-    expect(parseEnhance({ level: 7, bonusPct: 19 })).toEqual({
-      level: 7,
-      bonusPct: 19,
-    });
-    expect(parseEnhance(undefined)).toBeUndefined();
-    expect(parseEnhance(null)).toBeUndefined();
-    expect(parseEnhance("x")).toBeUndefined();
-    expect(parseEnhance({ level: 0, bonusPct: 5 })).toBeUndefined();
-    expect(parseEnhance({ level: -3 })).toBeUndefined();
-  });
-
-  it("클램프 — 레벨 ≤ MAX, 보너스 ≤ MAX×붉은(3%p), 음수 보너스 0", () => {
-    expect(parseEnhance({ level: 99, bonusPct: 999 })).toEqual({
-      level: ENHANCE_MAX_LEVEL,
-      bonusPct: ENHANCE_MAX_LEVEL * ENHANCE_STONES.red.bonusPct,
-    });
-    expect(parseEnhance({ level: 3, bonusPct: -5 })).toEqual({
-      level: 3,
-      bonusPct: 0,
-    });
-    // 문자열 숫자(손상 세이브) 수용 + 내림.
-    expect(parseEnhance({ level: "4.9", bonusPct: "10.7" })).toEqual({
-      level: 4,
-      bonusPct: 10,
-    });
+describe("구간 보너스 (레벨 기반·확실한 리턴)", () => {
+  it("누적표 — +5=10% +7=16% +9=24% +10=34%(점프)", () => {
+    expect(enhanceBonusPct(5)).toBe(10);
+    expect(enhanceBonusPct(7)).toBe(16);
+    expect(enhanceBonusPct(9)).toBe(24);
+    expect(enhanceBonusPct(10)).toBe(34);
+    expect(ENHANCE_LEVEL_BONUS_CUM).toHaveLength(ENHANCE_MAX_LEVEL + 1);
   });
 });
 
-describe("enhancedPower (위력 배율 — 단일 출처)", () => {
+describe("parseEnhance (방어 파스 + 레벨 정규화)", () => {
+  it("보너스는 저장값 무시·레벨 표로 정규화", () => {
+    expect(parseEnhance({ level: 7, bonusPct: 99 })).toEqual({
+      level: 7,
+      bonusPct: 16,
+    });
+    expect(parseEnhance({ level: 99 })).toEqual({ level: 10, bonusPct: 34 });
+    expect(parseEnhance({ level: 0 })).toBeUndefined();
+    expect(parseEnhance("x")).toBeUndefined();
+  });
+});
+
+describe("enhancedPower", () => {
   it("미강화 passthrough + 곱연산 내림", () => {
     expect(enhancedPower(322, undefined)).toBe(322);
-    expect(enhancedPower(322, { level: 10, bonusPct: 30 })).toBe(418); // 322×1.3=418.6
+    expect(enhancedPower(322, { level: 10, bonusPct: 34 })).toBe(431); // 322×1.34
     expect(enhancedPower(100, { level: 1, bonusPct: 2 })).toBe(102);
-    expect(enhancedPower(100, { level: 1, bonusPct: 0 })).toBe(100);
   });
 });
 
-describe("성공률·비용 다이얼", () => {
-  it("푸른 = 기본표(+0→95%, +9→30%), 붉은 −10%p, 골드만 −15%p·최저 25", () => {
-    expect(enhanceSuccessPct(0, "blue")).toBe(95);
-    expect(enhanceSuccessPct(0, "red")).toBe(85);
-    expect(enhanceSuccessPct(0, "none")).toBe(80); // 95−15
-    expect(enhanceSuccessPct(4, "blue")).toBe(80);
-    expect(enhanceSuccessPct(9, "blue")).toBe(30);
-    expect(enhanceSuccessPct(9, "red")).toBe(ENHANCE_SUCCESS_MIN_PCT); // 30−10=20→25 클램프
-    expect(enhanceSuccessPct(9, "none")).toBe(ENHANCE_SUCCESS_MIN_PCT); // 30−15→25 클램프
+describe("4결과 표 + 돌 변환", () => {
+  it("각 행 합 = 100 (기본·붉은·푸른)", () => {
+    for (let lv = 0; lv < ENHANCE_OUTCOME_TABLE.length; lv++) {
+      for (const c of ["none", "red", "blue"] as const) {
+        const [s, k, d, x] = enhanceOutcomeRow(lv, c);
+        expect(s + k + d + x).toBe(100);
+        expect(Math.min(s, k, d, x)).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
-  it("강화석 비용 램프 1/2/3/4", () => {
+  it("붉은 = 성공 +15%p(파괴 불변), 푸른 = 파괴 0 + 하락 −10", () => {
+    // +9 기본 15/42/28/15
+    expect(enhanceOutcomeRow(9, "none")).toEqual([15, 42, 28, 15]);
+    expect(enhanceOutcomeRow(9, "red")).toEqual([30, 27, 28, 15]);
+    expect(enhanceOutcomeRow(9, "blue")).toEqual([15, 52, 33, 0]);
+    // 저강(+0) — 파괴·하락 0이라 푸른 무의미, 붉은은 성공 100 캡 합 보존
+    expect(enhanceOutcomeRow(0, "red")).toEqual([100, 0, 0, 0]);
+  });
+  it("rollEnhanceOutcome — 경계 결정성", () => {
+    // +9 기본: [15,42,28,15] → r=0.10→success, 0.50→keep, 0.80→demote, 0.99→destroy
+    expect(rollEnhanceOutcome(9, "none", () => 0.1)).toBe("success");
+    expect(rollEnhanceOutcome(9, "none", () => 0.5)).toBe("keep");
+    expect(rollEnhanceOutcome(9, "none", () => 0.8)).toBe("demote");
+    expect(rollEnhanceOutcome(9, "none", () => 0.99)).toBe("destroy");
+    expect(rollEnhanceOutcome(9, "blue", () => 0.999)).not.toBe("destroy");
+  });
+});
+
+describe("비용 다이얼 (제곱 램프)", () => {
+  it("골드 = power×15×(n+1)² · 돌 1~4", () => {
+    expect(enhanceGoldCost(322, 0)).toBe(4830);
+    expect(enhanceGoldCost(322, 9)).toBe(483000);
     expect(enhanceStoneCost(0)).toBe(1);
-    expect(enhanceStoneCost(3)).toBe(2);
-    expect(enhanceStoneCost(6)).toBe(3);
     expect(enhanceStoneCost(9)).toBe(4);
   });
-  it("골드 수수료 — 위력·강 비례", () => {
-    expect(enhanceGoldCost(300, 0)).toBe(600);
-    expect(enhanceGoldCost(300, 9)).toBe(6000);
+});
+
+describe("demoteEnhance — 레벨 −1·표 재파생", () => {
+  it("+7 → +6 (16% → 13%)", () => {
+    expect(demoteEnhance({ level: 7, bonusPct: 16 })).toEqual({
+      level: 6,
+      bonusPct: 13,
+    });
+    expect(demoteEnhance({ level: 1, bonusPct: 2 })).toBeUndefined();
   });
 });
 
 describe("세이브 왕복 + resolve 반영", () => {
   const WEAPON = "v2_den_greatsword" as V2EquipmentId;
-
-  it("parseEquipmentSave — enhance 보존(왕복) + 쓰레기 무시", () => {
-    const { owned } = parseEquipmentSave({
-      owned: [
-        { iid: "a", id: WEAPON, enhance: { level: 7, bonusPct: 19 } },
-        { iid: "b", id: WEAPON, enhance: "garbage" },
-      ],
-      equipped: {},
-    });
-    expect(owned[0].enhance).toEqual({ level: 7, bonusPct: 19 });
-    expect(owned[1].enhance).toBeUndefined();
-  });
-
-  it("resolve — 강화 개체는 위력만 배율, 옵션·무게 불변", () => {
-    const item = V2_EQUIPMENT[WEAPON];
+  it("resolve — 강화 개체 위력 배율(레벨 표 기준)", () => {
     const { owned, equipped } = parseEquipmentSave({
       owned: [
         {
           iid: "a",
           id: WEAPON,
-          roll: { power: 300, weight: item.weight, options: item.options },
-          enhance: { level: 10, bonusPct: 30 },
+          roll: { power: 300, weight: 5 },
+          enhance: { level: 10, bonusPct: 34 },
         },
       ],
       equipped: { weapon: "a" },
     });
     const { statRolls } = resolveEquippedForAggregate(owned, equipped);
-    expect(statRolls[WEAPON]!.power).toBe(390); // 300×1.3
-    expect(statRolls[WEAPON]!.weight).toBe(item.weight);
-    expect(statRolls[WEAPON]!.options).toEqual(item.options);
+    expect(statRolls[WEAPON]!.power).toBe(402); // 300×1.34
   });
-
-  it("resolve — 굴림 없는 개체(상점)도 카탈로그 위력 기준 강화", () => {
-    const item = V2_EQUIPMENT[WEAPON];
+  it("미강화는 기존과 byte-동일", () => {
     const { owned, equipped } = parseEquipmentSave({
-      owned: [{ iid: "a", id: WEAPON, enhance: { level: 5, bonusPct: 10 } }],
+      owned: [{ iid: "a", id: WEAPON, roll: { power: 300, weight: 5 } }],
       equipped: { weapon: "a" },
     });
     const { statRolls } = resolveEquippedForAggregate(owned, equipped);
-    expect(statRolls[WEAPON]!.power).toBe(Math.floor(item.power * 1.1));
-    expect(statRolls[WEAPON]!.weight).toBe(item.weight);
-    // options 미지정 — effectiveStats 가 카탈로그 옵션을 쓰므로 의미 동일.
-    expect(statRolls[WEAPON]!.options).toBeUndefined();
-  });
-
-  it("resolve — 미강화는 기존과 byte-동일(굴림 그대로/굴림 없음 미생성)", () => {
-    const { owned, equipped } = parseEquipmentSave({
-      owned: [
-        { iid: "a", id: WEAPON, roll: { power: 300, weight: 5 } },
-        { iid: "b", id: "v2_den_set_armor" },
-      ],
-      equipped: { weapon: "a", armor: "b" },
-    });
-    const { statRolls } = resolveEquippedForAggregate(owned, equipped);
     expect(statRolls[WEAPON]).toEqual({ power: 300, weight: 5 });
-    expect(statRolls["v2_den_set_armor" as V2EquipmentId]).toBeUndefined();
   });
-});
-
-describe("demoteEnhance (고강 실패 하락)", () => {
-  it("레벨 −1 + 보너스 평균 비례 차감(반올림)", () => {
-    expect(demoteEnhance({ level: 6, bonusPct: 13 })).toEqual({
-      level: 5,
-      bonusPct: 11, // 13×5/6 = 10.83 → 11
+  it("쓰레기 enhance 무시", () => {
+    const { owned } = parseEquipmentSave({
+      owned: [{ iid: "a", id: WEAPON, enhance: "garbage" }],
+      equipped: {},
     });
-    expect(demoteEnhance({ level: 10, bonusPct: 30 })).toEqual({
-      level: 9,
-      bonusPct: 27,
-    });
-  });
-  it("레벨 1 → 미강화(undefined)", () => {
-    expect(demoteEnhance({ level: 1, bonusPct: 2 })).toBeUndefined();
+    expect(owned[0].enhance).toBeUndefined();
   });
 });

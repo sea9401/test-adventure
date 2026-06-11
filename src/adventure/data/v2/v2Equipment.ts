@@ -1090,7 +1090,8 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
 ]);
 
 // 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
-function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
+// 거래소 buy/cancel 의 payload 복원에도 쓰여 공개(굴림 방어 파스 단일 출처).
+export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
   if (!val || typeof val !== "object") return undefined;
   const r = val as { power?: unknown; weight?: unknown; options?: unknown };
   if (typeof r.power !== "number" || !Number.isFinite(r.power)) return undefined;

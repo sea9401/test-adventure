@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  demoteEnhance,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONES,
   ENHANCE_SUCCESS_MIN_PCT,
@@ -56,11 +57,12 @@ describe("enhancedPower (위력 배율 — 단일 출처)", () => {
 });
 
 describe("성공률·비용 다이얼", () => {
-  it("푸른 = 기본표, 붉은 = −10%p·최저 25", () => {
-    expect(enhanceSuccessPct(0, "blue")).toBe(100);
-    expect(enhanceSuccessPct(0, "red")).toBe(90);
-    expect(enhanceSuccessPct(9, "blue")).toBe(35);
-    expect(enhanceSuccessPct(9, "red")).toBe(ENHANCE_SUCCESS_MIN_PCT);
+  it("푸른 = 기본표(초반부터 비100%: +0→95%, +9→30%), 붉은 = −10%p·최저 25", () => {
+    expect(enhanceSuccessPct(0, "blue")).toBe(95);
+    expect(enhanceSuccessPct(0, "red")).toBe(85);
+    expect(enhanceSuccessPct(4, "blue")).toBe(80);
+    expect(enhanceSuccessPct(9, "blue")).toBe(30);
+    expect(enhanceSuccessPct(9, "red")).toBe(ENHANCE_SUCCESS_MIN_PCT); // 30−10=20→25 클램프
   });
   it("강화석 비용 램프 1/2/3/4", () => {
     expect(enhanceStoneCost(0)).toBe(1);
@@ -132,5 +134,21 @@ describe("세이브 왕복 + resolve 반영", () => {
     const { statRolls } = resolveEquippedForAggregate(owned, equipped);
     expect(statRolls[WEAPON]).toEqual({ power: 300, weight: 5 });
     expect(statRolls["v2_den_set_armor" as V2EquipmentId]).toBeUndefined();
+  });
+});
+
+describe("demoteEnhance (고강 실패 하락)", () => {
+  it("레벨 −1 + 보너스 평균 비례 차감(반올림)", () => {
+    expect(demoteEnhance({ level: 6, bonusPct: 13 })).toEqual({
+      level: 5,
+      bonusPct: 11, // 13×5/6 = 10.83 → 11
+    });
+    expect(demoteEnhance({ level: 10, bonusPct: 30 })).toEqual({
+      level: 9,
+      bonusPct: 27,
+    });
+  });
+  it("레벨 1 → 미강화(undefined)", () => {
+    expect(demoteEnhance({ level: 1, bonusPct: 2 })).toBeUndefined();
   });
 });

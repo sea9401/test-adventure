@@ -6,6 +6,7 @@ import {
   ChatCircle,
   Eye,
   Heart,
+  PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -20,6 +21,7 @@ import { CATEGORY_BADGE, type BulletinPost } from "./types";
 type Props = {
   post: BulletinPost;
   onBack: () => void;
+  onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   onLikeUpdate: (postId: number, liked: boolean, count: number) => void;
   onCommentCountChange: (postId: number, count: number) => void;
@@ -29,6 +31,7 @@ type Props = {
 export function PostDetailPage({
   post,
   onBack,
+  onEdit,
   onDelete,
   onLikeUpdate,
   onCommentCountChange,
@@ -100,16 +103,27 @@ export function PostDetailPage({
               </button>
             )}
             <span>{formatDateTime(post.createdAt)}</span>
+            {post.updatedAt != null && <span>(수정됨)</span>}
           </div>
           {post.mine && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              aria-label="글 삭제"
-              className="shrink-0 rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-            >
-              <Trash size={14} weight="bold" />
-            </button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onEdit(post.id)}
+                aria-label="글 수정"
+                className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <PencilSimple size={14} weight="bold" />
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                aria-label="글 삭제"
+                className="rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+              >
+                <Trash size={14} weight="bold" />
+              </button>
+            </div>
           )}
         </div>
 

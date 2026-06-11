@@ -10,6 +10,8 @@ export type BulletinPost = {
   title: string | null;
   content: string;
   createdAt: number;
+  // 작성자가 글을 수정한 시각 — 미수정이면 null. "(수정됨)" 표기 조건.
+  updatedAt: number | null;
   mine: boolean;
   likeCount: number;
   commentCount: number;

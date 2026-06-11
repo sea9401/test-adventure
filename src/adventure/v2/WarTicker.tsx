@@ -74,8 +74,10 @@ export function WarTickerStrip({
   if (texts.length === 0) return null;
   // 속도 — 토막 수 비례(토막당 ~7s, 최소 18s). 항목이 적어도 너무 빨리 돌지 않게.
   const durSec = Math.max(18, texts.length * 7);
+  // 각 벌은 최소 띠 너비(min-w-full) — 내용이 화면보다 좁을 때 두 벌이 동시에 보여
+  // "같은 사건이 2번씩" 나오는 현상 방지. 루프(-50% 이동)는 두 벌 동일 폭이라 그대로 유효.
   const copy = (key: string) => (
-    <span key={key} aria-hidden={key === "b"} className="inline-flex">
+    <span key={key} aria-hidden={key === "b"} className="inline-flex min-w-full">
       {texts.map((t, i) => (
         <span key={i} className="inline-flex items-center gap-1.5 pr-10">
           <Sword

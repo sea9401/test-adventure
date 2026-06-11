@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  CompassRose,
   FirstAid,
   Fish,
   Hammer,
@@ -10,10 +11,12 @@ import {
 import { EntryCard } from "@/components/ui/EntryCard";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
-// 치료소·상점·대장간·낚시·보물 동작. 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
+// 지도(이동)·치료소·상점·대장간·낚시·보물. 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
+// 지도는 전투 탭에서 이관(2026-06-11) — 이동/탐험은 마을 동선.
 // 길드 창단은 길드 탭으로 이관(시설 분리가 어색해 통합).
 
 export type TownAction =
+  | { kind: "open-map" }
   | { kind: "open-healing" }
   | { kind: "open-shop" }
   | { kind: "open-smithy" }
@@ -31,6 +34,17 @@ export function V2TownHome({
         <h1 className="text-lg font-bold">마을</h1>
       </header>
       <div className="space-y-2">
+        <EntryCard
+          icon={
+            <CompassRose
+              size={28}
+              weight="duotone"
+              className="text-emerald-500"
+            />
+          }
+          title="지도"
+          onClick={() => onAction({ kind: "open-map" })}
+        />
         <EntryCard
           icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
           title="치료소"

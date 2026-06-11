@@ -27,16 +27,16 @@ const TABS: { key: TabId; label: string }[] = [
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
 const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
 
-// 현재 경로 → 활성 탭. map/outpost 는 전투 탭으로 묶는다(현 tabOfView 와 동일).
+// 현재 경로 → 활성 탭. map/outpost 는 마을 탭으로 묶는다(지도=이동 동선, 2026-06-11 이관).
 function tabOfPath(pathname: string): TabId {
   if (pathname === "/") return "adventure";
+  if (pathname.startsWith("/battle")) return "battle";
   if (
-    pathname.startsWith("/battle") ||
+    pathname.startsWith("/town") ||
     pathname.startsWith("/map") ||
     pathname.startsWith("/outpost")
   )
-    return "battle";
-  if (pathname.startsWith("/town")) return "town";
+    return "town";
   if (pathname.startsWith("/character")) return "character";
   if (pathname.startsWith("/guild")) return "guild";
   if (pathname.startsWith("/plaza")) return "plaza";
@@ -90,12 +90,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const currentOutpostType: OutpostType = currentOutpost
     ? (OUTPOST_TYPE_BY_ID.get(currentOutpost.id) ?? "village")
     : "village";
-  // 스태미나 바 — 모험 탭, 또는 전투 탭에서 지도/거점이 아닌 화면일 때만.
-  const showStamina =
-    activeTab === "adventure" ||
-    (activeTab === "battle" &&
-      !pathname.startsWith("/map") &&
-      !pathname.startsWith("/outpost"));
+  // 스태미나 바 — 모험/전투 탭만 (지도/거점은 마을 탭 귀속이라 자연 제외).
+  const showStamina = activeTab === "adventure" || activeTab === "battle";
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·상점·대장간·낚시터·사냥터·아레나)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별

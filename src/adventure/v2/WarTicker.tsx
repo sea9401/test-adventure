@@ -84,7 +84,7 @@ export function WarTickerStrip({
     <button
       type="button"
       onClick={onClick}
-      aria-label="전황 보기"
+      aria-label="전쟁 보기"
       className="group block w-full cursor-pointer overflow-hidden whitespace-nowrap border-b border-zinc-200 bg-zinc-100/80 py-1 text-xs text-zinc-600 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300"
     >
       <span

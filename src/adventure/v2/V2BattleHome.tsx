@@ -3,18 +3,16 @@
 import {
   Barbell,
   CastleTurret,
-  CompassRose,
   Sword,
   Trophy,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 
-// 전투 탭 default — town/character 탭 패턴: EntryCard 던전/지도/아레나 진입.
-// 던전 → V2DungeonList (8 층 list). 지도 → V2ContinentMap. 아레나 → V2ArenaView.
+// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/전황/아레나/허수아비 진입.
+// 지도는 마을 탭으로 이관(2026-06-11).
 
 export type BattleAction =
   | { kind: "open-dungeons" }
-  | { kind: "open-map" }
   | { kind: "open-war" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" };
@@ -39,24 +37,13 @@ export function V2BattleHome({
         />
         <EntryCard
           icon={
-            <CompassRose
-              size={28}
-              weight="duotone"
-              className="text-emerald-500"
-            />
-          }
-          title="지도"
-          onClick={() => onAction({ kind: "open-map" })}
-        />
-        <EntryCard
-          icon={
             <CastleTurret
               size={28}
               weight="duotone"
               className="text-violet-500"
             />
           }
-          title="전황"
+          title="전쟁"
           onClick={() => onAction({ kind: "open-war" })}
         />
         <EntryCard

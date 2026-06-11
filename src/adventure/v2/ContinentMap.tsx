@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -188,6 +189,7 @@ export function ContinentMap({
   viewerUserId,
   currentOutpostId,
   discoveredIds,
+  visibleIds,
 }: {
   // 현재 거점 자신 재진입(둘러보기)용 — 이동 없이 그 거점 화면을 연다.
   onOutpostEnter?: (o: Outpost) => void;
@@ -202,6 +204,9 @@ export function ContinentMap({
   // 발견(안개) — 공개된 거점 id 집합. 미공개는 흐리게+비활성, 이동 목적지에서 제외.
   // 미지정이면 전부 공개로 취급(예: 순수 시각 프리뷰 페이지).
   discoveredIds?: ReadonlySet<string>;
+  // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 권역 박스는 숨김, 초기 프레이밍은
+  // 집합의 bounding box 로. 전쟁 탭의 "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
+  visibleIds?: ReadonlySet<string>;
 } = {}) {
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) {
@@ -211,6 +216,8 @@ export function ContinentMap({
   if (treasuries) {
     for (const t of treasuries) treasuryByOutpost.set(t.outpostId, t.gold);
   }
+  // 국지 모드 — 미지정이면 전부 보임.
+  const isVisible = (id: string) => !visibleIds || visibleIds.has(id);
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -239,27 +246,58 @@ export function ContinentMap({
     h: MAP_BOUNDS.height,
   });
 
+  // 전체보기 기준 영역 — 국지 모드(visibleIds)면 보이는 거점들의 bounding box(+여백).
+  const fitBounds = useMemo(() => {
+    if (!visibleIds || visibleIds.size === 0) {
+      return { x: 0, y: 0, w: MAP_BOUNDS.width, h: MAP_BOUNDS.height };
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of visibleIds) {
+      const o = OUTPOST_BY_ID.get(id);
+      if (!o) continue;
+      minX = Math.min(minX, o.position.x);
+      minY = Math.min(minY, o.position.y);
+      maxX = Math.max(maxX, o.position.x);
+      maxY = Math.max(maxY, o.position.y);
+    }
+    if (minX > maxX) {
+      return { x: 0, y: 0, w: MAP_BOUNDS.width, h: MAP_BOUNDS.height };
+    }
+    const PAD = 460; // 마커 반경 + 라벨 여백
+    return {
+      x: minX - PAD,
+      y: minY - PAD,
+      w: maxX - minX + PAD * 2,
+      h: maxY - minY + PAD * 2,
+    };
+  }, [visibleIds]);
+
   const fitAll = useCallback(() => {
     const { w: cw, h: ch } = containerSize;
     if (cw === 0 || ch === 0) return;
     const containerRatio = ch / cw;
-    const worldRatio = MAP_BOUNDS.height / MAP_BOUNDS.width;
+    const worldRatio = fitBounds.h / fitBounds.w;
     let vbW: number;
     let vbH: number;
     if (containerRatio >= worldRatio) {
-      vbW = MAP_BOUNDS.width;
+      vbW = fitBounds.w;
       vbH = vbW * containerRatio;
     } else {
-      vbH = MAP_BOUNDS.height;
+      vbH = fitBounds.h;
       vbW = vbH / containerRatio;
     }
+    vbW = Math.max(MIN_VB_W, vbW);
+    vbH = cw > 0 ? vbW * (ch / cw) : vbH;
     setVb({
-      x: MAP_BOUNDS.width / 2 - vbW / 2,
-      y: MAP_BOUNDS.height / 2 - vbH / 2,
+      x: fitBounds.x + fitBounds.w / 2 - vbW / 2,
+      y: fitBounds.y + fitBounds.h / 2 - vbH / 2,
       w: vbW,
       h: vbH,
     });
-  }, [containerSize]);
+  }, [containerSize, fitBounds]);
 
   // 현재 거점을 화면 가운데로 — 적당한 줌(맵 너비의 42%)으로. 지도를 열 때 전체보기 대신
   // "지금 있는 곳"으로 프레이밍한다. 현재 거점이 없으면 전체보기로 폴백.
@@ -287,14 +325,15 @@ export function ContinentMap({
     setVb({ x, y, w: vbW, h: vbH });
   }, [currentOutpostId, containerSize, fitAll]);
 
-  // 지도를 열면 한 번 현재 위치로 프레이밍.
+  // 지도를 열면 한 번 프레이밍 — 국지 모드는 전체(=보이는 집합) 맞춤, 평소엔 현 위치 중심.
   const didFitRef = useRef(false);
   useEffect(() => {
     if (didFitRef.current) return;
     if (containerSize.w === 0 || containerSize.h === 0) return;
-    centerOnCurrent();
+    if (visibleIds) fitAll();
+    else centerOnCurrent();
     didFitRef.current = true;
-  }, [containerSize, centerOnCurrent]);
+  }, [containerSize, centerOnCurrent, fitAll, visibleIds]);
 
   const clampVb = useCallback(
     (next: Vb): Vb => {
@@ -543,8 +582,8 @@ export function ContinentMap({
             fill="url(#v2-grid)"
           />
 
-          {/* 바이옴 권역 — 점선 영역 박스 + 라벨. 격자 위, 연결선/마커 아래. */}
-          {REGION_BOXES.map((b) => (
+          {/* 바이옴 권역 — 점선 영역 박스 + 라벨. 격자 위, 연결선/마커 아래. 국지 모드 숨김. */}
+          {!visibleIds && REGION_BOXES.map((b) => (
             <g key={b.label}>
               <rect
                 x={b.x}
@@ -577,6 +616,7 @@ export function ContinentMap({
             if (!oa || !ob) return null;
             // 안개 — 양 끝이 모두 발견된 길만 그린다(미발견 지역의 길은 숨김).
             if (!isDiscovered(a) || !isDiscovered(b)) return null;
+            if (!isVisible(a) || !isVisible(b)) return null;
             return (
               <line
                 key={`edge-${a}-${b}`}
@@ -599,6 +639,7 @@ export function ContinentMap({
               const ob = OUTPOST_BY_ID.get(b);
               if (!oa || !ob) return null;
               if (!isDiscovered(a) || !isDiscovered(b)) return null;
+              if (!isVisible(a) || !isVisible(b)) return null;
               return (
                 <line
                   key={`edge-cur-${a}-${b}`}
@@ -638,7 +679,7 @@ export function ContinentMap({
             })}
 
           {[1, 2, 3, 4].flatMap((tier) =>
-            OUTPOSTS.filter((o) => o.tier === tier).map((o) => {
+            OUTPOSTS.filter((o) => o.tier === tier && isVisible(o.id)).map((o) => {
               const r = TIER_RADIUS[o.tier];
               // 미발견(안개) — 흐린 점만 찍고 비활성(클릭/이름/아이콘 없음). 방문/인접으로
               // 공개되면 아래의 정상 마커로 렌더된다.

@@ -8,6 +8,10 @@
 // derive 통합 + save 필드(specChoice/unlockedPassives)는 spec route.
 
 import type { V2WeaponType } from "./v2Equipment";
+import {
+  COMBO_FINISHER_PERIOD,
+  POISON_PCT_PER_POINT,
+} from "./v2CombatConstants";
 
 // 정규화된 전문화 패시브 효과 — 합산 가능(같은 필드는 더함). 미지정 = 0/무효.
 export type V2SpecPassiveEffect = {
@@ -342,6 +346,11 @@ export function resolveSpecTrait(
   return out as V2SpecTraitEffect;
 }
 
+// 중독 강도(포인트) → 스택당 최대 HP 비례 % 표기 (5pt × 0.0004 = 0.2%). float 드리프트 반올림.
+function poisonPointsToPct(points: number): number {
+  return Math.round(points * POISON_PCT_PER_POINT * 100 * 100) / 100;
+}
+
 /** 직업 특성 효과(스케일된 값)를 한 줄 텍스트로. UI 표기용. 빈 효과면 "". */
 export function describeSpecTraitEffect(e: V2SpecTraitEffect): string {
   const parts: string[] = [];
@@ -350,6 +359,10 @@ export function describeSpecTraitEffect(e: V2SpecTraitEffect): string {
   if (e.damageTakenReductionPctAdd)
     parts.push(`받는 피해 -${e.damageTakenReductionPctAdd}%`);
   if (e.bleedDmgPerStackAdd) parts.push(`출혈 피해 +${e.bleedDmgPerStackAdd}`);
+  if (e.poisonPctPerStackAdd)
+    parts.push(
+      `중독 피해 +${poisonPointsToPct(e.poisonPctPerStackAdd)}%/스택 (최대 HP 비례)`,
+    );
   if (e.evasionPctAdd) parts.push(`회피 +${e.evasionPctAdd}%`);
   if (e.lifestealPctAdd) parts.push(`흡혈 +${e.lifestealPctAdd}%`);
   if (e.extraAttackChancePctAdd)
@@ -359,6 +372,70 @@ export function describeSpecTraitEffect(e: V2SpecTraitEffect): string {
   if (e.turnHealPctMaxHpAdd) parts.push(`매 턴 HP +${e.turnHealPctMaxHpAdd}%`);
   if (e.critChancePctAdd) parts.push(`치명타 확률 +${e.critChancePctAdd}%`);
   if (e.critMultAdd) parts.push(`치명타 피해 +${e.critMultAdd}배`);
+  return parts.join(" · ");
+}
+
+/**
+ * 전문화 패시브 효과를 수치 포함 한 줄 텍스트로. UI 표기용(특성 effectText 와 동일 패턴) —
+ * desc(플레이버 요약)와 달리 effect 필드에서 직접 도출하므로 수치가 데이터와 절대 안 어긋난다.
+ * 빈 효과면 "" (UI 는 desc 로 폴백).
+ */
+export function describeSpecPassiveEffect(e: V2SpecPassiveEffect): string {
+  const parts: string[] = [];
+  if (e.atkPctAdd) parts.push(`공격력 +${e.atkPctAdd}%`);
+  if (e.magicAtkPctAdd) parts.push(`마법 공격력 +${e.magicAtkPctAdd}%`);
+  if (e.defPenetrationPct) parts.push(`적 방어 ${e.defPenetrationPct}% 관통`);
+  if (e.critMultAdd) parts.push(`치명타 피해 +${e.critMultAdd}배`);
+  if (e.critChancePctAdd) parts.push(`치명타 확률 +${e.critChancePctAdd}%`);
+  if (e.damageTakenReductionPct)
+    parts.push(`받는 피해 -${e.damageTakenReductionPct}%`);
+  if (e.counterChancePct)
+    parts.push(`피격 시 ${e.counterChancePct}% 확률로 반격`);
+  if (e.extraAttackChancePct)
+    parts.push(`추가 공격 확률 +${e.extraAttackChancePct}%`);
+  if (e.bleedDmgPerStack)
+    parts.push(`적중 시 출혈 (스택당 ${e.bleedDmgPerStack} + 공격력 비례)`);
+  if (e.poisonPctPerStackBase)
+    parts.push(
+      `적중 시 중독 (스택당 최대 HP ${poisonPointsToPct(e.poisonPctPerStackBase)}%)`,
+    );
+  if (e.spdPctAdd) parts.push(`속도 +${e.spdPctAdd}%`);
+  if (e.reflectPct) parts.push(`받은 피해 ${e.reflectPct}% 반사`);
+  if (e.accuracyPctAdd) parts.push(`명중 +${e.accuracyPctAdd}%`);
+  if (e.selfDefReductionPct)
+    parts.push(`자신 방어력 -${e.selfDefReductionPct}%`);
+  if (e.dmgDealtPctAdd) parts.push(`가하는 피해 +${e.dmgDealtPctAdd}%`);
+  if (e.atkFromDefPct)
+    parts.push(`방어력의 ${e.atkFromDefPct}%를 공격력에 가산`);
+  if (e.damageNullifyChancePct)
+    parts.push(`${e.damageNullifyChancePct}% 확률로 피해 완전 무시`);
+  if (e.extraAttackChancePctWhileEnemyBleeding)
+    parts.push(
+      `적 출혈 중 추가 공격 확률 +${e.extraAttackChancePctWhileEnemyBleeding}%`,
+    );
+  if (e.defGainOnHitPct)
+    parts.push(`받은 피해의 ${e.defGainOnHitPct}%만큼 방어력 누적`);
+  if (e.lifestealPct) parts.push(`가한 피해의 ${e.lifestealPct}% 체력 흡수`);
+  if (e.comboAtkPctPerHit)
+    parts.push(`적중마다 공격력 +${e.comboAtkPctPerHit}% 누적`);
+  if (e.comboFinisherBonusPct)
+    parts.push(
+      `${COMBO_FINISHER_PERIOD}타째 공격 피해 +${e.comboFinisherBonusPct}%`,
+    );
+  if (e.enemyMagicVulnPctPerStack)
+    parts.push(
+      `스킬 적중 시 적이 받는 마법 피해 +${e.enemyMagicVulnPctPerStack}%씩 중첩`,
+    );
+  if (e.skillDmgPctPerCast)
+    parts.push(`스킬 시전마다 스킬 피해 +${e.skillDmgPctPerCast}% 누적`);
+  if (e.mpRegenPerTurn) parts.push(`매 턴 MP +${e.mpRegenPerTurn}`);
+  if (e.skillProcChanceAdd)
+    parts.push(`스킬 발동 확률 +${e.skillProcChanceAdd}%`);
+  if (e.hpRegenPctPerTurn)
+    parts.push(`매 턴 최대 HP의 ${e.hpRegenPctPerTurn}% 회복`);
+  if (e.extraHitDmgPct) parts.push(`추가타 피해 +${e.extraHitDmgPct}%`);
+  if (e.poisonedEnemyDefReductionPct)
+    parts.push(`중독된 적 방어력 -${e.poisonedEnemyDefReductionPct}%`);
   return parts.join(" · ");
 }
 

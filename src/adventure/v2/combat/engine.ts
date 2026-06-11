@@ -278,10 +278,9 @@ export type BattleState = {
 /** 보스에 대한 %HP 비례 추가 데미지(충돌파/천명) 감산 계수. 1.0 = 그대로, 0.1 = 1/10. */
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 
-// 절초 (연환 시그니처) — 누적 적중 N타째마다 마무리 강타. 구조적 주기(위력은 데이터 comboFinisherBonusPct).
-export const COMBO_FINISHER_PERIOD = 4;
-// SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP(주문중첩·약점노출 누적 상한)은 v2CombatConstants 로
-// 이관 — PvE/PvP 공용(무한 인플레 방지, 위력은 데이터 pct 다이얼).
+// 절초 주기(COMBO_FINISHER_PERIOD)·SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP 은 v2CombatConstants 로
+// 이관 — PvE/PvP 공용 + 패시브 설명(v2JobSpecs) 참조. 기존 import 경로 호환 재노출.
+export { COMBO_FINISHER_PERIOD } from "@/adventure/data/v2/v2CombatConstants";
 
 export type PlayerCombat = {
   hp: number;

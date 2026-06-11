@@ -4,6 +4,9 @@ import {
   getJobSpec,
   getSpecById,
   aggregateSpecPassives,
+  resolveSpecTrait,
+  describeSpecTraitEffect,
+  describeSpecPassiveEffect,
 } from "./v2JobSpecs";
 
 describe("v2 직업 전문화(스펙) — 데이터 모델 (docs/v2-job-spec-passives-plan.md)", () => {
@@ -128,5 +131,60 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
     expect(
       aggregateSpecPassives(arcane, ["arcane_power"], "greatsword"),
     ).toEqual({});
+  });
+});
+
+describe("전문화 패시브/특성 효과 텍스트 — 수치 표기 커버리지", () => {
+  it("12전문화 36패시브 전부 describeSpecPassiveEffect 가 비지 않는다 (신규 효과 필드 누락 가드)", () => {
+    for (const specs of Object.values(V2_JOB_SPECS)) {
+      for (const s of specs) {
+        for (const p of s.passives) {
+          const text = describeSpecPassiveEffect(p.effect);
+          expect(text, `${s.name}/${p.name} 효과 텍스트 누락`).not.toBe("");
+        }
+      }
+    }
+  });
+
+  it("12전문화 특성 전부 2차 이상에서 effectText 가 비지 않는다 (독사 맹독 누락 회귀)", () => {
+    for (const specs of Object.values(V2_JOB_SPECS)) {
+      for (const s of specs) {
+        const text = describeSpecTraitEffect(resolveSpecTrait(s, 2));
+        expect(text, `${s.name} 특성 텍스트 누락`).not.toBe("");
+      }
+    }
+  });
+
+  it("대표 패시브 텍스트 — 수치·조건이 데이터에서 그대로 도출", () => {
+    const gwang = getJobSpec("warrior", "gwang")!;
+    expect(describeSpecPassiveEffect(gwang.passives[0].effect)).toBe(
+      "공격력 +20%",
+    );
+    // 광폭 — 트레이드오프 2필드 병기.
+    expect(describeSpecPassiveEffect(gwang.passives[2].effect)).toBe(
+      "자신 방어력 -65% · 가하는 피해 +30%",
+    );
+    // 절초 — 엔진 주기 상수(COMBO_FINISHER_PERIOD=4)가 텍스트에 박힌다.
+    const yeonhwan = getJobSpec("martial", "yeonhwan")!;
+    expect(describeSpecPassiveEffect(yeonhwan.passives[2].effect)).toBe(
+      "4타째 공격 피해 +150%",
+    );
+    // 맹독 — 중독 강도(5pt)를 최대 HP 비례 %(0.2%)로 환산 표기.
+    const venom = getJobSpec("rogue", "venom")!;
+    expect(describeSpecPassiveEffect(venom.passives[0].effect)).toBe(
+      "적중 시 중독 (스택당 최대 HP 0.2%)",
+    );
+  });
+
+  it("독사 특성(맹독) — 차수 스케일된 중독 환산 텍스트", () => {
+    const venom = getJobSpec("rogue", "venom")!;
+    // 2차(×1): 2pt → 0.08%/스택.
+    expect(describeSpecTraitEffect(resolveSpecTrait(venom, 2))).toBe(
+      "중독 피해 +0.08%/스택 (최대 HP 비례)",
+    );
+    // 4차(×3): 6pt → 0.24%/스택.
+    expect(describeSpecTraitEffect(resolveSpecTrait(venom, 4))).toBe(
+      "중독 피해 +0.24%/스택 (최대 HP 비례)",
+    );
   });
 });

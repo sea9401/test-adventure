@@ -41,6 +41,7 @@ import {
   V2_JOB_SPECS,
   resolveSpecTrait,
   describeSpecTraitEffect,
+  describeSpecPassiveEffect,
 } from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import { parseV2Element } from "@/adventure/data/v2/elements";
@@ -531,6 +532,8 @@ export async function GET() {
             id: p.id,
             name: p.name,
             desc: p.desc,
+            // 수치 포함 효과 텍스트 — effect 필드에서 도출(desc 는 플레이버 폴백).
+            effectText: describeSpecPassiveEffect(p.effect),
           })),
           // 직업 특성 — 전직 시 자동(픽 아님), 차수 성장. effectText 는 현재 차수 기준 환산값.
           trait: s.trait

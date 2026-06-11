@@ -7,7 +7,13 @@ import { Card } from "@/components/ui/Card";
 // docs/v2-job-spec-passives-plan.md §5. 2차 전직부터 전문화 선택, 전직마다 패시브 1픽.
 // (리치 폴리시 — 무기 게이트 상태·전투 로그 피드백은 P5.)
 
-export type V2SpecPassiveInfo = { id: string; name: string; desc: string };
+export type V2SpecPassiveInfo = {
+  id: string;
+  name: string;
+  desc: string;
+  /** 수치 포함 효과 텍스트(서버 도출) — 있으면 desc 대신 표시. */
+  effectText?: string;
+};
 export type V2SpecTraitInfo = {
   name: string;
   desc: string;
@@ -170,7 +176,7 @@ export function V2SpecPanel({
                     key={p.id}
                     className="text-[11px] text-zinc-500 dark:text-zinc-400"
                   >
-                    · {p.name} — {p.desc}
+                    · {p.name} — {p.effectText || p.desc}
                   </li>
                 ))}
               </ul>
@@ -236,7 +242,7 @@ export function V2SpecPanel({
                   <div className="min-w-0">
                     <span className="text-sm font-medium">{p.name}</span>
                     <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {p.desc}
+                      {p.effectText || p.desc}
                     </span>
                   </div>
                   {isUnlocked ? (

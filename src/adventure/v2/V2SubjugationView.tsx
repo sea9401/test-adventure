@@ -82,6 +82,10 @@ export function V2SubjugationView({ onBack }: { onBack: () => void }) {
                 key={o.outpostId}
                 outpostId={o.outpostId}
                 title={`${outpostName(o.outpostId)} — 침입자`}
+                collapsible
+                // 침입자 있는 거점만 기본 펼침 — 나머지는 접어서 한눈에.
+                defaultOpen={o.intruderCount > 0}
+                countHint={o.intruderCount}
               />
             ))}
         </div>

@@ -63,31 +63,23 @@ export function warTickerText(e: FeedEntry): string | null {
 }
 
 // 표시부 — 데이터는 prop 으로 받는다(/dev 프리뷰가 mock 으로 직접 렌더).
-// 내용 2벌 이어붙임 + -50% 이동(globals.css war-ticker-scroll)으로 이음새 없는 루프.
+// 클래식 한 줄 티커: 내용 1벌이 오른쪽(padding-left 100%)에서 들어와 왼쪽으로 완전히
+// 빠지면 1바퀴. PASSES 바퀴를 다 돌면 animationend → onDone(띠 사라짐).
+export const WAR_TICKER_PASSES = 2;
+
 export function WarTickerStrip({
   texts,
   onClick,
+  onDone,
 }: {
   texts: string[];
   onClick?: () => void;
+  /** 지정 바퀴 완주 시 — 호출부가 띠를 숨긴다. 미지정이면 계속 반복하지 않고 멈춘 채 유지. */
+  onDone?: () => void;
 }) {
   if (texts.length === 0) return null;
-  // 속도 — 토막 수 비례(토막당 ~7s, 최소 18s). 항목이 적어도 너무 빨리 돌지 않게.
-  const durSec = Math.max(18, texts.length * 7);
-  const copy = (key: string) => (
-    <span key={key} aria-hidden={key === "b"} className="inline-flex">
-      {texts.map((t, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5 pr-10">
-          <Sword
-            size={12}
-            weight="fill"
-            className="shrink-0 text-rose-500 dark:text-rose-400"
-          />
-          {t}
-        </span>
-      ))}
-    </span>
-  );
+  // 속도(바퀴당) — 토막 수 비례(토막당 ~7s, 최소 14s).
+  const durSec = Math.max(14, texts.length * 7);
   return (
     <button
       type="button"
@@ -96,21 +88,48 @@ export function WarTickerStrip({
       className="group block w-full cursor-pointer overflow-hidden whitespace-nowrap border-b border-zinc-200 bg-zinc-100/80 py-1 text-xs text-zinc-600 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/80 dark:text-zinc-300"
     >
       <span
-        className="war-ticker-scroll inline-flex w-max group-hover:[animation-play-state:paused]"
+        className="war-ticker-pass inline-flex w-max pl-[100vw] group-hover:[animation-play-state:paused]"
         style={{
-          animation: `war-ticker-scroll ${durSec}s linear infinite`,
+          animation: `war-ticker-pass ${durSec}s linear ${WAR_TICKER_PASSES}`,
         }}
+        onAnimationEnd={onDone}
       >
-        {copy("a")}
-        {copy("b")}
+        {texts.map((t, i) => (
+          <span key={i} className="inline-flex items-center gap-1.5 pr-10">
+            <Sword
+              size={12}
+              weight="fill"
+              className="shrink-0 text-rose-500 dark:text-rose-400"
+            />
+            {t}
+          </span>
+        ))}
       </span>
     </button>
   );
 }
 
+// 완주한 사건은 다시 안 보여줌 — 최댓값 사건 id 를 localStorage 에 박제(새로고침에도 유지).
+const SEEN_KEY = "war-ticker-seen.v1";
+function seenMaxId(): number {
+  try {
+    return Number(localStorage.getItem(SEEN_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+function markSeen(maxId: number) {
+  try {
+    localStorage.setItem(SEEN_KEY, String(maxId));
+  } catch {
+    /* 사파리 프라이빗 등 — 세션 내 state 로만 동작 */
+  }
+}
+
 export function WarTicker() {
   const router = useRouter();
   const [texts, setTexts] = useState<string[]>([]);
+  const [maxId, setMaxId] = useState(0);
 
   const fetchWarFeed = useCallback(async () => {
     try {
@@ -118,16 +137,22 @@ export function WarTicker() {
       if (!res.ok) return;
       const data = (await res.json()) as { entries?: FeedEntry[] };
       const cutoff = Date.now() - WAR_TICKER_WINDOW_H * 3_600_000;
-      const next = (data.entries ?? [])
-        .filter((e) => e.createdAt >= cutoff)
-        .sort((a, b) => b.createdAt - a.createdAt) // 최신 먼저 — 모션 축소 시 맨 앞 노출
+      const fresh = (data.entries ?? [])
+        .filter((e) => e.createdAt >= cutoff && e.id > seenMaxId())
+        .sort((a, b) => b.createdAt - a.createdAt); // 최신 먼저 — 모션 축소 시 맨 앞 노출
+      const next = fresh
         .map(warTickerText)
         .filter((t): t is string => t != null);
-      setTexts(next);
+      // 이미 돌고 있는 묶음과 같으면 갱신 안 함(애니메이션 재시작 방지).
+      const nextMax = fresh.reduce((m, e) => Math.max(m, e.id), 0);
+      if (nextMax > maxId) {
+        setTexts(next);
+        setMaxId(nextMax);
+      }
     } catch {
       /* 폴링 — 조용히 무시 */
     }
-  }, []);
+  }, [maxId]);
 
   useEffect(() => {
     // 비동기 fetch 후 setState 라 cascading render 아님 — ServerFeedView 와 동일 패턴.
@@ -148,6 +173,15 @@ export function WarTicker() {
   }, [fetchWarFeed]);
 
   return (
-    <WarTickerStrip texts={texts} onClick={() => router.push("/battle/war")} />
+    <WarTickerStrip
+      key={maxId} // 새 묶음 도착 시 리마운트 — 애니메이션을 처음부터(2바퀴 보장)
+      texts={texts}
+      onClick={() => router.push("/battle/war")}
+      onDone={() => {
+        // 2바퀴 완주 — 이 묶음은 박제하고 띠를 내린다. 다음 새 사건에 다시 등장.
+        markSeen(maxId);
+        setTexts([]);
+      }}
+    />
   );
 }

@@ -359,6 +359,15 @@ export function pickAntiqueId(rng: () => number): AntiqueId {
   return kinds[idx];
 }
 
+// 감정사 판매 배수 — 판매가 = 감정가 × 이 값. (2026-06-12 ×100 사용자 확정 —
+// 1000조각(발굴 20회) 기대 ≈ 102만 G. 랭킹 점수는 여전히 감정가 원값 사용.)
+export const TREASURE_SELL_GOLD_MULT = 100;
+
+// 감정사 판매가(골드) — 보관함 "판매"가 실제로 주는 골드.
+export function sellGoldValue(antiqueId: AntiqueId, condition: number): number {
+  return appraiseValue(antiqueId, condition) * TREASURE_SELL_GOLD_MULT;
+}
+
 // 감정가(골드) — 보존상태로 깎인 결정적 가치. 시장가와 별개(랭킹·분해 기준).
 export function appraiseValue(antiqueId: AntiqueId, condition: number): number {
   const base = ANTIQUES[antiqueId].baseValue;

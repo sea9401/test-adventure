@@ -47,6 +47,11 @@ export function TreasureCollectionHarness() {
       </div>
       <TreasureCollectionView
         instances={instances}
+        selling={null}
+        onSell={(instanceId) => {
+          // mock — 골드 적립 없이 목록에서만 제거.
+          setInstances((xs) => xs.filter((x) => x.instanceId !== instanceId));
+        }}
         fragments={3}
         coins={coins}
         loading={false}

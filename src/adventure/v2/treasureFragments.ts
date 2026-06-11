@@ -8,7 +8,8 @@
 export const TREASURE_FRAGMENTS_KEY = "treasure-fragments.v1";
 
 /** 발굴 1회에 필요한 지도 조각 수. (다이얼) */
-export const FRAGMENTS_PER_MAP = 5;
+// 2026-06-12 사용자 조정: 5→50 (조각 획득량 대비 발굴이 너무 잦음 — 판매 ×100 과 세트).
+export const FRAGMENTS_PER_MAP = 50;
 
 /** 낚시 챔질 성공 시 조각 드랍 확률 — 주 경로. (다이얼) */
 export const FISHING_FRAGMENT_DROP_CHANCE = 0.12;

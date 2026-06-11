@@ -25,6 +25,7 @@ export function ReplayBattleScene({
   hpCharges,
   mpCharges,
   playerSubtitle,
+  elementMatchup,
 }: {
   payload: ReplayPayload;
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
@@ -38,6 +39,8 @@ export function ReplayBattleScene({
   mpCharges?: number;
   // 플레이어 이름 아래 부제(레벨·직업·속성). BattleScene 으로 전달.
   playerSubtitle?: string;
+  // 약점찌르기 강조 — 적 속성 뱃지 "약점!" (BattleScene 으로 전달).
+  elementMatchup?: "advantage" | "disadvantage" | "neutral";
 }) {
   const derivedState = useMemo<BattleState>(() => {
     // finalState — 마지막 hp_bar entry 의 HP 가 최종.
@@ -82,6 +85,7 @@ export function ReplayBattleScene({
       layout="split"
       playerSubtitle={playerSubtitle}
       logAnchor="top"
+      elementMatchup={elementMatchup}
     />
   );
 }

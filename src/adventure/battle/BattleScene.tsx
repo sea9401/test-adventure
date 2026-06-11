@@ -280,6 +280,7 @@ export function BattleScene({
   layout = "stacked",
   playerSubtitle,
   logAnchor = "bottom",
+  elementMatchup,
 }: {
   state: BattleState;
   playerName: string;
@@ -292,6 +293,8 @@ export function BattleScene({
   playerSubtitle?: string;
   // 로그 스크롤 기준 — "bottom"=최신 추적(라이브 턴별), "top"=1턴부터(전투 후 전체 로그 리플레이).
   logAnchor?: "top" | "bottom";
+  // 약점찌르기(+25%) 표시 — "advantage" 면 적 속성 뱃지를 "약점!" 으로 강조 (v2 PvE).
+  elementMatchup?: "advantage" | "disadvantage" | "neutral";
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
@@ -373,8 +376,15 @@ export function BattleScene({
                     {state.enemy.name}
                   </span>
                   {state.enemy.element && state.enemy.element !== "neutral" && (
-                    <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium ${
+                        elementMatchup === "advantage"
+                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
                       {V2_ELEMENT_LABEL[state.enemy.element]}
+                      {elementMatchup === "advantage" && " · 약점!"}
                     </span>
                   )}
                 </div>

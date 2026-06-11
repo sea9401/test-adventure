@@ -20,6 +20,7 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { insertNotification } from "@/lib/server/v2Notifications";
 
 // POST /api/v2/outpost/eject — 점령 길드 멤버가 침입자 1v1 토벌.
@@ -182,8 +183,9 @@ export async function POST(req: Request) {
       now,
     );
 
-    const attackerName = await readName(tx, userId);
-    const defenderName = await readName(tx, targetUserId);
+    const attackerProfile = await readProfile(tx, userId);
+    const attackerName = attackerProfile.name;
+    const defenderName = (await readProfile(tx, targetUserId)).name;
 
     const battleResult = resolveBattlePvP(
       { ...attackerCombat.player, hp: attackerRegen.hp },
@@ -193,6 +195,8 @@ export async function POST(req: Request) {
       { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
     );
     const won = battleResult.outcome === "p1_win";
+    // 토벌 전투 리플레이 — 토벌자(=나) p1 시점. 결과 카드 아래 BattleScene 표시용.
+    const replay = toPvpReplayPayload(battleResult.finalState, defenderName, 200);
     const attackerHpAfter = Math.max(0, battleResult.finalState.p1.hp);
     const defenderHpAfter = Math.max(0, battleResult.finalState.p2.hp);
 
@@ -253,6 +257,8 @@ export async function POST(req: Request) {
         defenderHpAfter,
         defenderMaxHp: defenderCombat.maxHp,
         stamina: afterStamina,
+        replay,
+        attackerGender: attackerProfile.gender,
       },
     };
   });
@@ -281,10 +287,10 @@ export async function POST(req: Request) {
   return Response.json(result.body, { status: result.status });
 }
 
-async function readName(
+async function readProfile(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   userId: string,
-): Promise<string> {
+): Promise<{ name: string; gender: string }> {
   const row = await tx
     .select({ value: savesKv.value })
     .from(savesKv)
@@ -292,6 +298,15 @@ async function readName(
       and(eq(savesKv.userId, userId), eq(savesKv.key, "character-profile.v2")),
     )
     .limit(1);
-  const profile = (row[0]?.value ?? null) as { name?: string } | null;
-  return profile?.name?.trim() || "모험가";
+  const profile = (row[0]?.value ?? null) as {
+    name?: string;
+    gender?: string;
+  } | null;
+  return {
+    name: profile?.name?.trim() || "모험가",
+    gender:
+      typeof profile?.gender === "string" && profile.gender.length > 0
+        ? profile.gender
+        : "male1",
+  };
 }

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { ReplayBattleScene } from "./ReplayBattleScene";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Gender } from "@/adventure/profile/avatars";
 
 // 점령 길드 전용 — 거점에 침입한 다른 길드 캐릭 목록 + 토벌 버튼.
 // 전투 탭 > 토벌(V2SubjugationView)이 내 길드 보유 거점마다 렌더.
@@ -28,6 +31,9 @@ type EjectResult = {
   defenderMaxHp?: number;
   error?: string;
   requiredStamina?: number;
+  // 토벌 전투 리플레이 — 토벌자(p1) 시점. 결과 카드 아래 BattleScene 표시.
+  replay?: ReplayPayload | null;
+  attackerGender?: string;
 };
 
 function fmtElapsed(huntedAt: number, now: number): string {
@@ -175,6 +181,19 @@ export function IntruderPanel({
                 : ""}
             </>
           )}
+        </div>
+      )}
+
+      {/* 토벌 전투 리플레이 — 사냥/공격 기록과 동일한 BattleScene. 토벌자(나) 시점. */}
+      {lastResult?.ok && lastResult.replay && (
+        <div className="mt-2">
+          <ReplayBattleScene
+            payload={lastResult.replay}
+            playerName={lastResult.attackerName ?? "모험가"}
+            gender={(lastResult.attackerGender ?? "male1") as Gender}
+            exp={0}
+            maxExp={1}
+          />
         </div>
       )}
     </Card>

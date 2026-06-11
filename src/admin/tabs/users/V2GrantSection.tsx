@@ -4,13 +4,15 @@ import { useMemo, useState } from "react";
 import { Button, Field, NumberInput } from "../../ui/Field";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS } from "@/adventure/data/v2/dungeonDrops";
+import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import type { V2GrantPayload } from "./types";
 
 const SELECT_CLS =
   "w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 // v2 전용 지급 — /api/admin/v2-grant. 재료(character.v2.materials)·장비(equipment.v2)·
-// 충전약(inventory.v2)·숙련도(proficiency.v2). 골드/EXP/레벨은 위 캐릭터 패널에서 편집.
+// 충전약(inventory.v2)·숙련도(proficiency.v2)·레어맵(character.v2.rareMaps).
+// 골드/EXP/레벨은 위 캐릭터 패널에서 편집.
 export function V2GrantSection({
   readOnly,
   onGrant,
@@ -35,6 +37,14 @@ export function V2GrantSection({
   );
   const [materialQty, setMaterialQty] = useState(1);
   const [equipId, setEquipId] = useState<string>(equipOptions[0]?.id ?? "");
+  const rareMapOptions = useMemo(
+    () => Object.values(RARE_MAP_KINDS).map((k) => ({ id: k.id, name: k.name })),
+    [],
+  );
+  const [rareMapKind, setRareMapKind] = useState<string>(
+    rareMapOptions[0]?.id ?? "",
+  );
+  const [rareMapDepth, setRareMapDepth] = useState(1);
   const [hp, setHp] = useState(0);
   const [mp, setMp] = useState(0);
   const [prof, setProf] = useState(0);
@@ -99,6 +109,39 @@ export function V2GrantSection({
           onClick={() => onGrant({ equipmentId: equipId })}
         >
           장비 지급
+        </Button>
+      </div>
+
+      {/* 레어맵 (character.v2.rareMaps) — 종류 + 발견 깊이 */}
+      <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_110px_auto]">
+        <Field label="레어맵">
+          <select
+            value={rareMapKind}
+            disabled={readOnly || rareMapOptions.length === 0}
+            onChange={(e) => setRareMapKind(e.target.value)}
+            className={SELECT_CLS}
+          >
+            {rareMapOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name} ({o.id})
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="깊이">
+          <NumberInput
+            value={rareMapDepth}
+            disabled={readOnly}
+            onChange={(n) => setRareMapDepth(Math.max(1, Math.floor(n)))}
+          />
+        </Field>
+        <Button
+          disabled={readOnly || !rareMapKind || rareMapDepth < 1}
+          onClick={() =>
+            onGrant({ rareMap: { kind: rareMapKind, depth: rareMapDepth } })
+          }
+        >
+          지도 지급
         </Button>
       </div>
 

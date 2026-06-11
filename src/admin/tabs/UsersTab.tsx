@@ -8,7 +8,6 @@ import type { Profile } from "@/adventure/profile/useProfile";
 import type {
   AdminUserRow,
   SavesMap,
-  TrainingPersisted,
   V2GrantPayload,
 } from "./users/types";
 import { SelectedUserPanel } from "./users/SelectedUserPanel";
@@ -120,17 +119,6 @@ export function UsersTab() {
         list.map((u) => (u.id === selected.id ? { ...u, gameName: next.name } : u)),
       );
       showToast("저장됨. 대상 유저는 새로고침해야 반영됩니다.");
-    } catch (e) {
-      showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
-    }
-  };
-
-  const updateTraining = async (next: TrainingPersisted) => {
-    if (!selected) return;
-    try {
-      await patchKey(selected.id, "training.v2", next);
-      setSaves((s) => ({ ...(s ?? {}), "training.v2": next }));
-      showToast("훈련 데이터 저장됨. 대상 유저는 새로고침해야 반영됩니다.");
     } catch (e) {
       showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
     }
@@ -260,7 +248,6 @@ export function UsersTab() {
             readOnly={readOnly}
             onUpdateProfile={updateProfile}
             onUpdateCharacter={updateCharacter}
-            onUpdateTraining={updateTraining}
             onGrantV2={grantV2}
             onReload={() => loadSaves(selected.id)}
           />

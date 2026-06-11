@@ -63,6 +63,27 @@ export type QuestCtx = {
   outpostsDiscovered: number;
   /** 획득한 칭호 수. adventure-log.v2.titles. */
   titleCount: number;
+  // ── 확장 신호(2026-06-11, 라인 4종 추가) ─────────────────────────────────
+  /** 총 누적레벨(전 직군 합·환생 보존). proficiency totalCumLevel. */
+  cumLevel: number;
+  /** 처치한 몬스터 종 수(kills>0 인 키 수). adventure-log.v2.monsters. */
+  speciesKilled: number;
+  /** 거점 점령 시도 경험. outpost_claim_attempts attacker=me ≥1. */
+  claimAttempted: boolean;
+  /** 내 길드가 현재 점령 중인 거점 존재. outpost_occupations. */
+  hasOutpost: boolean;
+  /** 공성/점령 승리 수. outpost_claim_attempts attacker=me won. */
+  siegeWins: number;
+  /** 점령/함락 성공 누적(소유권 획득). adventure-log.v2.warCaptures. */
+  warCaptures: number;
+  /** 침입자 토벌 승리 누적. adventure-log.v2.warEjectWins. */
+  warEjectWins: number;
+  /** 거점 금고 회수 골드 누적(자동+수동). adventure-log.v2.warTreasuryGold. */
+  warTreasuryGold: number;
+  /** 낚시 도감 어종 수. fishing-codex.v1. */
+  fishSpecies: number;
+  /** 보물 도감 골동품 종 수. treasure-codex.v1. */
+  antiquesFound: number;
 };
 
 export type QuestDef = {
@@ -363,7 +384,215 @@ const ASCEND: QuestDef[] = [
   },
 ];
 
-// 라인 순서 = 배너 "현재 목표" 우선순위(성장 → 직업 → 사회 → 정점).
+// ── 전쟁의 길(순차) — 거점 점령~금고 탈환 전쟁 시스템 가이드 ──────────────────
+const WAR: QuestDef[] = [
+  {
+    id: "w_first_claim",
+    line: "war",
+    title: "첫 출정",
+    desc: "길드에 가입하고 거점 점령을 시도해보세요 (지도에서 거점 선택).",
+    reward: { gold: 300 },
+    check: (c) => c.claimAttempted,
+  },
+  {
+    id: "w_hold",
+    line: "war",
+    title: "깃발을 꽂다",
+    desc: "거점을 점령해 내 길드의 영토로 만드세요.",
+    reward: { gold: 500 },
+    check: (c) => c.hasOutpost || c.warCaptures >= 1,
+  },
+  {
+    id: "w_siege5",
+    line: "war",
+    title: "공성 전문가",
+    desc: "점령전(일기토/공성)에서 5회 승리하세요.",
+    reward: { gold: 800 },
+    check: (c) => c.siegeWins >= 5,
+  },
+  {
+    id: "w_eject",
+    line: "war",
+    title: "침입자 토벌",
+    desc: "내 길드 거점에 침입한 모험가를 토벌하세요.",
+    reward: { gold: 600 },
+    check: (c) => c.warEjectWins >= 1,
+  },
+  {
+    id: "w_treasury",
+    line: "war",
+    title: "금고 사냥꾼",
+    desc: "거점 금고에서 누적 3,000 G 를 회수하세요 (점령 시 자동 회수 포함).",
+    reward: { gold: 1000 },
+    check: (c) => c.warTreasuryGold >= 3000,
+  },
+  {
+    id: "w_captures5",
+    line: "war",
+    title: "정복자",
+    desc: "거점 점령(함락 포함)을 누적 5회 달성하세요.",
+    reward: { gold: 1500 },
+    check: (c) => c.warCaptures >= 5,
+  },
+];
+
+// ── 윤회의 길 — 환생·누적레벨 마일스톤(독립) ─────────────────────────────────
+const REBIRTH: QuestDef[] = [
+  {
+    id: "r_first",
+    line: "rebirth",
+    title: "다시 태어나다",
+    desc: "4차 레벨 100 도달 후 환생하세요 (누적레벨 101+).",
+    reward: { gold: 1000 },
+    check: (c) => c.cumLevel >= 101,
+  },
+  {
+    id: "r_300",
+    line: "rebirth",
+    title: "세 번째 생",
+    desc: "누적레벨 300에 도달하세요.",
+    reward: { gold: 1500 },
+    check: (c) => c.cumLevel >= 300,
+  },
+  {
+    id: "r_600",
+    line: "rebirth",
+    title: "윤회의 수레바퀴",
+    desc: "누적레벨 600에 도달하세요.",
+    reward: { gold: 2000 },
+    check: (c) => c.cumLevel >= 600,
+  },
+  {
+    id: "r_1200",
+    line: "rebirth",
+    title: "천년의 혼",
+    desc: "누적레벨 1,200에 도달하세요.",
+    reward: { gold: 3000 },
+    check: (c) => c.cumLevel >= 1200,
+  },
+  {
+    id: "r_2000",
+    line: "rebirth",
+    title: "윤회의 정점",
+    desc: "누적레벨 2,000에 도달하세요.",
+    reward: { gold: 5000 },
+    check: (c) => c.cumLevel >= 2000,
+  },
+];
+
+// ── 생활의 달인 — 낚시·보물 도감(독립) ──────────────────────────────────────
+const LIFE: QuestDef[] = [
+  {
+    id: "l_fish1",
+    line: "life",
+    title: "첫 손맛",
+    desc: "낚시터에서 첫 물고기를 낚으세요.",
+    reward: { gold: 200 },
+    check: (c) => c.fishSpecies >= 1,
+  },
+  {
+    id: "l_fish10",
+    line: "life",
+    title: "어부의 길",
+    desc: "어종 도감 10종을 채우세요.",
+    reward: { gold: 500 },
+    check: (c) => c.fishSpecies >= 10,
+  },
+  {
+    id: "l_fish25",
+    line: "life",
+    title: "강태공",
+    desc: "어종 도감 25종을 채우세요 (전체 30종).",
+    reward: { gold: 1200 },
+    check: (c) => c.fishSpecies >= 25,
+  },
+  {
+    id: "l_dig1",
+    line: "life",
+    title: "첫 발굴",
+    desc: "보물 탐사에서 첫 골동품을 발굴하세요.",
+    reward: { gold: 200 },
+    check: (c) => c.antiquesFound >= 1,
+  },
+  {
+    id: "l_antique8",
+    line: "life",
+    title: "감정가",
+    desc: "골동품 도감 8종을 채우세요.",
+    reward: { gold: 500 },
+    check: (c) => c.antiquesFound >= 8,
+  },
+  {
+    id: "l_antique20",
+    line: "life",
+    title: "고고학자",
+    desc: "골동품 도감 20종을 채우세요 (전체 24종).",
+    reward: { gold: 1200 },
+    check: (c) => c.antiquesFound >= 20,
+  },
+];
+
+// ── 토벌 도감 — 사냥 수집 심화(독립). 밴드 입성은 정점(a_depth48) 앞을 채운다 ──
+const BESTIARY: QuestDef[] = [
+  {
+    id: "b_species15",
+    line: "bestiary",
+    title: "사냥꾼의 기록",
+    desc: "서로 다른 몬스터 15종을 처치하세요.",
+    reward: { gold: 400 },
+    check: (c) => c.speciesKilled >= 15,
+  },
+  {
+    id: "b_species35",
+    line: "bestiary",
+    title: "토벌 도감의 주인",
+    desc: "서로 다른 몬스터 35종을 처치하세요 (전체 41종).",
+    reward: { gold: 1200 },
+    check: (c) => c.speciesKilled >= 35,
+  },
+  {
+    id: "b_band_canyon",
+    line: "bestiary",
+    title: "협곡 입성",
+    desc: "사냥터 깊이 13(마른 협곡)에 진출하세요.",
+    reward: { gold: 300 },
+    check: (c) => c.frontierDepth >= 13,
+  },
+  {
+    id: "b_band_cave",
+    line: "bestiary",
+    title: "동굴 입성",
+    desc: "사냥터 깊이 25(심층 동굴)에 진출하세요.",
+    reward: { gold: 500 },
+    check: (c) => c.frontierDepth >= 25,
+  },
+  {
+    id: "b_band_swamp",
+    line: "bestiary",
+    title: "늪지 입성",
+    desc: "사냥터 깊이 37(리자드 늪지)에 진출하세요.",
+    reward: { gold: 800 },
+    check: (c) => c.frontierDepth >= 37,
+  },
+  {
+    id: "b_battles1000",
+    line: "bestiary",
+    title: "역전의 용사",
+    desc: "누적 전투 1,000회를 달성하세요.",
+    reward: { gold: 800 },
+    check: (c) => c.battleCount >= 1000,
+  },
+  {
+    id: "b_battles5000",
+    line: "bestiary",
+    title: "전장의 화신",
+    desc: "누적 전투 5,000회를 달성하세요.",
+    reward: { gold: 2000 },
+    check: (c) => c.battleCount >= 5000,
+  },
+];
+
+// 라인 순서 = 배너 "현재 목표" 우선순위(성장 → 직업 → 사회 → 전쟁 → 수집/정점 → 심화).
 export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "growth",
@@ -390,6 +619,30 @@ export const QUEST_LINES: readonly QuestLine[] = [
     subtitle: "더 깊은 곳과 높은 차수를 향한 마일스톤.",
     sequential: false,
   },
+  {
+    id: "war",
+    name: "전쟁의 길",
+    subtitle: "점령·공성·토벌·금고 탈환 — 영토 전쟁에 뛰어드세요.",
+    sequential: true,
+  },
+  {
+    id: "rebirth",
+    name: "윤회의 길",
+    subtitle: "환생을 거듭하며 누적레벨을 쌓으세요.",
+    sequential: false,
+  },
+  {
+    id: "life",
+    name: "생활의 달인",
+    subtitle: "낚시와 보물 발굴 — 전장 밖의 즐거움.",
+    sequential: false,
+  },
+  {
+    id: "bestiary",
+    name: "토벌 도감",
+    subtitle: "몬스터 도감·밴드 입성·누적 전투 마일스톤.",
+    sequential: false,
+  },
 ];
 
 export const V2_QUESTS: readonly QuestDef[] = [
@@ -398,6 +651,10 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...SOCIAL,
   ...COLLECT,
   ...ASCEND,
+  ...WAR,
+  ...REBIRTH,
+  ...LIFE,
+  ...BESTIARY,
 ];
 
 const QUEST_BY_ID = new Map(V2_QUESTS.map((q) => [q.id, q]));

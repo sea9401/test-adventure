@@ -6,9 +6,12 @@
 //   equipment.v2  → equippedCount·uniqueOwned
 //   extras(DB/별도 세이브) → hasGuild·hasTraded·arenaPlayed (assembleQuestExtras)
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
-import { parseProficiencyForChar } from "@/adventure/data/v2/proficiency";
+import {
+  parseProficiencyForChar,
+  totalCumLevel,
+} from "@/adventure/data/v2/proficiency";
 import {
   parseEquipmentSave,
   isUnique,
@@ -19,9 +22,16 @@ import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
 import { BOSS_TITLE_IDS } from "@/adventure/data/v2/dungeonBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
 import { readSave, type DbExecutor } from "@/lib/server/savesKv";
-import { guildMembers, marketplaceListingsV2 } from "@/db/schema";
+import {
+  guildMembers,
+  marketplaceListingsV2,
+  outpostClaimAttempts,
+  outpostOccupations,
+} from "@/db/schema";
 import { ARENA_HISTORY_KEY } from "@/lib/storage-keys";
 import { parseArenaHistory } from "@/lib/server/arena";
+import { parseFishCodex } from "@/adventure/v2/fishingCodex";
+import { parseTreasureCodex } from "@/adventure/v2/treasureCodex";
 
 type CharSave = {
   class?: unknown;
@@ -37,6 +47,10 @@ type AdventureLog = {
   monsters?: Record<string, { kills?: number }>;
   battleLosses?: number;
   titles?: Record<string, unknown>;
+  // 전쟁 카운터(2026-06-11) — eject/claim/treasury 라우트가 누적. 옛 세이브엔 없음(0 취급).
+  warCaptures?: unknown;
+  warEjectWins?: unknown;
+  warTreasuryGold?: unknown;
 };
 
 export type QuestExtras = {
@@ -44,6 +58,13 @@ export type QuestExtras = {
   hasTraded: boolean;
   arenaPlayed: boolean;
   arenaWins: number;
+  // 전쟁의 길 — outpost_claim_attempts/occupations 파생.
+  claimAttempted: boolean;
+  hasOutpost: boolean;
+  siegeWins: number;
+  // 생활의 달인 — 도감 세이브 파생(fishing-codex.v1 / treasure-codex.v1).
+  fishSpecies: number;
+  antiquesFound: number;
 };
 
 export function buildQuestCtx(args: {
@@ -112,6 +133,15 @@ export function buildQuestCtx(args: {
     ? charSave.discoveredOutpostIds.length
     : 0;
 
+  // 확장 신호(2026-06-11) — 누적레벨·몬스터 종 수·전쟁 카운터.
+  const cumLevel = totalCumLevel(prof);
+  const speciesKilled = Object.values(advLog.monsters ?? {}).filter(
+    (m) => num(m?.kills) > 0,
+  ).length;
+  const warCaptures = num(advLog.warCaptures);
+  const warEjectWins = num(advLog.warEjectWins);
+  const warTreasuryGold = num(advLog.warTreasuryGold);
+
   return {
     class: cls,
     level,
@@ -131,6 +161,16 @@ export function buildQuestCtx(args: {
     gold,
     outpostsDiscovered,
     titleCount,
+    cumLevel,
+    speciesKilled,
+    claimAttempted: args.extras.claimAttempted,
+    hasOutpost: args.extras.hasOutpost,
+    siegeWins: args.extras.siegeWins,
+    warCaptures,
+    warEjectWins,
+    warTreasuryGold,
+    fishSpecies: args.extras.fishSpecies,
+    antiquesFound: args.extras.antiquesFound,
   };
 }
 
@@ -140,33 +180,62 @@ export async function assembleQuestExtras(
   ex: DbExecutor,
   userId: string,
 ): Promise<QuestExtras> {
-  const [guildRows, tradeRows, arenaRaw] = await Promise.all([
-    ex
-      .select({ id: guildMembers.guildId })
-      .from(guildMembers)
-      .where(eq(guildMembers.userId, userId))
-      .limit(1),
-    ex
-      .select({ id: marketplaceListingsV2.id })
-      .from(marketplaceListingsV2)
-      .where(
-        and(
-          eq(marketplaceListingsV2.status, "sold"),
-          or(
-            eq(marketplaceListingsV2.sellerId, userId),
-            eq(marketplaceListingsV2.buyerId, userId),
+  const [guildRows, tradeRows, arenaRaw, claimAgg, fishRaw, treasureRaw] =
+    await Promise.all([
+      ex
+        .select({ id: guildMembers.guildId })
+        .from(guildMembers)
+        .where(eq(guildMembers.userId, userId))
+        .limit(1),
+      ex
+        .select({ id: marketplaceListingsV2.id })
+        .from(marketplaceListingsV2)
+        .where(
+          and(
+            eq(marketplaceListingsV2.status, "sold"),
+            or(
+              eq(marketplaceListingsV2.sellerId, userId),
+              eq(marketplaceListingsV2.buyerId, userId),
+            ),
           ),
-        ),
-      )
-      .limit(1),
-    readSave(ex, userId, ARENA_HISTORY_KEY, {}),
-  ]);
+        )
+        .limit(1),
+      readSave(ex, userId, ARENA_HISTORY_KEY, {}),
+      // 점령 시도/승리 — (attackerUserId, createdAt) 인덱스 단일 집계.
+      ex
+        .select({
+          total: sql<number>`count(*)::int`,
+          wins: sql<number>`count(*) filter (where ${outpostClaimAttempts.won})::int`,
+        })
+        .from(outpostClaimAttempts)
+        .where(eq(outpostClaimAttempts.attackerUserId, userId)),
+      readSave(ex, userId, "fishing-codex.v1", {}),
+      readSave(ex, userId, "treasure-codex.v1", {}),
+    ]);
   const arenaHistory = parseArenaHistory(arenaRaw);
+
+  // 내 길드 점령 거점 보유 — 길드 소속일 때만 1쿼리 추가.
+  const guildId = guildRows[0]?.id ?? null;
+  let hasOutpost = false;
+  if (guildId != null) {
+    const occ = await ex
+      .select({ id: outpostOccupations.outpostId })
+      .from(outpostOccupations)
+      .where(eq(outpostOccupations.occupiedByGuildId, guildId))
+      .limit(1);
+    hasOutpost = occ.length > 0;
+  }
+
   return {
     hasGuild: guildRows.length > 0,
     hasTraded: tradeRows.length > 0,
     arenaPlayed: arenaHistory.length > 0,
     arenaWins: arenaHistory.filter((e) => e.outcome === "win").length,
+    claimAttempted: (claimAgg[0]?.total ?? 0) > 0,
+    hasOutpost,
+    siegeWins: claimAgg[0]?.wins ?? 0,
+    fishSpecies: Object.keys(parseFishCodex(fishRaw).fish).length,
+    antiquesFound: Object.keys(parseTreasureCodex(treasureRaw).antiques).length,
   };
 }
 

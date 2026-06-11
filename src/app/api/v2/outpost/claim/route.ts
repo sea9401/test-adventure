@@ -680,6 +680,25 @@ export async function POST(req: Request) {
       }
     }
 
+    // 전쟁의 길 퀘 신호 — 점령(함락 포함) 횟수 + 금고 회수 골드 누적(adventure-log.v2).
+    // lock 순서: character(위에서 lock) → treasury → adventure-log → guild_resources(마지막).
+    // hunt 는 adventure-log → treasury 역순이지만 두 라우트 다 같은 거점은 occupation
+    // FOR UPDATE 로 직렬화되고, 교차 거점은 treasury 행이 달라 사이클 없음.
+    if (captured) {
+      const logSave = await lockSaveForUpdate<{
+        warCaptures?: unknown;
+        warTreasuryGold?: unknown;
+        [k: string]: unknown;
+      }>(tx, userId, "adventure-log.v2", {});
+      await upsertSave(tx, userId, "adventure-log.v2", {
+        ...logSave,
+        warCaptures: (Number(logSave.warCaptures) || 0) + 1,
+        warTreasuryGold:
+          (Number(logSave.warTreasuryGold) || 0) +
+          (treasuryCaptured?.total ?? 0),
+      });
+    }
+
     const next = {
       ...charSave,
       stamina: afterStamina,

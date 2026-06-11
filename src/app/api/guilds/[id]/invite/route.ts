@@ -9,6 +9,7 @@ import {
   users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { isAdminRole } from "@/lib/server/guildAdmin";
 import { findUserByName } from "@/lib/server/findUserByName";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import {
@@ -60,7 +61,7 @@ export async function POST(
         return { error: "guild_not_found", status: 404 as const };
       }
       if (guild.masterId !== userId) {
-        // 관리자(manager)도 초대 가능 — 길드 관리탭 권한.
+        // 관리 직책(부마스터/관리자)도 초대 가능 — 길드 관리탭 권한.
         const memRows = await tx
           .select({ role: guildMembers.role })
           .from(guildMembers)
@@ -71,7 +72,7 @@ export async function POST(
             ),
           )
           .limit(1);
-        if (memRows[0]?.role !== "manager") {
+        if (!isAdminRole(memRows[0]?.role)) {
           return { error: "not_master", status: 403 as const };
         }
       }

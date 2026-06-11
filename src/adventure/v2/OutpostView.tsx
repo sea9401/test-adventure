@@ -192,6 +192,13 @@ export function OutpostView({
         });
         return;
       }
+      if (!raw.ok && raw.error === "not_adjacent") {
+        setLastClaimResult({
+          ok: false,
+          error: "현재 거점 또는 인접 1칸 거점만 공격할 수 있습니다",
+        });
+        return;
+      }
       setLastClaimResult(json);
       // 점령 성공 또는 PvP 패배(자원/점령 변동 가능) → refresh.
       if (json.ok && (json.won || json.pvp)) {

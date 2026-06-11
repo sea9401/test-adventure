@@ -34,6 +34,7 @@ import {
   OUTPOST_EDGES,
   shortestOutpostPath,
   CONFLICT_ZONE_IDS,
+  areOutpostsAdjacent,
 } from "@/adventure/data/v2/outpostGraph";
 import type {
   Outpost,
@@ -187,9 +188,13 @@ export function ContinentMap({
   occupations,
   treasuries,
   viewerUserId,
+  viewerGuildId,
   currentOutpostId,
   discoveredIds,
   visibleIds,
+  warMode,
+  onAttack,
+  attackBusy,
 }: {
   // 현재 거점 자신 재진입(둘러보기)용 — 이동 없이 그 거점 화면을 연다.
   onOutpostEnter?: (o: Outpost) => void;
@@ -207,6 +212,12 @@ export function ContinentMap({
   // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 권역 박스는 숨김, 초기 프레이밍은
   // 집합의 bounding box 로. 전쟁 탭의 "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
   visibleIds?: ReadonlySet<string>;
+  // 전쟁 모드 — 팝업 액션이 이동/둘러보기 대신 "공격"(인접 1칸·공격 가능 거점만).
+  // 이동 기능은 마을 탭 지도 전용. viewerGuildId 는 아군 거점 판정용.
+  warMode?: boolean;
+  viewerGuildId?: number | null;
+  onAttack?: (o: Outpost) => void;
+  attackBusy?: boolean;
 } = {}) {
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) {
@@ -984,30 +995,73 @@ export function ContinentMap({
                   </div>
                 )}
               </div>
-              {isCurrentSelected
-                ? onOutpostEnter && (
-                    <button
-                      type="button"
-                      onClick={() => onOutpostEnter(selected)}
-                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                    >
-                      둘러보기
-                    </button>
-                  )
-                : onTravelTo &&
-                  (routePath ? (
-                    <button
-                      type="button"
-                      onClick={() => onTravelTo(selected)}
-                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                    >
-                      {routeHops <= 1 ? "이동" : `이동 (${routeHops}홉)`}
-                    </button>
-                  ) : (
-                    <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
-                      길이 닿지 않는다
-                    </span>
-                  ))}
+              {warMode ? (
+                // 전쟁 모드 — 공격만. 현재 거점/인접 1칸의 공격 가능 거점에 버튼,
+                // 그 외엔 사유 텍스트. 이동은 마을 지도 전용이라 없음.
+                (() => {
+                  const occ = occByOutpost.get(selected.id);
+                  const inRange =
+                    isCurrentSelected ||
+                    (currentOutpostId != null &&
+                      areOutpostsAdjacent(currentOutpostId, selected.id));
+                  const blockReason = selected.neutral
+                    ? "중립 거점 (점령 불가)"
+                    : occ?.occupiedByGuildId != null &&
+                        occ.occupiedByGuildId === viewerGuildId
+                      ? "아군 거점"
+                      : !inRange
+                        ? "인접 거점에서만 공격 가능"
+                        : null;
+                  if (blockReason) {
+                    return (
+                      <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                        {blockReason}
+                      </span>
+                    );
+                  }
+                  return (
+                    onAttack && (
+                      <button
+                        type="button"
+                        onClick={() => onAttack(selected)}
+                        disabled={attackBusy}
+                        className="shrink-0 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                      >
+                        {attackBusy
+                          ? "교전 중…"
+                          : occ?.occupiedByUserId
+                            ? "공성"
+                            : "점령"}
+                      </button>
+                    )
+                  );
+                })()
+              ) : isCurrentSelected ? (
+                onOutpostEnter && (
+                  <button
+                    type="button"
+                    onClick={() => onOutpostEnter(selected)}
+                    className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    둘러보기
+                  </button>
+                )
+              ) : (
+                onTravelTo &&
+                (routePath ? (
+                  <button
+                    type="button"
+                    onClick={() => onTravelTo(selected)}
+                    className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    {routeHops <= 1 ? "이동" : `이동 (${routeHops}홉)`}
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                    길이 닿지 않는다
+                  </span>
+                ))
+              )}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

@@ -89,7 +89,7 @@ export function V2WarView({
   // 지도 탭 내용 — page 가 ContinentMap(국지 모드)을 주입. 미지정이면 지도 탭 숨김.
   mapSlot?: ReactNode;
 }) {
-  const [tab, setTab] = useState<WarTab>("status");
+  const [tab, setTab] = useState<WarTab>("map");
   const [data, setData] = useState<OverviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,8 +124,8 @@ export function V2WarView({
         {mapSlot && (
           <TabBar
             tabs={[
-              { key: "status", label: "전황" },
               { key: "map", label: "지도" },
+              { key: "status", label: "전황" },
             ]}
             active={tab}
             onChange={(t) => setTab(t)}

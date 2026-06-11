@@ -46,6 +46,10 @@ import {
   repairHpFromGold,
 } from "@/adventure/data/v2/outpostSiege";
 import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
+import {
+  areOutpostsAdjacent,
+  resolveCurrentOutpostId,
+} from "@/adventure/data/v2/outpostGraph";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
@@ -281,8 +285,27 @@ export async function POST(req: Request) {
       level?: number;
       exp?: number;
       gold?: number;
+      lastVisitedOutpost?: { outpostId?: string };
       [k: string]: unknown;
     }>(tx, userId, "character.v2", {});
+
+    // 위치 인접 게이트 — 공격은 현재 머무는 거점 또는 그 인접 1칸 거점만.
+    // (적 거점 "안에 들어가" 성벽을 치는 동선 폐지 — 전쟁 지도의 인접 공격.)
+    // 스태미너 차감 전에 검사해 무효 시도에 비용이 들지 않게.
+    const attackerLocId = resolveCurrentOutpostId(
+      charSave.lastVisitedOutpost?.outpostId,
+    );
+    if (
+      attackerLocId !== outpost.id &&
+      !areOutpostsAdjacent(attackerLocId, outpost.id)
+    ) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { ok: false as const, error: "not_adjacent" as const },
+      };
+    }
+
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const afterStamina = tryConsume(stamina, cost, now);
     if (!afterStamina) {

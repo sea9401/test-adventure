@@ -11,8 +11,8 @@ const SELECT_CLS =
   "w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
 
 // v2 전용 지급 — /api/admin/v2-grant. 재료(character.v2.materials)·장비(equipment.v2)·
-// 충전약(inventory.v2)·숙련도(proficiency.v2)·레어맵(character.v2.rareMaps).
-// 골드/EXP/레벨은 위 캐릭터 패널에서 편집.
+// 충전약(inventory.v2)·숙련도(proficiency.v2)·레어맵(character.v2.rareMaps)·
+// 낚시/발굴 코인(fishing/treasure-wallet.v1). 골드/EXP/레벨은 위 캐릭터 패널에서 편집.
 export function V2GrantSection({
   readOnly,
   onGrant,
@@ -45,6 +45,8 @@ export function V2GrantSection({
     rareMapOptions[0]?.id ?? "",
   );
   const [rareMapDepth, setRareMapDepth] = useState(1);
+  const [fishCoins, setFishCoins] = useState(0);
+  const [digCoins, setDigCoins] = useState(0);
   const [hp, setHp] = useState(0);
   const [mp, setMp] = useState(0);
   const [prof, setProf] = useState(0);
@@ -179,6 +181,35 @@ export function V2GrantSection({
           }
         >
           지급
+        </Button>
+      </div>
+
+      {/* 사이드 화폐 — 낚시 코인(fishing-wallet.v1) + 발굴 코인(treasure-wallet.v1) */}
+      <div className="mt-3 grid items-end gap-3 md:grid-cols-[1fr_1fr_auto]">
+        <Field label="낚시 코인">
+          <NumberInput
+            value={fishCoins}
+            disabled={readOnly}
+            onChange={(n) => setFishCoins(Math.max(0, Math.floor(n)))}
+          />
+        </Field>
+        <Field label="발굴 코인">
+          <NumberInput
+            value={digCoins}
+            disabled={readOnly}
+            onChange={(n) => setDigCoins(Math.max(0, Math.floor(n)))}
+          />
+        </Field>
+        <Button
+          disabled={readOnly || (fishCoins === 0 && digCoins === 0)}
+          onClick={() =>
+            onGrant({
+              fishingCoins: fishCoins || undefined,
+              treasureCoins: digCoins || undefined,
+            })
+          }
+        >
+          코인 지급
         </Button>
       </div>
 

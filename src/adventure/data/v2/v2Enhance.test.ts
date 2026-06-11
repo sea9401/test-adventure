@@ -56,11 +56,12 @@ describe("enhancedPower (위력 배율 — 단일 출처)", () => {
 });
 
 describe("성공률·비용 다이얼", () => {
-  it("푸른 = 기본표, 붉은 = −10%p·최저 25", () => {
+  it("푸른 = 기본표(후반 60%), 붉은 = −10%p (MIN 25 는 가드로만)", () => {
     expect(enhanceSuccessPct(0, "blue")).toBe(100);
     expect(enhanceSuccessPct(0, "red")).toBe(90);
-    expect(enhanceSuccessPct(9, "blue")).toBe(35);
-    expect(enhanceSuccessPct(9, "red")).toBe(ENHANCE_SUCCESS_MIN_PCT);
+    expect(enhanceSuccessPct(9, "blue")).toBe(60);
+    expect(enhanceSuccessPct(9, "red")).toBe(50);
+    expect(ENHANCE_SUCCESS_MIN_PCT).toBe(25); // 표가 더 낮아질 때의 바닥 가드
   });
   it("강화석 비용 램프 1/2/3/4", () => {
     expect(enhanceStoneCost(0)).toBe(1);

@@ -22,8 +22,10 @@ export const ENHANCE_STONES: Record<
 };
 
 // n→n+1 성공률(%) — 푸른 돌 기준. 붉은 돌은 successDeltaPct 적용(최저 MIN).
+// 2026-06-11 상향(사용자): 강화석이 매우 귀해(드랍률 참고) 시도 한 번이 무거움 —
+// 실패 도박보다 "모으는 게 본 게임"이 되도록 후반도 60%까지만 떨어진다.
 export const ENHANCE_SUCCESS_PCT: readonly number[] = [
-  100, 100, 100, 100, 100, 90, 80, 65, 50, 35,
+  100, 100, 100, 100, 100, 95, 90, 80, 70, 60,
 ];
 export const ENHANCE_SUCCESS_MIN_PCT = 25;
 
@@ -84,10 +86,12 @@ export const ENHANCE_STONE_MATERIAL_ID: Record<EnhanceStoneId, string> = {
   blue: "v2_blue_enhance_stone",
 };
 
-// 승리당 드랍 확률(%) — 붉은이 더 귀함(고위험·고효율 프리미엄의 수급 근거).
+// 승리당 드랍 확률(%) — 의도적으로 매우 희소(사용자 결정: "훨씬 귀하게").
+// NPC 판매 없음 — 환금/수급은 거래소 유저 거래 전용(시세는 수요가 결정).
+// 푸른 1개 ≈ 333승, 붉은 1개 ≈ 1,000승. +10 1부위 ≈ 돌 ~27개(성공률 반영 기대값).
 export const ENHANCE_STONE_DROP_PCT: Record<EnhanceStoneId, number> = {
-  red: 0.6,
-  blue: 1.5,
+  red: 0.1,
+  blue: 0.3,
 };
 
 // hunt 승리 보상 롤 — 색별 독립 굴림, 통과 시 1개. rng() ∈ [0,1).

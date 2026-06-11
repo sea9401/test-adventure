@@ -57,11 +57,9 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   },
 };
 
-// 재료 판매가 (개당, 골드) — NPC 바닥가(거래소 시세가 그 위에 형성). 초보 환금 루프.
-export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
-  [ENHANCE_STONE_MATERIAL_ID.red]: 300,
-  [ENHANCE_STONE_MATERIAL_ID.blue]: 100,
-};
+// 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,
+// 유저 거래(거래소) 전용(사용자 결정 2026-06-11). 미등재 재료는 판매 라우트가 거부.
+export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {};
 
 // === floor 별 드랍 풀 ===============================================
 // chance = 0~1, 굴림 통과 시 [amountMin, amountMax] 사이 정수 개수 획득.

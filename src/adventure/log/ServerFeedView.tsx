@@ -10,6 +10,7 @@ import {
   CaretRight,
   Flag,
   Hammer,
+  Lightning,
   Megaphone,
   ShieldCheck,
   Sparkle,
@@ -69,6 +70,13 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       size={14}
       weight="fill"
       className="shrink-0 text-emerald-500 dark:text-emerald-400"
+    />
+  ),
+  enhance_high: (
+    <Lightning
+      size={14}
+      weight="fill"
+      className="shrink-0 text-amber-500 dark:text-amber-400"
     />
   ),
 };
@@ -153,6 +161,18 @@ function entryText(e: FeedEntry): React.ReactNode {
         <span className="tabular-nums text-orange-600 dark:text-orange-400">
           ({p.fortHp}/{p.fortMaxHp})
         </span>
+      </>
+    );
+  }
+  if (e.type === "enhance_high") {
+    const p = e.payload as { itemId: string; level: number };
+    return (
+      <>
+        {name} 님이{" "}
+        <span className="font-medium text-amber-600 dark:text-amber-400">
+          {itemName(p.itemId)} +{p.level}
+        </span>{" "}
+        강화 성공!
       </>
     );
   }

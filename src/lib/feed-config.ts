@@ -25,15 +25,18 @@ export const FEED_TYPES = [
   "outpost_capture",
   "outpost_siege",
   "outpost_eject",
+  "enhance_high",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
-// 전쟁 사건 묶음 — GET /api/feed?types=war 서버 필터 + 전광판 티커(WarTicker) 소비.
-// 서버 필터인 이유: FEED_FETCH_LIMIT 안에서 자랑거리 도배에 전쟁 사건이 밀려나는 것 방지.
+// 전광판 묶음 — GET /api/feed?types=war 서버 필터 + 전광판 티커(WarTicker) 소비.
+// 전쟁 사건 + 서버 명물(고강 +8 이상 성공). 서버 필터인 이유: FEED_FETCH_LIMIT 안에서
+// 자랑거리 도배에 밀려나는 것 방지.
 export const WAR_FEED_TYPES: readonly FeedType[] = [
   "outpost_capture",
   "outpost_siege",
   "outpost_eject",
+  "enhance_high",
 ];
 
 // 전광판(티커) 표시 범위 — 이 시간 안의 전쟁 사건만 순환. 0건이면 띠 자체를 숨긴다
@@ -61,7 +64,9 @@ export type FeedPayload =
       guildName?: string | null;
     }
   // outpost_eject — 침입자 토벌. actor = 토벌자, targetName = 토벌당한 침입자.
-  | { outpostId: string; targetName: string };
+  | { outpostId: string; targetName: string }
+  // enhance_high — 고강(+8 이상) 강화 성공. 장비 이름은 클라가 카탈로그 해석.
+  | { itemId: string; level: number };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

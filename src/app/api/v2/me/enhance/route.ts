@@ -7,30 +7,33 @@ import {
   removeInstance,
   V2_EQUIPMENT,
 } from "@/adventure/data/v2/v2Equipment";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
-  ENHANCE_DEMOTE_FROM_LEVEL,
+  ENHANCE_FEED_MIN_LEVEL,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
+  ENHANCE_STONE_REQUIRED_FROM,
   ENHANCE_UNIQUE_COST_MULT,
   demoteEnhance,
-  enhanceChoiceProfile,
+  enhanceBonusPct,
   enhanceGoldCost,
+  enhanceOutcomeRow,
   enhanceStoneCost,
-  enhanceSuccessPct,
+  rollEnhanceOutcome,
   type EnhanceChoice,
 } from "@/adventure/data/v2/v2Enhance";
 
 // POST /api/v2/me/enhance — 장비 개체 강화 1회 시도. 설계: docs/v2-equipment-enhance-plan.md
 //
 // body: { iid: string, stone?: "red" | "blue" | "none", feedIid?: string }
-//   stone   — 선택 부스터(없으면/"none" = 골드만 기본 강화 +1%p·성공률 −15%p).
-//             붉은(+3%p·−10%p) / 푸른(+2%p·보정 없음). 매 회 선택.
-//   feedIid — 같은 id 의 다른 보유 개체(미장착·미잠금)를 먹이면 그 회차 강화석 면제(골드만).
-//             돌 미사용(골드만) 모드에선 의미가 없어 거부(개체 보호).
+//   stone   — 골드만("none"/생략, +7까지) 또는 돌. **+8부터(레벨 ≥7 시도)는 돌 필수.**
+//             🔴 붉은 = 성공 +15%p(파괴 불변 — 도박) / 🔵 푸른 = 파괴→하락 전환+하락 −10%p.
+//   feedIid — 같은 id 의 다른 보유 개체(미장착·미잠금)를 먹이면 그 회차 강화석 면제.
+//             골드만 모드에선 의미가 없어 거부(개체 보호).
 //
-// 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCost(power, level), 유니크 ×2.
-// 성공: enhance {level+1, bonusPct+돌 보너스}.
-// 실패: 재료 소실 + 현재 레벨 ≥ ENHANCE_DEMOTE_FROM_LEVEL(6) 이면 강화 −1 하락(파괴 없음).
+// 결과(4종, enhanceOutcomeRow): 성공(+1·구간 보너스) / 유지 / 하락(−1) / 파괴(개체 소멸).
+// 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCost(제곱 램프), 유니크 ×2 —
+// 성공/실패 무관 선차감.
 // 락 순서: character.v2 → equipment.v2 (처분 라우트들과 동일).
 
 type CharSave = {
@@ -104,6 +107,13 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "max_level" as const },
       };
     }
+    // 고강(+8부터) 돌 필수 — 골드만으로는 +7 이 천장(돌 = 고강 입장권).
+    if (level >= ENHANCE_STONE_REQUIRED_FROM && stone === "none") {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "stone_required" as const },
+      };
+    }
 
     // 먹이 검증 — 같은 id·다른 개체·미장착·미잠금.
     let feed = null as (typeof owned)[number] | null;
@@ -166,9 +176,9 @@ export async function POST(req: Request) {
     }
     const nextGold = haveGold - goldCost;
 
-    // 성공 롤 — 서버 권위.
-    const successPct = enhanceSuccessPct(level, stone);
-    const success = Math.random() * 100 < successPct;
+    // 결과 롤 — 서버 권위. 4결과(성공/유지/하락/파괴).
+    const outcomeRow = enhanceOutcomeRow(level, stone);
+    const outcome = rollEnhanceOutcome(level, stone, Math.random);
 
     let nextOwned = owned;
     if (feed) {
@@ -176,19 +186,16 @@ export async function POST(req: Request) {
       nextOwned = removed.owned;
     }
     let nextEnhance: typeof inst.enhance = inst.enhance;
-    let demoted = false;
-    if (success) {
+    let nextEquipped = equipped;
+    if (outcome === "success") {
       nextEnhance = {
         level: level + 1,
-        bonusPct:
-          (inst.enhance?.bonusPct ?? 0) + enhanceChoiceProfile(stone).bonusPct,
+        bonusPct: enhanceBonusPct(level + 1),
       };
       nextOwned = nextOwned.map((o) =>
         o.iid === iid ? { ...o, enhance: nextEnhance } : o,
       );
-    } else if (inst.enhance && level >= ENHANCE_DEMOTE_FROM_LEVEL) {
-      // 고강 실패 — 1단계 하락(보너스는 평균 비례 차감). 파괴 없음.
-      demoted = true;
+    } else if (outcome === "demote" && inst.enhance) {
       nextEnhance = demoteEnhance(inst.enhance);
       nextOwned = nextOwned.map((o) =>
         o.iid === iid
@@ -197,11 +204,21 @@ export async function POST(req: Request) {
             : { ...o, enhance: undefined }
           : o,
       );
+    } else if (outcome === "destroy") {
+      // 파괴 — 개체 소멸. 장착 중이었으면 슬롯 해제.
+      const removed = removeInstance(nextOwned, iid);
+      nextOwned = removed.owned;
+      nextEnhance = undefined;
+      const cleared = { ...equipped };
+      for (const [slot, eqIid] of Object.entries(cleared)) {
+        if (eqIid === iid) delete cleared[slot as keyof typeof cleared];
+      }
+      nextEquipped = cleared;
     }
 
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
-      equipped,
+      equipped: nextEquipped,
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
@@ -213,9 +230,13 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
-        success,
-        successPct,
-        demoted,
+        outcome,
+        outcomeRow, // [성공, 유지, 하락, 파괴] % — UI 표시용
+        // 하위 호환 표기 — success 플래그(UI/피드 분기 공용).
+        success: outcome === "success",
+        demoted: outcome === "demote",
+        destroyed: outcome === "destroy",
+        itemId: inst.id,
         enhance: nextEnhance ?? null,
         stoneCost,
         goldCost,
@@ -234,6 +255,23 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  // 고강 자랑 피드 — tx 커밋 후 부수효과. 자랑거리(unique_drop 동류)라 shareFeed
+  // opt-out 존중(force 아님). 전광판 묶음(WAR_FEED_TYPES)에 포함돼 티커에도 흐른다.
+  const fb = result.body as {
+    ok?: boolean;
+    success?: boolean;
+    enhance?: { level: number } | null;
+  };
+  if (fb.ok && fb.success && (fb.enhance?.level ?? 0) >= ENHANCE_FEED_MIN_LEVEL) {
+    const itemId = (result.body as { itemId?: string }).itemId;
+    if (itemId) {
+      await insertFeedEntry(userId, "enhance_high", {
+        itemId,
+        level: fb.enhance!.level,
+      });
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

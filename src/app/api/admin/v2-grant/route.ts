@@ -25,6 +25,11 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { initialStamina } from "@/adventure/v2/stamina";
+import {
+  RARE_MAP_KINDS,
+  newRareMapInstance,
+  parseRareMaps,
+} from "@/adventure/data/v2/rareMaps";
 
 // POST /api/admin/v2-grant — 관리자가 선택한 유저에게 v2 자원 지급.
 //
@@ -35,7 +40,8 @@ import { initialStamina } from "@/adventure/v2/stamina";
 // character.v2.materials / inventory.v2 충전약을 한 트랜잭션으로 처리한다.
 //
 // 본문(전부 선택): { userId, materials?: {[V2MaterialId]: number},
-//   hpCharges?, mpCharges?, proficiency?, equipmentId? }
+//   hpCharges?, mpCharges?, proficiency?, equipmentId?,
+//   rareMap?: { kind, depth } — 레어맵 1장(캡 무관 append, 관리자 지급) }
 
 const MAX_GRANT = 1_000_000_000;
 
@@ -48,6 +54,7 @@ type CharSave = {
   level?: number;
   class?: unknown;
   materials?: unknown;
+  rareMaps?: unknown;
   [k: string]: unknown;
 };
 
@@ -63,6 +70,7 @@ export async function POST(req: Request) {
     proficiency?: unknown;
     equipmentId?: unknown;
     refillStamina?: unknown;
+    rareMap?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -98,6 +106,19 @@ export async function POST(req: Request) {
 
   const refillStamina = body.refillStamina === true;
 
+  // 레어맵 — 종류 유효 + 깊이 양의 정수.
+  let rareMapGrant: { kind: keyof typeof RARE_MAP_KINDS; depth: number } | null =
+    null;
+  if (body.rareMap && typeof body.rareMap === "object") {
+    const rm = body.rareMap as { kind?: unknown; depth?: unknown };
+    if (typeof rm.kind === "string" && rm.kind in RARE_MAP_KINDS) {
+      const depth = clampInt(rm.depth, 0, 1_000_000);
+      if (depth >= 1) {
+        rareMapGrant = { kind: rm.kind as keyof typeof RARE_MAP_KINDS, depth };
+      }
+    }
+  }
+
   const hasMaterials = Object.keys(matGrant).length > 0;
   const hasCharges = hpChargeGain > 0 || mpChargeGain > 0;
   if (
@@ -105,7 +126,8 @@ export async function POST(req: Request) {
     !hasCharges &&
     proficiencyGain <= 0 &&
     !equipmentId &&
-    !refillStamina
+    !refillStamina &&
+    !rareMapGrant
   ) {
     return Response.json({ ok: false, error: "nothing_to_grant" }, { status: 400 });
   }
@@ -120,12 +142,13 @@ export async function POST(req: Request) {
       equipmentOwned?: V2EquipInstance[];
       equipmentNoOp?: true;
       staminaRefilled?: number;
+      rareMapGranted?: { kind: string; depth: number };
     } = { ok: true };
 
     // character.v2 — 재료(병합)·스태미나 회복(쓰기) + 숙련도 컨텍스트(class/level, 읽기)에
     //   모두 필요. 한 번만 lock 하고 변경분을 모아 한 번만 upsert(materials↔stamina 덮어쓰기 방지).
     let charSave: CharSave | null = null;
-    if (hasMaterials || proficiencyGain > 0 || refillStamina) {
+    if (hasMaterials || proficiencyGain > 0 || refillStamina || rareMapGrant) {
       charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
       let nextChar: CharSave = charSave;
       let charChanged = false;
@@ -139,6 +162,20 @@ export async function POST(req: Request) {
         const stamina = initialStamina(Date.now());
         nextChar = { ...nextChar, stamina };
         out.staminaRefilled = stamina.current;
+        charChanged = true;
+      }
+      if (rareMapGrant) {
+        // 캡(RARE_MAP_CAP)은 드랍 롤 게이트 — 관리자 지급은 무관 append.
+        const now = Date.now();
+        const maps = parseRareMaps(charSave.rareMaps, now);
+        nextChar = {
+          ...nextChar,
+          rareMaps: [
+            ...maps,
+            newRareMapInstance(rareMapGrant.kind, rareMapGrant.depth, now),
+          ],
+        };
+        out.rareMapGranted = rareMapGrant;
         charChanged = true;
       }
       if (charChanged) {

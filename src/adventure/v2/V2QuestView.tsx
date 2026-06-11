@@ -11,15 +11,32 @@ import {
   type QuestView,
   type QuestReward,
 } from "@/adventure/data/v2/v2Quests";
+import type { RepeatQuestView } from "@/adventure/data/v2/v2RepeatQuests";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 
 // 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 완료는 자동 감지, 보상만 "받기"로 수령.
+
+type RepeatSection = {
+  daily: RepeatQuestView[];
+  weekly: RepeatQuestView[];
+  dailyResetAt: number;
+  weeklyResetAt: number;
+};
 
 type QuestsResponse = {
   ok?: boolean;
   lines?: QuestLine[];
   quests?: QuestView[];
+  repeat?: RepeatSection;
 };
+
+// 리셋 카운트다운 — "11시간 후" / "32분 후" (마운트 시점 고정 — 분 단위 정밀도면 충분).
+function resetLabel(at: number, nowMs: number): string {
+  const ms = Math.max(0, at - nowMs);
+  const h = Math.floor(ms / 3600_000);
+  if (h >= 1) return `${h}시간 후 리셋`;
+  return `${Math.max(1, Math.floor(ms / 60_000))}분 후 리셋`;
+}
 
 function rewardText(reward: QuestReward): string {
   const parts: string[] = [];
@@ -34,6 +51,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const { refreshGameState } = useGameState();
   const [lines, setLines] = useState<QuestLine[]>([]);
   const [quests, setQuests] = useState<QuestView[]>([]);
+  const [repeat, setRepeat] = useState<RepeatSection | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -47,6 +65,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
       if (j?.ok) {
         setLines(j.lines ?? []);
         setQuests(j.quests ?? []);
+        setRepeat(j.repeat ?? null);
       }
     } catch {}
     setLoading(false);
@@ -57,7 +76,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   }, [refresh]);
 
   const claim = useCallback(
-    async (q: QuestView) => {
+    async (q: { id: string; reward: QuestReward }) => {
       setBusy(q.id);
       setMsg(null);
       try {
@@ -115,10 +134,50 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           </p>
         </Card>
       ) : (
-        renderTabs()
+        <>
+          {repeat && renderRepeat(repeat)}
+          {renderTabs()}
+        </>
       )}
     </main>
   );
+
+  function renderRepeat(r: RepeatSection) {
+    const now = Date.now();
+    const sections: {
+      key: string;
+      label: string;
+      quests: RepeatQuestView[];
+      resetAt: number;
+    }[] = [
+      { key: "daily", label: "일일 퀘스트", quests: r.daily, resetAt: r.dailyResetAt },
+      { key: "weekly", label: "주간 퀘스트", quests: r.weekly, resetAt: r.weeklyResetAt },
+    ];
+    return sections.map(({ key, label, quests: list, resetAt }) => {
+      if (list.length === 0) return null;
+      const done = list.filter((q) => q.claimed).length;
+      return (
+        <Card key={key} padding="md">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">{label}</h2>
+            <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              {done}/{list.length} · {resetLabel(resetAt, now)}
+            </span>
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {list.map((q) => (
+              <RepeatRow
+                key={q.id}
+                quest={q}
+                busy={busy === q.id}
+                onClaim={() => claim(q)}
+              />
+            ))}
+          </ul>
+        </Card>
+      );
+    });
+  }
 
   function renderTabs() {
     const isDone = (q: QuestView) => q.status === "claimed";
@@ -255,6 +314,76 @@ function QuestRow({
           {busy ? "수령 중…" : "받기"}
         </button>
       )}
+    </li>
+  );
+}
+
+function RepeatRow({
+  quest,
+  busy,
+  onClaim,
+}: {
+  quest: RepeatQuestView;
+  busy: boolean;
+  onClaim: () => void;
+}) {
+  const pct = Math.min(100, Math.round((quest.progress / quest.goal) * 100));
+  return (
+    <li
+      className={`rounded-md border px-3 py-2 ${
+        quest.claimable
+          ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40"
+          : quest.claimed
+            ? "border-zinc-200 bg-zinc-50 opacity-60 dark:border-zinc-800 dark:bg-zinc-900"
+            : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {quest.claimed ? (
+          <CheckCircle size={18} weight="fill" className="shrink-0 text-emerald-500" />
+        ) : quest.claimable ? (
+          <Gift size={18} weight="fill" className="shrink-0 text-amber-500" />
+        ) : (
+          <Circle size={18} className="shrink-0 text-zinc-400" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-sm font-semibold">{quest.title}</span>
+            <span className="shrink-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              {quest.progress}/{quest.goal}
+            </span>
+          </div>
+          {!quest.claimed && (
+            <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+              {quest.desc}
+            </p>
+          )}
+          {/* 진행 바 */}
+          {!quest.claimed && (
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  quest.claimable ? "bg-amber-500" : "bg-emerald-500"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          )}
+          <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
+            보상 {quest.reward.gold.toLocaleString()} 골드
+          </p>
+        </div>
+        {quest.claimable && (
+          <button
+            type="button"
+            onClick={onClaim}
+            disabled={busy}
+            className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy ? "수령 중…" : "받기"}
+          </button>
+        )}
+      </div>
     </li>
   );
 }

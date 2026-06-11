@@ -140,6 +140,8 @@ export const bulletinPosts = pgTable(
     title: text("title"),
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    // 작성자 수정 시각 — 미수정 글은 NULL. UI 의 "(수정됨)" 표기 근거.
+    updatedAt: timestamp("updated_at"),
   },
   (t) => [
     index("bulletin_posts_created_at_idx").on(t.createdAt),

@@ -1,0 +1,1 @@
+ALTER TABLE "bulletin_posts" ADD COLUMN "updated_at" timestamp;

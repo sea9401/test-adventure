@@ -40,6 +40,24 @@ export async function postPost(input: {
   return res.json();
 }
 
+// 글 수정 — 작성자 본인만 (서버에서 검증). 카테고리는 수정 불가.
+// 응답은 변경분만: { id, title, content, updatedAt }.
+export async function editPost(
+  id: number,
+  input: { title: string; content: string },
+): Promise<{ id: number; title: string; content: string; updatedAt: number }> {
+  const res = await fetch("/api/bulletin", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, ...input }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `edit failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 export async function deletePost(id: number): Promise<void> {
   const res = await fetch(`/api/bulletin?id=${id}`, { method: "DELETE" });
   if (!res.ok) {

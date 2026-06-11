@@ -358,6 +358,13 @@
       "when": 1781200659475,
       "tag": "0050_tough_odin",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1781207035801,
+      "tag": "0051_chubby_warbird",
+      "breakpoints": true
     }
   ]
 }

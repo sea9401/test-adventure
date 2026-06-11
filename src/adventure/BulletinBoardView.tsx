@@ -21,6 +21,7 @@ import {
 import { SendMessageModal } from "@/adventure/marketplace/SendMessageModal";
 import {
   deletePost,
+  editPost,
   fetchPermissions,
   fetchPosts,
   postPost,
@@ -37,7 +38,8 @@ import type { BulletinPost } from "./bulletin/types";
 type Mode =
   | { kind: "list" }
   | { kind: "compose" }
-  | { kind: "detail"; postId: number };
+  | { kind: "detail"; postId: number }
+  | { kind: "edit"; postId: number };
 
 export function BulletinBoardView() {
   const [category, setCategory] = useState<BulletinCategory>("notice");
@@ -108,6 +110,39 @@ export function BulletinBoardView() {
     }
   };
 
+  // 수정 제출 — 성공 시 목록 상태에 변경분 머지 후 상세 화면으로 복귀.
+  const handleEditSubmit = useCallback(
+    async (postId: number, input: { title: string; content: string }) => {
+      try {
+        const updated = await editPost(postId, input);
+        setPosts(
+          (prev) =>
+            prev?.map((p) =>
+              p.id === postId
+                ? {
+                    ...p,
+                    title: updated.title,
+                    content: updated.content,
+                    updatedAt: updated.updatedAt,
+                  }
+                : p,
+            ) ?? null,
+        );
+        setMode({ kind: "detail", postId });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "수정 실패";
+        if (msg === "not found or not owner") {
+          throw new Error("본인이 작성한 글만 수정할 수 있어요.");
+        }
+        if (msg === "empty title") {
+          throw new Error("제목을 입력해주세요.");
+        }
+        throw new Error(msg);
+      }
+    },
+    [],
+  );
+
   // PostListRow / PostDetailPage 가 콜백을 prop 으로 받으니 useCallback 으로 안정화.
   // memo 가 같은 post 인 행은 렌더 skip 하도록.
   const handleDelete = useCallback(async (id: number) => {
@@ -176,6 +211,10 @@ export function BulletinBoardView() {
     setMode({ kind: "list" });
   }, []);
 
+  const handleOpenEdit = useCallback((postId: number) => {
+    setMode({ kind: "edit", postId });
+  }, []);
+
   const pager = usePagination(posts ?? [], 15);
 
   const tabs = useMemo(
@@ -198,7 +237,8 @@ export function BulletinBoardView() {
     );
   }
 
-  if (mode.kind === "detail") {
+  // 상세/수정 — 둘 다 현재 목록 상태에서 글을 찾아 그린다 (못 찾으면 공통 fallback).
+  if (mode.kind === "detail" || mode.kind === "edit") {
     const post = posts?.find((p) => p.id === mode.postId);
     if (!post) {
       // posts 가 다시 로딩 중이거나(탭/검색 전환) 글이 사라진 경우 — 목록으로 안전 복귀.
@@ -219,11 +259,23 @@ export function BulletinBoardView() {
         </div>
       );
     }
+    if (mode.kind === "edit") {
+      return (
+        <ComposePage
+          initialCategory={post.category}
+          isAdmin={isAdmin}
+          editing={{ title: post.title ?? "", content: post.content }}
+          onCancel={() => setMode({ kind: "detail", postId: post.id })}
+          onSubmit={(input) => handleEditSubmit(post.id, input)}
+        />
+      );
+    }
     return (
       <>
         <PostDetailPage
           post={post}
           onBack={handleBackToList}
+          onEdit={handleOpenEdit}
           onDelete={handleDelete}
           onLikeUpdate={handleLikeUpdate}
           onCommentCountChange={handleCommentCountChange}

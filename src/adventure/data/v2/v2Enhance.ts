@@ -25,7 +25,7 @@ export const ENHANCE_STONES: Record<
 // 2026-06-11 상향(사용자): 강화석이 매우 귀해(드랍률 참고) 시도 한 번이 무거움 —
 // 실패 도박보다 "모으는 게 본 게임"이 되도록 후반도 60%까지만 떨어진다.
 export const ENHANCE_SUCCESS_PCT: readonly number[] = [
-  100, 100, 100, 100, 100, 95, 90, 80, 70, 60,
+  100, 100, 100, 100, 95, 90, 80, 65, 50, 35,
 ];
 export const ENHANCE_SUCCESS_MIN_PCT = 25;
 
@@ -105,6 +105,23 @@ export function rollEnhanceStoneDrops(
     }
   }
   return out;
+}
+
+// ── 실패 페널티 — 고강 하락 (사용자 결정 2026-06-11) ─────────────────────────
+// 현재 레벨이 이 값 이상일 때 실패하면 강화 −1 하락(파괴 없음). 그 미만은 재료만 소실.
+export const ENHANCE_DEMOTE_FROM_LEVEL = 6;
+
+// 하락 시 누적 보너스 차감 — 단계별 사용 돌 기록을 안 남기므로 평균 비례 차감
+// (bonusPct × (level−1)/level 반올림). level 1→0 은 미강화(undefined).
+export function demoteEnhance(
+  e: V2EnhanceState,
+): V2EnhanceState | undefined {
+  const level = e.level - 1;
+  if (level <= 0) return undefined;
+  return {
+    level,
+    bonusPct: Math.round((e.bonusPct * level) / e.level),
+  };
 }
 
 // 강화 반영 위력 — 서버 derive 와 클라 카드(인벤토리/거래소/강화 UI)의 단일 출처.

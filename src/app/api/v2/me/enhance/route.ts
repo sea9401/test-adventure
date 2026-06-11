@@ -8,10 +8,12 @@ import {
   V2_EQUIPMENT,
 } from "@/adventure/data/v2/v2Equipment";
 import {
+  ENHANCE_DEMOTE_FROM_LEVEL,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_STONES,
   ENHANCE_UNIQUE_COST_MULT,
+  demoteEnhance,
   enhanceGoldCost,
   enhanceStoneCost,
   enhanceSuccessPct,
@@ -25,7 +27,8 @@ import {
 //   feedIid — 같은 id 의 다른 보유 개체(미장착·미잠금)를 먹이면 그 회차 강화석 면제(골드만).
 //
 // 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCost(power, level), 유니크 ×2.
-// 성공: enhance {level+1, bonusPct+돌 보너스}. 실패: 재료만 소실(하락·파괴 없음).
+// 성공: enhance {level+1, bonusPct+돌 보너스}.
+// 실패: 재료 소실 + 현재 레벨 ≥ ENHANCE_DEMOTE_FROM_LEVEL(6) 이면 강화 −1 하락(파괴 없음).
 // 락 순서: character.v2 → equipment.v2 (처분 라우트들과 동일).
 
 type CharSave = {
@@ -160,14 +163,26 @@ export async function POST(req: Request) {
       const removed = removeInstance(owned, feed.iid);
       nextOwned = removed.owned;
     }
-    let nextEnhance = inst.enhance ?? { level: 0, bonusPct: 0 };
+    let nextEnhance: typeof inst.enhance = inst.enhance;
+    let demoted = false;
     if (success) {
       nextEnhance = {
         level: level + 1,
-        bonusPct: nextEnhance.bonusPct + ENHANCE_STONES[stone].bonusPct,
+        bonusPct: (inst.enhance?.bonusPct ?? 0) + ENHANCE_STONES[stone].bonusPct,
       };
       nextOwned = nextOwned.map((o) =>
         o.iid === iid ? { ...o, enhance: nextEnhance } : o,
+      );
+    } else if (inst.enhance && level >= ENHANCE_DEMOTE_FROM_LEVEL) {
+      // 고강 실패 — 1단계 하락(보너스는 평균 비례 차감). 파괴 없음.
+      demoted = true;
+      nextEnhance = demoteEnhance(inst.enhance);
+      nextOwned = nextOwned.map((o) =>
+        o.iid === iid
+          ? nextEnhance
+            ? { ...o, enhance: nextEnhance }
+            : { ...o, enhance: undefined }
+          : o,
       );
     }
 
@@ -187,7 +202,8 @@ export async function POST(req: Request) {
         ok: true as const,
         success,
         successPct,
-        enhance: success ? nextEnhance : (inst.enhance ?? null),
+        demoted,
+        enhance: nextEnhance ?? null,
         stoneCost,
         goldCost,
         gold: nextGold,

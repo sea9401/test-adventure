@@ -149,6 +149,40 @@ describe("POST /api/v2/me/enhance", () => {
     expect(r3.status).toBe(404);
   });
 
+  it("고강 실패(+6) — 강화 −1 하락(파괴 없음)", async () => {
+    store.set("equipment.v2", {
+      owned: [
+        { iid: "w1", id: WEAPON, enhance: { level: 6, bonusPct: 13 } },
+      ],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.999); // 실패
+    const res = await POST(req({ iid: "w1", stone: "blue" }));
+    const json = (await res.json()) as {
+      success: boolean;
+      demoted: boolean;
+      enhance: { level: number; bonusPct: number };
+    };
+    expect(json.success).toBe(false);
+    expect(json.demoted).toBe(true);
+    expect(json.enhance).toEqual({ level: 5, bonusPct: 11 });
+    const eq = store.get("equipment.v2") as EquipSave;
+    expect(eq.owned[0].enhance).toEqual({ level: 5, bonusPct: 11 });
+  });
+
+  it("저강 실패(+0~+5) — 하락 없음(재료만 소실)", async () => {
+    store.set("equipment.v2", {
+      owned: [{ iid: "w1", id: WEAPON, enhance: { level: 5, bonusPct: 10 } }],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const res = await POST(req({ iid: "w1", stone: "blue" }));
+    const json = (await res.json()) as { demoted: boolean };
+    expect(json.demoted).toBe(false);
+    const eq = store.get("equipment.v2") as EquipSave;
+    expect(eq.owned[0].enhance).toEqual({ level: 5, bonusPct: 10 });
+  });
+
   it("상한 — +10 에서 거부", async () => {
     store.set("equipment.v2", {
       owned: [

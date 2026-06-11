@@ -52,21 +52,22 @@ body {
 }
 
 /* ── 전쟁 전광판(WarTicker) ───────────────────────────────────────
-   navbar 아래 전역 한 줄 띠 — 글자가 좌로 흘러간다. 내용을 2벌 이어붙이고
-   -50% 까지 이동해 이음새 없는 무한 루프. 속도는 컴포넌트가 길이 비례로
-   animation-duration 을 인라인 지정. */
+   navbar 아래 전역 한 줄 띠 — 클래식 티커: 내용이 오른쪽에서 들어와 왼쪽으로
+   완전히 빠져나가면 1바퀴(padding-left 100% + translateX(-100%) 트릭).
+   바퀴 수는 컴포넌트가 animation-iteration-count 로, 속도는 길이 비례
+   duration 으로 인라인 지정. 지정 바퀴를 다 돌면 animationend 로 띠가 사라진다. */
 
-@keyframes war-ticker-scroll {
+@keyframes war-ticker-pass {
   from {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translateX(-100%);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .war-ticker-scroll {
+  .war-ticker-pass {
     animation: none !important;
   }
 }

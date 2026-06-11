@@ -52,9 +52,9 @@ export default function WarTickerPreviewPage() {
     <main className="min-h-screen bg-zinc-100 p-0 dark:bg-zinc-950">
       <WarTickerStrip texts={TEXTS} onClick={() => alert("→ /battle/war")} />
       <div className="mx-auto max-w-[720px] space-y-2 p-6 text-sm text-zinc-600 dark:text-zinc-300">
-        <p>↑ 전광판 4사건 순환 (점령/공성/토벌/NPC 풀림)</p>
+        <p>↑ 전광판 4사건 — 한 줄 티커, 2바퀴 후 사라짐(onDone 미지정이라 여기선 멈춤)</p>
         <p className="text-xs text-zinc-500">
-          아래: 1사건만 (최소 속도 18s 확인)
+          아래: 1사건만 (최소 속도 14s 확인)
         </p>
         <WarTickerStrip texts={TEXTS.slice(0, 1)} />
         <p className="text-xs text-zinc-500">

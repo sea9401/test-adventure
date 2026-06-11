@@ -168,15 +168,23 @@ describe("모험가의 길 (콘텐츠·사회, 비순차)", () => {
 });
 
 describe("정점을 향해 (확장 마일스톤)", () => {
-  it("유니크 수집 / 깊이 40 / 보스 / 고차수", () => {
+  it("유니크 수집 / 깊이 40(체인 — 앞 단계 수령 후) / 보스 / 고차수", () => {
     expect(
       isQuestClaimable(questById("a_unique")!, { ...ZERO, uniqueOwned: 1 }, none),
     ).toBe(true);
+    // 깊이 체인 — a_depth25 수령 전엔 a_depth40 수령 불가, 수령 후 가능.
     expect(
       isQuestClaimable(
         questById("a_depth40")!,
         { ...ZERO, frontierDepth: 40 },
         none,
+      ),
+    ).toBe(false);
+    expect(
+      isQuestClaimable(
+        questById("a_depth40")!,
+        { ...ZERO, frontierDepth: 40 },
+        new Set(["a_depth25"]),
       ),
     ).toBe(true);
     expect(
@@ -187,23 +195,39 @@ describe("정점을 향해 (확장 마일스톤)", () => {
     ).toBe(true);
   });
 
-  it("비순차 — 깊이 40 만 충족해도 보스 미충족과 무관하게 수령", () => {
+  it("체인 간 독립 — 깊이 체인 진행이 보스 체인과 무관", () => {
+    const claimed = new Set(["a_depth25"]);
     const ctx = { ...ZERO, frontierDepth: 40 };
-    expect(isQuestClaimable(questById("a_depth40")!, ctx, none)).toBe(true);
-    expect(questStatus(questById("a_boss")!, ctx, none)).toBe("active");
+    expect(isQuestClaimable(questById("a_depth40")!, ctx, claimed)).toBe(true);
+    expect(questStatus(questById("a_boss")!, ctx, claimed)).toBe("active");
   });
 
-  it("배치2 정점 — 보스 마스터(3종)·유니크 5·깊이 48", () => {
+  it("배치2 정점 — 보스 마스터(3종)·유니크 5(각 체인 앞 단계 수령 후)", () => {
     expect(
-      isQuestClaimable(questById("a_boss_master")!, { ...ZERO, bossKills: 3 }, none),
+      isQuestClaimable(
+        questById("a_boss_master")!,
+        { ...ZERO, bossKills: 3 },
+        new Set(["a_boss"]),
+      ),
     ).toBe(true);
     // 보스 1종만으론 미충족.
-    expect(questStatus(questById("a_boss_master")!, { ...ZERO, bossKills: 1 }, none)).toBe("active");
     expect(
-      isQuestClaimable(questById("a_unique5")!, { ...ZERO, uniqueOwned: 5 }, none),
+      questStatus(questById("a_boss_master")!, { ...ZERO, bossKills: 1 }, new Set(["a_boss"])),
+    ).toBe("active");
+    expect(
+      isQuestClaimable(
+        questById("a_unique5")!,
+        { ...ZERO, uniqueOwned: 5 },
+        new Set(["a_unique"]),
+      ),
     ).toBe(true);
+    // 깊이 체인 마지막 — 앞 두 단계 수령 후 수령 가능.
     expect(
-      isQuestClaimable(questById("a_depth48")!, { ...ZERO, frontierDepth: 48 }, none),
+      isQuestClaimable(
+        questById("a_depth48")!,
+        { ...ZERO, frontierDepth: 48 },
+        new Set(["a_depth25", "a_depth40"]),
+      ),
     ).toBe(true);
   });
 });
@@ -290,13 +314,47 @@ describe("currentGuideQuest (홈 배너)", () => {
 });
 
 describe("deriveQuestViews", () => {
-  it("현 직군 가시 퀘스트에만 status 부여(타 직군 라인 제외)", () => {
+  it("현 직군 가시 + 체인 현재 단계만 (숨김 단계 제외)", () => {
     const views = deriveQuestViews(ZERO, none);
-    const visibleCount = V2_QUESTS.filter(
-      (q) => !q.line.startsWith("class_") || q.line === "class_warrior",
-    ).length;
+    // 직군 가시 퀘 중, 체인은 첫 단계만 보임(미수령 상태 기준).
+    const seenChains = new Set<string>();
+    const visibleCount = V2_QUESTS.filter((q) => {
+      if (q.line.startsWith("class_") && q.line !== "class_warrior") return false;
+      if (!q.chain) return true;
+      if (seenChains.has(q.chain)) return false;
+      seenChains.add(q.chain);
+      return true;
+    }).length;
     expect(views).toHaveLength(visibleCount);
     expect(views.every((v) => v.status)).toBe(true);
+  });
+
+  it("체인 — 앞 단계 수령 시 다음 단계 등장, 수령분은 완료로 잔존", () => {
+    // 미수령: l_fish10/25 숨김.
+    const fresh = deriveQuestViews(ZERO, none).map((v) => v.id);
+    expect(fresh).toContain("l_fish1");
+    expect(fresh).not.toContain("l_fish10");
+    // l_fish1 수령 → l_fish10 등장(+수령분 완료 표시), l_fish25 는 여전히 숨김.
+    const after = deriveQuestViews(
+      { ...ZERO, fishSpecies: 12 },
+      new Set(["l_fish1"]),
+    );
+    const ids = after.map((v) => v.id);
+    expect(ids).toContain("l_fish10");
+    expect(ids).not.toContain("l_fish25");
+    expect(after.find((v) => v.id === "l_fish1")!.status).toBe("claimed");
+    expect(after.find((v) => v.id === "l_fish10")!.status).toBe("claimable");
+  });
+
+  it("과거 독립 수령 세이브 — 상위만 수령돼 있어도 안전(하위가 현재 단계)", () => {
+    const views = deriveQuestViews(
+      { ...ZERO, battleCount: 6000 },
+      new Set(["b_battles5000"]),
+    );
+    const ids = views.map((v) => v.id);
+    expect(ids).toContain("b_battles1000"); // 하위 = 현재 단계(claimable)
+    expect(ids).toContain("b_battles5000"); // 수령분은 완료 탭 잔존
+    expect(views.find((v) => v.id === "b_battles1000")!.status).toBe("claimable");
   });
 });
 

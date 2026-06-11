@@ -99,6 +99,9 @@ export type QuestDef = {
   reward: QuestReward;
   /** 완료 판정 — 세이브 파생 ctx 로. */
   check: (c: QuestCtx) => boolean;
+  /** 체인 — 같은 내용·증가 목표 마일스톤 묶음. 정의 순서대로 "현재 단계"만 노출
+   *  (앞 단계 수령 시 다음 등장 — 잠금 표시도 없이 숨김, 패널 난잡함 방지). */
+  chain?: string;
 };
 
 export type QuestLine = {
@@ -316,6 +319,7 @@ const COLLECT: QuestDef[] = [
 const ASCEND: QuestDef[] = [
   {
     id: "a_boss",
+    chain: "ascend_boss",
     line: "ascend",
     title: "테마 보스 토벌",
     desc: "테마 보스를 처치하세요. (보스 도전)",
@@ -332,6 +336,7 @@ const ASCEND: QuestDef[] = [
   },
   {
     id: "a_depth25",
+    chain: "ascend_depth",
     line: "ascend",
     title: "심층 개척",
     desc: "사냥터 깊이 25까지 진출하세요.",
@@ -340,6 +345,7 @@ const ASCEND: QuestDef[] = [
   },
   {
     id: "a_unique",
+    chain: "ascend_unique",
     line: "ascend",
     title: "유니크 수집가",
     desc: "유니크 장비를 1개 이상 획득하세요.",
@@ -348,6 +354,7 @@ const ASCEND: QuestDef[] = [
   },
   {
     id: "a_depth40",
+    chain: "ascend_depth",
     line: "ascend",
     title: "심연 개척",
     desc: "사냥터 깊이 40까지 진출하세요.",
@@ -356,6 +363,7 @@ const ASCEND: QuestDef[] = [
   },
   {
     id: "a_boss_master",
+    chain: "ascend_boss",
     line: "ascend",
     title: "보스 마스터",
     desc: "테마 보스 3종을 모두 처치하세요.",
@@ -364,6 +372,7 @@ const ASCEND: QuestDef[] = [
   },
   {
     id: "a_unique5",
+    chain: "ascend_unique",
     line: "ascend",
     title: "유니크 컬렉터",
     desc: "유니크 장비를 5개 이상 수집하세요.",
@@ -372,6 +381,7 @@ const ASCEND: QuestDef[] = [
   },
   {
     id: "a_depth48",
+    chain: "ascend_depth",
     line: "ascend",
     title: "프론티어의 끝",
     desc: "사냥터 깊이 48(마지막 테마 밴드)까지 진출하세요.",
@@ -444,6 +454,7 @@ const WAR: QuestDef[] = [
 const REBIRTH: QuestDef[] = [
   {
     id: "r_first",
+    chain: "rebirth_cum",
     line: "rebirth",
     title: "다시 태어나다",
     desc: "4차 레벨 100 도달 후 환생하세요 (누적레벨 101+).",
@@ -452,6 +463,7 @@ const REBIRTH: QuestDef[] = [
   },
   {
     id: "r_300",
+    chain: "rebirth_cum",
     line: "rebirth",
     title: "세 번째 생",
     desc: "누적레벨 300에 도달하세요.",
@@ -460,6 +472,7 @@ const REBIRTH: QuestDef[] = [
   },
   {
     id: "r_600",
+    chain: "rebirth_cum",
     line: "rebirth",
     title: "윤회의 수레바퀴",
     desc: "누적레벨 600에 도달하세요.",
@@ -468,6 +481,7 @@ const REBIRTH: QuestDef[] = [
   },
   {
     id: "r_1200",
+    chain: "rebirth_cum",
     line: "rebirth",
     title: "천년의 혼",
     desc: "누적레벨 1,200에 도달하세요.",
@@ -476,6 +490,7 @@ const REBIRTH: QuestDef[] = [
   },
   {
     id: "r_2000",
+    chain: "rebirth_cum",
     line: "rebirth",
     title: "윤회의 정점",
     desc: "누적레벨 2,000에 도달하세요.",
@@ -488,6 +503,7 @@ const REBIRTH: QuestDef[] = [
 const LIFE: QuestDef[] = [
   {
     id: "l_fish1",
+    chain: "life_fish",
     line: "life",
     title: "첫 손맛",
     desc: "낚시터에서 첫 물고기를 낚으세요.",
@@ -496,6 +512,7 @@ const LIFE: QuestDef[] = [
   },
   {
     id: "l_fish10",
+    chain: "life_fish",
     line: "life",
     title: "어부의 길",
     desc: "어종 도감 10종을 채우세요.",
@@ -504,6 +521,7 @@ const LIFE: QuestDef[] = [
   },
   {
     id: "l_fish25",
+    chain: "life_fish",
     line: "life",
     title: "강태공",
     desc: "어종 도감 25종을 채우세요 (전체 30종).",
@@ -512,6 +530,7 @@ const LIFE: QuestDef[] = [
   },
   {
     id: "l_dig1",
+    chain: "life_antique",
     line: "life",
     title: "첫 발굴",
     desc: "보물 탐사에서 첫 골동품을 발굴하세요.",
@@ -520,6 +539,7 @@ const LIFE: QuestDef[] = [
   },
   {
     id: "l_antique8",
+    chain: "life_antique",
     line: "life",
     title: "감정가",
     desc: "골동품 도감 8종을 채우세요.",
@@ -528,6 +548,7 @@ const LIFE: QuestDef[] = [
   },
   {
     id: "l_antique20",
+    chain: "life_antique",
     line: "life",
     title: "고고학자",
     desc: "골동품 도감 20종을 채우세요 (전체 24종).",
@@ -540,6 +561,7 @@ const LIFE: QuestDef[] = [
 const BESTIARY: QuestDef[] = [
   {
     id: "b_species15",
+    chain: "bestiary_species",
     line: "bestiary",
     title: "사냥꾼의 기록",
     desc: "서로 다른 몬스터 15종을 처치하세요.",
@@ -548,6 +570,7 @@ const BESTIARY: QuestDef[] = [
   },
   {
     id: "b_species35",
+    chain: "bestiary_species",
     line: "bestiary",
     title: "토벌 도감의 주인",
     desc: "서로 다른 몬스터 35종을 처치하세요 (전체 41종).",
@@ -556,6 +579,7 @@ const BESTIARY: QuestDef[] = [
   },
   {
     id: "b_band_canyon",
+    chain: "bestiary_bands",
     line: "bestiary",
     title: "협곡 입성",
     desc: "사냥터 깊이 13(마른 협곡)에 진출하세요.",
@@ -564,6 +588,7 @@ const BESTIARY: QuestDef[] = [
   },
   {
     id: "b_band_cave",
+    chain: "bestiary_bands",
     line: "bestiary",
     title: "동굴 입성",
     desc: "사냥터 깊이 25(심층 동굴)에 진출하세요.",
@@ -572,6 +597,7 @@ const BESTIARY: QuestDef[] = [
   },
   {
     id: "b_band_swamp",
+    chain: "bestiary_bands",
     line: "bestiary",
     title: "늪지 입성",
     desc: "사냥터 깊이 37(리자드 늪지)에 진출하세요.",
@@ -580,6 +606,7 @@ const BESTIARY: QuestDef[] = [
   },
   {
     id: "b_battles1000",
+    chain: "bestiary_battles",
     line: "bestiary",
     title: "역전의 용사",
     desc: "누적 전투 1,000회를 달성하세요.",
@@ -588,6 +615,7 @@ const BESTIARY: QuestDef[] = [
   },
   {
     id: "b_battles5000",
+    chain: "bestiary_battles",
     line: "bestiary",
     title: "전장의 화신",
     desc: "누적 전투 5,000회를 달성하세요.",
@@ -600,6 +628,7 @@ const BESTIARY: QuestDef[] = [
 const ENHANCE: QuestDef[] = [
   {
     id: "e_first",
+    chain: "enhance_level",
     line: "enhance",
     title: "첫 단조",
     desc: "대장간에서 장비를 +1 강화하세요 (골드만으로도 가능).",
@@ -616,6 +645,7 @@ const ENHANCE: QuestDef[] = [
   },
   {
     id: "e_plus3",
+    chain: "enhance_level",
     line: "enhance",
     title: "단련",
     desc: "장비 하나를 +3까지 강화하세요.",
@@ -624,6 +654,7 @@ const ENHANCE: QuestDef[] = [
   },
   {
     id: "e_plus5",
+    chain: "enhance_level",
     line: "enhance",
     title: "숙련된 단조",
     desc: "장비 하나를 +5까지 강화하세요.",
@@ -632,6 +663,7 @@ const ENHANCE: QuestDef[] = [
   },
   {
     id: "e_plus7",
+    chain: "enhance_level",
     line: "enhance",
     title: "고강의 영역",
     desc: "장비 하나를 +7까지 강화하세요 (+6부터는 실패 시 하락!).",
@@ -640,6 +672,7 @@ const ENHANCE: QuestDef[] = [
   },
   {
     id: "e_plus10",
+    chain: "enhance_level",
     line: "enhance",
     title: "전설의 +10",
     desc: "장비 하나를 +10(최대)까지 강화하세요.",
@@ -764,6 +797,18 @@ function isUnlocked(def: QuestDef, ctx: QuestCtx): boolean {
   return true;
 }
 
+// 체인 숨김 — 같은 체인의 더 앞(정의 순서) 단계가 미수령이면 이 퀘스트는 숨김.
+// 수령된 퀘스트는 항상 보임(완료 탭). 과거 독립 수령 시절 상위만 받은 세이브도 안전
+// (하위가 현재 단계로 노출, 수령된 상위는 완료 탭).
+function hiddenByChain(def: QuestDef, claimed: ReadonlySet<string>): boolean {
+  if (!def.chain || claimed.has(def.id)) return false;
+  for (const q of V2_QUESTS) {
+    if (q.id === def.id) return false; // 자신이 첫 미수령 단계
+    if (q.chain === def.chain && !claimed.has(q.id)) return true;
+  }
+  return false;
+}
+
 export function questStatus(
   def: QuestDef,
   ctx: QuestCtx,
@@ -782,6 +827,8 @@ export function isQuestClaimable(
   claimed: ReadonlySet<string>,
 ): boolean {
   if (!isVisible(def, ctx)) return false;
+  // 체인 순서 가드 — 앞 단계 미수령이면 조건 충족이라도 수령 불가(단계 건너뛰기 차단).
+  if (hiddenByChain(def, claimed)) return false;
   return questStatus(def, ctx, claimed) === "claimable";
 }
 
@@ -794,7 +841,9 @@ export function deriveQuestViews(
   ctx: QuestCtx,
   claimed: ReadonlySet<string>,
 ): QuestView[] {
-  return V2_QUESTS.filter((q) => isVisible(q, ctx)).map((q) => ({
+  return V2_QUESTS.filter(
+    (q) => isVisible(q, ctx) && !hiddenByChain(q, claimed),
+  ).map((q) => ({
     id: q.id,
     line: q.line,
     title: q.title,

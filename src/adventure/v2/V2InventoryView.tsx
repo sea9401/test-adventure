@@ -38,6 +38,10 @@ import {
   selectBulkSell,
   type BulkSellOpts,
 } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  enhancedPower,
+  type V2EnhanceState,
+} from "@/adventure/data/v2/v2Enhance";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import {
   V2ItemCard,
@@ -67,9 +71,13 @@ const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
 
 // 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
 //   치명피해). 티어 숫자 표기는 제거(이름·위력·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
-function cardStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
+function cardStatLine(
+  item: V2Equipment,
+  roll?: V2EquipRoll,
+  enhance?: V2EnhanceState,
+): string {
   const eff = effectiveStats(item, roll);
-  const parts = [`위력 ${eff.power}`];
+  const parts = [`위력 ${enhancedPower(eff.power, enhance)}`];
   if (item.slot === "weapon" && item.element && item.element !== "neutral") {
     parts.push(V2_ELEMENT_LABEL[item.element]);
   }
@@ -551,6 +559,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         <V2ItemCard
           item={V2_EQUIPMENT[card.inst.id]}
           roll={card.inst.roll}
+          enhance={card.inst.enhance}
           anchor={card.anchor}
           onClose={() => setCard(null)}
           equippedIds={equippedItemIds}
@@ -702,11 +711,16 @@ export function EquipmentCardGrid({
                 className={`truncate text-sm font-semibold ${powerNameClass(item, inst.roll)}`}
               >
                 {item.name}
+                {inst.enhance && inst.enhance.level > 0 ? (
+                  <span className="ml-1 text-amber-500">
+                    +{inst.enhance.level}
+                  </span>
+                ) : null}
               </span>
               <ItemTypeChip item={item} />
             </div>
             <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-              {cardStatLine(item, inst.roll)}
+              {cardStatLine(item, inst.roll, inst.enhance)}
             </div>
           </button>
         );

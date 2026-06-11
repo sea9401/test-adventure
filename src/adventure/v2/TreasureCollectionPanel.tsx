@@ -7,7 +7,7 @@ import {
 } from "./TreasureCollectionView";
 
 // 발굴 보관함 패널 — /api/v2/treasure/collection 에서 인스턴스·조각·코인을 가져와 뷰에 주입.
-// 분해(/dismantle)는 보관함에서 제거 + 코인 적립. 상점 진입은 onOpenShop 으로 위임.
+// 분해(/dismantle)=코인 적립, 판매(/sell)=골드 적립(감정가×배수). 상점 진입은 onOpenShop 위임.
 export function TreasureCollectionPanel({
   onBack,
   onOpenShop,
@@ -20,6 +20,7 @@ export function TreasureCollectionPanel({
   const [coins, setCoins] = useState(0);
   const [loading, setLoading] = useState(true);
   const [dismantling, setDismantling] = useState<string | null>(null);
+  const [selling, setSelling] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -64,6 +65,25 @@ export function TreasureCollectionPanel({
     }
   }, []);
 
+  const onSell = useCallback(async (instanceId: string) => {
+    setSelling(instanceId);
+    try {
+      const res = await fetch("/api/v2/treasure/sell", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ instanceId }),
+      });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok) {
+        setInstances((xs) => xs.filter((x) => x.instanceId !== instanceId));
+      }
+    } catch {
+      // 무시 — 상태 유지(다음 시도 가능).
+    } finally {
+      setSelling(null);
+    }
+  }, []);
+
   return (
     <TreasureCollectionView
       instances={instances}
@@ -71,8 +91,10 @@ export function TreasureCollectionPanel({
       coins={coins}
       loading={loading}
       dismantling={dismantling}
+      selling={selling}
       onBack={onBack}
       onDismantle={onDismantle}
+      onSell={onSell}
       onOpenShop={onOpenShop}
     />
   );

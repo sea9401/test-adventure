@@ -7,13 +7,14 @@ import {
   ANTIQUE_THEME_LABEL,
   ANTIQUE_TIERS,
   appraiseValue,
+  sellGoldValue,
   formatCondition,
   isAntiqueId,
 } from "@/adventure/data/v2/antique";
 
 // 발굴 보관함 뷰 — 발굴한 골동품 인스턴스 목록(감정가 내림차순). 표시값은 카탈로그로 enrich.
 // 데이터·핸들러는 TreasureCollectionPanel 이 주입(실 API / dev mock). 각 점은 감정사에게
-// 분해해 발굴 코인으로 바꿀 수 있다(거래소 PR-5 전까지 골동품의 유일한 소비처).
+// 분해(발굴 코인) 또는 감정사 판매(골드 — 감정가×TREASURE_SELL_GOLD_MULT)로 소비한다.
 
 export type CollectionInstance = {
   instanceId: string;
@@ -44,8 +45,10 @@ export function TreasureCollectionView({
   coins,
   loading,
   dismantling,
+  selling,
   onBack,
   onDismantle,
+  onSell,
   onOpenShop,
 }: {
   instances: CollectionInstance[];
@@ -53,8 +56,11 @@ export function TreasureCollectionView({
   coins: number;
   loading: boolean;
   dismantling: string | null;
+  selling: string | null;
   onBack: () => void;
   onDismantle: (instanceId: string) => void;
+  // 감정사 판매 — 골드 실현(분해와 택일).
+  onSell: (instanceId: string) => void;
   onOpenShop: () => void;
 }) {
   const enriched = instances
@@ -68,12 +74,13 @@ export function TreasureCollectionView({
         tier: a.tier as string,
         theme: a.theme,
         appraisedValue: appraiseValue(key, i.condition),
+        sellGold: sellGoldValue(key, i.condition),
         dismantleCoins: ANTIQUE_TIERS[a.tier].dismantleCoins,
       };
     })
     .sort((x, y) => y.appraisedValue - x.appraisedValue);
 
-  const totalValue = enriched.reduce((s, e) => s + e.appraisedValue, 0);
+  const totalSellGold = enriched.reduce((s, e) => s + e.sellGold, 0);
 
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -83,7 +90,7 @@ export function TreasureCollectionView({
           <div>
             <h1 className="text-lg font-bold">발굴 보관함</h1>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              골동품 {enriched.length}점 · 감정가 합계 {totalValue}골드 · 지도 조각{" "}
+              골동품 {enriched.length}점 · 판매가 합계 {totalSellGold.toLocaleString()}골드 · 지도 조각{" "}
               {fragments}개
             </p>
           </div>
@@ -107,6 +114,8 @@ export function TreasureCollectionView({
         <ul className="divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
           {enriched.map((e) => {
             const inFlight = dismantling === e.instanceId;
+            const sellInFlight = selling === e.instanceId;
+            const anyBusy = dismantling !== null || selling !== null;
             return (
               <li
                 key={e.instanceId}
@@ -121,18 +130,31 @@ export function TreasureCollectionView({
                   </span>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                     {ANTIQUE_THEME_LABEL[e.theme]} · 보존 {formatCondition(e.condition)} ·
-                    감정가 {e.appraisedValue}골드
+                    판매가 {e.sellGold.toLocaleString()}골드
                   </span>
                 </span>
-                <button
-                  type="button"
-                  disabled={dismantling !== null}
-                  onClick={() => onDismantle(e.instanceId)}
-                  className="shrink-0 rounded-lg border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  title="감정사에게 분해해 발굴 코인으로"
-                >
-                  {inFlight ? "분해 중…" : `분해 🪙${e.dismantleCoins}`}
-                </button>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={anyBusy}
+                    onClick={() => onSell(e.instanceId)}
+                    className="rounded-lg border border-yellow-600 bg-yellow-500/90 px-2.5 py-1 text-[11px] font-medium text-yellow-950 transition hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="감정사에게 골드로 판매"
+                  >
+                    {sellInFlight
+                      ? "판매 중…"
+                      : `판매 ${e.sellGold.toLocaleString()}G`}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={anyBusy}
+                    onClick={() => onDismantle(e.instanceId)}
+                    className="rounded-lg border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    title="감정사에게 분해해 발굴 코인으로"
+                  >
+                    {inFlight ? "분해 중…" : `분해 🪙${e.dismantleCoins}`}
+                  </button>
+                </span>
               </li>
             );
           })}

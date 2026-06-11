@@ -1,5 +1,7 @@
 "use client";
 
+import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
+
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -324,7 +326,11 @@ export function TreasureDigView({
             </span>
           </p>
           <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-300">
-            보존상태 {result.antique.condition}% · 감정가 {result.antique.appraisedValue}골드
+            보존상태 {result.antique.condition}% · 판매가{" "}
+            {(
+              result.antique.appraisedValue * TREASURE_SELL_GOLD_MULT
+            ).toLocaleString()}
+            골드
           </p>
         </div>
       )}

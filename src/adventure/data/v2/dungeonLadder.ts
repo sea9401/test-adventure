@@ -33,10 +33,14 @@ export const ONBOARDING_MAX_STAT_MULT = 1.3; // 들판 6 스탯 배율 상한(�
 //   비례 파생(난이도 ↔ 레벨 균형 유지). def/exp 도 statMult 파생. exp 는 소프트캡까지 동일
 //   cadence·이후 깊이 따라 우상향(깊을수록 보상↑). ← 튜닝 다이얼.
 export const LADDER_STAT_STEP = 0.6; // 깊이당 statMult 증가(들판 0.06 대비 완만 램프)
-// 권장파워(매칭레벨) = statMult × 110. 110 은 옛 난이도 캘리브 상수(statMult=powerGate/110 →
-// at-level 100% 클리어). 플레이어 파워는 레벨에 초선형이라 이 결합비를 낮추면(예 73) 같은 몹도
-// 어려워진다 — 캘리브 유지 위해 110 고정. (들판은 온보딩이라 자체 powerGate 50→95 로 더 후함.)
+// 권장파워 = statMult^GATE_DAMP × 110. 옛 모델(statMult 선형 비례)은 후반에서 과대 —
+// 플레이어 파워(누적레벨 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
+// 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀, 깊이 48 권장 2915 vs 실측
+// 파워 ~1,370 빌드가 풀 승률 90%+ 라는 괴리가 났다(2026-06-11). def 댐핑과 같은 패턴으로
+// 지수 감쇠 — sim-v2-power-gate(풀 승률 90% 달성 빌드의 파워 실측, 깊이 7~60 함의 지수
+// 0.65~0.79·최소자승 0.768)로 캘리브. 게이트는 표시 전용(진입은 frontierDepth)이라 안전.
 const POWER_PER_STAT = 110;
+export const LADDER_GATE_DAMP = 0.77;
 
 // 들판 진행도 0..1 — 깊이 1→6 선형.
 function onboardingT(depth: number): number {
@@ -63,7 +67,9 @@ export function floorPowerGate(depth: number): number {
       FLOOR1_POWER + onboardingT(depth) * (ONBOARDING_MAX_POWER - FLOOR1_POWER),
     );
   }
-  return Math.round(floorStatMult(depth) * POWER_PER_STAT);
+  return Math.round(
+    Math.pow(floorStatMult(depth), LADDER_GATE_DAMP) * POWER_PER_STAT,
+  );
 }
 
 // def 댐핑 — v2 는 관통 0 이라 def 가 hp/atk 따라 선형 오르면 데미지 절벽(floor-5 사고 교훈).

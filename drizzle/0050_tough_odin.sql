@@ -1,0 +1,1 @@
+ALTER TABLE "outpost_claim_attempts" ADD COLUMN "replay" jsonb;

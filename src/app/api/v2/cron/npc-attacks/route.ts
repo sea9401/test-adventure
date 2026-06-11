@@ -7,7 +7,15 @@ import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
-import { insertFeedEntry } from "@/lib/server/serverFeed";
+import {
+  insertFeedEntry,
+  resolveUserDisplayName,
+} from "@/lib/server/serverFeed";
+import {
+  toReplayPayload,
+  type StoredReplayEnvelope,
+} from "@/adventure/data/v2/replayPayload";
+import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 import { insertNotification } from "@/lib/server/v2Notifications";
 // PR-7b: 병사 시스템 폐기 — applySoldierBoost / readGuildResources soldiers 보정 제거.
 // 점령자 영웅 단신으로 NPC 챔피언과 단판.
@@ -113,6 +121,11 @@ export async function POST(req: Request) {
         );
 
         // 로그 — NPC 공격이라 attackerUserId=null. 수비자(점령자)는 defenderUserId.
+        // 리플레이 봉투 — 이 전투의 "player" 사이드 = 점령자(수비) 시점.
+        // 닉네임 해석은 표시용 스냅샷 (실패해도 전투 처리엔 영향 없게 폴백).
+        const ownerLabel = await resolveUserDisplayName(ownerId).catch(
+          () => "점령자",
+        );
         await tx.insert(outpostClaimAttempts).values({
           outpostId: outpost.id,
           attackerUserId: null,
@@ -122,6 +135,10 @@ export async function POST(req: Request) {
           // NPC 공격에서 won 의미 = 점령자(=수비) 승리 여부.
           won: battle.outcome === "win",
           turns: battle.turns,
+          replay: {
+            payload: toReplayPayload(battle.finalState, 200),
+            playerName: ownerLabel,
+          } satisfies StoredReplayEnvelope,
         });
 
         if (battle.outcome === "win") {
@@ -143,6 +160,8 @@ export async function POST(req: Request) {
         }
         summary.evaluated += 1;
       });
+      // 리플레이 보존 trim — tx 커밋 후 부수효과(실패 삼킴).
+      await trimAttackReplays(outpost.id);
       // 전쟁 피드 — 점령 풀림은 공적 사건(force). tx 커밋 후 부수효과, actor = 잃은 점령자.
       if (lostOwnerId) {
         await insertFeedEntry(

@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { ReplayBattleScene } from "./ReplayBattleScene";
+import type { StoredReplayEnvelope } from "@/adventure/data/v2/replayPayload";
+import type { Gender } from "@/adventure/profile/avatars";
 
 // 보유 거점 전용 — 이 거점에 행해진 최근 공격 기록 (공성/NPC 정기 공격, 승패 포함).
 // 점령자 본인 또는 점령 길드 멤버일 때만 OutpostView 가 렌더.
+// hasReplay 행은 "전투 보기"로 리플레이 단건 lazy 조회 (한 번에 하나만 펼침).
 
 type AttackRow = {
   id: number;
@@ -14,6 +18,7 @@ type AttackRow = {
   attackerWon: boolean;
   turns: number;
   at: string;
+  hasReplay: boolean;
 };
 
 function fmtAgo(iso: string, now: number): string {
@@ -31,6 +36,12 @@ export function OutpostAttackLog({ outpostId }: { outpostId: string }) {
   const [loading, setLoading] = useState(true);
   // fetch 시점 기준 elapsed 표시용 — Date.now() 를 render 중 직접 호출하면 impure.
   const [nowMs, setNowMs] = useState(() => Date.now());
+  // 펼친 리플레이 — 한 번에 하나. envelope null = 로딩 중.
+  const [openReplay, setOpenReplay] = useState<{
+    attemptId: number;
+    envelope: StoredReplayEnvelope | null;
+    error?: string;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -55,6 +66,45 @@ export function OutpostAttackLog({ outpostId }: { outpostId: string }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  async function toggleReplay(attemptId: number) {
+    if (openReplay?.attemptId === attemptId) {
+      setOpenReplay(null);
+      return;
+    }
+    setOpenReplay({ attemptId, envelope: null });
+    try {
+      const res = await fetch(
+        `/api/v2/outpost/attacks/replay?attemptId=${attemptId}`,
+      );
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        replay?: StoredReplayEnvelope;
+      } | null;
+      if (j?.ok && j.replay) {
+        const envelope = j.replay;
+        setOpenReplay((cur) =>
+          cur?.attemptId === attemptId ? { attemptId, envelope } : cur,
+        );
+      } else {
+        setOpenReplay((cur) =>
+          cur?.attemptId === attemptId
+            ? {
+                attemptId,
+                envelope: null,
+                error: `불러오기 실패 (http ${res.status})`,
+              }
+            : cur,
+        );
+      }
+    } catch {
+      setOpenReplay((cur) =>
+        cur?.attemptId === attemptId
+          ? { attemptId, envelope: null, error: "네트워크 오류" }
+          : cur,
+      );
+    }
+  }
 
   return (
     <Card padding="md">
@@ -85,44 +135,86 @@ export function OutpostAttackLog({ outpostId }: { outpostId: string }) {
           {attacks.map((a) => (
             <li
               key={a.id}
-              className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 px-2 py-1.5 dark:border-zinc-800"
+              className="rounded-md border border-zinc-200 dark:border-zinc-800"
             >
-              <div className="min-w-0">
-                <div className="truncate text-sm text-zinc-700 dark:text-zinc-200">
-                  {a.npc ? (
+              <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                <div className="min-w-0">
+                  <div className="truncate text-sm text-zinc-700 dark:text-zinc-200">
+                    {a.npc ? (
+                      <>
+                        NPC 정기 공격
+                        {a.attackerName ? ` — ${a.attackerName}` : ""}
+                      </>
+                    ) : (
+                      <>
+                        {a.attackerName ?? "모험가"}
+                        {a.attackerGuildName && (
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            {" "}
+                            · {a.attackerGuildName}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {fmtAgo(a.at, nowMs)} · {a.turns}턴
+                    {a.hasReplay && (
+                      <>
+                        {" · "}
+                        <button
+                          type="button"
+                          onClick={() => toggleReplay(a.id)}
+                          className="underline decoration-dotted underline-offset-2 hover:text-zinc-700 dark:hover:text-zinc-300"
+                        >
+                          {openReplay?.attemptId === a.id
+                            ? "전투 닫기"
+                            : "전투 보기"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <span
+                  className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${
+                    a.attackerWon
+                      ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+                      : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
+                  {a.attackerWon
+                    ? a.npc
+                      ? "점령 해제"
+                      : "성벽 타격"
+                    : "격퇴"}
+                </span>
+              </div>
+              {openReplay?.attemptId === a.id && (
+                <div className="border-t border-zinc-200 p-2 dark:border-zinc-800">
+                  {openReplay.envelope ? (
                     <>
-                      NPC 정기 공격
-                      {a.attackerName ? ` — ${a.attackerName}` : ""}
+                      {/* 리플레이 시점 안내 — "player" 사이드 = claim 공격이면
+                          공격자, NPC 정기 공격이면 점령자(수비). */}
+                      <div className="mb-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        {openReplay.envelope.playerName} 시점
+                      </div>
+                      <ReplayBattleScene
+                        payload={openReplay.envelope.payload}
+                        playerName={openReplay.envelope.playerName}
+                        gender={
+                          (openReplay.envelope.gender ?? "male1") as Gender
+                        }
+                        exp={0}
+                        maxExp={1}
+                      />
                     </>
                   ) : (
-                    <>
-                      {a.attackerName ?? "모험가"}
-                      {a.attackerGuildName && (
-                        <span className="text-zinc-500 dark:text-zinc-400">
-                          {" "}
-                          · {a.attackerGuildName}
-                        </span>
-                      )}
-                    </>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {openReplay.error ?? "리플레이 불러오는 중…"}
+                    </div>
                   )}
                 </div>
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {fmtAgo(a.at, nowMs)} · {a.turns}턴
-                </div>
-              </div>
-              <span
-                className={`shrink-0 rounded px-2 py-0.5 text-xs font-medium ${
-                  a.attackerWon
-                    ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
-                    : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                }`}
-              >
-                {a.attackerWon
-                  ? a.npc
-                    ? "점령 해제"
-                    : "성벽 타격"
-                  : "격퇴"}
-              </span>
+              )}
             </li>
           ))}
         </ul>

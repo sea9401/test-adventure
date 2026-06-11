@@ -83,7 +83,8 @@ function TabBackground({
 export function GameChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentOutpost, accountName, stamina, viewerName } = useGameState();
+  const { currentOutpost, accountName, stamina, staminaMax, viewerName } =
+    useGameState();
 
   const activeTab = tabOfPath(pathname);
   // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
@@ -153,7 +154,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         <WarTicker />
         {showStamina && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
-            <StaminaBar state={stamina} />
+            <StaminaBar state={stamina} max={staminaMax} />
           </div>
         )}
         {children}

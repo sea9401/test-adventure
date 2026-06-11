@@ -60,8 +60,10 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import {
   HUNT_COST,
+  MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
+  staminaCapBonusOf,
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
@@ -369,8 +371,11 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const mapStoneMult = mapDef?.enhanceStoneMult ?? 1;
 
   const stamina = parseStaminaFromSave(charSave.stamina, now);
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스.
+  const staminaMax =
+    MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
   const huntCost = isBossHunt ? BOSS_HUNT_COST : HUNT_COST;
-  const afterStamina = tryConsume(stamina, huntCost, now);
+  const afterStamina = tryConsume(stamina, huntCost, now, staminaMax);
   if (!afterStamina) {
     return {
       ok: false as const,
@@ -378,7 +383,7 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
       body: {
         ok: false as const,
         error: "out_of_stamina" as const,
-        stamina: applyRegen(stamina, now),
+        stamina: applyRegen(stamina, now, staminaMax),
       },
     };
   }
@@ -556,7 +561,7 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
       body: {
         ok: false as const,
         error: "hp_zero" as const,
-        stamina: applyRegen(stamina, now),
+        stamina: applyRegen(stamina, now, staminaMax),
       },
     };
   }

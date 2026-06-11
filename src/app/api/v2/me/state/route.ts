@@ -73,6 +73,7 @@ import {
   MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
+  staminaCapBonusOf,
 } from "@/adventure/v2/stamina";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
@@ -290,7 +291,15 @@ export async function GET() {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
-  const stamina = applyRegen(parseStaminaFromSave(charSave.stamina, now), now);
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약(비밀 상점) 보너스.
+  const staminaMax =
+    MAX_STAMINA +
+    staminaCapBonusOf((charSave as { staminaCapBonus?: unknown }).staminaCapBonus);
+  const stamina = applyRegen(
+    parseStaminaFromSave(charSave.stamina, now),
+    now,
+    staminaMax,
+  );
 
   const hpStored = Math.max(0, charSave.hp ?? maxHp);
   const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
@@ -367,7 +376,7 @@ export async function GET() {
       maxMp,
       stamina: {
         current: stamina.current,
-        max: MAX_STAMINA,
+        max: staminaMax,
         lastUpdatedAt: stamina.lastUpdatedAt,
       },
       gold: Math.max(0, charSave.gold ?? 0),

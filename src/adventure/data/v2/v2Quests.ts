@@ -84,6 +84,10 @@ export type QuestCtx = {
   fishSpecies: number;
   /** 보물 도감 골동품 종 수. treasure-codex.v1. */
   antiquesFound: number;
+  /** 보유 장비 중 최고 강화 레벨. equipment.v2 owned[].enhance. */
+  maxEnhanceLevel: number;
+  /** 보유 강화석 합(붉은+푸른). character.v2.materials. */
+  enhanceStones: number;
 };
 
 export type QuestDef = {
@@ -592,6 +596,58 @@ const BESTIARY: QuestDef[] = [
   },
 ];
 
+// ── 강화의 길 — 장비 강화 마일스톤(독립). 골드만 강화 가능이라 첫 퀘부터 전 유저 열림 ──
+const ENHANCE: QuestDef[] = [
+  {
+    id: "e_first",
+    line: "enhance",
+    title: "첫 단조",
+    desc: "대장간에서 장비를 +1 강화하세요 (골드만으로도 가능).",
+    reward: { gold: 200 },
+    check: (c) => c.maxEnhanceLevel >= 1,
+  },
+  {
+    id: "e_stone",
+    line: "enhance",
+    title: "반짝이는 돌",
+    desc: "사냥에서 강화석을 주워 보유하세요 (붉은/푸른 무관).",
+    reward: { gold: 300 },
+    check: (c) => c.enhanceStones >= 1,
+  },
+  {
+    id: "e_plus3",
+    line: "enhance",
+    title: "단련",
+    desc: "장비 하나를 +3까지 강화하세요.",
+    reward: { gold: 400 },
+    check: (c) => c.maxEnhanceLevel >= 3,
+  },
+  {
+    id: "e_plus5",
+    line: "enhance",
+    title: "숙련된 단조",
+    desc: "장비 하나를 +5까지 강화하세요.",
+    reward: { gold: 800 },
+    check: (c) => c.maxEnhanceLevel >= 5,
+  },
+  {
+    id: "e_plus7",
+    line: "enhance",
+    title: "고강의 영역",
+    desc: "장비 하나를 +7까지 강화하세요 (+6부터는 실패 시 하락!).",
+    reward: { gold: 1500 },
+    check: (c) => c.maxEnhanceLevel >= 7,
+  },
+  {
+    id: "e_plus10",
+    line: "enhance",
+    title: "전설의 +10",
+    desc: "장비 하나를 +10(최대)까지 강화하세요.",
+    reward: { gold: 5000 },
+    check: (c) => c.maxEnhanceLevel >= 10,
+  },
+];
+
 // 라인 순서 = 배너 "현재 목표" 우선순위(성장 → 직업 → 사회 → 전쟁 → 수집/정점 → 심화).
 export const QUEST_LINES: readonly QuestLine[] = [
   {
@@ -643,6 +699,12 @@ export const QUEST_LINES: readonly QuestLine[] = [
     subtitle: "몬스터 도감·밴드 입성·누적 전투 마일스톤.",
     sequential: false,
   },
+  {
+    id: "enhance",
+    name: "강화의 길",
+    subtitle: "대장간에서 장비를 단련하세요 — +10 전설까지.",
+    sequential: false,
+  },
 ];
 
 export const V2_QUESTS: readonly QuestDef[] = [
@@ -655,6 +717,7 @@ export const V2_QUESTS: readonly QuestDef[] = [
   ...REBIRTH,
   ...LIFE,
   ...BESTIARY,
+  ...ENHANCE,
 ];
 
 const QUEST_BY_ID = new Map(V2_QUESTS.map((q) => [q.id, q]));

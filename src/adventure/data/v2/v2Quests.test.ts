@@ -42,6 +42,8 @@ const ZERO: QuestCtx = {
   warTreasuryGold: 0,
   fishSpecies: 0,
   antiquesFound: 0,
+  maxEnhanceLevel: 0,
+  enhanceStones: 0,
 };
 
 const none = new Set<string>();
@@ -279,6 +281,8 @@ describe("currentGuideQuest (홈 배너)", () => {
       warTreasuryGold: 99999,
       fishSpecies: 30,
       antiquesFound: 24,
+      maxEnhanceLevel: 10,
+      enhanceStones: 99,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();
@@ -325,5 +329,15 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     expect(questById("b_species35")!.check({ ...ZERO, speciesKilled: 35 })).toBe(true);
     expect(questById("b_band_swamp")!.check({ ...ZERO, frontierDepth: 37 })).toBe(true);
     expect(questById("b_battles5000")!.check({ ...ZERO, battleCount: 5000 })).toBe(true);
+  });
+});
+
+describe("강화의 길 판정", () => {
+  it("첫 단조/돌 보유/레벨 마일스톤 경계", () => {
+    expect(questById("e_first")!.check(ZERO)).toBe(false);
+    expect(questById("e_first")!.check({ ...ZERO, maxEnhanceLevel: 1 })).toBe(true);
+    expect(questById("e_stone")!.check({ ...ZERO, enhanceStones: 1 })).toBe(true);
+    expect(questById("e_plus7")!.check({ ...ZERO, maxEnhanceLevel: 6 })).toBe(false);
+    expect(questById("e_plus10")!.check({ ...ZERO, maxEnhanceLevel: 10 })).toBe(true);
   });
 });

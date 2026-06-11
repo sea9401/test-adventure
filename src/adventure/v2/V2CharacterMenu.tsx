@@ -10,6 +10,7 @@ import {
   UserCircle,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { V2_COMBAT_PATTERN_ENABLED } from "@/adventure/v2/combat/combatPattern";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
@@ -31,9 +32,9 @@ export function V2CharacterMenu({
 }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <h1 className="text-lg font-bold">캐릭터</h1>
-      </header>
+      </HeaderPanel>
       <div className="space-y-2">
         <EntryCard
           icon={

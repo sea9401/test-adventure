@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import {
   DIG_CLUE_LABEL,
   DIGS_ALLOWED,
@@ -180,7 +181,7 @@ export function TreasureDigView({
 
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-1 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-1">
         {(onBack || onOpenCollection || onOpenLeaderboard) && (
           <div className="flex items-center justify-between gap-2">
             {onBack ? (
@@ -220,7 +221,7 @@ export function TreasureDigView({
           지도 조각으로 발굴 지점을 열고, 단서로 매장지를 좁혀 파내세요. 무엇이 묻혔는지는 파봐야
           압니다.
         </p>
-      </header>
+      </HeaderPanel>
 
       {notice && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">

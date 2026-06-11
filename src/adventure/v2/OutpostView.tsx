@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import { OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
@@ -216,7 +217,7 @@ export function OutpostView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         <BackButton onClick={() => onAction({ kind: "back" })} />
         <h1 className="text-lg font-bold">{outpost.name}</h1>
         <div className="flex flex-wrap gap-1 text-xs">
@@ -297,12 +298,14 @@ export function OutpostView({
         {isOwner && occupation?.nextAttackAt && (
           <NextAttackInfo nextAttackAt={occupation.nextAttackAt} />
         )}
-      </header>
+      </HeaderPanel>
 
       <section className="space-y-2">
-        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-          여기서 할 수 있는 것
-        </div>
+        <HeaderPanel className="py-3">
+          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+            여기서 할 수 있는 것
+          </div>
+        </HeaderPanel>
 
         {dungeonDisabled && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">

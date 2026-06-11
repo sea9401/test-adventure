@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CheckCircle, Lock, Circle, Gift } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
 import {
@@ -113,7 +114,9 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="퀘스트" onBack={onBack} />
+      <HeaderPanel>
+        <SubViewHeader title="퀘스트" onBack={onBack} />
+      </HeaderPanel>
 
       {msg && (
         <div

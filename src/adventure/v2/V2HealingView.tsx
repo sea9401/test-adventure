@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 
@@ -159,7 +160,9 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="치료소" onBack={onBack} />
+      <HeaderPanel>
+        <SubViewHeader title="치료소" onBack={onBack} />
+      </HeaderPanel>
       {loadError && <LoadErrorBanner onRetry={refresh} />}
       <Card padding="md">
         <div className="flex items-center gap-3">

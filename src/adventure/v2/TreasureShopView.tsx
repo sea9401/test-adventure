@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { treasureShopEntries } from "./treasureShop";
 import type { BuyResult, TreasureShopState } from "./useTreasureShop";
@@ -40,7 +41,7 @@ export function TreasureShopView({
 
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         {onBack && (
           <BackButton onClick={onBack} />
         )}
@@ -52,7 +53,7 @@ export function TreasureShopView({
             🪙 {coins.toLocaleString()}
           </span>
         </div>
-      </header>
+      </HeaderPanel>
 
       {message && (
         <p

@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import type { TreasureLeaderboardData } from "./treasureLeaderboard";
 
@@ -38,7 +39,7 @@ export function TreasureLeaderboardView({
 }) {
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         {onBack && (
           <BackButton onClick={onBack} />
         )}
@@ -54,7 +55,7 @@ export function TreasureLeaderboardView({
             🪙 {(data?.myCoins ?? 0).toLocaleString()}
           </span>
         </div>
-      </header>
+      </HeaderPanel>
 
       {loading ? (
         <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

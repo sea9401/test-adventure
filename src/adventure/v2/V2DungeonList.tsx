@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { depthName, dungeonThemeGroups } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import {
@@ -44,7 +45,7 @@ export function V2DungeonList({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <BackButton onClick={openGroup ? () => setOpenDepth(null) : onOpenMap} />
         <h1 className="mt-3 text-lg font-bold">
           {openGroup ? openGroup.name : "사냥터"}
@@ -54,7 +55,7 @@ export function V2DungeonList({
             거점에 머문 적이 없어요. 지도에서 거점 진입 후 사냥 가능.
           </p>
         )}
-      </header>
+      </HeaderPanel>
 
       {!currentOutpost ? (
         <Card padding="md">

@@ -9,6 +9,7 @@ import {
   Storefront,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
 // 마을 탭 default — 라이브 TownScreen 의 EntryCard 패턴.
 // 지도(이동)·치료소·상점·대장간·낚시·보물. 성장의 신전은 캐릭터 탭으로 이관(2026-06-08).
@@ -30,9 +31,9 @@ export function V2TownHome({
 }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <h1 className="text-lg font-bold">마을</h1>
-      </header>
+      </HeaderPanel>
       <div className="space-y-2">
         <EntryCard
           icon={

@@ -2,6 +2,7 @@
 
 import { Envelope, Megaphone, Note, Storefront, Trophy } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
 // 광장 탭 default — 커뮤니티(게시판/랭킹/전체 소식/우편함/거래소). 마을(시설)에서 분리.
 export type PlazaAction =
@@ -18,9 +19,9 @@ export function V2PlazaHome({
 }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <h1 className="text-lg font-bold">광장</h1>
-      </header>
+      </HeaderPanel>
       <div className="space-y-2">
         <EntryCard
           icon={<Note size={28} weight="duotone" className="text-sky-500" />}

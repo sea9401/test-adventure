@@ -57,12 +57,12 @@ describe("enhancedPower (위력 배율 — 단일 출처)", () => {
 });
 
 describe("성공률·비용 다이얼", () => {
-  it("푸른 = 기본표(중간 긴장: +9→35%), 붉은 = −10%p·최저 25", () => {
-    expect(enhanceSuccessPct(0, "blue")).toBe(100);
-    expect(enhanceSuccessPct(0, "red")).toBe(90);
-    expect(enhanceSuccessPct(4, "blue")).toBe(95);
-    expect(enhanceSuccessPct(9, "blue")).toBe(35);
-    expect(enhanceSuccessPct(9, "red")).toBe(ENHANCE_SUCCESS_MIN_PCT); // 35−10=25
+  it("푸른 = 기본표(초반부터 비100%: +0→95%, +9→30%), 붉은 = −10%p·최저 25", () => {
+    expect(enhanceSuccessPct(0, "blue")).toBe(95);
+    expect(enhanceSuccessPct(0, "red")).toBe(85);
+    expect(enhanceSuccessPct(4, "blue")).toBe(80);
+    expect(enhanceSuccessPct(9, "blue")).toBe(30);
+    expect(enhanceSuccessPct(9, "red")).toBe(ENHANCE_SUCCESS_MIN_PCT); // 30−10=20→25 클램프
   });
   it("강화석 비용 램프 1/2/3/4", () => {
     expect(enhanceStoneCost(0)).toBe(1);

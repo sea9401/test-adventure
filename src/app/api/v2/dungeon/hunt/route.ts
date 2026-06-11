@@ -346,7 +346,13 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   if (rareMapIid) {
     activeRareMap = rareMaps.find((m) => m.iid === rareMapIid) ?? null;
     // 보스 도전은 레어맵 불가 — 지도는 일반 사냥 농축 전용.
-    if (!activeRareMap || activeRareMap.depth !== depth || isBossHunt) {
+    // utility 계열(비밀 상점/개명/화공)은 사냥 입장 불가 — 전용 화면에서 사용.
+    if (
+      !activeRareMap ||
+      activeRareMap.depth !== depth ||
+      isBossHunt ||
+      RARE_MAP_KINDS[activeRareMap.kind].category !== "hunt"
+    ) {
       return {
         ok: false as const,
         status: 400,
@@ -359,6 +365,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const mapExpMult = mapDef?.expMult ?? 1;
   const mapGoldMult = mapDef?.goldMult ?? 1;
   const mapDropMult = mapDef?.equipDropMult ?? 1;
+  const mapUniqueMult = mapDef?.uniqueDropMult ?? 1;
+  const mapStoneMult = mapDef?.enhanceStoneMult ?? 1;
 
   const stamina = parseStaminaFromSave(charSave.stamina, now);
   const huntCost = isBossHunt ? BOSS_HUNT_COST : HUNT_COST;
@@ -598,7 +606,9 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   // 강화석 — 재료 보류 플래그(V2_MATERIALS_ENABLED)와 무관한 독립 드랍. 전 깊이 공통
   // (초보자도 줍고 거래소에서 환금), 보스전 포함. 다이얼 = v2Enhance ENHANCE_STONE_DROP_PCT.
   if (won) {
-    for (const [id, n] of Object.entries(rollEnhanceStoneDrops(Math.random))) {
+    for (const [id, n] of Object.entries(
+      rollEnhanceStoneDrops(Math.random, mapStoneMult),
+    )) {
       drops[id] = (drops[id] ?? 0) + n;
     }
   }
@@ -642,8 +652,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
       // 깊이 범위가 겹치지 않아 둘 중 하나만 rng 소비 — ?? 합성 안전
       // (밴드 밖이면 bandUniquePoolForDepth=null → rng 미소비, dropFloor 8 풀은 chance 0 → 미소비).
       droppedUnique =
-        rollBandUniqueDrop(depth, ownedSet, Math.random, 1) ??
-        rollUniqueDrop(dropFloor, ownedSet, Math.random, 1);
+        rollBandUniqueDrop(depth, ownedSet, Math.random, mapUniqueMult) ??
+        rollUniqueDrop(dropFloor, ownedSet, Math.random, mapUniqueMult);
     }
     if (droppedUnique !== null) {
       nextOwned = [

@@ -1,41 +1,149 @@
-// 레어맵 — 사냥 승리 시 극히 낮은 확률로 드랍되는 소모품 지도(2026-06-12 시스템 골격).
-// 사용(입장)하면 "발견된 깊이" 기준의 농축 사냥을 제한 판수만큼 돌 수 있다.
-// 거래소 판매 가능(소모품 kind — 후속 PR), 인벤토리 소모품 탭에 보관.
+// 레어맵 — 사냥 승리 시 극히 낮은 확률로 드랍되는 소모품 지도(2026-06-12).
+// hunt 계열은 "발견된 깊이" 기준의 농축 사냥을 제한 판수만큼, utility 계열은 숨겨진
+// 장소(비밀 상점/개명의 신전/화공의 공방) 기능을 제한 횟수만큼 쓸 수 있다.
+// 거래소 판매 가능(consumable kind), 인벤토리 소모품 탭에 보관.
 //
-// ⚠️ 종류 구성·드랍률·보상 배수는 전부 임시 다이얼 — 사용자가 추후 확정(다종 확장 예정).
-//    구조는 다종 전제: 종류별 독립 드랍 롤 + 종류별 판수/만료/배수.
+// 카탈로그 확정(2026-06-12 사용자 승인): 성장맵 5종(판수 30·보물 10) + 유틸맵 3종.
+// 수치(드랍률·배수)는 다이얼 — 라이브 실측 후 조정 여지.
 
-export type RareMapKindId = "worn_map";
+export type RareMapKindId =
+  | "worn_map"
+  | "gilded_map"
+  | "sage_map"
+  | "hunter_map"
+  | "relic_map"
+  | "secret_shop_map"
+  | "rename_map"
+  | "portrait_map";
 
 export type RareMapKind = {
   id: RareMapKindId;
   name: string;
   desc: string;
-  /** 입장 후 사냥 가능 판수(승패 무관 소모). */
+  /** hunt = 농축 사냥 입장(판수 소모) / utility = 기능 사용(사용 횟수 소모, 사냥 입장 불가). */
+  category: "hunt" | "utility";
+  /** hunt: 사냥 가능 판수(승패 무관 소모) / utility: 사용 가능 횟수. */
   runs: number;
   /** 획득 후 만료까지 ms. */
   ttlMs: number;
-  /** 사냥 승리당 드랍 확률(%). ⚠️ 임시 — "매우 낮음" 방침. */
+  /** 사냥 승리당 드랍 확률(%). */
   dropPct: number;
-  // === 보상 배수 — ⚠️ 전부 임시 다이얼(보상 설계는 추후 확정) ===
+  // === hunt 계열 보상 배수 (utility 는 전부 1) ===
   expMult: number;
   goldMult: number;
-  /** 장비(정규·밴드 흔한)·재료 드랍 확률 배수. 유니크는 ×1 유지(보상 확정 시 결정). */
+  /** 정규/밴드 흔한 장비 + 재료 드랍 확률 배수. */
   equipDropMult: number;
+  /** 유니크 드랍 확률 배수 — 보물 지도 전용 축(희소성 보존: 기본 1). */
+  uniqueDropMult: number;
+  /** 강화석 드랍 확률 배수 — 사냥꾼의 지도 전용 축. */
+  enhanceStoneMult: number;
 };
 
-export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
-  worn_map: {
-    id: "worn_map",
-    name: "낡은 지도",
-    desc: "어느 사냥꾼이 흘린 지도. 발견된 깊이의 풍요로운 사냥터로 안내한다.",
-    runs: 10,
-    ttlMs: 48 * 3_600_000,
-    dropPct: 0.1,
-    expMult: 2,
-    goldMult: 2,
-    equipDropMult: 2,
+const TTL_48H = 48 * 3_600_000;
+
+function huntKind(
+  id: RareMapKindId,
+  name: string,
+  desc: string,
+  o: {
+    runs: number;
+    dropPct: number;
+    expMult?: number;
+    goldMult?: number;
+    equipDropMult?: number;
+    uniqueDropMult?: number;
+    enhanceStoneMult?: number;
   },
+): RareMapKind {
+  return {
+    id,
+    name,
+    desc,
+    category: "hunt",
+    runs: o.runs,
+    ttlMs: TTL_48H,
+    dropPct: o.dropPct,
+    expMult: o.expMult ?? 1,
+    goldMult: o.goldMult ?? 1,
+    equipDropMult: o.equipDropMult ?? 1,
+    uniqueDropMult: o.uniqueDropMult ?? 1,
+    enhanceStoneMult: o.enhanceStoneMult ?? 1,
+  };
+}
+
+function utilityKind(
+  id: RareMapKindId,
+  name: string,
+  desc: string,
+  o: { uses: number; dropPct: number },
+): RareMapKind {
+  return {
+    id,
+    name,
+    desc,
+    category: "utility",
+    runs: o.uses,
+    ttlMs: TTL_48H,
+    dropPct: o.dropPct,
+    expMult: 1,
+    goldMult: 1,
+    equipDropMult: 1,
+    uniqueDropMult: 1,
+    enhanceStoneMult: 1,
+  };
+}
+
+export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
+  // === 성장맵 — 발견 깊이로 농축 사냥 ===
+  worn_map: huntKind(
+    "worn_map",
+    "낡은 지도",
+    "어느 사냥꾼이 흘린 지도. 발견된 깊이의 풍요로운 사냥터로 안내한다.",
+    { runs: 30, dropPct: 0.1, expMult: 2, goldMult: 2, equipDropMult: 2 },
+  ),
+  gilded_map: huntKind(
+    "gilded_map",
+    "금빛 지도",
+    "금가루가 묻어나는 지도. 부유한 사냥감이 모이는 길목을 알고 있다.",
+    { runs: 30, dropPct: 0.04, goldMult: 5 },
+  ),
+  sage_map: huntKind(
+    "sage_map",
+    "현자의 지도",
+    "여백마다 깨달음이 적혀 있다. 싸움 하나하나가 수련이 되는 곳으로 이끈다.",
+    { runs: 30, dropPct: 0.04, expMult: 5 },
+  ),
+  hunter_map: huntKind(
+    "hunter_map",
+    "사냥꾼의 지도",
+    "노련한 사냥꾼의 표식이 가득하다. 좋은 물건을 품은 사냥감의 굴로 안내한다.",
+    { runs: 30, dropPct: 0.04, equipDropMult: 5, enhanceStoneMult: 3 },
+  ),
+  relic_map: huntKind(
+    "relic_map",
+    "빛바랜 보물 지도",
+    "거의 지워진 옛 지도. 전설이 잠든 자리를 가리키고 있다.",
+    { runs: 10, dropPct: 0.01, equipDropMult: 2, uniqueDropMult: 3 },
+  ),
+  // === 유틸맵 — 숨겨진 장소로 이동(사냥 입장 불가) ===
+  secret_shop_map: utilityKind(
+    "secret_shop_map",
+    "비밀 상점의 지도",
+    "뒷골목 상인의 약도. 아무에게나 팔지 않는 물건을 살 수 있다 (품목당 1회 구매).",
+    { uses: 5, dropPct: 0.02 },
+  ),
+  rename_map: utilityKind(
+    "rename_map",
+    "개명의 신전 지도",
+    "이름을 갈아입는 옛 신전으로 가는 길. 새 이름으로 다시 태어난다 (1회).",
+    { uses: 1, dropPct: 0.005 },
+  ),
+  portrait_map: utilityKind(
+    "portrait_map",
+    "화공의 공방 지도",
+    "은둔한 화공의 공방으로 가는 길. 초상화를 새로 그려준다 (1회).",
+    { uses: 1, dropPct: 0.005 },
+  ),
 };
 
 export const RARE_MAP_KIND_IDS = Object.keys(
@@ -49,11 +157,13 @@ export const RARE_MAP_CAP = 5;
 export type RareMapInstance = {
   iid: string;
   kind: RareMapKindId;
-  /** 발견된 깊이 — 입장 시 이 깊이로만 사냥 가능. */
+  /** 발견된 깊이 — hunt 계열 입장 시 이 깊이로만 사냥 가능(utility 는 무관·기록용). */
   depth: number;
   runsLeft: number;
   foundAt: number;
   expiresAt: number;
+  /** 비밀 상점 — 이 지도로 이미 구매한 품목 id(품목당 1회 제한). hunt 계열은 미사용. */
+  bought?: string[];
 };
 
 export function genRareMapIid(rand: () => number = Math.random): string {
@@ -102,6 +212,9 @@ export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
     }
     if (m.runsLeft <= 0) continue; // 소진
     if (m.expiresAt <= now) continue; // 만료
+    const bought = Array.isArray(m.bought)
+      ? m.bought.filter((b): b is string => typeof b === "string")
+      : undefined;
     out.push({
       iid: m.iid,
       kind: m.kind as RareMapKindId,
@@ -109,13 +222,14 @@ export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
       runsLeft: Math.floor(m.runsLeft),
       foundAt: m.foundAt,
       expiresAt: m.expiresAt,
+      ...(bought && bought.length > 0 ? { bought } : {}),
     });
   }
   return out;
 }
 
-// 사냥 승리당 드랍 롤 — 종류별 독립 확률(다종 전제). 둘 이상 동시 당첨이면 앞 종류 우선
-// (현재 1종이라 무의미하지만 결정론 유지).
+// 사냥 승리당 드랍 롤 — 종류별 독립 확률(다종). 둘 이상 동시 당첨이면 앞 종류 우선
+// (카탈로그 순서 = 흔한 것 먼저라 희귀맵이 묻힐 확률은 무시 가능 수준).
 export function rollRareMapDrop(
   rand: () => number = Math.random,
 ): RareMapKindId | null {

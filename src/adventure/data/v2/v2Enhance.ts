@@ -154,10 +154,12 @@ export const ENHANCE_STONE_DROP_PCT: Record<EnhanceStoneId, number> = {
 // hunt 승리 보상 롤 — 색별 독립 굴림, 통과 시 1개. rng() ∈ [0,1).
 export function rollEnhanceStoneDrops(
   rng: () => number,
+  // 확률 배수 — 레어맵(사냥꾼의 지도) 등 드랍 부스트용. 기본 1 = 무변경.
+  chanceMult: number = 1,
 ): Record<string, number> {
   const out: Record<string, number> = {};
   for (const stone of ["red", "blue"] as const) {
-    if (rng() * 100 < ENHANCE_STONE_DROP_PCT[stone]) {
+    if (rng() * 100 < ENHANCE_STONE_DROP_PCT[stone] * chanceMult) {
       out[ENHANCE_STONE_MATERIAL_ID[stone]] = 1;
     }
   }

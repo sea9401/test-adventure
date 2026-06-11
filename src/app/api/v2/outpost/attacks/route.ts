@@ -1,0 +1,131 @@
+import { desc, eq, inArray } from "drizzle-orm";
+import { db } from "@/db";
+import {
+  guilds,
+  outpostClaimAttempts,
+  outpostOccupations,
+} from "@/db/schema";
+import { ensureUser } from "@/lib/server/ensureUser";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { resolveUserDisplayName } from "@/lib/server/serverFeed";
+import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+
+// GET /api/v2/outpost/attacks?outpostId=...
+//
+// 보유 거점의 최근 공격 기록 — outpost_claim_attempts 를 수비측 시점으로 노출.
+// 점령자 본인 또는 점령 길드 멤버만 열람 가능 (intruders GET 과 같은 게이트).
+//
+// 응답: { ok: true, attacks: Array<{id, attackerName, attackerGuildName, npc,
+//         attackerWon, turns, at}> }
+//   - npc=true 행은 NPC 정기 공격 — 원본 won 의미가 "점령자(수비) 승리"라
+//     attackerWon 으로 정규화해서 내려보낸다 (클라가 의미 분기 안 하게).
+//   - 권한 없음(점령 안 함 / 다른 길드) → 403
+//   - outpost 모름 → 400
+
+const ATTACK_LOG_LIMIT = 20;
+
+type AttackRow = {
+  id: number;
+  attackerName: string | null;
+  attackerGuildName: string | null;
+  npc: boolean;
+  attackerWon: boolean;
+  turns: number;
+  at: string;
+};
+
+export async function GET(req: Request) {
+  const userId = await ensureUser();
+  if (!userId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(req.url);
+  const outpostId = url.searchParams.get("outpostId");
+  if (!outpostId || !OUTPOSTS.some((o) => o.id === outpostId)) {
+    return Response.json({ ok: false, error: "bad_outpost" }, { status: 400 });
+  }
+
+  // 권한 검증 — 점령 변경 직후 stale 권한 race 방지를 위해 occ 조회와 같은 tx.
+  const gate = await db.transaction(async (tx) => {
+    const occ = (
+      await tx
+        .select({
+          ownerUserId: outpostOccupations.occupiedByUserId,
+          guildId: outpostOccupations.occupiedByGuildId,
+        })
+        .from(outpostOccupations)
+        .where(eq(outpostOccupations.outpostId, outpostId))
+        .limit(1)
+    )[0];
+    if (!occ || occ.ownerUserId == null) {
+      return { error: "not_occupied" as const };
+    }
+    if (occ.ownerUserId === userId) return { ok: true as const };
+    const viewerGuildId = await getGuildId(tx, userId);
+    if (occ.guildId != null && viewerGuildId === occ.guildId) {
+      return { ok: true as const };
+    }
+    return { error: "not_owner_guild" as const };
+  });
+  if ("error" in gate) {
+    return Response.json({ ok: false, error: gate.error }, { status: 403 });
+  }
+
+  const rows = await db
+    .select()
+    .from(outpostClaimAttempts)
+    .where(eq(outpostClaimAttempts.outpostId, outpostId))
+    .orderBy(desc(outpostClaimAttempts.id))
+    .limit(ATTACK_LOG_LIMIT);
+
+  // 라벨 일괄 해석 — 길드명 inArray 1회 + 공격자 닉네임(중복 제거) 개별 해석.
+  // 행 수가 ATTACK_LOG_LIMIT 캡이라 N+1 비용 작음 (war/overview 와 같은 패턴).
+  const guildIds = [
+    ...new Set(
+      rows
+        .map((r) => r.attackerGuildId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
+  const guildNameById = new Map<number, string>();
+  if (guildIds.length > 0) {
+    const gs = await db
+      .select({ id: guilds.id, name: guilds.name })
+      .from(guilds)
+      .where(inArray(guilds.id, guildIds));
+    for (const g of gs) guildNameById.set(g.id, g.name);
+  }
+  const attackerIds = [
+    ...new Set(
+      rows
+        .map((r) => r.attackerUserId)
+        .filter((id): id is string => id != null),
+    ),
+  ];
+  const nameByUserId = new Map<string, string>();
+  for (const id of attackerIds) {
+    nameByUserId.set(id, await resolveUserDisplayName(id));
+  }
+
+  const attacks: AttackRow[] = rows.map((r) => {
+    const npc = r.attackerUserId == null;
+    return {
+      id: r.id,
+      // NPC 정기 공격 행은 defenderName 에 공격해 온 NPC 챔피언 이름이 들어있다.
+      attackerName: npc
+        ? r.defenderName
+        : (nameByUserId.get(r.attackerUserId!) ?? "모험가"),
+      attackerGuildName:
+        r.attackerGuildId != null
+          ? (guildNameById.get(r.attackerGuildId) ?? null)
+          : null,
+      npc,
+      attackerWon: npc ? !r.won : r.won,
+      turns: r.turns,
+      at: r.createdAt.toISOString(),
+    };
+  });
+
+  return Response.json({ ok: true, attacks });
+}

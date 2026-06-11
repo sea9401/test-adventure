@@ -137,8 +137,9 @@ export async function GET(_req: Request, ctx: Ctx) {
   const equippedIids = new Set(Object.values(equipped));
   const ownedPublic = owned
     .filter((o) => equippedIids.has(o.iid))
-    // 카드 표시에 필요한 것만(iid·id·굴림) — locked(즐겨찾기) 등 사적 플래그 제거.
-    .map(({ iid, id, roll }) => ({ iid, id, roll }));
+    // 카드 표시에 필요한 것만(iid·id·굴림·강화) — locked(즐겨찾기) 등 사적 플래그 제거.
+    // 강화(+N)는 뽐내기 목적 그 자체라 공개(2026-06-12 사용자).
+    .map(({ iid, id, roll, enhance }) => ({ iid, id, roll, enhance }));
 
   return Response.json({
     ok: true,

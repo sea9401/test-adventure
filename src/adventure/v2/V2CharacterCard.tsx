@@ -29,6 +29,7 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -131,6 +132,7 @@ export function V2CharacterCard({
   const [selected, setSelected] = useState<{
     item: V2Equipment;
     roll?: V2EquipRoll;
+    enhance?: V2EnhanceState;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -210,6 +212,11 @@ export function V2CharacterCard({
                   }`}
                 >
                   {item?.name ?? "—"}
+                  {inst?.enhance && inst.enhance.level > 0 ? (
+                    <span className="ml-0.5 font-semibold text-amber-500">
+                      +{inst.enhance.level}
+                    </span>
+                  ) : null}
                 </div>
               </>
             );
@@ -222,6 +229,7 @@ export function V2CharacterCard({
                   setSelected({
                     item,
                     roll: inst?.roll,
+                    enhance: inst?.enhance,
                     anchor: anchorOf(e.currentTarget),
                   })
                 }
@@ -241,6 +249,7 @@ export function V2CharacterCard({
         <V2ItemCard
           item={selected.item}
           roll={selected.roll}
+          enhance={selected.enhance}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}
           equippedIds={equippedItemIds}

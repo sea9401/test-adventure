@@ -7,9 +7,10 @@ import { inboxValues } from "@/lib/server/inboxPayload";
 import {
   genEquipIid,
   parseEquipmentSave,
+  parseEquipRoll,
   type V2EquipmentId,
-  type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
+import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
 import {
   resolvePlayerName,
   saleProceeds,
@@ -79,10 +80,20 @@ export async function POST(req: Request) {
         {},
       );
       const { owned, equipped } = parseEquipmentSave(equipSave);
-      const roll = (listing.instancePayload as V2EquipRoll | null) ?? undefined;
+      // payload = 굴림(+강화) — 옛 행은 raw roll. 방어 파스로 양형 흡수(강화 승계).
+      const payloadRaw = listing.instancePayload as
+        | (Record<string, unknown> & { enhance?: unknown })
+        | null;
+      const roll = parseEquipRoll(payloadRaw ?? undefined);
+      const enhance = parseEnhance(payloadRaw?.enhance);
       const nextOwned = [
         ...owned,
-        { iid: genEquipIid(), id: listing.itemId as V2EquipmentId, roll },
+        {
+          iid: genEquipIid(),
+          id: listing.itemId as V2EquipmentId,
+          ...(roll ? { roll } : {}),
+          ...(enhance ? { enhance } : {}),
+        },
       ];
       await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });
       await upsertSave(tx, userId, "character.v2", nextChar);

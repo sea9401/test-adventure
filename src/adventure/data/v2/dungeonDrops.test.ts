@@ -2,18 +2,23 @@ import { describe, expect, it } from "vitest";
 import {
   FLOOR_DROP_POOLS,
   V2_MATERIALS,
+  V2_MATERIAL_SELL_PRICE,
   mergeDrops,
   rollDrops,
   type V2MaterialId,
 } from "./dungeonDrops";
 
-// 2026-06-08: 재료 콘텐츠 제거 — 등재 재료 0종, 전 층 드랍 풀 빈 상태. 순수 헬퍼(rollDrops/
-// mergeDrops)는 보존하므로 빈 카탈로그에서의 안전 동작을 검증한다. mergeDrops 는 카탈로그
-// 비의존(임의 키 합산)이라 합성 키로 계약을 그대로 검증한다.
+// 2026-06-08: 재료 콘텐츠 제거 — 전 층 드랍 풀 빈 상태(rollDrops 게이트 유지).
+// 2026-06-11: 강화석 2종 입주(장비 강화 PR-2) — 카탈로그 등재만으로 인벤/거래소/NPC 판매가
+// 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
-describe("재료 카탈로그 + 드랍 풀 (제거됨)", () => {
-  it("등재 재료 0종", () => {
-    expect(Object.keys(V2_MATERIALS)).toHaveLength(0);
+describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
+  it("등재 재료 = 강화석 2종 (이름·판매가 등록)", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(2);
+    for (const id of Object.keys(V2_MATERIALS)) {
+      expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
+      expect(V2_MATERIAL_SELL_PRICE[id]).toBeGreaterThan(0);
+    }
   });
 
   it("전 층(1~8) 드랍 풀이 빈 상태", () => {

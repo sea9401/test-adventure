@@ -60,6 +60,7 @@ import {
   canHuntWithHp,
   parseHpRegenSince,
 } from "@/adventure/v2/hpRegen";
+import { rollEnhanceStoneDrops } from "@/adventure/data/v2/v2Enhance";
 import {
   mergeDrops,
   rollDrops,
@@ -557,6 +558,13 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   // 보스는 재료 드랍 없음(전용 유니크만) — 일반 사냥만 재료 풀 굴림.
   const drops: DropResult =
     won && !isBossHunt ? rollDrops(dropFloor, Math.random, 1) : {};
+  // 강화석 — 재료 보류 플래그(V2_MATERIALS_ENABLED)와 무관한 독립 드랍. 전 깊이 공통
+  // (초보자도 줍고 거래소에서 환금), 보스전 포함. 다이얼 = v2Enhance ENHANCE_STONE_DROP_PCT.
+  if (won) {
+    for (const [id, n] of Object.entries(rollEnhanceStoneDrops(Math.random))) {
+      drops[id] = (drops[id] ?? 0) + n;
+    }
+  }
   const nextMaterials = mergeDrops(charSave.materials, drops);
 
   // 장비 드랍 — 승리 시 1회 굴림. 정규 장비는 중복 드랍 허용(보유분도 새 굴림으로 재드랍 =

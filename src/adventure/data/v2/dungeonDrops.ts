@@ -16,6 +16,7 @@
 //    가 min(요건, 총량) 클램프라 전직 요건 절대값(3·5개)은 불변(비파괴). docs 참고.
 
 import type { DungeonFloorId } from "./types";
+import { ENHANCE_STONE_MATERIAL_ID, ENHANCE_STONES } from "./v2Enhance";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -28,8 +29,10 @@ export const V2_MATERIALS_ENABLED = false;
 // === 재료 정의 ======================================================
 
 // 2026-06-08: 재료 시스템 콘텐츠 제거 — 대장간 제작을 들어내며 들판 재료 5종도 게임에서 뺐다.
-// 카탈로그를 빈 채로 둔다(드랍·제작·도감 전부 빈 상태). 타입(string)·헬퍼·드랍 인프라는 보존 —
-// 재료를 다시 도입하려면 V2_MATERIALS / 판매가 / FLOOR_DROP_POOLS 에 데이터만 다시 채우면 된다.
+// 2026-06-11: 강화석 2종 입주(장비 강화 PR-2, docs/v2-equipment-enhance-plan.md) —
+//   카탈로그 등재만으로 인벤 재료 탭·거래소 재료 거래·NPC 판매가 살아난다. 드랍은
+//   FLOOR_DROP_POOLS(플래그 게이트)가 아니라 hunt 라우트의 독립 롤(v2Enhance) —
+//   V2_MATERIALS_ENABLED 는 false 유지(제작·전직 도감 요건은 계속 잠금).
 // 기존 세이브의 재료 보유분은 mergeDrops 비파괴 원칙으로 그대로 남는다(보유/판매 가능).
 export type V2MaterialId = string;
 
@@ -39,10 +42,26 @@ export type V2Material = {
   description: string;
 };
 
-export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {};
+export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
+  [ENHANCE_STONE_MATERIAL_ID.red]: {
+    id: ENHANCE_STONE_MATERIAL_ID.red,
+    name: ENHANCE_STONES.red.name,
+    description:
+      "맹렬한 기운이 깃든 강화석. 강화 성공 시 위력을 크게(+3%p) 올리지만 실패하기 쉽다.",
+  },
+  [ENHANCE_STONE_MATERIAL_ID.blue]: {
+    id: ENHANCE_STONE_MATERIAL_ID.blue,
+    name: ENHANCE_STONES.blue.name,
+    description:
+      "단단한 기운이 깃든 강화석. 강화 성공 시 위력을 안정적으로(+2%p) 올린다.",
+  },
+};
 
-// 재료 판매가 (개당, 골드). 등재 재료가 없어 빈 채로 둔다(재도입 시 재료마다 값 추가).
-export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {};
+// 재료 판매가 (개당, 골드) — NPC 바닥가(거래소 시세가 그 위에 형성). 초보 환금 루프.
+export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
+  [ENHANCE_STONE_MATERIAL_ID.red]: 300,
+  [ENHANCE_STONE_MATERIAL_ID.blue]: 100,
+};
 
 // === floor 별 드랍 풀 ===============================================
 // chance = 0~1, 굴림 통과 시 [amountMin, amountMax] 사이 정수 개수 획득.

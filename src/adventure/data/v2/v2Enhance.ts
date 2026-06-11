@@ -75,6 +75,34 @@ export function parseEnhance(raw: unknown): V2EnhanceState | undefined {
   return { level, bonusPct };
 }
 
+// ── 강화석 재료·드랍 (PR-2) ─────────────────────────────────────────────────
+// 강화석은 V2_MATERIALS 카탈로그(dungeonDrops)에 등재된 재료 — 인벤 재료 탭·거래소
+// 재료 거래·NPC 판매가 그대로 동작한다. 드랍은 V2_MATERIALS_ENABLED(제작 보류 플래그)와
+// 무관한 hunt 라우트의 독립 롤 — 전 깊이 공통(초보자도 줍고 거래소에서 환금).
+export const ENHANCE_STONE_MATERIAL_ID: Record<EnhanceStoneId, string> = {
+  red: "v2_red_enhance_stone",
+  blue: "v2_blue_enhance_stone",
+};
+
+// 승리당 드랍 확률(%) — 붉은이 더 귀함(고위험·고효율 프리미엄의 수급 근거).
+export const ENHANCE_STONE_DROP_PCT: Record<EnhanceStoneId, number> = {
+  red: 0.6,
+  blue: 1.5,
+};
+
+// hunt 승리 보상 롤 — 색별 독립 굴림, 통과 시 1개. rng() ∈ [0,1).
+export function rollEnhanceStoneDrops(
+  rng: () => number,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const stone of ["red", "blue"] as const) {
+    if (rng() * 100 < ENHANCE_STONE_DROP_PCT[stone]) {
+      out[ENHANCE_STONE_MATERIAL_ID[stone]] = 1;
+    }
+  }
+  return out;
+}
+
 // 강화 반영 위력 — 서버 derive 와 클라 카드(인벤토리/거래소/강화 UI)의 단일 출처.
 export function enhancedPower(
   basePower: number,

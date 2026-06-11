@@ -60,7 +60,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
-import { V2_PROFICIENCY_PER_KILL } from "@/adventure/data/v2/proficiency";
+import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 function seedStrongWarrior() {
@@ -126,7 +126,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     // 강한 전사 + 우호 RNG → 확정 승리.
     expect(json.result.won).toBe(true);
     expect(json.result.expGained).toBeGreaterThan(0);
-    expect(json.result.proficiencyGained).toBe(V2_PROFICIENCY_PER_KILL);
+    expect(json.result.proficiencyGained).toBe(proficiencyPerKillAtDepth(1));
 
     // 세이브 권위 반영 확인.
     const char = store.get("character.v2") as { exp: number; stamina: { current: number } };
@@ -135,7 +135,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     const prof = store.get("proficiency.v2") as {
       groups: { warrior: { points: number } };
     };
-    expect(prof.groups.warrior.points).toBe(V2_PROFICIENCY_PER_KILL);
+    expect(prof.groups.warrior.points).toBe(proficiencyPerKillAtDepth(1));
     const log = store.get("adventure-log.v2") as {
       monsters: Record<string, { kills?: number }>;
     };
@@ -163,7 +163,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(json.batch.wins).toBe(5);
     expect(json.batch.losses).toBe(0);
     expect(json.batch.stoppedReason).toBeNull();
-    expect(json.batch.totalProficiency).toBe(5 * V2_PROFICIENCY_PER_KILL);
+    expect(json.batch.totalProficiency).toBe(5 * proficiencyPerKillAtDepth(1));
 
     // 판간 이월 — 매 판 stamina 1 차감을 다음 판이 재read. 5판 후 5000-5=4995.
     const char = store.get("character.v2") as {
@@ -178,7 +178,7 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     const prof = store.get("proficiency.v2") as {
       groups: { warrior: { points: number } };
     };
-    expect(prof.groups.warrior.points).toBe(5 * V2_PROFICIENCY_PER_KILL);
+    expect(prof.groups.warrior.points).toBe(5 * proficiencyPerKillAtDepth(1));
   });
 
   it("거점(미점령) 사냥 — NPC 세금 차감 + 수취 라벨 '거점 금고'", async () => {

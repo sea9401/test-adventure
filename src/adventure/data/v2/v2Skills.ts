@@ -29,8 +29,9 @@ export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
 // 공용(1차 직업) 스킬 = COMMON, 전문화 스킬 = SPEC(전문화색이 짙어 더 비싸다). 스타터(자동 보유)는
-// 학습 경로를 타지 않는다. 킬당 +V2_PROFICIENCY_PER_KILL(=2) 포인트 기준 → 공용 750킬/종,
-// 전문화 2500킬/종. learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+// 학습 경로를 타지 않는다. 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
+// 들판 기준 공용 750킬/종·전문화 2500킬/종(심층일수록 단축). learn-skill 라우트(차감) +
+// state 라우트(UI 가격 표기)가 참조.
 export const V2_SKILL_LEARN_COST_COMMON = 1500; // 공용/1차 직업 스킬.
 export const V2_SKILL_LEARN_COST_SPEC = 5000; // 전문화 스킬.
 export function v2SkillLearnCost(skillId: V2SkillId): number {

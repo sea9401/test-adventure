@@ -5,7 +5,8 @@
 //   groups: { [tier1classId]: { points, cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - points = 숙달 포인트(사용가능 잔액). 킬당 +V2_PROFICIENCY_PER_KILL, 수행·스킬학습에 소모.
+//   - points = 숙달 포인트(사용가능 잔액). 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
+//     수행·스킬학습에 소모.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 — floor·전직은 cumLevel 이 담당하므로 누적
 //     추적 불필요. 단일 잔액으로 합침. 옛 세이브는 parse 가 earned−spent 로 마이그.)
 //   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력).
@@ -13,6 +14,7 @@
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { tier1ClassOf, parseV2Class } from "./classes";
+import { themeIndexForDepth } from "./dungeon";
 
 export type V2ProficiencyGroup = {
   // 숙달 포인트 — 사용가능 잔액(킬당 적립, 수행·스킬학습에 소모). 옛 earned/spent 통합(2026-06).
@@ -30,7 +32,15 @@ export type V2ProficiencyState = {
 };
 
 // §10 다이얼.
-export const V2_PROFICIENCY_PER_KILL = 2;
+// 킬당 숙달 포인트 — 깊이 밴드 비례(2026-06-12 성장 페이스업, 옛 전구간 고정 2).
+// 테마 2개당 +1: 들판·깊은 산 2 / 마른 협곡·얼음 호수 3 / 심층 동굴·잊힌 성소 4 /
+// 리자드 늪지·짐승의 소굴 5. 마지막 테마가 무한(인덱스 클램프)이라 5 가 천장.
+export const V2_PROFICIENCY_PER_KILL_BASE = 2;
+export function proficiencyPerKillAtDepth(depth: number): number {
+  return (
+    V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 2)
+  );
+}
 // cap 은 floor 상대(저점 위 성장 여유). 유효 cap = floor + V2_CAP_HEADROOM_BASE + 수행이득.
 // fresh(floor=base15) → 15+45 = 60(옛 시작 cap 과 동일). floor 가 높아져도 cap 이 항상 그 위라
 // floor>cap 핀(수행 시 스탯 즉시 점프) 이 생기지 않는다 — 수행은 "여유(헤드룸)"만 늘리고

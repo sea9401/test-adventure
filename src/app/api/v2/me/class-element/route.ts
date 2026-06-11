@@ -93,6 +93,19 @@ export async function POST(req: Request) {
 
     const curClass = parseV2Class(charSave.class);
     const curElement = parseV2Element(charSave.element);
+
+    // 속성 변경 비활성(2026-06-12, 사용자 결정) — 최초 선택(현재 neutral)만 허용.
+    // 변경 수단은 추후 별도 시스템으로 재도입 예정. respec.ts 의 element 비용 경로는
+    // 이 게이트 때문에 현재 도달 불가(헬퍼·테스트는 보존).
+    if (curElement !== "neutral" && nextElement !== curElement) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "element_change_disabled" as const,
+        },
+      };
+    }
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
     const lastRespecAt =

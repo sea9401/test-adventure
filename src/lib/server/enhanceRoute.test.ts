@@ -75,6 +75,29 @@ describe("POST /api/v2/me/enhance", () => {
     vi.restoreAllMocks();
   });
 
+  it("골드만(stone 생략) 성공 — +1%p·돌 무차감·골드만 차감", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0); // 항상 성공
+    const res = await POST(req({ iid: "w1" }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      success: boolean;
+      enhance: { level: number; bonusPct: number };
+      stoneCost: number;
+    };
+    expect(json.success).toBe(true);
+    expect(json.enhance).toEqual({ level: 1, bonusPct: 1 });
+    expect(json.stoneCost).toBe(0);
+    const char = store.get("character.v2") as CharSave;
+    expect(char.materials[RED]).toBe(50); // 돌 무차감
+    expect(char.materials[BLUE]).toBe(50);
+  });
+
+  it("골드만 + 먹이 — 거부(면제할 돌이 없어 개체 보호)", async () => {
+    const res = await POST(req({ iid: "w1", stone: "none", feedIid: "w2" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("bad_feed");
+  });
+
   it("푸른 돌 성공(+0→+1, +2%p) — 돌 1·골드 차감", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0); // 항상 성공
     const res = await POST(req({ iid: "w1", stone: "blue" }));

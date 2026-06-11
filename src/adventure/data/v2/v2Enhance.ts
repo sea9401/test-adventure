@@ -12,6 +12,8 @@
 export const ENHANCE_MAX_LEVEL = 10;
 
 export type EnhanceStoneId = "red" | "blue";
+// 강화 방식 — 돌은 선택 부스터(2026-06-11 사용자: 기본은 골드만으로 가능해야).
+export type EnhanceChoice = EnhanceStoneId | "none";
 
 export const ENHANCE_STONES: Record<
   EnhanceStoneId,
@@ -20,6 +22,17 @@ export const ENHANCE_STONES: Record<
   red: { name: "붉은 강화석", bonusPct: 3, successDeltaPct: -10 },
   blue: { name: "푸른 강화석", bonusPct: 2, successDeltaPct: 0 },
 };
+
+// 골드만(무돌) 기본 강화 — 소폭 보너스 + 성공률 페널티. 돌이 희소 프리미엄을 유지하면서도
+// 초보/무돌 유저가 강화 자체는 굴릴 수 있게.
+export const ENHANCE_GOLD_ONLY = { bonusPct: 1, successDeltaPct: -15 };
+
+export function enhanceChoiceProfile(choice: EnhanceChoice): {
+  bonusPct: number;
+  successDeltaPct: number;
+} {
+  return choice === "none" ? ENHANCE_GOLD_ONLY : ENHANCE_STONES[choice];
+}
 
 // n→n+1 성공률(%) — 푸른 돌 기준. 붉은 돌은 successDeltaPct 적용(최저 MIN).
 // 2026-06-11 2차 하향(사용자): 초반 구간도 100%를 없애 첫 강부터 긴장 —
@@ -44,11 +57,11 @@ export const ENHANCE_UNIQUE_COST_MULT = 2;
 
 export function enhanceSuccessPct(
   level: number,
-  stone: EnhanceStoneId,
+  choice: EnhanceChoice,
 ): number {
   const base =
     ENHANCE_SUCCESS_PCT[Math.min(level, ENHANCE_SUCCESS_PCT.length - 1)] ?? 0;
-  const adjusted = base + ENHANCE_STONES[stone].successDeltaPct;
+  const adjusted = base + enhanceChoiceProfile(choice).successDeltaPct;
   return Math.max(ENHANCE_SUCCESS_MIN_PCT, Math.min(100, adjusted));
 }
 

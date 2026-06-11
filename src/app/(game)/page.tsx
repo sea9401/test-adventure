@@ -9,7 +9,7 @@ export default function AdventurePage() {
   return (
     <V2AdventureHome
       currentOutpost={currentOutpost}
-      onEnterOutpost={enterOutpost}
+      onEnterOutpost={(o) => enterOutpost(o, { from: "adventure" })}
     />
   );
 }

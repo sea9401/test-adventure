@@ -11,6 +11,8 @@ export default function BattlePage() {
       onAction={(a: BattleAction) => {
         if (a.kind === "open-dungeons") router.push("/battle/dungeon");
         else if (a.kind === "open-war") router.push("/battle/war");
+        else if (a.kind === "open-subjugation")
+          router.push("/battle/subjugation");
         else if (a.kind === "open-arena") router.push("/battle/arena");
         else if (a.kind === "open-sparring") router.push("/battle/sparring");
       }}

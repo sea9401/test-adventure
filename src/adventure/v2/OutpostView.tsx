@@ -10,7 +10,6 @@ import {
   siegeWinsToFall,
 } from "@/adventure/data/v2/outpostSiege";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
-import { IntruderPanel } from "./IntruderPanel";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 
@@ -143,8 +142,8 @@ export function OutpostView({
     !!occupation &&
     !!viewerUserId &&
     occupation.occupiedByUserId === viewerUserId;
-  // 점령 길드 멤버 — 침입자 토벌 패널 가시 조건. user 본인 점령이 아니어도
-  // 같은 길드 멤버라면 토벌 가능.
+  // 점령 길드 멤버 — 공격 기록 패널 가시 조건. user 본인 점령이 아니어도
+  // 같은 길드 멤버라면 열람 가능. (침입자 토벌은 전투 탭 > 토벌로 이관.)
   const isGuildMember =
     !!occupation &&
     occupation.occupiedByGuildId != null &&
@@ -363,7 +362,7 @@ export function OutpostView({
           />
         )}
 
-        {isGuildMember && <IntruderPanel outpostId={outpost.id} />}
+        {/* 침입자 토벌은 전투 탭 > 토벌(V2SubjugationView)로 이관. */}
 
         {/* 보유 거점 공격 기록 — 점령자 본인(솔로 포함) 또는 점령 길드 멤버만.
             서버(attacks GET)도 같은 게이트로 한 번 더 차단. */}

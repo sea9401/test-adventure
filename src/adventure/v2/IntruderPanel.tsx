@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 
 // 점령 길드 전용 — 거점에 침입한 다른 길드 캐릭 목록 + 토벌 버튼.
-// 점령 길드 멤버일 때만 OutpostView 가 렌더.
+// 전투 탭 > 토벌(V2SubjugationView)이 내 길드 보유 거점마다 렌더.
+// 서버(intruders/eject)도 점령 길드 멤버만 허용 — UI 는 표시 게이트일 뿐.
 
 type Intruder = {
   userId: string;
@@ -36,7 +37,13 @@ function fmtElapsed(huntedAt: number, now: number): string {
   return `${min}분 전`;
 }
 
-export function IntruderPanel({ outpostId }: { outpostId: string }) {
+export function IntruderPanel({
+  outpostId,
+  title = "현재 침입자",
+}: {
+  outpostId: string;
+  title?: string;
+}) {
   const [intruders, setIntruders] = useState<Intruder[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -92,7 +99,7 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
     <Card padding="md">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          현재 침입자
+          {title}
         </div>
         <button
           type="button"

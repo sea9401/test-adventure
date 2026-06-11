@@ -46,10 +46,19 @@ function fmtElapsed(huntedAt: number, now: number): string {
 export function IntruderPanel({
   outpostId,
   title = "현재 침입자",
+  collapsible = false,
+  defaultOpen = true,
+  countHint,
 }: {
   outpostId: string;
   title?: string;
+  // 토벌 화면 — 거점별 패널 접기/펼치기. 접힌 동안엔 침입자 목록 fetch 도 안 한다.
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  // 접힌 헤더에 보여줄 침입자 수 힌트 (war/overview 스냅샷 — 펼치면 실데이터로 대체).
+  countHint?: number;
 }) {
+  const [open, setOpen] = useState(!collapsible || defaultOpen);
   const [intruders, setIntruders] = useState<Intruder[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -78,8 +87,9 @@ export function IntruderPanel({
   }, [outpostId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    // 접힌 패널은 fetch 보류 — 펼칠 때마다 fresh 조회 (TTL 10분짜리 데이터라 재조회가 맞다).
+    if (open) refresh();
+  }, [refresh, open]);
 
   async function eject(targetUserId: string) {
     setBusyUserId(targetUserId);
@@ -103,21 +113,41 @@ export function IntruderPanel({
 
   return (
     <Card padding="md">
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          {title}
-        </div>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={loading}
-          className="text-xs text-zinc-500 hover:text-zinc-700 disabled:opacity-50 dark:hover:text-zinc-300"
-        >
-          새로고침
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-zinc-700 dark:text-zinc-200"
+          >
+            <span className="truncate">{title}</span>
+            {!open && (countHint ?? 0) > 0 && (
+              <span className="shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                침입자 {countHint}
+              </span>
+            )}
+            <span className="ml-auto shrink-0 text-xs text-zinc-500">
+              {open ? "▼" : "▶"}
+            </span>
+          </button>
+        ) : (
+          <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+            {title}
+          </div>
+        )}
+        {open && (
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading}
+            className="shrink-0 text-xs text-zinc-500 hover:text-zinc-700 disabled:opacity-50 dark:hover:text-zinc-300"
+          >
+            새로고침
+          </button>
+        )}
       </div>
 
-      {loading && intruders.length === 0 ? (
+      {!open ? null : loading && intruders.length === 0 ? (
         <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">불러오는 중…</div>
       ) : intruders.length === 0 ? (
         <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
@@ -151,7 +181,7 @@ export function IntruderPanel({
         </ul>
       )}
 
-      {lastResult && (
+      {open && lastResult && (
         <div
           className={`mt-3 rounded-md border p-2 text-xs ${
             lastResult.ok && lastResult.won
@@ -185,7 +215,7 @@ export function IntruderPanel({
       )}
 
       {/* 토벌 전투 리플레이 — 사냥/공격 기록과 동일한 BattleScene. 토벌자(나) 시점. */}
-      {lastResult?.ok && lastResult.replay && (
+      {open && lastResult?.ok && lastResult.replay && (
         <div className="mt-2">
           <ReplayBattleScene
             payload={lastResult.replay}

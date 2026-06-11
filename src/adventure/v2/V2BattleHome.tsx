@@ -3,6 +3,7 @@
 import {
   Barbell,
   CastleTurret,
+  Crosshair,
   Sword,
   Trophy,
 } from "@phosphor-icons/react";
@@ -14,6 +15,7 @@ import { EntryCard } from "@/components/ui/EntryCard";
 export type BattleAction =
   | { kind: "open-dungeons" }
   | { kind: "open-war" }
+  | { kind: "open-subjugation" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" };
 
@@ -45,6 +47,17 @@ export function V2BattleHome({
           }
           title="전쟁"
           onClick={() => onAction({ kind: "open-war" })}
+        />
+        <EntryCard
+          icon={
+            <Crosshair
+              size={28}
+              weight="duotone"
+              className="text-orange-500"
+            />
+          }
+          title="토벌"
+          onClick={() => onAction({ kind: "open-subjugation" })}
         />
         <EntryCard
           icon={

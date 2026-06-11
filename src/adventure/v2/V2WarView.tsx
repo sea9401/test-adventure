@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { CastleTurret, Coins, Flag, ShieldWarning } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
@@ -117,7 +118,7 @@ export function V2WarView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         <BackButton onClick={onBack} />
         <h1 className="text-lg font-bold">전쟁</h1>
         {mapSlot && (
@@ -131,7 +132,7 @@ export function V2WarView({
             ariaLabel="전쟁 탭"
           />
         )}
-      </header>
+      </HeaderPanel>
 
       {tab === "map" && mapSlot}
 
@@ -149,9 +150,11 @@ export function V2WarView({
           {/* 내 길드 거점 — 위협 먼저. 길드 소속 + 점령 거점 있을 때만 섹션 표시. */}
           {myGuild && myGuild.outposts.length > 0 && (
             <section className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
-                <ShieldWarning size={14} weight="duotone" />내 길드 거점
-              </div>
+              <HeaderPanel className="py-3">
+                <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  <ShieldWarning size={14} weight="duotone" />내 길드 거점
+                </div>
+              </HeaderPanel>
               {myGuild.outposts.map((o) => (
                 <Card key={o.outpostId} padding="sm">
                   <button
@@ -188,10 +191,12 @@ export function V2WarView({
 
           {/* 교전 중 거점 — 성벽 깎였거나 최근 공성 시도가 있는 곳. */}
           <section className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
-              <CastleTurret size={14} weight="duotone" />
-              교전 중인 거점
-            </div>
+            <HeaderPanel className="py-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <CastleTurret size={14} weight="duotone" />
+                교전 중인 거점
+              </div>
+            </HeaderPanel>
             {sieges.length === 0 && (
               <p className="rounded-md border border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800">
                 지금 교전 중인 거점이 없습니다
@@ -248,10 +253,12 @@ export function V2WarView({
           {/* 노다지 거점 — 금고 쌓인 미점령 거점(점령 시 자동 회수). */}
           {treasures.length > 0 && (
             <section className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
-                <Coins size={14} weight="duotone" />
-                노다지 거점
-              </div>
+              <HeaderPanel className="py-3">
+                <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  <Coins size={14} weight="duotone" />
+                  노다지 거점
+                </div>
+              </HeaderPanel>
               <Card padding="sm">
                 <ul className="space-y-1 text-xs">
                   {treasures.map((t) => (
@@ -281,10 +288,12 @@ export function V2WarView({
 
           {/* 최근 점령/함락. */}
           <section className="space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
-              <Flag size={14} weight="duotone" />
-              최근 점령
-            </div>
+            <HeaderPanel className="py-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <Flag size={14} weight="duotone" />
+                최근 점령
+              </div>
+            </HeaderPanel>
             {captures.length === 0 && (
               <p className="rounded-md border border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800">
                 최근 점령된 거점이 없습니다

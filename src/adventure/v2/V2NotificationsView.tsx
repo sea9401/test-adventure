@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Flag, ShieldWarning, Skull } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { formatRelative } from "@/lib/notifications";
@@ -128,13 +129,13 @@ export function V2NotificationsView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         <BackButton onClick={onBack} />
         <h1 className="flex items-center gap-2 text-lg font-bold">
           <Bell size={18} weight="duotone" />
           알림
         </h1>
-      </header>
+      </HeaderPanel>
 
       {items === null && (
         <p className="text-center text-sm text-zinc-500">불러오는 중…</p>

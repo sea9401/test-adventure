@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
@@ -310,7 +311,7 @@ export function V2DungeonFloorView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         <BackButton onClick={onBack} />
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-lg font-bold">
@@ -328,7 +329,7 @@ export function V2DungeonFloorView({
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           권장 전투력 {powerGate}
         </p>
-      </header>
+      </HeaderPanel>
 
       {isBoss ? (
         <Card padding="md">

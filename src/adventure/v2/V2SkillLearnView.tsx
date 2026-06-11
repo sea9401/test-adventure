@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import {
   V2_SKILLS,
   describeV2Skill,
@@ -133,7 +134,9 @@ export function V2SkillLearnView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="스킬" onBack={onBack} />
+      <HeaderPanel>
+        <SubViewHeader title="스킬" onBack={onBack} />
+      </HeaderPanel>
 
       {specState && specState.specs.length > 0 && (
         <V2SpecPanel spec={specState} onChanged={refresh} />

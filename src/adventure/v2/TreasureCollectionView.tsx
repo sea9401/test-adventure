@@ -1,6 +1,7 @@
 "use client";
 
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import {
   ANTIQUES,
   ANTIQUE_THEME_LABEL,
@@ -76,7 +77,7 @@ export function TreasureCollectionView({
 
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         <BackButton onClick={onBack} />
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -94,7 +95,7 @@ export function TreasureCollectionView({
             🪙 {coins.toLocaleString()} · 상점
           </button>
         </div>
-      </header>
+      </HeaderPanel>
 
       {loading ? (
         <p className="py-10 text-center text-sm text-zinc-400">불러오는 중…</p>

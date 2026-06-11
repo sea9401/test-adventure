@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
@@ -254,12 +255,14 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <BackButton onClick={onBack} />
+      <HeaderPanel className="space-y-2">
+        <BackButton onClick={onBack} />
 
-      <header className="flex items-center gap-3">
+        <header className="flex items-center gap-3">
         <Sword size={28} weight="duotone" className="text-amber-600 dark:text-amber-400" />
         <h1 className="text-xl font-bold">아레나</h1>
-      </header>
+        </header>
+      </HeaderPanel>
 
       {/* 탭 바 */}
       <nav className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">

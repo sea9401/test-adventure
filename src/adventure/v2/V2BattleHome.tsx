@@ -8,6 +8,7 @@ import {
   Trophy,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
 // 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/전황/아레나/허수아비 진입.
 // 지도는 마을 탭으로 이관(2026-06-11).
@@ -26,9 +27,9 @@ export function V2BattleHome({
 }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <h1 className="text-lg font-bold">전투</h1>
-      </header>
+      </HeaderPanel>
       <div className="space-y-2">
         <EntryCard
           icon={

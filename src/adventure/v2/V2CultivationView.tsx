@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_CULTIVATE_PROFILE,
@@ -160,7 +161,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="성장의 신전" onBack={onBack} />
+      <HeaderPanel>
+        <SubViewHeader title="성장의 신전" onBack={onBack} />
+      </HeaderPanel>
 
       <TabBar
         tabs={[

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CaretRight } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
@@ -202,9 +203,9 @@ export function V2GuildHome({
   if (!loading && !state?.guild) {
     return (
       <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-        <header>
+        <HeaderPanel>
           <h1 className="text-lg font-bold">길드</h1>
-        </header>
+        </HeaderPanel>
 
         {notice && <NoticeBanner notice={notice} />}
 
@@ -254,9 +255,9 @@ export function V2GuildHome({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <h1 className="text-lg font-bold">{state?.guild?.name ?? "길드"}</h1>
-      </header>
+      </HeaderPanel>
 
       <TabBar
         tabs={subTabs}

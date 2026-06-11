@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Hammer } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
 import { Pagination } from "@/components/ui/Pagination";
@@ -221,7 +222,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         <BackButton onClick={onBack} />
         <div className="flex items-baseline justify-between">
           <h1 className="flex items-center gap-2 text-lg font-bold">
@@ -233,7 +234,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
             <span className="text-sky-500">🔵 {stones.blue}</span>
           </div>
         </div>
-      </header>
+      </HeaderPanel>
 
       {/* 강화 패널 — 장비 선택 시 */}
       {selected && item && (

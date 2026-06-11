@@ -314,24 +314,34 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     );
                   })}
                 </div>
-                {/* 결과 확률 — 선택한 방식의 4결과 분포 */}
-                <div className="flex justify-between rounded-md bg-zinc-100 px-2 py-1 text-[11px] tabular-nums dark:bg-zinc-800/60">
-                  <span className="text-emerald-600 dark:text-emerald-400">
-                    성공 {outcomeRow[0]}%
-                  </span>
-                  <span className="text-zinc-500">유지 {outcomeRow[1]}%</span>
-                  <span className="text-amber-600 dark:text-amber-400">
-                    하락 {outcomeRow[2]}%
-                  </span>
-                  <span
-                    className={
-                      outcomeRow[3] > 0
-                        ? "font-semibold text-rose-600 dark:text-rose-400"
-                        : "text-zinc-400"
-                    }
-                  >
-                    파괴 {outcomeRow[3]}%
-                  </span>
+                {/* 결과 확률 — 누적 막대: 파트별 색 꽉 찬 칸 + 칸 내 중앙 라벨.
+                    좁은 칸은 %만(7%↑) 또는 생략(7% 미만 — 색으로만 표시). */}
+                <div className="flex h-6 overflow-hidden rounded-md text-[10px] font-semibold tabular-nums text-white">
+                  {[
+                    { label: "성공", pct: outcomeRow[0], cls: "bg-emerald-500" },
+                    {
+                      label: "유지",
+                      pct: outcomeRow[1],
+                      cls: "bg-zinc-400 dark:bg-zinc-600",
+                    },
+                    { label: "하락", pct: outcomeRow[2], cls: "bg-amber-500" },
+                    { label: "파괴", pct: outcomeRow[3], cls: "bg-rose-600" },
+                  ].map(({ label, pct, cls }) =>
+                    pct > 0 ? (
+                      <div
+                        key={label}
+                        style={{ width: `${pct}%` }}
+                        title={`${label} ${pct}%`}
+                        className={`flex items-center justify-center overflow-hidden whitespace-nowrap ${cls}`}
+                      >
+                        {pct >= 14
+                          ? `${label} ${pct}%`
+                          : pct >= 7
+                            ? `${pct}%`
+                            : ""}
+                      </div>
+                    ) : null,
+                  )}
                 </div>
                 {/* 먹이 — 동일 장비 소모로 강화석 면제 */}
                 {stone !== "none" && feedCandidates.length > 0 && (

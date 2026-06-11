@@ -89,7 +89,9 @@ type GameStateValue = {
   frontierDepth: number;
   setFrontierDepth: React.Dispatch<React.SetStateAction<number>>;
   // 네비게이션 부수효과 (거점 진입/이동 — visit-outpost POST + 라우팅)
-  enterOutpost: (outpost: Outpost) => void;
+  // opts.from — 거점 화면 뒤로가기 행선지 컨텍스트 (war=전쟁 허브, adventure=모험 홈,
+  // 생략=길드 탭). /outpost/[id] 가 ?from= 으로 읽는다.
+  enterOutpost: (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => void;
   travelTo: (target: Outpost) => void;
 };
 
@@ -286,12 +288,14 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // visit-outpost 를 POST. 실패하면 위치를 되돌리고 직전 화면으로 router.back().
   // (방금 push 한 엔트리가 history 직전에 존재하므로 back 이 안전한 유일한 자리.)
   const enterOutpost = useCallback(
-    (outpost: Outpost) => {
+    (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => {
       if (visitInFlightRef.current) return;
       const prevOutpost = currentOutpost;
       visitInFlightRef.current = true;
       setCurrentOutpost({ id: outpost.id, name: outpost.name });
-      router.push(`/outpost/${outpost.id}`);
+      router.push(
+        `/outpost/${outpost.id}${opts?.from ? `?from=${opts.from}` : ""}`,
+      );
       void (async () => {
         let ok = false;
         try {

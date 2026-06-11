@@ -13,7 +13,6 @@ import {
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
-import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -64,7 +63,6 @@ export function OutpostView({
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
-  const [policyOpen, setPolicyOpen] = useState(false);
   // 내 합성 전투력(derivePowerScore) — 수비 전투력 게이트 비교용. state 라우트서 1회 로드.
   // intrusion(침입 상태)도 같은 응답에서 — "이 거점에 침입 중" 배너용.
   const [viewerPower, setViewerPower] = useState<number | null>(null);
@@ -348,17 +346,7 @@ export function OutpostView({
           />
         )}
 
-        {isOwner && occupation && (
-          <OutpostPolicyEditor
-            outpostId={outpost.id}
-            title="정책·세율 설정 (점령자)"
-            currentPolicy={occupation.policy ?? "open"}
-            currentTaxRate={Number(occupation.taxRate ?? "0")}
-            open={policyOpen}
-            onToggle={() => setPolicyOpen((v) => !v)}
-            onSaved={() => onAction({ kind: "claimed" })}
-          />
-        )}
+        {/* 정책·세율 설정은 길드 탭 > 관리로 이관 (#689 OutpostPolicyEditor). */}
 
         {/* 침입자 토벌은 전투 탭 > 토벌(V2SubjugationView)로 이관. */}
 

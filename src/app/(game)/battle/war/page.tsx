@@ -34,11 +34,11 @@ export default function WarPage() {
   return (
     <V2WarView
       onBack={() => router.push("/battle")}
-      onOpenOutpost={(id) => router.push(`/outpost/${id}`)}
+      onOpenOutpost={(id) => router.push(`/outpost/${id}?from=war`)}
       mapSlot={
         visibleIds ? (
           <ContinentMap
-            onOutpostEnter={enterOutpost}
+            onOutpostEnter={(o) => enterOutpost(o, { from: "war" })}
             onTravelTo={travelTo}
             occupations={occupations}
             treasuries={treasuries}

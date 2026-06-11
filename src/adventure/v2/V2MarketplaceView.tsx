@@ -14,6 +14,10 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  parseEnhance,
+  type V2EnhanceState,
+} from "@/adventure/data/v2/v2Enhance";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 import { TabBar } from "@/components/ui/TabBar";
@@ -49,10 +53,23 @@ function equipStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
 }
 
 // 장비 매물/개체의 굴림% + 스탯줄 — itemId(카탈로그) + roll(개체 편차).
-function equipDetail(itemId: string, roll: V2EquipRoll | undefined) {
+function equipDetail(
+  itemId: string,
+  roll: V2EquipRoll | undefined,
+  enhance?: V2EnhanceState,
+) {
   const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
   if (!item) return null;
-  return { pct: rollQualityPct(item, roll), line: equipStatLine(item, roll) };
+  return {
+    pct: rollQualityPct(item, roll),
+    line: equipStatLine(item, roll),
+    enhance,
+  };
+}
+
+// 리스팅 payload — 굴림(+강화) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
+function listingEnhance(payload: unknown): V2EnhanceState | undefined {
+  return parseEnhance((payload as { enhance?: unknown } | null)?.enhance);
 }
 
 type Listing = {
@@ -531,7 +548,12 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
                         className="group min-w-0 text-left"
                       >
                         <div>
-                          <span className="text-sm font-medium group-hover:underline group-focus-visible:underline">{V2_EQUIPMENT[inst.id]?.name ?? inst.id}</span>
+                          <span className="text-sm font-medium group-hover:underline group-focus-visible:underline">
+                            {V2_EQUIPMENT[inst.id]?.name ?? inst.id}
+                            {inst.enhance && inst.enhance.level > 0 ? (
+                              <span className="ml-1 text-amber-500">+{inst.enhance.level}</span>
+                            ) : null}
+                          </span>
                           {detail?.pct != null && (
                             <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
                           )}
@@ -616,7 +638,11 @@ function BuyConfirm({
 }) {
   const detail =
     listing.kind === "equip"
-      ? equipDetail(listing.itemId, (listing.instancePayload as V2EquipRoll | null) ?? undefined)
+      ? equipDetail(
+          listing.itemId,
+          (listing.instancePayload as V2EquipRoll | null) ?? undefined,
+          listingEnhance(listing.instancePayload),
+        )
       : null;
   const enough = gold === null || gold >= listing.price;
   const after = gold === null ? null : gold - listing.price;
@@ -632,7 +658,12 @@ function BuyConfirm({
         <h2 className="text-base font-bold">구매 확인</h2>
         <div className="mt-3 space-y-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-medium">{listing.itemName}</span>
+            <span className="text-sm font-medium">
+              {listing.itemName}
+              {detail?.enhance ? (
+                <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
+              ) : null}
+            </span>
             {listing.kind === "material" && listing.quantity > 1 && (
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{listing.quantity}</span>
             )}
@@ -788,13 +819,19 @@ function ListingList({
           l.kind === "equip"
             ? ((l.instancePayload as V2EquipRoll | null) ?? undefined)
             : undefined;
-        const detail = l.kind === "equip" ? equipDetail(l.itemId, roll) : null;
+        const detail =
+          l.kind === "equip"
+            ? equipDetail(l.itemId, roll, listingEnhance(l.instancePayload))
+            : null;
         const clickable = l.kind === "equip" && !!onOpenCard;
         const info = (
           <>
             <div className="flex items-center gap-1.5">
               <span className={`text-sm font-medium ${clickable ? "group-hover:underline group-focus-visible:underline" : ""}`}>
                 {l.itemName}
+                {detail?.enhance ? (
+                  <span className="ml-1 text-amber-500">+{detail.enhance.level}</span>
+                ) : null}
               </span>
               {l.kind === "material" && l.quantity > 1 && (
                 <span className="text-[11px] text-zinc-500 dark:text-zinc-400">×{l.quantity}</span>

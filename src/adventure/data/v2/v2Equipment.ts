@@ -936,11 +936,20 @@ export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
 export function v2EquipStatRows(
   item: V2Equipment,
   roll?: V2EquipRoll,
+  // 강화 — 위력 행에 반영(enhancedPower)·강화 행 추가. 미지정 = 기존 표기 그대로.
+  enhance?: V2EnhanceState,
 ): V2EquipStatRow[] {
   const eff = effectiveStats(item, roll);
   const out: V2EquipStatRow[] = [];
-  if (eff.power) {
-    out.push({ label: "위력", value: `+${eff.power}` });
+  const power = enhancedPower(eff.power, enhance);
+  if (power) {
+    out.push({ label: "위력", value: `+${power}` });
+  }
+  if (enhance && enhance.level > 0) {
+    out.push({
+      label: "강화",
+      value: `+${enhance.level} (위력 +${enhance.bonusPct}%)`,
+    });
   }
   if (eff.weight) {
     out.push({ label: "무게", value: `${eff.weight}` });

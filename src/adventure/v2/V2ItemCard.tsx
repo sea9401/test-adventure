@@ -16,6 +16,7 @@ import {
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 
 // 굴림 품질 % → 색. 높을수록 좋은 굴림(emerald)·중간(zinc)·낮음(amber).
 // 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
@@ -103,6 +104,7 @@ export function V2ItemCard({
   anchor,
   onClose,
   roll,
+  enhance,
   equip,
   lock,
   equippedIds,
@@ -112,6 +114,8 @@ export function V2ItemCard({
   onClose: () => void;
   // 보유템의 개체 굴림(편차). 주면 굴림값 표시, 없으면 카탈로그(상점·제작 미리보기).
   roll?: V2EquipRoll;
+  // 강화 상태 — 주면 제목 +N + 위력 강화 반영(v2EquipStatRows).
+  enhance?: V2EnhanceState;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
   // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
@@ -133,7 +137,7 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  const options = v2EquipStatRows(item, roll);
+  const options = v2EquipStatRows(item, roll, enhance);
   const pct = rollQualityPct(item, roll);
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
@@ -171,6 +175,9 @@ export function V2ItemCard({
               className={`truncate text-sm font-semibold ${powerNameClass(item, roll)}`}
             >
               {item.name}
+              {enhance && enhance.level > 0 ? (
+                <span className="ml-1 text-amber-500">+{enhance.level}</span>
+              ) : null}
             </h2>
             <ItemTypeChip item={item} />
           </div>

@@ -60,7 +60,20 @@ export async function POST(
         return { error: "guild_not_found", status: 404 as const };
       }
       if (guild.masterId !== userId) {
-        return { error: "not_master", status: 403 as const };
+        // 관리자(manager)도 초대 가능 — 길드 관리탭 권한.
+        const memRows = await tx
+          .select({ role: guildMembers.role })
+          .from(guildMembers)
+          .where(
+            and(
+              eq(guildMembers.guildId, guildId),
+              eq(guildMembers.userId, userId),
+            ),
+          )
+          .limit(1);
+        if (memRows[0]?.role !== "manager") {
+          return { error: "not_master", status: 403 as const };
+        }
       }
 
       const memberCountRows = await tx
@@ -109,12 +122,13 @@ export async function POST(
         return { error: "already_invited", status: 409 as const };
       }
 
-      const masterRows = await tx
+      // 초대 보낸 사람 이름 — 마스터/관리자 모두 가능해져 "마스터" 라벨 대신 사용.
+      const inviterRows = await tx
         .select({ name: users.gameName })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1);
-      const masterName = masterRows[0]?.name ?? null;
+      const inviterName = inviterRows[0]?.name ?? null;
 
       const expiresAt = new Date(
         Date.now() + GUILD_INVITE_EXPIRES_DAYS * 24 * 60 * 60 * 1000,
@@ -140,9 +154,9 @@ export async function POST(
             guild_name: guild.name,
             expires_at: expiresAt.toISOString(),
           },
-          message: `${guild.name} 길드 초대 (마스터: ${masterName ?? "?"})`,
+          message: `${guild.name} 길드 초대 (보낸 사람: ${inviterName ?? "?"})`,
           fromUserId: userId,
-          fromName: masterName,
+          fromName: inviterName,
         }),
       );
 

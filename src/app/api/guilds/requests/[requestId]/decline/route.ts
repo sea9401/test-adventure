@@ -1,9 +1,9 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { guildJoinRequests, guilds } from "@/db/schema";
+import { guildJoinRequests, guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 
-// POST /api/guilds/requests/[requestId]/decline — 마스터가 가입 신청 거절.
+// POST /api/guilds/requests/[requestId]/decline — 마스터/관리자가 가입 신청 거절.
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ requestId: string }> },
@@ -38,7 +38,20 @@ export async function POST(
       const guild = guildRows[0];
       if (!guild) return { error: "guild_not_found", status: 404 as const };
       if (guild.masterId !== userId) {
-        return { error: "not_master", status: 403 as const };
+        // 관리자(manager)도 처리 가능 — 길드 관리탭 권한.
+        const memRows = await tx
+          .select({ role: guildMembers.role })
+          .from(guildMembers)
+          .where(
+            and(
+              eq(guildMembers.guildId, reqRow.guildId),
+              eq(guildMembers.userId, userId),
+            ),
+          )
+          .limit(1);
+        if (memRows[0]?.role !== "manager") {
+          return { error: "not_master", status: 403 as const };
+        }
       }
 
       await tx

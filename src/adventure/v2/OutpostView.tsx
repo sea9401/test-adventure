@@ -11,6 +11,7 @@ import {
 } from "@/adventure/data/v2/outpostSiege";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { IntruderPanel } from "./IntruderPanel";
+import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
@@ -363,6 +364,12 @@ export function OutpostView({
         )}
 
         {isGuildMember && <IntruderPanel outpostId={outpost.id} />}
+
+        {/* 보유 거점 공격 기록 — 점령자 본인(솔로 포함) 또는 점령 길드 멤버만.
+            서버(attacks GET)도 같은 게이트로 한 번 더 차단. */}
+        {(isOwner || isGuildMember) && (
+          <OutpostAttackLog outpostId={outpost.id} />
+        )}
       </section>
     </main>
   );

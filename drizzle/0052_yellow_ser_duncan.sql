@@ -1,0 +1,2 @@
+ALTER TABLE "marketplace_listings_v2" DROP CONSTRAINT "listings_v2_kind_valid";--> statement-breakpoint
+ALTER TABLE "marketplace_listings_v2" ADD CONSTRAINT "listings_v2_kind_valid" CHECK ("marketplace_listings_v2"."kind" IN ('equip','material','consumable'));

@@ -15,6 +15,11 @@ import {
   resolvePlayerName,
   saleProceeds,
 } from "@/lib/server/marketplaceV2";
+import {
+  RARE_MAP_CAP,
+  genRareMapIid,
+  parseRareMaps,
+} from "@/adventure/data/v2/rareMaps";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -26,6 +31,7 @@ import {
 type CharSave = {
   gold?: number;
   materials?: Record<string, number>;
+  rareMaps?: unknown;
   [k: string]: unknown;
 };
 
@@ -63,6 +69,22 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "own_listing" } };
     }
 
+    // 1-b) 소모품(레어맵) — 실물 만료 검증. 등록 중 만료됐으면 매물 자체를 만료 처리
+    //   (대금 이동 0 — 죽은 아이템이라 판매자 반환도 무의미, 그대로 소멸).
+    if (listing.kind === "consumable") {
+      const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
+      if (!inst) {
+        await tx
+          .update(marketplaceListingsV2)
+          .set({ status: "expired", closedAt: new Date() })
+          .where(eq(marketplaceListingsV2.id, listingId));
+        return {
+          status: 409,
+          body: { ok: false as const, error: "listing_expired" },
+        };
+      }
+    }
+
     // 2) 구매자 골드 차감.
     const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
     const gold = Math.max(0, Math.floor(charSave.gold ?? 0));
@@ -96,6 +118,22 @@ export async function POST(req: Request) {
         },
       ];
       await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });
+      await upsertSave(tx, userId, "character.v2", nextChar);
+    } else if (listing.kind === "consumable") {
+      // 레어맵 — 구매자 rareMaps 합류(새 iid — 교차 유저 충돌 방지). 보유 캡 초과 거부
+      //   (골드 차감 전 검증이 아니라 차감 후 같은 분기지만 tx 라 원자적 — 거부 시 전체 롤백).
+      const myMaps = parseRareMaps(charSave.rareMaps, Date.now());
+      if (myMaps.length >= RARE_MAP_CAP) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "rare_map_cap" },
+        };
+      }
+      const inst = parseRareMaps([listing.instancePayload], Date.now())[0]!;
+      nextChar = {
+        ...nextChar,
+        rareMaps: [...myMaps, { ...inst, iid: genRareMapIid() }],
+      };
       await upsertSave(tx, userId, "character.v2", nextChar);
     } else {
       // material — 구매자 재료 수량 가산(character.v2 에 누적).

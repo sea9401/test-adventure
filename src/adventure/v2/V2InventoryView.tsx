@@ -117,16 +117,8 @@ const INVENTORY_PAGE_SIZE = 20;
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
-type InvTabKey = V2ItemTabKey | "consumable";
-const INV_TABS: ReadonlyArray<{ key: InvTabKey; label: string }> = [
-  ...V2_ITEM_TABS,
-  { key: "consumable", label: "소모품" },
-];
-
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
-  // 소모품(레어맵 등) 탭 — 공용 V2_ITEM_TABS 에 더해 인벤토리 로컬로 추가
-  // (거래소 판매 탭 합류는 소모품 거래 PR 에서).
-  const [tab, setTab] = useState<InvTabKey>("weapon");
+  const [tab, setTab] = useState<V2ItemTabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(소모/만료는 서버 권위).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
@@ -469,7 +461,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
       <Card padding="md" className="space-y-3">
         <TabBar
-          tabs={INV_TABS}
+          tabs={V2_ITEM_TABS}
           active={tab}
           onChange={setTab}
           ariaLabel="인벤토리 카테고리"
@@ -765,7 +757,7 @@ export function EquipmentCardGrid({
 }
 
 // 소모품 탭 — 보유 레어맵 목록. 사용(입장)은 사냥터 목록의 "발견한 지도"에서,
-// 여기는 보관함 시점(이름·깊이·남은 판수·만료). 거래소 판매는 소모품 거래 PR 에서.
+// 판매는 거래소 > 팔기 > 소모품. 여기는 보관함 시점(이름·깊이·남은 판수·만료).
 function ConsumableList({
   maps,
   now,

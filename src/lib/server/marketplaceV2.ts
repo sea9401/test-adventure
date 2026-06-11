@@ -7,6 +7,7 @@ import { savesKv, users } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 
 // ── 다이얼 ──────────────────────────────────────────────────────────────────
 // 판매세 — 판매 성사 시 대금의 이 비율이 소각(골드 sink). 판매자는 (대금 − 세금) 수령.
@@ -26,7 +27,7 @@ export const MARKETPLACE_V2_PRICE_HISTORY_DAYS = 30;
 //   묵은 매물이 영원히 쌓여 둘러보기 한도(100)를 밀어내는 것 방지. 단일 다이얼.
 export const MARKETPLACE_V2_LISTING_TTL_DAYS = 7;
 
-export type MarketKind = "equip" | "material";
+export type MarketKind = "equip" | "material" | "consumable";
 
 // 판매자 수령 골드 — 대금 − 판매세(내림). proceeds + 소각분 = price (보존, 골드 신규생성 0).
 export function saleProceeds(price: number): number {
@@ -56,7 +57,7 @@ export function isValidMaterialQty(q: unknown): q is number {
 }
 
 export function isMarketKind(s: unknown): s is MarketKind {
-  return s === "equip" || s === "material";
+  return s === "equip" || s === "material" || s === "consumable";
 }
 
 // 거래 가능 종류 판정 — 카탈로그에 실재하는 id 인지(타입 가드 겸).
@@ -70,6 +71,11 @@ export function isTradableMaterial(id: string): id is V2MaterialId {
 // 등록 시점 이름 스냅샷용 — 카탈로그 표시명.
 export function itemDisplayName(kind: MarketKind, id: string): string | null {
   if (kind === "equip") return isTradableEquip(id) ? V2_EQUIPMENT[id].name : null;
+  if (kind === "consumable") {
+    return id in RARE_MAP_KINDS
+      ? RARE_MAP_KINDS[id as keyof typeof RARE_MAP_KINDS].name
+      : null;
+  }
   return isTradableMaterial(id) ? V2_MATERIALS[id].name : null;
 }
 

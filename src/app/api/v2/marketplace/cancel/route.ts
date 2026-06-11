@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { marketplaceListingsV2 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { parseRareMaps } from "@/adventure/data/v2/rareMaps";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   genEquipIid,
@@ -17,6 +18,7 @@ import { parseEnhance } from "@/adventure/data/v2/v2Enhance";
 //   → cancelled 마킹. (판매자 본인이 온라인이라 직접 save 반환 — 우편 불필요.)
 
 type CharSave = {
+  rareMaps?: unknown;
   materials?: Record<string, number>;
   [k: string]: unknown;
 };
@@ -78,6 +80,17 @@ export async function POST(req: Request) {
         },
       ];
       await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });
+    } else if (listing.kind === "consumable") {
+      // 레어맵 반환 — 만료됐으면 parse 가 걸러 자연 소멸(반환 무의미). 캡 초과 반환 허용
+      //   (캡은 신규 드랍 롤만 게이트 — 본인 물건 회수까지 막지 않는다).
+      const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
+      const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
+      if (inst) {
+        await upsertSave(tx, userId, "character.v2", {
+          ...charSave,
+          rareMaps: [...parseRareMaps(charSave.rareMaps, Date.now()), inst],
+        });
+      }
     } else {
       const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
       const mats = { ...(charSave.materials ?? {}) };

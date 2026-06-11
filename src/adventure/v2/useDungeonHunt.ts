@@ -10,6 +10,7 @@ import {
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import type { RareMapKindId } from "@/adventure/data/v2/rareMaps";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
@@ -60,6 +61,8 @@ export type BatchHuntPayload = {
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
+  rareMapDrops?: RareMapKindId[];
+  rareMapRunsLeft?: number | null;
   stoppedReason: "stamina" | "death" | "recovery" | "error" | null;
   finalHpAfter: number | null;
   finalMaxHp: number | null;
@@ -98,9 +101,12 @@ function formatDrops(
 export function useDungeonHunt({
   outpostId,
   setStamina,
+  rareMapIid,
 }: {
   outpostId?: string;
   setStamina: (s: StaminaState) => void;
+  // 레어맵 입장 모드 — 보유 지도 iid. 단판/일괄 hunt body 에 동봉(서버 검증·판수 차감).
+  rareMapIid?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
@@ -137,6 +143,7 @@ export function useDungeonHunt({
             floor: f,
             outpostId,
             ...(boss ? { boss: true } : {}),
+            ...(rareMapIid ? { rareMap: rareMapIid } : {}),
           }),
         });
         let json: HuntResponse | null = null;
@@ -186,7 +193,7 @@ export function useDungeonHunt({
         return null;
       }
     },
-    [outpostId, pushLog, setStamina],
+    [outpostId, pushLog, setStamina, rareMapIid],
   );
 
   // 일괄 사냥 — 서버에서 count 회를 한 트랜잭션으로 처리(한 왕복). 합산 결과 반환, 실패 시 null.
@@ -198,7 +205,12 @@ export function useDungeonHunt({
         const res = await fetch("/api/v2/dungeon/hunt", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ floor, count, outpostId }),
+          body: JSON.stringify({
+            floor,
+            count,
+            outpostId,
+            ...(rareMapIid ? { rareMap: rareMapIid } : {}),
+          }),
         });
         let json: BatchHuntResponse | null = null;
         try {
@@ -233,7 +245,7 @@ export function useDungeonHunt({
         setBusy(false);
       }
     },
-    [outpostId, pushLog, setStamina],
+    [outpostId, pushLog, setStamina, rareMapIid],
   );
 
   return {

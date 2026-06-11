@@ -19,6 +19,10 @@ import {
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
+  RARE_MAP_KINDS,
+  type RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
+import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
   type V2StatKey,
@@ -47,6 +51,9 @@ export type HuntResult = {
   droppedEquipment?: V2EquipmentId | null;
   droppedUnique?: V2EquipmentId | null;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
+  // 레어맵 — 새 지도 발견(kind id) / 입장 중 남은 판수.
+  rareMapDrop?: RareMapKindId | null;
+  rareMapRunsLeft?: number | null;
   // PR-1 속성 상성 — 내 속성 vs 몬스터 속성 결과.
   playerElement?: V2Element;
   monsterElement?: V2Element;
@@ -115,6 +122,12 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
 
   return (
     <Card padding="sm">
+      {result.rareMapDrop && (
+        <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+          🗺 「{RARE_MAP_KINDS[result.rareMapDrop].name}」 발견! — 인벤토리
+          소모품에서 확인
+        </div>
+      )}
       {droppedUniq && (
         <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           ✨ 유니크 「{droppedUniq.name}」 획득!

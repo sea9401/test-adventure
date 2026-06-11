@@ -50,6 +50,15 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
+  RARE_MAP_CAP,
+  RARE_MAP_KINDS,
+  newRareMapInstance,
+  parseRareMaps,
+  rollRareMapDrop,
+  type RareMapInstance,
+  type RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
+import {
   HUNT_COST,
   applyRegen,
   parseStaminaFromSave,
@@ -154,6 +163,7 @@ type CharSave = {
   materials?: unknown;
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
+  rareMaps?: unknown;
   [k: string]: unknown;
 };
 
@@ -165,6 +175,8 @@ type RunOneHuntCtx = {
   dropFloor: DungeonFloorId;
   isBossHunt: boolean;
   outpostId: string | null;
+  // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
+  rareMapIid: string | null;
 };
 
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
@@ -172,7 +184,8 @@ type RunOneHuntCtx = {
 //   사냥의 레벨/HP/스태미나/드랍이 DB 재read 로 자동 이월된다(수동 스레딩 불필요).
 //   forBatch=true 면 replay 를 경량 payload 로(배치 집계는 playerMaxMp 만 읽음 — 무거운 log 회피).
 async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
-  const { tx, userId, depth, dropFloor, isBossHunt, outpostId } = ctx;
+  const { tx, userId, depth, dropFloor, isBossHunt, outpostId, rareMapIid } =
+    ctx;
   // === 1. outpost 점령 조회 (FOR UPDATE) ===
   // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
   // FOR UPDATE 로 정책 게이트 평가와 세금 결정이 같은 스냅샷을 사용 — 점령자가
@@ -325,6 +338,28 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   }
 
   const now = Date.now();
+
+  // === 레어맵(소모품 지도) — 입장 검증 + 보상 배수. 스태미너 차감 전 거부. ===
+  // parse 가 만료/소진을 lazy purge — 아래 save 기록 시 정리분이 함께 영속된다.
+  let rareMaps: RareMapInstance[] = parseRareMaps(charSave.rareMaps, now);
+  let activeRareMap: RareMapInstance | null = null;
+  if (rareMapIid) {
+    activeRareMap = rareMaps.find((m) => m.iid === rareMapIid) ?? null;
+    // 보스 도전은 레어맵 불가 — 지도는 일반 사냥 농축 전용.
+    if (!activeRareMap || activeRareMap.depth !== depth || isBossHunt) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { ok: false as const, error: "rare_map_invalid" as const },
+      };
+    }
+  }
+  // ⚠️ 보상 배수 = 종류별 임시 다이얼(rareMaps.ts). 유니크 드랍은 ×1 유지(보상 확정 시 결정).
+  const mapDef = activeRareMap ? RARE_MAP_KINDS[activeRareMap.kind] : null;
+  const mapExpMult = mapDef?.expMult ?? 1;
+  const mapGoldMult = mapDef?.goldMult ?? 1;
+  const mapDropMult = mapDef?.equipDropMult ?? 1;
+
   const stamina = parseStaminaFromSave(charSave.stamina, now);
   const huntCost = isBossHunt ? BOSS_HUNT_COST : HUNT_COST;
   const afterStamina = tryConsume(stamina, huntCost, now);
@@ -552,12 +587,14 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const baseExp = won
     ? applyNewbieExpBonusByBattles(enemyMonster.exp, battleCount).gained
     : 0;
-  const expGained = Math.round(baseExp * XP_RATE_MULT);
-  const goldGross = won ? monsterGoldReward(enemyMonster) : 0;
+  const expGained = Math.round(baseExp * XP_RATE_MULT * mapExpMult);
+  const goldGross = won
+    ? Math.round(monsterGoldReward(enemyMonster) * mapGoldMult)
+    : 0;
   // 신참 드롭 보너스 폐지 — 신참 혜택은 EXP 전용(사용자 결정). 드롭은 항상 ×1.
   // 보스는 재료 드랍 없음(전용 유니크만) — 일반 사냥만 재료 풀 굴림.
   const drops: DropResult =
-    won && !isBossHunt ? rollDrops(dropFloor, Math.random, 1) : {};
+    won && !isBossHunt ? rollDrops(dropFloor, Math.random, mapDropMult) : {};
   // 강화석 — 재료 보류 플래그(V2_MATERIALS_ENABLED)와 무관한 독립 드랍. 전 깊이 공통
   // (초보자도 줍고 거래소에서 환금), 보스전 포함. 다이얼 = v2Enhance ENHANCE_STONE_DROP_PCT.
   if (won) {
@@ -584,8 +621,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
       //   (rollBandCommonDrop, 로컬 깊이 램프 2~4%). rollEquipDrop 이 13+ 에서 null → ?? 로 밴드
       //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
       droppedEquipment =
-        rollEquipDrop(depth, ownedSet, Math.random, 1) ??
-        rollBandCommonDrop(depth, Math.random, 1);
+        rollEquipDrop(depth, ownedSet, Math.random, mapDropMult) ??
+        rollBandCommonDrop(depth, Math.random, mapDropMult);
       if (droppedEquipment !== null) {
         // 드랍 = 새 개체 + 새 굴림(±편차).
         nextOwned = [
@@ -718,6 +755,7 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     exp: expResult.exp,
     gold: newGold,
     materials: nextMaterials,
+    rareMaps,
     // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지(min 2 정규화).
     // 보스는 anchorDepth(밴드 최상단)로 스케일돼도 프론티어를 밀지 않음(졸업 시험일 뿐, 깊이 해금 X).
     frontierDepth:
@@ -818,6 +856,26 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
 
   // 보물 탐사 — 사냥 승리 시 낮은 확률로 지도 조각 드랍(트리클). 굴림은 100% 서버.
   // 드랍 났을 때만 키를 잠근다 — 락 순서상 가장 마지막. 조각 소비(발굴)는 PR-3.
+  // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤. ===
+  // 레어맵 안에서 또 지도가 떨어지는 재귀 farming 은 막는다(입장 중 롤 없음).
+  // 캡 가득이면 롤 자체를 건너뜀.
+  let rareMapDrop: RareMapKindId | null = null;
+  if (activeRareMap) {
+    rareMaps = rareMaps
+      .map((m) =>
+        m.iid === activeRareMap!.iid ? { ...m, runsLeft: m.runsLeft - 1 } : m,
+      )
+      .filter((m) => m.runsLeft > 0);
+  } else if (won && !isBossHunt && rareMaps.length < RARE_MAP_CAP) {
+    rareMapDrop = rollRareMapDrop(Math.random);
+    if (rareMapDrop) {
+      rareMaps = [...rareMaps, newRareMapInstance(rareMapDrop, depth, now)];
+    }
+  }
+  const rareMapRunsLeft = activeRareMap
+    ? (rareMaps.find((m) => m.iid === activeRareMap!.iid)?.runsLeft ?? 0)
+    : null;
+
   const fragmentDrop = won
     ? rollFragmentDrop(Math.random, HUNT_FRAGMENT_DROP_CHANCE)
     : 0;
@@ -887,6 +945,9 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         hpBefore: regenResult.hp,
         hpAfter: afterHp,
         maxHp: player.maxHp,
+        // 레어맵 — 이번 사냥에서 새 지도 발견(kind id) / 입장 중이면 남은 판수.
+        rareMapDrop,
+        rareMapRunsLeft,
         // PR-1 속성 상성 — 결과 카드에 "유리/불리" 표기.
         playerElement,
         monsterElement,
@@ -960,6 +1021,7 @@ export async function POST(req: Request) {
     outpostId?: unknown;
     count?: unknown; // 일괄 사냥 횟수(없으면 1=단판).
     boss?: unknown; // true = 테마 보스 도전(단판·고스태미나·isBoss 전투·보스 전용 드랍/칭호).
+    rareMap?: unknown; // 레어맵 입장 — 보유 지도 iid (소유/깊이/판수 검증은 save lock 후).
   };
   try {
     body = (await req.json()) as typeof body;
@@ -997,6 +1059,11 @@ export async function POST(req: Request) {
     ? 1
     : Math.max(1, Math.min(MAX_HUNT_BATCH, Math.floor(Number(body.count) || 1)));
 
+  const rareMapIid =
+    typeof body.rareMap === "string" && body.rareMap.length > 0
+      ? body.rareMap
+      : null;
+
   const result = await db.transaction(async (tx) => {
     const ctx: RunOneHuntCtx = {
       tx,
@@ -1005,6 +1072,7 @@ export async function POST(req: Request) {
       dropFloor,
       isBossHunt,
       outpostId,
+      rareMapIid,
     };
 
     // === 일괄(batch) 루프 ===
@@ -1028,6 +1096,8 @@ export async function POST(req: Request) {
     const drops: DropResult = {};
     const droppedEquipments: V2EquipmentId[] = [];
     const droppedUniques: V2EquipmentId[] = [];
+    const rareMapDrops: RareMapKindId[] = [];
+    let rareMapRunsLeft: number | null = null;
     let stoppedReason: "stamina" | "death" | "recovery" | "error" | null = null;
     let lastStamina: unknown = null;
     let finalHpAfter: number | null = null;
@@ -1077,6 +1147,8 @@ export async function POST(req: Request) {
       }
       if (res.droppedEquipment) droppedEquipments.push(res.droppedEquipment);
       if (res.droppedUnique) droppedUniques.push(res.droppedUnique);
+      if (res.rareMapDrop) rareMapDrops.push(res.rareMapDrop);
+      rareMapRunsLeft = res.rareMapRunsLeft ?? rareMapRunsLeft;
       if (res.ejected && !ejected) ejected = res.ejected;
       lastStamina = r.body.stamina;
       finalHpAfter = res.hpAfter;
@@ -1087,6 +1159,10 @@ export async function POST(req: Request) {
       hpCharges = res.hpCharges ?? hpCharges;
       mpCharges = res.mpCharges ?? mpCharges;
       playerMaxMp = res.replay?.playerMaxMp ?? playerMaxMp;
+      // 레어맵 판수 소진 — 다음 사냥이 rare_map_invalid 로 막히므로 여기서 깔끔히 중단.
+      if (rareMapIid && (res.rareMapRunsLeft ?? 0) <= 0) {
+        break;
+      }
       // 사망/저체력이면 다음 사냥이 서버에서 막히므로 즉시 중단(라벨 구분: 사망 vs 회복필요).
       if (res.hpAfter <= 0) {
         stoppedReason = "death";
@@ -1121,6 +1197,8 @@ export async function POST(req: Request) {
           drops,
           droppedEquipments,
           droppedUniques,
+          rareMapDrops,
+          rareMapRunsLeft,
           stoppedReason,
           finalHpAfter,
           finalMaxHp,

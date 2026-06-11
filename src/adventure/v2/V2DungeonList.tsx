@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -10,6 +10,10 @@ import {
   themeElementSummary,
 } from "@/adventure/data/v2/dungeon";
 import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
+import {
+  RARE_MAP_KINDS,
+  type RareMapInstance,
+} from "@/adventure/data/v2/rareMaps";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import {
   getThemeBossDef,
@@ -27,6 +31,7 @@ export function V2DungeonList({
   onOpenMap,
   frontierDepth = 2,
   onSelectBoss,
+  onSelectRareMap,
 }: {
   currentOutpost: { id: string; name: string } | null;
   onSelectFloor: (depth: number) => void;
@@ -34,6 +39,8 @@ export function V2DungeonList({
   frontierDepth?: number;
   // 테마 보스 도전 — 그 테마 보스의 대표 깊이(themeStartDepth)로 호출. 미전달이면 버튼 숨김.
   onSelectBoss?: (depth: number) => void;
+  // 레어맵 입장 — 보유 지도(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
+  onSelectRareMap?: (map: RareMapInstance) => void;
 }) {
   const maxDepth = Math.max(2, frontierDepth);
   const challengeDepth = maxDepth + 1; // 도전(미정복)
@@ -47,6 +54,27 @@ export function V2DungeonList({
       : null;
   // 열린 테마의 보스(있으면) — 보스 도전 버튼 표시용. depths[0] = 테마 시작 깊이.
   const openGroupBoss = openGroup ? getThemeBossDef(openGroup.depths[0]) : null;
+
+  // 보유 레어맵 — 마운트 1회 조회(소모/만료는 입장 후 서버 권위).
+  const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
+  // 만료 표기 기준 시각 — render 중 Date.now() 직접 호출 회피(fetch 시점 고정).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!onSelectRareMap) return;
+    let alive = true;
+    fetch("/api/v2/me/rare-maps")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
+        if (alive && j?.ok) {
+          setRareMaps(j.rareMaps ?? []);
+          setNowMs(Date.now());
+        }
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [onSelectRareMap]);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -107,8 +135,37 @@ export function V2DungeonList({
           )}
         </div>
       ) : (
-        // 테마(사냥터) 카드.
-        <div className="grid grid-cols-2 gap-2">
+        // 테마(사냥터) 카드 (+위에 보유 레어맵 섹션).
+        <div className="space-y-3">
+          {onSelectRareMap && rareMaps.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                발견한 지도
+              </div>
+              {rareMaps.map((m) => (
+                <button
+                  key={m.iid}
+                  type="button"
+                  onClick={() => onSelectRareMap(m)}
+                  className="flex w-full items-center justify-between gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-left hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-950/40 dark:hover:bg-sky-950/70"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-sky-800 dark:text-sky-200">
+                      🗺 {RARE_MAP_KINDS[m.kind]?.name ?? m.kind} — 깊이{" "}
+                      {m.depth}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-sky-700/80 dark:text-sky-400/80">
+                      남은 {m.runsLeft}판 · {fmtExpiry(m.expiresAt, nowMs)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
+                    입장
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
           {groups.map((g) => {
             const hasChallenge = g.depths.includes(challengeDepth);
             const from = g.depths[0];
@@ -159,6 +216,7 @@ export function V2DungeonList({
               </button>
             );
           })}
+          </div>
         </div>
       )}
     </main>
@@ -245,4 +303,13 @@ function ThemeElementLine({
       )}
     </div>
   );
+}
+
+// 만료까지 남은 시간 — 시간 단위 대략 표기(분 단위 정밀 불요).
+function fmtExpiry(expiresAt: number, now: number): string {
+  const ms = expiresAt - now;
+  if (ms <= 0) return "만료됨";
+  const h = Math.floor(ms / 3_600_000);
+  if (h < 1) return "1시간 안에 만료";
+  return `${h}시간 후 만료`;
 }

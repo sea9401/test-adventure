@@ -76,6 +76,7 @@ export function V2DungeonFloorView({
   onFrontierUnlocked,
   onLevelUp,
   bossMode = false,
+  rareMapIid = null,
 }: {
   // 깊이 숫자 (테마당 6깊이: 1~6 들판·7~12 깊은 산·13+ 프론티어 밴드). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
@@ -104,6 +105,8 @@ export function V2DungeonFloorView({
   onLevelUp?: () => void;
   // 테마 보스 도전 모드 — true 면 일반 사냥/일괄 대신 단판 보스 도전(높은 스태미나·전용 드랍/칭호).
   bossMode?: boolean;
+  // 레어맵 입장 모드 — 보유 지도 iid (?rareMap=). 서버가 소유/깊이/판수를 검증·차감.
+  rareMapIid?: string | null;
 }) {
   // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
   // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
@@ -125,7 +128,10 @@ export function V2DungeonFloorView({
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
     outpostId,
     setStamina,
+    rareMapIid,
   });
+  // 레어맵 남은 판수 — 단판/일괄 응답에서 갱신(서버 권위). null = 아직 응답 없음.
+  const [rareMapRunsLeft, setRareMapRunsLeft] = useState<number | null>(null);
   // 일괄 사냥 상태.
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
@@ -218,8 +224,10 @@ export function V2DungeonFloorView({
         drops: b.drops,
         droppedEquipments: b.droppedEquipments,
         droppedUniques: b.droppedUniques,
+        rareMapDrops: b.rareMapDrops,
         stoppedReason: b.stoppedReason,
       });
+      if (b.rareMapRunsLeft != null) setRareMapRunsLeft(b.rareMapRunsLeft);
       // 캐릭터 정보 카드 — 합산 후 현재 EXP 진행도·회복약 충전량(마지막 사냥 상태).
       setBatchStatus({
         exp: b.expAfter ?? 0,
@@ -278,6 +286,7 @@ export function V2DungeonFloorView({
       void hunt(depth).then((r) => {
         if (r) {
           recordHp(r);
+          if (r.rareMapRunsLeft != null) setRareMapRunsLeft(r.rareMapRunsLeft);
           if (r.levelsGained > 0) onLevelUp?.();
           if (
             isChallenge &&
@@ -329,6 +338,13 @@ export function V2DungeonFloorView({
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           권장 전투력 {powerGate}
         </p>
+        {rareMapIid && (
+          <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
+            🗺 레어맵 사냥 중
+            {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
+            {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
+          </div>
+        )}
       </HeaderPanel>
 
       {isBoss ? (

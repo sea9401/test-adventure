@@ -15,6 +15,9 @@ export default function DungeonListPage() {
       onOpenMap={() => router.push("/map")}
       frontierDepth={frontierDepth}
       onSelectBoss={(depth) => router.push(`/battle/dungeon/${depth}?boss=1`)}
+      onSelectRareMap={(m) =>
+        router.push(`/battle/dungeon/${m.depth}?rareMap=${m.iid}`)
+      }
     />
   );
 }

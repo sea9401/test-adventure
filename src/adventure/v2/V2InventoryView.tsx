@@ -19,6 +19,10 @@ import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
 import { TabBar } from "@/components/ui/TabBar";
+import {
+  RARE_MAP_KINDS,
+  type RareMapInstance,
+} from "@/adventure/data/v2/rareMaps";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
@@ -113,9 +117,37 @@ const INVENTORY_PAGE_SIZE = 20;
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
+type InvTabKey = V2ItemTabKey | "consumable";
+const INV_TABS: ReadonlyArray<{ key: InvTabKey; label: string }> = [
+  ...V2_ITEM_TABS,
+  { key: "consumable", label: "소모품" },
+];
+
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<V2ItemTabKey>("weapon");
+  // 소모품(레어맵 등) 탭 — 공용 V2_ITEM_TABS 에 더해 인벤토리 로컬로 추가
+  // (거래소 판매 탭 합류는 소모품 거래 PR 에서).
+  const [tab, setTab] = useState<InvTabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
+  // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(소모/만료는 서버 권위).
+  const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
+  const [rareMapsNow, setRareMapsNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (tab !== "consumable") return;
+    let alive = true;
+    fetch("/api/v2/me/rare-maps")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
+        if (!alive) return;
+        setRareMaps(j?.ok ? (j.rareMaps ?? []) : []);
+        setRareMapsNow(Date.now());
+      })
+      .catch(() => {
+        if (alive) setRareMaps([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tab]);
   // 일괄 판매 품질 임계값(%) — 이 값 이하 품질 장비를 정리. 사용자가 직접 조정(0~100).
   // 기본 40 으로 시작하고, 마운트 후 localStorage 값으로 복원(SSR hydration mismatch 회피).
   const [sellQualityPct, setSellQualityPct] = useState(40);
@@ -347,7 +379,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   );
 
   const tabInstances: V2EquipInstance[] = useMemo(() => {
-    if (tab === "material") return [];
+    if (tab === "material" || tab === "consumable") return [];
     return sortEquipInstances(ownedBySlot[tab], sortMode);
   }, [tab, ownedBySlot, sortMode]);
 
@@ -437,7 +469,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
       <Card padding="md" className="space-y-3">
         <TabBar
-          tabs={V2_ITEM_TABS}
+          tabs={INV_TABS}
           active={tab}
           onChange={setTab}
           ariaLabel="인벤토리 카테고리"
@@ -464,6 +496,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           <div className="text-sm text-zinc-500 dark:text-zinc-400">
             불러오는 중…
           </div>
+        ) : tab === "consumable" ? (
+          <ConsumableList maps={rareMaps} now={rareMapsNow} />
         ) : tab === "material" ? (
           <>
             <MaterialList materials={materialPager.pageItems} />
@@ -727,5 +761,67 @@ export function EquipmentCardGrid({
         );
       })}
     </div>
+  );
+}
+
+// 소모품 탭 — 보유 레어맵 목록. 사용(입장)은 사냥터 목록의 "발견한 지도"에서,
+// 여기는 보관함 시점(이름·깊이·남은 판수·만료). 거래소 판매는 소모품 거래 PR 에서.
+function ConsumableList({
+  maps,
+  now,
+}: {
+  maps: RareMapInstance[] | null;
+  now: number;
+}) {
+  if (maps === null) {
+    return (
+      <div className="text-sm text-zinc-500 dark:text-zinc-400">
+        불러오는 중…
+      </div>
+    );
+  }
+  if (maps.length === 0) {
+    return (
+      <div className="text-sm text-zinc-500 dark:text-zinc-400">
+        보유한 소모품이 없습니다. 레어맵은 사냥 중 아주 낮은 확률로
+        발견됩니다.
+      </div>
+    );
+  }
+  return (
+    <ul className="space-y-1.5">
+      {maps.map((m) => {
+        const def = RARE_MAP_KINDS[m.kind];
+        const hoursLeft = Math.max(
+          0,
+          Math.floor((m.expiresAt - now) / 3_600_000),
+        );
+        return (
+          <li
+            key={m.iid}
+            className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-sm font-medium">
+                🗺 {def?.name ?? m.kind}
+              </span>
+              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                깊이 {m.depth}
+              </span>
+            </div>
+            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              남은 {m.runsLeft}판 ·{" "}
+              {hoursLeft < 1 ? "1시간 안에 만료" : `${hoursLeft}시간 후 만료`}{" "}
+              · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」
+            </div>
+            {def?.desc && (
+              <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                {def.desc}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }

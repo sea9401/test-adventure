@@ -9,6 +9,10 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  RARE_MAP_KINDS,
+  type RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
 import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
@@ -32,6 +36,7 @@ export type BatchSummary = {
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
+  rareMapDrops?: RareMapKindId[];
   stoppedReason?: "stamina" | "death" | "recovery" | "error" | null;
 };
 
@@ -45,6 +50,9 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
   const uniqueNames = summary.droppedUniques
     .map((id) => V2_EQUIPMENT[id]?.name ?? id)
     .filter(Boolean);
+  const rareMapNames = (summary.rareMapDrops ?? []).map(
+    (k) => RARE_MAP_KINDS[k]?.name ?? k,
+  );
 
   // 드랍 배너 — 재료 + 장비 합쳐 한 줄.
   const dropParts: string[] = [];
@@ -60,6 +68,11 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
 
   return (
     <Card padding="sm">
+      {rareMapNames.length > 0 && (
+        <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+          🗺 {rareMapNames.join(", ")} 발견! — 인벤토리 소모품에서 확인
+        </div>
+      )}
       {uniqueNames.length > 0 && (
         <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           ✨ 유니크 {uniqueNames.join(", ")} 획득!

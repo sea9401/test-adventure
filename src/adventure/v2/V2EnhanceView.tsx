@@ -23,13 +23,13 @@ import {
   ENHANCE_DEMOTE_FROM_LEVEL,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
-  ENHANCE_STONES,
   ENHANCE_UNIQUE_COST_MULT,
+  enhanceChoiceProfile,
   enhancedPower,
   enhanceGoldCost,
   enhanceStoneCost,
   enhanceSuccessPct,
-  type EnhanceStoneId,
+  type EnhanceChoice,
   type V2EnhanceState,
 } from "@/adventure/data/v2/v2Enhance";
 import {
@@ -66,7 +66,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const [stones, setStones] = useState({ red: 0, blue: 0 });
   const [tab, setTab] = useState<V2EquipSlot>("weapon");
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
-  const [stone, setStone] = useState<EnhanceStoneId>("blue");
+  const [stone, setStone] = useState<EnhanceChoice>("none");
   const [feedIid, setFeedIid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{
@@ -133,7 +133,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const curPower = enhancedPower(basePower, selected?.enhance);
   const nextPower = enhancedPower(basePower, {
     level: level + 1,
-    bonusPct: bonusPct + ENHANCE_STONES[stone].bonusPct,
+    bonusPct: bonusPct + enhanceChoiceProfile(stone).bonusPct,
   });
   const successPct = enhanceSuccessPct(level, stone);
   const stoneCost = enhanceStoneCost(level) * uniqueMult;
@@ -150,8 +150,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         !equippedIids.has(o.iid),
     );
   }, [owned, equipped, selected]);
-  const haveStones = stone === "red" ? stones.red : stones.blue;
-  const stoneShort = !feedIid && haveStones < stoneCost;
+  const haveStones =
+    stone === "red" ? stones.red : stone === "blue" ? stones.blue : 0;
+  const stoneShort = stone !== "none" && !feedIid && haveStones < stoneCost;
 
   const doEnhance = useCallback(async () => {
     if (!selected || busy) return;
@@ -164,7 +165,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         body: JSON.stringify({
           iid: selected.iid,
           stone,
-          ...(feedIid ? { feedIid } : {}),
+          ...(feedIid && stone !== "none" ? { feedIid } : {}),
         }),
       });
       const json = (await res.json()) as EnhanceResponse;
@@ -257,33 +258,42 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     (성공 시 +{level + 1})
                   </span>
                 </div>
-                {/* 돌 선택 */}
+                {/* 강화 방식 — 골드만(기본) / 돌 부스터 선택 */}
                 <div className="flex gap-2">
-                  {(["blue", "red"] as const).map((s) => (
+                  {(["none", "blue", "red"] as const).map((s) => (
                     <button
                       key={s}
                       type="button"
-                      onClick={() => setStone(s)}
+                      onClick={() => {
+                        setStone(s);
+                        if (s === "none") setFeedIid(null);
+                      }}
                       className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition ${
                         stone === s
                           ? s === "red"
                             ? "border-rose-400 bg-rose-50 dark:border-rose-600 dark:bg-rose-950"
-                            : "border-sky-400 bg-sky-50 dark:border-sky-600 dark:bg-sky-950"
+                            : s === "blue"
+                              ? "border-sky-400 bg-sky-50 dark:border-sky-600 dark:bg-sky-950"
+                              : "border-amber-400 bg-amber-50 dark:border-amber-600 dark:bg-amber-950"
                           : "border-zinc-200 dark:border-zinc-700"
                       }`}
                     >
                       <div className="font-medium">
-                        {s === "red" ? "🔴" : "🔵"} {ENHANCE_STONES[s].name}
+                        {s === "none"
+                          ? "💰 골드만"
+                          : s === "red"
+                            ? "🔴 붉은 강화석"
+                            : "🔵 푸른 강화석"}
                       </div>
                       <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
                         성공 {enhanceSuccessPct(level, s)}% · +
-                        {ENHANCE_STONES[s].bonusPct}%p
+                        {enhanceChoiceProfile(s).bonusPct}%p
                       </div>
                     </button>
                   ))}
                 </div>
                 {/* 먹이 — 동일 장비 소모로 강화석 면제 */}
-                {feedCandidates.length > 0 && (
+                {stone !== "none" && feedCandidates.length > 0 && (
                   <label className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-300">
                     <input
                       type="checkbox"
@@ -301,10 +311,9 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 <div className="flex items-baseline justify-between text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="tabular-nums">
                     비용:{" "}
-                    {feedIid
-                      ? "강화석 면제(먹이)"
-                      : `${stone === "red" ? "🔴" : "🔵"} ×${stoneCost}`}{" "}
-                    + {goldCost.toLocaleString()} G
+                    {stone === "none"
+                      ? `${goldCost.toLocaleString()} G`
+                      : `${feedIid ? "강화석 면제(먹이)" : `${stone === "red" ? "🔴" : "🔵"} ×${stoneCost}`} + ${goldCost.toLocaleString()} G`}
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
                   {level + 1 > ENHANCE_DEMOTE_FROM_LEVEL && (

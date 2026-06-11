@@ -11,20 +11,22 @@ import {
   ENHANCE_DEMOTE_FROM_LEVEL,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
-  ENHANCE_STONES,
   ENHANCE_UNIQUE_COST_MULT,
   demoteEnhance,
+  enhanceChoiceProfile,
   enhanceGoldCost,
   enhanceStoneCost,
   enhanceSuccessPct,
-  type EnhanceStoneId,
+  type EnhanceChoice,
 } from "@/adventure/data/v2/v2Enhance";
 
 // POST /api/v2/me/enhance — 장비 개체 강화 1회 시도. 설계: docs/v2-equipment-enhance-plan.md
 //
-// body: { iid: string, stone: "red" | "blue", feedIid?: string }
-//   stone   — 붉은(+3%p·성공률 −10%p) / 푸른(+2%p·보정 없음). 매 회 선택.
+// body: { iid: string, stone?: "red" | "blue" | "none", feedIid?: string }
+//   stone   — 선택 부스터(없으면/"none" = 골드만 기본 강화 +1%p·성공률 −15%p).
+//             붉은(+3%p·−10%p) / 푸른(+2%p·보정 없음). 매 회 선택.
 //   feedIid — 같은 id 의 다른 보유 개체(미장착·미잠금)를 먹이면 그 회차 강화석 면제(골드만).
+//             돌 미사용(골드만) 모드에선 의미가 없어 거부(개체 보호).
 //
 // 비용: 강화석 enhanceStoneCost(level)·골드 enhanceGoldCost(power, level), 유니크 ×2.
 // 성공: enhance {level+1, bonusPct+돌 보너스}.
@@ -51,18 +53,24 @@ export async function POST(req: Request) {
   }
   const iid =
     typeof body.iid === "string" && body.iid.length > 0 ? body.iid : null;
-  const stone =
+  const stone: EnhanceChoice =
     body.stone === "red" || body.stone === "blue"
-      ? (body.stone as EnhanceStoneId)
-      : null;
+      ? body.stone
+      : body.stone == null || body.stone === "none"
+        ? "none"
+        : "invalid" as never;
   const feedIid =
     typeof body.feedIid === "string" && body.feedIid.length > 0
       ? body.feedIid
       : null;
-  if (!iid || !stone) {
+  if (!iid || (stone as string) === "invalid") {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
   if (feedIid === iid) {
+    return Response.json({ ok: false, error: "bad_feed" }, { status: 400 });
+  }
+  // 골드만 모드에서 먹이 — 면제할 강화석이 없어 개체만 날아감. 거부(보호).
+  if (feedIid && stone === "none") {
     return Response.json({ ok: false, error: "bad_feed" }, { status: 400 });
   }
 
@@ -115,15 +123,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // 비용 — 강화석(먹이면 면제)·골드. 유니크 ×2. 위력은 개체 굴림(없으면 카탈로그) 기준.
+    // 비용 — 강화석(골드만 모드 0·먹이면 면제)·골드. 유니크 ×2. 위력은 개체 굴림 기준.
     const uniqueMult = isUnique(item) ? ENHANCE_UNIQUE_COST_MULT : 1;
-    const stoneId = ENHANCE_STONE_MATERIAL_ID[stone];
-    const stoneCost = feed ? 0 : enhanceStoneCost(level) * uniqueMult;
+    const stoneId =
+      stone === "none" ? null : ENHANCE_STONE_MATERIAL_ID[stone];
+    const stoneCost =
+      stone === "none" || feed ? 0 : enhanceStoneCost(level) * uniqueMult;
     const basePower = inst.roll?.power ?? item.power;
     const goldCost = enhanceGoldCost(basePower, level) * uniqueMult;
 
     const mats = { ...(charSave.materials ?? {}) };
-    const haveStones = Math.max(0, Math.floor(Number(mats[stoneId]) || 0));
+    const haveStones = stoneId
+      ? Math.max(0, Math.floor(Number(mats[stoneId]) || 0))
+      : 0;
     const haveGold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
     if (haveStones < stoneCost) {
       return {
@@ -147,7 +159,7 @@ export async function POST(req: Request) {
     }
 
     // 차감(성공/실패 무관) — 실패 = 재료만 소실.
-    if (stoneCost > 0) {
+    if (stoneCost > 0 && stoneId) {
       const left = haveStones - stoneCost;
       if (left > 0) mats[stoneId] = left;
       else delete mats[stoneId];
@@ -168,7 +180,8 @@ export async function POST(req: Request) {
     if (success) {
       nextEnhance = {
         level: level + 1,
-        bonusPct: (inst.enhance?.bonusPct ?? 0) + ENHANCE_STONES[stone].bonusPct,
+        bonusPct:
+          (inst.enhance?.bonusPct ?? 0) + enhanceChoiceProfile(stone).bonusPct,
       };
       nextOwned = nextOwned.map((o) =>
         o.iid === iid ? { ...o, enhance: nextEnhance } : o,

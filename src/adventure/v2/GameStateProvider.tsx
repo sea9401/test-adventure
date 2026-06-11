@@ -11,7 +11,11 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
-import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
+import {
+  MAX_STAMINA,
+  initialStamina,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
 import {
   OUTPOST_BY_ID,
   OUTPOSTS,
@@ -74,6 +78,8 @@ type GameStateValue = {
     React.SetStateAction<{ id: string; name: string } | null>
   >;
   stamina: StaminaState;
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
+  staminaMax: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   hp: HpBarState | null;
   setHp: React.Dispatch<React.SetStateAction<HpBarState | null>>;
@@ -134,6 +140,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     { id: string; name: string } | null
   >(() => ({ id: START_OUTPOST.id, name: START_OUTPOST.name }));
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
+  const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
@@ -188,7 +195,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             element?: string;
             hp?: number;
             maxHp?: number;
-            stamina?: { current: number; lastUpdatedAt: number };
+            stamina?: {
+              current: number;
+              lastUpdatedAt: number;
+              max?: number;
+            };
           };
           currentOutpost?: { id: string; name: string } | null;
           discoveredOutpostIds?: string[];
@@ -214,6 +225,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         setViewerLevelCap(
           currentTier == null ? null : tierLevelCap(currentTier),
         );
+        if (typeof j?.character?.stamina?.max === "number") {
+          setStaminaMax(j.character.stamina.max);
+        }
         if (j?.character?.stamina) {
           setStamina({
             current: j.character.stamina.current,
@@ -392,6 +406,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     currentOutpost,
     setCurrentOutpost,
     stamina,
+    staminaMax,
     setStamina,
     hp,
     setHp,

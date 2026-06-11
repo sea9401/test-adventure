@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -117,7 +118,15 @@ const INVENTORY_PAGE_SIZE = 20;
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
+// 유틸맵 사용 — 종류별 전용 화면으로 이동(지도 iid 동봉, 서버가 소유 재검증).
+const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
+  secret_shop_map: "/hidden/shop",
+  rename_map: "/hidden/rename",
+  portrait_map: "/hidden/portrait",
+};
+
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
+  const router = useRouter();
   const [tab, setTab] = useState<V2ItemTabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(소모/만료는 서버 권위).
@@ -489,7 +498,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             불러오는 중…
           </div>
         ) : tab === "consumable" ? (
-          <ConsumableList maps={rareMaps} now={rareMapsNow} />
+          <ConsumableList
+            maps={rareMaps}
+            now={rareMapsNow}
+            onUse={(m) => {
+              const base = UTILITY_MAP_ROUTE[m.kind];
+              if (base) router.push(`${base}?map=${m.iid}`);
+            }}
+          />
         ) : tab === "material" ? (
           <>
             <MaterialList materials={materialPager.pageItems} />
@@ -756,14 +772,16 @@ export function EquipmentCardGrid({
   );
 }
 
-// 소모품 탭 — 보유 레어맵 목록. 사용(입장)은 사냥터 목록의 "발견한 지도"에서,
-// 판매는 거래소 > 팔기 > 소모품. 여기는 보관함 시점(이름·깊이·남은 판수·만료).
+// 소모품 탭 — 보유 레어맵 목록. hunt 계열 사용(입장)은 사냥터 목록의 "발견한 지도",
+// utility 계열(비밀 상점/개명/화공)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
 function ConsumableList({
   maps,
   now,
+  onUse,
 }: {
   maps: RareMapInstance[] | null;
   now: number;
+  onUse?: (m: RareMapInstance) => void;
 }) {
   if (maps === null) {
     return (
@@ -788,6 +806,7 @@ function ConsumableList({
           0,
           Math.floor((m.expiresAt - now) / 3_600_000),
         );
+        const isUtility = def?.category === "utility";
         return (
           <li
             key={m.iid}
@@ -797,14 +816,36 @@ function ConsumableList({
               <span className="truncate text-sm font-medium">
                 🗺 {def?.name ?? m.kind}
               </span>
-              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                깊이 {m.depth}
-              </span>
+              {isUtility ? (
+                <button
+                  type="button"
+                  onClick={() => onUse?.(m)}
+                  className="shrink-0 rounded-md border border-sky-700 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-700"
+                >
+                  사용
+                </button>
+              ) : (
+                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                  깊이 {m.depth}
+                </span>
+              )}
             </div>
             <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              남은 {m.runsLeft}판 ·{" "}
-              {hoursLeft < 1 ? "1시간 안에 만료" : `${hoursLeft}시간 후 만료`}{" "}
-              · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」
+              {isUtility ? (
+                <>
+                  {hoursLeft < 1
+                    ? "1시간 안에 만료"
+                    : `${hoursLeft}시간 후 만료`}
+                </>
+              ) : (
+                <>
+                  남은 {m.runsLeft}판 ·{" "}
+                  {hoursLeft < 1
+                    ? "1시간 안에 만료"
+                    : `${hoursLeft}시간 후 만료`}{" "}
+                  · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」
+                </>
+              )}
             </div>
             {def?.desc && (
               <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">

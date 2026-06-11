@@ -39,8 +39,15 @@ export function initialStamina(nowMs: number): StaminaState {
 
 // 마지막 업데이트 이후 흐른 시간만큼 회복 적용. 만피면 그냥 lastUpdatedAt 만 갱신.
 // lastUpdatedAt 은 회복 1포인트 단위로만 진행 — 나머지 시간(잔여 ms)은 다음 회복에 누적되어 손실 없음.
-export function applyRegen(state: StaminaState, nowMs: number): StaminaState {
-  if (state.current >= MAX_STAMINA) {
+// maxStamina — per-user 최대치(기본 MAX_STAMINA). 비밀 상점 "한계의 비약"
+// (character.v2.staminaCapBonus) 이 올린다. max 를 안 넘긴 경로는 기본 캡 위로
+// 회복만 안 될 뿐 보유분을 깎지 않는다(current > max 여도 그대로 반환).
+export function applyRegen(
+  state: StaminaState,
+  nowMs: number,
+  maxStamina: number = MAX_STAMINA,
+): StaminaState {
+  if (state.current >= maxStamina) {
     // 이미 만피라 회복 X. lastUpdatedAt 만 nowMs 로 (다음 소모 시 카운터 다시 시작).
     return { current: state.current, lastUpdatedAt: nowMs };
   }
@@ -51,7 +58,7 @@ export function applyRegen(state: StaminaState, nowMs: number): StaminaState {
     // 아직 1 포인트도 못 채움. 상태 그대로.
     return state;
   }
-  const newCurrent = Math.min(MAX_STAMINA, state.current + regenPoints);
+  const newCurrent = Math.min(maxStamina, state.current + regenPoints);
   // 회복한 만큼의 시간만 진행, 잔여 ms 보존.
   const consumedMs = regenPoints * regenMs;
   return {
@@ -68,8 +75,9 @@ export function tryConsume(
   state: StaminaState,
   cost: number,
   nowMs: number,
+  maxStamina: number = MAX_STAMINA,
 ): StaminaState | null {
-  const regenned = applyRegen(state, nowMs);
+  const regenned = applyRegen(state, nowMs, maxStamina);
   if (regenned.current < cost) return null;
   return {
     current: regenned.current - cost,
@@ -111,4 +119,11 @@ export function parseStaminaFromSave(
     }
   }
   return initialStamina(nowMs);
+}
+
+// character.v2.staminaCapBonus — 비밀 상점 "한계의 비약"으로 영구 누적되는 최대치 보너스.
+export function staminaCapBonusOf(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v)
+    ? Math.max(0, Math.floor(v))
+    : 0;
 }

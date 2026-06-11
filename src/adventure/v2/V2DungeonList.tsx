@@ -4,7 +4,12 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
-import { depthName, dungeonThemeGroups } from "@/adventure/data/v2/dungeon";
+import {
+  depthName,
+  dungeonThemeGroups,
+  themeElementSummary,
+} from "@/adventure/data/v2/dungeon";
+import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import {
   getThemeBossDef,
@@ -70,6 +75,7 @@ export function V2DungeonList({
       ) : openGroup ? (
         // 이너 — 선택한 테마의 깊이 카드 6개 + (보스 있는 테마면) 보스 도전.
         <div className="space-y-3">
+          <ThemeElementLine depth={openGroup.depths[0]} />
           <div className="grid grid-cols-2 gap-2">
             {openGroup.depths.map((depth) => (
               <DepthCard
@@ -134,6 +140,7 @@ export function V2DungeonList({
                   <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                     {from === to ? `깊이 ${from}` : `깊이 ${from}~${to}`}
                   </div>
+                  <ThemeElementLine depth={from} compact />
                   {hasChallenge && (
                     <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                       도전 구역 포함
@@ -210,5 +217,32 @@ function DepthCard({
         </span>
       </Card>
     </button>
+  );
+}
+
+// 테마 속성 요약 한 줄 — 등장 속성 + 추천 속성(최빈 몹 속성을 찌르는 픽, 있을 때만).
+// 약점찌르기 +25% 가 "이 사냥터엔 어떤 속성을 들고 갈까"가 되도록 노출.
+function ThemeElementLine({
+  depth,
+  compact,
+}: {
+  depth: number;
+  compact?: boolean;
+}) {
+  const { elements, recommended } = themeElementSummary(depth);
+  if (elements.length === 0) return null;
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400 ${
+        compact ? "mt-1" : ""
+      }`}
+    >
+      <span>속성 {elements.map((e) => V2_ELEMENT_LABEL[e]).join("·")}</span>
+      {recommended && (
+        <span className="rounded bg-emerald-500/15 px-1.5 py-px font-medium text-emerald-700 dark:text-emerald-400">
+          추천 {V2_ELEMENT_LABEL[recommended]}
+        </span>
+      )}
+    </div>
   );
 }

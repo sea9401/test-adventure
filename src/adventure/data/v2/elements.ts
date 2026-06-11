@@ -72,6 +72,16 @@ export const V2_ELEMENT_DIS_PCT_PVP = 15;
 
 const ADV_SET = new Set(ADVANTAGE.map(([a, d]) => `${a}>${d}`));
 
+// X 를 카운터하는 속성 — CYCLE[i] 가 CYCLE[i+1] 을 카운터하므로 X 의 카운터는 한 칸 앞.
+// 사냥터 "추천 속성"(밴드 최빈 몹 속성을 찌르는 픽) 계산용. neutral 은 카운터 없음.
+export function counterElementOf(e: V2Element): V2Element | null {
+  const idx = V2_ELEMENT_CYCLE.indexOf(e);
+  if (idx < 0) return null;
+  return V2_ELEMENT_CYCLE[
+    (idx - 1 + V2_ELEMENT_CYCLE.length) % V2_ELEMENT_CYCLE.length
+  ];
+}
+
 export type ElementMatchup = "advantage" | "disadvantage" | "neutral";
 
 export function elementMatchup(

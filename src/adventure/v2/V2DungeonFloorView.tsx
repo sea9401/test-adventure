@@ -503,6 +503,7 @@ export function V2DungeonFloorView({
           hpCharges={lastResult.hpCharges}
           mpCharges={lastResult.mpCharges}
           playerSubtitle={playerSubtitle}
+          elementMatchup={lastResult.elementMatchup}
         />
       )}
     </main>

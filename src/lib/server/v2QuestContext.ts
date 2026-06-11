@@ -18,6 +18,7 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
 import { BOSS_TITLE_IDS } from "@/adventure/data/v2/dungeonBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
@@ -41,6 +42,7 @@ type CharSave = {
   unlockedPassives?: unknown;
   gold?: unknown;
   discoveredOutpostIds?: unknown;
+  materials?: Record<string, unknown>;
 };
 
 type AdventureLog = {
@@ -127,6 +129,15 @@ export function buildQuestCtx(args: {
     const def = V2_EQUIPMENT[it.id as V2EquipmentId];
     return def ? isUnique(def) : false;
   }).length;
+  // 강화의 길 — 보유 장비 최고 강화 레벨 + 강화석 보유 합(붉은+푸른).
+  const maxEnhanceLevel = owned.reduce(
+    (max, it) => Math.max(max, it.enhance?.level ?? 0),
+    0,
+  );
+  const mats = charSave.materials ?? {};
+  const enhanceStones =
+    num(mats[ENHANCE_STONE_MATERIAL_ID.red]) +
+    num(mats[ENHANCE_STONE_MATERIAL_ID.blue]);
 
   const gold = num(charSave.gold);
   const outpostsDiscovered = Array.isArray(charSave.discoveredOutpostIds)
@@ -171,6 +182,8 @@ export function buildQuestCtx(args: {
     warTreasuryGold,
     fishSpecies: args.extras.fishSpecies,
     antiquesFound: args.extras.antiquesFound,
+    maxEnhanceLevel,
+    enhanceStones,
   };
 }
 

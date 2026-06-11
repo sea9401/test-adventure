@@ -66,7 +66,12 @@ export function V2DungeonList({
       .then((r) => (r.ok ? r.json() : null))
       .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
         if (alive && j?.ok) {
-          setRareMaps(j.rareMaps ?? []);
+          // hunt 계열만 — 유틸맵(비밀 상점/개명/화공)은 인벤토리 소모품 탭에서 사용.
+          setRareMaps(
+            (j.rareMaps ?? []).filter(
+              (m) => RARE_MAP_KINDS[m.kind]?.category === "hunt",
+            ),
+          );
           setNowMs(Date.now());
         }
       })

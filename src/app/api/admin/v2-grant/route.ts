@@ -30,6 +30,8 @@ import {
   newRareMapInstance,
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
+import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import { TREASURE_WALLET_KEY } from "@/lib/server/treasure/coins";
 
 // POST /api/admin/v2-grant — 관리자가 선택한 유저에게 v2 자원 지급.
 //
@@ -41,7 +43,8 @@ import {
 //
 // 본문(전부 선택): { userId, materials?: {[V2MaterialId]: number},
 //   hpCharges?, mpCharges?, proficiency?, equipmentId?,
-//   rareMap?: { kind, depth } — 레어맵 1장(캡 무관 append, 관리자 지급) }
+//   rareMap?: { kind, depth } — 레어맵 1장(캡 무관 append, 관리자 지급),
+//   fishingCoins?, treasureCoins? — 사이드 화폐(fishing/treasure-wallet.v1 적립) }
 
 const MAX_GRANT = 1_000_000_000;
 
@@ -71,6 +74,8 @@ export async function POST(req: Request) {
     equipmentId?: unknown;
     refillStamina?: unknown;
     rareMap?: unknown;
+    fishingCoins?: unknown;
+    treasureCoins?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -86,6 +91,8 @@ export async function POST(req: Request) {
   const hpChargeGain = clampInt(body.hpCharges, 0, MAX_GRANT);
   const mpChargeGain = clampInt(body.mpCharges, 0, MAX_GRANT);
   const proficiencyGain = clampInt(body.proficiency, 0, MAX_GRANT);
+  const fishingCoinGain = clampInt(body.fishingCoins, 0, MAX_GRANT);
+  const treasureCoinGain = clampInt(body.treasureCoins, 0, MAX_GRANT);
 
   // 재료 — 유효 V2MaterialId + 양수만.
   const matGrant: DropResult = {};
@@ -127,7 +134,9 @@ export async function POST(req: Request) {
     proficiencyGain <= 0 &&
     !equipmentId &&
     !refillStamina &&
-    !rareMapGrant
+    !rareMapGrant &&
+    fishingCoinGain <= 0 &&
+    treasureCoinGain <= 0
   ) {
     return Response.json({ ok: false, error: "nothing_to_grant" }, { status: 400 });
   }
@@ -143,6 +152,8 @@ export async function POST(req: Request) {
       equipmentNoOp?: true;
       staminaRefilled?: number;
       rareMapGranted?: { kind: string; depth: number };
+      fishingCoins?: number;
+      treasureCoins?: number;
     } = { ok: true };
 
     // character.v2 — 재료(병합)·스태미나 회복(쓰기) + 숙련도 컨텍스트(class/level, 읽기)에
@@ -243,6 +254,31 @@ export async function POST(req: Request) {
         });
         out.equipmentOwned = nextOwned;
       }
+    }
+
+    // 사이드 화폐 — 낚시/발굴 코인 지갑({coins}) 적립. character/proficiency/inventory/
+    // equipment 뒤의 독립 키라 락 순서 충돌 없음.
+    if (fishingCoinGain > 0) {
+      const w = await lockSaveForUpdate<{ coins?: number }>(
+        tx,
+        userId,
+        FISHING_WALLET_KEY,
+        {},
+      );
+      const coins = Math.max(0, Math.floor(w.coins ?? 0)) + fishingCoinGain;
+      await upsertSave(tx, userId, FISHING_WALLET_KEY, { ...w, coins });
+      out.fishingCoins = coins;
+    }
+    if (treasureCoinGain > 0) {
+      const w = await lockSaveForUpdate<{ coins?: number }>(
+        tx,
+        userId,
+        TREASURE_WALLET_KEY,
+        {},
+      );
+      const coins = Math.max(0, Math.floor(w.coins ?? 0)) + treasureCoinGain;
+      await upsertSave(tx, userId, TREASURE_WALLET_KEY, { ...w, coins });
+      out.treasureCoins = coins;
     }
 
     return out;

@@ -29,4 +29,7 @@ export type V2GrantPayload = {
   refillStamina?: boolean;
   // 레어맵 지급 — 종류 + 발견 깊이(입장 가능 깊이). 캡(5) 무관 append(관리자 지급).
   rareMap?: { kind: string; depth: number };
+  // 사이드 화폐 — fishing/treasure-wallet.v1 적립.
+  fishingCoins?: number;
+  treasureCoins?: number;
 };

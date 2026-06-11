@@ -226,6 +226,20 @@ describe("POST /api/v2/me/enhance", () => {
     expect(json.enhance).toEqual({ level: 5, bonusPct: 10 });
   });
 
+  it("고강 성공(+6→+7) — 임계 하향으로 피드 발화", async () => {
+    store.set("equipment.v2", {
+      owned: [{ iid: "w1", id: WEAPON, enhance: { level: 6, bonusPct: 13 } }],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0); // 성공
+    await POST(req({ iid: "w1", stone: "blue" }));
+    const { insertFeedEntry } = await import("@/lib/server/serverFeed");
+    expect(insertFeedEntry).toHaveBeenCalledWith("u-test", "enhance_high", {
+      itemId: WEAPON,
+      level: 7,
+    });
+  });
+
   it("고강 성공(+7→+8, 돌 필수 구간) — enhance_high 피드 발화", async () => {
     store.set("equipment.v2", {
       owned: [{ iid: "w1", id: WEAPON, enhance: { level: 7, bonusPct: 16 } }],

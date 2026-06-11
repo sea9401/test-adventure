@@ -165,7 +165,8 @@ export function rollEnhanceStoneDrops(
 }
 
 // 고강 성공 피드 임계 — 이 레벨 이상 도달 성공 시 전체 소식/전광판에 자랑.
-export const ENHANCE_FEED_MIN_LEVEL = 8;
+// 2026-06-11 사용자: +7부터(파괴 위험 구간 진입과 동기화).
+export const ENHANCE_FEED_MIN_LEVEL = 7;
 
 // 하락 — 레벨 −1(보너스는 구간표 재파생). level 1→0 은 미강화(undefined).
 export function demoteEnhance(

@@ -6,7 +6,6 @@ import {
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
 import {
-  CHARGE_PACK_AMOUNT,
   SECRET_SHOP_ITEM_BY_ID,
   SECRET_SHOP_STOCK,
   STAMINA_CAP_TONIC_BONUS,
@@ -163,7 +162,7 @@ export async function POST(req: Request) {
     }
     await upsertSave(tx, userId, "character.v2", nextChar);
 
-    // 충전약 — inventory.v2 (락 순서 character → inventory, dev grant 와 동일).
+    // 충전약 완충 — inventory.v2 (락 순서 character → inventory, dev grant 와 동일).
     if (item.id === "hp_charge_pack" || item.id === "mp_charge_pack") {
       const inv = await lockSaveForUpdate<{
         hpCharges?: number;
@@ -173,10 +172,7 @@ export async function POST(req: Request) {
       const key = item.id === "hp_charge_pack" ? "hpCharges" : "mpCharges";
       await upsertSave(tx, userId, "inventory.v2", {
         ...inv,
-        [key]: Math.min(
-          MAX_CHARGE,
-          Math.max(0, inv[key] ?? 0) + CHARGE_PACK_AMOUNT,
-        ),
+        [key]: MAX_CHARGE,
       });
     }
 

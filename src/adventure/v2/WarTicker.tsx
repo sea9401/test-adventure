@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sword } from "@phosphor-icons/react";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   FEED_POLL_MS,
   WAR_TICKER_WINDOW_H,
@@ -50,6 +51,13 @@ export function warTickerText(e: FeedEntry): string | null {
   if (e.type === "outpost_eject") {
     const p = e.payload as { outpostId: string; targetName: string };
     return `${e.actorName}, ${outpostName(p.outpostId)}에서 침입자 ${p.targetName} 토벌`;
+  }
+  if (e.type === "enhance_high") {
+    const p = e.payload as { itemId: string; level: number };
+    const name =
+      (V2_EQUIPMENT as Record<string, { name?: string }>)[p.itemId]?.name ??
+      p.itemId;
+    return `${e.actorName} 님이 ${name} +${p.level} 강화 성공!`;
   }
   return null;
 }

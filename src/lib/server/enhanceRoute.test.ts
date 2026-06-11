@@ -8,6 +8,9 @@ const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-test"),
 }));
+vi.mock("@/lib/server/serverFeed", () => ({
+  insertFeedEntry: vi.fn(async () => {}),
+}));
 vi.mock("@/db", () => ({
   db: {
     transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb({})),
@@ -204,6 +207,21 @@ describe("POST /api/v2/me/enhance", () => {
     expect(json.demoted).toBe(false);
     const eq = store.get("equipment.v2") as EquipSave;
     expect(eq.owned[0].enhance).toEqual({ level: 5, bonusPct: 10 });
+  });
+
+  it("고강 성공(+7→+8) — enhance_high 피드 발화", async () => {
+    store.set("equipment.v2", {
+      owned: [{ iid: "w1", id: WEAPON, enhance: { level: 7, bonusPct: 16 } }],
+      equipped: {},
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0); // 성공
+    const res = await POST(req({ iid: "w1", stone: "blue" }));
+    expect(res.status).toBe(200);
+    const { insertFeedEntry } = await import("@/lib/server/serverFeed");
+    expect(insertFeedEntry).toHaveBeenCalledWith("u-test", "enhance_high", {
+      itemId: WEAPON,
+      level: 8,
+    });
   });
 
   it("상한 — +10 에서 거부", async () => {

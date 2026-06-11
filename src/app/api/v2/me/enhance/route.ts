@@ -7,8 +7,10 @@ import {
   removeInstance,
   V2_EQUIPMENT,
 } from "@/adventure/data/v2/v2Equipment";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   ENHANCE_DEMOTE_FROM_LEVEL,
+  ENHANCE_FEED_MIN_LEVEL,
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
   ENHANCE_UNIQUE_COST_MULT,
@@ -216,6 +218,7 @@ export async function POST(req: Request) {
         success,
         successPct,
         demoted,
+        itemId: inst.id,
         enhance: nextEnhance ?? null,
         stoneCost,
         goldCost,
@@ -234,6 +237,23 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  // 고강 자랑 피드 — tx 커밋 후 부수효과. 자랑거리(unique_drop 동류)라 shareFeed
+  // opt-out 존중(force 아님). 전광판 묶음(WAR_FEED_TYPES)에 포함돼 티커에도 흐른다.
+  const fb = result.body as {
+    ok?: boolean;
+    success?: boolean;
+    enhance?: { level: number } | null;
+  };
+  if (fb.ok && fb.success && (fb.enhance?.level ?? 0) >= ENHANCE_FEED_MIN_LEVEL) {
+    const itemId = (result.body as { itemId?: string }).itemId;
+    if (itemId) {
+      await insertFeedEntry(userId, "enhance_high", {
+        itemId,
+        level: fb.enhance!.level,
+      });
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

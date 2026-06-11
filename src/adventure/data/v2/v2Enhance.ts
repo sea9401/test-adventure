@@ -120,6 +120,9 @@ export function rollEnhanceStoneDrops(
   return out;
 }
 
+// 고강 성공 피드 임계 — 이 레벨 이상 도달 성공 시 전체 소식/전광판에 자랑.
+export const ENHANCE_FEED_MIN_LEVEL = 8;
+
 // ── 실패 페널티 — 고강 하락 (사용자 결정 2026-06-11) ─────────────────────────
 // 현재 레벨이 이 값 이상일 때 실패하면 강화 −1 하락(파괴 없음). 그 미만은 재료만 소실.
 export const ENHANCE_DEMOTE_FROM_LEVEL = 6;

@@ -33,7 +33,7 @@ export function V2SparringView({
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <HeaderPanel>
-        <SubViewHeader title="허수아비치기" onBack={onBack} />
+        <SubViewHeader title="훈련장" onBack={onBack} />
       </HeaderPanel>
       <Card padding="md">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">

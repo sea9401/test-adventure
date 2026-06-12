@@ -70,7 +70,7 @@ export function StatsContent() {
           붙습니다 — 초반엔 크고 후반엔 미미합니다.
         </li>
         <li>
-          <Em>최대 HP</Em> = 135 + (레벨 − 1) × 5 + VIT. (시작 1레벨·VIT 15 면
+          <Em>최대 HP</Em> = 135 + (레벨 − 1) × 10 + VIT. (시작 1레벨·VIT 15 면
           150.)
         </li>
         <li>

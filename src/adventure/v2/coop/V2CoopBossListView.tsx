@@ -1,7 +1,7 @@
 "use client";
 
-// 협동 보스 목록 — 소환된 보스 현황 한눈에 + 보스 클릭 → 상세(/battle/coop/[kind]).
-// 소환/공격은 상세 화면에서 — 목록은 현황·미수령 보상만.
+// 협동 보스 목록 — 소환된 보스(인스턴스 단위, 같은 종류 다수 가능) + 소환하기 + 미수령 보상.
+// 보스 클릭 → 상세(/battle/coop/[sessionId]). 소환 성공 시 새 보스 상세로 바로 이동.
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -10,41 +10,51 @@ import { CaretRight } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
-import type { StaminaState } from "@/adventure/v2/stamina";
 import {
   COOP_BOSSES,
+  COOP_BOSS_KIND_IDS,
   COOP_TIER_LABEL,
+  MAX_ACTIVE_PER_KIND,
+  type CoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
-import type { CoopBossKindId } from "@/adventure/data/v2/coopBosses";
 import {
   fmtCoopRemain,
-  useCoopBossState,
+  useCoopListState,
 } from "@/adventure/v2/coop/useCoopBossState";
 
 export function V2CoopBossListView({
-  setStamina,
-  onOpenBoss,
+  onOpenSession,
   onBack,
 }: {
-  setStamina: (s: StaminaState) => void;
-  onOpenBoss: (kind: CoopBossKindId) => void;
+  onOpenSession: (sessionId: string) => void;
   onBack: () => void;
 }) {
   const {
     scrolls,
-    bosses,
+    sessions,
     claimables,
     busy,
     loaded,
     notice,
     lastReward,
+    summon,
     claim,
-  } = useCoopBossState({ setStamina });
+  } = useCoopListState();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  const activeCountByKind = new Map<CoopBossKindId, number>();
+  for (const s of sessions) {
+    activeCountByKind.set(s.kind, (activeCountByKind.get(s.kind) ?? 0) + 1);
+  }
+
+  const handleSummon = async (kind: CoopBossKindId) => {
+    const sessionId = await summon(kind);
+    if (sessionId) onOpenSession(sessionId);
+  };
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -110,78 +120,74 @@ export function V2CoopBossListView({
         </div>
       )}
 
-      {/* 보스 목록 — 클릭 → 상세 */}
-      <div className="space-y-2">
-        {bosses.map((b) => {
-          const def = COOP_BOSSES[b.kind];
-          const active = b.session;
-          const hpPct = active
-            ? Math.max(0, Math.min(100, (active.hp / active.maxHp) * 100))
-            : 0;
+      {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
+      <div className="space-y-1.5">
+        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          소환된 보스{loaded && ` (${sessions.length})`}
+        </div>
+        {loaded && sessions.length === 0 && (
+          <Card padding="md">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              지금 소환된 보스가 없습니다 — 아래에서 소환서를 사용해 깨워
+              보세요.
+            </p>
+          </Card>
+        )}
+        {sessions.map((s) => {
+          const def = COOP_BOSSES[s.kind];
+          const hpPct = Math.max(
+            0,
+            Math.min(100, (s.hp / s.maxHp) * 100),
+          );
           return (
             <button
-              key={b.kind}
+              key={s.id}
               type="button"
-              onClick={() => onOpenBoss(b.kind)}
+              onClick={() => onOpenSession(s.id)}
               className="group block w-full text-left"
             >
               <Card
                 padding="md"
-                className={`flex items-center gap-3 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 ${
-                  active
-                    ? "border-rose-300 hover:border-rose-400 dark:border-rose-800 dark:hover:border-rose-600"
-                    : "hover:border-zinc-300 dark:hover:border-zinc-600"
-                }`}
+                className="flex items-center gap-3 border-rose-300 transition-all duration-150 hover:-translate-y-0.5 hover:border-rose-400 hover:shadow-md active:translate-y-0 dark:border-rose-800 dark:hover:border-rose-600"
               >
                 <img
                   src={def.base.image}
                   alt={def.name}
-                  className={`h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700 ${
-                    active ? "" : "opacity-50 grayscale"
-                  }`}
+                  className="h-14 w-14 shrink-0 rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline justify-between gap-1">
-                    <span className="text-sm font-semibold">{def.name}</span>
-                    {active ? (
-                      <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
-                        토벌 중 · {fmtCoopRemain(active.expiresAt - now)}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        소환서 {def.scrollCost}장
-                      </span>
-                    )}
+                    <span className="text-sm font-semibold">
+                      {def.name}
+                      {s.summonedByName && (
+                        <span className="ml-1.5 text-[11px] font-normal text-zinc-500 dark:text-zinc-400">
+                          {s.summonedByName} 님이 소환
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                      {fmtCoopRemain(s.expiresAt - now)}
+                    </span>
                   </span>
-                  {active ? (
-                    <span className="mt-1.5 block space-y-1">
-                      <span className="block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-                        <span
-                          className="block h-full rounded bg-rose-500 transition-[width]"
-                          style={{ width: `${hpPct}%` }}
-                        />
+                  <span className="mt-1.5 block space-y-1">
+                    <span className="block h-2 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+                      <span
+                        className="block h-full rounded bg-rose-500 transition-[width]"
+                        style={{ width: `${hpPct}%` }}
+                      />
+                    </span>
+                    <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span>
+                        {s.hp.toLocaleString()} / {s.maxHp.toLocaleString()}
                       </span>
-                      <span className="flex justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                        <span>
-                          {active.hp.toLocaleString()} /{" "}
-                          {active.maxHp.toLocaleString()}
-                        </span>
-                        <span>
-                          참전 {b.participantCount}명
-                          {b.myDamage > 0 &&
-                            ` · 내 기여 ${b.myDamage.toLocaleString()}`}
-                          {b.myTier && ` (${COOP_TIER_LABEL[b.myTier]})`}
-                        </span>
+                      <span>
+                        참전 {s.participantCount}명
+                        {s.myDamage > 0 &&
+                          ` · 내 기여 ${s.myDamage.toLocaleString()}`}
+                        {s.myTier && ` (${COOP_TIER_LABEL[s.myTier]})`}
                       </span>
                     </span>
-                  ) : (
-                    <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
-                      잠들어 있다
-                      {scrolls >= def.scrollCost
-                        ? " — 소환 가능"
-                        : ` — 소환서 ${scrolls}/${def.scrollCost}`}
-                    </span>
-                  )}
+                  </span>
                 </span>
                 <CaretRight
                   size={16}
@@ -192,13 +198,53 @@ export function V2CoopBossListView({
             </button>
           );
         })}
+        {!loaded && (
+          <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+            불러오는 중…
+          </p>
+        )}
       </div>
 
-      {!loaded && (
-        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          불러오는 중…
-        </p>
-      )}
+      {/* 소환하기 — 종류별(동시 소환 캡까지) */}
+      <div className="space-y-1.5">
+        <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+          소환하기
+        </div>
+        {COOP_BOSS_KIND_IDS.map((kindId) => {
+          const def = COOP_BOSSES[kindId];
+          const activeCount = activeCountByKind.get(kindId) ?? 0;
+          const capped = activeCount >= MAX_ACTIVE_PER_KIND;
+          const short = scrolls < def.scrollCost;
+          return (
+            <Card key={kindId} padding="md" className="flex items-center gap-3">
+              <img
+                src={def.base.image}
+                alt={def.name}
+                className="h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover opacity-80 dark:border-zinc-700"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">{def.name}</span>
+                <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                  소환서 {def.scrollCost}장 · 2시간
+                  {activeCount > 0 && ` · 토벌 중 ${activeCount}마리`}
+                </span>
+              </span>
+              <button
+                type="button"
+                disabled={busy || !loaded || capped || short}
+                onClick={() => void handleSummon(kindId)}
+                className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+              >
+                {capped
+                  ? "한도 도달"
+                  : short
+                    ? `소환서 ${scrolls}/${def.scrollCost}`
+                    : "소환"}
+              </button>
+            </Card>
+          );
+        })}
+      </div>
     </main>
   );
 }

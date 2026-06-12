@@ -659,11 +659,14 @@ export const coopBossSessions = pgTable(
     regenPerMin: integer("regen_per_min").notNull().default(0),
     // 마지막으로 lazy regen 이 적용된 시각. 0 인 보스는 NULL 유지. spawn 시 now.
     lastRegenAt: timestamp("last_regen_at"),
+    // v2 협동 보스 — 소환자 표시명 스냅샷(같은 종류 동시 다수 소환 시 인스턴스 구분 라벨).
+    // v1 시간 리젠 보스/기존 행은 NULL.
+    summonedByName: text("summoned_by_name"),
   },
   (t) => [
-    // region 당 활성 세션은 1개만 (defeatedAt IS NULL && expiresAt > now 가 활성).
-    // 부분 unique 인덱스로 활성 세션만 제약.
-    uniqueIndex("coop_boss_active_region_idx")
+    // 활성 세션 조회용(kind + defeatedAt IS NULL) — 같은 종류 동시 다수 소환 허용으로
+    // 옛 partial unique(coop_boss_active_region_idx)를 일반 partial index 로 강등(#714).
+    index("coop_boss_active_region_lookup_idx")
       .on(t.regionId)
       .where(sql`${t.defeatedAt} IS NULL`),
     index("coop_boss_next_spawn_idx").on(t.nextSpawnAt),

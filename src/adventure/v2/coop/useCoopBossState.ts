@@ -1,7 +1,9 @@
 "use client";
 
-// 협동 보스 클라 상태 훅 — 목록(V2CoopBossListView)/상세(V2CoopBossDetailView) 공유.
-// GET /api/v2/coop 폴링 + summon/attack/claim intent. 서버 권위 — 여기는 표시·호출만.
+// 협동 보스 클라 상태 훅 — 목록/상세 분리(같은 종류 동시 다수 소환 #714).
+//   useCoopListState   — GET /api/v2/coop 폴링 + summon/claim (목록 화면)
+//   useCoopSessionState — GET /api/v2/coop/[sessionId] 폴링 + attack/claim (상세 화면)
+// 서버 권위 — 여기는 표시·intent 호출만.
 
 import { useCallback, useEffect, useState } from "react";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -15,21 +17,16 @@ import {
 
 const POLL_MS = 20_000;
 
-export type CoopBossState = {
+export type CoopSessionSummary = {
+  id: string;
   kind: CoopBossKindId;
-  session: { id: string; hp: number; maxHp: number; expiresAt: number } | null;
-  myDamage: number;
-  myAttackCount: number;
-  myLastAttackAt: number | null;
-  myTier: CoopRewardTier | null;
+  hp: number;
+  maxHp: number;
+  expiresAt: number;
+  summonedByName: string | null;
   participantCount: number;
-  top: { name: string; damage: number; attackCount: number; isMe?: boolean }[];
-  recentAttacks: {
-    name: string;
-    damageDealt: number;
-    diedEarly: boolean;
-    at: number;
-  }[];
+  myDamage: number;
+  myTier: CoopRewardTier | null;
 };
 
 export type CoopClaimable = {
@@ -66,38 +63,84 @@ export type CoopClaimReward = {
   titleNew: boolean;
 };
 
-type CoopGetResponse = {
-  ok?: boolean;
-  scrolls?: number;
-  bosses?: CoopBossState[];
-  claimables?: CoopClaimable[];
+export type CoopSessionDetail = {
+  session: {
+    id: string;
+    kind: CoopBossKindId;
+    hp: number;
+    maxHp: number;
+    expiresAt: number;
+    defeatedAt: number | null;
+    defeated: boolean;
+    expired: boolean;
+    summonedByName: string | null;
+  };
+  my: {
+    damage: number;
+    attackCount: number;
+    lastAttackAt: number | null;
+    tier: CoopRewardTier | null;
+    claimed: boolean;
+  };
+  participantCount: number;
+  top: { name: string; damage: number; attackCount: number; isMe?: boolean }[];
+  recentAttacks: {
+    name: string;
+    damageDealt: number;
+    diedEarly: boolean;
+    at: number;
+  }[];
 };
 
-export function useCoopBossState({
-  setStamina,
-  onHpAfterAttack,
-}: {
-  setStamina: (s: StaminaState) => void;
-  // 공격 응답의 최종 HP 반영 콜백(전역 HP 바) — 미전달이면 무시.
-  onHpAfterAttack?: (r: { hpAfter: number; maxHp: number }) => void;
-}) {
+// 공용 claim 호출 — 목록/상세 양쪽에서 사용.
+async function postClaim(sessionId: string): Promise<{
+  reward: CoopClaimReward | null;
+  error: string | null;
+}> {
+  const res = await fetch("/api/v2/coop/claim", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  });
+  const j = (await res.json()) as {
+    ok?: boolean;
+    error?: string;
+    reward?: CoopClaimReward | null;
+  };
+  if (j.ok && j.reward) return { reward: j.reward, error: null };
+  return { reward: null, error: j.error ?? "unknown" };
+}
+
+function claimErrorLabel(error: string): string {
+  return error === "below_bronze"
+    ? "기여도가 보상 기준(BRONZE)에 못 미쳤습니다."
+    : `수령 실패 (${error})`;
+}
+
+// === 목록 화면 ========================================================
+
+export function useCoopListState() {
   const [scrolls, setScrolls] = useState(0);
-  const [bosses, setBosses] = useState<CoopBossState[]>([]);
+  const [sessions, setSessions] = useState<CoopSessionSummary[]>([]);
   const [claimables, setClaimables] = useState<CoopClaimable[]>([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [lastAttack, setLastAttack] = useState<CoopAttackResult | null>(null);
   const [lastReward, setLastReward] = useState<CoopClaimReward | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/v2/coop");
       if (!res.ok) return;
-      const j = (await res.json()) as CoopGetResponse;
+      const j = (await res.json()) as {
+        ok?: boolean;
+        scrolls?: number;
+        sessions?: CoopSessionSummary[];
+        claimables?: CoopClaimable[];
+      };
       if (j.ok) {
         setScrolls(j.scrolls ?? 0);
-        setBosses(j.bosses ?? []);
+        setSessions(j.sessions ?? []);
         setClaimables(j.claimables ?? []);
         setLoaded(true);
       }
@@ -111,9 +154,10 @@ export function useCoopBossState({
     return () => clearInterval(id);
   }, [refresh]);
 
+  // 소환 — 성공 시 새 sessionId 반환(목록이 상세로 바로 이동).
   const summon = useCallback(
-    async (kind: CoopBossKindId) => {
-      if (busy) return;
+    async (kind: CoopBossKindId): Promise<string | null> => {
+      if (busy) return null;
       setBusy(true);
       setNotice(null);
       try {
@@ -125,24 +169,25 @@ export function useCoopBossState({
         const j = (await res.json()) as {
           ok?: boolean;
           error?: string;
+          sessionId?: string;
           have?: number;
           need?: number;
+          cap?: number;
         };
-        if (!j.ok) {
-          setNotice(
-            j.error === "not_enough_scrolls"
-              ? `소환서가 부족합니다 (보유 ${j.have ?? 0} / 필요 ${j.need ?? "?"})`
-              : j.error === "already_active"
-                ? "이미 이 보스가 소환되어 있습니다."
-                : `소환 실패 (${j.error ?? "unknown"})`,
-          );
-        } else {
-          setNotice(
-            `${COOP_BOSSES[kind].name} 소환! 모두가 공격할 수 있습니다.`,
-          );
+        if (j.ok && j.sessionId) {
+          return j.sessionId;
         }
+        setNotice(
+          j.error === "not_enough_scrolls"
+            ? `소환서가 부족합니다 (보유 ${j.have ?? 0} / 필요 ${j.need ?? "?"})`
+            : j.error === "too_many_active"
+              ? `${COOP_BOSSES[kind].name}은(는) 동시 소환 한도(${j.cap ?? "?"}마리)에 도달했습니다.`
+              : `소환 실패 (${j.error ?? "unknown"})`,
+        );
+        return null;
       } catch {
         setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+        return null;
       } finally {
         await refresh();
         setBusy(false);
@@ -151,78 +196,15 @@ export function useCoopBossState({
     [busy, refresh],
   );
 
-  const attack = useCallback(
-    async (kind: CoopBossKindId) => {
-      if (busy) return;
-      setBusy(true);
-      setNotice(null);
-      setLastAttack(null);
-      try {
-        const res = await fetch("/api/v2/coop/attack", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind }),
-        });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          stamina?: StaminaState;
-          retryAfterMs?: number;
-          result?: CoopAttackResult;
-        };
-        if (j.stamina) setStamina(j.stamina);
-        if (j.ok && j.result) {
-          setLastAttack(j.result);
-          onHpAfterAttack?.(j.result);
-        } else {
-          setNotice(
-            j.error === "cooldown"
-              ? `재공격 대기 중 — ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
-              : j.error === "out_of_stamina"
-                ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
-                : j.error === "hp_zero"
-                  ? "체력이 부족합니다 — 회복 후 다시 시도하세요."
-                  : j.error === "no_active_boss"
-                    ? "소환된 보스가 없습니다."
-                    : j.error === "already_defeated"
-                      ? "이미 처치된 보스입니다."
-                      : `공격 실패 (${j.error ?? "unknown"})`,
-          );
-        }
-      } catch {
-        setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
-      } finally {
-        await refresh();
-        setBusy(false);
-      }
-    },
-    [busy, refresh, setStamina, onHpAfterAttack],
-  );
-
   const claim = useCallback(
     async (sessionId: string) => {
       if (busy) return;
       setBusy(true);
       setNotice(null);
       try {
-        const res = await fetch("/api/v2/coop/claim", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sessionId }),
-        });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          reward?: CoopClaimReward | null;
-        };
-        if (j.ok && j.reward) setLastReward(j.reward);
-        else if (!j.ok) {
-          setNotice(
-            j.error === "below_bronze"
-              ? "기여도가 보상 기준(BRONZE)에 못 미쳤습니다."
-              : `수령 실패 (${j.error ?? "unknown"})`,
-          );
-        }
+        const { reward, error } = await postClaim(sessionId);
+        if (reward) setLastReward(reward);
+        else if (error) setNotice(claimErrorLabel(error));
       } catch {
         setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
       } finally {
@@ -235,15 +217,136 @@ export function useCoopBossState({
 
   return {
     scrolls,
-    bosses,
+    sessions,
     claimables,
     busy,
     loaded,
     notice,
-    lastAttack,
     lastReward,
     refresh,
     summon,
+    claim,
+  };
+}
+
+// === 상세 화면 ========================================================
+
+export function useCoopSessionState({
+  sessionId,
+  setStamina,
+  onHpAfterAttack,
+}: {
+  sessionId: string;
+  setStamina: (s: StaminaState) => void;
+  // 공격 응답의 최종 HP 반영 콜백(전역 HP 바) — 미전달이면 무시.
+  onHpAfterAttack?: (r: { hpAfter: number; maxHp: number }) => void;
+}) {
+  const [detail, setDetail] = useState<CoopSessionDetail | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [lastAttack, setLastAttack] = useState<CoopAttackResult | null>(null);
+  const [lastReward, setLastReward] = useState<CoopClaimReward | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v2/coop/${sessionId}`);
+      if (res.status === 404) {
+        setMissing(true);
+        return;
+      }
+      if (!res.ok) return;
+      const j = (await res.json()) as
+        | ({ ok?: boolean } & CoopSessionDetail)
+        | null;
+      if (j?.ok) {
+        setDetail({
+          session: j.session,
+          my: j.my,
+          participantCount: j.participantCount,
+          top: j.top,
+          recentAttacks: j.recentAttacks,
+        });
+      }
+    } catch {}
+  }, [sessionId]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh 는 async(fetch 후 set)
+    void refresh();
+    const id = setInterval(() => void refresh(), POLL_MS);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  const attack = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setNotice(null);
+    setLastAttack(null);
+    try {
+      const res = await fetch("/api/v2/coop/attack", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        stamina?: StaminaState;
+        retryAfterMs?: number;
+        result?: CoopAttackResult;
+      };
+      if (j.stamina) setStamina(j.stamina);
+      if (j.ok && j.result) {
+        setLastAttack(j.result);
+        onHpAfterAttack?.(j.result);
+      } else {
+        setNotice(
+          j.error === "cooldown"
+            ? `재공격 대기 중 — ${Math.ceil((j.retryAfterMs ?? 0) / 1000)}초 후 가능`
+            : j.error === "out_of_stamina"
+              ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
+              : j.error === "hp_zero"
+                ? "체력이 부족합니다 — 회복 후 다시 시도하세요."
+                : j.error === "no_active_boss"
+                  ? "이미 끝난 토벌입니다."
+                  : j.error === "already_defeated"
+                    ? "이미 처치된 보스입니다."
+                    : `공격 실패 (${j.error ?? "unknown"})`,
+        );
+      }
+    } catch {
+      setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+    } finally {
+      await refresh();
+      setBusy(false);
+    }
+  }, [busy, refresh, sessionId, setStamina, onHpAfterAttack]);
+
+  const claim = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const { reward, error } = await postClaim(sessionId);
+      if (reward) setLastReward(reward);
+      else if (error) setNotice(claimErrorLabel(error));
+    } catch {
+      setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+    } finally {
+      await refresh();
+      setBusy(false);
+    }
+  }, [busy, refresh, sessionId]);
+
+  return {
+    detail,
+    missing,
+    busy,
+    notice,
+    lastAttack,
+    lastReward,
+    refresh,
     attack,
     claim,
   };

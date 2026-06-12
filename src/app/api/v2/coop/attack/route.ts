@@ -13,7 +13,6 @@ import {
 } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
-import { findActiveCoopSession } from "@/lib/server/v2Coop";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import {
@@ -52,7 +51,7 @@ import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // POST /api/v2/coop/attack — 협동 보스 1회 공격.
 //
-// 본문: { kind: CoopBossKindId }
+// 본문: { sessionId } — 같은 종류 동시 다수 소환(#714)이라 kind 가 아닌 세션 인스턴스 대상.
 // 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
 //   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사 + HP 게이트.
 //   2. equipment/skills/proficiency lock-read → derive(왕복 0).
@@ -81,19 +80,22 @@ export async function POST(req: Request) {
   }
   const userId: string = maybeUserId;
 
-  let body: { kind?: unknown };
+  let body: { sessionId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  const kindId = parseCoopBossKindId(body.kind);
-  if (!kindId) {
-    return Response.json({ ok: false, error: "bad_kind" }, { status: 400 });
+  const sessionId =
+    typeof body.sessionId === "string" && body.sessionId.length > 0
+      ? body.sessionId
+      : null;
+  if (!sessionId) {
+    return Response.json({ ok: false, error: "bad_session" }, { status: 400 });
   }
-  const kind = COOP_BOSSES[kindId];
 
   let defeatedNow = false;
+  let defeatedKind: string | null = null;
   const result = await db.transaction(async (tx) => {
     const now = Date.now();
     // === 1. character.v2 잠금 + 스태미너/HP 게이트 ===
@@ -174,14 +176,31 @@ export async function POST(req: Request) {
       };
     }
 
-    // === 3. 세션 조기 검증(비잠금 — 시뮬 전 빠른 거부) ===
-    const sessionPeek = await findActiveCoopSession(tx, kindId);
-    if (!sessionPeek || sessionPeek.expiresAt.getTime() <= now) {
+    // === 3. 세션 조기 검증(비잠금 — 시뮬 전 빠른 거부) + kind 해석 ===
+    const peekRows = await tx
+      .select()
+      .from(coopBossSessions)
+      .where(eq(coopBossSessions.id, sessionId))
+      .limit(1);
+    const sessionPeek = peekRows[0];
+    if (
+      !sessionPeek ||
+      sessionPeek.defeatedAt !== null ||
+      sessionPeek.expiresAt.getTime() <= now
+    ) {
       return {
         status: 404,
         body: { ok: false as const, error: "no_active_boss" as const },
       };
     }
+    const kindId = parseCoopBossKindId(sessionPeek.regionId);
+    if (!kindId) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "bad_session" as const },
+      };
+    }
+    const kind = COOP_BOSSES[kindId];
 
     // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 공유 풀
     // (stateless 풀피 기준 — 실차감은 아래 GREATEST 클램프, v1 simulate 단순화).
@@ -293,6 +312,7 @@ export async function POST(req: Request) {
         .set({ defeatedAt: nowDate })
         .where(eq(coopBossSessions.id, s.id));
       defeatedNow = true;
+      defeatedKind = kindId;
     }
 
     // === 5. contributor UPSERT + 공격 로그 ===
@@ -398,8 +418,8 @@ export async function POST(req: Request) {
   });
 
   // 처치 피드 — 킬 CAS 를 점유한 1명만(트랜잭션 밖 — insertFeedEntry 자체가 실패 삼킴).
-  if (defeatedNow) {
-    await insertFeedEntry(userId, "coop_kill", { kind: kindId });
+  if (defeatedNow && defeatedKind) {
+    await insertFeedEntry(userId, "coop_kill", { kind: defeatedKind });
   }
 
   return Response.json(result.body, { status: result.status });

@@ -1,8 +1,8 @@
 "use client";
 
-// 협동 보스 상세 — 보스 한 마리의 토벌 화면.
+// 협동 보스 상세 — 소환된 보스 인스턴스 하나의 토벌 화면(sessionId 단위, #714).
 // 구조(옛 레이드 화면의 v2 이식): 보스 일러스트·이름·HP 숫자/바·플레이버 → 공격 버튼 →
-// 참전자 명단(내 줄 강조) → 최근 공격 → 내 공격 다시보기. 잠든 보스면 소환 화면.
+// 참전자 명단(내 줄 강조) → 최근 공격 → 내 공격 다시보기. 끝난 세션은 결과 + 보상 수령.
 
 /* eslint-disable @next/next/no-img-element */
 
@@ -18,16 +18,15 @@ import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
   COOP_TIER_LABEL,
-  type CoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 import {
   fmtCoopRemain,
-  useCoopBossState,
+  useCoopSessionState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import type { Gender } from "@/adventure/profile/avatars";
 
 export function V2CoopBossDetailView({
-  kind,
+  sessionId,
   playerName,
   playerGender,
   playerSubtitle,
@@ -36,7 +35,7 @@ export function V2CoopBossDetailView({
   setHp,
   onBack,
 }: {
-  kind: CoopBossKindId;
+  sessionId: string;
   playerName: string;
   playerGender: Gender;
   playerSubtitle?: string;
@@ -45,20 +44,19 @@ export function V2CoopBossDetailView({
   setHp?: (s: HpBarState) => void;
   onBack: () => void;
 }) {
-  const def = COOP_BOSSES[kind];
   const {
-    scrolls,
-    bosses,
+    detail,
+    missing,
     busy,
-    loaded,
     notice,
     lastAttack,
-    summon,
+    lastReward,
     attack,
-  } = useCoopBossState({
+    claim,
+  } = useCoopSessionState({
+    sessionId,
     setStamina,
     onHpAfterAttack: (r) => {
-       
       setHp?.({ hp: r.hpAfter, maxHp: r.maxHp, anchorMs: Date.now() });
     },
   });
@@ -68,28 +66,61 @@ export function V2CoopBossDetailView({
     return () => clearInterval(id);
   }, []);
 
-  const b = bosses.find((x) => x.kind === kind) ?? null;
-  const active = b?.session ?? null;
-  const hpPct = active
-    ? Math.max(0, Math.min(100, (active.hp / active.maxHp) * 100))
-    : 0;
+  if (missing) {
+    return (
+      <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+        <HeaderPanel>
+          <BackButton onClick={onBack} />
+        </HeaderPanel>
+        <Card padding="md">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            존재하지 않는 토벌입니다.
+          </p>
+        </Card>
+      </main>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+        <HeaderPanel>
+          <BackButton onClick={onBack} />
+        </HeaderPanel>
+        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+          불러오는 중…
+        </p>
+      </main>
+    );
+  }
+
+  const { session, my } = detail;
+  const def = COOP_BOSSES[session.kind];
+  // 활성 판정 — 서버 sweep 전이라도 시간상 만료면 비활성 취급(공격 버튼 숨김).
+  const ended =
+    session.defeated || session.expired || session.expiresAt <= now;
+  const active = !ended;
+  const hpPct = Math.max(0, Math.min(100, (session.hp / session.maxHp) * 100));
   const cooldownLeft =
-    b?.myLastAttackAt != null
-      ? b.myLastAttackAt + COOP_ATTACK_COOLDOWN_MS - now
+    my.lastAttackAt != null
+      ? my.lastAttackAt + COOP_ATTACK_COOLDOWN_MS - now
       : 0;
-  const onCooldown = active != null && cooldownLeft > 0;
+  const onCooldown = active && cooldownLeft > 0;
   const lowStamina = stamina.current < COOP_ATTACK_STAMINA_COST;
+  const claimable = session.defeated && !my.claimed && my.tier != null;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <HeaderPanel className="space-y-2">
         <div className="flex items-center justify-between">
           <BackButton onClick={onBack} />
-          {active && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              {fmtCoopRemain(active.expiresAt - now)}
-            </span>
-          )}
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            {session.defeated
+              ? "토벌 완료"
+              : session.expired || session.expiresAt <= now
+                ? "만료"
+                : fmtCoopRemain(session.expiresAt - now)}
+          </span>
         </div>
       </HeaderPanel>
 
@@ -104,31 +135,30 @@ export function V2CoopBossDetailView({
         />
         <div>
           <h1 className="text-lg font-bold">{def.name}</h1>
-          {active ? (
-            <p className="mt-0.5 font-mono text-sm text-zinc-600 dark:text-zinc-300">
-              {active.hp.toLocaleString()} / {active.maxHp.toLocaleString()}
-            </p>
-          ) : (
-            <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-              잠들어 있다
+          {session.summonedByName && (
+            <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+              {session.summonedByName} 님이 소환
             </p>
           )}
+          <p className="mt-0.5 font-mono text-sm text-zinc-600 dark:text-zinc-300">
+            {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}
+          </p>
         </div>
-        {active && (
-          <div className="h-3 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
-            <div
-              className="h-full rounded bg-rose-500 transition-[width]"
-              style={{ width: `${hpPct}%` }}
-            />
-          </div>
-        )}
+        <div className="h-3 w-full overflow-hidden rounded bg-zinc-200 dark:bg-zinc-800">
+          <div
+            className={`h-full rounded transition-[width] ${
+              session.defeated ? "bg-zinc-400" : "bg-rose-500"
+            }`}
+            style={{ width: `${hpPct}%` }}
+          />
+        </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{def.desc}</p>
 
-        {active ? (
+        {active && (
           <button
             type="button"
             disabled={busy || onCooldown || lowStamina}
-            onClick={() => void attack(kind)}
+            onClick={() => void attack()}
             className="mx-auto w-full max-w-xs rounded-md border border-rose-600 bg-rose-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
           >
             {busy
@@ -139,28 +169,36 @@ export function V2CoopBossDetailView({
                   ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
                   : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
           </button>
-        ) : (
+        )}
+        {session.defeated && (
+          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+            모험가들의 손에 쓰러졌다!
+          </p>
+        )}
+        {!session.defeated && ended && (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            시간 안에 쓰러뜨리지 못했다 — 보스는 떠났다.
+          </p>
+        )}
+        {claimable && (
           <button
             type="button"
-            disabled={busy || !loaded || scrolls < def.scrollCost}
-            onClick={() => void summon(kind)}
-            className="mx-auto w-full max-w-xs rounded-md border border-amber-600 bg-amber-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+            disabled={busy}
+            onClick={() => void claim()}
+            className="mx-auto w-full max-w-xs rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {!loaded
-              ? "불러오는 중…"
-              : scrolls < def.scrollCost
-                ? `소환서 부족 (${scrolls}/${def.scrollCost})`
-                : `소환 (소환서 ${def.scrollCost}장)`}
+            기여 보상 수령 ({my.tier ? COOP_TIER_LABEL[my.tier] : ""})
           </button>
         )}
-        {active && b && b.myDamage > 0 && (
+        {my.damage > 0 && (
           <p className="text-xs text-zinc-600 dark:text-zinc-300">
-            내 누적 {b.myDamage.toLocaleString()} ({b.myAttackCount}회)
-            {b.myTier && (
+            내 누적 {my.damage.toLocaleString()} ({my.attackCount}회)
+            {my.tier && (
               <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                {COOP_TIER_LABEL[b.myTier]}
+                {COOP_TIER_LABEL[my.tier]}
               </span>
             )}
+            {session.defeated && my.claimed && " · 보상 수령 완료"}
           </p>
         )}
       </Card>
@@ -171,8 +209,22 @@ export function V2CoopBossDetailView({
         </div>
       )}
 
+      {lastReward && (
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+            🏆 {COOP_TIER_LABEL[lastReward.tier]} 보상 — 골드 +
+            {lastReward.gold.toLocaleString()}
+            {lastReward.uniqueId && " · 보스 유니크 획득!"}
+            {lastReward.titleNew && " · 칭호 획득!"}
+          </p>
+          <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+            장비는 인벤토리, 칭호는 도감에서 확인할 수 있어요.
+          </p>
+        </div>
+      )}
+
       {/* 내 공격 결과 — 요약 + 전투 다시보기 */}
-      {lastAttack && lastAttack.kind === kind && (
+      {lastAttack && (
         <Card padding="md" className="space-y-2">
           <div className="text-sm font-semibold">
             ⚔{" "}
@@ -198,16 +250,16 @@ export function V2CoopBossDetailView({
       )}
 
       {/* 참전자 명단 — 데미지 내림차순, 내 줄 강조 */}
-      {active && b && b.top.length > 0 && (
+      {detail.top.length > 0 && (
         <Card padding="md" className="space-y-1.5">
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-semibold">참전자</span>
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-              {b.participantCount}명
+              {detail.participantCount}명
             </span>
           </div>
           <div className="space-y-0.5">
-            {b.top.map((t, i) => (
+            {detail.top.map((t, i) => (
               <div
                 key={`${t.name}-${i}`}
                 className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-sm ${
@@ -239,10 +291,10 @@ export function V2CoopBossDetailView({
       )}
 
       {/* 최근 공격 활동 */}
-      {active && b && b.recentAttacks.length > 0 && (
+      {detail.recentAttacks.length > 0 && (
         <Card padding="md" className="space-y-1">
           <div className="text-sm font-semibold">최근 공격</div>
-          {b.recentAttacks.map((a, i) => (
+          {detail.recentAttacks.map((a, i) => (
             <div
               key={`${a.at}-${i}`}
               className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400"

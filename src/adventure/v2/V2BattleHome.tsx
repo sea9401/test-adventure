@@ -11,7 +11,7 @@ import {
 import { EntryCard } from "@/components/ui/EntryCard";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
-// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/전황/아레나/허수아비 진입.
+// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/전황/아레나/훈련장 진입.
 // 지도는 마을 탭으로 이관(2026-06-11).
 
 export type BattleAction =
@@ -80,7 +80,7 @@ export function V2BattleHome({
           icon={
             <Barbell size={28} weight="duotone" className="text-sky-500" />
           }
-          title="허수아비"
+          title="훈련장"
           onClick={() => onAction({ kind: "open-sparring" })}
         />
       </div>

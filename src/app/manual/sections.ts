@@ -124,7 +124,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "arena",
     title: "투기장과 대련",
-    summary: "1대1 투기장, 허수아비 대련(빌드 시험).",
+    summary: "1대1 투기장, 훈련장 허수아비 대련(빌드 시험).",
     group: "versus",
   },
   {

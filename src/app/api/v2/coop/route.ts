@@ -21,7 +21,7 @@ import {
 //
 // 응답: {
 //   scrolls,                       — 내 소환서 보유 장수
-//   bosses: [{ kind, session?, myDamage, myTier, top, recentAttacks }],
+//   bosses: [{ kind, session?, myDamage, myTier, participantCount, top, recentAttacks }],
 //   claimables: [{ sessionId, kind, myDamage, tier, defeatedAt }],
 // }
 // 만료 정리는 lazy — 진입 시 sweep(cron 불요·멱등). 폴링 hot path 지만 대상 없으면
@@ -180,16 +180,22 @@ export async function GET() {
       myTier: session
         ? coopTierForRatio(myDamage / Math.max(1, session.maxHp))
         : null,
+      // 참전자 명단(상세 화면) — 데미지 내림차순 상위 30. 본인 줄 강조는 클라(name 비교 대신
+      // isMe 플래그 — 동명 충돌 방지).
       top: session
         ? topRows
             .filter((r) => r.sessionId === session.id)
-            .slice(0, 5)
+            .slice(0, 30)
             .map((r) => ({
               name: displayName(r),
               damage: r.damage,
               attackCount: r.attackCount,
+              isMe: r.userId === userId,
             }))
         : [],
+      participantCount: session
+        ? topRows.filter((r) => r.sessionId === session.id).length
+        : 0,
       recentAttacks: session
         ? recentAttacks
             .filter((a) => a.sessionId === session.id)

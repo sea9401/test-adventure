@@ -1,12 +1,6 @@
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  coopBossAttackLog,
-  coopBossContributors,
-  coopBossSessions,
-  savesKv,
-  users,
-} from "@/db/schema";
+import { coopBossContributors, coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
 import { expireStaleCoopSessions } from "@/lib/server/v2Coop";
@@ -17,15 +11,17 @@ import {
   parseCoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 
-// GET /api/v2/coop — 협동 보스 현황(보스 패널 폴링용).
+// GET /api/v2/coop — 협동 보스 목록 현황(목록 화면 폴링용 — 슬림).
+// 같은 종류 동시 다수 소환(#714): 활성 세션이 인스턴스 단위로 N개 — 참전자 명단/최근
+// 공격은 상세(GET /api/v2/coop/[sessionId])로 분리, 여기는 집계만.
 //
 // 응답: {
 //   scrolls,                       — 내 소환서 보유 장수
-//   bosses: [{ kind, session?, myDamage, myTier, participantCount, top, recentAttacks }],
+//   sessions: [{ id, kind, hp, maxHp, expiresAt, summonedByName,
+//                participantCount, myDamage, myTier }],
 //   claimables: [{ sessionId, kind, myDamage, tier, defeatedAt }],
 // }
-// 만료 정리는 lazy — 진입 시 sweep(cron 불요·멱등). 폴링 hot path 지만 대상 없으면
-// no-op UPDATE 라 부담 미미(세션 테이블이 작음).
+// 만료 정리는 lazy — 진입 시 sweep(cron 불요·멱등).
 
 export async function GET() {
   const userId = await ensureUser();
@@ -52,7 +48,7 @@ export async function GET() {
     Math.floor(Number(mats[SUMMON_SCROLL_MATERIAL_ID]) || 0),
   );
 
-  // 활성 세션(kind 당 최대 1).
+  // 활성 세션(인스턴스 단위, 종류별 최대 MAX_ACTIVE_PER_KIND) — 오래된 소환부터.
   const activeSessions = await db
     .select()
     .from(coopBossSessions)
@@ -61,14 +57,28 @@ export async function GET() {
         inArray(coopBossSessions.regionId, [...COOP_BOSS_KIND_IDS]),
         isNull(coopBossSessions.defeatedAt),
       ),
-    );
-  const activeBySessionId = new Map(activeSessions.map((s) => [s.id, s]));
-  const activeIds = [...activeBySessionId.keys()];
+    )
+    .orderBy(coopBossSessions.spawnedAt);
+  const activeIds = activeSessions.map((s) => s.id);
 
-  // 내 기여 + top5 + 최근 공격 — 활성 세션이 있을 때만.
+  // 세션별 참전자 수(집계) + 내 기여 — 활성 세션이 있을 때만.
+  const countRows = activeIds.length
+    ? await db
+        .select({
+          sessionId: coopBossContributors.sessionId,
+          n: count(),
+        })
+        .from(coopBossContributors)
+        .where(inArray(coopBossContributors.sessionId, activeIds))
+        .groupBy(coopBossContributors.sessionId)
+    : [];
+  const countBySession = new Map(countRows.map((r) => [r.sessionId, r.n]));
   const myRows = activeIds.length
     ? await db
-        .select()
+        .select({
+          sessionId: coopBossContributors.sessionId,
+          damage: coopBossContributors.damage,
+        })
         .from(coopBossContributors)
         .where(
           and(
@@ -77,70 +87,34 @@ export async function GET() {
           ),
         )
     : [];
-  const myBySession = new Map(myRows.map((r) => [r.sessionId, r]));
+  const myBySession = new Map(myRows.map((r) => [r.sessionId, r.damage]));
 
-  const topRows = activeIds.length
-    ? await db
-        .select({
-          sessionId: coopBossContributors.sessionId,
-          userId: coopBossContributors.userId,
-          damage: coopBossContributors.damage,
-          attackCount: coopBossContributors.attackCount,
-          name: users.gameName,
-        })
-        .from(coopBossContributors)
-        .leftJoin(users, eq(users.id, coopBossContributors.userId))
-        .where(inArray(coopBossContributors.sessionId, activeIds))
-        .orderBy(desc(coopBossContributors.damage))
-    : [];
-  // users.gameName 이 NULL 인 유저 — character-profile.v2.name fallback(공용 dual-source 패턴).
-  const missingNameUserIds = [
-    ...new Set(topRows.filter((r) => !r.name).map((r) => r.userId)),
-  ];
-  const profileNameByUser = new Map<string, string>();
-  if (missingNameUserIds.length > 0) {
-    const profRows = await db
-      .select({ userId: savesKv.userId, value: savesKv.value })
-      .from(savesKv)
-      .where(
-        and(
-          inArray(savesKv.userId, missingNameUserIds),
-          eq(savesKv.key, "character-profile.v2"),
-        ),
-      );
-    for (const p of profRows) {
-      const n = (p.value as { name?: unknown } | null)?.name;
-      if (typeof n === "string" && n.trim()) {
-        profileNameByUser.set(p.userId, n.trim());
-      }
-    }
-  }
-  const displayName = (r: { userId: string; name: string | null }): string =>
-    r.name?.trim() || profileNameByUser.get(r.userId) || "모험가";
+  const sessions = activeSessions
+    .map((s) => {
+      const kind = parseCoopBossKindId(s.regionId);
+      if (!kind) return null;
+      const myDamage = myBySession.get(s.id) ?? 0;
+      return {
+        id: s.id,
+        kind,
+        hp: s.hp,
+        maxHp: s.maxHp,
+        expiresAt: s.expiresAt.getTime(),
+        summonedByName: s.summonedByName,
+        participantCount: countBySession.get(s.id) ?? 0,
+        myDamage,
+        myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp)),
+      };
+    })
+    .filter(Boolean);
 
-  const recentAttacks = activeIds.length
-    ? await db
-        .select({
-          sessionId: coopBossAttackLog.sessionId,
-          name: coopBossAttackLog.name,
-          damageDealt: coopBossAttackLog.damageDealt,
-          diedEarly: coopBossAttackLog.diedEarly,
-          createdAt: coopBossAttackLog.createdAt,
-        })
-        .from(coopBossAttackLog)
-        .where(inArray(coopBossAttackLog.sessionId, activeIds))
-        .orderBy(desc(coopBossAttackLog.createdAt))
-        .limit(15)
-    : [];
-
-  // 미수령 보상 — 처치된(hp<=0) 세션의 내 기여 중 unclaimed (bronze 미달 제외는 클라 표기).
+  // 미수령 보상 — 처치된(hp<=0) 세션의 내 기여 중 unclaimed.
   const claimRows = await db
     .select({
       sessionId: coopBossContributors.sessionId,
       damage: coopBossContributors.damage,
       regionId: coopBossSessions.regionId,
       maxHp: coopBossSessions.maxHp,
-      hp: coopBossSessions.hp,
       defeatedAt: coopBossSessions.defeatedAt,
     })
     .from(coopBossContributors)
@@ -159,57 +133,6 @@ export async function GET() {
     )
     .orderBy(desc(coopBossSessions.defeatedAt))
     .limit(10);
-
-  const bosses = COOP_BOSS_KIND_IDS.map((kindId) => {
-    const session = activeSessions.find((s) => s.regionId === kindId) ?? null;
-    const my = session ? (myBySession.get(session.id) ?? null) : null;
-    const myDamage = my?.damage ?? 0;
-    return {
-      kind: kindId,
-      session: session
-        ? {
-            id: session.id,
-            hp: session.hp,
-            maxHp: session.maxHp,
-            expiresAt: session.expiresAt.getTime(),
-          }
-        : null,
-      myDamage,
-      myAttackCount: my?.attackCount ?? 0,
-      myLastAttackAt: my?.lastAttackAt?.getTime() ?? null,
-      myTier: session
-        ? coopTierForRatio(myDamage / Math.max(1, session.maxHp))
-        : null,
-      // 참전자 명단(상세 화면) — 데미지 내림차순 상위 30. 본인 줄 강조는 클라(name 비교 대신
-      // isMe 플래그 — 동명 충돌 방지).
-      top: session
-        ? topRows
-            .filter((r) => r.sessionId === session.id)
-            .slice(0, 30)
-            .map((r) => ({
-              name: displayName(r),
-              damage: r.damage,
-              attackCount: r.attackCount,
-              isMe: r.userId === userId,
-            }))
-        : [],
-      participantCount: session
-        ? topRows.filter((r) => r.sessionId === session.id).length
-        : 0,
-      recentAttacks: session
-        ? recentAttacks
-            .filter((a) => a.sessionId === session.id)
-            .slice(0, 8)
-            .map((a) => ({
-              name: a.name,
-              damageDealt: a.damageDealt,
-              diedEarly: a.diedEarly,
-              at: a.createdAt.getTime(),
-            }))
-        : [],
-    };
-  });
-
   const claimables = claimRows
     .map((r) => {
       const kind = parseCoopBossKindId(r.regionId);
@@ -226,5 +149,5 @@ export async function GET() {
     })
     .filter(Boolean);
 
-  return Response.json({ ok: true, scrolls, bosses, claimables });
+  return Response.json({ ok: true, scrolls, sessions, claimables });
 }

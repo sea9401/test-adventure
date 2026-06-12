@@ -80,6 +80,10 @@ export const COOP_ATTACK_STAMINA_COST = 20;
 // 재공격 쿨다운(ms) — 전역 공통. 매크로/원맨 클리어 견제. ⚠️ 캘리브 다이얼.
 export const COOP_ATTACK_COOLDOWN_MS = 2 * 60 * 1000;
 
+// 같은 종류 동시 소환 상한 — 소환서 비용이 1차 게이트라 느슨한 안전캡(목록/쿼리 비대화 방지).
+// ⚠️ 캘리브 다이얼.
+export const MAX_ACTIVE_PER_KIND = 5;
+
 // === 보스 정의 =========================================================
 
 export type CoopBossKindId =

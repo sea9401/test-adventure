@@ -2,14 +2,19 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+} from "@/lib/server/savesKv";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   expireStaleCoopSessions,
-  findActiveCoopSession,
+  findActiveCoopSessions,
 } from "@/lib/server/v2Coop";
 import {
   COOP_BOSSES,
+  MAX_ACTIVE_PER_KIND,
   SUMMON_SCROLL_MATERIAL_ID,
   parseCoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
@@ -17,10 +22,10 @@ import {
 // POST /api/v2/coop/summon — 소환서를 소모해 협동 보스 소환.
 //
 // 본문: { kind: CoopBossKindId }
-// 단일 트랜잭션: character.v2 잠금(공통 첫 락) → 소환서 보유 검증·차감 → 만료 세션
-// lazy sweep → kind 활성 세션 없음 확인 → 세션 INSERT. 동시 소환은 partial
-// uniqueIndex(coop_boss_active_region_idx)가 막는다 — INSERT 충돌 시 tx 롤백으로
-// 소환서도 환원(원자성).
+// 같은 종류 동시 다수 소환 허용(#714) — 소환서 비용이 1차 게이트, MAX_ACTIVE_PER_KIND 는
+// 목록/쿼리 비대화를 막는 느슨한 안전캡(엄밀 직렬화 없음 — 동시 소환 race 로 캡을 1~2
+// 초과할 수 있으나 무해). 단일 트랜잭션: character.v2 잠금(공통 첫 락) → 소환서 검증·차감
+// → 만료 sweep + 캡 확인 → 세션 INSERT(소환자 표시명 스냅샷).
 
 type CharSave = { materials?: unknown; [k: string]: unknown };
 
@@ -75,11 +80,18 @@ export async function POST(req: Request) {
         };
       }
 
-      // === 2. 만료 sweep + kind 활성 세션 확인 ===
+      // === 2. 만료 sweep + 동시 소환 캡 ===
       await expireStaleCoopSessions(tx, now);
-      const active = await findActiveCoopSession(tx, kindId);
-      if (active) {
-        return { status: 409, body: { ok: false, error: "already_active" } };
+      const active = await findActiveCoopSessions(tx, kindId);
+      if (active.length >= MAX_ACTIVE_PER_KIND) {
+        return {
+          status: 409,
+          body: {
+            ok: false,
+            error: "too_many_active",
+            cap: MAX_ACTIVE_PER_KIND,
+          },
+        };
       }
 
       // === 3. 소환서 차감 + 세션 생성 ===
@@ -90,6 +102,14 @@ export async function POST(req: Request) {
         ...charSave,
         materials: mats,
       });
+      // 소환자 표시명 스냅샷 — 인스턴스 구분 라벨("○○님이 소환").
+      const profile = await readSave<{ name?: string } | null>(
+        tx,
+        userId,
+        "character-profile.v2",
+        null,
+      );
+      const summonerName = profile?.name?.trim() || "모험가";
       const sessionId = randomUUID();
       await tx.insert(coopBossSessions).values({
         id: sessionId,
@@ -101,6 +121,7 @@ export async function POST(req: Request) {
         expiresAt: new Date(now.getTime() + kind.durationMs),
         regenPerMin: 0,
         lastRegenAt: null,
+        summonedByName: summonerName,
       });
       summoned = true;
       return {
@@ -115,17 +136,6 @@ export async function POST(req: Request) {
       };
     });
   } catch (err) {
-    // 동시 소환 — partial unique 위반(23505)으로 INSERT 실패(tx 롤백 → 소환서 환원).
-    // 그 외 예외는 가장하지 않고 500 + 로그(Codex 리뷰 — 관측성).
-    const code =
-      (err as { code?: string }).code ??
-      (err as { cause?: { code?: string } }).cause?.code;
-    if (code === "23505") {
-      return Response.json(
-        { ok: false, error: "already_active" },
-        { status: 409 },
-      );
-    }
     console.error("[coop/summon] failed", err);
     return Response.json(
       { ok: false, error: "internal_error" },

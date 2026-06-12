@@ -379,6 +379,13 @@
       "when": 1781223210051,
       "tag": "0053_intruder_json_index",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1781294824482,
+      "tag": "0054_coop-multi-summon",
+      "breakpoints": true
     }
   ]
 }

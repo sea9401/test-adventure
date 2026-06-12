@@ -17,8 +17,8 @@ import { coopBossSessions } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 
 // 만료된 미처치 세션 정리 — defeatedAt 박아 비활성화(hp > 0 유지 = 만료 표식).
-// 멱등·무해(대상 없으면 no-op). partial uniqueIndex(coop_boss_active_region_idx)가
-// kind 당 활성 1개를 강제하므로, 새 소환 전 반드시 이 sweep 이 선행돼야 한다.
+// 멱등·무해(대상 없으면 no-op). 소환 캡(MAX_ACTIVE_PER_KIND) 검사 전에 선행해
+// 만료분이 자리를 차지하지 않게 한다.
 export async function expireStaleCoopSessions(
   ex: DbExecutor,
   now: Date,
@@ -34,12 +34,12 @@ export async function expireStaleCoopSessions(
     );
 }
 
-// kind 의 활성 세션(있으면). FOR UPDATE 는 호출부 책임(attack 만 잠금 필요).
-export async function findActiveCoopSession(
+// kind 의 활성 세션 전부 — 같은 종류 동시 다수 소환 허용(#714). 소환 캡 검사·목록용.
+export async function findActiveCoopSessions(
   ex: DbExecutor,
   kindId: string,
-): Promise<typeof coopBossSessions.$inferSelect | null> {
-  const rows = await ex
+): Promise<(typeof coopBossSessions.$inferSelect)[]> {
+  return ex
     .select()
     .from(coopBossSessions)
     .where(
@@ -47,7 +47,5 @@ export async function findActiveCoopSession(
         eq(coopBossSessions.regionId, kindId),
         isNull(coopBossSessions.defeatedAt),
       ),
-    )
-    .limit(1);
-  return rows[0] ?? null;
+    );
 }

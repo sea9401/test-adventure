@@ -28,7 +28,7 @@ export type FloorEquipDropPool = {
 //   신참 보너스는 EXP 전용(드랍 ×1 고정, hunt route). ← 드랍률 다이얼.
 export const STARTER_END_DEPTH = 12; // 들판(1~6) + 깊은산(7~12) = 스타터 구간
 export const STARTER_DROP_POOL: FloorEquipDropPool = {
-  chance: 0.06, // 총 드랍률. tierWeights 3:2:1 → 처치당 T1 3% / T2 2% / T3 1%.
+  chance: 0.012, // 총 드랍률(2026-06-13 ÷5 — 거래 활성화). tierWeights 3:2:1.
   tierWeights: { 1: 3, 2: 2, 3: 1 },
 };
 

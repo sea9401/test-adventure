@@ -16,17 +16,17 @@ function seqRng(values: number[]): () => number {
 const empty = new Set<V2EquipmentId>();
 
 describe("STARTER_DROP_POOL — 스타터 단일 풀 (들판/깊은산)", () => {
-  it("chance 0.06, tierWeights {1:3, 2:2, 3:1}", () => {
-    expect(STARTER_DROP_POOL.chance).toBe(0.06);
+  it("chance 0.012(2026-06-13 ÷5), tierWeights {1:3, 2:2, 3:1}", () => {
+    expect(STARTER_DROP_POOL.chance).toBe(0.012);
     expect(STARTER_DROP_POOL.tierWeights).toEqual({ 1: 3, 2: 2, 3: 1 });
   });
 
   it("티어별 처치당 확률 = chance × weight/총합 — T1 3% / T2 2% / T3 1%", () => {
     const w = STARTER_DROP_POOL.tierWeights;
     const total = (w[1] ?? 0) + (w[2] ?? 0) + (w[3] ?? 0);
-    expect(STARTER_DROP_POOL.chance * ((w[1] ?? 0) / total)).toBeCloseTo(0.03, 5);
-    expect(STARTER_DROP_POOL.chance * ((w[2] ?? 0) / total)).toBeCloseTo(0.02, 5);
-    expect(STARTER_DROP_POOL.chance * ((w[3] ?? 0) / total)).toBeCloseTo(0.01, 5);
+    expect(STARTER_DROP_POOL.chance * ((w[1] ?? 0) / total)).toBeCloseTo(0.006, 5);
+    expect(STARTER_DROP_POOL.chance * ((w[2] ?? 0) / total)).toBeCloseTo(0.004, 5);
+    expect(STARTER_DROP_POOL.chance * ((w[3] ?? 0) / total)).toBeCloseTo(0.002, 5);
   });
 });
 
@@ -46,12 +46,12 @@ describe("dropPoolForDepth — 깊이 게이트", () => {
 });
 
 describe("rollEquipDrop", () => {
-  it("통과 굴림 실패 (rng ≥ chance 0.06) → null", () => {
+  it("통과 굴림 실패 (rng ≥ chance 0.012) → null", () => {
     expect(rollEquipDrop(1, empty, seqRng([0.99]))).toBeNull();
   });
 
   it("통과 성공 → V2EquipmentId 반환 (스타터 티어)", () => {
-    // rng[0]=0.01<0.06 통과 → 티어 pick(rng[1]=0 → 첫 티어) → 후보 pick(rng[2]=0).
+    // rng[0]=0.01<0.012 통과 → 티어 pick(rng[1]=0 → 첫 티어) → 후보 pick(rng[2]=0).
     const got = rollEquipDrop(1, empty, seqRng([0.01, 0.0, 0.0]));
     expect(got).not.toBeNull();
     if (got) expect([1, 2, 3]).toContain(V2_EQUIPMENT[got].tier);
@@ -96,13 +96,13 @@ describe("rollEquipDrop", () => {
   });
 
   it("chanceMult(신참 ×2 — 라이브 미사용이나 파라미터 동작) — 통과 chance 배수(1 cap)", () => {
-    // 스타터 chance 0.06. rng 0.09 (소진 후 0 → 티어/아이템 pick=0).
-    // 배율 1(또는 미지정): 0.09 >= 0.06 → null.
-    expect(rollEquipDrop(1, empty, seqRng([0.09]))).toBeNull();
-    expect(rollEquipDrop(1, empty, seqRng([0.09]), 1)).toBeNull();
-    // 배율 2: 0.06×2=0.12, 0.09 < 0.12 → 통과.
-    expect(rollEquipDrop(1, empty, seqRng([0.09]), 2)).not.toBeNull();
-    // cap: 0.06×30=1.8 → 1.0, rng 0.99 < 1.0 → 통과.
-    expect(rollEquipDrop(1, empty, seqRng([0.99]), 30)).not.toBeNull();
+    // 스타터 chance 0.012. rng 0.018 (소진 후 0 → 티어/아이템 pick=0).
+    // 배율 1(또는 미지정): 0.018 >= 0.012 → null.
+    expect(rollEquipDrop(1, empty, seqRng([0.018]))).toBeNull();
+    expect(rollEquipDrop(1, empty, seqRng([0.018]), 1)).toBeNull();
+    // 배율 2: 0.012×2=0.024, 0.018 < 0.024 → 통과.
+    expect(rollEquipDrop(1, empty, seqRng([0.018]), 2)).not.toBeNull();
+    // cap: 0.012×100=1.2 → 1.0, rng 0.99 < 1.0 → 통과.
+    expect(rollEquipDrop(1, empty, seqRng([0.99]), 100)).not.toBeNull();
   });
 });

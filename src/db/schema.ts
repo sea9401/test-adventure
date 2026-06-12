@@ -108,6 +108,9 @@ export const verificationTokens = pgTable(
 // 새 키 추가 시 마이그레이션 없이 행만 추가.
 // version — 낙관적 동시성 제어. 매 write 마다 증가. PATCH 시 클라이언트가 expectedVersion 을
 // 함께 보내고 서버가 일치할 때만 업데이트 (불일치 = 409, 다른 탭/기기에서 쓰기가 있었음).
+// ⚠️ 수동 expression index(0053): saves_kv ((value->'lastHuntedOutpost'->>'outpostId'))
+//   WHERE key='character.v2' AND ... IS NOT NULL — 침입자 추적 JSON path 조회용.
+//   drizzle 스키마로 표현 못 해 custom migration 으로 관리(드랍/변경 시 0053 참조).
 export const savesKv = pgTable(
   "saves_kv",
   {

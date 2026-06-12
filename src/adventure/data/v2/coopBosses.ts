@@ -13,6 +13,7 @@
 import type { Monster } from "@/adventure/data/monsters/types";
 import { scaleMonsterForFloor } from "./monsterScale";
 import type { V2EquipmentId } from "./v2Equipment";
+import type { V2MonsterStatusSkillId } from "./v2Skills";
 
 // === 소환서 (재료) =====================================================
 // 강화석 패턴 — V2_MATERIALS 카탈로그 등재(인벤 재료 탭·거래소 거래), NPC 환금 비등재,
@@ -98,6 +99,20 @@ export type CoopTierReward = {
   uniqueChance: number;
 };
 
+// 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
+// stateless 라 페이즈를 "현재 상태"로 미리 구워 넣는다 — 토벌이 진행될수록 모두에게
+// 더 사나운 보스("레이드가 깊어질수록 위험"). note 는 전투 로그 첫머리 안내.
+export type CoopEnrageStage = {
+  hpFraction: number;
+  note: string;
+  /** ATK 곱(스케일 후 적용). */
+  atkMult?: number;
+  /** DEF 가산(스케일 후 적용). */
+  defBonus?: number;
+  /** 회피율 가산(%p). */
+  evasionBonus?: number;
+};
+
 export type CoopBossKind = {
   id: CoopBossKindId;
   name: string;
@@ -119,11 +134,17 @@ export type CoopBossKind = {
   titleId: string;
   /** 티어별 보상(증분). 골드는 합산, uniqueChance 는 도달 티어 값. ⚠️ 캘리브 다이얼. */
   rewards: Record<CoopRewardTier, CoopTierReward>;
+  /** 평타 부가 상태이상(매 적중 확률 발동) — 중독/둔화/출혈. */
+  statusSkill?: V2MonsterStatusSkillId;
+  /** 발악 스테이지 — hpFraction 내림차순 권장(전부 누적 적용). ⚠️ 수치 캘리브 다이얼. */
+  enrageStages: CoopEnrageStage[];
+  /** 보스 특성 표시 문구(상세/소환 정보 카드) — 스킬·상태이상·발악 요약. */
+  traits: string[];
 };
 
-// 보스 베이스 — 옛 dungeonBosses.ts(#622 파일럿)의 Monster 정의 그대로 승계.
-// 협동에선 hp 가 공유 풀로 대체되므로 base.hp 는 페이즈 트리거 비율 계산에만 쓰인다
-// (시뮬은 sharedMaxHp 로 hp 를 덮어씀 — 트리거가 hpFraction 기반이라 그대로 동작).
+// 보스 베이스 — 옛 dungeonBosses.ts(#622 파일럿) 승계 + 협동 레이드 킷(#715).
+// phaseTrigger(시뮬 내부 HP 비율 트리거)는 폐기 — 시뮬이 전역 잔여 HP 에서 시작하므로
+// 발악은 CoopBossKind.enrageStages(전역 비율)로 coopBossForBattle 이 미리 구워 넣는다.
 
 const MOUNTAIN_CHIEF_BASE: Monster = {
   name: "산적 두목",
@@ -139,11 +160,6 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
     name: "분쇄 강타",
     everyPhases: 3,
     multiplier: 1.8,
-  },
-  phaseTrigger: {
-    hpFraction: 0.5,
-    defBonus: 6,
-    message: "두목이 분노로 날뛴다!",
   },
   armorVulnerable: 0.3,
   playerDefVulnerable: 0.2,
@@ -162,11 +178,6 @@ const CANYON_PREDATOR_BASE: Monster = {
   spd: 7,
   exp: 95,
   skill: { kind: "pierce", name: "절벽 발톱", armorPierce: 6 },
-  phaseTrigger: {
-    hpFraction: 0.5,
-    defBonus: 6,
-    message: "포식자가 송곳니를 드러낸다!",
-  },
   armorVulnerable: 0.3,
   playerDefVulnerable: 0.2,
   dropQualityBias: 3,
@@ -183,16 +194,18 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   def: 16,
   spd: 5,
   exp: 100,
+  // 한기 스택 기믹(옛 월드 보스 「별을 잊은 것」 계열) — 맞을수록 한기가 쌓여 고정
+  // 피해 + 회피 감소. "오래 버티는 싸움일수록 아프다" 시간압 — 20턴 공격과 맞물림.
+  // ⚠️ 수치 캘리브 다이얼.
   skill: {
-    kind: "heavy_blow",
-    name: "동결 강타",
-    everyPhases: 2,
-    multiplier: 1.6,
-  },
-  phaseTrigger: {
-    hpFraction: 0.5,
-    defBonus: 7,
-    message: "군주의 주변이 얼어붙는다!",
+    kind: "chill",
+    name: "얼어붙는 손길",
+    perHit: 1,
+    threshold: 3,
+    dmgPerStack: 25,
+    maxStacks: 8,
+    defMitigationFraction: 0.3,
+    evasionPenaltyPerStack: 1,
   },
   armorVulnerable: 0.3,
   playerDefVulnerable: 0.2,
@@ -216,6 +229,20 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     base: MOUNTAIN_CHIEF_BASE,
     uniqueIds: ["v2_boss_mountain_axe"],
     titleId: "v2_boss_mountain",
+    statusSkill: "mob_rending_claw",
+    enrageStages: [
+      {
+        hpFraction: 0.5,
+        note: "두목이 분노로 날뛰고 있다! (공격력·방어력 상승)",
+        atkMult: 1.25,
+        defBonus: 6,
+      },
+    ],
+    traits: [
+      "분쇄 강타 — 주기적으로 강한 일격",
+      "살점 뜯기 — 출혈",
+      "발악(HP 50%) — 공격력·방어력 상승",
+    ],
     rewards: {
       bronze: { gold: 200, uniqueChance: 0.02 },
       silver: { gold: 300, uniqueChance: 0.05 },
@@ -235,6 +262,25 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     base: CANYON_PREDATOR_BASE,
     uniqueIds: ["v2_boss_canyon_fang"],
     titleId: "v2_boss_canyon",
+    statusSkill: "mob_venom_bite",
+    enrageStages: [
+      {
+        hpFraction: 0.6,
+        note: "모래폭풍이 일어났다! (회피 상승)",
+        evasionBonus: 10,
+      },
+      {
+        hpFraction: 0.25,
+        note: "포식자가 광폭화했다! (공격력 대폭 상승)",
+        atkMult: 1.4,
+      },
+    ],
+    traits: [
+      "절벽 발톱 — 방어 관통",
+      "독니 — 중독",
+      "모래폭풍(HP 60%) — 회피 상승",
+      "광폭화(HP 25%) — 공격력 대폭 상승",
+    ],
     rewards: {
       bronze: { gold: 400, uniqueChance: 0.02 },
       silver: { gold: 600, uniqueChance: 0.05 },
@@ -254,6 +300,25 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul"],
     titleId: "v2_boss_lake",
+    statusSkill: "mob_chilling_touch",
+    enrageStages: [
+      {
+        hpFraction: 0.5,
+        note: "서리 갑주가 두꺼워졌다! (방어력 상승)",
+        defBonus: 12,
+      },
+      {
+        hpFraction: 0.2,
+        note: "심해의 분노가 폭발한다! (공격력 대폭 상승)",
+        atkMult: 1.5,
+      },
+    ],
+    traits: [
+      "얼어붙는 손길 — 한기 누적(맞을수록 고정 피해·회피 감소)",
+      "한기 — 둔화",
+      "서리 갑주(HP 50%) — 방어력 상승",
+      "심해의 분노(HP 20%) — 공격력 대폭 상승",
+    ],
     rewards: {
       bronze: { gold: 800, uniqueChance: 0.02 },
       silver: { gold: 1200, uniqueChance: 0.05 },
@@ -274,13 +339,46 @@ export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
     : null;
 }
 
-// 시뮬용 전투 Monster — anchorDepth 로 스탯 스케일 후 hp 를 공유 풀로 덮어씀.
-// resolveBattle 이 enemy.hp 를 maxHp 로 취급하므로 페이즈 트리거(hpFraction)도
-// 공유 풀 기준으로 동작. 매 공격이 풀피 기준 시뮬(stateless) — 실제 차감은 라우트가
-// GREATEST(0, hp - damageDealt) 로 클램프.
-export function coopBossForBattle(kind: CoopBossKind): Monster {
+// 시뮬용 전투 Monster — anchorDepth 로 스탯 스케일 후:
+//   ① hp = 전역 잔여 HP(currentHp) — 시뮬이 남은 피에서 시작해 막타의 처치가 리플레이에
+//      실제로 보이고, damageDealt = 시작 hp − 종료 hp 가 자연 클램프된다.
+//   ② 발악 스테이지 — 전역 비율(currentHp/sharedMaxHp)이 임계 이하인 스테이지를 전부
+//      미리 적용(공격 단위 stateless 라 "현재 상태"로 굽는다). notes 는 전투 로그 안내용.
+//   ③ statusSkill — 평타 부가 상태이상(중독/둔화/출혈)을 v2Skills 로 주입(잡몹과 동일 경로).
+export function coopBossForBattle(
+  kind: CoopBossKind,
+  currentHp: number,
+): { monster: Monster; enrageNotes: string[] } {
   const scaled = scaleMonsterForFloor(kind.base, kind.anchorDepth);
-  return { ...scaled, hp: kind.sharedMaxHp };
+  const hp = Math.max(1, Math.min(Math.floor(currentHp), kind.sharedMaxHp));
+  const frac = hp / kind.sharedMaxHp;
+  let atk = scaled.atk;
+  let def = scaled.def;
+  let evasion = scaled.evasionPct ?? 0;
+  const enrageNotes: string[] = [];
+  for (const stage of kind.enrageStages) {
+    if (frac > stage.hpFraction) continue;
+    if (stage.atkMult) atk = Math.round(atk * stage.atkMult);
+    if (stage.defBonus) def += stage.defBonus;
+    if (stage.evasionBonus) evasion += stage.evasionBonus;
+    enrageNotes.push(stage.note);
+  }
+  const monster: Monster = {
+    ...scaled,
+    hp,
+    atk,
+    def,
+    ...(evasion > 0 ? { evasionPct: evasion } : {}),
+    ...(kind.statusSkill
+      ? {
+          v2Skills: {
+            learned: [kind.statusSkill],
+            equipped: [kind.statusSkill],
+          },
+        }
+      : {}),
+  };
+  return { monster, enrageNotes };
 }
 
 // 도달 티어까지의 골드 합산(증분 합).

@@ -55,8 +55,8 @@ import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 // 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
 //   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사 + HP 게이트.
 //   2. equipment/skills/proficiency lock-read → derive(왕복 0).
-//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(COOP_ATTACK_TURNS 턴 캡, 풀피 기준
-//      stateless — 실제 차감은 아래 GREATEST 클램프).
+//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(COOP_ATTACK_TURNS 턴 캡, 전역 잔여
+//      HP 시작 + 발악 스테이지 적용 — 실제 차감은 아래 GREATEST 클램프).
 //   4. session FOR UPDATE → 재검증(처치/만료) + 쿨다운 → hp 차감 + 처치 CAS(락 보유로
 //      1명만 defeated 분기 — v1 attack.ts 의 C1/C2 race fix 승계).
 //   5. contributor UPSERT + 공격 로그 1줄.
@@ -202,14 +202,19 @@ export async function POST(req: Request) {
     }
     const kind = COOP_BOSSES[kindId];
 
-    // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 공유 풀
-    // (stateless 풀피 기준 — 실차감은 아래 GREATEST 클램프, v1 simulate 단순화).
+    // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 전역 잔여
+    // (#715 — 막타 처치가 리플레이에 보이고 damageDealt 자연 클램프. 동시 공격의 stale
+    // 스냅샷 잔여분은 아래 GREATEST + min(s.hp) 클램프가 흡수).
     const playerElement = parseV2Element(
       (charSave as { element?: unknown }).element,
     );
     const basicAttackElement: V2Element =
       player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
-    const bossMonster = coopBossForBattle(kind);
+    // 전역 잔여 HP 에서 시작하는 시뮬 — 발악 스테이지(전역 비율)도 여기서 구워진다.
+    const { monster: bossMonster, enrageNotes } = coopBossForBattle(
+      kind,
+      sessionPeek.hp,
+    );
     const playerElemMult = elementDamageMult(
       basicAttackElement,
       bossMonster.element ?? "neutral",
@@ -238,13 +243,17 @@ export async function POST(req: Request) {
       potions: {},
       v2Skills,
       isBoss: true, // %HP 효과 감산 + breaker 보너스.
+      // 발악 상태 안내 — 전투 로그 첫머리(현재 전역 HP 기준 적용 중인 스테이지).
+      ...(enrageNotes.length > 0
+        ? { openingNote: enrageNotes.join(" ") }
+        : {}),
       // 1회 공격 = 플레이어 N턴 — 엔진 maxTurns 는 페이즈 단위(내+적 각 1)라 ×2.
       // 도달 시 종료(타임아웃 lose 는 협동에선 정상 흐름 — 데미지만 누적).
       maxTurns: COOP_ATTACK_TURNS * 2,
     });
     const damageDealt = Math.max(
       0,
-      kind.sharedMaxHp - battleResult.finalState.enemyHp,
+      bossMonster.hp - battleResult.finalState.enemyHp,
     );
     const damageTaken = Math.max(
       0,
@@ -294,7 +303,7 @@ export async function POST(req: Request) {
     }
 
     // 오버킬 클램프 — 기여도(contributor.damage)는 실제로 깎은 양만 적립
-    // (시뮬은 풀피 기준 stateless 라 잔여 HP 를 넘게 굴릴 수 있다).
+    // (시뮬은 peek 시점 잔여 HP 시작이라 보통 안 넘치지만, 동시 공격의 stale 스냅샷 흡수).
     const appliedDamage = Math.min(damageDealt, s.hp);
     const nowDate = new Date(now);
     const [updated] = await tx

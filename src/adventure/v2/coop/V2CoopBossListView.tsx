@@ -6,7 +6,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretDown, CaretRight, CaretUp } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
 import { Card } from "@/components/ui/Card";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -21,6 +21,7 @@ import {
   fmtCoopRemain,
   useCoopListState,
 } from "@/adventure/v2/coop/useCoopBossState";
+import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
 
 export function V2CoopBossListView({
   onOpenSession,
@@ -41,6 +42,8 @@ export function V2CoopBossListView({
     claim,
   } = useCoopListState();
   const [now, setNow] = useState(() => Date.now());
+  // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — kind 단위 토글.
+  const [infoOpen, setInfoOpen] = useState<CoopBossKindId | null>(null);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -215,32 +218,61 @@ export function V2CoopBossListView({
           const activeCount = activeCountByKind.get(kindId) ?? 0;
           const capped = activeCount >= MAX_ACTIVE_PER_KIND;
           const short = scrolls < def.scrollCost;
+          const open = infoOpen === kindId;
           return (
-            <Card key={kindId} padding="md" className="flex items-center gap-3">
-              <img
-                src={def.base.image}
-                alt={def.name}
-                className="h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover opacity-80 dark:border-zinc-700"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">{def.name}</span>
-                <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                  소환서 {def.scrollCost}장 · 2시간
-                  {activeCount > 0 && ` · 토벌 중 ${activeCount}마리`}
+            <Card key={kindId} padding="md" className="space-y-2">
+              <div className="flex items-center gap-3">
+                <img
+                  src={def.base.image}
+                  alt={def.name}
+                  className="h-12 w-12 shrink-0 rounded-md border border-zinc-200 object-cover opacity-80 dark:border-zinc-700"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">
+                    {def.name}
+                  </span>
+                  <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                    소환서 {def.scrollCost}장 · 2시간
+                    {activeCount > 0 && ` · 토벌 중 ${activeCount}마리`}
+                  </span>
                 </span>
-              </span>
-              <button
-                type="button"
-                disabled={busy || !loaded || capped || short}
-                onClick={() => void handleSummon(kindId)}
-                className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
-              >
-                {capped
-                  ? "한도 도달"
-                  : short
-                    ? `소환서 ${scrolls}/${def.scrollCost}`
-                    : "소환"}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setInfoOpen(open ? null : kindId)}
+                  aria-expanded={open}
+                  className="flex shrink-0 items-center gap-0.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  정보
+                  {open ? <CaretUp size={12} /> : <CaretDown size={12} />}
+                </button>
+                <button
+                  type="button"
+                  disabled={busy || !loaded || capped || short}
+                  onClick={() => void handleSummon(kindId)}
+                  className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {capped
+                    ? "한도 도달"
+                    : short
+                      ? `소환서 ${scrolls}/${def.scrollCost}`
+                      : "소환"}
+                </button>
+              </div>
+              {open && (
+                <div className="space-y-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+                  <div className="flex flex-wrap gap-1">
+                    {def.traits.map((t) => (
+                      <span
+                        key={t}
+                        className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <CoopRewardTable kind={def} />
+                </div>
+              )}
             </Card>
           );
         })}

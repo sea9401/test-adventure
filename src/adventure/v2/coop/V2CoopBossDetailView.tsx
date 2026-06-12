@@ -23,6 +23,7 @@ import {
   fmtCoopRemain,
   useCoopSessionState,
 } from "@/adventure/v2/coop/useCoopBossState";
+import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
 import type { Gender } from "@/adventure/profile/avatars";
 
 export function V2CoopBossDetailView({
@@ -153,6 +154,18 @@ export function V2CoopBossDetailView({
           />
         </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{def.desc}</p>
+        {def.traits.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-1">
+            {def.traits.map((t) => (
+              <span
+                key={t}
+                className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
 
         {active && (
           <button
@@ -207,6 +220,14 @@ export function V2CoopBossDetailView({
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
           {notice}
         </div>
+      )}
+
+      {/* 기여 보상 테이블 — 내 현재 티어 강조 + 다음 티어까지(때리는 중 동기부여). */}
+      {!session.defeated && (
+        <Card padding="md" className="space-y-2">
+          <div className="text-sm font-semibold">기여 보상</div>
+          <CoopRewardTable kind={def} myDamage={my.damage} />
+        </Card>
       )}
 
       {lastReward && (

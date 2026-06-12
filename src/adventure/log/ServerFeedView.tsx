@@ -398,7 +398,7 @@ export function ServerFeedView() {
             }`}
           >
             <span
-              className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+              className={`absolute left-0 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
                 share ? "translate-x-3.5" : "translate-x-0.5"
               }`}
             />

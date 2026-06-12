@@ -30,11 +30,11 @@ export type UniqueFloorPool = {
 };
 
 export const UNIQUE_FLOOR_POOLS: Record<DungeonFloorId, UniqueFloorPool> = {
-  1: { chance: 0.003, ids: ["v2_uniq_shadow_garb"] },
-  2: { chance: 0.003, ids: ["v2_uniq_trickster_boots"] },
-  3: { chance: 0.0035, ids: ["v2_uniq_giant_fist"] },
-  4: { chance: 0.004, ids: ["v2_uniq_berserker_fang"] },
-  5: { chance: 0.005, ids: ["v2_uniq_starcleaver", "v2_uniq_sage_seal"] },
+  1: { chance: 0.0006, ids: ["v2_uniq_shadow_garb"] },
+  2: { chance: 0.0006, ids: ["v2_uniq_trickster_boots"] },
+  3: { chance: 0.0007, ids: ["v2_uniq_giant_fist"] },
+  4: { chance: 0.0008, ids: ["v2_uniq_berserker_fang"] },
+  5: { chance: 0.001, ids: ["v2_uniq_starcleaver", "v2_uniq_sage_seal"] },
   // 6~8 층은 빈 풀 — 깊은 산(7~12)+ 심층은 BAND_UNIQUE_POOLS(깊이 키)가 담당.
   6: { chance: 0, ids: [] },
   7: { chance: 0, ids: [] },
@@ -208,10 +208,11 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
 ];
 
 // 흔한 밴드 장비 드랍률 — 밴드 내 로컬 깊이(1~6)로 램프. 깊을수록 잘 나옴. ⚠️ 캘리브 다이얼.
+// 2026-06-13 ÷5(0.005/0.007/0.009 → ) — 자급이 너무 쉬우면 거래소가 죽는다(사용자 결정).
 export function bandCommonChance(localDepth: number): number {
-  if (localDepth <= 2) return 0.005;
-  if (localDepth <= 4) return 0.007;
-  return 0.009;
+  if (localDepth <= 2) return 0.001;
+  if (localDepth <= 4) return 0.0014;
+  return 0.0018;
 }
 
 export function bandCommonPoolForDepth(depth: number): BandPool | null {
@@ -239,7 +240,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 마른 협곡(밴드 A, 13~18) 유니크 11: 바위문 수호구 3 + 녹슨 독니 2 + 사이드그레이드 2 + 추가 2피스 4.
     minDepth: 13,
     maxDepth: 18,
-    chance: 0.005,
+    chance: 0.001,
     ids: [
       "v2_canyon_bulwark_armor",
       "v2_canyon_bulwark_gloves",
@@ -258,7 +259,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 얼음 호수(밴드 B, 19~24) 유니크 13: 바위문 수호구 3 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2 + 추가 2피스 4.
     minDepth: 19,
     maxDepth: 24,
-    chance: 0.005,
+    chance: 0.001,
     ids: [
       "v2_lake_bulwark_armor",
       "v2_lake_bulwark_gloves",
@@ -279,7 +280,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 심층 동굴(밴드 C, 25~30) 유니크 17: 흑요석 3 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4 + 추가 2피스 4.
     minDepth: 25,
     maxDepth: 30,
-    chance: 0.005,
+    chance: 0.001,
     ids: [
       "v2_cave_obsidian_armor",
       "v2_cave_obsidian_gloves",
@@ -304,7 +305,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 잊힌 성소(밴드 D, 31~36) 유니크 12: 성소 수호구 3 + 별점 비전 2 + 성벽의 계시 3 + 사이드그레이드 2 + 성광 보행 2.
     minDepth: 31,
     maxDepth: 36,
-    chance: 0.005,
+    chance: 0.001,
     ids: [
       "v2_sanctum_bulwark_armor",
       "v2_sanctum_bulwark_gloves",
@@ -324,7 +325,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 리자드 늪지(밴드 E, 37~42) 유니크 12: 수렁 수호구 3 + 맹독 군주 3 + 진흙 금강 2 + 사이드그레이드 2 + 이끼 보호 2.
     minDepth: 37,
     maxDepth: 42,
-    chance: 0.005,
+    chance: 0.001,
     ids: [
       "v2_swamp_bulwark_armor",
       "v2_swamp_bulwark_gloves",
@@ -344,7 +345,7 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     // 짐승의 소굴(밴드 F, 43~48) 유니크 13: 공허 수호구 3 + 공허 사냥꾼 3 + 야수쇄도 2 + 사이드그레이드 3 + 맹수 보행 2.
     minDepth: 43,
     maxDepth: 48,
-    chance: 0.005,
+    chance: 0.001,
     ids: [
       "v2_den_void_armor",
       "v2_den_void_gloves",

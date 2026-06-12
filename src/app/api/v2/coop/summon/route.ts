@@ -114,11 +114,22 @@ export async function POST(req: Request) {
         },
       };
     });
-  } catch {
-    // 동시 소환 — partial unique 위반으로 INSERT 실패(tx 롤백 → 소환서 환원).
+  } catch (err) {
+    // 동시 소환 — partial unique 위반(23505)으로 INSERT 실패(tx 롤백 → 소환서 환원).
+    // 그 외 예외는 가장하지 않고 500 + 로그(Codex 리뷰 — 관측성).
+    const code =
+      (err as { code?: string }).code ??
+      (err as { cause?: { code?: string } }).cause?.code;
+    if (code === "23505") {
+      return Response.json(
+        { ok: false, error: "already_active" },
+        { status: 409 },
+      );
+    }
+    console.error("[coop/summon] failed", err);
     return Response.json(
-      { ok: false, error: "already_active" },
-      { status: 409 },
+      { ok: false, error: "internal_error" },
+      { status: 500 },
     );
   }
 

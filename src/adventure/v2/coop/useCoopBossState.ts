@@ -154,7 +154,7 @@ export function useCoopListState() {
     return () => clearInterval(id);
   }, [refresh]);
 
-  // 소환 — 성공 시 새 sessionId 반환(목록이 상세로 바로 이동).
+  // 소환 — 성공 시 새 sessionId 반환 + 안내 노티스(목록 잔류 — 연속 소환 가능, 이동 없음).
   const summon = useCallback(
     async (kind: CoopBossKindId): Promise<string | null> => {
       if (busy) return null;
@@ -175,6 +175,9 @@ export function useCoopListState() {
           cap?: number;
         };
         if (j.ok && j.sessionId) {
+          setNotice(
+            `${COOP_BOSSES[kind].name} 소환! 소환된 보스 목록에 추가되었습니다.`,
+          );
           return j.sessionId;
         }
         setNotice(

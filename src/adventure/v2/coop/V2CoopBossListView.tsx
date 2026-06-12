@@ -54,9 +54,9 @@ export function V2CoopBossListView({
     activeCountByKind.set(s.kind, (activeCountByKind.get(s.kind) ?? 0) + 1);
   }
 
+  // 소환 후에도 목록에 머문다 — 여러 마리 연속 소환 흐름(이동은 보스 카드 클릭으로).
   const handleSummon = async (kind: CoopBossKindId) => {
-    const sessionId = await summon(kind);
-    if (sessionId) onOpenSession(sessionId);
+    await summon(kind);
   };
 
   return (

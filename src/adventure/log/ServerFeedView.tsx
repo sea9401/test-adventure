@@ -13,6 +13,7 @@ import {
   Lightning,
   Megaphone,
   ShieldCheck,
+  Skull,
   Sparkle,
   Sword,
   MapTrifold,
@@ -22,6 +23,7 @@ import { ITEMS } from "@/adventure/data/items";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { formatRelative } from "@/lib/notifications";
 import {
   FEED_POLL_MS,
@@ -88,6 +90,20 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       className="shrink-0 text-sky-500 dark:text-sky-400"
     />
   ),
+  coop_summon: (
+    <Skull
+      size={14}
+      weight="fill"
+      className="shrink-0 text-rose-500 dark:text-rose-400"
+    />
+  ),
+  coop_kill: (
+    <Skull
+      size={14}
+      weight="fill"
+      className="shrink-0 text-emerald-500 dark:text-emerald-400"
+    />
+  ),
 };
 
 function outpostName(outpostId: string): string {
@@ -111,6 +127,25 @@ function entryText(e: FeedEntry): React.ReactNode {
           「{kindName}」
         </span>{" "}
         발견!
+      </>
+    );
+  }
+  if (e.type === "coop_summon" || e.type === "coop_kill") {
+    const p = e.payload as { kind: string };
+    const kindId = parseCoopBossKindId(p.kind);
+    const bossName = kindId ? COOP_BOSSES[kindId].name : p.kind;
+    const boss = (
+      <span className="font-medium text-rose-600 dark:text-rose-400">
+        「{bossName}」
+      </span>
+    );
+    return e.type === "coop_summon" ? (
+      <>
+        {name} 님이 협동 보스 {boss} 소환! 모두 토벌에 참여하세요
+      </>
+    ) : (
+      <>
+        {name} 님이 협동 보스 {boss} 처치 확정타! 기여 보상을 수령하세요
       </>
     );
   }

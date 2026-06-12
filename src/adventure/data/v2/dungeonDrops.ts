@@ -17,6 +17,7 @@
 
 import type { DungeonFloorId } from "./types";
 import { ENHANCE_STONE_MATERIAL_ID, ENHANCE_STONES } from "./v2Enhance";
+import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -54,6 +55,14 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
     name: ENHANCE_STONES.blue.name,
     description:
       "단단한 기운이 깃든 강화석. 강화 성공 시 위력을 안정적으로(+2%p) 올린다.",
+  },
+  // 협동 보스 소환서(coopBosses) — 강화석과 같은 독립 드랍(hunt 라우트 롤). 카탈로그
+  // 등재로 인벤 재료 탭·거래소 재료 거래가 살아나고, NPC 판매는 의도적 비등재(유저 거래 전용).
+  [SUMMON_SCROLL_MATERIAL_ID]: {
+    id: SUMMON_SCROLL_MATERIAL_ID,
+    name: "보스 소환서",
+    description:
+      "낡은 양피지에 봉인 술식이 적혀 있다. 여러 장을 모아 협동 보스를 소환한다.",
   },
 };
 

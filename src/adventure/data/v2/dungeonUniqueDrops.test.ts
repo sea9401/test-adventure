@@ -20,7 +20,7 @@ import {
 } from "./v2Equipment";
 import { V2_RECIPES } from "./v2Recipes";
 import { rollEquipDrop } from "./dungeonEquipDrops";
-import { BOSS_UNIQUE_IDS } from "./dungeonBosses";
+import { BOSS_UNIQUE_IDS } from "./coopBosses";
 import type { DungeonFloorId } from "./types";
 
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];

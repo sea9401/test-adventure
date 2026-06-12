@@ -308,7 +308,7 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "창공의 주재 처치",
     category: "battle",
   },
-  // ── 테마 보스 첫 처치 칭호 (사냥터 테마별 보스, dungeonBosses) ────────────────
+  // ── 보스 첫 처치 칭호 (협동 보스 토벌, coopBosses) ────────────────
   v2_boss_mountain: {
     id: "v2_boss_mountain",
     name: "산을 넘은 자",

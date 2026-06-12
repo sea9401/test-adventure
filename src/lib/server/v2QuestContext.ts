@@ -20,7 +20,7 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
 import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
-import { BOSS_TITLE_IDS } from "@/adventure/data/v2/dungeonBosses";
+import { BOSS_TITLE_IDS } from "@/adventure/data/v2/coopBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
 import type { RepeatSignals } from "@/adventure/data/v2/v2RepeatQuests";
 import { readSave, type DbExecutor } from "@/lib/server/savesKv";

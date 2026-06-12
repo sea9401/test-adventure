@@ -133,7 +133,7 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
 ];
 
 // 깊이(1+) → 0-based 테마 인덱스(DUNGEON_THEMES). 마지막 테마(무한)는 클램프.
-// 테마별 보스(dungeonBosses)가 깊이→테마 해석에 쓰는 공용 단일 소스.
+// 깊이→테마 해석의 공용 단일 소스.
 export function themeIndexForDepth(depth: number): number {
   const d = Math.max(1, Math.floor(depth));
   return Math.min(

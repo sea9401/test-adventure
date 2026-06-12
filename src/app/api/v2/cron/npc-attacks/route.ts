@@ -167,8 +167,7 @@ export async function POST(req: Request) {
         await insertFeedEntry(
           lostOwnerId,
           "outpost_capture",
-          { outpostId: outpost.id, lostToNpc: true },
-          { force: true },
+          { outpostId: outpost.id, lostToNpc: true }
         );
         // 개인 알림 — 잃은 점령자에게 즉시(디바운스 없음).
         await insertNotification(lostOwnerId, "outpost_lost", {

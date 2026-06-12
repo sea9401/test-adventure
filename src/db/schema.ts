@@ -52,6 +52,7 @@ export const users = pgTable(
     lastClaimResult: jsonb("last_claim_result"),
     // 전체 소식(서버 피드)에 내 자랑거리(유실된 명품·걸작 제작)를 흘릴지 여부.
     // 송신자 opt-out — false 면 insertFeedEntry 가 이 유저 이벤트를 건너뛴다. 기본 ON.
+    // ⚠️ inert(2026-06-13) — 옛 "내 소식 공유" opt-out. UI/정책 제거로 미사용, 비파괴 잔존.
     shareFeed: boolean("share_feed").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),

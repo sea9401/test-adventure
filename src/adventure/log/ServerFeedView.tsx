@@ -2,7 +2,7 @@
 
 // 전체 소식 — 모험탭 하단 패널. 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
 // 글로벌 채팅과 분리된 "전광판". 최근 FEED_FETCH_LIMIT 개만 노출, FEED_POLL_MS 주기 폴링.
-// 기본은 접힌 상태(최근 7개 미리보기) — 펼치면 전체 + 내 소식 공유 토글.
+// 기본은 접힌 상태(최근 7개 미리보기) — 펼치면 전체. (옛 '내 소식 공유' 토글은 제거 — 피드 항상 기록.)
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -277,10 +277,8 @@ function FeedRow({ e }: { e: FeedEntry }) {
 
 export function ServerFeedView() {
   const [entries, setEntries] = useState<FeedEntry[]>([]);
-  const [share, setShare] = useState(true);
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const sharePending = useRef(false);
   const inFlight = useRef(false);
 
   const fetchFeed = useCallback(async () => {
@@ -289,10 +287,8 @@ export function ServerFeedView() {
     try {
       const res = await fetch("/api/feed");
       if (!res.ok) return;
-      const data = (await res.json()) as { entries: FeedEntry[]; share: boolean };
+      const data = (await res.json()) as { entries: FeedEntry[] };
       setEntries(Array.isArray(data.entries) ? data.entries : []);
-      // 토글 요청이 진행 중이면 서버 응답에 share 를 덮어쓰지 않는다.
-      if (!sharePending.current) setShare(!!data.share);
       setLoaded(true);
     } catch {
       /* 폴링 — 조용히 무시 */
@@ -317,24 +313,6 @@ export function ServerFeedView() {
       window.removeEventListener("focus", onFocus);
     };
   }, [fetchFeed]);
-
-  const toggleShare = useCallback(async () => {
-    const next = !share;
-    setShare(next);
-    sharePending.current = true;
-    try {
-      const res = await fetch("/api/feed", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ share: next }),
-      });
-      if (!res.ok) setShare(!next); // 4xx/5xx — 낙관적 업데이트 되돌림
-    } catch {
-      setShare(!next); // 네트워크 실패 시 되돌림
-    } finally {
-      sharePending.current = false;
-    }
-  }, [share]);
 
   if (!loaded) return null;
 
@@ -381,30 +359,6 @@ export function ServerFeedView() {
         </ul>
       )}
 
-      {open && (
-        <div className="flex items-center justify-end gap-2 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            내 소식 공유
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={share}
-            onClick={() => void toggleShare()}
-            className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${
-              share
-                ? "bg-teal-500 dark:bg-teal-600"
-                : "bg-zinc-300 dark:bg-zinc-700"
-            }`}
-          >
-            <span
-              className={`absolute left-0 top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
-                share ? "translate-x-3.5" : "translate-x-0.5"
-              }`}
-            />
-          </button>
-        </div>
-      )}
     </Card>
   );
 }

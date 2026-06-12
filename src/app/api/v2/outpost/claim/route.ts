@@ -801,7 +801,7 @@ export async function POST(req: Request) {
   });
 
   // 전쟁 피드 — tx 커밋 후 부수효과(중첩 트랜잭션 회피 — guild-lodge 데드락 교훈).
-  // 공적 사건이라 shareFeed opt-out 무시(force). insertFeedEntry 가 디바운스/실패삼킴 자체 처리.
+  // insertFeedEntry 가 디바운스/실패삼킴 자체 처리.
   const fb = result.body as {
     ok?: boolean;
     won?: boolean;
@@ -839,8 +839,7 @@ export async function POST(req: Request) {
           ...(fb.treasuryCaptured?.total
             ? { treasuryGold: fb.treasuryCaptured.total }
             : {}),
-        },
-        { force: true },
+        }
       );
     } else {
       // 점령된 거점 공성 승리(성벽 타격) — 함락 못 한 진행 타격.
@@ -852,8 +851,7 @@ export async function POST(req: Request) {
           fortHp: fb.fortHp ?? 0,
           fortMaxHp: fb.fortMaxHp ?? FORT_MAX_HP,
           guildName,
-        },
-        { force: true },
+        }
       );
     }
 

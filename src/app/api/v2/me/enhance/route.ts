@@ -267,7 +267,7 @@ export async function POST(req: Request) {
     };
   });
 
-  // 고강 자랑 피드 — tx 커밋 후 부수효과. 자랑거리(unique_drop 동류)라 shareFeed
+  // 고강 자랑 피드 — tx 커밋 후 부수효과. 자랑거리(unique_drop 동류)라 디바운스
   // opt-out 존중(force 아님). 전광판 묶음(WAR_FEED_TYPES)에 포함돼 티커에도 흐른다.
   const fb = result.body as {
     ok?: boolean;

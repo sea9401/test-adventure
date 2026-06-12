@@ -49,12 +49,16 @@ export const WAR_TICKER_WINDOW_H = 24;
 
 // === 분류(카테고리) — 패널의 분류별 보기 탭 + GET /api/feed?category= 서버 필터 ===
 // 전광판 묶음(WAR_FEED_TYPES — enhance_high 포함)과 별개: 이쪽은 열람용 의미 분류.
-export const FEED_CATEGORIES = ["acquisition", "war", "boss"] as const;
+// 유니크 드랍(unique_drop)은 어느 분류에도 안 넣는다 — 빈도가 높아 획득 칩을 도배하던
+// 것을 "전체"에서만 보이게(사용자 결정 2026-06-13). 강화는 획득에서 분리.
+export const FEED_CATEGORIES = ["acquisition", "enhance", "war", "boss"] as const;
 export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
-  // 획득 — 유니크/걸작/레어맵 발견 + 고강 성공(자랑거리 일체).
-  acquisition: ["unique_drop", "masterpiece", "rare_map_drop", "enhance_high"],
+  // 획득 — 걸작 제작/레어맵 발견(희귀 사건만 — 유니크 드랍 제외).
+  acquisition: ["masterpiece", "rare_map_drop"],
+  // 강화 — 고강(+8 이상) 성공.
+  enhance: ["enhance_high"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.
   war: ["outpost_capture", "outpost_siege", "outpost_eject"],
   // 보스 — 협동 보스 소환/처치.
@@ -63,6 +67,7 @@ export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
 
 export const FEED_CATEGORY_LABEL: Record<FeedCategory, string> = {
   acquisition: "획득",
+  enhance: "강화",
   war: "전쟁",
   boss: "보스",
 };

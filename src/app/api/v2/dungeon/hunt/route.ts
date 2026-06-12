@@ -1236,11 +1236,13 @@ export async function POST(req: Request) {
   const resultBody = result.body as {
     result?: {
       droppedUnique?: V2EquipmentId | null;
+      rareMapDrop?: RareMapKindId | null;
       goldTaxed?: number;
       taxOwnerLabel?: string;
     };
     batch?: {
       droppedUniques?: V2EquipmentId[];
+      rareMapDrops?: RareMapKindId[];
       totalGoldTaxed?: number;
       taxOwnerLabel?: string;
     };
@@ -1252,6 +1254,16 @@ export async function POST(req: Request) {
       : [];
   for (const itemId of uniqueIds) {
     await insertFeedEntry(userId, "unique_drop", { itemId });
+  }
+  // 레어맵 발견 — 유니크보다 희귀한 사건이라 동급으로 전체 소식에. (디바운스/opt-out 은
+  // insertFeedEntry 가 자체 처리 — 일괄에서 2장 떠도 60s 디바운스로 1건만 나간다.)
+  const rareMapKinds = resultBody.batch
+    ? (resultBody.batch.rareMapDrops ?? [])
+    : resultBody.result?.rareMapDrop
+      ? [resultBody.result.rareMapDrop]
+      : [];
+  for (const kind of rareMapKinds) {
+    await insertFeedEntry(userId, "rare_map_drop", { kind });
   }
 
   // 세금 수취자 라벨 — 결과에 세금이 있을 때만 1회 해석해 응답에 붙인다(일괄도 거점은

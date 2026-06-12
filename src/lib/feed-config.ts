@@ -26,6 +26,7 @@ export const FEED_TYPES = [
   "outpost_siege",
   "outpost_eject",
   "enhance_high",
+  "rare_map_drop",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
@@ -66,7 +67,9 @@ export type FeedPayload =
   // outpost_eject — 침입자 토벌. actor = 토벌자, targetName = 토벌당한 침입자.
   | { outpostId: string; targetName: string }
   // enhance_high — 고강(+8 이상) 강화 성공. 장비 이름은 클라가 카탈로그 해석.
-  | { itemId: string; level: number };
+  | { itemId: string; level: number }
+  // rare_map_drop — 레어맵 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
+  | { kind: string };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

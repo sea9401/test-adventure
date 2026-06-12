@@ -15,11 +15,13 @@ import {
   ShieldCheck,
   Sparkle,
   Sword,
+  MapTrifold,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { ITEMS } from "@/adventure/data/items";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { formatRelative } from "@/lib/notifications";
 import {
   FEED_POLL_MS,
@@ -79,6 +81,13 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       className="shrink-0 text-amber-500 dark:text-amber-400"
     />
   ),
+  rare_map_drop: (
+    <MapTrifold
+      size={14}
+      weight="fill"
+      className="shrink-0 text-sky-500 dark:text-sky-400"
+    />
+  ),
 };
 
 function outpostName(outpostId: string): string {
@@ -91,6 +100,20 @@ function entryText(e: FeedEntry): React.ReactNode {
       {e.actorName}
     </span>
   );
+  if (e.type === "rare_map_drop") {
+    const p = e.payload as { kind: string };
+    const kindName =
+      RARE_MAP_KINDS[p.kind as keyof typeof RARE_MAP_KINDS]?.name ?? p.kind;
+    return (
+      <>
+        {name} 님이 희귀한{" "}
+        <span className="font-medium text-sky-600 dark:text-sky-400">
+          「{kindName}」
+        </span>{" "}
+        발견!
+      </>
+    );
+  }
   if (e.type === "unique_drop") {
     const p = e.payload as { itemId: string };
     return (

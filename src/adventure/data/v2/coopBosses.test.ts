@@ -63,17 +63,58 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
-  it("전투 몬스터 — 공유 HP 로 덮어쓰고 이름/이미지/스킬 보존", () => {
+  it("전투 몬스터 — 전역 잔여 HP 시작·이름/이미지/스킬/상태이상 보존", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
-      const mon = coopBossForBattle(b);
-      expect(mon.hp).toBe(b.sharedMaxHp);
-      expect(mon.name).toBe(b.base.name);
-      expect(mon.image).toBe(b.base.image);
-      expect(mon.skill).toBeDefined();
-      // anchorDepth 스케일로 베이스보다 강함(원본 비변조 확인 겸).
-      expect(mon.atk).toBeGreaterThan(0);
-      expect(b.base.hp).not.toBe(b.sharedMaxHp);
+      // 풀피 — 발악 없음.
+      const full = coopBossForBattle(b, b.sharedMaxHp);
+      expect(full.monster.hp).toBe(b.sharedMaxHp);
+      expect(full.monster.name).toBe(b.base.name);
+      expect(full.monster.image).toBe(b.base.image);
+      expect(full.monster.skill).toBeDefined();
+      expect(full.monster.phaseTrigger).toBeUndefined(); // 발악 스테이지로 대체
+      expect(full.enrageNotes).toHaveLength(0);
+      // statusSkill — v2Skills 주입(잡몹 statusSkill 경로와 동일).
+      if (b.statusSkill) {
+        expect(full.monster.v2Skills?.equipped).toContain(b.statusSkill);
+      }
+      // 잔여 HP 클램프 — 0 이하/초과 입력 방어.
+      expect(coopBossForBattle(b, 0).monster.hp).toBe(1);
+      expect(
+        coopBossForBattle(b, b.sharedMaxHp * 2).monster.hp,
+      ).toBe(b.sharedMaxHp);
+    }
+  });
+
+  it("발악 스테이지 — 전역 비율 임계 이하에서 누적 적용 + 안내 노트", () => {
+    for (const id of COOP_BOSS_KIND_IDS) {
+      const b = COOP_BOSSES[id];
+      expect(b.enrageStages.length).toBeGreaterThan(0);
+      expect(b.traits.length).toBeGreaterThan(0);
+      const full = coopBossForBattle(b, b.sharedMaxHp);
+      // 가장 깊은 스테이지 임계 바로 아래 — 전 스테이지 적용.
+      const deepest = Math.min(...b.enrageStages.map((st) => st.hpFraction));
+      const low = coopBossForBattle(
+        b,
+        Math.max(1, Math.floor(b.sharedMaxHp * deepest) - 1),
+      );
+      expect(low.enrageNotes).toHaveLength(b.enrageStages.length);
+      // 스탯이 단조 증가(atkMult/defBonus/evasionBonus 중 무엇이든 강화 방향).
+      expect(low.monster.atk).toBeGreaterThanOrEqual(full.monster.atk);
+      expect(low.monster.def).toBeGreaterThanOrEqual(full.monster.def);
+      // 경계 — 임계 초과 HP 에선 그 스테이지 미적용, 임계 정확히에선 적용(≤).
+      for (const st of b.enrageStages) {
+        const justAbove = coopBossForBattle(
+          b,
+          Math.floor(b.sharedMaxHp * st.hpFraction) + 1,
+        );
+        expect(justAbove.enrageNotes).not.toContain(st.note);
+        const atThreshold = coopBossForBattle(
+          b,
+          Math.floor(b.sharedMaxHp * st.hpFraction),
+        );
+        expect(atThreshold.enrageNotes).toContain(st.note);
+      }
     }
   });
 

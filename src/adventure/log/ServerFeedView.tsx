@@ -26,7 +26,10 @@ import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
 import { formatRelative } from "@/lib/notifications";
 import {
+  FEED_CATEGORIES,
+  FEED_CATEGORY_LABEL,
   FEED_POLL_MS,
+  type FeedCategory,
   type FeedEntry,
   type FeedType,
 } from "@/lib/feed-config";
@@ -279,13 +282,17 @@ export function ServerFeedView() {
   const [entries, setEntries] = useState<FeedEntry[]>([]);
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // 분류별 보기 — null = 전체. 펼친 상태에서 칩으로 전환(서버 필터 재조회).
+  const [category, setCategory] = useState<FeedCategory | null>(null);
   const inFlight = useRef(false);
 
   const fetchFeed = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
     try {
-      const res = await fetch("/api/feed");
+      const res = await fetch(
+        category ? `/api/feed?category=${category}` : "/api/feed",
+      );
       if (!res.ok) return;
       const data = (await res.json()) as { entries: FeedEntry[] };
       setEntries(Array.isArray(data.entries) ? data.entries : []);
@@ -295,7 +302,7 @@ export function ServerFeedView() {
     } finally {
       inFlight.current = false;
     }
-  }, []);
+  }, [category]);
 
   useEffect(() => {
     // 비동기 fetch 후 setState 라 cascading render 가 아니지만 린트는 호출 그래프만 보고 발화.
@@ -322,7 +329,11 @@ export function ServerFeedView() {
     <Card as="section" padding="none" className="mt-4 overflow-hidden">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // 접을 때 분류 초기화 — 접힌 미리보기가 특정 분류로 좁혀진 채 남지 않게.
+          if (open) setCategory(null);
+          setOpen(!open);
+        }}
         className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
       >
         <Megaphone
@@ -347,9 +358,35 @@ export function ServerFeedView() {
         </span>
       </button>
 
+      {/* 분류 칩 — 펼친 상태에서만. 선택 시 서버 필터 재조회(3개월 보관분에서 그 분류만). */}
+      {open && (
+        <div className="flex flex-wrap gap-1 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
+          {([null, ...FEED_CATEGORIES] as (FeedCategory | null)[]).map((c) => {
+            const selected = category === c;
+            return (
+              <button
+                key={c ?? "all"}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setCategory(c)}
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] transition-colors ${
+                  selected
+                    ? "border-teal-500 bg-teal-50 font-medium text-teal-700 dark:border-teal-600 dark:bg-teal-950/40 dark:text-teal-300"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {c ? FEED_CATEGORY_LABEL[c] : "전체"}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {entries.length === 0 ? (
         <div className="px-3 pb-3 pt-1 text-xs text-zinc-400 dark:text-zinc-500">
-          아직 소식이 없습니다.
+          {category
+            ? `${FEED_CATEGORY_LABEL[category]} 소식이 없습니다.`
+            : "아직 소식이 없습니다."}
         </div>
       ) : (
         <ul className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">

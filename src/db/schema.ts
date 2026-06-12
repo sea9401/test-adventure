@@ -240,7 +240,7 @@ export const messages = pgTable(
 
 // 전체 소식 (서버 피드) — 서버 전체에 흘러가는 "자랑거리" 한 줄 (유실된 명품 획득, 걸작 제작 성공 등).
 // 글로벌 채팅과 분리 — 대화용 vs 전광판용. 모험탭 하단 패널에서 최근 N개만 노출.
-// append-only — insert 시 FEED_MAX_ROWS 초과분을 잘라낸다 (cron 없음).
+// append-only — insert 시 보관기간(FEED_RETENTION_MS=3개월) 지난 행을 잘라낸다 (cron 없음).
 // actorName 은 발생 시점 닉네임 스냅샷 (이후 닉네임이 바뀌어도 과거 항목은 그대로).
 // type: 'unique_drop' | 'masterpiece' (v2 에서 'milestone' 등 추가). payload 는 type 별 형태.
 export const serverFeed = pgTable(

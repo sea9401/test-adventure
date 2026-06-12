@@ -7,16 +7,16 @@
 // 정책:
 //   1) 디바운스 — 같은 유저+type 의 항목이 FEED_DEBOUNCE_MS 안에 있으면 건너뜀 (도배 방지).
 //   2) actorName — users.gameName → character-profile.v2 의 name → "이름 없는 모험가" 스냅샷.
-//   3) trim — insert 후 FEED_MAX_ROWS 초과분(가장 오래된 것부터) 삭제.
+//   3) trim — insert 후 보관기간(FEED_RETENTION_MS=3개월) 지난 행 삭제(lazy, cron 없음).
 // (옛 송신자 opt-out(users.shareFeed)/force 는 제거 — 피드는 항상 기록, 사용자 결정 2026-06-13.
 //  users.share_feed 컬럼은 inert 로 잔존 — 비파괴.)
 
-import { and, desc, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, serverFeed, users } from "@/db/schema";
 import {
   FEED_DEBOUNCE_MS,
-  FEED_MAX_ROWS,
+  FEED_RETENTION_MS,
   type FeedPayload,
   type FeedType,
 } from "@/lib/feed-config";
@@ -81,14 +81,10 @@ export async function insertFeedEntry(
     const actorName = await resolveActorName(userId, u.gameName);
     await db.insert(serverFeed).values({ userId, actorName, type, payload });
 
-    // trim — 최신 FEED_MAX_ROWS 개만 남기고 그 이전 행 삭제.
-    const [cut] = await db
-      .select({ id: serverFeed.id })
-      .from(serverFeed)
-      .orderBy(desc(serverFeed.id))
-      .offset(FEED_MAX_ROWS - 1)
-      .limit(1);
-    if (cut) await db.delete(serverFeed).where(lt(serverFeed.id, cut.id));
+    // trim — 보관기간(3개월) 지난 행 삭제. 시간 기준(분류별 열람을 위한 보존, 행 수 캡 폐기).
+    await db
+      .delete(serverFeed)
+      .where(lt(serverFeed.createdAt, new Date(Date.now() - FEED_RETENTION_MS)));
   } catch (err) {
     console.warn("[serverFeed] insert failed", err);
   }

@@ -17,6 +17,7 @@ import {
   COOP_BOSSES,
   MAX_ACTIVE_PER_KIND,
   SUMMON_SCROLL_MATERIAL_ID,
+  coopBossDurationMs,
   parseCoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 
@@ -120,7 +121,7 @@ export async function POST(req: Request) {
         hp: kind.sharedMaxHp,
         maxHp: kind.sharedMaxHp,
         spawnedAt: now,
-        expiresAt: new Date(now.getTime() + kind.durationMs),
+        expiresAt: new Date(now.getTime() + coopBossDurationMs(kind)),
         regenPerMin: 0,
         lastRegenAt: null,
         summonedByName: summonerName,
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
           sessionId,
           kind: kindId,
           scrollsLeft: remaining,
-          expiresAt: now.getTime() + kind.durationMs,
+          expiresAt: now.getTime() + coopBossDurationMs(kind),
         },
       };
     });

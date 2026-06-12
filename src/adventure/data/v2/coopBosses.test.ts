@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   COOP_BOSSES,
+  COOP_DURATION_MAX_MS,
+  COOP_DURATION_MIN_MS,
+  coopBossDurationMs,
   COOP_BOSS_KIND_IDS,
   COOP_TIER_ORDER,
   COOP_TIER_THRESHOLDS,
@@ -26,7 +29,7 @@ describe("coopBosses 카탈로그", () => {
       expect(b.id).toBe(id);
       expect(b.scrollCost).toBeGreaterThan(prevCost);
       expect(b.sharedMaxHp).toBeGreaterThan(prevHp);
-      expect(b.durationMs).toBeGreaterThan(0);
+
       prevCost = b.scrollCost;
       prevHp = b.sharedMaxHp;
     }
@@ -116,6 +119,24 @@ describe("coopBosses 카탈로그", () => {
         expect(atThreshold.enrageNotes).toContain(st.note);
       }
     }
+  });
+
+  it("유지시간 — HP 비례·최소 2h·최대 24h 클램프·HP 오름차순과 단조", () => {
+    let prev = 0;
+    for (const id of COOP_BOSS_KIND_IDS) {
+      const b = COOP_BOSSES[id];
+      const d = coopBossDurationMs(b);
+      expect(d).toBeGreaterThanOrEqual(COOP_DURATION_MIN_MS);
+      expect(d).toBeLessThanOrEqual(COOP_DURATION_MAX_MS);
+      expect(d).toBeGreaterThanOrEqual(prev);
+      prev = d;
+    }
+    // 캡 — 거대 HP 가상 보스도 24h 를 넘지 않는다.
+    const giant = { ...COOP_BOSSES.lake_sovereign, sharedMaxHp: 10_000_000 };
+    expect(coopBossDurationMs(giant)).toBe(COOP_DURATION_MAX_MS);
+    // 바닥 — 소형 HP 는 2h 미만으로 안 내려간다.
+    const tiny = { ...COOP_BOSSES.mountain_chief, sharedMaxHp: 1_000 };
+    expect(coopBossDurationMs(tiny)).toBe(COOP_DURATION_MIN_MS);
   });
 
   it("parseCoopBossKindId — 유효 id 만 통과", () => {

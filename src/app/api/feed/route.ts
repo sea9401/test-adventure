@@ -1,7 +1,9 @@
 // /api/feed — 전체 소식(서버 피드).
 //
 //   GET   → 최근 항목.  { entries: FeedEntry[] }
-//           ?types=war — 전쟁 사건(outpost_*)만 (전광판 티커 소비).
+//           ?types=war — 전광판 묶음(전쟁+고강) (전광판 티커 소비).
+//           ?category=acquisition|war|boss — 패널 분류별 보기(서버 필터 —
+//           FEED_FETCH_LIMIT 안에서 다른 분류에 밀리지 않게).
 //   POST  → 클라이언트가 라이브 드랍을 보고. body { type: "unique_drop", itemId: string }
 //           - 서버가 itemId 의 rarity 가 실제 unique 인지 검증(가벼운 스푸핑 방지) 후 insert.
 //           - 디바운스로 실제로 안 들어가도 { ok: true } 반환.
@@ -15,8 +17,10 @@ import { serverFeed } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
+  FEED_CATEGORY_TYPES,
   FEED_FETCH_LIMIT,
   WAR_FEED_TYPES,
+  parseFeedCategory,
   type FeedEntry,
 } from "@/lib/feed-config";
 import { ITEMS, isLuckyFind } from "@/adventure/data/items";
@@ -25,9 +29,17 @@ export async function GET(req: Request) {
   const userId = await ensureUser();
   if (!userId) return new Response("unauthorized", { status: 401 });
 
-  // ?types=war — 전쟁 사건(outpost_*)만. 서버 필터라 자랑거리 도배에 밀리지 않고
-  // 최근 전쟁 사건을 FEED_FETCH_LIMIT 개까지 온전히 받는다.
-  const warOnly = new URL(req.url).searchParams.get("types") === "war";
+  // 서버 필터 — 도배에 밀리지 않고 그 묶음의 최근 FEED_FETCH_LIMIT 개를 온전히 받는다.
+  //   ?types=war  = 전광판 묶음(전쟁+고강, WarTicker)
+  //   ?category=  = 패널 분류별 보기(획득/전쟁/보스)
+  const params = new URL(req.url).searchParams;
+  const warOnly = params.get("types") === "war";
+  const category = parseFeedCategory(params.get("category"));
+  const typeFilter = warOnly
+    ? [...WAR_FEED_TYPES]
+    : category
+      ? [...FEED_CATEGORY_TYPES[category]]
+      : null;
 
   const baseQuery = db
     .select({
@@ -38,8 +50,8 @@ export async function GET(req: Request) {
       createdAt: serverFeed.createdAt,
     })
     .from(serverFeed);
-  const rows = await (warOnly
-    ? baseQuery.where(inArray(serverFeed.type, [...WAR_FEED_TYPES]))
+  const rows = await (typeFilter
+    ? baseQuery.where(inArray(serverFeed.type, typeFilter))
     : baseQuery
   )
     .orderBy(desc(serverFeed.id))

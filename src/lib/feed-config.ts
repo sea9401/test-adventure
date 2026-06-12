@@ -1,14 +1,15 @@
 // 전체 소식(서버 피드) 제약 — 클라/서버 공통.
 //
 // 채팅과 분리된 "전광판" — 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
-// 모험탭 하단 패널에서 최근 FEED_FETCH_LIMIT 개만 노출. append-only — insert 시 FEED_MAX_ROWS
-// 초과분을 잘라낸다(cron 없음).
+// 모험탭 하단 패널에서 최근 FEED_FETCH_LIMIT 개만 노출. append-only — insert 시 보관기간
+// 초과분을 잘라낸다(cron 없음, lazy trim).
 
 // GET /api/feed 가 돌려주는 최근 항목 수. 패널이 한 번에 보여주는 상한.
-export const FEED_FETCH_LIMIT = 20;
+export const FEED_FETCH_LIMIT = 50;
 
-// DB 에 유지하는 최대 행 수 — insert 마다 초과분 trim. 활동량 변동에 강하도록 기간이 아닌 행 수 기준.
-export const FEED_MAX_ROWS = 500;
+// DB 보관 기간 — insert 마다 이보다 오래된 행 trim(시간 기준, 사용자 결정 2026-06-13).
+// (옛 FEED_MAX_ROWS=500 행 수 캡 대체 — 분류별 열람을 위해 3개월 치 보존.)
+export const FEED_RETENTION_MS = 90 * 24 * 3_600_000;
 
 // 같은 유저+type 디바운스 — 이 시간 안에 동일 종류 항목이 이미 있으면 새 항목을 만들지 않는다.
 // 연달아 터뜨려도 도배되지 않게.
@@ -45,6 +46,33 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
 // 전광판(티커) 표시 범위 — 이 시간 안의 전쟁 사건만 순환. 0건이면 띠 자체를 숨긴다
 // (빈 전광판이 "전쟁 없음"을 광고하는 역효과 방지).
 export const WAR_TICKER_WINDOW_H = 24;
+
+// === 분류(카테고리) — 패널의 분류별 보기 탭 + GET /api/feed?category= 서버 필터 ===
+// 전광판 묶음(WAR_FEED_TYPES — enhance_high 포함)과 별개: 이쪽은 열람용 의미 분류.
+export const FEED_CATEGORIES = ["acquisition", "war", "boss"] as const;
+export type FeedCategory = (typeof FEED_CATEGORIES)[number];
+
+export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
+  // 획득 — 유니크/걸작/레어맵 발견 + 고강 성공(자랑거리 일체).
+  acquisition: ["unique_drop", "masterpiece", "rare_map_drop", "enhance_high"],
+  // 전쟁 — 거점 점령/공성/침입자 토벌.
+  war: ["outpost_capture", "outpost_siege", "outpost_eject"],
+  // 보스 — 협동 보스 소환/처치.
+  boss: ["coop_summon", "coop_kill"],
+};
+
+export const FEED_CATEGORY_LABEL: Record<FeedCategory, string> = {
+  acquisition: "획득",
+  war: "전쟁",
+  boss: "보스",
+};
+
+export function parseFeedCategory(v: unknown): FeedCategory | null {
+  return typeof v === "string" &&
+    (FEED_CATEGORIES as readonly string[]).includes(v)
+    ? (v as FeedCategory)
+    : null;
+}
 
 // type 별 payload. 아이템/거점 이름은 클라에서 카탈로그로 해석 — id 만 저장.
 // 길드명은 시점 스냅샷 문자열(클라에 길드 카탈로그가 없음).

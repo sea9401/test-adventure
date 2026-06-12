@@ -15,6 +15,7 @@ import {
   COOP_BOSS_KIND_IDS,
   COOP_TIER_LABEL,
   MAX_ACTIVE_PER_KIND,
+  coopBossDurationLabel,
   type CoopBossKindId,
 } from "@/adventure/data/v2/coopBosses";
 import {
@@ -232,7 +233,7 @@ export function V2CoopBossListView({
                     {def.name}
                   </span>
                   <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                    소환서 {def.scrollCost}장 · 2시간
+                    소환서 {def.scrollCost}장 · {coopBossDurationLabel(def)}
                     {activeCount > 0 && ` · 토벌 중 ${activeCount}마리`}
                   </span>
                 </span>

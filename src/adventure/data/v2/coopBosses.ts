@@ -122,8 +122,6 @@ export type CoopBossKind = {
   scrollCost: number;
   /** 협동 공유 HP — base.hp 와 별개(솔로 hp 는 시뮬 스탯에만 의미). ⚠️ 캘리브 다이얼. */
   sharedMaxHp: number;
-  /** 소환 후 만료까지(ms). */
-  durationMs: number;
   /** 시뮬 스탯 스케일 깊이 — scaleMonsterForFloor 기준(공유 HP 는 별도). */
   anchorDepth: number;
   /** flat 베이스 Monster — 이름/이미지/스킬/페이즈 보존(옛 테마 보스 승계). */
@@ -213,7 +211,29 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   onDefeatTitleId: "v2_boss_lake",
 };
 
-const DURATION_2H = 2 * 3_600_000;
+// === 소환 유지시간 — 공유 HP 비례 ====================================
+// HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
+// 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
+// 현 3종: 15k→3h · 40k→8h · 100k→20h (캡 24h 는 미래의 더 큰 보스용).
+export const COOP_DURATION_HP_PER_HOUR = 5_000;
+export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
+export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
+
+export function coopBossDurationMs(kind: CoopBossKind): number {
+  const ms = (kind.sharedMaxHp / COOP_DURATION_HP_PER_HOUR) * 3_600_000;
+  return Math.min(
+    COOP_DURATION_MAX_MS,
+    Math.max(COOP_DURATION_MIN_MS, Math.round(ms)),
+  );
+}
+
+/** 유지시간 표시 라벨 — "3시간"/"3시간 30분". UI·매뉴얼 공용. */
+export function coopBossDurationLabel(kind: CoopBossKind): string {
+  const m = Math.round(coopBossDurationMs(kind) / 60_000);
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest > 0 ? `${h}시간 ${rest}분` : `${h}시간`;
+}
 
 // 3단 사다리 — 소환서 5/10/20장, 시뮬 스탯은 깊이 12/24/42 스케일(상위 보스일수록
 // 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·골드는 ⚠️ 라이브 캘리브.
@@ -224,7 +244,6 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     desc: "깊은 산의 길목을 틀어쥔 산적단의 우두머리. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 5,
     sharedMaxHp: 15_000,
-    durationMs: DURATION_2H,
     anchorDepth: 12,
     base: MOUNTAIN_CHIEF_BASE,
     uniqueIds: ["v2_boss_mountain_axe"],
@@ -257,7 +276,6 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 짐승. 절벽조차 발톱으로 꿰뚫는다.",
     scrollCost: 10,
     sharedMaxHp: 40_000,
-    durationMs: DURATION_2H,
     anchorDepth: 24,
     base: CANYON_PREDATOR_BASE,
     uniqueIds: ["v2_boss_canyon_fang"],
@@ -295,7 +313,6 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 옛 군주. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
     sharedMaxHp: 100_000,
-    durationMs: DURATION_2H,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul"],

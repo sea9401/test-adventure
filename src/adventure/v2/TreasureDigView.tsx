@@ -5,7 +5,7 @@ import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
-import { TabBar } from "@/components/ui/TabBar";
+import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   DIG_CLUE_LABEL,
   DIGS_ALLOWED,
@@ -199,27 +199,11 @@ export function TreasureDigView({
       </HeaderPanel>
 
       {/* 서브 nav — 옛 우상단 텍스트 링크(주간 순위/보관함)가 눈에 안 띄어 탭바로 승격(#726). */}
-      {(onOpenCollection || onOpenLeaderboard) && (
-        <TabBar
-          tabs={[
-            { key: "dig", label: "발굴" },
-            ...(onOpenLeaderboard
-              ? [{ key: "leaderboard", label: "주간 순위" }]
-              : []),
-            ...(onOpenCollection
-              ? [{ key: "collection", label: "발굴 보관함" }]
-              : []),
-          ]}
-          active="dig"
-          onChange={(k) => {
-            if (k === "leaderboard") onOpenLeaderboard?.();
-            else if (k === "collection") onOpenCollection?.();
-          }}
-          ariaLabel="발굴 메뉴"
-          size="sm"
-          variant="highlight"
-        />
-      )}
+      <TreasureSubTabs
+        active="dig"
+        onOpenLeaderboard={onOpenLeaderboard}
+        onOpenCollection={onOpenCollection}
+      />
 
       {notice && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">

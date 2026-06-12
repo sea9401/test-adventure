@@ -3,6 +3,7 @@
 import { Card } from "@/components/ui/Card";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { TreasureSubTabs } from "./TreasureSubTabs";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import type { TreasureLeaderboardData } from "./treasureLeaderboard";
 
@@ -31,11 +32,16 @@ export function TreasureLeaderboardView({
   loading,
   error,
   onBack,
+  onOpenDig,
+  onOpenCollection,
 }: {
   data: TreasureLeaderboardData | null;
   loading: boolean;
   error?: string | null;
   onBack?: () => void;
+  // 발굴 서브 탭바(발굴/보관함) — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenDig?: () => void;
+  onOpenCollection?: () => void;
 }) {
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -56,6 +62,12 @@ export function TreasureLeaderboardView({
           </span>
         </div>
       </HeaderPanel>
+
+      <TreasureSubTabs
+        active="leaderboard"
+        onOpenDig={onOpenDig}
+        onOpenCollection={onOpenCollection}
+      />
 
       {loading ? (
         <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

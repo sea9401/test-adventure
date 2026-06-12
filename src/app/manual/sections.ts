@@ -28,7 +28,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "controls",
     title: "화면과 조작",
-    summary: "6개 메인 탭, 상단바, 화면 전환 방식.",
+    summary: "5개 메인 탭, 상단바·설정 메뉴, 화면 전환 방식.",
     group: "intro",
   },
   {
@@ -58,13 +58,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "jobs",
     title: "직업·숙련도·전직",
-    summary: "6직업군 4차수, 숙련도와 숙달 포인트, 전직, 수행.",
+    summary: "4직군 4차수, 전문화(계파), 숙달 포인트, 전직, 수행.",
     group: "growth",
   },
   {
     slug: "skills",
-    title: "스킬과 직업 패시브",
-    summary: "속성 스킬 습득·장착 슬롯, 직업별 상시 패시브.",
+    title: "스킬과 전문화",
+    summary: "액티브 스킬 습득·장착 슬롯, 전문화(계파) 패시브·직업 특성.",
     group: "growth",
   },
   {
@@ -80,9 +80,9 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     group: "growth",
   },
   {
-    slug: "crafting",
-    title: "제작과 분해",
-    summary: "대장간 제작·분해, 재료, 유니크 장비.",
+    slug: "enhance",
+    title: "장비 강화",
+    summary: "+0~+10 강화, 4갈래 결과, 강화석(붉은/푸른).",
     group: "growth",
   },
   {

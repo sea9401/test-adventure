@@ -9,7 +9,7 @@ import { JobsContent } from "./jobs";
 import { SkillsContent } from "./skills";
 import { LevelingContent } from "./leveling";
 import { EquipmentContent } from "./equipment";
-import { CraftingContent } from "./crafting";
+import { EnhanceContent } from "./enhance";
 import { EconomyContent } from "./economy";
 import { TownContent } from "./town";
 import { GuildContent } from "./guild";
@@ -31,7 +31,7 @@ export const MANUAL_CONTENT: Record<string, () => ReactNode> = {
   skills: SkillsContent,
   leveling: LevelingContent,
   equipment: EquipmentContent,
-  crafting: CraftingContent,
+  enhance: EnhanceContent,
   economy: EconomyContent,
   town: TownContent,
   guild: GuildContent,

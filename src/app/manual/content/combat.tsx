@@ -78,7 +78,7 @@ export function CombatContent() {
           ],
           [
             "치명 배수",
-            <Code key="cm">2.0 + LUK × 0.006 + STR × 0.002 + 닌자 패시브. 캡 5.0×</Code>,
+            <Code key="cm">1.4 + LUK × 0.007 + STR × 0.002 + 닌자 패시브. 캡 5.0×</Code>,
           ],
         ]}
         caption="치명은 LUK 이 주축이고, 인술(닌자) 직업 패시브가 배수를 크게 키웁니다."

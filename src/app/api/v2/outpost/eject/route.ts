@@ -274,8 +274,7 @@ export async function POST(req: Request) {
     await insertFeedEntry(
       userId,
       "outpost_eject",
-      { outpostId, targetName: fb.defenderName ?? "침입자" },
-      { force: true },
+      { outpostId, targetName: fb.defenderName ?? "침입자" }
     );
     // 개인 알림 — 토벌당한 침입자 본인에게 즉시.
     await insertNotification(targetUserId, "ejected", {

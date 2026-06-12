@@ -17,8 +17,8 @@ export const FEED_DEBOUNCE_MS = 60_000;
 // 클라이언트 패널 폴링 주기.
 export const FEED_POLL_MS = 30_000;
 
-// 피드 항목 종류. outpost_* 3종 = 전쟁 사건(docs/v2-war-visibility-plan.md PR-3) —
-// 공적 행위라 shareFeed opt-out 을 무시하고 기록된다(insertFeedEntry force).
+// 피드 항목 종류. outpost_* 3종 = 전쟁 사건(docs/v2-war-visibility-plan.md PR-3).
+// (옛 shareFeed opt-out/force 구분은 제거 — 모든 종류가 항상 기록된다.)
 export const FEED_TYPES = [
   "unique_drop",
   "masterpiece",

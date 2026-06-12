@@ -5,11 +5,11 @@
 // 내부에서 try/catch + console.warn 으로 삼킨다. 호출부는 await insertFeedEntry(...) 만 하면 됨.
 //
 // 정책:
-//   1) 송신자 opt-out — users.shareFeed === false 면 건너뜀.
-//      단 opts.force(전쟁 등 공적 사건)는 opt-out 무시 — 점령/공성은 숨길 수 없는 행위.
-//   2) 디바운스 — 같은 유저+type 의 항목이 FEED_DEBOUNCE_MS 안에 있으면 건너뜀 (도배 방지).
-//   3) actorName — users.gameName → character-profile.v2 의 name → "이름 없는 모험가" 스냅샷.
-//   4) trim — insert 후 FEED_MAX_ROWS 초과분(가장 오래된 것부터) 삭제.
+//   1) 디바운스 — 같은 유저+type 의 항목이 FEED_DEBOUNCE_MS 안에 있으면 건너뜀 (도배 방지).
+//   2) actorName — users.gameName → character-profile.v2 의 name → "이름 없는 모험가" 스냅샷.
+//   3) trim — insert 후 FEED_MAX_ROWS 초과분(가장 오래된 것부터) 삭제.
+// (옛 송신자 opt-out(users.shareFeed)/force 는 제거 — 피드는 항상 기록, 사용자 결정 2026-06-13.
+//  users.share_feed 컬럼은 inert 로 잔존 — 비파괴.)
 
 import { and, desc, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db";
@@ -55,18 +55,14 @@ export async function insertFeedEntry(
   userId: string,
   type: FeedType,
   payload: FeedPayload,
-  // force — 전쟁(outpost_*) 등 공적 사건은 shareFeed opt-out 을 무시하고 기록.
-  // 디바운스/trim 은 force 여도 그대로 적용(도배 방지는 정책과 무관).
-  opts?: { force?: boolean },
 ): Promise<void> {
   try {
     const [u] = await db
-      .select({ shareFeed: users.shareFeed, gameName: users.gameName })
+      .select({ gameName: users.gameName })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
     if (!u) return;
-    if (!u.shareFeed && !opts?.force) return;
 
     const since = new Date(Date.now() - FEED_DEBOUNCE_MS);
     const [recent] = await db

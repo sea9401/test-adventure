@@ -22,6 +22,7 @@ import {
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import {
   RARE_MAP_KINDS,
+  parseRareMaps,
   type RareMapInstance,
 } from "@/adventure/data/v2/rareMaps";
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
@@ -82,7 +83,7 @@ type Listing = {
   id: number;
   sellerId: string;
   sellerName: string;
-  kind: "equip" | "material";
+  kind: "equip" | "material" | "consumable";
   itemId: string;
   itemName: string;
   quantity: number;
@@ -760,6 +761,21 @@ function BuyConfirm({
           {detail && (
             <div className="text-[11px] text-zinc-600 dark:text-zinc-300">{detail.line}</div>
           )}
+          {listing.kind === "consumable" &&
+            (() => {
+              const st = consumableStatusLine(listing.instancePayload);
+              return st ? (
+                <div
+                  className={`text-[11px] ${
+                    st.expired
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "text-sky-700 dark:text-sky-400"
+                  }`}
+                >
+                  🗺 {st.text}
+                </div>
+              ) : null;
+            })()}
         </div>
         <div className="mt-3 space-y-0.5 text-sm">
           <div className="flex justify-between">
@@ -865,6 +881,28 @@ function expiryLabel(createdAt: string, ttlDays?: number): string | null {
   return `만료까지 ${Math.ceil(leftDays)}일`;
 }
 
+// 소모품(레어맵) 매물 상태 — payload 실물 기준 판수/만료. 만료됐으면 경고(구매 불가 —
+// buy 가 매물을 expired 처리). expiryLabel(매물 자체 TTL)과 별개로 실물 만료가 먼저 온다.
+function consumableStatusLine(payload: unknown): {
+  text: string;
+  expired: boolean;
+} | null {
+  const inst = parseRareMaps([payload], Date.now())[0];
+  if (!inst) return { text: "실물 만료 — 구매 불가", expired: true };
+  const def = RARE_MAP_KINDS[inst.kind];
+  const hoursLeft = Math.max(
+    0,
+    Math.floor((inst.expiresAt - Date.now()) / 3_600_000),
+  );
+  const expiry =
+    hoursLeft < 1 ? "1시간 안에 만료" : `${hoursLeft}시간 후 만료`;
+  const usage =
+    def?.category === "utility"
+      ? `사용 ${inst.runsLeft}회`
+      : `남은 ${inst.runsLeft}판`;
+  return { text: `${usage} · ${expiry}`, expired: false };
+}
+
 function ListingList({
   rows,
   emptyText,
@@ -926,6 +964,21 @@ function ListingList({
                 <span className="text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
               )}
             </div>
+            {l.kind === "consumable" &&
+              (() => {
+                const st = consumableStatusLine(l.instancePayload);
+                return st ? (
+                  <div
+                    className={`mt-0.5 text-[11px] ${
+                      st.expired
+                        ? "text-rose-600 dark:text-rose-400"
+                        : "text-sky-700 dark:text-sky-400"
+                    }`}
+                  >
+                    🗺 {st.text}
+                  </div>
+                ) : null;
+              })()}
             {detail && (
               <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
                 {detail.line}

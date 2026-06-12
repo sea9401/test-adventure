@@ -2,12 +2,10 @@
 
 // 전체 소식 — 모험탭 하단 패널. 서버 전체에 흘러가는 자랑거리(유실된 명품 획득, 걸작 제작 성공).
 // 글로벌 채팅과 분리된 "전광판". 최근 FEED_FETCH_LIMIT 개만 노출, FEED_POLL_MS 주기 폴링.
-// 기본은 접힌 상태(최근 7개 미리보기) — 펼치면 전체. (옛 '내 소식 공유' 토글은 제거 — 피드 항상 기록.)
+// 상시 펼침(접기 폐기 — 사용자 결정 2026-06-13) — 분류 칩 + 전체 목록 항상 노출.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  CaretDown,
-  CaretRight,
   Flag,
   Hammer,
   Lightning,
@@ -33,8 +31,6 @@ import {
   type FeedEntry,
   type FeedType,
 } from "@/lib/feed-config";
-
-const PREVIEW_COUNT = 7;
 
 function itemName(itemId: string): string {
   // v2 장비 카탈로그 우선(소식의 유니크 드랍은 v2 장비 id) → 없으면 v1 ITEMS → raw id.
@@ -280,7 +276,6 @@ function FeedRow({ e }: { e: FeedEntry }) {
 
 export function ServerFeedView() {
   const [entries, setEntries] = useState<FeedEntry[]>([]);
-  const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   // 분류별 보기 — null = 전체. 펼친 상태에서 칩으로 전환(서버 필터 재조회).
   const [category, setCategory] = useState<FeedCategory | null>(null);
@@ -323,19 +318,11 @@ export function ServerFeedView() {
 
   if (!loaded) return null;
 
-  const shown = open ? entries.slice().reverse() : entries.slice(-PREVIEW_COUNT).reverse();
+  const shown = entries.slice().reverse();
 
   return (
     <Card as="section" padding="none" className="mt-4 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => {
-          // 접을 때 분류 초기화 — 접힌 미리보기가 특정 분류로 좁혀진 채 남지 않게.
-          if (open) setCategory(null);
-          setOpen(!open);
-        }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
-      >
+      <div className="flex w-full items-center gap-2 px-3 py-2">
         <Megaphone
           size={16}
           weight="duotone"
@@ -349,18 +336,10 @@ export function ServerFeedView() {
             {entries.length}
           </span>
         )}
-        <span aria-hidden className="text-zinc-400 dark:text-zinc-500">
-          {open ? (
-            <CaretDown size={12} weight="bold" />
-          ) : (
-            <CaretRight size={12} weight="bold" />
-          )}
-        </span>
-      </button>
+      </div>
 
-      {/* 분류 칩 — 펼친 상태에서만. 선택 시 서버 필터 재조회(3개월 보관분에서 그 분류만). */}
-      {open && (
-        <div className="flex flex-wrap gap-1 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
+      {/* 분류 칩 — 선택 시 서버 필터 재조회(3개월 보관분에서 그 분류만). */}
+      <div className="flex flex-wrap gap-1 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
           {([null, ...FEED_CATEGORIES] as (FeedCategory | null)[]).map((c) => {
             const selected = category === c;
             return (
@@ -379,8 +358,7 @@ export function ServerFeedView() {
               </button>
             );
           })}
-        </div>
-      )}
+      </div>
 
       {entries.length === 0 ? (
         <div className="px-3 pb-3 pt-1 text-xs text-zinc-400 dark:text-zinc-500">

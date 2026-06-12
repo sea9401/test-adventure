@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
@@ -8,7 +7,6 @@ import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   ANTIQUES,
   ANTIQUE_THEME_LABEL,
-  ANTIQUE_TIERS,
   appraiseValue,
   sellGoldValue,
   formatCondition,
@@ -42,18 +40,13 @@ const TIER_LABEL: Record<string, string> = {
   legendary: "전설",
 };
 
-// 고가(영웅/전설) 판매 오클릭 방지 — 첫 클릭은 무장(확인 문구), 두 번째 클릭에 실제 판매.
-const SELL_CONFIRM_TIERS = new Set(["epic", "legendary"]);
-
 export function TreasureCollectionView({
   instances,
   fragments,
   coins,
   loading,
-  dismantling,
   selling,
   onBack,
-  onDismantle,
   onSell,
   onOpenShop,
   onOpenDig,
@@ -63,20 +56,15 @@ export function TreasureCollectionView({
   fragments: number;
   coins: number;
   loading: boolean;
-  dismantling: string | null;
   selling: string | null;
   onBack: () => void;
-  onDismantle: (instanceId: string) => void;
-  // 감정사 판매 — 골드 실현(분해와 택일).
+  // 감정사 판매 — 골드 실현. (분해→코인은 폐지 — 코인은 주간 정산 전용, 2026-06-13)
   onSell: (instanceId: string) => void;
   onOpenShop: () => void;
   // 발굴 서브 탭바(발굴/주간 순위) — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenDig?: () => void;
   onOpenLeaderboard?: () => void;
 }) {
-  // 판매 확인 무장 상태 — 행 instanceId. 다른 행/분해 누르면 해제.
-  const [armedSellId, setArmedSellId] = useState<string | null>(null);
-
   const enriched = instances
     .filter((i) => isAntiqueId(i.antiqueId))
     .map((i) => {
@@ -89,7 +77,6 @@ export function TreasureCollectionView({
         theme: a.theme,
         appraisedValue: appraiseValue(key, i.condition),
         sellGold: sellGoldValue(key, i.condition),
-        dismantleCoins: ANTIQUE_TIERS[a.tier].dismantleCoins,
       };
     })
     .sort((x, y) => y.appraisedValue - x.appraisedValue);
@@ -133,9 +120,8 @@ export function TreasureCollectionView({
       ) : (
         <ul className="divide-y divide-zinc-200 overflow-hidden rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
           {enriched.map((e) => {
-            const inFlight = dismantling === e.instanceId;
             const sellInFlight = selling === e.instanceId;
-            const anyBusy = dismantling !== null || selling !== null;
+            const anyBusy = selling !== null;
             return (
               <li
                 key={e.instanceId}
@@ -157,41 +143,13 @@ export function TreasureCollectionView({
                   <button
                     type="button"
                     disabled={anyBusy}
-                    onClick={() => {
-                      if (
-                        SELL_CONFIRM_TIERS.has(e.tier) &&
-                        armedSellId !== e.instanceId
-                      ) {
-                        setArmedSellId(e.instanceId);
-                        return;
-                      }
-                      setArmedSellId(null);
-                      onSell(e.instanceId);
-                    }}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      armedSellId === e.instanceId
-                        ? "border-rose-600 bg-rose-500 text-white hover:bg-rose-600"
-                        : "border-yellow-600 bg-yellow-500/90 text-yellow-950 hover:bg-yellow-500"
-                    }`}
+                    onClick={() => onSell(e.instanceId)}
+                    className="rounded-lg border border-yellow-600 bg-yellow-500/90 px-2.5 py-1 text-[11px] font-medium text-yellow-950 transition hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-50"
                     title="감정사에게 골드로 판매"
                   >
                     {sellInFlight
                       ? "판매 중…"
-                      : armedSellId === e.instanceId
-                        ? "정말 판매?"
-                        : `판매 ${e.sellGold.toLocaleString()}G`}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={anyBusy}
-                    onClick={() => {
-                      setArmedSellId(null);
-                      onDismantle(e.instanceId);
-                    }}
-                    className="rounded-lg border border-zinc-300 px-2.5 py-1 text-[11px] font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    title="감정사에게 분해해 발굴 코인으로"
-                  >
-                    {inFlight ? "분해 중…" : `분해 🪙${e.dismantleCoins}`}
+                      : `판매 ${e.sellGold.toLocaleString()}G`}
                   </button>
                 </span>
               </li>

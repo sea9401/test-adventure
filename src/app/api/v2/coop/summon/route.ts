@@ -9,6 +9,7 @@ import {
 } from "@/lib/server/savesKv";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
+  broadcastCoopNotice,
   expireStaleCoopSessions,
   findActiveCoopSessions,
 } from "@/lib/server/v2Coop";
@@ -49,6 +50,7 @@ export async function POST(req: Request) {
   const kind = COOP_BOSSES[kindId];
 
   let summoned = false;
+  let summonerName = "모험가";
   let result: { status: number; body: Record<string, unknown> };
   try {
     result = await db.transaction(async (tx) => {
@@ -109,7 +111,7 @@ export async function POST(req: Request) {
         "character-profile.v2",
         null,
       );
-      const summonerName = profile?.name?.trim() || "모험가";
+      summonerName = profile?.name?.trim() || "모험가";
       const sessionId = randomUUID();
       await tx.insert(coopBossSessions).values({
         id: sessionId,
@@ -143,9 +145,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // 소환 피드 — 전체 소식("X가 산적 두목을 소환했다!"). 실패는 insertFeedEntry 가 삼킴.
+  // 소환 알림 — 전체 소식 피드 + 채팅 알림 탭(둘 다 부수 효과·실패 삼킴).
   if (summoned) {
     await insertFeedEntry(userId, "coop_summon", { kind: kindId });
+    await broadcastCoopNotice(
+      `${summonerName} 님이 「${kind.name}」을(를) 소환했다 — 모두 토벌에 참여할 수 있다! (전투 → 협동 보스)`,
+    );
   }
 
   return Response.json(result.body, { status: result.status });

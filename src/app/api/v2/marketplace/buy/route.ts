@@ -150,6 +150,10 @@ export async function POST(req: Request) {
       .where(eq(marketplaceListingsV2.id, listingId));
 
     // 5) 판매자 정산 우편 — 대금 − 판매세(세금분 소각). 판매자 오프라인이어도 우편으로 수령.
+    // ⚠️ listingId 는 넣지 않는다 — marketplace_inbox.listing_id 는 **v1** marketplace_listings
+    //   FK 라 v2 리스팅 id 를 넣으면 FK 위반(23503)으로 구매 tx 전체가 롤백되던 라이브 버그
+    //   (#577 부터 잠복 — v1 테이블에 우연히 같은 id 가 있을 때만 통과). 정산 우편은
+    //   message/payload 로 충분, v2 리스팅 추적은 listings_v2.buyerId/closedAt 이 담당.
     const proceeds = saleProceeds(listing.price);
     const buyerName = (await resolvePlayerName(tx, userId)) ?? "구매자";
     if (proceeds > 0) {
@@ -158,7 +162,6 @@ export async function POST(req: Request) {
           userId: listing.sellerId,
           payload: { kind: "sale_proceeds", gold: proceeds },
           message: `${listing.itemName} 판매 대금 ${proceeds.toLocaleString()}골드`,
-          listingId,
           fromUserId: userId,
           fromName: buyerName,
         }),

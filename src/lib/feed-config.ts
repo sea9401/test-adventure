@@ -27,6 +27,8 @@ export const FEED_TYPES = [
   "outpost_eject",
   "enhance_high",
   "rare_map_drop",
+  "coop_summon",
+  "coop_kill",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
@@ -69,6 +71,7 @@ export type FeedPayload =
   // enhance_high — 고강(+8 이상) 강화 성공. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
   // rare_map_drop — 레어맵 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
+  // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
   | { kind: string };
 
 // 클라/서버가 주고받는 한 항목.

@@ -16,10 +16,8 @@ import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 export default function DungeonFloorPage() {
   const router = useRouter();
   const params = useParams<{ floorId: string }>();
-  // ?boss=1 = 테마 보스 도전 모드(V2DungeonList 보스 도전 버튼이 themeStartDepth 로 라우팅).
-  const searchParams = useSearchParams();
-  const bossMode = searchParams.get("boss") === "1";
   // ?rareMap=<iid> = 레어맵 입장 모드 — 보유 지도로 농축 사냥(서버가 소유/깊이/판수 검증).
+  const searchParams = useSearchParams();
   const rareMapIid = searchParams.get("rareMap");
   const {
     currentOutpost,
@@ -65,7 +63,6 @@ export default function DungeonFloorPage() {
       frontierDepth={frontierDepth}
       onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
       onLevelUp={refreshGameState}
-      bossMode={bossMode}
       rareMapIid={rareMapIid}
     />
   );

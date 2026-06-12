@@ -3,6 +3,7 @@ import { OverviewContent } from "./overview";
 import { ControlsContent } from "./controls";
 import { CombatContent } from "./combat";
 import { HuntingContent } from "./hunting";
+import { CoopContent } from "./coop";
 import { StatsContent } from "./stats";
 import { JobsContent } from "./jobs";
 import { SkillsContent } from "./skills";
@@ -24,6 +25,7 @@ export const MANUAL_CONTENT: Record<string, () => ReactNode> = {
   controls: ControlsContent,
   combat: CombatContent,
   hunting: HuntingContent,
+  coop: CoopContent,
   stats: StatsContent,
   jobs: JobsContent,
   skills: SkillsContent,

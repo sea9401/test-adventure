@@ -1,0 +1,406 @@
+import { and, eq, sql } from "drizzle-orm";
+import { db } from "@/db";
+import {
+  coopBossAttackLog,
+  coopBossContributors,
+  coopBossSessions,
+} from "@/db/schema";
+import { ensureUser } from "@/lib/server/ensureUser";
+import {
+  lockSaveForUpdate,
+  readSave,
+  upsertSave,
+} from "@/lib/server/savesKv";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { findActiveCoopSession } from "@/lib/server/v2Coop";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
+import {
+  COOP_ATTACK_COOLDOWN_MS,
+  COOP_ATTACK_STAMINA_COST,
+  COOP_ATTACK_TURNS,
+  COOP_BOSSES,
+  coopBossForBattle,
+  coopTierForRatio,
+  parseCoopBossKindId,
+} from "@/adventure/data/v2/coopBosses";
+import {
+  MAX_STAMINA,
+  applyRegen,
+  parseStaminaFromSave,
+  staminaCapBonusOf,
+  tryConsume,
+} from "@/adventure/v2/stamina";
+import {
+  applyHpRegen,
+  canHuntWithHp,
+  parseHpRegenSince,
+} from "@/adventure/v2/hpRegen";
+import {
+  elementDamageMult,
+  parseV2Element,
+  type V2Element,
+} from "@/adventure/data/v2/elements";
+import {
+  emptyV2SkillsState,
+  parseV2SkillsState,
+} from "@/adventure/data/v2/v2Skills";
+import { emptyProficiency } from "@/adventure/data/v2/proficiency";
+import type { EquipmentSave } from "@/adventure/data/v2/v2Equipment";
+import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
+
+// POST /api/v2/coop/attack — 협동 보스 1회 공격.
+//
+// 본문: { kind: CoopBossKindId }
+// 서버 권위 흐름(hunt 라우트와 같은 골격 — 단일 트랜잭션):
+//   1. character.v2 잠금(전 라우트 공통 첫 락) → 스태미너 차감 가능 검사 + HP 게이트.
+//   2. equipment/skills/proficiency lock-read → derive(왕복 0).
+//   3. 세션 조기 검증(비잠금) → resolveBattle 시뮬(COOP_ATTACK_TURNS 턴 캡, 풀피 기준
+//      stateless — 실제 차감은 아래 GREATEST 클램프).
+//   4. session FOR UPDATE → 재검증(처치/만료) + 쿨다운 → hp 차감 + 처치 CAS(락 보유로
+//      1명만 defeated 분기 — v1 attack.ts 의 C1/C2 race fix 승계).
+//   5. contributor UPSERT + 공격 로그 1줄.
+//   6. character.v2(스태미너·HP/MP)·inventory.v2(충전약 자동 회복) 기록 — 세션 검증을
+//      통과한 뒤에만 쓰므로 쿨다운/만료 거부 시 스태미너 미소모.
+// 처치 확정자(킬 CAS)는 tx 후 coop_kill 피드 발행. 보상은 별도 claim(본인 세이브만 —
+// 교차 유저 락 0 원칙).
+
+type CharSave = {
+  stamina?: unknown;
+  staminaCapBonus?: unknown;
+  hp?: number;
+  hpRegenSince?: number;
+  [k: string]: unknown;
+};
+
+export async function POST(req: Request) {
+  const maybeUserId = await ensureUser();
+  if (!maybeUserId) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const userId: string = maybeUserId;
+
+  let body: { kind?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+  const kindId = parseCoopBossKindId(body.kind);
+  if (!kindId) {
+    return Response.json({ ok: false, error: "bad_kind" }, { status: 400 });
+  }
+  const kind = COOP_BOSSES[kindId];
+
+  let defeatedNow = false;
+  const result = await db.transaction(async (tx) => {
+    const now = Date.now();
+    // === 1. character.v2 잠금 + 스태미너/HP 게이트 ===
+    const charSave = await lockSaveForUpdate<CharSave>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
+    const stamina = parseStaminaFromSave(charSave.stamina, now);
+    const staminaMax =
+      MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+    const afterStamina = tryConsume(
+      stamina,
+      COOP_ATTACK_STAMINA_COST,
+      now,
+      staminaMax,
+    );
+    if (!afterStamina) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "out_of_stamina" as const,
+          stamina: applyRegen(stamina, now, staminaMax),
+        },
+      };
+    }
+
+    // === 2. derive preload (hunt 와 동일 락 순서: character→equipment→skills→proficiency) ===
+    const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
+      tx,
+      userId,
+      "equipment.v2",
+      {},
+    );
+    const skillsRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "skills.v2",
+      emptyV2SkillsState() as unknown as Record<string, unknown>,
+    );
+    const v2Skills = parseV2SkillsState(skillsRaw);
+    const proficiencyRaw = await lockSaveForUpdate(
+      tx,
+      userId,
+      "proficiency.v2",
+      emptyProficiency() as unknown as Record<string, unknown>,
+    );
+    const player = await derivePlayerCombatV2(userId, tx, {
+      character: charSave,
+      equipmentSave,
+      proficiencyRaw,
+      skillsRaw,
+    });
+    if (!player) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "no_character" as const },
+      };
+    }
+
+    // 사냥과 동일한 사전 HP 회복 + 저체력 게이트(5% 미만 차단·스태미너 미소모).
+    const regenResult = applyHpRegen(
+      Math.max(0, charSave.hp ?? player.maxHp),
+      player.maxHp,
+      parseHpRegenSince(charSave.hpRegenSince, now),
+      now,
+    );
+    if (!canHuntWithHp(regenResult.hp, player.maxHp)) {
+      return {
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "hp_zero" as const,
+          stamina: applyRegen(stamina, now, staminaMax),
+        },
+      };
+    }
+
+    // === 3. 세션 조기 검증(비잠금 — 시뮬 전 빠른 거부) ===
+    const sessionPeek = await findActiveCoopSession(tx, kindId);
+    if (!sessionPeek || sessionPeek.expiresAt.getTime() <= now) {
+      return {
+        status: 404,
+        body: { ok: false as const, error: "no_active_boss" as const },
+      };
+    }
+
+    // 전투 시뮬 — hunt 와 동일한 속성 baked atk + 캐릭 속성. 보스 hp = 공유 풀
+    // (stateless 풀피 기준 — 실차감은 아래 GREATEST 클램프, v1 simulate 단순화).
+    const playerElement = parseV2Element(
+      (charSave as { element?: unknown }).element,
+    );
+    const basicAttackElement: V2Element =
+      player.weaponElement !== "neutral" ? player.weaponElement : playerElement;
+    const bossMonster = coopBossForBattle(kind);
+    const playerElemMult = elementDamageMult(
+      basicAttackElement,
+      bossMonster.element ?? "neutral",
+    );
+    const profile = await readSave<{ name?: string } | null>(
+      tx,
+      userId,
+      "character-profile.v2",
+      null,
+    );
+    const playerName = profile?.name?.trim() || "모험가";
+    const playerForBattle = {
+      ...player.player,
+      hp: regenResult.hp,
+      mp: player.player.mp,
+      atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
+      magicAtk: Math.max(
+        0,
+        Math.round((player.player.magicAtk ?? 0) * playerElemMult),
+      ),
+      attackElement: basicAttackElement,
+      characterElement: playerElement,
+    };
+    const battleResult = resolveBattle(playerForBattle, bossMonster, playerName, {
+      pickAction: (state) => pickAutoAction(state, { rules: [], potions: {} }),
+      potions: {},
+      v2Skills,
+      isBoss: true, // %HP 효과 감산 + breaker 보너스.
+      // 1회 공격 = 플레이어 N턴 — 엔진 maxTurns 는 페이즈 단위(내+적 각 1)라 ×2.
+      // 도달 시 종료(타임아웃 lose 는 협동에선 정상 흐름 — 데미지만 누적).
+      maxTurns: COOP_ATTACK_TURNS * 2,
+    });
+    const damageDealt = Math.max(
+      0,
+      kind.sharedMaxHp - battleResult.finalState.enemyHp,
+    );
+    const damageTaken = Math.max(
+      0,
+      regenResult.hp - battleResult.finalState.playerHp,
+    );
+    const diedEarly = battleResult.finalState.playerHp <= 0;
+
+    // === 4. session FOR UPDATE — 재검증 + 쿨다운 + 차감 + 처치 CAS ===
+    const [s] = await tx
+      .select()
+      .from(coopBossSessions)
+      .where(eq(coopBossSessions.id, sessionPeek.id))
+      .for("update");
+    if (!s || s.defeatedAt !== null || s.hp <= 0) {
+      return {
+        status: 409,
+        body: { ok: false as const, error: "already_defeated" as const },
+      };
+    }
+    if (s.expiresAt.getTime() <= now) {
+      return {
+        status: 410,
+        body: { ok: false as const, error: "expired" as const },
+      };
+    }
+    const [contrib] = await tx
+      .select({ lastAttackAt: coopBossContributors.lastAttackAt })
+      .from(coopBossContributors)
+      .where(
+        and(
+          eq(coopBossContributors.sessionId, s.id),
+          eq(coopBossContributors.userId, userId),
+        ),
+      );
+    if (contrib?.lastAttackAt) {
+      const nextAt = contrib.lastAttackAt.getTime() + COOP_ATTACK_COOLDOWN_MS;
+      if (now < nextAt) {
+        return {
+          status: 429,
+          body: {
+            ok: false as const,
+            error: "cooldown" as const,
+            retryAfterMs: nextAt - now,
+          },
+        };
+      }
+    }
+
+    // 오버킬 클램프 — 기여도(contributor.damage)는 실제로 깎은 양만 적립
+    // (시뮬은 풀피 기준 stateless 라 잔여 HP 를 넘게 굴릴 수 있다).
+    const appliedDamage = Math.min(damageDealt, s.hp);
+    const nowDate = new Date(now);
+    const [updated] = await tx
+      .update(coopBossSessions)
+      .set({
+        hp: sql`GREATEST(0, ${coopBossSessions.hp} - ${appliedDamage})`,
+      })
+      .where(eq(coopBossSessions.id, s.id))
+      .returning({ hp: coopBossSessions.hp });
+    const bossHp = updated?.hp ?? s.hp;
+    if (bossHp === 0) {
+      // 처치 — 락 보유로 이 분기는 정확히 1명(킬 CAS). nextSpawnAt 없음(소환형).
+      await tx
+        .update(coopBossSessions)
+        .set({ defeatedAt: nowDate })
+        .where(eq(coopBossSessions.id, s.id));
+      defeatedNow = true;
+    }
+
+    // === 5. contributor UPSERT + 공격 로그 ===
+    await tx
+      .insert(coopBossContributors)
+      .values({
+        sessionId: s.id,
+        userId,
+        damage: appliedDamage,
+        attackCount: 1,
+        lastAttackAt: nowDate,
+      })
+      .onConflictDoUpdate({
+        target: [coopBossContributors.sessionId, coopBossContributors.userId],
+        set: {
+          damage: sql`${coopBossContributors.damage} + ${appliedDamage}`,
+          attackCount: sql`${coopBossContributors.attackCount} + 1`,
+          lastAttackAt: nowDate,
+        },
+      });
+    const [myRow] = await tx
+      .select({ damage: coopBossContributors.damage })
+      .from(coopBossContributors)
+      .where(
+        and(
+          eq(coopBossContributors.sessionId, s.id),
+          eq(coopBossContributors.userId, userId),
+        ),
+      );
+    const myDamage = myRow?.damage ?? appliedDamage;
+    await tx.insert(coopBossAttackLog).values({
+      sessionId: s.id,
+      userId,
+      name: playerName,
+      damageDealt: appliedDamage,
+      damageTaken,
+      diedEarly,
+      log: [], // 전체 로그는 응답 replay 로만 — DB 비대화 방지(피드는 데미지 라인).
+      createdAt: nowDate,
+    });
+
+    // === 6. character.v2(스태미너·HP/MP) + inventory.v2 충전약 — hunt 와 동일 ===
+    let afterHp = Math.max(0, battleResult.finalState.playerHp);
+    const maxMp = player.player.maxMp ?? 0;
+    let afterMp = Math.max(
+      0,
+      Math.min(maxMp, battleResult.finalState.playerMp),
+    );
+    const invSave = await lockSaveForUpdate<{
+      hpCharges?: number;
+      mpCharges?: number;
+      [k: string]: unknown;
+    }>(tx, userId, "inventory.v2", {});
+    let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
+    let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
+    if (afterHp > 0 && afterHp < player.maxHp && hpCharges > 0) {
+      const restore = Math.min(player.maxHp - afterHp, hpCharges);
+      afterHp += restore;
+      hpCharges -= restore;
+    }
+    if (afterMp < maxMp && mpCharges > 0) {
+      const restore = Math.min(maxMp - afterMp, mpCharges);
+      afterMp += restore;
+      mpCharges -= restore;
+    }
+    await upsertSave(tx, userId, "inventory.v2", {
+      ...invSave,
+      hpCharges,
+      mpCharges,
+    });
+    await upsertSave(tx, userId, "character.v2", {
+      ...charSave,
+      stamina: afterStamina,
+      hp: afterHp,
+      mp: afterMp,
+      hpRegenSince: now,
+    });
+
+    return {
+      status: 200,
+      body: {
+        ok: true as const,
+        stamina: afterStamina,
+        result: {
+          kind: kindId,
+          damageDealt: appliedDamage,
+          damageTaken,
+          diedEarly,
+          turns: battleResult.turns,
+          bossHp,
+          bossMaxHp: s.maxHp,
+          defeated: bossHp === 0,
+          myDamage,
+          myTier: coopTierForRatio(myDamage / Math.max(1, s.maxHp)),
+          hpAfter: afterHp,
+          maxHp: player.maxHp,
+          hpCharges,
+          mpCharges,
+          replay: toReplayPayload(battleResult.finalState, 200),
+        },
+      },
+    };
+  });
+
+  // 처치 피드 — 킬 CAS 를 점유한 1명만(트랜잭션 밖 — insertFeedEntry 자체가 실패 삼킴).
+  if (defeatedNow) {
+    await insertFeedEntry(userId, "coop_kill", { kind: kindId });
+  }
+
+  return Response.json(result.body, { status: result.status });
+}

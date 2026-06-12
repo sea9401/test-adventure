@@ -144,7 +144,7 @@ export type V2EquipmentId =
   | "v2_uniq_berserker_fang"
   | "v2_uniq_starcleaver"
   | "v2_uniq_sage_seal"
-  // 테마 보스 전용 유니크 (보스 처치 드랍만, rarity:"unique") — dungeonBosses.
+  // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses.
   | "v2_boss_mountain_axe"
   | "v2_boss_canyon_fang"
   | "v2_boss_lake_maul"

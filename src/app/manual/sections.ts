@@ -44,6 +44,12 @@ export const MANUAL_SECTIONS: ManualSection[] = [
     group: "combat",
   },
   {
+    slug: "coop",
+    title: "협동 보스",
+    summary: "소환서 수집, 소환, 공유 HP 토벌, 기여 티어 보상.",
+    group: "combat",
+  },
+  {
     slug: "stats",
     title: "스탯과 성장",
     summary: "6대 스탯의 전투 환산, 자동 성장과 한계치.",

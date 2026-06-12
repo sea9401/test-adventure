@@ -10,6 +10,7 @@ export default function BattlePage() {
     <V2BattleHome
       onAction={(a: BattleAction) => {
         if (a.kind === "open-dungeons") router.push("/battle/dungeon");
+        else if (a.kind === "open-coop") router.push("/battle/coop");
         else if (a.kind === "open-war") router.push("/battle/war");
         else if (a.kind === "open-subjugation")
           router.push("/battle/subjugation");

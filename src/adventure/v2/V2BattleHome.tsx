@@ -4,6 +4,7 @@ import {
   Barbell,
   CastleTurret,
   Crosshair,
+  Skull,
   Sword,
   Trophy,
 } from "@phosphor-icons/react";
@@ -15,6 +16,7 @@ import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
 export type BattleAction =
   | { kind: "open-dungeons" }
+  | { kind: "open-coop" }
   | { kind: "open-war" }
   | { kind: "open-subjugation" }
   | { kind: "open-arena" }
@@ -37,6 +39,13 @@ export function V2BattleHome({
           }
           title="사냥터"
           onClick={() => onAction({ kind: "open-dungeons" })}
+        />
+        <EntryCard
+          icon={
+            <Skull size={28} weight="duotone" className="text-rose-500" />
+          }
+          title="협동 보스"
+          onClick={() => onAction({ kind: "open-coop" })}
         />
         <EntryCard
           icon={

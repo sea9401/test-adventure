@@ -28,9 +28,6 @@ export type HuntResultPayload = HuntResult & {
   // 레벨업으로 오른 maxHp/maxMp (레벨 고정분 + VIT/INT) — 결과 카드 표기용.
   hpGain?: number;
   mpGain?: number;
-  // 테마 보스 도전 결과 — 결과 카드 보스 연출(전용 유니크·첫처치 칭호)용.
-  isBoss?: boolean;
-  bossFirstKill?: boolean;
 };
 
 type HuntResponse = {
@@ -120,10 +117,7 @@ export function useDungeonHunt({
 
   // hunt 결과를 리턴 — caller(batch 모드 등) 가 직접 누적 가능. 실패 시 null.
   const hunt = useCallback(
-    async (
-      floor: number,
-      boss = false,
-    ): Promise<HuntResultPayload | null> => {
+    async (floor: number): Promise<HuntResultPayload | null> => {
       setBusy(true);
       setLastResult(null);
       try {
@@ -142,7 +136,6 @@ export function useDungeonHunt({
           body: JSON.stringify({
             floor: f,
             outpostId,
-            ...(boss ? { boss: true } : {}),
             ...(rareMapIid ? { rareMap: rareMapIid } : {}),
           }),
         });

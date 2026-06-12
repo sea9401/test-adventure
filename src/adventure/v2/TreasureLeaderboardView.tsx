@@ -1,6 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TreasureSubTabs } from "./TreasureSubTabs";
@@ -53,7 +54,7 @@ export function TreasureLeaderboardView({
           <div>
             <h1 className="text-lg font-bold">주간 발굴가치 대회</h1>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              이번 주 발굴한 골동품 감정가 합계로 순위. 상위권은 발굴 코인을 받는다.
+              이번 주 발굴한 골동품의 감정 판매가(골드) 합계로 순위. 상위권은 발굴 코인을 받는다.
               {data?.endsAt ? ` (${endsInLabel(data.endsAt)})` : ""}
             </p>
           </div>
@@ -105,7 +106,7 @@ export function TreasureLeaderboardView({
                   </span>
                 </span>
                 <span className="shrink-0 text-sm font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                  {e.value.toLocaleString()}골드
+                  {(e.value * TREASURE_SELL_GOLD_MULT).toLocaleString()}골드
                 </span>
               </li>
             ))}

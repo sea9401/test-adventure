@@ -546,9 +546,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                   >
                     {meta.label}
                   </span>
-                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    분해 {meta.dismantleCoins}코인
-                  </span>
+
                 </div>
                 <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
                   {kinds.map((id) => {

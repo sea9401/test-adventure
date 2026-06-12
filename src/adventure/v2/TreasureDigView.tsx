@@ -5,6 +5,7 @@ import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { TabBar } from "@/components/ui/TabBar";
 import {
   DIG_CLUE_LABEL,
   DIGS_ALLOWED,
@@ -184,35 +185,7 @@ export function TreasureDigView({
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <HeaderPanel className="space-y-1">
-        {(onBack || onOpenCollection || onOpenLeaderboard) && (
-          <div className="flex items-center justify-between gap-2">
-            {onBack ? (
-              <BackButton onClick={onBack} />
-            ) : (
-              <span />
-            )}
-            <span className="flex items-center gap-3">
-              {onOpenLeaderboard && (
-                <button
-                  type="button"
-                  onClick={onOpenLeaderboard}
-                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
-                >
-                  주간 순위
-                </button>
-              )}
-              {onOpenCollection && (
-                <button
-                  type="button"
-                  onClick={onOpenCollection}
-                  className="text-xs font-medium text-amber-600 hover:text-amber-700 dark:text-amber-400"
-                >
-                  발굴 보관함 →
-                </button>
-              )}
-            </span>
-          </div>
-        )}
+        {onBack && <BackButton onClick={onBack} />}
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-lg font-bold">보물 발굴</h1>
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
@@ -225,6 +198,29 @@ export function TreasureDigView({
         </p>
       </HeaderPanel>
 
+      {/* 서브 nav — 옛 우상단 텍스트 링크(주간 순위/보관함)가 눈에 안 띄어 탭바로 승격(#726). */}
+      {(onOpenCollection || onOpenLeaderboard) && (
+        <TabBar
+          tabs={[
+            { key: "dig", label: "발굴" },
+            ...(onOpenLeaderboard
+              ? [{ key: "leaderboard", label: "주간 순위" }]
+              : []),
+            ...(onOpenCollection
+              ? [{ key: "collection", label: "발굴 보관함" }]
+              : []),
+          ]}
+          active="dig"
+          onChange={(k) => {
+            if (k === "leaderboard") onOpenLeaderboard?.();
+            else if (k === "collection") onOpenCollection?.();
+          }}
+          ariaLabel="발굴 메뉴"
+          size="sm"
+          variant="highlight"
+        />
+      )}
+
       {notice && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           {notice}
@@ -233,7 +229,7 @@ export function TreasureDigView({
 
       {/* 발굴 방법 — 아직 발굴 지점을 연 적 없는 첫 화면에서 안내 */}
       {!grid && (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs leading-relaxed text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 text-xs leading-relaxed text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           <p className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             발굴 방법
           </p>

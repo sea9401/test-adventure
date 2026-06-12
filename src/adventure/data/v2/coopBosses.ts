@@ -97,6 +97,8 @@ export type CoopTierReward = {
 export type CoopBossKind = {
   id: CoopBossKindId;
   name: string;
+  /** 보스 상세 화면 플레이버 한 줄. */
+  desc: string;
   /** 소환에 소모하는 소환서 장수. */
   scrollCost: number;
   /** 협동 공유 HP — base.hp 와 별개(솔로 hp 는 시뮬 스탯에만 의미). ⚠️ 캘리브 다이얼. */
@@ -202,6 +204,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   mountain_chief: {
     id: "mountain_chief",
     name: "산적 두목",
+    desc: "깊은 산의 길목을 틀어쥔 산적단의 우두머리. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 5,
     sharedMaxHp: 15_000,
     durationMs: DURATION_2H,
@@ -220,6 +223,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   canyon_predator: {
     id: "canyon_predator",
     name: "사구의 포식자",
+    desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 짐승. 절벽조차 발톱으로 꿰뚫는다.",
     scrollCost: 10,
     sharedMaxHp: 40_000,
     durationMs: DURATION_2H,
@@ -238,6 +242,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   lake_sovereign: {
     id: "lake_sovereign",
     name: "호심의 군주",
+    desc: "얼음 호수 가장 깊은 곳에서 깨어난 옛 군주. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
     sharedMaxHp: 100_000,
     durationMs: DURATION_2H,

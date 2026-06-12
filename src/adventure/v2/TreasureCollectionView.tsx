@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   ANTIQUES,
   ANTIQUE_THEME_LABEL,
@@ -55,6 +56,8 @@ export function TreasureCollectionView({
   onDismantle,
   onSell,
   onOpenShop,
+  onOpenDig,
+  onOpenLeaderboard,
 }: {
   instances: CollectionInstance[];
   fragments: number;
@@ -67,6 +70,9 @@ export function TreasureCollectionView({
   // 감정사 판매 — 골드 실현(분해와 택일).
   onSell: (instanceId: string) => void;
   onOpenShop: () => void;
+  // 발굴 서브 탭바(발굴/주간 순위) — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenDig?: () => void;
+  onOpenLeaderboard?: () => void;
 }) {
   // 판매 확인 무장 상태 — 행 instanceId. 다른 행/분해 누르면 해제.
   const [armedSellId, setArmedSellId] = useState<string | null>(null);
@@ -111,6 +117,12 @@ export function TreasureCollectionView({
           </button>
         </div>
       </HeaderPanel>
+
+      <TreasureSubTabs
+        active="collection"
+        onOpenDig={onOpenDig}
+        onOpenLeaderboard={onOpenLeaderboard}
+      />
 
       {loading ? (
         <p className="py-10 text-center text-sm text-zinc-400">불러오는 중…</p>

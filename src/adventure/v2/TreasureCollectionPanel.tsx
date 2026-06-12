@@ -11,9 +11,13 @@ import {
 export function TreasureCollectionPanel({
   onBack,
   onOpenShop,
+  onOpenDig,
+  onOpenLeaderboard,
 }: {
   onBack: () => void;
   onOpenShop: () => void;
+  onOpenDig?: () => void;
+  onOpenLeaderboard?: () => void;
 }) {
   const [instances, setInstances] = useState<CollectionInstance[]>([]);
   const [fragments, setFragments] = useState(0);
@@ -86,6 +90,8 @@ export function TreasureCollectionPanel({
 
   return (
     <TreasureCollectionView
+      onOpenDig={onOpenDig}
+      onOpenLeaderboard={onOpenLeaderboard}
       instances={instances}
       fragments={fragments}
       coins={coins}

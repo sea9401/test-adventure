@@ -15,13 +15,14 @@ import type { OutpostType } from "@/adventure/data/v2/types";
 
 type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
 
+// 광장은 탭에서 제외(모바일에서 6번째 탭이 화면 밖으로 밀려 안 보임) — 기능은 상단
+// 설정 메뉴의 "광장" 섹션으로 이관(#723). /plaza/* 라우트·배경 매핑은 그대로 유지.
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
   { key: "battle", label: "전투" },
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
   { key: "guild", label: "길드" },
-  { key: "plaza", label: "광장" },
 ];
 
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).

@@ -23,6 +23,7 @@ export default function DungeonFloorPage() {
     currentOutpost,
     viewerName,
     viewerGender,
+    viewerElement,
     playerSubtitle,
     stamina,
     setStamina,
@@ -64,6 +65,7 @@ export default function DungeonFloorPage() {
       onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
       onLevelUp={refreshGameState}
       rareMapIid={rareMapIid}
+      myElement={viewerElement}
     />
   );
 }

@@ -929,6 +929,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         hpBefore: regenResult.hp,
         hpAfter: afterHp,
         maxHp: player.maxHp,
+        mpAfter: afterMp,
+        maxMp,
         // 레어맵 — 이번 사냥에서 새 지도 발견(kind id) / 입장 중이면 남은 판수.
         rareMapDrop,
         rareMapRunsLeft,
@@ -1095,6 +1097,7 @@ export async function POST(req: Request) {
     let hpCharges: number | null = null;
     let mpCharges: number | null = null;
     let playerMaxMp: number | null = null;
+    let finalMpAfter: number | null = null;
     let ejected: EjectedFrom | null = null;
 
     for (let i = 0; i < count; i++) {
@@ -1138,6 +1141,8 @@ export async function POST(req: Request) {
       if (res.ejected && !ejected) ejected = res.ejected;
       lastStamina = r.body.stamina;
       finalHpAfter = res.hpAfter;
+      finalMpAfter = res.mpAfter ?? finalMpAfter;
+      if (res.maxMp != null) playerMaxMp = res.maxMp;
       finalMaxHp = res.maxHp;
       finalMaxDepth = res.maxDepth;
       expAfter = res.expAfter;
@@ -1188,6 +1193,7 @@ export async function POST(req: Request) {
           stoppedReason,
           finalHpAfter,
           finalMaxHp,
+          finalMpAfter,
           finalMaxDepth,
           expAfter,
           maxExpAfter,

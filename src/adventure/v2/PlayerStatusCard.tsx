@@ -7,18 +7,21 @@ import {
   RecoveryReadout,
   type BattlePlayerStatus,
 } from "@/adventure/battle/BattleScene";
+import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
+import { MpBar } from "@/adventure/v2/MpBar";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// 일괄(5/10회) 사냥 합산 결과 아래에 띄우는 캐릭터 정보 카드.
-// 단판 사냥의 전투 화면(BattleScene split)에 나오는 플레이어 칸과 같은 톤 —
-// 아바타·이름·부제(레벨/직업/속성)·EXP 바·회복약 충전량. 연속 사냥 중에도
-// 경험치 진행도를 확인할 수 있게 한다. (HP 는 아래 라이브 HpBar 가 따로 보여줌.)
+// 사냥 화면 캐릭터 정보 카드 — 아바타·이름·부제(레벨/직업/속성)·HP/MP 바·EXP 바·회복약.
+// HP 는 라이브 재생 바(HpBar), MP 는 고정값 바(MpBar — 안 쓰는 빌드면 자동 숨김)를
+// 카드 안에 포함한다. 전투 버튼 위에 상시 노출돼 현재 상태를 한눈에 보여준다.
 export function PlayerStatusCard({
   gender,
   name,
   subtitle,
   exp,
   maxExp,
+  hp,
+  mp,
   hpCharges,
   mpCharges,
   hasMp = false,
@@ -26,16 +29,22 @@ export function PlayerStatusCard({
   gender: Gender;
   name: string;
   subtitle?: string;
-  exp: number;
-  maxExp: number;
+  // EXP 바 — 사냥 전엔 미전달(바 생략). 사냥 후 진행도 표기.
+  exp?: number;
+  maxExp?: number;
+  // 라이브 HP 바 상태(전역). 미전달이면 HP 바 숨김(dev 하니스 등).
+  hp?: HpBarState | null;
+  // MP 바 상태(전역). maxMp 0 이면 MpBar 가 스스로 숨김.
+  mp?: { mp: number; maxMp: number } | null;
   hpCharges?: number;
   mpCharges?: number;
   hasMp?: boolean;
 }) {
+  const hasExp = typeof exp === "number" && typeof maxExp === "number";
   const playerStatus: BattlePlayerStatus = {
     gender,
-    exp,
-    maxExp: maxExp > 0 ? maxExp : exp + 1, // div-by-zero 회피 (만렙)
+    exp: exp ?? 0,
+    maxExp: maxExp && maxExp > 0 ? maxExp : (exp ?? 0) + 1, // div-by-zero 회피
     hpPotionCount: 0,
     recoveryCharges: { hp: hpCharges ?? 0, mp: mpCharges ?? 0 },
   };
@@ -54,13 +63,17 @@ export function PlayerStatusCard({
               {subtitle}
             </div>
           )}
-          <StatBar
-            compact
-            label="EXP"
-            value={playerStatus.exp}
-            max={playerStatus.maxExp}
-            color="bg-amber-400"
-          />
+          {hp && <HpBar state={hp} compact />}
+          {mp && <MpBar state={mp} compact />}
+          {hasExp && (
+            <StatBar
+              compact
+              label="EXP"
+              value={playerStatus.exp}
+              max={playerStatus.maxExp}
+              color="bg-amber-400"
+            />
+          )}
           <RecoveryReadout playerStatus={playerStatus} hasMp={hasMp} />
         </div>
       </div>

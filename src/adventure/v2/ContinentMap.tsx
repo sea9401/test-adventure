@@ -185,6 +185,7 @@ type Vb = { x: number; y: number; w: number; h: number };
 export function ContinentMap({
   onOutpostEnter,
   onTravelTo,
+  onWarp,
   occupations,
   treasuries,
   viewerUserId,
@@ -200,6 +201,8 @@ export function ContinentMap({
   onOutpostEnter?: (o: Outpost) => void;
   // 이동(1홉 진입 또는 다중 홉 자동 이동)용 — 경로를 따라 한 칸씩 진입한다.
   onTravelTo?: (o: Outpost) => void;
+  // 워프 — 발견한 비인접 거점으로 즉시 이동한다. 일반 항법 지도에서만 노출한다.
+  onWarp?: (o: Outpost) => void;
   occupations?: OccupationLite[];
   // 금고 쌓인 거점 — 팝업에 "금고 N G" 표시(점령 유인).
   treasuries?: Array<{ outpostId: string; gold: number }>;
@@ -341,8 +344,12 @@ export function ContinentMap({
   useEffect(() => {
     if (didFitRef.current) return;
     if (containerSize.w === 0 || containerSize.h === 0) return;
-    if (visibleIds) fitAll();
-    else centerOnCurrent();
+    if (visibleIds) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 초기 지도 프레이밍 1회.
+      fitAll();
+    } else {
+      centerOnCurrent();
+    }
     didFitRef.current = true;
   }, [containerSize, centerOnCurrent, fitAll, visibleIds]);
 
@@ -524,6 +531,16 @@ export function ContinentMap({
       ? shortestOutpostPath(currentOutpostId, selected.id, discoveredIds)
       : null;
   const routeHops = routePath ? routePath.length - 1 : 0;
+  const isAdjacentSelected =
+    !!selected &&
+    currentOutpostId != null &&
+    areOutpostsAdjacent(currentOutpostId, selected.id);
+  const canWarpSelected =
+    !!selected &&
+    currentOutpostId != null &&
+    isDiscovered(selected.id) &&
+    !isCurrentSelected &&
+    !isAdjacentSelected;
 
   // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
   //   미점령은 소속 왕국을 길드명처럼 "○○ 왕국령"으로(NPC 운영 대신). 중립 거점은 배지로 충분해 생략.
@@ -1046,6 +1063,14 @@ export function ContinentMap({
                     둘러보기
                   </button>
                 )
+              ) : canWarpSelected && onWarp ? (
+                <button
+                  type="button"
+                  onClick={() => onWarp(selected)}
+                  className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                >
+                  워프
+                </button>
               ) : (
                 onTravelTo &&
                 (routePath ? (

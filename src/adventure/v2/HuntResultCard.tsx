@@ -18,6 +18,7 @@ import {
   type ElementMatchup,
   type V2Element,
 } from "@/adventure/data/v2/elements";
+import { WEATHER_TIER_LABEL } from "@/adventure/data/v2/weather";
 import {
   RARE_MAP_KINDS,
   type RareMapKindId,
@@ -58,6 +59,13 @@ export type HuntResult = {
   playerElement?: V2Element;
   monsterElement?: V2Element;
   elementMatchup?: ElementMatchup;
+  // 날씨 — 내 공격 속성이 받은 단계(거점 밖이면 null·중립이면 tier null).
+  weather?: {
+    id: string;
+    name: string;
+    emoji: string;
+    tier: "major" | "minor" | "weak" | "poor" | null;
+  } | null;
   // 도전(미정복) 구역 클리어 시 갱신된 최고 도달 깊이.
   maxDepth?: number;
 };
@@ -171,6 +179,22 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
             </span>
           </div>
         )}
+
+      {result.weather && result.weather.tier && (
+        <div className="mt-1 text-center text-[11px]">
+          <span
+            className={
+              result.weather.tier === "major" || result.weather.tier === "minor"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }
+          >
+            {result.weather.emoji} {result.weather.name} ·{" "}
+            {V2_ELEMENT_LABEL[result.playerElement ?? "neutral"]}{" "}
+            {WEATHER_TIER_LABEL[result.weather.tier]}
+          </span>
+        </div>
+      )}
 
       <div className="mt-2 space-y-1 text-center text-sm">
         <div className="flex items-baseline justify-center gap-1.5">

@@ -16,6 +16,9 @@ export const MAX_STAMINA = 5000;
 export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1홉당 비용 (재진입은 무료)
+// 워프(이미 발견한 거점으로 순간이동) 비용 — 인접 1홉보다 비싸게(소울즈식: 처음엔 걷고,
+// 발견 후엔 워프). 인접 이동 N홉을 한 번에 건너뛰는 편의의 대가. (다이얼)
+export const OUTPOST_WARP_COST = 3 * OUTPOST_MOVE_COST;
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
 //   = 5000 * 30 s = 150000 s = ~41.7 시간 (밴킹 cap — 평소엔 거의 안 비움).

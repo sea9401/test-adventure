@@ -8,7 +8,7 @@ import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
 import { applyHpRegen, canHuntWithHp } from "@/adventure/v2/hpRegen";
-import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
+import { type HpBarState } from "@/adventure/v2/HpBar";
 import {
   BatchSummaryCard,
   type BatchSummary,
@@ -65,6 +65,8 @@ export function V2DungeonFloorView({
   setStamina,
   hp,
   setHp,
+  mp,
+  setMp,
   onSeekHealing,
   onBack,
   playerSubtitle,
@@ -87,6 +89,9 @@ export function V2DungeonFloorView({
   // dev 하니스(DungeonHunt)에선 미전달 → optional.
   hp?: HpBarState | null;
   setHp?: (s: HpBarState) => void;
+  // 전역 MP + setter — 사냥 후 갱신. 미전달이면 MP 바 비표시(dev 하니스).
+  mp?: { mp: number; maxMp: number } | null;
+  setMp?: (s: { mp: number; maxMp: number }) => void;
   // "치료소로 가기" — 마을 치료소 뷰로 이동. 미전달이면 버튼 숨김.
   onSeekHealing?: () => void;
   onBack: () => void;
@@ -181,6 +186,11 @@ export function V2DungeonFloorView({
   const recordHp = (r: { hpAfter: number; maxHp: number }) => {
     setHp?.({ hp: r.hpAfter, maxHp: r.maxHp, anchorMs: Date.now() });
   };
+  const recordMp = (r: { mpAfter?: number; maxMp?: number }) => {
+    if (typeof r.mpAfter === "number" && typeof r.maxMp === "number") {
+      setMp?.({ mp: r.mpAfter, maxMp: r.maxMp });
+    }
+  };
 
   const { state: storyFlags, set: setStoryFlag } = useStoryFlags();
 
@@ -231,6 +241,9 @@ export function V2DungeonFloorView({
       if (b.finalHpAfter != null && b.finalMaxHp != null) {
         recordHp({ hpAfter: b.finalHpAfter, maxHp: b.finalMaxHp });
       }
+      if (b.finalMpAfter != null && b.playerMaxMp != null) {
+        recordMp({ mpAfter: b.finalMpAfter, maxMp: b.playerMaxMp });
+      }
       if (
         isChallenge &&
         b.finalMaxDepth != null &&
@@ -274,9 +287,11 @@ export function V2DungeonFloorView({
       return;
     setBatchSummary(null);
     if (huntCount === 1) {
+      setBatchStatus(null);
       void hunt(depth).then((r) => {
         if (r) {
           recordHp(r);
+          recordMp(r);
           if (r.rareMapRunsLeft != null) setRareMapRunsLeft(r.rareMapRunsLeft);
           if (r.levelsGained > 0) onLevelUp?.();
           if (
@@ -324,6 +339,23 @@ export function V2DungeonFloorView({
           </div>
         )}
       </HeaderPanel>
+
+      {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. HP(라이브)·MP 바를 카드 안에 포함하고,
+          최근 사냥의 EXP 진행도·회복약을 함께 보여준다(사냥 전엔 EXP 바 생략). */}
+      {hp && (
+        <PlayerStatusCard
+          gender={playerGender}
+          name={playerName}
+          subtitle={playerSubtitle}
+          hp={hp}
+          mp={mp}
+          exp={lastResult?.expAfter ?? batchStatus?.exp}
+          maxExp={lastResult?.maxExpAfter ?? batchStatus?.maxExp}
+          hpCharges={lastResult?.hpCharges ?? batchStatus?.hpCharges}
+          mpCharges={lastResult?.mpCharges ?? batchStatus?.mpCharges}
+          hasMp={(mp?.maxMp ?? 0) > 0}
+        />
+      )}
 
       <Card padding="md">
         <div className="flex items-center justify-between gap-3">
@@ -405,26 +437,9 @@ export function V2DungeonFloorView({
       )}
 
       {/* batch summary 가 우선 노출. 1회 사냥 결과(HuntResultCard) 는 summary 없을 때만. */}
+      {/* 캐릭터 정보(HP/MP/EXP)는 위 PlayerStatusCard 로 상시 노출 — 결과는 요약/리플레이만. */}
       {batchSummary ? (
-        <>
-          <BatchSummaryCard summary={batchSummary} />
-          {/* 일괄 사냥 후에도 캐릭터 정보(EXP 진행도·직업·회복약)를 확인 — 서버 일괄 처리는
-              단판 lastResult 를 세우지 않으므로 합산 응답의 마지막 상태(batchStatus)로 표기. */}
-          {batchStatus && (
-            <PlayerStatusCard
-              gender={playerGender}
-              name={playerName}
-              subtitle={playerSubtitle}
-              exp={batchStatus.exp}
-              maxExp={batchStatus.maxExp}
-              hpCharges={batchStatus.hpCharges}
-              mpCharges={batchStatus.mpCharges}
-              hasMp={batchStatus.hasMp}
-            />
-          )}
-          {/* 일괄(5/10/50회) 사냥 직후에만 잔여 체력 바 노출 — 연속 사냥으로 깎인 HP 확인용. */}
-          {hp && <HpBar state={hp} />}
-        </>
+        <BatchSummaryCard summary={batchSummary} />
       ) : (
         lastResult && <HuntResultCard result={lastResult} />
       )}

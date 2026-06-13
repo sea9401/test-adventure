@@ -28,6 +28,9 @@ export type HuntResultPayload = HuntResult & {
   // 레벨업으로 오른 maxHp/maxMp (레벨 고정분 + VIT/INT) — 결과 카드 표기용.
   hpGain?: number;
   mpGain?: number;
+  // 사냥 후 MP — 전역 MP 바 갱신용.
+  mpAfter?: number;
+  maxMp?: number;
 };
 
 type HuntResponse = {
@@ -63,6 +66,7 @@ export type BatchHuntPayload = {
   stoppedReason: "stamina" | "death" | "recovery" | "error" | null;
   finalHpAfter: number | null;
   finalMaxHp: number | null;
+  finalMpAfter: number | null;
   finalMaxDepth: number | null;
   expAfter: number | null;
   maxExpAfter: number | null;

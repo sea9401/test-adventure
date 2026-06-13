@@ -11,6 +11,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
+import type { MpBarState } from "@/adventure/v2/MpBar";
 import {
   MAX_STAMINA,
   initialStamina,
@@ -83,6 +84,8 @@ type GameStateValue = {
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   hp: HpBarState | null;
   setHp: React.Dispatch<React.SetStateAction<HpBarState | null>>;
+  mp: MpBarState | null;
+  setMp: React.Dispatch<React.SetStateAction<MpBarState | null>>;
   discoveredIds: Set<string>;
   setDiscoveredIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   occupations: Occupation[];
@@ -152,6 +155,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [frontierDepth, setFrontierDepth] = useState<number>(2);
   // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
   const [hp, setHp] = useState<HpBarState | null>(null);
+  const [mp, setMp] = useState<MpBarState | null>(null);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
   // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
@@ -195,6 +199,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             element?: string;
             hp?: number;
             maxHp?: number;
+            mp?: number;
+            maxMp?: number;
             stamina?: {
               current: number;
               lastUpdatedAt: number;
@@ -243,6 +249,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             maxHp: j.character.maxHp,
             anchorMs: Date.now(),
           });
+        }
+        if (
+          typeof j?.character?.mp === "number" &&
+          typeof j?.character?.maxMp === "number"
+        ) {
+          setMp({ mp: j.character.mp, maxMp: j.character.maxMp });
         }
         if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
         if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
@@ -410,6 +422,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setStamina,
     hp,
     setHp,
+    mp,
+    setMp,
     discoveredIds,
     setDiscoveredIds,
     occupations,

@@ -27,7 +27,7 @@ import {
   parseProficiencyForChar,
   setGrown,
   emptyProficiency,
-  tierLevelCap,
+  effectiveLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 
@@ -134,14 +134,14 @@ export async function POST(req: Request) {
     // (잘못 고른 초반 캐릭의 탈출구는 신전 초기화 — respec 과 별개.)
     if (groupChanged && !isFirstPick) {
       const curGroupTier = prof.groups[tier1ClassOf(curClass)]?.tier ?? 1;
-      if (curGroupTier !== 4 || level < tierLevelCap(4)) {
+      if (curGroupTier !== 4 || level < effectiveLevelCap(4)) {
         return {
           status: 400,
           body: {
             ok: false as const,
             error: "not_at_apex" as const,
             requiredTier: 4,
-            requiredLevel: tierLevelCap(4),
+            requiredLevel: effectiveLevelCap(4),
             haveTier: curGroupTier,
             haveLevel: level,
           },

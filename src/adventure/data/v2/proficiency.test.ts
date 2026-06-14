@@ -16,6 +16,7 @@ import {
   signatureLearnCost,
   advanceCumLevelReq,
   tierLevelCap,
+  levelCapFor,
   addCumLevel,
   groupCumLevel,
   totalCumLevel,
@@ -396,6 +397,19 @@ describe("tierLevelCap (환생 차수별 레벨캡 §3.1)", () => {
     expect(tierLevelCap(1)).toBeLessThan(tierLevelCap(2));
     expect(tierLevelCap(2)).toBeLessThan(tierLevelCap(3));
     expect(tierLevelCap(3)).toBeLessThan(tierLevelCap(4));
+  });
+});
+
+describe("levelCapFor (코어루프 단일 레벨캡)", () => {
+  it("flag off = 기존 차수 캡 (무변경)", () => {
+    expect(levelCapFor(1, false)).toBe(50);
+    expect(levelCapFor(2, false)).toBe(65);
+    expect(levelCapFor(4, false)).toBe(100);
+  });
+  it("flag on = 차수 무관 단일 50", () => {
+    expect(levelCapFor(1, true)).toBe(50);
+    expect(levelCapFor(2, true)).toBe(50);
+    expect(levelCapFor(4, true)).toBe(50);
   });
 });
 

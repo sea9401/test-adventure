@@ -13,7 +13,7 @@ import {
   setGrown,
   setGroupTier,
   emptyProficiency,
-  tierLevelCap,
+  effectiveLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -88,7 +88,7 @@ export async function POST() {
     // 게이트 — 현 차수 레벨 캡 도달(전직·환생 공통). 캡까지 올려야 진행.
     // 옛 cumLevel 게이트(55/110/170)는 레벨캡과 충돌(1차 캡 50 < 게이트 55 = 소프트락)이라 폐지.
     const level = Math.max(1, charSave.level ?? 1);
-    const reqLevel = tierLevelCap(curTier);
+    const reqLevel = effectiveLevelCap(curTier);
     if (level < reqLevel) {
       return {
         status: 400,

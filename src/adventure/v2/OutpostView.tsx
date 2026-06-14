@@ -60,6 +60,8 @@ export function OutpostView({
   treasuryGold?: number;
   onAction: (action: OutpostAction) => void;
 }) {
+  // 코어루프 on = 스태미나 폐지(점령은 골드 비용). 안내 문구의 "스태미너 소모" 분기.
+  const { coreLoopOn } = useGameState();
   const [busy, setBusy] = useState(false);
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
@@ -341,8 +343,8 @@ export function OutpostView({
           subtitle={
             claimDisabled?.reason ??
             (occupation
-              ? "점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락 (스태미너 소모)."
-              : "거점 NPC 영웅과 1대1 결투. 승리 시 점령 (스태미너 소모).")
+              ? `점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락${coreLoopOn ? "" : " (스태미너 소모)"}.`
+              : `거점 NPC 영웅과 1대1 결투. 승리 시 점령${coreLoopOn ? "" : " (스태미너 소모)"}.`)
           }
           onClick={attemptClaim}
           disabled={!!claimDisabled || busy}
@@ -354,6 +356,7 @@ export function OutpostView({
             result={lastClaimResult}
             outpostName={outpost.name}
             onClose={() => setLastClaimResult(null)}
+            coreLoopOn={coreLoopOn}
           />
         )}
 

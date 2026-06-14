@@ -20,6 +20,10 @@ import {
   parseStaminaFromSave,
   staminaCapBonusOf,
 } from "@/adventure/v2/stamina";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+
+// 코어루프 — 스태미나 폐지. 스태미나 관련 상품은 목록/구매에서 제외(flag-on).
+const STAMINA_SHOP_ITEMS = new Set(["stamina_potion", "stamina_cap_tonic"]);
 
 // 비밀 상점 — 「비밀 상점의 지도」 보유자만. 품목당 1회(지도 bought[]), 전 품목
 // 구매 시 지도 소진(runsLeft 0 → parse purge).
@@ -65,7 +69,9 @@ export async function GET(req: Request) {
     ok: true,
     gold: Math.max(0, Math.floor(save?.gold ?? 0)),
     expiresAt: map.expiresAt,
-    stock: SECRET_SHOP_STOCK.map((i) => ({ ...i, bought: bought.has(i.id) })),
+    stock: SECRET_SHOP_STOCK.filter(
+      (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
+    ).map((i) => ({ ...i, bought: bought.has(i.id) })),
   });
 }
 
@@ -85,6 +91,13 @@ export async function POST(req: Request) {
   const item = SECRET_SHOP_ITEM_BY_ID.get(itemId);
   if (!iid || !item) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
+  }
+  // 코어루프 — 스태미나 상품 구매 차단(목록서도 빠지지만 직접 호출 방어).
+  if (V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(item.id)) {
+    return Response.json(
+      { ok: false, error: "item_unavailable" },
+      { status: 400 },
+    );
   }
 
   const result = await db.transaction(async (tx) => {
@@ -116,8 +129,12 @@ export async function POST(req: Request) {
     }
 
     // 구매 마킹 — 전 품목 구매 시 지도 소진(runsLeft 0 → parse 가 purge).
+    //   코어루프 on 이면 스태미나 상품은 구매 불가라 "전 품목"에서 제외(아니면 영영 소진 안 됨).
     const nextBought = [...bought, item.id];
-    const allBought = SECRET_SHOP_STOCK.every((i) => nextBought.includes(i.id));
+    const buyableStock = SECRET_SHOP_STOCK.filter(
+      (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
+    );
+    const allBought = buyableStock.every((i) => nextBought.includes(i.id));
     const nextMaps = maps
       .map((m) =>
         m.iid === map.iid

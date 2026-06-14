@@ -414,17 +414,20 @@ export function V2DungeonFloorView({
                       ? "사냥 (스태미너 1)"
                       : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
-          <button
-            type="button"
-            onClick={() => setSettingsOpen((o) => !o)}
-            disabled={batchRunning}
-            aria-label="전투 설정"
-            className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-          >
-            <Gear size={16} weight="duotone" />
-          </button>
+          {/* 코어루프 on = 항상 단판(일괄 폐지) → 사냥 횟수 설정 숨김. */}
+          {!coreLoopOn && (
+            <button
+              type="button"
+              onClick={() => setSettingsOpen((o) => !o)}
+              disabled={batchRunning}
+              aria-label="전투 설정"
+              className="flex shrink-0 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              <Gear size={16} weight="duotone" />
+            </button>
+          )}
         </div>
-        {settingsOpen && (
+        {settingsOpen && !coreLoopOn && (
           <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               사냥 횟수 — 고른 만큼 사냥 버튼이 한 번에 처리합니다.

@@ -90,6 +90,9 @@ type GameStateValue = {
   setGold: React.Dispatch<React.SetStateAction<number>>;
   setBankedGold: React.Dispatch<React.SetStateAction<number>>;
   // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — off 면 전부 null(현행 UI 무변경) ===
+  // flag-on 판정 — me/state 가 flag on 일 때만 combatCooldown 객체를 준다(off=null). 스태미나
+  // 표시 숨김·일괄 폐지 등 코어루프 UI 분기에 공용으로 쓴다.
+  coreLoopOn: boolean;
   // 전투 쿨다운 — nextBattleAt 은 클라 로컬 시각으로 변환됨(서버 skew 보정). 사냥 버튼 카운트다운.
   combatCooldown: { nextBattleAt: number; cooldownMs: number } | null;
   setCombatCooldown: React.Dispatch<
@@ -523,6 +526,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     bankedGold,
     setGold,
     setBankedGold,
+    coreLoopOn: combatCooldown != null,
     combatCooldown,
     setCombatCooldown,
     offlinePending,

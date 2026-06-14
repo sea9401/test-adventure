@@ -61,10 +61,13 @@ export function ClaimResultCard({
   result,
   outpostName,
   onClose,
+  coreLoopOn = false,
 }: {
   result: ClaimResult;
   outpostName: string;
   onClose: () => void;
+  // 코어루프 on = 점령 비용이 골드(스태미나 아님). 차감 안내 문구 분기.
+  coreLoopOn?: boolean;
 }) {
   // 에러 응답 (ok=false) — 한 줄 에러 카드.
   if (!result.ok) {
@@ -96,7 +99,7 @@ export function ClaimResultCard({
       ? ` (남은 성벽 ${result.fortHp}/${result.fortMaxHp})`
       : "";
   const winLabel = result.raceLost
-    ? "△ 다른 세력이 먼저 점령 — 스태미너만 차감"
+    ? `△ 다른 세력이 먼저 점령 — ${coreLoopOn ? "골드" : "스태미너"}만 차감`
     : result.captured
       ? result.pvp
         ? "✓ 함락 — 점령 성공"

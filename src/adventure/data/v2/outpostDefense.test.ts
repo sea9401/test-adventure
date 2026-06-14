@@ -30,9 +30,13 @@ describe("outpostDefensePower", () => {
   });
 
   it("왕국 소속 최외곽 땅은 EDGE(1500) 로 수렴", () => {
-    expect(outpostDefensePower(byId("village_meadow"))).toBe(
-      OUTPOST_DEFENSE_EDGE,
-    );
+    // 특정 거점 하드코딩 대신(맵 축소로 거점이 바뀜) — 게이트 있는(비0) 거점 중 최소
+    // 수비값이 EDGE 로 수렴함을 검증. 가장 외곽 땅이 EDGE 라는 불변식.
+    const gated = OUTPOSTS.filter((o) => !o.neutral)
+      .map((o) => outpostDefensePower(o))
+      .filter((v) => v > 0);
+    expect(gated.length).toBeGreaterThan(0);
+    expect(Math.min(...gated)).toBe(OUTPOST_DEFENSE_EDGE);
   });
 
   it("모든 거점 수비 전투력은 0 또는 [EDGE, CENTER] 범위", () => {

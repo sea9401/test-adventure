@@ -55,7 +55,7 @@ export async function GET() {
   const since = new Date(now.getTime() - WAR_OVERVIEW_WINDOW_H * 3_600_000);
 
   // 점령 전체 + 윈도 내 공성 로그 + 금고 — 세 테이블이 전황의 전부.
-  const [occRows, attackRows, treasuryRows] = await Promise.all([
+  const [occRowsAll, attackRowsAll, treasuryRowsAll] = await Promise.all([
     db.select().from(outpostOccupations),
     db
       .select()
@@ -70,6 +70,14 @@ export async function GET() {
       .from(outpostTreasury)
       .where(gt(outpostTreasury.gold, 0)),
   ]);
+
+  // 맵 축소(96→40) 후 컷된 거점에 남은 고아 점령/공성/금고 행은 전황에서 제외(inert 정리).
+  // npc-attacks 크론도 미지 거점은 skip 하므로 고아 행은 어디서도 처리되지 않는 잔재일 뿐.
+  const occRows = occRowsAll.filter((r) => OUTPOST_BY_ID.has(r.outpostId));
+  const attackRows = attackRowsAll.filter((r) => OUTPOST_BY_ID.has(r.outpostId));
+  const treasuryRows = treasuryRowsAll.filter((r) =>
+    OUTPOST_BY_ID.has(r.outpostId),
+  );
 
   // 길드 이름 일괄 해석 — 점령 길드 + 공격측 길드 (N+1 회피).
   const guildIds = [

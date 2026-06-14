@@ -79,7 +79,7 @@ type Overview = {
 function occRow(over: Record<string, unknown>) {
   const now = new Date();
   return {
-    outpostId: "op-x",
+    outpostId: "war_central_fort",
     occupiedByUserId: "u-owner",
     occupiedByGuildId: null,
     occupiedAt: new Date(now.getTime() - 100 * 3_600_000), // 기본: 윈도(48h) 밖
@@ -116,14 +116,14 @@ describe("GET /api/v2/war/overview", () => {
 
   it("교전 판정 — 성벽 깎임 OR 최근 공성 시도, 풀성벽·무공격은 제외", async () => {
     tableRows.set(outpostOccupations, [
-      occRow({ outpostId: "op-damaged", fortHp: 60 }), // 성벽 깎임 → 교전
-      occRow({ outpostId: "op-full" }), // 풀성벽·무공격 → 제외
-      occRow({ outpostId: "op-attacked" }), // 풀성벽이지만 최근 공격 → 교전
+      occRow({ outpostId: "war_central_tower", fortHp: 60 }), // 성벽 깎임 → 교전
+      occRow({ outpostId: "war_central_mine" }), // 풀성벽·무공격 → 제외
+      occRow({ outpostId: "war_south_mine" }), // 풀성벽이지만 최근 공격 → 교전
     ]);
     tableRows.set(outpostClaimAttempts, [
       {
         id: 1,
-        outpostId: "op-attacked",
+        outpostId: "war_south_mine",
         attackerUserId: "u-att",
         attackerGuildId: 7,
         defenderName: "수비자",
@@ -137,13 +137,13 @@ describe("GET /api/v2/war/overview", () => {
 
     const json = (await (await GET()).json()) as Overview;
     const ids = json.sieges.map((s) => s.outpostId);
-    expect(ids).toContain("op-damaged");
-    expect(ids).toContain("op-attacked");
-    expect(ids).not.toContain("op-full");
+    expect(ids).toContain("war_central_tower");
+    expect(ids).toContain("war_south_mine");
+    expect(ids).not.toContain("war_central_mine");
     // 함락 임박(성벽 비율 낮은) 순 정렬 — 깎인 거점이 먼저.
-    expect(ids[0]).toBe("op-damaged");
+    expect(ids[0]).toBe("war_central_tower");
     // 공격자 라벨 = 길드명, 격퇴(won=false) 보존.
-    const attacked = json.sieges.find((s) => s.outpostId === "op-attacked")!;
+    const attacked = json.sieges.find((s) => s.outpostId === "war_south_mine")!;
     expect(attacked.recentAttacks[0].attackerName).toBe("검은바위 길드");
     expect(attacked.recentAttacks[0].won).toBe(false);
   });
@@ -151,13 +151,13 @@ describe("GET /api/v2/war/overview", () => {
   it("최근 점령 — occupiedAt 48h 안만, 솔로 점령자는 닉네임 라벨", async () => {
     tableRows.set(outpostOccupations, [
       occRow({
-        outpostId: "op-new",
+        outpostId: "outpost_central_post",
         occupiedAt: new Date(Date.now() - 3_600_000),
       }),
-      occRow({ outpostId: "op-old" }), // 100h 전 — 제외
+      occRow({ outpostId: "outpost_plain_square" }), // 100h 전 — 제외
     ]);
     const json = (await (await GET()).json()) as Overview;
-    expect(json.recentCaptures.map((c) => c.outpostId)).toEqual(["op-new"]);
+    expect(json.recentCaptures.map((c) => c.outpostId)).toEqual(["outpost_central_post"]);
     expect(json.recentCaptures[0].ownerLabel).toBe("이름:u-owner");
   });
 
@@ -166,12 +166,12 @@ describe("GET /api/v2/war/overview", () => {
     tableRows.set(guilds, [{ id: 3, name: "우리길드" }]);
     tableRows.set(outpostOccupations, [
       occRow({
-        outpostId: "op-safe",
+        outpostId: "outpost_frostgate",
         occupiedByUserId: "u-master",
         occupiedByGuildId: 3,
       }),
       occRow({
-        outpostId: "op-hit",
+        outpostId: "outpost_misttower",
         occupiedByUserId: "u-master",
         occupiedByGuildId: 3,
         fortHp: 40,
@@ -181,29 +181,29 @@ describe("GET /api/v2/war/overview", () => {
     expect(json.myGuild).not.toBeNull();
     expect(json.myGuild!.guildId).toBe(3);
     expect(json.myGuild!.outposts.map((o) => o.outpostId)).toEqual([
-      "op-hit",
-      "op-safe",
+      "outpost_misttower",
+      "outpost_frostgate",
     ]);
     expect(json.myGuild!.outposts[0].underAttack).toBe(true);
     expect(json.myGuild!.outposts[1].underAttack).toBe(false);
     // 내 길드 점령 거점은 라벨이 길드명으로 — sieges 에도 동일 점령이 잡힌다.
-    const hit = json.sieges.find((s) => s.outpostId === "op-hit")!;
+    const hit = json.sieges.find((s) => s.outpostId === "outpost_misttower")!;
     expect(hit.ownerLabel).toBe("우리길드 길드");
   });
 
   it("노다지 거점 — 미점령만, 금액 내림차순 (점령 거점 금고는 제외)", async () => {
-    tableRows.set(outpostOccupations, [occRow({ outpostId: "op-occupied" })]);
+    tableRows.set(outpostOccupations, [occRow({ outpostId: "outpost_west_fort" })]);
     tableRows.set(outpostTreasury, [
-      { outpostId: "op-small", gold: 120 },
-      { outpostId: "op-big", gold: 3400 },
-      { outpostId: "op-occupied", gold: 999 }, // 점령 중 — 목록 제외
+      { outpostId: "village_silverpoint", gold: 120 },
+      { outpostId: "village_dewfall", gold: 3400 },
+      { outpostId: "outpost_west_fort", gold: 999 }, // 점령 중 — 목록 제외
     ]);
     const json = (await (await GET()).json()) as Overview & {
       treasures: Array<{ outpostId: string; gold: number }>;
     };
     expect(json.treasures.map((t) => t.outpostId)).toEqual([
-      "op-big",
-      "op-small",
+      "village_dewfall",
+      "village_silverpoint",
     ]);
   });
 });

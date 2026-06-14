@@ -12,7 +12,7 @@
 //   - 사막 (중하): center (5000, 4900)
 //   - 평원 (중상~중) = 분쟁지대
 //
-// 분량 (96): 5 왕국 + 10 도시 + 26 거점 + 51 마을 + 4 절대 중립.
+// 분량 (40): 5 왕국 + 10 도시 + 13 거점 + 8 마을 + 4 절대 중립. (2026-06-14 96→40 축소)
 
 import type { Outpost } from "./types";
 
@@ -136,108 +136,35 @@ const CITIES: Outpost[] = [
   { id: "city_thunder_camp", name: "그롬바르", type: "fort", tier: 3, position: { x: 9000, y: 4200 } },
 ];
 
-// 거점 (tier 2) — 분쟁지대 4 + 길목/biome 경계 16.
+// 거점 (tier 2) — 중앙 분쟁지대 전장 8 + 권역 길목 5. (맵 축소 96→40, 2026-06-14)
 const OUTPOSTS_T2: Outpost[] = [
-  // 중앙 분쟁지대 (평원)
+  // 중앙 분쟁지대 (평원) — 쟁탈 전장. ⚠️ 8개는 warOutposts.ts 쟁탈 풀이라 제거 금지.
   { id: "war_central_fort", name: "카스트라", type: "fort", tier: 2, position: { x: 4500, y: 2800 }, description: "중앙 분쟁지대의 핵심 요새. 시야와 방어 보너스." },
   { id: "war_central_tower", name: "아르카눔", type: "tower", tier: 2, position: { x: 5500, y: 2800 }, description: "분쟁지대 중앙의 마탑. 영창과 시야의 요충지." },
   { id: "war_central_mine", name: "베나리움", type: "mine", tier: 2, position: { x: 4800, y: 2300 }, description: "분쟁지대 중앙의 광산. 깊은 갱도가 뻗어 있다." },
   { id: "war_south_mine", name: "카베르나", type: "mine", tier: 2, position: { x: 5200, y: 3400 } },
-  // 평원 추가 거점 — 빈 공간 채움
   { id: "outpost_plain_fort", name: "발마르", type: "fort", tier: 2, position: { x: 3700, y: 2700 } },
   { id: "outpost_plain_tower", name: "알토렌", type: "tower", tier: 2, position: { x: 6200, y: 2400 } },
   { id: "outpost_central_post", name: "비길리아", type: "fort", tier: 2, position: { x: 5500, y: 3300 } },
-  { id: "outpost_eastern_mine", name: "루드가르", type: "mine", tier: 2, position: { x: 7400, y: 4500 } },
-  { id: "outpost_southwest_mine", name: "알 마딘", type: "mine", tier: 2, position: { x: 3000, y: 5000 } },
-  // 빙하-숲 경계
-  { id: "outpost_frostgate", name: "프로스트헤임", type: "fort", tier: 2, position: { x: 3800, y: 1300 } },
-  { id: "outpost_misttower", name: "미스랄렌", type: "tower", tier: 2, position: { x: 7200, y: 2000 } },
-  { id: "outpost_north_mine", name: "스칼둠", type: "mine", tier: 2, position: { x: 4500, y: 1700 } },
-  // 보라산 (코린) 영역
-  { id: "outpost_west_fort", name: "두르가드", type: "fort", tier: 2, position: { x: 1500, y: 2700 } },
-  { id: "outpost_west_mine", name: "카르닥", type: "mine", tier: 2, position: { x: 2700, y: 3200 } },
-  { id: "outpost_blackvein", name: "두르가르", type: "mine", tier: 2, position: { x: 1100, y: 3400 } },
-  // 붉은산 (발렌) 영역
-  { id: "outpost_east_tower", name: "발토른", type: "tower", tier: 2, position: { x: 8400, y: 2500 } },
-  { id: "outpost_east_fort", name: "그림홀드", type: "fort", tier: 2, position: { x: 8000, y: 4000 } },
-  { id: "outpost_red_smith", name: "바르가스", type: "fort", tier: 2, position: { x: 9000, y: 4700 } },
-  // 사막 영역
-  { id: "outpost_south_mine", name: "하디라", type: "mine", tier: 2, position: { x: 3500, y: 4500 } },
-  { id: "outpost_south_fort", name: "카스란", type: "fort", tier: 2, position: { x: 6800, y: 4500 } },
-  { id: "outpost_south_tower", name: "미나라", type: "tower", tier: 2, position: { x: 4400, y: 4400 } },
-  { id: "outpost_south_tower_2", name: "부르잔", type: "tower", tier: 2, position: { x: 5600, y: 4400 } },
-  { id: "outpost_desert_caravan", name: "카르반세라", type: "village", tier: 2, position: { x: 6200, y: 5280 } },
-  // 빙하 (에이라) 추가
-  { id: "outpost_glacier_watch", name: "이스바크", type: "tower", tier: 2, position: { x: 3200, y: 600 } },
-  // 숲 (로렌) 추가
-  { id: "outpost_forest_watch", name: "티아렌", type: "tower", tier: 2, position: { x: 8800, y: 1900 } },
-  // 평원 광장 거점 — 분쟁지대 위쪽
   { id: "outpost_plain_square", name: "콩코르디아", type: "fort", tier: 2, position: { x: 4953, y: 2543 } },
+  // 권역 길목 (권역당 1) — 외곽 요충지
+  { id: "outpost_frostgate", name: "프로스트헤임", type: "fort", tier: 2, position: { x: 3800, y: 1300 } }, // 에이라(빙하)
+  { id: "outpost_misttower", name: "미스랄렌", type: "tower", tier: 2, position: { x: 7200, y: 2000 } }, // 로렌(숲)
+  { id: "outpost_west_fort", name: "두르가드", type: "fort", tier: 2, position: { x: 1500, y: 2700 } }, // 코린(보라산)
+  { id: "outpost_south_mine", name: "하디라", type: "mine", tier: 2, position: { x: 3500, y: 4500 } }, // 세라(사막)
+  { id: "outpost_east_fort", name: "그림홀드", type: "fort", tier: 2, position: { x: 8000, y: 4000 } }, // 발렌(붉은산)
 ];
 
-// 마을 (tier 1) — biome 안 산재.
+// 마을 (tier 1) — 권역↔중앙 연결 마을만. (맵 축소 96→40, 필러 마을 43 제거)
 const VILLAGES: Outpost[] = [
-  // 에이라 영역 (빙하)
-  { id: "village_snowbrook", name: "스노레이크", type: "village", tier: 1, position: { x: 1170, y: 1190 } },
-  { id: "village_frostpine", name: "프로스트핀", type: "village", tier: 1, position: { x: 2500, y: 500 } },
-  { id: "village_silverpoint", name: "실프헤임", type: "village", tier: 1, position: { x: 2400, y: 1600 } },
-  { id: "village_glacier_pass", name: "브레비크", type: "village", tier: 1, position: { x: 1500, y: 500 } },
-  { id: "village_iceshelf", name: "이스헬라", type: "village", tier: 1, position: { x: 3000, y: 1900 } },
-  { id: "village_northern_fjord", name: "노르피요르", type: "village", tier: 1, position: { x: 2200, y: 500 } },
-  // 로렌 영역 (숲)
-  { id: "village_birchgrove", name: "베틸리아", type: "village", tier: 1, position: { x: 8500, y: 500 } },
-  { id: "village_mosslake", name: "미렐렌", type: "village", tier: 1, position: { x: 9000, y: 1500 } },
-  { id: "village_dewfall", name: "로스니엘", type: "village", tier: 1, position: { x: 6000, y: 1500 } },
-  { id: "village_starlit", name: "엘리시안", type: "village", tier: 1, position: { x: 7939, y: 1706 } },
-  { id: "village_deepwood", name: "티르나엘", type: "village", tier: 1, position: { x: 7000, y: 500 } },
-  { id: "village_forest_clearing", name: "글라리엔", type: "village", tier: 1, position: { x: 9000, y: 800 } },
-  { id: "village_oakshade", name: "셀바린", type: "village", tier: 1, position: { x: 5500, y: 600 } },
-  // 코린 영역 (보라산)
-  { id: "village_dustford", name: "두르바드", type: "village", tier: 1, position: { x: 1100, y: 4900 } },
-  { id: "village_marshend", name: "모르카르", type: "village", tier: 1, position: { x: 2300, y: 4500 } },
-  { id: "village_oremouth", name: "카르문", type: "village", tier: 1, position: { x: 1900, y: 3000 } },
-  { id: "village_oldquarry", name: "그란둠", type: "village", tier: 1, position: { x: 2900, y: 3700 } },
-  { id: "village_purple_ridge", name: "아메티르", type: "village", tier: 1, position: { x: 1000, y: 4500 } },
-  { id: "village_deep_cavern", name: "카즈둠", type: "village", tier: 1, position: { x: 2700, y: 4400 } },
-  { id: "village_obsidian", name: "카르둔", type: "village", tier: 1, position: { x: 1700, y: 3900 } },
-  // 세라 영역 (사막)
-  { id: "village_oxford", name: "사브리아", type: "village", tier: 1, position: { x: 3700, y: 5200 } },
-  { id: "village_wheatfield", name: "카므란", type: "village", tier: 1, position: { x: 4819, y: 4009 } },
-  { id: "village_orchard", name: "보스탄", type: "village", tier: 1, position: { x: 4525, y: 3614 } },
-  { id: "village_dune_market", name: "수카라", type: "village", tier: 1, position: { x: 4500, y: 5250 } },
-  { id: "village_oasis", name: "알 자히라", type: "village", tier: 1, position: { x: 5500, y: 5280 } },
-  { id: "village_sandstone", name: "람라", type: "village", tier: 1, position: { x: 3300, y: 5200 } },
-  // 발렌 영역 (붉은산)
-  { id: "village_ashrock", name: "애쉬가르", type: "village", tier: 1, position: { x: 8500, y: 4400 } },
-  { id: "village_hammer_camp", name: "함바르", type: "village", tier: 1, position: { x: 9100, y: 3200 } },
-  { id: "village_redspring", name: "로드브룬", type: "village", tier: 1, position: { x: 8700, y: 2700 } },
-  { id: "village_redrock", name: "루드크라그", type: "village", tier: 1, position: { x: 9000, y: 3500 } },
-  { id: "village_iron_camp", name: "야른가스", type: "village", tier: 1, position: { x: 7300, y: 3300 } },
-  { id: "village_summit", name: "틴다르", type: "village", tier: 1, position: { x: 8500, y: 3000 } },
-  // 분쟁지대 변두리
-  { id: "village_crossroads_n", name: "비아노르", type: "village", tier: 1, position: { x: 4500, y: 2100 } },
-  { id: "village_crossroads_s", name: "비아수르", type: "village", tier: 1, position: { x: 5500, y: 3700 } },
-  // 평원 추가 마을 — 빈 공간 채움
-  { id: "village_grassland", name: "프라타", type: "village", tier: 1, position: { x: 3800, y: 2500 } },
-  { id: "village_meadow", name: "베르디아", type: "village", tier: 1, position: { x: 4200, y: 1800 } },
-  { id: "village_river_bend", name: "플루비아", type: "village", tier: 1, position: { x: 5800, y: 2400 } },
-  { id: "village_sandhill", name: "두나르", type: "village", tier: 1, position: { x: 6300, y: 3200 } },
-  { id: "village_reedside", name: "칸나리아", type: "village", tier: 1, position: { x: 4000, y: 3400 } },
-  { id: "village_central_north", name: "아퀼라", type: "village", tier: 1, position: { x: 5500, y: 2200 } },
-  // biome 경계 추가 마을
-  { id: "village_eastern_bluff", name: "크라그문", type: "village", tier: 1, position: { x: 7200, y: 4900 } },
-  { id: "village_southwest_pass", name: "자발란", type: "village", tier: 1, position: { x: 2500, y: 5200 } },
-  { id: "village_north_minor", name: "림스타드", type: "village", tier: 1, position: { x: 3500, y: 700 } },
-  { id: "village_north_pass", name: "할브리엔", type: "village", tier: 1, position: { x: 6300, y: 1400 } },
-  // frontier
-  { id: "village_icefall", name: "포스헤임", type: "village", tier: 1, position: { x: 1100, y: 2000 } },
-  // 추가 추출 좌표 (user 가 png 위 추출)
-  { id: "village_meadow_edge", name: "리메스", type: "village", tier: 1, position: { x: 2944, y: 2536 } },
-  { id: "village_emerald_grove", name: "에메리안", type: "village", tier: 1, position: { x: 7397, y: 1605 } },
-  { id: "village_red_cliff", name: "로드스카르", type: "village", tier: 1, position: { x: 7805, y: 5114 } },
-  { id: "village_south_vein", name: "카르베인", type: "village", tier: 1, position: { x: 1766, y: 5228 } },
-  { id: "village_purple_hollow", name: "둘가린", type: "village", tier: 1, position: { x: 1746, y: 4471 } },
-  { id: "village_north_pathway", name: "세니엘", type: "village", tier: 1, position: { x: 5181, y: 1304 } },
+  { id: "village_silverpoint", name: "실프헤임", type: "village", tier: 1, position: { x: 2400, y: 1600 } }, // 에이라(빙하)
+  { id: "village_dewfall", name: "로스니엘", type: "village", tier: 1, position: { x: 6000, y: 1500 } }, // 로렌(숲)
+  { id: "village_oremouth", name: "카르문", type: "village", tier: 1, position: { x: 1900, y: 3000 } }, // 코린(보라산)
+  { id: "village_wheatfield", name: "카므란", type: "village", tier: 1, position: { x: 4819, y: 4009 } }, // 세라(사막)
+  { id: "village_iron_camp", name: "야른가스", type: "village", tier: 1, position: { x: 7300, y: 3300 } }, // 발렌(붉은산)
+  { id: "village_crossroads_n", name: "비아노르", type: "village", tier: 1, position: { x: 4500, y: 2100 } }, // 분쟁 변두리 N
+  { id: "village_crossroads_s", name: "비아수르", type: "village", tier: 1, position: { x: 5500, y: 3700 } }, // 분쟁 변두리 S
+  { id: "village_grassland", name: "프라타", type: "village", tier: 1, position: { x: 3800, y: 2500 } }, // 중앙
 ];
 
 export const OUTPOSTS: Outpost[] = [

@@ -85,12 +85,19 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
     );
   }
   // ejected
-  const p = n.payload as { outpostId: string; byName: string };
+  const p = n.payload as { outpostId: string; byName: string; gold?: number };
   return (
     <>
       <span className="font-medium">{p.byName}</span> 님이 당신을{" "}
       <span className="font-medium">{outpostName(p.outpostId)}</span>에서
       토벌했습니다
+      {p.gold && p.gold > 0 ? (
+        <>
+          {" "}
+          · 현상금 <span className="font-medium">{p.gold.toLocaleString()}</span>{" "}
+          골드를 빼앗겼습니다
+        </>
+      ) : null}
     </>
   );
 }

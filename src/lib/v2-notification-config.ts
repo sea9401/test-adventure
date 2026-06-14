@@ -34,8 +34,8 @@ export type V2NotificationPayload =
     }
   // outpost_lost — 함락(attackerLabel) 또는 NPC 정기공격에 점령 풀림(byNpc).
   | { outpostId: string; byNpc?: boolean; attackerLabel?: string | null }
-  // ejected — 침입 중이던 거점에서 토벌당함.
-  | { outpostId: string; byName: string };
+  // ejected — 침입 중이던 거점에서 토벌당함. gold = 현상금으로 빼앗긴 골드(0 이면 무손실).
+  | { outpostId: string; byName: string; gold?: number };
 
 // 클라/서버가 주고받는 한 항목.
 export type V2NotificationEntry = {

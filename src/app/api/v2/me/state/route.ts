@@ -28,6 +28,7 @@ import {
   V2_CORE_LOOP_V2,
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
+  offlineBattlesAccrued,
   unlockedJobGroups,
   unlockedSpecs,
 } from "@/adventure/data/v2/coreLoopConfig";
@@ -396,6 +397,14 @@ export async function GET() {
         serverNow: now,
       }
     : null;
+  // 코어루프 오프라인 정산 대기 — 안 논 시간만큼 누적된 판수(2h 캡). >0 이면 클라가 offline-settle
+  //   호출. off 면 null(오프라인 정산 없음).
+  const offlinePending = V2_CORE_LOOP_V2
+    ? offlineBattlesAccrued(
+        Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
+        now,
+      )
+    : null;
 
   return Response.json({
     ok: true,
@@ -405,6 +414,8 @@ export async function GET() {
     jobUnlock,
     // 코어루프 전투 쿨다운(사냥·토벌 게이트) — flag off 면 null(스태미나로 판정).
     combatCooldown,
+    // 코어루프 오프라인 정산 대기 판수 — flag off 면 null.
+    offlinePending,
     character: {
       name,
       gender,

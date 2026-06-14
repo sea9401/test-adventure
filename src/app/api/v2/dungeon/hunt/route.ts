@@ -177,11 +177,13 @@ type CharSave = {
   rareMaps?: unknown;
   lastBattleAt?: number; // 코어루프 전투 쿨다운 — 마지막 전투 시각(사냥·토벌 공통 게이트).
   atRiskGold?: number; // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상).
+  lastHuntDepth?: number; // 코어루프 오프라인 정산 farm 깊이(마지막 정상 사냥 깊이).
+  frontierDepth?: number; // 프론티어 최고 도달 깊이(오프라인 깊이 검증·게이트에 사용).
   [k: string]: unknown;
 };
 
 type HuntTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-type RunOneHuntCtx = {
+export type RunOneHuntCtx = {
   tx: HuntTx;
   userId: string;
   depth: number;
@@ -189,13 +191,19 @@ type RunOneHuntCtx = {
   outpostId: string | null;
   // 레어맵 입장 — 보유 지도 iid. 검증(소유·깊이 일치·잔여 판수)은 save lock 후.
   rareMapIid: string | null;
+  // 오프라인 정산 모드 — 전투 쿨다운 게이트·per-battle lastBattleAt 기록을 건너뛴다(정산
+  //   루프가 마지막에 한 번 lastBattleAt=realNow 기록). 패배 세금/HP/포션/레벨업은 그대로 적용.
+  offline?: boolean;
+  // 시각 주입(오프라인) — 판별 HP 회복 시각을 lastBattleAt+i×쿨다운 으로 시뮬(5초 간격 회복).
+  //   미지정 = Date.now()(온라인).
+  nowOverride?: number;
 };
 
 // 한 번의 사냥 — 기존 단판 로직 그대로(트랜잭션 클로저 tx 사용). 일괄 모드는 이 함수를
 //   루프로 N회 호출한다. 매 호출이 character.v2/equipment 등을 재-락·재-read 하므로 직전
 //   사냥의 레벨/HP/스태미나/드랍이 DB 재read 로 자동 이월된다(수동 스레딩 불필요).
 //   forBatch=true 면 replay 를 경량 payload 로(배치 집계는 playerMaxMp 만 읽음 — 무거운 log 회피).
-async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
+export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const { tx, userId, depth, dropFloor, outpostId, rareMapIid } = ctx;
   // === 1. outpost 점령 조회 (FOR UPDATE) ===
   // v2 의 lock 순서 통일: outpost FOR UPDATE → getGuildId → character.v2.
@@ -343,7 +351,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     };
   }
 
-  const now = Date.now();
+  // 오프라인 정산은 판별 시뮬 시각 주입(HP 회복을 5초 간격으로). 온라인 = 실시간.
+  const now = ctx.nowOverride ?? Date.now();
 
   // === 레어맵(소모품 지도) — 입장 검증 + 보상 배수. 스태미너 차감 전 거부. ===
   // parse 가 만료/소진을 lazy purge — 아래 save 기록 시 정리분이 함께 영속된다.
@@ -380,8 +389,9 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   //   V1식 한판한판 throttle. off — 기존 스태미나 차감(무변경). afterStamina 는 on 일 때 회복만.
   let afterStamina = applyRegen(stamina, now, staminaMax);
   if (V2_CORE_LOOP_V2) {
+    // 오프라인 정산은 쿨다운 게이트 건너뜀(과거 누적 판수를 정산 — 미래 throttle 아님).
     const lastBattleAt = Number(charSave.lastBattleAt) || 0;
-    if (combatCooldownRemainingMs(lastBattleAt, now) > 0) {
+    if (!ctx.offline && combatCooldownRemainingMs(lastBattleAt, now) > 0) {
       return {
         ok: false as const,
         status: 429,
@@ -811,10 +821,15 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     frontierDepth: won && depth > frontierDepth ? depth : frontierDepth,
     // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
-    // 코어루프 전투 쿨다운 시각 — 다음 판/토벌 게이트(off 면 키 불변).
-    ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
+    // 코어루프 전투 쿨다운 시각 — 다음 판/토벌 게이트(off 면 키 불변). 오프라인 정산은
+    //   per-battle 기록 생략(정산 루프가 마지막에 lastBattleAt=realNow 한 번 기록).
+    ...(V2_CORE_LOOP_V2 && !ctx.offline ? { lastBattleAt: now } : {}),
     // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변).
     ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),
+    // 오프라인 정산 farm 깊이 — 정상 사냥(레어맵 아님)만 기록. 레어맵은 소모품이라 제외.
+    ...(V2_CORE_LOOP_V2 && !ctx.offline && !rareMapIid
+      ? { lastHuntDepth: depth }
+      : {}),
   };
   await upsertSave(tx, userId, "character.v2", next);
 

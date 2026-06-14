@@ -17,10 +17,12 @@ export const V2_CORE_LOOP_V2 = false;
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)
 export const BOSS_HUNT_COOLDOWN_MS = 15000; // 보스는 별도 상향
-// 오프라인 자동전투 — AFK/캐주얼 진행(옛 스태미나 재생 대체). 누적 캡으로 무한 차단.
-export const OFFLINE_MAX_BATTLES = 600; // ≈ 50분치 @ 5s
+// 오프라인 자동전투 — AFK/캐주얼 진행(옛 스태미나 재생 대체). 시간 캡으로 무한 차단.
+// 판수/골드 캡 폐지 → 단일 2시간 시간 캡(유저 확정). 온오프 동일 5초 cadence + 이 캡 +
+// lastBattleAt 중복방지로 "오프라인 ≤ 액티브" 보장(2h 정산 = 액티브 2h 압축).
+export const OFFLINE_MAX_MS = 2 * 60 * 60 * 1000; // 2시간
+export const OFFLINE_MAX_BATTLES = OFFLINE_MAX_MS / HUNT_COOLDOWN_MS; // 파생 천장(2h/5s = 1440)
 export const OFFLINE_SETTLE_BATCH_SIZE = 50; // 복귀 정산 chunk(서버 CPU/DB write 캡)
-export const OFFLINE_GOLD_CAP = 250_000; // 오프라인 골드 누적 캡(경제 압도 방지)
 
 // 전투 쿨다운 잔여 ms (순수). 마지막 전투(lastBattleAt) 이후 cooldownMs 경과 전이면 남은 ms,
 // 경과/미전투(0)면 0 = 즉시 가능. 🔑미래 lastBattleAt(손상 세이브·서버 클락 스큐)은 remaining 이
@@ -33,6 +35,21 @@ export function combatCooldownRemainingMs(
 ): number {
   const remaining = lastBattleAt + cooldownMs - now;
   return remaining > 0 && remaining <= cooldownMs ? remaining : 0;
+}
+
+// 오프라인 누적 판수 (순수). 마지막 전투(lastBattleAt) 이후 경과 ÷ 쿨다운, maxMs(2시간) 캡.
+// 미전투(0/미설정)·미래 lastBattleAt(손상)·음수 경과는 0. 정산 루프의 N. 온라인 사냥마다
+// lastBattleAt=now 라, 액티브 시간은 누적 안 되고 "안 논 공백"만 쌓인다(중복 정산 차단).
+export function offlineBattlesAccrued(
+  lastBattleAt: number,
+  now: number,
+  cooldownMs: number = HUNT_COOLDOWN_MS,
+  maxMs: number = OFFLINE_MAX_MS,
+): number {
+  if (!Number.isFinite(lastBattleAt) || lastBattleAt <= 0) return 0;
+  const elapsed = now - lastBattleAt;
+  if (!Number.isFinite(elapsed) || elapsed <= 0) return 0;
+  return Math.floor(Math.min(elapsed, maxMs) / cooldownMs);
 }
 
 // === 패배 세금 (무리한 사냥 페널티 + 거점 세수) ==============================

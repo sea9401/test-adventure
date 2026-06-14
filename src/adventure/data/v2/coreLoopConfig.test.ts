@@ -20,6 +20,8 @@ import {
   combatCooldownRemainingMs,
   lossTaxOf,
   LOSS_TAX_RATE,
+  offlineBattlesAccrued,
+  OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
 import { V2_SELECTABLE_CLASSES } from "./classes";
@@ -134,6 +136,31 @@ describe("combatCooldownRemainingMs — 전투 쿨다운 잔여 (순수)", () =>
 
   it("커스텀 cooldownMs(보스 등) 반영", () => {
     expect(combatCooldownRemainingMs(NOW - 3000, NOW, 15000)).toBe(12000);
+  });
+});
+
+describe("offlineBattlesAccrued — 오프라인 누적 판수 (순수)", () => {
+  const CD = HUNT_COOLDOWN_MS; // 5000
+  const NOW = 10_000_000_000; // 현실적 타임스탬프(10시간 빼도 양수)
+
+  it("경과 / 쿨다운 (내림)", () => {
+    expect(offlineBattlesAccrued(NOW - 60_000, NOW, CD)).toBe(12); // 60s/5s
+    expect(offlineBattlesAccrued(NOW - 12_345, NOW, CD)).toBe(2); // floor(12345/5000)
+  });
+
+  it("2시간 캡 (OFFLINE_MAX_MS)", () => {
+    // 10시간 비웠어도 2시간치(=OFFLINE_MAX_MS/CD)만.
+    expect(offlineBattlesAccrued(NOW - 10 * 3600_000, NOW, CD)).toBe(
+      OFFLINE_MAX_MS / CD,
+    );
+    expect(OFFLINE_MAX_MS / CD).toBe(OFFLINE_MAX_BATTLES);
+  });
+
+  it("미전투(0/미설정)·미래·음수 경과 = 0", () => {
+    expect(offlineBattlesAccrued(0, NOW, CD)).toBe(0);
+    expect(offlineBattlesAccrued(NOW + 1000, NOW, CD)).toBe(0); // 미래(손상)
+    expect(offlineBattlesAccrued(NOW, NOW, CD)).toBe(0); // 방금 전투
+    expect(offlineBattlesAccrued(NaN, NOW, CD)).toBe(0);
   });
 });
 

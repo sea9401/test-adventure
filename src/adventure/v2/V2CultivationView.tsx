@@ -16,6 +16,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
+import { V2JobTree } from "./V2JobTree";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
 
@@ -33,10 +34,19 @@ type StateShape = {
     gold?: number;
     class?: string;
     element?: string;
+    // 코어루프 flag-on 전용(off=null).
+    classDisplayName?: string | null;
+    spec?: string | null;
   };
   codex?: { discovered: number; total: number };
   // stats.base = cap 클램프 후 현 스탯(직업보정 전 — cap 과 같은 스케일). 표시 "현스탯(cap)".
-  stats?: { base?: Partial<Record<V2StatKey, number>> };
+  // stats.total = 효과 스탯(장비 포함) — 코어루프 스탯게이트 판정 기준.
+  stats?: {
+    base?: Partial<Record<V2StatKey, number>>;
+    total?: Partial<Record<V2StatKey, number>>;
+  };
+  // 코어루프 직업 스탯게이트 — flag on 일 때만(off=null).
+  jobUnlock?: { groups: string[]; specs: string[] } | null;
   proficiency?: {
     caps?: Partial<Record<V2StatKey, number>>;
     groups?: Record<string, { tier?: number; cumLevel?: number }>;
@@ -70,6 +80,13 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
   } | null>(null);
+  // 코어루프 직업 트리용(flag-on) — null 이면 flag off → 기존 V2ClassGrid.
+  const [coreLoop, setCoreLoop] = useState<{
+    jobUnlock: { groups: string[]; specs: string[] };
+    classDisplayName: string;
+    totalStats: Partial<Record<V2StatKey, number>>;
+    currentSpec: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -97,6 +114,17 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             advance: cur.advance ?? null,
           });
         }
+        // 코어루프 flag-on(jobUnlock 비null)이면 직업 트리 데이터 채움. off 면 null 유지.
+        setCoreLoop(
+          j.jobUnlock
+            ? {
+                jobUnlock: j.jobUnlock,
+                classDisplayName: j.character?.classDisplayName ?? "모험가",
+                totalStats: j.stats?.total ?? {},
+                currentSpec: j.character?.spec ?? null,
+              }
+            : null,
+        );
       }
     } catch {}
     setLoading(false);
@@ -176,10 +204,23 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         size="md"
       />
 
-      {/* === 직업 탭 — 직업·속성 선택/전직 + 전문화 === */}
+      {/* === 직업 탭 — 코어루프 on=스탯게이트 트리/재전직, off=기존 차수 전직 그리드 === */}
       {tab === "job" &&
         (picker ? (
-          <>
+          coreLoop ? (
+            <V2JobTree
+              currentClass={picker.cls}
+              currentSpec={coreLoop.currentSpec}
+              level={picker.level}
+              totalStats={coreLoop.totalStats}
+              unlockedGroups={coreLoop.jobUnlock.groups}
+              unlockedSpecs={coreLoop.jobUnlock.specs}
+              classDisplayName={coreLoop.classDisplayName}
+              onChanged={async () => {
+                await Promise.all([refresh(), refreshGameState()]);
+              }}
+            />
+          ) : (
             <V2ClassGrid
               currentClass={picker.cls}
               currentElement={picker.elem}
@@ -191,7 +232,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 await Promise.all([refresh(), refreshGameState()]);
               }}
             />
-          </>
+          )
         ) : (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">

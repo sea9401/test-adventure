@@ -256,6 +256,21 @@ export function canMoveToOutpost(
   return current === targetId || areOutpostsAdjacent(current, targetId);
 }
 
+// 워프 게이트의 권위 규칙(순수) — 이미 발견한 거점으로만 순간이동(인접 무관).
+// 빈/레거시 discoveredOutpostIds 는 시드 발견(시작 거점+인접)으로 판정해 신규/구버전이
+// 막히지 않게. 미지의 outpostId 는 false. visit-outpost 라우트의 mode="warp" 가 쓴다.
+export function canWarpToOutpost(
+  discoveredOutpostIds: readonly string[] | undefined,
+  targetId: string,
+): boolean {
+  if (!NEIGHBORS.has(targetId)) return false;
+  const discovered =
+    discoveredOutpostIds && discoveredOutpostIds.length > 0
+      ? discoveredOutpostIds
+      : seededDiscovery();
+  return new Set(discovered).has(targetId);
+}
+
 // 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라
 // 보통 항상 존재하고, 닿지 못하면 null. 다중 홉 자동 이동(경로 미리보기 + 한 칸씩 순차
 // 진입)에 쓴다. from===to 면 [from].

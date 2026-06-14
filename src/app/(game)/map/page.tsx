@@ -8,6 +8,7 @@ import { ContinentMap } from "@/adventure/v2/ContinentMap";
 export default function MapPage() {
   const {
     travelTo,
+    warpTo,
     occupations,
     treasuries,
     viewerUserId,
@@ -17,6 +18,7 @@ export default function MapPage() {
   return (
     <ContinentMap
       onTravelTo={travelTo}
+      onWarp={(o) => warpTo(o.id)}
       occupations={occupations}
       treasuries={treasuries}
       viewerUserId={viewerUserId}

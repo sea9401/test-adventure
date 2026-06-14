@@ -44,12 +44,34 @@ type MyGuildEntry = {
   }>;
 };
 
+type ActiveOutpostEntry = {
+  outpostId: string;
+  name: string;
+  tier: number;
+  ownerLabel: string | null;
+  ownerGuildId: number | null;
+  fortHp: number | null;
+  fortMaxHp: number | null;
+};
+
+type SeasonEntry = {
+  id: string;
+  leaderboard: Array<{
+    guildId: number;
+    guildName: string;
+    points: number;
+  }>;
+};
+
 type OverviewResponse = {
   ok?: boolean;
   sieges?: SiegeEntry[];
   recentCaptures?: CaptureEntry[];
   treasures?: TreasureEntry[];
   myGuild?: MyGuildEntry | null;
+} & {
+  activeOutposts?: ActiveOutpostEntry[];
+  season?: SeasonEntry;
 };
 
 function outpostName(id: string): string {
@@ -66,7 +88,10 @@ function timeAgo(iso: string): string {
 }
 
 function FortMiniBar({ fortHp, fortMaxHp }: { fortHp: number; fortMaxHp: number }) {
-  const pct = Math.max(0, Math.min(100, Math.round((fortHp / fortMaxHp) * 100)));
+  const pct =
+    fortMaxHp > 0
+      ? Math.max(0, Math.min(100, Math.round((fortHp / fortMaxHp) * 100)))
+      : 0;
   return (
     <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
       <div
@@ -115,6 +140,8 @@ export function V2WarView({
   const captures = data?.recentCaptures ?? [];
   const treasures = data?.treasures ?? [];
   const myGuild = data?.myGuild ?? null;
+  const activeOutposts = data?.activeOutposts ?? [];
+  const season = data?.season ?? { id: "", leaderboard: [] };
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -147,6 +174,105 @@ export function V2WarView({
 
       {tab === "status" && data && (
         <>
+          <section className="space-y-2">
+            <HeaderPanel className="py-3">
+              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <Flag size={14} weight="duotone" />
+                이번 주 전장
+              </div>
+            </HeaderPanel>
+            {activeOutposts.length === 0 && (
+              <p className="rounded-md border border-zinc-200 px-3 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800">
+                이번 주 활성 거점이 없습니다
+              </p>
+            )}
+            <div className="grid gap-2">
+              {activeOutposts.map((o) => {
+                const showFort =
+                  o.ownerLabel != null &&
+                  o.fortHp != null &&
+                  o.fortMaxHp != null;
+                return (
+                  <Card key={o.outpostId} padding="sm">
+                    <button
+                      type="button"
+                      onClick={() => onOpenOutpost(o.outpostId)}
+                      className="grid w-full gap-1.5 text-left"
+                    >
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 text-sm">
+                        <span className="truncate font-medium">{o.name}</span>
+                        <span className="text-xs tabular-nums text-zinc-500">
+                          tier {o.tier}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2 text-xs text-zinc-500">
+                        <span className="truncate">
+                          {o.ownerLabel ?? "중립이며 첫 점령 가능"}
+                        </span>
+                        {showFort && (
+                          <span className="tabular-nums">
+                            성벽 {o.fortHp}/{o.fortMaxHp}
+                          </span>
+                        )}
+                      </div>
+                      {showFort && (
+                        <FortMiniBar
+                          fortHp={o.fortHp ?? 0}
+                          fortMaxHp={o.fortMaxHp ?? 0}
+                        />
+                      )}
+                    </button>
+                  </Card>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <HeaderPanel className="py-3">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                  <CastleTurret size={14} weight="duotone" />
+                  시즌 순위
+                </div>
+                {season.id && (
+                  <span className="truncate text-[10px] text-zinc-400">
+                    {season.id}
+                  </span>
+                )}
+              </div>
+            </HeaderPanel>
+            <Card padding="sm">
+              {season.leaderboard.length === 0 ? (
+                <p className="py-2 text-center text-xs text-zinc-500">
+                  아직 점수 없음
+                </p>
+              ) : (
+                <ol className="grid gap-1 text-xs">
+                  {season.leaderboard.slice(0, 3).map((row, i) => (
+                    <li
+                      key={row.guildId}
+                      className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-baseline gap-2"
+                    >
+                      <span className="font-medium text-zinc-500">
+                        {i + 1}위
+                      </span>
+                      <span className="truncate font-medium">
+                        {row.guildName}
+                      </span>
+                      <span className="tabular-nums text-zinc-500">
+                        {row.points.toLocaleString()}점
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <p className="mt-2 text-[10px] text-zinc-500">
+                매주 월요일 0시 초기화
+              </p>
+            </Card>
+          </section>
+
           {/* 내 길드 거점 — 위협 먼저. 길드 소속 + 점령 거점 있을 때만 섹션 표시. */}
           {myGuild && myGuild.outposts.length > 0 && (
             <section className="space-y-2">

@@ -7,6 +7,7 @@ import {
   shortestOutpostPath,
   resolveCurrentOutpostId,
   canMoveToOutpost,
+  canWarpToOutpost,
   seededDiscovery,
   expandDiscovery,
 } from "./outpostGraph";
@@ -207,6 +208,30 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
       expect(path).toEqual([a, b]);
       // from 은 allowed 와 무관하게 출발점으로 허용되지만, 나머지는 모두 allowed 안.
       for (const id of path!.slice(1)) expect(allowed.has(id), id).toBe(true);
+    });
+  });
+
+  describe("워프 게이트 — canWarpToOutpost(발견한 거점만)", () => {
+    const seed = new Set(seededDiscovery());
+    const far = OUTPOSTS.find((o) => !seed.has(o.id))!.id;
+
+    it("발견한 거점은 워프 가능, 미발견은 불가", () => {
+      expect(canWarpToOutpost([far], far)).toBe(true);
+      expect(canWarpToOutpost(["war_central_fort"], far)).toBe(false);
+    });
+
+    it("빈/undefined discovered 는 시드 발견(시작+인접)으로 판정", () => {
+      expect(canWarpToOutpost(undefined, START_OUTPOST_ID)).toBe(true);
+      expect(canWarpToOutpost([], START_OUTPOST_ID)).toBe(true);
+      expect(canWarpToOutpost([], getOutpostNeighbors(START_OUTPOST_ID)[0])).toBe(
+        true,
+      );
+      // 시드 밖(시작에서 먼 거점)은 빈 discovered 로는 워프 불가.
+      expect(canWarpToOutpost([], far)).toBe(false);
+    });
+
+    it("미지의 거점 id 는 false", () => {
+      expect(canWarpToOutpost([START_OUTPOST_ID], "does_not_exist")).toBe(false);
     });
   });
 });

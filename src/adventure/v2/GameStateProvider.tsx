@@ -102,6 +102,7 @@ type GameStateValue = {
   // 생략=길드 탭). /outpost/[id] 가 ?from= 으로 읽는다.
   enterOutpost: (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => void;
   travelTo: (target: Outpost) => void;
+  warpTo: (outpostId: string) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -396,6 +397,43 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [currentOutpost, discoveredIds, applyVisitResult],
   );
 
+  // 발견한 거점으로 즉시 이동 — 서버가 발견 여부와 스태미나 비용을 권위 판정한다.
+  const warpTo = useCallback(
+    (outpostId: string) => {
+      if (visitInFlightRef.current) return;
+      if (currentOutpost?.id === outpostId) return;
+      const outpost = OUTPOST_BY_ID.get(outpostId);
+      if (!outpost) return;
+      visitInFlightRef.current = true;
+      void (async () => {
+        try {
+          const res = await fetch("/api/v2/me/visit-outpost", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ outpostId, mode: "warp" }),
+          });
+          const j = (await res.json().catch(() => null)) as {
+            ok?: boolean;
+            error?: string;
+          } | null;
+          applyVisitResult(j);
+          if (res.ok && j?.ok) {
+            setCurrentOutpost({ id: outpost.id, name: outpost.name });
+            return;
+          }
+          if (j?.error === "not_discovered") {
+            window.alert("아직 발견하지 않은 거점입니다");
+          }
+        } catch {
+          // 네트워크 오류 — 현재 위치를 유지한다.
+        } finally {
+          visitInFlightRef.current = false;
+        }
+      })();
+    },
+    [currentOutpost, applyVisitResult],
+  );
+
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
   const playerLevelText = viewerLevelCap
     ? `Lv ${viewerLevel} / ${viewerLevelCap}`
@@ -435,6 +473,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setFrontierDepth,
     enterOutpost,
     travelTo,
+    warpTo,
   };
 
   return (

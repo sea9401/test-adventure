@@ -14,11 +14,12 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { StaminaState } from "@/adventure/v2/stamina";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import {
-  COOP_ATTACK_COOLDOWN_MS,
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
   COOP_TIER_LABEL,
+  coopAttackCooldownMs,
 } from "@/adventure/data/v2/coopBosses";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   fmtCoopRemain,
   useCoopSessionState,
@@ -104,10 +105,12 @@ export function V2CoopBossDetailView({
   const hpPct = Math.max(0, Math.min(100, (session.hp / session.maxHp) * 100));
   const cooldownLeft =
     my.lastAttackAt != null
-      ? my.lastAttackAt + COOP_ATTACK_COOLDOWN_MS - now
+      ? my.lastAttackAt + coopAttackCooldownMs() - now
       : 0;
   const onCooldown = active && cooldownLeft > 0;
-  const lowStamina = stamina.current < COOP_ATTACK_STAMINA_COST;
+  // 코어루프 — 공격 무료(소환권이 비용) → 스태미나 게이트 없음. off — 기존 스태미나 차감.
+  const lowStamina =
+    !V2_CORE_LOOP_V2 && stamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.tier != null;
 
   return (
@@ -180,7 +183,9 @@ export function V2CoopBossDetailView({
                 ? `재공격 ${Math.ceil(cooldownLeft / 1000)}초 후`
                 : lowStamina
                   ? `스태미너 부족 (${COOP_ATTACK_STAMINA_COST} 필요)`
-                  : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
+                  : V2_CORE_LOOP_V2
+                    ? "공격"
+                    : `공격 (스태미너 ${COOP_ATTACK_STAMINA_COST})`}
           </button>
         )}
         {session.defeated && (

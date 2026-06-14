@@ -23,6 +23,14 @@ import {
   useCoopListState,
 } from "@/adventure/v2/coop/useCoopBossState";
 import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+
+// 코어루프 소환 공개 범위 — 권한자만 무료 공격(소환권이 비용).
+const COOP_VIS_OPTIONS: readonly [string, string][] = [
+  ["public", "공개"],
+  ["guild_only", "길드원만"],
+  ["summoner_only", "나만"],
+];
 
 export function V2CoopBossListView({
   onOpenSession,
@@ -43,6 +51,8 @@ export function V2CoopBossListView({
     claim,
   } = useCoopListState();
   const [now, setNow] = useState(() => Date.now());
+  // 코어루프 소환 공개 범위(flag-on만 사용). 모든 종류 소환에 공통 적용.
+  const [visibility, setVisibility] = useState<string>("public");
   // 소환하기 카드의 정보(특성·보상 테이블) 펼침 — kind 단위 토글.
   const [infoOpen, setInfoOpen] = useState<CoopBossKindId | null>(null);
   useEffect(() => {
@@ -57,7 +67,7 @@ export function V2CoopBossListView({
 
   // 소환 후에도 목록에 머문다 — 여러 마리 연속 소환 흐름(이동은 보스 카드 클릭으로).
   const handleSummon = async (kind: CoopBossKindId) => {
-    await summon(kind);
+    await summon(kind, V2_CORE_LOOP_V2 ? visibility : undefined);
   };
 
   return (
@@ -74,6 +84,35 @@ export function V2CoopBossListView({
           사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
         </p>
       </HeaderPanel>
+
+      {/* 코어루프 — 소환 공개 범위(권한자는 무료 공격). flag off 면 미표시(항상 공개). */}
+      {V2_CORE_LOOP_V2 && (
+        <Card padding="sm">
+          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+            소환 공개 범위
+          </p>
+          <div className="mt-1.5 flex gap-2">
+            {COOP_VIS_OPTIONS.map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVisibility(v)}
+                aria-pressed={visibility === v}
+                className={`flex-1 rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                  visibility === v
+                    ? "border-emerald-500 bg-emerald-100 font-medium text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+            소환권이 비용이라, 공개 범위 안의 모험가는 무료로 함께 칠 수 있어요.
+          </p>
+        </Card>
+      )}
 
       {notice && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">

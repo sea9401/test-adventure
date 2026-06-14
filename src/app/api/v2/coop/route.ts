@@ -1,6 +1,10 @@
 import { and, count, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { coopBossContributors, coopBossSessions } from "@/db/schema";
+import {
+  coopBossContributors,
+  coopBossSessions,
+  guildMembers,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { readSave } from "@/lib/server/savesKv";
 import { expireStaleCoopSessions } from "@/lib/server/v2Coop";
@@ -9,7 +13,9 @@ import {
   SUMMON_SCROLL_MATERIAL_ID,
   coopTierForRatio,
   parseCoopBossKindId,
+  canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
 // GET /api/v2/coop — 협동 보스 목록 현황(목록 화면 폴링용 — 슬림).
 // 같은 종류 동시 다수 소환(#714): 활성 세션이 인스턴스 단위로 N개 — 참전자 명단/최근
@@ -59,7 +65,22 @@ export async function GET() {
       ),
     )
     .orderBy(coopBossSessions.spawnedAt);
-  const activeIds = activeSessions.map((s) => s.id);
+  // 코어루프 — 가시성 필터(공개/길드원만/소환자만). off 면 전부 노출(현행 무변경).
+  const viewerGuildId = V2_CORE_LOOP_V2
+    ? ((
+        await db
+          .select({ guildId: guildMembers.guildId })
+          .from(guildMembers)
+          .where(eq(guildMembers.userId, userId))
+          .limit(1)
+      )[0]?.guildId ?? null)
+    : null;
+  const visibleSessions = V2_CORE_LOOP_V2
+    ? activeSessions.filter((s) =>
+        canAccessCoopBoss(s, { userId, guildId: viewerGuildId }),
+      )
+    : activeSessions;
+  const activeIds = visibleSessions.map((s) => s.id);
 
   // 세션별 참전자 수(집계) + 내 기여 — 활성 세션이 있을 때만.
   const countRows = activeIds.length
@@ -89,7 +110,7 @@ export async function GET() {
     : [];
   const myBySession = new Map(myRows.map((r) => [r.sessionId, r.damage]));
 
-  const sessions = activeSessions
+  const sessions = visibleSessions
     .map((s) => {
       const kind = parseCoopBossKindId(s.regionId);
       if (!kind) return null;

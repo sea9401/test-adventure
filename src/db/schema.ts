@@ -663,6 +663,12 @@ export const coopBossSessions = pgTable(
     // v2 협동 보스 — 소환자 표시명 스냅샷(같은 종류 동시 다수 소환 시 인스턴스 구분 라벨).
     // v1 시간 리젠 보스/기존 행은 NULL.
     summonedByName: text("summoned_by_name"),
+    // 코어루프 협동보스 리워크 — 소환자 식별(비공개 가시성) + 소환 시점 길드(길드 가시성).
+    // 기존 행/v1 은 NULL(가시성 public 폴백). 공격 권한·목록 필터에 사용.
+    summonerId: text("summoner_id"),
+    summonerGuildId: integer("summoner_guild_id"),
+    // 가시성/공격권한 — 'public'(공개·기본) | 'guild_only'(길드원만) | 'summoner_only'(소환자만).
+    visibility: text("visibility").notNull().default("public"),
   },
   (t) => [
     // 활성 세션 조회용(kind + defeatedAt IS NULL) — 같은 종류 동시 다수 소환 허용으로

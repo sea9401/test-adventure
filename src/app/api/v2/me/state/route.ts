@@ -435,6 +435,10 @@ export async function GET() {
       gold: Math.max(0, charSave.gold ?? 0),
       // 은행 — 입금된 골드(토벌 압류에서 안전). 보유 골드(gold)와 별개.
       bankedGold: Math.max(0, (charSave as { bankedGold?: number }).bankedGold ?? 0),
+      // 코어루프 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상). off 면 null.
+      atRiskGold: V2_CORE_LOOP_V2
+        ? Math.max(0, Number((charSave as { atRiskGold?: number }).atRiskGold) || 0)
+        : null,
       // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
       class: cls,
       // 코어루프 on 이면 무직→"모험가" 표기. off 면 기존 직군명.

@@ -17,6 +17,7 @@ import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { PlayerStatusCard } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
+import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 import { MAIN_DUNGEON, depthName } from "@/adventure/data/v2/dungeon";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 import { TutorialOverlayInner } from "@/adventure/tutorial/TutorialOverlay";
@@ -75,6 +76,9 @@ export function V2DungeonFloorView({
   onLevelUp,
   rareMapIid = null,
   myElement,
+  combatCooldown,
+  setCombatCooldown,
+  setAtRiskGold,
 }: {
   // 깊이 숫자 (테마당 6깊이: 1~6 들판·7~12 깊은 산·13+ 프론티어 밴드). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
@@ -108,6 +112,12 @@ export function V2DungeonFloorView({
   rareMapIid?: string | null;
   // 내 캐릭터 속성 — 날씨 배지 단계 강조용.
   myElement?: string;
+  // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — 미전달(dev 하니스)/null(flag off) 이면 비활성 ===
+  // 전투 쿨다운(클라 로컬 nextBattleAt). 비null = flag on → 스태미나 라벨 대신 쿨다운 카운트다운.
+  combatCooldown?: { nextBattleAt: number; cooldownMs: number } | null;
+  setCombatCooldown?: (c: { nextBattleAt: number; cooldownMs: number } | null) => void;
+  // 위험 골드 갱신 — 사냥 응답의 atRiskGold 를 전역(V2TopBar 뱃지)으로 반영.
+  setAtRiskGold?: (n: number | null) => void;
 }) {
   // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
   // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
@@ -269,7 +279,13 @@ export function V2DungeonFloorView({
     );
   }
 
-  const lowStamina = stamina.current < HUNT_COST;
+  // 코어루프 on(쿨다운 객체 전달됨) = 스태미나 폐지·전투 쿨다운 게이트. off/dev = 기존 스태미나.
+  const coreLoopOn = combatCooldown != null;
+  const onCooldown = combatCooldown != null && now < combatCooldown.nextBattleAt;
+  const cooldownLeftSec = onCooldown
+    ? Math.ceil((combatCooldown.nextBattleAt - now) / 1000)
+    : 0;
+  const lowStamina = !coreLoopOn && stamina.current < HUNT_COST;
   const oneActionDisabled = busy || batchRunning;
   // 라이브 HP(시간 재생 반영) 기준 회복 필요 여부 — 5% 미만이면 사냥 차단(서버와 동일 기준).
   // hp 미로딩(null)이면 게이트 비활성 — 서버 가드가 최종 차단.
@@ -283,10 +299,17 @@ export function V2DungeonFloorView({
   //   레벨업 모달이 열렸으면 무발동 — 스페이스바 전역 리스너가 모달 오버레이를 우회해 뒤에서
   //   사냥이 돌지 않게(클릭은 오버레이가 막지만 키는 막지 못함).
   const triggerHunt = () => {
-    if (oneActionDisabled || lowStamina || needsRecovery || showLevelupModal)
+    if (
+      oneActionDisabled ||
+      lowStamina ||
+      needsRecovery ||
+      onCooldown ||
+      showLevelupModal
+    )
       return;
     setBatchSummary(null);
-    if (huntCount === 1) {
+    // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). off = huntCount 반영.
+    if (coreLoopOn || huntCount === 1) {
       setBatchStatus(null);
       void hunt(depth).then((r) => {
         if (r) {
@@ -301,6 +324,14 @@ export function V2DungeonFloorView({
             r.maxDepth > frontierDepth
           ) {
             onFrontierUnlocked?.(r.maxDepth);
+          }
+          // 코어루프 — 다음 판까지 전투 쿨다운 시작(낙관적) + 위험 골드 뱃지 갱신.
+          if (coreLoopOn) {
+            setCombatCooldown?.({
+              nextBattleAt: Date.now() + HUNT_COOLDOWN_MS,
+              cooldownMs: HUNT_COOLDOWN_MS,
+            });
+            if (r.atRiskGold != null) setAtRiskGold?.(r.atRiskGold);
           }
         }
       });
@@ -362,16 +393,26 @@ export function V2DungeonFloorView({
           <button
             type="button"
             onClick={triggerHunt}
-            disabled={oneActionDisabled || lowStamina || needsRecovery}
-            className="flex-1 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            disabled={
+              oneActionDisabled || lowStamina || needsRecovery || onCooldown
+            }
+            className={`flex-1 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 ${
+              coreLoopOn
+                ? "disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
+                : "disabled:opacity-50"
+            }`}
           >
             {batchRunning || busy
               ? "사냥 중…"
               : needsRecovery
                 ? "회복 필요"
-                : huntCount === 1
-                  ? "사냥 (스태미너 1)"
-                  : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
+                : onCooldown
+                  ? `다음 사냥까지 ${cooldownLeftSec}초`
+                  : coreLoopOn
+                    ? "사냥"
+                    : huntCount === 1
+                      ? "사냥 (스태미너 1)"
+                      : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
           <button
             type="button"

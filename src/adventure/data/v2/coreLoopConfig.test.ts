@@ -10,6 +10,8 @@ import {
   LOOP_BATTLES_TARGET,
   V2_LEVEL_CAP,
   OFFLINE_MAX_BATTLES,
+  coreLoopMaxHpMult,
+  ADVENTURER_MAXHP_BONUS_PCT,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
 import { V2_SELECTABLE_CLASSES } from "./classes";
@@ -92,5 +94,20 @@ describe("coreLoopConfig — 페이싱 다이얼 정합", () => {
     expect(HUNT_COOLDOWN_MS).toBe(5000);
     expect(V2_LEVEL_CAP).toBe(50);
     expect(OFFLINE_MAX_BATTLES).toBeGreaterThan(0);
+  });
+});
+
+describe("coreLoopMaxHpMult — 모험가 HP 패시브 (flag-gated)", () => {
+  it("flag on + 무직(모험가)만 ×(1+보너스)", () => {
+    expect(coreLoopMaxHpMult("none", true)).toBeCloseTo(
+      1 + ADVENTURER_MAXHP_BONUS_PCT / 100,
+    );
+  });
+  it("flag off 면 무직이어도 ×1.0 (전투 무변경)", () => {
+    expect(coreLoopMaxHpMult("none", false)).toBe(1);
+  });
+  it("다른 직업은 flag 무관 ×1.0", () => {
+    expect(coreLoopMaxHpMult("warrior", true)).toBe(1);
+    expect(coreLoopMaxHpMult("mage", true)).toBe(1);
   });
 });

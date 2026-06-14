@@ -45,6 +45,10 @@ import {
 import { resolveClassPassive } from "@/adventure/data/v2/v2Passives";
 import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import {
+  V2_CORE_LOOP_V2,
+  coreLoopMaxHpMult,
+} from "@/adventure/data/v2/coreLoopConfig";
 import { EVASION_PCT_CAP } from "@/adventure/data/stats";
 import {
   V2_STAT_KEYS,
@@ -436,11 +440,13 @@ export function derivePlayerCombatV2Pure(
     1 +
     totalStats.vit * HEAL_MULT_PER_VIT +
     totalStats.spi * HEAL_MULT_PER_SPI;
+  // 코어루프 모험가 HP 패시브 — flag on + 무직(=모험가)일 때만 ×1.1. flag off = ×1.0(무변경).
   const maxHp = Math.floor(
-    V2_BASE_HP +
+    (V2_BASE_HP +
       Math.max(0, level - 1) * V2_HP_PER_LEVEL +
       totalStats.vit * HP_PER_VIT +
-      equipAcc.hp,
+      equipAcc.hp) *
+      coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2),
   );
   const maxMp = Math.floor(
     V2_BASE_MP +

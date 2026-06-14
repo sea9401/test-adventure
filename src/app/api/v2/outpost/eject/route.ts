@@ -12,6 +12,7 @@ import {
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
   isIntruderActive,
@@ -139,18 +140,26 @@ export async function POST(req: Request) {
     }
 
     // === 5. 도전자 stamina 차감 (회복 적용 후) ===
+    // 코어루프 on — 스태미나 폐지. ⚠️FLIP 게이트: 토벌의 시간 throttle 대체(공통 전투 쿨다운)는
+    //   후속 PR. 그 전까지 flag-on 이면 같은 침입자에게 무비용 재시도(스팸) 가능 → 전투 쿨다운
+    //   PR 머지 전에는 V2_CORE_LOOP_V2 를 켜지 말 것. (그 외 게이트 = 침입자 TTL·점령 권한·HP·
+    //   전쟁 상태는 그대로 유효.) off — 기존 스태미나 차감(무변경).
     const stamina = parseStaminaFromSave(attackerSave.stamina, now);
-    const afterStamina = tryConsume(stamina, EJECT_STAMINA_COST, now);
-    if (!afterStamina) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "out_of_stamina" as const,
-          stamina: applyRegen(stamina, now),
-          requiredStamina: EJECT_STAMINA_COST,
-        },
-      };
+    let afterStamina = applyRegen(stamina, now);
+    if (!V2_CORE_LOOP_V2) {
+      const after = tryConsume(stamina, EJECT_STAMINA_COST, now);
+      if (!after) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            stamina: applyRegen(stamina, now),
+            requiredStamina: EJECT_STAMINA_COST,
+          },
+        };
+      }
+      afterStamina = after;
     }
 
     // === 6. 양측 PlayerCombat derive ===

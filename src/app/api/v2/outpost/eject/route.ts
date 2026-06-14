@@ -18,7 +18,12 @@ import {
   parseLastHuntedOutpost,
   type EjectedFrom,
 } from "@/adventure/data/v2/intruderTracking";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { ejectBountyGold } from "@/adventure/data/v2/ejectBounty";
+import { isActiveContestOutpost } from "@/adventure/data/v2/warOutposts";
+import { WAR_POINTS_EJECT_WIN } from "@/adventure/data/v2/warScore";
+import { currentWarSeasonId } from "@/lib/server/war/season";
+import { insertWarScoreEvent } from "@/lib/server/war/score";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { insertNotification } from "@/lib/server/v2Notifications";
@@ -42,6 +47,7 @@ type CharSave = {
   stamina?: unknown;
   hp?: number;
   hpRegenSince?: number;
+  gold?: number;
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
   [k: string]: unknown;
@@ -200,12 +206,20 @@ export async function POST(req: Request) {
     const attackerHpAfter = Math.max(0, battleResult.finalState.p1.hp);
     const defenderHpAfter = Math.max(0, battleResult.finalState.p2.hp);
 
-    // === 7. 도전자 저장 (stamina + hp) ===
+    // 토벌 현상금/벌금 — 승리 시 침입자 골드에서 벌금 차감 → 토벌자 현상금(골드만, 음수 불가).
+    // 거점 tier 비례. 침입자 보유 골드와 상한이 한도. 패배 시 0.
+    const outpostTier = OUTPOST_BY_ID.get(outpostId)?.tier ?? 1;
+    const targetGold = Math.max(0, defenderSave.gold ?? 0);
+    const bountyGold = won ? ejectBountyGold(targetGold, outpostTier) : 0;
+    const hunterGold = Math.max(0, attackerSave.gold ?? 0);
+
+    // === 7. 도전자 저장 (stamina + hp + 현상금) ===
     await upsertSave(tx, userId, "character.v2", {
       ...attackerSave,
       stamina: afterStamina,
       hp: attackerHpAfter,
       hpRegenSince: now,
+      gold: hunterGold + bountyGold, // 패배면 bountyGold=0 → 변동 없음.
     });
 
     // === 8. 침입자 저장 — 승리 시 토벌 마킹, 패배 시 hp 만 갱신 ===
@@ -223,6 +237,7 @@ export async function POST(req: Request) {
         ...defenderSaveWithoutLast,
         hp: defenderHpAfter,
         hpRegenSince: now,
+        gold: targetGold - bountyGold, // 벌금 차감(음수 불가 — bountyGold ≤ targetGold).
         ejectedFrom: ejectedNotice,
       });
       // 전쟁의 길 퀘 신호 — 토벌 승리 누적. lock 순서: character.v2 다음(hunt 와 동일).
@@ -234,6 +249,18 @@ export async function POST(req: Request) {
         ...logSave,
         warEjectWins: (Number(logSave.warEjectWins) || 0) + 1,
       });
+      // 전쟁 시즌 점수 — 활성 쟁탈 거점 방어 토벌만 소량 적재(arena 한정·일반 영토 방어는 0).
+      //   war_score_events 는 독립 테이블이라 위 락 순서에 사이클 없음.
+      if (isActiveContestOutpost(outpostId)) {
+        await insertWarScoreEvent(tx, {
+          seasonId: currentWarSeasonId(new Date(now)),
+          outpostId,
+          guildId: viewerGuildId,
+          userId,
+          eventType: "eject_win",
+          points: WAR_POINTS_EJECT_WIN,
+        });
+      }
     } else {
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSave,
@@ -259,6 +286,8 @@ export async function POST(req: Request) {
         stamina: afterStamina,
         replay,
         attackerGender: attackerProfile.gender,
+        // 토벌 현상금 — 승리 시 침입자에게서 뺏어 토벌자가 얻은 골드(0이면 침입자 무일푼).
+        bountyGold,
       },
     };
   });
@@ -269,6 +298,7 @@ export async function POST(req: Request) {
     won?: boolean;
     attackerName?: string;
     defenderName?: string;
+    bountyGold?: number;
   };
   if (fb.ok && fb.won) {
     await insertFeedEntry(
@@ -276,10 +306,11 @@ export async function POST(req: Request) {
       "outpost_eject",
       { outpostId, targetName: fb.defenderName ?? "침입자" }
     );
-    // 개인 알림 — 토벌당한 침입자 본인에게 즉시.
+    // 개인 알림 — 토벌당한 침입자 본인에게 즉시. 빼앗긴 골드(gold>0)도 동봉.
     await insertNotification(targetUserId, "ejected", {
       outpostId,
       byName: fb.attackerName ?? "수비대",
+      gold: fb.bountyGold ?? 0,
     });
   }
 

@@ -29,6 +29,7 @@ type EjectResult = {
   defenderHpBefore?: number;
   defenderHpAfter?: number;
   defenderMaxHp?: number;
+  bountyGold?: number;
   error?: string;
   requiredStamina?: number;
   // 토벌 전투 리플레이 — 토벌자(p1) 시점. 결과 카드 아래 BattleScene 표시.
@@ -196,6 +197,9 @@ export function IntruderPanel({
               <>
                 ✓ {lastResult.attackerName} → {lastResult.defenderName} 토벌 성공 (
                 {lastResult.turns}턴) · 침입자 강제 퇴장
+                {lastResult.bountyGold && lastResult.bountyGold > 0
+                  ? ` · 현상금 +${lastResult.bountyGold.toLocaleString()} 골드`
+                  : ""}
               </>
             ) : (
               <>

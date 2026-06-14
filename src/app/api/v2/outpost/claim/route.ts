@@ -65,6 +65,10 @@ import {
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
+  V2_CORE_LOOP_V2,
+  CLAIM_GOLD_COST_BY_TIER,
+} from "@/adventure/data/v2/coreLoopConfig";
+import {
   applyHpRegen,
   canHuntWithHp,
   parseHpRegenSince,
@@ -124,6 +128,10 @@ export async function POST(req: Request) {
   }
 
   const cost = CLAIM_STAMINA_COST[outpost.tier];
+  // 코어루프 on — 스태미나 대신 골드 sink(점령 비용). off — 0(스태미나 경로 유지).
+  const claimGoldCost = V2_CORE_LOOP_V2
+    ? (CLAIM_GOLD_COST_BY_TIER[outpost.tier] ?? 0)
+    : 0;
 
   const result = await db.transaction(async (tx) => {
     // lock 순서 — occupations FOR UPDATE 가 항상 먼저. 그 후 길드 조회.
@@ -218,7 +226,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // === stamina pre-check (lock 없이 read) ===
+    // === 비용 pre-check (lock 없이 read) — 코어루프 on=골드, off=스태미나 ===
     // 락 전 빠른 거부. 부족 시 사전 정렬 lock 안 잡고 early return.
     // 실제 차감은 lock 후 다시 check (race 안전).
     const charPreRow = (
@@ -230,19 +238,41 @@ export async function POST(req: Request) {
         )
         .limit(1)
     )[0];
-    const charPre = (charPreRow?.value ?? {}) as { stamina?: unknown };
-    const staminaPre = parseStaminaFromSave(charPre.stamina, now);
-    if (!tryConsume(staminaPre, cost, now)) {
-      return {
-        ok: false as const,
-        status: 409,
-        body: {
+    const charPre = (charPreRow?.value ?? {}) as {
+      stamina?: unknown;
+      gold?: number;
+    };
+    if (V2_CORE_LOOP_V2) {
+      const goldPre =
+        typeof charPre.gold === "number" && Number.isFinite(charPre.gold)
+          ? Math.max(0, Math.floor(charPre.gold))
+          : 0;
+      if (goldPre < claimGoldCost) {
+        return {
           ok: false as const,
-          error: "out_of_stamina" as const,
-          requiredStamina: cost,
-          stamina: applyRegen(staminaPre, now),
-        },
-      };
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_gold" as const,
+            requiredGold: claimGoldCost,
+            gold: goldPre,
+          },
+        };
+      }
+    } else {
+      const staminaPre = parseStaminaFromSave(charPre.stamina, now);
+      if (!tryConsume(staminaPre, cost, now)) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            requiredStamina: cost,
+            stamina: applyRegen(staminaPre, now),
+          },
+        };
+      }
     }
 
     // === 토너먼트 사전 결정 (PvP 시 양측 멤버 수) ===
@@ -314,19 +344,43 @@ export async function POST(req: Request) {
     }
 
     const stamina = parseStaminaFromSave(charSave.stamina, now);
-    const afterStamina = tryConsume(stamina, cost, now);
-    if (!afterStamina) {
-      // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
-      return {
-        ok: false as const,
-        status: 409,
-        body: {
+    let afterStamina = applyRegen(stamina, now);
+    if (V2_CORE_LOOP_V2) {
+      // 코어루프 — 골드 점령 비용. race 재검(pre-check 후 다른 tx 가 소비했을 수). 차감은
+      // 아래 최종 저장에서 treasury 탈환분과 합산. 스태미나는 회복만(폐지).
+      const rawGold = (charSave as { gold?: number }).gold;
+      const goldNow =
+        typeof rawGold === "number" && Number.isFinite(rawGold)
+          ? Math.max(0, Math.floor(rawGold))
+          : 0;
+      if (goldNow < claimGoldCost) {
+        return {
           ok: false as const,
-          error: "out_of_stamina" as const,
-          requiredStamina: cost,
-          stamina: applyRegen(stamina, now),
-        },
-      };
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_gold" as const,
+            requiredGold: claimGoldCost,
+            gold: goldNow,
+          },
+        };
+      }
+    } else {
+      const after = tryConsume(stamina, cost, now);
+      if (!after) {
+        // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            requiredStamina: cost,
+            stamina: applyRegen(stamina, now),
+          },
+        };
+      }
+      afterStamina = after;
     }
 
     const player = await derivePlayerCombatV2(userId, tx);
@@ -773,17 +827,18 @@ export async function POST(req: Request) {
       });
     }
 
+    const baseGold = Math.max(0, (charSave as { gold?: number }).gold ?? 0);
     const next = {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
       hpRegenSince: now,
-      // 금고 탈환 본인 몫 — 없으면 기존 gold 그대로(키 자체 불변).
-      ...(treasuryCaptured
+      // 점령 골드 비용 차감(코어루프 on, off=0) + 금고 탈환 본인 몫 합산. 둘 다 0이면 키 불변
+      // (off+탈환없음 = 기존과 byte-identical). claimGoldCost 는 위 post-lock 에서 잔액 확인됨.
+      ...(claimGoldCost > 0 || treasuryCaptured
         ? {
             gold:
-              Math.max(0, (charSave as { gold?: number }).gold ?? 0) +
-              treasuryCaptured.capturerShare,
+              baseGold - claimGoldCost + (treasuryCaptured?.capturerShare ?? 0),
           }
         : {}),
     };

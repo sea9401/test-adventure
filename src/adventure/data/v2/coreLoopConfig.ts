@@ -41,6 +41,7 @@ export const AP_MAX_SOFT_CAP = 60;
 
 // === 거점 행동 비용 (스태미나 → 골드/전투 쿨다운으로 대체) ====================
 export const OUTPOST_MOVE_GOLD_COST = 25; // 인접 이동 1홉(재진입 무료)
+export const OUTPOST_WARP_GOLD_COST = 75; // 워프(발견 거점 순간이동) — 이동의 3배(옛 스태미나 비율 미러)
 export const CLAIM_GOLD_COST_BY_TIER: Record<number, number> = {
   1: 500,
   2: 1500,

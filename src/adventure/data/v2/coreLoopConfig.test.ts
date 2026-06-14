@@ -14,6 +14,9 @@ import {
   ADVENTURER_MAXHP_BONUS_PCT,
   SPEC_TO_GROUP,
   reincarnTargetError,
+  OUTPOST_MOVE_GOLD_COST,
+  OUTPOST_WARP_GOLD_COST,
+  CLAIM_GOLD_COST_BY_TIER,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
 import { V2_SELECTABLE_CLASSES } from "./classes";
@@ -96,6 +99,25 @@ describe("coreLoopConfig — 페이싱 다이얼 정합", () => {
     expect(HUNT_COOLDOWN_MS).toBe(5000);
     expect(V2_LEVEL_CAP).toBe(50);
     expect(OFFLINE_MAX_BATTLES).toBeGreaterThan(0);
+  });
+});
+
+describe("coreLoopConfig — 거점 행동 골드 비용 (스태미나 대체)", () => {
+  it("이동/워프 비용 양수, 워프 > 이동", () => {
+    expect(OUTPOST_MOVE_GOLD_COST).toBeGreaterThan(0);
+    expect(OUTPOST_WARP_GOLD_COST).toBeGreaterThan(OUTPOST_MOVE_GOLD_COST);
+  });
+
+  it("점령 비용 4티어 전부 등록 + 티어 오름차순(상위 거점일수록 비쌈)", () => {
+    const tiers = [1, 2, 3, 4];
+    for (const t of tiers) {
+      expect(CLAIM_GOLD_COST_BY_TIER[t], `tier ${t}`).toBeGreaterThan(0);
+    }
+    for (let i = 1; i < tiers.length; i++) {
+      expect(CLAIM_GOLD_COST_BY_TIER[tiers[i]]).toBeGreaterThan(
+        CLAIM_GOLD_COST_BY_TIER[tiers[i - 1]],
+      );
+    }
   });
 });
 

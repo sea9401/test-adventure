@@ -84,6 +84,11 @@ type GameStateValue = {
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   hp: HpBarState | null;
   setHp: React.Dispatch<React.SetStateAction<HpBarState | null>>;
+  // 보유 골드(들고 다니는·토벌 압류 대상) + 은행 잔액(입금분·안전). me/state 에서 초기화.
+  gold: number;
+  bankedGold: number;
+  setGold: React.Dispatch<React.SetStateAction<number>>;
+  setBankedGold: React.Dispatch<React.SetStateAction<number>>;
   mp: MpBarState | null;
   setMp: React.Dispatch<React.SetStateAction<MpBarState | null>>;
   discoveredIds: Set<string>;
@@ -156,6 +161,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [frontierDepth, setFrontierDepth] = useState<number>(2);
   // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
   const [hp, setHp] = useState<HpBarState | null>(null);
+  // 보유 골드 + 은행 잔액 — me/state 에서 초기화, 은행 입출금 응답으로 갱신.
+  const [gold, setGold] = useState(0);
+  const [bankedGold, setBankedGold] = useState(0);
   const [mp, setMp] = useState<MpBarState | null>(null);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
@@ -207,6 +215,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
               lastUpdatedAt: number;
               max?: number;
             };
+            gold?: number;
+            bankedGold?: number;
           };
           currentOutpost?: { id: string; name: string } | null;
           discoveredOutpostIds?: string[];
@@ -241,6 +251,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             lastUpdatedAt: j.character.stamina.lastUpdatedAt,
           });
         }
+        if (typeof j?.character?.gold === "number") setGold(j.character.gold);
+        if (typeof j?.character?.bankedGold === "number")
+          setBankedGold(j.character.bankedGold);
         if (
           typeof j?.character?.hp === "number" &&
           typeof j?.character?.maxHp === "number"
@@ -460,6 +473,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setStamina,
     hp,
     setHp,
+    gold,
+    bankedGold,
+    setGold,
+    setBankedGold,
     mp,
     setMp,
     discoveredIds,

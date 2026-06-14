@@ -85,7 +85,12 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
     );
   }
   // ejected
-  const p = n.payload as { outpostId: string; byName: string; gold?: number };
+  const p = n.payload as {
+    outpostId: string;
+    byName: string;
+    gold?: number;
+    exiledTo?: string;
+  };
   return (
     <>
       <span className="font-medium">{p.byName}</span> 님이 당신을{" "}
@@ -94,8 +99,14 @@ function entryText(n: V2NotificationEntry): React.ReactNode {
       {p.gold && p.gold > 0 ? (
         <>
           {" "}
-          · 현상금 <span className="font-medium">{p.gold.toLocaleString()}</span>{" "}
-          골드를 빼앗겼습니다
+          · 보유 골드{" "}
+          <span className="font-medium">{p.gold.toLocaleString()}</span> 압류
+        </>
+      ) : null}
+      {p.exiledTo ? (
+        <>
+          {" "}
+          · <span className="font-medium">{outpostName(p.exiledTo)}</span>로 추방됨
         </>
       ) : null}
     </>

@@ -84,8 +84,14 @@ function TabBackground({
 export function GameChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentOutpost, accountName, stamina, staminaMax, viewerName } =
-    useGameState();
+  const {
+    currentOutpost,
+    accountName,
+    stamina,
+    staminaMax,
+    viewerName,
+    bankedGold,
+  } = useGameState();
 
   const activeTab = tabOfPath(pathname);
   // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
@@ -132,6 +138,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         currentOutpost={currentOutpost}
         gameName={accountName}
         playerName={viewerName}
+        bankedGold={bankedGold}
       />
       {background && (
         <TabBackground

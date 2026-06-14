@@ -5,6 +5,11 @@ import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
+import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+
+function outpostDisplayName(outpostId: string): string {
+  return OUTPOST_BY_ID.get(outpostId)?.name ?? outpostId;
+}
 
 // 점령 길드 전용 — 거점에 침입한 다른 길드 캐릭 목록 + 토벌 버튼.
 // 전투 탭 > 토벌(V2SubjugationView)이 내 길드 보유 거점마다 렌더.
@@ -30,6 +35,7 @@ type EjectResult = {
   defenderHpAfter?: number;
   defenderMaxHp?: number;
   bountyGold?: number;
+  exiledTo?: string;
   error?: string;
   requiredStamina?: number;
   // 토벌 전투 리플레이 — 토벌자(p1) 시점. 결과 카드 아래 BattleScene 표시.
@@ -89,6 +95,7 @@ export function IntruderPanel({
 
   useEffect(() => {
     // 접힌 패널은 fetch 보류 — 펼칠 때마다 fresh 조회 (TTL 10분짜리 데이터라 재조회가 맞다).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 펼칠 때 1회 재조회(외부 동기화).
     if (open) refresh();
   }, [refresh, open]);
 
@@ -196,9 +203,12 @@ export function IntruderPanel({
             lastResult.won ? (
               <>
                 ✓ {lastResult.attackerName} → {lastResult.defenderName} 토벌 성공 (
-                {lastResult.turns}턴) · 침입자 강제 퇴장
+                {lastResult.turns}턴)
                 {lastResult.bountyGold && lastResult.bountyGold > 0
-                  ? ` · 현상금 +${lastResult.bountyGold.toLocaleString()} 골드`
+                  ? ` · 보유 골드 ${lastResult.bountyGold.toLocaleString()} 전액 압류`
+                  : " · 침입자 무일푼"}
+                {lastResult.exiledTo
+                  ? ` · ${outpostDisplayName(lastResult.exiledTo)}로 추방`
                   : ""}
               </>
             ) : (

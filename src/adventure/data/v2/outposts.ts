@@ -245,3 +245,21 @@ export const OUTPOST_CONFLICT_COLOR = "#64748b";
 // 신규 플레이어 시작 거점 — 중앙 자유 도시(어느 세력에도 속하지 않는 중립 허브). 현재
 // 위치가 아직 기록되지 않았을 때(부트스트랩) 인접 이동 게이트·발견 시드의 기준점으로 쓴다.
 export const START_OUTPOST_ID = "neutral_haven_central";
+
+// 토벌 추방 — 주어진 거점에서 가장 가까운 중립 자유도시 id(좌표 거리). 침입자를 토벌하면
+// 이 안전한 무소속 허브로 강제 이동시킨다. 미지/좌표 없음이면 시작 거점(중앙 자유도시).
+export function nearestNeutralOutpostId(fromId: string): string {
+  const from = OUTPOST_BY_ID.get(fromId)?.position;
+  const neutrals = OUTPOSTS.filter((o) => o.neutral);
+  if (!from || neutrals.length === 0) return START_OUTPOST_ID;
+  let best = neutrals[0];
+  let bestD = Infinity;
+  for (const n of neutrals) {
+    const d = Math.hypot(n.position.x - from.x, n.position.y - from.y);
+    if (d < bestD) {
+      bestD = d;
+      best = n;
+    }
+  }
+  return best.id;
+}

@@ -18,8 +18,7 @@ import {
   parseLastHuntedOutpost,
   type EjectedFrom,
 } from "@/adventure/data/v2/intruderTracking";
-import { OUTPOSTS, OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
-import { ejectBountyGold } from "@/adventure/data/v2/ejectBounty";
+import { OUTPOSTS, nearestNeutralOutpostId } from "@/adventure/data/v2/outposts";
 import { isActiveContestOutpost } from "@/adventure/data/v2/warOutposts";
 import { WAR_POINTS_EJECT_WIN } from "@/adventure/data/v2/warScore";
 import { currentWarSeasonId } from "@/lib/server/war/season";
@@ -48,6 +47,8 @@ type CharSave = {
   hp?: number;
   hpRegenSince?: number;
   gold?: number;
+  lastVisitedOutpost?: { outpostId?: string; at?: number };
+  discoveredOutpostIds?: string[];
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
   [k: string]: unknown;
@@ -206,12 +207,13 @@ export async function POST(req: Request) {
     const attackerHpAfter = Math.max(0, battleResult.finalState.p1.hp);
     const defenderHpAfter = Math.max(0, battleResult.finalState.p2.hp);
 
-    // 토벌 현상금/벌금 — 승리 시 침입자 골드에서 벌금 차감 → 토벌자 현상금(골드만, 음수 불가).
-    // 거점 tier 비례. 침입자 보유 골드와 상한이 한도. 패배 시 0.
-    const outpostTier = OUTPOST_BY_ID.get(outpostId)?.tier ?? 1;
+    // 토벌 현상금/추방 — 승리 시 침입자 보유(들고 있는) 골드 전액 압류 → 토벌자에게.
+    // 입금분(bankedGold)은 안전 — 은행에 넣어두면 안 뺏긴다. 추가로 침입자를 가장 가까운
+    // 중립 자유도시로 추방(위치 강제 이동). 패배 시 0 / 위치 불변.
     const targetGold = Math.max(0, defenderSave.gold ?? 0);
-    const bountyGold = won ? ejectBountyGold(targetGold, outpostTier) : 0;
+    const bountyGold = won ? targetGold : 0; // 보유 전액.
     const hunterGold = Math.max(0, attackerSave.gold ?? 0);
+    const exileToId = won ? nearestNeutralOutpostId(outpostId) : null;
 
     // === 7. 도전자 저장 (stamina + hp + 현상금) ===
     await upsertSave(tx, userId, "character.v2", {
@@ -233,11 +235,19 @@ export async function POST(req: Request) {
       const { lastHuntedOutpost: _dropLast, ...defenderSaveWithoutLast } =
         defenderSave;
       void _dropLast;
+      // 추방 — 가장 가까운 중립 자유도시로 강제 이동. 발견 목록에도 보장(미발견 허브 방지).
+      const exileTarget = exileToId ?? outpostId;
+      const prevDiscovered = defenderSave.discoveredOutpostIds ?? [];
+      const nextDiscovered = prevDiscovered.includes(exileTarget)
+        ? prevDiscovered
+        : [...prevDiscovered, exileTarget];
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSaveWithoutLast,
         hp: defenderHpAfter,
         hpRegenSince: now,
-        gold: targetGold - bountyGold, // 벌금 차감(음수 불가 — bountyGold ≤ targetGold).
+        gold: 0, // 보유 골드 전액 압류(입금분은 안전).
+        lastVisitedOutpost: { outpostId: exileTarget, at: now }, // 추방.
+        discoveredOutpostIds: nextDiscovered,
         ejectedFrom: ejectedNotice,
       });
       // 전쟁의 길 퀘 신호 — 토벌 승리 누적. lock 순서: character.v2 다음(hunt 와 동일).
@@ -286,8 +296,10 @@ export async function POST(req: Request) {
         stamina: afterStamina,
         replay,
         attackerGender: attackerProfile.gender,
-        // 토벌 현상금 — 승리 시 침입자에게서 뺏어 토벌자가 얻은 골드(0이면 침입자 무일푼).
+        // 토벌 현상금 — 승리 시 침입자 보유 전액 압류분(0이면 침입자 무일푼).
         bountyGold,
+        // 추방된 중립 자유도시 id (패배 시 null).
+        exiledTo: exileToId,
       },
     };
   });
@@ -299,6 +311,7 @@ export async function POST(req: Request) {
     attackerName?: string;
     defenderName?: string;
     bountyGold?: number;
+    exiledTo?: string | null;
   };
   if (fb.ok && fb.won) {
     await insertFeedEntry(
@@ -306,11 +319,12 @@ export async function POST(req: Request) {
       "outpost_eject",
       { outpostId, targetName: fb.defenderName ?? "침입자" }
     );
-    // 개인 알림 — 토벌당한 침입자 본인에게 즉시. 빼앗긴 골드(gold>0)도 동봉.
+    // 개인 알림 — 토벌당한 침입자 본인에게 즉시. 압류 골드 + 추방된 곳 동봉.
     await insertNotification(targetUserId, "ejected", {
       outpostId,
       byName: fb.attackerName ?? "수비대",
       gold: fb.bountyGold ?? 0,
+      exiledTo: fb.exiledTo ?? undefined,
     });
   }
 

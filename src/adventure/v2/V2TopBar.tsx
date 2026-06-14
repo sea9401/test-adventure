@@ -14,10 +14,12 @@ export function V2TopBar({
   currentOutpost,
   gameName,
   playerName,
+  bankedGold,
 }: {
   currentOutpost: { id: string; name: string } | null;
   gameName: string | null;
   playerName: string;
+  bankedGold: number;
 }) {
   const router = useRouter();
   return (
@@ -32,6 +34,11 @@ export function V2TopBar({
         <span className="truncate text-base font-semibold text-zinc-700 dark:text-zinc-200">
           {currentOutpost?.name ?? "이동 중"}
         </span>
+        {bankedGold > 0 && (
+          <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
+            은행 {bankedGold.toLocaleString()}G
+          </span>
+        )}
       </button>
       <nav className="flex shrink-0 items-center gap-1">
         <NotificationBell />

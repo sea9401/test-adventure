@@ -380,6 +380,8 @@ export async function GET() {
         lastUpdatedAt: stamina.lastUpdatedAt,
       },
       gold: Math.max(0, charSave.gold ?? 0),
+      // 은행 — 입금된 골드(토벌 압류에서 안전). 보유 골드(gold)와 별개.
+      bankedGold: Math.max(0, (charSave as { bankedGold?: number }).bankedGold ?? 0),
       // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
       class: parseV2Class((charSave as { class?: unknown }).class),
       element: parseV2Element((charSave as { element?: unknown }).element),

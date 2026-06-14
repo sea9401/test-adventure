@@ -26,6 +26,8 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MS,
+  combatCooldownRemainingMs,
   unlockedJobGroups,
   unlockedSpecs,
 } from "@/adventure/data/v2/coreLoopConfig";
@@ -380,6 +382,20 @@ export async function GET() {
       ? "모험가"
       : V2_CLASS_DEFS[cls].name
     : null;
+  // 코어루프 전투 쿨다운 — 다음 전투 가능 시각(사냥·토벌 공통). off 면 null(스태미나 게이트).
+  //   쿨다운 중이면 nextBattleAt=now+남은ms, 즉시 가능(미전투/경과/미래-손상)이면 now.
+  //   클라는 serverNow >= nextBattleAt 로 판정. 라우트 게이트와 동일 helper 라 표시-실제 일치.
+  const cooldownRemaining = combatCooldownRemainingMs(
+    Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
+    now,
+  );
+  const combatCooldown = V2_CORE_LOOP_V2
+    ? {
+        nextBattleAt: now + cooldownRemaining,
+        cooldownMs: HUNT_COOLDOWN_MS,
+        serverNow: now,
+      }
+    : null;
 
   return Response.json({
     ok: true,
@@ -387,6 +403,8 @@ export async function GET() {
     intrusion,
     // 코어루프(스탯게이트 직업 트리) — flag off 면 null/현행 라벨.
     jobUnlock,
+    // 코어루프 전투 쿨다운(사냥·토벌 게이트) — flag off 면 null(스태미나로 판정).
+    combatCooldown,
     character: {
       name,
       gender,

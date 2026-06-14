@@ -18,6 +18,8 @@ import {
   OUTPOST_WARP_GOLD_COST,
   CLAIM_GOLD_COST_BY_TIER,
   combatCooldownRemainingMs,
+  lossTaxOf,
+  LOSS_TAX_RATE,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
 import { V2_SELECTABLE_CLASSES } from "./classes";
@@ -132,6 +134,41 @@ describe("combatCooldownRemainingMs — 전투 쿨다운 잔여 (순수)", () =>
 
   it("커스텀 cooldownMs(보스 등) 반영", () => {
     expect(combatCooldownRemainingMs(NOW - 3000, NOW, 15000)).toBe(12000);
+  });
+});
+
+describe("lossTaxOf — 패배 세금 (순수, 보유 한도 클램프)", () => {
+  it("정상 — atRiskGold 의 절반(LOSS_TAX_RATE)", () => {
+    expect(lossTaxOf(100_000, 100_000)).toEqual({
+      tax: 50_000,
+      nextHeld: 50_000,
+    });
+    expect(LOSS_TAX_RATE).toBe(0.5);
+  });
+
+  it("🔑보유 < atRiskGold (승리 후 소비·토벌 압류) = 보유 한도로 클램프(마이너스 방지)", () => {
+    // atRisk 10만인데 보유 3만뿐 → 세금은 보유의 절반(1.5만), 보유 -50% 1.5만.
+    expect(lossTaxOf(100_000, 30_000)).toEqual({ tax: 15_000, nextHeld: 15_000 });
+    // 보유 0(토벌로 전액 압류) → 세금 0, 마이너스 없음.
+    expect(lossTaxOf(100_000, 0)).toEqual({ tax: 0, nextHeld: 0 });
+  });
+
+  it("atRiskGold 0(최근 승리 없음) = 세금 0", () => {
+    expect(lossTaxOf(0, 100_000)).toEqual({ tax: 0, nextHeld: 100_000 });
+  });
+
+  it("음수/NaN/비정상 입력 방어 + 내림", () => {
+    expect(lossTaxOf(-5, 100)).toEqual({ tax: 0, nextHeld: 100 });
+    expect(lossTaxOf(100, -5)).toEqual({ tax: 0, nextHeld: 0 });
+    expect(lossTaxOf(101, 101).tax).toBe(50); // floor(50.5)
+    // NaN(손상 세이브) → 0, 전파 없음.
+    expect(lossTaxOf(NaN, 100)).toEqual({ tax: 0, nextHeld: 100 });
+    expect(lossTaxOf(100, NaN)).toEqual({ tax: 0, nextHeld: 0 });
+    expect(lossTaxOf(Infinity, 100)).toEqual({ tax: 0, nextHeld: 100 });
+  });
+
+  it("rate 커스텀", () => {
+    expect(lossTaxOf(100_000, 100_000, 0.25).tax).toBe(25_000);
   });
 });
 

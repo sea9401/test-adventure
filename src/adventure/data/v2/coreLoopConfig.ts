@@ -35,6 +35,26 @@ export function combatCooldownRemainingMs(
   return remaining > 0 && remaining <= cooldownMs ? remaining : 0;
 }
 
+// === 패배 세금 (무리한 사냥 페널티 + 거점 세수) ==============================
+// 사냥 패배 시 "마지막 패배 이후 번 골드(atRiskGold)"의 일부를 그 땅 세금으로 압류한다.
+// 원금(이전 stash)이 아니라 최근 승리분만 대상이라 기하급수 전멸이 없다. 은행 입금분은 면제.
+export const LOSS_TAX_RATE = 0.5; // 패배 시 atRiskGold 의 절반.
+
+// 패배 세금 계산 (순수). atRiskGold 의 rate 만큼을 세금으로 — 단 보유 골드(heldGold) 한도로
+// 클램프한다(승리 후 소비/토벌 압류로 보유 < atRiskGold 면 보유까지만 → 마이너스 골드 방지).
+// 이 클램프 하나가 은행·eject·모든 골드 sink 를 자동으로 안전하게 만든다(별도 배선 불요).
+export function lossTaxOf(
+  atRiskGold: number,
+  heldGold: number,
+  rate: number = LOSS_TAX_RATE,
+): { tax: number; nextHeld: number } {
+  // NaN/비유한 입력(손상 세이브) 방어 → 0.
+  const a = Number.isFinite(atRiskGold) ? Math.max(0, atRiskGold) : 0;
+  const h = Number.isFinite(heldGold) ? Math.max(0, heldGold) : 0;
+  const tax = Math.floor(Math.min(a, h) * rate);
+  return { tax, nextHeld: Math.max(0, h - tax) };
+}
+
 // === 진행 (차수 폐지·단일 레벨캡·재전직 루프) ===============================
 export const V2_LEVEL_CAP = 50; // 옛 차수별 50/65/80/100 → 단일 50. 루프 Lv1→50→재전직→Lv1.
 export const LOOP_BATTLES_TARGET = 1200; // Lv1→50 목표 판수(5s×1200 ≈ 100분 루프)

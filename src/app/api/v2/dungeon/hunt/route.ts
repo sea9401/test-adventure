@@ -76,6 +76,7 @@ import {
   V2_CORE_LOOP_V2,
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
+  lossTaxOf,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   applyHpRegen,
@@ -175,6 +176,7 @@ type CharSave = {
   ejectedFrom?: unknown;
   rareMaps?: unknown;
   lastBattleAt?: number; // 코어루프 전투 쿨다운 — 마지막 전투 시각(사냥·토벌 공통 게이트).
+  atRiskGold?: number; // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상).
   [k: string]: unknown;
 };
 
@@ -706,6 +708,23 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   }
   const goldNet = goldGross - goldTaxed;
 
+  // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
+  //   절반(보유 한도 클램프)을 압류하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
+  //   off = lossTax 0·atRiskGold 미기록(byte-identical). 행선지는 아래 저장 후 라우팅.
+  const prevAtRisk = V2_CORE_LOOP_V2
+    ? Math.max(0, Number(charSave.atRiskGold) || 0)
+    : 0;
+  let lossTax = 0;
+  let nextAtRisk = prevAtRisk;
+  if (V2_CORE_LOOP_V2) {
+    if (won) {
+      nextAtRisk = prevAtRisk + Math.max(0, goldNet);
+    } else {
+      lossTax = lossTaxOf(prevAtRisk, Math.max(0, charSave.gold ?? 0)).tax;
+      nextAtRisk = 0;
+    }
+  }
+
   // 차수별 레벨 캡(환생 §3.1) — 현 직군 차수의 캡까지만 성장. none = 만렙(4차 캡 100).
   // PR-perf: 차수(player.classTier)는 위 derive 가 같은 tx 에서 읽은 proficiency 에서 산출한
   //   값(prof.groups[현직군].tier ?? 1)이라, 캡 산출용 proficiency 재select(판당 1회) 불필요.
@@ -720,7 +739,7 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const curExp = Math.max(0, charSave.exp ?? 0);
   const expResult = applyExpGain(curLevel, curExp, expGained, levelCap);
 
-  const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet);
+  const newGold = Math.max(0, (charSave.gold ?? 0) + goldNet - lossTax);
 
   // 사냥 후 hp/mp — finalState 시작. 충전식 모델 (1g=1충전, 1000 cap):
   // inventory.v2.{hpCharges, mpCharges} 보유량 만큼 부족분 자동 회복. 옛 POTIONS
@@ -794,6 +813,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
     // 코어루프 전투 쿨다운 시각 — 다음 판/토벌 게이트(off 면 키 불변).
     ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
+    // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변).
+    ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),
   };
   await upsertSave(tx, userId, "character.v2", next);
 
@@ -935,6 +956,20 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         },
       });
   }
+  // 코어루프 패배 세금 → 그 땅(거점) 금고. 적/NPC 점령지(taxOwnerId||npcTaxOutpostId)만 —
+  //   같은 길드·무거점이면 행선지 없이 순수 sink(보유에서 이미 차감, 자기거래 차단).
+  if (lossTax > 0 && outpostId && (taxOwnerId || npcTaxOutpostId)) {
+    await tx
+      .insert(outpostTreasury)
+      .values({ outpostId, gold: lossTax, updatedAt: new Date(now) })
+      .onConflictDoUpdate({
+        target: outpostTreasury.outpostId,
+        set: {
+          gold: sql`${outpostTreasury.gold} + ${lossTax}`,
+          updatedAt: new Date(now),
+        },
+      });
+  }
 
   return {
     ok: true as const,
@@ -952,6 +987,9 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         goldGained: goldNet, // 사냥자 실 수령 (세금 차감 후)
         goldGross,
         goldTaxed,
+        // 코어루프 패배 세금 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
+        //   lossTax = 이번 판 압류액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.
+        ...(V2_CORE_LOOP_V2 ? { lossTax, atRiskGold: nextAtRisk } : {}),
         levelsGained: expResult.levelsGained,
         statGains, // 레벨업 랜덤 성장으로 오른 1차 스탯 ({} = 레벨업 없음).
         hpGain, // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).

@@ -12,6 +12,7 @@ import {
   applyCultivation,
   recommendedCultivationStats,
   setGroupTier,
+  flattenGroupTiers,
   spendProficiency,
   signatureLearnCost,
   advanceCumLevelReq,
@@ -266,6 +267,45 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       tier: 2,
       cumLevel: 0,
     });
+  });
+
+  it("flattenGroupTiers — 모든 직업군 차수 1로 정규화 + ensureGroup 생성, 나머지 보존", () => {
+    const p = parseProficiency({
+      groups: {
+        warrior: { points: 100, cultivations: 3, tier: 4, cumLevel: 120 },
+        mage: { points: 5, tier: 1, cumLevel: 10 },
+      },
+      caps: { str: 7 },
+    });
+    const flat = flattenGroupTiers(p, "rogue");
+    // 옛 차수(4)가 1로 내려감 — setGroupTier 로는 불가능했던 하향.
+    expect(flat.groups.warrior.tier).toBe(1);
+    // points/cultivations/cumLevel 보존.
+    expect(flat.groups.warrior).toEqual({
+      points: 100,
+      cultivations: 3,
+      tier: 1,
+      cumLevel: 120,
+    });
+    // 이미 1차인 그룹은 보존(동일 참조).
+    expect(flat.groups.mage).toBe(p.groups.mage);
+    // ensureGroup 은 없으면 1차로 생성.
+    expect(flat.groups.rogue).toEqual({
+      points: 0,
+      cultivations: 0,
+      tier: 1,
+      cumLevel: 0,
+    });
+    // caps/grown 불변 + 비파괴(원본 warrior tier 그대로).
+    expect(flat.caps).toEqual(p.caps);
+    expect(p.groups.warrior.tier).toBe(4);
+  });
+
+  it("flattenGroupTiers — ensureGroup 미지정/none 은 새 그룹 안 만듦", () => {
+    const p = parseProficiency({ groups: { warrior: { tier: 3 } } });
+    expect(Object.keys(flattenGroupTiers(p).groups)).toEqual(["warrior"]);
+    expect(flattenGroupTiers(p, "none").groups.none).toBeUndefined();
+    expect(flattenGroupTiers(p).groups.warrior.tier).toBe(1);
   });
 
   it("spendProficiency — 숙달 포인트 차감, cap/cultivations 불변, 비파괴", () => {

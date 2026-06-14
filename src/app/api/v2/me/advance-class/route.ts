@@ -12,6 +12,7 @@ import {
   parseProficiencyForChar,
   setGrown,
   setGroupTier,
+  flattenGroupTiers,
   emptyProficiency,
   effectiveLevelCap,
   type V2ProficiencyState,
@@ -24,6 +25,12 @@ import {
   codexRequirement,
   countDiscoveredMaterials,
 } from "@/adventure/data/v2/codex";
+import {
+  V2_CORE_LOOP_V2,
+  V2_LEVEL_CAP,
+  reincarnTargetError,
+} from "@/adventure/data/v2/coreLoopConfig";
+import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 
 // POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직군 누적 레벨(cumLevel)
 // 임계(t2=55·t3=110·t4=170) + 최소 Lv50 + (3·4차) 모험의 서 — 골드 X(docs §7, PR-6).
@@ -41,10 +48,20 @@ type CharSaveShape = {
   [k: string]: unknown;
 };
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  // 코어루프 재전직은 타겟(직군/계파) body 를 받는다. flag off(기존 차수 전직)은 body 무시.
+  let reqBody: { targetClass?: unknown; targetSpec?: unknown } = {};
+  if (V2_CORE_LOOP_V2) {
+    try {
+      reqBody = (await req.json()) as typeof reqBody;
+    } catch {
+      reqBody = {};
+    }
   }
 
   const result = await db.transaction(async (tx) => {
@@ -72,6 +89,75 @@ export async function POST() {
       ),
       charSave,
     );
+
+    // === 코어루프 재전직 (flag on) — 차수 폐지. Lv50 도달 후 스탯게이트 해금된 직군/계파로
+    //     갈아타고 레벨1·exp0·grown 리셋, cumLevel/points/caps 보존. 기존 차수 전직 대체. ===
+    if (V2_CORE_LOOP_V2) {
+      const lvl = Math.max(1, charSave.level ?? 1);
+      if (lvl < V2_LEVEL_CAP) {
+        return {
+          status: 400,
+          body: {
+            ok: false as const,
+            error: "level_too_low" as const,
+            required: V2_LEVEL_CAP,
+            have: lvl,
+          },
+        };
+      }
+      const targetClass = parseV2Class(reqBody.targetClass);
+      const targetSpec =
+        typeof reqBody.targetSpec === "string" && reqBody.targetSpec
+          ? reqBody.targetSpec
+          : null;
+
+      // 효과 스탯(str/vit/int/dex)으로 스탯게이트 검증. 같은 tx 락-read 재select 라 일관.
+      // reincarnTargetError = 순수 헬퍼(bad_target/job_locked/spec_locked, coreLoopConfig).
+      const derived = await derivePlayerCombatV2(userId, tx);
+      const gateErr = reincarnTargetError(
+        derived?.totalStats ?? {},
+        targetClass,
+        targetSpec,
+      );
+      if (gateErr) {
+        return { status: 400, body: { ok: false as const, error: gateErr } };
+      }
+
+      // 재전직 — class/spec 갈아끼우고 레벨1·exp0·grown 리셋(스탯은 floor 부터 재성장).
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        class: targetClass,
+        specChoice: targetSpec,
+        level: 1,
+        exp: 0,
+      });
+      // equipped 재조정 — 새 직업/계파 체인 ∩ 학습분. 차수 폐지라 계파 스킬 전부 해금(tier 4).
+      //   타직업 학습분은 learned 보존·equipped 에서만 빠짐(cross-job 장착은 PR-9 AP 로드아웃).
+      const chain = new Set<string>(
+        elementalSkillsForClass(targetClass, targetSpec, 4),
+      );
+      await upsertSave(tx, userId, "skills.v2", {
+        ...skills,
+        equipped: skills.learned.filter((s) => chain.has(s)),
+      });
+      // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
+      //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
+      const nextProf = flattenGroupTiers(
+        setGrown(prof, {}),
+        tier1ClassOf(targetClass),
+      );
+      await upsertSave(tx, userId, "proficiency.v2", nextProf);
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          class: targetClass,
+          spec: targetSpec,
+          reincarnated: true as const,
+        },
+      };
+    }
 
     const curClass = parseV2Class(charSave.class);
     if (curClass === "none") {

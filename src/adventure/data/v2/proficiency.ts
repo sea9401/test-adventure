@@ -231,6 +231,24 @@ export function setGroupTier(
   return { ...p, groups: { ...p.groups, [group]: { ...cur, tier: t } } };
 }
 
+// 코어루프 재전직 — 차수 폐지(flat tree). 모든 직업군 차수를 1로 정규화하고, ensureGroup
+// (재전직 대상)은 없으면 1차로 생성한다. setGroupTier 와 달리 max-clamp 없이 무조건 하향 기록
+// — tier 가 derive(앵커 보정 %)·floor(tierMult) 양쪽 입력이라 옛 차수가 남으면 보너스가 샌다.
+// points/cultivations/cumLevel/caps/grown 은 전부 보존. 비파괴.
+export function flattenGroupTiers(
+  p: V2ProficiencyState,
+  ensureGroup?: string,
+): V2ProficiencyState {
+  const groups: Record<string, V2ProficiencyGroup> = {};
+  for (const [g, v] of Object.entries(p.groups)) {
+    groups[g] = v.tier === 1 ? v : { ...v, tier: 1 };
+  }
+  if (ensureGroup && ensureGroup !== "none" && !groups[ensureGroup]) {
+    groups[ensureGroup] = { points: 0, cultivations: 0, tier: 1, cumLevel: 0 };
+  }
+  return { ...p, groups };
+}
+
 // floor(저점) 다이얼 — docs §5. 입력을 earned(킬 누적) → 직군 누적 레벨(cumLevel)로 전환(2026-06).
 // cumLevel 은 레벨업당 +1 + 레벨캡·차수 유한이라 ~200-250 에서 천장 → 옛 earned 의 무한 선형
 // runaway 가 구조적으로 사라진다(저점이 cap 의 ~30~50%에서 멈춤). 계수는 cumLevel 스케일에 맞춰

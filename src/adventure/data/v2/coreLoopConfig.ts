@@ -115,6 +115,42 @@ export function unlockedSpecs(
     .map(([id]) => id);
 }
 
+// 계파 → 소속 직군. v2JobSpecs 구조의 미러(테스트로 동기화 강제). 라우트가 v2JobSpecs 를
+// import 하지 않고도 소속 검증하도록 — coreLoopConfig 를 leaf 모듈로 유지(순환 방지).
+export const SPEC_TO_GROUP: Record<string, string> = {
+  gwang: "warrior",
+  knight: "warrior",
+  gladiator: "warrior",
+  cheolsan: "martial",
+  gigong: "martial",
+  yeonhwan: "martial",
+  arcane: "mage",
+  battlemage: "mage",
+  cleric: "mage",
+  archery: "rogue",
+  assassin: "rogue",
+  venom: "rogue",
+};
+
+export type ReincarnTargetError = "bad_target" | "job_locked" | "spec_locked";
+
+// 재전직 타겟 검증 (순수). null = 통과. 라우트(advance-class flag-on)가 이걸로 게이트한다.
+// 🔑계파 게이트가 부모 직군 게이트를 포함하지 않는 경우(예 yeonhwan 은 vit 무조건)가 있어
+//   직군 게이트(unlockedJobGroups)를 계파와 별개로 항상 확인 — 직군이 계파의 바닥 게이트.
+export function reincarnTargetError(
+  stats: Partial<Record<StatKey, number>>,
+  targetClass: string,
+  targetSpec: string | null,
+): ReincarnTargetError | null {
+  if (!(targetClass in JOB_GROUP_STAT_GATE)) return "bad_target";
+  if (!unlockedJobGroups(stats).includes(targetClass)) return "job_locked";
+  if (targetSpec) {
+    if (SPEC_TO_GROUP[targetSpec] !== targetClass) return "spec_locked";
+    if (!unlockedSpecs(stats).includes(targetSpec)) return "spec_locked";
+  }
+  return null;
+}
+
 // 모험가 maxHp 배수 (순수). 코어루프 on + 무직(=모험가)일 때만 HP 패시브(+ADVENTURER_MAXHP_BONUS_PCT%).
 // 그 외(다른 직업·flag off)는 1.0 — flag off 면 전투/골든 byte-identical.
 export function coreLoopMaxHpMult(

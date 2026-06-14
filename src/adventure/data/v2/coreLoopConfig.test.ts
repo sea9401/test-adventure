@@ -12,6 +12,8 @@ import {
   OFFLINE_MAX_BATTLES,
   coreLoopMaxHpMult,
   ADVENTURER_MAXHP_BONUS_PCT,
+  SPEC_TO_GROUP,
+  reincarnTargetError,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
 import { V2_SELECTABLE_CLASSES } from "./classes";
@@ -94,6 +96,62 @@ describe("coreLoopConfig — 페이싱 다이얼 정합", () => {
     expect(HUNT_COOLDOWN_MS).toBe(5000);
     expect(V2_LEVEL_CAP).toBe(50);
     expect(OFFLINE_MAX_BATTLES).toBeGreaterThan(0);
+  });
+});
+
+describe("SPEC_TO_GROUP — v2JobSpecs 소속 미러 동기화", () => {
+  it("모든 계파가 실제 소속 직군으로 매핑 (고아/오타 없음)", () => {
+    for (const [group, specs] of Object.entries(V2_JOB_SPECS)) {
+      for (const spec of specs) {
+        expect(SPEC_TO_GROUP[spec.id], spec.id).toBe(group);
+      }
+    }
+    // 역방향 — SPEC_TO_GROUP 키 = 실재 12계파 전부.
+    expect(Object.keys(SPEC_TO_GROUP).sort()).toEqual([...ALL_SPEC_IDS].sort());
+  });
+});
+
+describe("reincarnTargetError — 재전직 타겟 게이트 (순수)", () => {
+  it("미해금 직군 = job_locked, 해금 직군(스펙 없음) = 통과", () => {
+    expect(reincarnTargetError({ str: 10 }, "warrior", null)).toBe("job_locked");
+    expect(reincarnTargetError({ str: 30 }, "warrior", null)).toBeNull();
+  });
+
+  it("잘못된 타겟(none/미존재) = bad_target", () => {
+    expect(reincarnTargetError({ str: 99 }, "none", null)).toBe("bad_target");
+    expect(reincarnTargetError({ str: 99 }, "bogus", null)).toBe("bad_target");
+  });
+
+  it("계파 스탯 충족 + 소속 일치 = 통과 (기사)", () => {
+    // 기사(str40·vit50) — warrior 소속.
+    expect(
+      reincarnTargetError({ str: 40, vit: 50 }, "warrior", "knight"),
+    ).toBeNull();
+  });
+
+  it("계파 소속이 타겟 직군과 불일치 = spec_locked", () => {
+    // knight 는 warrior 소속인데 mage 로 재전직하며 knight 지정.
+    expect(
+      reincarnTargetError({ int: 60, str: 40, vit: 50 }, "mage", "knight"),
+    ).toBe("spec_locked");
+  });
+
+  it("계파 스탯 미충족 = spec_locked (직군은 해금)", () => {
+    // warrior 해금(str30)이지만 광검(str55·dex25) 미충족.
+    expect(reincarnTargetError({ str: 30 }, "warrior", "gwang")).toBe(
+      "spec_locked",
+    );
+  });
+
+  it("🔑직군 게이트가 계파의 바닥 — yeonhwan(vit 무조건)도 무도가 vit30 없으면 job_locked", () => {
+    // 연환 게이트=dex55·str35(vit 없음) → unlockedSpecs 엔 들지만, 무도가(vit30) 미해금이면
+    // 재전직 불가. 직군 게이트를 계파와 별개로 확인하는 설계가 load-bearing 임을 못박는다.
+    const stats = { dex: 55, str: 35, vit: 0 };
+    expect(reincarnTargetError(stats, "martial", "yeonhwan")).toBe("job_locked");
+    // vit30 채우면 통과.
+    expect(
+      reincarnTargetError({ dex: 55, str: 35, vit: 30 }, "martial", "yeonhwan"),
+    ).toBeNull();
   });
 });
 

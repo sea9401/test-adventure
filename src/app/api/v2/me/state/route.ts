@@ -25,6 +25,11 @@ import {
   V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
 import {
+  V2_CORE_LOOP_V2,
+  unlockedJobGroups,
+  unlockedSpecs,
+} from "@/adventure/data/v2/coreLoopConfig";
+import {
   parseProficiencyForChar,
   groupCumLevel,
   groupUsable,
@@ -359,10 +364,29 @@ export async function GET() {
       ? { outpostId: lastHunted.outpostId, at: lastHunted.at }
       : null;
 
+  // 코어루프 직업 스탯게이트 — flag on 일 때만. 효과 스탯(combat.totalStats)으로 해금된
+  // 직군/계파 surface(UI 트리·전직 게이트 입력). flag off = null(현행 무변경).
+  const cls = parseV2Class((charSave as { class?: unknown }).class);
+  const jobUnlock =
+    V2_CORE_LOOP_V2 && combat
+      ? {
+          groups: unlockedJobGroups(combat.totalStats),
+          specs: unlockedSpecs(combat.totalStats),
+        }
+      : null;
+  // flag off 면 null — 클라는 기존 class→이름 매핑 폴백. flag on 일 때만 모험가-인지 라벨.
+  const classDisplayName = V2_CORE_LOOP_V2
+    ? cls === "none"
+      ? "모험가"
+      : V2_CLASS_DEFS[cls].name
+    : null;
+
   return Response.json({
     ok: true,
     accountName: userRow?.gameName?.trim() || null,
     intrusion,
+    // 코어루프(스탯게이트 직업 트리) — flag off 면 null/현행 라벨.
+    jobUnlock,
     character: {
       name,
       gender,
@@ -383,7 +407,9 @@ export async function GET() {
       // 은행 — 입금된 골드(토벌 압류에서 안전). 보유 골드(gold)와 별개.
       bankedGold: Math.max(0, (charSave as { bankedGold?: number }).bankedGold ?? 0),
       // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
-      class: parseV2Class((charSave as { class?: unknown }).class),
+      class: cls,
+      // 코어루프 on 이면 무직→"모험가" 표기. off 면 기존 직군명.
+      classDisplayName,
       element: parseV2Element((charSave as { element?: unknown }).element),
     },
     stats,

@@ -114,3 +114,14 @@ export function unlockedSpecs(
     .filter(([, gate]) => isStatGateMet(gate, stats))
     .map(([id]) => id);
 }
+
+// 모험가 maxHp 배수 (순수). 코어루프 on + 무직(=모험가)일 때만 HP 패시브(+ADVENTURER_MAXHP_BONUS_PCT%).
+// 그 외(다른 직업·flag off)는 1.0 — flag off 면 전투/골든 byte-identical.
+export function coreLoopMaxHpMult(
+  playerClass: string,
+  coreLoopOn: boolean,
+): number {
+  return coreLoopOn && playerClass === "none"
+    ? 1 + ADVENTURER_MAXHP_BONUS_PCT / 100
+    : 1;
+}

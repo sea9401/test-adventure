@@ -19,7 +19,10 @@ import {
   SUMMON_SCROLL_MATERIAL_ID,
   coopBossDurationMs,
   parseCoopBossKindId,
+  parseCoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 
 // POST /api/v2/coop/summon — 소환서를 소모해 협동 보스 소환.
 //
@@ -38,7 +41,7 @@ export async function POST(req: Request) {
   }
   const userId: string = maybeUserId;
 
-  let body: { kind?: unknown };
+  let body: { kind?: unknown; visibility?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -49,6 +52,10 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_kind" }, { status: 400 });
   }
   const kind = COOP_BOSSES[kindId];
+  // 코어루프 — 소환자가 공개 범위를 고른다(공개/길드원만/소환자만). off 면 항상 public(현행).
+  const visibility = V2_CORE_LOOP_V2
+    ? parseCoopVisibility(body.visibility)
+    : "public";
 
   let summoned = false;
   let summonerName = "모험가";
@@ -113,6 +120,13 @@ export async function POST(req: Request) {
         null,
       );
       summonerName = profile?.name?.trim() || "모험가";
+      // 소환 시점 길드 — 길드원 가시성 판정 기준(나중에 길드 바뀌어도 소환 당시 기준).
+      const summonerGuildId = await getGuildId(tx, userId);
+      // 길드 없는데 'guild_only' 면 본인 포함 아무도 못 침(소환서 낭비) → 'summoner_only' 로 강등.
+      const storedVisibility =
+        visibility === "guild_only" && summonerGuildId == null
+          ? "summoner_only"
+          : visibility;
       const sessionId = randomUUID();
       await tx.insert(coopBossSessions).values({
         id: sessionId,
@@ -125,6 +139,9 @@ export async function POST(req: Request) {
         regenPerMin: 0,
         lastRegenAt: null,
         summonedByName: summonerName,
+        summonerId: userId,
+        summonerGuildId,
+        visibility: storedVisibility,
       });
       summoned = true;
       return {
@@ -147,7 +164,8 @@ export async function POST(req: Request) {
   }
 
   // 소환 알림 — 전체 소식 피드 + 채팅 알림 탭(둘 다 부수 효과·실패 삼킴).
-  if (summoned) {
+  // 코어루프 — 공개(public) 소환만 전체 브로드캐스트. 길드원만/소환자만은 목록에서만 노출.
+  if (summoned && visibility === "public") {
     await insertFeedEntry(userId, "coop_summon", { kind: kindId });
     await broadcastCoopNotice(
       `${summonerName} 님이 「${kind.name}」을(를) 소환했다 — 모두 토벌에 참여할 수 있다! (전투 → 협동 보스)`,

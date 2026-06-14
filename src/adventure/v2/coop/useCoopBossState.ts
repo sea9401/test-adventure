@@ -156,7 +156,10 @@ export function useCoopListState() {
 
   // 소환 — 성공 시 새 sessionId 반환 + 안내 노티스(목록 잔류 — 연속 소환 가능, 이동 없음).
   const summon = useCallback(
-    async (kind: CoopBossKindId): Promise<string | null> => {
+    async (
+      kind: CoopBossKindId,
+      visibility?: string,
+    ): Promise<string | null> => {
       if (busy) return null;
       setBusy(true);
       setNotice(null);
@@ -164,7 +167,8 @@ export function useCoopListState() {
         const res = await fetch("/api/v2/coop/summon", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind }),
+          // visibility 는 코어루프 on 일 때만 서버가 사용(off=무시·public).
+          body: JSON.stringify({ kind, ...(visibility ? { visibility } : {}) }),
         });
         const j = (await res.json()) as {
           ok?: boolean;

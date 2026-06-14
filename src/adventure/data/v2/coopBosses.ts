@@ -12,6 +12,7 @@
 
 import type { Monster } from "@/adventure/data/monsters/types";
 import { scaleMonsterForFloor } from "./monsterScale";
+import { V2_CORE_LOOP_V2 } from "./coreLoopConfig";
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2MonsterStatusSkillId } from "./v2Skills";
 
@@ -75,11 +76,51 @@ export function coopTierForRatio(ratio: number): CoopRewardTier | null {
 // 보스를 통째 못 가져가게 하는 1차 가드(2차는 티어 캡·쿨다운).
 export const COOP_ATTACK_TURNS = 20;
 
-// 공격 스태미너 비용 — 일반 사냥(HUNT_COST=1)의 20배. ⚠️ 캘리브 다이얼.
+// 공격 스태미너 비용 — 일반 사냥(HUNT_COST=1)의 20배. ⚠️ 캘리브 다이얼. (코어루프 on 이면
+// 스태미나 폐지 → 무료, 소환권이 비용. coopAttackCooldownMs 의 180초가 throttle.)
 export const COOP_ATTACK_STAMINA_COST = 20;
 
-// 재공격 쿨다운(ms) — 전역 공통. 매크로/원맨 클리어 견제. ⚠️ 캘리브 다이얼.
-export const COOP_ATTACK_COOLDOWN_MS = 2 * 60 * 1000;
+// 재공격 쿨다운(ms) — 유저별(lastAttackAt). 매크로/원맨 클리어 견제. ⚠️ 캘리브 다이얼.
+export const COOP_ATTACK_COOLDOWN_MS = 2 * 60 * 1000; // 120s — flag off(스태미나 모델)
+export const COOP_ATTACK_COOLDOWN_MS_V2 = 180 * 1000; // 180s — 코어루프(무료 공격 throttle, 유저 확정)
+// 코어루프 on 이면 180s, off 면 120s.
+export function coopAttackCooldownMs(): number {
+  return V2_CORE_LOOP_V2 ? COOP_ATTACK_COOLDOWN_MS_V2 : COOP_ATTACK_COOLDOWN_MS;
+}
+
+// === 가시성/공격 권한 — 코어루프 협동보스 리워크 ===========================
+// 소환권이 비용이라 권한자는 무료 공격. 소환 시 소환자가 공개 범위를 고른다.
+export type CoopVisibility = "public" | "guild_only" | "summoner_only";
+export const COOP_VISIBILITY_VALUES: readonly CoopVisibility[] = [
+  "public",
+  "guild_only",
+  "summoner_only",
+];
+export function parseCoopVisibility(v: unknown): CoopVisibility {
+  return v === "guild_only" || v === "summoner_only" ? v : "public";
+}
+
+// 공격/조회 권한 (순수). 가시성 + 소환자/소환 시점 길드 기준. 미지정/구행은 public 폴백.
+export function canAccessCoopBoss(
+  session: {
+    visibility?: string | null;
+    summonerId?: string | null;
+    summonerGuildId?: number | null;
+  },
+  viewer: { userId: string; guildId: number | null },
+): boolean {
+  const vis = session.visibility ?? "public";
+  if (vis === "guild_only") {
+    return (
+      session.summonerGuildId != null &&
+      session.summonerGuildId === viewer.guildId
+    );
+  }
+  if (vis === "summoner_only") {
+    return session.summonerId === viewer.userId;
+  }
+  return true; // public 또는 미지정
+}
 
 // 같은 종류 동시 소환 상한 — 소환서 비용이 1차 게이트라 느슨한 안전캡(목록/쿼리 비대화 방지).
 // ⚠️ 캘리브 다이얼.

@@ -16,14 +16,17 @@ import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import {
-  COOP_ATTACK_COOLDOWN_MS,
   COOP_ATTACK_STAMINA_COST,
   COOP_ATTACK_TURNS,
   COOP_BOSSES,
   coopBossForBattle,
   coopTierForRatio,
   parseCoopBossKindId,
+  coopAttackCooldownMs,
+  canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   MAX_STAMINA,
   applyRegen,
@@ -108,21 +111,21 @@ export async function POST(req: Request) {
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     const staminaMax =
       MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
-    const afterStamina = tryConsume(
-      stamina,
-      COOP_ATTACK_STAMINA_COST,
-      now,
-      staminaMax,
-    );
-    if (!afterStamina) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "out_of_stamina" as const,
-          stamina: applyRegen(stamina, now, staminaMax),
-        },
-      };
+    // 코어루프 — 스태미나 폐지(소환권이 비용). 무료 공격, 180s 쿨다운이 throttle. off — 기존 차감.
+    let afterStamina = applyRegen(stamina, now, staminaMax);
+    if (!V2_CORE_LOOP_V2) {
+      const after = tryConsume(stamina, COOP_ATTACK_STAMINA_COST, now, staminaMax);
+      if (!after) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            stamina: applyRegen(stamina, now, staminaMax),
+          },
+        };
+      }
+      afterStamina = after;
     }
 
     // === 2. derive preload (hunt 와 동일 락 순서: character→equipment→skills→proficiency) ===
@@ -192,6 +195,18 @@ export async function POST(req: Request) {
         status: 404,
         body: { ok: false as const, error: "no_active_boss" as const },
       };
+    }
+    // 코어루프 — 가시성/공격 권한(공개/길드원만/소환자만). 가시성은 불변이라 peek 검증으로 충분.
+    if (V2_CORE_LOOP_V2) {
+      const viewerGuildId = await getGuildId(tx, userId);
+      if (
+        !canAccessCoopBoss(sessionPeek, { userId, guildId: viewerGuildId })
+      ) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "no_permission" as const },
+        };
+      }
     }
     const kindId = parseCoopBossKindId(sessionPeek.regionId);
     if (!kindId) {
@@ -289,7 +304,7 @@ export async function POST(req: Request) {
         ),
       );
     if (contrib?.lastAttackAt) {
-      const nextAt = contrib.lastAttackAt.getTime() + COOP_ATTACK_COOLDOWN_MS;
+      const nextAt = contrib.lastAttackAt.getTime() + coopAttackCooldownMs();
       if (now < nextAt) {
         return {
           status: 429,

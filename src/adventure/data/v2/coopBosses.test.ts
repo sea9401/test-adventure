@@ -13,6 +13,10 @@ import {
   parseCoopBossKindId,
   rollSummonScrollDrop,
   sumCoopGold,
+  canAccessCoopBoss,
+  parseCoopVisibility,
+  coopAttackCooldownMs,
+  COOP_ATTACK_COOLDOWN_MS,
 } from "./coopBosses";
 import { V2_EQUIPMENT } from "./v2Equipment";
 import { V2_MATERIALS } from "./dungeonDrops";
@@ -174,5 +178,48 @@ describe("소환서 드랍", () => {
     ).toBe(1);
     expect(rollSummonScrollDrop(() => SUMMON_SCROLL_DROP_PCT / 100)).toBe(0);
     expect(rollSummonScrollDrop(() => 0.999999)).toBe(0);
+  });
+});
+
+describe("협동보스 가시성/권한 (코어루프 리워크)", () => {
+  it("parseCoopVisibility — 유효값만, 그 외 public 폴백", () => {
+    expect(parseCoopVisibility("public")).toBe("public");
+    expect(parseCoopVisibility("guild_only")).toBe("guild_only");
+    expect(parseCoopVisibility("summoner_only")).toBe("summoner_only");
+    expect(parseCoopVisibility("bogus")).toBe("public");
+    expect(parseCoopVisibility(undefined)).toBe("public");
+  });
+
+  it("canAccessCoopBoss — public 은 누구나", () => {
+    const s = { visibility: "public", summonerId: "u1", summonerGuildId: 5 };
+    expect(canAccessCoopBoss(s, { userId: "u2", guildId: null })).toBe(true);
+    expect(canAccessCoopBoss(s, { userId: "u1", guildId: 5 })).toBe(true);
+  });
+
+  it("canAccessCoopBoss — guild_only 는 소환 시점 길드원만", () => {
+    const s = { visibility: "guild_only", summonerId: "u1", summonerGuildId: 5 };
+    expect(canAccessCoopBoss(s, { userId: "u2", guildId: 5 })).toBe(true); // 같은 길드
+    expect(canAccessCoopBoss(s, { userId: "u2", guildId: 7 })).toBe(false); // 다른 길드
+    expect(canAccessCoopBoss(s, { userId: "u2", guildId: null })).toBe(false); // 무소속
+    // 소환자 길드가 null(무소속 소환)이면 아무도 매칭 안 됨(소환자조차 guildId null 매칭은 막음).
+    const noGuild = { visibility: "guild_only", summonerId: "u1", summonerGuildId: null };
+    expect(canAccessCoopBoss(noGuild, { userId: "u9", guildId: null })).toBe(false);
+  });
+
+  it("canAccessCoopBoss — summoner_only 는 소환자 본인만", () => {
+    const s = { visibility: "summoner_only", summonerId: "u1", summonerGuildId: 5 };
+    expect(canAccessCoopBoss(s, { userId: "u1", guildId: 5 })).toBe(true);
+    expect(canAccessCoopBoss(s, { userId: "u2", guildId: 5 })).toBe(false);
+  });
+
+  it("canAccessCoopBoss — 미지정/구행(visibility null)은 public 폴백", () => {
+    const s = { visibility: null, summonerId: null, summonerGuildId: null };
+    expect(canAccessCoopBoss(s, { userId: "u2", guildId: null })).toBe(true);
+  });
+
+  it("coopAttackCooldownMs — flag off 면 기존 120s", () => {
+    // 테스트 환경은 V2_CORE_LOOP_V2=false → 120s.
+    expect(coopAttackCooldownMs()).toBe(COOP_ATTACK_COOLDOWN_MS);
+    expect(COOP_ATTACK_COOLDOWN_MS).toBe(120_000);
   });
 });

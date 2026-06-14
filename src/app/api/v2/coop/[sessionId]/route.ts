@@ -4,6 +4,7 @@ import {
   coopBossAttackLog,
   coopBossContributors,
   coopBossSessions,
+  guildMembers,
   savesKv,
   users,
 } from "@/db/schema";
@@ -11,7 +12,9 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import {
   coopTierForRatio,
   parseCoopBossKindId,
+  canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
 // GET /api/v2/coop/[sessionId] — 협동 보스 인스턴스 상세(상세 화면 폴링용).
 // 활성/처치/만료 무관 조회 가능 — 끝난 세션도 결과·내 보상 상태를 보여준다.
@@ -37,6 +40,36 @@ export async function GET(_req: Request, { params }: Ctx) {
   const kind = session ? parseCoopBossKindId(session.regionId) : null;
   if (!session || !kind) {
     return Response.json({ ok: false, error: "no_session" }, { status: 404 });
+  }
+  // 코어루프 — 가시성 권한. 접근 권한 없으면 기여자(과거 참전·보상 확인)만 열람 허용,
+  //   그 외엔 존재 노출 안 하려 404. off 면 누구나 열람(현행).
+  if (V2_CORE_LOOP_V2) {
+    const viewerGuildId =
+      (
+        await db
+          .select({ guildId: guildMembers.guildId })
+          .from(guildMembers)
+          .where(eq(guildMembers.userId, userId))
+          .limit(1)
+      )[0]?.guildId ?? null;
+    if (!canAccessCoopBoss(session, { userId, guildId: viewerGuildId })) {
+      const [contrib] = await db
+        .select({ userId: coopBossContributors.userId })
+        .from(coopBossContributors)
+        .where(
+          and(
+            eq(coopBossContributors.sessionId, sessionId),
+            eq(coopBossContributors.userId, userId),
+          ),
+        )
+        .limit(1);
+      if (!contrib) {
+        return Response.json(
+          { ok: false, error: "no_session" },
+          { status: 404 },
+        );
+      }
+    }
   }
 
   const now = Date.now();

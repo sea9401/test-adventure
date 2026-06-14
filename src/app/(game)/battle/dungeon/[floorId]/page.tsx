@@ -34,6 +34,9 @@ export default function DungeonFloorPage() {
     frontierDepth,
     setFrontierDepth,
     refreshGameState,
+    combatCooldown,
+    setCombatCooldown,
+    setAtRiskGold,
   } = useGameState();
 
   const n = Number(params.floorId);
@@ -70,6 +73,9 @@ export default function DungeonFloorPage() {
       onLevelUp={refreshGameState}
       rareMapIid={rareMapIid}
       myElement={viewerElement}
+      combatCooldown={combatCooldown}
+      setCombatCooldown={setCombatCooldown}
+      setAtRiskGold={setAtRiskGold}
     />
   );
 }

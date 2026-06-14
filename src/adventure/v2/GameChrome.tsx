@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
+import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { WarTicker } from "@/adventure/v2/WarTicker";
 import { TabBar } from "@/components/ui/TabBar";
@@ -91,7 +92,11 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     staminaMax,
     viewerName,
     bankedGold,
+    atRiskGold,
+    combatCooldown,
   } = useGameState();
+  // 코어루프 flag-on 판정 — me/state 가 flag on 일 때만 combatCooldown 객체를 준다(off=null).
+  const coreLoopOn = combatCooldown != null;
 
   const activeTab = tabOfPath(pathname);
   // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
@@ -139,7 +144,10 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         gameName={accountName}
         playerName={viewerName}
         bankedGold={bankedGold}
+        atRiskGold={atRiskGold}
       />
+      {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
+      <OfflineSettleCard />
       {background && (
         <TabBackground
           key={background.src}
@@ -160,7 +168,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         />
         {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
         <WarTicker />
-        {showStamina && (
+        {/* 코어루프 on 이면 스태미나 폐지(전투 쿨다운으로 대체) → 바 숨김. */}
+        {showStamina && !coreLoopOn && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
             <StaminaBar state={stamina} max={staminaMax} />
           </div>

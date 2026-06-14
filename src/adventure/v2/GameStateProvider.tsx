@@ -89,6 +89,18 @@ type GameStateValue = {
   bankedGold: number;
   setGold: React.Dispatch<React.SetStateAction<number>>;
   setBankedGold: React.Dispatch<React.SetStateAction<number>>;
+  // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — off 면 전부 null(현행 UI 무변경) ===
+  // 전투 쿨다운 — nextBattleAt 은 클라 로컬 시각으로 변환됨(서버 skew 보정). 사냥 버튼 카운트다운.
+  combatCooldown: { nextBattleAt: number; cooldownMs: number } | null;
+  setCombatCooldown: React.Dispatch<
+    React.SetStateAction<{ nextBattleAt: number; cooldownMs: number } | null>
+  >;
+  // 오프라인 정산 대기 판수 — 복귀 카드 트리거. 정산 후 0 으로.
+  offlinePending: number | null;
+  setOfflinePending: React.Dispatch<React.SetStateAction<number | null>>;
+  // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
+  atRiskGold: number | null;
+  setAtRiskGold: React.Dispatch<React.SetStateAction<number | null>>;
   mp: MpBarState | null;
   setMp: React.Dispatch<React.SetStateAction<MpBarState | null>>;
   discoveredIds: Set<string>;
@@ -165,6 +177,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [gold, setGold] = useState(0);
   const [bankedGold, setBankedGold] = useState(0);
   const [mp, setMp] = useState<MpBarState | null>(null);
+  // 코어루프 flag-on 전용(off=null). me/state 에서 초기화.
+  const [combatCooldown, setCombatCooldown] = useState<{
+    nextBattleAt: number;
+    cooldownMs: number;
+  } | null>(null);
+  const [offlinePending, setOfflinePending] = useState<number | null>(null);
+  const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
   // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
@@ -217,6 +236,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             };
             gold?: number;
             bankedGold?: number;
+            atRiskGold?: number | null;
           };
           currentOutpost?: { id: string; name: string } | null;
           discoveredOutpostIds?: string[];
@@ -226,6 +246,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             groups?: Record<string, { tier?: number }>;
             current?: { group?: string };
           };
+          // 코어루프 flag-on 전용(off=null).
+          combatCooldown?: {
+            nextBattleAt: number;
+            cooldownMs: number;
+            serverNow: number;
+          } | null;
+          offlinePending?: number | null;
         } | null;
         if (j?.character?.name) setViewerName(j.character.name);
         setAccountName(j?.accountName ?? null);
@@ -277,6 +304,25 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(Math.max(2, j.frontierDepth));
         }
+        // 코어루프 — 전투 쿨다운(서버 시각 → 클라 로컬로 변환, skew 보정), 위험 골드, 오프라인 대기.
+        const cc = j?.combatCooldown;
+        if (cc) {
+          const remaining = Math.max(0, cc.nextBattleAt - cc.serverNow);
+          setCombatCooldown({
+            nextBattleAt: Date.now() + remaining,
+            cooldownMs: cc.cooldownMs,
+          });
+        } else {
+          setCombatCooldown(null);
+        }
+        setOfflinePending(
+          typeof j?.offlinePending === "number" ? j.offlinePending : null,
+        );
+        setAtRiskGold(
+          typeof j?.character?.atRiskGold === "number"
+            ? j.character.atRiskGold
+            : null,
+        );
       }
     } catch {}
   }, []);
@@ -477,6 +523,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     bankedGold,
     setGold,
     setBankedGold,
+    combatCooldown,
+    setCombatCooldown,
+    offlinePending,
+    setOfflinePending,
+    atRiskGold,
+    setAtRiskGold,
     mp,
     setMp,
     discoveredIds,

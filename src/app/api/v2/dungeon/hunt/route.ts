@@ -32,7 +32,7 @@ import {
   addCumLevel,
   setGrown,
   emptyProficiency,
-  tierLevelCap,
+  effectiveLevelCap,
   proficiencyPerKillAtDepth,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
@@ -685,8 +685,11 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   //   값(prof.groups[현직군].tier ?? 1)이라, 캡 산출용 proficiency 재select(판당 1회) 불필요.
   //   (none 은 derive classTier=1 로 떨어지므로 분기 유지 — 권위 cumLevel 쓰기는 아래 락.)
   const capGroup = tier1ClassOf(parseV2Class(charSave.class));
+  // 코어루프 on = 단일 캡(50)·차수 무관. off = 기존 차수 캡(무직은 4차 캡으로 미상한).
   const levelCap =
-    capGroup === "none" ? tierLevelCap(4) : tierLevelCap(player.classTier);
+    capGroup === "none"
+      ? effectiveLevelCap(4)
+      : effectiveLevelCap(player.classTier);
 
   const curExp = Math.max(0, charSave.exp ?? 0);
   const expResult = applyExpGain(curLevel, curExp, expGained, levelCap);

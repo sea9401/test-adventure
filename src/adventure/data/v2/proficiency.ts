@@ -1,3 +1,5 @@
+import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
+
 // v2 직업 숙련도 + 수행(스탯 cap). 설계: docs/v2-proficiency-redesign.md §3·§4.
 //
 // 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). none(무직) 적립 없음.
@@ -311,6 +313,16 @@ export const V2_TIER_LEVEL_CAP: Record<number, number> = {
 // 차수 → 레벨 캡. 미정의 차수(클램프)는 4차(100) 취급.
 export function tierLevelCap(tier: number): number {
   return V2_TIER_LEVEL_CAP[Math.min(4, Math.max(1, Math.floor(tier)))] ?? 100;
+}
+
+// 코어루프 단일 레벨 캡 — 차수 폐지 시 모든 직업이 단일 V2_LEVEL_CAP(50)까지만 오르고,
+// 그 위는 재전직 루프로 전환. 순수 헬퍼(테스트용 flag 인자) + flag 자동판정 래퍼.
+export function levelCapFor(tier: number, coreLoopOn: boolean): number {
+  return coreLoopOn ? V2_LEVEL_CAP : tierLevelCap(tier);
+}
+// 라우트/derive 가 쓰는 유효 레벨 캡. flag off = 기존 차수 캡(무변경).
+export function effectiveLevelCap(tier: number): number {
+  return levelCapFor(tier, V2_CORE_LOOP_V2);
 }
 
 // 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1, 전직 리셋에도 불변.

@@ -73,6 +73,11 @@ import {
   tryConsume,
 } from "@/adventure/v2/stamina";
 import {
+  V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MS,
+  combatCooldownRemainingMs,
+} from "@/adventure/data/v2/coreLoopConfig";
+import {
   applyHpRegen,
   canHuntWithHp,
   parseHpRegenSince,
@@ -169,6 +174,7 @@ type CharSave = {
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
   rareMaps?: unknown;
+  lastBattleAt?: number; // 코어루프 전투 쿨다운 — 마지막 전투 시각(사냥·토벌 공통 게이트).
   [k: string]: unknown;
 };
 
@@ -368,17 +374,37 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스.
   const staminaMax =
     MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
-  const afterStamina = tryConsume(stamina, HUNT_COST, now, staminaMax);
-  if (!afterStamina) {
-    return {
-      ok: false as const,
-      status: 409,
-      body: {
+  // 코어루프 on — 스태미나 폐지·전투 쿨다운(마지막 전투 후 HUNT_COOLDOWN_MS 경과해야 다음 판).
+  //   V1식 한판한판 throttle. off — 기존 스태미나 차감(무변경). afterStamina 는 on 일 때 회복만.
+  let afterStamina = applyRegen(stamina, now, staminaMax);
+  if (V2_CORE_LOOP_V2) {
+    const lastBattleAt = Number(charSave.lastBattleAt) || 0;
+    if (combatCooldownRemainingMs(lastBattleAt, now) > 0) {
+      return {
         ok: false as const,
-        error: "out_of_stamina" as const,
-        stamina: applyRegen(stamina, now, staminaMax),
-      },
-    };
+        status: 429,
+        body: {
+          ok: false as const,
+          error: "on_cooldown" as const,
+          nextBattleAt: lastBattleAt + HUNT_COOLDOWN_MS,
+          cooldownMs: HUNT_COOLDOWN_MS,
+        },
+      };
+    }
+  } else {
+    const after = tryConsume(stamina, HUNT_COST, now, staminaMax);
+    if (!after) {
+      return {
+        ok: false as const,
+        status: 409,
+        body: {
+          ok: false as const,
+          error: "out_of_stamina" as const,
+          stamina: applyRegen(stamina, now, staminaMax),
+        },
+      };
+    }
+    afterStamina = after;
   }
 
   // PR-perf — character/equipment 에 더해 skills/proficiency 도 derive 전에 한 번 lock-read 해서
@@ -766,6 +792,8 @@ async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     frontierDepth: won && depth > frontierDepth ? depth : frontierDepth,
     // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
+    // 코어루프 전투 쿨다운 시각 — 다음 판/토벌 게이트(off 면 키 불변).
+    ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
   };
   await upsertSave(tx, userId, "character.v2", next);
 
@@ -1046,10 +1074,14 @@ export async function POST(req: Request) {
   }
 
   // 일괄 사냥 횟수 — 1~MAX. 미전달/비정상이면 1(단판, 기존 동작).
-  const count = Math.max(
-    1,
-    Math.min(MAX_HUNT_BATCH, Math.floor(Number(body.count) || 1)),
-  );
+  // 코어루프 on — 일괄 폐지(V1식 한판한판·전투 쿨다운이 throttle). 누적 판수는 오프라인 자동전투
+  //   정산(후속 PR)이 담당. 항상 단판 → 쿨다운 게이트가 다음 판을 막는다.
+  const count = V2_CORE_LOOP_V2
+    ? 1
+    : Math.max(
+        1,
+        Math.min(MAX_HUNT_BATCH, Math.floor(Number(body.count) || 1)),
+      );
 
   const rareMapIid =
     typeof body.rareMap === "string" && body.rareMap.length > 0

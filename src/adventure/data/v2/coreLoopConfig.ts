@@ -22,6 +22,19 @@ export const OFFLINE_MAX_BATTLES = 600; // ≈ 50분치 @ 5s
 export const OFFLINE_SETTLE_BATCH_SIZE = 50; // 복귀 정산 chunk(서버 CPU/DB write 캡)
 export const OFFLINE_GOLD_CAP = 250_000; // 오프라인 골드 누적 캡(경제 압도 방지)
 
+// 전투 쿨다운 잔여 ms (순수). 마지막 전투(lastBattleAt) 이후 cooldownMs 경과 전이면 남은 ms,
+// 경과/미전투(0)면 0 = 즉시 가능. 🔑미래 lastBattleAt(손상 세이브·서버 클락 스큐)은 remaining 이
+// cooldownMs 를 초과 → 0 으로 처리(영구 락아웃 방지·다음 전투가 lastBattleAt=now 로 자가치유).
+// 사냥·토벌 공통 게이트(같은 lastBattleAt 필드). >0 이면 쿨다운 중.
+export function combatCooldownRemainingMs(
+  lastBattleAt: number,
+  now: number,
+  cooldownMs: number = HUNT_COOLDOWN_MS,
+): number {
+  const remaining = lastBattleAt + cooldownMs - now;
+  return remaining > 0 && remaining <= cooldownMs ? remaining : 0;
+}
+
 // === 진행 (차수 폐지·단일 레벨캡·재전직 루프) ===============================
 export const V2_LEVEL_CAP = 50; // 옛 차수별 50/65/80/100 → 단일 50. 루프 Lv1→50→재전직→Lv1.
 export const LOOP_BATTLES_TARGET = 1200; // Lv1→50 목표 판수(5s×1200 ≈ 100분 루프)

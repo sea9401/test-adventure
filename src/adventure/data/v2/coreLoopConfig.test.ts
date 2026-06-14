@@ -17,6 +17,7 @@ import {
   OUTPOST_MOVE_GOLD_COST,
   OUTPOST_WARP_GOLD_COST,
   CLAIM_GOLD_COST_BY_TIER,
+  combatCooldownRemainingMs,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
 import { V2_SELECTABLE_CLASSES } from "./classes";
@@ -99,6 +100,38 @@ describe("coreLoopConfig — 페이싱 다이얼 정합", () => {
     expect(HUNT_COOLDOWN_MS).toBe(5000);
     expect(V2_LEVEL_CAP).toBe(50);
     expect(OFFLINE_MAX_BATTLES).toBeGreaterThan(0);
+  });
+});
+
+describe("combatCooldownRemainingMs — 전투 쿨다운 잔여 (순수)", () => {
+  const CD = HUNT_COOLDOWN_MS; // 5000
+  const NOW = 1_000_000;
+
+  it("미전투(lastBattleAt=0) = 0 (즉시 가능)", () => {
+    expect(combatCooldownRemainingMs(0, NOW)).toBe(0);
+  });
+
+  it("방금 전투(lastBattleAt=now) = 풀 쿨다운", () => {
+    expect(combatCooldownRemainingMs(NOW, NOW)).toBe(CD);
+  });
+
+  it("쿨다운 중 = 남은 ms", () => {
+    expect(combatCooldownRemainingMs(NOW - 2000, NOW)).toBe(CD - 2000);
+  });
+
+  it("쿨다운 경과(딱 만료 포함) = 0", () => {
+    expect(combatCooldownRemainingMs(NOW - CD, NOW)).toBe(0);
+    expect(combatCooldownRemainingMs(NOW - CD - 1, NOW)).toBe(0);
+  });
+
+  it("🔑미래 lastBattleAt(손상·클락 스큐) = 0 (영구 락아웃 방지·자가치유)", () => {
+    expect(combatCooldownRemainingMs(NOW + 1_000_000, NOW)).toBe(0);
+    // remaining 이 cooldownMs 를 1ms 라도 넘으면(=미래) 0.
+    expect(combatCooldownRemainingMs(NOW + 1, NOW)).toBe(0);
+  });
+
+  it("커스텀 cooldownMs(보스 등) 반영", () => {
+    expect(combatCooldownRemainingMs(NOW - 3000, NOW, 15000)).toBe(12000);
   });
 });
 

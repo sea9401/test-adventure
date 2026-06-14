@@ -12,7 +12,11 @@ import {
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MS,
+  combatCooldownRemainingMs,
+} from "@/adventure/data/v2/coreLoopConfig";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
   isIntruderActive,
@@ -48,6 +52,7 @@ type CharSave = {
   hp?: number;
   hpRegenSince?: number;
   gold?: number;
+  lastBattleAt?: number; // 코어루프 전투 쿨다운 — 사냥과 공통 게이트.
   lastVisitedOutpost?: { outpostId?: string; at?: number };
   discoveredOutpostIds?: string[];
   lastHuntedOutpost?: unknown;
@@ -139,14 +144,26 @@ export async function POST(req: Request) {
       };
     }
 
-    // === 5. 도전자 stamina 차감 (회복 적용 후) ===
-    // 코어루프 on — 스태미나 폐지. ⚠️FLIP 게이트: 토벌의 시간 throttle 대체(공통 전투 쿨다운)는
-    //   후속 PR. 그 전까지 flag-on 이면 같은 침입자에게 무비용 재시도(스팸) 가능 → 전투 쿨다운
-    //   PR 머지 전에는 V2_CORE_LOOP_V2 를 켜지 말 것. (그 외 게이트 = 침입자 TTL·점령 권한·HP·
-    //   전쟁 상태는 그대로 유효.) off — 기존 스태미나 차감(무변경).
+    // === 5. 도전자 전투 throttle ===
+    // 코어루프 on — 스태미나 폐지·공통 전투 쿨다운(사냥과 같은 lastBattleAt). 마지막 전투 후
+    //   HUNT_COOLDOWN_MS 경과해야 토벌 가능 → 같은 침입자 무비용 재시도(스팸) 차단(PR-6
+    //   flip-gate 해소). off — 기존 스태미나 차감(무변경).
     const stamina = parseStaminaFromSave(attackerSave.stamina, now);
     let afterStamina = applyRegen(stamina, now);
-    if (!V2_CORE_LOOP_V2) {
+    if (V2_CORE_LOOP_V2) {
+      const lastBattleAt = Number(attackerSave.lastBattleAt) || 0;
+      if (combatCooldownRemainingMs(lastBattleAt, now) > 0) {
+        return {
+          status: 429,
+          body: {
+            ok: false as const,
+            error: "on_cooldown" as const,
+            nextBattleAt: lastBattleAt + HUNT_COOLDOWN_MS,
+            cooldownMs: HUNT_COOLDOWN_MS,
+          },
+        };
+      }
+    } else {
       const after = tryConsume(stamina, EJECT_STAMINA_COST, now);
       if (!after) {
         return {
@@ -231,6 +248,8 @@ export async function POST(req: Request) {
       hp: attackerHpAfter,
       hpRegenSince: now,
       gold: hunterGold + bountyGold, // 패배면 bountyGold=0 → 변동 없음.
+      // 코어루프 전투 쿨다운 시각 — 승패 무관 갱신(전투 실행=throttle). off 면 키 불변.
+      ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
     });
 
     // === 8. 침입자 저장 — 승리 시 토벌 마킹, 패배 시 hp 만 갱신 ===

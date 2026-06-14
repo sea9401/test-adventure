@@ -443,6 +443,12 @@ export async function GET() {
       class: cls,
       // 코어루프 on 이면 무직→"모험가" 표기. off 면 기존 직군명.
       classDisplayName,
+      // 코어루프 직업 트리 — 현재 계파(재전직 화면 "현재" 표시용). off 면 null.
+      spec: V2_CORE_LOOP_V2
+        ? (typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+            ? ((charSave as { specChoice?: string }).specChoice ?? null)
+            : null)
+        : null,
       element: parseV2Element((charSave as { element?: unknown }).element),
     },
     stats,

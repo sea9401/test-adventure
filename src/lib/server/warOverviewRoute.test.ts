@@ -20,6 +20,7 @@ vi.mock("@/db", () => {
   const chain = (rows: unknown[]) => {
     const c: {
       where: () => typeof c;
+      groupBy: () => typeof c;
       orderBy: () => typeof c;
       limit: () => typeof c;
       then: (
@@ -28,6 +29,7 @@ vi.mock("@/db", () => {
       ) => Promise<unknown>;
     } = {
       where: () => c,
+      groupBy: () => c,
       orderBy: () => c,
       limit: () => c,
       then: (res, rej) => Promise.resolve(rows).then(res, rej),
@@ -51,6 +53,7 @@ import {
   outpostOccupations,
   outpostTreasury,
   savesKv,
+  warScoreEvents,
 } from "@/db/schema";
 import { FORT_MAX_HP } from "@/adventure/data/v2/outpostSiege";
 
@@ -100,6 +103,7 @@ describe("GET /api/v2/war/overview", () => {
     tableRows.set(guilds, []);
     tableRows.set(guildMembers, []);
     tableRows.set(savesKv, []);
+    tableRows.set(warScoreEvents, []);
   });
 
   it("빈 상태 — 전부 빈 목록 + myGuild null", async () => {

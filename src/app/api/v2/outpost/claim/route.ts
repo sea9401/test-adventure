@@ -52,6 +52,13 @@ import {
 } from "@/adventure/data/v2/outpostGraph";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
+import { isActiveContestOutpost } from "@/adventure/data/v2/warOutposts";
+import { capturePoints, siegeWinPoints } from "@/adventure/data/v2/warScore";
+import { currentWarSeasonId } from "@/lib/server/war/season";
+import {
+  countGuildCapturesThisSeason,
+  insertWarScoreEvent,
+} from "@/lib/server/war/score";
 import {
   applyRegen,
   parseStaminaFromSave,
@@ -675,6 +682,40 @@ export async function POST(req: Request) {
             throw e;
           }
         }
+      }
+    }
+
+    // 전쟁 시즌 점수 — 활성 쟁탈 거점에서의 승리만 원장(append-only)에 적재.
+    //   함락(captured) = capture 점수(같은 길드·거점 시즌 반복 함락은 감쇠 100→40→0).
+    //   성벽만 타격(won && !captured) = siege_win 소량. raceLost(동시 점령 경쟁 패배)는 제외.
+    //   비쟁탈/비활성 거점은 점수 0 — 기존 영토전(세금·통제)만 그대로.
+    //   락 안전: war_score_events 는 독립 테이블, 같은 거점은 위 occupation FOR UPDATE 로 직렬화.
+    if (won! && !raceLost && isActiveContestOutpost(outpost.id)) {
+      const seasonId = currentWarSeasonId(new Date(now));
+      if (captured) {
+        const prior = await countGuildCapturesThisSeason(
+          tx,
+          seasonId,
+          outpost.id,
+          attackerGuildId,
+        );
+        await insertWarScoreEvent(tx, {
+          seasonId,
+          outpostId: outpost.id,
+          guildId: attackerGuildId,
+          userId,
+          eventType: "capture",
+          points: capturePoints(outpost.tier, prior),
+        });
+      } else {
+        await insertWarScoreEvent(tx, {
+          seasonId,
+          outpostId: outpost.id,
+          guildId: attackerGuildId,
+          userId,
+          eventType: "siege_win",
+          points: siegeWinPoints(outpost.tier),
+        });
       }
     }
 

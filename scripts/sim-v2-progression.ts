@@ -298,6 +298,7 @@ function combatStats(
   player: PlayerCombat,
   enemies: Monster[],
   v2Skills: V2SkillsState,
+  depth = 1,
 ): CombatStats {
   if (enemies.length === 0) {
     return { wrPct: 0, wrCiPct: 0, winTurns: 0, lossTurns: 0, lossEnemyHpPct: 0 };
@@ -313,6 +314,7 @@ function combatStats(
         pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
         potions: {},
         v2Skills,
+        depth,
       });
       if (r.outcome === "win") {
         wins++;
@@ -361,6 +363,7 @@ function expPerBattleAtDepth(
         pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
         potions: {},
         v2Skills,
+        depth,
       });
       total++;
       if (r.outcome === "win") {
@@ -422,6 +425,45 @@ if (PACING_MODE) {
   process.exit(0);
 }
 
+// ── 몬스터 SPD 모드(--mspd) — 깊이별 플레이어 vs 몬스터 행동 간격·비율, 깊이보정 K 제안 ─────
+const MSPD_MODE = process.argv.includes("--mspd");
+function runMspd() {
+  console.log(
+    "v2 ATB 몬스터 SPD — 깊이별 매칭레벨 플레이어 spd vs 몬스터 effective spd (행동 간격·비율).",
+  );
+  console.log(
+    "행동비율 = 플레이어 행동수/몬스터 행동수(>1 = 플레이어가 더 자주). 깊이보정 0 기준.",
+  );
+  // 빌드별 spd 편차(STR 느림·DEX 빠름) — BAL/STR/DEX 대표.
+  const archs: Arch[] = ["BAL", "STR", "DEX"];
+  for (const d of [1, 4, 7, 11, 14, 18, 24, 30]) {
+    const lvl = levelForDepth(d);
+    const monsters = depthMonsters(d);
+    const corr = depthSpdCorrection(d);
+    const mEffs = monsters.map((m) => effectiveMonsterSpd(m.spd ?? 1, corr));
+    const mIvAvg =
+      mEffs.length > 0
+        ? mEffs.map((e) => actionInterval(e)).reduce((a, b) => a + b, 0) /
+          mEffs.length
+        : 0;
+    const parts: string[] = [];
+    for (const arch of archs) {
+      const p = makePlayer(arch, lvl).player;
+      const pIv = actionInterval(p.spd);
+      const ratio = mIvAvg > 0 ? mIvAvg / pIv : 0; // 몬스터간격/플레이어간격 = 플레이어 행동/몬스터 행동
+      parts.push(`${arch}(spd${p.spd}·iv${pIv}·×${ratio.toFixed(2)})`);
+    }
+    console.log(
+      `d${d} Lv${lvl} | 몬스터 eff[${Math.min(...mEffs)}-${Math.max(...mEffs)}]·iv${mIvAvg.toFixed(0)} | ${parts.join(" ")}`,
+    );
+  }
+}
+import { actionInterval, effectiveMonsterSpd, depthSpdCorrection } from "../src/adventure/v2/combat/combatTimeline";
+if (MSPD_MODE) {
+  runMspd();
+  process.exit(0);
+}
+
 // ── 실행 ────────────────────────────────────────────────────
 console.log("v2 진행 시뮬레이션 — 7 archetype × 깊이 sweep (프론티어, 권장파워-매칭 레벨)");
 console.log(
@@ -462,7 +504,7 @@ for (const depth of SIM_DEPTHS) {
     const p = d.player;
     let combatCol = "│   -    -    -    -    -";
     if (enemies.length > 0) {
-      const r = combatStats(p, enemies, skillsFor(arch, lvl, s));
+      const r = combatStats(p, enemies, skillsFor(arch, lvl, s), depth);
       const wrStr = `${r.wrPct}%`;
       const ciStr = `±${r.wrCiPct.toFixed(1)}`;
       const winT = turnCell(r.winTurns, r.wrPct > 0);

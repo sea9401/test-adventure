@@ -31,11 +31,23 @@ export function actionInterval(spd: number): number {
   return Math.ceil((RATE_BASE * RATE_BASE) / actionRate(spd));
 }
 
-// 몬스터 SPD(원시 1~14, 중앙 6)를 플레이어 스케일(14~292)로 진입 매핑. spd1→16·spd14→94.
-//   깊이 보정은 던전 깊이별 미세 조정용(기본 0) — 엔진 통합 단계에서 주입.
+// 몬스터 SPD(원시 1~9, 중앙 6)를 플레이어 스케일(14~292)로 진입 매핑. spd1→16·spd6→46.
+//   깊이 보정 가산 — 깊을수록 플레이어가 레벨업으로 빨라져 몬스터가 행동 빈도에서 뒤처지는 것
+//   완화(Phase 4). 보정 0 이면 옛 매핑.
 export function effectiveMonsterSpd(rawSpd: number, depthCorrection = 0): number {
   const s = Math.max(0, Math.floor(Number(rawSpd) || 0));
-  return 10 + s * 6 + (Number(depthCorrection) || 0);
+  return 10 + s * 6 + Math.max(0, Number(depthCorrection) || 0);
+}
+
+// 깊이당 몬스터 effective SPD 가산 — 깊을수록 ↑(약한 보정). depth 1=0(초반 균형 보존), 이후
+//   선형, DEPTH_CORR_MAX_DEPTH 에서 평탄(endgame frontier 폭주 차단 — 무한 가산이면 느린/균형
+//   빌드가 깊이서 swarm 당해 무너짐을 sim 으로 확인). 다이얼: GAIN↑=페이스 유지↑·깊이 난이도↑.
+export const DEPTH_SPD_GAIN = 1.0;
+export const DEPTH_CORR_MAX_DEPTH = 12; // 레벨캡 깊이(~Lv50) 근방에서 cap
+export function depthSpdCorrection(depth: number): number {
+  const d = Math.max(1, Math.floor(Number(depth) || 1));
+  const capped = Math.min(d, DEPTH_CORR_MAX_DEPTH);
+  return Math.round(DEPTH_SPD_GAIN * (capped - 1));
 }
 
 // === 타임라인 큐 (결정론 순서) ===========================================

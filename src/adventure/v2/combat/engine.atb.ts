@@ -2,6 +2,7 @@ import type { Monster } from "@/adventure/data/monsters";
 import type { PotionId } from "@/adventure/data/potions";
 import {
   actionInterval,
+  depthSpdCorrection,
   effectiveMonsterSpd,
   nextActor1v1,
 } from "./combatTimeline";
@@ -59,8 +60,11 @@ function effectivePlayerSpd(player: PlayerCombat, state: BattleState): number {
     : player.spd;
 }
 
-function effectiveEnemyTimelineSpd(state: BattleState): number {
-  const base = effectiveMonsterSpd(state.enemy.spd);
+function effectiveEnemyTimelineSpd(
+  state: BattleState,
+  depthCorr: number,
+): number {
+  const base = effectiveMonsterSpd(state.enemy.spd, depthCorr);
   return state.buffs.enemySpdTurnsLeft > 0
     ? base * state.buffs.enemySpdMult
     : base;
@@ -192,6 +196,8 @@ export function resolveBattleAtb(
   // ATB: SPD-derived extra-attack disabled; speed advantage is expressed through action frequency instead.
   // Phase-1 limitation: spec/trait extraAttack sources that are already merged into this field are disabled too.
   const atbPlayer: PlayerCombat = { ...player, extraAttackChancePct: 0 };
+  // 몬스터 SPD 깊이 보정 — 깊이는 전투 내내 불변이라 1회 계산. 비-던전 전투(depth 미지정)=0.
+  const depthCorr = depthSpdCorrection(ctx.depth ?? 1);
   let state = initialBattleState(atbPlayer, enemy, playerName, ctx.v2Skills);
   if (ctx.isBoss) state = { ...state, isBoss: true };
   const openingExtra: BattleLogEntry[] = ctx.openingNote
@@ -210,7 +216,7 @@ export function resolveBattleAtb(
   };
 
   let playerNextTick = 0;
-  let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state));
+  let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
   let actions = 0;
   let turns = 0;
 
@@ -282,7 +288,7 @@ export function resolveBattleAtb(
           if (state.turn.enemyAttacksLeft <= 0) state = finishEnemyAttack(state);
         }
       }
-      enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state));
+      enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
     }
 
     if (state.phase !== "ended") {

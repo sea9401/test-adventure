@@ -13,6 +13,7 @@ import {
   parseV2Element,
   type V2Element,
 } from "@/adventure/data/v2/elements";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -60,6 +61,37 @@ export async function POST(req: Request) {
 
   const nextClass: V2Class = parseV2Class(body.class);
   const nextElement: V2Element = parseV2Element(body.element);
+
+  // 코어루프 — 신규 캐릭은 모험가(none)로 시작. 캐릭 생성의 "첫 선택"은 직업이 아니라 속성만
+  //   고른다(직군은 인게임 스탯게이트 해금·재전직으로). class="none" 요청 = 속성만 설정,
+  //   직업은 none 유지(직업/스킬 로직 미실행). 속성 변경 비활성 게이트는 그대로 적용.
+  if (V2_CORE_LOOP_V2 && nextClass === "none") {
+    const r = await db.transaction(async (tx) => {
+      const charSave = await lockSaveForUpdate<CharSaveShape>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const curElement = parseV2Element(charSave.element);
+      if (curElement !== "neutral" && nextElement !== curElement) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "element_change_disabled" as const },
+        };
+      }
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        element: nextElement,
+      });
+      return {
+        status: 200,
+        body: { ok: true as const, class: "none" as const, element: nextElement },
+      };
+    });
+    return Response.json(r.body, { status: r.status });
+  }
+
   if (!V2_SELECTABLE_CLASSES.includes(nextClass)) {
     return Response.json({ ok: false, error: "bad_class" }, { status: 400 });
   }

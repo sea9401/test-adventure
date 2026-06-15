@@ -2,11 +2,11 @@
 //
 // ⚠️ 이 모듈은 PR-1 단계에서 "정의만" 한다 — 런타임 로직 불변. 마스터 플래그
 //    V2_CORE_LOOP_V2 가 off 인 동안 이 상수/데이터를 참조하는 코드는 없다(inert).
-//    후속 PR(스태미나 폐지·직업 스탯게이트 트리·재전직·사냥 쿨다운·오프라인·ATB·AP
-//    로드아웃)이 플래그 게이트 뒤에서 단계적으로 배선하고, 전 시스템 완성 후 flip 한다.
+//    후속 PR(스태미나 폐지·직업 스탯게이트 트리·재전직·사냥 쿨다운·오프라인·ATB·SP
+//    스킬 로드아웃)이 플래그 게이트 뒤에서 단계적으로 배선하고, 전 시스템 완성 후 flip 한다.
 //
 // 전 시스템 = V1식 한판한판 사냥(스태미나 폐지·전투당 딜레이·오프라인 자동전투) + 평탄
-// 스탯게이트 직업 트리(차수 폐지·12계파 재활용) + 재전직 루프 + ATB 전투 + AP 스킬 로드아웃.
+// 스탯게이트 직업 트리(차수 폐지·12계파 재활용) + 재전직 루프 + ATB 전투 + SP 스킬 로드아웃.
 
 import type { StatKey } from "@/adventure/data/stats";
 
@@ -156,11 +156,31 @@ export const STAT_FLOOR_DECAY_BAND = 2500;
 export const STAT_FLOOR_DECAY_PER_BAND = 0.1;
 export const STAT_FLOOR_DECAY_MIN = 0.45;
 
-// === AP 스킬 로드아웃 (cumLevel 파생) ======================================
-export const AP_BASE = 12;
-export const AP_CUMLEVEL_PER_POINT = 45; // 누적 레벨 45당 AP +1
-export const AP_MASTERED_JOB_BONUS = 3; // 직군 정점 도달당 AP +3
-export const AP_MAX_SOFT_CAP = 60;
+// === 스킬포인트(SP) 로드아웃 예산 (직업군 마일스톤 파생) =======================
+// 레벨 슬롯(스킬 1개씩) 폐지 → "배운 스킬 중 합(spCost) ≤ SP예산"으로 자유 장착. SP 는
+// 직업군별 누적레벨 마일스톤 보상으로 조금씩 쌓인다(성장 체감 — "스킬포인트 획득!"). 베테랑일수록
+// 큰 로드아웃. 여러 직업군 환생 누적 = 더 큰 예산. (전 V2_CORE_LOOP_V2 뒤·미배선이면 inert.)
+export const SP_BASE = 12; // 시작 SP.
+export const SP_MILESTONE_INTERVAL = 45; // 직업군 cumLevel 이 이만큼 늘 때마다 +1 SP(마일스톤).
+export const SP_MASTERED_JOB_BONUS = 3; // 직업군 정점(최고 차수) 도달당 +SP.
+export const SP_MASTERED_TIER = 4; // "정복" 기준 = 그 직업군 최고 차수(4차) 도달.
+export const SP_MAX_SOFT_CAP = 60;
+
+// SP 예산 계산 — 각 직업군 cumLevel 마일스톤 합 + 정복 직업군 보너스 + 기본. 소프트캡.
+//   groups = proficiency.groups (직업군별 { cumLevel, tier }). 구조적 인자(순환 import 회피).
+//   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
+export function calcSpBudget(
+  groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
+): number {
+  let milestoneSp = 0;
+  let masteredBonus = 0;
+  for (const g of Object.values(groups ?? {})) {
+    const cum = Math.max(0, Math.floor(Number(g?.cumLevel) || 0));
+    milestoneSp += Math.floor(cum / SP_MILESTONE_INTERVAL);
+    if ((Number(g?.tier) || 0) >= SP_MASTERED_TIER) masteredBonus += SP_MASTERED_JOB_BONUS;
+  }
+  return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus);
+}
 
 // === 거점 행동 비용 (스태미나 → 골드/전투 쿨다운으로 대체) ====================
 export const OUTPOST_MOVE_GOLD_COST = 25; // 인접 이동 1홉(재진입 무료)
@@ -178,7 +198,7 @@ export const CLAIM_GOLD_COST_BY_TIER: Record<number, number> = {
 //   스탯 키 = 내부명(str/vit/int/dex). UI 표기는 STR/DEF(vit)/INT/AGI(dex).
 export type StatGate = Partial<Record<StatKey, number>>;
 
-// 모험가 — 간단 base. HP 증가 패시브 + AP 0 기본공격(별도 데이터). 파생 직업(방랑자·상급
+// 모험가 — 간단 base. HP 증가 패시브 + SP 0 기본공격(별도 데이터). 파생 직업(방랑자·상급
 // 모험가) 확장 훅은 후속.
 export const ADVENTURER_MAXHP_BONUS_PCT = 10;
 

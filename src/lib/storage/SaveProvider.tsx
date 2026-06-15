@@ -292,11 +292,17 @@ export function useSavedValue<T = unknown>(key: SyncedKey): T | undefined {
   return ctx.initial[key] as T | undefined;
 }
 
-// hook — 변경 사항을 서버로 보낼 때 사용.
+// SaveProvider 없이 렌더되는 화면(/dev/* UI 프리뷰)용 폴백 — patch/flush 가 호출돼도
+//   무해(서버 POST 는 인증 없어 실패해도 catch). 실 앱은 항상 SaveProvider 안이라 영향 없음.
+//   lazy 싱글톤(모듈 로드 시 생성 안 함 → SSR 사이드이펙트 0).
+let _fallbackRemote: RemoteSave | null = null;
+function fallbackRemote(): RemoteSave {
+  if (!_fallbackRemote) _fallbackRemote = createRemoteSave();
+  return _fallbackRemote;
+}
+
+// hook — 변경 사항을 서버로 보낼 때 사용. SaveProvider 밖(프리뷰)이면 무해 폴백 반환.
 export function useRemoteSave(): RemoteSave {
   const ctx = useContext(SaveCtx);
-  if (!ctx) {
-    throw new Error("useRemoteSave must be used inside <SaveProvider>");
-  }
-  return ctx.remote;
+  return ctx ? ctx.remote : fallbackRemote();
 }

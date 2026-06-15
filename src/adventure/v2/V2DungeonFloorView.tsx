@@ -132,7 +132,7 @@ export function V2DungeonFloorView({
   setAtRiskGold?: (n: number | null) => void;
   // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<void>;
 }) {
   // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
   // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
@@ -240,7 +240,9 @@ export function V2DungeonFloorView({
         setOfflineMsg("자동 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
-      onRefresh?.();
+      // refresh 가 끝날 때까지 offlineBusy 유지 → offlineSessionActive 가 반영되기 전 틈에
+      //   온라인 사냥이 다시 켜지는 레이스 차단(사냥 버튼/onHuntPress 는 offlineBusy 도 잠금).
+      await onRefresh?.();
     } catch {
       setOfflineMsg("자동 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -387,6 +389,9 @@ export function V2DungeonFloorView({
     : null;
   const needsRecovery =
     hp != null && liveHp != null && !canHuntWithHp(liveHp, hp.maxHp);
+  // 자동 사냥 세션과 직접 사냥 상호 배타 — 세션 활성 OR 시작/정지 처리 중이면 사냥 버튼 잠금.
+  //   offlineBusy 까지 포함해 "시작 직후 refresh 반영 전" 틈에 온라인 루프가 켜지는 레이스 차단.
+  const offlineLocked = offlineSessionActive || offlineBusy;
 
   // 메인 사냥 버튼 발동(클릭·스페이스바 공용). 비활성 조건에선 무발동.
   //   레벨업 모달이 열렸으면 무발동 — 스페이스바 전역 리스너가 모달 오버레이를 우회해 뒤에서
@@ -446,8 +451,8 @@ export function V2DungeonFloorView({
       triggerHunt();
       return;
     }
-    // 자동 사냥 세션 중엔 직접 사냥 잠금(상호 배타) — 정지 버튼으로 먼저 끊어야 한다.
-    if (offlineSessionActive) return;
+    // 자동 사냥 세션 중(또는 시작/정지 처리 중)엔 직접 사냥 잠금 — 정지 버튼으로 먼저 끊어야 한다.
+    if (offlineLocked) return;
     if (autoHunt) {
       setAutoHunt(false);
       return;
@@ -512,7 +517,7 @@ export function V2DungeonFloorView({
             // 코어루프 — 자동 사냥(오프라인 세션) 중이면 직접 사냥 잠금. 온라인 루프 중이면
             //   "멈추기" 버튼이라 항상 클릭 가능(쿨다운/회복 중에도).
             disabled={
-              coreLoopOn && offlineSessionActive
+              coreLoopOn && offlineLocked
                 ? true
                 : coreLoopOn && autoHunt
                   ? false
@@ -523,7 +528,7 @@ export function V2DungeonFloorView({
             }
             aria-pressed={coreLoopOn ? autoHunt : undefined}
             className={`flex-1 rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
-              coreLoopOn && autoHunt && !offlineSessionActive
+              coreLoopOn && autoHunt && !offlineLocked
                 ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
                 : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
             } ${
@@ -532,7 +537,7 @@ export function V2DungeonFloorView({
                 : "disabled:opacity-50"
             }`}
           >
-            {coreLoopOn && offlineSessionActive
+            {coreLoopOn && offlineLocked
               ? "자동 사냥 중 — 정지하면 직접 사냥"
               : coreLoopOn && autoHunt
                 ? busy

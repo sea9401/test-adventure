@@ -58,7 +58,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 import { POST } from "@/app/api/v2/me/offline-settle/route";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
 
-function seedStrongWarrior(lastBattleAt: number) {
+function seedStrongWarrior(lastBattleAt: number, offlineSession = true) {
   store.clear();
   store.set("character.v2", {
     class: "warrior",
@@ -69,6 +69,8 @@ function seedStrongWarrior(lastBattleAt: number) {
     frontierDepth: 2,
     lastHuntDepth: 1, // 오프라인 farm 깊이
     lastBattleAt,
+    // 오프라인 사냥 세션 활성(시작=lastBattleAt) — 정산은 세션 켜진 동안만. 창=시작+2h.
+    ...(offlineSession ? { offlineHuntStartedAt: lastBattleAt } : {}),
     atRiskGold: 0,
   });
   store.set("equipment.v2", {
@@ -147,5 +149,34 @@ describe("POST /api/v2/me/offline-settle — 오프라인 정산(코어루프 on
     const json = (await res.json()) as { battles: number };
     expect(json.battles).toBe(0);
     expect(char().exp).toBe(0);
+  });
+
+  it("🔑세션 없음(오프라인 사냥 미시작) = battles 0 (opt-in) — 그냥 자리 비운다고 안 쌓임", async () => {
+    seedStrongWarrior(Date.now() - 60_000, false); // 충분한 경과지만 세션 없음
+    const res = await POST();
+    const json = (await res.json()) as { battles: number; active?: boolean };
+    expect(json.battles).toBe(0);
+    expect(char().exp).toBe(0);
+  });
+
+  it("🔑창 끝 클램프 + 창 소진 시 세션 종료", async () => {
+    const now = Date.now();
+    seedStrongWarrior(now - 90_000); // lastBattleAt = 90초 전(12판분)
+    // 세션은 2h+ 전 시작 → 창(시작+2h)이 이미 종료(now−30초). effectiveNow=창끝으로 클램프.
+    const c = char() as Record<string, unknown>;
+    c.offlineHuntStartedAt = now - 2 * 3600_000 - 30_000;
+    store.set("character.v2", c);
+    const res = await POST();
+    const json = (await res.json()) as {
+      battles: number;
+      accrued: number;
+      active: boolean;
+    };
+    // (창끝(now−30s) − lastBattleAt(now−90s)) / 5s = 12.
+    expect(json.accrued).toBe(12);
+    expect(json.active).toBe(false); // 창 소진 → 세션 종료
+    expect(
+      (char() as { offlineHuntStartedAt?: number | null }).offlineHuntStartedAt,
+    ).toBeNull();
   });
 });

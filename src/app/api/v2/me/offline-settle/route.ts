@@ -5,6 +5,7 @@ import { canHuntWithHp } from "@/adventure/v2/hpRegen";
 import {
   V2_CORE_LOOP_V2,
   HUNT_COOLDOWN_MS,
+  OFFLINE_MAX_MS,
   offlineBattlesAccrued,
 } from "@/adventure/data/v2/coreLoopConfig";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
@@ -31,6 +32,8 @@ type SettleCharSave = {
   lastHuntDepth?: number;
   frontierDepth?: number;
   level?: number;
+  // 오프라인 사냥 세션 시작 시각(없으면 비활성 → 정산 없음). 최대 OFFLINE_MAX_MS(2h) 창.
+  offlineHuntStartedAt?: number;
   [k: string]: unknown;
 };
 
@@ -54,10 +57,28 @@ export async function POST() {
       "character.v2",
       {},
     );
+    // 오프라인 사냥은 명시 세션(offlineHuntStartedAt)이 켜져 있을 때만 누적·정산한다.
+    //   세션 없음(시작 안 함)이면 정산 0 — 그냥 탭만 닫는다고 누적되지 않음(opt-in).
+    const startedAt = Number(charSave.offlineHuntStartedAt) || 0;
+    if (startedAt <= 0) {
+      return { battles: 0 as const, accrued: 0, active: false as const };
+    }
+    // 세션 창 끝 = 시작 + 2h. 정산 기준 시각은 now 를 창 끝으로 클램프(2h 초과분 버림).
+    const windowEnd = startedAt + OFFLINE_MAX_MS;
+    const effectiveNow = Math.min(now, windowEnd);
     const lastBattleAt = Number(charSave.lastBattleAt) || 0;
-    const n = offlineBattlesAccrued(lastBattleAt, now);
+    const n = offlineBattlesAccrued(lastBattleAt, effectiveNow);
+    // 창이 다 소진됐으면(effectiveNow≥windowEnd) 정산 후 세션 종료.
+    const windowDone = effectiveNow >= windowEnd;
     if (n <= 0) {
-      return { battles: 0 as const, accrued: 0 };
+      // 누적 0 이지만 창이 끝났으면 세션만 정리.
+      if (windowDone) {
+        await upsertSave(tx, userId, "character.v2", {
+          ...charSave,
+          offlineHuntStartedAt: null,
+        });
+      }
+      return { battles: 0 as const, accrued: 0, active: !windowDone };
     }
 
     // farm 깊이 — lastHuntDepth, 없으면 frontierDepth−1, [1, frontierDepth] 클램프(잠긴 깊이 방지).
@@ -79,7 +100,7 @@ export async function POST() {
     //   5초 회복부터 시작 → "5초 cadence 액티브"와 동일 HP 경제(오프라인 초과 누수 차단).
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      hpRegenSince: now - n * HUNT_COOLDOWN_MS,
+      hpRegenSince: effectiveNow - n * HUNT_COOLDOWN_MS,
     });
 
     // === 정산 루프 — runOneHunt 재사용. 각 판이 character.v2 재read 로 HP/exp/골드/레벨/세금 이월. ===
@@ -93,8 +114,8 @@ export async function POST() {
     let stopped: "hp" | "error" | null = null;
 
     for (let i = 0; i < n; i++) {
-      // 판별 시뮬 시각 — 5초 간격, 마지막 판이 realNow(멱등 + HP 회복 정확).
-      const nowOverride = now - (n - 1 - i) * HUNT_COOLDOWN_MS;
+      // 판별 시뮬 시각 — 5초 간격, 마지막 판이 effectiveNow(창 끝 클램프 + 멱등 + HP 회복 정확).
+      const nowOverride = effectiveNow - (n - 1 - i) * HUNT_COOLDOWN_MS;
       const ctx: RunOneHuntCtx = {
         tx,
         userId,
@@ -138,7 +159,9 @@ export async function POST() {
     );
     await upsertSave(tx, userId, "character.v2", {
       ...after,
-      lastBattleAt: Date.now(),
+      // 정산한 만큼만 anchor 전진(창 끝 클램프). 창 다 쓰면 세션 종료(offlineHuntStartedAt 제거).
+      lastBattleAt: effectiveNow,
+      ...(windowDone ? { offlineHuntStartedAt: null } : {}),
     });
 
     return {
@@ -153,6 +176,8 @@ export async function POST() {
       depth,
       finalLevel: Math.max(1, Math.floor(Number(after.level) || 1)),
       stopped,
+      // 창이 남아 있으면 세션 유지(true) — 또 비우면 더 누적됨. 다 쓰면 false(종료).
+      active: !windowDone,
     };
   });
 

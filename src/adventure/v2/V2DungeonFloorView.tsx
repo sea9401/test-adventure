@@ -56,6 +56,16 @@ function saveHuntCount(n: HuntCount): void {
   } catch {}
 }
 
+// 오프라인 사냥 남은 시간 표기(ms → "1시간 23분"/"23분"/"45초").
+function fmtOfflineRemain(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}시간 ${m}분`;
+  if (m > 0) return `${m}분`;
+  return `${s}초`;
+}
+
 export function V2DungeonFloorView({
   floorId,
   outpostId,
@@ -79,6 +89,8 @@ export function V2DungeonFloorView({
   combatCooldown,
   setCombatCooldown,
   setAtRiskGold,
+  offlineHunt,
+  onRefresh,
 }: {
   // 깊이 숫자 (테마당 6깊이: 1~6 들판·7~12 깊은 산·13+ 프론티어 밴드). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
@@ -118,6 +130,9 @@ export function V2DungeonFloorView({
   setCombatCooldown?: (c: { nextBattleAt: number; cooldownMs: number } | null) => void;
   // 위험 골드 갱신 — 사냥 응답의 atRiskGold 를 전역(V2TopBar 뱃지)으로 반영.
   setAtRiskGold?: (n: number | null) => void;
+  // 오프라인 사냥 세션 상태(전역) + 시작/정지 후 me/state 재조회 콜백.
+  offlineHunt?: { active: boolean; endsAt: number } | null;
+  onRefresh?: () => void;
 }) {
   // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
   // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
@@ -191,6 +206,75 @@ export function V2DungeonFloorView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // 자동 사냥 — 켜져 있으면 1.2초마다 사냥 발동. 쿨다운/회복/busy 가드는 triggerHunt 내부라
+  //   조건 안 되면 no-op(쿨다운 끝나면 자동 재개). 탭 닫으면(언마운트) 정지. 코어루프 전용 UI.
+  const [autoHunt, setAutoHunt] = useState(false);
+  useEffect(() => {
+    if (!autoHunt) return;
+    const id = setInterval(() => triggerHuntRef.current(), 1200);
+    return () => clearInterval(id);
+  }, [autoHunt]);
+  // 오프라인 사냥 세션 시작/정지 진행 중 플래그 + 정지 정산 결과 한 줄.
+  const [offlineBusy, setOfflineBusy] = useState(false);
+  const [offlineMsg, setOfflineMsg] = useState<string | null>(null);
+  const startOffline = async () => {
+    setOfflineBusy(true);
+    setOfflineMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/offline-hunt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      });
+      if (!res.ok) {
+        setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      onRefresh?.();
+    } catch {
+      setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setOfflineBusy(false);
+    }
+  };
+  const stopOffline = async () => {
+    setOfflineBusy(true);
+    try {
+      // 먼저 누적분 정산(결과는 한 줄로 표기) → 세션 종료.
+      const res = await fetch("/api/v2/me/offline-settle", { method: "POST" });
+      // 정산이 실패(5xx 등)하면 보상이 새지 않게 세션을 끄지 않고 중단 — 재시도 가능.
+      if (!res.ok) {
+        setOfflineMsg("정산에 실패했어요. 누적은 보존되며 잠시 후 다시 시도할 수 있어요.");
+        return;
+      }
+      const j = (await res.json().catch(() => null)) as {
+        battles?: number;
+        totalExp?: number;
+        totalGold?: number;
+      } | null;
+      const stopRes = await fetch("/api/v2/me/offline-hunt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "stop" }),
+      });
+      if (!stopRes.ok) {
+        setOfflineMsg("정산은 됐지만 세션 종료에 실패했어요. 다시 정지를 눌러 주세요.");
+        onRefresh?.();
+        return;
+      }
+      setOfflineMsg(
+        (j?.battles ?? 0) > 0
+          ? `오프라인 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
+          : "오프라인 사냥 정지 (정산할 누적 없음)",
+      );
+      onRefresh?.();
+    } catch {
+      setOfflineMsg("정산에 실패했어요. 누적은 보존되며 잠시 후 다시 시도할 수 있어요.");
+    } finally {
+      setOfflineBusy(false);
+    }
+  };
 
   // 사냥 응답의 최종 HP 로 전역 HP 갱신 — anchor = 지금(응답 수신 시각 ≈ 서버 now).
   const recordHp = (r: { hpAfter: number; maxHp: number }) => {
@@ -333,6 +417,11 @@ export function V2DungeonFloorView({
             });
             if (r.atRiskGold != null) setAtRiskGold?.(r.atRiskGold);
           }
+        } else {
+          // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시
+          // 쿨다운이 안 잡혀 자동 사냥이 1.2초마다 무한 재시도할 수 있으니 즉시 정지.
+          // (성공 흐름은 낙관적 쿨다운으로 자연히 간격을 둔다.)
+          setAutoHunt(false);
         }
       });
     } else {
@@ -456,6 +545,53 @@ export function V2DungeonFloorView({
                 );
               })}
             </div>
+          </div>
+        )}
+        {/* 코어루프 — 자동 사냥(탭 열림·연속) + 오프라인 사냥(탭 닫아도 최대 2시간) */}
+        {coreLoopOn && (
+          <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setAutoHunt((v) => !v)}
+              aria-pressed={autoHunt}
+              className={`w-full rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                autoHunt
+                  ? "border-emerald-500 bg-emerald-100 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
+                  : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {autoHunt ? "자동 사냥 끄기" : "자동 사냥 켜기"}
+            </button>
+            {offlineHunt?.active ? (
+              <button
+                type="button"
+                onClick={stopOffline}
+                disabled={offlineBusy}
+                className="w-full rounded-md border border-amber-500 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
+              >
+                {offlineBusy
+                  ? "정지 중…"
+                  : `오프라인 사냥 정지 (남은 ${fmtOfflineRemain(offlineHunt.endsAt - now)})`}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={startOffline}
+                disabled={offlineBusy}
+                className="w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
+              >
+                {offlineBusy ? "시작 중…" : "오프라인 사냥 시작"}
+              </button>
+            )}
+            <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+              자동 사냥은 탭이 열려 있는 동안만 돌아갑니다. 오프라인 사냥은 탭을
+              닫아도 최대 2시간까지 쌓여 돌아왔을 때 정산됩니다.
+            </p>
+            {offlineMsg && (
+              <p className="rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                {offlineMsg}
+              </p>
+            )}
           </div>
         )}
       </Card>

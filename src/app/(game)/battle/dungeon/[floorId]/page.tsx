@@ -37,6 +37,7 @@ export default function DungeonFloorPage() {
     combatCooldown,
     setCombatCooldown,
     setAtRiskGold,
+    offlineHunt,
   } = useGameState();
 
   const n = Number(params.floorId);
@@ -76,6 +77,8 @@ export default function DungeonFloorPage() {
       combatCooldown={combatCooldown}
       setCombatCooldown={setCombatCooldown}
       setAtRiskGold={setAtRiskGold}
+      offlineHunt={offlineHunt}
+      onRefresh={refreshGameState}
     />
   );
 }

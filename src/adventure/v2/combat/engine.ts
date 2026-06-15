@@ -46,6 +46,8 @@ import {
 } from "@/adventure/character/apSkills";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { resolveBattleAtb } from "./engine.atb";
 
 export type BattleLogEntry =
   | {
@@ -1342,7 +1344,7 @@ export type BattleResolution = {
   turns: number;
 };
 
-export function resolveBattle(
+function resolveBattleLegacy(
   player: PlayerCombat,
   enemy: import("@/adventure/data/monsters").Monster,
   playerName: string,
@@ -2025,6 +2027,16 @@ export function resolveBattle(
     potionsConsumed: consumed,
     turns,
   };
+}
+
+export function resolveBattle(
+  player: PlayerCombat,
+  enemy: import("@/adventure/data/monsters").Monster,
+  playerName: string,
+  ctx: ResolveContext,
+): BattleResolution {
+  if (V2_CORE_LOOP_V2) return resolveBattleAtb(player, enemy, playerName, ctx);
+  return resolveBattleLegacy(player, enemy, playerName, ctx);
 }
 
 // 물약 효과 적용 — 순수 함수. 인벤토리 차감은 호출 측 책임.

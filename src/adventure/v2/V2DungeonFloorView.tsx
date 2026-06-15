@@ -237,14 +237,14 @@ export function V2DungeonFloorView({
         body: JSON.stringify({ action: "start" }),
       });
       if (!res.ok) {
-        setOfflineMsg("자동 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
       // refresh 가 끝날 때까지 offlineBusy 유지 → offlineSessionActive 가 반영되기 전 틈에
       //   온라인 사냥이 다시 켜지는 레이스 차단(사냥 버튼/onHuntPress 는 offlineBusy 도 잠금).
       await onRefresh?.();
     } catch {
-      setOfflineMsg("자동 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setOfflineBusy(false);
     }
@@ -276,8 +276,8 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         (j?.battles ?? 0) > 0
-          ? `자동 사냥 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
-          : "자동 사냥 정지 (정산할 누적 없음)",
+          ? `오프라인 사냥 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
+          : "오프라인 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
     } catch {
@@ -538,7 +538,7 @@ export function V2DungeonFloorView({
             }`}
           >
             {coreLoopOn && offlineLocked
-              ? "자동 사냥 중 — 정지하면 직접 사냥"
+              ? "오프라인 사냥 중 — 정지하면 직접 사냥"
               : coreLoopOn && autoHunt
                 ? busy
                   ? "사냥 중… (누르면 멈춤)"
@@ -601,7 +601,7 @@ export function V2DungeonFloorView({
             </div>
           </div>
         )}
-        {/* 코어루프 — 사냥 버튼=탭 열림 연속 사냥. 자동 사냥=탭 닫아도 최대 2시간 누적 후 정산 */}
+        {/* 코어루프 — 사냥 버튼=탭 열림 연속 사냥. 오프라인 사냥=탭 닫아도 최대 2시간 누적 후 정산 */}
         {coreLoopOn && (
           <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
             {offlineHunt?.active ? (
@@ -613,7 +613,7 @@ export function V2DungeonFloorView({
               >
                 {offlineBusy
                   ? "정지 중…"
-                  : `자동 사냥 정지 (남은 ${fmtOfflineRemain(offlineHunt.endsAt - now)})`}
+                  : `오프라인 사냥 정지 (남은 ${fmtOfflineRemain(offlineHunt.endsAt - now)})`}
               </button>
             ) : (
               <button
@@ -622,12 +622,12 @@ export function V2DungeonFloorView({
                 disabled={offlineBusy}
                 className="w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
               >
-                {offlineBusy ? "시작 중…" : "자동 사냥 시작"}
+                {offlineBusy ? "시작 중…" : "오프라인 사냥"}
               </button>
             )}
             <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
               사냥 버튼을 누르면 탭이 열려 있는 동안 자동으로 사냥이 계속됩니다(다시
-              누르면 멈춤). 자동 사냥은 탭을 닫아도 최대 2시간까지 쌓여, 돌아왔을 때
+              누르면 멈춤). 오프라인 사냥은 탭을 닫아도 최대 2시간까지 쌓여, 돌아왔을 때
               정산됩니다.
             </p>
             {offlineMsg && (

@@ -36,6 +36,7 @@ import {
 import {
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   V2_ELEMENT_ADV_PCT_PVP,
   V2_ELEMENT_DIS_PCT_PVP,
@@ -72,6 +73,7 @@ import {
   SPELL_STACK_CAP,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
+import { resolveBattlePvPAtb } from "./engine.pvp-atb";
 export { advanceTurnPvP }; // 공개 API 보존 (resolveBattlePvP 가 로컬 호출도 함 → import+export 둘 다)
 
 // ── 타입 정의 ───────────────────────────────────────────────────────────────
@@ -1509,7 +1511,7 @@ function castV2SkillOnAttackerTurnPvP(
   return next;
 }
 
-export function resolveBattlePvP(
+function resolveBattlePvPLegacy(
   p1Player: PlayerCombat,
   p2Player: PlayerCombat,
   p1Name: string,
@@ -1640,4 +1642,17 @@ export function resolveBattlePvP(
     potionsConsumed: consumed,
     turns,
   };
+}
+
+export function resolveBattlePvP(
+  p1Player: PlayerCombat,
+  p2Player: PlayerCombat,
+  p1Name: string,
+  p2Name: string,
+  ctx: PvPResolveContext,
+): PvPBattleResolution {
+  if (V2_CORE_LOOP_V2) {
+    return resolveBattlePvPAtb(p1Player, p2Player, p1Name, p2Name, ctx);
+  }
+  return resolveBattlePvPLegacy(p1Player, p2Player, p1Name, p2Name, ctx);
 }

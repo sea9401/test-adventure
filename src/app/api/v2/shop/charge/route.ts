@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
-import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/charge — HP / MP 충전 구매.
 //
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     return {
       ok: true as const,
       gold: newGold,
-      bankedGold: spend.bankedGold,
+      ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       hpCharges: newHp,
       mpCharges: newMp,
       charged: charge,

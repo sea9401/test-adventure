@@ -14,6 +14,7 @@ import {
 } from "@/adventure/data/v2/v2Recipes";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import {
+  V2_CORE_LOOP_V2,
   spendGold,
   spendableGold,
 } from "@/adventure/data/v2/coreLoopConfig";
@@ -154,7 +155,7 @@ export async function POST(req: Request) {
         ok: true as const,
         crafted: id,
         gold: nextGold,
-        bankedGold: spend.bankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         materials: nextMaterials,
         owned: nextOwned,
       },

@@ -116,7 +116,7 @@ const ERR_LABEL: Record<string, string> = {
 
 export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   // 구매 affordability — flag off 면 보유(viewerGold)만, on 이면 보유+은행(은행 골드로도 구매).
-  const { coreLoopOn, bankedGold } = useGameState();
+  const { coreLoopOn, bankedGold, refreshGameState } = useGameState();
   const [tab, setTab] = useState<Tab>("browse");
   // 판매 탭 — 인벤토리와 동일하게 슬롯 서브탭 + 정렬 + 페이지네이션.
   const [sellTab, setSellTab] = useState<V2ItemTabKey>("weapon");
@@ -253,7 +253,11 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   );
 
   const buy = (l: Listing) =>
-    act("/api/v2/marketplace/buy", { listingId: l.id }, `✓ ${l.itemName} 구매 완료`, () => loadBrowse(false));
+    act("/api/v2/marketplace/buy", { listingId: l.id }, `✓ ${l.itemName} 구매 완료`, async () => {
+      // 은행 우선 소비 후 컨텍스트(은행 잔액=구매 게이트 기준)도 갱신 — 안 하면 stale.
+      await loadBrowse(false);
+      await refreshGameState();
+    });
   const cancel = (l: Listing) =>
     act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물 취소 — 아이템 반환", () => loadBrowse(true));
 

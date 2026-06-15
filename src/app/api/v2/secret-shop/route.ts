@@ -68,7 +68,9 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     gold: Math.max(0, Math.floor(save?.gold ?? 0)),
-    bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)),
+    ...(V2_CORE_LOOP_V2
+      ? { bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)) }
+      : {}),
     expiresAt: map.expiresAt,
     stock: SECRET_SHOP_STOCK.filter(
       (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
@@ -203,7 +205,9 @@ export async function POST(req: Request) {
         ok: true as const,
         itemId: item.id,
         gold: nextChar.gold as number,
-        bankedGold: nextChar.bankedGold as number,
+        ...(V2_CORE_LOOP_V2
+          ? { bankedGold: nextChar.bankedGold as number }
+          : {}),
         mapConsumed: allBought,
       },
     };

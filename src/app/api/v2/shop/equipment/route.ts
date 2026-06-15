@@ -8,7 +8,7 @@ import {
   shopPriceOf,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/equipment — 마을 상점에서 T1~T5 장비 구매.
 //
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         gold: spend.gold,
-        bankedGold: spend.bankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         owned: nextOwned,
       },
     };

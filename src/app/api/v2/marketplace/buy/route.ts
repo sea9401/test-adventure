@@ -20,7 +20,7 @@ import {
   genRareMapIid,
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
-import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -178,7 +178,7 @@ export async function POST(req: Request) {
         itemName: listing.itemName,
         paid: listing.price,
         gold: nextChar.gold,
-        bankedGold: nextChar.bankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: nextChar.bankedGold } : {}),
       },
     };
   });

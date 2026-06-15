@@ -8,7 +8,7 @@ import {
   V2_EQUIPMENT,
 } from "@/adventure/data/v2/v2Equipment";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
-import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   ENHANCE_FEED_MIN_LEVEL,
   ENHANCE_MAX_LEVEL,
@@ -260,7 +260,7 @@ export async function POST(req: Request) {
         stoneCost,
         goldCost,
         gold: nextGold,
-        bankedGold: nextBankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: nextBankedGold } : {}),
         stones: {
           red: Math.max(
             0,

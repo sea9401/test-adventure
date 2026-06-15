@@ -5,7 +5,7 @@ import {
   createUserGuild,
   GuildCreateError,
 } from "@/lib/server/v2EnsureSoloGuild";
-import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/guild/create — 길드 생성.
 // body: { name: string }
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
         ok: true as const,
         guildId,
         gold: spend.gold,
-        bankedGold: spend.bankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },
     };
   });

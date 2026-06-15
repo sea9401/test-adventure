@@ -298,7 +298,7 @@ export async function POST(req: Request) {
         class: effectiveClass,
         element: nextElement,
         gold: nextGold,
-        bankedGold: nextBankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: nextBankedGold } : {}),
         spent,
         cooldownUntil,
       },

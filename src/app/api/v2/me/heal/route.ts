@@ -3,7 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
-import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/heal — 치료소 만피 회복.
 //
@@ -95,7 +95,7 @@ export async function POST() {
         mp: maxMp,
         maxMp,
         gold: spend.gold,
-        bankedGold: spend.bankedGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         cost,
       },
     };

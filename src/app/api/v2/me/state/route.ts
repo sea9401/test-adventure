@@ -27,6 +27,7 @@ import {
 import {
   V2_CORE_LOOP_V2,
   HUNT_COOLDOWN_MS,
+  OFFLINE_MAX_MS,
   combatCooldownRemainingMs,
   offlineBattlesAccrued,
   unlockedJobGroups,
@@ -397,13 +398,27 @@ export async function GET() {
         serverNow: now,
       }
     : null;
-  // 코어루프 오프라인 정산 대기 — 안 논 시간만큼 누적된 판수(2h 캡). >0 이면 클라가 offline-settle
-  //   호출. off 면 null(오프라인 정산 없음).
-  const offlinePending = V2_CORE_LOOP_V2
-    ? offlineBattlesAccrued(
-        Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
-        now,
-      )
+  // 코어루프 오프라인 사냥 — 명시 세션(offlineHuntStartedAt) 켜진 동안만 누적. 세션 창=시작+2h.
+  //   offlinePending = 세션 창 안에서 lastBattleAt 이후 누적 판수(>0 이면 클라가 offline-settle).
+  //   offlineHunt = 세션 상태(시작/끝 시각) — 클라 "오프라인 사냥 중·정지" 버튼/카운트다운용.
+  const offlineStartedAt =
+    Number((charSave as { offlineHuntStartedAt?: number }).offlineHuntStartedAt) ||
+    0;
+  const offlineActive = V2_CORE_LOOP_V2 && offlineStartedAt > 0;
+  const offlineEndsAt = offlineStartedAt + OFFLINE_MAX_MS;
+  const offlinePending =
+    !V2_CORE_LOOP_V2
+      ? null
+      : offlineActive
+        ? offlineBattlesAccrued(
+            Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
+            Math.min(now, offlineEndsAt),
+          )
+        : 0;
+  const offlineHunt = V2_CORE_LOOP_V2
+    ? offlineActive
+      ? { active: true, startedAt: offlineStartedAt, endsAt: offlineEndsAt, serverNow: now }
+      : { active: false }
     : null;
 
   return Response.json({
@@ -416,6 +431,8 @@ export async function GET() {
     combatCooldown,
     // 코어루프 오프라인 정산 대기 판수 — flag off 면 null.
     offlinePending,
+    // 코어루프 오프라인 사냥 세션 상태(시작/끝 시각) — flag off 면 null.
+    offlineHunt,
     character: {
       name,
       gender,

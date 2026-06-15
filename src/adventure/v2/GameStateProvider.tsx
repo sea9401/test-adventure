@@ -101,6 +101,11 @@ type GameStateValue = {
   // 오프라인 정산 대기 판수 — 복귀 카드 트리거. 정산 후 0 으로.
   offlinePending: number | null;
   setOfflinePending: React.Dispatch<React.SetStateAction<number | null>>;
+  // 오프라인 사냥 세션 — active + endsAt(클라 로컬 시각, skew 보정). null=flag off. 시작/정지 버튼.
+  offlineHunt: { active: boolean; endsAt: number } | null;
+  setOfflineHunt: React.Dispatch<
+    React.SetStateAction<{ active: boolean; endsAt: number } | null>
+  >;
   // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
   atRiskGold: number | null;
   setAtRiskGold: React.Dispatch<React.SetStateAction<number | null>>;
@@ -186,6 +191,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     cooldownMs: number;
   } | null>(null);
   const [offlinePending, setOfflinePending] = useState<number | null>(null);
+  const [offlineHunt, setOfflineHunt] = useState<{
+    active: boolean;
+    endsAt: number;
+  } | null>(null);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
@@ -256,6 +265,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             serverNow: number;
           } | null;
           offlinePending?: number | null;
+          offlineHunt?: {
+            active: boolean;
+            startedAt?: number;
+            endsAt?: number;
+            serverNow?: number;
+          } | null;
         } | null;
         if (j?.character?.name) setViewerName(j.character.name);
         setAccountName(j?.accountName ?? null);
@@ -321,6 +336,20 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         setOfflinePending(
           typeof j?.offlinePending === "number" ? j.offlinePending : null,
         );
+        // 오프라인 사냥 세션 — endsAt(서버) → 클라 로컬로 변환(skew 보정).
+        const oh = j?.offlineHunt;
+        if (oh == null) {
+          setOfflineHunt(null);
+        } else if (
+          oh.active &&
+          typeof oh.endsAt === "number" &&
+          typeof oh.serverNow === "number"
+        ) {
+          const remaining = Math.max(0, oh.endsAt - oh.serverNow);
+          setOfflineHunt({ active: true, endsAt: Date.now() + remaining });
+        } else {
+          setOfflineHunt({ active: false, endsAt: 0 });
+        }
         setAtRiskGold(
           typeof j?.character?.atRiskGold === "number"
             ? j.character.atRiskGold
@@ -531,6 +560,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setCombatCooldown,
     offlinePending,
     setOfflinePending,
+    offlineHunt,
+    setOfflineHunt,
     atRiskGold,
     setAtRiskGold,
     mp,

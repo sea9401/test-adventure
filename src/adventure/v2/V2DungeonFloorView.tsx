@@ -222,13 +222,18 @@ export function V2DungeonFloorView({
     setOfflineBusy(true);
     setOfflineMsg(null);
     try {
-      await fetch("/api/v2/me/offline-hunt", {
+      const res = await fetch("/api/v2/me/offline-hunt", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "start" }),
       });
+      if (!res.ok) {
+        setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
       onRefresh?.();
     } catch {
+      setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setOfflineBusy(false);
     }
@@ -238,16 +243,26 @@ export function V2DungeonFloorView({
     try {
       // 먼저 누적분 정산(결과는 한 줄로 표기) → 세션 종료.
       const res = await fetch("/api/v2/me/offline-settle", { method: "POST" });
+      // 정산이 실패(5xx 등)하면 보상이 새지 않게 세션을 끄지 않고 중단 — 재시도 가능.
+      if (!res.ok) {
+        setOfflineMsg("정산에 실패했어요. 누적은 보존되며 잠시 후 다시 시도할 수 있어요.");
+        return;
+      }
       const j = (await res.json().catch(() => null)) as {
         battles?: number;
         totalExp?: number;
         totalGold?: number;
       } | null;
-      await fetch("/api/v2/me/offline-hunt", {
+      const stopRes = await fetch("/api/v2/me/offline-hunt", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "stop" }),
       });
+      if (!stopRes.ok) {
+        setOfflineMsg("정산은 됐지만 세션 종료에 실패했어요. 다시 정지를 눌러 주세요.");
+        onRefresh?.();
+        return;
+      }
       setOfflineMsg(
         (j?.battles ?? 0) > 0
           ? `오프라인 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
@@ -255,6 +270,7 @@ export function V2DungeonFloorView({
       );
       onRefresh?.();
     } catch {
+      setOfflineMsg("정산에 실패했어요. 누적은 보존되며 잠시 후 다시 시도할 수 있어요.");
     } finally {
       setOfflineBusy(false);
     }
@@ -401,6 +417,11 @@ export function V2DungeonFloorView({
             });
             if (r.atRiskGold != null) setAtRiskGold?.(r.atRiskGold);
           }
+        } else {
+          // 사냥이 서버에서 거부됨(depth_locked·policy_blocked·hp_zero 등) — 실패 시
+          // 쿨다운이 안 잡혀 자동 사냥이 1.2초마다 무한 재시도할 수 있으니 즉시 정지.
+          // (성공 흐름은 낙관적 쿨다운으로 자연히 간격을 둔다.)
+          setAutoHunt(false);
         }
       });
     } else {

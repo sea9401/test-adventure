@@ -37,7 +37,11 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
-  const action = body.action === "stop" ? "stop" : "start";
+  // 잘못된 action 이 실수로 세션을 리셋하지 않게 명시 검증.
+  if (body.action !== "start" && body.action !== "stop") {
+    return Response.json({ ok: false, error: "bad_action" }, { status: 400 });
+  }
+  const action = body.action;
   const now = Date.now();
 
   const result = await db.transaction(async (tx) => {
@@ -54,7 +58,16 @@ export async function POST(req: Request) {
       });
       return { active: false as const };
     }
-    // start — 새 2시간 창. lastBattleAt 도 now 로 맞춰 누적이 시작 시점부터 잡히게.
+    // start — 이미 활성이면 창 리셋 안 함(누적 시간 보존·중복 start 멱등).
+    const cur = Number(charSave.offlineHuntStartedAt) || 0;
+    if (cur > 0) {
+      return {
+        active: true as const,
+        startedAt: cur,
+        endsAt: cur + OFFLINE_MAX_MS,
+      };
+    }
+    // 새 2시간 창. lastBattleAt 도 now 로 맞춰 누적이 시작 시점부터 잡히게.
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       offlineHuntStartedAt: now,

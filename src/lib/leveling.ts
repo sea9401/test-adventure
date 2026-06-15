@@ -19,11 +19,13 @@ export const MAX_LEVEL = 100;
 // 서버 전역 EXP 배율 — 테스트 서버용. 빌드 시 NEXT_PUBLIC_XP_RATE_MULT=2.5 처럼 주입.
 // NEXT_PUBLIC_ 접두사라 클라/서버 양쪽에서 같은 값. 신참 ×2 와 길드 expMult 와는 곱해짐.
 // 안전 범위 [0.1, 100] 클램프.
-// 우선순위: NEXT_PUBLIC_XP_RATE_MULT(명시) > staging 기본(2.2) > 1.0.
-//   staging(IS_STAGING="true")은 env 미설정 시 2.2 자동 — v2 만렙 페이스 ~37일/B(목표 30~40).
-//   IS_STAGING 은 서버 전용이라 클라 번들에선 undefined → 1.0 이지만, XP_RATE_MULT 의 실제
-//   적용처(v2 hunt route·battleClaim·questReward)가 모두 서버라 지급 EXP 는 일관(2.2). 라이브
-//   (IS_STAGING≠true)는 기본 1.0 그대로라 영향 없음.
+// 우선순위: NEXT_PUBLIC_XP_RATE_MULT(명시) > 코어루프(2.5) > staging 기본(2.2) > 1.0.
+//   코어루프(NEXT_PUBLIC_V2_CORE_LOOP_V2="true")는 env 미설정 시 2.5 자동 — 페이싱 캘리브로
+//   확정(Lv1→50 ≈ LOOP_BATTLES_TARGET 1200판 ≈ 100분, 베테랑 평균; sim-v2-progression --pacing).
+//   NEXT_PUBLIC_ 접두사라 클라/서버 일관. 라이브 flip 은 이 기본만으로 2.5(별도 env 불요).
+//   staging(IS_STAGING="true")은 옛 스태미나 페이스 기본 2.2(코어루프 off staging 잔존).
+//   라이브 flag-off(코어루프 off·IS_STAGING≠true)는 명시값 또는 1.0 그대로라 영향 없음.
+const CORE_LOOP_XP_RATE = 2.5; // 페이싱 캘리브 확정 — 베테랑 루프 ~1200판
 const STAGING_DEFAULT_XP_RATE = 2.2;
 function parseXpRateMult(): number {
   const raw = process.env.NEXT_PUBLIC_XP_RATE_MULT;
@@ -31,6 +33,7 @@ function parseXpRateMult(): number {
     const n = Number.parseFloat(raw);
     if (Number.isFinite(n) && n > 0) return Math.min(100, Math.max(0.1, n));
   }
+  if (process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2 === "true") return CORE_LOOP_XP_RATE;
   if (process.env.IS_STAGING === "true") return STAGING_DEFAULT_XP_RATE;
   return 1;
 }

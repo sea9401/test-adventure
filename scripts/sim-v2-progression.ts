@@ -43,6 +43,11 @@ import { enemiesForDepth, depthName } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
 import { floorPowerGate } from "../src/adventure/data/v2/dungeonLadder";
 import { derivePowerScore } from "../src/adventure/data/v2/power";
+import { requiredExpToNext, XP_RATE_MULT } from "../src/lib/leveling";
+import {
+  LOOP_BATTLES_TARGET,
+  V2_LEVEL_CAP,
+} from "../src/adventure/data/v2/coreLoopConfig";
 import type {
   V2EquipmentId,
   V2EquipSlot,
@@ -329,6 +334,92 @@ function combatStats(
     lossTurns: losses > 0 ? lossTurnsSum / losses : 0,
     lossEnemyHpPct: losses > 0 ? lossHpPctSum / losses : 0,
   };
+}
+
+// ── 페이싱 모드(--pacing) — Lv1→50 한 루프 실제 판수 측정 ───────────────
+// 각 레벨에서 "기대 exp/판(승률×승리exp)"이 최대인 깊이를 실제 전투로 찾아(합리적 플레이어
+// =파워게이트 깊이) 판수 합산. 승률 낮은 깊이는 패배=0exp+세금이라 자연히 제외됨.
+const PACING_MODE = process.argv.includes("--pacing");
+
+function expPerBattleAtDepth(
+  arch: Arch,
+  level: number,
+  depth: number,
+  newbie: boolean,
+): { expPerBattle: number; wrPct: number } {
+  const enemies = depthMonsters(depth);
+  if (enemies.length === 0) return { expPerBattle: 0, wrPct: 0 };
+  const player = makePlayer(arch, level).player;
+  const v2Skills: V2SkillsState = { learned: [], equipped: [] };
+  const TRIALS = 8;
+  let total = 0;
+  let wins = 0;
+  let expSum = 0;
+  for (const enemy of enemies) {
+    for (let i = 0; i < TRIALS; i++) {
+      const r = resolveBattle({ ...player, hp: player.maxHp }, enemy, "Sim", {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills,
+      });
+      total++;
+      if (r.outcome === "win") {
+        wins++;
+        expSum += enemy.exp; // 깊이 배율 이미 반영(scaleMonsterForFloor)
+      }
+    }
+  }
+  const mult = XP_RATE_MULT * (newbie ? 2 : 1);
+  return { expPerBattle: (expSum / total) * mult, wrPct: (wins / total) * 100 };
+}
+
+function runPacing() {
+  console.log(
+    `v2 코어루프 페이싱 — Lv1→50 실측(목표 ${LOOP_BATTLES_TARGET}판≈100분). XP_RATE_MULT=${XP_RATE_MULT}`,
+  );
+  console.log(
+    "모델: 레벨마다 기대 exp/판 최대 깊이(실전투 sweep, 승률 붕괴 시 조기중단). 100% 가정 아님(승률 반영).",
+  );
+  const archs: Arch[] = ["BAL", "STR", "INT"];
+  for (const arch of archs) {
+    for (const newbie of [false, true]) {
+      let battles = 0;
+      const samples: string[] = [];
+      for (let L = 1; L < V2_LEVEL_CAP; L++) {
+        let best = 0;
+        let bestD = 1;
+        let bestWr = 0;
+        let lowStreak = 0;
+        for (let d = 1; d <= 40; d++) {
+          const { expPerBattle, wrPct } = expPerBattleAtDepth(arch, L, d, newbie);
+          if (expPerBattle > best) {
+            best = expPerBattle;
+            bestD = d;
+            bestWr = wrPct;
+          }
+          // 승률 붕괴(2연속 <15%)면 더 깊이 안 봄(deeper=더 나쁨).
+          if (wrPct < 15) {
+            lowStreak++;
+            if (lowStreak >= 2 && d > 3) break;
+          } else lowStreak = 0;
+        }
+        const need = requiredExpToNext(L) ?? 0;
+        const b = best > 0 ? need / best : 0;
+        battles += b;
+        if (L === 1 || L % 10 === 0 || L === 49)
+          samples.push(`L${L}(d${bestD},wr${bestWr.toFixed(0)},e/b${best.toFixed(0)})=${b.toFixed(0)}`);
+      }
+      console.log(
+        `${arch} newbie=${newbie ? "ON " : "OFF"} → Lv1→50 = ${battles.toFixed(0)}판 (~${((battles * 5) / 60).toFixed(0)}분)`,
+      );
+      console.log(`   ${samples.join(" ")}`);
+    }
+  }
+}
+
+if (PACING_MODE) {
+  runPacing();
+  process.exit(0);
 }
 
 // ── 실행 ────────────────────────────────────────────────────

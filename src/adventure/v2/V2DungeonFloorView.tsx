@@ -182,10 +182,12 @@ export function V2DungeonFloorView({
     return () => clearInterval(id);
   }, []);
 
-  // 스페이스바로 메인 사냥 버튼 발동. 훅이 early-return 앞이라야 해서 ref 로 최신 핸들러를 참조한다
-  //   (아래 triggerHunt 가 매 렌더 ref.current 갱신). 입력창·포커스된 버튼·키 반복(꾹 누름)에선
-  //   무시 — 타이핑/중복 발동/스크롤 방지. 비활성(busy·스태미너·회복) 가드는 triggerHunt 안에서.
+  // 두 개의 ref 를 early-return 앞에서 잡아 최신 핸들러를 참조한다(아래에서 매 렌더 갱신):
+  //   - triggerHuntRef = 단판 사냥. 자동 사냥 루프 인터벌이 이걸 반복 호출(토글이 아니라 한 판).
+  //   - huntButtonRef  = 사냥 버튼/스페이스바 동작. 코어루프 on 이면 "루프 토글"(누르면 켜고
+  //     다시 누르면 끔), off 면 단판/일괄. 인터벌이 이걸 호출하면 첫 틱에 꺼지므로 분리한다.
   const triggerHuntRef = useRef<() => void>(() => {});
+  const huntButtonRef = useRef<() => void>(() => {});
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return;
@@ -201,14 +203,15 @@ export function V2DungeonFloorView({
         return;
       }
       e.preventDefault();
-      triggerHuntRef.current();
+      huntButtonRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 자동 사냥 — 켜져 있으면 1.2초마다 사냥 발동. 쿨다운/회복/busy 가드는 triggerHunt 내부라
-  //   조건 안 되면 no-op(쿨다운 끝나면 자동 재개). 탭 닫으면(언마운트) 정지. 코어루프 전용 UI.
+  // 자동 사냥 루프 — 코어루프 on 에서 사냥 버튼을 누르면 켜진다. 켜져 있으면 1.2초마다 단판 발동.
+  //   쿨다운/회복/busy 가드는 triggerHunt 내부라 조건 안 되면 no-op(쿨다운 끝나면 자동 재개).
+  //   탭 닫으면(언마운트) 정지. 사냥이 서버에서 거부되면 triggerHunt 가 자동으로 끈다.
   const [autoHunt, setAutoHunt] = useState(false);
   useEffect(() => {
     if (!autoHunt) return;
@@ -228,12 +231,12 @@ export function V2DungeonFloorView({
         body: JSON.stringify({ action: "start" }),
       });
       if (!res.ok) {
-        setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+        setOfflineMsg("자동 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
         return;
       }
       onRefresh?.();
     } catch {
-      setOfflineMsg("오프라인 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setOfflineMsg("자동 사냥 시작에 실패했어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setOfflineBusy(false);
     }
@@ -265,8 +268,8 @@ export function V2DungeonFloorView({
       }
       setOfflineMsg(
         (j?.battles ?? 0) > 0
-          ? `오프라인 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
-          : "오프라인 사냥 정지 (정산할 누적 없음)",
+          ? `자동 사냥 정산 — ${j!.battles}판 · 경험치 +${(j!.totalExp ?? 0).toLocaleString()} · 골드 +${(j!.totalGold ?? 0).toLocaleString()}`
+          : "자동 사냥 정지 (정산할 누적 없음)",
       );
       onRefresh?.();
     } catch {
@@ -430,6 +433,22 @@ export function V2DungeonFloorView({
   };
   triggerHuntRef.current = triggerHunt;
 
+  // 사냥 버튼/스페이스바 동작. 코어루프 on = 버튼이 곧 자동 사냥 토글(누르면 켜고 첫 판 즉시,
+  //   다시 누르면 끔). 끄는 동작은 항상 가능. off = 기존 단판/일괄(triggerHunt).
+  const onHuntPress = () => {
+    if (!coreLoopOn) {
+      triggerHunt();
+      return;
+    }
+    if (autoHunt) {
+      setAutoHunt(false);
+      return;
+    }
+    setAutoHunt(true);
+    triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시 발동.
+  };
+  huntButtonRef.current = onHuntPress;
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <HeaderPanel className="space-y-2">
@@ -481,27 +500,41 @@ export function V2DungeonFloorView({
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={triggerHunt}
+            onClick={onHuntPress}
+            // 코어루프 — 자동 사냥 중이면 "멈추기" 버튼이라 항상 클릭 가능(쿨다운/회복 중에도).
             disabled={
-              oneActionDisabled || lowStamina || needsRecovery || onCooldown
+              coreLoopOn && autoHunt
+                ? false
+                : oneActionDisabled || lowStamina || needsRecovery || onCooldown
             }
-            className={`flex-1 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 ${
+            aria-pressed={coreLoopOn ? autoHunt : undefined}
+            className={`flex-1 rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
+              coreLoopOn && autoHunt
+                ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
+                : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
+            } ${
               coreLoopOn
                 ? "disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-700"
                 : "disabled:opacity-50"
             }`}
           >
-            {batchRunning || busy
-              ? "사냥 중…"
-              : needsRecovery
-                ? "회복 필요"
+            {coreLoopOn && autoHunt
+              ? busy
+                ? "사냥 중… (누르면 멈춤)"
                 : onCooldown
-                  ? `다음 사냥까지 ${cooldownLeftSec}초`
-                  : coreLoopOn
-                    ? "사냥"
-                    : huntCount === 1
-                      ? "사냥 (스태미너 1)"
-                      : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
+                  ? `사냥 중… (${cooldownLeftSec}초 · 누르면 멈춤)`
+                  : "사냥 중지"
+              : batchRunning || busy
+                ? "사냥 중…"
+                : needsRecovery
+                  ? "회복 필요"
+                  : onCooldown
+                    ? `다음 사냥까지 ${cooldownLeftSec}초`
+                    : coreLoopOn
+                      ? "사냥"
+                      : huntCount === 1
+                        ? "사냥 (스태미너 1)"
+                        : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
           {/* 코어루프 on = 항상 단판(일괄 폐지) → 사냥 횟수 설정 숨김. */}
           {!coreLoopOn && (
@@ -547,21 +580,9 @@ export function V2DungeonFloorView({
             </div>
           </div>
         )}
-        {/* 코어루프 — 자동 사냥(탭 열림·연속) + 오프라인 사냥(탭 닫아도 최대 2시간) */}
+        {/* 코어루프 — 사냥 버튼=탭 열림 연속 사냥. 자동 사냥=탭 닫아도 최대 2시간 누적 후 정산 */}
         {coreLoopOn && (
           <div className="mt-3 space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <button
-              type="button"
-              onClick={() => setAutoHunt((v) => !v)}
-              aria-pressed={autoHunt}
-              className={`w-full rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
-                autoHunt
-                  ? "border-emerald-500 bg-emerald-100 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-900 dark:text-emerald-100"
-                  : "border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
-              }`}
-            >
-              {autoHunt ? "자동 사냥 끄기" : "자동 사냥 켜기"}
-            </button>
             {offlineHunt?.active ? (
               <button
                 type="button"
@@ -571,7 +592,7 @@ export function V2DungeonFloorView({
               >
                 {offlineBusy
                   ? "정지 중…"
-                  : `오프라인 사냥 정지 (남은 ${fmtOfflineRemain(offlineHunt.endsAt - now)})`}
+                  : `자동 사냥 정지 (남은 ${fmtOfflineRemain(offlineHunt.endsAt - now)})`}
               </button>
             ) : (
               <button
@@ -580,12 +601,13 @@ export function V2DungeonFloorView({
                 disabled={offlineBusy}
                 className="w-full rounded-md border border-indigo-500 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-200"
               >
-                {offlineBusy ? "시작 중…" : "오프라인 사냥 시작"}
+                {offlineBusy ? "시작 중…" : "자동 사냥 시작"}
               </button>
             )}
             <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
-              자동 사냥은 탭이 열려 있는 동안만 돌아갑니다. 오프라인 사냥은 탭을
-              닫아도 최대 2시간까지 쌓여 돌아왔을 때 정산됩니다.
+              사냥 버튼을 누르면 탭이 열려 있는 동안 자동으로 사냥이 계속됩니다(다시
+              누르면 멈춤). 자동 사냥은 탭을 닫아도 최대 2시간까지 쌓여, 돌아왔을 때
+              정산됩니다.
             </p>
             {offlineMsg && (
               <p className="rounded-md bg-emerald-50 px-2 py-1.5 text-[11px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">

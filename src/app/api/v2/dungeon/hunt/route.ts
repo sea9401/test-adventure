@@ -601,6 +601,7 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         pickAutoAction(state, { rules: [], potions: {} }),
       potions: {},
       v2Skills,
+      depth, // ATB 몬스터 SPD 깊이 보정(레거시 무시)
     },
   );
 

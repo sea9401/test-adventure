@@ -5,6 +5,7 @@ import {
   actionRate,
   actionInterval,
   effectiveMonsterSpd,
+  depthSpdCorrection,
   tieRank,
   pickNextEntry,
   nextActor1v1,
@@ -56,8 +57,34 @@ describe("effectiveMonsterSpd — 원시 1~14 → 플레이어 스케일", () =>
     expect(effectiveMonsterSpd(14)).toBe(94);
     expect(effectiveMonsterSpd(6)).toBe(46); // 중앙
   });
-  it("깊이 보정 가산", () => {
+  it("깊이 보정 가산(음수 무시)", () => {
     expect(effectiveMonsterSpd(6, 10)).toBe(56);
+    expect(effectiveMonsterSpd(6, -10)).toBe(46); // 음수 보정 무시
+  });
+});
+
+describe("depthSpdCorrection — 깊이별 몬스터 SPD 가산(Phase 4, 약한 보정+cap)", () => {
+  it("깊이 1 = 0(초반 균형 보존), 이후 선형(K=1.0)", () => {
+    expect(depthSpdCorrection(1)).toBe(0);
+    expect(depthSpdCorrection(7)).toBe(6);
+    expect(depthSpdCorrection(11)).toBe(10);
+  });
+  it("DEPTH_CORR_MAX_DEPTH(12)에서 cap — endgame frontier 폭주 차단", () => {
+    expect(depthSpdCorrection(12)).toBe(11);
+    expect(depthSpdCorrection(24)).toBe(11); // capped
+    expect(depthSpdCorrection(50)).toBe(11); // capped
+  });
+  it("단조 비감소", () => {
+    let prev = -1;
+    for (const d of [1, 4, 7, 11, 12, 24, 50]) {
+      const c = depthSpdCorrection(d);
+      expect(c).toBeGreaterThanOrEqual(prev);
+      prev = c;
+    }
+  });
+  it("손상 입력 방어(<1 → 0)", () => {
+    expect(depthSpdCorrection(0)).toBe(0);
+    expect(depthSpdCorrection(NaN)).toBe(0);
   });
 });
 

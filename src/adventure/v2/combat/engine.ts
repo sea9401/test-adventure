@@ -1331,6 +1331,9 @@ export type ResolveContext = {
   // 무한 루프 가드 턴 상한(플레이어 턴 기준). 미지정이면 500(기본 안전캡). 스파링처럼
   // "안 죽는 샌드백을 N턴만 두들기는" 용도면 낮춰 넘긴다(예: 50) — 도달 시 lose 로 종료.
   maxTurns?: number;
+  // 던전 깊이 — ATB(코어루프) 전용. 몬스터 SPD 깊이 보정(depthSpdCorrection)에 쓴다. 미지정/
+  // 비-던전 전투(토벌·협동보스 등)면 보정 0. 레거시 엔진은 무시(flag-off byte-identical).
+  depth?: number;
 };
 
 // 보스 전투 타임아웃 — 플레이어 턴 기준. 정상 빌드는 10~30턴 안에 끝나므로

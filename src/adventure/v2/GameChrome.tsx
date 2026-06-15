@@ -92,7 +92,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     staminaMax,
     viewerName,
     bankedGold,
-    atRiskGold,
     combatCooldown,
   } = useGameState();
   // 코어루프 flag-on 판정 — me/state 가 flag on 일 때만 combatCooldown 객체를 준다(off=null).
@@ -144,7 +143,6 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         gameName={accountName}
         playerName={viewerName}
         bankedGold={bankedGold}
-        atRiskGold={atRiskGold}
       />
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />

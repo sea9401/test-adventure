@@ -7,6 +7,7 @@ import {
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
   offlineBattlesAccrued,
+  offlineFarmDepth,
 } from "@/adventure/data/v2/coreLoopConfig";
 import type { DungeonFloorId } from "@/adventure/data/v2/types";
 import {
@@ -82,16 +83,10 @@ export async function POST() {
     }
 
     // farm 깊이 — lastHuntDepth, 없으면 frontierDepth−1, [1, frontierDepth] 클램프(잠긴 깊이 방지).
-    const frontier = Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2));
-    const rawDepth = Number(charSave.lastHuntDepth);
-    const depth = Math.max(
-      1,
-      Math.min(
-        frontier,
-        Number.isFinite(rawDepth) && rawDepth >= 1
-          ? Math.floor(rawDepth)
-          : frontier - 1,
-      ),
+    //   me/state offlineHunt.depth("자동 사냥 중 사냥터 바로 입장" 목적지)와 동일 헬퍼로 일치.
+    const depth = offlineFarmDepth(
+      Number(charSave.lastHuntDepth),
+      Number(charSave.frontierDepth) || 2,
     );
     const dropFloor = Math.min(depth, DROP_FLOOR_CAP) as DungeonFloorId;
 

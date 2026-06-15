@@ -101,10 +101,15 @@ type GameStateValue = {
   // 오프라인 정산 대기 판수 — 복귀 카드 트리거. 정산 후 0 으로.
   offlinePending: number | null;
   setOfflinePending: React.Dispatch<React.SetStateAction<number | null>>;
-  // 오프라인 사냥 세션 — active + endsAt(클라 로컬 시각, skew 보정). null=flag off. 시작/정지 버튼.
-  offlineHunt: { active: boolean; endsAt: number } | null;
+  // 오프라인(자동) 사냥 세션 — active + endsAt(클라 로컬 시각, skew 보정) + depth(farm 깊이,
+  //   "자동 사냥 중 사냥터 바로 입장" 목적지). null=flag off. 시작/정지 버튼.
+  offlineHunt: { active: boolean; endsAt: number; depth: number } | null;
   setOfflineHunt: React.Dispatch<
-    React.SetStateAction<{ active: boolean; endsAt: number } | null>
+    React.SetStateAction<{
+      active: boolean;
+      endsAt: number;
+      depth: number;
+    } | null>
   >;
   // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
   atRiskGold: number | null;
@@ -194,6 +199,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [offlineHunt, setOfflineHunt] = useState<{
     active: boolean;
     endsAt: number;
+    depth: number;
   } | null>(null);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
 
@@ -270,6 +276,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             startedAt?: number;
             endsAt?: number;
             serverNow?: number;
+            depth?: number;
           } | null;
         } | null;
         if (j?.character?.name) setViewerName(j.character.name);
@@ -346,9 +353,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           typeof oh.serverNow === "number"
         ) {
           const remaining = Math.max(0, oh.endsAt - oh.serverNow);
-          setOfflineHunt({ active: true, endsAt: Date.now() + remaining });
+          setOfflineHunt({
+            active: true,
+            endsAt: Date.now() + remaining,
+            depth: typeof oh.depth === "number" ? oh.depth : 1,
+          });
         } else {
-          setOfflineHunt({ active: false, endsAt: 0 });
+          setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
         }
         setAtRiskGold(
           typeof j?.character?.atRiskGold === "number"

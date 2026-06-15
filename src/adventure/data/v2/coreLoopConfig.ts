@@ -57,6 +57,23 @@ export function offlineBattlesAccrued(
   return Math.floor(Math.min(elapsed, maxMs) / cooldownMs);
 }
 
+// 오프라인(자동) 사냥 farm 깊이 — lastHuntDepth, 없으면 frontierDepth−1, [1, frontierDepth] 클램프
+//   (잠긴 깊이 방지). offline-settle 정산 깊이와 "자동 사냥 중 사냥터 바로 입장" 목적지를 일치시킨다.
+export function offlineFarmDepth(
+  lastHuntDepth: number | null | undefined,
+  frontierDepth: number,
+): number {
+  const frontier = Math.max(2, Math.floor(Number(frontierDepth) || 2));
+  const raw = Number(lastHuntDepth);
+  return Math.max(
+    1,
+    Math.min(
+      frontier,
+      Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : frontier - 1,
+    ),
+  );
+}
+
 // === 패배 세금 (무리한 사냥 페널티 + 거점 세수) ==============================
 // 사냥 패배 시 "마지막 패배 이후 번 골드(atRiskGold)"의 일부를 그 땅 세금으로 압류한다.
 // 원금(이전 stash)이 아니라 최근 승리분만 대상이라 기하급수 전멸이 없다. 은행 입금분은 면제.

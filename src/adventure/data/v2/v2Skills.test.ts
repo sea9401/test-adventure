@@ -7,6 +7,7 @@ import {
   describeV2Skill,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
+  spCostOf,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -246,6 +247,34 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     // UI 가 v2SkillMpCost 를 넘긴다.
     const chips = describeV2Skill(V2_SKILLS.mob_venom_bite, 12);
     expect(chips).toContain("MP 12");
+  });
+});
+
+describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
+  it("공격 스킬은 tier 가 오를수록 비싸다 (루브릭 3/4/5)", () => {
+    // 강타(attack, tier1) = 3. 명시 override 없는 표 도출.
+    expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(3);
+  });
+
+  it("유틸(힐/버프/디버프)은 공격보다 싸다 (2~3)", () => {
+    // 회복(heal tier1)=2, 함성(buff tier1)=2.
+    expect(spCostOf(V2_SKILLS.v2_skill_recover)).toBe(2);
+    expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
+  });
+
+  it("명시 spCost override 가 표보다 우선", () => {
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 7 })).toBe(7);
+    // 0/음수/소수 override 는 무시하고 표로 폴백 / floor.
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 0 })).toBe(3);
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 5.9 })).toBe(5);
+  });
+
+  it("카탈로그 모든 스킬 코스트 ≥ 1 (NaN/0 누출 방지)", () => {
+    for (const def of Object.values(V2_SKILLS)) {
+      const c = spCostOf(def);
+      expect(Number.isFinite(c), def.id).toBe(true);
+      expect(c, def.id).toBeGreaterThanOrEqual(1);
+    }
   });
 });
 

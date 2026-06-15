@@ -26,6 +26,7 @@ import {
   spendGoldWith,
   spendableGold,
   spendableGoldWith,
+  calcSpBudget,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
@@ -257,6 +258,29 @@ describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
   it("flag 래퍼(spendGold/spendableGold)는 실제 flag(테스트=off) 적용 = 보유만", () => {
     expect(spendableGold(100, 500)).toBe(100);
     expect(spendGold(10, 500, 30).ok).toBe(false); // off → 은행 무시
+  });
+});
+
+describe("calcSpBudget — 스킬포인트 예산 (직업군 마일스톤)", () => {
+  it("빈 직업군 = SP_BASE(12)", () => {
+    expect(calcSpBudget({})).toBe(12);
+    expect(calcSpBudget(null)).toBe(12);
+  });
+  it("직업군 cumLevel 마일스톤(45당 +1) 합산", () => {
+    expect(calcSpBudget({ warrior: { cumLevel: 90 } })).toBe(14); // 12 + 2
+    expect(
+      calcSpBudget({ warrior: { cumLevel: 90 }, mage: { cumLevel: 45 } }),
+    ).toBe(15); // 12 + 2 + 1
+  });
+  it("정복(tier 4) 직업군당 +3", () => {
+    expect(calcSpBudget({ warrior: { cumLevel: 45, tier: 4 } })).toBe(16); // 12+1+3
+    expect(calcSpBudget({ warrior: { cumLevel: 0, tier: 3 } })).toBe(12); // 미정복
+  });
+  it("소프트캡 60", () => {
+    expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } })).toBe(60);
+  });
+  it("손상 입력 방어", () => {
+    expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(12);
   });
 });
 

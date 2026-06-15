@@ -179,7 +179,28 @@ export type V2SkillDefinition = {
   monsterOnly?: boolean;
   /** 스타터 (자동 보유) 는 learn 미사용. tier>=2 부터 교관 구매. */
   learn?: V2SkillLearnRequirement;
+  /** SP 로드아웃 코스트(코어루프) — 미지정이면 (category, tier) 루브릭 표(spCostOf)에서 도출.
+   *  PR-5 sim 튜닝 때 아웃라이어만 명시 override. flag-off 미사용. */
+  spCost?: number;
 };
+
+// SP 코스트 루브릭 표 — (category × tier). 딜 3~5·유틸(버프/디버프/힐) 2~3(설계 doc). 강할수록↑.
+//   tier 1 스타터 저렴·3 상급 비쌈. spCostOf 가 명시 spCost override 우선 적용.
+const SP_COST_TABLE: Record<V2SkillCategory, readonly [number, number, number]> = {
+  attack: [3, 4, 5],
+  heal: [2, 3, 3],
+  buff: [2, 2, 3],
+  debuff: [2, 2, 3],
+};
+
+// 스킬 1종의 SP 코스트 — 명시 spCost 우선, 없으면 (category, tier) 표에서. 1 이상.
+export function spCostOf(skill: V2SkillDefinition): number {
+  if (typeof skill.spCost === "number" && skill.spCost > 0) {
+    return Math.floor(skill.spCost);
+  }
+  const t = Math.min(3, Math.max(1, skill.tier)) - 1;
+  return SP_COST_TABLE[skill.category][t] ?? 3;
+}
 
 // === 카탈로그 — 스타터 6종 (Tier 1) ──────────────────────────────────
 // 수치는 의도적으로 낮게 (사용자 spec "성장형 느낌"). 후속 PR 에서 강화 요소 도입.

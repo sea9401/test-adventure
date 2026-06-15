@@ -20,6 +20,7 @@ import {
   genRareMapIid,
   parseRareMaps,
 } from "@/adventure/data/v2/rareMaps";
+import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/marketplace/buy — 매물 구매(원자적).
 //   body: { listingId:int }
@@ -88,10 +89,12 @@ export async function POST(req: Request) {
     // 2) 구매자 골드 차감.
     const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
     const gold = Math.max(0, Math.floor(charSave.gold ?? 0));
-    if (gold < listing.price) {
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
+    const spend = spendGold(gold, bankedGold, listing.price);
+    if (!spend.ok) {
       return { status: 400, body: { ok: false as const, error: "insufficient_gold" } };
     }
-    let nextChar: CharSave = { ...charSave, gold: gold - listing.price };
+    let nextChar: CharSave = { ...charSave, gold: spend.gold, bankedGold: spend.bankedGold };
 
     // 3) 아이템을 구매자에게 지급.
     if (listing.kind === "equip") {
@@ -175,6 +178,7 @@ export async function POST(req: Request) {
         itemName: listing.itemName,
         paid: listing.price,
         gold: nextChar.gold,
+        bankedGold: nextChar.bankedGold,
       },
     };
   });

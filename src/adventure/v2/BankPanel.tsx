@@ -27,7 +27,10 @@ const BANK_ERROR_TEXT: Record<string, string> = {
 };
 
 export function BankPanel() {
-  const { gold, bankedGold, setGold, setBankedGold } = useGameState();
+  const { gold, bankedGold, setGold, setBankedGold, coreLoopOn } =
+    useGameState();
+  // 코어루프 — 출금 폐지(입금만). 골드 소비 시 은행이 우선 쓰이므로 은행은 "안전 저축 + 자동 지갑".
+  const depositOnly = coreLoopOn;
   const [amountText, setAmountText] = useState("");
   const [busyAction, setBusyAction] = useState<BankAction | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -88,7 +91,9 @@ export function BankPanel() {
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
+      <div
+        className={`mt-3 grid gap-2 ${depositOnly ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_auto]"}`}
+      >
         <input
           type="number"
           min={1}
@@ -110,16 +115,18 @@ export function BankPanel() {
         >
           전액
         </button>
-        <button
-          type="button"
-          onClick={() => fillAll("withdraw")}
-          disabled={busyAction !== null || bankedGold <= 0}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          전액
-        </button>
+        {!depositOnly && (
+          <button
+            type="button"
+            onClick={() => fillAll("withdraw")}
+            disabled={busyAction !== null || bankedGold <= 0}
+            className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            전액
+          </button>
+        )}
       </div>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <div className={`mt-2 grid gap-2 ${depositOnly ? "grid-cols-1" : "grid-cols-2"}`}>
         <button
           type="button"
           onClick={() => submit("deposit")}
@@ -128,15 +135,23 @@ export function BankPanel() {
         >
           {busyAction === "deposit" ? "처리 중…" : "입금"}
         </button>
-        <button
-          type="button"
-          onClick={() => submit("withdraw")}
-          disabled={!canSubmit}
-          className="rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busyAction === "withdraw" ? "처리 중…" : "출금"}
-        </button>
+        {!depositOnly && (
+          <button
+            type="button"
+            onClick={() => submit("withdraw")}
+            disabled={!canSubmit}
+            className="rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busyAction === "withdraw" ? "처리 중…" : "출금"}
+          </button>
+        )}
       </div>
+      {depositOnly && (
+        <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
+          입금한 골드는 패배 세금에서 안전합니다. 출금은 없지만, 골드를 쓸 때
+          은행 잔액이 먼저 사용됩니다(상점·치료·강화 등).
+        </p>
+      )}
       {message && (
         <div className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
           {message}

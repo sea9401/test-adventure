@@ -67,6 +67,8 @@ import {
 import {
   V2_CORE_LOOP_V2,
   CLAIM_GOLD_COST_BY_TIER,
+  spendGold,
+  spendableGold,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   applyHpRegen,
@@ -247,7 +249,12 @@ export async function POST(req: Request) {
         typeof charPre.gold === "number" && Number.isFinite(charPre.gold)
           ? Math.max(0, Math.floor(charPre.gold))
           : 0;
-      if (goldPre < claimGoldCost) {
+      const bankedPre = Math.max(
+        0,
+        Math.floor(Number((charPre as { bankedGold?: number }).bankedGold) || 0),
+      );
+      // 점령 비용은 은행 우선 — 지불 가능액은 보유+은행(spendableGold).
+      if (spendableGold(goldPre, bankedPre) < claimGoldCost) {
         return {
           ok: false as const,
           status: 409,
@@ -353,7 +360,13 @@ export async function POST(req: Request) {
         typeof rawGold === "number" && Number.isFinite(rawGold)
           ? Math.max(0, Math.floor(rawGold))
           : 0;
-      if (goldNow < claimGoldCost) {
+      const bankedNow = Math.max(
+        0,
+        Math.floor(
+          Number((charSave as { bankedGold?: number }).bankedGold) || 0,
+        ),
+      );
+      if (spendableGold(goldNow, bankedNow) < claimGoldCost) {
         return {
           ok: false as const,
           status: 409,
@@ -828,17 +841,24 @@ export async function POST(req: Request) {
     }
 
     const baseGold = Math.max(0, (charSave as { gold?: number }).gold ?? 0);
+    const baseBanked = Math.max(
+      0,
+      Math.floor(Number((charSave as { bankedGold?: number }).bankedGold) || 0),
+    );
+    // 점령 비용은 은행 우선 차감(코어루프 on; off 면 claimGoldCost=0 → 보유/은행 불변).
+    // 금고 탈환 본인 몫은 보유 골드로 받는다.
+    const claimSpend = spendGold(baseGold, baseBanked, claimGoldCost);
     const next = {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
       hpRegenSince: now,
-      // 점령 골드 비용 차감(코어루프 on, off=0) + 금고 탈환 본인 몫 합산. 둘 다 0이면 키 불변
-      // (off+탈환없음 = 기존과 byte-identical). claimGoldCost 는 위 post-lock 에서 잔액 확인됨.
+      // 비용 차감 + 금고 탈환 합산. 둘 다 0이면 키 불변(off+탈환없음 = byte-identical).
+      // claimGoldCost 는 위 post-lock 에서 잔액(보유+은행) 확인됨.
       ...(claimGoldCost > 0 || treasuryCaptured
         ? {
-            gold:
-              baseGold - claimGoldCost + (treasuryCaptured?.capturerShare ?? 0),
+            gold: claimSpend.gold + (treasuryCaptured?.capturerShare ?? 0),
+            bankedGold: claimSpend.bankedGold,
           }
         : {}),
     };

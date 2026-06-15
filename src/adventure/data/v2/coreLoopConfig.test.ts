@@ -22,6 +22,10 @@ import {
   LOSS_TAX_RATE,
   offlineBattlesAccrued,
   offlineFarmDepth,
+  spendGold,
+  spendGoldWith,
+  spendableGold,
+  spendableGoldWith,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
@@ -180,6 +184,79 @@ describe("offlineFarmDepth — 자동 사냥 farm 깊이 (순수, 잠긴 깊이 
   it("프론티어 손상값이어도 최소 2로 보정 → 깊이 ≥1", () => {
     expect(offlineFarmDepth(undefined, 0)).toBe(1); // frontier→2, 2−1=1
     expect(offlineFarmDepth(1, 0)).toBe(1);
+  });
+});
+
+describe("spendGoldWith — bankFirst=false (현행 prod, 보유만)", () => {
+  it("보유 충분 → 보유만 차감, 은행 불변", () => {
+    expect(spendGoldWith(100, 500, 30, false)).toEqual({
+      ok: true,
+      gold: 70,
+      bankedGold: 500,
+    });
+  });
+  it("보유 부족 → 은행이 많아도 ok:false (출금/은행소비 없음)", () => {
+    expect(spendGoldWith(10, 500, 30, false)).toEqual({
+      ok: false,
+      gold: 10,
+      bankedGold: 500,
+    });
+  });
+});
+
+describe("spendGoldWith — bankFirst=true (코어루프, 은행 우선)", () => {
+  it("은행으로 전액 충당 → 보유 불변", () => {
+    expect(spendGoldWith(100, 500, 300, true)).toEqual({
+      ok: true,
+      gold: 100,
+      bankedGold: 200,
+    });
+  });
+  it("은행 소진 후 모자란 만큼 보유에서", () => {
+    expect(spendGoldWith(100, 500, 600, true)).toEqual({
+      ok: true,
+      gold: 0,
+      bankedGold: 0,
+    });
+  });
+  it("은행 일부 + 보유 일부", () => {
+    expect(spendGoldWith(100, 50, 120, true)).toEqual({
+      ok: true,
+      gold: 30,
+      bankedGold: 0,
+    });
+  });
+  it("총합 부족 → ok:false, 잔액 불변", () => {
+    expect(spendGoldWith(100, 50, 200, true)).toEqual({
+      ok: false,
+      gold: 100,
+      bankedGold: 50,
+    });
+  });
+  it("손상 입력(NaN/음수) 방어", () => {
+    expect(spendGoldWith(NaN, 50, 30, true)).toEqual({
+      ok: true,
+      gold: 0,
+      bankedGold: 20,
+    });
+    expect(spendGoldWith(-5, -5, 0, true)).toEqual({
+      ok: true,
+      gold: 0,
+      bankedGold: 0,
+    });
+  });
+});
+
+describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
+  it("bankFirst=true → 보유+은행", () => {
+    expect(spendableGoldWith(100, 500, true)).toBe(600);
+  });
+  it("bankFirst=false → 보유만", () => {
+    expect(spendableGoldWith(100, 500, false)).toBe(100);
+  });
+  it("flag 래퍼(spendGold/spendableGold)는 실제 flag(테스트=off) 적용 = 보유만", () => {
+    expect(spendableGold(100, 500)).toBe(100);
+    expect(spendGold(10, 500, 30).ok).toBe(false); // off → 은행 무시
   });
 });
 

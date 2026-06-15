@@ -74,6 +74,57 @@ export function offlineFarmDepth(
   );
 }
 
+// === 골드 차감 (은행 우선) ==================================================
+// 코어루프 은행 모델: 출금 폐지·입금만 가능. 은행이 black hole 이 되지 않게 모든 골드 소비가
+//   은행(bankedGold)을 먼저 쓰고 모자라면 보유(gold)에서 뺀다. flag off(prod)면 보유만 사용 →
+//   현행과 바이트 동일(은행 불변). 충분치 않으면 ok:false (호출부가 insufficient_gold 반환).
+// 사용처: 상점/치료/강화/제작/이동/창단/점령/계파변경/거래소/비밀상점 등 모든 골드 sink.
+//
+// 순수 코어(bankFirst 명시) + flag 래퍼 분리 — 코어는 mocking 없이 양쪽 분기 테스트 가능.
+export function spendGoldWith(
+  gold: number,
+  bankedGold: number,
+  cost: number,
+  bankFirst: boolean,
+): { ok: boolean; gold: number; bankedGold: number } {
+  const g = Math.max(0, Math.floor(Number(gold) || 0));
+  const b = Math.max(0, Math.floor(Number(bankedGold) || 0));
+  const c = Math.max(0, Math.floor(Number(cost) || 0));
+  if (!bankFirst) {
+    // 현행(prod) — 보유 골드만. 은행 불변.
+    if (g < c) return { ok: false, gold: g, bankedGold: b };
+    return { ok: true, gold: g - c, bankedGold: b };
+  }
+  // 코어루프 — 은행 우선 차감.
+  if (g + b < c) return { ok: false, gold: g, bankedGold: b };
+  const fromBank = Math.min(b, c);
+  return { ok: true, gold: g - (c - fromBank), bankedGold: b - fromBank };
+}
+
+// flag 래퍼 — 서버 호출부 편의(V2_CORE_LOOP_V2 자동 적용).
+export function spendGold(
+  gold: number,
+  bankedGold: number,
+  cost: number,
+): { ok: boolean; gold: number; bankedGold: number } {
+  return spendGoldWith(gold, bankedGold, cost, V2_CORE_LOOP_V2);
+}
+
+// "지불 가능한 총 골드" — 클라 affordability 게이트용. bankFirst 면 보유+은행, 아니면 보유만.
+export function spendableGoldWith(
+  gold: number,
+  bankedGold: number,
+  bankFirst: boolean,
+): number {
+  const g = Math.max(0, Math.floor(Number(gold) || 0));
+  const b = Math.max(0, Math.floor(Number(bankedGold) || 0));
+  return bankFirst ? g + b : g;
+}
+
+export function spendableGold(gold: number, bankedGold: number): number {
+  return spendableGoldWith(gold, bankedGold, V2_CORE_LOOP_V2);
+}
+
 // === 패배 세금 (무리한 사냥 페널티 + 거점 세수) ==============================
 // 사냥 패배 시 "마지막 패배 이후 번 골드(atRiskGold)"의 일부를 그 땅 세금으로 압류한다.
 // 원금(이전 stash)이 아니라 최근 승리분만 대상이라 기하급수 전멸이 없다. 은행 입금분은 면제.

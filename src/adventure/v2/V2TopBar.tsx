@@ -14,12 +14,17 @@ export function V2TopBar({
   currentOutpost,
   gameName,
   playerName,
+  playerLevel,
   bankedGold,
+  coreLoopOn,
 }: {
   currentOutpost: { id: string; name: string } | null;
   gameName: string | null;
   playerName: string;
+  playerLevel: number;
   bankedGold: number;
+  // 코어루프 on 이면 좌상단 은행 금액 대신 캐릭터 이름·레벨을 표기.
+  coreLoopOn: boolean;
 }) {
   const router = useRouter();
   return (
@@ -39,10 +44,16 @@ export function V2TopBar({
           <span className="truncate text-base font-semibold text-zinc-700 dark:text-zinc-200">
             {currentOutpost?.name ?? "이동 중"}
           </span>
-          {bankedGold > 0 && (
+          {coreLoopOn ? (
             <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
-              은행 {bankedGold.toLocaleString()}G
+              {playerName} Lv.{playerLevel}
             </span>
+          ) : (
+            bankedGold > 0 && (
+              <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">
+                은행 {bankedGold.toLocaleString()}G
+              </span>
+            )
           )}
         </button>
       </div>

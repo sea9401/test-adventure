@@ -18,6 +18,7 @@ import {
 import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
 import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import { respecGoldCost } from "@/adventure/data/v2/respec";
+import { useGameState } from "./GameStateProvider";
 
 // 성장의 신전 "직업" 탭 — 4직군(전사/무도가/마법사/도적) 아이콘 그리드.
 //  · 각 아이콘 = 직군. 도달 차수(N차) + 직군 누적레벨(cumLevel) 표시, 현 직업은 하이라이트.
@@ -59,11 +60,16 @@ export function V2ClassGrid({
   currentClass: V2Class;
   currentElement: V2Element;
   level: number;
-  gold: number;
+  // 부모가 넘기는 보유 골드(me/state 기준, 신선). 지불 게이트는 코어루프 on 이면 보유+은행.
+  gold?: number;
   groups: Record<string, GroupInfo>;
   advance: V2AdvanceInfo | null;
   onChanged: () => void | Promise<void>;
 }) {
+  // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 전직).
+  const { coreLoopOn, bankedGold } = useGameState();
+  const heldGold = gold ?? 0;
+  const spendable = coreLoopOn ? heldGold + bankedGold : heldGold;
   const activeGroup = tier1ClassOf(currentClass);
   const [selected, setSelected] = useState<V2Class>(
     activeGroup === "none" ? V2_SELECTABLE_CLASSES[0] : activeGroup,
@@ -184,7 +190,7 @@ export function V2ClassGrid({
     currentElement,
     level,
   );
-  const cantAfford = switchCost > 0 && gold < switchCost;
+  const cantAfford = switchCost > 0 && spendable < switchCost;
 
   return (
     <Card padding="md">
@@ -368,7 +374,7 @@ export function V2ClassGrid({
                     ? `도달한 ${selReached}차로 복귀`
                     : "1차부터 시작"}
                   {cantAfford
-                    ? ` (보유 ${gold.toLocaleString()}G — 부족)`
+                    ? ` (보유 ${spendable.toLocaleString()}G — 부족)`
                     : ""}
                 </p>
                 {!canSwitchClass && (

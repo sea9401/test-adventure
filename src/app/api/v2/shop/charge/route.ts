@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/charge — HP / MP 충전 구매.
 //
@@ -52,6 +53,7 @@ export async function POST(req: Request) {
       {},
     );
     const gold = Math.max(0, charSave.gold ?? 0);
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
     const curHp = Math.max(0, Math.min(MAX_CHARGE, invSave.hpCharges ?? 0));
     const curMp = Math.max(0, Math.min(MAX_CHARGE, invSave.mpCharges ?? 0));
 
@@ -62,17 +64,19 @@ export async function POST(req: Request) {
       return { ok: false as const, error: "already_full" };
     }
     const charge = Math.min(amount, room);
-    if (gold < charge) {
+    const spend = spendGold(gold, bankedGold, charge);
+    if (!spend.ok) {
       return { ok: false as const, error: "not_enough_gold" };
     }
 
-    const newGold = gold - charge;
+    const newGold = spend.gold;
     const newHp = kind === "hp" ? cur + charge : curHp;
     const newMp = kind === "mp" ? cur + charge : curMp;
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: newGold,
+      bankedGold: spend.bankedGold,
     });
     await upsertSave(tx, userId, "inventory.v2", {
       ...invSave,
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
     return {
       ok: true as const,
       gold: newGold,
+      bankedGold: spend.bankedGold,
       hpCharges: newHp,
       mpCharges: newMp,
       charged: charge,

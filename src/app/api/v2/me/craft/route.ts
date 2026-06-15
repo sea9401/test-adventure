@@ -13,6 +13,10 @@ import {
   craftShortfall,
 } from "@/adventure/data/v2/v2Recipes";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  spendGold,
+  spendableGold,
+} from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/craft — 재료 직접 제작 (재료 + 골드 → 완성 장비).
 //
@@ -88,8 +92,14 @@ export async function POST(req: Request) {
       typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
         ? Math.max(0, Math.floor(charSave.gold))
         : 0;
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
 
-    const shortfall = craftShortfall(recipe, materials, gold);
+    // 골드 충분성은 은행 포함(spendableGold) 기준 — flag off 면 보유만(현행과 동일).
+    const shortfall = craftShortfall(
+      recipe,
+      materials,
+      spendableGold(gold, bankedGold),
+    );
     if (!shortfall.ok) {
       return {
         status: 400,
@@ -103,7 +113,19 @@ export async function POST(req: Request) {
     }
 
     const nextMaterials = consumeIngredients(materials, recipe);
-    const nextGold = gold - recipe.gold;
+    const spend = spendGold(gold, bankedGold, recipe.gold);
+    if (!spend.ok) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "insufficient" as const,
+          missingMaterials: shortfall.missingMaterials,
+          goldShort: shortfall.goldShort,
+        },
+      };
+    }
+    const nextGold = spend.gold;
     const parsed = parseEquipmentSave(equipSave);
     // 개체 모델 — 제작은 매번 새 개체(iid) + 새 굴림(±편차). 같은 id 라도 개별 굴림.
     const nextOwned = [
@@ -119,6 +141,7 @@ export async function POST(req: Request) {
       ...charSave,
       materials: nextMaterials,
       gold: nextGold,
+      bankedGold: spend.bankedGold,
     });
     await upsertSave(tx, userId, "equipment.v2", {
       owned: nextOwned,
@@ -131,6 +154,7 @@ export async function POST(req: Request) {
         ok: true as const,
         crafted: id,
         gold: nextGold,
+        bankedGold: spend.bankedGold,
         materials: nextMaterials,
         owned: nextOwned,
       },

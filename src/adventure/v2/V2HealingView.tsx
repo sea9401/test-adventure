@@ -23,6 +23,7 @@ type StateResponse = {
     mp?: number;
     maxMp?: number;
     gold: number;
+    bankedGold?: number;
   };
 };
 
@@ -35,12 +36,14 @@ type ChargeKind = "hp" | "mp";
 
 export function V2HealingView({ onBack }: { onBack: () => void }) {
   // 사냥터 게이트·상단 HP바가 읽는 공유 HP. 치료 직후 동기화해 stale "회복 필요" 차단 방지.
-  const { setHp: setSharedHp } = useGameState();
+  const { setHp: setSharedHp, coreLoopOn, setBankedGold: syncCtxBanked } =
+    useGameState();
   const [hp, setHp] = useState<number | null>(null);
   const [maxHp, setMaxHp] = useState<number | null>(null);
   const [mp, setMp] = useState<number | null>(null);
   const [maxMp, setMaxMp] = useState<number | null>(null);
   const [gold, setGold] = useState<number | null>(null);
+  const [bankedGold, setBankedGold] = useState(0);
   const [hpCharges, setHpCharges] = useState<number | null>(null);
   const [mpCharges, setMpCharges] = useState<number | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
@@ -61,6 +64,8 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         setMp(j.character.mp ?? j.character.maxMp ?? 0);
         setMaxMp(j.character.maxMp ?? 0);
         setGold(j.character.gold);
+        setBankedGold(j.character.bankedGold ?? 0);
+        syncCtxBanked(j.character.bankedGold ?? 0);
       }
       const invJ = invRes.ok
         ? ((await invRes.json().catch(() => null)) as InventoryResponse | null)
@@ -89,6 +94,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         mp?: number;
         maxMp?: number;
         gold?: number;
+        bankedGold?: number;
         cost?: number;
         error?: string;
       } | null;
@@ -101,6 +107,10 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
       if (typeof j.mp === "number") setMp(j.mp);
       if (typeof j.maxMp === "number") setMaxMp(j.maxMp);
       if (typeof j.gold === "number") setGold(j.gold);
+      if (typeof j.bankedGold === "number") {
+        setBankedGold(j.bankedGold);
+        syncCtxBanked(j.bankedGold);
+      }
       // 공유 HP 도 동기화 — 안 하면 사냥터가 옛 HP 를 읽어 "회복 필요" 로 막는다.
       if (typeof j.hp === "number" && typeof j.maxHp === "number") {
         setSharedHp({ hp: j.hp, maxHp: j.maxHp, anchorMs: Date.now() });
@@ -111,7 +121,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(null);
     }
-  }, [setSharedHp]);
+  }, [setSharedHp, syncCtxBanked]);
 
   const buyCharge = useCallback(
     async (kind: ChargeKind, amount: number) => {
@@ -129,6 +139,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
               error?: string;
               charged?: number;
               gold?: number;
+              bankedGold?: number;
               hpCharges?: number;
               mpCharges?: number;
             }
@@ -141,6 +152,10 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           `✓ ${kind === "hp" ? "HP" : "MP"} +${(j.charged ?? amount).toLocaleString()} 충전`,
         );
         if (typeof j.gold === "number") setGold(j.gold);
+        if (typeof j.bankedGold === "number") {
+          setBankedGold(j.bankedGold);
+          syncCtxBanked(j.bankedGold);
+        }
         if (typeof j.hpCharges === "number") setHpCharges(j.hpCharges);
         if (typeof j.mpCharges === "number") setMpCharges(j.mpCharges);
       } catch (err) {
@@ -149,9 +164,11 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [],
+    [syncCtxBanked],
   );
 
+  // 충전약 지불 게이트 — flag on 이면 보유+은행(은행 골드로도 충전). 무료치료 기준(아래)은 보유 기준 유지.
+  const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
   const hpFull = hp != null && maxHp != null && hp >= maxHp;
   const mpFull = mp != null && maxMp != null && mp >= maxMp;
   const isFull = hpFull && mpFull;
@@ -208,7 +225,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           label="HP 충전약"
           kind="hp"
           current={hpCharges ?? 0}
-          gold={gold ?? 0}
+          gold={spendable}
           busy={busy === "hp"}
           onBuy={buyCharge}
         />
@@ -218,7 +235,7 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
             label="MP 충전약"
             kind="mp"
             current={mpCharges ?? 0}
-            gold={gold ?? 0}
+            gold={spendable}
             busy={busy === "mp"}
             onBuy={buyCharge}
           />

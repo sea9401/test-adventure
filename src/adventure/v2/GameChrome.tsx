@@ -91,6 +91,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     stamina,
     staminaMax,
     viewerName,
+    viewerLevel,
     bankedGold,
     combatCooldown,
   } = useGameState();
@@ -142,7 +143,9 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         currentOutpost={currentOutpost}
         gameName={accountName}
         playerName={viewerName}
+        playerLevel={viewerLevel}
         bankedGold={bankedGold}
+        coreLoopOn={coreLoopOn}
       />
       {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
       <OfflineSettleCard />

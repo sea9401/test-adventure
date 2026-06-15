@@ -29,6 +29,7 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
+import { useGameState } from "./GameStateProvider";
 
 // v2 대장간 — 제작 / 분해.
 //   제작: 재료(+골드) → 완성 장비. 부위별 티어·컨셉 순 레시피 카드. 충분할 때만 제작 버튼 활성.
@@ -85,7 +86,11 @@ function buildCountMap(owned: V2EquipInstance[]): Map<V2EquipmentId, number> {
 }
 
 export function V2CraftView({ onBack }: { onBack: () => void }) {
+  // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬로 추적(신선) + 컨텍스트도 동기화.
+  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
   const [gold, setGold] = useState<number>(0);
+  const [bankedGold, setBankedGold] = useState<number>(0);
+  const spendable = coreLoopOn ? gold + bankedGold : gold;
   const [materials, setMaterials] = useState<Materials>({});
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
   // 개체 목록 + 장착 iid — 분해 시 id → 미장착 개체(iid) 해석에 사용.
@@ -108,7 +113,9 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         fetch("/api/v2/me/inventory"),
       ]);
       const stateJ = stateRes.ok
-        ? ((await stateRes.json()) as { character?: { gold?: number } })
+        ? ((await stateRes.json()) as {
+            character?: { gold?: number; bankedGold?: number };
+          })
         : null;
       const equipJ = equipRes.ok
         ? ((await equipRes.json()) as {
@@ -120,6 +127,8 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         ? ((await invRes.json()) as { materials?: Materials })
         : null;
       setGold(stateJ?.character?.gold ?? 0);
+      setBankedGold(stateJ?.character?.bankedGold ?? 0);
+      syncCtxBanked(stateJ?.character?.bankedGold ?? 0);
       const insts = equipJ?.owned ?? [];
       setOwnedInsts(insts);
       setCounts(buildCountMap(insts));
@@ -151,6 +160,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         ok?: boolean;
         error?: string;
         gold?: number;
+        bankedGold?: number;
         materials?: Materials;
         owned?: V2EquipInstance[];
       } | null;
@@ -165,6 +175,10 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
       const item = V2_EQUIPMENT[id];
       setMsg(`✓ ${item.name} 제작`);
       if (typeof j.gold === "number") setGold(j.gold);
+      if (typeof j.bankedGold === "number") {
+        setBankedGold(j.bankedGold);
+        syncCtxBanked(j.bankedGold);
+      }
       if (j.materials) setMaterials(j.materials);
       if (j.owned) {
         setOwnedInsts(j.owned);
@@ -175,7 +189,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [syncCtxBanked]);
 
   // 분해는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 푼다.
   const salvage = useCallback(
@@ -302,7 +316,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
                   <RecipeRow
                     key={id}
                     id={id}
-                    gold={gold}
+                    gold={spendable}
                     materials={materials}
                     ownedCount={counts.get(id) ?? 0}
                     busy={busyId === id}

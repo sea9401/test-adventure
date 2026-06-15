@@ -87,6 +87,9 @@ type GameStateValue = {
   // 보유 골드(들고 다니는·토벌 압류 대상) + 은행 잔액(입금분·안전). me/state 에서 초기화.
   gold: number;
   bankedGold: number;
+  // 지불 가능한 총 골드 — 코어루프(은행 우선 소비) on 이면 보유+은행, off 면 보유만. 상점/강화 등
+  //   클라 affordability 게이트는 이 값을 써야 은행에 든 골드로도 구매 버튼이 활성화된다.
+  spendableGold: number;
   setGold: React.Dispatch<React.SetStateAction<number>>;
   setBankedGold: React.Dispatch<React.SetStateAction<number>>;
   // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — off 면 전부 null(현행 UI 무변경) ===
@@ -564,6 +567,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setHp,
     gold,
     bankedGold,
+    spendableGold: combatCooldown != null ? gold + bankedGold : gold,
     setGold,
     setBankedGold,
     coreLoopOn: combatCooldown != null,

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
 
 // 비밀 상점 — 「비밀 상점의 지도」로 입장. 품목당 1회 구매, 지도 만료(48h)까지 재방문 가능.
@@ -18,8 +19,11 @@ export function V2SecretShopView({
   mapIid: string;
   onBack: () => void;
 }) {
+  // 지불 게이트 — flag on 이면 보유+은행. 은행 잔액은 로컬(GET·구매 응답)로 추적 + 컨텍스트 동기화.
+  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
   const [stock, setStock] = useState<StockRow[] | null>(null);
   const [gold, setGold] = useState<number | null>(null);
+  const [bankedGold, setBankedGold] = useState(0);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [denied, setDenied] = useState(false);
@@ -33,6 +37,7 @@ export function V2SecretShopView({
         ok?: boolean;
         stock?: StockRow[];
         gold?: number;
+        bankedGold?: number;
       } | null;
       if (!res.ok || !j?.ok) {
         setDenied(true);
@@ -40,10 +45,12 @@ export function V2SecretShopView({
       }
       setStock(j.stock ?? []);
       setGold(j.gold ?? 0);
+      setBankedGold(j.bankedGold ?? 0);
+      syncCtxBanked(j.bankedGold ?? 0);
     } catch {
       setDenied(true);
     }
-  }, [mapIid]);
+  }, [mapIid, syncCtxBanked]);
 
   useEffect(() => {
     refresh();
@@ -63,6 +70,7 @@ export function V2SecretShopView({
         ok?: boolean;
         error?: string;
         gold?: number;
+        bankedGold?: number;
         mapConsumed?: boolean;
       } | null;
       if (j?.ok) {
@@ -70,6 +78,10 @@ export function V2SecretShopView({
           `✓ ${item.name} 구매${j.mapConsumed ? " — 모든 품목을 구매해 지도가 바스러졌다" : ""}`,
         );
         if (typeof j.gold === "number") setGold(j.gold);
+        if (typeof j.bankedGold === "number") {
+          setBankedGold(j.bankedGold);
+          syncCtxBanked(j.bankedGold);
+        }
         await refresh();
       } else {
         const label =
@@ -87,6 +99,8 @@ export function V2SecretShopView({
     }
   }
 
+  // flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행(은행 골드로도 구매).
+  const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <HeaderPanel className="space-y-2">
@@ -96,7 +110,7 @@ export function V2SecretShopView({
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             보유 골드{" "}
             <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-              {gold.toLocaleString()} G
+              {spendable.toLocaleString()} G
             </span>
             {" · "}품목당 1회 구매 · 지도가 닳기 전(48h)까지 재방문 가능
           </p>
@@ -139,7 +153,7 @@ export function V2SecretShopView({
                 <button
                   type="button"
                   onClick={() => buy(item)}
-                  disabled={busy || item.bought || (gold ?? 0) < item.price}
+                  disabled={busy || item.bought || spendable < item.price}
                   className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
                     item.bought
                       ? "cursor-not-allowed border border-zinc-300 text-zinc-400 dark:border-zinc-700 dark:text-zinc-500"

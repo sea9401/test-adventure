@@ -5,6 +5,7 @@ import {
   createUserGuild,
   GuildCreateError,
 } from "@/lib/server/v2EnsureSoloGuild";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/guild/create — 길드 생성.
 // body: { name: string }
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
     );
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
     if (level < GUILD_CREATE_MIN_LEVEL) {
       return {
         status: 400,
@@ -69,7 +71,8 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (gold < GUILD_CREATE_GOLD_COST) {
+    const spend = spendGold(gold, bankedGold, GUILD_CREATE_GOLD_COST);
+    if (!spend.ok) {
       return {
         status: 400,
         body: {
@@ -94,14 +97,16 @@ export async function POST(req: Request) {
     }
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      gold: gold - GUILD_CREATE_GOLD_COST,
+      gold: spend.gold,
+      bankedGold: spend.bankedGold,
     });
     return {
       status: 200,
       body: {
         ok: true as const,
         guildId,
-        gold: gold - GUILD_CREATE_GOLD_COST,
+        gold: spend.gold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },
     };
   });

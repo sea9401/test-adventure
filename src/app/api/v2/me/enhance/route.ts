@@ -8,6 +8,7 @@ import {
   V2_EQUIPMENT,
 } from "@/adventure/data/v2/v2Equipment";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   ENHANCE_FEED_MIN_LEVEL,
   ENHANCE_MAX_LEVEL,
@@ -147,6 +148,10 @@ export async function POST(req: Request) {
       ? Math.max(0, Math.floor(Number(mats[stoneId]) || 0))
       : 0;
     const haveGold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
+    const bankedGold = Math.max(
+      0,
+      Math.floor(Number(charSave.bankedGold) || 0),
+    );
     if (haveStones < stoneCost) {
       return {
         status: 400,
@@ -157,7 +162,8 @@ export async function POST(req: Request) {
         },
       };
     }
-    if (haveGold < goldCost) {
+    const spend = spendGold(haveGold, bankedGold, goldCost);
+    if (!spend.ok) {
       return {
         status: 400,
         body: {
@@ -174,7 +180,8 @@ export async function POST(req: Request) {
       if (left > 0) mats[stoneId] = left;
       else delete mats[stoneId];
     }
-    const nextGold = haveGold - goldCost;
+    const nextGold = spend.gold;
+    const nextBankedGold = spend.bankedGold;
 
     // 결과 롤 — 서버 권위. 4결과(성공/유지/하락/파괴).
     const outcomeRow = enhanceOutcomeRow(level, stone);
@@ -234,6 +241,7 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: nextGold,
+      bankedGold: nextBankedGold,
       materials: mats,
     });
 
@@ -252,6 +260,7 @@ export async function POST(req: Request) {
         stoneCost,
         goldCost,
         gold: nextGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: nextBankedGold } : {}),
         stones: {
           red: Math.max(
             0,

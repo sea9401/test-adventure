@@ -13,7 +13,7 @@ import {
   parseV2Element,
   type V2Element,
 } from "@/adventure/data/v2/elements";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
@@ -140,6 +140,7 @@ export async function POST(req: Request) {
     }
     const level = Math.max(1, charSave.level ?? 1);
     const gold = Math.max(0, charSave.gold ?? 0);
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
     const lastRespecAt =
       typeof charSave.lastRespecAt === "number" ? charSave.lastRespecAt : 0;
 
@@ -203,6 +204,7 @@ export async function POST(req: Request) {
     const paid = isPaidRespec(curClass, nextClass, curElement, nextElement);
     let spent = 0;
     let nextGold = gold;
+    let nextBankedGold = bankedGold;
     let nextLastRespecAt = lastRespecAt;
     let cooldownUntil =
       lastRespecAt > 0 ? lastRespecAt + RESPEC_COOLDOWN_MS : 0;
@@ -225,7 +227,8 @@ export async function POST(req: Request) {
         nextElement,
         level,
       );
-      if (gold < cost) {
+      const spend = spendGold(gold, bankedGold, cost);
+      if (!spend.ok) {
         return {
           status: 400,
           body: {
@@ -237,7 +240,8 @@ export async function POST(req: Request) {
         };
       }
       spent = cost;
-      nextGold = gold - cost;
+      nextGold = spend.gold;
+      nextBankedGold = spend.bankedGold;
       nextLastRespecAt = now;
       cooldownUntil = now + RESPEC_COOLDOWN_MS;
     }
@@ -247,6 +251,7 @@ export async function POST(req: Request) {
       class: effectiveClass,
       element: nextElement,
       gold: nextGold,
+      bankedGold: nextBankedGold,
       lastRespecAt: nextLastRespecAt,
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
@@ -293,6 +298,7 @@ export async function POST(req: Request) {
         class: effectiveClass,
         element: nextElement,
         gold: nextGold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: nextBankedGold } : {}),
         spent,
         cooldownUntil,
       },

@@ -3,6 +3,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/heal — 치료소 만피 회복.
 //
@@ -69,14 +70,19 @@ export async function POST() {
     }
 
     const gold = Math.max(0, charSave.gold ?? 0);
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
+    // 무료 회복 게이트는 HELD 골드 기준 그대로 — 보유 적은 가난한 유저는 무료.
     const cost = gold < HEAL_FREE_GOLD_THRESHOLD ? 0 : HEAL_COST_FULL_PRICE;
+    // cost 차감만 은행 우선. cost === 0 이면 no-op(보유·은행 불변).
+    const spend = spendGold(gold, bankedGold, cost);
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       hp: maxHp,
       mp: maxMp,
       hpRegenSince: now,
-      gold: gold - cost,
+      gold: spend.gold,
+      bankedGold: spend.bankedGold,
     });
 
     return {
@@ -88,7 +94,8 @@ export async function POST() {
         maxHp,
         mp: maxMp,
         maxMp,
-        gold: gold - cost,
+        gold: spend.gold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         cost,
       },
     };

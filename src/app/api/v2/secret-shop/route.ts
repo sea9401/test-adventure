@@ -20,7 +20,7 @@ import {
   parseStaminaFromSave,
   staminaCapBonusOf,
 } from "@/adventure/v2/stamina";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // 코어루프 — 스태미나 폐지. 스태미나 관련 상품은 목록/구매에서 제외(flag-on).
 const STAMINA_SHOP_ITEMS = new Set(["stamina_potion", "stamina_cap_tonic"]);
@@ -68,6 +68,9 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     gold: Math.max(0, Math.floor(save?.gold ?? 0)),
+    ...(V2_CORE_LOOP_V2
+      ? { bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)) }
+      : {}),
     expiresAt: map.expiresAt,
     stock: SECRET_SHOP_STOCK.filter(
       (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
@@ -121,7 +124,9 @@ export async function POST(req: Request) {
       };
     }
     const gold = Math.max(0, Math.floor(charSave.gold ?? 0));
-    if (gold < item.price) {
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
+    const spend = spendGold(gold, bankedGold, item.price);
+    if (!spend.ok) {
       return {
         status: 400,
         body: { ok: false as const, error: "insufficient_gold" },
@@ -145,7 +150,8 @@ export async function POST(req: Request) {
 
     let nextChar: CharSave = {
       ...charSave,
-      gold: gold - item.price,
+      gold: spend.gold,
+      bankedGold: spend.bankedGold,
       rareMaps: nextMaps,
     };
 
@@ -199,6 +205,9 @@ export async function POST(req: Request) {
         ok: true as const,
         itemId: item.id,
         gold: nextChar.gold as number,
+        ...(V2_CORE_LOOP_V2
+          ? { bankedGold: nextChar.bankedGold as number }
+          : {}),
         mapConsumed: allBought,
       },
     };

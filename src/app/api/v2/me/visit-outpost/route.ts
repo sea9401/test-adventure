@@ -20,6 +20,7 @@ import {
   V2_CORE_LOOP_V2,
   OUTPOST_MOVE_GOLD_COST,
   OUTPOST_WARP_GOLD_COST,
+  spendGold,
 } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/visit-outpost — 현재 머무는 거점 갱신(이동/워프/재진입).
@@ -72,7 +73,13 @@ export async function POST(req: Request) {
     | { kind: "not_discovered" }
     | { kind: "out_of_stamina"; stamina: StaminaState }
     | { kind: "out_of_gold"; required: number; gold: number }
-    | { kind: "ok"; stamina: StaminaState; discovered: string[]; gold: number };
+    | {
+        kind: "ok";
+        stamina: StaminaState;
+        discovered: string[];
+        gold: number;
+        bankedGold: number;
+      };
 
   const result: VisitResult = await db.transaction(
     async (tx): Promise<VisitResult> => {
@@ -91,9 +98,11 @@ export async function POST(req: Request) {
         typeof charSave.gold === "number" && Number.isFinite(charSave.gold)
           ? Math.max(0, Math.floor(charSave.gold))
           : 0;
+      const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
       // 기본 = 회복만(재진입·코어루프 공통). 이동/워프는 아래에서 비용 부과.
       let nextStamina: StaminaState = applyRegen(stamina, now);
       let nextGold = gold;
+      let nextBankedGold = bankedGold;
 
       // 이동 비용 부과 — 코어루프 on = 골드(스태미나 폐지), off = 스태미나(기존). 게이트(인접/발견)는
       // 비용 전에 통과한 상태. 부족 시 쓰기 없이 종료(out_of_*). 반환 null = 통과.
@@ -102,10 +111,12 @@ export async function POST(req: Request) {
         goldCost: number,
       ): VisitResult | null => {
         if (coreLoop) {
-          if (gold < goldCost) {
+          const spend = spendGold(gold, bankedGold, goldCost);
+          if (!spend.ok) {
             return { kind: "out_of_gold", required: goldCost, gold };
           }
-          nextGold = gold - goldCost;
+          nextGold = spend.gold;
+          nextBankedGold = spend.bankedGold;
           return null;
         }
         const after = tryConsume(stamina, staminaCost, now);
@@ -139,9 +150,15 @@ export async function POST(req: Request) {
         lastVisitedOutpost: { outpostId, at: now },
         stamina: nextStamina,
         discoveredOutpostIds: discovered,
-        ...(coreLoop ? { gold: nextGold } : {}),
+        ...(coreLoop ? { gold: nextGold, bankedGold: nextBankedGold } : {}),
       });
-      return { kind: "ok", stamina: nextStamina, discovered, gold: nextGold };
+      return {
+        kind: "ok",
+        stamina: nextStamina,
+        discovered,
+        gold: nextGold,
+        bankedGold: nextBankedGold,
+      };
     },
   );
 
@@ -173,6 +190,8 @@ export async function POST(req: Request) {
     outpostId,
     stamina: result.stamina,
     discoveredOutpostIds: result.discovered,
-    ...(V2_CORE_LOOP_V2 ? { gold: result.gold } : {}),
+    ...(V2_CORE_LOOP_V2
+      ? { gold: result.gold, bankedGold: result.bankedGold }
+      : {}),
   });
 }

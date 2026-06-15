@@ -29,6 +29,7 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
+import { useGameState } from "./GameStateProvider";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -97,7 +98,13 @@ function buildCountMap(
 }
 
 export function V2ShopView({ onBack }: { onBack: () => void }) {
+  // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬(이 화면의 me/state·구매 응답)로
+  //   추적해 항상 신선하게 유지하고, 앱 전역(은행 패널 등)을 위해 컨텍스트도 함께 동기화한다.
+  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
   const [gold, setGold] = useState<number>(0);
+  const [bankedGold, setBankedGold] = useState<number>(0);
+  // 지불 가능 총액 — flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행.
+  const spendable = coreLoopOn ? gold + bankedGold : gold;
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
   // 장착 instance 가 있는 id 집합 — 판매 카드 잠금(장착분 보호, #426). count<=1 이면 locked.
   const [equipped, setEquipped] = useState<Set<V2EquipmentId>>(new Set());
@@ -127,7 +134,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         fetch("/api/v2/me/inventory"),
       ]);
       const stateJ = stateRes.ok
-        ? ((await stateRes.json()) as { character?: { gold?: number } })
+        ? ((await stateRes.json()) as {
+            character?: { gold?: number; bankedGold?: number };
+          })
         : null;
       const equipJ = equipRes.ok
         ? ((await equipRes.json()) as {
@@ -141,6 +150,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           })
         : null;
       setGold(stateJ?.character?.gold ?? 0);
+      setBankedGold(stateJ?.character?.bankedGold ?? 0);
+      syncCtxBanked(stateJ?.character?.bankedGold ?? 0);
       const insts = equipJ?.owned ?? [];
       const eqIids = new Set(Object.values(equipJ?.equipped ?? {}));
       setOwnedInsts(insts);
@@ -181,6 +192,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
             ok?: boolean;
             error?: string;
             gold?: number;
+            bankedGold?: number;
             owned?: V2EquipInstance[];
           }
         | null;
@@ -194,6 +206,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       setOwnedInsts(insts);
       setCounts(buildCountMap(insts));
       if (typeof j.gold === "number") setGold(j.gold);
+      if (typeof j.bankedGold === "number") {
+        setBankedGold(j.bankedGold);
+        syncCtxBanked(j.bankedGold);
+      }
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
@@ -457,7 +473,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                   <BuyEquipmentRow
                     key={id}
                     id={id}
-                    gold={gold}
+                    gold={spendable}
                     busy={busyId === id}
                     onBuy={buy}
                     onOpenCard={(item, anchor) => setCard({ item, anchor })}

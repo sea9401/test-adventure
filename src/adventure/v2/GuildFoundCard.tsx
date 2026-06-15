@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Shield } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
+import { useGameState } from "./GameStateProvider";
 
 // 새 길드 창단 카드 — 무소속일 때 길드 탭에 인라인으로 표시. 레벨·골드 게이트 + 이름 입력.
 // 성공 시 onCreated 호출(부모가 state/info refetch → 소속 화면으로 전환).
@@ -22,12 +23,15 @@ const ERROR_LABEL: Record<string, string> = {
 };
 
 type StateResponse = {
-  character?: { level: number; gold: number };
+  character?: { level: number; gold: number; bankedGold?: number };
 };
 
 export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
+  // 지불 게이트 — 코어루프 on 이면 보유+은행(은행에 든 골드로도 창단). 로컬(me/state)로 추적해 신선.
+  const { coreLoopOn } = useGameState();
   const [level, setLevel] = useState<number | null>(null);
   const [gold, setGold] = useState<number | null>(null);
+  const [bankedGold, setBankedGold] = useState(0);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -39,7 +43,8 @@ export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
       .then((j: StateResponse | null) => {
         if (!alive || !j?.character) return;
         setLevel(j.character.level);
-        setGold(j.character.gold);
+        setGold(j.character.gold ?? 0);
+        setBankedGold(j.character.bankedGold ?? 0);
       })
       .catch(() => {});
     return () => {
@@ -76,7 +81,10 @@ export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
   const trimmed = name.trim();
   const nameValid = trimmed.length >= NAME_MIN && trimmed.length <= NAME_MAX;
   const levelOk = level != null && level >= GUILD_CREATE_MIN_LEVEL;
-  const goldOk = gold != null && gold >= GUILD_CREATE_GOLD_COST;
+  // flag off 면 보유만(현행), on 이면 보유+은행. gold 미로딩(null)이면 게이트 비활성.
+  const spendable =
+    gold == null ? null : coreLoopOn ? gold + bankedGold : gold;
+  const goldOk = spendable != null && spendable >= GUILD_CREATE_GOLD_COST;
   const canCreate = nameValid && levelOk && goldOk && !busy;
 
   return (
@@ -113,7 +121,7 @@ export function GuildFoundCard({ onCreated }: { onCreated: () => void }) {
         </dd>
         <dt className="text-zinc-500 dark:text-zinc-400">소지 골드</dt>
         <dd className={goldOk ? "" : "text-rose-500"}>
-          {(gold ?? 0).toLocaleString()} / {GUILD_CREATE_GOLD_COST.toLocaleString()} G
+          {(spendable ?? 0).toLocaleString()} / {GUILD_CREATE_GOLD_COST.toLocaleString()} G
         </dd>
       </dl>
 

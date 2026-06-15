@@ -203,13 +203,15 @@ export function resolveBattleAtb(
   const openingExtra: BattleLogEntry[] = ctx.openingNote
     ? [{ kind: "info", text: ctx.openingNote, turn: "player" }]
     : [];
+  // ATB 는 고정 "턴"이 없다 — turn_marker 미발행. BattleLogList 가 행동 주체(액터 묶음)
+  // 단위로 박스를 끊어(PvP ATB 와 동일) 타임라인이 자연히 읽힌다: 빠른 빌드는 적 행동 사이에
+  // 플레이어 공격이 더 자주 나타난다. (레거시는 turn_marker 유지 → 턴 박스.)
   state = {
     ...state,
     phase: "player",
     log: [
       ...state.log.map((entry) => ({ ...entry, turn: "player" as const })),
       ...openingExtra,
-      { kind: "turn_marker", text: "1턴", turn: "player" },
     ],
     playerAttacksLeft: rollPlayerAttackCountWithBleed(state, atbPlayer),
     turn: { ...state.turn, firstAttackPending: true },

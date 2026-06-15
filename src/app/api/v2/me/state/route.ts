@@ -30,6 +30,7 @@ import {
   OFFLINE_MAX_MS,
   combatCooldownRemainingMs,
   offlineBattlesAccrued,
+  offlineFarmDepth,
   unlockedJobGroups,
   unlockedSpecs,
 } from "@/adventure/data/v2/coreLoopConfig";
@@ -417,7 +418,17 @@ export async function GET() {
         : 0;
   const offlineHunt = V2_CORE_LOOP_V2
     ? offlineActive
-      ? { active: true, startedAt: offlineStartedAt, endsAt: offlineEndsAt, serverNow: now }
+      ? {
+          active: true,
+          startedAt: offlineStartedAt,
+          endsAt: offlineEndsAt,
+          serverNow: now,
+          // 자동 사냥이 도는 farm 깊이 — "자동 사냥 중 사냥터 바로 입장" 목적지(정산 깊이와 동일).
+          depth: offlineFarmDepth(
+            Number((charSave as { lastHuntDepth?: number }).lastHuntDepth),
+            Number(charSave.frontierDepth) || 2,
+          ),
+        }
       : { active: false }
     : null;
 

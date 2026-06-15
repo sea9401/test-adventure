@@ -21,6 +21,7 @@ import {
   lossTaxOf,
   LOSS_TAX_RATE,
   offlineBattlesAccrued,
+  offlineFarmDepth,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
@@ -161,6 +162,24 @@ describe("offlineBattlesAccrued — 오프라인 누적 판수 (순수)", () => 
     expect(offlineBattlesAccrued(NOW + 1000, NOW, CD)).toBe(0); // 미래(손상)
     expect(offlineBattlesAccrued(NOW, NOW, CD)).toBe(0); // 방금 전투
     expect(offlineBattlesAccrued(NaN, NOW, CD)).toBe(0);
+  });
+});
+
+describe("offlineFarmDepth — 자동 사냥 farm 깊이 (순수, 잠긴 깊이 클램프)", () => {
+  it("lastHuntDepth 있으면 그 값(프론티어 내 클램프)", () => {
+    expect(offlineFarmDepth(3, 5)).toBe(3);
+    expect(offlineFarmDepth(5, 5)).toBe(5); // 프론티어와 동일 허용
+    expect(offlineFarmDepth(9, 5)).toBe(5); // 프론티어 초과 → 클램프
+    expect(offlineFarmDepth(0, 5)).toBe(4); // <1 → 폴백(frontier−1)
+  });
+  it("없으면 frontier−1 (단 최소 1)", () => {
+    expect(offlineFarmDepth(null, 5)).toBe(4);
+    expect(offlineFarmDepth(undefined, 2)).toBe(1);
+    expect(offlineFarmDepth(NaN, 2)).toBe(1);
+  });
+  it("프론티어 손상값이어도 최소 2로 보정 → 깊이 ≥1", () => {
+    expect(offlineFarmDepth(undefined, 0)).toBe(1); // frontier→2, 2−1=1
+    expect(offlineFarmDepth(1, 0)).toBe(1);
   });
 });
 

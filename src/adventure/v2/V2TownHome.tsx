@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bank,
   CompassRose,
   FirstAid,
   Fish,
@@ -22,7 +23,8 @@ export type TownAction =
   | { kind: "open-shop" }
   | { kind: "open-smithy" }
   | { kind: "open-fishing" }
-  | { kind: "open-treasure" };
+  | { kind: "open-treasure" }
+  | { kind: "open-bank" };
 
 export function V2TownHome({
   onAction,
@@ -57,6 +59,11 @@ export function V2TownHome({
           }
           title="상점"
           onClick={() => onAction({ kind: "open-shop" })}
+        />
+        <EntryCard
+          icon={<Bank size={28} weight="duotone" className="text-yellow-600" />}
+          title="은행"
+          onClick={() => onAction({ kind: "open-bank" })}
         />
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}

@@ -10,8 +10,13 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 
-// 마스터 플래그 — 전 코어 루프 재설계를 한 번에 켜고 끈다. 완성 전까지 false.
-export const V2_CORE_LOOP_V2 = false;
+// 마스터 플래그 — 전 코어 루프 재설계를 한 번에 켜고 끈다.
+//   환경별 제어: 빌드 시 NEXT_PUBLIC_V2_CORE_LOOP_V2="true" 면 on, 아니면 off(기본).
+//   NEXT_PUBLIC_ 이라 빌드타임에 클라/서버 번들 양쪽에 구워진다(서버 const 이자 클라 const).
+//   변수 미설정 환경(프로덕션 현행)은 false → byte-identical. 스테이징(.env.production.local 에
+//   변수 지정)만 on 으로 띄워 검증 → 검증 후 프로덕션 env 에 변수 추가로 flip(코드 변경 없이).
+export const V2_CORE_LOOP_V2 =
+  process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2 === "true";
 
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).

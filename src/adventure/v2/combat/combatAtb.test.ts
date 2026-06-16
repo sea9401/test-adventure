@@ -110,6 +110,12 @@ describe("resolveBattle ATB invariants", () => {
     for (let i = 1; i < ticks.length; i += 1) {
       expect(ticks[i]).toBeGreaterThanOrEqual(ticks[i - 1]);
     }
+    // 첫 틱 이후로는 t-less 엔트리가 없어야 한다(번들 DoT/사망 엔트리 t 누락 = 외톨이 박스 회귀).
+    const firstTicked = log.findIndex((e) => e.t != null);
+    expect(firstTicked).toBeGreaterThanOrEqual(0);
+    for (let i = firstTicked; i < log.length; i += 1) {
+      expect(typeof log[i].t, `entry ${i} (${log[i].kind})`).toBe("number");
+    }
   });
 
   it("speed asymmetry: fast player gets more action bundles than slow enemy", () => {

@@ -71,6 +71,22 @@ function effectiveEnemyTimelineSpd(
     : base;
 }
 
+// prevLogLen 이후 새 엔트리에 ATB 틱만 찍는다(turn 미변경). 번들 틱(DoT/사망 로그)처럼
+//   tagNewLogEntries 밖에서 추가돼 turn 정렬은 그대로 둬야 하는 엔트리용 — t 누락 방지.
+function stampTick(
+  state: BattleState,
+  prevLogLen: number,
+  tick: number,
+): BattleState {
+  if (state.log.length <= prevLogLen) return state;
+  return {
+    ...state,
+    log: state.log.map((entry, idx) =>
+      idx < prevLogLen || entry.t != null ? entry : { ...entry, t: tick },
+    ),
+  };
+}
+
 function tagNewLogEntries(
   state: BattleState,
   prevLogLen: number,
@@ -252,7 +268,11 @@ export function resolveBattleAtb(
             ? rollPlayerAttackCountWithBleed(state, atbPlayer)
             : state.playerAttacksLeft,
       };
+      const playerBundleStart = state.log.length;
       state = tickPlayerBundleEntry(state);
+      // 번들 틱(DoT/사망)이 전투를 끝내면 아래 행동 루프를 건너뛰어 t 미스탬프 → 최종 hp_bar 만
+      //   t 를 가져 외톨이 박스가 생긴다(Codex). 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
+      state = stampTick(state, playerBundleStart, nextTick);
       if (state.phase !== "ended") {
         // Phase-1 limitation: player v2 skill cast is not split out of legacy resolveBattle yet,
         // so ATB bundles only drive the existing player phase helper.
@@ -287,7 +307,10 @@ export function resolveBattleAtb(
           enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
         },
       };
+      const enemyBundleStart = state.log.length;
       state = tickEnemyBundleEntry(state);
+      // 적 번들 틱(DoT/사망)도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
+      state = stampTick(state, enemyBundleStart, nextTick);
       if (state.phase !== "ended") {
         // Phase-1 limitation: enemyV2Debuffs ownership and enemy v2 skill casts remain legacy-loop concerns.
         // Phase-1 limitation: Shadow Step is still evaluated by the helper per enemy bundle, not per individual hit.

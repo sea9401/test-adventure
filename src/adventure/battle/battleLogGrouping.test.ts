@@ -112,6 +112,32 @@ describe("groupBattleLogEntries — ATB(틱 윈도우 단위)", () => {
     expect(groups[0][0]).toMatchObject({ kind: "info", text: "적이 나타났다" });
     expect(groups[0].length).toBeGreaterThan(1);
   });
+
+  // 회귀(Codex): DoT 가 전투를 끝낼 때 사망/DoT 엔트리가 t 를 못 받으면 최종 hp_bar 만 새 버킷이
+  //   돼 "외톨이 hp_bar 박스"가 생겼다. 엔진이 그 엔트리들을 최종 hp_bar 와 같은 틱으로 스탬프 →
+  //   한 박스에 모여야 한다.
+  it("DoT 사망 — 사망/DoT/최종 hp_bar 가 같은 틱이면 한 박스(외톨이 hp_bar 아님)", () => {
+    const t = W * 2;
+    const log: BattleLogEntry[] = [
+      { kind: "info", text: "적이 나타났다" },
+      { kind: "player_attack", text: "공격 30 피해", turn: "player", t: 0 },
+      hpt(70, 50, 0),
+      // 다음 윈도우: 플레이어 DoT 가 발동해 전투 종료 — 모두 같은 틱 t 로 스탬프됨(엔진 fix).
+      { kind: "enemy_attack", text: "[출혈] 70 피해를 입었다.", turn: "player", t },
+      { kind: "info", text: "플레이어가 쓰러졌다.", turn: "player", t },
+      hpt(0, 50, t),
+    ];
+    const groups = groupBattleLogEntries(log);
+    const last = groups[groups.length - 1];
+    // 마지막 박스에 DoT 피해 + 사망 info + hp_bar 가 함께(외톨이 hp_bar 아님).
+    expect(last.filter((e) => e.kind === "hp_bar").length).toBe(1);
+    expect(last.length).toBeGreaterThan(1);
+    expect(last.some((e) => e.text.includes("쓰러졌다"))).toBe(true);
+    // 어떤 박스도 hp_bar 단독이 아니어야 한다.
+    for (const g of groups) {
+      expect(g.every((e) => e.kind === "hp_bar")).toBe(false);
+    }
+  });
 });
 
 describe("lastHpBarIndex — 박스당 마지막 HP 바만 렌더", () => {

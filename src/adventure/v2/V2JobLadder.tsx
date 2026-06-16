@@ -14,6 +14,8 @@ export type JobLadderEntry = {
   name: string;
   tier: number;
   jobBonus: Partial<Record<V2StatKey, number>>;
+  // 해금 조건(공유용 표기). 예: "Lv 50 달성" / "견습 병사 누적 Lv 100".
+  condition: string;
 };
 
 type Pending = { id: string; name: string };
@@ -195,6 +197,9 @@ function JobRow({
           )}
         </div>
         <BonusChips bonus={job.jobBonus} />
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          해금 조건 · {job.condition}
+        </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {!isCurrent && (

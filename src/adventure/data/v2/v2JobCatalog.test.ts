@@ -5,6 +5,7 @@ import {
   TIER2_UNLOCK_CUMLEVEL,
   V2_JOB_SYSTEM_V2,
   LEGACY_CLASS_SPEC_BY_JOB,
+  jobIdFromLegacy,
   isJobUnlocked,
   jobById,
   unlockedJobs,
@@ -174,5 +175,27 @@ describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
     for (const { class: cls } of Object.values(LEGACY_CLASS_SPEC_BY_JOB)) {
       expect(BASE_JOBS).toContain(cls);
     }
+  });
+});
+
+describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
+  it("LEGACY 매핑의 정확한 역 — (class, spec) → jobId", () => {
+    for (const [jobId, { class: cls, spec }] of Object.entries(
+      LEGACY_CLASS_SPEC_BY_JOB,
+    )) {
+      expect(jobIdFromLegacy(cls, spec)).toBe(jobId);
+    }
+  });
+
+  it("대표 케이스", () => {
+    expect(jobIdFromLegacy("warrior", null)).toBe("warrior");
+    expect(jobIdFromLegacy("warrior", "gwang")).toBe("squire");
+    expect(jobIdFromLegacy("warrior", "knight")).toBe("shieldman");
+    expect(jobIdFromLegacy("rogue", "assassin")).toBe("assassin");
+  });
+
+  it("매핑 없는 옛 계파(예: gladiator)는 base class 로 폴백", () => {
+    expect(jobIdFromLegacy("warrior", "gladiator")).toBe("warrior");
+    expect(jobIdFromLegacy("none", null)).toBe("none");
   });
 });

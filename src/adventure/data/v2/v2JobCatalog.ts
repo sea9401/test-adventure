@@ -229,3 +229,17 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   assassin: { class: "rogue", spec: "assassin" },
   archer: { class: "rogue", spec: "archery" },
 };
+
+/**
+ * 역브리지 — 옛 (class, specChoice) → 새 직업 id. 현재 직업 표시용(전직 UI).
+ * LEGACY_CLASS_SPEC_BY_JOB 의 역. 매핑 없는 옛 계파(검투사·연환·워메이지·독사 등 PR-5
+ * 마이그 전 잔존)는 base class id 로 폴백 — 표시상 기본 직업으로 보일 뿐(플래그 off 운영엔
+ * 미노출, PR-5 가 세이브를 정식 변환). PR-5/PR-6 에서 제거.
+ */
+export function jobIdFromLegacy(cls: string, spec: string | null): string {
+  const wantSpec = spec ?? null;
+  for (const [jobId, m] of Object.entries(LEGACY_CLASS_SPEC_BY_JOB)) {
+    if (m.class === cls && m.spec === wantSpec) return jobId;
+  }
+  return cls; // 폴백 — 기본 직업 id(또는 none)
+}

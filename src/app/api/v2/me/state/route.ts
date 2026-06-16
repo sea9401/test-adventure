@@ -28,6 +28,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
+  V2_LEVEL_CAP,
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
   calcSpBudget,
@@ -57,6 +58,13 @@ import {
   describeSpecPassiveEffect,
 } from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
+import {
+  V2_JOB_SYSTEM_V2,
+  V2_JOB_LIST,
+  V2_JOB_CATALOG,
+  isJobUnlocked,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -382,6 +390,42 @@ export async function GET() {
           specs: unlockedSpecs(combat.totalStats),
         }
       : null;
+  // 직업 시스템 v2(cumLevel 해금) — flag on 일 때만. 카탈로그 기반 점진 공개 목록(전직 UI).
+  //   해금된 직업만 actionable, 잠긴 상위는 부모 cumLevel 힌트. 옛 스탯게이트(jobUnlock) 대체.
+  const jobsV2 =
+    V2_CORE_LOOP_V2 && V2_JOB_SYSTEM_V2
+      ? (() => {
+          const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+          const specChoice =
+            typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+              ? ((charSave as { specChoice?: string }).specChoice ?? null)
+              : null;
+          const level = Math.max(1, (charSave as { level?: number }).level ?? 1);
+          return {
+            currentJobId: jobIdFromLegacy(cls, specChoice),
+            atLevelCap: level >= V2_LEVEL_CAP,
+            jobs: V2_JOB_LIST.filter((job) => job.tier > 0).map((job) => {
+              const unlocked = isJobUnlocked(job, prof);
+              const parentId = Object.keys(job.unlock.prereqs)[0] ?? null;
+              return {
+                id: job.id,
+                name: job.name,
+                tier: job.tier,
+                jobBonus: job.jobBonus,
+                unlocked,
+                lockHint:
+                  !unlocked && parentId
+                    ? {
+                        parentName: V2_JOB_CATALOG[parentId]?.name ?? parentId,
+                        need: job.unlock.prereqs[parentId] ?? 0,
+                        have: prof.groups[parentId]?.cumLevel ?? 0,
+                      }
+                    : null,
+              };
+            }),
+          };
+        })()
+      : null;
   // flag off 면 null — 클라는 기존 class→이름 매핑 폴백. flag on 일 때만 모험가-인지 라벨.
   const classDisplayName = V2_CORE_LOOP_V2
     ? cls === "none"
@@ -441,6 +485,8 @@ export async function GET() {
     intrusion,
     // 코어루프(스탯게이트 직업 트리) — flag off 면 null/현행 라벨.
     jobUnlock,
+    // 직업 시스템 v2(cumLevel 점진 공개) — V2_JOB_SYSTEM_V2 off 면 null.
+    jobsV2,
     // 코어루프 전투 쿨다운(사냥·토벌 게이트) — flag off 면 null(스태미나로 판정).
     combatCooldown,
     // 코어루프 오프라인 정산 대기 판수 — flag off 면 null.

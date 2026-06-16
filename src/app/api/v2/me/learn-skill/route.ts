@@ -20,7 +20,7 @@ import {
   type V2SkillsState,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
-import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
+import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
@@ -124,14 +124,19 @@ export async function POST(req: Request) {
       };
     }
 
-    // 장착 슬롯 폐지 — 학습한 스킬은 현 체인(공용+전문화) 유효분 전부 자동으로 전투 풀에 든다.
-    // equipped = learned ∩ elementalPool. flag off = 상한 없음(기존). 코어루프 = SP 예산까지만
-    //   자동 장착(greedy in-order, 초과분은 PR-4 수동 로드아웃에서 교체). budget=현 직업군 마일스톤.
+    // equipped 갱신.
+    //   flag off(레거시): 학습한 스킬은 현 체인 유효분 전부 자동 장착(상한 없음).
+    //   코어루프(flag on): 기존 로드아웃(수동 선택) 보존 + 새로 배운 스킬을 뒤에 붙여 SP 예산까지
+    //     sanitize(맞으면 자동 장착·예산 차면 learned 만·수동 교체는 로드아웃 화면에서). 강제 재산출 X.
     const nextLearned = [...skills.learned, sig];
-    const chainEquipped = nextLearned.filter((s) => elementalPool.includes(s));
     const nextEquipped = V2_CORE_LOOP_V2
-      ? clampLoadoutToBudget(chainEquipped, calcSpBudget(spent.groups))
-      : chainEquipped;
+      ? sanitizeLoadout(
+          [...skills.equipped, sig],
+          nextLearned,
+          calcSpBudget(spent.groups),
+          elementalPool,
+        )
+      : nextLearned.filter((s) => elementalPool.includes(s));
     const nextSkills: V2SkillsState = {
       ...skills, // pattern 보존(combat-pattern 라우트만 pattern 변경).
       learned: nextLearned,

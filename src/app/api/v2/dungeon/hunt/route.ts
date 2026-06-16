@@ -128,6 +128,7 @@ import {
 } from "@/adventure/data/v2/intruderTracking";
 import type { DungeonEnemy, DungeonFloorId } from "@/adventure/data/v2/types";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
 import {
   insertFeedEntry,
   resolveUserDisplayName,
@@ -436,13 +437,18 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     "skills.v2",
     emptyV2SkillsState() as unknown as Record<string, unknown>,
   );
-  const v2Skills = parseV2SkillsState(skillsRaw);
   const proficiencyRaw = await lockSaveForUpdate<V2ProficiencyState>(
     tx,
     userId,
     "proficiency.v2",
     emptyProficiency(),
   );
+  // 코어루프 — 전투 직전 로드아웃 sanitize(SP 예산/직업고정 강제). flag off=원본 그대로(추가 작업 0).
+  //   reconcile 는 state 로드마다 영속 정리하지만, state 없이 곧장 사냥 오는 경로도 막는다(전투 입력 한정).
+  const v2SkillsParsed = parseV2SkillsState(skillsRaw);
+  const v2Skills = V2_CORE_LOOP_V2
+    ? sanitizeCombatLoadout(v2SkillsParsed, charSave, proficiencyRaw)
+    : v2SkillsParsed;
   const player = await derivePlayerCombatV2(userId, tx, {
     character: charSave,
     equipmentSave,

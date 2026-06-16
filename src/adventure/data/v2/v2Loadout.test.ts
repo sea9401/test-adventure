@@ -4,6 +4,7 @@ import {
   isSignatureSkill,
   validateLoadout,
   clampLoadoutToBudget,
+  sanitizeLoadout,
 } from "./v2Loadout";
 import { elementalSkillsForClass } from "./classes";
 
@@ -112,5 +113,48 @@ describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
       STRIKE,
       WARCRY,
     ]);
+  });
+});
+
+describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정리", () => {
+  const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, TAUNT];
+  const warriorChain = elementalSkillsForClass("warrior", "knight", 4); // taunt 포함
+  const mageChain = elementalSkillsForClass("mage", "arcane", 4); // taunt 없음
+
+  it("유효 로드아웃은 그대로 보존(순서 포함)", () => {
+    expect(
+      sanitizeLoadout([RECOVER, STRIKE, TAUNT], learned, 99, warriorChain),
+    ).toEqual([RECOVER, STRIKE, TAUNT]);
+  });
+
+  it("배우지 않은 스킬은 떨군다", () => {
+    expect(sanitizeLoadout([STRIKE, TAUNT], [STRIKE], 99, warriorChain)).toEqual([
+      STRIKE,
+    ]);
+  });
+
+  it("🔑 환생 미러 — 옛 직업 시그니처는 빠지고 모은 공용/기본기는 유지(오픈믹스)", () => {
+    // 마법사 체인엔 knight 시그니처(taunt) 없음 → taunt 만 빠지고 strike·warcry 유지.
+    expect(
+      sanitizeLoadout([STRIKE, WARCRY, TAUNT], learned, 99, mageChain),
+    ).toEqual([STRIKE, WARCRY]);
+  });
+
+  it("예산 초과분은 순서 보존 클램프", () => {
+    // strike(3)+recover(2)=5. 예산 4 → strike 만.
+    expect(sanitizeLoadout([STRIKE, RECOVER], learned, 4, warriorChain)).toEqual([
+      STRIKE,
+    ]);
+  });
+
+  it("카탈로그 밖 id 는 제거", () => {
+    expect(
+      sanitizeLoadout(
+        ["__ghost__" as V2SkillId, STRIKE],
+        learned,
+        99,
+        warriorChain,
+      ),
+    ).toEqual([STRIKE]);
   });
 });

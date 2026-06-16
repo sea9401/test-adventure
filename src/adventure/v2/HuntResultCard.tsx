@@ -41,6 +41,7 @@ export type HuntResult = {
   // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
   taxOwnerLabel?: string;
   levelsGained: number;
+  spMilestonesGained?: number; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤(>0 일 때만 표기).
   statGains?: Partial<Record<V2StatKey, number>>; // 레벨업 랜덤 성장으로 오른 1차 스탯.
   hpGain?: number; // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
   mpGain?: number; // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
@@ -239,6 +240,14 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
               {hpMpGainsText}
             </div>
           )}
+        </div>
+      )}
+
+      {(result.spMilestonesGained ?? 0) > 0 && (
+        <div className="mt-2 rounded-md border border-violet-300 bg-violet-50 px-2 py-1.5 text-center dark:border-violet-700 dark:bg-violet-950">
+          <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+            스킬포인트 +{result.spMilestonesGained} 획득!
+          </span>
         </div>
       )}
     </Card>

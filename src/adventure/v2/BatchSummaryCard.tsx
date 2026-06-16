@@ -30,6 +30,7 @@ export type BatchSummary = {
   totalGoldTaxed?: number;
   taxOwnerLabel?: string; // 세금 수취자 — 점령 길드명/솔로 점령자/거점 금고.
   levelsGained: number;
+  spMilestonesGained?: number; // 코어루프 — 일괄 동안 새로 넘은 SP 마일스톤 합산(>0 일 때만 표기).
   statGains: Partial<Record<V2StatKey, number>>; // 일괄 사냥 동안 레벨업으로 오른 1차 스탯 합산.
   hpGained?: number; // 일괄 동안 레벨업으로 오른 maxHp 합산.
   mpGained?: number; // 일괄 동안 레벨업으로 오른 maxMp 합산.
@@ -105,6 +106,11 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
           {summary.levelsGained > 0 && (
             <span className="text-xs text-amber-600 dark:text-amber-400">
               · 레벨 +{summary.levelsGained}
+            </span>
+          )}
+          {(summary.spMilestonesGained ?? 0) > 0 && (
+            <span className="text-xs text-violet-600 dark:text-violet-400">
+              · 스킬포인트 +{summary.spMilestonesGained}
             </span>
           )}
         </div>

@@ -202,6 +202,19 @@ export function calcSpBudget(
   return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus);
 }
 
+// 두 cumLevel 사이에 새로 넘은 SP 마일스톤 수("스킬포인트 +N 획득!" 알림용).
+//   cumLevel 은 단조 증가(addCumLevel 누적·환생도 보존)라 각 마일스톤은 평생 1회만 넘는다 →
+//   레벨업 시점(old→new)에서 차분만 보면 별도 영속 카운터 없이 정확히 1회 발화. 음수 방지.
+export function spMilestonesCrossed(
+  oldCumLevel: number,
+  newCumLevel: number,
+): number {
+  return Math.max(
+    0,
+    spMilestonesForCumLevel(newCumLevel) - spMilestonesForCumLevel(oldCumLevel),
+  );
+}
+
 // === 거점 행동 비용 (스태미나 → 골드/전투 쿨다운으로 대체) ====================
 export const OUTPOST_MOVE_GOLD_COST = 25; // 인접 이동 1홉(재진입 무료)
 export const OUTPOST_WARP_GOLD_COST = 75; // 워프(발견 거점 순간이동) — 이동의 3배(옛 스태미나 비율 미러)

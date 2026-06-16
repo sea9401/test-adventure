@@ -106,6 +106,7 @@ export async function POST() {
     let totalGold = 0; // net(세금 차감 후) 합산
     let totalLossTax = 0;
     let levelsGained = 0;
+    let spMilestonesGained = 0; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤 합산.
     let stopped: "hp" | "error" | null = null;
 
     for (let i = 0; i < n; i++) {
@@ -136,6 +137,7 @@ export async function POST() {
       totalGold += res.goldGained;
       totalLossTax += res.lossTax ?? 0;
       levelsGained += res.levelsGained;
+      spMilestonesGained += res.spMilestonesGained ?? 0;
       // HP/포션 소진 — 온라인 배치와 동일 조건으로 중단(누적시간은 아래서 소비).
       if (res.hpAfter <= 0 || !canHuntWithHp(res.hpAfter, res.maxHp)) {
         stopped = "hp";
@@ -168,6 +170,7 @@ export async function POST() {
       totalGold,
       totalLossTax,
       levelsGained,
+      ...(V2_CORE_LOOP_V2 ? { spMilestonesGained } : {}),
       depth,
       finalLevel: Math.max(1, Math.floor(Number(after.level) || 1)),
       stopped,

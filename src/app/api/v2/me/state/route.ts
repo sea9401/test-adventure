@@ -556,7 +556,9 @@ export async function GET() {
                   locked: signature && !chainSet.has(id),
                 };
               });
-            return { spBudget, spUsed, library };
+            // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만. POST /me/loadout 시 재전송용.
+            const equipped = skillsState.equipped.filter((id) => V2_SKILLS[id]);
+            return { spBudget, spUsed, equipped, library };
           })(),
         }
       : {}),

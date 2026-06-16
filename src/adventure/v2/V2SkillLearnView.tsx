@@ -11,6 +11,7 @@ import {
 } from "@/adventure/data/v2/v2Skills";
 import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
 import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
+import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
 
 // v2 학습 — 전문화 선택/패시브 픽(V2SpecPanel) + 숙달 포인트로 공용·전문화 스킬을 습득한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
@@ -28,6 +29,7 @@ type StateShape = {
   elementalSkills?: ElementalRow[];
   proficiency?: { current?: { points: number } };
   spec?: V2SpecState;
+  loadout?: V2LoadoutData; // 코어루프 flag-on 만 존재(SP 로드아웃).
 };
 
 function skillName(id: string): string {
@@ -65,6 +67,7 @@ export function V2SkillLearnView({
 }) {
   const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
+  const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
   const [usable, setUsable] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -78,6 +81,7 @@ export function V2SkillLearnView({
       if (j?.ok) {
         setSpecState(j.spec ?? null);
         setElementalSkills(j.elementalSkills ?? []);
+        setLoadout(j.loadout ?? null);
         setUsable(j.proficiency?.current?.points ?? 0);
       }
     } catch {}
@@ -122,13 +126,15 @@ export function V2SkillLearnView({
         setElementalSkills((prev) =>
           prev.map((s) => (s.skillId === skillId ? { ...s, learned: true } : s)),
         );
+        // 새로 배운 스킬이 라이브러리/로드아웃에 반영되도록 상태 재동기화(코어루프 로드아웃 패널).
+        refresh();
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
         setBusy(null);
       }
     },
-    [usable],
+    [usable, refresh],
   );
 
 
@@ -140,6 +146,10 @@ export function V2SkillLearnView({
 
       {specState && specState.specs.length > 0 && (
         <V2SpecPanel spec={specState} onChanged={refresh} />
+      )}
+
+      {!loading && loadout && (
+        <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
       )}
 
       {!loading && elementalSkills.length > 0 && (
@@ -156,7 +166,9 @@ export function V2SkillLearnView({
             </div>
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 전투 패턴에서 설정하세요.
+            {loadout
+              ? "학습한 스킬은 라이브러리에 영구 보관됩니다. 위 로드아웃에서 스킬포인트 예산 안으로 장착하세요."
+              : "학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 전투 패턴에서 설정하세요."}
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {

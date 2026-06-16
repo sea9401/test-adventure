@@ -27,6 +27,7 @@ import {
   spendableGold,
   spendableGoldWith,
   calcSpBudget,
+  spMilestonesForCumLevel,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
@@ -261,23 +262,64 @@ describe("spendableGoldWith / 래퍼 — 지불가능 총액", () => {
   });
 });
 
-describe("calcSpBudget — 스킬포인트 예산 (직업군 마일스톤)", () => {
+describe("spMilestonesForCumLevel — 점감(widening) 마일스톤 곡선", () => {
+  it("점감 임계 — n번째 SP 누적 cumLevel(a45 d25): 45/115/210/330/475/645/840/1060", () => {
+    // 임계 직전엔 n-1, 임계 도달 시 n.
+    const T = [45, 115, 210, 330, 475, 645, 840, 1060];
+    T.forEach((thresh, i) => {
+      expect(spMilestonesForCumLevel(thresh - 1), `${thresh}-1`).toBe(i);
+      expect(spMilestonesForCumLevel(thresh), `${thresh}`).toBe(i + 1);
+    });
+  });
+  it("간격이 뒤로 갈수록 넓어진다 (점감 — flat 아님)", () => {
+    // 1→2 간격 70, 2→3 간격 95, 3→4 간격 120 … 단조 증가.
+    const gaps = [115 - 45, 210 - 115, 330 - 210, 475 - 330];
+    for (let i = 1; i < gaps.length; i++) {
+      expect(gaps[i]).toBeGreaterThan(gaps[i - 1]);
+    }
+  });
+  it("첫 SP 전(cum<45)·0·손상 입력(음수·NaN·Infinity) = 0", () => {
+    expect(spMilestonesForCumLevel(0)).toBe(0);
+    expect(spMilestonesForCumLevel(44)).toBe(0);
+    expect(spMilestonesForCumLevel(-50)).toBe(0);
+    expect(spMilestonesForCumLevel(NaN)).toBe(0);
+    expect(spMilestonesForCumLevel(Infinity)).toBe(0);
+  });
+  it("매우 큰 cumLevel 도 유한 정수 반환(천장은 calcSpBudget 캡이 담당)", () => {
+    const v = spMilestonesForCumLevel(10_000_000);
+    expect(Number.isFinite(v)).toBe(true);
+    expect(Number.isInteger(v)).toBe(true);
+  });
+});
+
+describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => {
   it("빈 직업군 = SP_BASE(12)", () => {
     expect(calcSpBudget({})).toBe(12);
     expect(calcSpBudget(null)).toBe(12);
   });
-  it("직업군 cumLevel 마일스톤(45당 +1) 합산", () => {
-    expect(calcSpBudget({ warrior: { cumLevel: 90 } })).toBe(14); // 12 + 2
+  it("직업군 cumLevel 점감 마일스톤 합산", () => {
+    expect(calcSpBudget({ warrior: { cumLevel: 115 } })).toBe(14); // 12 + 2
     expect(
-      calcSpBudget({ warrior: { cumLevel: 90 }, mage: { cumLevel: 45 } }),
-    ).toBe(15); // 12 + 2 + 1
+      calcSpBudget({ warrior: { cumLevel: 210 }, mage: { cumLevel: 45 } }),
+    ).toBe(16); // 12 + 3 + 1
   });
   it("정복(tier 4) 직업군당 +3", () => {
     expect(calcSpBudget({ warrior: { cumLevel: 45, tier: 4 } })).toBe(16); // 12+1+3
     expect(calcSpBudget({ warrior: { cumLevel: 0, tier: 3 } })).toBe(12); // 미정복
   });
-  it("소프트캡 60", () => {
-    expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } })).toBe(60);
+  it("운영 실측 베테랑 — top(cum1062·4직업·3정복)은 점감으로 ~32, flat43 대비 천장 굳음", () => {
+    // 실제 user8: warrior291·rogue291·mage291·martial189 / 3정복.
+    const sp = calcSpBudget({
+      warrior: { cumLevel: 291, tier: 4 },
+      rogue: { cumLevel: 291, tier: 4 },
+      mage: { cumLevel: 291, tier: 4 },
+      martial: { cumLevel: 189, tier: 3 },
+    });
+    // 291→3 마일스톤 ×3 = 9, 189→2 = 2 → 11 마일스톤 + base12 + 3정복×3=9 → 32.
+    expect(sp).toBe(32);
+  });
+  it("소프트캡 40", () => {
+    expect(calcSpBudget({ a: { cumLevel: 100000, tier: 4 } })).toBe(40);
   });
   it("손상 입력 방어", () => {
     expect(calcSpBudget({ a: { cumLevel: NaN as unknown as number } })).toBe(12);

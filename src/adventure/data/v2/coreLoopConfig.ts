@@ -158,15 +158,36 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 
 // === 스킬포인트(SP) 로드아웃 예산 (직업군 마일스톤 파생) =======================
 // 레벨 슬롯(스킬 1개씩) 폐지 → "배운 스킬 중 합(spCost) ≤ SP예산"으로 자유 장착. SP 는
-// 직업군별 누적레벨 마일스톤 보상으로 조금씩 쌓인다(성장 체감 — "스킬포인트 획득!"). 베테랑일수록
+// 직업군별 누적레벨 마일스톤 보상으로 쌓인다(성장 체감 — "스킬포인트 획득!"). 베테랑일수록
 // 큰 로드아웃. 여러 직업군 환생 누적 = 더 큰 예산. (전 V2_CORE_LOOP_V2 뒤·미배선이면 inert.)
+//
+// 🔑 마일스톤 간격은 cumLevel 이 깊어질수록 "넓어진다"(점감) — flat 간격은 선형 무한증가라
+//    베테랑이 결국 전 카탈로그 장착 가능(제약 붕괴). 운영 실측(prod RDS 10인): 1환생 ≈ 291
+//    cumLevel, top 베테랑 1062. flat 45 면 top 43 SP(≈12스킬), 점감(a45 d25)이면 top ~32(≈9스킬)
+//    로 천장이 굳어 "전부 장착"이 영영 안 됨. n번째 SP 의 간격 = BASE + (n-1)*WIDEN 으로 벌어짐.
+//    (n번째 SP 누적 임계 cumLevel: SP1@45 2@115 3@210 4@330 5@475 6@645 7@840 8@1060.)
 export const SP_BASE = 12; // 시작 SP.
-export const SP_MILESTONE_INTERVAL = 45; // 직업군 cumLevel 이 이만큼 늘 때마다 +1 SP(마일스톤).
+export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 cumLevel(≈ 새 시스템 한 루프 Lv1→50).
+export const SP_MILESTONE_WIDEN = 25; // 다음 SP 마다 간격이 이만큼씩 더 벌어진다(점감 강도).
 export const SP_MASTERED_JOB_BONUS = 3; // 직업군 정점(최고 차수) 도달당 +SP.
 export const SP_MASTERED_TIER = 4; // "정복" 기준 = 그 직업군 최고 차수(4차) 도달.
-export const SP_MAX_SOFT_CAP = 60;
+export const SP_MAX_SOFT_CAP = 40; // 절대 천장(점감 곡선상 단일직 ~7·broad 베테랑 ~32, 캡은 안전망).
 
-// SP 예산 계산 — 각 직업군 cumLevel 마일스톤 합 + 정복 직업군 보너스 + 기본. 소프트캡.
+// 한 직업군 cumLevel → 마일스톤 SP 개수(점감). 간격이 SP 마다 +WIDEN 벌어지는 등차 임계의 역.
+//   임계 T(n) = BASE·n + WIDEN·n(n-1)/2 ≤ cum 인 최대 n. 근의공식 닫힌형(루프 불필요).
+//   cum ≤ 0 → 0. (역수식 floor 경계 부동소수 안정용 +1e-9.)
+export function spMilestonesForCumLevel(cumLevel: number): number {
+  const raw = Number(cumLevel);
+  const cum = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+  if (cum < SP_MILESTONE_BASE) return 0;
+  const a = SP_MILESTONE_BASE;
+  const d = SP_MILESTONE_WIDEN;
+  const n =
+    (d / 2 - a + Math.sqrt((a - d / 2) ** 2 + 2 * d * cum)) / d + 1e-9;
+  return Math.max(0, Math.floor(n));
+}
+
+// SP 예산 계산 — 각 직업군 cumLevel 점감 마일스톤 합 + 정복 직업군 보너스 + 기본. 소프트캡.
 //   groups = proficiency.groups (직업군별 { cumLevel, tier }). 구조적 인자(순환 import 회피).
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
 export function calcSpBudget(
@@ -175,8 +196,7 @@ export function calcSpBudget(
   let milestoneSp = 0;
   let masteredBonus = 0;
   for (const g of Object.values(groups ?? {})) {
-    const cum = Math.max(0, Math.floor(Number(g?.cumLevel) || 0));
-    milestoneSp += Math.floor(cum / SP_MILESTONE_INTERVAL);
+    milestoneSp += spMilestonesForCumLevel(Number(g?.cumLevel) || 0);
     if ((Number(g?.tier) || 0) >= SP_MASTERED_TIER) masteredBonus += SP_MASTERED_JOB_BONUS;
   }
   return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus);

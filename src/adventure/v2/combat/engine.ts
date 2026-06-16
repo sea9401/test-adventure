@@ -66,6 +66,12 @@ export type BattleLogEntry =
        * `turn` / `kind` 를 재매핑할 때 사용. PvE 에는 미사용.
        */
       side?: "p1" | "p2";
+      /**
+       * ATB 타임라인 틱(이 행동이 발생한 시각). resolveBattleAtb / resolveBattlePvPAtb 가
+       * 찍는다. UI 가 일정 틱 윈도우(ATB_LOG_WINDOW_TICKS) 단위로 로그를 묶어 한 박스에
+       * 보여줄 때 사용. 레거시(고정교대) 엔진·옛 로그는 미동봉(undefined) → UI 가 턴 단위로 폴백.
+       */
+      t?: number;
     }
   | {
       // 매 턴 종료 시점 (그리고 전투 종료 시) 양쪽 HP 스냅샷. UI 가 텍스트형 막대로 렌더.
@@ -74,6 +80,8 @@ export type BattleLogEntry =
       text: string;
       turn?: "player" | "enemy";
       side?: "p1" | "p2";
+      /** ATB 타임라인 틱(위 variant 의 t 와 동일 의미). 윈도우 그룹화용. */
+      t?: number;
       playerHp: number;
       playerMaxHp: number;
       enemyHp: number;

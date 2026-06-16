@@ -30,11 +30,12 @@ import {
 export const ATB_TICK_CAP = 50 * 26;
 export const ATB_ACTION_GUARD = 1000;
 
-function hpBarEntry(state: BattleState): BattleLogEntry {
+function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
   return {
     kind: "hp_bar",
     text: "",
     turn: "player",
+    ...(tick != null ? { t: tick } : {}),
     playerHp: state.playerHp,
     playerMaxHp: state.playerMaxHp,
     enemyHp: state.enemyHp,
@@ -70,17 +71,38 @@ function effectiveEnemyTimelineSpd(
     : base;
 }
 
+// prevLogLen 이후 새 엔트리에 ATB 틱만 찍는다(turn 미변경). 번들 틱(DoT/사망 로그)처럼
+//   tagNewLogEntries 밖에서 추가돼 turn 정렬은 그대로 둬야 하는 엔트리용 — t 누락 방지.
+function stampTick(
+  state: BattleState,
+  prevLogLen: number,
+  tick: number,
+): BattleState {
+  if (state.log.length <= prevLogLen) return state;
+  // 새 tail 만 매핑(전체 로그 재스캔 회피 — 긴 전투에서 O(n²) 방지). 이미 t 있으면 보존.
+  const tail = state.log
+    .slice(prevLogLen)
+    .map((entry) => (entry.t != null ? entry : { ...entry, t: tick }));
+  return { ...state, log: [...state.log.slice(0, prevLogLen), ...tail] };
+}
+
 function tagNewLogEntries(
   state: BattleState,
   prevLogLen: number,
   turn: "player" | "enemy",
+  tick?: number,
 ): BattleState {
   if (state.log.length <= prevLogLen) return state;
   return {
     ...state,
-    log: state.log.map((entry, idx) =>
-      idx < prevLogLen || entry.turn ? entry : { ...entry, turn },
-    ),
+    log: state.log.map((entry, idx) => {
+      if (idx < prevLogLen) return entry;
+      const withTurn = entry.turn ? entry : { ...entry, turn };
+      // ATB 틱 스탬프(UI 윈도우 그룹화용) — 이미 찍혔으면 보존.
+      return tick != null && withTurn.t == null
+        ? { ...withTurn, t: tick }
+        : withTurn;
+    }),
   };
 }
 
@@ -221,9 +243,11 @@ export function resolveBattleAtb(
   let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
   let actions = 0;
   let turns = 0;
+  let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
 
   while (state.phase !== "ended") {
     const nextTick = Math.min(playerNextTick, enemyNextTick);
+    lastTick = nextTick;
     if (
       nextTick > ATB_TICK_CAP ||
       actions >= ATB_ACTION_GUARD ||
@@ -243,7 +267,11 @@ export function resolveBattleAtb(
             ? rollPlayerAttackCountWithBleed(state, atbPlayer)
             : state.playerAttacksLeft,
       };
+      const playerBundleStart = state.log.length;
       state = tickPlayerBundleEntry(state);
+      // 번들 틱(DoT/사망)이 전투를 끝내면 아래 행동 루프를 건너뛰어 t 미스탬프 → 최종 hp_bar 만
+      //   t 를 가져 외톨이 박스가 생긴다(Codex). 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
+      state = stampTick(state, playerBundleStart, nextTick);
       if (state.phase !== "ended") {
         // Phase-1 limitation: player v2 skill cast is not split out of legacy resolveBattle yet,
         // so ATB bundles only drive the existing player phase helper.
@@ -262,7 +290,7 @@ export function resolveBattleAtb(
         while (state.phase === "player") {
           const prevLogLen = state.log.length;
           state = resolvePlayerPhase(state, atbPlayer, playerName, action);
-          state = tagNewLogEntries(state, prevLogLen, "player");
+          state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
           action = { kind: "attack" };
           if (state.phase === "ended") break;
         }
@@ -278,14 +306,17 @@ export function resolveBattleAtb(
           enemyAttacksLeft: rollEnemyAttackCount(state.enemy),
         },
       };
+      const enemyBundleStart = state.log.length;
       state = tickEnemyBundleEntry(state);
+      // 적 번들 틱(DoT/사망)도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
+      state = stampTick(state, enemyBundleStart, nextTick);
       if (state.phase !== "ended") {
         // Phase-1 limitation: enemyV2Debuffs ownership and enemy v2 skill casts remain legacy-loop concerns.
         // Phase-1 limitation: Shadow Step is still evaluated by the helper per enemy bundle, not per individual hit.
         while (state.phase === "enemy") {
           const prevLogLen = state.log.length;
           state = resolveEnemyPhase(state, atbPlayer, playerName, false);
-          state = tagNewLogEntries(state, prevLogLen, "enemy");
+          state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
           if (state.phase === "ended") break;
           if (state.turn.enemyAttacksLeft <= 0) state = finishEnemyAttack(state);
         }
@@ -296,14 +327,14 @@ export function resolveBattleAtb(
     if (state.phase !== "ended") {
       state = {
         ...state,
-        log: appendLog(state.log, hpBarEntry(state)),
+        log: appendLog(state.log, hpBarEntry(state, nextTick)),
       };
     }
   }
 
   return {
     outcome: state.outcome!,
-    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state)) },
+    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state, lastTick)) },
     potionsConsumed: consumed,
     turns,
   };

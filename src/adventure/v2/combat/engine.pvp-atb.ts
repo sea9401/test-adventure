@@ -22,10 +22,11 @@ import {
 export const PVP_ATB_TICK_CAP = 50 * 26 * 2;
 export const PVP_ATB_ACTION_GUARD = 2000;
 
-function hpBarEntry(state: PvPBattleState): BattleLogEntry {
+function hpBarEntry(state: PvPBattleState, tick?: number): BattleLogEntry {
   return {
     kind: "hp_bar",
     text: "",
+    ...(tick != null ? { t: tick } : {}),
     playerHp: state.p1.hp,
     playerMaxHp: state.p1.maxHp,
     enemyHp: state.p2.hp,
@@ -72,13 +73,19 @@ function tagNewLogEntries(
   state: PvPBattleState,
   prevLogLen: number,
   side: "p1" | "p2",
+  tick?: number,
 ): PvPBattleState {
   if (state.log.length <= prevLogLen) return state;
   return {
     ...state,
-    log: state.log.map((entry, idx) =>
-      idx < prevLogLen || entry.side ? entry : { ...entry, side },
-    ),
+    log: state.log.map((entry, idx) => {
+      if (idx < prevLogLen) return entry;
+      const withSide = entry.side ? entry : { ...entry, side };
+      // ATB 틱 스탬프(UI 윈도우 그룹화용) — 이미 찍혔으면 보존.
+      return tick != null && withSide.t == null
+        ? { ...withSide, t: tick }
+        : withSide;
+    }),
   };
 }
 
@@ -193,9 +200,11 @@ export function resolveBattlePvPAtb(
   let p2NextTick = actionInterval(effectiveSideSpd(state, "p2"));
   let actions = 0;
   let turns = 0;
+  let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
 
   while (state.phase !== "ended") {
     const nextTick = Math.min(p1NextTick, p2NextTick);
+    lastTick = nextTick;
     if (nextTick > PVP_ATB_TICK_CAP) {
       return forceAtbTimeout(state, turns, consumed);
     }
@@ -226,7 +235,7 @@ export function resolveBattlePvPAtb(
     while (state.phase === who) {
       const prevLogLen = state.log.length;
       state = withAtbPlayers(advanceTurnPvP(state, action));
-      state = tagNewLogEntries(state, prevLogLen, who);
+      state = tagNewLogEntries(state, prevLogLen, who, nextTick);
       action = { kind: "attack" };
       if (state.phase === "ended") break;
     }
@@ -242,14 +251,14 @@ export function resolveBattlePvPAtb(
       state = {
         ...state,
         phase: other,
-        log: appendLog(state.log, hpBarEntry(state)),
+        log: appendLog(state.log, hpBarEntry(state, nextTick)),
       };
     }
   }
 
   return {
     outcome: state.outcome ?? "draw",
-    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state)) },
+    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state, lastTick)) },
     potionsConsumed: consumed,
     turns,
   };

@@ -342,6 +342,12 @@ save 구조 JSON 필드 내부 변경이므로 DB 스키마 변경은 최소화�
 | **PR-5** | 마이그레이션 + 플래그 flip — save 파싱 업데이트, `parseV2Class` 확장, 기존 specChoice→jobId 변환. `NEXT_PUBLIC_V2_JOB_SYSTEM_V2=true` 운영 적용. | classes.ts, save 파싱 |
 | **PR-6** (정리) | 구 계파 코드 삭제 — `v2JobSpecs.ts` 트레이트 데이터, `v2Passives.ts` 계파 훅, `SPEC_STAT_GATE`, `SPEC_TO_GROUP`, `unlockedSpecs`, `specChoice`/`unlockedPassives` save 필드. | ~35파일 |
 
+> **PR-4 구현 메모 (LIVE 코드 기준)**
+> - 주입 위치 = `derivePlayerCombatV2Pure` 의 `totalStats`(파생 직전). jobBonus 플랫을 가산하면 atk/maxHp/def/명중 등 모든 파생 스탯에 자연 반영(resolveBattle 별도 수정 불필요 — 엔진은 파생된 PlayerCombat 만 소비).
+> - **"공존"=더블딥 방지 해석**: flag on 일 때 jobBonus 가 옛 계파 % 트레이트를 **대체**한다. 래퍼(`...FromSaves`)가 flag on 이면 `spec=undefined`·`unlockedPassives=[]` 로 계파 효과를 inert 처리하고 jobBonus 를 주입 → 같은 flag 상태에서 한쪽만 작동(이중 적용 없음). flag off = jobBonus 없음 + 계파 그대로(byte-identical, 전체 1669 테스트 green).
+> - 현재 직업 = `jobIdFromLegacy(class, specChoice)` → `V2_JOB_CATALOG[id].jobBonus`. 모험가(none)=`{}`(HP% 는 별도 `coreLoopMaxHpMult`).
+> - 범위 밖(후속): 옛 클래스 앵커 %(`V2_TIER_STAT_BONUS_PCT`)는 PR-4 에서 손대지 않음. 계파의 비(非)스탯 시그니처(출혈·중독·관통 등)는 inert 처리되며 새 스킬/직업 설계에서 재공급.
+
 ---
 
 ## §9 결정 기록 & 보류 항목

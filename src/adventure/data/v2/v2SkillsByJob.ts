@@ -14,10 +14,11 @@ const join = (...groups: readonly (readonly string[])[]): readonly V2SkillId[] =
 
 export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   // ── 기본 직업 — 시그니처 액티브 1개(저리턴) ──
-  warrior: ["v2c_warrior_strike"], // 강타
-  martial: ["v2c_martial_steelguard"], // 철포(받피감 버프)
-  mage: ["v2c_mage_boltcast"], // 마력탄(0코스트 마법)
-  rogue: ["v2c_rogue_poison"], // 독침(고정 중독)
+  // 기본 직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과)
+  warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10)
+  martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 철포 + 강건(활력+10)
+  mage: ["v2c_mage_boltcast", "v2c_mage_acumen"], // 마력탄 + 총명(지능+10)
+  rogue: ["v2c_rogue_poison", "v2c_rogue_finesse"], // 독침 + 예기(민첩→공격력)
   // ── 상위 직업 — 계파 스킬(중간안). 흡수한 사라진 계파 스킬 포함. 정식 킷은 후속 ──
   shieldman: join(S.knight),
   squire: join(S.gwang, S.gladiator),

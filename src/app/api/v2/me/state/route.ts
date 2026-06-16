@@ -65,7 +65,6 @@ import {
   isJobUnlocked,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { jobPassiveLabel } from "@/adventure/data/v2/v2JobPassives";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -426,13 +425,13 @@ export async function GET() {
                           `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`,
                       )
                       .join(", ");
+              // 직업 킷 재설계 — 패시브/스탯은 이제 "패시브 스킬"(스킬 화면에서 학습·장착)이라
+              //   전직 화면엔 직업명+해금조건만. jobBonus/passive 칩 제거(오해 방지).
               return {
                 id: job.id,
                 name: job.name,
                 tier: job.tier,
-                jobBonus: job.jobBonus,
                 condition,
-                passive: jobPassiveLabel(job.id), // 패시브 표시 이름(근력 등) — 없으면 null
               };
             }),
           };

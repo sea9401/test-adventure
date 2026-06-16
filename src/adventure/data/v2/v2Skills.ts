@@ -12,6 +12,10 @@
 
 import type { StatKey } from "@/adventure/data/stats";
 import { STAT_LABELS } from "@/adventure/data/stats";
+import {
+  V2_STAT_LABELS,
+  type V2StatKey,
+} from "./v2StatKeys";
 import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
@@ -25,7 +29,14 @@ import {
   type V2CombatPreset,
 } from "@/adventure/v2/combat/combatPattern";
 
-export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff";
+export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
+
+// 패시브 스킬 효과 — 액티브(effects)와 별개. 장착(로드아웃)돼 있으면 derive 가 상시 적용.
+//   stat = 1차 스탯 가산(근력 힘+10 등), atkPerDexCoef = 민첩→공격력 보조(예기).
+export type V2PassiveSkillEffect = {
+  stat?: Partial<Record<V2StatKey, number>>;
+  atkPerDexCoef?: number;
+};
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
 // 공용(1차 직업) 스킬 = COMMON, 전문화 스킬 = SPEC(전문화색이 짙어 더 비싸다). 스타터(자동 보유)는
@@ -182,6 +193,9 @@ export type V2SkillDefinition = {
   /** SP 로드아웃 코스트(코어루프) — 미지정이면 (category, tier) 루브릭 표(spCostOf)에서 도출.
    *  PR-5 sim 튜닝 때 아웃라이어만 명시 override. flag-off 미사용. */
   spCost?: number;
+  /** 패시브 스킬(category "passive") 의 상시 효과 — 장착 시 derive 가 적용(캐스트 아님).
+   *  액티브 스킬은 미지정. 직업 킷 재설계 — 근력/강건/총명/예기 등. */
+  passive?: V2PassiveSkillEffect;
 };
 
 // SP 코스트 루브릭 표 — (category × tier). 딜 3~5·유틸(버프/디버프/힐) 2~3(설계 doc). 강할수록↑.
@@ -191,6 +205,7 @@ const SP_COST_TABLE: Record<V2SkillCategory, readonly [number, number, number]> 
   heal: [2, 3, 3],
   buff: [2, 2, 3],
   debuff: [2, 2, 3],
+  passive: [2, 3, 3], // 패시브 스킬 — 상시 효과(스탯/예기). 액티브와 SP 예산 경쟁.
 };
 
 // (category, tier) 루브릭 표 코스트(override 무시) — 트립와이어/검증용. 루브릭 = 코스트 바닥.
@@ -218,6 +233,24 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_COMMON_SKILLS,
   ...V2_SPEC_SKILLS,
 };
+
+// 장착(로드아웃)된 패시브 스킬들의 상시 효과 합산 — derive 가 flag-on 일 때 호출.
+//   stat 가산(근력 등) + atkPerDexCoef 합(예기). 패시브 아닌 스킬·미존재 id 는 무시.
+export function aggregateEquippedPassives(
+  equipped: readonly V2SkillId[],
+): { stat: Partial<Record<V2StatKey, number>>; atkPerDexCoef: number } {
+  const stat: Partial<Record<V2StatKey, number>> = {};
+  let atkPerDexCoef = 0;
+  for (const id of equipped) {
+    const p = V2_SKILLS[id]?.passive;
+    if (!p) continue;
+    for (const [k, v] of Object.entries(p.stat ?? {})) {
+      if (v) stat[k as V2StatKey] = (stat[k as V2StatKey] ?? 0) + v;
+    }
+    atkPerDexCoef += p.atkPerDexCoef ?? 0;
+  }
+  return { stat, atkPerDexCoef };
+}
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
 const DERIVED_BUFF_LABEL: Record<"evasion" | "crit" | "damageReduction", string> = {
@@ -289,11 +322,23 @@ function describeV2Effect(e: V2SkillEffect): string {
 // mpCost: 표시할 실효 MP. 시그니처(직업 전용)는 카탈로그 mpCost 가 0(센티넬)이고 실제
 // 비용은 엔진이 차수별로 산정(combatShared.v2SkillMpCost) — 그 실효값을 넘기면 "MP N" 으로
 // 정확히 표기된다. 미전달이면 카탈로그 mpCost(시그니처는 0=표기 생략).
+// 패시브 스킬 효과 → 칩 문자열. 장착 상시 효과(근력 "힘 +10" / 예기 "민첩→공격력").
+function describePassive(p: V2PassiveSkillEffect): string[] {
+  const chips: string[] = [];
+  for (const [k, v] of Object.entries(p.stat ?? {})) {
+    if (v) chips.push(`${V2_STAT_LABELS[k as V2StatKey]} +${v}`);
+  }
+  if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
+  return chips;
+}
+
 export function describeV2Skill(
   skill: V2SkillDefinition,
   mpCost: number = skill.mpCost,
 ): string[] {
-  const chips = skill.effects.map(describeV2Effect);
+  const chips = skill.passive
+    ? describePassive(skill.passive)
+    : skill.effects.map(describeV2Effect);
   if (mpCost > 0) chips.push(`MP ${mpCost}`);
   if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}턴`);
   if (skill.element && skill.element !== "neutral") {
@@ -424,14 +469,17 @@ export function smartDefaultPatternFromEquipped(
   equipped: readonly string[],
 ): V2CombatPattern {
   return {
-    blocks: equipped.map((skillId) => {
-      const def = V2_SKILLS[skillId as V2SkillId];
-      return {
-        condition: def
-          ? smartDefaultConditionForSkill(def)
-          : ({ kind: "always" } as V2CombatCondition),
-        action: { kind: "skill" as const, skillId },
-      };
-    }),
+    blocks: equipped
+      // 패시브 스킬(category "passive")은 캐스트 대상 아님(상시 효과) — 자동 패턴에서 제외.
+      .filter((skillId) => V2_SKILLS[skillId as V2SkillId]?.category !== "passive")
+      .map((skillId) => {
+        const def = V2_SKILLS[skillId as V2SkillId];
+        return {
+          condition: def
+            ? smartDefaultConditionForSkill(def)
+            : ({ kind: "always" } as V2CombatCondition),
+          action: { kind: "skill" as const, skillId },
+        };
+      }),
   };
 }

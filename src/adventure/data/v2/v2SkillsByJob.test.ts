@@ -1,15 +1,26 @@
 import { describe, it, expect } from "vitest";
 import { V2_SKILLS_BY_JOB, skillsForJob } from "./v2SkillsByJob";
-import { V2_JOB_PASSIVES, jobPassive, jobPassiveLabel } from "./v2JobPassives";
-import { V2_JOB_CATALOG } from "./v2JobCatalog";
-import { V2_SKILLS } from "./v2Skills";
+import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
+import { V2_SKILLS, aggregateEquippedPassives, spCostOf } from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
-  it("기본 4직업 = 확정 시그니처 1개", () => {
-    expect(skillsForJob("warrior")).toEqual(["v2c_warrior_strike"]); // 강타
-    expect(skillsForJob("martial")).toEqual(["v2c_martial_steelguard"]); // 철포
-    expect(skillsForJob("mage")).toEqual(["v2c_mage_boltcast"]); // 마력탄
-    expect(skillsForJob("rogue")).toEqual(["v2c_rogue_poison"]); // 독침
+  it("기본 4직업 = 액티브 1 + 패시브 스킬 1", () => {
+    expect(skillsForJob("warrior")).toEqual([
+      "v2c_warrior_strike",
+      "v2c_warrior_might",
+    ]); // 강타 + 근력
+    expect(skillsForJob("martial")).toEqual([
+      "v2c_martial_steelguard",
+      "v2c_martial_fortitude",
+    ]); // 철포 + 강건
+    expect(skillsForJob("mage")).toEqual([
+      "v2c_mage_boltcast",
+      "v2c_mage_acumen",
+    ]); // 마력탄 + 총명
+    expect(skillsForJob("rogue")).toEqual([
+      "v2c_rogue_poison",
+      "v2c_rogue_finesse",
+    ]); // 독침 + 예기
   });
 
   it("모든 직업 스킬 id 가 전투 카탈로그(V2_SKILLS)에 존재", () => {
@@ -31,10 +42,13 @@ describe("직업 킷 — 스킬셋", () => {
   });
 });
 
-describe("직업 킷 — 신규/변경 스킬", () => {
+describe("직업 킷 — 액티브 스킬", () => {
   it("철포 = 받피감 버프(selfBuffPct damageReduction)", () => {
     const eff = V2_SKILLS.v2c_martial_steelguard.effects[0];
-    expect(eff).toMatchObject({ kind: "selfBuffPct", target: "damageReduction" });
+    expect(eff).toMatchObject({
+      kind: "selfBuffPct",
+      target: "damageReduction",
+    });
   });
 
   it("마력탄 = 0코스트 마법 단일타", () => {
@@ -47,35 +61,38 @@ describe("직업 킷 — 신규/변경 스킬", () => {
     const dot = V2_SKILLS.v2c_rogue_poison.effects.find((e) => e.kind === "dot");
     expect(dot).toBeTruthy();
     if (dot && dot.kind === "dot") {
-      expect(dot.flatPerStack).toBeGreaterThan(0); // 고정 수치
-      expect(dot.pctMaxHpPerStack).toBe(0); // % 아님
+      expect(dot.flatPerStack).toBeGreaterThan(0);
+      expect(dot.pctMaxHpPerStack).toBe(0);
     }
   });
 });
 
-describe("직업 킷 — 패시브/보너스", () => {
-  it("기본직업 패시브 = 단일 스탯(jobBonus 단순화)", () => {
-    expect(V2_JOB_CATALOG.warrior.jobBonus).toEqual({ str: 10 });
-    expect(V2_JOB_CATALOG.martial.jobBonus).toEqual({ vit: 10 });
-    expect(V2_JOB_CATALOG.mage.jobBonus).toEqual({ int: 10 });
-    expect(V2_JOB_CATALOG.rogue.jobBonus).toEqual({}); // 도적은 효과 패시브(spd)
+describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
+  it("기본 패시브 스킬 = category passive + 효과(근력/강건/총명/예기)", () => {
+    expect(V2_SKILLS.v2c_warrior_might.category).toBe("passive");
+    expect(V2_SKILLS.v2c_warrior_might.passive).toEqual({ stat: { str: 10 } });
+    expect(V2_SKILLS.v2c_martial_fortitude.passive).toEqual({ stat: { vit: 10 } });
+    expect(V2_SKILLS.v2c_mage_acumen.passive).toEqual({ stat: { int: 10 } });
+    expect(V2_SKILLS.v2c_rogue_finesse.passive?.atkPerDexCoef).toBeGreaterThan(0);
   });
 
-  it("효과 패시브 맵은 비어 있음 — 기본직업 패시브는 jobBonus(스탯) 또는 직군 베이스라인(예기·마력구)", () => {
+  it("패시브 스킬도 SP 코스트 양수(액티브와 예산 경쟁)", () => {
+    expect(spCostOf(V2_SKILLS.v2c_warrior_might)).toBeGreaterThan(0);
+    expect(spCostOf(V2_SKILLS.v2c_rogue_finesse)).toBeGreaterThan(0);
+  });
+
+  it("aggregateEquippedPassives — 장착 패시브 합산(stat + atkPerDexCoef)", () => {
+    const agg = aggregateEquippedPassives([
+      "v2c_warrior_might", // str+10
+      "v2c_rogue_finesse", // atkPerDexCoef
+      "v2c_warrior_strike", // 액티브 → 무시
+    ]);
+    expect(agg.stat).toEqual({ str: 10 });
+    expect(agg.atkPerDexCoef).toBeGreaterThan(0);
+  });
+
+  it("효과 패시브 맵(V2_JOB_PASSIVES)은 비어 있음 — 기본은 패시브 스킬로 이관", () => {
     expect(V2_JOB_PASSIVES).toEqual({});
-  });
-
-  it("패시브 미정의 직업 = {} (효과 없음)", () => {
     expect(jobPassive("warrior")).toEqual({});
-    expect(jobPassive("rogue")).toEqual({}); // 도적 패시브 = 예기(derive 직군 베이스라인)
-    expect(jobPassive("nope")).toEqual({});
-  });
-
-  it("기본 4직업 패시브 표시 이름(스탯명 대신 소박한 명칭)", () => {
-    expect(jobPassiveLabel("warrior")?.name).toBe("근력");
-    expect(jobPassiveLabel("martial")?.name).toBe("강건");
-    expect(jobPassiveLabel("mage")?.name).toBe("총명");
-    expect(jobPassiveLabel("rogue")?.name).toBe("예기");
-    expect(jobPassiveLabel("squire")).toBeNull(); // 상위 직업은 후속
   });
 });

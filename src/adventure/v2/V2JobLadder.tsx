@@ -3,21 +3,17 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
-import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // 직업 시스템 v2(V2_JOB_SYSTEM_V2) flag-on 전직 화면.
 // 해금(cumLevel 조건 충족)된 직업만 한 목록에 나열한다 — 잠긴 직업은 숨김(조건 달성 시 등장).
-// 기본/상위 구분 없이 한곳에. 해금 판정 = 서버 jobsV2(카탈로그 cumLevel 게이트).
+// 기본/상위 구분 없이 한곳에. 스킬·패시브는 스킬 화면에서 학습·장착(여긴 직업명+해금조건만).
 
 export type JobLadderEntry = {
   id: string;
   name: string;
   tier: number;
-  jobBonus: Partial<Record<V2StatKey, number>>;
   // 해금 조건(공유용 표기). 예: "Lv 50 달성" / "견습 병사 누적 Lv 100".
   condition: string;
-  // 패시브 표시 이름(근력 등) — 있으면 스탯 칩 대신 이걸 보여준다. 없으면 null(칩 폴백).
-  passive: { name: string; desc: string } | null;
 };
 
 type Pending = { id: string; name: string };
@@ -198,16 +194,6 @@ function JobRow({
             </span>
           )}
         </div>
-        {job.passive ? (
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            패시브 · {job.passive.name}{" "}
-            <span className="text-zinc-400 dark:text-zinc-500">
-              ({job.passive.desc})
-            </span>
-          </span>
-        ) : (
-          <BonusChips bonus={job.jobBonus} />
-        )}
         <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
           해금 조건 · {job.condition}
         </span>
@@ -225,20 +211,5 @@ function JobRow({
         )}
       </div>
     </li>
-  );
-}
-
-// 직업 보너스 칩 — "힘 +25" 식. 플랫 스탯만(% 패시브 아님).
-function BonusChips({ bonus }: { bonus: Partial<Record<V2StatKey, number>> }) {
-  const entries = Object.entries(bonus) as [V2StatKey, number][];
-  if (entries.length === 0) return null;
-  return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-      {entries.map(([k, v]) => (
-        <span key={k}>
-          {V2_STAT_LABELS[k]} +{v}
-        </span>
-      ))}
-    </span>
   );
 }

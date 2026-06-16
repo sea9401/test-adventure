@@ -177,6 +177,11 @@ function isJobUnlocked(jobDef: V2JobDefinition, proficiency: V2Proficiency): boo
 - **변경 방향**: 조건을 충족한 직업만 목록에 표시. 아직 해금 안 된 직업은 완전히 숨김(단, "해금 조건이 있다"는 힌트를 선택적으로 표시 가능).
 - 직업이 해금될수록 목록이 늘어나면서 트리가 자연스럽게 가르쳐짐.
 
+> **PR-3 구현 메모 (LIVE 코드 기준)**
+> - 신규 컴포넌트 `src/adventure/v2/V2JobLadder.tsx` — 기본 직업/상위 직업 2섹션. 해금 직업만 actionable, 잠긴 상위는 "한 단계 앞"(부모 cumLevel 힌트 `parentName 누적 Lv have/need`)만 흐리게. 각 직업에 플랫 보너스 칩(`힘 +25` 식) 표시. POST = 단일 `targetJobId`.
+> - 서버 `state/route.ts` 가 `jobsV2`(currentJobId·atLevelCap·jobs[]) 페이로드 추가(`V2_JOB_SYSTEM_V2` on 일 때만, off=null). `jobIdFromLegacy(class, spec)` 로 현재 직업 식별.
+> - `V2CultivationView` 분기 우선순위: `jobsV2`(V2JobLadder) → `jobUnlock`(V2JobTree) → `V2ClassGrid`. 플래그 off 면 기존 V2JobTree 그대로(무변경).
+
 ### 현재 라우트에서 교체할 심볼
 
 파일: `src/app/api/v2/me/advance-class/route.ts`

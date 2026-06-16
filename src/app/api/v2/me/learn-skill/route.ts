@@ -20,6 +20,11 @@ import {
   type V2SkillsState,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
+import {
+  V2_CORE_LOOP_V2,
+  calcSpBudget,
+} from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/learn-skill — 시그니처 1종 학습. 그 차수 도달 + 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
@@ -120,9 +125,13 @@ export async function POST(req: Request) {
     }
 
     // 장착 슬롯 폐지 — 학습한 스킬은 현 체인(공용+전문화) 유효분 전부 자동으로 전투 풀에 든다.
-    // equipped = learned ∩ elementalPool (상한 없음). 전투/패턴이 이 풀에서 발동.
+    // equipped = learned ∩ elementalPool. flag off = 상한 없음(기존). 코어루프 = SP 예산까지만
+    //   자동 장착(greedy in-order, 초과분은 PR-4 수동 로드아웃에서 교체). budget=현 직업군 마일스톤.
     const nextLearned = [...skills.learned, sig];
-    const nextEquipped = nextLearned.filter((s) => elementalPool.includes(s));
+    const chainEquipped = nextLearned.filter((s) => elementalPool.includes(s));
+    const nextEquipped = V2_CORE_LOOP_V2
+      ? clampLoadoutToBudget(chainEquipped, calcSpBudget(spent.groups))
+      : chainEquipped;
     const nextSkills: V2SkillsState = {
       ...skills, // pattern 보존(combat-pattern 라우트만 pattern 변경).
       learned: nextLearned,

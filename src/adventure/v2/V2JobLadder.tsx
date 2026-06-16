@@ -5,31 +5,30 @@ import { Card } from "@/components/ui/Card";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
-// 직업 시스템 v2(V2_JOB_SYSTEM_V2) flag-on 전직 화면 — 점진 공개(progressive disclosure).
-// 옛 4직군×3계파 스탯게이트 격자(V2JobTree) 대체. 해금된 직업만 actionable 카드로 보이고,
-// 잠긴 상위 직업은 부모 cumLevel 힌트만 흐리게 노출. 해금 = 서버 jobsV2(카탈로그 cumLevel 게이트).
+// 직업 시스템 v2(V2_JOB_SYSTEM_V2) flag-on 전직 화면.
+// 해금(cumLevel 조건 충족)된 직업만 한 목록에 나열한다 — 잠긴 직업은 숨김(조건 달성 시 등장).
+// 기본/상위 구분 없이 한곳에. 해금 판정 = 서버 jobsV2(카탈로그 cumLevel 게이트).
 
 export type JobLadderEntry = {
   id: string;
   name: string;
   tier: number;
   jobBonus: Partial<Record<V2StatKey, number>>;
-  unlocked: boolean;
-  lockHint: { parentName: string; need: number; have: number } | null;
 };
 
 type Pending = { id: string; name: string };
 
 export function V2JobLadder({
   level,
-  classDisplayName,
+  currentJobName,
   currentJobId,
   atLevelCap,
   jobs,
   onChanged,
 }: {
   level: number;
-  classDisplayName: string;
+  // 현재 직업 표시명 — 서버가 전체 카탈로그 기준으로 산출(필터된 목록과 무관, 모험가 폴백 포함).
+  currentJobName: string;
   currentJobId: string;
   atLevelCap: boolean;
   jobs: JobLadderEntry[];
@@ -76,20 +75,12 @@ export function V2JobLadder({
     }
   }
 
-  const baseJobs = jobs.filter((j) => j.tier === 1);
-  const advJobs = jobs.filter((j) => j.tier === 2);
-  // 점진 공개 — 잠긴 상위는 "한 단계 앞"만(힌트 있는 것) 흐리게. 그 외 잠김은 숨김.
-  const advVisible = advJobs.filter((j) => j.unlocked || j.lockHint);
-  // 현재 직업 이름 — 상위 직업이면 카탈로그 이름(jobs)에서, 모험가/없으면 서버 라벨 폴백.
-  const currentName =
-    jobs.find((j) => j.id === currentJobId)?.name ?? classDisplayName;
-
   return (
     <div className="space-y-3">
       {/* 현재 직업 + 전직 안내 */}
       <Card padding="md">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">현재 {currentName}</h2>
+          <h2 className="text-sm font-semibold">현재 {currentJobName}</h2>
           <span
             className={`text-xs tabular-nums ${
               atLevelCap
@@ -103,32 +94,16 @@ export function V2JobLadder({
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {atLevelCap
             ? "해금된 직업으로 전직할 수 있어요. 전직하면 레벨이 1로 돌아가고 다시 성장합니다."
-            : `Lv ${V2_LEVEL_CAP}에 도달하면 전직할 수 있어요. 누적 레벨을 쌓으면 상위 직업이 해금됩니다.`}
+            : `Lv ${V2_LEVEL_CAP}에 도달하면 전직할 수 있어요. 누적 레벨을 쌓으면 새 직업이 해금됩니다.`}
         </p>
       </Card>
 
-      {/* 기본 직업 */}
+      {/* 전직 가능 직업 — 해금된 것만 한 목록(기본/상위 구분 없음). 잠긴 직업은 숨김. */}
       <Card padding="md" className="space-y-2">
-        <h3 className="text-sm font-semibold">기본 직업</h3>
-        <ul className="space-y-1.5">
-          {baseJobs.map((job) => (
-            <JobRow
-              key={job.id}
-              job={job}
-              isCurrent={job.id === currentJobId}
-              atLevelCap={atLevelCap}
-              onPick={() => setPending({ id: job.id, name: job.name })}
-            />
-          ))}
-        </ul>
-      </Card>
-
-      {/* 상위 직업 */}
-      {advVisible.length > 0 && (
-        <Card padding="md" className="space-y-2">
-          <h3 className="text-sm font-semibold">상위 직업</h3>
+        <h3 className="text-sm font-semibold">전직 가능 직업</h3>
+        {jobs.length > 0 ? (
           <ul className="space-y-1.5">
-            {advVisible.map((job) => (
+            {jobs.map((job) => (
               <JobRow
                 key={job.id}
                 job={job}
@@ -138,8 +113,12 @@ export function V2JobLadder({
               />
             ))}
           </ul>
-        </Card>
-      )}
+        ) : (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            아직 전직 가능한 직업이 없어요. 누적 레벨을 더 쌓아 보세요.
+          </p>
+        )}
+      </Card>
 
       {msg && (
         <div
@@ -204,15 +183,8 @@ function JobRow({
   atLevelCap: boolean;
   onPick: () => void;
 }) {
-  const actionable = job.unlocked && !isCurrent;
   return (
-    <li
-      className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${
-        job.unlocked
-          ? "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
-          : "border-zinc-200 bg-zinc-50/40 opacity-70 dark:border-zinc-800 dark:bg-zinc-900/40"
-      }`}
-    >
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{job.name}</span>
@@ -223,23 +195,13 @@ function JobRow({
           )}
         </div>
         <BonusChips bonus={job.jobBonus} />
-        {!job.unlocked && job.lockHint && (
-          <span className="text-[11px] tabular-nums text-rose-600 dark:text-rose-400">
-            {job.lockHint.parentName} 누적 Lv {job.lockHint.have}/
-            {job.lockHint.need}
-          </span>
-        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {isCurrent ? null : !job.unlocked ? (
-          <span className="text-[11px] text-zinc-400 dark:text-zinc-600">
-            잠김
-          </span>
-        ) : (
+        {!isCurrent && (
           <button
             type="button"
             onClick={onPick}
-            disabled={!atLevelCap || !actionable}
+            disabled={!atLevelCap}
             className="rounded-md border border-emerald-600 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-emerald-400 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:text-zinc-600"
           >
             전직

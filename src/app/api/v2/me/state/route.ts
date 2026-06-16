@@ -413,12 +413,26 @@ export async function GET() {
             atLevelCap: level >= V2_LEVEL_CAP,
             jobs: V2_JOB_LIST.filter(
               (job) => job.tier > 0 && isJobUnlocked(job, prof),
-            ).map((job) => ({
-              id: job.id,
-              name: job.name,
-              tier: job.tier,
-              jobBonus: job.jobBonus,
-            })),
+            ).map((job) => {
+              // 해금 조건(공유용) — 기본 직업=모험가 Lv 캡 도달, 상위=부모 직군 누적 Lv 임계.
+              const prereqs = Object.entries(job.unlock.prereqs);
+              const condition =
+                prereqs.length === 0
+                  ? `Lv ${V2_LEVEL_CAP} 달성`
+                  : prereqs
+                      .map(
+                        ([pid, lv]) =>
+                          `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`,
+                      )
+                      .join(", ");
+              return {
+                id: job.id,
+                name: job.name,
+                tier: job.tier,
+                jobBonus: job.jobBonus,
+                condition,
+              };
+            }),
           };
         })()
       : null;

@@ -14,6 +14,25 @@ export const V2_JOB_PASSIVES: Record<string, V2SpecPassiveEffect> = {
   // 상위 직업 정식 킷에서 채운다.
 };
 
+// 패시브 표시 이름 — 스탯("힘 +10") 대신 소박한 명칭으로 보여준다(UI 전용).
+// name = 표기 명칭, desc = 효과 한 줄. 기본 4직업만(상위는 후속 정식 킷에서).
+export const V2_JOB_PASSIVE_LABEL: Record<
+  string,
+  { name: string; desc: string }
+> = {
+  warrior: { name: "근력", desc: "힘 +10" },
+  martial: { name: "강건", desc: "활력 +10" },
+  mage: { name: "총명", desc: "지능 +10" },
+  rogue: { name: "예기", desc: "민첩이 공격력을 보조" },
+};
+
+/** jobId 의 패시브 표시 이름/효과. 미정의 = null(상위 직업 등 — jobBonus 칩으로 폴백 표시). */
+export function jobPassiveLabel(
+  jobId: string,
+): { name: string; desc: string } | null {
+  return V2_JOB_PASSIVE_LABEL[jobId] ?? null;
+}
+
 /** jobId 의 효과 패시브. 미정의 = {} (효과 없음). */
 export function jobPassive(jobId: string): V2SpecPassiveEffect {
   return V2_JOB_PASSIVES[jobId] ?? {};

@@ -16,6 +16,8 @@ export type JobLadderEntry = {
   jobBonus: Partial<Record<V2StatKey, number>>;
   // 해금 조건(공유용 표기). 예: "Lv 50 달성" / "견습 병사 누적 Lv 100".
   condition: string;
+  // 패시브 표시 이름(근력 등) — 있으면 스탯 칩 대신 이걸 보여준다. 없으면 null(칩 폴백).
+  passive: { name: string; desc: string } | null;
 };
 
 type Pending = { id: string; name: string };
@@ -196,7 +198,16 @@ function JobRow({
             </span>
           )}
         </div>
-        <BonusChips bonus={job.jobBonus} />
+        {job.passive ? (
+          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            패시브 · {job.passive.name}{" "}
+            <span className="text-zinc-400 dark:text-zinc-500">
+              ({job.passive.desc})
+            </span>
+          </span>
+        ) : (
+          <BonusChips bonus={job.jobBonus} />
+        )}
         <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
           해금 조건 · {job.condition}
         </span>

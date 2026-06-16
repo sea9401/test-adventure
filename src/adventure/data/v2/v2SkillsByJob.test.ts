@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { V2_SKILLS_BY_JOB, skillsForJob } from "./v2SkillsByJob";
-import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
+import { V2_JOB_PASSIVES, jobPassive, jobPassiveLabel } from "./v2JobPassives";
 import { V2_JOB_CATALOG } from "./v2JobCatalog";
 import { V2_SKILLS } from "./v2Skills";
 
@@ -69,5 +69,13 @@ describe("직업 킷 — 패시브/보너스", () => {
     expect(jobPassive("warrior")).toEqual({});
     expect(jobPassive("rogue")).toEqual({}); // 도적 패시브 = 예기(derive 직군 베이스라인)
     expect(jobPassive("nope")).toEqual({});
+  });
+
+  it("기본 4직업 패시브 표시 이름(스탯명 대신 소박한 명칭)", () => {
+    expect(jobPassiveLabel("warrior")?.name).toBe("근력");
+    expect(jobPassiveLabel("martial")?.name).toBe("강건");
+    expect(jobPassiveLabel("mage")?.name).toBe("총명");
+    expect(jobPassiveLabel("rogue")?.name).toBe("예기");
+    expect(jobPassiveLabel("squire")).toBeNull(); // 상위 직업은 후속
   });
 });

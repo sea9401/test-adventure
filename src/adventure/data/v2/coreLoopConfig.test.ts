@@ -323,9 +323,13 @@ describe("calcSpBudget — 스킬포인트 예산 (점감 마일스톤)", () => 
       calcSpBudget({ warrior: { cumLevel: 210 }, mage: { cumLevel: 45 } }),
     ).toBe(16); // 12 + 3 + 1
   });
-  it("정복(tier 4) 직업군당 +3", () => {
-    expect(calcSpBudget({ warrior: { cumLevel: 45, tier: 4 } })).toBe(16); // 12+1+3
-    expect(calcSpBudget({ warrior: { cumLevel: 0, tier: 3 } })).toBe(12); // 미정복
+  it("정복(cumLevel≥250) 직업군당 +3 — tier 무관(환생 flatten 영향 없음)", () => {
+    // cumLevel 250 = 정복 → 마일스톤(250→3) + base12 + 정복3 = 18.
+    expect(calcSpBudget({ warrior: { cumLevel: 250 } })).toBe(18);
+    // 임계 직전(249) = 미정복 → 정복 보너스 없음(마일스톤 3 만).
+    expect(calcSpBudget({ warrior: { cumLevel: 249 } })).toBe(15);
+    // tier 4 라도 cumLevel 낮으면 미정복 — 차수 기반 아님(코어루프 flatten 무관).
+    expect(calcSpBudget({ warrior: { cumLevel: 45, tier: 4 } })).toBe(13); // 12+1
   });
   it("운영 실측 베테랑 — top(cum1062·4직업·3정복)은 점감으로 ~32, flat43 대비 천장 굳음", () => {
     // 실제 user8: warrior291·rogue291·mage291·martial189 / 3정복.

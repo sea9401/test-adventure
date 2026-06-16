@@ -8,6 +8,7 @@ import {
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
   spCostOf,
+  rubricSpCost,
   type V2SkillId,
 } from "./v2Skills";
 
@@ -274,6 +275,17 @@ describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
       const c = spCostOf(def);
       expect(Number.isFinite(c), def.id).toBe(true);
       expect(c, def.id).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {
+    // override 는 루브릭 "위로만"(아웃라이어 너프) 허용. 아래로 깎으면 값싼+강한 공용으로
+    // 직업 무관 유틸 스택 길이 열린다(PR-5 잔여 리스크). 새 스킬/override 가 바닥을 뚫으면 실패.
+    for (const def of Object.values(V2_SKILLS)) {
+      expect(
+        spCostOf(def),
+        `${def.id} 가 루브릭(${rubricSpCost(def)}) 미만으로 underprice 됨`,
+      ).toBeGreaterThanOrEqual(rubricSpCost(def));
     }
   });
 });

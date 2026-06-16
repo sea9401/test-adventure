@@ -169,8 +169,12 @@ export const STAT_FLOOR_DECAY_MIN = 0.45;
 export const SP_BASE = 12; // 시작 SP.
 export const SP_MILESTONE_BASE = 45; // 첫 SP 까지 cumLevel(≈ 새 시스템 한 루프 Lv1→50).
 export const SP_MILESTONE_WIDEN = 25; // 다음 SP 마다 간격이 이만큼씩 더 벌어진다(점감 강도).
-export const SP_MASTERED_JOB_BONUS = 3; // 직업군 정점(최고 차수) 도달당 +SP.
-export const SP_MASTERED_TIER = 4; // "정복" 기준 = 그 직업군 최고 차수(4차) 도달.
+export const SP_MASTERED_JOB_BONUS = 3; // 직업군 "정복" 1회당 +SP.
+// "정복" 기준 = cumLevel 임계(차수 기반 아님). 🔑 코어루프 환생은 flattenGroupTiers 로 tier→1
+//   리셋이라 tier≥4 기준은 거의 휴면(현 직업군이 4차 도달~환생 전에만 +3). cumLevel 은 환생에도
+//   보존 → "여러 직업 정복 누적"이 실제로 쌓인다(오픈믹스 수집 보상). 임계 250 은 운영 RDS 검증:
+//   10인 전원에서 tier≥4 정복 수를 그대로 재현(flip 시 예산 충격 0) + 이후 영속. (튜닝 다이얼.)
+export const SP_MASTERED_CUMLEVEL = 250;
 export const SP_MAX_SOFT_CAP = 40; // 절대 천장(점감 곡선상 단일직 ~7·broad 베테랑 ~32, 캡은 안전망).
 
 // 한 직업군 cumLevel → 마일스톤 SP 개수(점감). 간격이 SP 마다 +WIDEN 벌어지는 등차 임계의 역.
@@ -187,17 +191,19 @@ export function spMilestonesForCumLevel(cumLevel: number): number {
   return Math.max(0, Math.floor(n));
 }
 
-// SP 예산 계산 — 각 직업군 cumLevel 점감 마일스톤 합 + 정복 직업군 보너스 + 기본. 소프트캡.
-//   groups = proficiency.groups (직업군별 { cumLevel, tier }). 구조적 인자(순환 import 회피).
+// SP 예산 계산 — 각 직업군 cumLevel 점감 마일스톤 합 + 정복(cumLevel 임계) 보너스 + 기본. 소프트캡.
+//   groups = proficiency.groups (직업군별 { cumLevel }). 구조적 인자(순환 import 회피).
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
+//   정복 = cumLevel≥SP_MASTERED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
 export function calcSpBudget(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
 ): number {
   let milestoneSp = 0;
   let masteredBonus = 0;
   for (const g of Object.values(groups ?? {})) {
-    milestoneSp += spMilestonesForCumLevel(Number(g?.cumLevel) || 0);
-    if ((Number(g?.tier) || 0) >= SP_MASTERED_TIER) masteredBonus += SP_MASTERED_JOB_BONUS;
+    const cum = Number(g?.cumLevel) || 0;
+    milestoneSp += spMilestonesForCumLevel(cum);
+    if (cum >= SP_MASTERED_CUMLEVEL) masteredBonus += SP_MASTERED_JOB_BONUS;
   }
   return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus);
 }

@@ -61,12 +61,13 @@ describe("직업 킷 — 패시브/보너스", () => {
     expect(V2_JOB_CATALOG.rogue.jobBonus).toEqual({}); // 도적은 효과 패시브(spd)
   });
 
-  it("견습 도적 효과 패시브 = spd 증가", () => {
-    expect(jobPassive("rogue")).toEqual({ spdPctAdd: 15 });
+  it("효과 패시브 맵은 비어 있음 — 기본직업 패시브는 jobBonus(스탯) 또는 직군 베이스라인(예기·마력구)", () => {
+    expect(V2_JOB_PASSIVES).toEqual({});
   });
 
   it("패시브 미정의 직업 = {} (효과 없음)", () => {
     expect(jobPassive("warrior")).toEqual({});
+    expect(jobPassive("rogue")).toEqual({}); // 도적 패시브 = 예기(derive 직군 베이스라인)
     expect(jobPassive("nope")).toEqual({});
   });
 });

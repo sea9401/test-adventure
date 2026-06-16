@@ -96,7 +96,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 도적",
     tier: 1,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: {}, // 도적 패시브 = spd 증가(효과 패시브 V2_JOB_PASSIVES), 스탯 보너스 없음
+    jobBonus: {}, // 도적 패시브 = 예기(DEX→공격력, derive 직군 베이스라인), 스탯 보너스 없음
     unlock: { prereqs: {} },
   },
 

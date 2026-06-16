@@ -6,12 +6,10 @@ import {
   Compass,
   Lightning,
   Sparkle,
-  Strategy,
   UserCircle,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
-import { V2_COMBAT_PATTERN_ENABLED } from "@/adventure/v2/combat/combatPattern";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
 // 장비 장착/해제는 인벤토리 안에서 처리. 모험의 서는 도감(우선 재료) — 맨 아래에 둔다.
@@ -20,7 +18,6 @@ export type CharacterAction =
   | { kind: "open-info" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
-  | { kind: "open-combat-pattern" }
   | { kind: "open-shrine" }
   | { kind: "open-quests" }
   | { kind: "open-codex" };
@@ -57,15 +54,6 @@ export function V2CharacterMenu({
           title="스킬"
           onClick={() => onAction({ kind: "open-skills" })}
         />
-        {V2_COMBAT_PATTERN_ENABLED && (
-          <EntryCard
-            icon={
-              <Strategy size={28} weight="duotone" className="text-indigo-500" />
-            }
-            title="전투 패턴"
-            onClick={() => onAction({ kind: "open-combat-pattern" })}
-          />
-        )}
         <EntryCard
           icon={
             <Compass size={28} weight="duotone" className="text-rose-400" />

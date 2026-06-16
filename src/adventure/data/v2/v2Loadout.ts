@@ -68,6 +68,28 @@ export function validateLoadout(
   };
 }
 
+// 저장된 로드아웃을 "유효한 부분집합"으로 정리(sanitize) — 플레이어의 수동 선택을 보존하되
+//   더는 유효하지 않은 항목만 떨군다. reconcile/환생/마이그(코어루프)의 단일 규칙.
+//   유효 = (1) 카탈로그에 있고 (2) learned 안 (3) 시그니처면 현 체인 안(직업 고정) → 그 뒤 예산 클램프.
+//   강제 재산출(learned ∩ chain 전부)이 아니라 보존-정리라, 수동 로드아웃·오픈믹스(타직업 공용)를
+//   살린다. 환생 시 옛 직업 시그니처만 빠지고 모아둔 공용/기본기는 유지.
+export function sanitizeLoadout(
+  equipped: readonly V2SkillId[],
+  learned: readonly V2SkillId[],
+  spBudget: number,
+  currentChain: readonly V2SkillId[],
+): V2SkillId[] {
+  const learnedSet = new Set(learned);
+  const chainSet = new Set(currentChain);
+  const valid = equipped.filter(
+    (id) =>
+      V2_SKILLS[id] !== undefined &&
+      learnedSet.has(id) &&
+      (!isSignatureSkill(id) || chainSet.has(id)),
+  );
+  return clampLoadoutToBudget(valid, spBudget);
+}
+
 // 후보 로드아웃을 SP 예산에 맞게 잘라낸다 — 순서(우선순위) 보존, 누적합이 예산을 넘기지
 //   않는 선까지 앞에서부터 채택(greedy in-order). 비싸서 안 들어가는 스킬은 건너뛰고 다음
 //   더 싼 스킬은 들어올 수 있다. 자동장착 기본값(코어루프) + 비파괴 마이그(PR-4)용.

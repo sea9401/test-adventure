@@ -21,7 +21,7 @@ import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
-import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
+import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import {
   codexRequirement,
   countDiscoveredMaterials,
@@ -133,25 +133,24 @@ export async function POST(req: Request) {
         level: 1,
         exp: 0,
       });
-      // equipped 재조정 — 새 직업/계파 체인 ∩ 학습분. 차수 폐지라 계파 스킬 전부 해금(tier 4).
-      //   타직업 학습분은 learned 보존·equipped 에서만 빠짐(cross-job 장착은 PR-4 수동 로드아웃).
-      const chain = new Set<string>(
-        elementalSkillsForClass(targetClass, targetSpec, 4),
-      );
-      const chainEquipped = skills.learned.filter((s) => chain.has(s));
+      // equipped 재조정 — 새 직업/계파 체인. 차수 폐지라 계파 스킬 전부 해금(tier 4).
+      const chainList = elementalSkillsForClass(targetClass, targetSpec, 4);
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
       const nextProf = flattenGroupTiers(
         setGrown(prof, {}),
         tier1ClassOf(targetClass),
       );
-      // 코어루프 — 새 체인 자동 장착을 SP 예산까지만(환생 직후 tier 1 정규화라 정복 보너스 빠진
-      //   예산 기준). 초과분은 PR-4 수동 로드아웃에서 교체. (이 분기는 flag-on 전용.)
+      // 코어루프 — 환생: 모아둔 로드아웃 보존 + 옛 직업 시그니처만 빠지고(새 체인 밖) SP 예산까지
+      //   sanitize. 강제 재산출(새 체인 전부) 아님 → 타직업 공용/기본기(오픈믹스 수집분) 유지.
+      //   예산은 환생 직후 tier 1 정규화 기준(정복 보너스 빠짐). (이 분기는 flag-on 전용.)
       await upsertSave(tx, userId, "skills.v2", {
         ...skills,
-        equipped: clampLoadoutToBudget(
-          chainEquipped,
+        equipped: sanitizeLoadout(
+          skills.equipped,
+          skills.learned,
           calcSpBudget(nextProf.groups),
+          chainList,
         ),
       });
       await upsertSave(tx, userId, "proficiency.v2", nextProf);

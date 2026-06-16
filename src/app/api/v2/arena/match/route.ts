@@ -4,6 +4,12 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  emptyProficiency,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
 import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import {
@@ -39,6 +45,7 @@ import {
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
+  type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 
 // POST /api/v2/arena/match — 아레나 1:1 매치 한 판 실행.
@@ -321,13 +328,45 @@ export async function POST() {
       "skills.v2",
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
-    const mySkills = parseV2SkillsState(mySkillsRaw);
-    const oppSkillsRow = await tx
-      .select({ value: savesKv.value })
-      .from(savesKv)
-      .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, "skills.v2")))
-      .limit(1);
-    const oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
+    let mySkills = parseV2SkillsState(mySkillsRaw);
+    let oppSkills: V2SkillsState;
+    if (V2_CORE_LOOP_V2) {
+      // 코어루프 — 양측 로드아웃을 전투 직전 sanitize(SP 예산/직업고정 강제). 상대가 flip 후 state
+      //   로드를 안 거쳤어도 over-budget 로드아웃으로 싸우지 못하게. (flag off 면 이 분기 미진입.)
+      const myProfRaw = await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      );
+      mySkills = sanitizeCombatLoadout(mySkills, charSave, myProfRaw);
+      const oppRows = await tx
+        .select({ key: savesKv.key, value: savesKv.value })
+        .from(savesKv)
+        .where(
+          and(
+            eq(savesKv.userId, oppUserId),
+            inArray(savesKv.key, [
+              "skills.v2",
+              "character.v2",
+              "proficiency.v2",
+            ]),
+          ),
+        );
+      const oppRow = (k: string) => oppRows.find((r) => r.key === k)?.value;
+      oppSkills = sanitizeCombatLoadout(
+        parseV2SkillsState(oppRow("skills.v2")),
+        oppRow("character.v2") ?? {},
+        oppRow("proficiency.v2"),
+      );
+    } else {
+      const oppSkillsRow = await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, "skills.v2")))
+        .limit(1);
+      oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
+    }
 
     // 10. 배틀 sim — resolveBattlePvP.
     const battle = resolveBattlePvP(myPlayer, oppPlayer, viewerName, oppName, {

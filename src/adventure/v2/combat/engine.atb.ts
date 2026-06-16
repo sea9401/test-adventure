@@ -30,11 +30,12 @@ import {
 export const ATB_TICK_CAP = 50 * 26;
 export const ATB_ACTION_GUARD = 1000;
 
-function hpBarEntry(state: BattleState): BattleLogEntry {
+function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
   return {
     kind: "hp_bar",
     text: "",
     turn: "player",
+    ...(tick != null ? { t: tick } : {}),
     playerHp: state.playerHp,
     playerMaxHp: state.playerMaxHp,
     enemyHp: state.enemyHp,
@@ -74,13 +75,19 @@ function tagNewLogEntries(
   state: BattleState,
   prevLogLen: number,
   turn: "player" | "enemy",
+  tick?: number,
 ): BattleState {
   if (state.log.length <= prevLogLen) return state;
   return {
     ...state,
-    log: state.log.map((entry, idx) =>
-      idx < prevLogLen || entry.turn ? entry : { ...entry, turn },
-    ),
+    log: state.log.map((entry, idx) => {
+      if (idx < prevLogLen) return entry;
+      const withTurn = entry.turn ? entry : { ...entry, turn };
+      // ATB 틱 스탬프(UI 윈도우 그룹화용) — 이미 찍혔으면 보존.
+      return tick != null && withTurn.t == null
+        ? { ...withTurn, t: tick }
+        : withTurn;
+    }),
   };
 }
 
@@ -221,9 +228,11 @@ export function resolveBattleAtb(
   let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
   let actions = 0;
   let turns = 0;
+  let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
 
   while (state.phase !== "ended") {
     const nextTick = Math.min(playerNextTick, enemyNextTick);
+    lastTick = nextTick;
     if (
       nextTick > ATB_TICK_CAP ||
       actions >= ATB_ACTION_GUARD ||
@@ -262,7 +271,7 @@ export function resolveBattleAtb(
         while (state.phase === "player") {
           const prevLogLen = state.log.length;
           state = resolvePlayerPhase(state, atbPlayer, playerName, action);
-          state = tagNewLogEntries(state, prevLogLen, "player");
+          state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
           action = { kind: "attack" };
           if (state.phase === "ended") break;
         }
@@ -285,7 +294,7 @@ export function resolveBattleAtb(
         while (state.phase === "enemy") {
           const prevLogLen = state.log.length;
           state = resolveEnemyPhase(state, atbPlayer, playerName, false);
-          state = tagNewLogEntries(state, prevLogLen, "enemy");
+          state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
           if (state.phase === "ended") break;
           if (state.turn.enemyAttacksLeft <= 0) state = finishEnemyAttack(state);
         }
@@ -296,14 +305,14 @@ export function resolveBattleAtb(
     if (state.phase !== "ended") {
       state = {
         ...state,
-        log: appendLog(state.log, hpBarEntry(state)),
+        log: appendLog(state.log, hpBarEntry(state, nextTick)),
       };
     }
   }
 
   return {
     outcome: state.outcome!,
-    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state)) },
+    finalState: { ...state, log: appendLog(state.log, hpBarEntry(state, lastTick)) },
     potionsConsumed: consumed,
     turns,
   };

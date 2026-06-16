@@ -17,6 +17,11 @@ export const RATE_REF_SPD = 50;
 // 기준 액터(rate 100)의 행동 간격(tick). interval = ceil(RATE_BASE^2 / rate).
 const RATE_BASE = 100;
 
+// 전투 로그 표시 — 이 틱 폭 단위로 행동들을 한 박스에 묶는다(UI). 기준 액터 1행동≈100틱이라
+//   200 ≈ 약 2교대(플레이어·적 행동 2~4개 + HP 바 1개)를 한 "순간"으로 보여줘 잘게 쪼개짐을 줄임.
+//   순수 표시 다이얼 — 엔진/리플레이 불변, 한 줄로 조절. BattleLogList 가 e.t 를 이 값으로 버킷팅.
+export const ATB_LOG_WINDOW_TICKS = 200;
+
 // 행동 레이트 — SPD 가 높을수록 ↑, RATE_CAP 에서 평평. 100 = 기준 속도.
 export function actionRate(spd: number): number {
   const s = Math.max(0, Number(spd) || 0);

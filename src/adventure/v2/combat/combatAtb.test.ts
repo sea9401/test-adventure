@@ -93,6 +93,25 @@ describe("resolveBattle ATB invariants", () => {
     expect(fingerprints[2]).toEqual(fingerprints[0]);
   });
 
+  it("타임라인 틱 스탬프: 행동·hp_bar 엔트리에 t 가 찍히고 비감소(UI 윈도우 그룹화용)", () => {
+    const result = run(basePlayer, baseEnemy, 123);
+    const log = result.finalState.log;
+    // 행동/hp_bar 엔트리는 t 를 가진다(오프닝 info 등 일부 t-less 는 허용).
+    const stamped = log.filter(
+      (e) =>
+        e.kind === "player_attack" ||
+        e.kind === "enemy_attack" ||
+        e.kind === "hp_bar",
+    );
+    expect(stamped.length).toBeGreaterThan(0);
+    expect(stamped.every((e) => typeof e.t === "number")).toBe(true);
+    // 틱은 시간순(비감소).
+    const ticks = stamped.map((e) => e.t as number);
+    for (let i = 1; i < ticks.length; i += 1) {
+      expect(ticks[i]).toBeGreaterThanOrEqual(ticks[i - 1]);
+    }
+  });
+
   it("speed asymmetry: fast player gets more action bundles than slow enemy", () => {
     const player: PlayerCombat = {
       ...basePlayer,

@@ -37,7 +37,12 @@ export type V2CommonSkillId =
   | "v2c_rogue_strike" // 일격
   | "v2c_rogue_flurry" // 연격
   | "v2c_rogue_expose" // 약점 포착
-  | "v2c_rogue_poison"; // 독침
+  | "v2c_rogue_poison" // 독침
+  // 기본 직업 패시브 스킬(학습+SP 슬롯해야 효과 — 직업 킷 재설계)
+  | "v2c_warrior_might" // 근력 (힘 +10)
+  | "v2c_martial_fortitude" // 강건 (활력 +10)
+  | "v2c_mage_acumen" // 총명 (지능 +10)
+  | "v2c_rogue_finesse"; // 예기 (민첩이 공격력 보조)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -184,6 +189,32 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
     description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 30,
     effects: [dmg(1.0, 120, "magic")],
+  },
+
+  // ═══ 기본 직업 패시브 스킬(2026-06-17) — 학습 + SP 슬롯해야 상시 효과(캐스트 아님) ═══
+  v2c_warrior_might: {
+    id: "v2c_warrior_might", name: "근력", stat: "str", category: "passive", tier: 1,
+    description: "단련된 힘. 힘이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { stat: { str: 10 } },
+  },
+  v2c_martial_fortitude: {
+    id: "v2c_martial_fortitude", name: "강건", stat: "vit", category: "passive", tier: 1,
+    description: "단단한 몸. 활력이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { stat: { vit: 10 } },
+  },
+  v2c_mage_acumen: {
+    id: "v2c_mage_acumen", name: "총명", stat: "int", category: "passive", tier: 1,
+    description: "맑은 정신. 지능이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { stat: { int: 10 } },
+  },
+  v2c_rogue_finesse: {
+    id: "v2c_rogue_finesse", name: "예기", stat: "dex", category: "passive", tier: 1,
+    description: "벼린 감각. 민첩이 공격력을 보조한다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { atkPerDexCoef: 0.08 }, // = derive ROGUE_ATK_PER_DEX
   },
 };
 

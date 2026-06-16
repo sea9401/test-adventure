@@ -43,7 +43,10 @@ import {
   effectiveStatCap,
 } from "@/adventure/data/v2/proficiency";
 import { resolveClassPassive } from "@/adventure/data/v2/v2Passives";
-import { parseV2SkillsState } from "@/adventure/data/v2/v2Skills";
+import {
+  parseV2SkillsState,
+  aggregateEquippedPassives,
+} from "@/adventure/data/v2/v2Skills";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import {
   V2_CORE_LOOP_V2,
@@ -81,7 +84,6 @@ import {
 } from "@/adventure/data/v2/v2JobSpecs";
 import {
   V2_JOB_SYSTEM_V2,
-  V2_JOB_CATALOG,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
@@ -377,6 +379,11 @@ export type DerivePlayerCombatV2PureInput = {
    * specEff 대신 이 값을 적용(래퍼가 flag on 일 때 주입). 미지정 = 옛 aggregateSpecPassives.
    */
   jobPassiveEffect?: V2SpecPassiveEffect;
+  /**
+   * 예기(민첩→공격력) 계수 — 장착 패시브 스킬에서 주입(flag on). 지정 시 도적 직군 하드코딩
+   * 베이스라인 대신 이 값 사용(0 = 미장착). 미지정 = 도적 베이스라인 폴백(flag off / sim).
+   */
+  atkPerDexCoef?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -435,11 +442,14 @@ export function derivePlayerCombatV2Pure(
   // PR-T3: LUK 보조도 같은 패턴으로 추가. crit-only axis 였으나 wr 부족.
   // strict §4 — 물리공격력 = 힘 단독 + 장비 atk(무기 위력). dex/spd/luk atk 보조 없음.
   // 4대 전투 스탯엔 초반 완화용 플랫 보너스(V2_BASE_COMBAT_BONUS)를 가산.
+  // 예기 — DEX 보조 공격력. flag-on(직업 킷)은 장착 패시브 스킬 예기에서 계수 주입
+  //   (atkPerDexCoef, 미장착=0). flag-off/sim 은 도적 직군 하드코딩 베이스라인 폴백.
+  const atkPerDexCoef =
+    input.atkPerDexCoef ?? (playerClass === "rogue" ? ROGUE_ATK_PER_DEX : 0);
   const atk =
     Math.floor(
       totalStats.str * ATK_PER_STR +
-        // 예기(도적 직군 패시브) — DEX 보조 공격력.
-        (playerClass === "rogue" ? totalStats.dex * ROGUE_ATK_PER_DEX : 0) +
+        totalStats.dex * atkPerDexCoef +
         equipAcc.atk,
     ) + V2_BASE_COMBAT_BONUS;
   // 물리 방어력 — 활력 + 장비 def.
@@ -813,7 +823,14 @@ export function derivePlayerCombatV2FromSaves(saves: {
   const v2JobId = V2_JOB_SYSTEM_V2
     ? jobIdFromLegacy(parsedClass, specId ?? null)
     : null;
-  const jobBonus = v2JobId ? V2_JOB_CATALOG[v2JobId]?.jobBonus : undefined;
+  // 직업 킷 재설계 — flag on 패시브는 "장착 패시브 스킬"에서. 근력/강건/총명(스탯) + 예기
+  //   (atkPerDexCoef). jobBonus 자동 적용 폐지(슬롯해야 효과). flag off = undefined(미적용).
+  const equippedSkillIds = parseV2SkillsState(skillsRaw).equipped;
+  const passiveAgg = V2_JOB_SYSTEM_V2
+    ? aggregateEquippedPassives(equippedSkillIds)
+    : null;
+  const jobBonus = passiveAgg?.stat;
+  const atkPerDexCoef = passiveAgg?.atkPerDexCoef;
   // 직업 효과 패시브(받피감·spd 등) — flag on 일 때 옛 계파 specEff 대신 주입.
   const jobPassiveEffect = v2JobId ? jobPassive(v2JobId) : undefined;
   const spec = V2_JOB_SYSTEM_V2 ? undefined : legacySpec;
@@ -837,6 +854,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     unlockedPassives,
     jobBonus,
     jobPassiveEffect,
+    atkPerDexCoef,
   });
 }
 

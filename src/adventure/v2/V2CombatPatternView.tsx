@@ -106,6 +106,10 @@ export function V2CombatPatternView({
   }, []);
 
   const skillName = (id: string) => V2_SKILLS[id as V2SkillId]?.name ?? id;
+  // 패시브 스킬은 캐스트 대상 아님(상시 효과) — 전투패턴 슬롯 후보에서 제외.
+  const castableEquipped = equipped.filter(
+    (id) => V2_SKILLS[id as V2SkillId]?.category !== "passive",
+  );
 
   const update = useCallback((i: number, next: Partial<V2CombatBlock>) => {
     setBlocks((prev) => prev.map((b, idx) => (idx === i ? { ...b, ...next } : b)));
@@ -130,11 +134,11 @@ export function V2CombatPatternView({
       ...prev,
       {
         condition: { kind: "always" },
-        action: { kind: "skill", skillId: equipped[0] ?? "" },
+        action: { kind: "skill", skillId: castableEquipped[0] ?? "" },
       },
     ]);
     setMsg(null);
-  }, [equipped]);
+  }, [castableEquipped]);
 
   const save = useCallback(async () => {
     // 스킬 안 고른 빈 블록은 서버가 조용히 버린다(parseCombatPattern) → "저장 완료"인데 사라지는
@@ -326,7 +330,7 @@ export function V2CombatPatternView({
             </div>
           </section>
 
-          {equipped.length === 0 ? (
+          {castableEquipped.length === 0 ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
               장착한 스킬이 없어 전투 패턴을 짤 수 없습니다.
               <br />
@@ -385,8 +389,8 @@ export function V2CombatPatternView({
                       update(i, { action: { kind: "skill", skillId: e.target.value } })
                     }
                   >
-                    {equipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
-                    {equipped.map((id) => (
+                    {castableEquipped.length === 0 && <option value="">(장착한 스킬 없음)</option>}
+                    {castableEquipped.map((id) => (
                       <option key={id} value={id}>{skillName(id)}</option>
                     ))}
                   </select>

@@ -924,3 +924,39 @@ describe("derivePlayerCombatV2Pure jobPassiveEffect (직업 킷 — 효과 패�
     expect(boosted.player.spd).toBeGreaterThan(base.player.spd);
   });
 });
+
+describe("derivePlayerCombatV2Pure atkPerDexCoef (예기 — 패시브 스킬)", () => {
+  it("atkPerDexCoef 주입 시 DEX가 공격력 보조", () => {
+    const noCoef = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { dex: 200 },
+      v2Equipped: {},
+      playerClass: "warrior",
+      atkPerDexCoef: 0, // 예기 미장착
+    });
+    const withCoef = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { dex: 200 },
+      v2Equipped: {},
+      playerClass: "warrior",
+      atkPerDexCoef: 0.08, // 예기 장착
+    });
+    expect(withCoef.player.atk).toBeGreaterThan(noCoef.player.atk);
+  });
+
+  it("미지정(undefined)이면 도적 직군 베이스라인 폴백(flag off 호환)", () => {
+    const rogue = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { dex: 200 },
+      v2Equipped: {},
+      playerClass: "rogue", // atkPerDexCoef 미지정 → 도적 베이스라인 dex→atk
+    });
+    const warrior = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { dex: 200 },
+      v2Equipped: {},
+      playerClass: "warrior", // 미지정 → 0
+    });
+    expect(rogue.player.atk).toBeGreaterThan(warrior.player.atk);
+  });
+});

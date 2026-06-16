@@ -390,8 +390,8 @@ export async function GET() {
           specs: unlockedSpecs(combat.totalStats),
         }
       : null;
-  // 직업 시스템 v2(cumLevel 해금) — flag on 일 때만. 카탈로그 기반 점진 공개 목록(전직 UI).
-  //   해금된 직업만 actionable, 잠긴 상위는 부모 cumLevel 힌트. 옛 스탯게이트(jobUnlock) 대체.
+  // 직업 시스템 v2(cumLevel 해금) — flag on 일 때만. 카탈로그 기반 전직 목록(전직 UI).
+  //   해금(cumLevel 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
   const jobsV2 =
     V2_CORE_LOOP_V2 && V2_JOB_SYSTEM_V2
       ? (() => {
@@ -401,28 +401,24 @@ export async function GET() {
               ? ((charSave as { specChoice?: string }).specChoice ?? null)
               : null;
           const level = Math.max(1, (charSave as { level?: number }).level ?? 1);
+          const currentJobId = jobIdFromLegacy(cls, specChoice);
+          // 현재 직업 이름은 전체 카탈로그에서 — 필터된 목록에 현재 직업이 없을 수도 있으므로
+          //   (예: 미인식 class 'swordsman' → 모험가 폴백). 카탈로그 미존재면 직군 표시명 폴백.
+          const currentJobName =
+            V2_JOB_CATALOG[currentJobId]?.name ??
+            (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
           return {
-            currentJobId: jobIdFromLegacy(cls, specChoice),
+            currentJobId,
+            currentJobName,
             atLevelCap: level >= V2_LEVEL_CAP,
-            jobs: V2_JOB_LIST.filter((job) => job.tier > 0).map((job) => {
-              const unlocked = isJobUnlocked(job, prof);
-              const parentId = Object.keys(job.unlock.prereqs)[0] ?? null;
-              return {
-                id: job.id,
-                name: job.name,
-                tier: job.tier,
-                jobBonus: job.jobBonus,
-                unlocked,
-                lockHint:
-                  !unlocked && parentId
-                    ? {
-                        parentName: V2_JOB_CATALOG[parentId]?.name ?? parentId,
-                        need: job.unlock.prereqs[parentId] ?? 0,
-                        have: prof.groups[parentId]?.cumLevel ?? 0,
-                      }
-                    : null,
-              };
-            }),
+            jobs: V2_JOB_LIST.filter(
+              (job) => job.tier > 0 && isJobUnlocked(job, prof),
+            ).map((job) => ({
+              id: job.id,
+              name: job.name,
+              tier: job.tier,
+              jobBonus: job.jobBonus,
+            })),
           };
         })()
       : null;

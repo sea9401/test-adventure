@@ -51,6 +51,7 @@ type StateShape = {
   // 직업 시스템 v2(cumLevel 점진 공개) — V2_JOB_SYSTEM_V2 on 일 때만(off=null).
   jobsV2?: {
     currentJobId: string;
+    currentJobName: string;
     atLevelCap: boolean;
     jobs: JobLadderEntry[];
   } | null;
@@ -97,9 +98,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
   // 직업 시스템 v2(cumLevel 점진 공개, flag-on) — null 이면 V2JobTree 폴백.
   const [jobLadder, setJobLadder] = useState<{
     currentJobId: string;
+    currentJobName: string;
     atLevelCap: boolean;
     jobs: JobLadderEntry[];
-    classDisplayName: string;
     level: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,9 +146,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           j.jobsV2
             ? {
                 currentJobId: j.jobsV2.currentJobId,
+                currentJobName: j.jobsV2.currentJobName,
                 atLevelCap: j.jobsV2.atLevelCap,
                 jobs: j.jobsV2.jobs,
-                classDisplayName: j.character?.classDisplayName ?? "모험가",
                 level: j.character?.level ?? 1,
               }
             : null,
@@ -237,7 +238,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           jobLadder ? (
             <V2JobLadder
               level={jobLadder.level}
-              classDisplayName={jobLadder.classDisplayName}
+              currentJobName={jobLadder.currentJobName}
               currentJobId={jobLadder.currentJobId}
               atLevelCap={jobLadder.atLevelCap}
               jobs={jobLadder.jobs}

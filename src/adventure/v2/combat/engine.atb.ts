@@ -79,12 +79,11 @@ function stampTick(
   tick: number,
 ): BattleState {
   if (state.log.length <= prevLogLen) return state;
-  return {
-    ...state,
-    log: state.log.map((entry, idx) =>
-      idx < prevLogLen || entry.t != null ? entry : { ...entry, t: tick },
-    ),
-  };
+  // 새 tail 만 매핑(전체 로그 재스캔 회피 — 긴 전투에서 O(n²) 방지). 이미 t 있으면 보존.
+  const tail = state.log
+    .slice(prevLogLen)
+    .map((entry) => (entry.t != null ? entry : { ...entry, t: tick }));
+  return { ...state, log: [...state.log.slice(0, prevLogLen), ...tail] };
 }
 
 function tagNewLogEntries(

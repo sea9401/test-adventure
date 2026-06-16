@@ -7,6 +7,7 @@ import {
   tierCodexMin,
   elementalSkillsForClass,
   tier1ClassOf,
+  type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
@@ -33,6 +34,12 @@ import {
   reincarnTargetError,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import {
+  V2_JOB_SYSTEM_V2,
+  V2_JOB_CATALOG,
+  isJobUnlocked,
+  LEGACY_CLASS_SPEC_BY_JOB,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 // POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직군 누적 레벨(cumLevel)
 // 임계(t2=55·t3=110·t4=170) + 최소 Lv50 + (3·4차) 모험의 서 — 골드 X(docs §7, PR-6).
@@ -56,8 +63,13 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // 코어루프 재전직은 타겟(직군/계파) body 를 받는다. flag off(기존 차수 전직)은 body 무시.
-  let reqBody: { targetClass?: unknown; targetSpec?: unknown } = {};
+  // 코어루프 재전직은 타겟 body 를 받는다. flag off(기존 차수 전직)은 body 무시.
+  //   V2_JOB_SYSTEM_V2 on = 단일 targetJobId, off = 옛 targetClass+targetSpec.
+  let reqBody: {
+    targetClass?: unknown;
+    targetSpec?: unknown;
+    targetJobId?: unknown;
+  } = {};
   if (V2_CORE_LOOP_V2) {
     try {
       reqBody = (await req.json()) as typeof reqBody;
@@ -107,22 +119,51 @@ export async function POST(req: Request) {
           },
         };
       }
-      const targetClass = parseV2Class(reqBody.targetClass);
-      const targetSpec =
-        typeof reqBody.targetSpec === "string" && reqBody.targetSpec
-          ? reqBody.targetSpec
-          : null;
+      // 타겟 직업 결정 + 해금 게이트.
+      // V2_JOB_SYSTEM_V2 on — 단일 targetJobId + 카탈로그 cumLevel 게이트(isJobUnlocked).
+      //   세이브/스킬 체인은 PR-5 전까지 옛 class+spec 모델이라 LEGACY_CLASS_SPEC_BY_JOB 로 변환.
+      // off(기본) — 옛 targetClass+targetSpec + 스탯게이트(reincarnTargetError).
+      let targetClass: V2Class;
+      let targetSpec: string | null;
+      if (V2_JOB_SYSTEM_V2) {
+        const targetJobId =
+          typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
+        const jobDef = V2_JOB_CATALOG[targetJobId];
+        // 모험가(tier 0)로는 전직 불가 → bad_target.
+        if (!jobDef || jobDef.tier === 0) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "bad_target" as const },
+          };
+        }
+        // cumLevel 해금 게이트(기본 직업 = prereqs 비어 항상 통과, 위 Lv50 체크가 바닥 게이트).
+        if (!isJobUnlocked(jobDef, prof)) {
+          return {
+            status: 400,
+            body: { ok: false as const, error: "job_locked" as const },
+          };
+        }
+        const legacy = LEGACY_CLASS_SPEC_BY_JOB[targetJobId];
+        targetClass = parseV2Class(legacy?.class ?? targetJobId);
+        targetSpec = legacy?.spec ?? null;
+      } else {
+        targetClass = parseV2Class(reqBody.targetClass);
+        targetSpec =
+          typeof reqBody.targetSpec === "string" && reqBody.targetSpec
+            ? reqBody.targetSpec
+            : null;
 
-      // 효과 스탯(str/vit/int/dex)으로 스탯게이트 검증. 같은 tx 락-read 재select 라 일관.
-      // reincarnTargetError = 순수 헬퍼(bad_target/job_locked/spec_locked, coreLoopConfig).
-      const derived = await derivePlayerCombatV2(userId, tx);
-      const gateErr = reincarnTargetError(
-        derived?.totalStats ?? {},
-        targetClass,
-        targetSpec,
-      );
-      if (gateErr) {
-        return { status: 400, body: { ok: false as const, error: gateErr } };
+        // 효과 스탯(str/vit/int/dex)으로 스탯게이트 검증. 같은 tx 락-read 재select 라 일관.
+        // reincarnTargetError = 순수 헬퍼(bad_target/job_locked/spec_locked, coreLoopConfig).
+        const derived = await derivePlayerCombatV2(userId, tx);
+        const gateErr = reincarnTargetError(
+          derived?.totalStats ?? {},
+          targetClass,
+          targetSpec,
+        );
+        if (gateErr) {
+          return { status: 400, body: { ok: false as const, error: gateErr } };
+        }
       }
 
       // 재전직 — class/spec 갈아끼우고 레벨1·exp0·grown 리셋(스탯은 floor 부터 재성장).

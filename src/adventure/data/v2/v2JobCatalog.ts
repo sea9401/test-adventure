@@ -39,6 +39,14 @@ export type V2JobDefinition = {
 };
 
 /**
+ * 직업 시스템 v2 마스터 플래그(env 구동, 빌드타임).
+ * off(기본) = 옛 직군/계파 스탯게이트(SPEC_STAT_GATE) 유지. on = 카탈로그 cumLevel 해금.
+ * V2_CORE_LOOP_V2 와 같은 NEXT_PUBLIC_ 패턴(서버·클라 공용, PR-3 UI 에서도 참조).
+ */
+export const V2_JOB_SYSTEM_V2 =
+  process.env.NEXT_PUBLIC_V2_JOB_SYSTEM_V2 === "true";
+
+/**
  * 상위(Tier 2) 기본 해금 임계 — 부모 기본 직업의 cumLevel(≈ Lv50 루프 2회).
  * 후속으로 추가될 고차/특수 직업은 개별 override 가능.
  */
@@ -194,3 +202,30 @@ export function unlockedJobs(
     (job) => job.tier > 0 && isJobUnlocked(job, proficiency),
   );
 }
+
+/**
+ * 전환 브리지 — 새 직업 id → 옛 (class, specChoice) 저장쌍.
+ * 새 카탈로그로 해금 게이트(isJobUnlocked)는 하되, 세이브와 스킬 체인
+ * (elementalSkillsForClass)은 PR-5 마이그레이션 전까지 옛 class+specChoice 모델을 그대로
+ * 쓰므로 그 변환을 담는다. 옛 spec id 들은 모두 v2JobSpecs.ts 에 실재해 기존 write 경로가
+ * 그대로 처리한다. PR-5(마이그레이션)/PR-6(구 계파 삭제)에서 제거 대상.
+ *  - tier 1(기본): spec = null (id 동일, warrior/martial/mage/rogue)
+ *  - tier 2(상위): 옛 계파 spec id 로 매핑(방패병→knight, 견습기사→gwang …)
+ */
+export const LEGACY_CLASS_SPEC_BY_JOB: Record<
+  string,
+  { class: string; spec: string | null }
+> = {
+  warrior: { class: "warrior", spec: null },
+  martial: { class: "martial", spec: null },
+  mage: { class: "mage", spec: null },
+  rogue: { class: "rogue", spec: null },
+  shieldman: { class: "warrior", spec: "knight" },
+  squire: { class: "warrior", spec: "gwang" },
+  boxer: { class: "martial", spec: "gigong" },
+  monk: { class: "martial", spec: "cheolsan" },
+  caster: { class: "mage", spec: "arcane" },
+  acolyte: { class: "mage", spec: "cleric" },
+  assassin: { class: "rogue", spec: "assassin" },
+  archer: { class: "rogue", spec: "archery" },
+};

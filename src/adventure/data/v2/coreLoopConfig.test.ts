@@ -28,6 +28,7 @@ import {
   spendableGoldWith,
   calcSpBudget,
   spMilestonesForCumLevel,
+  spMilestonesCrossed,
   OFFLINE_MAX_MS,
 } from "./coreLoopConfig";
 import { V2_JOB_SPECS } from "./v2JobSpecs";
@@ -289,6 +290,25 @@ describe("spMilestonesForCumLevel — 점감(widening) 마일스톤 곡선", () 
     const v = spMilestonesForCumLevel(10_000_000);
     expect(Number.isFinite(v)).toBe(true);
     expect(Number.isInteger(v)).toBe(true);
+  });
+});
+
+describe("spMilestonesCrossed — 레벨업 시 새로 넘은 SP 마일스톤(알림용)", () => {
+  it("임계를 넘지 않은 레벨업 = 0", () => {
+    expect(spMilestonesCrossed(45, 50)).toBe(0); // 둘 다 1번째 구간
+    expect(spMilestonesCrossed(291, 292)).toBe(0); // 베테랑(이미 3) — 새 임계 없음
+  });
+  it("임계 1개 넘기면 1", () => {
+    expect(spMilestonesCrossed(114, 115)).toBe(1); // 2번째 임계 115 도달
+    expect(spMilestonesCrossed(44, 45)).toBe(1); // 첫 SP
+  });
+  it("한 번에 여러 임계 넘기면 그 수만큼(다중 레벨업)", () => {
+    // 0 → 210: 임계 45·115·210 세 개 통과 = 3.
+    expect(spMilestonesCrossed(0, 210)).toBe(3);
+  });
+  it("cumLevel 단조 — 역행/동일은 0(음수 방지)", () => {
+    expect(spMilestonesCrossed(300, 100)).toBe(0);
+    expect(spMilestonesCrossed(115, 115)).toBe(0);
   });
 });
 

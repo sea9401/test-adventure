@@ -77,6 +77,7 @@ import {
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
   lossTaxOf,
+  spMilestonesCrossed,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   applyHpRegen,
@@ -870,6 +871,7 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   // PR-prof — 승리 시 직업군 숙련도 적립 + 레벨업 시 랜덤 스탯 성장(앵커 가중, cap 까지).
   // 옛 수동 분배(training.v2 포인트) 폐기. lock 순서: character.v2 다음에 proficiency.v2.
   let proficiencyGained = 0; // 전투 결과 표시용.
+  let spMilestonesGained = 0; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤 수(flag off=항상 0).
   const statGains: Partial<Record<V2StatKey, number>> = {}; // 레벨업 랜덤 성장으로 오른 1차 스탯 — 결과 카드 표시용.
   if (won || expResult.levelsGained > 0) {
     const playerClass = parseV2Class(charSave.class);
@@ -886,6 +888,15 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     // 레벨업 시 — 직군 누적 레벨 적립(floor·전직 게이트 입력) + 랜덤 스탯 성장.
     if (expResult.levelsGained > 0) {
       // 직군 누적 레벨 += 오른 레벨 수(전직 리셋에도 불변, none 은 무변경). floor·전직 게이트 입력.
+      // 코어루프 — cumLevel 증가로 새로 넘은 SP 마일스톤 수 산출(단조 증가라 1회만 발화·영속불필요).
+      //   none 은 addCumLevel no-op 이라 마일스톤도 0. flag off 면 아예 계산 안 함(=0).
+      if (V2_CORE_LOOP_V2 && group !== "none") {
+        const oldCum = prof.groups[group]?.cumLevel ?? 0;
+        spMilestonesGained = spMilestonesCrossed(
+          oldCum,
+          oldCum + expResult.levelsGained,
+        );
+      }
       prof = addCumLevel(prof, group, expResult.levelsGained);
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
@@ -1005,7 +1016,9 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         goldTaxed,
         // 코어루프 패배 세금 — flag on 일 때만 노출(off 면 키 없음 = 응답 byte-identical).
         //   lossTax = 이번 판 압류액(0=승리), atRiskGold = 마지막 패배 이후 누적 승리분.
-        ...(V2_CORE_LOOP_V2 ? { lossTax, atRiskGold: nextAtRisk } : {}),
+        ...(V2_CORE_LOOP_V2
+          ? { lossTax, atRiskGold: nextAtRisk, spMilestonesGained }
+          : {}),
         levelsGained: expResult.levelsGained,
         statGains, // 레벨업 랜덤 성장으로 오른 1차 스탯 ({} = 레벨업 없음).
         hpGain, // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
@@ -1167,6 +1180,7 @@ export async function POST(req: Request) {
     let totalGoldGross = 0; // 세전 합산 — 결과 카드 세금 줄 표기용.
     let totalGoldTaxed = 0;
     let levelsGained = 0;
+    let spMilestonesGained = 0; // 코어루프 — 일괄 동안 새로 넘은 SP 마일스톤 합산(flag off=0).
     const statGains: Partial<Record<V2StatKey, number>> = {};
     let hpGained = 0; // 일괄 동안 레벨업으로 오른 maxHp 합산.
     let mpGained = 0; // 일괄 동안 레벨업으로 오른 maxMp 합산.
@@ -1213,6 +1227,7 @@ export async function POST(req: Request) {
       totalGoldGross += res.goldGross ?? res.goldGained;
       totalGoldTaxed += res.goldTaxed ?? 0;
       levelsGained += res.levelsGained;
+      spMilestonesGained += res.spMilestonesGained ?? 0;
       for (const [k, n] of Object.entries(res.statGains)) {
         const key = k as V2StatKey;
         statGains[key] = (statGains[key] ?? 0) + (n ?? 0);
@@ -1271,6 +1286,7 @@ export async function POST(req: Request) {
           totalGoldGross,
           totalGoldTaxed,
           levelsGained,
+          ...(V2_CORE_LOOP_V2 ? { spMilestonesGained } : {}),
           statGains,
           hpGained,
           mpGained,

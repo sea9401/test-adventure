@@ -16,6 +16,7 @@ type SettleResult = {
   totalGold: number;
   totalLossTax: number;
   levelsGained: number;
+  spMilestonesGained?: number; // 코어루프 — 자리 비운 동안 새로 넘은 SP 마일스톤(>0 일 때만 표기).
   depth: number;
 };
 
@@ -52,6 +53,7 @@ export function OfflineSettleCard() {
             totalGold: j.totalGold ?? 0,
             totalLossTax: j.totalLossTax ?? 0,
             levelsGained: j.levelsGained ?? 0,
+            spMilestonesGained: j.spMilestonesGained ?? 0,
             depth: j.depth ?? 0,
           });
         }
@@ -89,6 +91,13 @@ export function OfflineSettleCard() {
           />
           {result.levelsGained > 0 && (
             <Row label="레벨" value={`+${result.levelsGained}`} positive />
+          )}
+          {(result.spMilestonesGained ?? 0) > 0 && (
+            <Row
+              label="스킬포인트"
+              value={`+${result.spMilestonesGained}`}
+              positive
+            />
           )}
           <Row label="승/패" value={`${result.wins} / ${result.losses}`} />
           {result.totalLossTax > 0 && (

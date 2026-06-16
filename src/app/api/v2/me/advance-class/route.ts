@@ -21,6 +21,7 @@ import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
 import {
   codexRequirement,
   countDiscoveredMaterials,
@@ -28,6 +29,7 @@ import {
 import {
   V2_CORE_LOOP_V2,
   V2_LEVEL_CAP,
+  calcSpBudget,
   reincarnTargetError,
 } from "@/adventure/data/v2/coreLoopConfig";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
@@ -132,20 +134,26 @@ export async function POST(req: Request) {
         exp: 0,
       });
       // equipped 재조정 — 새 직업/계파 체인 ∩ 학습분. 차수 폐지라 계파 스킬 전부 해금(tier 4).
-      //   타직업 학습분은 learned 보존·equipped 에서만 빠짐(cross-job 장착은 PR-9 AP 로드아웃).
+      //   타직업 학습분은 learned 보존·equipped 에서만 빠짐(cross-job 장착은 PR-4 수동 로드아웃).
       const chain = new Set<string>(
         elementalSkillsForClass(targetClass, targetSpec, 4),
       );
-      await upsertSave(tx, userId, "skills.v2", {
-        ...skills,
-        equipped: skills.learned.filter((s) => chain.has(s)),
-      });
+      const chainEquipped = skills.learned.filter((s) => chain.has(s));
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
       const nextProf = flattenGroupTiers(
         setGrown(prof, {}),
         tier1ClassOf(targetClass),
       );
+      // 코어루프 — 새 체인 자동 장착을 SP 예산까지만(환생 직후 tier 1 정규화라 정복 보너스 빠진
+      //   예산 기준). 초과분은 PR-4 수동 로드아웃에서 교체. (이 분기는 flag-on 전용.)
+      await upsertSave(tx, userId, "skills.v2", {
+        ...skills,
+        equipped: clampLoadoutToBudget(
+          chainEquipped,
+          calcSpBudget(nextProf.groups),
+        ),
+      });
       await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
       return {

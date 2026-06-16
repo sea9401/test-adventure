@@ -17,6 +17,7 @@ import {
 } from "@/adventure/data/v2/v2Stats";
 import { V2_EQUIPMENT, type V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
 import { getJobSpec, resolveSpecTrait } from "@/adventure/data/v2/v2JobSpecs";
+import { V2_JOB_CATALOG } from "@/adventure/data/v2/v2JobCatalog";
 
 describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   it("빈 장비 → 모든 키 0", () => {
@@ -857,5 +858,52 @@ describe("derivePlayerCombatV2 preloaded (사냥 배치 char/equip 중복 select
     expect(selectCalls).toBe(0); // DB 왕복 0
     expect(viaAllPreloaded).not.toBeNull();
     expect(viaAllPreloaded).toEqual(baseline); // 재select 없이 동일 결과
+  });
+});
+
+describe("derivePlayerCombatV2Pure jobBonus (PR-4 직업 보너스 플랫 주입)", () => {
+  const base = () => derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
+
+  it("미지정/빈 객체 = 무변경(byte-identical, flag off·sim 호환)", () => {
+    const b = base();
+    const undef = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      jobBonus: undefined,
+    });
+    const empty = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      jobBonus: {},
+    });
+    expect(undef.totalStats).toEqual(b.totalStats);
+    expect(empty.totalStats).toEqual(b.totalStats);
+    expect(empty.player.atk).toBe(b.player.atk);
+  });
+
+  it("플랫 보너스가 totalStats 에 가산되고 파생 스탯에 흐른다", () => {
+    const b = base();
+    const boosted = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      jobBonus: { str: 100, vit: 100 },
+    });
+    expect(boosted.totalStats.str).toBe(b.totalStats.str + 100);
+    expect(boosted.totalStats.vit).toBe(b.totalStats.vit + 100);
+    // str → atk, vit → maxHp·def 로 자연 반영.
+    expect(boosted.player.atk).toBeGreaterThan(b.player.atk);
+    expect(boosted.maxHp).toBeGreaterThan(b.maxHp);
+    expect(boosted.player.def).toBeGreaterThan(b.player.def);
+  });
+
+  it("카탈로그 jobBonus 연동 — 견습 기사(squire) STR+25 DEX+10", () => {
+    const b = base();
+    const squire = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      jobBonus: V2_JOB_CATALOG.squire.jobBonus,
+    });
+    expect(squire.totalStats.str).toBe(b.totalStats.str + 25);
+    expect(squire.totalStats.dex).toBe(b.totalStats.dex + 10);
   });
 });

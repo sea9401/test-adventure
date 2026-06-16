@@ -78,6 +78,11 @@ import {
   resolveSpecTrait,
   type V2JobSpec,
 } from "@/adventure/data/v2/v2JobSpecs";
+import {
+  V2_JOB_SYSTEM_V2,
+  V2_JOB_CATALOG,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
@@ -358,6 +363,13 @@ export type DerivePlayerCombatV2PureInput = {
   spec?: V2JobSpec;
   /** 해금한 전문화 패시브 id들. spec 과 함께. 무기 게이트 통과 + 해금된 것만 적용. */
   unlockedPassives?: readonly string[];
+  /**
+   * 직업 시스템 v2(V2_JOB_SYSTEM_V2) 직업 보너스 — 전직 직업의 플랫 스탯 보너스(카탈로그).
+   * totalStats 에 가산 → 모든 파생 스탯에 자연 반영. 미지정 = 무가산(flag off / sim 호환).
+   * docs/v2-skill-job-redesign.md §3. 옛 계파 % 트레이트를 대체(래퍼가 flag on 일 때 spec 을
+   * inert 로 두고 이 값을 주입 — 더블딥 방지).
+   */
+  jobBonus?: Partial<Record<V2StatKey, number>>;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -398,6 +410,16 @@ export function derivePlayerCombatV2Pure(
   if (bonusPct > 0) {
     const k = classDef.anchorStat;
     totalStats[k] = Math.floor(totalStats[k] * (1 + bonusPct / 100));
+  }
+
+  // 직업 시스템 v2 — 직업 보너스(플랫 스탯) 가산. 앵커 % 보정 뒤에 더해 "순수 플랫"으로 유지
+  //   (앵커 스탯 보너스가 % 배수를 받지 않음). cap 무관(보너스라 cap 위로). flag off/sim 이면
+  //   jobBonus 미지정 → 무가산(byte-identical). 가산 후 아래 모든 파생 스탯에 자연 반영.
+  if (input.jobBonus) {
+    for (const k of V2_STAT_KEYS) {
+      const b = input.jobBonus[k];
+      if (b) totalStats[k] += b;
+    }
   }
 
   // PR-S1 5배 스케일 — float 누적 후 atk/def/maxHp/maxMp 만 최종 floor.
@@ -757,20 +779,31 @@ export function derivePlayerCombatV2FromSaves(saves: {
   // 직업 패시브 티어 산정용 — 학습 시그니처. equipped 는 무관(패시브는 장착 불요).
   const learnedSkillIds = parseV2SkillsState(skillsRaw).learned;
 
+  const parsedClass = parseV2Class(character.class);
+
   // 전문화(스펙) — save 의 specChoice/unlockedPassives 방어 파싱. 없으면 undefined → inert.
   const specId =
     typeof character.specChoice === "string" ? character.specChoice : undefined;
   const specCandidate = specId ? getSpecById(specId) : undefined;
   // 전문화는 직업 종속 — 현 직업의 전문화가 아니면 무시(직업 변경 후 stale specChoice 누수 방지, 방어).
-  const spec =
-    specCandidate && specCandidate.job === parseV2Class(character.class)
+  const legacySpec =
+    specCandidate && specCandidate.job === parsedClass
       ? specCandidate
       : undefined;
-  const unlockedPassives = Array.isArray(character.unlockedPassives)
+  const legacyUnlockedPassives = Array.isArray(character.unlockedPassives)
     ? character.unlockedPassives.filter(
         (x): x is string => typeof x === "string",
       )
     : [];
+
+  // 직업 시스템 v2(flag on) — 직업 보너스(플랫 스탯) 주입 + 옛 계파 % 트레이트를 inert 로
+  //   대체(더블딥 방지). 현재 직업 = jobIdFromLegacy(class, specChoice) → 카탈로그 jobBonus.
+  //   flag off = jobBonus 없음 + 계파 효과 그대로(byte-identical). 모험가(none)=jobBonus {} (HP%는 별도).
+  const jobBonus = V2_JOB_SYSTEM_V2
+    ? V2_JOB_CATALOG[jobIdFromLegacy(parsedClass, specId ?? null)]?.jobBonus
+    : undefined;
+  const spec = V2_JOB_SYSTEM_V2 ? undefined : legacySpec;
+  const unlockedPassives = V2_JOB_SYSTEM_V2 ? [] : legacyUnlockedPassives;
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
@@ -782,13 +815,13 @@ export function derivePlayerCombatV2FromSaves(saves: {
     hp: character.hp,
     mp: character.mp,
     selectedStanceRaw: character.selectedStance,
-    playerClass: parseV2Class(character.class),
+    playerClass: parsedClass,
     // 차수 = 현 직업의 proficiency.groups[job].tier (없으면 1차).
-    classTier:
-      prof.groups[tier1ClassOf(parseV2Class(character.class))]?.tier ?? 1,
+    classTier: prof.groups[tier1ClassOf(parsedClass)]?.tier ?? 1,
     learnedSkillIds,
     spec,
     unlockedPassives,
+    jobBonus,
   });
 }
 

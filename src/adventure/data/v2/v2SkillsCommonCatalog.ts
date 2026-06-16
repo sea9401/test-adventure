@@ -26,11 +26,13 @@ export type V2CommonSkillId =
   | "v2c_martial_whirl" // 선풍각
   | "v2c_martial_chi" // 기공 순환
   | "v2c_martial_circulate" // 운기
+  | "v2c_martial_steelguard" // 철포 (받피감 버프 — 직업 킷 재설계)
   // 마법사 (마력구 패시브 제외)
   | "v2c_mage_fireball" // 화염구
   | "v2c_mage_barrage" // 마력 탄막
   | "v2c_mage_shield" // 마나 보호막
   | "v2c_mage_meditate" // 명상
+  | "v2c_mage_boltcast" // 마력탄 (0코스트 마법 — 직업 킷 재설계)
   // 도적 (예기 패시브 제외)
   | "v2c_rogue_strike" // 일격
   | "v2c_rogue_flurry" // 연격
@@ -163,8 +165,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_rogue_poison: {
     id: "v2c_rogue_poison", name: "독침", stat: "str", category: "attack", tier: 2,
-    description: "독을 바른 침으로 중독시킨다.", mpCost: 26, cooldown: 0, procChance: 30,
-    effects: [dmg(0.5, 50), { kind: "dot", ...V2_DOT_PRESETS.중독 }],
+    description: "독을 바른 침으로 찔러 중독시킨다.", mpCost: 26, cooldown: 0, procChance: 30,
+    // 중독 = 고정 수치(턴당 flat). 최대HP% 가 아니라 flat 으로(직업 킷 재설계 — 도적 시그니처).
+    effects: [
+      dmg(0.6, 60),
+      { kind: "dot", ...V2_DOT_PRESETS.중독, flatPerStack: 12, pctMaxHpPerStack: 0, stacks: 2 },
+    ],
+  },
+
+  // ═══ 직업 킷 재설계 — 기본 직업 시그니처 액티브(2026-06-17) ═══
+  // 무인 철포(받피감 버프)·마법사 마력탄(0코스트 마법). 강타/연격/독침은 기존 재사용.
+  v2c_martial_steelguard: {
+    id: "v2c_martial_steelguard", name: "철포", stat: "vit", category: "buff", tier: 1,
+    description: "몸을 굳혀 한동안 받는 피해를 줄인다.", mpCost: 24, cooldown: 0, procChance: 55,
+    effects: [{ kind: "selfBuffPct", target: "damageReduction", pct: 12, turns: 3 }],
+  },
+  v2c_mage_boltcast: {
+    id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
+    description: "마력을 뭉쳐 쏜다.", mpCost: 0, cooldown: 0, procChance: 30,
+    effects: [dmg(1.0, 120, "magic")],
   },
 };
 

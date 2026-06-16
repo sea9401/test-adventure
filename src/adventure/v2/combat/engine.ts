@@ -223,6 +223,8 @@ export type BattleStacks = {
   skillCritTurns: number;
   skillEvasionPct: number; // 선풍각 — 회피 +%(PvE 죽은축, PvP 유효)
   skillEvasionTurns: number;
+  skillDmgReducePct: number; // 철포 — 받는 피해 -%(받피감 버프, 직업 킷 재설계)
+  skillDmgReduceTurns: number;
   enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
   enemyVulnTurns: number;
 };
@@ -929,6 +931,7 @@ function applySkillTempBuffs(
 ): BattleStacks {
   const crit = result.selfBuffPctToApply.find((b) => b.target === "crit");
   const eva = result.selfBuffPctToApply.find((b) => b.target === "evasion");
+  const dr = result.selfBuffPctToApply.find((b) => b.target === "damageReduction");
   return {
     ...prev,
     skillRegenPct: result.selfRegenToApply?.pctMaxHpPerTurn ?? prev.skillRegenPct,
@@ -937,6 +940,8 @@ function applySkillTempBuffs(
     skillCritTurns: crit ? crit.turns : prev.skillCritTurns,
     skillEvasionPct: eva?.pct ?? prev.skillEvasionPct,
     skillEvasionTurns: eva ? eva.turns : prev.skillEvasionTurns,
+    skillDmgReducePct: dr?.pct ?? prev.skillDmgReducePct,
+    skillDmgReduceTurns: dr ? dr.turns : prev.skillDmgReduceTurns,
     enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
     enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns : prev.enemyVulnTurns,
   };
@@ -974,6 +979,7 @@ export function finishPlayerTurn(
         skillRegenTurns: Math.max(0, s.skillRegenTurns - 1),
         skillCritTurns: Math.max(0, s.skillCritTurns - 1),
         skillEvasionTurns: Math.max(0, s.skillEvasionTurns - 1),
+        skillDmgReduceTurns: Math.max(0, s.skillDmgReduceTurns - 1),
         enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
       },
     };
@@ -1200,6 +1206,8 @@ export function initialBattleState(
       skillCritTurns: 0,
       skillEvasionPct: 0,
       skillEvasionTurns: 0,
+      skillDmgReducePct: 0,
+      skillDmgReduceTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
     },

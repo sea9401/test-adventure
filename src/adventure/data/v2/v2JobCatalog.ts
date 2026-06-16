@@ -72,7 +72,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 병사",
     tier: 1,
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
-    jobBonus: { str: 10, vit: 10 },
+    jobBonus: { str: 10 }, // 직업 킷 재설계 — 기본직업 저리턴 단일 스탯 패시브
     unlock: { prereqs: {} },
   },
   martial: {
@@ -80,7 +80,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 무인",
     tier: 1,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 10, str: 5, spi: 5 },
+    jobBonus: { vit: 10 },
     unlock: { prereqs: {} },
   },
   mage: {
@@ -88,7 +88,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 마법사",
     tier: 1,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 15, spi: 5 },
+    jobBonus: { int: 10 },
     unlock: { prereqs: {} },
   },
   rogue: {
@@ -96,7 +96,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 도적",
     tier: 1,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: { dex: 15, luk: 5 },
+    jobBonus: {}, // 도적 패시브 = spd 증가(효과 패시브 V2_JOB_PASSIVES), 스탯 보너스 없음
     unlock: { prereqs: {} },
   },
 

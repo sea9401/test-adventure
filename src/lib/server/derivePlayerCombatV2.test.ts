@@ -907,3 +907,20 @@ describe("derivePlayerCombatV2Pure jobBonus (PR-4 직업 보너스 플랫 주입
     expect(squire.totalStats.dex).toBe(b.totalStats.dex + 10);
   });
 });
+
+describe("derivePlayerCombatV2Pure jobPassiveEffect (직업 킷 — 효과 패시브)", () => {
+  it("spdPctAdd 주입 시 spd 증가(견습 도적), 미지정은 무변경", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { dex: 100 },
+      v2Equipped: {},
+    });
+    const boosted = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { dex: 100 },
+      v2Equipped: {},
+      jobPassiveEffect: { spdPctAdd: 15 },
+    });
+    expect(boosted.player.spd).toBeGreaterThan(base.player.spd);
+  });
+});

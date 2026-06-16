@@ -318,6 +318,76 @@ describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", ()
   });
 });
 
+describe("derivePlayerCombatV2Pure — 상위 직업 % 패시브(statPct/maxHpPct/maxMpPct)", () => {
+  it("statPct — 플랫 가산 뒤 곱 적용(근력 II 힘 +15%)", () => {
+    const base = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 100, dex: 0, vit: 0, luk: 0, int: 0 },
+      v2Equipped: {},
+    });
+    const withPct = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: { str: 100, dex: 0, vit: 0, luk: 0, int: 0 },
+      v2Equipped: {},
+      statPct: { str: 15 },
+    });
+    expect(withPct.totalStats.str).toBe(Math.floor(base.totalStats.str * 1.15));
+  });
+
+  it("플랫 jobBonus + statPct — 가산 후 % (순서)", () => {
+    const alloc = { str: 100, dex: 0, vit: 0, luk: 0, int: 0 } as const;
+    // 플랫만 적용한 기준(가산 후) → 거기에 % 곱이 붙어야 한다(곱이 가산 뒤 순서).
+    const flatOnly = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: alloc,
+      v2Equipped: {},
+      jobBonus: { str: 10 },
+    });
+    const d = derivePlayerCombatV2Pure({
+      level: 1,
+      allocatedStats: alloc,
+      v2Equipped: {},
+      jobBonus: { str: 10 },
+      statPct: { str: 15 },
+    });
+    expect(d.totalStats.str).toBe(Math.floor(flatOnly.totalStats.str * 1.15));
+  });
+
+  it("maxHpPct — 최대 HP 비례 증가(체력 +12%)", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
+    const withPct = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      maxHpPct: 12,
+    });
+    expect(withPct.maxHp).toBe(Math.floor(base.maxHp * 1.12));
+  });
+
+  it("maxMpPct — 최대 MP 비례 증가(마나 +12%)", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
+    const withPct = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      maxMpPct: 12,
+    });
+    expect(withPct.player.maxMp).toBe(Math.floor((base.player.maxMp ?? 0) * 1.12));
+  });
+
+  it("미지정(flag off/sim) → 무변경(byte-identical)", () => {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
+    const same = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      statPct: undefined,
+      maxHpPct: undefined,
+      maxMpPct: undefined,
+    });
+    expect(same.maxHp).toBe(base.maxHp);
+    expect(same.player.maxMp).toBe(base.player.maxMp);
+    expect(same.totalStats).toEqual(base.totalStats);
+  });
+});
+
 describe("derivePlayerCombatV2Pure weaponElement (무기 속성 폐지 — 항상 neutral)", () => {
   it("무기 속성 폐지 → 어떤 무기든 weaponElement = neutral", () => {
     // 속성 무기가 더는 없음 → 평타 속성은 캐릭터 선택으로(hunt/arena 가 weaponElement!==neutral 분기).

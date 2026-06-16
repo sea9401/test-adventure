@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { V2_SKILLS_BY_JOB, skillsForJob } from "./v2SkillsByJob";
 import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
-import { V2_SKILLS, aggregateEquippedPassives, spCostOf } from "./v2Skills";
+import {
+  V2_SKILLS,
+  aggregateEquippedPassives,
+  spCostOf,
+  type V2SkillId,
+} from "./v2Skills";
 
 describe("직업 킷 — 스킬셋", () => {
   it("기본 4직업 = 액티브 1 + 패시브 스킬 1", () => {
@@ -31,9 +36,41 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("상위 직업은 흡수한 사라진 계파 스킬 포함(중간안)", () => {
-    expect(skillsForJob("assassin")).toContain("v2s_venom_poisonslash"); // 독사 흡수
-    expect(skillsForJob("squire")).toContain("v2s_gladiator_frenzy"); // 검투사 흡수
+  it("상위 8직업 = 액티브 1 + 고유 % 패시브 1", () => {
+    const UPPER: Record<string, [V2SkillId, V2SkillId]> = {
+      shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"],
+      squire: ["v2c_squire_cleave", "v2c_squire_might"],
+      boxer: ["v2c_boxer_combo", "v2c_boxer_fortitude"],
+      monk: ["v2c_monk_palm", "v2c_monk_spirit"],
+      caster: ["v2c_caster_bolt", "v2c_caster_acumen"],
+      acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"],
+      assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"],
+      archer: ["v2c_archer_volley", "v2c_archer_agility"],
+    };
+    for (const [job, kit] of Object.entries(UPPER)) {
+      expect(skillsForJob(job), job).toEqual(kit);
+      const [active, passive] = kit;
+      expect(V2_SKILLS[active].category, active).toBe("attack");
+      expect(V2_SKILLS[passive].category, passive).toBe("passive");
+    }
+  });
+
+  it("상위 8직업 패시브는 서로 다른 축(고유 — 순회 메리트)", () => {
+    const passiveIds = [
+      "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",
+      "v2c_monk_spirit", "v2c_caster_acumen", "v2c_acolyte_mana",
+      "v2c_assassin_fortune", "v2c_archer_agility",
+    ] as const;
+    // 각 패시브가 건드리는 "축"을 키로 직렬화 → 8개 모두 유일해야 한다.
+    const axes = passiveIds.map((id) => {
+      const p = V2_SKILLS[id].passive!;
+      const keys: string[] = [];
+      for (const k of Object.keys(p.statPct ?? {})) keys.push(`statPct.${k}`);
+      if (p.maxHpPct) keys.push("maxHpPct");
+      if (p.maxMpPct) keys.push("maxMpPct");
+      return keys.sort().join(",");
+    });
+    expect(new Set(axes).size).toBe(passiveIds.length);
   });
 
   it("없는 jobId = 빈 배열", () => {
@@ -89,6 +126,20 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     ]);
     expect(agg.stat).toEqual({ str: 10 });
     expect(agg.atkPerDexCoef).toBeGreaterThan(0);
+  });
+
+  it("aggregateEquippedPassives — % 패시브(statPct/maxHpPct/maxMpPct) 합산", () => {
+    const agg = aggregateEquippedPassives([
+      "v2c_warrior_might", // 플랫 str+10
+      "v2c_squire_might", // statPct str+15
+      "v2c_shieldman_vitality", // maxHpPct 12
+      "v2c_acolyte_mana", // maxMpPct 12
+      "v2c_monk_spirit", // statPct spi+15
+    ]);
+    expect(agg.stat).toEqual({ str: 10 }); // 플랫과 % 는 분리
+    expect(agg.statPct).toEqual({ str: 15, spi: 15 });
+    expect(agg.maxHpPct).toBe(12);
+    expect(agg.maxMpPct).toBe(12);
   });
 
   it("효과 패시브 맵(V2_JOB_PASSIVES)은 비어 있음 — 기본은 패시브 스킬로 이관", () => {

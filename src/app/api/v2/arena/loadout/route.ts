@@ -24,6 +24,12 @@ import {
   parseEquipmentSave,
   type EquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  parseProficiencyForChar,
+  emptyProficiency,
+} from "@/adventure/data/v2/proficiency";
+import { clampLoadoutToBudget } from "@/adventure/data/v2/v2Loadout";
+import { calcSpBudget } from "@/adventure/data/v2/coreLoopConfig";
 
 // 아레나 세팅(로드아웃) — 캐릭터 현재 빌드(장착 스킬+전투 패턴+장착 장비) 스냅샷 저장/적용/삭제.
 // GET  → 목록.
@@ -134,9 +140,27 @@ export async function POST(req: Request) {
         emptyV2SkillsState() as unknown as Record<string, unknown>,
       );
       const skills = parseV2SkillsState(skillsRaw);
+      // SP 예산 재클램프(방어선) — 저장된 로드아웃이 이후 spCost 재조정으로 현재 예산을 넘길 수
+      //   있어, apply 시 현재 예산까지 순서 보존 greedy 클램프한다(정상 케이스는 항등 = 무변경).
+      //   예산 산정용 character/proficiency 는 비잠금 읽기 — 단조 증가라 stale 이어도 보수적으로
+      //   안전하고, 이 tx 의 쓰기잠금(equipment→skills) 순서에 영향 없음.
+      const charSave = await readSave<{ class?: unknown; level?: unknown }>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const prof = parseProficiencyForChar(
+        await readSave(tx, userId, "proficiency.v2", emptyProficiency()),
+        charSave,
+      );
+      const spBudget = calcSpBudget(prof.groups);
       const nextSkills = {
         ...skills,
-        equipped: loadoutSkillsForApply(loadout, skills.learned),
+        equipped: clampLoadoutToBudget(
+          loadoutSkillsForApply(loadout, skills.learned),
+          spBudget,
+        ),
         pattern: loadout.pattern ?? undefined,
       };
       await upsertSave(tx, userId, "skills.v2", nextSkills);

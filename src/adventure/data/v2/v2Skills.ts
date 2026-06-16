@@ -34,7 +34,15 @@ export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 // 패시브 스킬 효과 — 액티브(effects)와 별개. 장착(로드아웃)돼 있으면 derive 가 상시 적용.
 //   stat = 1차 스탯 가산(근력 힘+10 등), atkPerDexCoef = 민첩→공격력 보조(예기).
 export type V2PassiveSkillEffect = {
+  /** 고정 스탯 가산(기본 직업 — 근력 I 힘+10 등). */
   stat?: Partial<Record<V2StatKey, number>>;
+  /** % 스탯 가산(상위 직업 — 근력 II 힘+15% 등). 여러 패시브의 %는 합산(가산). */
+  statPct?: Partial<Record<V2StatKey, number>>;
+  /** 최대 HP % 가산(체력). */
+  maxHpPct?: number;
+  /** 최대 MP % 가산(마나). */
+  maxMpPct?: number;
+  /** 민첩→공격력 보조 계수(예기). */
   atkPerDexCoef?: number;
 };
 
@@ -236,10 +244,17 @@ export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
 
 // 장착(로드아웃)된 패시브 스킬들의 상시 효과 합산 — derive 가 flag-on 일 때 호출.
 //   stat 가산(근력 등) + atkPerDexCoef 합(예기). 패시브 아닌 스킬·미존재 id 는 무시.
-export function aggregateEquippedPassives(
-  equipped: readonly V2SkillId[],
-): { stat: Partial<Record<V2StatKey, number>>; atkPerDexCoef: number } {
+export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
+  stat: Partial<Record<V2StatKey, number>>;
+  statPct: Partial<Record<V2StatKey, number>>;
+  maxHpPct: number;
+  maxMpPct: number;
+  atkPerDexCoef: number;
+} {
   const stat: Partial<Record<V2StatKey, number>> = {};
+  const statPct: Partial<Record<V2StatKey, number>> = {};
+  let maxHpPct = 0;
+  let maxMpPct = 0;
   let atkPerDexCoef = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
@@ -247,9 +262,14 @@ export function aggregateEquippedPassives(
     for (const [k, v] of Object.entries(p.stat ?? {})) {
       if (v) stat[k as V2StatKey] = (stat[k as V2StatKey] ?? 0) + v;
     }
+    for (const [k, v] of Object.entries(p.statPct ?? {})) {
+      if (v) statPct[k as V2StatKey] = (statPct[k as V2StatKey] ?? 0) + v;
+    }
+    maxHpPct += p.maxHpPct ?? 0;
+    maxMpPct += p.maxMpPct ?? 0;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
   }
-  return { stat, atkPerDexCoef };
+  return { stat, statPct, maxHpPct, maxMpPct, atkPerDexCoef };
 }
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
@@ -328,6 +348,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   for (const [k, v] of Object.entries(p.stat ?? {})) {
     if (v) chips.push(`${V2_STAT_LABELS[k as V2StatKey]} +${v}`);
   }
+  for (const [k, v] of Object.entries(p.statPct ?? {})) {
+    if (v) chips.push(`${V2_STAT_LABELS[k as V2StatKey]} +${v}%`);
+  }
+  if (p.maxHpPct) chips.push(`최대 HP +${p.maxHpPct}%`);
+  if (p.maxMpPct) chips.push(`최대 MP +${p.maxMpPct}%`);
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
   return chips;
 }

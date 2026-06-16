@@ -42,7 +42,26 @@ export type V2CommonSkillId =
   | "v2c_warrior_might" // 근력 (힘 +10)
   | "v2c_martial_fortitude" // 강건 (활력 +10)
   | "v2c_mage_acumen" // 총명 (지능 +10)
-  | "v2c_rogue_finesse"; // 예기 (민첩이 공격력 보조)
+  | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
+  // ── 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
+  // 액티브
+  | "v2c_shieldman_bash" // 방패 타격 (물리 단일)
+  | "v2c_squire_cleave" // 베기 (물리 단일 강)
+  | "v2c_boxer_combo" // 연권 (물리 다단)
+  | "v2c_monk_palm" // 장권 (물리 다단)
+  | "v2c_caster_bolt" // 마탄 (마법 단일 강)
+  | "v2c_acolyte_smite" // 성광 (마법 단일)
+  | "v2c_assassin_ambush" // 기습 (물리 단일 강)
+  | "v2c_archer_volley" // 난사 (물리 다단)
+  // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
+  | "v2c_shieldman_vitality" // 체력 (최대 HP +12%)
+  | "v2c_squire_might" // 근력 II (힘 +15%)
+  | "v2c_boxer_fortitude" // 강건 II (활력 +15%)
+  | "v2c_monk_spirit" // 정신 (정신 +15%)
+  | "v2c_caster_acumen" // 총명 II (지능 +15%)
+  | "v2c_acolyte_mana" // 마나 (최대 MP +12%)
+  | "v2c_assassin_fortune" // 행운 (행운 +10%)
+  | "v2c_archer_agility"; // 민첩 (민첩 +10%)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -215,6 +234,105 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "벼린 감각. 민첩이 공격력을 보조한다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { atkPerDexCoef: 0.08 }, // = derive ROGUE_ATK_PER_DEX
+  },
+
+  // ═══ 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ═══
+  // 액티브는 군더더기 없는 순수 공격(간단 기조). 패시브는 직업마다 서로 다른 축(고유) — 다른
+  //   직업을 순회해 다른 패시브를 모으는 메리트. % 가산(여러 패시브 % 는 합산).
+  // ── 전사 갈래 ──
+  v2c_shieldman_bash: {
+    id: "v2c_shieldman_bash", name: "방패 타격", stat: "str", category: "attack", tier: 2,
+    description: "방패를 앞세워 들이받는다.", mpCost: 30, cooldown: 0, procChance: 30,
+    effects: [dmg(1.0, 160)],
+  },
+  v2c_squire_cleave: {
+    id: "v2c_squire_cleave", name: "베기", stat: "str", category: "attack", tier: 2,
+    description: "크게 휘둘러 베어 넘긴다.", mpCost: 34, cooldown: 0, procChance: 30,
+    effects: [dmg(1.2, 190)],
+  },
+  // ── 무도가 갈래 ──
+  v2c_boxer_combo: {
+    id: "v2c_boxer_combo", name: "연권", stat: "str", category: "attack", tier: 2,
+    description: "주먹을 네 번 연달아 내지른다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: hits(4, 0.4, 42),
+  },
+  v2c_monk_palm: {
+    id: "v2c_monk_palm", name: "장권", stat: "str", category: "attack", tier: 2,
+    description: "손바닥으로 세 번 밀어친다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: hits(3, 0.5, 55),
+  },
+  // ── 마법사 갈래 ──
+  v2c_caster_bolt: {
+    id: "v2c_caster_bolt", name: "마탄", stat: "int", category: "attack", tier: 2,
+    description: "응축한 마력탄을 쏘아 박는다.", mpCost: 40, cooldown: 0, procChance: 30,
+    effects: [dmg(1.2, 175, "magic")],
+  },
+  v2c_acolyte_smite: {
+    id: "v2c_acolyte_smite", name: "성광", stat: "int", category: "attack", tier: 2,
+    description: "정화의 빛으로 내리친다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [dmg(1.0, 160, "magic")],
+  },
+  // ── 도적 갈래 ──
+  v2c_assassin_ambush: {
+    id: "v2c_assassin_ambush", name: "기습", stat: "str", category: "attack", tier: 2,
+    description: "허를 찔러 깊게 베어든다.", mpCost: 34, cooldown: 0, procChance: 30,
+    effects: [dmg(1.2, 185)],
+  },
+  v2c_archer_volley: {
+    id: "v2c_archer_volley", name: "난사", stat: "str", category: "attack", tier: 2,
+    description: "화살을 다섯 대 쏟아붓는다.", mpCost: 28, cooldown: 0, procChance: 40,
+    effects: hits(5, 0.32, 36),
+  },
+
+  // ── 상위 8직업 고유 패시브(% 가산, 서로 다른 축) — 학습 + SP 슬롯해야 상시 효과 ──
+  v2c_shieldman_vitality: {
+    id: "v2c_shieldman_vitality", name: "체력", stat: "vit", category: "passive", tier: 2,
+    description: "두터운 몸. 최대 체력이 늘어난다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 12 },
+  },
+  v2c_squire_might: {
+    id: "v2c_squire_might", name: "근력 II", stat: "str", category: "passive", tier: 2,
+    description: "거듭된 단련. 힘이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { str: 15 } },
+  },
+  v2c_boxer_fortitude: {
+    id: "v2c_boxer_fortitude", name: "강건 II", stat: "vit", category: "passive", tier: 2,
+    description: "깊어진 내공. 활력이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { vit: 15 } },
+  },
+  v2c_monk_spirit: {
+    // stat 필드(StatKey)는 spi 미지원(레거시 union) — 그룹 메타만 vit. 효과는 statPct.spi 로 정확.
+    id: "v2c_monk_spirit", name: "정신", stat: "vit", category: "passive", tier: 2,
+    description: "맑은 마음. 정신이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { spi: 15 } },
+  },
+  v2c_caster_acumen: {
+    id: "v2c_caster_acumen", name: "총명 II", stat: "int", category: "passive", tier: 2,
+    description: "벼려진 통찰. 지능이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { int: 15 } },
+  },
+  v2c_acolyte_mana: {
+    id: "v2c_acolyte_mana", name: "마나", stat: "int", category: "passive", tier: 2,
+    description: "넓어진 그릇. 최대 마나가 늘어난다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxMpPct: 12 },
+  },
+  v2c_assassin_fortune: {
+    id: "v2c_assassin_fortune", name: "행운", stat: "luk", category: "passive", tier: 2,
+    description: "타고난 운. 행운이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { luk: 10 } },
+  },
+  v2c_archer_agility: {
+    id: "v2c_archer_agility", name: "민첩", stat: "dex", category: "passive", tier: 2,
+    description: "날랜 몸놀림. 민첩이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { dex: 10 } },
   },
 };
 

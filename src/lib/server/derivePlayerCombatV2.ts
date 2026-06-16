@@ -384,6 +384,15 @@ export type DerivePlayerCombatV2PureInput = {
    * 베이스라인 대신 이 값 사용(0 = 미장착). 미지정 = 도적 베이스라인 폴백(flag off / sim).
    */
   atkPerDexCoef?: number;
+  /**
+   * 상위 직업 % 스탯 패시브(근력 II 힘 +15% 등). 여러 패시브 %는 합산(가산) 후 1회 적용.
+   * 플랫 jobBonus 가산 뒤에 곱해 "스탯 → % 증폭" 순서. flag off/sim 이면 미지정 → 무적용.
+   */
+  statPct?: Partial<Record<V2StatKey, number>>;
+  /** 최대 HP % 패시브(체력) — 합산 후 maxHp 에 1회 적용. 미지정 = 무적용. */
+  maxHpPct?: number;
+  /** 최대 MP % 패시브(마나) — 합산 후 maxMp 에 1회 적용. 미지정 = 무적용. */
+  maxMpPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -436,6 +445,16 @@ export function derivePlayerCombatV2Pure(
     }
   }
 
+  // 직업 시스템 v2 — 상위 직업 % 스탯 패시브(근력 II 등). 플랫 가산 뒤에 곱해 "최종 스탯 ×
+  //   (1 + %/100)". 여러 패시브 %는 호출부에서 이미 합산됨. floor 로 정수 유지. flag off/sim
+  //   이면 statPct 미지정 → 무적용(byte-identical).
+  if (input.statPct) {
+    for (const k of V2_STAT_KEYS) {
+      const pct = input.statPct[k];
+      if (pct) totalStats[k] = Math.floor(totalStats[k] * (1 + pct / 100));
+    }
+  }
+
   // PR-S1 5배 스케일 — float 누적 후 atk/def/maxHp/maxMp 만 최종 floor.
   // crit/eva/acc/extraAtk 는 float 그대로 (엔진이 확률 비교만, 0.1%p 단위 보존).
   // PR-T2: atk 에 DEX/SPD 보조 ×0.04 추가 (옛 라이브 dex/5+spd/5 의 ×5 환산).
@@ -480,18 +499,21 @@ export function derivePlayerCombatV2Pure(
     totalStats.vit * HEAL_MULT_PER_VIT +
     totalStats.spi * HEAL_MULT_PER_SPI;
   // 코어루프 모험가 HP 패시브 — flag on + 무직(=모험가)일 때만 ×1.1. flag off = ×1.0(무변경).
+  // 직업 시스템 v2 — 최대 HP/MP % 패시브(체력/마나). 미지정(flag off/sim) = ×1(무변경).
   const maxHp = Math.floor(
     (V2_BASE_HP +
       Math.max(0, level - 1) * V2_HP_PER_LEVEL +
       totalStats.vit * HP_PER_VIT +
       equipAcc.hp) *
-      coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2),
+      coreLoopMaxHpMult(playerClass, V2_CORE_LOOP_V2) *
+      (1 + (input.maxHpPct ?? 0) / 100),
   );
   const maxMp = Math.floor(
-    V2_BASE_MP +
+    (V2_BASE_MP +
       Math.max(0, level - 1) * V2_MP_PER_LEVEL +
       totalStats.int * MP_PER_INT +
-      equipAcc.mp,
+      equipAcc.mp) *
+      (1 + (input.maxMpPct ?? 0) / 100),
   );
   const critChancePct = totalStats.luk * CRIT_PER_LUK + equipAcc.crit;
   // 치명타 피해 — 행운 major + 힘 minor.
@@ -831,6 +853,9 @@ export function derivePlayerCombatV2FromSaves(saves: {
     : null;
   const jobBonus = passiveAgg?.stat;
   const atkPerDexCoef = passiveAgg?.atkPerDexCoef;
+  const statPct = passiveAgg?.statPct;
+  const maxHpPct = passiveAgg?.maxHpPct;
+  const maxMpPct = passiveAgg?.maxMpPct;
   // 직업 효과 패시브(받피감·spd 등) — flag on 일 때 옛 계파 specEff 대신 주입.
   const jobPassiveEffect = v2JobId ? jobPassive(v2JobId) : undefined;
   const spec = V2_JOB_SYSTEM_V2 ? undefined : legacySpec;
@@ -855,6 +880,9 @@ export function derivePlayerCombatV2FromSaves(saves: {
     jobBonus,
     jobPassiveEffect,
     atkPerDexCoef,
+    statPct,
+    maxHpPct,
+    maxMpPct,
   });
 }
 

@@ -231,15 +231,28 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
 };
 
 /**
- * 역브리지 — 옛 (class, specChoice) → 새 직업 id. 현재 직업 표시용(전직 UI).
- * LEGACY_CLASS_SPEC_BY_JOB 의 역. 매핑 없는 옛 계파(검투사·연환·워메이지·독사 등 PR-5
- * 마이그 전 잔존)는 base class id 로 폴백 — 표시상 기본 직업으로 보일 뿐(플래그 off 운영엔
- * 미노출, PR-5 가 세이브를 정식 변환). PR-5/PR-6 에서 제거.
+ * 사라진 옛 계파(상위 3→2 압축에서 흡수) → 같은 직업의 생존 계파 id.
+ * PR-5 마이그레이션 — 세이브는 안 건드리고 로드/해석 시점에만 정규화한다(브리지 영구 유지·
+ * 저위험). 예: 검투사(gladiator) 세이브 → 견습 기사(squire) 로 해석. 흡수 매핑은 docs §7.
+ */
+export const DROPPED_SPEC_TO_SURVIVING: Record<string, string> = {
+  gladiator: "gwang", // 검투사 → 견습 기사
+  yeonhwan: "gigong", // 연환 → 권사
+  battlemage: "arcane", // 워메이지 → 술사
+  venom: "assassin", // 독사 → 자객
+};
+
+/**
+ * 역브리지 — 옛 (class, specChoice) → 새 직업 id. 현재 직업 식별/표시용(전직 UI·derive).
+ * LEGACY_CLASS_SPEC_BY_JOB 의 역. 사라진 계파는 DROPPED_SPEC_TO_SURVIVING 으로 정규화 후
+ * 조회(세이브 불변). 그래도 못 찾으면 base class id 폴백(알 수 없는 옛 id·none). 브리지 영구 유지.
  */
 export function jobIdFromLegacy(cls: string, spec: string | null): string {
-  const wantSpec = spec ?? null;
+  // 사라진 계파는 흡수처 생존 계파로 정규화(세이브 불변, 해석 시점만).
+  const normSpec =
+    spec != null ? (DROPPED_SPEC_TO_SURVIVING[spec] ?? spec) : null;
   for (const [jobId, m] of Object.entries(LEGACY_CLASS_SPEC_BY_JOB)) {
-    if (m.class === cls && m.spec === wantSpec) return jobId;
+    if (m.class === cls && m.spec === normSpec) return jobId;
   }
   return cls; // 폴백 — 기본 직업 id(또는 none)
 }

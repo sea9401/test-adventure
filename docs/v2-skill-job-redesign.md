@@ -307,11 +307,16 @@ if (V2_JOB_SYSTEM_V2) {
 | `venom` (독사) | `assassin` | 자객 | 흡수(크리 계열) |
 | `null` / 미선택 | 부모 기본 직업 id 유지 | 견습 X | 예: warrior 직군이면 `warrior` |
 
-> **중요**: save의 `class`(직군 id) + `specChoice`(계파) 두 필드를 위 표의 **새 직업 id 하나**로 합친다. 예: `class:"warrior" + specChoice:"gwang"` → `class:"squire"`. 계파 미선택 캐릭터는 `class`가 기본 직업 id로 유지된다(표시 이름만 "견습 X").
+> **중요(개정)**: 위 매핑표는 **해석(jobIdFromLegacy)** 기준이다 — 세이브를 새 직업 id로 **합치지 않는다**(브리지 영구 유지 결정, 아래 PR-5 메모). save의 `class`+`specChoice` 는 옛 값 그대로 남고, 읽을 때 `jobIdFromLegacy(class, spec)` 가 새 직업 id로 변환한다. 예: `class:"warrior" + specChoice:"gwang"` 는 **저장은 그대로**, 해석만 `squire`. 사라진 계파(예 `gladiator`)는 `DROPPED_SPEC_TO_SURVIVING` 로 흡수 계파(`gwang`)에 정규화 후 해석.
 
 ### 파싱 리셋 평가
 
-`parseV2Class`(`classes.ts`)는 알 수 없는 class id를 `"none"`으로 폴백한다. 새 카탈로그의 상위 직업 id 8종을 인식하도록 업데이트하고, PR-5에서 기존 `class`+`specChoice` 조합을 위 매핑표대로 새 id로 1회 변환한다. 기본 직군 id(`warrior` 등)는 Tier 1 직업으로 그대로 인식되므로 변환 불필요. DB는 JSON save 내부 변경이라 스키마 변경 최소.
+> **PR-5 구현 메모 — 채택: 브리지 영구 유지(세이브 무변경)**
+> 위의 "두 필드를 새 직업 id 하나로 합친다"는 **채택하지 않았다**(2026-06-16 오너 결정: 최소·저위험). 세이브는 옛 `class`+`specChoice` 그대로 두고, `jobIdFromLegacy`(브리지)가 해석 시점에 새 직업 id로 변환한다 — `classes.ts`/`parseV2Class` **무변경**.
+> - PR-5 의 유일한 작업 = 사라진 4계파(검투사·연환·워메이지·독사)를 `DROPPED_SPEC_TO_SURVIVING` 로 흡수 계파에 매핑(해석 시점 정규화, 세이브 안 건드림). 그래서 옛 계파 보유 캐릭도 base 폴백 없이 올바른 상위 직업으로 해석된다.
+> - 세이브 1회 변환 스크립트·DB 스키마 변경·`parseV2Class` 확장 **모두 불필요**.
+> - 플래그 플립(`NEXT_PUBLIC_V2_JOB_SYSTEM_V2=true`)은 PR-5 와 분리 — #782~785 머지·라이브 검증 후 별도 .env 변경으로 적용.
+> - 귀결: 브리지(`LEGACY_CLASS_SPEC_BY_JOB`·`jobIdFromLegacy`·`DROPPED_SPEC_TO_SURVIVING`)는 **영구 변환층**. PR-6 도 이를 삭제하지 않는다(옛 계파 UI/스탯게이트만 정리).
 
 ### 플래그 게이트
 
@@ -339,8 +344,8 @@ save 구조 JSON 필드 내부 변경이므로 DB 스키마 변경은 최소화�
 | **PR-2** | cumLevel 해금 게이트 교체 — `advance-class/route.ts`에서 `SPEC_STAT_GATE` 제거, `isJobUnlocked(proficiency)` 교체. 플래그 on 분기 안에서만. | `advance-class/route.ts`, `coreLoopConfig.ts` |
 | **PR-3** | 전직 UI 재작성 — 계파 칼럼 격자 → 점진 공개 목록. 직업 보너스 표시 추가. | 전직 화면 컴포넌트 |
 | **PR-4** | 직업 보너스 전투 주입 — `resolveBattle` / `derive`에 jobBonus 플랫 스탯 적용 훅 추가. 기존 계파 % 트레이트와 공존(플래그 분기). | 전투 엔진 |
-| **PR-5** | 마이그레이션 + 플래그 flip — save 파싱 업데이트, `parseV2Class` 확장, 기존 specChoice→jobId 변환. `NEXT_PUBLIC_V2_JOB_SYSTEM_V2=true` 운영 적용. | classes.ts, save 파싱 |
-| **PR-6** (정리) | 구 계파 코드 삭제 — `v2JobSpecs.ts` 트레이트 데이터, `v2Passives.ts` 계파 훅, `SPEC_STAT_GATE`, `SPEC_TO_GROUP`, `unlockedSpecs`, `specChoice`/`unlockedPassives` save 필드. | ~35파일 |
+| **PR-5** | 마이그레이션(브리지 유지) — 사라진 4계파를 `DROPPED_SPEC_TO_SURVIVING` 로 흡수 계파에 해석시점 정규화(세이브·classes.ts 무변경). 플래그 플립은 분리(머지·검증 후 .env 한 줄). | `v2JobCatalog.ts` |
+| **PR-6** (정리) | 구 계파 코드 삭제 — `v2JobSpecs.ts` 트레이트 데이터, `v2Passives.ts` 계파 훅, `SPEC_STAT_GATE`, `SPEC_TO_GROUP`, `unlockedSpecs`, 옛 전직 UI(`V2JobTree`). **브리지(LEGACY/jobIdFromLegacy/DROPPED)는 영구 유지** — 세이브가 옛 class+spec 이라 삭제 불가. `specChoice` save 필드도 보존. | UI·게이트 한정 |
 
 > **PR-4 구현 메모 (LIVE 코드 기준)**
 > - 주입 위치 = `derivePlayerCombatV2Pure` 의 `totalStats`(파생 직전). jobBonus 플랫을 가산하면 atk/maxHp/def/명중 등 모든 파생 스탯에 자연 반영(resolveBattle 별도 수정 불필요 — 엔진은 파생된 PlayerCombat 만 소비).
@@ -358,11 +363,13 @@ save 구조 JSON 필드 내부 변경이므로 DB 스키마 변경은 최소화�
 2. **기본 직업 해금** — 모험가로 **Lv50(V2_LEVEL_CAP) 도달** 시 4 기본 직업 해금 (안 A).
 3. **상위 직업 임계** — 기본 직업 **cumLevel ≥ 100** (Lv50 루프 ≈2회). 후속 추가 직업은 다른 임계를 쓸 수 있음.
 4. **상위 직업 압축** — 직군당 옛 계파 3종 → **2종**으로 축소(총 8 상위). 기본 직업은 "견습 X" 톤으로 명명 — 거쳐가는 단계임을 드러내고, 직업 수는 후속(하이브리드·고차)으로 계속 늘리는 전제.
+5. **PR-5 마이그레이션 = 브리지 영구 유지(세이브 무변경)** — 세이브를 새 jobId로 변환하지 않고 `jobIdFromLegacy` 브리지가 영구 변환층. PR-5는 사라진 4계파 흡수 정규화만(`DROPPED_SPEC_TO_SURVIVING`). classes.ts·parseV2Class·DB 무변경. 저위험(라이브 12명).
+6. **플래그 플립 분리** — `NEXT_PUBLIC_V2_JOB_SYSTEM_V2=true` 는 PR-5에 넣지 않고, #782~785 머지·라이브 검증 후 별도 .env 변경으로 적용.
 
 ### 보류 (후속 결정)
 
-5. **하이브리드 직업** (마검사 등) — 이번 범위 제외. 4 기본 + 8 상위 안정화 후 별도 설계. id·이름·선행 cumLevel 미정.
-6. **추가 조건(extraConditions)** — Tier 2는 전부 순수 cumLevel 게이트로 출발. 퀘스트·킬수 조건은 후속 직업에서 선택적 도입.
+7. **하이브리드 직업** (마검사 등) — 이번 범위 제외. 4 기본 + 8 상위 안정화 후 별도 설계. id·이름·선행 cumLevel 미정.
+8. **추가 조건(extraConditions)** — Tier 2는 전부 순수 cumLevel 게이트로 출발. 퀘스트·킬수 조건은 후속 직업에서 선택적 도입.
 
 ---
 

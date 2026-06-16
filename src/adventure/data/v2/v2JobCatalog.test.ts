@@ -5,6 +5,7 @@ import {
   TIER2_UNLOCK_CUMLEVEL,
   V2_JOB_SYSTEM_V2,
   LEGACY_CLASS_SPEC_BY_JOB,
+  DROPPED_SPEC_TO_SURVIVING,
   jobIdFromLegacy,
   isJobUnlocked,
   jobById,
@@ -194,8 +195,43 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("rogue", "assassin")).toBe("assassin");
   });
 
-  it("매핑 없는 옛 계파(예: gladiator)는 base class 로 폴백", () => {
-    expect(jobIdFromLegacy("warrior", "gladiator")).toBe("warrior");
+  it("알 수 없는 옛 id·모험가는 base class 로 폴백", () => {
+    expect(jobIdFromLegacy("warrior", "bogus_spec")).toBe("warrior");
     expect(jobIdFromLegacy("none", null)).toBe("none");
+  });
+});
+
+describe("DROPPED_SPEC_TO_SURVIVING 정규화 (PR-5)", () => {
+  it("사라진 4계파가 흡수처 상위 직업으로 해석된다", () => {
+    expect(jobIdFromLegacy("warrior", "gladiator")).toBe("squire"); // 검투사 → 견습 기사
+    expect(jobIdFromLegacy("martial", "yeonhwan")).toBe("boxer"); // 연환 → 권사
+    expect(jobIdFromLegacy("mage", "battlemage")).toBe("caster"); // 워메이지 → 술사
+    expect(jobIdFromLegacy("rogue", "venom")).toBe("assassin"); // 독사 → 자객
+  });
+
+  it("정규화 대상은 사라진 4계파뿐(생존 계파는 그대로)", () => {
+    expect(Object.keys(DROPPED_SPEC_TO_SURVIVING).sort()).toEqual(
+      ["battlemage", "gladiator", "venom", "yeonhwan"].sort(),
+    );
+    // 흡수처(생존 계파)는 LEGACY 역브리지에 실재해 base 폴백이 아니다.
+    for (const surviving of Object.values(DROPPED_SPEC_TO_SURVIVING)) {
+      const found = Object.values(LEGACY_CLASS_SPEC_BY_JOB).some(
+        (m) => m.spec === surviving,
+      );
+      expect(found, `생존 계파 ${surviving} 가 LEGACY 에 있어야`).toBe(true);
+    }
+  });
+
+  it("사라진 계파는 올바른 부모 직군과 함께 tier 2 직업으로 귀결(base 폴백 아님)", () => {
+    const droppedParent: Record<string, string> = {
+      gladiator: "warrior",
+      yeonhwan: "martial",
+      battlemage: "mage",
+      venom: "rogue",
+    };
+    for (const [dropped, parent] of Object.entries(droppedParent)) {
+      const job = V2_JOB_CATALOG[jobIdFromLegacy(parent, dropped)];
+      expect(job?.tier, dropped).toBe(2);
+    }
   });
 });

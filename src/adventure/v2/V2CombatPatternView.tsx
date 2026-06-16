@@ -69,7 +69,14 @@ const sel =
 const num =
   "w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm tabular-nums dark:border-zinc-700 dark:bg-zinc-900";
 
-export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
+export function V2CombatPatternView({
+  onBack,
+  embedded = false,
+}: {
+  onBack: () => void;
+  // 스킬 허브(탭)에 끼워질 때 — 자체 헤더/페이지 컨테이너 생략(허브가 제공).
+  embedded?: boolean;
+}) {
   const [blocks, setBlocks] = useState<V2CombatBlock[]>([]);
   const [equipped, setEquipped] = useState<string[]>([]);
   const [presets, setPresets] = useState<V2CombatPreset[]>([]);
@@ -255,13 +262,20 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
     [presets, persistPresets],
   );
 
+  const Wrapper = embedded ? "div" : "main";
   return (
-    <main className="mx-auto max-w-[640px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
+    <Wrapper
+      className={
+        embedded
+          ? "space-y-3"
+          : "mx-auto max-w-[640px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
       <HeaderPanel className="space-y-2">
-        <SubViewHeader title="전투 패턴" onBack={onBack} />
+        {!embedded && <SubViewHeader title="전투 패턴" onBack={onBack} />}
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
-          다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 캐릭터 &gt; 스킬에서 학습하세요.
+          다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 「로드아웃」 탭에서 학습하세요.
         </p>
       </HeaderPanel>
 
@@ -427,7 +441,7 @@ export function V2CombatPatternView({ onBack }: { onBack: () => void }) {
           )}
         </>
       )}
-    </main>
+    </Wrapper>
   );
 }
 

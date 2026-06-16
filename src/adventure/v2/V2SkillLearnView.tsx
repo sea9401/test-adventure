@@ -62,8 +62,11 @@ function SkillDetailChips({ skillId }: { skillId: string }) {
 
 export function V2SkillLearnView({
   onBack,
+  embedded = false,
 }: {
   onBack: () => void;
+  // 스킬 허브(탭)에 끼워질 때 — 자체 헤더/페이지 컨테이너 생략(허브가 제공).
+  embedded?: boolean;
 }) {
   const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
@@ -138,11 +141,20 @@ export function V2SkillLearnView({
   );
 
 
+  const Wrapper = embedded ? "div" : "main";
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <SubViewHeader title="스킬" onBack={onBack} />
-      </HeaderPanel>
+    <Wrapper
+      className={
+        embedded
+          ? "space-y-3"
+          : "mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
+      {!embedded && (
+        <HeaderPanel>
+          <SubViewHeader title="스킬" onBack={onBack} />
+        </HeaderPanel>
+      )}
 
       {specState && specState.specs.length > 0 && (
         <V2SpecPanel spec={specState} onChanged={refresh} />
@@ -221,6 +233,6 @@ export function V2SkillLearnView({
           {msg}
         </div>
       )}
-    </main>
+    </Wrapper>
   );
 }

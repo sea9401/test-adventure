@@ -196,14 +196,18 @@ function isJobUnlocked(jobDef: V2JobDefinition, proficiency: V2Proficiency): boo
 // 변경: targetJobId 하나만 받아 isJobUnlocked(catalog[targetJobId], proficiency) 확인
 
 // flag gate: V2_JOB_SYSTEM_V2 플래그 on 일 때만 새 로직 적용
-if (process.env.V2_JOB_SYSTEM_V2 === "true") {
+if (V2_JOB_SYSTEM_V2) {
   const jobDef = V2_JOB_CATALOG[targetJobId];
-  if (!jobDef || !isJobUnlocked(jobDef, proficiency)) {
-    return NextResponse.json({ error: "job_locked" }, { status: 400 });
-  }
+  if (!jobDef || jobDef.tier === 0) return /* bad_target 400 */;
+  if (!isJobUnlocked(jobDef, proficiency)) return /* job_locked 400 */;
   // jobBonus는 전투 시작 시 주입 (advance-class 라우트 책임 아님)
 }
 ```
+
+> **PR-2 구현 메모 (LIVE 코드 기준)**
+> - 플래그 실제 env 키 = `NEXT_PUBLIC_V2_JOB_SYSTEM_V2`(`V2_CORE_LOOP_V2` 와 동일 패턴, 서버·클라 공용). 상수는 `v2JobCatalog.ts:V2_JOB_SYSTEM_V2`.
+> - 게이트만 교체 — 세이브/스킬 체인(`elementalSkillsForClass`)은 PR-5 전까지 옛 `class+specChoice` 모델 유지. 그래서 `LEGACY_CLASS_SPEC_BY_JOB`(v2JobCatalog.ts) 브리지로 새 `targetJobId` → 옛 `(class, spec)` 변환 후 기존 write 경로 재사용. 예: `squire` → `{class:"warrior", spec:"gwang"}`. PR-5/PR-6 에서 제거.
+> - 이 분기는 기존 `V2_CORE_LOOP_V2` 재전직 블록 **안**에 중첩(플래그 off 면 옛 `reincarnTargetError` 스탯게이트 그대로).
 
 ---
 
@@ -307,8 +311,8 @@ if (process.env.V2_JOB_SYSTEM_V2 === "true") {
 ### 플래그 게이트
 
 ```bash
-# .env.production 또는 배포 환경변수
-V2_JOB_SYSTEM_V2=true
+# .env.production 또는 배포 환경변수 (NEXT_PUBLIC_ — 서버·클라 공용, 빌드타임 구움)
+NEXT_PUBLIC_V2_JOB_SYSTEM_V2=true
 ```
 
 - `false`(기본): 현재 직군+계파 시스템 유지. 빌드 그린.
@@ -330,7 +334,7 @@ save 구조 JSON 필드 내부 변경이므로 DB 스키마 변경은 최소화�
 | **PR-2** | cumLevel 해금 게이트 교체 — `advance-class/route.ts`에서 `SPEC_STAT_GATE` 제거, `isJobUnlocked(proficiency)` 교체. 플래그 on 분기 안에서만. | `advance-class/route.ts`, `coreLoopConfig.ts` |
 | **PR-3** | 전직 UI 재작성 — 계파 칼럼 격자 → 점진 공개 목록. 직업 보너스 표시 추가. | 전직 화면 컴포넌트 |
 | **PR-4** | 직업 보너스 전투 주입 — `resolveBattle` / `derive`에 jobBonus 플랫 스탯 적용 훅 추가. 기존 계파 % 트레이트와 공존(플래그 분기). | 전투 엔진 |
-| **PR-5** | 마이그레이션 + 플래그 flip — save 파싱 업데이트, `parseV2Class` 확장, 기존 specChoice→jobId 변환. `V2_JOB_SYSTEM_V2=true` 운영 적용. | classes.ts, save 파싱 |
+| **PR-5** | 마이그레이션 + 플래그 flip — save 파싱 업데이트, `parseV2Class` 확장, 기존 specChoice→jobId 변환. `NEXT_PUBLIC_V2_JOB_SYSTEM_V2=true` 운영 적용. | classes.ts, save 파싱 |
 | **PR-6** (정리) | 구 계파 코드 삭제 — `v2JobSpecs.ts` 트레이트 데이터, `v2Passives.ts` 계파 훅, `SPEC_STAT_GATE`, `SPEC_TO_GROUP`, `unlockedSpecs`, `specChoice`/`unlockedPassives` save 필드. | ~35파일 |
 
 ---

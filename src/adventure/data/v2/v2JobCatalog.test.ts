@@ -3,6 +3,8 @@ import {
   V2_JOB_CATALOG,
   V2_JOB_LIST,
   TIER2_UNLOCK_CUMLEVEL,
+  V2_JOB_SYSTEM_V2,
+  LEGACY_CLASS_SPEC_BY_JOB,
   isJobUnlocked,
   jobById,
   unlockedJobs,
@@ -133,5 +135,44 @@ describe("isJobUnlocked / unlockedJobs", () => {
     const ids2 = unlockedJobs(ready).map((j) => j.id);
     expect(ids2).toEqual(expect.arrayContaining([...BASE_JOBS, "shieldman", "squire"]));
     expect(ids2).not.toContain("caster");
+  });
+});
+
+describe("V2_JOB_SYSTEM_V2 플래그", () => {
+  it("기본은 off(env 미설정)", () => {
+    expect(V2_JOB_SYSTEM_V2).toBe(false);
+  });
+});
+
+describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
+  it("모험가(none)를 제외한 12직업 전부를 커버한다", () => {
+    const nonNone = V2_JOB_LIST.filter((j) => j.id !== "none").map((j) => j.id);
+    expect(Object.keys(LEGACY_CLASS_SPEC_BY_JOB).sort()).toEqual(
+      nonNone.sort(),
+    );
+  });
+
+  it("기본 직업(tier 1)은 자기 자신 class + spec=null", () => {
+    for (const id of BASE_JOBS) {
+      expect(LEGACY_CLASS_SPEC_BY_JOB[id]).toEqual({ class: id, spec: null });
+    }
+  });
+
+  it("상위 직업(tier 2)은 부모 base class + 옛 계파 spec(non-null) 로 매핑", () => {
+    for (const job of V2_JOB_LIST) {
+      if (job.tier !== 2) continue;
+      const legacy = LEGACY_CLASS_SPEC_BY_JOB[job.id];
+      // 매핑된 class 는 그 직업의 부모(prereqs 키)와 일치해야 한다.
+      const parent = Object.keys(job.unlock.prereqs)[0];
+      expect(legacy.class).toBe(parent);
+      expect(typeof legacy.spec).toBe("string");
+      expect(legacy.spec).toBeTruthy();
+    }
+  });
+
+  it("매핑 class 는 전부 유효한 기본 직업 id", () => {
+    for (const { class: cls } of Object.values(LEGACY_CLASS_SPEC_BY_JOB)) {
+      expect(BASE_JOBS).toContain(cls);
+    }
   });
 });

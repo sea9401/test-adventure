@@ -193,13 +193,20 @@ const SP_COST_TABLE: Record<V2SkillCategory, readonly [number, number, number]> 
   debuff: [2, 2, 3],
 };
 
+// (category, tier) 루브릭 표 코스트(override 무시) — 트립와이어/검증용. 루브릭 = 코스트 바닥.
+export function rubricSpCost(skill: V2SkillDefinition): number {
+  const t = Math.min(3, Math.max(1, skill.tier)) - 1;
+  return SP_COST_TABLE[skill.category][t] ?? 3;
+}
+
 // 스킬 1종의 SP 코스트 — 명시 spCost 우선, 없으면 (category, tier) 표에서. 1 이상.
+//   🔑 override 는 루브릭 "위로만"(아웃라이어 너프) 허용 — 아래로 깎으면 값싼+강한 공용으로
+//   직업 무관 유틸 스택(정체성 붕괴) 길이 열린다. v2Skills.test 트립와이어가 underprice 를 막는다.
 export function spCostOf(skill: V2SkillDefinition): number {
   if (typeof skill.spCost === "number" && skill.spCost > 0) {
     return Math.floor(skill.spCost);
   }
-  const t = Math.min(3, Math.max(1, skill.tier)) - 1;
-  return SP_COST_TABLE[skill.category][t] ?? 3;
+  return rubricSpCost(skill);
 }
 
 // === 카탈로그 — 스타터 6종 (Tier 1) ──────────────────────────────────

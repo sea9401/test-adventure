@@ -77,12 +77,14 @@ import {
   getSpecById,
   resolveSpecTrait,
   type V2JobSpec,
+  type V2SpecPassiveEffect,
 } from "@/adventure/data/v2/v2JobSpecs";
 import {
   V2_JOB_SYSTEM_V2,
   V2_JOB_CATALOG,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
@@ -370,6 +372,11 @@ export type DerivePlayerCombatV2PureInput = {
    * inert 로 두고 이 값을 주입 — 더블딥 방지).
    */
   jobBonus?: Partial<Record<V2StatKey, number>>;
+  /**
+   * 직업 시스템 v2 직업 효과 패시브(받피감·spd 등 V2SpecPassiveEffect). 지정 시 옛 계파
+   * specEff 대신 이 값을 적용(래퍼가 flag on 일 때 주입). 미지정 = 옛 aggregateSpecPassives.
+   */
+  jobPassiveEffect?: V2SpecPassiveEffect;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -547,11 +554,15 @@ export function derivePlayerCombatV2Pure(
   //   정상 진행 중엔 해금 수가 차수−1 이하라(spec route 가 cap) 무영향 — 환생 후 보존 픽에서만 차이.
   //   직업 변경 시엔 위에서 spec(직업 종속)이 undefined 라 어차피 무효 → stale 픽이 새지 않는다.
   const activePicks = input.unlockedPassives ?? [];
-  const specEff = aggregateSpecPassives(
-    input.spec,
-    activePicks,
-    weaponTypeOf(v2Equipped.weapon),
-  );
+  // 직업 시스템 v2 — jobPassiveEffect 주입 시 옛 계파 specEff 대신 직업 효과 패시브 적용.
+  //   (flag on 래퍼가 주입. 미지정 = 옛 aggregateSpecPassives, flag off 바이트 동일.)
+  const specEff =
+    input.jobPassiveEffect ??
+    aggregateSpecPassives(
+      input.spec,
+      activePicks,
+      weaponTypeOf(v2Equipped.weapon),
+    );
   // 직업 특성 — 전문화별 자동 부여, 차수(classTier) 성장. 무기 게이트 무관. 전문화 시그니처와
   // 같은 방향으로 합산되어 정체성 강화. spec 없음·1차면 {} (inert). 수치 가안(P6).
   const traitEff = resolveSpecTrait(input.spec, input.classTier);
@@ -799,9 +810,12 @@ export function derivePlayerCombatV2FromSaves(saves: {
   // 직업 시스템 v2(flag on) — 직업 보너스(플랫 스탯) 주입 + 옛 계파 % 트레이트를 inert 로
   //   대체(더블딥 방지). 현재 직업 = jobIdFromLegacy(class, specChoice) → 카탈로그 jobBonus.
   //   flag off = jobBonus 없음 + 계파 효과 그대로(byte-identical). 모험가(none)=jobBonus {} (HP%는 별도).
-  const jobBonus = V2_JOB_SYSTEM_V2
-    ? V2_JOB_CATALOG[jobIdFromLegacy(parsedClass, specId ?? null)]?.jobBonus
-    : undefined;
+  const v2JobId = V2_JOB_SYSTEM_V2
+    ? jobIdFromLegacy(parsedClass, specId ?? null)
+    : null;
+  const jobBonus = v2JobId ? V2_JOB_CATALOG[v2JobId]?.jobBonus : undefined;
+  // 직업 효과 패시브(받피감·spd 등) — flag on 일 때 옛 계파 specEff 대신 주입.
+  const jobPassiveEffect = v2JobId ? jobPassive(v2JobId) : undefined;
   const spec = V2_JOB_SYSTEM_V2 ? undefined : legacySpec;
   const unlockedPassives = V2_JOB_SYSTEM_V2 ? [] : legacyUnlockedPassives;
 
@@ -822,6 +836,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     spec,
     unlockedPassives,
     jobBonus,
+    jobPassiveEffect,
   });
 }
 

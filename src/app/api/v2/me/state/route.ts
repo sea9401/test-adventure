@@ -65,6 +65,7 @@ import {
   isJobUnlocked,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { jobPassiveLabel } from "@/adventure/data/v2/v2JobPassives";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -431,6 +432,7 @@ export async function GET() {
                 tier: job.tier,
                 jobBonus: job.jobBonus,
                 condition,
+                passive: jobPassiveLabel(job.id), // 패시브 표시 이름(근력 등) — 없으면 null
               };
             }),
           };

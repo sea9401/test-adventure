@@ -523,9 +523,12 @@ export function resolveEnemyPhase(
       ? Math.max(1, Math.floor(rawDmg * (1 - endurePct / 100)))
       : rawDmg;
   const enduredApplied = enduredDmg < rawDmg;
-  // 전문화 패시브 받피감(passiveDamageTakenReductionPct) — 받는 피해 -pct%(철벽검류 등). 항상 활성,
-  // 인내(endure) 다음·가드 전 곱연산. 최소 1 클램프. 0/undefined = 미보유(라이브 무변).
-  const passiveReducePct = player.passiveDamageTakenReductionPct ?? 0;
+  // 받피감 — 패시브(passiveDamageTakenReductionPct, 철벽검류 등) + 철포 버프(skillDmgReduce,
+  //   직업 킷 재설계). 합산 %로 곱연산. 인내(endure) 다음·가드 전. 최소 1 클램프. 0=무변.
+  const buffReducePct =
+    state.stacks.skillDmgReduceTurns > 0 ? state.stacks.skillDmgReducePct : 0;
+  const passiveReducePct =
+    (player.passiveDamageTakenReductionPct ?? 0) + buffReducePct;
   const passiveReduced =
     passiveReducePct > 0
       ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))

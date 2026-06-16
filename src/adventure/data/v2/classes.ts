@@ -15,6 +15,11 @@ import {
   V2_SPEC_SKILLS_BY_JOB,
   V2_SPEC_SKILLS_BY_SPEC,
 } from "@/adventure/data/v2/v2SkillsSpecCatalog";
+import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
+import {
+  V2_JOB_SYSTEM_V2,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 
 export const V2_CLASSES = [
   "none",
@@ -185,6 +190,12 @@ export function elementalSkillsForClass(
   specTier?: number,
 ): V2SkillId[] {
   if (c === "none") return [];
+  // 직업 시스템 v2(flag on) — jobId 기준 시그니처 스킬셋. 차수 게이팅 없음(차수 폐지 — tier=1
+  //   이라 옛 게이팅이 시그니처를 전부 차단하던 버그도 해소). 한 곳에서 전 호출처(학습·로드아웃·
+  //   reconcile·상태) 동일 적용. flag off = 아래 기존 차수 로직(바이트 동일).
+  if (V2_JOB_SYSTEM_V2) {
+    return [...skillsForJob(jobIdFromLegacy(c, specId ?? null))];
+  }
   const common = (V2_COMMON_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
   const jobSpecSkills = (V2_SPEC_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
   const chosen = specId

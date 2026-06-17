@@ -170,6 +170,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [viewerLevel, setViewerLevel] = useState<number>(1);
   const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
+  // 직업 표시명(서버 산출) — 직업 시스템이면 견습 병사·방패병 등. 전투 부제가 class 직접 환산
+  //   대신 이걸 우선 사용(상위 직업 반영). 미동봉이면 null → class 직군명 폴백.
+  const [viewerJobName, setViewerJobName] = useState<string | null>(null);
   const [viewerElement, setViewerElement] = useState<string>("neutral");
   // 기본값 = 시작 거점(중앙 자유 도시). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
   // null 로 두지 않아 인접 이동 게이트가 첫 화면부터 일관되게 동작한다.
@@ -245,6 +248,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             gender?: string;
             level?: number;
             class?: string;
+            classDisplayName?: string | null;
             element?: string;
             hp?: number;
             maxHp?: number;
@@ -288,6 +292,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         if (typeof j?.character?.level === "number")
           setViewerLevel(j.character.level);
         if (j?.character?.class) setViewerClass(j.character.class);
+        setViewerJobName(
+          typeof j?.character?.classDisplayName === "string"
+            ? j.character.classDisplayName
+            : null,
+        );
         if (j?.character?.element) setViewerElement(j.character.element);
         const currentGroup = j?.proficiency?.current?.group ?? "none";
         const currentTier =
@@ -544,7 +553,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     ? `Lv ${viewerLevel} / ${viewerLevelCap}`
     : `Lv.${viewerLevel}`;
   const playerSubtitle = `${playerLevelText} · ${
-    V2_CLASS_DEFS[parseV2Class(viewerClass)].name
+    viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
   } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
 
   const value: GameStateValue = {

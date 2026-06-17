@@ -5,7 +5,12 @@ import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { derivePowerScore } from "@/adventure/data/v2/power";
-import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  parseV2Class,
+  tier1ClassOf,
+  jobDisplayName,
+} from "@/adventure/data/v2/classes";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import {
   parseProficiencyForChar,
@@ -94,6 +99,15 @@ export async function GET(_req: Request, ctx: Ctx) {
   const maxMp = combat.player.maxMp ?? 0;
   const playerClass = parseV2Class(charSave.class);
   const element = parseV2Element(charSave.element);
+  // 공개 프로필 직업 표시명 — 캐릭터 카드가 옛 클래스명 대신 직업명(견습 병사·방패병 등)을
+  //   쓰도록 동봉(me/state 와 동일 해석). core-loop off 면 null → 카드가 class 직군명 폴백.
+  const playerSpec =
+    typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+      ? ((charSave as { specChoice?: string }).specChoice ?? null)
+      : null;
+  const classDisplayName = V2_CORE_LOOP_V2
+    ? jobDisplayName(playerClass, playerSpec)
+    : null;
 
   // 숙련도 — 현 직군의 차수/누적레벨/숙달포인트 + 전 스탯 cap(StatsPanel 표기용).
   const prof = parseProficiencyForChar(
@@ -156,6 +170,7 @@ export async function GET(_req: Request, ctx: Ctx) {
       maxMp,
       gold: 0,
       class: playerClass,
+      classDisplayName,
       element,
     },
     guild: guildId == null ? null : { name: guildName ?? "—" },

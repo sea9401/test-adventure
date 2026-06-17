@@ -18,6 +18,7 @@ import {
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import {
   V2_JOB_SYSTEM_V2,
+  V2_JOB_CATALOG,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
 
@@ -108,6 +109,20 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
       "민첩(DEX)·행운(LUK) 기반. 원거리 궁술(DEX)과 치명 암살(LUK) 갈래로 나뉜다.",
   },
 };
+
+/**
+ * 플레이어에게 보여줄 "현재 직업명" — 캐릭터 카드·전투 부제·전직 화면이 공유한다(단일 해석).
+ * 직업 시스템 on 이면 직업 카탈로그 이름(견습 병사·방패병 등, jobIdFromLegacy 로 (class,spec)→
+ * jobId 해석, 상위 직업 반영), 카탈로그 미존재/직업 시스템 off 면 옛 직군명(전사 등)·모험가 폴백.
+ * core-loop off 시 null 표기 여부는 호출부가 결정(여기선 항상 문자열).
+ */
+export function jobDisplayName(cls: V2Class, spec: string | null): string {
+  if (V2_JOB_SYSTEM_V2) {
+    const name = V2_JOB_CATALOG[jobIdFromLegacy(cls, spec)]?.name;
+    if (name) return name;
+  }
+  return cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가");
+}
 
 // 구 24 class id → 새 4 job 매핑. parseV2Class 가 옛 세이브 class 를 4직군으로 마이그.
 // (martial·mage 는 옛 id 와 새 job 문자열이 동일 → 자기 자신으로 통과.)

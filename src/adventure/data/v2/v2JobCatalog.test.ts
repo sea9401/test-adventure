@@ -12,6 +12,7 @@ import {
   unlockedJobs,
   type V2JobDefinition,
 } from "./v2JobCatalog";
+import { jobDisplayName } from "./classes";
 import { V2_CULTIVATE_PROFILE } from "./proficiency";
 import { V2_STAT_KEYS } from "./v2StatKeys";
 import { emptyProficiency } from "./proficiency";
@@ -140,6 +141,19 @@ describe("isJobUnlocked / unlockedJobs", () => {
   });
 });
 
+describe("jobDisplayName (직업 시스템 OFF — flag off 기본 env)", () => {
+  it("OFF면 옛 직군명 폴백(전사 등)·모험가", () => {
+    expect(V2_JOB_SYSTEM_V2).toBe(false); // 이 파일은 flag off(mock 없음)
+    expect(jobDisplayName("warrior", null)).toBe("전사");
+    expect(jobDisplayName("mage", "knight")).toBe("마법사"); // OFF면 spec 무시
+    expect(jobDisplayName("none", null)).toBe("모험가");
+  });
+
+  it("미인식 직군(V2_CLASS_DEFS 미존재)도 모험가 폴백", () => {
+    expect(jobDisplayName("bogus" as never, null)).toBe("모험가");
+  });
+});
+
 describe("V2_JOB_SYSTEM_V2 플래그", () => {
   it("기본은 off(env 미설정)", () => {
     expect(V2_JOB_SYSTEM_V2).toBe(false);
@@ -198,6 +212,20 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
   it("알 수 없는 옛 id·모험가는 base class 로 폴백", () => {
     expect(jobIdFromLegacy("warrior", "bogus_spec")).toBe("warrior");
     expect(jobIdFromLegacy("none", null)).toBe("none");
+  });
+
+  // 회귀: 직업 표시명(캐릭터 카드/전투 부제)은 직업 카탈로그 이름이어야 한다 — 옛 클래스명(전사 등)
+  //   금지. 버그: classDisplayName/V2CharacterCard 가 class 에서 직접 환산해 "전사"로 표기했음.
+  it("직업 표시명 = 카탈로그 직업명(견습 병사 등), 옛 클래스명 아님", () => {
+    const displayName = (cls: string, spec: string | null) =>
+      V2_JOB_CATALOG[jobIdFromLegacy(cls, spec)]?.name;
+    expect(displayName("warrior", null)).toBe("견습 병사");
+    expect(displayName("warrior", "")).toBe("견습 병사"); // 빈 문자열 spec(라이브 세이브)
+    expect(displayName("mage", "")).toBe("견습 마법사");
+    expect(displayName("martial", null)).toBe("견습 무인");
+    expect(displayName("rogue", null)).toBe("견습 도적");
+    expect(displayName("warrior", "knight")).toBe("방패병"); // 상위 직업도 반영
+    expect(displayName("warrior", null)).not.toBe("전사"); // 옛 클래스명 금지
   });
 });
 

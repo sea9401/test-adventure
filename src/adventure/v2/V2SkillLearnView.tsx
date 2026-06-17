@@ -12,6 +12,7 @@ import {
 import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
 import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
 import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
+import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
 
 // v2 학습 — 전문화 선택/패시브 픽(V2SpecPanel) + 숙달 포인트로 공용·전문화 스킬을 습득한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
@@ -162,6 +163,13 @@ export function V2SkillLearnView({
 
       {!loading && loadout && (
         <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
+      )}
+
+      {!loading && loadout && (
+        <V2LoadoutPresetsPanel
+          currentEquipped={loadout.equipped}
+          onApplied={refresh}
+        />
       )}
 
       {!loading && elementalSkills.length > 0 && (

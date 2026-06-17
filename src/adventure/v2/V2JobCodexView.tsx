@@ -43,6 +43,15 @@ export function V2JobCodexView({
           <span className="text-xs text-zinc-600 dark:text-zinc-300">
             수집 포인트{" "}
             <strong className="tabular-nums">{codex.collectionPoints}</strong>
+            {codex.collectionPointsSpent > 0 && (
+              <span className="text-zinc-400 dark:text-zinc-500">
+                {" "}
+                · 잔액{" "}
+                <strong className="tabular-nums text-teal-700 dark:text-teal-400">
+                  {codex.collectionPointsAvailable}
+                </strong>
+              </span>
+            )}
           </span>
           {codex.rank.next && (
             <span className="ml-auto text-[11px] text-zinc-400 dark:text-zinc-500">

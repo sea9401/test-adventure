@@ -8,7 +8,11 @@
 //
 // 학습/장착 게이팅(어느 직군이 무엇을)은 learn 라우트 + V2_COMMON_SKILLS_BY_JOB(아래).
 
-import type { V2SkillDefinition, V2SkillEffect } from "./v2Skills";
+import type {
+  V2SkillDefinition,
+  V2SkillEffect,
+  V2DamageScaling,
+} from "./v2Skills";
 import type { V2Class } from "./classes";
 import { V2_DOT_PRESETS, V2_DEBUFF_PRESETS } from "./statusEffects";
 
@@ -51,7 +55,7 @@ export type V2CommonSkillId =
   | "v2c_monk_palm" // 선풍각 (회피 버프 — selfBuffPct)
   | "v2c_caster_bolt" // 마탄 (마법 단일 강)
   | "v2c_acolyte_smite" // 치유 (자힐 — heal)
-  | "v2c_assassin_ambush" // 처단 (처형 — executeDamage)
+  | "v2c_assassin_ambush" // 처단 (처형 — executeDamage·LUK 비례)
   | "v2c_archer_volley" // 속박 사격 (딜 + 취약 enemyVuln)
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
   | "v2c_shieldman_vitality" // 체력 (최대 HP +12%)
@@ -67,7 +71,7 @@ export type V2CommonSkillId =
   | "v2c_paladin_cleave" // 베기(강) (물리 단일)
   | "v2c_brawler_combo" // 연권(강) (물리 다단)
   | "v2c_magus_bolt" // 마탄(강) (마법 단일)
-  | "v2c_ranger_ambush" // 기습(강) (물리 단일)
+  | "v2c_ranger_ambush" // 기습 (DEX 비례 단일)
   // 고차 패시브(다양성 2차: paladin/ranger 는 효과 리스킨, brawler/magus 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 철벽 (방어 +20%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
@@ -88,7 +92,7 @@ const hits = (
   n: number,
   statCoef: number,
   baseFlat: number,
-  scaling?: "physical" | "magic" | "def" | "vit",
+  scaling?: V2DamageScaling,
 ): V2SkillEffect[] =>
   Array.from({ length: n }, () => ({
     kind: "damage" as const,
@@ -100,7 +104,7 @@ const hits = (
 const dmg = (
   statCoef: number,
   baseFlat: number,
-  scaling?: "physical" | "magic" | "def" | "vit",
+  scaling?: V2DamageScaling,
 ): V2SkillEffect => ({
   kind: "damage",
   statCoef,
@@ -300,12 +304,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {
-    // 자객 = 크리 폭발(역할화 2차) — 마무리(처형). 적 HP 30%↓ 시 ×2.0. 패시브 치명(크리)과 합쳐
-    //   "약한 적 끝내기" 정체성. id 유지. executeDamage 배선됨. PvE/PvP 공용.
-    id: "v2c_assassin_ambush", name: "처단", stat: "str", category: "attack", tier: 2,
-    description: "빈틈을 노려 숨통을 끊는다. 적이 위태로울수록 치명적이다.", mpCost: 34, cooldown: 0, procChance: 30,
+    // 자객 = 행운/크리(dex10/luk10) — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"). LUK 원시스탯이
+    //   커서 계수 작게(0.2 ≈ str→atk 0.15급). LUK 빌드가 크리(확률·피해)+직접딜 양쪽 이득(행운직
+    //   정체성). 적 HP 30%↓ ×2.0. id 유지. PvE/PvP 공용.
+    id: "v2c_assassin_ambush", name: "처단", stat: "luk", category: "attack", tier: 2,
+    description: "행운이 이끄는 일격으로 숨통을 끊는다. 적이 위태로울수록 치명적이다.", mpCost: 34, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "executeDamage", statCoef: 1.2, baseFlatByTier: [185, 185, 185], hpThresholdPct: 30, bonusMult: 2.0 },
+      { kind: "executeDamage", statCoef: 0.2, baseFlatByTier: [185, 185, 185], hpThresholdPct: 30, bonusMult: 2.0, scaling: "luk" },
     ],
   },
   v2c_archer_volley: {
@@ -392,9 +397,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.35, 210, "magic")],
   },
   v2c_ranger_ambush: {
-    id: "v2c_ranger_ambush", name: "기습", stat: "str", category: "attack", tier: 3,
-    description: "급소를 노려 깊숙이 찔러든다.", mpCost: 38, cooldown: 0, procChance: 30,
-    effects: [dmg(1.35, 210)],
+    // 유격수 = 민첩(dex) — 데미지가 민첩(DEX)에 직접 비례(scaling:"dex"). DEX 원시스탯이 커서 계수
+    //   작게(0.25 ≈ str→atk 급). 예기 없이도 DEX 가 도적 딜로 환산되는 직접 경로(예기는 평타 보조 유지).
+    //   id 유지. PvE/PvP 공용.
+    id: "v2c_ranger_ambush", name: "기습", stat: "dex", category: "attack", tier: 3,
+    description: "민첩한 몸놀림으로 급소를 깊숙이 찔러든다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [dmg(0.25, 210, "dex")],
   },
 
   // ── 고차 4직업 III티어 패시브(% 가산 — 직군 축, tier-2 II 위 단계) ──

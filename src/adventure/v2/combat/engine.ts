@@ -309,6 +309,9 @@ export type PlayerCombat = {
   intStat?: number;
   // v2 스킬 — 나한권(VIT 비례 딜) 스케일용 VIT total, 전문화 스킬 차수 flat(baseFlatByTier) 해석용 차수.
   vitStat?: number;
+  // v2 스킬 — scaling:"dex"/"luk" 비례 딜(도적 직군) 스케일용 DEX/LUK total. 0/undefined=no-op.
+  dexStat?: number;
+  lukStat?: number;
   classTier?: number;
   atk: number;
   // v2 마법 공격력(magicAtk = INT 환산). scaling="magic" 스킬이 atk 대신 이 값으로 스케일.
@@ -1497,6 +1500,8 @@ function resolveBattleLegacy(
             // PR2-B — def/vit 비례 딜·현재HP(사혈격/기공순환)·maxMp(보호막/명상)·차수 flat.
             def: player.def,
             vit: player.vitStat,
+            dex: player.dexStat,
+            luk: player.lukStat,
             currentHp: state.playerHp,
             maxMp: state.playerMaxMp,
             classTier: player.classTier,

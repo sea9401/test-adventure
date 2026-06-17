@@ -74,6 +74,14 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
   });
 
+  it("도적 직군 스케일링: 자객 처단=LUK 비례, 유격수 기습=DEX 비례", () => {
+    // 도적 정체성 — 데미지가 str-atk 가 아니라 행운/민첩 직접 비례(scaling). 원시스탯이 커서 계수 작음.
+    const assassin = V2_SKILLS.v2c_assassin_ambush.effects[0];
+    expect(assassin).toMatchObject({ kind: "executeDamage", scaling: "luk" });
+    const ranger = V2_SKILLS.v2c_ranger_ambush.effects[0];
+    expect(ranger).toMatchObject({ kind: "damage", scaling: "dex" });
+  });
+
   it("상위 8직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
     const passiveIds = [
       "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",

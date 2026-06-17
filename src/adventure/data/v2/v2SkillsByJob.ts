@@ -4,6 +4,7 @@
 //   은퇴(이미 배운 건 보존). classes.ts:elementalSkillsForClass 가 flag-on 일 때 이 표를 jobId
 //   로 조회. 차수 게이팅 없음.
 // 상위 8직업 패시브는 모두 서로 다른 축(고유) — 다른 직업을 순회해 다른 패시브를 모으는 메리트.
+// 고차 4직업(tier 3, A 메타 PR-3)은 직군 축을 한 단계 더 깊게(III티어 % 가산) — 같은 축 심화(의도).
 
 import type { V2SkillId } from "./v2Skills";
 
@@ -22,6 +23,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"], // 성광 + 마나(MP+12%)
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 기습 + 행운(행운+10%)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 난사 + 민첩(민첩+10%)
+  // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
+  paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 베기(강) + 근력 III(힘+20%)
+  brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 연권(강) + 강건 III(활력+20%)
+  magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마탄(강) + 총명 III(지능+20%)
+  ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 기습(강) + 예리 III(민첩+20%)
 };
 
 /** 새 직업 id 의 학습 가능 시그니처 스킬셋. 미존재 jobId = 빈 배열(시작 스킬은 별도 자동 보유). */

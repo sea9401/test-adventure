@@ -28,6 +28,12 @@ import {
   type V2CombatPattern,
   type V2CombatPreset,
 } from "@/adventure/v2/combat/combatPattern";
+import {
+  type V2LoadoutPreset,
+  PRESET_NAME_MAX,
+  clampSlotsBought,
+  totalPresetSlots,
+} from "./v2LoadoutPresets";
 
 export type V2SkillCategory = "attack" | "heal" | "buff" | "debuff" | "passive";
 
@@ -436,6 +442,11 @@ export type V2SkillsState = {
   /** 전투 패턴 프리셋(C4) — 이름 붙인 패턴 라이브러리(빠른 스왑용). 활성 패턴(pattern)과 별개,
    *  엔진 미사용(순수 저장). combat-pattern/presets 라우트만 변경. 미설정=빈 라이브러리. */
   presets?: V2CombatPreset[];
+  /** 로드아웃 프리셋(A 메타 PR-2b) — 이름 붙인 장착 스킬 묶음(빠른 빌드 전환). 엔진 미사용(순수
+   *  저장). loadout-presets 라우트만 변경. 슬롯 수 = totalPresetSlots(loadoutPresetSlotsBought). */
+  loadoutPresets?: V2LoadoutPreset[];
+  /** 수집 포인트로 구매한 추가 프리셋 슬롯 수(소비형 수집 포인트 ledger). 미설정=0(무료 슬롯만). */
+  loadoutPresetSlotsBought?: number;
 };
 
 export function emptyV2SkillsState(): V2SkillsState {
@@ -475,10 +486,50 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
   const rawPresets = (raw as { presets?: unknown }).presets;
   const presets =
     rawPresets != null ? parseCombatPresets(rawPresets) : [];
-  const base: V2SkillsState = pattern
+  // 로드아웃 프리셋(A 메타 PR-2b) — 구매 슬롯 수(clamp) + 그 슬롯 수만큼만 프리셋 유지.
+  const slotsBought = clampSlotsBought(
+    Number((raw as { loadoutPresetSlotsBought?: unknown }).loadoutPresetSlotsBought) || 0,
+  );
+  const rawLoadoutPresets = (raw as { loadoutPresets?: unknown }).loadoutPresets;
+  const loadoutPresets = parseLoadoutPresetsRaw(
+    rawLoadoutPresets,
+    totalPresetSlots(slotsBought),
+  );
+  let base: V2SkillsState = pattern
     ? { learned, equipped, pattern }
     : { learned, equipped };
-  return presets.length > 0 ? { ...base, presets } : base;
+  if (presets.length > 0) base = { ...base, presets };
+  if (loadoutPresets.length > 0) base = { ...base, loadoutPresets };
+  if (slotsBought > 0) base = { ...base, loadoutPresetSlotsBought: slotsBought };
+  return base;
+}
+
+// 로드아웃 프리셋 raw 검증 파싱(항목 단위 drop) — 이름 trim·길이 상한, skills 는 유효 id·중복
+//   제거, 프리셋 개수는 maxSlots 로 상한. 손상 입력 안전(빈 배열 폴백).
+function parseLoadoutPresetsRaw(
+  raw: unknown,
+  maxSlots: number,
+): V2LoadoutPreset[] {
+  if (!Array.isArray(raw)) return [];
+  const out: V2LoadoutPreset[] = [];
+  for (const item of raw) {
+    if (out.length >= maxSlots) break;
+    if (!item || typeof item !== "object") continue;
+    const r = item as { name?: unknown; skills?: unknown };
+    const name =
+      typeof r.name === "string" ? r.name.trim().slice(0, PRESET_NAME_MAX) : "";
+    const skills: V2SkillId[] = [];
+    const seen = new Set<string>();
+    const skillsRaw = Array.isArray(r.skills) ? r.skills : [];
+    for (const id of skillsRaw) {
+      if (typeof id !== "string" || !VALID_SKILL_IDS.has(id)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      skills.push(id as V2SkillId);
+    }
+    out.push({ name, skills });
+  }
+  return out;
 }
 
 // === 스마트 기본 패턴 (커스텀 패턴 미설정 시) =============================

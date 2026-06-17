@@ -40,8 +40,14 @@ export async function GET() {
     byKey.get("proficiency.v2") as V2ProficiencyState | undefined,
     charSave,
   );
-  const learned = parseV2SkillsState(byKey.get("skills.v2")).learned;
+  const skillsState = parseV2SkillsState(byKey.get("skills.v2"));
 
-  const codex = buildJobCodex(prof, learned, cls, specChoice);
+  const codex = buildJobCodex(
+    prof,
+    skillsState.learned,
+    cls,
+    specChoice,
+    skillsState.loadoutPresetSlotsBought ?? 0,
+  );
   return Response.json({ ok: true, codex });
 }

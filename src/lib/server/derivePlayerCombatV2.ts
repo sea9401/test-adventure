@@ -392,6 +392,15 @@ export type DerivePlayerCombatV2PureInput = {
   maxHpPct?: number;
   /** 최대 MP % 패시브(마나) — 합산 후 maxMp 에 1회 적용. 미지정 = 무적용. */
   maxMpPct?: number;
+  // ── 다양성 확장(A 메타) — 장착 패시브 합산분. 엔진 레버에 가산. 미지정 = 무적용(byte-identical).
+  /** 치명타 확률 +%p(급소·치명) — critChancePct 에 가산. */
+  passiveCritPct?: number;
+  /** 치명타 피해 +%(맹공) — critMult 에 /100 환산 가산(캡 적용). */
+  passiveCritDmgPct?: number;
+  /** 회피 +%p(허보) — evasionPct 에 가산(캡 적용). */
+  passiveEvasionPct?: number;
+  /** 흡혈 +%(포식, 저수치) — totalLifestealPct 에 가산. */
+  passiveLifestealPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -514,22 +523,28 @@ export function derivePlayerCombatV2Pure(
       equipAcc.mp) *
       (1 + (input.maxMpPct ?? 0) / 100),
   );
-  const critChancePct = totalStats.luk * CRIT_PER_LUK + equipAcc.crit;
-  // 치명타 피해 — 행운 major + 힘 minor.
+  // 치명타 확률 — 행운 + 장비 + 장착 패시브(급소·치명, A 메타 다양성). 미지정 +0.
+  const critChancePct =
+    totalStats.luk * CRIT_PER_LUK +
+    equipAcc.crit +
+    (input.passiveCritPct ?? 0);
+  // 치명타 피해 — 행운 major + 힘 minor + 장착 패시브(맹공, %→/100). 캡 적용.
   const critMult = Math.min(
     CRIT_MULT_BASE +
       totalStats.luk * CRIT_DMG_PER_LUK +
       totalStats.str * CRIT_DMG_PER_STR +
-      equipAcc.critMult / 100, // 반지 슬롯 고유 축(백분의 일 정수 → 배수).
+      equipAcc.critMult / 100 + // 반지 슬롯 고유 축(백분의 일 정수 → 배수).
+      (input.passiveCritDmgPct ?? 0) / 100,
     CRIT_MULT_CAP,
   );
   // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p).
   const critResistPct = totalStats.spi * CRIT_RESIST_PER_SPI;
-  // 회피 — 민첩 + 행운 minor + 장비.
+  // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보). 캡 적용.
   const evasionPct = Math.min(
     totalStats.dex * EVA_PER_DEX +
       totalStats.luk * EVA_PER_LUK +
-      equipAcc.eva,
+      equipAcc.eva +
+      (input.passiveEvasionPct ?? 0),
     EVASION_PCT_CAP,
   );
   // 명중 — 민첩 major + 힘·정신 minor.
@@ -650,7 +665,9 @@ export function derivePlayerCombatV2Pure(
   const totalPoisonStrength =
     (specEff.poisonPctPerStackBase ?? 0) + (traitEff.poisonPctPerStackAdd ?? 0);
   const totalLifestealPct =
-    (specEff.lifestealPct ?? 0) + (traitEff.lifestealPctAdd ?? 0);
+    (specEff.lifestealPct ?? 0) +
+    (traitEff.lifestealPctAdd ?? 0) +
+    (input.passiveLifestealPct ?? 0); // 장착 패시브(포식) — 저수치.
   const mpCostReductionPct = traitEff.mpCostReductionPctAdd ?? 0;
 
   const player: PlayerCombat = {
@@ -829,7 +846,12 @@ export function derivePlayerCombatV2FromSaves(saves: {
     typeof character.specChoice === "string" ? character.specChoice : undefined;
 
   // 직업 시스템 v2 — 패시브는 "장착 패시브 스킬"에서 집계(근력/강건/총명 스탯 + 예기
-  //   atkPerDexCoef + 상위 % 패시브). 모험가(none)=빈 집계(HP% 는 별도).
+  //   atkPerDexCoef + 상위 % 패시브 + 다양성 효과 crit/critDmg/evasion/lifesteal). 모험가(none)=
+  //   빈 집계(HP% 는 별도).
+  //   🔑 이 집계는 V2_CORE_LOOP_V2 와 무관하게 무조건 적용된다 — 직업 시스템은 PR-6(#799)에서
+  //   무조건화됐고(플래그 제거), 운영은 NEXT_PUBLIC_V2_CORE_LOOP_V2=true. 다양성 효과 필드도
+  //   같은 기존 무조건 경로를 그대로 탄다(신규 게이팅 아님). 플래그-off 는 테스트뿐이고 그쪽은
+  //   FromSaves 가 아니라 Pure 를 직접 호출(골든)하므로 이 경로를 타지 않아 바이트 동일 유지.
   const v2JobId = jobIdFromLegacy(parsedClass, specId ?? null);
   const equippedSkillIds = parseV2SkillsState(skillsRaw).equipped;
   const passiveAgg = aggregateEquippedPassives(equippedSkillIds);
@@ -874,6 +896,11 @@ export function derivePlayerCombatV2FromSaves(saves: {
     statPct,
     maxHpPct,
     maxMpPct,
+    // 다양성 패시브(A 메타) — 장착 합산분을 엔진 레버로 전달.
+    passiveCritPct: passiveAgg.critPct,
+    passiveCritDmgPct: passiveAgg.critDmgPct,
+    passiveEvasionPct: passiveAgg.evasionPct,
+    passiveLifestealPct: passiveAgg.lifestealPct,
   });
 }
 

@@ -50,9 +50,17 @@ describe("직업 킷 — 스킬셋", () => {
     for (const [job, kit] of Object.entries(UPPER)) {
       expect(skillsForJob(job), job).toEqual(kit);
       const [active, passive] = kit;
-      expect(V2_SKILLS[active].category, active).toBe("attack");
+      // 액티브 = 비(非)패시브(공격/힐/버프 등 — 역할 다양화로 사제는 heal). 패시브 = passive.
+      expect(V2_SKILLS[active].category, active).not.toBe("passive");
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }
+    // 역할 다양화: 사제 액티브 = 자힐(heal), 방패병 액티브 = 방어력 기반 데미지.
+    expect(V2_SKILLS.v2c_acolyte_smite.category).toBe("heal");
+    expect(V2_SKILLS.v2c_acolyte_smite.effects[0]).toMatchObject({ kind: "heal" });
+    expect(V2_SKILLS.v2c_shieldman_bash.effects[0]).toMatchObject({
+      kind: "damage",
+      scaling: "def",
+    });
   });
 
   it("상위 8직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {

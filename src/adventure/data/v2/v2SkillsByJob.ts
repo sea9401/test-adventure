@@ -15,12 +15,12 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   mage: ["v2c_mage_boltcast", "v2c_mage_acumen"], // 마력탄 + 총명(지능+10)
   rogue: ["v2c_rogue_poison", "v2c_rogue_finesse"], // 독침 + 예기(민첩→공격력)
   // ── 상위 8직업 — 액티브 1 + 고유 패시브 1(직업마다 다른 축/효과) ──
-  shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"], // 방패 타격 + 체력(HP+12%)
+  shieldman: ["v2c_shieldman_bash", "v2c_shieldman_vitality"], // 방패 타격(방어력 기반) + 체력(HP+12%)
   squire: ["v2c_squire_cleave", "v2c_squire_might"], // 베기 + 근력 II(힘+15%)
   boxer: ["v2c_boxer_combo", "v2c_boxer_fortitude"], // 연권 + 포식(흡혈+4%)
   monk: ["v2c_monk_palm", "v2c_monk_spirit"], // 장권 + 허보(회피+10%)
   caster: ["v2c_caster_bolt", "v2c_caster_acumen"], // 마탄 + 맹공(치명피해+30%)
-  acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"], // 성광 + 마나(MP+12%)
+  acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"], // 치유(자힐) + 마나(MP+12%)
   assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 기습 + 치명(치명확률+8%)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 난사 + 민첩(민첩+10%)
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──

@@ -45,12 +45,12 @@ export type V2CommonSkillId =
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   // ── 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
   // 액티브
-  | "v2c_shieldman_bash" // 방패 타격 (물리 단일)
+  | "v2c_shieldman_bash" // 방패 타격 (방어력 기반 단일)
   | "v2c_squire_cleave" // 베기 (물리 단일 강)
   | "v2c_boxer_combo" // 연권 (물리 다단)
   | "v2c_monk_palm" // 장권 (물리 다단)
   | "v2c_caster_bolt" // 마탄 (마법 단일 강)
-  | "v2c_acolyte_smite" // 성광 (마법 단일)
+  | "v2c_acolyte_smite" // 치유 (자힐 — heal)
   | "v2c_assassin_ambush" // 기습 (물리 단일 강)
   | "v2c_archer_volley" // 난사 (물리 다단)
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
@@ -88,7 +88,7 @@ const hits = (
   n: number,
   statCoef: number,
   baseFlat: number,
-  scaling?: "physical" | "magic",
+  scaling?: "physical" | "magic" | "def" | "vit",
 ): V2SkillEffect[] =>
   Array.from({ length: n }, () => ({
     kind: "damage" as const,
@@ -100,7 +100,7 @@ const hits = (
 const dmg = (
   statCoef: number,
   baseFlat: number,
-  scaling?: "physical" | "magic",
+  scaling?: "physical" | "magic" | "def" | "vit",
 ): V2SkillEffect => ({
   kind: "damage",
   statCoef,
@@ -261,9 +261,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   //   직업을 순회해 다른 패시브를 모으는 메리트. % 가산(여러 패시브 % 는 합산).
   // ── 전사 갈래 ──
   v2c_shieldman_bash: {
-    id: "v2c_shieldman_bash", name: "방패 타격", stat: "str", category: "attack", tier: 2,
-    description: "방패를 앞세워 들이받는다.", mpCost: 30, cooldown: 0, procChance: 30,
-    effects: [dmg(1.0, 160)],
+    // 방패병 = 방어 탱 — 데미지가 공격력이 아니라 방어력 기반(scaling:"def", combatShared 배선).
+    //   단단할수록 강타. DEF_PER_VIT(0.1)<ATK_PER_STR(0.15)라 계수를 높여 보정. PvE/PvP 공용.
+    id: "v2c_shieldman_bash", name: "방패 타격", stat: "vit", category: "attack", tier: 2,
+    description: "방어로 다져진 몸으로 들이받는다. 방어력이 높을수록 강하다.", mpCost: 30, cooldown: 0, procChance: 30,
+    effects: [dmg(1.8, 140, "def")],
   },
   v2c_squire_cleave: {
     id: "v2c_squire_cleave", name: "베기", stat: "str", category: "attack", tier: 2,
@@ -288,9 +290,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.2, 175, "magic")],
   },
   v2c_acolyte_smite: {
-    id: "v2c_acolyte_smite", name: "성광", stat: "int", category: "attack", tier: 2,
-    description: "정화의 빛으로 내리친다.", mpCost: 38, cooldown: 0, procChance: 30,
-    effects: [dmg(1.0, 160, "magic")],
+    // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
+    //   pctLostHp=잃은 체력 비례(낮을수록 강·고HP 낭비 없음). 스마트 패턴이 HP<50%에서 자동 발동.
+    id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
+    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 55,
+    effects: [{ kind: "heal", pctLostHp: 30 }],
   },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {

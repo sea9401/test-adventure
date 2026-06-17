@@ -28,6 +28,11 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 연권(강) + 강건 III(활력+20%)
   magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마탄(강) + 총명 III(지능+20%)
   ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 기습(강) + 정밀(명중+12)
+  // ── 심화 4직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
+  veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 참격 + 필살(치명피해+25%)
+  sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 난무 + 철신(최대HP+12%)
+  sage: ["v2c_sage_bolt", "v2c_sage_insight"], // 마력 폭사 + 간파(치명확률+8%)
+  chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 암격 + 잔영(회피+12%)
 };
 
 /** 새 직업 id 의 학습 가능 시그니처 스킬셋. 미존재 jobId = 빈 배열(시작 스킬은 별도 자동 보유). */

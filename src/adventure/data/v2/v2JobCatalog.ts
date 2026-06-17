@@ -31,8 +31,8 @@ export type V2JobUnlock = {
 export type V2JobDefinition = {
   id: string;
   name: string;
-  /** 0=모험가, 1=기본, 2=상위, 3=하이브리드/특수(후속). */
-  tier: 0 | 1 | 2 | 3;
+  /** 0=모험가, 1=기본, 2=상위, 3=고차, 4+=심화(트리 성장). */
+  tier: 0 | 1 | 2 | 3 | 4;
   cultivateProfile: Partial<Record<V2StatKey, number>>;
   jobBonus: Partial<Record<V2StatKey, number>>;
   unlock: V2JobUnlock;
@@ -49,6 +49,12 @@ export const TIER2_UNLOCK_CUMLEVEL = 100;
  * "직군을 정복하면(cumLevel 250) 그 위 단계가 열린다." 트리 성장 램프: tier2=100 → tier3=250.
  */
 export const TIER3_UNLOCK_CUMLEVEL = 250;
+
+/**
+ * 심화(Tier 4) 해금 임계 — 부모 직군 cumLevel. 정복선(250) 위 심층 투자(≈ 환생 다수 누적).
+ * 트리 성장 램프: tier2=100 → tier3=250 → tier4=450. top 베테랑 cum~1062 도달권.
+ */
+export const TIER4_UNLOCK_CUMLEVEL = 450;
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -203,6 +209,42 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 10, luk: 6 }, // 도적 고차 — 민첩 중심
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
+
+  // ─── Tier 4: 심화 직업(직군당 1종) — 부모 직군 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(450) 시 해금 ───
+  //   트리 성장 심화. 이중 내장 보너스 + 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화).
+  //   새 derive 배선 없음 — 기존 효과 어휘(치명피해·최대HP%·치명확률·회피) 재사용.
+  veteran: {
+    id: "veteran",
+    name: "노장",
+    tier: 4,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 10, vit: 10 }, // 전사 심화
+    unlock: { prereqs: { warrior: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  sensei: {
+    id: "sensei",
+    name: "노사",
+    tier: 4,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 12, str: 6 }, // 무도 심화
+    unlock: { prereqs: { martial: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  sage: {
+    id: "sage",
+    name: "현자",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 12, spi: 6 }, // 마법 심화
+    unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
+  },
+  chief: {
+    id: "chief",
+    name: "두령",
+    tier: 4,
+    cultivateProfile: { dex: 2, luk: 2 },
+    jobBonus: { dex: 12, luk: 6 }, // 도적 심화
+    unlock: { prereqs: { rogue: TIER4_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -267,6 +309,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   brawler: { class: "martial", spec: "brawler" },
   magus: { class: "mage", spec: "magus" },
   ranger: { class: "rogue", spec: "ranger" },
+  // tier 4 — 새 unique spec id.
+  veteran: { class: "warrior", spec: "veteran" },
+  sensei: { class: "martial", spec: "sensei" },
+  sage: { class: "mage", spec: "sage" },
+  chief: { class: "rogue", spec: "chief" },
 };
 
 /**

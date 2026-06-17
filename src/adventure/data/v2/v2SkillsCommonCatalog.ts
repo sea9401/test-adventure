@@ -68,11 +68,11 @@ export type V2CommonSkillId =
   | "v2c_brawler_combo" // 연권(강) (물리 다단)
   | "v2c_magus_bolt" // 마탄(강) (마법 단일)
   | "v2c_ranger_ambush" // 기습(강) (물리 단일)
-  // III티어 패시브(% 가산 — 직군 축)
-  | "v2c_paladin_might3" // 근력 III (힘 +20%)
+  // 고차 패시브(다양성 2차: paladin/ranger 는 효과 리스킨, brawler/magus 는 직군 축 % 유지)
+  | "v2c_paladin_might3" // 철벽 (방어 +20%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
   | "v2c_magus_acumen3" // 총명 III (지능 +20%)
-  | "v2c_ranger_finesse3"; // 예리 III (민첩 +20%)
+  | "v2c_ranger_finesse3"; // 정밀 (명중 +12)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -378,10 +378,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
 
   // ── 고차 4직업 III티어 패시브(% 가산 — 직군 축, tier-2 II 위 단계) ──
   v2c_paladin_might3: {
-    id: "v2c_paladin_might3", name: "근력 III", stat: "str", category: "passive", tier: 3,
-    description: "극에 다다른 단련. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 기사 = 중장갑(다양성 2차) — 옛 힘%에서 방어%로 리스킨. id 유지(세이브 호환). str% 는 견습기사
+    //   가 유지. 방어%는 PvE/PvP 양쪽(def=damageBetween 공용).
+    id: "v2c_paladin_might3", name: "철벽", stat: "str", category: "passive", tier: 3,
+    description: "두꺼운 갑주. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { str: 20 } },
+    passive: { defPct: 20 },
   },
   v2c_brawler_fortitude3: {
     id: "v2c_brawler_fortitude3", name: "강건 III", stat: "vit", category: "passive", tier: 3,
@@ -396,10 +398,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { int: 20 } },
   },
   v2c_ranger_finesse3: {
-    id: "v2c_ranger_finesse3", name: "예리 III", stat: "dex", category: "passive", tier: 3,
-    description: "극에 다다른 감각. 민첩이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 유격수 = 정밀 사격(다양성 2차) — 옛 민첩%에서 명중으로 리스킨. id 유지(세이브 호환). dex% 는
+    //   궁수가 유지. 명중은 PvE/PvP 양쪽 소비(고회피 상대 카운터).
+    id: "v2c_ranger_finesse3", name: "정밀", stat: "dex", category: "passive", tier: 3,
+    description: "흔들림 없는 조준. 명중이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { dex: 20 } },
+    passive: { accuracyPct: 12 },
   },
 };
 

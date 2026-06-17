@@ -3,6 +3,7 @@ import {
   V2_JOB_CATALOG,
   V2_JOB_LIST,
   TIER2_UNLOCK_CUMLEVEL,
+  TIER3_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   jobIdFromLegacy,
@@ -23,6 +24,12 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   mage: ["caster", "acolyte"],
   rogue: ["assassin", "archer"],
 };
+const TIER3_BY_PARENT: Record<string, string> = {
+  warrior: "paladin",
+  martial: "brawler",
+  mage: "magus",
+  rogue: "ranger",
+};
 
 function profWith(groupCumLevels: Record<string, number>) {
   const prof = emptyProficiency();
@@ -33,12 +40,13 @@ function profWith(groupCumLevels: Record<string, number>) {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("13개 직업(모험가 1 + 기본 4 + 상위 8)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(13);
+  it("17개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 4)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(17);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(8);
+    expect(byTier(3)).toBe(4);
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {
@@ -118,6 +126,14 @@ describe("해금 트리", () => {
       }
     }
   });
+
+  it("고차 직업은 부모 직군의 cumLevel ≥ TIER3_UNLOCK_CUMLEVEL(정복선) 을 요구한다", () => {
+    for (const [parent, childId] of Object.entries(TIER3_BY_PARENT)) {
+      const job = V2_JOB_CATALOG[childId];
+      expect(job.tier).toBe(3);
+      expect(job.unlock.prereqs).toEqual({ [parent]: TIER3_UNLOCK_CUMLEVEL });
+    }
+  });
 });
 
 describe("isJobUnlocked / unlockedJobs", () => {
@@ -139,6 +155,22 @@ describe("isJobUnlocked / unlockedJobs", () => {
   it("부모를 충족해도 다른 직군 상위는 잠긴 채로 둔다", () => {
     const prof = profWith({ warrior: 200 });
     expect(isJobUnlocked(V2_JOB_CATALOG.caster, prof)).toBe(false);
+  });
+
+  it("고차 직업은 부모 직군 정복(cumLevel 250) 전엔 잠김, 도달 시 해금", () => {
+    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 249 }))).toBe(
+      false,
+    );
+    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 250 }))).toBe(
+      true,
+    );
+    // 상위(tier2)는 이미 열렸어도 고차는 아직 잠길 수 있다(임계 차이).
+    expect(isJobUnlocked(V2_JOB_CATALOG.squire, profWith({ warrior: 120 }))).toBe(
+      true,
+    );
+    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 120 }))).toBe(
+      false,
+    );
   });
 
   it("unlockedJobs 는 모험가(tier 0)를 제외하고, 충족한 직업만 반환한다", () => {
@@ -166,7 +198,7 @@ describe("jobDisplayName (직업 시스템 — 무조건화)", () => {
 });
 
 describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
-  it("모험가(none)를 제외한 12직업 전부를 커버한다", () => {
+  it("모험가(none)를 제외한 모든 직업을 빠짐없이 커버한다", () => {
     const nonNone = V2_JOB_LIST.filter((j) => j.id !== "none").map((j) => j.id);
     expect(Object.keys(LEGACY_CLASS_SPEC_BY_JOB).sort()).toEqual(
       nonNone.sort(),
@@ -179,9 +211,9 @@ describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
     }
   });
 
-  it("상위 직업(tier 2)은 부모 base class + 옛 계파 spec(non-null) 로 매핑", () => {
+  it("상위·고차 직업(tier 2·3)은 부모 base class + non-null spec 으로 매핑", () => {
     for (const job of V2_JOB_LIST) {
-      if (job.tier !== 2) continue;
+      if (job.tier < 2) continue;
       const legacy = LEGACY_CLASS_SPEC_BY_JOB[job.id];
       // 매핑된 class 는 그 직업의 부모(prereqs 키)와 일치해야 한다.
       const parent = Object.keys(job.unlock.prereqs)[0];
@@ -212,6 +244,8 @@ describe("jobIdFromLegacy 역브리지 (PR-3)", () => {
     expect(jobIdFromLegacy("warrior", "gwang")).toBe("squire");
     expect(jobIdFromLegacy("warrior", "knight")).toBe("shieldman");
     expect(jobIdFromLegacy("rogue", "assassin")).toBe("assassin");
+    expect(jobIdFromLegacy("warrior", "paladin")).toBe("paladin"); // tier 3
+    expect(jobIdFromLegacy("mage", "magus")).toBe("magus"); // tier 3
   });
 
   it("알 수 없는 옛 id·모험가는 base class 로 폴백", () => {

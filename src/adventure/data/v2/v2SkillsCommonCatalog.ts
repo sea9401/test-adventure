@@ -61,7 +61,18 @@ export type V2CommonSkillId =
   | "v2c_caster_acumen" // 총명 II (지능 +15%)
   | "v2c_acolyte_mana" // 마나 (최대 MP +12%)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
-  | "v2c_archer_agility"; // 민첩 (민첩 +10%)
+  | "v2c_archer_agility" // 민첩 (민첩 +10%)
+  // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
+  // 액티브(강)
+  | "v2c_paladin_cleave" // 베기(강) (물리 단일)
+  | "v2c_brawler_combo" // 연권(강) (물리 다단)
+  | "v2c_magus_bolt" // 마탄(강) (마법 단일)
+  | "v2c_ranger_ambush" // 기습(강) (물리 단일)
+  // III티어 패시브(% 가산 — 직군 축)
+  | "v2c_paladin_might3" // 근력 III (힘 +20%)
+  | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
+  | "v2c_magus_acumen3" // 총명 III (지능 +20%)
+  | "v2c_ranger_finesse3"; // 예리 III (민첩 +20%)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -333,6 +344,54 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "날랜 몸놀림. 민첩이 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { statPct: { dex: 10 } },
+  },
+
+  // ── 고차 4직업 액티브(tier 3) — 같은 계열 tier-2 보다 한 단계 강한 공격 ──
+  v2c_paladin_cleave: {
+    id: "v2c_paladin_cleave", name: "베기", stat: "str", category: "attack", tier: 3,
+    description: "벼려진 검으로 깊게 베어 넘긴다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [dmg(1.3, 230)],
+  },
+  v2c_brawler_combo: {
+    id: "v2c_brawler_combo", name: "연권", stat: "str", category: "attack", tier: 3,
+    description: "주먹을 다섯 번 몰아친다.", mpCost: 32, cooldown: 0, procChance: 40,
+    effects: hits(5, 0.42, 48),
+  },
+  v2c_magus_bolt: {
+    id: "v2c_magus_bolt", name: "마탄", stat: "int", category: "attack", tier: 3,
+    description: "고도로 응축한 마력탄을 박아넣는다.", mpCost: 44, cooldown: 0, procChance: 30,
+    effects: [dmg(1.35, 210, "magic")],
+  },
+  v2c_ranger_ambush: {
+    id: "v2c_ranger_ambush", name: "기습", stat: "str", category: "attack", tier: 3,
+    description: "급소를 노려 깊숙이 찔러든다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [dmg(1.35, 210)],
+  },
+
+  // ── 고차 4직업 III티어 패시브(% 가산 — 직군 축, tier-2 II 위 단계) ──
+  v2c_paladin_might3: {
+    id: "v2c_paladin_might3", name: "근력 III", stat: "str", category: "passive", tier: 3,
+    description: "극에 다다른 단련. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { str: 20 } },
+  },
+  v2c_brawler_fortitude3: {
+    id: "v2c_brawler_fortitude3", name: "강건 III", stat: "vit", category: "passive", tier: 3,
+    description: "극에 다다른 내공. 활력이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { vit: 20 } },
+  },
+  v2c_magus_acumen3: {
+    id: "v2c_magus_acumen3", name: "총명 III", stat: "int", category: "passive", tier: 3,
+    description: "극에 다다른 통찰. 지능이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { int: 20 } },
+  },
+  v2c_ranger_finesse3: {
+    id: "v2c_ranger_finesse3", name: "예리 III", stat: "dex", category: "passive", tier: 3,
+    description: "극에 다다른 감각. 민첩이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { dex: 20 } },
   },
 };
 

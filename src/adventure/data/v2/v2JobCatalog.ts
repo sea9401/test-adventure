@@ -44,6 +44,12 @@ export type V2JobDefinition = {
  */
 export const TIER2_UNLOCK_CUMLEVEL = 100;
 
+/**
+ * 고차(Tier 3) 해금 임계 — 부모 직군 cumLevel(= SP_MASTERED_CUMLEVEL 정복선과 정렬).
+ * "직군을 정복하면(cumLevel 250) 그 위 단계가 열린다." 트리 성장 램프: tier2=100 → tier3=250.
+ */
+export const TIER3_UNLOCK_CUMLEVEL = 250;
+
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
 // 동기화 여부는 v2JobCatalog.test.ts 가 deep-equal 로 보증한다.
@@ -161,6 +167,42 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 12, str: 5 }, // 다단 물량 (← 옛 archery)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
+
+  // ─── Tier 3: 고차 직업(직군당 1종) — 부모 직군 정복(cumLevel ≥ TIER3_UNLOCK_CUMLEVEL) 시 해금 ───
+  //   트리 성장(A 메타 PR-3). 작은 이중 내장 보너스 + 액티브 1(강) + III티어 % 패시브(직군 축).
+  //   직업이 늘면 정복 포인트(수집 패시브 수)·전직 폭이 함께 확장된다.
+  paladin: {
+    id: "paladin",
+    name: "기사",
+    tier: 3,
+    cultivateProfile: { str: 2, vit: 1, dex: 1 },
+    jobBonus: { str: 8, vit: 8 }, // 전사 고차 — 힘·활력 균형
+    unlock: { prereqs: { warrior: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  brawler: {
+    id: "brawler",
+    name: "격투가",
+    tier: 3,
+    cultivateProfile: { vit: 2, str: 1, spi: 1 },
+    jobBonus: { vit: 10, str: 6 }, // 무도 고차 — 활력 중심
+    unlock: { prereqs: { martial: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  magus: {
+    id: "magus",
+    name: "마도사",
+    tier: 3,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 10, spi: 6 }, // 마법 고차 — 지능 중심
+    unlock: { prereqs: { mage: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  ranger: {
+    id: "ranger",
+    name: "유격수",
+    tier: 3,
+    cultivateProfile: { dex: 2, luk: 2 },
+    jobBonus: { dex: 10, luk: 6 }, // 도적 고차 — 민첩 중심
+    unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -220,6 +262,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   acolyte: { class: "mage", spec: "cleric" },
   assassin: { class: "rogue", spec: "assassin" },
   archer: { class: "rogue", spec: "archery" },
+  // tier 3 — 새 spec id(옛 계파 아님, 식별 전용). jobIdFromLegacy 가 (class,spec)→jobId 로 왕복.
+  paladin: { class: "warrior", spec: "paladin" },
+  brawler: { class: "martial", spec: "brawler" },
+  magus: { class: "mage", spec: "magus" },
+  ranger: { class: "rogue", spec: "ranger" },
 };
 
 /**

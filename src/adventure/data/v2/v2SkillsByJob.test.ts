@@ -73,6 +73,24 @@ describe("직업 킷 — 스킬셋", () => {
     expect(new Set(axes).size).toBe(passiveIds.length);
   });
 
+  it("고차 4직업(tier 3) = 액티브 1(강) + III티어 % 패시브 1", () => {
+    // III티어는 직군 축을 한 단계 더 깊게(% 가산) — 같은 축 심화(고유 축 아님, 의도적).
+    const TIER3: Record<string, [V2SkillId, V2SkillId, string, number]> = {
+      paladin: ["v2c_paladin_cleave", "v2c_paladin_might3", "str", 20],
+      brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3", "vit", 20],
+      magus: ["v2c_magus_bolt", "v2c_magus_acumen3", "int", 20],
+      ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3", "dex", 20],
+    };
+    for (const [job, [active, passive, axis, pct]] of Object.entries(TIER3)) {
+      expect(skillsForJob(job), job).toEqual([active, passive]);
+      expect(V2_SKILLS[active].category, active).toBe("attack");
+      expect(V2_SKILLS[active].tier, active).toBe(3);
+      const p = V2_SKILLS[passive];
+      expect(p.category, passive).toBe("passive");
+      expect(p.passive?.statPct?.[axis as "str"], passive).toBe(pct);
+    }
+  });
+
   it("없는 jobId = 빈 배열", () => {
     expect(skillsForJob("none")).toEqual([]);
     expect(skillsForJob("nope")).toEqual([]);

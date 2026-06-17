@@ -72,7 +72,16 @@ export type V2CommonSkillId =
   | "v2c_paladin_might3" // 철벽 (방어 +20%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
   | "v2c_magus_acumen3" // 총명 III (지능 +20%)
-  | "v2c_ranger_finesse3"; // 정밀 (명중 +12)
+  | "v2c_ranger_finesse3" // 정밀 (명중 +12)
+  // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
+  | "v2c_veteran_cleave" // 참격 (물리 단일)
+  | "v2c_sensei_combo" // 난무 (물리 다단)
+  | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
+  | "v2c_chief_strike" // 암격 (물리 단일)
+  | "v2c_veteran_lethal" // 필살 (치명 피해 +25%)
+  | "v2c_sensei_ironbody" // 철신 (최대 HP +12%)
+  | "v2c_sage_insight" // 간파 (치명 확률 +8%)
+  | "v2c_chief_afterimage"; // 잔영 (회피 +12%)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -404,6 +413,59 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "흔들림 없는 조준. 명중이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { accuracyPct: 12 },
+  },
+
+  // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
+  //   rubricSpCost 가 클램프) — 직업은 4차지만 스킬 파워버킷은 상급. ──
+  v2c_veteran_cleave: {
+    id: "v2c_veteran_cleave", name: "참격", stat: "str", category: "attack", tier: 3,
+    description: "전장의 호흡으로 깊게 베어 가른다.", mpCost: 40, cooldown: 0, procChance: 30,
+    effects: [dmg(1.4, 260)],
+  },
+  v2c_sensei_combo: {
+    id: "v2c_sensei_combo", name: "난무", stat: "str", category: "attack", tier: 3,
+    description: "물 흐르듯 다섯 번 몰아친다.", mpCost: 34, cooldown: 0, procChance: 40,
+    effects: hits(5, 0.45, 54),
+  },
+  v2c_sage_bolt: {
+    id: "v2c_sage_bolt", name: "마력 폭사", stat: "int", category: "attack", tier: 3,
+    description: "극대화한 마력을 터뜨린다.", mpCost: 46, cooldown: 0, procChance: 30,
+    effects: [dmg(1.45, 235, "magic")],
+  },
+  v2c_chief_strike: {
+    id: "v2c_chief_strike", name: "암격", stat: "str", category: "attack", tier: 3,
+    description: "그림자에서 급소를 노려 찌른다.", mpCost: 40, cooldown: 0, procChance: 30,
+    effects: [dmg(1.45, 235)],
+  },
+
+  // ── 심화 4직업 패시브(tier 4) — 직군마다 다른 효과(라인 비포화·기존 어휘, PvP-안전) ──
+  v2c_veteran_lethal: {
+    // 전사 심화 — 치명 피해(중장갑 라인의 딜 마무리). str% 는 견습기사·방어%는 기사가 유지.
+    id: "v2c_veteran_lethal", name: "필살", stat: "str", category: "passive", tier: 3,
+    description: "한 방에 모든 것을 싣는다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { critDmgPct: 25 },
+  },
+  v2c_sensei_ironbody: {
+    // 무도 심화 — 최대 HP(심층 탱). vit 라인(흡혈/회피/활력%)에 없던 축.
+    id: "v2c_sensei_ironbody", name: "철신", stat: "vit", category: "passive", tier: 3,
+    description: "강철 같은 몸. 최대 체력이 크게 늘어난다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 12 },
+  },
+  v2c_sage_insight: {
+    // 마법 심화 — 치명 확률(술사 치명피해와 시너지). int 라인에 crit 확률 추가.
+    id: "v2c_sage_insight", name: "간파", stat: "int", category: "passive", tier: 3,
+    description: "흐름을 꿰뚫는다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { critPct: 8 },
+  },
+  v2c_chief_afterimage: {
+    // 도적 심화 — 회피(잔영). dex 라인(예기/민첩%/치명/명중)에 없던 축.
+    id: "v2c_chief_afterimage", name: "잔영", stat: "dex", category: "passive", tier: 3,
+    description: "잔상을 남기며 흘린다. 회피가 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { evasionPct: 12 },
   },
 };
 

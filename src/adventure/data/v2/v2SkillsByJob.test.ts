@@ -110,6 +110,25 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct).toBeUndefined();
   });
 
+  it("심화 4직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
+    const KIT: Record<string, [V2SkillId, V2SkillId]> = {
+      veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
+      sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"],
+      sage: ["v2c_sage_bolt", "v2c_sage_insight"],
+      chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
+    };
+    for (const [job, [active, passive]] of Object.entries(KIT)) {
+      expect(skillsForJob(job), job).toEqual([active, passive]);
+      expect(V2_SKILLS[active].category, active).toBe("attack");
+      expect(V2_SKILLS[passive].category, passive).toBe("passive");
+    }
+    // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
+    expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(25);
+    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.maxHpPct).toBe(12);
+    expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(8);
+    expect(V2_SKILLS.v2c_chief_afterimage.passive?.evasionPct).toBe(12);
+  });
+
   it("없는 jobId = 빈 배열", () => {
     expect(skillsForJob("none")).toEqual([]);
     expect(skillsForJob("nope")).toEqual([]);

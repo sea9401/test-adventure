@@ -15,6 +15,7 @@ import { groupCumLevel, type V2ProficiencyState } from "./proficiency";
 import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
 import { skillsForJob } from "./v2SkillsByJob";
 import { V2_SKILLS, type V2SkillId } from "./v2Skills";
+import { presetSlotSpend } from "./v2LoadoutPresets";
 
 // 4 직군(tier-1) — 직군별 cumLevel·정복 표기 단위.
 const GROUP_IDS = ["warrior", "martial", "mage", "rogue"] as const;
@@ -49,7 +50,10 @@ export type JobCodex = {
   groups: JobCodexGroup[];
   jobs: JobCodexJob[];
   // 수집 포인트(A 메타 PR-2) = 수집한 직업 패시브 수(파생, 별도 저장 없음). 수백 직업까지 확장.
-  collectionPoints: number;
+  //   누적(collectionPoints)은 등급 기준·불변. 사용분(spent)·잔액(available)은 소비형(PR-2b).
+  collectionPoints: number; // 누적(lifetime) — 등급 기준.
+  collectionPointsSpent: number; // 사용분(프리셋 슬롯 등). 누적에서 차감.
+  collectionPointsAvailable: number; // 잔액 = 누적 − 사용분(소비 가능).
   rank: CollectionRank;
 };
 
@@ -96,11 +100,26 @@ function passiveIdOfJob(jobId: string): V2SkillId | null {
   return null;
 }
 
+// 누적 수집 포인트 = 수집(학습)한 직업 패시브 수. 라우트·도감 공용(파생, 별도 저장 없음).
+export function countCollectedPassives(
+  learnedSkillIds: readonly string[],
+): number {
+  const learned = new Set(learnedSkillIds);
+  let n = 0;
+  for (const job of V2_JOB_LIST) {
+    if (job.tier <= 0) continue;
+    const passiveId = passiveIdOfJob(job.id);
+    if (passiveId && learned.has(passiveId)) n += 1;
+  }
+  return n;
+}
+
 export function buildJobCodex(
   prof: V2ProficiencyState,
   learnedSkillIds: readonly string[],
   cls: string,
   specChoice: string | null,
+  loadoutPresetSlotsBought: number = 0,
 ): JobCodex {
   const learned = new Set(learnedSkillIds);
   const currentJobId = jobIdFromLegacy(cls, specChoice);
@@ -139,13 +158,19 @@ export function buildJobCodex(
     };
   });
 
-  // 수집 포인트 = 수집한 직업 패시브 수(파생). 거기서 등급 산출.
+  // 수집 포인트 = 수집한 직업 패시브 수(파생). 거기서 등급 산출. 사용분/잔액은 소비형(PR-2b).
   const collectionPoints = jobs.filter((j) => j.passive?.learned).length;
+  const collectionPointsSpent = presetSlotSpend(loadoutPresetSlotsBought);
   return {
     currentJobId,
     groups,
     jobs,
     collectionPoints,
+    collectionPointsSpent,
+    collectionPointsAvailable: Math.max(
+      0,
+      collectionPoints - collectionPointsSpent,
+    ),
     rank: collectionRank(collectionPoints),
   };
 }

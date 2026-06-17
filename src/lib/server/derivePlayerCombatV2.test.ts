@@ -1057,6 +1057,22 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(buffed.enchantLifestealPct).toBe(4);
   });
 
+  it("방어%/명중(다양성 2차)이 derive 레버에 적용된다 (PvE/PvP 공용)", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const buffed = derivePlayerCombatV2Pure({
+      ...base,
+      passiveDefPct: 20,
+      passiveAccuracyPct: 12,
+    }).player;
+    // 방어% — def 곱연산(철벽).
+    expect(buffed.def).toBe(Math.floor(plain.def * 1.2));
+    // 명중 — accuracyPct 가산(정밀). 저레벨 베이스라 캡(35) 미도달 → +12.
+    expect((buffed.accuracyPct ?? 0) - (plain.accuracyPct ?? 0)).toBeCloseTo(
+      12,
+      5,
+    );
+  });
+
   it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
     const a = derivePlayerCombatV2Pure({ ...base }).player;
     const b = derivePlayerCombatV2Pure({
@@ -1065,10 +1081,14 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       passiveCritDmgPct: 0,
       passiveEvasionPct: 0,
       passiveLifestealPct: 0,
+      passiveDefPct: 0,
+      passiveAccuracyPct: 0,
     }).player;
     expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
     expect(b.critMult ?? 0).toBe(a.critMult ?? 0);
     expect(b.evasionPct ?? 0).toBe(a.evasionPct ?? 0);
     expect(b.enchantLifestealPct ?? 0).toBe(0);
+    expect(b.def).toBe(a.def);
+    expect(b.accuracyPct ?? 0).toBe(a.accuracyPct ?? 0);
   });
 });

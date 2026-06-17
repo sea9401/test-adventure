@@ -61,6 +61,11 @@ export type V2PassiveSkillEffect = {
   evasionPct?: number;
   /** 흡혈 +% — 가한 피해의 일부 체력 흡수(포식). 자동전투 눈덩이 방지로 의도적 저수치. */
   lifestealPct?: number;
+  // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
+  /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
+  defPct?: number;
+  /** 명중 +%p 가산(정밀) — accuracyPct 에 가산(캡 적용). */
+  accuracyPct?: number;
 };
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
@@ -271,6 +276,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   critDmgPct: number;
   evasionPct: number;
   lifestealPct: number;
+  defPct: number;
+  accuracyPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -281,6 +288,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let critDmgPct = 0;
   let evasionPct = 0;
   let lifestealPct = 0;
+  let defPct = 0;
+  let accuracyPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -297,6 +306,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct += p.critDmgPct ?? 0;
     evasionPct += p.evasionPct ?? 0;
     lifestealPct += p.lifestealPct ?? 0;
+    defPct += p.defPct ?? 0;
+    accuracyPct += p.accuracyPct ?? 0;
   }
   return {
     stat,
@@ -308,6 +319,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct,
     evasionPct,
     lifestealPct,
+    defPct,
+    accuracyPct,
   };
 }
 
@@ -397,6 +410,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
   if (p.evasionPct) chips.push(`회피 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
+  if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
+  if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
   return chips;
 }
 

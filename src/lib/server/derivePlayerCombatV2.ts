@@ -401,6 +401,10 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEvasionPct?: number;
   /** 흡혈 +%(포식, 저수치) — totalLifestealPct 에 가산. */
   passiveLifestealPct?: number;
+  /** 방어력 +%(철벽, 다양성 2차) — def 에 곱연산. PvE/PvP 양쪽(damageBetween 공용). */
+  passiveDefPct?: number;
+  /** 명중 +%p(정밀, 다양성 2차) — accuracyPct 에 가산(캡 적용). PvE/PvP 양쪽. */
+  passiveAccuracyPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -479,10 +483,13 @@ export function derivePlayerCombatV2Pure(
         totalStats.dex * atkPerDexCoef +
         equipAcc.atk,
     ) + V2_BASE_COMBAT_BONUS;
-  // 물리 방어력 — 활력 + 장비 def.
-  const def =
+  // 물리 방어력 — 활력 + 장비 def. 다양성 패시브(철벽) 방어% 는 곱연산(미지정=곱 생략, byte-동일).
+  const baseDef =
     Math.floor(totalStats.vit * DEF_PER_VIT + equipAcc.def) +
     V2_BASE_COMBAT_BONUS;
+  const def = input.passiveDefPct
+    ? Math.floor(baseDef * (1 + input.passiveDefPct / 100))
+    : baseDef;
   // 마법 공격력 — 지능 + 무기 위력(magicAtk). +기본 보너스(마법 빌드 0 빌드도 베이스 확보).
   const magicAtk =
     Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
@@ -646,8 +653,10 @@ export function derivePlayerCombatV2Pure(
     specMagicAtk = Math.floor(specMagicAtk * m);
   }
 
-  // 명중 — 상한 적용 전 raw(스탯+전문화). 궁사 활 패시브는 이 raw 의 적중 임계 초과분을 공격력으로.
-  const rawAccuracyPct = accuracyPct + (specEff.accuracyPctAdd ?? 0);
+  // 명중 — 상한 적용 전 raw(스탯+전문화+장착 패시브 정밀). 궁사 활 패시브는 이 raw 의 적중 임계
+  //   초과분을 공격력으로. 다양성 패시브(정밀)는 명중에 가산(PvE/PvP 양쪽 소비).
+  const rawAccuracyPct =
+    accuracyPct + (specEff.accuracyPctAdd ?? 0) + (input.passiveAccuracyPct ?? 0);
   if (weaponTypeOf(v2Equipped.weapon) === "bow") {
     const excessAccuracy = Math.max(0, rawAccuracyPct - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
@@ -901,6 +910,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveCritDmgPct: passiveAgg.critDmgPct,
     passiveEvasionPct: passiveAgg.evasionPct,
     passiveLifestealPct: passiveAgg.lifestealPct,
+    passiveDefPct: passiveAgg.defPct,
+    passiveAccuracyPct: passiveAgg.accuracyPct,
   });
 }
 

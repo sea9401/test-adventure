@@ -295,7 +295,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: hits(5, 0.32, 36),
   },
 
-  // ── 상위 8직업 고유 패시브(% 가산, 서로 다른 축) — 학습 + SP 슬롯해야 상시 효과 ──
+  // ── 상위 8직업 고유 패시브 — 학습 + SP 슬롯해야 상시 효과 ──
+  //   다양성(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 "작동 방식" 사이드그레이드. 직업 테마에 맞춤
+  //   (수도승 회피·자객 치명·권사 흡혈·술사 치명피해). id 는 세이브 호환 위해 유지(효과만 리스킨).
   v2c_shieldman_vitality: {
     id: "v2c_shieldman_vitality", name: "체력", stat: "vit", category: "passive", tier: 2,
     description: "두터운 몸. 최대 체력이 늘어난다.", mpCost: 0, cooldown: 0,
@@ -309,23 +311,28 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 15 } },
   },
   v2c_boxer_fortitude: {
-    id: "v2c_boxer_fortitude", name: "강건 II", stat: "vit", category: "passive", tier: 2,
-    description: "깊어진 내공. 활력이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 흡혈 브루저(권사) — 옛 활력%에서 흡혈로 리스킨. 자동전투 눈덩이 방지로 의도적 저수치(4%).
+    //   🔑 흡혈(enchantLifestealPct)은 현재 PvE 엔진만 소비 — PvP(engine.pvpPhase)는 별도 훅
+    //   (lifestealCritHealPct)만 적용해 이 패시브는 PvP 에서 inert. PvP 흡혈은 밸런스 민감이라
+    //   의도적 보류(미러 여부는 후속 결정). crit/critDmg/evasion 리스킨은 PvE/PvP 양쪽 적용.
+    id: "v2c_boxer_fortitude", name: "포식", stat: "vit", category: "passive", tier: 2,
+    description: "가한 피해의 일부를 체력으로 흡수한다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { vit: 15 } },
+    passive: { lifestealPct: 4 },
   },
   v2c_monk_spirit: {
-    // stat 필드(StatKey)는 spi 미지원(레거시 union) — 그룹 메타만 vit. 효과는 statPct.spi 로 정확.
-    id: "v2c_monk_spirit", name: "정신", stat: "vit", category: "passive", tier: 2,
-    description: "맑은 마음. 정신이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 회피 지속탱(수도승) — 옛 정신%에서 회피로 리스킨. stat 필드는 그룹 메타(vit)만.
+    id: "v2c_monk_spirit", name: "허보", stat: "vit", category: "passive", tier: 2,
+    description: "바람처럼 흘려 피한다. 회피가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { spi: 15 } },
+    passive: { evasionPct: 10 },
   },
   v2c_caster_acumen: {
-    id: "v2c_caster_acumen", name: "총명 II", stat: "int", category: "passive", tier: 2,
-    description: "벼려진 통찰. 지능이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 버스트 원소(술사) — 옛 지능%에서 치명 피해로 리스킨(옛 arcane_burst 계보).
+    id: "v2c_caster_acumen", name: "맹공", stat: "int", category: "passive", tier: 2,
+    description: "치명타가 더 깊게 박힌다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { int: 15 } },
+    passive: { critDmgPct: 30 },
   },
   v2c_acolyte_mana: {
     id: "v2c_acolyte_mana", name: "마나", stat: "int", category: "passive", tier: 2,
@@ -334,10 +341,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { maxMpPct: 12 },
   },
   v2c_assassin_fortune: {
-    id: "v2c_assassin_fortune", name: "행운", stat: "luk", category: "passive", tier: 2,
-    description: "타고난 운. 행운이 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 크리 폭발(자객) — 옛 행운%에서 치명 확률로 리스킨.
+    id: "v2c_assassin_fortune", name: "치명", stat: "luk", category: "passive", tier: 2,
+    description: "급소를 노린다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { luk: 10 } },
+    passive: { critPct: 8 },
   },
   v2c_archer_agility: {
     id: "v2c_archer_agility", name: "민첩", stat: "dex", category: "passive", tier: 2,

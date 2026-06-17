@@ -1034,3 +1034,41 @@ describe("derivePlayerCombatV2Pure atkPerDexCoef (예기 — 패시브 스킬)",
     expect(rogue.player.atk).toBeGreaterThan(warrior.player.atk);
   });
 });
+
+describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패시브 → 전투 레버)", () => {
+  const base = { level: 50, v2Equipped: {}, playerClass: "warrior" as const };
+  it("치명확률/치명피해/회피/흡혈이 derive 레버에 가산된다", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const buffed = derivePlayerCombatV2Pure({
+      ...base,
+      passiveCritPct: 8,
+      passiveCritDmgPct: 30, // +0.30×
+      passiveEvasionPct: 10,
+      passiveLifestealPct: 4,
+    }).player;
+    expect((buffed.critChancePct ?? 0) - (plain.critChancePct ?? 0)).toBeCloseTo(
+      8,
+      5,
+    );
+    expect((buffed.critMult ?? 0) - (plain.critMult ?? 0)).toBeCloseTo(0.3, 5);
+    expect((buffed.evasionPct ?? 0) - (plain.evasionPct ?? 0)).toBeCloseTo(10, 5);
+    // 흡혈 — 미장착 시 미설정(undefined), 장착 시 enchantLifestealPct 훅으로 노출.
+    expect(plain.enchantLifestealPct ?? 0).toBe(0);
+    expect(buffed.enchantLifestealPct).toBe(4);
+  });
+
+  it("미지정/0 이면 무영향 (byte-identical 레버)", () => {
+    const a = derivePlayerCombatV2Pure({ ...base }).player;
+    const b = derivePlayerCombatV2Pure({
+      ...base,
+      passiveCritPct: 0,
+      passiveCritDmgPct: 0,
+      passiveEvasionPct: 0,
+      passiveLifestealPct: 0,
+    }).player;
+    expect(b.critChancePct ?? 0).toBe(a.critChancePct ?? 0);
+    expect(b.critMult ?? 0).toBe(a.critMult ?? 0);
+    expect(b.evasionPct ?? 0).toBe(a.evasionPct ?? 0);
+    expect(b.enchantLifestealPct ?? 0).toBe(0);
+  });
+});

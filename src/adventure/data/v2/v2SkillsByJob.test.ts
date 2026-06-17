@@ -55,19 +55,25 @@ describe("직업 킷 — 스킬셋", () => {
     }
   });
 
-  it("상위 8직업 패시브는 서로 다른 축(고유 — 순회 메리트)", () => {
+  it("상위 8직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {
     const passiveIds = [
       "v2c_shieldman_vitality", "v2c_squire_might", "v2c_boxer_fortitude",
       "v2c_monk_spirit", "v2c_caster_acumen", "v2c_acolyte_mana",
       "v2c_assassin_fortune", "v2c_archer_agility",
     ] as const;
-    // 각 패시브가 건드리는 "축"을 키로 직렬화 → 8개 모두 유일해야 한다.
+    // 각 패시브가 건드리는 "축/효과"를 키로 직렬화 → 8개 모두 유일해야 한다.
+    //   다양성 확장(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 비(非)스탯 효과도 포함해 직렬화.
     const axes = passiveIds.map((id) => {
       const p = V2_SKILLS[id].passive!;
       const keys: string[] = [];
       for (const k of Object.keys(p.statPct ?? {})) keys.push(`statPct.${k}`);
       if (p.maxHpPct) keys.push("maxHpPct");
       if (p.maxMpPct) keys.push("maxMpPct");
+      if (p.critPct) keys.push("critPct");
+      if (p.critDmgPct) keys.push("critDmgPct");
+      if (p.evasionPct) keys.push("evasionPct");
+      if (p.lifestealPct) keys.push("lifestealPct");
+      if (p.atkPerDexCoef) keys.push("atkPerDexCoef");
       return keys.sort().join(",");
     });
     expect(new Set(axes).size).toBe(passiveIds.length);
@@ -152,12 +158,28 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_squire_might", // statPct str+15
       "v2c_shieldman_vitality", // maxHpPct 12
       "v2c_acolyte_mana", // maxMpPct 12
-      "v2c_monk_spirit", // statPct spi+15
     ]);
     expect(agg.stat).toEqual({ str: 10 }); // 플랫과 % 는 분리
-    expect(agg.statPct).toEqual({ str: 15, spi: 15 });
+    expect(agg.statPct).toEqual({ str: 15 });
     expect(agg.maxHpPct).toBe(12);
     expect(agg.maxMpPct).toBe(12);
+  });
+
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈) 합산", () => {
+    const agg = aggregateEquippedPassives([
+      "v2c_assassin_fortune", // critPct 8
+      "v2c_caster_acumen", // critDmgPct 30
+      "v2c_monk_spirit", // evasionPct 10
+      "v2c_boxer_fortitude", // lifestealPct 4 (저수치)
+    ]);
+    expect(agg.critPct).toBe(8);
+    expect(agg.critDmgPct).toBe(30);
+    expect(agg.evasionPct).toBe(10);
+    expect(agg.lifestealPct).toBe(4);
+    // 흡혈은 자동전투 눈덩이 방지로 의도적 저수치(가드).
+    expect(agg.lifestealPct).toBeLessThanOrEqual(5);
+    // 비스탯 효과는 stat/statPct 와 분리.
+    expect(agg.statPct).toEqual({});
   });
 
   it("효과 패시브 맵(V2_JOB_PASSIVES)은 비어 있음 — 기본은 패시브 스킬로 이관", () => {

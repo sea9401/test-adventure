@@ -44,6 +44,17 @@ export type V2PassiveSkillEffect = {
   maxMpPct?: number;
   /** 민첩→공격력 보조 계수(예기). */
   atkPerDexCoef?: number;
+  // ── 다양성 확장(A 메타) — 스탯 크기 외 "작동 방식" 사이드그레이드. 모두 가산 합산.
+  //   엔진 레버에 직결: critPct→critChancePct · critDmgPct→critMult(/100) · evasionPct→eva(cap)
+  //   · lifestealPct→흡혈(낮게). 미지정=무적용(byte-identical).
+  /** 치명타 확률 +%p 가산(급소·치명). */
+  critPct?: number;
+  /** 치명타 피해 +% 가산(맹공) — critMult 에 /100 환산 가산. */
+  critDmgPct?: number;
+  /** 회피 +%p 가산(허보) — eva 캡 적용 대상. */
+  evasionPct?: number;
+  /** 흡혈 +% — 가한 피해의 일부 체력 흡수(포식). 자동전투 눈덩이 방지로 의도적 저수치. */
+  lifestealPct?: number;
 };
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
@@ -250,12 +261,20 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   maxHpPct: number;
   maxMpPct: number;
   atkPerDexCoef: number;
+  critPct: number;
+  critDmgPct: number;
+  evasionPct: number;
+  lifestealPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
   let maxHpPct = 0;
   let maxMpPct = 0;
   let atkPerDexCoef = 0;
+  let critPct = 0;
+  let critDmgPct = 0;
+  let evasionPct = 0;
+  let lifestealPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -268,8 +287,22 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     maxHpPct += p.maxHpPct ?? 0;
     maxMpPct += p.maxMpPct ?? 0;
     atkPerDexCoef += p.atkPerDexCoef ?? 0;
+    critPct += p.critPct ?? 0;
+    critDmgPct += p.critDmgPct ?? 0;
+    evasionPct += p.evasionPct ?? 0;
+    lifestealPct += p.lifestealPct ?? 0;
   }
-  return { stat, statPct, maxHpPct, maxMpPct, atkPerDexCoef };
+  return {
+    stat,
+    statPct,
+    maxHpPct,
+    maxMpPct,
+    atkPerDexCoef,
+    critPct,
+    critDmgPct,
+    evasionPct,
+    lifestealPct,
+  };
 }
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.
@@ -354,6 +387,10 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.maxHpPct) chips.push(`최대 HP +${p.maxHpPct}%`);
   if (p.maxMpPct) chips.push(`최대 MP +${p.maxMpPct}%`);
   if (p.atkPerDexCoef) chips.push("민첩이 공격력을 보조");
+  if (p.critPct) chips.push(`치명타 확률 +${p.critPct}%`);
+  if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
+  if (p.evasionPct) chips.push(`회피 +${p.evasionPct}%`);
+  if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
   return chips;
 }
 

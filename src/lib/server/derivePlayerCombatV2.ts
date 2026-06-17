@@ -6,7 +6,7 @@
 // critChancePct 는 floor 제거 — 0.1%p 단위 허용 (해상도 이득 보존).
 //
 // 5배 스케일 6스탯 axis (옛 1pt 동등 = 새 5pt):
-//   str → atk 주력 (atk += str×0.2)
+//   str → atk 주력 (atk += str×0.15)
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
 //   spd → 다중공격 확률 (extra += spd×0.5%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
@@ -246,9 +246,9 @@ const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // 빌드 정체성 유지하면서 crit 도달 속도를 빠르게. STR/BAL 같이 LUK 부 투자 빌드도
 // 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
 const CRIT_PER_LUK = 0.15;
-const ATK_PER_STR = 0.15; // PR-무기위력 0.2→0.15 (무기 위력 ~2배 상향 상쇄, sim 캘리브).
+const ATK_PER_STR = 0.15; // 무기 위력 ×0.8 하향과 함께 스탯 비중 상대적↑(계수는 불변 — 올리면 엔드 폭증).
 // 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
-// 스킬 재설계(docs/v2-skill-system-plan.md). sim 캘리브 대상.
+// 스킬 재설계(docs/v2-skill-system-plan.md). 🔑 v2c_rogue_finesse(예기) passive.atkPerDexCoef 와 동기.
 const ROGUE_ATK_PER_DEX = 0.08;
 // PR-2 strict §4 — 물리공격력 = 힘(STR) 단독. dex/spd/luk atk 보조 폐기(Codex 매핑).
 // 무기 위력 = 모든 빌드 atk 바닥. DEX/SPD/LUK 데미지는 무기 위력 + 다중공격·크리·스킬로.
@@ -307,7 +307,7 @@ const CRIT_MULT_CAP = 5.0;
 // → 문서 §8 의도대로 지능 단독계수를 힘과 대칭으로 낮춤. 재측정: INT winT Lv50 4.8·Lv75 6.5·
 // Lv100 6.6 으로 STR(7~9)과 동률대, wr 도 STR 동률(Lv75 89%). 마법 버스트 정체성은 스킬 coef
 // 프리미엄(메테오 2.8 등)으로 유지. 알려진 공백: Lv18 전 마법 공격 스킬 부재(상수 무관, 후속).
-const MAGIC_ATK_PER_INT = 0.15; // PR-무기위력 0.2→0.15 (ATK_PER_STR 대칭 유지 + 지팡이 위력 상향 상쇄).
+const MAGIC_ATK_PER_INT = 0.15; // ATK_PER_STR 대칭.
 const EVA_PER_DEX = 0.1; // 옛 0.5. 5×DEX × 0.1 = 0.5% (동등)
 const ACCURACY_PCT_PER_DEX = 0.05; // 옛 0.25. 5×DEX × 0.05 = 0.25%p (동등)
 // 명중 상한 — 명중이 스탯(STR·INT·SPI·DEX) 비례라 후반엔 수백까지 치솟아 몬스터 회피를

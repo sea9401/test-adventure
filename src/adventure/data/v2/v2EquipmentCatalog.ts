@@ -2857,3 +2857,16 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "den_beastgait",
   },
 };
+
+// PR-위력하향(2026-06-17) — 무기 위력 일괄 ×0.8. 중반(Lv50~100, 스탯 보통+T3무기)에서 무기가
+//   atk 를 지배(~66%)하던 것을 완화 → 위력 전반↓ + 스탯·직업 비중이 상대적으로↑(장비 경쟁분이
+//   줄어 자동으로). 카탈로그 power 자체를 스케일하므로 표시 위력과 전투 효과가 동일(불투명 배수
+//   없음). 🔑 derive 의 스탯→atk 계수(ATK_PER_STR/INT 0.15)는 불변 — 올리면 엔드(거대 스탯)서
+//   위력이 되레 폭증(sim 확인). 시작값 — sim 으로 튜닝.
+//   ※ 방어구·장신구(def/magicDef) 위력은 불변. 무기만 대상(정규+밴드 유니크 균일).
+export const WEAPON_POWER_SCALE = 0.8;
+for (const item of Object.values(V2_EQUIPMENT)) {
+  if (item.slot === "weapon") {
+    item.power = Math.max(1, Math.round(item.power * WEAPON_POWER_SCALE));
+  }
+}

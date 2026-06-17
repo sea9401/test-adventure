@@ -47,6 +47,12 @@ export type V2CharacterCardData = {
   gold: number;
   /** 직업 id (raw V2Class). 없으면 "무직"으로 표시. */
   class?: string;
+  /**
+   * 서버가 산출한 직업 표시명 — 직업 시스템 on 이면 직업 카탈로그 이름(견습 병사·방패병 등),
+   * off 면 옛 직군명. 있으면 이걸 우선 표기(class 직접 환산보다 정확 — 상위 직업 반영). 미동봉
+   * (옛 응답·dev mock)이면 class 직군명 폴백.
+   */
+  classDisplayName?: string | null;
 };
 
 const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] = [
@@ -105,8 +111,9 @@ export function V2CharacterCard({
   // 사냥 사이 보존. me/state 가 mp 동봉 — undefined fallback 은 maxMp (옛 캐릭).
   const maxMp = character.maxMp ?? 0;
   const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
-  // 직업명 — class 없거나 미선택이면 "무직".
-  const jobName = V2_CLASS_DEFS[parseV2Class(character.class)].name;
+  // 직업명 — 서버 산출 표시명(직업 시스템이면 견습 병사·방패병 등) 우선, 없으면 class 직군명 폴백.
+  const jobName =
+    character.classDisplayName ?? V2_CLASS_DEFS[parseV2Class(character.class)].name;
   const cappedLevel =
     typeof levelCap === "number" && Number.isFinite(levelCap)
       ? Math.max(1, Math.floor(levelCap))

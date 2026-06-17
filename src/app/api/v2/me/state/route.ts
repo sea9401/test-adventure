@@ -25,6 +25,7 @@ import {
   tierCodexMin,
   elementalSkillsForClass,
   V2_CLASS_DEFS,
+  jobDisplayName,
 } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
@@ -438,10 +439,14 @@ export async function GET() {
         })()
       : null;
   // flag off 면 null — 클라는 기존 class→이름 매핑 폴백. flag on 일 때만 모험가-인지 라벨.
+  // 직업 표시명 — 캐릭터 카드/전투 부제가 쓴다(jobDisplayName: 직업 시스템이면 견습 병사·방패병
+  //   등, 아니면 옛 직군명). core-loop off 면 null(레거시 화면이 자체 처리).
+  const classDisplaySpec =
+    typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+      ? ((charSave as { specChoice?: string }).specChoice ?? null)
+      : null;
   const classDisplayName = V2_CORE_LOOP_V2
-    ? cls === "none"
-      ? "모험가"
-      : V2_CLASS_DEFS[cls].name
+    ? jobDisplayName(cls, classDisplaySpec)
     : null;
   // 코어루프 전투 쿨다운 — 다음 전투 가능 시각(사냥·토벌 공통). off 면 null(스태미나 게이트).
   //   쿨다운 중이면 nextBattleAt=now+남은ms, 즉시 가능(미전투/경과/미래-손상)이면 now.

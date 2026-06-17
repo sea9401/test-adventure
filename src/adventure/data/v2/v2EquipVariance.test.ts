@@ -14,16 +14,20 @@ import {
 } from "./v2EquipVariance";
 
 describe("rollItemStats", () => {
-  it("rng=0 → 각 스탯 최소값(별노래궁 위력52/weight2/crit2)", () => {
-    // 무기위력 ×2(별노래궁 52) + VARIANCE 0.65: power spread round(52*0.65)=34 → [18,86];
-    // weight 1 → [1,3]; crit 1 → [1,3]. (무게·옵션은 위력 배수 대상 아님.)
+  it("rng=0 → 각 스탯 최소값(별노래궁: 위력 ±편차, weight/crit ±1)", () => {
+    // power spread = round(위력×0.65) → [위력−spread, 위력+spread]. weight 1→[1,3], crit 1→[1,3].
+    // 위력값은 카탈로그 기준(다이얼 변경에 견고).
+    const bowPow = V2_EQUIPMENT.v2_starsong_bow.power;
+    const spread = Math.round(bowPow * VARIANCE_FRACTION);
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0);
-    expect(r).toEqual({ power: 18, weight: 1, options: { crit: 1 } });
+    expect(r).toEqual({ power: bowPow - spread, weight: 1, options: { crit: 1 } });
   });
 
   it("rng≈1 → 각 스탯 최대값", () => {
+    const bowPow = V2_EQUIPMENT.v2_starsong_bow.power;
+    const spread = Math.round(bowPow * VARIANCE_FRACTION);
     const r = rollItemStats(V2_EQUIPMENT.v2_starsong_bow, () => 0.999);
-    expect(r).toEqual({ power: 86, weight: 3, options: { crit: 3 } });
+    expect(r).toEqual({ power: bowPow + spread, weight: 3, options: { crit: 3 } });
   });
 
   it("값 0(무게)은 spread 0 → 변동 없음, 위력은 ±편차(0.65)", () => {
@@ -74,11 +78,11 @@ describe("rollItemStats", () => {
 });
 
 describe("effectiveStats", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력52(×2), weight2, crit2
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력=카탈로그 기준, weight2, crit2
 
   it("굴림 없으면 카탈로그 그대로", () => {
     expect(effectiveStats(bow, undefined)).toEqual({
-      power: 52,
+      power: bow.power,
       weight: 2,
       options: { crit: 2 },
     });
@@ -125,31 +129,36 @@ describe("effectiveStats", () => {
 });
 
 describe("rollQualityPct", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // ×2+0.65: power[18,86], weight[1,3], crit[1,3]; w 위력2·무게1·옵션1
+  const bow = V2_EQUIPMENT.v2_starsong_bow;
+  // 위력 범위 [base−spread, base+spread] — 카탈로그 기준(다이얼 변경에 견고). weight[1,3], crit[1,3].
+  const pBase = bow.power;
+  const pSpread = Math.round(pBase * VARIANCE_FRACTION);
+  const pMin = pBase - pSpread;
+  const pMax = pBase + pSpread;
 
   it("god-roll(전 스탯 최대·무게 최소) = 100%", () => {
     expect(
-      rollQualityPct(bow, { power: 86, weight: 1, options: { crit: 3 } }),
+      rollQualityPct(bow, { power: pMax, weight: 1, options: { crit: 3 } }),
     ).toBe(100);
   });
 
   it("최저 굴림(전 스탯 최소·무게 최대) = 0%", () => {
     expect(
-      rollQualityPct(bow, { power: 18, weight: 3, options: { crit: 1 } }),
+      rollQualityPct(bow, { power: pMin, weight: 3, options: { crit: 1 } }),
     ).toBe(0);
   });
 
   it("카탈로그 기준값(가운데) = 50%", () => {
-    // 52 = (18+86)/2 가운데, weight 2·crit 2 도 가운데.
+    // base = (min+max)/2 가운데, weight 2·crit 2 도 가운데.
     expect(
-      rollQualityPct(bow, { power: 52, weight: 2, options: { crit: 2 } }),
+      rollQualityPct(bow, { power: pBase, weight: 2, options: { crit: 2 } }),
     ).toBe(50);
   });
 
   it("위력만 god(나머지 가운데) — 위력 가중 2 → 75%", () => {
     // power 1.0(w2) + weight 0.5(w1) + crit 0.5(w1) = 3/4
     expect(
-      rollQualityPct(bow, { power: 86, weight: 2, options: { crit: 2 } }),
+      rollQualityPct(bow, { power: pMax, weight: 2, options: { crit: 2 } }),
     ).toBe(75);
   });
 

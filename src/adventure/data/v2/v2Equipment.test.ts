@@ -357,10 +357,10 @@ describe("V2_EQUIPMENT grid (215종 — 6슬롯)", () => {
 
 describe("v2EquipStatRows (표시 행)", () => {
   it("위력 → 무게 → 옵션 순, 0 은 생략", () => {
-    // 별노래궁 T5: 위력 52(×2), weight 2, crit 2.
+    // 별노래궁: 위력=카탈로그 기준(다이얼 견고), weight 2, crit 2.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
-      { label: "위력", value: "+52" },
+      { label: "위력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
       { label: "무게", value: "2" },
       { label: "치명", value: "+2%" },
     ]);

@@ -31,6 +31,9 @@ export default function CharacterPage() {
           case "open-codex":
             router.push("/character/codex");
             break;
+          case "open-job-codex":
+            router.push("/character/job-codex");
+            break;
         }
       }}
     />

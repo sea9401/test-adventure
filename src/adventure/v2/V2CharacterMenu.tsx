@@ -20,7 +20,8 @@ export type CharacterAction =
   | { kind: "open-skills" }
   | { kind: "open-shrine" }
   | { kind: "open-quests" }
-  | { kind: "open-codex" };
+  | { kind: "open-codex" }
+  | { kind: "open-job-codex" };
 
 export function V2CharacterMenu({
   onAction,
@@ -74,6 +75,13 @@ export function V2CharacterMenu({
           }
           title="모험의 서"
           onClick={() => onAction({ kind: "open-codex" })}
+        />
+        <EntryCard
+          icon={
+            <Sparkle size={28} weight="duotone" className="text-teal-500" />
+          }
+          title="직업 도감"
+          onClick={() => onAction({ kind: "open-job-codex" })}
         />
       </div>
     </main>

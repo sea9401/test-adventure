@@ -16,7 +16,6 @@ import {
 } from "@/adventure/data/v2/classes";
 import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
-import { V2JobTree } from "./V2JobTree";
 import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "./GameStateProvider";
@@ -46,9 +45,7 @@ type StateShape = {
     base?: Partial<Record<V2StatKey, number>>;
     total?: Partial<Record<V2StatKey, number>>;
   };
-  // 코어루프 직업 스탯게이트 — flag on 일 때만(off=null).
-  jobUnlock?: { groups: string[]; specs: string[] } | null;
-  // 직업 시스템 v2(cumLevel 점진 공개) — V2_JOB_SYSTEM_V2 on 일 때만(off=null).
+  // 직업 시스템 v2(cumLevel 점진 공개 전직 목록) — 코어루프 on 일 때만(off=null → V2ClassGrid).
   jobsV2?: {
     currentJobId: string;
     currentJobName: string;
@@ -88,14 +85,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
   } | null>(null);
-  // 코어루프 직업 트리용(flag-on) — null 이면 flag off → 기존 V2ClassGrid.
-  const [coreLoop, setCoreLoop] = useState<{
-    jobUnlock: { groups: string[]; specs: string[] };
-    classDisplayName: string;
-    totalStats: Partial<Record<V2StatKey, number>>;
-    currentSpec: string | null;
-  } | null>(null);
-  // 직업 시스템 v2(cumLevel 점진 공개, flag-on) — null 이면 V2JobTree 폴백.
+  // 직업 시스템 v2(cumLevel 점진 공개) — null(코어루프 off)이면 V2ClassGrid 폴백.
   const [jobLadder, setJobLadder] = useState<{
     currentJobId: string;
     currentJobName: string;
@@ -130,18 +120,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             advance: cur.advance ?? null,
           });
         }
-        // 코어루프 flag-on(jobUnlock 비null)이면 직업 트리 데이터 채움. off 면 null 유지.
-        setCoreLoop(
-          j.jobUnlock
-            ? {
-                jobUnlock: j.jobUnlock,
-                classDisplayName: j.character?.classDisplayName ?? "모험가",
-                totalStats: j.stats?.total ?? {},
-                currentSpec: j.character?.spec ?? null,
-              }
-            : null,
-        );
-        // 직업 시스템 v2 flag-on(jobsV2 비null)이면 점진 공개 사다리. off 면 null(V2JobTree 폴백).
+        // 코어루프 on(jobsV2 비null)이면 점진 공개 사다리. off 면 null → V2ClassGrid 폴백.
         setJobLadder(
           j.jobsV2
             ? {
@@ -246,20 +225,8 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
                 await Promise.all([refresh(), refreshGameState()]);
               }}
             />
-          ) : coreLoop ? (
-            <V2JobTree
-              currentClass={picker.cls}
-              currentSpec={coreLoop.currentSpec}
-              level={picker.level}
-              totalStats={coreLoop.totalStats}
-              unlockedGroups={coreLoop.jobUnlock.groups}
-              unlockedSpecs={coreLoop.jobUnlock.specs}
-              classDisplayName={coreLoop.classDisplayName}
-              onChanged={async () => {
-                await Promise.all([refresh(), refreshGameState()]);
-              }}
-            />
           ) : (
+            // 코어루프 off 폴백 — 옛 4직군 그리드(코어루프 on 이면 위 사다리가 항상 렌더).
             <V2ClassGrid
               currentClass={picker.cls}
               currentElement={picker.elem}

@@ -77,15 +77,11 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import {
   aggregateSpecPassives,
-  getSpecById,
   resolveSpecTrait,
   type V2JobSpec,
   type V2SpecPassiveEffect,
 } from "@/adventure/data/v2/v2JobSpecs";
-import {
-  V2_JOB_SYSTEM_V2,
-  jobIdFromLegacy,
-} from "@/adventure/data/v2/v2JobCatalog";
+import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
@@ -368,7 +364,7 @@ export type DerivePlayerCombatV2PureInput = {
   /** 해금한 전문화 패시브 id들. spec 과 함께. 무기 게이트 통과 + 해금된 것만 적용. */
   unlockedPassives?: readonly string[];
   /**
-   * 직업 시스템 v2(V2_JOB_SYSTEM_V2) 직업 보너스 — 전직 직업의 플랫 스탯 보너스(카탈로그).
+   * 직업 시스템 v2 직업 보너스 — 전직 직업의 플랫 스탯 보너스(카탈로그).
    * totalStats 에 가산 → 모든 파생 스탯에 자연 반영. 미지정 = 무가산(flag off / sim 호환).
    * docs/v2-skill-job-redesign.md §3. 옛 계파 % 트레이트를 대체(래퍼가 flag on 일 때 spec 을
    * inert 로 두고 이 값을 주입 — 더블딥 방지).
@@ -824,42 +820,27 @@ export function derivePlayerCombatV2FromSaves(saves: {
 
   const parsedClass = parseV2Class(character.class);
 
-  // 전문화(스펙) — save 의 specChoice/unlockedPassives 방어 파싱. 없으면 undefined → inert.
+  // 현재 직업 = jobIdFromLegacy(class, specChoice). save 의 specChoice 는 브리지 해석에만 쓰고,
+  //   옛 계파 specEff/트레이트는 미적용(직업 패시브 스킬로 대체). raw specChoice 만 필요.
   const specId =
     typeof character.specChoice === "string" ? character.specChoice : undefined;
-  const specCandidate = specId ? getSpecById(specId) : undefined;
-  // 전문화는 직업 종속 — 현 직업의 전문화가 아니면 무시(직업 변경 후 stale specChoice 누수 방지, 방어).
-  const legacySpec =
-    specCandidate && specCandidate.job === parsedClass
-      ? specCandidate
-      : undefined;
-  const legacyUnlockedPassives = Array.isArray(character.unlockedPassives)
-    ? character.unlockedPassives.filter(
-        (x): x is string => typeof x === "string",
-      )
-    : [];
 
-  // 직업 시스템 v2(flag on) — 직업 보너스(플랫 스탯) 주입 + 옛 계파 % 트레이트를 inert 로
-  //   대체(더블딥 방지). 현재 직업 = jobIdFromLegacy(class, specChoice) → 카탈로그 jobBonus.
-  //   flag off = jobBonus 없음 + 계파 효과 그대로(byte-identical). 모험가(none)=jobBonus {} (HP%는 별도).
-  const v2JobId = V2_JOB_SYSTEM_V2
-    ? jobIdFromLegacy(parsedClass, specId ?? null)
-    : null;
-  // 직업 킷 재설계 — flag on 패시브는 "장착 패시브 스킬"에서. 근력/강건/총명(스탯) + 예기
-  //   (atkPerDexCoef). jobBonus 자동 적용 폐지(슬롯해야 효과). flag off = undefined(미적용).
+  // 직업 시스템 v2 — 패시브는 "장착 패시브 스킬"에서 집계(근력/강건/총명 스탯 + 예기
+  //   atkPerDexCoef + 상위 % 패시브). 모험가(none)=빈 집계(HP% 는 별도).
+  const v2JobId = jobIdFromLegacy(parsedClass, specId ?? null);
   const equippedSkillIds = parseV2SkillsState(skillsRaw).equipped;
-  const passiveAgg = V2_JOB_SYSTEM_V2
-    ? aggregateEquippedPassives(equippedSkillIds)
-    : null;
-  const jobBonus = passiveAgg?.stat;
-  const atkPerDexCoef = passiveAgg?.atkPerDexCoef;
-  const statPct = passiveAgg?.statPct;
-  const maxHpPct = passiveAgg?.maxHpPct;
-  const maxMpPct = passiveAgg?.maxMpPct;
-  // 직업 효과 패시브(받피감·spd 등) — flag on 일 때 옛 계파 specEff 대신 주입.
-  const jobPassiveEffect = v2JobId ? jobPassive(v2JobId) : undefined;
-  const spec = V2_JOB_SYSTEM_V2 ? undefined : legacySpec;
-  const unlockedPassives = V2_JOB_SYSTEM_V2 ? [] : legacyUnlockedPassives;
+  const passiveAgg = aggregateEquippedPassives(equippedSkillIds);
+  const jobBonus = passiveAgg.stat;
+  const atkPerDexCoef = passiveAgg.atkPerDexCoef;
+  const statPct = passiveAgg.statPct;
+  const maxHpPct = passiveAgg.maxHpPct;
+  const maxMpPct = passiveAgg.maxMpPct;
+  // 직업 효과 패시브(받피감·spd 등) — 옛 계파 specEff 대신 주입(현재 V2_JOB_PASSIVES 비어 inert).
+  const jobPassiveEffect = jobPassive(v2JobId);
+  // 옛 계파 spec/해금 패시브는 폐지 — Pure 에 미전달. Pure 의 spec 처리(aggregateSpecPassives·
+  //   resolveSpecTrait)는 입력 구동이라 유지(단위 테스트가 직접 검증)·라이브는 항상 미주입.
+  const spec = undefined;
+  const unlockedPassives: readonly string[] = [];
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,

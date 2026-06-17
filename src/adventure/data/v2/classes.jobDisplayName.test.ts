@@ -1,17 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
-// jobDisplayName — 직업 시스템 ON 분기 검증(테스트 env 기본은 flag off라 mock 으로 켠다).
+// jobDisplayName — 직업 카탈로그 이름 해석(직업 시스템 무조건화 — 플래그 폐지, 네이티브 동작).
 // 회귀: 캐릭터 카드/전투 부제/공개 프로필이 옛 클래스명("전사")이 아니라 직업 카탈로그 이름
 //   ("견습 병사"·"방패병")을 보여야 한다. 버그는 이 자리들이 class 에서 직접 환산했던 것.
-vi.mock("@/adventure/data/v2/v2JobCatalog", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/adventure/data/v2/v2JobCatalog")>();
-  return { ...actual, V2_JOB_SYSTEM_V2: true };
-});
-
 import { jobDisplayName } from "@/adventure/data/v2/classes";
 
-describe("jobDisplayName (직업 시스템 ON)", () => {
+describe("jobDisplayName", () => {
   it("기본 직업 = 견습 직업명(옛 클래스명 아님)", () => {
     expect(jobDisplayName("warrior", null)).toBe("견습 병사");
     expect(jobDisplayName("mage", null)).toBe("견습 마법사");

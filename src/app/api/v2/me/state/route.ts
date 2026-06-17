@@ -36,8 +36,6 @@ import {
   combatCooldownRemainingMs,
   offlineBattlesAccrued,
   offlineFarmDepth,
-  unlockedJobGroups,
-  unlockedSpecs,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   parseProficiencyForChar,
@@ -60,7 +58,6 @@ import {
 } from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
 import {
-  V2_JOB_SYSTEM_V2,
   V2_JOB_LIST,
   V2_JOB_CATALOG,
   isJobUnlocked,
@@ -382,19 +379,11 @@ export async function GET() {
       : null;
 
   // 코어루프 직업 스탯게이트 — flag on 일 때만. 효과 스탯(combat.totalStats)으로 해금된
-  // 직군/계파 surface(UI 트리·전직 게이트 입력). flag off = null(현행 무변경).
   const cls = parseV2Class((charSave as { class?: unknown }).class);
-  const jobUnlock =
-    V2_CORE_LOOP_V2 && combat
-      ? {
-          groups: unlockedJobGroups(combat.totalStats),
-          specs: unlockedSpecs(combat.totalStats),
-        }
-      : null;
-  // 직업 시스템 v2(cumLevel 해금) — flag on 일 때만. 카탈로그 기반 전직 목록(전직 UI).
+  // 직업 시스템 v2(cumLevel 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
   //   해금(cumLevel 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
   const jobsV2 =
-    V2_CORE_LOOP_V2 && V2_JOB_SYSTEM_V2
+    V2_CORE_LOOP_V2
       ? (() => {
           const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
           const specChoice =
@@ -499,9 +488,7 @@ export async function GET() {
     ok: true,
     accountName: userRow?.gameName?.trim() || null,
     intrusion,
-    // 코어루프(스탯게이트 직업 트리) — flag off 면 null/현행 라벨.
-    jobUnlock,
-    // 직업 시스템 v2(cumLevel 점진 공개) — V2_JOB_SYSTEM_V2 off 면 null.
+    // 직업 시스템 v2(cumLevel 점진 공개 전직 목록) — 코어루프 off 면 null.
     jobsV2,
     // 코어루프 전투 쿨다운(사냥·토벌 게이트) — flag off 면 null(스태미나로 판정).
     combatCooldown,

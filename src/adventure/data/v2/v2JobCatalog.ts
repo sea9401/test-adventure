@@ -39,14 +39,6 @@ export type V2JobDefinition = {
 };
 
 /**
- * 직업 시스템 v2 마스터 플래그(env 구동, 빌드타임).
- * off(기본) = 옛 직군/계파 스탯게이트(SPEC_STAT_GATE) 유지. on = 카탈로그 cumLevel 해금.
- * V2_CORE_LOOP_V2 와 같은 NEXT_PUBLIC_ 패턴(서버·클라 공용, PR-3 UI 에서도 참조).
- */
-export const V2_JOB_SYSTEM_V2 =
-  process.env.NEXT_PUBLIC_V2_JOB_SYSTEM_V2 === "true";
-
-/**
  * 상위(Tier 2) 기본 해금 임계 — 부모 기본 직업의 cumLevel(≈ Lv50 루프 2회).
  * 후속으로 추가될 고차/특수 직업은 개별 override 가능.
  */

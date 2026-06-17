@@ -6,7 +6,6 @@ import {
   clampLoadoutToBudget,
   sanitizeLoadout,
 } from "./v2Loadout";
-import { elementalSkillsForClass } from "./classes";
 
 const cost = (id: V2SkillId) => spCostOf(V2_SKILLS[id]);
 
@@ -26,7 +25,7 @@ describe("isSignatureSkill — 시그니처(v2s_)만 직업 고정 대상", () =
 
 describe("validateLoadout — SP 예산 + 학습 + 시그니처 직업고정", () => {
   const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, TAUNT];
-  const chain = elementalSkillsForClass("warrior", "knight", 4); // taunt 포함 체인
+  const chain: V2SkillId[] = [TAUNT]; // 시그니처가 든 직업 체인(직업 고정 검증용 입력)
 
   it("전부 학습·예산 내·시그니처 체인 안 = ok", () => {
     const budget = cost(STRIKE) + cost(RECOVER) + cost(TAUNT) + 5;
@@ -46,7 +45,7 @@ describe("validateLoadout — SP 예산 + 학습 + 시그니처 직업고정", (
 
   it("시그니처가 현 체인 밖이면 signatureOffChain + ok false (직업 고정)", () => {
     // 마법사 체인엔 knight 시그니처(taunt) 없음 → 직업 고정 위반.
-    const mageChain = elementalSkillsForClass("mage", "arcane", 4);
+    const mageChain: V2SkillId[] = []; // taunt 없는 체인(시그니처 off-chain)
     const r = validateLoadout([STRIKE, TAUNT], learned, 99, mageChain);
     expect(r.ok).toBe(false);
     expect(r.signatureOffChain).toContain(TAUNT);
@@ -54,7 +53,7 @@ describe("validateLoadout — SP 예산 + 학습 + 시그니처 직업고정", (
 
   it("공용/기본기는 체인 밖이어도 OK (시그니처만 직업 고정)", () => {
     // warcry(공용)·strike(기본기)는 마법사 체인에 없어도 배웠으면 장착 가능.
-    const mageChain = elementalSkillsForClass("mage", "arcane", 4);
+    const mageChain: V2SkillId[] = []; // taunt 없는 체인(시그니처 off-chain)
     const r = validateLoadout([STRIKE, WARCRY], learned, 99, mageChain);
     expect(r.ok).toBe(true);
     expect(r.signatureOffChain).toEqual([]);
@@ -118,8 +117,8 @@ describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
 
 describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정리", () => {
   const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, TAUNT];
-  const warriorChain = elementalSkillsForClass("warrior", "knight", 4); // taunt 포함
-  const mageChain = elementalSkillsForClass("mage", "arcane", 4); // taunt 없음
+  const warriorChain: V2SkillId[] = [TAUNT]; // 시그니처가 든 체인
+  const mageChain: V2SkillId[] = []; // taunt 없는 체인
 
   it("유효 로드아웃은 그대로 보존(순서 포함)", () => {
     expect(

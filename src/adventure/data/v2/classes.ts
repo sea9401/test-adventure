@@ -10,14 +10,8 @@
 
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import { type V2SkillId } from "@/adventure/data/v2/v2Skills";
-import { V2_COMMON_SKILLS_BY_JOB } from "@/adventure/data/v2/v2SkillsCommonCatalog";
-import {
-  V2_SPEC_SKILLS_BY_JOB,
-  V2_SPEC_SKILLS_BY_SPEC,
-} from "@/adventure/data/v2/v2SkillsSpecCatalog";
 import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import {
-  V2_JOB_SYSTEM_V2,
   V2_JOB_CATALOG,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -117,10 +111,8 @@ export const V2_CLASS_DEFS: Record<V2Class, V2ClassDef> = {
  * core-loop off 시 null 표기 여부는 호출부가 결정(여기선 항상 문자열).
  */
 export function jobDisplayName(cls: V2Class, spec: string | null): string {
-  if (V2_JOB_SYSTEM_V2) {
-    const name = V2_JOB_CATALOG[jobIdFromLegacy(cls, spec)]?.name;
-    if (name) return name;
-  }
+  const name = V2_JOB_CATALOG[jobIdFromLegacy(cls, spec)]?.name;
+  if (name) return name;
   return cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가");
 }
 
@@ -190,36 +182,15 @@ export function nextAdvanceTier(curTier: number): 2 | 3 | 4 | null {
   return null;
 }
 
-// 학습/장착 가능 스킬 풀 — 공용(직군) + **선택한 전문화(전직)의 스킬, 차수만큼만**.
-// 구 원소 풀·옛 학습 스킬(스타터/Tier-2)은 은퇴 — 스타터만 테스트 픽스처로 카탈로그에 보존.
-// 함수명 elementalSkillsForClass 는 호출부(라우트 5곳) 호환 위해 유지(레거시 명칭).
-// 전문화 게이팅(엄격): specId 가 현 직군의 전문화일 때만 그 전문화 스킬을 노출 — 미선택/타직군
-// stale specChoice 는 직군 전문화 집합(V2_SPEC_SKILLS_BY_JOB)과 교집합으로 걸러진다(방어).
-// 차수 해금: 전문화 스킬은 **차수당 1개씩**(2차=1·3차=2·4차=3) — 배열 순서(V2_SPEC_SKILLS_BY_SPEC)
-//   = 해금 순서(index 0 → 2차). 패시브 픽(pickLimit=tier−1)과 동일 곡선. specTier 미지정이면
-//   게이팅 없이 전부(단위 테스트/하위호환). 전문화 미선택(전직 전)이면 공용만.
-// 호출부는 raw specChoice 문자열 + 그 직군 차수(proficiency.tier)를 넘기면 된다.
+// 학습/장착 가능 스킬 풀 — jobId 기준 시그니처 스킬셋(직업 킷). 차수 게이팅 없음.
+// 함수명 elementalSkillsForClass 는 호출부(라우트 5곳) 호환 위해 유지(레거시 명칭). 호출부는 raw
+// specChoice 문자열을 넘기면 jobIdFromLegacy 가 (class,spec)→jobId 로 해석한다. 3번째 인자
+// (옛 차수)는 더는 쓰지 않지만 호출부 시그니처 호환 위해 남긴다.
 export function elementalSkillsForClass(
   c: V2Class,
   specId?: string | null,
-  specTier?: number,
+  _specTier?: number,
 ): V2SkillId[] {
   if (c === "none") return [];
-  // 직업 시스템 v2(flag on) — jobId 기준 시그니처 스킬셋. 차수 게이팅 없음(차수 폐지 — tier=1
-  //   이라 옛 게이팅이 시그니처를 전부 차단하던 버그도 해소). 한 곳에서 전 호출처(학습·로드아웃·
-  //   reconcile·상태) 동일 적용. flag off = 아래 기존 차수 로직(바이트 동일).
-  if (V2_JOB_SYSTEM_V2) {
-    return [...skillsForJob(jobIdFromLegacy(c, specId ?? null))];
-  }
-  const common = (V2_COMMON_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
-  const jobSpecSkills = (V2_SPEC_SKILLS_BY_JOB[c] ?? []) as readonly V2SkillId[];
-  const chosen = specId
-    ? ((V2_SPEC_SKILLS_BY_SPEC[specId] ?? []) as readonly V2SkillId[])
-    : [];
-  // 교집합 — 선택 전문화가 현 직군 소속일 때만 통과(stale/타직군 specChoice 차단).
-  const inJob = chosen.filter((id) => jobSpecSkills.includes(id));
-  // 차수당 1개 해금(2차=1·3차=2·4차=3). 미지정 = 게이팅 없음(전부).
-  const spec =
-    specTier == null ? inJob : inJob.slice(0, Math.max(0, specTier - 1));
-  return [...common, ...spec];
+  return [...skillsForJob(jobIdFromLegacy(c, specId ?? null))];
 }

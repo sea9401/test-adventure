@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 
-// 직업 시스템 v2(V2_JOB_SYSTEM_V2) flag-on 전직 화면.
+// 직업 시스템 v2 전직 화면(cumLevel 점진 공개).
 // 해금(cumLevel 조건 충족)된 직업만 한 목록에 나열한다 — 잠긴 직업은 숨김(조건 달성 시 등장).
 // 기본/상위 구분 없이 한곳에. 스킬·패시브는 스킬 화면에서 학습·장착(여긴 직업명+해금조건만).
 

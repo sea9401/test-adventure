@@ -3,7 +3,6 @@ import {
   V2_JOB_CATALOG,
   V2_JOB_LIST,
   TIER2_UNLOCK_CUMLEVEL,
-  V2_JOB_SYSTEM_V2,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
   jobIdFromLegacy,
@@ -141,22 +140,13 @@ describe("isJobUnlocked / unlockedJobs", () => {
   });
 });
 
-describe("jobDisplayName (직업 시스템 OFF — flag off 기본 env)", () => {
-  it("OFF면 옛 직군명 폴백(전사 등)·모험가", () => {
-    expect(V2_JOB_SYSTEM_V2).toBe(false); // 이 파일은 flag off(mock 없음)
-    expect(jobDisplayName("warrior", null)).toBe("전사");
-    expect(jobDisplayName("mage", "knight")).toBe("마법사"); // OFF면 spec 무시
+describe("jobDisplayName (직업 시스템 — 무조건화)", () => {
+  it("직업 카탈로그 이름(견습 X·상위), 미인식 직군은 모험가 폴백", () => {
+    expect(jobDisplayName("warrior", null)).toBe("견습 병사");
+    expect(jobDisplayName("mage", "knight")).toBe("견습 마법사"); // spec 미매칭 → 부모 직업
+    expect(jobDisplayName("warrior", "knight")).toBe("방패병"); // 상위 직업 반영
     expect(jobDisplayName("none", null)).toBe("모험가");
-  });
-
-  it("미인식 직군(V2_CLASS_DEFS 미존재)도 모험가 폴백", () => {
     expect(jobDisplayName("bogus" as never, null)).toBe("모험가");
-  });
-});
-
-describe("V2_JOB_SYSTEM_V2 플래그", () => {
-  it("기본은 off(env 미설정)", () => {
-    expect(V2_JOB_SYSTEM_V2).toBe(false);
   });
 });
 

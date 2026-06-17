@@ -170,7 +170,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
 
   // ─── Tier 3: 고차 직업(직군당 1종) — 부모 직군 정복(cumLevel ≥ TIER3_UNLOCK_CUMLEVEL) 시 해금 ───
   //   트리 성장(A 메타 PR-3). 작은 이중 내장 보너스 + 액티브 1(강) + III티어 % 패시브(직군 축).
-  //   직업이 늘면 정복 포인트(수집 패시브 수)·전직 폭이 함께 확장된다.
+  //   직업이 늘면 수집 포인트(수집 패시브 수)·전직 폭이 함께 확장된다.
   paladin: {
     id: "paladin",
     name: "기사",

@@ -35,19 +35,19 @@ export function V2JobCodexView({
             </span>
           </p>
         </div>
-        {/* 정복 포인트(수집한 패시브 수) + 등급(비파워 칭호) */}
+        {/* 수집 포인트(수집한 패시브 수) + 등급(비파워 칭호) */}
         <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50/70 px-3 py-2 dark:border-teal-800/60 dark:bg-teal-950/30">
           <span className="rounded-full bg-teal-600 px-2 py-0.5 text-[11px] font-bold text-white">
             {codex.rank.title}
           </span>
           <span className="text-xs text-zinc-600 dark:text-zinc-300">
-            정복 포인트{" "}
-            <strong className="tabular-nums">{codex.masteryPoints}</strong>
+            수집 포인트{" "}
+            <strong className="tabular-nums">{codex.collectionPoints}</strong>
           </span>
           {codex.rank.next && (
             <span className="ml-auto text-[11px] text-zinc-400 dark:text-zinc-500">
               다음 {codex.rank.next.title}까지{" "}
-              {codex.rank.next.at - codex.masteryPoints}
+              {codex.rank.next.at - codex.collectionPoints}
             </span>
           )}
         </div>

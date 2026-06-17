@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildJobCodex, masteryRank } from "./v2JobCodex";
+import { buildJobCodex, collectionRank } from "./v2JobCodex";
 import { V2_JOB_LIST } from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
@@ -44,28 +44,28 @@ describe("buildJobCodex", () => {
     expect(caster.unlocked).toBe(false);
   });
 
-  it("정복 포인트 = 수집한 패시브 수 + 등급 산출", () => {
+  it("수집 포인트 = 수집한 패시브 수 + 등급 산출", () => {
     const prof = profWith({ warrior: 50 });
-    // 패시브 2개 학습 → 정복 포인트 2.
+    // 패시브 2개 학습 → 수집 포인트 2.
     const codex = buildJobCodex(
       prof,
       ["v2c_warrior_might", "v2c_shieldman_vitality"],
       "warrior",
       null,
     );
-    expect(codex.masteryPoints).toBe(2);
+    expect(codex.collectionPoints).toBe(2);
     expect(codex.rank.title).toBe("직업 입문"); // 1점 임계 통과, 3점 미만
     expect(codex.rank.next).toEqual({ title: "직업 견습", at: 3 });
   });
 
-  it("masteryRank — 임계 경계 + 0점 무명 + 최고등급 next null", () => {
-    expect(masteryRank(0).title).toBe("무명");
-    expect(masteryRank(0).next).toEqual({ title: "직업 입문", at: 1 });
-    expect(masteryRank(1).title).toBe("직업 입문");
-    expect(masteryRank(10).title).toBe("직업 탐험가");
-    expect(masteryRank(63).title).toBe("직업 통달자"); // 64 미만
-    expect(masteryRank(64).title).toBe("만직의 현자");
-    expect(masteryRank(999).next).toBeNull(); // 최고 등급
+  it("collectionRank — 임계 경계 + 0점 무명 + 최고등급 next null", () => {
+    expect(collectionRank(0).title).toBe("무명");
+    expect(collectionRank(0).next).toEqual({ title: "직업 입문", at: 1 });
+    expect(collectionRank(1).title).toBe("직업 입문");
+    expect(collectionRank(10).title).toBe("직업 탐험가");
+    expect(collectionRank(63).title).toBe("직업 통달자"); // 64 미만
+    expect(collectionRank(64).title).toBe("만직의 현자");
+    expect(collectionRank(999).next).toBeNull(); // 최고 등급
   });
 
   it("현재 직업 표시 + 패시브 수집 여부", () => {

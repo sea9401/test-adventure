@@ -1213,6 +1213,8 @@ function castV2SkillOnAttackerTurnPvP(
       // PR2-B — PvP 시전자도 PlayerCombat → def/vit 비례딜·현재HP(사혈격)·maxMp(보호막/명상)·차수 flat 유효.
       def: side.player.def,
       vit: side.player.vitStat,
+      dex: side.player.dexStat,
+      luk: side.player.lukStat,
       currentHp: side.hp,
       maxMp: side.maxMp,
       classTier: side.player.classTier,

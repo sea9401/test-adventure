@@ -687,6 +687,9 @@ export function derivePlayerCombatV2Pure(
     intStat: totalStats.int,
     // 스킬 스케일/차수용 — 나한권(vit 비례 딜)·전문화 스킬 차수 flat(baseFlatByTier).
     vitStat: totalStats.vit,
+    // scaling:"dex"/"luk" 비례 딜(도적 직군 스킬)용 total. % 패시브/내장보너스 반영된 최종값.
+    dexStat: totalStats.dex,
+    lukStat: totalStats.luk,
     classTier: input.classTier,
     atk: specAtk,
     magicAtk: specMagicAtk,

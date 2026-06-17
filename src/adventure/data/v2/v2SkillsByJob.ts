@@ -21,13 +21,13 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   monk: ["v2c_monk_palm", "v2c_monk_spirit"], // 선풍각(회피버프) + 허보(회피+10%)
   caster: ["v2c_caster_bolt", "v2c_caster_acumen"], // 마탄 + 맹공(치명피해+30%)
   acolyte: ["v2c_acolyte_smite", "v2c_acolyte_mana"], // 치유(자힐) + 마나(MP+12%)
-  assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형) + 치명(치명확률+8%)
+  assassin: ["v2c_assassin_ambush", "v2c_assassin_fortune"], // 처단(처형·LUK 비례) + 치명(치명확률+8%)
   archer: ["v2c_archer_volley", "v2c_archer_agility"], // 속박 사격(딜+취약) + 민첩(민첩+10%)
   // ── 고차 4직업(tier 3) — 액티브 1(강) + III티어 % 패시브(직군 축) ──
   paladin: ["v2c_paladin_cleave", "v2c_paladin_might3"], // 베기(강) + 철벽(방어+20%)
   brawler: ["v2c_brawler_combo", "v2c_brawler_fortitude3"], // 연권(강) + 강건 III(활력+20%)
   magus: ["v2c_magus_bolt", "v2c_magus_acumen3"], // 마탄(강) + 총명 III(지능+20%)
-  ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 기습(강) + 정밀(명중+12)
+  ranger: ["v2c_ranger_ambush", "v2c_ranger_finesse3"], // 기습(DEX 비례) + 정밀(명중+12)
   // ── 심화 4직업(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화) ──
   veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"], // 참격 + 필살(치명피해+25%)
   sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"], // 난무 + 철신(최대HP+12%)

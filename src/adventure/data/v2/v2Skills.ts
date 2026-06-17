@@ -117,14 +117,22 @@ export type V2MonsterStatusSkillId =
 //   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).
 // scaling "def": 방어비례딜(방패 가격) — atk/magicAtk 대신 DEF 스케일.
 // scaling "vit": VIT 비례 딜(나한권) — 금강(VIT 앵커) 정체성, 기사 DEF비례와 다른 축.
-//   def/vit 은 시전자 def/vit 값이 필요 → 엔진 PR2-B 배선(그 전엔 physical 대체).
+//   def/vit/dex/luk 은 시전자 그 스탯 값이 필요 → 엔진(combatShared.damageWith) 배선(미배선 스탯은
+//   physical 대체). dex/luk = 도적 직군 직접 비례딜(원시 스탯이 크므로 계수는 작게 — str→atk 0.15급).
+export type V2DamageScaling =
+  | "physical"
+  | "magic"
+  | "def"
+  | "vit"
+  | "dex"
+  | "luk";
 export type V2SkillEffect =
   | {
       kind: "damage";
       statCoef: number;
       baseFlat?: number;
       baseFlatByTier?: readonly [number, number, number];
-      scaling?: "physical" | "magic" | "def" | "vit";
+      scaling?: V2DamageScaling;
     }
   // pctLostHp: 잃은 체력 비례 회복(기공 순환).
   | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }
@@ -147,7 +155,7 @@ export type V2SkillEffect =
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       soakRatio: number;
-      scaling?: "physical" | "magic";
+      scaling?: V2DamageScaling;
     }
   // 힐→딜 — 자힐 후 힐량×damageRatio 적에게 딜(신성 강타).
   | {
@@ -155,7 +163,7 @@ export type V2SkillEffect =
       healStatCoef: number;
       healFlatByTier?: readonly [number, number, number];
       damageRatio: number;
-      scaling?: "physical" | "magic";
+      scaling?: V2DamageScaling;
     }
   // 처형 — 적 HP hpThresholdPct% 이하 시 데미지×bonusMult(처단).
   | {
@@ -164,7 +172,7 @@ export type V2SkillEffect =
       baseFlatByTier?: readonly [number, number, number];
       hpThresholdPct: number;
       bonusMult: number;
-      scaling?: "physical" | "magic";
+      scaling?: V2DamageScaling;
     }
   // 스택 비례 딜 — 적 DoT/취약 스택당 추가딜(참절·중독 폭발·비전 작렬).
   | {
@@ -173,7 +181,7 @@ export type V2SkillEffect =
       statCoef: number;
       baseFlatByTier?: readonly [number, number, number];
       perStackFlat: number;
-      scaling?: "physical" | "magic";
+      scaling?: V2DamageScaling;
     }
   | {
       kind: "dot";
@@ -340,10 +348,12 @@ function flatChip(baseFlat?: number, byTier?: readonly [number, number, number])
   if (byTier) return ` +${byTier[0]}~${byTier[2]}`;
   return baseFlat ? ` +${baseFlat}` : "";
 }
-function scalingChip(scaling?: "physical" | "magic" | "def" | "vit"): string {
+function scalingChip(scaling?: V2DamageScaling): string {
   if (scaling === "magic") return " (마법)";
   if (scaling === "def") return " (방어비례)";
   if (scaling === "vit") return " (활력비례)";
+  if (scaling === "dex") return " (민첩비례)";
+  if (scaling === "luk") return " (행운비례)";
   return "";
 }
 

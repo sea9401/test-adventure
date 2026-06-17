@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildJobCodex } from "./v2JobCodex";
+import { buildJobCodex, masteryRank } from "./v2JobCodex";
+import { V2_JOB_LIST } from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
 
@@ -13,12 +14,14 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
-  it("4 직군 + 비모험가 12직업, 직군 정복은 cumLevel≥임계", () => {
+  it("4 직군 + 비모험가 직업 전부, 직군 정복은 cumLevel≥임계", () => {
     const prof = profWith({ warrior: SP_MASTERED_CUMLEVEL, mage: 100 });
     const codex = buildJobCodex(prof, [], "warrior", null);
 
     expect(codex.groups).toHaveLength(4);
-    expect(codex.jobs).toHaveLength(12); // 모험가(tier0) 제외
+    // 모험가(tier0) 제외 — 카탈로그 확장에 견고(하드코딩 회피).
+    const nonAdventurer = V2_JOB_LIST.filter((j) => j.tier > 0).length;
+    expect(codex.jobs).toHaveLength(nonAdventurer);
 
     const warriorGroup = codex.groups.find((g) => g.group === "warrior")!;
     expect(warriorGroup.mastered).toBe(true); // cumLevel 250 ≥ 250
@@ -39,6 +42,30 @@ describe("buildJobCodex", () => {
     // mage 계열 상위는 mage cum 0 → 잠김
     const caster = codex.jobs.find((j) => j.id === "caster")!;
     expect(caster.unlocked).toBe(false);
+  });
+
+  it("정복 포인트 = 수집한 패시브 수 + 등급 산출", () => {
+    const prof = profWith({ warrior: 50 });
+    // 패시브 2개 학습 → 정복 포인트 2.
+    const codex = buildJobCodex(
+      prof,
+      ["v2c_warrior_might", "v2c_shieldman_vitality"],
+      "warrior",
+      null,
+    );
+    expect(codex.masteryPoints).toBe(2);
+    expect(codex.rank.title).toBe("직업 입문"); // 1점 임계 통과, 3점 미만
+    expect(codex.rank.next).toEqual({ title: "직업 견습", at: 3 });
+  });
+
+  it("masteryRank — 임계 경계 + 0점 무명 + 최고등급 next null", () => {
+    expect(masteryRank(0).title).toBe("무명");
+    expect(masteryRank(0).next).toEqual({ title: "직업 입문", at: 1 });
+    expect(masteryRank(1).title).toBe("직업 입문");
+    expect(masteryRank(10).title).toBe("직업 탐험가");
+    expect(masteryRank(63).title).toBe("직업 통달자"); // 64 미만
+    expect(masteryRank(64).title).toBe("만직의 현자");
+    expect(masteryRank(999).next).toBeNull(); // 최고 등급
   });
 
   it("현재 직업 표시 + 패시브 수집 여부", () => {

@@ -54,13 +54,24 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[active].category, active).not.toBe("passive");
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }
-    // 역할 다양화: 사제 액티브 = 자힐(heal), 방패병 액티브 = 방어력 기반 데미지.
+    // 역할 다양화 1차: 사제 = 자힐(heal), 방패병 = 방어력 기반 데미지.
     expect(V2_SKILLS.v2c_acolyte_smite.category).toBe("heal");
     expect(V2_SKILLS.v2c_acolyte_smite.effects[0]).toMatchObject({ kind: "heal" });
     expect(V2_SKILLS.v2c_shieldman_bash.effects[0]).toMatchObject({
       kind: "damage",
       scaling: "def",
     });
+    // 역할 다양화 2차: 수도승 = 회피버프, 자객 = 처형, 궁수 = 딜+취약.
+    expect(V2_SKILLS.v2c_monk_palm.effects[0]).toMatchObject({
+      kind: "selfBuffPct",
+      target: "evasion",
+    });
+    expect(V2_SKILLS.v2c_assassin_ambush.effects[0]).toMatchObject({
+      kind: "executeDamage",
+    });
+    expect(
+      V2_SKILLS.v2c_archer_volley.effects.some((e) => e.kind === "enemyVuln"),
+    ).toBe(true);
   });
 
   it("상위 8직업 패시브는 서로 다른 축/효과(고유 — 순회 메리트)", () => {

@@ -48,11 +48,11 @@ export type V2CommonSkillId =
   | "v2c_shieldman_bash" // 방패 타격 (방어력 기반 단일)
   | "v2c_squire_cleave" // 베기 (물리 단일 강)
   | "v2c_boxer_combo" // 연권 (물리 다단)
-  | "v2c_monk_palm" // 장권 (물리 다단)
+  | "v2c_monk_palm" // 선풍각 (회피 버프 — selfBuffPct)
   | "v2c_caster_bolt" // 마탄 (마법 단일 강)
   | "v2c_acolyte_smite" // 치유 (자힐 — heal)
-  | "v2c_assassin_ambush" // 기습 (물리 단일 강)
-  | "v2c_archer_volley" // 난사 (물리 다단)
+  | "v2c_assassin_ambush" // 처단 (처형 — executeDamage)
+  | "v2c_archer_volley" // 속박 사격 (딜 + 취약 enemyVuln)
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
   | "v2c_shieldman_vitality" // 체력 (최대 HP +12%)
   | "v2c_squire_might" // 근력 II (힘 +15%)
@@ -279,9 +279,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: hits(4, 0.4, 42),
   },
   v2c_monk_palm: {
-    id: "v2c_monk_palm", name: "장권", stat: "str", category: "attack", tier: 2,
-    description: "손바닥으로 세 번 밀어친다.", mpCost: 28, cooldown: 0, procChance: 40,
-    effects: hits(3, 0.5, 55),
+    // 수도승 = 회피 지속탱(역할화 2차) — 딜 대신 회피 버프(selfBuffPct evasion, 배선됨). 패시브
+    //   허보(상시 회피)와 합쳐 회피 정체성. id 유지(세이브 호환). 딜은 평타로. PvE/PvP 공용.
+    id: "v2c_monk_palm", name: "선풍각", stat: "vit", category: "buff", tier: 2,
+    description: "바람을 타듯 흘리는 보법. 한동안 회피가 크게 오른다.", mpCost: 24, cooldown: 0, procChance: 55,
+    effects: [{ kind: "selfBuffPct", target: "evasion", pct: 15, turns: 3 }],
   },
   // ── 마법사 갈래 ──
   v2c_caster_bolt: {
@@ -298,14 +300,20 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   // ── 도적 갈래 ──
   v2c_assassin_ambush: {
-    id: "v2c_assassin_ambush", name: "기습", stat: "str", category: "attack", tier: 2,
-    description: "허를 찔러 깊게 베어든다.", mpCost: 34, cooldown: 0, procChance: 30,
-    effects: [dmg(1.2, 185)],
+    // 자객 = 크리 폭발(역할화 2차) — 마무리(처형). 적 HP 30%↓ 시 ×2.0. 패시브 치명(크리)과 합쳐
+    //   "약한 적 끝내기" 정체성. id 유지. executeDamage 배선됨. PvE/PvP 공용.
+    id: "v2c_assassin_ambush", name: "처단", stat: "str", category: "attack", tier: 2,
+    description: "빈틈을 노려 숨통을 끊는다. 적이 위태로울수록 치명적이다.", mpCost: 34, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "executeDamage", statCoef: 1.2, baseFlatByTier: [185, 185, 185], hpThresholdPct: 30, bonusMult: 2.0 },
+    ],
   },
   v2c_archer_volley: {
-    id: "v2c_archer_volley", name: "난사", stat: "str", category: "attack", tier: 2,
-    description: "화살을 다섯 대 쏟아붓는다.", mpCost: 28, cooldown: 0, procChance: 40,
-    effects: hits(5, 0.32, 36),
+    // 궁수 = 물량/유틸(역할화 2차) — 딜 + 취약(enemyVuln, 적 받는 피해 +%). 디버프 지원으로 다른
+    //   딜을 증폭. id 유지. enemyVuln 배선됨. PvE/PvP 공용.
+    id: "v2c_archer_volley", name: "속박 사격", stat: "str", category: "attack", tier: 2,
+    description: "약점을 꿰뚫어 한동안 받는 피해를 키운다.", mpCost: 30, cooldown: 0, procChance: 35,
+    effects: [dmg(0.9, 90), { kind: "enemyVuln", pct: 20, turns: 3 }],
   },
 
   // ── 상위 8직업 고유 패시브 — 학습 + SP 슬롯해야 상시 효과 ──

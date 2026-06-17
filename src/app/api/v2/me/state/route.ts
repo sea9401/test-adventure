@@ -56,7 +56,7 @@ import {
   describeSpecTraitEffect,
   describeSpecPassiveEffect,
 } from "@/adventure/data/v2/v2JobSpecs";
-import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
+import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_JOB_LIST,
   V2_JOB_CATALOG,
@@ -415,13 +415,17 @@ export async function GET() {
                           `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`,
                       )
                       .join(", ");
-              // 직업 킷 재설계 — 패시브/스탯은 이제 "패시브 스킬"(스킬 화면에서 학습·장착)이라
-              //   전직 화면엔 직업명+해금조건만. jobBonus/passive 칩 제거(오해 방지).
+              // 직업 내장 보너스(현재 직업에 있을 때 적용되는 플랫 스탯) — "이 직업을 고를 이유"로
+              //   전직 화면에 표기. 패시브 스킬(휴대용)과 별개.
+              const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
+                .map((k) => `${V2_STAT_LABELS[k]} +${job.jobBonus[k]}`)
+                .join(" · ");
               return {
                 id: job.id,
                 name: job.name,
                 tier: job.tier,
                 condition,
+                bonus,
               };
             }),
           };

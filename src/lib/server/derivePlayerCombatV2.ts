@@ -81,7 +81,10 @@ import {
   type V2JobSpec,
   type V2SpecPassiveEffect,
 } from "@/adventure/data/v2/v2JobSpecs";
-import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
+import {
+  V2_JOB_CATALOG,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
@@ -830,7 +833,14 @@ export function derivePlayerCombatV2FromSaves(saves: {
   const v2JobId = jobIdFromLegacy(parsedClass, specId ?? null);
   const equippedSkillIds = parseV2SkillsState(skillsRaw).equipped;
   const passiveAgg = aggregateEquippedPassives(equippedSkillIds);
-  const jobBonus = passiveAgg.stat;
+  // 직업 내장 보너스 — 현재 직업 1개분(카탈로그 jobBonus, "이 직업에 머무를 이유")을 휴대용
+  //   패시브 스탯과 합산. 직업은 하나뿐이라 내장분은 상한이 잡히고, 패시브는 SP 예산 내 누적.
+  const innateBonus = V2_JOB_CATALOG[v2JobId]?.jobBonus ?? {};
+  const jobBonus: Partial<Record<V2StatKey, number>> = { ...passiveAgg.stat };
+  for (const k of V2_STAT_KEYS) {
+    const b = innateBonus[k];
+    if (b) jobBonus[k] = (jobBonus[k] ?? 0) + b;
+  }
   const atkPerDexCoef = passiveAgg.atkPerDexCoef;
   const statPct = passiveAgg.statPct;
   const maxHpPct = passiveAgg.maxHpPct;

@@ -14,6 +14,8 @@ export type JobLadderEntry = {
   tier: number;
   // 해금 조건(공유용 표기). 예: "Lv 50 달성" / "견습 병사 누적 Lv 100".
   condition: string;
+  // 직업 내장 스탯 보너스(현재 직업일 때 적용) 표기. 예: "활력 +12 · 힘 +6". 없으면 빈 문자열.
+  bonus?: string;
 };
 
 type Pending = { id: string; name: string };
@@ -194,6 +196,11 @@ function JobRow({
             </span>
           )}
         </div>
+        {job.bonus && (
+          <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+            직업 보너스 · {job.bonus}
+          </span>
+        )}
         <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
           해금 조건 · {job.condition}
         </span>

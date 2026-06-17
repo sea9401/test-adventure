@@ -64,7 +64,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 병사",
     tier: 1,
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
-    jobBonus: { str: 10 }, // 직업 킷 재설계 — 기본직업 저리턴 단일 스탯 패시브
+    jobBonus: { str: 5 }, // 내장 보너스(현재 직업 1개분, 소량) — 패시브 근력과 별개 누적
     unlock: { prereqs: {} },
   },
   martial: {
@@ -72,7 +72,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 무인",
     tier: 1,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 10 },
+    jobBonus: { vit: 5 },
     unlock: { prereqs: {} },
   },
   mage: {
@@ -80,7 +80,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 마법사",
     tier: 1,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 10 },
+    jobBonus: { int: 5 },
     unlock: { prereqs: {} },
   },
   rogue: {
@@ -88,7 +88,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 도적",
     tier: 1,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: {}, // 도적 패시브 = 예기(DEX→공격력, derive 직군 베이스라인), 스탯 보너스 없음
+    jobBonus: { dex: 5 }, // 내장 보너스(소량) — 예기 패시브(DEX→공격력)와 별개
     unlock: { prereqs: {} },
   },
 
@@ -99,7 +99,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "방패병",
     tier: 2,
     cultivateProfile: { vit: 2, str: 1, dex: 1 },
-    jobBonus: { vit: 25, str: 15 }, // 방어 탱 (← 옛 knight)
+    jobBonus: { vit: 12, str: 6 }, // 방어 탱 (← 옛 knight)
     unlock: { prereqs: { warrior: TIER2_UNLOCK_CUMLEVEL } },
   },
   squire: {
@@ -107,7 +107,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "견습 기사",
     tier: 2,
     cultivateProfile: { str: 2, dex: 1, vit: 1 },
-    jobBonus: { str: 25, dex: 10 }, // 돌격 딜 (← 옛 gwang)
+    jobBonus: { str: 12, dex: 5 }, // 돌격 딜 (← 옛 gwang)
     unlock: { prereqs: { warrior: TIER2_UNLOCK_CUMLEVEL } },
   },
   // 무도가 갈래
@@ -116,7 +116,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "권사",
     tier: 2,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { str: 20, vit: 15 }, // 흡혈 브루저 (← 옛 gigong)
+    jobBonus: { str: 10, vit: 8 }, // 흡혈 브루저 (← 옛 gigong)
     unlock: { prereqs: { martial: TIER2_UNLOCK_CUMLEVEL } },
   },
   monk: {
@@ -124,7 +124,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "수도승",
     tier: 2,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 30, spi: 5 }, // 회피 지속탱 (← 옛 cheolsan)
+    jobBonus: { vit: 14, spi: 4 }, // 회피 지속탱 (← 옛 cheolsan)
     unlock: { prereqs: { martial: TIER2_UNLOCK_CUMLEVEL } },
   },
   // 마법사 갈래
@@ -133,7 +133,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "술사",
     tier: 2,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 30, spi: 5 }, // 버스트 원소 (← 옛 arcane)
+    jobBonus: { int: 14, spi: 4 }, // 버스트 원소 (← 옛 arcane)
     unlock: { prereqs: { mage: TIER2_UNLOCK_CUMLEVEL } },
   },
   acolyte: {
@@ -141,7 +141,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "사제",
     tier: 2,
     cultivateProfile: { int: 1, spi: 2, vit: 1 },
-    jobBonus: { int: 15, vit: 15, spi: 10 }, // 자힐 탱 (← 옛 cleric)
+    jobBonus: { int: 7, vit: 7, spi: 5 }, // 자힐 탱 (← 옛 cleric)
     unlock: { prereqs: { mage: TIER2_UNLOCK_CUMLEVEL } },
   },
   // 도적 갈래
@@ -150,7 +150,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "자객",
     tier: 2,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: { dex: 20, luk: 20 }, // 크리 폭발 (id 유지)
+    jobBonus: { dex: 10, luk: 10 }, // 크리 폭발 (id 유지)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
   archer: {
@@ -158,7 +158,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "궁수",
     tier: 2,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: { dex: 25, str: 10 }, // 다단 물량 (← 옛 archery)
+    jobBonus: { dex: 12, str: 5 }, // 다단 물량 (← 옛 archery)
     unlock: { prereqs: { rogue: TIER2_UNLOCK_CUMLEVEL } },
   },
 };

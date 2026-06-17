@@ -11,15 +11,15 @@ const noop = async () => {};
 
 // 상위 직업(방패병·견습 기사) 해금 조건 — 부모 누적 레벨. 기본 직업 = Lv 50 달성.
 const BASE_JOBS: JobLadderEntry[] = [
-  { id: "warrior", name: "견습 병사", tier: 1, condition: "Lv 50 달성" },
-  { id: "martial", name: "견습 무인", tier: 1, condition: "Lv 50 달성" },
-  { id: "mage", name: "견습 마법사", tier: 1, condition: "Lv 50 달성" },
-  { id: "rogue", name: "견습 도적", tier: 1, condition: "Lv 50 달성" },
+  { id: "warrior", name: "견습 병사", tier: 1, condition: "Lv 50 달성", bonus: "힘 +5" },
+  { id: "martial", name: "견습 무인", tier: 1, condition: "Lv 50 달성", bonus: "활력 +5" },
+  { id: "mage", name: "견습 마법사", tier: 1, condition: "Lv 50 달성", bonus: "지능 +5" },
+  { id: "rogue", name: "견습 도적", tier: 1, condition: "Lv 50 달성", bonus: "민첩 +5" },
 ];
 
 const WARRIOR_UPPER: JobLadderEntry[] = [
-  { id: "shieldman", name: "방패병", tier: 2, condition: "견습 병사 누적 Lv 100" },
-  { id: "squire", name: "견습 기사", tier: 2, condition: "견습 병사 누적 Lv 100" },
+  { id: "shieldman", name: "방패병", tier: 2, condition: "견습 병사 누적 Lv 100", bonus: "활력 +12 · 힘 +6" },
+  { id: "squire", name: "견습 기사", tier: 2, condition: "견습 병사 누적 Lv 100", bonus: "힘 +12 · 민첩 +5" },
 ];
 
 function Scenario({

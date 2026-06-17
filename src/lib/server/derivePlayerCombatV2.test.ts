@@ -966,15 +966,18 @@ describe("derivePlayerCombatV2Pure jobBonus (PR-4 직업 보너스 플랫 주입
     expect(boosted.player.def).toBeGreaterThan(b.player.def);
   });
 
-  it("카탈로그 jobBonus 연동 — 견습 기사(squire) STR+25 DEX+10", () => {
+  it("카탈로그 jobBonus(내장 보너스) 연동 — 견습 기사(squire) 카탈로그값 그대로 가산", () => {
     const b = base();
+    const bonus = V2_JOB_CATALOG.squire.jobBonus;
     const squire = derivePlayerCombatV2Pure({
       level: 50,
       v2Equipped: {},
-      jobBonus: V2_JOB_CATALOG.squire.jobBonus,
+      jobBonus: bonus,
     });
-    expect(squire.totalStats.str).toBe(b.totalStats.str + 25);
-    expect(squire.totalStats.dex).toBe(b.totalStats.dex + 10);
+    // 하드코딩 회피 — 카탈로그 값을 그대로 검증(다이얼 변경에 견고).
+    expect(squire.totalStats.str).toBe(b.totalStats.str + (bonus.str ?? 0));
+    expect(squire.totalStats.dex).toBe(b.totalStats.dex + (bonus.dex ?? 0));
+    expect(bonus.str ?? 0).toBeGreaterThan(0); // 내장 보너스 존재(0으로 비지 않게)
   });
 });
 

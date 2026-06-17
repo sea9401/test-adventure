@@ -51,6 +51,21 @@ describe("v2JobCatalog 구조", () => {
     expect(jobById("squire")?.name).toBe("견습 기사");
     expect(jobById("nope")).toBeUndefined();
   });
+
+  it("직업 내장 보너스(jobBonus) — 직업(tier≥1)마다 존재, 모험가(none)는 없음", () => {
+    // "이 직업에 머무를 이유" = 내장 보너스. 0으로 비면 직업 정체성이 사라지므로 회귀 가드.
+    for (const job of V2_JOB_LIST) {
+      const total = Object.values(job.jobBonus).reduce(
+        (s, v) => s + (v ?? 0),
+        0,
+      );
+      if (job.tier === 0) {
+        expect(total, `${job.id}(모험가)`).toBe(0);
+      } else {
+        expect(total, `${job.id} 내장 보너스 합`).toBeGreaterThan(0);
+      }
+    }
+  });
 });
 
 describe("스탯 맵 무결성", () => {

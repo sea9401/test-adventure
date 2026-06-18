@@ -16,7 +16,7 @@ import { groupCumLevel, type V2ProficiencyState } from "./proficiency";
 import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
 import { skillsForJob } from "./v2SkillsByJob";
 import { V2_SKILLS, type V2SkillId } from "./v2Skills";
-import { presetSlotSpend } from "./v2LoadoutPresets";
+import { totalCollectionSpend } from "./v2CollectionTitles";
 
 // 4 직군(tier-1) — 직군별 cumLevel·정복 표기 단위.
 const GROUP_IDS = ["warrior", "martial", "mage", "rogue"] as const;
@@ -122,6 +122,7 @@ export function buildJobCodex(
   specChoice: string | null,
   loadoutPresetSlotsBought: number = 0,
   unlockCtx?: JobUnlockContext,
+  ownedTitleIds: readonly string[] = [],
 ): JobCodex {
   const learned = new Set(learnedSkillIds);
   const currentJobId = jobIdFromLegacy(cls, specChoice);
@@ -160,9 +161,13 @@ export function buildJobCodex(
     };
   });
 
-  // 수집 포인트 = 수집한 직업 패시브 수(파생). 거기서 등급 산출. 사용분/잔액은 소비형(PR-2b).
+  // 수집 포인트 = 수집한 직업 패시브 수(파생). 거기서 등급 산출. 사용분/잔액은 소비형:
+  //   프리셋 슬롯 + 수집 칭호 상점이 같은 풀을 공유(totalCollectionSpend).
   const collectionPoints = jobs.filter((j) => j.passive?.learned).length;
-  const collectionPointsSpent = presetSlotSpend(loadoutPresetSlotsBought);
+  const collectionPointsSpent = totalCollectionSpend(
+    loadoutPresetSlotsBought,
+    ownedTitleIds,
+  );
   return {
     currentJobId,
     groups,

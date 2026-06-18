@@ -58,6 +58,29 @@ describe("buildJobCodex", () => {
     expect(codex.rank.next).toEqual({ title: "직업 견습", at: 3 });
   });
 
+  it("수집 칭호 보유분이 사용분에 잡혀 잔액 차감 (소비형 sink)", () => {
+    const prof = profWith({ warrior: 50 });
+    const learned = ["v2c_warrior_might", "v2c_shieldman_vitality"]; // 수집 2
+    // 보유 칭호 없음 → 사용분 0, 잔액 2.
+    const base = buildJobCodex(prof, learned, "warrior", null, 0, undefined, []);
+    expect(base.collectionPointsSpent).toBe(0);
+    expect(base.collectionPointsAvailable).toBe(2);
+    // coll_wanderer(2) 보유 → 사용분 2, 잔액 0. 누적/등급은 불변.
+    const withTitle = buildJobCodex(
+      prof,
+      learned,
+      "warrior",
+      null,
+      0,
+      undefined,
+      ["coll_wanderer"],
+    );
+    expect(withTitle.collectionPoints).toBe(2); // 누적 불변
+    expect(withTitle.collectionPointsSpent).toBe(2);
+    expect(withTitle.collectionPointsAvailable).toBe(0);
+    expect(withTitle.rank.title).toBe(base.rank.title); // 등급 불변
+  });
+
   it("collectionRank — 임계 경계 + 0점 무명 + 최고등급 next null", () => {
     expect(collectionRank(0).title).toBe("무명");
     expect(collectionRank(0).next).toEqual({ title: "직업 입문", at: 1 });

@@ -5,6 +5,7 @@ import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { CheckCircle, Lock } from "@phosphor-icons/react";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
+import { V2CollectionTitleShop } from "./V2CollectionTitleShop";
 
 // 직업 도감(A 메타 PR-1) — 읽기 전용 수집 대시보드. 4 직군별 정복 진행 + 직업 해금·패시브 수집.
 //   파워 무관(순수 표시). 데이터는 /api/v2/me/job-codex 또는 mock(dev).
@@ -61,6 +62,9 @@ export function V2JobCodexView({
           )}
         </div>
       </HeaderPanel>
+
+      {/* 수집 포인트 소비형 sink — 수집 칭호 상점(자체 fetch·코어루프 컨텍스트만 노출) */}
+      <V2CollectionTitleShop />
 
       <div className="space-y-3">
         {codex.groups.map((group) => {

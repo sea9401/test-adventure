@@ -230,7 +230,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   //   새 derive 배선 없음 — 기존 효과 어휘(치명피해·최대HP%·치명확률·회피) 재사용.
   veteran: {
     id: "veteran",
-    name: "노장",
+    name: "베테랑",
     tier: 4,
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
     jobBonus: { str: 10, vit: 10 }, // 전사 심화
@@ -238,7 +238,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   sensei: {
     id: "sensei",
-    name: "노사",
+    name: "마스터",
     tier: 4,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
     jobBonus: { vit: 12, str: 6 }, // 무도 심화
@@ -246,7 +246,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   sage: {
     id: "sage",
-    name: "현자",
+    name: "위저드",
     tier: 4,
     cultivateProfile: { int: 2, spi: 2 },
     jobBonus: { int: 12, spi: 6 }, // 마법 심화
@@ -254,7 +254,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   chief: {
     id: "chief",
-    name: "두령",
+    name: "보스",
     tier: 4,
     cultivateProfile: { dex: 2, luk: 2 },
     jobBonus: { dex: 12, luk: 6 }, // 도적 심화

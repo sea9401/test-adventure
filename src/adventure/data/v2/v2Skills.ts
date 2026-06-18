@@ -69,6 +69,10 @@ export type V2PassiveSkillEffect = {
   // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
   /** 회복 +% 가산(치유 강화) — healMult ×(1+합산%/100). 신술 지원 라인 패시브. */
   healPowerPct?: number;
+  // ── 받피감(방벽) — 받는 피해 -% 곱연산. specEff.damageTakenReductionPct 와 같은 훅에 합산.
+  //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
+  /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
+  damageTakenReductionPct?: number;
 };
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
@@ -290,6 +294,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   defPct: number;
   accuracyPct: number;
   healPowerPct: number;
+  damageTakenReductionPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -303,6 +308,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let defPct = 0;
   let accuracyPct = 0;
   let healPowerPct = 0;
+  let damageTakenReductionPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -322,6 +328,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     defPct += p.defPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
+    damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
   }
   return {
     stat,
@@ -336,6 +343,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     defPct,
     accuracyPct,
     healPowerPct,
+    damageTakenReductionPct,
   };
 }
 
@@ -430,6 +438,8 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
   if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
+  if (p.damageTakenReductionPct)
+    chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
   return chips;
 }
 

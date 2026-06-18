@@ -157,7 +157,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   // 마법사 갈래
   caster: {
     id: "caster",
-    name: "술사",
+    name: "마법사",
     tier: 2,
     cultivateProfile: { int: 2, spi: 2 },
     jobBonus: { int: 14, spi: 4 }, // 버스트 원소 (← 옛 arcane)
@@ -222,6 +222,40 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 3,
     cultivateProfile: { dex: 2, luk: 2 },
     jobBonus: { dex: 10, luk: 6 }, // 도적 고차 — 민첩 중심
+    unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  // 3차 두 번째 갈래 — 방패병/수도승/사제/자객 계승. 같은 직군 cumLevel 250 해금(형제와 동일),
+  //   정체성은 형제와 다른 축(받피감/회피/회복/치명피해)으로 차별.
+  guardian: {
+    id: "guardian",
+    name: "가디언",
+    tier: 3,
+    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    jobBonus: { vit: 12, str: 4 }, // 전사 고차(방패병 계승) — 활력 탱
+    unlock: { prereqs: { warrior: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  warmonk: {
+    id: "warmonk",
+    name: "무승",
+    tier: 3,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { vit: 10, spi: 6 }, // 무도 고차(수도승 계승) — 회피/유연
+    unlock: { prereqs: { martial: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  bishop: {
+    id: "bishop",
+    name: "대사제",
+    tier: 3,
+    cultivateProfile: { spi: 2, int: 2 },
+    jobBonus: { spi: 12, int: 4 }, // 마법 고차(사제 계승) — 정신/지원
+    unlock: { prereqs: { mage: TIER3_UNLOCK_CUMLEVEL } },
+  },
+  shadow: {
+    id: "shadow",
+    name: "그림자",
+    tier: 3,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 12, dex: 4 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
 
@@ -356,6 +390,11 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   brawler: { class: "martial", spec: "brawler" },
   magus: { class: "mage", spec: "magus" },
   ranger: { class: "rogue", spec: "ranger" },
+  // tier 3 두 번째 갈래 — 새 unique spec id(= jobId).
+  guardian: { class: "warrior", spec: "guardian" },
+  warmonk: { class: "martial", spec: "warmonk" },
+  bishop: { class: "mage", spec: "bishop" },
+  shadow: { class: "rogue", spec: "shadow" },
   // tier 4 — 새 unique spec id.
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },

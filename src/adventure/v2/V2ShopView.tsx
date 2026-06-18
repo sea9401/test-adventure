@@ -61,7 +61,7 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
 
 // 구매 표 열: 아이템 | 종류 | 가격 | 위력/무게 | 구매. 종류는 이름과 가격 사이.
 const BUY_GRID_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_3rem_4.25rem_4.25rem_3.5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
+  "grid grid-cols-[minmax(0,1fr)_2.75rem_4.25rem_4.25rem_4rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
 
 // 슬롯별 상점 취급 장비 id — concept 정렬 (티어는 표시하지 않지만 정렬엔 사용).
 const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
@@ -669,13 +669,13 @@ function BuyEquipmentRow({
           / {item.weight}
         </span>
       </div>
-      <div className="min-w-0 px-2 py-3 text-right sm:px-3" role="cell">
+      <div className="min-w-0 px-1 py-3 text-right sm:px-3" role="cell">
         <button
           type="button"
           onClick={() => onBuy(id)}
           disabled={busy || !affordable}
           title={`${buyPrice.toLocaleString()} G 에 구매`}
-          className="inline-flex h-7 min-w-[3.25rem] items-center justify-center whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-2 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
+          className="inline-flex h-7 min-w-[2.75rem] items-center justify-center whitespace-nowrap rounded-md border border-emerald-600 bg-emerald-600 px-1.5 py-1 text-xs font-medium leading-none text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-700"
         >
           {busy ? "…" : "구매"}
         </button>

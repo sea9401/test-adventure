@@ -80,9 +80,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (87종 — 기존 6 + 밴드 유니크 78[특화세트+사이드그레이드+추가 2피스] + 보스 3)", () => {
-  it("V2_UNIQUE_IDS 87종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(87);
+describe("유니크 카탈로그 (24종 — 세트 통합 38→12 후: 기존 6 + 밴드 사이드그레이드/추가 + 보스 3)", () => {
+  it("V2_UNIQUE_IDS 24종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(24);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -141,7 +141,7 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협�
   it("마른 협곡 유니크 = 깊이 13~18, 11종(바위문 수호구 3·녹슨 독니 2·사이드그레이드 2·추가 2피스 4), 총 0.1% 고정", () => {
     expect(canyon).toBeDefined();
     expect(canyon.maxDepth).toBe(18);
-    expect(canyon.ids).toHaveLength(11);
+    expect(canyon.ids).toHaveLength(2);
     // chance 0.001 고정(2026-06-13 ÷5 — 흔한 장비와 별개·어디서나 귀함). 흔한 13종은 BAND_COMMON_POOLS.
     expect(canyon.chance).toBe(0.001);
   });
@@ -186,7 +186,7 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호�
   it("얼음 호수 유니크 = 깊이 19~24, 13종(바위문 수호구 3·백서리 비전 2·혈금강 2·사이드그레이드 2·추가 2피스 4), 총 0.1% 고정", () => {
     expect(lake).toBeDefined();
     expect(lake.maxDepth).toBe(24);
-    expect(lake.ids).toHaveLength(13);
+    expect(lake.ids).toHaveLength(2);
     expect(lake.chance).toBe(0.001);
   });
 
@@ -216,7 +216,7 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동�
   it("심층 동굴 유니크 = 깊이 25~30, 17종(흑요석 3·심판의 성벽 3·흑맥 독왕 3·사이드그레이드 4·추가 2피스 4), 총 0.1% 고정", () => {
     expect(cave).toBeDefined();
     expect(cave.maxDepth).toBe(30);
-    expect(cave.ids).toHaveLength(17);
+    expect(cave.ids).toHaveLength(4);
     expect(cave.chance).toBe(0.001);
   });
 
@@ -247,9 +247,9 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 잊힌 성�
   it("잊힌 성소 유니크 = 깊이 31~36, 12종(성소 수호구 3·별점 비전 2·성벽의 계시 3·사이드그레이드 2·성광 보행 2), 총 0.1% 고정", () => {
     expect(sanctum).toBeDefined();
     expect(sanctum.maxDepth).toBe(36);
-    expect(sanctum.ids).toHaveLength(12);
+    expect(sanctum.ids).toHaveLength(2);
     expect(sanctum.chance).toBe(0.001);
-    expect(sanctum.chance / sanctum.ids.length).toBeCloseTo(0.001 / 12);
+    expect(sanctum.chance / sanctum.ids.length).toBeCloseTo(0.001 / 2);
   });
 
   it("깊이 매칭 — 30 이하는 성소 아님, 31~36 만 매칭(37+는 다음 밴드)", () => {
@@ -273,9 +273,9 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 리자드 �
   it("리자드 늪지 유니크 = 깊이 37~42, 12종(수렁 수호구 3·맹독 군주 3·진흙 금강 2·사이드그레이드 2·이끼 보호 2), 총 0.1% 고정", () => {
     expect(swamp).toBeDefined();
     expect(swamp.maxDepth).toBe(42);
-    expect(swamp.ids).toHaveLength(12);
+    expect(swamp.ids).toHaveLength(2);
     expect(swamp.chance).toBe(0.001);
-    expect(swamp.chance / swamp.ids.length).toBeCloseTo(0.001 / 12);
+    expect(swamp.chance / swamp.ids.length).toBeCloseTo(0.001 / 2);
   });
 
   it("깊이 매칭 — 36 이하는 늪지 아님, 37~42 만 매칭(43+는 다음 밴드)", () => {
@@ -297,9 +297,9 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 짐승의 �
   it("짐승의 소굴 유니크 = 깊이 43~48, 13종(공허 수호구 3·공허 사냥꾼 3·야수쇄도 2·사이드그레이드 3·맹수 보행 2), 총 0.1% 고정", () => {
     expect(den).toBeDefined();
     expect(den.maxDepth).toBe(48);
-    expect(den.ids).toHaveLength(13);
+    expect(den.ids).toHaveLength(3);
     expect(den.chance).toBe(0.001);
-    expect(den.chance / den.ids.length).toBeCloseTo(0.001 / 13);
+    expect(den.chance / den.ids.length).toBeCloseTo(0.001 / 3);
   });
 
   it("깊이 매칭 — 42 이하는 소굴 아님, 43~48 만 매칭, 49 이상은 null", () => {

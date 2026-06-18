@@ -5,8 +5,8 @@
 //   ① 레거시 층 풀(UNIQUE_FLOOR_POOLS, floor 1~8 키): 들판 구간(깊이 1~6)의 유니크 6종.
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
 //   ② 심층 밴드 풀(깊이 범위 키): 프론티어 밴드 드랍. 2026-06-09 흔한/유니크 분리 —
-//      BAND_COMMON_POOLS(흔한 밴드 장비, 밴드당 13종: 무기 8 + 기본세트 3 + 기본장신구 2, noDrop
-//      normal, 로컬 깊이 램프 0.5~0.9%) + BAND_UNIQUE_POOLS(특화세트+사이드그레이드+추가 2피스,
+//      BAND_COMMON_POOLS(흔한 밴드 장비, 밴드당 9종: 무기 4 + 갑주세트 3 + 장신구 2, noDrop
+//      normal, 로컬 깊이 램프) + BAND_UNIQUE_POOLS(비세트 사이드그레이드만 — 세트 통합 후,
 //      chance 0.005 고정). 신규 밴드는 두 풀에 항목 1개씩 추가.
 //
 // 밴드 드랍은 중복 허용(보유분 포함 균등 pick). 레거시 층 유니크만 id당 1개(ownedSet 제외).
@@ -14,8 +14,8 @@
 import type { DungeonFloorId } from "./types";
 import { V2_EQUIPMENT, isUnique, type V2EquipmentId } from "./v2Equipment";
 
-// 카탈로그의 유니크 id 목록 (rarity:"unique"). 현재 87종(레거시 6 + 밴드 유니크 78 + 보스 3).
-//   밴드 흔한 78종은 noDrop normal 로 분리(BAND_COMMON_POOLS) — 유니크 아님.
+// 카탈로그의 유니크 id 목록 (rarity:"unique"). 세트 통합(38→12) 후 대폭 축소(특화 세트 제거).
+//   밴드 흔한 장비(무기·기본세트)는 noDrop normal 로 분리(BAND_COMMON_POOLS) — 유니크 아님.
 export const V2_UNIQUE_IDS: V2EquipmentId[] = (
   Object.keys(V2_EQUIPMENT) as V2EquipmentId[]
 ).filter((id) => isUnique(V2_EQUIPMENT[id]));
@@ -70,9 +70,9 @@ export function rollUniqueDrop(
 //   다 모아도 드랍 계속. ← 드랍률 다이얼(0.08→0.01→0.005: 라이브 체감 과해 단계적 하향, 2026-06-09).
 // 밴드 장비를 흔한(normal·드랍 전용)/유니크(특화·추격) 두 풀로 분리(2026-06-09). 옛 BAND_UNIQUE_POOLS
 //   는 밴드 전 장비를 rarity:"unique" 로 묶어 "전부 유니크 취급"이 됐다. 이제:
-//   - 흔한 13종/밴드(무기 8 + 기본 방어세트 3 + 기본 장신구 2) = noDrop normal. 빵앤버터 진행 장비.
+//   - 흔한 9종/밴드(무기 4 + 갑주세트 3 + 장신구 2) = noDrop normal. 빵앤버터 진행 장비.
 //     드랍률 = 밴드 내 로컬 깊이(1~6) 램프(1·2→0.5% / 3·4→0.7% / 5·6→0.9%). droppedEquipment 슬롯.
-//   - 유니크 = 특화 세트(맹독/마법/방어비례/금강) + 컨셉 사이드그레이드 + 추가 2피스 세트. chance 0.005
+//   - 유니크 = 비세트 컨셉 사이드그레이드(세트 통합 후 특화/2피스 세트 제거). chance 0.005
 //     고정(어디서나 귀함·종당으로도 흔한보다 귀하게). droppedUnique 슬롯. 흔한과 별개 굴림(둘 다 가능).
 export type BandPool = {
   /** 밴드 시작 깊이(포함). */
@@ -83,10 +83,10 @@ export type BandPool = {
   ids: V2EquipmentId[];
 };
 
-// 흔한 밴드 장비 풀(noDrop normal). 무기 8 + 기본 방어세트 3 + 기본 장신구 2 = 밴드당 13종.
+// 흔한 밴드 장비 풀(noDrop normal). 무기 4 + 갑주세트 3 + 장신구 2 = 밴드당 9종.
 export const BAND_COMMON_POOLS: readonly BandPool[] = [
   {
-    // 마른 협곡(밴드 A, 13~18) 흔한 13: 무기 8 + 마른땅 갑주 세트 3 + 모래바람 장신구 2.
+    // 마른 협곡(밴드 A, 13~18) 흔한 9: 무기 4 + 마른땅 갑주 세트 3 + 모래바람 장신구 2.
     minDepth: 13,
     maxDepth: 18,
     ids: [
@@ -102,7 +102,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 얼음 호수(밴드 B, 19~24) 흔한 13: 무기 8 + 서리 갑주 세트 3 + 한기 장신구 2.
+    // 얼음 호수(밴드 B, 19~24) 흔한 9: 무기 4 + 서리 갑주 세트 3 + 한기 장신구 2.
     minDepth: 19,
     maxDepth: 24,
     ids: [
@@ -118,7 +118,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 심층 동굴(밴드 C, 25~30) 흔한 13: 무기 8 + 심연 갑주 세트 3 + 공허 장신구 2.
+    // 심층 동굴(밴드 C, 25~30) 흔한 9: 무기 4 + 심연 갑주 세트 3 + 공허 장신구 2.
     minDepth: 25,
     maxDepth: 30,
     ids: [
@@ -134,7 +134,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 잊힌 성소(밴드 D, 31~36) 흔한 13: 무기 8 + 별무리 갑주 세트 3 + 성운 장신구 2.
+    // 잊힌 성소(밴드 D, 31~36) 흔한 9: 무기 4 + 별무리 갑주 세트 3 + 성운 장신구 2.
     minDepth: 31,
     maxDepth: 36,
     ids: [
@@ -150,7 +150,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 37~42) 흔한 13: 무기 8 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
+    // 리자드 늪지(밴드 E, 37~42) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
     minDepth: 37,
     maxDepth: 42,
     ids: [
@@ -166,7 +166,7 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 43~48) 흔한 13: 무기 8 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
+    // 짐승의 소굴(밴드 F, 43~48) 흔한 9: 무기 4 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
     minDepth: 43,
     maxDepth: 48,
     ids: [
@@ -209,133 +209,70 @@ export type BandUniquePool = {
   ids: V2EquipmentId[];
 };
 
-// 밴드 유니크 풀 — 특화 세트 + 컨셉 사이드그레이드 + 추가 2피스 세트(흔한 장비는 BAND_COMMON_POOLS).
-//   chance 0.005 고정(2026-06-09 0.01→0.005 하향).
+// 밴드 유니크 풀 — 비(非)세트 컨셉 사이드그레이드 유니크. 세트 통합(38→12) 후 특화/2피스 세트는
+//   제거돼 사이드그레이드만 남는다. 밴드 표준 2세트(갑주·장신구)는 BAND_COMMON_POOLS 에서 드랍.
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
-    // 마른 협곡(밴드 A, 13~18) 유니크 11: 바위문 수호구 3 + 녹슨 독니 2 + 사이드그레이드 2 + 추가 2피스 4.
+    // 마른 협곡(밴드 A, 13~18) 비세트 사이드그레이드 2.
     minDepth: 13,
     maxDepth: 18,
     chance: 0.001,
     ids: [
-      "v2_canyon_bulwark_armor",
-      "v2_canyon_bulwark_gloves",
-      "v2_canyon_bulwark_boots",
-      "v2_canyon_rustfang_dagger",
-      "v2_canyon_rustfang_gloves",
       "v2_canyon_swift_rapier",
       "v2_canyon_wind_boots",
-      "v2_canyon_dune_gloves",
-      "v2_canyon_dune_boots",
-      "v2_canyon_bond_armor",
-      "v2_canyon_bond_ring",
     ],
   },
   {
-    // 얼음 호수(밴드 B, 19~24) 유니크 13: 바위문 수호구 3 + 백서리 비전 2 + 혈금강 2 + 사이드그레이드 2 + 추가 2피스 4.
+    // 얼음 호수(밴드 B, 19~24) 비세트 사이드그레이드 2.
     minDepth: 19,
     maxDepth: 24,
     chance: 0.001,
     ids: [
-      "v2_lake_bulwark_armor",
-      "v2_lake_bulwark_gloves",
-      "v2_lake_bulwark_boots",
-      "v2_lake_frostarcane_staff",
-      "v2_lake_frostarcane_necklace",
-      "v2_lake_bloodvajra_gauntlet",
-      "v2_lake_bloodvajra_boots",
       "v2_lake_brutal_greatsword",
       "v2_lake_dodge_cloak",
-      "v2_lake_trek_armor",
-      "v2_lake_trek_boots",
-      "v2_lake_seal_gloves",
-      "v2_lake_seal_necklace",
     ],
   },
   {
-    // 심층 동굴(밴드 C, 25~30) 유니크 17: 흑요석 3 + 심판의 성벽 3 + 흑맥 독왕 3 + 사이드그레이드 4 + 추가 2피스 4.
+    // 심층 동굴(밴드 C, 25~30) 비세트 사이드그레이드 4.
     minDepth: 25,
     maxDepth: 30,
     chance: 0.001,
     ids: [
-      "v2_cave_obsidian_armor",
-      "v2_cave_obsidian_gloves",
-      "v2_cave_obsidian_boots",
-      "v2_cave_judgment_sword",
-      "v2_cave_judgment_armor",
-      "v2_cave_judgment_ring",
-      "v2_cave_venomlord_dagger",
-      "v2_cave_venomlord_ring",
-      "v2_cave_venomlord_necklace",
       "v2_cave_fortress_armor",
       "v2_cave_rooted_boots",
       "v2_cave_ruin_gloves",
       "v2_cave_focus_ring",
-      "v2_cave_onyx_armor",
-      "v2_cave_onyx_gloves",
-      "v2_cave_drift_boots",
-      "v2_cave_drift_necklace",
     ],
   },
   {
-    // 잊힌 성소(밴드 D, 31~36) 유니크 12: 성소 수호구 3 + 별점 비전 2 + 성벽의 계시 3 + 사이드그레이드 2 + 성광 보행 2.
+    // 잊힌 성소(밴드 D, 31~36) 비세트 사이드그레이드 2.
     minDepth: 31,
     maxDepth: 36,
     chance: 0.001,
     ids: [
-      "v2_sanctum_bulwark_armor",
-      "v2_sanctum_bulwark_gloves",
-      "v2_sanctum_bulwark_boots",
-      "v2_sanctum_astral_staff",
-      "v2_sanctum_astral_necklace",
-      "v2_sanctum_revelation_sword",
-      "v2_sanctum_revelation_armor",
-      "v2_sanctum_revelation_ring",
       "v2_sanctum_anchor_armor",
       "v2_sanctum_nova_ring",
-      "v2_sanctum_lumen_gloves",
-      "v2_sanctum_lumen_boots",
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 37~42) 유니크 12: 수렁 수호구 3 + 맹독 군주 3 + 진흙 금강 2 + 사이드그레이드 2 + 이끼 보호 2.
+    // 리자드 늪지(밴드 E, 37~42) 비세트 사이드그레이드 2.
     minDepth: 37,
     maxDepth: 42,
     chance: 0.001,
     ids: [
-      "v2_swamp_bulwark_armor",
-      "v2_swamp_bulwark_gloves",
-      "v2_swamp_bulwark_boots",
-      "v2_swamp_venomlord_dagger",
-      "v2_swamp_venomlord_ring",
-      "v2_swamp_venomlord_necklace",
-      "v2_swamp_vajra_gauntlet",
-      "v2_swamp_vajra_boots",
       "v2_swamp_mire_boots",
       "v2_swamp_bruiser_armor",
-      "v2_swamp_moss_armor",
-      "v2_swamp_moss_gloves",
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 43~48) 유니크 13: 공허 수호구 3 + 공허 사냥꾼 3 + 야수쇄도 2 + 사이드그레이드 3 + 맹수 보행 2.
+    // 짐승의 소굴(밴드 F, 43~48) 비세트 사이드그레이드 3.
     minDepth: 43,
     maxDepth: 48,
     chance: 0.001,
     ids: [
-      "v2_den_void_armor",
-      "v2_den_void_gloves",
-      "v2_den_void_boots",
-      "v2_den_hunter_claw",
-      "v2_den_hunter_ring",
-      "v2_den_hunter_necklace",
-      "v2_den_rush_greatsword",
-      "v2_den_rush_gloves",
       "v2_den_mauler_gloves",
       "v2_den_ghost_boots",
       "v2_den_hide_armor",
-      "v2_den_beastgait_boots",
-      "v2_den_beastgait_necklace",
     ],
   },
 ];

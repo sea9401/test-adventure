@@ -29,6 +29,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MODE,
   V2_LEVEL_CAP,
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
@@ -457,7 +458,8 @@ export async function GET() {
     Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
     now,
   );
-  const combatCooldown = V2_CORE_LOOP_V2
+  // 쿨다운 객체는 쿨다운 모드만 — 스태미나 모드면 null → 클라 사냥 UI 가 스태미나로 폴백.
+  const combatCooldown = HUNT_COOLDOWN_MODE
     ? {
         nextBattleAt: now + cooldownRemaining,
         cooldownMs: HUNT_COOLDOWN_MS,
@@ -470,10 +472,10 @@ export async function GET() {
   const offlineStartedAt =
     Number((charSave as { offlineHuntStartedAt?: number }).offlineHuntStartedAt) ||
     0;
-  const offlineActive = V2_CORE_LOOP_V2 && offlineStartedAt > 0;
+  const offlineActive = HUNT_COOLDOWN_MODE && offlineStartedAt > 0;
   const offlineEndsAt = offlineStartedAt + OFFLINE_MAX_MS;
   const offlinePending =
-    !V2_CORE_LOOP_V2
+    !HUNT_COOLDOWN_MODE
       ? null
       : offlineActive
         ? offlineBattlesAccrued(
@@ -481,7 +483,7 @@ export async function GET() {
             Math.min(now, offlineEndsAt),
           )
         : 0;
-  const offlineHunt = V2_CORE_LOOP_V2
+  const offlineHunt = HUNT_COOLDOWN_MODE
     ? offlineActive
       ? {
           active: true,
@@ -503,7 +505,12 @@ export async function GET() {
     intrusion,
     // 직업 시스템 v2(cumLevel 점진 공개 전직 목록) — 코어루프 off 면 null.
     jobsV2,
-    // 코어루프 전투 쿨다운(사냥·토벌 게이트) — flag off 면 null(스태미나로 판정).
+    // 코어루프 활성(은행/골드 모델·직업 시스템 등) — 사냥 throttle 과 독립. 클라는 이 값으로
+    //   coreLoopOn 을 판정(combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운이 null 이라).
+    coreLoopOn: V2_CORE_LOOP_V2,
+    // 사냥이 스태미나 모드인가(코어루프 on + 스태미나 다이얼) — 클라가 스태미나 바/UI 표시 판정.
+    huntStaminaMode: V2_CORE_LOOP_V2 && !HUNT_COOLDOWN_MODE,
+    // 전투 쿨다운(사냥·토벌 게이트) — 쿨다운 모드만 객체, 스태미나 모드/off 면 null(스태미나 판정).
     combatCooldown,
     // 코어루프 오프라인 정산 대기 판수 — flag off 면 null.
     offlinePending,

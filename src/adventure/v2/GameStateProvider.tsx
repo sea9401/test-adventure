@@ -94,9 +94,11 @@ type GameStateValue = {
   setGold: React.Dispatch<React.SetStateAction<number>>;
   setBankedGold: React.Dispatch<React.SetStateAction<number>>;
   // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — off 면 전부 null(현행 UI 무변경) ===
-  // flag-on 판정 — me/state 가 flag on 일 때만 combatCooldown 객체를 준다(off=null). 스태미나
-  // 표시 숨김·일괄 폐지 등 코어루프 UI 분기에 공용으로 쓴다.
+  // 코어루프 활성(은행/골드/직업 시스템) — me/state 명시 coreLoopOn. 사냥 throttle 과 독립
+  //   (combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운이 null 이므로).
   coreLoopOn: boolean;
+  // 사냥이 스태미나 모드인가 — 스태미나 바/UI 표시·쿨다운 UI 숨김 판정.
+  huntStaminaMode: boolean;
   // 전투 쿨다운 — nextBattleAt 은 클라 로컬 시각으로 변환됨(서버 skew 보정). 사냥 버튼 카운트다운.
   combatCooldown: { nextBattleAt: number; cooldownMs: number } | null;
   setCombatCooldown: React.Dispatch<
@@ -197,11 +199,16 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [gold, setGold] = useState(0);
   const [bankedGold, setBankedGold] = useState(0);
   const [mp, setMp] = useState<MpBarState | null>(null);
-  // 코어루프 flag-on 전용(off=null). me/state 에서 초기화.
+  // 쿨다운 모드 전용(스태미나 모드/off=null). me/state 에서 초기화.
   const [combatCooldown, setCombatCooldown] = useState<{
     nextBattleAt: number;
     cooldownMs: number;
   } | null>(null);
+  // 코어루프 활성(은행/골드/직업) — 사냥 throttle 과 독립. me/state 의 명시 coreLoopOn 사용
+  //   (combatCooldown 유무로 추론 금지 — 스태미나 모드면 쿨다운 null 이라 은행이 꺼져버림).
+  const [coreLoopOn, setCoreLoopOn] = useState(false);
+  // 사냥이 스태미나 모드인가(스태미나 바/UI 표시 판정).
+  const [huntStaminaMode, setHuntStaminaMode] = useState(false);
   const [offlinePending, setOfflinePending] = useState<number | null>(null);
   const [offlineHunt, setOfflineHunt] = useState<{
     active: boolean;
@@ -272,7 +279,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             groups?: Record<string, { tier?: number }>;
             current?: { group?: string };
           };
-          // 코어루프 flag-on 전용(off=null).
+          // 코어루프 활성(은행/골드/직업) — 사냥 throttle 과 독립.
+          coreLoopOn?: boolean;
+          // 사냥이 스태미나 모드인가(스태미나 바/UI 표시).
+          huntStaminaMode?: boolean;
+          // 쿨다운 모드 전용(스태미나 모드/off=null).
           combatCooldown?: {
             nextBattleAt: number;
             cooldownMs: number;
@@ -356,6 +367,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         } else {
           setCombatCooldown(null);
         }
+        setCoreLoopOn(j?.coreLoopOn === true);
+        setHuntStaminaMode(j?.huntStaminaMode === true);
         setOfflinePending(
           typeof j?.offlinePending === "number" ? j.offlinePending : null,
         );
@@ -580,10 +593,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setHp,
     gold,
     bankedGold,
-    spendableGold: combatCooldown != null ? gold + bankedGold : gold,
+    spendableGold: coreLoopOn ? gold + bankedGold : gold,
     setGold,
     setBankedGold,
-    coreLoopOn: combatCooldown != null,
+    coreLoopOn,
+    huntStaminaMode,
     combatCooldown,
     setCombatCooldown,
     offlinePending,

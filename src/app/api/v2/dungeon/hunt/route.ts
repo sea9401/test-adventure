@@ -74,6 +74,7 @@ import {
 } from "@/adventure/v2/stamina";
 import {
   V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
   lossTaxOf,
@@ -399,10 +400,11 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스.
   const staminaMax =
     MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
-  // 코어루프 on — 스태미나 폐지·전투 쿨다운(마지막 전투 후 HUNT_COOLDOWN_MS 경과해야 다음 판).
-  //   V1식 한판한판 throttle. off — 기존 스태미나 차감(무변경). afterStamina 는 on 일 때 회복만.
+  // 쿨다운 모드 — 스태미나 폐지·전투 쿨다운(마지막 전투 후 HUNT_COOLDOWN_MS 경과해야 다음 판).
+  //   V1식 한판한판 throttle. 그 외(스태미나 모드·코어루프 off) — 스태미나 차감. afterStamina 는
+  //   쿨다운 모드일 때 회복만(스태미나 미사용이라 표시·한계의 비약 보존용).
   let afterStamina = applyRegen(stamina, now, staminaMax);
-  if (V2_CORE_LOOP_V2) {
+  if (HUNT_COOLDOWN_MODE) {
     // 오프라인 정산은 쿨다운 게이트 건너뜀(과거 누적 판수를 정산 — 미래 throttle 아님).
     const lastBattleAt = Number(charSave.lastBattleAt) || 0;
     if (!ctx.offline && combatCooldownRemainingMs(lastBattleAt, now) > 0) {
@@ -845,13 +847,15 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     ),
     // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
-    // 코어루프 전투 쿨다운 시각 — 다음 판/토벌 게이트(off 면 키 불변). 오프라인 정산은
-    //   per-battle 기록 생략(정산 루프가 마지막에 lastBattleAt=realNow 한 번 기록).
+    // 전투 쿨다운 시각 — 코어루프면 기록(off 면 키 불변). 스태미나 모드에서도 기록하는 이유:
+    //   토벌(eject)이 lastBattleAt 를 사냥과 "공통 쿨다운"으로 쓴다 — 안 쓰면 사냥 직후 토벌
+    //   쿨다운이 우회됨(Codex). 사냥 자체는 스태미나로 게이트(이 값을 읽지 않음)라 무해.
+    //   오프라인 정산은 per-battle 기록 생략(정산 루프가 마지막에 lastBattleAt=realNow 한 번).
     ...(V2_CORE_LOOP_V2 && !ctx.offline ? { lastBattleAt: now } : {}),
-    // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변).
+    // 코어루프 패배 세금 카운터 — 승리 누적/패배 리셋(off 면 키 불변). 스태미나 모드에도 유지.
     ...(V2_CORE_LOOP_V2 ? { atRiskGold: nextAtRisk } : {}),
-    // 오프라인 정산 farm 깊이 — 정상 사냥(레어맵 아님)만 기록. 레어맵은 소모품이라 제외.
-    ...(V2_CORE_LOOP_V2 && !ctx.offline && !rareMapIid
+    // 오프라인 정산 farm 깊이 — 쿨다운 모드의 정상 사냥(레어맵 아님)만 기록(스태미나 모드는 오프라인 폐지).
+    ...(HUNT_COOLDOWN_MODE && !ctx.offline && !rareMapIid
       ? { lastHuntDepth: depth }
       : {}),
   };
@@ -1166,9 +1170,9 @@ export async function POST(req: Request) {
   }
 
   // 일괄 사냥 횟수 — 1~MAX. 미전달/비정상이면 1(단판, 기존 동작).
-  // 코어루프 on — 일괄 폐지(V1식 한판한판·전투 쿨다운이 throttle). 누적 판수는 오프라인 자동전투
-  //   정산(후속 PR)이 담당. 항상 단판 → 쿨다운 게이트가 다음 판을 막는다.
-  const count = V2_CORE_LOOP_V2
+  // 쿨다운 모드 — 일괄 폐지(V1식 한판한판·전투 쿨다운이 throttle). 누적 판수는 오프라인 정산이 담당.
+  //   스태미나 모드/off — 일괄 허용(스태미나가 throttle).
+  const count = HUNT_COOLDOWN_MODE
     ? 1
     : Math.max(
         1,

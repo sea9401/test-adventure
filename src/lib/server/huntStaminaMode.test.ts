@@ -1,25 +1,22 @@
-// 사냥 전투 쿨다운(코어루프 flag-on) 통합 테스트 — huntRoute.test.ts 와 같은 in-memory
-// savesKv 위에서 REAL 핸들러를 돌리되, coreLoopConfig 를 importOriginal 로 받아 V2_CORE_LOOP_V2
-// 만 true 로 덮는다(나머지 다이얼·헬퍼는 실값 유지 → derive/proficiency 정상). 검증:
-//   1) flag-on 첫 사냥 = 200 + lastBattleAt 기록(스태미나 미차감).
-//   2) 쿨다운 중(즉시 재요청) = 429 on_cooldown(nextBattleAt/cooldownMs).
-//   3) 쿨다운 경과 후 = 다시 200.
-//   4) count>1 요청도 단판(batch 없음) — 일괄 폐지.
+// 사냥 스태미나 모드 통합 테스트 — 코어루프 on(V2_CORE_LOOP_V2=true) 이지만 사냥 throttle 만
+// 스태미나로 되돌린 상태(HUNT_COOLDOWN_MODE=false). huntCooldown.test.ts 와 같은 in-memory
+// savesKv 위에서 REAL 핸들러를 돌린다. 검증:
+//   1) 첫 사냥 = 200 + 스태미나 HUNT_COST 차감(쿨다운 throttle 아님) · lastBattleAt 미기록.
+//   2) 즉시 재요청도 200(쿨다운 없음) — 스태미나가 throttle.
+//   3) count>1 = 일괄 허용(batch 집계 존재).
+//   4) 스태미나 부족 = 409 out_of_stamina.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { store } = vi.hoisted(() => ({ store: new Map<string, unknown>() }));
 
-// 🔑 flag 만 on 으로 — 나머지 export(HUNT_COOLDOWN_MS·coreLoopMaxHpMult·effectiveLevelCap 입력
-//   다이얼 등)는 실값 보존(부분 모킹이면 derive/proficiency 가 깨진다).
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
   const actual =
     await importOriginal<
       typeof import("@/adventure/data/v2/coreLoopConfig")
     >();
-  // HUNT_COOLDOWN_MODE 는 actual 에서 V2_CORE_LOOP_V2=false 기준으로 계산되므로 함께 덮는다
-  //   (이 테스트는 쿨다운 모드 = 스태미나 미사용 검증).
-  return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: true };
+  // 코어루프는 on, 사냥만 스태미나(쿨다운 모드 off).
+  return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: false };
 });
 
 vi.mock("@/lib/server/ensureUser", () => ({
@@ -64,9 +61,9 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
-import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
+import { HUNT_COST } from "@/adventure/v2/stamina";
 
-function seedStrongWarrior() {
+function seedStrongWarrior(staminaCurrent: number) {
   store.clear();
   store.set("character.v2", {
     class: "warrior",
@@ -74,9 +71,8 @@ function seedStrongWarrior() {
     exp: 0,
     gold: 1000,
     hp: 999999,
-    stamina: { current: 5000, lastUpdatedAt: 1 },
+    stamina: { current: staminaCurrent, lastUpdatedAt: Date.now() },
     frontierDepth: 2,
-    // lastBattleAt 없음 → 첫 사냥 즉시 가능.
   });
   store.set("equipment.v2", {
     owned: [{ iid: "w1", id: "v2_cave_greatsword" }],
@@ -105,66 +101,48 @@ function char() {
   };
 }
 
-describe("POST /api/v2/dungeon/hunt — 전투 쿨다운(코어루프 on)", () => {
+describe("POST /api/v2/dungeon/hunt — 스태미나 모드(코어루프 on)", () => {
   beforeEach(() => {
-    seedStrongWarrior();
+    seedStrongWarrior(5000);
     vi.spyOn(Math, "random").mockReturnValue(0.5);
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("첫 사냥 = 200 + lastBattleAt 기록, 스태미나 미차감(쿨다운이 throttle)", async () => {
-    const before = Date.now();
+  it("첫 사냥 = 200 + 스태미나 HUNT_COST 차감, lastBattleAt 기록(토벌 공유 쿨다운용)", async () => {
     const res = await POST(huntReq({ floor: 1 }));
     expect(res.status).toBe(200);
     const c = char();
+    // 스태미나가 throttle — HUNT_COST 만큼 차감.
+    expect(c.stamina.current).toBe(5000 - HUNT_COST);
+    // lastBattleAt 은 기록됨 — 토벌(eject)이 공통 쿨다운으로 읽으므로(사냥은 이 값으로 게이트 안 함).
     expect(typeof c.lastBattleAt).toBe("number");
-    expect(c.lastBattleAt!).toBeGreaterThanOrEqual(before);
-    // 스태미나 폐지 — 차감 없음(회복만, 풀충 유지).
-    expect(c.stamina.current).toBe(5000);
   });
 
-  it("쿨다운 중 재요청 = 429 on_cooldown(nextBattleAt/cooldownMs)", async () => {
+  it("즉시 재요청도 200(쿨다운 없음) — 스태미나가 throttle(lastBattleAt 무시)", async () => {
     const first = await POST(huntReq({ floor: 1 }));
     expect(first.status).toBe(200);
-    const lastBattleAt = char().lastBattleAt!;
-
-    const res = await POST(huntReq({ floor: 1 }));
-    expect(res.status).toBe(429);
-    const json = (await res.json()) as {
-      ok: boolean;
-      error: string;
-      nextBattleAt: number;
-      cooldownMs: number;
-    };
-    expect(json.ok).toBe(false);
-    expect(json.error).toBe("on_cooldown");
-    expect(json.cooldownMs).toBe(HUNT_COOLDOWN_MS);
-    expect(json.nextBattleAt).toBe(lastBattleAt + HUNT_COOLDOWN_MS);
-  });
-
-  it("쿨다운 경과 후 = 다시 200", async () => {
-    const first = await POST(huntReq({ floor: 1 }));
-    expect(first.status).toBe(200);
-    // lastBattleAt 을 쿨다운 한참 전으로 되돌림 → 다음 요청 통과.
-    const c = char();
-    c.lastBattleAt = Date.now() - HUNT_COOLDOWN_MS - 1000;
-    store.set("character.v2", c);
-
+    // lastBattleAt 이 방금 기록됐어도 사냥은 스태미나로 게이트라 즉시 재사냥 가능(429 아님).
     const res = await POST(huntReq({ floor: 1 }));
     expect(res.status).toBe(200);
+    // 두 판 차감.
+    expect(char().stamina.current).toBe(5000 - HUNT_COST * 2);
   });
 
-  it("count>1 요청도 단판 — 일괄 폐지(batch 필드 없음)", async () => {
+  it("count>1 = 일괄 허용(batch 집계 존재)", async () => {
     const res = await POST(huntReq({ floor: 1, count: 5 }));
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { batch?: unknown; result?: unknown };
-    // 코어루프는 항상 단판 → batch 집계 없이 단일 result.
-    expect(json.batch).toBeUndefined();
-    expect(json.result).toBeDefined();
-    // 단판 1회만 실행 → 즉시 재요청은 쿨다운.
-    const again = await POST(huntReq({ floor: 1, count: 5 }));
-    expect(again.status).toBe(429);
+    const json = (await res.json()) as { batch?: unknown };
+    expect(json.batch).toBeDefined();
+  });
+
+  it("스태미나 부족 = 409 out_of_stamina", async () => {
+    seedStrongWarrior(0);
+    const res = await POST(huntReq({ floor: 1 }));
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { ok: boolean; error: string };
+    expect(json.ok).toBe(false);
+    expect(json.error).toBe("out_of_stamina");
   });
 });

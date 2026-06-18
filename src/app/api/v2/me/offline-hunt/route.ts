@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MODE,
   OFFLINE_MAX_MS,
 } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -27,7 +27,8 @@ export async function POST(req: Request) {
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  if (!V2_CORE_LOOP_V2) {
+  // 쿨다운 모드 전용 — 스태미나 모드/off 면 오프라인 사냥 세션 없음(스태미나 재생이 대체).
+  if (!HUNT_COOLDOWN_MODE) {
     return Response.json({ ok: true, disabled: true, active: false });
   }
 

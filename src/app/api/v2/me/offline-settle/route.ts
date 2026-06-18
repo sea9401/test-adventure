@@ -4,6 +4,7 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { canHuntWithHp } from "@/adventure/v2/hpRegen";
 import {
   V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   OFFLINE_MAX_MS,
   offlineBattlesAccrued,
@@ -44,8 +45,8 @@ export async function POST() {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  // 코어루프 전용 — flag off 면 오프라인 정산 없음(스태미나 시절엔 재생이 대체).
-  if (!V2_CORE_LOOP_V2) {
+  // 쿨다운 모드 전용 — 스태미나 모드/off 면 오프라인 정산 없음(스태미나 재생이 대체).
+  if (!HUNT_COOLDOWN_MODE) {
     return Response.json({ ok: true, disabled: true, battles: 0 });
   }
 

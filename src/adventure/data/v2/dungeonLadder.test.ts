@@ -4,11 +4,36 @@ import {
   floorStatMult,
   floorDefMult,
   floorExpMult,
+  endgameSoften,
   LADDER_STAT_STEP,
   ONBOARDING_MAX_STAT_MULT,
   LADDER_EXP_SOFTCAP,
+  ENDGAME_SOFTEN_START_DEPTH,
+  ENDGAME_SOFTEN_MIN,
 } from "./dungeonLadder";
 import type { DungeonFloorId } from "./types";
+
+describe("endgameSoften — 엔드게임 난이도 완화(floor 빌드 부양·밸런스 2026-06-18)", () => {
+  it("시작 깊이 이하는 완화 0(1.0) — 중반 균형 무변", () => {
+    expect(endgameSoften(1)).toBe(1);
+    expect(endgameSoften(ENDGAME_SOFTEN_START_DEPTH)).toBe(1);
+  });
+  it("시작 이후 점감 + 하한 plateau", () => {
+    expect(endgameSoften(ENDGAME_SOFTEN_START_DEPTH + 10)).toBeLessThan(1);
+    expect(endgameSoften(50)).toBeGreaterThanOrEqual(ENDGAME_SOFTEN_MIN);
+    // 깊은 frontier 는 하한에서 평평.
+    expect(endgameSoften(999)).toBe(ENDGAME_SOFTEN_MIN);
+    // 단조 비증가.
+    expect(endgameSoften(40)).toBeLessThanOrEqual(endgameSoften(30));
+  });
+  it("권장파워(floorPowerGate)는 완화와 분리 — 진척/exp 곡선 무영향", () => {
+    // floorPowerGate 는 floorStatMult 만 쓰고 endgameSoften 을 안 탄다(난이도만 완화, 레벨 매칭 불변).
+    const gate = floorPowerGate(50);
+    expect(gate).toBeGreaterThan(0);
+    // soften 은 floorStatMult 와 독립 — floorStatMult(50) 은 완화 미반영(원곡선).
+    expect(floorStatMult(50)).toBeGreaterThan(floorStatMult(50) * endgameSoften(50));
+  });
+});
 
 const FLOORS: DungeonFloorId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 

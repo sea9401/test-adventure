@@ -80,9 +80,9 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
   });
 });
 
-describe("유니크 카탈로그 (24종 — 세트 통합 38→12 후: 기존 6 + 밴드 사이드그레이드/추가 + 보스 3)", () => {
-  it("V2_UNIQUE_IDS 24종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(24);
+describe("유니크 카탈로그 (18종 — 들판 유니크 6 삭제 후: 밴드 사이드그레이드/추가 15 + 보스 3)", () => {
+  it("V2_UNIQUE_IDS 18종, 전부 rarity:unique + 카탈로그 존재", () => {
+    expect(V2_UNIQUE_IDS).toHaveLength(18);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
@@ -98,32 +98,22 @@ describe("유니크 카탈로그 (24종 — 세트 통합 38→12 후: 기존 6 
 });
 
 describe("UNIQUE_FLOOR_POOLS", () => {
-  it("1~5층 풀 채워짐(chance>0, ids 비어있지 않음), 6~8층 빈 풀", () => {
-    for (const f of [1, 2, 3, 4, 5] as DungeonFloorId[]) {
-      expect(UNIQUE_FLOOR_POOLS[f].chance, `floor ${f}`).toBeGreaterThan(0);
-      expect(UNIQUE_FLOOR_POOLS[f].ids.length, `floor ${f}`).toBeGreaterThan(0);
-    }
-    for (const f of [6, 7, 8] as DungeonFloorId[]) {
+  it("들판 유니크 삭제 후 1~8층 전부 빈 풀(드랍 없음)", () => {
+    for (const f of FLOORS) {
       expect(UNIQUE_FLOOR_POOLS[f].ids, `floor ${f}`).toEqual([]);
     }
   });
 
-  it("풀의 모든 id 가 유효 유니크 + 17종 전부 어느 풀엔가 등장(층 또는 밴드, 고아 없음)", () => {
+  it("18종 전부 어느 풀엔가 등장(밴드 또는 보스, 고아 없음) — floor 풀은 비었으므로 밴드+보스만", () => {
     const inPools = new Set<string>();
-    for (const f of FLOORS) {
-      for (const id of UNIQUE_FLOOR_POOLS[f].ids) {
-        expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
-        inPools.add(id);
-      }
-    }
-    // 심층 밴드 풀(마른 협곡 등)의 유니크도 합산 — 깊이 밴드 드랍.
+    // 심층 밴드 풀(마른 협곡 등)의 유니크 — 깊이 밴드 드랍.
     for (const pool of BAND_UNIQUE_POOLS) {
       for (const id of pool.ids) {
         expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
         inPools.add(id);
       }
     }
-    // 테마 보스 전용 유니크(보스 처치 드랍) — 일반 풀엔 없지만 보스 풀에 등장.
+    // 테마 보스 전용 유니크(보스 처치 드랍).
     for (const id of BOSS_UNIQUE_IDS) {
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);
       inPools.add(id);
@@ -317,37 +307,24 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 짐승의 �
 describe("rollUniqueDrop", () => {
   const empty = new Set<V2EquipmentId>();
 
-  it("통과 굴림(rng<chance) → 그 층 유니크 반환", () => {
-    // 1층: chance 0.003, ids [shadow_garb]. rng 0 → 통과 + pick 0.
-    expect(rollUniqueDrop(1, empty, seqRng([0, 0]))).toBe("v2_uniq_shadow_garb");
-  });
-
-  it("굴림 실패(rng≥chance) → null", () => {
-    expect(rollUniqueDrop(1, empty, () => 0.5)).toBeNull();
-  });
-
-  it("이미 보유한 유니크는 제외 → 후보 0 이면 null", () => {
-    const owned = new Set<V2EquipmentId>(["v2_uniq_shadow_garb"]);
-    expect(rollUniqueDrop(1, owned, seqRng([0, 0]))).toBeNull();
-  });
-
-  it("2종 층(5층)은 pick 굴림으로 갈림", () => {
-    // 5층 ids [starcleaver, sage_seal]. pick 0→첫째, 0.9→둘째.
-    expect(rollUniqueDrop(5, empty, seqRng([0, 0]))).toBe("v2_uniq_starcleaver");
-    expect(rollUniqueDrop(5, empty, seqRng([0, 0.9]))).toBe("v2_uniq_sage_seal");
-  });
-
-  it("빈 풀(6~8층) → 항상 null", () => {
-    for (const f of [6, 7, 8] as DungeonFloorId[]) {
-      expect(rollUniqueDrop(f, empty, () => 0), `floor ${f}`).toBeNull();
+  it("들판 유니크 삭제 후 — 1~8층 전부 빈 풀이라 굴림과 무관하게 항상 null", () => {
+    for (const f of FLOORS) {
+      // rng 가 통과값(0)이어도 후보 0 → null. rng 미소비도 함께 보장.
+      let calls = 0;
+      const rng = () => {
+        calls++;
+        return 0;
+      };
+      expect(rollUniqueDrop(f, empty, rng), `floor ${f}`).toBeNull();
+      expect(calls, `floor ${f} rng 미소비`).toBe(0);
     }
   });
 });
 
 describe("정규 장비 드랍은 유니크를 절대 안 뱉음 (누수 가드)", () => {
-  it("정규 T1 전부 보유 + 여러 굴림 — 유니크(shadow_garb)는 절대 안 나옴(중복 드랍이어도)", () => {
-    // 1층 유니크 shadow_garb 는 T1. 중복 드랍(no-dup off)이라 정규 T1 전량 보유여도 정규 T1
-    // dup 은 나오지만, 유니크는 정규 후보에서 제외되므로 결코 안 나온다 → 누수 회귀 가드.
+  it("정규 T1 전부 보유 + 여러 굴림 — 유니크는 절대 안 나옴(중복 드랍이어도)", () => {
+    // 중복 드랍(no-dup off)이라 정규 T1 전량 보유여도 정규 T1 dup 은 나오지만,
+    // 유니크는 정규 후보에서 제외되므로 결코 안 나온다 → 누수 회귀 가드.
     const t1NonUnique = Object.values(V2_EQUIPMENT)
       .filter((i) => i.tier === 1 && !isUnique(i))
       .map((i) => i.id);
@@ -357,24 +334,17 @@ describe("정규 장비 드랍은 유니크를 절대 안 뱉음 (누수 가드)
       const got = rollEquipDrop(1, owned, seqRng([0, 0, seed / 100]));
       if (got) {
         expect(isUnique(V2_EQUIPMENT[got])).toBe(false);
-        expect(got).not.toBe("v2_uniq_shadow_garb");
       }
     }
   });
 });
 
 describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
-  it("들판(1~6) — floor 풀 1~5 시그니처 유니크 합집합(6종)", () => {
-    const ids = uniqueIdsForDepthRange(1, 6);
-    // floor 1~5 풀 id 전부 포함, 중복 없음.
-    const expected = new Set(
-      [1, 2, 3, 4, 5].flatMap((f) => UNIQUE_FLOOR_POOLS[f as 1].ids),
-    );
-    expect(new Set(ids)).toEqual(expected);
-    expect(ids.length).toBe(expected.size);
+  it("들판(1~6) — 유니크 없음(들판 유니크 삭제·floor 풀 전부 빈 풀)", () => {
+    expect(uniqueIdsForDepthRange(1, 6)).toEqual([]);
   });
 
-  it("깊은 산(7~12) — 유니크 없음(floor 6~8 빈 풀·밴드 밖)", () => {
+  it("깊은 산(7~12) — 유니크 없음(floor 풀 빈 풀·밴드 밖)", () => {
     expect(uniqueIdsForDepthRange(7, 12)).toEqual([]);
   });
 

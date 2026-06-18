@@ -111,13 +111,7 @@ export type V2EquipmentId =
   | "v2_jade_amulet"
   | "v2_crystal_amulet"
   | "v2_mana_essence"
-  // 유니크 (드랍 전용, rarity:"unique") — 정규 컨셉×티어 그리드 밖 사이드그레이드. Phase 2 투입.
-  | "v2_uniq_shadow_garb"
-  | "v2_uniq_trickster_boots"
-  | "v2_uniq_giant_fist"
-  | "v2_uniq_berserker_fang"
-  | "v2_uniq_starcleaver"
-  | "v2_uniq_sage_seal"
+  // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리) — LEGACY_ID_REMAP 으로 동슬롯 정규템 마이그.
   // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses.
   | "v2_boss_mountain_axe"
   | "v2_boss_canyon_fang"
@@ -731,6 +725,13 @@ const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
 //   굴림을 카탈로그로 리셋(옛 티어 굴림이 새 티어 아이템에 오접되어 약화/과강되는 것 차단).
 //   보유 아이템 자체는 보존. 비치환 id 는 그대로.
 const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
+  // 들판 유니크 삭제(2026-06-19) — 동슬롯·동컨셉 정규템으로 비파괴 마이그.
+  v2_uniq_shadow_garb: "v2_leather_armor", // 경갑 T1
+  v2_uniq_trickster_boots: "v2_shadow_boots", // 경갑 신발 T2
+  v2_uniq_giant_fist: "v2_shadow_gloves", // 경갑 장갑 T2
+  v2_uniq_berserker_fang: "v2_mana_essence", // 마나 목걸이 T3
+  v2_uniq_starcleaver: "v2_toxic_dagger", // 단검 T3
+  v2_uniq_sage_seal: "v2_fate_ring", // 운 반지 T3
   // 무기 종류 통합(weaponType 8→4) — 검방·권갑→대검, 세검·권조→단검. 보유분 비파괴 마이그.
   v2_starter_sword_shield: "v2_iron_sword",
   v2_knight_blade: "v2_greatsword",

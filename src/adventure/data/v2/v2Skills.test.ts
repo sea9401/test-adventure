@@ -26,12 +26,14 @@ describe("사제 회복 패시브 (SPI PR-4 — v2c_acolyte_mana 리스킨)", ()
   });
 });
 
-describe("가디언 받피감 패시브 (방벽 — damageTakenReductionPct 신규 어휘)", () => {
-  it("v2c_guardian_bulwark3 = 받피감 15%, aggregate 합산", () => {
-    expect(V2_SKILLS.v2c_guardian_bulwark3?.passive?.damageTakenReductionPct).toBe(15);
+describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 시너지)", () => {
+  it("v2c_guardian_bulwark3 = 방어 20%(받피감→방어% 전환)", () => {
+    expect(V2_SKILLS.v2c_guardian_bulwark3?.passive?.defPct).toBe(20);
     expect(
-      aggregateEquippedPassives(["v2c_guardian_bulwark3"]).damageTakenReductionPct,
-    ).toBe(15);
+      V2_SKILLS.v2c_guardian_bulwark3?.passive?.damageTakenReductionPct,
+    ).toBeUndefined();
+  });
+  it("damageTakenReductionPct 어휘는 배선 보존(현재 미사용·aggregate 기본 0)", () => {
     expect(aggregateEquippedPassives([]).damageTakenReductionPct).toBe(0);
   });
 });

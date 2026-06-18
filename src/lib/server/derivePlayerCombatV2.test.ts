@@ -33,7 +33,27 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
       hp: 0,
       critMult: 0,
       spd: 0,
+      healPowerPct: 0,
     });
+  });
+
+  it("SPI gear 옵션(PR-2) — magicDef 옵션 → acc.magicDef, healPowerPct 옵션 → acc.healPowerPct", () => {
+    // 경갑 T3 = magicDef 옵션 14(갑옷 위력은 물방). 목걸이 T3 = healPowerPct 옵션 8(+위력→magicDef).
+    const armor = aggregateV2Equipment({ armor: "v2_windweave_cloak" });
+    expect(armor.magicDef).toBe(14);
+    expect(armor.healPowerPct).toBe(0);
+    const neck = aggregateV2Equipment({ necklace: "v2_mana_essence" });
+    expect(neck.healPowerPct).toBe(8);
+    expect(neck.magicDef).toBeGreaterThan(0); // 목걸이 위력 → magicDef
+  });
+  it("SPI gear — 장비 healPowerPct 가 healMult 에 곱연산(패시브와 합산 경로)", () => {
+    const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    const geared = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { necklace: "v2_mana_essence" }, // healPowerPct 8
+    }).player;
+    // 목걸이는 1차 스탯(vit/spi) 무변(PR-4a) → healMult 의 정신/활력항 동일, 회복강화 8%만 곱연산.
+    expect(geared.healMult ?? 1).toBeCloseTo((plain.healMult ?? 1) * 1.08, 4);
   });
 
   it("철검 T1 (위력 → 물공+마공 둘 다) → atk=magicAtk=무기위력, weight=2", () => {
@@ -117,7 +137,8 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
     expect(a.atk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
     expect(a.magicAtk).toBe(V2_EQUIPMENT.v2_starsong_bow.power);
     expect(a.def).toBe(6); // 갑옷만
-    expect(a.magicDef).toBe(4); // 목걸이 위력
+    expect(a.magicDef).toBe(4 + 14); // 목걸이 위력 4 + 바람망토 magicDef 옵션 14(SPI gear PR-2)
+    expect(a.healPowerPct).toBe(8); // 마나의 정수 healPowerPct 옵션(SPI gear PR-2)
     expect(a.weight).toBe(2 + 1 + 0);
     expect(a.crit).toBe(2);
     expect(a.eva).toBe(6); // 바람망토 3 + 마나의 정수 3

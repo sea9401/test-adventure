@@ -180,7 +180,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "들개 가죽을 손질해 만든 가벼운 갑옷.",
     power: 2,
     weight: 0,
-    options: { hp: 20 },
+    options: { hp: 20, magicDef: 4 },
   },
   v2_shadow_cloak: {
     id: "v2_shadow_cloak",
@@ -191,7 +191,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "발걸음을 가리는 어두운 망토.",
     power: 4,
     weight: 1,
-    options: { eva: 2, hp: 40 },
+    options: { eva: 2, hp: 40, magicDef: 8 },
   },
   v2_windweave_cloak: {
     id: "v2_windweave_cloak",
@@ -202,7 +202,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "바람결을 짜 만든 가벼운 망토.",
     power: 6,
     weight: 1,
-    options: { eva: 3, hp: 80 },
+    options: { eva: 3, hp: 80, magicDef: 14 },
   },
 
   // ── 장갑-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 crit) ──────────────
@@ -394,7 +394,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "옥 조각에 끈을 꿴 부적. 묘하게 안심된다.",
     power: 2,
     weight: 0,
-    options: { mp: 15 },
+    options: { mp: 15, healPowerPct: 4 },
   },
   v2_crystal_amulet: {
     id: "v2_crystal_amulet",
@@ -405,7 +405,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "맑은 수정에 빛이 모인다.",
     power: 2,
     weight: 0,
-    options: { mp: 30, hp: 30 },
+    options: { mp: 30, hp: 30, healPowerPct: 6 },
   },
   v2_mana_essence: {
     id: "v2_mana_essence",
@@ -416,7 +416,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     description: "푸른 빛이 일렁이는 작은 결정.",
     power: 4,
     weight: 0,
-    options: { mp: 48, eva: 3 },
+    options: { mp: 48, eva: 3, healPowerPct: 8 },
   },
 
   // ── 유니크 (드랍 전용) ────────────────────────────────────────────

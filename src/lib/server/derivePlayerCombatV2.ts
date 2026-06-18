@@ -139,6 +139,7 @@ export type V2EquipAggregate = {
   hp: number;
   critMult: number; // 백분의 일 정수 합(100=+1.0×). derive 에서 /100 환산.
   spd: number; // flat 속도 합.
+  healPowerPct: number; // 회복 +% 옵션 합(SPI PR-2). derive healMult 에 패시브와 합산.
 };
 
 const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
@@ -153,6 +154,7 @@ const EMPTY_AGGREGATE = (): V2EquipAggregate => ({
   hp: 0,
   critMult: 0,
   spd: 0,
+  healPowerPct: 0,
 });
 
 export function aggregateV2Equipment(
@@ -194,6 +196,8 @@ export function aggregateV2Equipment(
     acc.critMult += o.critMult ?? 0;
     acc.spd += o.spd ?? 0;
     acc.def += o.def ?? 0; // 물방 옵션(신설) — 갑옷 위력 def 와 같은 축에 가산.
+    acc.magicDef += o.magicDef ?? 0; // 마방 옵션(SPI PR-2) — 장신구 위력 magicDef 와 같은 축.
+    acc.healPowerPct += o.healPowerPct ?? 0; // 회복% 옵션(SPI PR-2) — derive healMult 에 합산.
   }
   // 세트 보너스 — 한 세트의 모든 조각을 장착했으면 옵션 보너스 후-가산(crit/eva/mp/hp).
   const equippedIds = new Set<V2EquipmentId>();
@@ -218,6 +222,8 @@ export function aggregateV2Equipment(
     acc.critMult += b.critMult ?? 0;
     acc.spd += b.spd ?? 0;
     acc.def += b.def ?? 0; // 세트 보너스 def(신설).
+    acc.magicDef += b.magicDef ?? 0; // 세트 보너스 마방(SPI PR-2).
+    acc.healPowerPct += b.healPowerPct ?? 0; // 세트 보너스 회복%(SPI PR-2).
   }
   return acc;
 }
@@ -514,13 +520,13 @@ export function derivePlayerCombatV2Pure(
       totalStats.int * MIN_DMG_PER_INT +
       totalStats.vit * MIN_DMG_PER_VIT,
   );
-  // 회복량 배수(신규) — 정신(주력)·활력(보조). heal effect 스케일(1.0 기준). 회복강화 패시브
-  //   (신술 지원)는 곱연산 ×(1+%/100). 미지정 = ×1(byte-identical).
+  // 회복량 배수(신규) — 정신(주력)·활력(보조). heal effect 스케일(1.0 기준). 회복강화는 곱연산
+  //   ×(1+%/100) — 패시브(신술 지원) + 장비 옵션(SPI PR-2) 합산. 미지정/0 = ×1(byte-identical).
   const healMult =
     (1 +
       totalStats.vit * HEAL_MULT_PER_VIT +
       totalStats.spi * HEAL_MULT_PER_SPI) *
-    (1 + (input.passiveHealPowerPct ?? 0) / 100);
+    (1 + ((input.passiveHealPowerPct ?? 0) + equipAcc.healPowerPct) / 100);
   // 코어루프 모험가 HP 패시브 — flag on + 무직(=모험가)일 때만 ×1.1. flag off = ×1.0(무변경).
   // 직업 시스템 v2 — 최대 HP/MP % 패시브(체력/마나). 미지정(flag off/sim) = ×1(무변경).
   const maxHp = Math.floor(

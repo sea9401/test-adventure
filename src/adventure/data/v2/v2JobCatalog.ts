@@ -272,26 +272,26 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   sensei: {
     id: "sensei",
-    name: "마스터",
+    name: "절정",
     tier: 4,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 12, str: 6 }, // 무도 심화
+    jobBonus: { vit: 12, str: 6 }, // 무도 심화(권법·선기 라인 정점)
     unlock: { prereqs: { martial: TIER4_UNLOCK_CUMLEVEL } },
   },
   sage: {
     id: "sage",
-    name: "위저드",
+    name: "대마법사",
     tier: 4,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 12, spi: 6 }, // 마법 심화
+    jobBonus: { int: 12, spi: 6 }, // 마법 심화(원소·신성 라인 정점)
     unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
   },
   chief: {
     id: "chief",
-    name: "보스",
+    name: "신궁",
     tier: 4,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: { dex: 12, luk: 6 }, // 도적 심화
+    jobBonus: { dex: 12, luk: 6 }, // 도적 심화(궁술 라인 정점)
     unlock: { prereqs: { rogue: TIER4_UNLOCK_CUMLEVEL } },
   },
 };

@@ -44,8 +44,8 @@ export type V2CommonSkillId =
   | "v2c_rogue_poison" // 독침
   // 기본 직업 패시브 스킬(학습+SP 슬롯해야 효과 — 직업 킷 재설계)
   | "v2c_warrior_might" // 근력 (힘 +10%)
-  | "v2c_martial_fortitude" // 강건 (활력 +10)
-  | "v2c_mage_acumen" // 총명 (지능 +10)
+  | "v2c_martial_fortitude" // 강건 (활력 +10%)
+  | "v2c_mage_acumen" // 총명 (지능 +10%)
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   // ── 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
   // 액티브
@@ -69,9 +69,9 @@ export type V2CommonSkillId =
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
   // 액티브(강)
   | "v2c_paladin_cleave" // 심판 (물리 단일 + 무력 디버프)
-  | "v2c_brawler_combo" // 연권(강) (물리 다단)
-  | "v2c_magus_bolt" // 마탄(강) (마법 단일)
-  | "v2c_ranger_ambush" // 기습 (DEX 비례 단일)
+  | "v2c_brawler_combo" // 벽력권 (물리 단일 강)
+  | "v2c_magus_bolt" // 마력 작렬 (마법 단일)
+  | "v2c_ranger_ambush" // 연사 (DEX 비례 3연사)
   // 고차 패시브(다양성 2차: paladin/ranger 는 효과 리스킨, brawler/magus 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
@@ -92,7 +92,7 @@ export type V2CommonSkillId =
   | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
   | "v2c_sensei_combo" // 난무 (물리 다단)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
-  | "v2c_chief_strike" // 암격 (물리 단일)
+  | "v2c_chief_strike" // 관통사 (DEX 비례 단일·궁술)
   | "v2c_veteran_lethal" // 필살 (치명 피해 +25%)
   | "v2c_sensei_ironbody" // 철신 (최대 HP +12%)
   | "v2c_sage_insight" // 간파 (치명 확률 +8%)
@@ -254,15 +254,15 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_martial_fortitude: {
     id: "v2c_martial_fortitude", name: "강건", stat: "vit", category: "passive", tier: 1,
-    description: "단단한 몸. 활력이 오른다.", mpCost: 0, cooldown: 0,
+    description: "단단한 몸. 활력이 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { stat: { vit: 10 } },
+    passive: { statPct: { vit: 10 } },
   },
   v2c_mage_acumen: {
     id: "v2c_mage_acumen", name: "총명", stat: "int", category: "passive", tier: 1,
-    description: "맑은 정신. 지능이 오른다.", mpCost: 0, cooldown: 0,
+    description: "맑은 정신. 지능이 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { stat: { int: 10 } },
+    passive: { statPct: { int: 10 } },
   },
   v2c_rogue_finesse: {
     id: "v2c_rogue_finesse", name: "예기", stat: "dex", category: "passive", tier: 1,
@@ -403,22 +403,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.3, 230), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
   v2c_brawler_combo: {
-    id: "v2c_brawler_combo", name: "연권", stat: "str", category: "attack", tier: 3,
-    description: "주먹을 다섯 번 몰아친다.", mpCost: 32, cooldown: 0, procChance: 40,
-    effects: hits(5, 0.42, 48),
+    // 격투가 = 권사(연타) 위 갈래 — 연권→벽력권 리스킨(id 유지). 권사는 연타, 격투가는 한 방 강타로
+    //   메커니즘도 차별(같은 "연권" 이름·다단 중복 해소). "벽력권"은 고아 붕권(martial_burst)과도 비충돌.
+    id: "v2c_brawler_combo", name: "벽력권", stat: "str", category: "attack", tier: 3,
+    description: "온몸의 무게를 실어 단 한 번에 부숴버린다.", mpCost: 32, cooldown: 0, procChance: 40,
+    effects: [dmg(1.4, 250)],
   },
   v2c_magus_bolt: {
-    id: "v2c_magus_bolt", name: "마탄", stat: "int", category: "attack", tier: 3,
-    description: "고도로 응축한 마력탄을 박아넣는다.", mpCost: 44, cooldown: 0, procChance: 30,
+    // 마도사 = 마법사(마탄) 위 갈래 — 마탄→마력 작렬 리스킨(id 유지·같은 "마탄" 이름 중복 해소).
+    id: "v2c_magus_bolt", name: "마력 작렬", stat: "int", category: "attack", tier: 3,
+    description: "응축한 마력을 적 안에서 터뜨린다.", mpCost: 44, cooldown: 0, procChance: 30,
     effects: [dmg(1.35, 210, "magic")],
   },
   v2c_ranger_ambush: {
-    // 유격수 = 민첩(dex) — 데미지가 민첩(DEX)에 직접 비례(scaling:"dex"). DEX 원시스탯이 커서 계수
-    //   작게(0.25 ≈ str→atk 급). 예기 없이도 DEX 가 도적 딜로 환산되는 직접 경로(예기는 평타 보조 유지).
-    //   id 유지. PvE/PvP 공용.
-    id: "v2c_ranger_ambush", name: "기습", stat: "dex", category: "attack", tier: 3,
-    description: "민첩한 몸놀림으로 급소를 깊숙이 찔러든다.", mpCost: 38, cooldown: 0, procChance: 30,
-    effects: [dmg(0.25, 210, "dex")],
+    // 유격수 = 궁술/민첩(dex) — 기습(암살 느낌)→연사 리스킨(id 유지·궁수 라인 테마 정합). 화살을
+    //   세 번 연달아 쏘는 다단(dex 비례). DEX 원시스탯이 커서 hit당 계수 작게. PvE/PvP 공용.
+    id: "v2c_ranger_ambush", name: "연사", stat: "dex", category: "attack", tier: 3,
+    description: "활시위를 빠르게 세 번 당겨 연달아 쏘아붙인다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: hits(3, 0.1, 75, "dex"),
   },
 
   // ── 고차 4직업 III티어 패시브(% 가산 — 직군 축, tier-2 II 위 단계) ──
@@ -530,9 +532,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.45, 235, "magic")],
   },
   v2c_chief_strike: {
-    id: "v2c_chief_strike", name: "암격", stat: "str", category: "attack", tier: 3,
-    description: "그림자에서 급소를 노려 찌른다.", mpCost: 40, cooldown: 0, procChance: 30,
-    effects: [dmg(1.45, 235)],
+    // 신궁(도적 4차·궁수 라인 정점) = 암격(암살 느낌·str)→관통사 리스킨(id 유지). 궁술 테마로
+    //   민첩(dex) 비례 단일 강사(유격수 연사=다단과 차별). DEX 원시스탯이 커서 계수 작게.
+    id: "v2c_chief_strike", name: "관통사", stat: "dex", category: "attack", tier: 3,
+    description: "단 한 발에 모든 것을 실어 꿰뚫는다.", mpCost: 40, cooldown: 0, procChance: 30,
+    effects: [dmg(0.35, 250, "dex")],
   },
 
   // ── 심화 4직업 패시브(tier 4) — 직군마다 다른 효과(라인 비포화·기존 어휘, PvP-안전) ──
@@ -575,14 +579,11 @@ export const V2_COMMON_SKILLS_BY_JOB: Record<
   //   시그니처(V2_SKILLS_BY_JOB)만 학습. 강타는 견습 병사 시그니처로 잔존. 난격/파쇄/함성/불굴
   //   (v2c_warrior_flurry/sunder/warcry/endure) 정의는 보존(비파괴)·추후 재배치/정리 대상.
   warrior: [],
-  martial: [
-    "v2c_martial_burst", "v2c_martial_combo", "v2c_martial_whirl",
-    "v2c_martial_chi", "v2c_martial_circulate",
-  ],
-  mage: [
-    "v2c_mage_fireball", "v2c_mage_barrage", "v2c_mage_shield", "v2c_mage_meditate",
-  ],
-  rogue: [
-    "v2c_rogue_strike", "v2c_rogue_flurry", "v2c_rogue_expose", "v2c_rogue_poison",
-  ],
+  // 무인/마법/도적 공용 풀도 폐지(2026-06-19) — 전사와 동일("직업 순회 수집" 설계). 직업별
+  //   시그니처(V2_SKILLS_BY_JOB)만 학습. 견습직 액티브(철포·마력탄·독침)는 시그니처라 잔존.
+  //   나머지 공용 정의(연격/난타/회선/기공/운기·화염구/연발/마법보호/명상·찌르기/난자/허점)는
+  //   보존(비파괴·추후 재배치/정리 대상).
+  martial: [],
+  mage: [],
+  rogue: [],
 };

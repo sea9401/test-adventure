@@ -74,7 +74,7 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
   });
 
-  it("도적 직군 스케일링: 자객 처단=LUK 비례, 유격수 기습=DEX 비례", () => {
+  it("도적 직군 스케일링: 자객 처단=LUK 비례, 유격수 연사=DEX 비례", () => {
     // 도적 정체성 — 데미지가 str-atk 가 아니라 행운/민첩 직접 비례(scaling). 원시스탯이 커서 계수 작음.
     const assassin = V2_SKILLS.v2c_assassin_ambush.effects[0];
     expect(assassin).toMatchObject({ kind: "executeDamage", scaling: "luk" });
@@ -214,8 +214,8 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
   it("기본 패시브 스킬 = category passive + 효과(근력/강건/총명/예기)", () => {
     expect(V2_SKILLS.v2c_warrior_might.category).toBe("passive");
     expect(V2_SKILLS.v2c_warrior_might.passive).toEqual({ statPct: { str: 10 } }); // 힘 +10%(flat→% 변경)
-    expect(V2_SKILLS.v2c_martial_fortitude.passive).toEqual({ stat: { vit: 10 } });
-    expect(V2_SKILLS.v2c_mage_acumen.passive).toEqual({ stat: { int: 10 } });
+    expect(V2_SKILLS.v2c_martial_fortitude.passive).toEqual({ statPct: { vit: 10 } }); // 활력 +10%(flat→% 변경)
+    expect(V2_SKILLS.v2c_mage_acumen.passive).toEqual({ statPct: { int: 10 } }); // 지능 +10%(flat→% 변경)
     expect(V2_SKILLS.v2c_rogue_finesse.passive?.atkPerDexCoef).toBeGreaterThan(0);
   });
 
@@ -224,25 +224,24 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(spCostOf(V2_SKILLS.v2c_rogue_finesse)).toBeGreaterThan(0);
   });
 
-  it("aggregateEquippedPassives — 장착 패시브 합산(stat + atkPerDexCoef)", () => {
+  it("aggregateEquippedPassives — 장착 패시브 합산(statPct + atkPerDexCoef)", () => {
     const agg = aggregateEquippedPassives([
-      "v2c_martial_fortitude", // vit+10 (플랫 stat)
+      "v2c_martial_fortitude", // statPct vit+10%
       "v2c_rogue_finesse", // atkPerDexCoef
       "v2c_warrior_strike", // 액티브 → 무시
     ]);
-    expect(agg.stat).toEqual({ vit: 10 });
+    expect(agg.statPct).toEqual({ vit: 10 });
     expect(agg.atkPerDexCoef).toBeGreaterThan(0);
   });
 
   it("aggregateEquippedPassives — % 패시브(statPct/maxHpPct/healPowerPct) 합산", () => {
     const agg = aggregateEquippedPassives([
-      "v2c_martial_fortitude", // 플랫 vit+10
+      "v2c_martial_fortitude", // statPct vit+10%
       "v2c_squire_might", // statPct str+15
       "v2c_shieldman_vitality", // maxHpPct 12
       "v2c_acolyte_mana", // healPowerPct 20 (회복강화 — SPI PR-4, 옛 maxMpPct 리스킨)
     ]);
-    expect(agg.stat).toEqual({ vit: 10 }); // 플랫과 % 는 분리
-    expect(agg.statPct).toEqual({ str: 15 });
+    expect(agg.statPct).toEqual({ vit: 10, str: 15 }); // % 스탯 누적
     expect(agg.maxHpPct).toBe(12);
     expect(agg.healPowerPct).toBe(20);
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음

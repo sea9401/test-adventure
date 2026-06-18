@@ -40,11 +40,11 @@ function rng(seed: number) {
 
 const GEAR: Partial<Record<V2EquipSlot, V2EquipmentId>> = {
   weapon: "v2_den_greatsword",
-  armor: "v2_den_void_armor",
-  gloves: "v2_den_void_gloves",
-  boots: "v2_den_void_boots",
-  ring: "v2_den_hunter_ring",
-  necklace: "v2_den_hunter_necklace",
+  armor: "v2_den_set_armor",
+  gloves: "v2_den_set_gloves",
+  boots: "v2_den_set_boots",
+  ring: "v2_den_alpha_ring",
+  necklace: "v2_den_alpha_necklace",
 };
 
 function makeRef(enhance: V2EnhanceState | undefined) {

@@ -139,9 +139,6 @@ export type V2EquipmentId =
   | "v2_canyon_set_gloves"
   | "v2_canyon_set_boots"
   // 마른 협곡 추가 세트 — 바위문 수호구(중갑 탱커 3종) + 모래바람 장신구(반지·목걸이 2종).
-  | "v2_canyon_bulwark_armor"
-  | "v2_canyon_bulwark_gloves"
-  | "v2_canyon_bulwark_boots"
   | "v2_canyon_sand_ring"
   | "v2_canyon_sand_necklace"
   // 얼음 호수 밴드 드랍 (밴드 B, 깊이 19~24) — 무기 8종 + 세트 3종(서리 갑주·빙벽 수호구·한기 장신구).
@@ -152,9 +149,6 @@ export type V2EquipmentId =
   | "v2_lake_frost_armor"
   | "v2_lake_frost_gloves"
   | "v2_lake_frost_boots"
-  | "v2_lake_bulwark_armor"
-  | "v2_lake_bulwark_gloves"
-  | "v2_lake_bulwark_boots"
   | "v2_lake_chill_ring"
   | "v2_lake_chill_necklace"
   // 심층 동굴 밴드 드랍 (밴드 C, 깊이 25~30) — 무기 8종 + 세트 3종(심연 갑주·흑요 수호구·공허 장신구).
@@ -165,24 +159,9 @@ export type V2EquipmentId =
   | "v2_cave_abyss_armor"
   | "v2_cave_abyss_gloves"
   | "v2_cave_abyss_boots"
-  | "v2_cave_obsidian_armor"
-  | "v2_cave_obsidian_gloves"
-  | "v2_cave_obsidian_boots"
   | "v2_cave_void_ring"
   | "v2_cave_void_necklace"
   // 무기 포함 특화 세트 (밴드 드랍) — 맹독/마법/방어비례/금강.
-  | "v2_canyon_rustfang_dagger"
-  | "v2_canyon_rustfang_gloves"
-  | "v2_lake_frostarcane_staff"
-  | "v2_lake_frostarcane_necklace"
-  | "v2_lake_bloodvajra_gauntlet"
-  | "v2_lake_bloodvajra_boots"
-  | "v2_cave_judgment_sword"
-  | "v2_cave_judgment_armor"
-  | "v2_cave_judgment_ring"
-  | "v2_cave_venomlord_dagger"
-  | "v2_cave_venomlord_ring"
-  | "v2_cave_venomlord_necklace"
   // 컨셉 사이드그레이드 (밴드 드랍) — 위력↔속도/무게/회피 트레이드, 슬롯 비전형.
   | "v2_canyon_swift_rapier"
   | "v2_canyon_wind_boots"
@@ -193,18 +172,6 @@ export type V2EquipmentId =
   | "v2_cave_ruin_gloves"
   | "v2_cave_focus_ring"
   // 추가 2피스 세트 (밴드 드랍) — 장신구 외 부위·크로스 조합, 무기 비포함.
-  | "v2_canyon_dune_gloves"
-  | "v2_canyon_dune_boots"
-  | "v2_canyon_bond_armor"
-  | "v2_canyon_bond_ring"
-  | "v2_lake_trek_armor"
-  | "v2_lake_trek_boots"
-  | "v2_lake_seal_gloves"
-  | "v2_lake_seal_necklace"
-  | "v2_cave_onyx_armor"
-  | "v2_cave_onyx_gloves"
-  | "v2_cave_drift_boots"
-  | "v2_cave_drift_necklace"
   // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 31~36).
   | "v2_sanctum_greatsword"
   | "v2_sanctum_staff"
@@ -215,18 +182,8 @@ export type V2EquipmentId =
   | "v2_sanctum_set_boots"
   | "v2_sanctum_arcana_ring"
   | "v2_sanctum_arcana_necklace"
-  | "v2_sanctum_bulwark_armor"
-  | "v2_sanctum_bulwark_gloves"
-  | "v2_sanctum_bulwark_boots"
-  | "v2_sanctum_astral_staff"
-  | "v2_sanctum_astral_necklace"
-  | "v2_sanctum_revelation_sword"
-  | "v2_sanctum_revelation_armor"
-  | "v2_sanctum_revelation_ring"
   | "v2_sanctum_anchor_armor"
   | "v2_sanctum_nova_ring"
-  | "v2_sanctum_lumen_gloves"
-  | "v2_sanctum_lumen_boots"
   // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 37~42).
   | "v2_swamp_greatsword"
   | "v2_swamp_staff"
@@ -237,18 +194,8 @@ export type V2EquipmentId =
   | "v2_swamp_set_boots"
   | "v2_swamp_heart_ring"
   | "v2_swamp_heart_necklace"
-  | "v2_swamp_bulwark_armor"
-  | "v2_swamp_bulwark_gloves"
-  | "v2_swamp_bulwark_boots"
-  | "v2_swamp_venomlord_dagger"
-  | "v2_swamp_venomlord_ring"
-  | "v2_swamp_venomlord_necklace"
-  | "v2_swamp_vajra_gauntlet"
-  | "v2_swamp_vajra_boots"
   | "v2_swamp_mire_boots"
   | "v2_swamp_bruiser_armor"
-  | "v2_swamp_moss_armor"
-  | "v2_swamp_moss_gloves"
   // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 43~48).
   | "v2_den_greatsword"
   | "v2_den_staff"
@@ -259,19 +206,9 @@ export type V2EquipmentId =
   | "v2_den_set_boots"
   | "v2_den_alpha_ring"
   | "v2_den_alpha_necklace"
-  | "v2_den_void_armor"
-  | "v2_den_void_gloves"
-  | "v2_den_void_boots"
-  | "v2_den_hunter_claw"
-  | "v2_den_hunter_ring"
-  | "v2_den_hunter_necklace"
-  | "v2_den_rush_greatsword"
-  | "v2_den_rush_gloves"
   | "v2_den_mauler_gloves"
   | "v2_den_ghost_boots"
-  | "v2_den_hide_armor"
-  | "v2_den_beastgait_boots"
-  | "v2_den_beastgait_necklace";
+  | "v2_den_hide_armor";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -441,17 +378,6 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { crit: 5, critMult: 30, hp: 30 },
   },
   {
-    // 마른 협곡 방어형 세트(중갑 3종). 마른땅 갑주와 슬롯 택일 — 순수 탱커. 3종 보너스 HP+90·회피+5.
-    id: "canyon_bulwark",
-    name: "바위문 수호구",
-    pieces: [
-      "v2_canyon_bulwark_armor",
-      "v2_canyon_bulwark_gloves",
-      "v2_canyon_bulwark_boots",
-    ],
-    bonus: { hp: 90, eva: 5 },
-  },
-  {
     // 마른 협곡 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 버스트 유틸. 2종 보너스 치명+8·속도+6.
     id: "canyon_sandstorm",
     name: "모래바람 장신구",
@@ -468,17 +394,6 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
       "v2_lake_frost_boots",
     ],
     bonus: { crit: 5, spd: 6, hp: 40 },
-  },
-  {
-    // 얼음 호수 방어형 세트(중갑 3종). 서리 갑주와 슬롯 택일 — 순수 탱커(회피형). 3종 보너스 HP+100·회피+8.
-    id: "ice_bulwark",
-    name: "빙벽 수호구",
-    pieces: [
-      "v2_lake_bulwark_armor",
-      "v2_lake_bulwark_gloves",
-      "v2_lake_bulwark_boots",
-    ],
-    bonus: { hp: 100, eva: 8 },
   },
   {
     // 얼음 호수 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 회피/지속 유틸. 2종 보너스 회피+6·HP+60.
@@ -499,17 +414,6 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { critMult: 50, mp: 40, hp: 50 },
   },
   {
-    // 심층 동굴 방어형 세트(중갑 3종). 심연 갑주와 슬롯 택일 — 순수 탱커(HP+템포). 3종 보너스 HP+160·속도+6.
-    id: "obsidian_bulwark",
-    name: "흑요 수호구",
-    pieces: [
-      "v2_cave_obsidian_armor",
-      "v2_cave_obsidian_gloves",
-      "v2_cave_obsidian_boots",
-    ],
-    bonus: { hp: 160, spd: 6 },
-  },
-  {
     // 심층 동굴 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 마력/엔진 유틸. 2종 보너스 MP+50·속도+6.
     id: "void_charm",
     name: "공허 장신구",
@@ -518,93 +422,8 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   },
 
   // ── 무기 포함 특화 세트 ──────────────────────────────────────────────────────
-  {
-    // 녹슨 독니(협곡, 맹독 속공) — 단검+장갑 2종. 독=ATK 스케일이라 무기 위력이 핵심, 세트는 속도/회피.
-    id: "rust_fang",
-    name: "녹슨 독니",
-    pieces: ["v2_canyon_rustfang_dagger", "v2_canyon_rustfang_gloves"],
-    bonus: { spd: 5, eva: 3 },
-  },
-  {
-    // 백서리 비전(호수, 마법) — 지팡이+목걸이 2종. 마법=지팡이 위력 스케일, 세트는 MP·치명.
-    id: "frostarcane",
-    name: "백서리 비전",
-    pieces: ["v2_lake_frostarcane_staff", "v2_lake_frostarcane_necklace"],
-    bonus: { mp: 60, crit: 4 },
-  },
-  {
-    // 혈금강(호수, VIT 금강) — 권갑+신발 2종. VIT 보정축 없어 HP·속도로 "오래 치는 구조".
-    id: "bloodvajra",
-    name: "혈금강",
-    pieces: ["v2_lake_bloodvajra_gauntlet", "v2_lake_bloodvajra_boots"],
-    bonus: { hp: 90, spd: 4 },
-  },
-  {
-    // 심판의 성벽(동굴, 방어비례 기사) — 검방패+갑옷+반지 3종. def 옵션(신설) 풀로 방어비례딜+탱.
-    id: "judgment_bulwark",
-    name: "심판의 성벽",
-    pieces: [
-      "v2_cave_judgment_sword",
-      "v2_cave_judgment_armor",
-      "v2_cave_judgment_ring",
-    ],
-    bonus: { def: 35, hp: 120 },
-  },
-  {
-    // 흑맥 독왕(동굴, 후반 맹독) — 단검+반지+목걸이 3종. 독 전용 속공-회피-생존 엔진.
-    id: "venomlord",
-    name: "흑맥 독왕",
-    pieces: [
-      "v2_cave_venomlord_dagger",
-      "v2_cave_venomlord_ring",
-      "v2_cave_venomlord_necklace",
-    ],
-    bonus: { spd: 5, eva: 4, hp: 60 },
-  },
   // ── 추가 2피스 세트 (무기 비포함, 밴드 드랍) — 6슬롯 자유 세팅용. 장신구 외 부위·크로스 조합.
   //    3피스보다 약하게(작은 세트 둘 + 단일 혼합 전제). 라이브/sim 재캘리브 여지.
-  {
-    // 사막 주파구(협곡 A) — 장갑+신발. 민첩 경량.
-    id: "canyon_dunestride",
-    name: "사막 주파구",
-    pieces: ["v2_canyon_dune_gloves", "v2_canyon_dune_boots"],
-    bonus: { eva: 5, spd: 5 },
-  },
-  {
-    // 사암 결속(협곡 A) — 갑옷+반지. 방어·치명 크로스.
-    id: "canyon_sandbond",
-    name: "사암 결속",
-    pieces: ["v2_canyon_bond_armor", "v2_canyon_bond_ring"],
-    bonus: { hp: 50, crit: 4 },
-  },
-  {
-    // 서리 보행갑(호수 B) — 갑옷+신발. 방어.
-    id: "lake_frosttrek",
-    name: "서리 보행갑",
-    pieces: ["v2_lake_trek_armor", "v2_lake_trek_boots"],
-    bonus: { hp: 70, def: 12 },
-  },
-  {
-    // 빙결 인장(호수 B) — 장갑+목걸이. 마법·생존 크로스.
-    id: "lake_frostseal",
-    name: "빙결 인장",
-    pieces: ["v2_lake_seal_gloves", "v2_lake_seal_necklace"],
-    bonus: { mp: 40, hp: 45 },
-  },
-  {
-    // 흑요 완갑(동굴 C) — 갑옷+장갑. 공격.
-    id: "cave_onyxgrip",
-    name: "흑요 완갑",
-    pieces: ["v2_cave_onyx_armor", "v2_cave_onyx_gloves"],
-    bonus: { crit: 4, critMult: 25 },
-  },
-  {
-    // 공허 보행(동굴 C) — 신발+목걸이. 속도·마법 크로스.
-    id: "cave_voiddrift",
-    name: "공허 보행",
-    pieces: ["v2_cave_drift_boots", "v2_cave_drift_necklace"],
-    bonus: { spd: 6, mp: 40 },
-  },
   {
     id: "starlight_plate",
     name: "별무리 갑주",
@@ -620,38 +439,6 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "성운 장신구",
     pieces: ["v2_sanctum_arcana_ring", "v2_sanctum_arcana_necklace"],
     bonus: { mp: 70, spd: 8 },
-  },
-  {
-    id: "sanctum_bulwark",
-    name: "성소 수호구",
-    pieces: [
-      "v2_sanctum_bulwark_armor",
-      "v2_sanctum_bulwark_gloves",
-      "v2_sanctum_bulwark_boots",
-    ],
-    bonus: { hp: 215, spd: 8 },
-  },
-  {
-    id: "sanctum_astral",
-    name: "별점 비전",
-    pieces: ["v2_sanctum_astral_staff", "v2_sanctum_astral_necklace"],
-    bonus: { mp: 80, crit: 5 },
-  },
-  {
-    id: "sanctum_revelation",
-    name: "성벽의 계시",
-    pieces: [
-      "v2_sanctum_revelation_sword",
-      "v2_sanctum_revelation_armor",
-      "v2_sanctum_revelation_ring",
-    ],
-    bonus: { def: 47, hp: 160 },
-  },
-  {
-    id: "sanctum_lumen",
-    name: "성광 보행",
-    pieces: ["v2_sanctum_lumen_gloves", "v2_sanctum_lumen_boots"],
-    bonus: { eva: 6, spd: 6 },
   },
   {
     id: "swamp_mist",
@@ -670,38 +457,6 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { hp: 100, eva: 10 },
   },
   {
-    id: "swamp_bulwark",
-    name: "수렁 수호구",
-    pieces: [
-      "v2_swamp_bulwark_armor",
-      "v2_swamp_bulwark_gloves",
-      "v2_swamp_bulwark_boots",
-    ],
-    bonus: { hp: 260, eva: 10 },
-  },
-  {
-    id: "swamp_venomlord",
-    name: "맹독 군주",
-    pieces: [
-      "v2_swamp_venomlord_dagger",
-      "v2_swamp_venomlord_ring",
-      "v2_swamp_venomlord_necklace",
-    ],
-    bonus: { spd: 8, eva: 6, hp: 95 },
-  },
-  {
-    id: "swamp_vajra",
-    name: "진흙 금강",
-    pieces: ["v2_swamp_vajra_gauntlet", "v2_swamp_vajra_boots"],
-    bonus: { hp: 145, spd: 6 },
-  },
-  {
-    id: "swamp_moss",
-    name: "이끼 보호",
-    pieces: ["v2_swamp_moss_armor", "v2_swamp_moss_gloves"],
-    bonus: { hp: 90, eva: 5 },
-  },
-  {
     id: "den_predator",
     name: "포식자 갑주",
     pieces: [
@@ -716,34 +471,6 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "우두머리 장신구",
     pieces: ["v2_den_alpha_ring", "v2_den_alpha_necklace"],
     bonus: { mp: 100, spd: 12 },
-  },
-  {
-    id: "den_void",
-    name: "공허 수호구",
-    pieces: ["v2_den_void_armor", "v2_den_void_gloves", "v2_den_void_boots"],
-    bonus: { hp: 310, spd: 12 },
-  },
-  {
-    id: "den_hunter",
-    name: "공허 사냥꾼",
-    pieces: [
-      "v2_den_hunter_claw",
-      "v2_den_hunter_ring",
-      "v2_den_hunter_necklace",
-    ],
-    bonus: { spd: 10, eva: 8, hp: 120 },
-  },
-  {
-    id: "den_rush",
-    name: "야수쇄도",
-    pieces: ["v2_den_rush_greatsword", "v2_den_rush_gloves"],
-    bonus: { critMult: 100, hp: 120 },
-  },
-  {
-    id: "den_beastgait",
-    name: "맹수 보행",
-    pieces: ["v2_den_beastgait_boots", "v2_den_beastgait_necklace"],
-    bonus: { spd: 8, mp: 50 },
   },
 ];
 
@@ -1072,6 +799,70 @@ const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
   v2_ironfist_gauntlet: "v2_mithril_sword",
   v2_guard_blade: "v2_greatsword",
   v2_royal_blade: "v2_mithril_sword",
+  // 세트 통합(38→12) — 제거 세트 조각 → 생존 세트 동일슬롯/밴드 공용무기. 비파괴 마이그.
+  v2_canyon_bulwark_armor: "v2_canyon_set_armor",
+  v2_canyon_bulwark_gloves: "v2_canyon_set_gloves",
+  v2_canyon_bulwark_boots: "v2_canyon_set_boots",
+  v2_lake_bulwark_armor: "v2_lake_frost_armor",
+  v2_lake_bulwark_gloves: "v2_lake_frost_gloves",
+  v2_lake_bulwark_boots: "v2_lake_frost_boots",
+  v2_cave_obsidian_armor: "v2_cave_abyss_armor",
+  v2_cave_obsidian_gloves: "v2_cave_abyss_gloves",
+  v2_cave_obsidian_boots: "v2_cave_abyss_boots",
+  v2_canyon_rustfang_dagger: "v2_canyon_dagger",
+  v2_canyon_rustfang_gloves: "v2_canyon_set_gloves",
+  v2_lake_frostarcane_staff: "v2_lake_staff",
+  v2_lake_frostarcane_necklace: "v2_lake_chill_necklace",
+  v2_lake_bloodvajra_gauntlet: "v2_lake_greatsword",
+  v2_lake_bloodvajra_boots: "v2_lake_frost_boots",
+  v2_cave_judgment_sword: "v2_cave_greatsword",
+  v2_cave_judgment_armor: "v2_cave_abyss_armor",
+  v2_cave_judgment_ring: "v2_cave_void_ring",
+  v2_cave_venomlord_dagger: "v2_cave_dagger",
+  v2_cave_venomlord_ring: "v2_cave_void_ring",
+  v2_cave_venomlord_necklace: "v2_cave_void_necklace",
+  v2_canyon_dune_gloves: "v2_canyon_set_gloves",
+  v2_canyon_dune_boots: "v2_canyon_set_boots",
+  v2_canyon_bond_armor: "v2_canyon_set_armor",
+  v2_canyon_bond_ring: "v2_canyon_sand_ring",
+  v2_lake_trek_armor: "v2_lake_frost_armor",
+  v2_lake_trek_boots: "v2_lake_frost_boots",
+  v2_lake_seal_gloves: "v2_lake_frost_gloves",
+  v2_lake_seal_necklace: "v2_lake_chill_necklace",
+  v2_cave_onyx_armor: "v2_cave_abyss_armor",
+  v2_cave_onyx_gloves: "v2_cave_abyss_gloves",
+  v2_cave_drift_boots: "v2_cave_abyss_boots",
+  v2_cave_drift_necklace: "v2_cave_void_necklace",
+  v2_sanctum_bulwark_armor: "v2_sanctum_set_armor",
+  v2_sanctum_bulwark_gloves: "v2_sanctum_set_gloves",
+  v2_sanctum_bulwark_boots: "v2_sanctum_set_boots",
+  v2_sanctum_astral_staff: "v2_sanctum_staff",
+  v2_sanctum_astral_necklace: "v2_sanctum_arcana_necklace",
+  v2_sanctum_revelation_sword: "v2_sanctum_greatsword",
+  v2_sanctum_revelation_armor: "v2_sanctum_set_armor",
+  v2_sanctum_revelation_ring: "v2_sanctum_arcana_ring",
+  v2_sanctum_lumen_gloves: "v2_sanctum_set_gloves",
+  v2_sanctum_lumen_boots: "v2_sanctum_set_boots",
+  v2_swamp_bulwark_armor: "v2_swamp_set_armor",
+  v2_swamp_bulwark_gloves: "v2_swamp_set_gloves",
+  v2_swamp_bulwark_boots: "v2_swamp_set_boots",
+  v2_swamp_venomlord_dagger: "v2_swamp_dagger",
+  v2_swamp_venomlord_ring: "v2_swamp_heart_ring",
+  v2_swamp_venomlord_necklace: "v2_swamp_heart_necklace",
+  v2_swamp_vajra_gauntlet: "v2_swamp_greatsword",
+  v2_swamp_vajra_boots: "v2_swamp_set_boots",
+  v2_swamp_moss_armor: "v2_swamp_set_armor",
+  v2_swamp_moss_gloves: "v2_swamp_set_gloves",
+  v2_den_void_armor: "v2_den_set_armor",
+  v2_den_void_gloves: "v2_den_set_gloves",
+  v2_den_void_boots: "v2_den_set_boots",
+  v2_den_hunter_claw: "v2_den_dagger",
+  v2_den_hunter_ring: "v2_den_alpha_ring",
+  v2_den_hunter_necklace: "v2_den_alpha_necklace",
+  v2_den_rush_greatsword: "v2_den_greatsword",
+  v2_den_rush_gloves: "v2_den_set_gloves",
+  v2_den_beastgait_boots: "v2_den_set_boots",
+  v2_den_beastgait_necklace: "v2_den_alpha_necklace",
 };
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "weapon",

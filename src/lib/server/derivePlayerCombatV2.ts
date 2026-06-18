@@ -90,7 +90,7 @@ import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 
-type SavedCharacterV2 = {
+export type SavedCharacterV2 = {
   hp?: number;
   mp?: number;
   level?: number;

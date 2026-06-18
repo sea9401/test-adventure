@@ -63,7 +63,7 @@ export type V2CommonSkillId =
   | "v2c_boxer_fortitude" // 강건 II (활력 +15%)
   | "v2c_monk_spirit" // 정신 (정신 +15%)
   | "v2c_caster_acumen" // 총명 II (지능 +15%)
-  | "v2c_acolyte_mana" // 마나 (최대 MP +12%)
+  | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
@@ -361,10 +361,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { critDmgPct: 30 },
   },
   v2c_acolyte_mana: {
-    id: "v2c_acolyte_mana", name: "마나", stat: "int", category: "passive", tier: 2,
-    description: "넓어진 그릇. 최대 마나가 늘어난다.", mpCost: 0, cooldown: 0,
+    // SPI 부활 PR-4 — 사제 = 힐러. 마나(maxMP%)→회복강화(healPowerPct)로 리스킨(id 유지=세이브 호환).
+    //   사제 치유(active)와 합쳐 힐러 정체성 완성. healMult(정신 비례, PR-1)에 곱연산 ×(1+%/100).
+    //   딜 아님 → INT(마공)과 역할 분리. stat="int" 유지(사제 직군).
+    id: "v2c_acolyte_mana", name: "회복", stat: "int", category: "passive", tier: 2,
+    description: "치유의 비결. 회복량이 늘어난다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { maxMpPct: 12 },
+    passive: { healPowerPct: 20 },
   },
   v2c_assassin_fortune: {
     // 크리 폭발(자객) — 옛 행운%에서 치명 확률로 리스킨.

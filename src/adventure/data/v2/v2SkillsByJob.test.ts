@@ -211,17 +211,18 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.atkPerDexCoef).toBeGreaterThan(0);
   });
 
-  it("aggregateEquippedPassives — % 패시브(statPct/maxHpPct/maxMpPct) 합산", () => {
+  it("aggregateEquippedPassives — % 패시브(statPct/maxHpPct/healPowerPct) 합산", () => {
     const agg = aggregateEquippedPassives([
       "v2c_warrior_might", // 플랫 str+10
       "v2c_squire_might", // statPct str+15
       "v2c_shieldman_vitality", // maxHpPct 12
-      "v2c_acolyte_mana", // maxMpPct 12
+      "v2c_acolyte_mana", // healPowerPct 20 (회복강화 — SPI PR-4, 옛 maxMpPct 리스킨)
     ]);
     expect(agg.stat).toEqual({ str: 10 }); // 플랫과 % 는 분리
     expect(agg.statPct).toEqual({ str: 15 });
     expect(agg.maxHpPct).toBe(12);
-    expect(agg.maxMpPct).toBe(12);
+    expect(agg.healPowerPct).toBe(20);
+    expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
   it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%/명중) 합산", () => {

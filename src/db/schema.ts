@@ -955,7 +955,25 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
     .references(() => guilds.id, { onDelete: "cascade" }),
   // 거점 세금 회수 시 90% 가 누적되는 길드 공용 골드 풀. 회수자 본인 10% 와 별개.
   gold: integer("gold").notNull().default(0),
+  // 정착지 생산 재화 풀 — { crop, ore, fish } (data/v2/settlement SettlementResources).
+  // 마을 생산 수확물이 누적되고 마을 업그레이드에 소비된다. 종류 추가 시 마이그 불요(jsonb).
+  settlement: jsonb("settlement").notNull().default({}),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// v2 정착지 — 길드가 점령한 거점에 세운 "마을"(단계·이름·생산 슬롯 상태).
+//   outpostId = data/v2/outposts.ts 의 Outpost.id (정적 데이터라 FK X).
+//   소유 길드가 사라지면 마을도 제거(cascade). jobs = 슬롯(문자열 인덱스) → ProductionJob.
+//   tier 별 슬롯 수는 data/v2/settlement SLOTS_BY_TIER. 명명(name)은 후속 PR(건설 흐름).
+export const outpostVillages = pgTable("outpost_villages", {
+  outpostId: text("outpost_id").primaryKey(),
+  guildId: integer("guild_id")
+    .notNull()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  tier: text("tier").notNull().default("village"),
+  name: text("name"),
+  jobs: jsonb("jobs").notNull().default({}),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).

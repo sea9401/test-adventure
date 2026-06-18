@@ -5,10 +5,13 @@ import {
   harvestYield,
   nextTier,
   canUpgrade,
+  applyUpgradeCost,
+  tryStartProduction,
   PRODUCTION_DURATION_MS,
   PRODUCTION_BASE_YIELD,
   TRAIT_BONUS_PCT,
   SLOTS_BY_TIER,
+  UPGRADE_COST,
   type ProductionJob,
 } from "./settlement";
 
@@ -82,5 +85,40 @@ describe("settlement — 생산 엔진", () => {
       ok: false,
       next: null,
     });
+  });
+
+  it("applyUpgradeCost — 비용만큼 차감, 음수로 안 감", () => {
+    const cost = UPGRADE_COST.village ?? {};
+    const after = applyUpgradeCost("village", { crop: 100, ore: 60, fish: 5 });
+    expect(after.crop).toBe(100 - (cost.crop ?? 0));
+    expect(after.ore).toBe(60 - (cost.ore ?? 0));
+    expect(after.fish).toBe(5); // village→city 는 fish 비용 0 → 불변
+    // 부족해도 음수 안 됨(0 클램프).
+    expect(applyUpgradeCost("village", { crop: 10 }).crop).toBe(0);
+  });
+
+  it("tryStartProduction — 빈 슬롯 성공, 범위 밖/사용중 거부", () => {
+    const empty: Record<string, ProductionJob> = {};
+    // 마을 슬롯 1개 → slot 0 만 유효.
+    const r = tryStartProduction(empty, "village", 0, "crop", 1000);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.jobs["0"]).toEqual({ kind: "crop", startedAt: 1000 });
+
+    // 슬롯 범위 밖(마을은 1슬롯이라 slot 1 없음).
+    expect(tryStartProduction(empty, "village", 1, "crop", 1000)).toEqual({
+      ok: false,
+      error: "slot_out_of_range",
+    });
+    // 음수/비정수.
+    expect(tryStartProduction(empty, "city", -1, "crop", 1000).ok).toBe(false);
+
+    // 이미 사용 중.
+    const busy = { "0": { kind: "ore" as const, startedAt: 5 } };
+    expect(tryStartProduction(busy, "village", 0, "crop", 1000)).toEqual({
+      ok: false,
+      error: "slot_busy",
+    });
+    // 비파괴 — 원본 jobs 불변.
+    expect(empty).toEqual({});
   });
 });

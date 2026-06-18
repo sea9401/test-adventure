@@ -129,3 +129,34 @@ export function canUpgrade(
   }
   return { ok: missing.length === 0, next, missing };
 }
+
+// 업그레이드 비용 차감(순수) — canUpgrade 통과 가정. 차감된 새 재화(비파괴).
+export function applyUpgradeCost(
+  tier: VillageTier,
+  resources: SettlementResources,
+): SettlementResources {
+  const cost = UPGRADE_COST[tier] ?? {};
+  const next: SettlementResources = { ...resources };
+  for (const k of PRODUCTION_KINDS) {
+    const need = cost[k] ?? 0;
+    if (need > 0) next[k] = Math.max(0, (next[k] ?? 0) - need);
+  }
+  return next;
+}
+
+// 생산 시작 판정(순수) — 빈 슬롯 검증 후 새 jobs 반환(비파괴). 슬롯 범위는 단계별 SLOTS_BY_TIER.
+export function tryStartProduction(
+  jobs: Record<string, ProductionJob>,
+  tier: VillageTier,
+  slot: number,
+  kind: ProductionKind,
+  now: number,
+):
+  | { ok: true; jobs: Record<string, ProductionJob> }
+  | { ok: false; error: "slot_out_of_range" | "slot_busy" } {
+  if (!Number.isInteger(slot) || slot < 0 || slot >= SLOTS_BY_TIER[tier]) {
+    return { ok: false, error: "slot_out_of_range" };
+  }
+  if (jobs[String(slot)]) return { ok: false, error: "slot_busy" };
+  return { ok: true, jobs: { ...jobs, [String(slot)]: { kind, startedAt: now } } };
+}

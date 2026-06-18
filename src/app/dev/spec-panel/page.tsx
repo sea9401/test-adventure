@@ -22,7 +22,7 @@ const WARRIOR_SPECS: V2SpecState["specs"] = [
   {
     id: "knight",
     name: "기사",
-    requiredWeaponType: "sword_shield",
+    requiredWeaponType: "greatsword",
     passives: [
       { id: "knight_guard", name: "방패 숙련", desc: "받는 피해 감소" },
       { id: "knight_counter", name: "방패치기", desc: "공격력에 방어력의 일부를 더함" },
@@ -33,7 +33,7 @@ const WARRIOR_SPECS: V2SpecState["specs"] = [
   {
     id: "gladiator",
     name: "검투사",
-    requiredWeaponType: "rapier",
+    requiredWeaponType: "dagger",
     passives: [
       { id: "gladiator_combo", name: "찌르기 연계", desc: "추가타 확률" },
       { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈" },

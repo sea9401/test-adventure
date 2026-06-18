@@ -556,7 +556,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   it("기사 + 검방 + 방패치기 → 공격력에 방어력 80% 가산(derive)", () => {
     const kbase = {
       ...base,
-      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId },
     };
     const baseD = derivePlayerCombatV2Pure(kbase);
     const d = derivePlayerCombatV2Pure({
@@ -572,7 +572,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   it("전문화 픽은 차수 무관 유지 — 환생(차수→1) 직후에도 활성 (2026-06-09: 같은 직업 환생 전문화 보존)", () => {
     const kbase = {
       ...base,
-      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId },
     };
     const baseD = derivePlayerCombatV2Pure(kbase);
     const expected = baseD.player.atk + Math.floor(baseD.player.def * 0.8);
@@ -597,7 +597,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   it("기사 + 검방 + 흘려막기 → damageNullifyChancePct 10", () => {
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_starter_sword_shield" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId },
       spec: knight,
       unlockedPassives: ["knight_reflect"], // 흘려막기
     });
@@ -627,7 +627,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   it("검투사 + 세검 + 혈광 → extraAttackChancePctWhileEnemyBleeding 15", () => {
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_starter_rapier" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
       spec: getJobSpec("warrior", "gladiator")!,
       unlockedPassives: ["gladiator_swift"], // 혈광
     });
@@ -637,7 +637,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   it("금강 + 권갑 + 강체 → defGainOnHitPct 15", () => {
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_starter_gauntlet" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId },
       spec: getJobSpec("martial", "cheolsan")!,
       unlockedPassives: ["cheolsan_reflect"], // 강체
     });
@@ -648,7 +648,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
     const yeonhwan = getJobSpec("martial", "yeonhwan")!;
     const ybase = {
       ...base,
-      v2Equipped: { weapon: "v2_starter_claw" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_starter_dagger" as V2EquipmentId },
       spec: yeonhwan,
     };
     const power = derivePlayerCombatV2Pure({
@@ -713,7 +713,7 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
   it("혈권 + 권갑 + 흡정공 → enchantLifestealPct (기존 흡혈 훅 재사용)", () => {
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_starter_gauntlet" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_greatsword" as V2EquipmentId },
       spec: getJobSpec("martial", "gigong")!,
       unlockedPassives: ["gigong_endure"], // 흡정공
     });
@@ -816,11 +816,13 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
     expect(d.player.mpCostReductionPct).toBe(16);
   });
 
-  it("기사 패시브 — 무기 게이트 불통과(대검)면 완전 비활성", () => {
+  it("기사 패시브 — 무기 게이트 불통과(지팡이)면 완전 비활성", () => {
     const knight = getJobSpec("warrior", "knight")!;
-    // base 는 대검(greatsword) → 검방(sword_shield) 게이트 불통과 → 픽했어도 전부 inert.
+    // 기사=대검(greatsword) 게이트인데 지팡이(staff) 착용 → 불통과 → 픽했어도 전부 inert.
+    //   (weaponType 8→4 통합으로 기사 게이트가 검방→대검으로 이전. 대검은 이제 통과하므로 staff 로 검증.)
     const d = derivePlayerCombatV2Pure({
       ...base,
+      v2Equipped: { weapon: "v2_oak_staff" as V2EquipmentId },
       spec: knight,
       unlockedPassives: ["knight_guard", "knight_counter", "knight_reflect"],
     });

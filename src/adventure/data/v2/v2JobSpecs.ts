@@ -156,7 +156,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     id: "knight", // 기사 — 몸빵 깡딜 탱
     name: "기사",
     job: "warrior",
-    requiredWeaponType: "sword_shield",
+    requiredWeaponType: "greatsword",
     passives: [
       { id: "knight_guard", name: "방패 숙련", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 14 } },
       { id: "knight_counter", name: "방패치기", desc: "공격력에 방어력의 일부를 더함", effect: { atkFromDefPct: 80 } },
@@ -168,7 +168,7 @@ const WARRIOR_SPECS: readonly V2JobSpec[] = [
     id: "gladiator", // 검투사 — 출혈 듀얼리스트
     name: "검투사",
     job: "warrior",
-    requiredWeaponType: "rapier",
+    requiredWeaponType: "dagger",
     passives: [
       { id: "gladiator_combo", name: "찌르기 연계", desc: "추가타 확률", effect: { extraAttackChancePct: 18 } },
       { id: "gladiator_bleed", name: "유혈", desc: "적중 시 출혈", effect: { bleedDmgPerStack: 5 } },
@@ -184,7 +184,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
     id: "cheolsan", // 금강 — 회피·버팀 탱
     name: "금강",
     job: "martial",
-    requiredWeaponType: "gauntlet",
+    requiredWeaponType: "greatsword",
     passives: [
       { id: "cheolsan_guard", name: "금강신", desc: "받는 피해 감소", effect: { damageTakenReductionPct: 16, atkPctAdd: 15 } },
       { id: "cheolsan_counter", name: "반격세", desc: "피격 후 확률 반격", effect: { counterChancePct: 20 } },
@@ -196,7 +196,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
     id: "gigong", // 혈권 — 흡혈 브루저
     name: "혈권",
     job: "martial",
-    requiredWeaponType: "gauntlet",
+    requiredWeaponType: "greatsword",
     passives: [
       { id: "gigong_power", name: "기공권", desc: "물리 공격력 증가", effect: { atkPctAdd: 15 } },
       { id: "gigong_endure", name: "흡정공", desc: "가한 피해의 일부만큼 체력 흡수", effect: { lifestealPct: 10 } },
@@ -208,7 +208,7 @@ const MARTIAL_SPECS: readonly V2JobSpec[] = [
     id: "yeonhwan", // 연환 — 콤보 격투가
     name: "연환",
     job: "martial",
-    requiredWeaponType: "claw",
+    requiredWeaponType: "dagger",
     passives: [
       { id: "yeonhwan_combo", name: "연환격", desc: "추가타 확률", effect: { extraAttackChancePct: 20 } },
       { id: "yeonhwan_power", name: "연격세", desc: "적중할 때마다 공격력 누적", effect: { comboAtkPctPerHit: 4 } },

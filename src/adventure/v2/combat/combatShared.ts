@@ -520,6 +520,13 @@ export type V2SkillCastInput = {
     currentHp?: number;
     maxMp?: number;
     classTier?: number;
+    // 활성 파생버프(회피/치명/받피감 = selfBuffPct) — 패턴 조건 self_buff_pct 평가용. 엔진이
+    //   state.stacks 의 turns>0 여부로 채운다. 미지정=전부 비활성(구 호출 안전).
+    selfBuffPctActive?: {
+      evasion?: boolean;
+      crit?: boolean;
+      damageReduction?: boolean;
+    };
     selfBuffs: V2BuffMap;
     selfDebuffs: V2BuffMap;
     // PR-5b — 평타 속성(무기 ?? 캐릭, atk 에 baked)·캐릭 속성(스킬 기본). 미지정=neutral.
@@ -572,6 +579,12 @@ function buildPatternCtx(input: V2SkillCastInput): V2PatternCtx {
       (Object.entries(a.selfBuffs) as [StatKey, V2BuffEntry | undefined][])
         .filter(([, e]) => e != null && e.turns > 0)
         .map(([k]) => k),
+    ),
+    // 활성 파생버프(회피/치명/받피감) — 엔진이 넘긴 turns>0 플래그. self_buff_pct 조건 평가용.
+    selfBuffPctTargets: new Set(
+      (
+        ["evasion", "crit", "damageReduction"] as const
+      ).filter((tg) => a.selfBuffPctActive?.[tg]),
     ),
     enemyHpPct: ((t.currentHp ?? enemyMaxHp) / enemyMaxHp) * 100,
     enemyBleed: t.bleedStacks ?? 0,

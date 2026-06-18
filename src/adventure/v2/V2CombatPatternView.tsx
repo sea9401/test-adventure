@@ -30,6 +30,7 @@ const COND_KINDS: { value: CondKind; label: string }[] = [
   { value: "self_hp", label: "내 HP" },
   { value: "self_mp", label: "내 MP" },
   { value: "self_buff", label: "내 버프" },
+  { value: "self_buff_pct", label: "내 파생버프" },
   { value: "enemy_hp", label: "적 HP" },
   { value: "enemy_status", label: "적 상태" },
   { value: "turn", label: "턴" },
@@ -46,6 +47,8 @@ function defaultCondition(kind: CondKind): V2CombatCondition {
       return { kind: "self_mp", op: "below", pct: 30 };
     case "self_buff":
       return { kind: "self_buff", stat: "str", active: false };
+    case "self_buff_pct":
+      return { kind: "self_buff_pct", target: "evasion", active: false };
     case "enemy_hp":
       return { kind: "enemy_hp", op: "below", pct: 30 };
     case "enemy_status":
@@ -483,6 +486,22 @@ function ConditionParams({
             {STAT_KEYS.map((s) => (
               <option key={s} value={s}>{STAT_LABELS[s]}</option>
             ))}
+          </select>
+          <select className={sel} value={c.active ? "y" : "n"}
+            onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>
+            <option value="n">없을 때</option>
+            <option value="y">있을 때</option>
+          </select>
+        </>
+      );
+    case "self_buff_pct":
+      return (
+        <>
+          <select className={sel} value={c.target}
+            onChange={(e) => onChange({ ...c, target: e.target.value as "evasion" | "crit" | "damageReduction" })}>
+            <option value="evasion">회피</option>
+            <option value="crit">치명</option>
+            <option value="damageReduction">받피감</option>
           </select>
           <select className={sel} value={c.active ? "y" : "n"}
             onChange={(e) => onChange({ ...c, active: e.target.value === "y" })}>

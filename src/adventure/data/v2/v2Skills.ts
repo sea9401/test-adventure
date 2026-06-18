@@ -597,7 +597,13 @@ export function smartDefaultConditionForSkill(
   if (effs.some((e) => e.kind === "enemyVuln")) {
     return { kind: "enemy_status", tag: "vuln", op: "none", stacks: 0 }; // 취약 = 적이 취약 아닐 때.
   }
-  // 그 외(파생 버프 회피/크리·순수 디버프 등) — 깔끔한 조건이 없어 오프너로(첫 턴만, 스팸 방지).
+  // 파생 버프(회피/치명/받피감 = selfBuffPct) — 그 버프 미활성일 때만(선풍각·철포·집중). 만료 시
+  //   재시전·활성 중엔 평타. 오프너 전용(turn≤1)이던 한계(3턴 후 끊김) 해소.
+  const pctBuff = effs.find((e) => e.kind === "selfBuffPct");
+  if (pctBuff && pctBuff.kind === "selfBuffPct") {
+    return { kind: "self_buff_pct", target: pctBuff.target, active: false };
+  }
+  // 그 외(순수 디버프 등) — 깔끔한 조건이 없어 오프너로(첫 턴만, 스팸 방지).
   return { kind: "turn", op: "atMost", value: 1 };
 }
 

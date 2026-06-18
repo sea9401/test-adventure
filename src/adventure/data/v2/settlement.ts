@@ -160,3 +160,11 @@ export function tryStartProduction(
   if (jobs[String(slot)]) return { ok: false, error: "slot_busy" };
   return { ok: true, jobs: { ...jobs, [String(slot)]: { kind, startedAt: now } } };
 }
+
+// ── 건설/명명 ── 빈 공터(점령지)에 마을을 세우고 길드가 이름을 짓는다. ─────────────
+// 닉네임 규약과 동일(1~16자). 건설(name != null)된 마을만 생산 가능(produce 게이트).
+export const VILLAGE_NAME_MAX = 16;
+export function isValidVillageName(name: string): boolean {
+  const t = name.trim();
+  return t.length >= 1 && t.length <= VILLAGE_NAME_MAX;
+}

@@ -192,6 +192,9 @@ export async function readGuildSettlement(
 }
 
 // ── 소유 가드 ── 유저의 길드가 이 거점을 점령 중이면 guildId, 아니면 null. ────────────
+// 🔑 점령 행을 FOR UPDATE 배타락 — 마을 변경(build/produce/harvest/upgrade)이 한 거점에서
+//   직렬화되도록(특히 최초 건설 시 village row 가 아직 없어 lockVillage 가 못 잡는 동시성 race
+//   차단). 락 순서: 점령행 → 마을 → 길드재화(전 라우트 공통). 점령된 거점만 row 존재(미점령=null).
 export async function guildOwningOutpost(
   tx: Tx,
   userId: string,
@@ -204,6 +207,7 @@ export async function guildOwningOutpost(
       .select({ g: outpostOccupations.occupiedByGuildId })
       .from(outpostOccupations)
       .where(eq(outpostOccupations.outpostId, outpostId))
+      .for("update")
       .limit(1)
   )[0];
   return occ?.g != null && occ.g === guildId ? guildId : null;

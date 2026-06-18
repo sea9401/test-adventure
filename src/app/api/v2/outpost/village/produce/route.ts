@@ -5,7 +5,6 @@ import {
   lockVillage,
   upsertVillage,
   normalizeVillageOwner,
-  type VillageRow,
 } from "@/lib/server/v2Settlement";
 import {
   tryStartProduction,
@@ -49,20 +48,13 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      let village = await lockVillage(tx, outpostId);
-      if (!village) {
-        // lazy 생성 — 점령지에 첫 생산 시 마을(village 단계) 자동 발생.
-        village = {
-          outpostId,
-          guildId,
-          tier: "village",
-          name: null,
-          jobs: {},
-        } satisfies VillageRow;
-      } else {
-        // 점령 이관됐으면 현 길드 소유로 정규화(이전 길드 작물 비움).
-        village = normalizeVillageOwner(village, guildId);
+      const loaded = await lockVillage(tx, outpostId);
+      // 건설(이름 부여) 후에야 생산 가능 — 빈 공터/미명명 마을은 먼저 건설(/build).
+      if (!loaded || loaded.name == null) {
+        return { status: 409, body: { ok: false as const, error: "not_built" } };
       }
+      // 점령 이관됐으면 현 길드 소유로 정규화(이전 길드 작물 비움). 이름은 유지(건설됨).
+      const village = normalizeVillageOwner(loaded, guildId);
       const started = tryStartProduction(
         village.jobs,
         village.tier,

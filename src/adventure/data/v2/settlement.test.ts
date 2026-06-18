@@ -7,6 +7,7 @@ import {
   canUpgrade,
   applyUpgradeCost,
   tryStartProduction,
+  isValidVillageName,
   PRODUCTION_DURATION_MS,
   PRODUCTION_BASE_YIELD,
   TRAIT_BONUS_PCT,
@@ -120,5 +121,15 @@ describe("settlement — 생산 엔진", () => {
     });
     // 비파괴 — 원본 jobs 불변.
     expect(empty).toEqual({});
+  });
+
+  it("isValidVillageName — 1~16자(트림), 빈/공백/초과 거부", () => {
+    expect(isValidVillageName("샘플마을")).toBe(true);
+    expect(isValidVillageName("a")).toBe(true);
+    expect(isValidVillageName("  여백있음  ")).toBe(true); // 트림 후 유효
+    expect(isValidVillageName("")).toBe(false);
+    expect(isValidVillageName("   ")).toBe(false); // 공백뿐
+    expect(isValidVillageName("x".repeat(16))).toBe(true);
+    expect(isValidVillageName("x".repeat(17))).toBe(false);
   });
 });

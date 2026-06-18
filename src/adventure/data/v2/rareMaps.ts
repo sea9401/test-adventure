@@ -14,7 +14,8 @@ export type RareMapKindId =
   | "relic_map"
   | "secret_shop_map"
   | "rename_map"
-  | "portrait_map";
+  | "portrait_map"
+  | "exp_tome";
 
 export type RareMapKind = {
   id: RareMapKindId;
@@ -40,6 +41,8 @@ export type RareMapKind = {
 };
 
 const TTL_48H = 48 * 3_600_000;
+// 테스트 전용 아이템 — 실질적으로 만료 없음(100년).
+const TTL_TEST = 100 * 365 * 24 * 3_600_000;
 
 function huntKind(
   id: RareMapKindId,
@@ -75,7 +78,7 @@ function utilityKind(
   id: RareMapKindId,
   name: string,
   desc: string,
-  o: { uses: number; dropPct: number },
+  o: { uses: number; dropPct: number; ttlMs?: number },
 ): RareMapKind {
   return {
     id,
@@ -83,7 +86,7 @@ function utilityKind(
     desc,
     category: "utility",
     runs: o.uses,
-    ttlMs: TTL_48H,
+    ttlMs: o.ttlMs ?? TTL_48H,
     dropPct: o.dropPct,
     expMult: 1,
     goldMult: 1,
@@ -143,6 +146,14 @@ export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
     "화공의 공방 지도",
     "은둔한 화공의 공방으로 가는 길. 초상화를 새로 그려준다 (1회).",
     { uses: 1, dropPct: 0.005 },
+  ),
+  // 테스트 전용 — 사냥 드랍 안 됨(dropPct 0 → 관리자 지급 전용). 사용 시 EXP 100만을
+  //   한 판 사냥처럼 적용(레벨 + 직군 누적레벨 + 스탯 성장). 만료 사실상 없음(TTL 100년).
+  exp_tome: utilityKind(
+    "exp_tome",
+    "경험치의 비약 (테스트)",
+    "마시면 막대한 깨달음이 쏟아진다. 1회당 경험치 100만. (테스트 전용 아이템)",
+    { uses: 99, dropPct: 0, ttlMs: TTL_TEST },
   ),
 };
 

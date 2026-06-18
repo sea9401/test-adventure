@@ -15,6 +15,8 @@ describe("rareMaps", () => {
       const k = RARE_MAP_KINDS[id];
       expect(k.runs).toBeGreaterThan(0);
       expect(k.ttlMs).toBeGreaterThan(0);
+      // exp_tome 은 테스트 전용 — 사냥 드랍 안 됨(dropPct 0, 관리자 지급 전용)이라 제외.
+      if (id === "exp_tome") continue;
       expect(k.dropPct).toBeGreaterThan(0);
       expect(k.dropPct).toBeLessThan(5); // "매우 낮음" 방침 가드
     }

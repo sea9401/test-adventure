@@ -287,6 +287,25 @@ describe("derivePlayerCombatV2Pure critMult (PR-luk-critdmg — LUK 크리 데�
   });
 });
 
+describe("derivePlayerCombatV2Pure critResistPct (SPI PR-3b — 정신 치명저항·cap)", () => {
+  it("정신(spi) 비례 치명저항 — 0.1/스탯, cap 50 클램프", () => {
+    // spi 200 → 20%p(미달캡).
+    const mid = derivePlayerCombatV2Pure({
+      level: 60,
+      allocatedStats: { spi: 200 },
+      v2Equipped: {},
+    }).player;
+    expect(mid.critResistPct).toBeCloseTo((200 + 15) * 0.1, 5); // 기본 spi 15 포함
+    // spi 1000 → 101.5%p raw → cap 50.
+    const heavy = derivePlayerCombatV2Pure({
+      level: 60,
+      allocatedStats: { spi: 1000 },
+      v2Equipped: {},
+    }).player;
+    expect(heavy.critResistPct).toBe(50);
+  });
+});
+
 describe("derivePlayerCombatV2Pure maxHp (V2_BASE_HP + 레벨 성장 + vit)", () => {
   it("Lv1 신캐 (빈 장비, vit 15) → maxHp = V2_BASE_HP + vit = 135 + 15 = 150", () => {
     const d = derivePlayerCombatV2Pure({

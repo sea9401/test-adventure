@@ -281,8 +281,10 @@ const CRIT_DMG_PER_STR = 0.002;
 // 마법 방어력 — 정신 major + 지능 minor. 마법 데미지 경감.
 const MAGIC_DEF_PER_SPI = 0.12;
 const MAGIC_DEF_PER_INT = 0.03;
-// 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p).
+// 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p). SPI 부활 PR-3b: 치명형 몹/PvP 치명을
+//   완전 봉인하지 못하게 cap(고-spi 도 치명 위협 일부 잔존·과투자 무력화 방지, eva/acc cap 패턴).
 const CRIT_RESIST_PER_SPI = 0.1;
+const CRIT_RESIST_PCT_CAP = 50;
 // 회복량 배수 — 정신(주력)·활력(보조) (1.0 기준 + 비례). SPI 부활(#spi PR-1): spi 가 힐 주축
 // 스탯이 되도록 0.0025→0.006(vit 0.004 의 1.5배). vit 는 maxHp(=pctMaxHp/pctLostHp 힐의 분모)로도
 // 힐에 기여하므로 healMult 직접항은 보조. 신술 지원 라인(사제) 힐이 정신으로 스케일.
@@ -550,8 +552,13 @@ export function derivePlayerCombatV2Pure(
       (input.passiveCritDmgPct ?? 0) / 100,
     CRIT_MULT_CAP,
   );
-  // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p).
-  const critResistPct = totalStats.spi * CRIT_RESIST_PER_SPI;
+  // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p). cap 적용(완전 봉인 방지).
+  //   ⚠️ 파생 스탯이라 PvE(치명형 몹)·PvP(engine.pvpPhase) **양쪽** 캡 — spi>500 빌드는 PvP
+  //   치명저항도 50%p 에서 멈춘다(현 플레이어 범위 밖이나 명시).
+  const critResistPct = Math.min(
+    CRIT_RESIST_PCT_CAP,
+    totalStats.spi * CRIT_RESIST_PER_SPI,
+  );
   // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보). 캡 적용.
   const evasionPct = Math.min(
     totalStats.dex * EVA_PER_DEX +

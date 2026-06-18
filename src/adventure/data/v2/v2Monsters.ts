@@ -79,6 +79,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
     spd: 6,
     exp: 20,
   },
+  // 도적·포식자·우두머리는 치명형(SPI PR-3b) — 가끔 치명 버스트, 정신(치명저항)이 카운터.
   "협곡 도적": {
     name: "협곡 도적",
     tags: ["humanoid"],
@@ -87,6 +88,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
     def: 6,
     spd: 7,
     exp: 22,
+    critPct: 30,
   },
   "바위 골렘": {
     name: "바위 골렘",
@@ -162,7 +164,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
     exp: 25,
     skill: { kind: "pierce", name: "파고들기", armorPierce: 4 },
   },
-  "동굴 포식자": { name: "동굴 포식자", tags: ["beast"], hp: 260, atk: 24, def: 10, spd: 6, exp: 27 },
+  "동굴 포식자": { name: "동굴 포식자", tags: ["beast"], hp: 260, atk: 24, def: 10, spd: 6, exp: 27, critPct: 30 },
 
   // ── 프론티어 밴드 D — 잊힌 성소 (깊이 22~28). starlight·earth, 마법 버스트. ──────
   "수호 석상": {
@@ -257,6 +259,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
     spd: 8,
     exp: 28,
     evasionPct: 20,
+    critPct: 30,
     skill: { kind: "pierce", name: "송곳니", armorPierce: 4 },
   },
   "화염 표범": {

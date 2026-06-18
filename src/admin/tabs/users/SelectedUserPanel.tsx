@@ -23,6 +23,7 @@ export function SelectedUserPanel({
   onUpdateProfile,
   onUpdateCharacter,
   onGrantV2,
+  onResetCharacter,
   onReload,
 }: {
   user: AdminUserRow;
@@ -33,6 +34,7 @@ export function SelectedUserPanel({
   onUpdateProfile: (next: Profile) => void;
   onUpdateCharacter: (next: CharacterDynamicState) => void;
   onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
+  onResetCharacter: () => void | Promise<void>;
   onReload: () => void;
 }) {
   const character = saves?.["character.v2"] ?? initialCharacterState;
@@ -73,6 +75,25 @@ export function SelectedUserPanel({
       </div>
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
+
+      <section className="rounded-md border border-red-300 bg-red-50/50 p-3 dark:border-red-900 dark:bg-red-950/30">
+        <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">
+          위험 구역
+        </h2>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          캐릭터 데이터(세이브 전체)를 삭제하고 무소속 새 캐릭터로 초기화합니다.
+          계정·로그인은 유지되며, 대상 유저가 새로고침하면 캐릭터 생성 화면으로
+          돌아갑니다. 되돌릴 수 없습니다.
+        </p>
+        <button
+          type="button"
+          disabled={readOnly}
+          onClick={() => void onResetCharacter()}
+          className="mt-2 rounded-md border border-red-600 bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          캐릭터 초기화
+        </button>
+      </section>
 
       <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="text-sm font-semibold">프로필</h2>

@@ -168,6 +168,47 @@ export function UsersTab() {
     }
   };
 
+  // 캐릭터 데이터 초기화 — 대상 유저의 savesKv 전 키 삭제 + 1인 길드 해체/거점 해제
+  //   (계정·로그인 유지). 닉네임 확인 입력으로 오클릭/대상 혼동 방지.
+  const resetCharacter = async () => {
+    if (!selected || readOnly) return;
+    const expected = selected.gameName?.trim() || selected.id;
+    const input = window.prompt(
+      `「${expected}」 캐릭터 데이터를 초기화합니다. 되돌릴 수 없습니다.\n` +
+        `확인하려면 「${expected}」 를 정확히 입력하세요:`,
+    );
+    if (input == null) return; // 취소
+    try {
+      const r = await fetch("/api/admin/reset-character", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: selected.id, confirm: input }),
+      });
+      const j = (await r.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        deletedKeys?: number;
+        guildDeleted?: boolean;
+        leftGuildOnly?: boolean;
+      } | null;
+      if (!r.ok || !j?.ok) {
+        throw new Error(
+          j?.error === "confirm_mismatch"
+            ? "닉네임 불일치"
+            : (j?.error ?? `HTTP ${r.status}`),
+        );
+      }
+      const parts: string[] = [`세이브 ${j.deletedKeys ?? 0}개 삭제`];
+      if (j.guildDeleted) parts.push("1인 길드 해체");
+      if (j.leftGuildOnly) parts.push("길드 탈퇴");
+      showToast(
+        `캐릭터 초기화 완료: ${parts.join(", ")}. 대상 유저 새로고침 시 새 캐릭 생성.`,
+      );
+      await loadSaves(selected.id);
+    } catch (e) {
+      showToast(`초기화 실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+  };
 
   return (
     <div className="grid gap-4 md:grid-cols-[320px_1fr]">
@@ -249,6 +290,7 @@ export function UsersTab() {
             onUpdateProfile={updateProfile}
             onUpdateCharacter={updateCharacter}
             onGrantV2={grantV2}
+            onResetCharacter={resetCharacter}
             onReload={() => loadSaves(selected.id)}
           />
         )}

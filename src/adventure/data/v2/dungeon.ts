@@ -1,4 +1,4 @@
-// v2 사냥터 — 들판(authored 온보딩) + 무한 프론티어 밴드.
+// v2 사냥터 — 들판(authored 온보딩) + 프론티어 밴드(마지막 테마에서 끝, MAX_FRONTIER_DEPTH).
 //
 // 2026-06-19: "깊은 산"(옛 2번째 테마, 깊이 7~12) 삭제 — 다른 테마와 몹/아이템이 겹쳐
 // 정리. 이후 테마가 6깊이씩 앞으로 당겨짐(마른 협곡 7~12·얼음 호수 13~18·…). 들판만
@@ -21,9 +21,9 @@ const FLOOR1_ENEMIES: DungeonEnemy[] = [
   { key: "거미", name: "들거미", image: "/images/monster/v2/field-spider.webp", element: "earth" },
 ];
 
-// === 무한 프론티어 — 깊이 밴드 ========================================
-// 단일 사냥터, 깊이(depth) 1→∞. 깊이 1~6=들판(authored)·7+=밴드별 테마 풀.
-// 깊이별 스탯/exp/추천파워 = dungeonLadder 제너레이터(무한, ×1.0~). 수동 푸시: 깊이 1~최고도달+1.
+// === 프론티어 — 깊이 밴드 ========================================
+// 단일 사냥터, 깊이(depth) 1~MAX_FRONTIER_DEPTH(마지막 테마 끝). 깊이 1~6=들판(authored)·7+=밴드별 테마 풀.
+// 깊이별 스탯/exp/추천파워 = dungeonLadder 제너레이터(×1.0~). 수동 푸시: 깊이 1~최고도달+1(캡까지).
 // 밴드 = 베이스 평평(들판 앵커)·깊이가 절대 강함 담당. 밴드는 속성·스탯 모양·스킬 밀도로 차별.
 // 후반일수록 능력 밀도/개성 강화: A 2/5 → B 둔화 → C 기습 → D 마법버스트 → E DoT 늪 → F 정예.
 // ⚠️ 아트는 기존 이미지 재사용(플레이스홀더, orphan snow/throne/runs/volcano 재활용) — 교체 예정.
@@ -74,7 +74,7 @@ const BAND_E_SWAMP_ENEMIES: DungeonEnemy[] = [
   { key: "늪지 도마뱀왕", name: "늪지 도마뱀왕", image: "/images/monster/v2/forest-salamander.webp", element: "earth", statusSkill: "mob_venom_bite" },
 ];
 
-// 짐승의 소굴 — 자연 혼합+void 정예, 고공격·관통 강. 능력 5/5. (마지막 테마 = 무한 반복)
+// 짐승의 소굴 — 자연 혼합+void 정예, 고공격·관통 강. 능력 5/5. (마지막 테마 = 현재 프론티어 끝)
 const BAND_F_DEN_ENEMIES: DungeonEnemy[] = [
   { key: "거대 곰", name: "거대 곰", image: "/images/monster/v2/den-giant-bear.webp", element: "earth" },
   { key: "우두머리 늑대", name: "우두머리 늑대", image: "/images/monster/v2/forest-grey-wolf.webp", element: "wind", statusSkill: "mob_rending_claw" },
@@ -98,8 +98,8 @@ export const MAIN_DUNGEON: Dungeon = {
 };
 
 // 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판 onboarding 풀도 6깊이.
-// 마지막(짐승의 소굴)은 무한 반복(인덱스 클램프, 로컬 번호는 6 넘어 계속 증가). 표시는
-// "테마명 + 테마 내 로컬 번호(1~)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
+// 마지막 테마(짐승의 소굴)에서 프론티어가 끝난다(MAX_FRONTIER_DEPTH·무한 반복 안 함). 표시는
+// "테마명 + 테마 내 로컬 번호(1~6)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
 // 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
 export const THEME_DEPTH_SPAN = 6;
@@ -110,11 +110,16 @@ const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "심층 동굴", enemies: BAND_C_CAVE_ENEMIES }, // 19~24
   { name: "잊힌 성소", enemies: BAND_D_SANCTUM_ENEMIES }, // 25~30
   { name: "리자드 늪지", enemies: BAND_E_SWAMP_ENEMIES }, // 31~36
-  { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 37~42, 43+ 무한
+  { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 37~42 (마지막 테마 = 프론티어 끝)
 ];
 
-// 깊이(1+) → 0-based 테마 인덱스(DUNGEON_THEMES). 마지막 테마(무한)는 클램프.
-// 깊이→테마 해석의 공용 단일 소스.
+// 프론티어 최대 깊이 = 마지막 테마의 끝(테마수 × 6). 2026-06-19 오너 결정 = 마지막 테마를
+// 무한 반복하지 않고 여기서 끝낸다(짐승의 소굴 6깊이까지). 더 깊은 사냥터가 필요하면 새 테마를
+// DUNGEON_THEMES 에 추가 → 이 캡이 자동으로 늘어난다. 깊이 게이트(hunt route)·UI 가 이 값으로 캡.
+export const MAX_FRONTIER_DEPTH = DUNGEON_THEMES.length * THEME_DEPTH_SPAN;
+
+// 깊이(1+) → 0-based 테마 인덱스(DUNGEON_THEMES). 캡(MAX_FRONTIER_DEPTH) 밖은 방어적으로 마지막
+// 테마로 클램프(게이트가 이미 막아 실제로는 도달 불가). 깊이→테마 해석의 공용 단일 소스.
 export function themeIndexForDepth(depth: number): number {
   const d = Math.max(1, Math.floor(depth));
   return Math.min(
@@ -123,7 +128,7 @@ export function themeIndexForDepth(depth: number): number {
   );
 }
 
-// 깊이(1+) → 테마 + 테마 내 로컬 번호. 마지막 테마는 인덱스 클램프(로컬 번호 무한 증가).
+// 깊이(1+) → 테마 + 테마 내 로컬 번호. 마지막 테마는 인덱스 클램프(캡 밖 방어용·도달 불가).
 function themeForDepth(depth: number): {
   name: string;
   enemies: DungeonEnemy[];
@@ -134,12 +139,12 @@ function themeForDepth(depth: number): {
   return { ...DUNGEON_THEMES[idx], localIndex: d - idx * THEME_DEPTH_SPAN };
 }
 
-// 깊이 → 적 풀. 테마당 6깊이(들판 onboarding 포함, 7+ 밴드). 무한 깊이.
+// 깊이 → 적 풀. 테마당 6깊이(들판 onboarding 포함, 7+ 밴드). 깊이 1~MAX_FRONTIER_DEPTH.
 export function enemiesForDepth(depth: number): DungeonEnemy[] {
   return themeForDepth(depth).enemies;
 }
 
-// 깊이 → 표시 이름. "테마명 + 테마 내 로컬 번호"(예: 들판 1·마른 협곡 3·짐승의 소굴 7).
+// 깊이 → 표시 이름. "테마명 + 테마 내 로컬 번호"(예: 들판 1·마른 협곡 3·짐승의 소굴 6).
 // 테마 속성 요약 — 몹 속성 분포(빈도순·무속성 제외)와 "추천 속성"(최빈 속성을
 // 카운터하는 픽, 최빈이 3종 이상일 때만 — 혼합 밴드는 정답 없음). 약점찌르기(+25%)
 // 가 "어느 속성을 들고 갈까"가 되도록 사냥터 목록이 노출한다.
@@ -166,8 +171,8 @@ export function depthName(depth: number): string {
 }
 
 // 표시용 — 깊이 1..maxDepth 를 THEME_DEPTH_SPAN(6) 깊이 블록(=사냥터 카드)으로 묶는다. 사냥터
-// 목록 2단 UI: 테마 카드 누르면 그 안에서 깊이 카드 6개. 무한 마지막 테마(짐승의 소굴)도 6깊이씩
-// 블록 유지(이름은 클램프) → 한 블록당 항상 ≤6 깊이. 각 그룹 = { name, depths[] }.
+// 목록 2단 UI: 테마 카드 누르면 그 안에서 깊이 카드 6개. 캡(MAX_FRONTIER_DEPTH) 밖이 들어와도
+// 6깊이씩 블록 유지(이름은 클램프) → 한 블록당 항상 ≤6 깊이. 각 그룹 = { name, depths[] }.
 export function dungeonThemeGroups(
   maxDepth: number,
 ): { name: string; depths: number[] }[] {
@@ -189,7 +194,7 @@ export function dungeonThemeGroups(
 
 // 코덱스(모험의 서) 사냥터 도감용 — 깊이 1..maxDepth 가 닿는 테마를 테마당 1개로(들판/마른 협곡/…),
 //   각 테마의 깊이 범위 + 적 풀. depthEnd = 도달한 그 테마의 최고 깊이(= min(maxDepth, 테마 끝)) —
-//   "그 사냥터를 처리했을 때 기준" 스탯 표시용 대표 깊이. 마지막 테마(짐승의 소굴, 무한)는 한 카드로
+//   "그 사냥터를 처리했을 때 기준" 스탯 표시용 대표 깊이. 마지막 테마(짐승의 소굴)는 한 카드로
 //   합쳐 중복 카드 방지. maxDepth < 1 이면 빈 배열(도달 전).
 export function dungeonThemeCatalog(maxDepth: number): {
   name: string;
@@ -209,7 +214,7 @@ export function dungeonThemeCatalog(maxDepth: number): {
   }[] = [];
   for (let block = 0; block <= reached; block++) {
     const depthStart = block * THEME_DEPTH_SPAN + 1;
-    // 마지막(무한) 테마는 maxDepth 까지 한 카드로, 그 외엔 테마 6깊이 끝(클램프).
+    // 마지막 테마는 maxDepth 까지 한 카드로(캡 밖이 들어와도 클램프), 그 외엔 테마 6깊이 끝.
     const depthEnd =
       block === lastBlock
         ? end

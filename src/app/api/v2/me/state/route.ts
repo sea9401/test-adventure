@@ -50,6 +50,7 @@ import {
   V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import {
   V2_JOB_SPECS,
   resolveSpecTrait,
@@ -646,8 +647,12 @@ export async function GET() {
     })(),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
-    // 무한 프론티어 최고 도달 깊이 (기본 2 = 들판 초반 해금, 깊이 3까지).
-    frontierDepth: Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
+    // 프론티어 최고 도달 깊이 (기본 2 = 들판 초반 해금, 깊이 3까지). MAX 캡으로 정규화
+    //   (레거시 무한기 >42 저장값도 현재 콘텐츠 끝으로 표시 — 클라가 캡 밖 깊이를 들고 다니지 않게).
+    frontierDepth: Math.min(
+      MAX_FRONTIER_DEPTH,
+      Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
+    ),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);

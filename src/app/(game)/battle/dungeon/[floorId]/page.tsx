@@ -9,6 +9,7 @@ import {
 } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 
 // /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
 // floorId 는 depth 숫자(1~6→들판, 7+→프론티어 밴드). 들판만 authored, 7+ 는 데이터 도출.
@@ -41,9 +42,12 @@ export default function DungeonFloorPage() {
   } = useGameState();
 
   const n = Number(params.floorId);
-  // 유효한 깊이: 양의 정수, 최고 도달+1 이하.
+  // 유효한 깊이: 양의 정수, 최고 도달+1 이하. 단 MAX_FRONTIER_DEPTH(마지막 테마 끝)에서 캡 —
+  //   그 너머는 콘텐츠 없음(서버 frontier_end). 레거시 >42 저장값도 여기서 막혀 우아하게 notFound.
   const valid =
-    Number.isInteger(n) && n >= 1 && n <= frontierDepth + 1;
+    Number.isInteger(n) &&
+    n >= 1 &&
+    n <= Math.min(MAX_FRONTIER_DEPTH, frontierDepth + 1);
 
   // 거점이 사라진 사고용 안전 — 사냥터 목록으로 복귀.
   useEffect(() => {

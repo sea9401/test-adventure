@@ -27,6 +27,7 @@ import {
   seededDiscovery,
 } from "@/adventure/data/v2/outpostGraph";
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import {
   parseV2Element,
   V2_ELEMENT_LABEL,
@@ -339,7 +340,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           setDiscoveredIds(new Set(j.discoveredOutpostIds));
         }
         if (typeof j?.frontierDepth === "number") {
-          setFrontierDepth(Math.max(2, j.frontierDepth));
+          // MAX 캡 — 클라가 캡 밖 깊이를 들고 다니지 않게(서버도 캡하지만 방어).
+          setFrontierDepth(
+            Math.min(MAX_FRONTIER_DEPTH, Math.max(2, j.frontierDepth)),
+          );
         }
         // 코어루프 — 전투 쿨다운(서버 시각 → 클라 로컬로 변환, skew 보정), 위험 골드, 오프라인 대기.
         const cc = j?.combatCooldown;

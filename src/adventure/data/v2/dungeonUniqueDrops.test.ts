@@ -68,23 +68,23 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
     expect(rollBandCommonDrop(11, seqRng([0.0015, 0]))).toBe(canyon.ids[0]); // 로컬5 0.0018 통과
   });
 
-  it("밴드 전(들판) 깊이 → rng 미소비하고 null (rollEquipDrop 결과와 ?? 합성 안전)", () => {
+  it("밴드 밖 깊이 → rng 미소비하고 null (rollEquipDrop 결과와 ?? 합성 안전)", () => {
     let calls = 0;
     const rng = () => {
       calls++;
       return 0;
     };
-    // 밴드는 7~∞(마지막 소굴 밴드 무한). 유일한 밴드 밖 = 들판(1~6).
+    // 밴드 = 7~42(들판 1~6 전·마지막 소굴 밴드 42에서 끝=프론티어 캡).
     expect(rollBandCommonDrop(6, rng)).toBeNull(); // 들판(밴드 전)
-    expect(rollBandCommonDrop(1, rng)).toBeNull();
+    expect(rollBandCommonDrop(43, rng)).toBeNull(); // 마지막 밴드(42) 너머 = 프론티어 끝
     expect(calls).toBe(0);
   });
 
-  it("마지막 밴드(소굴)는 무한 — 깊이 43+ 도 소굴 흔한 풀 드랍", () => {
+  it("마지막 밴드(소굴)는 깊이 37~42 — 42 가 프론티어 끝(43+ 없음)", () => {
     const den = bandCommonPoolForDepth(37)!;
-    expect(bandCommonPoolForDepth(43)).toBe(den); // 42 너머도 소굴(무한)
-    expect(bandCommonPoolForDepth(9999)).toBe(den);
-    expect(rollBandCommonDrop(100, seqRng([0.0005, 0]))).toBe(den.ids[0]); // 깊은 프론티어도 드랍
+    expect(bandCommonPoolForDepth(42)).toBe(den);
+    expect(bandCommonPoolForDepth(43)).toBeNull(); // 캡 너머 = 콘텐츠 없음
+    expect(rollBandCommonDrop(40, seqRng([0.0005, 0]))).toBe(den.ids[0]); // 밴드 내 드랍
   });
 });
 
@@ -292,25 +292,24 @@ describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 짐승의 �
   const empty = new Set<V2EquipmentId>();
   const den = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 37)!;
 
-  it("짐승의 소굴 유니크 = 깊이 37~∞(마지막 밴드 무한), 사이드그레이드 3, 총 0.1% 고정", () => {
+  it("짐승의 소굴 유니크 = 깊이 37~42(마지막 밴드=프론티어 끝), 사이드그레이드 3, 총 0.1% 고정", () => {
     expect(den).toBeDefined();
-    expect(den.maxDepth).toBe(Infinity);
+    expect(den.maxDepth).toBe(42);
     expect(den.ids).toHaveLength(3);
     expect(den.chance).toBe(0.001);
     expect(den.chance / den.ids.length).toBeCloseTo(0.001 / 3);
   });
 
-  it("깊이 매칭 — 36 이하는 소굴 아님, 37+ 는 전부 소굴(무한 테마 커버)", () => {
+  it("깊이 매칭 — 36 이하는 소굴 아님, 37~42 만 매칭, 43+ 는 null(프론티어 끝)", () => {
     expect(bandUniquePoolForDepth(36)).not.toBe(den);
     expect(bandUniquePoolForDepth(37)).toBe(den);
     expect(bandUniquePoolForDepth(42)).toBe(den);
-    expect(bandUniquePoolForDepth(43)).toBe(den); // 무한 — 42 너머도 소굴
-    expect(bandUniquePoolForDepth(9999)).toBe(den);
+    expect(bandUniquePoolForDepth(43)).toBeNull(); // 캡 너머 = 콘텐츠 없음
   });
 
-  it("통과 굴림(rng<chance) → 짐승의 소굴 유니크 반환 (깊은 프론티어도)", () => {
+  it("통과 굴림(rng<chance) → 짐승의 소굴 유니크 반환", () => {
     expect(rollBandUniqueDrop(37, empty, seqRng([0, 0]))).toBe(den.ids[0]);
-    expect(rollBandUniqueDrop(500, empty, seqRng([0, 0]))).toBe(den.ids[0]);
+    expect(rollBandUniqueDrop(42, empty, seqRng([0, 0]))).toBe(den.ids[0]);
   });
 });
 
@@ -369,9 +368,10 @@ describe("uniqueIdsForDepthRange (코덱스 사냥터 도감)", () => {
     }
   });
 
-  it("깊은 프론티어(마지막 밴드 너머) — 무한 소굴 밴드 유니크 풀 반환", () => {
-    // 마지막 밴드(짐승의 소굴)는 maxDepth Infinity → 깊은 프론티어도 그 풀이 커버(빈 구간 없음).
-    const den = BAND_UNIQUE_POOLS.find((p) => p.maxDepth === Infinity)!;
-    expect(new Set(uniqueIdsForDepthRange(500, 600))).toEqual(new Set(den.ids));
+  it("마지막 밴드(42) 너머 — 빈 배열 (프론티어 끝, 새 테마 추가 전까지 콘텐츠 없음)", () => {
+    // 마지막 밴드는 maxDepth 42 에서 끝(MAX_FRONTIER_DEPTH). 그 너머는 도달 불가·콘텐츠 없음.
+    const beyond =
+      Math.max(8, ...BAND_UNIQUE_POOLS.map((p) => p.maxDepth)) + 1;
+    expect(uniqueIdsForDepthRange(beyond, beyond + 5)).toEqual([]);
   });
 });

@@ -17,6 +17,7 @@ import {
   GUIDE_QUESTS_KEY,
   parseClaimed,
 } from "@/lib/server/v2QuestContext";
+import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 
 // GET /api/v2/me/job-codex — 직업 도감(읽기 전용 수집 대시보드, A 메타 PR-1).
 //   직업 해금 상태 + 직군 정복(cumLevel) + 직업 패시브 수집 현황. 파워 무관.
@@ -35,8 +36,8 @@ export async function GET() {
         inArray(
           savesKv.key,
           CATALOG_USES_QUEST_CONDITION
-            ? ["character.v2", "proficiency.v2", "skills.v2", GUIDE_QUESTS_KEY]
-            : ["character.v2", "proficiency.v2", "skills.v2"],
+            ? ["character.v2", "proficiency.v2", "skills.v2", "adventure-log.v2", GUIDE_QUESTS_KEY]
+            : ["character.v2", "proficiency.v2", "skills.v2", "adventure-log.v2"],
         ),
       ),
     );
@@ -60,6 +61,9 @@ export async function GET() {
     ? { completedQuestIds: parseClaimed(byKey.get(GUIDE_QUESTS_KEY)) }
     : undefined;
 
+  // 보유 칭호 — 수집 칭호 상점 구매분이 collectionPointsSpent 에 반영되도록.
+  const ownedTitleIds = ownedTitleIdsOf(byKey.get("adventure-log.v2"));
+
   const codex = buildJobCodex(
     prof,
     skillsState.learned,
@@ -67,6 +71,7 @@ export async function GET() {
     specChoice,
     skillsState.loadoutPresetSlotsBought ?? 0,
     unlockCtx,
+    ownedTitleIds,
   );
   return Response.json({ ok: true, codex });
 }

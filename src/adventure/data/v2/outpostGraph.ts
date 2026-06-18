@@ -11,7 +11,7 @@
 //     "적당히 무작위로" 더 잇는다. 무작위는 엣지 id 해시 기반이라 결정적 —
 //     리로드/서버·클라에서 늘 같은 모양(깜빡임·하이드레이션 불일치 없음).
 //
-// n=96 이라 모듈 로드 시 한 번만 계산하고 캐시한다.
+// n=40 이라 모듈 로드 시 한 번만 계산하고 캐시한다.
 //
 // 특정 구간을 손보고 싶으면 아래 MANUAL_ADD / MANUAL_REMOVE 에 [idA, idB] 한 줄.
 
@@ -29,7 +29,12 @@ const MIN_OUTPOST_DEGREE = 2;
 
 // 수동 보정 훅 — 자동 그래프 위에 강제로 잇거나(ADD) 끊는다(REMOVE). 순서 무관.
 // REMOVE 가 ADD 보다 우선. (REMOVE 가 MST 간선을 끊으면 연결이 깨질 수 있으니 주의.)
-const MANUAL_ADD: ReadonlyArray<readonly [string, string]> = [];
+const MANUAL_ADD: ReadonlyArray<readonly [string, string]> = [
+  // 맵 축소(96→40, 2026-06-14) 후 노토스(남단 자유항)가 세라 왕국과만 인접한 막다른 길이 됨
+  // (주변 남부 마을이 컷돼 Gabriel 후보가 1개뿐). 양옆 도시로 이어 남부 junction 으로 복구.
+  ["neutral_south_outpost", "city_river_haven"],
+  ["neutral_south_outpost", "city_goldfield"],
+];
 const MANUAL_REMOVE: ReadonlyArray<readonly [string, string]> = [];
 
 const pairKey = (a: string, b: string): string =>
@@ -180,6 +185,33 @@ export function getOutpostNeighbors(id: string): string[] {
   return [...(NEIGHBORS.get(id) ?? [])];
 }
 
+// 중심 거점에서 maxHops 홉(칸) 이내 거점 id 집합 (BFS, 중심 포함).
+export function outpostsWithinHops(centerId: string, maxHops: number): Set<string> {
+  const seen = new Set<string>([centerId]);
+  let frontier = [centerId];
+  for (let h = 0; h < maxHops; h++) {
+    const next: string[] = [];
+    for (const id of frontier) {
+      for (const nb of getOutpostNeighbors(id)) {
+        if (!seen.has(nb)) {
+          seen.add(nb);
+          next.push(nb);
+        }
+      }
+    }
+    frontier = next;
+  }
+  return seen;
+}
+
+// 분쟁지대 — 중앙 자유 도시(START_OUTPOST_ID)에서 2홉(칸) 이내 거점. 지도에서 왕국색 대신
+//   무소속 색으로 칠한다(중앙 격전지가 인접 왕국색으로 물들어 헷갈린다는 피드백, 2026-06-09).
+//   다이얼 = 홉 수. 모듈 로드 시 1회 계산.
+export const CONFLICT_ZONE_IDS: Set<string> = outpostsWithinHops(
+  START_OUTPOST_ID,
+  2,
+);
+
 export function areOutpostsAdjacent(a: string, b: string): boolean {
   return NEIGHBORS.get(a)?.has(b) ?? false;
 }
@@ -227,6 +259,21 @@ export function canMoveToOutpost(
 ): boolean {
   const current = resolveCurrentOutpostId(savedOutpostId);
   return current === targetId || areOutpostsAdjacent(current, targetId);
+}
+
+// 워프 게이트의 권위 규칙(순수) — 이미 발견한 거점으로만 순간이동(인접 무관).
+// 빈/레거시 discoveredOutpostIds 는 시드 발견(시작 거점+인접)으로 판정해 신규/구버전이
+// 막히지 않게. 미지의 outpostId 는 false. visit-outpost 라우트의 mode="warp" 가 쓴다.
+export function canWarpToOutpost(
+  discoveredOutpostIds: readonly string[] | undefined,
+  targetId: string,
+): boolean {
+  if (!NEIGHBORS.has(targetId)) return false;
+  const discovered =
+    discoveredOutpostIds && discoveredOutpostIds.length > 0
+      ? discoveredOutpostIds
+      : seededDiscovery();
+  return new Set(discovered).has(targetId);
 }
 
 // 최단 경로(홉 수 기준 BFS) — from→to 로 거쳐갈 거점 id 목록(양 끝 포함). 연결 그래프라

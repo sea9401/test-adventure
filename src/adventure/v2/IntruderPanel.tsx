@@ -2,9 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { ReplayBattleScene } from "./ReplayBattleScene";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { Gender } from "@/adventure/profile/avatars";
+import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+
+function outpostDisplayName(outpostId: string): string {
+  return OUTPOST_BY_ID.get(outpostId)?.name ?? outpostId;
+}
 
 // 점령 길드 전용 — 거점에 침입한 다른 길드 캐릭 목록 + 토벌 버튼.
-// 점령 길드 멤버일 때만 OutpostView 가 렌더.
+// 전투 탭 > 토벌(V2SubjugationView)이 내 길드 보유 거점마다 렌더.
+// 서버(intruders/eject)도 점령 길드 멤버만 허용 — UI 는 표시 게이트일 뿐.
 
 type Intruder = {
   userId: string;
@@ -25,8 +34,13 @@ type EjectResult = {
   defenderHpBefore?: number;
   defenderHpAfter?: number;
   defenderMaxHp?: number;
+  bountyGold?: number;
+  exiledTo?: string;
   error?: string;
   requiredStamina?: number;
+  // 토벌 전투 리플레이 — 토벌자(p1) 시점. 결과 카드 아래 BattleScene 표시.
+  replay?: ReplayPayload | null;
+  attackerGender?: string;
 };
 
 function fmtElapsed(huntedAt: number, now: number): string {
@@ -36,7 +50,22 @@ function fmtElapsed(huntedAt: number, now: number): string {
   return `${min}분 전`;
 }
 
-export function IntruderPanel({ outpostId }: { outpostId: string }) {
+export function IntruderPanel({
+  outpostId,
+  title = "현재 침입자",
+  collapsible = false,
+  defaultOpen = true,
+  countHint,
+}: {
+  outpostId: string;
+  title?: string;
+  // 토벌 화면 — 거점별 패널 접기/펼치기. 접힌 동안엔 침입자 목록 fetch 도 안 한다.
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  // 접힌 헤더에 보여줄 침입자 수 힌트 (war/overview 스냅샷 — 펼치면 실데이터로 대체).
+  countHint?: number;
+}) {
+  const [open, setOpen] = useState(!collapsible || defaultOpen);
   const [intruders, setIntruders] = useState<Intruder[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -65,8 +94,10 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
   }, [outpostId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    // 접힌 패널은 fetch 보류 — 펼칠 때마다 fresh 조회 (TTL 10분짜리 데이터라 재조회가 맞다).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 펼칠 때 1회 재조회(외부 동기화).
+    if (open) refresh();
+  }, [refresh, open]);
 
   async function eject(targetUserId: string) {
     setBusyUserId(targetUserId);
@@ -90,21 +121,41 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
 
   return (
     <Card padding="md">
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
-          현재 침입자
-        </div>
-        <button
-          type="button"
-          onClick={refresh}
-          disabled={loading}
-          className="text-xs text-zinc-500 hover:text-zinc-700 disabled:opacity-50 dark:hover:text-zinc-300"
-        >
-          새로고침
-        </button>
+      <div className="flex items-center justify-between gap-2">
+        {collapsible ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-medium text-zinc-700 dark:text-zinc-200"
+          >
+            <span className="truncate">{title}</span>
+            {!open && (countHint ?? 0) > 0 && (
+              <span className="shrink-0 rounded bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-medium text-rose-600 dark:text-rose-400">
+                침입자 {countHint}
+              </span>
+            )}
+            <span className="ml-auto shrink-0 text-xs text-zinc-500">
+              {open ? "▼" : "▶"}
+            </span>
+          </button>
+        ) : (
+          <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
+            {title}
+          </div>
+        )}
+        {open && (
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading}
+            className="shrink-0 text-xs text-zinc-500 hover:text-zinc-700 disabled:opacity-50 dark:hover:text-zinc-300"
+          >
+            새로고침
+          </button>
+        )}
       </div>
 
-      {loading && intruders.length === 0 ? (
+      {!open ? null : loading && intruders.length === 0 ? (
         <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">불러오는 중…</div>
       ) : intruders.length === 0 ? (
         <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
@@ -138,7 +189,7 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
         </ul>
       )}
 
-      {lastResult && (
+      {open && lastResult && (
         <div
           className={`mt-3 rounded-md border p-2 text-xs ${
             lastResult.ok && lastResult.won
@@ -152,7 +203,13 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
             lastResult.won ? (
               <>
                 ✓ {lastResult.attackerName} → {lastResult.defenderName} 토벌 성공 (
-                {lastResult.turns}턴) · 침입자 강제 퇴장
+                {lastResult.turns}턴)
+                {lastResult.bountyGold && lastResult.bountyGold > 0
+                  ? ` · 보유 골드 ${lastResult.bountyGold.toLocaleString()} 전액 압류`
+                  : " · 침입자 무일푼"}
+                {lastResult.exiledTo
+                  ? ` · ${outpostDisplayName(lastResult.exiledTo)}로 추방`
+                  : ""}
               </>
             ) : (
               <>
@@ -168,6 +225,19 @@ export function IntruderPanel({ outpostId }: { outpostId: string }) {
                 : ""}
             </>
           )}
+        </div>
+      )}
+
+      {/* 토벌 전투 리플레이 — 사냥/공격 기록과 동일한 BattleScene. 토벌자(나) 시점. */}
+      {open && lastResult?.ok && lastResult.replay && (
+        <div className="mt-2">
+          <ReplayBattleScene
+            payload={lastResult.replay}
+            playerName={lastResult.attackerName ?? "모험가"}
+            gender={(lastResult.attackerGender ?? "male1") as Gender}
+            exp={0}
+            maxExp={1}
+          />
         </div>
       )}
     </Card>

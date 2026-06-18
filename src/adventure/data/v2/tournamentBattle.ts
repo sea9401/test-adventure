@@ -9,7 +9,7 @@
 // 매치 sim 자체는 외부 주입 (`matchSim`) — 토너먼트 엔진은 순수.
 // 테스트는 fake matchSim 으로 결정론 검증, 라우트는 resolveBattlePvP 래퍼 주입.
 
-import type { PlayerCombat } from "../../battle/engine";
+import type { PlayerCombat } from "../../v2/combat/engine";
 
 export type TournamentMember = {
   userId: string;

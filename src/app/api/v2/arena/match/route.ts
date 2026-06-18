@@ -4,51 +4,65 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
-import { ARENA_STATE_KEY, CHARACTER_STATE_KEY } from "@/lib/storage-keys";
+import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
-  BOT_LEVEL_BAND,
-  MAX_DAILY_MATCHES,
-  applyDailyReset,
+  emptyProficiency,
+  type V2ProficiencyState,
+} from "@/adventure/data/v2/proficiency";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
+import {
+  ARENA_STATE_KEY,
+  ARENA_HISTORY_KEY,
+  CHARACTER_STATE_KEY,
+} from "@/lib/storage-keys";
+import {
+  ARENA_MATCH_COOLDOWN_MS,
+  arenaCooldownRemainingMs,
   applyScoreDelta,
   computeGoldReward,
   computeScoreDelta,
+  parseArenaHistory,
   parseArenaState,
+  pushArenaHistory,
   pushRecentOpponent,
   weightForCandidate,
   weightedPick,
   type ArenaCandidate,
+  type ArenaHistoryEntry,
   type ArenaMatchOutcome,
   type ArenaOpponentRef,
 } from "@/lib/server/arena";
-import { buildBotsAroundLevel, type ArenaBot } from "@/adventure/data/v2/arenaBots";
 import {
   elementDamageMult,
   elementMatchup,
   parseV2Element,
+  V2_ELEMENT_ADV_PCT_PVP,
+  V2_ELEMENT_DIS_PCT_PVP,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
+  type V2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 
 // POST /api/v2/arena/match — 아레나 1:1 매치 한 판 실행.
 //
 // 서버 권위:
 //   1. 본인 character.v2 + arena-state.v2 lock (read-modify-write 안전).
-//   2. 일일 리셋 적용 (자정 KST). dailyUsed >= MAX_DAILY_MATCHES → 409.
+//   2. 재도전 쿨타임 검사. lastMatchAt + ARENA_MATCH_COOLDOWN_MS 전이면 429 (cooldown).
 //   3. 본인 derivePlayerCombatV2.
 //   4. 후보 풀 — 본인 제외 character.v2 보유 유저 (snapshot). 각 candidate 의
 //      arena-state.v2.score 와 character.v2.level 만 읽음 (derive 안 함, 저렴).
-//   5. 후보 0명 → buildBotsAroundLevel 봇 풀로 폴백.
+//   5. 유저 전용 — 후보 0명이면 no_opponent 반환(봇 폴백 폐지, 매치 미소모).
 //   6. weightForCandidate 가중 랜덤 추첨.
-//   7. 선정된 상대만 derive (real user) 또는 미리 derive 된 봇 사용.
+//   7. 선정된 상대만 derive (real user snapshot).
 //   8. resolveBattlePvP 단판. 양측 HP = maxHp, 마법 sweep 자동.
 //   9. outcome → 점수 변동(0 미만 클램프), 골드 보상.
-//  10. arena-state.v2(score/dailyUsed/recentOpponents) + character.v2(gold) 저장.
-//
-// PR-8a 범위 — UI 결과 카드 표시만. replay 페이로드/매치 히스토리 X (PR-8b/8c).
+//  10. arena-state.v2(score/lastMatchAt/recentOpponents) + character.v2(gold) 저장.
+//  11. 전투 로그(나=p1 관점 ReplayPayload) + 전투 기록(arena-history.v2, 최근순 ≤ MAX, 다시보기).
 
 type CharSaveShape = {
   level?: number;
@@ -63,6 +77,9 @@ type ProfileShape = {
 type CandidateInternal = ArenaCandidate;
 
 const PROFILE_KEY = "character-profile.v2";
+// 전투 로그 다시보기 — 저장/표시 로그 길이 상한(PvP 100턴 ≈ 300+ 엔트리 → cap 으로 바운드,
+// 초과 시 clampReplayLog 가 "앞선 턴 생략" 안내 + 뒷부분만). 기록 MAX(10)판 × 이 cap 이 세이브 크기.
+const ARENA_REPLAY_LOG_CAP = 150;
 
 function nameOf(value: unknown, fallback: string): string {
   if (!value || typeof value !== "object") return fallback;
@@ -116,17 +133,17 @@ export async function POST() {
       };
     }
 
-    const parsedArena = parseArenaState(rawArena, now);
-    const { state: arenaResetApplied } = applyDailyReset(parsedArena, now);
+    const parsedArena = parseArenaState(rawArena);
 
-    // 3. 일일 카운터 검사.
-    if (arenaResetApplied.dailyUsed >= MAX_DAILY_MATCHES) {
+    // 3. 재도전 쿨타임 검사 — 일일 제한 폐지, 매치 간 ARENA_MATCH_COOLDOWN_MS 쿨타임.
+    const cooldownMs = arenaCooldownRemainingMs(parsedArena, now);
+    if (cooldownMs > 0) {
       return {
-        status: 409,
+        status: 429,
         body: {
           ok: false as const,
-          error: "daily_exhausted" as const,
-          dailyResetAt: arenaResetApplied.dailyResetAt,
+          error: "cooldown" as const,
+          cooldownMs,
         },
       };
     }
@@ -140,7 +157,7 @@ export async function POST() {
       };
     }
     const myLevel = levelOf(charSave);
-    const myScore = arenaResetApplied.score;
+    const myScore = parsedArena.score;
 
     // 5. 본인 프로필 이름 — 전투 로그·결과 카드용.
     const viewerProfileRow = await tx
@@ -186,8 +203,8 @@ export async function POST() {
           ),
         );
       for (const r of arenaRows) {
-        const parsed = parseArenaState(r.value, now);
-        // 후보의 dailyReset 은 매칭에 무관 — score 만 사용.
+        const parsed = parseArenaState(r.value);
+        // 후보는 score 만 사용(쿨타임/매칭 무관).
         scoreByUser.set(r.userId, parsed.score);
       }
     }
@@ -202,89 +219,60 @@ export async function POST() {
       score: scoreByUser.get(r.userId) ?? 0,
     }));
 
-    // 7. 봇 풀 — 실유저 0명일 때만.
-    let botPool: ArenaBot[] = [];
+    // 7. 유저 전용 매칭 — 실유저만 상대(봇 폴백 폐지). 상대할 다른 모험가가 없으면 매치 불가.
+    //    상태 변경(매치 카운트 차감) 전이라 매치를 소모하지 않는다. 클라가 친화적 안내 표시.
     if (realCandidates.length === 0) {
-      botPool = buildBotsAroundLevel(myLevel, BOT_LEVEL_BAND);
-    }
-
-    // 8. 가중 추첨 — 실유저 우선, 봇은 폴백.
-    const allCandidates: Array<{ kind: "user" | "bot"; cand: CandidateInternal; bot?: ArenaBot }> =
-      realCandidates.length > 0
-        ? realCandidates.map((c) => ({ kind: "user" as const, cand: c }))
-        : botPool.map((b) => ({
-            kind: "bot" as const,
-            cand: { botId: b.id, name: b.name, level: b.level, score: b.score },
-            bot: b,
-          }));
-
-    const weighted = allCandidates.map((entry) => ({
-      item: entry,
-      weight: weightForCandidate(
-        myScore,
-        myLevel,
-        entry.cand,
-        arenaResetApplied.recentOpponents,
-      ),
-    }));
-    const picked = weightedPick(weighted, Math.random);
-    if (!picked) {
-      // 봇 폴백조차 0 (이론상 불가 — buildBotsAroundLevel 은 ≥ 1 보장).
       return {
-        status: 500,
+        status: 200,
         body: { ok: false as const, error: "no_opponent" as const },
       };
     }
 
-    // 9. 상대 PlayerCombat 준비.
-    let oppPlayer: import("@/adventure/battle/engine").PlayerCombat;
-    let oppName: string;
-    let oppLevel: number;
-    let oppScore: number;
-    let oppRef: ArenaOpponentRef;
-    let oppElement: V2Element = "neutral";
-    let oppWeaponElement: V2Element = "neutral"; // PR-5b — 상대 무기 속성(평타).
-    if (picked.kind === "user") {
-      const opponentCombat = await derivePlayerCombatV2(picked.cand.userId!, tx);
-      if (!opponentCombat) {
-        // 후보 derive 실패 — 봇 폴백 한 번 시도. 못 만들면 500.
-        // 단순화: 이번 호출은 실패로 반환 — 클라가 재시도하면 다음 풀에서 다시 추첨.
-        return {
-          status: 500,
-          body: { ok: false as const, error: "opponent_derive_failed" as const },
-        };
-      }
-      // 상대 이름 조회.
-      const oppProfileRow = await tx
-        .select({ value: savesKv.value })
-        .from(savesKv)
-        .where(
-          and(
-            eq(savesKv.userId, picked.cand.userId!),
-            eq(savesKv.key, PROFILE_KEY),
-          ),
-        )
-        .limit(1);
-      oppName = nameOf(oppProfileRow[0]?.value, "모험가");
-      oppPlayer = { ...opponentCombat.player, hp: opponentCombat.maxHp };
-      oppLevel = picked.cand.level;
-      oppScore = picked.cand.score;
-      oppRef = { userId: picked.cand.userId, at: now.toISOString() };
-      oppElement = elementByUser.get(picked.cand.userId!) ?? "neutral";
-      oppWeaponElement = opponentCombat.weaponElement;
-    } else {
-      const bot = picked.bot!;
-      oppName = bot.name;
-      oppPlayer = {
-        ...bot.combat.player,
-        hp: bot.combat.maxHp,
+    // 8. 가중 추첨 — 실유저 풀에서 점수/레벨 근접 + recentOpponents 페널티 가중.
+    const weighted = realCandidates.map((cand) => ({
+      item: cand,
+      weight: weightForCandidate(
+        myScore,
+        myLevel,
+        cand,
+        parsedArena.recentOpponents,
+      ),
+    }));
+    const picked = weightedPick(weighted, Math.random);
+    if (!picked) {
+      // realCandidates ≥ 1 이면 weightForCandidate 가 floor(>0)라 항상 추첨됨 — 방어적.
+      return {
+        status: 200,
+        body: { ok: false as const, error: "no_opponent" as const },
       };
-      oppLevel = bot.level;
-      oppScore = bot.score;
-      oppRef = { botId: bot.id, at: now.toISOString() };
-      oppElement = bot.element;
-      oppWeaponElement = bot.combat.weaponElement;
     }
+
+    // 9. 상대 PlayerCombat 준비 (실유저 snapshot — 봇 없음).
+    const oppUserId = picked.userId!;
+    const opponentCombat = await derivePlayerCombatV2(oppUserId, tx);
+    if (!opponentCombat) {
+      // 후보 derive 실패(상대 캐릭 손상 등) — 이번 호출은 실패 반환, 클라 재시도 시 재추첨.
+      return {
+        status: 500,
+        body: { ok: false as const, error: "opponent_derive_failed" as const },
+      };
+    }
+    // 상대 이름 조회.
+    const oppProfileRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, PROFILE_KEY)))
+      .limit(1);
+    const oppName = nameOf(oppProfileRow[0]?.value, "모험가");
+    let oppPlayer: import("@/adventure/v2/combat/engine").PlayerCombat = {
+      ...opponentCombat.player,
+      hp: opponentCombat.maxHp,
+    };
+    const oppLevel = picked.level;
+    const oppScore = picked.score;
+    const oppRef: ArenaOpponentRef = { userId: oppUserId, at: now.toISOString() };
+    const oppElement: V2Element = elementByUser.get(oppUserId) ?? "neutral";
+    const oppWeaponElement: V2Element = opponentCombat.weaponElement; // PR-5b — 상대 무기 속성(평타).
 
     // 본인 HP 도 풀충전 — 단판 모델.
     // PR-5/5b — 속성 상성. 평타 속성 = 무기 ?? 캐릭(공격), 방어 = 캐릭. atk 에 평타속성 baked +
@@ -296,7 +284,7 @@ export async function POST() {
     const oppAttackElement: V2Element =
       oppWeaponElement !== "neutral" ? oppWeaponElement : oppElement;
     const withElemMult = (
-      p: import("@/adventure/battle/engine").PlayerCombat,
+      p: import("@/adventure/v2/combat/engine").PlayerCombat,
       mult: number,
       attackElement: V2Element,
       characterElement: V2Element,
@@ -307,8 +295,19 @@ export async function POST() {
       attackElement,
       characterElement,
     });
-    const myElemMult = elementDamageMult(viewerAttackElement, oppElement);
-    const oppElemMult = elementDamageMult(oppAttackElement, viewerElement);
+    // PvP 는 별도 계수(±15, 양방향) — PvE 약점찌르기(25/0)와 분리(속성이 장비/스탯 압도 방지).
+    const myElemMult = elementDamageMult(
+      viewerAttackElement,
+      oppElement,
+      V2_ELEMENT_ADV_PCT_PVP,
+      V2_ELEMENT_DIS_PCT_PVP,
+    );
+    const oppElemMult = elementDamageMult(
+      oppAttackElement,
+      viewerElement,
+      V2_ELEMENT_ADV_PCT_PVP,
+      V2_ELEMENT_DIS_PCT_PVP,
+    );
     const myPlayer = withElemMult(
       { ...viewerCombat.player, hp: viewerCombat.maxHp },
       myElemMult,
@@ -323,25 +322,48 @@ export async function POST() {
     );
 
     // PR-4b — 양측 v2 스킬 wiring. 본인은 lock, 상대는 plain read (다른 user row lock = deadlock 위험).
-    // 상대가 봇이면 빈 배열 (사용자 결정 — PR-5+ 에서 봇 적형 확장 검토).
     const mySkillsRaw = await lockSaveForUpdate(
       tx,
       userId,
       "skills.v2",
       emptyV2SkillsState() as unknown as Record<string, unknown>,
     );
-    const mySkills = parseV2SkillsState(mySkillsRaw);
-    let oppSkills = emptyV2SkillsState();
-    if (picked.cand && picked.cand.userId) {
-      const oppSkillsRow = await tx
-        .select({ value: savesKv.value })
+    let mySkills = parseV2SkillsState(mySkillsRaw);
+    let oppSkills: V2SkillsState;
+    if (V2_CORE_LOOP_V2) {
+      // 코어루프 — 양측 로드아웃을 전투 직전 sanitize(SP 예산/직업고정 강제). 상대가 flip 후 state
+      //   로드를 안 거쳤어도 over-budget 로드아웃으로 싸우지 못하게. (flag off 면 이 분기 미진입.)
+      const myProfRaw = await lockSaveForUpdate<V2ProficiencyState>(
+        tx,
+        userId,
+        "proficiency.v2",
+        emptyProficiency(),
+      );
+      mySkills = sanitizeCombatLoadout(mySkills, charSave, myProfRaw);
+      const oppRows = await tx
+        .select({ key: savesKv.key, value: savesKv.value })
         .from(savesKv)
         .where(
           and(
-            eq(savesKv.userId, picked.cand.userId),
-            eq(savesKv.key, "skills.v2"),
+            eq(savesKv.userId, oppUserId),
+            inArray(savesKv.key, [
+              "skills.v2",
+              "character.v2",
+              "proficiency.v2",
+            ]),
           ),
-        )
+        );
+      const oppRow = (k: string) => oppRows.find((r) => r.key === k)?.value;
+      oppSkills = sanitizeCombatLoadout(
+        parseV2SkillsState(oppRow("skills.v2")),
+        oppRow("character.v2") ?? {},
+        oppRow("proficiency.v2"),
+      );
+    } else {
+      const oppSkillsRow = await tx
+        .select({ value: savesKv.value })
+        .from(savesKv)
+        .where(and(eq(savesKv.userId, oppUserId), eq(savesKv.key, "skills.v2")))
         .limit(1);
       oppSkills = parseV2SkillsState(oppSkillsRow[0]?.value);
     }
@@ -365,14 +387,40 @@ export async function POST() {
     const newScore = applyScoreDelta(myScore, scoreDelta);
     const goldGain = computeGoldReward(myLevel, outcome);
 
+    // 11b. 전투 로그(다시보기) — 나=p1 관점 ReplayPayload + 전투 기록 1판.
+    const replay = toPvpReplayPayload(battle.finalState, oppName, ARENA_REPLAY_LOG_CAP);
+    const historyEntry: ArenaHistoryEntry = {
+      id: `${now.getTime().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`,
+      at: now.toISOString(),
+      outcome,
+      opponent: { name: oppName, level: oppLevel, userId: oppUserId },
+      scoreBefore: myScore,
+      scoreAfter: newScore,
+      scoreDelta,
+      goldGained: goldGain,
+      turns: battle.turns,
+      replay,
+    };
+
     // 12. 상태 저장.
     const nextArena = {
-      ...arenaResetApplied,
+      ...parsedArena,
       score: newScore,
-      dailyUsed: arenaResetApplied.dailyUsed + 1,
-      recentOpponents: pushRecentOpponent(arenaResetApplied.recentOpponents, oppRef),
+      lastMatchAt: now.toISOString(),
+      recentOpponents: pushRecentOpponent(parsedArena.recentOpponents, oppRef),
     };
     await upsertSave(tx, userId, ARENA_STATE_KEY, nextArena);
+
+    // 전투 기록 — 최근순 ≤ MAX 저장(리플레이 포함). character.v2 를 먼저 락했으므로 같은 유저
+    //   동시 매치는 직렬화 → read-modify-write 안전(lockSaveForUpdate 로 일관 유지).
+    const rawHistory = await lockSaveForUpdate<unknown>(
+      tx,
+      userId,
+      ARENA_HISTORY_KEY,
+      [],
+    );
+    const nextHistory = pushArenaHistory(parseArenaHistory(rawHistory), historyEntry);
+    await upsertSave(tx, userId, ARENA_HISTORY_KEY, nextHistory);
 
     const nextChar = {
       ...charSave,
@@ -397,14 +445,13 @@ export async function POST() {
           name: oppName,
           level: oppLevel,
           score: oppScore,
-          isBot: picked.kind === "bot",
           element: oppElement,
+          userId: oppUserId,
         },
-        dailyRemaining: Math.max(
-          0,
-          MAX_DAILY_MATCHES - nextArena.dailyUsed,
-        ),
-        dailyResetAt: nextArena.dailyResetAt,
+        // 전투 로그 다시보기 + 전투 기록 1판(클라가 즉시 replay 표시 + 기록 목록 prepend).
+        historyEntry,
+        // 재도전 쿨타임(ms) — 클라가 버튼 카운트다운 시작에 사용.
+        cooldownMs: ARENA_MATCH_COOLDOWN_MS,
       },
     };
   });

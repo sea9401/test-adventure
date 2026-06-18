@@ -5,16 +5,15 @@ import {
   V2_EQUIPMENT,
   parseEquipmentSave,
   removeInstance,
-  shopPriceOf,
+  sellPriceOf,
 } from "@/adventure/data/v2/v2Equipment";
 
 // POST /api/v2/shop/equipment/sell — 보유 장비 개체 1개 판매 (개체 모델, iid 기준).
 //
 // body: { iid: string }
-// 가격: 상점 구매가의 5% (floor). 비매품(T 외) 은 거부.
-// 장착 중인 개체는 판매 불가(#426) — 해제 후 판매. 같은 id 스페어(다른 iid)는 판매 가능.
-
-export const SELL_PRICE_RATIO = 0.05;
+// 가격: 상점 구매가의 5% (floor, sellPriceOf). 전 장비 판매 가능(2026-06-07 — 유니크·제작전용·
+//   수련용 포함, 인벤 클러터 정리). 구매 불가 아이템도 판매는 됨(구매=상점 비치 여부와 별개).
+// 장착 중인 개체는 판매 불가(#426) — 해제 후 판매. 잠금 개체도 판매 불가(실수 방지). 스페어는 가능.
 
 type CharSave = { gold?: number; [k: string]: unknown };
 
@@ -65,14 +64,21 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "equipped" as const },
       };
     }
-    const buyPrice = shopPriceOf(item);
-    if (buyPrice == null) {
+    // 잠금 개체는 판매 불가 — 전 장비 판매 가능(유니크 포함) 이후 잠금이 유일 보호라, 단건 판매도
+    //   일괄(selectBulkSell)과 동일하게 locked 를 막아 한 개씩 우회 판매를 차단(Codex).
+    if (inst.locked) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "locked" as const },
+      };
+    }
+    const sellPrice = sellPriceOf(item);
+    if (sellPrice == null) {
       return {
         status: 400,
         body: { ok: false as const, error: "not_for_sale" as const },
       };
     }
-    const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
     const { owned: nextOwned } = removeInstance(parsed.owned, iid);
     // 장착 중이 아니므로 equipped 는 불변.
     const gold = Math.max(0, charSave.gold ?? 0);

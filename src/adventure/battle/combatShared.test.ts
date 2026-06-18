@@ -15,8 +15,8 @@ import {
   v2DamageAmount,
   tickV2Dots,
   applyV2DotsToTarget,
-} from "./combatShared";
-import type { PlayerCombat } from "./engine";
+} from "../v2/combat/combatShared";
+import type { PlayerCombat } from "../v2/combat/engine";
 import type { Potion } from "../data/potions";
 import {
   V2_DOT_PRESETS,
@@ -120,7 +120,6 @@ describe("tickV2SkillCooldowns (PR-4a)", () => {
 });
 
 describe("pickAutoCastV2Skill (PR-4a)", () => {
-  const strike = V2_SKILLS["v2_skill_strike"];
   const recover = V2_SKILLS["v2_skill_recover"];
   const flurry = V2_SKILLS["v2_skill_flurry"];
 
@@ -155,10 +154,10 @@ describe("pickAutoCastV2Skill (PR-4a)", () => {
   });
 
   it("MP 부족이면 skip → 다음 슬롯", () => {
-    // MP-throttle: blade_dance(시그니처 = 차수별 산정 12) 불가 + strike(8) 가능한 MP → strike.
+    // MP-throttle: 화염구(mpCost 38) 불가 + strike(8) 가능한 MP(10) → strike.
     expect(
       pickAutoCastV2Skill({
-        equipped: ["v2_skill_blade_dance", "v2_skill_strike"],
+        equipped: ["v2c_mage_fireball", "v2_skill_strike"],
         cooldowns: {},
         mp: 10,
       }),
@@ -208,7 +207,10 @@ describe("몬스터 상태이상 스킬 cast (PR-9 — 적→플레이어 적용
       mp: 0,
     });
     expect(r.castSkillId).toBe("mob_venom_bite");
-    expect(r.dotsToApplyToTarget).toContainEqual(V2_DOT_PRESETS.중독);
+    expect(r.dotsToApplyToTarget).toContainEqual({
+      ...V2_DOT_PRESETS.중독,
+      sourceAtk: 0,
+    });
     expect(r.enemyDamage).toBe(0); // 순수 상태이상 — 직접 피해 없음
   });
 
@@ -292,6 +294,98 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
       mp: cur.nextMp,
     });
     expect(ready.castSkillId).toBe("v2_skill_strike");
+  });
+});
+
+describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
+  const fireballMp = V2_SKILLS["v2c_mage_fireball"].mpCost;
+
+  it("화염구 procChance=30 — 롤 < 30 이면 발동 (MP 차감 + 피해)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
+      },
+      cooldowns: {},
+      procRoll: 20,
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBe("v2c_mage_fireball");
+    expect(r.nextMp).toBe(100 - fireballMp);
+    expect(r.enemyDamage).toBeGreaterThan(0);
+  });
+
+  it("화염구 procChance=30 — 롤 >= 30 이면 미발동 (평타 폴백, MP·발동 없음)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
+      },
+      cooldowns: {},
+      procRoll: 50,
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBeNull();
+    expect(r.nextMp).toBe(100); // MP 미소모
+    expect(r.enemyDamage).toBe(0);
+  });
+
+  it("경계값 — 롤 === procChance 는 미발동 (>= 이면 실패)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
+      },
+      cooldowns: {},
+      procRoll: 30,
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBeNull();
+  });
+
+  it("procRoll 미지정 — 항상 발동 (구 호출·테스트 호환)", () => {
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_mage_fireball"],
+        equipped: ["v2c_mage_fireball"],
+      },
+      cooldowns: {},
+      attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBe("v2c_mage_fireball");
+  });
+
+  it("procChance 미지정(=100) 스킬은 롤 무관 항상 발동 (기존 스킬 무영향)", () => {
+    const r = resolveV2SkillCast({
+      skills: { learned: ["v2_skill_strike"], equipped: ["v2_skill_strike"] },
+      cooldowns: {},
+      procRoll: 99,
+      attacker: { mp: 100, atk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(r.castSkillId).toBe("v2_skill_strike");
+  });
+
+  it("procChanceBonus — 보너스가 procChance 에 합산(화염구 30+30=60 → 롤 50 발동)", () => {
+    const fire = (bonus: number) =>
+      resolveV2SkillCast({
+        skills: {
+          learned: ["v2c_mage_fireball"],
+          equipped: ["v2c_mage_fireball"],
+        },
+        cooldowns: {},
+        procRoll: 50,
+        procChanceBonus: bonus,
+        attacker: { mp: 100, atk: 0, magicAtk: 50, maxHp: 0, selfBuffs: {}, selfDebuffs: {} },
+        target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+      });
+    // 보너스 0: 30 → 50>=30 미발동. 보너스 30: 60 → 50<60 발동.
+    expect(fire(0).castSkillId).toBeNull();
+    expect(fire(30).castSkillId).toBe("v2c_mage_fireball");
   });
 });
 
@@ -406,12 +500,12 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
     expect(result.enemyDamage).toBe(90);
   });
 
-  it("복수 effect 한 스킬 — Tier 2 분쇄 강타 (damage + enemyDebuff vit)", () => {
-    // str_crushing_blow_t2: damage statCoef 1.65 + enemyDebuff vit pct 14 turns 3
+  it("복수 effect 한 스킬 — 파쇄 (damage + enemyDebuff vit)", () => {
+    // v2c_warrior_sunder(파쇄): damage statCoef 0.7 baseFlat 90 + enemyDebuff vit(무력) pct 15 turns 3
     const result = resolveV2SkillCast({
       skills: {
-        learned: ["v2_skill_strike", "str_crushing_blow_t2"],
-        equipped: ["str_crushing_blow_t2"],
+        learned: ["v2_skill_strike", "v2c_warrior_sunder"],
+        equipped: ["v2c_warrior_sunder"],
       },
       cooldowns: {},
       attacker: {
@@ -423,10 +517,10 @@ describe("resolveV2SkillCast 효과 적용 (PR-4b)", () => {
       },
       target: { def: 20, selfBuffs: {}, selfDebuffs: {} },
     });
-    // floor(100 × 1.65) - 20 = 165 - 20 = 145
-    expect(result.enemyDamage).toBe(145);
+    // floor(100 × 0.7 + 90) - 20 = 160 - 20 = 140
+    expect(result.enemyDamage).toBe(140);
     expect(result.enemyDebuffsToApply).toEqual([
-      { stat: "vit", pct: 14, turns: 3 },
+      { stat: "vit", pct: 15, turns: 3 },
     ]);
   });
 });
@@ -658,11 +752,11 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
     ).toBeLessThan(100);
   });
 
-  it("resolveV2SkillCast — 비전 폭발(scaling magic)은 magicAtk 로 스케일 + 소각 DoT", () => {
-    // 비전 폭발: statCoef 2.2, baseFlat 12, scaling magic. atk 는 약하지만(5) magicAtk 80.
-    // 기대 직격: floor(80 × 2.2) + 12 - def 0 = 188. (DoT 소각은 enemyDamage 에 미포함)
+  it("resolveV2SkillCast — 화염구(scaling magic)은 magicAtk 로 스케일", () => {
+    // 화염구: statCoef 1.0, baseFlat 180, scaling magic. atk 는 약하지만(5) magicAtk 80.
+    // 기대 직격: floor(80 × 1.0 + 180) - def 0 = 260. (procChance 30 이나 procRoll 미지정 = 항상 발동)
     const result = resolveV2SkillCast({
-      skills: { learned: ["v2_skill_arcane_nova"], equipped: ["v2_skill_arcane_nova"] },
+      skills: { learned: ["v2c_mage_fireball"], equipped: ["v2c_mage_fireball"] },
       cooldowns: {},
       attacker: {
         mp: 999,
@@ -674,13 +768,30 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
       },
       target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
     });
-    expect(result.castSkillName).toBe("비전 폭발");
-    expect(result.enemyDamage).toBe(188);
-    // DoT(소각) 은 별도 경로로 적용 대기 목록에 실린다. (마법사 계열 시그니처 상태이상)
+    expect(result.castSkillName).toBe("화염구");
+    expect(result.enemyDamage).toBe(260);
+  });
+
+  it("resolveV2SkillCast — dot 효과 스킬은 dotsToApplyToTarget 에 적재(출혈)", () => {
+    // mob_rending_claw(살점 뜯기): kind:"dot" 출혈만. sourceAtk 은 시전자 atk 로 채워진다.
+    const result = resolveV2SkillCast({
+      skills: { learned: ["mob_rending_claw"], equipped: ["mob_rending_claw"] },
+      cooldowns: {},
+      attacker: {
+        mp: 999,
+        atk: 5,
+        magicAtk: 80,
+        maxHp: 1000,
+        selfBuffs: {},
+        selfDebuffs: {},
+      },
+      target: { def: 0, selfBuffs: {}, selfDebuffs: {} },
+    });
+    expect(result.castSkillName).toBe("살점 뜯기");
+    // DoT 는 별도 경로로 적용 대기 목록에 실린다(프리셋 + 시전자 atk).
     expect(result.dotsToApplyToTarget).toContainEqual({
-      label: "소각",
-      dmgPerTurn: 8,
-      turns: 2,
+      ...V2_DOT_PRESETS.출혈,
+      sourceAtk: 5,
     });
   });
 });
@@ -688,30 +799,62 @@ describe("v2 마법 데미지 경로 (PR-magic)", () => {
 describe("v2 DoT (PR-8) — tick + apply", () => {
   it("tickV2Dots — 양수 turns -1, turns 1 도달 시 drop. 누적 dmg 합산", () => {
     const r = tickV2Dots([
-      { label: "출혈", dmgPerTurn: 6, turns: 3 },
-      { label: "소각", dmgPerTurn: 8, turns: 1 },
+      {
+        tag: "bleed",
+        label: "출혈",
+        stacks: 2,
+        maxStacks: 10,
+        turns: 3,
+        flatPerStack: 6,
+        atkCoefPerStack: 0,
+        pctMaxHpPerStack: 0,
+        sourceAtk: 0,
+      },
+      {
+        tag: "burn",
+        label: "연소",
+        stacks: 1,
+        maxStacks: 1,
+        turns: 1,
+        flatPerStack: 8,
+        atkCoefPerStack: 0,
+        pctMaxHpPerStack: 0,
+        sourceAtk: 0,
+      },
     ]);
-    expect(r.totalDmg).toBe(14);
-    expect(r.nextDots).toEqual([{ label: "출혈", dmgPerTurn: 6, turns: 2 }]);
+    expect(r.totalDmg).toBe(20);
+    expect(r.nextDots).toEqual([
+      {
+        tag: "bleed",
+        label: "출혈",
+        stacks: 2,
+        maxStacks: 10,
+        turns: 2,
+        flatPerStack: 6,
+        atkCoefPerStack: 0,
+        pctMaxHpPerStack: 0,
+        sourceAtk: 0,
+      },
+    ]);
   });
 
   it("tickV2Dots — 빈 배열 → 빈 결과", () => {
     expect(tickV2Dots([])).toEqual({ nextDots: [], totalDmg: 0 });
   });
 
-  it("applyV2DotsToTarget — 같은 label refresh, 새 label append", () => {
+  it("applyV2DotsToTarget — 같은 tag stack+refresh, 새 tag append", () => {
     const current = [
-      { label: "출혈", dmgPerTurn: 5, turns: 2 },
-      { label: "한기", dmgPerTurn: 3, turns: 1 },
+      { tag: "bleed" as const, label: "출혈", stacks: 2, maxStacks: 10, turns: 2, flatPerStack: 5, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "poison" as const, label: "중독", stacks: 1, maxStacks: 10, turns: 1, flatPerStack: 0, atkCoefPerStack: 0, pctMaxHpPerStack: 0.001, sourceAtk: 10 },
     ];
     const result = applyV2DotsToTarget(current, [
-      { label: "출혈", dmgPerTurn: 8, turns: 3 }, // refresh
-      { label: "소각", dmgPerTurn: 6, turns: 2 }, // 새 append
+      { tag: "bleed", label: "출혈", stacks: 3, maxStacks: 10, turns: 3, flatPerStack: 8, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "burn", label: "연소", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
     ]);
     expect(result).toEqual([
-      { label: "출혈", dmgPerTurn: 8, turns: 3 },
-      { label: "한기", dmgPerTurn: 3, turns: 1 },
-      { label: "소각", dmgPerTurn: 6, turns: 2 },
+      { tag: "bleed", label: "출혈", stacks: 5, maxStacks: 10, turns: 3, flatPerStack: 8, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
+      { tag: "poison", label: "중독", stacks: 1, maxStacks: 10, turns: 1, flatPerStack: 0, atkCoefPerStack: 0, pctMaxHpPerStack: 0.001, sourceAtk: 10 },
+      { tag: "burn", label: "연소", stacks: 1, maxStacks: 1, turns: 2, flatPerStack: 6, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 },
     ]);
   });
 
@@ -720,7 +863,7 @@ describe("v2 DoT (PR-8) — tick + apply", () => {
     // T1 tick: dmg, drop to 2. T2: dmg, drop to 1. T3: dmg, drop (turns 1 → drop).
     let dots: ReturnType<typeof tickV2Dots>["nextDots"] = applyV2DotsToTarget(
       [],
-      [{ label: "출혈", dmgPerTurn: 5, turns: 3 }],
+      [{ tag: "bleed", label: "출혈", stacks: 1, maxStacks: 10, turns: 3, flatPerStack: 5, atkCoefPerStack: 0, pctMaxHpPerStack: 0, sourceAtk: 0 }],
     );
     expect(dots[0].turns).toBe(3);
     let activeCount = 0;

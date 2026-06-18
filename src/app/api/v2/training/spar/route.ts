@@ -3,13 +3,15 @@ import { db } from "@/db";
 import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattle } from "@/adventure/battle/engine";
-import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { V2_MONSTERS, V2_SPAR_DUMMY_ID } from "@/adventure/data/v2/v2Monsters";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
+import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { toReplayPayload } from "@/adventure/data/v2/replayPayload";
 
 // POST /api/v2/training/spar — 훈련장 허수아비 모의전 (스파링).
@@ -50,26 +52,34 @@ export async function POST() {
   }
 
   // 이름(전투 로그 표기) + v2 스킬(자동 발동) read — lock 불필요(read-only).
+  //   코어루프: 로드아웃 sanitize(예산/직업고정)에 class/proficiency 도 필요 → flag-on 만 추가 read.
+  const readKeys = V2_CORE_LOOP_V2
+    ? ["character-profile.v2", "skills.v2", "character.v2", "proficiency.v2"]
+    : ["character-profile.v2", "skills.v2"];
   const rows = await db
     .select({ key: savesKv.key, value: savesKv.value })
     .from(savesKv)
-    .where(
-      and(
-        eq(savesKv.userId, userId),
-        inArray(savesKv.key, ["character-profile.v2", "skills.v2"]),
-      ),
-    );
+    .where(and(eq(savesKv.userId, userId), inArray(savesKv.key, readKeys)));
   let profile: { name?: string } | null = null;
   let skillsRaw: unknown = emptyV2SkillsState();
+  let charSave: unknown = {};
+  let proficiencyRaw: unknown = undefined;
   for (const r of rows) {
     if (r.key === "character-profile.v2") {
       profile = (r.value ?? null) as { name?: string } | null;
     } else if (r.key === "skills.v2") {
       skillsRaw = r.value ?? emptyV2SkillsState();
+    } else if (r.key === "character.v2") {
+      charSave = r.value ?? {};
+    } else if (r.key === "proficiency.v2") {
+      proficiencyRaw = r.value;
     }
   }
   const playerName = profile?.name?.trim() || "모험가";
-  const v2Skills = parseV2SkillsState(skillsRaw);
+  // 코어루프 — 연습전도 실제 로드아웃(예산 클램프·직업고정)으로 굴려 DPS 표시 일관성 유지. flag off=원본.
+  const v2Skills = V2_CORE_LOOP_V2
+    ? sanitizeCombatLoadout(parseV2SkillsState(skillsRaw), charSave, proficiencyRaw)
+    : parseV2SkillsState(skillsRaw);
 
   // 스파링은 만피로 시작 — 연습이라 현재 hp 와 무관(치료소 대용 악용도 무의미: 저장 안 함).
   const playerForBattle = { ...derived.player, hp: derived.maxHp };

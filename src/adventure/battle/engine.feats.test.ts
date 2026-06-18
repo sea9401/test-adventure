@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 크리 cap 75% 도입 후, 결정적 크리 발동을 위해 Math.random 을 0 으로 모킹(이전엔
@@ -14,6 +14,7 @@ afterEach(() => {
 // 기본: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠름 → 항상 선공.
 // 적 회피 0 / 추가공격 확률 0 → 결정적. damageBetween(10,3)=7, damageBetween(8,5)=3.
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 50,
   maxHp: 50,
   atk: 10,
@@ -30,6 +31,7 @@ function enemy(hp = 100): Monster {
 describe("특기 — 광전사", () => {
   it("잃은 HP 비율만큼 ATK 가산 (HP 절반 → +25%)", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 25, // 50% 손실
       maxHp: 50,
@@ -69,6 +71,7 @@ describe("특기 — 질풍검", () => {
 describe("특기 — 연참", () => {
   it("그 턴 크리티컬 나면 추가 공격 1회 (턴당 1회)", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       critChancePct: 75,
       critMult: 2,
@@ -114,6 +117,7 @@ describe("특기 — 반사 갑주", () => {
     // 적 atk 20, 플레이어 def 0 → damageBetween=20. 가드 reduction 50 → dmgToHp=0.
     // 반사 베이스는 rawDmgBeforeReduction=20 이므로 thornsPct 50 = floor(20*0.5)=10.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       thornsPct: 50,
       guard: { turns: 3, reduction: 50 },
@@ -158,6 +162,7 @@ describe("2티어 특기 — 불굴의 일격", () => {
 describe("2티어 특기 — 약점 적중", () => {
   it("크리 발동 시 DEF 30% 무시 추가타 1회 (턴당 1회)", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       critChancePct: 75,
       critMult: 2,
@@ -192,6 +197,7 @@ describe("2티어 특기 — 광속 격투", () => {
 describe("2티어 특기 — 연쇄 운명", () => {
   it("크리 발동 시 다음 공격 크리 100% 보장 (턴당 1회)", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       attackCount: 2,
       critChancePct: 75,
@@ -272,6 +278,7 @@ describe("2티어 특기 — 회전 운기", () => {
   it("매 플레이어 턴 누적 크리/회피 +N% 누적", () => {
     // cyclingChiPerTurn 100 → 1턴부터 크리 100% 강제.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       critChancePct: 0,
       critMult: 2,

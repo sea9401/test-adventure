@@ -1,7 +1,8 @@
 // v2 숙련도 재설계 — 커리어 경제 sim (docs/v2-proficiency-redesign.md §10 캘리브).
 //
 // 모델(2026-06 cumLevel 전환): 한 직업군으로 사냥하며 레벨을 올려 전직(1→2→3→4)하는 한 "생애".
-//   - 킬당 숙달 포인트(points) += V2_PROFICIENCY_PER_KILL (수행·스킬 소비 통화).
+//   - 킬당 숙달 포인트(points) += V2_PROFICIENCY_PER_KILL_BASE (수행·스킬 소비 통화).
+//     ⚠️라이브는 깊이 밴드 비례 2~5(proficiencyPerKillAtDepth) — sim 은 보수적 바닥(들판 2) 고정.
 //   - 킬당 exp 누적 → requiredExpToNext 곡선으로 레벨업 → 레벨업당 직군 누적 레벨(cumLevel) += 1.
 //   - 전직 게이트 = cumLevel ≥ V2_ADVANCE_CUMLEVEL_REQ[tier] AND 현 차수 레벨 ≥ V2_ADVANCE_MIN_LEVEL.
 //   - floor(저점) 입력 = cumLevel (points 아님). cumLevel 은 레벨캡·차수 유한이라 천장을 가짐.
@@ -16,7 +17,7 @@
 // 실행: node --import tsx scripts/sim-v2-proficiency.ts
 
 import {
-  V2_PROFICIENCY_PER_KILL,
+  V2_PROFICIENCY_PER_KILL_BASE,
   V2_ADVANCE_CUMLEVEL_REQ,
   V2_ADVANCE_MIN_LEVEL,
   V2_SIGNATURE_LEARN_COST,
@@ -37,7 +38,6 @@ import {
 import { computeStatFloors } from "../src/adventure/data/v2/statGrowth";
 import {
   V2_CLASS_DEFS,
-  nextTierClassOf,
   type V2Class,
 } from "../src/adventure/data/v2/classes";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
@@ -46,15 +46,8 @@ import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { requiredExpToNext, MAX_LEVEL } from "../src/lib/leveling";
 import { V2_STAT_KEYS, type V2StatKey } from "../src/adventure/data/v2/v2StatKeys";
 
-// 6 직업군 1차 (representative). 각 군의 4차 체인을 따라간다.
-const TIER1: V2Class[] = [
-  "swordsman",
-  "archer",
-  "martial",
-  "mage",
-  "priest",
-  "ninja",
-];
+// 4직군 (P4). 각 군의 1→4차를 따라간다 (class 불변, 차수는 proficiency.tier).
+const TIER1: V2Class[] = ["warrior", "martial", "mage", "rogue"];
 
 // 스타터 장비(파워 비교를 base 캐릭 ≈ floor min 앵커와 맞추려 전 구간 고정 — 실제론 업글됨).
 const STARTER_EQUIP = {
@@ -80,6 +73,7 @@ function maturePower(
   prof: V2ProficiencyState,
   playerClass: V2Class,
   level: number,
+  classTier: number,
 ): number {
   const floors = computeStatFloors(prof);
   // caps = 수행 이득(gains). grown = 유효cap - floor (= 헤드룸+이득) 로 채워 stat=유효cap.
@@ -98,6 +92,7 @@ function maturePower(
     statFloors: floors,
     v2Equipped: STARTER_EQUIP,
     playerClass,
+    classTier,
   });
   return derivePowerScore({
     atk: d.player.atk,
@@ -142,7 +137,7 @@ function simulateGroup(t1: V2Class): Row[] {
   const anchor = V2_CLASS_DEFS[t1].anchorStat;
   const rows: Row[] = [];
   let prof = emptyProficiency();
-  let cls: V2Class = t1;
+  const cls: V2Class = t1; // P4 — class 는 불변(차수는 prof.tier).
   let kills = 0;
   let tierLevel = 1; // 현 차수 레벨(전직 시 1 리셋)
   let expBuf = 0;
@@ -151,7 +146,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
   // 1킬 — earned + exp 누적, 레벨업 수만큼 cumLevel++ (차수 레벨 캡 100).
   const doKill = () => {
-    prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL);
+    prof = addPoints(prof, group, V2_PROFICIENCY_PER_KILL_BASE);
     kills++;
     expBuf += MONSTER_EXP;
     while (tierLevel < MAX_LEVEL) {
@@ -191,7 +186,7 @@ function simulateGroup(t1: V2Class): Row[] {
       cultivations: cultivationCount(prof, group),
       anchorCap,
       anchorFloor,
-      power: maturePower(prof, cls, tierLevel),
+      power: maturePower(prof, cls, tierLevel, tier),
       floorMin:
         FLOOR_POWER_MIN[Math.min(tier - 1, FLOOR_POWER_MIN.length - 1)] ?? null,
     });
@@ -207,7 +202,6 @@ function simulateGroup(t1: V2Class): Row[] {
       ) {
         doKill();
       }
-      cls = nextTierClassOf(cls) ?? cls;
       prof = setGroupTier(setGrown(prof, {}), group, tier + 1);
       tierLevel = 1;
       expBuf = 0;
@@ -218,7 +212,7 @@ function simulateGroup(t1: V2Class): Row[] {
 
 console.log("━━━ v2 숙련도 커리어 경제 sim (cumLevel 전환) ━━━");
 console.log(
-  `적립 +${V2_PROFICIENCY_PER_KILL}/킬 · 전직게이트 cumLevel ${JSON.stringify(V2_ADVANCE_CUMLEVEL_REQ)} (+Lv${V2_ADVANCE_MIN_LEVEL}) · 학습 ${JSON.stringify(V2_SIGNATURE_LEARN_COST)}`,
+  `적립 +${V2_PROFICIENCY_PER_KILL_BASE}/킬 · 전직게이트 cumLevel ${JSON.stringify(V2_ADVANCE_CUMLEVEL_REQ)} (+Lv${V2_ADVANCE_MIN_LEVEL}) · 학습 ${JSON.stringify(V2_SIGNATURE_LEARN_COST)}`,
 );
 console.log(`권장 파워(F1~5) ${JSON.stringify(FLOOR_POWER_MIN)} · 몬스터EXP(추정) ${MONSTER_EXP}`);
 console.log("");

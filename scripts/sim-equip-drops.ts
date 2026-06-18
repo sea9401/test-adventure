@@ -13,14 +13,14 @@
 //
 // 결과는 표 형식으로 stdout.
 
-import { resolveBattle, type PlayerCombat } from "../src/adventure/battle/engine";
-import { pickAutoAction } from "../src/adventure/battle/pickAutoAction";
+import { resolveBattle, type PlayerCombat } from "../src/adventure/v2/combat/engine";
+import { pickAutoAction } from "../src/adventure/v2/combat/pickAutoAction";
 import { derivePlayerCombatV2Pure } from "../src/lib/server/derivePlayerCombatV2";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "../src/adventure/data/v2/monsterScale";
 import {
-  EQUIP_FLOOR_POOLS,
+  dropPoolForDepth,
   rollEquipDrop,
 } from "../src/adventure/data/v2/dungeonEquipDrops";
 import {
@@ -149,8 +149,8 @@ console.log(headers.map((s) => s.padEnd(14)).join(""));
 const setups: { label: string; tier: V2EquipTier | null }[] = [
   { label: "장비없음", tier: null },
   { label: "T1 풀세팅", tier: 1 },
+  { label: "T2 풀세팅", tier: 2 },
   { label: "T3 풀세팅", tier: 3 },
-  { label: "T5 풀세팅", tier: 5 },
 ];
 
 for (const setup of setups) {
@@ -170,7 +170,7 @@ for (const setup of setups) {
 console.log(`\n=== 2) 드랍 분포 — 사냥 1회당 드랍 빈도 + 티어 분포 (TRIALS=${TRIALS}) ===`);
 console.log("층    chance  실측드랍%  티어 분포");
 for (const floor of FLOORS) {
-  const pool = EQUIP_FLOOR_POOLS[floor];
+  const pool = dropPoolForDepth(floor);
   const r = simDrops(floor, TRIALS, new Set());
   const actualPct = (r.dropped / r.trials) * 100;
   const tiers = Object.keys(r.byTier)
@@ -184,7 +184,7 @@ for (const floor of FLOORS) {
     })
     .join(" ");
   console.log(
-    `F${floor}    ${(pool.chance * 100).toFixed(0).padEnd(7)}${actualPct.toFixed(1).padEnd(11)}${tierStr}`,
+    `F${floor}    ${((pool?.chance ?? 0) * 100).toFixed(0).padEnd(7)}${actualPct.toFixed(1).padEnd(11)}${tierStr}`,
   );
 }
 

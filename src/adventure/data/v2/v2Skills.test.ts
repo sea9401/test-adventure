@@ -2,16 +2,29 @@ import { describe, it, expect } from "vitest";
 import {
   V2_SKILLS,
   V2_STARTER_SKILL_IDS,
-  V2_SIGNATURE_SKILL_IDS,
-  V2_ELEMENTAL_SKILLS_BY_CLASS,
-  isV2SignatureSkill,
   parseV2SkillsState,
   emptyV2SkillsState,
-  v2SkillSlotsForLevel,
   describeV2Skill,
+  smartDefaultConditionForSkill,
+  smartDefaultPatternFromEquipped,
+  aggregateEquippedPassives,
+  spCostOf,
+  rubricSpCost,
   type V2SkillId,
 } from "./v2Skills";
-import { V2_CLASS_DEFS } from "./classes";
+
+describe("사제 회복 패시브 (SPI PR-4 — v2c_acolyte_mana 리스킨)", () => {
+  it("v2c_acolyte_mana 는 회복강화(healPowerPct) 패시브 — 옛 마나(maxMpPct) 아님", () => {
+    const p = V2_SKILLS.v2c_acolyte_mana?.passive;
+    expect(p?.healPowerPct).toBe(20);
+    expect(p?.maxMpPct ?? 0).toBe(0); // 리스킨으로 MP% 제거
+    expect(V2_SKILLS.v2c_acolyte_mana?.name).toBe("회복");
+  });
+  it("aggregateEquippedPassives 가 healPowerPct 를 합산한다", () => {
+    expect(aggregateEquippedPassives(["v2c_acolyte_mana"]).healPowerPct).toBe(20);
+    expect(aggregateEquippedPassives([]).healPowerPct).toBe(0);
+  });
+});
 
 describe("v2Skills 카탈로그", () => {
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
@@ -42,43 +55,6 @@ describe("v2Skills 카탈로그", () => {
     expect(stats).toEqual(
       new Set(["str", "dex", "vit", "spd", "luk", "int"]),
     );
-  });
-
-  it("마법 탄(tier1 학습형 INT) — magic 스케일·학습형·스타터 아님·int 요구", () => {
-    const bolt = V2_SKILLS.int_magic_bolt_t1;
-    expect(bolt.stat).toBe("int");
-    expect(bolt.tier).toBe(1);
-    expect(bolt.category).toBe("attack");
-    // magic 스케일 damage effect (magicAtk 로 침)
-    const dmg = bolt.effects.find((e) => e.kind === "damage");
-    expect(dmg).toBeDefined();
-    expect(dmg?.kind === "damage" && dmg.scaling).toBe("magic");
-    // 스타터 아님 — 비-INT 빌드 자동지급 방지. 학습형 + int 요구치로 게이트.
-    expect(V2_STARTER_SKILL_IDS).not.toContain("int_magic_bolt_t1");
-    expect(bolt.learn).toBeDefined();
-    expect(bolt.learn?.stat?.key).toBe("int");
-  });
-});
-
-describe("v2SkillSlotsForLevel", () => {
-  it("Lv1-33 = 3 슬롯", () => {
-    expect(v2SkillSlotsForLevel(1)).toBe(3);
-    expect(v2SkillSlotsForLevel(33)).toBe(3);
-  });
-  it("Lv34-66 = 4 슬롯", () => {
-    expect(v2SkillSlotsForLevel(34)).toBe(4);
-    expect(v2SkillSlotsForLevel(66)).toBe(4);
-  });
-  it("Lv67-99 = 5 슬롯", () => {
-    expect(v2SkillSlotsForLevel(67)).toBe(5);
-    expect(v2SkillSlotsForLevel(99)).toBe(5);
-  });
-  it("Lv100 = 6 슬롯", () => {
-    expect(v2SkillSlotsForLevel(100)).toBe(6);
-  });
-  it("Lv0 이하는 Lv1 처럼 3 슬롯 (방어적)", () => {
-    expect(v2SkillSlotsForLevel(0)).toBe(3);
-    expect(v2SkillSlotsForLevel(-5)).toBe(3);
   });
 });
 
@@ -124,6 +100,78 @@ describe("parseV2SkillsState", () => {
     const r = parseV2SkillsState({ learned: ids, equipped: ids });
     expect(r.equipped).toEqual(ids);
   });
+
+  it("프리셋(C4) 라운드트립 — 검증 파싱 후 보존, 빈 라이브러리는 키 생략", () => {
+    const withPresets = parseV2SkillsState({
+      learned: ["v2_skill_strike"],
+      equipped: ["v2_skill_strike"],
+      presets: [
+        {
+          name: "보스용",
+          pattern: {
+            blocks: [
+              { condition: { kind: "always" }, action: { kind: "skill", skillId: "v2_skill_strike" } },
+            ],
+          },
+        },
+      ],
+    });
+    expect(withPresets.presets).toHaveLength(1);
+    expect(withPresets.presets?.[0].name).toBe("보스용");
+    expect(withPresets.presets?.[0].pattern.blocks).toHaveLength(1);
+    // 프리셋 없으면 키 자체 생략(하위호환).
+    const none = parseV2SkillsState({ learned: [], equipped: [] });
+    expect(none.presets).toBeUndefined();
+  });
+});
+
+describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
+  it("스킬 종류별 합리적 기본 조건", () => {
+    // 공격(강타) → 항상.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2_skill_strike)).toEqual({ kind: "always" });
+    // 마나 회복(명상) → MP 낮을 때(매 턴 스팸 방지 — 0코스트라 "항상"이면 무한 발동).
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_mage_meditate)).toEqual({
+      kind: "self_mp", op: "below", pct: 40,
+    });
+    // 힐(기공 순환) → HP 낮을 때.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_chi)).toEqual({
+      kind: "self_hp", op: "below", pct: 50,
+    });
+    // 스탯 버프(함성) → 그 버프 없을 때(재버프 낭비 방지).
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warrior_warcry)).toEqual({
+      kind: "self_buff", stat: "str", active: false,
+    });
+    // 파생버프(선풍각=회피·철포=받피감 selfBuffPct) → 그 버프 없을 때(만료 시 재시전·오프너 한계 해소).
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_monk_palm)).toEqual({
+      kind: "self_buff_pct", target: "evasion", active: false,
+    });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_steelguard)).toEqual({
+      kind: "self_buff_pct", target: "damageReduction", active: false,
+    });
+  });
+
+  it("명상은 기본 패턴에서 '항상' 이 아니다 (매 턴 발동 → 공격 안 함 버그 방지)", () => {
+    const p = smartDefaultPatternFromEquipped(["v2c_mage_meditate", "v2_skill_strike"]);
+    expect(p.blocks).toHaveLength(2);
+    // 슬롯 순서(우선순위) 보존.
+    expect(p.blocks[0].action).toEqual({ kind: "skill", skillId: "v2c_mage_meditate" });
+    expect(p.blocks[1].action).toEqual({ kind: "skill", skillId: "v2_skill_strike" });
+    // 명상은 조건부, 강타는 항상.
+    expect(p.blocks[0].condition.kind).toBe("self_mp");
+    expect(p.blocks[1].condition).toEqual({ kind: "always" });
+  });
+
+  it("순수 DoT 공격 스킬(자상·독무)도 '항상' — 첫 턴만 발동하는 회귀 방지", () => {
+    // dot 효과만 있고 직접 데미지 없는 공격기. damage 버킷에서 빠지면 opener(turn atMost 1)로
+    //   잘못 분류돼 첫 턴 후 안 나간다(Codex BLOCK). dot 도 "적 피해"라 항상 발동.
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2s_gladiator_laceration)).toEqual({ kind: "always" });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2s_venom_poisoncloud)).toEqual({ kind: "always" });
+  });
+
+  it("카탈로그에 없는 id 는 안전하게 '항상'", () => {
+    const p = smartDefaultPatternFromEquipped(["__nonexistent__"]);
+    expect(p.blocks[0].condition).toEqual({ kind: "always" });
+  });
 });
 
 describe("몬스터 상태이상 스킬 (PR-9)", () => {
@@ -158,12 +206,14 @@ describe("몬스터 상태이상 스킬 (PR-9)", () => {
 });
 
 describe("스킬 속성 전면 태깅", () => {
-  it("모든 데미지 스킬은 element 보유 (몹 상태스킬 제외)", () => {
+  it("원소 풀 스킬은 element 보유 / 그 외는 미부여 허용(캐릭터 속성 상속)", () => {
+    // 스킬 재설계 — 공용/전문화 스킬은 의도적 elementless: 시전 시 캐릭터가 고른 속성 상속
+    // (def.element ?? characterElement). "화염구"도 void 마법사가 쓰면 void 상성.
+    // 원소 풀(v2_skill_elem_*)만 속성이 정체성이라 반드시 태깅(회귀 가드).
     for (const s of Object.values(V2_SKILLS)) {
       if (s.monsterOnly) continue;
-      const hasDamage = s.effects.some((e) => e.kind === "damage");
-      if (hasDamage) {
-        expect(s.element, `${s.id} 데미지 스킬인데 element 없음`).toBeTruthy();
+      if (s.id.startsWith("v2_skill_elem_")) {
+        expect(s.element, `${s.id} 원소 스킬인데 element 없음`).toBeTruthy();
       }
     }
   });
@@ -188,15 +238,15 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("공격 스킬은 피해 배율 칩 + 속성 칩(무속성 제외)을 포함", () => {
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance); // 검무: 불, coef 2.2
-    expect(chips.some((c) => c.includes("공격력×2.2"))).toBe(true);
-    expect(chips).toContain("속성 불");
+    const chips = describeV2Skill(V2_SKILLS.v2_skill_strike); // 강타: 대지, coef 1.0
+    expect(chips.some((c) => c.includes("공격력×1"))).toBe(true);
+    expect(chips).toContain("속성 대지");
   });
 
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
-    const chips = describeV2Skill(V2_SKILLS.str_intimidating_roar_t2);
+    const chips = describeV2Skill(V2_SKILLS.v2s_knight_taunt);
     expect(chips.some((c) => c.startsWith("적 힘 −"))).toBe(true);
-    expect(chips).toContain("MP 14");
+    expect(chips).toContain("MP 26");
   });
 
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
@@ -208,53 +258,77 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("MP 0·무속성이면 MP·속성 칩 없음", () => {
-    // 검무(카탈로그 mpCost 0, 인자 미전달) → MP 칩 없음. (속성 불이라 속성 칩은 있음)
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance);
+    // 몹 독니(카탈로그 mpCost 0, element 없음, 인자 미전달) → MP·속성 칩 모두 없음.
+    const chips = describeV2Skill(V2_SKILLS.mob_venom_bite);
     expect(chips.some((c) => c.startsWith("MP"))).toBe(false);
+    expect(chips.some((c) => c.startsWith("속성"))).toBe(false);
   });
 
-  it("실효 MP 인자를 주면 그 값으로 MP 칩 표기(시그니처 차수별 비용)", () => {
-    // 시그니처는 카탈로그 0(센티넬)이라 인자 없으면 MP 칩이 없지만, 실효 비용(예: 12)을
-    // 넘기면 "MP 12" 로 정확히 표기 — UI 가 v2SkillMpCost 를 넘긴다.
-    const chips = describeV2Skill(V2_SKILLS.v2_skill_blade_dance, 12);
+  it("실효 MP 인자를 주면 그 값으로 MP 칩 표기", () => {
+    // 카탈로그 mpCost 0 스킬도 실효 비용(예: 12)을 넘기면 "MP 12" 로 정확히 표기 —
+    // UI 가 v2SkillMpCost 를 넘긴다.
+    const chips = describeV2Skill(V2_SKILLS.mob_venom_bite, 12);
     expect(chips).toContain("MP 12");
   });
 });
 
-describe("직업 시그니처 식별 + 패시브 전환 (비장착화)", () => {
-  it("V2_SIGNATURE_SKILL_IDS 가 모든 직업의 signatureSkill 집합과 정확히 일치", () => {
-    const fromClassDefs = new Set<string>();
-    for (const def of Object.values(V2_CLASS_DEFS)) {
-      if (def.signatureSkill) fromClassDefs.add(def.signatureSkill);
+describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
+  it("공격 스킬은 tier 가 오를수록 비싸다 (루브릭 3/4/5)", () => {
+    // 강타(attack, tier1) = 3. 명시 override 없는 표 도출.
+    expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(3);
+  });
+
+  it("유틸(힐/버프/디버프)은 공격보다 싸다 (2~3)", () => {
+    // 회복(heal tier1)=2, 함성(buff tier1)=2.
+    expect(spCostOf(V2_SKILLS.v2_skill_recover)).toBe(2);
+    expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
+  });
+
+  it("명시 spCost override 가 표보다 우선", () => {
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 7 })).toBe(7);
+    // 0/음수/소수 override 는 무시하고 표로 폴백 / floor.
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 0 })).toBe(3);
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 5.9 })).toBe(5);
+  });
+
+  it("카탈로그 모든 스킬 코스트 ≥ 1 (NaN/0 누출 방지)", () => {
+    for (const def of Object.values(V2_SKILLS)) {
+      const c = spCostOf(def);
+      expect(Number.isFinite(c), def.id).toBe(true);
+      expect(c, def.id).toBeGreaterThanOrEqual(1);
     }
-    const fromPredicate = new Set<string>(V2_SIGNATURE_SKILL_IDS);
-    expect(fromPredicate).toEqual(fromClassDefs);
-    expect(fromPredicate.size).toBeGreaterThanOrEqual(6); // 최소 6 직업군
   });
 
-  it("isV2SignatureSkill — 시그니처 true, 엘리멘탈 false", () => {
-    expect(isV2SignatureSkill(V2_CLASS_DEFS.swordsman.signatureSkill!)).toBe(true);
-    expect(isV2SignatureSkill(V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0])).toBe(false);
-    expect(isV2SignatureSkill("nope")).toBe(false);
+  it("🔑 트립와이어 — 어떤 스킬도 루브릭 미만으로 underprice 금지 (정체성 붕괴 가드)", () => {
+    // override 는 루브릭 "위로만"(아웃라이어 너프) 허용. 아래로 깎으면 값싼+강한 공용으로
+    // 직업 무관 유틸 스택 길이 열린다(PR-5 잔여 리스크). 새 스킬/override 가 바닥을 뚫으면 실패.
+    for (const def of Object.values(V2_SKILLS)) {
+      expect(
+        spCostOf(def),
+        `${def.id} 가 루브릭(${rubricSpCost(def)}) 미만으로 underprice 됨`,
+      ).toBeGreaterThanOrEqual(rubricSpCost(def));
+    }
   });
+});
 
-  it("parseV2SkillsState — equipped 의 시그니처를 비파괴 제거(slot 회수), learned 는 보존", () => {
-    const sig = V2_CLASS_DEFS.swordsman.signatureSkill!;
-    const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.swordsman[0];
+describe("레거시 시그니처 id 제거 (P4 은퇴 + 카탈로그 청소)", () => {
+  // 구 직업 시그니처(검무·폭풍 화살 등 requireClass 스킬)는 카탈로그에서 제거됐다.
+  // 옛 세이브에 박혀있어도 parseV2SkillsState 가 유효 id 가 아니라 안전하게 걸러낸다.
+  const REMOVED_SIG = "v2_skill_blade_dance"; // 제거된 레거시 시그니처 id 예.
+
+  it("parseV2SkillsState — 제거된 시그니처 id 는 learned·equipped 에서 모두 탈락, 유효 스킬은 보존", () => {
+    const valid = "v2c_warrior_strike"; // 살아있는 공용 스킬
     const parsed = parseV2SkillsState({
-      learned: [sig, elem],
-      equipped: [sig, elem], // 옛 세이브: 시그니처가 장착돼 있던 상태
+      learned: [REMOVED_SIG, valid],
+      equipped: [REMOVED_SIG, valid], // 옛 세이브: 제거된 시그니처가 장착돼 있던 상태
     });
-    // learned 에는 둘 다 남는다(시그니처=패시브 해금 표식).
-    expect(parsed.learned).toContain(sig);
-    expect(parsed.learned).toContain(elem);
-    // equipped 에서 시그니처는 빠지고 엘리멘탈만.
-    expect(parsed.equipped).toEqual([elem]);
+    expect(parsed.learned).toEqual([valid]);
+    expect(parsed.equipped).toEqual([valid]);
   });
 
-  it("idempotent — 시그니처 없는 equipped 는 그대로", () => {
-    const elem = V2_ELEMENTAL_SKILLS_BY_CLASS.mage[1];
-    const parsed = parseV2SkillsState({ learned: [elem], equipped: [elem] });
-    expect(parsed.equipped).toEqual([elem]);
+  it("idempotent — 유효 공용 스킬만 있는 equipped 는 그대로", () => {
+    const valid = "v2c_mage_fireball";
+    const parsed = parseV2SkillsState({ learned: [valid], equipped: [valid] });
+    expect(parsed.equipped).toEqual([valid]);
   });
 });

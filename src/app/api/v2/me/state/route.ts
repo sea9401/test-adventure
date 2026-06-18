@@ -13,19 +13,30 @@ import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
 import {
   parseV2SkillsState,
-  v2SkillSlotsForLevel,
   V2_SKILLS,
-  V2_ELEMENTAL_LEARN_COST,
+  v2SkillLearnCost,
+  spCostOf,
 } from "@/adventure/data/v2/v2Skills";
+import { isSignatureSkill } from "@/adventure/data/v2/v2Loadout";
 import {
   parseV2Class,
   tier1ClassOf,
-  nextTierClassOf,
-  signaturesForClass,
+  nextAdvanceTier,
+  tierCodexMin,
   elementalSkillsForClass,
-  signatureClassOf,
   V2_CLASS_DEFS,
+  jobDisplayName,
 } from "@/adventure/data/v2/classes";
+import {
+  V2_CORE_LOOP_V2,
+  V2_LEVEL_CAP,
+  HUNT_COOLDOWN_MS,
+  OFFLINE_MAX_MS,
+  calcSpBudget,
+  combatCooldownRemainingMs,
+  offlineBattlesAccrued,
+  offlineFarmDepth,
+} from "@/adventure/data/v2/coreLoopConfig";
 import {
   parseProficiencyForChar,
   groupCumLevel,
@@ -35,13 +46,27 @@ import {
   totalCapGains,
   capGain,
   effectiveStatCap,
-  signatureLearnCost,
   advanceCumLevelReq,
   V2_ADVANCE_MIN_LEVEL,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
-import { classPassiveTierText } from "@/adventure/data/v2/v2Passives";
-import { V2_STAT_KEYS } from "@/adventure/data/v2/v2StatKeys";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
+import {
+  V2_JOB_SPECS,
+  resolveSpecTrait,
+  describeSpecTraitEffect,
+  describeSpecPassiveEffect,
+} from "@/adventure/data/v2/v2JobSpecs";
+import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
+import {
+  V2_JOB_LIST,
+  V2_JOB_CATALOG,
+  isJobUnlocked,
+  jobIdFromLegacy,
+  CATALOG_USES_QUEST_CONDITION,
+  type JobUnlockContext,
+} from "@/adventure/data/v2/v2JobCatalog";
+import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -61,12 +86,17 @@ import {
 } from "@/adventure/v2/treasureCodex";
 import { parseTreasureFragments } from "@/adventure/v2/treasureFragments";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
+import {
+  isIntruderActive,
+  parseLastHuntedOutpost,
+} from "@/adventure/data/v2/intruderTracking";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { requiredExpToNext } from "@/lib/leveling";
 import {
   MAX_STAMINA,
   applyRegen,
   parseStaminaFromSave,
+  staminaCapBonusOf,
 } from "@/adventure/v2/stamina";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
@@ -196,6 +226,8 @@ export async function GET() {
     materials?: unknown;
     lastVisitedOutpost?: { outpostId?: string; at?: number };
     discoveredOutpostIds?: string[];
+    frontierDepth?: unknown;
+    lastHuntedOutpost?: unknown;
   };
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
@@ -282,7 +314,15 @@ export async function GET() {
   const maxMp = combat?.player.maxMp ?? 0;
 
   const now = Date.now();
-  const stamina = applyRegen(parseStaminaFromSave(charSave.stamina, now), now);
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약(비밀 상점) 보너스.
+  const staminaMax =
+    MAX_STAMINA +
+    staminaCapBonusOf((charSave as { staminaCapBonus?: unknown }).staminaCapBonus);
+  const stamina = applyRegen(
+    parseStaminaFromSave(charSave.stamina, now),
+    now,
+    staminaMax,
+  );
 
   const hpStored = Math.max(0, charSave.hp ?? maxHp);
   const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
@@ -334,9 +374,141 @@ export async function GET() {
     .where(eq(users.id, userId))
     .limit(1);
 
+  // 침입 상태 — 다른 길드 점령 거점에서 사냥한 TTL 내 기록(intruderTracking 과 동일 판정).
+  // OutpostView 가 "이 거점에 침입 중 (토벌 가능)" 배너에 사용. 없으면 null.
+  const lastHunted = parseLastHuntedOutpost(charSave.lastHuntedOutpost);
+  const intrusion =
+    lastHunted && isIntruderActive(lastHunted, lastHunted.outpostId, now)
+      ? { outpostId: lastHunted.outpostId, at: lastHunted.at }
+      : null;
+
+  // 코어루프 직업 스탯게이트 — flag on 일 때만. 효과 스탯(combat.totalStats)으로 해금된
+  const cls = parseV2Class((charSave as { class?: unknown }).class);
+  // 직업 시스템 v2(cumLevel 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
+  //   해금(cumLevel 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
+  // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋 로드(현 카탈로그=무쿼리).
+  const jobUnlockCtx: JobUnlockContext | undefined =
+    V2_CORE_LOOP_V2 && CATALOG_USES_QUEST_CONDITION
+      ? { completedQuestIds: await loadCompletedQuestIds(db, userId) }
+      : undefined;
+  const jobsV2 =
+    V2_CORE_LOOP_V2
+      ? (() => {
+          const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+          const specChoice =
+            typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+              ? ((charSave as { specChoice?: string }).specChoice ?? null)
+              : null;
+          const level = Math.max(1, (charSave as { level?: number }).level ?? 1);
+          const currentJobId = jobIdFromLegacy(cls, specChoice);
+          // 현재 직업 이름은 전체 카탈로그에서 — 필터된 목록에 현재 직업이 없을 수도 있으므로
+          //   (예: 미인식 class 'swordsman' → 모험가 폴백). 카탈로그 미존재면 직군 표시명 폴백.
+          const currentJobName =
+            V2_JOB_CATALOG[currentJobId]?.name ??
+            (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
+          return {
+            currentJobId,
+            currentJobName,
+            atLevelCap: level >= V2_LEVEL_CAP,
+            jobs: V2_JOB_LIST.filter(
+              (job) => job.tier > 0 && isJobUnlocked(job, prof, jobUnlockCtx),
+            ).map((job) => {
+              // 해금 조건(공유용) — 기본 직업=모험가 Lv 캡 도달, 상위=부모 직군 누적 Lv 임계.
+              const prereqs = Object.entries(job.unlock.prereqs);
+              const condition =
+                prereqs.length === 0
+                  ? `Lv ${V2_LEVEL_CAP} 달성`
+                  : prereqs
+                      .map(
+                        ([pid, lv]) =>
+                          `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`,
+                      )
+                      .join(", ");
+              // 직업 내장 보너스(현재 직업에 있을 때 적용되는 플랫 스탯) — "이 직업을 고를 이유"로
+              //   전직 화면에 표기. 패시브 스킬(휴대용)과 별개.
+              const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
+                .map((k) => `${V2_STAT_LABELS[k]} +${job.jobBonus[k]}`)
+                .join(" · ");
+              return {
+                id: job.id,
+                name: job.name,
+                tier: job.tier,
+                condition,
+                bonus,
+              };
+            }),
+          };
+        })()
+      : null;
+  // flag off 면 null — 클라는 기존 class→이름 매핑 폴백. flag on 일 때만 모험가-인지 라벨.
+  // 직업 표시명 — 캐릭터 카드/전투 부제가 쓴다(jobDisplayName: 직업 시스템이면 견습 병사·방패병
+  //   등, 아니면 옛 직군명). core-loop off 면 null(레거시 화면이 자체 처리).
+  const classDisplaySpec =
+    typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+      ? ((charSave as { specChoice?: string }).specChoice ?? null)
+      : null;
+  const classDisplayName = V2_CORE_LOOP_V2
+    ? jobDisplayName(cls, classDisplaySpec)
+    : null;
+  // 코어루프 전투 쿨다운 — 다음 전투 가능 시각(사냥·토벌 공통). off 면 null(스태미나 게이트).
+  //   쿨다운 중이면 nextBattleAt=now+남은ms, 즉시 가능(미전투/경과/미래-손상)이면 now.
+  //   클라는 serverNow >= nextBattleAt 로 판정. 라우트 게이트와 동일 helper 라 표시-실제 일치.
+  const cooldownRemaining = combatCooldownRemainingMs(
+    Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
+    now,
+  );
+  const combatCooldown = V2_CORE_LOOP_V2
+    ? {
+        nextBattleAt: now + cooldownRemaining,
+        cooldownMs: HUNT_COOLDOWN_MS,
+        serverNow: now,
+      }
+    : null;
+  // 코어루프 오프라인 사냥 — 명시 세션(offlineHuntStartedAt) 켜진 동안만 누적. 세션 창=시작+2h.
+  //   offlinePending = 세션 창 안에서 lastBattleAt 이후 누적 판수(>0 이면 클라가 offline-settle).
+  //   offlineHunt = 세션 상태(시작/끝 시각) — 클라 "오프라인 사냥 중·정지" 버튼/카운트다운용.
+  const offlineStartedAt =
+    Number((charSave as { offlineHuntStartedAt?: number }).offlineHuntStartedAt) ||
+    0;
+  const offlineActive = V2_CORE_LOOP_V2 && offlineStartedAt > 0;
+  const offlineEndsAt = offlineStartedAt + OFFLINE_MAX_MS;
+  const offlinePending =
+    !V2_CORE_LOOP_V2
+      ? null
+      : offlineActive
+        ? offlineBattlesAccrued(
+            Number((charSave as { lastBattleAt?: number }).lastBattleAt) || 0,
+            Math.min(now, offlineEndsAt),
+          )
+        : 0;
+  const offlineHunt = V2_CORE_LOOP_V2
+    ? offlineActive
+      ? {
+          active: true,
+          startedAt: offlineStartedAt,
+          endsAt: offlineEndsAt,
+          serverNow: now,
+          // 자동 사냥이 도는 farm 깊이 — "자동 사냥 중 사냥터 바로 입장" 목적지(정산 깊이와 동일).
+          depth: offlineFarmDepth(
+            Number((charSave as { lastHuntDepth?: number }).lastHuntDepth),
+            Number(charSave.frontierDepth) || 2,
+          ),
+        }
+      : { active: false }
+    : null;
+
   return Response.json({
     ok: true,
     accountName: userRow?.gameName?.trim() || null,
+    intrusion,
+    // 직업 시스템 v2(cumLevel 점진 공개 전직 목록) — 코어루프 off 면 null.
+    jobsV2,
+    // 코어루프 전투 쿨다운(사냥·토벌 게이트) — flag off 면 null(스태미나로 판정).
+    combatCooldown,
+    // 코어루프 오프라인 정산 대기 판수 — flag off 면 null.
+    offlinePending,
+    // 코어루프 오프라인 사냥 세션 상태(시작/끝 시각) — flag off 면 null.
+    offlineHunt,
     character: {
       name,
       gender,
@@ -350,12 +522,26 @@ export async function GET() {
       maxMp,
       stamina: {
         current: stamina.current,
-        max: MAX_STAMINA,
+        max: staminaMax,
         lastUpdatedAt: stamina.lastUpdatedAt,
       },
       gold: Math.max(0, charSave.gold ?? 0),
+      // 은행 — 입금된 골드(토벌 압류에서 안전). 보유 골드(gold)와 별개.
+      bankedGold: Math.max(0, (charSave as { bankedGold?: number }).bankedGold ?? 0),
+      // 코어루프 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류 대상). off 면 null.
+      atRiskGold: V2_CORE_LOOP_V2
+        ? Math.max(0, Number((charSave as { atRiskGold?: number }).atRiskGold) || 0)
+        : null,
       // PR-1 전투 재설계 — 직업·속성 (캐릭터 화면 헤더 + 피커).
-      class: parseV2Class((charSave as { class?: unknown }).class),
+      class: cls,
+      // 코어루프 on 이면 무직→"모험가" 표기. off 면 기존 직군명.
+      classDisplayName,
+      // 코어루프 직업 트리 — 현재 계파(재전직 화면 "현재" 표시용). off 면 null.
+      spec: V2_CORE_LOOP_V2
+        ? (typeof (charSave as { specChoice?: unknown }).specChoice === "string"
+            ? ((charSave as { specChoice?: string }).specChoice ?? null)
+            : null)
+        : null,
       element: parseV2Element((charSave as { element?: unknown }).element),
     },
     stats,
@@ -371,44 +557,73 @@ export async function GET() {
         ? charSave.discoveredOutpostIds
         : seededDiscovery(),
     skills: parseV2SkillsState(skillsRow?.value),
-    // 스킬 장착 슬롯 수(레벨 비례, 수동 착용용). 레벨 리셋되면 줄어듦.
-    skillSlots: v2SkillSlotsForLevel(Math.max(1, charSave.level ?? 1)),
-    // 직업 패시브 현황 — 현 직업 체인의 각 차수 + 비용/학습여부/효과 텍스트(패시브 학습 패널용).
-    // 시그니처는 패시브로 전환 — 장착 개념 없음(학습=해금). effect = 그 차수 패시브 효과 한 줄.
-    signatures: (() => {
-      const cls = parseV2Class((charSave as { class?: unknown }).class);
-      const skillsState = parseV2SkillsState(skillsRow?.value);
-      const learnedSet = new Set<string>(skillsState.learned);
-      return signaturesForClass(cls).map((skillId) => {
-        const sigClass = signatureClassOf(skillId) ?? cls;
-        const tier = V2_CLASS_DEFS[sigClass].tier;
-        return {
-          skillId,
-          tier,
-          cost: signatureLearnCost(tier),
-          learned: learnedSet.has(skillId),
-          effect: classPassiveTierText(cls, tier),
-        };
-      });
-    })(),
-    // 직업군 속성 스킬 풀 — 현 직업군의 7속성 스킬 + 학습/장착여부(학습 패널 속성 탭용).
+    // P4 — 시그니처 직업 패시브 은퇴(전문화 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 전문화 UI 대체).
+    signatures: [] as never[],
+    // 학습 가능 스킬 풀 — 공용(직군) + 선택한 전문화(전직)의 차수 해금분 + 학습/장착여부(학습 패널용).
+    // 전문화 미선택이면 공용만 노출(다른 전문화 스킬은 숨김). 전문화 스킬은 차수당 1개씩 해금.
     elementalSkills: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
+      const specChoice = typeof rawSpec === "string" ? rawSpec : null;
+      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+      const group = tier1ClassOf(cls);
+      const tier = prof.groups[group]?.tier ?? 1;
+      // 학습 비용은 스킬 종류별 고정 — 공용 1500 · 전문화 5000(learn-skill 과 동일 산식).
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
       const equippedSet = new Set<string>(skillsState.equipped);
-      return elementalSkillsForClass(cls).map((skillId) => {
+      return elementalSkillsForClass(cls, specChoice, tier).map((skillId) => {
         const def = V2_SKILLS[skillId];
         return {
           skillId,
           name: def.name,
-          element: def.element ?? null,
-          cost: V2_ELEMENTAL_LEARN_COST,
+          cost: v2SkillLearnCost(skillId),
           learned: learnedSet.has(skillId),
           equipped: equippedSet.has(skillId),
         };
       });
     })(),
+    // SP 로드아웃(코어루프 전용) — 수동 로드아웃 화면용. flag off 면 키 없음(응답 byte-identical).
+    //   library = 배운 스킬 전부(타직업 수집분 포함) + spCost·장착여부·시그니처/잠금. equipped 는
+    //   reconcile 가 이미 sanitize 한 저장값. locked = 시그니처인데 현 체인 밖(직업 고정·장착 불가).
+    ...(V2_CORE_LOOP_V2
+      ? {
+          loadout: (() => {
+            const cls = parseV2Class((charSave as { class?: unknown }).class);
+            const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
+            const specChoice = typeof rawSpec === "string" ? rawSpec : null;
+            const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+            const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
+            const chainSet = new Set<string>(
+              elementalSkillsForClass(cls, specChoice, tier),
+            );
+            const skillsState = parseV2SkillsState(skillsRow?.value);
+            const equippedSet = new Set<string>(skillsState.equipped);
+            const spBudget = calcSpBudget(prof.groups);
+            let spUsed = 0;
+            const library = skillsState.learned
+              .filter((id) => V2_SKILLS[id])
+              .map((id) => {
+                const def = V2_SKILLS[id];
+                const equipped = equippedSet.has(id);
+                if (equipped) spUsed += spCostOf(def);
+                const signature = isSignatureSkill(id);
+                return {
+                  skillId: id,
+                  name: def.name,
+                  spCost: spCostOf(def),
+                  equipped,
+                  signature,
+                  // 시그니처인데 현 체인 밖 = 직업 고정(장착 불가). 공용/기본기는 항상 장착 가능.
+                  locked: signature && !chainSet.has(id),
+                };
+              });
+            // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만. POST /me/loadout 시 재전송용.
+            const equipped = skillsState.equipped.filter((id) => V2_SKILLS[id]);
+            return { spBudget, spUsed, equipped, library };
+          })(),
+        }
+      : {}),
     // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
     codex: (() => {
       const ids = discoveredMaterialIds(charSave.materials);
@@ -432,6 +647,12 @@ export async function GET() {
     })(),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
+    // 프론티어 최고 도달 깊이 (기본 2 = 들판 초반 해금, 깊이 3까지). MAX 캡으로 정규화
+    //   (레거시 무한기 >42 저장값도 현재 콘텐츠 끝으로 표시 — 클라가 캡 밖 깊이를 들고 다니지 않게).
+    frontierDepth: Math.min(
+      MAX_FRONTIER_DEPTH,
+      Math.max(2, Math.floor(Number(charSave.frontierDepth) || 2)),
+    ),
     // 직업 숙련도(직업 마스터리) — 총/직업 + 현 직업군 사용가능. 수행·전직·표시용.
     proficiency: (() => {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
@@ -459,24 +680,25 @@ export async function GET() {
           // 게이트 3종(Lv50·직군 누적레벨·3·4차 도감)을 advance-class 와 동일 기준으로 산출.
           advance: (() => {
             const cur = parseV2Class((charSave as { class?: unknown }).class);
-            const next = nextTierClassOf(cur);
-            if (!next) return null;
+            if (cur === "none") return null;
+            // P4 — 전직 = class 불변, proficiency.tier +1. 다음 차수(2/3/4), 정점이면 null.
+            const curTier = prof.groups[group]?.tier ?? 1;
+            const nextTier = nextAdvanceTier(curTier);
+            if (!nextTier) return null;
             const haveLevel = Math.max(
               1,
               (charSave as { level?: number }).level ?? 1,
             );
-            const reqCum = advanceCumLevelReq(V2_CLASS_DEFS[next].tier);
+            const reqCum = advanceCumLevelReq(nextTier);
             const haveCum = groupCumLevel(prof, group);
-            const reqCodex = codexRequirement(
-              V2_CLASS_DEFS[next].advanceCodexMin,
-            );
+            const reqCodex = codexRequirement(tierCodexMin(nextTier));
             const haveCodex = discoveredMaterialIds(
               (charSave as { materials?: unknown }).materials,
             ).length;
             return {
-              nextClass: next,
-              nextName: V2_CLASS_DEFS[next].name,
-              nextTier: V2_CLASS_DEFS[next].tier,
+              nextClass: cur,
+              nextName: V2_CLASS_DEFS[cur].name,
+              nextTier,
               reqLevel: V2_ADVANCE_MIN_LEVEL,
               haveLevel,
               reqCum,
@@ -490,6 +712,52 @@ export async function GET() {
             };
           })(),
         },
+      };
+    })(),
+    // 전문화(스펙) 현황 — docs/v2-job-spec-passives-plan.md §5. 직업 전문화 목록 + 현 선택 + 해금 + 남은 픽.
+    spec: (() => {
+      const cls = parseV2Class((charSave as { class?: unknown }).class);
+      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
+      const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
+      const jobSpecs = V2_JOB_SPECS[cls] ?? [];
+      const rawChoice = (charSave as { specChoice?: unknown }).specChoice;
+      const choice = typeof rawChoice === "string" ? rawChoice : null;
+      // 선택한 전문화가 현 직업 것인지 — 환생(같은 직업, 차수→1) 후 1차여도 패널에 유지 표시.
+      //   직업 변경 후 stale choice(타직업 전문화)는 false → tier 게이트 유지(새 직업 전문화 새로 선택).
+      const choiceValid = choice != null && jobSpecs.some((s) => s.id === choice);
+      const rawUnlocked = (charSave as { unlockedPassives?: unknown })
+        .unlockedPassives;
+      const unlocked = Array.isArray(rawUnlocked)
+        ? rawUnlocked.filter((x): x is string => typeof x === "string")
+        : [];
+      return {
+        tier,
+        // 2차 전직부터 선택 가능 + 이미 고른 전문화는 환생(차수→1)해도 패널에 유지(choiceValid).
+        available: tier >= 2 || choiceValid,
+        choice,
+        unlocked,
+        picksMax: Math.max(0, tier - 1), // 2차 1·3차 2·4차 3
+        picksUsed: unlocked.length,
+        specs: jobSpecs.map((s) => ({
+          id: s.id,
+          name: s.name,
+          requiredWeaponType: s.requiredWeaponType,
+          passives: s.passives.map((p) => ({
+            id: p.id,
+            name: p.name,
+            desc: p.desc,
+            // 수치 포함 효과 텍스트 — effect 필드에서 도출(desc 는 플레이버 폴백).
+            effectText: describeSpecPassiveEffect(p.effect),
+          })),
+          // 직업 특성 — 전직 시 자동(픽 아님), 차수 성장. effectText 는 현재 차수 기준 환산값.
+          trait: s.trait
+            ? {
+                name: s.trait.name,
+                desc: s.trait.desc,
+                effectText: describeSpecTraitEffect(resolveSpecTrait(s, tier)),
+              }
+            : null,
+        })),
       };
     })(),
   });

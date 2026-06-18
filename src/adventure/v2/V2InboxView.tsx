@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Envelope } from "@phosphor-icons/react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
 import {
   acceptGuildInvite,
@@ -155,7 +157,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <BackButton onClick={onBack} />
         <div className="mt-1 flex items-center justify-between gap-2">
           <h1 className="text-lg font-bold">우편함</h1>
@@ -170,10 +172,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
             </button>
           )}
         </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          받은 쪽지와 마켓 정산·보상을 확인하고 수령합니다.
-        </p>
-      </header>
+      </HeaderPanel>
 
       {msg && (
         <div className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</div>
@@ -203,7 +202,11 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
                     <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                       {KIND_LABEL[it.kind]}
                     </span>
-                    {it.fromName && <span>· {it.fromName}</span>}
+                    {it.fromName && (
+                      <span>
+                        · <PlayerNameLink name={it.fromName} />
+                      </span>
+                    )}
                     <span>· {timeAgo(it.createdAt)}</span>
                   </div>
                   <div className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-800 dark:text-zinc-100">

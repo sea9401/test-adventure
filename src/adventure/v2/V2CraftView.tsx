@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   CONCEPT_LABELS,
   V2_EQUIPMENT,
@@ -21,7 +23,13 @@ import {
   V2_MATERIALS,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
+import { useGameState } from "./GameStateProvider";
 
 // v2 대장간 — 제작 / 분해.
 //   제작: 재료(+골드) → 완성 장비. 부위별 티어·컨셉 순 레시피 카드. 충분할 때만 제작 버튼 활성.
@@ -71,16 +79,18 @@ const CRAFT_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
 })();
 
 // 개체 배열 → id별 보유 카운트(분해 후보 표시용).
-function buildCountMap(
-  owned: V2EquipInstance[],
-): Map<V2EquipmentId, number> {
+function buildCountMap(owned: V2EquipInstance[]): Map<V2EquipmentId, number> {
   const m = new Map<V2EquipmentId, number>();
   for (const inst of owned) m.set(inst.id, (m.get(inst.id) ?? 0) + 1);
   return m;
 }
 
 export function V2CraftView({ onBack }: { onBack: () => void }) {
+  // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬로 추적(신선) + 컨텍스트도 동기화.
+  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
   const [gold, setGold] = useState<number>(0);
+  const [bankedGold, setBankedGold] = useState<number>(0);
+  const spendable = coreLoopOn ? gold + bankedGold : gold;
   const [materials, setMaterials] = useState<Materials>({});
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
   // 개체 목록 + 장착 iid — 분해 시 id → 미장착 개체(iid) 해석에 사용.
@@ -103,7 +113,9 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         fetch("/api/v2/me/inventory"),
       ]);
       const stateJ = stateRes.ok
-        ? ((await stateRes.json()) as { character?: { gold?: number } })
+        ? ((await stateRes.json()) as {
+            character?: { gold?: number; bankedGold?: number };
+          })
         : null;
       const equipJ = equipRes.ok
         ? ((await equipRes.json()) as {
@@ -115,6 +127,8 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         ? ((await invRes.json()) as { materials?: Materials })
         : null;
       setGold(stateJ?.character?.gold ?? 0);
+      setBankedGold(stateJ?.character?.bankedGold ?? 0);
+      syncCtxBanked(stateJ?.character?.bankedGold ?? 0);
       const insts = equipJ?.owned ?? [];
       setOwnedInsts(insts);
       setCounts(buildCountMap(insts));
@@ -142,15 +156,14 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id }),
       });
-      const j = (await res.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            error?: string;
-            gold?: number;
-            materials?: Materials;
-            owned?: V2EquipInstance[];
-          }
-        | null;
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        gold?: number;
+        bankedGold?: number;
+        materials?: Materials;
+        owned?: V2EquipInstance[];
+      } | null;
       if (!j?.ok) {
         setMsg(
           j?.error === "insufficient"
@@ -162,6 +175,10 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
       const item = V2_EQUIPMENT[id];
       setMsg(`✓ ${item.name} 제작`);
       if (typeof j.gold === "number") setGold(j.gold);
+      if (typeof j.bankedGold === "number") {
+        setBankedGold(j.bankedGold);
+        syncCtxBanked(j.bankedGold);
+      }
       if (j.materials) setMaterials(j.materials);
       if (j.owned) {
         setOwnedInsts(j.owned);
@@ -172,7 +189,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [syncCtxBanked]);
 
   // 분해는 개체(iid) 단위 — id 로 누른 카드는 그 종류의 미장착 개체 1개(없으면 아무거나)를 푼다.
   const salvage = useCallback(
@@ -192,14 +209,12 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ iid: inst.iid }),
         });
-        const j = (await res.json().catch(() => null)) as
-          | {
-              ok?: boolean;
-              error?: string;
-              materials?: Materials;
-              owned?: V2EquipInstance[];
-            }
-          | null;
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          materials?: Materials;
+          owned?: V2EquipInstance[];
+        } | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
           return;
@@ -220,6 +235,15 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
     [ownedInsts, equippedIids],
   );
 
+  // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(iid → id).
+  const equippedItemIds = useMemo(
+    () =>
+      new Set(
+        ownedInsts.filter((i) => equippedIids.has(i.iid)).map((i) => i.id),
+      ),
+    [ownedInsts, equippedIids],
+  );
+
   const craftIds = useMemo(() => CRAFT_IDS_BY_SLOT[subTab], [subTab]);
   // 분해 후보 — 그 부위의 레시피-보유 장비 중 실제 보유(count>0). 유니크는 CRAFT_IDS 에서 이미 제외.
   const salvageIds = useMemo(
@@ -229,21 +253,22 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="flex items-baseline justify-between gap-2">
+      <HeaderPanel>
+        <header className="flex items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold">대장간</h1>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            던전 재료로 장비를 만들거나, 안 쓰는 장비를 재료로 되돌리는 곳.
-          </p>
         </div>
         <BackButton onClick={onBack} />
-      </header>
-      <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+        </header>
+      </HeaderPanel>
+      <HeaderPanel className="py-2">
+        <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
         <Coins size={16} weight="fill" className="text-yellow-500" />
         <span className="font-semibold tabular-nums">
           {gold.toLocaleString()}G
         </span>
-      </div>
+        </div>
+      </HeaderPanel>
       {msg && (
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${
@@ -274,26 +299,34 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         ariaLabel="부위"
         size="sm"
         variant="highlight"
+        scrollable
       />
 
       <section>
         {mode === "craft" ? (
-          <Card padding="none" className="overflow-hidden dark:border-zinc-700">
-            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {craftIds.map((id) => (
-                <RecipeRow
-                  key={id}
-                  id={id}
-                  gold={gold}
-                  materials={materials}
-                  ownedCount={counts.get(id) ?? 0}
-                  busy={busyId === id}
-                  onCraft={craft}
-                  onOpenCard={(item, anchor) => setCard({ item, anchor })}
-                />
-              ))}
-            </ul>
-          </Card>
+          craftIds.length === 0 ? (
+            <EmptyHint text="제작할 수 있는 장비가 없습니다." />
+          ) : (
+            <Card
+              padding="none"
+              className="overflow-hidden dark:border-zinc-700"
+            >
+              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                {craftIds.map((id) => (
+                  <RecipeRow
+                    key={id}
+                    id={id}
+                    gold={spendable}
+                    materials={materials}
+                    ownedCount={counts.get(id) ?? 0}
+                    busy={busyId === id}
+                    onCraft={craft}
+                    onOpenCard={(item, anchor) => setCard({ item, anchor })}
+                  />
+                ))}
+              </ul>
+            </Card>
+          )
         ) : salvageIds.length === 0 ? (
           <EmptyHint text="분해할 장비가 없습니다. 던전·제작으로 모아보세요. (유니크는 분해 불가)" />
         ) : (
@@ -318,6 +351,7 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+          equippedIds={equippedItemIds}
         />
       )}
     </main>
@@ -344,17 +378,22 @@ function ItemHead({
 }) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-      <button
-        type="button"
-        onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
-        className="min-w-0 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
-      >
-        <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-          {item.name}
-        </span>
-      </button>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
+          className="flex min-w-0 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
+        >
+          <span
+            className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
+          >
+            {item.name}
+          </span>
+        </button>
+        <ItemTypeChip item={item} />
+      </div>
       <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-px text-[10px] font-semibold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-        T{item.tier} · {CONCEPT_LABELS[item.concept]}
+        {CONCEPT_LABELS[item.concept]}
       </span>
       {ownedCount > 0 && (
         <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200">
@@ -398,7 +437,11 @@ function RecipeRow({
       <div className="flex items-start justify-between gap-3">
         {/* 좌 — 헤더 + 재료 */}
         <div className="min-w-0 flex-1">
-          <ItemHead item={item} ownedCount={ownedCount} onOpenCard={onOpenCard} />
+          <ItemHead
+            item={item}
+            ownedCount={ownedCount}
+            onOpenCard={onOpenCard}
+          />
           {/* 재료 칩 — 보유/필요. 부족하면 rose. */}
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {recipe.ingredients.map((ing) => {
@@ -475,7 +518,11 @@ function SalvageRow({
     <li className="px-3 py-3 sm:px-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <ItemHead item={item} ownedCount={ownedCount} onOpenCard={onOpenCard} />
+          <ItemHead
+            item={item}
+            ownedCount={ownedCount}
+            onOpenCard={onOpenCard}
+          />
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
               환수
@@ -486,7 +533,9 @@ function SalvageRow({
                 className="inline-flex items-center gap-1 rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
               >
                 <span className="truncate">{V2_MATERIALS[mid].name}</span>
-                <span className="shrink-0 tabular-nums font-semibold">×{n}</span>
+                <span className="shrink-0 tabular-nums font-semibold">
+                  ×{n}
+                </span>
               </span>
             ))}
           </div>

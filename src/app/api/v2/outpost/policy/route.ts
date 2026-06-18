@@ -2,12 +2,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { isGuildAdmin } from "@/lib/server/guildAdmin";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 // POST /api/v2/outpost/policy — 점령자가 정책/세율 설정.
 //
 // body: { outpostId, policy?, taxRate? } — 둘 중 하나는 있어야.
-// 점령자(occupiedByUserId === userId) 만 가능.
+// 점령자(occupiedByUserId === userId) 또는 점령 길드의 마스터/관리자(길드 관리탭).
 //
 // policy: "open" | "guild-only"
 //   - open: 누구나 입장 가능, taxRate 만큼 점령자에게 세금
@@ -87,10 +88,16 @@ export async function POST(req: Request) {
       };
     }
     if (occ.occupiedByUserId !== userId) {
-      return {
-        status: 403,
-        body: { ok: false as const, error: "not_owner" as const },
-      };
+      // 길드 점령 거점이면 길드 마스터/관리자도 설정 가능 (길드 관리탭).
+      const adminOk =
+        occ.occupiedByGuildId != null &&
+        (await isGuildAdmin(tx, occ.occupiedByGuildId, userId));
+      if (!adminOk) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_owner" as const },
+        };
+      }
     }
     await tx
       .update(outpostOccupations)

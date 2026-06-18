@@ -3,31 +3,26 @@
 import { useState } from "react";
 import Link from "next/link";
 import { AdminProvider, useAdmin } from "./AdminContext";
-import { OverviewTab } from "./tabs/OverviewTab";
-import { LogTab } from "./tabs/LogTab";
-import { DataTab } from "./tabs/DataTab";
 import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
 import { GuildsTab } from "./tabs/GuildsTab";
+import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
-type TabKey = "overview" | "users" | "stats" | "guilds" | "log" | "data";
+// 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
+type TabKey = "users" | "stats" | "balance" | "guilds";
 
-type TabGroup = "system" | "edit" | "data";
+type TabGroup = "system";
 
 const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
-  { key: "overview", label: "개요", group: "system" },
   { key: "users", label: "유저", group: "system" },
   { key: "stats", label: "통계", group: "system" },
+  { key: "balance", label: "밸런스", group: "system" },
   { key: "guilds", label: "길드 의뢰", group: "system" },
-  { key: "log", label: "모험의 서", group: "edit" },
-  { key: "data", label: "데이터", group: "data" },
 ];
 
 const GROUP_LABELS: Record<TabGroup, string> = {
   system: "시스템",
-  edit: "본인 디버그",
-  data: "참고",
 };
 
 // 인접 동일 그룹 묶기 — 사이드바 그룹 헤더용. 순서는 TABS 정의 순 그대로.
@@ -44,7 +39,7 @@ function groupTabs<T extends { group: TabGroup }>(
 }
 
 function ShellInner() {
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTab] = useState<TabKey>("users");
   const { readOnly, setReadOnly, toast } = useAdmin();
   const groups = groupTabs(TABS);
 
@@ -78,9 +73,8 @@ function ShellInner() {
 
       <div className="mx-auto max-w-6xl px-4 py-3">
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          ⚠️ 이 페이지는 게임 진행 상태를 직접 변경합니다. 먼저{" "}
-          <strong>전체 백업</strong>을 받으세요. 변경 후 게임 라우트는 새로고침이
-          필요할 수 있습니다.
+          ⚠️ 이 페이지는 게임 진행 상태를 직접 변경합니다. 변경 후 게임 라우트는
+          새로고침이 필요할 수 있습니다.
         </div>
       </div>
 
@@ -133,12 +127,10 @@ function ShellInner() {
         </nav>
 
         <main className="flex-1 space-y-4">
-          {tab === "overview" && <OverviewTab />}
           {tab === "users" && <UsersTab />}
           {tab === "stats" && <StatsTab />}
+          {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "guilds" && <GuildsTab />}
-          {tab === "log" && <LogTab />}
-          {tab === "data" && <DataTab />}
         </main>
       </div>
 

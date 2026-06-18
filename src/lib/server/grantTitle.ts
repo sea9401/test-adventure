@@ -14,6 +14,12 @@ type AdventureLogShape = {
   [k: string]: unknown;
 };
 
+/** adventure-log.v2 raw 값 → 보유 칭호 id 목록(읽기 전용·무락). 없으면 빈 배열. */
+export function ownedTitleIdsOf(raw: unknown): string[] {
+  const titles = (raw as AdventureLogShape | undefined)?.titles;
+  return titles && typeof titles === "object" ? Object.keys(titles) : [];
+}
+
 export async function grantTitleIfMissingInTx(
   tx: DbExecutor,
   userId: string,

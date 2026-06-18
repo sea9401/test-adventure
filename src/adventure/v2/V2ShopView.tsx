@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
 import { Card } from "@/components/ui/Card";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
   shopPriceOf,
+  shopPriceForSell,
+  sellPriceOf,
+  v2ItemTypeLabel,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipmentId,
@@ -17,7 +23,13 @@ import {
   V2_MATERIAL_SELL_PRICE,
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
+import { useGameState } from "./GameStateProvider";
 
 // v2 상점 — 상위 탭: 구매 / 판매.
 //  - 구매: 장비 카탈로그 (무기/방어구/장신구). 보유 중이어도 추가 구매 가능.
@@ -47,9 +59,9 @@ const MODE_TABS: ReadonlyArray<{ key: Mode; label: string }> = [
   { key: "sell", label: "판매" },
 ];
 
-const SELL_PRICE_RATIO = 0.05;
+// 구매 표 열: 아이템 | 종류 | 가격 | 위력/무게 | 구매. 종류는 이름과 가격 사이.
 const BUY_GRID_CLASS =
-  "grid grid-cols-[minmax(0,1fr)_5rem_5rem_4.5rem] sm:grid-cols-[minmax(0,1fr)_6.5rem_6rem_5.25rem]";
+  "grid grid-cols-[minmax(0,1fr)_3rem_4.25rem_4.25rem_3.5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_5.25rem]";
 
 // 슬롯별 상점 취급 장비 id — concept 정렬 (티어는 표시하지 않지만 정렬엔 사용).
 const SHOP_IDS_BY_SLOT: Record<SlotTab, V2EquipmentId[]> = (() => {
@@ -86,7 +98,13 @@ function buildCountMap(
 }
 
 export function V2ShopView({ onBack }: { onBack: () => void }) {
+  // 지불 게이트는 보유+은행(코어루프 on) — 은행 잔액은 로컬(이 화면의 me/state·구매 응답)로
+  //   추적해 항상 신선하게 유지하고, 앱 전역(은행 패널 등)을 위해 컨텍스트도 함께 동기화한다.
+  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
   const [gold, setGold] = useState<number>(0);
+  const [bankedGold, setBankedGold] = useState<number>(0);
+  // 지불 가능 총액 — flag off 면 보유만(===gold, prod 무변경), on 이면 보유+은행.
+  const spendable = coreLoopOn ? gold + bankedGold : gold;
   const [counts, setCounts] = useState<Map<V2EquipmentId, number>>(new Map());
   // 장착 instance 가 있는 id 집합 — 판매 카드 잠금(장착분 보호, #426). count<=1 이면 locked.
   const [equipped, setEquipped] = useState<Set<V2EquipmentId>>(new Set());
@@ -99,6 +117,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("buy");
+  const [loadError, setLoadError] = useState(false);
   const [subTab, setSubTab] = useState<SubTab>("weapon");
   // 클릭 시 뜨는 옵션 카드 팝오버 (장비 전용) — null 이면 닫힘.
   const [card, setCard] = useState<{
@@ -107,6 +126,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
   } | null>(null);
 
   const refresh = useCallback(async () => {
+    setLoadError(false);
     try {
       const [stateRes, equipRes, invRes] = await Promise.all([
         fetch("/api/v2/me/state"),
@@ -114,7 +134,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         fetch("/api/v2/me/inventory"),
       ]);
       const stateJ = stateRes.ok
-        ? ((await stateRes.json()) as { character?: { gold?: number } })
+        ? ((await stateRes.json()) as {
+            character?: { gold?: number; bankedGold?: number };
+          })
         : null;
       const equipJ = equipRes.ok
         ? ((await equipRes.json()) as {
@@ -128,6 +150,8 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           })
         : null;
       setGold(stateJ?.character?.gold ?? 0);
+      setBankedGold(stateJ?.character?.bankedGold ?? 0);
+      syncCtxBanked(stateJ?.character?.bankedGold ?? 0);
       const insts = equipJ?.owned ?? [];
       const eqIids = new Set(Object.values(equipJ?.equipped ?? {}));
       setOwnedInsts(insts);
@@ -138,7 +162,9 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         new Set(insts.filter((i) => eqIids.has(i.iid)).map((i) => i.id)),
       );
       setMaterials(invJ?.materials ?? {});
-    } catch {}
+    } catch {
+      setLoadError(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -166,6 +192,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
             ok?: boolean;
             error?: string;
             gold?: number;
+            bankedGold?: number;
             owned?: V2EquipInstance[];
           }
         | null;
@@ -179,6 +206,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       setOwnedInsts(insts);
       setCounts(buildCountMap(insts));
       if (typeof j.gold === "number") setGold(j.gold);
+      if (typeof j.bankedGold === "number") {
+        setBankedGold(j.bankedGold);
+        syncCtxBanked(j.bankedGold);
+      }
     } catch (err) {
       setMsg(`✗ ${(err as Error).message}`);
     } finally {
@@ -279,10 +310,10 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
   // 구매 표 정렬 — 헤더 클릭으로 토글. null = 카탈로그 기본순(티어·컨셉).
   const [sort, setSort] = useState<{
-    key: "name" | "price" | "power";
+    key: "name" | "type" | "price" | "power";
     dir: "asc" | "desc";
   } | null>(null);
-  const toggleSort = useCallback((key: "name" | "price" | "power") => {
+  const toggleSort = useCallback((key: "name" | "type" | "price" | "power") => {
     setSort((prev) =>
       prev?.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
@@ -304,19 +335,41 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
       const ib = V2_EQUIPMENT[b];
       let cmp = 0;
       if (sort.key === "name") cmp = ia.name.localeCompare(ib.name, "ko");
+      else if (sort.key === "type")
+        // 종류(무기는 세검/대검/활…, 그 외 부위)별 묶음. 같은 종류는 이름순 안정 정렬.
+        cmp =
+          v2ItemTypeLabel(ia).localeCompare(v2ItemTypeLabel(ib), "ko") ||
+          ia.name.localeCompare(ib.name, "ko");
       else if (sort.key === "price")
         cmp = (shopPriceOf(ia) ?? 0) - (shopPriceOf(ib) ?? 0);
       else cmp = ia.power - ib.power || ia.weight - ib.weight;
       return cmp * sign;
     });
   }, [buyIds, sort]);
-  const sellEquipIds = useMemo(
-    () =>
-      subTab === "material"
-        ? []
-        : SHOP_IDS_BY_SLOT[subTab].filter((id) => (counts.get(id) ?? 0) > 0),
-    [subTab, counts],
-  );
+  // 판매 목록 = 그 슬롯에서 보유 중인 모든 판매가능 id (상점 미판매 드랍 T3/T5 포함 — 상점이
+  //   스타터 전용이 된 뒤에도 파밍 장비를 팔 수 있어야). 비매(유니크/제작/스타터)는 제외. 티어→이름순.
+  const sellEquipIds = useMemo(() => {
+    if (subTab === "material") return [];
+    return [...counts.keys()]
+      .filter((id) => {
+        const it = V2_EQUIPMENT[id];
+        return (
+          it &&
+          it.slot === subTab &&
+          (counts.get(id) ?? 0) > 0 &&
+          shopPriceForSell(it) != null
+        );
+      })
+      .sort((a, b) => {
+        const ia = V2_EQUIPMENT[a];
+        const ib = V2_EQUIPMENT[b];
+        return (
+          ia.tier - ib.tier ||
+          ia.concept.localeCompare(ib.concept) ||
+          ia.id.localeCompare(ib.id)
+        );
+      });
+  }, [subTab, counts]);
   const ownedMaterialIds = useMemo(
     () => MATERIAL_IDS.filter((id) => (materials[id] ?? 0) > 0),
     [materials],
@@ -324,19 +377,21 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="flex items-baseline justify-between gap-2">
+      <HeaderPanel>
+        <header className="flex items-baseline justify-between gap-2">
         <div>
           <h1 className="text-lg font-bold">상점</h1>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            장비 판매가 = 구매가의 5% · 재료는 고정가 환금
-          </p>
         </div>
         <BackButton onClick={onBack} />
-      </header>
-      <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+        </header>
+      </HeaderPanel>
+      {loadError && <LoadErrorBanner onRetry={refresh} />}
+      <HeaderPanel className="py-2">
+        <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
         <Coins size={16} weight="fill" className="text-yellow-500" />
         <span className="font-semibold tabular-nums">{gold.toLocaleString()}G</span>
-      </div>
+        </div>
+      </HeaderPanel>
       {msg && (
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${
@@ -367,6 +422,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         ariaLabel="분류"
         size="sm"
         variant="highlight"
+        scrollable
       />
 
       <section>
@@ -380,6 +436,13 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                 <SortTh
                   label="아이템"
                   sortKey="name"
+                  sort={sort}
+                  onSort={toggleSort}
+                  align="left"
+                />
+                <SortTh
+                  label="종류"
+                  sortKey="type"
                   sort={sort}
                   onSort={toggleSort}
                   align="left"
@@ -410,7 +473,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
                   <BuyEquipmentRow
                     key={id}
                     id={id}
-                    gold={gold}
+                    gold={spendable}
                     busy={busyId === id}
                     onBuy={buy}
                     onOpenCard={(item, anchor) => setCard({ item, anchor })}
@@ -462,6 +525,7 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
           item={card.item}
           anchor={card.anchor}
           onClose={() => setCard(null)}
+          equippedIds={equipped}
         />
       )}
     </main>
@@ -481,11 +545,14 @@ function EquipmentName({
   item,
   count,
   onOpenCard,
+  showTypeChip = true,
 }: {
   item: V2Equipment;
   // 보유 개수 — 지정 시에만 ×N 배지 표시. 구매 화면은 생략(판매 화면만 표기).
   count?: number;
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
+  // 종류 칩 — 구매 표는 별도 '종류' 열이 있어 false(중복 방지). 판매 목록은 기본 true.
+  showTypeChip?: boolean;
 }) {
   return (
     <button
@@ -493,10 +560,13 @@ function EquipmentName({
       onClick={(e) => onOpenCard(item, anchorOf(e.currentTarget))}
       className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:bg-zinc-100/70 dark:hover:bg-zinc-800/50"
     >
-      <div className="flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span
+          className={`truncate text-sm font-semibold ${powerNameClass(item)}`}
+        >
           {item.name}
         </span>
+        {showTypeChip && <ItemTypeChip item={item} />}
         {(count ?? 0) > 0 && (
           <span className="shrink-0 rounded bg-zinc-200 px-1 py-px text-[10px] font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             ×{count}
@@ -516,9 +586,12 @@ function SortTh({
   align,
 }: {
   label: string;
-  sortKey: "name" | "price" | "power";
-  sort: { key: "name" | "price" | "power"; dir: "asc" | "desc" } | null;
-  onSort: (key: "name" | "price" | "power") => void;
+  sortKey: "name" | "type" | "price" | "power";
+  sort: {
+    key: "name" | "type" | "price" | "power";
+    dir: "asc" | "desc";
+  } | null;
+  onSort: (key: "name" | "type" | "price" | "power") => void;
   align: "left" | "right";
 }) {
   const active = sort?.key === sortKey;
@@ -569,9 +642,16 @@ function BuyEquipmentRow({
       className={`${BUY_GRID_CLASS} items-center hover:bg-zinc-50 dark:hover:bg-zinc-800/60`}
       role="row"
     >
-      {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. */}
+      {/* 구매 화면은 보유 개수(×N) 미표기 — 판매 화면만 표기. 종류 칩은 별도 열로 빼서
+          이름 옆 칩은 숨긴다(중복 방지). */}
       <div className="min-w-0 pl-4 pr-2 py-3 sm:pl-5 sm:pr-3" role="cell">
-        <EquipmentName item={item} onOpenCard={onOpenCard} />
+        <EquipmentName item={item} onOpenCard={onOpenCard} showTypeChip={false} />
+      </div>
+      <div
+        className="flex min-w-0 items-center px-2 py-3 sm:px-3"
+        role="cell"
+      >
+        <ItemTypeChip item={item} />
       </div>
       <div
         className="min-w-0 whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums text-zinc-900 dark:text-white sm:px-3"
@@ -620,8 +700,8 @@ function SellEquipmentRow({
   onOpenCard: (item: V2Equipment, anchor: ItemCardAnchor) => void;
 }) {
   const item = V2_EQUIPMENT[id];
-  const buyPrice = shopPriceOf(item) ?? 0;
-  const sellPrice = Math.max(1, Math.floor(buyPrice * SELL_PRICE_RATIO));
+  // 판매가는 sellPriceOf(구매가 5%, 티어 무관) — 상점 미판매(드랍 전용 T3/T5)도 팔 수 있다.
+  const sellPrice = sellPriceOf(item) ?? 0;
   // 장착 중인 장비는 마지막 1개를 팔 수 없다 (여분이 있으면 여분만 판매 가능).
   const locked = equipped && count <= 1;
   return (

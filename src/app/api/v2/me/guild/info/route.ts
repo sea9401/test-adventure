@@ -79,8 +79,12 @@ export async function GET() {
     .from(guildMembers)
     .where(eq(guildMembers.guildId, guildId));
 
-  // 3-b) 대기 중인 가입 신청 — 마스터만 본다(수락/거절 권한도 마스터뿐).
-  const pendingRows = isMaster
+  // 관리 직책(부마스터/관리자) — 길드 관리탭 접근 권한(마스터와 동급, 임명/해임 빼고).
+  const viewerRole = memberRows.find((m) => m.userId === userId)?.role;
+  const isManager = viewerRole === "manager" || viewerRole === "vice_master";
+
+  // 3-b) 대기 중인 가입 신청 — 관리 권한(마스터/관리자)만 본다(수락/거절 권한과 동일).
+  const pendingRows = isMaster || isManager
     ? await db
         .select({
           requestId: guildJoinRequests.id,
@@ -165,6 +169,7 @@ export async function GET() {
     guild: guildRow,
     members,
     isMaster,
+    isManager,
     pendingRequests,
   });
 }

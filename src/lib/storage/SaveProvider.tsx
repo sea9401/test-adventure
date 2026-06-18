@@ -27,6 +27,7 @@ type ProviderState =
   | { status: "loading" }
   | { status: "ready"; data: SaveData; remote: RemoteSave }
   | { status: "error"; err: string }
+  | { status: "session-expired" }
   | { status: "session-invalidated" };
 
 const SaveCtx = createContext<{
@@ -123,6 +124,19 @@ export function SaveProvider({
         setState({ status: "ready", data: final, remote });
       } catch (e) {
         if (cancelled) return;
+        // 401(만료/무효 로그인) · 410(다른 디바이스 claim) 은 reload 로는 못 푼다 —
+        // 인증 쿠키가 그대로라 같은 응답이 무한 반복된다("계속 접속 안 됨"). 전용
+        // 화면으로 보내 재로그인(=쿠키 교체)을 유도. loadAll 이 throw 전에 remote
+        // status 를 세팅하므로 메시지 문자열 매칭 대신 그걸로 분기한다.
+        const kind = remote.status().kind;
+        if (kind === "session-expired") {
+          setState({ status: "session-expired" });
+          return;
+        }
+        if (kind === "session-invalidated") {
+          setState({ status: "session-invalidated" });
+          return;
+        }
         setState({
           status: "error",
           err: e instanceof Error ? e.message : String(e),
@@ -156,8 +170,12 @@ export function SaveProvider({
         } catch {}
         window.location.reload();
       }
+      if (s.kind === "session-expired") {
+        // 플레이 중 PATCH 가 401 — 로그인 세션이 만료/무효해졌다. reload 로는 못 푸니
+        // 전용 화면에서 재로그인 유도. 못 보낸 큐는 remote 가 보존(재로그인 후 재시도).
+        setState({ status: "session-expired" });
+      }
       if (s.kind === "session-invalidated") {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState({ status: "session-invalidated" });
       }
     });
@@ -196,6 +214,34 @@ export function SaveProvider({
           className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           다시 시도
+        </button>
+      </div>
+    );
+  }
+
+  if (state.status === "session-expired") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-50 p-6 dark:bg-zinc-950">
+        <div className="max-w-sm text-center">
+          <div className="text-base font-medium text-zinc-900 dark:text-zinc-100">
+            로그인 세션이 만료됐습니다
+          </div>
+          <div className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+            로그인 정보가 만료됐거나 더 이상 유효하지 않습니다. 다시 로그인하면 이어서
+            플레이할 수 있습니다.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await signOut({ redirectTo: "/sign-in" });
+            } catch {}
+            window.location.href = "/sign-in";
+          }}
+          className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        >
+          다시 로그인
         </button>
       </div>
     );
@@ -246,11 +292,17 @@ export function useSavedValue<T = unknown>(key: SyncedKey): T | undefined {
   return ctx.initial[key] as T | undefined;
 }
 
-// hook — 변경 사항을 서버로 보낼 때 사용.
+// SaveProvider 없이 렌더되는 화면(/dev/* UI 프리뷰)용 폴백 — patch/flush 가 호출돼도
+//   무해(서버 POST 는 인증 없어 실패해도 catch). 실 앱은 항상 SaveProvider 안이라 영향 없음.
+//   lazy 싱글톤(모듈 로드 시 생성 안 함 → SSR 사이드이펙트 0).
+let _fallbackRemote: RemoteSave | null = null;
+function fallbackRemote(): RemoteSave {
+  if (!_fallbackRemote) _fallbackRemote = createRemoteSave();
+  return _fallbackRemote;
+}
+
+// hook — 변경 사항을 서버로 보낼 때 사용. SaveProvider 밖(프리뷰)이면 무해 폴백 반환.
 export function useRemoteSave(): RemoteSave {
   const ctx = useContext(SaveCtx);
-  if (!ctx) {
-    throw new Error("useRemoteSave must be used inside <SaveProvider>");
-  }
-  return ctx.remote;
+  return ctx ? ctx.remote : fallbackRemote();
 }

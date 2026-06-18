@@ -8,7 +8,6 @@
 // 컨셉 균등 = "어떤 빌드든 펜션 비슷한 속도" 의 단순화. PR-4 sim 캘리브 단계에서 가중·
 // 확률 튜닝.
 
-import type { DungeonFloorId } from "./types";
 import {
   V2_EQUIPMENT,
   isUnique,
@@ -23,20 +22,24 @@ export type FloorEquipDropPool = {
   tierWeights: Partial<Record<V2EquipTier, number>>;
 };
 
-// 곡선 — 층 올라갈수록 chance 상승 + 고티어 가중치 상승.
-// 상점에서 T1~T3 판매 시작 후 드랍률 1/3 컷 (희귀한 보상 느낌). 티어 가중치는 그대로.
-export const EQUIP_FLOOR_POOLS: Record<DungeonFloorId, FloorEquipDropPool> = {
-  1: { chance: 0.05, tierWeights: { 1: 7, 2: 2 } },
-  2: { chance: 0.05, tierWeights: { 1: 5, 2: 3, 3: 1 } },
-  3: { chance: 0.05, tierWeights: { 1: 3, 2: 5, 3: 2 } },
-  4: { chance: 0.06, tierWeights: { 2: 4, 3: 5, 4: 2 } },
-  5: { chance: 0.06, tierWeights: { 2: 3, 3: 5, 4: 3, 5: 1 } },
-  6: { chance: 0.08, tierWeights: { 3: 3, 4: 5, 5: 3 } },
-  7: { chance: 0.1, tierWeights: { 4: 3, 5: 7 } },
-  8: { chance: 0.12, tierWeights: { 5: 10 } },
+// 드랍 = 스타터 구간(들판, 깊이 1~6)에서만. 단일 풀 균일 — 깊이별 램프 없이 한 값.
+//   처치당 T1 3% / T2 2% / T3 1% (총 6%, 고티어일수록 희귀). 티어 = "초보자 졸업 키트"(진행 축
+//   아님, 표기 숨김 #525). 프론티어(깊이 7+, 마른 협곡부터)는 밴드 콘텐츠 구간이라 정규 티어 드랍 없음.
+//   신참 보너스는 EXP 전용(드랍 ×1 고정, hunt route). ← 드랍률 다이얼.
+//   2026-06-19: "깊은 산" 삭제로 스타터 구간 1~12 → 1~6(들판만)로 축소. 7+ 는 밴드 드랍.
+export const STARTER_END_DEPTH = 6; // 들판(1~6) = 스타터 구간
+export const STARTER_DROP_POOL: FloorEquipDropPool = {
+  chance: 0.012, // 총 드랍률(2026-06-13 ÷5 — 거래 활성화). tierWeights 3:2:1.
+  tierWeights: { 1: 3, 2: 2, 3: 1 },
 };
 
-const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3, 4, 5]);
+// 깊이 → 드랍 풀. 스타터 구간(1~6)만 풀, 프론티어(7+)는 null(밴드 콘텐츠 전 정규 드랍 없음).
+export function dropPoolForDepth(depth: number): FloorEquipDropPool | null {
+  if (depth >= 1 && depth <= STARTER_END_DEPTH) return STARTER_DROP_POOL;
+  return null;
+}
+
+const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3]);
 
 // 결정적 테스트 + 서버 무작위 모두 같은 함수 시그니처. rng() ∈ [0, 1).
 // 굴림 실패·티어 후보 풀 0·이미 다 보유 → null.
@@ -44,15 +47,21 @@ const VALID_TIERS: ReadonlySet<V2EquipTier> = new Set<V2EquipTier>([1, 2, 3, 4, 
 // rng 호출 순서:
 //   1) 통과 굴림 (pool.chance)
 //   2) 통과 시 티어 pick
-//   3) 티어 안에서 보유 제외 후 컨셉 균등 pick
+//   3) 티어 안에서 컨셉 균등 pick (보유분 포함 — 중복 드랍 허용)
+//
+// ⚠️ 중복 드랍(no-dup off): 보유한 종류도 후보에 포함 → 같은 종류가 새 굴림으로 재드랍.
+//   god-roll 추격 엔진(편차 0.65 와 짝). ownedSet 은 더 이상 후보 필터에 안 쓰지만 시그니처는
+//   유지(호출부·rollUniqueDrop 대칭 — 유니크는 dedup 유지). 첫카피 보호 없음(순수 균등 랜덤).
 export function rollEquipDrop(
-  floor: DungeonFloorId,
+  depth: number,
+  // 중복 드랍 허용 후 미사용(시그니처 유지)
   ownedSet: ReadonlySet<V2EquipmentId>,
   rng: () => number,
   // 통과 굴림 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. chance×배율(1 cap).
   chanceMult: number = 1,
 ): V2EquipmentId | null {
-  const pool = EQUIP_FLOOR_POOLS[floor];
+  // 스타터 구간(1~6)만 드랍. 프론티어(7+)는 풀 없음(null) → 정규 드랍 없음.
+  const pool = dropPoolForDepth(depth);
   if (!pool) return null;
 
   // 1) 통과 굴림
@@ -82,20 +91,21 @@ export function rollEquipDrop(
     roll -= w;
   }
 
-  // 3) 같은 티어의 후보 — 이미 보유 제외 후 균등 pick.
-  // 모두 보유면 null (PR-3 단순화, PR-4 에서 다른 티어 fallback 여부 결정).
+  // 3) 같은 티어의 후보 — 균등 pick. 보유분 포함(중복 드랍 허용) → 보유한 종류도 새 굴림으로
+  //    재드랍해 god-roll 추격이 성립. (드랍 전용 제외만 적용 — 유니크/제작/스타터/noDrop.)
   const candidates: V2EquipmentId[] = [];
   for (const item of Object.values(V2_EQUIPMENT)) {
     if (item.tier !== pickedTier) continue;
     // 유니크는 정규 드랍 후보에서 제외 — 드랍 전용 유니크는 rollUniqueDrop(별도 초저확률
     // 롤)로만 나온다. 이게 빠지면 Phase 2 유니크가 정규 티어 드랍으로 새 나간다.
     if (isUnique(item)) continue;
-    // 제작 전용 장비도 정규 드랍 제외 — 레시피로만 획득.
-    if (item.craftOnly) continue;
-    if (ownedSet.has(item.id)) continue;
+    // 제작 전용·전문화 스타터도 정규 드랍 제외 — 레시피/전직 지급으로만 획득.
+    if (item.craftOnly || item.starterOnly) continue;
+    // 드랍 제외(noDrop) — 전문화 무기는 상점 전용(드랍은 후속 추가 예정).
+    if (item.noDrop) continue;
     candidates.push(item.id);
   }
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return null; // 티어에 드랍 가능 종류가 0(데이터상)일 때만
 
   const idx = Math.floor(rng() * candidates.length);
   return candidates[idx];

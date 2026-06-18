@@ -11,7 +11,9 @@ import {
   MAX_LEVEL,
 } from "../src/lib/leveling";
 import { MONSTERS } from "../src/adventure/data/monsters";
-import { MAIN_DUNGEON, FLOOR_DIFFICULTY } from "../src/adventure/data/v2/dungeon";
+import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
+import { floorExpMult, LADDER_EXP_SOFTCAP } from "../src/adventure/data/v2/dungeonLadder";
+import type { DungeonFloorId } from "../src/adventure/data/v2/types";
 
 const SECONDS_PER_TURN = 2;
 const NEW_MAX_STAMINA = 5000;
@@ -72,8 +74,8 @@ type Dial = {
 };
 
 function expPerHuntForDial(lv: number, floor: FloorInfo, dial: Dial): number {
-  const diffMult = FLOOR_DIFFICULTY[floor.id as 1] ?? 1;
-  const mobExp = floor.avgExp * diffMult;
+  const expMult = floorExpMult(floor.id as DungeonFloorId);
+  const mobExp = floor.avgExp * expMult;
   const band = dial.bandOverride ? dial.bandOverride(lv) : levelBandExpMultiplier(lv);
   const newbie = applyNewbieBonus(1, lv).gained;
   const rate = dial.xpRate ?? 1;
@@ -183,3 +185,62 @@ console.log("\n노트:");
 console.log("- XP_RATE 옵션 = staging .env 한 줄 설정 (NEXT_PUBLIC_XP_RATE_MULT=N)");
 console.log("- band 옵션 = leveling.ts 코드 변경 (PR). v2/라이브 공유 코드라 라이브 영향 주의");
 console.log("- 라이브 영향 회피하려면 band 변경 시 v2 전용 헬퍼 분리 필요");
+console.log("- ⚠️ 위 '만렙 1→100'은 옛 단일등반 모델(레벨→층 휴리스틱) — 프론티어/환생 미반영 = 참고용.");
+
+// ============================================================
+// 프론티어 루프 페이싱 (환생 모델, docs §5.1) — 단일 무한 프론티어.
+// 한 루프 = 1→4차 풀 등반(레벨캡 50/65/80/100, 매 차수 Lv1 리셋). 루프 내내 프론티어 깊이 D
+// 에서 farming(스태미나 바운드). loop일수 = loop EXP ÷ 처치량.
+// 목표: 프론티어(고깊이=floorExpMult 플래토)에서 ~5일. 저깊이는 느려도 OK(온보딩).
+// ============================================================
+const TIER_CAPS = [50, 65, 80, 100]; // §3.1 차수별 레벨캡
+const FRONTIER_BASE_EXP = floorInfos.find((f) => f.id === 2)?.avgExp ?? 24; // 프론티어 풀 = 깊은산 재사용
+
+function frontierLoopKills(depth: number, dial: Dial): number {
+  const expMult = floorExpMult(depth);
+  let kills = 0;
+  for (const cap of TIER_CAPS) {
+    for (let lv = 1; lv < cap; lv++) {
+      const band = dial.bandOverride ? dial.bandOverride(lv) : levelBandExpMultiplier(lv);
+      const newbie = applyNewbieBonus(1, lv).gained;
+      const rate = dial.xpRate ?? 1;
+      const expPerKill = FRONTIER_BASE_EXP * expMult * band * newbie * rate;
+      kills += requiredExpToNext(lv)! / expPerKill;
+    }
+  }
+  return kills;
+}
+const FRONTIER_WIN_T = 20; // 프론티어 매칭 처치턴(progression ~19~20)
+const DAILY_KILLS_A =
+  Math.min(3600 / (FRONTIER_WIN_T * SECONDS_PER_TURN), STAMINA_REGEN_PER_HOUR) * 24; // 상시(승속 vs 재생)
+const DAILY_KILLS_B = STAMINA_REGEN_PER_HOUR * 24; // 재생 지속(2880/일)
+const loopDaysA = (depth: number, dial: Dial) =>
+  frontierLoopKills(depth, dial) / DAILY_KILLS_A;
+const loopDaysB = (depth: number, dial: Dial) =>
+  frontierLoopKills(depth, dial) / DAILY_KILLS_B;
+
+const FRONTIER_DEPTHS = [3, 5, 8, 10, 20, 50];
+const XP_DIALS: Dial[] = [
+  { name: "XP×1" },
+  { name: "XP×4(현 라이브)", xpRate: 4 },
+  { name: "XP×5", xpRate: 5 },
+  { name: "XP×6", xpRate: 6 },
+  { name: "XP×8", xpRate: 8 },
+];
+
+console.log("\n\n━━━ 프론티어 루프 페이싱 (환생, loop=1→4차 풀등반 ≈ 18.5M EXP) ━━━");
+console.log(`프론티어 풀 평균 몹 exp=${FRONTIER_BASE_EXP.toFixed(1)} · 처치량 A(상시)=${DAILY_KILLS_A}/일 · B(일1회 재생)=${DAILY_KILLS_B}/일`);
+console.log(`표: 한 루프 소요 일수 (A 상시 기준). floorExpMult 깊이별 램프→소프트캡(${LADDER_EXP_SOFTCAP}) 후 우상향 반영.\n`);
+const header = "깊이 | exp×    | " + XP_DIALS.map((d) => d.name.padStart(13)).join(" | ");
+console.log(header);
+console.log("-".repeat(header.length));
+for (const depth of FRONTIER_DEPTHS) {
+  const expM = floorExpMult(depth);
+  const cells = XP_DIALS.map((d) => {
+    const days = loopDaysA(depth, d);
+    return `${days.toFixed(1)}일`.padStart(13);
+  });
+  console.log(`${depth.toString().padStart(4)} | ×${expM.toFixed(1).padStart(5)} | ${cells.join(" | ")}`);
+}
+console.log("\n프론티어(깊이≥8=플래토) 기준 ~5일 되는 XP_RATE 를 굽는다. 저깊이(3·5)는 느려도 OK(온보딩).");
+console.log("B(일1회 재생 2880/일) 환산은 A 대비 약 ×" + (DAILY_KILLS_A / DAILY_KILLS_B).toFixed(2) + " (상시가 더 빠름).");

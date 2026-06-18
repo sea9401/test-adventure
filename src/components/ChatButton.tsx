@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { ChatCircle } from "@phosphor-icons/react";
 import { isNoticeMessage } from "@/lib/chat-config";
 import { ChatPanel, type ChatMessage } from "./ChatPanel";
-import type { InventoryState } from "@/adventure/inventory/useInventory";
 
 // 패널이 닫혀 있을 땐 unread 배지 갱신용으로 느리게,
 // 열려 있을 땐 상대 메시지 수신감을 살리려 짧게 폴링.
@@ -37,15 +36,12 @@ export function ChatButton({
   className,
   title,
   onSent,
-  inventory,
 }: {
   name: string;
   className: string;
   title: string | null;
   /** 메시지 전송 성공 시 1회 호출 — '수다쟁이' 칭호 카운터 등에 사용. */
   onSent?: () => void;
-  /** 아이템 링크용 인벤토리. 없으면(예: v2) 텍스트 채팅만(첨부 버튼 숨김). */
-  inventory?: InventoryState;
 }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -147,8 +143,16 @@ export function ChatButton({
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        aria-label={hasUnreadChat ? "전체 채팅 열기 (새 메시지 있음)" : "전체 채팅 열기"}
+        // 아이콘 토글 — 열려 있으면 다시 눌러 닫는다(X 버튼 외 추가 닫기 경로).
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={
+          open
+            ? "전체 채팅 닫기"
+            : hasUnreadChat
+              ? "전체 채팅 열기 (새 메시지 있음)"
+              : "전체 채팅 열기"
+        }
         title="전체 채팅"
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
@@ -156,14 +160,14 @@ export function ChatButton({
         {hasUnreadChat ? (
           <span
             aria-hidden
-            className="absolute right-1 top-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950"
+            className="absolute right-0.5 top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500 ring-2 ring-white dark:ring-zinc-950"
           />
         ) : (
           hasUnreadNotice && (
             // 보스 알림만 새로 있을 땐 덜 시끄러운 호박색 점으로.
             <span
               aria-hidden
-              className="absolute right-1 top-1 h-2 w-2 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950"
+              className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white dark:ring-zinc-950"
             />
           )
         )}
@@ -179,7 +183,6 @@ export function ChatButton({
         unreadChat={hasUnreadChat}
         unreadNotice={hasUnreadNotice}
         onSeen={handleSeen}
-        inventory={inventory}
       />
     </>
   );

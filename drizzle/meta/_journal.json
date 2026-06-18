@@ -316,6 +316,90 @@
       "when": 1780351556316,
       "tag": "0044_drop_outpost_resource_economy",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1780859247295,
+      "tag": "0045_smart_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1780863616227,
+      "tag": "0046_complete_dracula",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1780878444810,
+      "tag": "0047_typical_shocker",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780953974658,
+      "tag": "0048_awesome_living_tribunal",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1781130231411,
+      "tag": "0049_dashing_maelstrom",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1781200659475,
+      "tag": "0050_tough_odin",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1781207035801,
+      "tag": "0051_chubby_warbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1781210451980,
+      "tag": "0052_yellow_ser_duncan",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1781223210051,
+      "tag": "0053_intruder_json_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1781294824482,
+      "tag": "0054_coop-multi-summon",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1781384233863,
+      "tag": "0055_war_score_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1781479679084,
+      "tag": "0056_fast_sir_ram",
+      "breakpoints": true
     }
   ]
 }

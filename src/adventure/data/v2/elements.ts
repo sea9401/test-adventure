@@ -2,16 +2,16 @@
 // 설계: docs/v2-combat-redesign.md §6.
 //
 // PR-5 — 옛 "5순환 + 빛/어둠 별도 대립쌍"(축 2개)을 **단일 먹이사슬(7-ring)** 으로 통합.
-// 빛/어둠은 게임의 별/우주 테마(별을 잊은 것·별빛 무구)에 맞춰 **별빛(starlight)/공허(void)**
+// 표시명은 **빛/어둠**(2026-06-13 사용자 결정 — 별빛/공허가 대중적이지 않음). 내부 id 는
 // 로 재해석 — 도덕 이분법이 아니라 세계관 생태로 순환 안에 편입.
 //
 // 단일 순환 (각 원소가 다음을 카운터, 데미지 +; 역방향은 −):
-//   물 → 불 → 바람 → 별빛 → 공허 → 대지 → 번개 → (물)
+//   물 → 불 → 바람 → 빛(starlight) → 어둠(void) → 대지 → 번개 → (물)  ← id 는 세이브 호환 유지
 //     물>불    물이 불을 끈다
 //     불>바람   불이 공기를 태워 번진다
-//     바람>별빛  운무·대기가 별빛을 가린다
-//     별빛>공허  별빛이 빈자리를 드러낸다
-//     공허>대지  공허가 대지의 토대를 무너뜨린다
+//     바람>빛   운무·대기가 빛을 가린다
+//     빛>어둠   빛이 어둠을 몰아낸다
+//     어둠>대지  어둠이 대지의 토대를 좀먹는다
 //     대지>번개  대지가 번개를 접지한다
 //     번개>물   물이 전류를 퍼뜨려 증폭
 //   무속성(neutral): 상성 없음 — 튜토리얼·잡몹·보스(카운터 농사 차단)·일관성 빌드용.
@@ -34,8 +34,8 @@ export const V2_ELEMENT_LABEL: Record<V2Element, string> = {
   water: "물",
   fire: "불",
   wind: "바람",
-  starlight: "별빛",
-  void: "공허",
+  starlight: "빛",
+  void: "어둠",
   earth: "대지",
   lightning: "번개",
 };
@@ -60,12 +60,27 @@ const ADVANTAGE: ReadonlyArray<readonly [V2Element, V2Element]> =
     (a, i) => [a, V2_ELEMENT_CYCLE[(i + 1) % V2_ELEMENT_CYCLE.length]] as const,
   );
 
-// 상성 배율 — 우위 +%, 열세 −% (양방향). PR-5 7-ring 시작값 ±15 (매치업이 드물고 결정적이라
-// 옛 ±20 보다 낮춤). sim 캘리브 대상(§11).
-export const V2_ELEMENT_ADV_PCT = 15;
-export const V2_ELEMENT_DIS_PCT = 15;
+// 상성 배율 — "약점 찌르기" 모델(2026-06-08): 맞추면 이득, 안 맞춰도 손해 없음(순수 옵트인).
+//   PvE 유리 +25%, 불리 페널티 0(불리=중립). 무속성 항상 ×1.0. 평타·스킬 공통(hunt route + combatShared).
+//   진단: 내 속성 1개 고정 vs 몹 다속성 → 옛 ±15 대칭은 풀 평균 ≈0(체감 없음). 비대칭+표시로 부활.
+export const V2_ELEMENT_ADV_PCT = 25;
+export const V2_ELEMENT_DIS_PCT = 0;
+// PvP 는 별도 계수(낮게·양방향 대칭) — 속성이 장비/스탯 차이를 압도하지 않게. 기존 ±15 유지(메타 불변).
+// arena route(평타)·engine-pvp(스킬, combatShared 경유)가 이 값을 elementDamageMult 에 명시 전달.
+export const V2_ELEMENT_ADV_PCT_PVP = 15;
+export const V2_ELEMENT_DIS_PCT_PVP = 15;
 
 const ADV_SET = new Set(ADVANTAGE.map(([a, d]) => `${a}>${d}`));
+
+// X 를 카운터하는 속성 — CYCLE[i] 가 CYCLE[i+1] 을 카운터하므로 X 의 카운터는 한 칸 앞.
+// 사냥터 "추천 속성"(밴드 최빈 몹 속성을 찌르는 픽) 계산용. neutral 은 카운터 없음.
+export function counterElementOf(e: V2Element): V2Element | null {
+  const idx = V2_ELEMENT_CYCLE.indexOf(e);
+  if (idx < 0) return null;
+  return V2_ELEMENT_CYCLE[
+    (idx - 1 + V2_ELEMENT_CYCLE.length) % V2_ELEMENT_CYCLE.length
+  ];
+}
 
 export type ElementMatchup = "advantage" | "disadvantage" | "neutral";
 
@@ -80,15 +95,18 @@ export function elementMatchup(
 }
 
 // 공격자 속성이 피격자 속성을 상대로 줄 데미지 배율 (1 = 무영향).
+// advPct/disPct 미지정 = PvE 기본(25/0). PvP 호출부(arena·engine-pvp)는 PvP 계수(15/15)를 명시 전달.
 export function elementDamageMult(
   attacker: V2Element,
   defender: V2Element,
+  advPct: number = V2_ELEMENT_ADV_PCT,
+  disPct: number = V2_ELEMENT_DIS_PCT,
 ): number {
   switch (elementMatchup(attacker, defender)) {
     case "advantage":
-      return 1 + V2_ELEMENT_ADV_PCT / 100;
+      return 1 + advPct / 100;
     case "disadvantage":
-      return 1 - V2_ELEMENT_DIS_PCT / 100;
+      return 1 - disPct / 100;
     default:
       return 1;
   }

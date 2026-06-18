@@ -10,6 +10,8 @@ export default function TreasureCollectionPage() {
     <TreasureCollectionPanel
       onBack={() => router.push("/town/treasure")}
       onOpenShop={() => router.push("/town/treasure/shop")}
+      onOpenDig={() => router.push("/town/treasure")}
+      onOpenLeaderboard={() => router.push("/town/treasure/leaderboard")}
     />
   );
 }

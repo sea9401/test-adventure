@@ -1,7 +1,11 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
+import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { TreasureSubTabs } from "./TreasureSubTabs";
+import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import type { TreasureLeaderboardData } from "./treasureLeaderboard";
 
 // 주간 발굴가치 리더보드 표시(단일 랭킹). 데이터는 주입(useTreasureLeaderboard 실 API / dev mock).
@@ -29,15 +33,20 @@ export function TreasureLeaderboardView({
   loading,
   error,
   onBack,
+  onOpenDig,
+  onOpenCollection,
 }: {
   data: TreasureLeaderboardData | null;
   loading: boolean;
   error?: string | null;
   onBack?: () => void;
+  // 발굴 서브 탭바(발굴/보관함) — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenDig?: () => void;
+  onOpenCollection?: () => void;
 }) {
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         {onBack && (
           <BackButton onClick={onBack} />
         )}
@@ -45,7 +54,7 @@ export function TreasureLeaderboardView({
           <div>
             <h1 className="text-lg font-bold">주간 발굴가치 대회</h1>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              이번 주 발굴한 골동품 감정가 합계로 순위. 상위권은 발굴 코인을 받는다.
+              이번 주 발굴한 골동품의 감정 판매가(골드) 합계로 순위. 상위권은 발굴 코인을 받는다.
               {data?.endsAt ? ` (${endsInLabel(data.endsAt)})` : ""}
             </p>
           </div>
@@ -53,7 +62,13 @@ export function TreasureLeaderboardView({
             🪙 {(data?.myCoins ?? 0).toLocaleString()}
           </span>
         </div>
-      </header>
+      </HeaderPanel>
+
+      <TreasureSubTabs
+        active="leaderboard"
+        onOpenDig={onOpenDig}
+        onOpenCollection={onOpenCollection}
+      />
 
       {loading ? (
         <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
@@ -82,7 +97,7 @@ export function TreasureLeaderboardView({
                     {rankLabel(e.rank)}
                   </span>
                   <span className="truncate text-sm font-medium">
-                    {e.name}
+                    <PlayerNameLink name={e.name} />
                     {e.isMe && (
                       <span className="ml-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
                         나
@@ -91,7 +106,7 @@ export function TreasureLeaderboardView({
                   </span>
                 </span>
                 <span className="shrink-0 text-sm font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                  {e.value.toLocaleString()}골드
+                  {(e.value * TREASURE_SELL_GOLD_MULT).toLocaleString()}골드
                 </span>
               </li>
             ))}

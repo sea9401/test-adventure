@@ -4,12 +4,14 @@
 export type TreasurePayoutRecord = { userId: string; value: number };
 
 // 순위별 발굴 코인 — 1-based rank. 10등 밖이면 0. (다이얼)
+// 2026-06-13 ×3 상향 — 분해→코인 폐지로 코인 공급원이 주간 정산 단일화(사용자 결정).
+// 1위 기준 전설 칭호(1800코인)까지 3주.
 export function treasureRankCoins(rank: number): number {
   if (rank <= 0) return 0;
-  if (rank === 1) return 200;
-  if (rank === 2) return 130;
-  if (rank === 3) return 90;
-  if (rank <= 10) return 40;
+  if (rank === 1) return 600;
+  if (rank === 2) return 400;
+  if (rank === 3) return 280;
+  if (rank <= 10) return 120;
   return 0;
 }
 

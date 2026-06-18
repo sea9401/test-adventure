@@ -7,6 +7,10 @@ import { TreasureLeaderboardPanel } from "@/adventure/v2/TreasureLeaderboardPane
 export default function TreasureLeaderboardPage() {
   const router = useRouter();
   return (
-    <TreasureLeaderboardPanel onBack={() => router.push("/town/treasure")} />
+    <TreasureLeaderboardPanel
+      onBack={() => router.push("/town/treasure")}
+      onOpenDig={() => router.push("/town/treasure")}
+      onOpenCollection={() => router.push("/town/treasure/collection")}
+    />
   );
 }

@@ -11,7 +11,12 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
-import { initialStamina, type StaminaState } from "@/adventure/v2/stamina";
+import type { MpBarState } from "@/adventure/v2/MpBar";
+import {
+  MAX_STAMINA,
+  initialStamina,
+  type StaminaState,
+} from "@/adventure/v2/stamina";
 import {
   OUTPOST_BY_ID,
   OUTPOSTS,
@@ -22,10 +27,12 @@ import {
   seededDiscovery,
 } from "@/adventure/data/v2/outpostGraph";
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import {
   parseV2Element,
   V2_ELEMENT_LABEL,
 } from "@/adventure/data/v2/elements";
+import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -37,14 +44,22 @@ const TRAVEL_HOP_MS = 160;
 const delay = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// 거점 금고 잔액 — occupations GET 동봉(gold>0 만).
+export type TreasuryEntry = { outpostId: string; gold: number };
+
 export type Occupation = {
   outpostId: string;
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
+  occupiedByGuildName: string | null;
   occupiedAt: string;
   policy: string;
   taxRate: string;
   nextAttackAt: string;
+  // 거점 공성(성벽 HP) — 재생 반영 현재값. protectedUntil = 함락 후 보호막 만료 시각.
+  fortHp: number;
+  fortMaxHp: number;
+  protectedUntil: string;
 };
 
 type GameStateValue = {
@@ -55,6 +70,7 @@ type GameStateValue = {
   accountName: string | null;
   viewerGender: Gender;
   viewerLevel: number;
+  viewerLevelCap: number | null;
   viewerClass: string;
   viewerElement: string;
   playerSubtitle: string;
@@ -64,17 +80,63 @@ type GameStateValue = {
     React.SetStateAction<{ id: string; name: string } | null>
   >;
   stamina: StaminaState;
+  // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
+  staminaMax: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
   hp: HpBarState | null;
   setHp: React.Dispatch<React.SetStateAction<HpBarState | null>>;
+  // 보유 골드(들고 다니는·토벌 압류 대상) + 은행 잔액(입금분·안전). me/state 에서 초기화.
+  gold: number;
+  bankedGold: number;
+  // 지불 가능한 총 골드 — 코어루프(은행 우선 소비) on 이면 보유+은행, off 면 보유만. 상점/강화 등
+  //   클라 affordability 게이트는 이 값을 써야 은행에 든 골드로도 구매 버튼이 활성화된다.
+  spendableGold: number;
+  setGold: React.Dispatch<React.SetStateAction<number>>;
+  setBankedGold: React.Dispatch<React.SetStateAction<number>>;
+  // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — off 면 전부 null(현행 UI 무변경) ===
+  // flag-on 판정 — me/state 가 flag on 일 때만 combatCooldown 객체를 준다(off=null). 스태미나
+  // 표시 숨김·일괄 폐지 등 코어루프 UI 분기에 공용으로 쓴다.
+  coreLoopOn: boolean;
+  // 전투 쿨다운 — nextBattleAt 은 클라 로컬 시각으로 변환됨(서버 skew 보정). 사냥 버튼 카운트다운.
+  combatCooldown: { nextBattleAt: number; cooldownMs: number } | null;
+  setCombatCooldown: React.Dispatch<
+    React.SetStateAction<{ nextBattleAt: number; cooldownMs: number } | null>
+  >;
+  // 오프라인 정산 대기 판수 — 복귀 카드 트리거. 정산 후 0 으로.
+  offlinePending: number | null;
+  setOfflinePending: React.Dispatch<React.SetStateAction<number | null>>;
+  // 오프라인(자동) 사냥 세션 — active + endsAt(클라 로컬 시각, skew 보정) + depth(farm 깊이,
+  //   "자동 사냥 중 사냥터 바로 입장" 목적지). null=flag off. 시작/정지 버튼.
+  offlineHunt: { active: boolean; endsAt: number; depth: number } | null;
+  setOfflineHunt: React.Dispatch<
+    React.SetStateAction<{
+      active: boolean;
+      endsAt: number;
+      depth: number;
+    } | null>
+  >;
+  // 위험 골드 — 마지막 패배 이후 번 골드(패배 시 절반 압류). 사냥 응답으로 갱신.
+  atRiskGold: number | null;
+  setAtRiskGold: React.Dispatch<React.SetStateAction<number | null>>;
+  mp: MpBarState | null;
+  setMp: React.Dispatch<React.SetStateAction<MpBarState | null>>;
   discoveredIds: Set<string>;
   setDiscoveredIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   occupations: Occupation[];
+  // 금고 쌓인 거점(주로 미점령·NPC 세금) — 지도/거점 화면의 점령 유인 표시.
+  treasuries: TreasuryEntry[];
   refreshOccupations: () => Promise<void>;
   refreshGuildId: () => Promise<void>;
+  refreshGameState: () => Promise<void>;
+  // 무한 프론티어 — 최고 도달 깊이(기본 2). 사냥터 목록·층 뷰에 전달.
+  frontierDepth: number;
+  setFrontierDepth: React.Dispatch<React.SetStateAction<number>>;
   // 네비게이션 부수효과 (거점 진입/이동 — visit-outpost POST + 라우팅)
-  enterOutpost: (outpost: Outpost) => void;
+  // opts.from — 거점 화면 뒤로가기 행선지 컨텍스트 (war=전쟁 허브, adventure=모험 홈,
+  // 생략=길드 탭). /outpost/[id] 가 ?from= 으로 읽는다.
+  enterOutpost: (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => void;
   travelTo: (target: Outpost) => void;
+  warpTo: (outpostId: string) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -98,6 +160,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const [occupations, setOccupations] = useState<Occupation[]>([]);
+  const [treasuries, setTreasuries] = useState<TreasuryEntry[]>([]);
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [viewerGuildId, setViewerGuildId] = useState<number | null>(null);
   const [viewerName, setViewerName] = useState<string>("모험가");
@@ -106,7 +169,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [viewerGender, setViewerGender] = useState<Gender>("male1");
   // 전투 장면 부제(레벨·직업·속성) 표기용 — me/state 에서 초기화.
   const [viewerLevel, setViewerLevel] = useState<number>(1);
+  const [viewerLevelCap, setViewerLevelCap] = useState<number | null>(null);
   const [viewerClass, setViewerClass] = useState<string>("none");
+  // 직업 표시명(서버 산출) — 직업 시스템이면 견습 병사·방패병 등. 전투 부제가 class 직접 환산
+  //   대신 이걸 우선 사용(상위 직업 반영). 미동봉이면 null → class 직군명 폴백.
+  const [viewerJobName, setViewerJobName] = useState<string | null>(null);
   const [viewerElement, setViewerElement] = useState<string>("neutral");
   // 기본값 = 시작 거점(중앙 자유 도시). me/state 로드 시 저장된 현재 거점이 있으면 덮어쓴다.
   // null 로 두지 않아 인접 이동 게이트가 첫 화면부터 일관되게 동작한다.
@@ -114,6 +181,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     { id: string; name: string } | null
   >(() => ({ id: START_OUTPOST.id, name: START_OUTPOST.name }));
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
+  const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
@@ -121,8 +189,26 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [discoveredIds, setDiscoveredIds] = useState<Set<string>>(
     () => new Set(seededDiscovery()),
   );
+  // 무한 프론티어 최고 도달 깊이 — me/state 에서 초기화(기본 2), 도전 성공 시 갱신.
+  const [frontierDepth, setFrontierDepth] = useState<number>(2);
   // 전역 HP — me/state mount fetch 에서 초기화, 사냥/전투 응답마다 갱신.
   const [hp, setHp] = useState<HpBarState | null>(null);
+  // 보유 골드 + 은행 잔액 — me/state 에서 초기화, 은행 입출금 응답으로 갱신.
+  const [gold, setGold] = useState(0);
+  const [bankedGold, setBankedGold] = useState(0);
+  const [mp, setMp] = useState<MpBarState | null>(null);
+  // 코어루프 flag-on 전용(off=null). me/state 에서 초기화.
+  const [combatCooldown, setCombatCooldown] = useState<{
+    nextBattleAt: number;
+    cooldownMs: number;
+  } | null>(null);
+  const [offlinePending, setOfflinePending] = useState<number | null>(null);
+  const [offlineHunt, setOfflineHunt] = useState<{
+    active: boolean;
+    endsAt: number;
+    depth: number;
+  } | null>(null);
+  const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
   // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
@@ -132,8 +218,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch("/api/v2/outpost/occupations");
       if (res.ok) {
-        const json = (await res.json()) as { occupations: Occupation[] };
+        const json = (await res.json()) as {
+          occupations: Occupation[];
+          treasuries?: TreasuryEntry[];
+        };
         setOccupations(json.occupations);
+        setTreasuries(json.treasuries ?? []);
       }
     } catch {}
   }, []);
@@ -149,7 +239,157 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const refreshGameState = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v2/me/state");
+      if (res.ok) {
+        const j = (await res.json()) as {
+          character?: {
+            name?: string;
+            gender?: string;
+            level?: number;
+            class?: string;
+            classDisplayName?: string | null;
+            element?: string;
+            hp?: number;
+            maxHp?: number;
+            mp?: number;
+            maxMp?: number;
+            stamina?: {
+              current: number;
+              lastUpdatedAt: number;
+              max?: number;
+            };
+            gold?: number;
+            bankedGold?: number;
+            atRiskGold?: number | null;
+          };
+          currentOutpost?: { id: string; name: string } | null;
+          discoveredOutpostIds?: string[];
+          accountName?: string | null;
+          frontierDepth?: number;
+          proficiency?: {
+            groups?: Record<string, { tier?: number }>;
+            current?: { group?: string };
+          };
+          // 코어루프 flag-on 전용(off=null).
+          combatCooldown?: {
+            nextBattleAt: number;
+            cooldownMs: number;
+            serverNow: number;
+          } | null;
+          offlinePending?: number | null;
+          offlineHunt?: {
+            active: boolean;
+            startedAt?: number;
+            endsAt?: number;
+            serverNow?: number;
+            depth?: number;
+          } | null;
+        } | null;
+        if (j?.character?.name) setViewerName(j.character.name);
+        setAccountName(j?.accountName ?? null);
+        if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
+        if (typeof j?.character?.level === "number")
+          setViewerLevel(j.character.level);
+        if (j?.character?.class) setViewerClass(j.character.class);
+        setViewerJobName(
+          typeof j?.character?.classDisplayName === "string"
+            ? j.character.classDisplayName
+            : null,
+        );
+        if (j?.character?.element) setViewerElement(j.character.element);
+        const currentGroup = j?.proficiency?.current?.group ?? "none";
+        const currentTier =
+          currentGroup === "none"
+            ? null
+            : (j?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+        setViewerLevelCap(
+          currentTier == null ? null : tierLevelCap(currentTier),
+        );
+        if (typeof j?.character?.stamina?.max === "number") {
+          setStaminaMax(j.character.stamina.max);
+        }
+        if (j?.character?.stamina) {
+          setStamina({
+            current: j.character.stamina.current,
+            lastUpdatedAt: j.character.stamina.lastUpdatedAt,
+          });
+        }
+        if (typeof j?.character?.gold === "number") setGold(j.character.gold);
+        if (typeof j?.character?.bankedGold === "number")
+          setBankedGold(j.character.bankedGold);
+        if (
+          typeof j?.character?.hp === "number" &&
+          typeof j?.character?.maxHp === "number"
+        ) {
+          setHp({
+            hp: j.character.hp,
+            maxHp: j.character.maxHp,
+            anchorMs: Date.now(),
+          });
+        }
+        if (
+          typeof j?.character?.mp === "number" &&
+          typeof j?.character?.maxMp === "number"
+        ) {
+          setMp({ mp: j.character.mp, maxMp: j.character.maxMp });
+        }
+        if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
+        if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
+          setDiscoveredIds(new Set(j.discoveredOutpostIds));
+        }
+        if (typeof j?.frontierDepth === "number") {
+          // MAX 캡 — 클라가 캡 밖 깊이를 들고 다니지 않게(서버도 캡하지만 방어).
+          setFrontierDepth(
+            Math.min(MAX_FRONTIER_DEPTH, Math.max(2, j.frontierDepth)),
+          );
+        }
+        // 코어루프 — 전투 쿨다운(서버 시각 → 클라 로컬로 변환, skew 보정), 위험 골드, 오프라인 대기.
+        const cc = j?.combatCooldown;
+        if (cc) {
+          const remaining = Math.max(0, cc.nextBattleAt - cc.serverNow);
+          setCombatCooldown({
+            nextBattleAt: Date.now() + remaining,
+            cooldownMs: cc.cooldownMs,
+          });
+        } else {
+          setCombatCooldown(null);
+        }
+        setOfflinePending(
+          typeof j?.offlinePending === "number" ? j.offlinePending : null,
+        );
+        // 오프라인 사냥 세션 — endsAt(서버) → 클라 로컬로 변환(skew 보정).
+        const oh = j?.offlineHunt;
+        if (oh == null) {
+          setOfflineHunt(null);
+        } else if (
+          oh.active &&
+          typeof oh.endsAt === "number" &&
+          typeof oh.serverNow === "number"
+        ) {
+          const remaining = Math.max(0, oh.endsAt - oh.serverNow);
+          setOfflineHunt({
+            active: true,
+            endsAt: Date.now() + remaining,
+            depth: typeof oh.depth === "number" ? oh.depth : 1,
+          });
+        } else {
+          setOfflineHunt({ active: false, endsAt: 0, depth: 0 });
+        }
+        setAtRiskGold(
+          typeof j?.character?.atRiskGold === "number"
+            ? j.character.atRiskGold
+            : null,
+        );
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
+    // 비동기 fetch 후 setState 라 cascading render 가 아니지만 린트는 호출 그래프만
+    // 보고 발화(ServerFeedView 동일 패턴).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refreshOccupations();
     refreshGuildId();
     (async () => {
@@ -161,56 +401,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         }
       } catch {}
     })();
-    (async () => {
-      try {
-        const res = await fetch("/api/v2/me/state");
-        if (res.ok) {
-          const j = (await res.json()) as {
-            character?: {
-              name?: string;
-              gender?: string;
-              level?: number;
-              class?: string;
-              element?: string;
-              hp?: number;
-              maxHp?: number;
-              stamina?: { current: number; lastUpdatedAt: number };
-            };
-            currentOutpost?: { id: string; name: string } | null;
-            discoveredOutpostIds?: string[];
-            accountName?: string | null;
-          } | null;
-          if (j?.character?.name) setViewerName(j.character.name);
-          setAccountName(j?.accountName ?? null);
-          if (j?.character?.gender) setViewerGender(j.character.gender as Gender);
-          if (typeof j?.character?.level === "number")
-            setViewerLevel(j.character.level);
-          if (j?.character?.class) setViewerClass(j.character.class);
-          if (j?.character?.element) setViewerElement(j.character.element);
-          if (j?.character?.stamina) {
-            setStamina({
-              current: j.character.stamina.current,
-              lastUpdatedAt: j.character.stamina.lastUpdatedAt,
-            });
-          }
-          if (
-            typeof j?.character?.hp === "number" &&
-            typeof j?.character?.maxHp === "number"
-          ) {
-            setHp({
-              hp: j.character.hp,
-              maxHp: j.character.maxHp,
-              anchorMs: Date.now(),
-            });
-          }
-          if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
-          if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
-            setDiscoveredIds(new Set(j.discoveredOutpostIds));
-          }
-        }
-      } catch {}
-    })();
-  }, [refreshOccupations, refreshGuildId]);
+    void refreshGameState();
+  }, [refreshOccupations, refreshGuildId, refreshGameState]);
 
   // 이동 요청 직렬화 — 직전 visit 이 끝나기 전 두 번째 이동을 막는다. 낙관적 위치와
   // 서버에 저장된 위치가 어긋나 두 번째 이동이 400 나는 레이스를 차단.
@@ -241,12 +433,14 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // visit-outpost 를 POST. 실패하면 위치를 되돌리고 직전 화면으로 router.back().
   // (방금 push 한 엔트리가 history 직전에 존재하므로 back 이 안전한 유일한 자리.)
   const enterOutpost = useCallback(
-    (outpost: Outpost) => {
+    (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => {
       if (visitInFlightRef.current) return;
       const prevOutpost = currentOutpost;
       visitInFlightRef.current = true;
       setCurrentOutpost({ id: outpost.id, name: outpost.name });
-      router.push(`/outpost/${outpost.id}`);
+      router.push(
+        `/outpost/${outpost.id}${opts?.from ? `?from=${opts.from}` : ""}`,
+      );
       void (async () => {
         let ok = false;
         try {
@@ -321,9 +515,49 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [currentOutpost, discoveredIds, applyVisitResult],
   );
 
+  // 발견한 거점으로 즉시 이동 — 서버가 발견 여부와 스태미나 비용을 권위 판정한다.
+  const warpTo = useCallback(
+    (outpostId: string) => {
+      if (visitInFlightRef.current) return;
+      if (currentOutpost?.id === outpostId) return;
+      const outpost = OUTPOST_BY_ID.get(outpostId);
+      if (!outpost) return;
+      visitInFlightRef.current = true;
+      void (async () => {
+        try {
+          const res = await fetch("/api/v2/me/visit-outpost", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ outpostId, mode: "warp" }),
+          });
+          const j = (await res.json().catch(() => null)) as {
+            ok?: boolean;
+            error?: string;
+          } | null;
+          applyVisitResult(j);
+          if (res.ok && j?.ok) {
+            setCurrentOutpost({ id: outpost.id, name: outpost.name });
+            return;
+          }
+          if (j?.error === "not_discovered") {
+            window.alert("아직 발견하지 않은 거점입니다");
+          }
+        } catch {
+          // 네트워크 오류 — 현재 위치를 유지한다.
+        } finally {
+          visitInFlightRef.current = false;
+        }
+      })();
+    },
+    [currentOutpost, applyVisitResult],
+  );
+
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
-  const playerSubtitle = `Lv.${viewerLevel} · ${
-    V2_CLASS_DEFS[parseV2Class(viewerClass)].name
+  const playerLevelText = viewerLevelCap
+    ? `Lv ${viewerLevel} / ${viewerLevelCap}`
+    : `Lv.${viewerLevel}`;
+  const playerSubtitle = `${playerLevelText} · ${
+    viewerJobName ?? V2_CLASS_DEFS[parseV2Class(viewerClass)].name
   } · ${V2_ELEMENT_LABEL[parseV2Element(viewerElement)]}`;
 
   const value: GameStateValue = {
@@ -333,22 +567,45 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     accountName,
     viewerGender,
     viewerLevel,
+    viewerLevelCap,
     viewerClass,
     viewerElement,
     playerSubtitle,
     currentOutpost,
     setCurrentOutpost,
     stamina,
+    staminaMax,
     setStamina,
     hp,
     setHp,
+    gold,
+    bankedGold,
+    spendableGold: combatCooldown != null ? gold + bankedGold : gold,
+    setGold,
+    setBankedGold,
+    coreLoopOn: combatCooldown != null,
+    combatCooldown,
+    setCombatCooldown,
+    offlinePending,
+    setOfflinePending,
+    offlineHunt,
+    setOfflineHunt,
+    atRiskGold,
+    setAtRiskGold,
+    mp,
+    setMp,
     discoveredIds,
     setDiscoveredIds,
     occupations,
+    treasuries,
     refreshOccupations,
     refreshGuildId,
+    refreshGameState,
+    frontierDepth,
+    setFrontierDepth,
     enterOutpost,
     travelTo,
+    warpTo,
   };
 
   return (

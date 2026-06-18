@@ -16,15 +16,25 @@
 //    가 min(요건, 총량) 클램프라 전직 요건 절대값(3·5개)은 불변(비파괴). docs 참고.
 
 import type { DungeonFloorId } from "./types";
+import { ENHANCE_STONE_MATERIAL_ID, ENHANCE_STONES } from "./v2Enhance";
+import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
+
+// === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
+// 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
+//   ① 사냥 재료 드랍 중단 (rollDrops 가 빈 결과 — 모든 호출처/sim 커버)
+//   ② 전직 모험의 서 재료 요건 해제 (codexRequirement → 0, codex.ts) — 전직은 레벨/숙련도로만
+// 대장간·제작 UI 는 그대로 둔다(재료가 안 나와 자연히 제작 안 됨). 기존 세이브의 재료는
+// 비파괴로 남는다(보유분/판매 가능). 제작을 다시 도입하려면 이 한 줄만 true 로 되돌리면 된다.
+export const V2_MATERIALS_ENABLED = false;
 
 // === 재료 정의 ======================================================
 
-// 2026-06-03: 재료 시스템 재설계 — 옛 15종(계열/티어) 통째 비운 뒤, **지역당 소수**로 다시
-// 채운다. 규칙: 한 지역 = 희귀 2종 + 흔함 3~4종, 드랍률은 낮게(잡재료 범람 방지). 타입은
-// string 으로 둬(세이브 키 호환·지역별 점진 추가 용이) 카탈로그에 등재된 것만 유효.
-// 현재: 들판(1층)만 정의. 나머지 지역은 보류(드랍 풀 빈 채).
-// ⚠️ 재료 수집이 3·4차 전직 요건(codex.ts)이라, V2_CODEX_TOTAL = 등재 재료 수.
-//    들판 5종 등재 → 전직 재료 요건이 min(요건, 5)로 부활(들판에서 전부 수집 가능).
+// 2026-06-08: 재료 시스템 콘텐츠 제거 — 대장간 제작을 들어내며 들판 재료 5종도 게임에서 뺐다.
+// 2026-06-11: 강화석 2종 입주(장비 강화 PR-2, docs/v2-equipment-enhance-plan.md) —
+//   카탈로그 등재만으로 인벤 재료 탭·거래소 재료 거래·NPC 판매가 살아난다. 드랍은
+//   FLOOR_DROP_POOLS(플래그 게이트)가 아니라 hunt 라우트의 독립 롤(v2Enhance) —
+//   V2_MATERIALS_ENABLED 는 false 유지(제작·전직 도감 요건은 계속 잠금).
+// 기존 세이브의 재료 보유분은 mergeDrops 비파괴 원칙으로 그대로 남는다(보유/판매 가능).
 export type V2MaterialId = string;
 
 export type V2Material = {
@@ -34,44 +44,31 @@ export type V2Material = {
 };
 
 export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
-  // ── 들판 (1층) — 흔함 3 ──────────────────────────────────────────
-  v2_field_grass: {
-    id: "v2_field_grass",
-    name: "들풀",
-    description: "들에 지천으로 자라는 풀. 달이거나 끈으로 엮어 쓴다.",
+  [ENHANCE_STONE_MATERIAL_ID.red]: {
+    id: ENHANCE_STONE_MATERIAL_ID.red,
+    name: ENHANCE_STONES.red.name,
+    description:
+      "맹렬한 기운이 깃든 강화석. 강화 성공 시 위력을 크게(+3%p) 올리지만 실패하기 쉽다.",
   },
-  v2_field_hide: {
-    id: "v2_field_hide",
-    name: "무른 가죽",
-    description: "작은 들짐승에게서 얻은 무른 가죽 조각.",
+  [ENHANCE_STONE_MATERIAL_ID.blue]: {
+    id: ENHANCE_STONE_MATERIAL_ID.blue,
+    name: ENHANCE_STONES.blue.name,
+    description:
+      "단단한 기운이 깃든 강화석. 강화 성공 시 위력을 안정적으로(+2%p) 올린다.",
   },
-  v2_field_stone: {
-    id: "v2_field_stone",
-    name: "돌조각",
-    description: "발끝에 차이는 흔한 돌 부스러기.",
-  },
-  // ── 들판 (1층) — 희귀 2 ──────────────────────────────────────────
-  v2_field_fang: {
-    id: "v2_field_fang",
-    name: "들짐승 송곳니",
-    description: "단단한 들짐승의 송곳니. 드물게 온전한 것이 나온다.",
-  },
-  v2_field_venom: {
-    id: "v2_field_venom",
-    name: "거미 독샘",
-    description: "들거미의 독을 머금은 작은 주머니. 좀처럼 터지지 않은 채 얻기 어렵다.",
+  // 협동 보스 소환서(coopBosses) — 강화석과 같은 독립 드랍(hunt 라우트 롤). 카탈로그
+  // 등재로 인벤 재료 탭·거래소 재료 거래가 살아나고, NPC 판매는 의도적 비등재(유저 거래 전용).
+  [SUMMON_SCROLL_MATERIAL_ID]: {
+    id: SUMMON_SCROLL_MATERIAL_ID,
+    name: "보스 소환서",
+    description:
+      "낡은 양피지에 봉인 술식이 적혀 있다. 여러 장을 모아 협동 보스를 소환한다.",
   },
 };
 
-// 재료 판매가 (개당, 골드). 상점 '판매' 탭에서 드랍 환금에 사용(제작 보류 중이라 현 주 용도).
-// 흔함=헐값, 희귀=환금 가치. 등재 재료마다 값 필요.
-export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {
-  v2_field_grass: 2,
-  v2_field_hide: 3,
-  v2_field_stone: 2,
-  v2_field_fang: 16,
-  v2_field_venom: 22,
-};
+// 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,
+// 유저 거래(거래소) 전용(사용자 결정 2026-06-11). 미등재 재료는 판매 라우트가 거부.
+export const V2_MATERIAL_SELL_PRICE: Record<V2MaterialId, number> = {};
 
 // === floor 별 드랍 풀 ===============================================
 // chance = 0~1, 굴림 통과 시 [amountMin, amountMax] 사이 정수 개수 획득.
@@ -87,19 +84,9 @@ export type DropRule = {
   amountMax: number;
 };
 
-// 2026-06-03: 지역당 소수 재료 + 저드랍 규칙. 들판(1층)만 채움 — 흔함 3(0.07~0.10)·희귀
-// 2(0.035~0.05). 체감 과다로 전체 ~30% 추가 인하. 기대 획득 ≈ 1마리당 0.39개.
-// ⚠️ v2 던전 드롭은 신참 배율 미적용(항상 ×1, 신참 혜택은 EXP 전용). 나머지 층은 보류.
+// 2026-06-08: 재료 제거로 전 층 드랍 풀 비움. 재료 재도입 시 층별로 다시 채운다.
 export const FLOOR_DROP_POOLS: Record<DungeonFloorId, DropRule[]> = {
-  1: [
-    // 흔함
-    { id: "v2_field_grass", chance: 0.1, amountMin: 1, amountMax: 2 },
-    { id: "v2_field_hide", chance: 0.08, amountMin: 1, amountMax: 1 },
-    { id: "v2_field_stone", chance: 0.07, amountMin: 1, amountMax: 1 },
-    // 희귀
-    { id: "v2_field_fang", chance: 0.05, amountMin: 1, amountMax: 1 },
-    { id: "v2_field_venom", chance: 0.035, amountMin: 1, amountMax: 1 },
-  ],
+  1: [],
   2: [],
   3: [],
   4: [],
@@ -154,6 +141,8 @@ export function rollDrops(
   // 드롭 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. 칸당 chance×배율(1 cap).
   chanceMult: number = 1,
 ): DropResult {
+  // 재료 보류 중 — 어떤 floor 든 드랍 없음(단일 게이트, 모든 호출처 커버).
+  if (!V2_MATERIALS_ENABLED) return {};
   const pool = FLOOR_DROP_POOLS[floor];
   const out: DropResult = {};
   for (const rule of pool) {

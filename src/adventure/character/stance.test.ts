@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { PlayerCombat } from "@/adventure/battle/engine";
+import type { PlayerCombat } from "@/adventure/v2/combat/engine";
 import {
   applyStance,
   isStanceId,

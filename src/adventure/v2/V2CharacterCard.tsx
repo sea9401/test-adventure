@@ -18,11 +18,18 @@ import {
   V2_EQUIPMENT,
   type V2Equipment,
   type V2EquipInstance,
+  type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CLASS_DEFS, parseV2Class } from "@/adventure/data/v2/classes";
-import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
+import {
+  V2ItemCard,
+  anchorOf,
+  powerNameClass,
+  type ItemCardAnchor,
+} from "./V2ItemCard";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
 
 // v2 캐릭터 간략 카드. equipped 가 있으면 카드 하단에 6슬롯 인라인 표시.
 // 장착 슬롯 클릭 시 옵션 카드(V2ItemCard) 팝업 — 장착/해제는 인벤토리에서.
@@ -40,6 +47,12 @@ export type V2CharacterCardData = {
   gold: number;
   /** 직업 id (raw V2Class). 없으면 "무직"으로 표시. */
   class?: string;
+  /**
+   * 서버가 산출한 직업 표시명 — 직업 시스템 on 이면 직업 카탈로그 이름(견습 병사·방패병 등),
+   * off 면 옛 직군명. 있으면 이걸 우선 표기(class 직접 환산보다 정확 — 상위 직업 반영). 미동봉
+   * (옛 응답·dev mock)이면 class 직군명 폴백.
+   */
+  classDisplayName?: string | null;
 };
 
 const EQUIP_SLOTS: { slot: V2EquipSlot; label: string; Icon: Icon; color: string }[] = [
@@ -76,6 +89,7 @@ function CharacterPortrait({ gender }: { gender: Gender }) {
 export function V2CharacterCard({
   character,
   guild,
+  levelCap = null,
   // 칭호 — v2 시스템 없음. 있을 때만 노출.
   titleName = null,
   // 카드 하단에 골드 한 줄 노출 여부.
@@ -87,6 +101,7 @@ export function V2CharacterCard({
 }: {
   character: V2CharacterCardData;
   guild?: { name: string } | null;
+  levelCap?: number | null;
   titleName?: string | null;
   showGold?: boolean;
   equipped?: Partial<Record<V2EquipSlot, string>>;
@@ -96,19 +111,35 @@ export function V2CharacterCard({
   // 사냥 사이 보존. me/state 가 mp 동봉 — undefined fallback 은 maxMp (옛 캐릭).
   const maxMp = character.maxMp ?? 0;
   const mp = Math.min(maxMp, Math.max(0, character.mp ?? maxMp));
-  // 직업명 — class 없거나 미선택이면 "무직".
-  const jobName = V2_CLASS_DEFS[parseV2Class(character.class)].name;
+  // 직업명 — 서버 산출 표시명(직업 시스템이면 견습 병사·방패병 등) 우선, 없으면 class 직군명 폴백.
+  const jobName =
+    character.classDisplayName ?? V2_CLASS_DEFS[parseV2Class(character.class)].name;
+  const cappedLevel =
+    typeof levelCap === "number" && Number.isFinite(levelCap)
+      ? Math.max(1, Math.floor(levelCap))
+      : null;
+  const isAtCap = cappedLevel != null && character.level >= cappedLevel;
 
   // 장착 슬롯의 iid → 개체 해석용 맵. equipped 가 슬롯→iid 라 owned 로 카탈로그/굴림을 푼다.
   const byIid = useMemo(
     () => new Map((owned ?? []).map((i) => [i.iid, i] as const)),
     [owned],
   );
+  // 착용 중인 장비 id 집합 — 카드 세트 발동/착용 하이라이트용(슬롯→iid → id).
+  const equippedItemIds = useMemo(() => {
+    const ids = new Set<V2EquipmentId>();
+    for (const iid of Object.values(equipped ?? {})) {
+      const inst = byIid.get(iid);
+      if (inst) ids.add(inst.id);
+    }
+    return ids;
+  }, [equipped, byIid]);
 
   // 장착 슬롯 클릭 시 띄울 아이템 + 개체 굴림 + 그 슬롯의 화면 좌표(팝오버 앵커) — null 이면 닫힘.
   const [selected, setSelected] = useState<{
     item: V2Equipment;
     roll?: V2EquipRoll;
+    enhance?: V2EnhanceState;
     anchor: ItemCardAnchor;
   } | null>(null);
 
@@ -125,7 +156,7 @@ export function V2CharacterCard({
             )}
             <span className="text-base font-semibold">{character.name}</span>
             <span className="text-sm text-zinc-400 dark:text-zinc-500">
-              Lv.{character.level}
+              {cappedLevel ? `Lv ${character.level} / ${cappedLevel}` : `Lv.${character.level}`}
             </span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               · {jobName}
@@ -134,6 +165,11 @@ export function V2CharacterCard({
               · {guild ? guild.name : "무소속"}
             </span>
           </div>
+          {isAtCap && (
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              현재 차수 레벨 한계입니다. 성장의 신전에서 전직/환생을 진행하세요.
+            </p>
+          )}
           <div className="space-y-1.5">
             <StatBar
               label="HP"
@@ -175,8 +211,19 @@ export function V2CharacterCard({
                 <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                   {label}
                 </div>
-                <div className="truncate text-xs font-medium text-zinc-700 dark:text-zinc-200">
+                <div
+                  className={`truncate text-xs font-medium ${
+                    item
+                      ? powerNameClass(item, inst?.roll)
+                      : "text-zinc-400 dark:text-zinc-600"
+                  }`}
+                >
                   {item?.name ?? "—"}
+                  {inst?.enhance && inst.enhance.level > 0 ? (
+                    <span className="ml-0.5 font-semibold text-amber-500">
+                      +{inst.enhance.level}
+                    </span>
+                  ) : null}
                 </div>
               </>
             );
@@ -189,6 +236,7 @@ export function V2CharacterCard({
                   setSelected({
                     item,
                     roll: inst?.roll,
+                    enhance: inst?.enhance,
                     anchor: anchorOf(e.currentTarget),
                   })
                 }
@@ -208,8 +256,10 @@ export function V2CharacterCard({
         <V2ItemCard
           item={selected.item}
           roll={selected.roll}
+          enhance={selected.enhance}
           anchor={selected.anchor}
           onClose={() => setSelected(null)}
+          equippedIds={equippedItemIds}
         />
       )}
     </Card>

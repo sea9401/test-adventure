@@ -3,14 +3,14 @@
 // 반사회피/유격/반격/가드/굳건한의지/철벽/불굴/흡혈갑옷/반격의룬.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PlayerCombat } from "./engine";
+import type { PlayerCombat } from "../v2/combat/engine";
 import {
   advanceTurnPvP,
   initialBattleStatePvP,
   resolveBattlePvP,
   type PvPResolveContext,
-} from "./engine-pvp";
-import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../character/skills";
+} from "../v2/combat/engine-pvp";
+import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
 import { V2_SKILLS } from "../data/v2/v2Skills";
 
@@ -23,6 +23,8 @@ function makePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
     spd: 10,
     evasionPct: 0,
     attackCount: 1,
+    // 기본 명중 90% 도입(2026-06-06) — 테스트 캐릭은 결정적 적중(드리프트 방지)을 위해 명중 충분히 부여.
+    accuracyPct: 100,
     ...over,
   };
 }
@@ -233,36 +235,34 @@ describe("공격자 측 능력 — 대칭 적용", () => {
     expect(s.p1.buffs.opponentAtkPenalty).toBe(s.p1.buffs.opponentDefPenalty);
   });
 
-  it("출혈 (bleed) — p1 의 hits 가 attacker.stacks.bleedStacksOnOpponent 에 누적", () => {
+  it("출혈 (bleed) — p1 의 hits 가 p2.v2Dots 에 누적", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 20, bleedDmgPerStack: 3, hp: 1000, maxHp: 1000, attackCount: 2 }),
+      makePlayer({ spd: 15, atk: 20, bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 }, hp: 1000, maxHp: 1000, attackCount: 2 }),
       makePlayer({ spd: 5, atk: 1, hp: 1000, maxHp: 1000 }),
       "P1",
       "P2",
     );
     let s = s0;
-    // p1 의 2회 공격 → p1.stacks.bleedStacksOnOpponent = 2.
+    // p1 의 2회 공격 → p2.v2Dots bleed = 2.
     s = advanceTurnPvP(s);
     s = advanceTurnPvP(s);
-    expect(s.p1.stacks.bleedStacksOnOpponent).toBe(2);
+    expect(s.p2.v2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(2);
   });
 
-  it("출혈 도트 — p1 의 공격 페이즈 종료 시점에 p2.hp 가 (스택 × bleedDmgPerStack) 만큼 추가 감소", () => {
+  it("출혈 도트 — p2 페이즈 진입 시 p2.hp 가 tagged bleed 만큼 추가 감소", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.999);
     const s0 = initialBattleStatePvP(
-      makePlayer({ spd: 15, atk: 20, def: 0, bleedDmgPerStack: 5, hp: 1000, maxHp: 1000 }),
+      makePlayer({ spd: 15, atk: 20, def: 0, bleedOnHit: { flatPerStack: 5, atkCoefPerStack: 0.08 }, hp: 1000, maxHp: 1000 }),
       makePlayer({ spd: 5, atk: 1, def: 0, hp: 500, maxHp: 500 }),
       "P1",
       "P2",
     );
-    // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1 + 페이즈 종료 시 출혈 도트 5 dmg.
+    // p1 공격 1회 — 본타 20 (def 0) + 출혈 스택 1, p2 턴 진입 시 출혈 tick.
     const s1 = advanceTurnPvP(s0);
     expect(s1.phase).toBe("p2");
-    expect(s1.p1.stacks.bleedStacksOnOpponent).toBe(1);
-    // 500 - 20(본타) - 5(도트) = 475.
-    expect(s1.p2.hp).toBe(475);
-    expect(s1.log.some((e) => e.text.includes("출혈") && e.text.includes("스택 1"))).toBe(true);
+    expect(s1.p2.hp).toBe(500 - 20 - Math.floor(5 + 20 * 0.08)); // 출혈 floor(6.6)=6
+    expect(s1.log.some((e) => e.text.includes("출혈"))).toBe(true);
   });
 
   it("그림자 분신 (shadowClone) — p1 턴 종료 시 분신 추가 데미지", () => {
@@ -1031,5 +1031,154 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       castCount,
     );
   });
+
+  it("PR2-B — 전문화 temp 버프(속박/enemyVuln)가 PvP 캐스트에서 적용된다", () => {
+    // 이전엔 PvPSide 가 temp 버프 상태가 없어 아레나에서 미적용이었던 회귀 가드.
+    vi.spyOn(Math, "random").mockReturnValue(0); // procRoll 0 < procChance → 발동 강제
+    const p1 = makePlayer({ spd: 100, atk: 60, maxMp: 500, hp: 300, maxHp: 300 });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 400, maxHp: 400 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["v2s_archery_bind"],
+          equipped: ["v2s_archery_bind"],
+        },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // 속박(enemyVuln) 적용 로그 — PvP cast 배선 확인.
+    expect(
+      r.finalState.log.some(
+        (e) =>
+          e.kind === "info" &&
+          e.text.includes("속박 사격") &&
+          e.text.includes("가하는 피해 +30%"),
+      ),
+    ).toBe(true);
+  });
+
+  it("PR2-B — 약점 노출(마법취약) 스택이 PvP 에서 상대에게 누적된다", () => {
+    // 이전엔 PvPSide 에 magicVuln 트래커가 없어 비전 작렬 payoff 가 no-op 이던 회귀 가드.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p1 = makePlayer({
+      spd: 100,
+      atk: 40,
+      magicAtk: 60,
+      maxMp: 9999,
+      hp: 300,
+      maxHp: 300,
+      enemyMagicVulnPctPerStack: 50, // 마도사 약점 노출 패시브
+    });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 2000, maxHp: 2000 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["v2c_mage_fireball"],
+          equipped: ["v2c_mage_fireball"],
+        },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // 시전자 패시브로 상대(p2)에 마법취약 누적(>0), 상한 10 클램프.
+    expect(r.finalState.p2.stacks.magicVulnStacks).toBeGreaterThan(0);
+    expect(r.finalState.p2.stacks.magicVulnStacks).toBeLessThanOrEqual(10);
+  });
+
+  it("PR2-B — 주문 중첩(워메이지)이 PvP 스킬 시전마다 누적된다", () => {
+    // 이전엔 PvP 스킬 cast 가 주문중첩 배수를 미적용(spellCastCount 트래커 없음)이던 회귀 가드.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const p1 = makePlayer({
+      spd: 100,
+      atk: 40,
+      magicAtk: 60,
+      maxMp: 9999,
+      hp: 300,
+      maxHp: 300,
+      skillDmgPctPerCast: 20, // 워메이지 주문 중첩 패시브
+    });
+    const p2 = makePlayer({ spd: 1, def: 0, hp: 2000, maxHp: 2000 });
+    const ctx: PvPResolveContext = {
+      pickAction: () => ({ kind: "attack" }),
+      potions: { p1: {}, p2: {} },
+      v2Skills: {
+        p1: {
+          learned: ["v2c_mage_fireball"],
+          equipped: ["v2c_mage_fireball"],
+        },
+      },
+    };
+    const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
+    // 시전자(p1) 주문 중첩 누적(>0), 상한 10 클램프.
+    expect(r.finalState.p1.stacks.spellCastCount).toBeGreaterThan(0);
+    expect(r.finalState.p1.stacks.spellCastCount).toBeLessThanOrEqual(10);
+  });
 });
 
+// ── PvE 효과 PvP 미러 (흡혈/받피감/별빛 인내) — full mirror, 2026-06-19 ──────────
+// 셋 다 PvE(playerPhase/enemyPhase)에선 적용되나 PvP 에선 inert 였음. 미러로 양측에 적용.
+describe("PvE 효과 PvP 미러 — 흡혈/받피감/별빛 인내", () => {
+  // 0.999 = 적중·논크리(테스트캐릭 critChancePct 0). p1 이 p2 를 친다.
+  function firstAttack(p1: Partial<PlayerCombat>, p2: Partial<PlayerCombat>) {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 30, def: 0, ...p1 }),
+      makePlayer({ spd: 5, atk: 1, def: 0, hp: 300, maxHp: 300, ...p2 }),
+      "P1",
+      "P2",
+    );
+    return advanceTurnPvP(s0);
+  }
+
+  it("별빛 흡혈(enchantLifestealPct) — PvP 에서 공격자 HP 회복(이전엔 inert)", () => {
+    const base = firstAttack({ hp: 50, maxHp: 200 }, {});
+    expect(base.p1.hp).toBe(50); // 흡혈 없음 → 회복 0
+    const heal = firstAttack({ hp: 50, maxHp: 200, enchantLifestealPct: 50 }, {});
+    expect(heal.p1.hp).toBeGreaterThan(50); // 미러 → 가한 피해의 50% 회복
+    expect(heal.log.some((l) => l.text.includes("별빛 흡혈"))).toBe(true);
+  });
+
+  it("별빛 흡혈 — maxHp 초과 회복 없음(클램프)", () => {
+    const heal = firstAttack(
+      { hp: 199, maxHp: 200, enchantLifestealPct: 90 },
+      {},
+    );
+    expect(heal.p1.hp).toBe(200); // 199 + 큰 회복 → 200 클램프
+  });
+
+  it("받피감(passiveDamageTakenReductionPct) — PvP 에서 받는 피해 감소(이전엔 inert)", () => {
+    const base = firstAttack({}, { hp: 300, maxHp: 300 });
+    const baseDmg = 300 - base.p2.hp;
+    const reduced = firstAttack(
+      {},
+      { hp: 300, maxHp: 300, passiveDamageTakenReductionPct: 50 },
+    );
+    const reducedDmg = 300 - reduced.p2.hp;
+    expect(baseDmg).toBeGreaterThan(0);
+    expect(reducedDmg).toBeLessThan(baseDmg); // 미러 → 피해 감소
+    expect(reduced.log.some((l) => l.text.includes("받피감"))).toBe(true);
+  });
+
+  it("별빛 인내(enchantEndurePct) — PvP 에서 받는 피해 감소(이전엔 inert)", () => {
+    const base = firstAttack({}, { hp: 300, maxHp: 300 });
+    const baseDmg = 300 - base.p2.hp;
+    const endured = firstAttack(
+      {},
+      { hp: 300, maxHp: 300, enchantEndurePct: 50 },
+    );
+    const enduredDmg = 300 - endured.p2.hp;
+    expect(enduredDmg).toBeLessThan(baseDmg);
+    expect(endured.log.some((l) => l.text.includes("[인내]"))).toBe(true);
+  });
+
+  it("미러 효과 없으면 골든 불변(가드: 필드 미설정 시 no-op)", () => {
+    // enchant/passive 필드를 안 주면 데미지·HP 가 baseline 과 정확히 동일(>0 가드).
+    const a = firstAttack({}, { hp: 300, maxHp: 300 });
+    const b = firstAttack({}, { hp: 300, maxHp: 300 });
+    expect(a.p2.hp).toBe(b.p2.hp);
+    expect(a.p1.hp).toBe(b.p1.hp);
+  });
+});

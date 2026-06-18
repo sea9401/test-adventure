@@ -3,48 +3,35 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import {
   V2_SKILLS,
   describeV2Skill,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
-import { v2SkillMpCost } from "@/adventure/battle/combatShared";
-import { V2_ELEMENT_LABEL, type V2Element } from "@/adventure/data/v2/elements";
+import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
+import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
+import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
+import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
 
-// v2 학습 — 사용 가능 숙련도로 직업 패시브 + 현 직업 체인의 시그니처 스킬을 습득한다.
+// v2 학습 — 전문화 선택/패시브 픽(V2SpecPanel) + 숙달 포인트로 공용·전문화 스킬을 습득한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
 // 전투 탭(/battle/sparring)으로 분리.
-
-type SignatureRow = {
-  skillId: string;
-  tier: number;
-  cost: number;
-  learned: boolean;
-  effect: string;
-};
 
 type ElementalRow = {
   skillId: string;
   name: string;
-  element: string | null;
   cost: number;
   learned: boolean;
-  equipped: boolean;
 };
 
 type StateShape = {
   ok?: boolean;
-  signatures?: SignatureRow[];
   elementalSkills?: ElementalRow[];
-  skillSlots?: number;
   proficiency?: { current?: { points: number } };
+  spec?: V2SpecState;
+  loadout?: V2LoadoutData; // 코어루프 flag-on 만 존재(SP 로드아웃).
 };
-
-function elementLabel(el: string | null): string {
-  return el && el in V2_ELEMENT_LABEL
-    ? V2_ELEMENT_LABEL[el as V2Element]
-    : "무속성";
-}
 
 function skillName(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.name ?? id;
@@ -57,7 +44,7 @@ function skillDesc(id: string): string {
 function SkillDetailChips({ skillId }: { skillId: string }) {
   const def = V2_SKILLS[skillId as V2SkillId];
   if (!def) return null;
-  // 실효 MP — 시그니처는 카탈로그 0(센티넬), 엔진이 차수별 산정. 그 값을 표기.
+  // 실효 MP — 시그니처 차수별 자동 산정은 은퇴(v2SkillMpCost = def.mpCost 리터럴 그대로 반환).
   const chips = describeV2Skill(def, v2SkillMpCost(def));
   if (chips.length === 0) return null;
   return (
@@ -76,13 +63,16 @@ function SkillDetailChips({ skillId }: { skillId: string }) {
 
 export function V2SkillLearnView({
   onBack,
+  embedded = false,
 }: {
   onBack: () => void;
+  // 스킬 허브(탭)에 끼워질 때 — 자체 헤더/페이지 컨테이너 생략(허브가 제공).
+  embedded?: boolean;
 }) {
-  const [signatures, setSignatures] = useState<SignatureRow[]>([]);
+  const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
+  const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
   const [usable, setUsable] = useState(0);
-  const [slots, setSlots] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -93,16 +83,14 @@ export function V2SkillLearnView({
       const res = await fetch("/api/v2/me/state");
       const j = (await res.json().catch(() => null)) as StateShape | null;
       if (j?.ok) {
-        setSignatures(j.signatures ?? []);
+        setSpecState(j.spec ?? null);
         setElementalSkills(j.elementalSkills ?? []);
+        setLoadout(j.loadout ?? null);
         setUsable(j.proficiency?.current?.points ?? 0);
-        setSlots(j.skillSlots ?? 0);
       }
     } catch {}
     setLoading(false);
   }, []);
-
-  const equippedCount = elementalSkills.filter((s) => s.equipped).length;
 
   useEffect(() => {
     refresh();
@@ -139,147 +127,68 @@ export function V2SkillLearnView({
         }
         setMsg(`✓ ${skillName(skillId)} 학습 완료`);
         if (typeof j.points === "number") setUsable(j.points);
-        setSignatures((prev) =>
-          prev.map((s) => (s.skillId === skillId ? { ...s, learned: true } : s)),
-        );
         setElementalSkills((prev) =>
           prev.map((s) => (s.skillId === skillId ? { ...s, learned: true } : s)),
         );
+        // 새로 배운 스킬이 라이브러리/로드아웃에 반영되도록 상태 재동기화(코어루프 로드아웃 패널).
+        refresh();
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
       } finally {
         setBusy(null);
       }
     },
-    [usable],
+    [usable, refresh],
   );
 
-  const equipSkill = useCallback(
-    async (skillId: string, equip: boolean) => {
-      setBusy(skillId);
-      setMsg(null);
-      try {
-        const res = await fetch("/api/v2/me/equip-skill", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ skillId, equip }),
-        });
-        const j = (await res.json().catch(() => null)) as {
-          ok?: boolean;
-          error?: string;
-          equipped?: string[];
-          slots?: number;
-        } | null;
-        if (!j?.ok) {
-          const label =
-            j?.error === "slots_full"
-              ? `장착 슬롯이 가득 찼어요 (${j.slots ?? slots}칸). 먼저 해제하세요`
-              : j?.error === "not_learned"
-                ? "먼저 학습해야 장착할 수 있어요"
-                : (j?.error ?? `http ${res.status}`);
-          setMsg(`✗ ${label}`);
-          return;
-        }
-        setMsg(`✓ ${skillName(skillId)} ${equip ? "장착" : "해제"}`);
-        const eqSet = new Set(j.equipped ?? []);
-        setElementalSkills((prev) =>
-          prev.map((s) => ({ ...s, equipped: eqSet.has(s.skillId) })),
-        );
-      } catch (err) {
-        setMsg(`✗ ${(err as Error).message}`);
-      } finally {
-        setBusy(null);
-      }
-    },
-    [slots],
-  );
 
+  const Wrapper = embedded ? "div" : "main";
   return (
-    <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="스킬" onBack={onBack} />
+    <Wrapper
+      className={
+        embedded
+          ? "space-y-3"
+          : "mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100"
+      }
+    >
+      {!embedded && (
+        <HeaderPanel>
+          <SubViewHeader title="스킬" onBack={onBack} />
+        </HeaderPanel>
+      )}
 
-      <Card padding="md">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-sm font-semibold">직업 패시브</h2>
-          <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-            <span>
-              숙달 포인트{" "}
-              <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
-                {usable}
-              </strong>
-            </span>
-            <span>
-              장착{" "}
-              <strong className="tabular-nums text-sky-600 dark:text-sky-400">
-                {equippedCount}/{slots}
-              </strong>
-            </span>
-          </div>
-        </div>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙달 포인트를 들여 직업 패시브를 배우면 장착 없이 항상 적용된다. 단계가 오를수록 효과가
-          강해지며, 직업을 바꿔도 학습 기록은 남는다.
-        </p>
+      {specState && specState.specs.length > 0 && (
+        <V2SpecPanel spec={specState} onChanged={refresh} />
+      )}
 
-        {loading ? (
-          <p className="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-            불러오는 중…
-          </p>
-        ) : signatures.length === 0 ? (
-          <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
-            배울 직업 패시브가 없어요. 먼저 직업을 선택하세요.
-          </p>
-        ) : (
-          <ul className="mt-3 space-y-1.5">
-            {signatures.map((s) => {
-              const affordable = usable >= s.cost;
-              return (
-                <li
-                  key={s.skillId}
-                  className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="truncate text-sm font-semibold">
-                        {skillName(s.skillId)}
-                      </span>
-                      <span className="shrink-0 text-[11px] text-zinc-400 dark:text-zinc-500">
-                        {s.tier}차
-                      </span>
-                    </div>
-                    <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                      {s.effect}
-                    </p>
-                  </div>
-                  {!s.learned ? (
-                    <button
-                      type="button"
-                      onClick={() => learn(s.skillId, s.cost)}
-                      disabled={busy != null || !affordable}
-                      className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
-                    </button>
-                  ) : (
-                    <span
-                      className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300"
-                    >
-                      적용 중
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+      {!loading && loadout && (
+        <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
+      )}
+
+      {!loading && loadout && (
+        <V2LoadoutPresetsPanel
+          currentEquipped={loadout.equipped}
+          onApplied={refresh}
+        />
+      )}
 
       {!loading && elementalSkills.length > 0 && (
         <Card padding="md">
-          <h2 className="text-sm font-semibold">속성 스킬 · 직업군</h2>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-sm font-semibold">스킬</h2>
+            <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <span>
+                숙달 포인트{" "}
+                <strong className="tabular-nums text-emerald-700 dark:text-emerald-400">
+                  {usable}
+                </strong>
+              </span>
+            </div>
+          </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            직업군의 7속성 공격 스킬. 적 속성에 맞춰 골라 익히면 상성으로 피해가 늘어난다.
-            슬롯에 장착한 스킬만 전투에서 발동한다(레벨 비례 슬롯).
+            {loadout
+              ? "학습한 스킬은 라이브러리에 영구 보관됩니다. 위 로드아웃에서 스킬포인트 예산 안으로 장착하세요."
+              : "학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 전투 패턴에서 설정하세요."}
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {
@@ -293,9 +202,6 @@ export function V2SkillLearnView({
                     <div className="flex items-baseline gap-2">
                       <span className="truncate text-sm font-semibold">
                         {s.name}
-                      </span>
-                      <span className="shrink-0 rounded bg-zinc-200 px-1.5 text-[10px] text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                        {elementLabel(s.element)}
                       </span>
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -312,24 +218,10 @@ export function V2SkillLearnView({
                     >
                       {busy === s.skillId ? "학습 중…" : `학습 (${s.cost})`}
                     </button>
-                  ) : s.equipped ? (
-                    <button
-                      type="button"
-                      onClick={() => equipSkill(s.skillId, false)}
-                      disabled={busy != null}
-                      className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-500/25 disabled:opacity-50 dark:text-sky-300"
-                    >
-                      {busy === s.skillId ? "…" : "장착 해제"}
-                    </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => equipSkill(s.skillId, true)}
-                      disabled={busy != null || equippedCount >= slots}
-                      className="shrink-0 rounded-md border border-zinc-400 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                    >
-                      {busy === s.skillId ? "…" : "장착"}
-                    </button>
+                    <span className="shrink-0 rounded-md border border-sky-500 bg-sky-500/15 px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                      보유
+                    </span>
                   )}
                 </li>
               );
@@ -349,6 +241,6 @@ export function V2SkillLearnView({
           {msg}
         </div>
       )}
-    </main>
+    </Wrapper>
   );
 }

@@ -5,17 +5,18 @@
 // 내부에서 try/catch + console.warn 으로 삼킨다. 호출부는 await insertFeedEntry(...) 만 하면 됨.
 //
 // 정책:
-//   1) 송신자 opt-out — users.shareFeed === false 면 건너뜀.
-//   2) 디바운스 — 같은 유저+type 의 항목이 FEED_DEBOUNCE_MS 안에 있으면 건너뜀 (도배 방지).
-//   3) actorName — users.gameName → character-profile.v2 의 name → "이름 없는 모험가" 스냅샷.
-//   4) trim — insert 후 FEED_MAX_ROWS 초과분(가장 오래된 것부터) 삭제.
+//   1) 디바운스 — 같은 유저+type 의 항목이 FEED_DEBOUNCE_MS 안에 있으면 건너뜀 (도배 방지).
+//   2) actorName — users.gameName → character-profile.v2 의 name → "이름 없는 모험가" 스냅샷.
+//   3) trim — insert 후 보관기간(FEED_RETENTION_MS=3개월) 지난 행 삭제(lazy, cron 없음).
+// (옛 송신자 opt-out(users.shareFeed)/force 는 제거 — 피드는 항상 기록, 사용자 결정 2026-06-13.
+//  users.share_feed 컬럼은 inert 로 잔존 — 비파괴.)
 
-import { and, desc, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, serverFeed, users } from "@/db/schema";
 import {
   FEED_DEBOUNCE_MS,
-  FEED_MAX_ROWS,
+  FEED_RETENTION_MS,
   type FeedPayload,
   type FeedType,
 } from "@/lib/feed-config";
@@ -39,6 +40,17 @@ async function resolveActorName(
   return "이름 없는 모험가";
 }
 
+// userId 만으로 표시 이름 해석 — 피드 actorName 과 동일 규칙(gameName → profile → 기본값)을
+// 다른 서버 코드(사냥 세금 수취자 라벨 등)에서도 쓰도록 공개한 wrapper.
+export async function resolveUserDisplayName(userId: string): Promise<string> {
+  const [u] = await db
+    .select({ gameName: users.gameName })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return resolveActorName(userId, u?.gameName ?? null);
+}
+
 export async function insertFeedEntry(
   userId: string,
   type: FeedType,
@@ -46,11 +58,11 @@ export async function insertFeedEntry(
 ): Promise<void> {
   try {
     const [u] = await db
-      .select({ shareFeed: users.shareFeed, gameName: users.gameName })
+      .select({ gameName: users.gameName })
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    if (!u || !u.shareFeed) return;
+    if (!u) return;
 
     const since = new Date(Date.now() - FEED_DEBOUNCE_MS);
     const [recent] = await db
@@ -69,14 +81,10 @@ export async function insertFeedEntry(
     const actorName = await resolveActorName(userId, u.gameName);
     await db.insert(serverFeed).values({ userId, actorName, type, payload });
 
-    // trim — 최신 FEED_MAX_ROWS 개만 남기고 그 이전 행 삭제.
-    const [cut] = await db
-      .select({ id: serverFeed.id })
-      .from(serverFeed)
-      .orderBy(desc(serverFeed.id))
-      .offset(FEED_MAX_ROWS - 1)
-      .limit(1);
-    if (cut) await db.delete(serverFeed).where(lt(serverFeed.id, cut.id));
+    // trim — 보관기간(3개월) 지난 행 삭제. 시간 기준(분류별 열람을 위한 보존, 행 수 캡 폐기).
+    await db
+      .delete(serverFeed)
+      .where(lt(serverFeed.createdAt, new Date(Date.now() - FEED_RETENTION_MS)));
   } catch (err) {
     console.warn("[serverFeed] insert failed", err);
   }

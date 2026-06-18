@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { treasureShopEntries } from "./treasureShop";
 import type { BuyResult, TreasureShopState } from "./useTreasureShop";
@@ -40,22 +41,19 @@ export function TreasureShopView({
 
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
+      <HeaderPanel className="space-y-2">
         {onBack && (
           <BackButton onClick={onBack} />
         )}
         <div className="flex items-start justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold">발굴 코인 상점</h1>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              골동품을 분해해 모은 발굴 코인으로 칭호를 손에 넣는다.
-            </p>
           </div>
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
             🪙 {coins.toLocaleString()}
           </span>
         </div>
-      </header>
+      </HeaderPanel>
 
       {message && (
         <p

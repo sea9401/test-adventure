@@ -16,10 +16,12 @@ import {
   V2_PLAYER_ELEMENTS,
   type V2Element,
 } from "@/adventure/data/v2/elements";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
 // v2 캐릭터 생성 2단계:
 //  ① 이름·외형 — CreateCharacterForm (중복검사 내장) → /api/profile/setup
-//  ② 직업·속성 — 첫 선택은 무료(none 에서) → /api/v2/me/class-element
+//  ② 속성(+직업) — /api/v2/me/class-element. 코어루프 on: 모험가(none)로 시작 → 속성만
+//     선택. off: 4직군 중 택1 + 속성(첫 선택 무료, none 에서).
 // 완료 시 게임(/)으로. 이미 프로필이 있으면(중복 진입) 바로 / 로 되돌린다.
 export function CreateCharacterFlow() {
   const router = useRouter();
@@ -49,7 +51,11 @@ export function CreateCharacterFlow() {
       const res = await fetch("/api/v2/me/class-element", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ class: cls, element: elem }),
+        // 코어루프 — 모두 모험가(none)로 시작(직군 선택 없음). 첫 선택은 속성만.
+        body: JSON.stringify({
+          class: V2_CORE_LOOP_V2 ? "none" : cls,
+          element: elem,
+        }),
       });
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
@@ -86,25 +92,29 @@ export function CreateCharacterFlow() {
         ) : (
           <>
             <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              직업 · 속성 선택
+              {V2_CORE_LOOP_V2 ? "속성 선택" : "직업 · 속성 선택"}
             </h1>
             <p className="mb-4 mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              시작 직업과 속성을 고르세요. 나중에 마을 「성장의 신전」에서 바꿀 수 있어요.
+              {V2_CORE_LOOP_V2
+                ? "모험가로 모험을 시작합니다. 속성을 고르세요. 스탯을 키우면 직군이 해금되고, 「성장의 신전」에서 재전직할 수 있어요."
+                : "시작 직업과 속성을 고르세요. 나중에 마을 「성장의 신전」에서 바꿀 수 있어요."}
             </p>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              직업
-              <select
-                value={cls}
-                onChange={(e) => setCls(e.target.value as V2Class)}
-                className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-              >
-                {V2_SELECTABLE_CLASSES.map((c) => (
-                  <option key={c} value={c}>
-                    {V2_CLASS_DEFS[c].name} ({V2_CLASS_DEFS[c].group})
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!V2_CORE_LOOP_V2 && (
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                직업
+                <select
+                  value={cls}
+                  onChange={(e) => setCls(e.target.value as V2Class)}
+                  className="mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+                >
+                  {V2_SELECTABLE_CLASSES.map((c) => (
+                    <option key={c} value={c}>
+                      {V2_CLASS_DEFS[c].name} ({V2_CLASS_DEFS[c].group})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               속성
               <select
@@ -120,7 +130,9 @@ export function CreateCharacterFlow() {
               </select>
             </label>
             <p className="mt-3 rounded-md bg-zinc-100 p-3 text-xs leading-relaxed text-zinc-600 dark:bg-zinc-800/60 dark:text-zinc-300">
-              {V2_CLASS_DEFS[cls].description}
+              {V2_CORE_LOOP_V2
+                ? "모험가는 모두의 출발점입니다. 사냥으로 스탯을 키우면 조건에 맞는 직군이 열리고, 「성장의 신전」에서 그 직업으로 재전직할 수 있어요."
+                : V2_CLASS_DEFS[cls].description}
             </p>
             <button
               type="button"

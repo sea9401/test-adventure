@@ -13,14 +13,17 @@ import {
 
 // 글쓰기 페이지 — 모달이 아니라 인라인 화면. PlazaScreen 의 "게시판" 헤더 아래 영역을
 // 통째로 차지한다. 모바일에서 textarea 가 화면 가로폭 전부를 쓸 수 있어 긴 글 작성에 유리.
+// editing 을 주면 수정 모드 — 제목/본문 초기값 채움 + 카테고리 변경 불가(픽커 숨김).
 export function ComposePage({
   initialCategory,
   isAdmin,
+  editing,
   onCancel,
   onSubmit,
 }: {
   initialCategory: BulletinCategory;
   isAdmin: boolean;
+  editing?: { title: string; content: string };
   onCancel: () => void;
   onSubmit: (input: {
     category: BulletinCategory;
@@ -29,8 +32,8 @@ export function ComposePage({
   }) => Promise<void>;
 }) {
   const [category, setCategory] = useState<BulletinCategory>(initialCategory);
-  const [titleDraft, setTitleDraft] = useState("");
-  const [draft, setDraft] = useState("");
+  const [titleDraft, setTitleDraft] = useState(editing?.title ?? "");
+  const [draft, setDraft] = useState(editing?.content ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const trimmed = draft.trim();
@@ -76,30 +79,32 @@ export function ComposePage({
           <ArrowLeft size={18} weight="bold" />
         </button>
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-          새 글 쓰기
+          {editing ? "글 수정" : "새 글 쓰기"}
         </h2>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {selectableCategories.map((c) => {
-          const active = c === category;
-          return (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setCategory(c)}
-              disabled={submitting}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? "border-emerald-600 bg-emerald-600 text-white"
-                  : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-              }`}
-            >
-              {BULLETIN_CATEGORY_LABELS[c].name}
-            </button>
-          );
-        })}
-      </div>
+      {!editing && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectableCategories.map((c) => {
+            const active = c === category;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategory(c)}
+                disabled={submitting}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                  active
+                    ? "border-emerald-600 bg-emerald-600 text-white"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {BULLETIN_CATEGORY_LABELS[c].name}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <input
         type="text"
@@ -162,7 +167,7 @@ export function ComposePage({
           disabled={!canSubmit}
           className="rounded-md border border-emerald-700 bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         >
-          {submitting ? "등록 중…" : "등록"}
+          {submitting ? (editing ? "수정 중…" : "등록 중…") : editing ? "수정" : "등록"}
         </button>
       </div>
     </div>

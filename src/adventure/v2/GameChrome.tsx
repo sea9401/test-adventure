@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { V2TopBar } from "@/adventure/v2/V2TopBar";
+import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
+import { WarTicker } from "@/adventure/v2/WarTicker";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
@@ -14,28 +16,29 @@ import type { OutpostType } from "@/adventure/data/v2/types";
 
 type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
 
+// 광장은 탭에서 제외(모바일에서 6번째 탭이 화면 밖으로 밀려 안 보임) — 기능은 상단
+// 설정 메뉴의 "광장" 섹션으로 이관(#723). /plaza/* 라우트·배경 매핑은 그대로 유지.
 const TABS: { key: TabId; label: string }[] = [
   { key: "adventure", label: "모험" },
   { key: "battle", label: "전투" },
   { key: "town", label: "마을" },
   { key: "character", label: "캐릭터" },
   { key: "guild", label: "길드" },
-  { key: "plaza", label: "광장" },
 ];
 
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
 const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
 
-// 현재 경로 → 활성 탭. map/outpost 는 전투 탭으로 묶는다(현 tabOfView 와 동일).
+// 현재 경로 → 활성 탭. map/outpost 는 마을 탭으로 묶는다(지도=이동 동선, 2026-06-11 이관).
 function tabOfPath(pathname: string): TabId {
   if (pathname === "/") return "adventure";
+  if (pathname.startsWith("/battle")) return "battle";
   if (
-    pathname.startsWith("/battle") ||
+    pathname.startsWith("/town") ||
     pathname.startsWith("/map") ||
     pathname.startsWith("/outpost")
   )
-    return "battle";
-  if (pathname.startsWith("/town")) return "town";
+    return "town";
   if (pathname.startsWith("/character")) return "character";
   if (pathname.startsWith("/guild")) return "guild";
   if (pathname.startsWith("/plaza")) return "plaza";
@@ -82,19 +85,26 @@ function TabBackground({
 export function GameChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentOutpost, accountName, stamina, viewerName } = useGameState();
+  const {
+    currentOutpost,
+    accountName,
+    stamina,
+    staminaMax,
+    viewerName,
+    viewerLevel,
+    bankedGold,
+    combatCooldown,
+  } = useGameState();
+  // 코어루프 flag-on 판정 — me/state 가 flag on 일 때만 combatCooldown 객체를 준다(off=null).
+  const coreLoopOn = combatCooldown != null;
 
   const activeTab = tabOfPath(pathname);
   // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
   const currentOutpostType: OutpostType = currentOutpost
     ? (OUTPOST_TYPE_BY_ID.get(currentOutpost.id) ?? "village")
     : "village";
-  // 스태미나 바 — 모험 탭, 또는 전투 탭에서 지도/거점이 아닌 화면일 때만.
-  const showStamina =
-    activeTab === "adventure" ||
-    (activeTab === "battle" &&
-      !pathname.startsWith("/map") &&
-      !pathname.startsWith("/outpost"));
+  // 스태미나 바 — 모험/전투 탭만 (지도/거점은 마을 탭 귀속이라 자연 제외).
+  const showStamina = activeTab === "adventure" || activeTab === "battle";
 
   // 탭/화면별 배경 이미지 — 우선순위: 특정 화면(치료소·상점·대장간·낚시터·사냥터·아레나)
   // > 거점 탭(모험/마을/캐릭터) > 길드 > 광장 > 전투 탭. 거점 탭은 현 위치 거점 종류별
@@ -133,7 +143,12 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         currentOutpost={currentOutpost}
         gameName={accountName}
         playerName={viewerName}
+        playerLevel={viewerLevel}
+        bankedGold={bankedGold}
+        coreLoopOn={coreLoopOn}
       />
+      {/* 코어루프 오프라인 정산 카드 — flag off 면 offlinePending null 이라 no-op. */}
+      <OfflineSettleCard />
       {background && (
         <TabBackground
           key={background.src}
@@ -152,9 +167,12 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
           scrollable
           className="mx-auto w-full max-w-[720px] px-4 sm:px-6 [&_button]:text-[1.0625rem]"
         />
-        {showStamina && (
+        {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
+        <WarTicker />
+        {/* 코어루프 on 이면 스태미나 폐지(전투 쿨다운으로 대체) → 바 숨김. */}
+        {showStamina && !coreLoopOn && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
-            <StaminaBar state={stamina} />
+            <StaminaBar state={stamina} max={staminaMax} />
           </div>
         )}
         {children}

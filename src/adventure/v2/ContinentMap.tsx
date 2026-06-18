@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -21,10 +22,19 @@ import {
   Sparkle,
   X,
 } from "@phosphor-icons/react";
-import { OUTPOSTS, MAP_BOUNDS } from "@/adventure/data/v2/outposts";
+import {
+  OUTPOSTS,
+  MAP_BOUNDS,
+  kingdomColorOf,
+  kingdomNameOf,
+  KINGDOM_COLORS,
+  OUTPOST_CONFLICT_COLOR,
+} from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
   shortestOutpostPath,
+  CONFLICT_ZONE_IDS,
+  areOutpostsAdjacent,
 } from "@/adventure/data/v2/outpostGraph";
 import type {
   Outpost,
@@ -32,13 +42,7 @@ import type {
   OutpostTier,
 } from "@/adventure/data/v2/types";
 
-// 종류별 색 — tier 2+ marker fill.
-const TYPE_COLOR: Record<OutpostType, string> = {
-  mine: "#8a6a43",
-  tower: "#845fc4",
-  fort: "#5d5d68",
-  village: "#bd713b",
-};
+// 마커 채움색은 종류가 아니라 소속 왕국으로 칠한다(종류는 아이콘으로 구분). kingdomColorOf 참고.
 
 const TIER_RADIUS: Record<OutpostTier, number> = {
   1: 38,
@@ -47,14 +51,13 @@ const TIER_RADIUS: Record<OutpostTier, number> = {
   4: 110,
 };
 
+// 상시 라벨 = 왕국(tier4)만. tier3 이하는 hover/선택 시에만(개요 라벨 밀도↓, Codex 가독성 권고).
 const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
   1: false,
   2: false,
-  3: true,
+  3: false,
   4: true,
 };
-
-const KINGDOM_FILL = "#b04535";
 
 // 거점 종류별 플랫 아이콘 — 마커 타일 위에 흰색 글리프로. 왕국(tier4)은 종류 무관 Crown.
 const TYPE_ICON: Record<OutpostType, typeof House> = {
@@ -70,12 +73,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   fort: "요새",
   village: "마을",
 };
-const TIER_LABEL: Record<OutpostTier, string> = {
-  1: "마을",
-  2: "거점",
-  3: "도시",
-  4: "왕국",
-};
 
 // 줌 한계 — viewBox 너비. 작을수록 확대. 0.15 * world = 약 6.6배 확대 max.
 const MIN_VB_W = MAP_BOUNDS.width * 0.15;
@@ -84,9 +81,19 @@ const MAX_VB_W = MAP_BOUNDS.width * 1.0;
 // id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
 
-// 바이옴 권역 — 각 거점을 가장 가까운 바이옴 중심에 배정해 점선 영역 박스로 묶는다.
+// 범례용 왕국 색 목록 — 채움색이 어느 왕국인지 한눈에. 이름은 " 왕국" 접미사 떼어 간결히.
+const KINGDOM_LEGEND: { id: string; name: string; color: string }[] =
+  Object.entries(KINGDOM_COLORS).map(([id, color]) => ({
+    id,
+    color,
+    name: (OUTPOST_BY_ID.get(id)?.name ?? id).replace(/\s*왕국$/, ""),
+  }));
+
+// 바이옴 권역 — 5 왕국 영역(점선 박스) + 중앙 분쟁지대(박스 없음).
 // 중심 좌표는 outposts.ts 상단 주석의 5 왕국 + 중앙 평원. 중립 거점은 어느 세력 영역도
 // 아니라 박스에서 제외(맵 가장자리라 박스를 늘려 지저분해지는 것도 방지).
+// 배정 규칙(2026-06-08): 중앙에서 CONFLICT_RADIUS 안의 땅만 무소속 분쟁지대로 남고, 그 밖의
+// 모든 땅은 최근접 왕국 영역에 소속된다(종전엔 중앙이 먼 땅까지 빨아들였음 — 예: 서리 관문).
 const BIOME_REGIONS = [
   { label: "북부 빙원", center: { x: 1800, y: 1000 } },
   { label: "동부 삼림", center: { x: 6500, y: 800 } },
@@ -100,6 +107,14 @@ const BIOME_REGIONS = [
 // 점선 박스를 생략한다(거점 배정에는 계속 쓰여 주변 영역이 가운데로 늘어나는 것도 막음).
 const NO_BOX_LABELS = new Set<string>(["중앙 분쟁지대"]);
 
+// 중앙 분쟁지대 핵심 반경 — 중심에서 이 거리(맵 좌표) 안의 땅만 무소속 분쟁지대로 남고,
+// 그 밖은 전부 최근접 왕국 소속. 키우면 분쟁지대가 넓어지고 줄이면 왕국령이 넓어진다.
+const CONFLICT_LABEL = "중앙 분쟁지대";
+const CONFLICT_RADIUS = 800;
+const CONFLICT_CENTER = BIOME_REGIONS.find((r) => r.label === CONFLICT_LABEL)!
+  .center;
+const KINGDOM_REGIONS = BIOME_REGIONS.filter((r) => r.label !== CONFLICT_LABEL);
+
 type RegionBox = { label: string; x: number; y: number; w: number; h: number };
 
 const REGION_BOXES: RegionBox[] = (() => {
@@ -109,15 +124,23 @@ const REGION_BOXES: RegionBox[] = (() => {
   >();
   for (const o of OUTPOSTS) {
     if (o.neutral) continue;
-    let bestLabel: string = BIOME_REGIONS[0].label;
-    let bestD = Infinity;
-    for (const reg of BIOME_REGIONS) {
-      const dx = o.position.x - reg.center.x;
-      const dy = o.position.y - reg.center.y;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) {
-        bestD = d;
-        bestLabel = reg.label;
+    // 중앙 핵심 반경 안이면 분쟁지대(무소속), 아니면 최근접 왕국 영역에 배정.
+    const cdx = o.position.x - CONFLICT_CENTER.x;
+    const cdy = o.position.y - CONFLICT_CENTER.y;
+    let bestLabel: string;
+    if (cdx * cdx + cdy * cdy <= CONFLICT_RADIUS * CONFLICT_RADIUS) {
+      bestLabel = CONFLICT_LABEL;
+    } else {
+      bestLabel = KINGDOM_REGIONS[0].label;
+      let bestD = Infinity;
+      for (const reg of KINGDOM_REGIONS) {
+        const dx = o.position.x - reg.center.x;
+        const dy = o.position.y - reg.center.y;
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          bestLabel = reg.label;
+        }
       }
     }
     const cur = acc.get(bestLabel);
@@ -151,6 +174,10 @@ type OccupationLite = {
   outpostId: string;
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
+  occupiedByGuildName: string | null;
+  // 성벽 — 재생 반영 현재값(occupations GET). 최대 미만이면 교전 중 표시.
+  fortHp?: number;
+  fortMaxHp?: number;
 };
 
 type Vb = { x: number; y: number; w: number; h: number };
@@ -158,27 +185,53 @@ type Vb = { x: number; y: number; w: number; h: number };
 export function ContinentMap({
   onOutpostEnter,
   onTravelTo,
+  onWarp,
   occupations,
+  treasuries,
   viewerUserId,
+  viewerGuildId,
   currentOutpostId,
   discoveredIds,
+  visibleIds,
+  warMode,
+  onAttack,
+  attackBusy,
 }: {
   // 현재 거점 자신 재진입(둘러보기)용 — 이동 없이 그 거점 화면을 연다.
   onOutpostEnter?: (o: Outpost) => void;
   // 이동(1홉 진입 또는 다중 홉 자동 이동)용 — 경로를 따라 한 칸씩 진입한다.
   onTravelTo?: (o: Outpost) => void;
+  // 워프 — 발견한 비인접 거점으로 즉시 이동한다. 일반 항법 지도에서만 노출한다.
+  onWarp?: (o: Outpost) => void;
   occupations?: OccupationLite[];
+  // 금고 쌓인 거점 — 팝업에 "금고 N G" 표시(점령 유인).
+  treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
   // 플레이어의 현재 거점 — 인접 거점만 진입 가능하게 게이트 + 닿는 길 강조 + 마커 표식.
   currentOutpostId?: string | null;
   // 발견(안개) — 공개된 거점 id 집합. 미공개는 흐리게+비활성, 이동 목적지에서 제외.
   // 미지정이면 전부 공개로 취급(예: 순수 시각 프리뷰 페이지).
   discoveredIds?: ReadonlySet<string>;
+  // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 권역 박스는 숨김, 초기 프레이밍은
+  // 집합의 bounding box 로. 전쟁 탭의 "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
+  visibleIds?: ReadonlySet<string>;
+  // 전쟁 모드 — 팝업 액션이 이동/둘러보기 대신 "공격"(인접 1칸·공격 가능 거점만).
+  // 이동 기능은 마을 탭 지도 전용. viewerGuildId 는 아군 거점 판정용.
+  warMode?: boolean;
+  viewerGuildId?: number | null;
+  onAttack?: (o: Outpost) => void;
+  attackBusy?: boolean;
 } = {}) {
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) {
     for (const o of occupations) occByOutpost.set(o.outpostId, o);
   }
+  const treasuryByOutpost = new Map<string, number>();
+  if (treasuries) {
+    for (const t of treasuries) treasuryByOutpost.set(t.outpostId, t.gold);
+  }
+  // 국지 모드 — 미지정이면 전부 보임.
+  const isVisible = (id: string) => !visibleIds || visibleIds.has(id);
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
@@ -207,27 +260,58 @@ export function ContinentMap({
     h: MAP_BOUNDS.height,
   });
 
+  // 전체보기 기준 영역 — 국지 모드(visibleIds)면 보이는 거점들의 bounding box(+여백).
+  const fitBounds = useMemo(() => {
+    if (!visibleIds || visibleIds.size === 0) {
+      return { x: 0, y: 0, w: MAP_BOUNDS.width, h: MAP_BOUNDS.height };
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const id of visibleIds) {
+      const o = OUTPOST_BY_ID.get(id);
+      if (!o) continue;
+      minX = Math.min(minX, o.position.x);
+      minY = Math.min(minY, o.position.y);
+      maxX = Math.max(maxX, o.position.x);
+      maxY = Math.max(maxY, o.position.y);
+    }
+    if (minX > maxX) {
+      return { x: 0, y: 0, w: MAP_BOUNDS.width, h: MAP_BOUNDS.height };
+    }
+    const PAD = 460; // 마커 반경 + 라벨 여백
+    return {
+      x: minX - PAD,
+      y: minY - PAD,
+      w: maxX - minX + PAD * 2,
+      h: maxY - minY + PAD * 2,
+    };
+  }, [visibleIds]);
+
   const fitAll = useCallback(() => {
     const { w: cw, h: ch } = containerSize;
     if (cw === 0 || ch === 0) return;
     const containerRatio = ch / cw;
-    const worldRatio = MAP_BOUNDS.height / MAP_BOUNDS.width;
+    const worldRatio = fitBounds.h / fitBounds.w;
     let vbW: number;
     let vbH: number;
     if (containerRatio >= worldRatio) {
-      vbW = MAP_BOUNDS.width;
+      vbW = fitBounds.w;
       vbH = vbW * containerRatio;
     } else {
-      vbH = MAP_BOUNDS.height;
+      vbH = fitBounds.h;
       vbW = vbH / containerRatio;
     }
+    vbW = Math.max(MIN_VB_W, vbW);
+    vbH = cw > 0 ? vbW * (ch / cw) : vbH;
     setVb({
-      x: MAP_BOUNDS.width / 2 - vbW / 2,
-      y: MAP_BOUNDS.height / 2 - vbH / 2,
+      x: fitBounds.x + fitBounds.w / 2 - vbW / 2,
+      y: fitBounds.y + fitBounds.h / 2 - vbH / 2,
       w: vbW,
       h: vbH,
     });
-  }, [containerSize]);
+  }, [containerSize, fitBounds]);
 
   // 현재 거점을 화면 가운데로 — 적당한 줌(맵 너비의 42%)으로. 지도를 열 때 전체보기 대신
   // "지금 있는 곳"으로 프레이밍한다. 현재 거점이 없으면 전체보기로 폴백.
@@ -255,14 +339,19 @@ export function ContinentMap({
     setVb({ x, y, w: vbW, h: vbH });
   }, [currentOutpostId, containerSize, fitAll]);
 
-  // 지도를 열면 한 번 현재 위치로 프레이밍.
+  // 지도를 열면 한 번 프레이밍 — 국지 모드는 전체(=보이는 집합) 맞춤, 평소엔 현 위치 중심.
   const didFitRef = useRef(false);
   useEffect(() => {
     if (didFitRef.current) return;
     if (containerSize.w === 0 || containerSize.h === 0) return;
-    centerOnCurrent();
+    if (visibleIds) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 초기 지도 프레이밍 1회.
+      fitAll();
+    } else {
+      centerOnCurrent();
+    }
     didFitRef.current = true;
-  }, [containerSize, centerOnCurrent]);
+  }, [containerSize, centerOnCurrent, fitAll, visibleIds]);
 
   const clampVb = useCallback(
     (next: Vb): Vb => {
@@ -442,6 +531,33 @@ export function ContinentMap({
       ? shortestOutpostPath(currentOutpostId, selected.id, discoveredIds)
       : null;
   const routeHops = routePath ? routePath.length - 1 : 0;
+  const isAdjacentSelected =
+    !!selected &&
+    currentOutpostId != null &&
+    areOutpostsAdjacent(currentOutpostId, selected.id);
+  const canWarpSelected =
+    !!selected &&
+    currentOutpostId != null &&
+    isDiscovered(selected.id) &&
+    !isCurrentSelected &&
+    !isAdjacentSelected;
+
+  // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
+  //   미점령은 소속 왕국을 길드명처럼 "○○ 왕국령"으로(NPC 운영 대신). 중립 거점은 배지로 충분해 생략.
+  const selectedOcc = selected ? occByOutpost.get(selected.id) : undefined;
+  const selectedKingdomName = selected ? kingdomNameOf(selected) : undefined;
+  const selectedOwnerLabel =
+    selected && !selected.neutral
+      ? selectedOcc?.occupiedByGuildName
+        ? `${selectedOcc.occupiedByGuildName} 길드 점령`
+        : selectedOcc?.occupiedByUserId
+          ? "솔로 점령자"
+          : CONFLICT_ZONE_IDS.has(selected.id)
+            ? "분쟁지대 · 무소속"
+            : selectedKingdomName
+              ? `${selectedKingdomName}령`
+              : "무소속"
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
@@ -494,8 +610,8 @@ export function ContinentMap({
             fill="url(#v2-grid)"
           />
 
-          {/* 바이옴 권역 — 점선 영역 박스 + 라벨. 격자 위, 연결선/마커 아래. */}
-          {REGION_BOXES.map((b) => (
+          {/* 바이옴 권역 — 점선 영역 박스 + 라벨. 격자 위, 연결선/마커 아래. 국지 모드 숨김. */}
+          {!visibleIds && REGION_BOXES.map((b) => (
             <g key={b.label}>
               <rect
                 x={b.x}
@@ -504,16 +620,16 @@ export function ContinentMap({
                 height={b.h}
                 rx={140}
                 fill="none"
-                className="stroke-zinc-400/70 dark:stroke-zinc-600/70"
-                strokeWidth={6}
+                className="stroke-zinc-400/25 dark:stroke-zinc-600/25"
+                strokeWidth={3}
                 strokeDasharray="44 32"
               />
               <text
                 x={b.x + 48}
                 y={b.y + 96}
                 className="fill-zinc-500 dark:fill-zinc-500"
-                fontSize={72}
-                fontWeight={700}
+                fontSize={52}
+                fontWeight={600}
               >
                 {b.label}
               </text>
@@ -528,6 +644,7 @@ export function ContinentMap({
             if (!oa || !ob) return null;
             // 안개 — 양 끝이 모두 발견된 길만 그린다(미발견 지역의 길은 숨김).
             if (!isDiscovered(a) || !isDiscovered(b)) return null;
+            if (!isVisible(a) || !isVisible(b)) return null;
             return (
               <line
                 key={`edge-${a}-${b}`}
@@ -536,8 +653,8 @@ export function ContinentMap({
                 x2={ob.position.x}
                 y2={ob.position.y}
                 stroke="#9ca3af"
-                strokeOpacity={0.45}
-                strokeWidth={12}
+                strokeOpacity={0.18}
+                strokeWidth={6}
                 strokeLinecap="round"
               />
             );
@@ -550,6 +667,7 @@ export function ContinentMap({
               const ob = OUTPOST_BY_ID.get(b);
               if (!oa || !ob) return null;
               if (!isDiscovered(a) || !isDiscovered(b)) return null;
+              if (!isVisible(a) || !isVisible(b)) return null;
               return (
                 <line
                   key={`edge-cur-${a}-${b}`}
@@ -559,7 +677,7 @@ export function ContinentMap({
                   y2={ob.position.y}
                   stroke="#10b981"
                   strokeOpacity={0.95}
-                  strokeWidth={22}
+                  strokeWidth={16}
                   strokeLinecap="round"
                 />
               );
@@ -582,14 +700,14 @@ export function ContinentMap({
                   y2={ob.position.y}
                   stroke="#f59e0b"
                   strokeOpacity={0.95}
-                  strokeWidth={26}
+                  strokeWidth={18}
                   strokeLinecap="round"
                 />
               );
             })}
 
           {[1, 2, 3, 4].flatMap((tier) =>
-            OUTPOSTS.filter((o) => o.tier === tier).map((o) => {
+            OUTPOSTS.filter((o) => o.tier === tier && isVisible(o.id)).map((o) => {
               const r = TIER_RADIUS[o.tier];
               // 미발견(안개) — 흐린 점만 찍고 비활성(클릭/이름/아이콘 없음). 방문/인접으로
               // 공개되면 아래의 정상 마커로 렌더된다.
@@ -609,7 +727,7 @@ export function ContinentMap({
               const isSelected = selected?.id === o.id;
               const isHover = hover === o.id;
               const isCurrent = o.id === currentOutpostId;
-              const fill = isKingdom ? KINGDOM_FILL : TYPE_COLOR[o.type];
+              // 채움색 = 소속 왕국 고유색(거점 종류는 아이콘으로 구분).
               const showLabel = isSelected || isHover || isCurrent;
               const occ = occByOutpost.get(o.id);
               const isMine =
@@ -620,14 +738,27 @@ export function ContinentMap({
                 !!occ &&
                 occ.occupiedByUserId !== null &&
                 occ.occupiedByUserId !== viewerUserId;
-              const markerFill = isNeutral
-                ? "#f4c842"
-                : isMine
-                  ? "#10b981"
-                  : isHostile
-                    ? "#dc2626"
-                    : fill;
-              const markerStroke = showLabel ? "#fff1a8" : "#ffffff";
+              // 교전 중 — 성벽이 깎인 점령 거점(공성 진행). 펄스 링으로 전황 노출.
+              const isUnderSiege =
+                !!occ &&
+                occ.occupiedByUserId !== null &&
+                occ.fortHp != null &&
+                occ.fortMaxHp != null &&
+                occ.fortHp < occ.fortMaxHp;
+              // 채움 = 분쟁지대(중앙 2홉 이내)면 무소속 색, 아니면 소속 왕국색.
+              const markerFill = CONFLICT_ZONE_IDS.has(o.id)
+                ? OUTPOST_CONFLICT_COLOR
+                : kingdomColorOf(o);
+              // 소유(내 길드/적/중립)는 테두리 링으로 표시 — 채움(왕국/분쟁색)과 독립.
+              const ownerStroke = isMine
+                ? "#10b981" // 내 길드 — 초록 링
+                : isHostile
+                  ? "#dc2626" // 적 길드 — 빨강 링
+                  : isNeutral
+                    ? "#f4c842" // 중립(자유도시) — 금색 링
+                    : "#ffffff"; // NPC(미점령) — 기본 흰 테두리
+              const hasOwnerRing = isMine || isHostile || isNeutral;
+              const markerStroke = ownerStroke;
               // 타일 반변 — hover/선택/현재일 때 살짝 키워 강조.
               const half = showLabel ? r * 1.2 : r;
               const Glyph = isKingdom ? Crown : TYPE_ICON[o.type];
@@ -655,7 +786,27 @@ export function ContinentMap({
                       strokeDasharray="40 28"
                     />
                   )}
-                  {/* 색 타일 + 흰색 아이콘 (플랫 마커). 색 = 점령 상태(내것/적/중립) 또는 종류. */}
+                  {/* 교전 중 — 성벽 깎인 거점에 붉은 펄스 링 (SMIL — JS 타이머 불요). */}
+                  {isUnderSiege && (
+                    <rect
+                      x={o.position.x - half - 16}
+                      y={o.position.y - half - 16}
+                      width={(half + 16) * 2}
+                      height={(half + 16) * 2}
+                      rx={(half + 16) * 0.42}
+                      fill="none"
+                      stroke="#dc2626"
+                      strokeWidth={14}
+                    >
+                      <animate
+                        attributeName="opacity"
+                        values="1;0.15;1"
+                        dur="1.6s"
+                        repeatCount="indefinite"
+                      />
+                    </rect>
+                  )}
+                  {/* 색 타일 + 흰색 아이콘 (플랫 마커). 채움 = 소속 왕국색, 테두리 = 소유(내것/적/중립). */}
                   <rect
                     x={o.position.x - half}
                     y={o.position.y - half}
@@ -664,7 +815,7 @@ export function ContinentMap({
                     rx={half * 0.42}
                     fill={markerFill}
                     stroke={markerStroke}
-                    strokeWidth={showLabel ? 14 : 9}
+                    strokeWidth={showLabel ? 16 : hasOwnerRing ? 13 : 9}
                   />
                   <Glyph
                     x={o.position.x - half * 0.62}
@@ -673,6 +824,7 @@ export function ContinentMap({
                     height={half * 1.24}
                     color="#ffffff"
                     weight="fill"
+                    opacity={showLabel ? 1 : 0.7}
                   />
                   {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
                     <text
@@ -684,7 +836,7 @@ export function ContinentMap({
                       fill="#fff"
                       paintOrder="stroke"
                       stroke="#000"
-                      strokeWidth={12}
+                      strokeWidth={8}
                     >
                       {o.name}
                     </text>
@@ -767,17 +919,53 @@ export function ContinentMap({
                 </span>
               </div>
               <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
+              {/* 채움색 = 소속 왕국 */}
+              <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                채움색 · 소속 왕국
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {KINGDOM_LEGEND.map((k) => (
+                  <span key={k.id} className="flex items-center gap-1">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-sm"
+                      style={{ background: k.color }}
+                    />
+                    {k.name}
+                  </span>
+                ))}
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ background: OUTPOST_CONFLICT_COLOR }}
+                  />
+                  분쟁지대
+                </span>
+              </div>
+              <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
+              {/* 테두리 = 소유 */}
+              <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                테두리 · 소유
+              </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: "#10b981" }} />
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm border-2"
+                    style={{ borderColor: "#10b981" }}
+                  />
                   내 거점
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: "#dc2626" }} />
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm border-2"
+                    style={{ borderColor: "#dc2626" }}
+                  />
                   적 점령
                 </span>
                 <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: "#f4c842" }} />
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm border-2"
+                    style={{ borderColor: "#f4c842" }}
+                  />
                   중립
                 </span>
                 <span className="flex items-center gap-1">
@@ -804,7 +992,7 @@ export function ContinentMap({
                     {selected.name}
                   </span>
                   <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                    {TIER_LABEL[selected.tier]} · {TYPE_LABEL[selected.type]}
+                    {TYPE_LABEL[selected.type]}
                   </span>
                   {selected.neutral && (
                     <span className="shrink-0 rounded bg-yellow-400 px-1.5 py-0.5 text-[10px] text-yellow-900">
@@ -812,31 +1000,93 @@ export function ContinentMap({
                     </span>
                   )}
                 </div>
+                {selectedOwnerLabel && (
+                  <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                    {selectedOwnerLabel}
+                  </div>
+                )}
+                {(treasuryByOutpost.get(selected.id) ?? 0) > 0 && (
+                  <div className="mt-0.5 truncate text-xs font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+                    금고 {treasuryByOutpost.get(selected.id)!.toLocaleString()}{" "}
+                    G — 점령 시 획득
+                  </div>
+                )}
               </div>
-              {isCurrentSelected
-                ? onOutpostEnter && (
-                    <button
-                      type="button"
-                      onClick={() => onOutpostEnter(selected)}
-                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                    >
-                      둘러보기
-                    </button>
-                  )
-                : onTravelTo &&
-                  (routePath ? (
-                    <button
-                      type="button"
-                      onClick={() => onTravelTo(selected)}
-                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                    >
-                      {routeHops <= 1 ? "이동" : `이동 (${routeHops}홉)`}
-                    </button>
-                  ) : (
-                    <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
-                      길이 닿지 않는다
-                    </span>
-                  ))}
+              {warMode ? (
+                // 전쟁 모드 — 공격만. 현재 거점/인접 1칸의 공격 가능 거점에 버튼,
+                // 그 외엔 사유 텍스트. 이동은 마을 지도 전용이라 없음.
+                (() => {
+                  const occ = occByOutpost.get(selected.id);
+                  const inRange =
+                    isCurrentSelected ||
+                    (currentOutpostId != null &&
+                      areOutpostsAdjacent(currentOutpostId, selected.id));
+                  const blockReason = selected.neutral
+                    ? "중립 거점 (점령 불가)"
+                    : occ?.occupiedByGuildId != null &&
+                        occ.occupiedByGuildId === viewerGuildId
+                      ? "아군 거점"
+                      : !inRange
+                        ? "인접 거점에서만 공격 가능"
+                        : null;
+                  if (blockReason) {
+                    return (
+                      <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                        {blockReason}
+                      </span>
+                    );
+                  }
+                  return (
+                    onAttack && (
+                      <button
+                        type="button"
+                        onClick={() => onAttack(selected)}
+                        disabled={attackBusy}
+                        className="shrink-0 rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                      >
+                        {attackBusy
+                          ? "교전 중…"
+                          : occ?.occupiedByUserId
+                            ? "공성"
+                            : "점령"}
+                      </button>
+                    )
+                  );
+                })()
+              ) : isCurrentSelected ? (
+                onOutpostEnter && (
+                  <button
+                    type="button"
+                    onClick={() => onOutpostEnter(selected)}
+                    className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    둘러보기
+                  </button>
+                )
+              ) : canWarpSelected && onWarp ? (
+                <button
+                  type="button"
+                  onClick={() => onWarp(selected)}
+                  className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                >
+                  워프
+                </button>
+              ) : (
+                onTravelTo &&
+                (routePath ? (
+                  <button
+                    type="button"
+                    onClick={() => onTravelTo(selected)}
+                    className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    {routeHops <= 1 ? "이동" : `이동 (${routeHops}홉)`}
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
+                    길이 닿지 않는다
+                  </span>
+                ))
+              )}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

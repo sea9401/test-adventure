@@ -2,32 +2,43 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  V2_CLASS_DEFS,
   parseV2Class,
-  nextTierClassOf,
+  nextAdvanceTier,
+  tierCodexMin,
   elementalSkillsForClass,
   tier1ClassOf,
-  type V2Class,
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
   setGrown,
   setGroupTier,
+  flattenGroupTiers,
   emptyProficiency,
-  groupCumLevel,
-  advanceCumLevelReq,
-  V2_ADVANCE_MIN_LEVEL,
+  effectiveLevelCap,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
   emptyV2SkillsState,
   parseV2SkillsState,
-  v2SkillSlotsForLevel,
 } from "@/adventure/data/v2/v2Skills";
+import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
 import {
   codexRequirement,
   countDiscoveredMaterials,
 } from "@/adventure/data/v2/codex";
+import {
+  V2_CORE_LOOP_V2,
+  V2_LEVEL_CAP,
+  calcSpBudget,
+} from "@/adventure/data/v2/coreLoopConfig";
+import {
+  V2_JOB_CATALOG,
+  isJobUnlocked,
+  CATALOG_USES_QUEST_CONDITION,
+  LEGACY_CLASS_SPEC_BY_JOB,
+  type JobUnlockContext,
+} from "@/adventure/data/v2/v2JobCatalog";
+import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 
 // POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직군 누적 레벨(cumLevel)
 // 임계(t2=55·t3=110·t4=170) + 최소 Lv50 + (3·4차) 모험의 서 — 골드 X(docs §7, PR-6).
@@ -45,10 +56,22 @@ type CharSaveShape = {
   [k: string]: unknown;
 };
 
-export async function POST() {
+export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  // 코어루프 재전직은 타겟 body(targetJobId)를 받는다. 코어루프 off(기존 차수 전직)은 body 무시.
+  let reqBody: {
+    targetJobId?: unknown;
+  } = {};
+  if (V2_CORE_LOOP_V2) {
+    try {
+      reqBody = (await req.json()) as typeof reqBody;
+    } catch {
+      reqBody = {};
+    }
   }
 
   const result = await db.transaction(async (tx) => {
@@ -77,99 +100,176 @@ export async function POST() {
       charSave,
     );
 
-    const curClass = parseV2Class(charSave.class);
+    // === 코어루프 재전직 (flag on) — 차수 폐지. Lv50 도달 후 스탯게이트 해금된 직군/계파로
+    //     갈아타고 레벨1·exp0·grown 리셋, cumLevel/points/caps 보존. 기존 차수 전직 대체. ===
+    if (V2_CORE_LOOP_V2) {
+      const lvl = Math.max(1, charSave.level ?? 1);
+      if (lvl < V2_LEVEL_CAP) {
+        return {
+          status: 400,
+          body: {
+            ok: false as const,
+            error: "level_too_low" as const,
+            required: V2_LEVEL_CAP,
+            have: lvl,
+          },
+        };
+      }
+      // 타겟 직업 = 단일 targetJobId + 카탈로그 cumLevel 게이트(isJobUnlocked). 세이브/스킬
+      //   체인은 브리지 LEGACY_CLASS_SPEC_BY_JOB 로 옛 class+spec 모델로 변환(저장 호환, 영구).
+      const targetJobId =
+        typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
+      const jobDef = V2_JOB_CATALOG[targetJobId];
+      // 모험가(tier 0)로는 전직 불가 → bad_target.
+      if (!jobDef || jobDef.tier === 0) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "bad_target" as const },
+        };
+      }
+      // 해금 게이트 = cumLevel prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
+      //   prereqs 비어 통과(위 Lv50 이 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
+      const jobCtx: JobUnlockContext | undefined = CATALOG_USES_QUEST_CONDITION
+        ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
+        : undefined;
+      if (!isJobUnlocked(jobDef, prof, jobCtx)) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "job_locked" as const },
+        };
+      }
+      const legacy = LEGACY_CLASS_SPEC_BY_JOB[targetJobId];
+      const targetClass = parseV2Class(legacy?.class ?? targetJobId);
+      const targetSpec: string | null = legacy?.spec ?? null;
 
-    // 전직 가능한 다음 차수 직업 (none 이거나 이미 정점(4차)이면 불가).
-    const nextClass: V2Class | null = nextTierClassOf(curClass);
-    if (!nextClass) {
+      // 재전직 — class/spec 갈아끼우고 레벨1·exp0·grown 리셋(스탯은 floor 부터 재성장).
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        class: targetClass,
+        specChoice: targetSpec,
+        level: 1,
+        exp: 0,
+      });
+      // equipped 재조정 — 새 직업/계파 체인. 차수 폐지라 계파 스킬 전부 해금(tier 4).
+      const chainList = elementalSkillsForClass(targetClass, targetSpec, 4);
+      // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
+      //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
+      const nextProf = flattenGroupTiers(
+        setGrown(prof, {}),
+        tier1ClassOf(targetClass),
+      );
+      // 코어루프 — 환생: 모아둔 로드아웃 보존 + 옛 직업 시그니처만 빠지고(새 체인 밖) SP 예산까지
+      //   sanitize. 강제 재산출(새 체인 전부) 아님 → 타직업 공용/기본기(오픈믹스 수집분) 유지.
+      //   예산은 환생 직후 tier 1 정규화 기준(정복 보너스 빠짐).
+      await upsertSave(tx, userId, "skills.v2", {
+        ...skills,
+        equipped: sanitizeLoadout(
+          skills.equipped,
+          skills.learned,
+          calcSpBudget(nextProf.groups),
+          chainList,
+        ),
+      });
+      await upsertSave(tx, userId, "proficiency.v2", nextProf);
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          class: targetClass,
+          spec: targetSpec,
+          reincarnated: true as const,
+        },
+      };
+    }
+
+    const curClass = parseV2Class(charSave.class);
+    if (curClass === "none") {
       return {
         status: 400,
         body: { ok: false as const, error: "no_advance" as const },
       };
     }
-    const group = tier1ClassOf(nextClass);
+    // P4 — 전직 = 그 직군 차수(proficiency.tier) +1. 4직군에선 class 자체가 그룹.
+    // 환생(§3.1·design A) — 4차 정점에서 진행하면 차수→1 리셋(종환생), cumLevel/points/caps 보존.
+    const group = tier1ClassOf(curClass);
+    const curTier = prof.groups[group]?.tier ?? 1;
 
-    // 게이트 0 — 최소 레벨(전직마다 레벨 1 리셋이라 매 차수 사이 50까지 키워야 승급).
+    // 게이트 — 현 차수 레벨 캡 도달(전직·환생 공통). 캡까지 올려야 진행.
+    // 옛 cumLevel 게이트(55/110/170)는 레벨캡과 충돌(1차 캡 50 < 게이트 55 = 소프트락)이라 폐지.
     const level = Math.max(1, charSave.level ?? 1);
-    if (level < V2_ADVANCE_MIN_LEVEL) {
+    const reqLevel = effectiveLevelCap(curTier);
+    if (level < reqLevel) {
       return {
         status: 400,
         body: {
           ok: false as const,
           error: "level_too_low" as const,
-          required: V2_ADVANCE_MIN_LEVEL,
+          required: reqLevel,
           have: level,
         },
       };
     }
 
-    // 게이트 1 — 직군 누적 레벨(cumLevel) 임계. earned→cumLevel 전환(2026-06). 골드 없음(docs §7).
-    const reqCumLevel = advanceCumLevelReq(V2_CLASS_DEFS[nextClass].tier);
-    const haveCumLevel = groupCumLevel(prof, group);
-    if (haveCumLevel < reqCumLevel) {
-      return {
-        status: 400,
-        body: {
-          ok: false as const,
-          error: "insufficient_cum_level" as const,
-          required: reqCumLevel,
-          have: haveCumLevel,
-        },
-      };
-    }
-    // 게이트 2 — 3·4차 모험의 서: 재료 도감 등재 종 수가 요건 미만이면 차단.
-    const codexReq = codexRequirement(V2_CLASS_DEFS[nextClass].advanceCodexMin);
-    if (codexReq > 0) {
-      const discovered = countDiscoveredMaterials(charSave.materials);
-      if (discovered < codexReq) {
-        return {
-          status: 400,
-          body: {
-            ok: false as const,
-            error: "codex_incomplete" as const,
-            required: codexReq,
-            have: discovered,
-          },
-        };
+    // 4차 정점 = 환생(차수→1, cumLevel 보존). 그 외 = 다음 차수 전직.
+    const isReincarnate = curTier >= 4;
+    const nextTier = isReincarnate ? 1 : (nextAdvanceTier(curTier) ?? 1);
+
+    // 게이트 2 — 모험의 서(3·4차 승급만). 환생(→1차)은 면제(이미 등재 보유).
+    if (!isReincarnate) {
+      const codexReq = codexRequirement(tierCodexMin(nextTier));
+      if (codexReq > 0) {
+        const discovered = countDiscoveredMaterials(charSave.materials);
+        if (discovered < codexReq) {
+          return {
+            status: 400,
+            body: {
+              ok: false as const,
+              error: "codex_incomplete" as const,
+              required: codexReq,
+              have: discovered,
+            },
+          };
+        }
       }
     }
 
     // PR-prof — 전직 시 레벨 1 리셋 + 랜덤 성장(grown) 리셋. 스탯은 floor(숙련도 누적)부터
     // 다시 키운다(prestige 루프, docs §2·§5). exp 도 0. 골드 변동 없음(PR-6).
+    // P4 — class 는 불변(차수는 proficiency 에). 레벨/exp 만 리셋.
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      class: nextClass,
+      class: curClass,
       level: 1,
       exp: 0,
     });
 
     // 스킬은 학습+수동장착(자동부여·자동장착 폐지). 전직은 learned 불변, equipped 는 PRUNE 만
-    // — 장착 가능 = 직업군 속성 풀(시그니처는 패시브라 비장착). 새 그룹 풀 밖/미학습 제거 +
-    // 레벨1 리셋이라 슬롯(3)으로 절단. 시그니처 패시브는 learn-skill 학습만으로 자동 적용.
-    const chain = new Set<string>(elementalSkillsForClass(nextClass));
-    const learnedSet = new Set<string>(skills.learned);
-    const slots = v2SkillSlotsForLevel(1);
+    // — 장착 가능 = 공용 + 선택 전문화의 차수 해금분(차수당 1개). 풀 밖/미학습 제거 +
+    // equipped = 학습한 스킬 중 새 체인 유효분 전부(장착 슬롯 폐지·상한 없음). 차수는 전직 후
+    // 값(nextTier) — 환생(→1차)이면 전문화 스킬이 다시 잠겨 빠지고, 재등반하며 자동 복원.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const chain = new Set<string>(
+      elementalSkillsForClass(curClass, specChoice, nextTier),
+    );
     await upsertSave(tx, userId, "skills.v2", {
       ...skills,
-      equipped: skills.equipped
-        .filter((s) => learnedSet.has(s) && chain.has(s))
-        .slice(0, slots),
+      equipped: skills.learned.filter((s) => chain.has(s)),
     });
 
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
     // points/cumLevel/caps 는 보존(전직해도 잔액·누적레벨·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
-    const nextProf = setGroupTier(
-      setGrown(prof, {}),
-      group,
-      V2_CLASS_DEFS[nextClass].tier,
-    );
+    const nextProf = setGroupTier(setGrown(prof, {}), group, nextTier);
     await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
     return {
       status: 200,
       body: {
         ok: true as const,
-        class: nextClass,
+        class: curClass,
+        tier: nextTier,
+        reincarnated: isReincarnate,
       },
     };
   });

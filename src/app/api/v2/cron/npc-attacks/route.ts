@@ -2,11 +2,21 @@ import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { outpostClaimAttempts, outpostOccupations } from "@/db/schema";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattle } from "@/adventure/battle/engine";
-import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
+import {
+  insertFeedEntry,
+  resolveUserDisplayName,
+} from "@/lib/server/serverFeed";
+import {
+  toReplayPayload,
+  type StoredReplayEnvelope,
+} from "@/adventure/data/v2/replayPayload";
+import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
+import { insertNotification } from "@/lib/server/v2Notifications";
 // PR-7b: 병사 시스템 폐기 — applySoldierBoost / readGuildResources soldiers 보정 제거.
 // 점령자 영웅 단신으로 NPC 챔피언과 단판.
 
@@ -60,6 +70,7 @@ export async function POST(req: Request) {
     }
 
     try {
+      let lostOwnerId: string | null = null; // 점령 풀림 — tx 커밋 후 피드 발화용.
       await db.transaction(async (tx) => {
         // tx 안에서 다시 lock (다른 cron / claim 과 race 방지).
         const lockedOcc = (
@@ -110,6 +121,11 @@ export async function POST(req: Request) {
         );
 
         // 로그 — NPC 공격이라 attackerUserId=null. 수비자(점령자)는 defenderUserId.
+        // 리플레이 봉투 — 이 전투의 "player" 사이드 = 점령자(수비) 시점.
+        // 닉네임 해석은 표시용 스냅샷 (실패해도 전투 처리엔 영향 없게 폴백).
+        const ownerLabel = await resolveUserDisplayName(ownerId).catch(
+          () => "점령자",
+        );
         await tx.insert(outpostClaimAttempts).values({
           outpostId: outpost.id,
           attackerUserId: null,
@@ -119,6 +135,10 @@ export async function POST(req: Request) {
           // NPC 공격에서 won 의미 = 점령자(=수비) 승리 여부.
           won: battle.outcome === "win",
           turns: battle.turns,
+          replay: {
+            payload: toReplayPayload(battle.finalState, 200),
+            playerName: ownerLabel,
+          } satisfies StoredReplayEnvelope,
         });
 
         if (battle.outcome === "win") {
@@ -136,9 +156,25 @@ export async function POST(req: Request) {
             .delete(outpostOccupations)
             .where(eq(outpostOccupations.outpostId, outpost.id));
           summary.lost += 1;
+          lostOwnerId = ownerId;
         }
         summary.evaluated += 1;
       });
+      // 리플레이 보존 trim — tx 커밋 후 부수효과(실패 삼킴).
+      await trimAttackReplays(outpost.id);
+      // 전쟁 피드 — 점령 풀림은 공적 사건(force). tx 커밋 후 부수효과, actor = 잃은 점령자.
+      if (lostOwnerId) {
+        await insertFeedEntry(
+          lostOwnerId,
+          "outpost_capture",
+          { outpostId: outpost.id, lostToNpc: true }
+        );
+        // 개인 알림 — 잃은 점령자에게 즉시(디바운스 없음).
+        await insertNotification(lostOwnerId, "outpost_lost", {
+          outpostId: outpost.id,
+          byNpc: true,
+        });
+      }
     } catch (e) {
       console.error("[npc-attacks] outpost error", occ.outpostId, e);
       summary.skipped += 1;

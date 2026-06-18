@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
+import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
+  V2_STAT_DESCRIPTIONS,
   type V2StatKey,
 } from "@/adventure/data/v2/v2StatKeys";
 import type {
@@ -67,6 +70,7 @@ type StateResponse = {
       points?: number;
       cultivations?: number;
     };
+    groups?: Record<string, { tier?: number }>;
   };
 };
 
@@ -78,8 +82,12 @@ type EquipmentResponse = {
 
 export function V2CharacterScreen({
   onBack,
+  // 다른 모험가 공개 보기 — 닉네임. 있으면 /api/v2/player/[name] 에서 공개 정보만 받고
+  // 골드/EXP 등 사적 값은 숨긴다. 없으면 본인 /me 정보(기존 동작).
+  playerName,
 }: {
   onBack?: () => void;
+  playerName?: string;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   const [equipment, setEquipment] = useState<EquipmentResponse | null>(null);
@@ -88,6 +96,24 @@ export function V2CharacterScreen({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
+      if (playerName) {
+        // 공개 보기 — 단일 응답에 state 필드 + equipment 동봉.
+        const res = (await fetch(
+          `/api/v2/player/${encodeURIComponent(playerName)}`,
+        ).then((r) => (r.ok ? r.json() : null))) as
+          | (StateResponse & { equipment?: EquipmentResponse })
+          | null;
+        if (res?.ok) {
+          setState(res);
+          setEquipment(
+            res.equipment ? { ok: true, ...res.equipment } : null,
+          );
+        } else {
+          setState({ ok: false });
+          setEquipment(null);
+        }
+        return;
+      }
       const [stateRes, equipRes] = await Promise.all([
         fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/equipment").then((r) => (r.ok ? r.json() : null)),
@@ -99,7 +125,7 @@ export function V2CharacterScreen({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [playerName]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch(refresh 가 setLoading)
@@ -111,22 +137,33 @@ export function V2CharacterScreen({
   const stats = state?.stats;
   const combat = state?.combat;
   const equipped = equipment?.equipped ?? {};
+  const currentGroup = state?.proficiency?.current?.group ?? "none";
+  const currentTier =
+    currentGroup === "none"
+      ? null
+      : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+  const levelCap = currentTier == null ? null : tierLevelCap(currentTier);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         {onBack && (
           <BackButton onClick={onBack} />
         )}
-        <h1 className="mt-1 text-lg font-bold">내 정보</h1>
-      </header>
+        <h1 className="mt-1 text-lg font-bold">
+          {playerName ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
+        </h1>
+      </HeaderPanel>
 
       {character ? (
         <V2CharacterCard
           character={character}
           guild={guild}
+          levelCap={levelCap}
           equipped={equipped}
           owned={equipment?.owned ?? []}
+          // 공개 보기엔 골드 숨김(사적 정보).
+          showGold={!playerName}
         />
       ) : loading ? (
         <Card padding="md">
@@ -160,6 +197,7 @@ export function V2CharacterScreen({
             combat={combat}
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}
+            statDescriptions={V2_STAT_DESCRIPTIONS}
           />
         </Card>
       )}
@@ -167,7 +205,7 @@ export function V2CharacterScreen({
       {character && stats == null && !loading && (
         <Card padding="md">
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            능력치 정보가 아직 만들어지지 않았어요. 사냥을 한 번 시도하면 자동 생성됩니다.
+            아직 능력치 정보가 없어요. 사냥을 한 번 하면 자동으로 만들어집니다.
           </div>
         </Card>
       )}

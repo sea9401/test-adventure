@@ -5,15 +5,22 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
   BookOpen,
+  ChartBar,
+  ChatsCircle,
+  EnvelopeSimple,
   Gear,
+  Megaphone,
   Moon,
   SignOut,
+  Storefront,
   Sun,
   UserMinus,
 } from "@phosphor-icons/react";
 import { signOut } from "next-auth/react";
 
-// v2 상단바 우측 설정 메뉴 — 메뉴얼 + 다크 토글 + 로그아웃/회원탈퇴.
+// v2 상단바 우측 설정 메뉴 — 광장(게시판/랭킹/전체 소식/거래소/우편함) + 메뉴얼 +
+// 다크 토글 + 로그아웃/회원탈퇴. 옛 광장 탭은 모바일에서 탭바 밖으로 밀려 안 보여
+// 이 메뉴로 통째 이관(사용자 결정 2026-06-13) — /plaza/* 라우트는 그대로.
 // 테마 토글 패턴: documentElement.classList + localStorage("theme").
 // 회원 탈퇴 모달은 거의 안 눌리는 보조 UI라 클릭 시점에 동적 로드(ssr:false).
 const DeleteAccountModal = dynamic(
@@ -87,6 +94,31 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
       {open && (
         <div className="absolute right-0 top-full z-30 mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
           <div className="border-b border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+            광장
+          </div>
+          <ul className="py-1">
+            {(
+              [
+                { href: "/plaza/bulletin", label: "게시판", Icon: ChatsCircle },
+                { href: "/plaza/rankings", label: "랭킹", Icon: ChartBar },
+                { href: "/plaza/feed", label: "전체 소식", Icon: Megaphone },
+                { href: "/plaza/market", label: "거래소", Icon: Storefront },
+                { href: "/plaza/inbox", label: "우편함", Icon: EnvelopeSimple },
+              ] as const
+            ).map(({ href, label, Icon }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-zinc-800 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  <Icon size={18} weight="duotone" />
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="border-b border-t border-zinc-200 px-3 py-2 text-xs uppercase tracking-wider text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
             설정
           </div>
           <ul className="py-1">

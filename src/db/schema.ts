@@ -52,6 +52,7 @@ export const users = pgTable(
     lastClaimResult: jsonb("last_claim_result"),
     // 전체 소식(서버 피드)에 내 자랑거리(유실된 명품·걸작 제작)를 흘릴지 여부.
     // 송신자 opt-out — false 면 insertFeedEntry 가 이 유저 이벤트를 건너뛴다. 기본 ON.
+    // ⚠️ inert(2026-06-13) — 옛 "내 소식 공유" opt-out. UI/정책 제거로 미사용, 비파괴 잔존.
     shareFeed: boolean("share_feed").notNull().default(true),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -108,6 +109,9 @@ export const verificationTokens = pgTable(
 // 새 키 추가 시 마이그레이션 없이 행만 추가.
 // version — 낙관적 동시성 제어. 매 write 마다 증가. PATCH 시 클라이언트가 expectedVersion 을
 // 함께 보내고 서버가 일치할 때만 업데이트 (불일치 = 409, 다른 탭/기기에서 쓰기가 있었음).
+// ⚠️ 수동 expression index(0053): saves_kv ((value->'lastHuntedOutpost'->>'outpostId'))
+//   WHERE key='character.v2' AND ... IS NOT NULL — 침입자 추적 JSON path 조회용.
+//   drizzle 스키마로 표현 못 해 custom migration 으로 관리(드랍/변경 시 0053 참조).
 export const savesKv = pgTable(
   "saves_kv",
   {
@@ -140,6 +144,8 @@ export const bulletinPosts = pgTable(
     title: text("title"),
     content: text("content").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    // 작성자 수정 시각 — 미수정 글은 NULL. UI 의 "(수정됨)" 표기 근거.
+    updatedAt: timestamp("updated_at"),
   },
   (t) => [
     index("bulletin_posts_created_at_idx").on(t.createdAt),
@@ -167,6 +173,22 @@ export const bulletinLikes = pgTable(
     primaryKey({ columns: [t.postId, t.userId] }),
     // 카운트/조회 — postId 만으로도 충분, composite PK 의 왼쪽 컬럼이라 별도 인덱스 생략 가능.
   ],
+);
+
+// 게시판 조회 — (postId, userId) composite PK 로 1유저 1조회(고유 조회수).
+// 같은 유저 재방문은 onConflictDoNothing 으로 흡수. 카운트는 매 조회마다 COUNT 집계.
+export const bulletinViews = pgTable(
+  "bulletin_views",
+  {
+    postId: integer("post_id")
+      .notNull()
+      .references(() => bulletinPosts.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.userId] })],
 );
 
 // 게시판 댓글 — name/className 스냅샷, 글 삭제 시 cascade.
@@ -218,7 +240,7 @@ export const messages = pgTable(
 
 // 전체 소식 (서버 피드) — 서버 전체에 흘러가는 "자랑거리" 한 줄 (유실된 명품 획득, 걸작 제작 성공 등).
 // 글로벌 채팅과 분리 — 대화용 vs 전광판용. 모험탭 하단 패널에서 최근 N개만 노출.
-// append-only — insert 시 FEED_MAX_ROWS 초과분을 잘라낸다 (cron 없음).
+// append-only — insert 시 보관기간(FEED_RETENTION_MS=3개월) 지난 행을 잘라낸다 (cron 없음).
 // actorName 은 발생 시점 닉네임 스냅샷 (이후 닉네임이 바뀌어도 과거 항목은 그대로).
 // type: 'unique_drop' | 'masterpiece' (v2 에서 'milestone' 등 추가). payload 는 type 별 형태.
 export const serverFeed = pgTable(
@@ -261,7 +283,7 @@ export const presence = pgTable(
 );
 
 // 거래소 listing — 활성/판매됨/취소됨 모두 보관 (분석/감사용).
-// item_kind: 'equip' | 'material' — 인벤토리 카테고리 매핑.
+// item_kind: 'equip' | 'material' | 'consumable' — 인벤토리 카테고리 매핑.
 // item_name/seller_name 은 등록 시점 스냅샷 (이후 닉네임 변경되어도 표시 안정).
 // price 는 정수 골드 (최대 999,999,999 < 2^31 이라 integer 충분).
 // grade: 'base'|'c-2'|'c-1'|'c1'|'c2'|'d1'|'d2' — equip 만 의미 있음 (다른 kind 는 항상 'base').
@@ -345,6 +367,55 @@ export const marketplaceInbox = pgTable(
     index("inbox_from_user_idx")
       .on(t.fromUserId, t.createdAt)
       .where(sql`${t.fromUserId} IS NOT NULL`),
+  ],
+);
+
+// v2 거래소 listing — V1 marketplaceListings(grade c±N/dN, V1 인벤 모델)와 별개 신규 테이블.
+//   v2 장비는 개체(instance) 모델({iid,id,roll})·재료는 스택(charSave.materials). grade 개념 없음.
+// kind:  'equip'(장비 개체, quantity=1) | 'material'(재료 스택, quantity=N).
+// itemId: V2EquipmentId | V2MaterialId. itemName/sellerName 은 등록 시점 스냅샷.
+// price:  정수 골드 — listing 전체 가격(단가 아님). 성사 시 판매세 차감분만 판매자에 정산(우편).
+// instancePayload: equip 인스턴스 roll 스냅샷(V2EquipRoll, iid 제외) — 구매 시 새 개체로 복원. material=null.
+// status: active→sold|cancelled (활성/종료 모두 보관, 감사).
+// 에스크로: 등록 시 판매자 save 에서 빠져 이 행으로 묶임 → 구매=구매자 save 합류, 취소=판매자 반환.
+export const marketplaceListingsV2 = pgTable(
+  "marketplace_listings_v2",
+  {
+    id: serial("id").primaryKey(),
+    sellerId: text("seller_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sellerName: text("seller_name").notNull(),
+    kind: text("kind").notNull(), // 'equip' | 'material' | 'consumable'(레어맵 등)
+    itemId: text("item_id").notNull(),
+    itemName: text("item_name").notNull(),
+    quantity: integer("quantity").notNull(),
+    price: integer("price").notNull(),
+    instancePayload: jsonb("instance_payload"),
+    status: text("status").notNull().default("active"), // 'active'|'sold'|'cancelled'
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    closedAt: timestamp("closed_at"),
+    buyerId: text("buyer_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+  },
+  (t) => [
+    // 활성 매물 둘러보기(종류·최신순).
+    index("listings_v2_browse_idx")
+      .on(t.kind, t.createdAt)
+      .where(sql`${t.status} = 'active'`),
+    // 내 매물 / 슬롯 카운트.
+    index("listings_v2_seller_idx").on(t.sellerId, t.status, t.createdAt),
+    check(
+      "listings_v2_kind_valid",
+      sql`${t.kind} IN ('equip','material','consumable')`,
+    ),
+    check(
+      "listings_v2_status_valid",
+      sql`${t.status} IN ('active','sold','cancelled','expired')`,
+    ),
+    check("listings_v2_qty_pos", sql`${t.quantity} > 0`),
+    check("listings_v2_price_pos", sql`${t.price} > 0`),
   ],
 );
 
@@ -589,11 +660,20 @@ export const coopBossSessions = pgTable(
     regenPerMin: integer("regen_per_min").notNull().default(0),
     // 마지막으로 lazy regen 이 적용된 시각. 0 인 보스는 NULL 유지. spawn 시 now.
     lastRegenAt: timestamp("last_regen_at"),
+    // v2 협동 보스 — 소환자 표시명 스냅샷(같은 종류 동시 다수 소환 시 인스턴스 구분 라벨).
+    // v1 시간 리젠 보스/기존 행은 NULL.
+    summonedByName: text("summoned_by_name"),
+    // 코어루프 협동보스 리워크 — 소환자 식별(비공개 가시성) + 소환 시점 길드(길드 가시성).
+    // 기존 행/v1 은 NULL(가시성 public 폴백). 공격 권한·목록 필터에 사용.
+    summonerId: text("summoner_id"),
+    summonerGuildId: integer("summoner_guild_id"),
+    // 가시성/공격권한 — 'public'(공개·기본) | 'guild_only'(길드원만) | 'summoner_only'(소환자만).
+    visibility: text("visibility").notNull().default("public"),
   },
   (t) => [
-    // region 당 활성 세션은 1개만 (defeatedAt IS NULL && expiresAt > now 가 활성).
-    // 부분 unique 인덱스로 활성 세션만 제약.
-    uniqueIndex("coop_boss_active_region_idx")
+    // 활성 세션 조회용(kind + defeatedAt IS NULL) — 같은 종류 동시 다수 소환 허용으로
+    // 옛 partial unique(coop_boss_active_region_idx)를 일반 partial index 로 강등(#714).
+    index("coop_boss_active_region_lookup_idx")
       .on(t.regionId)
       .where(sql`${t.defeatedAt} IS NULL`),
     index("coop_boss_next_spawn_idx").on(t.nextSpawnAt),
@@ -779,6 +859,13 @@ export const outpostOccupations = pgTable(
     // 다음 NPC 정기 공격 예정 시각. 점령 시 tier 기반 interval 으로 설정.
     // cron 또는 lazy 평가가 nextAttackAt < now 인 거점들을 처리.
     nextAttackAt: timestamp("next_attack_at").defaultNow().notNull(),
+    // 거점 공성(성벽 HP) — docs/v2-outpost-siege-plan.md. 점령 시도 승리마다 깎이고 0이면 함락.
+    // 성벽은 fortUpdatedAt 기준 lazy 재생. 기존 행은 default 로 풀성벽·보호막 없음(즉시 공성).
+    fortHp: integer("fort_hp").notNull().default(100),
+    fortMaxHp: integer("fort_max_hp").notNull().default(100),
+    fortUpdatedAt: timestamp("fort_updated_at").defaultNow().notNull(),
+    // 함락 직후 재공성 금지 시각. 기본 now() = 기존 점령은 즉시 공성 가능.
+    protectedUntil: timestamp("protected_until").defaultNow().notNull(),
   },
   (t) => [
     // cron 의 due 검색 효율 (WHERE next_attack_at <= now AND occupied_by_user_id IS NOT NULL).
@@ -817,11 +904,46 @@ export const outpostClaimAttempts = pgTable(
     }),
     won: boolean("won").notNull(),
     turns: integer("turns").notNull().default(0),
+    // 전투 리플레이 봉투(StoredReplayEnvelope) — 공격 기록 "다시보기"용. 거점당 최신
+    // N 건만 보존(insert 시 오래된 행 null 트림 — outpostAttackLog.trimAttackReplays).
+    // 3:3 토너먼트 등 1v1 리플레이 없는 시도는 null.
+    replay: jsonb("replay"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => [
     index("outpost_claim_attempts_outpost_idx").on(t.outpostId, t.createdAt),
     index("outpost_claim_attempts_attacker_idx").on(t.attackerUserId, t.createdAt),
+  ],
+);
+
+// v2 전쟁 시즌 점수 원장 (append-only). docs/v2-war-redesign-plan.md PR-2.
+// 쟁탈 거점에서 발생한 전쟁 성과(함락/공성/토벌)를 시즌·길드·거점 단위로 적재한다.
+// 집계(길드/유저 랭킹)는 이 원장에서 read-time 으로 SUM — 별도 집계 테이블은 두지 않는다
+// (소규모 전제, 부하 차오르면 캐시 테이블 분리). 버그 시 시즌 재집계 가능하도록 원장은 불변.
+// 점수 의미가 명확한 전쟁 이벤트만 적재 — NPC 정기공격(claim_attempts.won 의미 상이)은 제외.
+export const warScoreEvents = pgTable(
+  "war_score_events",
+  {
+    id: serial("id").primaryKey(),
+    // ISO 주차 시즌 id (lib/server/war/season.ts — pvp 시즌과 동일 경계).
+    seasonId: text("season_id").notNull(),
+    outpostId: text("outpost_id").notNull(),
+    // 점수 귀속 길드(전쟁 단위). 길드 삭제 시 원장은 남기되 귀속만 끊음.
+    guildId: integer("guild_id").references(() => guilds.id, {
+      onDelete: "set null",
+    }),
+    // 실제 행위자(개인 기여 집계용).
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    // 'capture' | 'siege_win' | 'eject_win'.
+    eventType: text("event_type").notNull(),
+    points: integer("points").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // 시즌 랭킹 집계 (WHERE season_id GROUP BY guild_id) + 시즌별 거점/유저 슬라이스.
+    index("war_score_events_season_guild_idx").on(t.seasonId, t.guildId),
+    index("war_score_events_season_outpost_idx").on(t.seasonId, t.outpostId),
+    index("war_score_events_season_user_idx").on(t.seasonId, t.userId),
   ],
 );
 
@@ -942,3 +1064,26 @@ export const treasureSeasons = pgTable("treasure_seasons", {
   totalCoins: integer("total_coins").notNull().default(0),
 });
 
+
+// v2 전용 알림 — 전쟁(거점 피격/함락/토벌당함) 등 개인 타겟 사건. 우편함(아이템·정산
+// 첨부)과 분리된 "읽고 끝" 채널 — docs/v2-war-visibility-plan.md PR-5. 타입은 범용이라
+// 추후 아레나/길드 가입신청 알림으로 확장 가능. insert 시 유저당 NOTIF_MAX_PER_USER
+// 초과분 trim (serverFeed 관례 미러 — cron 없음).
+export const v2Notifications = pgTable(
+  "v2_notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull(),
+    // null = 미읽음. POST /api/v2/notifications/read 가 일괄로 채운다.
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // 내 알림 최신순 조회 + 미읽음 카운트 둘 다 이 인덱스로.
+    index("v2_notifications_user_idx").on(t.userId, sql`${t.id} DESC`),
+  ],
+);

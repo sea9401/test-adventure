@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠르므로 항상 선공.
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 9999,
   maxHp: 9999,
   atk: 10,
@@ -116,6 +117,7 @@ describe("5티어 — 가시 갑옷", () => {
 describe("5티어 — 풍사슬", () => {
   it("광속 발동 후 풍사슬이 캡(3)까지 체인", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       lightspeedExtraAttackPct: 100,
       galeChainChancePct: 100,
@@ -148,6 +150,7 @@ describe("5티어 — 풍사슬", () => {
 
   it("새 턴 시작 시 galeChainsThisTurn 리셋", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       lightspeedExtraAttackPct: 100,
       galeChainChancePct: 100,

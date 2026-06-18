@@ -51,6 +51,27 @@ body {
   display: none;
 }
 
+/* ── 전쟁 전광판(WarTicker) ───────────────────────────────────────
+   navbar 아래 전역 한 줄 띠 — 클래식 티커: 내용이 오른쪽에서 들어와 왼쪽으로
+   완전히 빠져나가면 1바퀴(padding-left 100% + translateX(-100%) 트릭).
+   바퀴 수는 컴포넌트가 animation-iteration-count 로, 속도는 길이 비례
+   duration 으로 인라인 지정. 지정 바퀴를 다 돌면 animationend 로 띠가 사라진다. */
+
+@keyframes war-ticker-pass {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .war-ticker-pass {
+    animation: none !important;
+  }
+}
+
 /* ── 낚시 미니게임 연출 ───────────────────────────────────────────
    상태 머신·판정·공정성은 그대로 — waiting/biting 상태의 "찌" 그림만 표현한다.
    대기: 잔잔히 까닥 + 수면 잔물결·기포.  입질: windup 없이 즉시 날카롭게 빨려들며

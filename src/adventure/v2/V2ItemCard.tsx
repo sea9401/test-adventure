@@ -1,15 +1,49 @@
 "use client";
 
 import { useEffect, type CSSProperties } from "react";
-import { X } from "@phosphor-icons/react";
+import { Lock, LockOpen, X } from "@phosphor-icons/react";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIP_SETS,
+  V2_EQUIPMENT,
+  V2_SLOT_LABEL,
+  powerBandOf,
   v2EquipStatRows,
   type V2Equipment,
+  type V2EquipmentId,
   type V2EquipOptions,
   type V2EquipRoll,
 } from "@/adventure/data/v2/v2Equipment";
+import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
+import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
+
+// 굴림 품질 % → 색. 높을수록 좋은 굴림(emerald)·중간(zinc)·낮음(amber).
+// 인벤 카드 배지와 공유 — V2InventoryView 가 여기서 import(기존 import 방향 유지).
+export function rollPctClass(pct: number): string {
+  if (pct >= 75) return "text-emerald-600 dark:text-emerald-400";
+  if (pct >= 40) return "text-zinc-500 dark:text-zinc-400";
+  return "text-amber-600 dark:text-amber-500";
+}
+
+// 위력 색 구간(powerBandOf, 0…7) → 아이템 이름 색. 등급/유니크 대신 실효(굴림 반영) 위력으로
+// 분류(사용자 결정). 8단계: 회색→에메랄드→약간푸른빛→보라→노랑→자홍→장미→진홍(낮음→높음).
+// 인벤 이름·카드 제목·제작·상점·캐릭터 슬롯 공유. 라이트=진하게(흰 배경 대비)/다크=옅게.
+// 현재 위력대는 0~2(회색/에메랄드/약간푸른빛)까지 도달, 3~7 은 향후 고위력 콘텐츠 여유분
+// (추가 색은 POWER_BAND_COUNT 만 올리면 활성).
+const POWER_BAND_CLASS = [
+  "text-zinc-500 dark:text-zinc-400", // 0 회색 (위력 낮음)
+  "text-emerald-600 dark:text-emerald-400", // 1 에메랄드
+  "text-sky-600 dark:text-sky-400", // 2 약간 푸른빛
+  "text-violet-600 dark:text-violet-400", // 3 보라
+  "text-amber-600 dark:text-amber-400", // 4 노란 계열
+  "text-fuchsia-600 dark:text-fuchsia-400", // 5 자홍
+  "text-rose-600 dark:text-rose-400", // 6 장미
+  "text-red-600 dark:text-red-500", // 7 진홍 — 최상
+] as const;
+export function powerNameClass(item: V2Equipment, roll?: V2EquipRoll): string {
+  return POWER_BAND_CLASS[powerBandOf(item, roll)] ?? POWER_BAND_CLASS[0];
+}
 
 // 세트 보너스(V2EquipOptions) → 표시 문자열. crit/eva = %, mp/hp = flat.
 const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
@@ -17,12 +51,20 @@ const SET_BONUS_LABEL: Record<keyof V2EquipOptions, string> = {
   eva: "회피",
   mp: "MP",
   hp: "HP",
+  critMult: "치명피해",
+  spd: "속도",
+  def: "방어",
+  magicDef: "마법방어",
+  healPowerPct: "회복",
 };
 function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
   return (Object.keys(SET_BONUS_LABEL) as (keyof V2EquipOptions)[])
     .filter((k) => bonus[k])
     .map((k) => {
-      const unit = k === "crit" || k === "eva" ? "%" : "";
+      // critMult 은 백분의 일 정수(30=+0.30×). crit/eva/healPowerPct = %, 그 외 flat.
+      if (k === "critMult")
+        return `${SET_BONUS_LABEL[k]} +${((bonus[k] ?? 0) / 100).toFixed(2)}×`;
+      const unit = k === "crit" || k === "eva" || k === "healPowerPct" ? "%" : "";
       return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
     })
     .join(", ");
@@ -30,7 +72,7 @@ function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
 // 전체화면 모달 아님: 스크림/스크롤락/포커스트랩 없이, 바깥 클릭·Esc 로만 닫힘.
-// 내용은 이름·티어·옵션(스탯)·설명만. 컨셉 태그(힘/민/지 등)는 노출 안 함.
+// 내용은 이름·옵션(스탯 행)·세트·설명만. 티어 숫자·컨셉 태그(힘/민/지 등)는 노출 안 함.
 
 // 클릭한 슬롯의 화면 좌표 — 이 근처에 카드를 띄운다 (DOMRect 의 필요한 값만).
 export type ItemCardAnchor = { top: number; bottom: number; left: number };
@@ -52,20 +94,37 @@ export type ItemCardEquipAction = {
   onUnequip: () => void;
 };
 
+// 인벤토리에서만 주입 — 즐겨찾기 잠금 토글(헤더). 잠금 = 일괄/실수 판매 방지.
+export type ItemCardLockAction = {
+  locked: boolean;
+  busy: boolean;
+  onToggle: () => void;
+};
+
 export function V2ItemCard({
   item,
   anchor,
   onClose,
   roll,
+  enhance,
   equip,
+  lock,
+  equippedIds,
 }: {
   item: V2Equipment;
   anchor: ItemCardAnchor;
   onClose: () => void;
   // 보유템의 개체 굴림(편차). 주면 굴림값 표시, 없으면 카탈로그(상점·제작 미리보기).
   roll?: V2EquipRoll;
+  // 강화 상태 — 주면 제목 +N + 위력 강화 반영(v2EquipStatRows).
+  enhance?: V2EnhanceState;
   // 인벤토리에서만 주입 — 카드 하단에 장착/해제 버튼. 상점·제작·캐릭터 팝오버는 미주입(읽기전용).
   equip?: ItemCardEquipAction;
+  // 인벤토리에서만 주입 — 헤더의 즐겨찾기 잠금 토글.
+  lock?: ItemCardLockAction;
+  // 현재 착용 중인 장비 id 집합 — 세트 발동(전 부위 착용) 판정 + 부위별 착용 하이라이트.
+  //   미지정이면 착용 정보 없음으로 간주(전부 미착용·세트 미발동 표시).
+  equippedIds?: ReadonlySet<V2EquipmentId>;
 }) {
   useEscapeKey(onClose);
 
@@ -80,10 +139,16 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  const options = v2EquipStatRows(item, roll);
+  const options = v2EquipStatRows(item, roll, enhance);
+  const pct = rollQualityPct(item, roll);
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
     : undefined;
+  // 세트 발동 = 세트의 전 조각을 현재 착용 중(서버 aggregateV2Equipment 와 동일 기준).
+  const equippedSetCount = set
+    ? set.pieces.filter((p) => equippedIds?.has(p)).length
+    : 0;
+  const setActive = set != null && equippedSetCount === set.pieces.length;
 
   // 앵커 기준 위치 계산 — 좌측은 뷰포트 안으로 clamp, 화면 하단에 가까우면 위로 띄움.
   const vw = typeof window !== "undefined" ? window.innerWidth : 360;
@@ -107,20 +172,58 @@ export function V2ItemCard({
         className="z-50 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-4 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-baseline gap-1.5">
-            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h2
+              className={`truncate text-sm font-semibold ${powerNameClass(item, roll)}`}
+            >
               {item.name}
+              {enhance && enhance.level > 0 ? (
+                <span className="ml-1 text-amber-500">+{enhance.level}</span>
+              ) : null}
             </h2>
+            <ItemTypeChip item={item} />
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="-mr-1.5 -mt-1 inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-          >
-            <X size={16} weight="bold" />
-          </button>
+          <div className="-mr-1.5 -mt-1 flex shrink-0 items-center">
+            {lock && (
+              <button
+                type="button"
+                onClick={lock.onToggle}
+                disabled={lock.busy}
+                aria-label={lock.locked ? "잠금 해제" : "잠금"}
+                aria-pressed={lock.locked}
+                title={lock.locked ? "잠금됨 — 일괄 판매 보호" : "잠그기"}
+                className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors disabled:opacity-50 ${
+                  lock.locked
+                    ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                    : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                {lock.locked ? (
+                  <Lock size={16} weight="fill" />
+                ) : (
+                  <LockOpen size={16} weight="bold" />
+                )}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="닫기"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <X size={16} weight="bold" />
+            </button>
+          </div>
         </div>
+
+        {pct != null && (
+          <div className="mt-2 flex items-baseline justify-between gap-2 border-b border-zinc-100 pb-1.5 text-xs dark:border-zinc-800">
+            <span className="text-zinc-500 dark:text-zinc-400">품질</span>
+            <span className={`font-semibold tabular-nums ${rollPctClass(pct)}`}>
+              {pct}%
+            </span>
+          </div>
+        )}
 
         <div className="mt-2 space-y-0.5">
           {options.length === 0 ? (
@@ -147,16 +250,69 @@ export function V2ItemCard({
         {set && (
           <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
             <div className="flex items-baseline justify-between gap-2 text-xs">
-              <span className="font-medium text-amber-600 dark:text-amber-400">
+              {/* 세트명·보너스 — 발동(전 부위 착용) 시 amber, 미발동 시 회색으로 상태 인지. */}
+              <span
+                className={`font-medium ${
+                  setActive
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
                 {set.name} ({set.pieces.length}종)
               </span>
-              <span className="tabular-nums text-amber-600 dark:text-amber-400">
+              <span
+                className={`tabular-nums ${
+                  setActive
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
                 {formatSetBonus(set.bonus)}
               </span>
             </div>
-            <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-              세트 조각을 모두 착용하면 적용됩니다.
-            </p>
+            {/* 세트 구성 — 착용 중인 부위는 밝게(흰색) 하이라이트로 몇 부위 모았는지 한눈에. */}
+            <ul className="mt-1 space-y-px">
+              {set.pieces.map((pid) => {
+                const piece = V2_EQUIPMENT[pid];
+                const isWorn = equippedIds?.has(pid) ?? false;
+                return (
+                  <li
+                    key={pid}
+                    className={`flex items-baseline gap-1 text-[11px] ${
+                      isWorn
+                        ? "font-medium text-zinc-800 dark:text-zinc-100"
+                        : "text-zinc-400 dark:text-zinc-500"
+                    }`}
+                  >
+                    <span
+                      className={`shrink-0 ${
+                        isWorn
+                          ? "text-emerald-500"
+                          : "text-zinc-300 dark:text-zinc-600"
+                      }`}
+                    >
+                      {isWorn ? "✓" : "·"}
+                    </span>
+                    <span className="truncate">{piece?.name ?? pid}</span>
+                    {piece && (
+                      <span className="ml-auto shrink-0 text-zinc-400 dark:text-zinc-500">
+                        {V2_SLOT_LABEL[piece.slot]}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {/* 발동 상태 + 진행도(N/M 착용) 텍스트 보강. */}
+            {setActive ? (
+              <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                세트 발동 중 ({set.pieces.length}/{set.pieces.length} 착용)
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                {equippedSetCount}/{set.pieces.length} 착용 중 — 모두 착용하면 발동
+              </p>
+            )}
           </div>
         )}
 

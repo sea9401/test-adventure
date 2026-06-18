@@ -14,10 +14,17 @@
 // 스탯 정체성(힘/민/지…)은 이제 **훈련 분배 + 직업**에서 나온다 — 장비는 스탯 token 을 안 준다.
 //
 // 슬롯 6 + 컨셉(같은 부위 안의 결): 무기 str/dex/int · 갑옷/장갑/신발 heavy/light · 반지 luck · 목걸이 mana.
-// 티어 T1~T5. 3슬롯→6슬롯 확장(2026-06): 총량 중립(갑옷 유지·장갑/신발 소량def, 옛 장신구 분할).
+// 티어 T1~T3. 3슬롯→6슬롯 확장(2026-06): 총량 중립(갑옷 유지·장갑/신발 소량def, 옛 장신구 분할).
 
 import type { V2Element } from "@/adventure/data/v2/elements";
 
+import { V2_EQUIPMENT } from "./v2EquipmentCatalog";
+import {
+  enhancedPower,
+  parseEnhance,
+  type V2EnhanceState,
+} from "./v2Enhance";
+export { V2_EQUIPMENT };
 // 6슬롯(2026-06): 무기 / 갑옷 / 장갑 / 신발 / 반지 / 목걸이.
 //   - 물리 방어선: 갑옷(주) + 장갑(+크리) + 신발(+회피·경량) → 위력=물방.
 //   - 장신구선: 반지(운, +크리) + 목걸이(마법, +MP) → 위력=마방.
@@ -40,7 +47,19 @@ export type V2EquipConcept =
   | "luck"
   | "mana";
 
-export type V2EquipTier = 1 | 2 | 3 | 4 | 5;
+export type V2EquipTier = 1 | 2 | 3;
+
+// 무기 종류(전문화 게이트용) — 직업 전문화 패시브가 "이 타입 착용 시에만" 발동(완전 비활성 폴백).
+// 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
+// docs/v2-job-spec-passives-plan.md §4. 12전문화가 쓰는 8종 — 무기 종류를 의도적으로 줄여 통합
+//   (마법사 전 전문화=지팡이 / 도적=활·단검 / 무도가=권갑·권조). 봉권·성물·마검·독침은 미사용(제거).
+// 무기 종류 — 일반 무기군 4종으로 통합(검방·권갑→대검, 세검·권조→단검). weaponType 8→4.
+//   직업이 늘면 무기군은 나중에 다시 추가 가능. 전문화 게이트(requiredWeaponType)는 현재 휴면.
+export type V2WeaponType =
+  | "greatsword" // 대검 — 중량 근접(검방·권갑 흡수)
+  | "staff" // 지팡이 — 마법
+  | "bow" // 활 — 원거리
+  | "dagger"; // 단검 — 경량/속공 근접(세검·권조 흡수)
 
 // 희귀도 — 생략/"common" = 정규 카탈로그(상점·제작 대상). "unique" = 드랍 전용 유니크:
 // 정규 컨셉×티어 그리드 밖의 사이드그레이드(옵션 프로필로 슬롯 규칙을 깬다). 상점 구매·제작
@@ -51,90 +70,137 @@ export type V2EquipRarity = "common" | "unique";
 export type V2EquipmentId =
   // 무기-힘 (str/atk)
   | "v2_iron_sword"
-  | "v2_steel_sword"
   | "v2_greatsword"
-  | "v2_silver_sword"
   | "v2_mithril_sword"
   // 무기-민 (dex/atk/crit)
   | "v2_wooden_bow"
-  | "v2_recurve_bow"
   | "v2_horn_bow"
-  | "v2_silver_bow"
   | "v2_starsong_bow"
   // 무기-지 (int/atk/mp)
   | "v2_oak_staff"
-  | "v2_runed_staff"
   | "v2_obsidian_staff"
-  | "v2_silver_staff"
   | "v2_starlit_staff"
+  // 전문화 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
+  | "v2_starter_staff"
+  | "v2_starter_bow"
+  | "v2_starter_dagger"
+  // 전문화 무기 정규 라인 (드랍 T2/T3, T1=전직 지급 스타터) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
+  | "v2_assassin_dagger"
+  | "v2_toxic_dagger"
   // 방어-중갑 (vit/def)
   | "v2_chain_mail"
-  | "v2_plate_armor"
   | "v2_full_plate"
-  | "v2_silver_plate"
   | "v2_mithril_plate"
   // 방어-경갑 (dex/def/eva)
   | "v2_leather_armor"
-  | "v2_studded_leather"
   | "v2_shadow_cloak"
-  | "v2_silken_armor"
   | "v2_windweave_cloak"
-  // 장갑-중갑 (heavy/def/crit)
-  | "v2_iron_gauntlets"
-  | "v2_steel_gauntlets"
-  | "v2_plate_gauntlets"
-  | "v2_silver_gauntlets"
-  | "v2_mithril_gauntlets"
-  // 장갑-경갑 (light/def/crit)
+  // 장갑 (light/def/crit) — 중갑/경갑 통합, 경갑 단일
   | "v2_leather_gloves"
-  | "v2_studded_gloves"
   | "v2_shadow_gloves"
-  | "v2_silken_gloves"
   | "v2_windweave_gloves"
-  // 신발-중갑 (heavy/def/eva)
-  | "v2_iron_boots"
-  | "v2_steel_boots"
-  | "v2_plate_boots"
-  | "v2_silver_boots"
-  | "v2_mithril_boots"
-  // 신발-경갑 (light/def/eva)
+  // 신발 (light/def/eva) — 중갑/경갑 통합, 경갑 단일
   | "v2_leather_boots"
-  | "v2_studded_boots"
   | "v2_shadow_boots"
-  | "v2_silken_boots"
   | "v2_windweave_boots"
   // 반지-운 (luck/마방/crit)
   | "v2_silver_ring"
-  | "v2_gold_ring"
   | "v2_lucky_charm"
-  | "v2_stardust_ring"
   | "v2_fate_ring"
   // 목걸이-마법 (mana/마방/mp)
   | "v2_jade_amulet"
-  | "v2_rune_pendant"
   | "v2_crystal_amulet"
-  | "v2_starlight_pendant"
   | "v2_mana_essence"
-  // 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외.
-  //   무기/목걸이 4종 + 들가죽 세트 3종(경갑, setId:"field_leather").
-  | "v2_meadow_bow"
-  | "v2_spider_venom_dagger"
-  | "v2_wolffang_staff"
-  | "v2_fang_necklace"
-  | "v2_field_leather_armor"
-  | "v2_field_leather_gloves"
-  | "v2_field_leather_boots"
-  // 유니크 (드랍 전용, rarity:"unique") — 정규 컨셉×티어 그리드 밖 사이드그레이드. Phase 2 투입.
-  | "v2_uniq_shadow_garb"
-  | "v2_uniq_trickster_boots"
-  | "v2_uniq_giant_fist"
-  | "v2_uniq_berserker_fang"
-  | "v2_uniq_starcleaver"
-  | "v2_uniq_sage_seal";
+  // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리) — LEGACY_ID_REMAP 으로 동슬롯 정규템 마이그.
+  // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses.
+  | "v2_boss_mountain_axe"
+  | "v2_boss_canyon_fang"
+  | "v2_boss_lake_maul"
+  // 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique") — 8 무기타입 1종씩 + 마른땅 갑주 세트 3종.
+  | "v2_canyon_greatsword"
+  | "v2_canyon_staff"
+  | "v2_canyon_bow"
+  | "v2_canyon_dagger"
+  | "v2_canyon_set_armor"
+  | "v2_canyon_set_gloves"
+  | "v2_canyon_set_boots"
+  // 마른 협곡 추가 세트 — 바위문 수호구(중갑 탱커 3종) + 모래바람 장신구(반지·목걸이 2종).
+  | "v2_canyon_sand_ring"
+  | "v2_canyon_sand_necklace"
+  // 얼음 호수 밴드 드랍 (밴드 B, 깊이 19~24) — 무기 8종 + 세트 3종(서리 갑주·빙벽 수호구·한기 장신구).
+  | "v2_lake_greatsword"
+  | "v2_lake_staff"
+  | "v2_lake_bow"
+  | "v2_lake_dagger"
+  | "v2_lake_frost_armor"
+  | "v2_lake_frost_gloves"
+  | "v2_lake_frost_boots"
+  | "v2_lake_chill_ring"
+  | "v2_lake_chill_necklace"
+  // 심층 동굴 밴드 드랍 (밴드 C, 깊이 25~30) — 무기 8종 + 세트 3종(심연 갑주·흑요 수호구·공허 장신구).
+  | "v2_cave_greatsword"
+  | "v2_cave_staff"
+  | "v2_cave_bow"
+  | "v2_cave_dagger"
+  | "v2_cave_abyss_armor"
+  | "v2_cave_abyss_gloves"
+  | "v2_cave_abyss_boots"
+  | "v2_cave_void_ring"
+  | "v2_cave_void_necklace"
+  // 무기 포함 특화 세트 (밴드 드랍) — 맹독/마법/방어비례/금강.
+  // 컨셉 사이드그레이드 (밴드 드랍) — 위력↔속도/무게/회피 트레이드, 슬롯 비전형.
+  | "v2_canyon_swift_rapier"
+  | "v2_canyon_wind_boots"
+  | "v2_lake_brutal_greatsword"
+  | "v2_lake_dodge_cloak"
+  | "v2_cave_fortress_armor"
+  | "v2_cave_rooted_boots"
+  | "v2_cave_ruin_gloves"
+  | "v2_cave_focus_ring"
+  // 추가 2피스 세트 (밴드 드랍) — 장신구 외 부위·크로스 조합, 무기 비포함.
+  // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 31~36).
+  | "v2_sanctum_greatsword"
+  | "v2_sanctum_staff"
+  | "v2_sanctum_bow"
+  | "v2_sanctum_dagger"
+  | "v2_sanctum_set_armor"
+  | "v2_sanctum_set_gloves"
+  | "v2_sanctum_set_boots"
+  | "v2_sanctum_arcana_ring"
+  | "v2_sanctum_arcana_necklace"
+  | "v2_sanctum_anchor_armor"
+  | "v2_sanctum_nova_ring"
+  // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 37~42).
+  | "v2_swamp_greatsword"
+  | "v2_swamp_staff"
+  | "v2_swamp_bow"
+  | "v2_swamp_dagger"
+  | "v2_swamp_set_armor"
+  | "v2_swamp_set_gloves"
+  | "v2_swamp_set_boots"
+  | "v2_swamp_heart_ring"
+  | "v2_swamp_heart_necklace"
+  | "v2_swamp_mire_boots"
+  | "v2_swamp_bruiser_armor"
+  // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 43~48).
+  | "v2_den_greatsword"
+  | "v2_den_staff"
+  | "v2_den_bow"
+  | "v2_den_dagger"
+  | "v2_den_set_armor"
+  | "v2_den_set_gloves"
+  | "v2_den_set_boots"
+  | "v2_den_alpha_ring"
+  | "v2_den_alpha_necklace"
+  | "v2_den_mauler_gloves"
+  | "v2_den_ghost_boots"
+  | "v2_den_hide_armor";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
-//   mp, hp: flat 정수
+//   mp, hp, spd: flat 정수
+//   critMult: 백분의 일(×) 정수 — 100 = +1.0× 치명피해. derive 에서 /100 환산(예 30 → +0.30×).
+//     (정수 저장 = 굴림 rollStat/표시 일관. 슬롯 고유 축 C: 반지=critMult, 신발=spd.)
 export type V2EquipOptions = {
   /** critChancePct 후-가산, 퍼센트 정수. */
   crit?: number;
@@ -144,6 +210,19 @@ export type V2EquipOptions = {
   mp?: number;
   /** maxHp 후-가산, flat. */
   hp?: number;
+  /** critMult 후-가산, 백분의 일 정수(100=+1.0×). derive 에서 /100. 반지 슬롯 고유 축. */
+  critMult?: number;
+  /** spd 후-가산, flat 정수. 신발 슬롯 고유 축. */
+  spd?: number;
+  /** 물리 방어력(def) 후-가산, flat 정수. 방어비례 스킬(기사) 특화 + 탱킹 공방일체 옵션
+   *  (2026-06-08 신설). 갑옷 위력(def)과 같은 축 — aggregate 가 acc.def 에 더한다. */
+  def?: number;
+  /** 마법 방어력(magicDef) 후-가산, flat 정수. 장신구 위력 magicDef 와 같은 축 — aggregate 가
+   *  acc.magicDef 에 더한다. 비장신구 슬롯도 마법방어를 줄 수 있게(마법탱·SPI 부활 PR-2). */
+  magicDef?: number;
+  /** 회복량 +%(healPowerPct) — derive healMult 에 패시브 회복강화와 합산해 곱연산. 지원 빌드
+   *  itemize(SPI 부활 PR-2). 퍼센트(OPTION_PERCENT_KEYS). */
+  healPowerPct?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -151,6 +230,11 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "eva",
   "mp",
   "hp",
+  "critMult",
+  "spd",
+  "def",
+  "magicDef",
+  "healPowerPct",
 ];
 
 export type V2Equipment = {
@@ -169,25 +253,31 @@ export type V2Equipment = {
   /** PR-5b 무기 속성 — 무기에 부여 시 평타/공격 속성을 이 속성으로(없으면 캐릭 속성).
    *  무기 슬롯만 의미 — 방어구·장신구의 element 는 무시. */
   element?: V2Element;
+  /** 무기 종류 — 전문화 패시브 게이트(docs/v2-job-spec-passives-plan.md §4). 무기 슬롯만 의미.
+   *  미지정 = 일반 무기(전문화 게이트 매칭 X). */
+  weaponType?: V2WeaponType;
   /** 희귀도. 생략/"common" = 정규(상점·제작). "unique" = 드랍 전용(상점·제작·그리드 제외). */
   rarity?: V2EquipRarity;
   /** 제작 전용 — true 면 상점 비매품·정규 드랍 제외(레시피로만 획득). 분해는 가능. */
   craftOnly?: boolean;
+  /** 전문화 스타터 — true 면 전직 지급 전용. 정규 그리드·상점·드랍 제외(craftOnly 와 동류 off-grid). */
+  starterOnly?: boolean;
+  /** 드랍 제외 — true 면 정규 드랍 풀에서 빠진다(상점·그리드는 유지). 전문화 무기=상점 전용,
+   *  드랍은 후속 추가 예정. starterOnly/craftOnly 와 달리 상점 판매는 그대로. */
+  noDrop?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
 };
 
-// 마을 상점 판매가 — T1~T5 전부 판매. ×6 가파른 곡선 (각 티어 다음이 6배).
+// 마을 상점 판매가 — T1~T3 전부 판매. ×36 가파른 곡선 (각 티어 다음이 36배).
 // 부위별 곱: 무기 ×1.5, 갑옷 ×1.0, 장갑/신발 ×0.6, 반지/목걸이 ×0.5.
 //   T1 base 300   → 무기 450 / 갑옷 300 / 장갑·신발 180 / 반지·목걸이 150
-//   T5 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
-// 2026-06-03 ~40% 인하(base ×0.6) — 위력 −15% 동반. 판매가는 구매가 5% 라 자동 연동.
+//   T3 base 388.8k → 무기 583.2k / 갑옷 388.8k / 장갑·신발 233.28k / 반지·목걸이 194.4k
+// 2026-06-07 티어 1/3/5 → 1/2/3 리넘버(표기 숨김 후 연속번호). 곡선·매그니튜드는 불변(키만 리키).
 const SHOP_TIER_BASE: Record<V2EquipTier, number> = {
   1: 300,
-  2: 1800,
-  3: 10800,
-  4: 64800,
-  5: 388800,
+  2: 10800,
+  3: 388800,
 };
 const SHOP_SLOT_MULT: Record<V2EquipSlot, number> = {
   weapon: 1.5,
@@ -206,15 +296,57 @@ export function shopPriceFor(
   return base * SHOP_SLOT_MULT[slot];
 }
 
-// 유니크·제작전용은 상점 비매품 → undefined. 그 외는 (티어, 슬롯) 곡선.
+// 상점 구매가 — **스타터(T1)만 판매**. 유니크·제작전용·전문화스타터는 비매품. T2/T3 는
+//   드랍 전용(상점=처음 갖추는 구간만, 진짜 장비는 파밍). 판매가는 shopPriceForSell(티어 무관).
 export function shopPriceOf(item: V2Equipment): number | undefined {
-  if (item.rarity === "unique" || item.craftOnly) return undefined;
+  if (item.rarity === "unique" || item.craftOnly || item.starterOnly)
+    return undefined;
+  if (item.tier !== 1) return undefined; // 상점 구매는 스타터 티어(T1)만
   return shopPriceFor(item.tier, item.slot);
+}
+
+// 판매가 산정용 — 구매 가능(상점 비치) 여부와 무관. 드랍으로 얻은 T2/T3 도 팔 수 있어야 하므로
+//   티어 게이트 없이 (티어, 슬롯) 곡선. **전 장비 판매 가능**(2026-06-07 사용자 결정): 유니크·제작
+//   전용·전문화 스타터(수련용)도 판매 허용 — 인벤 클러터(전직 지급 수련용 등) 정리. 실수 판매는
+//   잠금(locked)으로 방지. 구매(shopPriceOf)는 여전히 스타터 T1만(유니크 등 비매=구매 불가 유지).
+export function shopPriceForSell(item: V2Equipment): number | undefined {
+  return shopPriceFor(item.tier, item.slot);
+}
+
+// 판매가 비율 — 구매가의 5%(floor). 단건/일괄 판매 공용 단일 소스(드리프트 방지).
+export const SELL_PRICE_RATIO = 0.05;
+
+// 개체 1개 판매가 — 비매품(유니크 등)이면 null.
+export function sellPriceOf(item: V2Equipment): number | null {
+  const base = shopPriceForSell(item);
+  if (base == null) return null;
+  return Math.max(1, Math.floor(base * SELL_PRICE_RATIO));
 }
 
 // 유니크 여부 — 상점/제작/그리드 제외 판정에 공용.
 export function isUnique(item: V2Equipment): boolean {
   return item.rarity === "unique";
+}
+
+// ── 전문화 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) ──────────────────
+// 직업 전문화 패시브가 "특정 무기 종류 착용 시에만" 발동(완전 비활성 폴백). derive 가 장착 무기의
+// 종류를 이 헬퍼로 판정해 전문화 패시브 적용 여부를 가른다. 순수 함수(데이터 조회) — P1 토대.
+
+/** 장착 무기(카탈로그 id)의 종류. 미장착/일반 무기(타입 없음)면 undefined. */
+export function weaponTypeOf(
+  weaponId: V2EquipmentId | undefined | null,
+): V2WeaponType | undefined {
+  if (!weaponId) return undefined;
+  return V2_EQUIPMENT[weaponId]?.weaponType;
+}
+
+/** 전문화 무기 게이트 — 장착 무기가 요구 종류와 일치하는지. required 없으면 게이트 없음(항상 통과). */
+export function weaponGateOpen(
+  weaponId: V2EquipmentId | undefined | null,
+  required: V2WeaponType | undefined,
+): boolean {
+  if (!required) return true;
+  return weaponTypeOf(weaponId) === required;
 }
 
 // === 장비 세트 ======================================================
@@ -229,828 +361,112 @@ export type V2EquipSet = {
 
 export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   {
-    id: "field_leather",
-    name: "들가죽 세트",
+    // 마른 협곡 밴드 드랍 세트(갑주 3종). 드랍 전용 유니크. 3종 다 착용 시 치명·치명피해·HP.
+    id: "dry_canyon",
+    name: "마른땅 갑주",
     pieces: [
-      "v2_field_leather_armor",
-      "v2_field_leather_gloves",
-      "v2_field_leather_boots",
+      "v2_canyon_set_armor",
+      "v2_canyon_set_gloves",
+      "v2_canyon_set_boots",
     ],
-    bonus: { eva: 3, hp: 20 },
+    bonus: { crit: 5, critMult: 30, hp: 30 },
+  },
+  {
+    // 마른 협곡 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 버스트 유틸. 2종 보너스 치명+8·속도+6.
+    id: "canyon_sandstorm",
+    name: "모래바람 장신구",
+    pieces: ["v2_canyon_sand_ring", "v2_canyon_sand_necklace"],
+    bonus: { crit: 8, spd: 6 },
+  },
+  {
+    // 얼음 호수 공격형 세트(갑주 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·속도+6·HP+40 (속공 크리 결).
+    id: "frost_plate",
+    name: "서리 갑주",
+    pieces: [
+      "v2_lake_frost_armor",
+      "v2_lake_frost_gloves",
+      "v2_lake_frost_boots",
+    ],
+    bonus: { crit: 5, spd: 6, hp: 40 },
+  },
+  {
+    // 얼음 호수 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 회피/지속 유틸. 2종 보너스 회피+6·HP+60.
+    id: "chill_charm",
+    name: "한기 장신구",
+    pieces: ["v2_lake_chill_ring", "v2_lake_chill_necklace"],
+    bonus: { eva: 6, hp: 60 },
+  },
+  {
+    // 심층 동굴 공격형 세트(갑주 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터 결).
+    id: "abyss_plate",
+    name: "심연 갑주",
+    pieces: [
+      "v2_cave_abyss_armor",
+      "v2_cave_abyss_gloves",
+      "v2_cave_abyss_boots",
+    ],
+    bonus: { critMult: 50, mp: 40, hp: 50 },
+  },
+  {
+    // 심층 동굴 장신구 세트(반지+목걸이 2종). 갑주와 동시 착용 가능 — 마력/엔진 유틸. 2종 보너스 MP+50·속도+6.
+    id: "void_charm",
+    name: "공허 장신구",
+    pieces: ["v2_cave_void_ring", "v2_cave_void_necklace"],
+    bonus: { mp: 50, spd: 6 },
+  },
+
+  // ── 무기 포함 특화 세트 ──────────────────────────────────────────────────────
+  // ── 추가 2피스 세트 (무기 비포함, 밴드 드랍) — 6슬롯 자유 세팅용. 장신구 외 부위·크로스 조합.
+  //    3피스보다 약하게(작은 세트 둘 + 단일 혼합 전제). 라이브/sim 재캘리브 여지.
+  {
+    id: "starlight_plate",
+    name: "별무리 갑주",
+    pieces: [
+      "v2_sanctum_set_armor",
+      "v2_sanctum_set_gloves",
+      "v2_sanctum_set_boots",
+    ],
+    bonus: { critMult: 70, mp: 55, hp: 70 },
+  },
+  {
+    id: "sanctum_arcana",
+    name: "성운 장신구",
+    pieces: ["v2_sanctum_arcana_ring", "v2_sanctum_arcana_necklace"],
+    bonus: { mp: 70, spd: 8 },
+  },
+  {
+    id: "swamp_mist",
+    name: "독안개 갑주",
+    pieces: [
+      "v2_swamp_set_armor",
+      "v2_swamp_set_gloves",
+      "v2_swamp_set_boots",
+    ],
+    bonus: { spd: 10, eva: 7, hp: 80 },
+  },
+  {
+    id: "swamp_heart",
+    name: "늪심장 장신구",
+    pieces: ["v2_swamp_heart_ring", "v2_swamp_heart_necklace"],
+    bonus: { hp: 100, eva: 10 },
+  },
+  {
+    id: "den_predator",
+    name: "포식자 갑주",
+    pieces: [
+      "v2_den_set_armor",
+      "v2_den_set_gloves",
+      "v2_den_set_boots",
+    ],
+    bonus: { critMult: 100, mp: 80, hp: 100 },
+  },
+  {
+    id: "den_alpha",
+    name: "우두머리 장신구",
+    pieces: ["v2_den_alpha_ring", "v2_den_alpha_necklace"],
+    bonus: { mp: 100, spd: 12 },
   },
 ];
-
-// V2_EQUIPMENT — 35종, 컨셉×티어 그리드.
-//   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
-//     (물방+마방 이중 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
-//   - sim 캘리브(PR-8)에서 정식 튜닝.
-//   - PR-무기위력 — 무기 위력 ~2배 상향(고티어일수록 가파르게: 검 3/5/8/11/16 → 4/8/14/22/34,
-//     활·지팡이 동일 램프). ATK_PER_STR·MAGIC_ATK_PER_INT 0.2→0.15 로 STR/INT 빌드는 중립 유지,
-//     무기 교체 체감↑ + off-STR 빌드 atk 바닥↑(격차 압축). 방어구·장신구 위력은 불변.
-export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
-  // ── 무기-힘 (위력 = 물공+마공, 중간 무게, 옵션 없음) ──────────────────
-  // 검은 물리 무기지만 위력은 물/마 둘 다 먹인다(빌드 안 가림). str 정체성은 훈련 분배.
-  v2_iron_sword: {
-    id: "v2_iron_sword",
-    slot: "weapon",
-    concept: "str",
-    tier: 1,
-    name: "철검",
-    description: "흔한 한손검. 무난한 무게와 균형.",
-    power: 3,
-    weight: 2,
-  },
-  v2_steel_sword: {
-    id: "v2_steel_sword",
-    slot: "weapon",
-    concept: "str",
-    tier: 2,
-    name: "강철검",
-    description: "단단한 강철 한손검. 한 손에 묵직하다.",
-    power: 7,
-    weight: 2,
-    element: "fire",
-  },
-  v2_greatsword: {
-    id: "v2_greatsword",
-    slot: "weapon",
-    concept: "str",
-    tier: 3,
-    name: "한타검",
-    description: "두 손으로 거머쥐는 큰 검. 일격의 무게가 다르다.",
-    power: 12,
-    weight: 3,
-    element: "earth",
-  },
-  v2_silver_sword: {
-    id: "v2_silver_sword",
-    slot: "weapon",
-    concept: "str",
-    tier: 4,
-    name: "은검",
-    description: "은으로 벼린 검. 옅게 빛을 낸다.",
-    power: 19,
-    weight: 3,
-    element: "starlight",
-  },
-  v2_mithril_sword: {
-    id: "v2_mithril_sword",
-    slot: "weapon",
-    concept: "str",
-    tier: 5,
-    name: "미스릴검",
-    description: "오래된 별빛이 어린 미스릴 검.",
-    power: 29,
-    weight: 4,
-    element: "void",
-  },
-
-  // ── 무기-민 (위력 = 물공+마공, 가벼움, 옵션 crit) ─────────────────────
-  // 활은 가벼운 원거리 무기 — 무게 낮고 궁수 특유 치명 flavor.
-  v2_wooden_bow: {
-    id: "v2_wooden_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 1,
-    name: "목궁",
-    description: "참나무로 깎은 활. 가볍지만 사정거리 짧다.",
-    power: 3,
-    weight: 1,
-  },
-  v2_recurve_bow: {
-    id: "v2_recurve_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 2,
-    name: "합성궁",
-    description: "휘어 만든 합성궁. 사거리가 늘었다.",
-    power: 7,
-    weight: 1,
-    element: "wind",
-    options: { crit: 1 },
-  },
-  v2_horn_bow: {
-    id: "v2_horn_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 3,
-    name: "각궁",
-    description: "뿔과 힘줄을 덧대 만든 강한 활.",
-    power: 10,
-    weight: 1,
-    element: "lightning",
-    options: { crit: 1 },
-  },
-  v2_silver_bow: {
-    id: "v2_silver_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 4,
-    name: "은활",
-    description: "은으로 보강된 정교한 활.",
-    power: 17,
-    weight: 2,
-    element: "water",
-    options: { crit: 2 },
-  },
-  v2_starsong_bow: {
-    id: "v2_starsong_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 5,
-    name: "별노래궁",
-    description: "시위가 별의 노래처럼 떨린다.",
-    power: 26,
-    weight: 2,
-    options: { crit: 2 },
-    element: "starlight", // 별빛 무기.
-  },
-
-  // ── 무기-지 (위력 = 물공+마공, 가벼움, 옵션 mp) ───────────────────────
-  // 지팡이도 위력으로 물/마 둘 다 먹인다. 마법사 정체성은 INT 분배 + 마법 스킬.
-  // mp(자원 풀)는 마법 빌드 정체성이라 옵션으로 유지.
-  v2_oak_staff: {
-    id: "v2_oak_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 1,
-    name: "참나무 지팡이",
-    description: "옹이가 굵은 지팡이. 무게가 손에 익는다.",
-    power: 6,
-    weight: 1,
-    options: { mp: 8 },
-  },
-  v2_runed_staff: {
-    id: "v2_runed_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 2,
-    name: "룬 지팡이",
-    description: "룬을 새긴 지팡이. 미세하게 따뜻하다.",
-    power: 12,
-    weight: 1,
-    element: "fire",
-    options: { mp: 16 },
-  },
-  v2_obsidian_staff: {
-    id: "v2_obsidian_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 3,
-    name: "흑요석 지팡이",
-    description: "검은 유리처럼 매끄러운 지팡이.",
-    power: 18,
-    weight: 2,
-    element: "void",
-    options: { mp: 22 },
-  },
-  v2_silver_staff: {
-    id: "v2_silver_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 4,
-    name: "은 지팡이",
-    description: "은으로 감은 정교한 지팡이.",
-    power: 22,
-    weight: 2,
-    element: "water",
-    options: { mp: 28 },
-  },
-  v2_starlit_staff: {
-    id: "v2_starlit_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 5,
-    name: "별빛 지팡이",
-    description: "보석 끝에 별빛이 머문다.",
-    power: 31,
-    weight: 2,
-    options: { mp: 36 },
-    element: "starlight", // 별빛 무기.
-  },
-
-  // ── 방어-중갑 (위력 = 물방, 무거움, 옵션 없음) ────────────────────────
-  // 무게 = 옛 spd 페널티 승계 — 중갑은 든든하지만 느리다(속도 트레이드오프).
-  v2_chain_mail: {
-    id: "v2_chain_mail",
-    slot: "armor",
-    concept: "heavy",
-    tier: 1,
-    name: "쇠사슬 갑옷",
-    description: "고리를 엮은 갑옷. 무겁지만 든든하다.",
-    power: 2,
-    weight: 2,
-  },
-  v2_plate_armor: {
-    id: "v2_plate_armor",
-    slot: "armor",
-    concept: "heavy",
-    tier: 2,
-    name: "판금 갑옷",
-    description: "철판을 덧댄 갑옷. 두꺼운 만큼 든든하다.",
-    power: 3,
-    weight: 3,
-  },
-  v2_full_plate: {
-    id: "v2_full_plate",
-    slot: "armor",
-    concept: "heavy",
-    tier: 3,
-    name: "완판 갑옷",
-    description: "온몸을 두른 두꺼운 갑옷.",
-    power: 4,
-    weight: 5,
-  },
-  v2_silver_plate: {
-    id: "v2_silver_plate",
-    slot: "armor",
-    concept: "heavy",
-    tier: 4,
-    name: "은판 갑옷",
-    description: "은판으로 덧댄 갑옷. 빛이 묻어난다.",
-    power: 6,
-    weight: 7,
-  },
-  v2_mithril_plate: {
-    id: "v2_mithril_plate",
-    slot: "armor",
-    concept: "heavy",
-    tier: 5,
-    name: "미스릴 갑옷",
-    description: "가볍고 단단한 미스릴 갑옷.",
-    power: 9,
-    weight: 8,
-  },
-
-  // ── 방어-경갑 (위력 = 물방, 가벼움, 옵션 eva) ─────────────────────────
-  v2_leather_armor: {
-    id: "v2_leather_armor",
-    slot: "armor",
-    concept: "light",
-    tier: 1,
-    name: "가죽 갑옷",
-    description: "들개 가죽을 손질해 만든 가벼운 갑옷.",
-    power: 1,
-    weight: 0,
-  },
-  v2_studded_leather: {
-    id: "v2_studded_leather",
-    slot: "armor",
-    concept: "light",
-    tier: 2,
-    name: "보강 가죽 갑옷",
-    description: "쇠징으로 덧댄 단단한 가죽 갑옷.",
-    power: 2,
-    weight: 0,
-    options: { eva: 1 },
-  },
-  v2_shadow_cloak: {
-    id: "v2_shadow_cloak",
-    slot: "armor",
-    concept: "light",
-    tier: 3,
-    name: "그림자 망토",
-    description: "발걸음을 가리는 어두운 망토.",
-    power: 2,
-    weight: 1,
-    options: { eva: 2 },
-  },
-  v2_silken_armor: {
-    id: "v2_silken_armor",
-    slot: "armor",
-    concept: "light",
-    tier: 4,
-    name: "은빛 비단 갑옷",
-    description: "은사로 짠 가벼운 비단 갑옷.",
-    power: 3,
-    weight: 1,
-    options: { eva: 2 },
-  },
-  v2_windweave_cloak: {
-    id: "v2_windweave_cloak",
-    slot: "armor",
-    concept: "light",
-    tier: 5,
-    name: "바람을 엮은 망토",
-    description: "바람결을 짜 만든 가벼운 망토.",
-    power: 3,
-    weight: 1,
-    options: { eva: 3 },
-  },
-
-  // ── 장갑-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 crit) ──────────────
-  // 장갑은 방어 보조 + 치명 시그니처. 갑옷보다 위력 작게(총량 중립).
-  v2_iron_gauntlets: {
-    id: "v2_iron_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 1,
-    name: "철 건틀릿",
-    description: "쇠를 덧댄 손등 보호구. 주먹이 묵직해진다.",
-    power: 1,
-    weight: 1,
-  },
-  v2_steel_gauntlets: {
-    id: "v2_steel_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 2,
-    name: "강철 건틀릿",
-    description: "강철로 벼린 건틀릿. 타격에 무게가 실린다.",
-    power: 1,
-    weight: 1,
-    options: { crit: 1 },
-  },
-  v2_plate_gauntlets: {
-    id: "v2_plate_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 3,
-    name: "판금 건틀릿",
-    description: "판금을 이어 붙인 단단한 건틀릿.",
-    power: 1,
-    weight: 1,
-    options: { crit: 1 },
-  },
-  v2_silver_gauntlets: {
-    id: "v2_silver_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 4,
-    name: "은 건틀릿",
-    description: "은으로 도금한 건틀릿. 빛이 곱다.",
-    power: 2,
-    weight: 1,
-    options: { crit: 1 },
-  },
-  v2_mithril_gauntlets: {
-    id: "v2_mithril_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 5,
-    name: "미스릴 건틀릿",
-    description: "가볍고 단단한 미스릴 건틀릿.",
-    power: 2,
-    weight: 2,
-    options: { crit: 2 },
-  },
-
-  // ── 장갑-경갑 (위력 = 물방 소량, 무게 0, 옵션 crit) ───────────────────
-  v2_leather_gloves: {
-    id: "v2_leather_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 1,
-    name: "가죽 장갑",
-    description: "손에 익은 가죽 장갑. 가볍고 편하다.",
-    power: 1,
-    weight: 0,
-  },
-  v2_studded_gloves: {
-    id: "v2_studded_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 2,
-    name: "보강 장갑",
-    description: "쇠징을 박은 가죽 장갑.",
-    power: 1,
-    weight: 0,
-    options: { crit: 1 },
-  },
-  v2_shadow_gloves: {
-    id: "v2_shadow_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 3,
-    name: "그림자 장갑",
-    description: "손길을 죽이는 어두운 장갑.",
-    power: 1,
-    weight: 0,
-    options: { crit: 1 },
-  },
-  v2_silken_gloves: {
-    id: "v2_silken_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 4,
-    name: "비단 장갑",
-    description: "은사로 짠 얇은 장갑. 손끝이 예민해진다.",
-    power: 1,
-    weight: 0,
-    options: { crit: 2 },
-  },
-  v2_windweave_gloves: {
-    id: "v2_windweave_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 5,
-    name: "바람결 장갑",
-    description: "바람을 엮어 만든 가벼운 장갑.",
-    power: 2,
-    weight: 0,
-    options: { crit: 2 },
-  },
-
-  // ── 신발-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 eva) ───────────────
-  // 신발은 방어 보조 + 회피 시그니처. 갑옷보다 가볍다(경량).
-  v2_iron_boots: {
-    id: "v2_iron_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 1,
-    name: "철 장화",
-    description: "쇠를 덧댄 장화. 발을 든든히 감싼다.",
-    power: 1,
-    weight: 1,
-  },
-  v2_steel_boots: {
-    id: "v2_steel_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 2,
-    name: "강철 장화",
-    description: "강철로 벼린 장화. 디딤이 단단하다.",
-    power: 1,
-    weight: 1,
-    options: { eva: 1 },
-  },
-  v2_plate_boots: {
-    id: "v2_plate_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 3,
-    name: "판금 장화",
-    description: "판금을 두른 장화. 묵직하게 버틴다.",
-    power: 1,
-    weight: 1,
-    options: { eva: 1 },
-  },
-  v2_silver_boots: {
-    id: "v2_silver_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 4,
-    name: "은 장화",
-    description: "은판을 덧댄 장화. 은은히 빛난다.",
-    power: 2,
-    weight: 1,
-    options: { eva: 1 },
-  },
-  v2_mithril_boots: {
-    id: "v2_mithril_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 5,
-    name: "미스릴 장화",
-    description: "가볍고 단단한 미스릴 장화.",
-    power: 2,
-    weight: 1,
-    options: { eva: 2 },
-  },
-
-  // ── 신발-경갑 (위력 = 물방 소량, 무게 0, 옵션 eva) ────────────────────
-  v2_leather_boots: {
-    id: "v2_leather_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 1,
-    name: "가죽 신",
-    description: "부드러운 가죽 신. 발놀림이 가볍다.",
-    power: 1,
-    weight: 0,
-  },
-  v2_studded_boots: {
-    id: "v2_studded_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 2,
-    name: "보강 신",
-    description: "쇠징을 박은 가죽 신.",
-    power: 1,
-    weight: 0,
-    options: { eva: 1 },
-  },
-  v2_shadow_boots: {
-    id: "v2_shadow_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 3,
-    name: "그림자 신",
-    description: "자국을 남기지 않는 어두운 신.",
-    power: 1,
-    weight: 0,
-    options: { eva: 2 },
-  },
-  v2_silken_boots: {
-    id: "v2_silken_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 4,
-    name: "비단 신",
-    description: "은사로 짠 가벼운 신.",
-    power: 1,
-    weight: 0,
-    options: { eva: 2 },
-  },
-  v2_windweave_boots: {
-    id: "v2_windweave_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 5,
-    name: "바람결 신",
-    description: "바람을 밟듯 가벼운 신.",
-    power: 2,
-    weight: 0,
-    options: { eva: 3 },
-  },
-
-  // ── 반지-운 (위력 = 마방, 무게 0, 옵션 crit) ──────────────────────────
-  // 옛 장신-운 → 반지 슬롯. 위력은 마법 방어. 운 반지는 치명 flavor.
-  v2_silver_ring: {
-    id: "v2_silver_ring",
-    slot: "ring",
-    concept: "luck",
-    tier: 1,
-    name: "은가락지",
-    description: "흠집 없는 은반지. 광택이 곱다.",
-    power: 1,
-    weight: 0,
-  },
-  v2_gold_ring: {
-    id: "v2_gold_ring",
-    slot: "ring",
-    concept: "luck",
-    tier: 2,
-    name: "황금 반지",
-    description: "두꺼운 황금 반지. 묵직하게 손에 머문다.",
-    power: 1,
-    weight: 0,
-    options: { crit: 1 },
-  },
-  v2_lucky_charm: {
-    id: "v2_lucky_charm",
-    slot: "ring",
-    concept: "luck",
-    tier: 3,
-    name: "행운의 부적",
-    description: "닳은 패에 글자가 빛난다.",
-    power: 1,
-    weight: 0,
-    options: { crit: 1 },
-  },
-  v2_stardust_ring: {
-    id: "v2_stardust_ring",
-    slot: "ring",
-    concept: "luck",
-    tier: 4,
-    name: "별모래 반지",
-    description: "잘게 빻은 별모래가 박혀 있다.",
-    power: 1,
-    weight: 0,
-    options: { crit: 1 },
-  },
-  v2_fate_ring: {
-    id: "v2_fate_ring",
-    slot: "ring",
-    concept: "luck",
-    tier: 5,
-    name: "운명의 반지",
-    description: "보는 각도마다 색이 바뀌는 반지.",
-    power: 2,
-    weight: 0,
-    options: { crit: 2 },
-  },
-
-  // ── 목걸이-마법 (위력 = 마방, 무게 0, 옵션 mp) ────────────────────────
-  // 옛 장신-마법 → 목걸이 슬롯. 위력은 마법 방어. 마법 목걸이는 MP flavor.
-  v2_jade_amulet: {
-    id: "v2_jade_amulet",
-    slot: "necklace",
-    concept: "mana",
-    tier: 1,
-    name: "옥 부적",
-    description: "옥 조각에 끈을 꿴 부적. 묘하게 안심된다.",
-    power: 1,
-    weight: 0,
-  },
-  v2_rune_pendant: {
-    id: "v2_rune_pendant",
-    slot: "necklace",
-    concept: "mana",
-    tier: 2,
-    name: "룬 펜던트",
-    description: "조그만 룬이 박힌 펜던트.",
-    power: 1,
-    weight: 0,
-    options: { mp: 8 },
-  },
-  v2_crystal_amulet: {
-    id: "v2_crystal_amulet",
-    slot: "necklace",
-    concept: "mana",
-    tier: 3,
-    name: "수정 부적",
-    description: "맑은 수정에 빛이 모인다.",
-    power: 1,
-    weight: 0,
-    options: { mp: 13 },
-  },
-  v2_starlight_pendant: {
-    id: "v2_starlight_pendant",
-    slot: "necklace",
-    concept: "mana",
-    tier: 4,
-    name: "별빛 펜던트",
-    description: "은사슬에 별빛이 묶여 있다.",
-    power: 1,
-    weight: 0,
-    options: { mp: 20 },
-  },
-  v2_mana_essence: {
-    id: "v2_mana_essence",
-    slot: "necklace",
-    concept: "mana",
-    tier: 5,
-    name: "마나의 정수",
-    description: "푸른 빛이 일렁이는 작은 결정.",
-    power: 2,
-    weight: 0,
-    options: { mp: 30 },
-  },
-
-  // ── 유니크 (드랍 전용) ────────────────────────────────────────────
-  // 옵션 프로필로 슬롯 시그니처를 깬다(파워크리프 회피 사이드그레이드). tier 는 위력 밴드·드랍
-  // 층 기준. 상점·제작 제외(rarity), rollUniqueDrop 전용. 수치는 sim 다이얼.
-  v2_uniq_shadow_garb: {
-    id: "v2_uniq_shadow_garb",
-    slot: "armor",
-    concept: "light",
-    tier: 1,
-    name: "그림자 잠행복",
-    description:
-      "그림자처럼 검은 잠행복. 손끝은 매서워지나 천이 두꺼워 몸놀림이 굼뜬다.",
-    power: 1,
-    weight: 2, // 정규 경갑(무게 0)보다 무겁다 — 치명·회피를 속도로 치름(사이드그레이드)
-    options: { eva: 2, crit: 2 }, // 경갑인데 치명까지(보통 치명은 장갑·반지)
-    rarity: "unique",
-  },
-  v2_uniq_trickster_boots: {
-    id: "v2_uniq_trickster_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 2,
-    name: "요술쟁이의 장화",
-    description:
-      "마력이 깃들어 묵직해진 장화. 한 걸음마다 힘이 새지만 발이 무겁다.",
-    power: 1,
-    weight: 2, // 정규 경갑 신발(무게 0)보다 무겁다 — 회피·MP를 속도로 치름(사이드그레이드)
-    options: { eva: 2, mp: 16 }, // 신발인데 MP(보통 MP는 목걸이)
-    rarity: "unique",
-  },
-  v2_uniq_giant_fist: {
-    id: "v2_uniq_giant_fist",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 3,
-    name: "거인의 주먹",
-    description: "거인의 손을 본떠 벼린 건틀릿. 쥐기만 해도 몸이 단단해진다.",
-    power: 2,
-    weight: 2,
-    options: { crit: 2, hp: 50 }, // 장갑인데 HP까지
-    rarity: "unique",
-  },
-  v2_uniq_berserker_fang: {
-    id: "v2_uniq_berserker_fang",
-    slot: "necklace",
-    concept: "mana",
-    tier: 4,
-    name: "광전사의 송곳니",
-    description: "짐승의 송곳니를 꿴 목걸이. 이성을 갉아먹는 대신 일격을 벼린다.",
-    power: 1,
-    weight: 0,
-    options: { crit: 4 }, // 목걸이인데 MP 대신 치명
-    rarity: "unique",
-  },
-  v2_uniq_starcleaver: {
-    id: "v2_uniq_starcleaver",
-    slot: "weapon",
-    concept: "dex",
-    tier: 5,
-    name: "별을 가르는 단검",
-    description: "별빛을 머금은 가느다란 칼날. 무게는 깃털 같으나 빈틈을 놓치지 않는다.",
-    power: 12, // T5 정규 활(14)보다 낮은 위력 + 폭발 치명 = 사이드그레이드
-    weight: 1,
-    options: { crit: 5 },
-    element: "starlight",
-    rarity: "unique",
-  },
-  v2_uniq_sage_seal: {
-    id: "v2_uniq_sage_seal",
-    slot: "ring",
-    concept: "luck",
-    tier: 5,
-    name: "현자의 인장",
-    description: "오래된 현자가 남긴 반지. 끼고 있으면 마음이 깊고 단단해진다.",
-    power: 2,
-    weight: 0,
-    options: { mp: 24, hp: 40 }, // 반지인데 MP+HP(보통 반지는 치명)
-    rarity: "unique",
-  },
-
-  // ── 들판 제작 전용 (craftOnly) — 들판 재료 레시피로만. 상점·드랍 제외 ─────────
-  // 흔함 재료 = T2 상점보다 조금 위. 희귀 재료(단검·지팡이·목걸이) = 그보다 좀 더 위.
-  v2_meadow_bow: {
-    id: "v2_meadow_bow",
-    slot: "weapon",
-    concept: "dex",
-    tier: 2,
-    name: "초원 활",
-    description: "들판의 질긴 가죽과 풀줄기로 멘 활. 가볍고 손에 붙는다.",
-    power: 9, // T2 정규 활(dex) 7 보다 조금 위
-    weight: 1,
-    options: { crit: 1 },
-    craftOnly: true,
-  },
-  v2_spider_venom_dagger: {
-    id: "v2_spider_venom_dagger",
-    slot: "weapon",
-    concept: "dex",
-    tier: 2,
-    name: "거미독 단검",
-    description: "들거미의 독을 날에 먹인 단검. 스치기만 해도 살을 문다.",
-    power: 11, // 희귀 — 초원 활(9)·T2(7) 위
-    weight: 1,
-    options: { crit: 1 },
-    element: "void", // 독 결
-    craftOnly: true,
-  },
-  v2_wolffang_staff: {
-    id: "v2_wolffang_staff",
-    slot: "weapon",
-    concept: "int",
-    tier: 2,
-    name: "늑대이빨 지팡이",
-    description: "들짐승 송곳니를 끝에 박은 지팡이. 쥐면 마력이 곤두선다.",
-    power: 15, // 희귀 — T2 정규 지팡이(int) 12 위
-    weight: 1,
-    options: { mp: 12 },
-    craftOnly: true,
-  },
-  v2_fang_necklace: {
-    id: "v2_fang_necklace",
-    slot: "necklace",
-    concept: "mana",
-    tier: 2,
-    name: "송곳니 목걸이",
-    description: "들짐승 송곳니를 엮어 건 목걸이. 마음을 가라앉힌다.",
-    power: 3, // 희귀 — T2 정규 목걸이(mana) 1 위
-    weight: 0,
-    options: { mp: 12 },
-    craftOnly: true,
-  },
-
-  // 들가죽 세트 (경갑 3종, setId:"field_leather") — 3종 다 착용 시 회피+3·HP+20.
-  // 흔함 재료. T2 정규 경갑보다 조금 위(갑옷 2→3 / 장갑·신발 1→2).
-  v2_field_leather_armor: {
-    id: "v2_field_leather_armor",
-    slot: "armor",
-    concept: "light",
-    tier: 2,
-    name: "들가죽 갑옷",
-    description: "들짐승 가죽을 두툼하게 덧댄 갑옷. 들가죽 세트의 몸통.",
-    power: 3,
-    weight: 0,
-    options: { eva: 1 },
-    craftOnly: true,
-    setId: "field_leather",
-  },
-  v2_field_leather_gloves: {
-    id: "v2_field_leather_gloves",
-    slot: "gloves",
-    concept: "light",
-    tier: 2,
-    name: "들가죽 장갑",
-    description: "손마디를 가죽으로 감싼 장갑. 들가죽 세트의 손.",
-    power: 2,
-    weight: 0,
-    options: { crit: 1 },
-    craftOnly: true,
-    setId: "field_leather",
-  },
-  v2_field_leather_boots: {
-    id: "v2_field_leather_boots",
-    slot: "boots",
-    concept: "light",
-    tier: 2,
-    name: "들가죽 신발",
-    description: "발목까지 가죽으로 올려 묶은 신. 들가죽 세트의 발.",
-    power: 2,
-    weight: 0,
-    options: { eva: 1 },
-    craftOnly: true,
-    setId: "field_leather",
-  },
-};
 
 // 슬롯별 catalog id 모음 — UI 가 슬롯 탭 표시할 때 사용.
 export function v2EquipmentBySlot(slot: V2EquipSlot): V2Equipment[] {
@@ -1059,7 +475,7 @@ export function v2EquipmentBySlot(slot: V2EquipSlot): V2Equipment[] {
     .filter((e) => e.slot === slot);
 }
 
-// 컨셉별 catalog — 같은 컨셉의 T1~T5 가 줄 서 나옴.
+// 컨셉별 catalog — 같은 컨셉의 T1~T3 가 줄 서 나옴.
 export function v2EquipmentByConcept(concept: V2EquipConcept): V2Equipment[] {
   return (Object.keys(V2_EQUIPMENT) as V2EquipmentId[])
     .map((id) => V2_EQUIPMENT[id])
@@ -1070,9 +486,9 @@ export function v2EquipmentByConcept(concept: V2EquipConcept): V2Equipment[] {
 // 슬롯별로 그 슬롯의 컨셉 모음. UI 그룹화에 사용.
 export const SLOT_CONCEPTS: Record<V2EquipSlot, V2EquipConcept[]> = {
   weapon: ["str", "dex", "int"],
-  armor: ["heavy", "light"],
-  gloves: ["heavy", "light"],
-  boots: ["heavy", "light"],
+  armor: ["heavy", "light"], // 중갑(방어탱)/경갑(회피) — 실효 트레이드오프라 유지
+  gloves: ["light"], // 중갑 폐기(경갑과 스탯 동일·무게만 더한 열티어)
+  boots: ["light"], // 중갑 폐기(동상)
   ring: ["luck"],
   necklace: ["mana"],
 };
@@ -1087,17 +503,52 @@ export const CONCEPT_LABELS: Record<V2EquipConcept, string> = {
   mana: "마법",
 };
 
+// 무기 종류 한글 라벨 — V2WeaponType 표시용(아이템 종류 칩 등).
+export const WEAPON_TYPE_LABELS: Record<V2WeaponType, string> = {
+  greatsword: "대검",
+  staff: "지팡이",
+  bow: "활",
+  dagger: "단검",
+};
+
+// 슬롯 한글 라벨 — 여러 뷰가 인라인으로 중복하던 것을 단일 출처로.
+export const V2_SLOT_LABEL: Record<V2EquipSlot, string> = {
+  weapon: "무기",
+  armor: "갑옷",
+  gloves: "장갑",
+  boots: "신발",
+  ring: "반지",
+  necklace: "목걸이",
+};
+
+// 아이템 "종류" 표시 라벨 — 무기는 무기 종류(세검/대검/활 등), 그 외 슬롯은 부위명(갑옷/장갑 등).
+//   종류 미지정 일반 무기는 "무기"로 폴백.
+export function v2ItemTypeLabel(item: V2Equipment): string {
+  if (item.slot === "weapon") {
+    return (
+      (item.weaponType && WEAPON_TYPE_LABELS[item.weaponType]) ||
+      V2_SLOT_LABEL.weapon
+    );
+  }
+  return V2_SLOT_LABEL[item.slot];
+}
+
 const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   crit: "치명",
   eva: "회피",
   mp: "MP",
   hp: "HP",
+  critMult: "치명피해",
+  spd: "속도",
+  def: "방어",
+  magicDef: "마법방어",
+  healPowerPct: "회복",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
 const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
->(["crit", "eva"]);
+>(["crit", "eva", "healPowerPct"]);
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
@@ -1127,16 +578,55 @@ export function effectiveStats(
   return { power: roll.power, weight: roll.weight, options };
 }
 
+// ── 위력 색 분류 (등급/희귀도 대신) ──────────────────────────────────────────
+// 사용자 결정(2026-06-08): 아이템을 티어/유니크 등급이 아니라 "절대 위력"으로 색 분류.
+//   **표시되는(실효) 위력 기준** — 굴림으로 오른 개체는 그 굴림 위력으로 색 결정(색이 표시 위력과
+//   일치). "품질 무관"=품질 %(정규화 위치)는 색에 안 쓴다는 뜻이지, 굴림 위력 자체를 무시하는 건
+//   아니다(예: 기본 110 서리방패 검이 166 으로 굴리면 옅은보라가 아니라 보라).
+//   위력 step 마다 색이 한 단계 오른다. 부위마다 위력 스케일이 크게 달라(무기 6~170 · 장신구 2~11)
+//   step 도 부위별로 다르다(사용자: "무기는 75 단위"). 색 매핑은 UI(powerNameClass).
+const SLOT_POWER_STEP: Record<V2EquipSlot, number> = {
+  weapon: 75,
+  armor: 25,
+  gloves: 7,
+  boots: 7,
+  ring: 5,
+  necklace: 5,
+};
+
+// 위력 색 구간 수 — 0(낮음) … POWER_BAND_COUNT-1(최상). 8단계(회색→에메랄드→약간푸른빛→보라
+//   →노랑→자홍→장미→진홍). 현재 위력대는 0~2 사용, 3~7 은 향후 고위력 콘텐츠 여유분. step·구간수는 다이얼.
+export const POWER_BAND_COUNT = 8;
+
+// 위력 → 색 구간(0…6). 실효 위력(굴림 반영) ÷ 부위 step(내림), 상한 클램프. roll 없으면 카탈로그 위력.
+export function powerBandOf(item: V2Equipment, roll?: V2EquipRoll): number {
+  const step = SLOT_POWER_STEP[item.slot] ?? 1;
+  const power = effectiveStats(item, roll).power;
+  return Math.max(
+    0,
+    Math.min(POWER_BAND_COUNT - 1, Math.floor(power / step)),
+  );
+}
+
 // 장비 → {라벨, 값} 행 배열. 위력 → 무게 → 옵션 순. 0 값은 건너뜀.
 // roll 주면 개체 굴림값 표시(보유템), 없으면 카탈로그(상점·제작 미리보기). 단일 source.
 export function v2EquipStatRows(
   item: V2Equipment,
   roll?: V2EquipRoll,
+  // 강화 — 위력 행에 반영(enhancedPower)·강화 행 추가. 미지정 = 기존 표기 그대로.
+  enhance?: V2EnhanceState,
 ): V2EquipStatRow[] {
   const eff = effectiveStats(item, roll);
   const out: V2EquipStatRow[] = [];
-  if (eff.power) {
-    out.push({ label: "위력", value: `+${eff.power}` });
+  const power = enhancedPower(eff.power, enhance);
+  if (power) {
+    out.push({ label: "위력", value: `+${power}` });
+  }
+  if (enhance && enhance.level > 0) {
+    out.push({
+      label: "강화",
+      value: `+${enhance.level} (위력 +${enhance.bonusPct}%)`,
+    });
   }
   if (eff.weight) {
     out.push({ label: "무게", value: `${eff.weight}` });
@@ -1145,8 +635,12 @@ export function v2EquipStatRows(
   for (const k of V2_EQUIP_OPTION_KEYS) {
     const v = opts[k];
     if (!v) continue;
-    const unit = OPTION_PERCENT_KEYS.has(k) ? "%" : "";
-    out.push({ label: OPTION_LABELS[k], value: `+${v}${unit}` });
+    // critMult 는 백분의 일 정수 저장(30 = +0.30×) → 배수 표기. 그 외 %/flat.
+    const value =
+      k === "critMult"
+        ? `+${(v / 100).toFixed(2)}×`
+        : `+${v}${OPTION_PERCENT_KEYS.has(k) ? "%" : ""}`;
+    out.push({ label: OPTION_LABELS[k], value });
   }
   return out;
 }
@@ -1181,10 +675,14 @@ export type EquipmentSave = {
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
 //   iid: 고유 식별자(획득 시 생성, 재사용 금지) · id: 카탈로그 id · roll: 개체 굴림(없으면 카탈로그값).
+//   locked: 즐겨찾기 잠금 — 일괄/실수 판매 방지. true 만 저장(false/없음 = 미잠금).
 export type V2EquipInstance = {
   iid: string;
   id: V2EquipmentId;
   roll?: V2EquipRoll;
+  locked?: boolean;
+  /** 강화 상태(+레벨·누적 위력 보너스 %p) — 미강화는 부재. v2Enhance 참고. */
+  enhance?: V2EnhanceState;
 };
 
 // 개체 iid 생성 — 서버/클라 공용. crypto.randomUUID 우선, 없으면 폴백.
@@ -1196,7 +694,187 @@ export function genEquipIid(): string {
   ).toString(36)}`;
 }
 
+// 전문화 전직 지급용 스타터 무기 — weaponType → 무기 id. 통합 후 쓰는 8종만 매핑
+// (tonfa/spellblade/relic/needle 은 통합돼 미사용 → undefined: 지급 skip). 대검은 기존 v2_greatsword 재사용.
+export function starterWeaponForType(
+  type: V2WeaponType,
+): V2EquipmentId | undefined {
+  switch (type) {
+    case "greatsword":
+      return "v2_greatsword";
+    case "staff":
+      return "v2_starter_staff";
+    case "bow":
+      return "v2_starter_bow";
+    case "dagger":
+      return "v2_starter_dagger";
+    default:
+      return undefined;
+  }
+}
+
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
+
+// 2026-06-08: 대장간 제작 콘텐츠 제거로 craftOnly 7종(v2_meadow_bow·v2_spider_venom_dagger·
+//   v2_wolffang_staff·v2_fang_necklace·v2_field_leather_armor/gloves/boots)을 카탈로그에서 삭제.
+//   이들은 LEGACY_ID_REMAP 에 의도적으로 넣지 않는다 — 보유/장착분은 parseEquipmentSave 가
+//   VALID_IDS 미포함으로 무음 제거(들가죽 세트 보너스도 소실). 보상 없이 드롭하는 것이 사용자 결정.
+
+// 티어 5→3 축소(2026-06)로 제거된 옛 id(각 라인 T2/T4) → 잔존 id(다음 잔존 티어). 보유/장착
+//   장비가 고아화되지 않게 치환(데이터 손실 방지 — rune/enchant 손실 incident 교훈). 치환분은
+//   굴림을 카탈로그로 리셋(옛 티어 굴림이 새 티어 아이템에 오접되어 약화/과강되는 것 차단).
+//   보유 아이템 자체는 보존. 비치환 id 는 그대로.
+const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
+  // 들판 유니크 삭제(2026-06-19) — 동슬롯·동컨셉 정규템으로 비파괴 마이그.
+  v2_uniq_shadow_garb: "v2_leather_armor", // 경갑 T1
+  v2_uniq_trickster_boots: "v2_shadow_boots", // 경갑 신발 T2
+  v2_uniq_giant_fist: "v2_shadow_gloves", // 경갑 장갑 T2
+  v2_uniq_berserker_fang: "v2_mana_essence", // 마나 목걸이 T3
+  v2_uniq_starcleaver: "v2_toxic_dagger", // 단검 T3
+  v2_uniq_sage_seal: "v2_fate_ring", // 운 반지 T3
+  // 무기 종류 통합(weaponType 8→4) — 검방·권갑→대검, 세검·권조→단검. 보유분 비파괴 마이그.
+  v2_starter_sword_shield: "v2_iron_sword",
+  v2_knight_blade: "v2_greatsword",
+  v2_paladin_blade: "v2_mithril_sword",
+  v2_canyon_knightblade: "v2_canyon_greatsword",
+  v2_lake_knightblade: "v2_lake_greatsword",
+  v2_cave_knightblade: "v2_cave_greatsword",
+  v2_sanctum_knightblade: "v2_sanctum_greatsword",
+  v2_swamp_knightblade: "v2_swamp_greatsword",
+  v2_den_knightblade: "v2_den_greatsword",
+  v2_starter_gauntlet: "v2_iron_sword",
+  v2_fighter_gauntlet: "v2_greatsword",
+  v2_vajra_gauntlet: "v2_mithril_sword",
+  v2_canyon_gauntlet: "v2_canyon_greatsword",
+  v2_lake_gauntlet: "v2_lake_greatsword",
+  v2_cave_gauntlet: "v2_cave_greatsword",
+  v2_sanctum_gauntlet: "v2_sanctum_greatsword",
+  v2_swamp_gauntlet: "v2_swamp_greatsword",
+  v2_den_gauntlet: "v2_den_greatsword",
+  v2_starter_rapier: "v2_starter_dagger",
+  v2_swift_rapier: "v2_assassin_dagger",
+  v2_gale_rapier: "v2_toxic_dagger",
+  v2_canyon_rapier: "v2_canyon_dagger",
+  v2_lake_rapier: "v2_lake_dagger",
+  v2_cave_rapier: "v2_cave_dagger",
+  v2_sanctum_rapier: "v2_sanctum_dagger",
+  v2_swamp_rapier: "v2_swamp_dagger",
+  v2_den_rapier: "v2_den_dagger",
+  v2_starter_claw: "v2_starter_dagger",
+  v2_keen_claw: "v2_assassin_dagger",
+  v2_dragon_claw: "v2_toxic_dagger",
+  v2_canyon_claw: "v2_canyon_dagger",
+  v2_lake_claw: "v2_lake_dagger",
+  v2_cave_claw: "v2_cave_dagger",
+  v2_sanctum_claw: "v2_sanctum_dagger",
+  v2_swamp_claw: "v2_swamp_dagger",
+  v2_den_claw: "v2_den_dagger",
+  v2_plate_armor: "v2_full_plate",
+  v2_silver_plate: "v2_mithril_plate",
+  v2_studded_leather: "v2_shadow_cloak",
+  v2_silken_armor: "v2_windweave_cloak",
+  // 장갑/신발 중갑 폐기(컨셉 통합) — 중갑 6종 삭제, 경갑 동티어로 마이그(보유분 비파괴).
+  v2_iron_gauntlets: "v2_leather_gloves",
+  v2_plate_gauntlets: "v2_shadow_gloves",
+  v2_mithril_gauntlets: "v2_windweave_gloves",
+  v2_iron_boots: "v2_leather_boots",
+  v2_plate_boots: "v2_shadow_boots",
+  v2_mithril_boots: "v2_windweave_boots",
+  // 옛 중갑 별칭 — 삭제된 중갑 대신 경갑 동티어로 transitive 재지정.
+  v2_steel_boots: "v2_shadow_boots",
+  v2_silver_boots: "v2_windweave_boots",
+  v2_studded_boots: "v2_shadow_boots",
+  v2_silken_boots: "v2_windweave_boots",
+  v2_steel_gauntlets: "v2_shadow_gloves",
+  v2_silver_gauntlets: "v2_windweave_gloves",
+  v2_studded_gloves: "v2_shadow_gloves",
+  v2_silken_gloves: "v2_windweave_gloves",
+  v2_rune_pendant: "v2_crystal_amulet",
+  v2_starlight_pendant: "v2_mana_essence",
+  v2_gold_ring: "v2_lucky_charm",
+  v2_stardust_ring: "v2_fate_ring",
+  v2_recurve_bow: "v2_horn_bow",
+  v2_silver_bow: "v2_starsong_bow",
+  v2_runed_staff: "v2_obsidian_staff",
+  v2_silver_staff: "v2_starlit_staff",
+  v2_steel_sword: "v2_greatsword",
+  v2_silver_sword: "v2_mithril_sword",
+  // 옛 legacy 무기 → 통합으로 타겟이 제거됨 → 생존 무기로 직접 재지정(weaponType 8→4).
+  v2_beast_claw: "v2_assassin_dagger",
+  v2_fierce_claw: "v2_toxic_dagger",
+  v2_steel_dagger: "v2_assassin_dagger",
+  v2_shadow_dagger: "v2_toxic_dagger",
+  v2_duel_rapier: "v2_assassin_dagger",
+  v2_master_rapier: "v2_toxic_dagger",
+  v2_brawl_gauntlet: "v2_greatsword",
+  v2_ironfist_gauntlet: "v2_mithril_sword",
+  v2_guard_blade: "v2_greatsword",
+  v2_royal_blade: "v2_mithril_sword",
+  // 세트 통합(38→12) — 제거 세트 조각 → 생존 세트 동일슬롯/밴드 공용무기. 비파괴 마이그.
+  v2_canyon_bulwark_armor: "v2_canyon_set_armor",
+  v2_canyon_bulwark_gloves: "v2_canyon_set_gloves",
+  v2_canyon_bulwark_boots: "v2_canyon_set_boots",
+  v2_lake_bulwark_armor: "v2_lake_frost_armor",
+  v2_lake_bulwark_gloves: "v2_lake_frost_gloves",
+  v2_lake_bulwark_boots: "v2_lake_frost_boots",
+  v2_cave_obsidian_armor: "v2_cave_abyss_armor",
+  v2_cave_obsidian_gloves: "v2_cave_abyss_gloves",
+  v2_cave_obsidian_boots: "v2_cave_abyss_boots",
+  v2_canyon_rustfang_dagger: "v2_canyon_dagger",
+  v2_canyon_rustfang_gloves: "v2_canyon_set_gloves",
+  v2_lake_frostarcane_staff: "v2_lake_staff",
+  v2_lake_frostarcane_necklace: "v2_lake_chill_necklace",
+  v2_lake_bloodvajra_gauntlet: "v2_lake_greatsword",
+  v2_lake_bloodvajra_boots: "v2_lake_frost_boots",
+  v2_cave_judgment_sword: "v2_cave_greatsword",
+  v2_cave_judgment_armor: "v2_cave_abyss_armor",
+  v2_cave_judgment_ring: "v2_cave_void_ring",
+  v2_cave_venomlord_dagger: "v2_cave_dagger",
+  v2_cave_venomlord_ring: "v2_cave_void_ring",
+  v2_cave_venomlord_necklace: "v2_cave_void_necklace",
+  v2_canyon_dune_gloves: "v2_canyon_set_gloves",
+  v2_canyon_dune_boots: "v2_canyon_set_boots",
+  v2_canyon_bond_armor: "v2_canyon_set_armor",
+  v2_canyon_bond_ring: "v2_canyon_sand_ring",
+  v2_lake_trek_armor: "v2_lake_frost_armor",
+  v2_lake_trek_boots: "v2_lake_frost_boots",
+  v2_lake_seal_gloves: "v2_lake_frost_gloves",
+  v2_lake_seal_necklace: "v2_lake_chill_necklace",
+  v2_cave_onyx_armor: "v2_cave_abyss_armor",
+  v2_cave_onyx_gloves: "v2_cave_abyss_gloves",
+  v2_cave_drift_boots: "v2_cave_abyss_boots",
+  v2_cave_drift_necklace: "v2_cave_void_necklace",
+  v2_sanctum_bulwark_armor: "v2_sanctum_set_armor",
+  v2_sanctum_bulwark_gloves: "v2_sanctum_set_gloves",
+  v2_sanctum_bulwark_boots: "v2_sanctum_set_boots",
+  v2_sanctum_astral_staff: "v2_sanctum_staff",
+  v2_sanctum_astral_necklace: "v2_sanctum_arcana_necklace",
+  v2_sanctum_revelation_sword: "v2_sanctum_greatsword",
+  v2_sanctum_revelation_armor: "v2_sanctum_set_armor",
+  v2_sanctum_revelation_ring: "v2_sanctum_arcana_ring",
+  v2_sanctum_lumen_gloves: "v2_sanctum_set_gloves",
+  v2_sanctum_lumen_boots: "v2_sanctum_set_boots",
+  v2_swamp_bulwark_armor: "v2_swamp_set_armor",
+  v2_swamp_bulwark_gloves: "v2_swamp_set_gloves",
+  v2_swamp_bulwark_boots: "v2_swamp_set_boots",
+  v2_swamp_venomlord_dagger: "v2_swamp_dagger",
+  v2_swamp_venomlord_ring: "v2_swamp_heart_ring",
+  v2_swamp_venomlord_necklace: "v2_swamp_heart_necklace",
+  v2_swamp_vajra_gauntlet: "v2_swamp_greatsword",
+  v2_swamp_vajra_boots: "v2_swamp_set_boots",
+  v2_swamp_moss_armor: "v2_swamp_set_armor",
+  v2_swamp_moss_gloves: "v2_swamp_set_gloves",
+  v2_den_void_armor: "v2_den_set_armor",
+  v2_den_void_gloves: "v2_den_set_gloves",
+  v2_den_void_boots: "v2_den_set_boots",
+  v2_den_hunter_claw: "v2_den_dagger",
+  v2_den_hunter_ring: "v2_den_alpha_ring",
+  v2_den_hunter_necklace: "v2_den_alpha_necklace",
+  v2_den_rush_greatsword: "v2_den_greatsword",
+  v2_den_rush_gloves: "v2_den_set_gloves",
+  v2_den_beastgait_boots: "v2_den_set_boots",
+  v2_den_beastgait_necklace: "v2_den_alpha_necklace",
+};
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "weapon",
   "armor",
@@ -1207,7 +885,8 @@ const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
 ]);
 
 // 굴림 1건 정규화 — power(≥1)/weight(≥0)/options(유효 키·정수)만. 불량이면 undefined(카탈로그값).
-function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
+// 거래소 buy/cancel 의 payload 복원에도 쓰여 공개(굴림 방어 파스 단일 출처).
+export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
   if (!val || typeof val !== "object") return undefined;
   const r = val as { power?: unknown; weight?: unknown; options?: unknown };
   if (typeof r.power !== "number" || !Number.isFinite(r.power)) return undefined;
@@ -1248,9 +927,10 @@ export function parseEquipmentSave(raw: unknown): {
   const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
   for (const entry of ownedRaw) {
     if (typeof entry === "string") {
-      // 옛 형식 — id 문자열. 개체로 변환(굴림은 옛 공유맵에서 이식).
-      if (!VALID_IDS.has(entry)) continue;
-      const id = entry as V2EquipmentId;
+      // 옛 형식 — id 문자열. 개체로 변환(굴림은 옛 공유맵에서 이식). 제거 id 는 잔존으로 치환.
+      const remapped = LEGACY_ID_REMAP[entry] ?? entry;
+      if (!VALID_IDS.has(remapped)) continue;
+      const id = remapped as V2EquipmentId;
       const seq = idSeq.get(id) ?? 0;
       idSeq.set(id, seq + 1);
       const iid = `${id}~${seq}`;
@@ -1258,15 +938,25 @@ export function parseEquipmentSave(raw: unknown): {
       const inst: V2EquipInstance = {
         iid,
         id,
-        roll: parseEquipRoll(statRollsRaw[id]),
+        // 치환분은 굴림 카탈로그 리셋, 아니면 옛 공유맵에서 이식.
+        roll: remapped !== entry ? undefined : parseEquipRoll(statRollsRaw[id]),
       };
       owned.push(inst);
       byIid.set(iid, inst);
     } else if (entry && typeof entry === "object") {
-      // 신 형식 — {iid, id, roll?}.
-      const e = entry as { iid?: unknown; id?: unknown; roll?: unknown };
-      if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
-      const id = e.id as V2EquipmentId;
+      // 신 형식 — {iid, id, roll?, locked?}. 제거 id 는 잔존으로 치환(iid 보존 → 장착 정합 유지).
+      const e = entry as {
+        iid?: unknown;
+        id?: unknown;
+        roll?: unknown;
+        locked?: unknown;
+        enhance?: unknown;
+      };
+      if (typeof e.id !== "string") continue;
+      const remapped = LEGACY_ID_REMAP[e.id] ?? e.id;
+      if (!VALID_IDS.has(remapped)) continue;
+      const id = remapped as V2EquipmentId;
+      const wasRemapped = remapped !== e.id;
       let iid = typeof e.iid === "string" && e.iid.length > 0 ? e.iid : "";
       // 누락/중복 iid 는 마이그와 같은 결정적 스킴(`id~n`)으로 복구 — 랜덤이면 쓰기 전 반복
       // 파싱에서 iid 가 매번 달라져 equip/sell 이 not_owned 로 깨지는 footgun 차단(read=write 안정).
@@ -1277,7 +967,14 @@ export function parseEquipmentSave(raw: unknown): {
           iid = `${id}~${seq}`;
         } while (byIid.has(iid));
       }
-      const inst: V2EquipInstance = { iid, id, roll: parseEquipRoll(e.roll) };
+      const inst: V2EquipInstance = {
+        iid,
+        id,
+        roll: wasRemapped ? undefined : parseEquipRoll(e.roll),
+      };
+      if (e.locked === true) inst.locked = true;
+      const enhance = parseEnhance(e.enhance);
+      if (enhance) inst.enhance = enhance;
       owned.push(inst);
       byIid.set(iid, inst);
     }
@@ -1301,13 +998,17 @@ export function parseEquipmentSave(raw: unknown): {
     let inst: V2EquipInstance | undefined;
     if (byIid.has(val) && !usedIid.has(val)) {
       inst = byIid.get(val);
-    } else if (VALID_IDS.has(val)) {
-      const q = freeById.get(val);
-      while (q && q.length > 0) {
-        const cand = q.shift();
-        if (cand && !usedIid.has(cand.iid)) {
-          inst = cand;
-          break;
+    } else {
+      // 옛 slot→id 형식. 제거 id 면 잔존으로 치환해 그 종류 미배정 개체를 잡는다.
+      const remappedVal = LEGACY_ID_REMAP[val] ?? val;
+      if (VALID_IDS.has(remappedVal)) {
+        const q = freeById.get(remappedVal);
+        while (q && q.length > 0) {
+          const cand = q.shift();
+          if (cand && !usedIid.has(cand.iid)) {
+            inst = cand;
+            break;
+          }
         }
       }
     }
@@ -1341,7 +1042,20 @@ export function resolveEquippedForAggregate(
     const inst = byIid.get(iid);
     if (!inst) continue;
     eq[slot] = inst.id;
-    if (inst.roll) rolls[inst.id] = inst.roll;
+    // 강화 — 위력만 배율(옵션·무게 불변)을 합성 roll 로 내려보냄. aggregate/엔진 무수정.
+    // roll 없는 개체(상점 구매 등)도 카탈로그 위력 기준으로 강화 반영(weight 는 카탈로그,
+    // options 미지정 = effectiveStats 가 카탈로그 옵션 사용 — 미강화와 동일 의미).
+    if (inst.enhance && inst.enhance.bonusPct > 0) {
+      const item = V2_EQUIPMENT[inst.id];
+      const basePower = inst.roll?.power ?? item.power;
+      rolls[inst.id] = {
+        power: enhancedPower(basePower, inst.enhance),
+        weight: inst.roll?.weight ?? item.weight,
+        ...(inst.roll?.options ? { options: inst.roll.options } : {}),
+      };
+    } else if (inst.roll) {
+      rolls[inst.id] = inst.roll;
+    }
   }
   return { equipped: eq, statRolls: rolls };
 }
@@ -1356,4 +1070,20 @@ export function removeInstance(
   const next = owned.slice();
   const [removed] = next.splice(idx, 1);
   return { owned: next, removed };
+}
+
+// 개체 잠금 토글 — iid 의 locked 설정. true 만 유지(false 는 키 제거 → 세이브 클린).
+// 못 찾으면 원본 그대로. 잠금 = 일괄/실수 판매 방지.
+export function setInstanceLock(
+  owned: V2EquipInstance[],
+  iid: string,
+  locked: boolean,
+): V2EquipInstance[] {
+  return owned.map((i) => {
+    if (i.iid !== iid) return i;
+    if (locked) return { ...i, locked: true };
+    const next = { ...i };
+    delete next.locked;
+    return next;
+  });
 }

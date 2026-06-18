@@ -5,6 +5,7 @@ import {
   buildBotsAroundLevel,
 } from "./arenaBots";
 import { V2_ELEMENT_CYCLE } from "./elements";
+import { V2_BASE_MP, V2_MP_PER_LEVEL } from "./v2Stats";
 
 describe("봇 속성 (PR-5 — PvP 상성)", () => {
   it("7템플릿이 7-ring 속성을 1:1 로 전부 커버", () => {
@@ -41,11 +42,14 @@ describe("buildBot", () => {
     expect(bot.combat.player.maxMp ?? 0).toBeGreaterThan(0);
   });
 
-  it("STR 봇은 INT 미투자 → 기본 int 15, maxMp = 50 + 15×2", () => {
+  it("STR 봇은 INT 미투자 → 기본 int 15, maxMp = 베이스 + 레벨성장 + 15×2", () => {
     const strBot = BOT_TEMPLATES.find((x) => x.focus === "str")!;
     const bot = buildBot(strBot, 30);
     expect(bot.combat.totalStats.int).toBe(15); // 기본 int 15 (STR 봇은 int 미투자)
-    expect(bot.combat.player.maxMp ?? 0).toBe(50 + 15 * 2); // 80
+    // Lv30: 50 + 29×V2_MP_PER_LEVEL + 15×2 (레벨 고정 성장 포함).
+    expect(bot.combat.player.maxMp ?? 0).toBe(
+      V2_BASE_MP + (30 - 1) * V2_MP_PER_LEVEL + 15 * 2,
+    );
   });
 
   it("음수·0 레벨은 1 로 클램프", () => {

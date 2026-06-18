@@ -24,8 +24,22 @@ export type ClaimResult = {
   hpBefore?: number;
   hpAfter?: number;
   maxHp?: number;
-  // NPC 일기토 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
-  // PvP 1v1/토너먼트는 PvP replay 미구현이라 없음(텍스트 요약으로 폴백).
+  // 공성 — captured=소유권 이전(함락/점령). fortHp/fortMaxHp=타격 후 성벽.
+  // won && !captured = 성벽만 깎인 공성 진행.
+  captured?: boolean;
+  fortHp?: number;
+  fortMaxHp?: number;
+  // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
+  repairedHp?: number;
+  repairGoldSpent?: number;
+  // 거점 금고 탈환 — 점령/함락 시 자동 회수분(본인/길드 분배). 없으면 null.
+  treasuryCaptured?: {
+    total: number;
+    capturerShare: number;
+    guildShare: number;
+  } | null;
+  // 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
+  // NPC 일기토 + PvP 1v1 생성. 3:3 토너먼트만 없음(매치별 텍스트 요약으로 폴백).
   replay?: ReplayPayload | null;
   startPlayerHp?: number;
   playerName?: string;
@@ -47,10 +61,13 @@ export function ClaimResultCard({
   result,
   outpostName,
   onClose,
+  coreLoopOn = false,
 }: {
   result: ClaimResult;
   outpostName: string;
   onClose: () => void;
+  // 코어루프 on = 점령 비용이 골드(스태미나 아님). 차감 안내 문구 분기.
+  coreLoopOn?: boolean;
 }) {
   // 에러 응답 (ok=false) — 한 줄 에러 카드.
   if (!result.ok) {
@@ -61,7 +78,9 @@ export function ClaimResultCard({
           ? "이미 자기 길드 점령"
           : result.error === "no_supply_line"
             ? "보급선 밖 — 우리 거점이나 중립 자유도시에 인접한 곳만 점령 가능"
-            : (result.error ?? "알 수 없는 오류");
+            : result.error === "protected"
+              ? "함락 직후 보호막 — 잠시 후 다시 공성 가능"
+              : (result.error ?? "알 수 없는 오류");
     return (
       <ResultShell
         title="점령 실패"
@@ -74,14 +93,27 @@ export function ClaimResultCard({
     );
   }
 
-  // 결과 머리말 — ✓ / △ (race) / ✗
+  // 결과 머리말 — 함락(점령) / 공성 진행 / 패배 / race.
+  const wallText =
+    result.fortHp != null && result.fortMaxHp != null
+      ? ` (남은 성벽 ${result.fortHp}/${result.fortMaxHp})`
+      : "";
   const winLabel = result.raceLost
-    ? "△ 다른 세력이 먼저 점령 — 스태미너만 차감"
-    : result.won
-      ? "✓ 점령 성공"
-      : "✗ 점령 실패";
-  const accent: "green" | "amber" | "red" =
-    result.raceLost ? "amber" : result.won ? "green" : "red";
+    ? `△ 다른 세력이 먼저 점령 — ${coreLoopOn ? "골드" : "스태미너"}만 차감`
+    : result.captured
+      ? result.pvp
+        ? "✓ 함락 — 점령 성공"
+        : "✓ 점령 성공"
+      : result.won
+        ? `⚔ 공성 — 성벽을 깎았다${wallText}`
+        : `✗ 패배${wallText}`;
+  const accent: "green" | "amber" | "red" = result.raceLost
+    ? "amber"
+    : result.captured
+      ? "green"
+      : result.won
+        ? "amber"
+        : "red";
 
   return (
     <div className="flex flex-col gap-3">
@@ -92,6 +124,20 @@ export function ClaimResultCard({
         onClose={onClose}
       >
         <div className="flex flex-col gap-3">
+          {result.treasuryCaptured && result.treasuryCaptured.total > 0 && (
+            <div className="rounded-md border border-yellow-400/60 bg-yellow-400/10 px-3 py-1.5 text-xs font-medium text-yellow-700 dark:text-yellow-300">
+              🪙 거점 금고 {result.treasuryCaptured.total.toLocaleString()} G
+              획득! (내 몫 +
+              {result.treasuryCaptured.capturerShare.toLocaleString()} G · 길드
+              금고 +{result.treasuryCaptured.guildShare.toLocaleString()} G)
+            </div>
+          )}
+          {result.repairedHp != null && result.repairedHp > 0 && (
+            <div className="rounded-md bg-sky-500/10 px-3 py-1.5 text-xs text-sky-700 dark:text-sky-300">
+              🛡 수비 길드가 금고로 성벽 +{result.repairedHp} 수리 (−
+              {(result.repairGoldSpent ?? 0).toLocaleString()} 골드)
+            </div>
+          )}
           {result.tournament && (
             <TournamentSection tournament={result.tournament} />
           )}
@@ -107,7 +153,7 @@ export function ClaimResultCard({
           )}
         </div>
       </ResultShell>
-      {/* NPC 일기토 전투 리플레이 — 사냥/스파링과 동일한 BattleScene 으로 전투 진행 표시. */}
+      {/* 전투 리플레이 — 사냥/아레나와 동일한 BattleScene 으로 전투 진행 표시(NPC·PvP 1v1). */}
       {result.replay && (
         <ReplayBattleScene
           payload={result.replay}

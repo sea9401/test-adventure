@@ -4,11 +4,13 @@ import { useState } from "react";
 import {
   ArrowLeft,
   ChatCircle,
+  Eye,
   Heart,
+  PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
-import { formatRelative } from "@/lib/notifications";
+import { formatDateTime } from "@/lib/notifications";
 import { BULLETIN_CATEGORY_LABELS } from "@/lib/bulletin-config";
 import { toggleLike } from "./api";
 import { CommentsPanel } from "./CommentsPanel";
@@ -19,6 +21,7 @@ import { CATEGORY_BADGE, type BulletinPost } from "./types";
 type Props = {
   post: BulletinPost;
   onBack: () => void;
+  onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   onLikeUpdate: (postId: number, liked: boolean, count: number) => void;
   onCommentCountChange: (postId: number, count: number) => void;
@@ -28,6 +31,7 @@ type Props = {
 export function PostDetailPage({
   post,
   onBack,
+  onEdit,
   onDelete,
   onLikeUpdate,
   onCommentCountChange,
@@ -83,7 +87,8 @@ export function PostDetailPage({
             >
               {BULLETIN_CATEGORY_LABELS[post.category].name}
             </span>
-            {post.mine ? (
+            {post.mine || post.category === "notice" ? (
+              // 공지(운영자)·본인 글은 쪽지 대상이 아니므로 평문으로만 표시.
               <span className="font-semibold text-zinc-700 dark:text-zinc-200">
                 {post.name}
               </span>
@@ -97,17 +102,28 @@ export function PostDetailPage({
                 {post.name}
               </button>
             )}
-            <span>{formatRelative(post.createdAt)}</span>
+            <span>{formatDateTime(post.createdAt)}</span>
+            {post.updatedAt != null && <span>(수정됨)</span>}
           </div>
           {post.mine && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              aria-label="글 삭제"
-              className="shrink-0 rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-            >
-              <Trash size={14} weight="bold" />
-            </button>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => onEdit(post.id)}
+                aria-label="글 수정"
+                className="rounded p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <PencilSimple size={14} weight="bold" />
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                aria-label="글 삭제"
+                className="rounded p-1 text-zinc-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+              >
+                <Trash size={14} weight="bold" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -137,6 +153,13 @@ export function PostDetailPage({
           <div className="inline-flex items-center gap-1 px-2 py-1 text-zinc-500 dark:text-zinc-400">
             <ChatCircle size={14} weight="regular" />
             <span className="tabular-nums">{post.commentCount}</span>
+          </div>
+          <div
+            className="inline-flex items-center gap-1 px-2 py-1 text-zinc-500 dark:text-zinc-400"
+            aria-label={`조회 ${post.viewCount}회`}
+          >
+            <Eye size={14} weight="regular" />
+            <span className="tabular-nums">{post.viewCount}</span>
           </div>
         </div>
       </Card>

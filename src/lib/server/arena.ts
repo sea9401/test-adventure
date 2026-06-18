@@ -1,18 +1,24 @@
 // v2 1:1 아레나 — 서버 측 코어 로직 (PR-8a).
 //
 // docs/v2-arena-design.md 의 9.1 확정안 그대로 구현:
-//   - 매칭: 본인 제외 전 v2 유저 snapshot + 가중 랜덤 + 봇 폴백
-//   - 일일 10회 (자정 KST 리셋)
+//   - 매칭: 본인 제외 전 v2 유저 snapshot + 가중 랜덤
+//   - 일일 횟수 제한 폐지 → 매치 간 재도전 쿨타임 10초 (2026-06-08)
 //   - 점수 자연 발산 (천장 X), 0 미만 X
 //   - 무승부: 점수 0 / 골드 패배 수준 / 카운터 차감 / recentOpponents 기록
 //   - 풀: 전 v2 유저 자동 (opt-in 없음)
 //
 // 라이브 PvP 코드 직접 이식 X — 신규 모듈. resolveBattlePvP 엔진만 재사용.
 
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+
 // ─── 상수 (튜닝 다이얼) ─────────────────────────────────────────────────────
 
-export const MAX_DAILY_MATCHES = 10;
+// 매치 재도전 쿨타임(ms). 일일 횟수 제한 대신 이 쿨타임으로 페이스 조절(2026-06-08).
+// 서버 권위(lastMatchAt 체크) + 클라 버튼 카운트다운 양쪽에서 사용.
+export const ARENA_MATCH_COOLDOWN_MS = 10_000;
 export const RECENT_OPPONENT_TRACK = 5;
+// 전투 기록 — 최근 N판을 리플레이 로그까지 저장(다시보기). 세이브 크기 바운드.
+export const ARENA_HISTORY_MAX = 10;
 
 // 점수 공식
 export const SCORE_WIN = 20;
@@ -35,9 +41,6 @@ export const LEVEL_WEIGHT_FLOOR = 0.3;
 export const LEVEL_WEIGHT_SPAN = 20; // 레벨 차 ±20 = 0.3
 export const RECENT_OPPONENT_PENALTY = 0.2; // 최근 5매치 상대 가중치 ×
 
-// 봇 폴백 — 본인 레벨 ±BOT_LEVEL_BAND 안 프리셋
-export const BOT_LEVEL_BAND = 5;
-
 // ─── 타입 ──────────────────────────────────────────────────────────────────
 
 export type ArenaMatchOutcome = "win" | "loss" | "draw";
@@ -51,9 +54,8 @@ export type ArenaOpponentRef = {
 
 export type ArenaState = {
   score: number;
-  dailyUsed: number;
-  /** 다음 자정 KST. 이 시각이 지나면 dailyUsed 0 으로 리셋. */
-  dailyResetAt: string;
+  /** 마지막 매치 시각(ISO). 이 시각 + ARENA_MATCH_COOLDOWN_MS 전까지 재도전 불가. */
+  lastMatchAt: string;
   recentOpponents: ArenaOpponentRef[];
   /** PR-8b 에서 활용. PR-8a 는 빈 배열로 두기만 함. */
   milestonesReached: number[];
@@ -68,13 +70,58 @@ export type ArenaCandidate = {
   score: number;
 };
 
+// 전투 기록 한 판 — 결과 요약 + 리플레이(다시보기용). arena-history.v2 에 최근순 ≤ MAX 저장.
+export type ArenaHistoryEntry = {
+  /** 고유 키(UI list key·다시보기 선택). at + 짧은 난수. */
+  id: string;
+  /** ISO 시각. */
+  at: string;
+  outcome: ArenaMatchOutcome;
+  opponent: { name: string; level: number; userId?: string };
+  scoreBefore: number;
+  scoreAfter: number;
+  scoreDelta: number;
+  goldGained: number;
+  turns: number;
+  /** 전투 로그 다시보기 — ReplayBattleScene 페이로드(나=player 관점). */
+  replay: ReplayPayload;
+};
+
+// 방어적 파싱 — 배열 + 필수 필드(outcome·opponent·replay.log) 있는 엔트리만, 최근순 ≤ MAX.
+export function parseArenaHistory(value: unknown): ArenaHistoryEntry[] {
+  if (!Array.isArray(value)) return [];
+  const out: ArenaHistoryEntry[] = [];
+  for (const e of value) {
+    if (!e || typeof e !== "object") continue;
+    const o = e as Record<string, unknown>;
+    if (o.outcome !== "win" && o.outcome !== "loss" && o.outcome !== "draw") {
+      continue;
+    }
+    if (!o.opponent || typeof o.opponent !== "object") continue;
+    const replay = o.replay as { log?: unknown } | null;
+    if (!replay || typeof replay !== "object" || !Array.isArray(replay.log)) {
+      continue;
+    }
+    out.push(e as ArenaHistoryEntry);
+    if (out.length >= ARENA_HISTORY_MAX) break;
+  }
+  return out;
+}
+
+// 새 기록을 맨 앞에 끼우고 최근순 ≤ MAX 로 자른다.
+export function pushArenaHistory(
+  list: ArenaHistoryEntry[],
+  entry: ArenaHistoryEntry,
+): ArenaHistoryEntry[] {
+  return [entry, ...list].slice(0, ARENA_HISTORY_MAX);
+}
+
 // ─── State 파싱·기본값 ──────────────────────────────────────────────────────
 
-export function defaultArenaState(now: Date): ArenaState {
+export function defaultArenaState(): ArenaState {
   return {
     score: 0,
-    dailyUsed: 0,
-    dailyResetAt: nextKstMidnight(now).toISOString(),
+    lastMatchAt: new Date(0).toISOString(), // 에폭 = 쿨타임 없음(즉시 도전 가능).
     recentOpponents: [],
     milestonesReached: [],
   };
@@ -86,22 +133,18 @@ export function defaultArenaState(now: Date): ArenaState {
  * 미존재·형식 오류·옛 버전 모두 안전하게 default 로 떨어진다. value 가 객체이면
  * 알려진 필드만 추려서 박는다. 모르는 필드는 무시 — append-only 진화 위해.
  */
-export function parseArenaState(value: unknown, now: Date): ArenaState {
-  const def = defaultArenaState(now);
+export function parseArenaState(value: unknown): ArenaState {
+  const def = defaultArenaState();
   if (!value || typeof value !== "object") return def;
   const v = value as Record<string, unknown>;
   const score =
     typeof v.score === "number" && Number.isFinite(v.score)
       ? Math.max(0, Math.floor(v.score))
       : def.score;
-  const dailyUsed =
-    typeof v.dailyUsed === "number" && Number.isFinite(v.dailyUsed)
-      ? Math.max(0, Math.floor(v.dailyUsed))
-      : def.dailyUsed;
-  const dailyResetAt =
-    typeof v.dailyResetAt === "string" && v.dailyResetAt.length > 0
-      ? v.dailyResetAt
-      : def.dailyResetAt;
+  const lastMatchAt =
+    typeof v.lastMatchAt === "string" && v.lastMatchAt.length > 0
+      ? v.lastMatchAt
+      : def.lastMatchAt;
   const recentOpponents: ArenaOpponentRef[] = Array.isArray(v.recentOpponents)
     ? v.recentOpponents
         .filter((o): o is Record<string, unknown> => !!o && typeof o === "object")
@@ -120,42 +163,19 @@ export function parseArenaState(value: unknown, now: Date): ArenaState {
         (n): n is number => typeof n === "number" && Number.isFinite(n),
       )
     : def.milestonesReached;
-  return { score, dailyUsed, dailyResetAt, recentOpponents, milestonesReached };
+  return { score, lastMatchAt, recentOpponents, milestonesReached };
 }
 
-// ─── 일일 리셋 ─────────────────────────────────────────────────────────────
+// ─── 재도전 쿨타임 ─────────────────────────────────────────────────────────
 
 /**
- * KST 자정 = UTC 의 전날 15:00. now 기준 다음 KST 자정을 반환.
+ * 마지막 매치 이후 남은 쿨타임(ms). 0 이면 즉시 재도전 가능.
+ * lastMatchAt 파싱 불능이면 0(쿨타임 없음)으로 본다.
  */
-export function nextKstMidnight(now: Date): Date {
-  const kstMs = now.getTime() + 9 * 60 * 60 * 1000;
-  const kst = new Date(kstMs);
-  kst.setUTCHours(0, 0, 0, 0);
-  kst.setUTCDate(kst.getUTCDate() + 1);
-  return new Date(kst.getTime() - 9 * 60 * 60 * 1000);
-}
-
-/**
- * dailyResetAt 이 now 보다 과거면 dailyUsed = 0 으로 리셋, dailyResetAt 도 다음
- * 자정으로 갱신. 이미 미래면 noop. wasReset 여부도 반환.
- */
-export function applyDailyReset(
-  state: ArenaState,
-  now: Date,
-): { state: ArenaState; wasReset: boolean } {
-  const resetAt = new Date(state.dailyResetAt);
-  if (!Number.isFinite(resetAt.getTime()) || resetAt.getTime() <= now.getTime()) {
-    return {
-      state: {
-        ...state,
-        dailyUsed: 0,
-        dailyResetAt: nextKstMidnight(now).toISOString(),
-      },
-      wasReset: true,
-    };
-  }
-  return { state, wasReset: false };
+export function arenaCooldownRemainingMs(state: ArenaState, now: Date): number {
+  const last = new Date(state.lastMatchAt).getTime();
+  if (!Number.isFinite(last)) return 0;
+  return Math.max(0, ARENA_MATCH_COOLDOWN_MS - (now.getTime() - last));
 }
 
 // ─── 점수·골드 ─────────────────────────────────────────────────────────────

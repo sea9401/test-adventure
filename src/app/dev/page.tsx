@@ -3,6 +3,8 @@ import Link from "next/link";
 // dev 프리뷰 허브 — 로그인 없이 게이트-뒤 UI 를 시나리오별로 확인. production 에선 404(layout 가드).
 const PREVIEWS: { href: string; title: string; desc: string }[] = [
   { href: "/dev/character-basics", title: "내 정보 — 기본 정보 카드", desc: "옛 직업 숙달 대체. 전투력 헤드라인 + 속성·소속 길드·전투 횟수·숙달 포인트. mock 변형." },
+  { href: "/dev/job-ladder", title: "직업 사다리 — 전직 화면(flag-on)", desc: "V2JobLadder 렌더 확인. 잠긴 직업 숨김 + 직업별 해금 조건 표기. 성장중/기본해금/상위해금 3시나리오 mock." },
+  { href: "/dev/job-codex", title: "직업 도감 — 수집 대시보드(A 메타 PR-1)", desc: "V2JobCodexView 렌더 확인. 4 직군 정복(cumLevel) 진행 + 직업 해금/패시브 수집 표기. mock(전사 정복·일부 수집)." },
   { href: "/dev/navbar", title: "메인 nav — 가장자리 페이드", desc: "6탭(…길드·광장)이 좁은 폭에서 넘칠 때 우측 페이드로 '더 있음' 신호. 320/360/390/720px 박스." },
   { href: "/dev/inventory", title: "인벤토리 — 보유 장비 카드 그리드", desc: "보유 장비 2열 카드(슬롯 아이콘·등급색 이름·위력/속성/티어·장착 배지). 카드 탭 → 상세·장착 팝오버. 표본 mock." },
   { href: "/dev/stance-picker", title: "전술 선택기 (StancePicker)", desc: "#497 공세/수성/처형 선택 UI." },

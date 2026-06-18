@@ -90,6 +90,21 @@ export type Monster = {
   accuracy?: number;
   /** PR-5b v2 — 몬스터 속성(상성). v2 전투 경로만 사용. 라이브 몹은 미지정(neutral). */
   element?: V2Element;
+  /**
+   * SPI 부활 PR-3a — 공격 피해 종류. "magic" 이면 이 몹의 공격이 플레이어 물리방어 파이프라인
+   * (brace/pierce/취약/defDebuff) 대신 마법방어(magicDef=정신)로 경감된다(engine.enemyPhase, v2 전투만).
+   * 물리탱크는 약점·정신 빌드는 카운터. 미지정/"physical" = 기존 물리 피해(byte-identical).
+   * 총피해 중립 의도(물리→마법 *교체*) — 마법형 몹의 atk 는 물리몹과 같은 스케일로 둔다.
+   */
+  atkType?: "physical" | "magic";
+  /**
+   * SPI 부활 PR-3b — 치명형 몹. 0~100. 이 몹의 공격이 critPct% 확률로 치명타(피해 ×critMult).
+   * 플레이어 치명저항(critResistPct=정신)이 %p 차감(engine.enemyPhase, v2 전투만). 정신 빌드가
+   * 치명 위협을 카운터. 미지정/0 = 치명 없음(굴림 스킵 → RNG 불변·byte-identical).
+   */
+  critPct?: number;
+  /** 치명형 몹 치명 배수. 미지정 시 MONSTER_CRIT_MULT_DEFAULT(1.5). critPct 0 이면 무의미. */
+  critMult?: number;
   exp: number;
   drops?: MonsterDrop[];
   phaseTrigger?: MonsterPhaseTrigger;

@@ -4,26 +4,27 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   parseV2Class,
   tier1ClassOf,
-  signaturesForClass,
   elementalSkillsForClass,
-  signatureClassOf,
-  V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
 import {
   parseProficiencyForChar,
   emptyProficiency,
   spendProficiency,
-  signatureLearnCost,
   groupUsable,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
   parseV2SkillsState,
   emptyV2SkillsState,
-  V2_ELEMENTAL_LEARN_COST,
+  v2SkillLearnCost,
   type V2SkillsState,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
+import { sanitizeLoadout } from "@/adventure/data/v2/v2Loadout";
+import {
+  V2_CORE_LOOP_V2,
+  calcSpBudget,
+} from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/learn-skill — 시그니처 1종 학습. 그 차수 도달 + 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
@@ -50,30 +51,14 @@ export async function POST(req: Request) {
   }
 
   const result = await db.transaction(async (tx) => {
-    const charSave = await lockSaveForUpdate<{ class?: unknown }>(
-      tx,
-      userId,
-      "character.v2",
-      {},
-    );
+    const charSave = await lockSaveForUpdate<{
+      class?: unknown;
+      specChoice?: unknown;
+    }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
     if (cls === "none") {
       return { status: 400, body: { ok: false as const, error: "no_class" as const } };
     }
-
-    // 학습 가능 = 현 직업 체인 시그니처(그 차수 도달분) ∪ 직업군 속성 스킬 풀(7종).
-    const chain = signaturesForClass(cls);
-    const elementalPool = elementalSkillsForClass(cls);
-    const isSignature = chain.includes(skillId as V2SkillId);
-    const isElemental = elementalPool.includes(skillId as V2SkillId);
-    if (!isSignature && !isElemental) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "not_in_chain" as const },
-      };
-    }
-    // 게이트 통과 = 유효 학습 대상 → V2SkillId 로 확정.
-    const sig = skillId as V2SkillId;
 
     const skills = parseV2SkillsState(
       await lockSaveForUpdate<V2SkillsState>(
@@ -95,6 +80,19 @@ export async function POST(req: Request) {
       ),
       charSave,
     );
+    const tier = prof.groups[group]?.tier ?? 1;
+    // 학습 가능 = 공용(직군) + 선택 전문화(전직)의 차수 해금분(차수당 1개)만. 전문화 미선택이면 공용만.
+    const specChoice =
+      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+    const elementalPool = elementalSkillsForClass(cls, specChoice, tier);
+    if (!elementalPool.includes(skillId as V2SkillId)) {
+      return {
+        status: 400,
+        body: { ok: false as const, error: "not_in_chain" as const },
+      };
+    }
+    const sig = skillId as V2SkillId;
+
     // 이미 학습 → 멱등(소모 없이 현 상태 반환). usable 도 그대로 surface(변동 없음).
     if (skills.learned.includes(sig)) {
       return {
@@ -110,12 +108,8 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 시그니처는 보유 직업 차수별, 속성 풀은 고정(V2_ELEMENTAL_LEARN_COST).
-    const sigClass = signatureClassOf(skillId) ?? cls;
-    const tier = V2_CLASS_DEFS[sigClass].tier;
-    const cost = isElemental
-      ? V2_ELEMENTAL_LEARN_COST
-      : signatureLearnCost(tier);
+    // 비용 — 스킬 종류별 고정(v2SkillLearnCost): 공용 1500 · 전문화 5000.
+    const cost = v2SkillLearnCost(sig);
 
     const spent = spendProficiency(prof, group, cost);
     if (!spent) {
@@ -130,11 +124,23 @@ export async function POST(req: Request) {
       };
     }
 
-    // learned += sig 만. 장착은 수동(equip-skill) — 학습이 자동장착하지 않는다(자동장착 폐지).
+    // equipped 갱신.
+    //   flag off(레거시): 학습한 스킬은 현 체인 유효분 전부 자동 장착(상한 없음).
+    //   코어루프(flag on): 기존 로드아웃(수동 선택) 보존 + 새로 배운 스킬을 뒤에 붙여 SP 예산까지
+    //     sanitize(맞으면 자동 장착·예산 차면 learned 만·수동 교체는 로드아웃 화면에서). 강제 재산출 X.
     const nextLearned = [...skills.learned, sig];
+    const nextEquipped = V2_CORE_LOOP_V2
+      ? sanitizeLoadout(
+          [...skills.equipped, sig],
+          nextLearned,
+          calcSpBudget(spent.groups),
+          elementalPool,
+        )
+      : nextLearned.filter((s) => elementalPool.includes(s));
     const nextSkills: V2SkillsState = {
+      ...skills, // pattern 보존(combat-pattern 라우트만 pattern 변경).
       learned: nextLearned,
-      equipped: skills.equipped, // 불변
+      equipped: nextEquipped,
     };
     await upsertSave(tx, userId, "skills.v2", nextSkills);
     await upsertSave(tx, userId, "proficiency.v2", spent);
@@ -144,12 +150,11 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         skillId,
-        tier,
         spent: cost,
         group,
         points: groupUsable(spent, group),
         learned: nextLearned,
-        equipped: skills.equipped,
+        equipped: nextEquipped,
       },
     };
   });

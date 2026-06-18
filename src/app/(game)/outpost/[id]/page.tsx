@@ -1,6 +1,11 @@
 "use client";
 
-import { notFound, useParams, useRouter } from "next/navigation";
+import {
+  notFound,
+  useParams,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { OutpostView } from "@/adventure/v2/OutpostView";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
@@ -10,8 +15,18 @@ import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 export default function OutpostPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
-  const { viewerUserId, viewerGuildId, occupations, refreshOccupations } =
-    useGameState();
+  // 진입 컨텍스트별 뒤로가기 — 전쟁 허브/모험 홈에서 왔으면 그쪽으로, 기본(길드
+  // 관리·딥링크)은 길드 탭. 마을 지도 진입은 폐지(지도=항법 전용).
+  const from = useSearchParams().get("from");
+  const backHref =
+    from === "war" ? "/battle/war" : from === "adventure" ? "/" : "/guild";
+  const {
+    viewerUserId,
+    viewerGuildId,
+    occupations,
+    treasuries,
+    refreshOccupations,
+  } = useGameState();
 
   const outpost = OUTPOST_BY_ID.get(params.id);
   if (!outpost) notFound();
@@ -24,8 +39,11 @@ export default function OutpostPage() {
       occupation={
         occupations.find((o) => o.outpostId === outpost.id) ?? null
       }
+      treasuryGold={
+        treasuries.find((t) => t.outpostId === outpost.id)?.gold ?? 0
+      }
       onAction={(a) => {
-        if (a.kind === "back") router.push("/map");
+        if (a.kind === "back") router.push(backHref);
         if (a.kind === "claimed") refreshOccupations();
       }}
     />

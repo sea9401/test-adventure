@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { V2_STAT_LABELS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_CULTIVATE_PROFILE,
@@ -15,7 +16,9 @@ import {
 } from "@/adventure/data/v2/classes";
 import { parseV2Element, type V2Element } from "@/adventure/data/v2/elements";
 import { V2ClassGrid, type V2AdvanceInfo } from "./V2ClassGrid";
+import { V2JobLadder, type JobLadderEntry } from "./V2JobLadder";
 import { TabBar } from "@/components/ui/TabBar";
+import { useGameState } from "./GameStateProvider";
 
 // 성장의 신전 내부 탭 — 직업(전직)과 수행(스탯 한계↑)을 분리.
 type ShrineTab = "job" | "cultivate";
@@ -31,10 +34,24 @@ type StateShape = {
     gold?: number;
     class?: string;
     element?: string;
+    // 코어루프 flag-on 전용(off=null).
+    classDisplayName?: string | null;
+    spec?: string | null;
   };
   codex?: { discovered: number; total: number };
   // stats.base = cap 클램프 후 현 스탯(직업보정 전 — cap 과 같은 스케일). 표시 "현스탯(cap)".
-  stats?: { base?: Partial<Record<V2StatKey, number>> };
+  // stats.total = 효과 스탯(장비 포함) — 코어루프 스탯게이트 판정 기준.
+  stats?: {
+    base?: Partial<Record<V2StatKey, number>>;
+    total?: Partial<Record<V2StatKey, number>>;
+  };
+  // 직업 시스템 v2(cumLevel 점진 공개 전직 목록) — 코어루프 on 일 때만(off=null → V2ClassGrid).
+  jobsV2?: {
+    currentJobId: string;
+    currentJobName: string;
+    atLevelCap: boolean;
+    jobs: JobLadderEntry[];
+  } | null;
   proficiency?: {
     caps?: Partial<Record<V2StatKey, number>>;
     groups?: Record<string, { tier?: number; cumLevel?: number }>;
@@ -50,6 +67,7 @@ type StateShape = {
 };
 
 export function V2CultivationView({ onBack }: { onBack: () => void }) {
+  const { refreshGameState } = useGameState();
   // 기본 탭 = 직업(사용자 요청 순서). 수행을 기본으로 원하면 "cultivate" 로 바꾸면 됨.
   const [tab, setTab] = useState<ShrineTab>("job");
   const [group, setGroup] = useState<string>("none");
@@ -66,6 +84,14 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
     gold: number;
     groups: Record<string, { tier?: number; cumLevel?: number }>;
     advance: V2AdvanceInfo | null;
+  } | null>(null);
+  // 직업 시스템 v2(cumLevel 점진 공개) — null(코어루프 off)이면 V2ClassGrid 폴백.
+  const [jobLadder, setJobLadder] = useState<{
+    currentJobId: string;
+    currentJobName: string;
+    atLevelCap: boolean;
+    jobs: JobLadderEntry[];
+    level: number;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -94,6 +120,18 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
             advance: cur.advance ?? null,
           });
         }
+        // 코어루프 on(jobsV2 비null)이면 점진 공개 사다리. off 면 null → V2ClassGrid 폴백.
+        setJobLadder(
+          j.jobsV2
+            ? {
+                currentJobId: j.jobsV2.currentJobId,
+                currentJobName: j.jobsV2.currentJobName,
+                atLevelCap: j.jobsV2.atLevelCap,
+                jobs: j.jobsV2.jobs,
+                level: j.character?.level ?? 1,
+              }
+            : null,
+        );
       }
     } catch {}
     setLoading(false);
@@ -158,7 +196,9 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader title="성장의 신전" onBack={onBack} />
+      <HeaderPanel>
+        <SubViewHeader title="성장의 신전" onBack={onBack} />
+      </HeaderPanel>
 
       <TabBar
         tabs={[
@@ -171,18 +211,34 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         size="md"
       />
 
-      {/* === 직업 탭 — 직업·속성 선택/전직 === */}
+      {/* === 직업 탭 — 코어루프 on=스탯게이트 트리/재전직, off=기존 차수 전직 그리드 === */}
       {tab === "job" &&
         (picker ? (
-          <V2ClassGrid
-            currentClass={picker.cls}
-            currentElement={picker.elem}
-            level={picker.level}
-            gold={picker.gold}
-            groups={picker.groups}
-            advance={picker.advance}
-            onChanged={refresh}
-          />
+          jobLadder ? (
+            <V2JobLadder
+              level={jobLadder.level}
+              currentJobName={jobLadder.currentJobName}
+              currentJobId={jobLadder.currentJobId}
+              atLevelCap={jobLadder.atLevelCap}
+              jobs={jobLadder.jobs}
+              onChanged={async () => {
+                await Promise.all([refresh(), refreshGameState()]);
+              }}
+            />
+          ) : (
+            // 코어루프 off 폴백 — 옛 4직군 그리드(코어루프 on 이면 위 사다리가 항상 렌더).
+            <V2ClassGrid
+              currentClass={picker.cls}
+              currentElement={picker.elem}
+              level={picker.level}
+              gold={picker.gold}
+              groups={picker.groups}
+              advance={picker.advance}
+              onChanged={async () => {
+                await Promise.all([refresh(), refreshGameState()]);
+              }}
+            />
+          )
         ) : (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -207,8 +263,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
           </div>
         </div>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          숙달 포인트를 들여 직업 단련의 천장(스탯 한계치)을 끌어올린다. 레벨업 랜덤 성장이
-          이 한계치까지 능력치를 채운다.
+          숙달 포인트로 스탯 한계치를 올리면, 레벨업 랜덤 성장이 그 한계까지 채운다.
         </p>
 
         {loading ? (

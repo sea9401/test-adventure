@@ -11,16 +11,17 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { treasuryShares } from "@/adventure/data/v2/outposts";
 
 // POST /api/v2/outpost/treasury/claim — 점령 길드원이 거점 금고 세금 회수.
 //
 // body: { outpostId }
 // 검증: 거점 점령 중 + 호출자가 점령 길드원.
-// 분배: G = 거점 금고 총액. 회수자 = floor(G × 10%), 길드 = G - 회수자몫.
+// 분배: treasuryShares (회수자 10% / 길드 나머지 — outposts.ts 단일 출처).
 //   (회수자 몫이 character.v2.gold, 나머지가 v2_guild_resources.gold 로)
 // 금고 0 으로. G=0 이면 400 empty.
-
-export const CLAIMER_SHARE_PCT = 10;
+// 주의: 점령/함락 시 outpost/claim 이 같은 분배로 자동 회수하므로, 이 수동 회수는
+// 자동 회수 도입 전 점령분 등 잔여 금고용으로 유지.
 
 type CharSave = { gold?: number; [k: string]: unknown };
 
@@ -88,9 +89,8 @@ export async function POST(req: Request) {
       };
     }
 
-    // 4) 분배 — 회수자 10% (정수 floor), 길드 = 나머지.
-    const claimerShare = Math.floor((total * CLAIMER_SHARE_PCT) / 100);
-    const guildShare = total - claimerShare;
+    // 4) 분배 — 회수자 몫 / 길드 나머지 (outposts.ts 단일 출처).
+    const { claimerShare, guildShare } = treasuryShares(total);
 
     // 5) 회수자 character.v2.gold +claimerShare
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -103,6 +103,16 @@ export async function POST(req: Request) {
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: newCharGold,
+    });
+
+    // 5.5) 전쟁의 길 퀘 신호 — 금고 회수 골드 누적. lock 순서: character 다음(hunt 동일).
+    const logSave = await lockSaveForUpdate<{
+      warTreasuryGold?: unknown;
+      [k: string]: unknown;
+    }>(tx, userId, "adventure-log.v2", {});
+    await upsertSave(tx, userId, "adventure-log.v2", {
+      ...logSave,
+      warTreasuryGold: (Number(logSave.warTreasuryGold) || 0) + total,
     });
 
     // 6) 길드 공용 자원 풀 gold += guildShare

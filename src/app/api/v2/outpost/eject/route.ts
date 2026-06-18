@@ -4,7 +4,7 @@ import { guildMembers, outpostOccupations, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
   HUNT_COST,
@@ -12,13 +12,25 @@ import {
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import {
+  V2_CORE_LOOP_V2,
+  HUNT_COOLDOWN_MS,
+  combatCooldownRemainingMs,
+} from "@/adventure/data/v2/coreLoopConfig";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import {
   isIntruderActive,
   parseLastHuntedOutpost,
   type EjectedFrom,
 } from "@/adventure/data/v2/intruderTracking";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, nearestNeutralOutpostId } from "@/adventure/data/v2/outposts";
+import { isActiveContestOutpost } from "@/adventure/data/v2/warOutposts";
+import { WAR_POINTS_EJECT_WIN } from "@/adventure/data/v2/warScore";
+import { currentWarSeasonId } from "@/lib/server/war/season";
+import { insertWarScoreEvent } from "@/lib/server/war/score";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
+import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { insertNotification } from "@/lib/server/v2Notifications";
 
 // POST /api/v2/outpost/eject — 점령 길드 멤버가 침입자 1v1 토벌.
 //
@@ -39,6 +51,10 @@ type CharSave = {
   stamina?: unknown;
   hp?: number;
   hpRegenSince?: number;
+  gold?: number;
+  lastBattleAt?: number; // 코어루프 전투 쿨다운 — 사냥과 공통 게이트.
+  lastVisitedOutpost?: { outpostId?: string; at?: number };
+  discoveredOutpostIds?: string[];
   lastHuntedOutpost?: unknown;
   ejectedFrom?: unknown;
   [k: string]: unknown;
@@ -128,19 +144,39 @@ export async function POST(req: Request) {
       };
     }
 
-    // === 5. 도전자 stamina 차감 (회복 적용 후) ===
+    // === 5. 도전자 전투 throttle ===
+    // 코어루프 on — 스태미나 폐지·공통 전투 쿨다운(사냥과 같은 lastBattleAt). 마지막 전투 후
+    //   HUNT_COOLDOWN_MS 경과해야 토벌 가능 → 같은 침입자 무비용 재시도(스팸) 차단(PR-6
+    //   flip-gate 해소). off — 기존 스태미나 차감(무변경).
     const stamina = parseStaminaFromSave(attackerSave.stamina, now);
-    const afterStamina = tryConsume(stamina, EJECT_STAMINA_COST, now);
-    if (!afterStamina) {
-      return {
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "out_of_stamina" as const,
-          stamina: applyRegen(stamina, now),
-          requiredStamina: EJECT_STAMINA_COST,
-        },
-      };
+    let afterStamina = applyRegen(stamina, now);
+    if (V2_CORE_LOOP_V2) {
+      const lastBattleAt = Number(attackerSave.lastBattleAt) || 0;
+      if (combatCooldownRemainingMs(lastBattleAt, now) > 0) {
+        return {
+          status: 429,
+          body: {
+            ok: false as const,
+            error: "on_cooldown" as const,
+            nextBattleAt: lastBattleAt + HUNT_COOLDOWN_MS,
+            cooldownMs: HUNT_COOLDOWN_MS,
+          },
+        };
+      }
+    } else {
+      const after = tryConsume(stamina, EJECT_STAMINA_COST, now);
+      if (!after) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            stamina: applyRegen(stamina, now),
+            requiredStamina: EJECT_STAMINA_COST,
+          },
+        };
+      }
+      afterStamina = after;
     }
 
     // === 6. 양측 PlayerCombat derive ===
@@ -180,8 +216,9 @@ export async function POST(req: Request) {
       now,
     );
 
-    const attackerName = await readName(tx, userId);
-    const defenderName = await readName(tx, targetUserId);
+    const attackerProfile = await readProfile(tx, userId);
+    const attackerName = attackerProfile.name;
+    const defenderName = (await readProfile(tx, targetUserId)).name;
 
     const battleResult = resolveBattlePvP(
       { ...attackerCombat.player, hp: attackerRegen.hp },
@@ -191,15 +228,28 @@ export async function POST(req: Request) {
       { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
     );
     const won = battleResult.outcome === "p1_win";
+    // 토벌 전투 리플레이 — 토벌자(=나) p1 시점. 결과 카드 아래 BattleScene 표시용.
+    const replay = toPvpReplayPayload(battleResult.finalState, defenderName, 200);
     const attackerHpAfter = Math.max(0, battleResult.finalState.p1.hp);
     const defenderHpAfter = Math.max(0, battleResult.finalState.p2.hp);
 
-    // === 7. 도전자 저장 (stamina + hp) ===
+    // 토벌 현상금/추방 — 승리 시 침입자 보유(들고 있는) 골드 전액 압류 → 토벌자에게.
+    // 입금분(bankedGold)은 안전 — 은행에 넣어두면 안 뺏긴다. 추가로 침입자를 가장 가까운
+    // 중립 자유도시로 추방(위치 강제 이동). 패배 시 0 / 위치 불변.
+    const targetGold = Math.max(0, defenderSave.gold ?? 0);
+    const bountyGold = won ? targetGold : 0; // 보유 전액.
+    const hunterGold = Math.max(0, attackerSave.gold ?? 0);
+    const exileToId = won ? nearestNeutralOutpostId(outpostId) : null;
+
+    // === 7. 도전자 저장 (stamina + hp + 현상금) ===
     await upsertSave(tx, userId, "character.v2", {
       ...attackerSave,
       stamina: afterStamina,
       hp: attackerHpAfter,
       hpRegenSince: now,
+      gold: hunterGold + bountyGold, // 패배면 bountyGold=0 → 변동 없음.
+      // 코어루프 전투 쿨다운 시각 — 승패 무관 갱신(전투 실행=throttle). off 면 키 불변.
+      ...(V2_CORE_LOOP_V2 ? { lastBattleAt: now } : {}),
     });
 
     // === 8. 침입자 저장 — 승리 시 토벌 마킹, 패배 시 hp 만 갱신 ===
@@ -213,12 +263,42 @@ export async function POST(req: Request) {
       const { lastHuntedOutpost: _dropLast, ...defenderSaveWithoutLast } =
         defenderSave;
       void _dropLast;
+      // 추방 — 가장 가까운 중립 자유도시로 강제 이동. 발견 목록에도 보장(미발견 허브 방지).
+      const exileTarget = exileToId ?? outpostId;
+      const prevDiscovered = defenderSave.discoveredOutpostIds ?? [];
+      const nextDiscovered = prevDiscovered.includes(exileTarget)
+        ? prevDiscovered
+        : [...prevDiscovered, exileTarget];
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSaveWithoutLast,
         hp: defenderHpAfter,
         hpRegenSince: now,
+        gold: 0, // 보유 골드 전액 압류(입금분은 안전).
+        lastVisitedOutpost: { outpostId: exileTarget, at: now }, // 추방.
+        discoveredOutpostIds: nextDiscovered,
         ejectedFrom: ejectedNotice,
       });
+      // 전쟁의 길 퀘 신호 — 토벌 승리 누적. lock 순서: character.v2 다음(hunt 와 동일).
+      const logSave = await lockSaveForUpdate<{
+        warEjectWins?: unknown;
+        [k: string]: unknown;
+      }>(tx, userId, "adventure-log.v2", {});
+      await upsertSave(tx, userId, "adventure-log.v2", {
+        ...logSave,
+        warEjectWins: (Number(logSave.warEjectWins) || 0) + 1,
+      });
+      // 전쟁 시즌 점수 — 활성 쟁탈 거점 방어 토벌만 소량 적재(arena 한정·일반 영토 방어는 0).
+      //   war_score_events 는 독립 테이블이라 위 락 순서에 사이클 없음.
+      if (isActiveContestOutpost(outpostId)) {
+        await insertWarScoreEvent(tx, {
+          seasonId: currentWarSeasonId(new Date(now)),
+          outpostId,
+          guildId: viewerGuildId,
+          userId,
+          eventType: "eject_win",
+          points: WAR_POINTS_EJECT_WIN,
+        });
+      }
     } else {
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSave,
@@ -242,17 +322,47 @@ export async function POST(req: Request) {
         defenderHpAfter,
         defenderMaxHp: defenderCombat.maxHp,
         stamina: afterStamina,
+        replay,
+        attackerGender: attackerProfile.gender,
+        // 토벌 현상금 — 승리 시 침입자 보유 전액 압류분(0이면 침입자 무일푼).
+        bountyGold,
+        // 추방된 중립 자유도시 id (패배 시 null).
+        exiledTo: exileToId,
       },
     };
   });
 
+  // 전쟁 피드 — 토벌 성공은 공적 사건(force). tx 커밋 후 부수효과.
+  const fb = result.body as {
+    ok?: boolean;
+    won?: boolean;
+    attackerName?: string;
+    defenderName?: string;
+    bountyGold?: number;
+    exiledTo?: string | null;
+  };
+  if (fb.ok && fb.won) {
+    await insertFeedEntry(
+      userId,
+      "outpost_eject",
+      { outpostId, targetName: fb.defenderName ?? "침입자" }
+    );
+    // 개인 알림 — 토벌당한 침입자 본인에게 즉시. 압류 골드 + 추방된 곳 동봉.
+    await insertNotification(targetUserId, "ejected", {
+      outpostId,
+      byName: fb.attackerName ?? "수비대",
+      gold: fb.bountyGold ?? 0,
+      exiledTo: fb.exiledTo ?? undefined,
+    });
+  }
+
   return Response.json(result.body, { status: result.status });
 }
 
-async function readName(
+async function readProfile(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   userId: string,
-): Promise<string> {
+): Promise<{ name: string; gender: string }> {
   const row = await tx
     .select({ value: savesKv.value })
     .from(savesKv)
@@ -260,6 +370,15 @@ async function readName(
       and(eq(savesKv.userId, userId), eq(savesKv.key, "character-profile.v2")),
     )
     .limit(1);
-  const profile = (row[0]?.value ?? null) as { name?: string } | null;
-  return profile?.name?.trim() || "모험가";
+  const profile = (row[0]?.value ?? null) as {
+    name?: string;
+    gender?: string;
+  } | null;
+  return {
+    name: profile?.name?.trim() || "모험가",
+    gender:
+      typeof profile?.gender === "string" && profile.gender.length > 0
+        ? profile.gender
+        : "male1",
+  };
 }

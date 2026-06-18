@@ -2,61 +2,37 @@ import { describe, expect, it } from "vitest";
 import {
   FLOOR_DROP_POOLS,
   V2_MATERIALS,
+  V2_MATERIAL_SELL_PRICE,
   mergeDrops,
   rollDrops,
   type V2MaterialId,
 } from "./dungeonDrops";
 
-// 2026-06-03: 재료 재설계 — 지역당 소수(희귀 2 + 흔함 3~4), 저드랍. 현재 들판(1층)만 등재.
+// 2026-06-08: 재료 콘텐츠 제거 — 전 층 드랍 풀 빈 상태(rollDrops 게이트 유지).
+// 2026-06-11: 강화석 2종 입주(장비 강화 PR-2) — 카탈로그 등재만으로 인벤/거래소/NPC 판매가
+// 동작하고, 드랍은 hunt 의 독립 롤(rollEnhanceStoneDrops — 플래그 무관).
 
-const FIELD_IDS = [
-  "v2_field_grass",
-  "v2_field_hide",
-  "v2_field_stone",
-  "v2_field_fang",
-  "v2_field_venom",
-];
-
-describe("들판 재료 + 드랍 풀", () => {
-  it("들판 재료 5종 등재(흔함 3 + 희귀 2)", () => {
-    expect(Object.keys(V2_MATERIALS).sort()).toEqual([...FIELD_IDS].sort());
+describe("재료 카탈로그 + 드랍 풀 (강화석 2종 입주)", () => {
+  it("등재 재료 = 강화석 2종 + 보스 소환서 — NPC 판매가는 비등재(유저 거래 전용)", () => {
+    expect(Object.keys(V2_MATERIALS)).toHaveLength(3);
+    for (const id of Object.keys(V2_MATERIALS)) {
+      expect(V2_MATERIALS[id].name.length).toBeGreaterThan(0);
+      expect(V2_MATERIAL_SELL_PRICE[id]).toBeUndefined();
+    }
   });
 
-  it("1층 풀 id 가 전부 카탈로그에 존재, 2~8층은 빈 풀", () => {
-    for (const rule of FLOOR_DROP_POOLS[1]) {
-      expect(V2_MATERIALS[rule.id]).toBeDefined();
-    }
-    expect(FLOOR_DROP_POOLS[1]).toHaveLength(5);
-    for (const f of [2, 3, 4, 5, 6, 7, 8] as const) {
+  it("전 층(1~8) 드랍 풀이 빈 상태", () => {
+    for (const f of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
       expect(FLOOR_DROP_POOLS[f]).toEqual([]);
     }
-  });
-
-  it("저드랍 — 희귀 ≤ 0.06, 흔함 ≤ 0.12 (잡재료 범람 방지)", () => {
-    const byId = Object.fromEntries(
-      FLOOR_DROP_POOLS[1].map((r) => [r.id, r.chance]),
-    );
-    expect(byId.v2_field_fang).toBeLessThanOrEqual(0.06);
-    expect(byId.v2_field_venom).toBeLessThanOrEqual(0.06);
-    expect(byId.v2_field_grass).toBeLessThanOrEqual(0.12);
-    expect(byId.v2_field_hide).toBeLessThanOrEqual(0.12);
-    expect(byId.v2_field_stone).toBeLessThanOrEqual(0.12);
   });
 });
 
 describe("rollDrops", () => {
-  it("들판(1층) — 통과 굴림이면 등재 재료를 amountMin 만큼 획득", () => {
-    const result = rollDrops(1, () => 0);
-    for (const id of FIELD_IDS) expect(result[id]).toBe(1);
-  });
-
-  it("굴림이 모두 chance 이상이면 빈 결과", () => {
-    expect(rollDrops(1, () => 0.99)).toEqual({});
-  });
-
-  it("들판 외(2~8층)은 빈 풀이라 항상 빈 결과", () => {
-    for (const f of [2, 3, 4, 5, 6, 7, 8] as const) {
+  it("어떤 층·굴림이든 빈 결과 (드랍 풀 비었고 재료 보류)", () => {
+    for (const f of [1, 2, 3, 4, 5, 6, 7, 8] as const) {
       expect(rollDrops(f, () => 0)).toEqual({});
+      expect(rollDrops(f, () => 0.99)).toEqual({});
     }
   });
 });

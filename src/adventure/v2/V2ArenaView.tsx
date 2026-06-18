@@ -1,26 +1,39 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BackButton } from "@/components/ui/BackButton";
-import { Sword, Coin, Trophy } from "@phosphor-icons/react";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
+import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
+import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
+import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
+import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import { Sword, Coin, Trophy, FilmStrip } from "@phosphor-icons/react";
 
-// v2 1:1 아레나 — PR-8a 코어 UI.
-//
-// 디자인 doc 9.1 확정안 그대로:
-//   - 헤더: 점수 · 일일 잔여
-//   - 본문: 도전 버튼 → 결과 카드
-//   - PR-8a 는 결과 카드 간소형 (승패·턴·점수 변동·골드만). 최근 매치 리스트·마일스톤
-//     진행도는 PR-8b 에서 추가.
+// v2 1:1 아레나 — 4탭: 메인(도전·결과·전투 로그) / 전투 기록(다시보기) / 순위표 / 세팅(로드아웃).
 
 type StateResp = {
   ok?: boolean;
   state?: {
     score: number;
-    dailyUsed: number;
-    dailyRemaining: number;
-    dailyResetAt: string;
+    cooldownRemainingMs: number;
   };
-  maxDaily?: number;
+  cooldownMs?: number;
+};
+
+type ArenaHistoryEntry = {
+  id: string;
+  at: string;
+  outcome: "win" | "loss" | "draw";
+  opponent: { name: string; level: number; userId?: string };
+  scoreBefore: number;
+  scoreAfter: number;
+  scoreDelta: number;
+  goldGained: number;
+  turns: number;
+  replay: ReplayPayload;
 };
 
 type MatchResp =
@@ -32,39 +45,117 @@ type MatchResp =
       scoreAfter: number;
       scoreDelta: number;
       goldGained: number;
-      opponent: { name: string; level: number; score: number; isBot: boolean };
-      dailyRemaining: number;
-      dailyResetAt: string;
+      opponent: { name: string; level: number; score: number; userId?: string };
+      historyEntry: ArenaHistoryEntry;
+      cooldownMs: number;
     }
   | {
       ok: false;
       error: string;
-      dailyResetAt?: string;
+      cooldownMs?: number;
     };
 
+type Tab = "main" | "history" | "ranking" | "loadout";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "main", label: "메인" },
+  { id: "history", label: "전투 기록" },
+  { id: "ranking", label: "순위표" },
+  { id: "loadout", label: "세팅" },
+];
+
+// 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
+const FALLBACK_COOLDOWN_MS = 10_000;
+
+const OUTCOME_LABEL: Record<ArenaHistoryEntry["outcome"], string> = {
+  win: "승리",
+  loss: "패배",
+  draw: "무승부",
+};
+
+function outcomeColor(outcome: ArenaHistoryEntry["outcome"]): string {
+  return outcome === "win"
+    ? "text-emerald-600 dark:text-emerald-400"
+    : outcome === "loss"
+      ? "text-rose-600 dark:text-rose-400"
+      : "text-zinc-600 dark:text-zinc-400";
+}
+
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const diff = Date.now() - then;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "방금";
+  if (m < 60) return `${m}분 전`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}시간 전`;
+  return `${Math.floor(h / 24)}일 전`;
+}
+
 export function V2ArenaView({ onBack }: { onBack: () => void }) {
+  const router = useRouter();
+  const { viewerName, viewerGender, playerSubtitle } = useGameState();
+  const [tab, setTab] = useState<Tab>("main");
   const [state, setState] = useState<StateResp | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<
     Extract<MatchResp, { ok: true }> | null
   >(null);
+  const [history, setHistory] = useState<ArenaHistoryEntry[]>([]);
+  // 다시보기 중인 기록(방금 싸운 판 또는 목록에서 고른 과거 판). null = 닫힘.
+  const [replayEntry, setReplayEntry] = useState<ArenaHistoryEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  // 재도전 쿨타임 — cooldownUntil(epoch ms, 0=없음). nowMs 틱으로 카운트다운 렌더.
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const loadState = useCallback(async () => {
+    setLoadError(false);
+    try {
+      const [stateRes, histRes] = await Promise.all([
+        fetch("/api/v2/arena/state"),
+        fetch("/api/v2/arena/history"),
+      ]);
+      const sj = (await stateRes.json().catch(() => null)) as StateResp | null;
+      setState(sj);
+      if (sj == null) setLoadError(true);
+      // 새로고침 후에도 남은 쿨타임 이어서 표시.
+      const rem = sj?.state?.cooldownRemainingMs ?? 0;
+      if (rem > 0) {
+        setNowMs(Date.now());
+        setCooldownUntil(Date.now() + rem);
+      }
+      const hj = (await histRes.json().catch(() => null)) as {
+        ok?: boolean;
+        history?: ArenaHistoryEntry[];
+      } | null;
+      if (hj?.ok && Array.isArray(hj.history)) setHistory(hj.history);
+    } catch {
+      setState(null);
+      setLoadError(true);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/v2/arena/state");
-        const j = (await res.json().catch(() => null)) as StateResp | null;
-        if (!cancelled) setState(j);
-      } catch {
-        if (!cancelled) setState(null);
-      }
-    })();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 fetch
+    loadState();
+  }, [loadState]);
+
+  // 쿨타임 카운트다운 틱 + 종료 시 자동 해제. cooldownUntil 변경 시 재설정.
+  useEffect(() => {
+    if (cooldownUntil <= 0) return;
+    const interval = setInterval(() => setNowMs(Date.now()), 250);
+    const timeout = setTimeout(
+      () => setCooldownUntil(0),
+      Math.max(0, cooldownUntil - Date.now()) + 50,
+    );
     return () => {
-      cancelled = true;
+      clearInterval(interval);
+      clearTimeout(timeout);
     };
-  }, []);
+  }, [cooldownUntil]);
 
   const challenge = useCallback(async () => {
     if (busy) return;
@@ -75,25 +166,24 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       const j = (await res.json().catch(() => null)) as MatchResp | null;
       if (j && j.ok) {
         setLastResult(j);
-        // GET state 다시 안 해도 응답에 dailyRemaining 들어옴 → 로컬 갱신.
+        setHistory((prev) => [j.historyEntry, ...prev].slice(0, 10));
+        setReplayEntry(j.historyEntry); // 방금 싸운 판 전투 로그 자동 표시
         setState((prev) =>
           prev?.state
-            ? {
-                ...prev,
-                state: {
-                  ...prev.state,
-                  score: j.scoreAfter,
-                  dailyUsed:
-                    (prev.maxDaily ?? 10) - j.dailyRemaining,
-                  dailyRemaining: j.dailyRemaining,
-                  dailyResetAt: j.dailyResetAt,
-                },
-              }
+            ? { ...prev, state: { ...prev.state, score: j.scoreAfter } }
             : prev,
         );
+        setNowMs(Date.now());
+        setCooldownUntil(Date.now() + (j.cooldownMs ?? FALLBACK_COOLDOWN_MS));
       } else if (j && !j.ok) {
-        if (j.error === "daily_exhausted") {
-          setError("오늘 할당된 매치를 모두 사용했어요.");
+        if (j.error === "cooldown") {
+          setNowMs(Date.now());
+          setCooldownUntil(Date.now() + (j.cooldownMs ?? FALLBACK_COOLDOWN_MS));
+          setError("재도전 쿨타임이에요. 잠시 후 다시 도전해 주세요.");
+        } else if (j.error === "no_opponent") {
+          setError(
+            "지금은 상대할 모험가가 없어요. 다른 모험가가 늘어나면 다시 도전할 수 있어요. (매치는 차감되지 않았어요)",
+          );
         } else if (j.error === "no_character") {
           setError("캐릭터가 없어 매치를 진행할 수 없습니다.");
         } else if (j.error === "unauthorized") {
@@ -111,123 +201,246 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
     }
   }, [busy]);
 
-  const dailyRemaining = state?.state?.dailyRemaining ?? 0;
-  const canChallenge = !busy && dailyRemaining > 0;
+  const cooldownLeftMs = Math.max(0, cooldownUntil - nowMs);
+  const onCooldown = cooldownLeftMs > 0;
+  const cooldownLeftSec = Math.ceil(cooldownLeftMs / 1000);
+  const canChallenge = !busy && !onCooldown;
+
+  const replayBlock = replayEntry && (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <FilmStrip size={16} className="text-amber-600 dark:text-amber-400" />
+          전투 로그 ·{" "}
+          <span className="font-normal text-zinc-500">
+            vs{" "}
+            {replayEntry.opponent?.name ? (
+              <button
+                type="button"
+                onClick={() =>
+                  router.push(`/character/${encodeURIComponent(replayEntry.opponent!.name)}`)
+                }
+                className="text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
+              >
+                {replayEntry.opponent?.name || "상대"}
+              </button>
+            ) : (
+              (replayEntry.opponent?.name || "상대")
+            )}{" "}
+            Lv.{replayEntry.opponent?.level ?? "?"} ·{" "}
+            <span className={outcomeColor(replayEntry.outcome)}>
+              {OUTCOME_LABEL[replayEntry.outcome]}
+            </span>
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setReplayEntry(null)}
+          className="rounded-md border border-zinc-300 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        >
+          닫기
+        </button>
+      </div>
+      <ReplayBattleScene
+        key={replayEntry.id}
+        payload={replayEntry.replay}
+        playerName={viewerName}
+        gender={viewerGender}
+        exp={0}
+        maxExp={1}
+        playerSubtitle={playerSubtitle}
+      />
+    </section>
+  );
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <BackButton onClick={onBack} />
+      <HeaderPanel className="space-y-2">
+        <BackButton onClick={onBack} />
 
-      <header className="flex items-center gap-3">
+        <header className="flex items-center gap-3">
         <Sword size={28} weight="duotone" className="text-amber-600 dark:text-amber-400" />
         <h1 className="text-xl font-bold">아레나</h1>
-      </header>
+        </header>
+      </HeaderPanel>
 
-      <section className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <Trophy size={14} /> 점수
-          </div>
-          <div className="mt-1 text-2xl font-bold tabular-nums">
-            {state?.state?.score ?? 0}
-          </div>
-        </div>
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">오늘 잔여</div>
-          <div className="mt-1 text-2xl font-bold tabular-nums">
-            {dailyRemaining}
-            <span className="ml-1 text-sm font-normal text-zinc-500">
-              / {state?.maxDaily ?? 10}
-            </span>
-          </div>
-        </div>
-      </section>
+      {/* 탭 바 */}
+      <nav className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={
+              "flex-1 rounded-md px-2 py-1.5 text-sm font-medium transition " +
+              (tab === t.id
+                ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-900 dark:text-zinc-100"
+                : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200")
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-      <button
-        type="button"
-        disabled={!canChallenge}
-        onClick={challenge}
-        className="w-full rounded-lg bg-amber-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
-      >
-        {busy
-          ? "매치 진행 중..."
-          : dailyRemaining > 0
-            ? "도전"
-            : "내일 다시 시도해 주세요"}
-      </button>
+      {loadError && <LoadErrorBanner onRetry={loadState} />}
 
-      {error && (
-        <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300">
-          {error}
-        </div>
+      {tab === "main" && (
+        <>
+          <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <Trophy size={14} /> 점수
+            </div>
+            <div className="mt-1 text-2xl font-bold tabular-nums">
+              {state?.state?.score ?? 0}
+            </div>
+          </section>
+
+          <button
+            type="button"
+            disabled={!canChallenge}
+            onClick={challenge}
+            className="w-full rounded-lg bg-amber-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:bg-zinc-400 dark:bg-amber-500 dark:hover:bg-amber-400 dark:disabled:bg-zinc-700"
+          >
+            {busy
+              ? "매치 진행 중..."
+              : onCooldown
+                ? `재도전까지 ${cooldownLeftSec}초`
+                : "도전"}
+          </button>
+
+          {error && (
+            <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-700 dark:bg-red-950 dark:text-red-300">
+              {error}
+            </div>
+          )}
+
+          {lastResult && (
+            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>
+                  <div className={"mt-0.5 text-lg font-bold " + outcomeColor(lastResult.outcome)}>
+                    {OUTCOME_LABEL[lastResult.outcome]}
+                  </div>
+                </div>
+                <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
+                  {lastResult.turns} 턴
+                </div>
+              </div>
+              <div className="mt-3 text-sm">
+                상대{" "}
+                {lastResult.opponent.name ? (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/character/${encodeURIComponent(lastResult.opponent.name)}`)}
+                    className="font-semibold text-amber-700 underline decoration-dotted underline-offset-2 hover:text-amber-800 dark:text-amber-300"
+                  >
+                    {lastResult.opponent.name}
+                  </button>
+                ) : (
+                  <strong>{lastResult.opponent.name}</strong>
+                )}
+                <span className="ml-1 text-zinc-500">Lv.{lastResult.opponent.level}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
+                  <div className="text-xs text-zinc-500">점수</div>
+                  <div className="mt-0.5 font-semibold tabular-nums">
+                    {lastResult.scoreBefore} →{" "}
+                    <span
+                      className={
+                        lastResult.scoreDelta > 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : lastResult.scoreDelta < 0
+                            ? "text-rose-600 dark:text-rose-400"
+                            : ""
+                      }
+                    >
+                      {lastResult.scoreAfter}
+                    </span>
+                    <span className="ml-1 text-xs text-zinc-500">
+                      ({lastResult.scoreDelta >= 0 ? "+" : ""}
+                      {lastResult.scoreDelta})
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
+                  <div className="flex items-center gap-1 text-xs text-zinc-500">
+                    <Coin size={12} /> 골드
+                  </div>
+                  <div className="mt-0.5 font-semibold tabular-nums">
+                    +{lastResult.goldGained}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {replayBlock}
+        </>
       )}
 
-      {lastResult && (
-        <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">결과</div>
-              <div
-                className={
-                  "mt-0.5 text-lg font-bold " +
-                  (lastResult.outcome === "win"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : lastResult.outcome === "loss"
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-zinc-600 dark:text-zinc-400")
-                }
-              >
-                {lastResult.outcome === "win"
-                  ? "승리"
-                  : lastResult.outcome === "loss"
-                    ? "패배"
-                    : "무승부"}
-              </div>
+      {tab === "history" && (
+        <>
+          {history.length === 0 ? (
+            <div className="py-8 text-center text-sm text-zinc-500">
+              아직 전투 기록이 없어요. 메인에서 도전해 보세요.
             </div>
-            <div className="text-right text-xs text-zinc-500 dark:text-zinc-400">
-              {lastResult.turns} 턴
-            </div>
-          </div>
-          <div className="mt-3 text-sm">
-            상대 <strong>{lastResult.opponent.name}</strong>
-            <span className="ml-1 text-zinc-500">
-              Lv.{lastResult.opponent.level}
-              {lastResult.opponent.isBot ? " · 봇" : ""}
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-              <div className="text-xs text-zinc-500">점수</div>
-              <div className="mt-0.5 font-semibold tabular-nums">
-                {lastResult.scoreBefore} →{" "}
-                <span
-                  className={
-                    lastResult.scoreDelta > 0
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : lastResult.scoreDelta < 0
-                        ? "text-rose-600 dark:text-rose-400"
-                        : ""
-                  }
-                >
-                  {lastResult.scoreAfter}
-                </span>
-                <span className="ml-1 text-xs text-zinc-500">
-                  ({lastResult.scoreDelta >= 0 ? "+" : ""}
-                  {lastResult.scoreDelta})
-                </span>
-              </div>
-            </div>
-            <div className="rounded-md bg-zinc-50 p-3 dark:bg-zinc-900">
-              <div className="flex items-center gap-1 text-xs text-zinc-500">
-                <Coin size={12} /> 골드
-              </div>
-              <div className="mt-0.5 font-semibold tabular-nums">
-                +{lastResult.goldGained}
-              </div>
-            </div>
-          </div>
-        </section>
+          ) : (
+            <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="mb-2 text-sm font-semibold">전투 기록 (최근 10판)</div>
+              <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {history.map((h) => (
+                  <li key={h.id}>
+                    <button
+                      type="button"
+                      onClick={() => setReplayEntry(h)}
+                      className={
+                        "flex w-full items-center gap-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 " +
+                        (replayEntry?.id === h.id ? "bg-amber-50 dark:bg-amber-950/30" : "")
+                      }
+                    >
+                      <span className={"w-10 shrink-0 font-bold " + outcomeColor(h.outcome)}>
+                        {OUTCOME_LABEL[h.outcome]}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {h.opponent?.name || "상대"}
+                        <span className="ml-1 text-xs text-zinc-500">
+                          Lv.{h.opponent?.level ?? "?"}
+                        </span>
+                      </span>
+                      <span
+                        className={
+                          "shrink-0 tabular-nums " +
+                          (h.scoreDelta > 0
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : h.scoreDelta < 0
+                              ? "text-rose-600 dark:text-rose-400"
+                              : "text-zinc-500")
+                        }
+                      >
+                        {h.scoreDelta >= 0 ? "+" : ""}
+                        {h.scoreDelta}
+                      </span>
+                      <span className="hidden shrink-0 text-xs text-zinc-400 sm:inline">
+                        {h.turns}턴
+                      </span>
+                      <span className="shrink-0 text-xs text-zinc-400">{timeAgo(h.at)}</span>
+                      <FilmStrip size={14} className="shrink-0 text-zinc-400" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {replayBlock}
+        </>
       )}
+
+      {tab === "ranking" && <V2ArenaRankingTab />}
+
+      {tab === "loadout" && <V2ArenaLoadoutTab />}
     </main>
   );
 }

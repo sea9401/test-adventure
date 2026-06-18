@@ -1,3 +1,5 @@
+import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
+
 // v2 직업 숙련도 + 수행(스탯 cap). 설계: docs/v2-proficiency-redesign.md §3·§4.
 //
 // 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). none(무직) 적립 없음.
@@ -5,7 +7,8 @@
 //   groups: { [tier1classId]: { points, cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
-//   - points = 숙달 포인트(사용가능 잔액). 킬당 +V2_PROFICIENCY_PER_KILL, 수행·스킬학습에 소모.
+//   - points = 숙달 포인트(사용가능 잔액). 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
+//     수행·스킬학습에 소모.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 — floor·전직은 cumLevel 이 담당하므로 누적
 //     추적 불필요. 단일 잔액으로 합침. 옛 세이브는 parse 가 earned−spent 로 마이그.)
 //   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력).
@@ -13,6 +16,7 @@
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
 import { tier1ClassOf, parseV2Class } from "./classes";
+import { themeIndexForDepth } from "./dungeon";
 
 export type V2ProficiencyGroup = {
   // 숙달 포인트 — 사용가능 잔액(킬당 적립, 수행·스킬학습에 소모). 옛 earned/spent 통합(2026-06).
@@ -30,7 +34,15 @@ export type V2ProficiencyState = {
 };
 
 // §10 다이얼.
-export const V2_PROFICIENCY_PER_KILL = 2;
+// 킬당 숙달 포인트 — 깊이 밴드 비례(2026-06-12 성장 페이스업, 옛 전구간 고정 2).
+// 테마 2개당 +1: 들판·마른 협곡 2 / 얼음 호수·심층 동굴 3 / 잊힌 성소·리자드 늪지 4 /
+// 짐승의 소굴 5. 마지막 테마가 무한(인덱스 클램프)이라 5 가 천장. (깊은 산 삭제 후에도 깊이당 값 불변.)
+export const V2_PROFICIENCY_PER_KILL_BASE = 2;
+export function proficiencyPerKillAtDepth(depth: number): number {
+  return (
+    V2_PROFICIENCY_PER_KILL_BASE + Math.floor(themeIndexForDepth(depth) / 2)
+  );
+}
 // cap 은 floor 상대(저점 위 성장 여유). 유효 cap = floor + V2_CAP_HEADROOM_BASE + 수행이득.
 // fresh(floor=base15) → 15+45 = 60(옛 시작 cap 과 동일). floor 가 높아져도 cap 이 항상 그 위라
 // floor>cap 핀(수행 시 스탯 즉시 점프) 이 생기지 않는다 — 수행은 "여유(헤드룸)"만 늘리고
@@ -39,17 +51,16 @@ export const V2_CAP_HEADROOM_BASE = 45;
 // 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
 export const V2_STAT_CAP_BASE = 60;
 
-// 수행 1회 cap 헤드룸 상승 — 직업군별 프로필(앵커 +2, 관련 2스탯 +1). 키 = tier1ClassOf. docs §9.
+// 수행 1회 cap 헤드룸 상승 — 4직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
+// 각 직군의 전문화 서브스탯을 함께 담아 자유 수행 없이도 전문화별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
 export const V2_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
 > = {
-  swordsman: { str: 2, dex: 1, luk: 1 }, // 검술
-  archer: { dex: 2, luk: 1, str: 1 }, // 궁술
-  martial: { vit: 2, str: 1, spi: 1 }, // 체술
-  mage: { int: 2, spi: 1, luk: 1 }, // 마술
-  priest: { spi: 2, int: 1, vit: 1 }, // 신술
-  ninja: { luk: 2, dex: 1, int: 1 }, // 인술
+  warrior: { str: 2, vit: 1, dex: 1 }, // 전사 — 광검(str)·철벽(vit)·혈풍(dex)
+  martial: { vit: 2, str: 1, spi: 1 }, // 무도가 — 맷집(vit)·흡혈/기공
+  mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
+  rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
 };
 
 // 수행 비용(숙달 포인트) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
@@ -115,6 +126,10 @@ export function parseProficiency(
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
       if (!v || typeof v !== "object") continue;
+      // 그룹 리키 마이그(P4 6→4): 구 그룹키(swordsman/archer/priest/ninja…) → 4직군 job 키.
+      // 같은 job 으로 합쳐지는 옛 그룹(궁술+인술→rogue, 마술+신술→mage)은 아래에서 머지.
+      const key = parseV2Class(k);
+      if (key === "none") continue; // 매핑 불가/none 그룹은 적립 없음.
       // 숙달 포인트(잔액) — 새 포맷은 points, 옛 포맷은 earned−spent 로 마이그(통합 2026-06).
       const rawPoints = (v as { points?: unknown }).points;
       const points =
@@ -132,14 +147,23 @@ export function parseProficiency(
       // 없으면 마이그레이션 시드 = 완료 차수 (tier-1)×50 + 활성 직군이면 현재 레벨(현 차수 진행분).
       // 비활성 직군은 과거 레벨을 알 수 없어 (tier-1)×50 만(보수적). 신규(tier1·미활성)=0.
       const rawCum = (v as { cumLevel?: unknown }).cumLevel;
-      const seedLevel = seed && seed.group === k ? Math.max(0, seed.level) : 0;
+      const seedLevel = seed && seed.group === key ? Math.max(0, seed.level) : 0;
       const cumLevel =
         typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
           ? Math.floor(rawCum)
           : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
       // 의미 있는 데이터(잔액/누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
       if (points > 0 || cumLevel > 0 || cultivations > 0 || tier > 1) {
-        groups[k] = { points, cultivations, tier, cumLevel };
+        // 머지(여러 옛 그룹 → 같은 job): 차수·누적레벨은 max, 포인트·수행 횟수는 합.
+        const prev = groups[key];
+        groups[key] = prev
+          ? {
+              points: prev.points + points,
+              cultivations: prev.cultivations + cultivations,
+              tier: Math.max(prev.tier, tier),
+              cumLevel: Math.max(prev.cumLevel, cumLevel),
+            }
+          : { points, cultivations, tier, cumLevel };
       }
     }
   }
@@ -207,6 +231,24 @@ export function setGroupTier(
   return { ...p, groups: { ...p.groups, [group]: { ...cur, tier: t } } };
 }
 
+// 코어루프 재전직 — 차수 폐지(flat tree). 모든 직업군 차수를 1로 정규화하고, ensureGroup
+// (재전직 대상)은 없으면 1차로 생성한다. setGroupTier 와 달리 max-clamp 없이 무조건 하향 기록
+// — tier 가 derive(앵커 보정 %)·floor(tierMult) 양쪽 입력이라 옛 차수가 남으면 보너스가 샌다.
+// points/cultivations/cumLevel/caps/grown 은 전부 보존. 비파괴.
+export function flattenGroupTiers(
+  p: V2ProficiencyState,
+  ensureGroup?: string,
+): V2ProficiencyState {
+  const groups: Record<string, V2ProficiencyGroup> = {};
+  for (const [g, v] of Object.entries(p.groups)) {
+    groups[g] = v.tier === 1 ? v : { ...v, tier: 1 };
+  }
+  if (ensureGroup && ensureGroup !== "none" && !groups[ensureGroup]) {
+    groups[ensureGroup] = { points: 0, cultivations: 0, tier: 1, cumLevel: 0 };
+  }
+  return { ...p, groups };
+}
+
 // floor(저점) 다이얼 — docs §5. 입력을 earned(킬 누적) → 직군 누적 레벨(cumLevel)로 전환(2026-06).
 // cumLevel 은 레벨업당 +1 + 레벨캡·차수 유한이라 ~200-250 에서 천장 → 옛 earned 의 무한 선형
 // runaway 가 구조적으로 사라진다(저점이 cap 의 ~30~50%에서 멈춤). 계수는 cumLevel 스케일에 맞춰
@@ -220,9 +262,35 @@ export const V2_TIER_FLOOR_MULT: Record<number, number> = {
   3: 1.3,
   4: 1.5,
 };
-// 직업 프로필 floor 가중 — 앵커 1.0, 관련 0.4.
-export const V2_FLOOR_ANCHOR_WEIGHT = 1.0;
-export const V2_FLOOR_RELATED_WEIGHT = 0.4;
+// 직업 프로필 floor 가중 — 프로필 값 비례(최댓값 스탯=1.0, 나머지는 값 비율). cap(수행)과 동일
+// 규칙. 옛 앵커-이진(1.0/0.4)은 mage {int:2,spi:2} 의 spi 를 0.4 로 홀대 → 값 비례로 통일.
+export const V2_FLOOR_ANCHOR_WEIGHT = 1.0; // 프로필 최댓값 스탯(직군 주력)의 floor 가중.
+
+// 환생 누적 성장 완화(2026-06-07) — cumLevel floor 가 선형 무한이라 환생할수록 스탯이 끝없이.
+// 천장은 두지 않되 증가율을 ~10환생(cumLevel BAND)마다 한 단계씩 낮춘다(밴드 b: ×max(MIN,1−DECAY×b)).
+// MIN 에서 멈춰 무한 유지(천장 X). 첫 밴드(b=0, ~0~10환생)는 ×1.0 = 현행 동일.
+//   diminishedCumLevel = 선형 cumLevel 을 밴드별 감쇠율로 적분한 "유효 누적레벨" — floor 식의
+//   cumLevel/total 자리에 대입하면 piecewise-concave(증가율↓, 천장 없음). EXP·레벨 곡선과 무관.
+export const V2_FLOOR_DECAY_BAND = 3000; // ≈ 10환생(캠페인당 cumLevel ~291 × ~10).
+export const V2_FLOOR_DECAY_PER_BAND = 0.12; // 밴드당 증가율 −12%.
+export const V2_FLOOR_DECAY_MIN = 0.4; // 최소 증가율(천장 방지). 50환생+ 부터 이 비율 무한 유지.
+export function diminishedCumLevel(cumLevel: number): number {
+  if (!Number.isFinite(cumLevel) || cumLevel <= 0) return 0; // Infinity/NaN/0/음수 가드(무한루프 방지).
+  let eff = 0;
+  let remain = cumLevel;
+  let band = 0;
+  while (remain > 0) {
+    const seg = Math.min(remain, V2_FLOOR_DECAY_BAND);
+    const mult = Math.max(
+      V2_FLOOR_DECAY_MIN,
+      1 - V2_FLOOR_DECAY_PER_BAND * band,
+    );
+    eff += seg * mult;
+    remain -= seg;
+    band += 1;
+  }
+  return eff;
+}
 
 // 시그니처 학습 비용(숙달 포인트) — 그 차수 도달 + 비용 지불 시 습득(docs §6·§10).
 export const V2_SIGNATURE_LEARN_COST: Record<number, number> = {
@@ -250,6 +318,30 @@ export function advanceCumLevelReq(tier: number): number {
 // 전직 최소 레벨 — 차수 승급 시 레벨이 1로 리셋되므로, 매 차수 사이 레벨 50 까지 키워야
 // 다음 승급 가능(누적 레벨 게이트와 이중). 리셋 루프의 레벨 의미 부여(2026-06).
 export const V2_ADVANCE_MIN_LEVEL = 50;
+
+// 차수별 레벨 캡 — 환생(prestige) 설계 §3.1. 각 차수는 이 레벨까지만 오르고(applyExpGain
+// maxLevel), 캡 도달 시에만 다음 차수 전직(4차 캡=환생). 캡 위로는 exp 버림(advance 전까지 정지).
+// 1·2·3차 캡 < 만렙 100 이라 차수마다 레벨 의미 구간이 분리됨.
+export const V2_TIER_LEVEL_CAP: Record<number, number> = {
+  1: 50,
+  2: 65,
+  3: 80,
+  4: 100,
+};
+// 차수 → 레벨 캡. 미정의 차수(클램프)는 4차(100) 취급.
+export function tierLevelCap(tier: number): number {
+  return V2_TIER_LEVEL_CAP[Math.min(4, Math.max(1, Math.floor(tier)))] ?? 100;
+}
+
+// 코어루프 단일 레벨 캡 — 차수 폐지 시 모든 직업이 단일 V2_LEVEL_CAP(50)까지만 오르고,
+// 그 위는 재전직 루프로 전환. 순수 헬퍼(테스트용 flag 인자) + flag 자동판정 래퍼.
+export function levelCapFor(tier: number, coreLoopOn: boolean): number {
+  return coreLoopOn ? V2_LEVEL_CAP : tierLevelCap(tier);
+}
+// 라우트/derive 가 쓰는 유효 레벨 캡. flag off = 기존 차수 캡(무변경).
+export function effectiveLevelCap(tier: number): number {
+  return levelCapFor(tier, V2_CORE_LOOP_V2);
+}
 
 // 직군 누적 레벨 — floor·전직 게이트 입력. 레벨업당 +1, 전직 리셋에도 불변.
 export function totalCumLevel(p: V2ProficiencyState): number {
@@ -341,6 +433,9 @@ export function applyCultivation(
   p: V2ProficiencyState,
   group: string,
   rng?: () => number,
+  // 자유 수행(가이드형, docs/v2-job-spec-passives-plan.md §6) — 지정 시 프로필 분산 대신 선택 스탯
+  // 한 곳에 동일 총량(profile 합 × mult) 투입(cap economy·비용 곡선 불변). 미지정 = 현 동작(분산).
+  targetStat?: V2StatKey,
 ): { next: V2ProficiencyState; cost: number; mult: number } | null {
   const profile = V2_CULTIVATE_PROFILE[group];
   if (!profile) return null; // none/무효 직업군
@@ -354,9 +449,16 @@ export function applyCultivation(
     cumLevel: 0,
   };
   const nextCaps: Partial<Record<V2StatKey, number>> = { ...p.caps };
-  for (const stat of V2_STAT_KEYS) {
-    const gain = (profile[stat] ?? 0) * mult;
-    if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+  if (targetStat) {
+    // 선택 스탯 한 곳 — 프로필 분산과 동일 총량(합 × mult)이라 비용/economy 불변.
+    const profileSum = V2_STAT_KEYS.reduce((s, k) => s + (profile[k] ?? 0), 0);
+    const gain = profileSum * mult;
+    if (gain > 0) nextCaps[targetStat] = (nextCaps[targetStat] ?? 0) + gain;
+  } else {
+    for (const stat of V2_STAT_KEYS) {
+      const gain = (profile[stat] ?? 0) * mult;
+      if (gain > 0) nextCaps[stat] = (nextCaps[stat] ?? 0) + gain;
+    }
   }
   return {
     cost,
@@ -374,6 +476,16 @@ export function applyCultivation(
       caps: nextCaps,
     },
   };
+}
+
+// UI 가이드(자유 수행, docs §6) — 직군 권장 수행 스탯(프로필 가중 내림차순). "막지 않되 권장 표시" 용.
+// 자유 수행에서 플레이어가 아무 스탯이나 고를 수 있되, 이 목록을 추천으로 노출(트랩 빌드 완화).
+export function recommendedCultivationStats(group: string): V2StatKey[] {
+  const profile = V2_CULTIVATE_PROFILE[group];
+  if (!profile) return [];
+  return V2_STAT_KEYS.filter((k) => (profile[k] ?? 0) > 0).sort(
+    (a, b) => (profile[b] ?? 0) - (profile[a] ?? 0),
+  );
 }
 
 // 숙달 포인트 소모(시그니처 학습용) — cap/cultivations 불변, points 만 차감.

@@ -148,7 +148,7 @@ function groupSections(
     "combat",
     "growth",
     "world",
-    "endgame",
+    "versus",
   ];
   const map = new Map<ManualGroup, ManualSection[]>();
   for (const s of sections) {

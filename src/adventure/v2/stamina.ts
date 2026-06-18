@@ -11,15 +11,18 @@
 // 너무 빡빡 (만피 200 = STR Lv75 기준 3.3h 사냥, 회복 0→만피 16.7h). 일 1회 접속
 // 유저가 cap 손실 줄어들도록 총량 ×5, 회복 ×10 으로 확장.
 
-// 2026-06-03 사용자 결정 — cap 1000 → 5000 으로 올렸다가 5000 은 과다 → 1500 으로 조정.
-export const MAX_STAMINA = 1500;
+// 2026-06-03 cap 1000→5000→과다→1500. 2026-06-06 사용자 결정 — 다시 5000 으로 상향(밴킹 cap 확대).
+export const MAX_STAMINA = 5000;
 export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1홉당 비용 (재진입은 무료)
+// 워프(이미 발견한 거점으로 순간이동) 비용 — 인접 1홉보다 비싸게(소울즈식: 처음엔 걷고,
+// 발견 후엔 워프). 인접 이동 N홉을 한 번에 건너뛰는 편의의 대가. (다이얼)
+export const OUTPOST_WARP_COST = 3 * OUTPOST_MOVE_COST;
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
-//   = 1500 * 30 s = 45000 s = 12.5 시간 (밴킹 cap — 평소엔 거의 안 비움).
-// 시간당 회복 = 120, 일 이론 회복 = 2880 (cap 1500 이라 ~12.5h 후 정체).
+//   = 5000 * 30 s = 150000 s = ~41.7 시간 (밴킹 cap — 평소엔 거의 안 비움).
+// 시간당 회복 = 120, 일 이론 회복 = 2880 (cap 5000 이라 ~41.7h 후 정체). 회복률 불변 — cap 만 확대.
 
 // === 상태 ===========================================================
 
@@ -39,8 +42,15 @@ export function initialStamina(nowMs: number): StaminaState {
 
 // 마지막 업데이트 이후 흐른 시간만큼 회복 적용. 만피면 그냥 lastUpdatedAt 만 갱신.
 // lastUpdatedAt 은 회복 1포인트 단위로만 진행 — 나머지 시간(잔여 ms)은 다음 회복에 누적되어 손실 없음.
-export function applyRegen(state: StaminaState, nowMs: number): StaminaState {
-  if (state.current >= MAX_STAMINA) {
+// maxStamina — per-user 최대치(기본 MAX_STAMINA). 비밀 상점 "한계의 비약"
+// (character.v2.staminaCapBonus) 이 올린다. max 를 안 넘긴 경로는 기본 캡 위로
+// 회복만 안 될 뿐 보유분을 깎지 않는다(current > max 여도 그대로 반환).
+export function applyRegen(
+  state: StaminaState,
+  nowMs: number,
+  maxStamina: number = MAX_STAMINA,
+): StaminaState {
+  if (state.current >= maxStamina) {
     // 이미 만피라 회복 X. lastUpdatedAt 만 nowMs 로 (다음 소모 시 카운터 다시 시작).
     return { current: state.current, lastUpdatedAt: nowMs };
   }
@@ -51,7 +61,7 @@ export function applyRegen(state: StaminaState, nowMs: number): StaminaState {
     // 아직 1 포인트도 못 채움. 상태 그대로.
     return state;
   }
-  const newCurrent = Math.min(MAX_STAMINA, state.current + regenPoints);
+  const newCurrent = Math.min(maxStamina, state.current + regenPoints);
   // 회복한 만큼의 시간만 진행, 잔여 ms 보존.
   const consumedMs = regenPoints * regenMs;
   return {
@@ -68,8 +78,9 @@ export function tryConsume(
   state: StaminaState,
   cost: number,
   nowMs: number,
+  maxStamina: number = MAX_STAMINA,
 ): StaminaState | null {
-  const regenned = applyRegen(state, nowMs);
+  const regenned = applyRegen(state, nowMs, maxStamina);
   if (regenned.current < cost) return null;
   return {
     current: regenned.current - cost,
@@ -111,4 +122,11 @@ export function parseStaminaFromSave(
     }
   }
   return initialStamina(nowMs);
+}
+
+// character.v2.staminaCapBonus — 비밀 상점 "한계의 비약"으로 영구 누적되는 최대치 보너스.
+export function staminaCapBonusOf(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v)
+    ? Math.max(0, Math.floor(v))
+    : 0;
 }

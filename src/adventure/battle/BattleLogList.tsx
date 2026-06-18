@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { BattleLogEntry } from "./engine";
+import type { BattleLogEntry } from "../v2/combat/engine";
+import { ATB_LOG_WINDOW_TICKS } from "../v2/combat/combatTimeline";
 import { v2StatusPillColor } from "@/adventure/data/v2/statusEffects";
 
 // 전투 로그 공용 렌더러 — BattleScene / RecentLogView / CoopBossCard 가 같은 UI 로 통일.
@@ -48,18 +49,7 @@ export function BattleLogList({
   compact?: boolean;
 }) {
   const s = compact ? SIZES.compact : SIZES.normal;
-  // 턴별 그룹화 — turn_marker 가 그룹 헤더. 시작 전 entries (적 등장/선공 등) 는 별도 그룹.
-  const groups: BattleLogEntry[][] = [];
-  let cur: BattleLogEntry[] = [];
-  for (const e of entries) {
-    if (e.kind === "turn_marker") {
-      if (cur.length > 0) groups.push(cur);
-      cur = [e];
-    } else {
-      cur.push(e);
-    }
-  }
-  if (cur.length > 0) groups.push(cur);
+  const groups = groupBattleLogEntries(entries);
 
   const renderEntry = (entry: BattleLogEntry, i: number) => {
     if (entry.kind === "phase_trigger") {
@@ -76,8 +66,6 @@ export function BattleLogList({
           playerMaxHp={entry.playerMaxHp}
           enemyHp={entry.enemyHp}
           enemyMaxHp={entry.enemyMaxHp}
-          ap={entry.ap}
-          apMax={entry.apMax}
           playerMp={entry.playerMp}
           playerMaxMp={entry.playerMaxMp}
           enemyMp={entry.enemyMp}
@@ -103,19 +91,112 @@ export function BattleLogList({
 
   return (
     <div className="space-y-3">
-      {groups.map((group, gi) => (
-        <div
-          key={gi}
-          className={`${s.spacing} rounded-md border border-zinc-200 bg-white/50 p-2 dark:border-zinc-800 dark:bg-zinc-900/50`}
-        >
-          {group.map((entry, i) => renderEntry(entry, i))}
-        </div>
-      ))}
+      {groups.map((group, gi) => {
+        // 한 박스 안 HP/MP 바는 마지막 1개만 렌더 — 매 행동 뒤 바가 붙어 너무 많아 보이던 것을,
+        //   그 윈도우의 "최종 상태" 한 줄로 축약(중간 스냅샷 생략). 표시 단 처리(로그 데이터 불변).
+        const lastHpIdx = lastHpBarIndex(group);
+        return (
+          <div
+            key={gi}
+            className={`${s.spacing} rounded-md border border-zinc-200 bg-white/50 p-2 dark:border-zinc-800 dark:bg-zinc-900/50`}
+          >
+            {group.map((entry, i) =>
+              entry.kind === "hp_bar" && i !== lastHpIdx
+                ? null
+                : renderEntry(entry, i),
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────
+
+// 로그 항목이 어느 쪽(player/enemy) 턴인지. 공격은 kind 로, info/페이즈는 turn 필드로.
+// hp_bar 등 턴 정보 없는 항목은 null → 현재 박스에 흡수된다.
+function entryTurnSide(e: BattleLogEntry): "player" | "enemy" | null {
+  if (e.kind === "player_attack") return "player";
+  if (e.kind === "enemy_attack") return "enemy";
+  if (e.kind === "hp_bar") return null;
+  return e.turn ?? null; // info / phase_trigger / turn_marker
+}
+
+// 전투 로그를 박스(그룹) 단위로 묶는다.
+//   - ATB(엔트리에 틱 t 동봉): 틱 윈도우(ATB_LOG_WINDOW_TICKS) 단위로 묶음 = "한 순간". 행동자가
+//     틱마다 번갈아도(빠른 빌드는 더 자주) 한 윈도우의 플레이어·적 행동이 한 박스에 모여, 행동마다
+//     박스가 갈려 잘게 쪼개지던 것을 완화. 박스당 HP 바는 렌더 단계에서 마지막 1개만(최종 상태).
+//   - PvE 레거시(turn_marker 있음): turn_marker 를 그룹 헤더로. 시작 전 entries 는 별도 그룹.
+//   - PvP 레거시(turn_marker 없음): 턴(공격 주체)이 바뀔 때마다 새 박스. 같은 턴 멀티공격·info 묶음.
+//   전부 표시 단 처리 — 엔진/저장 리플레이 데이터는 불변.
+export function groupBattleLogEntries(
+  entries: BattleLogEntry[],
+): BattleLogEntry[][] {
+  // ATB 틱이 하나라도 있으면 윈도우 그룹화(라이브 경로). 없으면 레거시 폴백(옛 로그·고정교대).
+  if (entries.some((e) => e.t != null)) {
+    return groupByTickWindow(entries);
+  }
+  const hasTurnMarker = entries.some((e) => e.kind === "turn_marker");
+  const groups: BattleLogEntry[][] = [];
+  let cur: BattleLogEntry[] = [];
+  if (hasTurnMarker) {
+    for (const e of entries) {
+      if (e.kind === "turn_marker") {
+        if (cur.length > 0) groups.push(cur);
+        cur = [e];
+      } else {
+        cur.push(e);
+      }
+    }
+  } else {
+    let curTurn: "player" | "enemy" | null = null;
+    for (const e of entries) {
+      const t = entryTurnSide(e);
+      // 턴 주체가 바뀌면(직전 박스에 내용이 있을 때) 새 박스 시작. 턴 없는 항목(hp_bar 등)은
+      //   현재 박스에 그대로 붙는다.
+      if (t !== null && curTurn !== null && t !== curTurn && cur.length > 0) {
+        groups.push(cur);
+        cur = [];
+      }
+      if (t !== null) curTurn = t;
+      cur.push(e);
+    }
+  }
+  if (cur.length > 0) groups.push(cur);
+  return groups;
+}
+
+// 한 박스(그룹) 안에서 마지막 hp_bar 의 인덱스(없으면 -1). 렌더가 이 1개만 그리고 나머지 hp_bar
+//   는 생략 — 윈도우의 "최종 상태" 한 줄만 보여 매 행동 바 클러터를 없앤다.
+export function lastHpBarIndex(group: BattleLogEntry[]): number {
+  let idx = -1;
+  for (let i = 0; i < group.length; i += 1) {
+    if (group[i].kind === "hp_bar") idx = i;
+  }
+  return idx;
+}
+
+// ATB 틱 윈도우 그룹화 — e.t 를 ATB_LOG_WINDOW_TICKS 로 나눈 버킷이 바뀔 때 새 박스.
+//   틱 없는 항목(오프닝 info 등)은 현재 박스에 흡수(버킷 미변경). 윈도우 폭은 표시 다이얼.
+function groupByTickWindow(entries: BattleLogEntry[]): BattleLogEntry[][] {
+  const groups: BattleLogEntry[][] = [];
+  let cur: BattleLogEntry[] = [];
+  let curBucket: number | null = null;
+  for (const e of entries) {
+    if (e.t != null) {
+      const bucket = Math.floor(e.t / ATB_LOG_WINDOW_TICKS);
+      if (curBucket !== null && bucket !== curBucket && cur.length > 0) {
+        groups.push(cur);
+        cur = [];
+      }
+      curBucket = bucket;
+    }
+    cur.push(e);
+  }
+  if (cur.length > 0) groups.push(cur);
+  return groups;
+}
 
 // 데미지·회복·스탯 수치를 강조. 피해량(N 피해) 은 빨강 + 굵게, 나머지는 굵게.
 function emphasizeNumbers(text: string): ReactNode[] {
@@ -274,8 +355,6 @@ function HpBar({
   playerMaxHp,
   enemyHp,
   enemyMaxHp,
-  ap,
-  apMax,
   playerMp,
   playerMaxMp,
   enemyMp,
@@ -286,8 +365,6 @@ function HpBar({
   playerMaxHp: number;
   enemyHp: number;
   enemyMaxHp: number;
-  ap: number;
-  apMax: number;
   playerMp?: number;
   playerMaxMp?: number;
   enemyMp?: number;
@@ -302,25 +379,6 @@ function HpBar({
     <div
       className={`rounded border border-zinc-200 bg-zinc-50/70 px-2 py-1.5 ${sizes.hpBar} text-zinc-700 dark:border-zinc-700/60 dark:bg-zinc-900/40 dark:text-zinc-300`}
     >
-      {apMax > 0 && (
-        // AP 핍 — 플레이어 HP 막대 바로 위. 미장착(apMax=0) 은 그리지 않아 라인 공간 절약.
-        <div className="mb-1 flex items-center gap-1">
-          {Array.from({ length: apMax }, (_, i) => (
-            <span
-              key={i}
-              aria-hidden
-              className={
-                i < ap
-                  ? "h-2 w-2 rounded-full border border-violet-600 bg-violet-500 dark:border-violet-400 dark:bg-violet-400"
-                  : "h-2 w-2 rounded-full border border-zinc-300 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800"
-              }
-            />
-          ))}
-          <span className="ml-1 text-zinc-500 dark:text-zinc-400">
-            AP {ap}/{apMax}
-          </span>
-        </div>
-      )}
       <div className="grid grid-cols-2 gap-3">
         <InlineBar
           label="HP"

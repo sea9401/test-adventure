@@ -8,7 +8,6 @@ import type { Profile } from "@/adventure/profile/useProfile";
 import type {
   AdminUserRow,
   SavesMap,
-  TrainingPersisted,
   V2GrantPayload,
 } from "./users/types";
 import { SelectedUserPanel } from "./users/SelectedUserPanel";
@@ -125,17 +124,6 @@ export function UsersTab() {
     }
   };
 
-  const updateTraining = async (next: TrainingPersisted) => {
-    if (!selected) return;
-    try {
-      await patchKey(selected.id, "training.v2", next);
-      setSaves((s) => ({ ...(s ?? {}), "training.v2": next }));
-      showToast("훈련 데이터 저장됨. 대상 유저는 새로고침해야 반영됩니다.");
-    } catch (e) {
-      showToast(`실패: ${e instanceof Error ? e.message : "오류"}`);
-    }
-  };
-
   // v2 전용 지급(재료/장비/충전약/숙련도) — synced-keys 밖 키(equipment.v2/proficiency.v2)
   // 때문에 일반 PATCH 대신 전용 라우트. 성공 시 saves 리로드(재료/충전약은 보이고
   // equipment.v2/proficiency.v2 는 saves GET 비대상이라 토스트로만 확인).
@@ -156,6 +144,7 @@ export function UsersTab() {
         equipmentOwned?: string[];
         equipmentNoOp?: boolean;
         materials?: Record<string, number>;
+        staminaRefilled?: number;
       } | null;
       if (!r.ok || !j?.ok) {
         throw new Error(j?.error ?? `HTTP ${r.status}`);
@@ -169,6 +158,7 @@ export function UsersTab() {
         parts.push(`숙련 보유 ${j.proficiencyEarned}`);
       if (j.equipmentNoOp) parts.push("장비(이미 보유)");
       else if (j.equipmentOwned) parts.push("장비 지급");
+      if (j.staminaRefilled != null) parts.push(`스태미나 ${j.staminaRefilled}`);
       showToast(
         `v2 지급 완료: ${parts.join(", ") || "변경 없음"}. 대상 유저 새로고침 필요.`,
       );
@@ -178,6 +168,47 @@ export function UsersTab() {
     }
   };
 
+  // 캐릭터 데이터 초기화 — 대상 유저의 savesKv 전 키 삭제 + 1인 길드 해체/거점 해제
+  //   (계정·로그인 유지). 닉네임 확인 입력으로 오클릭/대상 혼동 방지.
+  const resetCharacter = async () => {
+    if (!selected || readOnly) return;
+    const expected = selected.gameName?.trim() || selected.id;
+    const input = window.prompt(
+      `「${expected}」 캐릭터 데이터를 초기화합니다. 되돌릴 수 없습니다.\n` +
+        `확인하려면 「${expected}」 를 정확히 입력하세요:`,
+    );
+    if (input == null) return; // 취소
+    try {
+      const r = await fetch("/api/admin/reset-character", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: selected.id, confirm: input }),
+      });
+      const j = (await r.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        deletedKeys?: number;
+        guildDeleted?: boolean;
+        leftGuildOnly?: boolean;
+      } | null;
+      if (!r.ok || !j?.ok) {
+        throw new Error(
+          j?.error === "confirm_mismatch"
+            ? "닉네임 불일치"
+            : (j?.error ?? `HTTP ${r.status}`),
+        );
+      }
+      const parts: string[] = [`세이브 ${j.deletedKeys ?? 0}개 삭제`];
+      if (j.guildDeleted) parts.push("1인 길드 해체");
+      if (j.leftGuildOnly) parts.push("길드 탈퇴");
+      showToast(
+        `캐릭터 초기화 완료: ${parts.join(", ")}. 대상 유저 새로고침 시 새 캐릭 생성.`,
+      );
+      await loadSaves(selected.id);
+    } catch (e) {
+      showToast(`초기화 실패: ${e instanceof Error ? e.message : "오류"}`);
+    }
+  };
 
   return (
     <div className="grid gap-4 md:grid-cols-[320px_1fr]">
@@ -258,8 +289,8 @@ export function UsersTab() {
             readOnly={readOnly}
             onUpdateProfile={updateProfile}
             onUpdateCharacter={updateCharacter}
-            onUpdateTraining={updateTraining}
             onGrantV2={grantV2}
+            onResetCharacter={resetCharacter}
             onReload={() => loadSaves(selected.id)}
           />
         )}

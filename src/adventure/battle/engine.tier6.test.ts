@@ -4,11 +4,12 @@ import {
   initialBattleState,
   type BattleState,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10.
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 9999,
   maxHp: 9999,
   atk: 10,
@@ -82,6 +83,7 @@ describe("6티어 — 그림자 군단", () => {
     // 분신 1회 데미지: damageBetween(floor(10×0.5)=5, 3) = 2
     // 매 턴: 본타 7 + 분신×3=6 → 13 피해
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 2,
@@ -97,6 +99,7 @@ describe("6티어 — 그림자 군단", () => {
     // 매 턴: 본타 7 + 분신×2 = 4 → 11 피해. 단 군단만 set 한 경우 코드 흐름 (atkPct 0이면 cloneCount=0).
     // 그래서 군단 단독 = derivePlayerCombat 의 fallback 으로 atkPct 가 set 되어야 — 단위 테스트는 직접 set 으로 검증.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 2,
@@ -131,6 +134,7 @@ describe("6티어 — 흡혈 갑옷", () => {
   it("불굴로 HP 1 로 버틴 후엔 흡혈 발동 (조합)", () => {
     // 적 atk 9999, 불굴 활성 + 흡혈 50%. HP 1 로 버틴 후 흡혈 floor(9999×50/100)=4999 회복 → maxHp 캡 1000.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 50,
       maxHp: 1000,
@@ -150,6 +154,7 @@ describe("6티어 — 무한 풍사슬", () => {
     // 기존 5티어만: 광속1회 + 풍사슬 캡 3회 = 본타 5회로 끝.
     // 무한: 통계적으로 더 많이. 100% 라면 ABSOLUTE_CAP(30) 까지.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       lightspeedExtraAttackPct: 100,
       galeChainChancePct: 100,
@@ -173,6 +178,7 @@ describe("6티어 — 무한 풍사슬", () => {
   it("eternalGaleBonusPct 가 확률에 가산된다", () => {
     // 광속 + 풍사슬 50 + 보너스 50 = 100% 발동, noCap=false 라 캡 3 까지만.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       lightspeedExtraAttackPct: 100,
       galeChainChancePct: 50,
@@ -196,13 +202,14 @@ describe("6티어 — 만물 행운", () => {
     // Math.random 0 mock 으로 결정적 발동(75% 굴림 통과). damageBetween(10,3)=7, ×2 = 14.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       critChancePct: 0,
       universalLuckBonusPct: 75,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(86); // 100 - 14
+    expect(s.enemyHp).toBe(91); // 100 - 9 (크리 base 2.0→1.4: 7 × 1.4 = 9.8 → 9)
     vi.restoreAllMocks();
   });
 
@@ -278,33 +285,33 @@ describe("몬스터 다대시 — bonusAttackChancePct", () => {
 describe("크리 cap 75% + 오버플로 → 크리뎀 변환", () => {
   it("raw critPct > 75 일 때 초과분이 크리뎀에 가산되어 데미지 증가", () => {
     // critChancePct 100 = raw 100. 캡 후 effective 75, 초과 25%p × 0.02 = +0.5× critMult.
-    // critMult: base 2.0 + 0.5 = 2.5. 강제 발동 → damageBetween(10,3)=7 × 2.5 = 17.5 → 17.
+    // critMult: base 1.4 + 0.5 = 1.9. 강제 발동 → damageBetween(10,3)=7 × 1.9 = 13.3 → 13.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = { ...PLAYER, critChancePct: 100 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(83); // 100 - 17 (오버플로 적용된 크리뎀)
+    expect(s.enemyHp).toBe(87); // 100 - 13 (오버플로 적용된 크리뎀)
     vi.restoreAllMocks();
   });
 
   it("raw critPct ≤ 75 일 때 오버플로 0 (기존 동작 유지)", () => {
-    // critChancePct 75 = 캡 도달 직전. 오버플로 0. damageBetween(10,3)=7 × 2.0 = 14.
+    // critChancePct 75 = 캡 도달 직전. 오버플로 0. damageBetween(10,3)=7 × 1.4 = 9.8 → 9.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = { ...PLAYER, critChancePct: 75 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(86); // 100 - 14 (overflow 0, 원래 크리뎀)
+    expect(s.enemyHp).toBe(91); // 100 - 9 (overflow 0, 원래 크리뎀)
     vi.restoreAllMocks();
   });
 
   it("오버플로 크리뎀 보너스에도 캡(CRIT_OVERFLOW_DMG_CAP=1.0) 적용 — 극단 초과도 +1× 까지만", () => {
     // critChancePct 500 = raw 500. 초과 425%p × 0.02 = 8.5 이지만 캡 1.0 에서 멈춤.
-    // critMult: 2.0 + 1.0 = 3.0. damageBetween(10,3)=7 × 3 = 21.
+    // critMult: 1.4 + 1.0 = 2.4. damageBetween(10,3)=7 × 2.4 = 16.8 → 16.
     vi.spyOn(Math, "random").mockReturnValue(0);
     const p: PlayerCombat = { ...PLAYER, critChancePct: 500 };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사");
-    expect(s.enemyHp).toBe(79); // 100 - 21 (CRIT_OVERFLOW_DMG_CAP 도달)
+    expect(s.enemyHp).toBe(84); // 100 - 16 (CRIT_OVERFLOW_DMG_CAP 도달)
     vi.restoreAllMocks();
   });
 });

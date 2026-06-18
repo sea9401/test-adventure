@@ -8,6 +8,9 @@ import {
   type V2MaterialId,
 } from "@/adventure/data/v2/dungeonDrops";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
+import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
+import type { V2EquipmentId } from "@/adventure/data/v2/v2Equipment";
+import type { RareMapKindId } from "@/adventure/data/v2/rareMaps";
 
 // hunt API 응답 — UI 기록용 + replay 용 추가 필드.
 export type HuntResultPayload = HuntResult & {
@@ -15,9 +18,23 @@ export type HuntResultPayload = HuntResult & {
   startPlayerHp?: number;
   expForBar?: number;
   maxExpForBar?: number;
+  // 사냥 후 EXP/maxExp — 일괄 사냥 합산 결과 아래 캐릭터 정보 카드의 EXP 바용
+  // (expForBar 는 사냥 "전" 값이라 마지막 1회분이 빠진다 — 여기로 현재 진행도 표기).
+  expAfter?: number;
+  maxExpAfter?: number;
   // 충전식 회복약 잔량 (사냥 후 자동 소모 반영) — 전투 화면 캐릭터 정보 표기용.
   hpCharges?: number;
   mpCharges?: number;
+  // 레벨업으로 오른 maxHp/maxMp (레벨 고정분 + VIT/INT) — 결과 카드 표기용.
+  hpGain?: number;
+  mpGain?: number;
+  // 사냥 후 MP — 전역 MP 바 갱신용.
+  mpAfter?: number;
+  maxMp?: number;
+  // 코어루프 패배 세금 — lossTax = 이번 판 압류액(0=승리/flag off), atRiskGold = 마지막 패배
+  //   이후 누적 승리분(위험 골드 뱃지 갱신용).
+  lossTax?: number;
+  atRiskGold?: number;
 };
 
 type HuntResponse = {
@@ -25,6 +42,49 @@ type HuntResponse = {
   stamina?: StaminaState;
   error?: string;
   result?: HuntResultPayload;
+};
+
+// 일괄(batch) 사냥 응답 — 서버가 N회를 한 번에 돌리고 합산해서 돌려준다.
+// BatchSummary(표시용) 필드 + 클라 부수효과용(최종 HP/깊이/EXP).
+export type BatchHuntPayload = {
+  attempted: number;
+  completed: number;
+  wins: number;
+  losses: number;
+  totalExp: number;
+  totalProficiency: number;
+  totalGold: number;
+  totalGoldGross: number; // 세전 합산 — 결과 카드 세금 줄 표기용.
+  totalGoldTaxed: number;
+  taxOwnerLabel?: string; // 세금 수취자 — 세금 있을 때만 서버가 채움.
+  levelsGained: number;
+  statGains: Partial<Record<V2StatKey, number>>;
+  // 일괄 동안 레벨업으로 오른 maxHp/maxMp 합산 — 결과 카드 표기용.
+  hpGained: number;
+  mpGained: number;
+  drops: Partial<Record<V2MaterialId, number>>;
+  droppedEquipments: V2EquipmentId[];
+  droppedUniques: V2EquipmentId[];
+  rareMapDrops?: RareMapKindId[];
+  rareMapRunsLeft?: number | null;
+  stoppedReason: "stamina" | "death" | "recovery" | "error" | null;
+  finalHpAfter: number | null;
+  finalMaxHp: number | null;
+  finalMpAfter: number | null;
+  finalMaxDepth: number | null;
+  expAfter: number | null;
+  maxExpAfter: number | null;
+  // 합산 결과 아래 캐릭터 정보 카드용 — 마지막 사냥 후 회복약 충전량 + MP 보유 여부.
+  hpCharges: number | null;
+  mpCharges: number | null;
+  playerMaxMp: number | null;
+};
+
+type BatchHuntResponse = {
+  ok?: boolean;
+  stamina?: StaminaState;
+  error?: string;
+  batch?: BatchHuntPayload;
 };
 
 function formatDrops(
@@ -46,9 +106,12 @@ function formatDrops(
 export function useDungeonHunt({
   outpostId,
   setStamina,
+  rareMapIid,
 }: {
   outpostId?: string;
   setStamina: (s: StaminaState) => void;
+  // 레어맵 입장 모드 — 보유 지도 iid. 단판/일괄 hunt body 에 동봉(서버 검증·판수 차감).
+  rareMapIid?: string | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<HuntResultPayload | null>(null);
@@ -81,6 +144,7 @@ export function useDungeonHunt({
           body: JSON.stringify({
             floor: f,
             outpostId,
+            ...(rareMapIid ? { rareMap: rareMapIid } : {}),
           }),
         });
         let json: HuntResponse | null = null;
@@ -109,7 +173,7 @@ export function useDungeonHunt({
                 : "";
             const hpStr = `HP ${r.hpBefore}→${r.hpAfter}/${r.maxHp}`;
             pushLog(
-              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+              `✓ ${r.floor}층 ${r.enemyName} ${verdict} (${r.turns}턴) · ${hpStr} · EXP +${r.expGained}${prof} · GOLD +${r.goldGained}${r.goldTaxed ? ` (세금 ${r.goldTaxed} 차감${r.taxOwnerLabel ? ` → ${r.taxOwnerLabel}` : ""}, 총 ${r.goldGross})` : ""}${levelUp}${formatDrops(r.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
             );
             return r;
           }
@@ -130,7 +194,59 @@ export function useDungeonHunt({
         return null;
       }
     },
-    [outpostId, pushLog, setStamina],
+    [outpostId, pushLog, setStamina, rareMapIid],
+  );
+
+  // 일괄 사냥 — 서버에서 count 회를 한 트랜잭션으로 처리(한 왕복). 합산 결과 반환, 실패 시 null.
+  const huntBatch = useCallback(
+    async (floor: number, count: number): Promise<BatchHuntPayload | null> => {
+      setBusy(true);
+      setLastResult(null);
+      try {
+        const res = await fetch("/api/v2/dungeon/hunt", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            floor,
+            count,
+            outpostId,
+            ...(rareMapIid ? { rareMap: rareMapIid } : {}),
+          }),
+        });
+        let json: BatchHuntResponse | null = null;
+        try {
+          json = (await res.json()) as BatchHuntResponse;
+        } catch {
+          pushLog(`✗ http ${res.status} (응답 JSON 아님)`);
+          return null;
+        }
+        if (!json) {
+          pushLog(`✗ http ${res.status} (빈 응답)`);
+          return null;
+        }
+        if (json.stamina) setStamina(json.stamina);
+        if (json.ok === true && json.batch) {
+          const b = json.batch;
+          const cur = json.stamina?.current ?? "?";
+          pushLog(
+            `✓ 일괄 ${b.completed}/${b.attempted}회 · 승 ${b.wins}/패 ${b.losses} · EXP +${b.totalExp} · GOLD +${b.totalGold}${b.totalGoldTaxed ? ` (세금 ${b.totalGoldTaxed} 차감${b.taxOwnerLabel ? ` → ${b.taxOwnerLabel}` : ""})` : ""}${b.levelsGained ? ` · 레벨 +${b.levelsGained}` : ""}${formatDrops(b.drops)} · 스태미너 ${cur}/${MAX_STAMINA}`,
+          );
+          return b;
+        }
+        const err = json.error ?? "unknown";
+        const after = json.stamina
+          ? ` (스태미너 ${json.stamina.current}/${MAX_STAMINA})`
+          : "";
+        pushLog(`✗ http ${res.status} ${err}${after}`);
+        return null;
+      } catch (err) {
+        pushLog(`✗ network: ${(err as Error).message}`);
+        return null;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [outpostId, pushLog, setStamina, rareMapIid],
   );
 
   return {
@@ -138,5 +254,6 @@ export function useDungeonHunt({
     lastResult,
     log,
     hunt,
+    huntBatch,
   };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { BattleState } from "./engine";
+import type { BattleState } from "../v2/combat/engine";
 import { BattleLogList } from "./BattleLogList";
 import { MONSTERS } from "../data/monsters";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/notifications";
 import { Card } from "@/components/ui/Card";
 import { avatarImageSrc, type Gender } from "@/adventure/profile/avatars";
+import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
 
 export type BattlePlayerStatus = {
   gender: Gender;
@@ -40,7 +41,7 @@ const RECENT_KIND_COLOR: Record<NotificationKind, string> = {
 
 const RECENT_NOTIFICATIONS_VISIBLE = 3;
 
-function HpBar({
+export function HpBar({
   label,
   value,
   max,
@@ -119,7 +120,7 @@ function ChargeReadout({
 
 // 회복약 한 줄 — v2 는 충전식 잔량(recoveryCharges), v1 은 개수(hpPotionCount).
 // 두 레이아웃(stacked/split) 공용. center 면 가운데 정렬(split 칸용).
-function RecoveryReadout({
+export function RecoveryReadout({
   playerStatus,
   hasMp,
   center = false,
@@ -232,7 +233,7 @@ function EnemyAvatar({
   );
 }
 
-function PlayerAvatar({
+export function PlayerAvatar({
   gender,
   name,
   hp,
@@ -278,6 +279,8 @@ export function BattleScene({
   recentNotifications,
   layout = "stacked",
   playerSubtitle,
+  logAnchor = "bottom",
+  elementMatchup,
 }: {
   state: BattleState;
   playerName: string;
@@ -288,14 +291,18 @@ export function BattleScene({
   // 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성"). split 레이아웃(v2)에서만 표시.
   // 미전달 시 미표시 — 라이브(stacked)는 그대로.
   playerSubtitle?: string;
+  // 로그 스크롤 기준 — "bottom"=최신 추적(라이브 턴별), "top"=1턴부터(전투 후 전체 로그 리플레이).
+  logAnchor?: "top" | "bottom";
+  // 약점찌르기(+25%) 표시 — "advantage" 면 적 속성 뱃지를 "약점!" 으로 강조 (v2 PvE).
+  elementMatchup?: "advantage" | "disadvantage" | "neutral";
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [state.log]);
+    if (el) el.scrollTop = logAnchor === "top" ? 0 : el.scrollHeight;
+  }, [state.log, logAnchor]);
 
   const recents = (recentNotifications ?? []).slice(
     0,
@@ -364,8 +371,22 @@ export function BattleScene({
                 size="sm"
               />
               <div className="w-full space-y-1.5">
-                <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
-                  {state.enemy.name}
+                <div className="flex items-center justify-center gap-1">
+                  <span className="truncate text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
+                    {state.enemy.name}
+                  </span>
+                  {state.enemy.element && state.enemy.element !== "neutral" && (
+                    <span
+                      className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium ${
+                        elementMatchup === "advantage"
+                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                          : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+                      }`}
+                    >
+                      {V2_ELEMENT_LABEL[state.enemy.element]}
+                      {elementMatchup === "advantage" && " · 약점!"}
+                    </span>
+                  )}
                 </div>
                 <HpBar
                   compact

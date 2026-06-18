@@ -4,14 +4,11 @@ import { Button, Field, NumberInput, TextInput } from "../../ui/Field";
 import { initialCharacterState } from "@/adventure/character/useCharacterState";
 import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
 import { maxHpForLevel } from "@/adventure/character/defaults";
-import { V2_STAT_POINTS_PER_LEVEL } from "@/adventure/data/v2/v2Stats";
 import { MAX_LEVEL, requiredExpToNext } from "@/lib/leveling";
 import type { Profile } from "@/adventure/profile/useProfile";
 import {
-  emptyTraining,
   type AdminUserRow,
   type SavesMap,
-  type TrainingPersisted,
   type V2GrantPayload,
 } from "./types";
 import { GuildCooldownSection } from "./GuildCooldownSection";
@@ -25,8 +22,8 @@ export function SelectedUserPanel({
   readOnly,
   onUpdateProfile,
   onUpdateCharacter,
-  onUpdateTraining,
   onGrantV2,
+  onResetCharacter,
   onReload,
 }: {
   user: AdminUserRow;
@@ -36,8 +33,8 @@ export function SelectedUserPanel({
   readOnly: boolean;
   onUpdateProfile: (next: Profile) => void;
   onUpdateCharacter: (next: CharacterDynamicState) => void;
-  onUpdateTraining: (next: TrainingPersisted) => void;
   onGrantV2: (payload: V2GrantPayload) => void | Promise<void>;
+  onResetCharacter: () => void | Promise<void>;
   onReload: () => void;
 }) {
   const character = saves?.["character.v2"] ?? initialCharacterState;
@@ -45,7 +42,6 @@ export function SelectedUserPanel({
     name: user.gameName ?? "모험가",
     gender: "male1" as const,
   };
-  const training = saves?.["training.v2"] ?? emptyTraining();
   const requiredExp = requiredExpToNext(character.level) ?? 0;
 
   return (
@@ -79,6 +75,25 @@ export function SelectedUserPanel({
       </div>
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
+
+      <section className="rounded-md border border-red-300 bg-red-50/50 p-3 dark:border-red-900 dark:bg-red-950/30">
+        <h2 className="text-sm font-semibold text-red-700 dark:text-red-400">
+          위험 구역
+        </h2>
+        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+          캐릭터 데이터(세이브 전체)를 삭제하고 무소속 새 캐릭터로 초기화합니다.
+          계정·로그인은 유지되며, 대상 유저가 새로고침하면 캐릭터 생성 화면으로
+          돌아갑니다. 되돌릴 수 없습니다.
+        </p>
+        <button
+          type="button"
+          disabled={readOnly}
+          onClick={() => void onResetCharacter()}
+          className="mt-2 rounded-md border border-red-600 bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          캐릭터 초기화
+        </button>
+      </section>
 
       <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="text-sm font-semibold">프로필</h2>
@@ -172,131 +187,9 @@ export function SelectedUserPanel({
         </div>
       </section>
 
-      <section className="rounded-md border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="text-sm font-semibold">훈련</h2>
-        <div className="mt-2 grid gap-3 md:grid-cols-2">
-          <Field label="단련 포인트 (미사용)">
-            <NumberInput
-              value={training.points}
-              min={0}
-              disabled={readOnly || loading}
-              onChange={(points) =>
-                onUpdateTraining({
-                  ...training,
-                  points: Math.max(0, Math.floor(points)),
-                })
-              }
-            />
-          </Field>
-          <Field label="되돌리기 포인트">
-            <NumberInput
-              value={training.revertPoints}
-              min={0}
-              disabled={readOnly || loading}
-              onChange={(revertPoints) =>
-                onUpdateTraining({
-                  ...training,
-                  revertPoints: Math.max(0, Math.floor(revertPoints)),
-                })
-              }
-            />
-          </Field>
-          <Field label="누적 훈련 횟수">
-            <NumberInput
-              value={training.completedCount ?? 0}
-              min={0}
-              disabled={readOnly || loading}
-              onChange={(completedCount) =>
-                onUpdateTraining({
-                  ...training,
-                  completedCount: Math.max(0, Math.floor(completedCount)),
-                })
-              }
-            />
-          </Field>
-          <Field label="기대 단련 포인트 (진단용)">
-            <ExpectedPointsHint level={character.level} training={training} />
-          </Field>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button
-            disabled={readOnly || loading}
-            onClick={() =>
-              onUpdateTraining({ ...training, points: training.points + 1 })
-            }
-          >
-            +1 단련
-          </Button>
-          <Button
-            disabled={readOnly || loading}
-            onClick={() =>
-              onUpdateTraining({ ...training, points: training.points + 5 })
-            }
-          >
-            +5 단련
-          </Button>
-          <Button
-            disabled={readOnly || loading}
-            onClick={() =>
-              onUpdateTraining({
-                ...training,
-                revertPoints: training.revertPoints + 1,
-              })
-            }
-          >
-            +1 되돌리기
-          </Button>
-          <Button
-            disabled={readOnly || loading}
-            onClick={() =>
-              onUpdateTraining({
-                ...training,
-                revertPoints: training.revertPoints + 3,
-              })
-            }
-          >
-            +3 되돌리기
-          </Button>
-        </div>
-      </section>
-
+      {/* 훈련(training.v2) 섹션 제거(2026-06-12) — v2 는 훈련 시스템 없음(숙련도 재설계로 폐기). */}
       <V2GrantSection readOnly={readOnly || loading} onGrant={onGrantV2} />
     </>
   );
 }
 
-// 단련 포인트 손실/복구 진단용. 기대값: (level-1) × V2_STAT_POINTS_PER_LEVEL(=5) 회의
-// 레벨업분 + completedCount 회의 훈련 완료 = 총 획득. 분배(allocated) + 미사용(points)
-// 합과 비교. diff = earned - held: 양수(빨강) = 부족분, 음수(주황) = 초과 적립.
-// 주의: v2 dungeon hunt grant(×5) 기준이라 라이브 page/autoHunt(×1 grant) 캐릭은 양의
-// diff 가 정상 — v2 derive 마이그 완료 전까진 false positive.
-function ExpectedPointsHint({
-  level,
-  training,
-}: {
-  level: number;
-  training: TrainingPersisted;
-}) {
-  const levelEarned = Math.max(0, level - 1) * V2_STAT_POINTS_PER_LEVEL;
-  const earned = levelEarned + (training.completedCount ?? 0);
-  const allocated = Object.values(training.allocated).reduce((a, b) => a + b, 0);
-  const held = training.points + allocated;
-  const diff = earned - held;
-  const tone =
-    diff > 0
-      ? "text-red-600 dark:text-red-400"
-      : diff < 0
-        ? "text-amber-600 dark:text-amber-400"
-        : "text-zinc-500";
-  return (
-    <div className="flex items-center justify-between rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900/50">
-      <span className="font-mono">
-        {earned} = ({level} - 1)×{V2_STAT_POINTS_PER_LEVEL} +{" "}
-        {training.completedCount ?? 0}
-      </span>
-      <span className={`font-mono tabular-nums ${tone}`}>
-        보유 {held} · 차이 {diff >= 0 ? `+${diff}` : diff}
-      </span>
-    </div>
-  );
-}

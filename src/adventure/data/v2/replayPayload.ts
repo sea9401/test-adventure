@@ -7,8 +7,9 @@
 import type {
   BattleLogEntry,
   BattleState,
-} from "@/adventure/battle/engine";
+} from "@/adventure/v2/combat/engine";
 import type { Monster } from "@/adventure/data/monsters/types";
+import type { V2Element } from "@/adventure/data/v2/elements";
 
 // enemy.image = v2 사냥터 전용 초상화 경로. BattleScene 이 이걸 우선 쓰고, 없으면
 // 클라 MONSTERS 카탈로그(`MONSTERS[name]?.image`)로 폴백한다.
@@ -17,6 +18,8 @@ export type ReplayPayload = {
     name: string;
     hp: number; // max HP
     image?: string;
+    // PR-속성표시 — 전투 화면에 몹 속성 뱃지. neutral/undefined 면 표시 안 함.
+    element?: V2Element;
   };
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
@@ -25,6 +28,16 @@ export type ReplayPayload = {
   // 옛 payload(이전 배포본의 열어 둔 탭)엔 없을 수 있어 optional.
   playerMp?: number;
   log: BattleLogEntry[];
+};
+
+// 공격 기록(outpost_claim_attempts.replay) 저장용 봉투 — payload 만으로는 "player"
+// 사이드가 누구인지 알 수 없어 표시 정보를 함께 스냅샷. claim 공격이면 공격자,
+// NPC 정기 공격이면 점령자(수비) 시점이다.
+export type StoredReplayEnvelope = {
+  payload: ReplayPayload;
+  playerName: string;
+  // 프로필 아바타 성별 — 없으면 클라가 기본값 폴백 (NPC 정기 공격 등).
+  gender?: string;
 };
 
 // 로그를 마지막 logCap 개로 자르되, 잘렸으면 깔끔하게 — 첫 turn_marker 앞의 잘린-턴 잔여
@@ -53,11 +66,69 @@ export function toReplayPayload(
       name: finalState.enemy.name,
       hp: finalState.enemy.hp,
       image: finalState.enemy.image,
+      element: finalState.enemy.element,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
     playerMp: finalState.playerMp,
     log: clampReplayLog(finalState.log, logCap),
+  };
+}
+
+// PvP(아레나) 배틀 → ReplayPayload 변환. resolveBattlePvP 의 finalState 는 p1/p2 두 사이드 +
+// actor-relative 로그(모든 공격이 kind:"player_attack" + side 태그)를 들고 있다. 호출부는 항상
+// "나=p1" 관점이므로(arena: myPlayer 가 p1), side==="p2" 엔트리를 적 레인으로 재매핑한다
+// (player_attack→enemy_attack, turn→enemy). hp_bar 는 엔진이 이미 playerHp=p1·enemyHp=p2 로
+// 채워 그대로 둔다. enemy.hp = 상대 maxHp(바 분모), playerMax* = p1 사이드 값.
+type PvpReplaySide = { maxHp: number; maxMp: number; mp: number };
+export function toPvpReplayPayload(
+  finalState: {
+    p1: PvpReplaySide;
+    p2: { maxHp: number };
+    log: BattleLogEntry[];
+  },
+  opponentName: string,
+  logCap: number,
+): ReplayPayload {
+  const remapped: BattleLogEntry[] = finalState.log.map((e) => {
+    if (e.kind === "hp_bar") return e; // 이미 p1=player / p2=enemy 프레이밍
+    if (e.side === "p2") {
+      // 상대(p2) 액터 → 적 레인. 공격은 enemy_attack 으로, info/phase 는 kind 유지 + turn 만 enemy.
+      return {
+        ...e,
+        kind: e.kind === "player_attack" ? "enemy_attack" : e.kind,
+        turn: "enemy" as const,
+      };
+    }
+    // p1(나)·미태그(turn_marker 등) → 플레이어 레인. turn_marker 는 사이드 없는 헤더라 그대로.
+    return e.kind === "turn_marker"
+      ? e
+      : { ...e, turn: e.turn ?? ("player" as const) };
+  });
+  return {
+    enemy: { name: opponentName, hp: finalState.p2.maxHp },
+    playerMaxHp: finalState.p1.maxHp,
+    playerMaxMp: finalState.p1.maxMp,
+    playerMp: finalState.p1.mp,
+    log: clampReplayLog(remapped, logCap),
+  };
+}
+
+// 일괄(batch) 사냥용 경량 payload — 클라 배치 집계는 playerMaxMp 만 읽고 log/enemy 는 버린다.
+//   full toReplayPayload 의 clampReplayLog(최대 200 entry slice + scan)을 건너뛰어 판마다 발생하던
+//   로그 복사/할당을 없앤다. log 는 [](미사용). 단판(count===1)은 full payload 그대로 — 무변경.
+export function toReplayPayloadLite(finalState: BattleState): ReplayPayload {
+  return {
+    enemy: {
+      name: finalState.enemy.name,
+      hp: finalState.enemy.hp,
+      image: finalState.enemy.image,
+      element: finalState.enemy.element,
+    },
+    playerMaxHp: finalState.playerMaxHp,
+    playerMaxMp: finalState.playerMaxMp,
+    playerMp: finalState.playerMp,
+    log: [],
   };
 }
 
@@ -86,7 +157,6 @@ export function buildBattleStateFromReplay(
     flags: {} as BattleState["flags"],
     buffs: {} as BattleState["buffs"],
     stacks: {} as BattleState["stacks"],
-    ap: 0,
     // PR-4a — replay 는 끝난 상태 표시만 하므로 빈 v2 스킬 상태로 충분.
     v2Skills: { learned: [], equipped: [] },
     v2SkillCooldowns: {},

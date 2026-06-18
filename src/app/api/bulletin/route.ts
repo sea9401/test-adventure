@@ -1,6 +1,11 @@
 import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { bulletinComments, bulletinLikes, bulletinPosts } from "@/db/schema";
+import {
+  bulletinComments,
+  bulletinLikes,
+  bulletinPosts,
+  bulletinViews,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveActor } from "@/lib/server/resolveActor";
 import { isCurrentUserAdmin } from "@/lib/server/isAdmin";
@@ -60,6 +65,7 @@ export async function GET(req: Request) {
       title: bulletinPosts.title,
       content: bulletinPosts.content,
       createdAt: bulletinPosts.createdAt,
+      updatedAt: bulletinPosts.updatedAt,
       mine: bulletinPosts.userId,
     })
     .from(bulletinPosts)
@@ -72,51 +78,64 @@ export async function GET(req: Request) {
   const postIds = posts.map((p) => p.id);
   // 인덱스: bulletin_likes 는 PK(postId,userId), bulletin_comments 는
   // (postId, createdAt) — 셋 다 postId 가 선행 컬럼이라 GROUP/IN 모두 인덱스 스캔.
-  const [likeCountRows, commentCountRows, likedByMeRows] = await Promise.all([
-    db
-      .select({
-        postId: bulletinLikes.postId,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(bulletinLikes)
-      .where(inArray(bulletinLikes.postId, postIds))
-      .groupBy(bulletinLikes.postId),
-    db
-      .select({
-        postId: bulletinComments.postId,
-        count: sql<number>`COUNT(*)::int`,
-      })
-      .from(bulletinComments)
-      .where(inArray(bulletinComments.postId, postIds))
-      .groupBy(bulletinComments.postId),
-    db
-      .select({ postId: bulletinLikes.postId })
-      .from(bulletinLikes)
-      .where(
-        and(
-          eq(bulletinLikes.userId, userId),
-          inArray(bulletinLikes.postId, postIds),
+  const [likeCountRows, commentCountRows, viewCountRows, likedByMeRows] =
+    await Promise.all([
+      db
+        .select({
+          postId: bulletinLikes.postId,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(bulletinLikes)
+        .where(inArray(bulletinLikes.postId, postIds))
+        .groupBy(bulletinLikes.postId),
+      db
+        .select({
+          postId: bulletinComments.postId,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(bulletinComments)
+        .where(inArray(bulletinComments.postId, postIds))
+        .groupBy(bulletinComments.postId),
+      db
+        .select({
+          postId: bulletinViews.postId,
+          count: sql<number>`COUNT(*)::int`,
+        })
+        .from(bulletinViews)
+        .where(inArray(bulletinViews.postId, postIds))
+        .groupBy(bulletinViews.postId),
+      db
+        .select({ postId: bulletinLikes.postId })
+        .from(bulletinLikes)
+        .where(
+          and(
+            eq(bulletinLikes.userId, userId),
+            inArray(bulletinLikes.postId, postIds),
+          ),
         ),
-      ),
-  ]);
+    ]);
 
   const likeCountMap = new Map(likeCountRows.map((r) => [r.postId, r.count]));
   const commentCountMap = new Map(
     commentCountRows.map((r) => [r.postId, r.count]),
   );
+  const viewCountMap = new Map(viewCountRows.map((r) => [r.postId, r.count]));
   const likedSet = new Set(likedByMeRows.map((r) => r.postId));
 
   const result = posts.map((r) => ({
     id: r.id,
-    name: r.name,
+    // 공지(notice)는 작성자를 항상 "운영자" 로 노출 — 실제 작성 admin 닉을 가린다.
+    name: r.category === "notice" ? "운영자" : r.name,
     className: r.className,
     category: r.category as BulletinCategory,
     title: r.title,
     content: r.content,
     createdAt: r.createdAt.getTime(),
+    updatedAt: r.updatedAt?.getTime() ?? null,
     mine: r.mine === userId,
     likeCount: likeCountMap.get(r.id) ?? 0,
     commentCount: commentCountMap.get(r.id) ?? 0,
+    viewCount: viewCountMap.get(r.id) ?? 0,
     likedByMe: likedSet.has(r.id),
   }));
 
@@ -201,10 +220,67 @@ export async function POST(req: Request) {
     title,
     content,
     createdAt: inserted.createdAt.getTime(),
+    updatedAt: null,
     mine: true,
     likeCount: 0,
     commentCount: 0,
+    viewCount: 0,
     likedByMe: false,
+  });
+}
+
+// PATCH /api/bulletin — 글 수정. body: { id, title, content }
+// 작성자 본인만 가능 (admin 도 남의 글은 수정 불가 — 삭제와 달리 남의 말을 바꾸는 행위라 막음).
+// 카테고리는 수정 불가 — notice 권한 재검증 등 복잡도 대비 실익 없음.
+export async function PATCH(req: Request) {
+  const userId = await ensureUser();
+  if (!userId) return new Response("unauthorized", { status: 401 });
+
+  let body: { id?: unknown; title?: unknown; content?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return new Response("invalid json", { status: 400 });
+  }
+
+  const id = typeof body.id === "number" ? body.id : NaN;
+  if (!Number.isInteger(id) || id <= 0) {
+    return new Response("invalid id", { status: 400 });
+  }
+
+  // 제목/본문 검증 — POST 와 동일 규칙.
+  const content = typeof body.content === "string" ? body.content.trim() : "";
+  if (!content) return new Response("empty content", { status: 400 });
+  if (content.length > BULLETIN_MAX_LENGTH) {
+    return new Response(`too long (max ${BULLETIN_MAX_LENGTH})`, {
+      status: 400,
+    });
+  }
+
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (!title) return new Response("empty title", { status: 400 });
+  if (title.length > BULLETIN_TITLE_MAX_LENGTH) {
+    return new Response(`title too long (max ${BULLETIN_TITLE_MAX_LENGTH})`, {
+      status: 400,
+    });
+  }
+
+  const updatedAt = new Date();
+  const result = await db
+    .update(bulletinPosts)
+    .set({ title, content, updatedAt })
+    .where(and(eq(bulletinPosts.id, id), eq(bulletinPosts.userId, userId)))
+    .returning({ id: bulletinPosts.id });
+
+  if (result.length === 0) {
+    return new Response("not found or not owner", { status: 404 });
+  }
+
+  return Response.json({
+    id,
+    title,
+    content,
+    updatedAt: updatedAt.getTime(),
   });
 }
 

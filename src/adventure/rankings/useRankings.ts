@@ -10,7 +10,9 @@ export type RankingEntry = {
   rank: number;
   name: string;
   level: number;
-  /** 파라곤 레벨(획득 총 포인트 0~150). 만렙 미만은 0. level 탭에서 "Lv. 100 +N" 표시. */
+  /** 총 누적 레벨(모든 직군 cumLevel 합, 환생/전직 누적). level 탭 표시·정렬. */
+  cumLevel: number;
+  /** 파라곤 레벨(획득 총 포인트 0~150). 만렙 미만은 0. */
   paragonLevel: number;
   fame: number;
   battleCount: number;
@@ -24,6 +26,7 @@ export type RankingMe = {
   rank: number;
   name: string;
   level: number;
+  cumLevel: number;
   paragonLevel: number;
   fame: number;
   battleCount: number;

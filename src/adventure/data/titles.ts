@@ -23,7 +23,8 @@ export type TitleCategory =
   | "endgame"
   | "pvp"
   | "fishing"
-  | "treasure";
+  | "treasure"
+  | "collection";
 
 export type Title = {
   id: TitleId;
@@ -53,6 +54,7 @@ export const TITLE_CATEGORY_ORDER: readonly {
   { id: "pvp", label: "투기장" },
   { id: "fishing", label: "낚시" },
   { id: "treasure", label: "발굴" },
+  { id: "collection", label: "수집" },
 ];
 
 export const TITLES: Record<TitleId, Title> = {
@@ -306,6 +308,28 @@ export const TITLES: Record<TitleId, Title> = {
     name: "창공의 옥좌 마지막 자",
     description: "창공의 주재를 자기 손으로 베어낸 자. 옥좌 위 별빛이 마침내 한 사람의 결을 알아본다.",
     condition: "창공의 주재 처치",
+    category: "battle",
+  },
+  // ── 보스 첫 처치 칭호 (협동 보스 토벌, coopBosses) ────────────────
+  v2_boss_mountain: {
+    id: "v2_boss_mountain",
+    name: "산을 넘은 자",
+    description: "산길의 두목을 자기 손으로 쓰러뜨리고 그 너머로 발을 내디딘 자.",
+    condition: "산적 두목 보스 처치",
+    category: "battle",
+  },
+  v2_boss_canyon: {
+    id: "v2_boss_canyon",
+    name: "협곡의 지배자",
+    description: "마른 협곡을 지배하던 포식자를 베어내고 그 자리를 대신한 자.",
+    condition: "마른 협곡 보스 처치",
+    category: "battle",
+  },
+  v2_boss_lake: {
+    id: "v2_boss_lake",
+    name: "얼음을 깨뜨린 자",
+    description: "얼어붙은 호수 깊은 곳의 군주를 끌어내려 그 한기를 잠재운 자.",
+    condition: "얼음 호수 보스 처치",
     category: "battle",
   },
   // ── 5막 잔영 처치 칭호 3종 + 셋 모두 처치 시 컬렉션 칭호 ────────────────────
@@ -711,6 +735,43 @@ export const TITLES: Record<TitleId, Title> = {
     description: "전설로만 전하던 유물을 끝내 땅속에서 끌어올린 발굴의 대가.",
     condition: "발굴 코인 상점에서 발굴 코인 1800으로 구매",
     category: "treasure",
+  },
+  // 수집 칭호 — 직업 도감의 수집 칭호 상점에서 수집 포인트로 구매(순수 비파워 prestige).
+  //   수집 포인트 = 모은 직업 패시브 수(누적·등급 불변), 구매분만 잔액에서 차감.
+  coll_wanderer: {
+    id: "coll_wanderer",
+    name: "여러 길을 걷는 자",
+    description: "여러 직업의 길을 두루 거쳐온 자.",
+    condition: "수집 칭호 상점에서 수집 포인트 2로 획득",
+    category: "collection",
+  },
+  coll_jack: {
+    id: "coll_jack",
+    name: "재간꾼",
+    description: "어느 길에서도 한몫하는 재간을 갖춘 자.",
+    condition: "수집 칭호 상점에서 수집 포인트 4로 획득",
+    category: "collection",
+  },
+  coll_collector: {
+    id: "coll_collector",
+    name: "비기 수집가",
+    description: "직업마다의 비기를 차곡차곡 모으는 자.",
+    condition: "수집 칭호 상점에서 수집 포인트 6으로 획득",
+    category: "collection",
+  },
+  coll_polymath: {
+    id: "coll_polymath",
+    name: "백가의 벗",
+    description: "온갖 갈래와 어깨를 나란히 한 자.",
+    condition: "수집 칭호 상점에서 수집 포인트 8로 획득",
+    category: "collection",
+  },
+  coll_pathmaster: {
+    id: "coll_pathmaster",
+    name: "길을 손에 쥔 자",
+    description: "수많은 길을 제 것으로 삼은 자.",
+    condition: "수집 칭호 상점에서 수집 포인트 10으로 획득",
+    category: "collection",
   },
 };
 

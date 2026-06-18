@@ -22,6 +22,9 @@ export default function PlazaPage() {
           case "open-inbox":
             router.push("/plaza/inbox");
             break;
+          case "open-market":
+            router.push("/plaza/market");
+            break;
         }
       }}
     />

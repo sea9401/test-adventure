@@ -272,9 +272,6 @@ export function FishingView({
         <div className="flex items-start justify-between gap-2">
           <div>
             <h1 className="text-lg font-bold">낚시터</h1>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              입질이 오면 곧바로 챔질하자. 잡은 물고기는 어보에 기록된다.
-            </p>
           </div>
           {(onOpenLeaderboard || onOpenShop) && (
             <div className="flex shrink-0 flex-col gap-1.5">

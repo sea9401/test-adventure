@@ -1,13 +1,14 @@
 // 추가타(그림자 분신/군단, 무피해 난무) 에 본인 빌드 on-hit 효과 적용 회귀.
 // 본타 정체성(크리/강공격/충돌파/약점/연참/암살/AP 스킬/AP +1) 은 여전히 미적용.
 //
-// 실행: npm test -- src/adventure/battle/engine.extraHits.test.ts
+// 실행: npm test -- src/adventure/v2/combat/engine.extraHits.test.ts
 
 import { describe, expect, it } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 100,
   maxHp: 100,
   atk: 10,
@@ -24,36 +25,39 @@ function enemy(hp = 100): Monster {
 describe("추가타 on-hit — 출혈", () => {
   it("그림자 분신이 출혈 스택을 누적한다 (본타 1 + 분신 1 = 2)", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
-      bleedDmgPerStack: 3,
+      bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 },
       shadowCloneAtkPct: 50,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 + 분신 1회
-    expect(s.stacks.bleedStacks).toBe(2);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(2);
   });
 
   it("그림자 군단 (분신 +1 = 2회) 도 각 hit 가 출혈 +1", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
-      bleedDmgPerStack: 3,
+      bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 },
       shadowCloneAtkPct: 50,
       shadowLegionExtraClones: 1,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 + 분신×2 = 3
-    expect(s.stacks.bleedStacks).toBe(3);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(3);
   });
 
   it("무피해 난무 추가타도 각 hit 가 출혈 +1", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
-      bleedDmgPerStack: 3,
+      bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 },
       flurryAttacks: 2,
     };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 + 난무×2 = 3
-    expect(s.stacks.bleedStacks).toBe(3);
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(3);
   });
 });
 
@@ -62,6 +66,7 @@ describe("추가타 on-hit — 흡혈류", () => {
     // PLAYER hp 100 → 1 데미지 받으려고 PLAYER def 낮춰서. 일단 PLAYER 그대로 두고
     // 적 데미지로 잃은 hp 확인.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 50, // 회복 가시화 위해 50으로 시작.
       shadowCloneAtkPct: 100, // 분신 데미지 = 본타와 비슷 (atk 10 vs def 3 = 7).
@@ -75,6 +80,7 @@ describe("추가타 on-hit — 흡혈류", () => {
 
   it("크리 기반 흡혈 (lifestealCritHealPct) 은 분신에 안 붙는다 (분신 크리 안 굴림)", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 50,
       shadowCloneAtkPct: 100,
@@ -92,6 +98,7 @@ describe("추가타 on-hit — 행운의 별 (확률 100% 강제)", () => {
     // LUCKY_STAR_DAMAGE_MULT 정확값은 import 안 해도 검증 — 본타와 분신 둘 다 ×배수 되니
     // (본타 데미지 + 분신 데미지) 가 둘 다 같은 배수로 곱해진 값을 확인.
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       shadowCloneAtkPct: 100, // 본타와 분신 데미지 동일 (둘 다 7).
       luckyStarChancePct: 100, // 100% 발동.
@@ -116,6 +123,7 @@ describe("추가타 on-hit — 행운의 별 (확률 100% 강제)", () => {
 describe("추가타 on-hit — 천명 (확률 100% 강제)", () => {
   it("분신 hit 도 천명을 굴려 추가 데미지", () => {
     const p: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       shadowCloneAtkPct: 100,
       heavenDecreeChancePct: 100,
@@ -127,22 +135,5 @@ describe("추가타 on-hit — 천명 (확률 100% 강제)", () => {
     let s2 = initialBattleState(pNoDecree, enemy(100), "용사");
     s2 = advanceTurn(s2, pNoDecree, "용사");
     expect(100 - s.enemyHp).toBeGreaterThan(100 - s2.enemyHp);
-  });
-});
-
-describe("추가타 on-hit — 미적용 항목 보존", () => {
-  it("AP 는 분신/난무로 안 오른다 (본타 1회분만)", () => {
-    const p: PlayerCombat = {
-      ...PLAYER,
-      shadowCloneAtkPct: 50,
-      shadowLegionExtraClones: 1,
-      flurryAttacks: 2,
-      equippedAPSkills: [], // AP 슬롯 빈 배열이면 AP_CAP=5, 회복 동작.
-    };
-    let s = initialBattleState(p, enemy(100), "용사");
-    const startAp = s.ap;
-    s = advanceTurn(s, p, "용사");
-    // 본타 1회 → +1. 분신/군단/난무는 AP 회복 X.
-    expect(s.ap).toBe(startAp + 1);
   });
 });

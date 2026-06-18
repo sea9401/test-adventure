@@ -46,7 +46,7 @@ export function FiefdomLiveView({ onBack }: { onBack: () => void }) {
         <Card padding="md" className="space-y-2 text-sm">
           <div className="font-semibold">길드 가입이 필요합니다</div>
           <p className="text-zinc-600 dark:text-zinc-300">
-            영지는 길드 단위로 운영됩니다. 광장 → 길드 둘러보기에서 가입 후 다시 진입해주세요.
+            영지는 길드 단위로 운영됩니다. 길드 탭 → 둘러보기에서 가입 후 다시 진입해주세요.
           </p>
         </Card>
       </ShellCard>

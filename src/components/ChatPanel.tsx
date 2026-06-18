@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
@@ -9,13 +15,7 @@ import {
   Users,
   X,
 } from "@phosphor-icons/react";
-import { CHAT_MAX_LENGTH, isNoticeMessage } from "@/lib/chat-config";
-import {
-  encodeItemLink,
-  type ChatItemRef,
-} from "@/lib/chat-item-link";
-import { ChatItemPicker } from "./ChatItemPicker";
-import type { InventoryState } from "@/adventure/inventory/useInventory";
+import { isNoticeMessage } from "@/lib/chat-config";
 import { postMessage, translateChatError } from "./chat/chatApi";
 import { usePresencePoll } from "./chat/usePresencePoll";
 import { MessageList } from "./chat/MessageList";
@@ -31,6 +31,13 @@ export type ChatMessage = {
   mine: boolean;
 };
 
+// 데스크톱 채팅창 크기 영속 + 최소 크기(드래그 리사이즈).
+const CHAT_SIZE_KEY = "chat-panel-size.v1";
+const CHAT_MIN_W = 320;
+const CHAT_MIN_H = 320;
+const clampInt = (v: number, min: number, max: number) =>
+  Math.round(Math.max(min, Math.min(max, v)));
+
 export function ChatPanel({
   open,
   onClose,
@@ -42,7 +49,6 @@ export function ChatPanel({
   unreadChat = false,
   unreadNotice = false,
   onSeen,
-  inventory,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,20 +62,94 @@ export function ChatPanel({
   unreadNotice?: boolean;
   /** 해당 탭의 최신 메시지를 본 것으로 처리. */
   onSeen?: (kind: "chat" | "notice", lastId: number) => void;
-  /** 아이템 링크용 인벤토리. 없으면(예: v2) 아이템 링크 비활성 — 텍스트 채팅만. */
-  inventory?: InventoryState;
 }) {
   const router = useRouter();
   const presence = usePresencePoll(open);
   const [presenceOpen, setPresenceOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
   // 채팅 / 알림(협동 보스 등 시스템 메시지) 탭 분리.
   const [tab, setTab] = useState<"chat" | "notice">("chat");
   // 낙관적 전송 — 서버 응답 전 임시 메시지 큐. 응답 도착 시 큐에서 제거.
   const [pending, setPending] = useState<ChatMessage[]>([]);
   const tempIdRef = useRef(0);
+
+  // 데스크톱 채팅창 크기 조절 — 좌상단 모서리 드래그(우하단 고정 패널이라 좌/위로 키운다).
+  //   localStorage 영속. 모바일(<sm)은 전체폭이라 미적용. 기본 = max-w-md(448) × 600(현행).
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: 448, h: 600 });
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", onChange);
+    try {
+      const raw = localStorage.getItem(CHAT_SIZE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { w?: unknown; h?: unknown };
+        if (typeof p.w === "number" && typeof p.h === "number") {
+          setSize({
+            w: clampInt(p.w, CHAT_MIN_W, 4000),
+            h: clampInt(p.h, CHAT_MIN_H, 4000),
+          });
+        }
+      }
+    } catch {
+      /* 손상/미설정 무시 — 기본값 사용 */
+    }
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // 진행 중인 리사이즈 정리 함수 보관 — 드래그 도중 패널이 사라져도(언마운트) 누수 없게.
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      resizeCleanupRef.current?.();
+    },
+    [],
+  );
+
+  // 좌상단 핸들 포인터 드래그 → 크기 변경(우하단 고정). 종료(up/cancel) 시 localStorage 저장.
+  const startResize = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startW = size.w;
+    const startH = size.h;
+    const maxW = Math.round(window.innerWidth * 0.95);
+    const maxH = Math.round(
+      (window.visualViewport?.height ?? window.innerHeight) * 0.9,
+    );
+    let latest = { w: startW, h: startH };
+    const onMove = (ev: PointerEvent) => {
+      latest = {
+        w: clampInt(startW - (ev.clientX - startX), CHAT_MIN_W, maxW),
+        h: clampInt(startH - (ev.clientY - startY), CHAT_MIN_H, maxH),
+      };
+      setSize(latest);
+    };
+    // 리스너/스타일 원복 — onEnd(정상 종료)와 언마운트 cleanup 양쪽에서 호출(멱등).
+    function cleanup() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("pointercancel", onEnd);
+      document.body.style.userSelect = "";
+      resizeCleanupRef.current = null;
+    }
+    function onEnd() {
+      cleanup();
+      try {
+        localStorage.setItem(CHAT_SIZE_KEY, JSON.stringify(latest));
+      } catch {
+        /* 저장 실패 무시 */
+      }
+    }
+    document.body.style.userSelect = "none";
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("pointercancel", onEnd);
+    resizeCleanupRef.current = cleanup;
+  };
 
   // 권위적 messages + 낙관적 pending 을 합쳐 화면용 리스트 생성.
   // 서버 echo 와 임시 메시지가 일시적으로 겹쳐 보이지 않도록, 본인이 보낸
@@ -152,18 +232,34 @@ export function ChatPanel({
     }
   };
 
-  // 아이템 피커에서 고른 장비를 토큰으로 입력창에 삽입. 200자 초과면 막는다.
-  const insertItemLink = (ref: ChatItemRef) => {
-    const token = encodeItemLink(ref);
-    const sep = draft && !/\s$/.test(draft) ? " " : "";
-    const next = `${draft}${sep}${token} `;
-    if (next.length > CHAT_MAX_LENGTH) {
-      setError("메시지가 너무 깁니다.");
-      return;
-    }
-    setError(null);
-    setDraft(next);
-  };
+  // 모바일 키보드 대응 — 오버레이를 시각 뷰포트(키보드로 줄어든 영역)에 맞춰
+  // 하단 입력창이 키보드 뒤로 가려지지 않게 한다. 패널엔 max-h-full 이 걸려 있어
+  // 줄어든 오버레이를 넘지 않으므로 헤더~입력창이 모두 보인다.
+  // visualViewport 미지원 브라우저는 인라인 스타일 미적용 → CSS(inset-0) 기본 동작 폴백.
+  const overlayRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const vv = window.visualViewport;
+    const el = overlayRef.current;
+    if (!vv || !el) return;
+    const apply = () => {
+      el.style.top = `${vv.offsetTop}px`;
+      el.style.height = `${vv.height}px`;
+      el.style.bottom = "auto";
+    };
+    apply();
+    vv.addEventListener("resize", apply);
+    vv.addEventListener("scroll", apply);
+    return () => {
+      vv.removeEventListener("resize", apply);
+      vv.removeEventListener("scroll", apply);
+      // 닫힐 때 인라인 스타일 제거 → CSS(inset-0) 로 복귀.
+      // (effect 진입 때 캡처한 el — 이 effect 인스턴스가 다룬 바로 그 노드.)
+      el.style.top = "";
+      el.style.height = "";
+      el.style.bottom = "";
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -175,10 +271,44 @@ export function ChatPanel({
   // 그대로 조작할 수 있고(낚시 등 컨텐츠를 채팅과 동시에), 패널만 pointer-events-auto.
   // 바깥 탭으로 닫히지 않으며 닫기는 헤더 X 버튼뿐 — 화면을 옮겨도 떠 있다.
   return createPortal(
-    <div className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4">
+    <div
+      ref={overlayRef}
+      className="pointer-events-none fixed inset-0 z-40 flex items-end justify-end sm:p-4"
+    >
       <div
-        className="pointer-events-auto flex h-[60dvh] w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        className="pointer-events-auto relative flex h-[85dvh] max-h-full w-full max-w-md flex-col rounded-t-lg border-t border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950 sm:h-[600px] sm:max-h-[85vh] sm:rounded-lg sm:border sm:border-zinc-200 dark:sm:border-zinc-800"
+        // 데스크톱만 크기 조절(인라인이 sm:max-w-md/sm:h-[600px] 보다 우선). 모바일은 전체폭 유지.
+        style={
+          isDesktop
+            ? {
+                width: size.w,
+                height: size.h,
+                maxWidth: "95vw",
+                maxHeight: "90dvh",
+              }
+            : undefined
+        }
       >
+        {/* 크기 조절 핸들 — 좌상단 모서리(우하단 고정 패널). 데스크톱 전용. */}
+        {isDesktop && (
+          <div
+            onPointerDown={startResize}
+            role="separator"
+            aria-label="채팅창 크기 조절"
+            title="드래그해서 크기 조절"
+            className="absolute left-0 top-0 z-20 flex h-5 w-5 cursor-nwse-resize touch-none items-start justify-start rounded-tl-lg p-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400"
+          >
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+              <path
+                d="M9 1 L1 9 M9 5 L5 9"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        )}
         <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <div className="flex items-center gap-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             <ChatCircle size={20} weight="duotone" />
@@ -311,21 +441,9 @@ export function ChatPanel({
             draft={draft}
             onDraftChange={setDraft}
             onSubmit={submit}
-            onOpenPicker={inventory ? () => setPickerOpen(true) : undefined}
           />
         )}
       </div>
-
-      {pickerOpen && inventory && (
-        // 비차단 래퍼(pointer-events-none) 아래라 picker(자체 fixed 모달)도 명시적으로 살린다.
-        <div className="pointer-events-auto">
-          <ChatItemPicker
-            inventory={inventory}
-            onPick={insertItemLink}
-            onClose={() => setPickerOpen(false)}
-          />
-        </div>
-      )}
     </div>,
     document.body,
   );

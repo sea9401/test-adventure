@@ -1,20 +1,18 @@
-import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/charge — HP / MP 충전 구매.
 //
 // body: { kind: "hp" | "mp", amount: number }
-// 1g = 1 충전. 10000 cap. amount 가 cap 초과면 cap 까지 깎고 부족분 g 만 차감.
+// 1g = 1 충전. MAX_CHARGE cap. amount 가 cap 초과면 cap 까지 깎고 부족분 g 만 차감.
 //
 // response: { ok: true, gold, hpCharges, mpCharges } | { ok: false, error }
 //
-// 인벤토리 모델: inventory.v2.{ hpCharges, mpCharges } 0..10000 정수. 사냥 후 자동 회복에서
+// 인벤토리 모델: inventory.v2.{ hpCharges, mpCharges } 0..MAX_CHARGE 정수. 사냥 후 자동 회복에서
 // 부족분 만큼 차감 — POTIONS 카탈로그 (heal_s/m/l, mp_s/m/l) 폐기 후 단순 카운터.
-
-export const MAX_CHARGE = 10000;
 
 type CharSave = { gold?: number; [k: string]: unknown };
 type InvSave = {
@@ -55,6 +53,7 @@ export async function POST(req: Request) {
       {},
     );
     const gold = Math.max(0, charSave.gold ?? 0);
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
     const curHp = Math.max(0, Math.min(MAX_CHARGE, invSave.hpCharges ?? 0));
     const curMp = Math.max(0, Math.min(MAX_CHARGE, invSave.mpCharges ?? 0));
 
@@ -65,17 +64,19 @@ export async function POST(req: Request) {
       return { ok: false as const, error: "already_full" };
     }
     const charge = Math.min(amount, room);
-    if (gold < charge) {
+    const spend = spendGold(gold, bankedGold, charge);
+    if (!spend.ok) {
       return { ok: false as const, error: "not_enough_gold" };
     }
 
-    const newGold = gold - charge;
+    const newGold = spend.gold;
     const newHp = kind === "hp" ? cur + charge : curHp;
     const newMp = kind === "mp" ? cur + charge : curMp;
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: newGold,
+      bankedGold: spend.bankedGold,
     });
     await upsertSave(tx, userId, "inventory.v2", {
       ...invSave,
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
     return {
       ok: true as const,
       gold: newGold,
+      ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       hpCharges: newHp,
       mpCharges: newMp,
       charged: charge,

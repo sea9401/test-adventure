@@ -6,16 +6,19 @@ import {
   V2CharacterCard,
   type V2CharacterCardData,
 } from "./V2CharacterCard";
-import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
-import type {
-  Outpost,
-  OutpostType,
-  OutpostTier,
-} from "@/adventure/data/v2/types";
+import { V2AnnouncementsPanel } from "./V2AnnouncementsPanel";
+import { GuideQuestBanner } from "./GuideQuestBanner";
+import {
+  OUTPOSTS,
+  OUTPOST_NPC_TAX_RATE,
+  treasuryShares,
+} from "@/adventure/data/v2/outposts";
+import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import type {
   V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import { tierLevelCap } from "@/adventure/data/v2/proficiency";
 
 // 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
@@ -33,6 +36,10 @@ type StateResponse = {
   ok?: boolean;
   character?: V2CharacterCardData;
   guild?: { id: number; name: string } | null;
+  proficiency?: {
+    groups?: Record<string, { tier?: number }>;
+    current?: { group?: string };
+  };
   currentOutpost?: {
     id: string;
     name: string;
@@ -46,12 +53,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   tower: "마탑",
   fort: "요새",
   village: "마을",
-};
-const TIER_LABEL: Record<OutpostTier, string> = {
-  1: "마을",
-  2: "거점",
-  3: "도시",
-  4: "왕국",
 };
 const POLICY_LABEL: Record<string, string> = {
   open: "개방",
@@ -127,6 +128,12 @@ export function V2AdventureHome({
   );
 
   const occupation = state?.currentOutpost?.occupation ?? null;
+  const currentGroup = state?.proficiency?.current?.group ?? "none";
+  const currentTier =
+    currentGroup === "none"
+      ? null
+      : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
+  const levelCap = currentTier == null ? null : tierLevelCap(currentTier);
   const treasuryGold = state?.currentOutpost?.treasuryGold ?? 0;
   const viewerGuildId = state?.guild?.id ?? null;
   // 점령 길드원인지 — 세금 회수 권한 판정.
@@ -175,11 +182,16 @@ export function V2AdventureHome({
           <V2CharacterCard
             character={state.character}
             guild={state.guild ?? null}
+            levelCap={levelCap}
             showGold={true}
             equipped={equipped}
             owned={owned}
           />
         )}
+
+        <GuideQuestBanner />
+
+        <V2AnnouncementsPanel />
 
         {outpost && (
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -193,7 +205,7 @@ export function V2AdventureHome({
                 {outpost.name}
               </h2>
               <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                {TYPE_LABEL[outpost.type]} · {TIER_LABEL[outpost.tier]}
+                {TYPE_LABEL[outpost.type]}
               </span>
               {outpost.neutral && (
                 <span className="rounded bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
@@ -261,7 +273,7 @@ export function V2AdventureHome({
                   {claiming
                     ? "회수 중…"
                     : treasuryGold > 0
-                      ? `세금 회수 (본인 +${Math.floor((treasuryGold * 10) / 100).toLocaleString()} G)`
+                      ? `세금 회수 (본인 +${treasuryShares(treasuryGold).claimerShare.toLocaleString()} G)`
                       : "세금 회수 (금고 비어있음)"}
                 </button>
               )}

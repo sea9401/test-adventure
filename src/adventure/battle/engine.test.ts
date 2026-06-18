@@ -9,17 +9,19 @@ import {
   type BattleLogEntry,
   type BattleState,
   type PlayerCombat,
-} from "./engine";
+} from "../v2/combat/engine";
 import {
   BLEED_MAX_STACKS,
-  VENOM_PCT_HP_PER_POINT,
+  POISON_CAP_ATK_COEF,
+  POISON_PCT_PER_POINT,
   CRIT_MULT_BASE,
-} from "../character/skills";
-import { AP_SKILLS, DEFAULT_AP_SKILL_CONDITION } from "../character/apSkills";
+} from "../data/v2/v2CombatConstants";
+import { makeBleedDot, makePoisonDot } from "../v2/combat/combatShared";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
 
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 50,
   maxHp: 50,
   atk: 10,
@@ -242,6 +244,31 @@ describe("advanceTurn (enemy phase)", () => {
     expect(s1.playerHp).toBe(0);
     expect(s1.phase).toBe("ended");
     expect(s1.outcome).toBe("lose");
+  });
+
+  it("전문화 받피감(passiveDamageTakenReductionPct) — 받는 피해 %감소, 미보유=불변", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.99); // 무조건 피격
+    const enemy = makeEnemy({ atk: 40 }); // base 피해 충분히 크게(반올림 영향 최소)
+    const base = damageBetween(enemy.atk, PLAYER.def);
+    // 받피감 50% → floor(base×0.5) 피해
+    const tanky: PlayerCombat = {
+  accuracyPct: 100,
+      ...PLAYER,
+      passiveDamageTakenReductionPct: 50,
+    };
+    const s1 = advanceTurn(
+      { ...initialBattleState(tanky, enemy, "P"), phase: "enemy" as const },
+      tanky,
+      "P",
+    );
+    expect(s1.playerHp).toBe(tanky.hp - Math.max(1, Math.floor(base * 0.5)));
+    // 대조: 미보유 = full 피해(라이브 불변)
+    const s1b = advanceTurn(
+      { ...initialBattleState(PLAYER, enemy, "P"), phase: "enemy" as const },
+      PLAYER,
+      "P",
+    );
+    expect(s1b.playerHp).toBe(PLAYER.hp - base);
   });
 });
 
@@ -492,7 +519,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     // 로그에 강타 prefix 가 박힌 player_attack 존재 (일반 공격과 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "player_attack" && e.text.includes("강타!"),
       ),
     ).toBe(true);
   });
@@ -511,7 +538,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     expect(r.finalState.v2SkillCooldowns).toEqual({});
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "player_attack" && e.text.includes("강타!"),
       ),
     ).toBe(false);
   });
@@ -528,10 +555,10 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     });
     // 두 스킬 모두 한 번 이상 발동 — player_attack 로그에 prefix.
     const strikeFired = r.finalState.log.some(
-      (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+      (e) => e.kind === "player_attack" && e.text.includes("강타!"),
     );
     const flurryFired = r.finalState.log.some(
-      (e) => e.kind === "player_attack" && e.text.includes("[연격]"),
+      (e) => e.kind === "player_attack" && e.text.includes("연격!"),
     );
     expect(strikeFired).toBe(true);
     // 전투 길이에 따라 flurry 도 cd 사이에 발동될 수 있음.
@@ -543,6 +570,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
   // 한 턴 건너뛰던 문제 (Codex Q2). phase-entry flag 로 교체 후 정상 동작 확인.
   it("포션-only 턴 후 다음 player phase 에서도 정상 cast (dedupe phase-entry 기반)", () => {
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       maxMp: 10000,
       attackCount: 1,
@@ -572,7 +600,7 @@ describe("v2 스킬 런타임 framework (PR-4a)", () => {
     );
     // 강타 시전 로그가 최소 2회 이상 (T1 포션턴, T2 공격턴 — 둘 다 player phase 진입).
     const castLogs = r.finalState.log.filter(
-      (e) => e.kind === "player_attack" && e.text.includes("[강타]"),
+      (e) => e.kind === "player_attack" && e.text.includes("강타!"),
     );
     expect(castLogs.length).toBeGreaterThanOrEqual(2);
   });
@@ -583,6 +611,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     // atk 50, def 5 의 적 → strike (coef 1.0) → 50 - 5 = 45 데미지/cast
     // 적 hp 200 → 적어도 1회 cast 후 HP 차감 확인.
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 50,
       maxMp: 1000,
@@ -617,6 +646,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     // recover: pctMaxHp=10, maxHp=200 → 20 heal.
     // 시작 HP=50 (낮춤) → cast 후 HP 70 이상.
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 50,
       maxHp: 200,
@@ -644,6 +674,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   it("selfBuff effect — dash 발동 시 [강화] 로그 + v2SelfBuffs 갱신", () => {
     // dash: selfBuff spd +10% 3턴
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       maxMp: 1000,
       hp: 200,
@@ -672,8 +703,9 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   });
 
   it("PR-8 — dot effect 스킬 발동 후 적 hp 가 후속 turn tick 으로 추가 감소", () => {
-    // v2_skill_piercing_shot(관통 사격): damage + dot (출혈 6/turn × 3턴). 궁수 시그니처.
+    // mob_rending_claw(살점 뜯기): dot (출혈 3턴). 스킬 kind:"dot" 효과 경로 검증 픽스처.
     const dexPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 50,
       maxMp: 1000,
@@ -690,14 +722,14 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         pickAction: () => ({ kind: "attack" }),
         potions: {},
         v2Skills: {
-          learned: ["v2_skill_flurry", "v2_skill_piercing_shot"],
-          equipped: ["v2_skill_piercing_shot"],
+          learned: ["v2_skill_flurry", "mob_rending_claw"],
+          equipped: ["mob_rending_claw"],
         },
       },
     );
-    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명] N/턴 (M턴).
+    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명 + 출혈] +N스택 (M턴).
     const dotApplyLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("/턴") && e.text.includes("(3턴)"),
+      (e) => e.kind === "info" && e.text.includes("스택") && e.text.includes("(3턴)"),
     );
     expect(dotApplyLog).toBeDefined();
     // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격 패턴 (player_attack + "[출혈]").
@@ -710,6 +742,40 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
     expect(dotTickLogs.length).toBeGreaterThan(0);
   });
 
+  it("PR2-B — temp 버프(보호막) 시전이 PvE 전투 로그에 표기된다", () => {
+    // 이전엔 PvE 가 temp 버프 적용을 로그에 안 남겨 보이지 않던 회귀 가드(PvP 는 표기됨).
+    vi.spyOn(Math, "random").mockReturnValue(0); // procChance 발동 강제
+    const mage: PlayerCombat = {
+      ...PLAYER,
+      atk: 30,
+      maxMp: 2000,
+      hp: 500,
+      maxHp: 500,
+      spd: 100,
+    };
+    const r = resolveBattle(mage, makeEnemy({ hp: 3000, atk: 5 }), "P", {
+      pickAction: () => ({ kind: "attack" }),
+      potions: {},
+      v2Skills: {
+        learned: ["v2c_mage_shield"],
+        equipped: ["v2c_mage_shield"],
+        // 스마트 기본 패턴은 보호막을 "HP 낮을 때"로 깔아 풀피선 미발동 → 로그 표기 검증 위해
+        //   명시 패턴으로 "항상 보호막" 강제(이 테스트는 발동 정책이 아니라 cast 로그 메커니즘 검증).
+        pattern: {
+          blocks: [
+            { condition: { kind: "always" }, action: { kind: "skill", skillId: "v2c_mage_shield" } },
+          ],
+        },
+      },
+    });
+    // 보호막 적용 로그 — PvE cast 표기 확인.
+    expect(
+      r.finalState.log.some(
+        (e) => e.kind === "info" && e.text.includes("보호막 +"),
+      ),
+    ).toBe(true);
+  });
+
   // PR-cast-attack 부터 cast 가 attacksLeft 를 소모해 일반 공격 대체 (포션 패턴).
   // PR-5a 격리 해제 검증은 unit 테스트 (combatShared.test 의 v2AtkBuffMult) 가 cover —
   // 통합 비교 (with-skill vs no-skill 누적 데미지) 는 cast 가 attack 대체라 의미 변경.
@@ -717,6 +783,7 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
   it("damage 누계 + 첫 cast 가 lethal — outcome win 처리", () => {
     // 적 HP 30, strike 데미지 (atk 50 - def 5 = 45) > 30 → 1발에 처치.
     const skillsPlayer: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 50,
       maxMp: 1000,
@@ -751,7 +818,7 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
     // enemy v2 cast 발동 로그 없음 (강타 prefix 없음 — 일반 적 공격 enemy_attack 와 구분).
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "enemy_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "enemy_attack" && e.text.includes("강타!"),
       ),
     ).toBe(false);
     // enemy v2 state 빈 그대로.
@@ -775,7 +842,7 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
     // enemy 강타 발동 로그 존재.
     expect(
       r.finalState.log.some(
-        (e) => e.kind === "enemy_attack" && e.text.includes("[강타]"),
+        (e) => e.kind === "enemy_attack" && e.text.includes("강타!"),
       ),
     ).toBe(true);
     // enemy MP 차감됨.
@@ -835,6 +902,7 @@ describe("PR-5b — monster v2 cast (enemy phase)", () => {
 describe("강공격 (powerAttackBonus)", () => {
   // 적 def 0, 플레이어 atk 1 → 일반 공격 1 데미지 / 강공격 (atk+2) = 3 데미지.
   const minimal: PlayerCombat = {
+  accuracyPct: 100,
     ...PLAYER,
     atk: 1,
     spd: 100, // 항상 선공
@@ -929,6 +997,7 @@ describe("회피 강화 (guaranteedEvades)", () => {
 describe("연타 (extraAttackEveryNTurns)", () => {
   it("매 5턴마다 마지막 공격 후 추가 1회 공격", () => {
     const dbl: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       attackCount: 1,
       extraAttackEveryNTurns: 2,
@@ -984,6 +1053,7 @@ describe("가드 (guard)", () => {
   it("적 선공일 때 첫 N번의 적 페이즈 동안 받는 데미지 -reduction, 이후엔 정상", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 회피 미발동
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       guard: { turns: 2, reduction: 1 },
     };
@@ -1007,6 +1077,7 @@ describe("가드 (guard)", () => {
     // 회귀 — 과거엔 completedPlayerTurns 기준이라 플레이어 선공이면 N-1번만 발동.
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 회피 미발동
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       guard: { turns: 3, reduction: 1 },
     };
@@ -1031,6 +1102,7 @@ describe("처형 (executionDamageMult)", () => {
     // enemy hp 100, fraction 0.3 → HP 30 미만일 때만 처형. 첫 공격은 100/100 → 비활성.
     const enemy = makeEnemy({ hp: 100, def: 0 });
     const exec: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       executionDamageMult: 1.5,
@@ -1044,6 +1116,7 @@ describe("처형 (executionDamageMult)", () => {
     // enemy hp 100, 시작 hp 25 (= 25%), fraction 0.3
     const enemy = makeEnemy({ hp: 100, def: 0 });
     const exec: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       executionDamageMult: 1.5,
@@ -1064,6 +1137,8 @@ describe("정확 (precisionEvasionMult)", () => {
       ...PLAYER,
       atk: 10,
       precisionEvasionMult: 0.5,
+      // 기본 명중 90% 상쇄 — 명중=기본빗나감(10)이면 적 회피(정확 적용분)만 미스로 남아 원래 임계 복원.
+      accuracyPct: 10,
     };
     // 첫 공격에 0.05 굴림 (5%) → 정확 적용된 10% 임계 안 → 회피 발동.
     vi.spyOn(Math, "random").mockReturnValue(0.05);
@@ -1079,6 +1154,8 @@ describe("정확 (precisionEvasionMult)", () => {
       ...PLAYER,
       atk: 10,
       precisionEvasionMult: 0.5,
+      // 기본 명중 90% 상쇄 — 명중=기본빗나감(10)이면 적 회피(정확 적용분)만 미스로 남아 원래 임계 복원.
+      accuracyPct: 10,
     };
     // 정확 적용 후 임계 10% — 0.12 = 12% 는 임계 위 → 회피 실패 → 명중.
     vi.spyOn(Math, "random").mockReturnValue(0.12);
@@ -1092,6 +1169,7 @@ describe("불굴 (enduranceActive)", () => {
   it("HP 0 데미지 받으면 HP 1 로 버틴다", () => {
     const enemy = makeEnemy({ atk: 100, def: 0 }); // 강한 적
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 30,
       maxHp: 30,
@@ -1110,6 +1188,7 @@ describe("불굴 (enduranceActive)", () => {
   it("두 번째 치명 피해에서는 사망 — 전투당 1회만 발동", () => {
     const enemy = makeEnemy({ hp: 1000, atk: 100, def: 0 });
     const tough: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 30,
       maxHp: 30,
@@ -1132,6 +1211,7 @@ describe("광속 (lightspeedExtraAttackPct)", () => {
   it("마지막 공격 후 확률 굴림 통과 시 추가 1회 공격", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 0 });
     const swift: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       lightspeedExtraAttackPct: 50, // 50% 확률 — 굴림 0.4 면 통과
@@ -1148,6 +1228,7 @@ describe("광속 (lightspeedExtraAttackPct)", () => {
   it("같은 턴에 두 번 발동 X — 한 번 사용 후 게이트 차단", () => {
     const enemy = makeEnemy({ hp: 1000, def: 0, evasionPct: 0 });
     const swift: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       lightspeedExtraAttackPct: 100, // 항상 발동
@@ -1168,6 +1249,7 @@ describe("만개 (critMult / critChance) 누적", () => {
     // 만개 슬롯 시 호출 측이 critMult 에 base + bloom 보너스 합산해서 넘긴다.
     // 여기서는 엔진이 그 값을 그대로 사용함을 확인.
     const lucky: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       atk: 10,
       critChancePct: 75,
@@ -1382,6 +1464,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       },
     });
     const dodgy: PlayerCombat = {
+  accuracyPct: 100,
       ...PLAYER,
       hp: 500,
       maxHp: 500,
@@ -1447,13 +1530,13 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
   });
 
   it("다대시 적이어도 출혈 DoT 는 적 페이즈당 1회만 발동한다", () => {
-    const bleeder: PlayerCombat = { ...tank, bleedDmgPerStack: 4 };
+    const bleeder: PlayerCombat = { ...tank };
     const enemy = chillEnemy({ bonusAttackChancePct: 100, skill: undefined });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
       ...s0,
       phase: "enemy" as const,
-      stacks: { ...s0.stacks, bleedStacks: 3 },
+      enemyV2Dots: [makeBleedDot({ stacks: 3, flatPerStack: 4, sourceAtk: 0 })],
     };
     const after1 = advanceTurn(primed, bleeder, "P");
     const after2 = advanceTurn(after1, bleeder, "P");
@@ -1462,77 +1545,61 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
   });
 
   it("출혈(기본 DoT)은 STR 기반 고정 — 적 HP 와 무관", () => {
-    // 출혈만(독공 없음): perStack = bleedDmgPerStack 고정. 고HP 적이어도 %HP 안 붙음.
-    const bleeder: PlayerCombat = { ...tank, hp: 10000, maxHp: 10000, bleedDmgPerStack: 4 };
+    const bleeder: PlayerCombat = { ...tank, hp: 10000, maxHp: 10000 };
     const enemy = makeEnemy({ hp: 50000, atk: 5 });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
       ...s0,
       phase: "enemy" as const,
       enemyHp: 50000,
-      stacks: { ...s0.stacks, bleedStacks: 3 },
+      enemyV2Dots: [makeBleedDot({ stacks: 3, flatPerStack: 4, sourceAtk: 0 })],
     };
     const after = advanceTurn(primed, bleeder, "P");
     expect(after.enemyHp).toBe(50000 - 3 * 4); // 49988 — 고정 4, %HP 아님
   });
 
-  it("독공(체력% DoT)은 적 최대HP × venom강도 비례", () => {
-    // 독공만: perStack = floor(적 최대HP × venom강도 × VENOM_PCT_HP_PER_POINT).
+  it("중독(체력% DoT)은 적 최대HP 비례 + ATK cap", () => {
     const venomer: PlayerCombat = {
+  accuracyPct: 100,
       ...tank,
       hp: 10000,
       maxHp: 10000,
-      enchantVenomDmgPerStack: 20,
     };
     const enemy = makeEnemy({ hp: 50000, atk: 5 });
     const s0 = initialBattleState(venomer, enemy, "P");
+    const pct = 20 * POISON_PCT_PER_POINT;
     const primed = {
       ...s0,
       phase: "enemy" as const,
       enemyHp: 50000,
-      stacks: { ...s0.stacks, bleedStacks: 3 },
+      enemyV2Dots: [makePoisonDot({ stacks: 3, pctMaxHpPerStack: pct, sourceAtk: 1000 })],
     };
     const after = advanceTurn(primed, venomer, "P");
-    const venomPer = Math.floor(50000 * 20 * VENOM_PCT_HP_PER_POINT); // 100
-    expect(after.enemyHp).toBe(50000 - 3 * venomPer); // 49700 — %HP
+    const poisonPer = Math.min(50000 * pct, 1000 * POISON_CAP_ATK_COEF);
+    expect(after.enemyHp).toBe(50000 - 3 * poisonPer);
   });
 
   it("출혈 스택은 BLEED_MAX_STACKS 로 캡된다", () => {
     const bleeder: PlayerCombat = {
+  accuracyPct: 100,
       ...tank,
       hp: 10000,
       maxHp: 10000,
       atk: 1000,
-      bleedDmgPerStack: 4,
+      bleedOnHit: { flatPerStack: 4, atkCoefPerStack: 0.08 },
     };
     const enemy = makeEnemy({ hp: 50000, def: 0, atk: 5, evasionPct: 0 });
     const s0 = initialBattleState(bleeder, enemy, "P");
     const primed = {
       ...s0,
       phase: "player" as const,
-      stacks: { ...s0.stacks, bleedStacks: BLEED_MAX_STACKS },
+      enemyV2Dots: [makeBleedDot({ stacks: BLEED_MAX_STACKS, flatPerStack: 4, sourceAtk: 1000 })],
     };
     // 이미 캡인데 플레이어 적중(+1) → 캡 유지.
     const after = advanceTurn(primed, bleeder, "P");
-    expect(after.stacks.bleedStacks).toBe(BLEED_MAX_STACKS);
+    expect(after.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(BLEED_MAX_STACKS);
   });
 
-  it("정화는 누적된 한기를 제거한다", () => {
-    const purify = AP_SKILLS.find((s) => s.id === "purify")!;
-    const purifier: PlayerCombat = {
-      ...tank,
-      equippedAPSkills: [{ skill: purify, condition: DEFAULT_AP_SKILL_CONDITION }],
-    };
-    const enemy = chillEnemy();
-    const s0 = initialBattleState(purifier, enemy, "P");
-    const primed = {
-      ...s0,
-      stacks: { ...s0.stacks, chillStacks: 6 },
-    };
-    const after = advanceTurn(primed, purifier, "P");
-    expect(after.stacks.chillStacks).toBe(0);
-    expect(after.log.some((e) => e.text.includes("모든 디버프 해제"))).toBe(true);
-  });
 
   it("한기 DoT 는 결의 피해 감소를 적용한다", () => {
     const enemy = chillEnemy();

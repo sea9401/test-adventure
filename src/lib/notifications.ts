@@ -117,3 +117,24 @@ export function formatRelative(ts: number, now = Date.now()): string {
   if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}시간 전`;
   return `${Math.floor(diff / 86400_000)}일 전`;
 }
+
+// KST(UTC+9, DST 없음) 고정 오프셋 — 뷰어 기기 시간대와 무관하게 항상 한국 달력
+// 날짜로 표기(ts+9h 후 UTC 게터 = KST 벽시계). 작성일자가 보는 사람마다 안 달라지게.
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+// 절대 날짜 — 게시판 작성일자 등. KST 기준 "YYYY.MM.DD".
+export function formatDate(ts: number): string {
+  const d = new Date(ts + KST_OFFSET_MS);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}.${m}.${day}`;
+}
+
+// 절대 날짜 + 시각 — 게시판 상세 등. KST 기준 "YYYY.MM.DD HH:mm".
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts + KST_OFFSET_MS);
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${formatDate(ts)} ${hh}:${mm}`;
+}

@@ -5,7 +5,7 @@ import {
   type MatchSim,
   type TournamentMatch,
 } from "./tournamentBattle";
-import type { PlayerCombat } from "../../battle/engine";
+import type { PlayerCombat } from "../../v2/combat/engine";
 
 function makeMember(name: string, atk = 80, hp = 1000): TournamentMember {
   return {

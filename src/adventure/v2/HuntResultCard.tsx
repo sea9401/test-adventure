@@ -18,6 +18,11 @@ import {
   type ElementMatchup,
   type V2Element,
 } from "@/adventure/data/v2/elements";
+import { WEATHER_TIER_LABEL } from "@/adventure/data/v2/weather";
+import {
+  RARE_MAP_KINDS,
+  type RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -33,8 +38,13 @@ export type HuntResult = {
   goldGained: number;
   goldGross?: number;
   goldTaxed?: number;
+  // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
+  taxOwnerLabel?: string;
   levelsGained: number;
+  spMilestonesGained?: number; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤(>0 일 때만 표기).
   statGains?: Partial<Record<V2StatKey, number>>; // 레벨업 랜덤 성장으로 오른 1차 스탯.
+  hpGain?: number; // 레벨업으로 오른 maxHp (레벨 고정분 + VIT).
+  mpGain?: number; // 레벨업으로 오른 maxMp (레벨 고정분 + INT).
   turns: number;
   hpBefore: number;
   hpAfter: number;
@@ -43,10 +53,22 @@ export type HuntResult = {
   droppedEquipment?: V2EquipmentId | null;
   droppedUnique?: V2EquipmentId | null;
   ejected?: { outpostId: string; byGuildId: number; at: number } | null;
+  // 레어맵 — 새 지도 발견(kind id) / 입장 중 남은 판수.
+  rareMapDrop?: RareMapKindId | null;
+  rareMapRunsLeft?: number | null;
   // PR-1 속성 상성 — 내 속성 vs 몬스터 속성 결과.
   playerElement?: V2Element;
   monsterElement?: V2Element;
   elementMatchup?: ElementMatchup;
+  // 날씨 — 내 공격 속성이 받은 단계(거점 밖이면 null·중립이면 tier null).
+  weather?: {
+    id: string;
+    name: string;
+    emoji: string;
+    tier: "major" | "minor" | "weak" | "poor" | null;
+  } | null;
+  // 도전(미정복) 구역 클리어 시 갱신된 최고 도달 깊이.
+  maxDepth?: number;
 };
 
 // 드랍 배너용 — 재료(×N)와 장비 이름들을 자연스러운 한국어 문장으로 합친다.
@@ -76,6 +98,17 @@ export function formatStatGains(
   return parts.length ? parts.join(" · ") : null;
 }
 
+// 레벨업 HP/MP 성장 — "HP +17 · MP +6". 0 이하면 생략(레벨업이면 둘 다 양수).
+export function formatHpMpGains(
+  hpGain: number | undefined,
+  mpGain: number | undefined,
+): string | null {
+  const parts: string[] = [];
+  if ((hpGain ?? 0) > 0) parts.push(`HP +${hpGain}`);
+  if ((mpGain ?? 0) > 0) parts.push(`MP +${mpGain}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 export function HuntResultCard({ result }: { result: HuntResult }) {
   const won = result.won;
   const drops = result.drops
@@ -94,9 +127,16 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
     droppedEquip?.name ?? null,
   );
   const statGainsText = formatStatGains(result.statGains);
+  const hpMpGainsText = formatHpMpGains(result.hpGain, result.mpGain);
 
   return (
     <Card padding="sm">
+      {result.rareMapDrop && (
+        <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+          🗺 「{RARE_MAP_KINDS[result.rareMapDrop].name}」 발견! — 인벤토리
+          소모품에서 확인
+        </div>
+      )}
       {droppedUniq && (
         <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           ✨ 유니크 「{droppedUniq.name}」 획득!
@@ -141,6 +181,22 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
           </div>
         )}
 
+      {result.weather && result.weather.tier && (
+        <div className="mt-1 text-center text-[11px]">
+          <span
+            className={
+              result.weather.tier === "major" || result.weather.tier === "minor"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }
+          >
+            {result.weather.emoji} {result.weather.name} ·{" "}
+            {V2_ELEMENT_LABEL[result.playerElement ?? "neutral"]}{" "}
+            {WEATHER_TIER_LABEL[result.weather.tier]}
+          </span>
+        </div>
+      )}
+
       <div className="mt-2 space-y-1 text-center text-sm">
         <div className="flex items-baseline justify-center gap-1.5">
           <span className="text-zinc-500 dark:text-zinc-400">EXP</span>
@@ -162,6 +218,11 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
             +{result.goldGained}
           </span>
         </div>
+        {(result.goldTaxed ?? 0) > 0 && (
+          <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            세금 −{result.goldTaxed} G → {result.taxOwnerLabel ?? "점령자"}
+          </div>
+        )}
       </div>
 
       {result.levelsGained > 0 && (
@@ -174,6 +235,19 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
               {statGainsText}
             </div>
           )}
+          {hpMpGainsText && (
+            <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+              {hpMpGainsText}
+            </div>
+          )}
+        </div>
+      )}
+
+      {(result.spMilestonesGained ?? 0) > 0 && (
+        <div className="mt-2 rounded-md border border-violet-300 bg-violet-50 px-2 py-1.5 text-center dark:border-violet-700 dark:bg-violet-950">
+          <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
+            스킬포인트 +{result.spMilestonesGained} 획득!
+          </span>
         </div>
       )}
     </Card>

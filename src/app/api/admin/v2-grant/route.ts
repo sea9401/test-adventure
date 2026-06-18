@@ -24,6 +24,14 @@ import {
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { initialStamina } from "@/adventure/v2/stamina";
+import {
+  RARE_MAP_KINDS,
+  newRareMapInstance,
+  parseRareMaps,
+} from "@/adventure/data/v2/rareMaps";
+import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import { TREASURE_WALLET_KEY } from "@/lib/server/treasure/coins";
 
 // POST /api/admin/v2-grant — 관리자가 선택한 유저에게 v2 자원 지급.
 //
@@ -34,7 +42,9 @@ import {
 // character.v2.materials / inventory.v2 충전약을 한 트랜잭션으로 처리한다.
 //
 // 본문(전부 선택): { userId, materials?: {[V2MaterialId]: number},
-//   hpCharges?, mpCharges?, proficiency?, equipmentId? }
+//   hpCharges?, mpCharges?, proficiency?, equipmentId?,
+//   rareMap?: { kind, depth } — 레어맵 1장(캡 무관 append, 관리자 지급),
+//   fishingCoins?, treasureCoins? — 사이드 화폐(fishing/treasure-wallet.v1 적립) }
 
 const MAX_GRANT = 1_000_000_000;
 
@@ -47,6 +57,7 @@ type CharSave = {
   level?: number;
   class?: unknown;
   materials?: unknown;
+  rareMaps?: unknown;
   [k: string]: unknown;
 };
 
@@ -61,6 +72,10 @@ export async function POST(req: Request) {
     mpCharges?: unknown;
     proficiency?: unknown;
     equipmentId?: unknown;
+    refillStamina?: unknown;
+    rareMap?: unknown;
+    fishingCoins?: unknown;
+    treasureCoins?: unknown;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -76,6 +91,8 @@ export async function POST(req: Request) {
   const hpChargeGain = clampInt(body.hpCharges, 0, MAX_GRANT);
   const mpChargeGain = clampInt(body.mpCharges, 0, MAX_GRANT);
   const proficiencyGain = clampInt(body.proficiency, 0, MAX_GRANT);
+  const fishingCoinGain = clampInt(body.fishingCoins, 0, MAX_GRANT);
+  const treasureCoinGain = clampInt(body.treasureCoins, 0, MAX_GRANT);
 
   // 재료 — 유효 V2MaterialId + 양수만.
   const matGrant: DropResult = {};
@@ -94,9 +111,33 @@ export async function POST(req: Request) {
       ? (body.equipmentId as V2EquipmentId)
       : null;
 
+  const refillStamina = body.refillStamina === true;
+
+  // 레어맵 — 종류 유효 + 깊이 양의 정수.
+  let rareMapGrant: { kind: keyof typeof RARE_MAP_KINDS; depth: number } | null =
+    null;
+  if (body.rareMap && typeof body.rareMap === "object") {
+    const rm = body.rareMap as { kind?: unknown; depth?: unknown };
+    if (typeof rm.kind === "string" && rm.kind in RARE_MAP_KINDS) {
+      const depth = clampInt(rm.depth, 0, 1_000_000);
+      if (depth >= 1) {
+        rareMapGrant = { kind: rm.kind as keyof typeof RARE_MAP_KINDS, depth };
+      }
+    }
+  }
+
   const hasMaterials = Object.keys(matGrant).length > 0;
   const hasCharges = hpChargeGain > 0 || mpChargeGain > 0;
-  if (!hasMaterials && !hasCharges && proficiencyGain <= 0 && !equipmentId) {
+  if (
+    !hasMaterials &&
+    !hasCharges &&
+    proficiencyGain <= 0 &&
+    !equipmentId &&
+    !refillStamina &&
+    !rareMapGrant &&
+    fishingCoinGain <= 0 &&
+    treasureCoinGain <= 0
+  ) {
     return Response.json({ ok: false, error: "nothing_to_grant" }, { status: 400 });
   }
 
@@ -109,16 +150,47 @@ export async function POST(req: Request) {
       proficiencyEarned?: number | null;
       equipmentOwned?: V2EquipInstance[];
       equipmentNoOp?: true;
+      staminaRefilled?: number;
+      rareMapGranted?: { kind: string; depth: number };
+      fishingCoins?: number;
+      treasureCoins?: number;
     } = { ok: true };
 
-    // character.v2 — 재료(병합) + 숙련도 컨텍스트(class/level)에 둘 다 필요. 한 번만 lock.
+    // character.v2 — 재료(병합)·스태미나 회복(쓰기) + 숙련도 컨텍스트(class/level, 읽기)에
+    //   모두 필요. 한 번만 lock 하고 변경분을 모아 한 번만 upsert(materials↔stamina 덮어쓰기 방지).
     let charSave: CharSave | null = null;
-    if (hasMaterials || proficiencyGain > 0) {
+    if (hasMaterials || proficiencyGain > 0 || refillStamina || rareMapGrant) {
       charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
+      let nextChar: CharSave = charSave;
+      let charChanged = false;
       if (hasMaterials) {
         const materials = mergeDrops(charSave.materials, matGrant);
-        await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+        nextChar = { ...nextChar, materials };
         out.materials = materials;
+        charChanged = true;
+      }
+      if (refillStamina) {
+        const stamina = initialStamina(Date.now());
+        nextChar = { ...nextChar, stamina };
+        out.staminaRefilled = stamina.current;
+        charChanged = true;
+      }
+      if (rareMapGrant) {
+        // 캡(RARE_MAP_CAP)은 드랍 롤 게이트 — 관리자 지급은 무관 append.
+        const now = Date.now();
+        const maps = parseRareMaps(charSave.rareMaps, now);
+        nextChar = {
+          ...nextChar,
+          rareMaps: [
+            ...maps,
+            newRareMapInstance(rareMapGrant.kind, rareMapGrant.depth, now),
+          ],
+        };
+        out.rareMapGranted = rareMapGrant;
+        charChanged = true;
+      }
+      if (charChanged) {
+        await upsertSave(tx, userId, "character.v2", nextChar);
       }
     }
 
@@ -182,6 +254,31 @@ export async function POST(req: Request) {
         });
         out.equipmentOwned = nextOwned;
       }
+    }
+
+    // 사이드 화폐 — 낚시/발굴 코인 지갑({coins}) 적립. character/proficiency/inventory/
+    // equipment 뒤의 독립 키라 락 순서 충돌 없음.
+    if (fishingCoinGain > 0) {
+      const w = await lockSaveForUpdate<{ coins?: number }>(
+        tx,
+        userId,
+        FISHING_WALLET_KEY,
+        {},
+      );
+      const coins = Math.max(0, Math.floor(w.coins ?? 0)) + fishingCoinGain;
+      await upsertSave(tx, userId, FISHING_WALLET_KEY, { ...w, coins });
+      out.fishingCoins = coins;
+    }
+    if (treasureCoinGain > 0) {
+      const w = await lockSaveForUpdate<{ coins?: number }>(
+        tx,
+        userId,
+        TREASURE_WALLET_KEY,
+        {},
+      );
+      const coins = Math.max(0, Math.floor(w.coins ?? 0)) + treasureCoinGain;
+      await upsertSave(tx, userId, TREASURE_WALLET_KEY, { ...w, coins });
+      out.treasureCoins = coins;
     }
 
     return out;

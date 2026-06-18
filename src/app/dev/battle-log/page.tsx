@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BattleLogList } from "@/adventure/battle/BattleLogList";
-import type { BattleLogEntry } from "@/adventure/battle/engine";
+import type { BattleLogEntry } from "@/adventure/v2/combat/engine";
 import { stanceBattleLogText, STANCE_IDS, type StanceId } from "@/adventure/character/stance";
 
 // #502 전투 시작 로그의 전술 안내 한 줄을 로그인 없이 확인.
@@ -17,7 +17,7 @@ function sampleEntries(stance: StanceId | null): BattleLogEntry[] {
   entries.push({ kind: "enemy_attack", text: "공격! 60 피해를 입혔다.", turn: "enemy" });
   entries.push({
     kind: "hp_bar", text: "", turn: "enemy",
-    playerHp: 540, playerMaxHp: 600, enemyHp: 380, enemyMaxHp: 600, ap: 0, apMax: 0,
+    playerHp: 540, playerMaxHp: 600, enemyHp: 380, enemyMaxHp: 600,
   });
   entries.push({ kind: "turn_marker", text: "2턴 · AP 0", turn: "player" });
   entries.push({ kind: "player_attack", text: "공격! 240 피해를 입혔다.", turn: "player" });

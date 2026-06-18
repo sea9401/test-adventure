@@ -8,6 +8,7 @@ import {
   shopPriceOf,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/shop/equipment — 마을 상점에서 T1~T5 장비 구매.
 //
@@ -54,7 +55,9 @@ export async function POST(req: Request) {
     );
     const parsed = parseEquipmentSave(equipSave);
     const gold = Math.max(0, charSave.gold ?? 0);
-    if (gold < price) {
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
+    const spend = spendGold(gold, bankedGold, price);
+    if (!spend.ok) {
       return {
         status: 400,
         body: {
@@ -73,13 +76,15 @@ export async function POST(req: Request) {
     });
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
-      gold: gold - price,
+      gold: spend.gold,
+      bankedGold: spend.bankedGold,
     });
     return {
       status: 200,
       body: {
         ok: true as const,
-        gold: gold - price,
+        gold: spend.gold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         owned: nextOwned,
       },
     };

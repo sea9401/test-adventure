@@ -9,7 +9,11 @@ import {
   V2_EQUIPMENT,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { formatStatGains } from "@/adventure/v2/HuntResultCard";
+import {
+  RARE_MAP_KINDS,
+  type RareMapKindId,
+} from "@/adventure/data/v2/rareMaps";
+import { formatStatGains, formatHpMpGains } from "@/adventure/v2/HuntResultCard";
 import type { V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 
 // N회 일괄 사냥의 합산 결과. EXP/골드/드랍/전적.
@@ -22,11 +26,18 @@ export type BatchSummary = {
   totalExp: number;
   totalProficiency: number;
   totalGold: number;
+  totalGoldGross?: number; // 세전 합산 — 세금 줄 표기용.
+  totalGoldTaxed?: number;
+  taxOwnerLabel?: string; // 세금 수취자 — 점령 길드명/솔로 점령자/거점 금고.
   levelsGained: number;
+  spMilestonesGained?: number; // 코어루프 — 일괄 동안 새로 넘은 SP 마일스톤 합산(>0 일 때만 표기).
   statGains: Partial<Record<V2StatKey, number>>; // 일괄 사냥 동안 레벨업으로 오른 1차 스탯 합산.
+  hpGained?: number; // 일괄 동안 레벨업으로 오른 maxHp 합산.
+  mpGained?: number; // 일괄 동안 레벨업으로 오른 maxMp 합산.
   drops: Partial<Record<V2MaterialId, number>>;
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
+  rareMapDrops?: RareMapKindId[];
   stoppedReason?: "stamina" | "death" | "recovery" | "error" | null;
 };
 
@@ -40,6 +51,9 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
   const uniqueNames = summary.droppedUniques
     .map((id) => V2_EQUIPMENT[id]?.name ?? id)
     .filter(Boolean);
+  const rareMapNames = (summary.rareMapDrops ?? []).map(
+    (k) => RARE_MAP_KINDS[k]?.name ?? k,
+  );
 
   // 드랍 배너 — 재료 + 장비 합쳐 한 줄.
   const dropParts: string[] = [];
@@ -51,9 +65,15 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
   }
 
   const statGainsText = formatStatGains(summary.statGains);
+  const hpMpGainsText = formatHpMpGains(summary.hpGained, summary.mpGained);
 
   return (
     <Card padding="sm">
+      {rareMapNames.length > 0 && (
+        <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
+          🗺 {rareMapNames.join(", ")} 발견! — 인벤토리 소모품에서 확인
+        </div>
+      )}
       {uniqueNames.length > 0 && (
         <div className="mb-2 rounded-md border border-violet-400 bg-violet-50 px-2 py-1.5 text-center text-xs font-semibold text-violet-800 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-200">
           ✨ 유니크 {uniqueNames.join(", ")} 획득!
@@ -88,6 +108,11 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
               · 레벨 +{summary.levelsGained}
             </span>
           )}
+          {(summary.spMilestonesGained ?? 0) > 0 && (
+            <span className="text-xs text-violet-600 dark:text-violet-400">
+              · 스킬포인트 +{summary.spMilestonesGained}
+            </span>
+          )}
         </div>
         {summary.totalProficiency > 0 && (
           <div className="flex items-baseline justify-center gap-1.5">
@@ -103,6 +128,12 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
             +{summary.totalGold.toLocaleString()}
           </span>
         </div>
+        {(summary.totalGoldTaxed ?? 0) > 0 && (
+          <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
+            세금 −{(summary.totalGoldTaxed ?? 0).toLocaleString()} G →{" "}
+            {summary.taxOwnerLabel ?? "점령자"}
+          </div>
+        )}
       </div>
 
       {summary.levelsGained > 0 && (
@@ -113,6 +144,11 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
           {statGainsText && (
             <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
               {statGainsText}
+            </div>
+          )}
+          {hpMpGainsText && (
+            <div className="mt-0.5 text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
+              {hpMpGainsText}
             </div>
           )}
         </div>

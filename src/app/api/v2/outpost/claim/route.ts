@@ -1,17 +1,31 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
+  guilds,
   outpostOccupations,
   outpostClaimAttempts,
+  outpostTreasury,
   savesKv,
+  v2GuildResources,
 } from "@/db/schema";
+import {
+  insertFeedEntry,
+  resolveUserDisplayName,
+} from "@/lib/server/serverFeed";
+import { insertNotificationMany } from "@/lib/server/v2Notifications";
+import { WAR_NOTIF_DEBOUNCE_MS } from "@/lib/v2-notification-config";
+import {
+  lockGuildResources,
+  readGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
-import { resolveBattle } from "@/adventure/battle/engine";
-import { resolveBattlePvP } from "@/adventure/battle/engine-pvp";
-import { pickAutoAction } from "@/adventure/battle/pickAutoAction";
+import { resolveBattle } from "@/adventure/v2/combat/engine";
+import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
+import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import {
@@ -19,15 +33,43 @@ import {
   runTournamentForGuilds,
 } from "@/lib/server/v2RunTournament";
 // PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder 제거.
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { OUTPOSTS, treasuryShares } from "@/adventure/data/v2/outposts";
+import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
+import { derivePowerScore } from "@/adventure/data/v2/power";
+import {
+  FORT_MAX_HP,
+  SIEGE_DAMAGE_PER_WIN,
+  POST_CAPTURE_PROTECT_MS,
+  REPAIR_GOLD_PER_HP,
+  currentFortHp,
+  isOutpostProtected,
+  repairHpFromGold,
+} from "@/adventure/data/v2/outpostSiege";
 import { canClaimOutpost } from "@/adventure/data/v2/supplyLine";
+import {
+  areOutpostsAdjacent,
+  resolveCurrentOutpostId,
+} from "@/adventure/data/v2/outpostGraph";
 import { CLAIM_STAMINA_COST, getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
+import { isActiveContestOutpost } from "@/adventure/data/v2/warOutposts";
+import { capturePoints, siegeWinPoints } from "@/adventure/data/v2/warScore";
+import { currentWarSeasonId } from "@/lib/server/war/season";
+import {
+  countGuildCapturesThisSeason,
+  insertWarScoreEvent,
+} from "@/lib/server/war/score";
 import {
   applyRegen,
   parseStaminaFromSave,
   tryConsume,
 } from "@/adventure/v2/stamina";
+import {
+  V2_CORE_LOOP_V2,
+  CLAIM_GOLD_COST_BY_TIER,
+  spendGold,
+  spendableGold,
+} from "@/adventure/data/v2/coreLoopConfig";
 import {
   applyHpRegen,
   canHuntWithHp,
@@ -35,8 +77,11 @@ import {
 } from "@/adventure/v2/hpRegen";
 import {
   toReplayPayload,
+  toPvpReplayPayload,
   type ReplayPayload,
+  type StoredReplayEnvelope,
 } from "@/adventure/data/v2/replayPayload";
+import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 
 // POST /api/v2/outpost/claim — 거점 점령 시도 (1대1 일기토 NPC).
 //
@@ -85,6 +130,10 @@ export async function POST(req: Request) {
   }
 
   const cost = CLAIM_STAMINA_COST[outpost.tier];
+  // 코어루프 on — 스태미나 대신 골드 sink(점령 비용). off — 0(스태미나 경로 유지).
+  const claimGoldCost = V2_CORE_LOOP_V2
+    ? (CLAIM_GOLD_COST_BY_TIER[outpost.tier] ?? 0)
+    : 0;
 
   const result = await db.transaction(async (tx) => {
     // lock 순서 — occupations FOR UPDATE 가 항상 먼저. 그 후 길드 조회.
@@ -148,7 +197,38 @@ export async function POST(req: Request) {
 
     const now = Date.now();
 
-    // === stamina pre-check (lock 없이 read) ===
+    // 공성 보호막 — 함락 직후 일정 시간 재공성 불가(핑퐁 방지). stamina 소모 전 early return.
+    //   단, 점령자 캐릭이 없는 stale 점령은 막지 않는다(아래 PvP fallback 이 row 삭제 후 NPC
+    //   claim 으로 정리 — 빈 거점이 보호막 동안 잠기는 것 방지). live 체크는 보호막 거점만(드묾).
+    if (occRow && isOutpostProtected(occRow.protectedUntil, new Date(now))) {
+      const occupierLive =
+        occRow.occupiedByUserId != null &&
+        (
+          await tx
+            .select({ k: savesKv.key })
+            .from(savesKv)
+            .where(
+              and(
+                eq(savesKv.userId, occRow.occupiedByUserId),
+                eq(savesKv.key, "character.v2"),
+              ),
+            )
+            .limit(1)
+        ).length > 0;
+      if (occupierLive) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "protected" as const,
+            protectedUntil: occRow.protectedUntil.toISOString(),
+          },
+        };
+      }
+    }
+
+    // === 비용 pre-check (lock 없이 read) — 코어루프 on=골드, off=스태미나 ===
     // 락 전 빠른 거부. 부족 시 사전 정렬 lock 안 잡고 early return.
     // 실제 차감은 lock 후 다시 check (race 안전).
     const charPreRow = (
@@ -160,19 +240,46 @@ export async function POST(req: Request) {
         )
         .limit(1)
     )[0];
-    const charPre = (charPreRow?.value ?? {}) as { stamina?: unknown };
-    const staminaPre = parseStaminaFromSave(charPre.stamina, now);
-    if (!tryConsume(staminaPre, cost, now)) {
-      return {
-        ok: false as const,
-        status: 409,
-        body: {
+    const charPre = (charPreRow?.value ?? {}) as {
+      stamina?: unknown;
+      gold?: number;
+    };
+    if (V2_CORE_LOOP_V2) {
+      const goldPre =
+        typeof charPre.gold === "number" && Number.isFinite(charPre.gold)
+          ? Math.max(0, Math.floor(charPre.gold))
+          : 0;
+      const bankedPre = Math.max(
+        0,
+        Math.floor(Number((charPre as { bankedGold?: number }).bankedGold) || 0),
+      );
+      // 점령 비용은 은행 우선 — 지불 가능액은 보유+은행(spendableGold).
+      if (spendableGold(goldPre, bankedPre) < claimGoldCost) {
+        return {
           ok: false as const,
-          error: "out_of_stamina" as const,
-          requiredStamina: cost,
-          stamina: applyRegen(staminaPre, now),
-        },
-      };
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_gold" as const,
+            requiredGold: claimGoldCost,
+            gold: goldPre,
+          },
+        };
+      }
+    } else {
+      const staminaPre = parseStaminaFromSave(charPre.stamina, now);
+      if (!tryConsume(staminaPre, cost, now)) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            requiredStamina: cost,
+            stamina: applyRegen(staminaPre, now),
+          },
+        };
+      }
     }
 
     // === 토너먼트 사전 결정 (PvP 시 양측 멤버 수) ===
@@ -222,22 +329,71 @@ export async function POST(req: Request) {
       level?: number;
       exp?: number;
       gold?: number;
+      lastVisitedOutpost?: { outpostId?: string };
       [k: string]: unknown;
     }>(tx, userId, "character.v2", {});
-    const stamina = parseStaminaFromSave(charSave.stamina, now);
-    const afterStamina = tryConsume(stamina, cost, now);
-    if (!afterStamina) {
-      // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
+
+    // 위치 인접 게이트 — 공격은 현재 머무는 거점 또는 그 인접 1칸 거점만.
+    // (적 거점 "안에 들어가" 성벽을 치는 동선 폐지 — 전쟁 지도의 인접 공격.)
+    // 스태미너 차감 전에 검사해 무효 시도에 비용이 들지 않게.
+    const attackerLocId = resolveCurrentOutpostId(
+      charSave.lastVisitedOutpost?.outpostId,
+    );
+    if (
+      attackerLocId !== outpost.id &&
+      !areOutpostsAdjacent(attackerLocId, outpost.id)
+    ) {
       return {
         ok: false as const,
-        status: 409,
-        body: {
-          ok: false as const,
-          error: "out_of_stamina" as const,
-          requiredStamina: cost,
-          stamina: applyRegen(stamina, now),
-        },
+        status: 400,
+        body: { ok: false as const, error: "not_adjacent" as const },
       };
+    }
+
+    const stamina = parseStaminaFromSave(charSave.stamina, now);
+    let afterStamina = applyRegen(stamina, now);
+    if (V2_CORE_LOOP_V2) {
+      // 코어루프 — 골드 점령 비용. race 재검(pre-check 후 다른 tx 가 소비했을 수). 차감은
+      // 아래 최종 저장에서 treasury 탈환분과 합산. 스태미나는 회복만(폐지).
+      const rawGold = (charSave as { gold?: number }).gold;
+      const goldNow =
+        typeof rawGold === "number" && Number.isFinite(rawGold)
+          ? Math.max(0, Math.floor(rawGold))
+          : 0;
+      const bankedNow = Math.max(
+        0,
+        Math.floor(
+          Number((charSave as { bankedGold?: number }).bankedGold) || 0,
+        ),
+      );
+      if (spendableGold(goldNow, bankedNow) < claimGoldCost) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_gold" as const,
+            requiredGold: claimGoldCost,
+            gold: goldNow,
+          },
+        };
+      }
+    } else {
+      const after = tryConsume(stamina, cost, now);
+      if (!after) {
+        // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "out_of_stamina" as const,
+            requiredStamina: cost,
+            stamina: applyRegen(stamina, now),
+          },
+        };
+      }
+      afterStamina = after;
     }
 
     const player = await derivePlayerCombatV2(userId, tx);
@@ -273,6 +429,35 @@ export async function POST(req: Request) {
       };
     }
 
+    // 수비 전투력 게이트 — 왕국 소속 거점은 거리 비례 수비 전투력(중심 5000 → 외곽 1500).
+    //   내 합성 전투력(derivePowerScore)이 그에 못 미치면 점령 시도 불가. upsert 전 early
+    //   return 이라 스태미나 미소모. 중립·분쟁지대(defense 0)는 게이트 없음 — 기존 난이도.
+    const outpostDefense = outpostDefensePower(outpost);
+    if (outpostDefense > 0) {
+      // state 라우트의 combat.power 와 동일 입력(= 화면 "내 전투력")으로 계산해 일치 보장.
+      const myPower = derivePowerScore({
+        atk: player.player.atk,
+        magicAtk: player.player.magicAtk ?? 0,
+        def: player.player.def,
+        spd: player.player.spd,
+        maxHp: player.maxHp,
+        maxMp: player.player.maxMp,
+      });
+      if (myPower < outpostDefense) {
+        return {
+          ok: false as const,
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "insufficient_power" as const,
+            requiredPower: outpostDefense,
+            playerPower: myPower,
+            stamina: applyRegen(stamina, now),
+          },
+        };
+      }
+    }
+
     // playerName fetch (공격자)
     const profileRow = await tx
       .select({ value: savesKv.value })
@@ -294,8 +479,9 @@ export async function POST(req: Request) {
     let won: boolean;
     let turns: number;
     let battleFinalPlayerHp: number;
-    // NPC 일기토 전투 리플레이 — 사냥과 동일한 ReplayBattleScene 으로 표시. PvP 1v1/토너먼트는
-    // PvP replay 인프라 미구현(아레나 PR-8b/8c 대기)이라 null → 카드가 텍스트 요약으로 폴백.
+    // 전투 리플레이 — 사냥/아레나와 동일한 ReplayBattleScene 으로 표시(나=p1 관점).
+    // NPC 일기토 + PvP 1v1 모두 생성. 다인 길드 3:3 토너먼트는 단일 finalState 가 없어
+    // null → 카드가 매치별 텍스트 요약으로 폴백.
     let replay: ReplayPayload | null = null;
     let defenderLabel: string;
     let defenderUserIdForLog: string | null;
@@ -396,6 +582,8 @@ export async function POST(req: Request) {
           duelWonByAttacker = pvp.outcome === "p1_win";
           turns = pvp.turns;
           battleFinalPlayerHp = pvp.finalState.p1.hp;
+          // PvP 일기토 리플레이(나=p1·상대=수비자). 승패 무관 — 전투 진행을 로그로 표시.
+          replay = toPvpReplayPayload(pvp.finalState, defenderLabel, 200);
         }
 
         // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅(일기토/토너먼트) 결과로 결정.
@@ -424,7 +612,8 @@ export async function POST(req: Request) {
       replay = toReplayPayload(battle.finalState, 200);
     }
 
-    // log attempt
+    // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷. 1v1 리플레이 없는
+    // 시도(3:3 토너먼트)는 null. 보존은 거점당 최신 N 건 (tx 후 trim).
     await tx.insert(outpostClaimAttempts).values({
       outpostId: outpost.id,
       attackerUserId: userId,
@@ -433,11 +622,19 @@ export async function POST(req: Request) {
       defenderUserId: defenderUserIdForLog!,
       won: won!,
       turns: turns!,
+      replay: replay
+        ? ({
+            payload: replay,
+            playerName,
+            gender: playerGender,
+          } satisfies StoredReplayEnvelope)
+        : null,
     });
 
-    // 점령 성공 → occupations 처리.
-    //   - NPC claim 신규: INSERT (race 시 23505 catch → raceLost)
-    //   - PvP claim 인수: UPDATE (점령권 이전, 정책·세율·자원 anchor 리셋)
+    // 점령/공성 처리 (docs/v2-outpost-siege-plan.md).
+    //   - 비점령(NPC) 신규: INSERT — 단판(승리 즉시 점령). race 시 23505 → raceLost.
+    //   - 점령된 거점(다른 길드): 공성 — 승리 시 성벽 깎기. 0 이하면 함락(소유권 이전 +
+    //     성벽 풀충전 + 보호막). 아니면 성벽만 줄고 소유권 유지.
     let occupation: {
       outpostId: string;
       occupiedByUserId: string;
@@ -445,29 +642,84 @@ export async function POST(req: Request) {
       occupiedAt: string;
     } | null = null;
     let raceLost = false;
+    // 응답용 성벽 상태 — 점령된 거점이면 재생 반영 현재값, 비점령이면 풀성벽(표시용).
+    const fortMaxHp = occRow?.fortMaxHp ?? FORT_MAX_HP;
+    let fortHpAfter = occRow
+      ? currentFortHp(occRow.fortHp, fortMaxHp, occRow.fortUpdatedAt, new Date(now))
+      : FORT_MAX_HP;
+    let captured = false;
+    let repairedHp = 0;
+    let repairGoldSpent = 0;
     if (won!) {
       const newOccupiedAt = new Date();
       if (stillHasOccRow) {
-        // PvP 인수 — UPDATE
-        await tx
-          .update(outpostOccupations)
-          .set({
+        // 길드 금고 자동 수리(B안) — 데미지 전, 수비 길드 금고 골드로 결손분 보강.
+        //   원자적 조건부 차감(WHERE gold>=cost). 금고가 한도라 마르면 함락.
+        //   race 로 차감 실패 시 이번 타격은 수리 없음(드묾·음수잔액 불가).
+        //   🔒 락순서: guild_resources 는 이 tx 의 occupation+character.v2 락 이후 마지막에만
+        //   건드린다. treasury/claim 도 guild_resources 를 character.v2 이후 마지막에 잡고
+        //   eject 는 안 건드림 → occupation→character→guild_resources 단일 순서, 사이클 없음.
+        if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
+          const guildGold = (await readGuildResources(tx, defenderGuildId)).gold;
+          const hp = repairHpFromGold(fortMaxHp - fortHpAfter, guildGold);
+          if (hp > 0) {
+            const cost = hp * REPAIR_GOLD_PER_HP;
+            const deducted = await tx
+              .update(v2GuildResources)
+              .set({
+                gold: sql`${v2GuildResources.gold} - ${cost}`,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(v2GuildResources.guildId, defenderGuildId),
+                  gte(v2GuildResources.gold, cost),
+                ),
+              )
+              .returning({ gold: v2GuildResources.gold });
+            if (deducted.length > 0) {
+              repairedHp = hp;
+              repairGoldSpent = cost;
+              fortHpAfter += hp;
+            }
+          }
+        }
+        // 공성 — 승리 1회당 성벽 SIEGE_DAMAGE_PER_WIN 감소(수리 반영 후).
+        const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
+        if (damaged <= 0) {
+          // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막.
+          captured = true;
+          await tx
+            .update(outpostOccupations)
+            .set({
+              occupiedByUserId: userId,
+              occupiedByGuildId: attackerGuildId,
+              occupiedAt: newOccupiedAt,
+              policy: "open",
+              taxRate: "0.100",
+              nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+              fortHp: fortMaxHp,
+              fortUpdatedAt: newOccupiedAt,
+              protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
+            })
+            .where(eq(outpostOccupations.outpostId, outpost.id));
+          occupation = {
+            outpostId: outpost.id,
             occupiedByUserId: userId,
             occupiedByGuildId: attackerGuildId,
-            occupiedAt: newOccupiedAt,
-            policy: "open",
-            taxRate: "0.100",
-            nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-          })
-          .where(eq(outpostOccupations.outpostId, outpost.id));
-        occupation = {
-          outpostId: outpost.id,
-          occupiedByUserId: userId,
-          occupiedByGuildId: attackerGuildId,
-          occupiedAt: newOccupiedAt.toISOString(),
-        };
+            occupiedAt: newOccupiedAt.toISOString(),
+          };
+          fortHpAfter = fortMaxHp;
+        } else {
+          // 성벽만 감소 — 소유권 유지(공성 진행). fortUpdatedAt 갱신으로 재생 재시작.
+          await tx
+            .update(outpostOccupations)
+            .set({ fortHp: damaged, fortUpdatedAt: newOccupiedAt })
+            .where(eq(outpostOccupations.outpostId, outpost.id));
+          fortHpAfter = damaged;
+        }
       } else {
-        // NPC 신규 claim — INSERT (race 시 catch)
+        // 비점령(NPC) 신규 claim — 단판. 승리 즉시 점령(풀성벽 + 보호막). race 시 catch.
         try {
           await tx.insert(outpostOccupations).values({
             outpostId: outpost.id,
@@ -476,13 +728,19 @@ export async function POST(req: Request) {
             policy: "open",
             taxRate: "0.100",
             nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+            fortHp: FORT_MAX_HP,
+            fortMaxHp: FORT_MAX_HP,
+            fortUpdatedAt: newOccupiedAt,
+            protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
           });
+          captured = true;
           occupation = {
             outpostId: outpost.id,
             occupiedByUserId: userId,
             occupiedByGuildId: attackerGuildId,
             occupiedAt: newOccupiedAt.toISOString(),
           };
+          fortHpAfter = FORT_MAX_HP;
         } catch (e) {
           const code = (e as { code?: string }).code;
           if (code === "23505") {
@@ -494,18 +752,126 @@ export async function POST(req: Request) {
       }
     }
 
+    // 전쟁 시즌 점수 — 활성 쟁탈 거점에서의 승리만 원장(append-only)에 적재.
+    //   함락(captured) = capture 점수(같은 길드·거점 시즌 반복 함락은 감쇠 100→40→0).
+    //   성벽만 타격(won && !captured) = siege_win 소량. raceLost(동시 점령 경쟁 패배)는 제외.
+    //   비쟁탈/비활성 거점은 점수 0 — 기존 영토전(세금·통제)만 그대로.
+    //   락 안전: war_score_events 는 독립 테이블, 같은 거점은 위 occupation FOR UPDATE 로 직렬화.
+    if (won! && !raceLost && isActiveContestOutpost(outpost.id)) {
+      const seasonId = currentWarSeasonId(new Date(now));
+      if (captured) {
+        const prior = await countGuildCapturesThisSeason(
+          tx,
+          seasonId,
+          outpost.id,
+          attackerGuildId,
+        );
+        await insertWarScoreEvent(tx, {
+          seasonId,
+          outpostId: outpost.id,
+          guildId: attackerGuildId,
+          userId,
+          eventType: "capture",
+          points: capturePoints(outpost.tier, prior),
+        });
+      } else {
+        await insertWarScoreEvent(tx, {
+          seasonId,
+          outpostId: outpost.id,
+          guildId: attackerGuildId,
+          userId,
+          eventType: "siege_win",
+          points: siegeWinPoints(outpost.tier),
+        });
+      }
+    }
+
     // 사냥 후 hp 적용 (단판 패턴).
     // 병사 보정으로 battle 안 maxHp 가 늘었으므로 base maxHp 로 cap.
     // (안 그러면 저장 hp 가 다음 regen tick 의 base max 캡까지 의미상 잉여)
     const afterHp = Math.min(player.maxHp, Math.max(0, battleFinalPlayerHp!));
 
+    // 거점 금고 탈환 — 점령/함락 시 자동 회수. 미점령 기간 NPC 세금이 쌓인 금고를
+    // 수동 회수와 같은 분배(본인/길드 — treasuryShares 단일 출처)로 즉시 지급.
+    // 점령 중엔 세금이 점령자에게 직접 가서 금고가 안 쌓이므로 PvP 함락은 보통 0.
+    // 락 순서: occupation → character(위에서 lock 됨) → treasury → guild_resources(마지막)
+    // — treasury/claim 과는 양쪽 다 occupation FOR UPDATE 선행이라 같은 거점은 직렬화.
+    let treasuryCaptured: {
+      total: number;
+      capturerShare: number;
+      guildShare: number;
+    } | null = null;
+    if (captured) {
+      const tRow = (
+        await tx
+          .select()
+          .from(outpostTreasury)
+          .where(eq(outpostTreasury.outpostId, outpost.id))
+          .for("update")
+          .limit(1)
+      )[0];
+      const total = Math.max(0, tRow?.gold ?? 0);
+      if (total > 0) {
+        const { claimerShare, guildShare } = treasuryShares(total);
+        await tx
+          .update(outpostTreasury)
+          .set({ gold: 0, updatedAt: sql`now()` })
+          .where(eq(outpostTreasury.outpostId, outpost.id));
+        treasuryCaptured = { total, capturerShare: claimerShare, guildShare };
+      }
+    }
+
+    // 전쟁의 길 퀘 신호 — 점령(함락 포함) 횟수 + 금고 회수 골드 누적(adventure-log.v2).
+    // lock 순서: character(위에서 lock) → treasury → adventure-log → guild_resources(마지막).
+    // hunt 는 adventure-log → treasury 역순이지만 두 라우트 다 같은 거점은 occupation
+    // FOR UPDATE 로 직렬화되고, 교차 거점은 treasury 행이 달라 사이클 없음.
+    if (captured) {
+      const logSave = await lockSaveForUpdate<{
+        warCaptures?: unknown;
+        warTreasuryGold?: unknown;
+        [k: string]: unknown;
+      }>(tx, userId, "adventure-log.v2", {});
+      await upsertSave(tx, userId, "adventure-log.v2", {
+        ...logSave,
+        warCaptures: (Number(logSave.warCaptures) || 0) + 1,
+        warTreasuryGold:
+          (Number(logSave.warTreasuryGold) || 0) +
+          (treasuryCaptured?.total ?? 0),
+      });
+    }
+
+    const baseGold = Math.max(0, (charSave as { gold?: number }).gold ?? 0);
+    const baseBanked = Math.max(
+      0,
+      Math.floor(Number((charSave as { bankedGold?: number }).bankedGold) || 0),
+    );
+    // 점령 비용은 은행 우선 차감(코어루프 on; off 면 claimGoldCost=0 → 보유/은행 불변).
+    // 금고 탈환 본인 몫은 보유 골드로 받는다.
+    const claimSpend = spendGold(baseGold, baseBanked, claimGoldCost);
     const next = {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
       hpRegenSince: now,
+      // 비용 차감 + 금고 탈환 합산. 둘 다 0이면 키 불변(off+탈환없음 = byte-identical).
+      // claimGoldCost 는 위 post-lock 에서 잔액(보유+은행) 확인됨.
+      ...(claimGoldCost > 0 || treasuryCaptured
+        ? {
+            gold: claimSpend.gold + (treasuryCaptured?.capturerShare ?? 0),
+            bankedGold: claimSpend.bankedGold,
+          }
+        : {}),
     };
     await upsertSave(tx, userId, "character.v2", next);
+
+    // 금고 탈환 길드 몫 — guild_resources 는 항상 tx 마지막(금고 수리와 동일 락 순서).
+    if (treasuryCaptured && treasuryCaptured.guildShare > 0) {
+      const resources = await lockGuildResources(tx, attackerGuildId);
+      await upsertGuildResources(tx, attackerGuildId, {
+        ...resources,
+        gold: resources.gold + treasuryCaptured.guildShare,
+      });
+    }
 
     return {
       ok: true as const,
@@ -528,12 +894,119 @@ export async function POST(req: Request) {
         playerName,
         gender: playerGender,
         occupation,
+        // 공성 — captured=소유권 이전 여부, fortHp/fortMaxHp=이번 타격 후 성벽(승리 시 −SIEGE).
+        //   won && !captured = 성벽만 깎인 공성 진행. 비점령 단판 점령은 captured=true.
+        captured,
+        fortHp: fortHpAfter,
+        fortMaxHp,
+        // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
+        repairedHp,
+        repairGoldSpent,
+        // 거점 금고 탈환 — 점령/함락 시 자동 회수분 (없으면 null).
+        treasuryCaptured,
         // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
         // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
         tournament: tournamentSummary,
+        // 내부 전용 — 알림 수신자 결정용 수비측 스냅샷(점령돼 있던 경우만).
+        // 응답 직전에 제거(클라 불필요 + occupations GET 으로 이미 공개인 정보).
+        _notify: stillHasOccRow
+          ? { defenderGuildId, defenderUserId: pvpDefenderId }
+          : null,
       },
     };
   });
+
+  // 전쟁 피드 — tx 커밋 후 부수효과(중첩 트랜잭션 회피 — guild-lodge 데드락 교훈).
+  // insertFeedEntry 가 디바운스/실패삼킴 자체 처리.
+  const fb = result.body as {
+    ok?: boolean;
+    won?: boolean;
+    captured?: boolean;
+    raceLost?: boolean;
+    fortHp?: number;
+    fortMaxHp?: number;
+    treasuryCaptured?: { total: number } | null;
+    _notify?: {
+      defenderGuildId: number | null;
+      defenderUserId: string | null;
+    } | null;
+  };
+  const notifyTarget = fb._notify ?? null;
+  delete fb._notify; // 내부 전용 — 응답에서 제거.
+  // 리플레이 보존 trim — 시도가 기록된 경우(ok)만. 실패 삼킴(부수효과).
+  if (fb.ok) await trimAttackReplays(outpost.id);
+  if (fb.ok && fb.won && !fb.raceLost) {
+    // 공격자 길드명 — 길드 점령이면 길드 단위 사건으로 표기(없을 일 없지만 null 허용).
+    const [g] = await db
+      .select({ name: guilds.name })
+      .from(guildMembers)
+      .innerJoin(guilds, eq(guildMembers.guildId, guilds.id))
+      .where(eq(guildMembers.userId, userId))
+      .limit(1);
+    const guildName = g?.name ?? null;
+    if (fb.captured) {
+      await insertFeedEntry(
+        userId,
+        "outpost_capture",
+        {
+          outpostId: outpost.id,
+          guildName,
+          // 금고 잭팟 — 자동 회수 총액을 전광판/피드에 노출(없으면 생략).
+          ...(fb.treasuryCaptured?.total
+            ? { treasuryGold: fb.treasuryCaptured.total }
+            : {}),
+        }
+      );
+    } else {
+      // 점령된 거점 공성 승리(성벽 타격) — 함락 못 한 진행 타격.
+      await insertFeedEntry(
+        userId,
+        "outpost_siege",
+        {
+          outpostId: outpost.id,
+          fortHp: fb.fortHp ?? 0,
+          fortMaxHp: fb.fortMaxHp ?? FORT_MAX_HP,
+          guildName,
+        }
+      );
+    }
+
+    // 개인 알림 — 수비측(점령돼 있던 거점만). 피격=거점당 6h 디바운스, 함락=즉시.
+    // 길드 점령이면 길드 전원(정원 3), 솔로면 점령자 본인.
+    if (notifyTarget) {
+      const attackerLabel = guildName
+        ? `${guildName} 길드`
+        : await resolveUserDisplayName(userId);
+      let recipients: string[] = [];
+      if (notifyTarget.defenderGuildId != null) {
+        const members = await db
+          .select({ userId: guildMembers.userId })
+          .from(guildMembers)
+          .where(eq(guildMembers.guildId, notifyTarget.defenderGuildId));
+        recipients = members.map((m) => m.userId);
+      } else if (notifyTarget.defenderUserId) {
+        recipients = [notifyTarget.defenderUserId];
+      }
+      if (fb.captured) {
+        await insertNotificationMany(recipients, "outpost_lost", {
+          outpostId: outpost.id,
+          attackerLabel,
+        });
+      } else {
+        await insertNotificationMany(
+          recipients,
+          "outpost_attacked",
+          {
+            outpostId: outpost.id,
+            fortHp: fb.fortHp ?? 0,
+            fortMaxHp: fb.fortMaxHp ?? FORT_MAX_HP,
+            attackerLabel,
+          },
+          { debounceMs: WAR_NOTIF_DEBOUNCE_MS },
+        );
+      }
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

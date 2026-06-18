@@ -3,10 +3,13 @@
 import {
   Backpack,
   BookOpen,
+  Compass,
   Lightning,
+  Sparkle,
   UserCircle,
 } from "@phosphor-icons/react";
 import { EntryCard } from "@/components/ui/EntryCard";
+import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
 // 캐릭터 탭 default — 내 정보 / 인벤토리 / 스킬 + 모험의 서. 마을과 같은 EntryCard 패턴.
 // 장비 장착/해제는 인벤토리 안에서 처리. 모험의 서는 도감(우선 재료) — 맨 아래에 둔다.
@@ -15,7 +18,10 @@ export type CharacterAction =
   | { kind: "open-info" }
   | { kind: "open-inventory" }
   | { kind: "open-skills" }
-  | { kind: "open-codex" };
+  | { kind: "open-shrine" }
+  | { kind: "open-quests" }
+  | { kind: "open-codex" }
+  | { kind: "open-job-codex" };
 
 export function V2CharacterMenu({
   onAction,
@@ -24,16 +30,15 @@ export function V2CharacterMenu({
 }) {
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <header>
+      <HeaderPanel>
         <h1 className="text-lg font-bold">캐릭터</h1>
-      </header>
+      </HeaderPanel>
       <div className="space-y-2">
         <EntryCard
           icon={
             <UserCircle size={28} weight="duotone" className="text-amber-500" />
           }
           title="내 정보"
-          description="레벨·능력치·장비."
           onClick={() => onAction({ kind: "open-info" })}
         />
         <EntryCard
@@ -41,7 +46,6 @@ export function V2CharacterMenu({
             <Backpack size={28} weight="duotone" className="text-emerald-600" />
           }
           title="인벤토리"
-          description="보유 아이템과 재료."
           onClick={() => onAction({ kind: "open-inventory" })}
         />
         <EntryCard
@@ -49,16 +53,35 @@ export function V2CharacterMenu({
             <Lightning size={28} weight="duotone" className="text-violet-500" />
           }
           title="스킬"
-          description="직업 패시브와 스킬을 익히는 곳."
           onClick={() => onAction({ kind: "open-skills" })}
+        />
+        <EntryCard
+          icon={
+            <Compass size={28} weight="duotone" className="text-rose-400" />
+          }
+          title="퀘스트"
+          onClick={() => onAction({ kind: "open-quests" })}
+        />
+        <EntryCard
+          icon={
+            <Sparkle size={28} weight="duotone" className="text-violet-400" />
+          }
+          title="성장의 신전"
+          onClick={() => onAction({ kind: "open-shrine" })}
         />
         <EntryCard
           icon={
             <BookOpen size={28} weight="duotone" className="text-sky-500" />
           }
           title="모험의 서"
-          description="재료 도감 — 구역별 드랍."
           onClick={() => onAction({ kind: "open-codex" })}
+        />
+        <EntryCard
+          icon={
+            <Sparkle size={28} weight="duotone" className="text-teal-500" />
+          }
+          title="직업 도감"
+          onClick={() => onAction({ kind: "open-job-codex" })}
         />
       </div>
     </main>

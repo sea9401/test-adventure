@@ -1,11 +1,14 @@
 // 캐릭터 레벨링 시스템.
 // - 만렙 100.
-// - Lv 1~34: floor(120 * level^1.5).  Lv1→2 = 120.
+// - 1차 가속(2026-06-07): L1~50 요구치 ×EARLY_LEVEL_EXP_FACTOR(0.25), 50→55 선형 복귀.
+//   들판=1차(레벨 1~50) 디자인 — 1차 50까지 ≈ 1,750 사냥(스태미나). 아래 base 곡선 위에 곱해진다.
+// - Lv 1~34: floor(120 * level^1.5).  Lv1→2 = 120 (×0.25 가속 후 30).
 // - Lv 35~49: floor(120 * level^2.5 / 35) × (1.00→0.85 선형 램프).  35 경계 연속.
 // - Lv 50~59: 위 곡선 × 0.85.
-// - Lv 60~69: 위 곡선 × 0.85 × (1.00→1.30) 선형 램프. 엔드게임 진입.
-// - Lv 70~89: 위 곡선 × 0.85 × (1.30→1.55) 선형 램프. 만렙 확장 컨텐츠 구간, 완만.
-// - Lv 90~99: 위 곡선 × 0.85 × (1.55→2.00) 선형 램프. 막판 가파름.
+// - Lv 60~89: 위 곡선 × 0.85 × (1.00→1.15) 선형 램프. 엔드게임 세금 완만.
+// - Lv 90~99: 위 곡선 × 0.85 × 1.15 (캡). 막판 벽 없음.
+// 2026-06-08: 엔드게임 세금 상한 1.55→1.15 로 하향 — 70→100 요구치 -21% (사용자 피드백:
+//   70 이후 100까지 EXP 요구가 과함. 종전 70→100 실효 그라인드가 50→70 의 ~4배였다).
 // - 레벨업당 스탯 포인트 1점 획득(호출측에서 분배).
 // 2026-05-19: 중후반 체감 완화 — Lv 35 이상에 ×0.85 적용. 35~49 는 연속성 유지를 위해
 // 1.00→0.85 램프, 50 부터 풀반영. 누적 1→100 약 -14% (13.87M → 11.87M).
@@ -16,11 +19,13 @@ export const MAX_LEVEL = 100;
 // 서버 전역 EXP 배율 — 테스트 서버용. 빌드 시 NEXT_PUBLIC_XP_RATE_MULT=2.5 처럼 주입.
 // NEXT_PUBLIC_ 접두사라 클라/서버 양쪽에서 같은 값. 신참 ×2 와 길드 expMult 와는 곱해짐.
 // 안전 범위 [0.1, 100] 클램프.
-// 우선순위: NEXT_PUBLIC_XP_RATE_MULT(명시) > staging 기본(2.2) > 1.0.
-//   staging(IS_STAGING="true")은 env 미설정 시 2.2 자동 — v2 만렙 페이스 ~37일/B(목표 30~40).
-//   IS_STAGING 은 서버 전용이라 클라 번들에선 undefined → 1.0 이지만, XP_RATE_MULT 의 실제
-//   적용처(v2 hunt route·battleClaim·questReward)가 모두 서버라 지급 EXP 는 일관(2.2). 라이브
-//   (IS_STAGING≠true)는 기본 1.0 그대로라 영향 없음.
+// 우선순위: NEXT_PUBLIC_XP_RATE_MULT(명시) > 코어루프(2.5) > staging 기본(2.2) > 1.0.
+//   코어루프(NEXT_PUBLIC_V2_CORE_LOOP_V2="true")는 env 미설정 시 2.5 자동 — 페이싱 캘리브로
+//   확정(Lv1→50 ≈ LOOP_BATTLES_TARGET 1200판 ≈ 100분, 베테랑 평균; sim-v2-progression --pacing).
+//   NEXT_PUBLIC_ 접두사라 클라/서버 일관. 라이브 flip 은 이 기본만으로 2.5(별도 env 불요).
+//   staging(IS_STAGING="true")은 옛 스태미나 페이스 기본 2.2(코어루프 off staging 잔존).
+//   라이브 flag-off(코어루프 off·IS_STAGING≠true)는 명시값 또는 1.0 그대로라 영향 없음.
+const CORE_LOOP_XP_RATE = 2.5; // 페이싱 캘리브 확정 — 베테랑 루프 ~1200판
 const STAGING_DEFAULT_XP_RATE = 2.2;
 function parseXpRateMult(): number {
   const raw = process.env.NEXT_PUBLIC_XP_RATE_MULT;
@@ -28,6 +33,7 @@ function parseXpRateMult(): number {
     const n = Number.parseFloat(raw);
     if (Number.isFinite(n) && n > 0) return Math.min(100, Math.max(0.1, n));
   }
+  if (process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2 === "true") return CORE_LOOP_XP_RATE;
   if (process.env.IS_STAGING === "true") return STAGING_DEFAULT_XP_RATE;
   return 1;
 }
@@ -97,25 +103,21 @@ function reductionMultiplier(level: number): number {
   return 1 - (1 - REDUCTION_FLOOR) * ((level - STEEP_LEVEL) / span);
 }
 
-// 엔드게임 가산 — 기본 곡선에 구간별 선형 multiplier 를 곱한다.
-// 각 구간 경계는 자연스럽게 연속 (시작값이 이전 구간 끝값과 매칭).
+// 엔드게임 가산 — 기본 곡선에 60→89 선형으로 1.00→1.15 를 곱하고 90+ 는 1.15 로 캡.
+// 2026-06-08: 종전엔 70~89 가 1.30→1.54, 90~99 가 1.55→1.32 라 엔드게임 세금이 과해
+// 70→100 실효 그라인드가 50→70 의 ~4배였다(사용자 피드백). 세금 상한을 1.55→1.15 로 낮춰
+// 70→99 요구치 -21%. 60~69 도 같이 완만해지지만(L70 을 L69 보다 크게 두려면 후반-60대를
+// 함께 낮춰야 단조 증가가 유지됨) 의도된 부수효과.
 const ENDGAME_LEVEL = 60; // ×1.00 시작
-const MID_ENDGAME_LEVEL = 70; // ×1.30 부터
-const LATE_ENDGAME_LEVEL = 90; // ×1.55 부터
+const ENDGAME_CAP_LEVEL = 90; // 이 레벨부터 ENDGAME_MAX_MULT 로 캡
+const ENDGAME_MAX_MULT = 1.15; // 엔드게임 세금 상한 (종전 1.55)
 
 function endgameMultiplier(level: number): number {
   if (level < ENDGAME_LEVEL) return 1;
-  if (level < MID_ENDGAME_LEVEL) {
-    // Lv 60→69: 1.00 → 1.27 (다음 구간 시작값 1.30)
-    return 1 + (level - ENDGAME_LEVEL) / 30;
-  }
-  if (level < LATE_ENDGAME_LEVEL) {
-    // Lv 70→89: 1.30 → 1.5375 (다음 구간 시작값 1.55)
-    return 1.3 + ((level - MID_ENDGAME_LEVEL) * 0.25) / 20;
-  }
-  // Lv 90→99: 1.55 → 1.3175 (막판 EXP 벽 완화 — L99 에서 -15%, L90 은 1.55 유지로 경계 점프 없음).
-  // 종전엔 1.55→1.955 로 막판이 폭발 → "대기=진행" 의 진원지였다(game-fun-audit 2순위).
-  return 1.55 - ((level - LATE_ENDGAME_LEVEL) * (1.55 * 0.15)) / 9;
+  if (level >= ENDGAME_CAP_LEVEL) return ENDGAME_MAX_MULT;
+  // Lv 60→89: 1.00 → ~1.145 선형 (90 의 1.15 와 연속).
+  const span = ENDGAME_CAP_LEVEL - ENDGAME_LEVEL; // 30
+  return 1 + (ENDGAME_MAX_MULT - 1) * ((level - ENDGAME_LEVEL) / span);
 }
 
 // 유입(income) 밴드 배율 — EXP 페이싱 개편(game-fun-audit 2순위). monster.exp / 퀘스트 EXP
@@ -134,14 +136,34 @@ export function levelBandExpMultiplier(level: number): number {
   return 1.55; // L90-100
 }
 
+// 1차 구간(L1~50) 페이싱 압축 — 들판=1차(레벨 1~50) 디자인에 맞춰 "1차 50까지 ≈ 1,500~2,000
+// 스태미나(사냥)" 목표. 요구치를 ×EARLY_LEVEL_EXP_FACTOR(현 0.25 = ~4배 가속; sim 기준 1차 ~7,000
+// → ~1,750 사냥). L50 까지 풀 적용, 50→55 에서 1.0 으로 선형 복귀(2차+ 가 1~50 통과 후 절벽 없이
+// 원곡선 복귀; 2~4차 페이스는 후속 sim 캘리브 대상). EARLY_LEVEL_EXP_FACTOR 가 1차 속도 다이얼.
+export const EARLY_LEVEL_EXP_FACTOR = 0.25;
+const EARLY_RAMP_START = 50;
+const EARLY_RAMP_END = 55;
+function earlyLevelExpFactor(level: number): number {
+  if (level <= EARLY_RAMP_START) return EARLY_LEVEL_EXP_FACTOR;
+  if (level >= EARLY_RAMP_END) return 1;
+  const span = EARLY_RAMP_END - EARLY_RAMP_START; // 5
+  return (
+    EARLY_LEVEL_EXP_FACTOR +
+    (1 - EARLY_LEVEL_EXP_FACTOR) * ((level - EARLY_RAMP_START) / span)
+  );
+}
+
 export function requiredExpToNext(level: number): number | null {
   if (level >= MAX_LEVEL) return null;
   if (level < 1) return null;
+  const early = earlyLevelExpFactor(level);
   if (level < STEEP_LEVEL) {
-    return Math.floor(120 * Math.pow(level, 1.5));
+    return Math.floor(120 * Math.pow(level, 1.5) * early);
   }
   const base = STEEP_COEFF * Math.pow(level, 2.5);
-  return Math.floor(base * endgameMultiplier(level) * reductionMultiplier(level));
+  return Math.floor(
+    base * endgameMultiplier(level) * reductionMultiplier(level) * early,
+  );
 }
 
 // EXP 누적 적용 + 자동 레벨업 처리.
@@ -152,17 +174,21 @@ export function applyExpGain(
   level: number,
   exp: number,
   gain: number,
+  // 레벨 상한 — 기본 만렙(100). v2 환생: 차수별 레벨캡(tierLevelCap)을 넘겨 차수 안에서만 성장.
+  // 캡 도달 시 잉여 exp 는 overflowExp 로 반환되고 nextExp=0(버림, advance/환생 전까지 정지).
+  maxLevel: number = MAX_LEVEL,
 ): {
   level: number;
   exp: number;
   levelsGained: number;
-  /** 만렙 도달로 캡된 잉여 EXP. 만렙 미도달이거나 정확히 임계치면 0. */
+  /** 캡(maxLevel) 도달로 잘린 잉여 EXP. 캡 미도달이거나 정확히 임계치면 0. */
   overflowExp: number;
 } {
-  let nextLevel = Math.max(1, Math.min(MAX_LEVEL, level));
+  const cap = Math.min(MAX_LEVEL, Math.max(1, Math.floor(maxLevel)));
+  let nextLevel = Math.max(1, Math.min(cap, level));
   let nextExp = Math.max(0, exp + gain);
   let levelsGained = 0;
-  while (nextLevel < MAX_LEVEL) {
+  while (nextLevel < cap) {
     const need = requiredExpToNext(nextLevel)!;
     if (nextExp < need) break;
     nextExp -= need;
@@ -170,7 +196,7 @@ export function applyExpGain(
     levelsGained += 1;
   }
   let overflowExp = 0;
-  if (nextLevel >= MAX_LEVEL) {
+  if (nextLevel >= cap) {
     overflowExp = nextExp;
     nextExp = 0;
   }

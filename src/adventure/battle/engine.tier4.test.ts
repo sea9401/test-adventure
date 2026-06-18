@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { advanceTurn, initialBattleState, type PlayerCombat } from "./engine";
+import { advanceTurn, initialBattleState, type PlayerCombat } from "../v2/combat/engine";
 import type { Monster } from "../data/monsters";
 
 // 기본 PLAYER: atk 10, def 5, spd 10 — 적(atk 8, def 3, spd 5)보다 빠르므로 항상 선공.
 // 적 회피 0 / 플레이어 추가공격 확률 0 → 아래 테스트들은 전부 결정적 (천명은 확률 100% 로 강제).
 const PLAYER: PlayerCombat = {
+  accuracyPct: 100,
   hp: 50,
   maxHp: 50,
   atk: 10,
@@ -23,12 +24,12 @@ function enemy(hp = 100): Monster {
 
 describe("4티어 — 출혈", () => {
   it("적중 시 스택 누적, 다음 적 턴 시작에 스택당 고정 피해(DEF 무시)", () => {
-    const p: PlayerCombat = { ...PLAYER, bleedDmgPerStack: 3 };
+    const p: PlayerCombat = { ...PLAYER, bleedOnHit: { flatPerStack: 3, atkCoefPerStack: 0.08 } };
     let s = initialBattleState(p, enemy(100), "용사");
     s = advanceTurn(s, p, "용사"); // 플레이어 턴: 7 피해 → 93, 출혈 1스택
     expect(s.enemyHp).toBe(93);
-    expect(s.stacks.bleedStacks).toBe(1);
-    s = advanceTurn(s, p, "용사"); // 적 턴: 출혈 1×3 → 90, 그 뒤 적 공격 3 → 플레이어 47
+    expect(s.enemyV2Dots.find((d) => d.tag === "bleed")?.stacks).toBe(1);
+    s = advanceTurn(s, p, "용사"); // 적 턴: 출혈 1×floor(3 + ATK×0.08=3.8)=3 → 90, 그 뒤 적 공격 3 → 플레이어 47
     expect(s.enemyHp).toBe(90);
     expect(s.playerHp).toBe(47);
     expect(s.stacks.damageTakenThisCombat).toBe(3);

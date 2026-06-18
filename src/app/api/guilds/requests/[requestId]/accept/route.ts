@@ -8,6 +8,7 @@ import {
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { isAdminRole } from "@/lib/server/guildAdmin";
 import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
@@ -50,7 +51,20 @@ export async function POST(
       const guild = guildRows[0];
       if (!guild) return { error: "guild_not_found", status: 404 as const };
       if (guild.masterId !== userId) {
-        return { error: "not_master", status: 403 as const };
+        // 관리 직책(부마스터/관리자)도 처리 가능 — 길드 관리탭 권한.
+        const memRows = await tx
+          .select({ role: guildMembers.role })
+          .from(guildMembers)
+          .where(
+            and(
+              eq(guildMembers.guildId, guild.id),
+              eq(guildMembers.userId, userId),
+            ),
+          )
+          .limit(1);
+        if (!isAdminRole(memRows[0]?.role)) {
+          return { error: "not_master", status: 403 as const };
+        }
       }
 
       const applicantMembership = await tx

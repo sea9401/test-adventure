@@ -130,9 +130,10 @@ export const V2_MONSTERS: Record<string, Monster> = {
     exp: 27,
     skill: { kind: "heavy_blow", name: "내리찍기", everyPhases: 3, multiplier: 1.5 },
   },
-  "얼음 정령": { name: "얼음 정령", tags: ["spirit"], hp: 200, atk: 22, def: 8, spd: 4, exp: 23 },
+  // 정령·망령은 마법형(SPI PR-3a) — 마법방어(정신)로 경감, 물리탱크 약점. atk 는 물리몹 스케일 유지(총피해 중립).
+  "얼음 정령": { name: "얼음 정령", tags: ["spirit"], hp: 200, atk: 22, def: 8, spd: 4, exp: 23, atkType: "magic" },
   "눈보라 매": { name: "눈보라 매", tags: ["beast"], hp: 170, atk: 21, def: 6, spd: 8, exp: 22 },
-  "호수 망령": { name: "호수 망령", tags: ["undead"], hp: 240, atk: 19, def: 9, spd: 5, exp: 25 },
+  "호수 망령": { name: "호수 망령", tags: ["undead"], hp: 240, atk: 19, def: 9, spd: 5, exp: 25, atkType: "magic" },
 
   // ── 프론티어 밴드 C — 심층 동굴 (깊이 15~21). earth·void, 기습·혼합. ──────
   // evasionPct(회피) 도입 구간(#487 명중 재설계로 PvE 회피축 활성). 후반 밴드(C→F)로 갈수록
@@ -174,7 +175,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
     exp: 28,
     skill: { kind: "heavy_blow", name: "내리찍기", everyPhases: 3, multiplier: 1.5 },
   },
-  "성소 망령": { name: "성소 망령", tags: ["undead"], hp: 190, atk: 25, def: 6, spd: 6, exp: 25, evasionPct: 11 },
+  "성소 망령": { name: "성소 망령", tags: ["undead"], hp: 190, atk: 25, def: 6, spd: 6, exp: 25, evasionPct: 11, atkType: "magic" },
   "빛의 정령": {
     name: "빛의 정령",
     tags: ["spirit"],
@@ -222,7 +223,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
   },
   "늪 독수": { name: "늪 독수", tags: ["beast"], hp: 230, atk: 20, def: 8, spd: 6, exp: 25, evasionPct: 13 },
   "수렁 거머리": { name: "수렁 거머리", tags: ["slime"], hp: 300, atk: 16, def: 13, spd: 3, exp: 27 },
-  "독안개 정령": { name: "독안개 정령", tags: ["spirit"], hp: 185, atk: 23, def: 6, spd: 7, exp: 24, evasionPct: 17 },
+  "독안개 정령": { name: "독안개 정령", tags: ["spirit"], hp: 185, atk: 23, def: 6, spd: 7, exp: 24, evasionPct: 17, atkType: "magic" },
   "늪지 도마뱀왕": {
     name: "늪지 도마뱀왕",
     tags: ["dragon"],

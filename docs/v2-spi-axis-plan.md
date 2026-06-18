@@ -56,10 +56,13 @@ spi = **신술 = 버스트(마법·치명)를 받아치고 자신/아군을 지�
 
 | PR | 내용 | 위험 | 비고 |
 |---|---|---|---|
-| **PR-1** | 회복 spi 주축화 + spi%/회복강화 지원 패시브 | 저 | 끊긴 사제 루프 즉시 복구. 골든 힐 지문 재생성 |
+| **PR-1** | 회복 spi 주축화 + spi%/회복강화 지원 패시브 | 저 | ✅ #819 LIVE. 끊긴 사제 루프 복구 |
 | **PR-2** | spi·magicDef 장비 어픽스 | 중 | itemize 경로. 개체 모델·옵션 풀 합류 |
-| **PR-3** | PvE 대항 확장(마법몹+치명몹+엔진 분기) | **고** | 최고 캘리브 리스크. sim 게이트. 총피해 중립 교체 |
+| **PR-3a** | 마법형 몹(atkType:"magic" → 마법방어 경감) | 고 | ✅ 구현. 4몹 태그·엔진 분기·sim 검증 |
+| **PR-3b** | 치명형 몹(critPct → 치명저항 PvE) | 고 | 잔여. critResist PvE 미러 + 캡 |
 | **PR-4** | 앵커/직업 정체성 + 매뉴얼 | 저 | 지원 직업 spi 강화 + 매뉴얼 |
+
+**PR-3a 구현(2026-06-18)**: Monster `atkType?:"physical"|"magic"` 신설(types.ts·v2 전용 옵셔널). engine.enemyPhase `resolveEnemyPhase`(legacy+ATB 공유)에서 magic 이면 `damageBetween(enemyAtk, player.magicDef)` — 물리 파이프라인(brace/pierce/취약/defDebuff/v2DefMult) 우회, 피격후 일반감산(인내/받피감/가드/철벽)은 적용. 로그 `[마법]` 마커. 태그 4몹(스킬 없는 정령/망령, statusSkill 한기와 무충돌): 얼음 정령·호수 망령·성소 망령·독안개 정령. 🔑 atkType 보존 체인 검증: V2_MONSTERS→scaleMonsterForFloor(spread)→hunt route enemyMonster(`...scaledEnemy`)→state.enemy. **sim(sim-v2-spi-magicmob.ts)**: 저~중심도 물리탱크 ×1.9~2.3(약점)·정신 ×0.3~0.4(카운터)·무투자 ×1.0(중립). ⚠️**고심도(atk≫def) 압축 ×1.1** — damageBetween 의 atk−def 지배로 def/magicDef 차이 묻힘(=기존 def 무용화 이슈, 엔드 슬로빌드 생존과 동일 구조. PR-3a 신규 벽 아님).
 
 ## 밸런스 가드
 - PR-1 힐 주축 이동 → 솔로 PvE 과회복/장기전 무한버티기 주의(sim). 힐은 협동보스·전쟁·엔드 장기전에서 빛나야지 솔로 사냥 무적화는 금지. 🔑 **PR-4 게이트(Codex 권고)**: `healPowerPct` 패시브를 직업에 달기 전에 **고-SPI 사제 sustain sim** 1회(PR-1 기준 spi 단독 천장 healMult≈1.04로 폭주 없음 확인됨 — gear/패시브 추가 시 재점검). PR-2(spi gear)·PR-4(회복강화 패시브)가 healMult 천장을 올리므로 그때 sim 필수.

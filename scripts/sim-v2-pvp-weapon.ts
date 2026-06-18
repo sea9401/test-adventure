@@ -48,11 +48,11 @@ const ARMOR_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2Equipmen
   light: { 1: "v2_leather_armor", 2: "v2_shadow_cloak", 3: "v2_shadow_cloak", 4: "v2_windweave_cloak", 5: "v2_windweave_cloak" },
 };
 const GLOVES_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_iron_gauntlets", 2: "v2_plate_gauntlets", 3: "v2_plate_gauntlets", 4: "v2_mithril_gauntlets", 5: "v2_mithril_gauntlets" },
+  heavy: { 1: "v2_leather_gloves", 2: "v2_shadow_gloves", 3: "v2_shadow_gloves", 4: "v2_windweave_gloves", 5: "v2_windweave_gloves" },
   light: { 1: "v2_leather_gloves", 2: "v2_shadow_gloves", 3: "v2_shadow_gloves", 4: "v2_windweave_gloves", 5: "v2_windweave_gloves" },
 };
 const BOOTS_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_iron_boots", 2: "v2_plate_boots", 3: "v2_plate_boots", 4: "v2_mithril_boots", 5: "v2_mithril_boots" },
+  heavy: { 1: "v2_leather_boots", 2: "v2_shadow_boots", 3: "v2_shadow_boots", 4: "v2_windweave_boots", 5: "v2_windweave_boots" },
   light: { 1: "v2_leather_boots", 2: "v2_shadow_boots", 3: "v2_shadow_boots", 4: "v2_windweave_boots", 5: "v2_windweave_boots" },
 };
 const RING_LINE: Record<1 | 2 | 3 | 4 | 5, V2EquipmentId> = { 1: "v2_silver_ring", 2: "v2_lucky_charm", 3: "v2_lucky_charm", 4: "v2_fate_ring", 5: "v2_fate_ring" };

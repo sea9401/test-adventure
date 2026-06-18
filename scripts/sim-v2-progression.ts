@@ -81,11 +81,11 @@ const ARMOR_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2Equipmen
   light: { 1: "v2_leather_armor", 2: "v2_shadow_cloak", 3: "v2_shadow_cloak", 4: "v2_windweave_cloak", 5: "v2_windweave_cloak" },
 };
 const GLOVES_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_iron_gauntlets", 2: "v2_plate_gauntlets", 3: "v2_plate_gauntlets", 4: "v2_mithril_gauntlets", 5: "v2_mithril_gauntlets" },
+  heavy: { 1: "v2_leather_gloves", 2: "v2_shadow_gloves", 3: "v2_shadow_gloves", 4: "v2_windweave_gloves", 5: "v2_windweave_gloves" },
   light: { 1: "v2_leather_gloves", 2: "v2_shadow_gloves", 3: "v2_shadow_gloves", 4: "v2_windweave_gloves", 5: "v2_windweave_gloves" },
 };
 const BOOTS_LINE: Record<"heavy" | "light", Record<1 | 2 | 3 | 4 | 5, V2EquipmentId>> = {
-  heavy: { 1: "v2_iron_boots", 2: "v2_plate_boots", 3: "v2_plate_boots", 4: "v2_mithril_boots", 5: "v2_mithril_boots" },
+  heavy: { 1: "v2_leather_boots", 2: "v2_shadow_boots", 3: "v2_shadow_boots", 4: "v2_windweave_boots", 5: "v2_windweave_boots" },
   light: { 1: "v2_leather_boots", 2: "v2_shadow_boots", 3: "v2_shadow_boots", 4: "v2_windweave_boots", 5: "v2_windweave_boots" },
 };
 // 반지(운)·목걸이(마법) — 6슬롯 전환 후 둘 다 착용(옛 ACC_LINE 분할).

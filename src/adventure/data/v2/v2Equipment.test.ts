@@ -194,21 +194,20 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (215종 — 6슬롯)", () => {
-  it("정규 그리드 35종 + 유니크 87 + 전문화 스타터 3 (제작전용 0; weaponType 8→4 통합 후)", () => {
-    // weaponType 8→4 통합(검방·권갑→대검, 세검·권조→단검) 후 카탈로그 215→179:
-    //   정규 그리드 35 = 비무기 24 + 무기 11(대검 3·지팡이 3·활 3 + 단검 정규 2). 무기 8자루 제거.
-    //   전문화 스타터 7→3(제거 4타입의 스타터 off-grid 삭제).
-    //   밴드 흔한 78→54(밴드당 무기 8→4 = -24, 6밴드).
-    //   유니크 87 불변(제거 4타입의 유니크 7자루는 생존 무기군으로 retag — 삭제 X).
-    // 총 179 = 정규 35 + 유니크 87 + 전문화 스타터 3 + 밴드 흔한 54.
+describe("V2_EQUIPMENT grid (110종 — 6슬롯)", () => {
+  it("정규 그리드 29종 + 유니크 24 + 전문화 스타터 3 (제작전용 0; 장갑/신발 중갑 폐기 후)", () => {
+    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기) 후 카탈로그 110:
+    //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
+    //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
+    //   전문화 스타터 3 · 밴드 흔한(noDrop) 54 · 유니크 24.
+    // 총 110 = 정규 29 + 유니크 24 + 전문화 스타터 3 + 밴드 흔한 54.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
         (i) => !isUnique(i) && !i.craftOnly && !i.starterOnly && !i.noDrop,
       ),
       "정규 그리드",
-    ).toHaveLength(35);
+    ).toHaveLength(29);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(24);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);

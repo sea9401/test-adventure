@@ -21,12 +21,10 @@ describe("v2 직업 전문화(스펙) — 데이터 모델 (docs/v2-job-spec-pas
     }
   });
 
-  it("전문화별 무기 게이트 매핑 — 광검=대검 / 기사=검방 / 검투사=세검", () => {
+  it("전문화별 무기 게이트 매핑 — 광검·기사·검투사 모두 통합 무기군(대검/단검)", () => {
     expect(getJobSpec("warrior", "gwang")?.requiredWeaponType).toBe("greatsword");
-    expect(getJobSpec("warrior", "knight")?.requiredWeaponType).toBe(
-      "sword_shield",
-    );
-    expect(getJobSpec("warrior", "gladiator")?.requiredWeaponType).toBe("rapier");
+    expect(getJobSpec("warrior", "knight")?.requiredWeaponType).toBe("greatsword");
+    expect(getJobSpec("warrior", "gladiator")?.requiredWeaponType).toBe("dagger");
     expect(getJobSpec("warrior", "nonexistent")).toBeUndefined();
     expect(getJobSpec("mage", "gwang")).toBeUndefined();
   });
@@ -58,19 +56,16 @@ describe("v2 직업 전문화(스펙) — 데이터 모델 (docs/v2-job-spec-pas
     }
   });
 
-  it("무기 타입은 한 직군 안에서만 공유(직군 간 충돌 없음 — 통합 설계)", () => {
-    // 전문화 통합으로 같은 직군 안 여러 전문화가 한 무기 타입을 공유할 수 있다(예: 마법사 3전문화=staff).
-    // 단 한 무기 타입이 여러 직군에 걸치면 게이트가 직군을 넘나들어 혼란 → 직군당 1개로 제한.
-    const typeToJobs = new Map<string, Set<string>>();
+  it("모든 전문화 requiredWeaponType 은 통합 4종(대검·지팡이·활·단검) 중 하나", () => {
+    // weaponType 8→4 통합(검방·권갑→대검, 세검·권조→단검) 후: 무기 종류는 일반 무기군이라
+    //   여러 직군이 같은 무기 타입을 공유한다(직군당 1개 제약 폐지). 전문화 게이트는 현재 휴면.
+    const VALID = new Set(["greatsword", "staff", "bow", "dagger"]);
     for (const specs of Object.values(V2_JOB_SPECS)) {
       for (const s of specs) {
-        const set = typeToJobs.get(s.requiredWeaponType) ?? new Set<string>();
-        set.add(s.job);
-        typeToJobs.set(s.requiredWeaponType, set);
+        expect(VALID.has(s.requiredWeaponType), `${s.id}=${s.requiredWeaponType}`).toBe(
+          true,
+        );
       }
-    }
-    for (const [type, jobs] of typeToJobs) {
-      expect(jobs.size, `무기 ${type} 가 여러 직군에서 쓰임`).toBe(1);
     }
   });
 });
@@ -91,7 +86,7 @@ describe("aggregateSpecPassives — 합산 + 무기 게이트", () => {
 
   it("무기 게이트 불통과(종류 불일치/미장착) = 완전 비활성(빈 효과)", () => {
     // 광검류인데 세검 착용 → 전부 OFF
-    expect(aggregateSpecPassives(gwang, ["gwang_cut"], "rapier")).toEqual({});
+    expect(aggregateSpecPassives(gwang, ["gwang_cut"], "staff")).toEqual({});
     // 무기 미장착 → OFF
     expect(aggregateSpecPassives(gwang, ["gwang_cut"], undefined)).toEqual({});
   });

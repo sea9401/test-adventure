@@ -169,16 +169,7 @@ function slotConceptLine(
 }
 
 // 무기는 weaponType 별 라인(8 전문화타입). 그리드 검증은 컨셉이 아니라 weaponType 으로.
-const WEAPON_TYPES: V2WeaponType[] = [
-  "greatsword",
-  "sword_shield",
-  "rapier",
-  "gauntlet",
-  "claw",
-  "staff",
-  "bow",
-  "dagger",
-];
+const WEAPON_TYPES: V2WeaponType[] = ["greatsword", "staff", "bow", "dagger"];
 // weaponType 라인의 정규 티어(정렬). 스타터·제작·유니크 제외.
 function weaponTypeRegularTiers(wt: V2WeaponType): V2EquipTier[] {
   return v2EquipmentBySlot("weapon")
@@ -204,25 +195,24 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
 }
 
 describe("V2_EQUIPMENT grid (215종 — 6슬롯)", () => {
-  it("정규 그리드 43종 + 유니크 87 + 전문화 스타터 7 (제작전용 0 — 대장간 제작 콘텐츠 제거)", () => {
-    // 티어 5→3 축소(T1/T3/T5만) 후: 비무기 30(슬롯6 컨셉라인 × 3티어 일부) + 무기 13
-    //   (greatsword/bow/staff 각 3 + 전문화5타입 각 2[T3/T5; T1=스타터 off-grid]) = 43.
-    // 2026-06-09 밴드 흔한/유니크 분리: 마른 협곡~심층 동굴 밴드 장비 중 무기 8+기본세트 3+기본장신구 2
-    //   = 밴드당 13(×3밴드 = 39)을 rarity:unique → noDrop normal 로 재분류(흔한 밴드 장비, 드랍 전용).
-    //   밴드 D/E/F 39종 추가 후 밴드 흔한 78 = 13×6밴드.
-    //   유니크 87 = 기존 6 + 밴드 유니크 78(협곡 11·호수 13·동굴 17·성소 12·늪지 12·소굴 13) + 보스 3.
-    // 총 215 = 정규 그리드 43 + 유니크 87 + 전문화 스타터 7 + 밴드 흔한 78.
+  it("정규 그리드 35종 + 유니크 87 + 전문화 스타터 3 (제작전용 0; weaponType 8→4 통합 후)", () => {
+    // weaponType 8→4 통합(검방·권갑→대검, 세검·권조→단검) 후 카탈로그 215→179:
+    //   정규 그리드 35 = 비무기 24 + 무기 11(대검 3·지팡이 3·활 3 + 단검 정규 2). 무기 8자루 제거.
+    //   전문화 스타터 7→3(제거 4타입의 스타터 off-grid 삭제).
+    //   밴드 흔한 78→54(밴드당 무기 8→4 = -24, 6밴드).
+    //   유니크 87 불변(제거 4타입의 유니크 7자루는 생존 무기군으로 retag — 삭제 X).
+    // 총 179 = 정규 35 + 유니크 87 + 전문화 스타터 3 + 밴드 흔한 54.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
         (i) => !isUnique(i) && !i.craftOnly && !i.starterOnly && !i.noDrop,
       ),
       "정규 그리드",
-    ).toHaveLength(43);
+    ).toHaveLength(35);
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(87);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
-    expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(7);
-    expect(all.filter((i) => i.noDrop), "밴드 흔한(드랍 전용)").toHaveLength(78);
+    expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
+    expect(all.filter((i) => i.noDrop), "밴드 흔한(드랍 전용)").toHaveLength(54);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -608,7 +598,7 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
   it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
     expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
     expect(weaponGateOpen("v2_uniq_starcleaver", "greatsword")).toBe(false); // 미태깅 무기 → 완전 비활성
-    expect(weaponGateOpen("v2_greatsword", "rapier")).toBe(false); // 다른 전문화 무기
+    expect(weaponGateOpen("v2_greatsword", "staff")).toBe(false); // 다른 무기군
     expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
     expect(weaponGateOpen("v2_uniq_starcleaver", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
   });

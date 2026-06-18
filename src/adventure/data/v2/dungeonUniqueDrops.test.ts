@@ -32,10 +32,10 @@ function seqRng(values: number[]): () => number {
 }
 
 describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => {
-  it("밴드당 흔한 13종(무기 8 + 기본세트 3 + 기본장신구 2), 깊이 13~48 커버", () => {
+  it("밴드당 흔한 9종(무기 4 + 기본세트 3 + 기본장신구 2; weaponType 8→4 후), 깊이 13~48 커버", () => {
     expect(BAND_COMMON_POOLS).toHaveLength(6);
     for (const p of BAND_COMMON_POOLS) {
-      expect(p.ids).toHaveLength(13);
+      expect(p.ids).toHaveLength(9);
       for (const id of p.ids) {
         expect(V2_EQUIPMENT[id], id).toBeDefined();
         expect(isUnique(V2_EQUIPMENT[id]), `${id} 흔한=비유니크`).toBe(false);

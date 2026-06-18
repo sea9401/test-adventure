@@ -53,19 +53,13 @@ export type V2EquipTier = 1 | 2 | 3;
 // 무기 슬롯에서만 의미. 미지정(undefined) = 일반 무기(어느 전문화 게이트와도 매칭 X = 베이스만).
 // docs/v2-job-spec-passives-plan.md §4. 12전문화가 쓰는 8종 — 무기 종류를 의도적으로 줄여 통합
 //   (마법사 전 전문화=지팡이 / 도적=활·단검 / 무도가=권갑·권조). 봉권·성물·마검·독침은 미사용(제거).
+// 무기 종류 — 일반 무기군 4종으로 통합(검방·권갑→대검, 세검·권조→단검). weaponType 8→4.
+//   직업이 늘면 무기군은 나중에 다시 추가 가능. 전문화 게이트(requiredWeaponType)는 현재 휴면.
 export type V2WeaponType =
-  // 전사 — 광검/기사/검투사
-  | "greatsword" // 대검 — 광검
-  | "sword_shield" // 검방 — 기사
-  | "rapier" // 세검 — 검투사
-  // 무도가 — 금강·혈권/연환
-  | "gauntlet" // 권갑 — 금강·혈권
-  | "claw" // 권조 — 연환
-  // 마법사 — 전 전문화 지팡이로 통합
-  | "staff" // 지팡이 — 마도사·워메이지·사제
-  // 도적 — 궁사/자객·독사
-  | "bow" // 활 — 궁사
-  | "dagger"; // 단검 — 자객·독사
+  | "greatsword" // 대검 — 중량 근접(검방·권갑 흡수)
+  | "staff" // 지팡이 — 마법
+  | "bow" // 활 — 원거리
+  | "dagger"; // 단검 — 경량/속공 근접(세검·권조 흡수)
 
 // 희귀도 — 생략/"common" = 정규 카탈로그(상점·제작 대상). "unique" = 드랍 전용 유니크:
 // 정규 컨셉×티어 그리드 밖의 사이드그레이드(옵션 프로필로 슬롯 규칙을 깬다). 상점 구매·제작
@@ -87,22 +81,10 @@ export type V2EquipmentId =
   | "v2_obsidian_staff"
   | "v2_starlit_staff"
   // 전문화 스타터 무기 (전직 지급, weaponType 게이트용) — 수치 임시. 대검은 v2_greatsword 재사용.
-  | "v2_starter_sword_shield"
-  | "v2_starter_rapier"
-  | "v2_starter_gauntlet"
-  | "v2_starter_claw"
   | "v2_starter_staff"
   | "v2_starter_bow"
   | "v2_starter_dagger"
   // 전문화 무기 정규 라인 (드랍 T2/T3, T1=전직 지급 스타터) — 5타입(greatsword/bow/staff 는 기존 라인 태그 재활용)
-  | "v2_knight_blade"
-  | "v2_paladin_blade"
-  | "v2_swift_rapier"
-  | "v2_gale_rapier"
-  | "v2_fighter_gauntlet"
-  | "v2_vajra_gauntlet"
-  | "v2_keen_claw"
-  | "v2_dragon_claw"
   | "v2_assassin_dagger"
   | "v2_toxic_dagger"
   // 방어-중갑 (vit/def)
@@ -150,10 +132,6 @@ export type V2EquipmentId =
   | "v2_boss_lake_maul"
   // 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique") — 8 무기타입 1종씩 + 마른땅 갑주 세트 3종.
   | "v2_canyon_greatsword"
-  | "v2_canyon_knightblade"
-  | "v2_canyon_rapier"
-  | "v2_canyon_gauntlet"
-  | "v2_canyon_claw"
   | "v2_canyon_staff"
   | "v2_canyon_bow"
   | "v2_canyon_dagger"
@@ -168,10 +146,6 @@ export type V2EquipmentId =
   | "v2_canyon_sand_necklace"
   // 얼음 호수 밴드 드랍 (밴드 B, 깊이 19~24) — 무기 8종 + 세트 3종(서리 갑주·빙벽 수호구·한기 장신구).
   | "v2_lake_greatsword"
-  | "v2_lake_knightblade"
-  | "v2_lake_rapier"
-  | "v2_lake_gauntlet"
-  | "v2_lake_claw"
   | "v2_lake_staff"
   | "v2_lake_bow"
   | "v2_lake_dagger"
@@ -185,10 +159,6 @@ export type V2EquipmentId =
   | "v2_lake_chill_necklace"
   // 심층 동굴 밴드 드랍 (밴드 C, 깊이 25~30) — 무기 8종 + 세트 3종(심연 갑주·흑요 수호구·공허 장신구).
   | "v2_cave_greatsword"
-  | "v2_cave_knightblade"
-  | "v2_cave_rapier"
-  | "v2_cave_gauntlet"
-  | "v2_cave_claw"
   | "v2_cave_staff"
   | "v2_cave_bow"
   | "v2_cave_dagger"
@@ -237,10 +207,6 @@ export type V2EquipmentId =
   | "v2_cave_drift_necklace"
   // 잊힌 성소 밴드 드랍 (밴드 D, 깊이 31~36).
   | "v2_sanctum_greatsword"
-  | "v2_sanctum_knightblade"
-  | "v2_sanctum_rapier"
-  | "v2_sanctum_gauntlet"
-  | "v2_sanctum_claw"
   | "v2_sanctum_staff"
   | "v2_sanctum_bow"
   | "v2_sanctum_dagger"
@@ -263,10 +229,6 @@ export type V2EquipmentId =
   | "v2_sanctum_lumen_boots"
   // 리자드 늪지 밴드 드랍 (밴드 E, 깊이 37~42).
   | "v2_swamp_greatsword"
-  | "v2_swamp_knightblade"
-  | "v2_swamp_rapier"
-  | "v2_swamp_gauntlet"
-  | "v2_swamp_claw"
   | "v2_swamp_staff"
   | "v2_swamp_bow"
   | "v2_swamp_dagger"
@@ -289,10 +251,6 @@ export type V2EquipmentId =
   | "v2_swamp_moss_gloves"
   // 짐승의 소굴 밴드 드랍 (밴드 F, 깊이 43~48).
   | "v2_den_greatsword"
-  | "v2_den_knightblade"
-  | "v2_den_rapier"
-  | "v2_den_gauntlet"
-  | "v2_den_claw"
   | "v2_den_staff"
   | "v2_den_bow"
   | "v2_den_dagger"
@@ -827,10 +785,6 @@ export const CONCEPT_LABELS: Record<V2EquipConcept, string> = {
 // 무기 종류 한글 라벨 — V2WeaponType 표시용(아이템 종류 칩 등).
 export const WEAPON_TYPE_LABELS: Record<V2WeaponType, string> = {
   greatsword: "대검",
-  sword_shield: "검방",
-  rapier: "세검",
-  gauntlet: "권갑",
-  claw: "권조",
   staff: "지팡이",
   bow: "활",
   dagger: "단검",
@@ -1025,14 +979,6 @@ export function starterWeaponForType(
   switch (type) {
     case "greatsword":
       return "v2_greatsword";
-    case "sword_shield":
-      return "v2_starter_sword_shield";
-    case "rapier":
-      return "v2_starter_rapier";
-    case "gauntlet":
-      return "v2_starter_gauntlet";
-    case "claw":
-      return "v2_starter_claw";
     case "staff":
       return "v2_starter_staff";
     case "bow":
@@ -1056,6 +1002,43 @@ const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
 //   굴림을 카탈로그로 리셋(옛 티어 굴림이 새 티어 아이템에 오접되어 약화/과강되는 것 차단).
 //   보유 아이템 자체는 보존. 비치환 id 는 그대로.
 const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
+  // 무기 종류 통합(weaponType 8→4) — 검방·권갑→대검, 세검·권조→단검. 보유분 비파괴 마이그.
+  v2_starter_sword_shield: "v2_iron_sword",
+  v2_knight_blade: "v2_greatsword",
+  v2_paladin_blade: "v2_mithril_sword",
+  v2_canyon_knightblade: "v2_canyon_greatsword",
+  v2_lake_knightblade: "v2_lake_greatsword",
+  v2_cave_knightblade: "v2_cave_greatsword",
+  v2_sanctum_knightblade: "v2_sanctum_greatsword",
+  v2_swamp_knightblade: "v2_swamp_greatsword",
+  v2_den_knightblade: "v2_den_greatsword",
+  v2_starter_gauntlet: "v2_iron_sword",
+  v2_fighter_gauntlet: "v2_greatsword",
+  v2_vajra_gauntlet: "v2_mithril_sword",
+  v2_canyon_gauntlet: "v2_canyon_greatsword",
+  v2_lake_gauntlet: "v2_lake_greatsword",
+  v2_cave_gauntlet: "v2_cave_greatsword",
+  v2_sanctum_gauntlet: "v2_sanctum_greatsword",
+  v2_swamp_gauntlet: "v2_swamp_greatsword",
+  v2_den_gauntlet: "v2_den_greatsword",
+  v2_starter_rapier: "v2_starter_dagger",
+  v2_swift_rapier: "v2_assassin_dagger",
+  v2_gale_rapier: "v2_toxic_dagger",
+  v2_canyon_rapier: "v2_canyon_dagger",
+  v2_lake_rapier: "v2_lake_dagger",
+  v2_cave_rapier: "v2_cave_dagger",
+  v2_sanctum_rapier: "v2_sanctum_dagger",
+  v2_swamp_rapier: "v2_swamp_dagger",
+  v2_den_rapier: "v2_den_dagger",
+  v2_starter_claw: "v2_starter_dagger",
+  v2_keen_claw: "v2_assassin_dagger",
+  v2_dragon_claw: "v2_toxic_dagger",
+  v2_canyon_claw: "v2_canyon_dagger",
+  v2_lake_claw: "v2_lake_dagger",
+  v2_cave_claw: "v2_cave_dagger",
+  v2_sanctum_claw: "v2_sanctum_dagger",
+  v2_swamp_claw: "v2_swamp_dagger",
+  v2_den_claw: "v2_den_dagger",
   v2_plate_armor: "v2_full_plate",
   v2_silver_plate: "v2_mithril_plate",
   v2_studded_leather: "v2_shadow_cloak",
@@ -1078,16 +1061,17 @@ const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
   v2_silver_staff: "v2_starlit_staff",
   v2_steel_sword: "v2_greatsword",
   v2_silver_sword: "v2_mithril_sword",
-  v2_beast_claw: "v2_keen_claw",
-  v2_fierce_claw: "v2_dragon_claw",
+  // 옛 legacy 무기 → 통합으로 타겟이 제거됨 → 생존 무기로 직접 재지정(weaponType 8→4).
+  v2_beast_claw: "v2_assassin_dagger",
+  v2_fierce_claw: "v2_toxic_dagger",
   v2_steel_dagger: "v2_assassin_dagger",
   v2_shadow_dagger: "v2_toxic_dagger",
-  v2_duel_rapier: "v2_swift_rapier",
-  v2_master_rapier: "v2_gale_rapier",
-  v2_brawl_gauntlet: "v2_fighter_gauntlet",
-  v2_ironfist_gauntlet: "v2_vajra_gauntlet",
-  v2_guard_blade: "v2_knight_blade",
-  v2_royal_blade: "v2_paladin_blade",
+  v2_duel_rapier: "v2_assassin_dagger",
+  v2_master_rapier: "v2_toxic_dagger",
+  v2_brawl_gauntlet: "v2_greatsword",
+  v2_ironfist_gauntlet: "v2_mithril_sword",
+  v2_guard_blade: "v2_greatsword",
+  v2_royal_blade: "v2_mithril_sword",
 };
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "weapon",

@@ -11,7 +11,8 @@ vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
     await importOriginal<
       typeof import("@/adventure/data/v2/coreLoopConfig")
     >();
-  return { ...actual, V2_CORE_LOOP_V2: true };
+  // HUNT_COOLDOWN_MODE 도 덮는다(오프라인 정산은 쿨다운 모드 전용 — actual 은 false 계산).
+  return { ...actual, V2_CORE_LOOP_V2: true, HUNT_COOLDOWN_MODE: true };
 });
 
 vi.mock("@/lib/server/ensureUser", () => ({

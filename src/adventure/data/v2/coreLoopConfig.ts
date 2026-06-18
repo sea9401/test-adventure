@@ -19,6 +19,18 @@ import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 export const V2_CORE_LOOP_V2 =
   process.env.NEXT_PUBLIC_V2_CORE_LOOP_V2 === "true";
 
+// 사냥 throttle 선택 — 코어 루프(V2_CORE_LOOP_V2)는 켜두되 사냥 페이싱만 스태미나로 되돌린다.
+//   true = 사냥은 옛 스태미나 차감/재생, 전투당 쿨다운·오프라인 자동전투 폐지(직업/SP/ATB/
+//   재전직/은행/골드 비용은 코어 루프 그대로 유지). 2026-06-19 사용자 결정: 오프라인 자동전투
+//   체감 불만(지는 사냥터도 방치 시 보상)으로 사냥만 스태미나 복귀.
+//   기본(미설정)=false → 현행 쿨다운 유지(배포 무변경·inert). 스테이징서 env 로 켜 검증 후 flip.
+export const V2_HUNT_USE_STAMINA =
+  process.env.NEXT_PUBLIC_V2_HUNT_USE_STAMINA === "true";
+
+// 파생 — 사냥이 "쿨다운 모드"인가. 코어 루프 on 이고 스태미나 다이얼이 꺼졌을 때만 쿨다운/오프라인.
+//   미설정(기본) = V2_CORE_LOOP_V2 와 동일(현행 byte-identical). 스태미나 켜면 false → 스태미나 경로.
+export const HUNT_COOLDOWN_MODE = V2_CORE_LOOP_V2 && !V2_HUNT_USE_STAMINA;
+
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)

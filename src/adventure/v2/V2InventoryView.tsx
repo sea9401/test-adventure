@@ -502,6 +502,20 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             maps={rareMaps}
             now={rareMapsNow}
             onUse={(m) => {
+              // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
+              //   (레벨·스탯이 전역에 반영되도록).
+              if (m.kind === "exp_tome") {
+                fetch("/api/v2/me/use-exp-tome", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ map: m.iid }),
+                })
+                  .then((res) => {
+                    if (res.ok) window.location.reload();
+                  })
+                  .catch(() => {});
+                return;
+              }
               const base = UTILITY_MAP_ROUTE[m.kind];
               if (base) router.push(`${base}?map=${m.iid}`);
             }}

@@ -1117,3 +1117,68 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     expect(r.finalState.p1.stacks.spellCastCount).toBeLessThanOrEqual(10);
   });
 });
+
+// ── PvE 효과 PvP 미러 (흡혈/받피감/별빛 인내) — full mirror, 2026-06-19 ──────────
+// 셋 다 PvE(playerPhase/enemyPhase)에선 적용되나 PvP 에선 inert 였음. 미러로 양측에 적용.
+describe("PvE 효과 PvP 미러 — 흡혈/받피감/별빛 인내", () => {
+  // 0.999 = 적중·논크리(테스트캐릭 critChancePct 0). p1 이 p2 를 친다.
+  function firstAttack(p1: Partial<PlayerCombat>, p2: Partial<PlayerCombat>) {
+    vi.spyOn(Math, "random").mockReturnValue(0.999);
+    const s0 = initialBattleStatePvP(
+      makePlayer({ spd: 15, atk: 30, def: 0, ...p1 }),
+      makePlayer({ spd: 5, atk: 1, def: 0, hp: 300, maxHp: 300, ...p2 }),
+      "P1",
+      "P2",
+    );
+    return advanceTurnPvP(s0);
+  }
+
+  it("별빛 흡혈(enchantLifestealPct) — PvP 에서 공격자 HP 회복(이전엔 inert)", () => {
+    const base = firstAttack({ hp: 50, maxHp: 200 }, {});
+    expect(base.p1.hp).toBe(50); // 흡혈 없음 → 회복 0
+    const heal = firstAttack({ hp: 50, maxHp: 200, enchantLifestealPct: 50 }, {});
+    expect(heal.p1.hp).toBeGreaterThan(50); // 미러 → 가한 피해의 50% 회복
+    expect(heal.log.some((l) => l.text.includes("별빛 흡혈"))).toBe(true);
+  });
+
+  it("별빛 흡혈 — maxHp 초과 회복 없음(클램프)", () => {
+    const heal = firstAttack(
+      { hp: 199, maxHp: 200, enchantLifestealPct: 90 },
+      {},
+    );
+    expect(heal.p1.hp).toBe(200); // 199 + 큰 회복 → 200 클램프
+  });
+
+  it("받피감(passiveDamageTakenReductionPct) — PvP 에서 받는 피해 감소(이전엔 inert)", () => {
+    const base = firstAttack({}, { hp: 300, maxHp: 300 });
+    const baseDmg = 300 - base.p2.hp;
+    const reduced = firstAttack(
+      {},
+      { hp: 300, maxHp: 300, passiveDamageTakenReductionPct: 50 },
+    );
+    const reducedDmg = 300 - reduced.p2.hp;
+    expect(baseDmg).toBeGreaterThan(0);
+    expect(reducedDmg).toBeLessThan(baseDmg); // 미러 → 피해 감소
+    expect(reduced.log.some((l) => l.text.includes("받피감"))).toBe(true);
+  });
+
+  it("별빛 인내(enchantEndurePct) — PvP 에서 받는 피해 감소(이전엔 inert)", () => {
+    const base = firstAttack({}, { hp: 300, maxHp: 300 });
+    const baseDmg = 300 - base.p2.hp;
+    const endured = firstAttack(
+      {},
+      { hp: 300, maxHp: 300, enchantEndurePct: 50 },
+    );
+    const enduredDmg = 300 - endured.p2.hp;
+    expect(enduredDmg).toBeLessThan(baseDmg);
+    expect(endured.log.some((l) => l.text.includes("[인내]"))).toBe(true);
+  });
+
+  it("미러 효과 없으면 골든 불변(가드: 필드 미설정 시 no-op)", () => {
+    // enchant/passive 필드를 안 주면 데미지·HP 가 baseline 과 정확히 동일(>0 가드).
+    const a = firstAttack({}, { hp: 300, maxHp: 300 });
+    const b = firstAttack({}, { hp: 300, maxHp: 300 });
+    expect(a.p2.hp).toBe(b.p2.hp);
+    expect(a.p1.hp).toBe(b.p1.hp);
+  });
+});

@@ -468,12 +468,28 @@ export function advanceTurnPvP(
     ? Math.max(1, Math.floor(totalDmg * (1 - defender.buffs.playerDmgReductionPct / 100)))
     : totalDmg;
   const resolveApplied = dmgAfterResolve < totalDmg;
+  // 별빛 인내(enchant endure) — 받는 피해 -pct%. 결의 다음·가드 전 곱연산, 항상 활성, 최소 1.
+  //   PvE(enemyPhase)에선 적용되나 PvP 에선 inert 였던 걸 미러(2026-06-19, full mirror).
+  const endurePct = defender.player.enchantEndurePct ?? 0;
+  const enduredDmg =
+    endurePct > 0
+      ? Math.max(1, Math.floor(dmgAfterResolve * (1 - endurePct / 100)))
+      : dmgAfterResolve;
+  const endureApplied = enduredDmg < dmgAfterResolve;
+  // 받피감(패시브 passiveDamageTakenReductionPct·철벽검류 등) — 인내 다음·가드 전 곱연산, 최소 1.
+  //   PvE 전용이던 걸 미러(2026-06-19). 철포 버프(skillDmgReduce)는 별개로 미포함(여기선 패시브만).
+  const passiveReducePct = defender.player.passiveDamageTakenReductionPct ?? 0;
+  const passiveReduced =
+    passiveReducePct > 0
+      ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))
+      : enduredDmg;
+  const passiveReduceApplied = passiveReduced < enduredDmg;
   const guard = defender.player.guard;
   const guarded =
     guard && guard.turns > 0 && defender.turn.enemyPhasesCompleted < guard.turns
-      ? Math.max(0, dmgAfterResolve - guard.reduction)
-      : dmgAfterResolve;
-  const guardApplied = guarded < dmgAfterResolve;
+      ? Math.max(0, passiveReduced - guard.reduction)
+      : passiveReduced;
+  const guardApplied = guarded < passiveReduced;
   const steadfastFlat = defender.player.steadfastWillFlat ?? 0;
   const afterSteadfast =
     steadfastFlat > 0 ? Math.max(0, guarded - steadfastFlat) : guarded;
@@ -508,10 +524,22 @@ export function advanceTurnPvP(
       text: `[결의] ${defender.name} 피해 -${totalDmg - dmgAfterResolve}`,
     });
   }
+  if (endureApplied) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[인내] ${defender.name} 피해 -${dmgAfterResolve - enduredDmg}`,
+    });
+  }
+  if (passiveReduceApplied) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[받피감] ${defender.name} 피해 -${enduredDmg - passiveReduced}`,
+    });
+  }
   if (guardApplied) {
     log = appendLog(log, {
       kind: "info",
-      text: `[가드] ${defender.name} 피해 -${dmgAfterResolve - guarded}`,
+      text: `[가드] ${defender.name} 피해 -${passiveReduced - guarded}`,
     });
   }
   if (steadfastApplied) {
@@ -571,8 +599,18 @@ export function advanceTurnPvP(
     nextBuffsTimedFromAp.playerLifestealPct > 0
       ? Math.floor((dmg * nextBuffsTimedFromAp.playerLifestealPct) / 100)
       : 0;
+  // 별빛 흡혈(enchant lifesteal) + 포식 패시브(둘 다 enchantLifestealPct 로 합류) — 가한 피해의 pct%
+  //   HP 회복. PvE(playerPhase)에선 항상 소비되나 PvP 에선 inert 였던 걸 미러(2026-06-19, full mirror).
+  const enchantLifestealHeal =
+    (attacker.player.enchantLifestealPct ?? 0) > 0
+      ? Math.floor((dmg * attacker.player.enchantLifestealPct!) / 100)
+      : 0;
   const totalLifestealHeal =
-    lifestealHeal + luckyLifestealHeal + runeLifestealHeal + apLifestealHeal;
+    lifestealHeal +
+    luckyLifestealHeal +
+    runeLifestealHeal +
+    apLifestealHeal +
+    enchantLifestealHeal;
   const newAttackerHp =
     totalLifestealHeal > 0
       ? Math.min(attacker.maxHp, attacker.hp + totalLifestealHeal)
@@ -584,6 +622,7 @@ export function advanceTurnPvP(
     if (luckyLifestealHeal > 0) lsLabels.push("행운의 흡혈");
     if (runeLifestealHeal > 0) lsLabels.push("흡혈의 룬");
     if (apLifestealHeal > 0) lsLabels.push("흡령");
+    if (enchantLifestealHeal > 0) lsLabels.push("별빛 흡혈");
     log = appendLog(log, {
       kind: "info",
       text: `[${lsLabels.join(" + ")}] ${attacker.name}의 HP +${actualLifesteal}`,

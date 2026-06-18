@@ -1,5 +1,10 @@
 import type { Monster } from "@/adventure/data/monsters/types";
-import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
+import {
+  floorStatMult,
+  floorDefMult,
+  floorExpMult,
+  endgameSoften,
+} from "./dungeonLadder";
 
 // 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
 // skill/phaseTrigger/drops/태그 등은 그대로 — 동작 단순화 + 베이스 곡선 의존.
@@ -11,8 +16,13 @@ import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
 export function scaleMonsterForFloor(
   monster: Monster,
   depth: number,
+  // 엔드게임 완화 적용 여부. 솔로 던전 사냥=true(기본). 협동 보스는 sharedMaxHp+anchorDepth 로
+  //   난이도를 따로 튜닝하므로 false(앵커 깊이 24·42 가 완화 임계 위라 atk 가 의도치 않게 약화되는 것 방지).
+  softenEndgame: boolean = true,
 ): Monster {
-  const sMult = floorStatMult(depth);
+  // 엔드게임 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관). floor 빌드 생존성 회복.
+  const sMult =
+    floorStatMult(depth) * (softenEndgame ? endgameSoften(depth) : 1);
   const dMult = floorDefMult(depth);
   const eMult = floorExpMult(depth);
   const hp = Math.max(1, Math.round(monster.hp * sMult));

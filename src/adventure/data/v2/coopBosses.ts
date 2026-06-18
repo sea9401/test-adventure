@@ -407,7 +407,9 @@ export function coopBossForBattle(
   kind: CoopBossKind,
   currentHp: number,
 ): { monster: Monster; enrageNotes: string[] } {
-  const scaled = scaleMonsterForFloor(kind.base, kind.anchorDepth);
+  // 협동 보스는 sharedMaxHp + anchorDepth 로 난이도를 독립 튜닝 → 솔로 엔드게임 완화(softenEndgame)
+  //   는 적용하지 않는다(앵커 24·42 가 완화 임계 위라 보스 atk 가 의도치 않게 약화되는 것 방지).
+  const scaled = scaleMonsterForFloor(kind.base, kind.anchorDepth, false);
   const hp = Math.max(1, Math.min(Math.floor(currentHp), kind.sharedMaxHp));
   const frac = hp / kind.sharedMaxHp;
   let atk = scaled.atk;

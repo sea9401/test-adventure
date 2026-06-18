@@ -33,6 +33,23 @@ export const ONBOARDING_MAX_STAT_MULT = 1.3; // 들판 6 스탯 배율 상한(�
 //   비례 파생(난이도 ↔ 레벨 균형 유지). def/exp 도 statMult 파생. exp 는 소프트캡까지 동일
 //   cadence·이후 깊이 따라 우상향(깊을수록 보상↑). ← 튜닝 다이얼.
 export const LADDER_STAT_STEP = 0.6; // 깊이당 statMult 증가(들판 0.06 대비 완만 램프)
+
+// 엔드게임 난이도 완화(2026-06-18, 밸런스) — 깊을수록 몬스터 hp+atk 을 점감(scaleMonsterForFloor
+// 에서 sMult 에 곱). 🔑 floorPowerGate(권장파워/레벨)에는 안 들어가 진척·exp 곡선과 **분리** —
+// "권장 레벨로 맞춘 빌드"가 엔드에서 DEX 외엔 다 못 깨던 문제(sim: d50 STR51·INT33·VIT0·DEX100)를,
+// DEX(캡 100)는 그대로 두고 floor 빌드를 끌어올리는 단일 레버. d20 까지 1.0(무변), 이후 점감해
+// d50≈0.85 에서 plateau(최대 15% 완화). sim 캘리브: STR51→90·INT33→75·LUK/BAL~40·DEX 100 유지.
+// ⚠️ 부작용=엔드 절대 난이도 소폭↓(의도). 다이얼=아래 3상수.
+export const ENDGAME_SOFTEN_START_DEPTH = 20; // 이 깊이까지 완화 0(중반 균형 유지)
+export const ENDGAME_SOFTEN_SLOPE = 0.005; // 깊이당 완화량
+export const ENDGAME_SOFTEN_MIN = 0.85; // 완화 하한(=최대 15% 약화·deep frontier plateau)
+export function endgameSoften(depth: number): number {
+  if (depth <= ENDGAME_SOFTEN_START_DEPTH) return 1;
+  return Math.max(
+    ENDGAME_SOFTEN_MIN,
+    1 - (depth - ENDGAME_SOFTEN_START_DEPTH) * ENDGAME_SOFTEN_SLOPE,
+  );
+}
 // 권장파워 = statMult^GATE_DAMP × 110. 옛 모델(statMult 선형 비례)은 후반에서 과대 —
 // 플레이어 파워(누적레벨 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
 // 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀, 깊이 48 권장 2915 vs 실측

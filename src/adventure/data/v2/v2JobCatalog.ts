@@ -13,17 +13,32 @@
 import type { V2StatKey } from "./v2StatKeys";
 import type { V2ProficiencyState } from "./proficiency";
 
-/** 추가 해금 조건(확장 포인트 — 현재 카탈로그엔 미사용, 후속 PR 에서 배선). */
+/**
+ * 추가 해금 조건(cumLevel prereqs 외). isJobUnlocked 가 평가(#818 배선). 현 카탈로그 직업은
+ * 아직 미사용 — 미래 직업(예: 퀘스트로 여는 히든 직업)이 선택적으로 단다.
+ *  - statThreshold: 그 스탯의 cultivation cap(proficiency.caps) ≥ min. proficiency 만으로 평가(ctx 불요).
+ *  - questCompleted: 수령 완료 가이드 퀘스트 집합에 포함(ctx.completedQuestIds 필요).
+ *  - monsterKilled: per-monster 킬수 ≥ min(ctx.killCounts 필요). ⚠️ 킬 트래커 미신설 — 데이터
+ *    소스 없어 현재 항상 미충족. 트래커 신설은 별도 작업.
+ */
 export type ExtraJobCondition =
   | { type: "questCompleted"; questId: string }
   | { type: "monsterKilled"; monsterId: string; minCount: number }
   | { type: "statThreshold"; stat: V2StatKey; min: number };
 
+/** isJobUnlocked 의 추가 조건 평가용 컨텍스트(없으면 quest/kill 조건은 미충족 처리). */
+export type JobUnlockContext = {
+  /** 수령 완료 가이드 퀘스트 id 집합(questCompleted 용). */
+  completedQuestIds?: ReadonlySet<string>;
+  /** per-monster 킬수(monsterKilled 용). ⚠️ 킬 트래커 미신설 — 현재 미제공(별도 작업). */
+  killCounts?: Readonly<Record<string, number>>;
+};
+
 /** 직업 해금 조건. */
 export type V2JobUnlock = {
   /** 선행 직업별 최소 cumLevel. 빈 객체 = 전제 없음(모험가·기본 직업). */
   prereqs: Partial<Record<string, number>>;
-  /** 선택적 추가 조건(퀘스트·킬수·스탯). 기본 미사용. */
+  /** 선택적 추가 조건(퀘스트·킬수·스탯). isJobUnlocked 가 평가(#818). 현 카탈로그는 비어 있음. */
   extraConditions?: ExtraJobCondition[];
 };
 
@@ -250,22 +265,53 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
 /** 카탈로그의 모든 직업(정의 순서). */
 export const V2_JOB_LIST: V2JobDefinition[] = Object.values(V2_JOB_CATALOG);
 
+/**
+ * 카탈로그에 questCompleted 추가조건을 쓰는 직업이 하나라도 있나. false 면 호출부가 quest
+ * 세이브를 읽을 필요 없음(현 카탈로그=false → 핫패스 state/codex 에 추가 쿼리 0). 미래 직업이
+ * questCompleted 를 다는 순간 자동 true → 호출부가 ctx.completedQuestIds 를 로드.
+ */
+export const CATALOG_USES_QUEST_CONDITION: boolean = V2_JOB_LIST.some((job) =>
+  (job.unlock.extraConditions ?? []).some((c) => c.type === "questCompleted"),
+);
+
 /** id → 정의 조회(없으면 undefined). */
 export function jobById(id: string): V2JobDefinition | undefined {
   return V2_JOB_CATALOG[id];
 }
 
 /**
- * 카탈로그 직업이 현재 숙련도로 해금됐는지(cumLevel 게이트).
- * extraConditions(퀘스트·킬수)는 후속 PR 에서 배선 — 현재는 prereqs 만 검사한다.
+ * 카탈로그 직업이 현재 숙련도로 해금됐는지 — cumLevel prereqs + extraConditions(stat/quest/kill)
+ * 둘 다 검사(#818). 현 카탈로그 직업은 extraConditions 가 비어 prereqs 만 실질 작동.
  */
+// 추가 조건 1개 충족 여부(순수). statThreshold=proficiency 만으로, quest/kill=ctx 필요(없으면 미충족).
+function extraConditionMet(
+  cond: ExtraJobCondition,
+  proficiency: V2ProficiencyState,
+  ctx: JobUnlockContext | undefined,
+): boolean {
+  switch (cond.type) {
+    case "statThreshold":
+      // 그 스탯의 cultivation cap(투자 천장) — 장비/버프 무관·안정적 해금 게이트.
+      return (proficiency.caps[cond.stat] ?? 0) >= cond.min;
+    case "questCompleted":
+      return ctx?.completedQuestIds?.has(cond.questId) ?? false;
+    case "monsterKilled":
+      return (ctx?.killCounts?.[cond.monsterId] ?? 0) >= cond.minCount;
+  }
+}
+
 export function isJobUnlocked(
   job: V2JobDefinition,
   proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
 ): boolean {
   for (const [prereqJobId, minCumLevel] of Object.entries(job.unlock.prereqs)) {
     const actual = proficiency.groups[prereqJobId]?.cumLevel ?? 0;
     if (actual < (minCumLevel ?? 0)) return false;
+  }
+  // 추가 조건(quest/stat/kill) — 카탈로그 직업은 아직 미사용이라 현행 직업엔 무영향(빈 배열).
+  for (const cond of job.unlock.extraConditions ?? []) {
+    if (!extraConditionMet(cond, proficiency, ctx)) return false;
   }
   return true;
 }
@@ -273,9 +319,10 @@ export function isJobUnlocked(
 /** 현재 숙련도로 전직 가능한 비(非)모험가 직업 목록(전직 UI 용). */
 export function unlockedJobs(
   proficiency: V2ProficiencyState,
+  ctx?: JobUnlockContext,
 ): V2JobDefinition[] {
   return V2_JOB_LIST.filter(
-    (job) => job.tier > 0 && isJobUnlocked(job, proficiency),
+    (job) => job.tier > 0 && isJobUnlocked(job, proficiency, ctx),
   );
 }
 

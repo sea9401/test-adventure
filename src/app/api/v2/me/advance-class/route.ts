@@ -34,8 +34,11 @@ import {
 import {
   V2_JOB_CATALOG,
   isJobUnlocked,
+  CATALOG_USES_QUEST_CONDITION,
   LEGACY_CLASS_SPEC_BY_JOB,
+  type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 
 // POST /api/v2/me/advance-class — 다음 차수 전직(진척). 게이트 = 직군 누적 레벨(cumLevel)
 // 임계(t2=55·t3=110·t4=170) + 최소 Lv50 + (3·4차) 모험의 서 — 골드 X(docs §7, PR-6).
@@ -124,8 +127,12 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "bad_target" as const },
         };
       }
-      // cumLevel 해금 게이트(기본 직업 = prereqs 비어 항상 통과, 위 Lv50 체크가 바닥 게이트).
-      if (!isJobUnlocked(jobDef, prof)) {
+      // 해금 게이트 = cumLevel prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
+      //   prereqs 비어 통과(위 Lv50 이 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
+      const jobCtx: JobUnlockContext | undefined = CATALOG_USES_QUEST_CONDITION
+        ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
+        : undefined;
+      if (!isJobUnlocked(jobDef, prof, jobCtx)) {
         return {
           status: 400,
           body: { ok: false as const, error: "job_locked" as const },

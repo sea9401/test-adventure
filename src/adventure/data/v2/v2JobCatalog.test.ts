@@ -7,16 +7,19 @@ import {
   TIER4_UNLOCK_CUMLEVEL,
   LEGACY_CLASS_SPEC_BY_JOB,
   DROPPED_SPEC_TO_SURVIVING,
+  CATALOG_USES_QUEST_CONDITION,
   jobIdFromLegacy,
   isJobUnlocked,
   jobById,
   unlockedJobs,
   type V2JobDefinition,
+  type ExtraJobCondition,
+  type JobUnlockContext,
 } from "./v2JobCatalog";
 import { jobDisplayName } from "./classes";
 import { V2_CULTIVATE_PROFILE } from "./proficiency";
-import { V2_STAT_KEYS } from "./v2StatKeys";
-import { emptyProficiency } from "./proficiency";
+import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
+import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 
 const BASE_JOBS = ["warrior", "martial", "mage", "rogue"];
 const TIER2_BY_PARENT: Record<string, string[]> = {
@@ -219,6 +222,98 @@ describe("isJobUnlocked / unlockedJobs", () => {
     const ids2 = unlockedJobs(ready).map((j) => j.id);
     expect(ids2).toEqual(expect.arrayContaining([...BASE_JOBS, "shieldman", "squire"]));
     expect(ids2).not.toContain("caster");
+  });
+});
+
+describe("extraConditions 추가 해금 조건 (#818)", () => {
+  // 카탈로그 직업은 아직 extraConditions 미사용 → 합성 직업 정의로 평가 로직만 검증.
+  function jobWith(
+    extraConditions: ExtraJobCondition[],
+    prereqs: Record<string, number> = {},
+  ): V2JobDefinition {
+    return {
+      ...V2_JOB_CATALOG.warrior,
+      id: "test_job",
+      unlock: { prereqs, extraConditions },
+    };
+  }
+  function profWithCaps(caps: Record<string, number>): V2ProficiencyState {
+    const prof = emptyProficiency();
+    for (const [stat, v] of Object.entries(caps)) {
+      prof.caps[stat as V2StatKey] = v;
+    }
+    return prof;
+  }
+
+  it("statThreshold — 그 스탯의 cultivation cap 이 min 이상이면 통과(proficiency 만으로, ctx 불요)", () => {
+    const job = jobWith([{ type: "statThreshold", stat: "str", min: 100 }]);
+    expect(isJobUnlocked(job, profWithCaps({ str: 99 }))).toBe(false);
+    expect(isJobUnlocked(job, profWithCaps({ str: 100 }))).toBe(true);
+    // 다른 스탯 cap 으론 못 연다.
+    expect(isJobUnlocked(job, profWithCaps({ int: 999 }))).toBe(false);
+  });
+
+  it("questCompleted — ctx.completedQuestIds 포함 시 통과, ctx 없으면 fail-closed", () => {
+    const job = jobWith([{ type: "questCompleted", questId: "q-hidden" }]);
+    const empty = emptyProficiency();
+    expect(isJobUnlocked(job, empty)).toBe(false); // ctx 없음
+    expect(
+      isJobUnlocked(job, empty, { completedQuestIds: new Set(["other"]) }),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(job, empty, { completedQuestIds: new Set(["q-hidden"]) }),
+    ).toBe(true);
+  });
+
+  it("monsterKilled — ctx.killCounts 가 minCount 이상이면 통과, ctx 없으면 fail-closed", () => {
+    const job = jobWith([
+      { type: "monsterKilled", monsterId: "dragon", minCount: 10 },
+    ]);
+    const empty = emptyProficiency();
+    expect(isJobUnlocked(job, empty)).toBe(false); // 킬 트래커 미신설 → 데이터 없음
+    expect(isJobUnlocked(job, empty, { killCounts: { dragon: 9 } })).toBe(false);
+    expect(isJobUnlocked(job, empty, { killCounts: { dragon: 10 } })).toBe(true);
+  });
+
+  it("prereqs(cumLevel) 와 extraConditions 는 둘 다 충족해야 한다(AND)", () => {
+    const job = jobWith([{ type: "statThreshold", stat: "str", min: 50 }], {
+      warrior: 100,
+    });
+    // prereq 만 충족(cap 부족) → 잠김.
+    const prereqOnly = profWith({ warrior: 100 });
+    expect(isJobUnlocked(job, prereqOnly)).toBe(false);
+    // 둘 다 충족 → 해금.
+    const both = profWith({ warrior: 100 });
+    both.caps.str = 50;
+    expect(isJobUnlocked(job, both)).toBe(true);
+    // cap 만 충족(cumLevel 부족) → 잠김.
+    expect(isJobUnlocked(job, profWithCaps({ str: 50 }))).toBe(false);
+  });
+
+  it("여러 추가조건은 전부 충족해야 한다(quest + stat)", () => {
+    const job = jobWith([
+      { type: "statThreshold", stat: "str", min: 50 },
+      { type: "questCompleted", questId: "q1" },
+    ]);
+    const prof = profWithCaps({ str: 50 });
+    const ctx: JobUnlockContext = { completedQuestIds: new Set(["q1"]) };
+    expect(isJobUnlocked(job, prof, ctx)).toBe(true);
+    // 스탯만 충족, 퀘스트 미충족 → 잠김.
+    expect(isJobUnlocked(job, prof, { completedQuestIds: new Set() })).toBe(
+      false,
+    );
+    // 퀘스트만 충족, 스탯 미충족 → 잠김.
+    expect(isJobUnlocked(job, profWithCaps({ str: 49 }), ctx)).toBe(false);
+  });
+
+  it("현 카탈로그 직업은 extraConditions 를 쓰지 않는다 → CATALOG_USES_QUEST_CONDITION=false(호출부 무쿼리)", () => {
+    expect(CATALOG_USES_QUEST_CONDITION).toBe(false);
+    for (const job of V2_JOB_LIST) {
+      expect(
+        job.unlock.extraConditions ?? [],
+        `${job.id} 는 아직 extraConditions 미사용`,
+      ).toEqual([]);
+    }
   });
 });
 

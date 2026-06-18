@@ -276,6 +276,17 @@ export function parseClaimed(raw: unknown): Set<string> {
 export const GUIDE_QUESTS_KEY = "guide-quests.v2";
 export const REPEAT_QUESTS_KEY = "repeat-quests.v2";
 
+// guide-quests.v2 를 무락 read → 수령 완료 퀘스트 id 집합. 직업 해금 questCompleted 조건의
+// 데이터 소스(JobUnlockContext.completedQuestIds). 읽기 전용 게이트라 lock 불필요(readSave).
+// 반복 퀘스트(repeat-quests.v2)는 영구 완료가 아니라 제외 — questCompleted 는 1회성 가이드 완료만.
+export async function loadCompletedQuestIds(
+  exec: DbExecutor,
+  userId: string,
+): Promise<Set<string>> {
+  const raw = await readSave(exec, userId, GUIDE_QUESTS_KEY, {});
+  return parseClaimed(raw);
+}
+
 // 반복 퀘스트 신호 — adventure-log 누적치 + extras. ctx(가이드용)와 분리된 얇은 조립.
 export function buildRepeatSignals(
   advLogRaw: unknown,

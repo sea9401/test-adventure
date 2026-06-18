@@ -62,7 +62,10 @@ import {
   V2_JOB_CATALOG,
   isJobUnlocked,
   jobIdFromLegacy,
+  CATALOG_USES_QUEST_CONDITION,
+  type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -382,6 +385,11 @@ export async function GET() {
   const cls = parseV2Class((charSave as { class?: unknown }).class);
   // 직업 시스템 v2(cumLevel 해금) — 카탈로그 기반 전직 목록(전직 UI). 코어루프 on 일 때만.
   //   해금(cumLevel 조건 충족)된 직업만 내려보낸다 — 잠긴 직업은 숨김(클라가 그대로 한 목록 렌더).
+  // questCompleted 조건을 쓰는 직업이 있을 때만 가이드 퀘스트 완료셋 로드(현 카탈로그=무쿼리).
+  const jobUnlockCtx: JobUnlockContext | undefined =
+    V2_CORE_LOOP_V2 && CATALOG_USES_QUEST_CONDITION
+      ? { completedQuestIds: await loadCompletedQuestIds(db, userId) }
+      : undefined;
   const jobsV2 =
     V2_CORE_LOOP_V2
       ? (() => {
@@ -402,7 +410,7 @@ export async function GET() {
             currentJobName,
             atLevelCap: level >= V2_LEVEL_CAP,
             jobs: V2_JOB_LIST.filter(
-              (job) => job.tier > 0 && isJobUnlocked(job, prof),
+              (job) => job.tier > 0 && isJobUnlocked(job, prof, jobUnlockCtx),
             ).map((job) => {
               // 해금 조건(공유용) — 기본 직업=모험가 Lv 캡 도달, 상위=부모 직군 누적 Lv 임계.
               const prereqs = Object.entries(job.unlock.prereqs);

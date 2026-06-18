@@ -137,6 +137,29 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct).toBeUndefined();
   });
 
+  it("고차 두 번째 갈래(tier 3) = 액티브 1 + 고유 패시브(형제와 다른 축)", () => {
+    const KIT: Record<string, [V2SkillId, V2SkillId]> = {
+      guardian: ["v2c_guardian_bash", "v2c_guardian_bulwark3"],
+      warmonk: ["v2c_warmonk_kick", "v2c_warmonk_evasion3"],
+      bishop: ["v2c_bishop_heal", "v2c_bishop_blessing3"],
+      shadow: ["v2c_shadow_assassinate", "v2c_shadow_lethality3"],
+    };
+    for (const [job, [active, passive]] of Object.entries(KIT)) {
+      expect(skillsForJob(job), job).toEqual([active, passive]);
+      expect(V2_SKILLS[active], active).toBeDefined();
+      expect(V2_SKILLS[passive].category, passive).toBe("passive");
+      expect(V2_SKILLS[passive].tier, passive).toBe(3);
+    }
+    // 형제(기사/격투가/마도사/유격수)와 다른 축: 받피감·회피·회복강화·치명피해.
+    expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.damageTakenReductionPct).toBe(15);
+    expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.evasionPct).toBe(14);
+    expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
+    expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(30);
+    // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
+    expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
+    expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
+  });
+
   it("심화 4직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],

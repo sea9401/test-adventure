@@ -417,6 +417,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveAccuracyPct?: number;
   /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
   passiveHealPowerPct?: number;
+  /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
+  passiveDamageTakenReductionPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -687,7 +689,8 @@ export function derivePlayerCombatV2Pure(
   // 흡정↔흡정공). 0 이면 spread 생략(inert). 절제(mpCostReductionPct)는 신규 시전 훅.
   const totalDamageTakenReductionPct =
     (specEff.damageTakenReductionPct ?? 0) +
-    (traitEff.damageTakenReductionPctAdd ?? 0);
+    (traitEff.damageTakenReductionPctAdd ?? 0) +
+    (input.passiveDamageTakenReductionPct ?? 0); // 장착 패시브(방벽) — 가산.
   const totalBleedDmgPerStack =
     (specEff.bleedDmgPerStack ?? 0) + (traitEff.bleedDmgPerStackAdd ?? 0);
   const totalPoisonStrength =
@@ -935,6 +938,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveDefPct: passiveAgg.defPct,
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
+    passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
   });
 }
 

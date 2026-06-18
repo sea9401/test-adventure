@@ -77,6 +77,17 @@ export type V2CommonSkillId =
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
   | "v2c_magus_acumen3" // 총명 III (지능 +20%)
   | "v2c_ranger_finesse3" // 정밀 (명중 +12)
+  // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
+  // 액티브
+  | "v2c_guardian_bash" // 방패 강타 (물리 단일)
+  | "v2c_warmonk_kick" // 연환각 (물리 다단)
+  | "v2c_bishop_heal" // 대치유 (자힐 — heal)
+  | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
+  // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
+  | "v2c_guardian_bulwark3" // 방벽 (받피감 +15%)
+  | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
+  | "v2c_bishop_blessing3" // 축복 (회복량 +30%)
+  | "v2c_shadow_lethality3" // 그늘 (치명 피해 +30%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 참격 (물리 단일)
   | "v2c_sensei_combo" // 난무 (물리 다단)
@@ -436,6 +447,60 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "흔들림 없는 조준. 명중이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { accuracyPct: 12 },
+  },
+
+  // ── 고차 두 번째 갈래 액티브(tier 3·방패병/수도승/사제/자객 계승) ──
+  v2c_guardian_bash: {
+    id: "v2c_guardian_bash", name: "방패 강타", stat: "str", category: "attack", tier: 3,
+    description: "방패를 앞세워 묵직하게 후려친다.", mpCost: 36, cooldown: 0, procChance: 30,
+    effects: [dmg(1.25, 230)],
+  },
+  v2c_warmonk_kick: {
+    id: "v2c_warmonk_kick", name: "연환각", stat: "vit", category: "attack", tier: 3,
+    description: "물 흐르듯 네 번 연달아 차낸다.", mpCost: 32, cooldown: 0, procChance: 40,
+    effects: hits(4, 0.5, 50),
+  },
+  v2c_bishop_heal: {
+    id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
+    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 55,
+    effects: [{ kind: "heal", pctLostHp: 45 }],
+  },
+  v2c_shadow_assassinate: {
+    // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
+    //   한 단계 강(계수·기본·배수↑). 적 HP 30%↓ ×2.2. PvE/PvP 공용.
+    id: "v2c_shadow_assassinate", name: "암살", stat: "luk", category: "attack", tier: 3,
+    description: "그림자에서 솟아 단번에 숨통을 끊는다. 적이 위태로울수록 치명적이다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [210, 210, 210], hpThresholdPct: 30, bonusMult: 2.2, scaling: "luk" },
+    ],
+  },
+
+  // ── 고차 두 번째 갈래 고유 패시브(tier 3·형제와 다른 축) ──
+  v2c_guardian_bulwark3: {
+    // 가디언 = 방패병 계승 — 받피감(damageTakenReductionPct). 기사(방어%)와 다른 축. #835 후 PvE/PvP 양쪽.
+    id: "v2c_guardian_bulwark3", name: "방벽", stat: "vit", category: "passive", tier: 3,
+    description: "온몸으로 받아낸다. 받는 피해가 줄어든다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { damageTakenReductionPct: 15 },
+  },
+  v2c_warmonk_evasion3: {
+    id: "v2c_warmonk_evasion3", name: "허공보", stat: "vit", category: "passive", tier: 3,
+    description: "흐르는 듯한 보법. 회피가 크게 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { evasionPct: 14 },
+  },
+  v2c_bishop_blessing3: {
+    // 대사제 = 사제 계승 — 회복 강화(healPowerPct·SPI 지원). 마도사(지능%)와 다른 축.
+    id: "v2c_bishop_blessing3", name: "축복", stat: "int", category: "passive", tier: 3,
+    description: "성스러운 가호. 회복량이 크게 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { healPowerPct: 30 },
+  },
+  v2c_shadow_lethality3: {
+    id: "v2c_shadow_lethality3", name: "그늘", stat: "luk", category: "passive", tier: 3,
+    description: "급소를 노리는 일격. 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { critDmgPct: 30 },
   },
 
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·

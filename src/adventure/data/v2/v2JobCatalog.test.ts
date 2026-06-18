@@ -50,13 +50,13 @@ function profWith(groupCumLevels: Record<string, number>) {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("21개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 4 + 심화 4)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(21);
+  it("25개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 8 + 심화 4)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(25);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(8);
-    expect(byTier(3)).toBe(4);
+    expect(byTier(3)).toBe(8); // 직군당 2(형제 갈래) — 가디언/무승/대사제/그림자 추가
     expect(byTier(4)).toBe(4);
   });
 
@@ -404,7 +404,7 @@ describe("DROPPED_SPEC_TO_SURVIVING 정규화 (PR-5)", () => {
   it("사라진 4계파가 흡수처 상위 직업으로 해석된다", () => {
     expect(jobIdFromLegacy("warrior", "gladiator")).toBe("squire"); // 검투사 → 견습 기사
     expect(jobIdFromLegacy("martial", "yeonhwan")).toBe("boxer"); // 연환 → 권사
-    expect(jobIdFromLegacy("mage", "battlemage")).toBe("caster"); // 워메이지 → 술사
+    expect(jobIdFromLegacy("mage", "battlemage")).toBe("caster"); // 워메이지 → 마법사(caster)
     expect(jobIdFromLegacy("rogue", "venom")).toBe("assassin"); // 독사 → 자객
   });
 

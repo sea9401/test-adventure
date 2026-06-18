@@ -66,6 +66,9 @@ export type V2PassiveSkillEffect = {
   defPct?: number;
   /** 명중 +%p 가산(정밀) — accuracyPct 에 가산(캡 적용). */
   accuracyPct?: number;
+  // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
+  /** 회복 +% 가산(치유 강화) — healMult ×(1+합산%/100). 신술 지원 라인 패시브. */
+  healPowerPct?: number;
 };
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
@@ -286,6 +289,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   lifestealPct: number;
   defPct: number;
   accuracyPct: number;
+  healPowerPct: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -298,6 +302,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let lifestealPct = 0;
   let defPct = 0;
   let accuracyPct = 0;
+  let healPowerPct = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -316,6 +321,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     lifestealPct += p.lifestealPct ?? 0;
     defPct += p.defPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
+    healPowerPct += p.healPowerPct ?? 0;
   }
   return {
     stat,
@@ -329,6 +335,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     lifestealPct,
     defPct,
     accuracyPct,
+    healPowerPct,
   };
 }
 
@@ -422,6 +429,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
   if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
   if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
+  if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   return chips;
 }
 

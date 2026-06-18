@@ -283,9 +283,11 @@ const MAGIC_DEF_PER_SPI = 0.12;
 const MAGIC_DEF_PER_INT = 0.03;
 // 치명타 저항 — 정신. 피격 시 상대 치명 확률 차감(%p).
 const CRIT_RESIST_PER_SPI = 0.1;
-// 회복량 배수 — 활력·정신 (1.0 기준 + 비례).
+// 회복량 배수 — 정신(주력)·활력(보조) (1.0 기준 + 비례). SPI 부활(#spi PR-1): spi 가 힐 주축
+// 스탯이 되도록 0.0025→0.006(vit 0.004 의 1.5배). vit 는 maxHp(=pctMaxHp/pctLostHp 힐의 분모)로도
+// 힐에 기여하므로 healMult 직접항은 보조. 신술 지원 라인(사제) 힐이 정신으로 스케일.
 const HEAL_MULT_PER_VIT = 0.004;
-const HEAL_MULT_PER_SPI = 0.0025;
+const HEAL_MULT_PER_SPI = 0.006;
 // PR-luk-critdmg — LUK → 크리 데미지 배수. v2 는 그동안 luk 를 크리 확률(CRIT_PER_LUK)에만
 // 쓰고 크리 데미지는 CRIT_MULT_BASE(2.0×) 고정이었다. 그래서 LUK 빌드는 atk 가 낮아(luk×0.04)
 // 크리가 터져도 약했다(sim: 전 빌드 중 최약). luk 가 크리 데미지도 키우게 해 '크리 빌드'
@@ -405,6 +407,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveDefPct?: number;
   /** 명중 +%p(정밀, 다양성 2차) — accuracyPct 에 가산(캡 적용). PvE/PvP 양쪽. */
   passiveAccuracyPct?: number;
+  /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
+  passiveHealPowerPct?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -508,11 +512,13 @@ export function derivePlayerCombatV2Pure(
       totalStats.int * MIN_DMG_PER_INT +
       totalStats.vit * MIN_DMG_PER_VIT,
   );
-  // 회복량 배수(신규) — 활력·정신. heal effect 스케일(1.0 기준).
+  // 회복량 배수(신규) — 정신(주력)·활력(보조). heal effect 스케일(1.0 기준). 회복강화 패시브
+  //   (신술 지원)는 곱연산 ×(1+%/100). 미지정 = ×1(byte-identical).
   const healMult =
-    1 +
-    totalStats.vit * HEAL_MULT_PER_VIT +
-    totalStats.spi * HEAL_MULT_PER_SPI;
+    (1 +
+      totalStats.vit * HEAL_MULT_PER_VIT +
+      totalStats.spi * HEAL_MULT_PER_SPI) *
+    (1 + (input.passiveHealPowerPct ?? 0) / 100);
   // 코어루프 모험가 HP 패시브 — flag on + 무직(=모험가)일 때만 ×1.1. flag off = ×1.0(무변경).
   // 직업 시스템 v2 — 최대 HP/MP % 패시브(체력/마나). 미지정(flag off/sim) = ×1(무변경).
   const maxHp = Math.floor(
@@ -915,6 +921,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveLifestealPct: passiveAgg.lifestealPct,
     passiveDefPct: passiveAgg.defPct,
     passiveAccuracyPct: passiveAgg.accuracyPct,
+    passiveHealPowerPct: passiveAgg.healPowerPct,
   });
 }
 

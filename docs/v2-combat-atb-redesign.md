@@ -1,6 +1,7 @@
 # v2 전투 ATB(속도 타임라인) 재설계
 
-> 상태: Phase 1 진행 중(이 문서는 분실됐던 설계를 메모리+Codex 실측으로 복원·커밋한 것).
+> 상태(2026-06-18): **Phase 1·2·4·5 LIVE**(#768~772). **Phase 3(turn→tick) = supersede(미추진)** —
+> 아래 §Phase 3 결정 참조. ATB 아크는 사실상 완성(action-count 지속시간 모델 유지).
 > 전부 마스터 플래그 `V2_CORE_LOOP_V2` 뒤 — flag-off = 현행 고정교대 전투 바이트 동일.
 
 ## 목표
@@ -36,9 +37,23 @@ ATB 탓 아님 — 다양성(빠른딜 vs 버티기). 탱크는 화력 낮으면
 - **Phase 1 — PvE `resolveBattle`** (현재). 고정교대 → ATB 타임라인. flag-gate 로 점진:
   현 본문 `resolveBattleLegacy` 보존 + 디스패처가 flag 로 ATB/legacy 분기. flag-off 골든 불변.
 - Phase 2 — PvP(`engine-pvp.ts`).
-- Phase 3 — 스킬 지속시간 turn→tick. ⚠️ 새 스킬 시스템 위에 얹어야 헛수고 방지 → **스킬 리워크 뒤로**.
-- Phase 4 — 몬스터 SPD 튜닝.
-- Phase 5 — UI 타임라인 로그.
+- Phase 3 — 스킬 지속시간 turn→tick. **❌ supersede(미추진, 2026-06-18 결정) — §Phase 3 결정 참조.**
+- Phase 4 — 몬스터 SPD 튜닝. ✅(#771)
+- Phase 5 — UI 타임라인 로그. ✅(#772)
+
+### §Phase 3 결정 — supersede(미추진), action-count 모델 유지 (2026-06-18)
+
+스킬 리워크가 끝나 Phase 3(지속시간 turn→tick) 착수 가능해졌으나, 분석 결과 **원안이 ATB
+설계 의도와 모순**이라 추진하지 않기로 확정(오너 승인).
+
+- **현 모델(action-count, Phase 1에서 구현)**: 버프/디버프/DoT 가 소유 액터의 행동묶음마다 1씩
+  감소 = "내 행동 N번 동안 유지". **속도-중립** — 누구나 버프받은 행동 N번 동일.
+- **tick 전환 시 문제**: 고정 틱 동안 유지로 바꾸면, 빠른 빌드(궁사·도적, 행동 2배)가 같은 틱
+  창에서 **버프받은 행동도 2배** → "행동 2배 × 버프 적용 2배" 곱연산 이득. 이는 RATE_CAP·
+  extraAttackChancePct 제거로 *애써 통제한 빠른 빌드 과열*을 되살리는 방향.
+- **귀결**: action-count 가 오히려 더 균형(속도-중립). turn→ticks 환산도 모호(문서 기존 "모호점").
+  골든·밸런스 리스크 대비 가치 마이너스 → **미추진**. 필요 시 특정 케이스만 좁게 손보는 것은 별개.
+- 남은 ATB 후속(선택): 문서 "모호점"의 extraAttack derive 분리·Shadow Step 공격당 판정 등.
 
 ### Phase 1 서브스텝
 

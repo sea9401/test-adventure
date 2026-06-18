@@ -10,6 +10,7 @@ import {
   LEGACY_CLASS_SPEC_BY_JOB,
   isJobUnlocked,
   jobIdFromLegacy,
+  type JobUnlockContext,
 } from "./v2JobCatalog";
 import { groupCumLevel, type V2ProficiencyState } from "./proficiency";
 import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
@@ -120,6 +121,7 @@ export function buildJobCodex(
   cls: string,
   specChoice: string | null,
   loadoutPresetSlotsBought: number = 0,
+  unlockCtx?: JobUnlockContext,
 ): JobCodex {
   const learned = new Set(learnedSkillIds);
   const currentJobId = jobIdFromLegacy(cls, specChoice);
@@ -144,7 +146,7 @@ export function buildJobCodex(
       name: job.name,
       tier: job.tier,
       group: groupOfJob(job.id),
-      unlocked: isJobUnlocked(job, prof),
+      unlocked: isJobUnlocked(job, prof, unlockCtx),
       isCurrent: job.id === currentJobId,
       passive:
         passiveId && passiveDef

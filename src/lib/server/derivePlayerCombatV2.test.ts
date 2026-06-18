@@ -761,16 +761,16 @@ describe("derivePlayerCombatV2Pure 전문화(스펙) 패시브 (P3c — docs/v2-
     expect(d.player.mpRegenPerTurn).toBe(8);
   });
 
-  it("무기 게이트 불통과(미태깅 무기) = 완전 비활성", () => {
-    // 정규 무기는 이제 전부 전문화타입 태깅 → 미태깅은 유니크(드랍 전용)뿐.
-    // greatsword 가 아니므로 광검 게이트 불통과.
+  it("무기 게이트 불통과(타입 불일치 무기) = 완전 비활성", () => {
+    // 광검 게이트는 greatsword 요구 → 단검 장착 시 불통과(타입 불일치). (들판 유니크 삭제 후
+    //   미태깅 무기는 없으므로, 타입 불일치 정규 무기로 검증.)
     const baseNoType = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_uniq_starcleaver" as V2EquipmentId },
+      v2Equipped: { weapon: "v2_toxic_dagger" as V2EquipmentId },
     });
     const d = derivePlayerCombatV2Pure({
       ...base,
-      v2Equipped: { weapon: "v2_uniq_starcleaver" as V2EquipmentId }, // 타입 없는 무기
+      v2Equipped: { weapon: "v2_toxic_dagger" as V2EquipmentId }, // 단검 ≠ greatsword
       spec: gwang,
       unlockedPassives: ["gwang_cut", "gwang_pierce", "gwang_crit"],
     });

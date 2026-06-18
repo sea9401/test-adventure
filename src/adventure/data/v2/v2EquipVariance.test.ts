@@ -108,12 +108,12 @@ describe("effectiveStats", () => {
     ).toEqual({ power: 16, weight: 1, options: { crit: 3 } });
   });
 
-  it("2옵션 아이템: 굴림 일부 키만이면 나머지는 카탈로그 — 잠행복 eva굴림+crit카탈로그", () => {
-    // shadow_garb 카탈로그 옵션 {eva:2, crit:2}. 굴림이 eva만 담음 → crit 은 카탈로그 유지.
-    const garb = V2_EQUIPMENT.v2_uniq_shadow_garb;
+  it("2옵션 아이템: 굴림 일부 키만이면 나머지는 카탈로그 — 회피망토 eva굴림+hp카탈로그", () => {
+    // lake_dodge_cloak 카탈로그 옵션 {eva:10, hp:40}. 굴림이 eva만 담음 → hp 는 카탈로그 유지.
+    const cloak = V2_EQUIPMENT.v2_lake_dodge_cloak;
     expect(
-      effectiveStats(garb, { power: 1, weight: 2, options: { eva: 3 } }),
-    ).toEqual({ power: 1, weight: 2, options: { eva: 3, crit: 2 } });
+      effectiveStats(cloak, { power: 12, weight: 1, options: { eva: 25 } }),
+    ).toEqual({ power: 12, weight: 1, options: { eva: 25, hp: 40 } });
   });
 
   it("옵션 없는 아이템은 굴림에 옵션이 있어도 주입 안 함 — 철검", () => {
@@ -181,7 +181,7 @@ describe("selectBulkSell", () => {
     { iid: "lock", id: id("v2_iron_sword"), locked: true }, // 잠금 → 제외
     { iid: "sell1", id: id("v2_iron_sword") }, // 판매(무기)
     { iid: "sell2", id: id("v2_leather_armor") }, // 판매(갑옷)
-    { iid: "uniq", id: id("v2_uniq_shadow_garb") }, // 유니크도 이제 판매 가능(잠금으로만 보호)
+    { iid: "uniq", id: id("v2_lake_dodge_cloak") }, // 유니크도 이제 판매 가능(잠금으로만 보호)
   ];
   const equipped = { weapon: "eq" };
 
@@ -192,7 +192,7 @@ describe("selectBulkSell", () => {
     expect(plan.gold).toBe(
       (sellPriceOf(V2_EQUIPMENT.v2_iron_sword) ?? 0) +
         (sellPriceOf(V2_EQUIPMENT.v2_leather_armor) ?? 0) +
-        (sellPriceOf(V2_EQUIPMENT.v2_uniq_shadow_garb) ?? 0),
+        (sellPriceOf(V2_EQUIPMENT.v2_lake_dodge_cloak) ?? 0),
     );
   });
 

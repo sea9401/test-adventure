@@ -194,13 +194,13 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (110종 — 6슬롯)", () => {
-  it("정규 그리드 29종 + 유니크 24 + 전문화 스타터 3 (제작전용 0; 장갑/신발 중갑 폐기 후)", () => {
-    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기) 후 카탈로그 110:
+describe("V2_EQUIPMENT grid (104종 — 6슬롯)", () => {
+  it("정규 그리드 29종 + 유니크 18 + 전문화 스타터 3 (제작전용 0; 장갑/신발 중갑 폐기 후)", () => {
+    // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 104:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · 밴드 흔한(noDrop) 54 · 유니크 24.
-    // 총 110 = 정규 29 + 유니크 24 + 전문화 스타터 3 + 밴드 흔한 54.
+    //   전문화 스타터 3 · 밴드 흔한(noDrop) 54 · 유니크 18(밴드 15 + 보스 3).
+    // 총 104 = 정규 29 + 유니크 18 + 전문화 스타터 3 + 밴드 흔한 54.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -208,7 +208,7 @@ describe("V2_EQUIPMENT grid (110종 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(24);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(18);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(all.filter((i) => i.noDrop), "밴드 흔한(드랍 전용)").toHaveLength(54);
@@ -587,20 +587,22 @@ describe("setInstanceLock", () => {
 
 // 전문화 무기 게이트 (docs/v2-job-spec-passives-plan.md §4) — 무기 종류 태깅 + 순수 헬퍼.
 describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)", () => {
-  it("weaponTypeOf — 태깅된 무기는 종류 반환, 일반 무기·미장착은 undefined", () => {
+  it("weaponTypeOf — 태깅된 무기는 종류 반환, 비무기·미장착은 undefined", () => {
     expect(weaponTypeOf("v2_greatsword")).toBe("greatsword"); // 태깅됨
-    // 정규 무기는 이제 전부 전문화타입 태깅. 미태깅은 유니크(드랍 전용)뿐.
-    expect(weaponTypeOf("v2_uniq_starcleaver")).toBeUndefined(); // 유니크 무기(타입 없음)
+    expect(weaponTypeOf("v2_toxic_dagger")).toBe("dagger"); // 태깅됨(단검)
+    // 무기는 이제 전부 전문화타입 태깅(들판 유니크 삭제 후). 비무기는 weaponType 없음.
+    expect(weaponTypeOf("v2_leather_armor")).toBeUndefined(); // 비무기(방어구)
     expect(weaponTypeOf(undefined)).toBeUndefined();
     expect(weaponTypeOf(null)).toBeUndefined();
   });
 
-  it("weaponGateOpen — 일치=통과, 불일치/일반무기=차단, required 없으면 항상 통과", () => {
+  it("weaponGateOpen — 일치=통과, 타입 불일치/비무기=차단, required 없으면 항상 통과", () => {
     expect(weaponGateOpen("v2_greatsword", "greatsword")).toBe(true); // 일치
-    expect(weaponGateOpen("v2_uniq_starcleaver", "greatsword")).toBe(false); // 미태깅 무기 → 완전 비활성
+    expect(weaponGateOpen("v2_toxic_dagger", "greatsword")).toBe(false); // 타입 불일치(단검≠대검) → 완전 비활성
     expect(weaponGateOpen("v2_greatsword", "staff")).toBe(false); // 다른 무기군
+    expect(weaponGateOpen("v2_leather_armor", "greatsword")).toBe(false); // 비무기
     expect(weaponGateOpen(undefined, "greatsword")).toBe(false); // 미장착
-    expect(weaponGateOpen("v2_uniq_starcleaver", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
+    expect(weaponGateOpen("v2_greatsword", undefined)).toBe(true); // 게이트 없는 패시브(베이스)
   });
 
   it("weaponType 필드는 무기 슬롯에서만 — 방어구·장신구엔 미부여", () => {

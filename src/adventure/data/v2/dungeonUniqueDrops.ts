@@ -30,12 +30,14 @@ export type UniqueFloorPool = {
 };
 
 export const UNIQUE_FLOOR_POOLS: Record<DungeonFloorId, UniqueFloorPool> = {
-  1: { chance: 0.0006, ids: ["v2_uniq_shadow_garb"] },
-  2: { chance: 0.0006, ids: ["v2_uniq_trickster_boots"] },
-  3: { chance: 0.0007, ids: ["v2_uniq_giant_fist"] },
-  4: { chance: 0.0008, ids: ["v2_uniq_berserker_fang"] },
-  5: { chance: 0.001, ids: ["v2_uniq_starcleaver", "v2_uniq_sage_seal"] },
-  // 6~8 층은 빈 풀 — 깊은 산(7~12)+ 심층은 BAND_UNIQUE_POOLS(깊이 키)가 담당.
+  // 들판 유니크 6종 전부 삭제(2026-06-19, 초반 정리) — 보유분은 LEGACY_ID_REMAP 으로 동슬롯
+  //   정규템 비파괴 마이그. 들판 구간은 정규 그리드만 드랍(특수 드랍 없음·온보딩 단순화).
+  //   심층 유니크는 BAND_UNIQUE_POOLS(깊이 키)가 담당.
+  1: { chance: 0, ids: [] },
+  2: { chance: 0, ids: [] },
+  3: { chance: 0, ids: [] },
+  4: { chance: 0, ids: [] },
+  5: { chance: 0, ids: [] },
   6: { chance: 0, ids: [] },
   7: { chance: 0, ids: [] },
   8: { chance: 0, ids: [] },

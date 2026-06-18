@@ -59,10 +59,12 @@ spi = **신술 = 버스트(마법·치명)를 받아치고 자신/아군을 지�
 | **PR-1** | 회복 spi 주축화 + spi%/회복강화 지원 패시브 | 저 | ✅ #819 LIVE. 끊긴 사제 루프 복구 |
 | **PR-2** | spi·magicDef 장비 어픽스 | 중 | itemize 경로. 개체 모델·옵션 풀 합류 |
 | **PR-3a** | 마법형 몹(atkType:"magic" → 마법방어 경감) | 고 | ✅ 구현. 4몹 태그·엔진 분기·sim 검증 |
-| **PR-3b** | 치명형 몹(critPct → 치명저항 PvE) | 고 | 잔여. critResist PvE 미러 + 캡 |
+| **PR-3b** | 치명형 몹(critPct → 치명저항 PvE) | 고 | ✅ 구현. critResist PvE 미러 + cap 50 + 3몹 |
 | **PR-4** | 앵커/직업 정체성 + 매뉴얼 | 저 | 지원 직업 spi 강화 + 매뉴얼 |
 
 **PR-3a 구현(2026-06-18)**: Monster `atkType?:"physical"|"magic"` 신설(types.ts·v2 전용 옵셔널). engine.enemyPhase `resolveEnemyPhase`(legacy+ATB 공유)에서 magic 이면 `damageBetween(enemyAtk, player.magicDef)` — 물리 파이프라인(brace/pierce/취약/defDebuff/v2DefMult) 우회, 피격후 일반감산(인내/받피감/가드/철벽)은 적용. 로그 `[마법]` 마커. 태그 4몹(스킬 없는 정령/망령, statusSkill 한기와 무충돌): 얼음 정령·호수 망령·성소 망령·독안개 정령. 🔑 atkType 보존 체인 검증: V2_MONSTERS→scaleMonsterForFloor(spread)→hunt route enemyMonster(`...scaledEnemy`)→state.enemy. **sim(sim-v2-spi-magicmob.ts)**: 저~중심도 물리탱크 ×1.9~2.3(약점)·정신 ×0.3~0.4(카운터)·무투자 ×1.0(중립). ⚠️**고심도(atk≫def) 압축 ×1.1** — damageBetween 의 atk−def 지배로 def/magicDef 차이 묻힘(=기존 def 무용화 이슈, 엔드 슬로빌드 생존과 동일 구조. PR-3a 신규 벽 아님).
+
+**PR-3b 구현(2026-06-18)**: Monster `critPct?`/`critMult?` 신설. engine.enemyPhase: 명중 확정(회피/가드/무효 분기 통과) 뒤 `effCritPct = max(0, critPct − player.critResistPct)` 굴려 적중 시 `×(critMult ?? 1.5)`(heavy_blow 와 곱연산 preMitMult). 🔑 **critPct 0(잡몹)이면 굴림 자체 스킵 → RNG 스트림 불변·기존 전투 byte-identical**(골든 9 불변). 로그 `[치명]`. derive `critResistPct` cap 50(eva/acc cap 패턴·PvP+PvE 공통·완전봉인 방지·고-spi runaway 차단). 태그 3몹(precision 테마): 협곡 도적·동굴 포식자·우두머리 늑대(critPct 30). **sim(sim-v2-spi-critmob.ts)**: 기대피해 무투자 +14.3%·정신중(spi200) +4.2%·정신대(spi300) +0%(완전 카운터). engine.critMob.test.ts(5)+critResist cap 테스트. 치명형은 마법형과 달리 평균 피해 소폭↑(버스트 위협)이라 "총중립" 아님 — 의도된 위험 몹, 정신이 완화. Codex 비블로킹: ①cap 은 PvP critResist 도 적용(spi>500, 현 범위 밖·주석 명시) ②**치명은 기본공격만**(몹 스킬딜·DoT 틱은 치명 안 함 — 의도된 1차 스코프). 배포후 3몹 사망률 모니터(스윙 과하면 critPct 30→20).
 
 ## 밸런스 가드
 - PR-1 힐 주축 이동 → 솔로 PvE 과회복/장기전 무한버티기 주의(sim). 힐은 협동보스·전쟁·엔드 장기전에서 빛나야지 솔로 사냥 무적화는 금지. 🔑 **PR-4 게이트(Codex 권고)**: `healPowerPct` 패시브를 직업에 달기 전에 **고-SPI 사제 sustain sim** 1회(PR-1 기준 spi 단독 천장 healMult≈1.04로 폭주 없음 확인됨 — gear/패시브 추가 시 재점검). PR-2(spi gear)·PR-4(회복강화 패시브)가 healMult 천장을 올리므로 그때 sim 필수.

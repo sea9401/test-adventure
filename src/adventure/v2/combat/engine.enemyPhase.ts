@@ -16,6 +16,10 @@ import {
   EVASION_PCT_CAP,
 } from "@/adventure/data/stats";
 
+// 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
+//   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
+const MONSTER_CRIT_MULT_DEFAULT = 1.5;
+
 // 적 페이즈 전체 — advanceTurn 에서 플레이어 페이즈(평타·스킬)와 분량을 가르기 위해 분리한다.
 // 한기 틱 → 잔상(AP 블록) → 회피 캐스케이드(그림자보법·보장회피·%회피·별빛가드·흘려막기·
 // 행운의방패) → 적 데미지 적용(반사·반격·보호막) 순. 이 구간의 지역 상태(evadeHeal·무한가시·
@@ -514,9 +518,23 @@ export function resolveEnemyPhase(
     ? Math.max(0, player.magicDef ?? 0)
     : v2EffectivePlayerDef;
   const baseEnemyDmg = damageBetween(v2EffectiveEnemyAtk, defenseForAttack);
-  const rawDmgBeforeReduction = heavyBlowFired
-    ? Math.max(1, Math.floor(baseEnemyDmg * heavyBlowMult))
-    : baseEnemyDmg;
+  // 치명형 몹(SPI PR-3b) — critPct 굴려(플레이어 critResistPct=정신 차감) 적중 시 피해 ×critMult.
+  //   heavy_blow 와 곱연산. 🔑 critPct 0(잡몹)이면 굴림 자체를 스킵 → RNG 스트림 불변(기존 전투
+  //   byte-identical). 이 지점은 회피/가드/무효 분기를 모두 통과(=명중 확정)한 뒤라 헛굴림 없음.
+  const effMonsterCritPct = Math.max(
+    0,
+    (state.enemy.critPct ?? 0) - (player.critResistPct ?? 0),
+  );
+  const monsterCritFired =
+    effMonsterCritPct > 0 && Math.random() * 100 < effMonsterCritPct;
+  const monsterCritMult = monsterCritFired
+    ? (state.enemy.critMult ?? MONSTER_CRIT_MULT_DEFAULT)
+    : 1;
+  const preMitMult = heavyBlowMult * monsterCritMult;
+  const rawDmgBeforeReduction =
+    preMitMult !== 1
+      ? Math.max(1, Math.floor(baseEnemyDmg * preMitMult))
+      : baseEnemyDmg;
   // 결의 (AP) — 받는 피해 -pct%. 가드/굳건/철벽 전에 곱연산으로 먼저 깎이도록.
   const rawDmg =
     state.buffs.playerDmgReductionTurnsLeft > 0 &&
@@ -626,7 +644,8 @@ export function resolveEnemyPhase(
   }
   const atkPrefix =
     (heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "") +
-    (magicAttack ? "[마법] " : "");
+    (magicAttack ? "[마법] " : "") +
+    (monsterCritFired ? "[치명] " : "");
   log = appendLog(log, {
     kind: "enemy_attack",
     text: `${atkPrefix || "공격! "}${dmgToHp} 피해를 입혔다.`,

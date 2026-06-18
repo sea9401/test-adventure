@@ -18,6 +18,7 @@ function ctx(over: Partial<V2PatternCtx> = {}): V2PatternCtx {
     selfHpPct: 100,
     selfMpPct: 100,
     selfBuffStats: new Set<StatKey>(),
+    selfBuffPctTargets: new Set<"evasion" | "crit" | "damageReduction">(),
     enemyHpPct: 100,
     enemyBleed: 0,
     enemyPoison: 0,
@@ -51,6 +52,16 @@ describe("conditionPasses", () => {
     expect(conditionPasses({ kind: "self_buff", stat: "str", active: false }, buffed)).toBe(false);
     expect(conditionPasses({ kind: "self_buff", stat: "str", active: false }, ctx())).toBe(true);
     expect(conditionPasses({ kind: "self_buff", stat: "str", active: true }, buffed)).toBe(true);
+  });
+
+  it("self_buff_pct active/inactive — 파생버프(회피/철포) 재시전 패턴", () => {
+    const eva = ctx({ selfBuffPctTargets: new Set(["evasion" as const]) });
+    // "회피 버프 없을 때만"(선풍각 기본조건) → 버프 중이면 false(평타), 만료면 true(재시전).
+    expect(conditionPasses({ kind: "self_buff_pct", target: "evasion", active: false }, eva)).toBe(false);
+    expect(conditionPasses({ kind: "self_buff_pct", target: "evasion", active: false }, ctx())).toBe(true);
+    expect(conditionPasses({ kind: "self_buff_pct", target: "evasion", active: true }, eva)).toBe(true);
+    // 다른 타깃은 독립.
+    expect(conditionPasses({ kind: "self_buff_pct", target: "crit", active: false }, eva)).toBe(true);
   });
 
   it("enemy_hp — 처형 패턴", () => {

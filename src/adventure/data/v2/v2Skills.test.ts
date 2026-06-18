@@ -127,6 +127,13 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warrior_warcry)).toEqual({
       kind: "self_buff", stat: "str", active: false,
     });
+    // 파생버프(선풍각=회피·철포=받피감 selfBuffPct) → 그 버프 없을 때(만료 시 재시전·오프너 한계 해소).
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_monk_palm)).toEqual({
+      kind: "self_buff_pct", target: "evasion", active: false,
+    });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_steelguard)).toEqual({
+      kind: "self_buff_pct", target: "damageReduction", active: false,
+    });
   });
 
   it("명상은 기본 패턴에서 '항상' 이 아니다 (매 턴 발동 → 공격 안 함 버그 방지)", () => {

@@ -24,6 +24,12 @@ export type V2CombatCondition =
   | { kind: "self_mp"; op: "below" | "above"; pct: number }
   // 내 상태 — 특정 스탯 버프 활성/미활성(재버프 낭비 방지 등). v2SelfBuffs 키 = StatKey.
   | { kind: "self_buff"; stat: StatKey; active: boolean }
+  // 내 파생 버프(회피/치명/받피감 = selfBuffPct) 활성/미활성 — 만료 시 재시전(선풍각·철포).
+  | {
+      kind: "self_buff_pct";
+      target: "evasion" | "crit" | "damageReduction";
+      active: boolean;
+    }
   // 적 HP 비율.
   | { kind: "enemy_hp"; op: "below" | "above"; pct: number }
   // 적 상태 — DoT/취약 스택. atLeast = stacks 이상, none = 0(스택 없을 때).
@@ -46,6 +52,7 @@ export type V2PatternCtx = {
   selfHpPct: number; // 0~100
   selfMpPct: number; // 0~100
   selfBuffStats: ReadonlySet<StatKey>; // 활성 자버프의 스탯들
+  selfBuffPctTargets: ReadonlySet<"evasion" | "crit" | "damageReduction">; // 활성 파생버프(회피/치명/받피감)
   enemyHpPct: number; // 0~100
   enemyBleed: number; // 스택
   enemyPoison: number;
@@ -79,6 +86,8 @@ export function conditionPasses(
         : ctx.selfMpPct >= cond.pct;
     case "self_buff":
       return ctx.selfBuffStats.has(cond.stat) === cond.active;
+    case "self_buff_pct":
+      return ctx.selfBuffPctTargets.has(cond.target) === cond.active;
     case "enemy_hp":
       return cond.op === "below"
         ? ctx.enemyHpPct <= cond.pct
@@ -169,6 +178,14 @@ function parseCondition(raw: unknown): V2CombatCondition | null {
     case "self_buff": {
       if (typeof c.stat !== "string" || typeof c.active !== "boolean") return null;
       return { kind: "self_buff", stat: c.stat as StatKey, active: c.active };
+    }
+    case "self_buff_pct": {
+      const target =
+        c.target === "evasion" || c.target === "crit" || c.target === "damageReduction"
+          ? c.target
+          : null;
+      if (!target || typeof c.active !== "boolean") return null;
+      return { kind: "self_buff_pct", target, active: c.active };
     }
     case "enemy_status": {
       const tag =

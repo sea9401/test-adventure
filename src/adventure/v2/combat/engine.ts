@@ -1505,6 +1505,12 @@ function resolveBattleLegacy(
             currentHp: state.playerHp,
             maxMp: state.playerMaxMp,
             classTier: player.classTier,
+            // 활성 파생버프(회피/치명/받피감) — self_buff_pct 조건 평가용(만료 시 재시전 선풍각·철포).
+            selfBuffPctActive: {
+              evasion: state.stacks.skillEvasionTurns > 0,
+              crit: state.stacks.skillCritTurns > 0,
+              damageReduction: state.stacks.skillDmgReduceTurns > 0,
+            },
             selfBuffs: tickedSelfBuffs,
             selfDebuffs: tickedSelfDebuffs,
             // PR-5b — 플레이어 평타 속성(baked) + 캐릭 속성(스킬 기본).

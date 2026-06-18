@@ -7,10 +7,24 @@ import {
   describeV2Skill,
   smartDefaultConditionForSkill,
   smartDefaultPatternFromEquipped,
+  aggregateEquippedPassives,
   spCostOf,
   rubricSpCost,
   type V2SkillId,
 } from "./v2Skills";
+
+describe("사제 회복 패시브 (SPI PR-4 — v2c_acolyte_mana 리스킨)", () => {
+  it("v2c_acolyte_mana 는 회복강화(healPowerPct) 패시브 — 옛 마나(maxMpPct) 아님", () => {
+    const p = V2_SKILLS.v2c_acolyte_mana?.passive;
+    expect(p?.healPowerPct).toBe(20);
+    expect(p?.maxMpPct ?? 0).toBe(0); // 리스킨으로 MP% 제거
+    expect(V2_SKILLS.v2c_acolyte_mana?.name).toBe("회복");
+  });
+  it("aggregateEquippedPassives 가 healPowerPct 를 합산한다", () => {
+    expect(aggregateEquippedPassives(["v2c_acolyte_mana"]).healPowerPct).toBe(20);
+    expect(aggregateEquippedPassives([]).healPowerPct).toBe(0);
+  });
+});
 
 describe("v2Skills 카탈로그", () => {
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {

@@ -1092,3 +1092,38 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
     expect(b.accuracyPct ?? 0).toBe(a.accuracyPct ?? 0);
   });
 });
+
+describe("derivePlayerCombatV2Pure healMult (SPI 부활 PR-1 — 정신 주력 힐 + 회복강화)", () => {
+  const base = { level: 50, v2Equipped: {}, playerClass: "warrior" as const };
+  it("정신(spi)이 힐 주축 — +0.006/스탯, vit(+0.004)보다 큰 기여", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player; // 기본 spi 15·vit 15
+    const spiBuild = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { spi: 100 },
+    }).player;
+    const vitBuild = derivePlayerCombatV2Pure({
+      ...base,
+      allocatedStats: { vit: 100 },
+    }).player;
+    // spi +100 → healMult +0.6, vit +100 → +0.4. 정신이 더 큰 힐 스탯.
+    expect((spiBuild.healMult ?? 1) - (plain.healMult ?? 1)).toBeCloseTo(0.6, 5);
+    expect((vitBuild.healMult ?? 1) - (plain.healMult ?? 1)).toBeCloseTo(0.4, 5);
+    expect(spiBuild.healMult ?? 1).toBeGreaterThan(vitBuild.healMult ?? 1);
+  });
+  it("회복강화 패시브(passiveHealPowerPct) — healMult 곱연산 ×(1+%/100)", () => {
+    const plain = derivePlayerCombatV2Pure({ ...base }).player;
+    const boosted = derivePlayerCombatV2Pure({
+      ...base,
+      passiveHealPowerPct: 25,
+    }).player;
+    expect(boosted.healMult ?? 1).toBeCloseTo((plain.healMult ?? 1) * 1.25, 5);
+  });
+  it("passiveHealPowerPct 0/미지정 = 무영향(byte-identical)", () => {
+    const a = derivePlayerCombatV2Pure({ ...base }).player;
+    const b = derivePlayerCombatV2Pure({
+      ...base,
+      passiveHealPowerPct: 0,
+    }).player;
+    expect(b.healMult ?? 1).toBe(a.healMult ?? 1);
+  });
+});

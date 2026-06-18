@@ -9,6 +9,7 @@ import {
   TRAIT_BONUS_KIND,
   TRAIT_BONUS_PCT,
   UPGRADE_COST,
+  VILLAGE_NAME_MAX,
   nextTier,
   type VillageTier,
   type ProductionKind,
@@ -52,6 +53,7 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
   const [exists, setExists] = useState<boolean | null>(null); // null=로딩
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [buildName, setBuildName] = useState(""); // 건설 폼 이름 입력
   // 카운트다운용 — 로드 시각 기준 readyAt 환산 + 1초 틱.
   const [loadedAt, setLoadedAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -123,6 +125,8 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
     return m;
   }, [village]);
 
+  // 건설됨 = 마을 존재 + 이름 부여. 빈 공터/미명명은 먼저 건설(/build) 해야 생산 열림.
+  const built = !!village && village.name != null;
   // 업그레이드 가능 여부(클라 표시용 — 서버가 권위).
   const next = village ? nextTier(village.tier) : null;
   const upgradeCost = village ? (UPGRADE_COST[village.tier] ?? {}) : {};
@@ -144,14 +148,15 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
     <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-          🏡 마을{" "}
-          {village ? (
+          🏡 {built && village ? village.name : "빈 공터"}
+          {built && village ? (
             <span className="text-zinc-600 dark:text-zinc-300">
+              {" "}
               · {VILLAGE_TIER_NAME[village.tier]}
             </span>
           ) : null}
         </h3>
-        {village && (
+        {built && village && (
           <span className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
             {TERRAIN_TRAIT_NAME[village.trait]}
             {TRAIT_BONUS_KIND[village.trait] && (
@@ -174,16 +179,31 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
         ))}
       </div>
 
-      {!village ? (
-        // 마을 미건설 — 빈 슬롯 1개로 첫 생산 시 자동 발생(PR-2 lazy). slot 0 에 종류 선택.
+      {!built ? (
+        // 빈 공터/미명명 — 마을을 세우고 이름을 짓는다(건설 후 생산 열림).
         <div className="space-y-1.5">
           <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            아직 비어 있는 땅이에요. 생산을 시작하면 마을이 세워집니다.
+            점령한 빈 공터예요. 마을을 세우면 생산을 시작할 수 있어요.
           </div>
-          <KindPicker
-            disabled={busy}
-            onPick={(kind) => void act("produce", { slot: 0, kind })}
-          />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={buildName}
+              onChange={(e) => setBuildName(e.target.value)}
+              maxLength={VILLAGE_NAME_MAX}
+              placeholder="마을 이름"
+              disabled={busy}
+              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+            <button
+              type="button"
+              disabled={busy || buildName.trim().length === 0}
+              onClick={() => void act("build", { name: buildName.trim() })}
+              className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              마을 건설
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -257,7 +277,13 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
                 ? "재화가 부족해요."
                 : err === "not_owner"
                   ? "이 거점의 점령 길드만 관리할 수 있어요."
-                  : `오류: ${err}`}
+                  : err === "not_built"
+                    ? "먼저 마을을 건설해야 해요."
+                    : err === "already_built"
+                      ? "이미 세워진 마을이에요."
+                      : err === "invalid_name"
+                        ? "이름은 1~16자로 지어주세요."
+                        : `오류: ${err}`}
         </div>
       )}
     </section>

@@ -14,6 +14,7 @@ import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { BankPanel } from "./BankPanel";
+import { V2VillagePanel } from "./V2VillagePanel";
 import { useGameState } from "./GameStateProvider";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
@@ -362,6 +363,9 @@ export function OutpostView({
         )}
 
         {canUseBank && <BankPanel />}
+
+        {/* 마을 생산 — 점령 길드만(서버 소유 가드도 동일). 생산/수확/업그레이드. */}
+        {isOwner && <V2VillagePanel outpostId={outpost.id} />}
 
         {/* 정책·세율 설정은 길드 탭 > 관리로 이관 (#689 OutpostPolicyEditor). */}
 

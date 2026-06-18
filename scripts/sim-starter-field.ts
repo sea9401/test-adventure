@@ -22,8 +22,8 @@ type Build = "검사(STR/대검)" | "궁수(DEX/활)" | "마법사(INT/지팡이
 // 풀 T1 상점 세트 — 무기 결에 맞춘 갑옷/장갑/신발 + 반지·목걸이.
 const T1_GEAR: Record<Build, Partial<Record<V2EquipSlot, V2EquipmentId>>> = {
   "검사(STR/대검)": {
-    weapon: "v2_iron_sword", armor: "v2_chain_mail", gloves: "v2_iron_gauntlets",
-    boots: "v2_iron_boots", ring: "v2_silver_ring", necklace: "v2_jade_amulet",
+    weapon: "v2_iron_sword", armor: "v2_chain_mail", gloves: "v2_leather_gloves",
+    boots: "v2_leather_boots", ring: "v2_silver_ring", necklace: "v2_jade_amulet",
   },
   "궁수(DEX/활)": {
     weapon: "v2_wooden_bow", armor: "v2_leather_armor", gloves: "v2_leather_gloves",
@@ -114,8 +114,8 @@ console.log("기준선: 'WR 100% & killT 낮음' = 무난. WR<90% 또는 killT �
 
 // ── 깊은산(깊이 7~10) 게이트 — T3/T5 장비로 닫히는지 확인 ──
 const GEARED: Record<"T3검사" | "T5검사", Partial<Record<V2EquipSlot, V2EquipmentId>>> = {
-  T3검사: { weapon: "v2_greatsword", armor: "v2_full_plate", gloves: "v2_plate_gauntlets", boots: "v2_plate_boots", ring: "v2_lucky_charm", necklace: "v2_crystal_amulet" },
-  T5검사: { weapon: "v2_mithril_sword", armor: "v2_mithril_plate", gloves: "v2_mithril_gauntlets", boots: "v2_mithril_boots", ring: "v2_fate_ring", necklace: "v2_mana_essence" },
+  T3검사: { weapon: "v2_greatsword", armor: "v2_full_plate", gloves: "v2_shadow_gloves", boots: "v2_shadow_boots", ring: "v2_lucky_charm", necklace: "v2_crystal_amulet" },
+  T5검사: { weapon: "v2_mithril_sword", armor: "v2_mithril_plate", gloves: "v2_windweave_gloves", boots: "v2_windweave_boots", ring: "v2_fate_ring", necklace: "v2_mana_essence" },
 };
 console.log("\n■ 깊은산 게이트 — 장비 갈아탄 검사 (깊이 7~10)");
 console.log("  빌드/Lv  |  " + [7, 8, 9, 10].map((d) => `${depthName(d)}(×${floorStatMult(d).toFixed(2)})`).join("  |  "));

@@ -2,10 +2,8 @@
 // 타입·로직은 v2Equipment.ts 에. 소비자는 v2Equipment 의 re-export 로 접근(import 경로 불변).
 import type { V2Equipment, V2EquipmentId } from "./v2Equipment";
 
-// V2_EQUIPMENT — 124종 (정규 그리드 43 + 유니크 74 + 전문화 스타터 7). 제작전용은 2026-06-08 제거.
-//   유니크 74 = 레거시 6 + 심층 밴드 48 + 무기 포함 특화 세트 12(맹독/마법/방어비례/금강 — rust_fang
-//   2·frostarcane 2·bloodvajra 2·judgment_bulwark 3·venomlord 3) + 컨셉 사이드그레이드 8(위력↔속도/무게/
-//   회피 트레이드·슬롯 비전형 — 협곡 2·호수 2·동굴 4, 세트 아님).
+// V2_EQUIPMENT — 110종. 옛 계파 잔재 정리: 무기종류 8→4(#823)·세트 38→12(#824)·장갑/신발 중갑 폐기
+//   (경갑 단일·중갑은 armor 만). 제거분은 LEGACY_ID_REMAP 비파괴 마이그. 무기종류는 직업 늘면 재추가 가능.
 //   - 위력 = 옛 헤드라인(검·활 atk / 지팡이 matk / 방어구 def) 승계. 장신구는 신규 소량 위력
 //     (물방+마방 이중 역할이라 작게). 무게·옵션은 컨셉 정체성으로 차별화.
 //   - sim 캘리브(PR-8)에서 정식 튜닝.
@@ -205,43 +203,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { eva: 3, hp: 80 },
   },
 
-  // ── 장갑-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 crit) ──────────────
-  // 장갑은 방어 보조 + 치명 시그니처. 갑옷보다 위력 작게(총량 중립).
-  v2_iron_gauntlets: {
-    id: "v2_iron_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 1,
-    name: "철 건틀릿",
-    description: "쇠를 덧댄 손등 보호구. 주먹이 묵직해진다.",
-    power: 2,
-    weight: 1,
-    options: { crit: 4 },
-  },
-  v2_plate_gauntlets: {
-    id: "v2_plate_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 2,
-    name: "판금 건틀릿",
-    description: "판금을 이어 붙인 단단한 건틀릿.",
-    power: 2,
-    weight: 1,
-    options: { crit: 8 },
-  },
-  v2_mithril_gauntlets: {
-    id: "v2_mithril_gauntlets",
-    slot: "gloves",
-    concept: "heavy",
-    tier: 3,
-    name: "미스릴 건틀릿",
-    description: "가볍고 단단한 미스릴 건틀릿.",
-    power: 4,
-    weight: 2,
-    options: { crit: 12 },
-  },
-
-  // ── 장갑-경갑 (위력 = 물방 소량, 무게 0, 옵션 crit) ───────────────────
+  // ── 장갑 (위력 = 물방 소량, 무게 0, 옵션 crit). 중갑/경갑 통합 — 경갑 단일(중갑은 무게만 더한 열티어라 폐기). ──
   v2_leather_gloves: {
     id: "v2_leather_gloves",
     slot: "gloves",
@@ -276,43 +238,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { crit: 12 },
   },
 
-  // ── 신발-중갑 (위력 = 물방 소량, 약간 무거움, 옵션 eva) ───────────────
-  // 신발은 방어 보조 + 회피 시그니처. 갑옷보다 가볍다(경량).
-  v2_iron_boots: {
-    id: "v2_iron_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 1,
-    name: "철 장화",
-    description: "쇠를 덧댄 장화. 발을 든든히 감싼다.",
-    power: 2,
-    weight: 1,
-    options: { eva: 4, spd: 4 },
-  },
-  v2_plate_boots: {
-    id: "v2_plate_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 2,
-    name: "판금 장화",
-    description: "판금을 두른 장화. 묵직하게 버틴다.",
-    power: 2,
-    weight: 1,
-    options: { eva: 8, spd: 8 },
-  },
-  v2_mithril_boots: {
-    id: "v2_mithril_boots",
-    slot: "boots",
-    concept: "heavy",
-    tier: 3,
-    name: "미스릴 장화",
-    description: "가볍고 단단한 미스릴 장화.",
-    power: 4,
-    weight: 1,
-    options: { eva: 12, spd: 14 },
-  },
-
-  // ── 신발-경갑 (위력 = 물방 소량, 무게 0, 옵션 eva) ────────────────────
+  // ── 신발 (위력 = 물방 소량, 무게 0, 옵션 eva). 중갑/경갑 통합 — 경갑 단일(중갑은 무게만 더한 열티어라 폐기). ──
   v2_leather_boots: {
     id: "v2_leather_boots",
     slot: "boots",
@@ -451,7 +377,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_uniq_giant_fist: {
     id: "v2_uniq_giant_fist",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 2,
     name: "거인의 주먹",
     description: "거인의 손을 본떠 벼린 건틀릿. 쥐기만 해도 몸이 단단해진다.",
@@ -670,7 +596,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     noDrop: true,
   },
 
-  // 마른땅 갑주 세트 (중갑 3종, setId:"dry_canyon") — 3종 다 착용 시 치명+5·치명피해+0.3×·HP+30.
+  // 마른땅 갑주 세트 (갑주 3종, setId:"dry_canyon") — 3종 다 착용 시 치명+5·치명피해+0.3×·HP+30.
   v2_canyon_set_armor: {
     id: "v2_canyon_set_armor",
     slot: "armor",
@@ -687,7 +613,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_canyon_set_gloves: {
     id: "v2_canyon_set_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "분열의 장갑",
     description: "갈라진 땅의 결을 새긴 장갑. 마른땅 갑주의 손.",
@@ -700,7 +626,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_canyon_set_boots: {
     id: "v2_canyon_set_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "협곡 보행화",
     description: "자갈밭을 디뎌도 미끄러지지 않게 굽을 박은 신. 마른땅 갑주의 발.",
@@ -711,9 +637,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "dry_canyon",
   },
 
-  // 바위문 수호구 세트 (중갑 3종, setId:"canyon_bulwark") — 마른땅 갑주(치명 브루저)와 슬롯 택일.
-  // 순수 탱커: 높은 물방 + 큰 HP + 회피, 치명 0·무게 무거움(속도 트레이드오프). 3종 보너스 HP+90·회피+5.
-  // 바위문 수호검(sword_shield, 방패 결)과 같은 "바위문 수호" 테마.
 
   // 모래바람 장신구 세트 (반지+목걸이 2종, setId:"canyon_sandstorm") — 갑주와 동시 착용 가능.
   // 버스트 유틸: 반지=치명피해 1차축+2차 갈래·목걸이=MP. 2종 보너스 치명+8·속도+4.
@@ -802,7 +725,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     noDrop: true,
   },
 
-  // 서리 갑주 세트 (공격형 중갑 3종, setId:"frost_plate") — 3종 보너스 치명+5·속도+4·HP+40 (속공 크리).
+  // 서리 갑주 세트 (갑주 3종, setId:"frost_plate") — 3종 보너스 치명+5·속도+4·HP+40 (속공 크리).
   v2_lake_frost_armor: {
     id: "v2_lake_frost_armor",
     slot: "armor",
@@ -819,7 +742,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_lake_frost_gloves: {
     id: "v2_lake_frost_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "서리 토시",
     description: "손등에 서릿발 무늬를 새긴 토시. 노린 자리를 매섭게 파고든다.",
@@ -832,7 +755,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_lake_frost_boots: {
     id: "v2_lake_frost_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "서리 각화",
     description: "언 바닥에도 미끄러지지 않게 날을 박은 신. 디딤이 가볍고 빠르다.",
@@ -843,8 +766,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "frost_plate",
   },
 
-  // 빙벽 수호구 세트 (방어형 중갑 3종, setId:"ice_bulwark") — 순수 탱커(회피형). 3종 보너스 HP+100·회피+8.
-  // 빙벽 골렘 결. 서리 갑주(공격)와 슬롯 택일.
 
   // 한기 장신구 세트 (반지+목걸이 2종, setId:"chill_charm") — 갑주와 동시 착용 가능. 2종 보너스 회피+6·HP+60 (회피/지속).
   v2_lake_chill_ring: {
@@ -932,7 +853,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     noDrop: true,
   },
 
-  // 심연 갑주 세트 (공격형 중갑 3종, setId:"abyss_plate") — 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터).
+  // 심연 갑주 세트 (갑주 3종, setId:"abyss_plate") — 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터).
   v2_cave_abyss_armor: {
     id: "v2_cave_abyss_armor",
     slot: "armor",
@@ -949,7 +870,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_cave_abyss_gloves: {
     id: "v2_cave_abyss_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "심연 토시",
     description: "검은 광석 조각을 손등에 박은 토시. 노린 자리를 어둠 속에서 정확히 짚는다.",
@@ -962,7 +883,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_cave_abyss_boots: {
     id: "v2_cave_abyss_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "심연 각화",
     description: "어둠 속에서도 발소리를 죽이는 신. 디딤이 가볍고 은밀하다.",
@@ -973,8 +894,6 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     setId: "abyss_plate",
   },
 
-  // 흑요 수호구 세트 (방어형 중갑 3종, setId:"obsidian_bulwark") — 순수 탱커(HP+템포). 3종 보너스 HP+160·속도+4.
-  // 심연 갑주(공격)와 슬롯 택일.
 
   // 공허 장신구 세트 (반지+목걸이 2종, setId:"void_charm") — 갑주와 동시 착용 가능. 2종 보너스 MP+50·속도+4 (마력/엔진).
   v2_cave_void_ring: {
@@ -1094,7 +1013,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_cave_rooted_boots: {
     id: "v2_cave_rooted_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "뿌리내린 각화",
     description: "땅에 뿌리내린 듯 묵직한 신. 빠르진 않아도 디딘 자리가 단단하다.",
@@ -1106,7 +1025,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_cave_ruin_gloves: {
     id: "v2_cave_ruin_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "파괴 권갑",
     description: "한 방의 무게를 키우려 벼린 권갑. 자주는 아니어도 터지면 크다.",
@@ -1207,7 +1126,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_sanctum_set_gloves: {
     id: "v2_sanctum_set_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "별무리 장갑",
     description: "손등의 별빛 문양이 주문과 일격의 순간에 함께 빛나는 장갑.",
@@ -1220,7 +1139,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_sanctum_set_boots: {
     id: "v2_sanctum_set_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "별무리 각화",
     description: "발목마다 작은 별빛이 돌아 어두운 성소에서도 디딤을 잃지 않는 신.",
@@ -1350,7 +1269,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_swamp_set_gloves: {
     id: "v2_swamp_set_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "독안개 장갑",
     description: "젖은 손잡이를 놓치지 않도록 비늘 무늬를 새긴 장갑.",
@@ -1363,7 +1282,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_swamp_set_boots: {
     id: "v2_swamp_set_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "독안개 각화",
     description: "진흙을 박차고 나가도록 발바닥에 단단한 비늘을 댄 신.",
@@ -1493,7 +1412,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_den_set_gloves: {
     id: "v2_den_set_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "포식자 장갑",
     description: "손등에 발톱 장식을 세워 결정적인 순간의 일격을 키우는 장갑.",
@@ -1506,7 +1425,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_den_set_boots: {
     id: "v2_den_set_boots",
     slot: "boots",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "포식자 각화",
     description: "먹잇감을 몰아붙이는 발걸음을 위해 뼈굽을 단 단단한 신.",
@@ -1545,7 +1464,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   v2_den_mauler_gloves: {
     id: "v2_den_mauler_gloves",
     slot: "gloves",
-    concept: "heavy",
+    concept: "light",
     tier: 3,
     name: "분쇄 발톱장갑",
     description: "발톱 모양의 금속판이 손등에서 튀어나와 치명적인 분쇄력을 보탠다.",

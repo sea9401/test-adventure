@@ -93,10 +93,10 @@ describe("aggregateV2Equipment (PR-4a 위력/무게/옵션)", () => {
   });
 
   it("장갑·신발 위력 → 물방 (+ 슬롯 축 crit·eva·spd)", () => {
-    // 슬롯 고유 축(C): 미스릴 건틀릿 T5 위력 4(×2) crit 12 / 미스릴 장화 T5 위력 4 eva 12 spd 14.
+    // 슬롯 고유 축(C): 바람결 장갑 T3 위력 4 crit 12 / 바람결 신 T3 위력 4 eva 12 spd 14.
     const a = aggregateV2Equipment({
-      gloves: "v2_mithril_gauntlets",
-      boots: "v2_mithril_boots",
+      gloves: "v2_windweave_gloves",
+      boots: "v2_windweave_boots",
     });
     expect(a.def).toBe(4 + 4);
     expect(a.magicDef).toBe(0);

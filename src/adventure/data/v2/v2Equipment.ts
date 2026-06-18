@@ -95,19 +95,11 @@ export type V2EquipmentId =
   | "v2_leather_armor"
   | "v2_shadow_cloak"
   | "v2_windweave_cloak"
-  // 장갑-중갑 (heavy/def/crit)
-  | "v2_iron_gauntlets"
-  | "v2_plate_gauntlets"
-  | "v2_mithril_gauntlets"
-  // 장갑-경갑 (light/def/crit)
+  // 장갑 (light/def/crit) — 중갑/경갑 통합, 경갑 단일
   | "v2_leather_gloves"
   | "v2_shadow_gloves"
   | "v2_windweave_gloves"
-  // 신발-중갑 (heavy/def/eva)
-  | "v2_iron_boots"
-  | "v2_plate_boots"
-  | "v2_mithril_boots"
-  // 신발-경갑 (light/def/eva)
+  // 신발 (light/def/eva) — 중갑/경갑 통합, 경갑 단일
   | "v2_leather_boots"
   | "v2_shadow_boots"
   | "v2_windweave_boots"
@@ -367,7 +359,7 @@ export type V2EquipSet = {
 
 export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
   {
-    // 마른 협곡 밴드 드랍 세트(중갑 3종). 드랍 전용 유니크. 3종 다 착용 시 치명·치명피해·HP.
+    // 마른 협곡 밴드 드랍 세트(갑주 3종). 드랍 전용 유니크. 3종 다 착용 시 치명·치명피해·HP.
     id: "dry_canyon",
     name: "마른땅 갑주",
     pieces: [
@@ -385,7 +377,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { crit: 8, spd: 6 },
   },
   {
-    // 얼음 호수 공격형 세트(중갑 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·속도+6·HP+40 (속공 크리 결).
+    // 얼음 호수 공격형 세트(갑주 3종). 빙벽 수호구와 슬롯 택일. 3종 보너스 치명+5·속도+6·HP+40 (속공 크리 결).
     id: "frost_plate",
     name: "서리 갑주",
     pieces: [
@@ -403,7 +395,7 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     bonus: { eva: 6, hp: 60 },
   },
   {
-    // 심층 동굴 공격형 세트(중갑 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터 결).
+    // 심층 동굴 공격형 세트(갑주 3종). 흑요 수호구와 슬롯 택일. 3종 보너스 치명피해+0.5×·MP+40·HP+50 (크리+캐스터 결).
     id: "abyss_plate",
     name: "심연 갑주",
     pieces: [
@@ -492,9 +484,9 @@ export function v2EquipmentByConcept(concept: V2EquipConcept): V2Equipment[] {
 // 슬롯별로 그 슬롯의 컨셉 모음. UI 그룹화에 사용.
 export const SLOT_CONCEPTS: Record<V2EquipSlot, V2EquipConcept[]> = {
   weapon: ["str", "dex", "int"],
-  armor: ["heavy", "light"],
-  gloves: ["heavy", "light"],
-  boots: ["heavy", "light"],
+  armor: ["heavy", "light"], // 중갑(방어탱)/경갑(회피) — 실효 트레이드오프라 유지
+  gloves: ["light"], // 중갑 폐기(경갑과 스탯 동일·무게만 더한 열티어)
+  boots: ["light"], // 중갑 폐기(동상)
   ring: ["luck"],
   necklace: ["mana"],
 };
@@ -770,12 +762,20 @@ const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
   v2_silver_plate: "v2_mithril_plate",
   v2_studded_leather: "v2_shadow_cloak",
   v2_silken_armor: "v2_windweave_cloak",
-  v2_steel_boots: "v2_plate_boots",
-  v2_silver_boots: "v2_mithril_boots",
+  // 장갑/신발 중갑 폐기(컨셉 통합) — 중갑 6종 삭제, 경갑 동티어로 마이그(보유분 비파괴).
+  v2_iron_gauntlets: "v2_leather_gloves",
+  v2_plate_gauntlets: "v2_shadow_gloves",
+  v2_mithril_gauntlets: "v2_windweave_gloves",
+  v2_iron_boots: "v2_leather_boots",
+  v2_plate_boots: "v2_shadow_boots",
+  v2_mithril_boots: "v2_windweave_boots",
+  // 옛 중갑 별칭 — 삭제된 중갑 대신 경갑 동티어로 transitive 재지정.
+  v2_steel_boots: "v2_shadow_boots",
+  v2_silver_boots: "v2_windweave_boots",
   v2_studded_boots: "v2_shadow_boots",
   v2_silken_boots: "v2_windweave_boots",
-  v2_steel_gauntlets: "v2_plate_gauntlets",
-  v2_silver_gauntlets: "v2_mithril_gauntlets",
+  v2_steel_gauntlets: "v2_shadow_gloves",
+  v2_silver_gauntlets: "v2_windweave_gloves",
   v2_studded_gloves: "v2_shadow_gloves",
   v2_silken_gloves: "v2_windweave_gloves",
   v2_rune_pendant: "v2_crystal_amulet",

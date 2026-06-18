@@ -65,8 +65,8 @@ function bandGear(depth: number): Partial<Record<V2EquipSlot, V2EquipmentId>> {
     return {
       weapon: "v2_mithril_sword",
       armor: "v2_mithril_plate",
-      gloves: "v2_mithril_gauntlets",
-      boots: "v2_mithril_boots",
+      gloves: "v2_windweave_gloves",
+      boots: "v2_windweave_boots",
       ring: "v2_fate_ring",
       necklace: "v2_mana_essence",
     };

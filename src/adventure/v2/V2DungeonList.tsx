@@ -16,7 +16,7 @@ import {
 } from "@/adventure/data/v2/rareMaps";
 import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 
-// 무한 프론티어 사냥터 목록 — 2단. 테마(들판·깊은 산·…) 카드 → 누르면 그 안에서 깊이 카드 6개.
+// 무한 프론티어 사냥터 목록 — 2단. 테마(들판·마른 협곡·…) 카드 → 누르면 그 안에서 깊이 카드 6개.
 // 뒤로 갈수록 깊이가 한 화면에 너무 많아지는 걸 테마별로 접어 해소. frontierDepth = 최고 도달
 // 깊이(기본 2). 그 이상은 "도전(미정복)" 구역(= maxDepth+1).
 

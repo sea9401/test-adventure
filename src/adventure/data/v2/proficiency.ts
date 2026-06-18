@@ -35,8 +35,8 @@ export type V2ProficiencyState = {
 
 // §10 다이얼.
 // 킬당 숙달 포인트 — 깊이 밴드 비례(2026-06-12 성장 페이스업, 옛 전구간 고정 2).
-// 테마 2개당 +1: 들판·깊은 산 2 / 마른 협곡·얼음 호수 3 / 심층 동굴·잊힌 성소 4 /
-// 리자드 늪지·짐승의 소굴 5. 마지막 테마가 무한(인덱스 클램프)이라 5 가 천장.
+// 테마 2개당 +1: 들판·마른 협곡 2 / 얼음 호수·심층 동굴 3 / 잊힌 성소·리자드 늪지 4 /
+// 짐승의 소굴 5. 마지막 테마가 무한(인덱스 클램프)이라 5 가 천장. (깊은 산 삭제 후에도 깊이당 값 불변.)
 export const V2_PROFICIENCY_PER_KILL_BASE = 2;
 export function proficiencyPerKillAtDepth(depth: number): number {
   return (

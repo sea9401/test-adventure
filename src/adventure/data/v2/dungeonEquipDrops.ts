@@ -22,17 +22,18 @@ export type FloorEquipDropPool = {
   tierWeights: Partial<Record<V2EquipTier, number>>;
 };
 
-// 드랍 = 스타터 구간(들판/깊은산, 깊이 1~12)에서만. 단일 풀 균일 — 깊이별 램프 없이 한 값.
+// 드랍 = 스타터 구간(들판, 깊이 1~6)에서만. 단일 풀 균일 — 깊이별 램프 없이 한 값.
 //   처치당 T1 3% / T2 2% / T3 1% (총 6%, 고티어일수록 희귀). 티어 = "초보자 졸업 키트"(진행 축
-//   아님, 표기 숨김 #525). 프론티어(깊이 13+)는 밴드 콘텐츠(C) 구간이라 정규 티어 드랍 없음.
+//   아님, 표기 숨김 #525). 프론티어(깊이 7+, 마른 협곡부터)는 밴드 콘텐츠 구간이라 정규 티어 드랍 없음.
 //   신참 보너스는 EXP 전용(드랍 ×1 고정, hunt route). ← 드랍률 다이얼.
-export const STARTER_END_DEPTH = 12; // 들판(1~6) + 깊은산(7~12) = 스타터 구간
+//   2026-06-19: "깊은 산" 삭제로 스타터 구간 1~12 → 1~6(들판만)로 축소. 7+ 는 밴드 드랍.
+export const STARTER_END_DEPTH = 6; // 들판(1~6) = 스타터 구간
 export const STARTER_DROP_POOL: FloorEquipDropPool = {
   chance: 0.012, // 총 드랍률(2026-06-13 ÷5 — 거래 활성화). tierWeights 3:2:1.
   tierWeights: { 1: 3, 2: 2, 3: 1 },
 };
 
-// 깊이 → 드랍 풀. 스타터 구간(1~12)만 풀, 프론티어(13+)는 null(밴드 콘텐츠 C 전 정규 드랍 없음).
+// 깊이 → 드랍 풀. 스타터 구간(1~6)만 풀, 프론티어(7+)는 null(밴드 콘텐츠 전 정규 드랍 없음).
 export function dropPoolForDepth(depth: number): FloorEquipDropPool | null {
   if (depth >= 1 && depth <= STARTER_END_DEPTH) return STARTER_DROP_POOL;
   return null;
@@ -59,7 +60,7 @@ export function rollEquipDrop(
   // 통과 굴림 chance 배율 — 신참 보너스(Lv30 미만 ×2) 등. 미지정 1. chance×배율(1 cap).
   chanceMult: number = 1,
 ): V2EquipmentId | null {
-  // 스타터 구간(1~12)만 드랍. 프론티어(13+)는 풀 없음(null) → 정규 드랍 없음.
+  // 스타터 구간(1~6)만 드랍. 프론티어(7+)는 풀 없음(null) → 정규 드랍 없음.
   const pool = dropPoolForDepth(depth);
   if (!pool) return null;
 

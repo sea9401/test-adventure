@@ -33,12 +33,13 @@ describe("dungeonThemeGroups — 사냥터 목록 2단 그룹핑", () => {
     const groups = dungeonThemeGroups(50);
     expect(groups[0].name).toBe("들판"); // 1~6
     expect(groups[0].depths).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(groups[1].name).toBe("깊은 산"); // 7~12
-    // 50깊이 → 짐승의 소굴(43~48, 49~50) 두 블록(무한 테마도 ≤6).
+    expect(groups[1].name).toBe("마른 협곡"); // 7~12 (깊은 산 삭제 후)
+    // 50깊이 → 짐승의 소굴(37~42, 43~48, 49~50) 세 블록(무한 테마도 ≤6).
     const den = groups.filter((g) => g.name === "짐승의 소굴");
-    expect(den.length).toBe(2);
-    expect(den[0].depths).toEqual([43, 44, 45, 46, 47, 48]);
-    expect(den[1].depths).toEqual([49, 50]);
+    expect(den.length).toBe(3);
+    expect(den[0].depths).toEqual([37, 38, 39, 40, 41, 42]);
+    expect(den[1].depths).toEqual([43, 44, 45, 46, 47, 48]);
+    expect(den[2].depths).toEqual([49, 50]);
   });
 });
 
@@ -67,35 +68,35 @@ describe("v2 dungeon", () => {
     }
   });
 
-  it("MAIN_DUNGEON.floors = 들판·깊은 산 onboarding 풀(코덱스/dev용, 2종)", () => {
-    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1, 2]);
+  it("MAIN_DUNGEON.floors = 들판 onboarding 풀(코덱스/dev용, 1종 — 깊은 산 삭제 후)", () => {
+    expect(MAIN_DUNGEON.floors.map((f) => f.id)).toEqual([1]);
     expect(MAIN_DUNGEON.floors[0].name).toBe("들판");
-    expect(MAIN_DUNGEON.floors[1].name).toBe("깊은 산");
   });
 
   it("enemiesForDepth / depthName — 테마당 6깊이, 테마 내 로컬 번호 표시", () => {
-    // 들판(1~6)·깊은산(7~12)·마른협곡(13~18)·얼음호수(19~24)·심층동굴(25~30)·
-    // 잊힌성소(31~36)·리자드늪지(37~42)·짐승의소굴(43~48, 49+ 무한).
+    // 들판(1~6)·마른협곡(7~12)·얼음호수(13~18)·심층동굴(19~24)·
+    // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42, 43+ 무한). 깊은 산 삭제 후.
     expect(depthName(1)).toBe("들판 1");
     expect(depthName(6)).toBe("들판 6");
-    expect(depthName(7)).toBe("깊은 산 1");
-    expect(depthName(12)).toBe("깊은 산 6");
-    expect(depthName(13)).toBe("마른 협곡 1");
-    expect(depthName(43)).toBe("짐승의 소굴 1");
-    expect(depthName(48)).toBe("짐승의 소굴 6");
-    expect(depthName(50)).toBe("짐승의 소굴 8"); // 무한 — 로컬 번호 6 넘어 계속
+    expect(depthName(7)).toBe("마른 협곡 1");
+    expect(depthName(12)).toBe("마른 협곡 6");
+    expect(depthName(13)).toBe("얼음 호수 1");
+    expect(depthName(37)).toBe("짐승의 소굴 1");
+    expect(depthName(42)).toBe("짐승의 소굴 6");
+    expect(depthName(44)).toBe("짐승의 소굴 8"); // 무한 — 로컬 번호 6 넘어 계속
 
-    // 풀: 들판/깊은 산 = authored(MAIN_DUNGEON), 나머지 = 밴드.
+    // 풀: 들판 = authored(MAIN_DUNGEON), 나머지 = 밴드(마른 협곡부터).
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies); // 들판
     expect(enemiesForDepth(6)).toBe(enemiesForDepth(1)); // 들판 6깊이 동일 풀
-    expect(enemiesForDepth(7)).toBe(MAIN_DUNGEON.floors[1].enemies); // 깊은 산
-    expect(enemiesForDepth(13)).not.toBe(enemiesForDepth(12)); // 깊은산→마른협곡 전환
-    expect(enemiesForDepth(48)).toBe(enemiesForDepth(43)); // 짐승의 소굴 상한
-    expect(enemiesForDepth(999)).toBe(enemiesForDepth(43)); // 무한 반복
+    expect(enemiesForDepth(7)).not.toBe(enemiesForDepth(6)); // 들판→마른협곡 전환
+    expect(enemiesForDepth(12)).toBe(enemiesForDepth(7)); // 마른 협곡 6깊이 동일 풀
+    expect(enemiesForDepth(13)).not.toBe(enemiesForDepth(12)); // 마른협곡→얼음호수 전환
+    expect(enemiesForDepth(42)).toBe(enemiesForDepth(37)); // 짐승의 소굴 상한
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(37)); // 무한 반복
 
-    // 8테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
-    const themeReps = [1, 7, 13, 19, 25, 31, 37, 43];
-    const themeNames = ["들판", "깊은 산", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴"];
+    // 7테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
+    const themeReps = [1, 7, 13, 19, 25, 31, 37];
+    const themeNames = ["들판", "마른 협곡", "얼음 호수", "심층 동굴", "잊힌 성소", "리자드 늪지", "짐승의 소굴"];
     for (let i = 0; i < themeReps.length; i++) {
       const pool = enemiesForDepth(themeReps[i]);
       expect(pool.length, `${themeNames[i]} 5종`).toBe(5);
@@ -182,8 +183,8 @@ describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
     }
   });
 
-  it("활성 2구역은 코스믹(별빛/공허) 미등장 — 엔드 구역 축소", () => {
-    // 코스믹은 엔드 구역(6~8)에만 있었고 축소로 제거. 코스믹 외엔 전부 자연/무속성.
+  it("authored 구역(들판)은 코스믹(별빛/공허) 미등장 — 온보딩 보호", () => {
+    // 코스믹은 엔드 구역에만 있었고 축소로 제거. 들판은 전부 자연/무속성.
     // (소수 몹 던전이라 자연 전 원소 커버는 비강제 — 한 층 ≥2 non-neutral 게이트는 위 테스트.)
     const used = new Set<V2Element>();
     for (const floor of MAIN_DUNGEON.floors) {
@@ -239,9 +240,9 @@ describe("dungeonThemeCatalog (코덱스 사냥터 도감)", () => {
     expect(c[0].enemies.length).toBeGreaterThan(0);
   });
 
-  it("깊은 산 진입 — 들판 풀 + 깊은 산(7~clamp)", () => {
+  it("마른 협곡 진입 — 들판 풀 + 마른 협곡(7~clamp)", () => {
     const c = dungeonThemeCatalog(8);
-    expect(c.map((t) => t.name)).toEqual(["들판", "깊은 산"]);
+    expect(c.map((t) => t.name)).toEqual(["들판", "마른 협곡"]);
     expect(c[0].depthEnd).toBe(6); // 들판은 풀 6
     expect(c[1].depthStart).toBe(7);
     expect(c[1].depthEnd).toBe(8); // 도달 8
@@ -249,10 +250,10 @@ describe("dungeonThemeCatalog (코덱스 사냥터 도감)", () => {
 
   it("무한 마지막 테마(짐승의 소굴) — 중복 카드 없이 한 장으로 합침", () => {
     const c = dungeonThemeCatalog(50);
-    expect(c).toHaveLength(8); // 8 테마, 중복 없음
+    expect(c).toHaveLength(7); // 7 테마(깊은 산 삭제 후), 중복 없음
     const last = c[c.length - 1];
     expect(last.name).toBe("짐승의 소굴");
-    expect(last.depthStart).toBe(43);
+    expect(last.depthStart).toBe(37);
     expect(last.depthEnd).toBe(50); // 무한 테마는 maxDepth 까지 한 카드
     // 테마명 중복 없음
     expect(new Set(c.map((t) => t.name)).size).toBe(c.length);

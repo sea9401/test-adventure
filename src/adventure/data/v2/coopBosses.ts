@@ -282,7 +282,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   mountain_chief: {
     id: "mountain_chief",
     name: "산적 두목",
-    desc: "깊은 산의 길목을 틀어쥔 산적단의 우두머리. 분노하면 바위도 갈라지는 강타를 휘두른다.",
+    desc: "산길을 틀어쥔 산적단의 우두머리. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 5,
     sharedMaxHp: 15_000,
     anchorDepth: 12,

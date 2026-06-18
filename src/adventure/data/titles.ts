@@ -314,8 +314,8 @@ export const TITLES: Record<TitleId, Title> = {
   v2_boss_mountain: {
     id: "v2_boss_mountain",
     name: "산을 넘은 자",
-    description: "깊은 산의 두목을 자기 손으로 쓰러뜨리고 그 너머로 발을 내디딘 자.",
-    condition: "깊은 산 보스 처치",
+    description: "산길의 두목을 자기 손으로 쓰러뜨리고 그 너머로 발을 내디딘 자.",
+    condition: "산적 두목 보스 처치",
     category: "battle",
   },
   v2_boss_canyon: {

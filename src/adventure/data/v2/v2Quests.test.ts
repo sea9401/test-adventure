@@ -264,7 +264,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       level: 60,
       tier: 2,
       battleCount: 99,
-      frontierDepth: 12, // 13 미만 — b_band_canyon(도감) claimable 방지(라인 우선순위 검증용)
+      frontierDepth: 6, // 7 미만 — b_band_canyon(도감) claimable 방지(라인 우선순위 검증용)
       equippedCount: 1, // 6 미만 — x_full_gear(수집) 이 claimable 안 되게(라인 우선순위 검증용)
       cultivations: 2,
     };
@@ -385,7 +385,7 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
 
   it("토벌 도감 — 종 수·밴드·누적 전투", () => {
     expect(questById("b_species35")!.check({ ...ZERO, speciesKilled: 35 })).toBe(true);
-    expect(questById("b_band_swamp")!.check({ ...ZERO, frontierDepth: 37 })).toBe(true);
+    expect(questById("b_band_swamp")!.check({ ...ZERO, frontierDepth: 31 })).toBe(true);
     expect(questById("b_battles5000")!.check({ ...ZERO, battleCount: 5000 })).toBe(true);
   });
 });

@@ -47,14 +47,14 @@ function rng(seed: number) {
   };
 }
 
-// 깊이 → 밴드 장비 prefix (13+). 49+ 는 마지막 밴드(소굴) 무한 반복.
+// 깊이 → 밴드 장비 prefix (7+, 깊은 산 삭제 후). 43+ 는 마지막 밴드(소굴) 무한 반복.
 function bandPrefix(depth: number): string | null {
-  if (depth < 13) return null;
-  if (depth <= 18) return "v2_canyon_";
-  if (depth <= 24) return "v2_lake_";
-  if (depth <= 30) return "v2_cave_";
-  if (depth <= 36) return "v2_sanctum_";
-  if (depth <= 42) return "v2_swamp_";
+  if (depth < 7) return null;
+  if (depth <= 12) return "v2_canyon_";
+  if (depth <= 18) return "v2_lake_";
+  if (depth <= 24) return "v2_cave_";
+  if (depth <= 30) return "v2_sanctum_";
+  if (depth <= 36) return "v2_swamp_";
   return "v2_den_";
 }
 

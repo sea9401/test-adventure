@@ -454,17 +454,17 @@ describe("levelCapFor (코어루프 단일 레벨캡)", () => {
 });
 
 describe("proficiencyPerKillAtDepth (킬당 숙달 — 깊이 밴드 비례)", () => {
-  it("테마 2개당 +1 — 들판·깊은 산 2 / 협곡·호수 3 / 동굴·성소 4 / 늪지·소굴 5", () => {
-    // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값.
+  it("테마 2개당 +1 — 들판·협곡 2 / 호수·동굴 3 / 성소·늪지 4 / 소굴 5 (깊은 산 삭제 후)", () => {
+    // 테마당 6깊이 — 각 테마의 시작·끝 깊이에서 같은 값. 깊이당 값은 깊은 산 삭제로 불변(테마 인덱스 동일).
     expect(proficiencyPerKillAtDepth(1)).toBe(2); // 들판 1
     expect(proficiencyPerKillAtDepth(6)).toBe(2); // 들판 6
-    expect(proficiencyPerKillAtDepth(12)).toBe(2); // 깊은 산 6
-    expect(proficiencyPerKillAtDepth(13)).toBe(3); // 마른 협곡 1
-    expect(proficiencyPerKillAtDepth(24)).toBe(3); // 얼음 호수 6
-    expect(proficiencyPerKillAtDepth(25)).toBe(4); // 심층 동굴 1
-    expect(proficiencyPerKillAtDepth(36)).toBe(4); // 잊힌 성소 6
-    expect(proficiencyPerKillAtDepth(37)).toBe(5); // 리자드 늪지 1
-    expect(proficiencyPerKillAtDepth(48)).toBe(5); // 짐승의 소굴 6
+    expect(proficiencyPerKillAtDepth(12)).toBe(2); // 마른 협곡 6
+    expect(proficiencyPerKillAtDepth(13)).toBe(3); // 얼음 호수 1
+    expect(proficiencyPerKillAtDepth(24)).toBe(3); // 심층 동굴 6
+    expect(proficiencyPerKillAtDepth(25)).toBe(4); // 잊힌 성소 1
+    expect(proficiencyPerKillAtDepth(36)).toBe(4); // 리자드 늪지 6
+    expect(proficiencyPerKillAtDepth(37)).toBe(5); // 짐승의 소굴 1
+    expect(proficiencyPerKillAtDepth(48)).toBe(5); // 짐승의 소굴 12
   });
 
   it("마지막 테마(짐승의 소굴) 무한 — 49+ 깊이도 5 로 클램프", () => {

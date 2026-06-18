@@ -59,7 +59,7 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
       ONBOARDING_MAX_STAT_MULT + LADDER_STAT_STEP,
       5,
     );
-    // 절벽 가드 — 들판→깊은 산 경계 배율 점프가 옛 2.17× 보다 훨씬 작아야.
+    // 절벽 가드 — 들판→마른 협곡 경계(6→7) 배율 점프가 옛 2.17× 보다 훨씬 작아야.
     expect(floorStatMult(7) / floorStatMult(6)).toBeLessThan(1.7);
     // 전 구간 단조 증가
     for (const d of [2, 3, 4, 5, 6, 7, 8, 12, 20]) {
@@ -77,7 +77,7 @@ describe("dungeonLadder 제너레이터 (§5.1) — 전곡선 평탄(단일 램�
 
   it("exp 배율 — 초반 볼록 램프 후 소프트캡에서 선형 우상향(평평하지 않음, 경계 절벽 없음)", () => {
     expect(floorExpMult(1)).toBe(1);
-    // 들판→깊은 산 경계 — 옛 절벽(×4.7) 대비 절반 이하로 완만.
+    // 들판→마른 협곡 경계(6→7) — 옛 절벽(×4.7) 대비 절반 이하로 완만.
     expect(floorExpMult(7)).toBeGreaterThan(floorExpMult(6));
     expect(floorExpMult(7) / floorExpMult(6)).toBeLessThan(2.5);
     // 소프트캡 전은 볼록(statMult²)

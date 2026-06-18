@@ -62,9 +62,9 @@ export function rollUniqueDrop(
   return candidates[Math.floor(rng() * candidates.length)];
 }
 
-// ── 프론티어 깊이 밴드 유니크 (심층 13+) ───────────────────────────────────────
+// ── 프론티어 깊이 밴드 유니크 (심층 7+) ───────────────────────────────────────
 // 층(floor 1~8) 기반 레거시 UNIQUE_FLOOR_POOLS 와 별개로 **깊이 범위**로 키. 심층 프론티어
-// 밴드 콘텐츠 전용 유니크 드랍. 마른 협곡(13~18)부터.
+// 밴드 콘텐츠 전용 유니크 드랍. 마른 협곡(7~12)부터.
 //
 // pool.chance = 풀 통과(총 드랍률). 통과 시 전 종류 균등 pick → 1종당 chance/len.
 //   chance = 1회 사냥당 총 드랍률(현 0.005 = 0.5%), 1종당 chance/len. **중복 드랍 허용**
@@ -88,9 +88,9 @@ export type BandPool = {
 // 흔한 밴드 장비 풀(noDrop normal). 무기 4 + 갑주세트 3 + 장신구 2 = 밴드당 9종.
 export const BAND_COMMON_POOLS: readonly BandPool[] = [
   {
-    // 마른 협곡(밴드 A, 13~18) 흔한 9: 무기 4 + 마른땅 갑주 세트 3 + 모래바람 장신구 2.
-    minDepth: 13,
-    maxDepth: 18,
+    // 마른 협곡(밴드 A, 7~12) 흔한 9: 무기 4 + 마른땅 갑주 세트 3 + 모래바람 장신구 2.
+    minDepth: 7,
+    maxDepth: 12,
     ids: [
       "v2_canyon_greatsword",
       "v2_canyon_staff",
@@ -104,9 +104,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 얼음 호수(밴드 B, 19~24) 흔한 9: 무기 4 + 서리 갑주 세트 3 + 한기 장신구 2.
-    minDepth: 19,
-    maxDepth: 24,
+    // 얼음 호수(밴드 B, 13~18) 흔한 9: 무기 4 + 서리 갑주 세트 3 + 한기 장신구 2.
+    minDepth: 13,
+    maxDepth: 18,
     ids: [
       "v2_lake_greatsword",
       "v2_lake_staff",
@@ -120,9 +120,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 심층 동굴(밴드 C, 25~30) 흔한 9: 무기 4 + 심연 갑주 세트 3 + 공허 장신구 2.
-    minDepth: 25,
-    maxDepth: 30,
+    // 심층 동굴(밴드 C, 19~24) 흔한 9: 무기 4 + 심연 갑주 세트 3 + 공허 장신구 2.
+    minDepth: 19,
+    maxDepth: 24,
     ids: [
       "v2_cave_greatsword",
       "v2_cave_staff",
@@ -136,9 +136,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 잊힌 성소(밴드 D, 31~36) 흔한 9: 무기 4 + 별무리 갑주 세트 3 + 성운 장신구 2.
-    minDepth: 31,
-    maxDepth: 36,
+    // 잊힌 성소(밴드 D, 25~30) 흔한 9: 무기 4 + 별무리 갑주 세트 3 + 성운 장신구 2.
+    minDepth: 25,
+    maxDepth: 30,
     ids: [
       "v2_sanctum_greatsword",
       "v2_sanctum_staff",
@@ -152,9 +152,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 37~42) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
-    minDepth: 37,
-    maxDepth: 42,
+    // 리자드 늪지(밴드 E, 31~36) 흔한 9: 무기 4 + 독안개 갑주 세트 3 + 늪심장 장신구 2.
+    minDepth: 31,
+    maxDepth: 36,
     ids: [
       "v2_swamp_greatsword",
       "v2_swamp_staff",
@@ -168,9 +168,10 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 43~48) 흔한 9: 무기 4 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
-    minDepth: 43,
-    maxDepth: 48,
+    // 짐승의 소굴(밴드 F, 37~∞) 흔한 9: 무기 4 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
+    //   마지막 밴드는 무한 테마(짐승의 소굴 무한 반복)를 커버 — maxDepth Infinity.
+    minDepth: 37,
+    maxDepth: Infinity,
     ids: [
       "v2_den_greatsword",
       "v2_den_staff",
@@ -215,9 +216,9 @@ export type BandUniquePool = {
 //   제거돼 사이드그레이드만 남는다. 밴드 표준 2세트(갑주·장신구)는 BAND_COMMON_POOLS 에서 드랍.
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
   {
-    // 마른 협곡(밴드 A, 13~18) 비세트 사이드그레이드 2.
-    minDepth: 13,
-    maxDepth: 18,
+    // 마른 협곡(밴드 A, 7~12) 비세트 사이드그레이드 2.
+    minDepth: 7,
+    maxDepth: 12,
     chance: 0.001,
     ids: [
       "v2_canyon_swift_rapier",
@@ -225,9 +226,9 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 얼음 호수(밴드 B, 19~24) 비세트 사이드그레이드 2.
-    minDepth: 19,
-    maxDepth: 24,
+    // 얼음 호수(밴드 B, 13~18) 비세트 사이드그레이드 2.
+    minDepth: 13,
+    maxDepth: 18,
     chance: 0.001,
     ids: [
       "v2_lake_brutal_greatsword",
@@ -235,9 +236,9 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 심층 동굴(밴드 C, 25~30) 비세트 사이드그레이드 4.
-    minDepth: 25,
-    maxDepth: 30,
+    // 심층 동굴(밴드 C, 19~24) 비세트 사이드그레이드 4.
+    minDepth: 19,
+    maxDepth: 24,
     chance: 0.001,
     ids: [
       "v2_cave_fortress_armor",
@@ -247,9 +248,9 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 잊힌 성소(밴드 D, 31~36) 비세트 사이드그레이드 2.
-    minDepth: 31,
-    maxDepth: 36,
+    // 잊힌 성소(밴드 D, 25~30) 비세트 사이드그레이드 2.
+    minDepth: 25,
+    maxDepth: 30,
     chance: 0.001,
     ids: [
       "v2_sanctum_anchor_armor",
@@ -257,9 +258,9 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 37~42) 비세트 사이드그레이드 2.
-    minDepth: 37,
-    maxDepth: 42,
+    // 리자드 늪지(밴드 E, 31~36) 비세트 사이드그레이드 2.
+    minDepth: 31,
+    maxDepth: 36,
     chance: 0.001,
     ids: [
       "v2_swamp_mire_boots",
@@ -267,9 +268,9 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 43~48) 비세트 사이드그레이드 3.
-    minDepth: 43,
-    maxDepth: 48,
+    // 짐승의 소굴(밴드 F, 37~∞) 비세트 사이드그레이드 3. 마지막 밴드 = 무한 테마 커버(maxDepth Infinity).
+    minDepth: 37,
+    maxDepth: Infinity,
     chance: 0.001,
     ids: [
       "v2_den_mauler_gloves",
@@ -309,7 +310,7 @@ export function rollBandUniqueDrop(
 
 // 흔한 밴드 장비 드랍 굴림(순수) — 밴드 내 로컬 깊이로 램프한 확률(bandCommonChance). 통과 시 전 종류
 //   균등 pick(중복 드랍 허용). 밴드 밖 깊이 → null(rng 미소비, rollEquipDrop 결과와 ?? 합성 안전).
-//   정규 장비 슬롯(droppedEquipment)로 드랍 — 스타터 정규 풀(rollEquipDrop)이 13+ 에서 null 이라 그 자리 채움.
+//   정규 장비 슬롯(droppedEquipment)로 드랍 — 스타터 정규 풀(rollEquipDrop)이 7+ 에서 null 이라 그 자리 채움.
 export function rollBandCommonDrop(
   depth: number,
   rng: () => number,

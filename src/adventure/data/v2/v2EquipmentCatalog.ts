@@ -428,7 +428,7 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     concept: "str",
     tier: 3,
     name: "산왕의 쌍도끼",
-    description: "깊은 산을 호령하던 두목이 휘두르던 쌍도끼. 한 번 떨어지면 바위도 갈라진다.",
+    description: "산길을 호령하던 두목이 휘두르던 쌍도끼. 한 번 떨어지면 바위도 갈라진다.",
     power: 90,
     weight: 5,
     options: { hp: 80, critMult: 30 },

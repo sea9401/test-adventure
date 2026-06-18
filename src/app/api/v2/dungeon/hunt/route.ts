@@ -335,7 +335,7 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     parseEquipmentSave(equipmentSave);
 
   // 프론티어 깊이 게이트(수동 푸시) — 깊이 1~최고도달+1 만. 도달은 character.v2.frontierDepth.
-  // 들판·깊은 산(1·2)은 기본 해금(min 2). 잠긴 깊이는 stamina 소모 전 거부.
+  // 들판 초반(min 2 → 깊이 3까지)은 기본 해금. 잠긴 깊이는 stamina 소모 전 거부.
   const frontierDepth = Math.max(
     2,
     Math.floor(Number(charSave.frontierDepth) || 2),

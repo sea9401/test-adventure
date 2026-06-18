@@ -23,7 +23,7 @@ function requiredExpToNextNullable(level: number): number | null {
   return requiredExpToNext(level);
 }
 import { V2_MONSTERS } from "@/adventure/data/v2/v2Monsters";
-import { enemiesForDepth } from "@/adventure/data/v2/dungeon";
+import { enemiesForDepth, MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -340,6 +340,18 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     2,
     Math.floor(Number(charSave.frontierDepth) || 2),
   );
+  // 프론티어 끝 게이트 — 마지막 테마(MAX_FRONTIER_DEPTH) 너머는 콘텐츠 없음(새 테마 추가 전까지).
+  if (depth > MAX_FRONTIER_DEPTH) {
+    return {
+      ok: false as const,
+      status: 403,
+      body: {
+        ok: false as const,
+        error: "frontier_end" as const,
+        maxDepth: Math.min(frontierDepth, MAX_FRONTIER_DEPTH),
+      },
+    };
+  }
   // 깊이 1~최고도달+1 게이트.
   if (depth > frontierDepth + 1) {
     return {
@@ -825,8 +837,12 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     gold: newGold,
     materials: nextMaterials,
     rareMaps,
-    // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지(min 2 정규화).
-    frontierDepth: won && depth > frontierDepth ? depth : frontierDepth,
+    // 프론티어 수동 푸시 — 최고도달+1 깊이를 이기면 해금(+1). 패배·기존깊이면 유지. MAX 캡으로
+    //   정규화(레거시 무한기 >42 저장값도 현재 콘텐츠 끝 42 로 수렴 → 새 테마 추가 시 그 지점부터 재공략).
+    frontierDepth: Math.min(
+      MAX_FRONTIER_DEPTH,
+      won && depth > frontierDepth ? depth : frontierDepth,
+    ),
     // outpost 사냥 → 트래킹 업데이트. 미점령 거점 또는 outpostId 없는 hunt 면 기존값 유지.
     ...(nextLastHunted ? { lastHuntedOutpost: nextLastHunted } : {}),
     // 코어루프 전투 쿨다운 시각 — 다음 판/토벌 게이트(off 면 키 불변). 오프라인 정산은
@@ -1012,7 +1028,10 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
       stamina: afterStamina,
       result: {
         floor: depth, // 깊이(클라 호환 키)
-        maxDepth: won && depth > frontierDepth ? depth : frontierDepth, // 최고 도달(수동 푸시)
+        maxDepth: Math.min(
+          MAX_FRONTIER_DEPTH,
+          won && depth > frontierDepth ? depth : frontierDepth,
+        ), // 최고 도달(MAX 캡으로 정규화)
         enemyName,
         won,
         expGained,

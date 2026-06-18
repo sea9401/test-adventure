@@ -5,6 +5,7 @@ import {
   depthName,
   dungeonThemeGroups,
   dungeonThemeCatalog,
+  MAX_FRONTIER_DEPTH,
 } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
 import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
@@ -75,7 +76,7 @@ describe("v2 dungeon", () => {
 
   it("enemiesForDepth / depthName — 테마당 6깊이, 테마 내 로컬 번호 표시", () => {
     // 들판(1~6)·마른협곡(7~12)·얼음호수(13~18)·심층동굴(19~24)·
-    // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42, 43+ 무한). 깊은 산 삭제 후.
+    // 잊힌성소(25~30)·리자드늪지(31~36)·짐승의소굴(37~42=프론티어 끝). 깊은 산 삭제 후.
     expect(depthName(1)).toBe("들판 1");
     expect(depthName(6)).toBe("들판 6");
     expect(depthName(7)).toBe("마른 협곡 1");
@@ -83,7 +84,7 @@ describe("v2 dungeon", () => {
     expect(depthName(13)).toBe("얼음 호수 1");
     expect(depthName(37)).toBe("짐승의 소굴 1");
     expect(depthName(42)).toBe("짐승의 소굴 6");
-    expect(depthName(44)).toBe("짐승의 소굴 8"); // 무한 — 로컬 번호 6 넘어 계속
+    expect(depthName(44)).toBe("짐승의 소굴 8"); // 캡(42) 밖=도달 불가, 방어적 클램프 표시만
 
     // 풀: 들판 = authored(MAIN_DUNGEON), 나머지 = 밴드(마른 협곡부터).
     expect(enemiesForDepth(1)).toBe(MAIN_DUNGEON.floors[0].enemies); // 들판
@@ -92,7 +93,7 @@ describe("v2 dungeon", () => {
     expect(enemiesForDepth(12)).toBe(enemiesForDepth(7)); // 마른 협곡 6깊이 동일 풀
     expect(enemiesForDepth(13)).not.toBe(enemiesForDepth(12)); // 마른협곡→얼음호수 전환
     expect(enemiesForDepth(42)).toBe(enemiesForDepth(37)); // 짐승의 소굴 상한
-    expect(enemiesForDepth(999)).toBe(enemiesForDepth(37)); // 무한 반복
+    expect(enemiesForDepth(999)).toBe(enemiesForDepth(37)); // 캡 밖도 방어적 클램프(도달 불가)
 
     // 7테마 각 대표 깊이 — 5종 + 인접 테마와 다른 풀.
     const themeReps = [1, 7, 13, 19, 25, 31, 37];
@@ -118,6 +119,12 @@ describe("v2 dungeon", () => {
         }
       }
     }
+  });
+
+  it("MAX_FRONTIER_DEPTH = 마지막 테마 끝(테마수 × 6) — 무한 반복 안 함, 새 테마 추가 시 자동 확장", () => {
+    // 7테마 × 6깊이 = 42. 짐승의 소굴 6(깊이 42)이 프론티어의 끝.
+    expect(MAX_FRONTIER_DEPTH).toBe(42);
+    expect(depthName(MAX_FRONTIER_DEPTH)).toBe("짐승의 소굴 6");
   });
 
   it("전 층 파워 requirement(단조 증가)", () => {

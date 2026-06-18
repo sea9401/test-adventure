@@ -9,6 +9,7 @@
 // 스탯게이트 직업 트리(차수 폐지·12계파 재활용) + 재전직 루프 + ATB 전투 + SP 스킬 로드아웃.
 
 import type { StatKey } from "@/adventure/data/stats";
+import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 
 // 마스터 플래그 — 전 코어 루프 재설계를 한 번에 켜고 끈다.
 //   환경별 제어: 빌드 시 NEXT_PUBLIC_V2_CORE_LOOP_V2="true" 면 on, 아니면 off(기본).
@@ -59,11 +60,16 @@ export function offlineBattlesAccrued(
 
 // 오프라인(자동) 사냥 farm 깊이 — lastHuntDepth, 없으면 frontierDepth−1, [1, frontierDepth] 클램프
 //   (잠긴 깊이 방지). offline-settle 정산 깊이와 "자동 사냥 중 사냥터 바로 입장" 목적지를 일치시킨다.
+//   frontier 는 MAX_FRONTIER_DEPTH 로 캡 — 레거시 >42 저장값이 frontier_end 게이트에 막혀 정산이
+//   실패(오프라인 수입 손실)하는 것 방지.
 export function offlineFarmDepth(
   lastHuntDepth: number | null | undefined,
   frontierDepth: number,
 ): number {
-  const frontier = Math.max(2, Math.floor(Number(frontierDepth) || 2));
+  const frontier = Math.min(
+    MAX_FRONTIER_DEPTH,
+    Math.max(2, Math.floor(Number(frontierDepth) || 2)),
+  );
   const raw = Number(lastHuntDepth);
   return Math.max(
     1,

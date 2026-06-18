@@ -168,10 +168,10 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 37~∞) 흔한 9: 무기 4 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
-    //   마지막 밴드는 무한 테마(짐승의 소굴 무한 반복)를 커버 — maxDepth Infinity.
+    // 짐승의 소굴(밴드 F, 37~42) 흔한 9: 무기 4 + 포식자 갑주 세트 3 + 우두머리 장신구 2.
+    //   마지막 테마 = 프론티어 끝(MAX_FRONTIER_DEPTH). 42 너머는 도달 불가(게이트 캡).
     minDepth: 37,
-    maxDepth: Infinity,
+    maxDepth: 42,
     ids: [
       "v2_den_greatsword",
       "v2_den_staff",
@@ -268,9 +268,9 @@ export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 37~∞) 비세트 사이드그레이드 3. 마지막 밴드 = 무한 테마 커버(maxDepth Infinity).
+    // 짐승의 소굴(밴드 F, 37~42) 비세트 사이드그레이드 3. 마지막 테마 = 프론티어 끝(42 너머 도달 불가).
     minDepth: 37,
-    maxDepth: Infinity,
+    maxDepth: 42,
     chance: 0.001,
     ids: [
       "v2_den_mauler_gloves",

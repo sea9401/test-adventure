@@ -47,7 +47,7 @@ function rng(seed: number) {
   };
 }
 
-// 깊이 → 밴드 장비 prefix (7+, 깊은 산 삭제 후). 43+ 는 마지막 밴드(소굴) 무한 반복.
+// 깊이 → 밴드 장비 prefix (7+, 깊은 산 삭제 후). 37~42 = 마지막 밴드(소굴), 프론티어 끝.
 function bandPrefix(depth: number): string | null {
   if (depth < 7) return null;
   if (depth <= 12) return "v2_canyon_";
@@ -194,7 +194,8 @@ for (const { m, req } of points) {
 const gammaFit = num / den;
 console.log(`\n추천 GATE_DAMP(γ) = ${gammaFit.toFixed(3)}`);
 console.log("새 곡선 미리보기 (110 × statMult^γ):");
-for (const depth of [7, 13, 19, 25, 31, 37, 43, 48, 56, 60]) {
+// 프론티어는 마지막 테마 끝(MAX_FRONTIER_DEPTH=42)에서 캡 — 그 너머는 도달 불가라 측정 제외.
+for (const depth of [7, 13, 19, 25, 31, 37, 42]) {
   const g = Math.round(110 * Math.pow(floorStatMult(depth), gammaFit));
   console.log(`  깊이 ${depth}: ${floorPowerGate(depth)} → ${g}`);
 }

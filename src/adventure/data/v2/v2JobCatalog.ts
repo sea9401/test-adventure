@@ -264,10 +264,10 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   //   새 derive 배선 없음 — 기존 효과 어휘(치명피해·최대HP%·치명확률·회피) 재사용.
   veteran: {
     id: "veteran",
-    name: "베테랑",
+    name: "정예 기사",
     tier: 4,
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
-    jobBonus: { str: 10, vit: 10 }, // 전사 심화
+    jobBonus: { str: 10, vit: 10 }, // 전사 심화(기사 라인 정점)
     unlock: { prereqs: { warrior: TIER4_UNLOCK_CUMLEVEL } },
   },
   sensei: {

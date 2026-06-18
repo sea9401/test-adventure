@@ -43,14 +43,14 @@ export type V2CommonSkillId =
   | "v2c_rogue_expose" // 약점 포착
   | "v2c_rogue_poison" // 독침
   // 기본 직업 패시브 스킬(학습+SP 슬롯해야 효과 — 직업 킷 재설계)
-  | "v2c_warrior_might" // 근력 (힘 +10)
+  | "v2c_warrior_might" // 근력 (힘 +10%)
   | "v2c_martial_fortitude" // 강건 (활력 +10)
   | "v2c_mage_acumen" // 총명 (지능 +10)
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
   // ── 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
   // 액티브
   | "v2c_shieldman_bash" // 방패 타격 (방어력 기반 단일)
-  | "v2c_squire_cleave" // 베기 (물리 단일 강)
+  | "v2c_squire_cleave" // 돌격 (물리 단일·파고들기)
   | "v2c_boxer_combo" // 연권 (물리 다단)
   | "v2c_monk_palm" // 선풍각 (회피 버프 — selfBuffPct)
   | "v2c_caster_bolt" // 마탄 (마법 단일 강)
@@ -68,28 +68,28 @@ export type V2CommonSkillId =
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
   // ── 고차 4직업 킷(tier 3, A 메타 PR-3) — 액티브 1(강) + III티어 % 패시브 ──
   // 액티브(강)
-  | "v2c_paladin_cleave" // 베기(강) (물리 단일)
+  | "v2c_paladin_cleave" // 심판 (물리 단일 + 무력 디버프)
   | "v2c_brawler_combo" // 연권(강) (물리 다단)
   | "v2c_magus_bolt" // 마탄(강) (마법 단일)
   | "v2c_ranger_ambush" // 기습 (DEX 비례 단일)
   // 고차 패시브(다양성 2차: paladin/ranger 는 효과 리스킨, brawler/magus 는 직군 축 % 유지)
-  | "v2c_paladin_might3" // 철벽 (방어 +20%)
+  | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
   | "v2c_magus_acumen3" // 총명 III (지능 +20%)
   | "v2c_ranger_finesse3" // 정밀 (명중 +12)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   // 액티브
-  | "v2c_guardian_bash" // 방패 강타 (물리 단일)
+  | "v2c_guardian_bash" // 방패 강타 (방어기반 단일)
   | "v2c_warmonk_kick" // 연환각 (물리 다단)
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
-  | "v2c_guardian_bulwark3" // 방벽 (받피감 +15%)
+  | "v2c_guardian_bulwark3" // 방벽 (방어 +20%)
   | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
   | "v2c_bishop_blessing3" // 축복 (회복량 +30%)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +30%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
-  | "v2c_veteran_cleave" // 참격 (물리 단일)
+  | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
   | "v2c_sensei_combo" // 난무 (물리 다단)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 암격 (물리 단일)
@@ -248,9 +248,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ═══ 기본 직업 패시브 스킬(2026-06-17) — 학습 + SP 슬롯해야 상시 효과(캐스트 아님) ═══
   v2c_warrior_might: {
     id: "v2c_warrior_might", name: "근력", stat: "str", category: "passive", tier: 1,
-    description: "단련된 힘. 힘이 오른다.", mpCost: 0, cooldown: 0,
+    description: "단련된 힘. 힘이 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { stat: { str: 10 } },
+    passive: { statPct: { str: 10 } },
   },
   v2c_martial_fortitude: {
     id: "v2c_martial_fortitude", name: "강건", stat: "vit", category: "passive", tier: 1,
@@ -283,9 +283,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.8, 140, "def")],
   },
   v2c_squire_cleave: {
-    id: "v2c_squire_cleave", name: "베기", stat: "str", category: "attack", tier: 2,
-    description: "크게 휘둘러 베어 넘긴다.", mpCost: 34, cooldown: 0, procChance: 30,
-    effects: [dmg(1.2, 190)],
+    // 견습 기사 = 기사 라인 입문. 베기→돌격 리스킨(id 유지). 단숨에 파고드는 첫 기사 기술.
+    id: "v2c_squire_cleave", name: "돌격", stat: "str", category: "attack", tier: 2,
+    description: "말을 몰듯 단숨에 파고들어 베어낸다.", mpCost: 34, cooldown: 0, procChance: 30,
+    effects: [dmg(1.3, 190)],
   },
   // ── 무도가 갈래 ──
   v2c_boxer_combo: {
@@ -396,9 +397,10 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
 
   // ── 고차 4직업 액티브(tier 3) — 같은 계열 tier-2 보다 한 단계 강한 공격 ──
   v2c_paladin_cleave: {
-    id: "v2c_paladin_cleave", name: "베기", stat: "str", category: "attack", tier: 3,
-    description: "벼려진 검으로 깊게 베어 넘긴다.", mpCost: 38, cooldown: 0, procChance: 30,
-    effects: [dmg(1.3, 230)],
+    // 기사(성기사) = 정의의 일격. 베기→심판 리스킨(id 유지). 단일 강타 + 무력(적 방어 약화).
+    id: "v2c_paladin_cleave", name: "심판", stat: "str", category: "attack", tier: 3,
+    description: "정의의 검이 죄를 내리친다. 적의 기세를 꺾는다.", mpCost: 38, cooldown: 0, procChance: 30,
+    effects: [dmg(1.3, 230), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
   v2c_brawler_combo: {
     id: "v2c_brawler_combo", name: "연권", stat: "str", category: "attack", tier: 3,
@@ -421,12 +423,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
 
   // ── 고차 4직업 III티어 패시브(% 가산 — 직군 축, tier-2 II 위 단계) ──
   v2c_paladin_might3: {
-    // 기사 = 중장갑(다양성 2차) — 옛 힘%에서 방어%로 리스킨. id 유지(세이브 호환). str% 는 견습기사
-    //   가 유지. 방어%는 PvE/PvP 양쪽(def=damageBetween 공용).
-    id: "v2c_paladin_might3", name: "철벽", stat: "str", category: "passive", tier: 3,
-    description: "두꺼운 갑주. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
+    // 기사 = 균형형 — 공격(힘%)·방어(방어%) 동시 향상, 각 수치는 낮게. id 유지(세이브 호환).
+    //   순수 방어는 가디언(방어 20%)이, 공격 힘%는 견습기사가 더 높게. 기사는 둘을 겸비.
+    id: "v2c_paladin_might3", name: "기사도", stat: "str", category: "passive", tier: 3,
+    description: "공방 균형의 기사도. 힘과 방어력이 함께 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { defPct: 20 },
+    passive: { statPct: { str: 10 }, defPct: 10 },
   },
   v2c_brawler_fortitude3: {
     id: "v2c_brawler_fortitude3", name: "강건 III", stat: "vit", category: "passive", tier: 3,
@@ -451,9 +453,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
 
   // ── 고차 두 번째 갈래 액티브(tier 3·방패병/수도승/사제/자객 계승) ──
   v2c_guardian_bash: {
-    id: "v2c_guardian_bash", name: "방패 강타", stat: "str", category: "attack", tier: 3,
-    description: "방패를 앞세워 묵직하게 후려친다.", mpCost: 36, cooldown: 0, procChance: 30,
-    effects: [dmg(1.25, 230)],
+    // 가디언 = 방어 탱 — 데미지가 방어력 기반(scaling:"def"). 방어%(방벽) 패시브와 시너지(방어=딜+탱).
+    //   방패병 방패 타격과 같은 def 경로·tier-3 라 base 상향. DEF_PER_VIT<ATK_PER_STR 보정 계수 1.8.
+    id: "v2c_guardian_bash", name: "방패 강타", stat: "vit", category: "attack", tier: 3,
+    description: "방패를 앞세워 묵직하게 후려친다. 방어력이 높을수록 강하다.", mpCost: 36, cooldown: 0, procChance: 30,
+    effects: [dmg(1.8, 220, "def")],
   },
   v2c_warmonk_kick: {
     id: "v2c_warmonk_kick", name: "연환각", stat: "vit", category: "attack", tier: 3,
@@ -477,11 +481,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
 
   // ── 고차 두 번째 갈래 고유 패시브(tier 3·형제와 다른 축) ──
   v2c_guardian_bulwark3: {
-    // 가디언 = 방패병 계승 — 받피감(damageTakenReductionPct). 기사(방어%)와 다른 축. #835 후 PvE/PvP 양쪽.
+    // 가디언 = 방패병 계승 — 순수 방어%(방패 강타가 방어기반이라 방어=딜+탱 시너지). 기사(공방 균형)·
+    //   견습기사(힘%)와 다른 축. defPct 는 PvE/PvP 양쪽(def=damageBetween 공용).
     id: "v2c_guardian_bulwark3", name: "방벽", stat: "vit", category: "passive", tier: 3,
-    description: "온몸으로 받아낸다. 받는 피해가 줄어든다.", mpCost: 0, cooldown: 0,
+    description: "온몸으로 받아낸다. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { damageTakenReductionPct: 15 },
+    passive: { defPct: 20 },
   },
   v2c_warmonk_evasion3: {
     id: "v2c_warmonk_evasion3", name: "허공보", stat: "vit", category: "passive", tier: 3,
@@ -506,9 +511,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
   //   rubricSpCost 가 클램프) — 직업은 4차지만 스킬 파워버킷은 상급. ──
   v2c_veteran_cleave: {
-    id: "v2c_veteran_cleave", name: "참격", stat: "str", category: "attack", tier: 3,
-    description: "전장의 호흡으로 깊게 베어 가른다.", mpCost: 40, cooldown: 0, procChance: 30,
-    effects: [dmg(1.4, 260)],
+    // 정예 기사 = 기사 라인 정점. 참격→결전의 일격 리스킨(id 유지). 처형 딜(공격력 기반·scaling 생략=
+    //   atk) — 적 HP 낮을수록 치명(필살 치명피해 패시브와 시너지). 적 HP 30%↓ ×2.0. PvE/PvP 공용.
+    id: "v2c_veteran_cleave", name: "결전의 일격", stat: "str", category: "attack", tier: 3,
+    description: "승부를 가르는 최후의 일격. 위태로운 적일수록 깊이 파고든다.", mpCost: 40, cooldown: 0, procChance: 30,
+    effects: [
+      { kind: "executeDamage", statCoef: 1.3, baseFlatByTier: [240, 240, 240], hpThresholdPct: 30, bonusMult: 2.0 },
+    ],
   },
   v2c_sensei_combo: {
     id: "v2c_sensei_combo", name: "난무", stat: "str", category: "attack", tier: 3,
@@ -562,10 +571,10 @@ export const V2_COMMON_SKILLS_BY_JOB: Record<
   Exclude<V2Class, "none">,
   readonly V2CommonSkillId[]
 > = {
-  warrior: [
-    "v2c_warrior_strike", "v2c_warrior_flurry", "v2c_warrior_sunder",
-    "v2c_warrior_warcry", "v2c_warrior_endure",
-  ],
+  // 전사 공용 풀 폐지(2026-06-19) — "직업 순회 수집" 설계상 공용 스킬 제거. 전사계는 직업별
+  //   시그니처(V2_SKILLS_BY_JOB)만 학습. 강타는 견습 병사 시그니처로 잔존. 난격/파쇄/함성/불굴
+  //   (v2c_warrior_flurry/sunder/warcry/endure) 정의는 보존(비파괴)·추후 재배치/정리 대상.
+  warrior: [],
   martial: [
     "v2c_martial_burst", "v2c_martial_combo", "v2c_martial_whirl",
     "v2c_martial_chi", "v2c_martial_circulate",

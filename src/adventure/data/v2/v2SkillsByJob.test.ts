@@ -127,14 +127,14 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[ACTIVES[job]].tier, ACTIVES[job]).toBe(3);
       expect(V2_SKILLS[PASSIVE[job]].category, PASSIVE[job]).toBe("passive");
     }
-    // brawler/magus = 직군 축 % 증폭(유지).
+    // brawler/magus = 직군 축 % 증폭(유지). ranger = 명중(리스킨).
     expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.statPct?.vit).toBe(20);
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(20);
-    // paladin/ranger = 비스탯 효과(리스킨) — 방어%·명중.
-    expect(V2_SKILLS.v2c_paladin_might3.passive?.defPct).toBe(20);
-    expect(V2_SKILLS.v2c_paladin_might3.passive?.statPct).toBeUndefined();
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBe(12);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct).toBeUndefined();
+    // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
+    expect(V2_SKILLS.v2c_paladin_might3.passive?.statPct?.str).toBe(10);
+    expect(V2_SKILLS.v2c_paladin_might3.passive?.defPct).toBe(10);
   });
 
   it("고차 두 번째 갈래(tier 3) = 액티브 1 + 고유 패시브(형제와 다른 축)", () => {
@@ -150,8 +150,8 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
       expect(V2_SKILLS[passive].tier, passive).toBe(3);
     }
-    // 형제(기사/격투가/마도사/유격수)와 다른 축: 받피감·회피·회복강화·치명피해.
-    expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.damageTakenReductionPct).toBe(15);
+    // 형제(기사/격투가/마도사/유격수)와 다른 축: 방어%(순수)·회피·회복강화·치명피해.
+    expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.defPct).toBe(20);
     expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.evasionPct).toBe(14);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
     expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(30);
@@ -213,7 +213,7 @@ describe("직업 킷 — 액티브 스킬", () => {
 describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
   it("기본 패시브 스킬 = category passive + 효과(근력/강건/총명/예기)", () => {
     expect(V2_SKILLS.v2c_warrior_might.category).toBe("passive");
-    expect(V2_SKILLS.v2c_warrior_might.passive).toEqual({ stat: { str: 10 } });
+    expect(V2_SKILLS.v2c_warrior_might.passive).toEqual({ statPct: { str: 10 } }); // 힘 +10%(flat→% 변경)
     expect(V2_SKILLS.v2c_martial_fortitude.passive).toEqual({ stat: { vit: 10 } });
     expect(V2_SKILLS.v2c_mage_acumen.passive).toEqual({ stat: { int: 10 } });
     expect(V2_SKILLS.v2c_rogue_finesse.passive?.atkPerDexCoef).toBeGreaterThan(0);
@@ -226,22 +226,22 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
 
   it("aggregateEquippedPassives — 장착 패시브 합산(stat + atkPerDexCoef)", () => {
     const agg = aggregateEquippedPassives([
-      "v2c_warrior_might", // str+10
+      "v2c_martial_fortitude", // vit+10 (플랫 stat)
       "v2c_rogue_finesse", // atkPerDexCoef
       "v2c_warrior_strike", // 액티브 → 무시
     ]);
-    expect(agg.stat).toEqual({ str: 10 });
+    expect(agg.stat).toEqual({ vit: 10 });
     expect(agg.atkPerDexCoef).toBeGreaterThan(0);
   });
 
   it("aggregateEquippedPassives — % 패시브(statPct/maxHpPct/healPowerPct) 합산", () => {
     const agg = aggregateEquippedPassives([
-      "v2c_warrior_might", // 플랫 str+10
+      "v2c_martial_fortitude", // 플랫 vit+10
       "v2c_squire_might", // statPct str+15
       "v2c_shieldman_vitality", // maxHpPct 12
       "v2c_acolyte_mana", // healPowerPct 20 (회복강화 — SPI PR-4, 옛 maxMpPct 리스킨)
     ]);
-    expect(agg.stat).toEqual({ str: 10 }); // 플랫과 % 는 분리
+    expect(agg.stat).toEqual({ vit: 10 }); // 플랫과 % 는 분리
     expect(agg.statPct).toEqual({ str: 15 });
     expect(agg.maxHpPct).toBe(12);
     expect(agg.healPowerPct).toBe(20);
@@ -254,7 +254,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_caster_acumen", // critDmgPct 30
       "v2c_monk_spirit", // evasionPct 10
       "v2c_boxer_fortitude", // lifestealPct 4 (저수치)
-      "v2c_paladin_might3", // defPct 20 (철벽)
+      "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
       "v2c_ranger_finesse3", // accuracyPct 12 (정밀)
     ]);
     expect(agg.critPct).toBe(8);

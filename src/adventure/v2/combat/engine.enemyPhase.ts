@@ -125,23 +125,30 @@ export function resolveEnemyPhase(
       : 0;
   // 반사 회피 (2티어 특기) — 회피 성공 시 받았을 피해의 N 비율 반사. baseEnemyDmg 추정.
   // PR-5a: v2 buff/debuff 격리 해제 — 추정 데미지도 일관 적용 (적의 atk debuff + player def buff).
+  // 마법형 몹(SPI PR-3a) — 이 몹의 공격이 마법방어(magicDef=정신)로 경감되는지. 실제 피해(아래
+  //   defenseForAttack)와 반사회피 추정 피해 양쪽이 같은 기준을 쓰도록 여기서 한 번 계산.
+  const magicAttack = state.enemy.atkType === "magic";
   const reflexEvadeMult = player.reflexEvadeMult ?? 0;
   const estimatedRawEnemyDmg = (() => {
     if (reflexEvadeMult <= 0) return 0;
-    const sk = state.enemy.skill;
-    const pierced =
-      sk?.kind === "pierce" ? Math.max(0, player.def - sk.armorPierce) : player.def;
-    const playerDefVuln = state.enemy.playerDefVulnerable ?? 0;
-    const effDef =
-      playerDefVuln > 0 ? Math.round(pierced * (1 - playerDefVuln)) : pierced;
     const effAtk = Math.max(
       0,
       state.enemy.atk + state.buffs.enemyAtkBonus - state.buffs.enemyAtkPenalty,
     );
     // PR-5b: enemy 의 self buff 도 합산 (monster v2 cast 결과).
     const v2AtkMultE = v2AtkBuffMult(state.enemyV2SelfBuffs, state.enemyV2Debuffs);
-    const v2DefMultP = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2EffAtk = v2AtkMultE !== 1 ? Math.floor(effAtk * v2AtkMultE) : effAtk;
+    // 마법 공격이면 추정도 마법방어 기준(물리 파이프라인 우회) — 실제 피해 분기와 일관.
+    if (magicAttack) {
+      return damageBetween(v2EffAtk, Math.max(0, player.magicDef ?? 0));
+    }
+    const sk = state.enemy.skill;
+    const pierced =
+      sk?.kind === "pierce" ? Math.max(0, player.def - sk.armorPierce) : player.def;
+    const playerDefVuln = state.enemy.playerDefVulnerable ?? 0;
+    const effDef =
+      playerDefVuln > 0 ? Math.round(pierced * (1 - playerDefVuln)) : pierced;
+    const v2DefMultP = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2EffDef = v2DefMultP !== 1 ? Math.floor(effDef * v2DefMultP) : effDef;
     return damageBetween(v2EffAtk, v2EffDef);
   })();
@@ -499,7 +506,14 @@ export function resolveEnemyPhase(
   const v2DefMultPlayer = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
   const v2EffectiveEnemyAtk = v2AtkMultEnemy !== 1 ? Math.floor(effectiveEnemyAtk * v2AtkMultEnemy) : effectiveEnemyAtk;
   const v2EffectivePlayerDef = v2DefMultPlayer !== 1 ? Math.floor(effectivePlayerDef * v2DefMultPlayer) : effectivePlayerDef;
-  const baseEnemyDmg = damageBetween(v2EffectiveEnemyAtk, v2EffectivePlayerDef);
+  // 마법형 몹(SPI PR-3a) — 마법방어(magicDef=정신)로 경감. 물리방어 파이프라인(brace/pierce/취약/
+  //   defDebuff/v2DefMult)을 우회하고 raw magicDef 만 적용(물리 방어 메커니즘은 마법에 무의미).
+  //   피격 후 일반 감산(인내/받피감/가드/굳건/철벽)은 그대로 적용. 미지정/physical = 기존 경로.
+  //   magicAttack 은 위(반사회피 추정)에서 이미 계산.
+  const defenseForAttack = magicAttack
+    ? Math.max(0, player.magicDef ?? 0)
+    : v2EffectivePlayerDef;
+  const baseEnemyDmg = damageBetween(v2EffectiveEnemyAtk, defenseForAttack);
   const rawDmgBeforeReduction = heavyBlowFired
     ? Math.max(1, Math.floor(baseEnemyDmg * heavyBlowMult))
     : baseEnemyDmg;
@@ -611,7 +625,8 @@ export function resolveEnemyPhase(
     });
   }
   const atkPrefix =
-    heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "";
+    (heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "") +
+    (magicAttack ? "[마법] " : "");
   log = appendLog(log, {
     kind: "enemy_attack",
     text: `${atkPrefix || "공격! "}${dmgToHp} 피해를 입혔다.`,

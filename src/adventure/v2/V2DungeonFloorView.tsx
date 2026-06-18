@@ -92,7 +92,7 @@ export function V2DungeonFloorView({
   offlineHunt,
   onRefresh,
 }: {
-  // 깊이 숫자 (테마당 6깊이: 1~6 들판·7~12 깊은 산·13+ 프론티어 밴드). 무한 — DungeonFloorId(1~8) 초과 가능.
+  // 깊이 숫자 (테마당 6깊이: 1~6 들판·7+ 프론티어 밴드, 마른 협곡부터). 무한 — DungeonFloorId(1~8) 초과 가능.
   floorId: number;
   outpostId: string;
   outpostName: string;

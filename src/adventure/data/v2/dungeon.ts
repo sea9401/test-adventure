@@ -1,8 +1,8 @@
-// v2 사냥터 — 2개 구역 (들판 → 깊은 산).
+// v2 사냥터 — 들판(authored 온보딩) + 무한 프론티어 밴드.
 //
-// 2026-06-03: 8구역(들판~창공의 옥좌) → 2구역으로 축소. 뒤 구역(숲/산/화산/설원/별빛 권역)
-// 제거 — 사냥 가능 층은 1·2 뿐(hunt route VALID_FLOORS). DungeonFloorId 타입과
-// FLOOR_DIFFICULTY/드랍·장비·유니크 풀의 3~8 키는 휴면으로 남김(도달 불가, 복원 용이).
+// 2026-06-19: "깊은 산"(옛 2번째 테마, 깊이 7~12) 삭제 — 다른 테마와 몹/아이템이 겹쳐
+// 정리. 이후 테마가 6깊이씩 앞으로 당겨짐(마른 협곡 7~12·얼음 호수 13~18·…). 들판만
+// authored 온보딩 풀, 7+ 부터 밴드 테마(DUNGEON_THEMES). 난이도 곡선은 dungeonLadder.
 //
 // 표시 이름(name)은 지형에 맞춘 v2 고유 이름이고, 스탯/스킬 출처(key)는 라이브 MONSTERS.
 // 둘이 분리돼 있어 출처가 무엇이든 지형에 맞는 이름을 붙인다.
@@ -21,23 +21,10 @@ const FLOOR1_ENEMIES: DungeonEnemy[] = [
   { key: "거미", name: "들거미", image: "/images/monster/v2/field-spider.webp", element: "earth" },
 ];
 
-// === 2구역 — 깊은 산 =================================================
-// 들판 다음 사냥터 — 산적 소굴 결. 산적·산적 궁수(사람형=무속성) + 늑대·곰·들소(짐승).
-// 스탯 출처(key)는 라이브 몬스터. 산적 궁수는 깊은 산 체급 전용 블록(midlands "산적 궁수").
-// ⚠️ 산적 궁수 전용 아트 부재 → field-highwayman 임시 이미지(빌드용, 추후 교체).
-// 속성: 번개/대지/불 + 무속성 2.
-const FLOOR2_ENEMIES: DungeonEnemy[] = [
-  { key: "떠돌이 약탈자", name: "산적", image: "/images/monster/v2/mountain-brigand.webp" },
-  { key: "산적 궁수", name: "산적 궁수", image: "/images/monster/v2/field-highwayman.webp" },
-  { key: "절벽 늑대", name: "늑대", image: "/images/monster/v2/mountain-cliff-wolf.webp", element: "lightning" },
-  { key: "부서진 골렘", name: "곰", image: "/images/monster/v2/forest-bear.webp", element: "earth" },
-  { key: "들소", name: "들소", image: "/images/monster/v2/mountain-bison.webp", element: "fire" },
-];
-
 // === 무한 프론티어 — 깊이 밴드 ========================================
-// 단일 사냥터, 깊이(depth) 1→∞. 깊이 1=들판·2=깊은 산(authored)·3+=밴드별 테마 풀.
+// 단일 사냥터, 깊이(depth) 1→∞. 깊이 1~6=들판(authored)·7+=밴드별 테마 풀.
 // 깊이별 스탯/exp/추천파워 = dungeonLadder 제너레이터(무한, ×1.0~). 수동 푸시: 깊이 1~최고도달+1.
-// 밴드 = 베이스 평평(깊은 산 앵커)·깊이가 절대 강함 담당. 밴드는 속성·스탯 모양·스킬 밀도로 차별.
+// 밴드 = 베이스 평평(들판 앵커)·깊이가 절대 강함 담당. 밴드는 속성·스탯 모양·스킬 밀도로 차별.
 // 후반일수록 능력 밀도/개성 강화: A 2/5 → B 둔화 → C 기습 → D 마법버스트 → E DoT 늪 → F 정예.
 // ⚠️ 아트는 기존 이미지 재사용(플레이스홀더, orphan snow/throne/runs/volcano 재활용) — 교체 예정.
 
@@ -96,7 +83,7 @@ const BAND_F_DEN_ENEMIES: DungeonEnemy[] = [
   { key: "공허 야수", name: "공허 야수", image: "/images/monster/v2/volcano-ash-hound.webp", element: "void", statusSkill: "mob_rending_claw" },
 ];
 
-// 들판·깊은 산 = 깊이 1·2 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
+// 들판 = 깊이 1~6 의 고유(authored) 풀. element 분포 게이트·온보딩 보호.
 export const MAIN_DUNGEON: Dungeon = {
   id: "main",
   name: "사냥터",
@@ -107,29 +94,23 @@ export const MAIN_DUNGEON: Dungeon = {
       requirement: { kind: "power", min: floorPowerGate(1) },
       enemies: FLOOR1_ENEMIES,
     },
-    {
-      id: 2,
-      name: "깊은 산",
-      requirement: { kind: "power", min: floorPowerGate(2) },
-      enemies: FLOOR2_ENEMIES,
-    },
   ],
 };
 
-// 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판·깊은 산 onboarding 풀도 6깊이.
+// 사냥터 테마 순서 — 테마당 THEME_DEPTH_SPAN(6) 깊이씩. 들판 onboarding 풀도 6깊이.
 // 마지막(짐승의 소굴)은 무한 반복(인덱스 클램프, 로컬 번호는 6 넘어 계속 증가). 표시는
 // "테마명 + 테마 내 로컬 번호(1~)". 난이도는 테마 무관, 전역 깊이당 상승(dungeonLadder).
 // 단일 소스 — enemiesForDepth/depthName 이 themeForDepth 에서 도출(경계 드리프트 방지).
+// 2026-06-19: "깊은 산"(옛 7~12) 삭제 → 마른 협곡부터 6깊이씩 앞으로 당겨짐.
 export const THEME_DEPTH_SPAN = 6;
 const DUNGEON_THEMES: { name: string; enemies: DungeonEnemy[] }[] = [
   { name: "들판", enemies: FLOOR1_ENEMIES }, // 깊이 1~6
-  { name: "깊은 산", enemies: FLOOR2_ENEMIES }, // 7~12
-  { name: "마른 협곡", enemies: BAND_A_CANYON_ENEMIES }, // 13~18
-  { name: "얼음 호수", enemies: BAND_B_LAKE_ENEMIES }, // 19~24
-  { name: "심층 동굴", enemies: BAND_C_CAVE_ENEMIES }, // 25~30
-  { name: "잊힌 성소", enemies: BAND_D_SANCTUM_ENEMIES }, // 31~36
-  { name: "리자드 늪지", enemies: BAND_E_SWAMP_ENEMIES }, // 37~42
-  { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 43~48, 49+ 무한
+  { name: "마른 협곡", enemies: BAND_A_CANYON_ENEMIES }, // 7~12
+  { name: "얼음 호수", enemies: BAND_B_LAKE_ENEMIES }, // 13~18
+  { name: "심층 동굴", enemies: BAND_C_CAVE_ENEMIES }, // 19~24
+  { name: "잊힌 성소", enemies: BAND_D_SANCTUM_ENEMIES }, // 25~30
+  { name: "리자드 늪지", enemies: BAND_E_SWAMP_ENEMIES }, // 31~36
+  { name: "짐승의 소굴", enemies: BAND_F_DEN_ENEMIES }, // 37~42, 43+ 무한
 ];
 
 // 깊이(1+) → 0-based 테마 인덱스(DUNGEON_THEMES). 마지막 테마(무한)는 클램프.
@@ -153,12 +134,12 @@ function themeForDepth(depth: number): {
   return { ...DUNGEON_THEMES[idx], localIndex: d - idx * THEME_DEPTH_SPAN };
 }
 
-// 깊이 → 적 풀. 테마당 6깊이(들판·깊은 산 onboarding 포함). 무한 깊이.
+// 깊이 → 적 풀. 테마당 6깊이(들판 onboarding 포함, 7+ 밴드). 무한 깊이.
 export function enemiesForDepth(depth: number): DungeonEnemy[] {
   return themeForDepth(depth).enemies;
 }
 
-// 깊이 → 표시 이름. "테마명 + 테마 내 로컬 번호"(예: 들판 1·깊은 산 3·짐승의 소굴 7).
+// 깊이 → 표시 이름. "테마명 + 테마 내 로컬 번호"(예: 들판 1·마른 협곡 3·짐승의 소굴 7).
 // 테마 속성 요약 — 몹 속성 분포(빈도순·무속성 제외)와 "추천 속성"(최빈 속성을
 // 카운터하는 픽, 최빈이 3종 이상일 때만 — 혼합 밴드는 정답 없음). 약점찌르기(+25%)
 // 가 "어느 속성을 들고 갈까"가 되도록 사냥터 목록이 노출한다.
@@ -206,7 +187,7 @@ export function dungeonThemeGroups(
   return groups;
 }
 
-// 코덱스(모험의 서) 사냥터 도감용 — 깊이 1..maxDepth 가 닿는 테마를 테마당 1개로(들판/깊은 산/…),
+// 코덱스(모험의 서) 사냥터 도감용 — 깊이 1..maxDepth 가 닿는 테마를 테마당 1개로(들판/마른 협곡/…),
 //   각 테마의 깊이 범위 + 적 풀. depthEnd = 도달한 그 테마의 최고 깊이(= min(maxDepth, 테마 끝)) —
 //   "그 사냥터를 처리했을 때 기준" 스탯 표시용 대표 깊이. 마지막 테마(짐승의 소굴, 무한)는 한 카드로
 //   합쳐 중복 카드 방지. maxDepth < 1 이면 빈 배열(도달 전).

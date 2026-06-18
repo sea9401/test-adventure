@@ -11,7 +11,7 @@ import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
 
 // /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
-// floorId 는 depth 숫자(1→들판, 2→깊은 산, 3+→프론티어). 1·2 는 authored 층, 3+ 는 데이터 도출.
+// floorId 는 depth 숫자(1~6→들판, 7+→프론티어 밴드). 들판만 authored, 7+ 는 데이터 도출.
 // 최고 도달 깊이(frontierDepth)+1 까지 입장 가능 — 서버에서 depth_locked 로 최종 차단.
 export default function DungeonFloorPage() {
   const router = useRouter();

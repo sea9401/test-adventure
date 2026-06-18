@@ -176,7 +176,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     .filter((e) => e.sources.length > 0)
     .sort((a, b) => a.material.name.localeCompare(b.material.name));
 
-  // 도달한 깊이까지의 사냥터 테마(들판/깊은 산/…) — 테마당 1개.
+  // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
 
   const subtitle =

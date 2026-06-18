@@ -20,7 +20,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
   동굴뱀: { name: "동굴뱀", tags: ["beast"], hp: 57, atk: 6, def: 2, spd: 5, exp: 5 },
   거미: { name: "거미", tags: ["beast"], hp: 72, atk: 7, def: 3, spd: 6, exp: 6 },
 
-  // ── 깊은 산 (floor 2) ───────────────────────────────────────────────
+  // ── 산적/짐승 (옛 "깊은 산" — 던전 테마는 #삭제, 길드 퀘스트·월드 존·제작 재료에서 계속 사용) ──
   "떠돌이 약탈자": {
     name: "떠돌이 약탈자",
     tags: ["humanoid"],
@@ -30,15 +30,6 @@ export const V2_MONSTERS: Record<string, Monster> = {
     spd: 6,
     exp: 28,
     skill: { kind: "pierce", name: "급소 노리기", armorPierce: 3 },
-  },
-  "산적 궁수": {
-    name: "산적 궁수",
-    tags: ["humanoid"],
-    hp: 200,
-    atk: 23,
-    def: 7,
-    spd: 8,
-    exp: 24,
   },
   "절벽 늑대": {
     name: "절벽 늑대",
@@ -69,7 +60,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
     skill: { kind: "heavy_blow", name: "들이받기", everyPhases: 3, multiplier: 1.5 },
   },
 
-  // ── 프론티어 밴드 A — 마른 협곡 (깊이 3~7). 깊은 산 앵커 스케일(깊이가 배율↑). ──────
+  // ── 프론티어 밴드 A — 마른 협곡 (깊이 7~12). 깊이당 배율↑(dungeonLadder). ──────
   모래도마뱀: {
     name: "모래도마뱀",
     tags: ["beast"],

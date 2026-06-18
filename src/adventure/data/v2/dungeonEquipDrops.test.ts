@@ -15,7 +15,7 @@ function seqRng(values: number[]): () => number {
 
 const empty = new Set<V2EquipmentId>();
 
-describe("STARTER_DROP_POOL — 스타터 단일 풀 (들판/깊은산)", () => {
+describe("STARTER_DROP_POOL — 스타터 단일 풀 (들판)", () => {
   it("chance 0.012(2026-06-13 ÷5), tierWeights {1:3, 2:2, 3:1}", () => {
     expect(STARTER_DROP_POOL.chance).toBe(0.012);
     expect(STARTER_DROP_POOL.tierWeights).toEqual({ 1: 3, 2: 2, 3: 1 });
@@ -31,15 +31,15 @@ describe("STARTER_DROP_POOL — 스타터 단일 풀 (들판/깊은산)", () => 
 });
 
 describe("dropPoolForDepth — 깊이 게이트", () => {
-  it("깊이 1~12(스타터 구간) → 스타터 풀", () => {
-    expect(STARTER_END_DEPTH).toBe(12);
-    for (const d of [1, 6, 7, 12]) {
+  it("깊이 1~6(스타터 구간=들판) → 스타터 풀 (깊은 산 삭제 후)", () => {
+    expect(STARTER_END_DEPTH).toBe(6);
+    for (const d of [1, 3, 6]) {
       expect(dropPoolForDepth(d), `depth ${d}`).toBe(STARTER_DROP_POOL);
     }
   });
 
-  it("프론티어(13+)·범위 밖(≤0) → null (정규 드랍 없음 — 밴드 콘텐츠 C 구간)", () => {
-    for (const d of [13, 18, 50, 999, 0, -1]) {
+  it("프론티어(7+)·범위 밖(≤0) → null (정규 드랍 없음 — 밴드 콘텐츠 구간)", () => {
+    for (const d of [7, 12, 13, 50, 999, 0, -1]) {
       expect(dropPoolForDepth(d), `depth ${d}`).toBeNull();
     }
   });

@@ -365,12 +365,13 @@ describe("v2EquipStatRows (표시 행)", () => {
   });
 
   it("mp 옵션은 % 없이 flat", () => {
-    // 마나의 정수 T3: 위력 4(×2), weight 0, mp 48 + eva 3 (워드 갈래).
+    // 마나의 정수 T3: 위력 4(×2), weight 0, mp 48 + eva 3 + 회복 8%(SPI gear PR-2).
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_mana_essence);
     expect(rows).toEqual([
       { label: "위력", value: "+4" },
       { label: "회피", value: "+3%" },
       { label: "MP", value: "+48" },
+      { label: "회복", value: "+8%" },
     ]);
   });
 

@@ -223,6 +223,12 @@ export type V2EquipOptions = {
   /** 물리 방어력(def) 후-가산, flat 정수. 방어비례 스킬(기사) 특화 + 탱킹 공방일체 옵션
    *  (2026-06-08 신설). 갑옷 위력(def)과 같은 축 — aggregate 가 acc.def 에 더한다. */
   def?: number;
+  /** 마법 방어력(magicDef) 후-가산, flat 정수. 장신구 위력 magicDef 와 같은 축 — aggregate 가
+   *  acc.magicDef 에 더한다. 비장신구 슬롯도 마법방어를 줄 수 있게(마법탱·SPI 부활 PR-2). */
+  magicDef?: number;
+  /** 회복량 +%(healPowerPct) — derive healMult 에 패시브 회복강화와 합산해 곱연산. 지원 빌드
+   *  itemize(SPI 부활 PR-2). 퍼센트(OPTION_PERCENT_KEYS). */
+  healPowerPct?: number;
 };
 
 export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
@@ -233,6 +239,8 @@ export const V2_EQUIP_OPTION_KEYS: readonly (keyof V2EquipOptions)[] = [
   "critMult",
   "spd",
   "def",
+  "magicDef",
+  "healPowerPct",
 ];
 
 export type V2Equipment = {
@@ -539,12 +547,14 @@ const OPTION_LABELS: Record<keyof V2EquipOptions, string> = {
   critMult: "치명피해",
   spd: "속도",
   def: "방어",
+  magicDef: "마법방어",
+  healPowerPct: "회복",
 };
 
 // 단위가 % 인 옵션 키 — UI 표시 시 "+2%" 처럼 후행 % 붙임.
 const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
   keyof V2EquipOptions
->(["crit", "eva"]);
+>(["crit", "eva", "healPowerPct"]);
 
 // 장비 옵션 한 줄 — 라벨과 값(부호·단위 포함)을 분리해 들고 있다.
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.

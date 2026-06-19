@@ -43,6 +43,8 @@ type OccupationLite = {
   fortHp?: number;
   fortMaxHp?: number;
   protectedUntil?: string;
+  // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 덮는다.
+  villageName?: string | null;
 } | null;
 
 export function OutpostView({
@@ -222,7 +224,9 @@ export function OutpostView({
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <HeaderPanel className="space-y-2">
         <BackButton onClick={() => onAction({ kind: "back" })} />
-        <h1 className="text-lg font-bold">{outpost.name}</h1>
+        <h1 className="text-lg font-bold">
+          {occupation?.villageName?.trim() || outpost.name}
+        </h1>
         <div className="flex flex-wrap gap-1 text-xs">
           <span className="rounded bg-zinc-200 px-2 py-0.5 dark:bg-zinc-800">
             {TYPE_LABEL[outpost.type]}
@@ -352,7 +356,7 @@ export function OutpostView({
         {lastClaimResult && (
           <ClaimResultCard
             result={lastClaimResult}
-            outpostName={outpost.name}
+            outpostName={occupation?.villageName?.trim() || outpost.name}
             onClose={() => setLastClaimResult(null)}
             coreLoopOn={coreLoopOn}
           />

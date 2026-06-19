@@ -60,6 +60,8 @@ export type Occupation = {
   fortHp: number;
   fortMaxHp: number;
   protectedUntil: string;
+  // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 이걸로 덮는다(미건설=null).
+  villageName: string | null;
 };
 
 type GameStateValue = {

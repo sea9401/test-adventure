@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { SURFACE_ACCENT } from "@/components/ui/surfaces";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   VILLAGE_TIER_NAME,
@@ -196,7 +197,7 @@ export function V2VillagePanel({
             return (
               <div
                 key={slot}
-                className={`${base} border-dashed border-zinc-300 bg-zinc-100/60 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-600`}
+                className={`${base} border-dashed border-zinc-300 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500`}
               >
                 <span className="text-base leading-none">🔒</span>
                 <span className="mt-1 text-[10px]">잠김</span>
@@ -211,7 +212,7 @@ export function V2VillagePanel({
                   type="button"
                   disabled={busy}
                   onClick={() => void act("harvest", { slot })}
-                  className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300`}
+                  className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300`}
                 >
                   <span className="text-[11px] font-medium">
                     {PRODUCTION_KIND_NAME[job.kind]}
@@ -313,7 +314,7 @@ export function V2VillagePanel({
   // ── 생산 탭 ── 슬롯 판 그리드(전원). 미건설/미해금이면 관리 탭 안내. ──────────────
   if (mode === "produce") {
     return (
-      <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+      <section className={`${SURFACE_ACCENT} space-y-2 p-3`}>
         {header}
         {!built ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -349,7 +350,7 @@ export function V2VillagePanel({
   const canAffordUnlock = !atMaxSlots && gold >= unlockGold;
 
   return (
-    <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+    <section className={`${SURFACE_ACCENT} space-y-2 p-3`}>
       {header}
       {built && village && (
         <button

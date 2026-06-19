@@ -1,4 +1,5 @@
 import type { ElementType, ComponentPropsWithoutRef, ReactNode } from "react";
+import { SURFACE_CARD } from "./surfaces";
 
 type CardPadding = "none" | "sm" | "md" | "lg";
 
@@ -9,9 +10,8 @@ const PAD: Record<CardPadding, string> = {
   lg: "p-6",
 };
 
-// 배경(zinc-50/950) 위에서 카드가 떠 보이도록 — light: 흰색+shadow, dark: zinc-900(배경보다 1단 밝게)+border 강조.
-const SURFACE =
-  "rounded-lg border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+// 카드 표면 = surface 토큰 SSOT(불투명 흰/zinc-900). 새 패널도 직접 색 짜지 말고 SURFACE_* 사용.
+const SURFACE = SURFACE_CARD;
 
 type CardOwnProps = {
   padding?: CardPadding;

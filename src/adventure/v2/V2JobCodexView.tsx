@@ -7,8 +7,8 @@ import { CheckCircle, Lock } from "@phosphor-icons/react";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 import { V2CollectionTitleShop } from "./V2CollectionTitleShop";
 
-// 직업 도감(A 메타 PR-1) — 읽기 전용 수집 대시보드. 4 직군별 정복 진행 + 직업 해금·패시브 수집.
-//   파워 무관(순수 표시). 데이터는 /api/v2/me/job-codex 또는 mock(dev).
+// 직업 도감(A 메타 PR-1) — 읽기 전용 수집 대시보드. 직업 해금·스킬 수집을 평면 목록으로 표기.
+//   직군(계열) 묶음·정복 바는 폐기(오너 요청). 파워 무관. 데이터는 /api/v2/me/job-codex 또는 mock(dev).
 
 export function V2JobCodexView({
   codex,
@@ -19,7 +19,6 @@ export function V2JobCodexView({
 }) {
   const jobsUnlocked = codex.jobs.filter((j) => j.unlocked).length;
   const jobsTotal = codex.jobs.length;
-  const groupsMastered = codex.groups.filter((g) => g.mastered).length;
   // 스킬 수집 완료 직업 수 — 그 직업의 시그니처 스킬을 전부 배운 직업.
   const jobsCollected = codex.jobs.filter(
     (j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal,
@@ -34,8 +33,8 @@ export function V2JobCodexView({
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
             거쳐온 직업과 모은 스킬의 기록.{" "}
             <span className="font-medium text-zinc-600 dark:text-zinc-300">
-              해금 {jobsUnlocked}/{jobsTotal} · 직군 정복 {groupsMastered}/
-              {codex.groups.length} · 스킬 수집 {jobsCollected}/{jobsTotal}
+              해금 {jobsUnlocked}/{jobsTotal} · 스킬 수집 {jobsCollected}/
+              {jobsTotal}
             </span>
           </p>
         </div>
@@ -69,44 +68,14 @@ export function V2JobCodexView({
       {/* 수집 포인트 소비형 sink — 수집 칭호 상점(자체 fetch·코어루프 컨텍스트만 노출) */}
       <V2CollectionTitleShop />
 
-      <div className="space-y-3">
-        {codex.groups.map((group) => {
-          const jobs = codex.jobs.filter((j) => j.group === group.group);
-          const pct = Math.max(
-            0,
-            Math.min(1, group.cumLevel / group.masteredAt),
-          );
-          return (
-            <Card key={group.group} padding="md" className="space-y-2">
-              <div className="flex items-baseline justify-between gap-2">
-                <h2 className="text-sm font-semibold">{group.name} 계열</h2>
-                {group.mastered ? (
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                    정복
-                  </span>
-                ) : (
-                  <span className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-                    정복 {group.cumLevel}/{group.masteredAt}
-                  </span>
-                )}
-              </div>
-              {/* 직군 정복(cumLevel) 진행 바 */}
-              <div className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-                <div
-                  className={`h-full transition-all ${group.mastered ? "bg-amber-500" : "bg-emerald-500"}`}
-                  style={{ width: `${pct * 100}%` }}
-                />
-              </div>
-
-              <ul className="space-y-1.5">
-                {jobs.map((job) => (
-                  <JobRow key={job.id} job={job} />
-                ))}
-              </ul>
-            </Card>
-          );
-        })}
-      </div>
+      {/* 직군 묶음 없이 직업 평면 목록 — 각 직업의 스킬 수집 진행만 표기. */}
+      <Card padding="md">
+        <ul className="space-y-1.5">
+          {codex.jobs.map((job) => (
+            <JobRow key={job.id} job={job} />
+          ))}
+        </ul>
+      </Card>
     </main>
   );
 }

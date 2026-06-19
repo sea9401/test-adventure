@@ -14,21 +14,15 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
-  it("4 직군 + 비모험가 직업 전부, 직군 정복은 cumLevel≥임계", () => {
+  it("비모험가 직업 전부 평면 목록(직군 묶음 폐기) — 모험가(tier0) 제외", () => {
     const prof = profWith({ warrior: SP_MASTERED_CUMLEVEL, mage: 100 });
     const codex = buildJobCodex(prof, [], "warrior", null);
 
-    expect(codex.groups).toHaveLength(4);
+    // 직군 묶음(groups)은 도감에서 폐기 — codex 에 groups 필드 없음.
+    expect("groups" in codex).toBe(false);
     // 모험가(tier0) 제외 — 카탈로그 확장에 견고(하드코딩 회피).
     const nonAdventurer = V2_JOB_LIST.filter((j) => j.tier > 0).length;
     expect(codex.jobs).toHaveLength(nonAdventurer);
-
-    const warriorGroup = codex.groups.find((g) => g.group === "warrior")!;
-    expect(warriorGroup.mastered).toBe(true); // cumLevel 250 ≥ 250
-    expect(warriorGroup.masteredAt).toBe(SP_MASTERED_CUMLEVEL);
-    const mageGroup = codex.groups.find((g) => g.group === "mage")!;
-    expect(mageGroup.cumLevel).toBe(100);
-    expect(mageGroup.mastered).toBe(false);
   });
 
   it("해금 상태 — 기본직업은 warrior cum≥100이면 상위 전사 직업 해금", () => {

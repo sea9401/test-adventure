@@ -6,6 +6,7 @@ import {
   lockGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/guild/resources/deposit — 길드원이 개인 골드를 길드 공용 골드 풀에 입금.
@@ -72,6 +73,13 @@ export async function POST(req: Request) {
     await upsertGuildResources(tx, guildId, {
       ...resources,
       gold: nextGuildGold,
+    });
+
+    await logGuildActivity(tx, {
+      guildId,
+      type: "gold_deposit",
+      actorUserId: userId,
+      meta: { amount },
     });
 
     return {

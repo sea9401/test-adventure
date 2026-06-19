@@ -17,6 +17,11 @@ import {
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
 import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
 import { GuildOrgChart } from "./GuildOrgChart";
+import { GuildGoldDepositPanel } from "./GuildGoldDepositPanel";
+import {
+  GuildActivityList,
+  type GuildActivity,
+} from "./GuildActivityList";
 import { LineupCard } from "./LineupCard";
 import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 import { GuildFoundCard } from "./GuildFoundCard";
@@ -121,6 +126,7 @@ export function V2GuildHome({
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
+  const [activity, setActivity] = useState<GuildActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [acting, setActing] = useState(false);
@@ -133,12 +139,16 @@ export function V2GuildHome({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [stateRes, infoRes] = await Promise.all([
+      const [stateRes, infoRes, actRes] = await Promise.all([
         fetch("/api/v2/me/state").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/v2/me/guild/info").then((r) => (r.ok ? r.json() : null)),
+        fetch("/api/v2/guild/activity").then((r) => (r.ok ? r.json() : null)),
       ]);
       setState(stateRes as StateResponse | null);
       setInfo(infoRes as GuildInfoResponse | null);
+      setActivity(
+        (actRes as { activity?: GuildActivity[] } | null)?.activity ?? [],
+      );
     } catch {}
     setLoading(false);
   }, []);
@@ -382,6 +392,7 @@ export function V2GuildHome({
 
       {activeTab === "info" && (
         info?.guild ? (
+          <div className="space-y-3">
           <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900">
             <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
               {info.guild.nationName && (
@@ -422,6 +433,13 @@ export function V2GuildHome({
                 {info.guild.description}
               </div>
             )}
+          </div>
+
+            {/* 길드 금고 입금 — 거점 화면에서 이관. 점령/공성 비용 재원 충원. */}
+            <GuildGoldDepositPanel />
+
+            {/* 길드원 활동 내역 — 가입·임명·입금·국가선포·창단. */}
+            <GuildActivityList activity={activity} loading={loading} />
           </div>
         ) : (
           <div className="text-sm text-zinc-500 dark:text-zinc-400">

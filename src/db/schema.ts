@@ -509,6 +509,25 @@ export const guildMembers = pgTable(
   ],
 );
 
+// 길드원 활동 내역 — 가입·역할 임명·금고 입금·국가 선포·창단 등. 길드 정보 탭에 최근 N건 표시.
+//   이름은 저장 안 하고 userId 만(읽을 때 batch 해석 — 현재 닉네임 기준). meta=금액/역할/국가명.
+export const guildActivityLog = pgTable(
+  "guild_activity_log",
+  {
+    id: serial("id").primaryKey(),
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    // "member_join" | "role_change" | "gold_deposit" | "nation_declare" | "guild_create"
+    type: text("type").notNull(),
+    actorUserId: text("actor_user_id"),
+    targetUserId: text("target_user_id"),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("guild_activity_log_guild_created_idx").on(t.guildId, t.createdAt)],
+);
+
 // 길드 초대장. 7일 유효, 만료 시 cron 이 status='expired' 처리.
 // status: 'pending' | 'accepted' | 'declined' | 'expired'.
 // (guild, target) 쌍의 pending 중복은 partial unique 로 막음.

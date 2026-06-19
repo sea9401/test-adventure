@@ -42,17 +42,26 @@ export async function POST(req: Request) {
       if (!loaded) {
         return { status: 409, body: { ok: false as const, error: "not_built" } };
       }
-      // 점령 이관됐으면 현 길드 소유로 정규화(이전 길드 작물 비움). 이름·종류는 유지(건설됨).
+      // 점령 이관됐으면 현 길드 소유로 정규화(이전 길드 작물 비움). 판/슬롯 종류는 유지(건설됨).
       const village = normalizeVillageOwner(loaded, guildId);
-      // 건설(이름+특화 종류) 후에야 생산 가능 — 빈 공터/미완은 먼저 건설(/build).
-      if (village.name == null || village.productionKind == null) {
+      // 건설(이름) 후에야 생산 가능 — 빈 공터는 먼저 건설(/build).
+      if (village.name == null) {
         return { status: 409, body: { ok: false as const, error: "not_built" } };
+      }
+      // 생산 종류 = 그 칸을 해금할 때 고른 종류(slotKinds). 해금 안 됐으면(또는 종류 미설정)
+      //   범위 밖으로 취급 — tryStartProduction 이 한 번 더 unlockedSlots 검증.
+      const slotKind = village.slotKinds[slot];
+      if (slotKind == null) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "slot_out_of_range" },
+        };
       }
       const started = tryStartProduction(
         village.jobs,
         village.unlockedSlots,
         slot,
-        village.productionKind,
+        slotKind,
         now,
       );
       if (!started.ok) {

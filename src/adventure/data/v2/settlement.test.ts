@@ -15,11 +15,12 @@ import {
   TRAIT_BONUS_PCT,
   MAX_SLOTS_BY_TIER,
   GRID_COLS_BY_TIER,
+  INITIAL_UNLOCKED_SLOTS,
   clampUnlockedSlots,
   canUnlockSlot,
-  applySlotUnlockCost,
-  slotUnlockCost,
-  SLOT_UNLOCK_BASE,
+  slotUnlockGoldCost,
+  SLOT_UNLOCK_GOLD_BASE,
+  SLOT_UNLOCK_GOLD_STEP,
   UPGRADE_COST,
   type ProductionJob,
 } from "./settlement";
@@ -82,71 +83,70 @@ describe("settlement — 생산 엔진", () => {
     expect(GRID_COLS_BY_TIER.city).toBe(3);
   });
 
-  it("clampUnlockedSlots — [1, 최대]로 보정, 손상값 방어", () => {
-    expect(clampUnlockedSlots("village", 0)).toBe(1);
+  it("INITIAL_UNLOCKED_SLOTS=0 / clampUnlockedSlots — [0, 최대]로 보정", () => {
+    expect(INITIAL_UNLOCKED_SLOTS).toBe(0);
+    expect(clampUnlockedSlots("village", 0)).toBe(0); // 건설 직후 빈 판
     expect(clampUnlockedSlots("village", 9)).toBe(4); // 마을 판 최대 4
     expect(clampUnlockedSlots("village", 3)).toBe(3);
     expect(clampUnlockedSlots("city", 9)).toBe(9);
     expect(clampUnlockedSlots("city", 99)).toBe(9);
-    expect(clampUnlockedSlots("village", NaN)).toBe(1);
-    expect(clampUnlockedSlots("village", 2.5)).toBe(1);
+    expect(clampUnlockedSlots("village", -2)).toBe(0);
+    expect(clampUnlockedSlots("village", NaN)).toBe(0);
+    expect(clampUnlockedSlots("village", 2.5)).toBe(0);
   });
 
   it("canUpgrade — 판 다 채우고 재화 충분해야 ok(needSlots/insufficient 구분)", () => {
-    // 마을→도시 비용 = crop 100 / ore 60. 마을 판(4칸)을 다 열어야 업그레이드 가능.
-    expect(canUpgrade("village", 4, { crop: 100, ore: 60 })).toEqual({
-      ok: true,
-      next: "city",
-      missing: [],
-      needSlots: false,
-    });
+    const cost = UPGRADE_COST.village!; // 마을→도시 비용
+    // 마을 판(4칸)을 다 열고 비용 충족 → ok.
+    expect(
+      canUpgrade("village", 4, { crop: cost.crop!, ore: cost.ore!, fish: cost.fish! }),
+    ).toEqual({ ok: true, next: "city", missing: [], needSlots: false });
     // 재화 부족 → ok false, missing.
-    const r = canUpgrade("village", 4, { crop: 100, ore: 10 });
+    const r = canUpgrade("village", 4, { crop: cost.crop!, ore: 0 });
     expect(r.ok).toBe(false);
     expect(r.next).toBe("city");
     expect(r.missing).toContain("ore");
     expect(r.needSlots).toBe(false);
     // 칸 미해금(판 안 참) → 재화 충분해도 needSlots 로 막힘.
-    const s = canUpgrade("village", 1, { crop: 999, ore: 999 });
+    const s = canUpgrade("village", 1, { crop: 99999, ore: 99999, fish: 99999 });
     expect(s.ok).toBe(false);
     expect(s.needSlots).toBe(true);
     // 최종 단계는 업그레이드 없음.
-    expect(canUpgrade("metropolis", 9, { crop: 9999 })).toMatchObject({
+    expect(canUpgrade("metropolis", 9, { crop: 99999 })).toMatchObject({
       ok: false,
       next: null,
     });
   });
 
-  it("칸 해금 — 비용(특화 종류·누진)·차감·판 가득(atMax)", () => {
-    // 다음 칸 비용 = base × 현재 해금 수.
-    expect(slotUnlockCost("crop", 1)).toEqual({ crop: SLOT_UNLOCK_BASE.crop });
-    expect(slotUnlockCost("ore", 3)).toEqual({ ore: SLOT_UNLOCK_BASE.ore * 3 });
-    // 재화 충분 → ok.
-    expect(
-      canUnlockSlot("village", 1, "crop", { crop: SLOT_UNLOCK_BASE.crop }),
-    ).toMatchObject({ ok: true, atMax: false });
-    // 재화 부족 → ok false.
-    expect(canUnlockSlot("village", 1, "crop", { crop: 0 }).ok).toBe(false);
-    // 마을 판 다 참(4칸) → atMax(다음은 단계 업그레이드).
-    expect(
-      canUnlockSlot("village", 4, "crop", { crop: 9999 }),
-    ).toMatchObject({ ok: false, atMax: true });
-    // 차감 — 음수로 안 감.
-    const after = applySlotUnlockCost("crop", 1, {
-      crop: SLOT_UNLOCK_BASE.crop + 5,
-      ore: 3,
+  it("칸 해금 — 골드 비용(누진)·판 여유/가득(atMax)", () => {
+    // 첫 칸(해금 0개) = base, 둘째(1개) = base+step, 셋째(2개) = base+2×step.
+    expect(slotUnlockGoldCost(0)).toBe(SLOT_UNLOCK_GOLD_BASE);
+    expect(slotUnlockGoldCost(1)).toBe(SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP);
+    expect(slotUnlockGoldCost(3)).toBe(
+      SLOT_UNLOCK_GOLD_BASE + 3 * SLOT_UNLOCK_GOLD_STEP,
+    );
+    expect(SLOT_UNLOCK_GOLD_BASE).toBe(50_000_000); // 첫 칸 5천만
+    // 골드 충분 → ok, cost = 첫 칸 비용.
+    expect(canUnlockSlot("village", 0, SLOT_UNLOCK_GOLD_BASE)).toEqual({
+      ok: true,
+      atMax: false,
+      cost: SLOT_UNLOCK_GOLD_BASE,
     });
-    expect(after.crop).toBe(5);
-    expect(after.ore).toBe(3); // 다른 종류 불변
-    expect(applySlotUnlockCost("crop", 1, { crop: 0 }).crop).toBe(0);
+    // 골드 부족 → ok false.
+    expect(canUnlockSlot("village", 0, SLOT_UNLOCK_GOLD_BASE - 1).ok).toBe(false);
+    // 마을 판 다 참(4칸) → atMax(골드 무관).
+    expect(canUnlockSlot("village", 4, 9_999_999_999)).toMatchObject({
+      ok: false,
+      atMax: true,
+    });
   });
 
   it("applyUpgradeCost — 비용만큼 차감, 음수로 안 감", () => {
-    const cost = UPGRADE_COST.village ?? {};
-    const after = applyUpgradeCost("village", { crop: 100, ore: 60, fish: 5 });
-    expect(after.crop).toBe(100 - (cost.crop ?? 0));
-    expect(after.ore).toBe(60 - (cost.ore ?? 0));
-    expect(after.fish).toBe(5); // village→city 는 fish 비용 0 → 불변
+    const cost = UPGRADE_COST.village!;
+    const after = applyUpgradeCost("village", { crop: 500, ore: 300, fish: 200 });
+    expect(after.crop).toBe(500 - cost.crop!);
+    expect(after.ore).toBe(300 - cost.ore!);
+    expect(after.fish).toBe(200 - (cost.fish ?? 0));
     // 부족해도 음수 안 됨(0 클램프).
     expect(applyUpgradeCost("village", { crop: 10 }).crop).toBe(0);
   });

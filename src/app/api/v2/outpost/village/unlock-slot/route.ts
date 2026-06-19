@@ -4,26 +4,28 @@ import {
   guildOwningOutpost,
   lockVillage,
   upsertVillage,
-  lockGuildSettlement,
-  upsertGuildSettlement,
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
+import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
   canUnlockSlot,
-  applySlotUnlockCost,
+  isValidProductionKind,
 } from "@/adventure/data/v2/settlement";
 
-// POST /api/v2/outpost/village/unlock-slot — body { outpostId }
-// 마을 특화 종류 재화로 판의 다음 칸 1개를 해금(unlockedSlots +1). 마스터/부마스터 전용(관리 탭).
-//   판이 꽉 차면(현 단계 최대) at_max — 다음은 단계 업그레이드로 판을 넓힌다.
-// lock 순서: 점령행 → 마을 → 길드 재화(타 라우트 공통).
+// POST /api/v2/outpost/village/unlock-slot — body { outpostId, kind }
+// 판의 다음 칸을 길드 금고 골드로 열고, 그 칸에서 키울 종류(crop|ore|fish)를 고른다(영구).
+//   마스터/부마스터 전용. 첫 칸 5천만 골드에서 칸마다 누진. 판이 꽉 차면 at_max(단계 업그레이드로).
+// lock 순서: 점령행 → 마을 → 길드 자원(골드 풀). 타 라우트 공통(단일 길드 자원 row).
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  let body: { outpostId?: unknown };
+  let body: { outpostId?: unknown; kind?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -33,6 +35,11 @@ export async function POST(req: Request) {
   if (!outpostId) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
   }
+  // 칸에서 키울 종류를 해금과 함께 고른다.
+  if (!isValidProductionKind(body.kind)) {
+    return Response.json({ ok: false, error: "invalid_kind" }, { status: 400 });
+  }
+  const kind = body.kind;
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -55,41 +62,36 @@ export async function POST(req: Request) {
         };
       }
       const village = normalizeVillageOwner(loaded, guildId);
-      // 칸 해금 비용은 마을 특화 종류로 지불 — 건설(이름+종류) 후에야 가능.
-      if (village.name == null || village.productionKind == null) {
+      // 건설(이름)된 마을만 — 빈 공터는 먼저 /build.
+      if (village.name == null) {
         return { status: 409, body: { ok: false as const, error: "not_built" } };
       }
-      const resources = await lockGuildSettlement(tx, guildId);
-      const kind = village.productionKind;
-      const check = canUnlockSlot(
-        village.tier,
-        village.unlockedSlots,
-        kind,
-        resources,
-      );
+      const res = await lockGuildResources(tx, guildId);
+      const check = canUnlockSlot(village.tier, village.unlockedSlots, res.gold);
       if (!check.ok) {
         return {
           status: 409,
           body: {
             ok: false as const,
-            error: check.atMax ? "at_max" : "insufficient",
+            error: check.atMax ? "at_max" : "insufficient_gold",
+            cost: check.cost,
           },
         };
       }
-      const nextResources = applySlotUnlockCost(
-        kind,
-        village.unlockedSlots,
-        resources,
-      );
+      // 다음 칸을 열고 종류를 고정 + 길드 골드 차감.
+      const newSlot = village.unlockedSlots;
       village.unlockedSlots += 1;
+      village.slotKinds = { ...village.slotKinds, [newSlot]: kind };
+      const remaining = res.gold - check.cost;
       await upsertVillage(tx, village);
-      await upsertGuildSettlement(tx, guildId, nextResources);
+      await upsertGuildResources(tx, guildId, { gold: remaining });
       return {
         status: 200,
         body: {
           ok: true as const,
           unlockedSlots: village.unlockedSlots,
-          resources: nextResources,
+          slotKinds: village.slotKinds,
+          gold: remaining,
         },
       };
     });

@@ -1,0 +1,1 @@
+ALTER TABLE "outpost_villages" ADD COLUMN "slot_kinds" jsonb DEFAULT '{}'::jsonb NOT NULL;

@@ -26,10 +26,12 @@ export type VillageRow = {
   guildId: number;
   tier: VillageTier;
   name: string | null;
-  /** 마을 특화 생산 종류 — 건설 시 선택, 영구. null = 미선택(빈 공터/옛 lazy). */
+  /** [레거시] 옛 한-마을-한-종류 특화. 신규 마을은 null — 종류는 칸별 slotKinds 가 결정. */
   productionKind: ProductionKind | null;
-  /** 해금된 칸 수 — [1, MAX_SLOTS_BY_TIER]. 재화로 한 칸씩 해금, 단계 업그레이드로 판 확장. */
+  /** 해금된 칸 수 — [0, MAX_SLOTS_BY_TIER]. 길드 골드로 한 칸씩 해금, 단계 업그레이드로 판 확장. */
   unlockedSlots: number;
+  /** 칸 인덱스 → 생산 종류(해금 시 선택, 영구). 슬롯 i 는 slotKinds[i] 만 생산. */
+  slotKinds: Record<number, ProductionKind>;
   /** 슬롯(문자열 인덱스) → 진행 중 작업. 빈 슬롯은 키 없음. */
   jobs: Record<string, ProductionJob>;
 };
@@ -90,6 +92,34 @@ function parseUnlockedSlots(
   return n;
 }
 
+// 칸별 생산 종류 파싱 + 레거시 소급. slotKinds 가 비어 있고 옛 productionKind 가 있으면
+//   해금된 칸 전부를 그 종류로 채운다(한-마을-한-종류 옛 마을 호환).
+function parseSlotKinds(
+  v: unknown,
+  legacyKind: ProductionKind | null,
+  unlockedSlots: number,
+): Record<number, ProductionKind> {
+  const out: Record<number, ProductionKind> = {};
+  if (typeof v === "object" && v !== null) {
+    for (const [k, raw] of Object.entries(v as Record<string, unknown>)) {
+      const idx = Number(k);
+      if (
+        Number.isInteger(idx) &&
+        idx >= 0 &&
+        String(idx) === k &&
+        typeof raw === "string" &&
+        (PRODUCTION_KINDS as string[]).includes(raw)
+      ) {
+        out[idx] = raw as ProductionKind;
+      }
+    }
+  }
+  if (Object.keys(out).length === 0 && legacyKind != null) {
+    for (let i = 0; i < unlockedSlots; i++) out[i] = legacyKind;
+  }
+  return out;
+}
+
 // 점령 이관 정규화 — village row 가 현 소유 길드와 다르면(빼앗긴 거점) 현 길드 소유로 갱신하고
 //   진행 중 작업을 비운다(이전 길드의 작물은 승계 안 함). tier/name(점령한 구조물)은 유지.
 //   → GET 목록의 "내 마을" 귀속·수확 재화 귀속이 항상 현 소유자 기준이 되도록.
@@ -117,13 +147,16 @@ export async function lockVillage(
   if (!row) return null;
   const tier = parseTier(row.tier);
   const jobs = parseJobs(row.jobs);
+  const productionKind = parseProductionKind(row.productionKind);
+  const unlockedSlots = parseUnlockedSlots(row.unlockedSlots, tier, jobs);
   return {
     outpostId: row.outpostId,
     guildId: row.guildId,
     tier,
     name: row.name ?? null,
-    productionKind: parseProductionKind(row.productionKind),
-    unlockedSlots: parseUnlockedSlots(row.unlockedSlots, tier, jobs),
+    productionKind,
+    unlockedSlots,
+    slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
     jobs,
   };
 }
@@ -140,13 +173,16 @@ export async function readVillagesOfGuild(
   return rows.map((row) => {
     const tier = parseTier(row.tier);
     const jobs = parseJobs(row.jobs);
+    const productionKind = parseProductionKind(row.productionKind);
+    const unlockedSlots = parseUnlockedSlots(row.unlockedSlots, tier, jobs);
     return {
       outpostId: row.outpostId,
       guildId: row.guildId,
       tier,
       name: row.name ?? null,
-      productionKind: parseProductionKind(row.productionKind),
-      unlockedSlots: parseUnlockedSlots(row.unlockedSlots, tier, jobs),
+      productionKind,
+      unlockedSlots,
+      slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
       jobs,
     };
   });
@@ -162,6 +198,7 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
       name: row.name,
       productionKind: row.productionKind,
       unlockedSlots: row.unlockedSlots,
+      slotKinds: row.slotKinds,
       jobs: row.jobs,
     })
     .onConflictDoUpdate({
@@ -172,6 +209,7 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
         name: row.name,
         productionKind: row.productionKind,
         unlockedSlots: row.unlockedSlots,
+        slotKinds: row.slotKinds,
         jobs: row.jobs,
       },
     });

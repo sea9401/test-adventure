@@ -31,7 +31,6 @@ import {
 import {
   type V2LoadoutPreset,
   PRESET_NAME_MAX,
-  clampSlotsBought,
   totalPresetSlots,
 } from "./v2LoadoutPresets";
 
@@ -485,11 +484,10 @@ export type V2SkillsState = {
   /** 전투 패턴 프리셋(C4) — 이름 붙인 패턴 라이브러리(빠른 스왑용). 활성 패턴(pattern)과 별개,
    *  엔진 미사용(순수 저장). combat-pattern/presets 라우트만 변경. 미설정=빈 라이브러리. */
   presets?: V2CombatPreset[];
-  /** 로드아웃 프리셋(A 메타 PR-2b) — 이름 붙인 장착 스킬 묶음(빠른 빌드 전환). 엔진 미사용(순수
-   *  저장). loadout-presets 라우트만 변경. 슬롯 수 = totalPresetSlots(loadoutPresetSlotsBought). */
+  /** 로드아웃 프리셋 — 이름 붙인 장착 스킬 묶음(빠른 빌드 전환). 엔진 미사용(순수 저장).
+   *  loadout-presets 라우트만 변경. 슬롯 수 = totalPresetSlots()(무료 고정). 옛
+   *  loadoutPresetSlotsBought 필드는 폐기(수집 포인트 경제 제거) — 옛 세이브에 남아도 inert. */
   loadoutPresets?: V2LoadoutPreset[];
-  /** 수집 포인트로 구매한 추가 프리셋 슬롯 수(소비형 수집 포인트 ledger). 미설정=0(무료 슬롯만). */
-  loadoutPresetSlotsBought?: number;
 };
 
 export function emptyV2SkillsState(): V2SkillsState {
@@ -529,21 +527,18 @@ export function parseV2SkillsState(raw: unknown): V2SkillsState {
   const rawPresets = (raw as { presets?: unknown }).presets;
   const presets =
     rawPresets != null ? parseCombatPresets(rawPresets) : [];
-  // 로드아웃 프리셋(A 메타 PR-2b) — 구매 슬롯 수(clamp) + 그 슬롯 수만큼만 프리셋 유지.
-  const slotsBought = clampSlotsBought(
-    Number((raw as { loadoutPresetSlotsBought?: unknown }).loadoutPresetSlotsBought) || 0,
-  );
+  // 로드아웃 프리셋 — 무료 고정 슬롯 수(totalPresetSlots)만큼만 유지. 옛 loadoutPresetSlotsBought
+  //   필드는 폐기(수집 포인트 경제 제거) — 읽지 않음(옛 세이브에 남아도 inert).
   const rawLoadoutPresets = (raw as { loadoutPresets?: unknown }).loadoutPresets;
   const loadoutPresets = parseLoadoutPresetsRaw(
     rawLoadoutPresets,
-    totalPresetSlots(slotsBought),
+    totalPresetSlots(),
   );
   let base: V2SkillsState = pattern
     ? { learned, equipped, pattern }
     : { learned, equipped };
   if (presets.length > 0) base = { ...base, presets };
   if (loadoutPresets.length > 0) base = { ...base, loadoutPresets };
-  if (slotsBought > 0) base = { ...base, loadoutPresetSlotsBought: slotsBought };
   return base;
 }
 

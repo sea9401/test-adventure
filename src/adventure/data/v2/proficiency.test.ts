@@ -19,6 +19,8 @@ import {
   tierLevelCap,
   levelCapFor,
   addCumLevel,
+  addJobCumLevel,
+  jobCumLevelOf,
   groupCumLevel,
   totalCumLevel,
   diminishedCumLevel,
@@ -364,6 +366,28 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(addCumLevel(p1, "none", 5)).toBe(p1);
     expect(addCumLevel(p1, "warrior", 0)).toBe(p1);
     expect(groupCumLevel(p0, "nonexistent")).toBe(0);
+  });
+
+  it("addJobCumLevel/jobCumLevelOf — 직업별 누적(groups·floor 와 별개), 비파괴, none/0 무변경", () => {
+    const p0 = emptyProficiency();
+    expect(jobCumLevelOf(p0, "paladin")).toBe(0);
+    const p1 = addJobCumLevel(p0, "paladin", 30);
+    const p2 = addJobCumLevel(p1, "paladin", 5);
+    expect(jobCumLevelOf(p2, "paladin")).toBe(35);
+    expect(jobCumLevelOf(p2, "acolyte")).toBe(0);
+    // 비파괴.
+    expect(jobCumLevelOf(p1, "paladin")).toBe(30);
+    // 🔑 직업별 누적은 groups(직군)·floor 입력에 영향 없음(이중계산 방지).
+    expect(totalCumLevel(p2)).toBe(0);
+    expect(p2.groups).toEqual({});
+    // none/0 무변경.
+    expect(addJobCumLevel(p2, "none", 5)).toBe(p2);
+    expect(addJobCumLevel(p2, "paladin", 0)).toBe(p2);
+    // parse 왕복 — jobCumLevel 보존(양수만).
+    const round = parseProficiency({
+      jobCumLevel: { paladin: 35, acolyte: 12, none: 9, bad: -3 },
+    });
+    expect(round.jobCumLevel).toEqual({ paladin: 35, acolyte: 12 });
   });
 });
 

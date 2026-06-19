@@ -31,6 +31,10 @@ export type V2ProficiencyState = {
   groups: Record<string, V2ProficiencyGroup>;
   caps: Partial<Record<V2StatKey, number>>;
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
+  // 직업별 누적 레벨 — 특정 직업(예: 기사·사제)에 머문 누적 레벨. groups(직군 누적)와 별개.
+  //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 레벨업당 +1.
+  //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
+  jobCumLevel?: Record<string, number>;
 };
 
 // §10 다이얼.
@@ -95,7 +99,7 @@ function posInt(raw: unknown): number {
 }
 
 export function emptyProficiency(): V2ProficiencyState {
-  return { groups: {}, caps: {}, grown: {} };
+  return { groups: {}, caps: {}, grown: {}, jobCumLevel: {} };
 }
 
 function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
@@ -121,7 +125,12 @@ export function parseProficiency(
   seed?: { group: string; level: number },
 ): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
-  const obj = raw as { groups?: unknown; caps?: unknown; grown?: unknown };
+  const obj = raw as {
+    groups?: unknown;
+    caps?: unknown;
+    grown?: unknown;
+    jobCumLevel?: unknown;
+  };
   const groups: Record<string, V2ProficiencyGroup> = {};
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
@@ -186,7 +195,17 @@ export function parseProficiency(
       }
     }
   }
-  return { groups, caps, grown: parseStatMap(obj.grown) };
+  // 직업별 누적 레벨(jobCumLevel) — 옛 세이브엔 없음(빈 맵). 양수만 보존(비파괴).
+  const jobCumLevel: Record<string, number> = {};
+  if (obj.jobCumLevel && typeof obj.jobCumLevel === "object") {
+    for (const [k, v] of Object.entries(
+      obj.jobCumLevel as Record<string, unknown>,
+    )) {
+      const n = posInt(v);
+      if (n > 0 && k && k !== "none") jobCumLevel[k] = n;
+    }
+  }
+  return { groups, caps, grown: parseStatMap(obj.grown), jobCumLevel };
 }
 
 // charSave({class, level})에서 활성 직군 + 현재 레벨을 뽑아 cumLevel 시드와 함께 파싱.
@@ -423,6 +442,28 @@ export function addCumLevel(
       [group]: { ...cur, cumLevel: cur.cumLevel + amount },
     },
   };
+}
+
+// 직업별 누적 레벨 적립 — jobId 의 jobCumLevel += amount(레벨업 수). 비파괴. none/빈 jobId/0이하 무변경.
+//   직군 누적(addCumLevel)과 짝지어 호출 — 같은 레벨업을 직군(groups.cumLevel)과 구체 직업
+//   (jobCumLevel) 양쪽에 적립한다. totalCumLevel/floor 는 groups 만 보므로 이중계산 없음
+//   (jobCumLevel 은 하이브리드 해금 게이트 전용).
+export function addJobCumLevel(
+  p: V2ProficiencyState,
+  jobId: string,
+  amount: number,
+): V2ProficiencyState {
+  if (amount <= 0 || !jobId || jobId === "none") return p;
+  const cur = p.jobCumLevel ?? {};
+  return {
+    ...p,
+    jobCumLevel: { ...cur, [jobId]: (cur[jobId] ?? 0) + amount },
+  };
+}
+
+// 특정 직업의 누적 레벨(하이브리드 해금 게이트 조회). 미적립=0.
+export function jobCumLevelOf(p: V2ProficiencyState, jobId: string): number {
+  return p.jobCumLevel?.[jobId] ?? 0;
 }
 
 // 수행 1회 — 숙달 포인트 cost 소모 + 현 직업 프로필 stat cap 상승 + cultivations++.

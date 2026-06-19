@@ -1,5 +1,5 @@
-// v2 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 신규 플레이어를 "첫 전투 → 장비 → 전직 → 전문화 →
-// 수행 → 프론티어" 순서로 리드하고, 직업별 계파 단련 + 콘텐츠/사회 시스템 + 고차수 마일스톤을 안내.
+// v2 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 신규 플레이어를 "첫 전투 → 장비 → 전직 →
+// 수행 → 프론티어" 순서로 리드하고, 직업별 차수 단련 + 콘텐츠/사회 시스템 + 고차수 마일스톤을 안내.
 //
 // 핵심 설계:
 //   ① 완료 판정은 **세이브 상태에서 자동 감지**(QuestCtx). 별도 "수락/제출" 없음 — 자연스럽게
@@ -10,7 +10,7 @@
 //   ④ 순수 함수 — ctx + claimed 집합 → 각 퀘스트 status. 서버/클라 공용, 테스트 가능.
 //
 // 진행도 source(서버 집계, lib/server/v2QuestContext.ts):
-//   level·frontierDepth·specChosen·passivePicks·class = character.v2 / tier·cultivations = proficiency.v2
+//   level·frontierDepth·class = character.v2 / cultivations = proficiency.v2 / tier = 직업 카탈로그
 //   battleCount·bossKills = adventure-log.v2 / equippedCount·uniqueOwned = equipment.v2
 //   hasGuild = guildMembers / hasTraded = marketplace_listings_v2 / arenaPlayed = arena-history.v2
 
@@ -31,12 +31,8 @@ export type QuestCtx = {
   /** 현 직군(전사/무도가/마법사/도적/none). 직업 전용 라인 가시성 판정. */
   class: V2Class;
   level: number;
-  /** 현 직군의 도달 차수(1~4). proficiency.v2 groups[group].tier. */
+  /** 현 직업의 차수(1~4) = 직업 카탈로그 tier(jobIdFromLegacy). 전직 진행 신호. */
   tier: number;
-  /** 현 직군의 유효한 전문화(계파)를 선택했는가. character.v2.specChoice ∈ 직군 계파. */
-  specChosen: boolean;
-  /** 해금한 전문화 패시브 수. character.v2.unlockedPassives.length. */
-  passivePicks: number;
   /** 누적 전투 수(킬 + 패배). adventure-log.v2. */
   battleCount: number;
   /** 도달한 사냥터 깊이. character.v2.frontierDepth. */
@@ -158,20 +154,12 @@ const GROWTH: QuestDef[] = [
     check: (c) => c.tier >= 2,
   },
   {
-    id: "g_spec",
-    line: "growth",
-    title: "전문화 선택",
-    desc: "성장의 신전에서 전문화(계파)를 선택하세요.",
-    reward: { gold: 500 },
-    check: (c) => c.specChosen,
-  },
-  {
     id: "g_passive",
     line: "growth",
-    title: "전문화 각성",
-    desc: "전문화 패시브를 1개 해금하세요.",
+    title: "3차 전직",
+    desc: "수행 화면에서 3차 직업으로 전직하세요.",
     reward: { gold: 500 },
-    check: (c) => c.passivePicks >= 1,
+    check: (c) => c.tier >= 3,
   },
   {
     id: "g_cultivate",
@@ -192,22 +180,22 @@ const GROWTH: QuestDef[] = [
 ];
 
 // ── 직업 전용 라인(직군별, 본인 직군 것만 보임 · 순차) ──────────────────────
-// 계파 선택 → 패시브 2개(3차) → 패시브 전부(4차). 그 직군 계파 이름을 안내문에 노출.
+// 2차 전직 → 3차 전직 → 4차 전직. 직업 사다리(수행 화면)로 차수를 올린다.
 const CLASS_INFO: Record<
   "warrior" | "martial" | "mage" | "rogue",
-  { name: string; specs: string }
+  { name: string }
 > = {
-  warrior: { name: "전사", specs: "광검·기사·검투사" },
-  martial: { name: "무도가", specs: "금강·혈권·연환" },
-  mage: { name: "마법사", specs: "마도사·워메이지·사제" },
-  rogue: { name: "도적", specs: "궁사·자객·독사" },
+  warrior: { name: "전사" },
+  martial: { name: "무도가" },
+  mage: { name: "마법사" },
+  rogue: { name: "도적" },
 };
 const CLASS_KEYS = Object.keys(CLASS_INFO) as Array<keyof typeof CLASS_INFO>;
 
 const CLASS_LINES: QuestLine[] = CLASS_KEYS.map((cls) => ({
   id: `class_${cls}`,
   name: `${CLASS_INFO[cls].name}의 길`,
-  subtitle: `${CLASS_INFO[cls].name}의 계파를 정하고 끝까지 단련하세요.`,
+  subtitle: `${CLASS_INFO[cls].name}의 직업을 차수별로 끝까지 단련하세요.`,
   sequential: true,
   classOnly: cls as V2Class,
 }));
@@ -219,26 +207,26 @@ const CLASS_QUESTS: QuestDef[] = CLASS_KEYS.flatMap((cls) => {
     {
       id: `c_${cls}_spec`,
       line,
-      title: `${info.name}의 전문화`,
-      desc: `${info.specs} 중 하나의 계파를 선택하세요.`,
+      title: `${info.name} 2차 전직`,
+      desc: "수행 화면에서 2차 직업으로 전직하세요.",
       reward: { gold: 600 },
-      check: (c: QuestCtx) => c.specChosen,
+      check: (c: QuestCtx) => c.tier >= 2,
     },
     {
       id: `c_${cls}_deepen`,
       line,
-      title: "계파 심화",
-      desc: "전문화 패시브를 2개 해금하세요. (3차 필요)",
+      title: "3차 전직",
+      desc: "3차 직업으로 전직하세요.",
       reward: { gold: 1000 },
-      check: (c: QuestCtx) => c.passivePicks >= 2,
+      check: (c: QuestCtx) => c.tier >= 3,
     },
     {
       id: `c_${cls}_apex`,
       line,
-      title: "계파 정점",
-      desc: "전문화 패시브를 모두(3개) 해금하세요. (4차 필요)",
+      title: "4차 전직",
+      desc: "4차 직업으로 전직하세요.",
       reward: { gold: 2000 },
-      check: (c: QuestCtx) => c.passivePicks >= 3,
+      check: (c: QuestCtx) => c.tier >= 4,
     },
   ];
 });
@@ -686,7 +674,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
   {
     id: "growth",
     name: "성장의 길",
-    subtitle: "첫 전투부터 전문화 전직까지 — 차례로 따라오세요.",
+    subtitle: "첫 전투부터 직업 전직까지 — 차례로 따라오세요.",
     sequential: true,
   },
   ...CLASS_LINES,
@@ -820,7 +808,7 @@ export function questStatus(
 }
 
 // 수령 가능 여부(서버 검증) — 가시(현 직군) + 미수령 + 열림 + 조건 충족.
-// isVisible 가드가 타 직군 라인 퀘스트의 교차 수령(specChosen 등 공유 조건)을 차단.
+// isVisible 가드가 타 직군 라인 퀘스트의 교차 수령(tier 등 공유 조건)을 차단.
 export function isQuestClaimable(
   def: QuestDef,
   ctx: QuestCtx,

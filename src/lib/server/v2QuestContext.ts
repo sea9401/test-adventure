@@ -1,13 +1,17 @@
 // 가이드 퀘스트 진행 상태(QuestCtx) 를 세이브 raw 값 + 외부 신호로 조립. GET(무락 read)·claim(락 read)
 // 양쪽이 같은 함수를 쓰도록 raw 값/extras 를 인자로 받는다(읽기는 호출부가 책임).
-//   character.v2  → class·level·frontierDepth·specChosen·passivePicks
-//   proficiency.v2 → tier·cultivations(현 직군)
+//   character.v2  → class·level·frontierDepth·specChoice(→직업 tier 브리지)
+//   proficiency.v2 → cultivations(현 직군). tier = 직업 카탈로그 tier(jobIdFromLegacy)
 //   adventure-log.v2 → battleCount·bossKills(보스 첫 처치 칭호 수)
 //   equipment.v2  → equippedCount·uniqueOwned
 //   extras(DB/별도 세이브) → hasGuild·hasTraded·arenaPlayed (assembleQuestExtras)
 
 import { and, eq, or, sql } from "drizzle-orm";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
+import {
+  V2_JOB_CATALOG,
+  jobIdFromLegacy,
+} from "@/adventure/data/v2/v2JobCatalog";
 import {
   parseProficiencyForChar,
   totalCumLevel,
@@ -19,7 +23,6 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
-import { V2_JOB_SPECS } from "@/adventure/data/v2/v2JobSpecs";
 import { BOSS_TITLE_IDS } from "@/adventure/data/v2/coopBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
 import type { RepeatSignals } from "@/adventure/data/v2/v2RepeatQuests";
@@ -39,8 +42,7 @@ type CharSave = {
   class?: unknown;
   level?: unknown;
   frontierDepth?: unknown;
-  specChoice?: unknown;
-  unlockedPassives?: unknown;
+  specChoice?: unknown; // 직업 사다리 브리지(jobIdFromLegacy) — tier 파생용
   gold?: unknown;
   discoveredOutpostIds?: unknown;
   materials?: Record<string, unknown>;
@@ -95,18 +97,15 @@ export function buildQuestCtx(args: {
     Math.floor(Number(charSave.frontierDepth) || 2),
   );
 
-  // 전문화 선택 = 현 직군의 유효한 계파를 골랐는가(타 직군 잔재 specChoice 오인 방지).
-  const specIds = new Set((V2_JOB_SPECS[group] ?? []).map((s) => s.id));
-  const specChosen =
-    typeof charSave.specChoice === "string" && specIds.has(charSave.specChoice);
-  const passivePicks = Array.isArray(charSave.unlockedPassives)
-    ? charSave.unlockedPassives.filter((x) => typeof x === "string").length
-    : 0;
-
-  // 차수·수행 — 현 직군 그룹 기준(state 라우트와 동일 파생).
+  // 전직 진행(tier 1~4) — 코어루프는 proficiency 차수를 폐지(flattenGroupTiers 로 항상 1)하므로
+  //   현 직업의 카탈로그 tier 로 본다(직업 사다리 = jobIdFromLegacy(class, specChoice) → 카탈로그).
+  //   specChoice 는 advance-class 가 써주는 직업 저장 브리지(전문화 패시브와 무관).
+  const spec =
+    typeof charSave.specChoice === "string" ? charSave.specChoice : null;
+  const tier = V2_JOB_CATALOG[jobIdFromLegacy(cls, spec)]?.tier ?? 1;
+  // 수행 횟수 — 현 직군 그룹 기준(state 라우트와 동일 파생).
   const prof = parseProficiencyForChar(args.proficiencyRaw, charSave);
   const g = prof.groups[group];
-  const tier = g?.tier ?? 1;
   const cultivations = g?.cultivations ?? 0;
 
   // 전투 수 — monster kills 합 + 패배(랭킹 battleCount 정의와 동일). 보상 게이트라 숫자 강제
@@ -162,8 +161,6 @@ export function buildQuestCtx(args: {
     class: cls,
     level,
     tier,
-    specChosen,
-    passivePicks,
     battleCount,
     frontierDepth,
     equippedCount,

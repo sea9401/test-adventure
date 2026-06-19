@@ -17,8 +17,6 @@ const ZERO: QuestCtx = {
   class: "warrior",
   level: 1,
   tier: 1,
-  specChosen: false,
-  passivePicks: 0,
   battleCount: 0,
   frontierDepth: 2,
   equippedCount: 0,
@@ -117,28 +115,26 @@ describe("직업 전용 라인 (classOnly)", () => {
     expect(lines).not.toContain("class_warrior");
   });
 
-  it("계파 진행 — 전문화 선택 → 패시브 2 → 패시브 3", () => {
-    const spec = { ...ZERO, specChosen: true };
-    expect(isQuestClaimable(questById("c_warrior_spec")!, spec, none)).toBe(
-      true,
-    );
-    expect(questStatus(questById("c_warrior_deepen")!, spec, none)).toBe(
+  it("직업 차수 진행 — 2차 전직 → 3차 → 4차", () => {
+    const t2 = { ...ZERO, tier: 2 };
+    expect(isQuestClaimable(questById("c_warrior_spec")!, t2, none)).toBe(true);
+    expect(questStatus(questById("c_warrior_deepen")!, t2, none)).toBe(
       "active",
     );
-    const p2 = { ...spec, passivePicks: 2 };
-    expect(isQuestClaimable(questById("c_warrior_deepen")!, p2, none)).toBe(
+    const t3 = { ...ZERO, tier: 3 };
+    expect(isQuestClaimable(questById("c_warrior_deepen")!, t3, none)).toBe(
       true,
     );
-    const p3 = { ...spec, passivePicks: 3 };
-    expect(isQuestClaimable(questById("c_warrior_apex")!, p3, none)).toBe(true);
+    const t4 = { ...ZERO, tier: 4 };
+    expect(isQuestClaimable(questById("c_warrior_apex")!, t4, none)).toBe(true);
   });
 
-  it("교차 직군 수령 차단 — 전사가 specChosen 이어도 class_mage 퀘 수령 불가", () => {
-    const spec = { ...ZERO, specChosen: true };
-    expect(isQuestClaimable(questById("c_mage_spec")!, spec, none)).toBe(false);
+  it("교차 직군 수령 차단 — 전사가 2차여도 class_mage 퀘 수령 불가", () => {
+    const t2 = { ...ZERO, tier: 2 };
+    expect(isQuestClaimable(questById("c_mage_spec")!, t2, none)).toBe(false);
     // 마법사면 반대로 가능.
-    const mageSpec = { ...spec, class: "mage" as const };
-    expect(isQuestClaimable(questById("c_mage_spec")!, mageSpec, none)).toBe(
+    const mageT2 = { ...t2, class: "mage" as const };
+    expect(isQuestClaimable(questById("c_mage_spec")!, mageT2, none)).toBe(
       true,
     );
   });
@@ -280,8 +276,6 @@ describe("currentGuideQuest (홈 배너)", () => {
       class: "warrior",
       level: 100,
       tier: 4,
-      specChosen: true,
-      passivePicks: 3,
       battleCount: 999,
       frontierDepth: 48,
       equippedCount: 6,

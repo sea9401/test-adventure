@@ -13,7 +13,13 @@ import {
   PRODUCTION_DURATION_MS,
   PRODUCTION_BASE_YIELD,
   TRAIT_BONUS_PCT,
-  SLOTS_BY_TIER,
+  MAX_SLOTS_BY_TIER,
+  GRID_COLS_BY_TIER,
+  clampUnlockedSlots,
+  canUnlockSlot,
+  applySlotUnlockCost,
+  slotUnlockCost,
+  SLOT_UNLOCK_BASE,
   UPGRADE_COST,
   type ProductionJob,
 } from "./settlement";
@@ -68,27 +74,71 @@ describe("settlement — 생산 엔진", () => {
     expect(nextTier("metropolis")).toBe(null);
   });
 
-  it("SLOTS_BY_TIER — 단계 오를수록 슬롯↑", () => {
-    expect(SLOTS_BY_TIER.village).toBeLessThan(SLOTS_BY_TIER.city);
-    expect(SLOTS_BY_TIER.city).toBeLessThan(SLOTS_BY_TIER.metropolis);
+  it("MAX_SLOTS_BY_TIER — 마을 2×2(4), 도시·대도시 3×3(9)", () => {
+    expect(MAX_SLOTS_BY_TIER.village).toBe(4);
+    expect(MAX_SLOTS_BY_TIER.city).toBe(9);
+    expect(MAX_SLOTS_BY_TIER.metropolis).toBe(9);
+    expect(GRID_COLS_BY_TIER.village).toBe(2);
+    expect(GRID_COLS_BY_TIER.city).toBe(3);
   });
 
-  it("canUpgrade — 재화 충분하면 ok, 부족하면 missing", () => {
-    // 마을→도시 비용 = crop 100 / ore 60.
-    expect(canUpgrade("village", { crop: 100, ore: 60 })).toEqual({
+  it("clampUnlockedSlots — [1, 최대]로 보정, 손상값 방어", () => {
+    expect(clampUnlockedSlots("village", 0)).toBe(1);
+    expect(clampUnlockedSlots("village", 9)).toBe(4); // 마을 판 최대 4
+    expect(clampUnlockedSlots("village", 3)).toBe(3);
+    expect(clampUnlockedSlots("city", 9)).toBe(9);
+    expect(clampUnlockedSlots("city", 99)).toBe(9);
+    expect(clampUnlockedSlots("village", NaN)).toBe(1);
+    expect(clampUnlockedSlots("village", 2.5)).toBe(1);
+  });
+
+  it("canUpgrade — 판 다 채우고 재화 충분해야 ok(needSlots/insufficient 구분)", () => {
+    // 마을→도시 비용 = crop 100 / ore 60. 마을 판(4칸)을 다 열어야 업그레이드 가능.
+    expect(canUpgrade("village", 4, { crop: 100, ore: 60 })).toEqual({
       ok: true,
       next: "city",
       missing: [],
+      needSlots: false,
     });
-    const r = canUpgrade("village", { crop: 100, ore: 10 });
+    // 재화 부족 → ok false, missing.
+    const r = canUpgrade("village", 4, { crop: 100, ore: 10 });
     expect(r.ok).toBe(false);
     expect(r.next).toBe("city");
     expect(r.missing).toContain("ore");
+    expect(r.needSlots).toBe(false);
+    // 칸 미해금(판 안 참) → 재화 충분해도 needSlots 로 막힘.
+    const s = canUpgrade("village", 1, { crop: 999, ore: 999 });
+    expect(s.ok).toBe(false);
+    expect(s.needSlots).toBe(true);
     // 최종 단계는 업그레이드 없음.
-    expect(canUpgrade("metropolis", { crop: 9999 })).toMatchObject({
+    expect(canUpgrade("metropolis", 9, { crop: 9999 })).toMatchObject({
       ok: false,
       next: null,
     });
+  });
+
+  it("칸 해금 — 비용(특화 종류·누진)·차감·판 가득(atMax)", () => {
+    // 다음 칸 비용 = base × 현재 해금 수.
+    expect(slotUnlockCost("crop", 1)).toEqual({ crop: SLOT_UNLOCK_BASE.crop });
+    expect(slotUnlockCost("ore", 3)).toEqual({ ore: SLOT_UNLOCK_BASE.ore * 3 });
+    // 재화 충분 → ok.
+    expect(
+      canUnlockSlot("village", 1, "crop", { crop: SLOT_UNLOCK_BASE.crop }),
+    ).toMatchObject({ ok: true, atMax: false });
+    // 재화 부족 → ok false.
+    expect(canUnlockSlot("village", 1, "crop", { crop: 0 }).ok).toBe(false);
+    // 마을 판 다 참(4칸) → atMax(다음은 단계 업그레이드).
+    expect(
+      canUnlockSlot("village", 4, "crop", { crop: 9999 }),
+    ).toMatchObject({ ok: false, atMax: true });
+    // 차감 — 음수로 안 감.
+    const after = applySlotUnlockCost("crop", 1, {
+      crop: SLOT_UNLOCK_BASE.crop + 5,
+      ore: 3,
+    });
+    expect(after.crop).toBe(5);
+    expect(after.ore).toBe(3); // 다른 종류 불변
+    expect(applySlotUnlockCost("crop", 1, { crop: 0 }).crop).toBe(0);
   });
 
   it("applyUpgradeCost — 비용만큼 차감, 음수로 안 감", () => {
@@ -101,24 +151,26 @@ describe("settlement — 생산 엔진", () => {
     expect(applyUpgradeCost("village", { crop: 10 }).crop).toBe(0);
   });
 
-  it("tryStartProduction — 빈 슬롯 성공, 범위 밖/사용중 거부", () => {
+  it("tryStartProduction — 해금된 칸만 성공, 범위 밖/사용중 거부", () => {
     const empty: Record<string, ProductionJob> = {};
-    // 마을 슬롯 1개 → slot 0 만 유효.
-    const r = tryStartProduction(empty, "village", 0, "crop", 1000);
+    // 해금 1칸 → slot 0 만 유효.
+    const r = tryStartProduction(empty, 1, 0, "crop", 1000);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.jobs["0"]).toEqual({ kind: "crop", startedAt: 1000 });
 
-    // 슬롯 범위 밖(마을은 1슬롯이라 slot 1 없음).
-    expect(tryStartProduction(empty, "village", 1, "crop", 1000)).toEqual({
+    // 해금 범위 밖(1칸이라 slot 1 없음).
+    expect(tryStartProduction(empty, 1, 1, "crop", 1000)).toEqual({
       ok: false,
       error: "slot_out_of_range",
     });
+    // 해금 2칸이면 slot 1 유효.
+    expect(tryStartProduction(empty, 2, 1, "crop", 1000).ok).toBe(true);
     // 음수/비정수.
-    expect(tryStartProduction(empty, "city", -1, "crop", 1000).ok).toBe(false);
+    expect(tryStartProduction(empty, 3, -1, "crop", 1000).ok).toBe(false);
 
     // 이미 사용 중.
     const busy = { "0": { kind: "ore" as const, startedAt: 5 } };
-    expect(tryStartProduction(busy, "village", 0, "crop", 1000)).toEqual({
+    expect(tryStartProduction(busy, 1, 0, "crop", 1000)).toEqual({
       ok: false,
       error: "slot_busy",
     });

@@ -69,10 +69,10 @@ export function OutpostView({
   // 코어루프 on = 스태미나 폐지(점령은 골드 비용). 안내 문구의 "스태미너 소모" 분기.
   const { coreLoopOn } = useGameState();
   const [busy, setBusy] = useState(false);
-  // 내 거점 활동 탭 — 생산 / 최근 공격 기록.
-  const [activityTab, setActivityTab] = useState<"produce" | "attacks">(
-    "produce",
-  );
+  // 내 거점 활동 탭 — 생산 / 최근 공격 기록 / (마스터·부마스터) 관리.
+  const [activityTab, setActivityTab] = useState<
+    "produce" | "attacks" | "manage"
+  >("produce");
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
@@ -82,6 +82,9 @@ export function OutpostView({
   const [intrusionOutpostId, setIntrusionOutpostId] = useState<string | null>(
     null,
   );
+  // 내 길드 직책 — 정착지 관리 탭(마스터/부마스터 전용) 게이트. 같은 응답에서.
+  const [guildRole, setGuildRole] = useState<string | null>(null);
+  const [guildIsMaster, setGuildIsMaster] = useState(false);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -96,6 +99,8 @@ export function OutpostView({
             ? j.intrusion.outpostId
             : null,
         );
+        setGuildRole(typeof j?.guild?.role === "string" ? j.guild.role : null);
+        setGuildIsMaster(j?.guild?.isMaster === true);
       })
       .catch(() => {});
     return () => {
@@ -156,6 +161,10 @@ export function OutpostView({
     viewerGuildId === occupation.occupiedByGuildId;
   // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨기고 생산/공격기록 탭.
   const ownByMyGuild = isOwner || isGuildMember;
+  // 정착지 관리(건설·이름변경·칸 해금·단계 업그레이드) = 점령 길드의 마스터/부마스터만(관리 탭).
+  //   role 'vice_master' 는 guildAdmin 의 GUILD_ROLE_VICE_MASTER 와 동일(클라라 문자열 직접 비교).
+  const canManageSettlement =
+    isGuildMember && (guildIsMaster || guildRole === "vice_master");
   // 거점 지형 특성 — 옛 type 라벨 대신 헤더에 표기(맞는 생산물 +보너스).
   const trait = terrainTraitOf(outpost.id);
 
@@ -349,24 +358,32 @@ export function OutpostView({
         )}
 
         {ownByMyGuild ? (
-          // 내 거점 — 생산 / 최근 공격 기록 탭. (V2VillagePanel·attacks 둘 다 점령 길드 멤버.)
+          // 내 거점 — 생산 / 최근 공격 기록 (+ 마스터·부마스터면 관리) 탭.
           <>
             <TabBar
               tabs={[
                 { key: "produce", label: "생산" },
                 { key: "attacks", label: "최근 공격 기록" },
+                ...(canManageSettlement
+                  ? [{ key: "manage", label: "관리" }]
+                  : []),
               ]}
               active={activityTab}
-              onChange={setActivityTab}
+              onChange={(k) =>
+                setActivityTab(k as "produce" | "attacks" | "manage")
+              }
               ariaLabel="거점 활동 탭"
               size="sm"
               variant="highlight"
             />
             {activityTab === "produce" && (
-              <V2VillagePanel outpostId={outpost.id} />
+              <V2VillagePanel outpostId={outpost.id} mode="produce" />
             )}
             {activityTab === "attacks" && (
               <OutpostAttackLog outpostId={outpost.id} />
+            )}
+            {activityTab === "manage" && canManageSettlement && (
+              <V2VillagePanel outpostId={outpost.id} mode="manage" />
             )}
           </>
         ) : (

@@ -7,9 +7,11 @@ import {
   normalizeVillageOwner,
   type VillageRow,
 } from "@/lib/server/v2Settlement";
+import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
   isValidVillageName,
   isValidProductionKind,
+  INITIAL_UNLOCKED_SLOTS,
 } from "@/adventure/data/v2/settlement";
 
 // POST /api/v2/outpost/village/build — body { outpostId, name, kind }
@@ -46,6 +48,13 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
+      // 마을 건설 = 마스터/부마스터 전용(관리 탭).
+      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_authorized" },
+        };
+      }
       let village = await lockVillage(tx, outpostId);
       if (village) {
         village = normalizeVillageOwner(village, guildId);
@@ -68,6 +77,7 @@ export async function POST(req: Request) {
           tier: "village",
           name,
           productionKind: kind,
+          unlockedSlots: INITIAL_UNLOCKED_SLOTS,
           jobs: {},
         } satisfies VillageRow;
       }

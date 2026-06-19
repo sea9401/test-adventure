@@ -987,7 +987,7 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
 // v2 정착지 — 길드가 점령한 거점에 세운 "마을"(단계·이름·생산 슬롯 상태).
 //   outpostId = data/v2/outposts.ts 의 Outpost.id (정적 데이터라 FK X).
 //   소유 길드가 사라지면 마을도 제거(cascade). jobs = 슬롯(문자열 인덱스) → ProductionJob.
-//   tier 별 슬롯 수는 data/v2/settlement SLOTS_BY_TIER. 명명(name)은 후속 PR(건설 흐름).
+//   단계별 판 크기는 data/v2/settlement MAX_SLOTS_BY_TIER(마을 2×2·도시 3×3). 명명(name)=건설 흐름.
 export const outpostVillages = pgTable("outpost_villages", {
   outpostId: text("outpost_id").primaryKey(),
   guildId: integer("guild_id")
@@ -998,6 +998,9 @@ export const outpostVillages = pgTable("outpost_villages", {
   // 마을 특화 생산 종류(crop|ore|fish) — 건설 시 선택, 영구. 모든 슬롯이 이 종류만 생산.
   //   NULL = 미선택(빈 공터 / 옛 lazy 생성분). 건설 완료 = name + productionKind 둘 다.
   productionKind: text("production_kind"),
+  // 해금된 칸 수 — 건설 직후 1, 재화로 한 칸씩 해금(MAX_SLOTS_BY_TIER 범위). 단계 업그레이드가
+  //   판을 넓혀도(2×2→3×3) 해금 수는 유지(이어서 채움). 마이그 백필=옛 tier 슬롯 수(1/2/4).
+  unlockedSlots: integer("unlocked_slots").notNull().default(1),
   jobs: jsonb("jobs").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

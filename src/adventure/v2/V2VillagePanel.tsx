@@ -14,15 +14,17 @@ import {
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
   nextTier,
+  slotUnlockCost,
   terrainTraitDesc,
   type VillageTier,
   type ProductionKind,
   type TerrainTrait,
 } from "@/adventure/data/v2/settlement";
 
-// 길드 마을 패널 — 점령 거점 상세(OutpostView, isOwner) 에 노출.
-//   건설 = 이름 + 특화 생산 종류(작물/광물/물고기)를 함께 정함(종류는 영구). 슬롯은 그 종류만
-//   생산 — 슬롯마다 고르지 않는다. GET /api/v2/outpost/village 로 마을+재화 로드.
+// 길드 마을 패널 — 점령 거점 상세(OutpostView)에 노출. mode 로 두 화면을 분리:
+//   - produce(생산 탭, 길드원 전원): 슬롯 판(2×2 마을 / 3×3 도시) 그리드에서 생산 시작·수확.
+//   - manage(관리 탭, 마스터/부마스터): 마을 건설·이름 변경·칸 해금·단계 업그레이드.
+//   판은 건설 직후 1칸만 열려 있고 나머지는 재화로 한 칸씩 해금(관리 탭). 단계 업그레이드가 판 확장.
 
 type SlotState = {
   slot: number;
@@ -37,7 +39,9 @@ type Village = {
   productionKind: ProductionKind | null;
   tier: VillageTier;
   trait: TerrainTrait;
-  slotCount: number;
+  unlockedSlots: number;
+  maxSlots: number;
+  gridCols: number;
   slots: SlotState[];
 };
 type Resources = Partial<Record<ProductionKind, number>>;
@@ -52,7 +56,19 @@ function fmtRemaining(ms: number): string {
   return `${sec}초`;
 }
 
-export function V2VillagePanel({ outpostId }: { outpostId: string }) {
+function costLabel(cost: Resources): string {
+  return PRODUCTION_KINDS.filter((k) => (cost[k] ?? 0) > 0)
+    .map((k) => `${PRODUCTION_KIND_NAME[k]} ${cost[k]}`)
+    .join(" · ");
+}
+
+export function V2VillagePanel({
+  outpostId,
+  mode = "produce",
+}: {
+  outpostId: string;
+  mode?: "produce" | "manage";
+}) {
   // 거점 표시 이름(헤더·지도)은 GameState occupations.villageName 에서 옴 — 건설/개명 후
   //   동기화해야 같은 화면 헤더가 즉시 새 이름으로 갱신된다.
   const { refreshOccupations } = useGameState();
@@ -139,12 +155,6 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
   // 건설됨 = 이름 + 특화 종류 둘 다. 이름만 있고 종류 없는 옛 마을은 특화 선택 단계.
   const named = !!village && village.name != null;
   const built = named && village!.productionKind != null;
-  // 업그레이드 가능 여부(클라 표시용 — 서버가 권위).
-  const next = village ? nextTier(village.tier) : null;
-  const upgradeCost = village ? (UPGRADE_COST[village.tier] ?? {}) : {};
-  const canAfford =
-    !!next &&
-    PRODUCTION_KINDS.every((k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0));
 
   if (exists === null) {
     return (
@@ -154,50 +164,199 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
     );
   }
 
+  // 슬롯 판 그리드 — interactive(생산 탭)면 빈 칸=생산 시작·완료 칸=수확 버튼, 아니면(관리 탭) 상태만.
+  function renderGrid(interactive: boolean) {
+    if (!village || !built) return null;
+    return (
+      <div
+        className="grid gap-1.5"
+        style={{
+          gridTemplateColumns: `repeat(${village.gridCols}, minmax(0, 1fr))`,
+        }}
+      >
+        {Array.from({ length: village.maxSlots }, (_, slot) => {
+          const locked = slot >= village.unlockedSlots;
+          const job = jobBySlot.get(slot);
+          const readyAt = job ? loadedAt + job.remainingMs : 0;
+          const remaining = job ? Math.max(0, readyAt - now) : 0;
+          const ready = job ? remaining <= 0 : false;
+          const base =
+            "flex aspect-square flex-col items-center justify-center rounded-md border px-1 text-center";
+          if (locked) {
+            return (
+              <div
+                key={slot}
+                className={`${base} border-dashed border-zinc-300 bg-zinc-100/60 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900/40 dark:text-zinc-600`}
+              >
+                <span className="text-base leading-none">🔒</span>
+                <span className="mt-1 text-[10px]">잠김</span>
+              </div>
+            );
+          }
+          if (job) {
+            if (ready && interactive) {
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void act("harvest", { slot })}
+                  className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300`}
+                >
+                  <span className="text-[11px] font-medium">
+                    {PRODUCTION_KIND_NAME[job.kind]}
+                  </span>
+                  <span className="mt-0.5 text-[10px] font-semibold">수확 ✓</span>
+                </button>
+              );
+            }
+            return (
+              <div
+                key={slot}
+                className={`${base} border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300`}
+              >
+                <span className="text-[11px] font-medium">
+                  {PRODUCTION_KIND_NAME[job.kind]}
+                </span>
+                <span className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+                  {ready ? "수확 가능" : fmtRemaining(remaining)}
+                </span>
+              </div>
+            );
+          }
+          // 빈 칸(해금됨).
+          if (interactive) {
+            return (
+              <button
+                key={slot}
+                type="button"
+                disabled={busy}
+                onClick={() => void act("produce", { slot })}
+                className={`${base} border-amber-300 bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-40 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-300 dark:hover:bg-amber-950/30`}
+              >
+                <span className="text-base leading-none">＋</span>
+                <span className="mt-1 text-[10px]">
+                  {PRODUCTION_KIND_NAME[village.productionKind!]} 생산
+                </span>
+              </button>
+            );
+          }
+          return (
+            <div
+              key={slot}
+              className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600`}
+            >
+              <span className="text-[10px]">비어 있음</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const header = (
+    <div className="flex items-start justify-between gap-2">
+      <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+        🏡 {named && village ? village.name : "빈 공터"}
+        {built && village ? (
+          <span className="font-normal text-zinc-600 dark:text-zinc-300">
+            {" · "}
+            {VILLAGE_TIER_NAME[village.tier]} ·{" "}
+            {PRODUCTION_KIND_NAME[village.productionKind!]} 특화
+          </span>
+        ) : null}
+      </h3>
+      <Tooltip
+        content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}
+        align="end"
+        className="shrink-0"
+        triggerClassName="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+      >
+        {TERRAIN_TRAIT_NAME[trait]}
+        {TRAIT_BONUS_KIND[trait] && (
+          <>
+            {" "}
+            {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
+          </>
+        )}
+      </Tooltip>
+    </div>
+  );
+
+  const resourcePool = (
+    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+      {PRODUCTION_KINDS.map((k) => (
+        <span key={k} className="tabular-nums">
+          {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
+        </span>
+      ))}
+    </div>
+  );
+
+  const errBox = err ? (
+    <div className="text-xs text-rose-600 dark:text-rose-400">
+      {ERR_MESSAGES[err] ?? `오류: ${err}`}
+    </div>
+  ) : null;
+
+  // ── 생산 탭 ── 슬롯 판 그리드(전원). 미건설이면 관리 탭 안내. ─────────────────
+  if (mode === "produce") {
+    return (
+      <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
+        {header}
+        {!built ? (
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            아직 마을이 없어요. 관리 탭에서 마을을 건설하면 이곳에서 생산할 수
+            있어요.
+          </p>
+        ) : (
+          <>
+            {resourcePool}
+            {renderGrid(true)}
+          </>
+        )}
+        {errBox}
+      </section>
+    );
+  }
+
+  // ── 관리 탭 ── 건설·이름 변경·칸 해금·단계 업그레이드(마스터/부마스터). ──────────
+  const next = village ? nextTier(village.tier) : null;
+  const upgradeCost = village ? (UPGRADE_COST[village.tier] ?? {}) : {};
+  const atMaxSlots = !!village && village.unlockedSlots >= village.maxSlots;
+  const needSlots = !!village && !atMaxSlots; // 단계 업그레이드 전 판을 다 채워야
+  const canAffordUpgrade =
+    !!next &&
+    !needSlots &&
+    PRODUCTION_KINDS.every((k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0));
+  const unlockCost =
+    built && village?.productionKind
+      ? slotUnlockCost(village.productionKind, village.unlockedSlots)
+      : {};
+  const canAffordUnlock =
+    !!village?.productionKind &&
+    !atMaxSlots &&
+    (resources[village.productionKind] ?? 0) >=
+      (unlockCost[village.productionKind] ?? 0);
+
   return (
     <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
-      {/* 헤더 — 이름 · 단계 · 특화 + (건설된 마을) 이름 변경 + 지형 배지 */}
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-          🏡 {named && village ? village.name : "빈 공터"}
-          {built && village ? (
-            <span className="font-normal text-zinc-600 dark:text-zinc-300">
-              {" · "}
-              {VILLAGE_TIER_NAME[village.tier]} ·{" "}
-              {PRODUCTION_KIND_NAME[village.productionKind!]} 특화
-            </span>
-          ) : null}
-          {named && village && !renaming && (
-            <button
-              type="button"
-              onClick={() => {
-                setRenameName(village.name ?? "");
-                setErr(null);
-                setRenaming(true);
-              }}
-              className="ml-1.5 rounded px-1 text-[11px] font-normal text-amber-700 hover:bg-amber-200/60 dark:text-amber-300 dark:hover:bg-amber-900/40"
-            >
-              이름 변경
-            </button>
-          )}
-        </h3>
-        <Tooltip
-          content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}
-          align="end"
-          className="shrink-0"
-          triggerClassName="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+      {header}
+      {named && village && (
+        <button
+          type="button"
+          onClick={() => {
+            setRenameName(village.name ?? "");
+            setErr(null);
+            setRenaming((v) => !v);
+          }}
+          className="rounded px-1 text-[11px] font-normal text-amber-700 hover:bg-amber-200/60 dark:text-amber-300 dark:hover:bg-amber-900/40"
         >
-          {TERRAIN_TRAIT_NAME[trait]}
-          {TRAIT_BONUS_KIND[trait] && (
-            <>
-              {" "}
-              {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
-            </>
-          )}
-        </Tooltip>
-      </div>
+          이름 변경
+        </button>
+      )}
 
-      {/* 이름 변경 폼 — 명명된 마을만. */}
+      {/* 이름 변경 폼 */}
       {named && village && renaming && (
         <div className="flex items-center gap-1.5">
           <input
@@ -303,109 +462,76 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
         </div>
       ) : (
         <>
-          {/* 길드 재화 풀 */}
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-            {PRODUCTION_KINDS.map((k) => (
-              <span key={k} className="tabular-nums">
-                {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
+          {resourcePool}
+          {/* 슬롯 판 미리보기(읽기 전용) — 잠김/해금 시각화. */}
+          {renderGrid(false)}
+
+          {/* 칸 해금 */}
+          <div className="space-y-1">
+            <div className="text-xs text-zinc-600 dark:text-zinc-300">
+              해금된 칸{" "}
+              <span className="font-medium tabular-nums">
+                {village!.unlockedSlots} / {village!.maxSlots}
               </span>
-            ))}
+            </div>
+            {atMaxSlots ? (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                이 단계의 판을 모두 열었어요. 다음 단계로 업그레이드하면 판이
+                넓어져요.
+              </p>
+            ) : (
+              <button
+                type="button"
+                disabled={busy || !canAffordUnlock}
+                onClick={() => void act("unlock-slot", {})}
+                className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                칸 해금 · {costLabel(unlockCost)}
+              </button>
+            )}
           </div>
 
-          {/* 슬롯 — 모두 마을 특화 종류를 생산. 빈 슬롯은 생산 시작, 완료는 수확. */}
-          <ul className="space-y-1.5">
-            {Array.from({ length: village.slotCount }, (_, slot) => {
-              const job = jobBySlot.get(slot);
-              const readyAt = job ? loadedAt + job.remainingMs : 0;
-              const remaining = job ? Math.max(0, readyAt - now) : 0;
-              const ready = job ? remaining <= 0 : false;
-              return (
-                <li
-                  key={slot}
-                  className="rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  {!job ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {slot + 1}번 슬롯 · 비어 있음
-                      </span>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void act("produce", { slot })}
-                        className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {PRODUCTION_KIND_NAME[village.productionKind!]} 생산
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="min-w-0 text-xs">
-                        <span className="font-medium">
-                          {PRODUCTION_KIND_NAME[job.kind]}
-                        </span>
-                        <span className="ml-1 text-zinc-500 dark:text-zinc-400">
-                          {ready
-                            ? "· 수확 가능"
-                            : `· ${fmtRemaining(remaining)} 남음`}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        disabled={busy || !ready}
-                        onClick={() => void act("harvest", { slot })}
-                        className="shrink-0 rounded-md border border-emerald-600 bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        수확
-                      </button>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-
-          {/* 업그레이드 */}
+          {/* 단계 업그레이드 */}
           {next && (
-            <button
-              type="button"
-              disabled={busy || !canAfford}
-              onClick={() => void act("upgrade", {})}
-              className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {VILLAGE_TIER_NAME[next]}(으)로 업그레이드 ·{" "}
-              {PRODUCTION_KINDS.filter((k) => (upgradeCost[k] ?? 0) > 0)
-                .map((k) => `${PRODUCTION_KIND_NAME[k]} ${upgradeCost[k]}`)
-                .join(" · ")}
-            </button>
+            <div className="space-y-1 border-t border-amber-200 pt-2 dark:border-amber-900/40">
+              <button
+                type="button"
+                disabled={busy || !canAffordUpgrade}
+                onClick={() => void act("upgrade", {})}
+                className="w-full rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {VILLAGE_TIER_NAME[next]}(으)로 업그레이드 ·{" "}
+                {costLabel(upgradeCost)}
+              </button>
+              {needSlots && (
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  먼저 이 단계의 칸을 모두 해금해야 업그레이드할 수 있어요.
+                </p>
+              )}
+            </div>
           )}
         </>
       )}
 
-      {err && (
-        <div className="text-xs text-rose-600 dark:text-rose-400">
-          {err === "slot_busy"
-            ? "이미 작업 중인 슬롯이에요."
-            : err === "not_ready"
-              ? "아직 수확할 수 없어요."
-              : err === "insufficient"
-                ? "재화가 부족해요."
-                : err === "not_owner"
-                  ? "이 거점의 점령 길드만 관리할 수 있어요."
-                  : err === "not_built"
-                    ? "먼저 마을을 건설해야 해요."
-                    : err === "already_built"
-                      ? "이미 세워진 마을이에요."
-                      : err === "invalid_name"
-                        ? "이름은 1~16자로 지어주세요."
-                        : err === "invalid_kind"
-                          ? "생산 종류를 골라주세요."
-                          : `오류: ${err}`}
-        </div>
-      )}
+      {errBox}
     </section>
   );
 }
+
+const ERR_MESSAGES: Record<string, string> = {
+  slot_busy: "이미 작업 중인 칸이에요.",
+  not_ready: "아직 수확할 수 없어요.",
+  insufficient: "재화가 부족해요.",
+  not_owner: "이 거점의 점령 길드만 관리할 수 있어요.",
+  not_authorized: "길드 마스터·부마스터만 관리할 수 있어요.",
+  not_built: "먼저 마을을 건설해야 해요.",
+  already_built: "이미 세워진 마을이에요.",
+  invalid_name: "이름은 1~16자로 지어주세요.",
+  invalid_kind: "생산 종류를 골라주세요.",
+  need_slots: "먼저 이 단계의 칸을 모두 해금해야 해요.",
+  at_max: "판이 가득 찼어요 — 다음 단계로 업그레이드하세요.",
+  max_tier: "이미 최고 단계예요.",
+};
 
 // 특화 생산 종류 선택 — 작물/광물/물고기 토글. 지형 일치 종류엔 +보너스 표시(좋은 선택 유도).
 function KindChoice({
@@ -439,7 +565,13 @@ function KindChoice({
           >
             {PRODUCTION_KIND_NAME[k]}
             {bonus ? (
-              <span className={sel ? "text-amber-100" : "text-emerald-600 dark:text-emerald-400"}>
+              <span
+                className={
+                  sel
+                    ? "text-amber-100"
+                    : "text-emerald-600 dark:text-emerald-400"
+                }
+              >
                 {" "}
                 +{TRAIT_BONUS_PCT}%
               </span>

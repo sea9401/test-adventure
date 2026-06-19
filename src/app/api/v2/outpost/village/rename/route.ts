@@ -6,6 +6,7 @@ import {
   upsertVillage,
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
+import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import { isValidVillageName } from "@/adventure/data/v2/settlement";
 
 // POST /api/v2/outpost/village/rename — body { outpostId, name }
@@ -34,6 +35,13 @@ export async function POST(req: Request) {
       const guildId = await guildOwningOutpost(tx, userId, outpostId);
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
+      }
+      // 이름 변경 = 마스터/부마스터 전용(관리 탭).
+      if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+        return {
+          status: 403,
+          body: { ok: false as const, error: "not_authorized" },
+        };
       }
       let village = await lockVillage(tx, outpostId);
       if (!village) {

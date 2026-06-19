@@ -15,6 +15,8 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
+import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
+import { GuildOrgChart } from "./GuildOrgChart";
 import { LineupCard } from "./LineupCard";
 import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 import { GuildFoundCard } from "./GuildFoundCard";
@@ -398,7 +400,7 @@ export function V2GuildHome({
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <dt className="text-zinc-500 dark:text-zinc-400">길드원 수</dt>
                 <dd className="font-medium tabular-nums">
-                  {info.members?.length ?? 0} / {info.memberCap ?? 3}
+                  {info.members?.length ?? 0} / {info.memberCap ?? GUILD_MAX_MEMBERS}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -435,40 +437,8 @@ export function V2GuildHome({
               {loading ? "불러오는 중…" : "—"}
             </div>
           ) : (
-            <ul className="space-y-1.5">
-              {info.members.map((m) => (
-                <li
-                  key={m.userId}
-                  className="flex items-center justify-between gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      {m.role === "master" && (
-                        <span className="rounded bg-amber-400 px-1.5 py-0.5 text-[10px] font-medium text-amber-900">
-                          마스터
-                        </span>
-                      )}
-                      {m.role === "vice_master" && (
-                        <span className="rounded bg-violet-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          부마스터
-                        </span>
-                      )}
-                      {m.role === "manager" && (
-                        <span className="rounded bg-sky-500 px-1.5 py-0.5 text-[10px] font-medium text-white">
-                          관리자
-                        </span>
-                      )}
-                      <span className="truncate text-sm font-medium">
-                        <PlayerNameLink name={m.name} />
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                      Lv.{m.level} · 가입 {fmtDate(m.joinedAt)}
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            // 길드원 조직도 — 마스터→부마스터→관리자→일반 위계 트리(회사 조직도 느낌).
+            <GuildOrgChart members={info.members} />
           )}
 
           {/* 라인업 — 멤버 배치라 같은 탭에 */}
@@ -493,7 +463,7 @@ export function V2GuildHome({
               </div>
               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                 닉네임으로 초대하면 상대 우편함에 도착해요. 상대가 수락하면 합류합니다 (정원{" "}
-                {info?.members?.length ?? 0}/{info?.memberCap ?? 3}).
+                {info?.members?.length ?? 0}/{info?.memberCap ?? GUILD_MAX_MEMBERS}).
               </p>
               <div className="mt-2 flex gap-2">
                 <input
@@ -684,7 +654,7 @@ export function V2GuildHome({
                     {info.guild.nationDeclaredAt
                       ? `${fmtDate(info.guild.nationDeclaredAt)} 선포`
                       : "선포됨"}{" "}
-                    · 길드 정원 {info.memberCap ?? 3}명
+                    · 길드 정원 {info.memberCap ?? GUILD_MAX_MEMBERS}명
                   </p>
                 </div>
               ) : info?.canDeclareNation ? (

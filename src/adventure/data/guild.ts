@@ -1,7 +1,7 @@
 // 유저 자치 길드 시스템의 상수 / 검증 유틸. 서버 + 클라이언트 양쪽에서 쓴다.
 // 정책 변경(정원, 쿨다운, 이름 길이 등) 은 여기서 한 곳에서.
 
-export const GUILD_MAX_MEMBERS = 3;
+export const GUILD_MAX_MEMBERS = 10;
 
 // 국가 선포 보상 — 정원 증가분. nation_name != null 인 길드는 정원이 이만큼 늘어난다.
 // 🔑 정원 한도는 더 이상 상수가 아니라 길드별 = guildMemberCap(국가 여부)로 계산.

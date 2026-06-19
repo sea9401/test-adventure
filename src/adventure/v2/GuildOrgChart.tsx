@@ -7,6 +7,7 @@ export type OrgMember = {
   joinedAt: string; // ISO date
   name: string;
   level: number;
+  job: string; // 직업 표시명(jobDisplayName) — 예: "견습 병사", "방패병"
   lastSeenAt: string | null; // presence.lastSeenAt(ISO). 미접속 = null
 };
 
@@ -90,6 +91,14 @@ function MemberCard({
         <span className="shrink-0 text-zinc-500 dark:text-zinc-400">
           Lv.{member.level}
         </span>
+      </div>
+      <div
+        className={[
+          "mt-1 text-xs text-zinc-500 dark:text-zinc-400",
+          isMaster ? "text-center" : "text-left",
+        ].join(" ")}
+      >
+        {member.job}
       </div>
       <div
         className={[

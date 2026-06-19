@@ -105,6 +105,34 @@ describe("buildJobCodex", () => {
     expect(martial.passive?.learned).toBe(false);
   });
 
+  it("스킬 수집 진행도 — 시그니처 2개 중 학습 수(액티브+패시브). 둘 다=수집 완료", () => {
+    // 견습 병사 액티브만 학습 → 1/2. 패시브까지 → 2/2(수집 완료).
+    const onlyActive = buildJobCodex(
+      profWith({ warrior: 50 }),
+      ["v2c_warrior_strike"],
+      "warrior",
+      null,
+    );
+    const w1 = onlyActive.jobs.find((j) => j.id === "warrior")!;
+    expect(w1.skillsTotal).toBe(2);
+    expect(w1.skillsLearned).toBe(1);
+
+    const both = buildJobCodex(
+      profWith({ warrior: 50 }),
+      ["v2c_warrior_strike", "v2c_warrior_might"],
+      "warrior",
+      null,
+    );
+    const w2 = both.jobs.find((j) => j.id === "warrior")!;
+    expect(w2.skillsLearned).toBe(2);
+    expect(w2.skillsLearned).toBe(w2.skillsTotal); // 수집 완료
+
+    // 아무것도 안 배운 직업 = 0/2.
+    const mage = both.jobs.find((j) => j.id === "mage")!;
+    expect(mage.skillsLearned).toBe(0);
+    expect(mage.skillsTotal).toBe(2);
+  });
+
   it("모든 직업이 패시브를 가짐(수집 대상) + 직군 매핑 정확", () => {
     const codex = buildJobCodex(emptyProficiency(), [], "none", null);
     for (const job of codex.jobs) {

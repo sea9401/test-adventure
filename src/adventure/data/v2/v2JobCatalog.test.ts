@@ -50,13 +50,13 @@ function profWith(groupCumLevels: Record<string, number>) {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("26개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 9 + 심화 4)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(26);
+  it("27개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 10 + 심화 4)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(27);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(8);
-    expect(byTier(3)).toBe(9); // 직군당 2(형제 갈래) 8 + 하이브리드 1(성기사·전사×마법)
+    expect(byTier(3)).toBe(10); // 직군당 2(형제 갈래) 8 + 하이브리드 2(성기사·마검사)
     expect(byTier(4)).toBe(4);
   });
 
@@ -189,6 +189,38 @@ describe("해금 트리", () => {
     );
     // 왕복 — 저장(전사, templar) → templar.
     expect(jobIdFromLegacy("warrior", "templar")).toBe("templar");
+  });
+
+  it("하이브리드(마검사) — 기사·마도사 두 직업을 각각 250 키워야 해금된다(직업별 cumLevel·AND)", () => {
+    const spellblade = V2_JOB_CATALOG.spellblade;
+    expect(spellblade.tier).toBe(3);
+    // prereq = 기사(paladin·전사 3차) + 마도사(magus·마법 3차), 둘 다 상위 직업 키.
+    expect(spellblade.unlock.prereqs).toEqual({
+      paladin: TIER3_UNLOCK_CUMLEVEL,
+      magus: TIER3_UNLOCK_CUMLEVEL,
+    });
+    // 첫 prereq(paladin) 의 직군 = LEGACY 저장 class(전사).
+    expect(
+      LEGACY_CLASS_SPEC_BY_JOB[Object.keys(spellblade.unlock.prereqs)[0]].class,
+    ).toBe("warrior");
+
+    const profJobs = (jobLevels: Record<string, number>): V2ProficiencyState => ({
+      ...emptyProficiency(),
+      jobCumLevel: { ...jobLevels },
+    });
+    // 직군 누적만으론 안 열림(per-job).
+    expect(isJobUnlocked(spellblade, profWith({ warrior: 999, mage: 999 }))).toBe(
+      false,
+    );
+    // 한쪽 직업만 250 → 잠김.
+    expect(isJobUnlocked(spellblade, profJobs({ paladin: 250 }))).toBe(false);
+    expect(isJobUnlocked(spellblade, profJobs({ magus: 250 }))).toBe(false);
+    // 둘 다 250 → 해금.
+    expect(
+      isJobUnlocked(spellblade, profJobs({ paladin: 250, magus: 250 })),
+    ).toBe(true);
+    // 왕복.
+    expect(jobIdFromLegacy("warrior", "spellblade")).toBe("spellblade");
   });
 });
 

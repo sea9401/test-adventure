@@ -36,7 +36,12 @@ export type JobCodexJob = {
   group: string; // 소속 직군(전사/무인/마법사/도적)
   unlocked: boolean;
   isCurrent: boolean;
-  // 그 직업의 시그니처 패시브(수집 대상). 없으면 null.
+  // 스킬 수집 현황 — 그 직업의 시그니처 스킬(액티브+패시브) 중 학습한 개수 / 전체. 둘 다 배우면
+  //   skillsLearned === skillsTotal = "수집 완료". UI 는 차수·패시브 정체 대신 이 진행도만 표기.
+  skillsLearned: number;
+  skillsTotal: number;
+  // 그 직업의 시그니처 패시브(수집 포인트 경제 입력 — collectionPoints 산정용). 없으면 null.
+  //   ⚠️ UI 표기 안 함(패시브 정체 비공개). 데이터로만 보존.
   passive: { id: string; name: string; description: string; learned: boolean } | null;
 };
 
@@ -142,6 +147,8 @@ export function buildJobCodex(
   const jobs: JobCodexJob[] = V2_JOB_LIST.filter((j) => j.tier > 0).map((job) => {
     const passiveId = passiveIdOfJob(job.id);
     const passiveDef = passiveId ? V2_SKILLS[passiveId] : null;
+    // 스킬 수집 진행도 — 시그니처 스킬(액티브+패시브) 중 학습한 수.
+    const signature = skillsForJob(job.id);
     return {
       id: job.id,
       name: job.name,
@@ -149,6 +156,8 @@ export function buildJobCodex(
       group: groupOfJob(job.id),
       unlocked: isJobUnlocked(job, prof, unlockCtx),
       isCurrent: job.id === currentJobId,
+      skillsTotal: signature.length,
+      skillsLearned: signature.filter((id) => learned.has(id)).length,
       passive:
         passiveId && passiveDef
           ? {

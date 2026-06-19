@@ -20,7 +20,10 @@ export function V2JobCodexView({
   const jobsUnlocked = codex.jobs.filter((j) => j.unlocked).length;
   const jobsTotal = codex.jobs.length;
   const groupsMastered = codex.groups.filter((g) => g.mastered).length;
-  const passivesCollected = codex.jobs.filter((j) => j.passive?.learned).length;
+  // 스킬 수집 완료 직업 수 — 그 직업의 시그니처 스킬을 전부 배운 직업.
+  const jobsCollected = codex.jobs.filter(
+    (j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal,
+  ).length;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -29,10 +32,10 @@ export function V2JobCodexView({
         <div>
           <h1 className="text-lg font-bold">직업 도감</h1>
           <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            거쳐온 직업과 모은 패시브의 기록.{" "}
+            거쳐온 직업과 모은 스킬의 기록.{" "}
             <span className="font-medium text-zinc-600 dark:text-zinc-300">
               해금 {jobsUnlocked}/{jobsTotal} · 직군 정복 {groupsMastered}/
-              {codex.groups.length} · 패시브 {passivesCollected}/{jobsTotal}
+              {codex.groups.length} · 스킬 수집 {jobsCollected}/{jobsTotal}
             </span>
           </p>
         </div>
@@ -120,9 +123,6 @@ function JobRow({ job }: { job: JobCodex["jobs"][number] }) {
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{job.name}</span>
-          <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
-            {job.tier}차
-          </span>
           {job.isCurrent && (
             <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
               현재 직업
@@ -132,23 +132,32 @@ function JobRow({ job }: { job: JobCodex["jobs"][number] }) {
             <Lock size={12} weight="duotone" className="shrink-0 text-zinc-400" />
           )}
         </div>
-        {job.passive && (
-          <span className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-            {job.passive.learned ? (
-              <CheckCircle
-                size={13}
-                weight="fill"
-                className="shrink-0 text-emerald-500"
-              />
-            ) : (
-              <span className="inline-block h-[13px] w-[13px] shrink-0 rounded-full border border-zinc-300 dark:border-zinc-600" />
-            )}
-            패시브 · {job.passive.name}
-            <span className="text-zinc-400 dark:text-zinc-500">
-              {job.passive.learned ? "(수집)" : "(미수집)"}
-            </span>
-          </span>
-        )}
+        {job.skillsTotal > 0 &&
+          (() => {
+            const done = job.skillsLearned >= job.skillsTotal;
+            return (
+              <span className="flex items-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+                {done ? (
+                  <CheckCircle
+                    size={13}
+                    weight="fill"
+                    className="shrink-0 text-emerald-500"
+                  />
+                ) : (
+                  <span className="inline-block h-[13px] w-[13px] shrink-0 rounded-full border border-zinc-300 dark:border-zinc-600" />
+                )}
+                {done ? (
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    스킬 수집 완료
+                  </span>
+                ) : (
+                  <span>
+                    스킬 수집 {job.skillsLearned}/{job.skillsTotal}
+                  </span>
+                )}
+              </span>
+            );
+          })()}
       </div>
     </li>
   );

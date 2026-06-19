@@ -278,6 +278,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
       },
     },
   },
+  // 하이브리드 2호 마검사 — 기사(전사 3차) + 마도사(마법 3차). 검(str)+마법(int) 이중 딜러.
+  //   성기사와 동일 구조(직업별 jobCumLevel 게이트). 둘 다 3차라 기사·마도사를 각각 250 키워야.
+  spellblade: {
+    id: "spellblade",
+    name: "마검사",
+    tier: 3,
+    cultivateProfile: { str: 2, int: 2 }, // 검(str) + 마법(int)
+    // 이중 내장(검+마법). 2축 분산 합 16 — 단일 3차 밴드(주스탯 합 ~16)와 정렬. 두 축에 다 투자해야
+    //   양쪽 딜이 살아 자연 throttle(파워크립 차단).
+    jobBonus: { str: 8, int: 8 },
+    unlock: {
+      prereqs: {
+        paladin: TIER3_UNLOCK_CUMLEVEL, // 기사(전사 3차) — 첫 키 = 저장 class(전사)의 직업
+        magus: TIER3_UNLOCK_CUMLEVEL, // 마도사(마법 3차)
+      },
+    },
+  },
 
   // ─── Tier 4: 심화 직업(직군당 1종) — 부모 직군 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(450) 시 해금 ───
   //   트리 성장 심화. 이중 내장 보너스 + 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화).
@@ -424,6 +441,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   // tier 3 하이브리드(전사×마법) — 저장 class=전사(첫 prereq), spec=고유 id. 마법 prereq 은
   //   해금 게이트일 뿐 저장 class 가 아니다(왕복 = jobIdFromLegacy("warrior","templar")→templar).
   templar: { class: "warrior", spec: "templar" },
+  // 하이브리드 2호 마검사 — 저장 class=전사(첫 prereq=기사의 직군), spec=고유 id. magus prereq 은
+  //   해금 게이트일 뿐 저장 class 아님. 왕복 = jobIdFromLegacy("warrior","spellblade")→spellblade.
+  spellblade: { class: "warrior", spec: "spellblade" },
   // tier 4 — 새 unique spec id.
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },

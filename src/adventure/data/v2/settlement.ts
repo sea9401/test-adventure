@@ -177,3 +177,8 @@ export function isValidVillageName(name: string): boolean {
   const t = name.trim();
   return t.length >= 1 && t.length <= VILLAGE_NAME_MAX;
 }
+
+// 마을 특화 생산 종류 검증 — 건설 시 선택(crop|ore|fish). 영구.
+export function isValidProductionKind(k: unknown): k is ProductionKind {
+  return typeof k === "string" && (PRODUCTION_KINDS as string[]).includes(k);
+}

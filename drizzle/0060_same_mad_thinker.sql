@@ -1,0 +1,1 @@
+ALTER TABLE "outpost_villages" ADD COLUMN "production_kind" text;

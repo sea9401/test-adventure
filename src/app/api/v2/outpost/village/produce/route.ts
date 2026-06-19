@@ -6,21 +6,17 @@ import {
   upsertVillage,
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
-import {
-  tryStartProduction,
-  PRODUCTION_KINDS,
-  type ProductionKind,
-} from "@/adventure/data/v2/settlement";
+import { tryStartProduction } from "@/adventure/data/v2/settlement";
 
-// POST /api/v2/outpost/village/produce — body { outpostId, slot, kind }
-// 점령한 거점의 마을 빈 슬롯에 시간경과 생산 작업을 시작한다. 마을이 없으면 lazy 생성(마을 단계).
-// (명시 건설/명명 흐름은 후속 PR — 지금은 점령지면 바로 생산.)
+// POST /api/v2/outpost/village/produce — body { outpostId, slot }
+// 마을 빈 슬롯에 생산 작업을 시작한다. 생산 종류는 마을 특화(productionKind, 건설 시 선택)로 고정 —
+//   슬롯마다 고르지 않는다. 건설(이름+종류) 후에야 가능(미완은 not_built).
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  let body: { outpostId?: unknown; slot?: unknown; kind?: unknown };
+  let body: { outpostId?: unknown; slot?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -31,13 +27,7 @@ export async function POST(req: Request) {
     typeof body.slot === "number" && Number.isInteger(body.slot)
       ? body.slot
       : -1;
-  const kind = body.kind as ProductionKind;
-  if (
-    !outpostId ||
-    slot < 0 ||
-    typeof body.kind !== "string" ||
-    !(PRODUCTION_KINDS as string[]).includes(kind)
-  ) {
+  if (!outpostId || slot < 0) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
   }
 
@@ -49,17 +39,20 @@ export async function POST(req: Request) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
       const loaded = await lockVillage(tx, outpostId);
-      // 건설(이름 부여) 후에야 생산 가능 — 빈 공터/미명명 마을은 먼저 건설(/build).
-      if (!loaded || loaded.name == null) {
+      if (!loaded) {
         return { status: 409, body: { ok: false as const, error: "not_built" } };
       }
-      // 점령 이관됐으면 현 길드 소유로 정규화(이전 길드 작물 비움). 이름은 유지(건설됨).
+      // 점령 이관됐으면 현 길드 소유로 정규화(이전 길드 작물 비움). 이름·종류는 유지(건설됨).
       const village = normalizeVillageOwner(loaded, guildId);
+      // 건설(이름+특화 종류) 후에야 생산 가능 — 빈 공터/미완은 먼저 건설(/build).
+      if (village.name == null || village.productionKind == null) {
+        return { status: 409, body: { ok: false as const, error: "not_built" } };
+      }
       const started = tryStartProduction(
         village.jobs,
         village.tier,
         slot,
-        kind,
+        village.productionKind,
         now,
       );
       if (!started.ok) {

@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
@@ -7,7 +7,6 @@ import {
   outpostClaimAttempts,
   outpostTreasury,
   savesKv,
-  v2GuildResources,
 } from "@/db/schema";
 import {
   insertFeedEntry,
@@ -67,8 +66,6 @@ import {
 import {
   V2_CORE_LOOP_V2,
   CLAIM_GOLD_COST_BY_TIER,
-  spendGold,
-  spendableGold,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
   applyHpRegen,
@@ -103,6 +100,11 @@ import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 //   - 점령 실패 페널티 없음
 //   - 챔피언 격파 보상 (점령 자체가 보상)
 
+// 점령 비용(길드 골드)을 tx 마지막 guild_resources 락 후 차감할 때, pre-check 후 race 로
+// 길드 골드가 소진됐으면 이 에러로 tx 전체를 롤백한다(전투·점령 무효). 바깥 catch 가 잡아
+// out_of_gold(409)로 응답. (정상 부족은 pre-check 에서 조용히 early-return.)
+class InsufficientGuildGoldError extends Error {}
+
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -135,7 +137,11 @@ export async function POST(req: Request) {
     ? (CLAIM_GOLD_COST_BY_TIER[outpost.tier] ?? 0)
     : 0;
 
-  const result = await db.transaction(async (tx) => {
+  // tx 안에서 InsufficientGuildGoldError(점령 비용 race) 가 던져지면 전체 롤백 후
+  //   out_of_gold 로 응답한다(아래 catch). 그 외 에러는 그대로 전파.
+  let result: { status: number; body: unknown };
+  try {
+    result = await db.transaction(async (tx) => {
     // lock 순서 — occupations FOR UPDATE 가 항상 먼저. 그 후 길드 조회.
     const occRow = (
       await tx
@@ -245,16 +251,10 @@ export async function POST(req: Request) {
       gold?: number;
     };
     if (V2_CORE_LOOP_V2) {
-      const goldPre =
-        typeof charPre.gold === "number" && Number.isFinite(charPre.gold)
-          ? Math.max(0, Math.floor(charPre.gold))
-          : 0;
-      const bankedPre = Math.max(
-        0,
-        Math.floor(Number((charPre as { bankedGold?: number }).bankedGold) || 0),
-      );
-      // 점령 비용은 은행 우선 — 지불 가능액은 보유+은행(spendableGold).
-      if (spendableGold(goldPre, bankedPre) < claimGoldCost) {
+      // 점령 비용은 길드 보유 골드에서 차감(개인 골드 아님) — 거점은 길드 자산.
+      //   lock 없이 read 한 빠른 거부. 실제 차감/최종 검증은 tx 마지막 guild_resources 락에서.
+      const guildGoldPre = (await readGuildResources(tx, attackerGuildId)).gold;
+      if (guildGoldPre < claimGoldCost) {
         return {
           ok: false as const,
           status: 409,
@@ -262,7 +262,7 @@ export async function POST(req: Request) {
             ok: false as const,
             error: "out_of_gold" as const,
             requiredGold: claimGoldCost,
-            gold: goldPre,
+            guildGold: guildGoldPre,
           },
         };
       }
@@ -352,33 +352,9 @@ export async function POST(req: Request) {
 
     const stamina = parseStaminaFromSave(charSave.stamina, now);
     let afterStamina = applyRegen(stamina, now);
-    if (V2_CORE_LOOP_V2) {
-      // 코어루프 — 골드 점령 비용. race 재검(pre-check 후 다른 tx 가 소비했을 수). 차감은
-      // 아래 최종 저장에서 treasury 탈환분과 합산. 스태미나는 회복만(폐지).
-      const rawGold = (charSave as { gold?: number }).gold;
-      const goldNow =
-        typeof rawGold === "number" && Number.isFinite(rawGold)
-          ? Math.max(0, Math.floor(rawGold))
-          : 0;
-      const bankedNow = Math.max(
-        0,
-        Math.floor(
-          Number((charSave as { bankedGold?: number }).bankedGold) || 0,
-        ),
-      );
-      if (spendableGold(goldNow, bankedNow) < claimGoldCost) {
-        return {
-          ok: false as const,
-          status: 409,
-          body: {
-            ok: false as const,
-            error: "out_of_gold" as const,
-            requiredGold: claimGoldCost,
-            gold: goldNow,
-          },
-        };
-      }
-    } else {
+    // 코어루프 on: 점령 비용은 길드 골드(tx 마지막 guild_resources 에서 차감/최종 검증) —
+    //   여기선 스태미나·개인 골드 불변. off: 스태미나 차감(폐지 경로 유지).
+    if (!V2_CORE_LOOP_V2) {
       const after = tryConsume(stamina, cost, now);
       if (!after) {
         // race — pre-check 후 다른 tx 가 차감. lock 후 정확.
@@ -654,34 +630,18 @@ export async function POST(req: Request) {
       const newOccupiedAt = new Date();
       if (stillHasOccRow) {
         // 길드 금고 자동 수리(B안) — 데미지 전, 수비 길드 금고 골드로 결손분 보강.
-        //   원자적 조건부 차감(WHERE gold>=cost). 금고가 한도라 마르면 함락.
-        //   race 로 차감 실패 시 이번 타격은 수리 없음(드묾·음수잔액 불가).
-        //   🔒 락순서: guild_resources 는 이 tx 의 occupation+character.v2 락 이후 마지막에만
-        //   건드린다. treasury/claim 도 guild_resources 를 character.v2 이후 마지막에 잡고
-        //   eject 는 안 건드림 → occupation→character→guild_resources 단일 순서, 사이클 없음.
+        //   수리량은 여기서 (lock 없이) 계산하고 fortHp 에 반영(함락 판정에 필요)하되, 실제
+        //   골드 차감은 tx 마지막 길드자원 정산에서 attacker 비용과 함께 guildId 오름차순으로
+        //   잠가 적용한다(역방향 동시 공성의 attacker↔defender guild_resources 데드락 차단).
+        //   repairHpFromGold 가 보유 골드로 hp 를 캡하므로 평시엔 항상 지불 가능 — 정산 시 race 로
+        //   모자라면(드묾) 전체 롤백.
         if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
           const guildGold = (await readGuildResources(tx, defenderGuildId)).gold;
           const hp = repairHpFromGold(fortMaxHp - fortHpAfter, guildGold);
           if (hp > 0) {
-            const cost = hp * REPAIR_GOLD_PER_HP;
-            const deducted = await tx
-              .update(v2GuildResources)
-              .set({
-                gold: sql`${v2GuildResources.gold} - ${cost}`,
-                updatedAt: new Date(),
-              })
-              .where(
-                and(
-                  eq(v2GuildResources.guildId, defenderGuildId),
-                  gte(v2GuildResources.gold, cost),
-                ),
-              )
-              .returning({ gold: v2GuildResources.gold });
-            if (deducted.length > 0) {
-              repairedHp = hp;
-              repairGoldSpent = cost;
-              fortHpAfter += hp;
-            }
+            repairedHp = hp;
+            repairGoldSpent = hp * REPAIR_GOLD_PER_HP;
+            fortHpAfter += hp;
           }
         }
         // 공성 — 승리 1회당 성벽 SIEGE_DAMAGE_PER_WIN 감소(수리 반영 후).
@@ -841,36 +801,44 @@ export async function POST(req: Request) {
     }
 
     const baseGold = Math.max(0, (charSave as { gold?: number }).gold ?? 0);
-    const baseBanked = Math.max(
-      0,
-      Math.floor(Number((charSave as { bankedGold?: number }).bankedGold) || 0),
-    );
-    // 점령 비용은 은행 우선 차감(코어루프 on; off 면 claimGoldCost=0 → 보유/은행 불변).
-    // 금고 탈환 본인 몫은 보유 골드로 받는다.
-    const claimSpend = spendGold(baseGold, baseBanked, claimGoldCost);
+    // 점령 비용은 길드 골드에서 차감(아래 guild_resources). char 골드는 금고 탈환 본인 몫만.
+    //   탈환 없으면 gold 키 불변(byte-identical 보존).
     const next = {
       ...charSave,
       stamina: afterStamina,
       hp: afterHp,
       hpRegenSince: now,
-      // 비용 차감 + 금고 탈환 합산. 둘 다 0이면 키 불변(off+탈환없음 = byte-identical).
-      // claimGoldCost 는 위 post-lock 에서 잔액(보유+은행) 확인됨.
-      ...(claimGoldCost > 0 || treasuryCaptured
-        ? {
-            gold: claimSpend.gold + (treasuryCaptured?.capturerShare ?? 0),
-            bankedGold: claimSpend.bankedGold,
-          }
+      ...(treasuryCaptured
+        ? { gold: baseGold + treasuryCaptured.capturerShare }
         : {}),
     };
     await upsertSave(tx, userId, "character.v2", next);
 
-    // 금고 탈환 길드 몫 — guild_resources 는 항상 tx 마지막(금고 수리와 동일 락 순서).
-    if (treasuryCaptured && treasuryCaptured.guildShare > 0) {
-      const resources = await lockGuildResources(tx, attackerGuildId);
-      await upsertGuildResources(tx, attackerGuildId, {
-        ...resources,
-        gold: resources.gold + treasuryCaptured.guildShare,
-      });
+    // 길드 골드 정산 — 한 곳에서 모든 guild_resources 변경을 모아 guildId 오름차순으로 잠가
+    //   적용한다. attacker = 점령 비용 차감(sink) + 금고 탈환 길드 몫. defender = 성벽 수리 차감.
+    //   🔒 guild_resources 는 tx 마지막에만(occupation→character→treasury→guild_resources), 그리고
+    //   관련 길드 row 를 항상 오름차순으로 잠가 역방향 동시 공성의 attacker↔defender 데드락을 차단.
+    //   잠근 뒤 음수 잔액(pre-check/수리계산 후 race 로 소진)이면 throw → tx 전체 롤백 → out_of_gold.
+    const guildCostNow = V2_CORE_LOOP_V2 ? claimGoldCost : 0;
+    const guildShareGain = treasuryCaptured?.guildShare ?? 0;
+    const guildDeltas = new Map<number, number>();
+    const attackerDelta = guildShareGain - guildCostNow;
+    if (attackerDelta !== 0) guildDeltas.set(attackerGuildId, attackerDelta);
+    if (repairGoldSpent > 0 && defenderGuildId != null) {
+      // attacker 와 defender 는 서로 다른 길드(같은 길드 점령은 위에서 거부).
+      guildDeltas.set(
+        defenderGuildId,
+        (guildDeltas.get(defenderGuildId) ?? 0) - repairGoldSpent,
+      );
+    }
+    for (const guildId of [...guildDeltas.keys()].sort((a, b) => a - b)) {
+      const delta = guildDeltas.get(guildId)!;
+      const resources = await lockGuildResources(tx, guildId);
+      const nextGold = resources.gold + delta;
+      if (nextGold < 0) {
+        throw new InsufficientGuildGoldError();
+      }
+      await upsertGuildResources(tx, guildId, { ...resources, gold: nextGold });
     }
 
     return {
@@ -914,7 +882,16 @@ export async function POST(req: Request) {
           : null,
       },
     };
-  });
+    });
+  } catch (e) {
+    if (e instanceof InsufficientGuildGoldError) {
+      return Response.json(
+        { ok: false, error: "out_of_gold", requiredGold: claimGoldCost },
+        { status: 409 },
+      );
+    }
+    throw e;
+  }
 
   // 전쟁 피드 — tx 커밋 후 부수효과(중첩 트랜잭션 회피 — guild-lodge 데드락 교훈).
   // insertFeedEntry 가 디바운스/실패삼킴 자체 처리.

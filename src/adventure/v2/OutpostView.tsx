@@ -13,7 +13,7 @@ import {
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
-import { BankPanel } from "./BankPanel";
+import { GuildGoldDepositPanel } from "./GuildGoldDepositPanel";
 import { V2VillagePanel } from "./V2VillagePanel";
 import { useGameState } from "./GameStateProvider";
 
@@ -146,9 +146,10 @@ export function OutpostView({
     !!occupation &&
     occupation.occupiedByGuildId != null &&
     viewerGuildId === occupation.occupiedByGuildId;
-  const canUseBank =
-    occupation === null ||
-    (viewerGuildId != null && occupation.occupiedByGuildId === viewerGuildId);
+  // 길드 골드 입금 — 길드원이고, 빈 거점(점령 전 부트스트랩)이거나 내 길드 거점일 때.
+  //   적대 점령 거점에선 숨김. 거점 0개 신규 길드도 빈 거점 페이지에서 입금 가능(첫 점령 재원).
+  const canDepositGuild =
+    viewerGuildId != null && (occupation === null || isGuildMember);
 
   // 정책 게이트 — guild-only 거점에 다른 길드가 들어가려는 경우 던전 입장 막음.
   const entryDecision = occupation
@@ -362,7 +363,9 @@ export function OutpostView({
           />
         )}
 
-        {canUseBank && <BankPanel />}
+        {/* 개인 은행은 마을 탭(/town/bank)으로 분리. 거점 골드는 길드 보유 골드로 통일 —
+            그 자리에 길드 금고 입금 패널(점령/공성 비용 재원 충원). */}
+        {canDepositGuild && <GuildGoldDepositPanel />}
 
         {/* 마을 생산 — 점령 길드만(서버 소유 가드도 동일). 생산/수확/업그레이드. */}
         {isOwner && <V2VillagePanel outpostId={outpost.id} />}

@@ -1,3 +1,7 @@
+import {
+  GUILD_CREATE_MIN_LEVEL,
+  GUILD_CREATE_GOLD_COST,
+} from "@/adventure/data/guild";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
 export function GuildContent() {
@@ -13,7 +17,12 @@ export function GuildContent() {
       <H2>창단</H2>
       <UL>
         <li>
-          조건: <Em>레벨 5 + 5,000 골드</Em>.
+          조건:{" "}
+          <Em>
+            레벨 {GUILD_CREATE_MIN_LEVEL} + {GUILD_CREATE_GOLD_COST.toLocaleString()}{" "}
+            골드
+          </Em>
+          .
         </li>
         <li>
           정원: <Em>3 명</Em>.

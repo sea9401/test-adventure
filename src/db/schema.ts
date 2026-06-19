@@ -995,12 +995,15 @@ export const outpostVillages = pgTable("outpost_villages", {
     .references(() => guilds.id, { onDelete: "cascade" }),
   tier: text("tier").notNull().default("village"),
   name: text("name"),
-  // 마을 특화 생산 종류(crop|ore|fish) — 건설 시 선택, 영구. 모든 슬롯이 이 종류만 생산.
-  //   NULL = 미선택(빈 공터 / 옛 lazy 생성분). 건설 완료 = name + productionKind 둘 다.
+  // [레거시] 옛 마을 특화 종류(crop|ore|fish) — 한 마을 한 종류 모델의 잔재. 신규 마을은 NULL.
+  //   이제 종류는 칸마다 해금 시 선택(slotKinds). 옛 마을은 parse 가 이 값으로 slotKinds 를 소급.
   productionKind: text("production_kind"),
-  // 해금된 칸 수 — 건설 직후 1, 재화로 한 칸씩 해금(MAX_SLOTS_BY_TIER 범위). 단계 업그레이드가
-  //   판을 넓혀도(2×2→3×3) 해금 수는 유지(이어서 채움). 마이그 백필=옛 tier 슬롯 수(1/2/4).
+  // 해금된 칸 수 — 건설 직후 0, 길드 골드로 한 칸씩 해금(MAX_SLOTS_BY_TIER 범위). 단계 업그레이드가
+  //   판을 넓혀도(2×2→3×3) 해금 수는 유지(이어서 채움).
   unlockedSlots: integer("unlocked_slots").notNull().default(1),
+  // 칸별 생산 종류 — { "0":"crop", "1":"ore", … }. 해금 시 그 칸에서 키울 종류를 고른다(영구).
+  //   생산은 슬롯의 종류만 — 옛 마을은 parse 가 productionKind 로 소급.
+  slotKinds: jsonb("slot_kinds").notNull().default({}),
   jobs: jsonb("jobs").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

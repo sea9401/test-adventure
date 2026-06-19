@@ -10,22 +10,21 @@ import {
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
   isValidVillageName,
-  isValidProductionKind,
   INITIAL_UNLOCKED_SLOTS,
 } from "@/adventure/data/v2/settlement";
 
-// POST /api/v2/outpost/village/build — body { outpostId, name, kind }
-// 점령한 빈 공터에 마을을 세운다 — 이름 + 특화 생산 종류(crop|ore|fish)를 함께 정한다.
-//   종류는 영구(개명은 /rename 으로 가능하지만 종류 변경은 없음). 건설 완료 = name + productionKind.
-//   - 마을 없음 → 새로 건설(village 단계, name+kind).
-//   - 마을 있고 미완(이름 또는 종류 없음·옛 lazy 생성분) → 빠진 것만 채워 건설 완료(소급).
-//   - 이미 완성(이름+종류) → 409 already_built (개명은 /rename, 종류 변경 없음).
+// POST /api/v2/outpost/village/build — body { outpostId, name }
+// 점령한 빈 공터에 마을을 세운다 — 이름만 정한다(생산 종류는 칸을 해금할 때 칸마다 고른다).
+//   마스터/부마스터 전용. 건설 직후엔 빈 판(0칸) — 첫 칸부터 골드로 해금한다(unlock-slot).
+//   - 마을 없음 → 새로 건설(village 단계, 이름만).
+//   - 마을 있고 이름 없음(옛 lazy 생성분) → 이름만 채워 건설.
+//   - 이미 이름 있음 → 409 already_built (개명은 /rename).
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  let body: { outpostId?: unknown; name?: unknown; kind?: unknown };
+  let body: { outpostId?: unknown; name?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -36,11 +35,7 @@ export async function POST(req: Request) {
   if (!outpostId || !isValidVillageName(rawName)) {
     return Response.json({ ok: false, error: "invalid_name" }, { status: 400 });
   }
-  if (!isValidProductionKind(body.kind)) {
-    return Response.json({ ok: false, error: "invalid_kind" }, { status: 400 });
-  }
   const name = rawName.trim();
-  const kind = body.kind;
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -58,26 +53,23 @@ export async function POST(req: Request) {
       let village = await lockVillage(tx, outpostId);
       if (village) {
         village = normalizeVillageOwner(village, guildId);
-        if (village.name != null && village.productionKind != null) {
+        if (village.name != null) {
           return {
             status: 409,
             body: { ok: false as const, error: "already_built" },
           };
         }
-        // 미완(이름 또는 종류 빠짐) — 빠진 것만 채운다(기존 값 보존).
-        village = {
-          ...village,
-          name: village.name ?? name,
-          productionKind: village.productionKind ?? kind,
-        };
+        // 이름 없는 옛 row — 이름만 채워 건설(기존 판/슬롯 보존).
+        village = { ...village, name };
       } else {
         village = {
           outpostId,
           guildId,
           tier: "village",
           name,
-          productionKind: kind,
+          productionKind: null,
           unlockedSlots: INITIAL_UNLOCKED_SLOTS,
+          slotKinds: {},
           jobs: {},
         } satisfies VillageRow;
       }
@@ -87,7 +79,6 @@ export async function POST(req: Request) {
         body: {
           ok: true as const,
           name: village.name,
-          productionKind: village.productionKind,
           tier: village.tier,
         },
       };

@@ -80,9 +80,9 @@ export const PRODUCTION_BASE_YIELD: Record<ProductionKind, number> = {
   fish: 12,
 };
 // ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
-// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=3×3(현행 동일, 후속 확장). 건설 직후엔 1칸만 열려 있고
-//   나머지는 재화로 한 칸씩 해금(unlockedSlots). 단계 업그레이드는 판을 넓히고(2×2→3×3),
-//   칸 해금은 그 판 안을 채운다. (옛 SLOTS_BY_TIER 고정 슬롯 모델 폐기.)
+// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=3×3(현행 동일, 후속 확장). 건설 직후엔 빈 판(0칸)이고
+//   칸을 골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서 키울 종류를 그때 고른다(slotKinds).
+//   단계 업그레이드는 판을 넓히고(2×2→3×3), 칸 해금은 그 판 안을 채운다.
 export const MAX_SLOTS_BY_TIER: Record<VillageTier, number> = {
   village: 4, // 2×2
   city: 9, // 3×3
@@ -93,23 +93,22 @@ export const GRID_COLS_BY_TIER: Record<VillageTier, number> = {
   city: 3,
   metropolis: 3,
 };
-// 건설 직후 열려 있는 칸 수(첫 칸 1개).
-export const INITIAL_UNLOCKED_SLOTS = 1;
+// 건설 직후 열려 있는 칸 수 — 0(첫 칸도 골드로 해금하며 종류를 고른다).
+export const INITIAL_UNLOCKED_SLOTS = 0;
 
-// 해금 수를 단계 판 범위로 보정 — [1, 최대]. 손상/과거 데이터 방어.
+// 해금 수를 단계 판 범위로 보정 — [0, 최대]. 손상/과거 데이터 방어.
 export function clampUnlockedSlots(tier: VillageTier, n: number): number {
-  if (!Number.isInteger(n) || n < INITIAL_UNLOCKED_SLOTS) {
-    return INITIAL_UNLOCKED_SLOTS;
-  }
+  if (!Number.isInteger(n) || n < 0) return 0;
   return Math.min(MAX_SLOTS_BY_TIER[tier], n);
 }
 
-// 업그레이드 비용(현 단계 → 다음). metropolis 는 최종(국가는 별도 게이트).
+// 업그레이드 비용(현 단계 → 다음, 길드 정착지 재화). metropolis 는 최종(국가는 별도 게이트).
+//   넉넉한 시간경과 생산을 요구하는 큰 비용 — 다이얼(라이브 실측 후 조정).
 export const UPGRADE_COST: Partial<
   Record<VillageTier, Partial<Record<ProductionKind, number>>>
 > = {
-  village: { crop: 100, ore: 60 }, // 마을 → 도시
-  city: { crop: 400, ore: 300, fish: 200 }, // 도시 → 대도시
+  village: { crop: 400, ore: 250, fish: 120 }, // 마을 → 도시
+  city: { crop: 1500, ore: 1000, fish: 600 }, // 도시 → 대도시
 };
 
 // ── 생산 작업(개체) ── 슬롯 하나에 도는 작업. ──────────────────────────────
@@ -187,47 +186,28 @@ export function applyUpgradeCost(
   return next;
 }
 
-// ── 칸 해금 ── 판 안의 다음 칸을 재화로 연다(단계 업그레이드와 별개). ──────────────
-// 비용은 마을 특화 종류로 지불(자기완결 루프: 생산물 재투자로 같은 종류 칸↑). 누진:
-//   다음 1칸 비용 = base × 현재 해금 수(2번째 칸=×1, 3번째=×2…). 단계 업그레이드(여러 종류
-//   비용)와 달리 칸 해금은 자기 종류만 — 초반 단일 마을도 막히지 않게.
-export const SLOT_UNLOCK_BASE: Record<ProductionKind, number> = {
-  crop: 30,
-  ore: 18,
-  fish: 36,
-};
-export function slotUnlockCost(
-  kind: ProductionKind,
-  currentUnlocked: number,
-): SettlementResources {
-  return { [kind]: SLOT_UNLOCK_BASE[kind] * Math.max(1, currentUnlocked) };
+// ── 칸 해금 ── 판 안의 다음 칸을 길드 골드로 열고, 그때 키울 종류를 고른다(단계 업그레이드와 별개).
+// 비용 = 길드 금고 골드(거점 세금/입금 풀). 첫 칸 base 에서 칸마다 step 만큼 누진:
+//   다음 1칸 = base + step × 현재 해금 수(첫 칸=base, 둘째=base+step…). 큰 골드 sink.
+export const SLOT_UNLOCK_GOLD_BASE = 50_000_000; // 첫 칸 5천만
+export const SLOT_UNLOCK_GOLD_STEP = 10_000_000; // 칸마다 +1천만
+export function slotUnlockGoldCost(currentUnlocked: number): number {
+  return (
+    SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP * Math.max(0, currentUnlocked)
+  );
 }
 
-// 칸 해금 가능?(판에 여유 + 재화 충분). atMax = 현 단계 판을 다 채움(다음은 단계 업그레이드).
+// 칸 해금 가능?(판에 여유 + 길드 골드 충분). atMax = 현 단계 판을 다 채움(다음은 단계 업그레이드).
 export function canUnlockSlot(
   tier: VillageTier,
   unlockedSlots: number,
-  kind: ProductionKind,
-  resources: SettlementResources,
-): { ok: boolean; atMax: boolean; cost: SettlementResources } {
-  const cost = slotUnlockCost(kind, unlockedSlots);
+  gold: number,
+): { ok: boolean; atMax: boolean; cost: number } {
+  const cost = slotUnlockGoldCost(unlockedSlots);
   if (unlockedSlots >= MAX_SLOTS_BY_TIER[tier]) {
     return { ok: false, atMax: true, cost };
   }
-  return { ok: (resources[kind] ?? 0) >= (cost[kind] ?? 0), atMax: false, cost };
-}
-
-// 칸 해금 비용 차감(순수) — canUnlockSlot 통과 가정.
-export function applySlotUnlockCost(
-  kind: ProductionKind,
-  currentUnlocked: number,
-  resources: SettlementResources,
-): SettlementResources {
-  const cost = slotUnlockCost(kind, currentUnlocked);
-  const next: SettlementResources = { ...resources };
-  const need = cost[kind] ?? 0;
-  if (need > 0) next[kind] = Math.max(0, (next[kind] ?? 0) - need);
-  return next;
+  return { ok: gold >= cost, atMax: false, cost };
 }
 
 // 생산 시작 판정(순수) — 빈 슬롯 검증 후 새 jobs 반환(비파괴). 슬롯 범위는 해금된 칸 수.

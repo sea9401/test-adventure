@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { guildJoinRequests, guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { gradeForFame } from "@/adventure/data/guildQuests";
-import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
+import { GUILD_MAX_MEMBERS, guildMemberCap } from "@/adventure/data/guild";
 
 const BROWSE_LIMIT = 30;
 
@@ -23,6 +23,7 @@ export async function GET(req: Request) {
       description: guilds.description,
       fameTotal: guilds.fameTotal,
       acceptingRequests: guilds.acceptingRequests,
+      nationName: guilds.nationName,
       memberCount: sql<number>`(
         SELECT count(*)::int FROM ${guildMembers}
         WHERE ${guildMembers.guildId} = ${guilds.id}
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
     .limit(1);
 
   return Response.json({
+    // 기본 정원(국가 미선포). 길드별 한도는 각 항목 maxMembers 참조(국가=상향).
     maxMembers: GUILD_MAX_MEMBERS,
     myPendingRequest: myPending[0]
       ? { requestId: myPending[0].id, guildId: myPending[0].guildId }
@@ -62,6 +64,8 @@ export async function GET(req: Request) {
       grade: gradeForFame(g.fameTotal),
       memberCount: Number(g.memberCount ?? 0),
       acceptingRequests: g.acceptingRequests,
+      nationName: g.nationName ?? null,
+      maxMembers: guildMemberCap(g.nationName != null),
     })),
   });
 }

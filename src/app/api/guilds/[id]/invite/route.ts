@@ -14,7 +14,7 @@ import { findUserByName } from "@/lib/server/findUserByName";
 import { inboxValues } from "@/lib/server/inboxPayload";
 import {
   GUILD_INVITE_EXPIRES_DAYS,
-  GUILD_MAX_MEMBERS,
+  guildMemberCap,
 } from "@/adventure/data/guild";
 
 export async function POST(
@@ -82,7 +82,7 @@ export async function POST(
         .from(guildMembers)
         .where(eq(guildMembers.guildId, guildId));
       const memberCount = Number(memberCountRows[0]?.count ?? 0);
-      if (memberCount >= GUILD_MAX_MEMBERS) {
+      if (memberCount >= guildMemberCap(guild.nationName != null)) {
         return { error: "guild_full", status: 409 as const };
       }
 

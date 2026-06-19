@@ -140,7 +140,9 @@ export function GuildBrowsePanel({
         ) : (
           <ul className="space-y-2">
             {data!.guilds.map((g) => {
-              const isFull = g.memberCount >= maxMembers;
+              // 길드별 정원 — 국가 선포 시 상향(응답에 per-guild maxMembers). 없으면 기본값 폴백.
+              const cap = g.maxMembers ?? maxMembers;
+              const isFull = g.memberCount >= cap;
               const requested = pendingGuildId === g.id;
               const hasOtherPending = pendingGuildId !== null && !requested;
               return (
@@ -157,10 +159,15 @@ export function GuildBrowsePanel({
                         <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
                           {g.grade}급
                         </span>
+                        {g.nationName ? (
+                          <span className="shrink-0 truncate rounded bg-indigo-500/10 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 dark:text-indigo-400">
+                            {g.nationName}
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                         명성 {g.fameTotal.toLocaleString()} · 인원 {g.memberCount}/
-                        {maxMembers}
+                        {cap}
                       </p>
                       {g.description ? (
                         <p className="mt-1 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-300">

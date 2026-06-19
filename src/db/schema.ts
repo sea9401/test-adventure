@@ -479,6 +479,10 @@ export const guilds = pgTable(
     lodgeRank: integer("lodge_rank").notNull().default(0),
     // 마스터 자유 텍스트, 회관 첫 줄 표시. ≤80자(앱단 검증). NULL = 미설정.
     lodgeSlogan: text("lodge_slogan"),
+    // 국가 선포 — 대도시 등급 마을 보유 시 마스터가 1회 선포. NULL = 미선포.
+    //   선포 시 길드가 성장(정원 +NATION_MEMBER_BONUS 등). 이름은 길드가 직접 짓는다.
+    nationName: text("nation_name"),
+    nationDeclaredAt: timestamp("nation_declared_at"),
   },
   (t) => [
     uniqueIndex("guilds_name_lower_idx").on(sql`lower(${t.name})`),

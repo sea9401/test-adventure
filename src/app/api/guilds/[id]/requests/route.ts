@@ -9,7 +9,7 @@ import {
 import { ensureUser } from "@/lib/server/ensureUser";
 import {
   GUILD_JOIN_REQUEST_EXPIRES_DAYS,
-  GUILD_MAX_MEMBERS,
+  guildMemberCap,
 } from "@/adventure/data/guild";
 
 // POST /api/guilds/[id]/requests — 길드 가입 신청.
@@ -68,7 +68,10 @@ export async function POST(
         .select({ count: sql<number>`count(*)::int` })
         .from(guildMembers)
         .where(eq(guildMembers.guildId, guildId));
-      if (Number(memberCountRows[0]?.count ?? 0) >= GUILD_MAX_MEMBERS) {
+      if (
+        Number(memberCountRows[0]?.count ?? 0) >=
+        guildMemberCap(guild.nationName != null)
+      ) {
         return { error: "guild_full", status: 409 as const };
       }
 

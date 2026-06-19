@@ -407,6 +407,13 @@
       "when": 1781821695523,
       "tag": "0057_premium_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1781829276033,
+      "tag": "0058_simple_slyde",
+      "breakpoints": true
     }
   ]
 }

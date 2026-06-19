@@ -23,6 +23,15 @@ export function nextTier(tier: VillageTier): VillageTier | null {
   return i >= 0 && i < VILLAGE_TIERS.length - 1 ? VILLAGE_TIERS[i + 1] : null;
 }
 
+// 국가 선포 게이트 — 이 등급 이상의 마을(=대도시) 하나를 보유하면 선포 가능.
+//   하드 "땅 N개" 게이트는 두지 않음(메모리 설계 8번): 땅이 많을수록 재화가 빨라 자연히
+//   확장이 유도되도록(emergent). 보유 마을 중 하나라도 이 단계면 충족.
+export const NATION_REQUIRED_TIER: VillageTier = "metropolis";
+
+export function tierMeetsNation(tier: VillageTier): boolean {
+  return VILLAGE_TIERS.indexOf(tier) >= VILLAGE_TIERS.indexOf(NATION_REQUIRED_TIER);
+}
+
 // ── 지형 특성 ── 거점마다 1개(static outposts.ts 에서 부여). 해당 생산에 +보너스. ──────
 export type TerrainTrait = "plain" | "farmland" | "mine" | "lake";
 export const TERRAIN_TRAIT_NAME: Record<TerrainTrait, string> = {

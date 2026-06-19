@@ -59,13 +59,11 @@ export const TRAIT_BONUS_KIND: Record<TerrainTrait, ProductionKind | null> = {
 };
 export const TRAIT_BONUS_PCT = 30; // 일치 특성 +30% 수확량 (다이얼)
 
-// 지형 특성 설명(툴팁용) — 보너스 다이얼에서 자동 파생(드리프트 방지).
+// 지형 특성 효과(툴팁용) — 설명문 대신 효과만 간결히. 보너스 다이얼에서 자동 파생.
 export function terrainTraitDesc(trait: TerrainTrait): string {
   const bonusKind = TRAIT_BONUS_KIND[trait];
-  if (bonusKind == null) {
-    return "생산 보너스가 없는 중립 지형이에요. 어떤 종류를 키워도 기본 수확량입니다.";
-  }
-  return `${PRODUCTION_KIND_NAME[bonusKind]} 마을의 수확량이 +${TRAIT_BONUS_PCT}% 늘어나는 땅이에요.`;
+  if (bonusKind == null) return "수확량 보너스 없음";
+  return `${PRODUCTION_KIND_NAME[bonusKind]} 수확량 +${TRAIT_BONUS_PCT}%`;
 }
 
 // ── 생산 다이얼 ──────────────────────────────────────────────────────────

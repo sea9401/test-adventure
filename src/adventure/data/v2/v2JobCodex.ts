@@ -1,33 +1,21 @@
-// 직업 도감(A 메타 PR-1) — 읽기 전용 수집 대시보드 데이터 빌더(순수). 직업 해금/직군 정복/패시브
-//   수집 현황을 모은다. 엔드포인트(api/v2/me/job-codex)와 dev 하네스가 공유. 파워 무관.
+// 직업 도감(A 메타 PR-1) — 읽기 전용 수집 대시보드 데이터 빌더(순수). 직업 해금/스킬 수집 현황을
+//   모은다. 엔드포인트(api/v2/me/job-codex)와 dev 하네스가 공유. 파워 무관.
 //
-// 🔑 정복(mastered)은 **직군별**(cumLevel 은 4 직군 단위 — 전사/무인/마법사/도적). 직업별 정복은
-//   후속(A 메타 PR-2/3) 설계 — 여기선 현재 데이터(직군 cumLevel)를 그대로 표기한다.
+// 🔑 직군(견습 병사 계열 등) 묶음·정복 표기는 도감에서 폐기(오너 요청) — 직업을 평면 목록으로만
+//   본다. 정복(직군 cumLevel) 자체의 메커니즘(3차 해금·SP 보너스)은 calcSpBudget/isJobUnlocked
+//   에 그대로 살아 있고, 진행/조건은 전직 화면에서 확인한다.
 
 import {
-  V2_JOB_CATALOG,
   V2_JOB_LIST,
   LEGACY_CLASS_SPEC_BY_JOB,
   isJobUnlocked,
   jobIdFromLegacy,
   type JobUnlockContext,
 } from "./v2JobCatalog";
-import { groupCumLevel, type V2ProficiencyState } from "./proficiency";
-import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
+import { type V2ProficiencyState } from "./proficiency";
 import { skillsForJob } from "./v2SkillsByJob";
 import { V2_SKILLS, type V2SkillId } from "./v2Skills";
 import { totalCollectionSpend } from "./v2CollectionTitles";
-
-// 4 직군(tier-1) — 직군별 cumLevel·정복 표기 단위.
-const GROUP_IDS = ["warrior", "martial", "mage", "rogue"] as const;
-
-export type JobCodexGroup = {
-  group: string;
-  name: string; // 직군 대표명(기본 직업명, 예: "견습 병사")
-  cumLevel: number;
-  masteredAt: number; // 정복 임계(SP_MASTERED_CUMLEVEL)
-  mastered: boolean;
-};
 
 export type JobCodexJob = {
   id: string;
@@ -53,7 +41,6 @@ export type CollectionRank = {
 
 export type JobCodex = {
   currentJobId: string;
-  groups: JobCodexGroup[];
   jobs: JobCodexJob[];
   // 수집 포인트(A 메타 PR-2) = 수집한 직업 패시브 수(파생, 별도 저장 없음). 수백 직업까지 확장.
   //   누적(collectionPoints)은 등급 기준·불변. 사용분(spent)·잔액(available)은 소비형(PR-2b).
@@ -132,17 +119,6 @@ export function buildJobCodex(
   const learned = new Set(learnedSkillIds);
   const currentJobId = jobIdFromLegacy(cls, specChoice);
 
-  const groups: JobCodexGroup[] = GROUP_IDS.map((g) => {
-    const cumLevel = groupCumLevel(prof, g);
-    return {
-      group: g,
-      name: V2_JOB_CATALOG[g]?.name ?? g,
-      cumLevel,
-      masteredAt: SP_MASTERED_CUMLEVEL,
-      mastered: cumLevel >= SP_MASTERED_CUMLEVEL,
-    };
-  });
-
   // 모험가(tier 0) 제외 — 실제 직업만 도감에 싣는다.
   const jobs: JobCodexJob[] = V2_JOB_LIST.filter((j) => j.tier > 0).map((job) => {
     const passiveId = passiveIdOfJob(job.id);
@@ -179,7 +155,6 @@ export function buildJobCodex(
   );
   return {
     currentJobId,
-    groups,
     jobs,
     collectionPoints,
     collectionPointsSpent,

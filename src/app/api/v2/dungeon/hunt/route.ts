@@ -30,12 +30,14 @@ import {
   parseProficiencyForChar,
   addPoints,
   addCumLevel,
+  addJobCumLevel,
   setGrown,
   emptyProficiency,
   effectiveLevelCap,
   proficiencyPerKillAtDepth,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
+import { jobIdFromLegacy } from "@/adventure/data/v2/v2JobCatalog";
 import { rollLevelGrowth } from "@/adventure/data/v2/statGrowth";
 import { V2_STAT_KEYS, type V2StatKey } from "@/adventure/data/v2/v2StatKeys";
 import {
@@ -924,6 +926,13 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         );
       }
       prof = addCumLevel(prof, group, expResult.levelsGained);
+      // 직업별 누적 레벨도 적립(하이브리드 해금 게이트 입력) — 현재 구체 직업(class+spec)에.
+      //   addJobCumLevel 은 none 자기 가드. groups(직군)와 별개라 floor/totalCumLevel 무영향.
+      const v2JobId = jobIdFromLegacy(
+        playerClass,
+        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+      );
+      prof = addJobCumLevel(prof, v2JobId, expResult.levelsGained);
       // 랜덤 레벨 성장 — 레벨업 수만큼 굴린다(cap 은 prof.caps, 수행 전 기본 60).
       const grownBefore = prof.grown; // rollLevelGrowth 는 비파괴 — 시작 맵 보존 안전.
       let grown = grownBefore;

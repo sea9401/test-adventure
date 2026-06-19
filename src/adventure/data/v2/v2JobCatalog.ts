@@ -258,21 +258,23 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 12, dex: 4 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
-  // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. 두 직군을 모두 정복(각 cumLevel
-  //   ≥ TIER3_UNLOCK_CUMLEVEL=250)해야 열린다(총 500 = 심화선 450 위, 프레스티지 게이트).
-  //   class 저장은 첫 prereq(전사), spec 은 고유 id — jobIdFromLegacy 가 왕복. 정체성=양쪽의 결합.
+  // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
+  //   (기사·사제)을 각각 cumLevel ≥ TIER3_UNLOCK_CUMLEVEL=250 키워야 열린다. 직군 누적(전사/마법)이
+  //   아니라 직업별 누적(jobCumLevel)을 본다 — isJobUnlocked 가 prereq 키의 tier 로 분기(tier1=직군
+  //   groups, 상위=jobCumLevel). 방패병/마법사로만 250 채워선 안 열림(반드시 기사·사제를 거쳐야).
+  //   class 저장은 첫 prereq 의 직군(기사→전사), spec 은 고유 id — jobIdFromLegacy 가 왕복. 정체성=양쪽 결합.
   templar: {
     id: "templar",
     name: "성기사",
     tier: 3,
     cultivateProfile: { str: 2, vit: 1, spi: 1 }, // 기사의 힘·활력 + 사제의 정신
-    // 이중 내장(전사+마법 결합). 3축으로 분산해 단일 3차(주스탯 8~12)보다 축당 영향은 낮다(파워크립
-    //   차단). 합 18 — 프레스티지 게이트(500) 보정.
+    // 이중 내장(기사+사제 결합). 3축으로 분산해 단일 3차(주스탯 8~12)보다 축당 영향은 낮다(파워크립
+    //   차단). 합 18 — 프레스티지 게이트(기사 250 + 사제 250) 보정.
     jobBonus: { str: 6, vit: 6, spi: 6 },
     unlock: {
       prereqs: {
-        warrior: TIER3_UNLOCK_CUMLEVEL, // 첫 키 = class 저장 부모(전사)
-        mage: TIER3_UNLOCK_CUMLEVEL,
+        paladin: TIER3_UNLOCK_CUMLEVEL, // 기사(전사 3차) — 첫 키 = 저장 class(전사)의 직업
+        acolyte: TIER3_UNLOCK_CUMLEVEL, // 사제(마법 2차)
       },
     },
   },
@@ -358,7 +360,13 @@ export function isJobUnlocked(
   ctx?: JobUnlockContext,
 ): boolean {
   for (const [prereqJobId, minCumLevel] of Object.entries(job.unlock.prereqs)) {
-    const actual = proficiency.groups[prereqJobId]?.cumLevel ?? 0;
+    // 직군 키(tier-1 직업 id, 예: warrior)=직군 누적(groups.cumLevel·기존 동작). 특정 상위 직업
+    //   키(예: paladin·acolyte)=직업별 누적(jobCumLevel·하이브리드 게이트). prereq 키의 tier 로 분기.
+    const prereqTier = V2_JOB_CATALOG[prereqJobId]?.tier ?? 1;
+    const actual =
+      prereqTier === 1
+        ? (proficiency.groups[prereqJobId]?.cumLevel ?? 0)
+        : (proficiency.jobCumLevel?.[prereqJobId] ?? 0);
     if (actual < (minCumLevel ?? 0)) return false;
   }
   // 추가 조건(quest/stat/kill) — 카탈로그 직업은 아직 미사용이라 현행 직업엔 무영향(빈 배열).

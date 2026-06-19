@@ -157,23 +157,34 @@ describe("해금 트리", () => {
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
   });
 
-  it("하이브리드(성기사) — 부모가 둘. 두 직군을 모두 정복(각 250)해야 해금된다(AND)", () => {
+  it("하이브리드(성기사) — 기사·사제 두 직업을 각각 250 키워야 해금된다(직업별 cumLevel·AND)", () => {
     const templar = V2_JOB_CATALOG.templar;
     expect(templar.tier).toBe(3);
+    // ⚠️ prereq 키는 직군(전사/마법)이 아니라 특정 상위 직업(기사 paladin·사제 acolyte).
     expect(templar.unlock.prereqs).toEqual({
-      warrior: TIER3_UNLOCK_CUMLEVEL,
-      mage: TIER3_UNLOCK_CUMLEVEL,
+      paladin: TIER3_UNLOCK_CUMLEVEL,
+      acolyte: TIER3_UNLOCK_CUMLEVEL,
     });
-    // 첫 prereq 키 = LEGACY 저장 class(전사) — 브리지 일관성 테스트와 정렬.
-    expect(Object.keys(templar.unlock.prereqs)[0]).toBe("warrior");
-    // 한쪽만 정복해선 안 열린다(단일 3차와 다른 점).
-    expect(isJobUnlocked(templar, profWith({ warrior: 250 }))).toBe(false);
-    expect(isJobUnlocked(templar, profWith({ mage: 250 }))).toBe(false);
-    expect(isJobUnlocked(templar, profWith({ warrior: 250, mage: 249 }))).toBe(
+    // 첫 prereq(paladin) 의 직군 = LEGACY 저장 class(전사) — 브리지 일관성 테스트와 정렬.
+    expect(LEGACY_CLASS_SPEC_BY_JOB[Object.keys(templar.unlock.prereqs)[0]].class).toBe(
+      "warrior",
+    );
+
+    // 직업별 누적 레벨(jobCumLevel)로 구성한 숙련도.
+    const profJobs = (jobLevels: Record<string, number>): V2ProficiencyState => ({
+      ...emptyProficiency(),
+      jobCumLevel: { ...jobLevels },
+    });
+    // 🔑 회귀 가드 — 직군 누적(전사/마법)만으론 안 열린다. 반드시 기사·사제를 거쳐야(per-job).
+    expect(isJobUnlocked(templar, profWith({ warrior: 999, mage: 999 }))).toBe(false);
+    // 한쪽 직업만 250 → 잠김.
+    expect(isJobUnlocked(templar, profJobs({ paladin: 250 }))).toBe(false);
+    expect(isJobUnlocked(templar, profJobs({ acolyte: 250 }))).toBe(false);
+    expect(isJobUnlocked(templar, profJobs({ paladin: 250, acolyte: 249 }))).toBe(
       false,
     );
-    // 둘 다 정복 → 해금.
-    expect(isJobUnlocked(templar, profWith({ warrior: 250, mage: 250 }))).toBe(
+    // 둘 다 250 → 해금.
+    expect(isJobUnlocked(templar, profJobs({ paladin: 250, acolyte: 250 }))).toBe(
       true,
     );
     // 왕복 — 저장(전사, templar) → templar.
@@ -368,9 +379,11 @@ describe("LEGACY_CLASS_SPEC_BY_JOB 브리지 (PR-2)", () => {
     for (const job of V2_JOB_LIST) {
       if (job.tier < 2) continue;
       const legacy = LEGACY_CLASS_SPEC_BY_JOB[job.id];
-      // 매핑된 class 는 그 직업의 부모(prereqs 키)와 일치해야 한다.
-      const parent = Object.keys(job.unlock.prereqs)[0];
-      expect(legacy.class).toBe(parent);
+      // 매핑된 class 는 첫 prereq 의 직군과 일치해야 한다. 단일 부모는 첫 키가 직군(tier1)이라
+      //   그대로, 하이브리드(기사·사제 prereq)는 첫 키가 상위 직업이라 그 직업의 직군으로 환산.
+      const parentKey = Object.keys(job.unlock.prereqs)[0];
+      const parentClass = LEGACY_CLASS_SPEC_BY_JOB[parentKey]?.class ?? parentKey;
+      expect(legacy.class).toBe(parentClass);
       expect(typeof legacy.spec).toBe("string");
       expect(legacy.spec).toBeTruthy();
     }

@@ -13,6 +13,7 @@ import {
   TRAIT_BONUS_PCT,
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
+  VILLAGE_BUILD_GOLD_COST,
   nextTier,
   slotUnlockGoldCost,
   terrainTraitDesc,
@@ -399,12 +400,16 @@ export function V2VillagePanel({
       )}
 
       {!built ? (
-        // 빈 공터 — 이름만 정해 마을을 세운다(종류는 칸 해금 때 고른다).
+        // 빈 공터 — 이름만 정해 마을을 세운다(종류는 칸 해금 때 고른다). 건설에 길드 골드 1천만.
         <div className="space-y-2">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            점령한 빈 공터예요. 이름을 정해 마을을 세우세요. 생산할 것은 칸을
-            해금할 때 고릅니다.
+            점령한 빈 공터예요. 이름을 정해 마을을 세우세요. 첫 칸은 무료로 열리고,
+            생산할 것은 칸을 해금할 때 고릅니다.
           </p>
+          <div className="text-xs text-zinc-600 dark:text-zinc-300">
+            길드 금고{" "}
+            <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
+          </div>
           <input
             type="text"
             value={buildName}
@@ -416,12 +421,21 @@ export function V2VillagePanel({
           />
           <button
             type="button"
-            disabled={busy || buildName.trim().length === 0}
+            disabled={
+              busy ||
+              buildName.trim().length === 0 ||
+              gold < VILLAGE_BUILD_GOLD_COST
+            }
             onClick={() => void act("build", { name: buildName.trim() }, true)}
             className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            마을 건설
+            마을 건설 · {fmtGold(VILLAGE_BUILD_GOLD_COST)} 골드
           </button>
+          {gold < VILLAGE_BUILD_GOLD_COST && (
+            <p className="text-[11px] text-rose-500 dark:text-rose-400">
+              길드 금고 골드가 부족해요 (보유 {fmtGold(gold)}).
+            </p>
+          )}
         </div>
       ) : (
         <>
@@ -466,7 +480,8 @@ export function V2VillagePanel({
                   onClick={() => void act("unlock-slot", { kind: unlockKind })}
                   className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  칸 해금 · {fmtGold(unlockGold)} 골드
+                  칸 해금 ·{" "}
+                  {unlockGold === 0 ? "무료 (기본 제공)" : `${fmtGold(unlockGold)} 골드`}
                 </button>
                 {!canAffordUnlock && (
                   <p className="text-[11px] text-rose-500 dark:text-rose-400">

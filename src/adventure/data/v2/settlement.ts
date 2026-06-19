@@ -186,15 +186,17 @@ export function applyUpgradeCost(
   return next;
 }
 
+// ── 마을 건설 비용 ── 빈 공터에 마을을 세울 때 드는 길드 금고 골드(1회). ──────────
+export const VILLAGE_BUILD_GOLD_COST = 10_000_000; // 마을 건설 1천만
+
 // ── 칸 해금 ── 판 안의 다음 칸을 길드 골드로 열고, 그때 키울 종류를 고른다(단계 업그레이드와 별개).
-// 비용 = 길드 금고 골드(거점 세금/입금 풀). 첫 칸 base 에서 칸마다 step 만큼 누진:
-//   다음 1칸 = base + step × 현재 해금 수(첫 칸=base, 둘째=base+step…). 큰 골드 sink.
-export const SLOT_UNLOCK_GOLD_BASE = 50_000_000; // 첫 칸 5천만
-export const SLOT_UNLOCK_GOLD_STEP = 10_000_000; // 칸마다 +1천만
+// 비용 = 길드 금고 골드(거점 세금/입금 풀). **첫 칸은 무료(기본 제공)** — 그 다음부터 base 에서
+//   칸마다 step 누진(둘째 칸=base, 셋째=base+step…). 큰 골드 sink.
+export const SLOT_UNLOCK_GOLD_BASE = 50_000_000; // 둘째 칸(첫 유료) 5천만
+export const SLOT_UNLOCK_GOLD_STEP = 10_000_000; // 이후 칸마다 +1천만
 export function slotUnlockGoldCost(currentUnlocked: number): number {
-  return (
-    SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP * Math.max(0, currentUnlocked)
-  );
+  if (currentUnlocked <= 0) return 0; // 첫 칸 무료
+  return SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP * (currentUnlocked - 1);
 }
 
 // 칸 해금 가능?(판에 여유 + 길드 골드 충분). atMax = 현 단계 판을 다 채움(다음은 단계 업그레이드).

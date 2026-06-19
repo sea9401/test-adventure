@@ -7,6 +7,7 @@ export type OrgMember = {
   joinedAt: string; // ISO date
   name: string;
   level: number;
+  lastSeenAt: string | null; // presence.lastSeenAt(ISO). 미접속 = null
 };
 
 type RoleKey = "master" | "vice_master" | "manager" | "member";
@@ -32,16 +33,20 @@ const ROLE_BADGE_CLASSES: Record<RoleKey, string> = {
   member: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
 };
 
-function fmtDate(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+// 최근 접속 상대시간 — presence 하트비트는 30초 주기라 2분 내면 "온라인"으로 본다.
+//   text 는 그대로 출력하는 완성 문구(접두 "접속 " 포함) — 호출부에서 접미사 붙이지 말 것.
+function lastSeenLabel(iso: string | null): { text: string; online: boolean } {
+  if (!iso) return { text: "접속 기록 없음", online: false };
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return { text: "접속 기록 없음", online: false };
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 2) return { text: "온라인", online: true };
+  if (min < 60) return { text: `접속 ${min}분 전`, online: false };
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return { text: `접속 ${hr}시간 전`, online: false };
+  const day = Math.floor(hr / 24);
+  if (day < 30) return { text: `접속 ${day}일 전`, online: false };
+  return { text: `접속 ${Math.floor(day / 30)}달 전`, online: false };
 }
 
 function MemberCard({
@@ -53,7 +58,7 @@ function MemberCard({
   role: RoleKey;
   isMaster?: boolean;
 }) {
-  const joinedAt = fmtDate(member.joinedAt);
+  const seen = lastSeenLabel(member.lastSeenAt);
 
   return (
     <div
@@ -86,11 +91,20 @@ function MemberCard({
           Lv.{member.level}
         </span>
       </div>
-      {joinedAt ? (
-        <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          가입 {joinedAt}
-        </div>
-      ) : null}
+      <div
+        className={[
+          "mt-2 flex items-center gap-1 text-xs",
+          isMaster ? "justify-center" : "justify-start",
+          seen.online
+            ? "text-emerald-600 dark:text-emerald-400"
+            : "text-zinc-500 dark:text-zinc-400",
+        ].join(" ")}
+      >
+        {seen.online ? (
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        ) : null}
+        {seen.text}
+      </div>
     </div>
   );
 }

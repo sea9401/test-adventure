@@ -74,6 +74,7 @@ type GuildInfoResponse = {
     joinedAt: string;
     name: string;
     level: number;
+    lastSeenAt: string | null;
   }[];
   isMaster?: boolean;
   isManager?: boolean;

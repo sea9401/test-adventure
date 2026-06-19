@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TabBar } from "@/components/ui/TabBar";
+import { Tooltip } from "@/components/ui/Tooltip";
 import type { Outpost } from "@/adventure/data/v2/types";
 import { OUTPOST_NPC_TAX_RATE, terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
@@ -11,6 +12,7 @@ import {
   TRAIT_BONUS_KIND,
   TRAIT_BONUS_PCT,
   PRODUCTION_KIND_NAME,
+  terrainTraitDesc,
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
@@ -237,7 +239,12 @@ export function OutpostView({
           {occupation?.villageName?.trim() || outpost.name}
         </h1>
         <div className="flex flex-wrap gap-1 text-xs">
-          <span className="rounded bg-amber-200 px-2 py-0.5 font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+          <Tooltip
+            content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}
+            align="start"
+            className="shrink-0"
+            triggerClassName="rounded bg-amber-200 px-2 py-0.5 font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+          >
             {TERRAIN_TRAIT_NAME[trait]}
             {TRAIT_BONUS_KIND[trait] && (
               <>
@@ -245,7 +252,7 @@ export function OutpostView({
                 {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
               </>
             )}
-          </span>
+          </Tooltip>
           {outpost.neutral && (
             <span className="rounded bg-yellow-400 px-2 py-0.5 text-yellow-900">
               절대 중립

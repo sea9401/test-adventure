@@ -1,6 +1,11 @@
 import { db } from "@/db";
-import { outpostOccupations, outpostTreasury, guilds } from "@/db/schema";
-import { gt, inArray } from "drizzle-orm";
+import {
+  outpostOccupations,
+  outpostTreasury,
+  outpostVillages,
+  guilds,
+} from "@/db/schema";
+import { gt, inArray, isNotNull } from "drizzle-orm";
 import { currentFortHp } from "@/adventure/data/v2/outpostSiege";
 
 // GET /api/v2/outpost/occupations — 모든 점령된 거점 상태 조회.
@@ -11,14 +16,26 @@ import { currentFortHp } from "@/adventure/data/v2/outpostSiege";
 // 인증 불필요 — 점령 상태는 공개 정보 (모든 유저가 지도에서 본다).
 
 export async function GET() {
-  const [rows, treasuryRows] = await Promise.all([
+  const [rows, treasuryRows, villageRows] = await Promise.all([
     db.select().from(outpostOccupations),
     db
       .select({ outpostId: outpostTreasury.outpostId, gold: outpostTreasury.gold })
       .from(outpostTreasury)
       .where(gt(outpostTreasury.gold, 0)),
+    // 마을 건설 = 거점 이름 덮어쓰기. 이름 지은 마을만(name not null).
+    db
+      .select({
+        outpostId: outpostVillages.outpostId,
+        name: outpostVillages.name,
+      })
+      .from(outpostVillages)
+      .where(isNotNull(outpostVillages.name)),
   ]);
   const now = new Date();
+  const villageNameById = new Map<string, string>();
+  for (const v of villageRows) {
+    if (v.name != null) villageNameById.set(v.outpostId, v.name);
+  }
 
   // 점령 길드 id → 이름 일괄 조회(N+1 회피). 지도 팝업에서 "○○ 길드 점령" 표시용.
   const guildIds = [
@@ -54,6 +71,7 @@ export async function GET() {
       fortHp: currentFortHp(r.fortHp, r.fortMaxHp, r.fortUpdatedAt, now),
       fortMaxHp: r.fortMaxHp,
       protectedUntil: r.protectedUntil.toISOString(),
+      villageName: villageNameById.get(r.outpostId) ?? null,
     })),
     treasuries: treasuryRows,
   });

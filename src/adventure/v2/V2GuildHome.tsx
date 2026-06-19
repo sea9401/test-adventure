@@ -47,6 +47,8 @@ type Occupation = {
   occupiedByGuildId: number | null;
   policy?: string;
   taxRate?: string;
+  // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 덮는다.
+  villageName?: string | null;
 };
 
 type StateResponse = {
@@ -584,7 +586,7 @@ export function V2GuildHome({
                     <OutpostPolicyEditor
                       key={o.id}
                       outpostId={o.id}
-                      title={`${o.name} (${TYPE_LABEL[o.type]})`}
+                      title={`${occ?.villageName?.trim() || o.name} (${TYPE_LABEL[o.type]})`}
                       currentPolicy={occ?.policy ?? "open"}
                       currentTaxRate={Number(occ?.taxRate ?? "0")}
                       open={policyOpenId === o.id}
@@ -746,7 +748,7 @@ export function V2GuildHome({
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-2">
                         <span className="truncate text-sm font-medium">
-                          {o.name}
+                          {occ?.villageName?.trim() || o.name}
                         </span>
                         <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                           {TYPE_LABEL[o.type]}

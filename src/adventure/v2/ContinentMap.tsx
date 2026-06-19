@@ -178,6 +178,8 @@ type OccupationLite = {
   // 성벽 — 재생 반영 현재값(occupations GET). 최대 미만이면 교전 중 표시.
   fortHp?: number;
   fortMaxHp?: number;
+  // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 덮는다.
+  villageName?: string | null;
 };
 
 type Vb = { x: number; y: number; w: number; h: number };
@@ -838,7 +840,7 @@ export function ContinentMap({
                       stroke="#000"
                       strokeWidth={8}
                     >
-                      {o.name}
+                      {occ?.villageName?.trim() || o.name}
                     </text>
                   )}
                 </g>
@@ -989,7 +991,7 @@ export function ContinentMap({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-1.5">
                   <span className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {selected.name}
+                    {selectedOcc?.villageName?.trim() || selected.name}
                   </span>
                   <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
                     {TYPE_LABEL[selected.type]}

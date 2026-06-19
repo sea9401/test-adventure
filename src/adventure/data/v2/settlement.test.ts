@@ -118,22 +118,21 @@ describe("settlement — 생산 엔진", () => {
     });
   });
 
-  it("칸 해금 — 골드 비용(누진)·판 여유/가득(atMax)", () => {
-    // 첫 칸(해금 0개) = base, 둘째(1개) = base+step, 셋째(2개) = base+2×step.
-    expect(slotUnlockGoldCost(0)).toBe(SLOT_UNLOCK_GOLD_BASE);
-    expect(slotUnlockGoldCost(1)).toBe(SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP);
-    expect(slotUnlockGoldCost(3)).toBe(
-      SLOT_UNLOCK_GOLD_BASE + 3 * SLOT_UNLOCK_GOLD_STEP,
-    );
-    expect(SLOT_UNLOCK_GOLD_BASE).toBe(50_000_000); // 첫 칸 5천만
-    // 골드 충분 → ok, cost = 첫 칸 비용.
-    expect(canUnlockSlot("village", 0, SLOT_UNLOCK_GOLD_BASE)).toEqual({
+  it("칸 해금 — 첫 칸 무료, 이후 골드 누진·판 여유/가득(atMax)", () => {
+    // 첫 칸(해금 0개) 무료, 둘째(1개)=base, 셋째(2개)=base+step.
+    expect(slotUnlockGoldCost(0)).toBe(0);
+    expect(slotUnlockGoldCost(1)).toBe(SLOT_UNLOCK_GOLD_BASE);
+    expect(slotUnlockGoldCost(2)).toBe(SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP);
+    expect(SLOT_UNLOCK_GOLD_BASE).toBe(50_000_000); // 둘째 칸(첫 유료) 5천만
+    // 첫 칸 = 무료 → 골드 0 이어도 ok.
+    expect(canUnlockSlot("village", 0, 0)).toEqual({
       ok: true,
       atMax: false,
-      cost: SLOT_UNLOCK_GOLD_BASE,
+      cost: 0,
     });
-    // 골드 부족 → ok false.
-    expect(canUnlockSlot("village", 0, SLOT_UNLOCK_GOLD_BASE - 1).ok).toBe(false);
+    // 둘째 칸 = base 골드 필요.
+    expect(canUnlockSlot("village", 1, SLOT_UNLOCK_GOLD_BASE).ok).toBe(true);
+    expect(canUnlockSlot("village", 1, SLOT_UNLOCK_GOLD_BASE - 1).ok).toBe(false);
     // 마을 판 다 참(4칸) → atMax(골드 무관).
     expect(canUnlockSlot("village", 4, 9_999_999_999)).toMatchObject({
       ok: false,

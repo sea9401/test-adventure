@@ -7,18 +7,25 @@ import {
   normalizeVillageOwner,
   type VillageRow,
 } from "@/lib/server/v2Settlement";
+import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import {
   isValidVillageName,
   INITIAL_UNLOCKED_SLOTS,
+  VILLAGE_BUILD_GOLD_COST,
 } from "@/adventure/data/v2/settlement";
 
 // POST /api/v2/outpost/village/build — body { outpostId, name }
 // 점령한 빈 공터에 마을을 세운다 — 이름만 정한다(생산 종류는 칸을 해금할 때 칸마다 고른다).
-//   마스터/부마스터 전용. 건설 직후엔 빈 판(0칸) — 첫 칸부터 골드로 해금한다(unlock-slot).
-//   - 마을 없음 → 새로 건설(village 단계, 이름만).
-//   - 마을 있고 이름 없음(옛 lazy 생성분) → 이름만 채워 건설.
+//   마스터/부마스터 전용. 건설에 길드 금고 골드 1천만 소모. 건설 직후엔 빈 판(0칸) — 첫 칸은
+//   무료로 해금(기본 제공), 이후 칸은 골드 누진(unlock-slot).
+//   - 마을 없음 → 새로 건설(이름만, 1천만 골드 차감).
+//   - 마을 있고 이름 없음(옛 lazy 생성분) → 이름만 채워 건설(무료, 기존 판 보존).
 //   - 이미 이름 있음 → 409 already_built (개명은 /rename).
+// lock 순서: 점령행 → 마을 → 길드 자원(골드 풀). 타 라우트 공통.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -50,37 +57,51 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "not_authorized" },
         };
       }
-      let village = await lockVillage(tx, outpostId);
-      if (village) {
-        village = normalizeVillageOwner(village, guildId);
+      const existing = await lockVillage(tx, outpostId);
+      if (existing) {
+        const village = normalizeVillageOwner(existing, guildId);
         if (village.name != null) {
           return {
             status: 409,
             body: { ok: false as const, error: "already_built" },
           };
         }
-        // 이름 없는 옛 row — 이름만 채워 건설(기존 판/슬롯 보존).
-        village = { ...village, name };
-      } else {
-        village = {
-          outpostId,
-          guildId,
-          tier: "village",
-          name,
-          productionKind: null,
-          unlockedSlots: INITIAL_UNLOCKED_SLOTS,
-          slotKinds: {},
-          jobs: {},
-        } satisfies VillageRow;
+        // 이름 없는 옛 row — 이름만 채워 건설(무료, 기존 판/슬롯 보존).
+        await upsertVillage(tx, { ...village, name });
+        return {
+          status: 200,
+          body: { ok: true as const, name, tier: village.tier },
+        };
       }
+      // 새 마을 — 건설 비용(길드 금고 골드) 차감.
+      const res = await lockGuildResources(tx, guildId);
+      if (res.gold < VILLAGE_BUILD_GOLD_COST) {
+        return {
+          status: 409,
+          body: {
+            ok: false as const,
+            error: "insufficient_gold",
+            cost: VILLAGE_BUILD_GOLD_COST,
+          },
+        };
+      }
+      const village = {
+        outpostId,
+        guildId,
+        tier: "village",
+        name,
+        productionKind: null,
+        unlockedSlots: INITIAL_UNLOCKED_SLOTS,
+        slotKinds: {},
+        jobs: {},
+      } satisfies VillageRow;
       await upsertVillage(tx, village);
+      await upsertGuildResources(tx, guildId, {
+        gold: res.gold - VILLAGE_BUILD_GOLD_COST,
+      });
       return {
         status: 200,
-        body: {
-          ok: true as const,
-          name: village.name,
-          tier: village.tier,
-        },
+        body: { ok: true as const, name: village.name, tier: village.tier },
       };
     });
     return Response.json(result.body, { status: result.status });

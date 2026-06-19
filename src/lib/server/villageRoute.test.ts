@@ -17,6 +17,7 @@ import {
   MAX_SLOTS_BY_TIER,
   SLOT_UNLOCK_GOLD_BASE,
   slotUnlockGoldCost,
+  VILLAGE_BUILD_GOLD_COST,
   TRAIT_BONUS_PCT,
   UPGRADE_COST,
 } from "@/adventure/data/v2/settlement";
@@ -313,8 +314,18 @@ describe("POST /api/v2/outpost/village/build", () => {
     expect(((await res.json()) as AnyJson).error).toBe("not_owner");
   });
 
-  it("happy — 빈 공터에 새 마을 건설(이름만, tier=village, 빈 판)", async () => {
+  it("길드 골드 부족 → 409 insufficient_gold (건설 안 됨)", async () => {
     setOwner(PLAIN_OUTPOST, MY_GUILD);
+    guildGold.set(MY_GUILD, VILLAGE_BUILD_GOLD_COST - 1);
+    const res = await buildPOST(jreq({ outpostId: PLAIN_OUTPOST, name: "마을" }));
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as AnyJson).error).toBe("insufficient_gold");
+    expect(villages.get(PLAIN_OUTPOST)).toBeUndefined();
+  });
+
+  it("happy — 빈 공터에 새 마을 건설(이름만·1천만 골드 차감·빈 판)", async () => {
+    setOwner(PLAIN_OUTPOST, MY_GUILD);
+    guildGold.set(MY_GUILD, 25_000_000);
     const res = await buildPOST(jreq({ outpostId: PLAIN_OUTPOST, name: " 새터  " }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as AnyJson;
@@ -329,8 +340,10 @@ describe("POST /api/v2/outpost/village/build", () => {
     };
     expect(stored.name).toBe("새터");
     expect(stored.tier).toBe("village");
-    expect(stored.unlockedSlots).toBe(0); // 건설 직후 빈 판
+    expect(stored.unlockedSlots).toBe(0); // 건설 직후 빈 판(첫 칸은 무료로 해금)
     expect(stored.slotKinds).toEqual({});
+    // 건설 비용 1천만 차감.
+    expect(guildGold.get(MY_GUILD)).toBe(25_000_000 - VILLAGE_BUILD_GOLD_COST);
   });
 
   it("이름 없는 옛 row → 이름만 채워 건설(판/슬롯 보존)", async () => {
@@ -563,18 +576,19 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
     expect(((await res.json()) as AnyJson).error).toBe("not_built");
   });
 
-  it("골드 부족 → 409 insufficient_gold", async () => {
-    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
-    guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE - 1); // 첫 칸 비용 1 부족
+  it("골드 부족(둘째 칸) → 409 insufficient_gold", async () => {
+    // 첫 칸은 무료라 둘째 칸(unlockedSlots 1)에서 골드 게이트가 걸린다.
+    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
+    guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE - 1);
     const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
     expect(res.status).toBe(409);
     expect(((await res.json()) as AnyJson).error).toBe("insufficient_gold");
-    expect((villages.get(FARM_OUTPOST) as { unlockedSlots: number }).unlockedSlots).toBe(0);
+    expect((villages.get(FARM_OUTPOST) as { unlockedSlots: number }).unlockedSlots).toBe(1);
   });
 
-  it("happy — 첫 칸 해금(+1) + 종류 고정 + 길드 골드 5천만 차감", async () => {
+  it("happy — 첫 칸 무료 해금(+1) + 종류 고정, 골드 차감 없음", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
-    guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE + 7);
+    guildGold.set(MY_GUILD, 0); // 골드 0 이어도 첫 칸은 무료
     const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "ore" }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as AnyJson & {
@@ -583,15 +597,28 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
       gold: number;
     };
     expect(json.unlockedSlots).toBe(1);
-    expect(json.slotKinds).toEqual({ "0": "ore" }); // 새 칸 종류 고정
-    expect(json.gold).toBe(7); // 비용만큼 차감
-    expect(guildGold.get(MY_GUILD)).toBe(7);
-    const stored = villages.get(FARM_OUTPOST) as {
+    expect(json.slotKinds).toEqual({ "0": "ore" });
+    expect(json.gold).toBe(0); // 무료 → 차감 없음
+    expect(guildGold.get(MY_GUILD)).toBe(0);
+  });
+
+  it("둘째 칸 — 길드 골드 5천만 차감", async () => {
+    seedBuiltVillage(FARM_OUTPOST, {
+      unlockedSlots: 1,
+      slotKinds: { "0": "crop" },
+    });
+    guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE + 7);
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "fish" }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as AnyJson & {
       unlockedSlots: number;
       slotKinds: Record<string, string>;
+      gold: number;
     };
-    expect(stored.unlockedSlots).toBe(1);
-    expect(stored.slotKinds).toEqual({ "0": "ore" });
+    expect(json.unlockedSlots).toBe(2);
+    expect(json.slotKinds).toEqual({ "0": "crop", "1": "fish" });
+    expect(json.gold).toBe(7); // base 차감
+    expect(guildGold.get(MY_GUILD)).toBe(7);
   });
 
   it("판 가득(마을 4칸) → 409 at_max", async () => {
@@ -602,9 +629,10 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
     expect(((await res.json()) as AnyJson).error).toBe("at_max");
   });
 
-  it("누진 비용 — 첫 칸 base, 둘째 base+step", async () => {
-    expect(slotUnlockGoldCost(0)).toBe(SLOT_UNLOCK_GOLD_BASE);
-    expect(slotUnlockGoldCost(1)).toBeGreaterThan(SLOT_UNLOCK_GOLD_BASE);
+  it("비용 곡선 — 첫 칸 무료, 둘째 base, 셋째 base+step", async () => {
+    expect(slotUnlockGoldCost(0)).toBe(0);
+    expect(slotUnlockGoldCost(1)).toBe(SLOT_UNLOCK_GOLD_BASE);
+    expect(slotUnlockGoldCost(2)).toBeGreaterThan(SLOT_UNLOCK_GOLD_BASE);
   });
 });
 
@@ -691,17 +719,18 @@ describe("정착지 라이프사이클 end-to-end", () => {
   it("건설 → 칸 4개 해금(작물/광물/물고기/작물) → 칸별 생산·수확 → village→city 업그레이드", async () => {
     setOwner(FARM_OUTPOST, MY_GUILD);
 
-    // 1) build — 이름만.
+    // 1) build — 이름만(길드 금고 골드 1천만 차감).
+    guildGold.set(MY_GUILD, 1_000_000_000);
     let res = await buildPOST(jreq({ outpostId: FARM_OUTPOST, name: "황금밀밭" }));
     expect(res.status).toBe(200);
     expect((villages.get(FARM_OUTPOST) as { unlockedSlots: number }).unlockedSlots).toBe(0);
+    let expectedGold = 1_000_000_000 - VILLAGE_BUILD_GOLD_COST;
+    expect(guildGold.get(MY_GUILD)).toBe(expectedGold);
 
-    // 2) 길드 금고 골드로 칸 4개를 한 칸씩 해금하며 종류를 고른다(누진 비용 차감).
-    guildGold.set(MY_GUILD, 1_000_000_000);
-    let expectedGold = 1_000_000_000;
+    // 2) 칸 4개를 한 칸씩 해금하며 종류를 고른다 — 첫 칸 무료, 이후 골드 누진.
     const slotPlan: Array<"crop" | "ore" | "fish"> = ["crop", "ore", "fish", "crop"];
     for (let i = 0; i < slotPlan.length; i++) {
-      const cost = slotUnlockGoldCost(i);
+      const cost = slotUnlockGoldCost(i); // i=0 → 0(무료)
       res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: slotPlan[i] }));
       expect(res.status).toBe(200);
       const j = (await res.json()) as { unlockedSlots: number; gold: number };

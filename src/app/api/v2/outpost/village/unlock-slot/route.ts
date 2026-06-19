@@ -18,7 +18,8 @@ import {
 
 // POST /api/v2/outpost/village/unlock-slot — body { outpostId, kind }
 // 판의 다음 칸을 길드 금고 골드로 열고, 그 칸에서 키울 종류(crop|ore|fish)를 고른다(영구).
-//   마스터/부마스터 전용. 첫 칸 5천만 골드에서 칸마다 누진. 판이 꽉 차면 at_max(단계 업그레이드로).
+//   마스터/부마스터 전용. 첫 칸은 무료(기본 제공), 둘째 칸부터 5천만 골드에서 칸마다 누진.
+//   판이 꽉 차면 at_max(단계 업그레이드로).
 // lock 순서: 점령행 → 마을 → 길드 자원(골드 풀). 타 라우트 공통(단일 길드 자원 row).
 export async function POST(req: Request) {
   const userId = await ensureUser();

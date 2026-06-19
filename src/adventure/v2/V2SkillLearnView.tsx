@@ -10,11 +10,10 @@ import {
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
 import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
-import { V2SpecPanel, type V2SpecState } from "./V2SpecPanel";
 import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
 import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
 
-// v2 학습 — 전문화 선택/패시브 픽(V2SpecPanel) + 숙달 포인트로 공용·전문화 스킬을 습득한다.
+// v2 학습 — 숙달 포인트로 직업 스킬을 습득하고 SP 로드아웃을 구성한다.
 // 캐릭터 탭 "스킬" 항목(/character/skills). 옛 "훈련장"(마을 탭) 대체 — 대련(허수아비)은
 // 전투 탭(/battle/sparring)으로 분리.
 
@@ -29,7 +28,6 @@ type StateShape = {
   ok?: boolean;
   elementalSkills?: ElementalRow[];
   proficiency?: { current?: { points: number } };
-  spec?: V2SpecState;
   loadout?: V2LoadoutData; // 코어루프 flag-on 만 존재(SP 로드아웃).
 };
 
@@ -69,7 +67,6 @@ export function V2SkillLearnView({
   // 스킬 허브(탭)에 끼워질 때 — 자체 헤더/페이지 컨테이너 생략(허브가 제공).
   embedded?: boolean;
 }) {
-  const [specState, setSpecState] = useState<V2SpecState | null>(null);
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
   const [usable, setUsable] = useState(0);
@@ -83,7 +80,6 @@ export function V2SkillLearnView({
       const res = await fetch("/api/v2/me/state");
       const j = (await res.json().catch(() => null)) as StateShape | null;
       if (j?.ok) {
-        setSpecState(j.spec ?? null);
         setElementalSkills(j.elementalSkills ?? []);
         setLoadout(j.loadout ?? null);
         setUsable(j.proficiency?.current?.points ?? 0);
@@ -155,10 +151,6 @@ export function V2SkillLearnView({
         <HeaderPanel>
           <SubViewHeader title="스킬" onBack={onBack} />
         </HeaderPanel>
-      )}
-
-      {specState && specState.specs.length > 0 && (
-        <V2SpecPanel spec={specState} onChanged={refresh} />
       )}
 
       {!loading && loadout && (

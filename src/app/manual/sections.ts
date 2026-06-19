@@ -58,13 +58,13 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "jobs",
     title: "직업·숙련도·전직",
-    summary: "4직군 4차수, 전문화(계파), 숙달 포인트, 전직, 수행.",
+    summary: "4직군 4차수, 상위 직업, 숙달 포인트, 전직, 수행.",
     group: "growth",
   },
   {
     slug: "skills",
-    title: "스킬과 전문화",
-    summary: "액티브 스킬 습득·장착 슬롯, 전문화(계파) 패시브·직업 특성.",
+    title: "스킬",
+    summary: "액티브 스킬 습득·장착 슬롯, 직업 전용 스킬.",
     group: "growth",
   },
   {

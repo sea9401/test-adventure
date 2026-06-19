@@ -1,6 +1,7 @@
 import {
   GUILD_CREATE_MIN_LEVEL,
   GUILD_CREATE_GOLD_COST,
+  GUILD_MAX_MEMBERS,
 } from "@/adventure/data/guild";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
 
@@ -25,7 +26,7 @@ export function GuildContent() {
           .
         </li>
         <li>
-          정원: <Em>3 명</Em>.
+          정원: <Em>{GUILD_MAX_MEMBERS} 명</Em> (국가 선포 시 증가).
         </li>
         <li>창단하면 본인이 마스터가 됩니다.</li>
       </UL>

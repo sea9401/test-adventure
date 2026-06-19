@@ -4,6 +4,8 @@ import {
   harvestRemainingMs,
   harvestYield,
   nextTier,
+  tierMeetsNation,
+  NATION_REQUIRED_TIER,
   canUpgrade,
   applyUpgradeCost,
   tryStartProduction,
@@ -151,5 +153,14 @@ describe("settlement — 생산 엔진", () => {
     expect(terrainTraitOf("village_oremouth")).toBe("mine");
     // 미지 거점 → 평지
     expect(terrainTraitOf("no_such_outpost")).toBe("plain");
+  });
+
+  it("tierMeetsNation — 대도시만 국가 선포 게이트 충족", () => {
+    expect(NATION_REQUIRED_TIER).toBe("metropolis");
+    expect(tierMeetsNation("metropolis")).toBe(true);
+    expect(tierMeetsNation("city")).toBe(false);
+    expect(tierMeetsNation("village")).toBe(false);
+    // 손상/미지 tier 문자열은 충족 안 함(라우트 게이트가 막힘쪽으로 안전 fallback).
+    expect(tierMeetsNation("garbage" as never)).toBe(false);
   });
 });

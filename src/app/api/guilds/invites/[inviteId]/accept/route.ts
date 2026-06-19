@@ -12,7 +12,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
-import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
+import { guildMemberCap } from "@/adventure/data/guild";
 
 export async function POST(
   _req: Request,
@@ -48,10 +48,13 @@ export async function POST(
         return { error: "invite_expired", status: 409 as const };
       }
 
+      // 길드 row FOR UPDATE — 같은 길드로의 동시 초대 수락이 정원 체크를 직렬화하도록
+      //   (각 초대 row 만 잠그면 서로 다른 초대 2건이 같은 멤버수를 읽고 둘 다 통과 → 오버플로우).
       const guildRows = await tx
         .select()
         .from(guilds)
         .where(and(eq(guilds.id, invite.guildId), isNull(guilds.disbandedAt)))
+        .for("update")
         .limit(1);
       const guild = guildRows[0];
       if (!guild) {
@@ -85,7 +88,7 @@ export async function POST(
         .from(guildMembers)
         .where(eq(guildMembers.guildId, invite.guildId));
       const memberCount = Number(memberCountRows[0]?.count ?? 0);
-      if (memberCount >= GUILD_MAX_MEMBERS) {
+      if (memberCount >= guildMemberCap(guild.nationName != null)) {
         return { error: "guild_full", status: 409 as const };
       }
 

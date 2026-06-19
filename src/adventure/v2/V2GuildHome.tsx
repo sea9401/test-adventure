@@ -63,6 +63,8 @@ type GuildInfoResponse = {
     createdAt: string;
     fameTotal: number;
     description: string | null;
+    nationName: string | null;
+    nationDeclaredAt: string | null;
   } | null;
   members?: {
     userId: string;
@@ -74,6 +76,10 @@ type GuildInfoResponse = {
   isMaster?: boolean;
   isManager?: boolean;
   pendingRequests?: PendingRequest[];
+  // 국가 선포 — 정원 한도(국가 시 상향)·대도시 보유·선포 가능 여부.
+  memberCap?: number;
+  hasMetropolis?: boolean;
+  canDeclareNation?: boolean;
 };
 
 function fmtDate(iso: string): string {
@@ -118,6 +124,8 @@ export function V2GuildHome({
   const [inviteName, setInviteName] = useState("");
   // 관리탭 — 거점 정책 에디터 펼침 (한 번에 하나).
   const [policyOpenId, setPolicyOpenId] = useState<string | null>(null);
+  // 국가 선포 — 국가명 입력.
+  const [nationInput, setNationInput] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -195,6 +203,51 @@ export function V2GuildHome({
       setActing(false);
     }
   }, [inviteName, guildId, acting]);
+
+  // 마스터가 국가 선포 — 대도시 마을 보유 시. 성공하면 길드 정원이 늘어난다.
+  const handleDeclareNation = useCallback(async () => {
+    const name = nationInput.trim();
+    if (name.length === 0 || acting) return;
+    setActing(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v2/guild/nation/declare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        reason?: string;
+        requiredTier?: string;
+      } | null;
+      if (j?.ok) {
+        setNotice({
+          kind: "ok",
+          text: `${name} 국가를 선포했어요. 길드 정원이 늘어납니다.`,
+        });
+        setNationInput("");
+        await refresh();
+      } else {
+        const msg =
+          j?.error === "no_metropolis"
+            ? `${j.requiredTier ?? "대도시"} 등급 마을이 있어야 선포할 수 있어요.`
+            : j?.error === "already_nation"
+              ? "이미 국가를 선포했어요."
+              : j?.error === "not_master"
+                ? "마스터만 선포할 수 있어요."
+                : j?.error === "invalid_name"
+                  ? (j.reason ?? "국가명을 확인해 주세요.")
+                  : `선포에 실패했어요 (${j?.error ?? `http ${res.status}`}).`;
+        setNotice({ kind: "err", text: msg });
+      }
+    } catch {
+      setNotice({ kind: "err", text: "선포에 실패했어요. 잠시 후 다시 시도해 주세요." });
+    } finally {
+      setActing(false);
+    }
+  }, [nationInput, acting, refresh]);
 
   // 마스터가 직책 변경 — guild_members.role (부마스터/관리자/일반).
   const handleRole = useCallback(
@@ -328,6 +381,14 @@ export function V2GuildHome({
         info?.guild ? (
           <div className="overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 text-sm dark:border-zinc-800 dark:bg-zinc-900">
             <dl className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {info.guild.nationName && (
+                <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                  <dt className="text-zinc-500 dark:text-zinc-400">국가</dt>
+                  <dd className="truncate font-semibold text-indigo-600 dark:text-indigo-400">
+                    {info.guild.nationName}
+                  </dd>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <dt className="text-zinc-500 dark:text-zinc-400">길드마스터</dt>
                 <dd className="truncate font-medium">
@@ -337,7 +398,7 @@ export function V2GuildHome({
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <dt className="text-zinc-500 dark:text-zinc-400">길드원 수</dt>
                 <dd className="font-medium tabular-nums">
-                  {info.members?.length ?? 0} / 3
+                  {info.members?.length ?? 0} / {info.memberCap ?? 3}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
@@ -432,7 +493,7 @@ export function V2GuildHome({
               </div>
               <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                 닉네임으로 초대하면 상대 우편함에 도착해요. 상대가 수락하면 합류합니다 (정원{" "}
-                {info?.members?.length ?? 0}/3).
+                {info?.members?.length ?? 0}/{info?.memberCap ?? 3}).
               </p>
               <div className="mt-2 flex gap-2">
                 <input
@@ -605,6 +666,59 @@ export function V2GuildHome({
                   </li>
                 )}
               </ul>
+            </div>
+          )}
+
+          {/* 국가 선포 — 마스터 전용. 대도시 마을 보유 시 선포 → 길드 정원 증가. */}
+          {isMaster && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                국가 선포
+              </div>
+              {info?.guild?.nationName ? (
+                <div className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-2.5 dark:border-indigo-900/60 dark:bg-indigo-950/40">
+                  <div className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
+                    {info.guild.nationName}
+                  </div>
+                  <p className="mt-0.5 text-xs text-indigo-600/80 dark:text-indigo-400/80">
+                    {info.guild.nationDeclaredAt
+                      ? `${fmtDate(info.guild.nationDeclaredAt)} 선포`
+                      : "선포됨"}{" "}
+                    · 길드 정원 {info.memberCap ?? 3}명
+                  </p>
+                </div>
+              ) : info?.canDeclareNation ? (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    대도시 마을을 보유했어요. 국가를 선포하면 길드가 성장합니다
+                    (정원 증가). 국가명은 한 번 정하면 바꿀 수 없어요.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <input
+                      type="text"
+                      value={nationInput}
+                      onChange={(e) => setNationInput(e.target.value)}
+                      placeholder="국가명 (2~16자)"
+                      disabled={acting}
+                      maxLength={16}
+                      className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-zinc-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:focus:border-zinc-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleDeclareNation}
+                      disabled={acting || nationInput.trim().length === 0}
+                      className="shrink-0 rounded-md border border-indigo-700 bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+                    >
+                      국가 선포
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+                  대도시 등급 마을을 보유하면 국가를 선포할 수 있어요. 선포하면
+                  길드 정원이 늘어납니다.
+                </p>
+              )}
             </div>
           )}
         </div>

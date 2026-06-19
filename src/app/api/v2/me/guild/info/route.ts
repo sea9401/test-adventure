@@ -4,9 +4,15 @@ import {
   guildJoinRequests,
   guildMembers,
   guilds,
+  outpostVillages,
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { guildMemberCap } from "@/adventure/data/guild";
+import {
+  tierMeetsNation,
+  type VillageTier,
+} from "@/adventure/data/v2/settlement";
 
 // GET /api/v2/me/guild/info — 길드 정보 + 멤버 list (V2GuildHome).
 //
@@ -53,6 +59,8 @@ export async function GET() {
         createdAt: guilds.createdAt,
         fameTotal: guilds.fameTotal,
         description: guilds.description,
+        nationName: guilds.nationName,
+        nationDeclaredAt: guilds.nationDeclaredAt,
       })
       .from(guilds)
       .where(eq(guilds.id, guildId))
@@ -164,6 +172,19 @@ export async function GET() {
     requestedAt: r.createdAt,
   }));
 
+  // 국가 선포 — 길드 정원(국가 시 상향) + 선포 게이트 충족 여부(대도시 마을 보유).
+  const memberCap = guildMemberCap(guildRow.nationName != null);
+  const villageTiers = await db
+    .select({ tier: outpostVillages.tier })
+    .from(outpostVillages)
+    .where(eq(outpostVillages.guildId, guildId));
+  const hasMetropolis = villageTiers.some((v) =>
+    tierMeetsNation(v.tier as VillageTier),
+  );
+  // 마스터만, 미선포 상태에서, 대도시 보유 시 선포 버튼 노출.
+  const canDeclareNation =
+    isMaster && guildRow.nationName == null && hasMetropolis;
+
   return Response.json({
     ok: true,
     guild: guildRow,
@@ -171,5 +192,8 @@ export async function GET() {
     isMaster,
     isManager,
     pendingRequests,
+    memberCap,
+    hasMetropolis,
+    canDeclareNation,
   });
 }

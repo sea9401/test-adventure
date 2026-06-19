@@ -12,7 +12,7 @@ import { isAdminRole } from "@/lib/server/guildAdmin";
 import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
-import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
+import { guildMemberCap } from "@/adventure/data/guild";
 
 // POST /api/guilds/requests/[requestId]/accept — 마스터가 가입 신청 수락 → 멤버로 추가.
 // 거부: 마스터 아님 / 신청 pending 아님 / 길드 해체·정원 꽉참 / 신청자가 이미 다른 길드 소속·쿨다운.
@@ -94,7 +94,10 @@ export async function POST(
         .select({ count: sql<number>`count(*)::int` })
         .from(guildMembers)
         .where(eq(guildMembers.guildId, guild.id));
-      if (Number(memberCountRows[0]?.count ?? 0) >= GUILD_MAX_MEMBERS) {
+      if (
+        Number(memberCountRows[0]?.count ?? 0) >=
+        guildMemberCap(guild.nationName != null)
+      ) {
         return { error: "guild_full", status: 409 as const };
       }
 

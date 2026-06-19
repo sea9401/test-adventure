@@ -147,6 +147,8 @@ export function OutpostView({
     !!occupation &&
     occupation.occupiedByGuildId != null &&
     viewerGuildId === occupation.occupiedByGuildId;
+  // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨긴다(공격 대상 아님).
+  const ownByMyGuild = isOwner || isGuildMember;
 
   // 정책 게이트 — guild-only 거점에 다른 길드가 들어가려는 경우 던전 입장 막음.
   const entryDecision = occupation
@@ -236,16 +238,20 @@ export function OutpostView({
               절대 중립
             </span>
           )}
-          {occupation &&
-            viewerUserId &&
-            occupation.occupiedByUserId === viewerUserId && (
-              <span className="rounded bg-emerald-500 px-2 py-0.5 text-white">
-                내 점령
-              </span>
-            )}
+          {occupation && isOwner && (
+            <span className="rounded bg-emerald-500 px-2 py-0.5 text-white">
+              내 점령
+            </span>
+          )}
+          {occupation && !isOwner && isGuildMember && (
+            <span className="rounded bg-emerald-500 px-2 py-0.5 text-white">
+              우리 길드 점령
+            </span>
+          )}
           {occupation &&
             occupation.occupiedByUserId !== null &&
-            occupation.occupiedByUserId !== viewerUserId && (
+            !isOwner &&
+            !isGuildMember && (
               <span className="rounded bg-red-500 px-2 py-0.5 text-white">
                 적대 점령
               </span>
@@ -328,30 +334,35 @@ export function OutpostView({
           </div>
         )}
 
-        {lineupWarning && !claimDisabled && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-            ⚠️ 3:3 라인업 미설정 — 공성 시 마스터 혼자 출전합니다. 길드 탭
-            길드원에서 라인업을 설정하세요.
-          </div>
+        {/* 점령/공성 시도 — 내 거점(내 점령·우리 길드)에선 숨긴다(공격 대상 아님). */}
+        {!ownByMyGuild && (
+          <>
+            {lineupWarning && !claimDisabled && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+                ⚠️ 3:3 라인업 미설정 — 공성 시 마스터 혼자 출전합니다. 길드 탭
+                길드원에서 라인업을 설정하세요.
+              </div>
+            )}
+            <ActionCard
+              title={
+                claimDisabled
+                  ? "점령 시도"
+                  : occupation
+                    ? "공성 시도 (PvP 결투)"
+                    : "점령 시도 (NPC 일기토)"
+              }
+              subtitle={
+                claimDisabled?.reason ??
+                (occupation
+                  ? `점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락${coreLoopOn ? "" : " (스태미너 소모)"}.`
+                  : `거점 NPC 영웅과 1대1 결투. 승리 시 점령${coreLoopOn ? "" : " (스태미너 소모)"}.`)
+              }
+              onClick={attemptClaim}
+              disabled={!!claimDisabled || busy}
+              loading={busy}
+            />
+          </>
         )}
-        <ActionCard
-          title={
-            claimDisabled
-              ? "점령 시도"
-              : occupation
-                ? "공성 시도 (PvP 결투)"
-                : "점령 시도 (NPC 일기토)"
-          }
-          subtitle={
-            claimDisabled?.reason ??
-            (occupation
-              ? `점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락${coreLoopOn ? "" : " (스태미너 소모)"}.`
-              : `거점 NPC 영웅과 1대1 결투. 승리 시 점령${coreLoopOn ? "" : " (스태미너 소모)"}.`)
-          }
-          onClick={attemptClaim}
-          disabled={!!claimDisabled || busy}
-          loading={busy}
-        />
 
         {lastClaimResult && (
           <ClaimResultCard

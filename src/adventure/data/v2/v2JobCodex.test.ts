@@ -1,8 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { buildJobCodex, collectionRank } from "./v2JobCodex";
+import { buildJobCodex } from "./v2JobCodex";
 import { V2_JOB_LIST } from "./v2JobCatalog";
 import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
-import { SP_MASTERED_CUMLEVEL } from "./coreLoopConfig";
 
 // 직군 cumLevel 을 세팅한 proficiency 생성 헬퍼.
 function profWith(groups: Record<string, number>): V2ProficiencyState {
@@ -14,12 +13,14 @@ function profWith(groups: Record<string, number>): V2ProficiencyState {
 }
 
 describe("buildJobCodex", () => {
-  it("비모험가 직업 전부 평면 목록(직군 묶음 폐기) — 모험가(tier0) 제외", () => {
-    const prof = profWith({ warrior: SP_MASTERED_CUMLEVEL, mage: 100 });
+  it("비모험가 직업 전부 평면 목록 — 직군 묶음·수집 포인트/칭호 폐기", () => {
+    const prof = profWith({ warrior: 250, mage: 100 });
     const codex = buildJobCodex(prof, [], "warrior", null);
 
-    // 직군 묶음(groups)은 도감에서 폐기 — codex 에 groups 필드 없음.
+    // 폐지된 필드는 codex 에 없다.
     expect("groups" in codex).toBe(false);
+    expect("collectionPoints" in codex).toBe(false);
+    expect("rank" in codex).toBe(false);
     // 모험가(tier0) 제외 — 카탈로그 확장에 견고(하드코딩 회피).
     const nonAdventurer = V2_JOB_LIST.filter((j) => j.tier > 0).length;
     expect(codex.jobs).toHaveLength(nonAdventurer);
@@ -29,7 +30,6 @@ describe("buildJobCodex", () => {
     const prof = profWith({ warrior: 100 });
     const codex = buildJobCodex(prof, [], "warrior", null);
     const shieldman = codex.jobs.find((j) => j.id === "shieldman")!;
-    expect(shieldman.group).toBe("warrior");
     expect(shieldman.unlocked).toBe(true); // warrior cumLevel 100 ≥ prereq
     const squire = codex.jobs.find((j) => j.id === "squire")!;
     expect(squire.unlocked).toBe(true);
@@ -38,88 +38,24 @@ describe("buildJobCodex", () => {
     expect(caster.unlocked).toBe(false);
   });
 
-  it("수집 포인트 = 수집한 패시브 수 + 등급 산출", () => {
+  it("현재 직업 표시 + 스킬 수집 진행도(시그니처 2개 중 학습 수, 둘 다=수집 완료)", () => {
     const prof = profWith({ warrior: 50 });
-    // 패시브 2개 학습 → 수집 포인트 2.
-    const codex = buildJobCodex(
-      prof,
-      ["v2c_warrior_might", "v2c_shieldman_vitality"],
-      "warrior",
-      null,
-    );
-    expect(codex.collectionPoints).toBe(2);
-    expect(codex.rank.title).toBe("직업 입문"); // 1점 임계 통과, 3점 미만
-    expect(codex.rank.next).toEqual({ title: "직업 견습", at: 3 });
-  });
-
-  it("수집 칭호 보유분이 사용분에 잡혀 잔액 차감 (소비형 sink)", () => {
-    const prof = profWith({ warrior: 50 });
-    const learned = ["v2c_warrior_might", "v2c_shieldman_vitality"]; // 수집 2
-    // 보유 칭호 없음 → 사용분 0, 잔액 2.
-    const base = buildJobCodex(prof, learned, "warrior", null, 0, undefined, []);
-    expect(base.collectionPointsSpent).toBe(0);
-    expect(base.collectionPointsAvailable).toBe(2);
-    // coll_wanderer(2) 보유 → 사용분 2, 잔액 0. 누적/등급은 불변.
-    const withTitle = buildJobCodex(
-      prof,
-      learned,
-      "warrior",
-      null,
-      0,
-      undefined,
-      ["coll_wanderer"],
-    );
-    expect(withTitle.collectionPoints).toBe(2); // 누적 불변
-    expect(withTitle.collectionPointsSpent).toBe(2);
-    expect(withTitle.collectionPointsAvailable).toBe(0);
-    expect(withTitle.rank.title).toBe(base.rank.title); // 등급 불변
-  });
-
-  it("collectionRank — 임계 경계 + 0점 무명 + 최고등급 next null", () => {
-    expect(collectionRank(0).title).toBe("무명");
-    expect(collectionRank(0).next).toEqual({ title: "직업 입문", at: 1 });
-    expect(collectionRank(1).title).toBe("직업 입문");
-    expect(collectionRank(10).title).toBe("직업 탐험가");
-    expect(collectionRank(63).title).toBe("직업 통달자"); // 64 미만
-    expect(collectionRank(64).title).toBe("만직의 현자");
-    expect(collectionRank(999).next).toBeNull(); // 최고 등급
-  });
-
-  it("현재 직업 표시 + 패시브 수집 여부", () => {
-    const prof = profWith({ warrior: 50 });
-    // 견습 병사 패시브(근력)만 학습한 상태.
-    const codex = buildJobCodex(prof, ["v2c_warrior_might"], "warrior", null);
-    const warrior = codex.jobs.find((j) => j.id === "warrior")!;
-    expect(warrior.isCurrent).toBe(true);
-    expect(warrior.passive?.id).toBe("v2c_warrior_might");
-    expect(warrior.passive?.learned).toBe(true);
-    // 안 배운 직업 패시브는 learned=false
-    const martial = codex.jobs.find((j) => j.id === "martial")!;
-    expect(martial.isCurrent).toBe(false);
-    expect(martial.passive?.learned).toBe(false);
-  });
-
-  it("스킬 수집 진행도 — 시그니처 2개 중 학습 수(액티브+패시브). 둘 다=수집 완료", () => {
-    // 견습 병사 액티브만 학습 → 1/2. 패시브까지 → 2/2(수집 완료).
-    const onlyActive = buildJobCodex(
-      profWith({ warrior: 50 }),
-      ["v2c_warrior_strike"],
-      "warrior",
-      null,
-    );
+    // 견습 병사 액티브만 학습 → 1/2.
+    const onlyActive = buildJobCodex(prof, ["v2c_warrior_strike"], "warrior", null);
     const w1 = onlyActive.jobs.find((j) => j.id === "warrior")!;
+    expect(w1.isCurrent).toBe(true);
     expect(w1.skillsTotal).toBe(2);
     expect(w1.skillsLearned).toBe(1);
 
+    // 액티브+패시브 둘 다 → 2/2(수집 완료).
     const both = buildJobCodex(
-      profWith({ warrior: 50 }),
+      prof,
       ["v2c_warrior_strike", "v2c_warrior_might"],
       "warrior",
       null,
     );
     const w2 = both.jobs.find((j) => j.id === "warrior")!;
-    expect(w2.skillsLearned).toBe(2);
-    expect(w2.skillsLearned).toBe(w2.skillsTotal); // 수집 완료
+    expect(w2.skillsLearned).toBe(w2.skillsTotal);
 
     // 아무것도 안 배운 직업 = 0/2.
     const mage = both.jobs.find((j) => j.id === "mage")!;
@@ -127,13 +63,8 @@ describe("buildJobCodex", () => {
     expect(mage.skillsTotal).toBe(2);
   });
 
-  it("모든 직업이 패시브를 가짐(수집 대상) + 직군 매핑 정확", () => {
+  it("모험가(none)면 현재 직업으로 매칭되는 직업 없음", () => {
     const codex = buildJobCodex(emptyProficiency(), [], "none", null);
-    for (const job of codex.jobs) {
-      expect(job.passive, `${job.id} 패시브`).not.toBeNull();
-      expect(["warrior", "martial", "mage", "rogue"]).toContain(job.group);
-    }
-    // 모험가(none)면 현재 직업 매칭 직업 없음
     expect(codex.jobs.every((j) => !j.isCurrent)).toBe(true);
   });
 });

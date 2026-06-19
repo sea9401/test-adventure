@@ -5,10 +5,9 @@ import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { CheckCircle, Lock } from "@phosphor-icons/react";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
-import { V2CollectionTitleShop } from "./V2CollectionTitleShop";
 
-// 직업 도감(A 메타 PR-1) — 읽기 전용 수집 대시보드. 직업 해금·스킬 수집을 평면 목록으로 표기.
-//   직군(계열) 묶음·정복 바는 폐기(오너 요청). 파워 무관. 데이터는 /api/v2/me/job-codex 또는 mock(dev).
+// 직업 도감 — 읽기 전용. 직업 해금·스킬 수집을 평면 목록으로 표기. 직군(계열) 묶음·정복 바·수집
+//   포인트/칭호는 폐기(오너 요청 — 불필요한 복잡도). 파워 무관. 데이터는 /api/v2/me/job-codex 또는 mock(dev).
 
 export function V2JobCodexView({
   codex,
@@ -38,35 +37,7 @@ export function V2JobCodexView({
             </span>
           </p>
         </div>
-        {/* 수집 포인트(수집한 패시브 수) + 등급(비파워 칭호) */}
-        <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50/70 px-3 py-2 dark:border-teal-800/60 dark:bg-teal-950/30">
-          <span className="rounded-full bg-teal-600 px-2 py-0.5 text-[11px] font-bold text-white">
-            {codex.rank.title}
-          </span>
-          <span className="text-xs text-zinc-600 dark:text-zinc-300">
-            수집 포인트{" "}
-            <strong className="tabular-nums">{codex.collectionPoints}</strong>
-            {codex.collectionPointsSpent > 0 && (
-              <span className="text-zinc-400 dark:text-zinc-500">
-                {" "}
-                · 잔액{" "}
-                <strong className="tabular-nums text-teal-700 dark:text-teal-400">
-                  {codex.collectionPointsAvailable}
-                </strong>
-              </span>
-            )}
-          </span>
-          {codex.rank.next && (
-            <span className="ml-auto text-[11px] text-zinc-400 dark:text-zinc-500">
-              다음 {codex.rank.next.title}까지{" "}
-              {codex.rank.next.at - codex.collectionPoints}
-            </span>
-          )}
-        </div>
       </HeaderPanel>
-
-      {/* 수집 포인트 소비형 sink — 수집 칭호 상점(자체 fetch·코어루프 컨텍스트만 노출) */}
-      <V2CollectionTitleShop />
 
       {/* 직군 묶음 없이 직업 평면 목록 — 각 직업의 스킬 수집 진행만 표기. */}
       <Card padding="md">

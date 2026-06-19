@@ -3,20 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 
-// 로드아웃 프리셋 패널(A 메타 PR-2b UI) — 이름 붙인 로드아웃을 저장/적용/삭제, 슬롯은 수집
-//   포인트로 구매. 적용은 POST /api/v2/me/loadout(예산/직업고정 검증 재사용) → 부모 refresh.
-//   저장/구매/현황은 /api/v2/me/loadout-presets. 데이터는 자체 fetch(코어루프 전용 — 로드아웃
-//   패널과 나란히 렌더되므로 그 컨텍스트에서만 노출).
+// 로드아웃 프리셋 패널 — 이름 붙인 로드아웃을 저장/적용/삭제. 슬롯은 무료 고정(수집 포인트 경제
+//   폐지). 적용은 POST /api/v2/me/loadout(예산/직업고정 검증 재사용) → 부모 refresh. 저장/현황은
+//   /api/v2/me/loadout-presets. 데이터는 자체 fetch(코어루프 전용 — 로드아웃 패널과 나란히 렌더).
 
 type PresetItem = { name: string; skills: string[] };
 type PresetState = {
   presets: PresetItem[];
-  slotsBought: number;
   totalSlots: number;
-  nextSlotCost: number | null;
-  collectionPoints: number;
-  collectionPointsSpent: number;
-  collectionPointsAvailable: number;
 };
 
 const PRESET_NAME_MAX = 24;
@@ -75,7 +69,7 @@ export function V2LoadoutPresetsPanel({
   async function saveCurrent() {
     if (!state) return;
     if (state.presets.length >= state.totalSlots) {
-      setMsg("프리셋 슬롯이 가득 찼어요. 슬롯을 더 사거나 기존 프리셋을 지우세요.");
+      setMsg("프리셋 슬롯이 가득 찼어요. 기존 프리셋을 지우세요.");
       return;
     }
     if (currentEquipped.length === 0) {
@@ -131,29 +125,6 @@ export function V2LoadoutPresetsPanel({
     }
   }
 
-  async function buySlot() {
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/v2/me/loadout-presets", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "buySlot" }),
-      });
-      const j = (await res.json().catch(() => null)) as
-        | (PresetState & { ok?: boolean; error?: string; need?: number })
-        | null;
-      if (j?.ok) setState(j);
-      else if (j?.error === "insufficient_points")
-        setMsg(`수집 포인트가 부족해요 (필요 ${j.need ?? "?"})`);
-      else setMsg("슬롯을 살 수 없어요");
-    } catch {
-      setMsg("오류가 발생했어요");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const slotsFull = state.presets.length >= state.totalSlots;
 
   return (
@@ -164,16 +135,11 @@ export function V2LoadoutPresetsPanel({
           슬롯{" "}
           <strong className="tabular-nums">
             {state.presets.length}/{state.totalSlots}
-          </strong>{" "}
-          · 수집 포인트 잔액{" "}
-          <strong className="tabular-nums text-teal-700 dark:text-teal-400">
-            {state.collectionPointsAvailable}
           </strong>
         </span>
       </div>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-        지금 장착한 스킬을 프리셋으로 저장해 두면 한 번에 불러올 수 있어요. 슬롯은
-        수집 포인트로 늘립니다.
+        지금 장착한 스킬을 프리셋으로 저장해 두면 한 번에 불러올 수 있어요.
       </p>
 
       {/* 현재 로드아웃 저장 */}
@@ -241,18 +207,6 @@ export function V2LoadoutPresetsPanel({
         <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-500">
           저장한 프리셋이 없어요.
         </p>
-      )}
-
-      {/* 슬롯 구매 */}
-      {state.nextSlotCost != null && (
-        <button
-          type="button"
-          onClick={buySlot}
-          disabled={busy || state.collectionPointsAvailable < state.nextSlotCost}
-          className="mt-3 w-full rounded-md border border-teal-300 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 hover:bg-teal-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-teal-800/60 dark:bg-teal-950/30 dark:text-teal-300 dark:hover:bg-teal-950/50"
-        >
-          프리셋 슬롯 +1 (수집 포인트 {state.nextSlotCost})
-        </button>
       )}
 
       {msg && (

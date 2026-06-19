@@ -15,6 +15,7 @@ import {
   UPGRADE_COST,
   type ProductionJob,
 } from "./settlement";
+import { terrainTraitOf } from "./outposts";
 
 const T0 = 1_750_000_000_000;
 
@@ -131,5 +132,24 @@ describe("settlement — 생산 엔진", () => {
     expect(isValidVillageName("   ")).toBe(false); // 공백뿐
     expect(isValidVillageName("x".repeat(16))).toBe(true);
     expect(isValidVillageName("x".repeat(17))).toBe(false);
+  });
+
+  it("terrainTraitOf — 타입 파생 + 오버라이드(거점 id 큐레이션 잠금)", () => {
+    // 광산 type → 광맥
+    expect(terrainTraitOf("city_iron_pit")).toBe("mine");
+    expect(terrainTraitOf("war_central_mine")).toBe("mine");
+    // 마을 type → 농지
+    expect(terrainTraitOf("city_oakheart")).toBe("farmland");
+    expect(terrainTraitOf("village_wheatfield")).toBe("farmland");
+    // 요새/탑 → 평지
+    expect(terrainTraitOf("war_central_fort")).toBe("plain");
+    expect(terrainTraitOf("war_central_tower")).toBe("plain");
+    // 물 테마 오버라이드 → 호수(마을 type 이지만)
+    expect(terrainTraitOf("city_river_haven")).toBe("lake");
+    expect(terrainTraitOf("village_dewfall")).toBe("lake");
+    // 광맥 이름 마을 오버라이드 → 광맥
+    expect(terrainTraitOf("village_oremouth")).toBe("mine");
+    // 미지 거점 → 평지
+    expect(terrainTraitOf("no_such_outpost")).toBe("plain");
   });
 });

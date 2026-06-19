@@ -15,6 +15,7 @@
 // 분량 (40): 5 왕국 + 10 도시 + 13 거점 + 8 마을 + 4 절대 중립. (2026-06-14 96→40 축소)
 
 import type { Outpost } from "./types";
+import type { TerrainTrait } from "./settlement";
 
 // 미점령(NPC 운영) 거점의 기본 세율. 사냥 골드의 이만큼이 거점 금고에 누적되며
 // (outpost_treasury 테이블), 점령/함락 시 자동 회수 + 수동 세금 회수의 재원이 된다.
@@ -262,4 +263,29 @@ export function nearestNeutralOutpostId(fromId: string): string {
     }
   }
   return best.id;
+}
+
+// === 지형 특성 (정착지 생산 보너스) ===================================
+// 거점마다 특성 1개 — 점령해 마을을 세우면 해당 생산에 보너스(data/v2/settlement TRAIT_BONUS_KIND).
+//   광산=광맥(광물+) · 마을=농지(작물+) · 요새/탑=평지(보너스 없음). 강/늪/빙하/이슬 이름은 호수,
+//   광맥/철 이름 마을은 광맥으로 개별 오버라이드(타입과 무관). 라이브 실측 후 개별 조정 가능.
+const TERRAIN_TRAIT_OVERRIDE: Record<string, TerrainTrait> = {
+  // 호수(물고기+)
+  city_river_haven: "lake", // 알 나하르(강)
+  city_glacier_market: "lake", // 이스마르크(빙하)
+  city_swamp_market: "lake", // 그룬다르(늪)
+  village_dewfall: "lake", // 로스니엘(이슬)
+  // 광맥(광물+) — 광산 type 아닌데 광맥 테마
+  village_oremouth: "mine", // 카르문(광맥)
+  village_iron_camp: "mine", // 야른가스(철)
+};
+
+export function terrainTraitOf(outpostId: string): TerrainTrait {
+  const ov = TERRAIN_TRAIT_OVERRIDE[outpostId];
+  if (ov) return ov;
+  const o = OUTPOST_BY_ID.get(outpostId);
+  if (!o) return "plain";
+  if (o.type === "mine") return "mine"; // 광맥
+  if (o.type === "village") return "farmland"; // 농지
+  return "plain"; // 요새·탑
 }

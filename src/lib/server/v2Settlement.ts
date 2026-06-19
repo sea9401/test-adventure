@@ -6,7 +6,6 @@ import {
   v2GuildResources,
 } from "@/db/schema";
 import { getGuildId } from "./v2EnsureSoloGuild";
-import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import {
   VILLAGE_TIERS,
   PRODUCTION_KINDS,
@@ -14,7 +13,6 @@ import {
   type ProductionJob,
   type ProductionKind,
   type SettlementResources,
-  type TerrainTrait,
 } from "@/adventure/data/v2/settlement";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
@@ -213,10 +211,5 @@ export async function guildOwningOutpost(
   return occ?.g != null && occ.g === guildId ? guildId : null;
 }
 
-// ── 지형 특성 ── PR-2 잠정: 거점 type 에서 파생(mine→광맥, 그 외 평지).
-//   PR-5 에서 outposts.ts 에 특성 명시 부여로 교체.
-export function terrainTraitOf(outpostId: string): TerrainTrait {
-  const o = OUTPOST_BY_ID.get(outpostId);
-  if (o?.type === "mine") return "mine";
-  return "plain";
-}
+// 지형 특성 — 거점 데이터(outposts.ts)에 큐레이션. 라우트 import 편의로 여기서 re-export.
+export { terrainTraitOf } from "@/adventure/data/v2/outposts";

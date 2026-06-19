@@ -6,14 +6,16 @@ import {
   GuildCreateError,
 } from "@/lib/server/v2EnsureSoloGuild";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  GUILD_CREATE_MIN_LEVEL,
+  GUILD_CREATE_GOLD_COST,
+} from "@/adventure/data/guild";
 
 // POST /api/v2/guild/create — 길드 생성.
 // body: { name: string }
-// 조건: Lv5 이상 + 골드 5000 차감. 무소속만.
+// 조건: Lv5 이상 + 골드 차감(GUILD_CREATE_GOLD_COST). 무소속만.
 // 응답: { ok: true, guildId } | { ok: false, error }
 
-export const GUILD_CREATE_MIN_LEVEL = 5;
-export const GUILD_CREATE_GOLD_COST = 5000;
 const NAME_MIN = 2;
 const NAME_MAX = 18;
 

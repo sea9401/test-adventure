@@ -12,10 +12,10 @@ export function guildMemberCap(hasNation: boolean): number {
   return GUILD_MAX_MEMBERS + (hasNation ? NATION_MEMBER_BONUS : 0);
 }
 
-// 생성 조건 — 둘 중 하나만 만족해도 OK.
-export const GUILD_CREATE_LEVEL = 5;
-export const GUILD_CREATE_QUEST_COUNT = 5;
-export const GUILD_CREATE_GOLD = 200;
+// 창단 조건 — 레벨 게이트 AND 골드 차감(sink). 라우트·창단 카드 공통 단일 출처.
+//   골드는 실제 차감되는 비용(threshold 아님). 정착지/국가의 진입점이라 의도적으로 비싼 sink.
+export const GUILD_CREATE_MIN_LEVEL = 5;
+export const GUILD_CREATE_GOLD_COST = 10_000_000;
 
 // 시간 정책.
 export const GUILD_LEAVE_COOLDOWN_DAYS = 1;

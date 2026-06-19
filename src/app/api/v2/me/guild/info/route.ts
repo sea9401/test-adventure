@@ -5,6 +5,7 @@ import {
   guildMembers,
   guilds,
   outpostVillages,
+  presence,
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -150,12 +151,27 @@ export async function GET() {
     if (typeof v?.level === "number") levelByUser.set(r.userId, v.level);
   }
 
+  // 최근 접속 — presence.lastSeenAt(30초 하트비트). 한 번도 접속 없으면 키 없음 → null.
+  const presenceRows =
+    memberIds.length === 0
+      ? []
+      : await db
+          .select({
+            userId: presence.userId,
+            lastSeenAt: presence.lastSeenAt,
+          })
+          .from(presence)
+          .where(inArray(presence.userId, memberIds));
+  const lastSeenByUser = new Map<string, Date>();
+  for (const r of presenceRows) lastSeenByUser.set(r.userId, r.lastSeenAt);
+
   const members = memberRows.map((m) => ({
     userId: m.userId,
     role: m.role,
     joinedAt: m.joinedAt,
     name: nameByUser.get(m.userId) ?? "모험가",
     level: levelByUser.get(m.userId) ?? 1,
+    lastSeenAt: lastSeenByUser.get(m.userId) ?? null,
   }));
   // master 먼저, 그 다음 joinedAt 오름차순.
   members.sort((a, b) => {

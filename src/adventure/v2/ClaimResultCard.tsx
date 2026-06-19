@@ -45,6 +45,8 @@ export type ClaimResult = {
   playerName?: string;
   gender?: string;
   requiredStamina?: number;
+  // 점령 비용은 길드 보유 골드에서 차감 — 부족 시 필요액 안내.
+  requiredGold?: number;
   tournament?: {
     matches: {
       attackerName: string;
@@ -74,13 +76,15 @@ export function ClaimResultCard({
     const reason =
       result.error === "out_of_stamina"
         ? `스태미너 부족 (필요 ${result.requiredStamina})`
-        : result.error === "already_yours"
-          ? "이미 자기 길드 점령"
-          : result.error === "no_supply_line"
-            ? "보급선 밖 — 우리 거점이나 중립 자유도시에 인접한 곳만 점령 가능"
-            : result.error === "protected"
-              ? "함락 직후 보호막 — 잠시 후 다시 공성 가능"
-              : (result.error ?? "알 수 없는 오류");
+        : result.error === "out_of_gold"
+          ? `길드 골드 부족 — 점령 비용 ${(result.requiredGold ?? 0).toLocaleString()} G 필요 (거점 금고를 회수해 채우세요)`
+          : result.error === "already_yours"
+            ? "이미 자기 길드 점령"
+            : result.error === "no_supply_line"
+              ? "보급선 밖 — 우리 거점이나 중립 자유도시에 인접한 곳만 점령 가능"
+              : result.error === "protected"
+                ? "함락 직후 보호막 — 잠시 후 다시 공성 가능"
+                : (result.error ?? "알 수 없는 오류");
     return (
       <ResultShell
         title="점령 실패"
@@ -99,7 +103,7 @@ export function ClaimResultCard({
       ? ` (남은 성벽 ${result.fortHp}/${result.fortMaxHp})`
       : "";
   const winLabel = result.raceLost
-    ? `△ 다른 세력이 먼저 점령 — ${coreLoopOn ? "골드" : "스태미너"}만 차감`
+    ? `△ 다른 세력이 먼저 점령 — ${coreLoopOn ? "길드 골드" : "스태미너"}만 차감`
     : result.captured
       ? result.pvp
         ? "✓ 함락 — 점령 성공"

@@ -52,12 +52,6 @@ import {
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
-import {
-  V2_JOB_SPECS,
-  resolveSpecTrait,
-  describeSpecTraitEffect,
-  describeSpecPassiveEffect,
-} from "@/adventure/data/v2/v2JobSpecs";
 import { V2_STAT_KEYS, V2_STAT_LABELS } from "@/adventure/data/v2/v2StatKeys";
 import {
   V2_JOB_LIST,
@@ -719,52 +713,6 @@ export async function GET() {
             };
           })(),
         },
-      };
-    })(),
-    // 전문화(스펙) 현황 — docs/v2-job-spec-passives-plan.md §5. 직업 전문화 목록 + 현 선택 + 해금 + 남은 픽.
-    spec: (() => {
-      const cls = parseV2Class((charSave as { class?: unknown }).class);
-      const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-      const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
-      const jobSpecs = V2_JOB_SPECS[cls] ?? [];
-      const rawChoice = (charSave as { specChoice?: unknown }).specChoice;
-      const choice = typeof rawChoice === "string" ? rawChoice : null;
-      // 선택한 전문화가 현 직업 것인지 — 환생(같은 직업, 차수→1) 후 1차여도 패널에 유지 표시.
-      //   직업 변경 후 stale choice(타직업 전문화)는 false → tier 게이트 유지(새 직업 전문화 새로 선택).
-      const choiceValid = choice != null && jobSpecs.some((s) => s.id === choice);
-      const rawUnlocked = (charSave as { unlockedPassives?: unknown })
-        .unlockedPassives;
-      const unlocked = Array.isArray(rawUnlocked)
-        ? rawUnlocked.filter((x): x is string => typeof x === "string")
-        : [];
-      return {
-        tier,
-        // 2차 전직부터 선택 가능 + 이미 고른 전문화는 환생(차수→1)해도 패널에 유지(choiceValid).
-        available: tier >= 2 || choiceValid,
-        choice,
-        unlocked,
-        picksMax: Math.max(0, tier - 1), // 2차 1·3차 2·4차 3
-        picksUsed: unlocked.length,
-        specs: jobSpecs.map((s) => ({
-          id: s.id,
-          name: s.name,
-          requiredWeaponType: s.requiredWeaponType,
-          passives: s.passives.map((p) => ({
-            id: p.id,
-            name: p.name,
-            desc: p.desc,
-            // 수치 포함 효과 텍스트 — effect 필드에서 도출(desc 는 플레이버 폴백).
-            effectText: describeSpecPassiveEffect(p.effect),
-          })),
-          // 직업 특성 — 전직 시 자동(픽 아님), 차수 성장. effectText 는 현재 차수 기준 환산값.
-          trait: s.trait
-            ? {
-                name: s.trait.name,
-                desc: s.trait.desc,
-                effectText: describeSpecTraitEffect(resolveSpecTrait(s, tier)),
-              }
-            : null,
-        })),
       };
     })(),
   });

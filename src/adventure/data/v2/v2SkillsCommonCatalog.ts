@@ -88,9 +88,11 @@ export type V2CommonSkillId =
   | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
   | "v2c_bishop_blessing3" // 축복 (회복량 +30%)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +30%)
-  // ── 하이브리드 킷(tier 3·성기사) — 딜+자힐 탱(전사×마법) ──
-  | "v2c_templar_smite" // 심판의 빛 (물리 타격 + 자힐)
-  | "v2c_templar_aegis" // 신성한 가호 (방어 +10% & 회복 강화 +10%)
+  // ── 하이브리드 킷(tier 3·전사×마법) ──
+  | "v2c_templar_smite" // 성기사: 심판의 빛 (물리 타격 + 자힐)
+  | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
+  | "v2c_spellblade_strike" // 마검사: 마검 일섬 (물리 + 마법 이중 타격)
+  | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +8% & 지능 +8%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
   | "v2c_sensei_combo" // 난무 (물리 다단)
@@ -529,6 +531,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "성스러운 가호가 몸을 지키고 상처의 회복을 북돋운다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 10, healPowerPct: 10 },
+  },
+  v2c_spellblade_strike: {
+    // 마검사 = 기사의 검(str·물리) + 마도사의 마법(int) 결합. 한 번에 물리 일격 + 마법 작렬을 동시에
+    //   터뜨리는 이중 데미지. 물리 효과는 atk(str)·마법 효과는 matk(int) 비례라 두 축에 다 투자해야
+    //   양쪽 딜이 산다(자연 throttle). 합 ~1.4/240 을 둘로 쪼갬 — 단일 3차 1타보다 단일축 의존 낮음.
+    //   resolveV2SkillCast 가 effects 순회로 두 데미지 모두 처리(신규 배선 0). PvE/PvP 공용.
+    id: "v2c_spellblade_strike", name: "마검 일섬", stat: "str", category: "attack", tier: 3,
+    description: "검에 마력을 휘감아 베는 순간, 물리와 마법이 한꺼번에 작렬한다.", mpCost: 44, cooldown: 0, procChance: 30,
+    effects: [dmg(0.7, 120), dmg(0.7, 120, "magic")],
+  },
+  v2c_spellblade_unity: {
+    // 검+마법 이중 공격축(힘%+지능%) — 어느 단일 직업도 안 가진 조합(순회 수집 메리트). 마검 일섬의
+    //   두 데미지를 동시에 키운다. stat 은 표시 메타(str) — 효과는 passive 맵.
+    id: "v2c_spellblade_unity", name: "마검 합일", stat: "str", category: "passive", tier: 3,
+    description: "검과 마법을 하나로 다룬다. 힘과 지능이 함께 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { statPct: { str: 8, int: 8 } },
   },
 
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·

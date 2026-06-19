@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
-import { SURFACE_ACCENT } from "@/components/ui/surfaces";
+import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   VILLAGE_TIER_NAME,
@@ -243,7 +243,7 @@ export function V2VillagePanel({
                 type="button"
                 disabled={busy}
                 onClick={() => void act("produce", { slot })}
-                className={`${base} border-amber-300 bg-white text-amber-700 hover:bg-amber-50 disabled:opacity-40 dark:border-amber-800 dark:bg-zinc-900 dark:text-amber-300 dark:hover:bg-amber-950/30`}
+                className={`${base} border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800`}
               >
                 <span className="text-base leading-none">＋</span>
                 <span className="mt-1 text-[10px]">
@@ -269,7 +269,7 @@ export function V2VillagePanel({
 
   const header = (
     <div className="flex items-start justify-between gap-2">
-      <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+      <h3 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
         🏡 {village?.name ?? "빈 공터"}
         {built && village ? (
           <span className="font-normal text-zinc-600 dark:text-zinc-300">
@@ -282,7 +282,7 @@ export function V2VillagePanel({
         content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}
         align="end"
         className="shrink-0"
-        triggerClassName="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+        triggerClassName="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
       >
         {TERRAIN_TRAIT_NAME[trait]}
         {TRAIT_BONUS_KIND[trait] && (
@@ -314,7 +314,7 @@ export function V2VillagePanel({
   // ── 생산 탭 ── 슬롯 판 그리드(전원). 미건설/미해금이면 관리 탭 안내. ──────────────
   if (mode === "produce") {
     return (
-      <section className={`${SURFACE_ACCENT} space-y-2 p-3`}>
+      <section className={`${SURFACE_CARD} space-y-2 p-3`}>
         {header}
         {!built ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -350,7 +350,7 @@ export function V2VillagePanel({
   const canAffordUnlock = !atMaxSlots && gold >= unlockGold;
 
   return (
-    <section className={`${SURFACE_ACCENT} space-y-2 p-3`}>
+    <section className={`${SURFACE_CARD} space-y-2 p-3`}>
       {header}
       {built && village && (
         <button
@@ -360,7 +360,7 @@ export function V2VillagePanel({
             setErr(null);
             setRenaming((v) => !v);
           }}
-          className="rounded px-1 text-[11px] font-normal text-amber-700 hover:bg-amber-200/60 dark:text-amber-300 dark:hover:bg-amber-900/40"
+          className="rounded px-1 text-[11px] font-normal text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
         >
           이름 변경
         </button>
@@ -385,7 +385,7 @@ export function V2VillagePanel({
               void act("rename", { name: renameName.trim() }, true);
               setRenaming(false);
             }}
-            className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="shrink-0 rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             저장
           </button>
@@ -428,7 +428,7 @@ export function V2VillagePanel({
               gold < VILLAGE_BUILD_GOLD_COST
             }
             onClick={() => void act("build", { name: buildName.trim() }, true)}
-            className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             마을 건설 · {fmtGold(VILLAGE_BUILD_GOLD_COST)} 골드
           </button>
@@ -479,7 +479,7 @@ export function V2VillagePanel({
                   type="button"
                   disabled={busy || unlockKind == null || !canAffordUnlock}
                   onClick={() => void act("unlock-slot", { kind: unlockKind })}
-                  className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   칸 해금 ·{" "}
                   {unlockGold === 0 ? "무료 (기본 제공)" : `${fmtGold(unlockGold)} 골드`}
@@ -495,12 +495,12 @@ export function V2VillagePanel({
 
           {/* 단계 업그레이드 */}
           {next && (
-            <div className="space-y-1 border-t border-amber-200 pt-2 dark:border-amber-900/40">
+            <div className="space-y-1 border-t border-zinc-200 pt-2 dark:border-zinc-800">
               <button
                 type="button"
                 disabled={busy || !canAffordUpgrade}
                 onClick={() => void act("upgrade", {})}
-                className="w-full rounded-md border border-amber-700 bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-40"
+                className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {VILLAGE_TIER_NAME[next]}(으)로 업그레이드 ·{" "}
                 {costLabel(upgradeCost)}
@@ -563,7 +563,7 @@ function KindChoice({
             className={
               "rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-50 " +
               (sel
-                ? "border-amber-600 bg-amber-600 text-white"
+                ? "border-emerald-700 bg-emerald-700 text-white"
                 : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800")
             }
           >
@@ -572,7 +572,7 @@ function KindChoice({
               <span
                 className={
                   sel
-                    ? "text-amber-100"
+                    ? "text-emerald-100"
                     : "text-emerald-600 dark:text-emerald-400"
                 }
               >

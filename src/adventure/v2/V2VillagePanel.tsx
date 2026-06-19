@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGameState } from "./GameStateProvider";
+import { Tooltip } from "@/components/ui/Tooltip";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   VILLAGE_TIER_NAME,
@@ -13,6 +14,7 @@ import {
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
   nextTier,
+  terrainTraitDesc,
   type VillageTier,
   type ProductionKind,
   type TerrainTrait,
@@ -179,7 +181,12 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
             </button>
           )}
         </h3>
-        <span className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+        <Tooltip
+          content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}
+          align="end"
+          className="shrink-0"
+          triggerClassName="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+        >
           {TERRAIN_TRAIT_NAME[trait]}
           {TRAIT_BONUS_KIND[trait] && (
             <>
@@ -187,7 +194,7 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
               {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
             </>
           )}
-        </span>
+        </Tooltip>
       </div>
 
       {/* 이름 변경 폼 — 명명된 마을만. */}

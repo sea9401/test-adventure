@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useGameState } from "./GameStateProvider";
 import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
@@ -48,12 +49,17 @@ function fmtRemaining(ms: number): string {
 }
 
 export function V2VillagePanel({ outpostId }: { outpostId: string }) {
+  // 거점 표시 이름(헤더·지도)은 GameState occupations.villageName 에서 옴 — 건설/개명 후
+  //   동기화해야 같은 화면 헤더가 즉시 새 이름으로 갱신된다.
+  const { refreshOccupations } = useGameState();
   const [village, setVillage] = useState<Village | null>(null);
   const [resources, setResources] = useState<Resources>({});
   const [exists, setExists] = useState<boolean | null>(null); // null=로딩
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [buildName, setBuildName] = useState(""); // 건설 폼 이름 입력
+  const [renaming, setRenaming] = useState(false); // 이름 변경 폼 토글
+  const [renameName, setRenameName] = useState(""); // 이름 변경 입력
   // 카운트다운용 — 로드 시각 기준 readyAt 환산 + 1초 틱.
   const [loadedAt, setLoadedAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -155,6 +161,19 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
               · {VILLAGE_TIER_NAME[village.tier]}
             </span>
           ) : null}
+          {built && village && !renaming && (
+            <button
+              type="button"
+              onClick={() => {
+                setRenameName(village.name ?? "");
+                setErr(null);
+                setRenaming(true);
+              }}
+              className="ml-1.5 rounded px-1 text-[11px] font-normal text-amber-700 hover:bg-amber-200/60 dark:text-amber-300 dark:hover:bg-amber-900/40"
+            >
+              이름 변경
+            </button>
+          )}
         </h3>
         {built && village && (
           <span className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
@@ -169,6 +188,42 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
           </span>
         )}
       </div>
+
+      {/* 이름 변경 폼 — 건설된 마을만. */}
+      {built && village && renaming && (
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            value={renameName}
+            onChange={(e) => setRenameName(e.target.value)}
+            maxLength={VILLAGE_NAME_MAX}
+            placeholder="새 마을 이름"
+            disabled={busy}
+            className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+          <button
+            type="button"
+            disabled={busy || renameName.trim().length === 0}
+            onClick={() => {
+              void act("rename", { name: renameName.trim() }).then(() =>
+                refreshOccupations(),
+              );
+              setRenaming(false);
+            }}
+            className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            저장
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setRenaming(false)}
+            className="shrink-0 rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            취소
+          </button>
+        </div>
+      )}
 
       {/* 길드 재화 풀 */}
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
@@ -198,7 +253,11 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
             <button
               type="button"
               disabled={busy || buildName.trim().length === 0}
-              onClick={() => void act("build", { name: buildName.trim() })}
+              onClick={() =>
+                void act("build", { name: buildName.trim() }).then(() =>
+                  refreshOccupations(),
+                )
+              }
               className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               마을 건설

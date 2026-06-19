@@ -88,6 +88,9 @@ export type V2CommonSkillId =
   | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
   | "v2c_bishop_blessing3" // 축복 (회복량 +30%)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +30%)
+  // ── 하이브리드 킷(tier 3·성기사) — 딜+자힐 탱(전사×마법) ──
+  | "v2c_templar_smite" // 심판의 빛 (물리 타격 + 자힐)
+  | "v2c_templar_aegis" // 신성한 가호 (방어 +10% & 회복 강화 +10%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
   | "v2c_sensei_combo" // 난무 (물리 다단)
@@ -508,6 +511,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "급소를 노리는 일격. 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { critDmgPct: 30 },
+  },
+
+  // ── 하이브리드(tier 3·성기사 = 전사×마법) — 딜+자힐 탱 ──
+  v2c_templar_smite: {
+    // 성기사 = 기사의 타격 + 사제의 치유 결합. 물리 일격과 함께 잃은 체력 일부를 회복(가호 패시브
+    //   healPowerPct 와 시너지). 힐을 동반하므로 단일 강타(심판 1.3/230)보다 계수 낮춤. 엔진 기존
+    //   효과만 사용(damage + heal 혼합 — resolveV2SkillCast 가 effects 순회 처리·신규 배선 0). PvE/PvP 공용.
+    id: "v2c_templar_smite", name: "심판의 빛", stat: "str", category: "attack", tier: 3,
+    description: "성스러운 빛을 검에 실어 내리친다. 그 빛이 제 상처마저 어루만진다.", mpCost: 42, cooldown: 0, procChance: 30,
+    effects: [dmg(1.1, 190), { kind: "heal", pctLostHp: 20 }],
+  },
+  v2c_templar_aegis: {
+    // 어느 단일 직업도 안 가진 조합(방어%+회복강화%) — 순회 수집 메리트. 탱(방어)과 자힐(가호) 결합.
+    //   healPowerPct 가 심판의 빛 자힐을 증폭(시너지). stat 은 표시 메타(vit) — 효과는 passive 맵.
+    id: "v2c_templar_aegis", name: "신성한 가호", stat: "vit", category: "passive", tier: 3,
+    description: "성스러운 가호가 몸을 지키고 상처의 회복을 북돋운다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { defPct: 10, healPowerPct: 10 },
   },
 
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·

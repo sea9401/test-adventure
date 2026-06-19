@@ -258,6 +258,24 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { luk: 12, dex: 4 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
+  // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. 두 직군을 모두 정복(각 cumLevel
+  //   ≥ TIER3_UNLOCK_CUMLEVEL=250)해야 열린다(총 500 = 심화선 450 위, 프레스티지 게이트).
+  //   class 저장은 첫 prereq(전사), spec 은 고유 id — jobIdFromLegacy 가 왕복. 정체성=양쪽의 결합.
+  templar: {
+    id: "templar",
+    name: "성기사",
+    tier: 3,
+    cultivateProfile: { str: 2, vit: 1, spi: 1 }, // 기사의 힘·활력 + 사제의 정신
+    // 이중 내장(전사+마법 결합). 3축으로 분산해 단일 3차(주스탯 8~12)보다 축당 영향은 낮다(파워크립
+    //   차단). 합 18 — 프레스티지 게이트(500) 보정.
+    jobBonus: { str: 6, vit: 6, spi: 6 },
+    unlock: {
+      prereqs: {
+        warrior: TIER3_UNLOCK_CUMLEVEL, // 첫 키 = class 저장 부모(전사)
+        mage: TIER3_UNLOCK_CUMLEVEL,
+      },
+    },
+  },
 
   // ─── Tier 4: 심화 직업(직군당 1종) — 부모 직군 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(450) 시 해금 ───
   //   트리 성장 심화. 이중 내장 보너스 + 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화).
@@ -395,6 +413,9 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   warmonk: { class: "martial", spec: "warmonk" },
   bishop: { class: "mage", spec: "bishop" },
   shadow: { class: "rogue", spec: "shadow" },
+  // tier 3 하이브리드(전사×마법) — 저장 class=전사(첫 prereq), spec=고유 id. 마법 prereq 은
+  //   해금 게이트일 뿐 저장 class 가 아니다(왕복 = jobIdFromLegacy("warrior","templar")→templar).
+  templar: { class: "warrior", spec: "templar" },
   // tier 4 — 새 unique spec id.
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },

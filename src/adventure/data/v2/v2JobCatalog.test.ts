@@ -50,13 +50,13 @@ function profWith(groupCumLevels: Record<string, number>) {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("25개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 8 + 심화 4)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(25);
+  it("26개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 9 + 심화 4)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(26);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(8);
-    expect(byTier(3)).toBe(8); // 직군당 2(형제 갈래) — 가디언/무승/대사제/그림자 추가
+    expect(byTier(3)).toBe(9); // 직군당 2(형제 갈래) 8 + 하이브리드 1(성기사·전사×마법)
     expect(byTier(4)).toBe(4);
   });
 
@@ -155,6 +155,29 @@ describe("해금 트리", () => {
     // 트리 성장 램프: tier2(100) < tier3(250) < tier4(450).
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
+  });
+
+  it("하이브리드(성기사) — 부모가 둘. 두 직군을 모두 정복(각 250)해야 해금된다(AND)", () => {
+    const templar = V2_JOB_CATALOG.templar;
+    expect(templar.tier).toBe(3);
+    expect(templar.unlock.prereqs).toEqual({
+      warrior: TIER3_UNLOCK_CUMLEVEL,
+      mage: TIER3_UNLOCK_CUMLEVEL,
+    });
+    // 첫 prereq 키 = LEGACY 저장 class(전사) — 브리지 일관성 테스트와 정렬.
+    expect(Object.keys(templar.unlock.prereqs)[0]).toBe("warrior");
+    // 한쪽만 정복해선 안 열린다(단일 3차와 다른 점).
+    expect(isJobUnlocked(templar, profWith({ warrior: 250 }))).toBe(false);
+    expect(isJobUnlocked(templar, profWith({ mage: 250 }))).toBe(false);
+    expect(isJobUnlocked(templar, profWith({ warrior: 250, mage: 249 }))).toBe(
+      false,
+    );
+    // 둘 다 정복 → 해금.
+    expect(isJobUnlocked(templar, profWith({ warrior: 250, mage: 250 }))).toBe(
+      true,
+    );
+    // 왕복 — 저장(전사, templar) → templar.
+    expect(jobIdFromLegacy("warrior", "templar")).toBe("templar");
   });
 });
 

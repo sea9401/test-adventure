@@ -7,6 +7,7 @@ import {
   outpostVillages,
   presence,
   savesKv,
+  v2GuildResources,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildMemberCap } from "@/adventure/data/guild";
@@ -201,6 +202,16 @@ export async function GET() {
   const canDeclareNation =
     isMaster && guildRow.nationName == null && hasMetropolis;
 
+  // 길드 자금 — 길드 공용 골드 풀(v2_guild_resources.gold). 거점 점령/수리 재원·금고 입금 누적.
+  const resRow = (
+    await db
+      .select({ gold: v2GuildResources.gold })
+      .from(v2GuildResources)
+      .where(eq(v2GuildResources.guildId, guildId))
+      .limit(1)
+  )[0];
+  const guildGold = Math.max(0, resRow?.gold ?? 0);
+
   return Response.json({
     ok: true,
     guild: guildRow,
@@ -211,5 +222,6 @@ export async function GET() {
     memberCap,
     hasMetropolis,
     canDeclareNation,
+    guildGold,
   });
 }

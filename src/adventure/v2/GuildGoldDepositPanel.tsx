@@ -13,7 +13,12 @@ const DEPOSIT_ERROR_TEXT: Record<string, string> = {
   bad_amount: "금액을 확인해 주세요",
 };
 
-export function GuildGoldDepositPanel() {
+export function GuildGoldDepositPanel({
+  onChanged,
+}: {
+  // 입금 성공 후 호출 — 부모(길드 정보)가 길드 자금·활동 내역을 다시 받아오게.
+  onChanged?: () => void;
+}) {
   const { gold, bankedGold, setGold, setBankedGold } = useGameState();
   const [guildGold, setGuildGold] = useState<number | null>(null);
   const [amountText, setAmountText] = useState("");
@@ -76,12 +81,13 @@ export function GuildGoldDepositPanel() {
       if (typeof j.guildGold === "number") setGuildGold(j.guildGold);
       setAmountText("");
       setMessage(`길드 금고에 ${(j.deposited ?? 0).toLocaleString()} G 입금 완료`);
+      onChanged?.();
     } catch (err) {
       setMessage(`네트워크 오류: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
-  }, [amount, spendable, busy, setGold, setBankedGold]);
+  }, [amount, spendable, busy, setGold, setBankedGold, onChanged]);
 
   return (
     <div className="rounded-md border border-zinc-300 bg-zinc-50 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-900">

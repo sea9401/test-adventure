@@ -5,6 +5,7 @@ import {
   createUserGuild,
   GuildCreateError,
 } from "@/lib/server/v2EnsureSoloGuild";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   GUILD_CREATE_MIN_LEVEL,
@@ -101,6 +102,11 @@ export async function POST(req: Request) {
       ...charSave,
       gold: spend.gold,
       bankedGold: spend.bankedGold,
+    });
+    await logGuildActivity(tx, {
+      guildId,
+      type: "guild_create",
+      actorUserId: userId,
     });
     return {
       status: 200,

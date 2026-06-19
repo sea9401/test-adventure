@@ -6,6 +6,7 @@ import {
   GUILD_ROLE_MANAGER,
   GUILD_ROLE_VICE_MASTER,
 } from "@/lib/server/guildAdmin";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 
 // POST /api/v2/guild/role — 길드원 직책 변경 (마스터 전용).
 //
@@ -104,6 +105,13 @@ export async function POST(req: Request) {
           eq(guildMembers.userId, targetUserId),
         ),
       );
+    await logGuildActivity(tx, {
+      guildId: mem.guildId,
+      type: "role_change",
+      actorUserId: userId,
+      targetUserId,
+      meta: { role },
+    });
     return { status: 200, body: { ok: true as const, role, changed: true } };
   });
 

@@ -12,6 +12,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { guildMemberCap } from "@/adventure/data/guild";
 
 export async function POST(
@@ -96,6 +97,11 @@ export async function POST(
         guildId: invite.guildId,
         userId,
         role: "member",
+      });
+      await logGuildActivity(tx, {
+        guildId: invite.guildId,
+        type: "member_join",
+        targetUserId: userId,
       });
 
       await tx

@@ -65,6 +65,8 @@ vi.mock("@/db", () => {
         return { where: async () => undefined };
       },
     }),
+    // insert(guild_activity_log).values({...}) — 활동 로그(no-op).
+    insert: () => ({ values: async () => undefined }),
   };
   return {
     db: {

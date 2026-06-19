@@ -414,6 +414,13 @@
       "when": 1781829276033,
       "tag": "0058_simple_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1781878779426,
+      "tag": "0059_sour_red_wolf",
+      "breakpoints": true
     }
   ]
 }

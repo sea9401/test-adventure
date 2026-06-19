@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { guildMembers, guilds, outpostVillages } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { validateNationName } from "@/adventure/data/guild";
 import {
   NATION_REQUIRED_TIER,
@@ -113,6 +114,13 @@ export async function POST(req: Request) {
       .update(guilds)
       .set({ nationName, nationDeclaredAt: new Date() })
       .where(eq(guilds.id, mem.guildId));
+
+    await logGuildActivity(tx, {
+      guildId: mem.guildId,
+      type: "nation_declare",
+      actorUserId: userId,
+      meta: { nationName },
+    });
 
     return {
       status: 200,

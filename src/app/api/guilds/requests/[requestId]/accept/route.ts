@@ -12,6 +12,7 @@ import { isAdminRole } from "@/lib/server/guildAdmin";
 import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
+import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { guildMemberCap } from "@/adventure/data/guild";
 
 // POST /api/guilds/requests/[requestId]/accept — 마스터가 가입 신청 수락 → 멤버로 추가.
@@ -111,6 +112,12 @@ export async function POST(
         .set({ status: "accepted" })
         .where(eq(guildJoinRequests.id, requestId));
       await cancelPendingJoinRequestsInTx(tx, applicantId);
+      await logGuildActivity(tx, {
+        guildId: guild.id,
+        type: "member_join",
+        actorUserId: userId,
+        targetUserId: applicantId,
+      });
 
       const charRows = await tx
         .select()

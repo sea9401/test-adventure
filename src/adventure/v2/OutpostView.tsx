@@ -3,8 +3,15 @@
 import { useEffect, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
-import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
-import { OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
+import { TabBar } from "@/components/ui/TabBar";
+import type { Outpost } from "@/adventure/data/v2/types";
+import { OUTPOST_NPC_TAX_RATE, terrainTraitOf } from "@/adventure/data/v2/outposts";
+import {
+  TERRAIN_TRAIT_NAME,
+  TRAIT_BONUS_KIND,
+  TRAIT_BONUS_PCT,
+  PRODUCTION_KIND_NAME,
+} from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
   SIEGE_DAMAGE_PER_WIN,
@@ -18,13 +25,7 @@ import { useGameState } from "./GameStateProvider";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
-
-const TYPE_LABEL: Record<OutpostType, string> = {
-  mine: "광산",
-  tower: "마탑",
-  fort: "요새",
-  village: "마을",
-};
+// 옛 type(요새/마탑/광산/마을)은 표면 라벨 폐기 → 지형 특성(평지/농지/광맥/호수)으로 표기.
 
 // 던전 입장은 전투 탭으로 이동 (V2BattleHome) — OutpostView 에서는 outpost 자체
 // 활동(claim/harvest/policy/병사 모집 등) 만.
@@ -66,6 +67,10 @@ export function OutpostView({
   // 코어루프 on = 스태미나 폐지(점령은 골드 비용). 안내 문구의 "스태미너 소모" 분기.
   const { coreLoopOn } = useGameState();
   const [busy, setBusy] = useState(false);
+  // 내 거점 활동 탭 — 생산 / 최근 공격 기록.
+  const [activityTab, setActivityTab] = useState<"produce" | "attacks">(
+    "produce",
+  );
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
@@ -147,8 +152,10 @@ export function OutpostView({
     !!occupation &&
     occupation.occupiedByGuildId != null &&
     viewerGuildId === occupation.occupiedByGuildId;
-  // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨긴다(공격 대상 아님).
+  // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨기고 생산/공격기록 탭.
   const ownByMyGuild = isOwner || isGuildMember;
+  // 거점 지형 특성 — 옛 type 라벨 대신 헤더에 표기(맞는 생산물 +보너스).
+  const trait = terrainTraitOf(outpost.id);
 
   // 정책 게이트 — guild-only 거점에 다른 길드가 들어가려는 경우 던전 입장 막음.
   const entryDecision = occupation
@@ -230,8 +237,14 @@ export function OutpostView({
           {occupation?.villageName?.trim() || outpost.name}
         </h1>
         <div className="flex flex-wrap gap-1 text-xs">
-          <span className="rounded bg-zinc-200 px-2 py-0.5 dark:bg-zinc-800">
-            {TYPE_LABEL[outpost.type]}
+          <span className="rounded bg-amber-200 px-2 py-0.5 font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+            {TERRAIN_TRAIT_NAME[trait]}
+            {TRAIT_BONUS_KIND[trait] && (
+              <>
+                {" · "}
+                {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
+              </>
+            )}
           </span>
           {outpost.neutral && (
             <span className="rounded bg-yellow-400 px-2 py-0.5 text-yellow-900">
@@ -314,12 +327,6 @@ export function OutpostView({
       </HeaderPanel>
 
       <section className="space-y-2">
-        <HeaderPanel className="py-3">
-          <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-            여기서 할 수 있는 것
-          </div>
-        </HeaderPanel>
-
         {dungeonDisabled && (
           <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
             ⚠️ {dungeonDisabled.reason} — 사냥 불가
@@ -334,9 +341,35 @@ export function OutpostView({
           </div>
         )}
 
-        {/* 점령/공성 시도 — 내 거점(내 점령·우리 길드)에선 숨긴다(공격 대상 아님). */}
-        {!ownByMyGuild && (
+        {ownByMyGuild ? (
+          // 내 거점 — 생산 / 최근 공격 기록 탭. (V2VillagePanel·attacks 둘 다 점령 길드 멤버.)
           <>
+            <TabBar
+              tabs={[
+                { key: "produce", label: "생산" },
+                { key: "attacks", label: "최근 공격 기록" },
+              ]}
+              active={activityTab}
+              onChange={setActivityTab}
+              ariaLabel="거점 활동 탭"
+              size="sm"
+              variant="highlight"
+            />
+            {activityTab === "produce" && (
+              <V2VillagePanel outpostId={outpost.id} />
+            )}
+            {activityTab === "attacks" && (
+              <OutpostAttackLog outpostId={outpost.id} />
+            )}
+          </>
+        ) : (
+          // 비-소유 — 점령/공성 시도.
+          <>
+            <HeaderPanel className="py-3">
+              <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
+                여기서 할 수 있는 것
+              </div>
+            </HeaderPanel>
             {lineupWarning && !claimDisabled && (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
                 ⚠️ 3:3 라인업 미설정 — 공성 시 마스터 혼자 출전합니다. 길드 탭
@@ -364,6 +397,7 @@ export function OutpostView({
           </>
         )}
 
+        {/* 점령 결과 — 탭 분기 밖(점령 성공 시 내 거점으로 전환돼도 결과 카드 유지). */}
         {lastClaimResult && (
           <ClaimResultCard
             result={lastClaimResult}
@@ -371,21 +405,6 @@ export function OutpostView({
             onClose={() => setLastClaimResult(null)}
             coreLoopOn={coreLoopOn}
           />
-        )}
-
-        {/* 개인 은행은 마을 탭(/town/bank), 길드 금고 입금은 길드 정보 탭으로 분리. */}
-
-        {/* 마을 생산 — 점령 길드만(서버 소유 가드도 동일). 생산/수확/업그레이드. */}
-        {isOwner && <V2VillagePanel outpostId={outpost.id} />}
-
-        {/* 정책·세율 설정은 길드 탭 > 관리로 이관 (#689 OutpostPolicyEditor). */}
-
-        {/* 침입자 토벌은 전투 탭 > 토벌(V2SubjugationView)로 이관. */}
-
-        {/* 보유 거점 공격 기록 — 점령자 본인(솔로 포함) 또는 점령 길드 멤버만.
-            서버(attacks GET)도 같은 게이트로 한 번 더 차단. */}
-        {(isOwner || isGuildMember) && (
-          <OutpostAttackLog outpostId={outpost.id} />
         )}
       </section>
     </main>

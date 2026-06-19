@@ -428,6 +428,13 @@
       "when": 1781896744660,
       "tag": "0060_same_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1781905092218,
+      "tag": "0061_blushing_shriek",
+      "breakpoints": true
     }
   ]
 }

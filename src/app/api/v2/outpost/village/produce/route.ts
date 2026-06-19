@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       }
       const started = tryStartProduction(
         village.jobs,
-        village.tier,
+        village.unlockedSlots,
         slot,
         village.productionKind,
         now,

@@ -7,7 +7,8 @@ import {
   terrainTraitOf,
 } from "@/lib/server/v2Settlement";
 import {
-  SLOTS_BY_TIER,
+  MAX_SLOTS_BY_TIER,
+  GRID_COLS_BY_TIER,
   harvestRemainingMs,
   isHarvestReady,
 } from "@/adventure/data/v2/settlement";
@@ -36,7 +37,10 @@ export async function GET() {
         productionKind: v.productionKind,
         tier: v.tier,
         trait: terrainTraitOf(v.outpostId),
-        slotCount: SLOTS_BY_TIER[v.tier],
+        // 슬롯 판 — 해금된 칸 수 + 단계 판 크기(마을 2×2·도시 3×3). UI 가 그리드 렌더·칸 해금 표시.
+        unlockedSlots: v.unlockedSlots,
+        maxSlots: MAX_SLOTS_BY_TIER[v.tier],
+        gridCols: GRID_COLS_BY_TIER[v.tier],
         slots: Object.entries(v.jobs).map(([slot, job]) => ({
           slot: Number(slot),
           kind: job.kind,

@@ -9,12 +9,15 @@ import {
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
-import { canUpgrade, applyUpgradeCost } from "@/adventure/data/v2/settlement";
+import {
+  canUnlockSlot,
+  applySlotUnlockCost,
+} from "@/adventure/data/v2/settlement";
 
-// POST /api/v2/outpost/village/upgrade — body { outpostId }
-// 길드 재화로 마을 단계 업그레이드(마을→도시→대도시). 마스터/부마스터 전용. 현 판을 다 채워야 가능.
+// POST /api/v2/outpost/village/unlock-slot — body { outpostId }
+// 마을 특화 종류 재화로 판의 다음 칸 1개를 해금(unlockedSlots +1). 마스터/부마스터 전용(관리 탭).
+//   판이 꽉 차면(현 단계 최대) at_max — 다음은 단계 업그레이드로 판을 넓힌다.
 // lock 순서: 점령행 → 마을 → 길드 재화(타 라우트 공통).
-// (마스터/부마스터 판정은 비잠금 read — FOR UPDATE 전이라 데드락 사이클 무관.)
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -37,7 +40,7 @@ export async function POST(req: Request) {
       if (guildId == null) {
         return { status: 403, body: { ok: false as const, error: "not_owner" } };
       }
-      // 단계 업그레이드 = 마스터/부마스터 전용(관리 탭).
+      // 칸 해금 = 마스터/부마스터 전용(관리 탭).
       if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
         return {
           status: 403,
@@ -52,29 +55,42 @@ export async function POST(req: Request) {
         };
       }
       const village = normalizeVillageOwner(loaded, guildId);
+      // 칸 해금 비용은 마을 특화 종류로 지불 — 건설(이름+종류) 후에야 가능.
+      if (village.name == null || village.productionKind == null) {
+        return { status: 409, body: { ok: false as const, error: "not_built" } };
+      }
       const resources = await lockGuildSettlement(tx, guildId);
-      const check = canUpgrade(village.tier, village.unlockedSlots, resources);
-      if (!check.ok || !check.next) {
+      const kind = village.productionKind;
+      const check = canUnlockSlot(
+        village.tier,
+        village.unlockedSlots,
+        kind,
+        resources,
+      );
+      if (!check.ok) {
         return {
           status: 409,
           body: {
             ok: false as const,
-            error: !check.next
-              ? "max_tier"
-              : check.needSlots
-                ? "need_slots"
-                : "insufficient",
-            missing: check.missing,
+            error: check.atMax ? "at_max" : "insufficient",
           },
         };
       }
-      const nextResources = applyUpgradeCost(village.tier, resources);
-      village.tier = check.next;
+      const nextResources = applySlotUnlockCost(
+        kind,
+        village.unlockedSlots,
+        resources,
+      );
+      village.unlockedSlots += 1;
       await upsertVillage(tx, village);
       await upsertGuildSettlement(tx, guildId, nextResources);
       return {
         status: 200,
-        body: { ok: true as const, tier: village.tier, resources: nextResources },
+        body: {
+          ok: true as const,
+          unlockedSlots: village.unlockedSlots,
+          resources: nextResources,
+        },
       };
     });
     return Response.json(result.body, { status: result.status });

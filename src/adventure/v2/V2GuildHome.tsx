@@ -88,6 +88,8 @@ type GuildInfoResponse = {
   memberCap?: number;
   hasMetropolis?: boolean;
   canDeclareNation?: boolean;
+  // 길드 공용 골드 풀 보유량.
+  guildGold?: number;
 };
 
 function fmtDate(iso: string): string {
@@ -422,6 +424,12 @@ export function V2GuildHome({
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+                <dt className="text-zinc-500 dark:text-zinc-400">길드 자금</dt>
+                <dd className="font-medium tabular-nums text-amber-700 dark:text-amber-400">
+                  {(info.guildGold ?? 0).toLocaleString()} G
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-3 py-2.5">
                 <dt className="text-zinc-500 dark:text-zinc-400">창설</dt>
                 <dd className="font-medium tabular-nums">
                   {fmtDate(info.guild.createdAt)}
@@ -435,8 +443,9 @@ export function V2GuildHome({
             )}
           </div>
 
-            {/* 길드 금고 입금 — 거점 화면에서 이관. 점령/공성 비용 재원 충원. */}
-            <GuildGoldDepositPanel />
+            {/* 길드 금고 입금 — 거점 화면에서 이관. 점령/공성 비용 재원 충원.
+                입금 후 refresh 로 정보 카드 '길드 자금'·활동 내역도 갱신. */}
+            <GuildGoldDepositPanel onChanged={refresh} />
 
             {/* 길드원 활동 내역 — 가입·임명·입금·국가선포·창단. */}
             <GuildActivityList activity={activity} loading={loading} />

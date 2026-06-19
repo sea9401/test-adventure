@@ -33,6 +33,7 @@ export async function GET() {
       villages: villages.map((v) => ({
         outpostId: v.outpostId,
         name: v.name,
+        productionKind: v.productionKind,
         tier: v.tier,
         trait: terrainTraitOf(v.outpostId),
         slotCount: SLOTS_BY_TIER[v.tier],

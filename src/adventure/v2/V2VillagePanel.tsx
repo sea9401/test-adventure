@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGameState } from "./GameStateProvider";
+import { terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
@@ -17,9 +18,9 @@ import {
   type TerrainTrait,
 } from "@/adventure/data/v2/settlement";
 
-// 길드 마을 생산 패널 — 점령 거점 상세(OutpostView, isOwner) 에 노출.
-//   GET /api/v2/outpost/village 로 내 길드 마을+재화 로드 → 이 거점 마을의 슬롯 생산/수확/업그레이드.
-//   슬롯 = 빈 칸(생산 종류 선택해 시작) / 진행 중(수확창 카운트다운) / 완료(수확). 재화는 길드 공용.
+// 길드 마을 패널 — 점령 거점 상세(OutpostView, isOwner) 에 노출.
+//   건설 = 이름 + 특화 생산 종류(작물/광물/물고기)를 함께 정함(종류는 영구). 슬롯은 그 종류만
+//   생산 — 슬롯마다 고르지 않는다. GET /api/v2/outpost/village 로 마을+재화 로드.
 
 type SlotState = {
   slot: number;
@@ -31,6 +32,7 @@ type SlotState = {
 type Village = {
   outpostId: string;
   name: string | null;
+  productionKind: ProductionKind | null;
   tier: VillageTier;
   trait: TerrainTrait;
   slotCount: number;
@@ -58,6 +60,7 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [buildName, setBuildName] = useState(""); // 건설 폼 이름 입력
+  const [buildKind, setBuildKind] = useState<ProductionKind | null>(null); // 특화 선택
   const [renaming, setRenaming] = useState(false); // 이름 변경 폼 토글
   const [renameName, setRenameName] = useState(""); // 이름 변경 입력
   // 카운트다운용 — 로드 시각 기준 readyAt 환산 + 1초 틱.
@@ -92,11 +95,7 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
   }, [load]);
 
   const act = useCallback(
-    async (
-      path: string,
-      body: Record<string, unknown>,
-      okMsg?: string,
-    ) => {
+    async (path: string, body: Record<string, unknown>, syncName = false) => {
       if (busy) return;
       setBusy(true);
       setErr(null);
@@ -112,6 +111,9 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
         } | null;
         if (!r.ok || !j?.ok) {
           setErr(j?.error ?? "실패");
+        } else if (syncName) {
+          // 건설/개명 = 거점 표시 이름 변경 → GameState occupations 동기화(헤더·지도).
+          void refreshOccupations();
         }
       } catch {
         setErr("network");
@@ -119,9 +121,8 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
         setBusy(false);
         await load();
       }
-      void okMsg;
     },
-    [busy, outpostId, load],
+    [busy, outpostId, load, refreshOccupations],
   );
 
   // 슬롯 인덱스별 현재 작업 맵.
@@ -131,16 +132,17 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
     return m;
   }, [village]);
 
-  // 건설됨 = 마을 존재 + 이름 부여. 빈 공터/미명명은 먼저 건설(/build) 해야 생산 열림.
-  const built = !!village && village.name != null;
+  // 거점 지형 특성 — 마을 있으면 GET 값, 없으면(빈 공터) id 로 파생.
+  const trait: TerrainTrait = village?.trait ?? terrainTraitOf(outpostId);
+  // 건설됨 = 이름 + 특화 종류 둘 다. 이름만 있고 종류 없는 옛 마을은 특화 선택 단계.
+  const named = !!village && village.name != null;
+  const built = named && village!.productionKind != null;
   // 업그레이드 가능 여부(클라 표시용 — 서버가 권위).
   const next = village ? nextTier(village.tier) : null;
   const upgradeCost = village ? (UPGRADE_COST[village.tier] ?? {}) : {};
   const canAfford =
     !!next &&
-    PRODUCTION_KINDS.every(
-      (k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0),
-    );
+    PRODUCTION_KINDS.every((k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0));
 
   if (exists === null) {
     return (
@@ -152,16 +154,18 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
 
   return (
     <section className="space-y-2 rounded-md border border-amber-300 bg-amber-50/40 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
-      <div className="flex items-center justify-between gap-2">
+      {/* 헤더 — 이름 · 단계 · 특화 + (건설된 마을) 이름 변경 + 지형 배지 */}
+      <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
-          🏡 {built && village ? village.name : "빈 공터"}
+          🏡 {named && village ? village.name : "빈 공터"}
           {built && village ? (
-            <span className="text-zinc-600 dark:text-zinc-300">
-              {" "}
-              · {VILLAGE_TIER_NAME[village.tier]}
+            <span className="font-normal text-zinc-600 dark:text-zinc-300">
+              {" · "}
+              {VILLAGE_TIER_NAME[village.tier]} ·{" "}
+              {PRODUCTION_KIND_NAME[village.productionKind!]} 특화
             </span>
           ) : null}
-          {built && village && !renaming && (
+          {named && village && !renaming && (
             <button
               type="button"
               onClick={() => {
@@ -175,22 +179,19 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
             </button>
           )}
         </h3>
-        {built && village && (
-          <span className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
-            {TERRAIN_TRAIT_NAME[village.trait]}
-            {TRAIT_BONUS_KIND[village.trait] && (
-              <>
-                {" "}
-                {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[village.trait]!]} +
-                {TRAIT_BONUS_PCT}%
-              </>
-            )}
-          </span>
-        )}
+        <span className="shrink-0 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+          {TERRAIN_TRAIT_NAME[trait]}
+          {TRAIT_BONUS_KIND[trait] && (
+            <>
+              {" "}
+              {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
+            </>
+          )}
+        </span>
       </div>
 
-      {/* 이름 변경 폼 — 건설된 마을만. */}
-      {built && village && renaming && (
+      {/* 이름 변경 폼 — 명명된 마을만. */}
+      {named && village && renaming && (
         <div className="flex items-center gap-1.5">
           <input
             type="text"
@@ -205,9 +206,7 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
             type="button"
             disabled={busy || renameName.trim().length === 0}
             onClick={() => {
-              void act("rename", { name: renameName.trim() }).then(() =>
-                refreshOccupations(),
-              );
+              void act("rename", { name: renameName.trim() }, true);
               setRenaming(false);
             }}
             className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
@@ -225,48 +224,88 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
         </div>
       )}
 
-      {/* 길드 재화 풀 */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
-        {PRODUCTION_KINDS.map((k) => (
-          <span key={k} className="tabular-nums">
-            {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
-          </span>
-        ))}
-      </div>
-
-      {!built ? (
-        // 빈 공터/미명명 — 마을을 세우고 이름을 짓는다(건설 후 생산 열림).
-        <div className="space-y-1.5">
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            점령한 빈 공터예요. 마을을 세우면 생산을 시작할 수 있어요.
-          </div>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="text"
-              value={buildName}
-              onChange={(e) => setBuildName(e.target.value)}
-              maxLength={VILLAGE_NAME_MAX}
-              placeholder="마을 이름"
+      {!named ? (
+        // 빈 공터 — 이름 + 특화 종류를 함께 정해 마을을 세운다.
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            점령한 빈 공터예요. 이름과 키울 것을 정해 마을을 세우세요.
+          </p>
+          <input
+            type="text"
+            value={buildName}
+            onChange={(e) => setBuildName(e.target.value)}
+            maxLength={VILLAGE_NAME_MAX}
+            placeholder="마을 이름"
+            disabled={busy}
+            className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+          />
+          <div>
+            <div className="mb-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              무엇을 키울까요?{" "}
+              <span className="text-zinc-400 dark:text-zinc-500">
+                (한번 정하면 바꿀 수 없어요)
+              </span>
+            </div>
+            <KindChoice
+              trait={trait}
+              selected={buildKind}
+              onSelect={setBuildKind}
               disabled={busy}
-              className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
-            <button
-              type="button"
-              disabled={busy || buildName.trim().length === 0}
-              onClick={() =>
-                void act("build", { name: buildName.trim() }).then(() =>
-                  refreshOccupations(),
-                )
-              }
-              className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              마을 건설
-            </button>
           </div>
+          <button
+            type="button"
+            disabled={busy || buildName.trim().length === 0 || buildKind == null}
+            onClick={() =>
+              void act(
+                "build",
+                { name: buildName.trim(), kind: buildKind },
+                true,
+              )
+            }
+            className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            마을 건설
+          </button>
+        </div>
+      ) : !built ? (
+        // 이름은 있는데 특화 미선택(옛 마을) — 종류만 정한다.
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            이 마을의 특화를 정하세요.{" "}
+            <span className="text-zinc-400 dark:text-zinc-500">
+              (한번 정하면 바꿀 수 없어요)
+            </span>
+          </p>
+          <KindChoice
+            trait={trait}
+            selected={buildKind}
+            onSelect={setBuildKind}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            disabled={busy || buildKind == null}
+            onClick={() =>
+              void act("build", { name: village!.name, kind: buildKind }, true)
+            }
+            className="w-full rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            특화 선택
+          </button>
         </div>
       ) : (
         <>
-          {/* 슬롯 목록 */}
+          {/* 길드 재화 풀 */}
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
+            {PRODUCTION_KINDS.map((k) => (
+              <span key={k} className="tabular-nums">
+                {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
+              </span>
+            ))}
+          </div>
+
+          {/* 슬롯 — 모두 마을 특화 종류를 생산. 빈 슬롯은 생산 시작, 완료는 수확. */}
           <ul className="space-y-1.5">
             {Array.from({ length: village.slotCount }, (_, slot) => {
               const job = jobBySlot.get(slot);
@@ -279,11 +318,19 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
                   className="rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 dark:border-zinc-800 dark:bg-zinc-900"
                 >
                   {!job ? (
-                    <KindPicker
-                      label={`${slot + 1}번 슬롯 비어 있음`}
-                      disabled={busy}
-                      onPick={(kind) => void act("produce", { slot, kind })}
-                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {slot + 1}번 슬롯 · 비어 있음
+                      </span>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void act("produce", { slot })}
+                        className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {PRODUCTION_KIND_NAME[village.productionKind!]} 생산
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex items-center justify-between gap-2">
                       <span className="min-w-0 text-xs">
@@ -291,7 +338,9 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
                           {PRODUCTION_KIND_NAME[job.kind]}
                         </span>
                         <span className="ml-1 text-zinc-500 dark:text-zinc-400">
-                          {ready ? "· 수확 가능" : `· ${fmtRemaining(remaining)} 남음`}
+                          {ready
+                            ? "· 수확 가능"
+                            : `· ${fmtRemaining(remaining)} 남음`}
                         </span>
                       </span>
                       <button
@@ -342,40 +391,55 @@ export function V2VillagePanel({ outpostId }: { outpostId: string }) {
                       ? "이미 세워진 마을이에요."
                       : err === "invalid_name"
                         ? "이름은 1~16자로 지어주세요."
-                        : `오류: ${err}`}
+                        : err === "invalid_kind"
+                          ? "생산 종류를 골라주세요."
+                          : `오류: ${err}`}
         </div>
       )}
     </section>
   );
 }
 
-function KindPicker({
-  label,
+// 특화 생산 종류 선택 — 작물/광물/물고기 토글. 지형 일치 종류엔 +보너스 표시(좋은 선택 유도).
+function KindChoice({
+  trait,
+  selected,
+  onSelect,
   disabled,
-  onPick,
 }: {
-  label?: string;
+  trait: TerrainTrait;
+  selected: ProductionKind | null;
+  onSelect: (kind: ProductionKind) => void;
   disabled?: boolean;
-  onPick: (kind: ProductionKind) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      {label && (
-        <span className="mr-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {label}
-        </span>
-      )}
-      {PRODUCTION_KINDS.map((k) => (
-        <button
-          key={k}
-          type="button"
-          disabled={disabled}
-          onClick={() => onPick(k)}
-          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          {PRODUCTION_KIND_NAME[k]} 생산
-        </button>
-      ))}
+    <div className="flex flex-wrap gap-1.5">
+      {PRODUCTION_KINDS.map((k) => {
+        const bonus = TRAIT_BONUS_KIND[trait] === k;
+        const sel = selected === k;
+        return (
+          <button
+            key={k}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(k)}
+            className={
+              "rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-50 " +
+              (sel
+                ? "border-amber-600 bg-amber-600 text-white"
+                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800")
+            }
+          >
+            {PRODUCTION_KIND_NAME[k]}
+            {bonus ? (
+              <span className={sel ? "text-amber-100" : "text-emerald-600 dark:text-emerald-400"}>
+                {" "}
+                +{TRAIT_BONUS_PCT}%
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }

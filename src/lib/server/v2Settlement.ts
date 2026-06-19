@@ -23,6 +23,8 @@ export type VillageRow = {
   guildId: number;
   tier: VillageTier;
   name: string | null;
+  /** 마을 특화 생산 종류 — 건설 시 선택, 영구. null = 미선택(빈 공터/옛 lazy). */
+  productionKind: ProductionKind | null;
   /** 슬롯(문자열 인덱스) → 진행 중 작업. 빈 슬롯은 키 없음. */
   jobs: Record<string, ProductionJob>;
 };
@@ -31,6 +33,12 @@ function parseTier(v: unknown): VillageTier {
   return (VILLAGE_TIERS as string[]).includes(v as string)
     ? (v as VillageTier)
     : "village";
+}
+
+function parseProductionKind(v: unknown): ProductionKind | null {
+  return typeof v === "string" && (PRODUCTION_KINDS as string[]).includes(v)
+    ? (v as ProductionKind)
+    : null;
 }
 
 function parseJobs(v: unknown): Record<string, ProductionJob> {
@@ -87,6 +95,7 @@ export async function lockVillage(
     guildId: row.guildId,
     tier: parseTier(row.tier),
     name: row.name ?? null,
+    productionKind: parseProductionKind(row.productionKind),
     jobs: parseJobs(row.jobs),
   };
 }
@@ -105,6 +114,7 @@ export async function readVillagesOfGuild(
     guildId: row.guildId,
     tier: parseTier(row.tier),
     name: row.name ?? null,
+    productionKind: parseProductionKind(row.productionKind),
     jobs: parseJobs(row.jobs),
   }));
 }
@@ -117,11 +127,18 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
       guildId: row.guildId,
       tier: row.tier,
       name: row.name,
+      productionKind: row.productionKind,
       jobs: row.jobs,
     })
     .onConflictDoUpdate({
       target: outpostVillages.outpostId,
-      set: { guildId: row.guildId, tier: row.tier, name: row.name, jobs: row.jobs },
+      set: {
+        guildId: row.guildId,
+        tier: row.tier,
+        name: row.name,
+        productionKind: row.productionKind,
+        jobs: row.jobs,
+      },
     });
 }
 

@@ -995,6 +995,9 @@ export const outpostVillages = pgTable("outpost_villages", {
     .references(() => guilds.id, { onDelete: "cascade" }),
   tier: text("tier").notNull().default("village"),
   name: text("name"),
+  // 마을 특화 생산 종류(crop|ore|fish) — 건설 시 선택, 영구. 모든 슬롯이 이 종류만 생산.
+  //   NULL = 미선택(빈 공터 / 옛 lazy 생성분). 건설 완료 = name + productionKind 둘 다.
+  productionKind: text("production_kind"),
   jobs: jsonb("jobs").notNull().default({}),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

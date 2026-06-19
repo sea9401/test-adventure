@@ -421,6 +421,13 @@
       "when": 1781878779426,
       "tag": "0059_sour_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1781896744660,
+      "tag": "0060_same_mad_thinker",
+      "breakpoints": true
     }
   ]
 }

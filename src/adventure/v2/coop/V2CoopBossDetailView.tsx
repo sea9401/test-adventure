@@ -7,9 +7,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import type { StaminaState } from "@/adventure/v2/stamina";
 import type { HpBarState } from "@/adventure/v2/HpBar";
@@ -71,9 +70,7 @@ export function V2CoopBossDetailView({
   if (missing) {
     return (
       <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-        <HeaderPanel>
-          <BackButton onClick={onBack} />
-        </HeaderPanel>
+        <SubViewHeader title="협동 보스" onBack={onBack} />
         <Card padding="md">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             존재하지 않는 토벌입니다.
@@ -86,9 +83,7 @@ export function V2CoopBossDetailView({
   if (!detail) {
     return (
       <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-        <HeaderPanel>
-          <BackButton onClick={onBack} />
-        </HeaderPanel>
+        <SubViewHeader title="협동 보스" onBack={onBack} />
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
           불러오는 중…
         </p>
@@ -115,9 +110,10 @@ export function V2CoopBossDetailView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <div className="flex items-center justify-between">
-          <BackButton onClick={onBack} />
+      <SubViewHeader
+        title={def.name}
+        onBack={onBack}
+        right={
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {session.defeated
               ? "토벌 완료"
@@ -125,8 +121,8 @@ export function V2CoopBossDetailView({
                 ? "만료"
                 : fmtCoopRemain(session.expiresAt - now)}
           </span>
-        </div>
-      </HeaderPanel>
+        }
+      />
 
       {/* 보스 헤더 — 일러스트·이름·HP·플레이버 */}
       <Card padding="md" className="space-y-3 text-center">
@@ -138,7 +134,6 @@ export function V2CoopBossDetailView({
           }`}
         />
         <div>
-          <h1 className="text-lg font-bold">{def.name}</h1>
           {session.summonedByName && (
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {session.summonedByName} 님이 소환

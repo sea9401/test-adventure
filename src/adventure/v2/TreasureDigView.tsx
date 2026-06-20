@@ -3,8 +3,7 @@
 import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
 
 import { useCallback, useEffect, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   DIG_CLUE_LABEL,
@@ -184,19 +183,19 @@ export function TreasureDigView({
 
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-1">
-        {onBack && <BackButton onClick={onBack} />}
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-lg font-bold">보물 발굴</h1>
+      <SubViewHeader
+        title="보물 발굴"
+        onBack={onBack}
+        right={
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-200">
             🗺 지도 조각 {fragments ?? "…"}개
           </span>
-        </div>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          지도 조각으로 발굴 지점을 열고, 단서로 매장지를 좁혀 파내세요. 무엇이 묻혔는지는 파봐야
-          압니다.
-        </p>
-      </HeaderPanel>
+        }
+      />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        지도 조각으로 발굴 지점을 열고, 단서로 매장지를 좁혀 파내세요. 무엇이
+        묻혔는지는 파봐야 압니다.
+      </p>
 
       {/* 서브 nav — 옛 우상단 텍스트 링크(주간 순위/보관함)가 눈에 안 띄어 탭바로 승격(#726). */}
       <TreasureSubTabs

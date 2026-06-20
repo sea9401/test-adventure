@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Coins } from "@phosphor-icons/react";
 import { TabBar } from "@/components/ui/TabBar";
@@ -253,22 +253,18 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <header className="flex items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-bold">대장간</h1>
-        </div>
-        <BackButton onClick={onBack} />
-        </header>
-      </HeaderPanel>
-      <HeaderPanel className="py-2">
-        <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
-        <Coins size={16} weight="fill" className="text-yellow-500" />
-        <span className="font-semibold tabular-nums">
-          {gold.toLocaleString()}G
-        </span>
-        </div>
-      </HeaderPanel>
+      <SubViewHeader
+        title="대장간"
+        onBack={onBack}
+        right={
+          <div className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+            <Coins size={16} weight="fill" className="text-yellow-500" />
+            <span className="font-semibold tabular-nums">
+              {gold.toLocaleString()}G
+            </span>
+          </div>
+        }
+      />
       {msg && (
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${

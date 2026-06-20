@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 
 // 개명의 신전 — 「개명의 신전 지도」로 입장. 닉네임 변경 1회(성공 시 지도 소모).
@@ -65,13 +64,10 @@ export function V2RenameView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <h1 className="text-lg font-bold">개명의 신전</h1>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          새 이름으로 다시 태어납니다 — 지도는 한 번 쓰면 사라집니다.
-        </p>
-      </HeaderPanel>
+      <SubViewHeader title="개명의 신전" onBack={onBack} />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        새 이름으로 다시 태어납니다 — 지도는 한 번 쓰면 사라집니다.
+      </p>
 
       <Card padding="md" className="space-y-3">
         <div className="text-sm">

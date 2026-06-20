@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
@@ -103,19 +102,25 @@ export function V2SecretShopView({
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <h1 className="text-lg font-bold">비밀 상점</h1>
-        {gold != null && (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            보유 골드{" "}
-            <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-              {spendable.toLocaleString()} G
+      <SubViewHeader
+        title="비밀 상점"
+        onBack={onBack}
+        right={
+          gold != null ? (
+            <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+              보유 골드{" "}
+              <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+                {spendable.toLocaleString()} G
+              </span>
             </span>
-            {" · "}품목당 1회 구매 · 지도가 닳기 전(48h)까지 재방문 가능
-          </p>
-        )}
-      </HeaderPanel>
+          ) : undefined
+        }
+      />
+      {gold != null && (
+        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+          품목당 1회 구매 · 지도가 닳기 전(48h)까지 재방문 가능
+        </p>
+      )}
 
       {denied ? (
         <Card padding="md">

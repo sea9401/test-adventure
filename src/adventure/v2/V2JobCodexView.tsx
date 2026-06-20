@@ -1,7 +1,6 @@
 "use client";
 
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { CheckCircle, Lock } from "@phosphor-icons/react";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
@@ -25,19 +24,14 @@ export function V2JobCodexView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <div>
-          <h1 className="text-lg font-bold">직업 도감</h1>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            거쳐온 직업과 모은 스킬의 기록.{" "}
-            <span className="font-medium text-zinc-600 dark:text-zinc-300">
-              해금 {jobsUnlocked}/{jobsTotal} · 스킬 수집 {jobsCollected}/
-              {jobsTotal}
-            </span>
-          </p>
-        </div>
-      </HeaderPanel>
+      <SubViewHeader title="직업 도감" onBack={onBack} />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        거쳐온 직업과 모은 스킬의 기록.{" "}
+        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+          해금 {jobsUnlocked}/{jobsTotal} · 스킬 수집 {jobsCollected}/
+          {jobsTotal}
+        </span>
+      </p>
 
       {/* 직군 묶음 없이 직업 평면 목록 — 각 직업의 스킬 수집 진행만 표기. */}
       <Card padding="md">

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Package, Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -202,41 +201,36 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <div>
-          <h1 className="text-lg font-bold">모험의 서</h1>
-          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            {subtitle.text}{" "}
-            <span className="font-medium text-zinc-600 dark:text-zinc-300">
-              {subtitle.count}
-            </span>
-          </p>
-        </div>
-        <div className="flex gap-1.5">
-          {(
-            [
-              ["huntground", "사냥터"],
-              ["materials", "재료"],
-              ["fish", "어보"],
-              ["treasure", "유물"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                tab === key
-                  ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </HeaderPanel>
+      <SubViewHeader title="모험의 서" onBack={onBack} />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        {subtitle.text}{" "}
+        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+          {subtitle.count}
+        </span>
+      </p>
+      <div className="flex gap-1.5">
+        {(
+          [
+            ["huntground", "사냥터"],
+            ["materials", "재료"],
+            ["fish", "어보"],
+            ["treasure", "유물"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+              tab === key
+                ? "bg-zinc-900 text-zinc-50 dark:bg-zinc-100 dark:text-zinc-900"
+                : "bg-zinc-200/70 text-zinc-600 hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {tab === "huntground" &&
         (themes.length === 0 ? (

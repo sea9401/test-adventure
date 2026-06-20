@@ -2,8 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   CheckCircle,
   Circle,
@@ -397,10 +396,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <h1 className="text-lg font-bold">인벤토리</h1>
-      </HeaderPanel>
+      <SubViewHeader title="인벤토리" onBack={onBack} />
 
       {/* 위쪽 — 장착 슬롯 (해제 버튼 인라인) */}
       <Card padding="md">

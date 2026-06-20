@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Storefront } from "@phosphor-icons/react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import {
@@ -369,17 +369,17 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <BackButton onClick={onBack} />
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <h1 className="text-lg font-bold">거래소</h1>
-          {gold !== null && (
+      <SubViewHeader
+        title="거래소"
+        onBack={onBack}
+        right={
+          gold !== null ? (
             <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
               보유 {gold.toLocaleString()}골드
             </span>
-          )}
-        </div>
-      </HeaderPanel>
+          ) : undefined
+        }
+      />
 
       <div className="flex gap-1.5">
         {([

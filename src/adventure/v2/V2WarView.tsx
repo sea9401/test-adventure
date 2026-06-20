@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { CastleTurret, Coins, Flag, ShieldWarning } from "@phosphor-icons/react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
@@ -145,21 +145,18 @@ export function V2WarView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <h1 className="text-lg font-bold">전쟁</h1>
-        {mapSlot && (
-          <TabBar
-            tabs={[
-              { key: "map", label: "지도" },
-              { key: "status", label: "전황" },
-            ]}
-            active={tab}
-            onChange={(t) => setTab(t)}
-            ariaLabel="전쟁 탭"
-          />
-        )}
-      </HeaderPanel>
+      <SubViewHeader title="전쟁" onBack={onBack} />
+      {mapSlot && (
+        <TabBar
+          tabs={[
+            { key: "map", label: "지도" },
+            { key: "status", label: "전황" },
+          ]}
+          active={tab}
+          onChange={(t) => setTab(t)}
+          ariaLabel="전쟁 탭"
+        />
+      )}
 
       {tab === "map" && mapSlot}
 

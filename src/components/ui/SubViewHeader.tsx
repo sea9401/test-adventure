@@ -11,14 +11,19 @@ export function SubViewHeader({
 }: {
   // 보통 문자열 제목. 아이콘+제목이면 ReactNode(예: <><Hammer/> 대장간</>).
   title: ReactNode;
-  onBack: () => void;
+  // 없으면 백버튼 숨김(스페이서 대체) — dev 하니스 등 뒤로갈 곳 없는 경우. 제목은 그대로 정중앙.
+  onBack?: () => void;
   // 헤더 오른쪽 액션 슬롯(예: 보유 골드, "전체 수락" 버튼). 없으면 스페이서(제목 정중앙용).
   right?: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-2 py-1">
-      <div className="shrink-0">
-        <BackButton onClick={onBack} />
+      <div className="flex shrink-0 justify-start">
+        {onBack ? (
+          <BackButton onClick={onBack} />
+        ) : (
+          <span aria-hidden className="inline-block w-[4.25rem]" />
+        )}
       </div>
       <h1 className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
         {title}

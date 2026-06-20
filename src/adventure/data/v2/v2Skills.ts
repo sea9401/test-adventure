@@ -167,6 +167,8 @@ export type V2SkillEffect =
   //   1회성(turns 없음) — 시전 직후 ATB 타임라인 틱에 즉시 반영. legacy(턴제)에선 inert.
   | { kind: "selfHaste"; pct: number }
   | { kind: "enemyDelay"; pct: number }
+  // 화상(원소술사 불) — 적 회복 효과(회복 스킬·재생) −pct% (N턴). 흡혈/공격파생 회복은 제외.
+  | { kind: "enemyHealReduce"; pct: number; turns: number }
   // HP 소모 딜 — 현재 HP pctCurrentHp% 소모 + 소모량×soakRatio 추가딜(사혈격).
   | {
       kind: "hpCostDamage";
@@ -430,6 +432,8 @@ function describeV2Effect(e: V2SkillEffect): string {
       return `내 다음 행동 속도 +${e.pct}% (1회)`;
     case "enemyDelay":
       return `적 다음 행동 지연 +${e.pct}% (1회)`;
+    case "enemyHealReduce":
+      return `적 회복 −${e.pct}% (${e.turns}턴)`;
     case "hpCostDamage":
       return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
     case "healToDamage":

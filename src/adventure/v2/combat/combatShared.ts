@@ -485,6 +485,7 @@ export type V2SkillCastResult = {
   enemyAccuracyDownToApply?: { pct: number; turns: number }; // 암흑(원소술사 어둠) — 적 명중 -%
   selfHasteToApply?: { pct: number }; // 바람(원소술사) — ATB 내 다음 행동 가속 %(1회). 비-ATB 무시.
   enemyDelayToApply?: { pct: number }; // 대지(원소술사) — ATB 적 다음 행동 지연 %(1회). 비-ATB 무시.
+  enemyHealReduceToApply?: { pct: number; turns: number }; // 화상(원소술사 불) — 적 회복 −%(N턴)
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
 };
 
@@ -698,6 +699,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let enemyAccuracyDownToApply: V2SkillCastResult["enemyAccuracyDownToApply"];
   let selfHasteToApply: V2SkillCastResult["selfHasteToApply"];
   let enemyDelayToApply: V2SkillCastResult["enemyDelayToApply"];
+  let enemyHealReduceToApply: V2SkillCastResult["enemyHealReduceToApply"];
 
   // 전문화 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
   const tierIdx = Math.min(2, Math.max(0, (input.attacker.classTier ?? 2) - 2));
@@ -793,6 +795,9 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     } else if (effect.kind === "enemyDelay") {
       // 대지 — ATB 1회성 적 지연. 효과 적용은 ATB 루프(틱)에서. cast 결과로만 전달.
       enemyDelayToApply = { pct: effect.pct };
+    } else if (effect.kind === "enemyHealReduce") {
+      // 화상 — 적 회복 효과 감소 디버프(N턴). 소비는 적/상대 회복 지점(회복 스킬·재생).
+      enemyHealReduceToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "hpCostDamage") {
       // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
       const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
@@ -897,6 +902,7 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     enemyAccuracyDownToApply,
     selfHasteToApply,
     enemyDelayToApply,
+    enemyHealReduceToApply,
     manaRestored: manaRestore,
   };
 }

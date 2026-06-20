@@ -285,9 +285,10 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "마검사",
     tier: 3,
     cultivateProfile: { str: 2, int: 2 }, // 검(str) + 마법(int)
-    // 이중 내장(검+마법). 2축 분산 합 16 — 단일 3차 밴드(주스탯 합 ~16)와 정렬. 두 축에 다 투자해야
-    //   양쪽 딜이 살아 자연 throttle(파워크립 차단).
-    jobBonus: { str: 8, int: 8 },
+    // 이중 내장(검+마법) 합 20 — 성기사(하이브리드, 합 18)와 정렬 + 이중 공격축(str·int 둘 다 오펜스)
+    //   분산 세금 보상. 두 축에 다 투자해야 양쪽 딜이 살아 자연 throttle(파워크립 차단). 오너 결정
+    //   2026-06-20(STR+10·INT+10): 단일 3차(합 16)·성기사(합 18)보다 +프리미엄(더 어려운 해금·2오펜스축).
+    jobBonus: { str: 10, int: 10 },
     unlock: {
       prereqs: {
         paladin: TIER3_UNLOCK_CUMLEVEL, // 기사(전사 3차) — 첫 키 = 저장 class(전사)의 직업

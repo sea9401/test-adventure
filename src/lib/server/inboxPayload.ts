@@ -19,6 +19,13 @@ import {
 export type GuildQuestRewardMaterial = { materialId: string; count: number };
 export type GuildQuestRewardItem = { itemId: string; count: number };
 
+// 주간 시즌 순위 보상이 적립될 지갑 종류. claim 시 이 값으로 해당 코인 지갑에 적립.
+export type SeasonRewardSeason = "pvp" | "fishing" | "treasure";
+const SEASON_REWARD_SEASONS = new Set<string>(["pvp", "fishing", "treasure"]);
+export function isSeasonRewardSeason(s: string): s is SeasonRewardSeason {
+  return SEASON_REWARD_SEASONS.has(s);
+}
+
 // 8 종 inbox kind. 새 kind 추가 시 이 union + KINDS + parseInboxPayload switch 갱신 필수.
 export type InboxPayload =
   | { kind: "sale_proceeds"; gold: number }
@@ -63,6 +70,14 @@ export type InboxPayload =
       gold: number;
       materials: GuildQuestRewardMaterial[];
       items: GuildQuestRewardItem[];
+    }
+  | {
+      kind: "season_reward";
+      /** 시즌 종류 — claim 시 보상이 적립될 코인 지갑 결정. */
+      season: SeasonRewardSeason;
+      coins: number;
+      /** 최종 순위(1-based) — 표시용. 낚시/보물은 종합 집계라 없을 수 있음(옵셔널). */
+      rank?: number;
     };
 
 export type InboxPayloadKind = InboxPayload["kind"];
@@ -76,6 +91,7 @@ const KINDS = new Set<string>([
   "recipe_gift",
   "guild_invite",
   "guild_quest_reward",
+  "season_reward",
 ]);
 
 export function isInboxPayloadKind(k: string): k is InboxPayloadKind {
@@ -158,6 +174,15 @@ export function parseInboxPayload(
       const materials = parseRewardMaterials(p.materials);
       const items = parseRewardItems(p.items);
       return { kind, quest_id, quest_name, gold, materials, items };
+    }
+    case "season_reward": {
+      const coins = asNonNegInt(p.coins);
+      const season = asString(p.season);
+      if (coins == null || !season || !isSeasonRewardSeason(season)) return null;
+      const rank = asNonNegInt(p.rank);
+      return rank != null
+        ? { kind, season, coins, rank }
+        : { kind, season, coins };
     }
   }
 }

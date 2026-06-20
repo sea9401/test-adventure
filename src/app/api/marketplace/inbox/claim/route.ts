@@ -3,8 +3,14 @@ import { db } from "@/db";
 import { marketplaceInbox, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
-import { parseInboxPayload } from "@/lib/server/inboxPayload";
+import {
+  parseInboxPayload,
+  type SeasonRewardSeason,
+} from "@/lib/server/inboxPayload";
 import { upsertSave } from "@/lib/server/savesKv";
+import { PVP_WALLET_KEY } from "@/lib/server/pvp/coins";
+import { FISHING_WALLET_KEY } from "@/lib/server/fishing/coins";
+import { TREASURE_WALLET_KEY } from "@/lib/server/treasure/coins";
 import {
   addGradedEquip,
   addInstance,
@@ -89,6 +95,12 @@ export async function POST(req: Request) {
       }
 
       let goldTotal = 0;
+      // 시즌 순위 보상 코인 — season 별로 합산해 각 지갑에 적립.
+      const coinsBySeason: Record<SeasonRewardSeason, number> = {
+        pvp: 0,
+        fishing: 0,
+        treasure: 0,
+      };
       const itemsToAdd: AddItem[] = [];
       const instancesToAdd: EquipmentInstance[] = [];
       const instancesApplied: EquipmentInstance[] = [];
@@ -159,6 +171,9 @@ export async function POST(req: Request) {
             }
             break;
           }
+          case "season_reward":
+            if (parsed.coins > 0) coinsBySeason[parsed.season] += parsed.coins;
+            break;
         }
       }
 
@@ -259,6 +274,33 @@ export async function POST(req: Request) {
         }
       }
 
+      // 시즌 순위 보상 코인 — season 별 지갑(pvp/낚시/보물)에 적립. 단일 유저라
+      // character→inventory→crafting 다음에 지갑을 잠가도 교차 데드락 없음.
+      const coinsAdded: { season: SeasonRewardSeason; coins: number }[] = [];
+      const WALLET_KEY_BY_SEASON: Record<SeasonRewardSeason, string> = {
+        pvp: PVP_WALLET_KEY,
+        fishing: FISHING_WALLET_KEY,
+        treasure: TREASURE_WALLET_KEY,
+      };
+      for (const season of ["pvp", "fishing", "treasure"] as const) {
+        const add = coinsBySeason[season];
+        if (add <= 0) continue;
+        const key = WALLET_KEY_BY_SEASON[season];
+        const wrows = await tx
+          .select()
+          .from(savesKv)
+          .where(and(eq(savesKv.userId, userId), eq(savesKv.key, key)))
+          .for("update");
+        const raw = (wrows[0]?.value ?? {}) as Record<string, unknown>;
+        // walletCoins() 읽기 경로와 동일하게 floor/clamp — 손상값(음수·소수)이 전파되지 않게.
+        const cur =
+          typeof raw.coins === "number" && Number.isFinite(raw.coins)
+            ? Math.max(0, Math.floor(raw.coins))
+            : 0;
+        await upsertSave(tx, userId, key, { ...raw, coins: cur + add });
+        coinsAdded.push({ season, coins: add });
+      }
+
       // inbox 마킹.
       const now = new Date();
       const failedSet = new Set(parseFailedRowIds);
@@ -286,6 +328,7 @@ export async function POST(req: Request) {
         instancesAdded: instancesApplied,
         recipesAdded,
         recipesSkipped,
+        coinsAdded,
         newGold,
         newInventory,
       };

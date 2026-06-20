@@ -11,7 +11,8 @@ export type InboxItem = {
     | "recipe_gift"
     | "listing_expired"
     | "guild_invite"
-    | "guild_quest_reward";
+    | "guild_quest_reward"
+    | "season_reward";
   payload: Record<string, unknown>;
   message: string | null;
   listingId: number | null;

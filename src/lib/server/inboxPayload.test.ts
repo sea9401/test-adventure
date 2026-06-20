@@ -6,7 +6,7 @@ import {
 } from "./inboxPayload";
 
 describe("isInboxPayloadKind", () => {
-  it("승인된 8종 모두 true", () => {
+  it("승인된 9종 모두 true", () => {
     for (const k of [
       "sale_proceeds",
       "purchase_item",
@@ -16,6 +16,7 @@ describe("isInboxPayloadKind", () => {
       "recipe_gift",
       "guild_invite",
       "guild_quest_reward",
+      "season_reward",
     ]) {
       expect(isInboxPayloadKind(k)).toBe(true);
     }
@@ -132,6 +133,18 @@ describe("parseInboxPayload — happy path", () => {
       items: [{ itemId: "lucky_charm", count: 1 }],
     });
   });
+
+  it("season_reward (rank 포함 — 투기장)", () => {
+    expect(
+      parseInboxPayload("season_reward", { season: "pvp", coins: 600, rank: 2 }),
+    ).toEqual({ kind: "season_reward", season: "pvp", coins: 600, rank: 2 });
+  });
+
+  it("season_reward (rank 누락 — 낚시/보물 종합집계)", () => {
+    expect(
+      parseInboxPayload("season_reward", { season: "fishing", coins: 120 }),
+    ).toEqual({ kind: "season_reward", season: "fishing", coins: 120 });
+  });
 });
 
 describe("parseInboxPayload — invalid → null", () => {
@@ -197,6 +210,16 @@ describe("parseInboxPayload — invalid → null", () => {
         expires_at: "2026-01-01T00:00:00Z",
       }),
     ).toBeNull();
+  });
+  it("season_reward — 잘못된 season / 음수 coins / 누락", () => {
+    expect(
+      parseInboxPayload("season_reward", { season: "arena", coins: 100 }),
+    ).toBeNull(); // 미등록 season
+    expect(
+      parseInboxPayload("season_reward", { season: "pvp", coins: -5 }),
+    ).toBeNull();
+    expect(parseInboxPayload("season_reward", { season: "pvp" })).toBeNull();
+    expect(parseInboxPayload("season_reward", { coins: 100 })).toBeNull();
   });
 });
 

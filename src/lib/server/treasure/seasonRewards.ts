@@ -1,18 +1,13 @@
 // 보물 주간 발굴가치 대회 정산 — cron 이 끝난 시즌에 순위 발굴 코인을 일괄 지급.
 // rewardsGrantedAt 으로 idempotent(시즌당 1회). fishing seasonRewards 미러.
 //
-// 락 순서: treasure_seasons(FOR UPDATE) → treasure-wallet.v1(들, userId 정렬). dig/dismantle
-// 경로는 treasure_seasons 를 안 잡으므로 순환 대기 없음. cron 은 주간(저트래픽) 실행.
+// 지급 방식: 지갑 직접 적립이 아니라 우편함(season_reward)으로 발송 — 수령 시 코인 적립(체감·알림).
+// 락 순서: treasure_seasons(FOR UPDATE) → marketplace_inbox INSERT(지갑 락 없음). cron 은 주간 실행.
 
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db } from "@/db";
-import { treasureScores, treasureSeasons } from "@/db/schema";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import {
-  TREASURE_WALLET_KEY,
-  walletCoins,
-  type TreasureWallet,
-} from "./coins";
+import { marketplaceInbox, treasureScores, treasureSeasons } from "@/db/schema";
+import { inboxValues } from "@/lib/server/inboxPayload";
 import { currentTreasureSeasonId } from "./season";
 import {
   computeTreasureSeasonPayouts,
@@ -55,15 +50,14 @@ export async function grantTreasureSeasonRewards(
     for (const userId of sortedUserIds) {
       const coins = payouts.get(userId) ?? 0;
       if (coins <= 0) continue;
-      const wallet = await lockSaveForUpdate<TreasureWallet>(
-        tx,
-        userId,
-        TREASURE_WALLET_KEY,
-        { coins: 0 },
+      // 우편함으로 발송 — 수령 시 보물 지갑에 적립(종합 집계라 rank 없음).
+      await tx.insert(marketplaceInbox).values(
+        inboxValues({
+          userId,
+          payload: { kind: "season_reward", season: "treasure", coins },
+          message: `보물 시즌 대회 보상 — ${coins} 보물 코인`,
+        }),
       );
-      await upsertSave(tx, userId, TREASURE_WALLET_KEY, {
-        coins: walletCoins(wallet) + coins,
-      });
       total += coins;
       winners += 1;
     }

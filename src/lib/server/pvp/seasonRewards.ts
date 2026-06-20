@@ -1,14 +1,14 @@
 // 시즌 종료 순위별 투기장 코인 보상 — cron 이 닫힌 시즌에 일괄 지급.
 // rewardsGrantedAt 으로 idempotent (시즌당 1회). 매치 지급(일일 캡)과 달리 캡 무시 — 시즌 정산 보너스.
 //
-// 락 순서: pvp_seasons(FOR UPDATE) → pvp-wallet.v1(들). challenge 경로는 pvp_ratings→wallet 이라
-// seasons 를 안 잡고, 둘이 공유하는 건 wallet 뿐 → 순환 대기 없음. cron 은 주간 롤오버(저트래픽) 실행.
+// 지급 방식: 지갑 직접 적립이 아니라 **우편함(season_reward)** 으로 발송 — 플레이어가 수령
+// 시 코인이 적립된다(체감·알림). 락 순서: pvp_seasons(FOR UPDATE) → marketplace_inbox INSERT
+// (지갑 락 없음). cron 은 주간 롤오버(저트래픽) 실행.
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { pvpRatings, pvpSeasons } from "@/db/schema";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { PVP_WALLET_KEY, type PvpWallet } from "./coins";
+import { marketplaceInbox, pvpRatings, pvpSeasons } from "@/db/schema";
+import { inboxValues } from "@/lib/server/inboxPayload";
 import { closeExpiredSeasons } from "./season";
 
 // 순위 보상표(코인). 작은 유저 풀 기준 초안 — 후속 튜닝 다이얼. 상점 가격(200~2500)과 연동.
@@ -65,11 +65,15 @@ export async function grantSeasonRewards(
       const coins = seasonRewardForRank(i + 1);
       if (coins <= 0) continue;
       const userId = ranked[i].userId;
-      const wallet = await lockSaveForUpdate<PvpWallet>(tx, userId, PVP_WALLET_KEY, {
-        coins: 0,
-      });
-      const balance = (typeof wallet.coins === "number" ? wallet.coins : 0) + coins;
-      await upsertSave(tx, userId, PVP_WALLET_KEY, { coins: balance });
+      const rank = i + 1;
+      // 우편함으로 발송 — 수령 시 투기장 지갑에 적립(claim 핸들러가 season 으로 분기).
+      await tx.insert(marketplaceInbox).values(
+        inboxValues({
+          userId,
+          payload: { kind: "season_reward", season: "pvp", coins, rank },
+          message: `투기장 시즌 순위 보상 (${rank}위) — ${coins} 코인`,
+        }),
+      );
       granted += 1;
       total += coins;
     }

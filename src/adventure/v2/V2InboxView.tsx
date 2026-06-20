@@ -47,6 +47,7 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   listing_expired: "매물 만료",
   guild_invite: "길드 초대",
   guild_quest_reward: "길드 의뢰 보상",
+  season_reward: "순위 보상",
 };
 
 function timeAgo(iso: string): string {
@@ -99,6 +100,7 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           goldAdded?: number;
+          coinsAdded?: { season: string; coins: number }[];
           error?: string;
         } | null;
         if (!res.ok || !j?.ok) {
@@ -106,7 +108,24 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           return;
         }
         const gold = j.goldAdded ?? 0;
-        setMsg(gold > 0 ? `✓ 수령 완료 — +${gold.toLocaleString()} 골드` : "✓ 수령 완료");
+        // 코인은 시즌별로 다른 지갑이라 합산하지 않고 종류별로 표시.
+        const coinLabel: Record<string, string> = {
+          pvp: "투기장 코인",
+          fishing: "낚시 코인",
+          treasure: "보물 코인",
+        };
+        const parts: string[] = [];
+        if (gold > 0) parts.push(`+${gold.toLocaleString()} 골드`);
+        for (const c of j.coinsAdded ?? []) {
+          if (c.coins > 0) {
+            parts.push(
+              `+${c.coins.toLocaleString()} ${coinLabel[c.season] ?? "코인"}`,
+            );
+          }
+        }
+        setMsg(
+          parts.length > 0 ? `✓ 수령 완료 — ${parts.join(" · ")}` : "✓ 수령 완료",
+        );
         await load();
       } catch (e) {
         setError(e instanceof Error ? e.message : "수령 실패");

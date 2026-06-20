@@ -253,6 +253,10 @@ const DEF_PER_VIT = 0.1; // 옛 0.5. 5×VIT × 0.1 = 0.5 DEF (동등)
 // 소폭 버프 (Lv75 STR 보조 luk 162 → crit 16.2%→24.3%).
 const CRIT_PER_LUK = 0.15;
 const ATK_PER_STR = 0.15; // 무기 위력 ×0.8 하향과 함께 스탯 비중 상대적↑(계수는 불변 — 올리면 엔드 폭증).
+// VIT→atk(DEX 재설계 lever-2·docs §0-C) — 순수/헤비 VIT 도 천천히 솔로 클리어 가능하게. lever-1(비대칭
+//   감산)으로 생존은 살았으나 VIT 는 공격력 0 라 못 죽였음(sim). STR 0.15 의 ⅔ = 탱의 보조 딜(천천히 범·
+//   DEX #1 불변). sim 보정 0.10: VIT d50 ~45%(슬로우 viable)·스프레드 건강. 올리면 광역 물리버프 과함.
+const VIT_ATK_COEF = 0.1;
 // 도적 직군 패시브 "예기" — 공격력에 DEX×계수 가산(도적 한정). 죽은 축 DEX 부활.
 // 스킬 재설계(docs/v2-skill-system-plan.md). 🔑 v2c_rogue_finesse(예기) passive.atkPerDexCoef 와 동기.
 const ROGUE_ATK_PER_DEX = 0.08;
@@ -501,6 +505,7 @@ export function derivePlayerCombatV2Pure(
     Math.floor(
       totalStats.str * ATK_PER_STR +
         totalStats.dex * atkPerDexCoef +
+        totalStats.vit * VIT_ATK_COEF +
         equipAcc.atk,
     ) + V2_BASE_COMBAT_BONUS;
   // 물리 방어력 — 활력 + 장비 def. 다양성 패시브(철벽) 방어% 는 곱연산(미지정=곱 생략, byte-동일).

@@ -257,7 +257,8 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       Math.floor(15 * 0.15) + staffPow + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
-      Math.floor(15 * 0.15) + staffPow + V2_BASE_COMBAT_BONUS,
+      // atk = str×0.15 + vit×0.1(lever-2 VIT→atk) + 무기위력. magicAtk 는 vit 미반영.
+      Math.floor(15 * 0.15 + 15 * 0.1) + staffPow + V2_BASE_COMBAT_BONUS,
     );
   });
 

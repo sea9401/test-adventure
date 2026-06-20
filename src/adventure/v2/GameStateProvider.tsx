@@ -32,7 +32,7 @@ import {
   parseV2Element,
   V2_ELEMENT_LABEL,
 } from "@/adventure/data/v2/elements";
-import { tierLevelCap } from "@/adventure/data/v2/proficiency";
+import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import type { Outpost } from "@/adventure/data/v2/types";
 import type { Gender } from "@/adventure/profile/avatars";
 
@@ -322,7 +322,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             ? null
             : (j?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
         setViewerLevelCap(
-          currentTier == null ? null : tierLevelCap(currentTier),
+          currentTier == null ? null : effectiveLevelCap(currentTier),
         );
         if (typeof j?.character?.stamina?.max === "number") {
           setStaminaMax(j.character.stamina.max);

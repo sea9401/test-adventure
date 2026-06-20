@@ -69,11 +69,12 @@ function deriveWithEquippedKit(
 }
 
 const TIER4_JOB_IDS = ["veteran", "sensei", "sage", "chief"] as const;
-const TIER4_BY_PARENT: Record<string, string> = {
-  warrior: "veteran",
-  martial: "sensei",
-  mage: "sage",
-  rogue: "chief",
+// 🔑 계보 게이팅: tier-4 child → 바로 아래 tier-3 부모 직업(원소술사는 별도 테스트라 제외).
+const TIER4_LINEAGE: Record<string, string> = {
+  veteran: "paladin",
+  sensei: "brawler",
+  sage: "magus",
+  chief: "ranger",
 };
 
 describe("성기사(tier-3 하이브리드) 해금 게이팅", () => {
@@ -213,21 +214,22 @@ describe("성기사 하이브리드 derive — 전사측·마법(회복)측 양�
 });
 
 describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
-  it("네 직업 모두 tier 4 이고 부모 직군 cumLevel ≥ TIER4(정복 위 심층) 게이트", () => {
-    for (const [parent, jobId] of Object.entries(TIER4_BY_PARENT)) {
+  it("네 직업 모두 tier 4 이고 계보(3차 부모) jobCumLevel ≥ TIER4 게이트", () => {
+    for (const [jobId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[jobId];
       expect(job.tier).toBe(4);
-      // 부모는 직군(tier1) 키 → groups 누적 게이트(하이브리드와 달리 단일 부모 직군).
+      // 부모는 tier-3 직업 키 → jobCumLevel 게이트(직군 누적 아님).
       expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
-      // 정복선(tier3) 전엔 잠김, tier4 도달 시 해금. 고차보다 더 깊다.
-      expect(isJobUnlocked(job, profWithGroups({ [parent]: TIER4_UNLOCK_CUMLEVEL - 1 }))).toBe(
+      expect(V2_JOB_CATALOG[parent].tier).toBe(3);
+      // 부모 직업 jobCumLevel TIER4 전엔 잠김, 도달 시 해금. 고차보다 더 깊다.
+      expect(isJobUnlocked(job, profWithJobs({ [parent]: TIER4_UNLOCK_CUMLEVEL - 1 }))).toBe(
         false,
       );
-      expect(isJobUnlocked(job, profWithGroups({ [parent]: TIER4_UNLOCK_CUMLEVEL }))).toBe(
+      expect(isJobUnlocked(job, profWithJobs({ [parent]: TIER4_UNLOCK_CUMLEVEL }))).toBe(
         true,
       );
-      // 정복(tier3)으로 고차는 열렸어도 심화는 아직 잠김.
-      expect(isJobUnlocked(job, profWithGroups({ [parent]: TIER3_UNLOCK_CUMLEVEL }))).toBe(
+      // 부모가 3차 해금선(TIER3)만 넘겼어도 심화(TIER4)는 아직 잠김.
+      expect(isJobUnlocked(job, profWithJobs({ [parent]: TIER3_UNLOCK_CUMLEVEL }))).toBe(
         false,
       );
     }

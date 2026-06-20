@@ -52,11 +52,11 @@ export function JobsContent() {
       <Table
         head={["차수", "조건"]}
         rows={[
-          ["2차", `Lv ${V2_LEVEL_CAP} · 직군 누적 레벨 ${TIER2_UNLOCK_CUMLEVEL}`],
-          ["3차", `Lv ${V2_LEVEL_CAP} · 직군 누적 레벨 ${TIER3_UNLOCK_CUMLEVEL}`],
-          ["4차", `Lv ${V2_LEVEL_CAP} · 직군 누적 레벨 ${TIER4_UNLOCK_CUMLEVEL}`],
+          ["2차", `Lv ${V2_LEVEL_CAP} · 견습(직군) 누적 레벨 ${TIER2_UNLOCK_CUMLEVEL}`],
+          ["3차", `Lv ${V2_LEVEL_CAP} · 바로 아래 2차 직업 누적 레벨 ${TIER3_UNLOCK_CUMLEVEL}`],
+          ["4차", `Lv ${V2_LEVEL_CAP} · 바로 아래 3차 직업 누적 레벨 ${TIER4_UNLOCK_CUMLEVEL}`],
         ]}
-        caption="누적 레벨 = 그 직군에서 레벨업으로 쌓은 합(전직해 레벨이 1 이 돼도 줄지 않음). 일부 상위 직업은 두 직업을 모두 키워야 열리는 하이브리드입니다."
+        caption="상위 직업은 자기 계보의 바로 아래 직업을 키워야 열립니다 — 예: 대사제는 사제 누적 레벨, 정예 기사는 기사 누적 레벨. 누적 레벨은 전직해 레벨이 1 이 돼도 줄지 않아요. 성기사·마검사는 두 직업을 모두 키워야 열리는 하이브리드입니다."
       />
       <UL>
         <li>

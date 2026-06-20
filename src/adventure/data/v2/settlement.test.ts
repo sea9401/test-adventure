@@ -63,11 +63,11 @@ describe("settlement — 생산 엔진", () => {
     const dur = PRODUCTION_DURATION_MS.crop;
     const done = T0 + dur;
     const job: ProductionJob = { kind: "crop", startedAt: T0 };
-    // farmland=작물 보너스.
+    // farmland=crop(나무) 보너스.
     expect(harvestYield(job, "farmland", done)).toBe(
       Math.round(PRODUCTION_BASE_YIELD.crop * (1 + TRAIT_BONUS_PCT / 100)),
     );
-    // mine=광물 보너스라 작물엔 무효.
+    // mine=ore(광물) 보너스라 crop 엔 무효.
     expect(harvestYield(job, "mine", done)).toBe(PRODUCTION_BASE_YIELD.crop);
   });
 

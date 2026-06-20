@@ -9,6 +9,7 @@ import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
   PRODUCTION_KIND_NAME,
+  PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
   TRAIT_BONUS_KIND,
   TRAIT_BONUS_PCT,
@@ -67,7 +68,7 @@ function fmtGold(n: number): string {
 
 function costLabel(cost: Resources): string {
   return PRODUCTION_KINDS.filter((k) => (cost[k] ?? 0) > 0)
-    .map((k) => `${PRODUCTION_KIND_NAME[k]} ${cost[k]}`)
+    .map((k) => `${PRODUCTION_KIND_ICON[k]} ${PRODUCTION_KIND_NAME[k]} ${cost[k]}`)
     .join(" · ");
 }
 
@@ -226,11 +227,12 @@ export function V2VillagePanel({
                   key={slot}
                   type="button"
                   disabled={busy}
+                  title={PRODUCTION_KIND_NAME[job.kind]}
                   onClick={() => void act("harvest", { slot })}
                   className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900`}
                 >
-                  <span className="text-[11px] font-medium">
-                    {PRODUCTION_KIND_NAME[job.kind]}
+                  <span className="text-lg leading-none">
+                    {PRODUCTION_KIND_ICON[job.kind]}
                   </span>
                   <span className="mt-0.5 text-[10px] font-semibold">수확 ✓</span>
                 </button>
@@ -239,10 +241,11 @@ export function V2VillagePanel({
             return (
               <div
                 key={slot}
+                title={PRODUCTION_KIND_NAME[job.kind]}
                 className={`${base} border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300`}
               >
-                <span className="text-[11px] font-medium">
-                  {PRODUCTION_KIND_NAME[job.kind]}
+                <span className="text-lg leading-none">
+                  {PRODUCTION_KIND_ICON[job.kind]}
                 </span>
                 <span className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
                   {ready ? "수확 가능" : fmtRemaining(remaining)}
@@ -257,23 +260,25 @@ export function V2VillagePanel({
                 key={slot}
                 type="button"
                 disabled={busy}
+                title={slotKind ? PRODUCTION_KIND_NAME[slotKind] : undefined}
                 onClick={() => void act("produce", { slot })}
                 className={`${base} border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800`}
               >
-                <span className="text-base leading-none">＋</span>
-                <span className="mt-1 text-[10px]">
-                  {slotKind ? `${PRODUCTION_KIND_NAME[slotKind]} 생산` : "생산"}
+                <span className="text-lg leading-none opacity-50">
+                  {slotKind ? PRODUCTION_KIND_ICON[slotKind] : "＋"}
                 </span>
+                <span className="mt-0.5 text-[10px]">생산</span>
               </button>
             );
           }
           return (
             <div
               key={slot}
+              title={slotKind ? PRODUCTION_KIND_NAME[slotKind] : undefined}
               className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600`}
             >
-              <span className="text-[10px]">
-                {slotKind ? PRODUCTION_KIND_NAME[slotKind] : "비어 있음"}
+              <span className="text-lg leading-none opacity-50">
+                {slotKind ? PRODUCTION_KIND_ICON[slotKind] : "·"}
               </span>
             </div>
           );
@@ -314,7 +319,7 @@ export function V2VillagePanel({
     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300">
       {PRODUCTION_KINDS.map((k) => (
         <span key={k} className="tabular-nums">
-          {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
+          {PRODUCTION_KIND_ICON[k]} {PRODUCTION_KIND_NAME[k]} {resources[k] ?? 0}
         </span>
       ))}
     </div>
@@ -553,7 +558,7 @@ const ERR_MESSAGES: Record<string, string> = {
   max_tier: "이미 최고 단계예요.",
 };
 
-// 칸에서 키울 생산 종류 선택 — 작물/광물/물고기 토글. 지형 일치 종류엔 +보너스 표시(좋은 선택 유도).
+// 칸에서 키울 생산 종류 선택 — 나무/광물/식량 토글. 지형 일치 종류엔 +보너스 표시(좋은 선택 유도).
 function KindChoice({
   trait,
   selected,
@@ -583,7 +588,7 @@ function KindChoice({
                 : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800")
             }
           >
-            {PRODUCTION_KIND_NAME[k]}
+            {PRODUCTION_KIND_ICON[k]} {PRODUCTION_KIND_NAME[k]}
             {bonus ? (
               <span
                 className={

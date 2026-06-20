@@ -41,16 +41,23 @@ export const TERRAIN_TRAIT_NAME: Record<TerrainTrait, string> = {
   lake: "호수",
 };
 
-// ── 생산 종류 ── 슬롯에서 고르는 작업(말이 농사지 광물·어획도). ───────────────────────
+// ── 생산 종류 ── 슬롯에서 고르는 작업. 내부 키(crop/ore/fish)는 영구 유지, 표시명만 재테마.
+//   crop=나무 / ore=광물 / fish=식량. 표시명·아이콘은 여기 한 곳에서(저장 키는 안 건드림).
 export type ProductionKind = "crop" | "ore" | "fish";
 export const PRODUCTION_KIND_NAME: Record<ProductionKind, string> = {
-  crop: "작물",
+  crop: "나무",
   ore: "광물",
-  fish: "물고기",
+  fish: "식량",
+};
+// 종류별 간단 아이콘(이모지) — 슬롯/재화 표시용.
+export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
+  crop: "🌲",
+  ore: "🪨",
+  fish: "🌾",
 };
 export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore", "fish"];
 
-// 특성 → 보너스 받는 생산 종류(없으면 null). farmland=작물 / mine=광물 / lake=물고기.
+// 특성 → 보너스 받는 생산 종류(없으면 null). farmland=나무 / mine=광물 / lake=식량.
 export const TRAIT_BONUS_KIND: Record<TerrainTrait, ProductionKind | null> = {
   plain: null,
   farmland: "crop",

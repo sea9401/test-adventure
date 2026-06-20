@@ -267,10 +267,10 @@ export function nearestNeutralOutpostId(fromId: string): string {
 
 // === 지형 특성 (정착지 생산 보너스) ===================================
 // 거점마다 특성 1개 — 점령해 마을을 세우면 해당 생산에 보너스(data/v2/settlement TRAIT_BONUS_KIND).
-//   광산=광맥(광물+) · 마을=농지(작물+) · 요새/탑=평지(보너스 없음). 강/늪/빙하/이슬 이름은 호수,
-//   광맥/철 이름 마을은 광맥으로 개별 오버라이드(타입과 무관). 라이브 실측 후 개별 조정 가능.
+//   광산=광맥(광물+) · 마을=농지(나무+, crop 키) · 요새/탑=평지(보너스 없음). 강/늪/빙하/이슬 이름은
+//   호수(식량+, fish 키), 광맥/철 이름 마을은 광맥으로 개별 오버라이드(타입과 무관). 라이브 실측 후 조정.
 const TERRAIN_TRAIT_OVERRIDE: Record<string, TerrainTrait> = {
-  // 호수(물고기+)
+  // 호수(식량+, fish 키)
   city_river_haven: "lake", // 알 나하르(강)
   city_glacier_market: "lake", // 이스마르크(빙하)
   city_swamp_market: "lake", // 그룬다르(늪)

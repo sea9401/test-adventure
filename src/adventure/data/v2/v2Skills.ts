@@ -485,6 +485,11 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)
     chips.push(`받는 피해 -${p.damageTakenReductionPct}%`);
+  // 원소 통달(원소술사) — 속성 상성 양방향 강화. 누락 시 로드아웃/학습 화면에 칩이 안 떴음.
+  if (p.elementAdvPctBonus)
+    chips.push(`속성 유리 피해 +${p.elementAdvPctBonus}%`);
+  if (p.elementDisPctBonus)
+    chips.push(`속성 불리 받피 -${p.elementDisPctBonus}%`);
   return chips;
 }
 

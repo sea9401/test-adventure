@@ -15,6 +15,8 @@ import {
   TRAIT_BONUS_PCT,
   MAX_SLOTS_BY_TIER,
   GRID_COLS_BY_TIER,
+  GRID_DISPLAY_COLS,
+  GRID_DISPLAY_SLOTS,
   INITIAL_UNLOCKED_SLOTS,
   clampUnlockedSlots,
   canUnlockSlot,
@@ -84,6 +86,9 @@ describe("settlement — 생산 엔진", () => {
     expect(GRID_COLS_BY_TIER.metropolis).toBe(4);
     // 판 크기 = cols² 일관성(2×2/3×3/4×4).
     expect(MAX_SLOTS_BY_TIER.metropolis).toBe(GRID_COLS_BY_TIER.metropolis ** 2);
+    // 화면 표시 판은 항상 가장 큰 단계(대도시 4×4) — 낮은 단계도 같은 크기로 보여줌.
+    expect(GRID_DISPLAY_COLS).toBe(GRID_COLS_BY_TIER.metropolis); // 4
+    expect(GRID_DISPLAY_SLOTS).toBe(MAX_SLOTS_BY_TIER.metropolis); // 16
   });
 
   it("INITIAL_UNLOCKED_SLOTS=0 / clampUnlockedSlots — [0, 최대]로 보정", () => {

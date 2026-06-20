@@ -238,7 +238,6 @@ describe("GET /api/v2/outpost/village", () => {
         trait: string;
         unlockedSlots: number;
         maxSlots: number;
-        gridCols: number;
         slotKinds: Record<string, string>;
         slots: Array<{ slot: number; kind: string; ready: boolean }>;
       }>;
@@ -254,8 +253,7 @@ describe("GET /api/v2/outpost/village", () => {
     expect(v.name).toBe("밀밭");
     expect(v.trait).toBe("farmland"); // REAL terrainTraitOf
     expect(v.unlockedSlots).toBe(1);
-    expect(v.maxSlots).toBe(MAX_SLOTS_BY_TIER.village); // 4 (2×2)
-    expect(v.gridCols).toBe(2);
+    expect(v.maxSlots).toBe(MAX_SLOTS_BY_TIER.village); // 4 (이 단계 해금 상한)
     expect(v.slotKinds).toEqual({ "0": "crop" });
     expect(v.slots[0].kind).toBe("crop");
     expect(json.resources).toEqual({ crop: 7 });

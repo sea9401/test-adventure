@@ -15,6 +15,8 @@ import {
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
   VILLAGE_BUILD_GOLD_COST,
+  GRID_DISPLAY_COLS,
+  GRID_DISPLAY_SLOTS,
   nextTier,
   slotUnlockGoldCost,
   terrainTraitDesc,
@@ -41,8 +43,7 @@ type Village = {
   tier: VillageTier;
   trait: TerrainTrait;
   unlockedSlots: number;
-  maxSlots: number;
-  gridCols: number;
+  maxSlots: number; // 이 단계 해금 상한(마을 4·도시 9·대도시 16). 화면 판은 항상 4×4(16).
   slotKinds: Record<string, ProductionKind>; // jsonb 키는 문자열
   slots: SlotState[];
 };
@@ -181,11 +182,14 @@ export function V2VillagePanel({
       <div
         className="grid gap-1.5"
         style={{
-          gridTemplateColumns: `repeat(${village.gridCols}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${GRID_DISPLAY_COLS}, minmax(0, 1fr))`,
         }}
       >
-        {Array.from({ length: village.maxSlots }, (_, slot) => {
-          const locked = slot >= village.unlockedSlots;
+        {Array.from({ length: GRID_DISPLAY_SLOTS }, (_, slot) => {
+          // 판은 항상 4×4. 이 단계 상한(maxSlots) 너머 = 상위 단계 필요(tierLocked, 흐리게).
+          //   그 안에서 아직 안 연 칸 = 지금 해금 가능(locked, 🔒).
+          const tierLocked = slot >= village.maxSlots;
+          const locked = !tierLocked && slot >= village.unlockedSlots;
           const job = jobBySlot.get(slot);
           const slotKind = village.slotKinds[String(slot)];
           const readyAt = job ? loadedAt + job.remainingMs : 0;
@@ -193,6 +197,17 @@ export function V2VillagePanel({
           const ready = job ? remaining <= 0 : false;
           const base =
             "flex aspect-square flex-col items-center justify-center rounded-md border px-1 text-center";
+          if (tierLocked) {
+            return (
+              <div
+                key={slot}
+                className={`${base} border-dashed border-zinc-200 bg-zinc-50 text-zinc-300 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-700`}
+                title="다음 단계로 업그레이드하면 열 수 있어요"
+              >
+                <span className="text-xs leading-none">·</span>
+              </div>
+            );
+          }
           if (locked) {
             return (
               <div
@@ -321,14 +336,15 @@ export function V2VillagePanel({
             아직 마을이 없어요. 관리 탭에서 마을을 건설하면 이곳에서 생산할 수
             있어요.
           </p>
-        ) : village!.unlockedSlots === 0 ? (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            아직 해금된 칸이 없어요. 관리 탭에서 칸을 해금하면 생산을 시작할 수
-            있어요.
-          </p>
         ) : (
           <>
             {resourcePool}
+            {village!.unlockedSlots === 0 && (
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                아직 해금된 칸이 없어요. 관리 탭에서 칸을 해금하면 생산을 시작할
+                수 있어요.
+              </p>
+            )}
             {renderGrid(true)}
           </>
         )}

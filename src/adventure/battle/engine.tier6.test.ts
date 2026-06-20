@@ -112,13 +112,13 @@ describe("6티어 — 그림자 군단", () => {
 
 describe("6티어 — 흡혈 갑옷", () => {
   it("받은 피해의 N% HP 회복", () => {
-    // 적 atk 100 → damageBetween(100,5)=95 피해. 흡혈 30% = floor(95×30/100)=28 회복.
+    // 적 atk 100 → damageToDefender(100,5)=87 피해. 흡혈 30% = floor(87×30/100)=26 회복.
     const p: PlayerCombat = { ...PLAYER, hp: 1000, maxHp: 1000, bloodfeastPct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 7 → 993
     expect(s.enemyHp).toBe(993);
-    s = advanceTurn(s, p, "용사"); // 적 95 피해 + 회복 28 → 1000 - 95 + 28 = 933
-    expect(s.playerHp).toBe(933);
+    s = advanceTurn(s, p, "용사"); // 적 87 피해 + 회복 26 → 1000 - 87 + 26 = 939
+    expect(s.playerHp).toBe(939);
   });
 
   it("HP 0 이 되는 죽음에는 흡혈 회복 미발동", () => {

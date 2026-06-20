@@ -47,14 +47,17 @@ export function V2BattleHome({
         />
         <EntryCard
           icon={
-            <CastleTurret
-              size={28}
-              weight="duotone"
-              className="text-violet-500"
-            />
+            <Trophy size={28} weight="duotone" className="text-amber-500" />
           }
-          title="전쟁"
-          onClick={() => onAction({ kind: "open-war" })}
+          title="아레나"
+          onClick={() => onAction({ kind: "open-arena" })}
+        />
+        <EntryCard
+          icon={
+            <Barbell size={28} weight="duotone" className="text-sky-500" />
+          }
+          title="훈련장"
+          onClick={() => onAction({ kind: "open-sparring" })}
         />
         <EntryCard
           icon={
@@ -69,17 +72,14 @@ export function V2BattleHome({
         />
         <EntryCard
           icon={
-            <Trophy size={28} weight="duotone" className="text-amber-500" />
+            <CastleTurret
+              size={28}
+              weight="duotone"
+              className="text-violet-500"
+            />
           }
-          title="아레나"
-          onClick={() => onAction({ kind: "open-arena" })}
-        />
-        <EntryCard
-          icon={
-            <Barbell size={28} weight="duotone" className="text-sky-500" />
-          }
-          title="훈련장"
-          onClick={() => onAction({ kind: "open-sparring" })}
+          title="전쟁"
+          onClick={() => onAction({ kind: "open-war" })}
         />
       </div>
     </main>

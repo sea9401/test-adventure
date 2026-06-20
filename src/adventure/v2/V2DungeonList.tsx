@@ -23,12 +23,15 @@ import { floorPowerGate } from "@/adventure/data/v2/dungeonLadder";
 export function V2DungeonList({
   currentOutpost,
   onSelectFloor,
+  onBack,
   onOpenMap,
   frontierDepth = 2,
   onSelectRareMap,
 }: {
   currentOutpost: { id: string; name: string } | null;
   onSelectFloor: (depth: number) => void;
+  // 상단 뒤로가기 — 진입 출처(전투 탭)로 복귀. 지도 열기는 별도 버튼(onOpenMap).
+  onBack: () => void;
   onOpenMap: () => void;
   frontierDepth?: number;
   // 레어맵 입장 — 보유 지도(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
@@ -76,7 +79,7 @@ export function V2DungeonList({
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
         title={openGroup ? openGroup.name : "사냥터"}
-        onBack={openGroup ? () => setOpenDepth(null) : onOpenMap}
+        onBack={openGroup ? () => setOpenDepth(null) : onBack}
       />
       {!currentOutpost && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">

@@ -25,6 +25,7 @@ export default function DungeonListPage() {
     <V2DungeonList
       currentOutpost={currentOutpost}
       onSelectFloor={(depth) => router.push(`/battle/dungeon/${depth}`)}
+      onBack={() => router.push("/battle")}
       onOpenMap={() => router.push("/map")}
       frontierDepth={frontierDepth}
       onSelectRareMap={(m) =>

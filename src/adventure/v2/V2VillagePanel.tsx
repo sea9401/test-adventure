@@ -212,7 +212,7 @@ export function V2VillagePanel({
                   type="button"
                   disabled={busy}
                   onClick={() => void act("harvest", { slot })}
-                  className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300`}
+                  className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900`}
                 >
                   <span className="text-[11px] font-medium">
                     {PRODUCTION_KIND_NAME[job.kind]}

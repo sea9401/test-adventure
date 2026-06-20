@@ -85,6 +85,8 @@ type GameStateValue = {
   // per-user 스태미나 최대치 — 기본 + 한계의 비약 보너스(me/state 가 권위).
   staminaMax: number;
   setStamina: React.Dispatch<React.SetStateAction<StaminaState>>;
+  // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템). me/state 에서 초기화.
+  staminaPotions: number;
   hp: HpBarState | null;
   setHp: React.Dispatch<React.SetStateAction<HpBarState | null>>;
   // 보유 골드(들고 다니는·토벌 압류 대상) + 은행 잔액(입금분·안전). me/state 에서 초기화.
@@ -189,6 +191,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [stamina, setStamina] = useState<StaminaState>(() =>
     initialStamina(Date.now()),
   );
+  const [staminaPotions, setStaminaPotions] = useState(0);
   // 발견(안개) — 공개된 거점 id 집합. me/state 에서 초기화, 이동 응답마다 확장.
   const [discoveredIds, setDiscoveredIds] = useState<Set<string>>(
     () => new Set(seededDiscovery()),
@@ -269,6 +272,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
               lastUpdatedAt: number;
               max?: number;
             };
+            staminaPotions?: number;
             gold?: number;
             bankedGold?: number;
             atRiskGold?: number | null;
@@ -328,6 +332,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             current: j.character.stamina.current,
             lastUpdatedAt: j.character.stamina.lastUpdatedAt,
           });
+        }
+        if (typeof j?.character?.staminaPotions === "number") {
+          setStaminaPotions(j.character.staminaPotions);
         }
         if (typeof j?.character?.gold === "number") setGold(j.character.gold);
         if (typeof j?.character?.bankedGold === "number")
@@ -591,6 +598,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     stamina,
     staminaMax,
     setStamina,
+    staminaPotions,
     hp,
     setHp,
     gold,

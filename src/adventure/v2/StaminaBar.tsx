@@ -9,12 +9,18 @@ import { MAX_STAMINA, applyRegen, type StaminaState } from "./stamina";
 export function StaminaBar({
   state,
   max = MAX_STAMINA,
+  potions = 0,
+  onUsePotion,
 }: {
   state: StaminaState;
   // per-user 최대치(한계의 비약 보너스 반영) — 미전달이면 기본 캡.
   max?: number;
+  // 보유 스태미나 포션 수 + 사용 핸들러(퀘 마일스톤 보상·보관형 소비템). 0이거나 미전달이면 버튼 숨김.
+  potions?: number;
+  onUsePotion?: () => Promise<void> | void;
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const [using, setUsing] = useState(false);
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
@@ -22,6 +28,16 @@ export function StaminaBar({
 
   const display = applyRegen(state, now, max);
   const pct = Math.max(0, Math.min(100, (display.current / max) * 100));
+
+  const handleUse = async () => {
+    if (!onUsePotion || using) return;
+    setUsing(true);
+    try {
+      await onUsePotion();
+    } finally {
+      setUsing(false);
+    }
+  };
 
   return (
     <div className="rounded-md border border-zinc-200 bg-zinc-50/90 px-4 py-3 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/90">
@@ -37,6 +53,16 @@ export function StaminaBar({
           style={{ width: `${pct}%` }}
         />
       </div>
+      {potions > 0 && onUsePotion && (
+        <button
+          type="button"
+          onClick={handleUse}
+          disabled={using}
+          className="mt-2 w-full rounded-md border border-amber-500 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/50"
+        >
+          {using ? "사용 중…" : `스태미나 포션 사용 (${potions}개 보유)`}
+        </button>
+      )}
     </div>
   );
 }

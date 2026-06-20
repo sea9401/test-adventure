@@ -90,12 +90,22 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     accountName,
     stamina,
     staminaMax,
+    staminaPotions,
     viewerName,
     viewerLevel,
     bankedGold,
     coreLoopOn,
     huntStaminaMode,
+    refreshGameState,
   } = useGameState();
+
+  // 스태미나 포션 사용 — 서버 권위 회복 후 전역 상태 갱신(StaminaBar 가 자체 busy 처리).
+  const usePotion = async () => {
+    try {
+      await fetch("/api/v2/me/use-stamina-potion", { method: "POST" });
+    } catch {}
+    await refreshGameState();
+  };
 
   const activeTab = tabOfPath(pathname);
   // 현 위치 거점의 종류 — 배경 이미지 선택용. 거점 밖이면 village 로 취급.
@@ -171,7 +181,12 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}
         {showStamina && (!coreLoopOn || huntStaminaMode) && (
           <div className="mx-auto w-full max-w-[720px] space-y-2 px-4 py-2 sm:px-6">
-            <StaminaBar state={stamina} max={staminaMax} />
+            <StaminaBar
+              state={stamina}
+              max={staminaMax}
+              potions={staminaPotions}
+              onUsePotion={usePotion}
+            />
           </div>
         )}
         {children}

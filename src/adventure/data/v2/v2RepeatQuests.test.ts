@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUNDLE_GOAL,
+  BUNDLE_POTIONS,
+  deriveRepeatBundle,
   deriveRepeatViews,
   kstDailyKey,
   kstWeeklyKey,
@@ -11,6 +14,7 @@ import {
   repeatQuestById,
   rolloverRepeatSave,
   snapshotOf,
+  type RepeatSave,
   type RepeatSignals,
 } from "./v2RepeatQuests";
 
@@ -127,5 +131,86 @@ describe("카탈로그 무결성", () => {
     });
     expect(ok.daily!.baseline.battleCount).toBe(5);
     expect(ok.daily!.claimed).toEqual(["a"]);
+  });
+});
+
+describe("마일스톤 번들", () => {
+  const now = new Date("2026-06-11T15:00:00Z"); // KST 06-12
+  // baseline 전부 0 — 현재 신호가 그대로 진행도가 되게.
+  const baseZero = (): RepeatSave =>
+    rolloverRepeatSave(
+      {},
+      now,
+      SIG({
+        battleCount: 0,
+        siegeAttempts: 0,
+        siegeWins: 0,
+        warTreasuryGold: 0,
+        fishCaught: 0,
+        enhanceAttempts: 0,
+      }),
+    ).save;
+
+  it("상수 — 일일 4개→2포션 / 주간 3개→5포션", () => {
+    expect(BUNDLE_GOAL).toEqual({ daily: 4, weekly: 3 });
+    expect(BUNDLE_POTIONS).toEqual({ daily: 2, weekly: 5 });
+  });
+
+  it("일일 4개 완료(아레나 제외) → claimable", () => {
+    const b = deriveRepeatBundle(baseZero(), SIG(), "daily");
+    expect(b.completed).toBe(4); // battles·claim·fish·enhance (arena ✗: arenaTimes 빈)
+    expect(b.total).toBe(5);
+    expect(b.goal).toBe(4);
+    expect(b.potions).toBe(2);
+    expect(b.claimed).toBe(false);
+    expect(b.claimable).toBe(true);
+  });
+
+  it("완료 수 부족 → claimable=false", () => {
+    const b = deriveRepeatBundle(
+      baseZero(),
+      SIG({ battleCount: 5, fishCaught: 0 }), // d_battles·d_fish 미달
+      "daily",
+    );
+    expect(b.completed).toBe(2); // claim·enhance만
+    expect(b.claimable).toBe(false);
+  });
+
+  it("주간 3개 이상 완료 → claimable·5포션", () => {
+    const b = deriveRepeatBundle(baseZero(), SIG(), "weekly");
+    expect(b.completed).toBe(4); // battles·siege·treasury·fish
+    expect(b.potions).toBe(5);
+    expect(b.claimable).toBe(true);
+  });
+
+  it("이미 수령(bundleClaimed) → claimed=true·claimable=false", () => {
+    const save = baseZero();
+    save.daily!.bundleClaimed = true;
+    const b = deriveRepeatBundle(save, SIG(), "daily");
+    expect(b.claimed).toBe(true);
+    expect(b.claimable).toBe(false);
+  });
+
+  it("롤오버 시 bundleClaimed false 리셋", () => {
+    const stale: RepeatSave = {
+      daily: {
+        key: "2000-01-01",
+        baseline: snapshotOf(SIG()),
+        claimed: [],
+        bundleClaimed: true,
+      },
+    };
+    const rolled = rolloverRepeatSave(stale, now, SIG());
+    expect(rolled.changed).toBe(true);
+    expect(rolled.save.daily?.bundleClaimed).toBe(false);
+  });
+
+  it("parse — bundleClaimed 보존/기본값 false", () => {
+    const p = parseRepeatSave({
+      daily: { key: "k", baseline: {}, claimed: [], bundleClaimed: true },
+      weekly: { key: "w", baseline: {}, claimed: [] },
+    });
+    expect(p.daily?.bundleClaimed).toBe(true);
+    expect(p.weekly?.bundleClaimed).toBe(false);
   });
 });

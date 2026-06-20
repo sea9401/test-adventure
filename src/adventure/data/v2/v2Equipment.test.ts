@@ -346,11 +346,11 @@ describe("V2_EQUIPMENT grid (104종 — 6슬롯)", () => {
 
 describe("v2EquipStatRows (표시 행)", () => {
   it("위력 → 무게 → 옵션 순, 0 은 생략", () => {
-    // 별노래궁: 위력=카탈로그 기준(다이얼 견고), weight 2, crit 2.
+    // 별노래궁(무기): 위력=카탈로그 기준, weight 2 → 표시 ×4=8(WEAPON_WEIGHT_SCALE), crit 2.
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow);
     expect(rows).toEqual([
       { label: "위력", value: `+${V2_EQUIPMENT.v2_starsong_bow.power}` },
-      { label: "무게", value: "2" },
+      { label: "무게", value: "8" },
       { label: "치명", value: "+2%" },
     ]);
   });
@@ -387,7 +387,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     expect(rows).toContainEqual({ label: "HP", value: "+40" });
   });
 
-  it("굴림(roll) 주면 굴림값 표시 — 별노래궁 카탈로그(14/2/crit2) → 굴림(16/1/crit3)", () => {
+  it("굴림(roll) 주면 굴림값 표시 — 별노래궁(무기) 굴림(16/1/crit3), 무게 ×4=4", () => {
     const rows = v2EquipStatRows(V2_EQUIPMENT.v2_starsong_bow, {
       power: 16,
       weight: 1,
@@ -395,7 +395,7 @@ describe("v2EquipStatRows (표시 행)", () => {
     });
     expect(rows).toEqual([
       { label: "위력", value: "+16" },
-      { label: "무게", value: "1" },
+      { label: "무게", value: "4" },
       { label: "치명", value: "+3%" },
     ]);
   });

@@ -12,7 +12,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "def": 6,
   "dexStat": 148,
   "evasionPct": 19.200000000000003,
-  "extraAttackChancePct": 146,
+  "extraAttackChancePct": 140,
   "healMult": 1.1500000000000001,
   "hp": 640,
   "intStat": 15,
@@ -27,7 +27,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 292,
+  "spd": 280,
   "vitStat": 15,
 }
 `;
@@ -76,7 +76,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "def": 6,
   "dexStat": 15,
   "evasionPct": 2.7,
-  "extraAttackChancePct": 14,
+  "extraAttackChancePct": 11,
   "healMult": 1.33,
   "hp": 640,
   "intStat": 148,
@@ -91,7 +91,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": true,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 28,
+  "spd": 22,
   "vitStat": 15,
 }
 `;
@@ -108,7 +108,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "def": 6,
   "dexStat": 60,
   "evasionPct": 16.8,
-  "extraAttackChancePct": 59,
+  "extraAttackChancePct": 56,
   "healMult": 1.1500000000000001,
   "hp": 640,
   "intStat": 15,
@@ -123,7 +123,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 118,
+  "spd": 112,
   "vitStat": 15,
 }
 `;
@@ -140,7 +140,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "def": 30,
   "dexStat": 15,
   "evasionPct": 2.7,
-  "extraAttackChancePct": 10,
+  "extraAttackChancePct": 5,
   "healMult": 1.7700000000000002,
   "hp": 835,
   "intStat": 15,
@@ -155,7 +155,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 20,
+  "spd": 10,
   "vitStat": 170,
 }
 `;
@@ -172,7 +172,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "def": 18,
   "dexStat": 15,
   "evasionPct": 2.7,
-  "extraAttackChancePct": 7,
+  "extraAttackChancePct": 0,
   "healMult": 1.31,
   "hp": 720,
   "intStat": 15,
@@ -187,7 +187,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
   "passiveDefPenetrationPct": undefined,
   "passiveMagicBasicAttack": undefined,
   "passiveTurnHealPctMaxHp": undefined,
-  "spd": 14,
+  "spd": 0,
   "vitStat": 55,
 }
 `;
@@ -197,20 +197,20 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "warrior_vs_들개",
-    "logSha": "d1f26432c5f031e564b5cd714e3b6f07e1229707",
+    "logSha": "a6cd8e20b351dd337785ac94678efcb1eb506387",
     "outcome": "win",
     "playerHp": 720,
     "playerMp": 227,
-    "turns": 6,
+    "turns": 7,
   },
   {
     "enemyHp": 0,
     "label": "warrior_vs_골렘",
-    "logSha": "665c05fc00fc06e4cd4c925545c0bb08077b5af8",
+    "logSha": "87d7f05003608fcace517aa68902f62dd9f76c4f",
     "outcome": "win",
-    "playerHp": 714,
+    "playerHp": 710,
     "playerMp": 227,
-    "turns": 19,
+    "turns": 23,
   },
   {
     "enemyHp": 0,
@@ -242,16 +242,16 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "counter_tank_vs_들소",
-    "logSha": "4503e77086156fb4b6d13891b95ec5dbc1f5fb49",
+    "logSha": "81412424f7d5dabdbec9b4cb646944e7fdef1826",
     "outcome": "win",
-    "playerHp": 281,
+    "playerHp": 273,
     "playerMp": 227,
-    "turns": 539,
+    "turns": 558,
   },
   {
-    "enemyHp": 220,
+    "enemyHp": 227,
     "label": "heal_vs_들소_boss",
-    "logSha": "9a9f357a5e9756aa3995cb82d225cecf93685ee7",
+    "logSha": "eca43d782c0eb9b2b331e6450397654ed4970ef9",
     "outcome": "lose",
     "playerHp": 835,
     "playerMp": 227,
@@ -282,9 +282,9 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "9397753c9758a00efc72a0b7904eab2f78396f09",
+    "logSha": "4971827ae375e8d4e5d57d3cf4819337f385003f",
     "outcome": "p1_win",
-    "turns": 71,
+    "turns": 73,
   },
   {
     "label": "archer_vs_ninja",
@@ -294,7 +294,7 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "06a6f872256ce764ddb5b5d757c67531d60057d9",
+    "logSha": "52e8635b32c8913c22c8f8ac152a9cd30d89f7f7",
     "outcome": "p2_win",
     "turns": 204,
   },
@@ -306,11 +306,11 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "enemy_dot_tick",
-    "logSha": "534ccaa1345618519c2e28b06dda49b58542d861",
+    "logSha": "9e096acad37fd9ac5bb08400058bdb6fd15fe6cb",
     "outcome": "win",
-    "playerHp": 714,
+    "playerHp": 712,
     "playerMp": 227,
-    "turns": 21,
+    "turns": 22,
   },
   {
     "enemyHp": 108,
@@ -324,11 +324,11 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "thorns_reflect",
-    "logSha": "5e4a9cfb64b0585d84b73cbc2b32dfeae923c647",
+    "logSha": "094ffdf0c3b5c2eca02809e16d11bc7639151e7e",
     "outcome": "win",
     "playerHp": 835,
     "playerMp": 227,
-    "turns": 146,
+    "turns": 140,
   },
   {
     "enemyHp": 0,
@@ -342,29 +342,29 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "enrage_enemy",
-    "logSha": "6fd89d739403ec63034910c0fe7815111f65f152",
+    "logSha": "ab58452af75af77b39efeaadb1bf6d8cf247d5ad",
     "outcome": "win",
-    "playerHp": 706,
+    "playerHp": 704,
     "playerMp": 227,
-    "turns": 24,
+    "turns": 25,
   },
   {
     "enemyHp": 0,
     "label": "brace_enemy",
-    "logSha": "aeae3bd11d168c65d45b643ed72bafb5f74555f7",
+    "logSha": "adb34d898520c955ffb69b5ab18e8da20f95ec07",
     "outcome": "win",
-    "playerHp": 712,
+    "playerHp": 704,
     "playerMp": 227,
-    "turns": 23,
+    "turns": 36,
   },
   {
-    "enemyHp": 29,
+    "enemyHp": 39,
     "label": "heavyblow_enemy",
-    "logSha": "055b80f445092889facea0bf474363ff7a80d038",
+    "logSha": "2806b02271ee687b1b074429787f598b64defaab",
     "outcome": "lose",
     "playerHp": 0,
     "playerMp": 227,
-    "turns": 603,
+    "turns": 585,
   },
 ]
 `;

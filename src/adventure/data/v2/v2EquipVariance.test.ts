@@ -78,12 +78,12 @@ describe("rollItemStats", () => {
 });
 
 describe("effectiveStats", () => {
-  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력=카탈로그 기준, weight2, crit2
+  const bow = V2_EQUIPMENT.v2_starsong_bow; // 위력=카탈로그 기준, 원시 weight2(무기 ×4=8), crit2
 
-  it("굴림 없으면 카탈로그 그대로", () => {
+  it("굴림 없으면 카탈로그 그대로(무게는 슬롯 스케일 적용)", () => {
     expect(effectiveStats(bow, undefined)).toEqual({
       power: bow.power,
-      weight: 2,
+      weight: 8, // 원시 2 × WEAPON_WEIGHT_SCALE(4)
       options: { crit: 2 },
     });
   });
@@ -91,13 +91,13 @@ describe("effectiveStats", () => {
   it("굴림 있으면 그 값", () => {
     expect(
       effectiveStats(bow, { power: 16, weight: 1, options: { crit: 3 } }),
-    ).toEqual({ power: 16, weight: 1, options: { crit: 3 } });
+    ).toEqual({ power: 16, weight: 4, options: { crit: 3 } });
   });
 
   it("굴림에 options 없으면 카탈로그 옵션으로 폴백", () => {
     expect(effectiveStats(bow, { power: 16, weight: 1 })).toEqual({
       power: 16,
-      weight: 1,
+      weight: 4, // 굴림 원시 1 × WEAPON_WEIGHT_SCALE(4)
       options: { crit: 2 },
     });
   });
@@ -105,7 +105,7 @@ describe("effectiveStats", () => {
   it("카탈로그에 없는 옵션은 주입 안 함(스코프) — 활은 crit만, mp 무시", () => {
     expect(
       effectiveStats(bow, { power: 16, weight: 1, options: { crit: 3, mp: 99 } }),
-    ).toEqual({ power: 16, weight: 1, options: { crit: 3 } });
+    ).toEqual({ power: 16, weight: 4, options: { crit: 3 } });
   });
 
   it("2옵션 아이템: 굴림 일부 키만이면 나머지는 카탈로그 — 회피망토 eva굴림+hp카탈로그", () => {
@@ -113,7 +113,7 @@ describe("effectiveStats", () => {
     const cloak = V2_EQUIPMENT.v2_lake_dodge_cloak;
     expect(
       effectiveStats(cloak, { power: 12, weight: 1, options: { eva: 25 } }),
-    ).toEqual({ power: 12, weight: 1, options: { eva: 25, hp: 40 } });
+    ).toEqual({ power: 12, weight: 2, options: { eva: 25, hp: 40 } }); // 망토=갑옷 ×2
   });
 
   it("옵션 없는 아이템은 굴림에 옵션이 있어도 주입 안 함 — 철검", () => {
@@ -123,7 +123,7 @@ describe("effectiveStats", () => {
       options: { crit: 5 },
     });
     expect(r.power).toBe(4);
-    expect(r.weight).toBe(1);
+    expect(r.weight).toBe(4); // 철검=무기, 굴림 원시 1 × WEAPON_WEIGHT_SCALE(4)
     expect(r.options).toBeUndefined();
   });
 });

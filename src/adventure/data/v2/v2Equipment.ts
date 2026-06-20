@@ -554,16 +554,36 @@ const OPTION_PERCENT_KEYS: ReadonlySet<keyof V2EquipOptions> = new Set<
 // 카드가 라벨(좌)·값(우) 행으로 그리려면 합친 문자열이 아니라 이 형태가 필요.
 export type V2EquipStatRow = { label: string; value: string };
 
+// 무게 표시·체감 스케일 — 카탈로그 원시 무게가 SPD(다중공격·템포) 가치에 비해 너무 작아
+//   "옵션이 있긴 한가" 싶을 만큼 미미했다(오너 피드백). 원시 무게를 슬롯별 계수로 키운다:
+//   일반 장비 ×2, 무기는 원시 무게가 과하게 가벼워 ×4(별도·더 무겁게). 속도 페널티는 그대로
+//   무게×WEIGHT_SPD_PENALTY 라 "표시 무게 1 = 속도 −2" 직관이 유지된다(체감만 비례 확대).
+//   카탈로그 값·굴림은 불변 — 단일 다이얼(per-item churn·기존 보유템 불일치 회피). effectiveStats
+//   상류에서 키우므로 신규/기존(굴림) 아이템이 동일하게 적용된다. 무게는 전투력 점수에 미산입이라
+//   순수 속도 트레이드오프(파워 인플레 없음).
+export const EQUIP_WEIGHT_SCALE = 2;
+export const WEAPON_WEIGHT_SCALE = 4;
+export function scaledEquipWeight(item: V2Equipment, rawWeight: number): number {
+  return (
+    rawWeight * (item.slot === "weapon" ? WEAPON_WEIGHT_SCALE : EQUIP_WEIGHT_SCALE)
+  );
+}
+
 // 적용 스탯 — 개체 굴림(V2EquipRoll) 있으면 그 값, 없으면 카탈로그(상점 구매·옛 데이터·옵션
 // 없는 아이템). 옵션은 **카탈로그 키로 스코프 + per-key 병합** — 카탈로그에 없는 옵션은
 // (손상/변조 세이브라도) 주입 안 하고, 카탈로그 옵션이 굴림에서 누락돼도 떨어뜨리지 않음.
+// 무게는 scaledEquipWeight 로 키워 반환(표시·derive 공통) — 카탈로그/굴림 원시값은 불변.
 // derive·표시·UI 공용 단일 source (V2EquipRoll 타입은 아래에 선언, 타입 호이스팅으로 참조 가능).
 export function effectiveStats(
   item: V2Equipment,
   roll: V2EquipRoll | undefined,
 ): { power: number; weight: number; options?: V2EquipOptions } {
   if (!roll) {
-    return { power: item.power, weight: item.weight, options: item.options };
+    return {
+      power: item.power,
+      weight: scaledEquipWeight(item, item.weight),
+      options: item.options,
+    };
   }
   let options = item.options;
   if (item.options) {
@@ -575,7 +595,11 @@ export function effectiveStats(
     }
     options = merged;
   }
-  return { power: roll.power, weight: roll.weight, options };
+  return {
+    power: roll.power,
+    weight: scaledEquipWeight(item, roll.weight),
+    options,
+  };
 }
 
 // ── 위력 색 분류 (등급/희귀도 대신) ──────────────────────────────────────────

@@ -1170,7 +1170,7 @@ export const PVP_TURN_CAP = 100;
 
 // PR-4b: v2 스킬 cast — MP 차감 + cooldown set + 효과 적용 (damage/heal/buff/debuff) + 로그.
 // 매 side 의 turn 진입 시 1회 — 자기 side 의 buff/debuff turn -1 tick + cast.
-function castV2SkillOnAttackerTurnPvP(
+export function castV2SkillOnAttackerTurnPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
 ): PvPBattleState {

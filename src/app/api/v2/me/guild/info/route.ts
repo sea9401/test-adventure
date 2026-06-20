@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildJoinRequests,
+  guildLeaveCooldown,
   guildMembers,
   guilds,
   outpostVillages,
@@ -47,12 +48,25 @@ export async function GET() {
       .limit(1)
   )[0];
   if (!memRow) {
+    // 무소속 — 재가입 쿨다운(탈퇴/추방 후)을 가입 패널에 표시하려 함께 반환.
+    // 활성(미래)이면 ISO 문자열, 만료/없음이면 null.
+    const cd = (
+      await db
+        .select({ cooldownUntil: guildLeaveCooldown.cooldownUntil })
+        .from(guildLeaveCooldown)
+        .where(eq(guildLeaveCooldown.userId, userId))
+        .limit(1)
+    )[0];
     return Response.json({
       ok: true,
       guild: null,
       members: [],
       isMaster: false,
       pendingRequests: [],
+      leaveCooldownUntil:
+        cd && cd.cooldownUntil.getTime() > Date.now()
+          ? cd.cooldownUntil.toISOString()
+          : null,
     });
   }
   const guildId = memRow.guildId;

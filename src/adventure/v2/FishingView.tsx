@@ -176,7 +176,6 @@ function BobberScene({ phase }: { phase: Phase }) {
         )}
         {biting && <span className="block text-xl font-extrabold">지금 챔질!</span>}
         {phase === "resolving" && <span className="text-sm">끌어올리는 중…</span>}
-        {phase === "result" && <span className="text-sm opacity-70">—</span>}
       </div>
     </div>
   );
@@ -399,21 +398,24 @@ export function FishingView({
         </div>
       )}
 
-      {/* 탭 존 — 대기 중엔 찌가 잔잔히 까닥, 입질엔 확 빨려들며 떨린다. */}
-      <button
-        type="button"
-        disabled={!tapActive}
-        onClick={onTapZone}
-        className={`relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
-          biting
-            ? "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
-            : tapActive
-              ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
-              : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
-        }`}
-      >
-        <BobberScene phase={phase} />
-      </button>
+      {/* 탭 존 — 대기 중엔 찌가 잔잔히 까닥, 입질엔 확 빨려들며 떨린다.
+          결과 화면(result)에선 숨김 — 그땐 아래 결과 박스가 본문이라 탭존은 빈 박스가 됨. */}
+      {phase !== "result" && (
+        <button
+          type="button"
+          disabled={!tapActive}
+          onClick={onTapZone}
+          className={`relative flex h-48 w-full select-none flex-col items-center justify-center overflow-hidden rounded-2xl border-2 text-center transition ${
+            biting
+              ? "border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-500 dark:bg-amber-950/50 dark:text-amber-200"
+              : tapActive
+                ? "border-sky-300 bg-gradient-to-b from-sky-50 to-sky-100 text-sky-800 dark:border-sky-800 dark:from-sky-950/40 dark:to-sky-900/40 dark:text-sky-200"
+                : "border-zinc-200 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-500"
+          }`}
+        >
+          <BobberScene phase={phase} />
+        </button>
+      )}
 
       {/* 결과 */}
       {phase === "result" && (

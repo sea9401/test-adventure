@@ -411,6 +411,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveEvasionPct?: number;
   /** 흡혈 +%(포식, 저수치) — totalLifestealPct 에 가산. */
   passiveLifestealPct?: number;
+  /** 반격 확률 +%p(절정 반격) — passiveCounterChancePct 에 가산(클래스 패시브·전문화와 합산). */
+  passiveCounterChancePct?: number;
   /** 방어력 +%(철벽, 다양성 2차) — def 에 곱연산. PvE/PvP 양쪽(damageBetween 공용). */
   passiveDefPct?: number;
   /** 명중 +%p(정밀, 다양성 2차) — accuracyPct 에 가산(캡 적용). PvE/PvP 양쪽. */
@@ -750,9 +752,9 @@ export function derivePlayerCombatV2Pure(
       specEff.defPenetrationPct,
     ), // 궁수 + 광검류
     passiveCounterChancePct: sumOrUndef(
-      passive?.counterChancePct,
-      specEff.counterChancePct,
-    ), // 무도가 + 철벽검류
+      input.passiveCounterChancePct,
+      sumOrUndef(passive?.counterChancePct, specEff.counterChancePct),
+    ), // 절정 반격(장착 패시브·input) + 무도가(클래스 패시브) + 철벽검류(전문화)
     // 마력구(마법사 직군 패시브) — 평타를 마법공격력 기반으로. 모든 마법사 상시(무료 패시브).
     passiveMagicBasicAttack:
       playerClass === "mage" ? true : passive?.magicBasicAttack,
@@ -945,6 +947,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveCritDmgPct: passiveAgg.critDmgPct,
     passiveEvasionPct: passiveAgg.evasionPct,
     passiveLifestealPct: passiveAgg.lifestealPct,
+    passiveCounterChancePct: passiveAgg.counterChancePct,
     passiveDefPct: passiveAgg.defPct,
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,

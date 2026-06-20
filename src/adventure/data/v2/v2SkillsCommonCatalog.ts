@@ -95,7 +95,7 @@ export type V2CommonSkillId =
   | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +8% & 지능 +8%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
-  | "v2c_sensei_combo" // 난무 (물리 다단)
+  | "v2c_sensei_combo" // 반격 (피격 시 확률 반격 — 옛 난무, id 유지)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·궁술)
   | "v2c_veteran_lethal" // 필살 (치명 피해 +25%)
@@ -565,9 +565,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_sensei_combo: {
-    id: "v2c_sensei_combo", name: "난무", stat: "str", category: "attack", tier: 3,
-    description: "물 흐르듯 다섯 번 몰아친다.", mpCost: 34, cooldown: 0, procChance: 40,
-    effects: hits(5, 0.45, 54),
+    // 절정 반격(패시브) — 옛 액티브 난무를 대체(id 는 유지 — 킷/세이브 안정). 피격 생존 시 30% 확률로
+    //   적에게 ATK 반격(엔진 passiveCounterChancePct 훅·PvE enemyPhase 전용·반격의 룬 패턴). 절정은
+    //   VIT 탱이라 반격 데미지는 ATK 기준(현재 1×) — 추후 약하면 재조정. SP 5(루브릭 위 override).
+    id: "v2c_sensei_combo", name: "반격", stat: "vit", category: "passive", tier: 3,
+    description: "공격을 받아넘기며 즉시 되받아친다.", mpCost: 0, cooldown: 0, spCost: 5,
+    effects: [],
+    passive: { counterChancePct: 30 },
   },
   v2c_sage_bolt: {
     id: "v2c_sage_bolt", name: "마력 폭사", stat: "int", category: "attack", tier: 3,

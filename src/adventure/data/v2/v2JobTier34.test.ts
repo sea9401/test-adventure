@@ -60,6 +60,7 @@ function deriveWithEquippedKit(
     passiveCritDmgPct: agg.critDmgPct,
     passiveEvasionPct: agg.evasionPct,
     passiveLifestealPct: agg.lifestealPct,
+    passiveCounterChancePct: agg.counterChancePct,
     passiveDefPct: agg.defPct,
     passiveAccuracyPct: agg.accuracyPct,
     passiveHealPowerPct: agg.healPowerPct,
@@ -241,7 +242,12 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
         expect(id in V2_SKILLS, `${jobId} 킷 id ${id} 가 전투 카탈로그에 실재해야`).toBe(true);
       }
       const [active, passive] = kit;
-      expect(V2_SKILLS[active].category, active).toBe("attack");
+      // 절정(sensei)은 예외 — 액티브(난무)를 반격 패시브로 교체(둘 다 패시브·액티브 없음, 오너 결정).
+      if (jobId !== "sensei") {
+        expect(V2_SKILLS[active].category, active).toBe("attack");
+      } else {
+        expect(V2_SKILLS[active].category, active).toBe("passive");
+      }
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }
   });
@@ -309,6 +315,19 @@ describe("심화(tier-4) 패시브 derive — 고유 % 가 실제 전투 레버�
     const maxHpPct = V2_SKILLS.v2c_sensei_ironbody.passive!.maxHpPct!;
     expect(sen.maxHp).toBe(Math.floor(plain.maxHp * (1 + maxHpPct / 100)));
     expect(sen.maxHp).toBeGreaterThan(plain.maxHp);
+  });
+
+  it("절정(sensei) 반격 → passiveCounterChancePct 30 (장착→aggregate→derive 풀체인)", () => {
+    // 풀 체인 end-to-end: 절정 킷 장착 → aggregateEquippedPassives → Pure 입력 → player.
+    const sen = deriveWithEquippedKit(skillsForJob("sensei")).player;
+    expect(sen.passiveCounterChancePct).toBe(
+      V2_SKILLS.v2c_sensei_combo.passive!.counterChancePct,
+    );
+    expect(sen.passiveCounterChancePct).toBe(30);
+    // 미장착 = undefined(byte-identical 보장).
+    expect(
+      derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player.passiveCounterChancePct,
+    ).toBeUndefined();
   });
 
   it("대마법사(sage) 간파 → 치명타 확률 ↑ (critPct → critChancePct)", () => {

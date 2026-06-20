@@ -9,6 +9,7 @@ import {
   decrementTimedEffects,
   endAttackerPhase,
   maybeApplyRuneCounter,
+  maybeApplyMartialCounter,
   rollPvPAttackCount,
   setSide,
   type PvPAttackDamageResult,
@@ -875,6 +876,10 @@ export function advanceTurnPvP(
   const runeCounterResult = maybeApplyRuneCounter(next, atkKey, defKey);
   next = runeCounterResult.state;
   if (runeCounterResult.attackerKilled) return next;
+  // ── 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(PvE enemyPhase 미러) ──
+  const martialCounterResult = maybeApplyMartialCounter(next, atkKey, defKey);
+  next = martialCounterResult.state;
+  if (martialCounterResult.attackerKilled) return next;
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
   const attacksLeft = attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks;
   if (attacksLeft > 0) {

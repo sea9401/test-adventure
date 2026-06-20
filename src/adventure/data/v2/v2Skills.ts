@@ -60,6 +60,9 @@ export type V2PassiveSkillEffect = {
   evasionPct?: number;
   /** 흡혈 +% — 가한 피해의 일부 체력 흡수(포식). 자동전투 눈덩이 방지로 의도적 저수치. */
   lifestealPct?: number;
+  /** 반격 확률 +%p — 피격 생존 시 이 확률로 적에게 ATK 반격(절정 반격). 엔진 passiveCounterChancePct
+   *  훅에 합산(PvE enemyPhase 전용·반격의 룬과 동일 패턴). 미지정=무적용. */
+  counterChancePct?: number;
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
   /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
   defPct?: number;
@@ -310,6 +313,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   critDmgPct: number;
   evasionPct: number;
   lifestealPct: number;
+  counterChancePct: number;
   defPct: number;
   accuracyPct: number;
   healPowerPct: number;
@@ -326,6 +330,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let critDmgPct = 0;
   let evasionPct = 0;
   let lifestealPct = 0;
+  let counterChancePct = 0;
   let defPct = 0;
   let accuracyPct = 0;
   let healPowerPct = 0;
@@ -348,6 +353,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct += p.critDmgPct ?? 0;
     evasionPct += p.evasionPct ?? 0;
     lifestealPct += p.lifestealPct ?? 0;
+    counterChancePct += p.counterChancePct ?? 0;
     defPct += p.defPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
@@ -365,6 +371,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     critDmgPct,
     evasionPct,
     lifestealPct,
+    counterChancePct,
     defPct,
     accuracyPct,
     healPowerPct,
@@ -472,6 +479,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.critDmgPct) chips.push(`치명타 피해 +${p.critDmgPct}%`);
   if (p.evasionPct) chips.push(`회피 +${p.evasionPct}%`);
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
+  if (p.counterChancePct) chips.push(`피격 시 ${p.counterChancePct}% 반격`);
   if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
   if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);

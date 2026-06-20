@@ -1,6 +1,11 @@
-import { and, desc, eq, ilike, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { guildJoinRequests, guildMembers, guilds } from "@/db/schema";
+import {
+  guildJoinRequests,
+  guildMembers,
+  guilds,
+  savesKv,
+} from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { gradeForFame } from "@/adventure/data/guildQuests";
 import { GUILD_MAX_MEMBERS, guildMemberCap } from "@/adventure/data/guild";
@@ -20,6 +25,7 @@ export async function GET(req: Request) {
     .select({
       id: guilds.id,
       name: guilds.name,
+      masterId: guilds.masterId,
       description: guilds.description,
       fameTotal: guilds.fameTotal,
       acceptingRequests: guilds.acceptingRequests,
@@ -50,6 +56,28 @@ export async function GET(req: Request) {
     )
     .limit(1);
 
+  // 길드마스터 이름 — masterId(userId) → character-profile.v2.name batch.
+  const masterIds = Array.from(
+    new Set(rows.map((g) => g.masterId).filter((id): id is string => !!id)),
+  );
+  const masterProfiles =
+    masterIds.length === 0
+      ? []
+      : await db
+          .select({ userId: savesKv.userId, value: savesKv.value })
+          .from(savesKv)
+          .where(
+            and(
+              inArray(savesKv.userId, masterIds),
+              eq(savesKv.key, "character-profile.v2"),
+            ),
+          );
+  const masterNameByUser = new Map<string, string>();
+  for (const r of masterProfiles) {
+    const n = (r.value as { name?: string } | null)?.name?.trim();
+    if (n) masterNameByUser.set(r.userId, n);
+  }
+
   return Response.json({
     // 기본 정원(국가 미선포). 길드별 한도는 각 항목 maxMembers 참조(국가=상향).
     maxMembers: GUILD_MAX_MEMBERS,
@@ -59,6 +87,7 @@ export async function GET(req: Request) {
     guilds: rows.map((g) => ({
       id: g.id,
       name: g.name,
+      masterName: g.masterId ? (masterNameByUser.get(g.masterId) ?? "모험가") : "—",
       description: g.description ?? null,
       fameTotal: g.fameTotal,
       grade: gradeForFame(g.fameTotal),

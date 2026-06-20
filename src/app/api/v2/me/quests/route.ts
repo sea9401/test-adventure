@@ -15,6 +15,7 @@ import {
   questLinesFor,
 } from "@/adventure/data/v2/v2Quests";
 import {
+  deriveRepeatBundle,
   deriveRepeatViews,
   nextDailyResetAt,
   nextWeeklyResetAt,
@@ -78,6 +79,8 @@ export async function GET() {
       weekly: repeatViews.filter((q) => q.scope === "weekly"),
       dailyResetAt: nextDailyResetAt(now),
       weeklyResetAt: nextWeeklyResetAt(now),
+      dailyBundle: deriveRepeatBundle(rolled.save, signals, "daily"),
+      weeklyBundle: deriveRepeatBundle(rolled.save, signals, "weekly"),
     },
   });
 }

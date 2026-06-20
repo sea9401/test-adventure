@@ -182,6 +182,8 @@ export type RepeatPeriodState = {
   key: string;
   baseline: RepeatSnapshot;
   claimed: string[];
+  /** 이번 주기 마일스톤 번들 보상을 수령했는지(주기 롤오버 시 false 리셋). */
+  bundleClaimed?: boolean;
 };
 export type RepeatSave = {
   daily?: RepeatPeriodState;
@@ -211,6 +213,8 @@ function parsePeriod(raw: unknown): RepeatPeriodState | undefined {
     claimed: Array.isArray(r.claimed)
       ? r.claimed.filter((x): x is string => typeof x === "string")
       : [],
+    bundleClaimed:
+      (r as { bundleClaimed?: unknown }).bundleClaimed === true,
   };
 }
 
@@ -233,11 +237,21 @@ export function rolloverRepeatSave(
   let daily = save.daily;
   let weekly = save.weekly;
   if (!daily || daily.key !== dKey) {
-    daily = { key: dKey, baseline: snapshotOf(signals), claimed: [] };
+    daily = {
+      key: dKey,
+      baseline: snapshotOf(signals),
+      claimed: [],
+      bundleClaimed: false,
+    };
     changed = true;
   }
   if (!weekly || weekly.key !== wKey) {
-    weekly = { key: wKey, baseline: snapshotOf(signals), claimed: [] };
+    weekly = {
+      key: wKey,
+      baseline: snapshotOf(signals),
+      claimed: [],
+      bundleClaimed: false,
+    };
     changed = true;
   }
   return { save: { daily, weekly }, changed };
@@ -252,6 +266,9 @@ export type RepeatQuestView = {
   goal: number;
   progress: number; // goal 로 클램프
   reward: { gold: number };
+  /** 진행도 ≥ 목표 — 마일스톤 번들의 "완료" 판정 기준(개별 수령 개념은 폐지). */
+  complete: boolean;
+  // 아래 두 필드는 개별 보상 폐지로 사실상 미사용(번들로 일원화) — 호환 위해 유지.
   claimed: boolean;
   claimable: boolean;
 };
@@ -266,6 +283,7 @@ export function deriveRepeatViews(
     const start = period ? periodStartMs(period.key) : Date.now();
     const raw = q.progress(signals, baseline, start);
     const progress = Math.min(q.goal, Math.max(0, Math.floor(raw)));
+    const complete = progress >= q.goal;
     const claimed = period?.claimed.includes(q.id) ?? false;
     return {
       id: q.id,
@@ -275,8 +293,46 @@ export function deriveRepeatViews(
       goal: q.goal,
       progress,
       reward: q.reward,
+      complete,
       claimed,
-      claimable: !claimed && progress >= q.goal,
+      claimable: !claimed && complete,
     };
   });
+}
+
+// ── 마일스톤 번들(일일/주간 완료 보너스) ────────────────────────────────────
+// 개별 퀘 보상은 폐지(2026-06-20) — 일일 4개 / 주간 3개 "완료"(진행도≥목표) 시 번들 보상 수령.
+//   보상 = 스태미나 포션(보관형 소비템, staminaPotions.ts). 주기당 1회(bundleClaimed).
+export const BUNDLE_GOAL: Record<RepeatScope, number> = { daily: 4, weekly: 3 };
+export const BUNDLE_POTIONS: Record<RepeatScope, number> = { daily: 2, weekly: 5 };
+
+export type RepeatBundleView = {
+  scope: RepeatScope;
+  completed: number; // 이번 주기 완료한 퀘 수(진행도≥목표)
+  total: number; // 그 주기 전체 퀘 수(분모)
+  goal: number; // 번들 해금에 필요한 완료 수
+  potions: number; // 보상 스태미나 포션 수
+  claimed: boolean; // 이번 주기 번들 수령했는지
+  claimable: boolean; // completed≥goal && !claimed
+};
+
+export function deriveRepeatBundle(
+  save: RepeatSave,
+  signals: RepeatSignals,
+  scope: RepeatScope,
+): RepeatBundleView {
+  const views = deriveRepeatViews(save, signals).filter((v) => v.scope === scope);
+  const completed = views.filter((v) => v.complete).length;
+  const period = scope === "daily" ? save.daily : save.weekly;
+  const claimed = period?.bundleClaimed === true;
+  const goal = BUNDLE_GOAL[scope];
+  return {
+    scope,
+    completed,
+    total: views.length,
+    goal,
+    potions: BUNDLE_POTIONS[scope],
+    claimed,
+    claimable: completed >= goal && !claimed,
+  };
 }

@@ -95,6 +95,10 @@ import {
   parseStaminaFromSave,
   staminaCapBonusOf,
 } from "@/adventure/v2/stamina";
+import {
+  STAMINA_POTIONS_KEY,
+  staminaPotionCount,
+} from "@/adventure/v2/staminaPotions";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
@@ -132,6 +136,7 @@ export async function GET() {
     treasureCodexRow,
     treasureFragmentsRow,
     adventureLogRow,
+    staminaPotionsRow,
   ] = await Promise.all([
       db
         .select({ value: savesKv.value })
@@ -210,6 +215,14 @@ export async function GET() {
       .select({ value: savesKv.value })
       .from(savesKv)
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "adventure-log.v2")))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, STAMINA_POTIONS_KEY)),
+      )
       .limit(1)
       .then((rows) => rows[0]),
   ]);
@@ -548,6 +561,8 @@ export async function GET() {
         max: staminaMax,
         lastUpdatedAt: stamina.lastUpdatedAt,
       },
+      // 보유 스태미나 포션 수(퀘 마일스톤 보상·보관형 소비템) — StaminaBar 사용 버튼용.
+      staminaPotions: staminaPotionCount(staminaPotionsRow?.value),
       gold: Math.max(0, charSave.gold ?? 0),
       // 은행 — 입금된 골드(토벌 압류에서 안전). 보유 골드(gold)와 별개.
       bankedGold: Math.max(0, (charSave as { bankedGold?: number }).bankedGold ?? 0),

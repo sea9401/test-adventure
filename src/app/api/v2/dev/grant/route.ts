@@ -1,6 +1,10 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import {
+  STAMINA_POTIONS_KEY,
+  staminaPotionCount,
+} from "@/adventure/v2/staminaPotions";
 import { applyExpGain, MAX_LEVEL } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
 import {
@@ -58,6 +62,7 @@ export async function POST(req: Request) {
     gold?: unknown;
     hpCharges?: unknown;
     mpCharges?: unknown;
+    staminaPotions?: unknown;
     setLevel?: unknown;
     materials?: unknown;
     proficiency?: unknown;
@@ -72,6 +77,7 @@ export async function POST(req: Request) {
   const goldGain = clampInt(body.gold, 0, MAX_GRANT);
   const hpChargeGain = clampInt(body.hpCharges, 0, MAX_GRANT);
   const mpChargeGain = clampInt(body.mpCharges, 0, MAX_GRANT);
+  const staminaPotionGain = clampInt(body.staminaPotions, 0, MAX_GRANT);
   const setLevel =
     body.setLevel == null ? null : clampInt(body.setLevel, 1, MAX_LEVEL);
   const proficiencyGain = clampInt(body.proficiency, 0, MAX_GRANT);
@@ -176,6 +182,18 @@ export async function POST(req: Request) {
       });
     }
 
+    // 스태미나 포션(stamina-potions.v1, 전용 키 — leaf 마지막 잠금). 지급분이 있을 때만.
+    let staminaPotions: number | undefined;
+    if (staminaPotionGain > 0) {
+      const cur = staminaPotionCount(
+        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      );
+      staminaPotions = cur + staminaPotionGain;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
+        count: staminaPotions,
+      });
+    }
+
     return {
       ok: true as const,
       level,
@@ -185,6 +203,7 @@ export async function POST(req: Request) {
       materials,
       ...(proficiencyEarned != null ? { proficiencyEarned } : {}),
       ...charges,
+      ...(staminaPotions != null ? { staminaPotions } : {}),
     };
   });
 

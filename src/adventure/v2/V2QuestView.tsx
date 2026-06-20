@@ -11,16 +11,23 @@ import {
   type QuestView,
   type QuestReward,
 } from "@/adventure/data/v2/v2Quests";
-import type { RepeatQuestView } from "@/adventure/data/v2/v2RepeatQuests";
+import type {
+  RepeatBundleView,
+  RepeatQuestView,
+} from "@/adventure/data/v2/v2RepeatQuests";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 
-// 가이드 퀘스트 — 튜토리얼 겸 성장 안내. 완료는 자동 감지, 보상만 "받기"로 수령.
+// 퀘스트 — 일일/주간/업적 3탭.
+//   업적(가이드 퀘스트): 튜토리얼 겸 성장 안내. 완료 자동 감지, 개별 보상 "받기".
+//   일일/주간: 개별 보상 폐지 — 4개/3개 "완료"(진행도≥목표) 시 마일스톤 번들 보상(스태미나 포션) 수령.
 
 type RepeatSection = {
   daily: RepeatQuestView[];
   weekly: RepeatQuestView[];
   dailyResetAt: number;
   weeklyResetAt: number;
+  dailyBundle: RepeatBundleView;
+  weeklyBundle: RepeatBundleView;
 };
 
 type QuestsResponse = {
@@ -29,6 +36,8 @@ type QuestsResponse = {
   quests?: QuestView[];
   repeat?: RepeatSection;
 };
+
+type TopTab = "daily" | "weekly" | "achievement";
 
 // 리셋 카운트다운 — "11시간 후" / "32분 후" (마운트 시점 고정 — 분 단위 정밀도면 충분).
 function resetLabel(at: number, nowMs: number): string {
@@ -54,8 +63,10 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [repeat, setRepeat] = useState<RepeatSection | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  // 탭 — 진행 중(미수령 = claimable/active/locked) / 완료(claimed). 퀘스트가 늘어도 깔끔히 분리.
+  const [topTab, setTopTab] = useState<TopTab>("daily");
+  // 업적(가이드) 안 진행중/완료 분리.
   const [tab, setTab] = useState<"active" | "done">("active");
 
   const refresh = useCallback(async () => {
@@ -75,6 +86,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     refresh();
   }, [refresh]);
 
+  // 가이드(업적) 퀘 보상 수령.
   const claim = useCallback(
     async (q: { id: string; reward: QuestReward }) => {
       setBusy(q.id);
@@ -88,16 +100,9 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
         const j = (await res.json().catch(() => null)) as {
           ok?: boolean;
           error?: string;
-          reward?: QuestReward;
         } | null;
         if (!j?.ok) {
-          const label =
-            j?.error === "not_complete"
-              ? "아직 완료되지 않았어요"
-              : j?.error === "already_claimed"
-                ? "이미 수령했어요"
-                : (j?.error ?? `http ${res.status}`);
-          setMsg(`✗ ${label}`);
+          setMsg(`✗ ${claimErr(j?.error, res.status)}`);
           return;
         }
         setMsg(`✓ 보상 수령 — ${rewardText(q.reward)}`);
@@ -111,9 +116,54 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     [refresh, refreshGameState],
   );
 
+  // 마일스톤 번들 보상(스태미나 포션) 수령.
+  const claimBundle = useCallback(
+    async (scope: "daily" | "weekly") => {
+      setBundleBusy(scope);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/v2/me/quests/claim-bundle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scope }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+          potions?: number;
+        } | null;
+        if (!j?.ok) {
+          setMsg(`✗ ${claimErr(j?.error, res.status)}`);
+          return;
+        }
+        setMsg(
+          `✓ ${scope === "daily" ? "일일" : "주간"} 보상 — 스태미나 포션 ${j.potions}개`,
+        );
+        await Promise.all([refresh(), refreshGameState()]);
+      } catch (err) {
+        setMsg(`✗ ${(err as Error).message}`);
+      } finally {
+        setBundleBusy(null);
+      }
+    },
+    [refresh, refreshGameState],
+  );
+
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="퀘스트" onBack={onBack} />
+
+      <TabBar
+        tabs={[
+          { key: "daily", label: "일일" },
+          { key: "weekly", label: "주간" },
+          { key: "achievement", label: "업적" },
+        ]}
+        active={topTab}
+        onChange={setTopTab}
+        ariaLabel="퀘스트 분류"
+        size="md"
+      />
 
       {msg && (
         <div
@@ -133,53 +183,50 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             불러오는 중…
           </p>
         </Card>
+      ) : topTab === "achievement" ? (
+        renderGuide()
       ) : (
-        <>
-          {repeat && renderRepeat(repeat)}
-          {renderTabs()}
-        </>
+        renderRepeatTab(topTab)
       )}
     </main>
   );
 
-  function renderRepeat(r: RepeatSection) {
+  function renderRepeatTab(scope: "daily" | "weekly") {
+    if (!repeat) return null;
     const now = Date.now();
-    const sections: {
-      key: string;
-      label: string;
-      quests: RepeatQuestView[];
-      resetAt: number;
-    }[] = [
-      { key: "daily", label: "일일 퀘스트", quests: r.daily, resetAt: r.dailyResetAt },
-      { key: "weekly", label: "주간 퀘스트", quests: r.weekly, resetAt: r.weeklyResetAt },
-    ];
-    return sections.map(({ key, label, quests: list, resetAt }) => {
-      if (list.length === 0) return null;
-      const done = list.filter((q) => q.claimed).length;
-      return (
-        <Card key={key} padding="md">
+    const list = scope === "daily" ? repeat.daily : repeat.weekly;
+    const bundle = scope === "daily" ? repeat.dailyBundle : repeat.weeklyBundle;
+    const resetAt =
+      scope === "daily" ? repeat.dailyResetAt : repeat.weeklyResetAt;
+    const completed = list.filter((q) => q.complete).length;
+    return (
+      <>
+        <BundleCard
+          scope={scope}
+          bundle={bundle}
+          busy={bundleBusy === scope}
+          onClaim={() => claimBundle(scope)}
+        />
+        <Card padding="md">
           <div className="flex items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold">{label}</h2>
+            <h2 className="text-sm font-semibold">
+              {scope === "daily" ? "일일 퀘스트" : "주간 퀘스트"}
+            </h2>
             <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-              {done}/{list.length} · {resetLabel(resetAt, now)}
+              {completed}/{list.length} 완료 · {resetLabel(resetAt, now)}
             </span>
           </div>
           <ul className="mt-3 space-y-1.5">
             {list.map((q) => (
-              <RepeatRow
-                key={q.id}
-                quest={q}
-                busy={busy === q.id}
-                onClaim={() => claim(q)}
-              />
+              <RepeatRow key={q.id} quest={q} />
             ))}
           </ul>
         </Card>
-      );
-    });
+      </>
+    );
   }
 
-  function renderTabs() {
+  function renderGuide() {
     const isDone = (q: QuestView) => q.status === "claimed";
     const activeCount = quests.filter((q) => !isDone(q)).length;
     const doneCount = quests.filter(isDone).length;
@@ -194,23 +241,22 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           ]}
           active={tab}
           onChange={setTab}
-          ariaLabel="퀘스트 탭"
-          size="md"
+          ariaLabel="업적 탭"
+          size="sm"
         />
 
         {shown.length === 0 ? (
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {tab === "done"
-                ? "아직 완료한 퀘스트가 없어요."
-                : "진행 중인 퀘스트가 없어요. 🎉"}
+                ? "아직 완료한 업적이 없어요."
+                : "진행 중인 업적이 없어요. 🎉"}
             </p>
           </Card>
         ) : (
           lines.map((line) => {
             const lineQuests = shown.filter((q) => q.line === line.id);
             if (lineQuests.length === 0) return null;
-            // 진행도 표기는 탭 무관 전체 기준(라인 N개 중 완료 M).
             const all = quests.filter((q) => q.line === line.id);
             const done = all.filter(isDone).length;
             return (
@@ -224,7 +270,6 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
                 <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                   {line.subtitle}
                 </p>
-
                 <ul className="mt-3 space-y-1.5">
                   {lineQuests.map((q) => (
                     <QuestRow
@@ -242,6 +287,89 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
       </>
     );
   }
+}
+
+function claimErr(error: string | undefined, status: number): string {
+  if (error === "not_complete") return "아직 완료 조건을 채우지 못했어요";
+  if (error === "already_claimed") return "이미 수령했어요";
+  return error ?? `http ${status}`;
+}
+
+// 일일/주간 마일스톤 번들 — 완료 개수 달성 시 스태미나 포션 수령.
+function BundleCard({
+  scope,
+  bundle,
+  busy,
+  onClaim,
+}: {
+  scope: "daily" | "weekly";
+  bundle: RepeatBundleView;
+  busy: boolean;
+  onClaim: () => void;
+}) {
+  const pct = Math.min(100, Math.round((bundle.completed / bundle.goal) * 100));
+  return (
+    <Card
+      padding="md"
+      className={
+        bundle.claimable
+          ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40"
+          : undefined
+      }
+    >
+      <div className="flex items-center gap-3">
+        {bundle.claimed ? (
+          <CheckCircle
+            size={20}
+            weight="fill"
+            className="shrink-0 text-emerald-500"
+          />
+        ) : bundle.claimable ? (
+          <Gift size={20} weight="fill" className="shrink-0 text-amber-500" />
+        ) : (
+          <Circle size={20} className="shrink-0 text-zinc-400" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-sm font-semibold">
+              {scope === "daily" ? "일일" : "주간"} 마일스톤
+            </span>
+            <span className="shrink-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              {bundle.completed}/{bundle.goal} 완료
+            </span>
+          </div>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            퀘스트 {bundle.goal}개를 완료하면 스태미나 포션 {bundle.potions}개를
+            받아요.
+          </p>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+            <div
+              className={`h-full rounded-full transition-all ${
+                bundle.claimable || bundle.claimed
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
+              }`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+        {bundle.claimed ? (
+          <span className="shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+            수령 완료
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={onClaim}
+            disabled={!bundle.claimable || busy}
+            className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:bg-zinc-200 disabled:text-zinc-400 dark:disabled:border-zinc-700 dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+          >
+            {busy ? "수령 중…" : "받기"}
+          </button>
+        )}
+      </div>
+    </Card>
+  );
 }
 
 function QuestRow({
@@ -318,31 +446,24 @@ function QuestRow({
   );
 }
 
-function RepeatRow({
-  quest,
-  busy,
-  onClaim,
-}: {
-  quest: RepeatQuestView;
-  busy: boolean;
-  onClaim: () => void;
-}) {
+// 일일/주간 반복 퀘 한 줄 — 개별 보상 폐지로 진행도만 표시(받기 버튼 없음, 완료 시 체크).
+function RepeatRow({ quest }: { quest: RepeatQuestView }) {
   const pct = Math.min(100, Math.round((quest.progress / quest.goal) * 100));
   return (
     <li
       className={`rounded-md border px-3 py-2 ${
-        quest.claimable
-          ? "border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/40"
-          : quest.claimed
-            ? "border-zinc-200 bg-zinc-50 opacity-60 dark:border-zinc-800 dark:bg-zinc-900"
-            : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+        quest.complete
+          ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-800/60 dark:bg-emerald-950/30"
+          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
       }`}
     >
       <div className="flex items-center gap-3">
-        {quest.claimed ? (
-          <CheckCircle size={18} weight="fill" className="shrink-0 text-emerald-500" />
-        ) : quest.claimable ? (
-          <Gift size={18} weight="fill" className="shrink-0 text-amber-500" />
+        {quest.complete ? (
+          <CheckCircle
+            size={18}
+            weight="fill"
+            className="shrink-0 text-emerald-500"
+          />
         ) : (
           <Circle size={18} className="shrink-0 text-zinc-400" />
         )}
@@ -353,36 +474,20 @@ function RepeatRow({
               {quest.progress}/{quest.goal}
             </span>
           </div>
-          {!quest.claimed && (
+          {!quest.complete && (
             <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
               {quest.desc}
             </p>
           )}
-          {/* 진행 바 */}
-          {!quest.claimed && (
+          {!quest.complete && (
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
               <div
-                className={`h-full rounded-full transition-all ${
-                  quest.claimable ? "bg-amber-500" : "bg-emerald-500"
-                }`}
+                className="h-full rounded-full bg-emerald-500 transition-all"
                 style={{ width: `${pct}%` }}
               />
             </div>
           )}
-          <p className="mt-0.5 text-[11px] text-amber-700 dark:text-amber-400">
-            보상 {quest.reward.gold.toLocaleString()} 골드
-          </p>
         </div>
-        {quest.claimable && (
-          <button
-            type="button"
-            onClick={onClaim}
-            disabled={busy}
-            className="shrink-0 rounded-md border border-amber-600 bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy ? "수령 중…" : "받기"}
-          </button>
-        )}
       </div>
     </li>
   );

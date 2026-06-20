@@ -3,19 +3,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   buildQuestCtx,
-  buildRepeatSignals,
   assembleQuestExtras,
   parseClaimed,
   GUIDE_QUESTS_KEY,
-  REPEAT_QUESTS_KEY,
 } from "@/lib/server/v2QuestContext";
 import { questById, isQuestClaimable } from "@/adventure/data/v2/v2Quests";
-import {
-  deriveRepeatViews,
-  parseRepeatSave,
-  repeatQuestById,
-  rolloverRepeatSave,
-} from "@/adventure/data/v2/v2RepeatQuests";
 import {
   parseEquipmentSave,
   genEquipIid,
@@ -39,66 +31,8 @@ export async function POST(req: Request) {
   }
   const questId = typeof body.questId === "string" ? body.questId : null;
 
-  // 반복 퀘스트 분기 — 가이드와 저장 키/판정 모델이 달라 별도 tx.
-  const repeatDef = questId ? repeatQuestById(questId) : undefined;
-  if (repeatDef) {
-    const result = await db.transaction(async (tx) => {
-      // 락 순서: character.v2(보상) → repeat-quests.v2. 판정 입력(adventure-log·extras)은 무락.
-      const charSave = await lockSaveForUpdate<{ gold?: number }>(
-        tx,
-        userId,
-        "character.v2",
-        {},
-      );
-      const repeatSaveRaw = await lockSaveForUpdate<unknown>(
-        tx,
-        userId,
-        REPEAT_QUESTS_KEY,
-        {},
-      );
-      const advLogRaw = await readSave(tx, userId, "adventure-log.v2", {});
-      const extras = await assembleQuestExtras(tx, userId);
-      const now = new Date();
-      const signals = buildRepeatSignals(advLogRaw, extras);
-      const rolled = rolloverRepeatSave(
-        parseRepeatSave(repeatSaveRaw),
-        now,
-        signals,
-      );
-      const view = deriveRepeatViews(rolled.save, signals).find(
-        (q) => q.id === repeatDef.id,
-      );
-      if (!view || view.claimed) {
-        return {
-          status: 409,
-          body: { ok: false as const, error: "already_claimed" as const },
-        };
-      }
-      if (!view.claimable) {
-        return {
-          status: 400,
-          body: { ok: false as const, error: "not_complete" as const },
-        };
-      }
-      const period =
-        repeatDef.scope === "daily" ? rolled.save.daily! : rolled.save.weekly!;
-      period.claimed = [...period.claimed, repeatDef.id];
-      const gold = Math.max(0, (charSave.gold ?? 0) + repeatDef.reward.gold);
-      await upsertSave(tx, userId, "character.v2", { ...charSave, gold });
-      await upsertSave(tx, userId, REPEAT_QUESTS_KEY, rolled.save);
-      return {
-        status: 200,
-        body: {
-          ok: true as const,
-          questId: repeatDef.id,
-          reward: { gold: repeatDef.reward.gold, equip: null },
-          gold,
-        },
-      };
-    });
-    return Response.json(result.body, { status: result.status });
-  }
-
+  // 반복(일일/주간) 퀘는 개별 보상 폐지(2026-06-20) — 보상은 마일스톤 번들(claim-bundle 라우트).
+  //   이 라우트는 가이드 퀘스트 전용. 반복 questId 가 와도 아래 unknown_quest 로 떨어진다.
   const def = questId ? questById(questId) : undefined;
   if (!def) {
     return Response.json(

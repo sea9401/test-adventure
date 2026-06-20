@@ -470,9 +470,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.8, 220, "def")],
   },
   v2c_warmonk_kick: {
+    // 무승(warmonk)=vit/spi 빌드인데 액티브가 atk(str) 스케일이라 정체성 불일치(str 안 키움→딜 죽음).
+    //   vit 스케일로 교체(나한권 dmgT(1.5,..,"vit") 선례). ⚠️ coef 0.4 = 나한권 단일 1.5 의 4타 등가
+    //   추정치 — vit 원시값이 atk≫ 라 계수 작게. **sim/오너 승인 필요**(미검증 밸런스 수치).
     id: "v2c_warmonk_kick", name: "연환각", stat: "vit", category: "attack", tier: 3,
     description: "물 흐르듯 네 번 연달아 차낸다.", mpCost: 32, cooldown: 0, procChance: 40,
-    effects: hits(4, 0.5, 50),
+    effects: hits(4, 0.4, 50, "vit"),
   },
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,

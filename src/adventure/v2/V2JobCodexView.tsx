@@ -7,7 +7,22 @@ import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 
 // 직업 도감 — 읽기 전용. 직업 해금·스킬 수집을 평면 목록으로 표기. 직군(계열) 묶음·정복 바·수집
 //   포인트/칭호는 폐기(오너 요청 — 불필요한 복잡도). 파워 무관. 데이터는 /api/v2/me/job-codex 또는 mock(dev).
+//   라이브 진입은 모험의 서(V2CodexView) "직업" 탭 — 거기선 JobCodexList 만 재사용(요약은 탭 부제가 담당).
 
+// 직업 목록 카드(헤더·요약 없이) — 모험의 서 "직업" 탭이 그대로 재사용한다.
+export function JobCodexList({ codex }: { codex: JobCodex }) {
+  return (
+    <Card padding="md">
+      <ul className="space-y-1.5">
+        {codex.jobs.map((job) => (
+          <JobRow key={job.id} job={job} />
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+// 독립 화면(dev 프리뷰 전용) — 목록에 헤더/요약을 덧댄다. 라이브 진입은 모험의 서 탭.
 export function V2JobCodexView({
   codex,
   onBack,
@@ -32,15 +47,7 @@ export function V2JobCodexView({
           {jobsTotal}
         </span>
       </p>
-
-      {/* 직군 묶음 없이 직업 평면 목록 — 각 직업의 스킬 수집 진행만 표기. */}
-      <Card padding="md">
-        <ul className="space-y-1.5">
-          {codex.jobs.map((job) => (
-            <JobRow key={job.id} job={job} />
-          ))}
-        </ul>
-      </Card>
+      <JobCodexList codex={codex} />
     </main>
   );
 }

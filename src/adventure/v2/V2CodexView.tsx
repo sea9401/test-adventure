@@ -53,9 +53,11 @@ import {
   ANTIQUE_THEME_LABEL,
   formatCondition,
 } from "@/adventure/data/v2/antique";
+import { JobCodexList } from "./V2JobCodexView";
+import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 
-// v2 모험의 서 — 재료 도감 + 어보(어종 도감) + 유물(골동품 도감) 3 탭.
-// 정적 카탈로그(전종 공개). 발견 여부만 /me/state 가 권위(코덱스 진척).
+// v2 모험의 서 — 사냥터 + 재료 도감 + 어보(어종) + 유물(골동품) + 직업(거쳐온 직업/스킬 수집) 탭.
+// 정적 카탈로그(전종 공개)는 /me/state 가 발견 여부 권위. 직업 도감만 별도(/api/v2/me/job-codex, lazy).
 
 // floor id → "들판 (Lv 1~5)" 식 표시명. MAIN_DUNGEON 이 단일 출처.
 const FLOOR_LABEL: Record<DungeonFloorId, string> = (() => {
@@ -92,7 +94,7 @@ const TIER_BADGE: Record<FishTier, string> = {
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
 
-type CodexTab = "huntground" | "materials" | "fish" | "treasure";
+type CodexTab = "huntground" | "materials" | "fish" | "treasure" | "job";
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -164,6 +166,27 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
     };
   }, []);
 
+  // 직업 도감 — 별도 엔드포인트라 "직업" 탭 최초 진입 시 1회만 lazy-load(이미 있으면 재요청 안 함).
+  const [jobCodex, setJobCodex] = useState<JobCodex | null>(null);
+  const [jobCodexLoading, setJobCodexLoading] = useState(false);
+  useEffect(() => {
+    if (tab !== "job" || jobCodex) return;
+    let alive = true;
+    setJobCodexLoading(true);
+    fetch("/api/v2/me/job-codex")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; codex?: JobCodex } | null) => {
+        if (alive && j?.ok && j.codex) setJobCodex(j.codex);
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (alive) setJobCodexLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tab, jobCodex]);
+
   // 드랍 출처가 하나라도 있는 재료만 — 출처 없는 재료(미배치)는 숨긴다.
   const materialEntries = (Object.keys(V2_MATERIALS) as V2MaterialId[])
     .map((id) => ({
@@ -194,10 +217,17 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             text: "어보 — 낚시터에서 잡은 물고기와 개인 최대어 기록.",
             count: `등재 ${FISH_IDS.filter((id) => fishDiscovered.has(id)).length}/${FISH_TOTAL}종`,
           }
-        : {
-            text: "유물 — 발굴로 찾아낸 골동품과 개인 최고 보존상태.",
-            count: `등재 ${ANTIQUE_IDS.filter((id) => antiqueDiscovered.has(id)).length}/${ANTIQUE_TOTAL}종`,
-          };
+        : tab === "treasure"
+          ? {
+              text: "유물 — 발굴로 찾아낸 골동품과 개인 최고 보존상태.",
+              count: `등재 ${ANTIQUE_IDS.filter((id) => antiqueDiscovered.has(id)).length}/${ANTIQUE_TOTAL}종`,
+            }
+          : {
+              text: "직업 — 거쳐온 직업과 모은 스킬의 기록.",
+              count: jobCodex
+                ? `해금 ${jobCodex.jobs.filter((j) => j.unlocked).length}/${jobCodex.jobs.length} · 스킬 수집 ${jobCodex.jobs.filter((j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal).length}/${jobCodex.jobs.length}`
+                : "",
+            };
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -208,13 +238,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           {subtitle.count}
         </span>
       </p>
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {(
           [
             ["huntground", "사냥터"],
             ["materials", "재료"],
             ["fish", "어보"],
             ["treasure", "유물"],
+            ["job", "직업"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -591,6 +622,18 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           })}
         </div>
       )}
+      {tab === "job" &&
+        (jobCodex ? (
+          <JobCodexList codex={jobCodex} />
+        ) : (
+          <Card padding="md">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              {jobCodexLoading
+                ? "직업 도감을 불러오는 중…"
+                : "직업 도감을 불러오지 못했어요."}
+            </p>
+          </Card>
+        ))}
     </main>
   );
 }

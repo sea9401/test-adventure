@@ -62,6 +62,7 @@ import {
   CATALOG_USES_QUEST_CONDITION,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
+import { skillsForJob } from "@/adventure/data/v2/v2SkillsByJob";
 import { loadCompletedQuestIds } from "@/lib/server/v2QuestContext";
 import { parseV2Element } from "@/adventure/data/v2/elements";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -414,6 +415,8 @@ export async function GET() {
           const currentJobName =
             V2_JOB_CATALOG[currentJobId]?.name ??
             (cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가"));
+          // 스킬 수집 완료 판정용 — 학습한 스킬 집합(직업 도감과 동일 기준).
+          const learnedSet = new Set(parseV2SkillsState(skillsRow?.value).learned);
           return {
             currentJobId,
             currentJobName,
@@ -437,12 +440,18 @@ export async function GET() {
               const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
                 .map((k) => `${V2_STAT_LABELS[k]} +${job.jobBonus[k]}`)
                 .join(" · ");
+              // 스킬 수집 완료 — 그 직업의 시그니처 스킬(액티브+패시브)을 전부 배웠는가(직업 도감과 동일).
+              const signature = skillsForJob(job.id);
+              const skillsCollected =
+                signature.length > 0 &&
+                signature.every((id) => learnedSet.has(id));
               return {
                 id: job.id,
                 name: job.name,
                 tier: job.tier,
                 condition,
                 bonus,
+                skillsCollected,
               };
             }),
           };

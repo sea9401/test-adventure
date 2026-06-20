@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CheckCircle } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -16,6 +17,8 @@ export type JobLadderEntry = {
   condition: string;
   // 직업 내장 스탯 보너스(현재 직업일 때 적용) 표기. 예: "활력 +12 · 힘 +6". 없으면 빈 문자열.
   bonus?: string;
+  // 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일 기준) — "수집 완료" 배지용.
+  skillsCollected?: boolean;
 };
 
 type Pending = { id: string; name: string };
@@ -193,6 +196,12 @@ function JobRow({
           {isCurrent && (
             <span className="shrink-0 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
               현재 직업
+            </span>
+          )}
+          {job.skillsCollected && (
+            <span className="flex shrink-0 items-center gap-0.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
+              <CheckCircle size={11} weight="fill" />
+              수집 완료
             </span>
           )}
         </div>

@@ -93,24 +93,24 @@ describe("5티어 — 약점 분석", () => {
 
 describe("5티어 — 가시 갑옷", () => {
   it("받은 피해의 N% 를 적에게 반사", () => {
-    // 적 atk 100 → damageBetween(100, 5) = 95 → 반사 30% = 28
+    // 적 atk 100 → damageToDefender(100,5)=round(10000/115)=87 → 반사 30% = 26
     const p: PlayerCombat = { ...PLAYER, bramblePct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타 7 → 993
     expect(s.enemyHp).toBe(993);
-    s = advanceTurn(s, p, "용사"); // 적 본타 95 피해 + 반사 28
-    expect(s.playerHp).toBe(9999 - 95);
-    expect(s.enemyHp).toBe(993 - 28);
+    s = advanceTurn(s, p, "용사"); // 적 본타 87 피해 + 반사 26
+    expect(s.playerHp).toBe(9999 - 87);
+    expect(s.enemyHp).toBe(993 - 26);
   });
 
   it("반사 갑주(특기) 와 누적된다", () => {
-    // 적 atk 100, damageBetween(100,5)=95 → thorns 20% = 19 + bramble 30% = 28 → 합 47
+    // 적 atk 100, damageToDefender(100,5)=87 → thorns 20% = 17 + bramble 30% = 26 → 합 43
     const p: PlayerCombat = { ...PLAYER, thornsPct: 20, bramblePct: 30 };
     let s = initialBattleState(p, enemy(1000, { atk: 100 }), "용사");
     s = advanceTurn(s, p, "용사"); // 본타
     const before = s.enemyHp;
     s = advanceTurn(s, p, "용사"); // 적 본타 + 합산 반사
-    expect(before - s.enemyHp).toBe(47);
+    expect(before - s.enemyHp).toBe(43);
   });
 });
 

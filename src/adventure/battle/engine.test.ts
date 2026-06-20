@@ -16,7 +16,7 @@ import {
   POISON_PCT_PER_POINT,
   CRIT_MULT_BASE,
 } from "../data/v2/v2CombatConstants";
-import { makeBleedDot, makePoisonDot } from "../v2/combat/combatShared";
+import { makeBleedDot, makePoisonDot, damageToDefender } from "../v2/combat/combatShared";
 import type { Monster } from "../data/monsters";
 import type { Potion } from "../data/potions";
 
@@ -72,6 +72,26 @@ describe("damageBetween", () => {
   });
 });
 
+describe("damageToDefender (적→플레이어 비대칭 비율감산)", () => {
+  it("비율감산 = round(atk²/(atk+3·def)), def=0 면 atk 그대로(불변)", () => {
+    expect(damageToDefender(20, 0)).toBe(20); // 무방어 = atk(damageBetween 과 byte-identical)
+    expect(damageToDefender(100, 5)).toBe(87); // round(10000/115)
+    expect(damageToDefender(20, 3)).toBe(14); // round(400/29)
+  });
+  it("엔드(atk≫def)서도 def 가 %경감 유지 — 선형 atk−def 와 달리 무용화 안 됨", () => {
+    // atk 1000, def 200: 선형이면 800(20%경감)·비율이면 round(1e6/1600)=625(37.5%경감).
+    expect(damageToDefender(1000, 200)).toBe(625);
+    expect(damageBetween(1000, 200)).toBe(800); // 대조 — 선형은 경감 약함
+  });
+  it("15% floor — 고방어도 최대 85% 경감(무적 탱 방지)", () => {
+    expect(damageToDefender(100, 10000)).toBe(15); // ceil(100×0.15)
+  });
+  it("분모 가드 — atk=0 & def=0 이면 NaN 아니라 1(Codex 엣지)", () => {
+    expect(damageToDefender(0, 0)).toBe(1);
+    expect(damageToDefender(0, 5)).toBe(1);
+  });
+});
+
 describe("보스 부분 관통 (armorVulnerable / playerDefVulnerable)", () => {
   it("armorVulnerable — 플레이어 공격이 적 DEF 의 그 비율을 무시", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 추가공격/회피/크리 미발동
@@ -86,9 +106,9 @@ describe("보스 부분 관통 (armorVulnerable / playerDefVulnerable)", () => {
   it("playerDefVulnerable — 적 공격이 플레이어 DEF 의 그 비율을 무시", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);
     const enemy = makeEnemy({ atk: 20, def: 0, spd: 99, playerDefVulnerable: 0.5 });
-    // 적 선공. 실효 플레이어 DEF = round(5 × 0.5) = 3 → 데미지 = 20 - 3 = 17 (단, 바닥 ceil(20×0.15)=3 보다 큼).
+    // 적 선공. 실효 플레이어 DEF = round(5 × 0.5) = 3 → damageToDefender(20,3)=round(400/29)=14 (바닥 ceil(20×0.15)=3 보다 큼).
     const s = advanceTurn(initialBattleState(PLAYER, enemy, "용사"), PLAYER, "용사");
-    expect(s.playerHp).toBe(PLAYER.hp - 17);
+    expect(s.playerHp).toBe(PLAYER.hp - 14);
   });
 });
 
@@ -249,7 +269,7 @@ describe("advanceTurn (enemy phase)", () => {
   it("전문화 받피감(passiveDamageTakenReductionPct) — 받는 피해 %감소, 미보유=불변", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99); // 무조건 피격
     const enemy = makeEnemy({ atk: 40 }); // base 피해 충분히 크게(반올림 영향 최소)
-    const base = damageBetween(enemy.atk, PLAYER.def);
+    const base = damageToDefender(enemy.atk, PLAYER.def); // 적→플레이어 = 비대칭 비율감산
     // 받피감 50% → floor(base×0.5) 피해
     const tanky: PlayerCombat = {
   accuracyPct: 100,
@@ -1058,7 +1078,7 @@ describe("가드 (guard)", () => {
       guard: { turns: 2, reduction: 1 },
     };
     const enemy = makeEnemy({ atk: 10, spd: 99 });
-    const expectedDmg = damageBetween(enemy.atk, PLAYER.def);
+    const expectedDmg = damageToDefender(enemy.atk, PLAYER.def); // 적→플레이어 비대칭 비율감산
     let s = initialBattleState(tough, enemy, "P"); // enemy 선공
     s = advanceTurn(s, tough, "P"); // turn 1 enemy phase — 가드 적용
     let dealt = PLAYER.hp - s.playerHp;
@@ -1082,7 +1102,7 @@ describe("가드 (guard)", () => {
       guard: { turns: 3, reduction: 1 },
     };
     const enemy = makeEnemy({ atk: 10, spd: 1 }); // player 선공
-    const expectedDmg = damageBetween(enemy.atk, PLAYER.def);
+    const expectedDmg = damageToDefender(enemy.atk, PLAYER.def); // 적→플레이어 비대칭 비율감산
     let s = initialBattleState(tough, enemy, "P");
     // 3번의 적 페이즈 모두 가드 적용
     for (let i = 0; i < 3; i += 1) {
@@ -1265,7 +1285,7 @@ describe("만개 (critMult / critChance) 누적", () => {
 
 describe("잡몹 스킬", () => {
   it("관통 — 적 공격이 플레이어 DEF 를 무시", () => {
-    // PLAYER def 5, 적 atk 8 → 평소 3 피해. 관통 3 이면 def 2 취급 → 6 피해.
+    // PLAYER def 5, 적 atk 8, 관통 3 → def 2 취급 → damageToDefender(8,2)=round(64/14)=5.
     const enemy = makeEnemy({
       atk: 8,
       spd: 99, // 적 선공
@@ -1273,7 +1293,7 @@ describe("잡몹 스킬", () => {
     });
     let s = initialBattleState(PLAYER, enemy, "P");
     s = advanceTurn(s, PLAYER, "P");
-    expect(PLAYER.hp - s.playerHp).toBe(6);
+    expect(PLAYER.hp - s.playerHp).toBe(5);
   });
 
   it("방어 태세 — 플레이어 공격 데미지 감소 (최소 1 클램프)", () => {
@@ -1333,10 +1353,10 @@ describe("잡몹 스킬", () => {
     expect(strong.hp - s.playerHp).toBe(3);
     expect(s.buffs.enemyAtkBonus).toBe(0);
     s = advanceTurn(s, strong, "P"); // 플레이어 — 적 18→6 (< 15)
-    s = advanceTurn(s, strong, "P"); // 적 페이즈 — 격노 발동, atk 18 → 18-5 = 13 피해
+    s = advanceTurn(s, strong, "P"); // 적 페이즈 — 격노 발동, atk 18 → damageToDefender(18,5)=round(324/33)=10
     expect(s.buffs.enemyAtkBonus).toBe(10);
     expect(s.flags.enrageTriggered).toBe(true);
-    expect(strong.hp - s.playerHp).toBe(3 + 13);
+    expect(strong.hp - s.playerHp).toBe(3 + 10);
     expect(s.log.filter((e) => e.text.startsWith("[격노]")).length).toBe(1);
   });
 });

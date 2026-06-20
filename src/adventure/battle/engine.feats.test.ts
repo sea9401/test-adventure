@@ -152,9 +152,9 @@ describe("2티어 특기 — 불굴의 일격", () => {
     const p: PlayerCombat = { ...PLAYER, enduringStrikeMult: 0.25 };
     let s = initialBattleState(p, strongEnemy, "용사");
     s = advanceTurn(s, p, "용사"); // 본타 9 → 91
-    s = advanceTurn(s, p, "용사"); // 적 턴 -7 (12-5) → damageTaken=7
-    expect(s.stacks.damageTakenThisCombat).toBe(7);
-    s = advanceTurn(s, p, "용사"); // 2턴 본타: floor(7*0.25)=1 추가 ATK → baseDmg(11,1)=10 → 81
+    s = advanceTurn(s, p, "용사"); // 적 턴 damageToDefender(12,5)=round(144/27)=5 → damageTaken=5
+    expect(s.stacks.damageTakenThisCombat).toBe(5);
+    s = advanceTurn(s, p, "용사"); // 2턴 본타: floor(5*0.25)=1 추가 ATK → baseDmg(11,1)=10 → 81 (플레이어 공격 불변)
     expect(s.enemyHp).toBe(81);
   });
 });

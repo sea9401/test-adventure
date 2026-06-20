@@ -121,9 +121,26 @@ export const DAMAGE_FLOOR_FRACTION = 0.15;
 
 // 평타 1타 데미지 = max(1, ceil(atk×하한비율), atk−def). 엔진 평타·패턴 "평타 바닥" 모델 공유.
 //   (구 engine.ts 정의를 여기로 이전 — combatShared 가 더 하위 레이어라 engine 이 재노출.)
+//   ⚠️ 플레이어→적(공격) 전용. 적→플레이어(피격)는 damageToDefender(비대칭 비율감산).
 export function damageBetween(atk: number, def: number): number {
   const minByAtk = Math.ceil(Math.max(0, atk) * DAMAGE_FLOOR_FRACTION);
   return Math.max(1, minByAtk, atk - def);
+}
+
+// 비대칭 방어 비율감산(DEX 독주 재설계 — docs/v2-dex-dominance-plan §0-C) — **적→플레이어 피격 전용**.
+//   경감률 = K·def/(atk + K·def). 엔드(적atk≫def)서도 def 가 %경감 유지 → VIT/SPI 방어축 부활.
+//   🔑 비대칭인 이유: 대칭(damageBetween 양쪽)이면 K↑가 적 def 로 플레이어 공격도 깎아 저공격 빌드를
+//   floor 로 밀어 백파이어(실측 #922 §0-B). 그래서 **피격(생존)에만** 적용, 플레이어 공격은 불변.
+//   def=0 이면 atk 그대로(무방어 적 무관). 15% floor 유지 = 최대 경감 85%(무적 탱 방지).
+export const DEF_MITIGATION_K = 3; // sim 보정 다이얼
+export function damageToDefender(atk: number, def: number): number {
+  const a = Math.max(0, atk);
+  const d = Math.max(0, def);
+  const minByAtk = Math.ceil(a * DAMAGE_FLOOR_FRACTION);
+  // 분모 가드 — a=0(적 atk 완전 디버프) & d=0 이면 0/0=NaN → Math.max 가 NaN 전파(Codex). 0 으로.
+  const denom = a + DEF_MITIGATION_K * d;
+  const mitigated = denom > 0 ? Math.round((a * a) / denom) : 0;
+  return Math.max(1, minByAtk, mitigated);
 }
 
 // 포션 회복량(정수, 현재 HP 클램프 전). computeHealAmount 에 potionHealPct(연단의 룬 등) 가산.

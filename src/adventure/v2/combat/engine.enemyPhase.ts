@@ -9,6 +9,7 @@ import {
 } from "./engine";
 import {
   damageBetween,
+  damageToDefender,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
@@ -168,7 +169,7 @@ export function resolveEnemyPhase(
     const v2EffAtk = v2AtkMultE !== 1 ? Math.floor(effAtk * v2AtkMultE) : effAtk;
     // 마법 공격이면 추정도 마법방어 기준(물리 파이프라인 우회) — 실제 피해 분기와 일관.
     if (magicAttack) {
-      return damageBetween(v2EffAtk, Math.max(0, player.magicDef ?? 0));
+      return damageToDefender(v2EffAtk, Math.max(0, player.magicDef ?? 0));
     }
     const sk = state.enemy.skill;
     const pierced =
@@ -178,7 +179,7 @@ export function resolveEnemyPhase(
       playerDefVuln > 0 ? Math.round(pierced * (1 - playerDefVuln)) : pierced;
     const v2DefMultP = v2DefBuffMult(state.v2SelfBuffs, state.v2SelfDebuffs);
     const v2EffDef = v2DefMultP !== 1 ? Math.floor(effDef * v2DefMultP) : effDef;
-    return damageBetween(v2EffAtk, v2EffDef);
+    return damageToDefender(v2EffAtk, v2EffDef);
   })();
   const reflexEvadeDmg =
     reflexEvadeMult > 0
@@ -546,7 +547,7 @@ export function resolveEnemyPhase(
   const defenseForAttack = magicAttack
     ? Math.max(0, player.magicDef ?? 0)
     : v2EffectivePlayerDef;
-  const baseEnemyDmgRaw = damageBetween(v2EffectiveEnemyAtk, defenseForAttack);
+  const baseEnemyDmgRaw = damageToDefender(v2EffectiveEnemyAtk, defenseForAttack);
   // 속성 방어 상성(2026-06-20 양방향) — 몹 평타가 몹속성 vs 플레이어속성 배수 적용. 내가 몹 속성에
   //   강하면 덜 맞고 약하면 더 맞음. 평타는 매 턴 발동하므로 방어 상성의 일관 적용점이다. 🔑 무속성
   //   매치업은 ×1(neutral)이라 가드로 스킵 → RNG 무소비·기존 전투 byte-identical. (몹 스킬은 중립

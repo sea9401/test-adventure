@@ -16,6 +16,7 @@ import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
   COOP_TIER_LABEL,
+  COOP_VISIBILITY_LABEL,
   COOP_VISIBILITY_OPTIONS,
   coopAttackCooldownMs,
 } from "@/adventure/data/v2/coopBosses";
@@ -109,6 +110,9 @@ export function V2CoopBossDetailView({
   const lowStamina =
     !V2_CORE_LOOP_V2 && stamina.current < COOP_ATTACK_STAMINA_COST;
   const claimable = session.defeated && !my.claimed && my.tier != null;
+  // 공개 범위 — 소환자(활성)는 변경 컨트롤, 그 외 모두(비참여자 포함)는 읽기 전용 배지로 현재 범위 노출.
+  const showScopeControl = V2_CORE_LOOP_V2 && session.isOwner && active;
+  const showScopeBadge = V2_CORE_LOOP_V2 && !showScopeControl;
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -140,6 +144,11 @@ export function V2CoopBossDetailView({
             <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
               {session.summonedByName} 님이 소환
             </p>
+          )}
+          {showScopeBadge && (
+            <span className="mt-1 inline-block rounded border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[10px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+              공개 범위 · {COOP_VISIBILITY_LABEL[session.visibility]}
+            </span>
           )}
           <p className="mt-0.5 font-mono text-sm text-zinc-600 dark:text-zinc-300">
             {session.hp.toLocaleString()} / {session.maxHp.toLocaleString()}
@@ -219,7 +228,7 @@ export function V2CoopBossDetailView({
       </Card>
 
       {/* 소환자 전용 — 소환 후 공개 범위 변경. 나만/길드원만으로 시작해 기여 보상을 쌓은 뒤 공개로. */}
-      {V2_CORE_LOOP_V2 && session.isOwner && active && (
+      {showScopeControl && (
         <Card padding="md" className="space-y-2">
           <div className="flex items-baseline justify-between">
             <span className="text-sm font-semibold">공개 범위</span>

@@ -224,10 +224,20 @@ export function resolveBattlePvPAtb(
     //   castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음. atbPlayerView
     //   적용은 평타와 동일하게 withAtbPlayers 로 감싼다. cast 가 적을 처치(phase=ended)하면
     //   아래 평타 루프가 자연히 스킵되고 return 의 최종 hp_bar 가 마무리한다(legacy 미러).
+    let castSelfHastePct = 0; // 바람 — who 의 다음 행동 틱 가속(아래 틱 증가에서 반영).
     if (V2_ATB_SKILLS) {
       const castLogLen = state.log.length;
-      state = withAtbPlayers(castV2SkillOnAttackerTurnPvP(state, who));
+      const cast = castV2SkillOnAttackerTurnPvP(state, who);
+      state = withAtbPlayers(cast.state);
       state = tagNewLogEntries(state, castLogLen, who, nextTick);
+      castSelfHastePct = cast.selfHastePct;
+      if (cast.enemyDelayPct > 0) {
+        // 대지 — 상대(other)의 다음 행동(p?NextTick 에 예약됨)을 상대 인터벌의 pct% 만큼 뒤로 민다.
+        const push =
+          actionInterval(effectiveSideSpd(state, other)) * (cast.enemyDelayPct / 100);
+        if (other === "p1") p1NextTick += push;
+        else p2NextTick += push;
+      }
     }
 
     let action: PlayerAction = { kind: "attack" };
@@ -251,10 +261,13 @@ export function resolveBattlePvPAtb(
       if (state.phase === "ended") break;
     }
 
+    // 바람 — 이번 액터의 다음 행동 틱을 가속(pct% 단축). 미시전이면 0 → 무변.
     if (who === "p1") {
-      p1NextTick += actionInterval(effectiveSideSpd(state, "p1"));
+      p1NextTick +=
+        actionInterval(effectiveSideSpd(state, "p1")) * (1 - castSelfHastePct / 100);
     } else {
-      p2NextTick += actionInterval(effectiveSideSpd(state, "p2"));
+      p2NextTick +=
+        actionInterval(effectiveSideSpd(state, "p2")) * (1 - castSelfHastePct / 100);
     }
     turns += 1;
 

@@ -144,6 +144,10 @@ export type PvPSideStacks = {
   skillEvasionTurns: number;
   enemyVulnPct: number; // 속박 — 시전자가 가하는 피해 +% (받는 쪽 취약)
   enemyVulnTurns: number;
+  // 화상(원소술사 불) — 이 side 에 걸린 회복 감소 디버프(상대가 부착). 이 side 의 회복(회복 스킬·재생)
+  //   −healReducePct%. 흡혈/공격파생 회복은 제외. 자기 턴(cast hook)에 turns 감소.
+  healReducePct: number;
+  healReduceTurns: number;
   // 약점 노출(마도사) — 이 side 에 누적된 마법취약 스택(상대가 부착). 스택당 받는 스킬피해 +%
   // (상대 enemyMagicVulnPctPerStack), 비전 작렬 payoff 가 소비. 감쇠 없음·MAGIC_VULN_STACK_CAP 상한.
   magicVulnStacks: number;
@@ -394,6 +398,8 @@ function buildSide(
       skillEvasionTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      healReducePct: 0,
+      healReduceTurns: 0,
       magicVulnStacks: 0,
       spellCastCount: 0,
     },
@@ -464,7 +470,10 @@ function applyRegen(state: PvPBattleState, key: "p1" | "p2"): PvPBattleState {
   if (side.turn.completedPlayerTurns === 0) return state;
   if (side.turn.completedPlayerTurns % r.interval !== 0) return state;
   if (side.hp >= side.maxHp) return state;
-  const newHp = Math.min(side.maxHp, side.hp + r.amount);
+  // 화상(healReduce) — 재생도 회복이므로 감소. 디버프 없으면(0) byte-identical.
+  const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
+  const amount = hr > 0 ? Math.floor(r.amount * (1 - hr / 100)) : r.amount;
+  const newHp = Math.min(side.maxHp, side.hp + amount);
   const actual = newHp - side.hp;
   let next = setSide(state, key, { ...side, hp: newHp });
   next = {
@@ -1173,7 +1182,12 @@ export const PVP_TURN_CAP = 100;
 export function castV2SkillOnAttackerTurnPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
-): PvPBattleState {
+): {
+  state: PvPBattleState;
+  // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 .state 만 쓰고 무시. ATB 루프가 틱 반영.
+  selfHastePct: number;
+  enemyDelayPct: number;
+} {
   const sideStart = state[who];
   const otherKey: "p1" | "p2" = who === "p1" ? "p2" : "p1";
   let st = state;
@@ -1350,10 +1364,14 @@ export function castV2SkillOnAttackerTurnPvP(
       side: who,
     });
   }
-  // heal: 같은 player_attack kind (자기 행동).
+  // heal: 같은 player_attack kind (자기 행동). 화상(healReduce)이 걸렸으면 회복 감소.
+  //   디버프 없으면(0) Math.floor 미적용 → byte-identical.
   if (result.selfHeal > 0 && result.castSkillName) {
+    const hr = side.stacks.healReduceTurns > 0 ? side.stacks.healReducePct : 0;
+    const effHeal =
+      hr > 0 ? Math.floor(result.selfHeal * (1 - hr / 100)) : result.selfHeal;
     const before = nextSideHp;
-    nextSideHp = Math.min(side.maxHp, nextSideHp + result.selfHeal);
+    nextSideHp = Math.min(side.maxHp, nextSideHp + effHeal);
     const actual = nextSideHp - before;
     if (actual > 0) {
       nextLog = appendLog(nextLog, {
@@ -1405,6 +1423,9 @@ export function castV2SkillOnAttackerTurnPvP(
     // 속박 — 위 스킬피해 배수와 동일 값(turn-start 감소/set) 사용 → 같은 턴 스킬·평타 일관.
     enemyVulnPct: nextEnemyVulnPct,
     enemyVulnTurns: nextEnemyVulnTurns,
+    // 화상 — 이 side 에 걸린 회복 감소. 자기 턴 시작에 turns 감소(부착은 상대 cast 의 nextOpp 에서).
+    healReducePct: side.stacks.healReducePct,
+    healReduceTurns: Math.max(0, side.stacks.healReduceTurns - 1),
     // 주문 중첩 — 패시브 보유 + 시전 시 +1(데미지 무관, cap). PvE increment 미러.
     spellCastCount:
       (side.player.skillDmgPctPerCast ?? 0) > 0 && result.castSkillId
@@ -1496,8 +1517,18 @@ export function castV2SkillOnAttackerTurnPvP(
     hp: nextOppHp,
     v2SelfDebuffs: nextOppSelfDebuffs,
     v2Dots: nextOppDots,
-    stacks: { ...opp.stacks, magicVulnStacks: nextOppMagicVuln },
+    stacks: {
+      ...opp.stacks,
+      magicVulnStacks: nextOppMagicVuln,
+      // 화상 부착 — 시전자가 상대에게 회복 감소 디버프. 상대는 자기 턴(cast hook)에 turns 감소.
+      healReducePct: result.enemyHealReduceToApply?.pct ?? opp.stacks.healReducePct,
+      healReduceTurns: result.enemyHealReduceToApply
+        ? result.enemyHealReduceToApply.turns
+        : opp.stacks.healReduceTurns,
+    },
   };
+  const selfHastePct = result.selfHasteToApply?.pct ?? 0;
+  const enemyDelayPct = result.enemyDelayToApply?.pct ?? 0;
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
@@ -1507,17 +1538,21 @@ export function castV2SkillOnAttackerTurnPvP(
   //   잠재 버그. 다단히트로 치명 시전이 흔해져 가드 필수. main loop 가 phase==="ended" 를 받아 처리.
   if (nextOppHp <= 0 && next.phase !== "ended") {
     return {
-      ...next,
-      log: appendLog(next.log, {
-        kind: "info",
-        text: `${opp.name}이(가) 쓰러졌다.`,
-        side: who,
-      }),
-      phase: "ended",
-      outcome: who === "p1" ? "p1_win" : "p2_win",
+      state: {
+        ...next,
+        log: appendLog(next.log, {
+          kind: "info",
+          text: `${opp.name}이(가) 쓰러졌다.`,
+          side: who,
+        }),
+        phase: "ended",
+        outcome: who === "p1" ? "p1_win" : "p2_win",
+      },
+      selfHastePct,
+      enemyDelayPct,
     };
   }
-  return next;
+  return { state: next, selfHastePct, enemyDelayPct };
 }
 
 function resolveBattlePvPLegacy(
@@ -1589,7 +1624,8 @@ function resolveBattlePvPLegacy(
     v2CastedThisPhase[other] = false;
     if (!v2CastedThisPhase[who]) {
       v2CastedThisPhase[who] = true;
-      state = castV2SkillOnAttackerTurnPvP(state, who);
+      // legacy(턴제)는 ATB 템포(selfHaste/enemyDelay)를 쓰지 않으므로 .state 만 사용.
+      state = castV2SkillOnAttackerTurnPvP(state, who).state;
       // PR-8: cast hook 의 dot tick 으로 side 가 사망 → outcome=ended. 후속 처리 skip.
       if (state.phase === "ended") {
         state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };

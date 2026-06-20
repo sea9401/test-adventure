@@ -240,6 +240,8 @@ export type BattleStacks = {
   enemyEvasionDownTurns: number;
   enemyAccuracyDownPct: number; // 암흑 — 적 명중 -%p(적 헛침↑)
   enemyAccuracyDownTurns: number;
+  enemyHealReducePct: number; // 화상 — 적 회복 효과 -%(회복 스킬·재생). 흡혈 제외.
+  enemyHealReduceTurns: number;
 };
 
 export type BattleState = {
@@ -967,6 +969,8 @@ function applySkillTempBuffs(
     enemyEvasionDownTurns: result.enemyEvasionDownToApply ? result.enemyEvasionDownToApply.turns : prev.enemyEvasionDownTurns,
     enemyAccuracyDownPct: result.enemyAccuracyDownToApply?.pct ?? prev.enemyAccuracyDownPct,
     enemyAccuracyDownTurns: result.enemyAccuracyDownToApply ? result.enemyAccuracyDownToApply.turns : prev.enemyAccuracyDownTurns,
+    enemyHealReducePct: result.enemyHealReduceToApply?.pct ?? prev.enemyHealReducePct,
+    enemyHealReduceTurns: result.enemyHealReduceToApply ? result.enemyHealReduceToApply.turns : prev.enemyHealReduceTurns,
   };
 }
 
@@ -1006,6 +1010,7 @@ export function finishPlayerTurn(
         enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
         enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
         enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
+        enemyHealReduceTurns: Math.max(0, s.enemyHealReduceTurns - 1),
       },
     };
   }
@@ -1239,6 +1244,8 @@ export function initialBattleState(
       enemyEvasionDownTurns: 0,
       enemyAccuracyDownPct: 0,
       enemyAccuracyDownTurns: 0,
+      enemyHealReducePct: 0,
+      enemyHealReduceTurns: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     v2Skills,
@@ -1404,7 +1411,13 @@ export function applyPlayerV2SkillCast(
     selfDebuffs: import("./combatShared").V2BuffMap;
     enemyDebuffs: import("./combatShared").V2BuffMap;
   },
-): { state: BattleState; castFired: boolean } {
+): {
+  state: BattleState;
+  castFired: boolean;
+  // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 무시. ATB 루프가 틱 계산에 반영.
+  selfHastePct: number;
+  enemyDelayPct: number;
+} {
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
   const tickedEnemyDebuffs = ticked.enemyDebuffs;
@@ -1692,6 +1705,13 @@ export function applyPlayerV2SkillCast(
       turn: "player",
     });
   }
+  if (result.enemyHealReduceToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "화상"}] 적 회복 −${result.enemyHealReduceToApply.pct}% (${result.enemyHealReduceToApply.turns}턴)`,
+      turn: "player",
+    });
+  }
   state = {
     ...state,
     playerHp: nextPlayerHp,
@@ -1716,7 +1736,12 @@ export function applyPlayerV2SkillCast(
     },
     log: nextLog,
   };
-  return { state, castFired: result.castSkillId != null };
+  return {
+    state,
+    castFired: result.castSkillId != null,
+    selfHastePct: result.selfHasteToApply?.pct ?? 0,
+    enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
+  };
 }
 
 function resolveBattleLegacy(
@@ -1948,10 +1973,17 @@ function resolveBattleLegacy(
             text: `${result.castSkillName}! ${result.enemyDamage} 피해를 입혔다.`,
           });
         }
-        // 적의 self heal — enemy_attack kind (적 측 행동).
+        // 적의 self heal — enemy_attack kind (적 측 행동). 화상(enemyHealReduce)이 있으면 회복 감소.
+        //   디버프 없으면(0) Math.floor 미적용 → byte-identical. (라이브 ATB 는 적 cast 미발동이라 inert)
         if (result.selfHeal > 0 && result.castSkillName) {
+          const healReduce =
+            state.stacks.enemyHealReduceTurns > 0 ? state.stacks.enemyHealReducePct : 0;
+          const effHeal =
+            healReduce > 0
+              ? Math.floor(result.selfHeal * (1 - healReduce / 100))
+              : result.selfHeal;
           const before = nextEnemyHp;
-          nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + result.selfHeal);
+          nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + effHeal);
           const actual = nextEnemyHp - before;
           if (actual > 0) {
             nextLog = appendLog(nextLog, {

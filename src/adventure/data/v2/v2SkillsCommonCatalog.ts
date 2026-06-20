@@ -616,18 +616,23 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_elementalist_magic: {
     // 속성 마법 — 시전자 캐릭터 속성에 따라 효과가 갈린다(combatShared 가 elementEffects[캐릭속성] 적용).
     //   로그엔 "불 마법/물 마법…" 동적 표기(elementNamed). 데미지는 전부 마법(int) 스케일.
-    //   물=보호막·번개=취약·불=연소·빛=실명(회피↓)·어둠=암흑(명중↓). 잔여(후속 PR): 불 화상 치유감소,
-    //   바람=ATB 가속·대지=ATB 지연(현재는 속성 딜만). 무속성(폴백)=순수 마법 딜.
+    //   물=보호막·번개=취약·불=연소+치유감소·빛=실명(회피↓)·어둠=암흑(명중↓)·바람=ATB 가속·대지=ATB
+    //   지연. selfHaste/enemyDelay 는 ATB 전용(legacy 에선 inert). enemyHealReduce 는 회복 스킬·재생만
+    //   감소(흡혈 제외)·PvE 몹은 회복 드물어 주로 PvP. 무속성(폴백)=순수 마법 딜.
     id: "v2c_elementalist_magic", name: "속성 마법", stat: "int", category: "attack", tier: 3,
     description: "다스리는 원소를 끌어내 적에게 퍼붓는다. 속성에 따라 다른 권능이 깃든다.",
     mpCost: 46, cooldown: 0, procChance: 30,
     elementNamed: true,
     effects: [dmg(1.3, 200, "magic")], // 무속성 폴백
     elementEffects: {
-      fire: [dmg(1.3, 200, "magic"), { kind: "dot", ...V2_DOT_PRESETS.연소 }],
+      fire: [
+        dmg(1.3, 200, "magic"),
+        { kind: "dot", ...V2_DOT_PRESETS.연소 },
+        { kind: "enemyHealReduce", pct: 50, turns: 3 }, // 화상 — 적 회복 −50%(3턴)
+      ],
       water: [{ kind: "shield", pctMaxHp: 12, pctMaxMp: 0, turns: 3 }],
-      wind: [dmg(1.3, 200, "magic")],
-      earth: [dmg(1.3, 200, "magic")],
+      wind: [dmg(1.3, 200, "magic"), { kind: "selfHaste", pct: 50 }], // 바람 — 내 다음 행동 ms −50%
+      earth: [dmg(1.3, 200, "magic"), { kind: "enemyDelay", pct: 50 }], // 대지 — 적 다음 행동 ms +50%
       lightning: [dmg(1.3, 200, "magic"), { kind: "enemyVuln", pct: 20, turns: 3 }],
       starlight: [
         dmg(1.3, 200, "magic"),

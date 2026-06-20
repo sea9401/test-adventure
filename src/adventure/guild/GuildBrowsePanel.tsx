@@ -167,7 +167,7 @@ export function GuildBrowsePanel({
                       </div>
                       <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                         명성 {g.fameTotal.toLocaleString()} · 인원 {g.memberCount}/
-                        {cap}
+                        {cap} · 길드장 {g.masterName}
                       </p>
                       {g.description ? (
                         <p className="mt-1 line-clamp-2 text-xs text-zinc-600 dark:text-zinc-300">

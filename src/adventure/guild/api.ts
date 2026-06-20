@@ -4,6 +4,7 @@
 export type GuildBrowseEntry = {
   id: number;
   name: string;
+  masterName: string; // 길드마스터 닉네임(없으면 "모험가")
   description: string | null;
   fameTotal: number;
   grade: string;

@@ -93,6 +93,10 @@ export const GRID_COLS_BY_TIER: Record<VillageTier, number> = {
   city: 3,
   metropolis: 4,
 };
+// 화면에 항상 보여주는 판 크기 = 가장 큰 단계(대도시) 기준 4×4. 단계가 낮아도 그 단계 최대
+//   (MAX_SLOTS_BY_TIER) 너머의 칸을 흐리게(상위 단계 필요) 함께 보여줘 잠재 판을 미리 보게 한다.
+export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 4
+export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 16 (4×4)
 // 건설 직후 열려 있는 칸 수 — 0(첫 칸도 골드로 해금하며 종류를 고른다).
 export const INITIAL_UNLOCKED_SLOTS = 0;
 

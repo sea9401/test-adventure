@@ -196,9 +196,7 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <SubViewHeader title="성장의 신전" onBack={onBack} />
-      </HeaderPanel>
+      <SubViewHeader title="성장의 신전" onBack={onBack} />
 
       <HeaderPanel className="py-2">
         <TabBar

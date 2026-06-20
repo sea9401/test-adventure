@@ -873,6 +873,52 @@ export function maybeApplyRuneCounter(
   return { state: st, attackerKilled: false };
 }
 
+// 무도가/절정 반격 패시브 — 피격 후 일정 확률로 ATK 카운터(반격의 룬과 동일 패턴·별개 누적). PvE
+//   enemyPhase 의 passiveCounterChancePct 카운터를 PvP 로 미러. pct 0 이면 RNG 미소비(byte-identical).
+export function maybeApplyMartialCounter(
+  state: PvPBattleState,
+  atkKey: "p1" | "p2",
+  defKey: "p1" | "p2",
+): { state: PvPBattleState; attackerKilled: boolean } {
+  const defender = state[defKey];
+  const attacker = state[atkKey];
+  const pct = defender.player.passiveCounterChancePct ?? 0;
+  if (pct <= 0 || Math.random() * 100 >= pct) {
+    return { state, attackerKilled: false };
+  }
+  // 반격 데미지도 v2 buff/debuff 격리 해제. defender 가 공격자, attacker 가 방어자(반격 방향).
+  const v2AtkMultMC = v2AtkBuffMult(defender.v2SelfBuffs, defender.v2SelfDebuffs);
+  const v2DefMultMC = v2DefBuffMult(attacker.v2SelfBuffs, attacker.v2SelfDebuffs);
+  const mcAtk = effectiveAttackerAtk(defender, attacker);
+  const mcDef = attackerFacingDef(defender, attacker);
+  const dmg = damageBetween(
+    v2AtkMultMC !== 1 ? Math.floor(mcAtk * v2AtkMultMC) : mcAtk,
+    v2DefMultMC !== 1 ? Math.floor(mcDef * v2DefMultMC) : mcDef,
+  );
+  const newAtkHp = Math.max(0, attacker.hp - dmg);
+  let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
+  st = {
+    ...st,
+    log: appendLog(st.log, {
+      kind: "player_attack",
+      text: `[반격] ${attacker.name}에게 ${dmg} 반격 피해.`,
+    }),
+  };
+  if (newAtkHp <= 0) {
+    st = {
+      ...st,
+      log: appendLog(st.log, {
+        kind: "info",
+        text: `${attacker.name}이(가) 쓰러졌다.`,
+      }),
+      phase: "ended",
+      outcome: defKey === "p1" ? "p1_win" : "p2_win",
+    };
+    return { state: st, attackerKilled: true };
+  }
+  return { state: st, attackerKilled: false };
+}
+
 // 공격 턴 종료 후 처리 — 그림자 분신 → 무피해 난무 → 막다른 격노 → 약점 분석 → 재생.
 // PvE 의 finishPlayerTurn 미러.
 function finishAttackerTurn(

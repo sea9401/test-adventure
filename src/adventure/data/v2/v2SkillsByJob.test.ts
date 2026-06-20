@@ -161,9 +161,9 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("심화 4직업(tier 4) = 액티브 1(강) + 패시브(직군마다 다른 효과)", () => {
+    // 절정(sensei)은 예외 — 액티브(난무) 대신 반격 패시브로 교체(둘 다 패시브·액티브 없음). 아래 별도 검증.
     const KIT: Record<string, [V2SkillId, V2SkillId]> = {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
-      sensei: ["v2c_sensei_combo", "v2c_sensei_ironbody"],
       sage: ["v2c_sage_bolt", "v2c_sage_insight"],
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
     };
@@ -177,6 +177,18 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.maxHpPct).toBe(12);
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(8);
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.evasionPct).toBe(12);
+  });
+
+  it("절정(sensei) = 반격 패시브 + 철신 패시브(액티브 없음)", () => {
+    // 오너 결정 — 절정의 액티브(난무)를 반격으로 교체. 반격은 반응형(피격 시 발동)이라 패시브이며,
+    //   v2c_sensei_combo id 는 유지(킷/세이브 안정)하되 category=passive·counterChancePct 30 으로 재용도.
+    expect(skillsForJob("sensei")).toEqual([
+      "v2c_sensei_combo",
+      "v2c_sensei_ironbody",
+    ]);
+    expect(V2_SKILLS.v2c_sensei_combo.category).toBe("passive");
+    expect(V2_SKILLS.v2c_sensei_combo.passive?.counterChancePct).toBe(30);
+    expect(V2_SKILLS.v2c_sensei_ironbody.category).toBe("passive");
   });
 
   it("없는 jobId = 빈 배열", () => {

@@ -13,6 +13,7 @@ import {
   COOP_BOSSES,
   COOP_BOSS_KIND_IDS,
   COOP_TIER_LABEL,
+  COOP_VISIBILITY_OPTIONS,
   MAX_ACTIVE_PER_KIND,
   coopBossDurationLabel,
   type CoopBossKindId,
@@ -24,12 +25,7 @@ import {
 import { CoopRewardTable } from "@/adventure/v2/coop/CoopRewardTable";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 
-// 코어루프 소환 공개 범위 — 권한자만 무료 공격(소환권이 비용).
-const COOP_VIS_OPTIONS: readonly [string, string][] = [
-  ["public", "공개"],
-  ["guild_only", "길드원만"],
-  ["summoner_only", "나만"],
-];
+// 소환 공개 범위 선택지는 coopBosses.COOP_VISIBILITY_OPTIONS(상세 변경 UI 와 공용).
 
 export function V2CoopBossListView({
   onOpenSession,
@@ -91,7 +87,7 @@ export function V2CoopBossListView({
             소환 공개 범위
           </p>
           <div className="mt-1.5 flex gap-2">
-            {COOP_VIS_OPTIONS.map(([v, label]) => (
+            {COOP_VISIBILITY_OPTIONS.map(([v, label]) => (
               <button
                 key={v}
                 type="button"

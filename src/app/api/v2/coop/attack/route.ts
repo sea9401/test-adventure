@@ -203,9 +203,11 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "no_active_boss" as const },
       };
     }
-    // 코어루프 — 가시성/공격 권한(공개/길드원만/소환자만). 가시성은 불변이라 peek 검증으로 충분.
+    // 코어루프 — 가시성/공격 권한(공개/길드원만/소환자만). 소환자가 소환 "후" 범위를 바꿀 수 있어
+    //   (코드 부재 시 race) peek 는 빠른 거절용이고, 아래 FOR UPDATE 잠금 후 한 번 더 재검증한다.
+    let viewerGuildId: number | null = null;
     if (V2_CORE_LOOP_V2) {
-      const viewerGuildId = await getGuildId(tx, userId);
+      viewerGuildId = await getGuildId(tx, userId);
       if (
         !canAccessCoopBoss(sessionPeek, { userId, guildId: viewerGuildId })
       ) {
@@ -302,6 +304,16 @@ export async function POST(req: Request) {
       return {
         status: 410,
         body: { ok: false as const, error: "expired" as const },
+      };
+    }
+    // 가시성 race 가드 — 시뮬 도중 소환자가 범위를 좁혔으면(예: 공개→나만) 잠금 후 거절(데미지 미반영).
+    if (
+      V2_CORE_LOOP_V2 &&
+      !canAccessCoopBoss(s, { userId, guildId: viewerGuildId })
+    ) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "no_permission" as const },
       };
     }
     const [contrib] = await tx

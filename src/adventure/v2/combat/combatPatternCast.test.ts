@@ -52,15 +52,57 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(scaled.enemyDamage).toBeGreaterThanOrEqual(basicFloor);
   });
 
-  it("패턴 경로는 procChance 은퇴 — procRoll 실패해도 확정 발동", () => {
+  it("패턴 경로는 기본적으로 procChance 은퇴 — procRoll 실패해도 확정 발동(applyProcInPattern 미지정)", () => {
     // 옛 경로: procRoll 99 >= procChance 40 → 미발동.
     const old = resolveV2SkillCast(castInput([SKILL], { procRoll: 99 }));
     expect(old.castSkillId).toBeNull();
-    // 패턴 경로: 같은 procRoll 99 여도 조건(항상) 충족 → 확정 발동.
+    // 패턴 경로(applyProcInPattern 미지정=false): 같은 procRoll 99 여도 조건(항상) 충족 → 확정 발동.
     const viaPattern = resolveV2SkillCast(
       castInput([SKILL], { procRoll: 99, combatPattern: always }),
     );
     expect(viaPattern.castSkillId).toBe(SKILL);
+  });
+
+  it("applyProcInPattern=true 면 패턴 경로도 procChance 굴림(부활) — 롤 실패 시 미발동", () => {
+    // 난격 procChance 40. 패턴이 골라도 procRoll 99 >= 40 → 미발동(평타 폴백).
+    const fail = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 99,
+        combatPattern: always,
+        applyProcInPattern: true,
+      }),
+    );
+    expect(fail.castSkillId).toBeNull();
+    // procRoll 10 < 40 → 통과 → 발동.
+    const pass = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 10,
+        combatPattern: always,
+        applyProcInPattern: true,
+      }),
+    );
+    expect(pass.castSkillId).toBe(SKILL);
+  });
+
+  it("applyProcInPattern=true 라도 procChanceBonus 합산이 게이트를 넘기면 발동(워메이지 주문연사)", () => {
+    // procChance 40 + 보너스 60 = 100 클램프 → procRoll 99 여도 발동(100 미만 게이트 자체 미적용).
+    const boosted = resolveV2SkillCast(
+      castInput([SKILL], {
+        procRoll: 99,
+        procChanceBonus: 60,
+        combatPattern: always,
+        applyProcInPattern: true,
+      }),
+    );
+    expect(boosted.castSkillId).toBe(SKILL);
+  });
+
+  it("applyProcInPattern=true + procRoll 미지정이면 항상 발동(구 호출·테스트 호환)", () => {
+    // procRoll 없으면 게이트 스킵 → 확정 발동(엔진은 항상 procRoll 주입하지만 방어).
+    const r = resolveV2SkillCast(
+      castInput([SKILL], { combatPattern: always, applyProcInPattern: true }),
+    );
+    expect(r.castSkillId).toBe(SKILL);
   });
 
   it("조건 게이팅 — self_hp below 30 은 저피일 때만 발동", () => {

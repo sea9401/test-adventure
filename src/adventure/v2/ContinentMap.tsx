@@ -103,10 +103,6 @@ const BIOME_REGIONS = [
   { label: "중앙 분쟁지대", center: { x: 5000, y: 2800 } },
 ] as const;
 
-// 박스를 그리지 않는 권역 — 중앙 분쟁지대는 어느 세력 영역도 아닌 가운데 격전지라
-// 점선 박스를 생략한다(거점 배정에는 계속 쓰여 주변 영역이 가운데로 늘어나는 것도 막음).
-const NO_BOX_LABELS = new Set<string>(["중앙 분쟁지대"]);
-
 // 중앙 분쟁지대 핵심 반경 — 중심에서 이 거리(맵 좌표) 안의 땅만 무소속 분쟁지대로 남고,
 // 그 밖은 전부 최근접 왕국 소속. 키우면 분쟁지대가 넓어지고 줄이면 왕국령이 넓어진다.
 const CONFLICT_LABEL = "중앙 분쟁지대";
@@ -115,59 +111,97 @@ const CONFLICT_CENTER = BIOME_REGIONS.find((r) => r.label === CONFLICT_LABEL)!
   .center;
 const KINGDOM_REGIONS = BIOME_REGIONS.filter((r) => r.label !== CONFLICT_LABEL);
 
-type RegionBox = { label: string; x: number; y: number; w: number; h: number };
+// === 영토(territory) 비주얼 — 왕국령을 색 영토 블록으로(격자 위 색 영토 참고 디자인). =========
+// 데이터(거점/왕국/인접) 불변·비주얼만. 각 격자 셀을 중심점 기준 최근접 왕국(분쟁 반경 안은
+// 분쟁지대)으로 칠해 "흩어진 점"이 아니라 "색 영토"로 읽히게 한다. 점선 박스 → 셀 경계 점선.
+const TERRITORY_CELL_SIZE = 400; // 배경 격자(400)와 동일 → 셀=격자칸으로 자연스러운 영토맵.
 
-const REGION_BOXES: RegionBox[] = (() => {
-  const acc = new Map<
-    string,
-    { minX: number; minY: number; maxX: number; maxY: number }
-  >();
-  for (const o of OUTPOSTS) {
-    if (o.neutral) continue;
-    // 중앙 핵심 반경 안이면 분쟁지대(무소속), 아니면 최근접 왕국 영역에 배정.
-    const cdx = o.position.x - CONFLICT_CENTER.x;
-    const cdy = o.position.y - CONFLICT_CENTER.y;
-    let bestLabel: string;
-    if (cdx * cdx + cdy * cdy <= CONFLICT_RADIUS * CONFLICT_RADIUS) {
-      bestLabel = CONFLICT_LABEL;
-    } else {
-      bestLabel = KINGDOM_REGIONS[0].label;
-      let bestD = Infinity;
-      for (const reg of KINGDOM_REGIONS) {
-        const dx = o.position.x - reg.center.x;
-        const dy = o.position.y - reg.center.y;
-        const d = dx * dx + dy * dy;
-        if (d < bestD) {
-          bestD = d;
-          bestLabel = reg.label;
-        }
-      }
-    }
-    const cur = acc.get(bestLabel);
-    if (!cur) {
-      acc.set(bestLabel, {
-        minX: o.position.x,
-        minY: o.position.y,
-        maxX: o.position.x,
-        maxY: o.position.y,
-      });
-    } else {
-      cur.minX = Math.min(cur.minX, o.position.x);
-      cur.minY = Math.min(cur.minY, o.position.y);
-      cur.maxX = Math.max(cur.maxX, o.position.x);
-      cur.maxY = Math.max(cur.maxY, o.position.y);
+// BIOME_REGIONS label → 영토 색. 왕국 권역 중심 == 왕국 거점 position 이라 그 거점의 KINGDOM_COLORS.
+const TERRITORY_COLOR_BY_LABEL: Record<string, string> = (() => {
+  const out: Record<string, string> = { [CONFLICT_LABEL]: OUTPOST_CONFLICT_COLOR };
+  for (const reg of KINGDOM_REGIONS) {
+    const kingdom = OUTPOSTS.find(
+      (o) =>
+        o.tier === 4 &&
+        o.position.x === reg.center.x &&
+        o.position.y === reg.center.y,
+    );
+    out[reg.label] =
+      (kingdom && KINGDOM_COLORS[kingdom.id]) || OUTPOST_CONFLICT_COLOR;
+  }
+  return out;
+})();
+
+// 격자 셀 → 소속 영토(label/color). 중심점이 분쟁 반경 안이면 분쟁지대, 아니면 최근접 왕국.
+type TerritoryCell = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label: string;
+  color: string;
+};
+function territoryLabelAt(mx: number, my: number): string {
+  const cdx = mx - CONFLICT_CENTER.x;
+  const cdy = my - CONFLICT_CENTER.y;
+  if (cdx * cdx + cdy * cdy <= CONFLICT_RADIUS * CONFLICT_RADIUS) {
+    return CONFLICT_LABEL;
+  }
+  let label = KINGDOM_REGIONS[0].label;
+  let bestD = Infinity;
+  for (const reg of KINGDOM_REGIONS) {
+    const dx = mx - reg.center.x;
+    const dy = my - reg.center.y;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      label = reg.label;
     }
   }
-  const PAD = 260;
-  return [...acc.entries()]
-    .filter(([label]) => !NO_BOX_LABELS.has(label))
-    .map(([label, b]) => ({
-      label,
-      x: b.minX - PAD,
-      y: b.minY - PAD,
-      w: b.maxX - b.minX + PAD * 2,
-      h: b.maxY - b.minY + PAD * 2,
-    }));
+  return label;
+}
+const TERRITORY_COLS = Math.ceil(MAP_BOUNDS.width / TERRITORY_CELL_SIZE);
+const TERRITORY_ROWS = Math.ceil(MAP_BOUNDS.height / TERRITORY_CELL_SIZE);
+const TERRITORY_GRID: TerritoryCell[][] = (() => {
+  const grid: TerritoryCell[][] = [];
+  for (let ix = 0; ix < TERRITORY_COLS; ix++) {
+    const col: TerritoryCell[] = [];
+    for (let iy = 0; iy < TERRITORY_ROWS; iy++) {
+      const x = ix * TERRITORY_CELL_SIZE;
+      const y = iy * TERRITORY_CELL_SIZE;
+      const w = Math.min(TERRITORY_CELL_SIZE, MAP_BOUNDS.width - x);
+      const h = Math.min(TERRITORY_CELL_SIZE, MAP_BOUNDS.height - y);
+      const label = territoryLabelAt(x + w / 2, y + h / 2);
+      col.push({ x, y, w, h, label, color: TERRITORY_COLOR_BY_LABEL[label] });
+    }
+    grid.push(col);
+  }
+  return grid;
+})();
+const TERRITORY_CELLS: TerritoryCell[] = TERRITORY_GRID.flat();
+
+// 영토 경계 — 서로 다른 영토 셀 사이의 변만(점선). 인접(우/하) 셀 라벨이 다를 때만 선 1개.
+const TERRITORY_BORDERS: {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}[] = (() => {
+  const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (let ix = 0; ix < TERRITORY_COLS; ix++) {
+    for (let iy = 0; iy < TERRITORY_ROWS; iy++) {
+      const c = TERRITORY_GRID[ix][iy];
+      const right = TERRITORY_GRID[ix + 1]?.[iy];
+      if (right && right.label !== c.label) {
+        out.push({ x1: c.x + c.w, y1: c.y, x2: c.x + c.w, y2: c.y + c.h });
+      }
+      const below = TERRITORY_GRID[ix]?.[iy + 1];
+      if (below && below.label !== c.label) {
+        out.push({ x1: c.x, y1: c.y + c.h, x2: c.x + c.w, y2: c.y + c.h });
+      }
+    }
+  }
+  return out;
 })();
 
 type OccupationLite = {
@@ -604,6 +638,23 @@ export function ContinentMap({
             height={MAP_BOUNDS.height}
             className="fill-zinc-100 dark:fill-zinc-950"
           />
+          {/* 영토 색칠 — 격자칸마다 소속 왕국 색(분쟁지대=slate). 격자선 아래라 격자가 위로 또렷.
+              전체 지도(국지 war 모드 아님)에서만. 흩어진 점 → 색 영토로 읽히게. */}
+          {!visibleIds && (
+            <g>
+              {TERRITORY_CELLS.map((c) => (
+                <rect
+                  key={`terr-${c.x}-${c.y}`}
+                  x={c.x}
+                  y={c.y}
+                  width={c.w}
+                  height={c.h}
+                  fill={c.color}
+                  fillOpacity={0.13}
+                />
+              ))}
+            </g>
+          )}
           <rect
             x={0}
             y={0}
@@ -612,31 +663,24 @@ export function ContinentMap({
             fill="url(#v2-grid)"
           />
 
-          {/* 바이옴 권역 — 점선 영역 박스 + 라벨. 격자 위, 연결선/마커 아래. 국지 모드 숨김. */}
-          {!visibleIds && REGION_BOXES.map((b) => (
-            <g key={b.label}>
-              <rect
-                x={b.x}
-                y={b.y}
-                width={b.w}
-                height={b.h}
-                rx={140}
-                fill="none"
-                className="stroke-zinc-400/25 dark:stroke-zinc-600/25"
-                strokeWidth={3}
-                strokeDasharray="44 32"
-              />
-              <text
-                x={b.x + 48}
-                y={b.y + 96}
-                className="fill-zinc-500 dark:fill-zinc-500"
-                fontSize={52}
-                fontWeight={600}
-              >
-                {b.label}
-              </text>
+          {/* 영토 경계 — 서로 다른 영토(왕국령) 셀 사이의 변만 점선으로. 격자 위·연결선/마커 아래.
+              왕국 이름은 각 영토 수도(tier4 마커) 라벨이 담당(이미지처럼 색 영토 + 수도 라벨). */}
+          {!visibleIds && (
+            <g className="stroke-zinc-400/45 dark:stroke-zinc-500/40">
+              {TERRITORY_BORDERS.map((b, i) => (
+                <line
+                  key={`tb-${i}`}
+                  x1={b.x1}
+                  y1={b.y1}
+                  x2={b.x2}
+                  y2={b.y2}
+                  strokeWidth={4}
+                  strokeDasharray="36 28"
+                  strokeLinecap="round"
+                />
+              ))}
             </g>
-          ))}
+          )}
 
           {/* 거점 간 연결선 (Gabriel 그래프) — 인접 = 이동 가능 경로. 마커 아래 레이어.
               전체를 옅게 깔고, 현재 위치에 닿는 길만 위에 또렷한 초록으로 덧그린다. */}

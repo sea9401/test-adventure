@@ -75,12 +75,15 @@ describe("settlement — 생산 엔진", () => {
     expect(nextTier("metropolis")).toBe(null);
   });
 
-  it("MAX_SLOTS_BY_TIER — 마을 2×2(4), 도시·대도시 3×3(9)", () => {
+  it("MAX_SLOTS_BY_TIER — 마을 2×2(4)·도시 3×3(9)·대도시 4×4(16)", () => {
     expect(MAX_SLOTS_BY_TIER.village).toBe(4);
     expect(MAX_SLOTS_BY_TIER.city).toBe(9);
-    expect(MAX_SLOTS_BY_TIER.metropolis).toBe(9);
+    expect(MAX_SLOTS_BY_TIER.metropolis).toBe(16);
     expect(GRID_COLS_BY_TIER.village).toBe(2);
     expect(GRID_COLS_BY_TIER.city).toBe(3);
+    expect(GRID_COLS_BY_TIER.metropolis).toBe(4);
+    // 판 크기 = cols² 일관성(2×2/3×3/4×4).
+    expect(MAX_SLOTS_BY_TIER.metropolis).toBe(GRID_COLS_BY_TIER.metropolis ** 2);
   });
 
   it("INITIAL_UNLOCKED_SLOTS=0 / clampUnlockedSlots — [0, 최대]로 보정", () => {

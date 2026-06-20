@@ -36,20 +36,14 @@ export function V2TownHome({
       <SubViewHeader title="마을" />
       <div className="space-y-2">
         <EntryCard
-          icon={
-            <CompassRose
-              size={28}
-              weight="duotone"
-              className="text-emerald-500"
-            />
-          }
-          title="지도"
-          onClick={() => onAction({ kind: "open-map" })}
-        />
-        <EntryCard
           icon={<FirstAid size={28} weight="duotone" className="text-rose-500" />}
           title="치료소"
           onClick={() => onAction({ kind: "open-healing" })}
+        />
+        <EntryCard
+          icon={<Bank size={28} weight="duotone" className="text-yellow-600" />}
+          title="은행"
+          onClick={() => onAction({ kind: "open-bank" })}
         />
         <EntryCard
           icon={
@@ -57,11 +51,6 @@ export function V2TownHome({
           }
           title="상점"
           onClick={() => onAction({ kind: "open-shop" })}
-        />
-        <EntryCard
-          icon={<Bank size={28} weight="duotone" className="text-yellow-600" />}
-          title="은행"
-          onClick={() => onAction({ kind: "open-bank" })}
         />
         <EntryCard
           icon={<Hammer size={28} weight="duotone" className="text-amber-600" />}
@@ -83,6 +72,17 @@ export function V2TownHome({
           }
           title="발굴 감정소"
           onClick={() => onAction({ kind: "open-treasure" })}
+        />
+        <EntryCard
+          icon={
+            <CompassRose
+              size={28}
+              weight="duotone"
+              className="text-emerald-500"
+            />
+          }
+          title="지도"
+          onClick={() => onAction({ kind: "open-map" })}
         />
       </div>
     </main>

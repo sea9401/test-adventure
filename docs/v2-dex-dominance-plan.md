@@ -32,7 +32,10 @@ sim(sim-v2-progression)은 `NEXT_PUBLIC_V2_CORE_LOOP_V2` 미설정 시 **레거�
 단순 단일 레버는 전부 막혔다(메모리 "다축 재설계 다세션" 확정). 효과 내려면 **묶어야** 한다:
 1. **비대칭 감산** ✅ **lever-1 구현(2026-06-21)** — `damageToDefender(atk,def)=round(atk²/(atk+K·def))`(K=3·15%floor) 신설, **적→플레이어 피격 3곳(engine.enemyPhase)에만** 적용. 플레이어→적(damageBetween)·카운터 불변 = 백파이어 없음. sim 결과: 엔드(d50) **STR 56→77·INT 59→73 부활**(생존 회복), DEX 100 불변. **단 VIT/SPI 0% 유지** — 생존이 아니라 lever-2(공격력) 문제임이 sim 으로 확정(K=8 까지 올려도 VIT/SPI 0%). PvE 전용(PvP 미적용). 골든 재베이스·전투 테스트 10개 재계산(플레이어 공격 불변 확인).
 2. **방어 빌드 승리조건** ✅ **lever-2 구현(2026-06-21)** — VIT→atk(`VIT_ATK_COEF=0.1`, STR 0.15 의 ⅔, derive atk 공식). 순수/헤비 VIT 도 천천히 솔로 클리어 가능. sim(스킬ON·라이브): VIT d50 **0→45%**(슬로우 viable·DEX 100 #1 불변·BAL 39→87 동반 부활). 부수효과: 광역 물리 atk 소폭↑(STR/BAL/LUK 상승)·INT 상대적 −9(63→54, magic 미수혜·여전히 viable). 🔑**SPI 는 미적용**(지원축 설계·솔로-DPS 아님). 골든 재베이스(탱 atk 11→28·죽던 탱 픽스처가 승리). 후속 튜닝 여지=coef.
-3. **DEX 크리 버스트 완화** ⏳ lever-3 — floor 관통하는 크리 punch-through 차단(크리는 LUK 정체성이라 신중).
+3. **DEX 크리 버스트 완화** ❌ **lever-3 시도→futile(2026-06-21·오너 수용·종료)** — CRIT_MULT_CAP 5.0→3.5→3.0 sim: **DEX 100% 전부 불변**, 필드만 몰살(STR 89→72→45·BAL 90→63→55·VIT 49→32→19). DEX 의 우위는 크리가 아니라 **템포**(winT 4.9=STR 8.9 의 절반·5턴 처치라 킬-임계 위로 못 끌어내림). 다이얼(스탯·템포·크리) 3종 전부 DEX 불변 재확인(메모리 일관). DEX 100→하향은 **승패조건 개편(이진 킬-인-캡→어태리션)** 또는 안티-DEX 카운터몹만 가능 = 초대형/부분카운터라 미채택.
+
+### 0-D. 결산 (DEX 아크 종료·2026-06-21)
+**"독주" 해소 = DEX 를 내린 게 아니라 나머지를 끌어올림**(DEX 100 은 구조적 불변이므로). 초기 d50 "DEX 100 / STR 56·INT 59·LUK 47·BAL 41·VIT 0·SPI 0" → lever-1+2 후 "DEX 100(#1 글래스캐넌·의도) / STR 89·BAL 90·LUK 65·INT 63·VIT 49·SPI 0(지원축 설계)". 6축 중 5축이 49~100 밴드 = 실용 다양성 확보. ✅lever-1(#926)·lever-2(#928) LIVE. lever-3 미채택(DEX 100 수용). 🔑남은 잔여=coef 실측 튜닝(VIT_ATK 0.1·DEF_MITIGATION_K 3)·INT 상대 −9 관찰·라이브 텔레메트리 검증.
 
 🔑 **교훈**: ① sim 은 반드시 `NEXT_PUBLIC_V2_CORE_LOOP_V2=true`(라이브 ATB)로. ② 다이얼·대칭수식 단순형은 실측 배제됨 — 다음 세션은 비대칭+다레버 설계부터. ③ damageBetween 은 대칭이라 "def 가치↑"가 양날.
 

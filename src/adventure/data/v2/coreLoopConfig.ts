@@ -31,6 +31,13 @@ export const V2_HUNT_USE_STAMINA =
 //   미설정(기본) = V2_CORE_LOOP_V2 와 동일(현행 byte-identical). 스태미나 켜면 false → 스태미나 경로.
 export const HUNT_COOLDOWN_MODE = V2_CORE_LOOP_V2 && !V2_HUNT_USE_STAMINA;
 
+// ATB 전투에서 플레이어 v2 액티브 스킬 시전 활성화 — ATB 재설계가 advanceTurn 을 phase helper 로
+//   쪼개면서 cast 블록(applyPlayerV2SkillCast)을 legacy 루프에만 남겨, 라이브 ATB(PvE·PvP)에서
+//   직업 액티브 스킬이 아예 발동하지 않던 문제(docs/v2-atb-skill-cast-plan.md)의 게이트.
+//   기본(미설정)=false → 라이브 byte-identical(스킬 미발동·현행 유지). 스테이징서 env 로 켜
+//   골든/밸런스 검증 후 flip. 검증 끝나면 무조건화로 플래그 제거(PR-6식).
+export const V2_ATB_SKILLS = process.env.NEXT_PUBLIC_V2_ATB_SKILLS === "true";
+
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)

@@ -9,7 +9,9 @@ import {
 import {
   appendLog,
   applyPhaseTriggerIfAny,
+  applyPlayerV2SkillCast,
   finishEnemyAttack,
+  finishPlayerTurn,
   type BattleLogEntry,
   type BattleResolution,
   type BattleState,
@@ -26,6 +28,7 @@ import {
   tickV2BuffMap,
   tickV2Dots,
 } from "./combatShared";
+import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
 export const ATB_TICK_CAP = 50 * 26;
 export const ATB_ACTION_GUARD = 1000;
@@ -273,8 +276,60 @@ export function resolveBattleAtb(
       //   t 를 가져 외톨이 박스가 생긴다(Codex). 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
       state = stampTick(state, playerBundleStart, nextTick);
       if (state.phase !== "ended") {
-        // Phase-1 limitation: player v2 skill cast is not split out of legacy resolveBattle yet,
-        // so ATB bundles only drive the existing player phase helper.
+        // v2 스킬 시전(V2_ATB_SKILLS) — cast 가 발동하면 그 행동(틱)은 시전으로 소진되고 평타
+        //   루프를 건너뛴다(legacy "1틱 1행동: 강타 OR 평타" 미러). buff/debuff tick 은 위
+        //   tickPlayerBundleEntry 가 self 측을 이미 했으므로(enemyV2Debuffs 는 적 번들 소유)
+        //   헬퍼엔 현재 맵을 그대로 넘긴다 — 헬퍼는 tick 없이 cast+적용만 한다(이중 tick 방지).
+        let castFired = false;
+        if (V2_ATB_SKILLS) {
+          const prevLogLen = state.log.length;
+          const cast = applyPlayerV2SkillCast(state, atbPlayer, {
+            selfBuffs: state.v2SelfBuffs,
+            selfDebuffs: state.v2SelfDebuffs,
+            enemyDebuffs: state.enemyV2Debuffs,
+          });
+          state = cast.state;
+          castFired = cast.castFired;
+          if (state.enemyHp <= 0) {
+            // 시전으로 적 처치 — 플레이어 관점 승리(ATB 평타 처치 로그와 동형).
+            state = {
+              ...state,
+              log: appendLog(state.log, {
+                kind: "info",
+                text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+                turn: "player",
+              }),
+              outcome: "win",
+              phase: "ended",
+            };
+          } else if (castFired) {
+            // 시전 = 완료한 플레이어 턴. legacy XOR 분기와 동일하게 턴 플래그 리셋 +
+            //   completedPlayerTurns +1 + finishPlayerTurn(턴 종료 효과). 평타 루프는 아래에서 스킵.
+            const ended: BattleState = {
+              ...state,
+              phase: "enemy",
+              playerAttacksLeft: rollPlayerAttackCountWithBleed(state, atbPlayer),
+              turn: {
+                ...state.turn,
+                completedPlayerTurns: state.turn.completedPlayerTurns + 1,
+                doubleStrikeUsedThisTurn: false,
+                lightspeedUsedThisTurn: false,
+                critThisTurn: false,
+                riposteUsedThisTurn: false,
+                firstAttackPending: true,
+                galeChainsThisTurn: 0,
+                weakpointUsedThisTurn: false,
+                fatedChainTriggeredThisTurn: false,
+              },
+            };
+            state = finishPlayerTurn(ended, atbPlayer, playerName);
+          }
+          // 틱 스탬프는 cast + 처치 승리 로그 + finishPlayerTurn(재생/격노 등) 로그를 모두 포함하도록
+          //   이 시점에서 한 번에 — 위 분기들이 prevLogLen 이후로 append 한 엔트리가 t 누락(외톨이 박스)
+          //   되지 않게 한다(Codex PR-B 리뷰). tagNewLogEntries 는 이미 찍힌 t 는 보존(멱등).
+          state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
+        }
+        if (state.phase !== "ended" && !castFired) {
         let action: PlayerAction = { kind: "attack" };
         const picked = ctx.pickAction(state);
         if (picked.kind === "use_potion") {
@@ -293,6 +348,7 @@ export function resolveBattleAtb(
           state = tagNewLogEntries(state, prevLogLen, "player", nextTick);
           action = { kind: "attack" };
           if (state.phase === "ended") break;
+        }
         }
       }
       playerNextTick += actionInterval(effectivePlayerSpd(atbPlayer, state));

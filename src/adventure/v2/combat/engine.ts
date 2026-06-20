@@ -46,10 +46,7 @@ import {
 } from "@/adventure/character/apSkills";
 import { resolvePlayerPhase } from "./engine.playerPhase";
 import { resolveEnemyPhase } from "./engine.enemyPhase";
-import {
-  V2_CORE_LOOP_V2,
-  V2_SKILL_PROC_IN_PATTERN,
-} from "@/adventure/data/v2/coreLoopConfig";
+import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import { resolveBattleAtb } from "./engine.atb";
 
 export type BattleLogEntry =
@@ -1429,8 +1426,6 @@ export function applyPlayerV2SkillCast(
     cooldowns: state.v2SkillCooldowns,
     procRoll: Math.random() * 100,
     procChanceBonus: player.skillProcChanceAdd ?? 0,
-    // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
-    applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
     // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(플레이어 cast). off 면 옛 슬롯순서+proc.
     // 저장된 커스텀 패턴(C2) 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
     turn: state.turn.completedPlayerTurns + 1,

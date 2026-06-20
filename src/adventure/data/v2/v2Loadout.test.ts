@@ -81,10 +81,10 @@ describe("validateLoadout — SP 예산 + 학습 + 시그니처 직업고정", (
 
 describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
   it("누적합이 예산 넘기는 시점에서 끊되 뒤의 더 싼 스킬은 채택", () => {
-    // strike(3) recover(2): 예산 4 → strike(3) 채택, recover(2)는 3+2=5>4 라 스킵.
-    expect(clampLoadoutToBudget([STRIKE, RECOVER], 4)).toEqual([STRIKE]);
-    // 예산 5 → 둘 다.
-    expect(clampLoadoutToBudget([STRIKE, RECOVER], 5)).toEqual([STRIKE, RECOVER]);
+    // 비용은 spCostOf 로 도출(하드코딩 회피). 예산이 둘 합 미만 → strike 만, 합 이상 → 둘 다.
+    const both = cost(STRIKE) + cost(RECOVER);
+    expect(clampLoadoutToBudget([STRIKE, RECOVER], both - 1)).toEqual([STRIKE]);
+    expect(clampLoadoutToBudget([STRIKE, RECOVER], both)).toEqual([STRIKE, RECOVER]);
   });
 
   it("앞이 비싸 막혀도 뒤 싼 스킬은 들어온다(greedy in-order skip)", () => {

@@ -404,26 +404,29 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* 상위 탭 — 구매 / 판매 */}
-      <TabBar
-        tabs={MODE_TABS}
-        active={mode}
-        onChange={onModeChange}
-        ariaLabel="구매 / 판매"
-        size="sm"
-        variant="highlight"
-      />
+      {/* 탭(구매/판매 + 부위) — 지역 배경 위라 라이트모드 가독성 위해 surface 패널로 감쌈. */}
+      <HeaderPanel className="space-y-1 py-2">
+        {/* 상위 탭 — 구매 / 판매 */}
+        <TabBar
+          tabs={MODE_TABS}
+          active={mode}
+          onChange={onModeChange}
+          ariaLabel="구매 / 판매"
+          size="sm"
+          variant="highlight"
+        />
 
-      {/* 하위 탭 — 부위 (+ 판매 모드엔 재료) */}
-      <TabBar
-        tabs={subTabs}
-        active={subTab}
-        onChange={setSubTab}
-        ariaLabel="분류"
-        size="sm"
-        variant="highlight"
-        scrollable
-      />
+        {/* 하위 탭 — 부위 (+ 판매 모드엔 재료) */}
+        <TabBar
+          tabs={subTabs}
+          active={subTab}
+          onChange={setSubTab}
+          ariaLabel="분류"
+          size="sm"
+          variant="highlight"
+          scrollable
+        />
+      </HeaderPanel>
 
       <section>
         {mode === "buy" ? (

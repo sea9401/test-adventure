@@ -16,21 +16,21 @@ export function SubViewHeader({
   // 헤더 오른쪽 액션 슬롯(예: 보유 골드, "전체 수락" 버튼). 없으면 스페이서(제목 정중앙용).
   right?: ReactNode;
 }) {
+  // 제목은 absolute 로 컨테이너 정중앙에 띄우고, 백버튼(왼쪽)·액션(오른쪽)은 그 위에 흐름배치.
+  //   → 양옆 폭이 달라도 제목이 화면 진짜 가운데. 짧은 제목은 px 여백으로 겹침 방지, 길면 잘림.
   return (
-    <div className="flex items-center gap-2 py-1">
-      <div className="flex shrink-0 justify-start">
-        {onBack ? (
+    <div className="relative flex min-h-[2.25rem] items-center py-1">
+      {onBack && (
+        <div className="relative z-10 shrink-0">
           <BackButton onClick={onBack} />
-        ) : (
-          <span aria-hidden className="inline-block w-[4.25rem]" />
-        )}
-      </div>
-      <h1 className="flex min-w-0 flex-1 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap text-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
+        </div>
+      )}
+      <h1 className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap px-16 text-center text-lg font-bold text-zinc-900 dark:text-zinc-100">
         {title}
       </h1>
-      <div className="flex shrink-0 justify-end">
-        {right ?? <span aria-hidden className="inline-block w-[4.25rem]" />}
-      </div>
+      {right && (
+        <div className="relative z-10 ml-auto shrink-0">{right}</div>
+      )}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
 } from "./engine";
 import {
   advanceTurnPvP,
+  castV2SkillOnAttackerTurnPvP,
   initialBattleStatePvP,
   rollPvPAttackCount,
   type PvPBattleResolution,
@@ -16,6 +17,7 @@ import {
   type PvPResolveContext,
   type PvPSide,
 } from "./engine-pvp";
+import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
 // PvP has two player-scale actors. 2600 ticks is roughly 2x the PvE ATB cap
 // and is the dial equivalent of legacy PVP_TURN_CAP=100 rounds.
@@ -217,8 +219,17 @@ export function resolveBattlePvPAtb(
     actions += 1;
     state = ensureBundleReady({ ...state, phase: who }, who);
 
-    // Phase-2 limitation: the PvP v2 skill cast hook is still scoped inside the legacy loop,
-    // so ATB bundles reuse the existing PvP attack phase helper only.
+    // v2 스킬 시전(V2_ATB_SKILLS) — PvP 는 legacy 와 동일하게 cast + 평타(XOR 아님): 이번 액터의
+    //   번들 시작에 1회 시전한 뒤 아래 평타 루프가 그대로 돈다. PvP 의 v2 buff tick 은
+    //   castV2SkillOnAttackerTurnPvP 내부가 소유(번들엔 tick 없음) → 이중 tick 없음. atbPlayerView
+    //   적용은 평타와 동일하게 withAtbPlayers 로 감싼다. cast 가 적을 처치(phase=ended)하면
+    //   아래 평타 루프가 자연히 스킵되고 return 의 최종 hp_bar 가 마무리한다(legacy 미러).
+    if (V2_ATB_SKILLS) {
+      const castLogLen = state.log.length;
+      state = withAtbPlayers(castV2SkillOnAttackerTurnPvP(state, who));
+      state = tagNewLogEntries(state, castLogLen, who, nextTick);
+    }
+
     let action: PlayerAction = { kind: "attack" };
     const picked = ctx.pickAction(state, who);
     if (picked.kind === "use_potion") {

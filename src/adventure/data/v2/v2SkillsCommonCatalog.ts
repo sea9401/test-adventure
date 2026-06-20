@@ -615,9 +615,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──
   v2c_elementalist_magic: {
     // 속성 마법 — 시전자 캐릭터 속성에 따라 효과가 갈린다(combatShared 가 elementEffects[캐릭속성] 적용).
-    //   로그엔 "불 마법/물 마법…" 동적 표기(elementNamed). 데미지는 전부 마법(int) 스케일. PR1: 물=보호막·
-    //   번개=취약·불=연소 (재사용 효과). 바람/대지/빛/어둠은 일단 속성 딜(특수효과는 후속 PR — 화상 치유감소·
-    //   실명/암흑·ATB 가속/지연). 무속성(폴백)=순수 마법 딜.
+    //   로그엔 "불 마법/물 마법…" 동적 표기(elementNamed). 데미지는 전부 마법(int) 스케일.
+    //   물=보호막·번개=취약·불=연소·빛=실명(회피↓)·어둠=암흑(명중↓). 잔여(후속 PR): 불 화상 치유감소,
+    //   바람=ATB 가속·대지=ATB 지연(현재는 속성 딜만). 무속성(폴백)=순수 마법 딜.
     id: "v2c_elementalist_magic", name: "속성 마법", stat: "int", category: "attack", tier: 3,
     description: "다스리는 원소를 끌어내 적에게 퍼붓는다. 속성에 따라 다른 권능이 깃든다.",
     mpCost: 46, cooldown: 0, procChance: 30,
@@ -629,8 +629,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
       wind: [dmg(1.3, 200, "magic")],
       earth: [dmg(1.3, 200, "magic")],
       lightning: [dmg(1.3, 200, "magic"), { kind: "enemyVuln", pct: 20, turns: 3 }],
-      starlight: [dmg(1.3, 200, "magic")],
-      void: [dmg(1.3, 200, "magic")],
+      starlight: [
+        dmg(1.3, 200, "magic"),
+        { kind: "enemyEvasionDown", pct: 20, turns: 3 }, // 실명 — 적 회피↓
+      ],
+      void: [
+        dmg(1.3, 200, "magic"),
+        { kind: "enemyAccuracyDown", pct: 20, turns: 3 }, // 암흑 — 적 명중↓
+      ],
     },
   },
   v2c_elementalist_mastery: {

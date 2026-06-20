@@ -59,6 +59,9 @@ describe("속성 마법(액티브) — 캐릭속성 분기", () => {
     ).toBe(true);
     // 번개 = 데미지 + 취약.
     expect(els.lightning!.some((e) => e.kind === "enemyVuln")).toBe(true);
+    // 빛 = 데미지 + 실명(적 회피↓), 어둠 = 데미지 + 암흑(적 명중↓). (PR2)
+    expect(els.starlight!.some((e) => e.kind === "enemyEvasionDown")).toBe(true);
+    expect(els.void!.some((e) => e.kind === "enemyAccuracyDown")).toBe(true);
   });
 
   it("모든 분기 데미지는 마법(int) 스케일 — 마법사 직업", () => {

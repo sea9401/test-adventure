@@ -24,6 +24,7 @@ export function TreasureCollectionPanel({
   const [coins, setCoins] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selling, setSelling] = useState<string | null>(null);
+  const [bulkSelling, setBulkSelling] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -67,6 +68,26 @@ export function TreasureCollectionPanel({
     }
   }, []);
 
+  // 등급 일괄 판매 — 서버가 등급 캡(흔함·보통) 강제. 응답의 remaining instances 로 권위 갱신.
+  const onBulkSell = useCallback(async (maxTier: "common" | "uncommon") => {
+    setBulkSelling(true);
+    try {
+      const res = await fetch("/api/v2/treasure/sell-bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ maxTier }),
+      });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok && Array.isArray(j.instances)) {
+        setInstances(j.instances as CollectionInstance[]);
+      }
+    } catch {
+      // 무시 — 상태 유지.
+    } finally {
+      setBulkSelling(false);
+    }
+  }, []);
+
   return (
     <TreasureCollectionView
       onOpenDig={onOpenDig}
@@ -75,10 +96,11 @@ export function TreasureCollectionPanel({
       fragments={fragments}
       coins={coins}
       loading={loading}
-
       selling={selling}
+      bulkSelling={bulkSelling}
       onBack={onBack}
       onSell={onSell}
+      onBulkSell={onBulkSell}
       onOpenShop={onOpenShop}
     />
   );

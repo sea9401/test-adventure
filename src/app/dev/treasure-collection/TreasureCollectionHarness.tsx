@@ -5,6 +5,7 @@ import {
   TreasureCollectionView,
   type CollectionInstance,
 } from "@/adventure/v2/TreasureCollectionView";
+import { ANTIQUES, ANTIQUE_TIER_ORDER } from "@/adventure/data/v2/antique";
 
 // /dev/treasure-collection 하니스 — 보관함 뷰 QA 용 mock(서버 없이).
 // (분해→코인은 폐지 — 판매만 남음, 2026-06-13)
@@ -29,9 +30,20 @@ export function TreasureCollectionHarness() {
       <TreasureCollectionView
         instances={instances}
         selling={null}
+        bulkSelling={false}
         onSell={(instanceId) => {
           // mock — 골드 적립 없이 목록에서만 제거.
           setInstances((xs) => xs.filter((x) => x.instanceId !== instanceId));
+        }}
+        onBulkSell={(maxTier) => {
+          // mock — maxTier 이하 등급을 목록에서만 제거.
+          const cap = ANTIQUE_TIER_ORDER.indexOf(maxTier);
+          setInstances((xs) =>
+            xs.filter((x) => {
+              const a = ANTIQUES[x.antiqueId as keyof typeof ANTIQUES];
+              return !(a && ANTIQUE_TIER_ORDER.indexOf(a.tier) <= cap);
+            }),
+          );
         }}
         fragments={3}
         coins={3}

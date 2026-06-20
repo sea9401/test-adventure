@@ -1,6 +1,7 @@
 import {
   GUILD_CREATE_MIN_LEVEL,
   GUILD_CREATE_GOLD_COST,
+  GUILD_LEAVE_COOLDOWN_DAYS,
   GUILD_MAX_MEMBERS,
 } from "@/adventure/data/guild";
 import { H2, P, UL, Em, Table, Note } from "./primitives";
@@ -75,9 +76,30 @@ export function GuildContent() {
         <Em>거점과 영토</Em> 페이지를 보세요.
       </P>
 
+      <H2>탈퇴 · 추방 · 양도 · 해산</H2>
+      <UL>
+        <li>
+          <Em>탈퇴</Em> — 길드원 탭에서 길드를 떠납니다. 떠나면 {GUILD_LEAVE_COOLDOWN_DAYS}
+          일 동안 다른 길드에 다시 들어갈 수 없어요.
+        </li>
+        <li>
+          <Em>추방</Em>(마스터 전용) — 관리 탭에서 길드원을 내보냅니다. 추방된
+          길드원에게도 같은 재가입 쿨다운이 붙습니다.
+        </li>
+        <li>
+          <Em>마스터 양도</Em>(마스터 전용) — 관리 탭에서 다른 길드원에게 마스터를
+          넘깁니다. 마스터는 바로 탈퇴할 수 없고, 먼저 양도하거나 해산해야 합니다.
+        </li>
+        <li>
+          <Em>해산</Em>(마스터 전용) — 관리 탭 「위험 구역」에서 길드 이름을 입력해
+          확인하면 길드가 사라집니다. <Em>금고 골드는 모두 소멸</Em>하고, 점령한
+          거점은 모두 풀리며, 길드원 전원이 방출됩니다. 되돌릴 수 없어요.
+        </li>
+      </UL>
+
       <Note>
         v2 길드에는 길드 게시판·의뢰나 길드 버프가 아직 없습니다. 길드의 핵심
-        가치는 <Em>거점 점령</Em>입니다. 탈퇴·마스터 양도 UI 도 아직 준비 중이에요.
+        가치는 <Em>거점 점령</Em>입니다.
       </Note>
     </>
   );

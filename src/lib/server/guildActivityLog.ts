@@ -9,6 +9,9 @@ type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 //   대량화 전 길드당 최근 N행 유지 트림을 cron(guilds-cleanup)에 추가할 것(핫패스 밖).
 export type GuildActivityType =
   | "member_join"
+  | "member_leave"
+  | "member_kick"
+  | "leadership_transfer"
   | "role_change"
   | "gold_deposit"
   | "nation_declare"

@@ -16,7 +16,7 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
-import { GUILD_MAX_MEMBERS } from "@/adventure/data/guild";
+import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
 import { GuildOrgChart } from "./GuildOrgChart";
 import { GuildGoldDepositPanel } from "./GuildGoldDepositPanel";
 import {
@@ -141,6 +141,8 @@ export function V2GuildHome({
   const [policyOpenId, setPolicyOpenId] = useState<string | null>(null);
   // 국가 선포 — 국가명 입력.
   const [nationInput, setNationInput] = useState("");
+  // 길드 해산 확인 — 길드 이름 입력(파괴적 작업 안전장치).
+  const [disbandConfirm, setDisbandConfirm] = useState("");
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -313,6 +315,151 @@ export function V2GuildHome({
     [refresh],
   );
 
+  // 길드 탈퇴(본인). 마스터는 서버가 transfer_required/disband_required 로 막는다.
+  const handleLeave = useCallback(async () => {
+    if (acting) return;
+    if (!window.confirm("정말 길드를 탈퇴할까요? 재가입은 하루 뒤부터 가능해요.")) {
+      return;
+    }
+    setActing(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v2/guild/leave", { method: "POST" });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (j?.ok) {
+        setNotice({ kind: "ok", text: "길드를 탈퇴했어요." });
+        await refresh();
+        onGuildChanged?.();
+      } else {
+        const msg =
+          j?.error === "transfer_required"
+            ? "마스터는 먼저 다른 길드원에게 마스터를 양도해야 탈퇴할 수 있어요."
+            : j?.error === "disband_required"
+              ? "마지막 마스터예요. 탈퇴 대신 관리 탭에서 길드를 해산하세요."
+              : `탈퇴에 실패했어요 (${j?.error ?? `http ${res.status}`}).`;
+        setNotice({ kind: "err", text: msg });
+      }
+    } catch {
+      setNotice({ kind: "err", text: "탈퇴에 실패했어요. 잠시 후 다시 시도해 주세요." });
+    } finally {
+      setActing(false);
+    }
+  }, [acting, refresh, onGuildChanged]);
+
+  // 마스터가 길드원 추방.
+  const handleKick = useCallback(
+    async (targetUserId: string, name: string) => {
+      if (acting) return;
+      if (!window.confirm(`${name} 님을 길드에서 추방할까요?`)) return;
+      setActing(true);
+      setNotice(null);
+      try {
+        const res = await fetch("/api/v2/guild/kick", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ targetUserId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+        } | null;
+        if (j?.ok) {
+          setNotice({ kind: "ok", text: `${name} 님을 추방했어요.` });
+          await refresh();
+        } else {
+          setNotice({
+            kind: "err",
+            text: `추방에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+          });
+        }
+      } catch {
+        setNotice({ kind: "err", text: "추방에 실패했어요. 잠시 후 다시 시도해 주세요." });
+      } finally {
+        setActing(false);
+      }
+    },
+    [acting, refresh],
+  );
+
+  // 마스터가 마스터직 양도.
+  const handleTransfer = useCallback(
+    async (targetUserId: string, name: string) => {
+      if (acting) return;
+      if (
+        !window.confirm(
+          `${name} 님에게 길드 마스터를 양도할까요? 되돌릴 수 없어요.`,
+        )
+      ) {
+        return;
+      }
+      setActing(true);
+      setNotice(null);
+      try {
+        const res = await fetch("/api/v2/guild/transfer", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ targetUserId }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+        } | null;
+        if (j?.ok) {
+          setNotice({ kind: "ok", text: `${name} 님에게 마스터를 양도했어요.` });
+          await refresh();
+          onGuildChanged?.();
+        } else {
+          setNotice({
+            kind: "err",
+            text: `양도에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+          });
+        }
+      } catch {
+        setNotice({ kind: "err", text: "양도에 실패했어요. 잠시 후 다시 시도해 주세요." });
+      } finally {
+        setActing(false);
+      }
+    },
+    [acting, refresh, onGuildChanged],
+  );
+
+  // 마스터가 길드 해산 — 길드 이름 입력으로 확인. 금고 골드 소멸·점령 거점 해방.
+  const handleDisband = useCallback(async () => {
+    const name = state?.guild?.name ?? info?.guild?.name ?? "";
+    if (acting || disbandConfirm.trim() !== name || name.length === 0) return;
+    setActing(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/v2/guild/disband", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: disbandConfirm.trim() }),
+      });
+      const j = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+      } | null;
+      if (j?.ok) {
+        setNotice({ kind: "ok", text: "길드를 해산했어요." });
+        setDisbandConfirm("");
+        await refresh();
+        onGuildChanged?.();
+      } else {
+        setNotice({
+          kind: "err",
+          text: `해산에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+        });
+      }
+    } catch {
+      setNotice({ kind: "err", text: "해산에 실패했어요. 잠시 후 다시 시도해 주세요." });
+    } finally {
+      setActing(false);
+    }
+  }, [acting, disbandConfirm, state?.guild?.name, info?.guild?.name, refresh, onGuildChanged]);
+
   // 보유 거점.
   const ownedOutposts: Outpost[] =
     guildId != null
@@ -461,6 +608,7 @@ export function V2GuildHome({
 
       {activeTab === "members" && (
         <div className="space-y-3">
+          {notice && <NoticeBanner notice={notice} />}
           {/* 멤버 초대는 관리 탭으로 이동 (마스터/관리자 전용). */}
           {!info?.members || info.members.length === 0 ? (
             <div className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -478,6 +626,25 @@ export function V2GuildHome({
             </div>
             <LineupCard />
           </div>
+
+          {/* 길드 탈퇴 — 마스터가 아닌 본인만. 마스터는 관리 탭에서 양도/해산. */}
+          {!isMaster && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-rose-950/30">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-rose-700 dark:text-rose-300">
+                  길드를 떠납니다. 재가입은 하루 뒤부터 가능해요.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleLeave()}
+                  disabled={acting}
+                  className="shrink-0 rounded-md border border-rose-600 bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                >
+                  길드 탈퇴
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -634,29 +801,47 @@ export function V2GuildHome({
                           <PlayerNameLink name={m.name} />
                         </span>
                       </div>
-                      <select
-                        value={
-                          m.role === "vice_master" || m.role === "manager"
-                            ? m.role
-                            : "member"
-                        }
-                        onChange={(e) =>
-                          void handleRole(
-                            m.userId,
-                            m.name,
-                            e.target.value as
-                              | "vice_master"
-                              | "manager"
-                              | "member",
-                          )
-                        }
-                        disabled={acting}
-                        className="shrink-0 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                      >
-                        <option value="member">일반</option>
-                        <option value="manager">관리자</option>
-                        <option value="vice_master">부마스터</option>
-                      </select>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <select
+                          value={
+                            m.role === "vice_master" || m.role === "manager"
+                              ? m.role
+                              : "member"
+                          }
+                          onChange={(e) =>
+                            void handleRole(
+                              m.userId,
+                              m.name,
+                              e.target.value as
+                                | "vice_master"
+                                | "manager"
+                                | "member",
+                            )
+                          }
+                          disabled={acting}
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                        >
+                          <option value="member">일반</option>
+                          <option value="manager">관리자</option>
+                          <option value="vice_master">부마스터</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => void handleTransfer(m.userId, m.name)}
+                          disabled={acting}
+                          className="rounded-md border border-amber-600 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                        >
+                          양도
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleKick(m.userId, m.name)}
+                          disabled={acting}
+                          className="rounded-md border border-rose-600 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
+                        >
+                          추방
+                        </button>
+                      </div>
                     </li>
                   ))}
                 {(info?.members ?? []).filter((m) => m.role !== "master")
@@ -719,6 +904,52 @@ export function V2GuildHome({
                   길드 정원이 늘어납니다.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* 위험 구역 — 길드 해산(마스터 전용). 금고 소멸·거점 해방·되돌릴 수 없음. */}
+          {isMaster && (
+            <div className="space-y-2">
+              <div className="text-xs font-medium uppercase tracking-wider text-rose-500">
+                위험 구역
+              </div>
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/60 dark:bg-rose-950/30">
+                <p className="text-xs text-rose-700 dark:text-rose-300">
+                  길드를 해산하면 모든 길드원이 방출되고, 금고 골드(
+                  {(info?.guildGold ?? 0).toLocaleString()} G)가 소멸하며, 점령한
+                  거점이 모두 해방됩니다. 되돌릴 수 없어요.
+                </p>
+                <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                  확인을 위해 길드 이름{" "}
+                  <span className="font-semibold">
+                    {state?.guild?.name ?? info?.guild?.name}
+                  </span>{" "}
+                  을 입력하세요.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={disbandConfirm}
+                    onChange={(e) => setDisbandConfirm(e.target.value)}
+                    placeholder="길드 이름"
+                    disabled={acting}
+                    maxLength={GUILD_NAME_MAX}
+                    className="min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-rose-500 disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleDisband()}
+                    disabled={
+                      acting ||
+                      disbandConfirm.trim() !==
+                        (state?.guild?.name ?? info?.guild?.name ?? "")
+                    }
+                    className="shrink-0 rounded-md border border-rose-700 bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                  >
+                    해산
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>

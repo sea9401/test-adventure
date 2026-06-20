@@ -255,6 +255,8 @@ export async function POST(req: Request) {
         success: outcome === "success",
         demoted: outcome === "demote",
         destroyed: outcome === "destroy",
+        // 파괴 전광판용 — 잃은 개체의 강화 레벨(시도 전 레벨). enhance 는 파괴 시 null 이라 별도.
+        fromLevel: level,
         itemId: inst.id,
         enhance: nextEnhance ?? null,
         stoneCost,
@@ -281,14 +283,22 @@ export async function POST(req: Request) {
   const fb = result.body as {
     ok?: boolean;
     success?: boolean;
+    destroyed?: boolean;
+    fromLevel?: number;
     enhance?: { level: number } | null;
+    itemId?: string;
   };
-  if (fb.ok && fb.success && (fb.enhance?.level ?? 0) >= ENHANCE_FEED_MIN_LEVEL) {
-    const itemId = (result.body as { itemId?: string }).itemId;
-    if (itemId) {
+  if (fb.ok && fb.itemId) {
+    // 성공 = 달성 레벨이 임계 이상. 파괴 = 잃은 개체가 같은 임계 이상(고강 손실도 사건).
+    if (fb.success && (fb.enhance?.level ?? 0) >= ENHANCE_FEED_MIN_LEVEL) {
       await insertFeedEntry(userId, "enhance_high", {
-        itemId,
+        itemId: fb.itemId,
         level: fb.enhance!.level,
+      });
+    } else if (fb.destroyed && (fb.fromLevel ?? 0) >= ENHANCE_FEED_MIN_LEVEL) {
+      await insertFeedEntry(userId, "enhance_destroy", {
+        itemId: fb.itemId,
+        level: fb.fromLevel!,
       });
     }
   }

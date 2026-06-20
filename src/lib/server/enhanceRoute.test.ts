@@ -164,6 +164,12 @@ describe("POST /api/v2/me/enhance", () => {
     };
     expect(eq.owned).toHaveLength(0);
     expect(eq.equipped.weapon).toBeUndefined();
+    // 고강(+9 ≥ ENHANCE_FEED_MIN_LEVEL) 파괴도 전광판(enhance_destroy) — 잃은 레벨 동봉.
+    const { insertFeedEntry } = await import("@/lib/server/serverFeed");
+    expect(insertFeedEntry).toHaveBeenCalledWith("u-test", "enhance_destroy", {
+      itemId: WEAPON,
+      level: 9,
+    });
   });
 
   it("푸른 돌은 파괴 방지(+9 r=0.999 → 하락)", async () => {

@@ -27,13 +27,13 @@ export const STAMINA_CAP_TONIC_BONUS = 10;
 export const SECRET_SHOP_STOCK: SecretShopItem[] = [
   {
     id: "stone_red",
-    name: "맹렬한 강화석 ×1",
+    name: "붉은 강화석 ×1",
     desc: "드랍·거래소 밖에서 구할 수 있는 유일한 직매처.",
     price: 250_000,
   },
   {
     id: "stone_blue",
-    name: "단단한 강화석 ×1",
+    name: "푸른 강화석 ×1",
     desc: "드랍·거래소 밖에서 구할 수 있는 유일한 직매처.",
     price: 250_000,
   },

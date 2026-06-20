@@ -570,9 +570,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_sensei_combo: {
     // 절정 반격(패시브) — 옛 액티브 난무를 대체(id 는 유지 — 킷/세이브 안정). 피격 생존 시 30% 확률로
     //   적에게 ATK 반격(엔진 passiveCounterChancePct 훅·PvE enemyPhase 전용·반격의 룬 패턴). 절정은
-    //   VIT 탱이라 반격 데미지는 ATK 기준(현재 1×) — 추후 약하면 재조정. SP 5(루브릭 위 override).
+    //   VIT 탱이라 반격 데미지는 ATK 기준(현재 1×) — 추후 약하면 재조정. SP 는 루브릭(passive tier3=9).
     id: "v2c_sensei_combo", name: "반격", stat: "vit", category: "passive", tier: 3,
-    description: "공격을 받아넘기며 즉시 되받아친다.", mpCost: 0, cooldown: 0, spCost: 5,
+    description: "공격을 받아넘기며 즉시 되받아친다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { counterChancePct: 30 },
   },

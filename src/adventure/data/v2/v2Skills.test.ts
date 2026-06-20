@@ -293,21 +293,21 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
 });
 
 describe("spCostOf — SP 로드아웃 코스트 (코어루프)", () => {
-  it("공격 스킬은 tier 가 오를수록 비싸다 (루브릭 3/4/5)", () => {
-    // 강타(attack, tier1) = 3. 명시 override 없는 표 도출.
-    expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(3);
+  it("코스트는 성능(power)에 비례 — 강타 스타터(dmg 1.0)=4", () => {
+    // 강타(attack, dmg 1.0·proc100) = 루브릭 4. 차수가 아니라 effects power 로 도출.
+    expect(spCostOf(V2_SKILLS.v2_skill_strike)).toBe(4);
   });
 
-  it("유틸(힐/버프/디버프)은 공격보다 싸다 (2~3)", () => {
-    // 회복(heal tier1)=2, 함성(buff tier1)=2.
-    expect(spCostOf(V2_SKILLS.v2_skill_recover)).toBe(2);
+  it("약한 유틸은 싸다 — 회복 스타터=3, 함성=2", () => {
+    // 회복(heal 1회) = 3, 함성(짧은 버프) = 2 — 강타(4)보다 싼 예산 옵션.
+    expect(spCostOf(V2_SKILLS.v2_skill_recover)).toBe(3);
     expect(spCostOf(V2_SKILLS.v2c_warrior_warcry)).toBe(2);
   });
 
-  it("명시 spCost override 가 표보다 우선", () => {
+  it("명시 spCost override 는 루브릭 위로만(max) 적용", () => {
+    // 강타 루브릭 = 4. override 7 > 4 → 7. override 0/소수는 무시→루브릭. 5.9→floor 5(>4).
     expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 7 })).toBe(7);
-    // 0/음수/소수 override 는 무시하고 표로 폴백 / floor.
-    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 0 })).toBe(3);
+    expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 0 })).toBe(4);
     expect(spCostOf({ ...V2_SKILLS.v2_skill_strike, spCost: 5.9 })).toBe(5);
   });
 

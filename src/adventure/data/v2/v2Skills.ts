@@ -265,28 +265,133 @@ export type V2SkillDefinition = {
   passive?: V2PassiveSkillEffect;
 };
 
-// SP 코스트 루브릭 표 — (category × tier). 딜 3~5·유틸(버프/디버프/힐) 2~3(설계 doc). 강할수록↑.
-//   tier 1 스타터 저렴·3 상급 비쌈. spCostOf 가 명시 spCost override 우선 적용.
-const SP_COST_TABLE: Record<V2SkillCategory, readonly [number, number, number]> = {
-  attack: [3, 4, 5],
-  heal: [2, 3, 3],
-  buff: [2, 2, 3],
-  debuff: [2, 2, 3],
-  passive: [2, 3, 3], // 패시브 스킬 — 상시 효과(스탯/예기). 액티브와 SP 예산 경쟁.
-};
+// === SP 코스트 = 스킬 성능(power)에 비례 (2026-06-21 재설계) ====================
+// 옛 (category, tier) 표는 차수만으로 가격을 매겨, 같은 차수의 강·약 스킬이 같은 값이고 차수 간
+// 격차도 작았다(저렴=약함 트레이드오프 붕괴, 오너 피드백 "성능에 비례해 책정하라"). 대신 각 스킬의
+// effects/passive 를 합산한 power 점수를 산출해 그에 비례하는 코스트(1~10)를 도출한다.
+//   - power 단위 ≈ "ATK 한 방 가치"(dmg(1.0,140) ≈ 1.0). 카테고리 교차 정규화.
+//   - 액티브는 발동확률(procChance)로 가중(신뢰성=성능) — 단 √소프트닝으로, 큰 한방·저확률
+//     스킬이 "기댓값 낮음"으로 너무 싸지지 않게(원시 ×proc 면 최강 누크가 최저가가 되는 역전 방지).
+//   - 패시브는 상시 효과라 발동 가중 없이 효과 크기 합산.
+//   🔑 SP 보유량(calcSpBudget)은 별도로 끌어올릴 예정(오너) — 코스트만 성능비례로 재조정.
+const SP_FLAT_NORM = 140; // baseFlat ~140 ≈ statCoef 1.0 (정규화 기준).
 
-// (category, tier) 루브릭 표 코스트(override 무시) — 트립와이어/검증용. 루브릭 = 코스트 바닥.
-export function rubricSpCost(skill: V2SkillDefinition): number {
-  const t = Math.min(3, Math.max(1, skill.tier)) - 1;
-  return SP_COST_TABLE[skill.category][t] ?? 3;
+function spAvgTier(byTier?: readonly [number, number, number]): number {
+  return byTier ? (byTier[0] + byTier[1] + byTier[2]) / 3 : 0;
 }
 
-// 스킬 1종의 SP 코스트 — 명시 spCost 우선, 없으면 (category, tier) 표에서. 1 이상.
-//   🔑 override 는 루브릭 "위로만"(아웃라이어 너프) 허용 — 아래로 깎으면 값싼+강한 공용으로
-//   직업 무관 유틸 스택(정체성 붕괴) 길이 열린다. v2Skills.test 트립와이어가 underprice 를 막는다.
+// 액티브 effect 1개의 가치(statCoef-등가 단위).
+function spEffectValue(e: V2SkillEffect): number {
+  switch (e.kind) {
+    case "damage":
+      return (
+        e.statCoef +
+        ((e.baseFlat ?? 0) + spAvgTier(e.baseFlatByTier)) / SP_FLAT_NORM
+      );
+    case "hpCostDamage": {
+      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      return (base + 0.3 * e.soakRatio) * 0.85; // 자체 HP 소모 할인.
+    }
+    case "healToDamage": {
+      const base = e.healStatCoef + spAvgTier(e.healFlatByTier) / SP_FLAT_NORM;
+      return base * (1 + 0.5 * e.damageRatio); // 자힐 + 미러 데미지.
+    }
+    case "executeDamage": {
+      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      return base * (1 + 0.25 * (e.bonusMult - 1)); // 조건부 처형 배수 = 약하게.
+    }
+    case "stackPayoffDamage": {
+      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      return base + (e.perStackFlat / SP_FLAT_NORM) * 2 * 0.6; // ~2 스택·조건부.
+    }
+    case "dot": {
+      const perStack =
+        e.flatPerStack / SP_FLAT_NORM + e.atkCoefPerStack + e.pctMaxHpPerStack / 12;
+      return e.stacks * e.turns * perStack;
+    }
+    case "heal":
+      return (e.pctMaxHp ?? e.pctLostHp ?? 0) / 16 + (e.flat ?? 0) / SP_FLAT_NORM;
+    case "shield":
+      return (((e.pctMaxHp ?? 0) + (e.pctMaxMp ?? 0)) / 20) * Math.max(1, e.turns) * 0.5;
+    case "selfRegen":
+      return (e.pctMaxHpPerTurn * e.turns) / 16;
+    case "manaRestore":
+      return e.pctMaxMp / 30;
+    case "selfBuff":
+    case "enemyDebuff":
+    case "enemyEvasionDown":
+    case "enemyAccuracyDown":
+      return (e.pct * e.turns) / 60;
+    case "selfBuffPct":
+    case "enemyVuln":
+      return (e.pct * e.turns) / 50; // 파생/증폭 버프는 약간 더 강하게.
+    case "enemyHealReduce":
+      return (e.pct * e.turns) / 90; // 니치(주로 PvP).
+    case "selfHaste":
+    case "enemyDelay":
+      return e.pct / 60; // 1회성 ATB 템포(턴 없음).
+  }
+  const _ex: never = e;
+  return _ex;
+}
+
+// 스킬 power 점수 — 액티브는 effects 합×proc소프트닝×쿨다운, 패시브는 효과 크기 합.
+export function skillPowerScore(def: V2SkillDefinition): number {
+  if (def.passive) {
+    const p = def.passive;
+    let mag = 0;
+    for (const v of Object.values(p.stat ?? {})) mag += Math.abs(v ?? 0) / 10;
+    for (const v of Object.values(p.statPct ?? {})) mag += Math.abs(v ?? 0) / 10;
+    mag += (p.maxHpPct ?? 0) / 10;
+    mag += (p.maxMpPct ?? 0) / 12;
+    mag += (p.atkPerDexCoef ?? 0) * 12;
+    mag += (p.critPct ?? 0) / 6;
+    mag += (p.critDmgPct ?? 0) / 25;
+    mag += (p.evasionPct ?? 0) / 8;
+    mag += (p.lifestealPct ?? 0) / 4;
+    mag += (p.counterChancePct ?? 0) / 12;
+    mag += (p.defPct ?? 0) / 12;
+    mag += (p.accuracyPct ?? 0) / 12;
+    mag += (p.healPowerPct ?? 0) / 16;
+    mag += (p.damageTakenReductionPct ?? 0) / 8;
+    mag += (p.elementAdvPctBonus ?? 0) / 15;
+    mag += (p.elementDisPctBonus ?? 0) / 20;
+    return mag;
+  }
+  const sumEffects = (effects: readonly V2SkillEffect[]): number => {
+    let r = 0;
+    for (const e of effects) r += spEffectValue(e);
+    return r;
+  };
+  let raw = sumEffects(def.effects);
+  // 원소술사 — 시전 시 캐릭 속성별 elementEffects 변형이 effects 를 대체(보통 추가 효과로 더 강함).
+  //   코스트는 단일값이라 "최강 변형" 기준으로 책정(과소평가 방지).
+  if (def.elementEffects) {
+    for (const variant of Object.values(def.elementEffects)) {
+      if (variant) raw = Math.max(raw, sumEffects(variant));
+    }
+  }
+  // proc 가중 — 0~1 클램프(손상된 음수 procChance 방어). √소프트닝 + 바닥(0.55): 저확률 스킬에
+  //   일부 할인은 주되 최강 누크가 최저가가 되지 않게. 10%→0.69 · 30%→0.80 · 100%→1.0.
+  const proc = Math.min(1, Math.max(0, (def.procChance ?? 100) / 100));
+  raw *= 0.55 + 0.45 * Math.sqrt(proc);
+  if (def.cooldown > 0) raw /= 1 + def.cooldown / 4;
+  return raw;
+}
+
+// 성능비례 코스트 바닥(루브릭) — power 점수 → SP(1~10 선형). override 트립와이어 기준.
+//   기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
+export function rubricSpCost(skill: V2SkillDefinition): number {
+  const sp = Math.round(0.7 + 3.0 * skillPowerScore(skill));
+  return Math.max(1, Math.min(10, sp));
+}
+
+// 스킬 1종의 SP 코스트 — 명시 spCost override 는 "위로만"(루브릭 이상) 허용(아웃라이어 너프).
+//   아래로 깎으면 값싼+강한 공용 스택(정체성 붕괴) 길이 열린다 → max(루브릭, override).
+//   v2Skills.test 트립와이어가 spCostOf ≥ rubricSpCost 를 강제.
 export function spCostOf(skill: V2SkillDefinition): number {
   if (typeof skill.spCost === "number" && skill.spCost > 0) {
-    return Math.floor(skill.spCost);
+    return Math.max(rubricSpCost(skill), Math.floor(skill.spCost));
   }
   return rubricSpCost(skill);
 }

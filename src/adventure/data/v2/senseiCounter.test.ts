@@ -9,12 +9,12 @@ import {
 } from "./v2Skills";
 
 describe("절정 반격 패시브", () => {
-  it("카탈로그: v2c_sensei_combo = 반격 패시브(counterChancePct 30·SP 5)", () => {
+  it("카탈로그: v2c_sensei_combo = 반격 패시브(counterChancePct 30·SP 8)", () => {
     const s = V2_SKILLS.v2c_sensei_combo;
     expect(s.name).toBe("반격");
     expect(s.category).toBe("passive");
     expect(s.passive?.counterChancePct).toBe(30);
-    expect(spCostOf(s)).toBe(5); // 명시 override(루브릭 passive=3 위)
+    expect(spCostOf(s)).toBe(8); // override 제거 → 성능비례 루브릭(counterChancePct 30 → 8)
   });
 
   it("aggregateEquippedPassives 가 counterChancePct 합산", () => {

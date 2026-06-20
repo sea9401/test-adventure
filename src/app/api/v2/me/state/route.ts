@@ -59,6 +59,8 @@ import {
   V2_JOB_CATALOG,
   isJobUnlocked,
   jobIdFromLegacy,
+  jobUnlockConditionText,
+  cumLevelForJob,
   CATALOG_USES_QUEST_CONDITION,
   type JobUnlockContext,
 } from "@/adventure/data/v2/v2JobCatalog";
@@ -437,17 +439,8 @@ export async function GET() {
             jobs: V2_JOB_LIST.filter(
               (job) => job.tier > 0 && isJobUnlocked(job, prof, jobUnlockCtx),
             ).map((job) => {
-              // 해금 조건(공유용) — 기본 직업=모험가 Lv 캡 도달, 상위=부모 직군 누적 Lv 임계.
-              const prereqs = Object.entries(job.unlock.prereqs);
-              const condition =
-                prereqs.length === 0
-                  ? `Lv ${V2_LEVEL_CAP} 달성`
-                  : prereqs
-                      .map(
-                        ([pid, lv]) =>
-                          `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`,
-                      )
-                      .join(", ");
+              // 해금 조건(공유용 — 직업 도감과 동일 헬퍼).
+              const condition = jobUnlockConditionText(job);
               // 직업 내장 보너스(현재 직업에 있을 때 적용되는 플랫 스탯) — "이 직업을 고를 이유"로
               //   전직 화면에 표기. 패시브 스킬(휴대용)과 별개.
               const bonus = V2_STAT_KEYS.filter((k) => job.jobBonus[k])
@@ -463,6 +456,8 @@ export async function GET() {
                 name: job.name,
                 tier: job.tier,
                 condition,
+                // 그 직업에 쌓은 누적 레벨(직업별/직군 — 전직 화면 표기, 해금 진행 가늠).
+                cumLevel: cumLevelForJob(prof, job),
                 bonus,
                 skillsCollected,
               };

@@ -12,6 +12,7 @@
 
 import type { V2StatKey } from "./v2StatKeys";
 import type { V2ProficiencyState } from "./proficiency";
+import { V2_LEVEL_CAP } from "./coreLoopConfig";
 
 /**
  * 추가 해금 조건(cumLevel prereqs 외). isJobUnlocked 가 평가(#818 배선). 현 카탈로그 직업은
@@ -402,6 +403,27 @@ export function isJobUnlocked(
     if (!extraConditionMet(cond, proficiency, ctx)) return false;
   }
   return true;
+}
+
+// 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 누적 Lv 임계.
+//   예: "Lv 50 달성" / "견습 병사 누적 Lv 100" / "기사 누적 Lv 250, 사제 누적 Lv 250".
+export function jobUnlockConditionText(job: V2JobDefinition): string {
+  const prereqs = Object.entries(job.unlock.prereqs);
+  if (prereqs.length === 0) return `Lv ${V2_LEVEL_CAP} 달성`;
+  return prereqs
+    .map(([pid, lv]) => `${V2_JOB_CATALOG[pid]?.name ?? pid} 누적 Lv ${lv ?? 0}`)
+    .join(", ");
+}
+
+// 그 직업에 쌓은 누적 레벨(표시용) — tier1 직업=직군 누적(groups), tier2+=직업별 누적(jobCumLevel).
+//   isJobUnlocked 의 prereq 분기와 같은 기준. 미적립=0.
+export function cumLevelForJob(
+  prof: V2ProficiencyState,
+  job: V2JobDefinition,
+): number {
+  return job.tier === 1
+    ? (prof.groups[job.id]?.cumLevel ?? 0)
+    : (prof.jobCumLevel?.[job.id] ?? 0);
 }
 
 /** 현재 숙련도로 전직 가능한 비(非)모험가 직업 목록(전직 UI 용). */

@@ -9,6 +9,7 @@ import {
   V2_JOB_LIST,
   isJobUnlocked,
   jobIdFromLegacy,
+  jobUnlockConditionText,
   type JobUnlockContext,
 } from "./v2JobCatalog";
 import { type V2ProficiencyState } from "./proficiency";
@@ -19,6 +20,8 @@ export type JobCodexJob = {
   name: string;
   unlocked: boolean;
   isCurrent: boolean;
+  // 해금 조건 텍스트(전직 화면과 동일 헬퍼). 도감은 해금된 직업만 싣고, 어떤 조건으로 열렸는지 표기.
+  condition: string;
   // 스킬 수집 현황 — 그 직업의 시그니처 스킬(액티브+패시브) 중 학습한 개수 / 전체. 둘 다 배우면
   //   skillsLearned === skillsTotal = "수집 완료". UI 는 이 진행도만 표기(차수·패시브 정체 비공개).
   skillsLearned: number;
@@ -27,7 +30,10 @@ export type JobCodexJob = {
 
 export type JobCodex = {
   currentJobId: string;
+  // 해금된 직업만(잠긴 직업 제외). 진행도 "해금 N/M" 의 분자.
   jobs: JobCodexJob[];
+  // 전체 실제 직업 수(tier>0) — "해금 N/M" 의 분모(목록엔 해금분만 실려도 진척 표기 유지).
+  totalJobs: number;
 };
 
 export function buildJobCodex(
@@ -40,19 +46,23 @@ export function buildJobCodex(
   const learned = new Set(learnedSkillIds);
   const currentJobId = jobIdFromLegacy(cls, specChoice);
 
-  // 모험가(tier 0) 제외 — 실제 직업만 도감에 싣는다.
-  const jobs: JobCodexJob[] = V2_JOB_LIST.filter((j) => j.tier > 0).map((job) => {
+  // 모험가(tier 0) 제외 + 해금된 직업만 — 잠긴(미해금) 직업은 도감에 안 싣는다(오너 요청).
+  const realJobs = V2_JOB_LIST.filter((j) => j.tier > 0);
+  const jobs: JobCodexJob[] = realJobs
+    .filter((j) => isJobUnlocked(j, prof, unlockCtx))
+    .map((job) => {
     // 스킬 수집 진행도 — 시그니처 스킬(액티브+패시브) 중 학습한 수.
     const signature = skillsForJob(job.id);
     return {
       id: job.id,
       name: job.name,
-      unlocked: isJobUnlocked(job, prof, unlockCtx),
+      unlocked: true, // 필터로 해금된 것만 통과.
       isCurrent: job.id === currentJobId,
+      condition: jobUnlockConditionText(job),
       skillsTotal: signature.length,
       skillsLearned: signature.filter((id) => learned.has(id)).length,
     };
   });
 
-  return { currentJobId, jobs };
+  return { currentJobId, jobs, totalJobs: realJobs.length };
 }

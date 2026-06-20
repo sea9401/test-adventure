@@ -225,7 +225,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           : {
               text: "직업 — 거쳐온 직업과 모은 스킬의 기록.",
               count: jobCodex
-                ? `해금 ${jobCodex.jobs.filter((j) => j.unlocked).length}/${jobCodex.jobs.length} · 스킬 수집 ${jobCodex.jobs.filter((j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal).length}/${jobCodex.jobs.length}`
+                ? `해금 ${jobCodex.jobs.length}/${jobCodex.totalJobs} · 스킬 수집 ${jobCodex.jobs.filter((j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal).length}/${jobCodex.totalJobs}`
                 : "",
             };
 

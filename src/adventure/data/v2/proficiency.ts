@@ -352,7 +352,7 @@ export function tierLevelCap(tier: number): number {
   return V2_TIER_LEVEL_CAP[Math.min(4, Math.max(1, Math.floor(tier)))] ?? 100;
 }
 
-// 코어루프 단일 레벨 캡 — 차수 폐지 시 모든 직업이 단일 V2_LEVEL_CAP(50)까지만 오르고,
+// 코어루프 단일 레벨 캡 — 차수 폐지 시 모든 직업이 단일 V2_LEVEL_CAP(100)까지만 오르고,
 // 그 위는 재전직 루프로 전환. 순수 헬퍼(테스트용 flag 인자) + flag 자동판정 래퍼.
 export function levelCapFor(tier: number, coreLoopOn: boolean): number {
   return coreLoopOn ? V2_LEVEL_CAP : tierLevelCap(tier);

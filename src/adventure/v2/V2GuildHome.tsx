@@ -94,6 +94,8 @@ type GuildInfoResponse = {
   canDeclareNation?: boolean;
   // 길드 공용 골드 풀 보유량.
   guildGold?: number;
+  // 무소속일 때만 — 재가입 쿨다운 만료 시각(ISO). 활성 아니면 null/부재.
+  leaveCooldownUntil?: string | null;
 };
 
 function fmtDate(iso: string): string {
@@ -495,7 +497,7 @@ export function V2GuildHome({
 
         <GuildBrowsePanel
           busy={false}
-          leaveCooldownUntil={null}
+          leaveCooldownUntil={info?.leaveCooldownUntil ?? null}
           onToast={(text) => setNotice({ kind: "ok", text })}
           onError={(text) => setNotice({ kind: "err", text })}
         />

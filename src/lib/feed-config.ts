@@ -27,6 +27,7 @@ export const FEED_TYPES = [
   "outpost_siege",
   "outpost_eject",
   "enhance_high",
+  "enhance_destroy",
   "rare_map_drop",
   "coop_summon",
   "coop_kill",
@@ -41,6 +42,7 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "outpost_siege",
   "outpost_eject",
   "enhance_high",
+  "enhance_destroy",
 ];
 
 // 전광판(티커) 표시 범위 — 이 시간 안의 전쟁 사건만 순환. 0건이면 띠 자체를 숨긴다
@@ -58,7 +60,7 @@ export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
   // 획득 — 걸작 제작/레어맵 발견(희귀 사건만 — 유니크 드랍 제외).
   acquisition: ["masterpiece", "rare_map_drop"],
   // 강화 — 고강(+8 이상) 성공.
-  enhance: ["enhance_high"],
+  enhance: ["enhance_high", "enhance_destroy"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.
   war: ["outpost_capture", "outpost_siege", "outpost_eject"],
   // 보스 — 협동 보스 소환/처치.
@@ -101,7 +103,8 @@ export type FeedPayload =
     }
   // outpost_eject — 침입자 토벌. actor = 토벌자, targetName = 토벌당한 침입자.
   | { outpostId: string; targetName: string }
-  // enhance_high — 고강(+8 이상) 강화 성공. 장비 이름은 클라가 카탈로그 해석.
+  // enhance_high — 고강(ENHANCE_FEED_MIN_LEVEL 이상) 강화 성공 / enhance_destroy — 같은 레벨대
+  //   파괴(개체 소멸). level = 성공=달성 레벨·파괴=잃은 개체 레벨. 장비 이름은 클라가 카탈로그 해석.
   | { itemId: string; level: number }
   // rare_map_drop — 레어맵 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
   // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.

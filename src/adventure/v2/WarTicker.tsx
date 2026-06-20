@@ -59,6 +59,13 @@ export function warTickerText(e: FeedEntry): string | null {
       p.itemId;
     return `${e.actorName} 님이 ${name} +${p.level} 강화 성공!`;
   }
+  if (e.type === "enhance_destroy") {
+    const p = e.payload as { itemId: string; level: number };
+    const name =
+      (V2_EQUIPMENT as Record<string, { name?: string }>)[p.itemId]?.name ??
+      p.itemId;
+    return `${e.actorName} 님의 ${name} +${p.level}, 강화 중 파괴…`;
+  }
   return null;
 }
 

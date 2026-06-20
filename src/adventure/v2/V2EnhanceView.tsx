@@ -275,7 +275,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     (성공 시 +{level + 1})
                   </span>
                 </div>
-                {/* 강화 방식 — 골드만(+7까지) / 돌. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 방지 */}
+                {/* 강화 방식 — 골드(+7까지) / 강화석. 돌 효과: 붉은=성공↑(도박)·푸른=파괴 방지 */}
                 <div className="flex gap-2">
                   {(["none", "blue", "red"] as const).map((s) => {
                     const disabled = s === "none" && stoneRequired;
@@ -302,11 +302,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                         <div className="font-medium">
                           {s === "none"
                             ? disabled
-                              ? "💰 골드만 (+7까지)"
-                              : "💰 골드만"
+                              ? "💰 골드 (+7까지)"
+                              : "💰 골드"
                             : s === "red"
-                              ? "🔴 붉은 (맹렬)"
-                              : "🔵 푸른 (단단)"}
+                              ? "🔴 붉은 강화석"
+                              : "🔵 푸른 강화석"}
                         </div>
                         <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
                           성공 {row[0]}%

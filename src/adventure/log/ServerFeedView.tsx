@@ -82,6 +82,13 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       className="shrink-0 text-amber-500 dark:text-amber-400"
     />
   ),
+  enhance_destroy: (
+    <Lightning
+      size={14}
+      weight="fill"
+      className="shrink-0 text-rose-500 dark:text-rose-400"
+    />
+  ),
   rare_map_drop: (
     <MapTrifold
       size={14}
@@ -230,6 +237,18 @@ function entryText(e: FeedEntry): React.ReactNode {
           {itemName(p.itemId)} +{p.level}
         </span>{" "}
         강화 성공!
+      </>
+    );
+  }
+  if (e.type === "enhance_destroy") {
+    const p = e.payload as { itemId: string; level: number };
+    return (
+      <>
+        {name} 님의{" "}
+        <span className="font-medium text-rose-600 dark:text-rose-400">
+          {itemName(p.itemId)} +{p.level}
+        </span>{" "}
+        강화 중 파괴…
       </>
     );
   }

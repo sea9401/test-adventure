@@ -3,6 +3,7 @@
 import { MapPin } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { ChatButton } from "@/components/ChatButton";
+import { MailboxBell } from "./MailboxBell";
 import { NotificationBell } from "./NotificationBell";
 import { V2SettingsMenu } from "./V2SettingsMenu";
 
@@ -58,6 +59,7 @@ export function V2TopBar({
         </button>
       </div>
       <nav className="flex shrink-0 items-center gap-1">
+        <MailboxBell />
         <NotificationBell />
         {/* 전역 채팅 — 서버가 이름/칭호를 권위 해석(클라 name 은 본인 화면용).
             v2 는 인벤토리 미연결이라 아이템 링크 없이 텍스트 채팅만. */}

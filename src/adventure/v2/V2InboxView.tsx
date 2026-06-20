@@ -74,6 +74,10 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
     try {
       const r = await fetchInbox();
       setItems(r.items);
+      // 상단 우편 배지(MailboxBell) 재동기화 — 우편함 (재)로드 시(수령/초대 후) 60s 폴링 안 기다림.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("v2inbox:refresh"));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "우편함 로드 실패");
       setItems([]);

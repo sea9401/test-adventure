@@ -21,7 +21,7 @@ export type JobLadderEntry = {
   skillsCollected?: boolean;
 };
 
-type Pending = { id: string; name: string };
+type Pending = { id: string; name: string; current: boolean };
 
 export function V2JobLadder({
   level,
@@ -70,7 +70,11 @@ export function V2JobLadder({
         setMsg(`✗ ${label}`);
         return;
       }
-      setMsg(`✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`);
+      setMsg(
+        pending.current
+          ? `✓ ${pending.name} 재전직 완료. 레벨 1로 돌아왔어요`
+          : `✓ ${pending.name}(으)로 전직 완료. 레벨 1로 돌아왔어요`,
+      );
       setPending(null);
       await onChanged();
     } catch (err) {
@@ -114,7 +118,13 @@ export function V2JobLadder({
                 job={job}
                 isCurrent={job.id === currentJobId}
                 atLevelCap={atLevelCap}
-                onPick={() => setPending({ id: job.id, name: job.name })}
+                onPick={() =>
+                  setPending({
+                    id: job.id,
+                    name: job.name,
+                    current: job.id === currentJobId,
+                  })
+                }
               />
             ))}
           </ul>
@@ -146,11 +156,14 @@ export function V2JobLadder({
         >
           <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-zinc-950">
             <h2 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">
-              {pending.name}(으)로 전직
+              {pending.current
+                ? `${pending.name} 재전직`
+                : `${pending.name}(으)로 전직`}
             </h2>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 누적
-              성장(한계치)은 그대로 유지됩니다.
+              {pending.current
+                ? "같은 직업으로 재전직해요. 레벨이 1로 돌아가고 스탯이 다시 자라기 시작하지만, 누적 성장(한계치)은 그대로 유지됩니다."
+                : "전직하면 레벨이 1로 돌아가고 스탯이 다시 자라기 시작해요. 누적 성장(한계치)은 그대로 유지됩니다."}
             </p>
             <div className="mt-5 flex gap-2">
               <button
@@ -167,7 +180,13 @@ export function V2JobLadder({
                 disabled={busy}
                 className="flex-1 rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
               >
-                {busy ? "전직 중…" : "전직 (Lv 1로 초기화)"}
+                {busy
+                  ? pending.current
+                    ? "재전직 중…"
+                    : "전직 중…"
+                  : pending.current
+                    ? "재전직 (Lv 1로 초기화)"
+                    : "전직 (Lv 1로 초기화)"}
               </button>
             </div>
           </div>
@@ -215,16 +234,15 @@ function JobRow({
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {!isCurrent && (
-          <button
-            type="button"
-            onClick={onPick}
-            disabled={!atLevelCap}
-            className="rounded-md border border-emerald-600 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-emerald-400 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:text-zinc-600"
-          >
-            전직
-          </button>
-        )}
+        {/* 현재 직업도 동일 직업 재전직(레벨1 리셋·누적 성장 유지) 허용 — 환생 루프. */}
+        <button
+          type="button"
+          onClick={onPick}
+          disabled={!atLevelCap}
+          className="rounded-md border border-emerald-600 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-zinc-400 disabled:hover:bg-transparent dark:text-emerald-400 dark:hover:bg-emerald-950 dark:disabled:border-zinc-700 dark:disabled:text-zinc-600"
+        >
+          {isCurrent ? "재전직" : "전직"}
+        </button>
       </div>
     </li>
   );

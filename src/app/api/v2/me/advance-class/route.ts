@@ -117,6 +117,8 @@ export async function POST(req: Request) {
       }
       // 타겟 직업 = 단일 targetJobId + 카탈로그 cumLevel 게이트(isJobUnlocked). 세이브/스킬
       //   체인은 브리지 LEGACY_CLASS_SPEC_BY_JOB 로 옛 class+spec 모델로 변환(저장 호환, 영구).
+      // 현재 직업과 동일한 targetJobId(재전직)도 의도적으로 허용 — 같은 직업 환생 루프
+      //   (레벨1 리셋·cumLevel 보존). 별도 same-job 거부 가드를 두지 않는다.
       const targetJobId =
         typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
       const jobDef = V2_JOB_CATALOG[targetJobId];

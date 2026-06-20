@@ -1833,8 +1833,10 @@ function resolveBattleLegacy(
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
           procRoll: Math.random() * 100,
-          // 약점 찌르기 = 공격 전용(PvE): 몹→플레이어 스킬 속성 보정도 중립(0/0). 평타(hunt route
-          //   monsterElemMult 제거)와 일관 — 몹이 플레이어 속성을 카운터해도 추가 피해 없음.
+          // 속성 양방향(2026-06-20): 방어 상성은 몹 *평타*(enemyPhase enemyElemMult)에만 적용한다.
+          //   ⚠️ 몹은 스킬 발동 턴에도 평타를 같이 한다(플레이어는 스킬 시 finishPlayerTurn+continue 로
+          //   평타 스킵 — 비대칭/기존 버그). 스킬에도 속성을 켜면 한 턴에 평타+스킬 둘 다 상성이 곱해져
+          //   이중이 되므로, 몹 스킬은 중립(0/0) 유지. (몹 평타는 매 턴 발동 → 방어 상성 일관 적용점.)
           elementAdvPct: 0,
           elementDisPct: 0,
           attacker: {

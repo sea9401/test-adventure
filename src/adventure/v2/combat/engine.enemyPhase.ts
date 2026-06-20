@@ -15,6 +15,11 @@ import {
 import {
   EVASION_PCT_CAP,
 } from "@/adventure/data/stats";
+import {
+  elementDamageMult,
+  V2_ELEMENT_ADV_PCT,
+  V2_ELEMENT_DIS_PCT,
+} from "@/adventure/data/v2/elements";
 
 // 치명형 몹(SPI PR-3b) 기본 치명 배수 — Monster.critMult 미지정 시. 플레이어 CRIT_MULT_BASE(1.4)
 //   보다 약간 높게 둬 "치명 위협" 체감(잡몹은 critPct 0 이라 무관).
@@ -517,7 +522,21 @@ export function resolveEnemyPhase(
   const defenseForAttack = magicAttack
     ? Math.max(0, player.magicDef ?? 0)
     : v2EffectivePlayerDef;
-  const baseEnemyDmg = damageBetween(v2EffectiveEnemyAtk, defenseForAttack);
+  const baseEnemyDmgRaw = damageBetween(v2EffectiveEnemyAtk, defenseForAttack);
+  // 속성 방어 상성(2026-06-20 양방향) — 몹 평타가 몹속성 vs 플레이어속성 배수 적용. 내가 몹 속성에
+  //   강하면 덜 맞고 약하면 더 맞음. 평타는 매 턴 발동하므로 방어 상성의 일관 적용점이다. 🔑 무속성
+  //   매치업은 ×1(neutral)이라 가드로 스킵 → RNG 무소비·기존 전투 byte-identical. (몹 스킬은 중립
+  //   유지 — engine.ts 몹 cast 의 0/0 주석 참조: 몹이 스킬+평타 동시 발동이라 평타에만 적용해 이중 방지.)
+  const enemyElemMult = elementDamageMult(
+    state.enemy.element ?? "neutral",
+    player.characterElement ?? "neutral",
+    V2_ELEMENT_ADV_PCT,
+    V2_ELEMENT_DIS_PCT,
+  );
+  const baseEnemyDmg =
+    enemyElemMult !== 1
+      ? Math.max(1, Math.floor(baseEnemyDmgRaw * enemyElemMult))
+      : baseEnemyDmgRaw;
   // 치명형 몹(SPI PR-3b) — critPct 굴려(플레이어 critResistPct=정신 차감) 적중 시 피해 ×critMult.
   //   heavy_blow 와 곱연산. 🔑 critPct 0(잡몹)이면 굴림 자체를 스킵 → RNG 스트림 불변(기존 전투
   //   byte-identical). 이 지점은 회피/가드/무효 분기를 모두 통과(=명중 확정)한 뒤라 헛굴림 없음.

@@ -37,9 +37,15 @@ import type {
 // 격자 셀 중심을 쓴다. 게임플레이(인접/이동/안개/전쟁)는 그대로 — 순수 비주얼 변경.
 const GRID_COLS = 13;
 const GRID_ROWS = 8;
-const CELL = MAP_BOUNDS.width / GRID_COLS; // ≈769 (큼직한 셀. 6000/8≈750 → 거의 정사각)
+const CELL = MAP_BOUNDS.width / GRID_COLS; // ≈769 (열 너비. 가로 스냅 격자는 정사각)
+// 세로 스트레치 — 40 거점은 본래 가로로 넓어 세로가 짧다(landscape). 세로 픽셀만 늘려
+// 세로폰(portrait)에서 보드가 화면 세로를 채우게 한다. CELL=열 너비(가로 불변), ROW_H=행
+// 표시 높이(세로). 스냅/영토색/Voronoi 는 정사각 맵 좌표(CELL) 그대로 — 세로 픽셀만 늘어난다.
+// VSTRETCH 는 소유자가 바로 튜닝하는 다이얼(1=정사각 원본, 1.5=near-square portrait).
+const VSTRETCH = 1.5;
+const ROW_H = CELL * VSTRETCH; // 행 표시 높이(세로 전용). 가로(열 너비)는 CELL 유지.
 const BOARD_W = GRID_COLS * CELL;
-const BOARD_H = GRID_ROWS * CELL;
+const BOARD_H = GRID_ROWS * ROW_H; // 세로로 늘어난 보드(≈ 13:12 near-square).
 
 const clampInt = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
@@ -150,9 +156,14 @@ const TERRITORY_GRID: TerritoryCell[][] = (() => {
   for (let col = 0; col < GRID_COLS; col++) {
     const column: TerritoryCell[] = [];
     for (let row = 0; row < GRID_ROWS; row++) {
+      // 표시 좌표 — x=열 너비(CELL), y=행 높이(ROW_H, 세로 스트레치).
       const x = col * CELL;
-      const y = row * CELL;
-      const label = territoryLabelAt(x + CELL / 2, y + CELL / 2);
+      const y = row * ROW_H;
+      // 영토 색/라벨은 정사각 맵 좌표(CELL)로 판정 — Voronoi/색칠 불변, 세로 픽셀만 늘어난다.
+      const label = territoryLabelAt(
+        (col + 0.5) * CELL,
+        (row + 0.5) * CELL,
+      );
       column.push({
         col,
         row,
@@ -179,13 +190,16 @@ const TERRITORY_BORDERS: {
   for (let col = 0; col < GRID_COLS; col++) {
     for (let row = 0; row < GRID_ROWS; row++) {
       const c = TERRITORY_GRID[col][row];
+      // c.x/c.y 는 표시 좌표 — 가로 변(width)은 CELL, 세로 변(height)은 ROW_H.
       const right = TERRITORY_GRID[col + 1]?.[row];
       if (right && right.label !== c.label) {
-        out.push({ x1: c.x + CELL, y1: c.y, x2: c.x + CELL, y2: c.y + CELL });
+        // 오른쪽 경계 = 세로선 — y 범위가 ROW_H.
+        out.push({ x1: c.x + CELL, y1: c.y, x2: c.x + CELL, y2: c.y + ROW_H });
       }
       const below = TERRITORY_GRID[col]?.[row + 1];
       if (below && below.label !== c.label) {
-        out.push({ x1: c.x, y1: c.y + CELL, x2: c.x + CELL, y2: c.y + CELL });
+        // 아래 경계 = 가로선 — y 위치가 ROW_H 만큼 내려간 셀 바닥.
+        out.push({ x1: c.x, y1: c.y + ROW_H, x2: c.x + CELL, y2: c.y + ROW_H });
       }
     }
   }
@@ -242,8 +256,9 @@ const OUTPOST_GRID_POS: Map<string, GridPos> = (() => {
     map.set(o.id, {
       col,
       row,
+      // 가로 중심은 열 너비(CELL), 세로 중심은 행 높이(ROW_H, 세로 스트레치).
       cx: (col + 0.5) * CELL,
-      cy: (row + 0.5) * CELL,
+      cy: (row + 0.5) * ROW_H,
     });
   }
   return map;
@@ -253,8 +268,9 @@ const OUTPOST_GRID_POS: Map<string, GridPos> = (() => {
 function gpos(id: string): { cx: number; cy: number } {
   const g = OUTPOST_GRID_POS.get(id);
   if (g) return { cx: g.cx, cy: g.cy };
+  // 폴백(이론상 불가) — 원 좌표. 세로는 스트레치 반영해 늘어난 보드와 맞춘다.
   const o = OUTPOST_BY_ID.get(id);
-  return { cx: o?.position.x ?? 0, cy: o?.position.y ?? 0 };
+  return { cx: o?.position.x ?? 0, cy: (o?.position.y ?? 0) * VSTRETCH };
 }
 
 type OccupationLite = {
@@ -365,12 +381,17 @@ export function ContinentMap({
       : null;
 
   // 타일 한 변(uniform) — 격자라 모든 tier 동일 크기. tier 큐는 stroke 굵기로만 약하게.
-  const TILE = CELL * 0.62;
+  // 타일은 정사각(열 너비 CELL 기준) 유지 — 세로 스트레치는 셀 간격만 넓히고 타일은 안 늘인다.
+  // 세로로 여유가 생겼으니 가독성 위해 살짝 키운다(다이얼). 0.66 < VSTRETCH 라 세로 이웃과 안 겹침.
+  const TILE = CELL * 0.66;
   const HALF = TILE / 2;
+  // 라벨 폰트 크기(다이얼) — 여유 공간이 생겨 약간 키웠다.
+  const LABEL_FS_KINGDOM = 68;
+  const LABEL_FS_OTHER = 54;
 
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
-      <div className="relative aspect-[13/8] w-full select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40">
+      <div className="relative aspect-[13/12] w-full select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40">
         <svg
           viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
           preserveAspectRatio="xMidYMid meet"
@@ -410,7 +431,7 @@ export function ContinentMap({
                   x={c.x}
                   y={c.y}
                   width={CELL}
-                  height={CELL}
+                  height={ROW_H}
                   fill={c.color}
                   fillOpacity={0.2}
                 />
@@ -436,9 +457,9 @@ export function ContinentMap({
               <line
                 key={`gh-${i}`}
                 x1={0}
-                y1={i * CELL}
+                y1={i * ROW_H}
                 x2={BOARD_W}
-                y2={i * CELL}
+                y2={i * ROW_H}
               />
             ))}
           </g>
@@ -662,7 +683,7 @@ export function ContinentMap({
                     x={p.cx}
                     y={p.cy - HALF - 12}
                     textAnchor="middle"
-                    fontSize={isKingdom ? 60 : 48}
+                    fontSize={isKingdom ? LABEL_FS_KINGDOM : LABEL_FS_OTHER}
                     fontWeight={700}
                     fill="#fff"
                     paintOrder="stroke"

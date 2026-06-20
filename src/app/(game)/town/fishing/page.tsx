@@ -11,6 +11,7 @@ export default function FishingPage() {
       onBack={() => router.push("/town")}
       onOpenLeaderboard={() => router.push("/town/fishing/leaderboard")}
       onOpenShop={() => router.push("/town/fishing/shop")}
+      onOpenChallenges={() => router.push("/town/fishing/challenges")}
     />
   );
 }

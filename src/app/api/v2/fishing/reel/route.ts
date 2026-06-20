@@ -16,6 +16,12 @@ import {
 } from "@/adventure/v2/fishingCodex";
 import { currentFishingSeasonId } from "@/lib/server/fishing/season";
 import { upsertFishingRecord } from "@/lib/server/fishing/records";
+import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
+import {
+  FISHING_DAILY_KEY,
+  applyCatch as applyDailyCatch,
+  parseFishingDaily,
+} from "@/adventure/data/v2/fishingDailyChallenges";
 import {
   TREASURE_FRAGMENTS_KEY,
   FISHING_FRAGMENT_DROP_CHANCE,
@@ -92,6 +98,18 @@ export async function POST(req: Request) {
       session.size,
       new Date(now),
     );
+
+    // 일일 낚시 도전과제 — 그날 카운터를 올린다(일 경계 롤오버는 applyDailyCatch 내부). 같은 tx.
+    //   락 순서: 세션 → 코덱스 → 일일트래커 → (조각). claim 라우트는 일일트래커 → 지갑이라 순환 없음.
+    const dayKey = kstDailyKey(new Date(now));
+    const daily = applyDailyCatch(
+      parseFishingDaily(
+        await lockSaveForUpdate(tx, userId, FISHING_DAILY_KEY, {}),
+      ),
+      session.fishId,
+      dayKey,
+    );
+    await upsertSave(tx, userId, FISHING_DAILY_KEY, daily);
 
     // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
     // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.

@@ -152,10 +152,12 @@ export function FishingView({
   onBack,
   onOpenLeaderboard,
   onOpenShop,
+  onOpenChallenges,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenShop?: () => void;
+  onOpenChallenges?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -272,8 +274,17 @@ export function FishingView({
         title="낚시터"
         onBack={onBack}
         right={
-          onOpenLeaderboard || onOpenShop ? (
+          onOpenLeaderboard || onOpenShop || onOpenChallenges ? (
             <div className="flex shrink-0 flex-col gap-1.5">
+              {onOpenChallenges && (
+                <button
+                  type="button"
+                  onClick={onOpenChallenges}
+                  className="rounded-full bg-sky-200/70 px-3 py-1 text-xs font-medium text-sky-800 transition hover:bg-sky-300/70 dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-800/60"
+                >
+                  오늘의 도전
+                </button>
+              )}
               {onOpenLeaderboard && (
                 <button
                   type="button"

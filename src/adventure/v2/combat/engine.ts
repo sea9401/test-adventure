@@ -1404,7 +1404,13 @@ export function applyPlayerV2SkillCast(
     selfDebuffs: import("./combatShared").V2BuffMap;
     enemyDebuffs: import("./combatShared").V2BuffMap;
   },
-): { state: BattleState; castFired: boolean } {
+): {
+  state: BattleState;
+  castFired: boolean;
+  // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 무시. ATB 루프가 틱 계산에 반영.
+  selfHastePct: number;
+  enemyDelayPct: number;
+} {
   const tickedSelfBuffs = ticked.selfBuffs;
   const tickedSelfDebuffs = ticked.selfDebuffs;
   const tickedEnemyDebuffs = ticked.enemyDebuffs;
@@ -1716,7 +1722,12 @@ export function applyPlayerV2SkillCast(
     },
     log: nextLog,
   };
-  return { state, castFired: result.castSkillId != null };
+  return {
+    state,
+    castFired: result.castSkillId != null,
+    selfHastePct: result.selfHasteToApply?.pct ?? 0,
+    enemyDelayPct: result.enemyDelayToApply?.pct ?? 0,
+  };
 }
 
 function resolveBattleLegacy(

@@ -1173,7 +1173,12 @@ export const PVP_TURN_CAP = 100;
 export function castV2SkillOnAttackerTurnPvP(
   state: PvPBattleState,
   who: "p1" | "p2",
-): PvPBattleState {
+): {
+  state: PvPBattleState;
+  // 바람/대지 ATB 템포(원소술사) — 비-ATB(legacy) 호출부는 .state 만 쓰고 무시. ATB 루프가 틱 반영.
+  selfHastePct: number;
+  enemyDelayPct: number;
+} {
   const sideStart = state[who];
   const otherKey: "p1" | "p2" = who === "p1" ? "p2" : "p1";
   let st = state;
@@ -1498,6 +1503,8 @@ export function castV2SkillOnAttackerTurnPvP(
     v2Dots: nextOppDots,
     stacks: { ...opp.stacks, magicVulnStacks: nextOppMagicVuln },
   };
+  const selfHastePct = result.selfHasteToApply?.pct ?? 0;
+  const enemyDelayPct = result.enemyDelayToApply?.pct ?? 0;
   let next: PvPBattleState = { ...st, log: nextLog };
   next = setSide(next, who, nextSide);
   next = setSide(next, otherKey, nextOpp);
@@ -1507,17 +1514,21 @@ export function castV2SkillOnAttackerTurnPvP(
   //   잠재 버그. 다단히트로 치명 시전이 흔해져 가드 필수. main loop 가 phase==="ended" 를 받아 처리.
   if (nextOppHp <= 0 && next.phase !== "ended") {
     return {
-      ...next,
-      log: appendLog(next.log, {
-        kind: "info",
-        text: `${opp.name}이(가) 쓰러졌다.`,
-        side: who,
-      }),
-      phase: "ended",
-      outcome: who === "p1" ? "p1_win" : "p2_win",
+      state: {
+        ...next,
+        log: appendLog(next.log, {
+          kind: "info",
+          text: `${opp.name}이(가) 쓰러졌다.`,
+          side: who,
+        }),
+        phase: "ended",
+        outcome: who === "p1" ? "p1_win" : "p2_win",
+      },
+      selfHastePct,
+      enemyDelayPct,
     };
   }
-  return next;
+  return { state: next, selfHastePct, enemyDelayPct };
 }
 
 function resolveBattlePvPLegacy(
@@ -1589,7 +1600,8 @@ function resolveBattlePvPLegacy(
     v2CastedThisPhase[other] = false;
     if (!v2CastedThisPhase[who]) {
       v2CastedThisPhase[who] = true;
-      state = castV2SkillOnAttackerTurnPvP(state, who);
+      // legacy(턴제)는 ATB 템포(selfHaste/enemyDelay)를 쓰지 않으므로 .state 만 사용.
+      state = castV2SkillOnAttackerTurnPvP(state, who).state;
       // PR-8: cast hook 의 dot tick 으로 side 가 사망 → outcome=ended. 후속 처리 skip.
       if (state.phase === "ended") {
         state = { ...state, log: appendLog(state.log, hpBarEntry(state)) };

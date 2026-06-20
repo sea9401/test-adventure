@@ -275,6 +275,8 @@ export function resolveBattleAtb(
       // 번들 틱(DoT/사망)이 전투를 끝내면 아래 행동 루프를 건너뛰어 t 미스탬프 → 최종 hp_bar 만
       //   t 를 가져 외톨이 박스가 생긴다(Codex). 여기서 같은 nextTick 으로 채워 같은 윈도우에 묶음.
       state = stampTick(state, playerBundleStart, nextTick);
+      // 바람(원소술사) — 시전 시 내 다음 행동 틱 가속 %. 행동 루프 밖(아래 틱 증가)에서 쓰므로 분기 밖 선언.
+      let castSelfHastePct = 0;
       if (state.phase !== "ended") {
         // v2 스킬 시전(V2_ATB_SKILLS) — cast 가 발동하면 그 행동(틱)은 시전으로 소진되고 평타
         //   루프를 건너뛴다(legacy "1틱 1행동: 강타 OR 평타" 미러). buff/debuff tick 은 위
@@ -290,6 +292,13 @@ export function resolveBattleAtb(
           });
           state = cast.state;
           castFired = cast.castFired;
+          castSelfHastePct = cast.selfHastePct;
+          if (cast.enemyDelayPct > 0) {
+            // 대지 — 적의 다음 행동(enemyNextTick 에 예약됨)을 적 인터벌의 pct% 만큼 뒤로 민다.
+            enemyNextTick +=
+              actionInterval(effectiveEnemyTimelineSpd(state, depthCorr)) *
+              (cast.enemyDelayPct / 100);
+          }
           if (state.enemyHp <= 0) {
             // 시전으로 적 처치 — 플레이어 관점 승리(ATB 평타 처치 로그와 동형).
             state = {
@@ -351,7 +360,10 @@ export function resolveBattleAtb(
         }
         }
       }
-      playerNextTick += actionInterval(effectivePlayerSpd(atbPlayer, state));
+      // 바람 — 이번 행동 후 내 다음 행동 틱을 가속(pct% 만큼 단축). 미시전이면 0 → 무변.
+      playerNextTick +=
+        actionInterval(effectivePlayerSpd(atbPlayer, state)) *
+        (1 - castSelfHastePct / 100);
       turns += 1;
     } else {
       state = {

@@ -136,13 +136,14 @@ export function levelBandExpMultiplier(level: number): number {
   return 1.55; // L90-100
 }
 
-// 1차 구간(L1~50) 페이싱 압축 — 들판=1차(레벨 1~50) 디자인에 맞춰 "1차 50까지 ≈ 1,500~2,000
-// 스태미나(사냥)" 목표. 요구치를 ×EARLY_LEVEL_EXP_FACTOR(현 0.25 = ~4배 가속; sim 기준 1차 ~7,000
-// → ~1,750 사냥). L50 까지 풀 적용, 50→55 에서 1.0 으로 선형 복귀(2차+ 가 1~50 통과 후 절벽 없이
-// 원곡선 복귀; 2~4차 페이스는 후속 sim 캘리브 대상). EARLY_LEVEL_EXP_FACTOR 가 1차 속도 다이얼.
+// 루프 가속 — v2 재전직 루프(Lv1→V2_LEVEL_CAP)의 전 구간 요구치를 ×EARLY_LEVEL_EXP_FACTOR
+// (0.25 = ~4배 가속)로 압축한다. 캡(현 100)까지 풀 적용, 캡→캡+5 에서 1.0 으로 선형 복귀(캡
+// 위는 도달 불가라 사실상 전 루프 할인). EARLY_LEVEL_EXP_FACTOR 가 루프 속도 다이얼.
+// 🔑 RAMP_START 는 V2_LEVEL_CAP(coreLoopConfig)에 맞춘다 — 캡보다 낮으면 그 지점에서 할인이
+//   끊겨 요구치가 ~4배 튀는 절벽이 생긴다(옛 50/55 는 캡 50 시절 값, 캡 100 으로 이전). 캡 변경 시 함께 이동.
 export const EARLY_LEVEL_EXP_FACTOR = 0.25;
-const EARLY_RAMP_START = 50;
-const EARLY_RAMP_END = 55;
+const EARLY_RAMP_START = 100;
+const EARLY_RAMP_END = 105;
 function earlyLevelExpFactor(level: number): number {
   if (level <= EARLY_RAMP_START) return EARLY_LEVEL_EXP_FACTOR;
   if (level >= EARLY_RAMP_END) return 1;

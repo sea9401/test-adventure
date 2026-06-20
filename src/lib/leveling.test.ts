@@ -34,12 +34,14 @@ describe("requiredExpToNext", () => {
     expect(requiredExpToNext(-1)).toBeNull();
   });
 
-  it("엔드게임 multiplier 구간 경계 — Lv60 ×1.00 / Lv70 ×1.05 / Lv90+ ×1.15(캡) + 35+ 완화 ×0.85", () => {
+  it("엔드게임 multiplier 구간 경계 — Lv60 ×1.00 / Lv70 ×1.05 / Lv90+ ×1.15(캡) + 35+ 완화 ×0.85 + 루프 가속 ×0.25", () => {
     // 50 이상은 reduction floor 0.85 풀반영. endgame multiplier(60→89 1.00→1.15 선형, 90+ 1.15 캡)가 위에 곱해진다.
+    // 루프 가속(EARLY_LEVEL_EXP_FACTOR=0.25)은 캡(100)까지 전 구간 적용 — 60/70/90 모두 ×E.
     const base = (lv: number) => (120 / 35) * Math.pow(lv, 2.5);
-    expect(requiredExpToNext(60)).toBe(Math.floor(base(60) * 1.0 * 0.85));
-    expect(requiredExpToNext(70)).toBe(Math.floor(base(70) * 1.05 * 0.85));
-    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.15 * 0.85));
+    const E = EARLY_LEVEL_EXP_FACTOR;
+    expect(requiredExpToNext(60)).toBe(Math.floor(base(60) * 1.0 * 0.85 * E));
+    expect(requiredExpToNext(70)).toBe(Math.floor(base(70) * 1.05 * 0.85 * E));
+    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.15 * 0.85 * E));
   });
 
   it("35~49 reduction 램프 — 35 ×1.00 / 50 ×0.85 / 사이 선형 (전 구간 1차 ×0.25 가속)", () => {
@@ -133,9 +135,10 @@ describe("levelBandExpMultiplier (EXP 페이싱 개편)", () => {
 describe("엔드게임 세금 캡 1.15 (70→100 완화)", () => {
   const base = (lv: number) => (120 / 35) * Math.pow(lv, 2.5);
 
-  it("L90+ 는 엔드게임 세금 캡 1.15 풀반영", () => {
-    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.15 * 0.85));
-    expect(requiredExpToNext(99)).toBe(Math.floor(base(99) * 1.15 * 0.85));
+  it("L90+ 는 엔드게임 세금 캡 1.15 풀반영 (+ 루프 가속 ×0.25, 캡 100까지 전 구간)", () => {
+    const E = EARLY_LEVEL_EXP_FACTOR;
+    expect(requiredExpToNext(90)).toBe(Math.floor(base(90) * 1.15 * 0.85 * E));
+    expect(requiredExpToNext(99)).toBe(Math.floor(base(99) * 1.15 * 0.85 * E));
   });
 
   it("막판 벽 완화 — L99 가 종전 곡선(×1.55)보다 작다", () => {
@@ -151,10 +154,10 @@ describe("엔드게임 세금 캡 1.15 (70→100 완화)", () => {
     }
   });
 
-  it("전체 1→100 누적 요구치 회귀 고정 (엔드게임 세금 1.15 캡 + 1차 L1~50 ×0.25 가속 반영)", () => {
+  it("전체 1→100 누적 요구치 회귀 고정 (엔드게임 세금 1.15 캡 + 루프 가속 L1~100 ×0.25 전 구간)", () => {
     let sum = 0;
     for (let lv = 1; lv < MAX_LEVEL; lv += 1) sum += requiredExpToNext(lv)!;
-    expect(sum).toBe(8_312_961);
+    expect(sum).toBe(2_275_428);
   });
 });
 

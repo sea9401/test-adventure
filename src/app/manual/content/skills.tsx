@@ -1,4 +1,5 @@
 import { H2, P, UL, Em, Code, Note } from "./primitives";
+import { V2_LEVEL_CAP } from "@/adventure/data/v2/coreLoopConfig";
 
 export function SkillsContent() {
   return (
@@ -46,7 +47,7 @@ export function SkillsContent() {
       </UL>
 
       <Note>
-        전직은 <Em>수행 화면</Em>에서 합니다 — 레벨 50부터 조건(누적 레벨)을
+        전직은 <Em>수행 화면</Em>에서 합니다 — 레벨 {V2_LEVEL_CAP}부터 조건(누적 레벨)을
         갖춘 상위 직업으로 전직할 수 있고, 직업이 바뀌면 배울 수 있는 직업 전용
         스킬도 달라집니다.
       </Note>

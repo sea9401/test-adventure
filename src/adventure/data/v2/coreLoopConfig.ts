@@ -171,8 +171,11 @@ export function lossTaxOf(
 }
 
 // === 진행 (차수 폐지·단일 레벨캡·재전직 루프) ===============================
-export const V2_LEVEL_CAP = 50; // 옛 차수별 50/65/80/100 → 단일 50. 루프 Lv1→50→재전직→Lv1.
-export const LOOP_BATTLES_TARGET = 1200; // Lv1→50 목표 판수(5s×1200 ≈ 100분 루프)
+export const V2_LEVEL_CAP = 100; // 단일 레벨캡(2026-06-20 50→100). 루프 Lv1→100→재전직→Lv1.
+//   🔑 1차 가속(EARLY_LEVEL_EXP_FACTOR, leveling.ts)이 1→캡 전 구간을 할인하므로, 캡 변경 시
+//   leveling.ts 의 EARLY_RAMP_START/END 도 캡에 맞춰 옮겨야 50 지점에 할인 절벽이 안 생긴다.
+// 50레벨(≈한 반각)당 ≈100분(5s×1200). 전체 1→100 루프 ≈ 2배(≈2400판·재-sim 대상).
+export const LOOP_BATTLES_TARGET = 1200;
 
 // === statFloor 재조정 (tierMult 폐지·cumLevel 자연 해금 곡선) =================
 export const STAT_FLOOR_GLOBAL_PER_CUMLEVEL = 0.012;

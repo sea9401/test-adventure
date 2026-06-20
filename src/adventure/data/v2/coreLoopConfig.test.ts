@@ -102,7 +102,7 @@ describe("coreLoopConfig — predicate", () => {
 });
 
 describe("coreLoopConfig — 페이싱 다이얼 정합", () => {
-  it("5초 × 1200판 ≈ 100분 루프", () => {
+  it("5초 × 1200판 ≈ 100분 (50레벨 반각 페이스; 1→100 루프는 ≈2배)", () => {
     const loopMinutes = (LOOP_BATTLES_TARGET * HUNT_COOLDOWN_MS) / 60000;
     expect(loopMinutes).toBeGreaterThanOrEqual(90);
     expect(loopMinutes).toBeLessThanOrEqual(120);
@@ -110,7 +110,7 @@ describe("coreLoopConfig — 페이싱 다이얼 정합", () => {
 
   it("핵심 다이얼 양수/sane", () => {
     expect(HUNT_COOLDOWN_MS).toBe(5000);
-    expect(V2_LEVEL_CAP).toBe(50);
+    expect(V2_LEVEL_CAP).toBe(100);
     expect(OFFLINE_MAX_BATTLES).toBeGreaterThan(0);
   });
 });

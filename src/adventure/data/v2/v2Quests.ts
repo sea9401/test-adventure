@@ -16,6 +16,7 @@
 
 import type { V2EquipmentId } from "./v2Equipment";
 import type { V2Class } from "./classes";
+import { V2_LEVEL_CAP } from "./coreLoopConfig";
 
 export type QuestLineId = string;
 
@@ -140,10 +141,10 @@ const GROWTH: QuestDef[] = [
   {
     id: "g_cap1",
     line: "growth",
-    title: "1차 정점",
-    desc: "레벨 50(1차 한계치)에 도달하세요.",
+    title: "정점",
+    desc: `레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
     reward: { gold: 400 },
-    check: (c) => c.level >= 50,
+    check: (c) => c.level >= V2_LEVEL_CAP,
   },
   {
     id: "g_advance2",

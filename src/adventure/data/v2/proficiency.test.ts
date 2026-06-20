@@ -470,10 +470,10 @@ describe("levelCapFor (코어루프 단일 레벨캡)", () => {
     expect(levelCapFor(2, false)).toBe(65);
     expect(levelCapFor(4, false)).toBe(100);
   });
-  it("flag on = 차수 무관 단일 50", () => {
-    expect(levelCapFor(1, true)).toBe(50);
-    expect(levelCapFor(2, true)).toBe(50);
-    expect(levelCapFor(4, true)).toBe(50);
+  it("flag on = 차수 무관 단일 100", () => {
+    expect(levelCapFor(1, true)).toBe(100);
+    expect(levelCapFor(2, true)).toBe(100);
+    expect(levelCapFor(4, true)).toBe(100);
   });
 });
 

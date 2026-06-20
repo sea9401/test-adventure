@@ -383,15 +383,17 @@ export function ContinentMap({
   // 타일 한 변(uniform) — 격자라 모든 tier 동일 크기. tier 큐는 stroke 굵기로만 약하게.
   // 타일은 정사각(열 너비 CELL 기준) 유지 — 세로 스트레치는 셀 간격만 넓히고 타일은 안 늘인다.
   // 세로로 여유가 생겼으니 가독성 위해 살짝 키운다(다이얼). 0.66 < VSTRETCH 라 세로 이웃과 안 겹침.
-  const TILE = CELL * 0.66;
+  const TILE = CELL * 0.74; // 다이얼 — 모바일 가독성 위해 키움(가로 이웃과 0.26 간격).
   const HALF = TILE / 2;
-  // 라벨 폰트 크기(다이얼) — 여유 공간이 생겨 약간 키웠다.
-  const LABEL_FS_KINGDOM = 68;
-  const LABEL_FS_OTHER = 54;
+  // 라벨 폰트 크기(다이얼) — 여유 공간이 생겨 키웠다.
+  const LABEL_FS_KINGDOM = 76;
+  const LABEL_FS_OTHER = 60;
 
+  // 모바일: 페이지 좌우 패딩을 뚫고 화면 폭 가득(full-bleed) — 작아 보이던 문제 해소.
+  //   sm+: 기존처럼 max-w-720 중앙 정렬 + 약간의 패딩.
   return (
-    <div className="mx-auto w-full max-w-[720px] p-4">
-      <div className="relative aspect-[13/12] w-full select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40">
+    <div className="relative left-1/2 w-screen -translate-x-1/2 select-none sm:left-auto sm:mx-auto sm:w-full sm:max-w-[720px] sm:translate-x-0 sm:p-4">
+      <div className="relative aspect-[13/12] w-full overflow-hidden border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40 sm:rounded-lg sm:border">
         <svg
           viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
           preserveAspectRatio="xMidYMid meet"

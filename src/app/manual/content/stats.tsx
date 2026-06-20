@@ -13,7 +13,7 @@ export function StatsContent() {
         rows={[
           [<Em key="s1">힘 STR</Em>, "검술", "물리 공격력"],
           [<Em key="s2">민첩 DEX</Em>, "궁술", "회피 / 속도(추가타) / 명중"],
-          [<Em key="s3">활력 VIT</Em>, "체술", "최대 HP / 물리 방어 / 회복"],
+          [<Em key="s3">활력 VIT</Em>, "체술", "최대 HP / 물리 방어 / 회복 / 공격 보조"],
           [<Em key="s4">지능 INT</Em>, "마술", "마법 공격력 / 최대 MP"],
           [<Em key="s5">정신 SPI</Em>, "신술", "마법 방어 / 회복 / 치명 저항"],
           [<Em key="s6">행운 LUK</Em>, "인술", "치명 확률·배수 / 회피"],
@@ -33,12 +33,12 @@ export function StatsContent() {
           [
             <Em key="r2">DEX</Em>,
             <Code key="t2">회피 +0.1%p / 명중 +0.05</Code>,
-            "속도 = DEX × 2 − 무게 × 2",
+            "속도 = DEX × 2 − 표시무게 × 2 (무기는 무게가 2배 비중)",
           ],
           [
             <Em key="r3">VIT</Em>,
             <Code key="t3">최대 HP +1 / 물리방어 +0.1</Code>,
-            "최소데미지 +0.03 / 회복량 +0.004",
+            "물리공격 +0.1 / 최소데미지 +0.03 / 회복량 +0.004",
           ],
           [
             <Em key="r4">INT</Em>,

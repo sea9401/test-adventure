@@ -26,7 +26,7 @@ export function LevelingContent() {
             "지수 전환점",
           ],
           [
-            "Lv 50 ~ 99",
+            "Lv 50 ~ 100",
             <Code key="c">위 곡선 × 0.85 + 구간 배수</Code>,
             "엔드게임, 막판 가파름",
           ],

@@ -1843,12 +1843,11 @@ function resolveBattleLegacy(
           skills: state.enemyV2Skills,
           cooldowns: state.enemyV2SkillCooldowns,
           procRoll: Math.random() * 100,
-          // 속성 양방향(2026-06-20): 방어 상성은 몹 *평타*(enemyPhase enemyElemMult)에만 적용한다.
-          //   ⚠️ 몹은 스킬 발동 턴에도 평타를 같이 한다(플레이어는 스킬 시 finishPlayerTurn+continue 로
-          //   평타 스킵 — 비대칭/기존 버그). 스킬에도 속성을 켜면 한 턴에 평타+스킬 둘 다 상성이 곱해져
-          //   이중이 되므로, 몹 스킬은 중립(0/0) 유지. (몹 평타는 매 턴 발동 → 방어 상성 일관 적용점.)
-          elementAdvPct: 0,
-          elementDisPct: 0,
+          // 속성 양방향(2026-06-20): 몹→플레이어 스킬도 방어 상성 적용. adv/dis 생략 = elementDamageMult
+          //   기본값(전역 V2_ELEMENT_ADV/DIS_PCT=25/15) 사용 — 몹 평타(enemyPhase enemyElemMult)와 일관.
+          //   내가 몹 속성에 강하면 몹 스킬 피해 감소, 약하면 증가. 🔑 #881 로 몹 더블어택(스킬+평타) 수정
+          //   완료(스킬 시전 턴엔 평타 생략) → 한 턴 1회 공격이라 스킬+평타 이중 곱 없음(옛 0/0 제약 해소).
+          //   무속성 매치업=×1(기존 전투 byte-identical).
           attacker: {
             mp: state.enemyMp,
             atk: state.enemy.atk,

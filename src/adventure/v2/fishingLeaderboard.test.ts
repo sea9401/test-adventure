@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { shapeLeaderboard, type LeaderboardRow } from "./fishingLeaderboard";
+import {
+  reduceAllTimeBest,
+  shapeLeaderboard,
+  type LeaderboardRow,
+} from "./fishingLeaderboard";
 
 function row(fishId: string, userId: string, size: number, name: string | null = userId): LeaderboardRow {
   return { fishId, userId, name, size };
@@ -58,5 +62,53 @@ describe("shapeLeaderboard", () => {
     expect(Object.keys(byFish).sort()).toEqual(["carp", "trout"]);
     expect(byFish.carp).toHaveLength(1);
     expect(byFish.trout).toHaveLength(2);
+  });
+});
+
+describe("reduceAllTimeBest (역대 최대어 집계)", () => {
+  it("(fish,user) 별 최대 사이즈만 남긴다 — 같은 유저 여러 시즌 기록 중 최대", () => {
+    const rows = [
+      row("carp", "a", 80), // a 의 carp 최대
+      row("carp", "a", 50), // 같은 유저 더 작은 기록 → 버림
+      row("carp", "b", 60),
+    ];
+    const out = reduceAllTimeBest(rows);
+    expect(out.filter((r) => r.fishId === "carp" && r.userId === "a")).toEqual([
+      { fishId: "carp", userId: "a", name: "a", size: 80 },
+    ]);
+    expect(out).toHaveLength(2); // a(80), b(60)
+  });
+
+  it("fishId 오름차순·size 내림차순 정렬(shapeLeaderboard 입력 계약)", () => {
+    const out = reduceAllTimeBest([
+      row("trout", "b", 30),
+      row("carp", "a", 50),
+      row("trout", "a", 90),
+      row("carp", "c", 70),
+    ]);
+    expect(out.map((r) => [r.fishId, r.userId, r.size])).toEqual([
+      ["carp", "c", 70],
+      ["carp", "a", 50],
+      ["trout", "a", 90],
+      ["trout", "b", 30],
+    ]);
+  });
+
+  it("집계 결과를 shapeLeaderboard 에 넘기면 역대 순위가 된다(시즌 무관 통합)", () => {
+    // 같은 유저 a 가 두 시즌에 trout 70/95 → 역대 95 한 줄로만.
+    const all = reduceAllTimeBest([
+      row("trout", "a", 70),
+      row("trout", "a", 95),
+      row("trout", "b", 88),
+    ]);
+    const byFish = shapeLeaderboard(all, "b", 10);
+    expect(byFish.trout.map((e) => [e.rank, e.name, e.size, e.isMe])).toEqual([
+      [1, "a", 95, false],
+      [2, "b", 88, true],
+    ]);
+  });
+
+  it("빈 입력 → 빈 배열", () => {
+    expect(reduceAllTimeBest([])).toEqual([]);
   });
 });

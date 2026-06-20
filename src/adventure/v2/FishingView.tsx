@@ -153,11 +153,13 @@ export function FishingView({
   onOpenLeaderboard,
   onOpenShop,
   onOpenChallenges,
+  onOpenHallOfFame,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenShop?: () => void;
   onOpenChallenges?: () => void;
+  onOpenHallOfFame?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -274,7 +276,7 @@ export function FishingView({
         title="낚시터"
         onBack={onBack}
         right={
-          onOpenLeaderboard || onOpenShop || onOpenChallenges ? (
+          onOpenLeaderboard || onOpenShop || onOpenChallenges || onOpenHallOfFame ? (
             <div className="flex shrink-0 flex-col gap-1.5">
               {onOpenChallenges && (
                 <button
@@ -292,6 +294,15 @@ export function FishingView({
                   className="rounded-full bg-zinc-200/70 px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                 >
                   주간 대회 순위
+                </button>
+              )}
+              {onOpenHallOfFame && (
+                <button
+                  type="button"
+                  onClick={onOpenHallOfFame}
+                  className="rounded-full bg-amber-100/70 px-3 py-1 text-xs font-medium text-amber-700 transition hover:bg-amber-200/70 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                >
+                  명예의 전당
                 </button>
               )}
               {onOpenShop && (

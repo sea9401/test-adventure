@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { fishingRecords, savesKv } from "@/db/schema";
 import type { DbExecutor } from "@/lib/server/savesKv";
 import {
+  reduceAllTimeBest,
   shapeLeaderboard,
   type LeaderboardRow,
 } from "@/adventure/v2/fishingLeaderboard";
@@ -65,4 +66,37 @@ export async function getFishingLeaderboard(
     size: r.size,
   }));
   return shapeLeaderboard(shaped, meUserId, topN);
+}
+
+// 역대 최대어 명예의 전당 — 전 시즌 통틀어 (user, fish) 별 최대어를 집계해 종별 순위로.
+// 주간 리더보드(시즌 리셋)와 달리 영구 기록. 시즌 필터 없이 전부 읽어 reduceAllTimeBest 로
+// (fish, user) 최대만 남긴 뒤 같은 셰이핑. 유저 규모가 작아 전체 fetch + JS 집계가 충분.
+export async function getAllTimeFishingRecords(
+  meUserId: string,
+  topN: number = 10,
+): Promise<Record<string, ReturnType<typeof shapeLeaderboard>[string]>> {
+  const rows = await db
+    .select({
+      fishId: fishingRecords.fishId,
+      userId: fishingRecords.userId,
+      size: fishingRecords.bestSize,
+      name: sql<string | null>`${savesKv.value} ->> 'name'`,
+    })
+    .from(fishingRecords)
+    .leftJoin(
+      savesKv,
+      and(
+        eq(savesKv.userId, fishingRecords.userId),
+        eq(savesKv.key, "character-profile.v2"),
+      ),
+    )
+    .orderBy(fishingRecords.fishId, desc(fishingRecords.bestSize));
+
+  const shaped: LeaderboardRow[] = rows.map((r) => ({
+    fishId: r.fishId,
+    userId: r.userId,
+    name: r.name,
+    size: r.size,
+  }));
+  return shapeLeaderboard(reduceAllTimeBest(shaped), meUserId, topN);
 }

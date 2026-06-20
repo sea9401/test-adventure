@@ -546,11 +546,14 @@ export function resolveEnemyPhase(
   //   강하면 덜 맞고 약하면 더 맞음. 평타는 매 턴 발동하므로 방어 상성의 일관 적용점이다. 🔑 무속성
   //   매치업은 ×1(neutral)이라 가드로 스킵 → RNG 무소비·기존 전투 byte-identical. (몹 스킬은 중립
   //   유지 — engine.ts 몹 cast 의 0/0 주석 참조: 몹이 스킬+평타 동시 발동이라 평타에만 적용해 이중 방지.)
+  // 불리(dis) 측에 원소 통달(원소술사) 보너스 가산 — 내가 몹 속성에 강할 때 받피 추가 경감. 미보유=0
+  //   → 전역 상수(byte-identical). 유리(adv·내가 약점) 측은 불변(자기 속성 통달이 약점을 줄이진 않음).
+  //   ⚠️ 몹 스킬 defense 의 원소 통달 보너스는 PR 후속(여긴 몹 평타). PvP 도 후속.
   const enemyElemMult = elementDamageMult(
     state.enemy.element ?? "neutral",
     player.characterElement ?? "neutral",
     V2_ELEMENT_ADV_PCT,
-    V2_ELEMENT_DIS_PCT,
+    V2_ELEMENT_DIS_PCT + (player.elementDisPctBonus ?? 0),
   );
   const baseEnemyDmg =
     enemyElemMult !== 1

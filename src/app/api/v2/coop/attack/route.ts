@@ -42,6 +42,8 @@ import {
 import {
   elementDamageMult,
   parseV2Element,
+  V2_ELEMENT_ADV_PCT,
+  V2_ELEMENT_DIS_PCT,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
@@ -238,6 +240,9 @@ export async function POST(req: Request) {
     const playerElemMult = elementDamageMult(
       basicAttackElement,
       bossMonster.element ?? "neutral",
+      // 원소 통달(원소술사) — 유리/불리 +%p 가산. 미보유=0 → 전역 상수(기존 동작 동일). hunt 와 동일.
+      V2_ELEMENT_ADV_PCT + (player.player.elementAdvPctBonus ?? 0),
+      V2_ELEMENT_DIS_PCT + (player.player.elementDisPctBonus ?? 0),
     );
     const profile = await readSave<{ name?: string } | null>(
       tx,

@@ -44,6 +44,8 @@ import {
   elementDamageMult,
   elementMatchup,
   parseV2Element,
+  V2_ELEMENT_ADV_PCT,
+  V2_ELEMENT_DIS_PCT,
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
@@ -543,7 +545,11 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const playerElemMult = elementDamageMult(
     basicAttackElement,
     monsterElement,
-  ); // 내 평타(약점 찌르기 — 유리 +25%, 불리 페널티 없음)
+    // 원소 통달(원소술사) — 유리/불리 +%p 가산. 미보유=0 → 전역 상수(byte-identical). atk 에 baked 되어
+    //   평타·스킬(같은 속성) 데미지 모두 이 배수를 받는다(스킬은 combatShared 가 mSkill/mBasic=1 로 통과).
+    V2_ELEMENT_ADV_PCT + (player.player.elementAdvPctBonus ?? 0),
+    V2_ELEMENT_DIS_PCT + (player.player.elementDisPctBonus ?? 0),
+  );
   // 약점 찌르기 = 공격 전용(2026-06-08): 몹→플레이어 속성 피해는 제거(중립). 페널티/피격↑ 없음.
   const playerElemMatchup = elementMatchup(
     basicAttackElement,

@@ -15,6 +15,8 @@ export type JobLadderEntry = {
   tier: number;
   // 해금 조건(공유용 표기). 예: "Lv 50 달성" / "견습 병사 누적 Lv 100".
   condition: string;
+  // 이 직업에 쌓은 누적 레벨(직업별/직군). 직업별 진행도 확인용.
+  cumLevel?: number;
   // 직업 내장 스탯 보너스(현재 직업일 때 적용) 표기. 예: "활력 +12 · 힘 +6". 없으면 빈 문자열.
   bonus?: string;
   // 그 직업의 시그니처 스킬을 전부 배웠는가(직업 도감과 동일 기준) — "수집 완료" 배지용.
@@ -224,6 +226,9 @@ function JobRow({
             </span>
           )}
         </div>
+        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+          누적 Lv {job.cumLevel ?? 0}
+        </span>
         {job.bonus && (
           <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
             직업 보너스 · {job.bonus}

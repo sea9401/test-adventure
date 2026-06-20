@@ -30,8 +30,9 @@ export function V2JobCodexView({
   codex: JobCodex;
   onBack: () => void;
 }) {
-  const jobsUnlocked = codex.jobs.filter((j) => j.unlocked).length;
-  const jobsTotal = codex.jobs.length;
+  // 목록 = 해금분만(잠긴 직업 제외). 분모는 전체 직업 수(codex.totalJobs)로 진척 유지.
+  const jobsUnlocked = codex.jobs.length;
+  const jobsTotal = codex.totalJobs;
   // 스킬 수집 완료 직업 수 — 그 직업의 시그니처 스킬을 전부 배운 직업.
   const jobsCollected = codex.jobs.filter(
     (j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal,
@@ -99,6 +100,9 @@ function JobRow({ job }: { job: JobCodex["jobs"][number] }) {
               </span>
             );
           })()}
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          해금 · {job.condition}
+        </span>
       </div>
     </li>
   );

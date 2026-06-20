@@ -12,10 +12,13 @@ import {
   isJobUnlocked,
   jobById,
   unlockedJobs,
+  jobUnlockConditionText,
+  cumLevelForJob,
   type V2JobDefinition,
   type ExtraJobCondition,
   type JobUnlockContext,
 } from "./v2JobCatalog";
+import { V2_LEVEL_CAP } from "./coreLoopConfig";
 import { jobDisplayName } from "./classes";
 import { V2_CULTIVATE_PROFILE } from "./proficiency";
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
@@ -500,5 +503,46 @@ describe("DROPPED_SPEC_TO_SURVIVING 정규화 (PR-5)", () => {
       const job = V2_JOB_CATALOG[jobIdFromLegacy(parent, dropped)];
       expect(job?.tier, dropped).toBe(2);
     }
+  });
+});
+
+describe("jobUnlockConditionText (해금 조건 표기 — 전직 화면·도감 공유)", () => {
+  it("기본 직업(prereqs 없음)은 Lv 캡 달성 조건으로 표기", () => {
+    expect(jobUnlockConditionText(V2_JOB_CATALOG.warrior)).toBe(
+      `Lv ${V2_LEVEL_CAP} 달성`,
+    );
+  });
+
+  it("상위 직업은 부모 직업명 + 누적 Lv 임계로 표기", () => {
+    const txt = jobUnlockConditionText(V2_JOB_CATALOG.squire);
+    expect(txt).toContain(V2_JOB_CATALOG.warrior.name); // 부모 직업명
+    expect(txt).toContain(`누적 Lv ${TIER2_UNLOCK_CUMLEVEL}`);
+  });
+
+  it("하이브리드(성기사)는 두 부모 직업 조건을 모두 표기", () => {
+    const txt = jobUnlockConditionText(V2_JOB_CATALOG.templar);
+    expect(txt).toContain(V2_JOB_CATALOG.paladin.name);
+    expect(txt).toContain(V2_JOB_CATALOG.acolyte.name);
+    expect(txt).toContain(`누적 Lv ${TIER3_UNLOCK_CUMLEVEL}`);
+  });
+});
+
+describe("cumLevelForJob (직업별 누적 레벨 — 전직 화면 표기)", () => {
+  it("기본 직업(tier1)은 groups[id].cumLevel 을 읽는다", () => {
+    const prof = profWith({ warrior: 42 });
+    expect(cumLevelForJob(prof, V2_JOB_CATALOG.warrior)).toBe(42);
+    // 키운 적 없는 직군은 0.
+    expect(cumLevelForJob(prof, V2_JOB_CATALOG.mage)).toBe(0);
+  });
+
+  it("상위 직업(tier2+)은 jobCumLevel[id] 을 읽는다(없으면 0)", () => {
+    const prof: V2ProficiencyState = {
+      ...emptyProficiency(),
+      jobCumLevel: { squire: 17, paladin: 333 },
+    };
+    expect(cumLevelForJob(prof, V2_JOB_CATALOG.squire)).toBe(17);
+    expect(cumLevelForJob(prof, V2_JOB_CATALOG.paladin)).toBe(333);
+    // jobCumLevel 에 없는 상위 직업은 0.
+    expect(cumLevelForJob(prof, V2_JOB_CATALOG.caster)).toBe(0);
   });
 });

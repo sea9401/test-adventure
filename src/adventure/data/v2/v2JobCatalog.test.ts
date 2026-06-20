@@ -31,17 +31,23 @@ const TIER2_BY_PARENT: Record<string, string[]> = {
   mage: ["caster", "acolyte"],
   rogue: ["assassin", "archer"],
 };
-const TIER3_BY_PARENT: Record<string, string> = {
-  warrior: "paladin",
-  martial: "brawler",
-  mage: "magus",
-  rogue: "ranger",
+// 🔑 계보 게이팅: tier-3 child → 바로 아래 tier-2 부모 직업. tier-4 child → 바로 아래 tier-3 부모.
+const TIER3_LINEAGE: Record<string, string> = {
+  paladin: "squire",
+  guardian: "shieldman",
+  brawler: "boxer",
+  warmonk: "monk",
+  magus: "caster",
+  bishop: "acolyte",
+  ranger: "archer",
+  shadow: "assassin",
 };
-const TIER4_BY_PARENT: Record<string, string> = {
-  warrior: "veteran",
-  martial: "sensei",
-  mage: "sage",
-  rogue: "chief",
+const TIER4_LINEAGE: Record<string, string> = {
+  veteran: "paladin",
+  sensei: "brawler",
+  sage: "magus",
+  elementalist: "magus",
+  chief: "ranger",
 };
 
 function profWith(groupCumLevels: Record<string, number>) {
@@ -50,6 +56,11 @@ function profWith(groupCumLevels: Record<string, number>) {
     prof.groups[id] = { points: 0, cultivations: 0, tier: 1, cumLevel };
   }
   return prof;
+}
+
+// 직업별 누적(jobCumLevel)로 구성한 숙련도 — 계보 게이팅(tier-3/4)은 부모 직업의 jobCumLevel 을 본다.
+function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
+  return { ...emptyProficiency(), jobCumLevel: { ...jobCumLevels } };
 }
 
 describe("v2JobCatalog 구조", () => {
@@ -141,21 +152,24 @@ describe("해금 트리", () => {
     }
   });
 
-  it("고차 직업은 부모 직군의 cumLevel ≥ TIER3_UNLOCK_CUMLEVEL(정복선) 을 요구한다", () => {
-    for (const [parent, childId] of Object.entries(TIER3_BY_PARENT)) {
+  it("고차 직업은 계보(바로 아래 2차 부모) jobCumLevel ≥ TIER3 을 요구한다", () => {
+    for (const [childId, parent] of Object.entries(TIER3_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(3);
       expect(job.unlock.prereqs).toEqual({ [parent]: TIER3_UNLOCK_CUMLEVEL });
+      // 계보 부모는 tier-2 직업 → isJobUnlocked 가 jobCumLevel 로 분기(직군 cumLevel 아님).
+      expect(V2_JOB_CATALOG[parent].tier).toBe(2);
     }
   });
 
-  it("심화 직업은 부모 직군의 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(1000) 을 요구한다", () => {
-    for (const [parent, childId] of Object.entries(TIER4_BY_PARENT)) {
+  it("심화 직업은 계보(바로 아래 3차 부모) jobCumLevel ≥ TIER4 을 요구한다", () => {
+    for (const [childId, parent] of Object.entries(TIER4_LINEAGE)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(4);
       expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
+      expect(V2_JOB_CATALOG[parent].tier).toBe(3);
     }
-    // 트리 성장 램프: tier2(100) < tier3(500) < tier4(1000).
+    // 임계 램프: tier2(100) < tier3(200) < tier4(300).
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
   });
@@ -267,36 +281,35 @@ describe("isJobUnlocked / unlockedJobs", () => {
     expect(isJobUnlocked(V2_JOB_CATALOG.caster, prof)).toBe(false);
   });
 
-  it("고차 직업은 부모 직군 정복(cumLevel TIER3) 전엔 잠김, 도달 시 해금", () => {
+  it("고차 직업은 계보(2차 부모) jobCumLevel TIER3 전엔 잠김, 도달 시 해금", () => {
+    // 기사(paladin) ← 견습 기사(squire). squire jobCumLevel 로 게이트.
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL - 1 })),
+      isJobUnlocked(V2_JOB_CATALOG.paladin, profJobs({ squire: TIER3_UNLOCK_CUMLEVEL - 1 })),
     ).toBe(false);
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL })),
+      isJobUnlocked(V2_JOB_CATALOG.paladin, profJobs({ squire: TIER3_UNLOCK_CUMLEVEL })),
     ).toBe(true);
-    // 상위(tier2)는 이미 열렸어도 고차는 아직 잠길 수 있다(임계 차이) — TIER2 ≤ cum < TIER3.
-    const between = TIER2_UNLOCK_CUMLEVEL + 20;
-    expect(isJobUnlocked(V2_JOB_CATALOG.squire, profWith({ warrior: between }))).toBe(
-      true,
-    );
-    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: between }))).toBe(
+    // 🔑 직군(warrior) 누적만 높아도 계보 직업(squire jobCumLevel)을 안 키웠으면 안 열린다.
+    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 99999 }))).toBe(
       false,
     );
+    // 형제 2차(방패병 lineage=가디언)를 키워도 paladin 은 안 열림(squire 가 아니라서).
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.paladin, profJobs({ shieldman: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(false);
   });
 
-  it("심화 직업은 cumLevel TIER4 전엔 잠김, 도달 시 해금(고차보다 더 깊다)", () => {
+  it("심화 직업은 계보(3차 부모) jobCumLevel TIER4 전엔 잠김, 도달 시 해금(고차보다 더 깊다)", () => {
+    // 정예 기사(veteran) ← 기사(paladin). paladin jobCumLevel 로 게이트.
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: TIER4_UNLOCK_CUMLEVEL - 1 })),
+      isJobUnlocked(V2_JOB_CATALOG.veteran, profJobs({ paladin: TIER4_UNLOCK_CUMLEVEL - 1 })),
     ).toBe(false);
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: TIER4_UNLOCK_CUMLEVEL })),
+      isJobUnlocked(V2_JOB_CATALOG.veteran, profJobs({ paladin: TIER4_UNLOCK_CUMLEVEL })),
     ).toBe(true);
-    // 정복(TIER3)으로 고차는 열렸어도 심화는 아직 잠김 — TIER3 ≤ cum < TIER4.
+    // 부모 3차(paladin)가 TIER3(3차 해금선)는 넘겼어도 TIER4 전이면 4차는 잠김 — TIER3 < TIER4.
     expect(
-      isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL })),
-    ).toBe(true);
-    expect(
-      isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL })),
+      isJobUnlocked(V2_JOB_CATALOG.veteran, profJobs({ paladin: TIER3_UNLOCK_CUMLEVEL })),
     ).toBe(false);
   });
 

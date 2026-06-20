@@ -34,6 +34,7 @@ import {
 import {
   V2_JOB_CATALOG,
   isJobUnlocked,
+  jobIdFromLegacy,
   CATALOG_USES_QUEST_CONDITION,
   LEGACY_CLASS_SPEC_BY_JOB,
   type JobUnlockContext,
@@ -129,12 +130,20 @@ export async function POST(req: Request) {
           body: { ok: false as const, error: "bad_target" as const },
         };
       }
+      // 🔑 같은 직업 재전직(환생 루프)이면 해금 게이트를 건너뛴다 — 이미 그 직업을 보유 중이므로
+      //   해금 규칙이 나중에 바뀌어도(예: 직군 게이팅 → 계보 게이팅) 자기 직업 환생은 항상 가능해야
+      //   한다(옛 규칙으로 얻은 직업이 새 규칙 미달이라 재전직조차 막히는 잠금 방지).
+      const currentJobId = jobIdFromLegacy(
+        parseV2Class(charSave.class),
+        typeof charSave.specChoice === "string" ? charSave.specChoice : null,
+      );
+      const isReJobToCurrent = targetJobId === currentJobId;
       // 해금 게이트 = cumLevel prereqs + 추가조건(stat=proficiency·quest=ctx). 기본 직업은
       //   prereqs 비어 통과(위 Lv50 이 바닥 게이트). quest 조건 쓰는 직업이 있을 때만 quest 세이브 로드.
       const jobCtx: JobUnlockContext | undefined = CATALOG_USES_QUEST_CONDITION
         ? { completedQuestIds: await loadCompletedQuestIds(tx, userId) }
         : undefined;
-      if (!isJobUnlocked(jobDef, prof, jobCtx)) {
+      if (!isReJobToCurrent && !isJobUnlocked(jobDef, prof, jobCtx)) {
         return {
           status: 400,
           body: { ok: false as const, error: "job_locked" as const },

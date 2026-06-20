@@ -11,10 +11,10 @@ import { skillsForJob } from "./v2SkillsByJob";
 import { V2_SKILLS, aggregateEquippedPassives } from "./v2Skills";
 
 describe("원소술사 직업", () => {
-  it("카탈로그 — tier 4 마법, 마법 직군 450 해금, 브리지 왕복", () => {
+  it("카탈로그 — tier 4 마법, 마도사 계보(magus jobCumLevel TIER4) 해금, 브리지 왕복", () => {
     const job = V2_JOB_CATALOG.elementalist;
     expect(job.tier).toBe(4);
-    expect(job.unlock.prereqs).toEqual({ mage: TIER4_UNLOCK_CUMLEVEL });
+    expect(job.unlock.prereqs).toEqual({ magus: TIER4_UNLOCK_CUMLEVEL });
     expect(jobIdFromLegacy("mage", "elementalist")).toBe("elementalist");
   });
 

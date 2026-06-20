@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
   FISH_TIERS,
   formatFishSize,
@@ -265,15 +265,11 @@ export function FishingView({
 
   return (
     <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
-      <header className="space-y-2 border-b border-zinc-200 pb-3 dark:border-zinc-800">
-        {onBack && (
-          <BackButton onClick={onBack} />
-        )}
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold">낚시터</h1>
-          </div>
-          {(onOpenLeaderboard || onOpenShop) && (
+      <SubViewHeader
+        title="낚시터"
+        onBack={onBack}
+        right={
+          onOpenLeaderboard || onOpenShop ? (
             <div className="flex shrink-0 flex-col gap-1.5">
               {onOpenLeaderboard && (
                 <button
@@ -294,9 +290,9 @@ export function FishingView({
                 </button>
               )}
             </div>
-          )}
-        </div>
-      </header>
+          ) : undefined
+        }
+      />
 
       {sessionCount > 0 && (
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">

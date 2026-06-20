@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { TabBar } from "@/components/ui/TabBar";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -242,11 +242,12 @@ export function OutpostView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
+      <SubViewHeader
+        title={occupation?.villageName?.trim() || outpost.name}
+        onBack={() => onAction({ kind: "back" })}
+      />
+      {/* 거점 상태(특성·점령·금고·세율·성벽) — 제목은 위 헤더로 빠지고 여기엔 상태만. */}
       <HeaderPanel className="space-y-2">
-        <BackButton onClick={() => onAction({ kind: "back" })} />
-        <h1 className="text-lg font-bold">
-          {occupation?.villageName?.trim() || outpost.name}
-        </h1>
         <div className="flex flex-wrap gap-1 text-xs">
           <Tooltip
             content={`${TERRAIN_TRAIT_NAME[trait]} — ${terrainTraitDesc(trait)}`}

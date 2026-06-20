@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Envelope } from "@phosphor-icons/react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { fetchInbox, type InboxItem } from "@/adventure/marketplace/api";
@@ -157,11 +156,11 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <BackButton onClick={onBack} />
-        <div className="mt-1 flex items-center justify-between gap-2">
-          <h1 className="text-lg font-bold">우편함</h1>
-          {claimableIds.length > 0 && (
+      <SubViewHeader
+        title="우편함"
+        onBack={onBack}
+        right={
+          claimableIds.length > 0 ? (
             <button
               type="button"
               onClick={() => claim(claimableIds)}
@@ -170,9 +169,9 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
             >
               전체 수령 ({claimableIds.length})
             </button>
-          )}
-        </div>
-      </HeaderPanel>
+          ) : undefined
+        }
+      />
 
       {msg && (
         <div className="text-sm text-emerald-700 dark:text-emerald-400">{msg}</div>

@@ -1,8 +1,7 @@
 "use client";
 
 
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
 import {
   ANTIQUES,
@@ -85,16 +84,10 @@ export function TreasureCollectionView({
 
   return (
     <main className="mx-auto max-w-[520px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold">발굴 보관함</h1>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              골동품 {enriched.length}점 · 판매가 합계 {totalSellGold.toLocaleString()}골드 · 지도 조각{" "}
-              {fragments}개
-            </p>
-          </div>
+      <SubViewHeader
+        title="발굴 보관함"
+        onBack={onBack}
+        right={
           <button
             type="button"
             onClick={onOpenShop}
@@ -102,8 +95,12 @@ export function TreasureCollectionView({
           >
             🪙 {coins.toLocaleString()} · 상점
           </button>
-        </div>
-      </HeaderPanel>
+        }
+      />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        골동품 {enriched.length}점 · 판매가 합계 {totalSellGold.toLocaleString()}골드 · 지도 조각{" "}
+        {fragments}개
+      </p>
 
       <TreasureSubTabs
         active="collection"

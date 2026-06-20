@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import {
   V2_SKILLS,
   describeV2Skill,
@@ -278,13 +277,11 @@ export function V2CombatPatternView({
           : "mx-auto max-w-[640px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100"
       }
     >
-      <HeaderPanel className="space-y-2">
-        {!embedded && <SubViewHeader title="전투 패턴" onBack={onBack} />}
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
-          다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 「로드아웃」 탭에서 학습하세요.
-        </p>
-      </HeaderPanel>
+      {!embedded && <SubViewHeader title="전투 패턴" onBack={onBack} />}
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
+        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 「로드아웃」 탭에서 학습하세요.
+      </p>
 
       {loading ? (
         <p className="text-sm text-zinc-500">불러오는 중…</p>

@@ -2,8 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import { TREASURE_SELL_GOLD_MULT } from "@/adventure/data/v2/antique";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TreasureSubTabs } from "./TreasureSubTabs";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import type { TreasureLeaderboardData } from "./treasureLeaderboard";
@@ -46,23 +45,19 @@ export function TreasureLeaderboardView({
 }) {
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        {onBack && (
-          <BackButton onClick={onBack} />
-        )}
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold">주간 발굴가치 대회</h1>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              이번 주 발굴한 골동품의 감정 판매가(골드) 합계로 순위. 상위권은 발굴 코인을 받는다.
-              {data?.endsAt ? ` (${endsInLabel(data.endsAt)})` : ""}
-            </p>
-          </div>
+      <SubViewHeader
+        title="주간 발굴가치 대회"
+        onBack={onBack}
+        right={
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
             🪙 {(data?.myCoins ?? 0).toLocaleString()}
           </span>
-        </div>
-      </HeaderPanel>
+        }
+      />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        이번 주 발굴한 골동품의 감정 판매가(골드) 합계로 순위. 상위권은 발굴 코인을 받는다.
+        {data?.endsAt ? ` (${endsInLabel(data.endsAt)})` : ""}
+      </p>
 
       <TreasureSubTabs
         active="leaderboard"

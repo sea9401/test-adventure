@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
@@ -146,14 +145,10 @@ export function V2CharacterScreen({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        {onBack && (
-          <BackButton onClick={onBack} />
-        )}
-        <h1 className="mt-1 text-lg font-bold">
-          {playerName ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
-        </h1>
-      </HeaderPanel>
+      <SubViewHeader
+        title={playerName ? `${character?.name ?? "모험가"} 정보` : "내 정보"}
+        onBack={onBack}
+      />
 
       {character ? (
         <V2CharacterCard

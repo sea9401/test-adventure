@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { Coins } from "@phosphor-icons/react";
@@ -377,21 +377,19 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <header className="flex items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-lg font-bold">상점</h1>
-        </div>
-        <BackButton onClick={onBack} />
-        </header>
-      </HeaderPanel>
+      <SubViewHeader
+        title="상점"
+        onBack={onBack}
+        right={
+          <span className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
+            <Coins size={16} weight="fill" className="text-yellow-500" />
+            <span className="font-semibold tabular-nums">
+              {gold.toLocaleString()}G
+            </span>
+          </span>
+        }
+      />
       {loadError && <LoadErrorBanner onRetry={refresh} />}
-      <HeaderPanel className="py-2">
-        <div className="flex items-center justify-end gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
-        <Coins size={16} weight="fill" className="text-yellow-500" />
-        <span className="font-semibold tabular-nums">{gold.toLocaleString()}G</span>
-        </div>
-      </HeaderPanel>
       {msg && (
         <div
           className={`rounded-md border px-3 py-1.5 text-xs ${

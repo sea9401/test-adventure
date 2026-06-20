@@ -1,8 +1,7 @@
 "use client";
 
 import { Card } from "@/components/ui/Card";
-import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import {
   FISH,
@@ -57,29 +56,25 @@ export function FishingLeaderboardView({
 }) {
   return (
     <main className="mx-auto max-w-[640px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        {onBack && (
-          <BackButton onClick={onBack} />
-        )}
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-bold">주간 낚시 대회</h1>
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              종마다 이번 주 최대어 순위. 매주 월요일 새벽에 순위가 정산된다.
-              {data?.endsAt && (
-                <span className="ml-1 font-medium text-zinc-600 dark:text-zinc-300">
-                  ({endsInLabel(data.endsAt)})
-                </span>
-              )}
-            </p>
-          </div>
-          {data && (
+      <SubViewHeader
+        title="주간 낚시 대회"
+        onBack={onBack}
+        right={
+          data ? (
             <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
               🪙 {data.myCoins.toLocaleString()} 낚시 코인
             </span>
-          )}
-        </div>
-      </HeaderPanel>
+          ) : undefined
+        }
+      />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        종마다 이번 주 최대어 순위. 매주 월요일 새벽에 순위가 정산된다.
+        {data?.endsAt && (
+          <span className="ml-1 font-medium text-zinc-600 dark:text-zinc-300">
+            ({endsInLabel(data.endsAt)})
+          </span>
+        )}
+      </p>
 
       {loading ? (
         <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

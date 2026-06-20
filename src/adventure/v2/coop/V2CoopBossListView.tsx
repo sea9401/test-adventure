@@ -7,9 +7,8 @@
 
 import { useEffect, useState } from "react";
 import { CaretDown, CaretRight, CaretUp } from "@phosphor-icons/react";
-import { BackButton } from "@/components/ui/BackButton";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import {
   COOP_BOSSES,
   COOP_BOSS_KIND_IDS,
@@ -72,18 +71,18 @@ export function V2CoopBossListView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-lg font-bold">협동 보스</h1>
+      <SubViewHeader
+        title="협동 보스"
+        onBack={onBack}
+        right={
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             보스 소환서 {scrolls}장 보유
           </span>
-        </div>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
-        </p>
-      </HeaderPanel>
+        }
+      />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        사냥에서 모은 소환서로 보스를 소환하면 모든 모험가가 함께 토벌합니다.
+      </p>
 
       {/* 코어루프 — 소환 공개 범위(권한자는 무료 공격). flag off 면 미표시(항상 공개). */}
       {V2_CORE_LOOP_V2 && (

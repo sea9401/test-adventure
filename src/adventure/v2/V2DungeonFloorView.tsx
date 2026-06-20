@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
+import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { WeatherBadge } from "@/adventure/v2/WeatherBadge";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
@@ -464,33 +464,35 @@ export function V2DungeonFloorView({
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel className="space-y-2">
-        <BackButton onClick={onBack} />
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="text-lg font-bold">
+      <SubViewHeader
+        title={
+          <>
             {displayName}
             {isChallenge && (
               <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-sm font-normal text-amber-700 dark:bg-amber-900 dark:text-amber-300">
                 도전
               </span>
             )}
-          </h1>
+          </>
+        }
+        onBack={onBack}
+        right={
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
             {outpostName}
           </span>
+        }
+      />
+      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+        권장 전투력 {powerGate}
+      </p>
+      <WeatherBadge outpostId={outpostId} myElement={myElement} />
+      {rareMapIid && (
+        <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
+          🗺 레어맵 사냥 중
+          {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
+          {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
         </div>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          권장 전투력 {powerGate}
-        </p>
-        <WeatherBadge outpostId={outpostId} myElement={myElement} />
-        {rareMapIid && (
-          <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
-            🗺 레어맵 사냥 중
-            {rareMapRunsLeft != null && ` — 남은 ${rareMapRunsLeft}판`}
-            {rareMapRunsLeft === 0 && " (소진 — 목록으로 돌아가세요)"}
-          </div>
-        )}
-      </HeaderPanel>
+      )}
 
       {/* 캐릭터 정보 — 전투 버튼 위 상시 노출. HP(라이브)·MP 바를 카드 안에 포함하고,
           최근 사냥의 EXP 진행도·회복약을 함께 보여준다(사냥 전엔 EXP 바 생략). */}

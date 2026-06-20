@@ -167,7 +167,7 @@ export function V2CharacterCard({
           </div>
           {isAtCap && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              현재 차수 레벨 한계입니다. 성장의 신전에서 전직/환생을 진행하세요.
+              레벨이 한계에 도달했어요. 성장의 신전에서 환생해 누적 레벨을 쌓으면 더 강해지고 새 직업이 열려요.
             </p>
           )}
           <div className="space-y-1.5">

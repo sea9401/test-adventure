@@ -38,6 +38,14 @@ export const HUNT_COOLDOWN_MODE = V2_CORE_LOOP_V2 && !V2_HUNT_USE_STAMINA;
 //   골든/밸런스 검증 후 flip. 검증 끝나면 무조건화로 플래그 제거(PR-6식).
 export const V2_ATB_SKILLS = process.env.NEXT_PUBLIC_V2_ATB_SKILLS === "true";
 
+// 전투 패턴(갬빗) 경로에서도 스킬 발동확률(procChance) 굴림 — 갬빗 재설계가 "조건 충족 = 확정
+//   발동"으로 procChance 를 은퇴시키면서, 카탈로그의 정교한 발동확률(강타 10%·방패막기 60% 등)이
+//   라이브에서 죽은 데이터가 된 문제의 게이트. on 이면 패턴이 고른 스킬도 procChance 게이트를 통과해야
+//   발동(확정 발동 → 확률 발동, 평타 폴백·MP/쿨다운 미소모). 옛 슬롯순서 경로는 원래부터 procChance 롤.
+//   기본(미설정)=false → 패턴 경로 byte-identical(procChance 은퇴 유지). 스테이징서 env 로 켜 검증.
+export const V2_SKILL_PROC_IN_PATTERN =
+  process.env.NEXT_PUBLIC_V2_SKILL_PROC_IN_PATTERN === "true";
+
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)

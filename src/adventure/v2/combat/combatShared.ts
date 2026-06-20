@@ -499,9 +499,14 @@ export type V2SkillCastInput = {
   /** 발동 확률 보너스 %p (워메이지 주문연사 등 — 스킬 procChance 에 합산, 100 클램프). 미지정=0. */
   procChanceBonus?: number;
   /** 전투 패턴(갬빗) — 주어지면 슬롯순서+procChance 대신 우선순위 평가로 스킬 선택(조건 충족=확정
-   *  발동, proc 은퇴). 미지정이면 옛 경로(pickAutoCastV2Skill + procRoll). 엔진이 플레이어 cast 에만
+   *  발동). 미지정이면 옛 경로(pickAutoCastV2Skill + procRoll). 엔진이 플레이어 cast 에만
    *  주입(몹 cast 는 미주입 = 옛 경로). 플래그 V2_COMBAT_PATTERN_ENABLED 가 엔진단 게이트. */
   combatPattern?: V2CombatPattern;
+  /** 패턴 경로에서도 procChance 굴림(부활) — true 면 패턴이 고른 스킬도 procChance 게이트를 통과해야
+   *  발동(확정 발동 → 확률 발동). 미지정/false 면 패턴 경로는 procChance 은퇴(조건 충족=확정, 현행
+   *  byte-identical). 옛 경로(viaPattern=false)는 이 값과 무관하게 항상 procChance 롤. 엔진이
+   *  V2_SKILL_PROC_IN_PATTERN 플래그로 주입. */
+  applyProcInPattern?: boolean;
   /** 현재 턴(1-based) — combatPattern 의 turn 조건용. 미지정=1. */
   turn?: number;
   /** 속성 상성 계수(%) — 스킬 속성 보정용. 미지정=PvE 기본(25/0). PvP(engine-pvp)는 PvP 계수(15/15) 전달. */
@@ -637,10 +642,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     };
   }
   const def = V2_SKILLS[id];
-  // 발동 확률 — 패턴 경로(viaPattern)는 procChance 은퇴(조건 충족 = 확정 발동). 옛 경로만 롤:
+  // 발동 확률 — 옛 경로(viaPattern=false)는 항상 procChance 롤. 패턴 경로는 기본적으로 procChance
+  // 은퇴(조건 충족 = 확정 발동)지만, applyProcInPattern(V2_SKILL_PROC_IN_PATTERN) 가 켜지면 패턴이
+  // 고른 스킬도 procChance 게이트를 통과해야 발동(확정 발동 → 확률 발동, 부활).
   // procChance<100 스킬은 롤 실패 시 미발동(평타로 폴백), MP·쿨다운 미소모.
   // (쿨다운은 위에서 이미 tick 됨. procRoll 미지정이면 항상 발동 — 구 호출·테스트 호환.)
-  if (!viaPattern) {
+  const rollProc = !viaPattern || (input.applyProcInPattern ?? false);
+  if (rollProc) {
     const procChance = Math.min(
       100,
       (def.procChance ?? 100) + (input.procChanceBonus ?? 0),

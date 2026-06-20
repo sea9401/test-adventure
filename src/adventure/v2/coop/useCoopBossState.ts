@@ -13,6 +13,7 @@ import {
   COOP_BOSSES,
   type CoopBossKindId,
   type CoopRewardTier,
+  type CoopVisibility,
 } from "@/adventure/data/v2/coopBosses";
 
 const POLL_MS = 20_000;
@@ -74,6 +75,9 @@ export type CoopSessionDetail = {
     defeated: boolean;
     expired: boolean;
     summonedByName: string | null;
+    // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부(소환 후 범위 변경 컨트롤 게이트).
+    visibility: CoopVisibility;
+    isOwner: boolean;
   };
   my: {
     damage: number;
@@ -346,6 +350,38 @@ export function useCoopSessionState({
     }
   }, [busy, refresh, sessionId]);
 
+  // 소환자 전용 — 소환 후 공개 범위 변경(나만/길드원만/공개). 서버가 소유·활성 재검증.
+  const setVisibility = useCallback(
+    async (visibility: CoopVisibility) => {
+      if (busy) return;
+      setBusy(true);
+      setNotice(null);
+      try {
+        const res = await fetch(`/api/v2/coop/${sessionId}/visibility`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ visibility }),
+        });
+        const j = (await res.json()) as { ok?: boolean; error?: string };
+        if (!j.ok) {
+          setNotice(
+            j.error === "not_owner"
+              ? "소환자만 공개 범위를 바꿀 수 있어요."
+              : j.error === "not_active"
+                ? "이미 끝난 토벌은 범위를 바꿀 수 없어요."
+                : `공개 범위 변경 실패 (${j.error ?? "unknown"})`,
+          );
+        }
+      } catch {
+        setNotice("네트워크 오류 — 잠시 후 다시 시도하세요.");
+      } finally {
+        await refresh();
+        setBusy(false);
+      }
+    },
+    [busy, refresh, sessionId],
+  );
+
   return {
     detail,
     missing,
@@ -356,6 +392,7 @@ export function useCoopSessionState({
     refresh,
     attack,
     claim,
+    setVisibility,
   };
 }
 

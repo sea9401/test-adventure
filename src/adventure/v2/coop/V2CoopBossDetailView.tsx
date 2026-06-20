@@ -16,6 +16,7 @@ import {
   COOP_ATTACK_STAMINA_COST,
   COOP_BOSSES,
   COOP_TIER_LABEL,
+  COOP_VISIBILITY_OPTIONS,
   coopAttackCooldownMs,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
@@ -54,6 +55,7 @@ export function V2CoopBossDetailView({
     lastReward,
     attack,
     claim,
+    setVisibility,
   } = useCoopSessionState({
     sessionId,
     setStamina,
@@ -215,6 +217,43 @@ export function V2CoopBossDetailView({
           </p>
         )}
       </Card>
+
+      {/* 소환자 전용 — 소환 후 공개 범위 변경. 나만/길드원만으로 시작해 기여 보상을 쌓은 뒤 공개로. */}
+      {V2_CORE_LOOP_V2 && session.isOwner && active && (
+        <Card padding="md" className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm font-semibold">공개 범위</span>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+              소환자 전용
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            기여 보상을 충분히 쌓은 뒤 공개로 바꿔 다른 모험가들과 함께 잡을 수
+            있어요.
+          </p>
+          <div className="flex gap-1.5">
+            {COOP_VISIBILITY_OPTIONS.map(([val, label]) => {
+              const cur = session.visibility === val;
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  disabled={busy || cur}
+                  onClick={() => void setVisibility(val)}
+                  aria-pressed={cur}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition disabled:cursor-default ${
+                    cur
+                      ? "border-rose-500 bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                      : "border-zinc-300 text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {notice && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300">

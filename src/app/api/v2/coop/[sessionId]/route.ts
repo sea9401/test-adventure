@@ -12,6 +12,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import {
   coopTierForRatio,
   parseCoopBossKindId,
+  parseCoopVisibility,
   canAccessCoopBoss,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
@@ -148,6 +149,9 @@ export async function GET(_req: Request, { params }: Ctx) {
       defeated: session.defeatedAt !== null && session.hp <= 0,
       expired,
       summonedByName: session.summonedByName,
+      // 코어루프 — 현재 공개 범위 + 소환자(본인) 여부. 소환자만 상세에서 범위 변경 가능.
+      visibility: parseCoopVisibility(session.visibility),
+      isOwner: session.summonerId === userId,
     },
     my: {
       damage: myDamage,

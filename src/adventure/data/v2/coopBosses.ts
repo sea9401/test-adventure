@@ -100,6 +100,17 @@ export function parseCoopVisibility(v: unknown): CoopVisibility {
   return v === "guild_only" || v === "summoner_only" ? v : "public";
 }
 
+// 가시성 표시 라벨 + 선택지 — 소환 UI(목록)와 소환 후 변경 UI(상세) 공용.
+export const COOP_VISIBILITY_LABEL: Record<CoopVisibility, string> = {
+  public: "공개",
+  guild_only: "길드원만",
+  summoner_only: "나만",
+};
+export const COOP_VISIBILITY_OPTIONS: readonly (readonly [
+  CoopVisibility,
+  string,
+])[] = COOP_VISIBILITY_VALUES.map((v) => [v, COOP_VISIBILITY_LABEL[v]] as const);
+
 // 공격/조회 권한 (순수). 가시성 + 소환자/소환 시점 길드 기준. 미지정/구행은 public 폴백.
 export function canAccessCoopBoss(
   session: {

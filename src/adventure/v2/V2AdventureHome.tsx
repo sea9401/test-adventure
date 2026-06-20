@@ -18,7 +18,7 @@ import type {
   V2EquipInstance,
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { tierLevelCap } from "@/adventure/data/v2/proficiency";
+import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 
 // 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
@@ -133,7 +133,7 @@ export function V2AdventureHome({
     currentGroup === "none"
       ? null
       : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
-  const levelCap = currentTier == null ? null : tierLevelCap(currentTier);
+  const levelCap = currentTier == null ? null : effectiveLevelCap(currentTier);
   const treasuryGold = state?.currentOutpost?.treasuryGold ?? 0;
   const viewerGuildId = state?.guild?.id ?? null;
   // 점령 길드원인지 — 세금 회수 권한 판정.

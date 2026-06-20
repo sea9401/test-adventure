@@ -5,7 +5,7 @@ import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
-import { tierLevelCap } from "@/adventure/data/v2/proficiency";
+import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -141,7 +141,7 @@ export function V2CharacterScreen({
     currentGroup === "none"
       ? null
       : (state?.proficiency?.groups?.[currentGroup]?.tier ?? 1);
-  const levelCap = currentTier == null ? null : tierLevelCap(currentTier);
+  const levelCap = currentTier == null ? null : effectiveLevelCap(currentTier);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">

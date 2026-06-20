@@ -77,18 +77,18 @@ describe("settlement — 생산 엔진", () => {
     expect(nextTier("metropolis")).toBe(null);
   });
 
-  it("MAX_SLOTS_BY_TIER — 마을 2×2(4)·도시 3×3(9)·대도시 4×4(16)", () => {
+  it("MAX_SLOTS_BY_TIER — 마을 2×2(4)·도시 3×3(9)·대도시 3×3(9)", () => {
     expect(MAX_SLOTS_BY_TIER.village).toBe(4);
     expect(MAX_SLOTS_BY_TIER.city).toBe(9);
-    expect(MAX_SLOTS_BY_TIER.metropolis).toBe(16);
+    expect(MAX_SLOTS_BY_TIER.metropolis).toBe(9);
     expect(GRID_COLS_BY_TIER.village).toBe(2);
     expect(GRID_COLS_BY_TIER.city).toBe(3);
-    expect(GRID_COLS_BY_TIER.metropolis).toBe(4);
-    // 판 크기 = cols² 일관성(2×2/3×3/4×4).
+    expect(GRID_COLS_BY_TIER.metropolis).toBe(3);
+    // 판 크기 = cols² 일관성(2×2/3×3).
     expect(MAX_SLOTS_BY_TIER.metropolis).toBe(GRID_COLS_BY_TIER.metropolis ** 2);
-    // 화면 표시 판은 항상 가장 큰 단계(대도시 4×4) — 낮은 단계도 같은 크기로 보여줌.
-    expect(GRID_DISPLAY_COLS).toBe(GRID_COLS_BY_TIER.metropolis); // 4
-    expect(GRID_DISPLAY_SLOTS).toBe(MAX_SLOTS_BY_TIER.metropolis); // 16
+    // 화면 표시 판은 항상 가장 큰 단계(대도시 3×3) — 낮은 단계도 같은 크기로 보여줌.
+    expect(GRID_DISPLAY_COLS).toBe(GRID_COLS_BY_TIER.metropolis); // 3
+    expect(GRID_DISPLAY_SLOTS).toBe(MAX_SLOTS_BY_TIER.metropolis); // 9
   });
 
   it("INITIAL_UNLOCKED_SLOTS=0 / clampUnlockedSlots — [0, 최대]로 보정", () => {
@@ -199,13 +199,13 @@ describe("settlement — 생산 엔진", () => {
     // 광산 type → 광맥
     expect(terrainTraitOf("city_iron_pit")).toBe("mine");
     expect(terrainTraitOf("war_central_mine")).toBe("mine");
-    // 마을 type → 농지
+    // 마을 type → farmland(숲)
     expect(terrainTraitOf("city_oakheart")).toBe("farmland");
     expect(terrainTraitOf("village_wheatfield")).toBe("farmland");
     // 요새/탑 → 평지
     expect(terrainTraitOf("war_central_fort")).toBe("plain");
     expect(terrainTraitOf("war_central_tower")).toBe("plain");
-    // 물 테마 오버라이드 → 호수(마을 type 이지만)
+    // 물 테마 오버라이드 → lake(어장)(마을 type 이지만)
     expect(terrainTraitOf("city_river_haven")).toBe("lake");
     expect(terrainTraitOf("village_dewfall")).toBe("lake");
     // 광맥 이름 마을 오버라이드 → 광맥

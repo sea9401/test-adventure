@@ -27,7 +27,7 @@ import { useGameState } from "./GameStateProvider";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
-// 옛 type(요새/마탑/광산/마을)은 표면 라벨 폐기 → 지형 특성(평지/농지/광맥/호수)으로 표기.
+// 옛 type(요새/마탑/광산/마을)은 표면 라벨 폐기 → 지형 특성(평지/숲/광맥/어장)으로 표기.
 
 // 던전 입장은 전투 탭으로 이동 (V2BattleHome) — OutpostView 에서는 outpost 자체
 // 활동(claim/harvest/policy/병사 모집 등) 만.

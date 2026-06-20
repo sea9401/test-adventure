@@ -200,16 +200,18 @@ export function V2CultivationView({ onBack }: { onBack: () => void }) {
         <SubViewHeader title="성장의 신전" onBack={onBack} />
       </HeaderPanel>
 
-      <TabBar
-        tabs={[
-          { key: "job", label: "직업" },
-          { key: "cultivate", label: "수행" },
-        ]}
-        active={tab}
-        onChange={setTab}
-        ariaLabel="성장의 신전 탭"
-        size="md"
-      />
+      <HeaderPanel className="py-2">
+        <TabBar
+          tabs={[
+            { key: "job", label: "직업" },
+            { key: "cultivate", label: "수행" },
+          ]}
+          active={tab}
+          onChange={setTab}
+          ariaLabel="성장의 신전 탭"
+          size="md"
+        />
+      </HeaderPanel>
 
       {/* === 직업 탭 — 코어루프 on=스탯게이트 트리/재전직, off=기존 차수 전직 그리드 === */}
       {tab === "job" &&

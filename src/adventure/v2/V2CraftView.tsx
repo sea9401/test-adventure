@@ -281,26 +281,29 @@ export function V2CraftView({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
-      {/* 상위 탭 — 제작 / 분해 */}
-      <TabBar
-        tabs={MODE_TABS}
-        active={mode}
-        onChange={onModeChange}
-        ariaLabel="제작 / 분해"
-        size="sm"
-        variant="highlight"
-      />
+      {/* 탭(제작/분해 + 부위) — 지역 배경 위라 라이트모드 가독성 위해 surface 패널로 감쌈. */}
+      <HeaderPanel className="space-y-1 py-2">
+        {/* 상위 탭 — 제작 / 분해 */}
+        <TabBar
+          tabs={MODE_TABS}
+          active={mode}
+          onChange={onModeChange}
+          ariaLabel="제작 / 분해"
+          size="sm"
+          variant="highlight"
+        />
 
-      {/* 하위 탭 — 부위 */}
-      <TabBar
-        tabs={SLOT_TABS}
-        active={subTab}
-        onChange={setSubTab}
-        ariaLabel="부위"
-        size="sm"
-        variant="highlight"
-        scrollable
-      />
+        {/* 하위 탭 — 부위 */}
+        <TabBar
+          tabs={SLOT_TABS}
+          active={subTab}
+          onChange={setSubTab}
+          ariaLabel="부위"
+          size="sm"
+          variant="highlight"
+          scrollable
+        />
+      </HeaderPanel>
 
       <section>
         {mode === "craft" ? (

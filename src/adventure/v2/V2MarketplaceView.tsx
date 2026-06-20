@@ -494,15 +494,17 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
       {tab === "sell" && (
         <div className="space-y-3">
-          {/* 슬롯 서브탭 — 인벤토리와 동일 구성 */}
-          <TabBar
-            tabs={V2_ITEM_TABS}
-            active={sellTab}
-            onChange={setSellTab}
-            ariaLabel="판매 슬롯"
-            size="sm"
-            scrollable
-          />
+          {/* 슬롯 서브탭 — 인벤토리와 동일 구성. 배경 위라 surface 패널로 감쌈(라이트모드 가독성). */}
+          <HeaderPanel className="py-2">
+            <TabBar
+              tabs={V2_ITEM_TABS}
+              active={sellTab}
+              onChange={setSellTab}
+              ariaLabel="판매 슬롯"
+              size="sm"
+              scrollable
+            />
+          </HeaderPanel>
 
           {sellTab === "consumable" ? (
             rareMaps.length === 0 ? (

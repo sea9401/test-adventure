@@ -1,24 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
-} from "react";
-import {
-  ArrowsOut,
   CastleTurret,
   Crown,
   House,
-  MapPin,
-  Minus,
   Mountains,
-  Plus,
   Sparkle,
   X,
 } from "@phosphor-icons/react";
@@ -44,14 +31,20 @@ import type {
 
 // 마커 채움색은 종류가 아니라 소속 왕국으로 칠한다(종류는 아이콘으로 구분). kingdomColorOf 참고.
 
-const TIER_RADIUS: Record<OutpostTier, number> = {
-  1: 38,
-  2: 55,
-  3: 75,
-  4: 110,
-};
+// === 고정 타일 격자 보드 (pan/zoom 폐기) ============================================
+// 옛 점-지도(가변 viewBox + 핀치/팬/휠)를 한 화면에 딱 맞는 정사각 타일 격자로 교체.
+// 좌표(0..10000 × 0..6000)는 셀로 스냅하고, 모든 렌더(마커·간선·경로·팝업)는 gpos() 로
+// 격자 셀 중심을 쓴다. 게임플레이(인접/이동/안개/전쟁)는 그대로 — 순수 비주얼 변경.
+const GRID_COLS = 15;
+const GRID_ROWS = 9;
+const CELL = MAP_BOUNDS.width / GRID_COLS; // ≈667 (6000/9≈667 → 거의 정사각)
+const BOARD_W = GRID_COLS * CELL;
+const BOARD_H = GRID_ROWS * CELL;
 
-// 상시 라벨 = 왕국(tier4)만. tier3 이하는 hover/선택 시에만(개요 라벨 밀도↓, Codex 가독성 권고).
+const clampInt = (v: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, v));
+
+// 상시 라벨 = 왕국(tier4)만. 그 외는 hover/선택/현재일 때만(격자라 라벨 밀도 자체는 낮음).
 const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
   1: false,
   2: false,
@@ -59,7 +52,7 @@ const TIER_LABEL_VISIBLE: Record<OutpostTier, boolean> = {
   4: true,
 };
 
-// 거점 종류별 플랫 아이콘 — 마커 타일 위에 흰색 글리프로. 왕국(tier4)은 종류 무관 Crown.
+// 거점 종류별 플랫 아이콘 — 타일 위에 흰색 글리프로. 왕국(tier4)은 종류 무관 Crown.
 const TYPE_ICON: Record<OutpostType, typeof House> = {
   mine: Mountains,
   tower: Sparkle,
@@ -74,10 +67,6 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   village: "마을",
 };
 
-// 줌 한계 — viewBox 너비. 작을수록 확대. 0.15 * world = 약 6.6배 확대 max.
-const MIN_VB_W = MAP_BOUNDS.width * 0.15;
-const MAX_VB_W = MAP_BOUNDS.width * 1.0;
-
 // id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
 
@@ -89,11 +78,8 @@ const KINGDOM_LEGEND: { id: string; name: string; color: string }[] =
     name: (OUTPOST_BY_ID.get(id)?.name ?? id).replace(/\s*왕국$/, ""),
   }));
 
-// 바이옴 권역 — 5 왕국 영역(점선 박스) + 중앙 분쟁지대(박스 없음).
-// 중심 좌표는 outposts.ts 상단 주석의 5 왕국 + 중앙 평원. 중립 거점은 어느 세력 영역도
-// 아니라 박스에서 제외(맵 가장자리라 박스를 늘려 지저분해지는 것도 방지).
-// 배정 규칙(2026-06-08): 중앙에서 CONFLICT_RADIUS 안의 땅만 무소속 분쟁지대로 남고, 그 밖의
-// 모든 땅은 최근접 왕국 영역에 소속된다(종전엔 중앙이 먼 땅까지 빨아들였음 — 예: 서리 관문).
+// === 영토(territory) — 격자 셀마다 소속 왕국색. 분쟁 반경 안은 분쟁지대(slate). ==========
+// BIOME_REGIONS 중심은 outposts.ts 상단 주석의 5 왕국 + 중앙 평원과 일치.
 const BIOME_REGIONS = [
   { label: "북부 빙원", center: { x: 1800, y: 1000 } },
   { label: "동부 삼림", center: { x: 6500, y: 800 } },
@@ -104,21 +90,18 @@ const BIOME_REGIONS = [
 ] as const;
 
 // 중앙 분쟁지대 핵심 반경 — 중심에서 이 거리(맵 좌표) 안의 땅만 무소속 분쟁지대로 남고,
-// 그 밖은 전부 최근접 왕국 소속. 키우면 분쟁지대가 넓어지고 줄이면 왕국령이 넓어진다.
+// 그 밖은 전부 최근접 왕국 소속. (outpostDefense.ts 와 같은 값이어야 한다.)
 const CONFLICT_LABEL = "중앙 분쟁지대";
 const CONFLICT_RADIUS = 800;
 const CONFLICT_CENTER = BIOME_REGIONS.find((r) => r.label === CONFLICT_LABEL)!
   .center;
 const KINGDOM_REGIONS = BIOME_REGIONS.filter((r) => r.label !== CONFLICT_LABEL);
 
-// === 영토(territory) 비주얼 — 왕국령을 색 영토 블록으로(격자 위 색 영토 참고 디자인). =========
-// 데이터(거점/왕국/인접) 불변·비주얼만. 각 격자 셀을 중심점 기준 최근접 왕국(분쟁 반경 안은
-// 분쟁지대)으로 칠해 "흩어진 점"이 아니라 "색 영토"로 읽히게 한다. 점선 박스 → 셀 경계 점선.
-const TERRITORY_CELL_SIZE = 400; // 배경 격자(400)와 동일 → 셀=격자칸으로 자연스러운 영토맵.
-
-// BIOME_REGIONS label → 영토 색. 왕국 권역 중심 == 왕국 거점 position 이라 그 거점의 KINGDOM_COLORS.
+// BIOME_REGIONS label → 영토 색. 왕국 권역 중심 == 왕국 거점 position 이라 그 거점의 색.
 const TERRITORY_COLOR_BY_LABEL: Record<string, string> = (() => {
-  const out: Record<string, string> = { [CONFLICT_LABEL]: OUTPOST_CONFLICT_COLOR };
+  const out: Record<string, string> = {
+    [CONFLICT_LABEL]: OUTPOST_CONFLICT_COLOR,
+  };
   for (const reg of KINGDOM_REGIONS) {
     const kingdom = OUTPOSTS.find(
       (o) =>
@@ -132,15 +115,7 @@ const TERRITORY_COLOR_BY_LABEL: Record<string, string> = (() => {
   return out;
 })();
 
-// 격자 셀 → 소속 영토(label/color). 중심점이 분쟁 반경 안이면 분쟁지대, 아니면 최근접 왕국.
-type TerritoryCell = {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  label: string;
-  color: string;
-};
+// 점(mx,my)의 소속 영토 라벨 — 분쟁 반경 안이면 분쟁지대, 아니면 최근접 왕국.
 function territoryLabelAt(mx: number, my: number): string {
   const cdx = mx - CONFLICT_CENTER.x;
   const cdy = my - CONFLICT_CENTER.y;
@@ -160,21 +135,34 @@ function territoryLabelAt(mx: number, my: number): string {
   }
   return label;
 }
-const TERRITORY_COLS = Math.ceil(MAP_BOUNDS.width / TERRITORY_CELL_SIZE);
-const TERRITORY_ROWS = Math.ceil(MAP_BOUNDS.height / TERRITORY_CELL_SIZE);
+
+// === 영토 셀(15×9=135) — 새 격자에서 셀 중심 기준으로 영토 색 재산출. =================
+type TerritoryCell = {
+  col: number;
+  row: number;
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+};
 const TERRITORY_GRID: TerritoryCell[][] = (() => {
   const grid: TerritoryCell[][] = [];
-  for (let ix = 0; ix < TERRITORY_COLS; ix++) {
-    const col: TerritoryCell[] = [];
-    for (let iy = 0; iy < TERRITORY_ROWS; iy++) {
-      const x = ix * TERRITORY_CELL_SIZE;
-      const y = iy * TERRITORY_CELL_SIZE;
-      const w = Math.min(TERRITORY_CELL_SIZE, MAP_BOUNDS.width - x);
-      const h = Math.min(TERRITORY_CELL_SIZE, MAP_BOUNDS.height - y);
-      const label = territoryLabelAt(x + w / 2, y + h / 2);
-      col.push({ x, y, w, h, label, color: TERRITORY_COLOR_BY_LABEL[label] });
+  for (let col = 0; col < GRID_COLS; col++) {
+    const column: TerritoryCell[] = [];
+    for (let row = 0; row < GRID_ROWS; row++) {
+      const x = col * CELL;
+      const y = row * CELL;
+      const label = territoryLabelAt(x + CELL / 2, y + CELL / 2);
+      column.push({
+        col,
+        row,
+        x,
+        y,
+        label,
+        color: TERRITORY_COLOR_BY_LABEL[label],
+      });
     }
-    grid.push(col);
+    grid.push(column);
   }
   return grid;
 })();
@@ -188,21 +176,86 @@ const TERRITORY_BORDERS: {
   y2: number;
 }[] = (() => {
   const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  for (let ix = 0; ix < TERRITORY_COLS; ix++) {
-    for (let iy = 0; iy < TERRITORY_ROWS; iy++) {
-      const c = TERRITORY_GRID[ix][iy];
-      const right = TERRITORY_GRID[ix + 1]?.[iy];
+  for (let col = 0; col < GRID_COLS; col++) {
+    for (let row = 0; row < GRID_ROWS; row++) {
+      const c = TERRITORY_GRID[col][row];
+      const right = TERRITORY_GRID[col + 1]?.[row];
       if (right && right.label !== c.label) {
-        out.push({ x1: c.x + c.w, y1: c.y, x2: c.x + c.w, y2: c.y + c.h });
+        out.push({ x1: c.x + CELL, y1: c.y, x2: c.x + CELL, y2: c.y + CELL });
       }
-      const below = TERRITORY_GRID[ix]?.[iy + 1];
+      const below = TERRITORY_GRID[col]?.[row + 1];
       if (below && below.label !== c.label) {
-        out.push({ x1: c.x, y1: c.y + c.h, x2: c.x + c.w, y2: c.y + c.h });
+        out.push({ x1: c.x, y1: c.y + CELL, x2: c.x + CELL, y2: c.y + CELL });
       }
     }
   }
   return out;
 })();
+
+// === 거점 → 격자 셀 스냅(충돌은 결정적 확장 링 BFS 로 최근접 빈 셀). ==================
+// OUTPOSTS 배열 순서대로 스냅하고, 목표 셀이 차 있으면 반경 1,2,… 의 빈 셀 중 가장 가까운
+// (동점은 row→col 오름차순) 셀로 옮긴다. 결정적 — 서버/클라/리로드 동일.
+type GridPos = { col: number; row: number; cx: number; cy: number };
+const OUTPOST_GRID_POS: Map<string, GridPos> = (() => {
+  const taken = new Set<string>();
+  const map = new Map<string, GridPos>();
+  const key = (c: number, r: number) => `${c},${r}`;
+  for (const o of OUTPOSTS) {
+    const tcol = clampInt(Math.floor(o.position.x / CELL), 0, GRID_COLS - 1);
+    const trow = clampInt(Math.floor(o.position.y / CELL), 0, GRID_ROWS - 1);
+    let col = tcol;
+    let row = trow;
+    if (taken.has(key(col, row))) {
+      const maxR = Math.max(GRID_COLS, GRID_ROWS);
+      let found = false;
+      for (let radius = 1; radius < maxR && !found; radius++) {
+        let best: { c: number; r: number } | null = null;
+        let bestD = Infinity;
+        for (let dc = -radius; dc <= radius; dc++) {
+          for (let dr = -radius; dr <= radius; dr++) {
+            if (Math.max(Math.abs(dc), Math.abs(dr)) !== radius) continue;
+            const c = tcol + dc;
+            const r = trow + dr;
+            if (c < 0 || c >= GRID_COLS || r < 0 || r >= GRID_ROWS) continue;
+            if (taken.has(key(c, r))) continue;
+            const d = dc * dc + dr * dr;
+            // 동점은 결정적으로 — row, 그다음 col 오름차순.
+            if (
+              d < bestD ||
+              (d === bestD &&
+                best &&
+                (r < best.r || (r === best.r && c < best.c)))
+            ) {
+              bestD = d;
+              best = { c, r };
+            }
+          }
+        }
+        if (best) {
+          col = best.c;
+          row = best.r;
+          found = true;
+        }
+      }
+    }
+    taken.add(key(col, row));
+    map.set(o.id, {
+      col,
+      row,
+      cx: (col + 0.5) * CELL,
+      cy: (row + 0.5) * CELL,
+    });
+  }
+  return map;
+})();
+
+// 격자 셀 중심 좌표 — 없으면(이론상 불가) 원 좌표 폴백.
+function gpos(id: string): { cx: number; cy: number } {
+  const g = OUTPOST_GRID_POS.get(id);
+  if (g) return { cx: g.cx, cy: g.cy };
+  const o = OUTPOST_BY_ID.get(id);
+  return { cx: o?.position.x ?? 0, cy: o?.position.y ?? 0 };
+}
 
 type OccupationLite = {
   outpostId: string;
@@ -215,8 +268,6 @@ type OccupationLite = {
   // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 덮는다.
   villageName?: string | null;
 };
-
-type Vb = { x: number; y: number; w: number; h: number };
 
 export function ContinentMap({
   onOutpostEnter,
@@ -248,8 +299,8 @@ export function ContinentMap({
   // 발견(안개) — 공개된 거점 id 집합. 미공개는 흐리게+비활성, 이동 목적지에서 제외.
   // 미지정이면 전부 공개로 취급(예: 순수 시각 프리뷰 페이지).
   discoveredIds?: ReadonlySet<string>;
-  // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 권역 박스는 숨김, 초기 프레이밍은
-  // 집합의 bounding box 로. 전쟁 탭의 "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
+  // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 영토/경계는 숨김. 전쟁 탭의
+  // "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
   visibleIds?: ReadonlySet<string>;
   // 전쟁 모드 — 팝업 액션이 이동/둘러보기 대신 "공격"(인접 1칸·공격 가능 거점만).
   // 이동 기능은 마을 탭 지도 전용. viewerGuildId 는 아군 거점 판정용.
@@ -271,288 +322,6 @@ export function ContinentMap({
   const [selected, setSelected] = useState<Outpost | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
-
-  // 컨테이너 크기 측정 — viewBox 비율 + 좌표 변환에 사용.
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
-  useLayoutEffect(() => {
-    if (!containerRef.current) return;
-    const el = containerRef.current;
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      setContainerSize({ w: r.width, h: r.height });
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // viewBox state — 동적 (핀치·팬·휠·버튼 조작).
-  const [vb, setVb] = useState<Vb>({
-    x: 0,
-    y: 0,
-    w: MAP_BOUNDS.width,
-    h: MAP_BOUNDS.height,
-  });
-
-  // 전체보기 기준 영역 — 국지 모드(visibleIds)면 보이는 거점들의 bounding box(+여백).
-  const fitBounds = useMemo(() => {
-    if (!visibleIds || visibleIds.size === 0) {
-      return { x: 0, y: 0, w: MAP_BOUNDS.width, h: MAP_BOUNDS.height };
-    }
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const id of visibleIds) {
-      const o = OUTPOST_BY_ID.get(id);
-      if (!o) continue;
-      minX = Math.min(minX, o.position.x);
-      minY = Math.min(minY, o.position.y);
-      maxX = Math.max(maxX, o.position.x);
-      maxY = Math.max(maxY, o.position.y);
-    }
-    if (minX > maxX) {
-      return { x: 0, y: 0, w: MAP_BOUNDS.width, h: MAP_BOUNDS.height };
-    }
-    const PAD = 460; // 마커 반경 + 라벨 여백
-    return {
-      x: minX - PAD,
-      y: minY - PAD,
-      w: maxX - minX + PAD * 2,
-      h: maxY - minY + PAD * 2,
-    };
-  }, [visibleIds]);
-
-  const fitAll = useCallback(() => {
-    const { w: cw, h: ch } = containerSize;
-    if (cw === 0 || ch === 0) return;
-    const containerRatio = ch / cw;
-    const worldRatio = fitBounds.h / fitBounds.w;
-    let vbW: number;
-    let vbH: number;
-    if (containerRatio >= worldRatio) {
-      vbW = fitBounds.w;
-      vbH = vbW * containerRatio;
-    } else {
-      vbH = fitBounds.h;
-      vbW = vbH / containerRatio;
-    }
-    vbW = Math.max(MIN_VB_W, vbW);
-    vbH = cw > 0 ? vbW * (ch / cw) : vbH;
-    setVb({
-      x: fitBounds.x + fitBounds.w / 2 - vbW / 2,
-      y: fitBounds.y + fitBounds.h / 2 - vbH / 2,
-      w: vbW,
-      h: vbH,
-    });
-  }, [containerSize, fitBounds]);
-
-  // 현재 거점을 화면 가운데로 — 적당한 줌(맵 너비의 42%)으로. 지도를 열 때 전체보기 대신
-  // "지금 있는 곳"으로 프레이밍한다. 현재 거점이 없으면 전체보기로 폴백.
-  const centerOnCurrent = useCallback(() => {
-    const cur = currentOutpostId ? OUTPOST_BY_ID.get(currentOutpostId) : null;
-    const { w: cw, h: ch } = containerSize;
-    if (!cur || cw === 0 || ch === 0) {
-      fitAll();
-      return;
-    }
-    const vbW = Math.min(MAX_VB_W, Math.max(MIN_VB_W, MAP_BOUNDS.width * 0.42));
-    const vbH = vbW * (ch / cw);
-    // clampVb 와 같은 규칙으로 월드 밖 넘침 방지(축소판).
-    const x =
-      vbW >= MAP_BOUNDS.width
-        ? (MAP_BOUNDS.width - vbW) / 2
-        : Math.max(0, Math.min(MAP_BOUNDS.width - vbW, cur.position.x - vbW / 2));
-    const y =
-      vbH >= MAP_BOUNDS.height
-        ? (MAP_BOUNDS.height - vbH) / 2
-        : Math.max(
-            0,
-            Math.min(MAP_BOUNDS.height - vbH, cur.position.y - vbH / 2),
-          );
-    setVb({ x, y, w: vbW, h: vbH });
-  }, [currentOutpostId, containerSize, fitAll]);
-
-  // 지도를 열면 한 번 프레이밍 — 국지 모드는 전체(=보이는 집합) 맞춤, 평소엔 현 위치 중심.
-  const didFitRef = useRef(false);
-  useEffect(() => {
-    if (didFitRef.current) return;
-    if (containerSize.w === 0 || containerSize.h === 0) return;
-    if (visibleIds) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 초기 지도 프레이밍 1회.
-      fitAll();
-    } else {
-      centerOnCurrent();
-    }
-    didFitRef.current = true;
-  }, [containerSize, centerOnCurrent, fitAll, visibleIds]);
-
-  const clampVb = useCallback(
-    (next: Vb): Vb => {
-      const w = Math.max(MIN_VB_W, Math.min(MAX_VB_W, next.w));
-      const { w: cw, h: ch } = containerSize;
-      const h = cw > 0 && ch > 0 ? w * (ch / cw) : (next.h / next.w) * w;
-      // viewBox 가 월드보다 크면(축 별로) 그 축은 중앙 정렬 강제 — 화면 좌하단
-      // drift 누적 방지. 그 외엔 가장자리를 화면에 맞춤 (월드 밖 X).
-      let x: number;
-      if (w >= MAP_BOUNDS.width) {
-        x = (MAP_BOUNDS.width - w) / 2;
-      } else {
-        x = Math.max(0, Math.min(MAP_BOUNDS.width - w, next.x));
-      }
-      let y: number;
-      if (h >= MAP_BOUNDS.height) {
-        y = (MAP_BOUNDS.height - h) / 2;
-      } else {
-        y = Math.max(0, Math.min(MAP_BOUNDS.height - h, next.y));
-      }
-      return { x, y, w, h };
-    },
-    [containerSize],
-  );
-
-  // 포인터 — 다중 포인터로 핀치/팬 구분.
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
-  const pinchRef = useRef<{ startDist: number; startVb: Vb } | null>(null);
-  const draggedRef = useRef(false);
-  const downAtRef = useRef<{ x: number; y: number } | null>(null);
-
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointersRef.current.size === 1) {
-      downAtRef.current = { x: e.clientX, y: e.clientY };
-      draggedRef.current = false;
-    }
-    if (pointersRef.current.size === 2) {
-      const pts = Array.from(pointersRef.current.values());
-      const dx = pts[1].x - pts[0].x;
-      const dy = pts[1].y - pts[0].y;
-      pinchRef.current = {
-        startDist: Math.hypot(dx, dy) || 1,
-        startVb: vb,
-      };
-      draggedRef.current = true;
-      for (const id of pointersRef.current.keys()) {
-        try {
-          e.currentTarget.setPointerCapture(id);
-        } catch {}
-      }
-    }
-  };
-
-  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!pointersRef.current.has(e.pointerId)) return;
-    const prev = pointersRef.current.get(e.pointerId)!;
-    const dx = e.clientX - prev.x;
-    const dy = e.clientY - prev.y;
-    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-    const { w: cw, h: ch } = containerSize;
-    if (cw === 0 || ch === 0) return;
-
-    if (pointersRef.current.size === 2 && pinchRef.current) {
-      const pts = Array.from(pointersRef.current.values());
-      const newDist =
-        Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) || 1;
-      const ratio = pinchRef.current.startDist / newDist;
-      const cx = (pts[0].x + pts[1].x) / 2;
-      const cy = (pts[0].y + pts[1].y) / 2;
-      const rect = containerRef.current!.getBoundingClientRect();
-      const focalCx = cx - rect.left;
-      const focalCy = cy - rect.top;
-      const start = pinchRef.current.startVb;
-      const newW = start.w * ratio;
-      const newH = newW * (ch / cw);
-      const focalVBx = start.x + (focalCx / cw) * start.w;
-      const focalVBy = start.y + (focalCy / ch) * start.h;
-      const newX = focalVBx - (focalCx / cw) * newW;
-      const newY = focalVBy - (focalCy / ch) * newH;
-      setVb(clampVb({ x: newX, y: newY, w: newW, h: newH }));
-      return;
-    }
-
-    if (pointersRef.current.size === 1) {
-      if (downAtRef.current && !draggedRef.current) {
-        const moved =
-          Math.abs(e.clientX - downAtRef.current.x) +
-          Math.abs(e.clientY - downAtRef.current.y);
-        if (moved > 5) {
-          draggedRef.current = true;
-          try {
-            e.currentTarget.setPointerCapture(e.pointerId);
-          } catch {}
-        }
-      }
-      if (!draggedRef.current) return;
-      const pxToVB = vb.w / cw;
-      setVb((cur) =>
-        clampVb({
-          x: cur.x - dx * pxToVB,
-          y: cur.y - dy * (cur.h / ch),
-          w: cur.w,
-          h: cur.h,
-        }),
-      );
-    }
-  };
-
-  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
-    pointersRef.current.delete(e.pointerId);
-    if (pointersRef.current.size < 2) pinchRef.current = null;
-    if (pointersRef.current.size === 0) downAtRef.current = null;
-  };
-
-  const onWheel = (e: ReactWheelEvent<HTMLDivElement>) => {
-    const { w: cw, h: ch } = containerSize;
-    if (cw === 0 || ch === 0) return;
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12;
-    const rect = containerRef.current!.getBoundingClientRect();
-    const focalCx = e.clientX - rect.left;
-    const focalCy = e.clientY - rect.top;
-    setVb((cur) => {
-      const newW = cur.w * factor;
-      const newH = newW * (ch / cw);
-      const focalVBx = cur.x + (focalCx / cw) * cur.w;
-      const focalVBy = cur.y + (focalCy / ch) * cur.h;
-      return clampVb({
-        x: focalVBx - (focalCx / cw) * newW,
-        y: focalVBy - (focalCy / ch) * newH,
-        w: newW,
-        h: newH,
-      });
-    });
-  };
-
-  // 드래그 직후 click 차단 — 마커 click 으로 잘못 전달 방지.
-  const onClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (draggedRef.current) {
-      e.stopPropagation();
-      e.preventDefault();
-      draggedRef.current = false;
-    }
-  };
-
-  const zoomBy = (factor: number) => {
-    const { w: cw, h: ch } = containerSize;
-    if (cw === 0 || ch === 0) return;
-    const focalCx = cw / 2;
-    const focalCy = ch / 2;
-    setVb((cur) => {
-      const newW = cur.w * factor;
-      const newH = newW * (ch / cw);
-      const focalVBx = cur.x + (focalCx / cw) * cur.w;
-      const focalVBy = cur.y + (focalCy / ch) * cur.h;
-      return clampVb({
-        x: focalVBx - (focalCx / cw) * newW,
-        y: focalVBy - (focalCy / ch) * newH,
-        w: newW,
-        h: newH,
-      });
-    });
-  };
 
   // 발견 판정 — discoveredIds 미지정이면 전부 공개로 본다(순수 시각 프리뷰).
   const isDiscovered = (id: string): boolean =>
@@ -579,7 +348,7 @@ export function ContinentMap({
     !isAdjacentSelected;
 
   // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
-  //   미점령은 소속 왕국을 길드명처럼 "○○ 왕국령"으로(NPC 운영 대신). 중립 거점은 배지로 충분해 생략.
+  //   미점령은 소속 왕국을 "○○ 왕국령"으로. 중립 거점은 배지로 충분해 생략.
   const selectedOcc = selected ? occByOutpost.get(selected.id) : undefined;
   const selectedKingdomName = selected ? kingdomNameOf(selected) : undefined;
   const selectedOwnerLabel =
@@ -595,76 +364,87 @@ export function ContinentMap({
               : "무소속"
       : null;
 
+  // 타일 한 변(uniform) — 격자라 모든 tier 동일 크기. tier 큐는 stroke 굵기로만 약하게.
+  const TILE = CELL * 0.62;
+  const HALF = TILE / 2;
+
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
-      <div
-        ref={containerRef}
-        className="relative h-[78vh] w-full touch-none select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onPointerLeave={onPointerUp}
-        onWheel={onWheel}
-        onClickCapture={onClickCapture}
-      >
+      <div className="relative aspect-[15/9] w-full select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40">
         <svg
-          viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
-          preserveAspectRatio="xMidYMid slice"
+          viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
+          preserveAspectRatio="xMidYMid meet"
           className="block h-full w-full"
           role="img"
           aria-label="대륙 지도"
+          onClick={() => setSelected(null)}
         >
-          {/* 보드 배경 — 사진 일러스트 대신 단색 + 옅은 격자. 마커·연결선이 또렷이 읽히게. */}
-          <defs>
-            <pattern
-              id="v2-grid"
-              width={400}
-              height={400}
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M 400 0 L 0 0 0 400"
-                fill="none"
-                className="stroke-zinc-300/60 dark:stroke-zinc-700/50"
-                strokeWidth={2}
-              />
-            </pattern>
-          </defs>
+          {/* 보드 배경 — 단색. 위로 영토 색 타일 + 격자선 + 경계 점선이 얹힌다. */}
           <rect
             x={0}
             y={0}
-            width={MAP_BOUNDS.width}
-            height={MAP_BOUNDS.height}
+            width={BOARD_W}
+            height={BOARD_H}
             className="fill-zinc-100 dark:fill-zinc-950"
           />
-          {/* 영토 색칠 — 격자칸마다 소속 왕국 색(분쟁지대=slate). 격자선 아래라 격자가 위로 또렷.
-              전체 지도(국지 war 모드 아님)에서만. 흩어진 점 → 색 영토로 읽히게. */}
-          {!visibleIds && (
-            <g>
-              {TERRITORY_CELLS.map((c) => (
+
+          {/* 영토 색칠 — 135 격자칸마다 소속 왕국 색(분쟁지대=slate). 또렷이 읽히게 .20.
+              전체 지도(국지 war 모드 아님)에서만. 국지 모드는 보이는 셀만. */}
+          <g>
+            {TERRITORY_CELLS.map((c) => {
+              // 국지 모드 — 보이는 거점이 한 칸이라도 든 셀만 칠한다(나머지 빈 보드).
+              if (visibleIds) {
+                let any = false;
+                for (const id of visibleIds) {
+                  const g = OUTPOST_GRID_POS.get(id);
+                  if (g && g.col === c.col && g.row === c.row) {
+                    any = true;
+                    break;
+                  }
+                }
+                if (!any) return null;
+              }
+              return (
                 <rect
-                  key={`terr-${c.x}-${c.y}`}
+                  key={`terr-${c.col}-${c.row}`}
                   x={c.x}
                   y={c.y}
-                  width={c.w}
-                  height={c.h}
+                  width={CELL}
+                  height={CELL}
                   fill={c.color}
-                  fillOpacity={0.13}
+                  fillOpacity={0.2}
                 />
-              ))}
-            </g>
-          )}
-          <rect
-            x={0}
-            y={0}
-            width={MAP_BOUNDS.width}
-            height={MAP_BOUNDS.height}
-            fill="url(#v2-grid)"
-          />
+              );
+            })}
+          </g>
 
-          {/* 영토 경계 — 서로 다른 영토(왕국령) 셀 사이의 변만 점선으로. 격자 위·연결선/마커 아래.
-              왕국 이름은 각 영토 수도(tier4 마커) 라벨이 담당(이미지처럼 색 영토 + 수도 라벨). */}
+          {/* 격자선 — 영토 색 위에 얇게(타일 경계가 또렷이 읽히게). */}
+          <g
+            className="stroke-zinc-300/60 dark:stroke-zinc-700/50"
+            strokeWidth={2}
+          >
+            {Array.from({ length: GRID_COLS + 1 }, (_, i) => (
+              <line
+                key={`gv-${i}`}
+                x1={i * CELL}
+                y1={0}
+                x2={i * CELL}
+                y2={BOARD_H}
+              />
+            ))}
+            {Array.from({ length: GRID_ROWS + 1 }, (_, i) => (
+              <line
+                key={`gh-${i}`}
+                x1={0}
+                y1={i * CELL}
+                x2={BOARD_W}
+                y2={i * CELL}
+              />
+            ))}
+          </g>
+
+          {/* 영토 경계 — 서로 다른 영토(왕국령) 셀 사이의 변만 점선으로. 격자 위·마커 아래.
+              왕국 이름은 각 영토 수도(tier4) 라벨이 담당. 전체 지도에서만. */}
           {!visibleIds && (
             <g className="stroke-zinc-400/45 dark:stroke-zinc-500/40">
               {TERRITORY_BORDERS.map((b, i) => (
@@ -683,7 +463,8 @@ export function ContinentMap({
           )}
 
           {/* 거점 간 연결선 (Gabriel 그래프) — 인접 = 이동 가능 경로. 마커 아래 레이어.
-              전체를 옅게 깔고, 현재 위치에 닿는 길만 위에 또렷한 초록으로 덧그린다. */}
+              전체를 옅게 깔고, 현재 위치에 닿는 길만 위에 또렷한 초록으로 덧그린다.
+              좌표는 격자 셀 중심(gpos). */}
           {OUTPOST_EDGES.map(({ a, b }) => {
             const oa = OUTPOST_BY_ID.get(a);
             const ob = OUTPOST_BY_ID.get(b);
@@ -691,13 +472,15 @@ export function ContinentMap({
             // 안개 — 양 끝이 모두 발견된 길만 그린다(미발견 지역의 길은 숨김).
             if (!isDiscovered(a) || !isDiscovered(b)) return null;
             if (!isVisible(a) || !isVisible(b)) return null;
+            const pa = gpos(a);
+            const pb = gpos(b);
             return (
               <line
                 key={`edge-${a}-${b}`}
-                x1={oa.position.x}
-                y1={oa.position.y}
-                x2={ob.position.x}
-                y2={ob.position.y}
+                x1={pa.cx}
+                y1={pa.cy}
+                x2={pb.cx}
+                y2={pb.cy}
                 stroke="#9ca3af"
                 strokeOpacity={0.18}
                 strokeWidth={6}
@@ -714,13 +497,15 @@ export function ContinentMap({
               if (!oa || !ob) return null;
               if (!isDiscovered(a) || !isDiscovered(b)) return null;
               if (!isVisible(a) || !isVisible(b)) return null;
+              const pa = gpos(a);
+              const pb = gpos(b);
               return (
                 <line
                   key={`edge-cur-${a}-${b}`}
-                  x1={oa.position.x}
-                  y1={oa.position.y}
-                  x2={ob.position.x}
-                  y2={ob.position.y}
+                  x1={pa.cx}
+                  y1={pa.cy}
+                  x2={pb.cx}
+                  y2={pb.cy}
                   stroke="#10b981"
                   strokeOpacity={0.95}
                   strokeWidth={16}
@@ -737,13 +522,15 @@ export function ContinentMap({
               const oa = OUTPOST_BY_ID.get(routePath[i]);
               const ob = OUTPOST_BY_ID.get(toId);
               if (!oa || !ob) return null;
+              const pa = gpos(routePath[i]);
+              const pb = gpos(toId);
               return (
                 <line
                   key={`route-${routePath[i]}-${toId}`}
-                  x1={oa.position.x}
-                  y1={oa.position.y}
-                  x2={ob.position.x}
-                  y2={ob.position.y}
+                  x1={pa.cx}
+                  y1={pa.cy}
+                  x2={pb.cx}
+                  y2={pb.cy}
                   stroke="#f59e0b"
                   strokeOpacity={0.95}
                   strokeWidth={18}
@@ -752,183 +539,143 @@ export function ContinentMap({
               );
             })}
 
-          {[1, 2, 3, 4].flatMap((tier) =>
-            OUTPOSTS.filter((o) => o.tier === tier && isVisible(o.id)).map((o) => {
-              const r = TIER_RADIUS[o.tier];
-              // 미발견(안개) — 흐린 점만 찍고 비활성(클릭/이름/아이콘 없음). 방문/인접으로
-              // 공개되면 아래의 정상 마커로 렌더된다.
-              if (!isDiscovered(o.id)) {
-                return (
-                  <circle
-                    key={o.id}
-                    cx={o.position.x}
-                    cy={o.position.y}
-                    r={r * 0.5}
-                    className="fill-zinc-400/25 dark:fill-zinc-600/25"
-                  />
-                );
-              }
-              const isKingdom = o.tier === 4;
-              const isNeutral = o.neutral === true;
-              const isSelected = selected?.id === o.id;
-              const isHover = hover === o.id;
-              const isCurrent = o.id === currentOutpostId;
-              // 채움색 = 소속 왕국 고유색(거점 종류는 아이콘으로 구분).
-              const showLabel = isSelected || isHover || isCurrent;
-              const occ = occByOutpost.get(o.id);
-              const isMine =
-                !!occ &&
-                !!viewerUserId &&
-                occ.occupiedByUserId === viewerUserId;
-              const isHostile =
-                !!occ &&
-                occ.occupiedByUserId !== null &&
-                occ.occupiedByUserId !== viewerUserId;
-              // 교전 중 — 성벽이 깎인 점령 거점(공성 진행). 펄스 링으로 전황 노출.
-              const isUnderSiege =
-                !!occ &&
-                occ.occupiedByUserId !== null &&
-                occ.fortHp != null &&
-                occ.fortMaxHp != null &&
-                occ.fortHp < occ.fortMaxHp;
-              // 채움 = 분쟁지대(중앙 2홉 이내)면 무소속 색, 아니면 소속 왕국색.
-              const markerFill = CONFLICT_ZONE_IDS.has(o.id)
-                ? OUTPOST_CONFLICT_COLOR
-                : kingdomColorOf(o);
-              // 소유(내 길드/적/중립)는 테두리 링으로 표시 — 채움(왕국/분쟁색)과 독립.
-              const ownerStroke = isMine
-                ? "#10b981" // 내 길드 — 초록 링
-                : isHostile
-                  ? "#dc2626" // 적 길드 — 빨강 링
-                  : isNeutral
-                    ? "#f4c842" // 중립(자유도시) — 금색 링
-                    : "#ffffff"; // NPC(미점령) — 기본 흰 테두리
-              const hasOwnerRing = isMine || isHostile || isNeutral;
-              const markerStroke = ownerStroke;
-              // 타일 반변 — hover/선택/현재일 때 살짝 키워 강조.
-              const half = showLabel ? r * 1.2 : r;
-              const Glyph = isKingdom ? Crown : TYPE_ICON[o.type];
+          {/* 거점 타일 — 모든 tier 균일한 둥근 사각 타일(격자 셀 중심). 채움 = 소속 왕국색,
+              테두리 = 소유(내것/적/중립/NPC). tier 큐는 stroke 굵기로만 약하게. */}
+          {OUTPOSTS.filter((o) => isVisible(o.id)).map((o) => {
+            const p = gpos(o.id);
+            // 미발견(안개) — 흐린 점만 찍고 비활성(클릭/이름/아이콘 없음).
+            if (!isDiscovered(o.id)) {
               return (
-                <g
+                <circle
                   key={o.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelected(o);
-                  }}
-                  onMouseEnter={() => setHover(o.id)}
-                  onMouseLeave={() => setHover(null)}
-                  className="cursor-pointer"
-                >
-                  {isCurrent && (
-                    <rect
-                      x={o.position.x - half - 28}
-                      y={o.position.y - half - 28}
-                      width={(half + 28) * 2}
-                      height={(half + 28) * 2}
-                      rx={(half + 28) * 0.42}
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth={12}
-                      strokeDasharray="40 28"
-                    />
-                  )}
-                  {/* 교전 중 — 성벽 깎인 거점에 붉은 펄스 링 (SMIL — JS 타이머 불요). */}
-                  {isUnderSiege && (
-                    <rect
-                      x={o.position.x - half - 16}
-                      y={o.position.y - half - 16}
-                      width={(half + 16) * 2}
-                      height={(half + 16) * 2}
-                      rx={(half + 16) * 0.42}
-                      fill="none"
-                      stroke="#dc2626"
-                      strokeWidth={14}
-                    >
-                      <animate
-                        attributeName="opacity"
-                        values="1;0.15;1"
-                        dur="1.6s"
-                        repeatCount="indefinite"
-                      />
-                    </rect>
-                  )}
-                  {/* 색 타일 + 흰색 아이콘 (플랫 마커). 채움 = 소속 왕국색, 테두리 = 소유(내것/적/중립). */}
-                  <rect
-                    x={o.position.x - half}
-                    y={o.position.y - half}
-                    width={half * 2}
-                    height={half * 2}
-                    rx={half * 0.42}
-                    fill={markerFill}
-                    stroke={markerStroke}
-                    strokeWidth={showLabel ? 16 : hasOwnerRing ? 13 : 9}
-                  />
-                  <Glyph
-                    x={o.position.x - half * 0.62}
-                    y={o.position.y - half * 0.62}
-                    width={half * 1.24}
-                    height={half * 1.24}
-                    color="#ffffff"
-                    weight="fill"
-                    opacity={showLabel ? 1 : 0.7}
-                  />
-                  {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
-                    <text
-                      x={o.position.x}
-                      y={o.position.y - half - 14}
-                      textAnchor="middle"
-                      fontSize={isKingdom ? 95 : o.tier === 3 ? 65 : 60}
-                      fontWeight={700}
-                      fill="#fff"
-                      paintOrder="stroke"
-                      stroke="#000"
-                      strokeWidth={8}
-                    >
-                      {occ?.villageName?.trim() || o.name}
-                    </text>
-                  )}
-                </g>
+                  cx={p.cx}
+                  cy={p.cy}
+                  r={HALF * 0.45}
+                  className="fill-zinc-400/25 dark:fill-zinc-600/25"
+                />
               );
-            }),
-          )}
+            }
+            const isKingdom = o.tier === 4;
+            const isNeutral = o.neutral === true;
+            const isSelected = selected?.id === o.id;
+            const isHover = hover === o.id;
+            const isCurrent = o.id === currentOutpostId;
+            const showLabel = isSelected || isHover || isCurrent;
+            const occ = occByOutpost.get(o.id);
+            const isMine =
+              !!occ && !!viewerUserId && occ.occupiedByUserId === viewerUserId;
+            const isHostile =
+              !!occ &&
+              occ.occupiedByUserId !== null &&
+              occ.occupiedByUserId !== viewerUserId;
+            // 교전 중 — 성벽이 깎인 점령 거점(공성 진행). 펄스 링으로 전황 노출.
+            const isUnderSiege =
+              !!occ &&
+              occ.occupiedByUserId !== null &&
+              occ.fortHp != null &&
+              occ.fortMaxHp != null &&
+              occ.fortHp < occ.fortMaxHp;
+            // 채움 = 분쟁지대(중앙 2홉 이내)면 무소속 색, 아니면 소속 왕국색.
+            const markerFill = CONFLICT_ZONE_IDS.has(o.id)
+              ? OUTPOST_CONFLICT_COLOR
+              : kingdomColorOf(o);
+            // 소유(내 길드/적/중립)는 테두리 링으로 표시 — 채움(왕국/분쟁색)과 독립.
+            const ownerStroke = isMine
+              ? "#10b981" // 내 길드 — 초록 링
+              : isHostile
+                ? "#dc2626" // 적 길드 — 빨강 링
+                : isNeutral
+                  ? "#f4c842" // 중립(자유도시) — 금색 링
+                  : "#ffffff"; // NPC(미점령) — 기본 흰 테두리
+            const hasOwnerRing = isMine || isHostile || isNeutral;
+            // tier 큐 — 왕국이 가장 굵고 아래로 갈수록 가늘게(타일 크기는 균일).
+            const tierStroke = isKingdom ? 14 : o.tier === 3 ? 11 : 9;
+            const Glyph = isKingdom ? Crown : TYPE_ICON[o.type];
+            return (
+              <g
+                key={o.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelected(o);
+                }}
+                onMouseEnter={() => setHover(o.id)}
+                onMouseLeave={() => setHover(null)}
+                className="cursor-pointer"
+              >
+                {isCurrent && (
+                  <rect
+                    x={p.cx - HALF - 20}
+                    y={p.cy - HALF - 20}
+                    width={(HALF + 20) * 2}
+                    height={(HALF + 20) * 2}
+                    rx={(HALF + 20) * 0.3}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth={10}
+                    strokeDasharray="34 24"
+                  />
+                )}
+                {/* 교전 중 — 성벽 깎인 거점에 붉은 펄스 링 (SMIL — JS 타이머 불요). */}
+                {isUnderSiege && (
+                  <rect
+                    x={p.cx - HALF - 12}
+                    y={p.cy - HALF - 12}
+                    width={(HALF + 12) * 2}
+                    height={(HALF + 12) * 2}
+                    rx={(HALF + 12) * 0.3}
+                    fill="none"
+                    stroke="#dc2626"
+                    strokeWidth={12}
+                  >
+                    <animate
+                      attributeName="opacity"
+                      values="1;0.15;1"
+                      dur="1.6s"
+                      repeatCount="indefinite"
+                    />
+                  </rect>
+                )}
+                {/* 색 타일 + 흰색 아이콘 (플랫 마커). 채움 = 소속 왕국색, 테두리 = 소유. */}
+                <rect
+                  x={p.cx - HALF}
+                  y={p.cy - HALF}
+                  width={TILE}
+                  height={TILE}
+                  rx={TILE * 0.22}
+                  fill={markerFill}
+                  stroke={ownerStroke}
+                  strokeWidth={
+                    showLabel ? tierStroke + 4 : hasOwnerRing ? tierStroke : tierStroke - 2
+                  }
+                />
+                <Glyph
+                  x={p.cx - HALF * 0.62}
+                  y={p.cy - HALF * 0.62}
+                  width={HALF * 1.24}
+                  height={HALF * 1.24}
+                  color="#ffffff"
+                  weight="fill"
+                  opacity={showLabel ? 1 : 0.75}
+                />
+                {(TIER_LABEL_VISIBLE[o.tier] || showLabel) && (
+                  <text
+                    x={p.cx}
+                    y={p.cy - HALF - 12}
+                    textAnchor="middle"
+                    fontSize={isKingdom ? 60 : 48}
+                    fontWeight={700}
+                    fill="#fff"
+                    paintOrder="stroke"
+                    stroke="#000"
+                    strokeWidth={7}
+                  >
+                    {occ?.villageName?.trim() || o.name}
+                  </text>
+                )}
+              </g>
+            );
+          })}
         </svg>
-        {/* 줌 컨트롤 — 우상단 floating */}
-        <div className="pointer-events-none absolute right-2 top-2 flex flex-col gap-1.5">
-          {currentOutpostId && (
-            <button
-              type="button"
-              onClick={centerOnCurrent}
-              aria-label="현재 위치로"
-              className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-emerald-400 bg-white/95 text-emerald-600 shadow-sm hover:bg-emerald-50 dark:border-emerald-700 dark:bg-zinc-900/90 dark:text-emerald-400 dark:hover:bg-zinc-800"
-            >
-              <MapPin size={18} weight="fill" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={fitAll}
-            aria-label="전체 보기"
-            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white/95 text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <ArrowsOut size={16} weight="bold" />
-          </button>
-          <button
-            type="button"
-            onClick={() => zoomBy(1 / 1.25)}
-            aria-label="확대"
-            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white/95 text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <Plus size={16} weight="bold" />
-          </button>
-          <button
-            type="button"
-            onClick={() => zoomBy(1.25)}
-            aria-label="축소"
-            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-300 bg-white/95 text-zinc-700 shadow-sm hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            <Minus size={16} weight="bold" />
-          </button>
-        </div>
 
         {/* 범례 — 좌상단. 기본 접힘, 버튼으로 펼침(모바일 공간 절약). */}
         <div className="pointer-events-none absolute left-2 top-2 flex flex-col items-start gap-1.5">
@@ -1028,7 +775,7 @@ export function ContinentMap({
         </div>
 
         {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 이동(다른 거점)/둘러보기(현재) + X.
-            이동은 마커만 옮기고 지도에 머문다(연속 이동). 거점 화면은 「둘러보기」로 연다. */}
+            고정 보드라 viewBox 변환 없이 컨테이너 기준 absolute 로 띄운다. */}
         {selected && (
           <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-center">
             <div className="pointer-events-auto flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-zinc-300 bg-white/95 px-3 py-2 shadow-md backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">

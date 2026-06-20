@@ -481,6 +481,8 @@ export type V2SkillCastResult = {
   shieldToApply?: { hp: number; mp: number; turns: number }; // 마나 보호막(흡수량)
   selfRegenToApply?: { pctMaxHpPerTurn: number; turns: number }; // 운기 리젠
   enemyVulnToApply?: { pct: number; turns: number }; // 속박 취약(받는 피해 +%)
+  enemyEvasionDownToApply?: { pct: number; turns: number }; // 실명(원소술사 빛) — 적 회피 -%
+  enemyAccuracyDownToApply?: { pct: number; turns: number }; // 암흑(원소술사 어둠) — 적 명중 -%
   manaRestored: number; // 명상 등 — 이번 시전이 회복한 마나(nominal). 0 = 마나회복 효과 없음. 로그용.
 };
 
@@ -690,6 +692,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   let shieldToApply: V2SkillCastResult["shieldToApply"];
   let selfRegenToApply: V2SkillCastResult["selfRegenToApply"];
   let enemyVulnToApply: V2SkillCastResult["enemyVulnToApply"];
+  let enemyEvasionDownToApply: V2SkillCastResult["enemyEvasionDownToApply"];
+  let enemyAccuracyDownToApply: V2SkillCastResult["enemyAccuracyDownToApply"];
 
   // 전문화 스킬 차수 flat — baseFlatByTier 있으면 시전자 차수(2/3/4 → idx 0/1/2)로 선택, 없으면 baseFlat.
   const tierIdx = Math.min(2, Math.max(0, (input.attacker.classTier ?? 2) - 2));
@@ -775,6 +779,10 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       enemyDebuffsToApply.push({ stat: effect.stat, pct: effect.pct, turns: effect.turns });
     } else if (effect.kind === "enemyVuln") {
       enemyVulnToApply = { pct: effect.pct, turns: effect.turns };
+    } else if (effect.kind === "enemyEvasionDown") {
+      enemyEvasionDownToApply = { pct: effect.pct, turns: effect.turns };
+    } else if (effect.kind === "enemyAccuracyDown") {
+      enemyAccuracyDownToApply = { pct: effect.pct, turns: effect.turns };
     } else if (effect.kind === "hpCostDamage") {
       // 사혈격 — 현재 HP pct 소모 + 소모량×soakRatio 추가딜.
       const cost = Math.floor(((input.attacker.currentHp ?? input.attacker.maxHp) * effect.pctCurrentHp) / 100);
@@ -875,6 +883,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     shieldToApply,
     selfRegenToApply,
     enemyVulnToApply,
+    enemyEvasionDownToApply,
+    enemyAccuracyDownToApply,
     manaRestored: manaRestore,
   };
 }

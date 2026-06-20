@@ -326,7 +326,12 @@ export function resolveEnemyPhase(
       : 0;
   // 적 명중(accuracy) — 유효 회피에서 %p 차감. 0/undefined = 차감 없음(기존 동작).
   // chillSlowPct 와 같은 자리에서 빼 회피 캡 적용 후 감산. 고탑 보스가 층 비례로 보유.
-  const enemyAccuracy = state.enemy.accuracy ?? 0;
+  // 암흑(원소술사 어둠) — 적 명중 -%p(적 헛침↑). 디버프 없으면 0 → 기존 동작(byte-identical).
+  const accDown =
+    state.stacks.enemyAccuracyDownTurns > 0
+      ? state.stacks.enemyAccuracyDownPct
+      : 0;
+  const enemyAccuracy = Math.max(0, (state.enemy.accuracy ?? 0) - accDown);
   const effectiveEvadePct = Math.max(
     0,
     Math.min(

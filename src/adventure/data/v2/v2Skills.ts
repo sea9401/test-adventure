@@ -160,6 +160,9 @@ export type V2SkillEffect =
   | { kind: "enemyDebuff"; stat: StatKey; pct: number; turns: number }
   // 취약 — 적 받는 피해 +%(속박 사격). 스턴 금지 룰 대체.
   | { kind: "enemyVuln"; pct: number; turns: number }
+  // 원소술사 — 빛(실명: 적 회피 -%p) / 어둠(암흑: 적 명중 -%p). 타겟 디버프(enemyVuln 미러).
+  | { kind: "enemyEvasionDown"; pct: number; turns: number }
+  | { kind: "enemyAccuracyDown"; pct: number; turns: number }
   // HP 소모 딜 — 현재 HP pctCurrentHp% 소모 + 소모량×soakRatio 추가딜(사혈격).
   | {
       kind: "hpCostDamage";
@@ -415,6 +418,10 @@ function describeV2Effect(e: V2SkillEffect): string {
       return `적 ${STAT_LABELS[e.stat]} −${e.pct}% (${e.turns}턴)`;
     case "enemyVuln":
       return `적 받는 피해 +${e.pct}% (${e.turns}턴)`;
+    case "enemyEvasionDown":
+      return `적 회피 −${e.pct}%p (${e.turns}턴)`;
+    case "enemyAccuracyDown":
+      return `적 명중 −${e.pct}%p (${e.turns}턴)`;
     case "hpCostDamage":
       return `HP ${e.pctCurrentHp}% 소모 → 피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 소모량×${e.soakRatio}`;
     case "healToDamage":

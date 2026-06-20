@@ -235,6 +235,11 @@ export type BattleStacks = {
   skillDmgReduceTurns: number;
   enemyVulnPct: number; // 속박 — 적 받는 피해 +%(전 데미지)
   enemyVulnTurns: number;
+  // 원소술사 — 빛(실명: 적 회피 -%) / 어둠(암흑: 적 명중 -%). enemyVuln 미러(타겟 디버프).
+  enemyEvasionDownPct: number; // 실명 — 적 회피 -%p(플레이어 명중↑)
+  enemyEvasionDownTurns: number;
+  enemyAccuracyDownPct: number; // 암흑 — 적 명중 -%p(적 헛침↑)
+  enemyAccuracyDownTurns: number;
 };
 
 export type BattleState = {
@@ -958,6 +963,10 @@ function applySkillTempBuffs(
     skillDmgReduceTurns: dr ? dr.turns : prev.skillDmgReduceTurns,
     enemyVulnPct: result.enemyVulnToApply?.pct ?? prev.enemyVulnPct,
     enemyVulnTurns: result.enemyVulnToApply ? result.enemyVulnToApply.turns : prev.enemyVulnTurns,
+    enemyEvasionDownPct: result.enemyEvasionDownToApply?.pct ?? prev.enemyEvasionDownPct,
+    enemyEvasionDownTurns: result.enemyEvasionDownToApply ? result.enemyEvasionDownToApply.turns : prev.enemyEvasionDownTurns,
+    enemyAccuracyDownPct: result.enemyAccuracyDownToApply?.pct ?? prev.enemyAccuracyDownPct,
+    enemyAccuracyDownTurns: result.enemyAccuracyDownToApply ? result.enemyAccuracyDownToApply.turns : prev.enemyAccuracyDownTurns,
   };
 }
 
@@ -995,6 +1004,8 @@ export function finishPlayerTurn(
         skillEvasionTurns: Math.max(0, s.skillEvasionTurns - 1),
         skillDmgReduceTurns: Math.max(0, s.skillDmgReduceTurns - 1),
         enemyVulnTurns: Math.max(0, s.enemyVulnTurns - 1),
+        enemyEvasionDownTurns: Math.max(0, s.enemyEvasionDownTurns - 1),
+        enemyAccuracyDownTurns: Math.max(0, s.enemyAccuracyDownTurns - 1),
       },
     };
   }
@@ -1224,6 +1235,10 @@ export function initialBattleState(
       skillDmgReduceTurns: 0,
       enemyVulnPct: 0,
       enemyVulnTurns: 0,
+      enemyEvasionDownPct: 0,
+      enemyEvasionDownTurns: 0,
+      enemyAccuracyDownPct: 0,
+      enemyAccuracyDownTurns: 0,
     },
     // 장착된 AP 스킬이 있을 때만 의미. 없으면 그냥 0 으로 두고 회복/소비 노옵.
     v2Skills,
@@ -1757,6 +1772,20 @@ function resolveBattleLegacy(
           nextLog = appendLog(nextLog, {
             kind: "info",
             text: `[${result.castSkillName ?? "속박"}] 가하는 피해 +${result.enemyVulnToApply.pct}% (${result.enemyVulnToApply.turns}턴)`,
+            turn: "player",
+          });
+        }
+        if (result.enemyEvasionDownToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "실명"}] 적 회피 −${result.enemyEvasionDownToApply.pct}% (${result.enemyEvasionDownToApply.turns}턴)`,
+            turn: "player",
+          });
+        }
+        if (result.enemyAccuracyDownToApply) {
+          nextLog = appendLog(nextLog, {
+            kind: "info",
+            text: `[${result.castSkillName ?? "암흑"}] 적 명중 −${result.enemyAccuracyDownToApply.pct}% (${result.enemyAccuracyDownToApply.turns}턴)`,
             turn: "player",
           });
         }

@@ -423,7 +423,11 @@ export function resolvePlayerPhase(
   // 차감 없음(라이브 기존 동작 보존). 라이브 enemy.accuracy 와 대칭.
   // AP 스킬의 ignoresEvasion = true 면 회피 판정 자체 스킵.
   const precisionMult = player.precisionEvasionMult ?? 1;
-  const rawEnemyEvasionPct = (state.enemy.evasionPct ?? 0) * precisionMult;
+  // 실명(원소술사 빛) — 적 회피 -%p. 디버프 없으면 0 → 기존 동작 동일(byte-identical).
+  const evaDown =
+    state.stacks.enemyEvasionDownTurns > 0 ? state.stacks.enemyEvasionDownPct : 0;
+  const rawEnemyEvasionPct =
+    Math.max(0, (state.enemy.evasionPct ?? 0) - evaDown) * precisionMult;
   const playerAccuracy = player.accuracyPct ?? 0;
   // 기본 명중 90%(빗나감 10%) + 적 회피 − 내 명중 (하한 없음 — 고회피 적은 그대로).
   const missPct = Math.max(

@@ -14,6 +14,7 @@ import {
   type V2EquipmentId,
   type V2EquipOptions,
   type V2EquipRoll,
+  type V2EquipStatRow,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2EnhanceState } from "@/adventure/data/v2/v2Enhance";
@@ -68,6 +69,18 @@ function formatSetBonus(bonus: Readonly<V2EquipOptions>): string {
       return `${SET_BONUS_LABEL[k]} +${bonus[k]}${unit}`;
     })
     .join(", ");
+}
+
+// 스탯 한 줄 — 라벨(좌) + 값(우). 기본 스탯·옵션이 같은 표기를 공유.
+function StatRow({ row }: { row: V2EquipStatRow }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 text-xs">
+      <span className="text-zinc-500 dark:text-zinc-400">{row.label}</span>
+      <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
+        {row.value}
+      </span>
+    </div>
+  );
 }
 
 // 장비 아이템 옵션 카드 — 클릭한 슬롯 근처에 뜨는 플로팅 팝오버.
@@ -139,7 +152,15 @@ export function V2ItemCard({
     };
   }, [onClose]);
 
-  const options = v2EquipStatRows(item, roll, enhance);
+  // 기본 스탯(위력·무게)과 옵션(치명/MP 등)을 나눠 사이에 구분선을 긋는다(품질 아래 선과 동일).
+  //   기본/옵션 구분은 인벤·거래소와 같은 라벨 기준(위력/무게). 강화 수치는 이름 옆 "+N" 으로만 표기.
+  const statRows = v2EquipStatRows(item, roll, enhance);
+  const baseRows = statRows.filter(
+    (r) => r.label === "위력" || r.label === "무게",
+  );
+  const optionRows = statRows.filter(
+    (r) => r.label !== "위력" && r.label !== "무게",
+  );
   const pct = rollQualityPct(item, roll);
   const set = item.setId
     ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
@@ -225,27 +246,37 @@ export function V2ItemCard({
           </div>
         )}
 
-        <div className="mt-2 space-y-0.5">
-          {options.length === 0 ? (
+        {statRows.length === 0 ? (
+          <div className="mt-2">
             <span className="text-xs text-zinc-400 dark:text-zinc-500">
               옵션 없음
             </span>
-          ) : (
-            options.map((s) => (
-              <div
-                key={s.label}
-                className="flex items-baseline justify-between gap-2 text-xs"
-              >
-                <span className="text-zinc-500 dark:text-zinc-400">
-                  {s.label}
-                </span>
-                <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
-                  {s.value}
-                </span>
+          </div>
+        ) : (
+          <>
+            {baseRows.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {baseRows.map((s) => (
+                  <StatRow key={s.label} row={s} />
+                ))}
               </div>
-            ))
-          )}
-        </div>
+            )}
+            {/* 옵션 — 기본 스탯과 구분선으로 분리(품질 아래 선과 동일). */}
+            {optionRows.length > 0 && (
+              <div
+                className={`mt-2 space-y-0.5 ${
+                  baseRows.length > 0
+                    ? "border-t border-zinc-100 pt-2 dark:border-zinc-800"
+                    : ""
+                }`}
+              >
+                {optionRows.map((s) => (
+                  <StatRow key={s.label} row={s} />
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         {set && (
           <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">

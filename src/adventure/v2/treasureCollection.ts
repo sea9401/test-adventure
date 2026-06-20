@@ -8,6 +8,12 @@ import {
   normalizeAntiqueInstances,
   type AntiqueInstance,
 } from "./antiqueInstances";
+import {
+  ANTIQUES,
+  ANTIQUE_TIER_ORDER,
+  sellGoldValue,
+  type AntiqueTier,
+} from "@/adventure/data/v2/antique";
 
 export const TREASURE_COLLECTION_KEY = "treasure-collection.v1";
 
@@ -45,4 +51,35 @@ export function removeInstanceById(
     collection: { instances: c.instances.filter((i) => i.instanceId !== instanceId) },
     removed,
   };
+}
+
+// ── 등급 기준 일괄 판매 ── 고가품 실수 판매 방지: 흔함·보통까지만 일괄 대상(희귀↑ 제외).
+//   클라 미리보기·서버 정산이 같은 순수 함수를 쓰고, 등급 캡은 데이터(여기)+라우트가 함께 강제.
+export const BULK_SELL_MAX_TIER: AntiqueTier = "uncommon";
+
+// 일괄 판매 허용 등급인가 — maxTier 가 캡(흔함·보통) 이하인지. 서버가 희귀↑ 요청을 거부할 때 사용.
+//   알 수 없는/위조 문자열은 indexOf=-1 이므로 명시적으로 거부(-1 <= 1 = true 오판 방지).
+export function isBulkSellableTier(maxTier: AntiqueTier): boolean {
+  const idx = ANTIQUE_TIER_ORDER.indexOf(maxTier);
+  return idx >= 0 && idx <= ANTIQUE_TIER_ORDER.indexOf(BULK_SELL_MAX_TIER);
+}
+
+// maxTier 이하 등급 인스턴스만 선택(순수). 알 수 없는 antiqueId(정규화 누락분)는 제외(안전).
+export function selectInstancesUpToTier(
+  instances: AntiqueInstance[],
+  maxTier: AntiqueTier,
+): AntiqueInstance[] {
+  const cap = ANTIQUE_TIER_ORDER.indexOf(maxTier);
+  return instances.filter((i) => {
+    const a = ANTIQUES[i.antiqueId];
+    return a != null && ANTIQUE_TIER_ORDER.indexOf(a.tier) <= cap;
+  });
+}
+
+// 인스턴스 묶음의 총 감정사 판매가(순수, 골드). 클라 미리보기·서버 정산 공용.
+export function bulkSellGold(instances: AntiqueInstance[]): number {
+  return instances.reduce(
+    (sum, i) => sum + sellGoldValue(i.antiqueId, i.condition),
+    0,
+  );
 }

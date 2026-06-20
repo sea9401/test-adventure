@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { FISH } from "@/adventure/data/v2/fish";
+import { MULTTAE_BY_ID } from "@/adventure/data/v2/multtae";
 import {
   FISHING_SESSION_KEY,
   judgeCatch,
@@ -122,6 +123,8 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, caught: false, reason: result.reason });
   }
   const fish = FISH[result.fishId];
+  // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).
+  const mt = fish.condition ? MULTTAE_BY_ID.get(fish.condition) : undefined;
   return Response.json({
     ok: true,
     caught: true,
@@ -133,6 +136,7 @@ export async function POST(req: Request) {
     isPersonalBest: result.isPersonalBest,
     prevBest: result.prevBest,
     codexCount: result.codexCount,
+    special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,
     // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
     fragmentDrop: result.fragmentDrop,
     fragmentsTotal: result.fragmentsTotal,

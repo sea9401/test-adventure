@@ -44,7 +44,7 @@ type Village = {
   tier: VillageTier;
   trait: TerrainTrait;
   unlockedSlots: number;
-  maxSlots: number; // 이 단계 해금 상한(마을 4·도시 9·대도시 16). 화면 판은 항상 4×4(16).
+  maxSlots: number; // 이 단계 해금 상한(마을 4·도시 9·대도시 9). 화면 판은 항상 3×3(9).
   slotKinds: Record<string, ProductionKind>; // jsonb 키는 문자열
   slots: SlotState[];
 };

@@ -38,7 +38,7 @@ export async function GET() {
         name: v.name,
         tier: v.tier,
         trait: terrainTraitOf(v.outpostId),
-        // 슬롯 판 — 해금된 칸 수 + 이 단계 해금 상한(maxSlots) + 칸별 종류. 화면은 항상 4×4(UI 상수).
+        // 슬롯 판 — 해금된 칸 수 + 이 단계 해금 상한(maxSlots) + 칸별 종류. 화면은 항상 3×3(UI 상수).
         unlockedSlots: v.unlockedSlots,
         maxSlots: MAX_SLOTS_BY_TIER[v.tier],
         slotKinds: v.slotKinds,

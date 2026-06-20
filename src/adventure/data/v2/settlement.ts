@@ -33,12 +33,13 @@ export function tierMeetsNation(tier: VillageTier): boolean {
 }
 
 // ── 지형 특성 ── 거점마다 1개(static outposts.ts 에서 부여). 해당 생산에 +보너스. ──────
+//   키는 영구 유지(farmland/mine/lake), 표시명은 생산물 테마에 맞춤: 숲→나무·광맥→광물·어장→식량.
 export type TerrainTrait = "plain" | "farmland" | "mine" | "lake";
 export const TERRAIN_TRAIT_NAME: Record<TerrainTrait, string> = {
   plain: "평지",
-  farmland: "농지",
-  mine: "광맥",
-  lake: "호수",
+  farmland: "숲", // 나무(crop) 보너스
+  mine: "광맥", // 광물(ore) 보너스
+  lake: "어장", // 식량(fish) 보너스
 };
 
 // ── 생산 종류 ── 슬롯에서 고르는 작업. 내부 키(crop/ore/fish)는 영구 유지, 표시명만 재테마.
@@ -76,9 +77,9 @@ export function terrainTraitDesc(trait: TerrainTrait): string {
 // ── 생산 다이얼 ──────────────────────────────────────────────────────────
 // 1회 소요 시간(ms) — 종류별. (수확창 = 이 시간 지나면 수확 가능)
 export const PRODUCTION_DURATION_MS: Record<ProductionKind, number> = {
-  crop: 2 * 3_600_000, // 2시간
-  ore: 3 * 3_600_000, // 3시간
-  fish: 1 * 3_600_000, // 1시간
+  crop: 12 * 3_600_000, // 12시간
+  ore: 12 * 3_600_000, // 12시간
+  fish: 12 * 3_600_000, // 12시간
 };
 // 1슬롯 1회 기본 수확량.
 export const PRODUCTION_BASE_YIELD: Record<ProductionKind, number> = {
@@ -87,23 +88,23 @@ export const PRODUCTION_BASE_YIELD: Record<ProductionKind, number> = {
   fish: 12,
 };
 // ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
-// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=4×4(16칸). 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩
-//   해금(unlockedSlots)하면서 그 칸에서 키울 종류를 그때 고른다(slotKinds). 단계 업그레이드는
-//   판을 넓히고(2×2→3×3→4×4), 칸 해금은 그 판 안을 채운다.
+// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=3×3(9칸, 국가 게이트). 건설 직후엔 빈 판(0칸)이고 칸을
+//   골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서 키울 종류를 그때 고른다(slotKinds). 단계
+//   업그레이드는 판을 넓히고(2×2→3×3), 칸 해금은 그 판 안을 채운다.
 export const MAX_SLOTS_BY_TIER: Record<VillageTier, number> = {
   village: 4, // 2×2
   city: 9, // 3×3
-  metropolis: 16, // 4×4
+  metropolis: 9, // 3×3 (도시와 동일 판 — 대도시는 국가 선포 게이트가 보상)
 };
 export const GRID_COLS_BY_TIER: Record<VillageTier, number> = {
   village: 2,
   city: 3,
-  metropolis: 4,
+  metropolis: 3,
 };
-// 화면에 항상 보여주는 판 크기 = 가장 큰 단계(대도시) 기준 4×4. 단계가 낮아도 그 단계 최대
+// 화면에 항상 보여주는 판 크기 = 가장 큰 단계(대도시) 기준 3×3. 단계가 낮아도 그 단계 최대
 //   (MAX_SLOTS_BY_TIER) 너머의 칸을 흐리게(상위 단계 필요) 함께 보여줘 잠재 판을 미리 보게 한다.
-export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 4
-export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 16 (4×4)
+export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 3
+export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 9 (3×3)
 // 건설 직후 열려 있는 칸 수 — 0(첫 칸도 골드로 해금하며 종류를 고른다).
 export const INITIAL_UNLOCKED_SLOTS = 0;
 

@@ -31,7 +31,7 @@ sim(sim-v2-progression)은 `NEXT_PUBLIC_V2_CORE_LOOP_V2` 미설정 시 **레거�
 ### 0-C. 정정된 방향 — 다레버 비대칭 재설계 (다음 세션)
 단순 단일 레버는 전부 막혔다(메모리 "다축 재설계 다세션" 확정). 효과 내려면 **묶어야** 한다:
 1. **비대칭 감산** ✅ **lever-1 구현(2026-06-21)** — `damageToDefender(atk,def)=round(atk²/(atk+K·def))`(K=3·15%floor) 신설, **적→플레이어 피격 3곳(engine.enemyPhase)에만** 적용. 플레이어→적(damageBetween)·카운터 불변 = 백파이어 없음. sim 결과: 엔드(d50) **STR 56→77·INT 59→73 부활**(생존 회복), DEX 100 불변. **단 VIT/SPI 0% 유지** — 생존이 아니라 lever-2(공격력) 문제임이 sim 으로 확정(K=8 까지 올려도 VIT/SPI 0%). PvE 전용(PvP 미적용). 골든 재베이스·전투 테스트 10개 재계산(플레이어 공격 불변 확인).
-2. **방어 빌드 승리조건** ⏳ **lever-2(다음)** — VIT/SPI 의 진짜 문제는 생존이 아니라 **공격력 부족**(버텨도 못 죽임). 어태리션 보상/방어비례딜/지원 수요(협동·전쟁) 필요.
+2. **방어 빌드 승리조건** ✅ **lever-2 구현(2026-06-21)** — VIT→atk(`VIT_ATK_COEF=0.1`, STR 0.15 의 ⅔, derive atk 공식). 순수/헤비 VIT 도 천천히 솔로 클리어 가능. sim(스킬ON·라이브): VIT d50 **0→45%**(슬로우 viable·DEX 100 #1 불변·BAL 39→87 동반 부활). 부수효과: 광역 물리 atk 소폭↑(STR/BAL/LUK 상승)·INT 상대적 −9(63→54, magic 미수혜·여전히 viable). 🔑**SPI 는 미적용**(지원축 설계·솔로-DPS 아님). 골든 재베이스(탱 atk 11→28·죽던 탱 픽스처가 승리). 후속 튜닝 여지=coef.
 3. **DEX 크리 버스트 완화** ⏳ lever-3 — floor 관통하는 크리 punch-through 차단(크리는 LUK 정체성이라 신중).
 
 🔑 **교훈**: ① sim 은 반드시 `NEXT_PUBLIC_V2_CORE_LOOP_V2=true`(라이브 ATB)로. ② 다이얼·대칭수식 단순형은 실측 배제됨 — 다음 세션은 비대칭+다레버 설계부터. ③ damageBetween 은 대칭이라 "def 가치↑"가 양날.

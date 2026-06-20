@@ -197,7 +197,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "기사",
     tier: 3,
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
-    jobBonus: { str: 8, vit: 8 }, // 전사 고차 — 힘·활력 균형
+    jobBonus: { str: 10, vit: 10 }, // 전사 고차 — 힘·활력 균형
     unlock: { prereqs: { warrior: TIER3_UNLOCK_CUMLEVEL } },
   },
   brawler: {
@@ -205,7 +205,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "격투가",
     tier: 3,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 10, str: 6 }, // 무도 고차 — 활력 중심
+    jobBonus: { vit: 13, str: 7 }, // 무도 고차 — 활력 중심
     unlock: { prereqs: { martial: TIER3_UNLOCK_CUMLEVEL } },
   },
   magus: {
@@ -213,7 +213,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "마도사",
     tier: 3,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 10, spi: 6 }, // 마법 고차 — 지능 중심
+    jobBonus: { int: 13, spi: 7 }, // 마법 고차 — 지능 중심
     unlock: { prereqs: { mage: TIER3_UNLOCK_CUMLEVEL } },
   },
   ranger: {
@@ -221,7 +221,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "유격수",
     tier: 3,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: { dex: 10, luk: 6 }, // 도적 고차 — 민첩 중심
+    jobBonus: { dex: 13, luk: 7 }, // 도적 고차 — 민첩 중심
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
   // 3차 두 번째 갈래 — 방패병/수도승/사제/자객 계승. 같은 직군 cumLevel 250 해금(형제와 동일),
@@ -231,7 +231,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "가디언",
     tier: 3,
     cultivateProfile: { vit: 2, str: 1, dex: 1 },
-    jobBonus: { vit: 12, str: 4 }, // 전사 고차(방패병 계승) — 활력 탱
+    jobBonus: { vit: 15, str: 5 }, // 전사 고차(방패병 계승) — 활력 탱
     unlock: { prereqs: { warrior: TIER3_UNLOCK_CUMLEVEL } },
   },
   warmonk: {
@@ -239,7 +239,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "무승",
     tier: 3,
     cultivateProfile: { vit: 2, spi: 1, str: 1 },
-    jobBonus: { vit: 10, spi: 6 }, // 무도 고차(수도승 계승) — 회피/유연
+    jobBonus: { vit: 13, spi: 7 }, // 무도 고차(수도승 계승) — 회피/유연
     unlock: { prereqs: { martial: TIER3_UNLOCK_CUMLEVEL } },
   },
   bishop: {
@@ -247,7 +247,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "대사제",
     tier: 3,
     cultivateProfile: { spi: 2, int: 2 },
-    jobBonus: { spi: 12, int: 4 }, // 마법 고차(사제 계승) — 정신/지원
+    jobBonus: { spi: 15, int: 5 }, // 마법 고차(사제 계승) — 정신/지원
     unlock: { prereqs: { mage: TIER3_UNLOCK_CUMLEVEL } },
   },
   shadow: {
@@ -255,7 +255,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "그림자",
     tier: 3,
     cultivateProfile: { luk: 2, dex: 2 },
-    jobBonus: { luk: 12, dex: 4 }, // 도적 고차(자객 계승) — 행운/치명
+    jobBonus: { luk: 15, dex: 5 }, // 도적 고차(자객 계승) — 행운/치명
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
@@ -270,7 +270,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { str: 2, vit: 1, spi: 1 }, // 기사의 힘·활력 + 사제의 정신
     // 이중 내장(기사+사제 결합). 3축으로 분산해 단일 3차(주스탯 8~12)보다 축당 영향은 낮다(파워크립
     //   차단). 합 18 — 프레스티지 게이트(기사 250 + 사제 250) 보정.
-    jobBonus: { str: 6, vit: 6, spi: 6 },
+    jobBonus: { str: 7, vit: 7, spi: 6 },
     unlock: {
       prereqs: {
         paladin: TIER3_UNLOCK_CUMLEVEL, // 기사(전사 3차) — 첫 키 = 저장 class(전사)의 직업
@@ -305,7 +305,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "정예 기사",
     tier: 4,
     cultivateProfile: { str: 2, vit: 1, dex: 1 },
-    jobBonus: { str: 10, vit: 10 }, // 전사 심화(기사 라인 정점)
+    jobBonus: { str: 11, vit: 11 }, // 전사 심화(기사 라인 정점)
     unlock: { prereqs: { warrior: TIER4_UNLOCK_CUMLEVEL } },
   },
   sensei: {
@@ -313,7 +313,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "절정",
     tier: 4,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 12, str: 6 }, // 무도 심화(권법·선기 라인 정점)
+    jobBonus: { vit: 15, str: 7 }, // 무도 심화(권법·선기 라인 정점)
     unlock: { prereqs: { martial: TIER4_UNLOCK_CUMLEVEL } },
   },
   sage: {
@@ -321,7 +321,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "대마법사",
     tier: 4,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 12, spi: 6 }, // 마법 심화(원소·신성 라인 정점)
+    jobBonus: { int: 15, spi: 7 }, // 마법 심화(원소·신성 라인 정점)
     unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
   },
   // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 라인(마법 cumLevel 450). 속성 마법 특화.
@@ -331,7 +331,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "원소술사",
     tier: 4,
     cultivateProfile: { int: 2, spi: 2 },
-    jobBonus: { int: 12, spi: 6 }, // 마법 심화(속성 라인) — 대마법사와 동급
+    jobBonus: { int: 15, spi: 7 }, // 마법 심화(속성 라인) — 대마법사와 동급
     unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
   },
   chief: {
@@ -339,7 +339,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     name: "신궁",
     tier: 4,
     cultivateProfile: { dex: 2, luk: 2 },
-    jobBonus: { dex: 12, luk: 6 }, // 도적 심화(궁술 라인 정점)
+    jobBonus: { dex: 15, luk: 7 }, // 도적 심화(궁술 라인 정점)
     unlock: { prereqs: { rogue: TIER4_UNLOCK_CUMLEVEL } },
   },
 };

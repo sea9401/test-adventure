@@ -38,6 +38,14 @@ describe("가디언 방벽 패시브 (방어% — 방패 강타 방어기반과 
   });
 });
 
+describe("원소 통달 패시브 칩 (속성 상성 양방향 — 로드아웃 간략 설명)", () => {
+  it("describeV2Skill 가 속성 유리/불리 칩을 낸다 (옛 0개 → 2개)", () => {
+    const chips = describeV2Skill(V2_SKILLS.v2c_elementalist_mastery);
+    expect(chips.some((c) => c.includes("속성 유리 피해 +15%"))).toBe(true);
+    expect(chips.some((c) => c.includes("속성 불리 받피 -15%"))).toBe(true);
+  });
+});
+
 describe("v2Skills 카탈로그", () => {
   it("스타터 6종 모두 카탈로그에 정의되어 있다", () => {
     for (const id of V2_STARTER_SKILL_IDS) {

@@ -10,6 +10,7 @@ import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   CONCEPT_LABELS,
   V2_EQUIPMENT,
+  effectiveStats,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipmentId,
@@ -400,7 +401,7 @@ function ItemHead({
         </span>
       )}
       <span className="shrink-0 text-[10px] tabular-nums text-zinc-400 dark:text-zinc-500">
-        위력 {item.power} / 무게 {item.weight}
+        위력 {item.power} / 무게 {effectiveStats(item, undefined).weight}
       </span>
     </div>
   );

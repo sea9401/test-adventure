@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
 import {
   V2_EQUIPMENT,
+  effectiveStats,
   shopPriceOf,
   shopPriceForSell,
   sellPriceOf,
@@ -667,7 +668,7 @@ function BuyEquipmentRow({
         {item.power}
         <span className="text-zinc-400 dark:text-zinc-500">
           {" "}
-          / {item.weight}
+          / {effectiveStats(item, undefined).weight}
         </span>
       </div>
       <div className="min-w-0 px-1 py-3 text-right sm:px-3" role="cell">

@@ -25,6 +25,33 @@ export type FishingLeaderboardData = {
   byFish: Record<string, LeaderboardEntry[]>;
 };
 
+// 역대 최대어 명예의 전당 — 시즌 리셋과 무관한 영구 기록(전 시즌 통틀어 종별 최대어).
+export type FishingHallOfFameData = {
+  byFish: Record<string, LeaderboardEntry[]>;
+};
+
+// 전 시즌 행에서 (fishId, userId) 별 최대 사이즈만 남기고 fishId 오름차순·size 내림차순 정렬.
+// 한 유저가 여러 시즌에 같은 종을 기록했어도 그중 가장 큰 것만 역대 기록에 오른다.
+// shapeLeaderboard 가 기대하는 입력 순서(종별 size DESC)를 보장해 그대로 넘긴다.
+// 중첩 Map(fishId -> userId -> row)으로 키 구분자 없이 그룹핑(구분자 충돌·바이너리 diff 회피).
+export function reduceAllTimeBest(rows: LeaderboardRow[]): LeaderboardRow[] {
+  const byFish = new Map<string, Map<string, LeaderboardRow>>();
+  for (const r of rows) {
+    let users = byFish.get(r.fishId);
+    if (!users) {
+      users = new Map();
+      byFish.set(r.fishId, users);
+    }
+    const prev = users.get(r.userId);
+    if (!prev || r.size > prev.size) users.set(r.userId, r);
+  }
+  const out: LeaderboardRow[] = [];
+  for (const users of byFish.values()) out.push(...users.values());
+  return out.sort((a, b) =>
+    a.fishId < b.fishId ? -1 : a.fishId > b.fishId ? 1 : b.size - a.size,
+  );
+}
+
 // rows 는 종별로 사이즈 내림차순 정렬돼 들어온다고 가정(쿼리가 ORDER BY fish_id, best_size DESC).
 // 종별 위치 기반 rank 부여 후 top-N 또는 본인 행만 남긴다. 사이즈가 연속값이라 동률은 드물어
 // 위치 순(연속 rank)로 충분 — 정밀 동률 처리는 정산(PR-5)에서 다룬다.

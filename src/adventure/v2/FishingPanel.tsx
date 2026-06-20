@@ -9,11 +9,13 @@ export function FishingPanel({
   onOpenLeaderboard,
   onOpenShop,
   onOpenChallenges,
+  onOpenHallOfFame,
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
   onOpenShop: () => void;
   onOpenChallenges: () => void;
+  onOpenHallOfFame: () => void;
 }) {
   const handlers = useFishing();
   return (
@@ -23,6 +25,7 @@ export function FishingPanel({
       onOpenLeaderboard={onOpenLeaderboard}
       onOpenShop={onOpenShop}
       onOpenChallenges={onOpenChallenges}
+      onOpenHallOfFame={onOpenHallOfFame}
     />
   );
 }

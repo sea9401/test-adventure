@@ -257,3 +257,43 @@ body {
     transform: translateY(9px);
   }
 }
+
+/* ── 낚시 대기 화면 — 잔잔한 수면 잔물결 (idle 전용) ────────────────
+   fish-ripple-calm: 5 s 주기·낮은 불투명도·천천히 퍼짐 → 입질 파동과 명확히 구분.
+   fish-line-glint : 7 s 주기로 낚싯줄 위에 살짝 반짝이는 빛 반사. */
+
+@keyframes fish-ripple-calm {
+  0% {
+    transform: translateX(-50%) scale(0.5);
+    opacity: 0.22;
+  }
+  100% {
+    transform: translateX(-50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes fish-line-glint {
+  0%,
+  88%,
+  100% {
+    opacity: 0;
+  }
+  92% {
+    opacity: 0.6;
+  }
+}
+
+.fish-ripple-calm {
+  animation: fish-ripple-calm 5s ease-out infinite;
+}
+.fish-line-glint {
+  animation: fish-line-glint 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fish-ripple-calm,
+  .fish-line-glint {
+    animation: none;
+  }
+}

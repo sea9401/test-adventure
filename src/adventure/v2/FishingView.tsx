@@ -59,10 +59,67 @@ function missMessage(reason: string): string {
 function BobberScene({ phase }: { phase: Phase }) {
   const biting = phase === "biting";
   const waiting = phase === "waiting";
+  const idle = phase === "idle";
   const onWater = waiting || biting;
 
   return (
-    <div className="pointer-events-none relative flex h-full w-full flex-col items-center justify-center">
+    <div className="pointer-events-none relative flex h-full w-full flex-col items-center justify-center overflow-hidden">
+      {/* ── 대기(idle) — 낚싯대·줄·찌가 놓인 조용한 수면 장면 ── */}
+      {idle && (
+        <div className="absolute inset-0">
+          {/* 수면 밴드 */}
+          <div className="absolute bottom-0 left-0 right-0 h-[38%] border-t border-blue-200/60 bg-blue-100/50 dark:border-blue-700/40 dark:bg-blue-900/30" />
+
+          {/* 낚싯대 + 줄 (inline SVG) */}
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full"
+            viewBox="0 0 200 100"
+            preserveAspectRatio="none"
+          >
+            {/* 낚싯대 팁 — 짧고 굵은 갈색 선 */}
+            <line
+              x1="170" y1="4"
+              x2="148" y2="20"
+              stroke="#8B6914"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            {/* 낚싯줄 — 얇은 회색 사선 */}
+            <line
+              x1="148" y1="20"
+              x2="100" y2="60"
+              stroke="#94a3b8"
+              strokeWidth="0.8"
+              strokeOpacity="0.7"
+            />
+          </svg>
+
+          {/* 잔잔한 수면 잔물결 (느리고 작음 — 입질 신호와 명확히 구분) */}
+          <span className="fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border border-blue-300/40 dark:border-blue-500/30" style={{ bottom: "37%" }} />
+          <span
+            className="fish-ripple-calm absolute left-1/2 h-5 w-14 rounded-[100%] border border-blue-300/25 dark:border-blue-500/20"
+            style={{ bottom: "37%", animationDelay: "2.5s" }}
+          />
+
+          {/* 낚싯줄 빛 반사 글린트 */}
+          <span
+            className="fish-line-glint absolute h-1 w-1 rounded-full bg-white/70"
+            style={{ left: "58%", top: "42%" }}
+          />
+
+          {/* 휴식 중인 찌 — 하늘색(=입질 신호인 amber와 색이 다름) */}
+          <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: "calc(38% - 0.5rem)" }}>
+            <div className="fish-bob-idle">
+              <span className="mx-auto block h-3 w-[2px] rounded bg-zinc-400/70 dark:bg-zinc-500" />
+              <span className="block h-4 w-4 rounded-full bg-sky-400 shadow-sm dark:bg-sky-500" />
+              <span className="mx-auto -mt-1 block h-3 w-3 rounded-b-full rounded-t-sm bg-zinc-100 dark:bg-zinc-200" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── waiting / biting — 기존 동작 그대로 ── */}
       {onWater && (
         <div className="relative flex h-20 w-full items-end justify-center">
           {/* 수면 잔물결 — 대기: 잔잔 다중, 입질: 강한 파동 */}
@@ -108,7 +165,6 @@ function BobberScene({ phase }: { phase: Phase }) {
       )}
 
       <div className="mt-2">
-        {phase === "idle" && <span className="text-sm">찌를 던져 보자</span>}
         {phase === "casting" && <span className="text-sm">던지는 중…</span>}
         {waiting && (
           <>
@@ -153,11 +209,13 @@ export function FishingView({
   onOpenLeaderboard,
   onOpenShop,
   onOpenChallenges,
+  onOpenHallOfFame,
 }: FishingHandlers & {
   onBack?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenShop?: () => void;
   onOpenChallenges?: () => void;
+  onOpenHallOfFame?: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<ReelOutcome | null>(null);
@@ -274,7 +332,7 @@ export function FishingView({
         title="낚시터"
         onBack={onBack}
         right={
-          onOpenLeaderboard || onOpenShop || onOpenChallenges ? (
+          onOpenLeaderboard || onOpenShop || onOpenChallenges || onOpenHallOfFame ? (
             <div className="flex shrink-0 flex-col gap-1.5">
               {onOpenChallenges && (
                 <button
@@ -292,6 +350,15 @@ export function FishingView({
                   className="rounded-full bg-zinc-200/70 px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                 >
                   주간 대회 순위
+                </button>
+              )}
+              {onOpenHallOfFame && (
+                <button
+                  type="button"
+                  onClick={onOpenHallOfFame}
+                  className="rounded-full bg-amber-100/70 px-3 py-1 text-xs font-medium text-amber-700 transition hover:bg-amber-200/70 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                >
+                  명예의 전당
                 </button>
               )}
               {onOpenShop && (

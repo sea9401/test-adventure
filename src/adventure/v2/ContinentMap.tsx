@@ -796,11 +796,13 @@ export function ContinentMap({
             </div>
           )}
         </div>
+      </div>
 
         {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 이동(다른 거점)/둘러보기(현재) + X.
-            고정 보드라 viewBox 변환 없이 컨테이너 기준 absolute 로 띄운다. */}
+            데스크탑은 보드 위에 absolute 로 띄우고, 모바일은 보드 아래(빈 공간)로 흘려보내
+            하단 타일을 가리지 않게 한다. */}
         {selected && (
-          <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-center">
+          <div className="pointer-events-none relative mt-2 flex justify-center px-3 pb-1 sm:absolute sm:inset-x-7 sm:bottom-7 sm:mt-0 sm:px-0 sm:pb-0">
             <div className="pointer-events-auto flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-zinc-300 bg-white/95 px-3 py-2 shadow-md backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-1.5">
@@ -914,7 +916,6 @@ export function ContinentMap({
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }

@@ -5,9 +5,9 @@ import { buildJobCodex } from "@/adventure/data/v2/v2JobCodex";
 import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 
 // 직업 도감 프리뷰 — 로그인 없이 V2JobCodexView 렌더 확인(읽기 전용). prod 404 = /dev layout 가드.
-// mock: 전사 직군 정복(250)·마법 직군 진행(120)·도적/무인 미진행 + 일부 패시브 수집. cls=warrior.
+// mock: 전사 직군 정복(500=3차 해금선)·마법 직군 진행(120)·도적/무인 미진행 + 일부 패시브 수집. cls=warrior.
 const prof = emptyProficiency();
-prof.groups.warrior = { points: 0, cultivations: 0, tier: 2, cumLevel: 250 };
+prof.groups.warrior = { points: 0, cultivations: 0, tier: 2, cumLevel: 500 };
 prof.groups.mage = { points: 0, cultivations: 0, tier: 1, cumLevel: 120 };
 prof.groups.rogue = { points: 0, cultivations: 0, tier: 1, cumLevel: 40 };
 

@@ -61,16 +61,18 @@ export type V2JobDefinition = {
 export const TIER2_UNLOCK_CUMLEVEL = 100;
 
 /**
- * 고차(Tier 3) 해금 임계 — 부모 직군 cumLevel(= SP_MASTERED_CUMLEVEL 정복선과 정렬).
- * "직군을 정복하면(cumLevel 250) 그 위 단계가 열린다." 트리 성장 램프: tier2=100 → tier3=250.
+ * 고차(Tier 3) 해금 임계 — 부모 직군 cumLevel. 트리 성장 램프: tier2=100 → tier3=500.
+ * 🔑 2026-06-21 250→500 상향: #919 가 만렙 50→100 으로 올리면서 cumLevel 적립이 2배 빨라져
+ *   3·4차가 절반 페이스로 풀리던 문제(≈하루만에 4차). 2차(100)는 유지·고차만 강화(오너 결정).
+ *   (SP 정복 마일스톤 cumLevel 250 과는 별개 — 의도적으로 디커플.)
  */
-export const TIER3_UNLOCK_CUMLEVEL = 250;
+export const TIER3_UNLOCK_CUMLEVEL = 500;
 
 /**
- * 심화(Tier 4) 해금 임계 — 부모 직군 cumLevel. 정복선(250) 위 심층 투자(≈ 환생 다수 누적).
- * 트리 성장 램프: tier2=100 → tier3=250 → tier4=450. top 베테랑 cum~1062 도달권.
+ * 심화(Tier 4) 해금 임계 — 부모 직군 cumLevel. 심층 투자(≈ 환생 다수 누적, ~10 루프).
+ * 트리 성장 램프: tier2=100 → tier3=500 → tier4=1000. 🔑 2026-06-21 450→1000 상향(위 참조).
  */
-export const TIER4_UNLOCK_CUMLEVEL = 450;
+export const TIER4_UNLOCK_CUMLEVEL = 1000;
 
 // 모험가의 HP +10% 패시브는 플랫 스탯이 아니라 별도(전투 derive)에서 적용되므로 jobBonus 에 담지 않는다.
 // 기본 직업(tier 1)의 cultivateProfile 은 V2_CULTIVATE_PROFILE(proficiency.ts)과 동일해야 하며,
@@ -225,7 +227,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 13, luk: 7 }, // 도적 고차 — 민첩 중심
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
-  // 3차 두 번째 갈래 — 방패병/수도승/사제/자객 계승. 같은 직군 cumLevel 250 해금(형제와 동일),
+  // 3차 두 번째 갈래 — 방패병/수도승/사제/자객 계승. 같은 직군 cumLevel TIER3(500) 해금(형제와 동일),
   //   정체성은 형제와 다른 축(받피감/회피/회복/치명피해)으로 차별.
   guardian: {
     id: "guardian",
@@ -260,9 +262,9 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     unlock: { prereqs: { rogue: TIER3_UNLOCK_CUMLEVEL } },
   },
   // 하이브리드(tier 3·교차 직업) — 단일 3차와 달리 부모가 둘. ⚠️ 직군이 아니라 특정 상위 직업
-  //   (기사·사제)을 각각 cumLevel ≥ TIER3_UNLOCK_CUMLEVEL=250 키워야 열린다. 직군 누적(전사/마법)이
+  //   (기사·사제)을 각각 cumLevel ≥ TIER3_UNLOCK_CUMLEVEL(500) 키워야 열린다. 직군 누적(전사/마법)이
   //   아니라 직업별 누적(jobCumLevel)을 본다 — isJobUnlocked 가 prereq 키의 tier 로 분기(tier1=직군
-  //   groups, 상위=jobCumLevel). 방패병/마법사로만 250 채워선 안 열림(반드시 기사·사제를 거쳐야).
+  //   groups, 상위=jobCumLevel). 방패병/마법사로만 TIER3(500) 채워선 안 열림(반드시 기사·사제를 거쳐야).
   //   class 저장은 첫 prereq 의 직군(기사→전사), spec 은 고유 id — jobIdFromLegacy 가 왕복. 정체성=양쪽 결합.
   templar: {
     id: "templar",
@@ -270,7 +272,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 3,
     cultivateProfile: { str: 2, vit: 1, spi: 1 }, // 기사의 힘·활력 + 사제의 정신
     // 이중 내장(기사+사제 결합). 3축으로 분산해 단일 3차(주스탯 8~12)보다 축당 영향은 낮다(파워크립
-    //   차단). 합 18 — 프레스티지 게이트(기사 250 + 사제 250) 보정.
+    //   차단). 합 18 — 프레스티지 게이트(기사 500 + 사제 500) 보정.
     jobBonus: { str: 7, vit: 7, spi: 6 },
     unlock: {
       prereqs: {
@@ -280,7 +282,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     },
   },
   // 하이브리드 2호 마검사 — 기사(전사 3차) + 마도사(마법 3차). 검(str)+마법(int) 이중 딜러.
-  //   성기사와 동일 구조(직업별 jobCumLevel 게이트). 둘 다 3차라 기사·마도사를 각각 250 키워야.
+  //   성기사와 동일 구조(직업별 jobCumLevel 게이트). 둘 다 3차라 기사·마도사를 각각 TIER3(500) 키워야.
   spellblade: {
     id: "spellblade",
     name: "마검사",
@@ -298,7 +300,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     },
   },
 
-  // ─── Tier 4: 심화 직업(직군당 1종) — 부모 직군 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(450) 시 해금 ───
+  // ─── Tier 4: 심화 직업(직군당 1종) — 부모 직군 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(1000) 시 해금 ───
   //   트리 성장 심화. 이중 내장 보너스 + 액티브 1(강) + 패시브(직군마다 다른 효과·라인 비포화).
   //   새 derive 배선 없음 — 기존 효과 어휘(치명피해·최대HP%·치명확률·회피) 재사용.
   veteran: {
@@ -325,7 +327,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 15, spi: 7 }, // 마법 심화(원소·신성 라인 정점)
     unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
   },
-  // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 라인(마법 cumLevel 450). 속성 마법 특화.
+  // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 라인(마법 cumLevel TIER4=1000). 속성 마법 특화.
   //   액티브가 캐릭터 속성에 따라 효과 분기(속성 마법)·패시브=원소 통달(상성 양방향 강화).
   elementalist: {
     id: "elementalist",
@@ -406,7 +408,7 @@ export function isJobUnlocked(
 }
 
 // 직업 해금 조건 텍스트(공유 — 전직 화면·직업 도감). 기본 직업=Lv 캡 달성, 상위/하이브리드=부모 누적 Lv 임계.
-//   예: "Lv 50 달성" / "견습 병사 누적 Lv 100" / "기사 누적 Lv 250, 사제 누적 Lv 250".
+//   예: "Lv 100 달성" / "견습 병사 누적 Lv 100" / "기사 누적 Lv 500, 사제 누적 Lv 500".
 export function jobUnlockConditionText(job: V2JobDefinition): string {
   const prereqs = Object.entries(job.unlock.prereqs);
   if (prereqs.length === 0) return `Lv ${V2_LEVEL_CAP} 달성`;

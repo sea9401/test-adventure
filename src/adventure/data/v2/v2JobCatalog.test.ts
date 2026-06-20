@@ -149,18 +149,18 @@ describe("해금 트리", () => {
     }
   });
 
-  it("심화 직업은 부모 직군의 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(450) 을 요구한다", () => {
+  it("심화 직업은 부모 직군의 cumLevel ≥ TIER4_UNLOCK_CUMLEVEL(1000) 을 요구한다", () => {
     for (const [parent, childId] of Object.entries(TIER4_BY_PARENT)) {
       const job = V2_JOB_CATALOG[childId];
       expect(job.tier).toBe(4);
       expect(job.unlock.prereqs).toEqual({ [parent]: TIER4_UNLOCK_CUMLEVEL });
     }
-    // 트리 성장 램프: tier2(100) < tier3(250) < tier4(450).
+    // 트리 성장 램프: tier2(100) < tier3(500) < tier4(1000).
     expect(TIER2_UNLOCK_CUMLEVEL).toBeLessThan(TIER3_UNLOCK_CUMLEVEL);
     expect(TIER3_UNLOCK_CUMLEVEL).toBeLessThan(TIER4_UNLOCK_CUMLEVEL);
   });
 
-  it("하이브리드(성기사) — 기사·사제 두 직업을 각각 250 키워야 해금된다(직업별 cumLevel·AND)", () => {
+  it("하이브리드(성기사) — 기사·사제 두 직업을 각각 TIER3 키워야 해금된다(직업별 cumLevel·AND)", () => {
     const templar = V2_JOB_CATALOG.templar;
     expect(templar.tier).toBe(3);
     // ⚠️ prereq 키는 직군(전사/마법)이 아니라 특정 상위 직업(기사 paladin·사제 acolyte).
@@ -179,22 +179,34 @@ describe("해금 트리", () => {
       jobCumLevel: { ...jobLevels },
     });
     // 🔑 회귀 가드 — 직군 누적(전사/마법)만으론 안 열린다. 반드시 기사·사제를 거쳐야(per-job).
-    expect(isJobUnlocked(templar, profWith({ warrior: 999, mage: 999 }))).toBe(false);
-    // 한쪽 직업만 250 → 잠김.
-    expect(isJobUnlocked(templar, profJobs({ paladin: 250 }))).toBe(false);
-    expect(isJobUnlocked(templar, profJobs({ acolyte: 250 }))).toBe(false);
-    expect(isJobUnlocked(templar, profJobs({ paladin: 250, acolyte: 249 }))).toBe(
-      false,
-    );
-    // 둘 다 250 → 해금.
-    expect(isJobUnlocked(templar, profJobs({ paladin: 250, acolyte: 250 }))).toBe(
-      true,
-    );
+    expect(
+      isJobUnlocked(templar, profWith({ warrior: 99999, mage: 99999 })),
+    ).toBe(false);
+    // 한쪽 직업만 임계 → 잠김.
+    expect(
+      isJobUnlocked(templar, profJobs({ paladin: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(templar, profJobs({ acolyte: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(templar, profJobs({
+        paladin: TIER3_UNLOCK_CUMLEVEL,
+        acolyte: TIER3_UNLOCK_CUMLEVEL - 1,
+      })),
+    ).toBe(false);
+    // 둘 다 임계 → 해금.
+    expect(
+      isJobUnlocked(templar, profJobs({
+        paladin: TIER3_UNLOCK_CUMLEVEL,
+        acolyte: TIER3_UNLOCK_CUMLEVEL,
+      })),
+    ).toBe(true);
     // 왕복 — 저장(전사, templar) → templar.
     expect(jobIdFromLegacy("warrior", "templar")).toBe("templar");
   });
 
-  it("하이브리드(마검사) — 기사·마도사 두 직업을 각각 250 키워야 해금된다(직업별 cumLevel·AND)", () => {
+  it("하이브리드(마검사) — 기사·마도사 두 직업을 각각 TIER3 키워야 해금된다(직업별 cumLevel·AND)", () => {
     const spellblade = V2_JOB_CATALOG.spellblade;
     expect(spellblade.tier).toBe(3);
     // prereq = 기사(paladin·전사 3차) + 마도사(magus·마법 3차), 둘 다 상위 직업 키.
@@ -212,15 +224,22 @@ describe("해금 트리", () => {
       jobCumLevel: { ...jobLevels },
     });
     // 직군 누적만으론 안 열림(per-job).
-    expect(isJobUnlocked(spellblade, profWith({ warrior: 999, mage: 999 }))).toBe(
-      false,
-    );
-    // 한쪽 직업만 250 → 잠김.
-    expect(isJobUnlocked(spellblade, profJobs({ paladin: 250 }))).toBe(false);
-    expect(isJobUnlocked(spellblade, profJobs({ magus: 250 }))).toBe(false);
-    // 둘 다 250 → 해금.
     expect(
-      isJobUnlocked(spellblade, profJobs({ paladin: 250, magus: 250 })),
+      isJobUnlocked(spellblade, profWith({ warrior: 99999, mage: 99999 })),
+    ).toBe(false);
+    // 한쪽 직업만 임계 → 잠김.
+    expect(
+      isJobUnlocked(spellblade, profJobs({ paladin: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(spellblade, profJobs({ magus: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(false);
+    // 둘 다 임계 → 해금.
+    expect(
+      isJobUnlocked(spellblade, profJobs({
+        paladin: TIER3_UNLOCK_CUMLEVEL,
+        magus: TIER3_UNLOCK_CUMLEVEL,
+      })),
     ).toBe(true);
     // 왕복.
     expect(jobIdFromLegacy("warrior", "spellblade")).toBe("spellblade");
@@ -248,36 +267,37 @@ describe("isJobUnlocked / unlockedJobs", () => {
     expect(isJobUnlocked(V2_JOB_CATALOG.caster, prof)).toBe(false);
   });
 
-  it("고차 직업은 부모 직군 정복(cumLevel 250) 전엔 잠김, 도달 시 해금", () => {
-    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 249 }))).toBe(
-      false,
-    );
-    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 250 }))).toBe(
+  it("고차 직업은 부모 직군 정복(cumLevel TIER3) 전엔 잠김, 도달 시 해금", () => {
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL - 1 })),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(true);
+    // 상위(tier2)는 이미 열렸어도 고차는 아직 잠길 수 있다(임계 차이) — TIER2 ≤ cum < TIER3.
+    const between = TIER2_UNLOCK_CUMLEVEL + 20;
+    expect(isJobUnlocked(V2_JOB_CATALOG.squire, profWith({ warrior: between }))).toBe(
       true,
     );
-    // 상위(tier2)는 이미 열렸어도 고차는 아직 잠길 수 있다(임계 차이).
-    expect(isJobUnlocked(V2_JOB_CATALOG.squire, profWith({ warrior: 120 }))).toBe(
-      true,
-    );
-    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 120 }))).toBe(
+    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: between }))).toBe(
       false,
     );
   });
 
-  it("심화 직업은 cumLevel 450 전엔 잠김, 도달 시 해금(고차보다 더 깊다)", () => {
-    expect(isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: 449 }))).toBe(
-      false,
-    );
-    expect(isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: 450 }))).toBe(
-      true,
-    );
-    // 정복(250)으로 고차는 열렸어도 심화는 아직 잠김.
-    expect(isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: 300 }))).toBe(
-      true,
-    );
-    expect(isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: 300 }))).toBe(
-      false,
-    );
+  it("심화 직업은 cumLevel TIER4 전엔 잠김, 도달 시 해금(고차보다 더 깊다)", () => {
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: TIER4_UNLOCK_CUMLEVEL - 1 })),
+    ).toBe(false);
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: TIER4_UNLOCK_CUMLEVEL })),
+    ).toBe(true);
+    // 정복(TIER3)으로 고차는 열렸어도 심화는 아직 잠김 — TIER3 ≤ cum < TIER4.
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.paladin, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(true);
+    expect(
+      isJobUnlocked(V2_JOB_CATALOG.veteran, profWith({ warrior: TIER3_UNLOCK_CUMLEVEL })),
+    ).toBe(false);
   });
 
   it("unlockedJobs 는 모험가(tier 0)를 제외하고, 충족한 직업만 반환한다", () => {

@@ -512,7 +512,7 @@ const LIFE: QuestDef[] = [
     chain: "life_fish",
     line: "life",
     title: "강태공",
-    desc: "어종 도감 25종을 채우세요 (전체 30종).",
+    desc: "어종 도감 25종을 채우세요 (전체 34종).",
     reward: { gold: 1200 },
     check: (c) => c.fishSpecies >= 25,
   },

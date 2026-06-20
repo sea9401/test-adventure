@@ -114,7 +114,8 @@ export function weatherRegionLabel(regionKey: string): string {
 // === 결정론 스케줄 ======================================================
 
 // xmur3 문자열 해시 — 32bit. 시드 품질 충분(창당 1회·암호학 불요).
-function hash32(str: string): number {
+// 낚시 물때(multtae.ts)도 같은 결정론을 쓰려고 export(전용 시드라 권역과 안 섞임).
+export function hash32(str: string): number {
   let h = 1779033703 ^ str.length;
   for (let i = 0; i < str.length; i++) {
     h = Math.imul(h ^ str.charCodeAt(i), 3432918353);

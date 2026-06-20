@@ -9,6 +9,7 @@ import {
   type FishTier,
 } from "@/adventure/data/v2/fish";
 import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
+import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -29,6 +30,8 @@ export type ReelOutcome =
       isPersonalBest: boolean;
       prevBest: number;
       codexCount: number;
+      /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
+      special?: { id: string; label: string; emoji: string } | null;
     }
   | { caught: false; reason: string };
 
@@ -294,6 +297,8 @@ export function FishingView({
         }
       />
 
+      <MulttaeBadge />
+
       {sessionCount > 0 && (
         <div className="flex items-center justify-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
           <span>
@@ -361,6 +366,11 @@ export function FishingView({
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 {FISH_TIERS[result.tier].label}
               </div>
+              {result.special && (
+                <div className="text-[11px] font-medium text-sky-600 dark:text-sky-400">
+                  {result.special.emoji} {result.special.label}의 특별한 손님
+                </div>
+              )}
               <div className="flex flex-wrap justify-center gap-1.5 pt-1">
                 {result.isNewSpecies && (
                   <span className="rounded bg-emerald-200/70 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">

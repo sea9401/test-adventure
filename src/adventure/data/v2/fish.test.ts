@@ -33,10 +33,15 @@ const TIER_COUNTS: Record<FishTier, number> = {
 };
 
 describe("어종 카탈로그", () => {
-  it("총 30종 + 티어별 6/7/7/6/4 구성", () => {
-    expect(FISH_TOTAL).toBe(30);
+  it("항상풀 30종(티어 6/7/7/6/4) + 물때 한정 4종 = 총 34", () => {
+    expect(FISH_TOTAL).toBe(34);
+    const always = FISH_IDS.filter((id) => FISH[id].condition === undefined);
+    const special = FISH_IDS.filter((id) => FISH[id].condition !== undefined);
+    expect(always.length).toBe(30);
+    expect(special.length).toBe(4);
+    // 티어 구성(6/7/7/6/4)은 항상풀 기준 — 특별 손님은 자기 티어에 얹힐 뿐.
     for (const tier of FISH_TIER_ORDER) {
-      const count = FISH_IDS.filter((id) => FISH[id].tier === tier).length;
+      const count = always.filter((id) => FISH[id].tier === tier).length;
       expect(count).toBe(TIER_COUNTS[tier]);
     }
   });
@@ -124,6 +129,41 @@ describe("종 추첨 (encounter)", () => {
     // 흔함 비율이 대략 가중치(40/100)에 근접.
     expect(tierHits.common / N).toBeGreaterThan(0.3);
     expect(tierHits.common / N).toBeLessThan(0.5);
+  });
+});
+
+describe("물때 한정 특별 손님 추첨 게이트 (공정성 청정)", () => {
+  it("조건 인자 없으면 특별 손님은 절대 안 나온다(항상풀 30종만)", () => {
+    const rng = mulberry32(2024);
+    for (let i = 0; i < 20000; i += 1) {
+      expect(FISH[pickFishId(rng)].condition).toBeUndefined();
+    }
+  });
+
+  it("그 물때를 주면 해당 손님은 등장 가능, 다른 물때 손님은 불가", () => {
+    const rng = mulberry32(55);
+    const seen = new Set<string>();
+    for (let i = 0; i < 50000; i += 1) seen.add(pickFishId(rng, "dawn"));
+    expect(seen.has("goldeye")).toBe(true); // dawn 손님 등장
+    expect(seen.has("moonshadow_eel")).toBe(false); // starlit 손님 불가
+    expect(seen.has("mist_koi")).toBe(false); // mist 손님 불가
+    expect(seen.has("stormrider")).toBe(false); // tempest 손님 불가
+    expect(seen.has("crucian_carp")).toBe(true); // 항상풀은 그대로
+  });
+
+  it("특별 손님 없는 물때(still)면 항상풀만", () => {
+    const rng = mulberry32(88);
+    for (let i = 0; i < 20000; i += 1) {
+      expect(FISH[pickFishId(rng, "still")].condition).toBeUndefined();
+    }
+  });
+
+  it("무인자 추첨 == 손님 없는 물때(still) 추첨 — 같은 시드 같은 수열(항상풀 불변 증명)", () => {
+    const a = mulberry32(31);
+    const b = mulberry32(31);
+    for (let i = 0; i < 5000; i += 1) {
+      expect(pickFishId(a)).toBe(pickFishId(b, "still"));
+    }
   });
 });
 

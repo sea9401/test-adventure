@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { pickFishId, rollFishSize } from "@/adventure/data/v2/fish";
+import { multtaeAt } from "@/adventure/data/v2/multtae";
 import {
   FISHING_SESSION_KEY,
   expiresAtFor,
@@ -24,7 +25,9 @@ export async function POST() {
   const now = Date.now();
   const biteDelayMs = rollBiteDelayMs(Math.random);
   const biteAt = now + biteDelayMs;
-  const fishId = pickFishId(Math.random);
+  // 현재 물때(결정론) — 그 시간대 한정 특별 손님을 추첨 풀에 합류시킨다. 사이즈/판정엔 영향 0.
+  const mt = multtaeAt(now);
+  const fishId = pickFishId(Math.random, mt.condition.id);
   const size = rollFishSize(fishId, Math.random);
   const castId = randomUUID();
 

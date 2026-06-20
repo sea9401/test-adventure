@@ -8,6 +8,8 @@
 // - 사이즈는 heavy-tail(p^k) — 던진 횟수가 늘어도 기록치가 천천히 포화 → 노가다 우위 억제,
 //   운 좋은 한 캐스팅이 캐주얼에게 종별 1등 기회를 남긴다.
 
+import type { MulttaeConditionId } from "./multtae";
+
 export type FishTier = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
 export type FishId =
@@ -45,7 +47,12 @@ export type FishId =
   | "platinum_carp"
   | "starlit_ray"
   | "abyssal_leviathan"
-  | "dragonscale_fish";
+  | "dragonscale_fish"
+  // 물때 한정 특별 손님 (4) — 해당 물때 창에만 입질(multtae.ts). 항상풀(위 30종)엔 안 섞임.
+  | "goldeye"
+  | "moonshadow_eel"
+  | "mist_koi"
+  | "stormrider";
 
 export type Fish = {
   id: FishId;
@@ -55,6 +62,8 @@ export type Fish = {
   minSize: number;
   maxSize: number;
   description: string;
+  /** 물때 한정 손님이면 해당 물때 id. 있으면 그 물때 창에만 추첨 풀에 합류(multtae.ts). */
+  condition?: MulttaeConditionId;
 };
 
 export type FishTierMeta = {
@@ -359,6 +368,46 @@ export const FISH: Record<FishId, Fish> = {
     maxSize: 1000,
     description: "용의 비늘을 닮은 일곱 빛깔 물고기. 잡은 자에게 행운이 따른다는 이야기.",
   },
+
+  // === 물때 한정 특별 손님 (4) ===
+  // 각자 자기 물때 창에만 입질한다(condition). 항상풀 30종과 섞이지 않아 공정성 청정 —
+  // 사이즈는 일반 heavy-tail, 종별 리더보드 칸만 하나씩 더 생긴다.
+  goldeye: {
+    id: "goldeye",
+    name: "여명 금눈돔",
+    tier: "rare",
+    minSize: 25,
+    maxSize: 95,
+    description: "동틀 녘에만 수면 가까이 올라오는 붉은 눈의 물고기. 아침 햇살에 눈이 금빛으로 빛난다.",
+    condition: "dawn",
+  },
+  moonshadow_eel: {
+    id: "moonshadow_eel",
+    name: "달그림자 장어",
+    tier: "uncommon",
+    minSize: 40,
+    maxSize: 130,
+    description: "깊은 밤에만 움직이는 검은 장어. 달그림자를 따라 미끄러지듯 헤엄친다.",
+    condition: "starlit",
+  },
+  mist_koi: {
+    id: "mist_koi",
+    name: "물안개 비단잉어",
+    tier: "rare",
+    minSize: 30,
+    maxSize: 110,
+    description: "물안개가 낄 때만 비치는 비단결 잉어. 안개가 걷히면 자취를 감춘다.",
+    condition: "mist",
+  },
+  stormrider: {
+    id: "stormrider",
+    name: "폭풍 날치",
+    tier: "uncommon",
+    minSize: 20,
+    maxSize: 70,
+    description: "거센 물살이 일 때 파도를 가르며 날아오르는 날치. 폭풍을 두려워하지 않는다.",
+    condition: "tempest",
+  },
 };
 
 export const FISH_IDS = Object.keys(FISH) as FishId[];
@@ -379,7 +428,12 @@ export function rollFishSize(fishId: FishId, rng: () => number): number {
 
 // 어떤 종이 걸리나 — 티어 가중치로 티어를 뽑고, 티어 안에서 종을 균등 추첨.
 // rng() ∈ [0, 1).
-export function pickFishId(rng: () => number): FishId {
+// activeCondition 을 주면 그 물때 한정 특별 손님이 자기 티어 풀에 합류한다. 안 주면(undefined)
+//   물때 종은 전부 제외 → 항상풀 30종만(기존과 바이트 동일). 특별 손님은 자기 창에서만 등장.
+export function pickFishId(
+  rng: () => number,
+  activeCondition?: MulttaeConditionId,
+): FishId {
   const totalWeight = FISH_TIER_ORDER.reduce(
     (sum, t) => sum + FISH_TIERS[t].encounterWeight,
     0,
@@ -393,7 +447,12 @@ export function pickFishId(rng: () => number): FishId {
     }
     roll -= FISH_TIERS[t].encounterWeight;
   }
-  const species = FISH_IDS.filter((id) => FISH[id].tier === tier);
+  const species = FISH_IDS.filter(
+    (id) =>
+      FISH[id].tier === tier &&
+      (FISH[id].condition === undefined ||
+        FISH[id].condition === activeCondition),
+  );
   const idx = Math.min(species.length - 1, Math.floor(rng() * species.length));
   return species[idx];
 }

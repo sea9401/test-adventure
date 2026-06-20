@@ -80,18 +80,18 @@ export const PRODUCTION_BASE_YIELD: Record<ProductionKind, number> = {
   fish: 12,
 };
 // ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
-// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=3×3(현행 동일, 후속 확장). 건설 직후엔 빈 판(0칸)이고
-//   칸을 골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서 키울 종류를 그때 고른다(slotKinds).
-//   단계 업그레이드는 판을 넓히고(2×2→3×3), 칸 해금은 그 판 안을 채운다.
+// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=4×4(16칸). 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩
+//   해금(unlockedSlots)하면서 그 칸에서 키울 종류를 그때 고른다(slotKinds). 단계 업그레이드는
+//   판을 넓히고(2×2→3×3→4×4), 칸 해금은 그 판 안을 채운다.
 export const MAX_SLOTS_BY_TIER: Record<VillageTier, number> = {
   village: 4, // 2×2
   city: 9, // 3×3
-  metropolis: 9, // 3×3 (대도시 추가 보상은 후속)
+  metropolis: 16, // 4×4
 };
 export const GRID_COLS_BY_TIER: Record<VillageTier, number> = {
   village: 2,
   city: 3,
-  metropolis: 3,
+  metropolis: 4,
 };
 // 건설 직후 열려 있는 칸 수 — 0(첫 칸도 골드로 해금하며 종류를 고른다).
 export const INITIAL_UNLOCKED_SLOTS = 0;

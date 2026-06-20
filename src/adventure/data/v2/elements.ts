@@ -60,11 +60,13 @@ const ADVANTAGE: ReadonlyArray<readonly [V2Element, V2Element]> =
     (a, i) => [a, V2_ELEMENT_CYCLE[(i + 1) % V2_ELEMENT_CYCLE.length]] as const,
   );
 
-// 상성 배율 — "약점 찌르기" 모델(2026-06-08): 맞추면 이득, 안 맞춰도 손해 없음(순수 옵트인).
-//   PvE 유리 +25%, 불리 페널티 0(불리=중립). 무속성 항상 ×1.0. 평타·스킬 공통(hunt route + combatShared).
-//   진단: 내 속성 1개 고정 vs 몹 다속성 → 옛 ±15 대칭은 풀 평균 ≈0(체감 없음). 비대칭+표시로 부활.
+// 상성 배율 — 양방향 모델(2026-06-20): 유리 +딜 / 불리 −딜(받을 땐 강점이면 덜 맞고 약점이면 더 맞음).
+//   PvE 유리 +25%, 불리 −15%. 무속성 항상 ×1.0. 날씨와 곱연산(직교). 다이얼=이 두 상수.
+//   옛 "약점 찌르기"(불리 0·공격 전용)에서 양방향으로 전환. 적용점: 플레이어 공격(combatShared)·
+//   몹 평타(engine.enemyPhase)·PvP 평타(engine.pvpPhase). ⚠️ 몹 스킬은 중립 유지 — 몹이 스킬+평타를
+//   동시 발동하는 구조라 평타에만 적용해 이중을 막는다(engine.ts 몹 cast 0/0 주석 참조).
 export const V2_ELEMENT_ADV_PCT = 25;
-export const V2_ELEMENT_DIS_PCT = 0;
+export const V2_ELEMENT_DIS_PCT = 15;
 // PvP 는 별도 계수(낮게·양방향 대칭) — 속성이 장비/스탯 차이를 압도하지 않게. 기존 ±15 유지(메타 불변).
 // arena route(평타)·engine-pvp(스킬, combatShared 경유)가 이 값을 elementDamageMult 에 명시 전달.
 export const V2_ELEMENT_ADV_PCT_PVP = 15;

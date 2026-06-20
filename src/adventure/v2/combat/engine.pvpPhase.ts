@@ -29,6 +29,11 @@ import {
   type PlayerAction,
 } from "./engine";
 import {
+  elementDamageMult,
+  V2_ELEMENT_ADV_PCT_PVP,
+  V2_ELEMENT_DIS_PCT_PVP,
+} from "@/adventure/data/v2/elements";
+import {
   applyDefIgnore,
   computeAfterCrush,
   computeBalanceCritBonus,
@@ -191,7 +196,19 @@ function computeAttackDamagePvP(
     apAtkMult !== 1
       ? Math.floor(v2EffectiveAtk * apAtkMult)
       : v2EffectiveAtk;
-  const baseDmgSingleHit = damageBetween(atkForDmg, v2EffectiveTargetDef);
+  const baseDmgSingleHitRaw = damageBetween(atkForDmg, v2EffectiveTargetDef);
+  // 속성 방어 상성(2026-06-20 양방향) — PvP 평타도 공격자속성 vs 방어자속성 배수(PvP 계수 15/15).
+  //   PvP 스킬은 이미 combatShared 가 처리 → 평타만 신설. 무속성=×1(가드 스킵·골든 byte-identical).
+  const pvpElemMult = elementDamageMult(
+    attacker.player.characterElement ?? "neutral",
+    defender.player.characterElement ?? "neutral",
+    V2_ELEMENT_ADV_PCT_PVP,
+    V2_ELEMENT_DIS_PCT_PVP,
+  );
+  const baseDmgSingleHit =
+    pvpElemMult !== 1
+      ? Math.max(1, Math.floor(baseDmgSingleHitRaw * pvpElemMult))
+      : baseDmgSingleHitRaw;
   // 광살참 (AP) — 같은 fire 에서 hits 번 반복. apHits=1 이면 그대로.
   const baseDmg = apHits > 1 ? baseDmgSingleHit * apHits : baseDmgSingleHit;
   // 처형 — defender 의 HP 비율이 임계 미만이면 데미지 ×mult.

@@ -419,6 +419,9 @@ export type DerivePlayerCombatV2PureInput = {
   passiveHealPowerPct?: number;
   /** 받는 피해 -%(방벽 패시브) — totalDamageTakenReductionPct 에 합산. PvE/PvP 양쪽(#835). */
   passiveDamageTakenReductionPct?: number;
+  /** 속성 유리/불리 +%p(원소 통달 패시브) — player.elementAdvPctBonus/DisPctBonus 로 출력. */
+  passiveElementAdvPctBonus?: number;
+  passiveElementDisPctBonus?: number;
 };
 
 export function derivePlayerCombatV2Pure(
@@ -758,6 +761,13 @@ export function derivePlayerCombatV2Pure(
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }
       : {}),
+    // 원소 통달(원소술사) — 속성 상성 양방향 강화. 미보유=0 → 키 생략(inert·byte-identical).
+    ...((input.passiveElementAdvPctBonus ?? 0) > 0
+      ? { elementAdvPctBonus: input.passiveElementAdvPctBonus }
+      : {}),
+    ...((input.passiveElementDisPctBonus ?? 0) > 0
+      ? { elementDisPctBonus: input.passiveElementDisPctBonus }
+      : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
     ...(totalBleedDmgPerStack > 0
       ? {
@@ -939,6 +949,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,
+    passiveElementAdvPctBonus: passiveAgg.elementAdvPctBonus,
+    passiveElementDisPctBonus: passiveAgg.elementDisPctBonus,
   });
 }
 

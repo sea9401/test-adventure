@@ -323,6 +323,16 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { int: 12, spi: 6 }, // 마법 심화(원소·신성 라인 정점)
     unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
   },
+  // 마법 직군 4차 두 번째 갈래 — 대마법사와 같은 라인(마법 cumLevel 450). 속성 마법 특화.
+  //   액티브가 캐릭터 속성에 따라 효과 분기(속성 마법)·패시브=원소 통달(상성 양방향 강화).
+  elementalist: {
+    id: "elementalist",
+    name: "원소술사",
+    tier: 4,
+    cultivateProfile: { int: 2, spi: 2 },
+    jobBonus: { int: 12, spi: 6 }, // 마법 심화(속성 라인) — 대마법사와 동급
+    unlock: { prereqs: { mage: TIER4_UNLOCK_CUMLEVEL } },
+  },
   chief: {
     id: "chief",
     name: "신궁",
@@ -448,6 +458,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   veteran: { class: "warrior", spec: "veteran" },
   sensei: { class: "martial", spec: "sensei" },
   sage: { class: "mage", spec: "sage" },
+  elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
   chief: { class: "rogue", spec: "chief" },
 };
 

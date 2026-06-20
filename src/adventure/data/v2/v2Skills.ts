@@ -72,6 +72,12 @@ export type V2PassiveSkillEffect = {
   //   PvE/PvP 양쪽 작동(#835 PvP 미러 후). 미지정=무적용(byte-identical).
   /** 받는 피해 -% 가산(방벽) — totalDamageTakenReductionPct 에 합산. */
   damageTakenReductionPct?: number;
+  // ── 원소 통달(원소술사) — 속성 상성 양방향 강화. 유리 시 추가 딜·불리(받을 때) 추가 감소.
+  //   derive 가 player.elementAdvPctBonus/DisPctBonus 로 합산 → cast 의 elementAdvPct/disPct 에 가산.
+  /** 속성 유리 배수 +%p 가산(원소 통달) — V2_ELEMENT_ADV_PCT 에 더해 전달. */
+  elementAdvPctBonus?: number;
+  /** 속성 불리 감소 +%p 가산(원소 통달) — V2_ELEMENT_DIS_PCT 에 더해 전달(받피 추가 경감·딜 추가 손해). */
+  elementDisPctBonus?: number;
 };
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
@@ -230,6 +236,11 @@ export type V2SkillDefinition = {
   /** PR-5b 스킬 속성 — 부여 시 이 스킬 데미지는 이 속성으로 상성 적용(없으면 캐릭 속성).
    *  무기 속성(평타)보다 우선 — 공허 마법사가 "불 마법"을 쓰면 그 스킬만 불 상성. */
   element?: V2Element;
+  /** 원소술사 — 캐릭터 속성별 효과 분기. 지정 시 시전 시점에 elementEffects[캐릭속성] 을 effects
+   *  대신 적용(매칭 없으면 effects 폴백=무속성). 기존 스킬은 미지정 → effects 그대로(byte-identical). */
+  elementEffects?: Partial<Record<V2Element, readonly V2SkillEffect[]>>;
+  /** 전투 로그에 스킬명을 "{캐릭속성라벨} 마법" 으로 동적 표기(원소술사 "속성 마법"→"불 마법" 등). */
+  elementNamed?: boolean;
   /** PR-9 — 몬스터 전용 스킬(상태이상 부착). 플레이어 교관/학습 UI 에서 제외, 몹만 v2Skills 로 보유. */
   monsterOnly?: boolean;
   /** 스타터 (자동 보유) 는 learn 미사용. tier>=2 부터 교관 구매. */
@@ -294,6 +305,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
+  elementAdvPctBonus: number;
+  elementDisPctBonus: number;
 } {
   const stat: Partial<Record<V2StatKey, number>> = {};
   const statPct: Partial<Record<V2StatKey, number>> = {};
@@ -308,6 +321,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
+  let elementAdvPctBonus = 0;
+  let elementDisPctBonus = 0;
   for (const id of equipped) {
     const p = V2_SKILLS[id]?.passive;
     if (!p) continue;
@@ -328,6 +343,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
+    elementAdvPctBonus += p.elementAdvPctBonus ?? 0;
+    elementDisPctBonus += p.elementDisPctBonus ?? 0;
   }
   return {
     stat,
@@ -343,6 +360,8 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
+    elementAdvPctBonus,
+    elementDisPctBonus,
   };
 }
 

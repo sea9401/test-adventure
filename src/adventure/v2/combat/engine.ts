@@ -354,6 +354,9 @@ export type PlayerCombat = {
   // PR-5b v2 — 평타 속성(무기 ?? 캐릭, atk 에 baked)·캐릭 속성(스킬 기본·피격 방어). 미지정=neutral.
   attackElement?: V2Element;
   characterElement?: V2Element;
+  // 원소 통달(원소술사 패시브) — 속성 유리/불리 +%p. 스킬 cast 시 elementAdvPct/disPct 에 가산. 0=미보유.
+  elementAdvPctBonus?: number;
+  elementDisPctBonus?: number;
   // 이중 행운 — 첫 크리티컬 발동 시 회피/크리티컬 +bonus% 발동, 전투 종료까지 유지. 0 이면 미보유.
   doubleLuck?: { evade: number; crit: number };
   // 가드 — 첫 N턴 동안 받는 피해 -reduction. 둘 다 0 이면 스킬 미보유.

@@ -3,12 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import {
-  V2_SKILLS,
-  describeV2Skill,
-  type V2SkillId,
-} from "@/adventure/data/v2/v2Skills";
-import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
+import { V2_SKILLS, type V2SkillId } from "@/adventure/data/v2/v2Skills";
+import { SkillEffectChips } from "./SkillEffectChips";
 import { V2LoadoutPanel, type V2LoadoutData } from "./V2LoadoutPanel";
 import { V2LoadoutPresetsPanel } from "./V2LoadoutPresetsPanel";
 
@@ -35,27 +31,6 @@ function skillName(id: string): string {
 }
 function skillDesc(id: string): string {
   return V2_SKILLS[id as V2SkillId]?.description ?? "";
-}
-
-// 스킬 상세 옵션 칩 — 피해/회복/버프/디버프/DoT + MP·쿨다운·속성.
-function SkillDetailChips({ skillId }: { skillId: string }) {
-  const def = V2_SKILLS[skillId as V2SkillId];
-  if (!def) return null;
-  // 실효 MP — 시그니처 차수별 자동 산정은 은퇴(v2SkillMpCost = def.mpCost 리터럴 그대로 반환).
-  const chips = describeV2Skill(def, v2SkillMpCost(def));
-  if (chips.length === 0) return null;
-  return (
-    <div className="mt-1 flex flex-wrap gap-1">
-      {chips.map((c, i) => (
-        <span
-          key={i}
-          className="rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300"
-        >
-          {c}
-        </span>
-      ))}
-    </div>
-  );
 }
 
 export function V2SkillLearnView({
@@ -194,7 +169,7 @@ export function V2SkillLearnView({
                     <p className="mt-0.5 line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
                       {skillDesc(s.skillId)}
                     </p>
-                    <SkillDetailChips skillId={s.skillId} />
+                    <SkillEffectChips skillId={s.skillId} />
                   </div>
                   {!s.learned ? (
                     <button

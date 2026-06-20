@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { SkillEffectChips } from "./SkillEffectChips";
 
 // SP 로드아웃 패널 — 배운 스킬 라이브러리에서 SP 예산 안으로 장착/해제(코어루프 전용).
 //   공용/기본기는 직업 무관 장착(오픈믹스), 시그니처는 현 직업 체인 밖이면 잠김(locked).
@@ -140,24 +141,28 @@ export function V2LoadoutPanel({
           return (
             <li
               key={s.skillId}
-              className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 ${
+              className={`flex flex-wrap items-start justify-between gap-2 rounded-md border px-3 py-2 ${
                 equipped
                   ? "border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40"
                   : "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900"
               }`}
             >
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <span className="min-w-0 truncate text-sm font-semibold">
-                  {s.name}
-                </span>
-                {s.signature && (
-                  <span className="shrink-0 rounded bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
-                    시그니처
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 truncate text-sm font-semibold">
+                    {s.name}
                   </span>
-                )}
-                <span className="shrink-0 rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
-                  SP {s.spCost}
-                </span>
+                  {s.signature && (
+                    <span className="shrink-0 rounded bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                      시그니처
+                    </span>
+                  )}
+                  <span className="shrink-0 rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
+                    SP {s.spCost}
+                  </span>
+                </div>
+                {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
+                <SkillEffectChips skillId={s.skillId} />
               </div>
               {/* 장착 중이면 잠금 여부와 무관하게 항상 해제 가능(직업 변경 후 잔존분 탈출구). */}
               {equipped ? (

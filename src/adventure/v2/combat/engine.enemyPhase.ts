@@ -35,6 +35,8 @@ export function resolveEnemyPhase(
   player: PlayerCombat,
   playerName: string,
   enteringEnemyPhase: boolean,
+  // 몹이 이 턴 스킬을 시전했으면 평타 생략(스킬이 평타 대체 — 플레이어 대칭). 한기 틱 뒤 분기.
+  skipBasicAttack: boolean = false,
 ): BattleState {
   // ── 한기 (chill) — 적 페이즈 시작 시 한기 스택당 고정 피해 (DEF·보호막 무시) ──────
   // 출혈의 미러. threshold 이상부터 발동. 스택은 적 chill 공격 적중 시 누적(아래 적 공격부).
@@ -93,6 +95,23 @@ export function resolveEnemyPhase(
       };
     }
     state = chilled;
+  }
+
+  // 몹 스킬 시전 턴 — 평타(다대시 포함) 전체 생략. 스킬이 이 턴의 공격이라 데미지/회피/반사 스킵.
+  //   한기는 위에서 이미 틱. enemyAttacksLeft=1 로 두고 finishEnemyAttack → 잔여 평타까지 종료
+  //   (스킬이 평타를 대체 = 플레이어와 대칭, 몹 스킬+평타 더블어택 버그 수정). 골든 몹은 스킬 미시전
+  //   이라 skipBasicAttack 항상 false → 이 분기 미진입(byte-identical).
+  if (skipBasicAttack) {
+    return finishEnemyAttack({
+      ...state,
+      turn: {
+        ...state.turn,
+        enemyAttacksLeft: 1,
+        enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
+      },
+      playerAttacksLeft:
+        state.playerAttacksLeft + (player.skirmishNextTurnBonus ?? 0),
+    });
   }
 
   // 잔상 (AP) — 큐가 활성이면 적 공격 1회 무효. 데미지·반사 모두 스킵, count -1.

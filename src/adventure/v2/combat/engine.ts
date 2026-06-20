@@ -1260,6 +1260,8 @@ export function advanceTurn(
   player: PlayerCombat,
   playerName: string,
   action: PlayerAction = { kind: "attack" },
+  // 몹이 이 enemy 페이즈에 스킬을 시전했으면 평타 생략(스킬이 평타 대체). 적 분기에서만 의미.
+  skipEnemyBasicAttack: boolean = false,
 ): BattleState {
   if (state.phase === "ended") return state;
 
@@ -1328,7 +1330,13 @@ export function advanceTurn(
     return resolvePlayerPhase(state, player, playerName, action);
   }
 
-  return resolveEnemyPhase(state, player, playerName, enteringEnemyPhase);
+  return resolveEnemyPhase(
+    state,
+    player,
+    playerName,
+    enteringEnemyPhase,
+    skipEnemyBasicAttack,
+  );
 }
 
 // 한 전투를 시작부터 끝까지 한 번에 시뮬한다. 결과(최종 상태 + 로그 + 턴 수 + 소비된 포션)만
@@ -1427,6 +1435,8 @@ function resolveBattleLegacy(
 
   while (state.phase !== "ended") {
     let action: PlayerAction = { kind: "attack" };
+    // 이 iteration 의 enemy 페이즈에서 몹이 스킬을 실제 발동했는지 — true 면 평타 생략(더블어택 fix).
+    let enemySkillFiredThisTurn = false;
     // PR-5b 회귀: enemy phase 가 player 로 전환되면 enemy cast flag reset (offlineSim 과 동작 일치).
     if (state.phase === "player") {
       v2CastedThisEnemyPhase = false;
@@ -1870,6 +1880,9 @@ function resolveBattleLegacy(
         let nextPlayerHp = state.playerHp;
         let nextEnemyHp = state.enemyHp;
         let nextLog = state.log;
+        // 스킬이 실제 발동(castSkillId)했으면 이 enemy 페이즈 평타 생략 — 스킬이 평타를 대체(플레이어
+        //   대칭). resolveEnemyPhase 가 skipEnemyBasicAttack 으로 받아 데미지/회피/반사 스킵. 더블어택 fix.
+        enemySkillFiredThisTurn = result.castSkillId != null;
         // 시전 별도 로그 폐기 — damage/heal 로그에 prefix 로 스킬명 포함.
         // 적의 v2 damage 는 일반 적 공격과 같은 enemy_attack kind 로 통일.
         if (result.enemyDamage > 0 && result.castSkillName) {
@@ -1973,7 +1986,13 @@ function resolveBattleLegacy(
     const turnContext: "player" | "enemy" = state.phase;
     const prevLogLen = state.log.length;
     const prevPhase = state.phase;
-    state = advanceTurn(state, player, playerName, action);
+    state = advanceTurn(
+      state,
+      player,
+      playerName,
+      action,
+      enemySkillFiredThisTurn,
+    );
     // 새로 추가된 entry 에만 turn 을 부여. (이미 turn 이 있는 entry — 만약 직접 박은
     // 곳이 있어도 — 는 보존.)
     if (state.log.length > prevLogLen) {

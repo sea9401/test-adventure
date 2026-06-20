@@ -1,8 +1,10 @@
 "use client";
 
-// 대장간 — 장비 강화 화면 (docs/v2-equipment-enhance-plan.md PR-3).
+// 대장간 — 장비 강화 + 재련 화면 (docs/v2-equipment-enhance-plan.md PR-3).
 // 제작 콘텐츠 삭제(#621) 후 반쯤 죽어 있던 대장간을 강화 허브로 부활.
-// 보유 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화.
+// 모드 2종(상단 토글):
+//  · 강화 — 장비 선택 → 돌(붉은/푸른) 선택 → 성공률·비용·미리보기 → 강화(레벨 +0~10).
+//  · 재련 — 장비 선택 → 골드로 옵션 굴림 재시도(항상 적용 = 도박). 엔드게임 골드 sink.
 // 데이터: /api/v2/me/equipment(owned/equipped) + /api/v2/me/inventory(materials).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,8 +19,14 @@ import {
   isUnique,
   V2_EQUIPMENT,
   type V2EquipInstance,
+  type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  canReforge,
+  reforgeGoldCost,
+  rollQualityPct,
+} from "@/adventure/data/v2/v2EquipVariance";
 import {
   ENHANCE_MAX_LEVEL,
   ENHANCE_STONE_MATERIAL_ID,
@@ -57,6 +65,21 @@ type EnhanceResponse = {
   goldCost?: number;
 };
 
+type ReforgeResponse = {
+  ok?: boolean;
+  error?: string;
+  itemId?: string;
+  goldCost?: number;
+  gold?: number;
+  oldRoll?: V2EquipRoll;
+  newRoll?: V2EquipRoll;
+  oldQuality?: number | null;
+  newQuality?: number | null;
+  improved?: boolean;
+};
+
+type ForgeMode = "enhance" | "reforge";
+
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
@@ -72,6 +95,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     kind: "success" | "fail" | "error";
     text: string;
   } | null>(null);
+  const [mode, setMode] = useState<ForgeMode>("enhance");
 
   const refresh = useCallback(async () => {
     try {
@@ -219,6 +243,56 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     }
   }, [selected, stone, feedIid, busy, refresh]);
 
+  // ── 재련(reforge) — 골드로 옵션 굴림 재시도(항상 적용 = 도박) ──
+  const reforgeCost = item ? reforgeGoldCost(item) : 0;
+  const reforgeable = !!(selected && item && canReforge(item, selected.roll));
+  const curQuality =
+    selected && item ? rollQualityPct(item, selected.roll) : null;
+  const curRollPower =
+    selected && item ? effectiveStats(item, selected.roll).power : 0;
+
+  const doReforge = useCallback(async () => {
+    if (!selected || !item || busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/reforge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ iid: selected.iid }),
+      });
+      const json = (await res.json()) as ReforgeResponse;
+      if (!json.ok) {
+        setMsg({
+          kind: "error",
+          text:
+            json.error === "insufficient_gold"
+              ? "골드가 부족합니다"
+              : json.error === "not_reforgeable"
+                ? "재련할 수 없는 장비입니다"
+                : `실패: ${json.error ?? "unknown"}`,
+        });
+        return;
+      }
+      const oldP = json.oldRoll ? effectiveStats(item, json.oldRoll).power : 0;
+      const newP = json.newRoll ? effectiveStats(item, json.newRoll).power : 0;
+      const arrow = json.improved
+        ? "📈"
+        : (json.newQuality ?? 0) < (json.oldQuality ?? 0)
+          ? "📉"
+          : "➖";
+      setMsg({
+        kind: json.improved ? "success" : "fail",
+        text: `${arrow} 재련 — 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
+      });
+      await refresh();
+    } catch {
+      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+    } finally {
+      setBusy(false);
+    }
+  }, [selected, item, busy, refresh]);
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -230,15 +304,33 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         }
         onBack={onBack}
         right={
-          <div className="flex items-center gap-3 text-sm tabular-nums">
-            <span className="text-rose-500">🔴 {stones.red}</span>
-            <span className="text-sky-500">🔵 {stones.blue}</span>
-          </div>
+          mode === "enhance" ? (
+            <div className="flex items-center gap-3 text-sm tabular-nums">
+              <span className="text-rose-500">🔴 {stones.red}</span>
+              <span className="text-sky-500">🔵 {stones.blue}</span>
+            </div>
+          ) : undefined
         }
       />
 
+      {/* 작업 모드 — 강화 / 재련 */}
+      <TabBar
+        tabs={[
+          { key: "enhance" as ForgeMode, label: "강화" },
+          { key: "reforge" as ForgeMode, label: "재련" },
+        ]}
+        active={mode}
+        onChange={(m) => {
+          setMode(m);
+          setMsg(null);
+        }}
+        ariaLabel="대장간 작업"
+        size="sm"
+        variant="highlight"
+      />
+
       {/* 강화 패널 — 장비 선택 시 */}
-      {selected && item && (
+      {mode === "enhance" && selected && item && (
         <Card padding="sm">
           <div className="space-y-2">
             <div className="flex items-baseline justify-between">
@@ -388,6 +480,82 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                       : stoneShort
                         ? "강화석 부족"
                         : `강화 (성공 ${successPct}%)`}
+                </button>
+              </>
+            )}
+            {msg && (
+              <div
+                className={`rounded-md border px-3 py-1.5 text-xs ${
+                  msg.kind === "success"
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                    : msg.kind === "fail"
+                      ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                }`}
+              >
+                {msg.text}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* 재련 패널 — 장비 선택 시 */}
+      {mode === "reforge" && selected && item && (
+        <Card padding="sm">
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-semibold">
+                {item.name}
+                {level > 0 && (
+                  <span className="ml-1 text-amber-500">+{level}</span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIid(null);
+                  setMsg(null);
+                }}
+                className="text-xs text-zinc-500 hover:underline"
+              >
+                선택 해제
+              </button>
+            </div>
+            {!reforgeable ? (
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                이 장비는 재련할 수 없습니다 (굴림 편차가 없는 장비).
+              </p>
+            ) : (
+              <>
+                <div className="text-sm tabular-nums">
+                  위력 {curRollPower} · 품질{" "}
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {curQuality ?? "—"}%
+                  </span>
+                </div>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  골드로 옵션 굴림을 다시 돌립니다. 결과는 무조건 적용되며 되돌릴
+                  수 없습니다(도박). 강화 단계는 유지됩니다.
+                </p>
+                <div className="flex items-baseline justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="tabular-nums">
+                    비용: {reforgeCost.toLocaleString()} G
+                    {uniqueMult > 1 && " (유니크 ×2)"}
+                  </span>
+                  <span className="font-semibold text-amber-500">
+                    ⚠️ 더 나빠질 수 있음
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void doReforge()}
+                  disabled={busy}
+                  className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {busy
+                    ? "재련 중…"
+                    : `재련 (${reforgeCost.toLocaleString()} G)`}
                 </button>
               </>
             )}

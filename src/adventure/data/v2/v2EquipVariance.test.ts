@@ -1,13 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   V2_EQUIPMENT,
+  isUnique,
   sellPriceOf,
   type V2EquipInstance,
   type V2EquipmentId,
 } from "./v2Equipment";
 import {
+  REFORGE_GOLD_K,
+  REFORGE_MIN_COST,
+  REFORGE_UNIQUE_COST_MULT,
   VARIANCE_FRACTION,
+  canReforge,
   effectiveStats,
+  reforgeGoldCost,
   rollItemStats,
   rollQualityPct,
   selectBulkSell,
@@ -171,6 +177,59 @@ describe("rollQualityPct", () => {
     const ring = V2_EQUIPMENT.v2_silver_ring;
     expect(Math.round(ring.power * VARIANCE_FRACTION)).toBeGreaterThan(0);
     expect(rollQualityPct(ring, { power: 1, weight: 0 })).not.toBeNull();
+  });
+});
+
+describe("reforgeGoldCost", () => {
+  it("비용 = max(MIN, 위력×K) × 유니크배수 (전 표본 일치)", () => {
+    for (const item of Object.values(V2_EQUIPMENT)) {
+      const base = Math.max(
+        REFORGE_MIN_COST,
+        Math.floor(item.power * REFORGE_GOLD_K),
+      );
+      const mult = isUnique(item) ? REFORGE_UNIQUE_COST_MULT : 1;
+      expect(reforgeGoldCost(item), item.id).toBe(base * mult);
+    }
+  });
+
+  it("고위력 무기는 바닥 위(위력×K) — 별노래궁", () => {
+    const bow = V2_EQUIPMENT.v2_starsong_bow;
+    expect(isUnique(bow)).toBe(false);
+    expect(reforgeGoldCost(bow)).toBe(bow.power * REFORGE_GOLD_K);
+    expect(reforgeGoldCost(bow)).toBeGreaterThan(REFORGE_MIN_COST);
+  });
+
+  it("저위력 아이템은 바닥(MIN) 적용 — 은가락지", () => {
+    const ring = V2_EQUIPMENT.v2_silver_ring; // 위력 2 → 2,000 < 20,000
+    expect(Math.floor(ring.power * REFORGE_GOLD_K)).toBeLessThan(
+      REFORGE_MIN_COST,
+    );
+    const mult = isUnique(ring) ? REFORGE_UNIQUE_COST_MULT : 1;
+    expect(reforgeGoldCost(ring)).toBe(REFORGE_MIN_COST * mult);
+  });
+
+  it("유니크는 ×2 — 호숫가 회피망토", () => {
+    const uniq = V2_EQUIPMENT.v2_lake_dodge_cloak;
+    expect(isUnique(uniq)).toBe(true);
+    const base = Math.max(
+      REFORGE_MIN_COST,
+      Math.floor(uniq.power * REFORGE_GOLD_K),
+    );
+    expect(reforgeGoldCost(uniq)).toBe(base * 2);
+  });
+});
+
+describe("canReforge", () => {
+  const bow = V2_EQUIPMENT.v2_starsong_bow;
+
+  it("굴림 있고 변동 가능 → true", () => {
+    expect(
+      canReforge(bow, { power: bow.power, weight: 2, options: { crit: 2 } }),
+    ).toBe(true);
+  });
+
+  it("굴림 없으면(상점 정가템) → false", () => {
+    expect(canReforge(bow, undefined)).toBe(false);
   });
 });
 

@@ -9,6 +9,7 @@
 import {
   V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
+  isUnique,
   sellPriceOf,
   type V2Equipment,
   type V2EquipInstance,
@@ -99,6 +100,36 @@ export function rollQualityPct(
   }
   if (weightSum === 0) return null; // 변동 가능한 스탯 0 — 굴림 의미 없음
   return Math.round((acc / weightSum) * 100);
+}
+
+// ── 재련(Reforge) — 골드로 옵션 굴림을 다시 돌린다(항상 적용 = 도박) ─────────────
+// 엔드게임의 "재고(stock) 골드 sink": 강화·길드창단은 일회성이고 세금/치료는 수입
+// 비례 skim 이라 쌓인 골드를 못 줄인다. 재련은 god-roll(품질 100) 추격이 희귀해서
+// 무한 반복되며 골드를 빨아들인다. 결과 굴림은 rollItemStats(드랍과 동일 분포·동일
+// 바닥/천장) 안이라 **신규 파워 천장 없음**(파워크립 0) — 드랍으로도 나올 수 있던 값.
+//
+// 비용 = max(MIN, floor(카탈로그 위력 × K)) × 유니크배수. 강화 ≠ 재련(강화 레벨 불변).
+// 강화는 개체 굴림 위력 기준이라 회마다 흔들리지만, 재련은 **카탈로그 기준 위력**으로
+// 비용을 고정해 예측 가능하게(가격이 굴림 결과에 안 휘둘림). K·MIN·배수는 다이얼.
+export const REFORGE_GOLD_K = 1000;
+export const REFORGE_MIN_COST = 20_000;
+export const REFORGE_UNIQUE_COST_MULT = 2;
+
+export function reforgeGoldCost(item: V2Equipment): number {
+  const base = Math.max(
+    REFORGE_MIN_COST,
+    Math.floor(item.power * REFORGE_GOLD_K),
+  );
+  return base * (isUnique(item) ? REFORGE_UNIQUE_COST_MULT : 1);
+}
+
+// 재련 가능 여부 — 굴림이 있고(드랍/제작 개체) 변동 가능한 스탯이 있어야(상점 정가템
+// 처럼 변동 0 이면 재련해도 무의미 → 골드만 날림 방지). rollQualityPct 가 그 판정과 동일.
+export function canReforge(
+  item: V2Equipment,
+  roll: V2EquipRoll | undefined,
+): boolean {
+  return roll != null && rollQualityPct(item, roll) !== null;
 }
 
 // ── 일괄 판매 선택 — 클라(미리보기 확인)·서버(권위 판매) 공용 단일 소스(드리프트 방지) ──

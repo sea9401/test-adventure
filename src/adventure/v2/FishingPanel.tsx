@@ -8,10 +8,12 @@ export function FishingPanel({
   onBack,
   onOpenLeaderboard,
   onOpenShop,
+  onOpenChallenges,
 }: {
   onBack: () => void;
   onOpenLeaderboard: () => void;
   onOpenShop: () => void;
+  onOpenChallenges: () => void;
 }) {
   const handlers = useFishing();
   return (
@@ -20,6 +22,7 @@ export function FishingPanel({
       onBack={onBack}
       onOpenLeaderboard={onOpenLeaderboard}
       onOpenShop={onOpenShop}
+      onOpenChallenges={onOpenChallenges}
     />
   );
 }

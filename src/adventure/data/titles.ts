@@ -708,6 +708,27 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "낚시 코인 상점에서 낚시 코인 3500으로 구매",
     category: "fishing",
   },
+  fishing_dawnangler: {
+    id: "fishing_dawnangler",
+    name: "여명의 낚시꾼",
+    description: "동트는 물가에서 첫 입질을 기다리는 부지런한 손.",
+    condition: "낚시 코인 상점에서 낚시 코인 250으로 구매",
+    category: "fishing",
+  },
+  fishing_tidereader: {
+    id: "fishing_tidereader",
+    name: "물때를 읽는 자",
+    description: "물때의 흐름을 꿰어, 손님이 드는 때를 놓치지 않는 자.",
+    condition: "낚시 코인 상점에서 낚시 코인 900으로 구매",
+    category: "fishing",
+  },
+  fishing_specialguest: {
+    id: "fishing_specialguest",
+    name: "특별한 손님의 벗",
+    description: "여명과 별빛, 물안개와 폭풍, 모든 물때의 손님과 인사를 나눈 자.",
+    condition: "낚시 코인 상점에서 낚시 코인 2200으로 구매",
+    category: "fishing",
+  },
   treasure_digger: {
     id: "treasure_digger",
     name: "흙먼지 사냥꾼",

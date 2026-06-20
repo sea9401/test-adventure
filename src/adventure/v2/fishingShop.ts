@@ -14,8 +14,11 @@ export type FishingShopTitle = {
 
 export const FISHING_SHOP_TITLES: readonly FishingShopTitle[] = [
   { titleId: "fishing_taegong", price: 150 },
+  { titleId: "fishing_dawnangler", price: 250 },
   { titleId: "fishing_trophy", price: 600 },
+  { titleId: "fishing_tidereader", price: 900 },
   { titleId: "fishing_deepsea", price: 1500 },
+  { titleId: "fishing_specialguest", price: 2200 },
   { titleId: "fishing_legend", price: 3500 },
 ];
 

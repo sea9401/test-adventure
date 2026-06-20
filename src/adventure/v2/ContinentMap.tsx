@@ -35,9 +35,9 @@ import type {
 // 옛 점-지도(가변 viewBox + 핀치/팬/휠)를 한 화면에 딱 맞는 정사각 타일 격자로 교체.
 // 좌표(0..10000 × 0..6000)는 셀로 스냅하고, 모든 렌더(마커·간선·경로·팝업)는 gpos() 로
 // 격자 셀 중심을 쓴다. 게임플레이(인접/이동/안개/전쟁)는 그대로 — 순수 비주얼 변경.
-const GRID_COLS = 15;
-const GRID_ROWS = 9;
-const CELL = MAP_BOUNDS.width / GRID_COLS; // ≈667 (6000/9≈667 → 거의 정사각)
+const GRID_COLS = 13;
+const GRID_ROWS = 8;
+const CELL = MAP_BOUNDS.width / GRID_COLS; // ≈769 (큼직한 셀. 6000/8≈750 → 거의 정사각)
 const BOARD_W = GRID_COLS * CELL;
 const BOARD_H = GRID_ROWS * CELL;
 
@@ -370,7 +370,7 @@ export function ContinentMap({
 
   return (
     <div className="mx-auto w-full max-w-[720px] p-4">
-      <div className="relative aspect-[15/9] w-full select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40">
+      <div className="relative aspect-[13/8] w-full select-none overflow-hidden rounded-lg border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/40">
         <svg
           viewBox={`0 0 ${BOARD_W} ${BOARD_H}`}
           preserveAspectRatio="xMidYMid meet"

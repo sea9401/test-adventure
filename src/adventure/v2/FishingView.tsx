@@ -108,7 +108,6 @@ function BobberScene({ phase }: { phase: Phase }) {
       )}
 
       <div className="mt-2">
-        {phase === "idle" && <span className="text-sm">찌를 던져 보자</span>}
         {phase === "casting" && <span className="text-sm">던지는 중…</span>}
         {waiting && (
           <>

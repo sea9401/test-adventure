@@ -37,7 +37,7 @@ export function MulttaeBadge() {
       </div>
       {special ? (
         <div className="mt-0.5 text-[10px] font-medium text-sky-700 dark:text-sky-300">
-          지금 {special.name}가 입질한다
+          특별한 손님 · {special.name}
         </div>
       ) : (
         <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">

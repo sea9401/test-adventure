@@ -360,22 +360,24 @@ export function OutpostView({
         {ownByMyGuild ? (
           // 내 거점 — 생산 / 최근 공격 기록 (+ 마스터·부마스터면 관리) 탭.
           <>
-            <TabBar
-              tabs={[
-                { key: "produce", label: "생산" },
-                { key: "attacks", label: "최근 공격 기록" },
-                ...(canManageSettlement
-                  ? [{ key: "manage", label: "관리" }]
-                  : []),
-              ]}
-              active={activityTab}
-              onChange={(k) =>
-                setActivityTab(k as "produce" | "attacks" | "manage")
-              }
-              ariaLabel="거점 활동 탭"
-              size="sm"
-              variant="highlight"
-            />
+            <HeaderPanel className="py-2">
+              <TabBar
+                tabs={[
+                  { key: "produce", label: "생산" },
+                  { key: "attacks", label: "최근 공격 기록" },
+                  ...(canManageSettlement
+                    ? [{ key: "manage", label: "관리" }]
+                    : []),
+                ]}
+                active={activityTab}
+                onChange={(k) =>
+                  setActivityTab(k as "produce" | "attacks" | "manage")
+                }
+                ariaLabel="거점 활동 탭"
+                size="sm"
+                variant="highlight"
+              />
+            </HeaderPanel>
             {activityTab === "produce" && (
               <V2VillagePanel outpostId={outpost.id} mode="produce" />
             )}

@@ -386,14 +386,16 @@ export function V2GuildHome({
         <h1 className="text-lg font-bold">{state?.guild?.name ?? "길드"}</h1>
       </HeaderPanel>
 
-      <TabBar
-        tabs={subTabs}
-        active={activeTab}
-        onChange={setSubTab}
-        ariaLabel="길드 하위 탭"
-        size="sm"
-        variant="highlight"
-      />
+      <HeaderPanel className="py-2">
+        <TabBar
+          tabs={subTabs}
+          active={activeTab}
+          onChange={setSubTab}
+          ariaLabel="길드 하위 탭"
+          size="sm"
+          variant="highlight"
+        />
+      </HeaderPanel>
 
       {activeTab === "info" && (
         info?.guild ? (

@@ -36,7 +36,10 @@ import {
 import {
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
-import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  V2_CORE_LOOP_V2,
+  V2_SKILL_PROC_IN_PATTERN,
+} from "@/adventure/data/v2/coreLoopConfig";
 import {
   V2_ELEMENT_ADV_PCT_PVP,
   V2_ELEMENT_DIS_PCT_PVP,
@@ -1255,6 +1258,8 @@ export function castV2SkillOnAttackerTurnPvP(
     //   Math.random() 을 소비하면 PvP RNG 가 드리프트하므로(Codex 2차) 장착 스킬 있을 때만 롤.
     procRoll: side.v2Skills.equipped.length > 0 ? Math.random() * 100 : undefined,
     procChanceBonus: side.player.skillProcChanceAdd ?? 0,
+    // 패턴 경로에서도 procChance 굴림(부활) — 플래그 on 이면 패턴이 고른 스킬도 확률 게이트 통과 필요.
+    applyProcInPattern: V2_SKILL_PROC_IN_PATTERN,
     // 전투 패턴(갬빗) — 플래그 on 일 때만 주입(PvP 양쪽 다 플레이어). off 면 옛 슬롯순서+proc.
     // 저장된 커스텀 패턴 우선, 없으면 장착 스킬 종류별 스마트 기본 패턴(유틸 스팸 방지).
     turn: side.turn.completedPlayerTurns + 1,

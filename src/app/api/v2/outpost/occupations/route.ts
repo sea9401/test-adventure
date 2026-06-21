@@ -51,14 +51,21 @@ export async function GET() {
   ];
   const guildNameById = new Map<number, string>();
   const guildEmblemById = new Map<number, string>();
+  const guildColorById = new Map<number, string>();
   if (guildIds.length > 0) {
     const gs = await db
-      .select({ id: guilds.id, name: guilds.name, emblem: guilds.emblem })
+      .select({
+        id: guilds.id,
+        name: guilds.name,
+        emblem: guilds.emblem,
+        color: guilds.color,
+      })
       .from(guilds)
       .where(inArray(guilds.id, guildIds));
     for (const g of gs) {
       guildNameById.set(g.id, g.name);
       if (g.emblem != null) guildEmblemById.set(g.id, g.emblem);
+      if (g.color != null) guildColorById.set(g.id, g.color);
     }
   }
 
@@ -74,6 +81,10 @@ export async function GET() {
       occupiedByGuildEmblem:
         r.occupiedByGuildId != null
           ? (guildEmblemById.get(r.occupiedByGuildId) ?? null)
+          : null,
+      occupiedByGuildColor:
+        r.occupiedByGuildId != null
+          ? (guildColorById.get(r.occupiedByGuildId) ?? null)
           : null,
       occupiedAt: r.occupiedAt.toISOString(),
       policy: r.policy,

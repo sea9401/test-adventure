@@ -844,6 +844,28 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const { ejectedFrom: _dropEjected, ...charSaveWithoutEject } = charSave;
   void _dropEjected;
 
+  // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤. ===
+  // 레어맵 안에서 또 지도가 떨어지는 재귀 farming 은 막는다(입장 중 롤 없음).
+  // 캡 가득이면 롤 자체를 건너뜀.
+  // ⚠️ 반드시 next 빌드 전에 적용 — character.v2 저장(아래 upsertSave)에 rareMaps 가
+  //   포함되므로. 과거엔 이 블록이 save 뒤에 있어 판수 차감·신규 드랍이 영속되지 않았다.
+  let rareMapDrop: RareMapKindId | null = null;
+  if (activeRareMap) {
+    rareMaps = rareMaps
+      .map((m) =>
+        m.iid === activeRareMap!.iid ? { ...m, runsLeft: m.runsLeft - 1 } : m,
+      )
+      .filter((m) => m.runsLeft > 0);
+  } else if (won && rareMaps.length < RARE_MAP_CAP) {
+    rareMapDrop = rollRareMapDrop(Math.random);
+    if (rareMapDrop) {
+      rareMaps = [...rareMaps, newRareMapInstance(rareMapDrop, depth, now)];
+    }
+  }
+  const rareMapRunsLeft = activeRareMap
+    ? (rareMaps.find((m) => m.iid === activeRareMap!.iid)?.runsLeft ?? 0)
+    : null;
+
   const next = {
     ...charSaveWithoutEject,
     stamina: afterStamina,
@@ -974,26 +996,6 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
 
   // 보물 탐사 — 사냥 승리 시 낮은 확률로 지도 조각 드랍(트리클). 굴림은 100% 서버.
   // 드랍 났을 때만 키를 잠근다 — 락 순서상 가장 마지막. 조각 소비(발굴)는 PR-3.
-  // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤. ===
-  // 레어맵 안에서 또 지도가 떨어지는 재귀 farming 은 막는다(입장 중 롤 없음).
-  // 캡 가득이면 롤 자체를 건너뜀.
-  let rareMapDrop: RareMapKindId | null = null;
-  if (activeRareMap) {
-    rareMaps = rareMaps
-      .map((m) =>
-        m.iid === activeRareMap!.iid ? { ...m, runsLeft: m.runsLeft - 1 } : m,
-      )
-      .filter((m) => m.runsLeft > 0);
-  } else if (won && rareMaps.length < RARE_MAP_CAP) {
-    rareMapDrop = rollRareMapDrop(Math.random);
-    if (rareMapDrop) {
-      rareMaps = [...rareMaps, newRareMapInstance(rareMapDrop, depth, now)];
-    }
-  }
-  const rareMapRunsLeft = activeRareMap
-    ? (rareMaps.find((m) => m.iid === activeRareMap!.iid)?.runsLeft ?? 0)
-    : null;
-
   const fragmentDrop = won
     ? rollFragmentDrop(Math.random, HUNT_FRAGMENT_DROP_CHANCE)
     : 0;

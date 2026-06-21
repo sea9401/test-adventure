@@ -134,7 +134,6 @@ export async function POST(req: Request) {
           [...skills.equipped, sig],
           nextLearned,
           calcSpBudget(spent.groups),
-          elementalPool,
         )
       : nextLearned.filter((s) => elementalPool.includes(s));
     const nextSkills: V2SkillsState = {

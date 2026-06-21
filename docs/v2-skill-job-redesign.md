@@ -84,7 +84,6 @@ export type V2JobDefinition = {
 | `unlock.prereqs[jobId]` 충족 여부 | `proficiency.groups[jobId].cumLevel` | `proficiency.ts` |
 | SP 예산 계산 | `calcSpBudget(proficiency)` | `coreLoopConfig.ts` |
 | 로드아웃 검증 | `validateLoadout`, `sanitizeLoadout` | `v2Loadout.ts` |
-| 서명 스킬 잠금 | `isSignatureSkill` (prefix `v2s_`) | `v2Loadout.ts` |
 
 ---
 
@@ -228,7 +227,6 @@ if (V2_JOB_SYSTEM_V2) {
 | `sanitizeLoadout` | `v2Loadout.ts` | 저장된 로드아웃 정리 |
 | `clampLoadoutToBudget` | `v2Loadout.ts` | SP 예산 초과 시 클램프 |
 | `calcSpBudget` | `coreLoopConfig.ts` | 환생 이력 기반 SP 예산 |
-| `isSignatureSkill` (v2s_ prefix) | `v2Loadout.ts` | 서명 스킬 잠금 판별 |
 
 ### 직업과 스킬의 관계
 
@@ -265,7 +263,6 @@ if (V2_JOB_SYSTEM_V2) {
 | `V2_CULTIVATE_PROFILE` | `proficiency.ts` | cultivateProfile의 원천 데이터 |
 | `SP_BASE`, `SP_MASTERED_CUMLEVEL`, `calcSpBudget` | `coreLoopConfig.ts` | SP 로드아웃 재사용 |
 | `validateLoadout`, `sanitizeLoadout`, `clampLoadoutToBudget` | `v2Loadout.ts` | 로드아웃 시스템 전체 |
-| `isSignatureSkill` (v2s_ prefix) | `v2Loadout.ts` | 서명 스킬 잠금 |
 | `ADVENTURER_MAXHP_BONUS_PCT`, `V2_LEVEL_CAP` | `coreLoopConfig.ts` | 모험가 패시브·전직 트리거 |
 
 ### 예상 파급 범위 (~35 파일)

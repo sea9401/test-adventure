@@ -14,8 +14,6 @@ export type V2LoadoutSkill = {
   name: string;
   spCost: number;
   equipped: boolean;
-  signature: boolean;
-  locked: boolean;
 };
 export type V2LoadoutData = {
   spBudget: number;
@@ -69,16 +67,11 @@ export function V2LoadoutPanel({
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         overBudget?: boolean;
-        signatureOffChain?: string[];
       } | null;
       if (!j?.ok) {
         setOrder(prev); // 롤백.
         setMsg(
-          j?.overBudget
-            ? "스킬포인트가 부족해요"
-            : j?.signatureOffChain && j.signatureOffChain.length > 0
-              ? "다른 직업의 시그니처는 장착할 수 없어요"
-              : "장착을 변경할 수 없어요",
+          j?.overBudget ? "스킬포인트가 부족해요" : "장착을 변경할 수 없어요",
         );
       } else {
         onChanged?.();
@@ -152,11 +145,6 @@ export function V2LoadoutPanel({
                   <span className="min-w-0 truncate text-sm font-semibold">
                     {s.name}
                   </span>
-                  {s.signature && (
-                    <span className="shrink-0 rounded bg-amber-200/70 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
-                      시그니처
-                    </span>
-                  )}
                   <span className="shrink-0 rounded bg-zinc-200/70 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600 dark:bg-zinc-700/60 dark:text-zinc-300">
                     SP {s.spCost}
                   </span>
@@ -164,7 +152,6 @@ export function V2LoadoutPanel({
                 {/* 간단한 효과 설명 — 패시브면 "지능 +10%" 등, 액티브면 피해/회복 + MP·쿨다운. */}
                 <SkillEffectChips skillId={s.skillId} />
               </div>
-              {/* 장착 중이면 잠금 여부와 무관하게 항상 해제 가능(직업 변경 후 잔존분 탈출구). */}
               {equipped ? (
                 <button
                   type="button"
@@ -175,10 +162,6 @@ export function V2LoadoutPanel({
                 >
                   해제
                 </button>
-              ) : s.locked ? (
-                <span className="shrink-0 rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
-                  타직업
-                </span>
               ) : (
                 <button
                   type="button"

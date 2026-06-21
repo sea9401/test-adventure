@@ -2,11 +2,6 @@ import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  parseV2Class,
-  tier1ClassOf,
-  elementalSkillsForClass,
-} from "@/adventure/data/v2/classes";
-import {
   parseProficiencyForChar,
   emptyProficiency,
   type V2ProficiencyState,
@@ -25,8 +20,8 @@ import {
 } from "@/adventure/data/v2/coreLoopConfig";
 
 // POST /api/v2/me/loadout — 수동 SP 로드아웃 저장(코어루프). body: { equipped: string[] }(우선순위 순서).
-//   배운 스킬 중 SP 예산 내·시그니처는 현 직업 체인 안이어야 통과(validateLoadout). 통과 시 그대로
-//   저장(순서 보존), 위반이면 400 + 위반 버킷(UI 안내). learned 불변. 갬빗 pattern 보존(spread).
+//   배운 스킬 중 SP 예산 내여야 통과(validateLoadout). 통과 시 그대로 저장(순서 보존),
+//   위반이면 400 + 위반 버킷(UI 안내). learned 불변. 갬빗 pattern 보존(spread).
 //   lock 순서: character.v2 → skills.v2 → proficiency.v2 (다른 스킬 라우트와 동일).
 //   flag off: SP 로드아웃 개념 없음 → disabled(클라가 호출 안 함).
 export async function POST(req: Request) {
@@ -82,14 +77,9 @@ export async function POST(req: Request) {
       ),
       charSave,
     );
-    const cls = parseV2Class(charSave.class);
-    const specChoice =
-      typeof charSave.specChoice === "string" ? charSave.specChoice : null;
-    const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
-    const chain = elementalSkillsForClass(cls, specChoice, tier);
     const spBudget = calcSpBudget(prof.groups);
 
-    const check = validateLoadout(requested, skills.learned, spBudget, chain);
+    const check = validateLoadout(requested, skills.learned, spBudget);
     if (!check.ok) {
       return {
         status: 400 as const,
@@ -100,7 +90,6 @@ export async function POST(req: Request) {
           spBudget: check.spBudget,
           overBudget: check.overBudget,
           notLearned: check.notLearned,
-          signatureOffChain: check.signatureOffChain,
           unknown: check.unknown,
         },
       };

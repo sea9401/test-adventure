@@ -36,18 +36,12 @@ export function sanitizeCombatLoadout(
     level?: unknown;
   };
   const prof = parseProficiencyForChar(proficiencyRaw, cs);
-  const cls = parseV2Class(cs.class);
-  const specChoice =
-    typeof cs.specChoice === "string" ? cs.specChoice : null;
-  const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
-  const chain = elementalSkillsForClass(cls, specChoice, tier);
   return {
     ...skills,
     equipped: sanitizeLoadout(
       skills.equipped,
       skills.learned,
       calcSpBudget(prof.groups),
-      chain,
     ),
   };
 }
@@ -100,7 +94,6 @@ export async function reconcileV2EquippedSkills(
         current.equipped,
         current.learned,
         calcSpBudget(prof.groups),
-        chainList,
       )
     : current.learned.filter((s) => chain.has(s));
   const same = (a: readonly string[], b: readonly string[]) =>

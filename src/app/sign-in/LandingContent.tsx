@@ -55,8 +55,8 @@ export function LandingContent({
             웹 어드벤처 RPG
           </p>
 
-          <h1 className="mt-6 text-5xl font-bold tracking-tight text-zinc-50 sm:text-6xl">
-            무슨무슨게임
+          <h1 className="mt-6 text-6xl font-bold tracking-tight text-zinc-50 sm:text-7xl">
+            무스게
           </h1>
 
           {/* 골드 헤어라인 — 유일한 장식 포인트 */}

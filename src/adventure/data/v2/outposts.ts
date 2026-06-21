@@ -12,7 +12,9 @@
 //   - 사막 (중하): center (5000, 4900)
 //   - 평원 (중상~중) = 분쟁지대
 //
-// 분량 (40): 5 왕국 + 10 도시 + 13 거점 + 8 마을 + 4 절대 중립. (2026-06-14 96→40 축소)
+// 분량 (23): 5 왕국 + 3 도시 + 8 거점 + 3 마을 + 4 절대 중립.
+// (2026-06-21 40→23 축소 — v2 지도 재설계 B안 PR-1: 라이브 점령/금고 없는 필러 17 컷.
+//  docs/v2-map-redesign.md. 왕국 메커닉 제거·자유이동·안개폐기는 후속 PR.)
 
 import type { Outpost } from "./types";
 import type { TerrainTrait } from "./settlement";
@@ -118,26 +120,14 @@ const KINGDOMS: Outpost[] = [
   },
 ];
 
-// 도시 (tier 3) — 왕국 근처 2개씩.
+// 도시 (tier 3) — 금고가 쌓인 거점 위주로 유지 (지도 축소 40→23, 2026-06-21).
 const CITIES: Outpost[] = [
-  // 에이라 영역 (빙하)
-  { id: "city_glacier_market", name: "이스마르크", type: "village", tier: 3, position: { x: 2800, y: 1300 }, description: "에이라 인근 교역 도시." },
-  { id: "city_aurora_keep", name: "스카디아", type: "fort", tier: 3, position: { x: 1679, y: 1525 } },
-  // 로렌 영역 (숲)
-  { id: "city_silverleaf", name: "실바리엔", type: "tower", tier: 3, position: { x: 7800, y: 1100 } },
-  { id: "city_oakheart", name: "엘다로스", type: "village", tier: 3, position: { x: 9000, y: 2300 } },
-  // 코린 영역 (보라산)
-  { id: "city_iron_pit", name: "카즈베르그", type: "mine", tier: 3, position: { x: 2400, y: 4200 } },
-  { id: "city_swamp_market", name: "그룬다르", type: "village", tier: 3, position: { x: 1100, y: 4200 } },
-  // 세라 영역 (사막)
-  { id: "city_goldfield", name: "알 다하브", type: "village", tier: 3, position: { x: 4000, y: 4700 } },
-  { id: "city_river_haven", name: "알 나하르", type: "village", tier: 3, position: { x: 5900, y: 4700 } },
-  // 발렌 영역 (붉은산)
-  { id: "city_ironpeak", name: "바르크라그", type: "fort", tier: 3, position: { x: 7000, y: 4100 } },
-  { id: "city_thunder_camp", name: "그롬바르", type: "fort", tier: 3, position: { x: 9000, y: 4200 } },
+  { id: "city_silverleaf", name: "실바리엔", type: "tower", tier: 3, position: { x: 7800, y: 1100 } }, // 로렌(숲)
+  { id: "city_river_haven", name: "알 나하르", type: "village", tier: 3, position: { x: 5900, y: 4700 } }, // 세라(사막)·어장
+  { id: "city_ironpeak", name: "바르크라그", type: "fort", tier: 3, position: { x: 7000, y: 4100 } }, // 발렌(붉은산)
 ];
 
-// 거점 (tier 2) — 중앙 분쟁지대 전장 8 + 권역 길목 5. (맵 축소 96→40, 2026-06-14)
+// 거점 (tier 2) — 중앙 분쟁지대 전장 8 (쟁탈 풀). 권역 길목 5는 지도 축소(40→23)로 컷.
 const OUTPOSTS_T2: Outpost[] = [
   // 중앙 분쟁지대 (평원) — 쟁탈 전장. ⚠️ 8개는 warOutposts.ts 쟁탈 풀이라 제거 금지.
   { id: "war_central_fort", name: "카스트라", type: "fort", tier: 2, position: { x: 4500, y: 2800 }, description: "중앙 분쟁지대의 핵심 요새. 시야와 방어 보너스." },
@@ -148,24 +138,13 @@ const OUTPOSTS_T2: Outpost[] = [
   { id: "outpost_plain_tower", name: "알토렌", type: "tower", tier: 2, position: { x: 6200, y: 2400 } },
   { id: "outpost_central_post", name: "비길리아", type: "fort", tier: 2, position: { x: 5500, y: 3300 } },
   { id: "outpost_plain_square", name: "콩코르디아", type: "fort", tier: 2, position: { x: 4953, y: 2543 } },
-  // 권역 길목 (권역당 1) — 외곽 요충지
-  { id: "outpost_frostgate", name: "프로스트헤임", type: "fort", tier: 2, position: { x: 3800, y: 1300 } }, // 에이라(빙하)
-  { id: "outpost_misttower", name: "미스랄렌", type: "tower", tier: 2, position: { x: 7200, y: 2000 } }, // 로렌(숲)
-  { id: "outpost_west_fort", name: "두르가드", type: "fort", tier: 2, position: { x: 1500, y: 2700 } }, // 코린(보라산)
-  { id: "outpost_south_mine", name: "하디라", type: "mine", tier: 2, position: { x: 3500, y: 4500 } }, // 세라(사막)
-  { id: "outpost_east_fort", name: "그림홀드", type: "fort", tier: 2, position: { x: 8000, y: 4000 } }, // 발렌(붉은산)
 ];
 
-// 마을 (tier 1) — 권역↔중앙 연결 마을만. (맵 축소 96→40, 필러 마을 43 제거)
+// 마을 (tier 1) — 지형특성·금고 보유 + 라이브 점령만 유지 (지도 축소 40→23, 2026-06-21).
 const VILLAGES: Outpost[] = [
-  { id: "village_silverpoint", name: "실프헤임", type: "village", tier: 1, position: { x: 2400, y: 1600 } }, // 에이라(빙하)
-  { id: "village_dewfall", name: "로스니엘", type: "village", tier: 1, position: { x: 6000, y: 1500 } }, // 로렌(숲)
-  { id: "village_oremouth", name: "카르문", type: "village", tier: 1, position: { x: 1900, y: 3000 } }, // 코린(보라산)
+  { id: "village_oremouth", name: "카르문", type: "village", tier: 1, position: { x: 1900, y: 3000 } }, // 코린(보라산)·광맥
   { id: "village_wheatfield", name: "카므란", type: "village", tier: 1, position: { x: 4819, y: 4009 } }, // 세라(사막)
-  { id: "village_iron_camp", name: "야른가스", type: "village", tier: 1, position: { x: 7300, y: 3300 } }, // 발렌(붉은산)
-  { id: "village_crossroads_n", name: "비아노르", type: "village", tier: 1, position: { x: 4500, y: 2100 } }, // 분쟁 변두리 N
-  { id: "village_crossroads_s", name: "비아수르", type: "village", tier: 1, position: { x: 5500, y: 3700 } }, // 분쟁 변두리 S
-  { id: "village_grassland", name: "프라타", type: "village", tier: 1, position: { x: 3800, y: 2500 } }, // 중앙
+  { id: "village_crossroads_s", name: "비아수르", type: "village", tier: 1, position: { x: 5500, y: 3700 } }, // 분쟁 변두리 S (라이브 점령)
 ];
 
 export const OUTPOSTS: Outpost[] = [
@@ -272,12 +251,8 @@ export function nearestNeutralOutpostId(fromId: string): string {
 const TERRAIN_TRAIT_OVERRIDE: Record<string, TerrainTrait> = {
   // 어장(식량+, lake 키)
   city_river_haven: "lake", // 알 나하르(강)
-  city_glacier_market: "lake", // 이스마르크(빙하)
-  city_swamp_market: "lake", // 그룬다르(늪)
-  village_dewfall: "lake", // 로스니엘(이슬)
   // 광맥(광물+) — 광산 type 아닌데 광맥 테마
   village_oremouth: "mine", // 카르문(광맥)
-  village_iron_camp: "mine", // 야른가스(철)
 };
 
 export function terrainTraitOf(outpostId: string): TerrainTrait {

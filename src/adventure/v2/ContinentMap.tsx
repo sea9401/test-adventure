@@ -19,6 +19,7 @@ import {
   CONFLICT_ZONE_IDS,
   areOutpostsAdjacent,
 } from "@/adventure/data/v2/outpostGraph";
+import { guildEmblemIcon } from "@/adventure/data/guild-emblems-icons";
 import type {
   Outpost,
   OutpostType,
@@ -148,6 +149,7 @@ type OccupationLite = {
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
   occupiedByGuildName: string | null;
+  occupiedByGuildEmblem?: string | null;
   // 성벽 — 재생 반영 현재값(occupations GET). 최대 미만이면 교전 중 표시.
   fortHp?: number;
   fortMaxHp?: number;
@@ -374,7 +376,13 @@ export function ContinentMap({
             const tileStroke = "#0b1020";
             // tier 큐 — 왕국이 가장 굵고 아래로 갈수록 가늘게(타일 크기는 균일).
             const tierStroke = isKingdom ? 14 : o.tier === 3 ? 11 : 9;
-            const Glyph = isKingdom ? Crown : TYPE_ICON[o.type];
+            // 점령 길드 거점은 그 길드 엠블럼(미설정이면 기본 깃발). 그 외엔 왕국=Crown/타입 아이콘.
+            const Glyph =
+              occ?.occupiedByGuildId != null
+                ? guildEmblemIcon(occ.occupiedByGuildEmblem ?? null)
+                : isKingdom
+                  ? Crown
+                  : TYPE_ICON[o.type];
             return (
               <g
                 key={o.id}

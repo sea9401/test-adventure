@@ -50,12 +50,16 @@ export async function GET() {
     ),
   ];
   const guildNameById = new Map<number, string>();
+  const guildEmblemById = new Map<number, string>();
   if (guildIds.length > 0) {
     const gs = await db
-      .select({ id: guilds.id, name: guilds.name })
+      .select({ id: guilds.id, name: guilds.name, emblem: guilds.emblem })
       .from(guilds)
       .where(inArray(guilds.id, guildIds));
-    for (const g of gs) guildNameById.set(g.id, g.name);
+    for (const g of gs) {
+      guildNameById.set(g.id, g.name);
+      if (g.emblem != null) guildEmblemById.set(g.id, g.emblem);
+    }
   }
 
   return Response.json({
@@ -66,6 +70,10 @@ export async function GET() {
       occupiedByGuildName:
         r.occupiedByGuildId != null
           ? (guildNameById.get(r.occupiedByGuildId) ?? null)
+          : null,
+      occupiedByGuildEmblem:
+        r.occupiedByGuildId != null
+          ? (guildEmblemById.get(r.occupiedByGuildId) ?? null)
           : null,
       occupiedAt: r.occupiedAt.toISOString(),
       policy: r.policy,

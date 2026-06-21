@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { Package, Sword } from "@phosphor-icons/react";
+import { Crown, Package, Sword } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
@@ -53,6 +53,11 @@ import {
   ANTIQUE_THEME_LABEL,
   formatCondition,
 } from "@/adventure/data/v2/antique";
+import {
+  TITLES,
+  TITLE_CATEGORY_ORDER,
+  type TitleCategory,
+} from "@/adventure/data/titles";
 import { JobCodexList } from "./V2JobCodexView";
 import type { JobCodex } from "@/adventure/data/v2/v2JobCodex";
 
@@ -94,7 +99,13 @@ const TIER_BADGE: Record<FishTier, string> = {
     "bg-amber-200/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200",
 };
 
-type CodexTab = "huntground" | "materials" | "fish" | "treasure" | "job";
+type CodexTab =
+  | "huntground"
+  | "materials"
+  | "fish"
+  | "treasure"
+  | "title"
+  | "job";
 
 // 장비 드랍 풀 → 처치당 총 확률(pool.chance). 스타터 풀 라벨용.
 function equipPoolChance(pool: FloorEquipDropPool): number {
@@ -133,6 +144,10 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [antiqueBest, setAntiqueBest] = useState<Record<string, number>>({});
   // 사냥터 도감 — 최고 도달 깊이(frontierDepth)까지 닿은 테마만 공개("처리했을 때 기준").
   const [frontierDepth, setFrontierDepth] = useState(0);
+  // 칭호 — 보유 목록(획득한 것만)·현재 장착. 장착은 /api/v2/me/equip-title POST.
+  const [ownedTitleIds, setOwnedTitleIds] = useState<string[]>([]);
+  const [equippedTitleId, setEquippedTitleId] = useState<string | null>(null);
+  const [titleBusy, setTitleBusy] = useState(false);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -159,6 +174,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
         if (typeof j?.frontierDepth === "number") {
           setFrontierDepth(j.frontierDepth);
         }
+        if (Array.isArray(j?.titles?.ownedTitleIds)) {
+          setOwnedTitleIds(j.titles.ownedTitleIds as string[]);
+        }
+        setEquippedTitleId(
+          typeof j?.titles?.equippedTitleId === "string"
+            ? j.titles.equippedTitleId
+            : null,
+        );
       })
       .catch(() => {});
     return () => {
@@ -186,6 +209,42 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
       alive = false;
     };
   }, [tab, jobCodex]);
+
+  // 칭호 장착/해제 — 낙관적 갱신 후 서버 확정(실패 시 롤백). titleId=null 이면 해제.
+  const equipTitle = async (titleId: string | null) => {
+    if (titleBusy || titleId === equippedTitleId) return;
+    const prev = equippedTitleId;
+    setTitleBusy(true);
+    setEquippedTitleId(titleId);
+    try {
+      const res = await fetch("/api/v2/me/equip-title", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ titleId }),
+      });
+      const j = (await res.json()) as { ok?: boolean; equippedTitleId?: unknown };
+      if (!res.ok || !j?.ok) throw new Error();
+      setEquippedTitleId(
+        typeof j.equippedTitleId === "string" ? j.equippedTitleId : null,
+      );
+    } catch {
+      setEquippedTitleId(prev);
+    } finally {
+      setTitleBusy(false);
+    }
+  };
+
+  // 보유 칭호를 카테고리별로 묶음(존재하는 칭호만 — 옛 V1 칭호는 미보유라 자연히 빠짐).
+  const ownedTitlesByCategory = (() => {
+    const out: Partial<Record<TitleCategory, { id: string }[]>> = {};
+    for (const id of ownedTitleIds) {
+      const t = TITLES[id];
+      if (!t) continue;
+      (out[t.category] ??= []).push({ id });
+    }
+    return out;
+  })();
+  const ownedTitleCount = ownedTitleIds.filter((id) => TITLES[id]).length;
 
   // 드랍 출처가 하나라도 있는 재료만 — 출처 없는 재료(미배치)는 숨긴다.
   const materialEntries = (Object.keys(V2_MATERIALS) as V2MaterialId[])
@@ -222,6 +281,11 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
               text: "유물 — 발굴로 찾아낸 골동품과 개인 최고 보존상태.",
               count: `등재 ${ANTIQUE_IDS.filter((id) => antiqueDiscovered.has(id)).length}/${ANTIQUE_TOTAL}종`,
             }
+          : tab === "title"
+          ? {
+              text: "칭호 — 획득한 칭호를 장착하면 채팅·접속자 목록에 표시됩니다.",
+              count: `보유 ${ownedTitleCount}개`,
+            }
           : {
               text: "직업 — 거쳐온 직업과 모은 스킬의 기록.",
               count: jobCodex
@@ -245,6 +309,7 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             ["materials", "재료"],
             ["fish", "어보"],
             ["treasure", "유물"],
+            ["title", "칭호"],
             ["job", "직업"],
           ] as const
         ).map(([key, label]) => (
@@ -622,6 +687,86 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
           })}
         </div>
       )}
+      {tab === "title" &&
+        (ownedTitleCount === 0 ? (
+          <EmptyState
+            icon={<Crown size={40} weight="duotone" />}
+            title="아직 획득한 칭호가 없습니다"
+            message="낚시·발굴·투기장 상점과 수집 보상으로 칭호를 모으면 여기서 장착할 수 있어요. 장착한 칭호는 채팅과 접속자 목록에 표시됩니다."
+          />
+        ) : (
+          <div className="space-y-4">
+            <Card padding="sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    현재 장착
+                  </div>
+                  <div className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                    {equippedTitleId && TITLES[equippedTitleId]
+                      ? TITLES[equippedTitleId].name
+                      : "미장착"}
+                  </div>
+                </div>
+                {equippedTitleId && (
+                  <button
+                    type="button"
+                    disabled={titleBusy}
+                    onClick={() => equipTitle(null)}
+                    className="shrink-0 rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    해제
+                  </button>
+                )}
+              </div>
+            </Card>
+            {TITLE_CATEGORY_ORDER.filter(
+              (cat) => (ownedTitlesByCategory[cat.id]?.length ?? 0) > 0,
+            ).map((cat) => (
+              <div key={cat.id} className="space-y-1.5">
+                <h3 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                  {cat.label}
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(ownedTitlesByCategory[cat.id] ?? []).map(({ id }) => {
+                    const t = TITLES[id];
+                    const isEquipped = equippedTitleId === id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        disabled={titleBusy}
+                        onClick={() => equipTitle(isEquipped ? null : id)}
+                        className={`rounded-lg border p-3 text-left transition disabled:opacity-60 ${
+                          isEquipped
+                            ? "border-amber-400 bg-amber-50 dark:border-amber-500/70 dark:bg-amber-900/20"
+                            : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+                            {t.name}
+                          </span>
+                          {isEquipped && (
+                            <span className="rounded-full bg-amber-200/80 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                              장착됨
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-300">
+                          {t.description}
+                        </p>
+                        <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                          {t.condition}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
       {tab === "job" &&
         (jobCodex ? (
           <JobCodexList codex={jobCodex} />

@@ -171,6 +171,9 @@ export function rollReforgeStoneDrops(
   return out;
 }
 
+// 대장간 조합 — 일반 재련석 N개 → 상급 재련석 1개(결정론·무료). 일반 상위 변환 sink + 거래 수요. 다이얼.
+export const REFORGE_COMBINE_COST = 3;
+
 // 상급 재련석 max-of-N — N회 굴려 품질 최고를 채택(같은 분포·범위라 파워크립 0). N=1=현 굴림.
 export const REFORGE_HIGH_ROLLS = 3;
 

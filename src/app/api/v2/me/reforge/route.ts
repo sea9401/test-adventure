@@ -7,9 +7,12 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
+  REFORGE_STONE_MATERIAL_ID,
+  type ReforgeStoneId,
   canReforge,
   reforgeGoldCost,
-  rollItemStats,
+  reforgeRollCount,
+  rollItemStatsBest,
   rollQualityPct,
 } from "@/adventure/data/v2/v2EquipVariance";
 
@@ -24,6 +27,7 @@ import {
 type CharSave = {
   gold?: number;
   bankedGold?: number;
+  materials?: Record<string, number>;
   [k: string]: unknown;
 };
 
@@ -33,7 +37,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { iid?: unknown };
+  let body: { iid?: unknown; stone?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -44,6 +48,8 @@ export async function POST(req: Request) {
   if (!iid) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
+  // 재련석 종류 — 일반(기본)/상급. 미지정/불명은 일반(현 굴림)으로 폴백(스테일 클라 안전).
+  const stone: ReforgeStoneId = body.stone === "high" ? "high" : "basic";
 
   const result = await db.transaction(async (tx) => {
     const charSave = await lockSaveForUpdate<CharSave>(
@@ -82,6 +88,22 @@ export async function POST(req: Request) {
       };
     }
 
+    // 재련석 — 선택한 종류 1개 소비(하이브리드: 재료 + 골드). materials 는 character.v2 내라
+    //   이미 락 안. 강화 라우트의 돌 차감 패턴 미러(재료/골드 둘 다 통과해야 write).
+    const stoneId = REFORGE_STONE_MATERIAL_ID[stone];
+    const mats = { ...(charSave.materials ?? {}) };
+    const haveStone = Math.max(0, Math.floor(Number(mats[stoneId]) || 0));
+    if (haveStone < 1) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "insufficient_stone" as const,
+          stone,
+        },
+      };
+    }
+
     // 비용 — 카탈로그 위력 기준 고정(유니크 ×2). 도박이라 결과 무관 선차감.
     const goldCost = reforgeGoldCost(item);
     const haveGold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
@@ -101,10 +123,15 @@ export async function POST(req: Request) {
       };
     }
 
-    // 굴림 재생성 — 드랍과 동일 분포. 서버 권위(Math.random). 항상 적용.
+    // 재련석 1개 차감(0 이면 키 제거 — 강화 라우트와 동일).
+    const stoneLeft = haveStone - 1;
+    if (stoneLeft > 0) mats[stoneId] = stoneLeft;
+    else delete mats[stoneId];
+
+    // 굴림 재생성 — 드랍과 동일 분포. 일반=1회·상급=max-of-N(품질 최고 채택). 서버 권위. 항상 적용.
     const oldRoll = inst.roll;
     const oldQuality = rollQualityPct(item, oldRoll);
-    const newRoll = rollItemStats(item, Math.random);
+    const newRoll = rollItemStatsBest(item, Math.random, reforgeRollCount(stone));
     const newQuality = rollQualityPct(item, newRoll);
 
     const nextOwned = owned.map((o) =>
@@ -119,6 +146,7 @@ export async function POST(req: Request) {
       ...charSave,
       gold: spend.gold,
       bankedGold: spend.bankedGold,
+      materials: mats,
     });
 
     return {
@@ -126,6 +154,8 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         itemId: inst.id,
+        stone,
+        stoneLeft,
         goldCost,
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),

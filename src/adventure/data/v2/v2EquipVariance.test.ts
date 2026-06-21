@@ -8,6 +8,7 @@ import {
 } from "./v2Equipment";
 import {
   REFORGE_GOLD_K,
+  REFORGE_HIGH_ROLLS,
   REFORGE_MIN_COST,
   REFORGE_STONE_DROP_PCT,
   REFORGE_STONE_MATERIAL_ID,
@@ -16,7 +17,9 @@ import {
   canReforge,
   effectiveStats,
   reforgeGoldCost,
+  reforgeRollCount,
   rollItemStats,
+  rollItemStatsBest,
   rollQualityPct,
   rollReforgeStoneDrops,
   selectBulkSell,
@@ -308,5 +311,46 @@ describe("rollReforgeStoneDrops", () => {
     expect(
       rollReforgeStoneDrops(() => 0.001, 5)[REFORGE_STONE_MATERIAL_ID.high],
     ).toBe(1);
+  });
+});
+
+describe("reforgeRollCount / rollItemStatsBest (max-of-N)", () => {
+  // 동일 시퀀스를 반복 생성(rollItemStatsBest 내부 굴림을 그대로 재현해 비교).
+  const mkSeq = () => {
+    const v = [
+      0.1, 0.9, 0.2, 0.8, 0.95, 0.05, 0.99, 0.5, 0.3, 0.7, 0.6, 0.4, 0.85,
+      0.15, 0.45,
+    ];
+    let i = 0;
+    return () => v[i++ % v.length];
+  };
+
+  it("reforgeRollCount — 일반=1·상급=REFORGE_HIGH_ROLLS(3)", () => {
+    expect(reforgeRollCount("basic")).toBe(1);
+    expect(reforgeRollCount("high")).toBe(REFORGE_HIGH_ROLLS);
+    expect(REFORGE_HIGH_ROLLS).toBeGreaterThan(1);
+  });
+
+  it("count=1 이면 rollItemStats 와 동일(일반 재련=현 굴림)", () => {
+    const item = V2_EQUIPMENT.v2_starsong_bow;
+    expect(rollItemStatsBest(item, mkSeq(), 1)).toEqual(
+      rollItemStats(item, mkSeq()),
+    );
+  });
+
+  it("count회 굴림 중 품질 최고를 채택(동률이면 첫 굴림)", () => {
+    const item = V2_EQUIPMENT.v2_starsong_bow;
+    const best = rollItemStatsBest(item, mkSeq(), 3);
+    // 같은 시퀀스로 3개 굴림을 그대로 재현 → 그중 최고 품질과 일치해야.
+    const r = mkSeq();
+    const rolls = [
+      rollItemStats(item, r),
+      rollItemStats(item, r),
+      rollItemStats(item, r),
+    ];
+    const quals = rolls.map((x) => rollQualityPct(item, x) ?? -1);
+    const maxQ = Math.max(...quals);
+    expect(rollQualityPct(item, best)).toBe(maxQ);
+    expect(best).toEqual(rolls[quals.indexOf(maxQ)]); // 동률 시 첫 번째
   });
 });

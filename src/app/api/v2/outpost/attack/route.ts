@@ -21,7 +21,26 @@ import {
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
-import { isOutpostProtected } from "@/adventure/data/v2/outpostSiege";
+import {
+  isOutpostProtected,
+  currentFortHp,
+  repairHpFromGold,
+  FORT_MAX_HP,
+  SIEGE_DAMAGE_PER_WIN,
+  REPAIR_GOLD_PER_HP,
+  POST_CAPTURE_PROTECT_MS,
+} from "@/adventure/data/v2/outpostSiege";
+import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
+import {
+  lockVillage,
+  upsertVillage,
+  normalizeVillageOwner,
+} from "@/lib/server/v2Settlement";
+import {
+  prevTier,
+  VILLAGE_TIER_NAME,
+  MAX_SLOTS_BY_TIER,
+} from "@/adventure/data/v2/settlement";
 import {
   RAID_TREASURY_STEAL_FRAC,
   V2_SETTLEMENT_WARFARE,
@@ -30,14 +49,14 @@ import { parseWarVigor, vigorAfterBattle } from "@/adventure/data/v2/warVigor";
 
 // POST /api/v2/outpost/attack — 정착지 전쟁 공격(약탈/정복). 설계: docs/v2-settlement-warfare-plan.md.
 //   body: { outpostId, mode: "raid" | "conquest" }
-//   PR-3a = raid 만. conquest 는 PR-3b(501 not_implemented).
-//   raid = 수비 큐 1번을 "건강도(전쟁 전용 HP 이월)" 전투로 격파 → 거점 금고 50% 탈취(마을 유지).
-//     큐가 비면 무혈 약탈(수비 등록 안 하면 금고가 털림 = 등록 인센티브).
+//   raid    = 수비 큐 1번을 "건강도(전쟁 전용 HP 이월)" 결투로 격파 → 거점 금고 50% 탈취(마을 유지).
+//   conquest= 수비 큐 전원 격파(건틀릿) + 성벽(fortHp) 누적 공성 완파 → 함락(마을 tier 1↓·소유 이관,
+//             금고는 그대로). 성벽은 한 번에 SIEGE_DAMAGE_PER_WIN 깎임 → 여러 차례 공격으로 함락.
+//   큐가 비면 무혈(수비 미등록 시 약탈/공성에 무방비 = 등록 인센티브).
 //   플래그 off → 404. 옛 claim 라우트(3:3 토너먼트)는 손대지 않음 — PR-6 에서 제거.
 //
-// 🔑 건강도 MP 메모: resolveBattlePvP 는 매치 시작 시 MP 를 풀충전한다(engine-pvp). 따라서
-//   vigor.mp 는 전투 "시작"에는 미반영(HP 가 전쟁 소모 축). 전투 후엔 hp/mp 둘 다 vigor 로 저장.
-//   MP 시작값까지 vigor 로 반영하려면 공유 엔진 수정 필요 — 후속(부모 판단).
+// 🔑 건강도 MP 메모: resolveBattlePvP 는 매치 시작 시 MP 풀충전(engine-pvp). vigor.mp 는 전투
+//   "시작"에 미반영(HP 가 전쟁 소모 축). 전투 후엔 hp/mp 둘 다 vigor 로 저장.
 
 type WarVigorSave = { warVigor?: unknown; [k: string]: unknown };
 
@@ -60,12 +79,6 @@ export async function POST(req: Request) {
   if (mode !== "raid" && mode !== "conquest") {
     return Response.json({ ok: false, error: "invalid_mode" }, { status: 400 });
   }
-  if (mode === "conquest") {
-    return Response.json(
-      { ok: false, error: "not_implemented" },
-      { status: 501 },
-    );
-  }
   const outpost = OUTPOSTS.find((o) => o.id === outpostId);
   if (!outpost || outpost.neutral) {
     return Response.json(
@@ -76,7 +89,7 @@ export async function POST(req: Request) {
 
   const now = Date.now();
   const result = await db.transaction(async (tx) => {
-    // lock 순서: occupation FOR UPDATE → 수비 큐 → 세이브 → 금고 → 길드자원.
+    // lock 순서: occupation FOR UPDATE → 수비 큐 → 세이브 → 금고/길드자원. claim 미러.
     const occRow = (
       await tx
         .select()
@@ -103,8 +116,8 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "already_yours" },
       };
     }
-    // 약탈은 보급선(영토 연속성) 게이트 없음 — 점령이 아니라 괴롭힘이라 어느 적 거점이든 가능.
-    //   (정복=PR-3b 는 별도 결정.) 함락 직후 보호막은 존중.
+    // 약탈/정복 모두 보급선(영토 연속성) 게이트 없음 — 점령(claim)이 아니라 전쟁 행위.
+    //   함락 직후 보호막은 존중.
     if (isOutpostProtected(occRow.protectedUntil, new Date(now))) {
       return {
         status: 409,
@@ -116,7 +129,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 수비 큐 — 현재 점령 길드의 등록자만(스테일 제외)·등록순. 1번 = 첫 수비자.
+    // 수비 큐 — 현재 점령 길드 등록자만(스테일 제외)·등록순.
     const queue = await tx
       .select({ userId: outpostDefenders.userId })
       .from(outpostDefenders)
@@ -127,7 +140,6 @@ export async function POST(req: Request) {
         ),
       )
       .orderBy(asc(outpostDefenders.registeredAt), asc(outpostDefenders.userId));
-    const defender1Id = queue[0]?.userId ?? null;
 
     const attacker = await derivePlayerCombatV2(userId, tx);
     if (!attacker) {
@@ -137,10 +149,14 @@ export async function POST(req: Request) {
       };
     }
 
-    // 관련 세이브 사전 정렬 lock(공격자 + 수비자1) — cross-tx 데드락 회피.
-    const lockIds = Array.from(
-      new Set([userId, ...(defender1Id ? [defender1Id] : [])]),
-    ).sort();
+    // 관련 세이브 사전 정렬 lock(데드락 회피) — raid=공격자+1번, conquest=공격자+큐 전원.
+    const defenderIds =
+      mode === "raid"
+        ? queue[0]
+          ? [queue[0].userId]
+          : []
+        : queue.map((q) => q.userId);
+    const lockIds = Array.from(new Set([userId, ...defenderIds])).sort();
     for (const id of lockIds) {
       await lockSaveForUpdate<unknown>(tx, id, "character.v2", {});
     }
@@ -151,94 +167,21 @@ export async function POST(req: Request) {
       {},
     );
     const attackerName = await resolveUserDisplayName(userId);
+    const attackerVigor = parseWarVigor(attackerSave.warVigor);
+    const aMaxMp = attacker.player.maxMp ?? 0;
 
-    let won: boolean;
-    let defenderName: string | null = null;
-    let replay: ReplayPayload | null = null;
+    // ===================== 약탈(raid) =====================
+    if (mode === "raid") {
+      const defender1Id = queue[0]?.userId ?? null;
+      let won: boolean;
+      let defenderName: string | null = null;
+      let replay: ReplayPayload | null = null;
 
-    if (defender1Id == null) {
-      // 무방비 거점 → 무혈 약탈 성공.
-      won = true;
-    } else {
-      const defender = await derivePlayerCombatV2(defender1Id, tx);
-      if (!defender) {
-        // 수비자 캐릭 손상/삭제 = 스테일 큐 행 → 정리 후 무혈 약탈.
-        await tx
-          .delete(outpostDefenders)
-          .where(
-            and(
-              eq(outpostDefenders.outpostId, outpost.id),
-              eq(outpostDefenders.userId, defender1Id),
-            ),
-          );
-        won = true;
+      if (defender1Id == null) {
+        won = true; // 무방비 → 무혈 약탈.
       } else {
-        defenderName = await resolveUserDisplayName(defender1Id);
-        const defenderSave = await lockSaveForUpdate<WarVigorSave>(
-          tx,
-          defender1Id,
-          "character.v2",
-          {},
-        );
-        const attackerVigor = parseWarVigor(attackerSave.warVigor);
-        const defenderVigor = parseWarVigor(defenderSave.warVigor);
-
-        // 건강도 → 시작 HP(이월). 최소 1 HP 가드. MP 는 엔진이 풀충전(위 메모).
-        const aStartHp = Math.max(
-          1,
-          Math.floor(attacker.maxHp * attackerVigor.hp),
-        );
-        const dStartHp = Math.max(
-          1,
-          Math.floor(defender.maxHp * defenderVigor.hp),
-        );
-        const attackerStanced = applyStance(
-          { ...attacker.player, hp: aStartHp },
-          attacker.selectedStance,
-        );
-        const defenderStanced = applyStance(
-          { ...defender.player, hp: dStartHp },
-          defender.selectedStance,
-        );
-        const pvp = resolveBattlePvP(
-          attackerStanced,
-          defenderStanced,
-          attackerName,
-          defenderName,
-          {
-            pickAction: () => ({ kind: "attack" }),
-            potions: { p1: {}, p2: {} },
-          },
-        );
-        won = pvp.outcome === "p1_win";
-        replay = toPvpReplayPayload(pvp.finalState, defenderName, 200);
-
-        // 전투 후 양측 건강도 저장(남은 HP/MP 비율 + 갱신시각). 일반 HP/MP/골드는 불변(별개 축).
-        const aMaxMp = attacker.player.maxMp ?? 0;
-        const dMaxMp = defender.player.maxMp ?? 0;
-        await upsertSave(tx, userId, "character.v2", {
-          ...attackerSave,
-          warVigor: vigorAfterBattle(
-            pvp.finalState.p1.hp,
-            attacker.maxHp,
-            pvp.finalState.p1.mp,
-            aMaxMp,
-            now,
-          ),
-        });
-        await upsertSave(tx, defender1Id, "character.v2", {
-          ...defenderSave,
-          warVigor: vigorAfterBattle(
-            pvp.finalState.p2.hp,
-            defender.maxHp,
-            pvp.finalState.p2.mp,
-            dMaxMp,
-            now,
-          ),
-        });
-
-        // 진 수비자는 큐에서 탈락(설계). 공격자 승리 시 수비자1 제거.
-        if (won) {
+        const defender = await derivePlayerCombatV2(defender1Id, tx);
+        if (!defender) {
           await tx
             .delete(outpostDefenders)
             .where(
@@ -247,32 +190,281 @@ export async function POST(req: Request) {
                 eq(outpostDefenders.userId, defender1Id),
               ),
             );
+          won = true;
+        } else {
+          defenderName = await resolveUserDisplayName(defender1Id);
+          const defenderSave = await lockSaveForUpdate<WarVigorSave>(
+            tx,
+            defender1Id,
+            "character.v2",
+            {},
+          );
+          const defenderVigor = parseWarVigor(defenderSave.warVigor);
+          const aStartHp = Math.max(
+            1,
+            Math.floor(attacker.maxHp * attackerVigor.hp),
+          );
+          const dStartHp = Math.max(
+            1,
+            Math.floor(defender.maxHp * defenderVigor.hp),
+          );
+          const attackerStanced = applyStance(
+            { ...attacker.player, hp: aStartHp },
+            attacker.selectedStance,
+          );
+          const defenderStanced = applyStance(
+            { ...defender.player, hp: dStartHp },
+            defender.selectedStance,
+          );
+          const pvp = resolveBattlePvP(
+            attackerStanced,
+            defenderStanced,
+            attackerName,
+            defenderName,
+            {
+              pickAction: () => ({ kind: "attack" }),
+              potions: { p1: {}, p2: {} },
+            },
+          );
+          won = pvp.outcome === "p1_win";
+          replay = toPvpReplayPayload(pvp.finalState, defenderName, 200);
+          const dMaxMp = defender.player.maxMp ?? 0;
+          await upsertSave(tx, userId, "character.v2", {
+            ...attackerSave,
+            warVigor: vigorAfterBattle(
+              pvp.finalState.p1.hp,
+              attacker.maxHp,
+              pvp.finalState.p1.mp,
+              aMaxMp,
+              now,
+            ),
+          });
+          await upsertSave(tx, defender1Id, "character.v2", {
+            ...defenderSave,
+            warVigor: vigorAfterBattle(
+              pvp.finalState.p2.hp,
+              defender.maxHp,
+              pvp.finalState.p2.mp,
+              dMaxMp,
+              now,
+            ),
+          });
+          if (won) {
+            await tx
+              .delete(outpostDefenders)
+              .where(
+                and(
+                  eq(outpostDefenders.outpostId, outpost.id),
+                  eq(outpostDefenders.userId, defender1Id),
+                ),
+              );
+          }
         }
       }
+
+      let stolenGold = 0;
+      if (won) {
+        const tRow = (
+          await tx
+            .select({ gold: outpostTreasury.gold })
+            .from(outpostTreasury)
+            .where(eq(outpostTreasury.outpostId, outpost.id))
+            .for("update")
+            .limit(1)
+        )[0];
+        const treasury = Math.max(0, tRow?.gold ?? 0);
+        stolenGold = Math.floor(treasury * RAID_TREASURY_STEAL_FRAC);
+        if (stolenGold > 0) {
+          await tx
+            .update(outpostTreasury)
+            .set({ gold: treasury - stolenGold, updatedAt: sql`now()` })
+            .where(eq(outpostTreasury.outpostId, outpost.id));
+          const ag = await lockGuildResources(tx, attackerGuildId);
+          await upsertGuildResources(tx, attackerGuildId, {
+            gold: ag.gold + stolenGold,
+          });
+        }
+      }
+
+      return {
+        status: 200,
+        body: {
+          ok: true as const,
+          mode: "raid" as const,
+          won,
+          stolenGold,
+          defenderName,
+          replay,
+        },
+      };
     }
 
-    // 약탈 전리품 — 승리(무혈 포함) 시 거점 금고 50% 탈취 → 공격자 길드 골드.
-    let stolenGold = 0;
-    if (won) {
-      const tRow = (
+    // ===================== 정복(conquest) =====================
+    // 큐 전원 건틀릿 — 공격자 HP 가 전투 사이에 이월(MP 는 매치 풀충전). 진 수비자는 큐 탈락.
+    let currentHp = Math.max(1, Math.floor(attacker.maxHp * attackerVigor.hp));
+    let attackerFinal: { hp: number; mp: number } | null = null;
+    let defendersDefeated = 0;
+    let clearedQueue = true;
+    for (const d of queue) {
+      const defender = await derivePlayerCombatV2(d.userId, tx);
+      if (!defender) {
+        // 스테일 수비자(캐릭 없음) → 자동 격파.
         await tx
-          .select({ gold: outpostTreasury.gold })
-          .from(outpostTreasury)
-          .where(eq(outpostTreasury.outpostId, outpost.id))
-          .for("update")
-          .limit(1)
-      )[0];
-      const treasury = Math.max(0, tRow?.gold ?? 0);
-      stolenGold = Math.floor(treasury * RAID_TREASURY_STEAL_FRAC);
-      if (stolenGold > 0) {
+          .delete(outpostDefenders)
+          .where(
+            and(
+              eq(outpostDefenders.outpostId, outpost.id),
+              eq(outpostDefenders.userId, d.userId),
+            ),
+          );
+        defendersDefeated += 1;
+        continue;
+      }
+      const defenderSave = await lockSaveForUpdate<WarVigorSave>(
+        tx,
+        d.userId,
+        "character.v2",
+        {},
+      );
+      const dVigor = parseWarVigor(defenderSave.warVigor);
+      const dStartHp = Math.max(1, Math.floor(defender.maxHp * dVigor.hp));
+      const dName = await resolveUserDisplayName(d.userId);
+      const attackerStanced = applyStance(
+        { ...attacker.player, hp: currentHp },
+        attacker.selectedStance,
+      );
+      const defenderStanced = applyStance(
+        { ...defender.player, hp: dStartHp },
+        defender.selectedStance,
+      );
+      const pvp = resolveBattlePvP(
+        attackerStanced,
+        defenderStanced,
+        attackerName,
+        dName,
+        { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
+      );
+      const dMaxMp = defender.player.maxMp ?? 0;
+      await upsertSave(tx, d.userId, "character.v2", {
+        ...defenderSave,
+        warVigor: vigorAfterBattle(
+          pvp.finalState.p2.hp,
+          defender.maxHp,
+          pvp.finalState.p2.mp,
+          dMaxMp,
+          now,
+        ),
+      });
+      attackerFinal = { hp: pvp.finalState.p1.hp, mp: pvp.finalState.p1.mp };
+      if (pvp.outcome === "p1_win") {
         await tx
-          .update(outpostTreasury)
-          .set({ gold: treasury - stolenGold, updatedAt: sql`now()` })
-          .where(eq(outpostTreasury.outpostId, outpost.id));
-        const ag = await lockGuildResources(tx, attackerGuildId);
-        await upsertGuildResources(tx, attackerGuildId, {
-          gold: ag.gold + stolenGold,
-        });
+          .delete(outpostDefenders)
+          .where(
+            and(
+              eq(outpostDefenders.outpostId, outpost.id),
+              eq(outpostDefenders.userId, d.userId),
+            ),
+          );
+        defendersDefeated += 1;
+        currentHp = pvp.finalState.p1.hp;
+      } else {
+        clearedQueue = false;
+        break;
+      }
+    }
+    // 공격자 건강도 저장(전투가 한 번이라도 있었으면).
+    if (attackerFinal) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...attackerSave,
+        warVigor: vigorAfterBattle(
+          attackerFinal.hp,
+          attacker.maxHp,
+          attackerFinal.mp,
+          aMaxMp,
+          now,
+        ),
+      });
+    }
+
+    let captured = false;
+    let downgradedTo: string | null = null;
+    const fortMaxHp = occRow.fortMaxHp ?? FORT_MAX_HP;
+    let fortHpAfter = currentFortHp(
+      occRow.fortHp,
+      fortMaxHp,
+      occRow.fortUpdatedAt,
+      new Date(now),
+    );
+
+    if (clearedQueue) {
+      // 수비 길드 금고 자동 수리(데미지 전·claim 미러). 정복은 공격자 골드 안 씀 → 수비 길드만 잠금.
+      if (fortHpAfter < fortMaxHp) {
+        // 🔑 lock 먼저 — 잠근 잔액으로 수리 HP 계산. read-then-lock 이면 그 사이 동시 tx 가 골드를
+        //   바꿔 stale 잔액으로 수리 + 음수 클램프(골드 보존 깨짐). repairHpFromGold 가 잔액으로
+        //   hp 를 캡하므로 차감 후 항상 ≥0.
+        const dr = await lockGuildResources(tx, defenderGuildId);
+        const hp = repairHpFromGold(fortMaxHp - fortHpAfter, dr.gold);
+        if (hp > 0) {
+          fortHpAfter += hp;
+          await upsertGuildResources(tx, defenderGuildId, {
+            gold: dr.gold - hp * REPAIR_GOLD_PER_HP,
+          });
+        }
+      }
+      const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
+      const newOccupiedAt = new Date();
+      if (damaged <= 0) {
+        // 함락 — 소유 이전 + 성벽 풀충전 + 보호막.
+        captured = true;
+        await tx
+          .update(outpostOccupations)
+          .set({
+            occupiedByUserId: userId,
+            occupiedByGuildId: attackerGuildId,
+            occupiedAt: newOccupiedAt,
+            policy: "open",
+            taxRate: "0.100",
+            nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+            fortHp: fortMaxHp,
+            fortUpdatedAt: newOccupiedAt,
+            protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
+          })
+          .where(eq(outpostOccupations.outpostId, outpost.id));
+        fortHpAfter = fortMaxHp;
+
+        // 마을 tier 1단계 강등 + 소유 이관(금고는 그대로 인수). 최하(마을)=강등 없이 이관.
+        //   강등 시 해금 칸이 새 tier 상한 초과면 클램프(슬롯 종류도 트림). 진행 작업은
+        //   normalizeVillageOwner 가 비움(옛 소유의 생산 손실).
+        const village = await lockVillage(tx, outpost.id);
+        if (village) {
+          const transferred = normalizeVillageOwner(village, attackerGuildId);
+          const down = prevTier(village.tier);
+          const downTier = down ?? village.tier;
+          const maxSlots = MAX_SLOTS_BY_TIER[downTier];
+          const newUnlocked = Math.min(transferred.unlockedSlots, maxSlots);
+          const newSlotKinds: typeof transferred.slotKinds = {};
+          for (const [k, v] of Object.entries(transferred.slotKinds)) {
+            if (Number(k) < newUnlocked) newSlotKinds[Number(k)] = v;
+          }
+          await upsertVillage(tx, {
+            ...transferred,
+            tier: downTier,
+            unlockedSlots: newUnlocked,
+            slotKinds: newSlotKinds,
+          });
+          downgradedTo = down ? VILLAGE_TIER_NAME[downTier] : null;
+        }
+        // 소유 변경 → 옛 소유 길드의 수비 큐 전체 제거.
+        await tx
+          .delete(outpostDefenders)
+          .where(eq(outpostDefenders.outpostId, outpost.id));
+      } else {
+        // 성벽만 감소(공성 진행·소유 유지). fortUpdatedAt 갱신으로 재생 재시작.
+        await tx
+          .update(outpostOccupations)
+          .set({ fortHp: damaged, fortUpdatedAt: newOccupiedAt })
+          .where(eq(outpostOccupations.outpostId, outpost.id));
+        fortHpAfter = damaged;
       }
     }
 
@@ -280,11 +472,13 @@ export async function POST(req: Request) {
       status: 200,
       body: {
         ok: true as const,
-        mode: "raid" as const,
-        won,
-        stolenGold,
-        defenderName,
-        replay,
+        mode: "conquest" as const,
+        clearedQueue,
+        captured,
+        fortHp: fortHpAfter,
+        fortMaxHp,
+        downgradedTo,
+        defendersDefeated,
       },
     };
   });

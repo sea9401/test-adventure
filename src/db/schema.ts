@@ -469,6 +469,8 @@ export const guilds = pgTable(
     description: text("description"),
     // 길드 엠블럼 — 프리셋 아이콘 키(guildEmblems 카탈로그). NULL = 미설정(지도에 기본 엠블럼).
     emblem: text("emblem"),
+    // 길드 고유색 — 팔레트 키(guildColors 카탈로그). 활성 길드끼리 유니크(선착순). NULL = 미설정.
+    color: text("color"),
     // 가입 신청을 받는지 — 마스터 토글. false 면 둘러보기에서 "신청" 비활성.
     acceptingRequests: boolean("accepting_requests").notNull().default(true),
     // 길드 버프 슬롯 — { buffId, tier, installedAt }[]. 슬롯 수 한도는 등급 산식.
@@ -488,6 +490,10 @@ export const guilds = pgTable(
   },
   (t) => [
     uniqueIndex("guilds_name_lower_idx").on(sql`lower(${t.name})`),
+    // 활성 길드끼리 색 중복 금지(선착순). 해산/미설정(NULL)은 제외 — 부분 유니크 인덱스.
+    uniqueIndex("guilds_color_active_idx")
+      .on(t.color)
+      .where(sql`${t.disbandedAt} is null and ${t.color} is not null`),
   ],
 );
 

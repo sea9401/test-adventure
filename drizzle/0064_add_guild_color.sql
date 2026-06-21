@@ -1,0 +1,2 @@
+ALTER TABLE "guilds" ADD COLUMN "color" text;--> statement-breakpoint
+CREATE UNIQUE INDEX "guilds_color_active_idx" ON "guilds" USING btree ("color") WHERE "guilds"."disbanded_at" is null and "guilds"."color" is not null;

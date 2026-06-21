@@ -18,6 +18,7 @@ import {
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
 import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems-icons";
+import { GUILD_COLORS } from "@/adventure/data/guild-colors";
 import { GuildOrgChart } from "./GuildOrgChart";
 import { GuildGoldDepositPanel } from "./GuildGoldDepositPanel";
 import {
@@ -75,6 +76,7 @@ type GuildInfoResponse = {
     fameTotal: number;
     description: string | null;
     emblem: string | null;
+    color: string | null;
     nationName: string | null;
     nationDeclaredAt: string | null;
   } | null;
@@ -96,6 +98,8 @@ type GuildInfoResponse = {
   canDeclareNation?: boolean;
   // 길드 공용 골드 풀 보유량.
   guildGold?: number;
+  // 다른 활성 길드가 이미 쓰는 색(선착순) — 색 picker 비활성용.
+  takenColors?: string[];
   // 무소속일 때만 — 재가입 쿨다운 만료 시각(ISO). 활성 아니면 null/부재.
   leaveCooldownUntil?: string | null;
 };
@@ -304,6 +308,49 @@ export function V2GuildHome({
                 ? "마스터만 엠블럼을 바꿀 수 있어요."
                 : `변경에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
           });
+        }
+      } catch {
+        setNotice({
+          kind: "err",
+          text: "변경에 실패했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      } finally {
+        setActing(false);
+      }
+    },
+    [acting, refresh],
+  );
+
+  // 마스터가 길드 고유색 설정 — 선착순 유니크. 이미 쓰인 색은 거부(color_taken).
+  const handleSetColor = useCallback(
+    async (key: string) => {
+      if (acting) return;
+      setActing(true);
+      setNotice(null);
+      try {
+        const res = await fetch("/api/v2/guild/color", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ color: key }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+        } | null;
+        if (j?.ok) {
+          setNotice({ kind: "ok", text: "길드 색을 바꿨어요. 지도에 반영됩니다." });
+          await refresh();
+        } else {
+          setNotice({
+            kind: "err",
+            text:
+              j?.error === "color_taken"
+                ? "다른 길드가 방금 그 색을 가져갔어요. 다른 색을 골라주세요."
+                : j?.error === "not_master"
+                  ? "마스터만 색을 바꿀 수 있어요."
+                  : `변경에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+          });
+          if (j?.error === "color_taken") await refresh();
         }
       } catch {
         setNotice({
@@ -761,6 +808,42 @@ export function V2GuildHome({
                     >
                       <Icon size={18} weight="fill" />
                     </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). 지도 마커 채움색. */}
+          {isMaster && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                길드 색
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                지도에서 우리 길드 거점 채움색이에요. 다른 길드가 쓰는 색은 고를 수 없어요(선착순).
+              </p>
+              <div className="mt-2 grid grid-cols-8 gap-1.5">
+                {GUILD_COLORS.map((c) => {
+                  const selected = info?.guild?.color === c.key;
+                  const taken =
+                    !selected && (info?.takenColors ?? []).includes(c.key);
+                  return (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => handleSetColor(c.key)}
+                      disabled={acting || taken}
+                      title={taken ? `${c.label} (사용 중)` : c.label}
+                      aria-label={c.label}
+                      aria-pressed={selected}
+                      className={`aspect-square rounded-md border-2 transition disabled:cursor-not-allowed ${
+                        selected
+                          ? "border-zinc-900 ring-2 ring-zinc-900 dark:border-white dark:ring-white"
+                          : "border-transparent hover:border-zinc-400"
+                      } ${taken ? "opacity-25" : ""}`}
+                      style={{ background: c.hex }}
+                    />
                   );
                 })}
               </div>

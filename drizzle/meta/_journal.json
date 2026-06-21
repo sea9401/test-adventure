@@ -449,6 +449,13 @@
       "when": 1782041159671,
       "tag": "0063_add_guild_emblem",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1782044315974,
+      "tag": "0064_add_guild_color",
+      "breakpoints": true
     }
   ]
 }

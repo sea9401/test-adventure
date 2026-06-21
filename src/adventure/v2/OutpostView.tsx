@@ -23,7 +23,9 @@ import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { V2VillagePanel } from "./V2VillagePanel";
+import DefendPanel from "./DefendPanel";
 import { useGameState } from "./GameStateProvider";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -71,7 +73,7 @@ export function OutpostView({
   const [busy, setBusy] = useState(false);
   // 내 거점 활동 탭 — 생산 / 최근 공격 기록 / (마스터·부마스터) 관리.
   const [activityTab, setActivityTab] = useState<
-    "produce" | "attacks" | "manage"
+    "produce" | "attacks" | "manage" | "defend"
   >("produce");
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
@@ -365,6 +367,9 @@ export function OutpostView({
               <TabBar
                 tabs={[
                   { key: "produce", label: "생산" },
+                  ...(V2_SETTLEMENT_WARFARE
+                    ? [{ key: "defend", label: "수비" }]
+                    : []),
                   { key: "attacks", label: "최근 공격 기록" },
                   ...(canManageSettlement
                     ? [{ key: "manage", label: "관리" }]
@@ -372,7 +377,9 @@ export function OutpostView({
                 ]}
                 active={activityTab}
                 onChange={(k) =>
-                  setActivityTab(k as "produce" | "attacks" | "manage")
+                  setActivityTab(
+                    k as "produce" | "attacks" | "manage" | "defend",
+                  )
                 }
                 ariaLabel="거점 활동 탭"
                 size="sm"
@@ -381,6 +388,9 @@ export function OutpostView({
             </HeaderPanel>
             {activityTab === "produce" && (
               <V2VillagePanel outpostId={outpost.id} mode="produce" />
+            )}
+            {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
+              <DefendPanel outpostId={outpost.id} />
             )}
             {activityTab === "attacks" && (
               <OutpostAttackLog outpostId={outpost.id} />

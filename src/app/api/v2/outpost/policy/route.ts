@@ -16,6 +16,9 @@ import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 // taxRate: 0 ~ 0.5 (50% cap, 점령자 abuse 방지).
 
 const VALID_POLICIES = ["open", "guild-only"] as const;
+// 골드 세율 하한 10%·상한 50%. 점령 거점은 최소 10% 징수(2026-06-22, 오너) — 0% 무징수 차단.
+//   claim 기본값도 0.100. ⚠️ OutpostPolicyEditor 의 동명 상수와 동기화 유지.
+const TAX_RATE_MIN = 0.1;
 const TAX_RATE_MAX = 0.5;
 
 export async function POST(req: Request) {
@@ -55,11 +58,11 @@ export async function POST(req: Request) {
     if (
       typeof body.taxRate !== "number" ||
       !Number.isFinite(body.taxRate) ||
-      body.taxRate < 0 ||
+      body.taxRate < TAX_RATE_MIN ||
       body.taxRate > TAX_RATE_MAX
     ) {
       return Response.json(
-        { ok: false, error: "bad_tax_rate", max: TAX_RATE_MAX },
+        { ok: false, error: "bad_tax_rate", min: TAX_RATE_MIN, max: TAX_RATE_MAX },
         { status: 400 },
       );
     }

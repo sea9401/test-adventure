@@ -10,7 +10,13 @@ export const POLICY_LABELS: Record<string, string> = {
   "guild-only": "자길드만",
 };
 const POLICY_OPTIONS = ["open", "guild-only"] as const;
+// 골드 세율 하한 10%·상한 50%. 점령 거점은 최소 10% 징수(2026-06-22). ⚠️ 서버
+//   /api/v2/outpost/policy 의 동명 상수와 동기화 유지.
+const TAX_RATE_MIN = 0.1;
 const TAX_RATE_MAX = 0.5;
+const TAX_PCT_MIN = Math.round(TAX_RATE_MIN * 100);
+// 표시·슬라이더용 — 현재 세율 %(레거시 <10% 는 하한으로 끌어올림).
+const toTaxPct = (rate: number) => Math.max(TAX_PCT_MIN, Math.round(rate * 100));
 
 export function OutpostPolicyEditor({
   outpostId,
@@ -30,18 +36,18 @@ export function OutpostPolicyEditor({
   onSaved: () => void;
 }) {
   const [policy, setPolicy] = useState(currentPolicy);
-  const [taxPct, setTaxPct] = useState(() => Math.round(currentTaxRate * 100));
+  const [taxPct, setTaxPct] = useState(() => toTaxPct(currentTaxRate));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // props 가 외부에서 갱신되면(다른 탭에서 정책 변경 등) local state 동기화.
   useEffect(() => {
     setPolicy(currentPolicy);
-    setTaxPct(Math.round(currentTaxRate * 100));
+    setTaxPct(toTaxPct(currentTaxRate));
   }, [currentPolicy, currentTaxRate]);
 
   const dirty =
-    policy !== currentPolicy || taxPct !== Math.round(currentTaxRate * 100);
+    policy !== currentPolicy || taxPct !== toTaxPct(currentTaxRate);
 
   async function save() {
     setSaving(true);
@@ -123,11 +129,11 @@ export function OutpostPolicyEditor({
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
-              골드 세금율: {taxPct}% (최대 {TAX_RATE_MAX * 100}%)
+              골드 세금율: {taxPct}% (최소 {TAX_PCT_MIN}% · 최대 {TAX_RATE_MAX * 100}%)
             </label>
             <input
               type="range"
-              min={0}
+              min={TAX_PCT_MIN}
               max={TAX_RATE_MAX * 100}
               step={1}
               value={taxPct}

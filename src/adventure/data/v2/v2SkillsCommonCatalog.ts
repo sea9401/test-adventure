@@ -64,7 +64,7 @@ export type V2CommonSkillId =
   | "v2c_squire_might" // 근력 II (힘 +15%)
   | "v2c_boxer_fortitude" // 포식 (흡혈 +2%)
   | "v2c_monk_spirit" // 정신 (정신 +15%)
-  | "v2c_caster_acumen" // 총명 II (지능 +15%)
+  | "v2c_caster_acumen" // 맹공 (치명 피해 +20%)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
@@ -89,7 +89,7 @@ export type V2CommonSkillId =
   | "v2c_guardian_bulwark3" // 방벽 (방어 +20%)
   | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
   | "v2c_bishop_blessing3" // 축복 (회복량 +30%)
-  | "v2c_shadow_lethality3" // 그늘 (치명 피해 +30%)
+  | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
   | "v2c_templar_smite" // 성기사: 심판의 빛 (물리 타격 + 자힐)
   | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
@@ -100,9 +100,9 @@ export type V2CommonSkillId =
   | "v2c_sensei_combo" // 반격 (피격 시 확률 반격 — 옛 난무, id 유지)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·궁술)
-  | "v2c_veteran_lethal" // 필살 (치명 피해 +25%)
+  | "v2c_veteran_lethal" // 필살 (치명 피해 +30%)
   | "v2c_sensei_ironbody" // 철신 (최대 HP +20%)
-  | "v2c_sage_insight" // 간파 (치명 확률 +8%)
+  | "v2c_sage_insight" // 간파 (치명 확률 +10%)
   | "v2c_chief_afterimage" // 잔영 (회피 +18%)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
@@ -380,7 +380,9 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_caster_acumen", name: "맹공", stat: "int", category: "passive", tier: 2,
     description: "치명타가 더 깊게 박힌다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { critDmgPct: 30 },
+    // 크리축 차수 단조(2026-06-22): 치명피해 2차20<3차25<4차30. 옛 30(2차)이 3차 그늘·4차 필살보다
+    //   높던 역전 해소. 마법사=2차라 하한. docs/v2-job-system-redesign 후속.
+    passive: { critDmgPct: 20 },
   },
   v2c_acolyte_mana: {
     // SPI 부활 PR-4 — 사제 = 힐러. 마나(maxMP%)→회복강화(healPowerPct)로 리스킨(id 유지=세이브 호환).
@@ -520,7 +522,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_shadow_lethality3", name: "그늘", stat: "luk", category: "passive", tier: 3,
     description: "급소를 노리는 일격. 치명타 피해가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { critDmgPct: 30 },
+    passive: { critDmgPct: 25 }, // 크리축 차수 단조 — 그림자=3차(2차20<3차25<4차30).
   },
 
   // ── 하이브리드(tier 3·성기사 = 전사×마법) — 딜+자힐 탱 ──
@@ -597,7 +599,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_veteran_lethal", name: "필살", stat: "str", category: "passive", tier: 3,
     description: "한 방에 모든 것을 싣는다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { critDmgPct: 25 },
+    passive: { critDmgPct: 30 }, // 크리축 차수 단조 — 정예 기사=4차 최상(2차20<3차25<4차30·25→30).
   },
   v2c_sensei_ironbody: {
     // 무도 심화 — 최대 HP(심층 탱). vit 라인(흡혈/회피/활력%)에 없던 축.
@@ -611,7 +613,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_sage_insight", name: "간파", stat: "int", category: "passive", tier: 3,
     description: "흐름을 꿰뚫는다. 치명타 확률이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { critPct: 8 },
+    // 크리축 차수 단조(2026-06-22): 치명확률 4차 대마법사 > 2차 자객(8). 자객(크리 테마)은 8 유지·sage 8→10.
+    passive: { critPct: 10 },
   },
   v2c_chief_afterimage: {
     // 도적 심화 — 회피(잔영). dex 라인(예기/민첩%/치명/명중)에 없던 축.

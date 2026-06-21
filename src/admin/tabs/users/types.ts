@@ -1,8 +1,6 @@
 import type { CharacterDynamicState } from "@/adventure/character/useCharacterState";
 import type { Profile } from "@/adventure/profile/useProfile";
 
-// 훈련(training.v2) 타입 제거(2026-06-12) — v2 는 훈련 시스템 없음(숙련도 재설계로 폐기).
-
 export type AdminUserRow = {
   id: string;
   email: string | null;

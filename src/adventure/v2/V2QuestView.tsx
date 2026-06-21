@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle, Lock, Circle, Gift } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
@@ -66,7 +67,15 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [bundleBusy, setBundleBusy] = useState<"daily" | "weekly" | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [topTab, setTopTab] = useState<TopTab>("daily");
+  // 초기 탭 — 홈 튜토리얼 배너가 ?tab=tutorial 로 딥링크. 그 외 기본 일일.
+  const tabParam = useSearchParams().get("tab");
+  const [topTab, setTopTab] = useState<TopTab>(
+    tabParam === "tutorial" ||
+      tabParam === "weekly" ||
+      tabParam === "achievement"
+      ? tabParam
+      : "daily",
+  );
   // 업적(가이드) 안 진행중/완료 분리.
   const [tab, setTab] = useState<"active" | "done">("active");
 

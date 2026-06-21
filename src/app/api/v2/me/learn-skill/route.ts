@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 비용 — 스킬 종류별 고정(v2SkillLearnCost): 공용 1500 · 전문화 5000.
+    // 비용 — 모든 학습 스킬 고정 단가(v2SkillLearnCost): 1500.
     const cost = v2SkillLearnCost(sig);
 
     const spent = spendProficiency(prof, group, cost);

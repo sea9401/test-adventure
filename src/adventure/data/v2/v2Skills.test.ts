@@ -181,11 +181,11 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(p.blocks[1].condition).toEqual({ kind: "always" });
   });
 
-  it("순수 DoT 공격 스킬(자상·독무)도 '항상' — 첫 턴만 발동하는 회귀 방지", () => {
+  it("순수 DoT 공격 스킬(출혈·중독)도 '항상' — 첫 턴만 발동하는 회귀 방지", () => {
     // dot 효과만 있고 직접 데미지 없는 공격기. damage 버킷에서 빠지면 opener(turn atMost 1)로
     //   잘못 분류돼 첫 턴 후 안 나간다(Codex BLOCK). dot 도 "적 피해"라 항상 발동.
-    expect(smartDefaultConditionForSkill(V2_SKILLS.v2s_gladiator_laceration)).toEqual({ kind: "always" });
-    expect(smartDefaultConditionForSkill(V2_SKILLS.v2s_venom_poisoncloud)).toEqual({ kind: "always" });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.mob_rending_claw)).toEqual({ kind: "always" });
+    expect(smartDefaultConditionForSkill(V2_SKILLS.mob_venom_bite)).toEqual({ kind: "always" });
   });
 
   it("카탈로그에 없는 id 는 안전하게 '항상'", () => {
@@ -264,9 +264,9 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
-    const chips = describeV2Skill(V2_SKILLS.v2s_knight_taunt);
-    expect(chips.some((c) => c.startsWith("적 힘 −"))).toBe(true);
-    expect(chips).toContain("MP 26");
+    const chips = describeV2Skill(V2_SKILLS.v2c_warrior_sunder);
+    expect(chips.some((c) => c.startsWith("적 활력 −"))).toBe(true);
+    expect(chips).toContain("MP 28");
   });
 
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {

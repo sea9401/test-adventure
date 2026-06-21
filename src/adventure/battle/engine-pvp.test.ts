@@ -1032,7 +1032,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
     );
   });
 
-  it("PR2-B — 전문화 temp 버프(속박/enemyVuln)가 PvP 캐스트에서 적용된다", () => {
+  it("PR2-B — 직업 스킬 temp 버프(속박/enemyVuln)가 PvP 캐스트에서 적용된다", () => {
     // 이전엔 PvPSide 가 temp 버프 상태가 없어 아레나에서 미적용이었던 회귀 가드.
     vi.spyOn(Math, "random").mockReturnValue(0); // procRoll 0 < procChance → 발동 강제
     const p1 = makePlayer({ spd: 100, atk: 60, maxMp: 500, hp: 300, maxHp: 300 });
@@ -1042,8 +1042,8 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       potions: { p1: {}, p2: {} },
       v2Skills: {
         p1: {
-          learned: ["v2s_archery_bind"],
-          equipped: ["v2s_archery_bind"],
+          learned: ["v2c_archer_volley"],
+          equipped: ["v2c_archer_volley"],
         },
       },
     };
@@ -1054,7 +1054,7 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
         (e) =>
           e.kind === "info" &&
           e.text.includes("속박 사격") &&
-          e.text.includes("가하는 피해 +30%"),
+          e.text.includes("가하는 피해 +20%"),
       ),
     ).toBe(true);
   });

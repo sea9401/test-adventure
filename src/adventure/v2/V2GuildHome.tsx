@@ -767,15 +767,18 @@ export function V2GuildHome({
         <div className="space-y-4">
           {notice && <NoticeBanner notice={notice} />}
 
-          {/* 관리 탭이 비대해져 내부 하위 탭으로 분리 — 멤버 / 거점 정책 / 길드 설정. */}
-          <TabBar
-            tabs={manageTabs}
-            active={activeManageTab}
-            onChange={setManageTab}
-            ariaLabel="길드 관리 하위 탭"
-            size="sm"
-            variant="underline"
-          />
+          {/* 관리 탭이 비대해져 내부 하위 탭으로 분리 — 멤버 / 거점 정책 / 길드 설정.
+              지역 배경 위라 surface(HeaderPanel)로 감싸야 보임 — 상위 탭과 동일 패턴([[ui-design-system-surfaces]] #888/#890). */}
+          <HeaderPanel className="py-2">
+            <TabBar
+              tabs={manageTabs}
+              active={activeManageTab}
+              onChange={setManageTab}
+              ariaLabel="길드 관리 하위 탭"
+              size="sm"
+              variant="highlight"
+            />
+          </HeaderPanel>
 
           {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
           {/* 멤버 초대 — 길드원 탭에서 이동 */}

@@ -850,22 +850,6 @@ export const pvpMatches = pgTable(
   ],
 );
 
-// 길드 영지(Fiefdom) — 별빛 권역의 길드 단위 비대칭 PvP 콘텐츠 (실험).
-// 길드당 1행. state 는 FiefdomState 직렬화 그대로(빌딩/유닛/자원/영웅 등).
-// guildId 가 PK 이자 FK — 길드 해체 시 cascade 로 같이 사라짐.
-// shieldUntil: 마지막으로 공격 받은 시각 + 4시간. 그 사이엔 공격자가 POST /attack 시 410 거절.
-//
-// 본토 게임 UI 와는 분리 — /dev/fiefdom-live 라우트만 사용. 다른 라우트/스크린은 이 테이블을
-// 일체 참조하지 않으며, 일반 유저 경험에 노출되지 않는다.
-export const fiefdoms = pgTable("fiefdoms", {
-  guildId: integer("guild_id")
-    .primaryKey()
-    .references(() => guilds.id, { onDelete: "cascade" }),
-  state: jsonb("state").notNull(),
-  shieldUntil: timestamp("shield_until"),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // v2 거점 점령 상태. row 가 있으면 점령된 거점, 없으면 NPC 운영(비점령).
 // outpostId = data/v2/outposts.ts 의 Outpost.id (코드 정적 데이터라 FK X).
 // occupiedByUserId/Guild — 둘 다 nullable. 솔로 점령은 user 만, 길드 점령은 guild 만.
@@ -1060,35 +1044,6 @@ export const v2GuildLineups = pgTable("v2_guild_lineups", {
   memberUserIds: text("member_user_ids").array().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
-
-// 공격 감사 로그. 누가 누구를 언제 공격했고 결과/약탈 얼만큼 나갔는지.
-// won=true 면 lootGold/Wood/Food 가 실제 공격자에게 이전된 양 (cap 20% 적용 후).
-// 패배는 0/0/0. defender 측은 raid 알림에서 이 row 를 읽어 표시.
-export const fiefdomRaids = pgTable(
-  "fiefdom_raids",
-  {
-    id: serial("id").primaryKey(),
-    attackerGuildId: integer("attacker_guild_id")
-      .notNull()
-      .references(() => guilds.id, { onDelete: "cascade" }),
-    defenderGuildId: integer("defender_guild_id")
-      .notNull()
-      .references(() => guilds.id, { onDelete: "cascade" }),
-    initiatorUserId: text("initiator_user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    won: boolean("won").notNull(),
-    lootGold: integer("loot_gold").notNull().default(0),
-    lootWood: integer("loot_wood").notNull().default(0),
-    lootFood: integer("loot_food").notNull().default(0),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => [
-    // 본인 길드 raid 이력 (양방향) — 최근 N개.
-    index("fiefdom_raids_defender_idx").on(t.defenderGuildId, t.createdAt),
-    index("fiefdom_raids_attacker_idx").on(t.attackerGuildId, t.createdAt),
-  ],
-);
 
 // 낚시 주간 기록 — (userId, seasonId, fishId) 당 개인 최대어 1행. 종별 주간 리더보드의 원천.
 // seasonId 는 PvP 와 동일한 ISO 주차 키(월 00:00 KST 시작). 캐스팅 성공 시 더 크면 upsert.

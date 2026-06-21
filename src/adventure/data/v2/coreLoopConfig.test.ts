@@ -8,7 +8,6 @@ import {
   coreLoopMaxHpMult,
   ADVENTURER_MAXHP_BONUS_PCT,
   OUTPOST_MOVE_GOLD_COST,
-  OUTPOST_WARP_GOLD_COST,
   CLAIM_GOLD_COST_BY_TIER,
   combatCooldownRemainingMs,
   lossTaxOf,
@@ -315,9 +314,8 @@ describe("lossTaxOf — 패배 세금 (순수, 보유 한도 클램프)", () => 
 });
 
 describe("coreLoopConfig — 거점 행동 골드 비용 (스태미나 대체)", () => {
-  it("이동/워프 비용 양수, 워프 > 이동", () => {
+  it("이동 비용 양수", () => {
     expect(OUTPOST_MOVE_GOLD_COST).toBeGreaterThan(0);
-    expect(OUTPOST_WARP_GOLD_COST).toBeGreaterThan(OUTPOST_MOVE_GOLD_COST);
   });
 
   it("점령 비용 4티어 전부 등록 + 티어 오름차순(상위 거점일수록 비쌈)", () => {

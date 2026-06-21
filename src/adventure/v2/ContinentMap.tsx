@@ -291,7 +291,6 @@ export function ContinentMap({
   viewerUserId,
   viewerGuildId,
   currentOutpostId,
-  discoveredIds,
   visibleIds,
   warMode,
   onAttack,
@@ -307,8 +306,6 @@ export function ContinentMap({
   viewerUserId?: string | null;
   // 플레이어의 현재 거점 — 마커 표식(현 위치) + 둘러보기 기준.
   currentOutpostId?: string | null;
-  // (안개 폐기 — B안 PR-3로 어느 화면도 미전달. 미지정이면 전부 공개. faint-dot 분기는 inert·PR-5 청소.)
-  discoveredIds?: ReadonlySet<string>;
   // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 영토/경계는 숨김. 전쟁 탭의
   // "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
   visibleIds?: ReadonlySet<string>;
@@ -333,9 +330,6 @@ export function ContinentMap({
   const [hover, setHover] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
 
-  // 발견 판정 — discoveredIds 미지정이면 전부 공개로 본다(순수 시각 프리뷰).
-  const isDiscovered = (id: string): boolean =>
-    !discoveredIds || discoveredIds.has(id);
 
   // 선택 거점이 현재 위치 자신인가.
   const isCurrentSelected = !!selected && selected.id === currentOutpostId;
@@ -470,8 +464,6 @@ export function ContinentMap({
             const oa = OUTPOST_BY_ID.get(a);
             const ob = OUTPOST_BY_ID.get(b);
             if (!oa || !ob) return null;
-            // 안개 — 양 끝이 모두 발견된 길만 그린다(미발견 지역의 길은 숨김).
-            if (!isDiscovered(a) || !isDiscovered(b)) return null;
             if (!isVisible(a) || !isVisible(b)) return null;
             const pa = gpos(a);
             const pb = gpos(b);
@@ -496,7 +488,6 @@ export function ContinentMap({
               const oa = OUTPOST_BY_ID.get(a);
               const ob = OUTPOST_BY_ID.get(b);
               if (!oa || !ob) return null;
-              if (!isDiscovered(a) || !isDiscovered(b)) return null;
               if (!isVisible(a) || !isVisible(b)) return null;
               const pa = gpos(a);
               const pb = gpos(b);
@@ -520,18 +511,6 @@ export function ContinentMap({
               테두리 = 소유(내것/적/중립/NPC). tier 큐는 stroke 굵기로만 약하게. */}
           {OUTPOSTS.filter((o) => isVisible(o.id)).map((o) => {
             const p = gpos(o.id);
-            // 미발견(안개) — 흐린 점만 찍고 비활성(클릭/이름/아이콘 없음).
-            if (!isDiscovered(o.id)) {
-              return (
-                <circle
-                  key={o.id}
-                  cx={p.cx}
-                  cy={p.cy}
-                  r={HALF * 0.45}
-                  className="fill-zinc-400/25 dark:fill-zinc-600/25"
-                />
-              );
-            }
             const isKingdom = o.tier === 4;
             const isNeutral = o.neutral === true;
             const isSelected = selected?.id === o.id;

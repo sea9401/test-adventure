@@ -25,6 +25,7 @@ import {
 import {
   canReforge,
   reforgeGoldCost,
+  REFORGE_COMBINE_COST,
   REFORGE_STONE_MATERIAL_ID,
   REFORGE_STONES,
   rollQualityPct,
@@ -83,7 +84,7 @@ type ReforgeResponse = {
   improved?: boolean;
 };
 
-type ForgeMode = "enhance" | "reforge";
+type ForgeMode = "enhance" | "reforge" | "combine";
 
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
@@ -307,6 +308,41 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     }
   }, [selected, item, busy, refresh, reforgeStone]);
 
+  // ── 조합(combine) — 일반 재련석 3개 → 상급 재련석 1개(결정론·무료) ──
+  const combinePossible = Math.floor(reforgeStones.basic / REFORGE_COMBINE_COST);
+  const combineShort = reforgeStones.basic < REFORGE_COMBINE_COST;
+
+  const doCombine = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/reforge-stone-combine", {
+        method: "POST",
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!json.ok) {
+        setMsg({
+          kind: "error",
+          text:
+            json.error === "insufficient_stone"
+              ? "재련석이 부족합니다"
+              : `실패: ${json.error ?? "unknown"}`,
+        });
+        return;
+      }
+      setMsg({
+        kind: "success",
+        text: `✨ 재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개`,
+      });
+      await refresh();
+    } catch {
+      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, refresh]);
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -334,11 +370,12 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         }
       />
 
-      {/* 작업 모드 — 강화 / 재련 */}
+      {/* 작업 모드 — 강화 / 재련 / 조합 */}
       <TabBar
         tabs={[
           { key: "enhance" as ForgeMode, label: "강화" },
           { key: "reforge" as ForgeMode, label: "재련" },
+          { key: "combine" as ForgeMode, label: "조합" },
         ]}
         active={mode}
         onChange={(m) => {
@@ -608,6 +645,57 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 </button>
               </>
             )}
+            {msg && (
+              <div
+                className={`rounded-md border px-3 py-1.5 text-xs ${
+                  msg.kind === "success"
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                    : msg.kind === "fail"
+                      ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                }`}
+              >
+                {msg.text}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* 조합 패널 — 일반 재련석 3개 → 상급 재련석 1개 (장비 선택 불필요) */}
+      {mode === "combine" && (
+        <Card padding="sm">
+          <div className="space-y-2">
+            <div className="text-sm font-semibold">재련석 조합</div>
+            <div className="flex items-center justify-center gap-3 text-sm tabular-nums">
+              <span className="text-zinc-500 dark:text-zinc-400">
+                🔧 재련석 {REFORGE_COMBINE_COST}
+              </span>
+              <span aria-hidden>→</span>
+              <span className="text-indigo-500">✨ 상급 재련석 1</span>
+            </div>
+            <div className="flex items-baseline justify-between text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              <span>
+                보유 — 🔧 {reforgeStones.basic} · ✨ {reforgeStones.high}
+              </span>
+              <span>조합 가능 {combinePossible}회</span>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              일반 재련석 {REFORGE_COMBINE_COST}개를 상급 재련석 1개로 바꿉니다.
+              골드는 들지 않습니다.
+            </p>
+            <button
+              type="button"
+              onClick={() => void doCombine()}
+              disabled={busy || combineShort}
+              className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {busy
+                ? "조합 중…"
+                : combineShort
+                  ? `재련석 부족 (${REFORGE_COMBINE_COST}개 필요)`
+                  : "조합"}
+            </button>
             {msg && (
               <div
                 className={`rounded-md border px-3 py-1.5 text-xs ${

@@ -22,10 +22,7 @@ import {
   OUTPOSTS,
   START_OUTPOST_ID,
 } from "@/adventure/data/v2/outposts";
-import {
-  shortestOutpostPath,
-  seededDiscovery,
-} from "@/adventure/data/v2/outpostGraph";
+import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import {
@@ -39,10 +36,6 @@ import type { Gender } from "@/adventure/profile/avatars";
 // 신규/미방문 플레이어의 기본 현재 거점 — 인접 게이트의 부트스트랩 기준점.
 const START_OUTPOST = OUTPOSTS.find((o) => o.id === START_OUTPOST_ID)!;
 
-// 다중 홉 자동 이동에서 한 칸 진입 사이의 간격(ms) — 마커가 길을 "걸어가는" 느낌.
-const TRAVEL_HOP_MS = 160;
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 // 거점 금고 잔액 — occupations GET 동봉(gold>0 만).
 export type TreasuryEntry = { outpostId: string; gold: number };
@@ -142,7 +135,6 @@ type GameStateValue = {
   // 생략=길드 탭). /outpost/[id] 가 ?from= 으로 읽는다.
   enterOutpost: (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => void;
   travelTo: (target: Outpost) => void;
-  warpTo: (outpostId: string) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -496,76 +488,28 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [currentOutpost, router, applyVisitResult],
   );
 
-  // 다중 홉 자동 이동 — 현재 거점에서 목적지까지 최단 경로를 따라 한 칸씩 순차 진입한다.
-  // 워프가 아니라 길을 "걸어가는" 것: 홉마다 currentOutpost(마커)만 갱신하고 지도에 머문다.
-  // 거점 화면은 열지 않는다(연속 이동 편의 — 한 칸씩 옮길 때 매번 지도 다시 안 켜도 됨).
+  // 자유이동 — 현재 거점에서 목적지로 바로 이동(인접/경로 무관, B안 PR-3). 서버가 비용을
+  // 권위 판정. 마커만 옮기고 지도에 머문다(거점 화면은 열지 않음 — 연속 이동 편의).
   // 거점 진입은 모험 탭 「거점 진입」 또는 지도에서 현재 거점 「둘러보기」로.
   const travelTo = useCallback(
     (target: Outpost) => {
       if (visitInFlightRef.current) return;
       const startId = currentOutpost?.id ?? START_OUTPOST_ID;
       if (startId === target.id) return; // 이미 그 거점 — 이동 없음.
-      // 발견된 거점만 거쳐가는 최단 경로(안개 게이트). 목적지가 미발견이면 경로 없음.
-      const path = shortestOutpostPath(startId, target.id, discoveredIds);
-      if (!path || path.length < 2) return; // 미발견/미연결(방어).
-      visitInFlightRef.current = true;
-      void (async () => {
-        try {
-          for (let i = 1; i < path.length; i += 1) {
-            const stepId = path[i];
-            const res = await fetch("/api/v2/me/visit-outpost", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ outpostId: stepId }),
-            });
-            const j = await res.json().catch(() => null);
-            applyVisitResult(j);
-            // 막히면(인접 위반·스태미나 부족·네트워크) 도달한 지점에서 멈춘다(부분 이동 유효).
-            if (!res.ok) break;
-            const o = OUTPOST_BY_ID.get(stepId);
-            if (o) setCurrentOutpost({ id: o.id, name: o.name });
-            if (i < path.length - 1) await delay(TRAVEL_HOP_MS);
-          }
-        } catch {
-          // 네트워크 오류 — 도달한 지점에서 멈춘다.
-        } finally {
-          visitInFlightRef.current = false;
-        }
-        // 거점 화면으로 이동하지 않는다 — 마커만 옮기고 지도에 머문다.
-      })();
-    },
-    [currentOutpost, discoveredIds, applyVisitResult],
-  );
-
-  // 발견한 거점으로 즉시 이동 — 서버가 발견 여부와 스태미나 비용을 권위 판정한다.
-  const warpTo = useCallback(
-    (outpostId: string) => {
-      if (visitInFlightRef.current) return;
-      if (currentOutpost?.id === outpostId) return;
-      const outpost = OUTPOST_BY_ID.get(outpostId);
-      if (!outpost) return;
       visitInFlightRef.current = true;
       void (async () => {
         try {
           const res = await fetch("/api/v2/me/visit-outpost", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ outpostId, mode: "warp" }),
+            body: JSON.stringify({ outpostId: target.id }),
           });
-          const j = (await res.json().catch(() => null)) as {
-            ok?: boolean;
-            error?: string;
-          } | null;
+          const j = await res.json().catch(() => null);
           applyVisitResult(j);
-          if (res.ok && j?.ok) {
-            setCurrentOutpost({ id: outpost.id, name: outpost.name });
-            return;
-          }
-          if (j?.error === "not_discovered") {
-            window.alert("아직 발견하지 않은 거점입니다");
-          }
+          // 비용 부족(out_of_gold/stamina)·오류면 위치 유지, 성공이면 마커 갱신.
+          if (res.ok) setCurrentOutpost({ id: target.id, name: target.name });
         } catch {
-          // 네트워크 오류 — 현재 위치를 유지한다.
+          // 네트워크 오류 — 현재 위치 유지.
         } finally {
           visitInFlightRef.current = false;
         }
@@ -629,7 +573,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setFrontierDepth,
     enterOutpost,
     travelTo,
-    warpTo,
   };
 
   return (

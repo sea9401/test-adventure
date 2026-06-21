@@ -3,14 +3,11 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import {
-  canMoveToOutpost,
-  canWarpToOutpost,
   expandDiscovery,
   resolveCurrentOutpostId,
 } from "@/adventure/data/v2/outpostGraph";
 import {
   OUTPOST_MOVE_COST,
-  OUTPOST_WARP_COST,
   applyRegen,
   parseStaminaFromSave,
   tryConsume,
@@ -19,25 +16,21 @@ import {
 import {
   V2_CORE_LOOP_V2,
   OUTPOST_MOVE_GOLD_COST,
-  OUTPOST_WARP_GOLD_COST,
   spendGold,
 } from "@/adventure/data/v2/coreLoopConfig";
 
-// POST /api/v2/me/visit-outpost — 현재 머무는 거점 갱신(이동/워프/재진입).
+// POST /api/v2/me/visit-outpost — 현재 머무는 거점 갱신(자유이동/재진입).
 //
-// 본문: { outpostId: string, mode?: "adjacent" | "warp" }  (mode 기본 "adjacent")
+// 본문: { outpostId: string }
 // character.v2 갱신: lastVisitedOutpost { outpostId, at } + stamina + discoveredOutpostIds.
 //
-// 규칙(권위 — 클라 ContinentMap 도 같은 규칙으로 게이트):
-//  - "adjacent": 인접 거점으로만(canMoveToOutpost). 비인접은 not_adjacent 400. 1홉당
-//    OUTPOST_MOVE_COST 소모.
-//  - "warp": 이미 발견(discoveredOutpostIds)한 거점으로 순간이동(인접 무관). 미발견은
-//    not_discovered 400. OUTPOST_WARP_COST 소모. (안개 첫 발견은 여전히 인접 이동으로만 —
-//    소울즈식: 처음엔 걷고, 발견 후엔 워프.)
-//  - 같은 거점 재진입은 mode 무관 무료(회복만 반영).
-//  - 비용: 코어루프(V2_CORE_LOOP_V2) on = 골드(이동 OUTPOST_MOVE_GOLD_COST·워프
-//    OUTPOST_WARP_GOLD_COST, 부족 시 out_of_gold 409), off = 스태미나(out_of_stamina 409).
-//  - 방문 시 발견(안개) 확장 — 그 거점 + 인접을 discoveredOutpostIds 에 추가.
+// 규칙(권위 — 클라 ContinentMap 도 같은 규칙):
+//  - 자유이동(지도 재설계 B안 PR-3): 유효한 거점이면 어디로든 바로 이동 — 인접/발견 게이트 없음.
+//    이동 1회당 OUTPOST_MOVE_COST(스태미나) 또는 OUTPOST_MOVE_GOLD_COST(골드) 소모.
+//  - 같은 거점 재진입은 무료(회복만 반영).
+//  - 비용: 코어루프(V2_CORE_LOOP_V2) on = 골드(부족 시 out_of_gold 409), off = 스태미나(out_of_stamina 409).
+//  - 방문 시 방문 거점 집합(discoveredOutpostIds) 갱신 — 가이드 퀘스트("거점 방문") 지표용.
+//    안개(미발견 거점 시각 숨김)는 폐기 — 클라는 전 거점을 늘 표시.
 
 type CharSave = {
   lastVisitedOutpost?: { outpostId?: string; at?: number };
@@ -53,7 +46,7 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { outpostId?: unknown; mode?: unknown };
+  let body: { outpostId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -66,11 +59,8 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "bad_outpost" }, { status: 400 });
   }
   const outpostId = body.outpostId;
-  const mode: "adjacent" | "warp" = body.mode === "warp" ? "warp" : "adjacent";
 
   type VisitResult =
-    | { kind: "not_adjacent" }
-    | { kind: "not_discovered" }
     | { kind: "out_of_stamina"; stamina: StaminaState }
     | { kind: "out_of_gold"; required: number; gold: number }
     | {
@@ -127,18 +117,8 @@ export async function POST(req: Request) {
         return null;
       };
 
-      if (isMove && mode === "warp") {
-        // 워프 — 이미 발견한 거점만(인접 무관). 빈/레거시 세이브는 시드 발견으로 판정.
-        if (!canWarpToOutpost(charSave.discoveredOutpostIds, outpostId)) {
-          return { kind: "not_discovered" }; // 쓰기 없이 종료.
-        }
-        const err = charge(OUTPOST_WARP_COST, OUTPOST_WARP_GOLD_COST);
-        if (err) return err;
-      } else if (isMove) {
-        // 인접 이동 — 기존 규칙(인접만, 1홉 비용).
-        if (!canMoveToOutpost(savedId, outpostId)) {
-          return { kind: "not_adjacent" }; // 쓰기 없이 종료 — 위치 변경 안 함.
-        }
+      if (isMove) {
+        // 자유이동 — 유효 거점이면 어디로든(인접/발견 게이트 없음). 이동 1회 비용.
         const err = charge(OUTPOST_MOVE_COST, OUTPOST_MOVE_GOLD_COST);
         if (err) return err;
       }
@@ -162,12 +142,6 @@ export async function POST(req: Request) {
     },
   );
 
-  if (result.kind === "not_adjacent") {
-    return Response.json({ ok: false, error: "not_adjacent" }, { status: 400 });
-  }
-  if (result.kind === "not_discovered") {
-    return Response.json({ ok: false, error: "not_discovered" }, { status: 400 });
-  }
   if (result.kind === "out_of_stamina") {
     return Response.json(
       { ok: false, error: "out_of_stamina", stamina: result.stamina },

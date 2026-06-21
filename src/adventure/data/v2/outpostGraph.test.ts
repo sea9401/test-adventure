@@ -4,10 +4,7 @@ import {
   OUTPOST_EDGES,
   getOutpostNeighbors,
   areOutpostsAdjacent,
-  shortestOutpostPath,
   resolveCurrentOutpostId,
-  canMoveToOutpost,
-  canWarpToOutpost,
   seededDiscovery,
   expandDiscovery,
 } from "./outpostGraph";
@@ -88,86 +85,20 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
     expect(areOutpostsAdjacent("does_not_exist", OUTPOSTS[0].id)).toBe(false);
   });
 
-  describe("shortestOutpostPath (다중 홉 경로)", () => {
-    it("같은 거점이면 자기 자신만", () => {
-      const id = OUTPOSTS[0].id;
-      expect(shortestOutpostPath(id, id)).toEqual([id]);
-    });
-
-    it("없는 거점이면 null", () => {
-      expect(shortestOutpostPath("nope", OUTPOSTS[0].id)).toBeNull();
-      expect(shortestOutpostPath(OUTPOSTS[0].id, "nope")).toBeNull();
-    });
-
-    it("연결 그래프라 임의의 두 거점 사이에 경로가 있고, 각 단계가 실제 인접", () => {
-      const a = OUTPOSTS[0].id;
-      // 좌표상 먼 거점(마지막) 까지도 경로가 나와야 한다.
-      const b = OUTPOSTS[OUTPOSTS.length - 1].id;
-      const path = shortestOutpostPath(a, b);
-      expect(path).not.toBeNull();
-      const p = path!;
-      expect(p[0]).toBe(a);
-      expect(p[p.length - 1]).toBe(b);
-      // 경로의 인접 쌍이 모두 실제 엣지이고, 같은 거점을 두 번 거치지 않는다.
-      expect(new Set(p).size).toBe(p.length);
-      for (let i = 1; i < p.length; i += 1) {
-        expect(areOutpostsAdjacent(p[i - 1], p[i]), `${p[i - 1]}→${p[i]}`).toBe(
-          true,
-        );
-      }
-    });
-
-    it("인접한 두 거점은 2개짜리 경로(1홉)", () => {
-      const { a, b } = OUTPOST_EDGES[0];
-      expect(shortestOutpostPath(a, b)).toEqual([a, b]);
-    });
-  });
-
-  describe("이동 게이트 (canMoveToOutpost / resolveCurrentOutpostId)", () => {
-    const startNeighbors = getOutpostNeighbors(START_OUTPOST_ID);
-    const adjId = startNeighbors[0];
-    // 시작 거점과 인접하지 않은(그리고 시작 거점 자신도 아닌) 임의의 먼 거점.
-    const farId = OUTPOSTS.map((o) => o.id).find(
-      (id) => id !== START_OUTPOST_ID && !areOutpostsAdjacent(START_OUTPOST_ID, id),
-    )!;
-
-    it("시작 거점은 이웃이 하나 이상 있고, 비인접 거점도 존재(테스트 전제)", () => {
-      expect(adjId).toBeTruthy();
-      expect(farId).toBeTruthy();
-    });
-
-    it("같은 거점 재진입은 허용", () => {
-      expect(canMoveToOutpost(START_OUTPOST_ID, START_OUTPOST_ID)).toBe(true);
-      const { a } = OUTPOST_EDGES[0];
-      expect(canMoveToOutpost(a, a)).toBe(true);
-    });
-
-    it("현재 → 인접 허용 / 현재 → 비인접 거부", () => {
-      expect(canMoveToOutpost(START_OUTPOST_ID, adjId)).toBe(true);
-      expect(canMoveToOutpost(START_OUTPOST_ID, farId)).toBe(false);
-    });
-
-    it("실제 인접 엣지는 양방향 허용", () => {
-      const { a, b } = OUTPOST_EDGES[0];
-      expect(canMoveToOutpost(a, b)).toBe(true);
-      expect(canMoveToOutpost(b, a)).toBe(true);
-    });
-
+  describe("resolveCurrentOutpostId (현재 거점 정규화)", () => {
+    // 자유이동(B안 PR-3) 후엔 이동 게이트가 없고, 이 함수는 멤버십 검사/방문 추적 기준점으로만.
     it("저장값 없음(신규)은 시작 거점 기준(부트스트랩)", () => {
       expect(resolveCurrentOutpostId(null)).toBe(START_OUTPOST_ID);
       expect(resolveCurrentOutpostId(undefined)).toBe(START_OUTPOST_ID);
-      expect(canMoveToOutpost(null, adjId)).toBe(true);
-      expect(canMoveToOutpost(null, farId)).toBe(false);
     });
 
     it("저장값이 미지/손상이면 시작 거점으로 폴백", () => {
       expect(resolveCurrentOutpostId("garbage_id")).toBe(START_OUTPOST_ID);
-      expect(canMoveToOutpost("garbage_id", adjId)).toBe(true);
-      expect(canMoveToOutpost("garbage_id", farId)).toBe(false);
     });
   });
 
-  describe("발견(안개) — seededDiscovery / expandDiscovery", () => {
+  describe("방문 추적 — seededDiscovery / expandDiscovery", () => {
+    // 안개(시각 숨김)는 폐기됐지만, 방문 거점 집합은 가이드 퀘스트("거점 방문") 지표로 유지.
     it("시드 = 시작 거점 + 그 인접", () => {
       const seed = new Set(seededDiscovery());
       expect(seed.has(START_OUTPOST_ID)).toBe(true);
@@ -190,48 +121,6 @@ describe("v2 거점 인접 그래프 (Gabriel)", () => {
       const out = new Set(expandDiscovery(base, visited));
       expect(out.has(START_OUTPOST_ID)).toBe(true);
       expect(out.has(visited)).toBe(true);
-    });
-  });
-
-  describe("발견 제한 경로 — shortestOutpostPath(allowed)", () => {
-    it("목적지가 allowed 밖이면 null", () => {
-      const a = START_OUTPOST_ID;
-      const b = getOutpostNeighbors(a)[0];
-      expect(shortestOutpostPath(a, b, new Set([a]))).toBeNull();
-    });
-
-    it("allowed 안에서만 경로를 찾고, 경로의 모든 노드가 allowed", () => {
-      const a = START_OUTPOST_ID;
-      const allowed = new Set(seededDiscovery()); // 시작 + 인접
-      const b = getOutpostNeighbors(a)[0]; // 인접 = allowed 안
-      const path = shortestOutpostPath(a, b, allowed);
-      expect(path).toEqual([a, b]);
-      // from 은 allowed 와 무관하게 출발점으로 허용되지만, 나머지는 모두 allowed 안.
-      for (const id of path!.slice(1)) expect(allowed.has(id), id).toBe(true);
-    });
-  });
-
-  describe("워프 게이트 — canWarpToOutpost(발견한 거점만)", () => {
-    const seed = new Set(seededDiscovery());
-    const far = OUTPOSTS.find((o) => !seed.has(o.id))!.id;
-
-    it("발견한 거점은 워프 가능, 미발견은 불가", () => {
-      expect(canWarpToOutpost([far], far)).toBe(true);
-      expect(canWarpToOutpost(["war_central_fort"], far)).toBe(false);
-    });
-
-    it("빈/undefined discovered 는 시드 발견(시작+인접)으로 판정", () => {
-      expect(canWarpToOutpost(undefined, START_OUTPOST_ID)).toBe(true);
-      expect(canWarpToOutpost([], START_OUTPOST_ID)).toBe(true);
-      expect(canWarpToOutpost([], getOutpostNeighbors(START_OUTPOST_ID)[0])).toBe(
-        true,
-      );
-      // 시드 밖(시작에서 먼 거점)은 빈 discovered 로는 워프 불가.
-      expect(canWarpToOutpost([], far)).toBe(false);
-    });
-
-    it("미지의 거점 id 는 false", () => {
-      expect(canWarpToOutpost([START_OUTPOST_ID], "does_not_exist")).toBe(false);
     });
   });
 });

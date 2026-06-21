@@ -8,22 +8,18 @@ import { ContinentMap } from "@/adventure/v2/ContinentMap";
 export default function MapPage() {
   const {
     travelTo,
-    warpTo,
     occupations,
     treasuries,
     viewerUserId,
     currentOutpost,
-    discoveredIds,
   } = useGameState();
   return (
     <ContinentMap
       onTravelTo={travelTo}
-      onWarp={(o) => warpTo(o.id)}
       occupations={occupations}
       treasuries={treasuries}
       viewerUserId={viewerUserId}
       currentOutpostId={currentOutpost?.id ?? null}
-      discoveredIds={discoveredIds}
     />
   );
 }

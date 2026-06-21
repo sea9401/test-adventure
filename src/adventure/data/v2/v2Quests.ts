@@ -85,6 +85,10 @@ export type QuestCtx = {
   maxEnhanceLevel: number;
   /** 보유 강화석 합(붉은+푸른). character.v2.materials. */
   enhanceStones: number;
+  /** 은행(금고) 예치 골드. character.v2.bankedGold. */
+  bankedGold: number;
+  /** 로드아웃에 장착한 스킬 수. skills.v2.equipped. */
+  skillsEquipped: number;
 };
 
 export type QuestDef = {
@@ -177,6 +181,36 @@ const GROWTH: QuestDef[] = [
     desc: "프론티어 첫 테마 밴드(깊이 7)에 진입하세요.",
     reward: { gold: 800 },
     check: (c) => c.frontierDepth >= 7,
+  },
+];
+
+// ── 기초 튜토리얼(독립 마일스톤 · 비순차) ────────────────────────────────────
+// 성장의 길이 안 다루는 기본 조작을 한 번씩 익히게 하는 묶음(은행·스킬·이동).
+// 강화/낚시/보물은 enhance·life 라인이 첫 단계부터 다루므로 여기엔 중복 안 둔다.
+const BASICS: QuestDef[] = [
+  {
+    id: "b_bank",
+    line: "basics",
+    title: "안전한 보관",
+    desc: "거점 은행에 골드를 맡겨보세요.",
+    reward: { gold: 100 },
+    check: (c) => c.bankedGold > 0,
+  },
+  {
+    id: "b_skill",
+    line: "basics",
+    title: "기술 연마",
+    desc: "로드아웃에 스킬을 하나 장착해보세요.",
+    reward: { gold: 100 },
+    check: (c) => c.skillsEquipped >= 1,
+  },
+  {
+    id: "b_travel",
+    line: "basics",
+    title: "새로운 땅으로",
+    desc: "지도에서 다른 거점으로 이동해보세요.",
+    reward: { gold: 100 },
+    check: (c) => c.outpostsDiscovered >= 2,
   },
 ];
 
@@ -678,6 +712,12 @@ export const QUEST_LINES: readonly QuestLine[] = [
     subtitle: "첫 전투부터 직업 전직까지 — 차례로 따라오세요.",
     sequential: true,
   },
+  {
+    id: "basics",
+    name: "기초 튜토리얼",
+    subtitle: "은행·스킬·이동 — 기본 조작을 한 번씩 익혀보세요.",
+    sequential: false,
+  },
   ...CLASS_LINES,
   {
     id: "social",
@@ -731,6 +771,7 @@ export const QUEST_LINES: readonly QuestLine[] = [
 
 export const V2_QUESTS: readonly QuestDef[] = [
   ...GROWTH,
+  ...BASICS,
   ...CLASS_QUESTS,
   ...SOCIAL,
   ...COLLECT,

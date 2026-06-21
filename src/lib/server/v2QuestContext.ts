@@ -44,6 +44,7 @@ type CharSave = {
   frontierDepth?: unknown;
   specChoice?: unknown; // 직업 사다리 브리지(jobIdFromLegacy) — tier 파생용
   gold?: unknown;
+  bankedGold?: unknown;
   discoveredOutpostIds?: unknown;
   materials?: Record<string, unknown>;
 };
@@ -81,6 +82,7 @@ export function buildQuestCtx(args: {
   proficiencyRaw: unknown;
   advLogRaw: unknown;
   equipmentRaw: unknown;
+  skillsRaw: unknown;
   extras: QuestExtras;
 }): QuestCtx {
   const charSave = (args.charRaw ?? {}) as CharSave;
@@ -147,6 +149,12 @@ export function buildQuestCtx(args: {
   const outpostsDiscovered = Array.isArray(charSave.discoveredOutpostIds)
     ? charSave.discoveredOutpostIds.length
     : 0;
+  // 기초 튜토리얼 — 은행 예치 골드 / 로드아웃 장착 스킬 수.
+  const bankedGold = num(charSave.bankedGold);
+  const skillsSave = (args.skillsRaw ?? {}) as { equipped?: unknown };
+  const skillsEquipped = Array.isArray(skillsSave.equipped)
+    ? skillsSave.equipped.filter((s) => typeof s === "string").length
+    : 0;
 
   // 확장 신호(2026-06-11) — 누적레벨·몬스터 종 수·전쟁 카운터.
   const cumLevel = totalCumLevel(prof);
@@ -186,6 +194,8 @@ export function buildQuestCtx(args: {
     antiquesFound: args.extras.antiquesFound,
     maxEnhanceLevel,
     enhanceStones,
+    bankedGold,
+    skillsEquipped,
   };
 }
 

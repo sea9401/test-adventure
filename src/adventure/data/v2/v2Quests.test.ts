@@ -42,6 +42,8 @@ const ZERO: QuestCtx = {
   antiquesFound: 0,
   maxEnhanceLevel: 0,
   enhanceStones: 0,
+  bankedGold: 0,
+  skillsEquipped: 0,
 };
 
 const none = new Set<string>();
@@ -95,6 +97,39 @@ describe("성장의 길 (순차 라인)", () => {
     expect(isQuestClaimable(questById("g_first_battle")!, ctx, claimed)).toBe(
       false,
     );
+  });
+
+  it("기초 튜토리얼 — 은행/스킬/이동 신호로만 충족(신규는 미충족)", () => {
+    // 신규(ZERO) = 전부 미충족.
+    expect(questStatus(questById("b_bank")!, ZERO, none)).toBe("active");
+    expect(questStatus(questById("b_skill")!, ZERO, none)).toBe("active");
+    expect(questStatus(questById("b_travel")!, ZERO, none)).toBe("active");
+    // 각 신호 충족 시 수령 가능.
+    expect(
+      isQuestClaimable(questById("b_bank")!, { ...ZERO, bankedGold: 50 }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("b_skill")!,
+        { ...ZERO, skillsEquipped: 1 },
+        none,
+      ),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("b_travel")!,
+        { ...ZERO, outpostsDiscovered: 2 },
+        none,
+      ),
+    ).toBe(true);
+    // 거점 1곳(시작 거점 시드 가능)만으론 이동 퀘 미충족.
+    expect(
+      isQuestClaimable(
+        questById("b_travel")!,
+        { ...ZERO, outpostsDiscovered: 1 },
+        none,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -301,6 +336,8 @@ describe("currentGuideQuest (홈 배너)", () => {
       antiquesFound: 24,
       maxEnhanceLevel: 10,
       enhanceStones: 99,
+      bankedGold: 99999,
+      skillsEquipped: 5,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();

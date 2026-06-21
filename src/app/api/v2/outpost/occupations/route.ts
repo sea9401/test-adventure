@@ -7,6 +7,7 @@ import {
 } from "@/db/schema";
 import { gt, inArray, isNotNull } from "drizzle-orm";
 import { currentFortHp } from "@/adventure/data/v2/outpostSiege";
+import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 
 // GET /api/v2/outpost/occupations — 모든 점령된 거점 상태 조회.
 // 응답: { occupations: [...], treasuries: [{ outpostId, gold }] }
@@ -16,7 +17,7 @@ import { currentFortHp } from "@/adventure/data/v2/outpostSiege";
 // 인증 불필요 — 점령 상태는 공개 정보 (모든 유저가 지도에서 본다).
 
 export async function GET() {
-  const [rows, treasuryRows, villageRows] = await Promise.all([
+  const [rawRows, rawTreasury, villageRows] = await Promise.all([
     db.select().from(outpostOccupations),
     db
       .select({ outpostId: outpostTreasury.outpostId, gold: outpostTreasury.gold })
@@ -31,6 +32,9 @@ export async function GET() {
       .from(outpostVillages)
       .where(isNotNull(outpostVillages.name)),
   ]);
+  // 고아 행 거르기 — 현재 거점 데이터(OUTPOSTS)에 없는 outpostId(옛 지도 축소 잔재)는 제외.
+  const rows = rawRows.filter((r) => OUTPOST_BY_ID.has(r.outpostId));
+  const treasuryRows = rawTreasury.filter((t) => OUTPOST_BY_ID.has(t.outpostId));
   const now = new Date();
   const villageNameById = new Map<string, string>();
   for (const v of villageRows) {

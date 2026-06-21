@@ -206,13 +206,8 @@ export function kingdomIdOf(o: Outpost): string | undefined {
   return KINGDOM_ID_BY_OUTPOST.get(o.id);
 }
 
-// 지도 마커 채움색 — 거점이 속한 왕국의 고유색. 미등록 시 회색 폴백.
-export function kingdomColorOf(o: Outpost): string {
-  const id = KINGDOM_ID_BY_OUTPOST.get(o.id);
-  return (id && KINGDOM_COLORS[id]) || "#5d5d68";
-}
-
-// 거점이 속한 왕국 이름(예: "에이라 왕국"). NPC 운영 거점 표기(소속 왕국)에 사용.
+// 거점이 속한 지역 중심 거점 이름(예: "에이라"). 지도 팝업의 "○○령" 지역 표기에 사용.
+// (KINGDOM_COLORS 는 지도 배경 격자의 지역 테마색으로 ContinentMap 에서 계속 쓴다.)
 export function kingdomNameOf(o: Outpost): string | undefined {
   const id = KINGDOM_ID_BY_OUTPOST.get(o.id);
   return id ? OUTPOST_BY_ID.get(id)?.name : undefined;

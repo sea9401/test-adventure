@@ -13,9 +13,7 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
-import {
-  EVASION_PCT_CAP,
-} from "@/adventure/data/stats";
+import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
 import {
   elementDamageMult,
   V2_ELEMENT_ADV_PCT,
@@ -332,19 +330,21 @@ export function resolveEnemyPhase(
     state.stacks.enemyAccuracyDownTurns > 0
       ? state.stacks.enemyAccuracyDownPct
       : 0;
+  // 회피 대결형 Slice 1 — 몹 명중레이팅(floorAccuracy(depth)+몹 accuracy, scaleMonsterForFloor 가 합산) − 암흑.
   const enemyAccuracy = Math.max(0, (state.enemy.accuracy ?? 0) - accDown);
-  const effectiveEvadePct = Math.max(
+  // 플레이어 회피레이팅(캡 없는 raw) + temp 버프(행운/운기/선풍각) − 한기슬로우. 버프는 이제 레이팅 가산(점감).
+  const evaRatingTotal = Math.max(
     0,
-    Math.min(
-      EVASION_PCT_CAP,
-      player.evasionPct +
-        luckEvadeBonus +
-        universalLuckEvadeBonus +
-        state.buffs.cyclingChiBonus +
-        // PR2-B-2c 선풍각 — 회피 temp 버프.
-        (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0),
-    ) - chillSlowPct - enemyAccuracy,
+    (player.evaRating ?? player.evasionPct) +
+      luckEvadeBonus +
+      universalLuckEvadeBonus +
+      state.buffs.cyclingChiBonus +
+      // PR2-B-2c 선풍각 — 회피 temp 버프.
+      (state.stacks.skillEvasionTurns > 0 ? state.stacks.skillEvasionPct : 0) -
+      chillSlowPct,
   );
+  // 대결 → 회피확률(점근 천장 DODGE_MAX·절대 도달X). 보장회피(소모형 100%)는 위 분기에서 별도.
+  const effectiveEvadePct = dodgeChance(evaRatingTotal, enemyAccuracy);
   if (Math.random() * 100 < effectiveEvadePct) {
     const healedHp = healOnDodge(state.playerHp);
     let log = appendLog(state.log, {

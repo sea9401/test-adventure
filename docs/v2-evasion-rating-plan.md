@@ -1,0 +1,114 @@
+# v2 회피 재설계 — 절대 %캡 → 명중 대결형 레이팅 (설계 + sim 검증)
+
+2026-06-21 오너 세션. 선행 = [project-v2-dex-dominance-diagnosis] 메모리 + DEX 재밸런스 PR-1/2(머지).
+프로토타입 sim: `scripts/sim-v2-evasion-rating.ts` (`node --import tsx ...`).
+
+## 0. 문제 — "플랫 %를 옵션으로 부여" 모델은 튜닝이 어렵다
+현재 회피 = `dex×0.1 + luk×0.08 + 장비/세트 eva + 패시브 eva` **합연산 → 75% 하드캡**. 몹 명중은
+캡 **뒤** 뺄셈(`유효회피 = min(eva,75) − 적명중`). 네 가지 구조적 문제:
+
+1. **이진 캡** — 75% 미만은 선형, 75%에서 벽. 부드러운 고점 조절 구간 없음(DEX/LUK은 d14쯤 포화).
+2. **콘텐츠 미추종** — "절대 75% 회피"라 Lv1 몹에게도 Lv100 몹에게도 동일. 깊이별로 몹 명중을 **수동**으로
+   깎아 넣어야 균형(현 방식).
+3. **회피 = EHP 배수** — 75% 회피 = 유효 체력 **×4**(1/(1−0.75)). 한 옵션에서 큰 생존 배수가 나와 거칠다.
+4. **DEX 더블딥** — DEX가 공격(템포)+방어(회피 4× EHP)를 한 스탯에서 공짜로. DEX 독주의 절반.
+
+## 1. 제안 — 명중 대결형(contested rating)
+회피·명중을 **raw 레이팅**(현 계수 그대로, 캡 제거)으로 키우고 **비율로 대결**:
+
+```
+회피확률 = MAX_DODGE × evaRating / (evaRating + 상대명중레이팅 × K)
+evaRating = dex×0.1 + luk×0.08 + 장비/세트/패시브 eva   (현 계수 = 레이팅 점수)
+accRating = dex×0.05 + str×0.02 + int×0.02 + spi×0.015 + 장비/패시브 acc
+```
+- **양방향 대칭**: 몹→플레이어 = `dodge(플레이어 evaR, 몹 accR)`, 플레이어→몹 = `dodge(몹 evaR, 플레이어 accR)`(현 missPct 경로), PvP 동일.
+- **몹 명중레이팅 = ACC_BASE × floorStatMult(depth)** — 깊이 따라 자동 스케일(몹마다 수동 부여 불필요).
+- **회피 무시(apIgnoresEvasion 등)**: 굴림 자체 스킵 — 그대로 보존.
+
+### 다이얼 (sim 캘리브 — 2026-06-21 오너 확정)
+| 다이얼 | 값 | 의미 |
+|---|---|---|
+| `MAX_DODGE` | **75** | 소프트 점근 천장(절대 도달X = 항상 ≥25% 피격). **제거 금지** — §2-A. |
+| `K` | **8** | 기본 회피 높낮이(클수록 명중이 회피를 더 누름). 파리티(균등) 회피 = 75/(1+8) ≈ 8%. |
+| `ACC_BASE` | 1.05 | 몹 명중 = ACC_BASE × floorStatMult(depth) |
+
+## 2. sim 검증 결과 (확정 K=8 — 권장레벨 회피% · EHP배수, 현 모델 → 대결형)
+| 깊이 | DEX | LUK | BAL | STR/VIT |
+|---|---|---|---|---|
+| 8 | 23→**41**(×1.7) | 22→39 | 11→26 | 5→14 |
+| 20 | **75캡**→**38**(×1.6) | 75→37 | 30→22 | 9→9 |
+| 50 | **75캡**→**34**(×1.5) | 75→33 | 67→19 | 19→6 |
+
+- ✅ **포화 해소**: DEX가 캡(75)에 영구 안착하던 게 전 깊이 **~34~41% 안정**.
+- ✅ **콘텐츠 자동 추종**: 몹 명중이 floorStatMult로 커져 회피%가 깊이 무관 일정(수동 튜닝 0).
+- ✅ **차별화 회복**: DEX/LUK ~34·BAL ~19·STR/VIT ~6 (현 모델은 d20+ 전부 75 포화).
+- ✅ **DEX 더블딥 대폭 완화**: 공짜 회피 75→34% = **EHP ×4 → ×1.5**. DEX 정체성(제일 회피 높음)은 유지.
+  (템포는 별개 — DEX 독주는 [project-v2-dex-dominance-diagnosis] 약축 부양으로 대응 중.)
+
+### 2-A. MAX_DODGE(점근선) 유지 — 제거 금지
+오너 검토: "cap 없애면?" → ❌. 대결형의 `MAX_DODGE`는 옛 하드 벽(`min(eva,75)` = 75 찍고 멈춤·투자 낭비)이
+아니라 **소프트 점근선**(투자는 늘 조금씩 회피↑·절대 도달X). 즉 **포화 문제는 점근선만으로 이미 해결**.
+없애면(MAX_DODGE=100) **회피 극단 투자의 무적 꼬리** 부활(sim: evaR 1000→83%·2000→91%·EHP ×11, PvP 치명).
+🔑재프레임: **천장은 75% 그대로지만 "공짜 스탯"(현재 아무 DEX나 75)→"투자로 버는 값"(몰빵해야 75 근접)**.
+이게 정확히 목표 — cap 제거 불요.
+
+## 3. 범위 — 회피↔명중 **두 수치만** (다른 축 불변)
+대결형은 "공격자 명중 vs 방어자 회피 굴림" 형태에만 맞다. 다른 %축은 각자 모델 유지:
+| 메커닉 | 모델 | |
+|---|---|---|
+| **회피 ↔ 명중** | **대결형 레이팅** | 신규(이 문서) |
+| 치명확률↔저항 | 확률캡+초과분→크리뎀 | 불변 |
+| 치명배수 | 점감 곡선 | DEX 재밸런스 PR-2 |
+| def | 데미지식 댐핑 | 불변 |
+| 회복%/흡혈/statPct | 합연산+캡(또는 secondary safety) | 불변 |
+
+## 3-B. Slice 1 구현 (이번 PR — PvE 플레이어 회피만) ✅
+양방향이 독립이라 안전하게 슬라이스. **Slice 1 = PvE 몹→플레이어 회피만** 대결형으로(실제 문제=포화·더블딥).
+PvP·플레이어명중·UI는 evasionPct(캡) 그대로 = Slice 2.
+
+- **derive**: `evaRating`(캡 없는 raw) 신설 + 노출. `evasionPct = min(evaRating, 75)` 유지(PvP/UI/표시).
+- **engine.enemyPhase**: `min(eva,75) − 몹명중` → `dodgeChance(evaRatingTotal, 몹명중)`. 버프/한기슬로우는 레이팅 가산(점감).
+- **dungeonLadder**: `floorAccuracy(depth) = MOB_ACC_BASE × floorStatMult(depth)`. **monsterScale** 가 몹 accuracy 에 합산.
+- **v2CombatConstants**: `DODGE_MAX 75`·`DODGE_K 8`·`dodgeChance` 헬퍼.
+
+### 🔑 win-rate 캘리브 발견 (회피%-only 캘리브의 함정)
+회피%-only 캘리브의 `ACC_BASE 1.05`(DEX 34%)는 **실제 승률에서 필드 회귀**(STR 94→73·LUK 76→63) — 몹 명중으로
+DEX 회피를 누르면 **모든 빌드 회피가 같이 줄어** 느린 빌드만 죽고(DEX는 빨리 죽여 wr 불변). → **`MOB_ACC_BASE 0.3`**
+으로 확정: PR-2 **무회귀**(d50 STR89·LUK76·BAL99) + DEX dodge 75→**56%**(EHP ×4→×2.3·더블딥 43% 완화). 포화 해소·콘텐츠
+추종은 그대로. (×1.5 풀 완화는 몹-atk 보상 필요 = Slice 1b.)
+
+tsc0·vitest1960·골든 재생성(derive=evaRating 필드 추가·PvE 지문=dodge 변동). acc=0 몹은 대결 퇴화(75%)나 라이브
+몹은 floorAccuracy 보유라 무관(테스트만 명중 부여). UI=StatsPanel 툴팁만 정정(정밀 dodge% 표시는 Slice 1b).
+
+### 후속 슬라이스
+- **Slice 1b**: ① 정밀 PvE dodge% UI 표시(현재 깊이 floorAccuracy 기준) ② DEX dodge 더 완화(34%) + 몹-atk 보상.
+- **Slice 2**: 플레이어→몹 명중 대칭(missPct 대결형·명중캡35 제거·베이스미스 레이팅) + PvP 양방향.
+
+## 4. 구현 변경 (Slice 2/후속 참고)
+1. **derive**: `evasionPct`/`accuracyPct` 의 `min(.,캡)` 제거 → **레이팅(raw)** 으로 노출(`evaRating`/`accRating`).
+   계수 불변. `EVASION_PCT_CAP`/`ACCURACY_PCT_CAP` 폐기.
+2. **engine.enemyPhase**: `min(eva,75) − 몹명중` → `dodgeContest(evaR, 몹accR)`. 몹 accR = `floorAccuracy(depth)`.
+3. **engine.playerPhase**: missPct → `1 − dodgeContest(몹 evaR, 플레이어 accR)`(대칭). 몹 evaR = 몹 기본(대부분 0~소).
+4. **monster**: `floorAccuracy(depth) = ACC_BASE × floorStatMult(depth)` 신설(dungeonLadder). 몹 evaRating은 기존 eva 재해석.
+5. **PvP**: engine.pvpPhase 대칭 적용.
+6. **golden 스냅샷 재생성** + **sim 전 구간(d8~50) 재캘리브**(MAX_DODGE/K/ACC_BASE + 회피무시 보존 확인).
+
+### 4-A. 명중캡(35) 제거 — 명중 죽은축 재설계와 정합성 ✅
+현재(명중 죽은축 부활 [project-v2-accuracy-rework] #487/#490): `missPct = max(0, V2_BASE_MISS_PCT(10) +
+적회피 − min(명중,35))`. 구성: 베이스 미스 10·마법사 바닥 `ACC_PER_INT 0.02`·궁사 활 패시브(명중↑)·스킬도 미스.
+
+대결형으로 가도 **그 의도 전부 보존**:
+- **명중이 적 회피를 카운터** = 비율 대결이 정확히 그 역할(더 깔끔 — 35 하드캡 없이 레이팅이 자기제한).
+- **마법사 바닥·궁사 활** = accuracy **레이팅 계수/보너스**로 그대로 이월(휘둘리지 않음).
+- **스킬도 미스** = 대결을 스킬 공격에도 적용(`apIgnoresEvasion`만 굴림 스킵).
+- 🔑**한 가지 구현 결정 = 베이스 미스 10% 표현**: 몹에 **작은 base evaRating** 부여(0-회피 몹도 ~10% 미스가
+  대결식으로 나오게) — 별도 flat 미스 floor 안 두고 대결로 일원화. 명중캡 35 폐기 안전.
+
+### 위험 / 주의
+- **중간 규모**(크리 곡선 PR 정도): 엔진 dodge 양방향 + 몹 데이터 + PvP + 골든 + 매뉴얼.
+- **장비/세트 eva 옵션**: 레이팅으로 그대로 합산(캡 없어짐). 흔한 장비 eva 수치가 레이팅 기준 과하지 않은지 sim 확인.
+- **회피무시 바이패스**(apIgnoresEvasion) 보존 — 굴림 스킵 경로 유지.
+
+## 5. 잔여 튜닝
+- DEX ~34%(×1.5 EHP)면 충분 완화. 더 살리려면 `K`↓(6→DEX 40%), 더 짜게는 `K`↑. cap(MAX_DODGE)은 유지.
+- 라이브 win-rate 영향은 엔진 배선 후 sim-v2-progression 으로 실측(이 문서는 회피% 프로파일까지).

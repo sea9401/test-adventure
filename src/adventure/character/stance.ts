@@ -126,6 +126,8 @@ export function applyStance(
     def: Math.round(player.def * m.defMult),
     // 회피 하한 클램프 — 음수 방지.
     evasionPct: Math.max(0, player.evasionPct + m.evasionDelta),
+    // 회피 대결형(Slice 1) — evaRating 도 같은 델타로 동기(스탠스는 현재 PvP 전용이나 PvE 적용 대비 방어).
+    evaRating: Math.max(0, (player.evaRating ?? player.evasionPct) + m.evasionDelta),
   };
   // 처형 스탠스: 스킬 미보유자에게도 기본 처형을 부여(max 합성). 보유자는 더 높은 쪽 유지.
   if (m.executionDamageMultFloor !== undefined) {

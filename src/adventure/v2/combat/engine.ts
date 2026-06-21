@@ -329,7 +329,10 @@ export type PlayerCombat = {
   magicAtk?: number;
   def: number;
   spd: number; // 선공 판정에 사용
-  evasionPct: number; // 0~100, 적 공격 회피 확률
+  evasionPct: number; // 0~100, 적 공격 회피 확률(캡 75 — PvP/UI/플레이어명중·표시용)
+  // 회피 대결형 Slice 1 — 캡 없는 raw 회피레이팅. PvE enemyPhase 가 몹 명중과 dodgeChance 대결.
+  //   미지정 시 enemyPhase 가 evasionPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
+  evaRating?: number;
   // v2 명중률 (PR-6) — 적 evasionPct 에서 %p 차감. 0/undefined = 차감 없음(라이브 기존 동작).
   // 라이브 적의 `enemy.accuracy` 와 대칭. v2 derive 가 totalStats.dex × 0.25 로 채움.
   accuracyPct?: number;

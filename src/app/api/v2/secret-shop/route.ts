@@ -71,7 +71,6 @@ export async function GET(req: Request) {
     ...(V2_CORE_LOOP_V2
       ? { bankedGold: Math.max(0, Math.floor(Number(save?.bankedGold) || 0)) }
       : {}),
-    expiresAt: map.expiresAt,
     stock: SECRET_SHOP_STOCK.filter(
       (i) => !(V2_CORE_LOOP_V2 && STAMINA_SHOP_ITEMS.has(i.id)),
     ).map((i) => ({ ...i, bought: bought.has(i.id) })),

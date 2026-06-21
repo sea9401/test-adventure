@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { SecretShopItem } from "@/adventure/data/v2/secretShop";
 
-// 비밀 상점 — 「비밀 상점의 지도」로 입장. 품목당 1회 구매, 지도 만료(48h)까지 재방문 가능.
+// 비밀 상점 — 「비밀 상점의 지도」로 입장. 품목당 1회 구매, 지도 사용 횟수가 남는 한 재방문 가능.
 // 서버(/api/v2/secret-shop)가 지도 소유/품목 중복을 권위 검증.
 
 type StockRow = SecretShopItem & { bought: boolean };
@@ -118,7 +118,7 @@ export function V2SecretShopView({
       />
       {gold != null && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-          품목당 1회 구매 · 지도가 닳기 전(48h)까지 재방문 가능
+          품목당 1회 구매 · 지도가 닳기 전까지 재방문 가능
         </p>
       )}
 

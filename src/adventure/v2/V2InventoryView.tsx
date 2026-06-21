@@ -128,9 +128,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   const router = useRouter();
   const [tab, setTab] = useState<V2ItemTabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
-  // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(소모/만료는 서버 권위).
+  // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모는 서버 권위. 만료 없음).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[] | null>(null);
-  const [rareMapsNow, setRareMapsNow] = useState(() => Date.now());
   useEffect(() => {
     if (tab !== "consumable") return;
     let alive = true;
@@ -139,7 +138,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
       .then((j: { ok?: boolean; rareMaps?: RareMapInstance[] } | null) => {
         if (!alive) return;
         setRareMaps(j?.ok ? (j.rareMaps ?? []) : []);
-        setRareMapsNow(Date.now());
       })
       .catch(() => {
         if (alive) setRareMaps([]);
@@ -496,7 +494,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         ) : tab === "consumable" ? (
           <ConsumableList
             maps={rareMaps}
-            now={rareMapsNow}
             onUse={(m) => {
               // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
               //   (레벨·스탯이 전역에 반영되도록).
@@ -786,11 +783,9 @@ export function EquipmentCardGrid({
 // utility 계열(비밀 상점/개명/화공)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
 function ConsumableList({
   maps,
-  now,
   onUse,
 }: {
   maps: RareMapInstance[] | null;
-  now: number;
   onUse?: (m: RareMapInstance) => void;
 }) {
   if (maps === null) {
@@ -812,10 +807,6 @@ function ConsumableList({
     <ul className="space-y-1.5">
       {maps.map((m) => {
         const def = RARE_MAP_KINDS[m.kind];
-        const hoursLeft = Math.max(
-          0,
-          Math.floor((m.expiresAt - now) / 3_600_000),
-        );
         const isUtility = def?.category === "utility";
         return (
           <li
@@ -842,19 +833,9 @@ function ConsumableList({
             </div>
             <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
               {isUtility ? (
-                <>
-                  {hoursLeft < 1
-                    ? "1시간 안에 만료"
-                    : `${hoursLeft}시간 후 만료`}
-                </>
+                <>남은 {m.runsLeft}회</>
               ) : (
-                <>
-                  남은 {m.runsLeft}판 ·{" "}
-                  {hoursLeft < 1
-                    ? "1시간 안에 만료"
-                    : `${hoursLeft}시간 후 만료`}{" "}
-                  · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」
-                </>
+                <>남은 {m.runsLeft}판 · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」</>
               )}
             </div>
             {def?.desc && (

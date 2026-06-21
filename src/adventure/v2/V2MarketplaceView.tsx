@@ -129,8 +129,6 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
   const [materials, setMaterials] = useState<Partial<Record<V2MaterialId, number>>>({});
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
-  // 만료 표기 기준 시각 — render 중 Date.now() 회피(로드 시점 고정).
-  const [rareMapsNow, setRareMapsNow] = useState(() => Date.now());
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [qtys, setQtys] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -195,7 +193,6 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     if (rm.ok) {
       const j = (await rm.json()) as { rareMaps?: RareMapInstance[] };
       setRareMaps(j.rareMaps ?? []);
-      setRareMapsNow(Date.now());
     }
   }, []);
 
@@ -518,20 +515,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               <div className="space-y-2">
                 {rareMaps.map((m) => {
                   const def = RARE_MAP_KINDS[m.kind];
-                  const hoursLeft = Math.max(
-                    0,
-                    Math.floor((m.expiresAt - rareMapsNow) / 3_600_000),
-                  );
                   return (
                     <Card key={m.iid} padding="sm">
                       <div className="flex items-center justify-between gap-2">
                         <span className="min-w-0 text-sm font-medium">
                           🗺 {def?.name ?? m.kind}
                           <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            깊이 {m.depth} · 남은 {m.runsLeft}판 ·{" "}
-                            {hoursLeft < 1
-                              ? "1시간 안에 만료"
-                              : `${hoursLeft}시간 후 만료`}
+                            깊이 {m.depth} · 남은 {m.runsLeft}판
                           </span>
                           <span className="ml-1.5">
                             <PriceRefLine stat={priceRef[m.kind]} />
@@ -899,26 +889,20 @@ function expiryLabel(createdAt: string, ttlDays?: number): string | null {
   return `만료까지 ${Math.ceil(leftDays)}일`;
 }
 
-// 소모품(레어맵) 매물 상태 — payload 실물 기준 판수/만료. 만료됐으면 경고(구매 불가 —
-// buy 가 매물을 expired 처리). expiryLabel(매물 자체 TTL)과 별개로 실물 만료가 먼저 온다.
+// 소모품(레어맵) 매물 상태 — payload 실물 기준 잔여 판수. (만료 폐지 2026-06-22 — 시간
+// 제한 없음.) 실물이 없으면(소진/불량 스냅샷) 구매 불가 경고. expiryLabel(매물 자체 TTL)은 별개.
 function consumableStatusLine(payload: unknown): {
   text: string;
   expired: boolean;
 } | null {
   const inst = parseRareMaps([payload], Date.now())[0];
-  if (!inst) return { text: "실물 만료 — 구매 불가", expired: true };
+  if (!inst) return { text: "실물 없음 — 구매 불가", expired: true };
   const def = RARE_MAP_KINDS[inst.kind];
-  const hoursLeft = Math.max(
-    0,
-    Math.floor((inst.expiresAt - Date.now()) / 3_600_000),
-  );
-  const expiry =
-    hoursLeft < 1 ? "1시간 안에 만료" : `${hoursLeft}시간 후 만료`;
   const usage =
     def?.category === "utility"
       ? `사용 ${inst.runsLeft}회`
       : `남은 ${inst.runsLeft}판`;
-  return { text: `${usage} · ${expiry}`, expired: false };
+  return { text: usage, expired: false };
 }
 
 function ListingList({

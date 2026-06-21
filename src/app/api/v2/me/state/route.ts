@@ -601,8 +601,7 @@ export async function GET() {
     skills: parseV2SkillsState(skillsRow?.value),
     // P4 — 시그니처 직업 패시브 은퇴(전문화 패시브로 대체). 호환 위해 빈 배열 유지(P5 에서 전문화 UI 대체).
     signatures: [] as never[],
-    // 학습 가능 스킬 풀 — 공용(직군) + 선택한 전문화(전직)의 차수 해금분 + 학습/장착여부(학습 패널용).
-    // 전문화 미선택이면 공용만 노출(다른 전문화 스킬은 숨김). 전문화 스킬은 차수당 1개씩 해금.
+    // 학습 가능 스킬 풀 — 현 직업(jobId)의 시그니처 킷 + 학습/장착여부(학습 패널용).
     elementalSkills: (() => {
       const cls = parseV2Class((charSave as { class?: unknown }).class);
       const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
@@ -610,7 +609,7 @@ export async function GET() {
       const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
       const group = tier1ClassOf(cls);
       const tier = prof.groups[group]?.tier ?? 1;
-      // 학습 비용은 스킬 종류별 고정 — 공용 1500 · 전문화 5000(learn-skill 과 동일 산식).
+      // 학습 비용은 모든 스킬 고정 단가 1500(learn-skill 과 동일 산식).
       const skillsState = parseV2SkillsState(skillsRow?.value);
       const learnedSet = new Set<string>(skillsState.learned);
       const equippedSet = new Set<string>(skillsState.equipped);

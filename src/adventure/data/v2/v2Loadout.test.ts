@@ -13,54 +13,48 @@ const cost = (id: V2SkillId) => spCostOf(V2_SKILLS[id]);
 const STRIKE: V2SkillId = "v2_skill_strike"; // 기본기(공격 t1)
 const RECOVER: V2SkillId = "v2_skill_recover"; // 기본기(힐 t1)
 const WARCRY: V2SkillId = "v2c_warrior_warcry"; // 공용(버프)
-const TAUNT: V2SkillId = "v2s_knight_taunt"; // 시그니처(전문화)
+const SUNDER: V2SkillId = "v2c_warrior_sunder"; // 공용(공격·디버프)
 
-describe("isSignatureSkill — 시그니처(v2s_)만 직업 고정 대상", () => {
-  it("전문화 스킬(v2s_)만 true", () => {
-    expect(isSignatureSkill(TAUNT)).toBe(true);
+// isSignatureSkill 은 v2s_ 접두사를 보는 순수 문자열 함수 — 직업 고정(체인) 머신의 게이트.
+// 전문화 스킬 카탈로그는 폐지됐지만(레지스트리에 v2s_ 없음) 함수는 유지(향후 시그니처 복귀 대비·inert).
+describe("isSignatureSkill — v2s_ 접두사만 직업 고정 대상", () => {
+  it("v2s_ 접두사만 true (옛 전문화 레거시 id)", () => {
+    expect(isSignatureSkill("v2s_knight_taunt")).toBe(true);
     expect(isSignatureSkill(WARCRY)).toBe(false); // 공용
     expect(isSignatureSkill(STRIKE)).toBe(false); // 기본기
   });
 });
 
 describe("validateLoadout — SP 예산 + 학습 + 시그니처 직업고정", () => {
-  const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, TAUNT];
-  const chain: V2SkillId[] = [TAUNT]; // 시그니처가 든 직업 체인(직업 고정 검증용 입력)
+  const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, SUNDER];
+  const chain: V2SkillId[] = [SUNDER];
 
-  it("전부 학습·예산 내·시그니처 체인 안 = ok", () => {
-    const budget = cost(STRIKE) + cost(RECOVER) + cost(TAUNT) + 5;
-    const r = validateLoadout([STRIKE, RECOVER, TAUNT], learned, budget, chain);
+  it("전부 학습·예산 내 = ok (비시그니처는 체인 무관)", () => {
+    const budget = cost(STRIKE) + cost(RECOVER) + cost(SUNDER) + 5;
+    const r = validateLoadout([STRIKE, RECOVER, SUNDER], learned, budget, chain);
     expect(r.ok).toBe(true);
-    expect(r.spUsed).toBe(cost(STRIKE) + cost(RECOVER) + cost(TAUNT));
+    expect(r.spUsed).toBe(cost(STRIKE) + cost(RECOVER) + cost(SUNDER));
     expect(r.overBudget).toBe(false);
     expect(r.notLearned).toEqual([]);
     expect(r.signatureOffChain).toEqual([]);
   });
 
   it("배우지 않은 스킬 장착 = notLearned + ok false", () => {
-    const r = validateLoadout([STRIKE, TAUNT], [STRIKE], 99, chain);
+    const r = validateLoadout([STRIKE, SUNDER], [STRIKE], 99, chain);
     expect(r.ok).toBe(false);
-    expect(r.notLearned).toContain(TAUNT);
-  });
-
-  it("시그니처가 현 체인 밖이면 signatureOffChain + ok false (직업 고정)", () => {
-    // 마법사 체인엔 knight 시그니처(taunt) 없음 → 직업 고정 위반.
-    const mageChain: V2SkillId[] = []; // taunt 없는 체인(시그니처 off-chain)
-    const r = validateLoadout([STRIKE, TAUNT], learned, 99, mageChain);
-    expect(r.ok).toBe(false);
-    expect(r.signatureOffChain).toContain(TAUNT);
+    expect(r.notLearned).toContain(SUNDER);
   });
 
   it("공용/기본기는 체인 밖이어도 OK (시그니처만 직업 고정)", () => {
-    // warcry(공용)·strike(기본기)는 마법사 체인에 없어도 배웠으면 장착 가능.
-    const mageChain: V2SkillId[] = []; // taunt 없는 체인(시그니처 off-chain)
-    const r = validateLoadout([STRIKE, WARCRY], learned, 99, mageChain);
+    // warcry(공용)·strike(기본기)는 현 체인에 없어도 배웠으면 장착 가능(비시그니처).
+    const emptyChain: V2SkillId[] = [];
+    const r = validateLoadout([STRIKE, WARCRY], learned, 99, emptyChain);
     expect(r.ok).toBe(true);
     expect(r.signatureOffChain).toEqual([]);
   });
 
   it("예산 초과 = overBudget + ok false", () => {
-    const r = validateLoadout([STRIKE, RECOVER, TAUNT], learned, 1, chain);
+    const r = validateLoadout([STRIKE, RECOVER, SUNDER], learned, 1, chain);
     expect(r.overBudget).toBe(true);
     expect(r.ok).toBe(false);
   });
@@ -88,10 +82,10 @@ describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
   });
 
   it("앞이 비싸 막혀도 뒤 싼 스킬은 들어온다(greedy in-order skip)", () => {
-    // TAUNT(비쌈) 먼저·예산이 taunt 보다 작고 recover 보단 크면 taunt 스킵·recover 채택.
-    const tc = cost(TAUNT);
-    const budget = tc - 1 >= cost(RECOVER) ? tc - 1 : cost(RECOVER);
-    const out = clampLoadoutToBudget([TAUNT, RECOVER], budget);
+    // SUNDER(비쌈) 먼저·예산이 sunder 보다 작고 recover 보단 크면 sunder 스킵·recover 채택.
+    const sc = cost(SUNDER);
+    const budget = sc - 1 >= cost(RECOVER) ? sc - 1 : cost(RECOVER);
+    const out = clampLoadoutToBudget([SUNDER, RECOVER], budget);
     expect(out).toEqual([RECOVER]);
   });
 
@@ -116,32 +110,32 @@ describe("clampLoadoutToBudget — 예산까지 순서 보존 greedy", () => {
 });
 
 describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정리", () => {
-  const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, TAUNT];
-  const warriorChain: V2SkillId[] = [TAUNT]; // 시그니처가 든 체인
-  const mageChain: V2SkillId[] = []; // taunt 없는 체인
+  const learned: V2SkillId[] = [STRIKE, RECOVER, WARCRY, SUNDER];
+  const chain: V2SkillId[] = [SUNDER];
 
   it("유효 로드아웃은 그대로 보존(순서 포함)", () => {
     expect(
-      sanitizeLoadout([RECOVER, STRIKE, TAUNT], learned, 99, warriorChain),
-    ).toEqual([RECOVER, STRIKE, TAUNT]);
+      sanitizeLoadout([RECOVER, STRIKE, SUNDER], learned, 99, chain),
+    ).toEqual([RECOVER, STRIKE, SUNDER]);
   });
 
   it("배우지 않은 스킬은 떨군다", () => {
-    expect(sanitizeLoadout([STRIKE, TAUNT], [STRIKE], 99, warriorChain)).toEqual([
+    expect(sanitizeLoadout([STRIKE, SUNDER], [STRIKE], 99, chain)).toEqual([
       STRIKE,
     ]);
   });
 
-  it("🔑 환생 미러 — 옛 직업 시그니처는 빠지고 모은 공용/기본기는 유지(오픈믹스)", () => {
-    // 마법사 체인엔 knight 시그니처(taunt) 없음 → taunt 만 빠지고 strike·warcry 유지.
+  it("🔑 환생 미러 — 모은 공용/기본기는 체인 밖이어도 유지(오픈믹스)", () => {
+    // 비시그니처(공용·기본기)는 현 직업 체인에 없어도 배웠으면 유지된다.
+    const emptyChain: V2SkillId[] = [];
     expect(
-      sanitizeLoadout([STRIKE, WARCRY, TAUNT], learned, 99, mageChain),
+      sanitizeLoadout([STRIKE, WARCRY], learned, 99, emptyChain),
     ).toEqual([STRIKE, WARCRY]);
   });
 
   it("예산 초과분은 순서 보존 클램프", () => {
     // strike(3)+recover(2)=5. 예산 4 → strike 만.
-    expect(sanitizeLoadout([STRIKE, RECOVER], learned, 4, warriorChain)).toEqual([
+    expect(sanitizeLoadout([STRIKE, RECOVER], learned, 4, chain)).toEqual([
       STRIKE,
     ]);
   });
@@ -152,7 +146,7 @@ describe("sanitizeLoadout — 수동 로드아웃 보존 + 무효분/예산 정�
         ["__ghost__" as V2SkillId, STRIKE],
         learned,
         99,
-        warriorChain,
+        chain,
       ),
     ).toEqual([STRIKE]);
   });

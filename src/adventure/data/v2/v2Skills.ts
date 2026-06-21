@@ -20,7 +20,6 @@ import type { V2Element } from "./elements";
 import { V2_ELEMENT_LABEL } from "./elements";
 import { V2_BASE_SKILLS } from "./v2SkillCatalog";
 import { V2_COMMON_SKILLS, type V2CommonSkillId } from "./v2SkillsCommonCatalog";
-import { V2_SPEC_SKILLS, type V2SpecSkillId } from "./v2SkillsSpecCatalog";
 import {
   parseCombatPattern,
   parseCombatPresets,
@@ -83,17 +82,12 @@ export type V2PassiveSkillEffect = {
   elementDisPctBonus?: number;
 };
 
-// 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 스킬 종류별 고정 단가:
-// 공용(1차 직업) 스킬 = COMMON, 전문화 스킬 = SPEC(전문화색이 짙어 더 비싸다). 스타터(자동 보유)는
+// 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 모든 학습 스킬 고정 단가. 스타터(자동 보유)는
 // 학습 경로를 타지 않는다. 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
-// 들판 기준 공용 750킬/종·전문화 2500킬/종(심층일수록 단축). learn-skill 라우트(차감) +
-// state 라우트(UI 가격 표기)가 참조.
-export const V2_SKILL_LEARN_COST_COMMON = 1500; // 공용/1차 직업 스킬.
-export const V2_SKILL_LEARN_COST_SPEC = 5000; // 전문화 스킬.
-export function v2SkillLearnCost(skillId: V2SkillId): number {
-  return skillId in V2_SPEC_SKILLS
-    ? V2_SKILL_LEARN_COST_SPEC
-    : V2_SKILL_LEARN_COST_COMMON;
+// 들판 기준 ~750킬/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
+export const V2_SKILL_LEARN_COST_COMMON = 1500; // 모든 학습 스킬 고정 단가.
+export function v2SkillLearnCost(_skillId: V2SkillId): number {
+  return V2_SKILL_LEARN_COST_COMMON;
 }
 
 // 스킬 카탈로그 id — union 으로 컴파일타임 검증.
@@ -111,9 +105,7 @@ export type V2SkillId =
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
-  | V2CommonSkillId
-  // ── 스킬 재설계 — 전문화 액티브 36종 (12전문화 × 3, 차수 해금/성장) ──────────
-  | V2SpecSkillId;
+  | V2CommonSkillId;
 
 // 스킬 효과 — 복합 가능 (효과 배열에 여러 개).
 // 단위 규칙: pct·pctMaxHp 는 "정수 퍼센트 단위" (10 = 10%). 후속 전투 wiring 에서
@@ -403,7 +395,6 @@ export function spCostOf(skill: V2SkillDefinition): number {
 export const V2_SKILLS: Record<V2SkillId, V2SkillDefinition> = {
   ...V2_BASE_SKILLS,
   ...V2_COMMON_SKILLS,
-  ...V2_SPEC_SKILLS,
 };
 
 // 장착(로드아웃)된 패시브 스킬들의 상시 효과 합산 — derive 가 flag-on 일 때 호출.

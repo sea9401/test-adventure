@@ -8,6 +8,15 @@ export const PVP_WALLET_KEY = "pvp-wallet.v1";
 
 export type PvpWallet = { coins: number };
 
+/** 지갑 raw → 코인 잔액(음수/NaN/형식불량 0). 상점·표시용. (fishing walletCoins 미러) */
+export function pvpWalletCoins(raw: unknown): number {
+  if (!raw || typeof raw !== "object") return 0;
+  const v = (raw as { coins?: unknown }).coins;
+  return typeof v === "number" && Number.isFinite(v)
+    ? Math.max(0, Math.floor(v))
+    : 0;
+}
+
 // 매치당 지급(2026-05-23 결정): 승 10 / 무 4 / 패 2. 봇 상대는 ×0.5(농사 디스카운트).
 // 일일 캡 100. 수치는 상점 가격과 함께 후속 튜닝 다이얼.
 export const PVP_COIN_WIN = 10;

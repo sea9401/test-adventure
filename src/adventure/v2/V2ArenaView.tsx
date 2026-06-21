@@ -7,6 +7,7 @@ import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import { V2ArenaRankingTab } from "@/adventure/v2/V2ArenaRankingTab";
 import { V2ArenaLoadoutTab } from "@/adventure/v2/V2ArenaLoadoutTab";
+import { ArenaShopPanel } from "@/adventure/v2/ArenaShopPanel";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { Sword, Coin, Trophy, FilmStrip } from "@phosphor-icons/react";
@@ -54,13 +55,14 @@ type MatchResp =
       cooldownMs?: number;
     };
 
-type Tab = "main" | "history" | "ranking" | "loadout";
+type Tab = "main" | "history" | "ranking" | "loadout" | "shop";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "main", label: "메인" },
   { id: "history", label: "전투 기록" },
   { id: "ranking", label: "순위표" },
   { id: "loadout", label: "세팅" },
+  { id: "shop", label: "상점" },
 ];
 
 // 서버가 cooldownMs 를 응답으로 주지만 누락 대비 클라 기본값(서버 ARENA_MATCH_COOLDOWN_MS 와 일치).
@@ -445,6 +447,8 @@ export function V2ArenaView({ onBack }: { onBack: () => void }) {
       {tab === "ranking" && <V2ArenaRankingTab />}
 
       {tab === "loadout" && <V2ArenaLoadoutTab />}
+
+      {tab === "shop" && <ArenaShopPanel />}
     </main>
   );
 }

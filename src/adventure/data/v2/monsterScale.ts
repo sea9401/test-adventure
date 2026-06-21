@@ -5,6 +5,7 @@ import {
   floorExpMult,
   endgameSoften,
   floorCritHpComp,
+  floorAccuracy,
 } from "./dungeonLadder";
 
 // 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
@@ -32,14 +33,18 @@ export function scaleMonsterForFloor(
   const atk = Math.max(1, Math.round(monster.atk * sMult));
   const def = Math.max(0, Math.round(monster.def * dMult));
   const exp = Math.max(0, Math.round(monster.exp * eMult));
-  // 아무것도 안 바뀌면 원본 그대로 (floor 1·2 의 ×1.0).
+  // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어
+  //   회피 대결에 씀. coop(softenEndgame=false)도 적용(대결엔 명중 필요·앵커깊이 비례).
+  const accuracy = Math.round((monster.accuracy ?? 0) + floorAccuracy(depth));
+  // 아무것도 안 바뀌면 원본 그대로 (floor 1·2 의 ×1.0). accuracy 는 depth>0 면 항상 가산되니 별도 체크.
   if (
     hp === monster.hp &&
     atk === monster.atk &&
     def === monster.def &&
-    exp === monster.exp
+    exp === monster.exp &&
+    accuracy === (monster.accuracy ?? 0)
   ) {
     return monster;
   }
-  return { ...monster, hp, atk, def, exp };
+  return { ...monster, hp, atk, def, exp, accuracy };
 }

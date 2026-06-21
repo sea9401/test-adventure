@@ -8,6 +8,19 @@
 //   부활(2026-06-06). 두 엔진은 combatShared 재노출로, UI(StatsPanel)는 여기서 직접 읽는다.
 export const V2_BASE_MISS_PCT = 10;
 
+// 회피 대결형(2026-06-21, Slice 1 = PvE 몹→플레이어) — 절대%+하드캡(75) 폐기. PvE 에서 플레이어
+//   evaRating(캡 없는 raw)을 몹 명중레이팅과 비율로 겨뤄 회피확률 산출. 점근선(절대 도달X)이라 포화·
+//   DEX 더블딥(공짜 4× EHP) 해소. 몹 명중 = floorAccuracy(depth) + 몹 accuracy.
+//   회피확률 = DODGE_MAX × evaR / (evaR + accR × DODGE_K). 파리티(균등) = DODGE_MAX/(1+K) ≈ 8%.
+//   ⚠️ PvP/UI/플레이어명중은 아직 evasionPct(캡) — Slice 2. docs/v2-evasion-rating-plan.md.
+export const DODGE_MAX = 75; // 소프트 점근 천장(제거 금지 = 무적 꼬리)
+export const DODGE_K = 8; // 명중이 회피 누르는 강도(클수록 회피↓)
+export function dodgeChance(evaRating: number, accRating: number): number {
+  const e = Math.max(0, evaRating);
+  if (e <= 0) return 0;
+  return (DODGE_MAX * e) / (e + Math.max(0, accRating) * DODGE_K);
+}
+
 export const POWER_ATTACK_TURN_INTERVAL = 3;
 // 치명타 기본 배수 — 모든 크리가 받는 바닥값. 2.0→1.4 하향(2026-06-08): ×2 base 는 무투자
 //   크리도 이미 큰 한방이라 크리가 지배적·스윙적(자동전투 원샷 압박)이었다. 1.4 로 낮춰 "무투자

@@ -1474,6 +1474,7 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
   it("evasionPenaltyPerStack — 한기 스택만큼 회피율이 줄어 못 피한다 (슬로우)", () => {
     const enemy = chillEnemy({
       atk: 50,
+      accuracy: 5, // 회피 대결형 — 라이브 몹은 floorAccuracy 보유(0이면 대결 퇴화). 대결 상대 명중.
       skill: {
         kind: "chill",
         name: "선천의 한기",
@@ -1484,15 +1485,16 @@ describe("한기 (chill) 스킬 — 「별을 잊은 것」 기믹", () => {
       },
     });
     const dodgy: PlayerCombat = {
-  accuracyPct: 100,
+      accuracyPct: 100,
       ...PLAYER,
       hp: 500,
       maxHp: 500,
       def: 0,
-      evasionPct: 50,
+      evasionPct: 60,
+      evaRating: 60, // 회피 대결형 — enemyPhase 가 evaRating 으로 대결.
     };
     const s0 = initialBattleState(dodgy, enemy, "P");
-    // 회피 굴림 40 — 한기 0 이면 유효 50%로 피하고, 4스택(-20%p)이면 30%라 못 피한다.
+    // 회피 대결형(eva 60 vs 명중 5·K8): 한기 0 → dodge 45%(굴림 40<45 회피), 4스택(−20 → eva 40) → 37.5%(40≥37.5 피격).
     vi.spyOn(Math, "random").mockReturnValue(0.4);
     const noChill = advanceTurn(
       { ...s0, phase: "enemy" as const, stacks: { ...s0.stacks, chillStacks: 0 } },

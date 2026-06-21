@@ -62,7 +62,29 @@ accRating = dex×0.05 + str×0.02 + int×0.02 + spi×0.015 + 장비/패시브 ac
 | def | 데미지식 댐핑 | 불변 |
 | 회복%/흡혈/statPct | 합연산+캡(또는 secondary safety) | 불변 |
 
-## 4. 구현 변경 (다음 PR — 미착수)
+## 3-B. Slice 1 구현 (이번 PR — PvE 플레이어 회피만) ✅
+양방향이 독립이라 안전하게 슬라이스. **Slice 1 = PvE 몹→플레이어 회피만** 대결형으로(실제 문제=포화·더블딥).
+PvP·플레이어명중·UI는 evasionPct(캡) 그대로 = Slice 2.
+
+- **derive**: `evaRating`(캡 없는 raw) 신설 + 노출. `evasionPct = min(evaRating, 75)` 유지(PvP/UI/표시).
+- **engine.enemyPhase**: `min(eva,75) − 몹명중` → `dodgeChance(evaRatingTotal, 몹명중)`. 버프/한기슬로우는 레이팅 가산(점감).
+- **dungeonLadder**: `floorAccuracy(depth) = MOB_ACC_BASE × floorStatMult(depth)`. **monsterScale** 가 몹 accuracy 에 합산.
+- **v2CombatConstants**: `DODGE_MAX 75`·`DODGE_K 8`·`dodgeChance` 헬퍼.
+
+### 🔑 win-rate 캘리브 발견 (회피%-only 캘리브의 함정)
+회피%-only 캘리브의 `ACC_BASE 1.05`(DEX 34%)는 **실제 승률에서 필드 회귀**(STR 94→73·LUK 76→63) — 몹 명중으로
+DEX 회피를 누르면 **모든 빌드 회피가 같이 줄어** 느린 빌드만 죽고(DEX는 빨리 죽여 wr 불변). → **`MOB_ACC_BASE 0.3`**
+으로 확정: PR-2 **무회귀**(d50 STR89·LUK76·BAL99) + DEX dodge 75→**56%**(EHP ×4→×2.3·더블딥 43% 완화). 포화 해소·콘텐츠
+추종은 그대로. (×1.5 풀 완화는 몹-atk 보상 필요 = Slice 1b.)
+
+tsc0·vitest1960·골든 재생성(derive=evaRating 필드 추가·PvE 지문=dodge 변동). acc=0 몹은 대결 퇴화(75%)나 라이브
+몹은 floorAccuracy 보유라 무관(테스트만 명중 부여). UI=StatsPanel 툴팁만 정정(정밀 dodge% 표시는 Slice 1b).
+
+### 후속 슬라이스
+- **Slice 1b**: ① 정밀 PvE dodge% UI 표시(현재 깊이 floorAccuracy 기준) ② DEX dodge 더 완화(34%) + 몹-atk 보상.
+- **Slice 2**: 플레이어→몹 명중 대칭(missPct 대결형·명중캡35 제거·베이스미스 레이팅) + PvP 양방향.
+
+## 4. 구현 변경 (Slice 2/후속 참고)
 1. **derive**: `evasionPct`/`accuracyPct` 의 `min(.,캡)` 제거 → **레이팅(raw)** 으로 노출(`evaRating`/`accRating`).
    계수 불변. `EVASION_PCT_CAP`/`ACCURACY_PCT_CAP` 폐기.
 2. **engine.enemyPhase**: `min(eva,75) − 몹명중` → `dodgeContest(evaR, 몹accR)`. 몹 accR = `floorAccuracy(depth)`.

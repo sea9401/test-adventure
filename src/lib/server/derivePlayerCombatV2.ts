@@ -580,14 +580,15 @@ export function derivePlayerCombatV2Pure(
     CRIT_RESIST_PCT_CAP,
     totalStats.spi * CRIT_RESIST_PER_SPI,
   );
-  // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보). 캡 적용.
-  const evasionPct = Math.min(
+  // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보).
+  //   evaRating = 캡 없는 raw 합(회피 대결형 Slice 1 — PvE enemyPhase 가 몹 명중과 대결).
+  //   evasionPct = min(evaRating, 75) — PvP/UI/플레이어명중 표시·소비용(Slice 2 까지 캡 유지).
+  const evaRating =
     totalStats.dex * EVA_PER_DEX +
-      totalStats.luk * EVA_PER_LUK +
-      equipAcc.eva +
-      (input.passiveEvasionPct ?? 0),
-    EVASION_PCT_CAP,
-  );
+    totalStats.luk * EVA_PER_LUK +
+    equipAcc.eva +
+    (input.passiveEvasionPct ?? 0);
+  const evasionPct = Math.min(evaRating, EVASION_PCT_CAP);
   // 명중 — 민첩 major + 힘·정신 minor.
   const accuracyPct = Math.max(
     0,
@@ -702,6 +703,7 @@ export function derivePlayerCombatV2Pure(
     def: specDef,
     spd: specSpd,
     evasionPct,
+    evaRating, // 회피 대결형 Slice 1 — PvE enemyPhase 가 몹 명중과 대결(캡 없는 raw).
     accuracyPct: finalAccuracyPct,
     attackCount: 1,
     extraAttackChancePct:

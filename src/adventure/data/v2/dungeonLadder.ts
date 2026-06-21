@@ -67,6 +67,16 @@ export function floorCritHpComp(depth: number): number {
     1 - (depth - ONBOARDING_END_DEPTH) * CRIT_HP_COMP_SLOPE,
   );
 }
+
+// 회피 대결형(2026-06-21 Slice 1) — 몹 명중레이팅. 플레이어 evaRating 이 깊이 따라(dex/luk 성장)
+//   커지는 만큼 몹 명중도 floorStatMult 로 키워, 회피%가 깊이 무관 일정(콘텐츠 자동 추종). enemyPhase
+//   가 dodgeChance(evaR, 몹명중)에 씀. scaleMonsterForFloor 가 몹 accuracy 에 합산. docs/v2-evasion-rating-plan.md.
+// 몹 명중 = MOB_ACC_BASE × floorStatMult(depth). win-rate 캘리브(2026-06-21): 회피%-only 캘리브 1.05는
+//   필드 회귀(STR 94→73 — 회피 누르면 느린 빌드만 죽음), 0.3 이라야 PR-2 무회귀 + DEX dodge 75→56%(EHP ×4→×2.3).
+export const MOB_ACC_BASE = 0.3;
+export function floorAccuracy(depth: number): number {
+  return MOB_ACC_BASE * floorStatMult(depth);
+}
 // 권장파워 = statMult^GATE_DAMP × 110. 옛 모델(statMult 선형 비례)은 후반에서 과대 —
 // 플레이어 파워(누적레벨 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
 // 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀, 깊이 48 권장 2915 vs 실측

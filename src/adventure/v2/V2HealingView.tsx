@@ -271,7 +271,7 @@ function ChargeRow({
 }) {
   const room = MAX_CHARGE - current;
   const full = room <= 0;
-  const amounts = [100, 1000, 10000, 100000];
+  const amounts = [100, 1000, 10000];
   return (
     <section className="mt-3 space-y-2">
       <div className="flex items-baseline justify-between gap-2">

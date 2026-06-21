@@ -53,6 +53,27 @@ export function endgameSoften(depth: number): number {
   );
 }
 
+// 프론티어 진입 완화(2026-06-22, 밸런스) — 들판(d1~6, statMult step 0.06)→마른협곡(d7~, step 0.52)
+//   경계의 난이도 절벽 완화. sim(권장레벨 기준 풀승률): 들판 d5~6=100% → 마른협곡 d7~9=80%(전 직군
+//   동반 하락) → d10 회복. 첫 프론티어 step 이 온보딩 step 의 ~8배라 경계 한 칸이 갑자기 단단함.
+//   🔑 endgameSoften 과 동일 패턴 = 몹 hp+atk 레이어에만(scaleMonsterForFloor), floorPowerGate/exp 미접촉.
+//   floorStatMult 직접 완화는 게이트→권장레벨이 같이 내려가 sim 자기정규화로 무효(#826 교훈)이므로 몹
+//   레이어 단독 완화로 진입장벽만 낮춘다. d7 최대완화 → d12 에서 1.0 복귀(경계만·중심층 불변). 들판 불변.
+//   다이얼 2상수. coop(softenEndgame=false)은 제외(앵커 d12·완화 이미 0).
+// 딥 코어(d7~9)는 풀 완화(MIN), 이후 d10~11 선형 페이드 → d12 에서 1.0. 절벽이 d7~9 균일 80%
+//   (sim)이라 페이드형은 d9(딥 최저)에 완화가 가장 약하게 닿아 비효율 → 코어 평탄이 맞다.
+export const FRONTIER_ONSET_FULL_DEPTH = 9; // d7~9 = 풀 완화(절벽 코어)
+export const FRONTIER_ONSET_END_DEPTH = 12; // 이 깊이에서 완화 0 복귀(경계 한정)
+export const FRONTIER_ONSET_MIN = 0.85; // d7~9 완화 하한(최대 15% 약화 — 풀승률 ~90% 완만 밸리 목표)
+export function frontierOnsetSoften(depth: number): number {
+  if (depth <= ONBOARDING_END_DEPTH || depth >= FRONTIER_ONSET_END_DEPTH) return 1;
+  if (depth <= FRONTIER_ONSET_FULL_DEPTH) return FRONTIER_ONSET_MIN;
+  // d10, d11 → 1.0 으로 선형 페이드(d10 회복 구간이라 빠르게 거둠).
+  const span = FRONTIER_ONSET_END_DEPTH - FRONTIER_ONSET_FULL_DEPTH; // 12 − 9 = 3
+  const t = (depth - FRONTIER_ONSET_FULL_DEPTH) / span; // d10:1/3 → d11:2/3
+  return FRONTIER_ONSET_MIN + (1 - FRONTIER_ONSET_MIN) * t;
+}
+
 // 크리 HP 상쇄(2026-06-21 PR-2) — 크리 배율 점감 곡선(derivePlayerCombatV2.critMultCurve)이 엔드
 //   크리 딜을 ~40% 줄여 권장레벨 빌드가 깊은 사냥터를 못 깨게 됨. 크리 압축은 고스탯(=깊이)일수록
 //   커서, 몹 HP 를 깊이 비례로 상쇄한다(HP 만 — atk/def/exp/권장파워 무관, 들판 1~6 불변). endgameSoften

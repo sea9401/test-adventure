@@ -443,8 +443,8 @@ export function unlockedJobs(
  * 전환 브리지 — 새 직업 id → 옛 (class, specChoice) 저장쌍.
  * 새 카탈로그로 해금 게이트(isJobUnlocked)는 하되, 세이브와 스킬 체인
  * (elementalSkillsForClass)은 PR-5 마이그레이션 전까지 옛 class+specChoice 모델을 그대로
- * 쓰므로 그 변환을 담는다. 옛 spec id 들은 모두 v2JobSpecs.ts 에 실재해 기존 write 경로가
- * 그대로 처리한다. PR-5(마이그레이션)/PR-6(구 계파 삭제)에서 제거 대상.
+ * 쓰므로 그 변환을 담는다. 옛 spec id 들은 specChoice 브리지 토큰으로만 쓰여 기존 write
+ * 경로가 그대로 처리한다. PR-5(마이그레이션)에서 제거 대상.
  *  - tier 1(기본): spec = null (id 동일, warrior/martial/mage/rogue)
  *  - tier 2(상위): 옛 계파 spec id 로 매핑(방패병→knight, 견습기사→gwang …)
  */

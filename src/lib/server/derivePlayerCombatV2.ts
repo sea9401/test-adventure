@@ -76,16 +76,13 @@ import {
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
-  aggregateSpecPassives,
-  resolveSpecTrait,
-  type V2JobSpec,
-  type V2SpecPassiveEffect,
-} from "@/adventure/data/v2/v2JobSpecs";
-import {
   V2_JOB_CATALOG,
   jobIdFromLegacy,
 } from "@/adventure/data/v2/v2JobCatalog";
-import { jobPassive } from "@/adventure/data/v2/v2JobPassives";
+import {
+  jobPassive,
+  type V2JobPassiveEffect,
+} from "@/adventure/data/v2/v2JobPassives";
 import { effectiveStats } from "@/adventure/data/v2/v2EquipVariance";
 import type { V2Element } from "@/adventure/data/v2/elements";
 import type { PlayerCombat } from "@/adventure/v2/combat/engine";
@@ -101,10 +98,8 @@ export type SavedCharacterV2 = {
   // PR-7a — equippedSpells 는 옛 spell 시스템 잔재. parse 단계에서 무시되며 PR-7b 마이그
   // 가 v2_skill_meditate 자동 학습 부여로 대체. 필드는 옛 캐릭 save 호환 위해 보존.
   equippedSpells?: unknown;
-  // 전문화(스펙) 시스템 — docs/v2-job-spec-passives-plan.md. specChoice = 선택 전문화 id,
-  // unlockedPassives = 해금한 전문화 패시브 id들. 둘 다 없으면(현 캐릭) 전문화 효과 없음(inert).
+  // specChoice = 직업 저장 브리지(jobIdFromLegacy 로 현재 직업 id 복원). 전투 효과 아님.
   specChoice?: unknown;
-  unlockedPassives?: unknown;
 };
 
 export type DerivedPlayerCombatV2 = {
@@ -377,22 +372,17 @@ export type DerivePlayerCombatV2PureInput = {
   classTier?: number;
   /** skills.v2.learned — 학습 스킬 id. 직업 패시브 티어 산정(시그니처만)에 사용. 미지정 = 패시브 없음. */
   learnedSkillIds?: readonly string[];
-  /** 선택 전문화(스펙). 미지정 = 전문화 효과 없음(inert). docs/v2-job-spec-passives-plan.md. */
-  spec?: V2JobSpec;
-  /** 해금한 전문화 패시브 id들. spec 과 함께. 무기 게이트 통과 + 해금된 것만 적용. */
-  unlockedPassives?: readonly string[];
   /**
    * 직업 시스템 v2 직업 보너스 — 전직 직업의 플랫 스탯 보너스(카탈로그).
    * totalStats 에 가산 → 모든 파생 스탯에 자연 반영. 미지정 = 무가산(flag off / sim 호환).
-   * docs/v2-skill-job-redesign.md §3. 옛 계파 % 트레이트를 대체(래퍼가 flag on 일 때 spec 을
-   * inert 로 두고 이 값을 주입 — 더블딥 방지).
+   * docs/v2-skill-job-redesign.md §3. 옛 계파 % 트레이트를 대체.
    */
   jobBonus?: Partial<Record<V2StatKey, number>>;
   /**
-   * 직업 시스템 v2 직업 효과 패시브(받피감·spd 등 V2SpecPassiveEffect). 지정 시 옛 계파
-   * specEff 대신 이 값을 적용(래퍼가 flag on 일 때 주입). 미지정 = 옛 aggregateSpecPassives.
+   * 직업 시스템 v2 직업 효과 패시브(받피감·spd 등). specEff 경로로 적용(래퍼가 jobPassive 로
+   * 주입). 미지정 = 효과 없음({}).
    */
-  jobPassiveEffect?: V2SpecPassiveEffect;
+  jobPassiveEffect?: V2JobPassiveEffect;
   /**
    * 예기(민첩→공격력) 계수 — 장착 패시브 스킬에서 주입(flag on). 지정 시 도적 직군 하드코딩
    * 베이스라인 대신 이 값 사용(0 = 미장착). 미지정 = 도적 베이스라인 폴백(flag off / sim).
@@ -630,40 +620,20 @@ export function derivePlayerCombatV2Pure(
     CRIT_MULT_CAP,
   );
 
-  // ── 전문화(스펙) 패시브 (docs/v2-job-spec-passives-plan.md §3·§6 — P3c flip) ───
-  // 선택 전문화 + 해금 패시브 + 장착 무기 종류 → 합산 효과. 무기 게이트 불통과/spec 미지정 = {}.
-  // 현 캐릭(specChoice 없음) = {} → 전부 항등(byte-identical inert). 활성은 save 에
-  // specChoice/unlockedPassives 가 있을 때만(래퍼가 주입).
-  // 전문화 픽은 차수와 무관하게 전부 유지 — 환생(차수→1, 같은 직업) 후에도 이미 해금한 전문화
-  //   패시브가 비활성화되지 않게(2026-06-09 사용자 결정: "같은 직업 환생인데 전문화 초기화 막기").
-  //   정상 진행 중엔 해금 수가 차수−1 이하라(spec route 가 cap) 무영향 — 환생 후 보존 픽에서만 차이.
-  //   직업 변경 시엔 위에서 spec(직업 종속)이 undefined 라 어차피 무효 → stale 픽이 새지 않는다.
-  const activePicks = input.unlockedPassives ?? [];
-  // 직업 시스템 v2 — jobPassiveEffect 주입 시 옛 계파 specEff 대신 직업 효과 패시브 적용.
-  //   (flag on 래퍼가 주입. 미지정 = 옛 aggregateSpecPassives, flag off 바이트 동일.)
-  const specEff =
-    input.jobPassiveEffect ??
-    aggregateSpecPassives(
-      input.spec,
-      activePicks,
-      weaponTypeOf(v2Equipped.weapon),
-    );
-  // 직업 특성 — 전문화별 자동 부여, 차수(classTier) 성장. 무기 게이트 무관. 전문화 시그니처와
-  // 같은 방향으로 합산되어 정체성 강화. spec 없음·1차면 {} (inert). 수치 가안(P6).
-  const traitEff = resolveSpecTrait(input.spec, input.classTier);
+  // ── 직업 효과 패시브 (jobPassive → specEff 경로) ───────────────────────
+  // 래퍼가 jobPassive(jobId) 를 주입. 미정의 직업/sim·테스트 미지정 = {} (전부 항등·inert).
+  const specEff: V2JobPassiveEffect = input.jobPassiveEffect ?? {};
   // 합산(없거나 0 = undefined 유지 → 미보유 시 객체 모양 불변).
   const sumOrUndef = (a: number | undefined, b: number | undefined) => {
     const t = (a ?? 0) + (b ?? 0);
     return t > 0 ? t : undefined;
   };
   // 물공%·속도% = 곱(0이면 곱/floor 미적용 — inert 보장). 명중%·크리뎀·추가타 = 가산(+0 항등).
-  // 직업 특성(광기 atk%·원소통달 magicAtk%)은 전문화 %와 가산 후 한 번에 곱.
-  const totalAtkPct = (specEff.atkPctAdd ?? 0) + (traitEff.atkPctAdd ?? 0);
+  const totalAtkPct = specEff.atkPctAdd ?? 0;
   let specAtk = totalAtkPct
     ? Math.floor(finalAtk * (1 + totalAtkPct / 100))
     : finalAtk;
-  const totalMagicAtkPct =
-    (specEff.magicAtkPctAdd ?? 0) + (traitEff.magicAtkPctAdd ?? 0);
+  const totalMagicAtkPct = specEff.magicAtkPctAdd ?? 0;
   let specMagicAtk = totalMagicAtkPct
     ? Math.floor(finalMagicAtk * (1 + totalMagicAtkPct / 100))
     : finalMagicAtk;
@@ -696,21 +666,15 @@ export function derivePlayerCombatV2Pure(
   // hit 에 쓰는 명중은 cap 으로 클램프(궁사의 잉여 딜 환원은 위 raw 기준이라 영향 없음).
   const finalAccuracyPct = Math.min(ACCURACY_PCT_CAP, rawAccuracyPct);
 
-  // 직업 특성 — 전문화 시그니처와 같은 훅을 공유하는 효과는 합산(강철↔받피감, 출혈숙련↔출혈,
-  // 흡정↔흡정공). 0 이면 spread 생략(inert). 절제(mpCostReductionPct)는 신규 시전 훅.
+  // 직업 효과 패시브 + 장착 패시브 합산. 0 이면 spread 생략(inert).
   const totalDamageTakenReductionPct =
     (specEff.damageTakenReductionPct ?? 0) +
-    (traitEff.damageTakenReductionPctAdd ?? 0) +
     (input.passiveDamageTakenReductionPct ?? 0); // 장착 패시브(방벽) — 가산.
-  const totalBleedDmgPerStack =
-    (specEff.bleedDmgPerStack ?? 0) + (traitEff.bleedDmgPerStackAdd ?? 0);
-  const totalPoisonStrength =
-    (specEff.poisonPctPerStackBase ?? 0) + (traitEff.poisonPctPerStackAdd ?? 0);
+  const totalBleedDmgPerStack = specEff.bleedDmgPerStack ?? 0;
+  const totalPoisonStrength = specEff.poisonPctPerStackBase ?? 0;
   const totalLifestealPct =
     (specEff.lifestealPct ?? 0) +
-    (traitEff.lifestealPctAdd ?? 0) +
     (input.passiveLifestealPct ?? 0); // 장착 패시브(포식) — 저수치.
-  const mpCostReductionPct = traitEff.mpCostReductionPctAdd ?? 0;
 
   const player: PlayerCombat = {
     hp,
@@ -728,19 +692,14 @@ export function derivePlayerCombatV2Pure(
     magicAtk: specMagicAtk,
     def: specDef,
     spd: specSpd,
-    evasionPct: evasionPct + (traitEff.evasionPctAdd ?? 0), // + 유연
+    evasionPct,
     accuracyPct: finalAccuracyPct,
     attackCount: 1,
     extraAttackChancePct:
-      extraAttackChancePct +
-      (specEff.extraAttackChancePct ?? 0) +
-      (traitEff.extraAttackChancePctAdd ?? 0), // + 연계
-    critChancePct:
-      critChancePct +
-      (specEff.critChancePctAdd ?? 0) + // 급습
-      (traitEff.critChancePctAdd ?? 0), // + 정밀
+      extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),
+    critChancePct: critChancePct + (specEff.critChancePctAdd ?? 0), // 급습
     critMult: Math.min(
-      finalCritMult + (specEff.critMultAdd ?? 0) + (traitEff.critMultAdd ?? 0), // + 암살
+      finalCritMult + (specEff.critMultAdd ?? 0),
       CRIT_MULT_CAP,
     ),
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
@@ -748,11 +707,11 @@ export function derivePlayerCombatV2Pure(
     critResistPct,
     minDamage,
     healMult,
-    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 전문화 효과는 합산(sumOrUndef).
+    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 직업 효과는 합산(sumOrUndef).
     passiveTurnHealPctMaxHp: sumOrUndef(
       passive?.turnHealPctMaxHp,
-      (specEff.hpRegenPctPerTurn ?? 0) + (traitEff.turnHealPctMaxHpAdd ?? 0),
-    ), // 사제 신성회복 + 신성 특성(기존 턴회복 훅 재사용)
+      specEff.hpRegenPctPerTurn,
+    ), // 신성 회복류(기존 턴회복 훅 재사용)
     passiveDefPenetrationPct: sumOrUndef(
       passive?.defPenetrationPct,
       specEff.defPenetrationPct,
@@ -764,8 +723,7 @@ export function derivePlayerCombatV2Pure(
     // 마력구(마법사 직군 패시브) — 평타를 마법공격력 기반으로. 모든 마법사 상시(무료 패시브).
     passiveMagicBasicAttack:
       playerClass === "mage" ? true : passive?.magicBasicAttack,
-    // 전문화 신규 효과 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
-    // 받피감=방패숙련/가호 + 강철 특성, 출혈=유혈/내상 + 출혈숙련, 중독=독사 맹독.
+    // 직업 효과 패시브 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }
       : {}),
@@ -795,10 +753,6 @@ export function derivePlayerCombatV2Pure(
     // 흡정공/흡정 — 기존 흡혈 훅(enchantLifestealPct) 재사용: 가한 피해의 % HP 회복.
     ...(totalLifestealPct > 0
       ? { enchantLifestealPct: totalLifestealPct }
-      : {}),
-    // 절제(워메이지 특성) — 스킬 마나 소모 -%. 엔진 시전부가 v2SkillMpCost 에 곱연산.
-    ...(mpCostReductionPct > 0
-      ? { mpCostReductionPct: mpCostReductionPct }
       : {}),
     // 주문 연사 — 엔진이 resolveV2SkillCast 의 procChance 에 합산.
     ...(specEff.skillProcChanceAdd
@@ -919,12 +873,8 @@ export function derivePlayerCombatV2FromSaves(saves: {
   const statPct = passiveAgg.statPct;
   const maxHpPct = passiveAgg.maxHpPct;
   const maxMpPct = passiveAgg.maxMpPct;
-  // 직업 효과 패시브(받피감·spd 등) — 옛 계파 specEff 대신 주입(현재 V2_JOB_PASSIVES 비어 inert).
+  // 직업 효과 패시브(받피감·spd 등) — specEff 경로로 주입(현재 V2_JOB_PASSIVES 비어 inert).
   const jobPassiveEffect = jobPassive(v2JobId);
-  // 옛 계파 spec/해금 패시브는 폐지 — Pure 에 미전달. Pure 의 spec 처리(aggregateSpecPassives·
-  //   resolveSpecTrait)는 입력 구동이라 유지(단위 테스트가 직접 검증)·라이브는 항상 미주입.
-  const spec = undefined;
-  const unlockedPassives: readonly string[] = [];
 
   return derivePlayerCombatV2Pure({
     level: character.level ?? 1,
@@ -940,8 +890,6 @@ export function derivePlayerCombatV2FromSaves(saves: {
     // 차수 = 현 직업의 proficiency.groups[job].tier (없으면 1차).
     classTier: prof.groups[tier1ClassOf(parsedClass)]?.tier ?? 1,
     learnedSkillIds,
-    spec,
-    unlockedPassives,
     jobBonus,
     jobPassiveEffect,
     atkPerDexCoef,

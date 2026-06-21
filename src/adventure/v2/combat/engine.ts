@@ -301,7 +301,7 @@ export type BattleState = {
 export const BOSS_PCT_HP_DAMAGE_MULT = 0.1;
 
 // 절초 주기(COMBO_FINISHER_PERIOD)·SPELL_STACK_CAP·MAGIC_VULN_STACK_CAP 은 v2CombatConstants 로
-// 이관 — PvE/PvP 공용 + 패시브 설명(v2JobSpecs) 참조. 기존 import 경로 호환 재노출.
+// 이관 — PvE/PvP 공용. 기존 import 경로 호환 재노출.
 export { COMBO_FINISHER_PERIOD } from "@/adventure/data/v2/v2CombatConstants";
 
 export type PlayerCombat = {

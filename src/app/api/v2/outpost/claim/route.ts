@@ -67,6 +67,7 @@ import {
   V2_CORE_LOOP_V2,
   CLAIM_GOLD_COST_BY_TIER,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
   applyHpRegen,
   canHuntWithHp,
@@ -171,6 +172,16 @@ export async function POST(req: Request) {
         ok: false as const,
         status: 400,
         body: { ok: false as const, error: "already_yours" as const },
+      };
+    }
+
+    // 정착지 전쟁 on = 적 길드 거점 PvP 점령은 새 /attack(약탈/정복)으로 일원화 — 옛 3:3 토너먼트
+    //   경로 차단(금고/전투 모델이 새 시스템과 충돌·treasury 우회 방지). NPC/미점령 점령은 그대로.
+    if (V2_SETTLEMENT_WARFARE && defenderGuildId !== null) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { ok: false as const, error: "use_attack_route" as const },
       };
     }
 

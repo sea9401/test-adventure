@@ -70,6 +70,9 @@ export function getChampion(type: OutpostType, tier: OutpostTier): Champion {
     def: Math.round(base.def * mult.def),
     spd: base.spd,
     exp: base.exp,
+    // 회피 대결형(Slice 1) — 챔피언은 scaleMonsterForFloor 를 안 거치므로 명중을 직접 부여(없으면
+    //   플레이어가 챔피언 공격을 75% 공짜 회피). tier 비례(floorAccuracy 동급 magnitude).
+    accuracy: tier * 2,
     drops: [],
   };
 }

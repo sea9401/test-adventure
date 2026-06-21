@@ -33,10 +33,10 @@ export function scaleMonsterForFloor(
   const atk = Math.max(1, Math.round(monster.atk * sMult));
   const def = Math.max(0, Math.round(monster.def * dMult));
   const exp = Math.max(0, Math.round(monster.exp * eMult));
-  // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어
-  //   회피 대결에 씀. coop(softenEndgame=false)도 적용(대결엔 명중 필요·앵커깊이 비례).
-  const accuracy = Math.round((monster.accuracy ?? 0) + floorAccuracy(depth));
-  // 아무것도 안 바뀌면 원본 그대로 (floor 1·2 의 ×1.0). accuracy 는 depth>0 면 항상 가산되니 별도 체크.
+  // 회피 대결형(Slice 1) — 몹 명중레이팅 = 기본 + floorAccuracy(depth). enemyPhase 가 플레이어 회피
+  //   대결에 씀. coop(softenEndgame=false)도 적용. ⚠️ 라운드 금지 — 들판(d1~6) floorAccuracy 0.3~0.39 가
+  //   Math.round 로 0 이 되면 대결 퇴화(75% 공짜 회피). floorAccuracy 는 depth≥1 항상 >0 → accuracy 항상 가산.
+  const accuracy = (monster.accuracy ?? 0) + floorAccuracy(depth);
   if (
     hp === monster.hp &&
     atk === monster.atk &&

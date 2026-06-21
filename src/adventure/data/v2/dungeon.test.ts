@@ -13,6 +13,7 @@ import {
   floorDefMult,
   floorExpMult,
   floorCritHpComp,
+  floorAccuracy,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
@@ -210,9 +211,13 @@ describe("v2 몬스터 속성 분포 (PR-5 게이트)", () => {
 describe("scaleMonsterForFloor", () => {
   const base = MONSTERS["별빛 박쥐"];
 
-  it("들판 1 (×1.0) 은 동일 객체, 들판 6 은 완만 스케일(평탄화)", () => {
+  it("들판 1 — hp/atk 는 ×1.0 동일하나 회피 대결용 명중(floorAccuracy)은 가산", () => {
     const weak = MONSTERS["슬라임"];
-    expect(scaleMonsterForFloor(weak, 1)).toBe(weak); // 깊이 1 = ×1.0 identity
+    const d1 = scaleMonsterForFloor(weak, 1);
+    // 깊이 1 = hp/atk/def/exp ×1.0(평탄). 단 명중은 floorAccuracy(1)=0.3 가산(들판 대결 퇴화 방지·라운드 금지).
+    expect(d1.hp).toBe(weak.hp);
+    expect(d1.atk).toBe(weak.atk);
+    expect(d1.accuracy).toBeCloseTo((weak.accuracy ?? 0) + floorAccuracy(1));
     // 들판 평탄화: 깊이 2~6 은 ×1.06→×1.3 완만. 들판 6 = ×1.3 새 객체.
     const d6 = scaleMonsterForFloor(weak, 6);
     expect(d6).not.toBe(weak);
@@ -229,7 +234,8 @@ describe("scaleMonsterForFloor", () => {
     expect(scaled.atk).toBe(Math.round(base.atk * floorStatMult(8)));
     expect(scaled.def).toBe(Math.round(base.def * floorDefMult(8)));
     expect(scaled.exp).toBe(Math.round(base.exp * floorExpMult(8)));
-    expect(scaled.spd).toBe(base.spd); // hp/atk/def/exp 외 필드 보존
+    expect(scaled.accuracy).toBeCloseTo((base.accuracy ?? 0) + floorAccuracy(8)); // 회피 대결 명중(라운드 안 함)
+    expect(scaled.spd).toBe(base.spd); // hp/atk/def/exp/accuracy 외 필드 보존
     expect(scaled.name).toBe(base.name);
   });
 

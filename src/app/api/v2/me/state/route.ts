@@ -18,7 +18,6 @@ import {
   v2SkillLearnCost,
   spCostOf,
 } from "@/adventure/data/v2/v2Skills";
-import { isSignatureSkill } from "@/adventure/data/v2/v2Loadout";
 import {
   parseV2Class,
   tier1ClassOf,
@@ -625,19 +624,12 @@ export async function GET() {
       });
     })(),
     // SP 로드아웃(코어루프 전용) — 수동 로드아웃 화면용. flag off 면 키 없음(응답 byte-identical).
-    //   library = 배운 스킬 전부(타직업 수집분 포함) + spCost·장착여부·시그니처/잠금. equipped 는
-    //   reconcile 가 이미 sanitize 한 저장값. locked = 시그니처인데 현 체인 밖(직업 고정·장착 불가).
+    //   library = 배운 스킬 전부(타직업 수집분 포함) + spCost·장착여부. equipped 는
+    //   reconcile 가 이미 sanitize 한 저장값.
     ...(V2_CORE_LOOP_V2
       ? {
           loadout: (() => {
-            const cls = parseV2Class((charSave as { class?: unknown }).class);
-            const rawSpec = (charSave as { specChoice?: unknown }).specChoice;
-            const specChoice = typeof rawSpec === "string" ? rawSpec : null;
             const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
-            const tier = prof.groups[tier1ClassOf(cls)]?.tier ?? 1;
-            const chainSet = new Set<string>(
-              elementalSkillsForClass(cls, specChoice, tier),
-            );
             const skillsState = parseV2SkillsState(skillsRow?.value);
             const equippedSet = new Set<string>(skillsState.equipped);
             const spBudget = calcSpBudget(prof.groups);
@@ -648,15 +640,11 @@ export async function GET() {
                 const def = V2_SKILLS[id];
                 const equipped = equippedSet.has(id);
                 if (equipped) spUsed += spCostOf(def);
-                const signature = isSignatureSkill(id);
                 return {
                   skillId: id,
                   name: def.name,
                   spCost: spCostOf(def),
                   equipped,
-                  signature,
-                  // 시그니처인데 현 체인 밖 = 직업 고정(장착 불가). 공용/기본기는 항상 장착 가능.
-                  locked: signature && !chainSet.has(id),
                 };
               });
             // 장착 순서(우선순위·갬빗 fallback) 보존 — 카탈로그 유효분만. POST /me/loadout 시 재전송용.

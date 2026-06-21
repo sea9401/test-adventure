@@ -105,15 +105,12 @@ export function V2LoadoutPresetsPanel({
       const j = (await res.json().catch(() => null)) as {
         ok?: boolean;
         overBudget?: boolean;
-        signatureOffChain?: string[];
       } | null;
       if (!j?.ok) {
         setMsg(
-          j?.signatureOffChain && j.signatureOffChain.length > 0
-            ? "이 프리셋엔 지금 직업에 없는 시그니처가 있어요."
-            : j?.overBudget
-              ? "이 프리셋은 지금 스킬포인트 예산을 넘어요."
-              : "이 프리셋을 적용할 수 없어요.",
+          j?.overBudget
+            ? "이 프리셋은 지금 스킬포인트 예산을 넘어요."
+            : "이 프리셋을 적용할 수 없어요.",
         );
       } else {
         onApplied?.();

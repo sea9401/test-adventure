@@ -46,6 +46,7 @@ export type Occupation = {
   occupiedByGuildId: number | null;
   occupiedByGuildName: string | null;
   occupiedByGuildEmblem?: string | null;
+  occupiedByGuildColor?: string | null;
   occupiedAt: string;
   policy: string;
   taxRate: string;

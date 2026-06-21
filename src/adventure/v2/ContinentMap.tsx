@@ -20,6 +20,7 @@ import {
   areOutpostsAdjacent,
 } from "@/adventure/data/v2/outpostGraph";
 import { guildEmblemIcon } from "@/adventure/data/guild-emblems-icons";
+import { guildColorHex } from "@/adventure/data/guild-colors";
 import type {
   Outpost,
   OutpostType,
@@ -150,6 +151,7 @@ type OccupationLite = {
   occupiedByGuildId: number | null;
   occupiedByGuildName: string | null;
   occupiedByGuildEmblem?: string | null;
+  occupiedByGuildColor?: string | null;
   // 성벽 — 재생 반영 현재값(occupations GET). 최대 미만이면 교전 중 표시.
   fortHp?: number;
   fortMaxHp?: number;
@@ -363,17 +365,27 @@ export function ContinentMap({
               occ.fortHp != null &&
               occ.fortMaxHp != null &&
               occ.fortHp < occ.fortMaxHp;
-            // 채움 = 소유(내 길드 초록 / 적 빨강 / 중립 금 / 미점령 회색). 지역 테마색은 배경 격자로.
-            // (B안 PR-4: 옛 왕국색 채움 폐기 — 영토 소유가 한눈에.)
-            const markerFill = isMine
+            // 채움 = 점령 길드 고유색(설정 시). 없으면 소유색 폴백. 소유(내것/적)는 테두리 링으로.
+            const ownerColor = isMine
               ? "#10b981"
               : isHostile
                 ? "#dc2626"
                 : isNeutral
                   ? "#f4c842"
                   : "#6b7280"; // NPC(미점령) — 회색
-            // 윤곽 = 어두운 정의선(소유는 채움으로 표현). 현재 위치/교전은 별도 오버레이.
-            const tileStroke = "#0b1020";
+            const guildColor =
+              occ?.occupiedByGuildId != null
+                ? guildColorHex(occ.occupiedByGuildColor ?? null)
+                : null;
+            const markerFill = guildColor ?? ownerColor;
+            // 테두리 = 소유(내 길드 초록 / 적 빨강 / 중립 금 / NPC 어두운 윤곽). 채움이 길드색이라 소유는 링으로.
+            const tileStroke = isMine
+              ? "#10b981"
+              : isHostile
+                ? "#dc2626"
+                : isNeutral
+                  ? "#f4c842"
+                  : "#0b1020";
             // tier 큐 — 왕국이 가장 굵고 아래로 갈수록 가늘게(타일 크기는 균일).
             const tierStroke = isKingdom ? 14 : o.tier === 3 ? 11 : 9;
             // 점령 길드 거점은 그 길드 엠블럼(미설정이면 기본 깃발). 그 외엔 왕국=Crown/타입 아이콘.

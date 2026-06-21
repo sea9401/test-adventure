@@ -136,6 +136,21 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p3.groups.warrior.cumLevel).toBe(0);
   });
 
+  it("parse — none(모험가) 그룹 보존(수행 적립분)·cumLevel 항상 0(seed 누출 차단)", () => {
+    // 모험가 수행 적립분: none 그룹의 points 는 보존되어야(로드 때 안 사라짐).
+    const p = parseProficiencyForChar(
+      { groups: { none: { points: 30, cultivations: 1 } } }, // cumLevel 누락
+      { class: "none", level: 80 }, // seed.group="none" level 80
+    );
+    expect(p.groups.none?.points).toBe(30);
+    // cumLevel 은 fallback(레벨 누출) 대신 항상 0 — 직군 정복/SP/floors 에 안 샘.
+    expect(p.groups.none?.cumLevel).toBe(0);
+    // 매핑 불가 옛 그룹키(none 이 아닌데 parseV2Class→none)는 계속 폐기.
+    const q = parseProficiency({ groups: { 궁술: { points: 9 } } });
+    expect(q.groups["궁술"]).toBeUndefined();
+    expect(q.groups.none).toBeUndefined();
+  });
+
   it("parse — caps 는 수행 이득(0<c<60)만 보존, 옛 절대값(≥60)·비수 드롭", () => {
     const p = parseProficiency({
       groups: {},
@@ -160,7 +175,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(groupUsable(p, "none")).toBe(0);
   });
 
-  it("addPoints — 잔액 += amount, 비파괴, caps/cultivations 보존, none/0 무변경", () => {
+  it("addPoints — 잔액 += amount, 비파괴, caps/cultivations 보존, none 적립·프로필無/0 무변경", () => {
     const p0 = parseProficiency({
       groups: { warrior: { points: 5, cultivations: 2 } },
       caps: { str: 30 },
@@ -174,7 +189,10 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     });
     expect(p1.caps.str).toBe(30);
     expect(p0.groups.warrior.points).toBe(5);
-    expect(addPoints(p1, "none", 5)).toBe(p1);
+    // none(모험가)도 이제 수행 프로필 보유 → 적립됨(2026-06-22).
+    expect(addPoints(p1, "none", 5).groups.none?.points).toBe(5);
+    // 프로필 없는 그룹(빈/무효)·0 amount 는 여전히 무변경.
+    expect(addPoints(p1, "bogus", 5)).toBe(p1);
     expect(addPoints(p1, "warrior", 0)).toBe(p1);
   });
 
@@ -247,12 +265,16 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r2!.next.caps.int).toBe(8);
   });
 
-  it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none/무효는 빈 배열", () => {
+  it("recommendedCultivationStats — 직군 권장 스탯(앵커 먼저), none=균형 4스탯·무효는 빈 배열", () => {
     const w = recommendedCultivationStats("warrior");
     expect(w[0]).toBe("str");
     expect(new Set(w)).toEqual(new Set(["str", "vit", "dex"]));
     expect(recommendedCultivationStats("martial")[0]).toBe("vit");
-    expect(recommendedCultivationStats("none")).toEqual([]);
+    // none(모험가)도 수행 프로필 보유 → STR/VIT/DEX/INT 추천(2026-06-22).
+    expect(new Set(recommendedCultivationStats("none"))).toEqual(
+      new Set(["str", "vit", "dex", "int"]),
+    );
+    // 프로필 없는 무효 그룹만 빈 배열.
     expect(recommendedCultivationStats("nonexistent")).toEqual([]);
   });
 

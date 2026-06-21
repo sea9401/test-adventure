@@ -23,10 +23,10 @@ const ACC_PER_INT = 0.02;
 const ACC_PER_SPI = 0.015;
 const EVASION_PCT_CAP = 75; // 현 모델 캡(비교용)
 
-// ── 대결형 다이얼(캘리브 대상) ──────────────────────────────────────────────
-const MAX_DODGE = 75; // 점근 천장(현 캡과 동일 철학 — 절대 도달X)
-const K = 4; // 기본 회피 높낮이 — 클수록 명중이 회피를 더 누름(파리티 회피↓)
-const ACC_BASE = 1.05; // 몹 명중레이팅 = ACC_BASE × floorStatMult(depth)
+// ── 대결형 다이얼(캘리브 대상) — env 로 스윕 가능 ───────────────────────────
+const MAX_DODGE = Number(process.env.MAX_DODGE ?? 75); // 점근 천장(소프트·절대 도달X). 캡 제거 금지=무적꼬리.
+const K = Number(process.env.K ?? 8); // 기본 회피 높낮이 — 클수록 명중이 회피를 더 누름(파리티 회피↓). 확정 8.
+const ACC_BASE = Number(process.env.ACC_BASE ?? 1.05); // 몹 명중레이팅 = ACC_BASE × floorStatMult(depth)
 
 type Arch = "DEX" | "LUK" | "STR" | "VIT" | "BAL";
 const ARCHES: Arch[] = ["DEX", "LUK", "STR", "VIT", "BAL"];
@@ -79,23 +79,25 @@ const dodgeOld = (eva: number) => Math.min(eva, EVASION_PCT_CAP);
 
 const DEPTHS = [8, 14, 20, 30, 42, 50];
 
-console.log(`회피 대결형 캘리브 — MAX_DODGE=${MAX_DODGE} K=${K} ACC_BASE=${ACC_BASE} (몹명중=ACC_BASE×floorStatMult)`);
-console.log("목표: 회피몰빵(DEX/LUK) ~50%·BAL ~30%·비회피(STR/VIT) ~10%, 전 깊이 안정.\n");
+const ehp = (dodgePct: number) => 1 / (1 - dodgePct / 100); // 회피→유효체력 배수
+const parityDodge = MAX_DODGE / (1 + K); // evaR == 몹명중 일 때(균등 매칭) 회피
+
+console.log(`회피 대결형 캘리브 — MAX_DODGE=${MAX_DODGE} K=${K} ACC_BASE=${ACC_BASE}`);
+console.log(`파리티 회피(evaR=몹명중) = MAX/(1+K) = ${parityDodge.toFixed(0)}%  (균등 매칭 시 기본 회피)\n`);
 
 for (const depth of DEPTHS) {
   const lv = levelForDepth(depth);
   const mobAcc = ACC_BASE * floorStatMult(depth);
-  console.log(`━━ 깊이 ${depth} (권장 Lv${lv}, floorStatMult ${floorStatMult(depth).toFixed(1)}, 몹명중레이팅 ${mobAcc.toFixed(0)}) ━━`);
-  console.log("Arch │ evaR  accR │ 회피(현,캡75) → 회피(대결형) │ Δ");
+  console.log(`━━ 깊이 ${depth} (권장 Lv${lv}, 몹명중레이팅 ${mobAcc.toFixed(0)}) ━━`);
+  console.log("Arch │ evaR │ 회피(현,캡75) → 회피(대결형) · EHP배수");
   for (const arch of ARCHES) {
     const s = statsAt(arch, lv);
     const eva = evaRating(s);
-    const acc = accRating(s);
     const dOld = dodgeOld(eva);
     const dNew = dodgeNew(eva, mobAcc);
     console.log(
-      `${arch.padEnd(4)} │ ${eva.toFixed(0).padStart(4)} ${acc.toFixed(0).padStart(4)} │ ` +
-        `${dOld.toFixed(0).padStart(3)}% → ${dNew.toFixed(0).padStart(3)}% │ ${(dNew - dOld).toFixed(0).padStart(4)}`,
+      `${arch.padEnd(4)} │ ${eva.toFixed(0).padStart(4)} │ ` +
+        `${dOld.toFixed(0).padStart(3)}% → ${dNew.toFixed(0).padStart(3)}% · ×${ehp(dNew).toFixed(2)}`,
     );
   }
   console.log("");

@@ -25,7 +25,6 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
-  V2_BASE_MISS_PCT,
 } from "./combatShared";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import {
@@ -39,6 +38,7 @@ import {
   RAMPAGE_START_TURN,
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
+  attackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import {
   type APSkill,
@@ -329,13 +329,15 @@ export type PlayerCombat = {
   magicAtk?: number;
   def: number;
   spd: number; // 선공 판정에 사용
-  evasionPct: number; // 0~100, 적 공격 회피 확률(캡 75 — PvP/UI/플레이어명중·표시용)
-  // 회피 대결형 Slice 1 — 캡 없는 raw 회피레이팅. PvE enemyPhase 가 몹 명중과 dodgeChance 대결.
-  //   미지정 시 enemyPhase 가 evasionPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
+  evasionPct: number; // 0~100, 표시 전용(캡 75). 전투 회피는 evaRating 대결.
+  // 회피 대결형 — 캡 없는 raw 회피레이팅. 전투(PvE 양방향·PvP)가 공격자 명중과 dodgeChance 대결.
+  //   미지정 시 evasionPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
   evaRating?: number;
-  // v2 명중률 (PR-6) — 적 evasionPct 에서 %p 차감. 0/undefined = 차감 없음(라이브 기존 동작).
-  // 라이브 적의 `enemy.accuracy` 와 대칭. v2 derive 가 totalStats.dex × 0.25 로 채움.
+  // v2 명중률 — 표시 전용(캡 35). 전투 명중은 accRating(대결형 Slice 2).
   accuracyPct?: number;
+  // 회피 대결형 Slice 2 — 캡 없는 raw 명중레이팅. 방어자 회피 대결을 누른다(evaRating 대칭).
+  //   미지정 시 accuracyPct 로 폴백(레거시/일부 테스트). derive 는 항상 채움.
+  accRating?: number;
   attackCount: number; // 한 턴에 가하는 공격 횟수 (>=1)
   // 매 턴 시작 시 이 확률(0~100)로 추가 공격 1회. SPD 의 기본 환산.
   extraAttackChancePct?: number;
@@ -1489,13 +1491,11 @@ export function applyPlayerV2SkillCast(
   //   일 때만 롤(스킬 안 터졌거나 자버프 스킬엔 롤 안 함 → RNG 드리프트 방지).
   let skillMissed = false;
   if (result.castSkillId && result.enemyDamage > 0) {
-    const sMissPct = Math.max(
-      0,
-      V2_BASE_MISS_PCT +
-        (state.enemy.evasionPct ?? 0) * (player.precisionEvasionMult ?? 1) -
-        (player.accuracyPct ?? 0),
-    );
-    if (sMissPct > 0 && Math.random() * 100 < sMissPct) {
+    // 회피 대결형 Slice 2(B안) — 평타와 같은 공식. 몹 회피레이팅(정밀 반영) vs 플레이어 명중레이팅.
+    const sEnemyEvaR =
+      Math.max(0, state.enemy.evasionPct ?? 0) * (player.precisionEvasionMult ?? 1);
+    const sMissPct = attackMissPct(sEnemyEvaR, player.accRating ?? player.accuracyPct ?? 0);
+    if (Math.random() * 100 < sMissPct) {
       skillMissed = true;
       result = {
         ...result,

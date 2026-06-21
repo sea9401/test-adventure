@@ -22,7 +22,6 @@ import {
   computeStormBonus,
 } from "./engine.damageHelpers";
 import {
-  V2_BASE_MISS_PCT,
   damageBetween,
   extractApEffect,
   v2AtkBuffMult,
@@ -39,6 +38,7 @@ import {
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
+  attackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 
 type AttackDamageResult = {
@@ -418,27 +418,23 @@ export function resolvePlayerPhase(
   } = extractApEffect(apMultEffect);
 
   // 적 회피 — 데미지 굴리기 전에 1차 판정. 회피하면 공격 1회가 그대로 빗나간다.
-  // 정확 슬롯 시 적 evasion 에 배수(<1) 가 곱해져 부분 무력화.
-  // v2 명중률(PR-6): player.accuracyPct 가 적 evasion 에서 %p 차감. 0/undefined =
-  // 차감 없음(라이브 기존 동작 보존). 라이브 enemy.accuracy 와 대칭.
+  // 정확 슬롯 시 적 회피레이팅에 배수(<1) 가 곱해져 부분 무력화.
+  // 회피 대결형 Slice 2(B안): 미스 = 베이스미스(플랫) + dodgeChance(몹 회피레이팅, 플레이어 명중레이팅).
+  //   명중은 대결 항만 누르고 플랫 베이스미스는 못 깎는다. 일반몹(회피 0)은 미스=베이스(현 평타 느낌 보존).
   // AP 스킬의 ignoresEvasion = true 면 회피 판정 자체 스킵.
   const precisionMult = player.precisionEvasionMult ?? 1;
-  // 실명(원소술사 빛) — 적 회피 -%p. 디버프 없으면 0 → 기존 동작 동일(byte-identical).
+  // 실명(원소술사 빛) — 적 회피레이팅 차감. 디버프 없으면 0 → 회피 0 몹은 dodgeChance=0(byte-identical).
   const evaDown =
     state.stacks.enemyEvasionDownTurns > 0 ? state.stacks.enemyEvasionDownPct : 0;
-  const rawEnemyEvasionPct =
+  const enemyEvaRating =
     Math.max(0, (state.enemy.evasionPct ?? 0) - evaDown) * precisionMult;
-  const playerAccuracy = player.accuracyPct ?? 0;
-  // 기본 명중 90%(빗나감 10%) + 적 회피 − 내 명중 (하한 없음 — 고회피 적은 그대로).
-  const missPct = Math.max(
-    0,
-    V2_BASE_MISS_PCT + rawEnemyEvasionPct - playerAccuracy,
-  );
-  if (!apIgnoresEvasion && missPct > 0 && Math.random() * 100 < missPct) {
+  const playerAccRating = player.accRating ?? player.accuracyPct ?? 0;
+  const missPct = attackMissPct(enemyEvaRating, playerAccRating);
+  if (!apIgnoresEvasion && Math.random() * 100 < missPct) {
     const log = appendLog(state.log, {
       kind: "player_attack",
       text:
-        rawEnemyEvasionPct > 0
+        enemyEvaRating > 0
           ? `${state.enemy.name}이(가) 공격을 피했다.`
           : "공격이 빗나갔다.",
     });

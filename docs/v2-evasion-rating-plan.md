@@ -82,7 +82,29 @@ tsc0·vitest1960·골든 재생성(derive=evaRating 필드 추가·PvE 지문=do
 
 ### 후속 슬라이스
 - **Slice 1b**: ① 정밀 PvE dodge% UI 표시(현재 깊이 floorAccuracy 기준) ② DEX dodge 더 완화(34%) + 몹-atk 보상.
-- **Slice 2**: 플레이어→몹 명중 대칭(missPct 대결형·명중캡35 제거·베이스미스 레이팅) + PvP 양방향.
+- **Slice 2 ✅ (2026-06-22 구현 — §3-C)**: 플레이어→몹 + PvP 양방향 대결형 + 명중캡 35 제거.
+
+## 3-C. Slice 2 구현 (이번 PR — 플레이어→몹 + PvP 양방향) ✅
+양방향 대칭 완성. **공통 헬퍼** `attackMissPct(defEvaR, atkAccR)` = `max(0, V2_BASE_MISS_PCT − atkAccR) + dodgeChance(defEvaR, atkAccR)` 를 4 호출처에 배선:
+PvE 평타(engine.playerPhase) · PvE 스킬(engine.ts) · PvP 평타(engine.pvpPhase) · PvP 스킬(engine-pvp). PvP 는
+attacker/defender flip 으로 자동 대칭. **derive**: `accRating`(캡 없는 raw + 기본명중) 노출. `accuracyPct`(캡 35)·
+`evasionPct`(캡 75)는 표시 전용으로 강등. **UI**: me/state `accRating` 노출 · StatsPanel "명중"=`90 + accRating`(캡 35 대신).
+
+### 🔑 베이스미스 모델 — 순수 플랫(B) → 명중감산(B') 정정 (2026-06-22 오너 확정)
+오너 1차 선택 = **B 안(플랫 10% + 회피 대결 별도·명중은 대결 항만 누름)**. 그러나 sim 검증서 **순수 플랫이 필드
+회귀**: 옛 모델은 명중이 베이스미스를 0 까지 깎아 **엔드 빌드는 일반몹 미스 0%** 였는데, 플랫이 이를 10% 로 고정해
+d50 승률 STR 90→71·BAL 99→84·VIT 91→78·LUK 75→65 (DEX 만 100 불변 → **DEX 상대독주 악화**, dex-dominance 아크 역행).
+→ **B' 로 정정**: 명중이 베이스미스도 깎게 환원(`max(0, 10 − accR)`) + 회피는 대결(점근선). 결과: d50 기준선 복원
+(STR 88·VIT 97·INT 100·BAL 99·DEX 100) · PvP 무적탱 완화 그대로(eva60 탱 미스 65%→~29%) · 전체 1960 테스트 무수정 통과
+(엔드 fixtures `accuracyPct:100` → 미스 0% 복원이 곧 테스트 컨벤션과 일치 = B' 가 코드 내장 의미). 명중캡 35 제거는
+accRating(uncapped) 로 달성 — [project-v2-accuracy-rework] 의도(마법사 바닥·궁사 활·스킬 미스) 전부 레이팅 계수로 이월.
+
+### 🔑 플레이어 기본 명중 `ACC_BASE_RATING = 7` (degeneracy 차단)
+대결식 `dodgeChance(eva, acc)` 는 공격자 명중 0 에서 회피몹/PvP탱이 75% 로 **퇴화**한다. 플레이어 명중은 minor
+스탯(보통 accR 2~5)이라 회피몹(eva 15~25·전체 98종 중 20종)이 거의 안 맞게 됨(미스 39~48%, acc0 은 85%). Slice 1
+의 **몹 floorAccuracy(MOB_ACC_BASE) 대칭** — 플레이어 accRating 에 기본 7 가산. 투자0 빌드의 eva20 몹 미스를 옛
+모델(30%)에 맞추고(7 → 정확히 30% 복원) PvP 무적탱도 추가 완화. 일반몹(eva0)은 dodgeChance=0 이라 불변. derive 의
+accRating 에만 가산(표시 accuracyPct·궁사 활 환원은 제외). 다이얼=`ACC_BASE_RATING`(derivePlayerCombatV2).
 
 ## 4. 구현 변경 (Slice 2/후속 참고)
 1. **derive**: `evasionPct`/`accuracyPct` 의 `min(.,캡)` 제거 → **레이팅(raw)** 으로 노출(`evaRating`/`accRating`).
@@ -101,8 +123,8 @@ tsc0·vitest1960·골든 재생성(derive=evaRating 필드 추가·PvE 지문=do
 - **명중이 적 회피를 카운터** = 비율 대결이 정확히 그 역할(더 깔끔 — 35 하드캡 없이 레이팅이 자기제한).
 - **마법사 바닥·궁사 활** = accuracy **레이팅 계수/보너스**로 그대로 이월(휘둘리지 않음).
 - **스킬도 미스** = 대결을 스킬 공격에도 적용(`apIgnoresEvasion`만 굴림 스킵).
-- 🔑**한 가지 구현 결정 = 베이스 미스 10% 표현**: 몹에 **작은 base evaRating** 부여(0-회피 몹도 ~10% 미스가
-  대결식으로 나오게) — 별도 flat 미스 floor 안 두고 대결로 일원화. 명중캡 35 폐기 안전.
+- 🔑**베이스 미스 처리 = §3-C 참조(실제 출하와 다름)**: 이 문단의 "몹 base evaRating 으로 대결 일원화" 안은 **미채택**.
+  실제 = B'(`max(0, 10 − accR)` 베이스 + `dodgeChance` 회피) + 플레이어 `ACC_BASE_RATING`. 사유=§3-C(순수 플랫 필드회귀).
 
 ### 위험 / 주의
 - **중간 규모**(크리 곡선 PR 정도): 엔진 dodge 양방향 + 몹 데이터 + PvP + 골든 + 매뉴얼.

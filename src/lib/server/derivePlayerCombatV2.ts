@@ -282,6 +282,13 @@ const MIN_DMG_PER_VIT = 0.03;
 const ACC_PER_STR = 0.02;
 const ACC_PER_INT = 0.02; // 마법사 명중 바닥(STR 대칭).
 const ACC_PER_SPI = 0.015;
+// 회피 대결형 Slice 2 — 플레이어 기본 명중레이팅(accRating 에만 가산, 표시 accuracyPct 는 제외).
+//   대결식 dodgeChance(eva, acc) 는 공격자 명중 0 에서 회피몹/PvP탱이 75% 로 퇴화하는데, 플레이어
+//   명중은 minor 스탯(보통 accR 2~5)이라 회피몹(eva 15~25)이 거의 안 맞게 됨. Slice 1 의 몹
+//   floorAccuracy(MOB_ACC_BASE) 대칭 — 플레이어에 기본 명중을 줘 회피몹 미스를 옛 모델(10+eva−acc)에
+//   맞추고(투자0 = eva20 미스 30% 로 거의 동일) PvP 무적탱도 추가 완화(eva60탱 65%→~39% 미스).
+//   일반몹(eva0)은 dodgeChance=0 이라 불변(10% 플랫). 다이얼 — docs/v2-evasion-rating-plan.md §Slice2.
+const ACC_BASE_RATING = 7;
 const EVA_PER_LUK = 0.08;
 // 치명타 피해 — 힘 minor (행운은 CRIT_DMG_PER_LUK major).
 const CRIT_DMG_PER_STR = 0.002;
@@ -581,8 +588,8 @@ export function derivePlayerCombatV2Pure(
     totalStats.spi * CRIT_RESIST_PER_SPI,
   );
   // 회피 — 민첩 + 행운 minor + 장비 + 장착 패시브(허보).
-  //   evaRating = 캡 없는 raw 합(회피 대결형 Slice 1 — PvE enemyPhase 가 몹 명중과 대결).
-  //   evasionPct = min(evaRating, 75) — PvP/UI/플레이어명중 표시·소비용(Slice 2 까지 캡 유지).
+  //   evaRating = 캡 없는 raw 합. 회피 대결형(Slice 1 PvE 몹→플레이어 + Slice 2 플레이어→몹·PvP 양방향)이
+  //   전투에서 쓰는 값. evasionPct = min(evaRating, 75) 은 이제 표시 전용(캡=UI 한정·전투 미사용).
   const evaRating =
     totalStats.dex * EVA_PER_DEX +
     totalStats.luk * EVA_PER_LUK +
@@ -673,7 +680,10 @@ export function derivePlayerCombatV2Pure(
     const excessAccuracy = Math.max(0, rawAccuracyPct - BOW_HIT_THRESHOLD);
     specAtk += Math.floor(excessAccuracy * BOW_ACCURACY_TO_ATK_COEF);
   }
-  // hit 에 쓰는 명중은 cap 으로 클램프(궁사의 잉여 딜 환원은 위 raw 기준이라 영향 없음).
+  // accRating = 캡 없는 raw + 기본 명중(회피 대결형 Slice 2 — 명중이 방어자 회피 대결을 누르는
+  //   레이팅·evaRating 대칭). ACC_BASE_RATING 는 대결 퇴화(acc0→75%) 방지·회피몹 옛 느낌 보존용.
+  //   finalAccuracyPct(캡 35)는 이제 표시 전용. 궁사 활 잉여 딜 환원은 위 raw 기준이라 영향 없음.
+  const accRating = rawAccuracyPct + ACC_BASE_RATING;
   const finalAccuracyPct = Math.min(ACCURACY_PCT_CAP, rawAccuracyPct);
 
   // 직업 효과 패시브 + 장착 패시브 합산. 0 이면 spread 생략(inert).
@@ -703,8 +713,9 @@ export function derivePlayerCombatV2Pure(
     def: specDef,
     spd: specSpd,
     evasionPct,
-    evaRating, // 회피 대결형 Slice 1 — PvE enemyPhase 가 몹 명중과 대결(캡 없는 raw).
-    accuracyPct: finalAccuracyPct,
+    evaRating, // 회피 대결형 — 전투에서 쓰는 캡 없는 raw(evasionPct 는 표시 전용).
+    accuracyPct: finalAccuracyPct, // 표시 전용(캡 35). 전투 명중은 accRating.
+    accRating, // 회피 대결형 Slice 2 — 명중이 방어자 회피 대결을 누르는 캡 없는 raw.
     attackCount: 1,
     extraAttackChancePct:
       extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),

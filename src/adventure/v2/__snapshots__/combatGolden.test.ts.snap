@@ -2,6 +2,7 @@
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[archer] 1`] = `
 {
+  "accRating": 15.225,
   "accuracyPct": 8.225,
   "atk": 63,
   "attackCount": 1,
@@ -35,6 +36,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[lowbie] 1`] = `
 {
+  "accRating": 8.775,
   "accuracyPct": 1.775,
   "atk": 11,
   "attackCount": 1,
@@ -68,6 +70,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[mage] 1`] = `
 {
+  "accRating": 11.684999999999999,
   "accuracyPct": 4.685,
   "atk": 19,
   "attackCount": 1,
@@ -101,6 +104,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[ninja] 1`] = `
 {
+  "accRating": 10.825,
   "accuracyPct": 3.8249999999999997,
   "atk": 30,
   "attackCount": 1,
@@ -134,6 +138,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[tank] 1`] = `
 {
+  "accRating": 9.175,
   "accuracyPct": 2.175,
   "atk": 38,
   "attackCount": 1,
@@ -167,6 +172,7 @@ exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > 
 
 exports[`골든: derive PlayerCombat 스냅샷 (Stage 1 상수 이관 가드) > derive[warrior] 1`] = `
 {
+  "accRating": 11.235,
   "accuracyPct": 4.234999999999999,
   "atk": 55,
   "attackCount": 1,
@@ -239,29 +245,29 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "magic_vs_약탈자",
-    "logSha": "a816813be6052254d574ff283b7f386c1363d1e8",
+    "logSha": "e5d72d0394cf82de1e61abe59cdc08f0384caed7",
     "outcome": "win",
-    "playerHp": 606,
+    "playerHp": 640,
     "playerMp": 501,
-    "turns": 39,
+    "turns": 35,
   },
   {
     "enemyHp": 0,
     "label": "counter_tank_vs_들소",
-    "logSha": "72de5f0f550b6af4863f7f5a95a2179b7f6ebf87",
+    "logSha": "bbe60afb612896d27de210be002499d998dce94a",
     "outcome": "win",
-    "playerHp": 806,
+    "playerHp": 820,
     "playerMp": 227,
-    "turns": 55,
+    "turns": 47,
   },
   {
     "enemyHp": 0,
     "label": "heal_vs_들소_boss",
-    "logSha": "3b6ca43e73bcb53a92c408b38d73489354523695",
+    "logSha": "220c96404ddde447cd28a43b2382b209eb9e064e",
     "outcome": "win",
-    "playerHp": 830,
+    "playerHp": 835,
     "playerMp": 227,
-    "turns": 63,
+    "turns": 57,
   },
   {
     "enemyHp": 0,
@@ -288,21 +294,21 @@ exports[`골든: resolveBattlePvP 지문 (PvP 엔진 가드) > PvP 지문 매트
 [
   {
     "label": "warrior_vs_mage",
-    "logSha": "26a996325641c19a601a5ccbe3aff9167910b7fa",
+    "logSha": "2124f1eed54da88b0164a036c0848571dc3b18ed",
     "outcome": "p1_win",
-    "turns": 65,
+    "turns": 61,
   },
   {
     "label": "archer_vs_ninja",
-    "logSha": "ad13b6a51d624ed2a535c79b9b57389b9000d193",
+    "logSha": "395f655058f37694c5de02cda7aee2595757df3f",
     "outcome": "p1_win",
-    "turns": 41,
+    "turns": 39,
   },
   {
     "label": "tank_vs_warrior",
-    "logSha": "1d348e97b35e1f472dadec7676e67d8c76e736b8",
+    "logSha": "4807c95f13c965200beb9538a683e97df05f66a8",
     "outcome": "p1_win",
-    "turns": 169,
+    "turns": 149,
   },
 ]
 `;
@@ -357,20 +363,20 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "brace_enemy",
-    "logSha": "177d701f9fed404ac82c25bb532b2c875cfc9a28",
+    "logSha": "adfcec5be08af88ceea25b6b331201442b3a380e",
     "outcome": "win",
-    "playerHp": 720,
+    "playerHp": 717,
     "playerMp": 227,
-    "turns": 28,
+    "turns": 24,
   },
   {
     "enemyHp": 0,
     "label": "heavyblow_enemy",
-    "logSha": "78fe2cf0d2d50855dc14746f433c553610897d02",
+    "logSha": "8651b08cffbd4ae42821b00475fa8faaff8413a4",
     "outcome": "win",
-    "playerHp": 825,
+    "playerHp": 820,
     "playerMp": 227,
-    "turns": 57,
+    "turns": 55,
   },
 ]
 `;

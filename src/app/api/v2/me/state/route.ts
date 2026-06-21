@@ -373,6 +373,8 @@ export async function GET() {
         magicDef: combat.player.magicDef ?? 0,
         // 숨은 전투 축 — 전투엔 반영되나 그동안 내 정보에 미표시. 회피/명중/치명타/다중공격.
         evasionPct: combat.player.evasionPct,
+        // 회피 대결형(Slice 1b) — 캡 없는 raw 회피레이팅. UI 가 현재 깊이 몹명중과 대결해 실제 PvE dodge% 표시.
+        evaRating: combat.player.evaRating,
         accuracyPct: combat.player.accuracyPct,
         critChancePct: combat.player.critChancePct,
         critMult: combat.player.critMult,

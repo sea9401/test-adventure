@@ -13,6 +13,7 @@ import {
   floorDefMult,
   floorExpMult,
   floorCritHpComp,
+  frontierOnsetSoften,
   floorAccuracy,
 } from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
@@ -227,11 +228,14 @@ describe("scaleMonsterForFloor", () => {
   it("floor 3+ 사다리 배율 — hp/atk 선형·def 댐핑·exp 곡선, 새 객체", () => {
     const scaled = scaleMonsterForFloor(base, 8);
     expect(scaled).not.toBe(base);
-    // hp 는 크리 HP 상쇄(floorCritHpComp) 까지 곱해짐 — atk/def/exp 는 미적용.
+    // hp = floorStatMult × 프론티어 진입 완화(d7~9 풀) × 크리 HP 상쇄. atk = floorStatMult × 진입 완화.
+    //   (def/exp/accuracy 는 완화 미적용). d8 은 frontierOnsetSoften 풀 구간(=MIN).
     expect(scaled.hp).toBe(
-      Math.round(base.hp * floorStatMult(8) * floorCritHpComp(8)),
+      Math.round(base.hp * floorStatMult(8) * frontierOnsetSoften(8) * floorCritHpComp(8)),
     );
-    expect(scaled.atk).toBe(Math.round(base.atk * floorStatMult(8)));
+    expect(scaled.atk).toBe(
+      Math.round(base.atk * floorStatMult(8) * frontierOnsetSoften(8)),
+    );
     expect(scaled.def).toBe(Math.round(base.def * floorDefMult(8)));
     expect(scaled.exp).toBe(Math.round(base.exp * floorExpMult(8)));
     expect(scaled.accuracy).toBeCloseTo((base.accuracy ?? 0) + floorAccuracy(8)); // 회피 대결 명중(라운드 안 함)

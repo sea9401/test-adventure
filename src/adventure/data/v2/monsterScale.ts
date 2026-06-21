@@ -4,6 +4,7 @@ import {
   floorDefMult,
   floorExpMult,
   endgameSoften,
+  frontierOnsetSoften,
   floorCritHpComp,
   floorAccuracy,
 } from "./dungeonLadder";
@@ -22,9 +23,11 @@ export function scaleMonsterForFloor(
   //   난이도를 따로 튜닝하므로 false(앵커 깊이 24·42 가 완화 임계 위라 atk 가 의도치 않게 약화되는 것 방지).
   softenEndgame: boolean = true,
 ): Monster {
-  // 엔드게임 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관). floor 빌드 생존성 회복.
+  // 엔드게임 완화 + 프론티어 진입 완화 — hp+atk(sMult)에만 곱(def/exp/권장파워는 무관). floor 빌드
+  //   생존성 회복(엔드) + 들판→프론티어 경계 절벽 완화(d7~11). 둘 다 게이트 미접촉(sim 자기정규화 회피).
   const sMult =
-    floorStatMult(depth) * (softenEndgame ? endgameSoften(depth) : 1);
+    floorStatMult(depth) *
+    (softenEndgame ? endgameSoften(depth) * frontierOnsetSoften(depth) : 1);
   const dMult = floorDefMult(depth);
   const eMult = floorExpMult(depth);
   // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.

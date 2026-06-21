@@ -3,7 +3,9 @@
 //
 // 데미지 = 플랫강화(스탯×~1.0 + 큰 flat) — 예측·off스탯 floor. 다단 = damage effect N개.
 // DoT/디버프는 통합 프리셋(V2_DOT_PRESETS/V2_DEBUFF_PRESETS) spread — 다이얼 일관.
-// procChance·mpCost 는 설계 문서값(저-proc = 평타 위주). cooldown 0(proc 가 게이트).
+// procChance: 공격=30/40(저-proc·평타 위주, proc 가 게이트). 유틸/힐/버프=100(조건이 게이트 —
+//   HP<50·MP<40·버프 비활성 등. 2026-06-21 유저: 조건이 이미 throttle이라 proc 이중게이트 제거).
+// mpCost = 설계 문서값. cooldown 0.
 // 엔진 핸들러(shield/manaRestore/selfRegen/selfBuffPct/heal pctLostHp)는 PR2-B 배선.
 //
 // 학습/장착 게이팅(어느 직군이 무엇을)은 learn 라우트 + V2_COMMON_SKILLS_BY_JOB(아래).
@@ -150,12 +152,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_warrior_warcry: {
     id: "v2c_warrior_warcry", name: "함성", stat: "str", category: "buff", tier: 2,
-    description: "전의를 끌어올려 공격력을 높인다.", mpCost: 24, cooldown: 0, procChance: 55,
+    description: "전의를 끌어올려 공격력을 높인다.", mpCost: 24, cooldown: 0, procChance: 100,
     effects: [{ kind: "selfBuff", stat: "str", pct: 10, turns: 3 }],
   },
   v2c_warrior_endure: {
     id: "v2c_warrior_endure", name: "불굴", stat: "str", category: "buff", tier: 2,
-    description: "버티는 자세로 생존력을 높인다.", mpCost: 24, cooldown: 0, procChance: 55,
+    description: "버티는 자세로 생존력을 높인다.", mpCost: 24, cooldown: 0, procChance: 100,
     effects: [{ kind: "selfBuff", stat: "vit", pct: 15, turns: 3 }],
   },
 
@@ -180,12 +182,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_martial_chi: {
     id: "v2c_martial_chi", name: "기공 순환", stat: "vit", category: "heal", tier: 2,
-    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 55,
+    description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100,
     effects: [{ kind: "heal", pctLostHp: 5 }],
   },
   v2c_martial_circulate: {
     id: "v2c_martial_circulate", name: "운기", stat: "vit", category: "buff", tier: 2,
-    description: "호흡을 고르며 단단해지고 꾸준히 회복한다.", mpCost: 26, cooldown: 0, procChance: 55,
+    description: "호흡을 고르며 단단해지고 꾸준히 회복한다.", mpCost: 26, cooldown: 0, procChance: 100,
     effects: [
       { kind: "selfBuff", stat: "vit", pct: 15, turns: 3 },
       { kind: "selfRegen", pctMaxHpPerTurn: 3, turns: 3 },
@@ -205,12 +207,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_mage_shield: {
     id: "v2c_mage_shield", name: "마나 보호막", stat: "int", category: "buff", tier: 2,
-    description: "마나로 보호막을 두른다. 마나가 클수록 두껍다.", mpCost: 42, cooldown: 0, procChance: 55,
+    description: "마나로 보호막을 두른다. 마나가 클수록 두껍다.", mpCost: 42, cooldown: 0, procChance: 100,
     effects: [{ kind: "shield", pctMaxHp: 10, pctMaxMp: 10, turns: 3 }],
   },
   v2c_mage_meditate: {
     id: "v2c_mage_meditate", name: "명상", stat: "int", category: "buff", tier: 2,
-    description: "정신을 가다듬어 마나를 회복한다.", mpCost: 0, cooldown: 0, procChance: 55,
+    description: "정신을 가다듬어 마나를 회복한다.", mpCost: 0, cooldown: 0, procChance: 100,
     effects: [{ kind: "manaRestore", pctMaxMp: 7 }],
   },
 
@@ -244,7 +246,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // 무인 철포(받피감 버프)·마법사 마력탄(0코스트 마법). 강타/연격/독침은 기존 재사용.
   v2c_martial_steelguard: {
     id: "v2c_martial_steelguard", name: "철포", stat: "vit", category: "buff", tier: 1,
-    description: "몸을 굳혀 한동안 받는 피해를 줄인다.", mpCost: 24, cooldown: 0, procChance: 55,
+    description: "몸을 굳혀 한동안 받는 피해를 줄인다.", mpCost: 24, cooldown: 0, procChance: 100,
     effects: [{ kind: "selfBuffPct", target: "damageReduction", pct: 12, turns: 3 }],
   },
   v2c_mage_boltcast: {
@@ -306,7 +308,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 수도승 = 회피 지속탱(역할화 2차) — 딜 대신 회피 버프(selfBuffPct evasion, 배선됨). 패시브
     //   허보(상시 회피)와 합쳐 회피 정체성. id 유지(세이브 호환). 딜은 평타로. PvE/PvP 공용.
     id: "v2c_monk_palm", name: "선풍각", stat: "vit", category: "buff", tier: 2,
-    description: "바람을 타듯 흘리는 보법. 한동안 회피가 크게 오른다.", mpCost: 24, cooldown: 0, procChance: 55,
+    description: "바람을 타듯 흘리는 보법. 한동안 회피가 크게 오른다.", mpCost: 24, cooldown: 0, procChance: 100,
     effects: [{ kind: "selfBuffPct", target: "evasion", pct: 15, turns: 3 }],
   },
   // ── 마법사 갈래 ──
@@ -319,7 +321,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     // 사제 = 자힐 탱 — 딜 대신 힐(컬렉션 유일 회복). kind:"heal" 배선됨. id 유지(세이브 호환).
     //   pctLostHp=잃은 체력 비례(낮을수록 강·고HP 낭비 없음). 스마트 패턴이 HP<50%에서 자동 발동.
     id: "v2c_acolyte_smite", name: "치유", stat: "int", category: "heal", tier: 2,
-    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 55,
+    description: "신성한 힘으로 잃은 상처를 메운다.", mpCost: 30, cooldown: 0, procChance: 100,
     effects: [{ kind: "heal", pctLostHp: 30 }],
   },
   // ── 도적 갈래 ──
@@ -479,7 +481,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bishop_heal: {
     id: "v2c_bishop_heal", name: "대치유", stat: "int", category: "heal", tier: 3,
-    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 55,
+    description: "성스러운 빛으로 잃은 상처를 크게 메운다.", mpCost: 40, cooldown: 0, procChance: 100,
     effects: [{ kind: "heal", pctLostHp: 45 }],
   },
   v2c_shadow_assassinate: {

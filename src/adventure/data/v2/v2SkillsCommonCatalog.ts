@@ -62,7 +62,7 @@ export type V2CommonSkillId =
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
   | "v2c_shieldman_vitality" // 체력 (최대 HP +12%)
   | "v2c_squire_might" // 근력 II (힘 +15%)
-  | "v2c_boxer_fortitude" // 강건 II (활력 +15%)
+  | "v2c_boxer_fortitude" // 포식 (흡혈 +2%)
   | "v2c_monk_spirit" // 정신 (정신 +15%)
   | "v2c_caster_acumen" // 총명 II (지능 +15%)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
@@ -101,9 +101,9 @@ export type V2CommonSkillId =
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·궁술)
   | "v2c_veteran_lethal" // 필살 (치명 피해 +25%)
-  | "v2c_sensei_ironbody" // 철신 (최대 HP +12%)
+  | "v2c_sensei_ironbody" // 철신 (최대 HP +20%)
   | "v2c_sage_insight" // 간파 (치명 확률 +8%)
-  | "v2c_chief_afterimage" // 잔영 (회피 +12%)
+  | "v2c_chief_afterimage" // 잔영 (회피 +18%)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery"; // 원소 통달 (상성 유리/불리 +15%p 양방향)
@@ -359,14 +359,14 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 15 } },
   },
   v2c_boxer_fortitude: {
-    // 흡혈 브루저(권사) — 옛 활력%에서 흡혈로 리스킨. 자동전투 눈덩이 방지로 의도적 저수치(4%).
+    // 흡혈 브루저(권사) — 옛 활력%에서 흡혈로 리스킨. 자동전투 눈덩이 방지로 의도적 저수치(2%).
     //   🔑 흡혈(enchantLifestealPct)은 현재 PvE 엔진만 소비 — PvP(engine.pvpPhase)는 별도 훅
     //   (lifestealCritHealPct)만 적용해 이 패시브는 PvP 에서 inert. PvP 흡혈은 밸런스 민감이라
     //   의도적 보류(미러 여부는 후속 결정). crit/critDmg/evasion 리스킨은 PvE/PvP 양쪽 적용.
     id: "v2c_boxer_fortitude", name: "포식", stat: "vit", category: "passive", tier: 2,
     description: "가한 피해의 일부를 체력으로 흡수한다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { lifestealPct: 4 },
+    passive: { lifestealPct: 2 },
   },
   v2c_monk_spirit: {
     // 회피 지속탱(수도승) — 옛 정신%에서 회피로 리스킨. stat 필드는 그룹 메타(vit)만.
@@ -604,7 +604,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_sensei_ironbody", name: "철신", stat: "vit", category: "passive", tier: 3,
     description: "강철 같은 몸. 최대 체력이 크게 늘어난다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { maxHpPct: 12 },
+    passive: { maxHpPct: 20 },
   },
   v2c_sage_insight: {
     // 마법 심화 — 치명 확률(술사 치명피해와 시너지). int 라인에 crit 확률 추가.
@@ -618,7 +618,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_chief_afterimage", name: "잔영", stat: "dex", category: "passive", tier: 3,
     description: "잔상을 남기며 흘린다. 회피가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { evasionPct: 12 },
+    passive: { evasionPct: 18 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──

@@ -82,6 +82,19 @@ export function OutpostView({
   const [raidResult, setRaidResult] = useState<
     { won: boolean; stolenGold: number; defenderName: string | null } | string | null
   >(null);
+  // 정착지 전쟁 정복(conquest) 결과 — 함락/공성 진행/실패(또는 에러 문자열). 플래그 on 전용.
+  const [conquestResult, setConquestResult] = useState<
+    | {
+        clearedQueue: boolean;
+        captured: boolean;
+        fortHp: number;
+        fortMaxHp: number;
+        downgradedTo: string | null;
+        defendersDefeated: number;
+      }
+    | string
+    | null
+  >(null);
   // 내 합성 전투력(derivePowerScore) — 수비 전투력 게이트 비교용. state 라우트서 1회 로드.
   // intrusion(침입 상태)도 같은 응답에서 — "이 거점에 침입 중" 배너용.
   const [viewerPower, setViewerPower] = useState<number | null>(null);
@@ -280,6 +293,52 @@ export function OutpostView({
     }
   }
 
+  // 정착지 전쟁 정복 — 수비 큐 전원 격파 + 성벽 누적 공성 → 함락 시 마을 1단계 강등·소유 이관. 플래그 on 전용.
+  async function attemptConquest() {
+    setBusy(true);
+    setConquestResult(null);
+    try {
+      const res = await fetch("/api/v2/outpost/attack", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outpostId: outpost.id, mode: "conquest" }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | {
+            ok: true;
+            clearedQueue: boolean;
+            captured: boolean;
+            fortHp: number;
+            fortMaxHp: number;
+            downgradedTo: string | null;
+            defendersDefeated: number;
+          }
+        | { ok: false; error: string }
+        | null;
+      if (!json) {
+        setConquestResult(`응답 오류 (http ${res.status})`);
+        return;
+      }
+      if (!json.ok) {
+        setConquestResult(raidErrorMsg(json.error));
+        return;
+      }
+      setConquestResult({
+        clearedQueue: json.clearedQueue,
+        captured: json.captured,
+        fortHp: json.fortHp,
+        fortMaxHp: json.fortMaxHp,
+        downgradedTo: json.downgradedTo,
+        defendersDefeated: json.defendersDefeated,
+      });
+      // 함락 시 부모 거점 상태(소유/금고/성벽) 갱신은 후속 — 지금은 결과 메시지만(재진입 시 반영).
+    } catch (err) {
+      setConquestResult(`network: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -469,15 +528,26 @@ export function OutpostView({
               disabled={!!claimDisabled || busy}
               loading={busy}
             />
-            {/* 정착지 전쟁 약탈 — 적 길드 점령 거점만(NPC 거점 제외). 플래그 on 전용. */}
-            {V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null && (
-              <ActionCard
-                title="약탈 시도"
-                subtitle="수비대 1번과 건강도 결투 — 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
-                onClick={attemptRaid}
-                disabled={busy}
-                loading={busy}
-              />
+            {/* 정착지 전쟁 약탈/정복 — 적 길드 점령 거점만(NPC 거점 제외)·길드원만. 플래그 on 전용. */}
+            {V2_SETTLEMENT_WARFARE &&
+              viewerGuildId != null &&
+              occupation?.occupiedByGuildId != null && (
+              <>
+                <ActionCard
+                  title="약탈 시도"
+                  subtitle="수비대 1번과 건강도 결투 — 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+                  onClick={attemptRaid}
+                  disabled={busy}
+                  loading={busy}
+                />
+                <ActionCard
+                  title="정복 시도"
+                  subtitle="수비대 전원과 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락(마을 1단계 강등·소유 이전). 한 번에 안 되니 여러 차례 공격해 성벽을 무너뜨려야 함."
+                  onClick={attemptConquest}
+                  disabled={busy}
+                  loading={busy}
+                />
+              </>
             )}
           </>
         )}
@@ -515,6 +585,44 @@ export function OutpostView({
             <button
               type="button"
               onClick={() => setRaidResult(null)}
+              className="ml-2 text-xs text-zinc-500 underline"
+            >
+              닫기
+            </button>
+          </div>
+        )}
+        {conquestResult && (
+          <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+            {typeof conquestResult === "string" ? (
+              <span className="text-rose-600 dark:text-rose-400">
+                {conquestResult}
+              </span>
+            ) : conquestResult.captured ? (
+              <span>
+                <strong>함락!</strong> 거점을 점령했습니다
+                {conquestResult.downgradedTo
+                  ? ` — 마을이 ${conquestResult.downgradedTo}(으)로 강등됨`
+                  : ""}
+                .
+              </span>
+            ) : conquestResult.clearedQueue ? (
+              <span>
+                수비대 {conquestResult.defendersDefeated}명 격파 · 성벽{" "}
+                <strong>
+                  {conquestResult.fortHp}/{conquestResult.fortMaxHp}
+                </strong>{" "}
+                — 성벽을 더 깎아야 함락됩니다.
+              </span>
+            ) : (
+              <span>
+                공성 실패 — 수비대에 막혔습니다(
+                {conquestResult.defendersDefeated}명 격파). 건강도를 회복하고
+                다시 시도하세요.
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setConquestResult(null)}
               className="ml-2 text-xs text-zinc-500 underline"
             >
               닫기

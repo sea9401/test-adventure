@@ -23,6 +23,12 @@ export function nextTier(tier: VillageTier): VillageTier | null {
   return i >= 0 && i < VILLAGE_TIERS.length - 1 ? VILLAGE_TIERS[i + 1] : null;
 }
 
+// 이전 단계(없으면 null = 최하). 정복 함락 시 마을 1단계 강등에 사용(대도시→도시→마을, 마을=null).
+export function prevTier(tier: VillageTier): VillageTier | null {
+  const i = VILLAGE_TIERS.indexOf(tier);
+  return i > 0 ? VILLAGE_TIERS[i - 1] : null;
+}
+
 // 국가 선포 게이트 — 이 등급 이상의 마을(=대도시) 하나를 보유하면 선포 가능.
 //   하드 "땅 N개" 게이트는 두지 않음(메모리 설계 8번): 땅이 많을수록 재화가 빨라 자연히
 //   확장이 유도되도록(emergent). 보유 마을 중 하나라도 이 단계면 충족.

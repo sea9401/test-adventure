@@ -44,7 +44,7 @@ export type QuestCtx = {
   uniqueOwned: number;
   /** 수행 횟수. proficiency.v2 groups[group].cultivations. */
   cultivations: number;
-  /** 처치한 테마 보스 수(첫 처치 칭호 보유 수). adventure-log.v2.titles. */
+  /** 처치한 협동 보스 수(BOSS_TITLE_IDS 첫 처치 칭호 보유 수). adventure-log.v2.titles. */
   bossKills: number;
   /** 길드 소속 여부. guildMembers. */
   hasGuild: boolean;
@@ -139,6 +139,14 @@ const GROWTH: QuestDef[] = [
     check: (c) => c.frontierDepth >= 5,
   },
   {
+    id: "g_cultivate",
+    line: "growth",
+    title: "수행 입문",
+    desc: "성장의 신전에서 수행으로 능력치 한계를 올리세요.",
+    reward: { gold: 300 },
+    check: (c) => c.cultivations >= 1,
+  },
+  {
     id: "g_cap1",
     line: "growth",
     title: "정점",
@@ -150,7 +158,7 @@ const GROWTH: QuestDef[] = [
     id: "g_advance2",
     line: "growth",
     title: "2차 전직",
-    desc: "성장의 신전에서 다음 차수로 전직하세요.",
+    desc: "성장의 신전에서 2차 직업으로 전직하세요.",
     reward: { gold: 600 },
     check: (c) => c.tier >= 2,
   },
@@ -158,17 +166,9 @@ const GROWTH: QuestDef[] = [
     id: "g_passive",
     line: "growth",
     title: "3차 전직",
-    desc: "수행 화면에서 3차 직업으로 전직하세요.",
+    desc: "성장의 신전에서 3차 직업으로 전직하세요.",
     reward: { gold: 500 },
     check: (c) => c.tier >= 3,
-  },
-  {
-    id: "g_cultivate",
-    line: "growth",
-    title: "수행 입문",
-    desc: "성장의 신전에서 수행으로 능력치 한계를 올리세요.",
-    reward: { gold: 300 },
-    check: (c) => c.cultivations >= 1,
   },
   {
     id: "g_frontier",
@@ -181,7 +181,7 @@ const GROWTH: QuestDef[] = [
 ];
 
 // ── 직업 전용 라인(직군별, 본인 직군 것만 보임 · 순차) ──────────────────────
-// 2차 전직 → 3차 전직 → 4차 전직. 직업 사다리(수행 화면)로 차수를 올린다.
+// 2차 전직 → 3차 전직 → 4차 전직. 직업 사다리(성장의 신전)로 차수를 올린다.
 const CLASS_INFO: Record<
   "warrior" | "martial" | "mage" | "rogue",
   { name: string }
@@ -209,7 +209,7 @@ const CLASS_QUESTS: QuestDef[] = CLASS_KEYS.flatMap((cls) => {
       id: `c_${cls}_spec`,
       line,
       title: `${info.name} 2차 전직`,
-      desc: "수행 화면에서 2차 직업으로 전직하세요.",
+      desc: "성장의 신전에서 2차 직업으로 전직하세요.",
       reward: { gold: 600 },
       check: (c: QuestCtx) => c.tier >= 2,
     },
@@ -217,7 +217,7 @@ const CLASS_QUESTS: QuestDef[] = CLASS_KEYS.flatMap((cls) => {
       id: `c_${cls}_deepen`,
       line,
       title: "3차 전직",
-      desc: "3차 직업으로 전직하세요.",
+      desc: "성장의 신전에서 3차 직업으로 전직하세요.",
       reward: { gold: 1000 },
       check: (c: QuestCtx) => c.tier >= 3,
     },
@@ -225,7 +225,7 @@ const CLASS_QUESTS: QuestDef[] = CLASS_KEYS.flatMap((cls) => {
       id: `c_${cls}_apex`,
       line,
       title: "4차 전직",
-      desc: "4차 직업으로 전직하세요.",
+      desc: "성장의 신전에서 4차 직업으로 전직하세요.",
       reward: { gold: 2000 },
       check: (c: QuestCtx) => c.tier >= 4,
     },
@@ -446,9 +446,9 @@ const REBIRTH: QuestDef[] = [
     chain: "rebirth_cum",
     line: "rebirth",
     title: "다시 태어나다",
-    desc: "4차 레벨 100 도달 후 환생하세요 (누적레벨 101+).",
+    desc: `레벨 한계(${V2_LEVEL_CAP})에 도달한 뒤 성장의 신전에서 환생하세요 (누적레벨 ${V2_LEVEL_CAP + 1}+).`,
     reward: { gold: 1000 },
-    check: (c) => c.cumLevel >= 101,
+    check: (c) => c.cumLevel >= V2_LEVEL_CAP + 1,
   },
   {
     id: "r_300",

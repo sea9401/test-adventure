@@ -15,7 +15,8 @@
 
 import { OUTPOST_BY_ID } from "./outposts";
 
-// 쟁탈 거점 후보 풀 — 순서가 활성 우선순위. 모두 중앙 분쟁지대(평원) 안.
+// 쟁탈 거점 후보 풀 — 순서가 활성 우선순위. 대부분 중앙 분쟁지대(평원·수비 게이트 면제),
+// 외곽 2개(발마르·알토렌)는 분쟁 반경 밖이라 tier 수비 게이트가 있다.
 export const CONTESTABLE_OUTPOST_IDS: readonly string[] = [
   "war_central_fort", // 카스트라 — 중앙 분쟁지대 핵심 요새(앵커, 늘 첫 전장)
   "war_central_tower", // 아르카눔

@@ -111,7 +111,7 @@ export function rollQualityPct(
 // 비용 = max(MIN, floor(카탈로그 위력 × K)) × 유니크배수. 강화 ≠ 재련(강화 레벨 불변).
 // 강화는 개체 굴림 위력 기준이라 회마다 흔들리지만, 재련은 **카탈로그 기준 위력**으로
 // 비용을 고정해 예측 가능하게(가격이 굴림 결과에 안 휘둘림). K·MIN·배수는 다이얼.
-export const REFORGE_GOLD_K = 1000;
+export const REFORGE_GOLD_K = 500; // 하이브리드(재료+골드) 전환으로 골드분 절반(PR-2).
 export const REFORGE_MIN_COST = 20_000;
 export const REFORGE_UNIQUE_COST_MULT = 2;
 
@@ -134,8 +134,8 @@ export function canReforge(
 
 // ── 재련석(Reforge Stone) — 재련 소모 재료 2종 ─────────────────────────────
 // 재련은 (PR-2부터) 골드 + 재련석 1개 하이브리드로 소모한다. 두 종류:
-//   일반 재련석 = 현 재련 굴림(1회) / 상급 재련석 = max-of-N 으로 고품질 확률↑
-//   (결과는 여전히 드랍 분포 안 → 파워크립 0). 굴림 메커니즘은 PR-2.
+//   일반 재련석 = 현 재련 굴림(1회) / 상급 재련석 = max-of-N(REFORGE_HIGH_ROLLS)로 고품질 확률↑
+//   (결과는 여전히 드랍 분포 안 → 파워크립 0). 굴림 = reforgeRollCount/rollItemStatsBest.
 // 수급 = 사냥 승리 독립 드랍(강화석 패턴 미러·V2_MATERIALS_ENABLED 무관). NPC 판매 없음
 //   (거래소 유저 거래 전용 — 시세는 수요가 결정). 강화석(붉은0.1·푸른0.3)보다 희소.
 export type ReforgeStoneId = "basic" | "high";
@@ -169,6 +169,32 @@ export function rollReforgeStoneDrops(
     }
   }
   return out;
+}
+
+// 상급 재련석 max-of-N — N회 굴려 품질 최고를 채택(같은 분포·범위라 파워크립 0). N=1=현 굴림.
+export const REFORGE_HIGH_ROLLS = 3;
+
+export function reforgeRollCount(stone: ReforgeStoneId): number {
+  return stone === "high" ? REFORGE_HIGH_ROLLS : 1;
+}
+
+// count 회 굴림 중 rollQualityPct 최고를 반환(동률·null 품질이면 첫 굴림 유지). count≤1 = rollItemStats 동일.
+export function rollItemStatsBest(
+  item: V2Equipment,
+  rng: () => number,
+  count: number,
+): V2EquipRoll {
+  let best = rollItemStats(item, rng);
+  let bestQ = rollQualityPct(item, best) ?? -1;
+  for (let i = 1; i < count; i++) {
+    const r = rollItemStats(item, rng);
+    const q = rollQualityPct(item, r) ?? -1;
+    if (q > bestQ) {
+      best = r;
+      bestQ = q;
+    }
+  }
+  return best;
 }
 
 // ── 일괄 판매 선택 — 클라(미리보기 확인)·서버(권위 판매) 공용 단일 소스(드리프트 방지) ──

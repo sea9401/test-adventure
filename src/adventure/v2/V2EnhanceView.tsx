@@ -25,7 +25,10 @@ import {
 import {
   canReforge,
   reforgeGoldCost,
+  REFORGE_STONE_MATERIAL_ID,
+  REFORGE_STONES,
   rollQualityPct,
+  type ReforgeStoneId,
 } from "@/adventure/data/v2/v2EquipVariance";
 import {
   ENHANCE_MAX_LEVEL,
@@ -69,6 +72,8 @@ type ReforgeResponse = {
   ok?: boolean;
   error?: string;
   itemId?: string;
+  stone?: ReforgeStoneId;
+  stoneLeft?: number;
   goldCost?: number;
   gold?: number;
   oldRoll?: V2EquipRoll;
@@ -86,9 +91,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     Partial<Record<V2EquipSlot, string>>
   >({});
   const [stones, setStones] = useState({ red: 0, blue: 0 });
+  const [reforgeStones, setReforgeStones] = useState({ basic: 0, high: 0 });
   const [tab, setTab] = useState<V2EquipSlot>("weapon");
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
   const [stone, setStone] = useState<EnhanceChoice>("none");
+  const [reforgeStone, setReforgeStone] = useState<ReforgeStoneId>("basic");
   const [feedIid, setFeedIid] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{
@@ -118,6 +125,10 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         setStones({
           red: j.materials?.[ENHANCE_STONE_MATERIAL_ID.red] ?? 0,
           blue: j.materials?.[ENHANCE_STONE_MATERIAL_ID.blue] ?? 0,
+        });
+        setReforgeStones({
+          basic: j.materials?.[REFORGE_STONE_MATERIAL_ID.basic] ?? 0,
+          high: j.materials?.[REFORGE_STONE_MATERIAL_ID.high] ?? 0,
         });
       }
     } catch {
@@ -246,6 +257,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   // ── 재련(reforge) — 골드로 옵션 굴림 재시도(항상 적용 = 도박) ──
   const reforgeCost = item ? reforgeGoldCost(item) : 0;
   const reforgeable = !!(selected && item && canReforge(item, selected.roll));
+  const reforgeStoneShort = reforgeStones[reforgeStone] < 1;
   const curQuality =
     selected && item ? rollQualityPct(item, selected.roll) : null;
   const curRollPower =
@@ -259,7 +271,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       const res = await fetch("/api/v2/me/reforge", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ iid: selected.iid }),
+        body: JSON.stringify({ iid: selected.iid, stone: reforgeStone }),
       });
       const json = (await res.json()) as ReforgeResponse;
       if (!json.ok) {
@@ -268,9 +280,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           text:
             json.error === "insufficient_gold"
               ? "골드가 부족합니다"
-              : json.error === "not_reforgeable"
-                ? "재련할 수 없는 장비입니다"
-                : `실패: ${json.error ?? "unknown"}`,
+              : json.error === "insufficient_stone"
+                ? "재련석이 부족합니다"
+                : json.error === "not_reforgeable"
+                  ? "재련할 수 없는 장비입니다"
+                  : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
@@ -291,7 +305,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
-  }, [selected, item, busy, refresh]);
+  }, [selected, item, busy, refresh, reforgeStone]);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -309,7 +323,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               <span className="text-rose-500">🔴 {stones.red}</span>
               <span className="text-sky-500">🔵 {stones.blue}</span>
             </div>
-          ) : undefined
+          ) : (
+            <div className="flex items-center gap-3 text-sm tabular-nums">
+              <span className="text-zinc-500 dark:text-zinc-400">
+                🔧 {reforgeStones.basic}
+              </span>
+              <span className="text-indigo-500">✨ {reforgeStones.high}</span>
+            </div>
+          )
         }
       />
 
@@ -535,12 +556,38 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   </span>
                 </div>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  골드로 옵션 굴림을 다시 돌립니다. 결과는 무조건 적용되며 되돌릴
-                  수 없습니다(도박). 강화 단계는 유지됩니다.
+                  골드와 재련석으로 옵션 굴림을 다시 돌립니다. 결과는 무조건
+                  적용되며 되돌릴 수 없습니다(도박). 강화 단계는 유지됩니다.
                 </p>
+                {/* 재련석 선택 — 일반(현 굴림) / 상급(고품질 확률↑) */}
+                <div className="flex gap-2">
+                  {(["basic", "high"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setReforgeStone(s)}
+                      className={`flex-1 rounded-md border px-2 py-1.5 text-xs transition ${
+                        reforgeStone === s
+                          ? s === "high"
+                            ? "border-indigo-400 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950"
+                            : "border-zinc-400 bg-zinc-100 dark:border-zinc-500 dark:bg-zinc-800"
+                          : "border-zinc-200 dark:border-zinc-700"
+                      }`}
+                    >
+                      <div className="font-medium">
+                        {s === "high" ? "✨ 상급 재련석" : "🔧 재련석"}
+                      </div>
+                      <div className="mt-0.5 tabular-nums text-zinc-500 dark:text-zinc-400">
+                        {s === "high" ? "고품질 확률↑" : "기본"} · 보유{" "}
+                        {reforgeStones[s]}
+                      </div>
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-baseline justify-between text-xs text-zinc-500 dark:text-zinc-400">
                   <span className="tabular-nums">
-                    비용: {reforgeCost.toLocaleString()} G
+                    비용: {reforgeCost.toLocaleString()} G +{" "}
+                    {REFORGE_STONES[reforgeStone].name} 1개
                     {uniqueMult > 1 && " (유니크 ×2)"}
                   </span>
                   <span className="font-semibold text-amber-500">
@@ -550,12 +597,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                 <button
                   type="button"
                   onClick={() => void doReforge()}
-                  disabled={busy}
+                  disabled={busy || reforgeStoneShort}
                   className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {busy
                     ? "재련 중…"
-                    : `재련 (${reforgeCost.toLocaleString()} G)`}
+                    : reforgeStoneShort
+                      ? `${REFORGE_STONES[reforgeStone].name} 부족`
+                      : `재련 (${reforgeCost.toLocaleString()} G + 재련석 1)`}
                 </button>
               </>
             )}

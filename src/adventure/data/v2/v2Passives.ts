@@ -79,7 +79,7 @@ export function describeClassPassiveEffect(e: V2ClassPassiveEffect): string {
   if (e.turnHealPctMaxHp) parts.push(`매 턴 HP +${e.turnHealPctMaxHp}%`);
   if (e.magicBasicAttack) parts.push("평타 마법화");
   if (e.magicAtkPerIntCoef) parts.push(`마법공격력 +INT×${e.magicAtkPerIntCoef}`);
-  if (e.critMultAdd) parts.push(`치명타 피해 +${e.critMultAdd}배`);
+  if (e.critMultAdd) parts.push(`치명타 피해 가산 +${e.critMultAdd}`);
   return parts.join(" · ");
 }
 

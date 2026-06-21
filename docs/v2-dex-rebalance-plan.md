@@ -59,16 +59,45 @@
 상수는 `export` 로 노출해 단위 테스트가 import(다이얼 변경 시 테스트 자동 추종). 골든 스냅샷
 재생성(전투 데미지 상승 = 의도). 전 스위트 green.
 
-## 2. PR-2 (설계만) — 크리 배율 점감 곡선
+## 2. PR-2 (구현됨, PR-1 위 스택) — 크리 배율 점감 곡선 + 몹 HP 상쇄
 
 오너 관찰: 테스트 캐릭 크리배율 3.8은 과함. 단 **하드 캡 금지** — 캡 도달 후 크리뎀 스탯/패시브가
-죽은 투자가 됨(회피 캡과 같은 포화 문제). 대신:
+죽은 투자가 됨(회피 캡과 같은 포화 문제).
 
-- **점감(소프트) 곡선**: `critMult = CEIL − (CEIL − BASE) × exp(−k × bonusSum)`. CEIL≈2.5 점근,
-  투자는 영원히 한계효용 양수(죽은 구간 없음), 천장만 완만. (또는 완만한 계수↓ + 선형 유지)
-- **몹 HP 상쇄 필수**: 크리는 엔드 딜의 척추라 전역 인하 시 전체 DPS↓ → `sim-v2-power-gate`로
-  재캘리브해 몹 HP/LADDER를 그만큼 완화해야 곡선 유지(미상쇄 시 필드 붕괴, §0 종합실험 참고).
-- 자체 power-gate 재튜닝이 필요해 PR-1과 분리(큰 변경 청킹).
+### 2-1. 크리 점감 곡선 (`derivePlayerCombatV2.ts`)
+하드캡(`CRIT_MULT_CAP 5.0`) 폐기 → 지수 점근 곡선:
+```
+critMult = CRIT_MULT_CEIL − (CRIT_MULT_CEIL − CRIT_MULT_BASE) × exp(−critBonus / CRIT_MULT_SCALE)
+critBonus = luk×0.007 + str×0.002 + 장비 + 맹공 + 인술 + spec  (전 가산원 1회 합산)
+```
+- `CRIT_MULT_CEIL = 2.6`(점근 천장), `CRIT_MULT_SCALE = 3.0`(완만도), BASE = `CRIT_MULT_BASE 1.4`.
+- bonus=0 → 1.4×(무투자 floor), bonus↑ → 2.6× 점근(**절대 도달X = 죽은 투자 없음**). 천장만 완만 통제.
+- 결과 배율: 중투자(옛 3.8) ≈ 2.1·엔드 LUK ≈ 2.5. 3단 가산(luk/str/장비 → 인술 → spec)을 선형합
+  1회 + 곡선 1회로 정리(byte-identical 아님 = 의도된 밸런스 변경).
+
+### 2-2. 몹 HP 상쇄 (`dungeonLadder.floorCritHpComp` → `monsterScale`)
+크리는 엔드 딜의 척추라 곡선 적용 시 d50 DPS ~40%↓ → 권장레벨 빌드가 못 깸(STR/VIT 88→29). HP 만
+깊이 비례로 상쇄(atk/def/exp/권장파워 무관·들판 1~6 불변·coop 제외):
+- `CRIT_HP_COMP_SLOPE = 0.0095`·`CRIT_HP_COMP_MIN = 0.66`. d10~0.96·d20~0.87·d50~0.66.
+- endgameSoften 과 별개 레버(저건 floor 생존, 이건 크리딜 손실 보전).
+
+### 2-3. sim 결과 (크리 곡선 + 상쇄, d50 풀 승률)
+| 빌드 | PR-1 | PR-2 |
+|---|---|---|
+| STR | 88 | 94 |
+| VIT | 90 | 89 |
+| INT | 95 | 100 |
+| LUK | 88 | 76 |
+| BAL | 100 | 100 |
+| DEX | 100 | 100 |
+
+- 필드 건강 유지(d20 71~100·d50 76~100, SPI 0 지원축). 크리 배율은 ~2.1~2.5 로 순화.
+- **부수효과(의도)**: LUK(크리 스택축)이 d50 88→76 으로 정상화 — 크리 폭주 의존이 줄어 자연스러움.
+- 매뉴얼(combat.tsx 치명배수 공식·stats.tsx 캡 캡션) 갱신. 골든 스냅샷 재생성. tsc0·vitest1963.
+
+### 다이얼 / 잔여
+CEIL(천장 매운맛)·SCALE(완만도)·COMP_SLOPE/MIN(상쇄)이 짝 다이얼. 라이브 텔레메트리로 재검증
+([project-v2-balance-telemetry]). 더 깊은 구조안(회피 더블딥 해소)은 §3 별도 아크.
 
 ## 3. 오픈 / 후속
 - 더 깊은 구조안(옵션): 회피를 DEX/LUK 비종속 축(INT/전용 방어스탯)으로 이주해 더블딥 종료 +

@@ -4,6 +4,8 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateV2Equipment,
+  CRIT_MULT_CEIL,
+  CRIT_MULT_SCALE,
   derivePlayerCombatV2,
   derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
@@ -11,6 +13,7 @@ import {
   V2_BASE_COMBAT_BONUS,
   VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
+import { CRIT_MULT_BASE } from "@/adventure/data/v2/v2CombatConstants";
 import {
   V2_BASE_HP,
   V2_BASE_MP,
@@ -281,37 +284,47 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
   });
 });
 
-describe("derivePlayerCombatV2Pure critMult (PR-luk-critdmg — LUK 크리 데미지)", () => {
-  it("luk 미투자(물리빌드) → critMult ≈ base 1.4 (+ 베이스 luk 15)", () => {
+describe("derivePlayerCombatV2Pure critMult (점감 곡선 — LUK 크리 데미지)", () => {
+  // 점감 곡선: critMult = CEIL − (CEIL − BASE) × exp(−bonus / SCALE).
+  //   bonus = luk×0.007 + str×0.002 + 장비 + 맹공. bonus=0 → BASE, bonus↑ → CEIL 점근(하드캡 없음).
+  const curve = (bonus: number) =>
+    CRIT_MULT_CEIL - (CRIT_MULT_CEIL - CRIT_MULT_BASE) * Math.exp(-bonus / CRIT_MULT_SCALE);
+
+  it("luk 미투자(물리빌드) → 곡선 바닥 ≈ base (+ 베이스 luk 15)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 1,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
-    // critMult = base 1.4 + luk 15×0.007 + str 15×0.002 (행운 major + 힘 minor). 2026-06-08 base 2.0→1.4·perluk 0.006→0.007.
     expect(d.totalStats.luk).toBe(15);
-    expect(d.player.critMult).toBeCloseTo(1.4 + 15 * 0.007 + 15 * 0.002);
+    expect(d.player.critMult).toBeCloseTo(curve(15 * 0.007 + 15 * 0.002));
   });
 
-  it("luk 투자 → critMult = 1.4 + luk × 0.007 (투자 비례 크리 데미지)", () => {
+  it("luk 투자 → 곡선값(투자 비례 크리 데미지, 점감)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 200, int: 0 },
       v2Equipped: {},
     });
-    // 베이스 15 + 투자 200 = 215. critMult = 1.4 + 215×0.007 + str 15×0.002 (힘 minor).
+    // 베이스 15 + 투자 200 = 215. bonus = 215×0.007 + str 15×0.002.
     expect(d.totalStats.luk).toBe(215);
-    expect(d.player.critMult).toBeCloseTo(1.4 + 215 * 0.007 + 15 * 0.002);
+    expect(d.player.critMult).toBeCloseTo(curve(215 * 0.007 + 15 * 0.002));
   });
 
-  it("critMult 안전 상한 cap 5.0 — 극단 luk 도 초과 안 함", () => {
-    const d = derivePlayerCombatV2Pure({
+  it("극단 luk → CEIL 로 점근하되 절대 도달X(하드캡 없음·죽은 투자 없음)", () => {
+    const hi = derivePlayerCombatV2Pure({
       level: 100,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 1000, int: 0 },
       v2Equipped: {},
     });
-    // luk 1015 → 2.0 + 1015×0.006 = 8.09 → cap 5.0.
-    expect(d.player.critMult).toBe(5.0);
+    const mid = derivePlayerCombatV2Pure({
+      level: 50,
+      allocatedStats: { str: 0, dex: 0, vit: 0, luk: 200, int: 0 },
+      v2Equipped: {},
+    });
+    expect(hi.player.critMult).toBeCloseTo(curve(1015 * 0.007 + 15 * 0.002));
+    expect(hi.player.critMult).toBeLessThan(CRIT_MULT_CEIL); // 천장 미도달
+    expect(hi.player.critMult ?? 0).toBeGreaterThan(mid.player.critMult ?? 0); // 단조 증가(투자 의미 유지)
   });
 });
 
@@ -786,7 +799,16 @@ describe("derivePlayerCombatV2Pure 다양성 패시브(A 메타 — 장착 패�
       8,
       5,
     );
-    expect((buffed.critMult ?? 0) - (plain.critMult ?? 0)).toBeCloseTo(0.3, 5);
+    // 맹공(critDmgPct) → critMult 점감 곡선에 가산(wired + 정확 magnitude). flat 아님.
+    //   역곡선으로 bonus 복원 — passiveCritDmgPct 30 → bonus 정확히 +0.30(drop/double-count 가드).
+    expect(buffed.critMult ?? 0).toBeGreaterThan(plain.critMult ?? 0);
+    const invCurve = (m: number) =>
+      -CRIT_MULT_SCALE *
+      Math.log((CRIT_MULT_CEIL - m) / (CRIT_MULT_CEIL - CRIT_MULT_BASE));
+    expect(invCurve(buffed.critMult ?? 0) - invCurve(plain.critMult ?? 0)).toBeCloseTo(
+      30 / 100,
+      5,
+    );
     expect((buffed.evasionPct ?? 0) - (plain.evasionPct ?? 0)).toBeCloseTo(10, 5);
     // 흡혈 — 미장착 시 미설정(undefined), 장착 시 enchantLifestealPct 훅으로 노출.
     expect(plain.enchantLifestealPct ?? 0).toBe(0);

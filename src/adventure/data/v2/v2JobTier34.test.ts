@@ -306,9 +306,9 @@ describe("심화(tier-4) 패시브 derive — 고유 % 가 실제 전투 레버�
   it("정예 기사(veteran) 필살 → 치명타 피해 배수 ↑ (critDmgPct → critMult)", () => {
     const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
     const vet = deriveWithEquippedKit(skillsForJob("veteran")).player;
-    // critDmgPct 25 → critMult +0.25 (캡 미도달 범위). 카탈로그 수치를 그대로 써 다이얼 변경에 견고.
-    const critDmgPct = V2_SKILLS.v2c_veteran_lethal.passive!.critDmgPct!;
-    expect((vet.critMult ?? 0) - (plain.critMult ?? 0)).toBeCloseTo(critDmgPct / 100, 5);
+    // critDmgPct → critMult 점감 곡선에 가산(wired). flat 아님(곡선이라 점감) — 정확값은 derive 전용 테스트.
+    expect(V2_SKILLS.v2c_veteran_lethal.passive!.critDmgPct!).toBeGreaterThan(0);
+    expect(vet.critMult ?? 0).toBeGreaterThan(plain.critMult ?? 0);
   });
 
   it("절정(sensei) 철신 → 최대 HP ↑ (maxHpPct → maxHp)", () => {

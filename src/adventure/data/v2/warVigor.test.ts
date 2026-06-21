@@ -44,6 +44,14 @@ describe("recoveredVigorFrac", () => {
     expect(recoveredVigorFrac(Number.NaN, 0)).toBe(0);
     expect(recoveredVigorFrac(2, 0)).toBe(1);
   });
+  it("비유한 경과/다이얼 가드 → 현재값 유지(영구 동결 방지)", () => {
+    expect(recoveredVigorFrac(0.4, Number.NaN)).toBe(0.4);
+    expect(recoveredVigorFrac(0.4, Number.POSITIVE_INFINITY)).toBe(0.4);
+    expect(recoveredVigorFrac(0.4, 1000, 0)).toBe(0.4);
+    expect(recoveredVigorFrac(0.4, 1000, -5)).toBe(0.4);
+    expect(recoveredVigorFrac(0.4, 1000, Number.NaN)).toBe(0.4);
+    expect(recoveredVigorFrac(0.4, 1000, Number.POSITIVE_INFINITY)).toBe(0.4);
+  });
 });
 
 describe("parseWarVigor", () => {
@@ -66,6 +74,12 @@ describe("parseWarVigor", () => {
       mp: 0.6,
       at: 123,
     });
+  });
+  it("비유한 at/hp/mp 방어 (clamp01: 비유한값→0)", () => {
+    expect(parseWarVigor({ at: Number.POSITIVE_INFINITY }).at).toBe(0);
+    expect(
+      parseWarVigor({ hp: Number.NaN, mp: Number.POSITIVE_INFINITY }),
+    ).toEqual({ hp: 0, mp: 0, at: 0 });
   });
 });
 

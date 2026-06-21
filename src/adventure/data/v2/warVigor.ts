@@ -38,7 +38,14 @@ export function recoveredVigorFrac(
   fullRecoveryMs: number = WAR_VIGOR_FULL_RECOVERY_MS,
 ): number {
   const base = clamp01(currentFrac);
-  if (elapsedMs <= 0 || fullRecoveryMs <= 0) return base;
+  if (
+    !Number.isFinite(elapsedMs) ||
+    elapsedMs <= 0 ||
+    !Number.isFinite(fullRecoveryMs) ||
+    fullRecoveryMs <= 0
+  ) {
+    return base;
+  }
   return clamp01(base + elapsedMs / fullRecoveryMs);
 }
 
@@ -49,7 +56,7 @@ export function parseWarVigor(raw: unknown): WarVigor {
   return {
     hp: clamp01(typeof o.hp === "number" ? o.hp : 1),
     mp: clamp01(typeof o.mp === "number" ? o.mp : 1),
-    at: typeof o.at === "number" && o.at > 0 ? o.at : 0,
+    at: typeof o.at === "number" && Number.isFinite(o.at) && o.at > 0 ? o.at : 0,
   };
 }
 

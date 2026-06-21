@@ -12,6 +12,7 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { treasuryShares } from "@/adventure/data/v2/outposts";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // POST /api/v2/outpost/treasury/claim — 점령 길드원이 거점 금고 세금 회수.
 //
@@ -26,6 +27,11 @@ import { treasuryShares } from "@/adventure/data/v2/outposts";
 type CharSave = { gold?: number; [k: string]: unknown };
 
 export async function POST(req: Request) {
+  // 정착지 전쟁(flag) on = 거점 금고 접근을 영주 수확(/outpost/lord/harvest·6h쿨·10%/90%)으로
+  //   일원화. 이 레거시 수동 회수(아무 길드원·쿨다운 없음)는 영주 수확을 우회하므로 비활성.
+  if (V2_SETTLEMENT_WARFARE) {
+    return Response.json({ ok: false, error: "disabled" }, { status: 404 });
+  }
   const userId = await ensureUser();
   if (!userId) {
     return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });

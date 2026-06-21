@@ -1035,6 +1035,21 @@ export const outpostDefenders = pgTable(
   (t) => [primaryKey({ columns: [t.outpostId, t.userId] })],
 );
 
+// 정착지 전쟁 — 거점 영주. 거점당 1인(outpostId PK). 점령 길드 마스터/부마스터가 임명.
+//   세금이 거점 금고(outpost_treasury)에 누적되고, 영주만 6h 쿨다운으로 수확(10% 개인/90% 길드).
+//   설계: docs/v2-settlement-warfare-plan.md §2.4. PR-4(플래그 V2_SETTLEMENT_WARFARE 뒤).
+//   guildId = 임명 당시 점령 길드(거점 양도 시 스테일 — 읽기에서 현재 점령길드로 필터).
+export const outpostLords = pgTable("outpost_lords", {
+  outpostId: text("outpost_id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  guildId: integer("guild_id")
+    .notNull()
+    .references(() => guilds.id, { onDelete: "cascade" }),
+  lastHarvestAt: timestamp("last_harvest_at"),
+});
+
 // v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).
 // memberUserIds: 1~3명, 순서대로 1번 / 2번 / 3번. 길드원만 가능.
 // 미설정 길드는 row 없음 → 토너먼트 sim 시 default = 마스터 1명.

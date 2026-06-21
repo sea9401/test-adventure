@@ -77,7 +77,6 @@ function seedWithMap(runsLeft: number, depth = 2) {
     depth,
     runsLeft,
     foundAt: now,
-    expiresAt: now + 48 * 3_600_000,
   };
   store.set("character.v2", {
     class: "warrior",

@@ -81,8 +81,8 @@ export async function POST(req: Request) {
       ];
       await upsertSave(tx, userId, "equipment.v2", { owned: nextOwned, equipped });
     } else if (listing.kind === "consumable") {
-      // 레어맵 반환 — 만료됐으면 parse 가 걸러 자연 소멸(반환 무의미). 캡 초과 반환 허용
-      //   (캡은 신규 드랍 롤만 게이트 — 본인 물건 회수까지 막지 않는다).
+      // 레어맵 반환 — 판수 소진/불량 스냅샷이면 parse 가 걸러 자연 소멸(반환 무의미,
+      //   시간 만료는 폐지). 캡 초과 반환 허용(캡은 신규 드랍 롤만 게이트 — 회수는 안 막음).
       const charSave = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
       const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
       if (inst) {

@@ -70,8 +70,8 @@ export async function POST(req: Request) {
       return { status: 400, body: { ok: false as const, error: "own_listing" } };
     }
 
-    // 1-b) 소모품(레어맵) — 실물 만료 검증. 등록 중 만료됐으면 매물 자체를 만료 처리
-    //   (대금 이동 0 — 죽은 아이템이라 판매자 반환도 무의미, 그대로 소멸).
+    // 1-b) 소모품(레어맵) — 실물 유효성 검증(시간 만료 폐지 2026-06-22, 판수 소진/불량
+    //   스냅샷만 죽은 매물). 죽었으면 매물 자체를 expired 처리(대금 이동 0, 그대로 소멸).
     if (listing.kind === "consumable") {
       const inst = parseRareMaps([listing.instancePayload], Date.now())[0];
       if (!inst) {

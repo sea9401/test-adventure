@@ -25,8 +25,6 @@ export type RareMapKind = {
   category: "hunt" | "utility";
   /** hunt: 사냥 가능 판수(승패 무관 소모) / utility: 사용 가능 횟수. */
   runs: number;
-  /** 획득 후 만료까지 ms. */
-  ttlMs: number;
   /** 사냥 승리당 드랍 확률(%). */
   dropPct: number;
   // === hunt 계열 보상 배수 (utility 는 전부 1) ===
@@ -39,10 +37,6 @@ export type RareMapKind = {
   /** 강화석 드랍 확률 배수 — 사냥꾼의 지도 전용 축. */
   enhanceStoneMult: number;
 };
-
-const TTL_48H = 48 * 3_600_000;
-// 테스트 전용 아이템 — 실질적으로 만료 없음(100년).
-const TTL_TEST = 100 * 365 * 24 * 3_600_000;
 
 function huntKind(
   id: RareMapKindId,
@@ -64,7 +58,6 @@ function huntKind(
     desc,
     category: "hunt",
     runs: o.runs,
-    ttlMs: TTL_48H,
     dropPct: o.dropPct,
     expMult: o.expMult ?? 1,
     goldMult: o.goldMult ?? 1,
@@ -78,7 +71,7 @@ function utilityKind(
   id: RareMapKindId,
   name: string,
   desc: string,
-  o: { uses: number; dropPct: number; ttlMs?: number },
+  o: { uses: number; dropPct: number },
 ): RareMapKind {
   return {
     id,
@@ -86,7 +79,6 @@ function utilityKind(
     desc,
     category: "utility",
     runs: o.uses,
-    ttlMs: o.ttlMs ?? TTL_48H,
     dropPct: o.dropPct,
     expMult: 1,
     goldMult: 1,
@@ -148,12 +140,12 @@ export const RARE_MAP_KINDS: Record<RareMapKindId, RareMapKind> = {
     { uses: 1, dropPct: 0.005 },
   ),
   // 테스트 전용 — 사냥 드랍 안 됨(dropPct 0 → 관리자 지급 전용). 사용 시 EXP 100만을
-  //   한 판 사냥처럼 적용(레벨 + 직군 누적레벨 + 스탯 성장). 만료 사실상 없음(TTL 100년).
+  //   한 판 사냥처럼 적용(레벨 + 직군 누적레벨 + 스탯 성장).
   exp_tome: utilityKind(
     "exp_tome",
     "경험치의 비약 (테스트)",
     "마시면 막대한 깨달음이 쏟아진다. 1회당 경험치 100만. (테스트 전용 아이템)",
-    { uses: 99, dropPct: 0, ttlMs: TTL_TEST },
+    { uses: 99, dropPct: 0 },
   ),
 };
 
@@ -172,7 +164,8 @@ export type RareMapInstance = {
   depth: number;
   runsLeft: number;
   foundAt: number;
-  expiresAt: number;
+  /** @deprecated 만료 폐지(2026-06-22). 더는 설정/검사하지 않음 — 옛 save 데이터 호환용. */
+  expiresAt?: number;
   /** 비밀 상점 — 이 지도로 이미 구매한 품목 id(품목당 1회 제한). hunt 계열은 미사용. */
   bought?: string[];
 };
@@ -196,13 +189,14 @@ export function newRareMapInstance(
     depth,
     runsLeft: def.runs,
     foundAt: now,
-    expiresAt: now + def.ttlMs,
   };
 }
 
-// save 값 파싱 — 형식 불량/만료/소진 항목을 비파괴로 걸러낸 새 배열.
-// (purge 는 read 시 lazy — hunt 가 매번 파싱 결과를 다시 저장하므로 자연 정리.)
-export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
+// save 값 파싱 — 형식 불량/소진 항목을 비파괴로 걸러낸 새 배열.
+// (소진 purge 는 read 시 lazy — hunt 가 매번 파싱 결과를 다시 저장하므로 자연 정리.)
+// 🔑 만료(시간 제한) 폐지(2026-06-22) — 소모품이라 편할 때 사용. _now 는 호출부 호환용(미사용).
+export function parseRareMaps(v: unknown, _now: number): RareMapInstance[] {
+  void _now; // 시그니처 호환용(만료 폐지로 미사용)
   if (!Array.isArray(v)) return [];
   const out: RareMapInstance[] = [];
   for (const raw of v) {
@@ -216,13 +210,11 @@ export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
       !Number.isInteger(m.depth) ||
       m.depth < 1 ||
       typeof m.runsLeft !== "number" ||
-      typeof m.foundAt !== "number" ||
-      typeof m.expiresAt !== "number"
+      typeof m.foundAt !== "number"
     ) {
       continue;
     }
     if (m.runsLeft <= 0) continue; // 소진
-    if (m.expiresAt <= now) continue; // 만료
     const bought = Array.isArray(m.bought)
       ? m.bought.filter((b): b is string => typeof b === "string")
       : undefined;
@@ -232,7 +224,6 @@ export function parseRareMaps(v: unknown, now: number): RareMapInstance[] {
       depth: m.depth,
       runsLeft: Math.floor(m.runsLeft),
       foundAt: m.foundAt,
-      expiresAt: m.expiresAt,
       ...(bought && bought.length > 0 ? { bought } : {}),
     });
   }

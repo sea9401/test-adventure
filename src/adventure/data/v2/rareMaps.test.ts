@@ -10,11 +10,10 @@ import {
 const NOW = 1_750_000_000_000;
 
 describe("rareMaps", () => {
-  it("카탈로그 — 종류별 양수 판수/만료/드랍률", () => {
+  it("카탈로그 — 종류별 양수 판수/드랍률", () => {
     for (const id of RARE_MAP_KIND_IDS) {
       const k = RARE_MAP_KINDS[id];
       expect(k.runs).toBeGreaterThan(0);
-      expect(k.ttlMs).toBeGreaterThan(0);
       // exp_tome 은 테스트 전용 — 사냥 드랍 안 됨(dropPct 0, 관리자 지급 전용)이라 제외.
       if (id === "exp_tome") continue;
       expect(k.dropPct).toBeGreaterThan(0);
@@ -22,7 +21,7 @@ describe("rareMaps", () => {
     }
   });
 
-  it("newRareMapInstance — 종류 정의대로 판수/만료 세팅", () => {
+  it("newRareMapInstance — 종류 정의대로 판수 세팅(만료 없음)", () => {
     const m = newRareMapInstance("worn_map", 17, NOW, "rm_test");
     expect(m).toMatchObject({
       iid: "rm_test",
@@ -30,18 +29,25 @@ describe("rareMaps", () => {
       depth: 17,
       runsLeft: RARE_MAP_KINDS.worn_map.runs,
       foundAt: NOW,
-      expiresAt: NOW + RARE_MAP_KINDS.worn_map.ttlMs,
     });
+    // 만료 폐지 — expiresAt 미설정.
+    expect(m.expiresAt).toBeUndefined();
   });
 
-  it("parseRareMaps — 만료/소진/형식불량 purge, 정상 항목 보존", () => {
+  it("parseRareMaps — 소진/형식불량만 purge, 만료는 폐지(옛 expiresAt 무시·보존)", () => {
     const ok = newRareMapInstance("worn_map", 5, NOW, "rm_ok");
-    const expired = { ...newRareMapInstance("worn_map", 5, NOW, "rm_exp"), expiresAt: NOW - 1 };
+    // 옛 데이터: 과거 expiresAt 가 박혀 있어도 더는 만료시키지 않는다(소모품·시간무제한).
+    const oldExpiry = {
+      ...newRareMapInstance("worn_map", 5, NOW, "rm_old"),
+      expiresAt: NOW - 1,
+    };
     const used = { ...newRareMapInstance("worn_map", 5, NOW, "rm_used"), runsLeft: 0 };
     const junk = [{ iid: 1 }, null, "x", { ...ok, kind: "unknown_kind" }];
-    const parsed = parseRareMaps([ok, expired, used, ...junk], NOW);
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0].iid).toBe("rm_ok");
+    const parsed = parseRareMaps([ok, oldExpiry, used, ...junk], NOW);
+    // ok + oldExpiry 둘 다 보존(만료 무시), used(소진)·junk 만 purge.
+    expect(parsed.map((m) => m.iid).sort()).toEqual(["rm_ok", "rm_old"]);
+    // 만료 필드는 파싱 결과에서 제거됨.
+    expect(parsed[0].expiresAt).toBeUndefined();
   });
 
   it("parseRareMaps — 배열 아님/빈 값은 []", () => {

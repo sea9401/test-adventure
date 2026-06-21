@@ -127,8 +127,8 @@ export async function POST(req: Request) {
     }
 
     if (kind === "consumable") {
-      // 레어맵 개체 — character.v2.rareMaps 에서 에스크로(만료/소진은 parse 가 걸러
-      // not_owned 처리). payload 에 개체 통째 스냅샷(판수·만료 유지 — 만료는 구매 시 재검).
+      // 레어맵 개체 — character.v2.rareMaps 에서 에스크로(판수 소진/불량은 parse 가 걸러
+      // not_owned 처리, 시간 만료는 폐지). payload 에 개체 통째 스냅샷(판수 유지).
       if (typeof body.iid !== "string") {
         return { status: 400, body: { ok: false as const, error: "bad_iid" } };
       }

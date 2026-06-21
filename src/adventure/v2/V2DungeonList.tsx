@@ -49,10 +49,8 @@ export function V2DungeonList({
       ? (groups.find((g) => g.depths[0] === openDepth) ?? null)
       : null;
 
-  // 보유 레어맵 — 마운트 1회 조회(소모/만료는 입장 후 서버 권위).
+  // 보유 레어맵 — 마운트 1회 조회(판수 소모는 입장 후 서버 권위. 만료 없음).
   const [rareMaps, setRareMaps] = useState<RareMapInstance[]>([]);
-  // 만료 표기 기준 시각 — render 중 Date.now() 직접 호출 회피(fetch 시점 고정).
-  const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
     if (!onSelectRareMap) return;
     let alive = true;
@@ -66,7 +64,6 @@ export function V2DungeonList({
               (m) => RARE_MAP_KINDS[m.kind]?.category === "hunt",
             ),
           );
-          setNowMs(Date.now());
         }
       })
       .catch(() => {});
@@ -133,7 +130,7 @@ export function V2DungeonList({
                       {m.depth}
                     </span>
                     <span className="mt-0.5 block text-[11px] text-sky-700/80 dark:text-sky-400/80">
-                      남은 {m.runsLeft}판 · {fmtExpiry(m.expiresAt, nowMs)}
+                      남은 {m.runsLeft}판
                     </span>
                   </span>
                   <span className="shrink-0 rounded bg-sky-600 px-2 py-0.5 text-xs font-medium text-white">
@@ -281,13 +278,4 @@ function ThemeElementLine({
       )}
     </div>
   );
-}
-
-// 만료까지 남은 시간 — 시간 단위 대략 표기(분 단위 정밀 불요).
-function fmtExpiry(expiresAt: number, now: number): string {
-  const ms = expiresAt - now;
-  if (ms <= 0) return "만료됨";
-  const h = Math.floor(ms / 3_600_000);
-  if (h < 1) return "1시간 안에 만료";
-  return `${h}시간 후 만료`;
 }

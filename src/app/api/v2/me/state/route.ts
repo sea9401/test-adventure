@@ -376,6 +376,8 @@ export async function GET() {
         // 회피 대결형(Slice 1b) — 캡 없는 raw 회피레이팅. UI 가 현재 깊이 몹명중과 대결해 실제 PvE dodge% 표시.
         evaRating: combat.player.evaRating,
         accuracyPct: combat.player.accuracyPct,
+        // 회피 대결형(Slice 2) — 캡 없는 raw 명중레이팅. "명중" 표시에 사용(accuracyPct 캡 35 대신).
+        accRating: combat.player.accRating,
         critChancePct: combat.player.critChancePct,
         critMult: combat.player.critMult,
         extraAttackChancePct: combat.player.extraAttackChancePct,

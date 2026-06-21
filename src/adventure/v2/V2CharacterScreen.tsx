@@ -52,6 +52,7 @@ type StateResponse = {
     evasionPct?: number;
     evaRating?: number; // 회피 대결형 Slice 1b — 캡 없는 raw. 현재 깊이 몹명중과 대결해 실제 dodge% 표시.
     accuracyPct?: number;
+    accRating?: number; // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. "명중" 표시에 사용(StatsPanel 폴백).
     critChancePct?: number;
     critMult?: number;
     extraAttackChancePct?: number;

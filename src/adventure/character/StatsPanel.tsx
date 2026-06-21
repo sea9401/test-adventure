@@ -14,7 +14,7 @@ const COMBAT_STAT_DESCRIPTIONS: Record<string, string> = {
   "마법 방어력":
     "받는 마법 피해를 줄입니다. 정신·지능이 높을수록 커집니다.",
   회피: "현재 사냥터(최대 깊이) 몹 기준 회피 확률. 적의 명중과 겨뤄 정해져, 더 깊은 곳일수록 몹 명중이 높아 회피가 낮아집니다. 회피에 투자하면(민첩·행운) 계속 올라가며 75%에 점근합니다.",
-  명중: "기본 명중 90%에 명중 스탯을 더한 값. 100%를 넘는 만큼은 적 회피와 빗나감을 상쇄하는 여유입니다. 민첩·힘·정신이 보조합니다.",
+  명중: "기본 적중 90%에 명중 레이팅을 더한 값. 명중은 빗나감(기본 10%)을 줄여 — 투자하면 일반몹 적중 100% — 100%를 넘는 만큼은 회피몹·PvP 회피와의 대결에서 상대 회피를 깎는 여유입니다. 민첩·힘·지능·정신이 보조합니다.",
   "치명타 확률": "공격이 치명타로 터질 확률. 행운이 높을수록 커집니다.",
   "치명타 배율":
     "치명타가 터졌을 때 피해 배수. 행운·힘이 높을수록 커집니다.",
@@ -30,6 +30,8 @@ type CombatStats = {
   spd?: number;
   evasionPct?: number;
   accuracyPct?: number;
+  // 회피 대결형 Slice 2 — 캡 없는 명중레이팅. 표시는 이 raw 를 우선(없으면 accuracyPct 폴백).
+  accRating?: number;
   critChancePct?: number;
   critMult?: number;
   extraAttackChancePct?: number;
@@ -66,10 +68,10 @@ function buildCombatItems(combat: CombatStats): CombatItem[] {
         accent: "text-teal-600 dark:text-teal-400",
       },
       {
-        // 기본 명중 90% 를 포함해 표기 — "명중 N%" 가 적중률로 읽히게. 100% 초과분은
-        // 적 회피·빗나감을 상쇄하는 여유(명중 스탯은 derive 에서 이미 35 상한).
+        // 기본 적중 90% + 명중레이팅(회피 대결형 Slice 2 — 캡 없는 accRating 우선). 100% 초과분은
+        // 회피몹·PvP 회피 대결을 깎는 여유(일반몹은 100%에서 잘림 = 항상 적중).
         label: "명중",
-        value: `${Math.round(V2_BASE_HIT_PCT + (combat.accuracyPct ?? 0))}%`,
+        value: `${Math.round(V2_BASE_HIT_PCT + (combat.accRating ?? combat.accuracyPct ?? 0))}%`,
         accent: "text-amber-600 dark:text-amber-400",
       },
       {

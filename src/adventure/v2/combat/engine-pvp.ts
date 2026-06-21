@@ -63,7 +63,6 @@ import {
   tickV2Dots,
   v2AtkBuffMult,
   v2DefBuffMult,
-  V2_BASE_MISS_PCT,
 } from "./combatShared";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
@@ -74,6 +73,7 @@ import {
   RAMPAGE_START_TURN,
   SKILL_CRIT_MULT,
   SPELL_STACK_CAP,
+  attackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 import { advanceTurnPvP } from "./engine.pvpPhase";
 import { resolveBattlePvPAtb } from "./engine.pvp-atb";
@@ -1317,25 +1317,27 @@ export function castV2SkillOnAttackerTurnPvP(
   //   (MP·쿨다운 소모됨·자버프/자힐 유지). 데미지>0 일 때만 롤(RNG 드리프트 방지).
   let skillMissed = false;
   if (result.castSkillId && result.enemyDamage > 0) {
-    // 평타 미스 공식과 동일한 5항(방어자 회피·이중행운·만물행운·회전운기·선풍각) − 공격자 명중
-    //   (Codex 검토: 스킬이 평타보다 잘 맞던 불일치 수정). ⚠️ 위 평타 missPct(1153~)와 동기화 유지.
+    // 평타 미스 공식과 동일(회피 대결형 Slice 2 B안) — 방어자 회피레이팅(정밀·이중행운·만물행운·회전
+    //   운기·선풍각 합) vs 공격자 명중레이팅. ⚠️ 평타 missPct(engine.pvpPhase.ts)와 동기화 유지.
     const sPrecisionMult = side.player.precisionEvasionMult ?? 1;
     const sLuckEvadeBonus = opp.flags.luckyBuffActive
       ? opp.player.doubleLuck?.evade ?? 0
       : 0;
     const sSkillEvadeBonus =
       opp.stacks.skillEvasionTurns > 0 ? opp.stacks.skillEvasionPct : 0;
-    const sMissPct = Math.max(
+    const sDefenderEvaR = Math.max(
       0,
-      V2_BASE_MISS_PCT +
-        opp.player.evasionPct * sPrecisionMult +
+      (opp.player.evaRating ?? opp.player.evasionPct ?? 0) * sPrecisionMult +
         sLuckEvadeBonus +
         (opp.player.universalLuckBonusPct ?? 0) +
         opp.buffs.cyclingChiBonus +
-        sSkillEvadeBonus -
-        (side.player.accuracyPct ?? 0),
+        sSkillEvadeBonus,
     );
-    if (sMissPct > 0 && Math.random() * 100 < sMissPct) {
+    const sMissPct = attackMissPct(
+      sDefenderEvaR,
+      side.player.accRating ?? side.player.accuracyPct ?? 0,
+    );
+    if (Math.random() * 100 < sMissPct) {
       skillMissed = true;
       result = {
         ...result,

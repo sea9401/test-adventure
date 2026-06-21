@@ -18,7 +18,6 @@ import {
   type PvPSideBuffs,
 } from "./engine-pvp";
 import {
-  V2_BASE_MISS_PCT,
   extractApEffect,
   v2AtkBuffMult,
   v2DefBuffMult,
@@ -53,6 +52,7 @@ import {
   IMPACT_WAVE_INTERVAL,
   LUCKY_STAR_DAMAGE_MULT,
   POWER_ATTACK_TURN_INTERVAL,
+  attackMissPct,
 } from "@/adventure/data/v2/v2CombatConstants";
 
 // 평타 1회 데미지 캐스케이드 (engine.ts computeAttackDamage 의 PvP 미러).
@@ -403,29 +403,27 @@ export function advanceTurnPvP(
       );
     }
     const precisionMult = attacker.player.precisionEvasionMult ?? 1;
-    // 이중 행운 — 방어자 활성 시 회피 +bonus%. 만물 행운 / 회전 운기도 회피에 합산.
+    // 이중 행운 — 방어자 활성 시 회피 +bonus. 만물 행운 / 회전 운기도 회피레이팅에 합산.
     const luckEvadeBonus = defender.flags.luckyBuffActive
       ? defender.player.doubleLuck?.evade ?? 0
       : 0;
     const universalLuckEvadeBonus = defender.player.universalLuckBonusPct ?? 0;
-    // v2 명중률(PR-6): 공격자 accuracyPct 가 방어자 evasion 에서 %p 차감.
-    // 0/undefined = 차감 없음(라이브 기존 동작 보존).
-    const attackerAccuracy = attacker.player.accuracyPct ?? 0;
-    // PR2-B 선풍각 — 회피 temp 버프(%p). PvP 는 회피가 유효축이라 실제 작동.
+    // PR2-B 선풍각 — 회피 temp 버프. PvP 는 회피가 유효축이라 실제 작동.
     const skillEvadeBonus =
       defender.stacks.skillEvasionTurns > 0 ? defender.stacks.skillEvasionPct : 0;
-    // 기본 명중 90%(빗나감 10%) + 방어자 회피 − 공격자 명중 (하한 없음 — 고회피 빌드 그대로).
-    const missPct = Math.max(
+    // 회피 대결형 Slice 2(B안) — 미스 = 베이스미스(플랫) + dodgeChance(방어자 회피레이팅, 공격자 명중레이팅).
+    //   정밀(precisionMult)은 base 회피레이팅에만 곱하고 버프는 가산. 무적 회피탱은 점근선 DODGE_MAX 로 완화.
+    const defenderEvaR = Math.max(
       0,
-      V2_BASE_MISS_PCT +
-        defender.player.evasionPct * precisionMult +
+      (defender.player.evaRating ?? defender.player.evasionPct ?? 0) * precisionMult +
         luckEvadeBonus +
         universalLuckEvadeBonus +
         defender.buffs.cyclingChiBonus +
-        skillEvadeBonus -
-        attackerAccuracy,
+        skillEvadeBonus,
     );
-    if (missPct > 0 && Math.random() * 100 < missPct) {
+    const attackerAccR = attacker.player.accRating ?? attacker.player.accuracyPct ?? 0;
+    const missPct = attackMissPct(defenderEvaR, attackerAccR);
+    if (Math.random() * 100 < missPct) {
       return applyPerAttackDodge(
         state,
         atkKey,

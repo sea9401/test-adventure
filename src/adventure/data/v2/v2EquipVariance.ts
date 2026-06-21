@@ -132,6 +132,45 @@ export function canReforge(
   return roll != null && rollQualityPct(item, roll) !== null;
 }
 
+// ── 재련석(Reforge Stone) — 재련 소모 재료 2종 ─────────────────────────────
+// 재련은 (PR-2부터) 골드 + 재련석 1개 하이브리드로 소모한다. 두 종류:
+//   일반 재련석 = 현 재련 굴림(1회) / 상급 재련석 = max-of-N 으로 고품질 확률↑
+//   (결과는 여전히 드랍 분포 안 → 파워크립 0). 굴림 메커니즘은 PR-2.
+// 수급 = 사냥 승리 독립 드랍(강화석 패턴 미러·V2_MATERIALS_ENABLED 무관). NPC 판매 없음
+//   (거래소 유저 거래 전용 — 시세는 수요가 결정). 강화석(붉은0.1·푸른0.3)보다 희소.
+export type ReforgeStoneId = "basic" | "high";
+
+export const REFORGE_STONES: Record<ReforgeStoneId, { name: string }> = {
+  basic: { name: "재련석" },
+  high: { name: "상급 재련석" },
+};
+
+export const REFORGE_STONE_MATERIAL_ID: Record<ReforgeStoneId, string> = {
+  basic: "v2_reforge_stone",
+  high: "v2_reforge_stone_high",
+};
+
+// 승리당 드랍 확률(%) — 일반 ≈670승/개·상급 ≈2,500승/개(강화석보다 희소). 다이얼.
+export const REFORGE_STONE_DROP_PCT: Record<ReforgeStoneId, number> = {
+  basic: 0.15,
+  high: 0.04,
+};
+
+// hunt 승리 보상 롤 — 종류별 독립 굴림, 통과 시 1개. rng() ∈ [0,1). (rollEnhanceStoneDrops 미러)
+export function rollReforgeStoneDrops(
+  rng: () => number,
+  // 확률 배수 — 레어맵 등 부스트용. 기본 1 = 무변경.
+  chanceMult: number = 1,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const stone of ["basic", "high"] as const) {
+    if (rng() * 100 < REFORGE_STONE_DROP_PCT[stone] * chanceMult) {
+      out[REFORGE_STONE_MATERIAL_ID[stone]] = 1;
+    }
+  }
+  return out;
+}
+
 // ── 일괄 판매 선택 — 클라(미리보기 확인)·서버(권위 판매) 공용 단일 소스(드리프트 방지) ──
 export type BulkSellOpts = {
   // 한 슬롯만(미지정 = 전 슬롯).

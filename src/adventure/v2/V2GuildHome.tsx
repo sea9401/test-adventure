@@ -114,6 +114,8 @@ function fmtDate(iso: string): string {
 }
 
 type GuildSubTab = "info" | "members" | "manage" | "outposts";
+// 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·거점 정책·길드 설정(엠블럼·색·국가·해산).
+type GuildManageTab = "members" | "territory" | "settings";
 
 const BASE_SUB_TABS: { key: GuildSubTab; label: string }[] = [
   { key: "info", label: "길드 정보" },
@@ -138,6 +140,8 @@ export function V2GuildHome({
 }) {
   const router = useRouter();
   const [subTab, setSubTab] = useState<GuildSubTab>("info");
+  // 관리 탭 내부 하위 탭 선택.
+  const [manageTab, setManageTab] = useState<GuildManageTab>("members");
   const [state, setState] = useState<StateResponse | null>(null);
   const [info, setInfo] = useState<GuildInfoResponse | null>(null);
   const [activity, setActivity] = useState<GuildActivity[]>([]);
@@ -620,6 +624,23 @@ export function V2GuildHome({
     ? subTab
     : "info";
 
+  // 관리 탭 내부 하위 탭 — 멤버/거점 정책은 관리자+, 길드 설정(엠블럼·색·국가·해산)은 마스터 전용.
+  //   관리자(비마스터)는 설정 탭 미노출. 멤버 탭에 가입 신청 대기 뱃지.
+  const manageTabs: { key: GuildManageTab; label: string }[] = [
+    {
+      key: "members",
+      label:
+        pendingRequests.length > 0 ? `멤버 (${pendingRequests.length})` : "멤버",
+    },
+    { key: "territory", label: "거점 정책" },
+  ];
+  if (isMaster) manageTabs.push({ key: "settings", label: "길드 설정" });
+  const activeManageTab: GuildManageTab = manageTabs.some(
+    (t) => t.key === manageTab,
+  )
+    ? manageTab
+    : "members";
+
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title={state?.guild?.name ?? "길드"} />
@@ -746,8 +767,19 @@ export function V2GuildHome({
         <div className="space-y-4">
           {notice && <NoticeBanner notice={notice} />}
 
+          {/* 관리 탭이 비대해져 내부 하위 탭으로 분리 — 멤버 / 거점 정책 / 길드 설정. */}
+          <TabBar
+            tabs={manageTabs}
+            active={activeManageTab}
+            onChange={setManageTab}
+            ariaLabel="길드 관리 하위 탭"
+            size="sm"
+            variant="underline"
+          />
+
+          {/* ── 멤버: 멤버 초대 · 가입 신청 · 직책 관리 ── */}
           {/* 멤버 초대 — 길드원 탭에서 이동 */}
-          {guildId != null && (
+          {activeManageTab === "members" && guildId != null && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 멤버 초대
@@ -778,8 +810,9 @@ export function V2GuildHome({
             </div>
           )}
 
+          {/* ── 길드 설정: 엠블럼 · 색 · 국가 선포 · 위험 구역(해산) ── */}
           {/* 길드 엠블럼 — 마스터 전용. 지도에서 이 길드 점령 거점에 표시되는 아이콘. */}
-          {isMaster && (
+          {activeManageTab === "settings" && isMaster && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 길드 엠블럼
@@ -815,7 +848,7 @@ export function V2GuildHome({
           )}
 
           {/* 길드 색 — 마스터 전용. 선착순 유니크(이미 쓰인 색 비활성). 지도 마커 채움색. */}
-          {isMaster && (
+          {activeManageTab === "settings" && isMaster && (
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
                 길드 색
@@ -850,7 +883,8 @@ export function V2GuildHome({
             </div>
           )}
 
-          {/* 가입 신청 — 옛 전용 탭에서 이동 */}
+          {/* 가입 신청 (멤버 탭) */}
+          {activeManageTab === "members" && (
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               가입 신청
@@ -901,8 +935,11 @@ export function V2GuildHome({
               </ul>
             )}
           </div>
+          )}
 
-          {/* 보유 거점 정책·세율 — 점령자 본인이 아니어도 마스터/관리자가 일괄 관리 */}
+          {/* ── 거점 정책: 보유 거점 정책·세율 ── */}
+          {/* 점령자 본인이 아니어도 마스터/관리자가 일괄 관리 */}
+          {activeManageTab === "territory" && (
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
               보유 거점 정책·세율
@@ -933,9 +970,10 @@ export function V2GuildHome({
               </div>
             )}
           </div>
+          )}
 
-          {/* 직책 관리 — 마스터 전용. 관리자 임명/해임. */}
-          {isMaster && (
+          {/* 직책 관리 — 마스터 전용. 관리자 임명/해임. (멤버 탭) */}
+          {activeManageTab === "members" && isMaster && (
             <div className="space-y-2">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 직책 관리
@@ -1020,8 +1058,8 @@ export function V2GuildHome({
             </div>
           )}
 
-          {/* 국가 선포 — 마스터 전용. 대도시 마을 보유 시 선포 → 길드 정원 증가. */}
-          {isMaster && (
+          {/* 국가 선포 — 마스터 전용. 대도시 마을 보유 시 선포 → 길드 정원 증가. (설정 탭) */}
+          {activeManageTab === "settings" && isMaster && (
             <div className="space-y-2">
               <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 국가 선포
@@ -1073,8 +1111,8 @@ export function V2GuildHome({
             </div>
           )}
 
-          {/* 위험 구역 — 길드 해산(마스터 전용). 금고 소멸·거점 해방·되돌릴 수 없음. */}
-          {isMaster && (
+          {/* 위험 구역 — 길드 해산(마스터 전용). 금고 소멸·거점 해방·되돌릴 수 없음. (설정 탭) */}
+          {activeManageTab === "settings" && isMaster && (
             <div className="space-y-2">
               <div className="text-xs font-medium uppercase tracking-wider text-rose-500">
                 위험 구역

@@ -25,6 +25,8 @@ export type QuestReward = {
   gold?: number;
   /** 장비 1개 지급(스타터 장비 — 카탈로그 스탯, 굴림 없음). */
   equip?: V2EquipmentId;
+  /** 스태미나 회복약 N개 지급(stamina-potions.v1 — 번들 보상과 동일 소비템). */
+  staminaPotions?: number;
 };
 
 // 퀘스트 완료 판정에 쓰는 플레이어 진행 상태. 전부 세이브/DB 에서 파생(서버 집계).
@@ -201,7 +203,7 @@ const BASICS: QuestDef[] = [
     line: "basics",
     title: "첫 쇼핑",
     desc: "상점에서 장비나 충전을 구매하세요.",
-    reward: { gold: 100 },
+    reward: { staminaPotions: 2 },
     check: (c) => c.hasShopped,
   },
   {
@@ -209,7 +211,7 @@ const BASICS: QuestDef[] = [
     line: "basics",
     title: "회복의 손길",
     desc: "치료소에서 골드로 HP를 회복하세요.",
-    reward: { gold: 100 },
+    reward: { staminaPotions: 2 },
     check: (c) => c.hasHealed,
   },
   {
@@ -217,7 +219,7 @@ const BASICS: QuestDef[] = [
     line: "basics",
     title: "안전한 보관",
     desc: "거점 은행에 골드를 맡겨보세요.",
-    reward: { gold: 100 },
+    reward: { staminaPotions: 2 },
     check: (c) => c.bankedGold > 0,
   },
   {
@@ -225,7 +227,7 @@ const BASICS: QuestDef[] = [
     line: "basics",
     title: "배움의 시작",
     desc: "스킬을 하나 학습하세요.",
-    reward: { gold: 100 },
+    reward: { staminaPotions: 2 },
     check: (c) => c.skillsLearned >= 1,
   },
   {
@@ -233,7 +235,7 @@ const BASICS: QuestDef[] = [
     line: "basics",
     title: "기술 연마",
     desc: "로드아웃에 스킬을 하나 장착해보세요.",
-    reward: { gold: 100 },
+    reward: { staminaPotions: 2 },
     check: (c) => c.skillsEquipped >= 1,
   },
   {
@@ -241,7 +243,7 @@ const BASICS: QuestDef[] = [
     line: "basics",
     title: "새로운 땅으로",
     desc: "지도에서 다른 거점으로 이동해보세요.",
-    reward: { gold: 100 },
+    reward: { staminaPotions: 2 },
     check: (c) => c.outpostsDiscovered >= 2,
   },
 ];

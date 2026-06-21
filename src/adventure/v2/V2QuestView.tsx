@@ -55,6 +55,9 @@ function rewardText(reward: QuestReward): string {
   if (reward.equip) {
     parts.push(V2_EQUIPMENT[reward.equip]?.name ?? reward.equip);
   }
+  if (reward.staminaPotions) {
+    parts.push(`스태미나 회복약 ${reward.staminaPotions}개`);
+  }
   return parts.join(" · ");
 }
 

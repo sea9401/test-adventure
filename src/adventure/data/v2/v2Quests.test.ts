@@ -70,6 +70,15 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
+  it("기초 튜토리얼(basics) 보상 = 스태미나 회복약 2개", () => {
+    const basics = V2_QUESTS.filter((q) => q.line === "basics");
+    expect(basics.length).toBeGreaterThan(0);
+    for (const q of basics) {
+      expect(q.reward.staminaPotions, q.id).toBe(2);
+      expect(q.reward.gold, q.id).toBeUndefined();
+    }
+  });
+
   it("직업 4종 각각 전용 라인(class_*) 3퀘 보유", () => {
     for (const cls of ["warrior", "martial", "mage", "rogue"]) {
       const line = QUEST_LINES.find((l) => l.id === `class_${cls}`);

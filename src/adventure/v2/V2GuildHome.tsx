@@ -17,6 +17,7 @@ import {
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
+import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems";
 import { GuildOrgChart } from "./GuildOrgChart";
 import { GuildGoldDepositPanel } from "./GuildGoldDepositPanel";
 import {
@@ -73,6 +74,7 @@ type GuildInfoResponse = {
     createdAt: string;
     fameTotal: number;
     description: string | null;
+    emblem: string | null;
     nationName: string | null;
     nationDeclaredAt: string | null;
   } | null;
@@ -271,6 +273,49 @@ export function V2GuildHome({
       setActing(false);
     }
   }, [nationInput, acting, refresh]);
+
+  // 마스터가 길드 엠블럼 설정 — 지도 마커에 그 길드 점령 거점 아이콘으로 표시.
+  const handleSetEmblem = useCallback(
+    async (key: string) => {
+      if (acting) return;
+      setActing(true);
+      setNotice(null);
+      try {
+        const res = await fetch("/api/v2/guild/emblem", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ emblem: key }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          ok?: boolean;
+          error?: string;
+        } | null;
+        if (j?.ok) {
+          setNotice({
+            kind: "ok",
+            text: "길드 엠블럼을 바꿨어요. 지도에 반영됩니다.",
+          });
+          await refresh();
+        } else {
+          setNotice({
+            kind: "err",
+            text:
+              j?.error === "not_master"
+                ? "마스터만 엠블럼을 바꿀 수 있어요."
+                : `변경에 실패했어요 (${j?.error ?? `http ${res.status}`}).`,
+          });
+        }
+      } catch {
+        setNotice({
+          kind: "err",
+          text: "변경에 실패했어요. 잠시 후 다시 시도해 주세요.",
+        });
+      } finally {
+        setActing(false);
+      }
+    },
+    [acting, refresh],
+  );
 
   // 마스터가 직책 변경 — guild_members.role (부마스터/관리자/일반).
   const handleRole = useCallback(
@@ -682,6 +727,42 @@ export function V2GuildHome({
                 >
                   초대
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* 길드 엠블럼 — 마스터 전용. 지도에서 이 길드 점령 거점에 표시되는 아이콘. */}
+          {isMaster && (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <div className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+                길드 엠블럼
+              </div>
+              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                지도에서 우리 길드가 점령한 거점에 이 아이콘이 표시돼요.
+              </p>
+              <div className="mt-2 grid grid-cols-6 gap-1.5">
+                {GUILD_EMBLEMS.map((em) => {
+                  const selected = info?.guild?.emblem === em.key;
+                  const Icon = em.Icon;
+                  return (
+                    <button
+                      key={em.key}
+                      type="button"
+                      onClick={() => handleSetEmblem(em.key)}
+                      disabled={acting}
+                      title={em.label}
+                      aria-label={em.label}
+                      aria-pressed={selected}
+                      className={`flex aspect-square items-center justify-center rounded-md border transition disabled:opacity-50 ${
+                        selected
+                          ? "border-emerald-600 bg-emerald-600 text-white"
+                          : "border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300"
+                      }`}
+                    >
+                      <Icon size={18} weight="fill" />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

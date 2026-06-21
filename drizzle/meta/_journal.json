@@ -442,6 +442,13 @@
       "when": 1781907645134,
       "tag": "0062_fast_ulik",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1782041159671,
+      "tag": "0063_add_guild_emblem",
+      "breakpoints": true
     }
   ]
 }

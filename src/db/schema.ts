@@ -467,6 +467,8 @@ export const guilds = pgTable(
     fameAvailable: integer("fame_available").notNull().default(0),
     // 마스터가 자유롭게 적는 짧은 소개글. 최대 120자(앱단 검증). NULL = 미설정.
     description: text("description"),
+    // 길드 엠블럼 — 프리셋 아이콘 키(guildEmblems 카탈로그). NULL = 미설정(지도에 기본 엠블럼).
+    emblem: text("emblem"),
     // 가입 신청을 받는지 — 마스터 토글. false 면 둘러보기에서 "신청" 비활성.
     acceptingRequests: boolean("accepting_requests").notNull().default(true),
     // 길드 버프 슬롯 — { buffId, tier, installedAt }[]. 슬롯 수 한도는 등급 산식.

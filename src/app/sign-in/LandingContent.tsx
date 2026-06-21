@@ -9,23 +9,23 @@ import { SignInButtons } from "./SignInButtons";
 const FEATURES = [
   {
     no: "01",
-    title: "오프라인 자동 전투",
-    body: "접속하지 않아도 모험가는 싸우고 성장합니다. 돌아오면 전리품이 쌓여 있어요.",
+    title: "자동 전투, 전략은 설계",
+    body: "스킬을 직접 누르지 않습니다. 전투 순서와 발동 조건을 미리 짜두면 전투는 알아서 굴러갑니다.",
   },
   {
     no: "02",
-    title: "누르지 않고, 설계한다",
-    body: "스킬을 연타하는 대신 판단의 순서를 미리 짜둡니다. 전투는 알아서 굴러갑니다.",
+    title: "깊은 빌드 — 직업·전직·환생",
+    body: "13개 직업으로 전직하고 환생하며, 스탯·스킬·속성으로 나만의 캐릭터를 빚습니다.",
   },
   {
     no: "03",
     title: "아이템 굴림 & 재련",
-    body: "같은 장비도 굴림으로 달라지고, 재련으로 다듬습니다. 하나뿐인 내 무기를 만드세요.",
+    body: "같은 장비도 굴림으로 능력치가 달라지고, 재련으로 다듬습니다. 하나뿐인 내 무기를 만드세요.",
   },
   {
     no: "04",
-    title: "직업 · 길드 · 거점 전쟁",
-    body: "13개 직업으로 전직·환생하고, 길드를 세워 지도 위 거점을 두고 겨룹니다.",
+    title: "길드 · 거점 전쟁",
+    body: "길드를 세워 지도 위 거점을 점령하고, 영토를 두고 다른 길드와 겨룹니다.",
   },
 ];
 
@@ -52,7 +52,7 @@ export function LandingContent({
         {/* ── 히어로 ───────────────────────────────────────── */}
         <section className="flex flex-1 flex-col items-center justify-center py-24 text-center">
           <p className="text-[0.7rem] font-medium uppercase tracking-[0.4em] text-amber-200/60">
-            방치형 웹 RPG
+            브라우저 어드벤처 RPG
           </p>
 
           <h1 className="mt-6 text-5xl font-bold tracking-tight text-zinc-50 sm:text-6xl">
@@ -65,7 +65,7 @@ export function LandingContent({
           <p className="mt-7 max-w-md text-base leading-loose text-zinc-400 sm:text-lg">
             누르는 대신, <span className="text-zinc-200">판단의 순서</span>를 짭니다.
             <br />
-            접속하지 않아도 멈추지 않는 모험.
+            전투는 자동으로, 승부는 설계로.
           </p>
 
           <div className="mt-10 flex w-full flex-col items-center gap-3">

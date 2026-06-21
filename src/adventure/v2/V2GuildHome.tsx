@@ -17,7 +17,7 @@ import {
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
-import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems";
+import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems-icons";
 import { GuildOrgChart } from "./GuildOrgChart";
 import { GuildGoldDepositPanel } from "./GuildGoldDepositPanel";
 import {

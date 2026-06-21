@@ -7,7 +7,9 @@ import {
   derivePlayerCombatV2,
   derivePlayerCombatV2FromSaves,
   derivePlayerCombatV2Pure,
+  MAGIC_ATK_PER_INT,
   V2_BASE_COMBAT_BONUS,
+  VIT_ATK_COEF,
 } from "./derivePlayerCombatV2";
 import {
   V2_BASE_HP,
@@ -223,25 +225,29 @@ describe("derivePlayerCombatV2Pure maxMp (V2_BASE_MP 가산)", () => {
 });
 
 describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공격력)", () => {
-  it("기본 int 15 → magicAtk = floor(15×0.15) = 2 (마법 베이스라인)", () => {
+  it("기본 int 15 → magicAtk = floor(15×MAGIC_ATK_PER_INT) (마법 베이스라인)", () => {
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 245, dex: 0, vit: 0, luk: 0, int: 0 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(15); // 기본 int 15 (할당 0)
-    expect(d.player.magicAtk).toBe(Math.floor(15 * 0.15) + V2_BASE_COMBAT_BONUS); // 2 + 5
+    expect(d.player.magicAtk).toBe(
+      Math.floor(15 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+    );
   });
 
-  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT 0.15) (STR 대칭)", () => {
-    // 기본 15 + 할당 100 = 115. magicAtk = floor(115 × 0.15) = 17.
+  it("INT 투자 → magicAtk = floor(int × MAGIC_ATK_PER_INT) (STR 대칭)", () => {
+    // 기본 15 + 할당 100 = 115.
     const d = derivePlayerCombatV2Pure({
       level: 50,
       allocatedStats: { str: 0, dex: 0, vit: 0, luk: 0, int: 100 },
       v2Equipped: {},
     });
     expect(d.totalStats.int).toBe(115);
-    expect(d.player.magicAtk).toBe(Math.floor(115 * 0.15) + V2_BASE_COMBAT_BONUS); // 17 + 5
+    expect(d.player.magicAtk).toBe(
+      Math.floor(115 * MAGIC_ATK_PER_INT) + V2_BASE_COMBAT_BONUS,
+    );
   });
 
   it("지팡이 위력 → magicAtk·atk 둘 다 (PR-4a 무기 안 가림, int token 없음)", () => {
@@ -253,11 +259,11 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
     });
     expect(d.totalStats.int).toBe(15); // 기본 int (장비 token 없음)
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * 0.15) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
     );
     expect(d.player.atk).toBe(
-      // atk = str×0.15 + vit×0.1(lever-2 VIT→atk) + 무기위력. magicAtk 는 vit 미반영.
-      Math.floor(15 * 0.15 + 15 * 0.1) + staffPow + V2_BASE_COMBAT_BONUS,
+      // atk = str×ATK_PER_STR(0.15) + vit×VIT_ATK_COEF(lever-2) + 무기위력. magicAtk 는 vit 미반영.
+      Math.floor(15 * 0.15 + 15 * VIT_ATK_COEF) + staffPow + V2_BASE_COMBAT_BONUS,
     );
   });
 
@@ -270,7 +276,7 @@ describe("derivePlayerCombatV2Pure magicAtk (PR-magic — INT 환산 마법 공�
       v2Equipped: { weapon: "v2_oak_staff" },
     });
     expect(d.player.magicAtk).toBe(
-      Math.floor(15 * 0.15) + staffPow + V2_BASE_COMBAT_BONUS,
+      Math.floor(15 * MAGIC_ATK_PER_INT) + staffPow + V2_BASE_COMBAT_BONUS,
     );
   });
 });

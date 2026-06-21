@@ -108,7 +108,7 @@ export function OutpostView({
     };
   }, []);
 
-  // 거점 수비 전투력 (왕국 중심 5000 → 외곽 1500, 분쟁지대·중립은 0=게이트 없음).
+  // 거점 수비 전투력 (tier 정적값 1500~5000, 분쟁지대·중립은 0=게이트 없음).
   const defensePower = outpostDefensePower(outpost);
 
   // 라인업 미설정 경고 — 적대 길드 점령 거점(공성=3:3 토너먼트 가능)에서 내가 2인+ 길드

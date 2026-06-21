@@ -405,7 +405,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 수비 전투력 게이트 — 왕국 소속 거점은 거리 비례 수비 전투력(중심 5000 → 외곽 1500).
+    // 수비 전투력 게이트 — 점령 가능 거점은 tier 정적 수비 전투력(tier1=1500 ~ tier4=5000).
     //   내 합성 전투력(derivePowerScore)이 그에 못 미치면 점령 시도 불가. upsert 전 early
     //   return 이라 스태미나 미소모. 중립·분쟁지대(defense 0)는 게이트 없음 — 기존 난이도.
     const outpostDefense = outpostDefensePower(outpost);

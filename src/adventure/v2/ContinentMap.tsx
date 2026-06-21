@@ -12,7 +12,6 @@ import {
 import {
   OUTPOSTS,
   MAP_BOUNDS,
-  kingdomColorOf,
   kingdomNameOf,
   KINGDOM_COLORS,
   OUTPOST_CONFLICT_COLOR,
@@ -28,7 +27,7 @@ import type {
   OutpostTier,
 } from "@/adventure/data/v2/types";
 
-// 마커 채움색은 종류가 아니라 소속 왕국으로 칠한다(종류는 아이콘으로 구분). kingdomColorOf 참고.
+// 마커 채움색 = 소유(내 길드/적/중립/미점령). 지역 테마색은 배경 격자로. (지도 재설계 B안 PR-4)
 
 // === 고정 타일 격자 보드 (pan/zoom 폐기) ============================================
 // 옛 점-지도(가변 viewBox + 핀치/팬/휠)를 한 화면에 딱 맞는 정사각 타일 격자로 교체.
@@ -343,7 +342,7 @@ export function ContinentMap({
   // 자유이동(B안 PR-3): 워프·다중홉 경로 미리보기 폐기 — 선택 거점으로 바로 이동.
 
   // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
-  //   미점령은 소속 왕국을 "○○ 왕국령"으로. 중립 거점은 배지로 충분해 생략.
+  //   미점령은 소속 지역을 "○○령"으로. 중립 거점은 배지로 충분해 생략.
   const selectedOcc = selected ? occByOutpost.get(selected.id) : undefined;
   const selectedKingdomName = selected ? kingdomNameOf(selected) : undefined;
   const selectedOwnerLabel =
@@ -553,19 +552,17 @@ export function ContinentMap({
               occ.fortHp != null &&
               occ.fortMaxHp != null &&
               occ.fortHp < occ.fortMaxHp;
-            // 채움 = 분쟁지대(중앙 2홉 이내)면 무소속 색, 아니면 소속 왕국색.
-            const markerFill = CONFLICT_ZONE_IDS.has(o.id)
-              ? OUTPOST_CONFLICT_COLOR
-              : kingdomColorOf(o);
-            // 소유(내 길드/적/중립)는 테두리 링으로 표시 — 채움(왕국/분쟁색)과 독립.
-            const ownerStroke = isMine
-              ? "#10b981" // 내 길드 — 초록 링
+            // 채움 = 소유(내 길드 초록 / 적 빨강 / 중립 금 / 미점령 회색). 지역 테마색은 배경 격자로.
+            // (B안 PR-4: 옛 왕국색 채움 폐기 — 영토 소유가 한눈에.)
+            const markerFill = isMine
+              ? "#10b981"
               : isHostile
-                ? "#dc2626" // 적 길드 — 빨강 링
+                ? "#dc2626"
                 : isNeutral
-                  ? "#f4c842" // 중립(자유도시) — 금색 링
-                  : "#ffffff"; // NPC(미점령) — 기본 흰 테두리
-            const hasOwnerRing = isMine || isHostile || isNeutral;
+                  ? "#f4c842"
+                  : "#6b7280"; // NPC(미점령) — 회색
+            // 윤곽 = 어두운 정의선(소유는 채움으로 표현). 현재 위치/교전은 별도 오버레이.
+            const tileStroke = "#0b1020";
             // tier 큐 — 왕국이 가장 굵고 아래로 갈수록 가늘게(타일 크기는 균일).
             const tierStroke = isKingdom ? 14 : o.tier === 3 ? 11 : 9;
             const Glyph = isKingdom ? Crown : TYPE_ICON[o.type];
@@ -613,7 +610,7 @@ export function ContinentMap({
                     />
                   </rect>
                 )}
-                {/* 색 타일 + 흰색 아이콘 (플랫 마커). 채움 = 소속 왕국색, 테두리 = 소유. */}
+                {/* 색 타일 + 흰색 아이콘 (플랫 마커). 채움 = 소유, 윤곽 = 어두운 정의선. */}
                 <rect
                   x={p.cx - HALF}
                   y={p.cy - HALF}
@@ -621,10 +618,8 @@ export function ContinentMap({
                   height={TILE}
                   rx={TILE * 0.22}
                   fill={markerFill}
-                  stroke={ownerStroke}
-                  strokeWidth={
-                    showLabel ? tierStroke + 4 : hasOwnerRing ? tierStroke : tierStroke - 2
-                  }
+                  stroke={tileStroke}
+                  strokeWidth={showLabel ? tierStroke + 2 : tierStroke - 2}
                 />
                 <Glyph
                   x={p.cx - HALF * 0.62}
@@ -690,9 +685,44 @@ export function ContinentMap({
                 </span>
               </div>
               <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
-              {/* 채움색 = 소속 왕국 */}
+              {/* 채움색 = 소유 */}
               <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                채움색 · 소속 왕국
+                채움색 · 소유
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ background: "#10b981" }}
+                  />
+                  내 거점
+                </span>
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ background: "#dc2626" }}
+                  />
+                  적 점령
+                </span>
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ background: "#f4c842" }}
+                  />
+                  중립
+                </span>
+                <span className="flex items-center gap-1">
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-sm"
+                    style={{ background: "#6b7280" }}
+                  />
+                  미점령
+                </span>
+              </div>
+              <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
+              {/* 배경 격자 = 지역 테마 */}
+              <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
+                배경 · 지역
               </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 {KINGDOM_LEGEND.map((k) => (
@@ -713,39 +743,14 @@ export function ContinentMap({
                 </span>
               </div>
               <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
-              {/* 테두리 = 소유 */}
+              {/* 표식 */}
               <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                테두리 · 소유
+                표식
               </div>
               <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                 <span className="flex items-center gap-1">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-sm border-2"
-                    style={{ borderColor: "#10b981" }}
-                  />
-                  내 거점
-                </span>
-                <span className="flex items-center gap-1">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-sm border-2"
-                    style={{ borderColor: "#dc2626" }}
-                  />
-                  적 점령
-                </span>
-                <span className="flex items-center gap-1">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-sm border-2"
-                    style={{ borderColor: "#f4c842" }}
-                  />
-                  중립
-                </span>
-                <span className="flex items-center gap-1">
                   <span className="h-3 w-3 shrink-0 rounded-sm border-2 border-dashed border-emerald-500" />
                   현재 위치
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 shrink-0 rounded-full bg-zinc-400/30" />
-                  미발견
                 </span>
               </div>
             </div>

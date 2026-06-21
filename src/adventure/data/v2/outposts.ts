@@ -76,11 +76,11 @@ const NEUTRAL_OUTPOSTS: Outpost[] = [
   },
 ];
 
-// 5 왕국 — 각 biome 중심.
+// 5 지역 중심 거점 (tier 4) — 각 biome 중심. "왕국" 명칭 폐기(지도 재설계 B안 PR-4)·지역 테마로 잔존.
 const KINGDOMS: Outpost[] = [
   {
     id: "kingdom_tatiholm",
-    name: "에이라 왕국",
+    name: "에이라",
     type: "fort",
     tier: 4,
     position: { x: 1800, y: 1000 },
@@ -88,7 +88,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_silverbance",
-    name: "로렌 왕국",
+    name: "로렌",
     type: "tower",
     tier: 4,
     position: { x: 6500, y: 800 },
@@ -96,7 +96,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_blackforge",
-    name: "코린 왕국",
+    name: "코린",
     type: "mine",
     tier: 4,
     position: { x: 1500, y: 3500 },
@@ -104,7 +104,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_sunderhold",
-    name: "세라 왕국",
+    name: "세라",
     type: "village",
     tier: 4,
     position: { x: 5000, y: 4900 },
@@ -112,7 +112,7 @@ const KINGDOMS: Outpost[] = [
   },
   {
     id: "kingdom_ragnarod",
-    name: "발렌 왕국",
+    name: "발렌",
     type: "fort",
     tier: 4,
     position: { x: 8000, y: 3300 },

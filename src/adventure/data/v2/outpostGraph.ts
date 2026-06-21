@@ -33,7 +33,7 @@ const MANUAL_ADD: ReadonlyArray<readonly [string, string]> = [
   // 맵 축소 후 노토스(남단 자유항)가 막다른 길이 됨 (주변 남부 마을·도시가 컷돼 Gabriel 후보가 적음).
   // 남부 junction 으로 잇는다. (40→23 축소 2026-06-21로 city_goldfield 컷 → 그쪽 엣지 제거.)
   ["neutral_south_outpost", "city_river_haven"],
-  // 코린 왕국(서부)이 40→23 축소로 이웃 1개(막다른 길)가 됨 → 중앙 junction(발마르)로 보강.
+  // 코린(서부)이 40→23 축소로 이웃 1개(막다른 길)가 됨 → 중앙 junction(발마르)로 보강.
   ["kingdom_blackforge", "outpost_plain_fort"],
 ];
 const MANUAL_REMOVE: ReadonlyArray<readonly [string, string]> = [];

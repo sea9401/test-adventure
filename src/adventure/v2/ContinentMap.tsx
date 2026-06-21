@@ -13,8 +13,6 @@ import {
   OUTPOSTS,
   MAP_BOUNDS,
   kingdomNameOf,
-  KINGDOM_COLORS,
-  OUTPOST_CONFLICT_COLOR,
 } from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
@@ -27,7 +25,7 @@ import type {
   OutpostTier,
 } from "@/adventure/data/v2/types";
 
-// 마커 채움색 = 소유(내 길드/적/중립/미점령). 지역 테마색은 배경 격자로. (지도 재설계 B안 PR-4)
+// 마커 채움색 = 소유(내 길드/적/중립/미점령). 배경은 단색 + 격자선만(권역 색 폐기). (B안 PR-4~6)
 
 // === 고정 타일 격자 보드 (pan/zoom 폐기) ============================================
 // 옛 점-지도(가변 viewBox + 핀치/팬/휠)를 한 화면에 딱 맞는 정사각 타일 격자로 교체.
@@ -74,135 +72,9 @@ const TYPE_LABEL: Record<OutpostType, string> = {
 // id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
 
-// 범례용 왕국 색 목록 — 채움색이 어느 왕국인지 한눈에. 이름은 " 왕국" 접미사 떼어 간결히.
-const KINGDOM_LEGEND: { id: string; name: string; color: string }[] =
-  Object.entries(KINGDOM_COLORS).map(([id, color]) => ({
-    id,
-    color,
-    name: (OUTPOST_BY_ID.get(id)?.name ?? id).replace(/\s*왕국$/, ""),
-  }));
+// (권역 색칠/경계 시스템 제거 — 왕국 폐기로 지역 구분 없앰. 배경=단색+격자선만.
+//  weather 권역(kingdomIdOf 기반)은 지도 비주얼과 별개로 유지.)
 
-// === 영토(territory) — 격자 셀마다 소속 왕국색. 분쟁 반경 안은 분쟁지대(slate). ==========
-// BIOME_REGIONS 중심은 outposts.ts 상단 주석의 5 왕국 + 중앙 평원과 일치.
-const BIOME_REGIONS = [
-  { label: "북부 빙원", center: { x: 1800, y: 1000 } },
-  { label: "동부 삼림", center: { x: 6500, y: 800 } },
-  { label: "서부 광산지대", center: { x: 1500, y: 3500 } },
-  { label: "동남 화산지대", center: { x: 8000, y: 3300 } },
-  { label: "남부 사막", center: { x: 5000, y: 4900 } },
-  { label: "중앙 분쟁지대", center: { x: 5000, y: 2800 } },
-] as const;
-
-// 중앙 분쟁지대 핵심 반경 — 중심에서 이 거리(맵 좌표) 안의 땅만 무소속 분쟁지대로 남고,
-// 그 밖은 전부 최근접 왕국 소속. (outpostDefense.ts 와 같은 값이어야 한다.)
-const CONFLICT_LABEL = "중앙 분쟁지대";
-const CONFLICT_RADIUS = 800;
-const CONFLICT_CENTER = BIOME_REGIONS.find((r) => r.label === CONFLICT_LABEL)!
-  .center;
-const KINGDOM_REGIONS = BIOME_REGIONS.filter((r) => r.label !== CONFLICT_LABEL);
-
-// BIOME_REGIONS label → 영토 색. 왕국 권역 중심 == 왕국 거점 position 이라 그 거점의 색.
-const TERRITORY_COLOR_BY_LABEL: Record<string, string> = (() => {
-  const out: Record<string, string> = {
-    [CONFLICT_LABEL]: OUTPOST_CONFLICT_COLOR,
-  };
-  for (const reg of KINGDOM_REGIONS) {
-    const kingdom = OUTPOSTS.find(
-      (o) =>
-        o.tier === 4 &&
-        o.position.x === reg.center.x &&
-        o.position.y === reg.center.y,
-    );
-    out[reg.label] =
-      (kingdom && KINGDOM_COLORS[kingdom.id]) || OUTPOST_CONFLICT_COLOR;
-  }
-  return out;
-})();
-
-// 점(mx,my)의 소속 영토 라벨 — 분쟁 반경 안이면 분쟁지대, 아니면 최근접 왕국.
-function territoryLabelAt(mx: number, my: number): string {
-  const cdx = mx - CONFLICT_CENTER.x;
-  const cdy = my - CONFLICT_CENTER.y;
-  if (cdx * cdx + cdy * cdy <= CONFLICT_RADIUS * CONFLICT_RADIUS) {
-    return CONFLICT_LABEL;
-  }
-  let label = KINGDOM_REGIONS[0].label;
-  let bestD = Infinity;
-  for (const reg of KINGDOM_REGIONS) {
-    const dx = mx - reg.center.x;
-    const dy = my - reg.center.y;
-    const d = dx * dx + dy * dy;
-    if (d < bestD) {
-      bestD = d;
-      label = reg.label;
-    }
-  }
-  return label;
-}
-
-// === 영토 셀(15×9=135) — 새 격자에서 셀 중심 기준으로 영토 색 재산출. =================
-type TerritoryCell = {
-  col: number;
-  row: number;
-  x: number;
-  y: number;
-  label: string;
-  color: string;
-};
-const TERRITORY_GRID: TerritoryCell[][] = (() => {
-  const grid: TerritoryCell[][] = [];
-  for (let col = 0; col < GRID_COLS; col++) {
-    const column: TerritoryCell[] = [];
-    for (let row = 0; row < GRID_ROWS; row++) {
-      // 표시 좌표 — x=열 너비(CELL), y=행 높이(ROW_H, 세로 스트레치).
-      const x = col * CELL;
-      const y = row * ROW_H;
-      // 영토 색/라벨은 정사각 맵 좌표(CELL)로 판정 — Voronoi/색칠 불변, 세로 픽셀만 늘어난다.
-      const label = territoryLabelAt(
-        (col + 0.5) * CELL,
-        (row + 0.5) * CELL,
-      );
-      column.push({
-        col,
-        row,
-        x,
-        y,
-        label,
-        color: TERRITORY_COLOR_BY_LABEL[label],
-      });
-    }
-    grid.push(column);
-  }
-  return grid;
-})();
-const TERRITORY_CELLS: TerritoryCell[] = TERRITORY_GRID.flat();
-
-// 영토 경계 — 서로 다른 영토 셀 사이의 변만(점선). 인접(우/하) 셀 라벨이 다를 때만 선 1개.
-const TERRITORY_BORDERS: {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}[] = (() => {
-  const out: { x1: number; y1: number; x2: number; y2: number }[] = [];
-  for (let col = 0; col < GRID_COLS; col++) {
-    for (let row = 0; row < GRID_ROWS; row++) {
-      const c = TERRITORY_GRID[col][row];
-      // c.x/c.y 는 표시 좌표 — 가로 변(width)은 CELL, 세로 변(height)은 ROW_H.
-      const right = TERRITORY_GRID[col + 1]?.[row];
-      if (right && right.label !== c.label) {
-        // 오른쪽 경계 = 세로선 — y 범위가 ROW_H.
-        out.push({ x1: c.x + CELL, y1: c.y, x2: c.x + CELL, y2: c.y + ROW_H });
-      }
-      const below = TERRITORY_GRID[col]?.[row + 1];
-      if (below && below.label !== c.label) {
-        // 아래 경계 = 가로선 — y 위치가 ROW_H 만큼 내려간 셀 바닥.
-        out.push({ x1: c.x, y1: c.y + ROW_H, x2: c.x + CELL, y2: c.y + ROW_H });
-      }
-    }
-  }
-  return out;
-})();
 
 // === 거점 → 격자 셀 스냅(충돌은 결정적 확장 링 BFS 로 최근접 빈 셀). ==================
 // OUTPOSTS 배열 순서대로 스냅하고, 목표 셀이 차 있으면 반경 1,2,… 의 빈 셀 중 가장 가까운
@@ -383,35 +255,7 @@ export function ContinentMap({
             className="fill-zinc-100 dark:fill-zinc-950"
           />
 
-          {/* 영토 색칠 — 135 격자칸마다 소속 왕국 색(분쟁지대=slate). 또렷이 읽히게 .20.
-              전체 지도(국지 war 모드 아님)에서만. 국지 모드는 보이는 셀만. */}
-          <g>
-            {TERRITORY_CELLS.map((c) => {
-              // 국지 모드 — 보이는 거점이 한 칸이라도 든 셀만 칠한다(나머지 빈 보드).
-              if (visibleIds) {
-                let any = false;
-                for (const id of visibleIds) {
-                  const g = OUTPOST_GRID_POS.get(id);
-                  if (g && g.col === c.col && g.row === c.row) {
-                    any = true;
-                    break;
-                  }
-                }
-                if (!any) return null;
-              }
-              return (
-                <rect
-                  key={`terr-${c.col}-${c.row}`}
-                  x={c.x}
-                  y={c.y}
-                  width={CELL}
-                  height={ROW_H}
-                  fill={c.color}
-                  fillOpacity={0.2}
-                />
-              );
-            })}
-          </g>
+          {/* (권역 색칠 제거 — 왕국 폐기로 지역 구분 없앰. 배경은 단색 + 격자선만.) */}
 
           {/* 격자선 — 영토 색 위에 얇게(타일 경계가 또렷이 읽히게). */}
           <g
@@ -438,24 +282,7 @@ export function ContinentMap({
             ))}
           </g>
 
-          {/* 영토 경계 — 서로 다른 영토(왕국령) 셀 사이의 변만 점선으로. 격자 위·마커 아래.
-              왕국 이름은 각 영토 수도(tier4) 라벨이 담당. 전체 지도에서만. */}
-          {!visibleIds && (
-            <g className="stroke-zinc-400/45 dark:stroke-zinc-500/40">
-              {TERRITORY_BORDERS.map((b, i) => (
-                <line
-                  key={`tb-${i}`}
-                  x1={b.x1}
-                  y1={b.y1}
-                  x2={b.x2}
-                  y2={b.y2}
-                  strokeWidth={4}
-                  strokeDasharray="36 28"
-                  strokeLinecap="round"
-                />
-              ))}
-            </g>
-          )}
+          {/* (권역 경계선 제거 — 지역 구분 없앰.) */}
 
           {/* 거점 간 연결선 (Gabriel 그래프) — 인접 = 이동 가능 경로. 마커 아래 레이어.
               전체를 옅게 깔고, 현재 위치에 닿는 길만 위에 또렷한 초록으로 덧그린다.
@@ -696,29 +523,6 @@ export function ContinentMap({
                     style={{ background: "#6b7280" }}
                   />
                   미점령
-                </span>
-              </div>
-              <div className="h-px bg-zinc-200 dark:bg-zinc-700" />
-              {/* 배경 격자 = 지역 테마 */}
-              <div className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">
-                배경 · 지역
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                {KINGDOM_LEGEND.map((k) => (
-                  <span key={k.id} className="flex items-center gap-1">
-                    <span
-                      className="h-3 w-3 shrink-0 rounded-sm"
-                      style={{ background: k.color }}
-                    />
-                    {k.name}
-                  </span>
-                ))}
-                <span className="flex items-center gap-1">
-                  <span
-                    className="h-3 w-3 shrink-0 rounded-sm"
-                    style={{ background: OUTPOST_CONFLICT_COLOR }}
-                  />
-                  분쟁지대
                 </span>
               </div>
               <div className="h-px bg-zinc-200 dark:bg-zinc-700" />

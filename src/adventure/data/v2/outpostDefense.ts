@@ -23,8 +23,7 @@ export const OUTPOST_DEFENSE_BY_TIER: Record<OutpostTier, number> = {
   4: OUTPOST_DEFENSE_CENTER, // 5000
 };
 
-// 중앙 분쟁지대 — ContinentMap 의 CONFLICT_CENTER/RADIUS 와 같은 값이어야 한다
-// (지도에서 무소속 분쟁지대로 표시되는 그 땅들과 동일 집합 = 수비 게이트 면제).
+// 중앙 분쟁지대 — 이 반경 안의 거점은 수비 게이트 면제(무소속 중앙 격전지).
 const CONFLICT_CENTER = { x: 5000, y: 2800 };
 const CONFLICT_RADIUS = 800;
 

@@ -165,21 +165,8 @@ export const OUTPOST_TYPE_BY_ID = new Map<string, Outpost["type"]>(
 export const MAP_BOUNDS = { width: 10000, height: 6000 } as const;
 export const CONTINENT_NAME = "아스토리아 대륙";
 
-// === 왕국 고유색 (지도 구분용) =======================================
-// 거점 종류는 아이콘으로 구분하므로, 마커 채움색은 "소속 왕국"을 나타낸다(5 왕국 distinct hue).
-// 소유 표시 링 색(내 길드=초록·적=빨강·중립=금·NPC=흰)과 겹치지 않는 색으로 고른다.
-export const KINGDOM_COLORS: Record<string, string> = {
-  kingdom_tatiholm: "#3b82f6", // 에이라 — 북부 빙하(청)
-  kingdom_silverbance: "#8b5cf6", // 로렌 — 동부 마법(보라)
-  kingdom_blackforge: "#ec4899", // 코린 — 서남 광산(자홍)
-  kingdom_sunderhold: "#06b6d4", // 세라 — 중남 사막(청록)
-  kingdom_ragnarod: "#f97316", // 발렌 — 동남 전쟁(주황)
-};
-
-// 거점 → 소속 왕국색. 소속 = 지리적으로 가장 가까운 왕국 수도(거점 방어 게이트와 동일 기준).
-// 모든 거점(중립·분쟁지대 포함)이 어느 한 왕국 영역에 든다. 수도 자신은 자기 색.
+// 거점 → 소속 지역(가장 가까운 tier4 중심) id. weather 권역·팝업 "○○령" 라벨이 파생한다.
 // 모듈 로드 시 1회 precompute (렌더마다 최근접 재계산 회피).
-// 거점 → 소속 왕국 수도 id. 색·이름 모두 이걸로 파생.
 const KINGDOM_ID_BY_OUTPOST: Map<string, string> = (() => {
   const capitals = OUTPOSTS.filter((o) => o.tier === 4);
   const map = new Map<string, string>();
@@ -207,15 +194,10 @@ export function kingdomIdOf(o: Outpost): string | undefined {
 }
 
 // 거점이 속한 지역 중심 거점 이름(예: "에이라"). 지도 팝업의 "○○령" 지역 표기에 사용.
-// (KINGDOM_COLORS 는 지도 배경 격자의 지역 테마색으로 ContinentMap 에서 계속 쓴다.)
 export function kingdomNameOf(o: Outpost): string | undefined {
   const id = KINGDOM_ID_BY_OUTPOST.get(o.id);
   return id ? OUTPOST_BY_ID.get(id)?.name : undefined;
 }
-
-// 분쟁지대(중앙 자유 도시 인근) 마커 채움색 — 어느 왕국색과도 구분되는 무소속 슬레이트.
-// 어느 거점이 분쟁지대인지(중앙에서 N홉)는 그래프 의존이라 outpostGraph.CONFLICT_ZONE_IDS 참고.
-export const OUTPOST_CONFLICT_COLOR = "#64748b";
 
 // 신규 플레이어 시작 거점 — 중앙 자유 도시(어느 세력에도 속하지 않는 중립 허브). 현재
 // 위치가 아직 기록되지 않았을 때(부트스트랩) 인접 이동 게이트·발견 시드의 기준점으로 쓴다.

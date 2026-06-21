@@ -514,30 +514,34 @@ export function OutpostView({
                 여기서 할 수 있는 것
               </div>
             </HeaderPanel>
-            {lineupWarning && !claimDisabled && (
+            {lineupWarning && !claimDisabled && !V2_SETTLEMENT_WARFARE && (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
                 ⚠️ 3:3 라인업 미설정 — 공성 시 마스터 혼자 출전합니다. 길드 탭
                 길드원에서 라인업을 설정하세요.
               </div>
             )}
-            <ActionCard
-              title={
-                claimDisabled
-                  ? "점령 시도"
-                  : occupation
-                    ? "공성 시도 (PvP 결투)"
-                    : "점령 시도 (NPC 일기토)"
-              }
-              subtitle={
-                claimDisabled?.reason ??
-                (occupation
-                  ? `점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락${coreLoopOn ? "" : " (스태미너 소모)"}.`
-                  : `거점 NPC 영웅과 1대1 결투. 승리 시 점령${coreLoopOn ? "" : " (스태미너 소모)"}.`)
-              }
-              onClick={attemptClaim}
-              disabled={!!claimDisabled || busy}
-              loading={busy}
-            />
+            {/* 옛 공성/점령(3:3 토너먼트) — 정착지 전쟁 on 이면 적 길드 거점에선 숨김(약탈/정복으로
+                일원화). 미점령/NPC 거점 점령은 그대로(새 영토 확보 경로). */}
+            {!(V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null) && (
+              <ActionCard
+                title={
+                  claimDisabled
+                    ? "점령 시도"
+                    : occupation
+                      ? "공성 시도 (PvP 결투)"
+                      : "점령 시도 (NPC 일기토)"
+                }
+                subtitle={
+                  claimDisabled?.reason ??
+                  (occupation
+                    ? `점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락${coreLoopOn ? "" : " (스태미너 소모)"}.`
+                    : `거점 NPC 영웅과 1대1 결투. 승리 시 점령${coreLoopOn ? "" : " (스태미너 소모)"}.`)
+                }
+                onClick={attemptClaim}
+                disabled={!!claimDisabled || busy}
+                loading={busy}
+              />
+            )}
             {/* 정착지 전쟁 약탈/정복 — 적 길드 점령 거점만(NPC 거점 제외)·길드원만. 플래그 on 전용. */}
             {V2_SETTLEMENT_WARFARE &&
               viewerGuildId != null &&

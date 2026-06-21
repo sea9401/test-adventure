@@ -13,10 +13,15 @@ import {
   genEquipIid,
   type EquipmentSave,
 } from "@/adventure/data/v2/v2Equipment";
+import {
+  STAMINA_POTIONS_KEY,
+  staminaPotionCount,
+} from "@/adventure/v2/staminaPotions";
 
 // POST /api/v2/me/quests/claim  { questId } — 가이드 퀘스트 보상 수령.
 //   서버가 세이브에서 완료를 재판정(클라 신뢰 안 함) + 미수령 확인 → 보상 지급 + claimed 기록.
-//   락 순서 character.v2 → equipment.v2 → guide-quests.v2 (proficiency·adventure-log 은 무락 read).
+//   락 순서 character.v2 → equipment.v2 → guide-quests.v2 → stamina-potions.v1(leaf, 포션 보상 시만)
+//   (proficiency·adventure-log 은 무락 read). stamina-potions 는 항상 마지막 잠금 = 데드락 회피.
 export async function POST(req: Request) {
   const userId = await ensureUser();
   if (!userId) {
@@ -106,6 +111,17 @@ export async function POST(req: Request) {
       });
       grantedEquip = def.reward.equip;
     }
+    // 스태미나 회복약(stamina-potions.v1) — 항상 마지막 잠금(leaf). 번들 보상과 동일 소비템.
+    let grantedPotions = 0;
+    if (def.reward.staminaPotions && def.reward.staminaPotions > 0) {
+      const count = staminaPotionCount(
+        await lockSaveForUpdate(tx, userId, STAMINA_POTIONS_KEY, { count: 0 }),
+      );
+      grantedPotions = def.reward.staminaPotions;
+      await upsertSave(tx, userId, STAMINA_POTIONS_KEY, {
+        count: count + grantedPotions,
+      });
+    }
 
     claimed.add(def.id);
     await upsertSave(tx, userId, GUIDE_QUESTS_KEY, {
@@ -117,7 +133,11 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         questId: def.id,
-        reward: { gold: goldGain, equip: grantedEquip },
+        reward: {
+          gold: goldGain,
+          equip: grantedEquip,
+          staminaPotions: grantedPotions,
+        },
         gold: Math.max(0, (charSave.gold ?? 0) + goldGain),
       },
     };

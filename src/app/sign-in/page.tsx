@@ -8,9 +8,9 @@ import { savesKv, presence } from "@/db/schema";
 import { LandingContent } from "./LandingContent";
 
 export const metadata: Metadata = {
-  title: "무슨무슨게임 — 방치형 웹 RPG",
+  title: "무슨무슨게임 — 브라우저 어드벤처 RPG",
   description:
-    "누르는 대신 판단의 순서를 짜는 방치형 웹 RPG. 접속하지 않아도 모험가는 싸우고 성장합니다. 브라우저에서 3초 만에 시작하세요.",
+    "스킬을 누르는 대신 전략을 설계하는 자동전투 브라우저 RPG. 직업·빌드·아이템 굴림·길드 거점전. 3초 만에 시작하세요.",
 };
 
 // 대문(랜딩) 통계 — 총 모험가 수 + 최근 접속자 수.

@@ -15,12 +15,12 @@ const FEATURES = [
   {
     no: "02",
     title: "깊은 빌드 — 직업·전직·환생",
-    body: "13개 직업으로 전직하고 환생하며, 스탯·스킬·속성으로 나만의 캐릭터를 빚습니다.",
+    body: "다양한 직업으로 전직하고 환생하며, 스탯·스킬·속성으로 나만의 캐릭터를 빚습니다.",
   },
   {
     no: "03",
-    title: "아이템 굴림 & 재련",
-    body: "같은 장비도 굴림으로 능력치가 달라지고, 재련으로 다듬습니다. 하나뿐인 내 무기를 만드세요.",
+    title: "다양한 즐길거리",
+    body: "낚시, 보물 발굴, 협동 보스까지. 사냥 외에도 즐길 거리가 가득합니다.",
   },
   {
     no: "04",
@@ -52,7 +52,7 @@ export function LandingContent({
         {/* ── 히어로 ───────────────────────────────────────── */}
         <section className="flex flex-1 flex-col items-center justify-center py-24 text-center">
           <p className="text-[0.7rem] font-medium uppercase tracking-[0.4em] text-amber-200/60">
-            브라우저 어드벤처 RPG
+            웹 어드벤처 RPG
           </p>
 
           <h1 className="mt-6 text-5xl font-bold tracking-tight text-zinc-50 sm:text-6xl">
@@ -63,9 +63,9 @@ export function LandingContent({
           <span className="mt-7 block h-px w-10 bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
 
           <p className="mt-7 max-w-md text-base leading-loose text-zinc-400 sm:text-lg">
-            누르는 대신, <span className="text-zinc-200">판단의 순서</span>를 짭니다.
+            전투는 자동, <span className="text-zinc-200">전략은 내 마음대로</span>.
             <br />
-            전투는 자동으로, 승부는 설계로.
+            키우는 재미가 끝이 없는 RPG.
           </p>
 
           <div className="mt-10 flex w-full flex-col items-center gap-3">

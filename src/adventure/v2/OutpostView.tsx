@@ -78,6 +78,10 @@ export function OutpostView({
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
+  // 정착지 전쟁 약탈(raid) 결과 — 성공/실패 + 탈취 골드(또는 에러 문자열). 플래그 on 일 때만 사용.
+  const [raidResult, setRaidResult] = useState<
+    { won: boolean; stolenGold: number; defenderName: string | null } | string | null
+  >(null);
   // 내 합성 전투력(derivePowerScore) — 수비 전투력 게이트 비교용. state 라우트서 1회 로드.
   // intrusion(침입 상태)도 같은 응답에서 — "이 거점에 침입 중" 배너용.
   const [viewerPower, setViewerPower] = useState<number | null>(null);
@@ -237,6 +241,40 @@ export function OutpostView({
         ok: false,
         error: `network: ${(err as Error).message}`,
       });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 정착지 전쟁 약탈 — 수비 큐 1번과 건강도 결투 → 승리 시 금고 50% 탈취(점령 X). 플래그 on 전용.
+  async function attemptRaid() {
+    setBusy(true);
+    setRaidResult(null);
+    try {
+      const res = await fetch("/api/v2/outpost/attack", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outpostId: outpost.id, mode: "raid" }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok: true; won: boolean; stolenGold: number; defenderName: string | null }
+        | { ok: false; error: string }
+        | null;
+      if (!json) {
+        setRaidResult(`응답 오류 (http ${res.status})`);
+        return;
+      }
+      if (!json.ok) {
+        setRaidResult(raidErrorMsg(json.error));
+        return;
+      }
+      setRaidResult({
+        won: json.won,
+        stolenGold: json.stolenGold,
+        defenderName: json.defenderName,
+      });
+    } catch (err) {
+      setRaidResult(`network: ${(err as Error).message}`);
     } finally {
       setBusy(false);
     }
@@ -431,6 +469,16 @@ export function OutpostView({
               disabled={!!claimDisabled || busy}
               loading={busy}
             />
+            {/* 정착지 전쟁 약탈 — 적 길드 점령 거점만(NPC 거점 제외). 플래그 on 전용. */}
+            {V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null && (
+              <ActionCard
+                title="약탈 시도"
+                subtitle="수비대 1번과 건강도 결투 — 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+                onClick={attemptRaid}
+                disabled={busy}
+                loading={busy}
+              />
+            )}
           </>
         )}
 
@@ -443,9 +491,59 @@ export function OutpostView({
             coreLoopOn={coreLoopOn}
           />
         )}
+        {raidResult && (
+          <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+            {typeof raidResult === "string" ? (
+              <span className="text-rose-600 dark:text-rose-400">
+                {raidResult}
+              </span>
+            ) : raidResult.won ? (
+              <span>
+                약탈 성공! <strong>{raidResult.stolenGold.toLocaleString()} 골드</strong>{" "}
+                탈취
+                {raidResult.defenderName
+                  ? ` — 수비자 ${raidResult.defenderName} 격파`
+                  : " (무방비 거점)"}
+              </span>
+            ) : (
+              <span>
+                약탈 실패 — 수비자
+                {raidResult.defenderName ? ` ${raidResult.defenderName}` : ""}에게
+                패배. 건강도를 회복하고 다시 시도하세요.
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setRaidResult(null)}
+              className="ml-2 text-xs text-zinc-500 underline"
+            >
+              닫기
+            </button>
+          </div>
+        )}
       </section>
     </main>
   );
+}
+
+// 약탈 라우트 에러 코드 → 사용자 메시지.
+function raidErrorMsg(error: string): string {
+  switch (error) {
+    case "no_guild":
+      return "길드에 소속돼야 약탈할 수 있습니다";
+    case "not_occupied":
+      return "점령되지 않은 거점은 약탈할 수 없습니다";
+    case "already_yours":
+      return "내 길드 거점입니다";
+    case "protected":
+      return "함락 직후 보호막 — 잠시 후 가능";
+    case "no_character":
+      return "캐릭터 정보를 찾을 수 없습니다";
+    case "disabled":
+      return "약탈 기능이 비활성화돼 있습니다";
+    default:
+      return `약탈 실패 (${error})`;
+  }
 }
 
 function computeClaimDisabled(

@@ -81,6 +81,7 @@ export async function GET() {
         createdAt: guilds.createdAt,
         fameTotal: guilds.fameTotal,
         description: guilds.description,
+        emblem: guilds.emblem,
         nationName: guilds.nationName,
         nationDeclaredAt: guilds.nationDeclaredAt,
       })

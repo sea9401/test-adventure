@@ -1,0 +1,1 @@
+ALTER TABLE "guilds" ADD COLUMN "emblem" text;

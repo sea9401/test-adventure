@@ -1016,6 +1016,25 @@ export const outpostVillages = pgTable("outpost_villages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// 정착지 전쟁 — 참여형 수비 등록 큐. 길드원이 점령 거점에 수비 등록하면 등록순(registeredAt)으로
+//   배치돼 공격자를 순차로 막는다(약탈=1번 격파, 정복=전원 격파+성벽). 패배 시 행 삭제(건강도 소진).
+//   설계: docs/v2-settlement-warfare-plan.md §2.2. PR-2(플래그 V2_SETTLEMENT_WARFARE 뒤·미배선).
+//   (outpostId, userId) 복합 PK = 한 거점에 한 유저 1회 등록. guildId = 등록 당시 점령 길드.
+export const outpostDefenders = pgTable(
+  "outpost_defenders",
+  {
+    outpostId: text("outpost_id").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    guildId: integer("guild_id")
+      .notNull()
+      .references(() => guilds.id, { onDelete: "cascade" }),
+    registeredAt: timestamp("registered_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.outpostId, t.userId] })],
+);
+
 // v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).
 // memberUserIds: 1~3명, 순서대로 1번 / 2번 / 3번. 길드원만 가능.
 // 미설정 길드는 row 없음 → 토너먼트 sim 시 default = 마스터 1명.

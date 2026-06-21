@@ -944,11 +944,15 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     // PR-perf — 위에서 upfront lock-read 한 proficiencyRaw 재사용(같은 tx 스냅샷, 중간
     //   proficiency 쓰기 없음 → 새 lock 과 동일 base). 중복 lock-read 제거.
     let prof = parseProficiencyForChar(proficiencyRaw, charSave);
-    // 적립 — 승리 + 직업 보유 시. 적립량은 깊이 밴드 비례(2~5, 테마 2개당 +1).
-    if (won && group !== "none") {
+    // 적립(숙달 포인트) — 승리 시. 깊이 밴드 비례(2~5). none(모험가)도 적립(수행 프로필 보유 →
+    //   addPoints 가 V2_CULTIVATE_PROFILE 존재로 자체 게이트). cumLevel/정복(아래)은 none 제외 유지.
+    if (won) {
       const perKill = proficiencyPerKillAtDepth(depth);
-      prof = addPoints(prof, group, perKill);
-      proficiencyGained = perKill;
+      const nextProf = addPoints(prof, group, perKill);
+      if (nextProf !== prof) {
+        prof = nextProf;
+        proficiencyGained = perKill;
+      }
     }
     // 레벨업 시 — 직군 누적 레벨 적립(floor·전직 게이트 입력) + 랜덤 스탯 성장.
     if (expResult.levelsGained > 0) {

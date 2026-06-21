@@ -11,6 +11,7 @@ import {
   totalCapGains,
   capGain,
   effectiveStatCap,
+  V2_CULTIVATE_PROFILE,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import { computeStatFloors } from "@/adventure/data/v2/statGrowth";
@@ -32,7 +33,9 @@ export async function POST() {
       {},
     );
     const group = tier1ClassOf(parseV2Class(charSave.class));
-    if (group === "none") {
+    // 수행 프로필이 있는 직군만 수행 가능 — none(모험가)도 프로필 추가로 허용. 프로필 없는 그룹만 거부
+    //   (일반화: 향후 직군 밖 직업도 V2_CULTIVATE_PROFILE 에 프로필 있으면 자동 허용).
+    if (!V2_CULTIVATE_PROFILE[group]) {
       return { status: 400, body: { ok: false as const, error: "no_class" as const } };
     }
     const profSave = await lockSaveForUpdate<V2ProficiencyState>(

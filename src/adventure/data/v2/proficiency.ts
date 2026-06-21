@@ -55,8 +55,10 @@ export const V2_CAP_HEADROOM_BASE = 45;
 // 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
 export const V2_STAT_CAP_BASE = 60;
 
-// 수행 1회 cap 헤드룸 상승 — 4직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
+// 수행 1회 cap 헤드룸 상승 — 직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
 // 각 직군의 전문화 서브스탯을 함께 담아 자유 수행 없이도 전문화별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
+// 🔑 키가 4직군에 한정되지 않는다 — 직군 밖 직업(none 등, 향후 추가될 무소속 직업)도 여기 프로필만
+//   있으면 수행 가능(수행 라우트/적립이 V2_CULTIVATE_PROFILE 존재로 게이트). 2026-06-22.
 export const V2_CULTIVATE_PROFILE: Record<
   string,
   Partial<Record<V2StatKey, number>>
@@ -65,6 +67,9 @@ export const V2_CULTIVATE_PROFILE: Record<
   martial: { vit: 2, str: 1, spi: 1 }, // 무도가 — 맷집(vit)·흡혈/기공
   mage: { int: 2, spi: 2 }, // 마법사 — 공격마법(int)·신성(spi)
   rogue: { dex: 2, luk: 2 }, // 도적 — 궁수(dex)·암살(luk)
+  // 모험가(무직) — 전직 전에도 균형 수행 가능(STR/VIT/DEX/INT 각 1, SPI/LUK 제외). cap 은 전역이라
+  //   전직 후에도 유지. 전직은 별개(advance-class)·none 은 직군 정복/도감엔 미포함(cumLevel 미적립).
+  none: { str: 1, vit: 1, dex: 1, int: 1 },
 };
 
 // 수행 비용(숙달 포인트) — 횟수 비례가 아니라 "올린 cap 헤드룸 총합" 비례(§10 다이얼).
@@ -138,7 +143,9 @@ export function parseProficiency(
       // 그룹 리키 마이그(P4 6→4): 구 그룹키(swordsman/archer/priest/ninja…) → 4직군 job 키.
       // 같은 job 으로 합쳐지는 옛 그룹(궁술+인술→rogue, 마술+신술→mage)은 아래에서 머지.
       const key = parseV2Class(k);
-      if (key === "none") continue; // 매핑 불가/none 그룹은 적립 없음.
+      // 매핑 불가 옛 그룹키(parseV2Class→none)는 폐기. 단 진짜 "none" 그룹(모험가 수행 적립분)은 보존
+      //   — 모험가도 수행 가능해졌고 cap 적립이 none 그룹 포인트를 소비하므로 로드 시 유지해야 한다.
+      if (key === "none" && k !== "none") continue;
       // 숙달 포인트(잔액) — 새 포맷은 points, 옛 포맷은 earned−spent 로 마이그(통합 2026-06).
       const rawPoints = (v as { points?: unknown }).points;
       const points =
@@ -157,10 +164,14 @@ export function parseProficiency(
       // 비활성 직군은 과거 레벨을 알 수 없어 (tier-1)×50 만(보수적). 신규(tier1·미활성)=0.
       const rawCum = (v as { cumLevel?: unknown }).cumLevel;
       const seedLevel = seed && seed.group === key ? Math.max(0, seed.level) : 0;
+      // 🔑 모험가(none)는 직군 정복/cumLevel 미사용 — 항상 0. rawCum 누락 + seed.group==="none"
+      //   (전직 전 환생 등)일 때 fallback 이 캐릭 레벨을 누출시켜 floors/SP/정복에 새는 걸 차단(Codex).
       const cumLevel =
-        typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
-          ? Math.floor(rawCum)
-          : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
+        key === "none"
+          ? 0
+          : typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
+            ? Math.floor(rawCum)
+            : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
       // 의미 있는 데이터(잔액/누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
       if (points > 0 || cumLevel > 0 || cultivations > 0 || tier > 1) {
         // 머지(여러 옛 그룹 → 같은 job): 차수·누적레벨은 max, 포인트·수행 횟수는 합.
@@ -400,13 +411,15 @@ export function totalCapGains(p: V2ProficiencyState): number {
   return t;
 }
 
-// 숙달 포인트 적립 — group 의 points += amount(킬당). 비파괴. none/빈 group/0 이하는 무변경.
+// 숙달 포인트 적립 — group 의 points += amount(킬당). 비파괴. 0 이하·빈 group·수행 프로필 없는
+//   group 은 무변경. 🔑 4직군 하드코딩 대신 V2_CULTIVATE_PROFILE 존재로 게이트 — none(모험가) 및
+//   향후 직군 밖 직업도 프로필만 있으면 적립(일반화, 2026-06-22).
 export function addPoints(
   p: V2ProficiencyState,
   group: string,
   amount: number,
 ): V2ProficiencyState {
-  if (amount <= 0 || !group || group === "none") return p;
+  if (amount <= 0 || !group || !V2_CULTIVATE_PROFILE[group]) return p;
   const cur = p.groups[group] ?? {
     points: 0,
     cultivations: 0,

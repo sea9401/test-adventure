@@ -6,9 +6,8 @@
 //    스킬 로드아웃)이 플래그 게이트 뒤에서 단계적으로 배선하고, 전 시스템 완성 후 flip 한다.
 //
 // 전 시스템 = V1식 한판한판 사냥(스태미나 폐지·전투당 딜레이·오프라인 자동전투) + 평탄
-// 스탯게이트 직업 트리(차수 폐지·12계파 재활용) + 재전직 루프 + ATB 전투 + SP 스킬 로드아웃.
+// 직업 트리(차수 폐지·계보 게이팅) + 재전직 루프 + ATB 전투 + SP 스킬 로드아웃.
 
-import type { StatKey } from "@/adventure/data/stats";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 
 // 마스터 플래그 — 전 코어 루프 재설계를 한 번에 켜고 끈다.
@@ -267,108 +266,9 @@ export const CLAIM_GOLD_COST_BY_TIER: Record<number, number> = {
   4: 9000,
 }; // 점령 골드 sink(선택 — 전투 쿨다운과 병행)
 
-// === 직업 스탯게이트 트리 ==================================================
-// 모험가(base) → 4직군(주스탯 임계) → 12계파(복합 스탯 조건). 12계파 정체성·스킬·패시브는
-// 기존 v2JobSpecs 그대로 재활용하고, 해금 방식만 "차수 선택"에서 "스탯 조건"으로 바꾼다.
-//   스탯 키 = 내부명(str/vit/int/dex). UI 표기는 STR/DEF(vit)/INT/AGI(dex).
-export type StatGate = Partial<Record<StatKey, number>>;
-
-// 모험가 — 간단 base. HP 증가 패시브 + SP 0 기본공격(별도 데이터). 파생 직업(방랑자·상급
-// 모험가) 확장 훅은 후속.
+// === 모험가(무직) HP 패시브 =================================================
+// 코어루프 on + 무직(=모험가)일 때만 적용(coreLoopMaxHpMult). 그 외/flag off = 1.0.
 export const ADVENTURER_MAXHP_BONUS_PCT = 10;
-
-// 4직군 해금 — 주스탯 임계.
-export const JOB_GROUP_STAT_GATE: Record<string, StatGate> = {
-  warrior: { str: 30 },
-  martial: { vit: 30 },
-  mage: { int: 30 },
-  rogue: { dex: 30 },
-};
-
-// 12계파 해금 — 복합 스탯 조건(직군 정체성 방향으로). key = v2JobSpecs spec id.
-export const SPEC_STAT_GATE: Record<string, StatGate> = {
-  // 전사
-  gwang: { str: 55, dex: 25 }, // 광검 — 극딜
-  knight: { str: 40, vit: 50 }, // 기사 — 탱
-  gladiator: { str: 45, dex: 45 }, // 검투사 — 출혈 듀얼리스트
-  // 무도가
-  cheolsan: { vit: 60, str: 25 }, // 금강 — 회피탱
-  gigong: { vit: 45, str: 45 }, // 혈권 — 흡혈 브루저
-  yeonhwan: { dex: 55, str: 35 }, // 연환 — 콤보
-  // 마법사
-  arcane: { int: 60, dex: 25 }, // 마도사 — 버스트
-  battlemage: { int: 50, vit: 35 }, // 워메이지 — 누적 난사
-  cleric: { int: 45, vit: 45 }, // 사제 — 자힐 탱
-  // 도적
-  archery: { dex: 60, str: 25 }, // 궁사 — 물량 다단
-  assassin: { dex: 55, str: 35 }, // 자객 — 크리 폭발
-  venom: { dex: 50, int: 35 }, // 독사 — 독 부식
-};
-
-// 스탯 조건 충족 판정 (순수). 모든 임계를 만족하면 true. 빈 게이트는 true.
-export function isStatGateMet(
-  gate: StatGate,
-  stats: Partial<Record<StatKey, number>>,
-): boolean {
-  for (const [k, min] of Object.entries(gate)) {
-    if ((stats[k as StatKey] ?? 0) < (min ?? 0)) return false;
-  }
-  return true;
-}
-
-// 현재 스탯으로 해금된 직군 id 목록 (순수).
-export function unlockedJobGroups(
-  stats: Partial<Record<StatKey, number>>,
-): string[] {
-  return Object.entries(JOB_GROUP_STAT_GATE)
-    .filter(([, gate]) => isStatGateMet(gate, stats))
-    .map(([id]) => id);
-}
-
-// 현재 스탯으로 해금된 계파 id 목록 (순수).
-export function unlockedSpecs(
-  stats: Partial<Record<StatKey, number>>,
-): string[] {
-  return Object.entries(SPEC_STAT_GATE)
-    .filter(([, gate]) => isStatGateMet(gate, stats))
-    .map(([id]) => id);
-}
-
-// 계파 → 소속 직군. v2JobSpecs 구조의 미러(테스트로 동기화 강제). 라우트가 v2JobSpecs 를
-// import 하지 않고도 소속 검증하도록 — coreLoopConfig 를 leaf 모듈로 유지(순환 방지).
-export const SPEC_TO_GROUP: Record<string, string> = {
-  gwang: "warrior",
-  knight: "warrior",
-  gladiator: "warrior",
-  cheolsan: "martial",
-  gigong: "martial",
-  yeonhwan: "martial",
-  arcane: "mage",
-  battlemage: "mage",
-  cleric: "mage",
-  archery: "rogue",
-  assassin: "rogue",
-  venom: "rogue",
-};
-
-export type ReincarnTargetError = "bad_target" | "job_locked" | "spec_locked";
-
-// 재전직 타겟 검증 (순수). null = 통과. 라우트(advance-class flag-on)가 이걸로 게이트한다.
-// 🔑계파 게이트가 부모 직군 게이트를 포함하지 않는 경우(예 yeonhwan 은 vit 무조건)가 있어
-//   직군 게이트(unlockedJobGroups)를 계파와 별개로 항상 확인 — 직군이 계파의 바닥 게이트.
-export function reincarnTargetError(
-  stats: Partial<Record<StatKey, number>>,
-  targetClass: string,
-  targetSpec: string | null,
-): ReincarnTargetError | null {
-  if (!(targetClass in JOB_GROUP_STAT_GATE)) return "bad_target";
-  if (!unlockedJobGroups(stats).includes(targetClass)) return "job_locked";
-  if (targetSpec) {
-    if (SPEC_TO_GROUP[targetSpec] !== targetClass) return "spec_locked";
-    if (!unlockedSpecs(stats).includes(targetSpec)) return "spec_locked";
-  }
-  return null;
-}
 
 // 모험가 maxHp 배수 (순수). 코어루프 on + 무직(=모험가)일 때만 HP 패시브(+ADVENTURER_MAXHP_BONUS_PCT%).
 // 그 외(다른 직업·flag off)는 1.0 — flag off 면 전투/골든 byte-identical.

@@ -255,7 +255,7 @@ export const V2_SPEC_SKILLS: Record<V2SpecSkillId, V2SkillDefinition> = {
 };
 
 // 직군 → 그 직군 3전문화의 스킬 9종 (학습 풀 — PR1-3 느슨 게이팅: 직군 단위 학습.
-// "내 전문화만 / 차수당 1해금" 엄격 게이팅은 후속 정제. spec id 는 v2JobSpecs 와 일치.
+// "내 전문화만 / 차수당 1해금" 엄격 게이팅은 후속 정제.
 export const V2_SPEC_SKILLS_BY_JOB: Record<string, readonly V2SpecSkillId[]> = {
   warrior: [
     "v2s_gwang_greatcleave", "v2s_gwang_skysplit", "v2s_gwang_resolve",
@@ -279,7 +279,7 @@ export const V2_SPEC_SKILLS_BY_JOB: Record<string, readonly V2SpecSkillId[]> = {
   ],
 };
 
-// 전문화 id → 전문화 스킬 id 3종 (해금/학습 게이팅 — 차수당 1개 해금). spec id 는 v2JobSpecs 와 일치.
+// 전문화 id → 전문화 스킬 id 3종 (해금/학습 게이팅 — 차수당 1개 해금).
 export const V2_SPEC_SKILLS_BY_SPEC: Record<string, readonly V2SpecSkillId[]> = {
   gwang: ["v2s_gwang_greatcleave", "v2s_gwang_skysplit", "v2s_gwang_resolve"],
   knight: ["v2s_knight_shieldbash", "v2s_knight_bulwark", "v2s_knight_taunt"],

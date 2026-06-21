@@ -256,11 +256,10 @@ export async function POST(req: Request) {
       // 직업군 변경 시 레벨 1·exp 0 리셋(prestige). 유지면 기존 값.
       ...(groupChanged ? { level: 1, exp: 0 } : {}),
     };
-    // 전문화(spec)는 직업 종속 — 직업군 변경 시 옛 전문화/해금 패시브를 비운다(새 직업 전문화 재선택).
-    // (안 비우면 stale specChoice 가 새 직업 전문화 선택을 잠그고 derive 누수 위험.)
+    // specChoice(직업 저장 브리지)는 직업 종속 — 직업군 변경 시 비운다(새 직업으로 재해석).
+    // (안 비우면 stale specChoice 가 새 직업 결정을 잠근다.)
     if (groupChanged) {
       delete charUpdate.specChoice;
-      delete charUpdate.unlockedPassives;
     }
     await upsertSave(tx, userId, "character.v2", charUpdate);
 

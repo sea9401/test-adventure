@@ -48,7 +48,6 @@ export async function POST(req: Request) {
       level?: unknown;
       frontierDepth?: unknown;
       specChoice?: unknown;
-      unlockedPassives?: unknown;
       gold?: number;
     }>(tx, userId, "character.v2", {});
     const equipSave = await lockSaveForUpdate<EquipmentSave>(

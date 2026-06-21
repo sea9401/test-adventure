@@ -83,6 +83,7 @@ export async function POST() {
       hpRegenSince: now,
       gold: spend.gold,
       bankedGold: spend.bankedGold,
+      hasHealed: true, // 가이드 퀘스트(회복의 손길) 지표
     });
 
     return {

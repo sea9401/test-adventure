@@ -10,6 +10,7 @@ import {
   type QuestLine,
   type QuestView,
   type QuestReward,
+  isTutorialLine,
 } from "@/adventure/data/v2/v2Quests";
 import type {
   RepeatBundleView,
@@ -37,7 +38,7 @@ type QuestsResponse = {
   repeat?: RepeatSection;
 };
 
-type TopTab = "daily" | "weekly" | "achievement";
+type TopTab = "tutorial" | "daily" | "weekly" | "achievement";
 
 // 리셋 카운트다운 — "11시간 후" / "32분 후" (마운트 시점 고정 — 분 단위 정밀도면 충분).
 function resetLabel(at: number, nowMs: number): string {
@@ -155,6 +156,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
 
       <TabBar
         tabs={[
+          { key: "tutorial", label: "튜토리얼" },
           { key: "daily", label: "일일" },
           { key: "weekly", label: "주간" },
           { key: "achievement", label: "업적" },
@@ -183,8 +185,10 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
             불러오는 중…
           </p>
         </Card>
+      ) : topTab === "tutorial" ? (
+        renderGuide(true)
       ) : topTab === "achievement" ? (
-        renderGuide()
+        renderGuide(false)
       ) : (
         renderRepeatTab(topTab)
       )}
@@ -226,11 +230,14 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
     );
   }
 
-  function renderGuide() {
+  function renderGuide(forTutorial: boolean) {
     const isDone = (q: QuestView) => q.status === "claimed";
-    const activeCount = quests.filter((q) => !isDone(q)).length;
-    const doneCount = quests.filter(isDone).length;
-    const shown = quests.filter((q) => (tab === "done" ? isDone(q) : !isDone(q)));
+    // 가이드 퀘를 라인 tutorial 플래그로 분리 — 튜토리얼 탭 vs 업적 탭.
+    const scoped = quests.filter((q) => isTutorialLine(q.line) === forTutorial);
+    const groupLabel = forTutorial ? "튜토리얼" : "업적";
+    const activeCount = scoped.filter((q) => !isDone(q)).length;
+    const doneCount = scoped.filter(isDone).length;
+    const shown = scoped.filter((q) => (tab === "done" ? isDone(q) : !isDone(q)));
 
     return (
       <>
@@ -241,7 +248,7 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           ]}
           active={tab}
           onChange={setTab}
-          ariaLabel="업적 탭"
+          ariaLabel={`${groupLabel} 탭`}
           size="sm"
         />
 
@@ -249,15 +256,17 @@ export function V2QuestView({ onBack }: { onBack: () => void }) {
           <Card padding="md">
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {tab === "done"
-                ? "아직 완료한 업적이 없어요."
-                : "진행 중인 업적이 없어요. 🎉"}
+                ? `아직 완료한 ${groupLabel} 항목이 없어요.`
+                : `진행 중인 ${groupLabel} 항목이 없어요. 🎉`}
             </p>
           </Card>
         ) : (
-          lines.map((line) => {
+          lines
+            .filter((line) => isTutorialLine(line.id) === forTutorial)
+            .map((line) => {
             const lineQuests = shown.filter((q) => q.line === line.id);
             if (lineQuests.length === 0) return null;
-            const all = quests.filter((q) => q.line === line.id);
+            const all = scoped.filter((q) => q.line === line.id);
             const done = all.filter(isDone).length;
             return (
               <Card key={line.id} padding="md">

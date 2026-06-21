@@ -4,6 +4,7 @@ import Kakao from "next-auth/providers/kakao";
 
 const PUBLIC_PATHS = [
   "/sign-in",
+  "/manual",       // 게임 가이드 — 정적 콘텐츠(세션 비의존). 대문에서 잠재 유저가 미리보게 공개.
   "/api/auth",     // Auth.js OAuth 콜백 — 미들웨어 통과 필수
   "/api/health",
   "/api/version",

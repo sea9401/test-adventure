@@ -77,6 +77,7 @@ export async function POST(req: Request) {
       ...charSave,
       gold: newGold,
       bankedGold: spend.bankedGold,
+      hasShopped: true, // 가이드 퀘스트(첫 쇼핑) 지표
     });
     await upsertSave(tx, userId, "inventory.v2", {
       ...invSave,

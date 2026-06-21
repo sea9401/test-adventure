@@ -8,6 +8,7 @@ import {
   deriveQuestViews,
   currentGuideQuest,
   questLinesFor,
+  isTutorialLine,
   type QuestCtx,
 } from "./v2Quests";
 import { V2_EQUIPMENT } from "./v2Equipment";
@@ -44,6 +45,9 @@ const ZERO: QuestCtx = {
   enhanceStones: 0,
   bankedGold: 0,
   skillsEquipped: 0,
+  skillsLearned: 0,
+  hasHealed: false,
+  hasShopped: false,
 };
 
 const none = new Set<string>();
@@ -130,6 +134,33 @@ describe("성장의 길 (순차 라인)", () => {
         none,
       ),
     ).toBe(false);
+  });
+
+  it("기초 튜토리얼 — 상점/치료/학습 신호로 충족", () => {
+    expect(questStatus(questById("b_shop")!, ZERO, none)).toBe("active");
+    expect(questStatus(questById("b_heal")!, ZERO, none)).toBe("active");
+    expect(questStatus(questById("b_learn")!, ZERO, none)).toBe("active");
+    expect(
+      isQuestClaimable(questById("b_shop")!, { ...ZERO, hasShopped: true }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(questById("b_heal")!, { ...ZERO, hasHealed: true }, none),
+    ).toBe(true);
+    expect(
+      isQuestClaimable(
+        questById("b_learn")!,
+        { ...ZERO, skillsLearned: 1 },
+        none,
+      ),
+    ).toBe(true);
+  });
+
+  it("튜토리얼 라인 플래그 — growth·basics 만 tutorial", () => {
+    expect(isTutorialLine("growth")).toBe(true);
+    expect(isTutorialLine("basics")).toBe(true);
+    expect(isTutorialLine("social")).toBe(false);
+    expect(isTutorialLine("enhance")).toBe(false);
+    expect(isTutorialLine("unknown_line")).toBe(false);
   });
 });
 
@@ -338,6 +369,9 @@ describe("currentGuideQuest (홈 배너)", () => {
       enhanceStones: 99,
       bankedGold: 99999,
       skillsEquipped: 5,
+      skillsLearned: 5,
+      hasHealed: true,
+      hasShopped: true,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();

@@ -45,6 +45,8 @@ type CharSave = {
   specChoice?: unknown; // 직업 사다리 브리지(jobIdFromLegacy) — tier 파생용
   gold?: unknown;
   bankedGold?: unknown;
+  hasHealed?: unknown;
+  hasShopped?: unknown;
   discoveredOutpostIds?: unknown;
   materials?: Record<string, unknown>;
 };
@@ -151,9 +153,17 @@ export function buildQuestCtx(args: {
     : 0;
   // 기초 튜토리얼 — 은행 예치 골드 / 로드아웃 장착 스킬 수.
   const bankedGold = num(charSave.bankedGold);
-  const skillsSave = (args.skillsRaw ?? {}) as { equipped?: unknown };
+  const hasHealed = Boolean(charSave.hasHealed);
+  const hasShopped = Boolean(charSave.hasShopped);
+  const skillsSave = (args.skillsRaw ?? {}) as {
+    equipped?: unknown;
+    learned?: unknown;
+  };
   const skillsEquipped = Array.isArray(skillsSave.equipped)
     ? skillsSave.equipped.filter((s) => typeof s === "string").length
+    : 0;
+  const skillsLearned = Array.isArray(skillsSave.learned)
+    ? skillsSave.learned.filter((s) => typeof s === "string").length
     : 0;
 
   // 확장 신호(2026-06-11) — 누적레벨·몬스터 종 수·전쟁 카운터.
@@ -196,6 +206,9 @@ export function buildQuestCtx(args: {
     enhanceStones,
     bankedGold,
     skillsEquipped,
+    skillsLearned,
+    hasHealed,
+    hasShopped,
   };
 }
 

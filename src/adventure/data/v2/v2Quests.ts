@@ -89,6 +89,12 @@ export type QuestCtx = {
   bankedGold: number;
   /** 로드아웃에 장착한 스킬 수. skills.v2.equipped. */
   skillsEquipped: number;
+  /** 학습한 스킬 수. skills.v2.learned. */
+  skillsLearned: number;
+  /** 치료소에서 골드로 HP 회복을 한 적 있는가. character.v2.hasHealed. */
+  hasHealed: boolean;
+  /** 상점에서 구매(장비/충전)를 한 적 있는가. character.v2.hasShopped. */
+  hasShopped: boolean;
 };
 
 export type QuestDef = {
@@ -113,6 +119,8 @@ export type QuestLine = {
   sequential: boolean;
   /** 지정 시 그 직군에게만 보이는 라인(직업 전용). */
   classOnly?: V2Class;
+  /** true = 퀘스트 화면 "튜토리얼" 탭에 노출(기본 조작 안내). false/미지정 = "업적" 탭. */
+  tutorial?: boolean;
 };
 
 // ── 성장의 길(튜토리얼 리드, 순차) ──────────────────────────────────────────
@@ -189,12 +197,36 @@ const GROWTH: QuestDef[] = [
 // 강화/낚시/보물은 enhance·life 라인이 첫 단계부터 다루므로 여기엔 중복 안 둔다.
 const BASICS: QuestDef[] = [
   {
+    id: "b_shop",
+    line: "basics",
+    title: "첫 쇼핑",
+    desc: "상점에서 장비나 충전을 구매하세요.",
+    reward: { gold: 100 },
+    check: (c) => c.hasShopped,
+  },
+  {
+    id: "b_heal",
+    line: "basics",
+    title: "회복의 손길",
+    desc: "치료소에서 골드로 HP를 회복하세요.",
+    reward: { gold: 100 },
+    check: (c) => c.hasHealed,
+  },
+  {
     id: "b_bank",
     line: "basics",
     title: "안전한 보관",
     desc: "거점 은행에 골드를 맡겨보세요.",
     reward: { gold: 100 },
     check: (c) => c.bankedGold > 0,
+  },
+  {
+    id: "b_learn",
+    line: "basics",
+    title: "배움의 시작",
+    desc: "스킬을 하나 학습하세요.",
+    reward: { gold: 100 },
+    check: (c) => c.skillsLearned >= 1,
   },
   {
     id: "b_skill",
@@ -711,12 +743,14 @@ export const QUEST_LINES: readonly QuestLine[] = [
     name: "성장의 길",
     subtitle: "첫 전투부터 직업 전직까지 — 차례로 따라오세요.",
     sequential: true,
+    tutorial: true,
   },
   {
     id: "basics",
     name: "기초 튜토리얼",
-    subtitle: "은행·스킬·이동 — 기본 조작을 한 번씩 익혀보세요.",
+    subtitle: "상점·치료·은행·스킬·이동 — 기본 조작을 한 번씩 익혀보세요.",
     sequential: false,
+    tutorial: true,
   },
   ...CLASS_LINES,
   {
@@ -788,6 +822,11 @@ const LINE_BY_ID = new Map(QUEST_LINES.map((l) => [l.id, l]));
 
 export function questById(id: string): QuestDef | undefined {
   return QUEST_BY_ID.get(id);
+}
+
+// 라인이 "튜토리얼" 탭 소속인가(기본 조작 안내 라인). 그 외는 "업적" 탭.
+export function isTutorialLine(lineId: QuestLineId): boolean {
+  return LINE_BY_ID.get(lineId)?.tutorial === true;
 }
 
 // claimed   — 이미 보상 수령(서버 영속 guide-quests.v2.claimed).

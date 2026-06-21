@@ -18,6 +18,10 @@
 import type { DungeonFloorId } from "./types";
 import { ENHANCE_STONE_MATERIAL_ID, ENHANCE_STONES } from "./v2Enhance";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
+import {
+  REFORGE_STONE_MATERIAL_ID,
+  REFORGE_STONES,
+} from "./v2EquipVariance";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -63,6 +67,20 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
     name: "보스 소환서",
     description:
       "낡은 양피지에 봉인 술식이 적혀 있다. 여러 장을 모아 협동 보스를 소환한다.",
+  },
+  // 재련석 2종(v2EquipVariance) — 강화석과 같은 독립 드랍(hunt 라우트 롤). 카탈로그 등재로
+  // 인벤 재료 탭·거래소 거래가 살아나고, NPC 판매는 비등재(유저 거래 전용).
+  [REFORGE_STONE_MATERIAL_ID.basic]: {
+    id: REFORGE_STONE_MATERIAL_ID.basic,
+    name: REFORGE_STONES.basic.name,
+    description:
+      "장비 옵션을 다시 굴리는 재련에 쓰는 재료. 대장간에서 골드와 함께 소모한다.",
+  },
+  [REFORGE_STONE_MATERIAL_ID.high]: {
+    id: REFORGE_STONE_MATERIAL_ID.high,
+    name: REFORGE_STONES.high.name,
+    description:
+      "더 높은 품질이 나올 가능성이 큰 상급 재련 재료. 대장간에서 재련석을 모아 만들 수도 있다.",
   },
 };
 

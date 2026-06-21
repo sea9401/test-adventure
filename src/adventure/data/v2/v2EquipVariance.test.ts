@@ -9,6 +9,8 @@ import {
 import {
   REFORGE_GOLD_K,
   REFORGE_MIN_COST,
+  REFORGE_STONE_DROP_PCT,
+  REFORGE_STONE_MATERIAL_ID,
   REFORGE_UNIQUE_COST_MULT,
   VARIANCE_FRACTION,
   canReforge,
@@ -16,6 +18,7 @@ import {
   reforgeGoldCost,
   rollItemStats,
   rollQualityPct,
+  rollReforgeStoneDrops,
   selectBulkSell,
 } from "./v2EquipVariance";
 
@@ -280,5 +283,30 @@ describe("selectBulkSell", () => {
     // 경계 포함(이하) — belowPct=100 이면 100% 품질도 포함(미만이면 제외됐을 것).
     const all = selectBulkSell(bows, {}, { belowPct: 100 });
     expect(all.iids).toEqual(["low", "high"]);
+  });
+});
+
+describe("rollReforgeStoneDrops", () => {
+  it("드랍률(%) — 일반 0.15·상급 0.04 (강화석보다 희소)", () => {
+    expect(REFORGE_STONE_DROP_PCT.basic).toBe(0.15);
+    expect(REFORGE_STONE_DROP_PCT.high).toBe(0.04);
+  });
+
+  it("rng×100 이 임계 미만인 종류만 1개 드랍", () => {
+    // rng()=0.001 → rng×100=0.1: 일반(0.15) 통과·상급(0.04) 불통.
+    const out = rollReforgeStoneDrops(() => 0.001);
+    expect(out[REFORGE_STONE_MATERIAL_ID.basic]).toBe(1);
+    expect(out[REFORGE_STONE_MATERIAL_ID.high]).toBeUndefined();
+  });
+
+  it("rng 이 임계 이상이면 빈 결과", () => {
+    expect(rollReforgeStoneDrops(() => 0.5)).toEqual({});
+  });
+
+  it("chanceMult 가 확률을 키운다 (상급도 통과)", () => {
+    // 0.1 < 0.04 불통이지만, mult 5 면 0.04×5=0.2 > 0.1 → 통과.
+    expect(
+      rollReforgeStoneDrops(() => 0.001, 5)[REFORGE_STONE_MATERIAL_ID.high],
+    ).toBe(1);
   });
 });

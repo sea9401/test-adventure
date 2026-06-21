@@ -120,7 +120,10 @@ import {
   type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import {
+  rollItemStats,
+  rollReforgeStoneDrops,
+} from "@/adventure/data/v2/v2EquipVariance";
 import {
   toReplayPayload,
   toReplayPayloadLite,
@@ -676,6 +679,11 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     if (scroll > 0) {
       drops[SUMMON_SCROLL_MATERIAL_ID] =
         (drops[SUMMON_SCROLL_MATERIAL_ID] ?? 0) + scroll;
+    }
+    // 재련석 2종 — 강화석과 같은 독립 드랍(전 깊이 공통·레어맵 배수 미적용).
+    // 다이얼 = v2EquipVariance REFORGE_STONE_DROP_PCT.
+    for (const [id, n] of Object.entries(rollReforgeStoneDrops(Math.random))) {
+      drops[id] = (drops[id] ?? 0) + n;
     }
   }
   const nextMaterials = mergeDrops(charSave.materials, drops);

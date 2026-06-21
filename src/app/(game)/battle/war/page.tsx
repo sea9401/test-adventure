@@ -25,7 +25,6 @@ export default function WarPage() {
     viewerUserId,
     viewerGuildId,
     currentOutpost,
-    discoveredIds,
     refreshOccupations,
   } = useGameState();
 
@@ -135,7 +134,6 @@ export default function WarPage() {
               viewerUserId={viewerUserId}
               viewerGuildId={viewerGuildId}
               currentOutpostId={currentOutpost?.id ?? null}
-              discoveredIds={discoveredIds}
               visibleIds={visibleIds}
             />
             {lastClaimResult && (

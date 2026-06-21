@@ -19,7 +19,6 @@ import {
 } from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
-  shortestOutpostPath,
   CONFLICT_ZONE_IDS,
   areOutpostsAdjacent,
 } from "@/adventure/data/v2/outpostGraph";
@@ -288,7 +287,6 @@ type OccupationLite = {
 export function ContinentMap({
   onOutpostEnter,
   onTravelTo,
-  onWarp,
   occupations,
   treasuries,
   viewerUserId,
@@ -302,18 +300,15 @@ export function ContinentMap({
 }: {
   // 현재 거점 자신 재진입(둘러보기)용 — 이동 없이 그 거점 화면을 연다.
   onOutpostEnter?: (o: Outpost) => void;
-  // 이동(1홉 진입 또는 다중 홉 자동 이동)용 — 경로를 따라 한 칸씩 진입한다.
+  // 이동용 — 선택 거점으로 바로 이동(자유이동, B안 PR-3).
   onTravelTo?: (o: Outpost) => void;
-  // 워프 — 발견한 비인접 거점으로 즉시 이동한다. 일반 항법 지도에서만 노출한다.
-  onWarp?: (o: Outpost) => void;
   occupations?: OccupationLite[];
   // 금고 쌓인 거점 — 팝업에 "금고 N G" 표시(점령 유인).
   treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
-  // 플레이어의 현재 거점 — 인접 거점만 진입 가능하게 게이트 + 닿는 길 강조 + 마커 표식.
+  // 플레이어의 현재 거점 — 마커 표식(현 위치) + 둘러보기 기준.
   currentOutpostId?: string | null;
-  // 발견(안개) — 공개된 거점 id 집합. 미공개는 흐리게+비활성, 이동 목적지에서 제외.
-  // 미지정이면 전부 공개로 취급(예: 순수 시각 프리뷰 페이지).
+  // (안개 폐기 — B안 PR-3로 어느 화면도 미전달. 미지정이면 전부 공개. faint-dot 분기는 inert·PR-5 청소.)
   discoveredIds?: ReadonlySet<string>;
   // 국지 모드 — 이 집합의 거점만 렌더(마커·간선)하고 영토/경계는 숨김. 전쟁 탭의
   // "현 위치 2홉" 작전 지도 등에 사용. 미지정=전체 지도.
@@ -345,23 +340,7 @@ export function ContinentMap({
 
   // 선택 거점이 현재 위치 자신인가.
   const isCurrentSelected = !!selected && selected.id === currentOutpostId;
-  // 현재 위치 → 선택 거점 최단 경로(거쳐갈 거점들). 워프는 없고, 이 경로를 따라 한 칸씩
-  // 이동한다(인접은 1홉). 발견된 거점만 거쳐가고 목적지도 발견된 곳만(안개 게이트).
-  const routePath =
-    selected && currentOutpostId && !isCurrentSelected
-      ? shortestOutpostPath(currentOutpostId, selected.id, discoveredIds)
-      : null;
-  const routeHops = routePath ? routePath.length - 1 : 0;
-  const isAdjacentSelected =
-    !!selected &&
-    currentOutpostId != null &&
-    areOutpostsAdjacent(currentOutpostId, selected.id);
-  const canWarpSelected =
-    !!selected &&
-    currentOutpostId != null &&
-    isDiscovered(selected.id) &&
-    !isCurrentSelected &&
-    !isAdjacentSelected;
+  // 자유이동(B안 PR-3): 워프·다중홉 경로 미리보기 폐기 — 선택 거점으로 바로 이동.
 
   // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
   //   미점령은 소속 왕국을 "○○ 왕국령"으로. 중립 거점은 배지로 충분해 생략.
@@ -537,30 +516,6 @@ export function ContinentMap({
               );
             })}
 
-          {/* 선택한 거점까지의 이동 경로 — 한 칸씩 따라갈 길을 또렷한 호박색으로 덧그린다.
-              인접이면 1홉, 멀면 여러 홉. 마커 바로 아래 레이어. */}
-          {routePath &&
-            routePath.length > 1 &&
-            routePath.slice(1).map((toId, i) => {
-              const oa = OUTPOST_BY_ID.get(routePath[i]);
-              const ob = OUTPOST_BY_ID.get(toId);
-              if (!oa || !ob) return null;
-              const pa = gpos(routePath[i]);
-              const pb = gpos(toId);
-              return (
-                <line
-                  key={`route-${routePath[i]}-${toId}`}
-                  x1={pa.cx}
-                  y1={pa.cy}
-                  x2={pb.cx}
-                  y2={pb.cy}
-                  stroke="#f59e0b"
-                  strokeOpacity={0.95}
-                  strokeWidth={18}
-                  strokeLinecap="round"
-                />
-              );
-            })}
 
           {/* 거점 타일 — 모든 tier 균일한 둥근 사각 타일(격자 셀 중심). 채움 = 소속 왕국색,
               테두리 = 소유(내것/적/중립/NPC). tier 큐는 stroke 굵기로만 약하게. */}
@@ -881,29 +836,16 @@ export function ContinentMap({
                     둘러보기
                   </button>
                 )
-              ) : canWarpSelected && onWarp ? (
-                <button
-                  type="button"
-                  onClick={() => onWarp(selected)}
-                  className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                >
-                  워프
-                </button>
               ) : (
-                onTravelTo &&
-                (routePath ? (
+                onTravelTo && (
                   <button
                     type="button"
                     onClick={() => onTravelTo(selected)}
                     className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                   >
-                    {routeHops <= 1 ? "이동" : `이동 (${routeHops}홉)`}
+                    이동
                   </button>
-                ) : (
-                  <span className="shrink-0 text-right text-xs text-zinc-500 dark:text-zinc-400">
-                    길이 닿지 않는다
-                  </span>
-                ))
+                )
               )}
               <button
                 type="button"

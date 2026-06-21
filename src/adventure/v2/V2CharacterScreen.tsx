@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { StatsPanel } from "@/adventure/character/StatsPanel";
 import { V2CharacterCard } from "./V2CharacterCard";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
+import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
+import { floorAccuracy } from "@/adventure/data/v2/dungeonLadder";
 import {
   V2_STAT_KEYS,
   V2_STAT_LABELS,
@@ -48,6 +50,7 @@ type StateResponse = {
     magicAtk?: number;
     magicDef?: number;
     evasionPct?: number;
+    evaRating?: number; // 회피 대결형 Slice 1b — 캡 없는 raw. 현재 깊이 몹명중과 대결해 실제 dodge% 표시.
     accuracyPct?: number;
     critChancePct?: number;
     critMult?: number;
@@ -57,6 +60,7 @@ type StateResponse = {
   } | null;
   // 누적 전투 횟수(전적) — 기본 정보 카드.
   battleCount?: number;
+  frontierDepth?: number; // 현재 사냥터 최대 깊이 — 회피 대결형 dodge% 표시 기준(몹 명중).
   codex?: { discovered: number; total: number; discoveredIds: string[] };
   proficiency?: {
     // 각 스탯 한계치(cap) — 내 정보 능력치 "값(한계치)" 표기용. 수행 화면과 동일 스케일.
@@ -189,7 +193,19 @@ export function V2CharacterScreen({
           <StatsPanel
             stats={stats.base}
             caps={state?.proficiency?.caps}
-            combat={combat}
+            // 회피 대결형 Slice 1b — "회피"는 현재 깊이 몹 명중과 겨룬 실제 PvE dodge% 로 표시
+            //   (캡 evasionPct 가 아니라 evaRating vs floorAccuracy(현재깊이) 대결값).
+            combat={
+              combat.evaRating != null
+                ? {
+                    ...combat,
+                    evasionPct: dodgeChance(
+                      combat.evaRating,
+                      floorAccuracy(state?.frontierDepth ?? 2),
+                    ),
+                  }
+                : combat
+            }
             statKeys={V2_STAT_KEYS}
             statLabels={V2_STAT_LABELS}
             statDescriptions={V2_STAT_DESCRIPTIONS}

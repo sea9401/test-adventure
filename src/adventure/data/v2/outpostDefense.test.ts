@@ -29,14 +29,15 @@ describe("outpostDefensePower", () => {
     expect(outpostDefensePower(byId("outpost_plain_square"))).toBe(0);
   });
 
-  it("왕국 소속 최외곽 땅은 EDGE(1500) 로 수렴", () => {
-    // 특정 거점 하드코딩 대신(맵 축소로 거점이 바뀜) — 게이트 있는(비0) 거점 중 최소
-    // 수비값이 EDGE 로 수렴함을 검증. 가장 외곽 땅이 EDGE 라는 불변식.
+  it("왕국 소속 땅의 수비 전투력은 EDGE(1500) 하한 이상", () => {
+    // 게이트 있는(비0) 거점은 모두 EDGE 이상. (지도 축소 40→23, 2026-06-21로 EDGE_DIST=2500
+    // 이상 떨어진 최외곽 거점이 컷돼 정확히 EDGE 로 수렴하는 거점은 없어졌다 — 하한 불변만 검증.
+    // 왕국거리 기반 수비력은 후속 PR 에서 티어 정적값으로 대체 예정.)
     const gated = OUTPOSTS.filter((o) => !o.neutral)
       .map((o) => outpostDefensePower(o))
       .filter((v) => v > 0);
     expect(gated.length).toBeGreaterThan(0);
-    expect(Math.min(...gated)).toBe(OUTPOST_DEFENSE_EDGE);
+    expect(Math.min(...gated)).toBeGreaterThanOrEqual(OUTPOST_DEFENSE_EDGE);
   });
 
   it("모든 거점 수비 전투력은 0 또는 [EDGE, CENTER] 범위", () => {

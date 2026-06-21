@@ -11,7 +11,7 @@
 //     "적당히 무작위로" 더 잇는다. 무작위는 엣지 id 해시 기반이라 결정적 —
 //     리로드/서버·클라에서 늘 같은 모양(깜빡임·하이드레이션 불일치 없음).
 //
-// n=40 이라 모듈 로드 시 한 번만 계산하고 캐시한다.
+// n=23 이라 모듈 로드 시 한 번만 계산하고 캐시한다.
 //
 // 특정 구간을 손보고 싶으면 아래 MANUAL_ADD / MANUAL_REMOVE 에 [idA, idB] 한 줄.
 
@@ -30,10 +30,11 @@ const MIN_OUTPOST_DEGREE = 2;
 // 수동 보정 훅 — 자동 그래프 위에 강제로 잇거나(ADD) 끊는다(REMOVE). 순서 무관.
 // REMOVE 가 ADD 보다 우선. (REMOVE 가 MST 간선을 끊으면 연결이 깨질 수 있으니 주의.)
 const MANUAL_ADD: ReadonlyArray<readonly [string, string]> = [
-  // 맵 축소(96→40, 2026-06-14) 후 노토스(남단 자유항)가 세라 왕국과만 인접한 막다른 길이 됨
-  // (주변 남부 마을이 컷돼 Gabriel 후보가 1개뿐). 양옆 도시로 이어 남부 junction 으로 복구.
+  // 맵 축소 후 노토스(남단 자유항)가 막다른 길이 됨 (주변 남부 마을·도시가 컷돼 Gabriel 후보가 적음).
+  // 남부 junction 으로 잇는다. (40→23 축소 2026-06-21로 city_goldfield 컷 → 그쪽 엣지 제거.)
   ["neutral_south_outpost", "city_river_haven"],
-  ["neutral_south_outpost", "city_goldfield"],
+  // 코린 왕국(서부)이 40→23 축소로 이웃 1개(막다른 길)가 됨 → 중앙 junction(발마르)로 보강.
+  ["kingdom_blackforge", "outpost_plain_fort"],
 ];
 const MANUAL_REMOVE: ReadonlyArray<readonly [string, string]> = [];
 

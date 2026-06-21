@@ -166,12 +166,12 @@ describe("GET /api/v2/war/overview", () => {
     tableRows.set(guilds, [{ id: 3, name: "우리길드" }]);
     tableRows.set(outpostOccupations, [
       occRow({
-        outpostId: "outpost_frostgate",
+        outpostId: "outpost_plain_fort",
         occupiedByUserId: "u-master",
         occupiedByGuildId: 3,
       }),
       occRow({
-        outpostId: "outpost_misttower",
+        outpostId: "outpost_plain_tower",
         occupiedByUserId: "u-master",
         occupiedByGuildId: 3,
         fortHp: 40,
@@ -181,29 +181,29 @@ describe("GET /api/v2/war/overview", () => {
     expect(json.myGuild).not.toBeNull();
     expect(json.myGuild!.guildId).toBe(3);
     expect(json.myGuild!.outposts.map((o) => o.outpostId)).toEqual([
-      "outpost_misttower",
-      "outpost_frostgate",
+      "outpost_plain_tower",
+      "outpost_plain_fort",
     ]);
     expect(json.myGuild!.outposts[0].underAttack).toBe(true);
     expect(json.myGuild!.outposts[1].underAttack).toBe(false);
     // 내 길드 점령 거점은 라벨이 길드명으로 — sieges 에도 동일 점령이 잡힌다.
-    const hit = json.sieges.find((s) => s.outpostId === "outpost_misttower")!;
+    const hit = json.sieges.find((s) => s.outpostId === "outpost_plain_tower")!;
     expect(hit.ownerLabel).toBe("우리길드 길드");
   });
 
   it("노다지 거점 — 미점령만, 금액 내림차순 (점령 거점 금고는 제외)", async () => {
-    tableRows.set(outpostOccupations, [occRow({ outpostId: "outpost_west_fort" })]);
+    tableRows.set(outpostOccupations, [occRow({ outpostId: "village_crossroads_s" })]);
     tableRows.set(outpostTreasury, [
-      { outpostId: "village_silverpoint", gold: 120 },
-      { outpostId: "village_dewfall", gold: 3400 },
-      { outpostId: "outpost_west_fort", gold: 999 }, // 점령 중 — 목록 제외
+      { outpostId: "city_ironpeak", gold: 120 },
+      { outpostId: "city_river_haven", gold: 3400 },
+      { outpostId: "village_crossroads_s", gold: 999 }, // 점령 중 — 목록 제외
     ]);
     const json = (await (await GET()).json()) as Overview & {
       treasures: Array<{ outpostId: string; gold: number }>;
     };
     expect(json.treasures.map((t) => t.outpostId)).toEqual([
-      "village_dewfall",
-      "village_silverpoint",
+      "city_river_haven",
+      "city_ironpeak",
     ]);
   });
 });

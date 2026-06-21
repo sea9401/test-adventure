@@ -1,7 +1,8 @@
-import { and, eq, ne, inArray } from "drizzle-orm";
+import { and, eq, ne, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { savesKv } from "@/db/schema";
+import { savesKv, pvpRatings } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { getOrCreateCurrentSeason } from "@/lib/server/pvp/season";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { sanitizeCombatLoadout } from "@/lib/server/v2Skills";
@@ -455,6 +456,46 @@ export async function POST() {
       },
     };
   });
+
+  // 주간 시즌 순위 적립 — 매치 tx 밖 best-effort(실패해도 매치엔 영향 없음). 이번 주 시즌
+  //   pvp_ratings 에 점수 변동/전적을 누적해 주간 순위를 만든다(매주 새 seasonId = 리셋).
+  //   기존 pvp 시즌 보상 인프라(pvp-season-rewards 크론·티어·우편·투기장 코인)를 그대로 활용 —
+  //   v2 아레나가 점수를 arena-state 에만 쓰던 탓에 비어 있던 pvp_ratings 를 채워 부활시킨다.
+  //   ⚠️ tx 안에 두면 적립 실패 시 매치가 통째 롤백되므로(PG: tx 내 에러=전체 abort) 밖에서 처리.
+  if (result.body.ok) {
+    try {
+      const { scoreDelta, outcome } = result.body;
+      // 정산 시각은 fresh now — 매치가 주 경계(일 15:00 UTC)를 넘나들어도 적립 시점의
+      //   "현재(열린) 시즌" 에 정확히 귀속(닫힌/보상완료 시즌에 쓰지 않음).
+      const settleNow = new Date();
+      const season = await getOrCreateCurrentSeason(settleNow);
+      const w = outcome === "win" ? 1 : 0;
+      const l = outcome === "loss" ? 1 : 0;
+      const d = outcome === "draw" ? 1 : 0;
+      await db
+        .insert(pvpRatings)
+        .values({
+          userId,
+          seasonId: season.id,
+          rating: 1000 + scoreDelta,
+          wins: w,
+          losses: l,
+          draws: d,
+        })
+        .onConflictDoUpdate({
+          target: [pvpRatings.userId, pvpRatings.seasonId],
+          set: {
+            rating: sql`${pvpRatings.rating} + ${scoreDelta}`,
+            wins: sql`${pvpRatings.wins} + ${w}`,
+            losses: sql`${pvpRatings.losses} + ${l}`,
+            draws: sql`${pvpRatings.draws} + ${d}`,
+            updatedAt: settleNow,
+          },
+        });
+    } catch (e) {
+      console.error("[arena] 주간 시즌 레이팅 적립 실패", e);
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

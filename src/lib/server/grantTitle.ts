@@ -7,6 +7,7 @@
 
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
+import { savesKv } from "@/db/schema";
 import { upsertSave, type DbExecutor } from "@/lib/server/savesKv";
 
 type AdventureLogShape = {
@@ -26,6 +27,14 @@ export async function grantTitleIfMissingInTx(
   titleId: string,
   obtainedAt: number,
 ): Promise<boolean> {
+  // 행이 없으면 아래 FOR UPDATE 가 잠글 대상이 없어, 동시 칭호 부여(예: 두 코인 상점)가
+  // 서로의 titles 맵을 덮어써 "차감했는데 칭호 유실" 이 날 수 있다(특히 사냥 기록이 없어
+  // adventure-log.v2 row 가 아직 없는 순수-아레나 유저). 빈 row 를 멱등 선삽입해 다음
+  // FOR UPDATE 가 반드시 한 row 를 잠그도록 → 동시 부여 직렬화.
+  await tx
+    .insert(savesKv)
+    .values({ userId, key: "adventure-log.v2", value: {} })
+    .onConflictDoNothing();
   const result = await tx.execute(sql`
     SELECT value FROM saves_kv
     WHERE user_id = ${userId} AND key = 'adventure-log.v2'

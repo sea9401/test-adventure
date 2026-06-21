@@ -154,7 +154,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.defPct).toBe(20);
     expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.evasionPct).toBe(14);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
-    expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(30);
+    expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(25); // 크리축 차수 단조(3차)
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
     expect(V2_SKILLS.v2c_bishop_heal.category).toBe("heal");
     expect(V2_SKILLS.v2c_shadow_assassinate.effects[0].kind).toBe("executeDamage");
@@ -173,9 +173,9 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
-    expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(25);
+    expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.maxHpPct).toBe(20);
-    expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(8);
+    expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.evasionPct).toBe(18);
   });
 
@@ -262,14 +262,14 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
   it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%/명중) 합산", () => {
     const agg = aggregateEquippedPassives([
       "v2c_assassin_fortune", // critPct 8
-      "v2c_caster_acumen", // critDmgPct 30
+      "v2c_caster_acumen", // critDmgPct 20 (크리축 차수 단조 — 2차 하한)
       "v2c_monk_spirit", // evasionPct 10
       "v2c_boxer_fortitude", // lifestealPct 2 (저수치)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
       "v2c_ranger_finesse3", // accuracyPct 12 (정밀)
     ]);
     expect(agg.critPct).toBe(8);
-    expect(agg.critDmgPct).toBe(30);
+    expect(agg.critDmgPct).toBe(20);
     expect(agg.evasionPct).toBe(10);
     expect(agg.lifestealPct).toBe(2);
     expect(agg.defPct).toBe(20);

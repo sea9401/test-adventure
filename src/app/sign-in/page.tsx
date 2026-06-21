@@ -8,9 +8,9 @@ import { savesKv, presence } from "@/db/schema";
 import { LandingContent } from "./LandingContent";
 
 export const metadata: Metadata = {
-  title: "무슨무슨게임 — 브라우저 어드벤처 RPG",
+  title: "무슨무슨게임 — 웹 어드벤처 RPG",
   description:
-    "스킬을 누르는 대신 전략을 설계하는 자동전투 브라우저 RPG. 직업·빌드·아이템 굴림·길드 거점전. 3초 만에 시작하세요.",
+    "전투는 자동, 전략은 내 마음대로. 직업·빌드·낚시·협동 보스·길드 거점전까지, 키우는 재미가 끝없는 웹 어드벤처 RPG. 3초 만에 시작하세요.",
 };
 
 // 대문(랜딩) 통계 — 총 모험가 수 + 최근 접속자 수.

@@ -43,9 +43,11 @@ import {
 } from "@/adventure/data/v2/settlement";
 import {
   RAID_TREASURY_STEAL_FRAC,
+  HONOR_PER_DEFENSE_WIN,
   V2_SETTLEMENT_WARFARE,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { parseWarVigor, vigorAfterBattle } from "@/adventure/data/v2/warVigor";
+import { parseHonor } from "@/adventure/data/v2/honor";
 
 // POST /api/v2/outpost/attack — 정착지 전쟁 공격(약탈/정복). 설계: docs/v2-settlement-warfare-plan.md.
 //   body: { outpostId, mode: "raid" | "conquest" }
@@ -239,8 +241,12 @@ export async function POST(req: Request) {
               now,
             ),
           });
+          // 수비 성공(공격자 패배 = 수비자 승리)이면 명예 보상.
           await upsertSave(tx, defender1Id, "character.v2", {
             ...defenderSave,
+            honor:
+              parseHonor(defenderSave.honor) +
+              (won ? 0 : HONOR_PER_DEFENSE_WIN),
             warVigor: vigorAfterBattle(
               pvp.finalState.p2.hp,
               defender.maxHp,
@@ -345,8 +351,13 @@ export async function POST(req: Request) {
         { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
       );
       const dMaxMp = defender.player.maxMp ?? 0;
+      // 이 수비자가 공격자를 막아냈으면(공격자 패배) 명예 보상. 진 수비자는 0.
+      const defenderWon = pvp.outcome !== "p1_win";
       await upsertSave(tx, d.userId, "character.v2", {
         ...defenderSave,
+        honor:
+          parseHonor(defenderSave.honor) +
+          (defenderWon ? HONOR_PER_DEFENSE_WIN : 0),
         warVigor: vigorAfterBattle(
           pvp.finalState.p2.hp,
           defender.maxHp,

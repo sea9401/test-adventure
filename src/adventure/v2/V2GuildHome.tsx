@@ -16,6 +16,8 @@ import {
   GuildError,
 } from "@/adventure/guild/api";
 import { GuildBrowsePanel } from "@/adventure/guild/GuildBrowsePanel";
+import HonorShopPanel from "@/adventure/v2/HonorShopPanel";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import { GUILD_MAX_MEMBERS, GUILD_NAME_MAX } from "@/adventure/data/guild";
 import { GUILD_EMBLEMS } from "@/adventure/data/guild-emblems-icons";
 import { GUILD_COLORS } from "@/adventure/data/guild-colors";
@@ -113,7 +115,7 @@ function fmtDate(iso: string): string {
   return `${y}-${m}-${day}`;
 }
 
-type GuildSubTab = "info" | "members" | "manage" | "outposts";
+type GuildSubTab = "info" | "members" | "manage" | "outposts" | "honor_shop";
 // 관리(manage) 탭 내부 하위 탭 — 멤버(가입신청·초대·직책)·거점 정책·길드 설정(엠블럼·색·국가·해산).
 type GuildManageTab = "members" | "territory" | "settings";
 
@@ -606,7 +608,7 @@ export function V2GuildHome({
   const isManager = info?.isManager ?? false;
   const canManage = isMaster || isManager;
   const pendingRequests = info?.pendingRequests ?? [];
-  const subTabs: { key: GuildSubTab; label: string }[] = canManage
+  const baseSubTabs: { key: GuildSubTab; label: string }[] = canManage
     ? [
         ...BASE_SUB_TABS.slice(0, 2),
         {
@@ -619,6 +621,10 @@ export function V2GuildHome({
         ...BASE_SUB_TABS.slice(2),
       ]
     : BASE_SUB_TABS;
+  // 정착지 전쟁 on = 명예상점 탭 추가(개인 명예 소비처). off = 미표시(byte-identical).
+  const subTabs: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
+    ? [...baseSubTabs, { key: "honor_shop", label: "명예상점" }]
+    : baseSubTabs;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab
@@ -655,6 +661,8 @@ export function V2GuildHome({
           variant="highlight"
         />
       </HeaderPanel>
+
+      {activeTab === "honor_shop" && <HonorShopPanel />}
 
       {activeTab === "info" && (
         info?.guild ? (

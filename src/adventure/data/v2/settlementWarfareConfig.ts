@@ -34,4 +34,4 @@ export const LORD_PERSONAL_CUT_FRAC = 0.1; // 수확분 10% 영주 개인 / 90% 
 // ── 명예 (PR-5) ───────────────────────────────────────────────────────────
 export const GOLD_PER_HONOR_ON_DEPOSIT = 100_000; // 길드 골드 입금 10만당 명예 1(보조 획득처)
 export const HONOR_SHOP_STAMINA_POTION_COST = 100; // 명예상점 스태미나 회복약 가격
-// 수비 성공 명예 보상량은 전투 결과 연동이라 PR-3/5 에서 결정.
+export const HONOR_PER_DEFENSE_WIN = 10; // 수비 전투 승리(공격 막아냄)당 명예(주 획득처)

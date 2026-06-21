@@ -8,6 +8,11 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import {
+  V2_SETTLEMENT_WARFARE,
+  GOLD_PER_HONOR_ON_DEPOSIT,
+} from "@/adventure/data/v2/settlementWarfareConfig";
+import { parseHonor } from "@/adventure/data/v2/honor";
 
 // POST /api/v2/guild/resources/deposit — 길드원이 개인 골드를 길드 공용 골드 풀에 입금.
 //
@@ -61,10 +66,17 @@ export async function POST(req: Request) {
         },
       };
     }
+    // 정착지 전쟁 on = 입금 보조 명예(10만골드당 1). off = 명예 미기록(byte-identical).
+    const honorDelta = V2_SETTLEMENT_WARFARE
+      ? Math.floor(amount / GOLD_PER_HONOR_ON_DEPOSIT)
+      : 0;
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: spend.gold,
       bankedGold: spend.bankedGold,
+      ...(honorDelta > 0
+        ? { honor: parseHonor(charSave.honor) + honorDelta }
+        : {}),
     });
 
     // 길드 풀 가산 — tx 마지막(락 순서).
@@ -90,6 +102,7 @@ export async function POST(req: Request) {
         gold: spend.gold,
         bankedGold: spend.bankedGold,
         guildGold: nextGuildGold,
+        ...(V2_SETTLEMENT_WARFARE ? { honorGained: honorDelta } : {}),
       },
     };
   });

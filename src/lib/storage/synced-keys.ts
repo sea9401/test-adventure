@@ -21,7 +21,6 @@ export const SYNCED_KEYS = [
   "tower.v1",
   "tower-challenge.v1",
   "paragon.v1",
-  "fiefdom.v1",
 ] as const;
 
 export type SyncedKey = (typeof SYNCED_KEYS)[number];

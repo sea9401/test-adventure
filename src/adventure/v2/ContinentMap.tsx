@@ -345,12 +345,15 @@ export function ContinentMap({
             const isCurrent = o.id === currentOutpostId;
             const showLabel = isSelected || isHover || isCurrent;
             const occ = occByOutpost.get(o.id);
+            // 소유 판정 — 길드 점령은 길드 단위(길드원 전원 "내 거점"), 솔로 점령은 유저 단위.
             const isMine =
-              !!occ && !!viewerUserId && occ.occupiedByUserId === viewerUserId;
-            const isHostile =
               !!occ &&
               occ.occupiedByUserId !== null &&
-              occ.occupiedByUserId !== viewerUserId;
+              (occ.occupiedByGuildId != null
+                ? occ.occupiedByGuildId === viewerGuildId
+                : occ.occupiedByUserId === viewerUserId);
+            const isHostile =
+              !!occ && occ.occupiedByUserId !== null && !isMine;
             // 교전 중 — 성벽이 깎인 점령 거점(공성 진행). 펄스 링으로 전황 노출.
             const isUnderSiege =
               !!occ &&

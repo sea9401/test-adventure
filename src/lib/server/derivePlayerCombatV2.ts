@@ -10,7 +10,7 @@
 //   dex → 회피 (eva += dex×0.1, cap 75) + 명중 (acc += dex×0.05) + atk 보조 (PR-T4 ×0.06)
 //   vit → maxHp 주력 (vit×1), def 약화 (vit×0.1)
 //   spd → 다중공격 확률 (extra += spd×0.5%p, 100%↑ 정수확정) + 선공권 + atk 보조 (×0.06)
-//   luk → 치명 확률(crit += luk×0.15) + 치명 데미지(critMult += luk×0.006) + atk 보조(×0.04). 항상 작동
+//   luk → 치명 확률(crit += luk×0.15) + 치명 데미지(critMult 점감곡선 bonus += luk×0.007) + atk 보조(×0.04). 항상 작동
 //   int → maxMp (int×2). 마법 axis 는 PR-7
 //
 // 장비(PR-4a 위력/무게/옵션 모델):
@@ -305,12 +305,23 @@ const HEAL_MULT_PER_SPI = 0.006;
 // 파크 진입), winT 대폭↓(킬 속도 개선). Lv50 은 크리율 29% 로 낮아 보너스 발동이 적어 67%
 // 유지(DEX 동률 — 크리/피네스 빌드의 중반 변동성, LUK 단독 문제 아님).
 // 0.006→0.007 상향(2026-06-08): CRIT_MULT_BASE 2.0→1.4 동반 하향의 LUK 보전 — 바닥(무투자
-//   크리)은 내리고 LUK 투자분은 per-luk 로 되살려 "크리 데미지=LUK 투자 보상"으로. 고럭 엔드빌드는
-//   cap(5.0) 바인딩이라 거의 불변, 무/저투자 크리만 약화(스윙·원샷 완화). sim 재검증=LUK 비최약.
+//   크리)은 내리고 LUK 투자분은 per-luk 로 되살려 "크리 데미지=LUK 투자 보상"으로. (2026-06-21 PR-2:
+//   옛 cap(5.0) → 점감 곡선 critMultCurve 로 교체, 아래. 이 per-luk 는 곡선 bonus 입력값.)
 const CRIT_DMG_PER_LUK = 0.007;
-// 크리 데미지 배수 안전 상한 — 현재 Lv100 LUK(luk~349)는 4.09× 라 미바인딩이지만, 미래
-// 장비/스탯 인플레가 무한정 키우지 않게 cap. luk 500 에서 바인딩(현 만렙 도달 불가).
-const CRIT_MULT_CAP = 5.0;
+// 치명타 피해 배율 — 점감 곡선(하드캡 폐기, 2026-06-21 DEX 재밸런스 PR-2). 옛 모델 = base 1.4 +
+//   선형가산, cap 5.0 → 엔드 LUK 이 3.8~5.0× 로 과함 + 캡 도달 후 추가 투자 죽음(포화). 대신 CEIL 로
+//   점근하는 지수 곡선: bonus=0 → BASE(무투자 floor), bonus↑ → CEIL 점근(절대 도달X = 죽은 투자 없음).
+//   천장만 완만히 통제. 엔드 LUK(bonus~8) ≈ 2.5·중투자(bonus~2.4, 옛 3.8) ≈ 2.06. 전역 크리 딜↓라
+//   몹 HP 상쇄(monsterScale)와 짝. docs/v2-dex-rebalance-plan.md. 다이얼 = CEIL(천장)·SCALE(완만도).
+export const CRIT_MULT_CEIL = 2.6;
+export const CRIT_MULT_SCALE = 3.0;
+function critMultCurve(bonus: number): number {
+  return (
+    CRIT_MULT_CEIL -
+    (CRIT_MULT_CEIL - CRIT_MULT_BASE) *
+      Math.exp(-Math.max(0, bonus) / CRIT_MULT_SCALE)
+  );
+}
 // PR-magic — 마법 공격력(magicAtk = INT 환산 + 무기 위력). scaling="magic" 스킬만 이 값으로
 // 스케일(combatShared.v2DamageAmount). INT 0 빌드는 magicAtk 0(+무기 위력) → 마법 경로 비활성.
 // PR-8 캘리브 — 0.35 → **0.2 (= ATK_PER_STR 대칭)**. PR-4a 에서 무기 위력이 magicAtk 에 합산되며
@@ -403,7 +414,7 @@ export type DerivePlayerCombatV2PureInput = {
   // ── 다양성 확장(A 메타) — 장착 패시브 합산분. 엔진 레버에 가산. 미지정 = 무적용(byte-identical).
   /** 치명타 확률 +%p(급소·치명) — critChancePct 에 가산. */
   passiveCritPct?: number;
-  /** 치명타 피해 +%(맹공) — critMult 에 /100 환산 가산(캡 적용). */
+  /** 치명타 피해 +%(맹공) — critMult 점감 곡선 bonus 에 /100 환산 가산. */
   passiveCritDmgPct?: number;
   /** 회피 +%p(허보) — evasionPct 에 가산(캡 적용). */
   passiveEvasionPct?: number;
@@ -555,15 +566,13 @@ export function derivePlayerCombatV2Pure(
     totalStats.luk * CRIT_PER_LUK +
     equipAcc.crit +
     (input.passiveCritPct ?? 0);
-  // 치명타 피해 — 행운 major + 힘 minor + 장착 패시브(맹공, %→/100). 캡 적용.
-  const critMult = Math.min(
-    CRIT_MULT_BASE +
-      totalStats.luk * CRIT_DMG_PER_LUK +
-      totalStats.str * CRIT_DMG_PER_STR +
-      equipAcc.critMult / 100 + // 반지 슬롯 고유 축(백분의 일 정수 → 배수).
-      (input.passiveCritDmgPct ?? 0) / 100,
-    CRIT_MULT_CAP,
-  );
+  // 치명타 피해 가산원(선형 합) — 행운 major + 힘 minor + 장비 + 장착 패시브(맹공, %→/100).
+  //   base/천장은 critMultCurve(점감)에서 1회 적용. 인술(passive)·spec 가산도 같은 풀에 합류.
+  const critBonus =
+    totalStats.luk * CRIT_DMG_PER_LUK +
+    totalStats.str * CRIT_DMG_PER_STR +
+    equipAcc.critMult / 100 + // 반지 슬롯 고유 축(백분의 일 정수 → 배수).
+    (input.passiveCritDmgPct ?? 0) / 100;
   // 치명타 저항(신규) — 정신. 피격 시 상대 치명 확률 차감(%p). cap 적용(완전 봉인 방지).
   //   ⚠️ 파생 스탯이라 PvE(치명형 몹)·PvP(engine.pvpPhase) **양쪽** 캡 — spi>500 빌드는 PvP
   //   치명저항도 50%p 에서 멈춘다(현 플레이어 범위 밖이나 명시).
@@ -617,11 +626,8 @@ export function derivePlayerCombatV2Pure(
     atk + Math.floor(totalStats.str * (passive?.atkPerStrCoef ?? 0));
   const finalMagicAtk =
     magicAtk + Math.floor(totalStats.int * (passive?.magicAtkPerIntCoef ?? 0));
-  // 인술 — 치명타 피해 배율 가산 (cap). 명중·추가타는 패시브 미기여(평값 그대로).
-  const finalCritMult = Math.min(
-    critMult + (passive?.critMultAdd ?? 0),
-    CRIT_MULT_CAP,
-  );
+  // 인술(passive.critMultAdd) 도 같은 가산원 풀에 합류 — 점감 곡선은 출력부에서 1회 적용.
+  const critBonusWithPassive = critBonus + (passive?.critMultAdd ?? 0);
 
   // ── 직업 효과 패시브 (jobPassive → specEff 경로) ───────────────────────
   // 래퍼가 jobPassive(jobId) 를 주입. 미정의 직업/sim·테스트 미지정 = {} (전부 항등·inert).
@@ -701,10 +707,8 @@ export function derivePlayerCombatV2Pure(
     extraAttackChancePct:
       extraAttackChancePct + (specEff.extraAttackChancePct ?? 0),
     critChancePct: critChancePct + (specEff.critChancePctAdd ?? 0), // 급습
-    critMult: Math.min(
-      finalCritMult + (specEff.critMultAdd ?? 0),
-      CRIT_MULT_CAP,
-    ),
+    // 치명타 피해 — 전 가산원(luk/str/장비/맹공/인술/spec) 합을 점감 곡선으로 1회 환산.
+    critMult: critMultCurve(critBonusWithPassive + (specEff.critMultAdd ?? 0)),
     // PR-2 신규 v2 축 — PlayerCombat 옵셔널 필드 (라이브 미사용, combatShared/engine v2 경로만).
     magicDef,
     critResistPct,

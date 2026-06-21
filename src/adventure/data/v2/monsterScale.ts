@@ -4,6 +4,7 @@ import {
   floorDefMult,
   floorExpMult,
   endgameSoften,
+  floorCritHpComp,
 } from "./dungeonLadder";
 
 // 던전 깊이(depth)의 사다리 배율로 Monster 의 hp/atk/def/exp 만 곱한다.
@@ -25,7 +26,9 @@ export function scaleMonsterForFloor(
     floorStatMult(depth) * (softenEndgame ? endgameSoften(depth) : 1);
   const dMult = floorDefMult(depth);
   const eMult = floorExpMult(depth);
-  const hp = Math.max(1, Math.round(monster.hp * sMult));
+  // 크리 HP 상쇄 — HP 에만(atk/def/exp 무관). 크리 점감 곡선의 엔드 딜 손실 보전. coop(softenEndgame=false) 제외.
+  const hpComp = softenEndgame ? floorCritHpComp(depth) : 1;
+  const hp = Math.max(1, Math.round(monster.hp * sMult * hpComp));
   const atk = Math.max(1, Math.round(monster.atk * sMult));
   const def = Math.max(0, Math.round(monster.def * dMult));
   const exp = Math.max(0, Math.round(monster.exp * eMult));

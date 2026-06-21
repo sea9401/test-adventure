@@ -52,6 +52,21 @@ export function endgameSoften(depth: number): number {
     1 - (depth - ENDGAME_SOFTEN_START_DEPTH) * ENDGAME_SOFTEN_SLOPE,
   );
 }
+
+// 크리 HP 상쇄(2026-06-21 PR-2) — 크리 배율 점감 곡선(derivePlayerCombatV2.critMultCurve)이 엔드
+//   크리 딜을 ~40% 줄여 권장레벨 빌드가 깊은 사냥터를 못 깨게 됨. 크리 압축은 고스탯(=깊이)일수록
+//   커서, 몹 HP 를 깊이 비례로 상쇄한다(HP 만 — atk/def/exp/권장파워 무관, 들판 1~6 불변). endgameSoften
+//   과 별개 레버(저건 floor 빌드 생존, 이건 크리딜 손실 보전). sim 캘리브: d10~0.96·d20~0.87·d50~0.66
+//   로 PR-1(VIT/INT 부양) win-rate 프로파일 복원. docs/v2-dex-rebalance-plan.md. ⚠️ 크리 곡선과 짝 다이얼.
+export const CRIT_HP_COMP_SLOPE = 0.0095; // 깊이당 HP 감소량
+export const CRIT_HP_COMP_MIN = 0.66; // 하한(deep frontier plateau)
+export function floorCritHpComp(depth: number): number {
+  if (depth <= ONBOARDING_END_DEPTH) return 1;
+  return Math.max(
+    CRIT_HP_COMP_MIN,
+    1 - (depth - ONBOARDING_END_DEPTH) * CRIT_HP_COMP_SLOPE,
+  );
+}
 // 권장파워 = statMult^GATE_DAMP × 110. 옛 모델(statMult 선형 비례)은 후반에서 과대 —
 // 플레이어 파워(누적레벨 floor 감쇠 + 밴드 장비 flat)는 깊이 statMult(선형)만큼 못 자라는데
 // 전투 실효(크리·회피·spd·def 댐핑)는 파워 점수에 다 안 잡혀, 깊이 48 권장 2915 vs 실측

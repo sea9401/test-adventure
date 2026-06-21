@@ -8,7 +8,12 @@ import {
   MAX_FRONTIER_DEPTH,
 } from "./dungeon";
 import { scaleMonsterForFloor } from "./monsterScale";
-import { floorStatMult, floorDefMult, floorExpMult } from "./dungeonLadder";
+import {
+  floorStatMult,
+  floorDefMult,
+  floorExpMult,
+  floorCritHpComp,
+} from "./dungeonLadder";
 import { MONSTERS } from "../monsters";
 import { V2_MONSTERS } from "./v2Monsters";
 import { V2_ELEMENTS, type V2Element } from "./elements";
@@ -217,7 +222,10 @@ describe("scaleMonsterForFloor", () => {
   it("floor 3+ 사다리 배율 — hp/atk 선형·def 댐핑·exp 곡선, 새 객체", () => {
     const scaled = scaleMonsterForFloor(base, 8);
     expect(scaled).not.toBe(base);
-    expect(scaled.hp).toBe(Math.round(base.hp * floorStatMult(8)));
+    // hp 는 크리 HP 상쇄(floorCritHpComp) 까지 곱해짐 — atk/def/exp 는 미적용.
+    expect(scaled.hp).toBe(
+      Math.round(base.hp * floorStatMult(8) * floorCritHpComp(8)),
+    );
     expect(scaled.atk).toBe(Math.round(base.atk * floorStatMult(8)));
     expect(scaled.def).toBe(Math.round(base.def * floorDefMult(8)));
     expect(scaled.exp).toBe(Math.round(base.exp * floorExpMult(8)));

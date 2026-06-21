@@ -5,6 +5,8 @@ import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
+import WarVigorCard from "./WarVigorCard";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
@@ -238,6 +240,8 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           />
         )}
       </Card>
+
+      {V2_SETTLEMENT_WARFARE && <WarVigorCard />}
 
       {msg && (
         <div

@@ -463,6 +463,13 @@
       "when": 1782067956832,
       "tag": "0065_add_outpost_defenders",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1782073790747,
+      "tag": "0066_add_outpost_lords",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ import type {
   V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
@@ -262,7 +263,8 @@ export function V2AdventureHome({
                 <DoorOpen size={16} weight="fill" />
                 거점 진입
               </button>
-              {isMember && (
+              {/* 레거시 수동 금고 회수 — 정착지 전쟁 on 이면 영주 수확으로 일원화(숨김). */}
+              {isMember && !V2_SETTLEMENT_WARFARE && (
                 <button
                   type="button"
                   onClick={handleClaim}

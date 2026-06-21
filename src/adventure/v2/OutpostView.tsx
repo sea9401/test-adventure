@@ -24,6 +24,7 @@ import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { V2VillagePanel } from "./V2VillagePanel";
 import DefendPanel from "./DefendPanel";
+import LordPanel from "./LordPanel";
 import { useGameState } from "./GameStateProvider";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
@@ -484,7 +485,16 @@ export function OutpostView({
               />
             </HeaderPanel>
             {activityTab === "produce" && (
-              <V2VillagePanel outpostId={outpost.id} mode="produce" />
+              <>
+                <V2VillagePanel outpostId={outpost.id} mode="produce" />
+                {V2_SETTLEMENT_WARFARE && (
+                  <LordPanel
+                    outpostId={outpost.id}
+                    canManage={canManageSettlement}
+                    viewerUserId={viewerUserId}
+                  />
+                )}
+              </>
             )}
             {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
               <DefendPanel outpostId={outpost.id} />

@@ -59,6 +59,7 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
@@ -1009,13 +1010,26 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     fragmentsTotal = nextFrags.fragments;
   }
 
-  // 세금 transfer — 위에서 정렬된 순서로 이미 lock 한 ownerSave 에 gold 추가.
-  if (goldTaxed > 0 && taxOwnerId && ownerSave) {
-    const ownerNew = {
-      ...ownerSave,
-      gold: Math.max(0, (ownerSave.gold ?? 0) + goldTaxed),
-    };
-    await upsertSave(tx, taxOwnerId, "character.v2", ownerNew);
+  // 세금 transfer. 정착지 전쟁(flag) on = 점령지 세금도 거점 금고에 누적(영주 수확·약탈 대상화);
+  //   off = 점령자 개인 골드 직행(현행·byte-identical). 큐/락 순서 불변(ownerSave 는 위에서 lock 유지).
+  if (goldTaxed > 0 && taxOwnerId) {
+    if (V2_SETTLEMENT_WARFARE && outpostId) {
+      await tx
+        .insert(outpostTreasury)
+        .values({ outpostId, gold: goldTaxed, updatedAt: new Date(now) })
+        .onConflictDoUpdate({
+          target: outpostTreasury.outpostId,
+          set: {
+            gold: sql`${outpostTreasury.gold} + ${goldTaxed}`,
+            updatedAt: new Date(now),
+          },
+        });
+    } else if (ownerSave) {
+      await upsertSave(tx, taxOwnerId, "character.v2", {
+        ...ownerSave,
+        gold: Math.max(0, (ownerSave.gold ?? 0) + goldTaxed),
+      });
+    }
   }
   // NPC 세금 — 미점령 거점 금고에 누적. 추후 점령 전쟁 보상으로 사용.
   if (goldTaxed > 0 && npcTaxOutpostId) {

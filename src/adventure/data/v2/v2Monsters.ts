@@ -161,7 +161,11 @@ export const V2_MONSTERS: Record<string, Monster> = {
   "수호 석상": {
     name: "수호 석상",
     tags: ["golem"],
-    hp: 340,
+    // hp 340→289(−15%, 2026-06-22): 잊힌 성소(d25-30) 반물리 로스터(탱크2 hp~3300+heavy_blow·
+    //   마법1·회피관통2)가 물리 빌드(STR/VIT/LUK) 풀승률을 ~60%로 떨궈, 두 탱크가 저DPS 물리에
+    //   안 깨지는 벽. HP만 트림해 절벽 제거(STR86·VIT76-86·LUK91·d25-30 skills-ON)·테마 정체성
+    //   (마법/회피 성소·물리/탱크 약간 불리 vs INT/DEX/BAL 100) 유지. 두 탱크는 d25-30 전용(스필오버 0).
+    hp: 289,
     atk: 17,
     def: 16,
     spd: 3,
@@ -194,7 +198,7 @@ export const V2_MONSTERS: Record<string, Monster> = {
   "별빛 수문장": {
     name: "별빛 수문장",
     tags: ["golem"],
-    hp: 350,
+    hp: 298, // 350→298(−15%, 2026-06-22): 수호 석상과 동일 — 잊힌 성소 반물리 절벽 완화(테마 유지·HP만).
     atk: 18,
     def: 15,
     spd: 3,

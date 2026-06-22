@@ -66,8 +66,8 @@ export type V2PassiveSkillEffect = {
   /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
   defPct?: number;
   /** 반사(가시) — 피격 시 내 방어력의 이 %만큼을 적에게 고정 데미지로 반사(수호자 패시브).
-   *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진 enemyPhase 가 피격 시 가산.
-   *  미지정=무적용(byte-identical). 100 = "방어 계수의 수치만큼". */
+   *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진이 피격 시 가산(PvE enemyPhase +
+   *  PvP applyOnHitReflect 양쪽). 미지정=무적용(byte-identical). 100 = "방어 계수의 수치만큼". */
   thornsDefPct?: number;
   /** 명중 +%p 가산(정밀) — accuracyPct 에 가산(캡 적용). */
   accuracyPct?: number;

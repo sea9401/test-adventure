@@ -801,7 +801,12 @@ export function applyOnHitReflect(
   const infinitePct = defender.player.infiniteThornsAtkPct ?? 0;
   const infiniteDmg =
     infinitePct > 0 ? Math.floor((attacker.player.atk * infinitePct) / 100) : 0;
-  const total = thornsDmg + brambleDmg + infiniteDmg;
+  // 수호자 반사 — 피격(적중) 시 방어력 기반 고정 데미지("방어 계수만큼"). PvE enemyPhase 와 동일.
+  const wardenReflectDmg =
+    (defender.player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeMitigation > 0
+      ? defender.player.thornsFlatFromDef!
+      : 0;
+  const total = thornsDmg + brambleDmg + infiniteDmg + wardenReflectDmg;
   if (total <= 0) return { state, attackerKilled: false };
   const newAtkHp = Math.max(0, attacker.hp - total);
   let st = setSide(state, atkKey, { ...attacker, hp: newAtkHp });
@@ -809,6 +814,7 @@ export function applyOnHitReflect(
   if (thornsDmg > 0) labels.push("반사 갑주");
   if (brambleDmg > 0) labels.push("가시 갑옷");
   if (infiniteDmg > 0) labels.push("무한 가시");
+  if (wardenReflectDmg > 0) labels.push("수호 반사");
   st = {
     ...st,
     log: appendLog(st.log, {

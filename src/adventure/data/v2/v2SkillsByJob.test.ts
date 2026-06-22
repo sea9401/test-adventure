@@ -284,10 +284,10 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
       "v2c_warden_aegis",
       "v2c_warden_thorns",
     ]);
-    // 액티브: 최대HP 15% 보호막
+    // 액티브: 최대HP 10% 보호막
     expect(V2_SKILLS.v2c_warden_aegis.effects[0]).toMatchObject({
       kind: "shield",
-      pctMaxHp: 15,
+      pctMaxHp: 10,
     });
     // 패시브: 피격 시 방어력 100% 반사("방어 계수만큼")
     expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(100);

@@ -17,7 +17,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(skillsForJob("martial")).toEqual([
       "v2c_martial_steelguard",
       "v2c_martial_fortitude",
-    ]); // 철포 + 강건
+    ]); // 하급 권법 + 강건
     expect(skillsForJob("mage")).toEqual([
       "v2c_mage_boltcast",
       "v2c_mage_acumen",
@@ -61,10 +61,10 @@ describe("직업 킷 — 스킬셋", () => {
       kind: "damage",
       scaling: "def",
     });
-    // 역할 다양화 2차: 수도승 = 회피버프, 자객 = 처형, 궁수 = 딜+취약.
+    // 역할 다양화 2차: 수도승 = 철포(받피감 버프), 자객 = 처형, 궁수 = 딜+취약.
     expect(V2_SKILLS.v2c_monk_palm.effects[0]).toMatchObject({
       kind: "selfBuffPct",
-      target: "evasion",
+      target: "damageReduction",
     });
     expect(V2_SKILLS.v2c_assassin_ambush.effects[0]).toMatchObject({
       kind: "executeDamage",
@@ -128,8 +128,9 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[ACTIVES[job]].tier, ACTIVES[job]).toBe(3);
       expect(V2_SKILLS[PASSIVE[job]].category, PASSIVE[job]).toBe("passive");
     }
-    // brawler/magus/ranger = 직군 축 % 증폭(유지·각 +20%). ranger 는 궁수 민첩(dex+10%)의 상위판 "민첩 II".
-    expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.statPct?.vit).toBe(20);
+    // magus/ranger = 직군 축 % 증폭. ranger 는 궁수 민첩(dex+10%)의 상위판 "민첩 II".
+    //   brawler 는 무인 재설계로 회피(보법 II)로 전환 — 격투가 회피 갈래.
+    expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.evasionPct).toBe(12);
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct?.dex).toBe(20);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBeUndefined();
@@ -151,9 +152,9 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
       expect(V2_SKILLS[passive].tier, passive).toBe(3);
     }
-    // 형제(기사/격투가/마도사/궁사)와 다른 축: 방어%(순수)·회피·회복강화·치명피해.
+    // 형제(기사/격투가/마도사/궁사)와 다른 축: 방어%(순수)·활력(무승 강건 III)·회복강화·치명피해.
     expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.defPct).toBe(20);
-    expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.evasionPct).toBe(14);
+    expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.statPct?.vit).toBe(30);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
     expect(V2_SKILLS.v2c_shadow_lethality3.passive?.critDmgPct).toBe(25); // 크리축 차수 단조(3차)
     // 대사제 액티브 = 자힐(heal), 그림자 액티브 = 처형(executeDamage).
@@ -176,7 +177,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
     // 심화 패시브 = 라인 비포화 효과(기존 어휘 재사용, PvP-안전).
     expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
-    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.maxHpPct).toBe(20);
+    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20); // 패왕(힘%·옛 철신서 전환·무인 재설계)
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
     expect(V2_SKILLS.v2c_phantom_stealth.passive?.evasionPct).toBe(16); // 은신 — 회피(암살자·tier4 유일 회피축)
@@ -192,16 +193,31 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_phantom_ambush.effects[0]).toMatchObject({ kind: "ambushDamage", scaling: "luk" });
   });
 
-  it("절정(sensei) = 반격 패시브 + 철신 패시브(액티브 없음)", () => {
-    // 오너 결정 — 절정의 액티브(난무)를 반격으로 교체. 반격은 반응형(피격 시 발동)이라 패시브이며,
-    //   v2c_sensei_combo id 는 유지(킷/세이브 안정)하되 category=passive·counterChancePct 30 으로 재용도.
+  it("권룡(sensei) = 권룡파(방깎 액티브) + 패왕(힘%) — 무인 재설계", () => {
+    // 무인 재설계(2026-06-22) — 옛 절정 킷(반격+철신)을 투승으로 이전, 권룡은 공격형(권룡파+패왕)으로.
+    //   v2c_sensei_combo/ironbody id 유지(세이브 호환·내용만 교체).
     expect(skillsForJob("sensei")).toEqual([
       "v2c_sensei_combo",
       "v2c_sensei_ironbody",
     ]);
-    expect(V2_SKILLS.v2c_sensei_combo.category).toBe("passive");
-    expect(V2_SKILLS.v2c_sensei_combo.passive?.counterChancePct).toBe(30);
+    expect(V2_SKILLS.v2c_sensei_combo.category).toBe("attack");
+    // 권룡파 = 방깎(무력 디버프 동반).
+    expect(
+      V2_SKILLS.v2c_sensei_combo.effects.some((e) => e.kind === "enemyDebuff"),
+    ).toBe(true);
     expect(V2_SKILLS.v2c_sensei_ironbody.category).toBe("passive");
+    expect(V2_SKILLS.v2c_sensei_ironbody.passive?.statPct?.str).toBe(20);
+  });
+
+  it("투승(battlemonk) = 반격 + 철신(둘 다 패시브·옛 절정 킷 상속)", () => {
+    // 권룡이 공격형이 되며 옛 절정 탱 킷(반격+철신)이 무승 계보 정점 투승으로 이동(신규 전용 id).
+    expect(skillsForJob("battlemonk")).toEqual([
+      "v2c_battlemonk_counter",
+      "v2c_battlemonk_ironbody",
+    ]);
+    expect(V2_SKILLS.v2c_battlemonk_counter.category).toBe("passive");
+    expect(V2_SKILLS.v2c_battlemonk_counter.passive?.counterChancePct).toBe(30);
+    expect(V2_SKILLS.v2c_battlemonk_ironbody.passive?.maxHpPct).toBe(20);
   });
 
   it("없는 jobId = 빈 배열", () => {
@@ -211,12 +227,17 @@ describe("직업 킷 — 스킬셋", () => {
 });
 
 describe("직업 킷 — 액티브 스킬", () => {
-  it("철포 = 받피감 버프(selfBuffPct damageReduction)", () => {
-    const eff = V2_SKILLS.v2c_martial_steelguard.effects[0];
+  it("철포 = 받피감 버프(수도승·selfBuffPct damageReduction)", () => {
+    const eff = V2_SKILLS.v2c_monk_palm.effects[0];
     expect(eff).toMatchObject({
       kind: "selfBuffPct",
       target: "damageReduction",
     });
+  });
+
+  it("하급 권법 = 단일 딜(견습 무인·옛 철포 자리)", () => {
+    const eff = V2_SKILLS.v2c_martial_steelguard.effects[0];
+    expect(eff).toMatchObject({ kind: "damage" });
   });
 
   it("마력탄 = 0코스트 마법 단일타", () => {
@@ -263,7 +284,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     const agg = aggregateEquippedPassives([
       "v2c_martial_fortitude", // statPct vit+10%
       "v2c_squire_might", // statPct str+15
-      "v2c_sensei_ironbody", // maxHpPct 20 (방패병 방벽이 방어%로 전환돼 maxHpPct 원천은 철신으로)
+      "v2c_battlemonk_ironbody", // maxHpPct 20 (철신 — 투승, 옛 절정서 상속)
       "v2c_acolyte_mana", // healPowerPct 20 (회복강화 — SPI PR-4, 옛 maxMpPct 리스킨)
     ]);
     expect(agg.statPct).toEqual({ vit: 10, str: 15 }); // % 스탯 누적
@@ -272,23 +293,20 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
-  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%) 합산", () => {
-    // 명중(accuracyPct) 패시브 축은 신궁 "매의 눈"(tier4)으로 이관 — 이 합산 케이스엔 미포함.
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/방어%) 합산", () => {
+    // 명중(accuracyPct) 축은 신궁 "매의 눈"(tier4)으로, 흡혈(lifesteal)은 보류(무인 재설계 2026-06-22)라
+    //   이 케이스엔 미포함. 회피 원천 = 권사 보법(v2c_boxer_fortitude, evasionPct 8).
     const agg = aggregateEquippedPassives([
       "v2c_assassin_fortune", // critPct 8
-      "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차·마법사 INT 전환으로 교체)
-      "v2c_monk_spirit", // evasionPct 10
-      "v2c_boxer_fortitude", // lifestealPct 2 (저수치)
+      "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차)
+      "v2c_boxer_fortitude", // evasionPct 8 (보법)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
     ]);
     expect(agg.critPct).toBe(8);
     expect(agg.critDmgPct).toBe(25);
-    expect(agg.evasionPct).toBe(10);
-    expect(agg.lifestealPct).toBe(2);
+    expect(agg.evasionPct).toBe(8);
     expect(agg.defPct).toBe(20);
-    // 흡혈은 자동전투 눈덩이 방지로 의도적 저수치(가드).
-    expect(agg.lifestealPct).toBeLessThanOrEqual(5);
-    // 비스탯 효과만 골랐으므로 stat/statPct 는 비어 있음.
+    // 비스탯 효과만 골랐으므로 statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
   });
 

@@ -27,6 +27,7 @@ export default function MapPage() {
     return (
       <TileMap
         onTravelToTile={travelToTile}
+        onTravelTo={travelTo}
         tilePos={tilePos}
         tileSettlements={tileSettlements}
         onFoundTile={foundTile}

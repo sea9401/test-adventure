@@ -88,7 +88,7 @@ export type V2CommonSkillId =
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
   | "v2c_guardian_bulwark3" // 방벽 (방어 +20%)
   | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
-  | "v2c_bishop_blessing3" // 축복 (회복량 +30%)
+  | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
   | "v2c_templar_smite" // 성기사: 심판의 빛 (물리 타격 + 자힐)
@@ -513,8 +513,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_bishop_blessing3: {
     // 대사제 = 사제 계승 — 회복 강화(healPowerPct·SPI 지원). 마도사(지능%)와 다른 축.
-    id: "v2c_bishop_blessing3", name: "축복", stat: "int", category: "passive", tier: 3,
-    description: "성스러운 가호. 회복량이 크게 오른다.", mpCost: 0, cooldown: 0,
+    id: "v2c_bishop_blessing3", name: "회복 II", stat: "int", category: "passive", tier: 3,
+    description: "치유의 비결을 더 깊이 깨우쳐 회복량이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { healPowerPct: 30 },
   },

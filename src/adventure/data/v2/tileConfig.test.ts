@@ -18,8 +18,10 @@ describe("tilePendingYield — 시간당 누적 + 캡", () => {
     expect(tilePendingYield("frontier", 0, 100 * HOUR)).toBe(0);
   });
 
-  it("경과시간 × 시급(내림). 마을 2.5h → floor(60×2.5)=150", () => {
-    expect(tilePendingYield("village", 0, 2.5 * HOUR)).toBe(150);
+  it("경과시간 × 시급(내림) — 마을 2.5h = floor(시급×2.5)", () => {
+    expect(tilePendingYield("village", 0, 2.5 * HOUR)).toBe(
+      Math.floor(TILE_YIELD_PER_HOUR.village * 2.5),
+    );
   });
 
   it("캡 시간 이상은 상한에서 멈춘다(무한 idle 방어)", () => {

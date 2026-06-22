@@ -3,7 +3,10 @@ import {
   TILE_SETTLEMENT_TIERS,
   TILE_YIELD_PER_HOUR,
   TILE_YIELD_CAP_HOURS,
+  TILE_YIELD_LEVEL_CAP,
+  TILE_YIELD_LEVEL_SLOPE,
   tilePendingYield,
+  tileYieldLevelMult,
   tileNextTier,
   tileTierOwnsLand,
 } from "./tileConfig";
@@ -42,6 +45,37 @@ describe("tilePendingYield — 시간당 누적 + 캡", () => {
     for (let i = 1; i < rates.length; i++) {
       expect(rates[i]).toBeGreaterThan(rates[i - 1]);
     }
+  });
+});
+
+describe("tileYieldLevelMult — 진행도(레벨) 연동 시급 배율", () => {
+  it("L1 = 1.0× (앵커·현행 시급 유지)", () => {
+    expect(tileYieldLevelMult(1)).toBe(1);
+    // 레벨 미지정(기본 1)도 동일.
+    expect(tilePendingYield("village", 0, 1 * HOUR)).toBe(
+      TILE_YIELD_PER_HOUR.village,
+    );
+  });
+
+  it("레벨캡 = 1 + (cap-1)×slope (선형 상한)", () => {
+    const capMult = 1 + (TILE_YIELD_LEVEL_CAP - 1) * TILE_YIELD_LEVEL_SLOPE;
+    expect(tileYieldLevelMult(TILE_YIELD_LEVEL_CAP)).toBeCloseTo(capMult, 9);
+    // 캡 밖(>cap)은 캡에서 멈춘다.
+    expect(tileYieldLevelMult(TILE_YIELD_LEVEL_CAP + 50)).toBeCloseTo(capMult, 9);
+  });
+
+  it("레벨 단조 증가 + 시급에 곱해진다", () => {
+    expect(tileYieldLevelMult(50)).toBeGreaterThan(tileYieldLevelMult(10));
+    // 마을 1h @ L100 = floor(기준 × cap배율).
+    const capMult = 1 + (TILE_YIELD_LEVEL_CAP - 1) * TILE_YIELD_LEVEL_SLOPE;
+    expect(
+      tilePendingYield("village", 0, 1 * HOUR, TILE_YIELD_LEVEL_CAP),
+    ).toBe(Math.floor(TILE_YIELD_PER_HOUR.village * capMult));
+  });
+
+  it("0/음수 레벨 방어 = 1.0×", () => {
+    expect(tileYieldLevelMult(0)).toBe(1);
+    expect(tileYieldLevelMult(-5)).toBe(1);
   });
 });
 

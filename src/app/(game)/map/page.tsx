@@ -17,11 +17,9 @@ export default function MapPage() {
     foundTile,
     promoteTile,
     demolishTile,
-    harvestTile,
     occupations,
     treasuries,
     viewerUserId,
-    viewerLevel,
     currentOutpost,
   } = useGameState();
   if (V2_FREEFORM_TILES) {
@@ -34,11 +32,9 @@ export default function MapPage() {
         onFoundTile={foundTile}
         onPromoteTile={promoteTile}
         onDemolishTile={demolishTile}
-        onHarvestTile={harvestTile}
         occupations={occupations}
         treasuries={treasuries}
         viewerUserId={viewerUserId}
-        viewerLevel={viewerLevel}
         currentOutpostId={currentOutpost?.id ?? null}
       />
     );

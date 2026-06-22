@@ -6,10 +6,9 @@
 //  - 빈 땅 어디든 개척마을 건설 → 마을(영지 획득)→도시→대도시 승격/철거(Phase 3).
 //  - 개척마을은 땅 미보유(점선 영지 없음), 마을+ 는 3×3 점선 영지를 가진다.
 // 라이브 데이터(occupations/treasuries/currentOutpostId)는 표시만, 정착지는 tileSettlements.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   CastleTurret,
-  Coins,
   Crown,
   Flag,
   Hammer,
@@ -35,11 +34,8 @@ import {
   TILE_TIER_LABEL,
   TILE_FOUND_COST,
   TILE_PROMOTE_COST,
-  TILE_YIELD_PER_HOUR,
-  tileYieldLevelMult,
   tileTierOwnsLand,
   tileNextTier,
-  tilePendingYield,
   isTileSettlementTier,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
@@ -88,7 +84,6 @@ type TileSettlementLite = {
   userId: string;
   tier: string;
   name: string | null;
-  lastHarvestAt?: number | null;
 };
 
 const tierOf = (t: string): TileSettlementTier =>
@@ -102,12 +97,10 @@ export function TileMap({
   onFoundTile,
   onPromoteTile,
   onDemolishTile,
-  onHarvestTile,
   occupations,
   treasuries,
   viewerUserId,
   viewerGuildId,
-  viewerLevel,
   currentOutpostId,
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
@@ -115,27 +108,18 @@ export function TileMap({
   // 거점 직접 이동 — 보드 밖 거점(옛 23거점 중 9 외)도 이동 가능하게(공존). visit-outpost.
   onTravelTo?: (o: Outpost) => void;
   tilePos?: { col: number; row: number } | null;
-  // 개척 정착지(Phase 3~4).
+  // 개척 정착지(Phase 3).
   tileSettlements?: TileSettlementLite[];
   onFoundTile?: (col: number, row: number) => void;
   onPromoteTile?: (col: number, row: number) => void;
   onDemolishTile?: (col: number, row: number) => void;
-  onHarvestTile?: (col: number, row: number) => void;
   occupations?: OccupationLite[];
   treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
   viewerGuildId?: number | null;
-  // 본인 레벨 — 진행도 연동 시급(본인 정착지 표시·수확)에 사용.
-  viewerLevel?: number;
   currentOutpostId?: string | null;
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
-  // 보류 수확량 계산용 현재시각 — 초기값은 lazy init(마운트 1회), 30초마다 갱신해 라이브 틱.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
 
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) for (const o of occupations) occByOutpost.set(o.outpostId, o);
@@ -416,21 +400,6 @@ export function TileMap({
             const tier = tierOf(selSettlement.tier);
             const next = tileNextTier(tier);
             const mine = selSettlement.userId === viewerUserId;
-            // idle 생산(Phase 4) + 진행도 연동(레벨 배율). 본인 정착지만 표시 — 남의 것은
-            // 소유자 레벨을 모르니 시급/보류를 계산할 수 없다(viewerLevel = 본인 레벨).
-            const perHour = Math.round(
-              (TILE_YIELD_PER_HOUR[tier] ?? 0) *
-                tileYieldLevelMult(viewerLevel ?? 1),
-            );
-            const pending =
-              mine && selSettlement.lastHarvestAt != null
-                ? tilePendingYield(
-                    tier,
-                    selSettlement.lastHarvestAt,
-                    now,
-                    viewerLevel ?? 1,
-                  )
-                : 0;
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
                 <div className="min-w-0">
@@ -446,28 +415,8 @@ export function TileMap({
                     {mine ? "내 정착지" : "다른 모험가의 정착지"} ·{" "}
                     {tileTierOwnsLand(tier) ? "영지 3×3 보유" : "땅 미보유 (개척 거점)"}
                   </div>
-                  {mine && perHour > 0 && (
-                    <div className="mt-0.5 text-xs text-amber-300/90">
-                      수확 가능 {pending.toLocaleString()}G
-                      <span className="text-zinc-500">
-                        {" "}
-                        · 시급 {perHour.toLocaleString()}G (레벨 비례)
-                      </span>
-                    </div>
-                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  {mine && perHour > 0 && onHarvestTile && (
-                    <button
-                      type="button"
-                      onClick={() => onHarvestTile(selCol, selRow)}
-                      disabled={pending <= 0}
-                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Coins size={14} weight="fill" />
-                      수확{pending > 0 ? ` (${pending.toLocaleString()}G)` : ""}
-                    </button>
-                  )}
                   {playerTileKey === selected ? (
                     <span className="rounded-md bg-emerald-900/60 px-3 py-1.5 text-xs text-emerald-300">
                       현재 위치

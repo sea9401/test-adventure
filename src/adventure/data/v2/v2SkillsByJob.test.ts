@@ -129,7 +129,7 @@ describe("직업 킷 — 스킬셋", () => {
     }
     // brawler/magus = 직군 축 % 증폭(유지). ranger = 명중(리스킨).
     expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.statPct?.vit).toBe(20);
-    expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(20);
+    expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBe(12);
     expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct).toBeUndefined();
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
@@ -262,14 +262,14 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
   it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%/명중) 합산", () => {
     const agg = aggregateEquippedPassives([
       "v2c_assassin_fortune", // critPct 8
-      "v2c_caster_acumen", // critDmgPct 20 (크리축 차수 단조 — 2차 하한)
+      "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차·마법사 INT 전환으로 교체)
       "v2c_monk_spirit", // evasionPct 10
       "v2c_boxer_fortitude", // lifestealPct 2 (저수치)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
       "v2c_ranger_finesse3", // accuracyPct 12 (정밀)
     ]);
     expect(agg.critPct).toBe(8);
-    expect(agg.critDmgPct).toBe(20);
+    expect(agg.critDmgPct).toBe(25);
     expect(agg.evasionPct).toBe(10);
     expect(agg.lifestealPct).toBe(2);
     expect(agg.defPct).toBe(20);

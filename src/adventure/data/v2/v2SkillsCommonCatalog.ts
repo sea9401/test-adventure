@@ -64,7 +64,7 @@ export type V2CommonSkillId =
   | "v2c_squire_might" // 근력 II (힘 +15%)
   | "v2c_boxer_fortitude" // 포식 (흡혈 +2%)
   | "v2c_monk_spirit" // 정신 (정신 +15%)
-  | "v2c_caster_acumen" // 맹공 (치명 피해 +20%)
+  | "v2c_caster_acumen" // 총명 II (지능 +20%)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
   | "v2c_archer_agility" // 민첩 (민첩 +10%)
@@ -77,7 +77,7 @@ export type V2CommonSkillId =
   // 고차 패시브(다양성 2차: paladin/ranger 는 효과 리스킨, brawler/magus 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
-  | "v2c_magus_acumen3" // 총명 III (지능 +20%)
+  | "v2c_magus_acumen3" // 총명 III (지능 +30%)
   | "v2c_ranger_finesse3" // 정밀 (명중 +12)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   // 액티브
@@ -376,13 +376,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { evasionPct: 10 },
   },
   v2c_caster_acumen: {
-    // 버스트 원소(술사) — 옛 지능%에서 치명 피해로 리스킨(옛 arcane_burst 계보).
-    id: "v2c_caster_acumen", name: "맹공", stat: "int", category: "passive", tier: 2,
-    description: "치명타가 더 깊게 박힌다. 치명타 피해가 오른다.", mpCost: 0, cooldown: 0,
+    // 마법 라인 총명 진행(2026-06-22): 견습 총명 +10% → 마법사 총명 II +20% → 마도사 총명 III +30%.
+    //   순수 INT 스케일로 통일(옛 "맹공"=치명피해 크리축에서 전환 — 라인 정합). 크리축은 그림자/정예/현자가 담당.
+    id: "v2c_caster_acumen", name: "총명 II", stat: "int", category: "passive", tier: 2,
+    description: "통찰이 깊어져 지능이 더 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    // 크리축 차수 단조(2026-06-22): 치명피해 2차20<3차25<4차30. 옛 30(2차)이 3차 그늘·4차 필살보다
-    //   높던 역전 해소. 마법사=2차라 하한. docs/v2-job-system-redesign 후속.
-    passive: { critDmgPct: 20 },
+    passive: { statPct: { int: 20 } },
   },
   v2c_acolyte_mana: {
     // SPI 부활 PR-4 — 사제 = 힐러. 마나(maxMP%)→회복강화(healPowerPct)로 리스킨(id 유지=세이브 호환).
@@ -454,7 +453,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_magus_acumen3", name: "총명 III", stat: "int", category: "passive", tier: 3,
     description: "극에 다다른 통찰. 지능이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { int: 20 } },
+    passive: { statPct: { int: 30 } },
   },
   v2c_ranger_finesse3: {
     // 유격수 = 정밀 사격(다양성 2차) — 옛 민첩%에서 명중으로 리스킨. id 유지(세이브 호환). dex% 는

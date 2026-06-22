@@ -306,7 +306,7 @@ export function ContinentMap({
                 x2={pb.cx}
                 y2={pb.cy}
                 stroke="#9ca3af"
-                strokeOpacity={0.18}
+                strokeOpacity={0.35}
                 strokeWidth={6}
                 strokeLinecap="round"
               />

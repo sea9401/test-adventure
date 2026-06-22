@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Flag,
+  HandWaving,
   Hammer,
   Lightning,
   Megaphone,
@@ -108,6 +109,13 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       size={14}
       weight="fill"
       className="shrink-0 text-emerald-500 dark:text-emerald-400"
+    />
+  ),
+  newcomer: (
+    <HandWaving
+      size={14}
+      weight="fill"
+      className="shrink-0 text-teal-500 dark:text-teal-400"
     />
   ),
 };
@@ -261,6 +269,17 @@ function entryText(e: FeedEntry): React.ReactNode {
           {p.targetName}
         </span>{" "}
         토벌!
+      </>
+    );
+  }
+  if (e.type === "newcomer") {
+    return (
+      <>
+        새 모험가 {name} 님이{" "}
+        <span className="font-medium text-teal-600 dark:text-teal-400">
+          모험을 시작
+        </span>
+        했습니다!
       </>
     );
   }

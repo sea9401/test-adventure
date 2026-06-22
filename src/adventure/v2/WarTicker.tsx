@@ -66,6 +66,9 @@ export function warTickerText(e: FeedEntry): string | null {
       p.itemId;
     return `${e.actorName} 님의 ${name} +${p.level}, 강화 중 파괴…`;
   }
+  if (e.type === "newcomer") {
+    return `새 모험가 ${e.actorName} 님이 모험을 시작했습니다!`;
+  }
   return null;
 }
 

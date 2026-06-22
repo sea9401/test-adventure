@@ -4,6 +4,7 @@ import { users, savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { checkSession } from "@/lib/server/checkSession";
 import { upsertSave } from "@/lib/server/savesKv";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { genEquipIid } from "@/adventure/data/v2/v2Equipment";
 import { PROFILE_STORAGE_KEY } from "@/lib/storage-keys";
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
           });
           await upsertSave(tx, uid, PROFILE_STORAGE_KEY, healedProfile);
         }
-        return healedProfile;
+        return { profile: healedProfile, isNew: false };
       }
 
       // ── 신규 경로 — 중복 검사 후 둘 다 쓰기. 트랜잭션 안에서 진행돼 한쪽만 박히는 일 없음.
@@ -168,10 +169,17 @@ export async function POST(req: Request) {
         owned: starterOwned,
         equipped: starterEquipped,
       });
-      return profile;
+      return { profile, isNew: true };
     });
 
-    return Response.json({ ok: true, profile: finalProfile });
+    // 새 모험가 합류를 서버 전체 소식/전광판에 한 줄 알림(첫 캐릭터 생성에서만). 부수 효과 —
+    // insertFeedEntry 가 실패를 자체 삼키므로 캐릭터 생성 응답에는 영향 없음. 닉네임은 이미
+    // users.gameName 에 박혔으므로 actorName 해석이 새 이름을 집어낸다.
+    if (finalProfile.isNew) {
+      await insertFeedEntry(uid, "newcomer", { newcomer: true });
+    }
+
+    return Response.json({ ok: true, profile: finalProfile.profile });
   } catch (e) {
     if (e instanceof TakenError) {
       return Response.json({ error: "taken" }, { status: 409 });

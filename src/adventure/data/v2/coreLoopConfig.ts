@@ -45,6 +45,15 @@ export const V2_ATB_SKILLS = process.env.NEXT_PUBLIC_V2_ATB_SKILLS === "true";
 export const V2_SKILL_PROC_IN_PATTERN =
   process.env.NEXT_PUBLIC_V2_SKILL_PROC_IN_PATTERN === "true";
 
+// 자유 타일 지도(지도 재설계 후속) — 옛 23거점 노드 지도/그래프를 9×9 타일 보드 + 9거점으로
+//   교체하고, 빈 땅 자유 이동·어디든 개척마을 정착을 여는 마스터 플래그. 단계적 도입:
+//   Phase 1 = /map 에 새 보드 렌더(노드 9개·옛 데이터 재사용)뿐(이동/정착 로직 불변).
+//   Phase 2+ = 타일 이동·개척마을 정착(신규 테이블). 옛 outposts.ts/outpostGraph/옛 테이블은
+//   컷오버 전까지 무접촉. 기본(미설정)=false → 라이브 byte-identical(옛 ContinentMap 유지).
+//   dev(개발모드)·스테이징서 env 로 켜 검증 후 단계별 flip.
+export const V2_FREEFORM_TILES =
+  process.env.NEXT_PUBLIC_V2_FREEFORM_TILES === "true";
+
 // === 사냥 페이싱 (V1식·스태미나 폐지·전투당 서버 쿨다운) =====================
 // throttle = 전투당 실시간 쿨다운(클릭 스팸/무한 그라인딩 차단·온오프 동일 속도).
 export const HUNT_COOLDOWN_MS = 5000; // 전투 1판 간격(유저 확정 — 판당 성장 체감 cadence)

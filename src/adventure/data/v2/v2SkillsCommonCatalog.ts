@@ -94,7 +94,7 @@ export type V2CommonSkillId =
   | "v2c_templar_smite" // 성기사: 심판의 빛 (물리 타격 + 자힐)
   | "v2c_templar_aegis" // 성기사: 신성한 가호 (방어 +10% & 회복 강화 +10%)
   | "v2c_spellblade_strike" // 마검사: 마검 일섬 (물리 + 마법 이중 타격)
-  | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +8% & 지능 +8%)
+  | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +12% & 지능 +12%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
   | "v2c_sensei_combo" // 반격 (피격 시 확률 반격 — 옛 난무, id 유지)
@@ -532,7 +532,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     //   효과만 사용(damage + heal 혼합 — resolveV2SkillCast 가 effects 순회 처리·신규 배선 0). PvE/PvP 공용.
     id: "v2c_templar_smite", name: "심판의 빛", stat: "str", category: "attack", tier: 3,
     description: "성스러운 빛을 검에 실어 내리친다. 그 빛이 제 상처마저 어루만진다.", mpCost: 42, cooldown: 0, procChance: 30,
-    effects: [dmg(1.1, 190), { kind: "heal", pctLostHp: 20 }],
+    // 자힐 = 잃은 HP 의 10%(옛 20% 는 과해 하향, 오너 2026-06-22). 가호 healPowerPct 와 곱연산.
+    effects: [dmg(1.1, 190), { kind: "heal", pctLostHp: 10 }],
   },
   v2c_templar_aegis: {
     // 어느 단일 직업도 안 가진 조합(방어%+회복강화%) — 순회 수집 메리트. 탱(방어)과 자힐(가호) 결합.
@@ -557,7 +558,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     id: "v2c_spellblade_unity", name: "마검 합일", stat: "str", category: "passive", tier: 3,
     description: "검과 마법을 하나로 다룬다. 힘과 지능이 함께 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { str: 8, int: 8 } },
+    passive: { statPct: { str: 12, int: 12 } }, // 8→12(오너 2026-06-22) — 이중 공격축 분산 세금 보상.
   },
 
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·

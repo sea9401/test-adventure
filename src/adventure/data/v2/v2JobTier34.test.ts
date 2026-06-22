@@ -164,9 +164,19 @@ describe("성기사 스펙 체인 — 브리지 왕복 + 킷 + 킷 id 실재", (
     // 심판의 빛 = 물리 damage + heal 혼합(전사 타격 + 사제 치유). 가호 = 방어%(탱) + 회복강화%(자힐 증폭).
     const smite = V2_SKILLS.v2c_templar_smite;
     expect(smite.effects.some((e) => e.kind === "damage")).toBe(true);
-    expect(smite.effects.some((e) => e.kind === "heal")).toBe(true);
+    const heal = smite.effects.find((e) => e.kind === "heal");
+    expect(heal).toBeDefined();
+    // 자힐 = 잃은 HP 의 10%(오너 하향, 옛 20%) · 마나 42. 의도값 잠금.
+    expect(heal?.kind === "heal" ? heal.pctLostHp : undefined).toBe(10);
+    expect(smite.mpCost).toBe(42);
     const aegis = V2_SKILLS.v2c_templar_aegis.passive!;
     expect((aegis.defPct ?? 0) > 0 && (aegis.healPowerPct ?? 0) > 0).toBe(true);
+  });
+
+  it("마검사 마검 합일 = 힘·지능 이중 공격축 12%/12%(오너 상향, 옛 8%)", () => {
+    const unity = V2_SKILLS.v2c_spellblade_unity.passive!;
+    expect(unity.statPct?.str).toBe(12);
+    expect(unity.statPct?.int).toBe(12);
   });
 });
 

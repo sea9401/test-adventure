@@ -30,3 +30,9 @@ export async function requireAdmin(): Promise<Response | null> {
   if (!ok) return new Response("forbidden", { status: 403 });
   return null;
 }
+
+/** 현재 관리자 이메일(소문자). 감사 로그 기록용 — requireAdmin 통과 후 호출. */
+export async function currentAdminEmail(): Promise<string> {
+  const session = await auth();
+  return session?.user?.email?.toLowerCase() ?? "unknown";
+}

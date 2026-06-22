@@ -1,7 +1,8 @@
 import { gte, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { guildQuestInstances, guilds } from "@/db/schema";
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
+import { logAdminAction } from "@/lib/server/adminAudit";
 import { issueWeeklyProposals, thisWeekStartKST } from "@/lib/server/guildQuests";
 
 type ReissueBody = { action: "reissue_week" };
@@ -60,6 +61,17 @@ export async function POST(req: Request) {
     body = (await req.json()) as Body;
   } catch {
     return new Response("invalid json", { status: 400 });
+  }
+
+  if (
+    body.action === "reissue_week" ||
+    body.action === "wipe_all" ||
+    body.action === "expire_open"
+  ) {
+    await logAdminAction({
+      adminEmail: await currentAdminEmail(),
+      action: `guild-quests.${body.action}`,
+    });
   }
 
   if (body.action === "reissue_week") {

@@ -1,5 +1,6 @@
 import { db } from "@/db";
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
+import { logAdminAction } from "@/lib/server/adminAudit";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { MAX_LEVEL } from "@/lib/leveling";
 import { parseV2Class, tier1ClassOf } from "@/adventure/data/v2/classes";
@@ -282,6 +283,14 @@ export async function POST(req: Request) {
     }
 
     return out;
+  });
+
+  // 감사 로그 — 무엇을 지급했는지 키만 요약(result 의 ok 제외).
+  await logAdminAction({
+    adminEmail: await currentAdminEmail(),
+    action: "grant.v2",
+    targetUserId: userId,
+    detail: { granted: Object.keys(result).filter((k) => k !== "ok") },
   });
 
   return Response.json(result);

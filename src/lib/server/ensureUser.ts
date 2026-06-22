@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -32,6 +33,19 @@ export async function ensureUser(): Promise<string | null> {
       return null;
     }
     throw e;
+  }
+
+  // 제재(밴/정지) enforcement — 차단 중이면 null 반환(=호출 측 401). 모든 게임 API 가 이
+  // 단일 지점을 거치므로 여기 한 곳으로 전면 차단된다. (PK 읽기라 비용 미미.)
+  //   ⚠️ 현재는 401 → 클라가 "세션 만료" 화면을 띄움(전용 밴 안내 화면은 후속). 차단 자체는
+  //      확실(밴 유저는 어떤 게임 행동도 불가). 관리자 페이지(requireAdmin)는 이 경로와 무관.
+  const [row] = await db
+    .select({ bannedUntil: users.bannedUntil })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+  if (row?.bannedUntil && row.bannedUntil.getTime() > Date.now()) {
+    return null;
   }
 
   return session.user.id;

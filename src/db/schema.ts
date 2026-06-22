@@ -50,6 +50,12 @@ export const users = pgTable(
     // 새 dispatch 시작 시 NULL 로 리셋. lastClaimId 는 "collected" 마커로만 사용 (옛 잔재).
     lastClaimId: text("last_claim_id"),
     lastClaimResult: jsonb("last_claim_result"),
+    // 제재(밴/정지) enforcement 의 비정규화 필드 — 전체 이력은 user_sanctions 테이블.
+    //   null            = 정상
+    //   미래 timestamp   = 그 시각까지 차단 (영구 밴은 먼 미래로 세팅)
+    // ensureUser 가 매 API 호출에서 PK 읽기로 검사 → 차단 시 null 반환(=401).
+    bannedUntil: timestamp("banned_until"),
+    banReason: text("ban_reason"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -1128,5 +1134,50 @@ export const v2Notifications = pgTable(
   (t) => [
     // 내 알림 최신순 조회 + 미읽음 카운트 둘 다 이 인덱스로.
     index("v2_notifications_user_idx").on(t.userId, sql`${t.id} DESC`),
+  ],
+);
+
+// 유저 제재 이력 — 밴/정지/경고의 append-only 로그. 현재 차단 여부는 users.bannedUntil
+// (비정규화)로 빠르게 검사하고, 이 테이블은 누가·언제·왜·얼마나 + 해제 이력을 보존한다.
+//   type:       'ban'(영구) | 'suspend'(기간) | 'warn'(경고, enforcement 없음)
+//   expiresAt:  suspend 만료 시각. ban=먼 미래, warn=null.
+//   liftedAt:   관리자가 조기 해제하면 채워짐(이력 유지 — row 삭제 안 함).
+export const userSanctions = pgTable(
+  "user_sanctions",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    reason: text("reason").notNull().default(""),
+    expiresAt: timestamp("expires_at"),
+    createdByEmail: text("created_by_email").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    liftedAt: timestamp("lifted_at"),
+    liftedByEmail: text("lifted_by_email"),
+  },
+  (t) => [
+    // 유저별 제재 이력 최신순.
+    index("user_sanctions_user_idx").on(t.userId, sql`${t.id} DESC`),
+  ],
+);
+
+// 관리자 감사 로그 — admin API 의 모든 변경 행동을 append-only 로 기록(누가·무엇을·대상).
+//   action:       'sanction.ban' / 'grant.v2' / 'reset-character' / 'season-ops.war-rollover' 등.
+//   targetUserId: 대상 유저(있으면). detail: 자유형 컨텍스트(JSON).
+export const adminAuditLog = pgTable(
+  "admin_audit_log",
+  {
+    id: serial("id").primaryKey(),
+    adminEmail: text("admin_email").notNull(),
+    action: text("action").notNull(),
+    targetUserId: text("target_user_id"),
+    detail: jsonb("detail"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    // 최신순 조회.
+    index("admin_audit_log_created_idx").on(sql`${t.id} DESC`),
   ],
 );

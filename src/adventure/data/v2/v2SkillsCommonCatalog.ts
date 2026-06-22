@@ -96,7 +96,7 @@ export type V2CommonSkillId =
   | "v2c_spellblade_strike" // 마검사: 마검 일섬 (물리 + 마법 이중 타격)
   | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +12% & 지능 +12%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
-  | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
+  | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
   | "v2c_sensei_combo" // 반격 (피격 시 확률 반격 — 옛 난무, id 유지)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·관통 20% 방어무시 추가타)
@@ -564,12 +564,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   // ── 심화 4직업 액티브(tier 4) — 고차보다 한 단계 강한 공격. tier 필드는 3 유지(비용 동일·
   //   rubricSpCost 가 클램프) — 직업은 4차지만 스킬 파워버킷은 상급. ──
   v2c_veteran_cleave: {
-    // 정예 기사 = 기사 라인 정점. 참격→결전의 일격 리스킨(id 유지). 처형 딜(공격력 기반·scaling 생략=
-    //   atk) — 적 HP 낮을수록 치명(필살 치명피해 패시브와 시너지). 적 HP 30%↓ ×2.0. PvE/PvP 공용.
-    id: "v2c_veteran_cleave", name: "결전의 일격", stat: "str", category: "attack", tier: 3,
-    description: "승부를 가르는 최후의 일격. 위태로운 적일수록 깊이 파고든다.", mpCost: 40, cooldown: 0, procChance: 30,
+    // 정예 기사 = 기사 라인 정점. 참격→왕실 검술 리스킨(id 유지). 처형 딜(공격력 기반·scaling 생략=
+    //   atk) — 적 HP 낮을수록 치명(필살 치명피해 패시브와 시너지). 적 HP 15%↓ ×2.0(옛 30% 과해 하향,
+    //   오너 2026-06-22). PvE/PvP 공용.
+    id: "v2c_veteran_cleave", name: "왕실 검술", stat: "str", category: "attack", tier: 3,
+    description: "왕실 검법의 정수를 담은 일격. 위태로운 적일수록 깊이 파고든다.", mpCost: 40, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "executeDamage", statCoef: 1.3, baseFlatByTier: [240, 240, 240], hpThresholdPct: 30, bonusMult: 2.0 },
+      { kind: "executeDamage", statCoef: 1.3, baseFlatByTier: [240, 240, 240], hpThresholdPct: 15, bonusMult: 2.0 },
     ],
   },
   v2c_sensei_combo: {

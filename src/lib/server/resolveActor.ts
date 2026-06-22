@@ -5,7 +5,9 @@
 // 출처:
 //   - name: users.gameName → character-profile.v2.name → "이름 없는 모험가"
 //   - className: character.v2.className → "모험가"
-//   - title: character.v2.equippedTitleId 로 TITLES 룩업 → null
+//   - title: character.v2.equippedTitleId 로 TITLES 룩업 → null.
+//     ⚠️ 보유 검증까지 한다 — adventure-log.v2.titles 에 없는 칭호를 (세이브 변조로)
+//        장착했더라도 채팅/접속자엔 노출하지 않는다(미보유 칭호 사칭 차단).
 //
 // 호출당 2 query (users 1 + savesKv 1 with IN(...)).
 
@@ -13,6 +15,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { savesKv, users } from "@/db/schema";
 import { TITLES } from "@/adventure/data/titles";
+import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 
 export type ResolvedActor = {
   name: string;
@@ -36,7 +39,11 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
     .where(
       and(
         eq(savesKv.userId, userId),
-        inArray(savesKv.key, ["character.v2", "character-profile.v2"]),
+        inArray(savesKv.key, [
+          "character.v2",
+          "character-profile.v2",
+          "adventure-log.v2",
+        ]),
       ),
     );
   const byKey: Record<string, unknown> = {};
@@ -61,7 +68,12 @@ export async function resolveActor(userId: string): Promise<ResolvedActor> {
     typeof character?.equippedTitleId === "string"
       ? character.equippedTitleId
       : null;
-  const title = titleId && TITLES[titleId] ? TITLES[titleId].name : null;
+  // 보유한 칭호만 노출 — 미보유 id 를 장착해도(변조) null 처리.
+  const owned = new Set(ownedTitleIdsOf(byKey["adventure-log.v2"]));
+  const title =
+    titleId && TITLES[titleId] && owned.has(titleId)
+      ? TITLES[titleId].name
+      : null;
 
   return { name, className, title };
 }

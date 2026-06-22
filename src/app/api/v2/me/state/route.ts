@@ -9,6 +9,7 @@ import {
   users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
 import { ensureV2Character } from "@/lib/server/v2Character";
@@ -251,7 +252,17 @@ export async function GET() {
     discoveredOutpostIds?: string[];
     frontierDepth?: unknown;
     lastHuntedOutpost?: unknown;
+    equippedTitleId?: unknown;
   };
+
+  // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
+  // "칭호" 탭이 소비. 보유 목록만 노출하므로 옛 V1 칭호(v2 에선 미획득)는 포함되지 않는다.
+  const ownedTitleIds = ownedTitleIdsOf(adventureLogRow?.value);
+  const equippedTitleId =
+    typeof charSave.equippedTitleId === "string" &&
+    ownedTitleIds.includes(charSave.equippedTitleId)
+      ? charSave.equippedTitleId
+      : null;
 
   // V2TopBar 좌측 표시 — character.v2.lastVisitedOutpost.outpostId → OUTPOSTS lookup.
   // null = 아직 거점 방문 안 함 ("이동 중").
@@ -680,6 +691,9 @@ export async function GET() {
     })(),
     // 지도 조각 보유 수 — 발굴 감정소 진입 표시용.
     treasureFragments: parseTreasureFragments(treasureFragmentsRow?.value).fragments,
+    // 칭호 — 모험의 서 "칭호" 탭이 보유 목록 표시 + 장착 토글에 사용. 채팅/접속자엔
+    //   resolveActor 가 같은 보유 검증으로 노출(미보유 변조 차단).
+    titles: { ownedTitleIds, equippedTitleId },
     // 프론티어 최고 도달 깊이 (기본 2 = 들판 초반 해금, 깊이 3까지). MAX 캡으로 정규화
     //   (레거시 무한기 >42 저장값도 현재 콘텐츠 끝으로 표시 — 클라가 캡 밖 깊이를 들고 다니지 않게).
     frontierDepth: Math.min(

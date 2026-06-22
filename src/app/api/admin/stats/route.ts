@@ -31,16 +31,18 @@ export async function GET() {
       p.name AS name,
       p.last_seen_at AS last_seen_at,
       (c.value->>'level')::int AS level,
-      (c.value->>'exp')::int AS exp,
-      (c.value->>'gold')::int AS gold,
-      (c.value->>'fame')::int AS fame,
+      -- exp/gold/fame 는 누적값이라 int4 범위(~21억)를 넘을 수 있다(예: gold 1000억+).
+      -- int 캐스팅은 "integer out of range" 로 쿼리 전체를 500 시키므로 bigint 로 받는다.
+      (c.value->>'exp')::bigint AS exp,
+      (c.value->>'gold')::bigint AS gold,
+      (c.value->>'fame')::bigint AS fame,
       (
         COALESCE((
-          SELECT SUM((m.value->>'kills')::int)
+          SELECT SUM((m.value->>'kills')::bigint)
           FROM jsonb_each(l.value->'monsters') AS m
           WHERE (m.value->>'kills') IS NOT NULL
         ), 0)
-        + COALESCE((l.value->>'battleLosses')::int, 0)
+        + COALESCE((l.value->>'battleLosses')::bigint, 0)
       ) AS battle_count
     FROM users u
     LEFT JOIN presence p ON p.user_id = u.id

@@ -7,22 +7,25 @@ import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
 import { GuildsTab } from "./tabs/GuildsTab";
 import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
+import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
-type TabKey = "users" | "stats" | "balance" | "guilds";
+type TabKey = "users" | "stats" | "balance" | "guilds" | "season";
 
-type TabGroup = "system";
+type TabGroup = "system" | "ops";
 
 const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "users", label: "유저", group: "system" },
   { key: "stats", label: "통계", group: "system" },
   { key: "balance", label: "밸런스", group: "system" },
-  { key: "guilds", label: "길드 의뢰", group: "system" },
+  { key: "guilds", label: "길드 의뢰", group: "ops" },
+  { key: "season", label: "시즌", group: "ops" },
 ];
 
 const GROUP_LABELS: Record<TabGroup, string> = {
   system: "시스템",
+  ops: "운영",
 };
 
 // 인접 동일 그룹 묶기 — 사이드바 그룹 헤더용. 순서는 TABS 정의 순 그대로.
@@ -131,6 +134,7 @@ function ShellInner() {
           {tab === "stats" && <StatsTab />}
           {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "guilds" && <GuildsTab />}
+          {tab === "season" && <SeasonOpsTab />}
         </main>
       </div>
 

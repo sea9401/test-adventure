@@ -40,7 +40,6 @@ import {
   FISH_IDS,
   FISH_TIERS,
   FISH_TIER_ORDER,
-  FISH_TOTAL,
   formatFishSize,
   type FishTier,
 } from "@/adventure/data/v2/fish";
@@ -49,7 +48,6 @@ import {
   ANTIQUE_IDS,
   ANTIQUE_TIERS,
   ANTIQUE_TIER_ORDER,
-  ANTIQUE_TOTAL,
   ANTIQUE_THEME_LABEL,
   formatCondition,
 } from "@/adventure/data/v2/antique";
@@ -260,53 +258,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
   // 도달한 깊이까지의 사냥터 테마(들판/마른 협곡/…) — 테마당 1개.
   const themes = dungeonThemeCatalog(frontierDepth);
 
-  const subtitle =
-    tab === "huntground"
-      ? {
-          text: "사냥터 — 도달한 구역의 몬스터와 드랍 정보(처리한 깊이 기준).",
-          count: `${themes.length} 구역`,
-        }
-      : tab === "materials"
-      ? {
-          text: "재료 — 어느 구역에서 어떤 재료가 떨어지는지 한눈에.",
-          count: `등재 ${materialEntries.filter((e) => discovered.has(e.id)).length}/${materialEntries.length}종`,
-        }
-      : tab === "fish"
-        ? {
-            text: "어보 — 낚시터에서 잡은 물고기와 개인 최대어 기록.",
-            count: `등재 ${FISH_IDS.filter((id) => fishDiscovered.has(id)).length}/${FISH_TOTAL}종`,
-          }
-        : tab === "treasure"
-          ? {
-              text: "유물 — 발굴로 찾아낸 골동품과 개인 최고 보존상태.",
-              count: `등재 ${ANTIQUE_IDS.filter((id) => antiqueDiscovered.has(id)).length}/${ANTIQUE_TOTAL}종`,
-            }
-          : tab === "title"
-          ? {
-              text: "칭호 — 획득한 칭호를 장착하면 채팅·접속자 목록에 표시됩니다.",
-              count: `보유 ${ownedTitleCount}개`,
-            }
-          : {
-              text: "직업 — 거쳐온 직업과 모은 스킬의 기록.",
-              count: jobCodex
-                ? `해금 ${jobCodex.jobs.length}/${jobCodex.totalJobs} · 스킬 수집 ${jobCodex.jobs.filter((j) => j.skillsTotal > 0 && j.skillsLearned === j.skillsTotal).length}/${jobCodex.totalJobs}`
-                : "",
-            };
-
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="모험의 서" onBack={onBack} />
-      <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        {subtitle.text}{" "}
-        <span className="font-medium text-zinc-600 dark:text-zinc-300">
-          {subtitle.count}
-        </span>
-      </p>
       <div className="flex flex-wrap gap-1.5">
         {(
           [
             ["huntground", "사냥터"],
-            ["materials", "재료"],
             ["fish", "어보"],
             ["treasure", "유물"],
             ["title", "칭호"],

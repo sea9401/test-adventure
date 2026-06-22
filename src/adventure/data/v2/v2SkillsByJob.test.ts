@@ -74,7 +74,7 @@ describe("직업 킷 — 스킬셋", () => {
     ).toBe(true);
   });
 
-  it("도적 직군 스케일링: 자객 처단=LUK 비례, 유격수 연사=DEX 비례", () => {
+  it("도적 직군 스케일링: 자객 처단=LUK 비례, 궁사 연사=DEX 비례", () => {
     // 도적 정체성 — 데미지가 str-atk 가 아니라 행운/민첩 직접 비례(scaling). 원시스탯이 커서 계수 작음.
     const assassin = V2_SKILLS.v2c_assassin_ambush.effects[0];
     expect(assassin).toMatchObject({ kind: "executeDamage", scaling: "luk" });
@@ -107,8 +107,8 @@ describe("직업 킷 — 스킬셋", () => {
   });
 
   it("고차 4직업(tier 3) = 액티브 1(강) + 패시브 1(다양성: 일부는 비스탯 효과)", () => {
-    // 다양성 2차: brawler/magus 는 직군 축 % 유지(증폭), paladin/ranger 는 비스탯 효과로 리스킨
-    //   (방어%·명중, PvP-안전). 트리 오르며 같은 축 몰빵이 아니라 효과가 갈린다.
+    // 다양성 2차: brawler/magus/ranger 는 직군 축 % 유지(증폭·각 +20%), paladin 만 비스탯 효과로
+    //   리스킨(공방 균형, PvP-안전). 트리 오르며 효과가 갈린다.
     const ACTIVES: Record<string, V2SkillId> = {
       paladin: "v2c_paladin_cleave",
       brawler: "v2c_brawler_combo",
@@ -127,11 +127,11 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[ACTIVES[job]].tier, ACTIVES[job]).toBe(3);
       expect(V2_SKILLS[PASSIVE[job]].category, PASSIVE[job]).toBe("passive");
     }
-    // brawler/magus = 직군 축 % 증폭(유지). ranger = 명중(리스킨).
+    // brawler/magus/ranger = 직군 축 % 증폭(유지·각 +20%). ranger 는 궁수 민첩(dex+10%)의 상위판 "민첩 II".
     expect(V2_SKILLS.v2c_brawler_fortitude3.passive?.statPct?.vit).toBe(20);
     expect(V2_SKILLS.v2c_magus_acumen3.passive?.statPct?.int).toBe(30);
-    expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBe(12);
-    expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct).toBeUndefined();
+    expect(V2_SKILLS.v2c_ranger_finesse3.passive?.statPct?.dex).toBe(20);
+    expect(V2_SKILLS.v2c_ranger_finesse3.passive?.accuracyPct).toBeUndefined();
     // paladin(기사) = 공방 균형(힘 10% + 방어 10%, 각 낮게). 가디언(방어 20%)·견습기사(힘 15%)와 차별.
     expect(V2_SKILLS.v2c_paladin_might3.passive?.statPct?.str).toBe(10);
     expect(V2_SKILLS.v2c_paladin_might3.passive?.defPct).toBe(10);
@@ -150,7 +150,7 @@ describe("직업 킷 — 스킬셋", () => {
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
       expect(V2_SKILLS[passive].tier, passive).toBe(3);
     }
-    // 형제(기사/격투가/마도사/유격수)와 다른 축: 방어%(순수)·회피·회복강화·치명피해.
+    // 형제(기사/격투가/마도사/궁사)와 다른 축: 방어%(순수)·회피·회복강화·치명피해.
     expect(V2_SKILLS.v2c_guardian_bulwark3.passive?.defPct).toBe(20);
     expect(V2_SKILLS.v2c_warmonk_evasion3.passive?.evasionPct).toBe(14);
     expect(V2_SKILLS.v2c_bishop_blessing3.passive?.healPowerPct).toBe(30);
@@ -259,24 +259,23 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });
 
-  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%/명중) 합산", () => {
+  it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%) 합산", () => {
+    // 명중(accuracyPct) 은 더는 패시브 축이 아님 — 옛 궁사 "정밀" 이 "민첩 II"(dex%) 로 전환됨.
     const agg = aggregateEquippedPassives([
       "v2c_assassin_fortune", // critPct 8
       "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차·마법사 INT 전환으로 교체)
       "v2c_monk_spirit", // evasionPct 10
       "v2c_boxer_fortitude", // lifestealPct 2 (저수치)
       "v2c_guardian_bulwark3", // defPct 20 (방벽·순수 방어)
-      "v2c_ranger_finesse3", // accuracyPct 12 (정밀)
     ]);
     expect(agg.critPct).toBe(8);
     expect(agg.critDmgPct).toBe(25);
     expect(agg.evasionPct).toBe(10);
     expect(agg.lifestealPct).toBe(2);
     expect(agg.defPct).toBe(20);
-    expect(agg.accuracyPct).toBe(12);
     // 흡혈은 자동전투 눈덩이 방지로 의도적 저수치(가드).
     expect(agg.lifestealPct).toBeLessThanOrEqual(5);
-    // 비스탯 효과는 stat/statPct 와 분리.
+    // 비스탯 효과만 골랐으므로 stat/statPct 는 비어 있음.
     expect(agg.statPct).toEqual({});
   });
 

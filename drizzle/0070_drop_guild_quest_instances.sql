@@ -1,0 +1,1 @@
+DROP TABLE "guild_quest_instances" CASCADE;

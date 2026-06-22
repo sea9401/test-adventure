@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { gradeForFame } from "@/adventure/data/guildQuests";
+import { gradeForFame } from "@/adventure/data/guildGrades";
 
 const LIST_LIMIT = 100;
 // 메모리 캐시 TTL — 길드 명성/멤버수는 매우 빨리 변하지 않으니 30초 staleness OK.

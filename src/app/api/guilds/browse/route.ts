@@ -7,7 +7,7 @@ import {
   savesKv,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { gradeForFame } from "@/adventure/data/guildQuests";
+import { gradeForFame } from "@/adventure/data/guildGrades";
 import { GUILD_MAX_MEMBERS, guildMemberCap } from "@/adventure/data/guild";
 
 const BROWSE_LIMIT = 30;

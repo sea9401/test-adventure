@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { gradeForFame } from "@/adventure/data/guildQuests";
+import { gradeForFame } from "@/adventure/data/guildGrades";
 
 // GET /api/profile/by-name?name=Hero
 // 인증된 유저가 다른 모험가의 공개 프로필을 조회. 단일 EC2 / DB 라

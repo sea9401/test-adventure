@@ -3,14 +3,14 @@
 //
 // 핵심 원칙(공정성 청정):
 //   · 물때는 "지금 무엇이 더 걸리나"(가용 종)와 표시만 바꾼다 — 사이즈·반응·리더보드엔 영향 0.
-//   · 날씨(weather.ts)와 같은 hash32 결정론을 쓰되, 권역에 묶이지 않게 전용 시드를 쓴다
-//     (낚시는 글로벌 시설이라 "어느 권역 날씨냐" 모호함이 없게). DB 0 / cron 0 / 서버·클라 동일.
+//   · 결정론 hash32(공용 hash.ts)를 전용 시드로 쓴다(글로벌 시설이라 권역 무관).
+//     DB 0 / cron 0 / 서버·클라 동일.
 
-import { WEATHER_WINDOW_MS, hash32 } from "./weather";
+import { WINDOW_4H_MS, hash32 } from "./hash";
 import type { FishId } from "./fish";
 
-// 물때 창 = 날씨와 동일 4시간(UTC epoch 정렬 → 전 유저 동시 전환). 클라가 직접 계산해 배지를 그린다.
-export const MULTTAE_WINDOW_MS = WEATHER_WINDOW_MS;
+// 물때 창 = 4시간(UTC epoch 정렬 → 전 유저 동시 전환). 클라가 직접 계산해 배지를 그린다.
+export const MULTTAE_WINDOW_MS = WINDOW_4H_MS;
 
 export type MulttaeConditionId = "dawn" | "starlit" | "mist" | "tempest" | "still";
 

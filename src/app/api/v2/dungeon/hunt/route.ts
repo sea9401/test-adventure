@@ -49,12 +49,6 @@ import {
   type V2Element,
 } from "@/adventure/data/v2/elements";
 import {
-  weatherAt,
-  weatherAtkMult,
-  weatherRegionOfOutpost,
-  weatherTierFor,
-} from "@/adventure/data/v2/weather";
-import {
   emptyV2SkillsState,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
@@ -560,19 +554,6 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     monsterElement,
   );
 
-  // 날씨 보정 — 거점의 권역 날씨가 내 공격 속성에 ±단계 곱연산(약점 찌르기와 같은 지점).
-  //   거점 밖 사냥(outpostId 없음)은 날씨 무관(중립 ×1). 결과 카드 표기용으로 단계도 보관.
-  //   결정론(hash(권역,4h창))이라 판마다 now 로 자연 반영(일괄 중 창 전환도 OK).
-  const weatherWindow = outpostId
-    ? weatherAt(weatherRegionOfOutpost(outpostId), now)
-    : null;
-  const weatherMult = weatherWindow
-    ? weatherAtkMult(weatherWindow.weather, basicAttackElement)
-    : 1;
-  const weatherTier = weatherWindow
-    ? weatherTierFor(weatherWindow.weather, basicAttackElement)
-    : null;
-
   // 전투 로그에 박을 캐릭 이름 — character-profile.v2 의 name. 없으면 "모험가".
   const profile = await readSave<{ name?: string } | null>(
     tx,
@@ -596,13 +577,10 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     // MP 실자원화 — 보존된 MP 로 전투 시작(derive 가 character.v2.mp 시드). 전투 후 mpCharges 가
     // 부족분을 채우므로 충전약이 남는 한 사실상 풀로 시작하고, 떨어지면 줄어 마법 위력이 빠진다.
     mp: player.player.mp,
-    atk: Math.max(
-      1,
-      Math.round(player.player.atk * playerElemMult * weatherMult),
-    ),
+    atk: Math.max(1, Math.round(player.player.atk * playerElemMult)),
     magicAtk: Math.max(
       0,
-      Math.round((player.player.magicAtk ?? 0) * playerElemMult * weatherMult),
+      Math.round((player.player.magicAtk ?? 0) * playerElemMult),
     ),
     // PR-5b — 평타 속성(baked) + 캐릭 속성(스킬 기본·피격 방어). combatShared 가 스킬 보정에 사용.
     attackElement: basicAttackElement,
@@ -1108,15 +1086,6 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         playerElement,
         monsterElement,
         elementMatchup: playerElemMatchup,
-        // 날씨 — 결과 카드 표기용(거점 밖이면 null). tier=내 속성이 받은 단계(중립이면 null).
-        weather: weatherWindow
-          ? {
-              id: weatherWindow.weather.id,
-              name: weatherWindow.weather.name,
-              emoji: weatherWindow.weather.emoji,
-              tier: weatherTier,
-            }
-          : null,
         // 충전식 회복약 잔량 — HP/MP 모두 전투 후 부족분 자동 소모 반영.
         hpCharges,
         mpCharges,

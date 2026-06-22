@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { BackButton } from "@/components/ui/BackButton";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { WeatherBadge } from "@/adventure/v2/WeatherBadge";
 import { Gear } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { HuntResultCard } from "@/adventure/v2/HuntResultCard";
@@ -85,7 +84,6 @@ export function V2DungeonFloorView({
   onFrontierUnlocked,
   onLevelUp,
   rareMapIid = null,
-  myElement,
   combatCooldown,
   setCombatCooldown,
   setAtRiskGold,
@@ -122,8 +120,6 @@ export function V2DungeonFloorView({
   onLevelUp?: () => void;
   // 레어맵 입장 모드 — 보유 지도 iid (?rareMap=). 서버가 소유/깊이/판수를 검증·차감.
   rareMapIid?: string | null;
-  // 내 캐릭터 속성 — 날씨 배지 단계 강조용.
-  myElement?: string;
   // === 코어루프(V2_CORE_LOOP_V2) flag-on 전용 — 미전달(dev 하니스)/null(flag off) 이면 비활성 ===
   // 전투 쿨다운(클라 로컬 nextBattleAt). 비null = flag on → 스태미나 라벨 대신 쿨다운 카운트다운.
   combatCooldown?: { nextBattleAt: number; cooldownMs: number } | null;
@@ -485,7 +481,6 @@ export function V2DungeonFloorView({
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         권장 전투력 {powerGate}
       </p>
-      <WeatherBadge outpostId={outpostId} myElement={myElement} />
       {rareMapIid && (
         <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
           🗺 레어맵 사냥 중

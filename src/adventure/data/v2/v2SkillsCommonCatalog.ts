@@ -74,11 +74,11 @@ export type V2CommonSkillId =
   | "v2c_brawler_combo" // 벽력권 (물리 단일 강)
   | "v2c_magus_bolt" // 마력 작렬 (마법 단일)
   | "v2c_ranger_ambush" // 연사 (DEX 비례 3연사)
-  // 고차 패시브(다양성 2차: paladin/ranger 는 효과 리스킨, brawler/magus 는 직군 축 % 유지)
+  // 고차 패시브(다양성 2차: paladin 만 효과 리스킨[공방], brawler/magus/ranger 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
   | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
   | "v2c_magus_acumen3" // 총명 III (지능 +30%)
-  | "v2c_ranger_finesse3" // 정밀 (명중 +12)
+  | "v2c_ranger_finesse3" // 민첩 II (DEX +20%·궁수 민첩의 상위판)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
   // 액티브
   | "v2c_guardian_bash" // 방패 강타 (방어기반 단일)
@@ -427,7 +427,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: [dmg(1.35, 210, "magic")],
   },
   v2c_ranger_ambush: {
-    // 유격수 = 궁술/민첩(dex) — 기습(암살 느낌)→연사 리스킨(id 유지·궁수 라인 테마 정합). 화살을
+    // 궁사 = 궁술/민첩(dex) — 기습(암살 느낌)→연사 리스킨(id 유지·궁수 라인 테마 정합). 화살을
     //   세 번 연달아 쏘는 다단(dex 비례). DEX 원시스탯이 커서 hit당 계수 작게. PvE/PvP 공용.
     id: "v2c_ranger_ambush", name: "연사", stat: "dex", category: "attack", tier: 3,
     description: "활시위를 빠르게 세 번 당겨 연달아 쏘아붙인다.", mpCost: 38, cooldown: 0, procChance: 30,
@@ -456,12 +456,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { int: 30 } },
   },
   v2c_ranger_finesse3: {
-    // 유격수 = 정밀 사격(다양성 2차) — 옛 민첩%에서 명중으로 리스킨. id 유지(세이브 호환). dex% 는
-    //   궁수가 유지. 명중은 PvE/PvP 양쪽 소비(고회피 상대 카운터).
-    id: "v2c_ranger_finesse3", name: "정밀", stat: "dex", category: "passive", tier: 3,
-    description: "흔들림 없는 조준. 명중이 오른다.", mpCost: 0, cooldown: 0,
+    // 궁사 = 궁수 계승 — 직군 축(민첩 dex%). 궁수 "민첩"(dex +10%)의 상위판이라 "민첩 II".
+    //   형제 강건 III(vit+20%)·총명 III(int+20%)와 동일 구조(직군 주스탯 +20%). id 유지(세이브
+    //   호환). 옛 명중(정밀) 효과에서 dex% 로 전환 — 대사제 회복 II(#1007)와 같은 상위판 통일.
+    id: "v2c_ranger_finesse3", name: "민첩 II", stat: "dex", category: "passive", tier: 3,
+    description: "극에 다다른 몸놀림. 민첩이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { accuracyPct: 12 },
+    passive: { statPct: { dex: 20 } },
   },
 
   // ── 고차 두 번째 갈래 액티브(tier 3·방패병/수도승/사제/자객 계승) ──
@@ -586,7 +587,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_chief_strike: {
     // 신궁(도적 4차·궁수 라인 정점) = 암격(암살 느낌·str)→관통사 리스킨(id 유지). 궁술 테마로
-    //   민첩(dex) 비례 단일 강사(유격수 연사=다단과 차별). DEX 원시스탯이 커서 계수 작게.
+    //   민첩(dex) 비례 단일 강사(궁사 연사=다단과 차별). DEX 원시스탯이 커서 계수 작게.
     id: "v2c_chief_strike", name: "관통사", stat: "dex", category: "attack", tier: 3,
     description: "단 한 발에 모든 것을 실어 꿰뚫는다.", mpCost: 40, cooldown: 0, procChance: 30,
     effects: [dmg(0.35, 250, "dex")],

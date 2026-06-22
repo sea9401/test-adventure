@@ -175,7 +175,7 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
   // 🔑 패턴 경로는 "평타(atk) 바닥" 모델 — 스킬딜 = max(atk 기반 평타 바닥, 스케일 데미지). 저-atk
   //   도적(dex/luk 빌드)에선 스케일이 바닥을 넘어 dex/luk 가 딜을 좌우(의도된 audience). 고-atk면
   //   바닥이 이김(스킬이 평타보다 약해지지 않게 — 안전). 그래서 저-atk 로 스케일 효과를 검증한다.
-  it("유격수 기습 = DEX 비례 (저-atk 도적 빌드에서 DEX 가 딜 좌우)", () => {
+  it("궁사 기습 = DEX 비례 (저-atk 도적 빌드에서 DEX 가 딜 좌우)", () => {
     const loDex = castWith("v2c_ranger_ambush", { atk: 10, dex: 100 }).enemyDamage;
     const hiDex = castWith("v2c_ranger_ambush", { atk: 10, dex: 400 }).enemyDamage;
     expect(hiDex).toBeGreaterThan(loDex); // DEX 올리면 딜↑(dex 스케일 작동).

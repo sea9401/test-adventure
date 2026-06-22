@@ -222,7 +222,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   ranger: {
     id: "ranger",
-    name: "유격수",
+    name: "궁사",
     tier: 3,
     cultivateProfile: { dex: 2, luk: 2 },
     jobBonus: { dex: 13, luk: 7 }, // 도적 고차 — 민첩 중심
@@ -302,7 +302,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
 
   // ─── Tier 4: 심화 직업 — 🔑 계보 게이팅: 바로 아래 3차 직업의 jobCumLevel ≥ TIER4_UNLOCK_CUMLEVEL(300) ───
-  //   (기사→정예 기사·마도사→대마법사/원소술사·유격수→신궁 …). 직군당 1종(마법만 2종, 둘 다 마도사 계보).
+  //   (기사→정예 기사·마도사→대마법사/원소술사·궁사→신궁 …). 직군당 1종(마법만 2종, 둘 다 마도사 계보).
   //   이중 내장 보너스 + 액티브 1(강) + 패시브. 새 derive 배선 없음 — 기존 효과 어휘 재사용.
   veteran: {
     id: "veteran",
@@ -344,7 +344,7 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     tier: 4,
     cultivateProfile: { dex: 2, luk: 2 },
     jobBonus: { dex: 15, luk: 7 }, // 도적 심화(궁술 라인 정점)
-    unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 유격수 계보
+    unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 궁사 계보
   },
 };
 

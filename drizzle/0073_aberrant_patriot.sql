@@ -1,0 +1,1 @@
+ALTER TABLE "tile_settlements" DROP COLUMN "last_harvest_at";

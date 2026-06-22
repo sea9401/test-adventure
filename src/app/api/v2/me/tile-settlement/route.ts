@@ -17,25 +17,18 @@ import {
   tileNextTier,
   isTileSettlementTier,
   tileSettlementName,
-  tilePendingYield,
 } from "@/adventure/data/v2/tileConfig";
 
-// POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거/수확. (자유 타일 지도 Phase 3~4)
+// POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거. (자유 타일 지도 Phase 3)
 //
-// 본문: { action: "found" | "promote" | "demolish" | "harvest", col, row }
+// 본문: { action: "found" | "promote" | "demolish", col, row }
 //  - found: 빈 칸(거점 아님·미정착)에 개척마을(frontier) 건설. TILE_FOUND_COST 골드.
 //  - promote: 본인 정착지 한 단계 승격(frontier→village→city→metropolis). TILE_PROMOTE_COST.
-//    개척마을→마을 승격이 영지를 얻는 가장 비싼 단계. 승격 시 수확 누적 리셋(새 티어 시급).
+//    개척마을→마을 승격이 영지를 얻는 가장 비싼 단계.
 //  - demolish: 본인 정착지 철거(환불 없음).
-//  - harvest: 본인 정착지 누적 idle 골드 수확(Phase 4) → 지갑 적립·lastHarvestAt 리셋.
 //  - V2_FREEFORM_TILES off 면 404(플래그 게이트) — 라이브(flag off)는 이 테이블 무접촉.
 
-type CharSave = {
-  gold?: number;
-  bankedGold?: number;
-  level?: number;
-  [k: string]: unknown;
-};
+type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -91,16 +84,13 @@ export async function POST(req: Request) {
     row < TILE_BOARD_SIZE;
   if (
     !validTile ||
-    (action !== "found" &&
-      action !== "promote" &&
-      action !== "demolish" &&
-      action !== "harvest")
+    (action !== "found" && action !== "promote" && action !== "demolish")
   ) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
   type Res =
-    | { kind: "ok"; gold: number; bankedGold: number; harvested?: number }
+    | { kind: "ok"; gold: number; bankedGold: number }
     | {
         kind: "err";
         status: number;
@@ -110,7 +100,6 @@ export async function POST(req: Request) {
       };
 
   const result: Res = await db.transaction(async (tx): Promise<Res> => {
-    const now = Date.now();
     const existing = (
       await tx
         .select()
@@ -146,54 +135,10 @@ export async function POST(req: Request) {
       return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
     }
 
-    // promote / demolish / harvest — 본인 정착지여야.
+    // promote / demolish — 본인 정착지여야.
     if (!existing) return { kind: "err", status: 404, error: "not_found" };
     if (existing.userId !== userId) {
       return { kind: "err", status: 403, error: "not_owner" };
-    }
-
-    if (action === "harvest") {
-      const tier = isTileSettlementTier(existing.tier)
-        ? existing.tier
-        : "frontier";
-      const lastMs = existing.lastHarvestAt
-        ? existing.lastHarvestAt.getTime()
-        : now;
-      // 소유자 세이브 1회 로드 — 진행도(레벨) 연동 시급 계산 + 골드 적립.
-      const save = await lockSaveForUpdate<CharSave>(
-        tx,
-        userId,
-        "character.v2",
-        {},
-      );
-      const gold =
-        typeof save.gold === "number" && Number.isFinite(save.gold)
-          ? Math.max(0, Math.floor(save.gold))
-          : 0;
-      const banked = Math.max(0, Math.floor(Number(save.bankedGold) || 0));
-      const level = Math.max(1, Math.floor(Number(save.level) || 1));
-      // 코어루프 off 면 골드 미사용 → 수확 0(no-op). on 이면 누적분(레벨 배율) 적립 + 리셋.
-      const pending = V2_CORE_LOOP_V2
-        ? tilePendingYield(tier, lastMs, now, level)
-        : 0;
-      if (pending > 0) {
-        await upsertSave(tx, userId, "character.v2", {
-          ...save,
-          gold: gold + pending,
-        });
-        await tx
-          .update(tileSettlements)
-          .set({ lastHarvestAt: new Date(now) })
-          .where(
-            and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)),
-          );
-      }
-      return {
-        kind: "ok",
-        gold: pending > 0 ? gold + pending : gold,
-        bankedGold: banked,
-        harvested: pending,
-      };
     }
 
     if (action === "demolish") {
@@ -219,10 +164,9 @@ export async function POST(req: Request) {
         gold: charge.gold,
       };
     }
-    // 승격 시 수확 누적 리셋(새 티어 시급으로 새로 쌓음·구티어 보류분 정산 회피).
     await tx
       .update(tileSettlements)
-      .set({ tier: next, lastHarvestAt: new Date(now) })
+      .set({ tier: next })
       .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
     return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
   });
@@ -243,6 +187,5 @@ export async function POST(req: Request) {
     ...(V2_CORE_LOOP_V2
       ? { gold: result.gold, bankedGold: result.bankedGold }
       : {}),
-    ...(result.harvested != null ? { harvested: result.harvested } : {}),
   });
 }

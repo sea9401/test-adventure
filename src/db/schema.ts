@@ -1027,8 +1027,6 @@ export const tileSettlements = pgTable(
     tier: text("tier").notNull().default("frontier"),
     name: text("name"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    // 마지막 수확 시각 — idle 골드 생산 누적 기준(Phase 4). 건설·승격 시 now 로 리셋.
-    lastHarvestAt: timestamp("last_harvest_at").defaultNow().notNull(),
   },
   (t) => [primaryKey({ columns: [t.col, t.row] })],
 );

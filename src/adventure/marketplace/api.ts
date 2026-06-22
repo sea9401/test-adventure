@@ -12,7 +12,8 @@ export type InboxItem = {
     | "listing_expired"
     | "guild_invite"
     | "guild_quest_reward"
-    | "season_reward";
+    | "season_reward"
+    | "admin_gift";
   payload: Record<string, unknown>;
   message: string | null;
   listingId: number | null;

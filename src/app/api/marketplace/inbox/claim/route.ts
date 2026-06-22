@@ -174,6 +174,10 @@ export async function POST(req: Request) {
           case "season_reward":
             if (parsed.coins > 0) coinsBySeason[parsed.season] += parsed.coins;
             break;
+          case "admin_gift":
+            // 운영자 대량 우편 — 골드 지급(메시지는 message 컬럼).
+            if (parsed.gold > 0) goldTotal += parsed.gold;
+            break;
         }
       }
 

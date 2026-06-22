@@ -6,7 +6,7 @@ import {
 } from "./inboxPayload";
 
 describe("isInboxPayloadKind", () => {
-  it("승인된 9종 모두 true", () => {
+  it("승인된 10종 모두 true", () => {
     for (const k of [
       "sale_proceeds",
       "purchase_item",
@@ -17,6 +17,7 @@ describe("isInboxPayloadKind", () => {
       "guild_invite",
       "guild_quest_reward",
       "season_reward",
+      "admin_gift",
     ]) {
       expect(isInboxPayloadKind(k)).toBe(true);
     }
@@ -145,6 +146,13 @@ describe("parseInboxPayload — happy path", () => {
       parseInboxPayload("season_reward", { season: "fishing", coins: 120 }),
     ).toEqual({ kind: "season_reward", season: "fishing", coins: 120 });
   });
+
+  it("admin_gift (운영자 우편 — 골드)", () => {
+    expect(parseInboxPayload("admin_gift", { gold: 5000 })).toEqual({
+      kind: "admin_gift",
+      gold: 5000,
+    });
+  });
 });
 
 describe("parseInboxPayload — invalid → null", () => {
@@ -220,6 +228,11 @@ describe("parseInboxPayload — invalid → null", () => {
     ).toBeNull();
     expect(parseInboxPayload("season_reward", { season: "pvp" })).toBeNull();
     expect(parseInboxPayload("season_reward", { coins: 100 })).toBeNull();
+  });
+
+  it("admin_gift — 음수/누락 gold", () => {
+    expect(parseInboxPayload("admin_gift", { gold: -5 })).toBeNull();
+    expect(parseInboxPayload("admin_gift", {})).toBeNull();
   });
 });
 

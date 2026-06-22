@@ -48,6 +48,7 @@ const KIND_LABEL: Record<InboxItem["kind"], string> = {
   guild_invite: "길드 초대",
   guild_quest_reward: "길드 의뢰 보상",
   season_reward: "순위 보상",
+  admin_gift: "운영자 우편",
 };
 
 function timeAgo(iso: string): string {

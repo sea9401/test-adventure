@@ -32,13 +32,15 @@ import {
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
 
-// 개척 정착지(자유 타일 지도 Phase 3) — me/state 로드 + 건설/승격/철거 후 갱신.
+// 개척 정착지(자유 타일 지도 Phase 3~4) — me/state 로드 + 건설/승격/철거/수확 후 갱신.
 export type TileSettlement = {
   col: number;
   row: number;
   userId: string;
   tier: string;
   name: string | null;
+  // 수확 누적 기준(epoch ms·Phase 4). null=미설정(레거시 행) → 클라는 보류 0 취급.
+  lastHarvestAt: number | null;
 };
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
@@ -158,11 +160,12 @@ type GameStateValue = {
   //   거점 칸이면 travelTo 로 위임, 빈 칸이면 move-tile POST(사냥 base 불변·마커만 이동).
   tilePos: { col: number; row: number } | null;
   travelToTile: (col: number, row: number) => void;
-  // 개척 정착지(Phase 3) — 보드의 모든 정착지 + 본인 건설/승격/철거.
+  // 개척 정착지(Phase 3~4) — 보드의 모든 정착지 + 본인 건설/승격/철거/수확(idle 골드).
   tileSettlements: TileSettlement[];
   foundTile: (col: number, row: number) => void;
   promoteTile: (col: number, row: number) => void;
   demolishTile: (col: number, row: number) => void;
+  harvestTile: (col: number, row: number) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -599,10 +602,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [travelTo, applyVisitResult],
   );
 
-  // 개척 정착지 — 건설/승격/철거. 성공 시 낙관적 갱신 + 골드 반영(서버 권위). 실패는 현 상태 유지.
+  // 개척 정착지 — 건설/승격/철거/수확. 성공 시 낙관적 갱신 + 골드 반영(서버 권위). 실패는 현 상태 유지.
   const postTileSettlement = useCallback(
     async (
-      action: "found" | "promote" | "demolish",
+      action: "found" | "promote" | "demolish" | "harvest",
       col: number,
       row: number,
     ): Promise<boolean> => {
@@ -642,6 +645,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
                   userId: viewerUserId ?? "",
                   tier: "frontier",
                   name: tileSettlementName(col, row),
+                  lastHarvestAt: Date.now(),
                 },
               ],
         );
@@ -653,10 +657,15 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     (col: number, row: number) => {
       void postTileSettlement("promote", col, row).then((ok) => {
         if (!ok) return;
+        // 서버가 승격 시 lastHarvestAt 리셋 → 낙관적으로도 now 로 맞춤.
         setTileSettlements((s) =>
           s.map((x) =>
             x.col === col && x.row === row
-              ? { ...x, tier: tileNextTier(x.tier as TileSettlementTier) ?? x.tier }
+              ? {
+                  ...x,
+                  tier: tileNextTier(x.tier as TileSettlementTier) ?? x.tier,
+                  lastHarvestAt: Date.now(),
+                }
               : x,
           ),
         );
@@ -670,6 +679,22 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         if (!ok) return;
         setTileSettlements((s) =>
           s.filter((x) => !(x.col === col && x.row === row)),
+        );
+      });
+    },
+    [postTileSettlement],
+  );
+  const harvestTile = useCallback(
+    (col: number, row: number) => {
+      void postTileSettlement("harvest", col, row).then((ok) => {
+        if (!ok) return;
+        // 골드는 postTileSettlement 가 서버 응답으로 갱신. 누적 기준만 now 로 리셋.
+        setTileSettlements((s) =>
+          s.map((x) =>
+            x.col === col && x.row === row
+              ? { ...x, lastHarvestAt: Date.now() }
+              : x,
+          ),
         );
       });
     },
@@ -737,6 +762,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     foundTile,
     promoteTile,
     demolishTile,
+    harvestTile,
   };
 
   return (

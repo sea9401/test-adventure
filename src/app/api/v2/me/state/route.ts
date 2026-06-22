@@ -548,6 +548,8 @@ export async function GET() {
         userId: r.userId,
         tier: r.tier,
         name: r.name,
+        // 수확 누적 기준(epoch ms) — 클라가 보류 수확량 표시 계산에 사용(Phase 4).
+        lastHarvestAt: r.lastHarvestAt ? r.lastHarvestAt.getTime() : null,
       }))
     : [];
 

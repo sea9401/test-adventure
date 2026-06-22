@@ -1,0 +1,1 @@
+ALTER TABLE "tile_settlements" ADD COLUMN "last_harvest_at" timestamp DEFAULT now() NOT NULL;

@@ -30,7 +30,12 @@ import {
 //  - harvest: 본인 정착지 누적 idle 골드 수확(Phase 4) → 지갑 적립·lastHarvestAt 리셋.
 //  - V2_FREEFORM_TILES off 면 404(플래그 게이트) — 라이브(flag off)는 이 테이블 무접촉.
 
-type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
+type CharSave = {
+  gold?: number;
+  bankedGold?: number;
+  level?: number;
+  [k: string]: unknown;
+};
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -57,26 +62,6 @@ async function chargeGold(
     bankedGold: spend.bankedGold,
   });
   return { ok: true, gold: spend.gold, bankedGold: spend.bankedGold };
-}
-
-// 골드 적립(수확) — 코어루프 on 일 때만 지갑(gold)에 더한다. off 면 적립 없이 현재값 반환.
-async function creditGold(
-  tx: Tx,
-  userId: string,
-  amount: number,
-): Promise<{ gold: number; bankedGold: number }> {
-  const save = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
-  const gold =
-    typeof save.gold === "number" && Number.isFinite(save.gold)
-      ? Math.max(0, Math.floor(save.gold))
-      : 0;
-  const banked = Math.max(0, Math.floor(Number(save.bankedGold) || 0));
-  if (!V2_CORE_LOOP_V2 || amount <= 0) {
-    return { gold, bankedGold: banked };
-  }
-  const next = gold + Math.floor(amount);
-  await upsertSave(tx, userId, "character.v2", { ...save, gold: next });
-  return { gold: next, bankedGold: banked };
 }
 
 export async function POST(req: Request) {
@@ -174,10 +159,28 @@ export async function POST(req: Request) {
       const lastMs = existing.lastHarvestAt
         ? existing.lastHarvestAt.getTime()
         : now;
-      // 코어루프 off 면 골드 미사용 → 수확 0(no-op). on 이면 누적분 적립 + 타임스탬프 리셋.
-      const pending = V2_CORE_LOOP_V2 ? tilePendingYield(tier, lastMs, now) : 0;
-      const credited = await creditGold(tx, userId, pending);
+      // 소유자 세이브 1회 로드 — 진행도(레벨) 연동 시급 계산 + 골드 적립.
+      const save = await lockSaveForUpdate<CharSave>(
+        tx,
+        userId,
+        "character.v2",
+        {},
+      );
+      const gold =
+        typeof save.gold === "number" && Number.isFinite(save.gold)
+          ? Math.max(0, Math.floor(save.gold))
+          : 0;
+      const banked = Math.max(0, Math.floor(Number(save.bankedGold) || 0));
+      const level = Math.max(1, Math.floor(Number(save.level) || 1));
+      // 코어루프 off 면 골드 미사용 → 수확 0(no-op). on 이면 누적분(레벨 배율) 적립 + 리셋.
+      const pending = V2_CORE_LOOP_V2
+        ? tilePendingYield(tier, lastMs, now, level)
+        : 0;
       if (pending > 0) {
+        await upsertSave(tx, userId, "character.v2", {
+          ...save,
+          gold: gold + pending,
+        });
         await tx
           .update(tileSettlements)
           .set({ lastHarvestAt: new Date(now) })
@@ -187,8 +190,8 @@ export async function POST(req: Request) {
       }
       return {
         kind: "ok",
-        gold: credited.gold,
-        bankedGold: credited.bankedGold,
+        gold: pending > 0 ? gold + pending : gold,
+        bankedGold: banked,
         harvested: pending,
       };
     }

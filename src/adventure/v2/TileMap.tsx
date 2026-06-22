@@ -36,6 +36,7 @@ import {
   TILE_FOUND_COST,
   TILE_PROMOTE_COST,
   TILE_YIELD_PER_HOUR,
+  tileYieldLevelMult,
   tileTierOwnsLand,
   tileNextTier,
   tilePendingYield,
@@ -106,6 +107,7 @@ export function TileMap({
   treasuries,
   viewerUserId,
   viewerGuildId,
+  viewerLevel,
   currentOutpostId,
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
@@ -123,6 +125,8 @@ export function TileMap({
   treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
   viewerGuildId?: number | null;
+  // 본인 레벨 — 진행도 연동 시급(본인 정착지 표시·수확)에 사용.
+  viewerLevel?: number;
   currentOutpostId?: string | null;
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
@@ -412,11 +416,20 @@ export function TileMap({
             const tier = tierOf(selSettlement.tier);
             const next = tileNextTier(tier);
             const mine = selSettlement.userId === viewerUserId;
-            // idle 생산(Phase 4) — 시급 + 현재 보류 수확량(렌더 시점 기준).
-            const perHour = TILE_YIELD_PER_HOUR[tier] ?? 0;
+            // idle 생산(Phase 4) + 진행도 연동(레벨 배율). 본인 정착지만 표시 — 남의 것은
+            // 소유자 레벨을 모르니 시급/보류를 계산할 수 없다(viewerLevel = 본인 레벨).
+            const perHour = Math.round(
+              (TILE_YIELD_PER_HOUR[tier] ?? 0) *
+                tileYieldLevelMult(viewerLevel ?? 1),
+            );
             const pending =
-              selSettlement.lastHarvestAt != null
-                ? tilePendingYield(tier, selSettlement.lastHarvestAt, now)
+              mine && selSettlement.lastHarvestAt != null
+                ? tilePendingYield(
+                    tier,
+                    selSettlement.lastHarvestAt,
+                    now,
+                    viewerLevel ?? 1,
+                  )
                 : 0;
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
@@ -433,10 +446,13 @@ export function TileMap({
                     {mine ? "내 정착지" : "다른 모험가의 정착지"} ·{" "}
                     {tileTierOwnsLand(tier) ? "영지 3×3 보유" : "땅 미보유 (개척 거점)"}
                   </div>
-                  {perHour > 0 && (
+                  {mine && perHour > 0 && (
                     <div className="mt-0.5 text-xs text-amber-300/90">
                       수확 가능 {pending.toLocaleString()}G
-                      <span className="text-zinc-500"> · 시급 {perHour}G</span>
+                      <span className="text-zinc-500">
+                        {" "}
+                        · 시급 {perHour.toLocaleString()}G (레벨 비례)
+                      </span>
                     </div>
                   )}
                 </div>

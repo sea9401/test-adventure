@@ -17,15 +17,17 @@ import {
   tileNextTier,
   isTileSettlementTier,
   tileSettlementName,
+  tilePendingYield,
 } from "@/adventure/data/v2/tileConfig";
 
-// POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거. (자유 타일 지도 Phase 3)
+// POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거/수확. (자유 타일 지도 Phase 3~4)
 //
-// 본문: { action: "found" | "promote" | "demolish", col, row }
+// 본문: { action: "found" | "promote" | "demolish" | "harvest", col, row }
 //  - found: 빈 칸(거점 아님·미정착)에 개척마을(frontier) 건설. TILE_FOUND_COST 골드.
 //  - promote: 본인 정착지 한 단계 승격(frontier→village→city→metropolis). TILE_PROMOTE_COST.
-//    개척마을→마을 승격이 영지를 얻는 가장 비싼 단계.
+//    개척마을→마을 승격이 영지를 얻는 가장 비싼 단계. 승격 시 수확 누적 리셋(새 티어 시급).
 //  - demolish: 본인 정착지 철거(환불 없음).
+//  - harvest: 본인 정착지 누적 idle 골드 수확(Phase 4) → 지갑 적립·lastHarvestAt 리셋.
 //  - V2_FREEFORM_TILES off 면 404(플래그 게이트) — 라이브(flag off)는 이 테이블 무접촉.
 
 type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
@@ -57,6 +59,26 @@ async function chargeGold(
   return { ok: true, gold: spend.gold, bankedGold: spend.bankedGold };
 }
 
+// 골드 적립(수확) — 코어루프 on 일 때만 지갑(gold)에 더한다. off 면 적립 없이 현재값 반환.
+async function creditGold(
+  tx: Tx,
+  userId: string,
+  amount: number,
+): Promise<{ gold: number; bankedGold: number }> {
+  const save = await lockSaveForUpdate<CharSave>(tx, userId, "character.v2", {});
+  const gold =
+    typeof save.gold === "number" && Number.isFinite(save.gold)
+      ? Math.max(0, Math.floor(save.gold))
+      : 0;
+  const banked = Math.max(0, Math.floor(Number(save.bankedGold) || 0));
+  if (!V2_CORE_LOOP_V2 || amount <= 0) {
+    return { gold, bankedGold: banked };
+  }
+  const next = gold + Math.floor(amount);
+  await upsertSave(tx, userId, "character.v2", { ...save, gold: next });
+  return { gold: next, bankedGold: banked };
+}
+
 export async function POST(req: Request) {
   if (!V2_FREEFORM_TILES) {
     return Response.json({ ok: false, error: "not_enabled" }, { status: 404 });
@@ -84,13 +106,16 @@ export async function POST(req: Request) {
     row < TILE_BOARD_SIZE;
   if (
     !validTile ||
-    (action !== "found" && action !== "promote" && action !== "demolish")
+    (action !== "found" &&
+      action !== "promote" &&
+      action !== "demolish" &&
+      action !== "harvest")
   ) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
 
   type Res =
-    | { kind: "ok"; gold: number; bankedGold: number }
+    | { kind: "ok"; gold: number; bankedGold: number; harvested?: number }
     | {
         kind: "err";
         status: number;
@@ -100,6 +125,7 @@ export async function POST(req: Request) {
       };
 
   const result: Res = await db.transaction(async (tx): Promise<Res> => {
+    const now = Date.now();
     const existing = (
       await tx
         .select()
@@ -135,10 +161,36 @@ export async function POST(req: Request) {
       return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
     }
 
-    // promote / demolish — 본인 정착지여야.
+    // promote / demolish / harvest — 본인 정착지여야.
     if (!existing) return { kind: "err", status: 404, error: "not_found" };
     if (existing.userId !== userId) {
       return { kind: "err", status: 403, error: "not_owner" };
+    }
+
+    if (action === "harvest") {
+      const tier = isTileSettlementTier(existing.tier)
+        ? existing.tier
+        : "frontier";
+      const lastMs = existing.lastHarvestAt
+        ? existing.lastHarvestAt.getTime()
+        : now;
+      // 코어루프 off 면 골드 미사용 → 수확 0(no-op). on 이면 누적분 적립 + 타임스탬프 리셋.
+      const pending = V2_CORE_LOOP_V2 ? tilePendingYield(tier, lastMs, now) : 0;
+      const credited = await creditGold(tx, userId, pending);
+      if (pending > 0) {
+        await tx
+          .update(tileSettlements)
+          .set({ lastHarvestAt: new Date(now) })
+          .where(
+            and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)),
+          );
+      }
+      return {
+        kind: "ok",
+        gold: credited.gold,
+        bankedGold: credited.bankedGold,
+        harvested: pending,
+      };
     }
 
     if (action === "demolish") {
@@ -164,9 +216,10 @@ export async function POST(req: Request) {
         gold: charge.gold,
       };
     }
+    // 승격 시 수확 누적 리셋(새 티어 시급으로 새로 쌓음·구티어 보류분 정산 회피).
     await tx
       .update(tileSettlements)
-      .set({ tier: next })
+      .set({ tier: next, lastHarvestAt: new Date(now) })
       .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
     return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
   });
@@ -187,5 +240,6 @@ export async function POST(req: Request) {
     ...(V2_CORE_LOOP_V2
       ? { gold: result.gold, bankedGold: result.bankedGold }
       : {}),
+    ...(result.harvested != null ? { harvested: result.harvested } : {}),
   });
 }

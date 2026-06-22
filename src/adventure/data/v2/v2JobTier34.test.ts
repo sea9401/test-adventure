@@ -303,6 +303,19 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
     expect(new Set(axes).size, "tier-4 패시브는 서로 다른 축(고유)").toBe(
       TIER4_JOB_IDS.length,
     );
+    // 투승(battlemonk)은 둘 다 패시브(반격+철신)라 위 액티브+패시브 구조(TIER4_JOB_IDS) 밖 — 그 두 축이
+    //   다른 tier-4 패시브와 안 겹치는지 별도 가드(반격=counterChancePct·철신=maxHpPct = 투승 전용 축).
+    const tier4Passives = TIER4_JOB_IDS.map(passiveOf);
+    expect(
+      tier4Passives.some((p) => p.counterChancePct),
+      "counterChancePct = 투승 전용 축",
+    ).toBe(false);
+    expect(
+      tier4Passives.some((p) => p.maxHpPct),
+      "maxHpPct = 투승 전용 축",
+    ).toBe(false);
+    expect(V2_SKILLS.v2c_battlemonk_counter.passive?.counterChancePct).toBe(30);
+    expect(V2_SKILLS.v2c_battlemonk_ironbody.passive?.maxHpPct).toBe(20);
   });
 });
 

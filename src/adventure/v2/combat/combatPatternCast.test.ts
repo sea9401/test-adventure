@@ -8,6 +8,10 @@ import {
   V2_PATTERN_SKILL_POWER_MULT,
   type V2CombatPattern,
 } from "./combatPattern";
+import {
+  V2_SKILLS,
+  smartDefaultConditionForSkill,
+} from "@/adventure/data/v2/v2Skills";
 
 // 전투 패턴이 resolveV2SkillCast 에 주입됐을 때: (1) procChance 은퇴(확정 발동), (2) 조건 게이팅.
 function castInput(equipped: string[], over: Partial<V2SkillCastInput> = {}): V2SkillCastInput {
@@ -185,5 +189,50 @@ describe("resolveV2SkillCast — dex/luk 비례 딜(도적 직군)", () => {
     const loLuk = castWith("v2c_assassin_ambush", { atk: 10, luk: 100 }).enemyDamage;
     const hiLuk = castWith("v2c_assassin_ambush", { atk: 10, luk: 400 }).enemyDamage;
     expect(hiLuk).toBeGreaterThan(loLuk); // LUK 올리면 딜↑(luk 스케일 작동).
+  });
+});
+
+describe("resolveV2SkillCast — 기습(ambushDamage · 암살자 오프너)", () => {
+  // 저-atk·고-luk 암살자 빌드. 패턴 없이(viaPattern=false) 쏘면 raw(throttle/floor 미적용)라 메커니즘만 본다.
+  const atkr = {
+    mp: 999, atk: 10, luk: 300, maxHp: 1000, currentHp: 1000, maxMp: 100,
+    selfBuffs: {}, selfDebuffs: {},
+  } as V2SkillCastInput["attacker"];
+  const tgt = (hpPct: number) => ({
+    def: 10, maxHp: 1000, currentHp: Math.round((1000 * hpPct) / 100),
+    selfBuffs: {}, selfDebuffs: {},
+  });
+  const rawCast = (skillId: string, hpPct: number) =>
+    resolveV2SkillCast(
+      castInput([skillId], { procRoll: 0, attacker: atkr, target: tgt(hpPct) }),
+    ).enemyDamage;
+
+  it("풀피(HP≥90%)엔 ×3.0 보너스, 깎인 적(HP<90%)엔 낮은 기본딜(처형의 역)", () => {
+    const full = rawCast("v2c_phantom_ambush", 100);
+    const low = rawCast("v2c_phantom_ambush", 50);
+    expect(full).toBeGreaterThan(low * 2); // 풀피 보너스(×3.0)가 비보너스의 2배 이상.
+  });
+
+  it("기본딜(비보너스)이 그림자 암살 기본딜보다 낮다 — 계속 쓰면 손해", () => {
+    // 둘 다 보너스 미발동 중간 HP(50%: 기습 풀피 아님·암살 처형창 아님)에서 base 비교.
+    const phantomBase = rawCast("v2c_phantom_ambush", 50);
+    const shadowBase = rawCast("v2c_shadow_assassinate", 50);
+    expect(phantomBase).toBeLessThan(shadowBase);
+  });
+
+  it("오프너라 패턴 빈도 throttle 면제 — 패턴 경로여도 raw 그대로(평타바닥+14% 압축 안 됨)", () => {
+    const ambushPattern: V2CombatPattern = {
+      blocks: [{ condition: { kind: "always" }, action: { kind: "skill", skillId: "v2c_phantom_ambush" } }],
+    };
+    const raw = rawCast("v2c_phantom_ambush", 100);
+    const viaPattern = resolveV2SkillCast(
+      castInput(["v2c_phantom_ambush"], { combatPattern: ambushPattern, attacker: atkr, target: tgt(100) }),
+    ).enemyDamage;
+    expect(viaPattern).toBe(raw); // 면제 없으면 floor+초과×0.14 로 깎여 raw 보다 작았을 것.
+  });
+
+  it("기본 발동 조건 = 첫 턴 오프너(turn≤1) — 그 외 턴엔 평타로 폴백", () => {
+    const cond = smartDefaultConditionForSkill(V2_SKILLS.v2c_phantom_ambush);
+    expect(cond).toEqual({ kind: "turn", op: "atMost", value: 1 });
   });
 });

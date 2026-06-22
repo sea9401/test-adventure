@@ -356,6 +356,17 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { vit: 15, str: 7 }, // 전사 심화(가디언 계승) — 방어 탱 라인 정점
     unlock: { prereqs: { guardian: TIER4_UNLOCK_CUMLEVEL } }, // 가디언 계보
   },
+  // 도적 직군 4차 두 번째 갈래 — 그림자 계보(자객→그림자 행운/크리 라인의 정점). 신궁(궁술·DEX)과
+  //   같은 도적 4차지만 축이 다르다: 신궁=DEX 정조준, 암살자=LUK 행운/기습. 액티브 "기습"은 처형의
+  //   역(풀피 적에게 큰 오프너)·패시브 "은신"은 회피(은신 정체성).
+  phantom: {
+    id: "phantom",
+    name: "암살자",
+    tier: 4,
+    cultivateProfile: { luk: 2, dex: 2 },
+    jobBonus: { luk: 15, dex: 7 }, // 도적 심화(암살 라인 정점) — 행운 중심(신궁의 DEX 거울상)
+    unlock: { prereqs: { shadow: TIER4_UNLOCK_CUMLEVEL } }, // 그림자 계보
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -497,6 +508,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
+  phantom: { class: "rogue", spec: "phantom" }, // 도적 4차 두 번째 갈래(그림자 계보·기습)
 };
 
 /**

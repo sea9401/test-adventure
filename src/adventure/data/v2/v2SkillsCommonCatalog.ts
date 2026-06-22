@@ -104,6 +104,9 @@ export type V2CommonSkillId =
   | "v2c_sensei_ironbody" // 철신 (최대 HP +20%)
   | "v2c_sage_insight" // 간파 (치명 확률 +10%)
   | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
+  // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
+  | "v2c_phantom_ambush" // 기습 (풀피 적에게 큰 오프너 — ambushDamage·LUK 비례)
+  | "v2c_phantom_stealth" // 은신 (회피 +16%)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
@@ -331,11 +334,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_assassin_ambush: {
     // 자객 = 행운/크리(dex10/luk10) — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"). LUK 원시스탯이
     //   커서 계수 작게(0.2 ≈ str→atk 0.15급). LUK 빌드가 크리(확률·피해)+직접딜 양쪽 이득(행운직
-    //   정체성). 적 HP 30%↓ ×2.0. id 유지. PvE/PvP 공용.
+    //   정체성). 적 HP 15%↓ ×2.0. id 유지. PvE/PvP 공용. (협동보스 등 대형 HP풀에서 30% 처형창이
+    //   과도해 15%로 축소 — 마무리 한정으로 좁힘.)
     id: "v2c_assassin_ambush", name: "처단", stat: "luk", category: "attack", tier: 2,
     description: "행운이 이끄는 일격으로 숨통을 끊는다. 적이 위태로울수록 치명적이다.", mpCost: 34, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "executeDamage", statCoef: 0.2, baseFlatByTier: [185, 185, 185], hpThresholdPct: 30, bonusMult: 2.0, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.2, baseFlatByTier: [185, 185, 185], hpThresholdPct: 15, bonusMult: 2.0, scaling: "luk" },
     ],
   },
   v2c_archer_volley: {
@@ -493,11 +497,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
   v2c_shadow_assassinate: {
     // 그림자 = 자객 계승 — 처형 데미지가 행운(LUK)에 비례(scaling:"luk"·계수 작게). 자객 처단보다
-    //   한 단계 강(계수·기본·배수↑). 적 HP 30%↓ ×2.2. PvE/PvP 공용.
+    //   한 단계 강(계수·기본·배수↑). 적 HP 15%↓ ×2.2. PvE/PvP 공용. (처단과 동일 사유로 30%→15%.)
     id: "v2c_shadow_assassinate", name: "암살", stat: "luk", category: "attack", tier: 3,
     description: "그림자에서 솟아 단번에 숨통을 끊는다. 적이 위태로울수록 치명적이다.", mpCost: 38, cooldown: 0, procChance: 30,
     effects: [
-      { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [210, 210, 210], hpThresholdPct: 30, bonusMult: 2.2, scaling: "luk" },
+      { kind: "executeDamage", statCoef: 0.22, baseFlatByTier: [210, 210, 210], hpThresholdPct: 15, bonusMult: 2.2, scaling: "luk" },
     ],
   },
 
@@ -633,6 +637,28 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "매처럼 날카로운 눈. 명중이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { accuracyPct: 20 },
+  },
+
+  // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) 킷 — 기습(오프너 액티브) + 은신(회피 패시브) ──
+  v2c_phantom_ambush: {
+    // 암살자(도적 4차·그림자 계보) = 처형의 역. 은신처에서 방심한(풀피) 적의 급소를 노리는 한 방.
+    //   기본딜은 일부러 다른 4차 액티브보다 낮게(계수 0.14·flat 150 < 그림자 암살 0.22/210) 잡고,
+    //   적 HP 90%↑(사실상 첫 턴)일 때만 ×3.0 알파. 그 외엔 약한 평타 이하라 "계속 쓰면 손해" — 첫 턴
+    //   1회용. procChance 100(조건/패턴이 throttle). scaling:"luk"(행운 라인). tier 필드는 상급 버킷(3).
+    //   ⚠️ combatShared 가 ambushDamage 를 패턴 빈도 throttle 에서 면제(오프너라 매턴 스팸 아님).
+    id: "v2c_phantom_ambush", name: "기습", stat: "luk", category: "attack", tier: 3,
+    description: "그림자에서 솟아 방심한 적의 급소를 단번에 노린다. 적이 멀쩡할수록 치명적이다.", mpCost: 40, cooldown: 0, procChance: 100,
+    effects: [
+      { kind: "ambushDamage", statCoef: 0.14, baseFlatByTier: [150, 150, 150], hpThresholdPct: 90, bonusMult: 3.0, scaling: "luk" },
+    ],
+  },
+  v2c_phantom_stealth: {
+    // 도적 심화 — 회피(은신 정체성). tier-4 라인 중 유일 회피 축(신궁 명중·정예 치명피해·현자 치명확률과 차별).
+    //   글래스 캐넌 암살자에 생존 사이드그레이드. 회피는 PvE/PvP 양쪽 소비(명중 대결).
+    id: "v2c_phantom_stealth", name: "은신", stat: "luk", category: "passive", tier: 3,
+    description: "그림자에 몸을 감춰 적의 공격을 흘려보낸다. 회피가 크게 오른다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { evasionPct: 16 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──

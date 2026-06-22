@@ -68,13 +68,14 @@ function deriveWithEquippedKit(
   });
 }
 
-const TIER4_JOB_IDS = ["veteran", "sensei", "sage", "chief"] as const;
+const TIER4_JOB_IDS = ["veteran", "sensei", "sage", "chief", "phantom"] as const;
 // 🔑 계보 게이팅: tier-4 child → 바로 아래 tier-3 부모 직업(원소술사는 별도 테스트라 제외).
 const TIER4_LINEAGE: Record<string, string> = {
   veteran: "paladin",
   sensei: "brawler",
   sage: "magus",
   chief: "ranger",
+  phantom: "shadow", // 도적 4차 두 번째 갈래 — 그림자 계보
 };
 
 describe("성기사(tier-3 하이브리드) 해금 게이팅", () => {
@@ -275,8 +276,8 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
     }
   });
 
-  it('"축당 1개 고유 % 패시브" — tier-4 패시브 4종이 서로 다른 효과 축 (겹치는 쌍 없음)', () => {
-    // 각 패시브가 건드리는 효과 축을 직렬화 → 4개 모두 유일해야(설계: 축당 1개 고유 % 패시브).
+  it('"축당 1개 고유 % 패시브" — tier-4 패시브 5종이 서로 다른 효과 축 (겹치는 쌍 없음)', () => {
+    // 각 패시브가 건드리는 효과 축을 직렬화 → 전부 유일해야(설계: 축당 1개 고유 % 패시브).
     //   스탯% 든 비스탯 효과(치명/치명피해/회피/최대HP)든 같은 키로 정규화.
     const passiveOf = (jobId: string) => {
       const [, passiveId] = skillsForJob(jobId);
@@ -299,11 +300,11 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
       return keys.sort().join(",");
     };
     const axes = TIER4_JOB_IDS.map(axisKey);
-    // 빈 축(효과 없는 패시브)이 없어야 하고, 4개 축 전부 유일.
+    // 빈 축(효과 없는 패시브)이 없어야 하고, 축 전부 유일.
     for (const [i, key] of axes.entries()) {
       expect(key, `${TIER4_JOB_IDS[i]} 패시브에 효과 축이 있어야`).not.toBe("");
     }
-    expect(new Set(axes).size, "tier-4 패시브 4종은 서로 다른 축(고유)").toBe(
+    expect(new Set(axes).size, "tier-4 패시브는 서로 다른 축(고유)").toBe(
       TIER4_JOB_IDS.length,
     );
   });

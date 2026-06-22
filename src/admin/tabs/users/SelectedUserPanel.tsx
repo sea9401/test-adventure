@@ -187,7 +187,6 @@ export function SelectedUserPanel({
         </div>
       </section>
 
-      {/* 훈련(training.v2) 섹션 제거(2026-06-12) — v2 는 훈련 시스템 없음(숙련도 재설계로 폐기). */}
       <V2GrantSection readOnly={readOnly || loading} onGrant={onGrantV2} />
     </>
   );

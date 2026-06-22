@@ -9,7 +9,7 @@
 //   2) actorName — users.gameName → character-profile.v2 의 name → "이름 없는 모험가" 스냅샷.
 //   3) trim — insert 후 보관기간(FEED_RETENTION_MS=3개월) 지난 행 삭제(lazy, cron 없음).
 // (옛 송신자 opt-out(users.shareFeed)/force 는 제거 — 피드는 항상 기록, 사용자 결정 2026-06-13.
-//  users.share_feed 컬럼은 inert 로 잔존 — 비파괴.)
+//  inert 였던 users.share_feed 컬럼은 2026-06-22 드롭.)
 
 import { and, eq, gt, lt } from "drizzle-orm";
 import { db } from "@/db";

@@ -60,7 +60,7 @@ export type V2CommonSkillId =
   | "v2c_assassin_ambush" // 처단 (처형 — executeDamage·LUK 비례)
   | "v2c_archer_volley" // 속박 사격 (딜 + 취약 enemyVuln)
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
-  | "v2c_shieldman_vitality" // 체력 (최대 HP +12%)
+  | "v2c_shieldman_vitality" // 방벽 (방어 +10%)
   | "v2c_squire_might" // 근력 II (힘 +15%)
   | "v2c_boxer_fortitude" // 포식 (흡혈 +2%)
   | "v2c_monk_spirit" // 정신 (정신 +15%)
@@ -86,7 +86,7 @@ export type V2CommonSkillId =
   | "v2c_bishop_heal" // 대치유 (자힐 — heal)
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
-  | "v2c_guardian_bulwark3" // 방벽 (방어 +20%)
+  | "v2c_guardian_bulwark3" // 방벽 II (방어 +20%)
   | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
@@ -347,10 +347,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   //   다양성(A 메타): 스탯%뿐 아니라 회피·치명·흡혈 등 "작동 방식" 사이드그레이드. 직업 테마에 맞춤
   //   (수도승 회피·자객 치명·권사 흡혈·술사 치명피해). id 는 세이브 호환 위해 유지(효과만 리스킨).
   v2c_shieldman_vitality: {
-    id: "v2c_shieldman_vitality", name: "체력", stat: "vit", category: "passive", tier: 2,
-    description: "두터운 몸. 최대 체력이 늘어난다.", mpCost: 0, cooldown: 0,
+    // 방패병 = 방어 탱(방패 타격이 방어기반 딜) — 방벽 진행의 1차(2026-06-22, 사용자 지정).
+    //   진행: 방패병 방벽 +10% → 가디언(계승) 방벽 II +20%. 옛 "체력"(HP+12%)에서 방어%로 전환.
+    id: "v2c_shieldman_vitality", name: "방벽", stat: "vit", category: "passive", tier: 2,
+    description: "방패로 받아낸다. 물리 방어력이 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { maxHpPct: 12 },
+    passive: { defPct: 10 },
   },
   v2c_squire_might: {
     id: "v2c_squire_might", name: "근력 II", stat: "str", category: "passive", tier: 2,
@@ -500,7 +502,8 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_guardian_bulwark3: {
     // 가디언 = 방패병 계승 — 순수 방어%(방패 강타가 방어기반이라 방어=딜+탱 시너지). 기사(공방 균형)·
     //   견습기사(힘%)와 다른 축. defPct 는 PvE/PvP 양쪽(def=damageBetween 공용).
-    id: "v2c_guardian_bulwark3", name: "방벽", stat: "vit", category: "passive", tier: 3,
+    //   방벽 진행의 2차(방패병 방벽 +10% → 가디언 방벽 II +20%, 2026-06-22).
+    id: "v2c_guardian_bulwark3", name: "방벽 II", stat: "vit", category: "passive", tier: 3,
     description: "온몸으로 받아낸다. 물리 방어력이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { defPct: 20 },

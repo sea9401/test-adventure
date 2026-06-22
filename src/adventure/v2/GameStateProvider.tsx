@@ -27,7 +27,19 @@ import {
   TILE_OUTPOST_AT,
   TILE_POS_BY_OUTPOST,
   tileKey,
+  tileNextTier,
+  tileSettlementName,
+  type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
+
+// 개척 정착지(자유 타일 지도 Phase 3) — me/state 로드 + 건설/승격/철거 후 갱신.
+export type TileSettlement = {
+  col: number;
+  row: number;
+  userId: string;
+  tier: string;
+  name: string | null;
+};
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import {
@@ -146,6 +158,11 @@ type GameStateValue = {
   //   거점 칸이면 travelTo 로 위임, 빈 칸이면 move-tile POST(사냥 base 불변·마커만 이동).
   tilePos: { col: number; row: number } | null;
   travelToTile: (col: number, row: number) => void;
+  // 개척 정착지(Phase 3) — 보드의 모든 정착지 + 본인 건설/승격/철거.
+  tileSettlements: TileSettlement[];
+  foundTile: (col: number, row: number) => void;
+  promoteTile: (col: number, row: number) => void;
+  demolishTile: (col: number, row: number) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -193,6 +210,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [tilePos, setTilePos] = useState<{ col: number; row: number } | null>(
     null,
   );
+  // 개척 정착지 — me/state 로 초기화, 건설/승격/철거로 낙관적 갱신.
+  const [tileSettlements, setTileSettlements] = useState<TileSettlement[]>([]);
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [stamina, setStamina] = useState<StaminaState>(() =>
@@ -287,6 +306,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           currentOutpost?: { id: string; name: string } | null;
           discoveredOutpostIds?: string[];
           tilePos?: { col: number; row: number } | null;
+          tileSettlements?: TileSettlement[];
           accountName?: string | null;
           frontierDepth?: number;
           proficiency?: {
@@ -372,6 +392,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           setTilePos(j.tilePos);
         } else if (j?.currentOutpost) {
           setTilePos(TILE_POS_BY_OUTPOST.get(j.currentOutpost.id) ?? null);
+        }
+        if (Array.isArray(j?.tileSettlements)) {
+          setTileSettlements(j.tileSettlements);
         }
         if (typeof j?.frontierDepth === "number") {
           // MAX 캡 — 클라가 캡 밖 깊이를 들고 다니지 않게(서버도 캡하지만 방어).
@@ -576,6 +599,83 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [travelTo, applyVisitResult],
   );
 
+  // 개척 정착지 — 건설/승격/철거. 성공 시 낙관적 갱신 + 골드 반영(서버 권위). 실패는 현 상태 유지.
+  const postTileSettlement = useCallback(
+    async (
+      action: "found" | "promote" | "demolish",
+      col: number,
+      row: number,
+    ): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/v2/me/tile-settlement", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action, col, row }),
+        });
+        const j = (await res.json().catch(() => null)) as {
+          gold?: number;
+          bankedGold?: number;
+        } | null;
+        if (res.ok) {
+          if (typeof j?.gold === "number") setGold(j.gold);
+          if (typeof j?.bankedGold === "number") setBankedGold(j.bankedGold);
+        }
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+  const foundTile = useCallback(
+    (col: number, row: number) => {
+      void postTileSettlement("found", col, row).then((ok) => {
+        if (!ok) return;
+        setTileSettlements((s) =>
+          s.some((x) => x.col === col && x.row === row)
+            ? s
+            : [
+                ...s,
+                {
+                  col,
+                  row,
+                  userId: viewerUserId ?? "",
+                  tier: "frontier",
+                  name: tileSettlementName(col, row),
+                },
+              ],
+        );
+      });
+    },
+    [postTileSettlement, viewerUserId],
+  );
+  const promoteTile = useCallback(
+    (col: number, row: number) => {
+      void postTileSettlement("promote", col, row).then((ok) => {
+        if (!ok) return;
+        setTileSettlements((s) =>
+          s.map((x) =>
+            x.col === col && x.row === row
+              ? { ...x, tier: tileNextTier(x.tier as TileSettlementTier) ?? x.tier }
+              : x,
+          ),
+        );
+      });
+    },
+    [postTileSettlement],
+  );
+  const demolishTile = useCallback(
+    (col: number, row: number) => {
+      void postTileSettlement("demolish", col, row).then((ok) => {
+        if (!ok) return;
+        setTileSettlements((s) =>
+          s.filter((x) => !(x.col === col && x.row === row)),
+        );
+      });
+    },
+    [postTileSettlement],
+  );
+
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
   const playerLevelText = viewerLevelCap
     ? `Lv ${viewerLevel} / ${viewerLevelCap}`
@@ -633,6 +733,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     travelTo,
     tilePos,
     travelToTile,
+    tileSettlements,
+    foundTile,
+    promoteTile,
+    demolishTile,
   };
 
   return (

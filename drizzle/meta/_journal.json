@@ -498,6 +498,13 @@
       "when": 1782094829935,
       "tag": "0070_drop_guild_quest_instances",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1782150535836,
+      "tag": "0071_amazing_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

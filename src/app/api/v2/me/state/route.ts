@@ -6,6 +6,7 @@ import {
   outpostOccupations,
   outpostTreasury,
   savesKv,
+  tileSettlements,
   users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -30,6 +31,7 @@ import {
 } from "@/adventure/data/v2/classes";
 import {
   V2_CORE_LOOP_V2,
+  V2_FREEFORM_TILES,
   HUNT_COOLDOWN_MODE,
   V2_LEVEL_CAP,
   HUNT_COOLDOWN_MS,
@@ -538,6 +540,17 @@ export async function GET() {
       : { active: false }
     : null;
 
+  // 자유 타일 지도 개척 정착지 — flag on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
+  const freeformTileSettlements = V2_FREEFORM_TILES
+    ? (await db.select().from(tileSettlements)).map((r) => ({
+        col: r.col,
+        row: r.row,
+        userId: r.userId,
+        tier: r.tier,
+        name: r.name,
+      }))
+    : [];
+
   return Response.json({
     ok: true,
     accountName: userRow?.gameName?.trim() || null,
@@ -615,6 +628,8 @@ export async function GET() {
       typeof charSave.tilePos.row === "number"
         ? { col: charSave.tilePos.col, row: charSave.tilePos.row }
         : null,
+    // 자유 타일 지도 개척 정착지(Phase 3) — flag on 일 때만 조회(off=빈 배열·prod 무비용).
+    tileSettlements: freeformTileSettlements,
     // 발견(안개) — 방문/인접으로 공개된 거점 id 목록. 없으면(신규) 시작 거점+인접 시드.
     discoveredOutpostIds:
       charSave.discoveredOutpostIds && charSave.discoveredOutpostIds.length > 0

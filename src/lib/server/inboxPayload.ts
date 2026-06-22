@@ -80,9 +80,12 @@ export type InboxPayload =
       rank?: number;
     }
   | {
-      // 운영자 대량 우편(이벤트 보상·보정금). claim 시 골드 지급. 메시지는 message 컬럼.
+      // 운영자 대량 우편(이벤트 보상·보정금). claim 시 골드 + 재료/장비 지급.
+      // 메시지는 message 컬럼. 장비는 길드 의뢰 보상과 동일하게 base 등급으로 지급.
       kind: "admin_gift";
       gold: number;
+      materials: GuildQuestRewardMaterial[];
+      items: GuildQuestRewardItem[];
     };
 
 export type InboxPayloadKind = InboxPayload["kind"];
@@ -191,9 +194,11 @@ export function parseInboxPayload(
         : { kind, season, coins };
     }
     case "admin_gift": {
-      const gold = asNonNegInt(p.gold);
-      if (gold == null) return null;
-      return { kind, gold };
+      // 골드/재료/장비 모두 선택 — 구 페이로드(골드만) 호환 위해 누락은 0/빈배열.
+      const gold = asNonNegInt(p.gold) ?? 0;
+      const materials = parseRewardMaterials(p.materials);
+      const items = parseRewardItems(p.items);
+      return { kind, gold, materials, items };
     }
   }
 }

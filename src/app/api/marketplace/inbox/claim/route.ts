@@ -174,10 +174,28 @@ export async function POST(req: Request) {
           case "season_reward":
             if (parsed.coins > 0) coinsBySeason[parsed.season] += parsed.coins;
             break;
-          case "admin_gift":
-            // 운영자 대량 우편 — 골드 지급(메시지는 message 컬럼).
+          case "admin_gift": {
+            // 운영자 대량 우편 — 골드 + 재료/장비 지급(메시지는 message 컬럼).
+            // 장비는 길드 의뢰 보상과 동일하게 항상 base 등급.
             if (parsed.gold > 0) goldTotal += parsed.gold;
+            for (const m of parsed.materials) {
+              itemsToAdd.push({
+                kind: "material",
+                id: m.materialId,
+                grade: "base",
+                quantity: m.count,
+              });
+            }
+            for (const it of parsed.items) {
+              itemsToAdd.push({
+                kind: "equip",
+                id: it.itemId,
+                grade: "base",
+                quantity: it.count,
+              });
+            }
             break;
+          }
         }
       }
 

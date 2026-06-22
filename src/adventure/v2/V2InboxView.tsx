@@ -106,6 +106,8 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
           ok?: boolean;
           goldAdded?: number;
           coinsAdded?: { season: string; coins: number }[];
+          itemsAdded?: { quantity: number }[];
+          instancesAdded?: unknown[];
           error?: string;
         } | null;
         if (!res.ok || !j?.ok) {
@@ -128,6 +130,13 @@ export function V2InboxView({ onBack }: { onBack: () => void }) {
             );
           }
         }
+        // 재료/장비(운영자 우편·길드 보상 등) — 총 수량으로 요약.
+        const itemQty = (j.itemsAdded ?? []).reduce(
+          (s, it) => s + (it.quantity ?? 0),
+          0,
+        );
+        const totalItems = itemQty + (j.instancesAdded?.length ?? 0);
+        if (totalItems > 0) parts.push(`+아이템 ${totalItems}개`);
         setMsg(
           parts.length > 0 ? `✓ 수령 완료 — ${parts.join(" · ")}` : "✓ 수령 완료",
         );

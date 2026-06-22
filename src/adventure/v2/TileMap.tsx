@@ -58,14 +58,18 @@ type OccupationLite = {
 };
 
 export function TileMap({
-  onTravelTo,
+  onTravelToTile,
+  tilePos,
   occupations,
   treasuries,
   viewerUserId,
   viewerGuildId,
   currentOutpostId,
 }: {
-  onTravelTo?: (o: Outpost) => void;
+  // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
+  onTravelToTile?: (col: number, row: number) => void;
+  // 플레이어 마커 칸. 없으면 현재 거점 칸에서 파생.
+  tilePos?: { col: number; row: number } | null;
   occupations?: OccupationLite[];
   treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
@@ -109,16 +113,24 @@ export function TileMap({
   const selOutpost = selOutpostId ? OUTPOST_BY_ID.get(selOutpostId) : undefined;
   const [selCol, selRow] = selected ? selected.split(",").map(Number) : [-1, -1];
 
-  // 현재 위치가 새 보드(9거점) 밖이면 배너로 안내(이동하면 보드 안으로 들어옴).
-  const currentOnBoard =
-    !!currentOutpostId && TILE_POS_BY_OUTPOST.has(currentOutpostId);
+  // 플레이어 마커 칸 — tilePos 우선, 없으면 현재 거점 칸에서 파생(보드 밖이면 마커 없음).
+  const playerPos =
+    tilePos ??
+    (currentOutpostId
+      ? (TILE_POS_BY_OUTPOST.get(currentOutpostId) ?? null)
+      : null);
+  const playerTileKey = playerPos ? tileKey(playerPos.col, playerPos.row) : null;
+
+  // 마커가 보드 밖(현재 거점이 9거점 밖이고 tilePos 도 없음)이면 배너로 안내.
+  const currentOnBoard = playerTileKey != null;
 
   return (
     <main className="mx-auto max-w-2xl space-y-3 p-4 text-zinc-200">
       <div>
         <h1 className="text-base font-bold text-zinc-100">대륙 지도</h1>
         <p className="mt-0.5 text-xs text-zinc-500">
-          거점을 눌러 이동합니다. 빈 땅 자유 이동·개척마을 건설은 곧 열립니다.
+          칸을 눌러 어디로든 이동합니다(거점·빈 땅 모두). 개척마을 건설은 곧
+          열립니다.
         </p>
       </div>
 
@@ -145,21 +157,25 @@ export function TileMap({
             const o = oid ? OUTPOST_BY_ID.get(oid) : undefined;
             const occ = oid ? occByOutpost.get(oid) : undefined;
             const isSel = selected === k;
-            const isCurrent = !!oid && oid === currentOutpostId;
+            const isPlayer = k === playerTileKey;
 
             if (!o) {
-              // 빈 땅 — Phase 1 비활성(표시만).
+              // 빈 땅 — 클릭 선택 → 패널에서 이동(자유 타일 지도). 마커가 여기면 링 표시.
               return (
                 <button
                   key={k}
                   type="button"
                   onClick={() => setSelected(k)}
                   title="빈 땅"
-                  className={`bg-zinc-900/60 transition hover:bg-zinc-800 ${
+                  className={`relative bg-zinc-900/60 transition hover:bg-zinc-800 ${
                     isSel ? "outline outline-2 outline-indigo-400" : ""
                   }`}
                   style={{ width: CELL, height: CELL }}
-                />
+                >
+                  {isPlayer && (
+                    <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-emerald-400" />
+                  )}
+                </button>
               );
             }
 
@@ -202,7 +218,7 @@ export function TileMap({
                 >
                   <Glyph size={iconPx} weight="fill" color="#0b1020" />
                 </span>
-                {isCurrent && (
+                {isPlayer && (
                   <span className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-emerald-400" />
                 )}
               </button>
@@ -244,15 +260,15 @@ export function TileMap({
                 )}
               </div>
             </div>
-            {selOutpost.id === currentOutpostId ? (
+            {playerTileKey === selected ? (
               <span className="rounded-md bg-emerald-900/60 px-3 py-1.5 text-xs text-emerald-300">
                 현재 위치
               </span>
             ) : (
-              onTravelTo && (
+              onTravelToTile && (
                 <button
                   type="button"
-                  onClick={() => onTravelTo(selOutpost)}
+                  onClick={() => onTravelToTile(selCol, selRow)}
                   className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                 >
                   여기로 이동
@@ -261,9 +277,26 @@ export function TileMap({
             )}
           </div>
         ) : (
-          <div className="rounded-lg border border-zinc-700 bg-zinc-900/80 p-3 text-xs text-zinc-400">
-            빈 땅 ({selCol}, {selRow}) — 자유 이동·개척마을 건설은 다음
-            단계(Phase 2·3)에서 열립니다.
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
+            <div className="text-xs text-zinc-400">
+              빈 땅 ({selCol}, {selRow}) — 개척마을 건설은 다음 단계(Phase 3)에서
+              열립니다.
+            </div>
+            {playerTileKey === selected ? (
+              <span className="rounded-md bg-emerald-900/60 px-3 py-1.5 text-xs text-emerald-300">
+                현재 위치
+              </span>
+            ) : (
+              onTravelToTile && (
+                <button
+                  type="button"
+                  onClick={() => onTravelToTile(selCol, selRow)}
+                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                >
+                  여기로 이동
+                </button>
+              )
+            )}
           </div>
         ))}
     </main>

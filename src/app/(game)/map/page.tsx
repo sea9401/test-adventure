@@ -11,6 +11,8 @@ import { V2_FREEFORM_TILES } from "@/adventure/data/v2/coreLoopConfig";
 export default function MapPage() {
   const {
     travelTo,
+    travelToTile,
+    tilePos,
     occupations,
     treasuries,
     viewerUserId,
@@ -19,7 +21,8 @@ export default function MapPage() {
   if (V2_FREEFORM_TILES) {
     return (
       <TileMap
-        onTravelTo={travelTo}
+        onTravelToTile={travelToTile}
+        tilePos={tilePos}
         occupations={occupations}
         treasuries={treasuries}
         viewerUserId={viewerUserId}

@@ -100,6 +100,7 @@ describe("직업 킷 — 스킬셋", () => {
       if (p.critDmgPct) keys.push("critDmgPct");
       if (p.evasionPct) keys.push("evasionPct");
       if (p.lifestealPct) keys.push("lifestealPct");
+      if (p.defPct) keys.push("defPct"); // 방패병 방벽(방어%) — 고유 축
       if (p.atkPerDexCoef) keys.push("atkPerDexCoef");
       return keys.sort().join(",");
     });
@@ -250,11 +251,11 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     const agg = aggregateEquippedPassives([
       "v2c_martial_fortitude", // statPct vit+10%
       "v2c_squire_might", // statPct str+15
-      "v2c_shieldman_vitality", // maxHpPct 12
+      "v2c_sensei_ironbody", // maxHpPct 20 (방패병 방벽이 방어%로 전환돼 maxHpPct 원천은 철신으로)
       "v2c_acolyte_mana", // healPowerPct 20 (회복강화 — SPI PR-4, 옛 maxMpPct 리스킨)
     ]);
     expect(agg.statPct).toEqual({ vit: 10, str: 15 }); // % 스탯 누적
-    expect(agg.maxHpPct).toBe(12);
+    expect(agg.maxHpPct).toBe(20);
     expect(agg.healPowerPct).toBe(20);
     expect(agg.maxMpPct).toBe(0); // 리스킨 후 maxMpPct 패시브는 카탈로그에 없음
   });

@@ -646,31 +646,7 @@ export const guildLodgeState = pgTable("guild_lodge_state", {
   lastDonationAt: timestamp("last_donation_at"),
 });
 
-// 길드 주간 의뢰 인스턴스. 매주 월 00:00 KST cron 으로 길드별 후보 3건 생성,
-// 마스터가 1건 수락 → 활성. 일 23:59 KST 마감 cron 으로 미완료/미수락 → expired.
-// status: 'proposed' | 'active' | 'completed' | 'dismissed' | 'expired'.
-// 3개 동시 활성 체제 — 주간 발행 시 즉시 active, partial unique 없음.
-export const guildQuestInstances = pgTable(
-  "guild_quest_instances",
-  {
-    id: serial("id").primaryKey(),
-    guildId: integer("guild_id")
-      .notNull()
-      .references(() => guilds.id, { onDelete: "cascade" }),
-    weekStart: timestamp("week_start").notNull(),
-    questDefId: text("quest_def_id").notNull(),
-    grade: text("grade").notNull(), // 발행 시점 등급 스냅샷 G/F/E/D/C/B/A/S
-    status: text("status").notNull(),
-    progress: integer("progress").notNull().default(0),
-    target: integer("target").notNull(),
-    activatedAt: timestamp("activated_at"),
-    completedAt: timestamp("completed_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => [
-    index("guild_quest_guild_week_idx").on(t.guildId, t.weekStart),
-  ],
-);
+// (옛 guild_quest_instances 테이블 — 길드 의뢰 시스템 제거로 삭제. drizzle 0070 migration.)
 
 // 협동 보스 세션 — region 별 활성 인스턴스 1개 (uniqueIndex 로 enforce).
 // hp 가 0 이 되거나 expiresAt 이 지나면 비활성. nextSpawnAt 후 cron 이 새 세션 생성.

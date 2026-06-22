@@ -5,7 +5,6 @@ import Link from "next/link";
 import { AdminProvider, useAdmin } from "./AdminContext";
 import { UsersTab } from "./tabs/UsersTab";
 import { StatsTab } from "./tabs/StatsTab";
-import { GuildsTab } from "./tabs/GuildsTab";
 import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
 import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
@@ -17,7 +16,6 @@ type TabKey =
   | "users"
   | "stats"
   | "balance"
-  | "guilds"
   | "season"
   | "broadcast"
   | "audit";
@@ -28,7 +26,6 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "users", label: "유저", group: "system" },
   { key: "stats", label: "통계", group: "system" },
   { key: "balance", label: "밸런스", group: "system" },
-  { key: "guilds", label: "길드 의뢰", group: "ops" },
   { key: "season", label: "시즌", group: "ops" },
   { key: "broadcast", label: "공지·우편", group: "ops" },
   { key: "audit", label: "감사 로그", group: "ops" },
@@ -144,7 +141,6 @@ function ShellInner() {
           {tab === "users" && <UsersTab />}
           {tab === "stats" && <StatsTab />}
           {tab === "balance" && <BalanceTelemetryTab />}
-          {tab === "guilds" && <GuildsTab />}
           {tab === "season" && <SeasonOpsTab />}
           {tab === "broadcast" && <BroadcastTab />}
           {tab === "audit" && <AuditLogTab />}

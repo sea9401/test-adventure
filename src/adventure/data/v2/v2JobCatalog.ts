@@ -346,6 +346,16 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     jobBonus: { dex: 15, luk: 7 }, // 도적 심화(궁술 라인 정점)
     unlock: { prereqs: { ranger: TIER4_UNLOCK_CUMLEVEL } }, // 궁사 계보
   },
+  // 전사 직군 4차 두 번째 갈래 — 가디언(전사 3차 두 번째 갈래) 계승. 방어 탱 정점.
+  //   액티브=보호막(생존), 패시브=피격 시 방어력만큼 반사(방어=딜 전환). 가디언 jobCumLevel TIER4=300 해금.
+  warden: {
+    id: "warden",
+    name: "수호자",
+    tier: 4,
+    cultivateProfile: { vit: 2, str: 1, dex: 1 },
+    jobBonus: { vit: 15, str: 7 }, // 전사 심화(가디언 계승) — 방어 탱 라인 정점
+    unlock: { prereqs: { guardian: TIER4_UNLOCK_CUMLEVEL } }, // 가디언 계보
+  },
 };
 
 /** 카탈로그의 모든 직업(정의 순서). */
@@ -486,6 +496,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   sage: { class: "mage", spec: "sage" },
   elementalist: { class: "mage", spec: "elementalist" }, // 마법 4차 두 번째 갈래(속성 마법)
   chief: { class: "rogue", spec: "chief" },
+  warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
 };
 
 /**

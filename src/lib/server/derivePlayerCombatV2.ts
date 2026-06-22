@@ -431,6 +431,8 @@ export type DerivePlayerCombatV2PureInput = {
   passiveCounterChancePct?: number;
   /** 방어력 +%(철벽, 다양성 2차) — def 에 곱연산. PvE/PvP 양쪽(damageBetween 공용). */
   passiveDefPct?: number;
+  /** 반사(수호자) — 피격 시 내 방어력의 이 %만큼 고정 데미지 반사. def 확정 후 thornsFlatFromDef 로 환산. */
+  passiveThornsDefPct?: number;
   /** 명중 +%p(정밀, 다양성 2차) — accuracyPct 에 가산(캡 적용). PvE/PvP 양쪽. */
   passiveAccuracyPct?: number;
   /** 회복 강화 +%(신술 지원 패시브, SPI 부활) — healMult 에 곱연산(×(1+%/100)). 미지정 = 무적용. */
@@ -526,6 +528,11 @@ export function derivePlayerCombatV2Pure(
   const def = input.passiveDefPct
     ? Math.floor(baseDef * (1 + input.passiveDefPct / 100))
     : baseDef;
+  // 수호자 반사 — 피격 시 (확정 방어력 × thornsDefPct%) 만큼 적에게 고정 반사.
+  //   미보유=0 → 키 생략(아래 spread)으로 byte-identical.
+  const thornsFlatFromDef = input.passiveThornsDefPct
+    ? Math.floor((def * input.passiveThornsDefPct) / 100)
+    : 0;
   // 마법 공격력 — 지능 + 무기 위력(magicAtk). +기본 보너스(마법 빌드 0 빌드도 베이스 확보).
   const magicAtk =
     Math.floor(totalStats.int * MAGIC_ATK_PER_INT) +
@@ -755,6 +762,7 @@ export function derivePlayerCombatV2Pure(
       ? { elementDisPctBonus: input.passiveElementDisPctBonus }
       : {}),
     ...(specEff.reflectPct ? { thornsPct: specEff.reflectPct } : {}),
+    ...(thornsFlatFromDef > 0 ? { thornsFlatFromDef } : {}),
     ...(totalBleedDmgPerStack > 0
       ? {
           bleedOnHit: {
@@ -923,6 +931,7 @@ export function derivePlayerCombatV2FromSaves(saves: {
     passiveLifestealPct: passiveAgg.lifestealPct,
     passiveCounterChancePct: passiveAgg.counterChancePct,
     passiveDefPct: passiveAgg.defPct,
+    passiveThornsDefPct: passiveAgg.thornsDefPct,
     passiveAccuracyPct: passiveAgg.accuracyPct,
     passiveHealPowerPct: passiveAgg.healPowerPct,
     passiveDamageTakenReductionPct: passiveAgg.damageTakenReductionPct,

@@ -106,7 +106,10 @@ export type V2CommonSkillId =
   | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
-  | "v2c_elementalist_mastery"; // 원소 통달 (상성 유리/불리 +15%p 양방향)
+  | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
+  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
+  | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
+  | "v2c_warden_thorns"; // 가시 방벽 (피격 시 방어력만큼 반사)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -671,6 +674,24 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "원소의 이치를 꿰뚫는다. 상성의 이점도, 저항도 한층 깊어진다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { elementAdvPctBonus: 15, elementDisPctBonus: 15 },
+  },
+
+  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 액티브 보호막 + 반사 패시브 ──
+  v2c_warden_aegis: {
+    // 수호의 방벽 — 최대 HP 10% 보호막(기존 shield effect 재사용·마나 보호막 패턴). 방어 탱의
+    //   생존기. tier 필드 3(비용 클램프). 보호막은 enemyPhase 가 dmg 흡수.
+    id: "v2c_warden_aegis", name: "수호의 방벽", stat: "vit", category: "buff", tier: 3,
+    description: "체력을 끌어모아 방벽을 두른다. 한동안 피해를 흡수한다.", mpCost: 40, cooldown: 0, procChance: 100,
+    effects: [{ kind: "shield", pctMaxHp: 10, turns: 3 }],
+  },
+  v2c_warden_thorns: {
+    // 가시 방벽(패시브) — 피격(적중) 시 내 방어력의 100%를 적에게 고정 반사("방어 계수만큼").
+    //   엔진 thornsFlatFromDef 훅(derive 가 def×thornsDefPct% 환산·enemyPhase[PvE]·applyOnHitReflect[PvP]
+    //   양쪽 가산). 방어=딜로 전환되는 탱딜 시너지(방벽 방어%와 결합).
+    id: "v2c_warden_thorns", name: "가시 방벽", stat: "vit", category: "passive", tier: 3,
+    description: "방벽에 돋은 가시. 공격을 받을 때마다 방어력만큼 되받아친다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { thornsDefPct: 100 },
   },
 };
 

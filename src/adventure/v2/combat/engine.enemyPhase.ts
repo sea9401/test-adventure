@@ -726,8 +726,18 @@ export function resolveEnemyPhase(
     (player.enchantReflectPct ?? 0) > 0 && dmgToHp > 0
       ? Math.floor((dmgToHp * player.enchantReflectPct!) / 100)
       : 0;
+  // 수호자 반사 — 피격(공격 적중) 시 방어력 기반 고정 데미지. 피해량과 무관하게 "방어 계수만큼".
+  //   rawDmgBeforeReduction > 0 = 적 공격이 적중(회피·무효 아님)했을 때만 발동.
+  const wardenReflectDmg =
+    (player.thornsFlatFromDef ?? 0) > 0 && rawDmgBeforeReduction > 0
+      ? player.thornsFlatFromDef!
+      : 0;
   const reflectDmg =
-    thornsDmg + brambleDmg + infiniteThornsDmg + enchantReflectDmg;
+    thornsDmg +
+    brambleDmg +
+    infiniteThornsDmg +
+    enchantReflectDmg +
+    wardenReflectDmg;
   const enemyHpAfterThorns = Math.max(0, state.enemyHp - reflectDmg);
   if (reflectDmg > 0) {
     const reflectLabels: string[] = [];
@@ -735,6 +745,7 @@ export function resolveEnemyPhase(
     if (brambleDmg > 0) reflectLabels.push("가시 갑옷");
     if (infiniteThornsDmg > 0) reflectLabels.push("무한 가시");
     if (enchantReflectDmg > 0) reflectLabels.push("별빛 반사");
+    if (wardenReflectDmg > 0) reflectLabels.push("수호 반사");
     log = appendLog(log, {
       kind: "player_attack",
       text: `[${reflectLabels.join(" + ")}] ${state.enemy.name}에게 ${reflectDmg} 반사 피해.`,

@@ -64,14 +64,14 @@ function profJobs(jobCumLevels: Record<string, number>): V2ProficiencyState {
 }
 
 describe("v2JobCatalog 구조", () => {
-  it("28개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 10 + 심화 5)을 정의한다", () => {
-    expect(V2_JOB_LIST).toHaveLength(28);
+  it("29개 직업(모험가 1 + 기본 4 + 상위 8 + 고차 10 + 심화 6)을 정의한다", () => {
+    expect(V2_JOB_LIST).toHaveLength(29);
     const byTier = (t: number) => V2_JOB_LIST.filter((j) => j.tier === t).length;
     expect(byTier(0)).toBe(1);
     expect(byTier(1)).toBe(4);
     expect(byTier(2)).toBe(8);
     expect(byTier(3)).toBe(10); // 직군당 2(형제 갈래) 8 + 하이브리드 2(성기사·마검사)
-    expect(byTier(4)).toBe(5); // 직군당 1(4) + 마법 2번째 갈래 원소술사
+    expect(byTier(4)).toBe(6); // 직군당 1(4) + 마법 2번째 갈래 원소술사 + 전사 2번째 갈래 수호자
   });
 
   it("모든 항목의 id 가 카탈로그 키와 일치한다", () => {

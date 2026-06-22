@@ -65,6 +65,10 @@ export type V2PassiveSkillEffect = {
   // ── 다양성 2차(A 메타) — 둘 다 PvE/PvP 양쪽 적용(def=damageBetween 공용·명중=PvP도 소비).
   /** 물리 방어력 +% 가산(철벽) — def 에 곱연산. */
   defPct?: number;
+  /** 반사(가시) — 피격 시 내 방어력의 이 %만큼을 적에게 고정 데미지로 반사(수호자 패시브).
+   *  derive 가 def × %/100 → PlayerCombat.thornsFlatFromDef, 엔진이 피격 시 가산(PvE enemyPhase +
+   *  PvP applyOnHitReflect 양쪽). 미지정=무적용(byte-identical). 100 = "방어 계수의 수치만큼". */
+  thornsDefPct?: number;
   /** 명중 +%p 가산(정밀) — accuracyPct 에 가산(캡 적용). */
   accuracyPct?: number;
   // ── SPI 부활(신술 지원) — 회복 강화. healMult 에 곱연산(딜 아님 → INT 와 역할 분리·파워크립 차단).
@@ -347,6 +351,7 @@ export function skillPowerScore(def: V2SkillDefinition): number {
     mag += (p.lifestealPct ?? 0) / 4;
     mag += (p.counterChancePct ?? 0) / 12;
     mag += (p.defPct ?? 0) / 12;
+    mag += (p.thornsDefPct ?? 0) / 40;
     mag += (p.accuracyPct ?? 0) / 12;
     mag += (p.healPowerPct ?? 0) / 16;
     mag += (p.damageTakenReductionPct ?? 0) / 8;
@@ -415,6 +420,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   lifestealPct: number;
   counterChancePct: number;
   defPct: number;
+  thornsDefPct: number;
   accuracyPct: number;
   healPowerPct: number;
   damageTakenReductionPct: number;
@@ -432,6 +438,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
   let lifestealPct = 0;
   let counterChancePct = 0;
   let defPct = 0;
+  let thornsDefPct = 0;
   let accuracyPct = 0;
   let healPowerPct = 0;
   let damageTakenReductionPct = 0;
@@ -455,6 +462,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     lifestealPct += p.lifestealPct ?? 0;
     counterChancePct += p.counterChancePct ?? 0;
     defPct += p.defPct ?? 0;
+    thornsDefPct += p.thornsDefPct ?? 0;
     accuracyPct += p.accuracyPct ?? 0;
     healPowerPct += p.healPowerPct ?? 0;
     damageTakenReductionPct += p.damageTakenReductionPct ?? 0;
@@ -473,6 +481,7 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     lifestealPct,
     counterChancePct,
     defPct,
+    thornsDefPct,
     accuracyPct,
     healPowerPct,
     damageTakenReductionPct,
@@ -581,6 +590,7 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   if (p.lifestealPct) chips.push(`흡혈 +${p.lifestealPct}%`);
   if (p.counterChancePct) chips.push(`피격 시 ${p.counterChancePct}% 반격`);
   if (p.defPct) chips.push(`방어력 +${p.defPct}%`);
+  if (p.thornsDefPct) chips.push(`피격 시 방어력의 ${p.thornsDefPct}% 반사`);
   if (p.accuracyPct) chips.push(`명중 +${p.accuracyPct}`);
   if (p.healPowerPct) chips.push(`회복 +${p.healPowerPct}%`);
   if (p.damageTakenReductionPct)

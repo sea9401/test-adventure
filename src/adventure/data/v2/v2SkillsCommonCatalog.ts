@@ -99,11 +99,11 @@ export type V2CommonSkillId =
   | "v2c_veteran_cleave" // 결전의 일격 (처형딜·STR 비례)
   | "v2c_sensei_combo" // 반격 (피격 시 확률 반격 — 옛 난무, id 유지)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
-  | "v2c_chief_strike" // 관통사 (DEX 비례 단일·궁술)
+  | "v2c_chief_strike" // 관통사 (DEX 비례 단일·관통 20% 방어무시 추가타)
   | "v2c_veteran_lethal" // 필살 (치명 피해 +30%)
   | "v2c_sensei_ironbody" // 철신 (최대 HP +20%)
   | "v2c_sage_insight" // 간파 (치명 확률 +10%)
-  | "v2c_chief_afterimage" // 잔영 (회피 +18%)
+  | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
   // ── 마법 4차 두 번째 갈래(원소술사) ──
   | "v2c_elementalist_magic" // 속성 마법 (캐릭 속성별 효과 분기)
   | "v2c_elementalist_mastery"; // 원소 통달 (상성 유리/불리 +15%p 양방향)
@@ -588,9 +588,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   v2c_chief_strike: {
     // 신궁(도적 4차·궁수 라인 정점) = 암격(암살 느낌·str)→관통사 리스킨(id 유지). 궁술 테마로
     //   민첩(dex) 비례 단일 강사(궁사 연사=다단과 차별). DEX 원시스탯이 커서 계수 작게.
+    //   "관통사" 정체성 — pierceDamagePct 20: 0방어 피해의 20% 를 방어로 안 깎이는 추가분으로
+    //   더해 고방어 적을 꿰뚫는다(저방어 적엔 ~+20%, 탱커엔 상대 페이오프↑).
     id: "v2c_chief_strike", name: "관통사", stat: "dex", category: "attack", tier: 3,
-    description: "단 한 발에 모든 것을 실어 꿰뚫는다.", mpCost: 40, cooldown: 0, procChance: 30,
-    effects: [dmg(0.35, 250, "dex")],
+    description: "단 한 발에 모든 것을 실어 갑옷째 꿰뚫는다.", mpCost: 40, cooldown: 0, procChance: 30,
+    effects: [{ kind: "damage", statCoef: 0.35, baseFlat: 250, scaling: "dex", pierceDamagePct: 20 }],
   },
 
   // ── 심화 4직업 패시브(tier 4) — 직군마다 다른 효과(라인 비포화·기존 어휘, PvP-안전) ──
@@ -617,11 +619,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { critPct: 10 },
   },
   v2c_chief_afterimage: {
-    // 도적 심화 — 회피(잔영). dex 라인(예기/민첩%/치명/명중)에 없던 축.
-    id: "v2c_chief_afterimage", name: "잔영", stat: "dex", category: "passive", tier: 3,
-    description: "잔상을 남기며 흘린다. 회피가 오른다.", mpCost: 0, cooldown: 0,
+    // 도적 심화(궁수 라인 정점) — 명중(매의 눈). 궁사가 민첩 II 로 바뀌며 비운 명중 축을
+    //   라인 정점으로 끌어올린 정조준. id 유지(세이브 호환). 명중은 PvE/PvP 양쪽 소비(회피 대결).
+    id: "v2c_chief_afterimage", name: "매의 눈", stat: "dex", category: "passive", tier: 3,
+    description: "매처럼 날카로운 눈. 명중이 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { evasionPct: 18 },
+    passive: { accuracyPct: 20 },
   },
 
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 마법(캐릭속성 분기) + 원소 통달 ──

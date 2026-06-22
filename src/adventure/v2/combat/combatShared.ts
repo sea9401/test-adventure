@@ -734,11 +734,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   ): number => (byTier ? byTier[tierIdx] : baseFlat ?? 0);
 
   // 데미지 — scaling physical/magic + def/vit(그 값을 attackerAtk 로 써서 물리 경로). extraFlat=추가 flat.
+  //   targetDefOverride 지정 시 적 방어를 그 값으로 대체(관통 추가타의 "0방어 피해" 계산용).
   const damageWith = (
     statCoef: number,
     baseFlat: number,
     scaling: "physical" | "magic" | "def" | "vit" | "dex" | "luk" | undefined,
     extraFlat = 0,
+    targetDefOverride?: number,
   ): number => {
     let attackerAtk = input.attacker.atk;
     let scale: "physical" | "magic" = "physical";
@@ -759,8 +761,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       attackerMagicAtk: scale === "magic" ? input.attacker.magicAtk : undefined,
       attackerMinDamage: input.attacker.minDamage,
       scaling: scale,
-      targetDef: input.target.def,
-      targetMagicDef: input.target.magicDef,
+      targetDef: targetDefOverride ?? input.target.def,
+      targetMagicDef: targetDefOverride ?? input.target.magicDef,
       statCoef,
       baseFlat: baseFlat + extraFlat,
       attackerSelfBuffs: statScaled ? {} : input.attacker.selfBuffs,
@@ -776,7 +778,13 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   const castEffects = def.elementEffects?.[charEl] ?? def.effects;
   for (const effect of castEffects) {
     if (effect.kind === "damage") {
-      dealDamage(damageWith(effect.statCoef, flatOf(effect.baseFlat, effect.baseFlatByTier), effect.scaling));
+      const flat = flatOf(effect.baseFlat, effect.baseFlatByTier);
+      const base = damageWith(effect.statCoef, flat, effect.scaling);
+      // 관통(방어 무시) 추가타 — 0방어 피해의 pierceDamagePct% 를 방어로 깎이지 않는 추가분으로 합산.
+      const pierceBonus = effect.pierceDamagePct
+        ? Math.round((damageWith(effect.statCoef, flat, effect.scaling, 0, 0) * effect.pierceDamagePct) / 100)
+        : 0;
+      dealDamage(base + pierceBonus);
     } else if (effect.kind === "heal") {
       if (effect.pctLostHp != null) {
         // 잃은 체력 비례 회복(기공 순환).

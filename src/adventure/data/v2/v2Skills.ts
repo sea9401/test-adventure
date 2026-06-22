@@ -140,6 +140,10 @@ export type V2SkillEffect =
       baseFlat?: number;
       baseFlatByTier?: readonly [number, number, number];
       scaling?: V2DamageScaling;
+      // 관통(방어 무시) 추가타 — 이 타의 "방어 미적용(0방어) 피해"의 pierceDamagePct% 를
+      //   방어로 감산되지 않는 추가 데미지로 더한다(같은 타에 합산). 미지정=0(관통 없음).
+      //   고방어 적일수록 본타는 줄지만 관통분은 그대로라 "꿰뚫는" 페이오프(관통사).
+      pierceDamagePct?: number;
     }
   // pctLostHp: 잃은 체력 비례 회복(기공 순환).
   | { kind: "heal"; pctMaxHp?: number; flat?: number; pctLostHp?: number }

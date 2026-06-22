@@ -339,10 +339,11 @@ describe("심화(tier-4) 패시브 derive — 고유 % 가 실제 전투 레버�
     expect((sg.critChancePct ?? 0) - (plain.critChancePct ?? 0)).toBeCloseTo(critPct, 5);
   });
 
-  it("신궁(chief) 잔영 → 회피 ↑ (evasionPct → evasionPct)", () => {
+  it("신궁(chief) 매의 눈 → 명중레이팅 ↑ (accuracyPct → accRating)", () => {
     const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
     const ch = deriveWithEquippedKit(skillsForJob("chief")).player;
-    const evaPct = V2_SKILLS.v2c_chief_afterimage.passive!.evasionPct!;
-    expect((ch.evasionPct ?? 0) - (plain.evasionPct ?? 0)).toBeCloseTo(evaPct, 5);
+    const accPct = V2_SKILLS.v2c_chief_afterimage.passive!.accuracyPct!;
+    // accRating 은 캡 없는 raw(passiveAccuracyPct 선형 가산) — 회피 대결형 Slice 2 의 전투 명중 레버.
+    expect((ch.accRating ?? 0) - (plain.accRating ?? 0)).toBeCloseTo(accPct, 5);
   });
 });

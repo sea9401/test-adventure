@@ -176,7 +176,9 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_veteran_lethal.passive?.critDmgPct).toBe(30); // 크리축 차수 단조 — 4차 최상
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.maxHpPct).toBe(20);
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
-    expect(V2_SKILLS.v2c_chief_afterimage.passive?.evasionPct).toBe(18);
+    expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
+    // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
+    expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
   });
 
   it("절정(sensei) = 반격 패시브 + 철신 패시브(액티브 없음)", () => {
@@ -260,7 +262,7 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
   });
 
   it("aggregateEquippedPassives — 다양성 효과(치명/치명피해/회피/흡혈/방어%) 합산", () => {
-    // 명중(accuracyPct) 은 더는 패시브 축이 아님 — 옛 궁사 "정밀" 이 "민첩 II"(dex%) 로 전환됨.
+    // 명중(accuracyPct) 패시브 축은 신궁 "매의 눈"(tier4)으로 이관 — 이 합산 케이스엔 미포함.
     const agg = aggregateEquippedPassives([
       "v2c_assassin_fortune", // critPct 8
       "v2c_shadow_lethality3", // critDmgPct 25 (크리축 3차·마법사 INT 전환으로 교체)

@@ -250,6 +250,7 @@ export async function GET() {
     materials?: unknown;
     lastVisitedOutpost?: { outpostId?: string; at?: number };
     discoveredOutpostIds?: string[];
+    tilePos?: { col?: number; row?: number; at?: number };
     frontierDepth?: unknown;
     lastHuntedOutpost?: unknown;
     equippedTitleId?: unknown;
@@ -607,6 +608,13 @@ export async function GET() {
           },
     resources,
     currentOutpost,
+    // 자유 타일 지도(V2_FREEFORM_TILES) 마커 좌표. 없으면 null → 클라가 현재 거점 칸에서 파생.
+    tilePos:
+      charSave.tilePos &&
+      typeof charSave.tilePos.col === "number" &&
+      typeof charSave.tilePos.row === "number"
+        ? { col: charSave.tilePos.col, row: charSave.tilePos.row }
+        : null,
     // 발견(안개) — 방문/인접으로 공개된 거점 id 목록. 없으면(신규) 시작 거점+인접 시드.
     discoveredOutpostIds:
       charSave.discoveredOutpostIds && charSave.discoveredOutpostIds.length > 0

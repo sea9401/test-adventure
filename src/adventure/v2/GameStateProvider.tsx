@@ -23,6 +23,11 @@ import {
   START_OUTPOST_ID,
 } from "@/adventure/data/v2/outposts";
 import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
+import {
+  TILE_OUTPOST_AT,
+  TILE_POS_BY_OUTPOST,
+  tileKey,
+} from "@/adventure/data/v2/tileConfig";
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
 import {
@@ -137,6 +142,10 @@ type GameStateValue = {
   // 생략=길드 탭). /outpost/[id] 가 ?from= 으로 읽는다.
   enterOutpost: (outpost: Outpost, opts?: { from?: "war" | "adventure" }) => void;
   travelTo: (target: Outpost) => void;
+  // 자유 타일 지도(V2_FREEFORM_TILES) — 마커 칸 좌표 + 칸 이동(거점/빈 땅 공통).
+  //   거점 칸이면 travelTo 로 위임, 빈 칸이면 move-tile POST(사냥 base 불변·마커만 이동).
+  tilePos: { col: number; row: number } | null;
+  travelToTile: (col: number, row: number) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -180,6 +189,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [currentOutpost, setCurrentOutpost] = useState<
     { id: string; name: string } | null
   >(() => ({ id: START_OUTPOST.id, name: START_OUTPOST.name }));
+  // 자유 타일 지도 마커 좌표 — me/state 의 tilePos 또는 현재 거점 칸에서 초기화(없으면 null).
+  const [tilePos, setTilePos] = useState<{ col: number; row: number } | null>(
+    null,
+  );
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [stamina, setStamina] = useState<StaminaState>(() =>
@@ -273,6 +286,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
           };
           currentOutpost?: { id: string; name: string } | null;
           discoveredOutpostIds?: string[];
+          tilePos?: { col: number; row: number } | null;
           accountName?: string | null;
           frontierDepth?: number;
           proficiency?: {
@@ -352,6 +366,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
         if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
           setDiscoveredIds(new Set(j.discoveredOutpostIds));
+        }
+        // 마커 좌표 — 저장된 tilePos 우선, 없으면 현재 거점 칸에서 파생(자유 타일 지도용).
+        if (j?.tilePos) {
+          setTilePos(j.tilePos);
+        } else if (j?.currentOutpost) {
+          setTilePos(TILE_POS_BY_OUTPOST.get(j.currentOutpost.id) ?? null);
         }
         if (typeof j?.frontierDepth === "number") {
           // MAX 캡 — 클라가 캡 밖 깊이를 들고 다니지 않게(서버도 캡하지만 방어).
@@ -520,6 +540,42 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [currentOutpost, applyVisitResult],
   );
 
+  // 자유 타일 지도 이동 — 칸 좌표로 이동. 거점 칸이면 travelTo(visit-outpost) 로 위임하고,
+  // 빈 칸이면 move-tile 을 POST 해 마커만 옮긴다(사냥 base=currentOutpost 불변). 마커(tilePos)는
+  // 두 경우 모두 갱신. V2_FREEFORM_TILES on 인 /map(TileMap)에서만 호출된다.
+  const travelToTile = useCallback(
+    (col: number, row: number) => {
+      if (visitInFlightRef.current) return;
+      const oid = TILE_OUTPOST_AT.get(tileKey(col, row));
+      if (oid) {
+        const o = OUTPOST_BY_ID.get(oid);
+        if (o) {
+          setTilePos({ col, row });
+          travelTo(o);
+        }
+        return;
+      }
+      visitInFlightRef.current = true;
+      void (async () => {
+        try {
+          const res = await fetch("/api/v2/me/move-tile", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ col, row }),
+          });
+          const j = await res.json().catch(() => null);
+          applyVisitResult(j);
+          if (res.ok) setTilePos({ col, row });
+        } catch {
+          // 네트워크 오류 — 위치 유지.
+        } finally {
+          visitInFlightRef.current = false;
+        }
+      })();
+    },
+    [travelTo, applyVisitResult],
+  );
+
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
   const playerLevelText = viewerLevelCap
     ? `Lv ${viewerLevel} / ${viewerLevelCap}`
@@ -575,6 +631,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setFrontierDepth,
     enterOutpost,
     travelTo,
+    tilePos,
+    travelToTile,
   };
 
   return (

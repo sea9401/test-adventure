@@ -37,3 +37,63 @@ export const TILE_POS_BY_OUTPOST = new Map(
 );
 // 새 보드에 남는 거점 id 집합(나머지는 표시 제외).
 export const TILE_KEPT_OUTPOST_IDS = new Set(TILE_OUTPOSTS.map((t) => t.id));
+
+// === 개척 정착지 (Phase 3) — 마을 아래 "개척마을" 신설 ===============================
+// 개척마을(frontier)은 땅(영지)을 보유하지 않고 시작 → 마을(village)로 승격할 때 비로소
+// 3×3 영지를 얻는다. 그 승격 비용이 가장 비싸다(영지 획득의 대가). 마을→도시→대도시.
+export const TILE_SETTLEMENT_TIERS = [
+  "frontier",
+  "village",
+  "city",
+  "metropolis",
+] as const;
+export type TileSettlementTier = (typeof TILE_SETTLEMENT_TIERS)[number];
+
+export const TILE_TIER_LABEL: Record<TileSettlementTier, string> = {
+  frontier: "개척마을",
+  village: "마을",
+  city: "도시",
+  metropolis: "대도시",
+};
+
+// 개척마을은 땅 미보유. 마을(village)+ 는 3×3 영지를 보유(점선 경계 표시).
+export const tileTierOwnsLand = (t: TileSettlementTier) => t !== "frontier";
+
+// 비용(목업 골드) — 건설은 싸고, 영지를 얻는 개척마을→마을 승격이 가장 비싸다. 다이얼.
+export const TILE_FOUND_COST = 100;
+export const TILE_PROMOTE_COST: Record<TileSettlementTier, number> = {
+  frontier: 1000, // → 마을 (영지 획득)
+  village: 1500, // → 도시
+  city: 3000, // → 대도시
+  metropolis: 0, // 최고 티어
+};
+
+// 다음 티어(없으면 null = 최고).
+export const tileNextTier = (
+  t: TileSettlementTier,
+): TileSettlementTier | null => {
+  const i = TILE_SETTLEMENT_TIERS.indexOf(t);
+  return i >= 0 && i < TILE_SETTLEMENT_TIERS.length - 1
+    ? TILE_SETTLEMENT_TIERS[i + 1]
+    : null;
+};
+
+export const isTileSettlementTier = (v: unknown): v is TileSettlementTier =>
+  typeof v === "string" &&
+  (TILE_SETTLEMENT_TIERS as readonly string[]).includes(v);
+
+// 정착지 이름 — 칸 좌표 결정적 해시(서버·클라 동일·랜덤 회피).
+const TILE_NAME_POOL = [
+  "가람",
+  "나루",
+  "다온",
+  "라온",
+  "마루",
+  "바롬",
+  "사하",
+  "아라",
+  "자운",
+  "해온",
+];
+export const tileSettlementName = (col: number, row: number) =>
+  TILE_NAME_POOL[Math.abs(col * 7 + row * 13) % TILE_NAME_POOL.length];

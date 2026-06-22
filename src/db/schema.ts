@@ -1012,6 +1012,25 @@ export const outpostLords = pgTable("outpost_lords", {
   lastHarvestAt: timestamp("last_harvest_at"),
 });
 
+// 자유 타일 지도(V2_FREEFORM_TILES) — 플레이어가 빈 땅에 세운 개척 정착지. (col,row) 복합 PK
+//   = 칸당 하나. tier: frontier(개척마을·땅 미보유) → village(마을·영지 획득) → city → metropolis.
+//   설계: docs 없음(자유 타일 지도 에픽 Phase 3). 플래그 뒤에서만 쓰기 — 라이브(flag off)는
+//   이 테이블을 읽지도 쓰지도 않는다(빈 테이블). userId = 세운 사람(개인 소유·길드 영지 PvP는 후속).
+export const tileSettlements = pgTable(
+  "tile_settlements",
+  {
+    col: integer("col").notNull(),
+    row: integer("row").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tier: text("tier").notNull().default("frontier"),
+    name: text("name"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.col, t.row] })],
+);
+
 // v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).
 // memberUserIds: 1~3명, 순서대로 1번 / 2번 / 3번. 길드원만 가능.
 // 미설정 길드는 row 없음 → 토너먼트 sim 시 default = 마스터 1명.

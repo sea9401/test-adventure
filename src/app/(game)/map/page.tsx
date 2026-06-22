@@ -13,6 +13,10 @@ export default function MapPage() {
     travelTo,
     travelToTile,
     tilePos,
+    tileSettlements,
+    foundTile,
+    promoteTile,
+    demolishTile,
     occupations,
     treasuries,
     viewerUserId,
@@ -23,6 +27,10 @@ export default function MapPage() {
       <TileMap
         onTravelToTile={travelToTile}
         tilePos={tilePos}
+        tileSettlements={tileSettlements}
+        onFoundTile={foundTile}
+        onPromoteTile={promoteTile}
+        onDemolishTile={demolishTile}
         occupations={occupations}
         treasuries={treasuries}
         viewerUserId={viewerUserId}

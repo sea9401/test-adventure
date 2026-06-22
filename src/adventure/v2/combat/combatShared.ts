@@ -847,6 +847,11 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
       const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
       const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
       dealDamage(frac <= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
+    } else if (effect.kind === "ambushDamage") {
+      // 기습 — 처형의 역. 적 HP 임계 "이상"(풀피)이면 ×bonusMult (오프너 알파), 아니면 낮은 기본딜.
+      const base = damageWith(effect.statCoef, flatOf(undefined, effect.baseFlatByTier), effect.scaling);
+      const frac = (input.target.currentHp ?? 1) / Math.max(1, input.target.maxHp ?? 1);
+      dealDamage(frac >= effect.hpThresholdPct / 100 ? Math.floor(base * effect.bonusMult) : base);
     } else if (effect.kind === "stackPayoffDamage") {
       // 참절/중독폭발/비전작렬 — 적 DoT/취약 스택당 추가딜.
       const stacks =
@@ -883,8 +888,12 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   //   DoT 는 평타 등가가 없어 위 모델 대신 V2_PATTERN_DOT_POWER_MULT 로 별도 throttle(위 dot 분기).
   //   selfHeal 도 동일 ×skillMult throttle. 버프/디버프/마나회복은 미적용.
   const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT : 1;
+  // 기습(ambushDamage) = 빈도 제한 오프너 — 첫 턴 풀피에서만 큰 값이고(그 외엔 낮은 기본딜·평타 이하)
+  //   매 턴 스팸이 아니다. 패턴 빈도 throttle(0.14·~5배 발동 가정)을 면제하지 않으면 "큰 오프너"가
+  //   평타바닥+14% 로 뭉개진다(설계 무력화). raw 그대로 통과(off 경로/일반 스킬은 무영향).
+  const ambushOpener = castEffects.some((e) => e.kind === "ambushDamage");
   const scaledEnemyDamage = ((): number => {
-    if (!viaPattern || enemyDamage <= 0) return enemyDamage;
+    if (!viaPattern || enemyDamage <= 0 || ambushOpener) return enemyDamage;
     // 평타 바닥 — 단타 평타(statCoef 1·baseFlat 0) × 한 턴 평타 횟수. 스킬에 마법 데미지 효과가
     //   하나라도 있으면 마법 평타로(마법사 평타 등가), 아니면 물리 평타로 바닥을 잡는다.
     //   (물리+마법 혼합 효과 스킬은 전체 바닥을 마법으로 잡게 되나, 현 데이터엔 혼합 스킬 없음.)

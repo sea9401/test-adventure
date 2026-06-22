@@ -167,6 +167,7 @@ describe("직업 킷 — 스킬셋", () => {
       veteran: ["v2c_veteran_cleave", "v2c_veteran_lethal"],
       sage: ["v2c_sage_bolt", "v2c_sage_insight"],
       chief: ["v2c_chief_strike", "v2c_chief_afterimage"],
+      phantom: ["v2c_phantom_ambush", "v2c_phantom_stealth"],
     };
     for (const [job, [active, passive]] of Object.entries(KIT)) {
       expect(skillsForJob(job), job).toEqual([active, passive]);
@@ -178,6 +179,7 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_sensei_ironbody.passive?.maxHpPct).toBe(20);
     expect(V2_SKILLS.v2c_sage_insight.passive?.critPct).toBe(10); // 크리축 차수 단조 — 4차 > 2차 자객(8)
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
+    expect(V2_SKILLS.v2c_phantom_stealth.passive?.evasionPct).toBe(16); // 은신 — 회피(암살자·tier4 유일 회피축)
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
     // 정예 기사 액티브 왕실 검술 = 처형딜, 적 HP 15%↓ 에서 ×2(오너 하향, 옛 30%).
@@ -186,6 +188,8 @@ describe("직업 킷 — 스킬셋", () => {
       hpThresholdPct: 15,
       bonusMult: 2.0,
     });
+    // 암살자 액티브 기습 = 처형의 역(풀피 보너스·LUK 비례) 오프너.
+    expect(V2_SKILLS.v2c_phantom_ambush.effects[0]).toMatchObject({ kind: "ambushDamage", scaling: "luk" });
   });
 
   it("절정(sensei) = 반격 패시브 + 철신 패시브(액티브 없음)", () => {

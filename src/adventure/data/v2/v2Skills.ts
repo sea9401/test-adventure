@@ -198,6 +198,16 @@ export type V2SkillEffect =
       bonusMult: number;
       scaling?: V2DamageScaling;
     }
+  // 기습 — 처형의 역. 적 HP hpThresholdPct% "이상"(풀피)일 때 데미지×bonusMult(암살자 오프너).
+  //   기본딜은 낮게 잡고 배수는 크게 — 첫 턴 알파 1회용. 그 외(적 HP 깎인 뒤)엔 약한 평타 이하.
+  | {
+      kind: "ambushDamage";
+      statCoef: number;
+      baseFlatByTier?: readonly [number, number, number];
+      hpThresholdPct: number;
+      bonusMult: number;
+      scaling?: V2DamageScaling;
+    }
   // 스택 비례 딜 — 적 DoT/취약 스택당 추가딜(참절·중독 폭발·비전 작렬).
   | {
       kind: "stackPayoffDamage";
@@ -299,6 +309,10 @@ function spEffectValue(e: V2SkillEffect): number {
     case "executeDamage": {
       const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
       return base * (1 + 0.25 * (e.bonusMult - 1)); // 조건부 처형 배수 = 약하게.
+    }
+    case "ambushDamage": {
+      const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
+      return base * (1 + 0.2 * (e.bonusMult - 1)); // 풀피 한정(첫 턴 1회) — 처형보다 더 약하게.
     }
     case "stackPayoffDamage": {
       const base = e.statCoef + spAvgTier(e.baseFlatByTier) / SP_FLAT_NORM;
@@ -556,6 +570,8 @@ function describeV2Effect(e: V2SkillEffect): string {
       return `자힐 공격력×${e.healStatCoef}${flatChip(undefined, e.healFlatByTier)} → 힐량×${e.damageRatio} 피해`;
     case "executeDamage":
       return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↓ 시 ×${e.bonusMult})`;
+    case "ambushDamage":
+      return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} (적 HP ${e.hpThresholdPct}%↑ 시 ×${e.bonusMult})`;
     case "stackPayoffDamage":
       return `피해 공격력×${e.statCoef}${flatChip(undefined, e.baseFlatByTier)} + 적 ${STACK_TAG_LABEL[e.tag]} 스택당 +${e.perStackFlat}`;
     case "dot":
@@ -752,6 +768,12 @@ export function smartDefaultConditionForSkill(
   def: V2SkillDefinition,
 ): V2CombatCondition {
   const effs = def.effects;
+  // 기습(ambushDamage) — 풀피 적에게만 큰 딜(처형의 역). 기본딜이 낮아 깎인 적엔 평타 이하라, 기본
+  //   조건을 "첫 턴만(turn≤1)"으로 깔아 자동전투가 오프너 1회만 쏘게 한다("딱 첫 턴만"). 더 정교하게
+  //   쓰려면 패턴 편집(예: 적 풀피일 때 재발동) — 패턴 사용 유도. DAMAGE_EFFECT_KINDS 의 "항상"보다 먼저.
+  if (effs.some((e) => e.kind === "ambushDamage")) {
+    return { kind: "turn", op: "atMost", value: 1 };
+  }
   // 적에게 피해를 주는 스킬(부가 DoT/디버프 동반 포함)은 평타 대체 = 항상 발동.
   if (effs.some((e) => DAMAGE_EFFECT_KINDS.has(e.kind))) return { kind: "always" };
   // 순수 유틸 — 매 턴 스팸 방지로 종류별 조건.

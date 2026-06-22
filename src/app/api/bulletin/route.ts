@@ -14,6 +14,7 @@ import {
   BULLETIN_MAX_LENGTH,
   BULLETIN_RATE_LIMIT_MS,
   BULLETIN_TITLE_MAX_LENGTH,
+  bulletinMaxLength,
   isBulletinCategory,
   USER_WRITABLE_CATEGORIES,
   type BulletinCategory,
@@ -172,8 +173,9 @@ export async function POST(req: Request) {
 
   const content = typeof body.content === "string" ? body.content.trim() : "";
   if (!content) return new Response("empty content", { status: 400 });
-  if (content.length > BULLETIN_MAX_LENGTH) {
-    return new Response(`too long (max ${BULLETIN_MAX_LENGTH})`, {
+  const maxLen = bulletinMaxLength(category);
+  if (content.length > maxLen) {
+    return new Response(`too long (max ${maxLen})`, {
       status: 400,
     });
   }
@@ -248,11 +250,24 @@ export async function PATCH(req: Request) {
     return new Response("invalid id", { status: 400 });
   }
 
+  // 본문 길이 제한은 카테고리별로 다름(공지 3000·그 외 2000) — 소유 + 카테고리를 먼저 확인.
+  const [existing] = await db
+    .select({ category: bulletinPosts.category })
+    .from(bulletinPosts)
+    .where(and(eq(bulletinPosts.id, id), eq(bulletinPosts.userId, userId)))
+    .limit(1);
+  if (!existing) {
+    return new Response("not found or not owner", { status: 404 });
+  }
+  const maxLen = isBulletinCategory(existing.category)
+    ? bulletinMaxLength(existing.category)
+    : BULLETIN_MAX_LENGTH;
+
   // 제목/본문 검증 — POST 와 동일 규칙.
   const content = typeof body.content === "string" ? body.content.trim() : "";
   if (!content) return new Response("empty content", { status: 400 });
-  if (content.length > BULLETIN_MAX_LENGTH) {
-    return new Response(`too long (max ${BULLETIN_MAX_LENGTH})`, {
+  if (content.length > maxLen) {
+    return new Response(`too long (max ${maxLen})`, {
       status: 400,
     });
   }

@@ -147,11 +147,64 @@ describe("parseInboxPayload — happy path", () => {
     ).toEqual({ kind: "season_reward", season: "fishing", coins: 120 });
   });
 
-  it("admin_gift (운영자 우편 — 골드)", () => {
+  it("admin_gift (운영자 우편 — 골드만, 재료/장비는 빈 배열)", () => {
     expect(parseInboxPayload("admin_gift", { gold: 5000 })).toEqual({
       kind: "admin_gift",
       gold: 5000,
+      materials: [],
+      items: [],
     });
+  });
+
+  it("admin_gift (골드 + 재료 + 장비)", () => {
+    expect(
+      parseInboxPayload("admin_gift", {
+        gold: 1000,
+        materials: [{ materialId: "iron_ore", count: 3 }],
+        items: [{ itemId: "iron_sword", count: 2 }],
+      }),
+    ).toEqual({
+      kind: "admin_gift",
+      gold: 1000,
+      materials: [{ materialId: "iron_ore", count: 3 }],
+      items: [{ itemId: "iron_sword", count: 2 }],
+    });
+  });
+
+  it("admin_gift (골드 0 + 장비만 — 재료/장비 우편 허용)", () => {
+    expect(
+      parseInboxPayload("admin_gift", {
+        items: [{ itemId: "iron_sword", count: 1 }],
+      }),
+    ).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      items: [{ itemId: "iron_sword", count: 1 }],
+    });
+  });
+
+  it("admin_gift (누락/음수 gold → 0, 잘못된 첨부 항목은 탈락)", () => {
+    // 골드만 있던 구 페이로드 + 골드 없는 신 페이로드 모두 0/빈배열로 정규화.
+    expect(parseInboxPayload("admin_gift", { gold: -5 })).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      items: [],
+    });
+    expect(parseInboxPayload("admin_gift", {})).toEqual({
+      kind: "admin_gift",
+      gold: 0,
+      materials: [],
+      items: [],
+    });
+    // count 0/음수, id 누락은 parseRewardMaterials/Items 가 걸러냄.
+    expect(
+      parseInboxPayload("admin_gift", {
+        materials: [{ materialId: "iron_ore", count: 0 }, { count: 5 }],
+        items: [{ itemId: "iron_sword", count: -1 }],
+      }),
+    ).toEqual({ kind: "admin_gift", gold: 0, materials: [], items: [] });
   });
 });
 
@@ -229,11 +282,7 @@ describe("parseInboxPayload — invalid → null", () => {
     expect(parseInboxPayload("season_reward", { season: "pvp" })).toBeNull();
     expect(parseInboxPayload("season_reward", { coins: 100 })).toBeNull();
   });
-
-  it("admin_gift — 음수/누락 gold", () => {
-    expect(parseInboxPayload("admin_gift", { gold: -5 })).toBeNull();
-    expect(parseInboxPayload("admin_gift", {})).toBeNull();
-  });
+  // admin_gift 는 골드/재료/장비 누락을 0/빈배열로 정규화(null 아님) — 위 happy 블록에서 검증.
 });
 
 describe("inboxValues — drizzle .values() 호환 매핑", () => {

@@ -1,5 +1,8 @@
 // 광장 게시판 글 제약 — 클라/서버 공통.
 export const BULLETIN_MAX_LENGTH = 2000;
+// 공지(notice)는 운영자 전용 안내라 본문을 더 길게 허용(점검·업데이트 안내가 길어짐).
+// 일반 유저 글(free/guide)은 BULLETIN_MAX_LENGTH 유지 — bulletinMaxLength() 로 분기.
+export const BULLETIN_NOTICE_MAX_LENGTH = 3000;
 export const BULLETIN_TITLE_MAX_LENGTH = 50;
 export const BULLETIN_RATE_LIMIT_MS = 60_000; // 1분에 1개
 export const BULLETIN_FETCH_LIMIT = 50;
@@ -12,6 +15,11 @@ export const BULLETIN_COMMENT_RATE_LIMIT_MS = 10_000; // 10초에 1개
 // 추가/순서 변경 시 BULLETIN_CATEGORY_LABELS 와 DB 의 category 컬럼 호환만 유지하면 됨.
 export const BULLETIN_CATEGORIES = ["notice", "free", "guide"] as const;
 export type BulletinCategory = (typeof BULLETIN_CATEGORIES)[number];
+
+// 카테고리별 본문 최대 길이 — 공지만 더 길게(BULLETIN_NOTICE_MAX_LENGTH), 그 외는 기본.
+export function bulletinMaxLength(category: BulletinCategory): number {
+  return category === "notice" ? BULLETIN_NOTICE_MAX_LENGTH : BULLETIN_MAX_LENGTH;
+}
 
 export const BULLETIN_CATEGORY_LABELS: Record<
   BulletinCategory,

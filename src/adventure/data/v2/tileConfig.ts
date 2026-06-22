@@ -102,13 +102,15 @@ export const tileSettlementName = (col: number, row: number) =>
 // 정착지가 시간당 골드를 쌓고, 플레이어가 수확해 지갑에 적립한다(로그인 리듬). 티어가 높을수록
 // 시급↑. 개척마을(frontier)은 땅 미보유 = 생산 0 → 마을 승격(영지 획득)의 동기. 캡 시간으로
 // 누적 상한(무한 idle 방어·접속 유도). 전부 다이얼. flag off 면 이 경로 자체가 안 돈다.
+// 2026-06-23 라이브 튜닝: 시급 5× + 캡 12→24h. flat 시급이 사냥 수입(깊이 ~30× 스케일) 대비
+// 초반 외 무의미했던 체감 보정 — 초·중반 "수확하는 맛" 부여, 엔드는 여전히 가벼움(킬 1~2번 값).
 export const TILE_YIELD_PER_HOUR: Record<TileSettlementTier, number> = {
   frontier: 0, // 땅 미보유 = 생산 없음
-  village: 60,
-  city: 150,
-  metropolis: 320,
+  village: 300,
+  city: 750,
+  metropolis: 1600,
 };
-export const TILE_YIELD_CAP_HOURS = 12; // 누적 상한(시간) — 로그인 리듬.
+export const TILE_YIELD_CAP_HOURS = 24; // 누적 상한(시간) — 1일 1회 풀수확 리듬.
 
 // 보류 수확량(골드) — 경과시간 × 시급, 캡 시간으로 상한. 서버·클라 공통(epoch ms).
 export const tilePendingYield = (

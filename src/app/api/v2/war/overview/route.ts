@@ -301,7 +301,7 @@ export async function GET() {
   const leaderboard = lb.map((e) => ({
     guildId: e.guildId,
     guildName: guildNameById.get(e.guildId) ?? "알 수 없는 길드",
-    points: e.points,
+    points: Number(e.points),
   }));
 
   return Response.json({

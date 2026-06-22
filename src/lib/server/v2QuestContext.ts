@@ -242,8 +242,8 @@ export async function assembleQuestExtras(
       // 점령 시도/승리 — (attackerUserId, createdAt) 인덱스 단일 집계.
       ex
         .select({
-          total: sql<number>`count(*)::int`,
-          wins: sql<number>`count(*) filter (where ${outpostClaimAttempts.won})::int`,
+          total: sql<number>`count(*)::bigint`,
+          wins: sql<number>`count(*) filter (where ${outpostClaimAttempts.won})::bigint`,
         })
         .from(outpostClaimAttempts)
         .where(eq(outpostClaimAttempts.attackerUserId, userId)),
@@ -270,12 +270,12 @@ export async function assembleQuestExtras(
     hasTraded: tradeRows.length > 0,
     arenaPlayed: arenaHistory.length > 0,
     arenaWins: arenaHistory.filter((e) => e.outcome === "win").length,
-    claimAttempted: (claimAgg[0]?.total ?? 0) > 0,
+    claimAttempted: Number(claimAgg[0]?.total ?? 0) > 0,
     hasOutpost,
-    siegeWins: claimAgg[0]?.wins ?? 0,
+    siegeWins: Number(claimAgg[0]?.wins ?? 0),
     fishSpecies: Object.keys(fishCodex.fish).length,
     antiquesFound: Object.keys(parseTreasureCodex(treasureRaw).antiques).length,
-    siegeAttempts: claimAgg[0]?.total ?? 0,
+    siegeAttempts: Number(claimAgg[0]?.total ?? 0),
     fishCaught: Object.values(fishCodex.fish).reduce(
       (sum, e) => sum + Math.max(0, e.totalCaught ?? 0),
       0,

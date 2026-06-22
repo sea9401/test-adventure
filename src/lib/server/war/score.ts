@@ -64,7 +64,7 @@ export async function warSeasonGuildLeaderboard(
   const rows = await db
     .select({
       guildId: warScoreEvents.guildId,
-      points: sql<number>`sum(${warScoreEvents.points})::int`,
+      points: sql<number>`sum(${warScoreEvents.points})::bigint`,
     })
     .from(warScoreEvents)
     .where(

@@ -81,7 +81,7 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         u.id AS user_id,
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
-        COALESCE((c.value->>'fame')::int, 0) AS fame,
+        COALESCE((c.value->>'fame')::bigint, 0) AS fame,
         -- 총 누적 레벨 — proficiency.v2 의 모든 직군 cumLevel 합(환생/전직 누적, 리셋 안 됨).
         -- prof 미기록(옛 세이브)이면 0 → 현재 레벨로 바닥 처리(GREATEST). 차수 진행분 반영.
         -- 정수 문자열만 캐스트(regex 가드) — 단 한 행이라도 비정수면 ::int 가 쿼리 전체를
@@ -98,11 +98,11 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         COALESCE((pg.value->>'paragonExp')::bigint, 0) AS paragon_exp,
         (
           COALESCE((
-            SELECT SUM((m.value->>'kills')::int)
+            SELECT SUM((m.value->>'kills')::bigint)
             FROM jsonb_each(l.value->'monsters') AS m
             WHERE (m.value->>'kills') IS NOT NULL
           ), 0)
-          + COALESCE((l.value->>'battleLosses')::int, 0)
+          + COALESCE((l.value->>'battleLosses')::bigint, 0)
         ) AS battle_count,
         COALESCE(c.updated_at, u.created_at) AS updated_at
       FROM users u
@@ -158,7 +158,7 @@ async function fetchTowerWeekRows(): Promise<RankRow[]> {
         u.id AS user_id,
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
-        COALESCE((c.value->>'fame')::int, 0) AS fame,
+        COALESCE((c.value->>'fame')::bigint, 0) AS fame,
         COALESCE((w.value->>'weekHighest')::int, 0) AS week_highest,
         COALESCE(w.updated_at, u.created_at) AS updated_at
       FROM users u
@@ -209,7 +209,7 @@ async function fetchTowerChallengeRows(): Promise<RankRow[]> {
         u.id AS user_id,
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
-        COALESCE((c.value->>'fame')::int, 0) AS fame,
+        COALESCE((c.value->>'fame')::bigint, 0) AS fame,
         COALESCE((ch.value->'progress'->>'highestFloor')::int, 0) AS challenge_highest,
         COALESCE(ch.updated_at, u.created_at) AS updated_at
       FROM users u

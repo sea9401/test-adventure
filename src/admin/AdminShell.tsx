@@ -9,10 +9,18 @@ import { GuildsTab } from "./tabs/GuildsTab";
 import { BalanceTelemetryTab } from "./tabs/BalanceTelemetryTab";
 import { SeasonOpsTab } from "./tabs/SeasonOpsTab";
 import { AuditLogTab } from "./tabs/AuditLogTab";
+import { BroadcastTab } from "./tabs/BroadcastTab";
 
 // 2026-06-03: v1 죽은 탭 제거(거래소·협동보스·퀘스트·제작·지도·룬·인벤토리 — v2 미참조).
 // 2026-06-04: v1 데이터 브라우저(개요/모험의 서/데이터) 제거 — 로컬 *.v1 세이브 도구로 v2(서버 DB)엔 무용.
-type TabKey = "users" | "stats" | "balance" | "guilds" | "season" | "audit";
+type TabKey =
+  | "users"
+  | "stats"
+  | "balance"
+  | "guilds"
+  | "season"
+  | "broadcast"
+  | "audit";
 
 type TabGroup = "system" | "ops";
 
@@ -22,6 +30,7 @@ const TABS: { key: TabKey; label: string; group: TabGroup }[] = [
   { key: "balance", label: "밸런스", group: "system" },
   { key: "guilds", label: "길드 의뢰", group: "ops" },
   { key: "season", label: "시즌", group: "ops" },
+  { key: "broadcast", label: "공지·우편", group: "ops" },
   { key: "audit", label: "감사 로그", group: "ops" },
 ];
 
@@ -137,6 +146,7 @@ function ShellInner() {
           {tab === "balance" && <BalanceTelemetryTab />}
           {tab === "guilds" && <GuildsTab />}
           {tab === "season" && <SeasonOpsTab />}
+          {tab === "broadcast" && <BroadcastTab />}
           {tab === "audit" && <AuditLogTab />}
         </main>
       </div>

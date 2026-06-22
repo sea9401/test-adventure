@@ -78,6 +78,11 @@ export type InboxPayload =
       coins: number;
       /** 최종 순위(1-based) — 표시용. 낚시/보물은 종합 집계라 없을 수 있음(옵셔널). */
       rank?: number;
+    }
+  | {
+      // 운영자 대량 우편(이벤트 보상·보정금). claim 시 골드 지급. 메시지는 message 컬럼.
+      kind: "admin_gift";
+      gold: number;
     };
 
 export type InboxPayloadKind = InboxPayload["kind"];
@@ -92,6 +97,7 @@ const KINDS = new Set<string>([
   "guild_invite",
   "guild_quest_reward",
   "season_reward",
+  "admin_gift",
 ]);
 
 export function isInboxPayloadKind(k: string): k is InboxPayloadKind {
@@ -183,6 +189,11 @@ export function parseInboxPayload(
       return rank != null
         ? { kind, season, coins, rank }
         : { kind, season, coins };
+    }
+    case "admin_gift": {
+      const gold = asNonNegInt(p.gold);
+      if (gold == null) return null;
+      return { kind, gold };
     }
   }
 }

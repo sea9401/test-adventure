@@ -1,4 +1,5 @@
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
+import { logAdminAction } from "@/lib/server/adminAudit";
 import { runWarSeasonRollover } from "@/lib/server/war/season";
 import {
   closeExpiredSeasons,
@@ -52,6 +53,11 @@ export async function POST(req: Request) {
   }
 
   const now = new Date();
+  await logAdminAction({
+    adminEmail: await currentAdminEmail(),
+    action: `season-ops.${op}`,
+  });
+
   try {
     switch (op) {
       case "war-rollover": {

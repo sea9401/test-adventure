@@ -12,6 +12,7 @@ import {
   type V2GrantPayload,
 } from "./types";
 import { GuildCooldownSection } from "./GuildCooldownSection";
+import { SanctionsSection } from "./SanctionsSection";
 import { V2GrantSection } from "./V2GrantSection";
 
 export function SelectedUserPanel({
@@ -73,6 +74,8 @@ export function SelectedUserPanel({
           </div>
         ) : null}
       </div>
+
+      <SanctionsSection userId={user.id} readOnly={readOnly} />
 
       <GuildCooldownSection userId={user.id} readOnly={readOnly} />
 

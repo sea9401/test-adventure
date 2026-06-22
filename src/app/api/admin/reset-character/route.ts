@@ -1,7 +1,8 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { requireAdmin } from "@/lib/server/isAdmin";
+import { requireAdmin, currentAdminEmail } from "@/lib/server/isAdmin";
+import { logAdminAction } from "@/lib/server/adminAudit";
 import { resetUserCharacterData } from "@/lib/server/resetCharacterData";
 
 // POST /api/admin/reset-character — body { userId, confirm }
@@ -48,6 +49,13 @@ export async function POST(req: Request) {
   const result = await db.transaction((tx) =>
     resetUserCharacterData(tx, userId),
   );
+
+  await logAdminAction({
+    adminEmail: await currentAdminEmail(),
+    action: "reset-character",
+    targetUserId: userId,
+    detail: { gameName: target.gameName },
+  });
 
   return Response.json({ ok: true, ...result });
 }

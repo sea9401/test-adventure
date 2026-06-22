@@ -13,6 +13,7 @@ import {
   OUTPOSTS,
   MAP_BOUNDS,
   kingdomNameOf,
+  OUTPOST_NPC_TAX_RATE,
 } from "@/adventure/data/v2/outposts";
 import {
   OUTPOST_EDGES,
@@ -155,6 +156,8 @@ type OccupationLite = {
   // 성벽 — 재생 반영 현재값(occupations GET). 최대 미만이면 교전 중 표시.
   fortHp?: number;
   fortMaxHp?: number;
+  // 거점 골드 세율(점령자 설정값, 문자열). 호버 요약 카드 표시용. 미점령=NPC 기본율.
+  taxRate?: string | null;
   // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 덮는다.
   villageName?: string | null;
 };
@@ -211,22 +214,30 @@ export function ContinentMap({
   const isCurrentSelected = !!selected && selected.id === currentOutpostId;
   // 자유이동(B안 PR-3): 워프·다중홉 경로 미리보기 폐기 — 선택 거점으로 바로 이동.
 
-  // 선택 거점의 점령 주체 — 팝업 표시. 길드 점령 > 솔로 점령자 > 분쟁지대(무소속) >
-  //   미점령은 소속 지역을 "○○령"으로. 중립 거점은 배지로 충분해 생략.
+  // 거점 소유 주체 라벨 — 호버 요약 카드 + 클릭 팝업 공유. 길드 점령 > 솔로 점령자 >
+  //   분쟁지대(무소속) > 미점령은 소속 지역 "○○령". 중립은 배지로 충분해 null.
+  const ownerLabelOf = (o: Outpost): string | null => {
+    if (o.neutral) return null;
+    const occ = occByOutpost.get(o.id);
+    if (occ?.occupiedByGuildName) return `${occ.occupiedByGuildName} 길드 점령`;
+    if (occ?.occupiedByUserId) return "솔로 점령자";
+    if (CONFLICT_ZONE_IDS.has(o.id)) return "분쟁지대 · 무소속";
+    const kn = kingdomNameOf(o);
+    return kn ? `${kn}령` : "무소속";
+  };
+  // 거점 골드 세율 % — 점령 거점은 점령자 설정값, 미점령은 NPC 기본율.
+  const taxPctOf = (o: Outpost): number => {
+    const occ = occByOutpost.get(o.id);
+    const raw =
+      occ?.occupiedByUserId != null && occ.taxRate != null
+        ? Number(occ.taxRate)
+        : OUTPOST_NPC_TAX_RATE;
+    return Math.round((Number.isFinite(raw) ? raw : OUTPOST_NPC_TAX_RATE) * 100);
+  };
+
+  // 선택 거점의 점령 주체 — 클릭 팝업 표시.
   const selectedOcc = selected ? occByOutpost.get(selected.id) : undefined;
-  const selectedKingdomName = selected ? kingdomNameOf(selected) : undefined;
-  const selectedOwnerLabel =
-    selected && !selected.neutral
-      ? selectedOcc?.occupiedByGuildName
-        ? `${selectedOcc.occupiedByGuildName} 길드 점령`
-        : selectedOcc?.occupiedByUserId
-          ? "솔로 점령자"
-          : CONFLICT_ZONE_IDS.has(selected.id)
-            ? "분쟁지대 · 무소속"
-            : selectedKingdomName
-              ? `${selectedKingdomName}령`
-              : "무소속"
-      : null;
+  const selectedOwnerLabel = selected ? ownerLabelOf(selected) : null;
 
   // 타일 한 변(uniform) — 격자라 모든 tier 동일 크기. tier 큐는 stroke 굵기로만 약하게.
   // 타일은 정사각(열 너비 CELL 기준) 유지 — 세로 스트레치는 셀 간격만 넓히고 타일은 안 늘인다.
@@ -261,10 +272,10 @@ export function ContinentMap({
 
           {/* (권역 색칠 제거 — 왕국 폐기로 지역 구분 없앰. 배경은 단색 + 격자선만.) */}
 
-          {/* 격자선 — 영토 색 위에 얇게(타일 경계가 또렷이 읽히게). */}
+          {/* 격자선 — 칸 경계가 또렷이 읽히게(보기 편하도록 대비↑). 굵기/투명도는 다이얼. */}
           <g
-            className="stroke-zinc-300/60 dark:stroke-zinc-700/50"
-            strokeWidth={2}
+            className="stroke-zinc-300/70 dark:stroke-zinc-700/70"
+            strokeWidth={5}
           >
             {Array.from({ length: GRID_COLS + 1 }, (_, i) => (
               <line
@@ -562,6 +573,76 @@ export function ContinentMap({
             </div>
           )}
         </div>
+
+        {/* 거점 호버 요약 카드 — 데스크탑 전용(모바일은 탭→하단 팝업). 노드의 격자 좌표를
+            보드 % 로 환산해 앵커링하고, 상단 근처면 아래로 뒤집어 클리핑을 피한다. 클릭 선택
+            중인 거점은 하단 팝업과 중복이라 생략. pointer-events-none 라 호버를 막지 않는다. */}
+        {hover &&
+          hover !== selected?.id &&
+          (() => {
+            const o = OUTPOST_BY_ID.get(hover);
+            if (!o || !isVisible(o.id)) return null;
+            const { cx, cy } = gpos(o.id);
+            const occ = occByOutpost.get(o.id);
+            const name = occ?.villageName?.trim() || o.name;
+            const typeLabel = o.tier === 4 ? "왕국" : TYPE_LABEL[o.type];
+            const owner = ownerLabelOf(o);
+            const treasury = treasuryByOutpost.get(o.id) ?? 0;
+            const leftPct = clampInt((cx / BOARD_W) * 100, 18, 82);
+            const below = (cy - HALF) / BOARD_H < 0.3;
+            const topPct = below
+              ? ((cy + HALF) / BOARD_H) * 100
+              : ((cy - HALF) / BOARD_H) * 100;
+            return (
+              <div
+                className="pointer-events-none absolute z-10 hidden w-max max-w-[210px] sm:block"
+                style={{
+                  left: `${leftPct}%`,
+                  top: `${topPct}%`,
+                  transform: below
+                    ? "translate(-50%, 10px)"
+                    : "translate(-50%, calc(-100% - 10px))",
+                }}
+              >
+                <div className="rounded-md border border-zinc-300 bg-white/95 px-3 py-2 shadow-md backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+                  <div className="flex flex-wrap items-baseline gap-1.5">
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {name}
+                    </span>
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      {typeLabel}
+                    </span>
+                    {o.neutral && (
+                      <span className="rounded bg-yellow-400 px-1 py-0.5 text-[10px] text-yellow-900">
+                        중립
+                      </span>
+                    )}
+                  </div>
+                  {owner && (
+                    <div className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                      {owner}
+                    </div>
+                  )}
+                  <div className="mt-1.5 flex flex-col gap-0.5">
+                    <div className="flex items-center justify-between gap-4 text-xs">
+                      <span className="text-zinc-400 dark:text-zinc-500">세율</span>
+                      <span className="font-medium tabular-nums text-zinc-700 dark:text-zinc-200">
+                        {taxPctOf(o)}%
+                      </span>
+                    </div>
+                    {treasury > 0 && (
+                      <div className="flex items-center justify-between gap-4 text-xs">
+                        <span className="text-zinc-400 dark:text-zinc-500">금고</span>
+                        <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
+                          {treasury.toLocaleString()} G
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
       </div>
 
         {/* 거점 floating popup — 선택 시 하단 중앙. 이름 + 이동(다른 거점)/둘러보기(현재) + X.

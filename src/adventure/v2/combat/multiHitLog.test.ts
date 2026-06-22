@@ -6,6 +6,7 @@ import { describe, it, expect } from "vitest";
 import {
   resolveV2SkillCast,
   distributeBoostedHits,
+  v2DamageAmount,
   type V2SkillCastInput,
 } from "./combatShared";
 
@@ -69,5 +70,38 @@ describe("resolveV2SkillCast — hitDamages 분리", () => {
     expect(r.castSkillId).toBe("v2c_warrior_strike");
     expect(r.hitDamages).toHaveLength(1);
     expect(r.hitDamages[0]).toBe(r.enemyDamage);
+  });
+
+  it("관통사(신궁) — pierceDamagePct 20: 본타 + 0방어 피해의 20% 방어무시 추가타(같은 타)", () => {
+    const TARGET_DEF = 80;
+    const r = resolveV2SkillCast({
+      skills: {
+        learned: ["v2c_chief_strike"],
+        equipped: ["v2c_chief_strike"],
+      } as V2SkillCastInput["skills"],
+      cooldowns: {},
+      // dex scaling — attacker.dex 가 공격 스탯(없으면 atk 폴백). statScaled 라 버프 무시(빈 맵).
+      attacker: { mp: 999, atk: 100, dex: 100, maxHp: 1000, selfBuffs: {}, selfDebuffs: {} },
+      target: { def: TARGET_DEF, selfBuffs: {}, selfDebuffs: {} },
+    });
+    // 관통사 = { statCoef 0.35, baseFlat 250, scaling dex, pierceDamagePct 20 }.
+    // damageWith(dex) → v2DamageAmount(physical, attackerAtk=dex=100, statScaled→빈 버프맵).
+    const common = {
+      attackerAtk: 100,
+      scaling: "physical" as const,
+      statCoef: 0.35,
+      baseFlat: 250,
+      attackerSelfBuffs: {},
+      attackerSelfDebuffs: {},
+      targetSelfBuffs: {},
+      targetSelfDebuffs: {},
+      elementMult: 1,
+    };
+    const base = v2DamageAmount({ ...common, targetDef: TARGET_DEF });
+    const noDef = v2DamageAmount({ ...common, targetDef: 0 });
+    expect(r.hitDamages).toHaveLength(1); // 단일타 — 관통분은 같은 타에 합산(별도 로그 아님)
+    expect(r.enemyDamage).toBe(base + Math.round(noDef * 0.2));
+    // 관통분(noDef·방어 무시)은 적 방어와 무관 — 본타(base)가 방어로 깎여도 그대로 박힌다.
+    expect(r.enemyDamage).toBeGreaterThan(base);
   });
 });

@@ -31,6 +31,7 @@ export const FEED_TYPES = [
   "rare_map_drop",
   "coop_summon",
   "coop_kill",
+  "newcomer",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
 
@@ -43,6 +44,9 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "outpost_eject",
   "enhance_high",
   "enhance_destroy",
+  // newcomer = 전쟁 사건은 아니지만 "서버 전체에 알리는 한 줄"이라 같은 상단 전광판에 태운다
+  // (enhance_high 가 전쟁 아님에도 여기 묶인 것과 같은 취지 — 전광판 = 서버 공지 묶음).
+  "newcomer",
 ];
 
 // 전광판(티커) 표시 범위 — 이 시간 안의 전쟁 사건만 순환. 0건이면 띠 자체를 숨긴다
@@ -108,7 +112,9 @@ export type FeedPayload =
   | { itemId: string; level: number }
   // rare_map_drop — 레어맵 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
   // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
-  | { kind: string };
+  | { kind: string }
+  // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
+  | { newcomer: true };
 
 // 클라/서버가 주고받는 한 항목.
 export type FeedEntry = {

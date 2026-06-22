@@ -179,6 +179,12 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_chief_afterimage.passive?.accuracyPct).toBe(20); // 매의 눈 — 명중(궁수 라인 정점)
     // 신궁 액티브 관통사 = 관통(방어 무시) 추가타.
     expect(V2_SKILLS.v2c_chief_strike.effects[0]).toMatchObject({ kind: "damage", pierceDamagePct: 20 });
+    // 정예 기사 액티브 왕실 검술 = 처형딜, 적 HP 15%↓ 에서 ×2(오너 하향, 옛 30%).
+    expect(V2_SKILLS.v2c_veteran_cleave.effects[0]).toMatchObject({
+      kind: "executeDamage",
+      hpThresholdPct: 15,
+      bonusMult: 2.0,
+    });
   });
 
   it("절정(sensei) = 반격 패시브 + 철신 패시브(액티브 없음)", () => {

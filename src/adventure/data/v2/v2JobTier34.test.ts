@@ -255,12 +255,8 @@ describe("심화(tier-4) 4직업 — 해금 구조 + 킷 id 실재", () => {
         expect(id in V2_SKILLS, `${jobId} 킷 id ${id} 가 전투 카탈로그에 실재해야`).toBe(true);
       }
       const [active, passive] = kit;
-      // 절정(sensei)은 예외 — 액티브(난무)를 반격 패시브로 교체(둘 다 패시브·액티브 없음, 오너 결정).
-      if (jobId !== "sensei") {
-        expect(V2_SKILLS[active].category, active).toBe("attack");
-      } else {
-        expect(V2_SKILLS[active].category, active).toBe("passive");
-      }
+      // 권룡(sensei)도 무인 재설계(2026-06-22)로 액티브(권룡파)를 가짐 — 모든 tier-4 = 액티브 1 + 패시브 1.
+      expect(V2_SKILLS[active].category, active).toBe("attack");
       expect(V2_SKILLS[passive].category, passive).toBe("passive");
     }
   });
@@ -322,21 +318,22 @@ describe("심화(tier-4) 패시브 derive — 고유 % 가 실제 전투 레버�
     expect(vet.critMult ?? 0).toBeGreaterThan(plain.critMult ?? 0);
   });
 
-  it("절정(sensei) 철신 → 최대 HP ↑ (maxHpPct → maxHp)", () => {
+  it("투승(battlemonk) 철신 → 최대 HP ↑ (maxHpPct → maxHp)", () => {
+    // 무인 재설계(2026-06-22): 철신(최대HP%)이 권룡→투승으로 이전.
     const plain = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} });
-    const sen = deriveWithEquippedKit(skillsForJob("sensei"));
-    const maxHpPct = V2_SKILLS.v2c_sensei_ironbody.passive!.maxHpPct!;
-    expect(sen.maxHp).toBe(Math.floor(plain.maxHp * (1 + maxHpPct / 100)));
-    expect(sen.maxHp).toBeGreaterThan(plain.maxHp);
+    const bm = deriveWithEquippedKit(skillsForJob("battlemonk"));
+    const maxHpPct = V2_SKILLS.v2c_battlemonk_ironbody.passive!.maxHpPct!;
+    expect(bm.maxHp).toBe(Math.floor(plain.maxHp * (1 + maxHpPct / 100)));
+    expect(bm.maxHp).toBeGreaterThan(plain.maxHp);
   });
 
-  it("절정(sensei) 반격 → passiveCounterChancePct 30 (장착→aggregate→derive 풀체인)", () => {
-    // 풀 체인 end-to-end: 절정 킷 장착 → aggregateEquippedPassives → Pure 입력 → player.
-    const sen = deriveWithEquippedKit(skillsForJob("sensei")).player;
-    expect(sen.passiveCounterChancePct).toBe(
-      V2_SKILLS.v2c_sensei_combo.passive!.counterChancePct,
+  it("투승(battlemonk) 반격 → passiveCounterChancePct 30 (장착→aggregate→derive 풀체인)", () => {
+    // 무인 재설계(2026-06-22): 반격(카운터)이 권룡→투승으로 이전. 풀 체인 end-to-end.
+    const bm = deriveWithEquippedKit(skillsForJob("battlemonk")).player;
+    expect(bm.passiveCounterChancePct).toBe(
+      V2_SKILLS.v2c_battlemonk_counter.passive!.counterChancePct,
     );
-    expect(sen.passiveCounterChancePct).toBe(30);
+    expect(bm.passiveCounterChancePct).toBe(30);
     // 미장착 = undefined(byte-identical 보장).
     expect(
       derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player.passiveCounterChancePct,

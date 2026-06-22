@@ -32,7 +32,7 @@ export type V2CommonSkillId =
   | "v2c_martial_whirl" // 선풍각
   | "v2c_martial_chi" // 기공 순환
   | "v2c_martial_circulate" // 운기
-  | "v2c_martial_steelguard" // 철포 (받피감 버프 — 직업 킷 재설계)
+  | "v2c_martial_steelguard" // 하급 권법 (단일 딜 — 견습 무인 기본기)
   // 마법사 (마력구 패시브 제외)
   | "v2c_mage_fireball" // 화염구
   | "v2c_mage_barrage" // 마력 탄막
@@ -54,7 +54,7 @@ export type V2CommonSkillId =
   | "v2c_shieldman_bash" // 방패 타격 (방어력 기반 단일)
   | "v2c_squire_cleave" // 돌격 (물리 단일·파고들기)
   | "v2c_boxer_combo" // 연권 (물리 다단)
-  | "v2c_monk_palm" // 선풍각 (회피 버프 — selfBuffPct)
+  | "v2c_monk_palm" // 철포 (받피감 버프 — selfBuffPct·수도승 탱)
   | "v2c_caster_bolt" // 마탄 (마법 단일 강)
   | "v2c_acolyte_smite" // 치유 (자힐 — heal)
   | "v2c_assassin_ambush" // 처단 (처형 — executeDamage·LUK 비례)
@@ -62,8 +62,8 @@ export type V2CommonSkillId =
   // 고유 패시브(% 가산 — 직업마다 서로 다른 축)
   | "v2c_shieldman_vitality" // 방벽 (방어 +10%)
   | "v2c_squire_might" // 근력 II (힘 +15%)
-  | "v2c_boxer_fortitude" // 포식 (흡혈 +2%)
-  | "v2c_monk_spirit" // 정신 (정신 +15%)
+  | "v2c_boxer_fortitude" // 보법 (회피 +8%·권사)
+  | "v2c_monk_spirit" // 강건 II (활력 +20%·수도승)
   | "v2c_caster_acumen" // 총명 II (지능 +20%)
   | "v2c_acolyte_mana" // 회복 (회복량 +20%·healPowerPct, 옛 마나에서 리스킨)
   | "v2c_assassin_fortune" // 행운 (행운 +10%)
@@ -76,7 +76,7 @@ export type V2CommonSkillId =
   | "v2c_ranger_ambush" // 연사 (DEX 비례 3연사)
   // 고차 패시브(다양성 2차: paladin 만 효과 리스킨[공방], brawler/magus/ranger 는 직군 축 % 유지)
   | "v2c_paladin_might3" // 기사도 (힘 +10% & 방어 +10%)
-  | "v2c_brawler_fortitude3" // 강건 III (활력 +20%)
+  | "v2c_brawler_fortitude3" // 보법 II (회피 +12%·격투가)
   | "v2c_magus_acumen3" // 총명 III (지능 +30%)
   | "v2c_ranger_finesse3" // 민첩 II (DEX +20%·궁수 민첩의 상위판)
   // ── 고차 두 번째 갈래(tier 3·방패병/수도승/사제/자객 계승) — 액티브 1 + 고유 패시브 ──
@@ -87,7 +87,7 @@ export type V2CommonSkillId =
   | "v2c_shadow_assassinate" // 암살 (처형 — executeDamage·LUK 비례)
   // 고유 패시브(형제와 다른 축: 받피감/회피/회복강화/치명피해)
   | "v2c_guardian_bulwark3" // 방벽 II (방어 +20%)
-  | "v2c_warmonk_evasion3" // 허공보 (회피 +14%)
+  | "v2c_warmonk_evasion3" // 강건 III (활력 +30%·무승)
   | "v2c_bishop_blessing3" // 회복 II (회복량 +30%·사제 회복의 상위판)
   | "v2c_shadow_lethality3" // 그늘 (치명 피해 +25%)
   // ── 하이브리드 킷(tier 3·전사×마법) ──
@@ -97,11 +97,11 @@ export type V2CommonSkillId =
   | "v2c_spellblade_unity" // 마검사: 마검 합일 (힘 +12% & 지능 +12%)
   // ── 심화 4직업 킷(tier 4) — 액티브 1(강) + 패시브(직군마다 다른 효과·기존 어휘) ──
   | "v2c_veteran_cleave" // 왕실 검술 (처형딜·STR 비례·적 HP15%↓ ×2)
-  | "v2c_sensei_combo" // 반격 (피격 시 확률 반격 — 옛 난무, id 유지)
+  | "v2c_sensei_combo" // 권룡파 (방깎 단일 — 무력 디버프·권룡)
   | "v2c_sage_bolt" // 마력 폭사 (마법 단일)
   | "v2c_chief_strike" // 관통사 (DEX 비례 단일·관통 20% 방어무시 추가타)
   | "v2c_veteran_lethal" // 필살 (치명 피해 +30%)
-  | "v2c_sensei_ironbody" // 철신 (최대 HP +20%)
+  | "v2c_sensei_ironbody" // 패왕 (힘 +20%·권룡)
   | "v2c_sage_insight" // 간파 (치명 확률 +10%)
   | "v2c_chief_afterimage" // 매의 눈 (명중 +20)
   // ── 도적 4차 두 번째 갈래(암살자·그림자 계보) ──
@@ -112,7 +112,10 @@ export type V2CommonSkillId =
   | "v2c_elementalist_mastery" // 원소 통달 (상성 유리/불리 +15%p 양방향)
   // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) ──
   | "v2c_warden_aegis" // 수호의 방벽 (보호막 — 최대HP 10%)
-  | "v2c_warden_thorns"; // 가시 방벽 (피격 시 방어력만큼 반사)
+  | "v2c_warden_thorns" // 가시 방벽 (피격 시 방어력만큼 반사)
+  // ── 무도 4차 두 번째 갈래(투승·무승 계승) ──
+  | "v2c_battlemonk_counter" // 반격 (피격 시 확률 반격 — 옛 절정 킷 상속)
+  | "v2c_battlemonk_ironbody"; // 철신 (최대 HP +20%)
 
 // 다단 — 동일 damage effect N개.
 const hits = (
@@ -249,11 +252,13 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 
   // ═══ 직업 킷 재설계 — 기본 직업 시그니처 액티브(2026-06-17) ═══
-  // 무인 철포(받피감 버프)·마법사 마력탄(0코스트 마법). 강타/연격/독침은 기존 재사용.
+  // 무인 하급 권법(단일 딜)·마법사 마력탄(0코스트 마법). 강타/연격/독침은 기존 재사용.
   v2c_martial_steelguard: {
-    id: "v2c_martial_steelguard", name: "철포", stat: "vit", category: "buff", tier: 1,
-    description: "몸을 굳혀 한동안 받는 피해를 줄인다.", mpCost: 24, cooldown: 0, procChance: 100,
-    effects: [{ kind: "selfBuffPct", target: "damageReduction", pct: 12, turns: 3 }],
+    // 견습 무인 기본기 — 무인 재설계(2026-06-22): 옛 철포(받피감 버프)에서 단일 딜로 교체(철포는 수도승
+    //   monk_palm 으로 이전). id 유지(세이브 호환). 강타급 단일타(1.0/140). PvE/PvP 공용.
+    id: "v2c_martial_steelguard", name: "하급 권법", stat: "str", category: "attack", tier: 1,
+    description: "기본을 다진 주먹을 곧게 내지른다.", mpCost: 30, cooldown: 0, procChance: 30,
+    effects: [dmg(1.0, 140)],
   },
   v2c_mage_boltcast: {
     id: "v2c_mage_boltcast", name: "마력탄", stat: "int", category: "attack", tier: 1,
@@ -311,11 +316,11 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     effects: hits(4, 0.4, 42),
   },
   v2c_monk_palm: {
-    // 수도승 = 회피 지속탱(역할화 2차) — 딜 대신 회피 버프(selfBuffPct evasion, 배선됨). 패시브
-    //   허보(상시 회피)와 합쳐 회피 정체성. id 유지(세이브 호환). 딜은 평타로. PvE/PvP 공용.
-    id: "v2c_monk_palm", name: "선풍각", stat: "vit", category: "buff", tier: 2,
-    description: "바람을 타듯 흘리는 보법. 한동안 회피가 크게 오른다.", mpCost: 24, cooldown: 0, procChance: 100,
-    effects: [{ kind: "selfBuffPct", target: "evasion", pct: 15, turns: 3 }],
+    // 수도승 = 순수 탱(무인 재설계 2026-06-22) — 옛 선풍각(회피 버프)에서 철포(받피감 버프)로 교체.
+    //   강건 II(활력%) 패시브와 합쳐 탱 정체성(회피는 권사 갈래 보법으로 이전). id 유지. 딜은 평타로. PvE/PvP 공용.
+    id: "v2c_monk_palm", name: "철포", stat: "vit", category: "buff", tier: 2,
+    description: "몸을 굳혀 한동안 받는 피해를 줄인다.", mpCost: 24, cooldown: 0, procChance: 100,
+    effects: [{ kind: "selfBuffPct", target: "damageReduction", pct: 12, turns: 3 }],
   },
   // ── 마법사 갈래 ──
   v2c_caster_bolt: {
@@ -368,21 +373,21 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 15 } },
   },
   v2c_boxer_fortitude: {
-    // 흡혈 브루저(권사) — 옛 활력%에서 흡혈로 리스킨. 자동전투 눈덩이 방지로 의도적 저수치(2%).
-    //   🔑 흡혈(enchantLifestealPct)은 현재 PvE 엔진만 소비 — PvP(engine.pvpPhase)는 별도 훅
-    //   (lifestealCritHealPct)만 적용해 이 패시브는 PvP 에서 inert. PvP 흡혈은 밸런스 민감이라
-    //   의도적 보류(미러 여부는 후속 결정). crit/critDmg/evasion 리스킨은 PvE/PvP 양쪽 적용.
-    id: "v2c_boxer_fortitude", name: "포식", stat: "vit", category: "passive", tier: 2,
-    description: "가한 피해의 일부를 체력으로 흡수한다.", mpCost: 0, cooldown: 0,
+    // 보법(권사) — 무인 재설계(2026-06-22): 옛 포식(흡혈)에서 회피로 전환. 권사→격투가 갈래의 회피
+    //   정체성 1차(보법 +8% → 격투가 보법 II +12%). 흡혈은 과한 유틸이라 보류(후속 재사용). id 유지.
+    //   회피는 PvE/PvP 양쪽 소비(명중 대결). stat 필드는 그룹 메타(vit).
+    id: "v2c_boxer_fortitude", name: "보법", stat: "vit", category: "passive", tier: 2,
+    description: "흐르는 듯한 발놀림. 회피가 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { lifestealPct: 2 },
+    passive: { evasionPct: 8 },
   },
   v2c_monk_spirit: {
-    // 회피 지속탱(수도승) — 옛 정신%에서 회피로 리스킨. stat 필드는 그룹 메타(vit)만.
-    id: "v2c_monk_spirit", name: "허보", stat: "vit", category: "passive", tier: 2,
-    description: "바람처럼 흘려 피한다. 회피가 오른다.", mpCost: 0, cooldown: 0,
+    // 강건 II(수도승) — 무인 재설계(2026-06-22): 옛 허보(회피)에서 활력%로 전환. 수도승→무승 탱 갈래의
+    //   활력 정체성(견습 강건 +10% → 수도승 강건 II +20% → 무승 강건 III +30%). 회피는 권사 갈래로 이전. id 유지.
+    id: "v2c_monk_spirit", name: "강건 II", stat: "vit", category: "passive", tier: 2,
+    description: "거듭 다진 몸. 활력이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { evasionPct: 10 },
+    passive: { statPct: { vit: 20 } },
   },
   v2c_caster_acumen: {
     // 마법 라인 총명 진행(2026-06-22): 견습 총명 +10% → 마법사 총명 II +20% → 마도사 총명 III +30%.
@@ -453,10 +458,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { statPct: { str: 10 }, defPct: 10 },
   },
   v2c_brawler_fortitude3: {
-    id: "v2c_brawler_fortitude3", name: "강건 III", stat: "vit", category: "passive", tier: 3,
-    description: "극에 다다른 내공. 활력이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
+    // 보법 II(격투가) — 무인 재설계(2026-06-22): 옛 강건 III(활력%)에서 회피로 전환. 권사 보법(+8%)의
+    //   상위판(회피 갈래 심화). 활력 진행은 수도승 갈래(강건 II/III)로 이전. id 유지(세이브 호환).
+    id: "v2c_brawler_fortitude3", name: "보법 II", stat: "vit", category: "passive", tier: 3,
+    description: "한층 깊어진 보법. 회피가 크게 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { statPct: { vit: 20 } },
+    passive: { evasionPct: 12 },
   },
   v2c_magus_acumen3: {
     id: "v2c_magus_acumen3", name: "총명 III", stat: "int", category: "passive", tier: 3,
@@ -516,10 +523,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { defPct: 20 },
   },
   v2c_warmonk_evasion3: {
-    id: "v2c_warmonk_evasion3", name: "허공보", stat: "vit", category: "passive", tier: 3,
-    description: "흐르는 듯한 보법. 회피가 크게 오른다.", mpCost: 0, cooldown: 0,
+    // 강건 III(무승) — 무인 재설계(2026-06-22): 옛 허공보(회피)에서 활력%로 전환. 수도승 강건 II(+20%)의
+    //   상위판(탱 갈래 정점). 회피는 권사 갈래(보법)로 이전. id 유지(세이브 호환).
+    id: "v2c_warmonk_evasion3", name: "강건 III", stat: "vit", category: "passive", tier: 3,
+    description: "극에 다다른 내공. 활력이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { evasionPct: 14 },
+    passive: { statPct: { vit: 30 } },
   },
   v2c_bishop_blessing3: {
     // 대사제 = 사제 계승 — 회복 강화(healPowerPct·SPI 지원). 마도사(지능%)와 다른 축.
@@ -584,13 +593,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     ],
   },
   v2c_sensei_combo: {
-    // 절정 반격(패시브) — 옛 액티브 난무를 대체(id 는 유지 — 킷/세이브 안정). 피격 생존 시 30% 확률로
-    //   적에게 ATK 반격(엔진 passiveCounterChancePct 훅·PvE enemyPhase 전용·반격의 룬 패턴). 절정은
-    //   VIT 탱이라 반격 데미지는 ATK 기준(현재 1×) — 추후 약하면 재조정. SP 는 루브릭(passive tier3=9).
-    id: "v2c_sensei_combo", name: "반격", stat: "vit", category: "passive", tier: 3,
-    description: "공격을 받아넘기며 즉시 되받아친다.", mpCost: 0, cooldown: 0,
-    effects: [],
-    passive: { counterChancePct: 30 },
+    // 권룡파(권룡 4차 액티브) — 무인 재설계(2026-06-22): 옛 반격(패시브)에서 방깎 단일 액티브로 교체.
+    //   격투가 라인(회피·공격) 정점 — 용이 솟구치듯 내지르며 적 방어(무력=vit−15%)를 무너뜨린다.
+    //   계보 파쇄(0.7/90)·심판(1.3/230) 위 t4 강단일(1.5/290)+무력. id 유지(세이브 호환). 반격은 투승으로 이전.
+    id: "v2c_sensei_combo", name: "권룡파", stat: "str", category: "attack", tier: 3,
+    description: "용이 솟구치듯 내지르는 일권. 적의 방어를 무너뜨린다.", mpCost: 42, cooldown: 0, procChance: 30,
+    effects: [dmg(1.5, 290), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
   },
   v2c_sage_bolt: {
     id: "v2c_sage_bolt", name: "마력 폭사", stat: "int", category: "attack", tier: 3,
@@ -616,11 +624,12 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     passive: { critDmgPct: 30 }, // 크리축 차수 단조 — 정예 기사=4차 최상(2차20<3차25<4차30·25→30).
   },
   v2c_sensei_ironbody: {
-    // 무도 심화 — 최대 HP(심층 탱). vit 라인(흡혈/회피/활력%)에 없던 축.
-    id: "v2c_sensei_ironbody", name: "철신", stat: "vit", category: "passive", tier: 3,
-    description: "강철 같은 몸. 최대 체력이 크게 늘어난다.", mpCost: 0, cooldown: 0,
+    // 패왕(권룡 4차 패시브) — 무인 재설계(2026-06-22): 옛 철신(최대 HP%)에서 힘%로 교체. 격투가 라인
+    //   (STR딜·회피) 정점의 공격 정체성. t4 STR% 는 유일 축(고유성 유지). 최대 HP%(철신)는 투승으로 이전. id 유지.
+    id: "v2c_sensei_ironbody", name: "패왕", stat: "str", category: "passive", tier: 3,
+    description: "패왕의 기개. 힘이 크게 비례해 오른다.", mpCost: 0, cooldown: 0,
     effects: [],
-    passive: { maxHpPct: 20 },
+    passive: { statPct: { str: 20 } },
   },
   v2c_sage_insight: {
     // 마법 심화 — 치명 확률(술사 치명피해와 시너지). int 라인에 crit 확률 추가.
@@ -718,6 +727,25 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "방벽에 돋은 가시. 공격을 받을 때마다 방어력만큼 되받아친다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { thornsDefPct: 100 },
+  },
+
+  // ── 무도 4차 두 번째 갈래(투승·무승 계승) 킷 — 반격(피격 카운터) + 철신(최대 HP) ──
+  //   무인 재설계(2026-06-22): 옛 절정(sensei) 킷을 그대로 상속. 권룡(sensei)이 공격형(권룡파+패왕)으로
+  //   바뀌며 탱 정체성(반격+철신)이 무승 계보 정점 투승으로 이동. 신규 전용 id(직업별 id 컨벤션).
+  v2c_battlemonk_counter: {
+    // 투승 반격(패시브) — 피격 생존 시 30% 확률로 적에게 ATK 반격(passiveCounterChancePct 훅·PvE
+    //   enemyPhase). 투승은 VIT 탱이라 반격 데미지는 ATK 기준. 옛 절정 반격(v2c_sensei_combo)에서 상속.
+    id: "v2c_battlemonk_counter", name: "반격", stat: "vit", category: "passive", tier: 3,
+    description: "공격을 받아넘기며 즉시 되받아친다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { counterChancePct: 30 },
+  },
+  v2c_battlemonk_ironbody: {
+    // 투승 철신(패시브) — 최대 HP(심층 탱). 옛 절정 철신(v2c_sensei_ironbody)에서 상속.
+    id: "v2c_battlemonk_ironbody", name: "철신", stat: "vit", category: "passive", tier: 3,
+    description: "강철 같은 몸. 최대 체력이 크게 늘어난다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 20 },
   },
 };
 

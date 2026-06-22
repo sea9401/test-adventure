@@ -314,10 +314,10 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
   },
   sensei: {
     id: "sensei",
-    name: "절정",
+    name: "권룡",
     tier: 4,
     cultivateProfile: { vit: 2, str: 1, spi: 1 },
-    jobBonus: { vit: 15, str: 7 }, // 무도 심화(격투가 라인 정점)
+    jobBonus: { vit: 15, str: 7 }, // 무도 심화(격투가 회피·공격 라인 정점·옛 절정)
     unlock: { prereqs: { brawler: TIER4_UNLOCK_CUMLEVEL } }, // 격투가 계보
   },
   sage: {
@@ -366,6 +366,17 @@ export const V2_JOB_CATALOG: Record<string, V2JobDefinition> = {
     cultivateProfile: { luk: 2, dex: 2 },
     jobBonus: { luk: 15, dex: 7 }, // 도적 심화(암살 라인 정점) — 행운 중심(신궁의 DEX 거울상)
     unlock: { prereqs: { shadow: TIER4_UNLOCK_CUMLEVEL } }, // 그림자 계보
+  },
+  // 무도 직군 4차 두 번째 갈래 — 무승(무도 3차 두 번째 갈래·수도승 계승) 계보. 권룡(격투가 라인)과
+  //   같은 무도 4차지만 정체성이 다르다: 권룡=회피·공격(보법·권룡파), 투승=순수 탱(강건·반격·철신).
+  //   무승 jobCumLevel TIER4=300 해금. 옛 절정 탱 킷(반격+철신)을 상속.
+  battlemonk: {
+    id: "battlemonk",
+    name: "투승",
+    tier: 4,
+    cultivateProfile: { vit: 2, spi: 1, str: 1 },
+    jobBonus: { vit: 15, spi: 7 }, // 무도 심화(무승 계승) — 탱 라인 정점(권룡과 동급·spi/str 갈래 차이)
+    unlock: { prereqs: { warmonk: TIER4_UNLOCK_CUMLEVEL } }, // 무승 계보
   },
 };
 
@@ -509,6 +520,7 @@ export const LEGACY_CLASS_SPEC_BY_JOB: Record<
   chief: { class: "rogue", spec: "chief" },
   warden: { class: "warrior", spec: "warden" }, // 전사 4차 두 번째 갈래(가디언 계승·방어 탱)
   phantom: { class: "rogue", spec: "phantom" }, // 도적 4차 두 번째 갈래(그림자 계보·기습)
+  battlemonk: { class: "martial", spec: "battlemonk" }, // 무도 4차 두 번째 갈래(무승 계승·탱)
 };
 
 /**

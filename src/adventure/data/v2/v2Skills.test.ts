@@ -161,12 +161,13 @@ describe("스마트 기본 패턴 (유틸 스팸 방지)", () => {
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_warrior_warcry)).toEqual({
       kind: "self_buff", stat: "str", active: false,
     });
-    // 파생버프(선풍각=회피·철포=받피감 selfBuffPct) → 그 버프 없을 때(만료 시 재시전·오프너 한계 해소).
+    // 파생버프(철포=받피감 selfBuffPct) → 그 버프 없을 때(만료 시 재시전·오프너 한계 해소).
+    //   무인 재설계(2026-06-22): 철포가 수도승 monk_palm 으로 이전·steelguard 는 하급 권법(공격→항상).
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_monk_palm)).toEqual({
-      kind: "self_buff_pct", target: "evasion", active: false,
+      kind: "self_buff_pct", target: "damageReduction", active: false,
     });
     expect(smartDefaultConditionForSkill(V2_SKILLS.v2c_martial_steelguard)).toEqual({
-      kind: "self_buff_pct", target: "damageReduction", active: false,
+      kind: "always",
     });
   });
 

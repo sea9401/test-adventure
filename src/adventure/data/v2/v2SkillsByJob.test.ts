@@ -279,6 +279,27 @@ describe("패시브 스킬 (학습+SP 슬롯해야 효과)", () => {
     expect(agg.statPct).toEqual({});
   });
 
+  it("수호자(warden) 킷 — 수호의 방벽(보호막) + 가시 방벽(반사)", () => {
+    expect(skillsForJob("warden")).toEqual([
+      "v2c_warden_aegis",
+      "v2c_warden_thorns",
+    ]);
+    // 액티브: 최대HP 15% 보호막
+    expect(V2_SKILLS.v2c_warden_aegis.effects[0]).toMatchObject({
+      kind: "shield",
+      pctMaxHp: 15,
+    });
+    // 패시브: 피격 시 방어력 100% 반사("방어 계수만큼")
+    expect(V2_SKILLS.v2c_warden_thorns.passive?.thornsDefPct).toBe(100);
+    // aggregate 가 thornsDefPct 를 수집(미보유=0)
+    expect(aggregateEquippedPassives(["v2c_warden_thorns"]).thornsDefPct).toBe(
+      100,
+    );
+    expect(
+      aggregateEquippedPassives(["v2c_guardian_bulwark3"]).thornsDefPct,
+    ).toBe(0);
+  });
+
   it("효과 패시브 맵(V2_JOB_PASSIVES)은 비어 있음 — 기본은 패시브 스킬로 이관", () => {
     expect(V2_JOB_PASSIVES).toEqual({});
     expect(jobPassive("warrior")).toEqual({});

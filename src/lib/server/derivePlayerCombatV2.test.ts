@@ -885,3 +885,28 @@ describe("derivePlayerCombatV2Pure healMult (SPI 부활 PR-1 — 정신 주력 �
     expect(b.healMult ?? 1).toBe(a.healMult ?? 1);
   });
 });
+
+describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)", () => {
+  it("passiveThornsDefPct 100 → thornsFlatFromDef = def (방어 계수만큼)", () => {
+    const p = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveThornsDefPct: 100,
+    }).player;
+    expect(p.thornsFlatFromDef).toBe(p.def);
+  });
+
+  it("passiveThornsDefPct 50 → def 의 50%(floor)", () => {
+    const p = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: {},
+      passiveThornsDefPct: 50,
+    }).player;
+    expect(p.thornsFlatFromDef).toBe(Math.floor(p.def * 0.5));
+  });
+
+  it("미지정 → thornsFlatFromDef 미설정(inert·byte-identical)", () => {
+    const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    expect(p.thornsFlatFromDef).toBeUndefined();
+  });
+});

@@ -43,6 +43,8 @@ export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
   chief: ["v2c_chief_strike", "v2c_chief_afterimage"], // 관통사(DEX 궁술) + 잔영(회피+12%)
   // ── 마법 4차 두 번째 갈래(원소술사) — 속성 분기 액티브 + 원소 통달 패시브 ──
   elementalist: ["v2c_elementalist_magic", "v2c_elementalist_mastery"], // 속성 마법(캐릭속성 분기) + 원소 통달(상성 양방향↑)
+  // ── 전사 4차 두 번째 갈래(수호자·가디언 계승) — 보호막 액티브 + 반사 패시브 ──
+  warden: ["v2c_warden_aegis", "v2c_warden_thorns"], // 수호의 방벽(보호막·최대HP15%) + 가시 방벽(피격 시 방어력만큼 반사)
 };
 
 /** 새 직업 id 의 학습 가능 시그니처 스킬셋. 미존재 jobId = 빈 배열(시작 스킬은 별도 자동 보유). */

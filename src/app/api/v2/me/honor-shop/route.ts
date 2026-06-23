@@ -7,17 +7,22 @@ import {
   V2_SETTLEMENT_WARFARE,
   HONOR_SHOP_STAMINA_POTION_COST,
 } from "@/adventure/data/v2/settlementWarfareConfig";
-import { parseHonor } from "@/adventure/data/v2/honor";
+import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 import {
   STAMINA_POTIONS_KEY,
   parseStaminaPotions,
 } from "@/adventure/v2/staminaPotions";
 
-// 명예상점 — 정착지 전쟁 개인 화폐(명예) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
-//   GET — 명예 잔액 + 품목. POST { itemId } — 구매(명예 차감 + 아이템 지급).
+// 명성상점 — 정착지 전쟁 개인 화폐(명성/honor) 소비처. 설계: docs/v2-settlement-warfare-plan.md §2.5.
+//   GET — 보유 명성 + 누적 명성 + 품목. POST { itemId } — 구매(보유 명성 차감 + 아이템 지급).
+//   🔑 구매는 보유(honor)만 차감 — 누적(honorEarned)·길드 명성은 불변(누적과 소비는 별개 카운트).
 //   초기 품목 = 스태미나 회복약 1종(후속 확장). 플래그 off → 404.
 
-type HonorSave = { honor?: unknown; [k: string]: unknown };
+type HonorSave = {
+  honor?: unknown;
+  honorEarned?: unknown;
+  [k: string]: unknown;
+};
 type PotSave = { count?: unknown; [k: string]: unknown };
 
 const ITEMS = [
@@ -43,8 +48,10 @@ export async function GET() {
       .where(and(eq(savesKv.userId, userId), eq(savesKv.key, "character.v2")))
       .limit(1)
   )[0];
-  const honor = parseHonor((row?.value as HonorSave | undefined)?.honor);
-  return Response.json({ ok: true, honor, items: ITEMS });
+  const save = row?.value as HonorSave | undefined;
+  const honor = parseHonor(save?.honor);
+  const honorEarned = parseHonorEarned(save?.honorEarned, honor);
+  return Response.json({ ok: true, honor, honorEarned, items: ITEMS });
 }
 
 export async function POST(req: Request) {
@@ -75,12 +82,14 @@ export async function POST(req: Request) {
       {},
     );
     const honor = parseHonor(charSave.honor);
+    const honorEarned = parseHonorEarned(charSave.honorEarned, honor);
     if (honor < item.cost) {
       return {
         status: 400,
         body: { ok: false as const, error: "insufficient_honor", honor },
       };
     }
+    // 보유(honor)만 차감 — 누적(honorEarned)은 보존(spread + 미수정). "소비 ≠ 누적" 분리.
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       honor: honor - item.cost,
@@ -102,6 +111,7 @@ export async function POST(req: Request) {
       body: {
         ok: true as const,
         honor: honor - item.cost,
+        honorEarned,
         granted: item.id,
       },
     };

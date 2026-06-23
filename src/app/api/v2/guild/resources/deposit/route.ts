@@ -6,13 +6,14 @@ import {
   lockGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
+import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   V2_SETTLEMENT_WARFARE,
   GOLD_PER_HONOR_ON_DEPOSIT,
 } from "@/adventure/data/v2/settlementWarfareConfig";
-import { parseHonor } from "@/adventure/data/v2/honor";
+import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 
 // POST /api/v2/guild/resources/deposit — 길드원이 개인 골드를 길드 공용 골드 풀에 입금.
 //
@@ -66,26 +67,34 @@ export async function POST(req: Request) {
         },
       };
     }
-    // 정착지 전쟁 on = 입금 보조 명예(10만골드당 1). off = 명예 미기록(byte-identical).
+    // 정착지 전쟁 on = 입금 보조 명성(10만골드당 1). off = 명성 미기록(byte-identical).
     const honorDelta = V2_SETTLEMENT_WARFARE
       ? Math.floor(amount / GOLD_PER_HONOR_ON_DEPOSIT)
       : 0;
+    const honorBefore = parseHonor(charSave.honor);
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: spend.gold,
       bankedGold: spend.bankedGold,
+      // 보유(honor)·누적(honorEarned) 동시 가산. 누적은 길드 명성 적립·본인 누적 표기의 원천.
       ...(honorDelta > 0
-        ? { honor: parseHonor(charSave.honor) + honorDelta }
+        ? {
+            honor: honorBefore + honorDelta,
+            honorEarned:
+              parseHonorEarned(charSave.honorEarned, honorBefore) + honorDelta,
+          }
         : {}),
     });
 
-    // 길드 풀 가산 — tx 마지막(락 순서).
+    // 길드 풀 가산 — tx 마지막(락 순서: ... → guild_resources → guilds).
     const resources = await lockGuildResources(tx, guildId);
     const nextGuildGold = resources.gold + amount;
     await upsertGuildResources(tx, guildId, {
       ...resources,
       gold: nextGuildGold,
     });
+    // 길드 누적 명성 가산 — 길드원이 획득한 명성만큼(앞으로만·소급 없음). guild_resources 다음.
+    await addGuildFame(tx, guildId, honorDelta);
 
     await logGuildActivity(tx, {
       guildId,

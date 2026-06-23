@@ -107,6 +107,7 @@ type GuildInfoResponse = {
     level: number;
     job: string;
     lastSeenAt: string | null;
+    honorEarned: number;
   }[];
   isMaster?: boolean;
   isManager?: boolean;
@@ -651,7 +652,7 @@ export function V2GuildHome({
     : BASE_SUB_TABS;
   // 정착지 전쟁 on = 명예상점 탭 추가(개인 명예 소비처). off = 미표시(byte-identical).
   const subTabs: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
-    ? [...baseSubTabs, { key: "honor_shop", label: "명예상점" }]
+    ? [...baseSubTabs, { key: "honor_shop", label: "명성상점" }]
     : baseSubTabs;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
@@ -767,7 +768,10 @@ export function V2GuildHome({
             </div>
           ) : (
             // 길드원 조직도 — 마스터→부마스터→관리자→일반 위계 트리(회사 조직도 느낌).
-            <GuildOrgChart members={info.members} />
+            <GuildOrgChart
+              members={info.members}
+              showHonor={V2_SETTLEMENT_WARFARE}
+            />
           )}
 
           {/* 라인업 — 멤버 배치라 같은 탭에 */}

@@ -70,19 +70,28 @@ export function tileDistanceFromCenter(col: number, row: number): number {
   );
 }
 
-// 거리 배수 — 중앙 1×, 링당 +STEP(선형). 🔧다이얼: STEP 0.5 = 코너(거리4) 3×. 중앙은 항상 기본비용.
-export const TILE_COST_DISTANCE_STEP = 0.5;
-export function tileCostMultiplier(col: number, row: number): number {
-  return 1 + TILE_COST_DISTANCE_STEP * tileDistanceFromCenter(col, row);
+// "추가 링" = max(0, 거리-1). 리베라 1칸 범위(거리1)는 가산 0(기본비용), 그 바깥 1칸당 1씩↑
+//   (거리2=1·거리3=2·거리4=3). 오너 결정(2026-06-24): 1칸 범위 기본 + 칸당 가산.
+export function tileExtraRings(col: number, row: number): number {
+  return Math.max(0, tileDistanceFromCenter(col, row) - 1);
 }
 
-// 골드 비용에 거리 배수 적용(정수 반올림). 중앙=기본·멀수록↑.
+// 골드 비용 = 기본 + 링당 가산(가법). 🔧다이얼 TILE_COST_GOLD_STEP_PER_RING=2천만.
+//   개척마을 생성(기본 1천만): 거리1=1천만·거리2=3천만·거리3=5천만·거리4=7천만.
+export const TILE_COST_GOLD_STEP_PER_RING = 20_000_000;
 export function scaledTileGoldCost(
   base: number,
   col: number,
   row: number,
 ): number {
-  return Math.round(base * tileCostMultiplier(col, row));
+  return base + TILE_COST_GOLD_STEP_PER_RING * tileExtraRings(col, row);
+}
+
+// 자원 비용 배수 — 1칸 범위=1×, 바깥 1칸당 +1×(거리2=2×·거리3=3×·거리4=4×). 골드와 단위가 달라
+//   가산 대신 배수(같은 "칸당↑" 느낌). 🔧다이얼 TILE_COST_RES_STEP_PER_RING.
+export const TILE_COST_RES_STEP_PER_RING = 1;
+export function tileCostMultiplier(col: number, row: number): number {
+  return 1 + TILE_COST_RES_STEP_PER_RING * tileExtraRings(col, row);
 }
 
 // 자원 비용(종류별 수량)에 거리 배수 적용(정수 반올림). 단계 승격(자원) 거리 스케일에 사용.

@@ -5,6 +5,7 @@
 // 사이즈 축소 — padding sm + 작은 font.
 
 import { Card } from "@/components/ui/Card";
+import { ChargeReadout } from "@/adventure/battle/BattleScene";
 import {
   V2_MATERIALS,
   type V2MaterialId,
@@ -101,7 +102,18 @@ export function formatHpMpGains(
   return parts.length ? parts.join(" · ") : null;
 }
 
-export function HuntResultCard({ result }: { result: HuntResult }) {
+export function HuntResultCard({
+  result,
+  hpCharges,
+  mpCharges,
+  hasMp,
+}: {
+  result: HuntResult;
+  // HP/MP 충전약 잔량 — 전투 결과 하단에 표기(전투 화면에서 이리로 이관). 미전달 시 미표시.
+  hpCharges?: number;
+  mpCharges?: number;
+  hasMp?: boolean;
+}) {
   const won = result.won;
   const drops = result.drops
     ? Object.entries(result.drops).filter(([, n]) => (n ?? 0) > 0)
@@ -224,6 +236,26 @@ export function HuntResultCard({ result }: { result: HuntResult }) {
           <span className="text-xs font-semibold text-violet-700 dark:text-violet-300">
             스킬포인트 +{result.spMilestonesGained} 획득!
           </span>
+        </div>
+      )}
+
+      {/* HP/MP 충전약 잔량 — 전투 화면에서 이리로 이관. */}
+      {hpCharges != null && (
+        <div className="mt-2 flex flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
+          <ChargeReadout
+            emoji="🧪"
+            label="HP 충전약"
+            value={hpCharges}
+            activeText="text-rose-500"
+          />
+          {hasMp && (
+            <ChargeReadout
+              emoji="🔷"
+              label="MP 충전약"
+              value={mpCharges ?? 0}
+              activeText="text-blue-500"
+            />
+          )}
         </div>
       )}
     </Card>

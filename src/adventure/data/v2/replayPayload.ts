@@ -20,6 +20,13 @@ export type ReplayPayload = {
     image?: string;
     // PR-속성표시 — 전투 화면에 몹 속성 뱃지. neutral/undefined 면 표시 안 함.
     element?: V2Element;
+    // 전투 스탯 — 전투창 적 칸 공/방/속(+상세) 표기용. 옛 payload(이전 배포본·PvP)엔
+    //   없을 수 있어 optional — 없으면 BattleScene 이 스탯 줄을 생략(크래시 방지).
+    atk?: number;
+    def?: number;
+    spd?: number;
+    accuracy?: number;
+    evasionPct?: number;
   };
   playerMaxHp: number;
   // v2 마법 시스템 풀 max (INT 0 이면 0).
@@ -67,6 +74,11 @@ export function toReplayPayload(
       hp: finalState.enemy.hp,
       image: finalState.enemy.image,
       element: finalState.enemy.element,
+      atk: finalState.enemy.atk,
+      def: finalState.enemy.def,
+      spd: finalState.enemy.spd,
+      accuracy: finalState.enemy.accuracy,
+      evasionPct: finalState.enemy.evasionPct,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,
@@ -124,6 +136,11 @@ export function toReplayPayloadLite(finalState: BattleState): ReplayPayload {
       hp: finalState.enemy.hp,
       image: finalState.enemy.image,
       element: finalState.enemy.element,
+      atk: finalState.enemy.atk,
+      def: finalState.enemy.def,
+      spd: finalState.enemy.spd,
+      accuracy: finalState.enemy.accuracy,
+      evasionPct: finalState.enemy.evasionPct,
     },
     playerMaxHp: finalState.playerMaxHp,
     playerMaxMp: finalState.playerMaxMp,

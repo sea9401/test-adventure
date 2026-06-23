@@ -36,7 +36,7 @@ export function treasuryShares(total: number): {
   return { claimerShare, guildShare: t - claimerShare };
 }
 
-// 절대 중립 거점 — NPC 영구 운영.
+// 중앙 자유도시(리베라)만 절대 중립(점령 불가·NPC 영구). 나머지 항구는 무소속(점령 가능).
 const NEUTRAL_OUTPOSTS: Outpost[] = [
   {
     id: "neutral_haven_central",
@@ -53,8 +53,7 @@ const NEUTRAL_OUTPOSTS: Outpost[] = [
     type: "village",
     tier: 2,
     position: { x: 4800, y: 500 },
-    neutral: true,
-    description: "대륙 북단의 자유 항구. 항상 열려 있다.",
+    description: "대륙 북단의 항구 거점.",
   },
   {
     id: "neutral_south_outpost",
@@ -62,8 +61,7 @@ const NEUTRAL_OUTPOSTS: Outpost[] = [
     type: "village",
     tier: 2,
     position: { x: 5000, y: 5280 },
-    neutral: true,
-    description: "대륙 남단의 자유 항구.",
+    description: "대륙 남단의 항구 거점.",
   },
   {
     id: "neutral_east_outpost",
@@ -71,8 +69,7 @@ const NEUTRAL_OUTPOSTS: Outpost[] = [
     type: "village",
     tier: 2,
     position: { x: 9000, y: 3000 },
-    neutral: true,
-    description: "대륙 동단의 자유 항구.",
+    description: "대륙 동단의 항구 거점.",
   },
 ];
 

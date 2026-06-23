@@ -22,6 +22,10 @@ import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 export default function OutpostPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  // ⚠️ Next16 param decode 비대칭(#630) — server page useParams 는 RAW(인코딩) 반환.
+  //   tile id 의 ':'·','(%3A·%2C) 를 디코드해야 isTileOutpostId/parse 동작(딥링크 404 함정).
+  //   카탈로그 id(영문·_)는 no-op. 재encode 금지(이중%25→404).
+  const id = decodeURIComponent(params.id);
   // 진입 컨텍스트별 뒤로가기 — 모험 홈에서 왔으면 홈, 기본(길드 관리·딥링크)은 길드 탭.
   // 마을 지도 진입은 폐지(지도=항법 전용).
   const from = useSearchParams().get("from");
@@ -37,9 +41,9 @@ export default function OutpostPage() {
 
   // 카탈로그 거점 우선. 타일 전쟁 — tile id 면 클라 tileSettlements 의 tier 로 메타 합성(서버 권위는
   //   각 전쟁 라우트가 별도 검증). flag off → tile id 는 미합성 → notFound(현행).
-  let outpost = OUTPOST_BY_ID.get(params.id);
-  if (!outpost && V2_TILE_WARFARE && isTileOutpostId(params.id)) {
-    const pos = parseTileOutpostId(params.id);
+  let outpost = OUTPOST_BY_ID.get(id);
+  if (!outpost && V2_TILE_WARFARE && isTileOutpostId(id)) {
+    const pos = parseTileOutpostId(id);
     const ts = pos
       ? tileSettlements.find((s) => s.col === pos.col && s.row === pos.row)
       : undefined;
@@ -51,8 +55,8 @@ export default function OutpostPage() {
 
   // 솔로 타일 정착지 소유 판정용 founder — 타일 정착지의 userId(카탈로그/미존재면 null).
   const tileFounderUserId = (() => {
-    if (!isTileOutpostId(params.id)) return null;
-    const pos = parseTileOutpostId(params.id);
+    if (!isTileOutpostId(id)) return null;
+    const pos = parseTileOutpostId(id);
     if (!pos) return null;
     return (
       tileSettlements.find((s) => s.col === pos.col && s.row === pos.row)

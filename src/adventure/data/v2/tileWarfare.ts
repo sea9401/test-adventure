@@ -97,7 +97,8 @@ export const isKnownOutpostId = (id: string): boolean =>
 export type TileOccupationValues = {
   outpostId: string;
   occupiedByUserId: string;
-  occupiedByGuildId: number;
+  // 길드 소유면 길드 id, 솔로(무길드) 소유면 null — 스키마상 둘 다 nullable.
+  occupiedByGuildId: number | null;
   policy: "open";
   taxRate: string;
   nextAttackAt: Date;
@@ -108,11 +109,11 @@ export type TileOccupationValues = {
 };
 
 // 타일 정착지 점령행 insert 값 — claim 라우트의 신규 점령 패턴 미러(공성/세율/쿨다운 동일).
-//   길드 소유(occupiedByGuildId 필수) + 창립자 기록(occupiedByUserId). 순수 함수(DB 미접촉·
-//   now 주입으로 결정적)라 단위 테스트 가능.
+//   소유 = 창립자(occupiedByUserId) + 길드(occupiedByGuildId, 무길드 솔로면 null). 순수 함수
+//   (DB 미접촉·now 주입으로 결정적)라 단위 테스트 가능.
 export function buildTileOccupationValues(args: {
   userId: string;
-  guildId: number;
+  guildId: number | null;
   col: number;
   row: number;
   tier: TileSettlementTier;

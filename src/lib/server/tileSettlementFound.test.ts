@@ -1,5 +1,5 @@
-// 개척마을 생성(found) 길드 규칙 — 길드 소속이면 마스터/부마스터만 + 길드 자금 소모,
-//   무소속(솔로)은 본인 골드. (2026-06-23 오너 요청)
+// 개척마을 생성(found) 길드 규칙 — 길드 소속이면 마스터/부마스터만 + 길드 자금 소모.
+//   영토=길드 소유 — 무소속은 개척 불가(need_guild). (2026-06-24 길드 전용 영토)
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -127,13 +127,13 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     expect(h.inserts).toHaveLength(0);
   });
 
-  it("무소속(솔로): 본인 골드 소모 + 정착지 생성(길드 자금 무관)", async () => {
+  it("무소속 → 403 need_guild (영토=길드 소유, 솔로 개척 폐기)", async () => {
     h.guildId = null;
     h.soloGold = FOUND_COST + COST;
     const res = await POST(foundReq());
-    expect(res.status).toBe(200);
-    expect(h.inserts).toHaveLength(1);
-    expect(h.guildUpserts).toHaveLength(0); // 길드 자금 무접촉
-    expect(h.soloSaves.length).toBeGreaterThan(0); // 개인 골드 차감
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe("need_guild");
+    expect(h.inserts).toHaveLength(0); // 정착지 미생성
+    expect(h.guildUpserts).toHaveLength(0);
   });
 });

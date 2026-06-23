@@ -127,9 +127,9 @@ const CITIES: Outpost[] = [
   { id: "city_ironpeak", name: "바르크라그", type: "fort", tier: 3, position: { x: 7000, y: 4100 } }, // 발렌(붉은산)
 ];
 
-// 거점 (tier 2) — 중앙 분쟁지대 전장 8 (쟁탈 풀). 권역 길목 5는 지도 축소(40→23)로 컷.
+// 거점 (tier 2) — 중앙 분쟁지대 평원 거점 8. 권역 길목 5는 지도 축소(40→23)로 컷.
 const OUTPOSTS_T2: Outpost[] = [
-  // 중앙 분쟁지대 (평원) — 쟁탈 전장. ⚠️ 8개는 warOutposts.ts 쟁탈 풀이라 제거 금지.
+  // 중앙 분쟁지대 (평원) — 일반 거점(쟁탈 아레나 폐지 후 점령/정착 대상).
   { id: "war_central_fort", name: "카스트라", type: "fort", tier: 2, position: { x: 4500, y: 2800 }, description: "중앙 분쟁지대의 핵심 요새. 시야와 방어 보너스." },
   { id: "war_central_tower", name: "아르카눔", type: "tower", tier: 2, position: { x: 5500, y: 2800 }, description: "분쟁지대 중앙의 마탑. 영창과 시야의 요충지." },
   { id: "war_central_mine", name: "베나리움", type: "mine", tier: 2, position: { x: 4800, y: 2300 }, description: "분쟁지대 중앙의 광산. 깊은 갱도가 뻗어 있다." },

@@ -1,0 +1,1 @@
+DROP TABLE "war_score_events" CASCADE;

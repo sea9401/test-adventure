@@ -253,8 +253,8 @@ function DepthCard({
   );
 }
 
-// 테마 속성 요약 한 줄 — 등장 속성 + 추천 속성(최빈 몹 속성을 찌르는 픽, 있을 때만).
-// 약점찌르기 +25% 가 "이 사냥터엔 어떤 속성을 들고 갈까"가 되도록 노출.
+// 테마 속성 요약 한 줄 — 등장 속성만 노출(추천 속성 태그는 제거).
+//   약점찌르기 +25% 판단은 등장 속성을 보고 플레이어가 직접 한다.
 function ThemeElementLine({
   depth,
   compact,
@@ -262,7 +262,7 @@ function ThemeElementLine({
   depth: number;
   compact?: boolean;
 }) {
-  const { elements, recommended } = themeElementSummary(depth);
+  const { elements } = themeElementSummary(depth);
   if (elements.length === 0) return null;
   return (
     <div
@@ -271,11 +271,6 @@ function ThemeElementLine({
       }`}
     >
       <span>속성 {elements.map((e) => V2_ELEMENT_LABEL[e]).join("·")}</span>
-      {recommended && (
-        <span className="rounded bg-emerald-500/15 px-1.5 py-px font-medium text-emerald-700 dark:text-emerald-400">
-          추천 {V2_ELEMENT_LABEL[recommended]}
-        </span>
-      )}
     </div>
   );
 }

@@ -347,6 +347,16 @@ export function TileMap({
                 : selSettlement.guildId != null
                   ? `${selSettlement.guildName ?? "다른 길드"} 영지`
                   : "다른 모험가의 정착지";
+            // 진입 버튼 게이트 — 관리(내 정착지) vs 공격(남의 정착지).
+            const isSolo = selSettlement.guildId == null;
+            const ours = mine || sameGuild;
+            // 관리: 길드 타일=우리쪽(전쟁/관리), 솔로 타일=본인(생산 관리).
+            const canManage =
+              (V2_TILE_WARFARE && !isSolo && ours) ||
+              (V2_TILE_PRODUCTION && isSolo && mine);
+            // 공격: 남의 솔로 타일=누구나, 남의 길드 영지=길드 소속만(백엔드 규칙 미러).
+            const canAttack =
+              V2_TILE_WARFARE && !ours && (isSolo || viewerGuildId != null);
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
                 <div className="min-w-0">
@@ -378,29 +388,26 @@ export function TileMap({
                       </button>
                     )
                   )}
-                  {/* 진입 버튼: 길드 점령 정착지=전쟁/관리(V2_TILE_WARFARE), 솔로 본인 정착지=생산
-                      관리(V2_TILE_PRODUCTION). 솔로 타일은 점령행 없어 전쟁 대상 아님→본인만 "관리". */}
+                  {/* 진입 버튼: 내 정착지=관리(길드 타일 방어·관리/솔로 본인 관리), 남의 정착지=
+                      공격(솔로 타일=누구나·길드 영지=길드원만). 솔로 타일도 점령행이 있어 정복 대상. */}
                   {onOpenOutpost &&
-                    ((V2_TILE_WARFARE && selSettlement.guildId != null) ||
-                      (V2_TILE_PRODUCTION &&
-                        selSettlement.guildId == null &&
-                        mine)) && (
+                    (canManage || canAttack) && (
                       <button
                         type="button"
                         onClick={() =>
                           onOpenOutpost(tileOutpostId(selCol, selRow))
                         }
                         className={
-                          selSettlement.guildId == null
+                          canManage && isSolo
                             ? "rounded-md border border-zinc-600 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
                             : "rounded-md border border-rose-700/60 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-950/40"
                         }
                       >
-                        {selSettlement.guildId == null
-                          ? "관리"
-                          : mine || sameGuild
-                            ? "방어·관리"
-                            : "공격"}
+                        {canManage
+                          ? isSolo
+                            ? "관리"
+                            : "방어·관리"
+                          : "공격"}
                       </button>
                     )}
                   {/* 생산 관리 이전(T3): V2_TILE_PRODUCTION on 이면 지도 승격 폐지 —

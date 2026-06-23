@@ -36,8 +36,8 @@ import {
 } from "@/adventure/data/v2/tileConfig";
 import type { Outpost } from "@/adventure/data/v2/types";
 
-const CELL = 54; // 셀(=아이콘) 크기 px. 고정값(반응형은 후속 폴리시).
-const GAP = 1;
+// 보드는 컨테이너 폭을 꽉 채우는 반응형 정사각형(9×9 1fr 트랙). 셀/아이콘은 % 로 스케일.
+const GAP = 1; // 셀 사이 간격 px.
 
 // 개척 정착지 티어별 아이콘 — 개척마을(깃발)→마을(집)→도시(성)→대도시(왕관).
 const SETTLE_TIER_ICON: Record<TileSettlementTier, Icon> = {
@@ -132,8 +132,6 @@ export function TileMap({
     return Math.round((Number.isFinite(raw) ? raw : OUTPOST_NPC_TAX_RATE) * 100);
   };
 
-  const boardPx = TILE_BOARD_SIZE * CELL + (TILE_BOARD_SIZE - 1) * GAP;
-  const iconPx = Math.round(CELL * 0.5);
   const cells = Array.from({ length: TILE_BOARD_SIZE * TILE_BOARD_SIZE }, (_, i) => ({
     col: i % TILE_BOARD_SIZE,
     row: Math.floor(i / TILE_BOARD_SIZE),
@@ -170,14 +168,13 @@ export function TileMap({
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <div className="relative" style={{ width: boardPx, height: boardPx }}>
+      <div>
+        <div className="relative w-full" style={{ aspectRatio: "1 / 1" }}>
           <div
-            className="grid bg-zinc-800/70 ring-1 ring-zinc-800"
+            className="grid h-full w-full bg-zinc-800/70 ring-1 ring-zinc-800"
             style={{
-              width: boardPx,
-              height: boardPx,
-              gridTemplateColumns: `repeat(${TILE_BOARD_SIZE}, ${CELL}px)`,
+              gridTemplateColumns: `repeat(${TILE_BOARD_SIZE}, 1fr)`,
+              gridTemplateRows: `repeat(${TILE_BOARD_SIZE}, 1fr)`,
               gap: GAP,
             }}
           >
@@ -192,7 +189,7 @@ export function TileMap({
               const ring = isPlayer ? (
                 <span className="pointer-events-none absolute inset-0 z-10 rounded-md ring-2 ring-emerald-400" />
               ) : null;
-              const cls = `relative flex items-center justify-center transition ${
+              const cls = `relative flex h-full w-full items-center justify-center transition ${
                 isSel ? "outline outline-2 outline-indigo-400" : ""
               }`;
 
@@ -226,13 +223,13 @@ export function TileMap({
                     onClick={() => setSelected(k)}
                     title={occ?.villageName?.trim() || o.name}
                     className={cls}
-                    style={{ width: CELL, height: CELL, background: `${fill}22` }}
+                    style={{ background: `${fill}22` }}
                   >
                     <span
-                      className="flex items-center justify-center rounded-md"
-                      style={{ width: CELL - 10, height: CELL - 10, background: fill }}
+                      className="flex h-[82%] w-[82%] items-center justify-center rounded-md"
+                      style={{ background: fill }}
                     >
-                      <Glyph size={iconPx} weight="fill" color="#0b1020" />
+                      <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
                     </span>
                     {ring}
                   </button>
@@ -253,21 +250,13 @@ export function TileMap({
                     onClick={() => setSelected(k)}
                     title={settlement.name ?? "개척 정착지"}
                     className={cls}
-                    style={{
-                      width: CELL,
-                      height: CELL,
-                      background: `${settleFill}22`,
-                    }}
+                    style={{ background: `${settleFill}22` }}
                   >
                     <span
-                      className="flex items-center justify-center rounded-md"
-                      style={{
-                        width: CELL - 10,
-                        height: CELL - 10,
-                        background: settleFill,
-                      }}
+                      className="flex h-[82%] w-[82%] items-center justify-center rounded-md"
+                      style={{ background: settleFill }}
                     >
-                      <Glyph size={iconPx} weight="fill" color="#0b1020" />
+                      <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
                     </span>
                     {ring}
                   </button>
@@ -281,10 +270,9 @@ export function TileMap({
                   type="button"
                   onClick={() => setSelected(k)}
                   title="빈 땅"
-                  className={`relative bg-zinc-900/60 transition hover:bg-zinc-800 ${
+                  className={`relative h-full w-full bg-zinc-900/60 transition hover:bg-zinc-800 ${
                     isSel ? "outline outline-2 outline-indigo-400" : ""
                   }`}
-                  style={{ width: CELL, height: CELL }}
                 >
                   {ring}
                 </button>

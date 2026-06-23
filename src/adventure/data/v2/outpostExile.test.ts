@@ -23,10 +23,10 @@ describe("nearestNeutralOutpostId (토벌 추방 대상)", () => {
     );
   });
 
-  it("동쪽 끝 거점 → 동단 자유항(에우로스)", () => {
-    // kingdom_ragnarod(8000,3300) 최근접 중립 = neutral_east_outpost(9000,3000).
+  it("어느 거점이든 유일 중립 리베라로 (중립=리베라 1곳뿐)", () => {
+    // 중립이 리베라(neutral_haven_central) 하나뿐이라 모든 추방은 리베라로 수렴.
     expect(nearestNeutralOutpostId("kingdom_ragnarod")).toBe(
-      "neutral_east_outpost",
+      "neutral_haven_central",
     );
   });
 

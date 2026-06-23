@@ -46,8 +46,10 @@ describe("v2 outposts 데이터", () => {
     }
   });
 
-  it("절대 중립은 4 곳", () => {
-    expect(OUTPOSTS.filter((o) => o.neutral).length).toBe(4);
+  it("절대 중립은 리베라 1 곳뿐 (나머지 항구는 무소속)", () => {
+    const neutrals = OUTPOSTS.filter((o) => o.neutral);
+    expect(neutrals.length).toBe(1);
+    expect(neutrals[0]?.id).toBe("neutral_haven_central");
   });
 
   it("왕국(tier 4) 5 곳", () => {

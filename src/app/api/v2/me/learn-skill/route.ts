@@ -56,9 +56,8 @@ export async function POST(req: Request) {
       specChoice?: unknown;
     }>(tx, userId, "character.v2", {});
     const cls = parseV2Class(charSave.class);
-    if (cls === "none") {
-      return { status: 400, body: { ok: false as const, error: "no_class" as const } };
-    }
+    // 모험가(무직)도 자기 킷(착용형 패시브 2종)은 학습 가능 — 풀 검사(elementalSkillsForClass)가
+    //   none 킷만 통과시키므로 조기 게이트 제거. 타 직업 스킬은 not_in_chain 으로 여전히 차단.
 
     const skills = parseV2SkillsState(
       await lockSaveForUpdate<V2SkillsState>(

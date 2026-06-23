@@ -49,6 +49,9 @@ export type V2CommonSkillId =
   | "v2c_martial_fortitude" // 강건 (활력 +10%)
   | "v2c_mage_acumen" // 총명 (지능 +10%)
   | "v2c_rogue_finesse" // 예기 (민첩이 공격력 보조)
+  // 모험가(무직) 킷 — 착용형 패시브 2종
+  | "v2c_none_toughness" // 강인함 (최대 HP +10%)
+  | "v2c_none_diligence" // 수련 (처치당 숙달 +1)
   // ── 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ──
   // 액티브
   | "v2c_shieldman_bash" // 방패 타격 (방어력 기반 단일)
@@ -290,6 +293,22 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "벼린 감각. 민첩이 공격력을 보조한다.", mpCost: 0, cooldown: 0,
     effects: [],
     passive: { atkPerDexCoef: 0.08 }, // = derive ROGUE_ATK_PER_DEX
+  },
+
+  // ── 모험가(무직) 킷 — 착용형 패시브 2종(학습+SP 슬롯) ──
+  v2c_none_toughness: {
+    id: "v2c_none_toughness", name: "강인함", stat: "vit", category: "passive", tier: 1,
+    description: "모험으로 단련된 몸. 최대 체력이 늘어난다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    passive: { maxHpPct: 10 },
+  },
+  v2c_none_diligence: {
+    id: "v2c_none_diligence", name: "수련", stat: "luk", category: "passive", tier: 1,
+    description: "꾸준한 수행. 사냥 처치마다 숙달 포인트를 +1 더 얻는다.", mpCost: 0, cooldown: 0,
+    effects: [],
+    spCost: 3,
+    learnCost: 8000,
+    passive: { profPerKillBonus: 1 },
   },
 
   // ═══ 상위 8직업 킷(2026-06-17) — 액티브 1 + 고유 % 패시브 1 ═══

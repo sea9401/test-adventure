@@ -50,6 +50,7 @@ import {
 } from "@/adventure/data/v2/elements";
 import {
   emptyV2SkillsState,
+  equippedProfPerKillBonus,
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
@@ -960,7 +961,10 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     // 적립(숙달 포인트) — 승리 시. 깊이 밴드 비례(2~5). none(모험가)도 적립(수행 프로필 보유 →
     //   addPoints 가 V2_CULTIVATE_PROFILE 존재로 자체 게이트). cumLevel/정복(아래)은 none 제외 유지.
     if (won) {
-      const perKill = proficiencyPerKillAtDepth(depth);
+      // 처치당 숙달 포인트 = 깊이 밴드(2~5) + 착용 패시브 보너스(수련 = +1).
+      const perKill =
+        proficiencyPerKillAtDepth(depth) +
+        equippedProfPerKillBonus(v2Skills.equipped);
       const nextProf = addPoints(prof, group, perKill);
       if (nextProf !== prof) {
         prof = nextProf;

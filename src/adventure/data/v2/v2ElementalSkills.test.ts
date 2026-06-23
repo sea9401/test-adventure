@@ -32,8 +32,14 @@ describe("elementalSkillsForClass — jobId 직업 킷(차수 게이팅 없음)"
       "v2c_warrior_strike",
       "v2c_warrior_might",
     ]);
-    expect(elementalSkillsForClass("none")).toEqual([]);
-    expect(elementalSkillsForClass("none", "gwang")).toEqual([]);
+    expect(elementalSkillsForClass("none")).toEqual([
+      "v2c_none_toughness",
+      "v2c_none_diligence",
+    ]);
+    expect(elementalSkillsForClass("none", "gwang")).toEqual([
+      "v2c_none_toughness",
+      "v2c_none_diligence",
+    ]);
   });
 
   it("3번째 인자(옛 차수)는 무시 — 동일 결과", () => {
@@ -45,13 +51,11 @@ describe("elementalSkillsForClass — jobId 직업 킷(차수 게이팅 없음)"
     );
   });
 
-  it("학습 비용은 모든 스킬 고정 단가 (1500)", () => {
-    expect(v2SkillLearnCost("v2c_warrior_strike")).toBe(
-      V2_SKILL_LEARN_COST_COMMON,
-    );
-    expect(v2SkillLearnCost("v2c_caster_bolt")).toBe(
-      V2_SKILL_LEARN_COST_COMMON,
-    );
+  it("학습 비용 — tier 스케일(1500/3000/5000) + per-skill 오버라이드", () => {
+    expect(v2SkillLearnCost("v2c_warrior_might")).toBe(1500); // tier1 입문
+    expect(v2SkillLearnCost("v2c_squire_might")).toBe(3000); // tier2 중급
+    expect(v2SkillLearnCost("v2c_paladin_might3")).toBe(5000); // tier3 상급
+    expect(v2SkillLearnCost("v2c_none_diligence")).toBe(8000); // per-skill 오버라이드(수련)
     expect(V2_SKILL_LEARN_COST_COMMON).toBe(1500);
   });
 });

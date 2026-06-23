@@ -4,6 +4,7 @@ import { V2_JOB_PASSIVES, jobPassive } from "./v2JobPassives";
 import {
   V2_SKILLS,
   aggregateEquippedPassives,
+  equippedProfPerKillBonus,
   spCostOf,
   type V2SkillId,
 } from "./v2Skills";
@@ -220,9 +221,23 @@ describe("직업 킷 — 스킬셋", () => {
     expect(V2_SKILLS.v2c_battlemonk_ironbody.passive?.maxHpPct).toBe(20);
   });
 
-  it("없는 jobId = 빈 배열", () => {
-    expect(skillsForJob("none")).toEqual([]);
+  it("모험가(none) = 착용형 패시브 2종, 없는 jobId = 빈 배열", () => {
+    expect(skillsForJob("none")).toEqual([
+      "v2c_none_toughness",
+      "v2c_none_diligence",
+    ]);
     expect(skillsForJob("nope")).toEqual([]);
+  });
+
+  it("모험가 패시브 — 강인함 HP+10%, 수련 숙달+1(착용 시)", () => {
+    expect(V2_SKILLS.v2c_none_toughness.passive?.maxHpPct).toBe(10);
+    expect(V2_SKILLS.v2c_none_diligence.passive?.profPerKillBonus).toBe(1);
+    // 착용 패시브 숙달 보너스 합산 — 수련 장착 시 +1, 미장착/타 패시브 0.
+    expect(equippedProfPerKillBonus(["v2c_none_diligence"])).toBe(1);
+    expect(equippedProfPerKillBonus([])).toBe(0);
+    expect(equippedProfPerKillBonus(["v2c_none_toughness"])).toBe(0);
+    // 수련은 SP 슬롯 차지(spCost>0).
+    expect(spCostOf(V2_SKILLS.v2c_none_diligence)).toBeGreaterThan(0);
   });
 });
 

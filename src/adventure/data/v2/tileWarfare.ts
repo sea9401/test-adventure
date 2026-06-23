@@ -41,6 +41,18 @@ export function parseTileOutpostId(id: string): TileCoord | null {
   return { col: Number(m[1]), row: Number(m[2]) };
 }
 
+// 거점 id → 사람이 읽는 표시 이름. 카탈로그 거점이면 카탈로그 name, 타일 거점이면
+//   좌표 결정적 이름(tileSettlementName — DB 의 tile_settlements.name 도 found 시 같은 값으로
+//   고정, rename 없음 → 클라 단독 계산이 지도/DB 와 항상 일치). 미해석 id 는 원시 id 폴백.
+//   UI 헬퍼(토벌/알림/전광판/침입자 패널)의 중복 outpostName 을 단일화한다.
+export function outpostDisplayName(id: string): string {
+  const cat = OUTPOST_BY_ID.get(id);
+  if (cat) return cat.name;
+  const pos = parseTileOutpostId(id);
+  if (pos) return tileSettlementName(pos.col, pos.row);
+  return id;
+}
+
 // 타일 정착지 tier(frontier/village/city/metropolis) → 거점 tier(1..4).
 //   단조 매핑(index+1): 공성 난이도·챔피언 강도·점령 쿨다운 스케일이 tier 를 쓴다.
 export function tileTierToOutpostTier(tier: TileSettlementTier): OutpostTier {

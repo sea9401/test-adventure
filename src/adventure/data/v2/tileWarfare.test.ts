@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { OUTPOSTS, OUTPOST_BY_ID } from "./outposts";
 import { computeNextAttackAt } from "./npcAttack";
 import { FORT_MAX_HP, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
+import { tileSettlementName } from "./tileConfig";
 import {
   buildTileOccupationValues,
   isKnownOutpostId,
   isTileOutpostId,
+  outpostDisplayName,
   parseTileOutpostId,
   resolveOutpostMeta,
   synthTileOutpost,
@@ -31,6 +33,23 @@ describe("tile id 헬퍼", () => {
     expect(parseTileOutpostId("tile:")).toBeNull();
     expect(parseTileOutpostId("tile:3")).toBeNull();
     expect(parseTileOutpostId("tile:a,b")).toBeNull();
+  });
+});
+
+describe("outpostDisplayName — id → 표시 이름", () => {
+  it("카탈로그 거점 — 카탈로그 name", () => {
+    const cat = OUTPOSTS[0];
+    expect(outpostDisplayName(cat.id)).toBe(cat.name);
+  });
+
+  it("타일 거점 — 좌표 결정적 이름(지도/DB 와 일치)", () => {
+    expect(outpostDisplayName("tile:3,5")).toBe(tileSettlementName(3, 5));
+    // 원시 tile id 가 그대로 노출되지 않음.
+    expect(outpostDisplayName("tile:3,5")).not.toContain("tile:");
+  });
+
+  it("미해석 id — 원시 id 폴백", () => {
+    expect(outpostDisplayName("nonexistent_xyz")).toBe("nonexistent_xyz");
   });
 });
 

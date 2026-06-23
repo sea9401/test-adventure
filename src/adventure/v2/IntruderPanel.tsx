@@ -5,11 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
-import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
-
-function outpostDisplayName(outpostId: string): string {
-  return OUTPOST_BY_ID.get(outpostId)?.name ?? outpostId;
-}
+import { outpostDisplayName } from "@/adventure/data/v2/tileWarfare";
 
 // 점령 길드 전용 — 거점에 침입한 다른 길드 캐릭 목록 + 토벌 버튼.
 // 전투 탭 > 토벌(V2SubjugationView)이 내 길드 보유 거점마다 렌더.

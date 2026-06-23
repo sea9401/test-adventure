@@ -8,17 +8,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sword } from "@phosphor-icons/react";
-import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import {
   FEED_POLL_MS,
   WAR_TICKER_WINDOW_MIN,
   type FeedEntry,
 } from "@/lib/feed-config";
-
-function outpostName(outpostId: string): string {
-  return OUTPOST_BY_ID.get(outpostId)?.name ?? outpostId;
-}
 
 // 한 사건 → 티커 한 토막(컴팩트 플레인 텍스트). 모르는 타입은 null(렌더 제외).
 export function warTickerText(e: FeedEntry): string | null {

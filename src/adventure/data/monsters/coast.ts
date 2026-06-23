@@ -162,6 +162,7 @@ export const COAST_MONSTERS: Record<string, Monster> = {
     name: "갈대 살쾡이",
     image: "/images/monster/reedcat.webp",
     tags: ["beast"],
+    archetype: "crit",
     hp: 60,
     atk: 6,
     def: 2,

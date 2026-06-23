@@ -24,6 +24,7 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "역병 하이에나": {
     name: "역병 하이에나",
     tags: ["beast"],
+    archetype: "crit",
     hp: 320,
     atk: 34,
     def: 10,
@@ -75,6 +76,7 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "잿빛 와이번": {
     name: "잿빛 와이번",
     tags: ["beast", "dragon"],
+    archetype: "evasive",
     hp: 920,
     atk: 78,
     def: 36,

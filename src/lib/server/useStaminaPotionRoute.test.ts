@@ -38,6 +38,14 @@ const char = () => store.get(k("u1", "character.v2")) as {
 const potCount = () =>
   (store.get(k("u1", STAMINA_POTIONS_KEY)) as { count: number }).count;
 
+// body { count } 를 담은 POST Request. 인자 없으면 본문 없음 → 라우트가 count=1 폴백.
+const req = (body?: unknown) =>
+  new Request("http://localhost/api/v2/me/use-stamina-potion", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
 describe("POST /api/v2/me/use-stamina-potion", () => {
   beforeEach(() => {
     store.clear();
@@ -46,7 +54,7 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
 
   it("미인증 → 401", async () => {
     vi.mocked(ensureUser).mockResolvedValueOnce(null);
-    const res = await POST();
+    const res = await POST(req());
     expect(res.status).toBe(401);
   });
 
@@ -56,7 +64,7 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
       stamina: { current: 100, lastUpdatedAt: t },
     });
     store.set(k("u1", STAMINA_POTIONS_KEY), { count: 0 });
-    const res = await POST();
+    const res = await POST(req());
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe("no_potion");
     expect(char().stamina.current).toBe(100);
@@ -68,12 +76,40 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
       stamina: { current: 100, lastUpdatedAt: t },
     });
     store.set(k("u1", STAMINA_POTIONS_KEY), { count: 2 });
-    const res = await POST();
+    const res = await POST(req());
     const j = (await res.json()) as { count: number; stamina: number };
     expect(res.status).toBe(200);
     expect(j.count).toBe(1);
     expect(j.stamina).toBe(100 + STAMINA_POTION_RESTORE);
     expect(potCount()).toBe(1);
     expect(char().stamina.current).toBe(100 + STAMINA_POTION_RESTORE);
+  });
+
+  it("count 지정 → N개 한 번에 차감 + N×RESTORE 회복", async () => {
+    const t = Date.now();
+    store.set(k("u1", "character.v2"), {
+      stamina: { current: 100, lastUpdatedAt: t },
+    });
+    store.set(k("u1", STAMINA_POTIONS_KEY), { count: 5 });
+    const res = await POST(req({ count: 3 }));
+    const j = (await res.json()) as { count: number; used: number };
+    expect(res.status).toBe(200);
+    expect(j.used).toBe(3);
+    expect(j.count).toBe(2);
+    expect(potCount()).toBe(2);
+    expect(char().stamina.current).toBe(100 + STAMINA_POTION_RESTORE * 3);
+  });
+
+  it("count 가 보유 초과 → 보유 수로 클램프", async () => {
+    const t = Date.now();
+    store.set(k("u1", "character.v2"), {
+      stamina: { current: 0, lastUpdatedAt: t },
+    });
+    store.set(k("u1", STAMINA_POTIONS_KEY), { count: 2 });
+    const res = await POST(req({ count: 10 }));
+    const j = (await res.json()) as { used: number; count: number };
+    expect(j.used).toBe(2);
+    expect(j.count).toBe(0);
+    expect(potCount()).toBe(0);
   });
 });

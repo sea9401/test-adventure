@@ -9,19 +9,20 @@ import { V2SkillLearnView } from "@/adventure/v2/V2SkillLearnView";
 import { V2CombatPatternView } from "@/adventure/v2/V2CombatPatternView";
 import { V2_COMBAT_PATTERN_ENABLED } from "@/adventure/v2/combat/combatPattern";
 
-// /character/skills — 스킬 허브. 로드아웃(스킬 학습·SP 장착)과 전투패턴(갬빗)을 한 화면에서
-// 탭으로 전환한다. 옛 별도 "전투 패턴" 메뉴/라우트를 흡수. 전투패턴 탭은 플래그 on 일 때만.
-type SkillTab = "loadout" | "pattern";
+// /character/skills — 스킬 허브. 학습(스킬 습득) · 스킬(SP 장착·프리셋) · 스킬 패턴(갬빗)을
+// 한 화면에서 탭으로 전환한다. 옛 별도 "전투 패턴" 메뉴/라우트를 흡수. 스킬 패턴 탭은 플래그 on 일 때만.
+type SkillTab = "learn" | "loadout" | "pattern";
 
 export default function SkillsPage() {
   const router = useRouter();
   const back = () => router.push("/character");
-  const [tab, setTab] = useState<SkillTab>("loadout");
+  const [tab, setTab] = useState<SkillTab>("learn");
 
   const tabs = [
+    { key: "learn" as const, label: "학습" },
     { key: "loadout" as const, label: "스킬" },
     ...(V2_COMBAT_PATTERN_ENABLED
-      ? [{ key: "pattern" as const, label: "전투패턴" }]
+      ? [{ key: "pattern" as const, label: "스킬 패턴" }]
       : []),
   ];
 
@@ -31,20 +32,20 @@ export default function SkillsPage() {
         <SubViewHeader title="스킬" onBack={back} />
       </HeaderPanel>
 
-      {V2_COMBAT_PATTERN_ENABLED && (
-        <TabBar
-          tabs={tabs}
-          active={tab}
-          onChange={setTab}
-          ariaLabel="스킬 탭"
-          size="md"
-        />
-      )}
+      <TabBar
+        tabs={tabs}
+        active={tab}
+        onChange={setTab}
+        ariaLabel="스킬 탭"
+        size="md"
+      />
 
       {tab === "pattern" && V2_COMBAT_PATTERN_ENABLED ? (
         <V2CombatPatternView embedded onBack={back} />
+      ) : tab === "learn" ? (
+        <V2SkillLearnView embedded section="learn" onBack={back} />
       ) : (
-        <V2SkillLearnView embedded onBack={back} />
+        <V2SkillLearnView embedded section="loadout" onBack={back} />
       )}
     </main>
   );

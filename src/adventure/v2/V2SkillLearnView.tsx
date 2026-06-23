@@ -36,10 +36,13 @@ function skillDesc(id: string): string {
 export function V2SkillLearnView({
   onBack,
   embedded = false,
+  section = "all",
 }: {
   onBack: () => void;
   // 스킬 허브(탭)에 끼워질 때 — 자체 헤더/페이지 컨테이너 생략(허브가 제공).
   embedded?: boolean;
+  // 허브 탭 분리 — "learn"=학습 라이브러리만, "loadout"=프리셋+장착만, "all"=전부(독립).
+  section?: "all" | "learn" | "loadout";
 }) {
   const [elementalSkills, setElementalSkills] = useState<ElementalRow[]>([]);
   const [loadout, setLoadout] = useState<V2LoadoutData | null>(null);
@@ -123,18 +126,18 @@ export function V2SkillLearnView({
     >
       {!embedded && <SubViewHeader title="스킬" onBack={onBack} />}
 
-      {!loading && loadout && (
-        <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
-      )}
-
-      {!loading && loadout && (
+      {section !== "learn" && !loading && loadout && (
         <V2LoadoutPresetsPanel
           currentEquipped={loadout.equipped}
           onApplied={refresh}
         />
       )}
 
-      {!loading && elementalSkills.length > 0 && (
+      {section !== "learn" && !loading && loadout && (
+        <V2LoadoutPanel loadout={loadout} onChanged={refresh} />
+      )}
+
+      {section !== "loadout" && !loading && elementalSkills.length > 0 && (
         <Card padding="md">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">학습</h2>
@@ -149,8 +152,8 @@ export function V2SkillLearnView({
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {loadout
-              ? "학습한 스킬은 라이브러리에 영구 보관됩니다. 위 스킬에서 스킬포인트 예산 안으로 장착하세요."
-              : "학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 전투 패턴에서 설정하세요."}
+              ? "학습한 스킬은 라이브러리에 영구 보관됩니다. 「스킬」 탭에서 스킬포인트 예산 안으로 장착하세요."
+              : "학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 스킬 패턴에서 설정하세요."}
           </p>
           <ul className="mt-3 space-y-1.5">
             {elementalSkills.map((s) => {

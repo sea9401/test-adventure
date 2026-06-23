@@ -277,7 +277,7 @@ export function V2CombatPatternView({
           : "mx-auto max-w-[640px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100"
       }
     >
-      {!embedded && <SubViewHeader title="전투 패턴" onBack={onBack} />}
+      {!embedded && <SubViewHeader title="스킬 패턴" onBack={onBack} />}
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
         다른 조건이 안 맞을 때의 기본기로 쓰입니다. 「스킬」 탭에서 스킬을 배우고 장착하세요.
@@ -332,7 +332,7 @@ export function V2CombatPatternView({
 
           {castableEquipped.length === 0 ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              장착한 스킬이 없어 전투 패턴을 짤 수 없습니다.
+              장착한 스킬이 없어 스킬 패턴을 짤 수 없습니다.
               <br />
               <span className="text-amber-600/80 dark:text-amber-400/80">
                 캐릭터 &gt; 스킬에서 스킬을 학습·장착한 뒤 돌아오세요.

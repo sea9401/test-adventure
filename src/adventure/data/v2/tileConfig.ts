@@ -113,6 +113,20 @@ export function scaledTileResourceCost<K extends string>(
   return out;
 }
 
+// 칸 해금 비용(타일 정착지 · 고정 누진 · 거리 무관). 오너 결정(2026-06-24):
+//   currentUnlocked(이미 해금된 칸 수·INITIAL_UNLOCKED_SLOTS=0 기준) → 첫 칸=5천만·2번째=1억·
+//   3번째=2억·4번째=3억(village 4칸에 정확히 매칭). 그 이상(도시 5칸↑)=마지막 값(3억) 상한.
+export const TILE_SLOT_UNLOCK_GOLD_BY_INDEX = [
+  50_000_000, 100_000_000, 200_000_000, 300_000_000,
+] as const;
+export function tileSlotUnlockGoldCost(currentUnlocked: number): number {
+  if (currentUnlocked < 0) return 0;
+  return (
+    TILE_SLOT_UNLOCK_GOLD_BY_INDEX[currentUnlocked] ??
+    TILE_SLOT_UNLOCK_GOLD_BY_INDEX[TILE_SLOT_UNLOCK_GOLD_BY_INDEX.length - 1]
+  );
+}
+
 // 다음 티어(없으면 null = 최고).
 export const tileNextTier = (
   t: TileSettlementTier,

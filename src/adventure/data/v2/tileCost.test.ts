@@ -8,6 +8,7 @@ import {
   tileCostMultiplier,
   scaledTileGoldCost,
   scaledTileResourceCost,
+  tileSlotUnlockGoldCost,
   TILE_COST_GOLD_STEP_PER_RING,
 } from "./tileConfig";
 import { canUpgrade, applyUpgradeCost } from "./settlement";
@@ -64,6 +65,19 @@ describe("자원 비용 배수 — 1칸 범위=1×·바깥 1칸당 +1×·거리3
       crop: 1200,
       ore: 750,
     }); // ×3(상한)
+  });
+});
+
+describe("tileSlotUnlockGoldCost (칸 해금 고정 누진·거리 무관)", () => {
+  it("첫칸 5천만·2번째 1억·3번째 2억·4번째 3억 (INITIAL=0 → 0-기준)", () => {
+    expect(tileSlotUnlockGoldCost(0)).toBe(50_000_000);
+    expect(tileSlotUnlockGoldCost(1)).toBe(100_000_000);
+    expect(tileSlotUnlockGoldCost(2)).toBe(200_000_000);
+    expect(tileSlotUnlockGoldCost(3)).toBe(300_000_000);
+  });
+  it("4번째 이후(도시 5칸↑)=3억 상한", () => {
+    expect(tileSlotUnlockGoldCost(4)).toBe(300_000_000);
+    expect(tileSlotUnlockGoldCost(8)).toBe(300_000_000);
   });
 });
 

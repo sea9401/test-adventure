@@ -60,6 +60,45 @@ export const TILE_PROMOTE_COST: Record<TileSettlementTier, number> = {
   metropolis: 0, // 최고 티어
 };
 
+// === 중앙(리베라) 거리 기반 비용 스케일 ============================================
+// 리베라(중앙 TILE_BOARD_CENTER)에서 멀수록 개척·업그레이드 비용↑ → 중앙 요지 경쟁 유도.
+//   거리 = 체비셰프 링(max(|Δcol|,|Δrow|)): 중앙 0·한 칸 바깥 1… 9×9 코너 4. 서버·클라 공용 순수함수.
+export function tileDistanceFromCenter(col: number, row: number): number {
+  return Math.max(
+    Math.abs(col - TILE_BOARD_CENTER),
+    Math.abs(row - TILE_BOARD_CENTER),
+  );
+}
+
+// 거리 배수 — 중앙 1×, 링당 +STEP(선형). 🔧다이얼: STEP 0.5 = 코너(거리4) 3×. 중앙은 항상 기본비용.
+export const TILE_COST_DISTANCE_STEP = 0.5;
+export function tileCostMultiplier(col: number, row: number): number {
+  return 1 + TILE_COST_DISTANCE_STEP * tileDistanceFromCenter(col, row);
+}
+
+// 골드 비용에 거리 배수 적용(정수 반올림). 중앙=기본·멀수록↑.
+export function scaledTileGoldCost(
+  base: number,
+  col: number,
+  row: number,
+): number {
+  return Math.round(base * tileCostMultiplier(col, row));
+}
+
+// 자원 비용(종류별 수량)에 거리 배수 적용(정수 반올림). 단계 승격(자원) 거리 스케일에 사용.
+export function scaledTileResourceCost<K extends string>(
+  base: Partial<Record<K, number>>,
+  col: number,
+  row: number,
+): Partial<Record<K, number>> {
+  const mult = tileCostMultiplier(col, row);
+  const out: Partial<Record<K, number>> = {};
+  for (const [k, v] of Object.entries(base) as [K, number][]) {
+    out[k] = Math.round(v * mult);
+  }
+  return out;
+}
+
 // 다음 티어(없으면 null = 최고).
 export const tileNextTier = (
   t: TileSettlementTier,

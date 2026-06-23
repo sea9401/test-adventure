@@ -168,10 +168,12 @@ export type SettlementResources = Partial<Record<ProductionKind, number>>;
 
 // 업그레이드 가능?(다음 단계 존재 + 현 판 모두 해금 + 재화 충분). 부족 종류 목록도 함께.
 //   needSlots = 현 단계 판을 다 안 채움(칸 해금 → 단계 확장 순서 강제: 마을 4칸 다 열어야 도시).
+//   costMultiplier = 자원 비용 배수(타일 정착지의 리베라 거리 스케일용·기본 1=옛 거점 경로 불변).
 export function canUpgrade(
   tier: VillageTier,
   unlockedSlots: number,
   resources: SettlementResources,
+  costMultiplier = 1,
 ): {
   ok: boolean;
   next: VillageTier | null;
@@ -184,21 +186,23 @@ export function canUpgrade(
   const cost = UPGRADE_COST[tier] ?? {};
   const missing: ProductionKind[] = [];
   for (const k of PRODUCTION_KINDS) {
-    const need = cost[k] ?? 0;
+    const need = Math.round((cost[k] ?? 0) * costMultiplier);
     if ((resources[k] ?? 0) < need) missing.push(k);
   }
   return { ok: !needSlots && missing.length === 0, next, missing, needSlots };
 }
 
 // 업그레이드 비용 차감(순수) — canUpgrade 통과 가정. 차감된 새 재화(비파괴).
+//   costMultiplier = canUpgrade 와 동일 배수(차감과 검증 일치 필수).
 export function applyUpgradeCost(
   tier: VillageTier,
   resources: SettlementResources,
+  costMultiplier = 1,
 ): SettlementResources {
   const cost = UPGRADE_COST[tier] ?? {};
   const next: SettlementResources = { ...resources };
   for (const k of PRODUCTION_KINDS) {
-    const need = cost[k] ?? 0;
+    const need = Math.round((cost[k] ?? 0) * costMultiplier);
     if (need > 0) next[k] = Math.max(0, (next[k] ?? 0) - need);
   }
   return next;

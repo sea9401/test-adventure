@@ -99,8 +99,14 @@ import {
   normalizeVillageToOwner,
   type VillageRow,
 } from "@/lib/server/v2Settlement";
+import {
+  scaledTileGoldCost,
+  scaledTileResourceCost,
+} from "@/adventure/data/v2/tileConfig";
 
-const TILE = "tile:3,5";
+const TILE = "tile:3,5"; // 리베라(4,4) 체비셰프 거리 1 → 비용 1.5배
+// 거리 스케일된 마을 건설비(서버 과금과 일치).
+const BUILD_COST = scaledTileGoldCost(VILLAGE_BUILD_GOLD_COST, 3, 5);
 
 function seedTile(tier = "frontier") {
   store.set(tileSettlements, [{ col: 3, row: 5, userId: ME, tier }]);
@@ -159,7 +165,7 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
     expect(v.ownerUserId).toBeNull();
     expect(v.tier).toBe("village");
     expect(store.get(tileSettlements)![0].tier).toBe("village"); // 동기화
-    expect(store.get(v2GuildResources)![0].gold).toBe(50_000_000 - VILLAGE_BUILD_GOLD_COST);
+    expect(store.get(v2GuildResources)![0].gold).toBe(50_000_000 - BUILD_COST);
   });
 
   it("솔로 타일: 점령행 없음 → 솔로 마을(ownerUserId) + 본인 골드 차감 + tier 동기화", async () => {
@@ -172,12 +178,12 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
     expect(v.guildId).toBeNull();
     expect(v.tier).toBe("village");
     expect(store.get(tileSettlements)![0].tier).toBe("village");
-    expect(soloSave.get(ME)!.gold).toBe(50_000_000 - VILLAGE_BUILD_GOLD_COST);
+    expect(soloSave.get(ME)!.gold).toBe(50_000_000 - BUILD_COST);
   });
 
   it("솔로 골드 부족 → 409 insufficient_gold (마을 미생성)", async () => {
     seedTile();
-    soloSave.set(ME, { gold: VILLAGE_BUILD_GOLD_COST - 1, bankedGold: 0 });
+    soloSave.set(ME, { gold: BUILD_COST - 1, bankedGold: 0 });
     const res = await tileBuild(ME, TILE, "내마을");
     expect(res.status).toBe(409);
     expect(store.get(outpostVillages) ?? []).toHaveLength(0);
@@ -185,7 +191,8 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
 });
 
 describe("tileUpgrade — 단계 상승 + tier 동기화 + 소유 자원 소비", () => {
-  const cost = UPGRADE_COST.village!;
+  // 거리 스케일된 단계 승격 자원비(서버 차감과 일치).
+  const cost = scaledTileResourceCost(UPGRADE_COST.village!, 3, 5);
   it("길드 타일: village→city, 길드 자원 소비 + tile_settlements.tier=city", async () => {
     seedTile("village");
     store.set(outpostOccupations, [{ outpostId: TILE, occupiedByGuildId: GUILD, g: GUILD }]);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { TileMap } from "@/adventure/v2/TileMap";
 
@@ -7,6 +8,7 @@ import { TileMap } from "@/adventure/v2/TileMap";
 // 거점 화면 진입(둘러보기)은 모험 홈/길드 관리로 이관 — 여긴 항법만.
 // (옛 ContinentMap 은퇴 — V2_FREEFORM_TILES 영구 ON 이라 새 보드만 렌더.)
 export default function MapPage() {
+  const router = useRouter();
   const {
     travelToTile,
     tilePos,
@@ -17,6 +19,7 @@ export default function MapPage() {
     occupations,
     treasuries,
     viewerUserId,
+    viewerGuildId,
     currentOutpost,
   } = useGameState();
   return (
@@ -30,7 +33,9 @@ export default function MapPage() {
       occupations={occupations}
       treasuries={treasuries}
       viewerUserId={viewerUserId}
+      viewerGuildId={viewerGuildId}
       currentOutpostId={currentOutpost?.id ?? null}
+      onOpenOutpost={(id) => router.push(`/outpost/${id}`)}
     />
   );
 }

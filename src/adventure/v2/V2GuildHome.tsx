@@ -631,14 +631,18 @@ export function V2GuildHome({
     );
   }
 
-  // 마스터/관리자에게만 "관리" 탭을 추가(가입 신청 대기 건수 뱃지). 길드원 다음, 거점 앞.
   const isMaster = info?.isMaster ?? false;
   const isManager = info?.isManager ?? false;
   const canManage = isMaster || isManager;
   const pendingRequests = info?.pendingRequests ?? [];
-  const baseSubTabs: { key: GuildSubTab; label: string }[] = canManage
+  // 정착지 전쟁 on = 명예상점 탭 추가(개인 명예 소비처). off = 미표시(byte-identical).
+  const withHonor: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
+    ? [...BASE_SUB_TABS, { key: "honor_shop", label: "명성상점" }]
+    : [...BASE_SUB_TABS];
+  // 마스터/관리자에게만 "관리" 탭 추가(가입 신청 대기 건수 뱃지) — 맨 뒤에 배치.
+  const subTabs: { key: GuildSubTab; label: string }[] = canManage
     ? [
-        ...BASE_SUB_TABS.slice(0, 2),
+        ...withHonor,
         {
           key: "manage",
           label:
@@ -646,13 +650,8 @@ export function V2GuildHome({
               ? `관리 (${pendingRequests.length})`
               : "관리",
         },
-        ...BASE_SUB_TABS.slice(2),
       ]
-    : BASE_SUB_TABS;
-  // 정착지 전쟁 on = 명예상점 탭 추가(개인 명예 소비처). off = 미표시(byte-identical).
-  const subTabs: { key: GuildSubTab; label: string }[] = V2_SETTLEMENT_WARFARE
-    ? [...baseSubTabs, { key: "honor_shop", label: "명성상점" }]
-    : baseSubTabs;
+    : withHonor;
   // 선택된 탭이 목록에서 사라지면(예: 마스터 해제) "정보"로 폴백 — 빈 화면 방지.
   const activeTab: GuildSubTab = subTabs.some((t) => t.key === subTab)
     ? subTab

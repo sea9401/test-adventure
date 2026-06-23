@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
+import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 
 // 길드 골드 입금 패널 — 길드원이 개인 골드를 길드 공용 골드 풀에 넣는다.
 // 거점 페이지에서 (마을 탭으로 분리한) 개인 은행 자리를 대체한다.
@@ -43,11 +44,11 @@ export function GuildGoldDepositPanel({
 
   // 입금 가능액 = 보유 + 은행(차감은 은행 우선, 서버 spendGold).
   const spendable = gold + bankedGold;
-  const amount = Math.max(0, Math.floor(Number(amountText)));
+  const amount = parseAmount(amountText);
   const canSubmit = amount > 0 && amount <= spendable && !busy;
 
   function fillAll() {
-    setAmountText(spendable > 0 ? String(spendable) : "");
+    setAmountText(spendable > 0 ? spendable.toLocaleString("en-US") : "");
     setMessage(null);
   }
 
@@ -113,14 +114,10 @@ export function GuildGoldDepositPanel({
       </p>
 
       <div className="mt-2 grid grid-cols-[1fr_auto] gap-2">
-        <input
-          type="number"
-          min={1}
-          step={1}
-          inputMode="numeric"
+        <NumberInput
           value={amountText}
-          onChange={(e) => {
-            setAmountText(e.target.value);
+          onValueChange={(v) => {
+            setAmountText(v);
             setMessage(null);
           }}
           placeholder="입금 금액"

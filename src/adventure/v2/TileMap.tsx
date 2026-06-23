@@ -349,14 +349,10 @@ export function TileMap({
                   ? `${selSettlement.guildName ?? "다른 길드"} 영지`
                   : "다른 모험가의 정착지";
             // 진입 버튼 게이트 — 관리(내 정착지) vs 공격(남의 정착지).
-            const isSolo = selSettlement.guildId == null;
             const ours = mine || sameGuild;
-            // 관리: 길드 타일=우리쪽(전쟁/관리), 솔로 타일=본인(생산 관리).
-            const canManage =
-              (V2_TILE_WARFARE && !isSolo && ours) ||
-              (V2_TILE_PRODUCTION && isSolo && mine);
-            // 공격: 남의 타일이면 누구나(솔로/길드 무관). 솔로 공격자는 막타 시 빈땅(점령 못 함),
-            //   길드 공격자는 인수. 카탈로그 거점이 아닌 타일 정착지라 철거(빈땅)가 성립.
+            // 관리: 우리 길드 소유 타일이면 진입(방어·관리). 영토=길드 소유라 솔로 관리는 폐기.
+            const canManage = V2_TILE_WARFARE && ours;
+            // 공격: 우리 소유가 아닌 타일이면 진입(전쟁=길드만 — 서버가 무소속 공격 차단).
             const canAttack = V2_TILE_WARFARE && !ours;
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
@@ -389,8 +385,7 @@ export function TileMap({
                       </button>
                     )
                   )}
-                  {/* 진입 버튼: 내 정착지=관리(길드 타일 방어·관리/솔로 본인 관리), 남의 정착지=
-                      공격(솔로 타일=누구나·길드 영지=길드원만). 솔로 타일도 점령행이 있어 정복 대상. */}
+                  {/* 진입 버튼: 우리 길드 소유=방어·관리, 남의 정착지=공격(전쟁은 길드만). */}
                   {onOpenOutpost &&
                     (canManage || canAttack) && (
                       <button
@@ -398,17 +393,9 @@ export function TileMap({
                         onClick={() =>
                           onOpenOutpost(tileOutpostId(selCol, selRow))
                         }
-                        className={
-                          canManage && isSolo
-                            ? "rounded-md border border-zinc-600 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
-                            : "rounded-md border border-rose-700/60 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-950/40"
-                        }
+                        className="rounded-md border border-rose-700/60 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-950/40"
                       >
-                        {canManage
-                          ? isSolo
-                            ? "관리"
-                            : "방어·관리"
-                          : "공격"}
+                        {canManage ? "방어·관리" : "공격"}
                       </button>
                     )}
                   {/* 생산 관리 이전(T3): V2_TILE_PRODUCTION on 이면 지도 승격 폐지 —

@@ -1,0 +1,1 @@
+DROP TABLE "v2_guild_lineups" CASCADE;

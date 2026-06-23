@@ -143,36 +143,12 @@ export function OutpostView({
   // 거점 수비 전투력 (tier 정적값 1500~5000, 분쟁지대·중립은 0=게이트 없음).
   const defensePower = outpostDefensePower(outpost);
 
-  // 라인업 미설정 경고 — 적대 길드 점령 거점(공성=3:3 토너먼트 가능)에서 내가 2인+ 길드
-  // 소속인데 라인업이 없으면, 마스터 단독 출전 폴백(fetchLineupCandidates)을 미리 알린다.
+  // 적대 길드가 점령 중인 거점인지 — 침입자 토벌 대상 안내(아래 침입 배지)에 쓰인다.
   const enemyGuildSiege =
     !!occupation &&
     occupation.occupiedByGuildId != null &&
     viewerGuildId != null &&
     occupation.occupiedByGuildId !== viewerGuildId;
-  const [lineupWarning, setLineupWarning] = useState(false);
-  useEffect(() => {
-    if (!enemyGuildSiege) return;
-    let alive = true;
-    fetch("/api/v2/guild/me/lineup")
-      .then((r) => (r.ok ? r.json() : null))
-      .then(
-        (j: {
-          ok?: boolean;
-          members?: unknown[];
-          lineup?: string[] | null;
-        } | null) => {
-          if (!alive || !j?.ok) return;
-          const memberCount = j.members?.length ?? 0;
-          const lineupCount = j.lineup?.length ?? 0;
-          setLineupWarning(memberCount >= 2 && lineupCount < 2);
-        },
-      )
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [enemyGuildSiege]);
 
   const claimDisabled = computeClaimDisabled(
     outpost,
@@ -210,12 +186,14 @@ export function OutpostView({
   // 비-소유자가 정복할 수 있는 대상인가 — 타일이면 누구나(솔로/길드 영지 무관), 카탈로그 정적
   //   거점은 철거(빈땅) 불가라 길드 viewer + 길드 점령만. occupation 없으면 불가. (비-소유 브랜치 전용)
   const isTile = isTileOutpostId(outpost.id);
+  // 정복=전쟁 행위라 길드 viewer 만(영토=길드 소유). 타일(솔로 잔존 포함)·길드 점령 카탈로그 대상.
   const showConquer =
     V2_SETTLEMENT_WARFARE &&
     occupation != null &&
-    (isTile || (viewerGuildId != null && occupation.occupiedByGuildId != null));
-  // 막타가 솔로 viewer(무길드)면 빈땅(철거·소유 못 함), 길드 viewer면 인수(소유 이전).
-  const conquerRazes = viewerGuildId == null;
+    viewerGuildId != null &&
+    (isTile || occupation.occupiedByGuildId != null);
+  // 길드 viewer 만 정복 가능 → 함락=항상 인수(소유 이전). 옛 솔로 viewer 철거 경로 폐기.
+  const conquerRazes = false;
   // 거점 지형 특성 — 옛 type 라벨 대신 헤더에 표기(맞는 생산물 +보너스).
   const trait = terrainTraitOf(outpost.id);
 
@@ -560,15 +538,18 @@ export function OutpostView({
                 여기서 할 수 있는 것
               </div>
             </HeaderPanel>
-            {lineupWarning && !claimDisabled && !V2_SETTLEMENT_WARFARE && (
+            {/* 영토=길드 소유 — 무소속 viewer 는 점령/정복 불가. 안내만 노출. */}
+            {viewerGuildId == null && (
               <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-                ⚠️ 3:3 라인업 미설정 — 공성 시 마스터 혼자 출전합니다. 길드 탭
-                길드원에서 라인업을 설정하세요.
+                거점은 길드만 점령·정복할 수 있어요. 길드를 만들거나 가입하면 이
+                땅을 노릴 수 있습니다.
               </div>
             )}
-            {/* 옛 공성/점령(3:3 토너먼트) — 정착지 전쟁 on 이면 적 길드 거점·남의 솔로 타일에선
-                숨김(약탈/정복으로 일원화). 미점령/NPC 거점 점령은 그대로(새 영토 확보 경로). */}
-            {!(V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null) &&
+            {/* 옛 공성/점령 — 정착지 전쟁 on 이면 적 길드 거점·남의 솔로 타일에선
+                숨김(약탈/정복으로 일원화). 미점령/NPC 거점 점령은 그대로(새 영토 확보 경로).
+                무소속(viewerGuildId null)은 점령 불가라 카드 숨김. */}
+            {viewerGuildId != null &&
+              !(V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null) &&
               !showConquer && (
               <ActionCard
                 title={

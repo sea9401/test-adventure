@@ -27,10 +27,6 @@ import { resolveBattlePvP } from "@/adventure/v2/combat/engine-pvp";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
 import { applyStance } from "@/adventure/character/stance";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
-import {
-  fetchLineupCandidates,
-  runTournamentForGuilds,
-} from "@/lib/server/v2RunTournament";
 // PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder 제거.
 import { treasuryShares } from "@/adventure/data/v2/outposts";
 import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
@@ -90,7 +86,7 @@ import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 //   9. character.v2 save (stamina + hp + exp/level if won)
 //
 // 단순화 (후속 PR):
-//   - 점령 길드 vs 다른 길드 = 3:3 토너먼트 (지금은 PvP 아예 X — 이미 점령된 거점 시도 시 reject)
+//   - 점령 길드 vs 다른 길드 = 영웅 일기토 (점령자 1인과 1v1)
 //   - 점령 실패 페널티 없음
 //   - 챔피언 격파 보상 (점령 자체가 보상)
 
@@ -168,7 +164,7 @@ export async function POST(req: Request) {
       };
     }
 
-    // 정착지 전쟁 on = 적 길드 거점 PvP 점령은 새 /attack(약탈/정복)으로 일원화 — 옛 3:3 토너먼트
+    // 정착지 전쟁 on = 적 길드 거점 PvP 점령은 새 /attack(약탈/정복)으로 일원화 — 옛 claim PvP
     //   경로 차단(금고/전투 모델이 새 시스템과 충돌·treasury 우회 방지). NPC/미점령 점령은 그대로.
     if (V2_SETTLEMENT_WARFARE && defenderGuildId !== null) {
       return {
@@ -179,8 +175,7 @@ export async function POST(req: Request) {
     }
 
     // PvP defender 유저 — 같은 길드 아니고 occupiedByUserId 있으면.
-    // 1인 길드 가정에서는 곧 occupiedByUserId 가 그 길드의 마스터. 다인 길드
-    // 토너먼트는 라인업 멤버들의 character.v2 도 사전 정렬 lock 안에 포함.
+    // 점령자 1인과 1v1 영웅 일기토. character.v2 는 아래 사전 정렬 lock 에 포함.
     const pvpDefenderId =
       occRow && occRow.occupiedByUserId && occRow.occupiedByUserId !== userId
         ? occRow.occupiedByUserId
@@ -267,40 +262,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // === 토너먼트 사전 결정 (PvP 시 양측 멤버 수) ===
-    let useTournament = false;
-    let attackerLineupIds: string[] = [];
-    let defenderLineupIds: string[] = [];
-    if (pvpDefenderId && defenderGuildId !== null) {
-      const [aMembers, dMembers] = await Promise.all([
-        tx
-          .select({ userId: guildMembers.userId })
-          .from(guildMembers)
-          .where(eq(guildMembers.guildId, attackerGuildId)),
-        tx
-          .select({ userId: guildMembers.userId })
-          .from(guildMembers)
-          .where(eq(guildMembers.guildId, defenderGuildId)),
-      ]);
-      useTournament = aMembers.length >= 2 && dMembers.length >= 2;
-      if (useTournament) {
-        [attackerLineupIds, defenderLineupIds] = await Promise.all([
-          fetchLineupCandidates(tx, attackerGuildId),
-          fetchLineupCandidates(tx, defenderGuildId),
-        ]);
-      }
-    }
-
     // === character.v2 합집합 사전 정렬 lock ===
-    // 모든 관련 userId — attacker, defender (PvP), 토너먼트 라인업 멤버 (양측).
+    // 관련 userId — attacker, defender (PvP 1v1 점령자).
     // 사전 정렬 → cross-tx 데드락 회피.
     const charLockIds = Array.from(
-      new Set([
-        userId,
-        ...(pvpDefenderId ? [pvpDefenderId] : []),
-        ...attackerLineupIds,
-        ...defenderLineupIds,
-      ]),
+      new Set([userId, ...(pvpDefenderId ? [pvpDefenderId] : [])]),
     ).sort();
     for (const id of charLockIds) {
       await lockSaveForUpdate<unknown>(tx, id, "character.v2", {});
@@ -441,8 +407,7 @@ export async function POST(req: Request) {
     let turns: number;
     let battleFinalPlayerHp: number;
     // 전투 리플레이 — 사냥/아레나와 동일한 ReplayBattleScene 으로 표시(나=p1 관점).
-    // NPC 일기토 + PvP 1v1 모두 생성. 다인 길드 3:3 토너먼트는 단일 finalState 가 없어
-    // null → 카드가 매치별 텍스트 요약으로 폴백.
+    // NPC 일기토 + PvP 1v1 모두 생성.
     let replay: ReplayPayload | null = null;
     let defenderLabel: string;
     let defenderUserIdForLog: string | null;
@@ -452,17 +417,6 @@ export async function POST(req: Request) {
     let stillHasOccRow = !!occRow;
     // PR-7: 본 병사 전쟁 폐기 — troopBattle/plunderStone 제거.
     let duelWonByAttacker: boolean | null = null;
-    // 다인 길드 토너먼트 결과 (양측 모두 멤버 2+ 인 경우). 아니면 null.
-    let tournamentSummary: {
-      matches: {
-        attackerName: string;
-        defenderName: string;
-        winnerSide: "attacker" | "defender";
-        turns: number;
-      }[];
-      attackerLineupCount: number;
-      defenderLineupCount: number;
-    } | null = null;
 
     if (pvpDefenderId) {
       // === PvP claim — 영웅 일기토 + 본 병사 전쟁 ===
@@ -494,60 +448,34 @@ export async function POST(req: Request) {
         defenderLabel = defProfile?.name?.trim() || "수비자";
         defenderUserIdForLog = pvpDefenderId;
 
-        // 1단계 — 사전 단계에서 결정된 useTournament 분기.
-        if (useTournament) {
-          // === 다인 길드 vs 다인 길드 — 3:3 토너먼트 (왕좌 모드) ===
-          // 영웅 raw stat sim (병사 보정 X — 본 전쟁이 병사 layer).
-          // 사전 단계에서 잠근 lineup ids 를 그대로 helper 에 전달
-          // (lineup row stale race 후 lock 밖 멤버 read 차단).
-          const t = await runTournamentForGuilds(
-            tx,
-            attackerLineupIds,
-            defenderLineupIds,
-          );
-          duelWonByAttacker = t.result.attackerWon;
-          turns = t.result.matches.reduce((s, m) => s + m.turns, 0);
-          battleFinalPlayerHp = hpRegen.hp;
-          tournamentSummary = {
-            matches: t.result.matches.map((m) => ({
-              attackerName: m.attackerName,
-              defenderName: m.defenderName,
-              winnerSide: m.winnerSide,
-              turns: m.turns,
-            })),
-            attackerLineupCount: t.attackerLineupCount,
-            defenderLineupCount: t.defenderLineupCount,
-          };
-        } else {
-          // === 1인 길드 vs 1인 길드 — 영웅 일기토 ===
-          // PR-7: 병사 시스템 폐기 — 일기토에 병사 보정 제거 (applySoldierBoost X).
-          const attackerStanced = applyStance(
-            playerForBattle,
-            player.selectedStance,
-          );
-          const defenderBase = { ...defender.player, hp: defender.maxHp };
-          const defenderStanced = applyStance(
-            defenderBase,
-            defender.selectedStance,
-          );
-          const pvp = resolveBattlePvP(
-            attackerStanced,
-            defenderStanced,
-            playerName,
-            defenderLabel,
-            {
-              pickAction: () => ({ kind: "attack" }),
-              potions: { p1: {}, p2: {} },
-            },
-          );
-          duelWonByAttacker = pvp.outcome === "p1_win";
-          turns = pvp.turns;
-          battleFinalPlayerHp = pvp.finalState.p1.hp;
-          // PvP 일기토 리플레이(나=p1·상대=수비자). 승패 무관 — 전투 진행을 로그로 표시.
-          replay = toPvpReplayPayload(pvp.finalState, defenderLabel, 200);
-        }
+        // === PvP 영웅 일기토 — 점령자 1인과 1v1 ===
+        // PR-7: 병사 시스템 폐기 — 일기토에 병사 보정 제거 (applySoldierBoost X).
+        const attackerStanced = applyStance(
+          playerForBattle,
+          player.selectedStance,
+        );
+        const defenderBase = { ...defender.player, hp: defender.maxHp };
+        const defenderStanced = applyStance(
+          defenderBase,
+          defender.selectedStance,
+        );
+        const pvp = resolveBattlePvP(
+          attackerStanced,
+          defenderStanced,
+          playerName,
+          defenderLabel,
+          {
+            pickAction: () => ({ kind: "attack" }),
+            potions: { p1: {}, p2: {} },
+          },
+        );
+        duelWonByAttacker = pvp.outcome === "p1_win";
+        turns = pvp.turns;
+        battleFinalPlayerHp = pvp.finalState.p1.hp;
+        // PvP 일기토 리플레이(나=p1·상대=수비자). 승패 무관 — 전투 진행을 로그로 표시.
+        replay = toPvpReplayPayload(pvp.finalState, defenderLabel, 200);
 
-        // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅(일기토/토너먼트) 결과로 결정.
+        // PR-7: 본 병사 전쟁 폐기 — 점령권은 영웅 일기토 결과로 결정.
         won = duelWonByAttacker;
       }
     }
@@ -573,8 +501,8 @@ export async function POST(req: Request) {
       replay = toReplayPayload(battle.finalState, 200);
     }
 
-    // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷. 1v1 리플레이 없는
-    // 시도(3:3 토너먼트)는 null. 보존은 거점당 최신 N 건 (tx 후 trim).
+    // log attempt — replay 봉투는 공격자(=나) 시점 스냅샷.
+    // 보존은 거점당 최신 N 건 (tx 후 trim).
     await tx.insert(outpostClaimAttempts).values({
       outpostId: outpost.id,
       attackerUserId: userId,
@@ -807,7 +735,7 @@ export async function POST(req: Request) {
         hpAfter: afterHp,
         maxHp: player.maxHp,
         // NPC 일기토면 전투 리플레이 — ClaimResultCard 가 ReplayBattleScene 으로 표시.
-        // (PvP/토너먼트는 null.) startPlayerHp/이름/성별은 리플레이 BattleScene 용.
+        // (PvP 1v1 은 리플레이 포함.) startPlayerHp/이름/성별은 리플레이 BattleScene 용.
         replay,
         startPlayerHp: hpRegen.hp,
         playerName,
@@ -823,9 +751,6 @@ export async function POST(req: Request) {
         repairGoldSpent,
         // 거점 금고 탈환 — 점령/함락 시 자동 회수분 (없으면 null).
         treasuryCaptured,
-        // 다인 길드 토너먼트 결과. 양측 모두 멤버 2+ 일 때만.
-        // (PR-7b: troopBattle 응답 키 제거 — 본 병사 전쟁 시스템 폐기.)
-        tournament: tournamentSummary,
         // 내부 전용 — 알림 수신자 결정용 수비측 스냅샷(점령돼 있던 경우만).
         // 응답 직전에 제거(클라 불필요 + occupations GET 으로 이미 공개인 정보).
         _notify: stillHasOccRow

@@ -3,11 +3,9 @@
 // claim 결과 시각화 패널. 한 줄 텍스트 → 단계별 카드.
 //
 // 표시 내용:
-//   - PvP 토너먼트인 경우: 매치별 row + 챔피언 흐름
-//   - 본 병사 전쟁 (PvP): 양측 power bar 비교 + 사상자 + 약탈
-//   - NPC 일기토: 챔피언 격파/패배 + 턴 수
+//   - PvP 1v1 / NPC 일기토: 챔피언 격파/패배 + 턴 수 + 전투 리플레이
 //
-// 결과 객체 (ClaimResponse) 받아서 분기 렌더링.
+// 결과 객체 (ClaimResponse) 받아서 렌더링.
 
 import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { ReplayPayload } from "@/adventure/data/v2/replayPayload";
@@ -39,7 +37,7 @@ export type ClaimResult = {
     guildShare: number;
   } | null;
   // 전투 리플레이 — 있으면 ReplayBattleScene 으로 표시(전투 진행 확인용).
-  // NPC 일기토 + PvP 1v1 생성. 3:3 토너먼트만 없음(매치별 텍스트 요약으로 폴백).
+  // NPC 일기토 + PvP 1v1 생성.
   replay?: ReplayPayload | null;
   startPlayerHp?: number;
   playerName?: string;
@@ -47,16 +45,6 @@ export type ClaimResult = {
   requiredStamina?: number;
   // 점령 비용은 길드 보유 골드에서 차감 — 부족 시 필요액 안내.
   requiredGold?: number;
-  tournament?: {
-    matches: {
-      attackerName: string;
-      defenderName: string;
-      winnerSide: "attacker" | "defender";
-      turns: number;
-    }[];
-    attackerLineupCount: number;
-    defenderLineupCount: number;
-  } | null;
 };
 
 export function ClaimResultCard({
@@ -140,19 +128,14 @@ export function ClaimResultCard({
               {(result.repairGoldSpent ?? 0).toLocaleString()} 골드)
             </div>
           )}
-          {result.tournament && (
-            <TournamentSection tournament={result.tournament} />
-          )}
-          {!result.tournament && (
-            <DuelOnlySection
-              championName={result.championName ?? "?"}
-              turns={result.turns ?? 0}
-              won={!!result.won}
-              hpBefore={result.hpBefore}
-              hpAfter={result.hpAfter}
-              maxHp={result.maxHp}
-            />
-          )}
+          <DuelOnlySection
+            championName={result.championName ?? "?"}
+            turns={result.turns ?? 0}
+            won={!!result.won}
+            hpBefore={result.hpBefore}
+            hpAfter={result.hpAfter}
+            maxHp={result.maxHp}
+          />
         </div>
       </ResultShell>
       {/* 전투 리플레이 — 사냥/아레나와 동일한 BattleScene 으로 전투 진행 표시(NPC·PvP 1v1). */}
@@ -209,49 +192,6 @@ function ResultShell({
         </button>
       </div>
       <div className="px-3 py-2">{children}</div>
-    </div>
-  );
-}
-
-function TournamentSection({
-  tournament,
-}: {
-  tournament: NonNullable<ClaimResult["tournament"]>;
-}) {
-  const totalTurns = tournament.matches.reduce((s, m) => s + m.turns, 0);
-  return (
-    <div>
-      <div className="mb-1 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-        1단계 — 영웅 토너먼트 ({tournament.attackerLineupCount} vs{" "}
-        {tournament.defenderLineupCount}) · 총 {totalTurns}턴
-      </div>
-      <div className="space-y-0.5">
-        {tournament.matches.map((m, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between rounded bg-white px-2 py-1 text-xs dark:bg-zinc-900"
-          >
-            <span className="font-mono text-zinc-500">m{i + 1}</span>
-            <span className={m.winnerSide === "attacker" ? "font-medium" : ""}>
-              {m.attackerName}
-            </span>
-            <span className="text-zinc-400">vs</span>
-            <span className={m.winnerSide === "defender" ? "font-medium" : ""}>
-              {m.defenderName}
-            </span>
-            <span
-              className={
-                m.winnerSide === "attacker"
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-red-600 dark:text-red-400"
-              }
-            >
-              {m.winnerSide === "attacker" ? "← 공격자" : "수비자 →"}
-            </span>
-            <span className="font-mono text-zinc-400">{m.turns}턴</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

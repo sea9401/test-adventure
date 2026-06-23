@@ -575,6 +575,13 @@
       "when": 1782229494128,
       "tag": "0081_sync_tile_occupation_guild_to_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1782242714270,
+      "tag": "0082_drop_guild_lineups",
+      "breakpoints": true
     }
   ]
 }

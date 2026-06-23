@@ -14,7 +14,11 @@ import {
   OUTPOST_MOVE_GOLD_COST,
   spendGold,
 } from "@/adventure/data/v2/coreLoopConfig";
-import { TILE_BOARD_SIZE } from "@/adventure/data/v2/tileConfig";
+import {
+  TILE_BOARD_SIZE,
+  TILE_OUTPOST_AT,
+  tileKey,
+} from "@/adventure/data/v2/tileConfig";
 
 // POST /api/v2/me/move-tile — 거점 없는 빈 칸으로 자유 이동. (자유 타일 지도 Phase 2)
 //
@@ -58,6 +62,14 @@ export async function POST(req: Request) {
     row < TILE_BOARD_SIZE;
   if (!valid) {
     return Response.json({ ok: false, error: "bad_tile" }, { status: 400 });
+  }
+  // 거점이 있는 칸은 이 라우트가 아니라 /me/visit-outpost 로 가야 한다(주석 계약). 가드가
+  // 없으면 거점 칸으로 직접 move-tile 호출 시 마커만 거점 칸에 얹혀 사냥 base 와 어긋난다.
+  if (TILE_OUTPOST_AT.has(tileKey(col, row))) {
+    return Response.json(
+      { ok: false, error: "tile_is_outpost" },
+      { status: 400 },
+    );
   }
 
   type Res =

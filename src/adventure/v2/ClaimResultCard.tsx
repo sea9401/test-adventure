@@ -80,11 +80,9 @@ export function ClaimResultCard({
           ? `길드 골드 부족 — 점령 비용 ${(result.requiredGold ?? 0).toLocaleString()} G 필요 (거점 금고를 회수해 채우세요)`
           : result.error === "already_yours"
             ? "이미 자기 길드 점령"
-            : result.error === "no_supply_line"
-              ? "보급선 밖 — 우리 거점이나 중립 자유도시에 인접한 곳만 점령 가능"
-              : result.error === "protected"
-                ? "함락 직후 보호막 — 잠시 후 다시 공성 가능"
-                : (result.error ?? "알 수 없는 오류");
+            : result.error === "protected"
+              ? "함락 직후 보호막 — 잠시 후 다시 공성 가능"
+              : (result.error ?? "알 수 없는 오류");
     return (
       <ResultShell
         title="점령 실패"

@@ -3,7 +3,7 @@
 // 전쟁 전광판 — 상단 탭바 바로 아래 전역 한 줄 티커(docs/v2-war-visibility-plan.md PR-4).
 // GameChrome(영속 틀)에 마운트 → 폴링 1곳·전 화면 노출. 최근 WAR_TICKER_WINDOW_MIN 분 안의
 // 전쟁 사건(/api/feed?types=war)을 좌로 흘리고, 0건이면 띠 자체를 숨긴다.
-// 클릭 → 전황(/battle/war). 모션 축소 환경은 CSS 가 애니메이션을 끔(최신 사건이 맨 앞).
+// 클릭 → 토벌(/battle/subjugation). 모션 축소 환경은 CSS 가 애니메이션을 끔(최신 사건이 맨 앞).
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -186,7 +186,7 @@ export function WarTicker() {
     <WarTickerStrip
       key={maxId} // 새 묶음 도착 시 리마운트 — 애니메이션을 처음부터(2바퀴 보장)
       texts={texts}
-      onClick={() => router.push("/battle/war")}
+      onClick={() => router.push("/battle/subjugation")}
       onDone={() => {
         // 2바퀴 완주 — 이 묶음은 박제하고 띠를 내린다. 다음 새 사건에 다시 등장.
         markSeen(maxId);

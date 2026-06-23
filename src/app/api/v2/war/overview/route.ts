@@ -19,13 +19,10 @@ import {
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
-import { ACTIVE_CONTEST_OUTPOST_IDS } from "@/adventure/data/v2/warOutposts";
-import { currentWarSeasonId } from "@/lib/server/war/season";
-import { warSeasonGuildLeaderboard } from "@/lib/server/war/score";
 
-// GET /api/v2/war/overview — 전황 스냅샷 (읽기 전용, 스키마 변경 0).
-// 설계: docs/v2-war-visibility-plan.md PR-2. 전광판(피드)이 "사건 스트림"이라면
-// 이쪽은 "상태"(성벽 진행도·내 길드 위협) — 전부 기존 테이블 파생.
+// GET /api/v2/war/overview — 영지 상태 스냅샷 (읽기 전용, 스키마 변경 0).
+// 쟁탈 아레나(시즌 점수·활성 전장) 폐지 후: 내 길드 점령 거점·교전(공성)·최근 함락만 — 토벌
+// 화면(V2SubjugationView)이 소비. 전부 기존 테이블 파생. (경로명은 레거시 — war/overview 유지.)
 //
 // 응답:
 //   sieges: 교전 중 거점 — 점령됐고 (성벽 < 최대 OR 최근 48h 공성 시도 존재).
@@ -268,49 +265,11 @@ export async function GET() {
     .sort((a, b) => b.gold - a.gold)
     .slice(0, TREASURE_LIST_LIMIT);
 
-  // 이번 주 활성 쟁탈 거점(전장) — 점수 집계 + 주간 리셋 대상. 일반 점령과 구분해 UI 가
-  // "이번 주 전장"만 강조하도록. occRow 없으면 중립(NPC) = 첫 점령 가능 상태.
-  const occByOutpostId = new Map(occRows.map((r) => [r.outpostId, r] as const));
-  const activeOutposts = ACTIVE_CONTEST_OUTPOST_IDS.map((id) => {
-    const r = occByOutpostId.get(id);
-    const o = OUTPOST_BY_ID.get(id);
-    return {
-      outpostId: id,
-      name: o?.name ?? id,
-      tier: o?.tier ?? 0,
-      ownerLabel: r && r.occupiedByUserId != null ? ownerLabelOf(r) : null,
-      ownerGuildId: r?.occupiedByGuildId ?? null,
-      fortHp: r ? currentFortHp(r.fortHp, r.fortMaxHp, r.fortUpdatedAt, now) : null,
-      fortMaxHp: r?.fortMaxHp ?? null,
-    };
-  });
-
-  // 시즌 길드 랭킹 — 점수 원장 read-time SUM. 길드명 보강(현재 미점령이어도 점수 있을 수 있음).
-  const seasonId = currentWarSeasonId(now);
-  const lb = await warSeasonGuildLeaderboard(seasonId);
-  const missingGuildIds = lb
-    .map((e) => e.guildId)
-    .filter((id) => !guildNameById.has(id));
-  if (missingGuildIds.length > 0) {
-    const gs = await db
-      .select({ id: guilds.id, name: guilds.name })
-      .from(guilds)
-      .where(inArray(guilds.id, missingGuildIds));
-    for (const g of gs) guildNameById.set(g.id, g.name);
-  }
-  const leaderboard = lb.map((e) => ({
-    guildId: e.guildId,
-    guildName: guildNameById.get(e.guildId) ?? "알 수 없는 길드",
-    points: Number(e.points),
-  }));
-
   return Response.json({
     ok: true,
     sieges,
     recentCaptures,
     treasures,
     myGuild,
-    activeOutposts,
-    season: { id: seasonId, leaderboard },
   });
 }

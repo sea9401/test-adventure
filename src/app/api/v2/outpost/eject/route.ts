@@ -24,10 +24,6 @@ import {
   type EjectedFrom,
 } from "@/adventure/data/v2/intruderTracking";
 import { OUTPOSTS, nearestNeutralOutpostId } from "@/adventure/data/v2/outposts";
-import { isActiveContestOutpost } from "@/adventure/data/v2/warOutposts";
-import { WAR_POINTS_EJECT_WIN } from "@/adventure/data/v2/warScore";
-import { currentWarSeasonId } from "@/lib/server/war/season";
-import { insertWarScoreEvent } from "@/lib/server/war/score";
 import { insertFeedEntry } from "@/lib/server/serverFeed";
 import { toPvpReplayPayload } from "@/adventure/data/v2/replayPayload";
 import { insertNotification } from "@/lib/server/v2Notifications";
@@ -287,18 +283,6 @@ export async function POST(req: Request) {
         ...logSave,
         warEjectWins: (Number(logSave.warEjectWins) || 0) + 1,
       });
-      // 전쟁 시즌 점수 — 활성 쟁탈 거점 방어 토벌만 소량 적재(arena 한정·일반 영토 방어는 0).
-      //   war_score_events 는 독립 테이블이라 위 락 순서에 사이클 없음.
-      if (isActiveContestOutpost(outpostId)) {
-        await insertWarScoreEvent(tx, {
-          seasonId: currentWarSeasonId(new Date(now)),
-          outpostId,
-          guildId: viewerGuildId,
-          userId,
-          eventType: "eject_win",
-          points: WAR_POINTS_EJECT_WIN,
-        });
-      }
     } else {
       await upsertSave(tx, targetUserId, "character.v2", {
         ...defenderSave,

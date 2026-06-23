@@ -909,37 +909,6 @@ export const outpostClaimAttempts = pgTable(
   ],
 );
 
-// v2 전쟁 시즌 점수 원장 (append-only). docs/v2-war-redesign-plan.md PR-2.
-// 쟁탈 거점에서 발생한 전쟁 성과(함락/공성/토벌)를 시즌·길드·거점 단위로 적재한다.
-// 집계(길드/유저 랭킹)는 이 원장에서 read-time 으로 SUM — 별도 집계 테이블은 두지 않는다
-// (소규모 전제, 부하 차오르면 캐시 테이블 분리). 버그 시 시즌 재집계 가능하도록 원장은 불변.
-// 점수 의미가 명확한 전쟁 이벤트만 적재 — NPC 정기공격(claim_attempts.won 의미 상이)은 제외.
-export const warScoreEvents = pgTable(
-  "war_score_events",
-  {
-    id: serial("id").primaryKey(),
-    // ISO 주차 시즌 id (lib/server/war/season.ts — pvp 시즌과 동일 경계).
-    seasonId: text("season_id").notNull(),
-    outpostId: text("outpost_id").notNull(),
-    // 점수 귀속 길드(전쟁 단위). 길드 삭제 시 원장은 남기되 귀속만 끊음.
-    guildId: integer("guild_id").references(() => guilds.id, {
-      onDelete: "set null",
-    }),
-    // 실제 행위자(개인 기여 집계용).
-    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
-    // 'capture' | 'siege_win' | 'eject_win'.
-    eventType: text("event_type").notNull(),
-    points: integer("points").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (t) => [
-    // 시즌 랭킹 집계 (WHERE season_id GROUP BY guild_id) + 시즌별 거점/유저 슬라이스.
-    index("war_score_events_season_guild_idx").on(t.seasonId, t.guildId),
-    index("war_score_events_season_outpost_idx").on(t.seasonId, t.outpostId),
-    index("war_score_events_season_user_idx").on(t.seasonId, t.userId),
-  ],
-);
-
 // v2 길드 공용 자원 풀. 옛 stone/scrolls/soldiers 자원 경제는 폐기 — 거점 세금
 // 회수로 누적되는 공용 gold 풀만 남음. 1인 길드도 같은 테이블 — 마스터 = 본인 자원.
 export const v2GuildResources = pgTable("v2_guild_resources", {

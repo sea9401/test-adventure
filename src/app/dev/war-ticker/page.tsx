@@ -50,7 +50,7 @@ export default function WarTickerPreviewPage() {
   }
   return (
     <main className="min-h-screen bg-zinc-100 p-0 dark:bg-zinc-950">
-      <WarTickerStrip texts={TEXTS} onClick={() => alert("→ /battle/war")} />
+      <WarTickerStrip texts={TEXTS} onClick={() => alert("→ /battle/subjugation")} />
       <div className="mx-auto max-w-[720px] space-y-2 p-6 text-sm text-zinc-600 dark:text-zinc-300">
         <p>↑ 전광판 4사건 — 한 줄 티커, 2바퀴 후 사라짐(onDone 미지정이라 여기선 멈춤)</p>
         <p className="text-xs text-zinc-500">

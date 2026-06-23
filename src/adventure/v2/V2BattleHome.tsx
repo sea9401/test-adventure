@@ -2,7 +2,6 @@
 
 import {
   Barbell,
-  CastleTurret,
   Crosshair,
   Skull,
   Sword,
@@ -11,13 +10,12 @@ import {
 import { EntryCard } from "@/components/ui/EntryCard";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
-// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/전황/아레나/훈련장 진입.
+// 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/아레나/훈련장 진입.
 // 지도는 마을 탭으로 이관(2026-06-11).
 
 export type BattleAction =
   | { kind: "open-dungeons" }
   | { kind: "open-coop" }
-  | { kind: "open-war" }
   | { kind: "open-subjugation" }
   | { kind: "open-arena" }
   | { kind: "open-sparring" };
@@ -69,17 +67,6 @@ export function V2BattleHome({
           }
           title="토벌"
           onClick={() => onAction({ kind: "open-subjugation" })}
-        />
-        <EntryCard
-          icon={
-            <CastleTurret
-              size={28}
-              weight="duotone"
-              className="text-violet-500"
-            />
-          }
-          title="전쟁"
-          onClick={() => onAction({ kind: "open-war" })}
         />
       </div>
     </main>

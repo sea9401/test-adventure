@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { tileSettlements } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { lockSaveForUpdate, readSave, upsertSave } from "@/lib/server/savesKv";
 import {
   V2_CORE_LOOP_V2,
   V2_FREEFORM_TILES,
@@ -146,6 +146,15 @@ export async function POST(req: Request) {
       }
       if (existing) {
         return { kind: "err", status: 409, error: "already_settled" };
+      }
+      // 개척은 그 칸에 실제로 가 있어야 가능 — 플레이어 마커(tilePos)가 대상 칸이어야 한다.
+      //   빈 칸은 move-tile 로만 도달(tilePos 갱신)하므로 좌표 일치=현장에 있음. 읽기 게이트라
+      //   비잠금 readSave(권위적 위치 갱신은 move-tile 의 락이 담당).
+      const pos = await readSave<{
+        tilePos?: { col?: number; row?: number };
+      }>(tx, userId, "character.v2", {});
+      if (pos.tilePos?.col !== col || pos.tilePos?.row !== row) {
+        return { kind: "err", status: 409, error: "not_at_tile" };
       }
       // 개척마을 생성비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(중앙=기본).
       const foundCost = scaledTileGoldCost(TILE_FOUND_COST, col, row);

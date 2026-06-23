@@ -200,6 +200,8 @@ function tileSettlementErrorMessage(
       return "개척마을 건설은 길드 마스터·부마스터만 가능합니다.";
     case "need_guild":
       return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
+    case "not_at_tile":
+      return "개척하려면 먼저 이 칸으로 이동하세요.";
     case "already_settled":
       return "이미 정착지가 있는 칸입니다.";
     case "tile_is_outpost":

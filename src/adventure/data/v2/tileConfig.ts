@@ -70,10 +70,15 @@ export function tileDistanceFromCenter(col: number, row: number): number {
   );
 }
 
-// "추가 링" = max(0, 거리-1). 리베라 1칸 범위(거리1)는 가산 0(기본비용), 그 바깥 1칸당 1씩↑
-//   (거리2=1·거리3=2·거리4=3). 오너 결정(2026-06-24): 1칸 범위 기본 + 칸당 가산.
+// "추가 링" = max(0, 거리-1) 을 상한까지. 리베라 1칸 범위(거리1)는 가산 0(기본비용), 그 바깥
+//   1칸당 1씩↑하되 TILE_COST_MAX_EXTRA_RINGS 에서 상한(거리3↑ 비용 동일). 오너 결정(2026-06-24):
+//   1칸 범위=기본·2=+1·3↑=+2 상한 → 골드 1천만/3천만/5천만/5천만(거리1/2/3/4↑).
+export const TILE_COST_MAX_EXTRA_RINGS = 2;
 export function tileExtraRings(col: number, row: number): number {
-  return Math.max(0, tileDistanceFromCenter(col, row) - 1);
+  return Math.min(
+    TILE_COST_MAX_EXTRA_RINGS,
+    Math.max(0, tileDistanceFromCenter(col, row) - 1),
+  );
 }
 
 // 골드 비용 = 기본 + 링당 가산(가법). 🔧다이얼 TILE_COST_GOLD_STEP_PER_RING=2천만.

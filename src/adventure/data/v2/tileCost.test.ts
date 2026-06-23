@@ -19,22 +19,23 @@ describe("tileDistanceFromCenter / tileExtraRings (리베라 중앙)", () => {
     expect(tileDistanceFromCenter(5, 5)).toBe(1); // 대각도 1
     expect(tileDistanceFromCenter(0, 0)).toBe(4);
   });
-  it("추가 링 = max(0, 거리-1) — 1칸 범위(거리1)=0", () => {
+  it("추가 링 = max(0, 거리-1) 상한 2 — 1칸 범위(거리1)=0·거리3↑=2", () => {
     expect(tileExtraRings(4, 5)).toBe(0); // 거리1 = 가산 0
     expect(tileExtraRings(4, 6)).toBe(1); // 거리2
-    expect(tileExtraRings(0, 0)).toBe(3); // 거리4
+    expect(tileExtraRings(4, 7)).toBe(2); // 거리3
+    expect(tileExtraRings(0, 0)).toBe(2); // 거리4 = 상한(거리3과 동일)
   });
 });
 
-describe("골드 비용(가법) — 1칸 범위=기본·바깥 1칸당 +2천만", () => {
+describe("골드 비용(가법) — 1칸 범위=기본·바깥 1칸당 +2천만·거리3↑ 상한", () => {
   const BASE = 10_000_000;
   it("1칸 범위(거리1)=기본 1천만", () => {
     expect(scaledTileGoldCost(BASE, 4, 5)).toBe(10_000_000);
   });
-  it("거리2=3천만·거리3=5천만·거리4=7천만", () => {
+  it("거리2=3천만·거리3=5천만·거리4=5천만(상한)", () => {
     expect(scaledTileGoldCost(BASE, 4, 6)).toBe(30_000_000); // +1링
-    expect(scaledTileGoldCost(BASE, 4, 7)).toBe(50_000_000); // +2링
-    expect(scaledTileGoldCost(BASE, 0, 0)).toBe(70_000_000); // +3링(코너)
+    expect(scaledTileGoldCost(BASE, 4, 7)).toBe(50_000_000); // +2링(거리3)
+    expect(scaledTileGoldCost(BASE, 0, 0)).toBe(50_000_000); // 거리4=상한 동일
   });
   it("STEP = 2천만/링", () => {
     expect(TILE_COST_GOLD_STEP_PER_RING).toBe(20_000_000);
@@ -48,11 +49,11 @@ describe("골드 비용(가법) — 1칸 범위=기본·바깥 1칸당 +2천만"
   });
 });
 
-describe("자원 비용 배수 — 1칸 범위=1×·바깥 1칸당 +1×", () => {
-  it("거리1=1×·거리2=2×·거리4=4×", () => {
+describe("자원 비용 배수 — 1칸 범위=1×·바깥 1칸당 +1×·거리3↑ 상한", () => {
+  it("거리1=1×·거리2=2×·거리4=3×(상한)", () => {
     expect(tileCostMultiplier(4, 5)).toBe(1);
     expect(tileCostMultiplier(4, 6)).toBe(2);
-    expect(tileCostMultiplier(0, 0)).toBe(4);
+    expect(tileCostMultiplier(0, 0)).toBe(3); // 거리4=상한(거리3과 동일)
   });
   it("종류별 거리 배수(반올림)", () => {
     expect(scaledTileResourceCost({ crop: 400, ore: 250 }, 4, 5)).toEqual({
@@ -60,9 +61,9 @@ describe("자원 비용 배수 — 1칸 범위=1×·바깥 1칸당 +1×", () => 
       ore: 250,
     }); // 1칸 범위=기본
     expect(scaledTileResourceCost({ crop: 400, ore: 250 }, 0, 0)).toEqual({
-      crop: 1600,
-      ore: 1000,
-    }); // ×4
+      crop: 1200,
+      ore: 750,
+    }); // ×3(상한)
   });
 });
 

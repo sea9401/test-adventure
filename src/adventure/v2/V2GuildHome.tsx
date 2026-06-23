@@ -1011,7 +1011,7 @@ export function V2GuildHome({
                 {policyTargets.map((t) => (
                   <div
                     key={t.outpostId}
-                    className="border-t border-zinc-200 pt-2.5 first:border-t-0 first:pt-0 dark:border-zinc-800"
+                    className="overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
                   >
                     <OutpostPolicyEditor
                       outpostId={t.outpostId}

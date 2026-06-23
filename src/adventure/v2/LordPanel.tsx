@@ -135,7 +135,8 @@ export default function LordPanel({
   const amLord = !!lord && lord.userId === viewerUserId;
 
   return (
-    <div className="mt-3 space-y-2 rounded-md border border-zinc-300 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/40">
+    // 외곽 카드 없이 — 정책 편집기와 같은 거점 묶음 안에서 상단 경계선으로 구분(borderless).
+    <div className="space-y-2 border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
       <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
         영주 · 세금
       </div>

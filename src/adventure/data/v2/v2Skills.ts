@@ -122,6 +122,9 @@ export type V2SkillId =
   | "mob_mana_bolt" // 마력탄 — 마법 단일딜
   | "mob_firebolt" // 화염구 — 강한 마법 단일딜
   | "mob_frostwind" // 서릿바람 — 마법딜 + 둔화
+  | "mob_lightning_bolt" // 뇌격 — 빠른 마법 단일딜(저쿨)
+  | "mob_void_lance" // 공허창 — 마법딜 + 약화(공격−)
+  | "mob_star_burst" // 별빛 작렬 — 강한 마법 단일딜
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
   | V2CommonSkillId;
 

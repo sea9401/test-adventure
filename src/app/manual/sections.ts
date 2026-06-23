@@ -105,8 +105,8 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   },
   {
     slug: "outpost",
-    title: "거점과 영토",
-    summary: "거점 점령, 보급선, 인접 이동, 세금, 침입자 토벌.",
+    title: "지도 · 거점 · 정착지",
+    summary: "자유 타일 이동, 빈 땅 개척마을 정착(마을·도시·대도시), 거점 점령·세금·토벌.",
     group: "world",
   },
   {

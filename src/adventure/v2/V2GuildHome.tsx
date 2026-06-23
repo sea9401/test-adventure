@@ -32,12 +32,10 @@ import {
   GuildActivityList,
   type GuildActivity,
 } from "./GuildActivityList";
-import { LineupCard } from "./LineupCard";
 import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 import { GuildFoundCard } from "./GuildFoundCard";
 
 // 길드 탭 — sub-tab nav 분리 (info / members / manage / outposts).
-// 라인업은 members 탭 안 (멤버 배치라 자연스러움).
 // 관리(manage) 탭 = 마스터/관리자(manager) 전용 — 멤버 초대·가입 신청·거점 정책/세율·직책.
 
 const TYPE_LABEL: Record<OutpostType, string> = {
@@ -774,14 +772,6 @@ export function V2GuildHome({
               showHonor={V2_SETTLEMENT_WARFARE}
             />
           )}
-
-          {/* 라인업 — 멤버 배치라 같은 탭에 */}
-          <div className="rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="px-3 pt-2 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              3:3 토너먼트 라인업
-            </div>
-            <LineupCard />
-          </div>
 
           {/* 길드 탈퇴 — 마스터가 아닌 본인만. 마스터는 관리 탭에서 양도/해산. */}
           {!isMaster && (

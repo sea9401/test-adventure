@@ -1016,17 +1016,6 @@ export const tileSettlements = pgTable(
   (t) => [primaryKey({ columns: [t.col, t.row] })],
 );
 
-// v2 길드 3:3 토너먼트 라인업 — 길드별 (마스터 설정).
-// memberUserIds: 1~3명, 순서대로 1번 / 2번 / 3번. 길드원만 가능.
-// 미설정 길드는 row 없음 → 토너먼트 sim 시 default = 마스터 1명.
-export const v2GuildLineups = pgTable("v2_guild_lineups", {
-  guildId: integer("guild_id")
-    .primaryKey()
-    .references(() => guilds.id, { onDelete: "cascade" }),
-  memberUserIds: text("member_user_ids").array().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // 낚시 주간 기록 — (userId, seasonId, fishId) 당 개인 최대어 1행. 종별 주간 리더보드의 원천.
 // seasonId 는 PvP 와 동일한 ISO 주차 키(월 00:00 KST 시작). 캐스팅 성공 시 더 크면 upsert.
 // 시즌 라이프사이클 테이블 + 코인 정산은 후속(PR-5) — 여기선 seasonId 를 순수 계산해 박는다.

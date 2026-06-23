@@ -50,8 +50,9 @@ export const TILE_TIER_LABEL: Record<TileSettlementTier, string> = {
   metropolis: "대도시",
 };
 
-// 비용(목업 골드) — 건설은 싸고, 승격은 단계가 오를수록 비싸진다. 다이얼.
-export const TILE_FOUND_COST = 100;
+// 개척마을 건설비(found) — 정착지 진입을 진지한 골드 sink 로(2026-06-23 오너 결정 1천만).
+//   이후 승격은 생산 관리(자원)로. ⚠️라이브 found 비용(V2_FREEFORM_TILES on)에 즉시 적용. 다이얼.
+export const TILE_FOUND_COST = 10_000_000;
 export const TILE_PROMOTE_COST: Record<TileSettlementTier, number> = {
   frontier: 1000, // → 마을
   village: 1500, // → 도시

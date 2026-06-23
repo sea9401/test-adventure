@@ -28,12 +28,15 @@ declare module "next-auth" {
 // 모듈 평가(빌드 타임 page-data 수집)가 아니라 첫 요청 때 DB 에 연결한다.
 export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
   ...authConfig,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // DrizzleAdapter 가 기대하는 테이블 타입이 우리 스키마 테이블과 정확히 맞지 않아 캐스트가
+  // 필요하다(NextAuth + Drizzle 의 알려진 타입 불일치). 런타임은 정상 — 타입만 우회.
   adapter: DrizzleAdapter(rawDb(), {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     usersTable: users as any,
     accountsTable: accounts as any,
     sessionsTable: sessions as any,
     verificationTokensTable: verificationTokens as any,
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }),
   session: { strategy: "jwt" as const },
   providers: [

@@ -24,8 +24,8 @@ function makeMember(name: string, atk = 80, hp = 1000): TournamentMember {
 }
 
 // 결과를 결정짓는 fake sim — atk 큰 쪽이 이긴다. hp 손실은 = 상대 atk.
-function atkBasedSim(...names: string[]): MatchSim {
-  // names 는 사용 안 함 — 단순 lambda 가 더 깔끔하지만 readability 위해.
+function atkBasedSim(..._names: string[]): MatchSim {
+  // _names 는 사용 안 함 — 단순 lambda 가 더 깔끔하지만 readability 위해.
   return (a, d): TournamentMatch => {
     const winnerSide: "attacker" | "defender" =
       a.player.atk >= d.player.atk ? "attacker" : "defender";

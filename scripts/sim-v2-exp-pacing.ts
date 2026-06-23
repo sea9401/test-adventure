@@ -8,7 +8,6 @@ import {
   requiredExpToNext,
   levelBandExpMultiplier,
   applyNewbieBonus,
-  MAX_LEVEL,
 } from "../src/lib/leveling";
 import { MONSTERS } from "../src/adventure/data/monsters";
 import { MAIN_DUNGEON } from "../src/adventure/data/v2/dungeon";
@@ -57,7 +56,7 @@ function pickFloorForLevel(lv: number): FloorInfo {
 }
 // winT = STR 빌드 sim-v2-progression --skills 측정값 (2026-05-30 갱신 — 무기재배치·floor5
 // 정규화 반영). Lv75/100 은 floor5 ×0.4 로 몹이 약해져 옛 31.3/30.3 → 19.3/16.1 로 빨라짐.
-const simWinT: Record<number, number> = { 3: 8.9, 10: 19.3, 25: 19.1, 50: 19.2, 75: 19.3, 100: 16.1 };
+const _simWinT: Record<number, number> = { 3: 8.9, 10: 19.3, 25: 19.1, 50: 19.2, 75: 19.3, 100: 16.1 };
 const segments = [
   { from: 1, to: 10, lv: 3, winT: 8.9 },
   { from: 10, to: 25, lv: 10, winT: 19.3 },
@@ -216,7 +215,7 @@ const DAILY_KILLS_A =
 const DAILY_KILLS_B = STAMINA_REGEN_PER_HOUR * 24; // 재생 지속(2880/일)
 const loopDaysA = (depth: number, dial: Dial) =>
   frontierLoopKills(depth, dial) / DAILY_KILLS_A;
-const loopDaysB = (depth: number, dial: Dial) =>
+const _loopDaysB = (depth: number, dial: Dial) =>
   frontierLoopKills(depth, dial) / DAILY_KILLS_B;
 
 const FRONTIER_DEPTHS = [3, 5, 8, 10, 20, 50];

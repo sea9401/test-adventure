@@ -12,7 +12,8 @@ import {
 // 다양한 스태미너 상태를 시각으로 검증하는 dev preview.
 // staging 운영자가 https://test.msmsge.com/dev/stamina-preview 에서 확인.
 export function StaminaPreview() {
-  const now = Date.now();
+  // 마운트 1회 스냅샷 — 렌더 중 Date.now() 직접 호출(비순수) 회피.
+  const [now] = useState(() => Date.now());
   const REGEN_MS = REGEN_SECONDS_PER_POINT * 1000;
 
   const [scenarios] = useState<Array<{ label: string; state: StaminaState }>>(

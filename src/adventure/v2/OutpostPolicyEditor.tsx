@@ -84,7 +84,8 @@ export function OutpostPolicyEditor({
   }
 
   return (
-    <div className="rounded-md border border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+    // 외곽 카드는 부모(거점 묶음)가 제공 — 여기선 헤더(펼침)+내용만(borderless).
+    <div>
       <button
         type="button"
         onClick={onToggle}

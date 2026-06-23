@@ -19,6 +19,8 @@ export type InboxItem = {
   listingId: number | null;
   fromName: string | null;
   createdAt: string;
+  // 읽은(수령한) 시각. 미수령 우편은 null, 기록(history) 우편은 ISO 문자열.
+  claimedAt?: string | null;
 };
 
 export type InboxResponse = {
@@ -29,6 +31,13 @@ export type InboxResponse = {
 export async function fetchInbox(): Promise<InboxResponse> {
   const r = await fetch("/api/marketplace/inbox");
   if (!r.ok) throw new Error(`우편함 로드 실패 (${r.status})`);
+  return (await r.json()) as InboxResponse;
+}
+
+// 받은 우편 기록 — 이미 읽은(수령한) 우편 최근분. 클릭 시 내용 다시 확인용.
+export async function fetchInboxHistory(): Promise<InboxResponse> {
+  const r = await fetch("/api/marketplace/inbox?history=1");
+  if (!r.ok) throw new Error(`우편 기록 로드 실패 (${r.status})`);
   return (await r.json()) as InboxResponse;
 }
 

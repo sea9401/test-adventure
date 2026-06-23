@@ -10,6 +10,10 @@ import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import {
+  TILE_TIER_LABEL,
+  isTileSettlementTier,
+} from "@/adventure/data/v2/tileConfig";
+import {
   acceptJoinRequest,
   declineJoinRequest,
   inviteToGuild,
@@ -56,8 +60,21 @@ type Occupation = {
   villageName?: string | null;
 };
 
+// 자유 타일 정착지 — 소유자(userId)의 현재 길드(guildId)는 /me/state 가 멤버십 조인으로 파생.
+type TileSettlementRow = {
+  col: number;
+  row: number;
+  userId: string;
+  tier: string;
+  name: string | null;
+  guildId?: number | null;
+  guildName?: string | null;
+  guildColor?: string | null;
+};
+
 type StateResponse = {
   guild?: { id: number; name: string };
+  tileSettlements?: TileSettlementRow[];
 };
 
 type PendingRequest = {
@@ -572,6 +589,17 @@ export function V2GuildHome({
         )
       : [];
   const occByOutpost = new Map(occupations.map((o) => [o.outpostId, o]));
+
+  // 우리 길드 영지 = 길드원이 세운 자유 타일 정착지(소유자→현재 길드 귀속은 /me/state 가 파생).
+  const guildSettlements: TileSettlementRow[] =
+    guildId != null
+      ? (state?.tileSettlements ?? []).filter((s) => s.guildId === guildId)
+      : [];
+  const memberNameById = new Map(
+    (info?.members ?? []).map((m) => [m.userId, m.name]),
+  );
+  const settleTierLabel = (t: string): string =>
+    isTileSettlementTier(t) ? TILE_TIER_LABEL[t] : t;
 
   // 무소속이면 창단 + 둘러보기를 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
   if (!loading && !state?.guild) {
@@ -1179,46 +1207,92 @@ export function V2GuildHome({
           <div className="text-sm text-zinc-500 dark:text-zinc-400">
             소속 길드가 없어요.
           </div>
-        ) : ownedOutposts.length === 0 ? (
-          <div className="text-sm text-zinc-500 dark:text-zinc-400">
-            점령한 거점이 아직 없어요. 지도 탭에서 거점을 점령해 보세요.
-          </div>
         ) : (
-          <ul className="space-y-1.5">
-            {ownedOutposts.map((o) => {
-              const occ = occByOutpost.get(o.id);
-              const policy = occ?.policy ?? "open";
-              return (
-                <li key={o.id}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/outpost/${o.id}`)}
-                    className="flex w-full items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-baseline justify-between gap-2">
-                        <span className="truncate text-sm font-medium">
-                          {occ?.villageName?.trim() || o.name}
+          <div className="space-y-5">
+            {/* 우리 길드 영지 — 길드원이 세운 자유 타일 정착지(개인 소유·길드 귀속은 멤버십). */}
+            <section>
+              <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                정착지
+                {guildSettlements.length > 0
+                  ? ` (${guildSettlements.length})`
+                  : ""}
+              </h3>
+              {guildSettlements.length === 0 ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  아직 정착지가 없어요. 지도에서 빈 땅에 개척마을을 세우면 우리
+                  길드 영지로 표시됩니다.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {guildSettlements.map((s) => (
+                    <li
+                      key={`${s.col},${s.row}`}
+                      className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {s.name ?? "개척 정착지"}
+                          </span>
+                          <span className="shrink-0 text-xs text-emerald-600 dark:text-emerald-400">
+                            {settleTierLabel(s.tier)}
+                          </span>
                         </span>
-                        <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                          {TYPE_LABEL[o.type]}
+                        <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                          {memberNameById.get(s.userId) ?? "길드원"} · ({s.col},{" "}
+                          {s.row}) · 지도에서 관리
                         </span>
                       </span>
-                      <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
-                        정책 {POLICY_LABEL[policy] ?? policy} · 관리하기
-                      </span>
-                    </span>
-                    <CaretRight
-                      size={16}
-                      weight="bold"
-                      aria-hidden
-                      className="shrink-0 text-zinc-400 dark:text-zinc-500"
-                    />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* 점령 거점 — 옛 거점 시스템과 공존(있을 때만). */}
+            {ownedOutposts.length > 0 && (
+              <section>
+                <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  점령 거점
+                </h3>
+                <ul className="space-y-1.5">
+                  {ownedOutposts.map((o) => {
+                    const occ = occByOutpost.get(o.id);
+                    const policy = occ?.policy ?? "open";
+                    return (
+                      <li key={o.id}>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/outpost/${o.id}`)}
+                          className="flex w-full items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-baseline justify-between gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {occ?.villageName?.trim() || o.name}
+                              </span>
+                              <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                                {TYPE_LABEL[o.type]}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                              정책 {POLICY_LABEL[policy] ?? policy} · 관리하기
+                            </span>
+                          </span>
+                          <CaretRight
+                            size={16}
+                            weight="bold"
+                            aria-hidden
+                            className="shrink-0 text-zinc-400 dark:text-zinc-500"
+                          />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            )}
+          </div>
         )
       )}
 

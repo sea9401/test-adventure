@@ -526,6 +526,13 @@
       "when": 1782174188341,
       "tag": "0074_hesitant_machine_man",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1782177051174,
+      "tag": "0075_drop_legacy_outpost_settlements",
+      "breakpoints": true
     }
   ]
 }

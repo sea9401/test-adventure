@@ -39,6 +39,10 @@ export type TileSettlement = {
   userId: string;
   tier: string;
   name: string | null;
+  // 소유자의 현재 길드(읽기 시 멤버십 조인으로 파생). 무소속이면 null.
+  guildId?: number | null;
+  guildName?: string | null;
+  guildColor?: string | null;
 };
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
@@ -642,12 +646,14 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
                   userId: viewerUserId ?? "",
                   tier: "frontier",
                   name: tileSettlementName(col, row),
+                  // 내 길드로 즉시 귀속(색/이름은 다음 state 새로고침이 채움).
+                  guildId: viewerGuildId,
                 },
               ],
         );
       });
     },
-    [postTileSettlement, viewerUserId],
+    [postTileSettlement, viewerUserId, viewerGuildId],
   );
   const promoteTile = useCallback(
     (col: number, row: number) => {

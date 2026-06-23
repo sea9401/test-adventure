@@ -1,7 +1,6 @@
 "use client";
 
-// === 자유 타일 지도 — Phase 1~3 렌더 (비파괴) ========================================
-// V2_FREEFORM_TILES on 일 때 /map 에서 옛 ContinentMap 대신 렌더.
+// === 자유 타일 지도 — /map 의 지도 컴포넌트 (옛 ContinentMap 대체·은퇴) ================
 //  - 9×9 보드 + 유지 거점 9개(점령 상태색) + 빈 땅 자유 이동(Phase 2).
 //  - 빈 땅 어디든 개척마을 건설 → 마을→도시→대도시 승격/철거(Phase 3).
 // 라이브 데이터(occupations/treasuries/currentOutpostId)는 표시만, 정착지는 tileSettlements.
@@ -25,7 +24,6 @@ import {
   TILE_BOARD_SIZE,
   TILE_OUTPOST_AT,
   TILE_POS_BY_OUTPOST,
-  TILE_KEPT_OUTPOST_IDS,
   tileKey,
   TILE_TIER_LABEL,
   TILE_FOUND_COST,
@@ -66,6 +64,10 @@ type TileSettlementLite = {
   userId: string;
   tier: string;
   name: string | null;
+  // 소유자의 현재 길드(서버가 멤버십 조인으로 파생). 무소속이면 null.
+  guildId?: number | null;
+  guildName?: string | null;
+  guildColor?: string | null;
 };
 
 const tierOf = (t: string): TileSettlementTier =>
@@ -73,7 +75,6 @@ const tierOf = (t: string): TileSettlementTier =>
 
 export function TileMap({
   onTravelToTile,
-  onTravelTo,
   tilePos,
   tileSettlements,
   onFoundTile,
@@ -87,8 +88,6 @@ export function TileMap({
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
   onTravelToTile?: (col: number, row: number) => void;
-  // 거점 직접 이동 — 보드 밖 거점(옛 23거점 중 9 외)도 이동 가능하게(공존). visit-outpost.
-  onTravelTo?: (o: Outpost) => void;
   tilePos?: { col: number; row: number } | null;
   // 개척 정착지(Phase 3).
   tileSettlements?: TileSettlementLite[];
@@ -127,16 +126,6 @@ export function TileMap({
         : OUTPOST_NPC_TAX_RATE;
     return Math.round((Number.isFinite(raw) ? raw : OUTPOST_NPC_TAX_RATE) * 100);
   };
-
-  // 보드 밖 거점 — 옛 23거점 중 보드(9) 외 14개. 공존: 전쟁/도시/마을이 계속 살아있으므로
-  // 새 지도에서도 이동 가능하게 목록으로 노출(분쟁지대 먼저). 옛 ContinentMap travel 파리티 유지.
-  const offBoardOutposts = OUTPOSTS.filter(
-    (o) => !TILE_KEPT_OUTPOST_IDS.has(o.id),
-  ).sort(
-    (a, b) =>
-      (CONFLICT_ZONE_IDS.has(a.id) ? 0 : 1) -
-      (CONFLICT_ZONE_IDS.has(b.id) ? 0 : 1),
-  );
 
   const boardPx = TILE_BOARD_SIZE * CELL + (TILE_BOARD_SIZE - 1) * GAP;
   const iconPx = Math.round(CELL * 0.5);
@@ -247,6 +236,11 @@ export function TileMap({
 
               if (settlement) {
                 const Glyph = SETTLE_TIER_ICON[tierOf(settlement.tier)];
+                // 길드 소속 정착지 = 그 길드 색(우리 길드든 남의 길드든). 색 미설정·무소속 = 개척 초록.
+                const settleFill =
+                  (settlement.guildId != null
+                    ? guildColorHex(settlement.guildColor ?? null)
+                    : null) ?? FOUNDED_FILL;
                 return (
                   <button
                     key={k}
@@ -257,7 +251,7 @@ export function TileMap({
                     style={{
                       width: CELL,
                       height: CELL,
-                      background: `${FOUNDED_FILL}22`,
+                      background: `${settleFill}22`,
                     }}
                   >
                     <span
@@ -265,7 +259,7 @@ export function TileMap({
                       style={{
                         width: CELL - 10,
                         height: CELL - 10,
-                        background: FOUNDED_FILL,
+                        background: settleFill,
                       }}
                     >
                       <Glyph size={iconPx} weight="fill" color="#0b1020" />
@@ -347,6 +341,16 @@ export function TileMap({
             const tier = tierOf(selSettlement.tier);
             const next = tileNextTier(tier);
             const mine = selSettlement.userId === viewerUserId;
+            const sameGuild =
+              selSettlement.guildId != null &&
+              selSettlement.guildId === viewerGuildId;
+            const ownerLabel = mine
+              ? "내 정착지"
+              : sameGuild
+                ? `우리 길드 · ${selSettlement.guildName ?? "길드"}`
+                : selSettlement.guildId != null
+                  ? `${selSettlement.guildName ?? "다른 길드"} 영지`
+                  : "다른 모험가의 정착지";
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
                 <div className="min-w-0">
@@ -359,7 +363,7 @@ export function TileMap({
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500">
-                    {mine ? "내 정착지" : "다른 모험가의 정착지"}
+                    {ownerLabel}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -436,54 +440,6 @@ export function TileMap({
             </div>
           </div>
         ))}
-
-      {/* 다른 지역 거점 — 보드 밖(공존). 전쟁 분쟁지대·도시·마을 등 옛 거점 이동 유지. */}
-      {onTravelTo && offBoardOutposts.length > 0 && (
-        <details className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-zinc-400">
-            다른 지역 거점{" "}
-            <span className="text-zinc-600">· 보드 밖 {offBoardOutposts.length}</span>
-          </summary>
-          <div className="flex flex-col gap-1 px-3 pb-3">
-            {offBoardOutposts.map((o) => {
-              const label = ownerLabelOf(o);
-              const isCurrent = currentOutpostId === o.id;
-              const conflict = CONFLICT_ZONE_IDS.has(o.id);
-              return (
-                <div
-                  key={o.id}
-                  className="flex items-center justify-between gap-2 rounded-md bg-zinc-900/60 px-2.5 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <span className="text-xs text-zinc-200">{o.name}</span>
-                    {conflict && (
-                      <span className="ml-1.5 text-[11px] text-rose-400">분쟁</span>
-                    )}
-                    {label && (
-                      <span className="ml-1.5 text-[11px] text-zinc-500">
-                        {label}
-                      </span>
-                    )}
-                  </div>
-                  {isCurrent ? (
-                    <span className="shrink-0 text-[11px] text-emerald-300">
-                      현재 위치
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onTravelTo(o)}
-                      className="shrink-0 rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800"
-                    >
-                      이동
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
     </main>
   );
 }

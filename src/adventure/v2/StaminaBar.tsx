@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { MAX_STAMINA, applyRegen, type StaminaState } from "./stamina";
 import { STAMINA_POTION_RESTORE } from "./staminaPotions";
 
@@ -114,7 +115,9 @@ function StaminaPotionModal({
   const stepBtn =
     "flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-lg font-bold leading-none text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800";
 
-  return (
+  // document.body 로 portal — StaminaBar 의 backdrop-blur(backdrop-filter) 조상이 fixed 의
+  //   containing block 이 돼 모달이 바 기준으로 잡히던 버그 회피(화면 전체 기준으로 중앙 정렬).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
       onClick={onClose}
@@ -214,6 +217,7 @@ function StaminaPotionModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   upsertGuildRes: [] as Array<{ guildId: number; patch: unknown }>,
   occUpdates: [] as unknown[],
   tileUpdates: [] as unknown[],
+  attackerGuildId: 7 as number | null, // 공격자 길드(솔로 공격자 테스트는 null)
+  pvpAttackerWins: true, // resolveBattlePvP mock 결과 제어(솔로 수비 결투)
 }));
 
 vi.mock("@/adventure/data/v2/settlementWarfareConfig", async (importOriginal) => {
@@ -22,13 +24,23 @@ vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => "u-atk"),
 }));
 vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
-  getGuildId: vi.fn(async () => 7), // 공격자 길드(≠ 점령 길드 99)
+  getGuildId: vi.fn(async () => h.attackerGuildId), // 공격자 길드(솔로면 null)
 }));
 vi.mock("@/lib/server/derivePlayerCombatV2", () => ({
   derivePlayerCombatV2: vi.fn(async () => ({
     player: { maxMp: 100, hp: 1000 },
     maxHp: 1000,
     selectedStance: null,
+  })),
+}));
+// 솔로 수비 결투(주인 단독 수비)용 — 결정적 결과. 빈 큐(길드 무수비) 경로는 이 mock 미사용.
+vi.mock("@/adventure/v2/combat/engine-pvp", () => ({
+  resolveBattlePvP: vi.fn(() => ({
+    outcome: h.pvpAttackerWins ? "p1_win" : "p2_win",
+    finalState: {
+      p1: { hp: 900, mp: 50 },
+      p2: { hp: h.pvpAttackerWins ? 0 : 800, mp: 0 },
+    },
   })),
 }));
 vi.mock("@/lib/server/serverFeed", () => ({
@@ -126,6 +138,8 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     h.upsertGuildRes = [];
     h.occUpdates = [];
     h.tileUpdates = [];
+    h.attackerGuildId = 7;
+    h.pvpAttackerWins = true;
   });
   afterEach(() => vi.clearAllMocks());
 
@@ -169,5 +183,80 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     // 점령행 이관 + 타일 tier/소유자 write-back 발생.
     expect(h.occUpdates.length).toBeGreaterThan(0);
     expect(h.tileUpdates).toContainEqual({ tier: "frontier", userId: "u-atk" });
+  });
+});
+
+describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
+  beforeEach(() => {
+    h.upsertGuildRes = [];
+    h.occUpdates = [];
+    h.tileUpdates = [];
+    h.attackerGuildId = 7;
+    h.pvpAttackerWins = true;
+  });
+  afterEach(() => vi.clearAllMocks());
+
+  // 솔로 점령행 = occupiedByGuildId:null + occupiedByUserId(주인 단독 수비).
+  const soloOcc = (over: Record<string, unknown> = {}) =>
+    occRow({ occupiedByGuildId: null, occupiedByUserId: "u-owner", ...over });
+
+  it("솔로 공격자(무길드) → 솔로 타일 정복 → 개인 소유 인수(guild=null·tile userId=공격자)", async () => {
+    h.attackerGuildId = null; // 무길드 공격자
+    h.occ = soloOcc({ fortHp: 10 }); // 주인(u-owner) 격파 후 1격 함락
+    const res = await POST(req({ outpostId: "tile:5,5", mode: "conquest" }));
+    expect(res.status).toBe(200);
+    expect((await res.json()) as { captured: boolean }).toMatchObject({
+      captured: true,
+    });
+    // 점령행 이관: 솔로→개인(공격자) — occupiedByGuildId null 유지.
+    expect(h.occUpdates).toContainEqual(
+      expect.objectContaining({
+        occupiedByUserId: "u-atk",
+        occupiedByGuildId: null,
+      }),
+    );
+    expect(h.tileUpdates).toContainEqual(
+      expect.objectContaining({ userId: "u-atk" }),
+    );
+  });
+
+  it("길드 공격자 → 솔로 타일 정복 → 길드 영지로 인수(occupiedByGuildId=공격자 길드)", async () => {
+    h.attackerGuildId = 7;
+    h.occ = soloOcc({ fortHp: 10 });
+    const res = await POST(req({ outpostId: "tile:5,6", mode: "conquest" }));
+    expect(res.status).toBe(200);
+    expect(h.occUpdates).toContainEqual(
+      expect.objectContaining({
+        occupiedByUserId: "u-atk",
+        occupiedByGuildId: 7,
+      }),
+    );
+  });
+
+  it("솔로 타일 약탈(raid) → raid_solo_unsupported (금고 없음)", async () => {
+    h.occ = soloOcc({});
+    const res = await POST(req({ outpostId: "tile:5,7", mode: "raid" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "raid_solo_unsupported",
+    );
+  });
+
+  it("솔로 공격자 → 길드 영지 공격 → no_guild (개인은 길드 땅 공격 불가)", async () => {
+    h.attackerGuildId = null;
+    h.occ = occRow({ occupiedByGuildId: 99, occupiedByUserId: "u-owner" });
+    const res = await POST(req({ outpostId: "tile:5,8", mode: "conquest" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("no_guild");
+  });
+
+  it("본인 솔로 타일 공격 → already_yours", async () => {
+    h.attackerGuildId = null;
+    h.occ = soloOcc({ occupiedByUserId: "u-atk" }); // 공격자 == 주인
+    const res = await POST(req({ outpostId: "tile:5,9", mode: "conquest" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "already_yours",
+    );
   });
 });

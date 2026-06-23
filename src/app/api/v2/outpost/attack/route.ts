@@ -130,21 +130,23 @@ export async function POST(req: Request) {
     )[0];
 
     const attackerGuildId = await getGuildId(tx, userId);
-    if (attackerGuildId == null) {
-      return { status: 400, body: { ok: false as const, error: "no_guild" } };
-    }
-    const defenderGuildId = occRow?.occupiedByGuildId ?? null;
-    if (defenderGuildId == null) {
+    if (!occRow) {
+      // 점령행 없음 = 미점령 거점(NPC 운영) — 전쟁 대상 아님. (타일은 백필로 항상 점령행 보유.)
       return {
         status: 400,
         body: { ok: false as const, error: "not_occupied" },
       };
     }
-    if (defenderGuildId === attackerGuildId) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "already_yours" },
-      };
+    // 소유 = 점령행. 길드 타일=occupiedByGuildId, 솔로(무길드) 타일=null + occupiedByUserId(주인).
+    const defenderGuildId = occRow.occupiedByGuildId;
+    const defenderUserId = occRow.occupiedByUserId;
+    // 솔로 공격자(무길드)는 "솔로 타일" 정복만 허용. 길드 영지·카탈로그 거점은 길드 소속만 공격
+    //   (개인이 길드 땅을 사유화하는 것을 막는다·카탈로그 거점 동작은 기존과 동일).
+    if (
+      attackerGuildId == null &&
+      !(defenderGuildId == null && isTileOutpostId(outpost.id))
+    ) {
+      return { status: 400, body: { ok: false as const, error: "no_guild" } };
     }
     // 약탈/정복 모두 보급선(영토 연속성) 게이트 없음 — 점령(claim)이 아니라 전쟁 행위.
     //   함락 직후 보호막은 존중.
@@ -159,17 +161,45 @@ export async function POST(req: Request) {
       };
     }
 
-    // 수비 큐 — 현재 점령 길드 등록자만(스테일 제외)·등록순.
-    const queue = await tx
-      .select({ userId: outpostDefenders.userId })
-      .from(outpostDefenders)
-      .where(
-        and(
-          eq(outpostDefenders.outpostId, outpost.id),
-          eq(outpostDefenders.guildId, defenderGuildId),
-        ),
-      )
-      .orderBy(asc(outpostDefenders.registeredAt), asc(outpostDefenders.userId));
+    // 수비 대상 검증 + 수비 큐 구성.
+    //   길드 타일 = 등록 큐(스테일 제외·등록순), 솔로 타일 = 주인 단독 자동 수비(큐 합성).
+    let queue: Array<{ userId: string }>;
+    if (defenderGuildId == null) {
+      if (defenderUserId == null) {
+        // 소유자 불명(이상한 행) — 전쟁 대상 아님.
+        return {
+          status: 400,
+          body: { ok: false as const, error: "not_occupied" },
+        };
+      }
+      if (defenderUserId === userId) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "already_yours" },
+        };
+      }
+      queue = [{ userId: defenderUserId }];
+    } else {
+      if (defenderGuildId === attackerGuildId) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "already_yours" },
+        };
+      }
+      queue = await tx
+        .select({ userId: outpostDefenders.userId })
+        .from(outpostDefenders)
+        .where(
+          and(
+            eq(outpostDefenders.outpostId, outpost.id),
+            eq(outpostDefenders.guildId, defenderGuildId),
+          ),
+        )
+        .orderBy(
+          asc(outpostDefenders.registeredAt),
+          asc(outpostDefenders.userId),
+        );
+    }
 
     const attacker = await derivePlayerCombatV2(userId, tx);
     if (!attacker) {
@@ -202,6 +232,16 @@ export async function POST(req: Request) {
 
     // ===================== 약탈(raid) =====================
     if (mode === "raid") {
+      // 약탈 = 거점 금고 50% 탈취 — 길드 금고가 있는 길드↔길드 전용. 솔로(금고 없음)는 정복만.
+      if (defenderGuildId == null) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "raid_solo_unsupported" },
+        };
+      }
+      if (attackerGuildId == null) {
+        return { status: 400, body: { ok: false as const, error: "no_guild" } };
+      }
       const defender1Id = queue[0]?.userId ?? null;
       let won: boolean;
       let defenderName: string | null = null;
@@ -452,7 +492,8 @@ export async function POST(req: Request) {
 
     if (clearedQueue) {
       // 수비 길드 금고 자동 수리(데미지 전·claim 미러). 정복은 공격자 골드 안 씀 → 수비 길드만 잠금.
-      if (fortHpAfter < fortMaxHp) {
+      //   솔로 타일(defenderGuildId=null)은 길드 금고가 없어 성벽 자동 수리 없음(데미지 그대로).
+      if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
         // 🔑 lock 먼저 — 잠근 잔액으로 수리 HP 계산. read-then-lock 이면 그 사이 동시 tx 가 골드를
         //   바꿔 stale 잔액으로 수리 + 음수 클램프(골드 보존 깨짐). repairHpFromGold 가 잔액으로
         //   hp 를 캡하므로 차감 후 항상 ≥0.
@@ -525,7 +566,9 @@ export async function POST(req: Request) {
         const village = isTileOutpostId(outpost.id)
           ? null
           : await lockVillage(tx, outpost.id);
-        if (village) {
+        // village 는 카탈로그 거점(비-타일)만 — 그 경우 공격자는 항상 길드 소속(위 게이트가
+        //   솔로 공격자를 솔로 타일로 한정)이라 attackerGuildId 는 여기서 non-null.
+        if (village && attackerGuildId != null) {
           const transferred = normalizeVillageOwner(village, attackerGuildId);
           const down = prevTier(village.tier);
           const downTier = down ?? village.tier;
@@ -559,7 +602,10 @@ export async function POST(req: Request) {
 
     // 수비 성공분을 점령 길드 누적 명성에 가산(앞으로만). 함락 시엔 delta=0(수비 전원 격파)
     //   이라 소유 이관과 무관. guild_resources(수리 락) 다음(락 순서).
-    await addGuildFame(tx, defenderGuildId, defenderFameDelta);
+    //   솔로 타일(defenderGuildId=null)은 길드 명성 없음 — 주인 개인 honor 는 위 루프에서 지급됨.
+    if (defenderGuildId != null) {
+      await addGuildFame(tx, defenderGuildId, defenderFameDelta);
+    }
 
     return {
       status: 200,

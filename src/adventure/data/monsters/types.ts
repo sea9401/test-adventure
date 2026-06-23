@@ -105,6 +105,18 @@ export type Monster = {
   critPct?: number;
   /** 치명형 몹 치명 배수. 미지정 시 MONSTER_CRIT_MULT_DEFAULT(1.5). critPct 0 이면 무의미. */
   critMult?: number;
+  /**
+   * 마법형 몹의 마법공격력. atkType="magic" 일 때 평타가 atk 대신 이 값으로 스케일(플레이어
+   * magicDef 로 경감). 미지정 시 atk 폴백(기존 동작). 깊이 스케일은 atk 와 동일(monsterScale).
+   */
+  matk?: number;
+  /**
+   * 몬스터 아키타입 — 태그 하나로 다양성 프로필(회피/치명/마법형/마공/스킬 기본값)을 주입한다.
+   *   resolveMonsterArchetype 가 몹이 직접 지정하지 않은 필드에만 기본값을 채운다(명시 우선).
+   *   미지정 = 일반 잡몹(공/방 위주, byte-identical). brute=공격형(완화), evasive=회피형,
+   *   crit=치명형, caster=마법형(atkType magic + matk; 마법 스킬은 PR2).
+   */
+  archetype?: "brute" | "evasive" | "caster" | "crit";
   exp: number;
   drops?: MonsterDrop[];
   phaseTrigger?: MonsterPhaseTrigger;

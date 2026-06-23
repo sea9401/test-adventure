@@ -530,9 +530,13 @@ export function resolveEnemyPhase(
       : 1;
   const heavyBlowFired = heavyBlowMult > 1;
   // 약점 분석(5티어)의 적 ATK 페널티는 raw atk 에 적용 → 0 클램프.
+  // 마법형 몹(atkType="magic")은 평타도 matk(미지정 시 atk 폴백)로 스케일 — magicDef 로 경감.
+  const enemyAtkBase = magicAttack
+    ? (state.enemy.matk ?? state.enemy.atk)
+    : state.enemy.atk;
   const effectiveEnemyAtk = Math.max(
     0,
-    state.enemy.atk + enemyAtkBonus - state.buffs.enemyAtkPenalty,
+    enemyAtkBase + enemyAtkBonus - state.buffs.enemyAtkPenalty,
   );
   // PR-5a/5b: enemy 측 v2 buff/debuff 합산. PR-5b 부터 monster v2 cast 가능 → enemyV2SelfBuffs
   // 도 합산. player 의 v2 self buff/debuff 는 player.def 곱셈으로 반영.

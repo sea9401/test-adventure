@@ -134,6 +134,7 @@ export const HOMELAND_MONSTERS: Record<string, Monster> = {
   "호수 님프": {
     name: "호수 님프",
     tags: ["spirit"],
+    archetype: "caster",
     image: "/images/monster/lakenymph.webp",
     hp: 117,
     atk: 11,

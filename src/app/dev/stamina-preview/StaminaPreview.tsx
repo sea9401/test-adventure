@@ -5,6 +5,7 @@ import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import {
   MAX_STAMINA,
   REGEN_SECONDS_PER_POINT,
+  STAMINA_OVERCHARGE_MULT,
   initialStamina,
   type StaminaState,
 } from "@/adventure/v2/stamina";
@@ -38,6 +39,13 @@ export function StaminaPreview() {
       {
         label: `초과 비축 (${MAX_STAMINA + 2000}/${MAX_STAMINA} — 포션 overcharge)`,
         state: { current: MAX_STAMINA + 2000, lastUpdatedAt: now },
+      },
+      {
+        label: `비축 상한 도달 (${MAX_STAMINA * STAMINA_OVERCHARGE_MULT}/${MAX_STAMINA})`,
+        state: {
+          current: MAX_STAMINA * STAMINA_OVERCHARGE_MULT,
+          lastUpdatedAt: now,
+        },
       },
       {
         label: "옛 데이터 (1시간 전 마지막, +120 자동 회복)",

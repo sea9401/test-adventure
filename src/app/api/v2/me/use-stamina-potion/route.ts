@@ -6,6 +6,7 @@ import {
   applyRegen,
   parseStaminaFromSave,
   staminaCapBonusOf,
+  staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import {
   STAMINA_POTIONS_KEY,
@@ -56,12 +57,16 @@ export async function POST(req: Request) {
     const useCount = Math.min(reqCount, held); // 보유 초과 클램프(서버 권위).
     const now = Date.now();
     const max = MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+    const cap = staminaOverchargeCap(max); // 포션 비축 상한(max × MULT)
     const cur = applyRegen(parseStaminaFromSave(charSave.stamina, now), now, max);
     const nextStamina = {
-      // 최대치 캡 없음 — 포션으로 max 를 넘겨 비축(overcharge) 가능.
+      // 포션으로 최대치를 넘겨 비축(overcharge) — 단 상한(cap)까지만.
       //   "한 번에 많이 먹어두고 길게 사냥" 의도. 시간 회복은 여전히 max 까지만(applyRegen),
-      //   초과분은 사냥/이동으로만 소모. 비축 상한은 보유 포션 수로 자연 제한.
-      current: cur.current + STAMINA_POTION_RESTORE * useCount,
+      //   초과분은 사냥/이동으로만 소모. 이미 cap 이상(레거시)이면 줄이지 않음(max-guard).
+      current: Math.max(
+        cur.current,
+        Math.min(cap, cur.current + STAMINA_POTION_RESTORE * useCount),
+      ),
       lastUpdatedAt: cur.lastUpdatedAt,
     };
     await upsertSave(tx, userId, "character.v2", {

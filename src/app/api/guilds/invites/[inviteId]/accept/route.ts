@@ -13,6 +13,7 @@ import { upsertSave } from "@/lib/server/savesKv";
 import { SAVES_CHARACTER } from "@/lib/server/guildAffiliation";
 import { cancelPendingJoinRequestsInTx } from "@/lib/server/guildJoinRequests";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
+import { convertSoloTilesToGuild } from "@/lib/server/tileOccupation";
 import { guildMemberCap } from "@/adventure/data/guild";
 
 export async function POST(
@@ -98,6 +99,8 @@ export async function POST(
         userId,
         role: "member",
       });
+      // 가입 — 그 유저의 솔로 타일 점령행을 길드로 전환(소유자 길드 동기화).
+      await convertSoloTilesToGuild(tx, userId, invite.guildId);
       await logGuildActivity(tx, {
         guildId: invite.guildId,
         type: "member_join",

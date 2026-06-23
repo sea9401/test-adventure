@@ -39,7 +39,7 @@ vi.mock("@/lib/server/v2GuildResources", () => ({
   }),
 }));
 vi.mock("@/lib/server/tileOccupation", () => ({
-  createTileGuildOccupation: vi.fn(async () => ({ created: true, guildId: 7 })),
+  createTileOccupation: vi.fn(async () => ({ created: true, guildId: 7 })),
   removeTileWarfare: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/server/savesKv", () => ({

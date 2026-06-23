@@ -30,7 +30,7 @@ vi.mock("@/lib/server/guildActivityLog", () => ({
   logGuildActivity: spies.logActivity,
 }));
 vi.mock("@/db", async () => {
-  const { guildMembers } = await import("@/db/schema");
+  const { guildMembers, outpostOccupations } = await import("@/db/schema");
   const chain = (rows: unknown[]) => {
     const c: Record<string, unknown> = {
       where: () => c,
@@ -42,7 +42,11 @@ vi.mock("@/db", async () => {
     return c;
   };
   const resolve = (tbl: unknown): unknown[] =>
-    tbl === guildMembers ? (q.gmQueue.shift() ?? []) : q.guildRows;
+    tbl === guildMembers
+      ? (q.gmQueue.shift() ?? [])
+      : tbl === outpostOccupations
+        ? [] // revert 헬퍼: 멤버 소유 타일 없음 → no-op(이 스위트는 멤버십 로직만 검증)
+        : q.guildRows;
   const tx = {
     select: () => ({ from: (tbl: unknown) => chain(resolve(tbl)) }),
     update: () => {

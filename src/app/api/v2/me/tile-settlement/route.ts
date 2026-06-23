@@ -23,7 +23,7 @@ import {
   V2_TILE_PRODUCTION,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
-  createTileGuildOccupation,
+  createTileOccupation,
   removeTileWarfare,
 } from "@/lib/server/tileOccupation";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
           tier: "frontier",
           name: tileSettlementName(col, row),
         });
-        await createTileGuildOccupation(tx, { userId, col, row, tier: "frontier" });
+        await createTileOccupation(tx, { userId, col, row, tier: "frontier" });
         if (V2_CORE_LOOP_V2) {
           await upsertGuildResources(tx, guildId, {
             gold: gr.gold - TILE_FOUND_COST,
@@ -186,9 +186,9 @@ export async function POST(req: Request) {
         tier: "frontier",
         name: tileSettlementName(col, row),
       });
-      // 솔로라도 V2_TILE_WARFARE on 이면 점령행 시도(무길드면 createTileGuildOccupation 가 no-op).
+      // 솔로라도 V2_TILE_WARFARE on 이면 점령행 생성(무길드 → 솔로 점령행 = 정복 가능 전쟁 대상).
       if (V2_TILE_WARFARE) {
-        await createTileGuildOccupation(tx, {
+        await createTileOccupation(tx, {
           userId,
           col,
           row,

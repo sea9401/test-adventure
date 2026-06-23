@@ -561,6 +561,20 @@
       "when": 1782217090328,
       "tag": "0079_backfill_tile_villages",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1782225866378,
+      "tag": "0080_backfill_tile_solo_occupations",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1782229494128,
+      "tag": "0081_sync_tile_occupation_guild_to_owner",
+      "breakpoints": true
     }
   ]
 }

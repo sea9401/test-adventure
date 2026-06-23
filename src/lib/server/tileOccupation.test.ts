@@ -1,11 +1,11 @@
 // tileOccupation 헬퍼 — 가짜 tx 위 단위 테스트(drizzle 체인 흉내·DB 미접촉).
-//   길드 게이팅(길드원만 점령행 생성) + 철거 정리(4개 전쟁 테이블 delete) 검증.
+//   소유 분기(길드원=길드 소유·무길드=솔로 소유) + 철거 정리(4개 전쟁 테이블 delete) 검증.
 
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db", () => ({ db: { transaction: vi.fn() } }));
 
-import { createTileGuildOccupation, removeTileWarfare } from "./tileOccupation";
+import { createTileOccupation, removeTileWarfare } from "./tileOccupation";
 
 type Tx = Parameters<typeof removeTileWarfare>[0];
 
@@ -34,10 +34,10 @@ function makeTx(guildRows: Array<{ guildId: number }>) {
   return { tx: tx as unknown as Tx, inserted, getDeletes: () => deletes };
 }
 
-describe("createTileGuildOccupation", () => {
-  it("길드원 → 점령행 생성(guildId 반환)", async () => {
+describe("createTileOccupation", () => {
+  it("길드원 → 길드 점령행 생성(guildId 반환)", async () => {
     const { tx, inserted } = makeTx([{ guildId: 42 }]);
-    const r = await createTileGuildOccupation(tx, {
+    const r = await createTileOccupation(tx, {
       userId: "u1",
       col: 2,
       row: 3,
@@ -51,16 +51,22 @@ describe("createTileGuildOccupation", () => {
     );
   });
 
-  it("길드 미소속 → 점령행 미생성(개인 정착지)", async () => {
+  it("길드 미소속 → 솔로 점령행 생성(occupiedByGuildId=null)", async () => {
     const { tx, inserted } = makeTx([]);
-    const r = await createTileGuildOccupation(tx, {
+    const r = await createTileOccupation(tx, {
       userId: "solo",
       col: 0,
       row: 0,
       tier: "frontier",
     });
-    expect(r).toEqual({ created: false, guildId: null });
-    expect(inserted).toHaveLength(0);
+    expect(r).toEqual({ created: true, guildId: null });
+    expect(inserted).toHaveLength(1);
+    expect((inserted[0] as { occupiedByUserId: string }).occupiedByUserId).toBe(
+      "solo",
+    );
+    expect(
+      (inserted[0] as { occupiedByGuildId: number | null }).occupiedByGuildId,
+    ).toBeNull();
   });
 });
 

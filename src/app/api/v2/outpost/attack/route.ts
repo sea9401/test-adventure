@@ -4,6 +4,7 @@ import {
   outpostDefenders,
   outpostOccupations,
   outpostTreasury,
+  outpostVillages,
   tileSettlements,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -47,6 +48,7 @@ import {
   upsertVillage,
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
+import { removeTileWarfare } from "@/lib/server/tileOccupation";
 import {
   prevTier,
   VILLAGE_TIER_NAME,
@@ -130,21 +132,20 @@ export async function POST(req: Request) {
     )[0];
 
     const attackerGuildId = await getGuildId(tx, userId);
-    if (attackerGuildId == null) {
-      return { status: 400, body: { ok: false as const, error: "no_guild" } };
-    }
-    const defenderGuildId = occRow?.occupiedByGuildId ?? null;
-    if (defenderGuildId == null) {
+    if (!occRow) {
+      // 점령행 없음 = 미점령 거점(NPC 운영) — 전쟁 대상 아님. (타일은 백필로 항상 점령행 보유.)
       return {
         status: 400,
         body: { ok: false as const, error: "not_occupied" },
       };
     }
-    if (defenderGuildId === attackerGuildId) {
-      return {
-        status: 400,
-        body: { ok: false as const, error: "already_yours" },
-      };
+    // 소유 = 점령행. 길드 타일=occupiedByGuildId, 솔로(무길드) 타일=null + occupiedByUserId(주인).
+    const defenderGuildId = occRow.occupiedByGuildId;
+    const defenderUserId = occRow.occupiedByUserId;
+    // 솔로 공격자(무길드)는 타일 정착지면 무엇이든 공격 가능(솔로/길드 영지) — 단 점령으로 소유는
+    //   못 하고 함락 시 철거(빈땅). 카탈로그 정적 거점은 철거 개념이 없어 길드 소속만(기존 동작).
+    if (attackerGuildId == null && !isTileOutpostId(outpost.id)) {
+      return { status: 400, body: { ok: false as const, error: "no_guild" } };
     }
     // 약탈/정복 모두 보급선(영토 연속성) 게이트 없음 — 점령(claim)이 아니라 전쟁 행위.
     //   함락 직후 보호막은 존중.
@@ -159,17 +160,45 @@ export async function POST(req: Request) {
       };
     }
 
-    // 수비 큐 — 현재 점령 길드 등록자만(스테일 제외)·등록순.
-    const queue = await tx
-      .select({ userId: outpostDefenders.userId })
-      .from(outpostDefenders)
-      .where(
-        and(
-          eq(outpostDefenders.outpostId, outpost.id),
-          eq(outpostDefenders.guildId, defenderGuildId),
-        ),
-      )
-      .orderBy(asc(outpostDefenders.registeredAt), asc(outpostDefenders.userId));
+    // 수비 대상 검증 + 수비 큐 구성.
+    //   길드 타일 = 등록 큐(스테일 제외·등록순), 솔로 타일 = 주인 단독 자동 수비(큐 합성).
+    let queue: Array<{ userId: string }>;
+    if (defenderGuildId == null) {
+      if (defenderUserId == null) {
+        // 소유자 불명(이상한 행) — 전쟁 대상 아님.
+        return {
+          status: 400,
+          body: { ok: false as const, error: "not_occupied" },
+        };
+      }
+      if (defenderUserId === userId) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "already_yours" },
+        };
+      }
+      queue = [{ userId: defenderUserId }];
+    } else {
+      if (defenderGuildId === attackerGuildId) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "already_yours" },
+        };
+      }
+      queue = await tx
+        .select({ userId: outpostDefenders.userId })
+        .from(outpostDefenders)
+        .where(
+          and(
+            eq(outpostDefenders.outpostId, outpost.id),
+            eq(outpostDefenders.guildId, defenderGuildId),
+          ),
+        )
+        .orderBy(
+          asc(outpostDefenders.registeredAt),
+          asc(outpostDefenders.userId),
+        );
+    }
 
     const attacker = await derivePlayerCombatV2(userId, tx);
     if (!attacker) {
@@ -202,6 +231,16 @@ export async function POST(req: Request) {
 
     // ===================== 약탈(raid) =====================
     if (mode === "raid") {
+      // 약탈 = 거점 금고 50% 탈취 — 길드 금고가 있는 길드↔길드 전용. 솔로(금고 없음)는 정복만.
+      if (defenderGuildId == null) {
+        return {
+          status: 400,
+          body: { ok: false as const, error: "raid_solo_unsupported" },
+        };
+      }
+      if (attackerGuildId == null) {
+        return { status: 400, body: { ok: false as const, error: "no_guild" } };
+      }
       const defender1Id = queue[0]?.userId ?? null;
       let won: boolean;
       let defenderName: string | null = null;
@@ -441,6 +480,7 @@ export async function POST(req: Request) {
     }
 
     let captured = false;
+    let razed = false; // 솔로 공격자 함락 = 철거(빈땅). 길드 공격자 함락 = 인수(razed=false).
     let downgradedTo: string | null = null;
     const fortMaxHp = occRow.fortMaxHp ?? FORT_MAX_HP;
     let fortHpAfter = currentFortHp(
@@ -452,7 +492,8 @@ export async function POST(req: Request) {
 
     if (clearedQueue) {
       // 수비 길드 금고 자동 수리(데미지 전·claim 미러). 정복은 공격자 골드 안 씀 → 수비 길드만 잠금.
-      if (fortHpAfter < fortMaxHp) {
+      //   솔로 타일(defenderGuildId=null)은 길드 금고가 없어 성벽 자동 수리 없음(데미지 그대로).
+      if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
         // 🔑 lock 먼저 — 잠근 잔액으로 수리 HP 계산. read-then-lock 이면 그 사이 동시 tx 가 골드를
         //   바꿔 stale 잔액으로 수리 + 음수 클램프(골드 보존 깨짐). repairHpFromGold 가 잔액으로
         //   hp 를 캡하므로 차감 후 항상 ≥0.
@@ -468,85 +509,108 @@ export async function POST(req: Request) {
       const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
       const newOccupiedAt = new Date();
       if (damaged <= 0) {
-        // 함락 — 소유 이전 + 성벽 풀충전 + 보호막.
+        // 함락. 공격자 정체성으로 분기 — 길드 공격자=인수(소유 이전), 솔로 공격자=철거(빈땅).
         captured = true;
-        await tx
-          .update(outpostOccupations)
-          .set({
-            occupiedByUserId: userId,
-            occupiedByGuildId: attackerGuildId,
-            occupiedAt: newOccupiedAt,
-            policy: "open",
-            taxRate: "0.100",
-            nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-            fortHp: fortMaxHp,
-            fortUpdatedAt: newOccupiedAt,
-            protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
-          })
-          .where(eq(outpostOccupations.outpostId, outpost.id));
-        fortHpAfter = fortMaxHp;
-
-        // 타일 정착지 함락 — tier 1단계 강등(tile_settlements) + 소유자=정복자(userId 갱신).
-        //   founder 가드: 소유자를 정복자로 바꿔 이후 demolish/promote 의 소유 체크(existing.userId
-        //   === userId)가 자동으로 옛 창립자를 막고 정복자만 허용. 옛 마을(outpost_villages) 무관.
-        if (isTileOutpostId(outpost.id)) {
+        if (attackerGuildId == null) {
+          // 솔로 공격자는 점령으로 소유할 수 없음 → 막타 시 정착지 철거(빈땅·게이트상 타일 전용).
+          //   전쟁 행(점령/금고/수비큐/영주) + 정착지 + 생산(마을) 모두 제거 → (col,row) 재개척 가능.
+          razed = true;
           const pos = parseTileOutpostId(outpost.id);
           if (pos) {
-            const [ts] = await tx
-              .select({ tier: tileSettlements.tier })
-              .from(tileSettlements)
+            await removeTileWarfare(tx, pos.col, pos.row);
+            await tx
+              .delete(tileSettlements)
               .where(
                 and(
                   eq(tileSettlements.col, pos.col),
                   eq(tileSettlements.row, pos.row),
                 ),
-              )
-              .for("update")
-              .limit(1);
-            if (ts && isTileSettlementTier(ts.tier)) {
-              const down = tilePrevTier(ts.tier);
-              const downTier = down ?? ts.tier;
-              await tx
-                .update(tileSettlements)
-                .set({ tier: downTier, userId })
+              );
+            await tx
+              .delete(outpostVillages)
+              .where(eq(outpostVillages.outpostId, outpost.id));
+          }
+          fortHpAfter = 0;
+        } else {
+          // 길드 공격자 = 인수 — 소유 이전 + 성벽 풀충전 + 보호막.
+          await tx
+            .update(outpostOccupations)
+            .set({
+              occupiedByUserId: userId,
+              occupiedByGuildId: attackerGuildId,
+              occupiedAt: newOccupiedAt,
+              policy: "open",
+              taxRate: "0.100",
+              nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
+              fortHp: fortMaxHp,
+              fortUpdatedAt: newOccupiedAt,
+              protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
+            })
+            .where(eq(outpostOccupations.outpostId, outpost.id));
+          fortHpAfter = fortMaxHp;
+
+          // 타일 정착지 함락 — tier 1단계 강등(tile_settlements) + 소유자=정복자(userId 갱신).
+          //   founder 가드: 소유자를 정복자로 바꿔 이후 demolish/promote 의 소유 체크(existing.userId
+          //   === userId)가 자동으로 옛 창립자를 막고 정복자만 허용. 옛 마을(outpost_villages) 무관.
+          if (isTileOutpostId(outpost.id)) {
+            const pos = parseTileOutpostId(outpost.id);
+            if (pos) {
+              const [ts] = await tx
+                .select({ tier: tileSettlements.tier })
+                .from(tileSettlements)
                 .where(
                   and(
                     eq(tileSettlements.col, pos.col),
                     eq(tileSettlements.row, pos.row),
                   ),
-                );
-              downgradedTo = down ? TILE_TIER_LABEL[downTier] : null;
+                )
+                .for("update")
+                .limit(1);
+              if (ts && isTileSettlementTier(ts.tier)) {
+                const down = tilePrevTier(ts.tier);
+                const downTier = down ?? ts.tier;
+                await tx
+                  .update(tileSettlements)
+                  .set({ tier: downTier, userId })
+                  .where(
+                    and(
+                      eq(tileSettlements.col, pos.col),
+                      eq(tileSettlements.row, pos.row),
+                    ),
+                  );
+                downgradedTo = down ? TILE_TIER_LABEL[downTier] : null;
+              }
             }
           }
-        }
-        // 마을 tier 1단계 강등 + 소유 이관(금고는 그대로 인수). 최하(마을)=강등 없이 이관.
-        //   강등 시 해금 칸이 새 tier 상한 초과면 클램프(슬롯 종류도 트림). 진행 작업은
-        //   normalizeVillageOwner 가 비움. 타일이면 village=null 로 스킵(위 tile 분기가 처리).
-        const village = isTileOutpostId(outpost.id)
-          ? null
-          : await lockVillage(tx, outpost.id);
-        if (village) {
-          const transferred = normalizeVillageOwner(village, attackerGuildId);
-          const down = prevTier(village.tier);
-          const downTier = down ?? village.tier;
-          const maxSlots = MAX_SLOTS_BY_TIER[downTier];
-          const newUnlocked = Math.min(transferred.unlockedSlots, maxSlots);
-          const newSlotKinds: typeof transferred.slotKinds = {};
-          for (const [k, v] of Object.entries(transferred.slotKinds)) {
-            if (Number(k) < newUnlocked) newSlotKinds[Number(k)] = v;
+          // 마을 tier 1단계 강등 + 소유 이관(금고는 그대로 인수). 최하(마을)=강등 없이 이관.
+          //   강등 시 해금 칸이 새 tier 상한 초과면 클램프(슬롯 종류도 트림). 진행 작업은
+          //   normalizeVillageOwner 가 비움. 타일이면 village=null 로 스킵(위 tile 분기가 처리).
+          const village = isTileOutpostId(outpost.id)
+            ? null
+            : await lockVillage(tx, outpost.id);
+          if (village) {
+            const transferred = normalizeVillageOwner(village, attackerGuildId);
+            const down = prevTier(village.tier);
+            const downTier = down ?? village.tier;
+            const maxSlots = MAX_SLOTS_BY_TIER[downTier];
+            const newUnlocked = Math.min(transferred.unlockedSlots, maxSlots);
+            const newSlotKinds: typeof transferred.slotKinds = {};
+            for (const [k, v] of Object.entries(transferred.slotKinds)) {
+              if (Number(k) < newUnlocked) newSlotKinds[Number(k)] = v;
+            }
+            await upsertVillage(tx, {
+              ...transferred,
+              tier: downTier,
+              unlockedSlots: newUnlocked,
+              slotKinds: newSlotKinds,
+            });
+            downgradedTo = down ? VILLAGE_TIER_NAME[downTier] : null;
           }
-          await upsertVillage(tx, {
-            ...transferred,
-            tier: downTier,
-            unlockedSlots: newUnlocked,
-            slotKinds: newSlotKinds,
-          });
-          downgradedTo = down ? VILLAGE_TIER_NAME[downTier] : null;
+          // 소유 변경 → 옛 소유 길드의 수비 큐 전체 제거.
+          await tx
+            .delete(outpostDefenders)
+            .where(eq(outpostDefenders.outpostId, outpost.id));
         }
-        // 소유 변경 → 옛 소유 길드의 수비 큐 전체 제거.
-        await tx
-          .delete(outpostDefenders)
-          .where(eq(outpostDefenders.outpostId, outpost.id));
       } else {
         // 성벽만 감소(공성 진행·소유 유지). fortUpdatedAt 갱신으로 재생 재시작.
         await tx
@@ -559,7 +623,10 @@ export async function POST(req: Request) {
 
     // 수비 성공분을 점령 길드 누적 명성에 가산(앞으로만). 함락 시엔 delta=0(수비 전원 격파)
     //   이라 소유 이관과 무관. guild_resources(수리 락) 다음(락 순서).
-    await addGuildFame(tx, defenderGuildId, defenderFameDelta);
+    //   솔로 타일(defenderGuildId=null)은 길드 명성 없음 — 주인 개인 honor 는 위 루프에서 지급됨.
+    if (defenderGuildId != null) {
+      await addGuildFame(tx, defenderGuildId, defenderFameDelta);
+    }
 
     return {
       status: 200,
@@ -568,6 +635,7 @@ export async function POST(req: Request) {
         mode: "conquest" as const,
         clearedQueue,
         captured,
+        razed,
         fortHp: fortHpAfter,
         fortMaxHp,
         downgradedTo,

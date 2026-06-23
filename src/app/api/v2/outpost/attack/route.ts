@@ -142,9 +142,9 @@ export async function POST(req: Request) {
     // 소유 = 점령행. 길드 타일=occupiedByGuildId, 솔로(무길드) 타일=null + occupiedByUserId(주인).
     const defenderGuildId = occRow.occupiedByGuildId;
     const defenderUserId = occRow.occupiedByUserId;
-    // 솔로 공격자(무길드)는 타일 정착지면 무엇이든 공격 가능(솔로/길드 영지) — 단 점령으로 소유는
-    //   못 하고 함락 시 철거(빈땅). 카탈로그 정적 거점은 철거 개념이 없어 길드 소속만(기존 동작).
-    if (attackerGuildId == null && !isTileOutpostId(outpost.id)) {
+    // 영토=길드 소유 — 전쟁(약탈/정복)은 길드만. 무소속 공격자는 차단(길드 생성/가입 필요).
+    //   (옛 솔로 공격자=함락 시 철거 경로는 폐기 — 무소속은 전쟁 자체에 참여 불가.)
+    if (attackerGuildId == null) {
       return { status: 400, body: { ok: false as const, error: "no_guild" } };
     }
     // 약탈/정복 모두 보급선(영토 연속성) 게이트 없음 — 점령(claim)이 아니라 전쟁 행위.

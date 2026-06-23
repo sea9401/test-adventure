@@ -137,9 +137,13 @@ export async function POST(req: Request) {
       }
       // 개척마을 생성비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(중앙=기본).
       const foundCost = scaledTileGoldCost(TILE_FOUND_COST, col, row);
-      // 길드 소속이면 개척마을 생성=길드 행위: 마스터/부마스터만 + 길드 자금 소모(개인 골드 X).
-      //   무소속(솔로)은 본인 골드(현행). V2_TILE_WARFARE off 면 길드 타일 개념 없어 솔로 경로.
+      // 영토=길드 소유 — 개척마을 생성은 길드 행위(마스터/부마스터만·길드 자금 소모).
+      //   무소속은 개척 불가(길드 생성/가입 필요). V2_TILE_WARFARE off(레거시·전쟁 비활성)면
+      //   길드 타일 개념이 없어 솔로 경로(점령행 없음·플래그 off 환경 호환).
       const guildId = V2_TILE_WARFARE ? await getGuildId(tx, userId) : null;
+      if (V2_TILE_WARFARE && guildId == null) {
+        return { kind: "err", status: 403, error: "need_guild" };
+      }
       if (guildId != null) {
         if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
           return { kind: "err", status: 403, error: "not_guild_admin" };
@@ -171,7 +175,8 @@ export async function POST(req: Request) {
         const cur = await chargeGold(tx, userId, 0);
         return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
       }
-      // 무소속(솔로) — 본인 골드(현행).
+      // V2_TILE_WARFARE off(레거시·전쟁 비활성) — 본인 골드로 개척(점령행 없음).
+      //   warfare on 의 무소속은 위에서 need_guild 로 이미 차단됨.
       const charge = await chargeGold(tx, userId, foundCost);
       if (!charge.ok) {
         return {
@@ -189,15 +194,6 @@ export async function POST(req: Request) {
         tier: "frontier",
         name: tileSettlementName(col, row),
       });
-      // 솔로라도 V2_TILE_WARFARE on 이면 점령행 생성(무길드 → 솔로 점령행 = 정복 가능 전쟁 대상).
-      if (V2_TILE_WARFARE) {
-        await createTileOccupation(tx, {
-          userId,
-          col,
-          row,
-          tier: "frontier",
-        });
-      }
       return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
     }
 

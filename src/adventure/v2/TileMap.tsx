@@ -458,22 +458,28 @@ export function TileMap({
                   </button>
                 )
               )}
-              {onFoundTile && (
-                <button
-                  type="button"
-                  onClick={() => onFoundTile(selCol, selRow)}
-                  className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                >
-                  <Hammer size={14} weight="fill" />
-                  개척마을 건설 (
-                  {scaledTileGoldCost(
-                    TILE_FOUND_COST,
-                    selCol,
-                    selRow,
-                  ).toLocaleString()}
-                  G)
-                </button>
-              )}
+              {onFoundTile &&
+                (viewerGuildId != null ? (
+                  <button
+                    type="button"
+                    onClick={() => onFoundTile(selCol, selRow)}
+                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                  >
+                    <Hammer size={14} weight="fill" />
+                    개척마을 건설 (
+                    {scaledTileGoldCost(
+                      TILE_FOUND_COST,
+                      selCol,
+                      selRow,
+                    ).toLocaleString()}
+                    G)
+                  </button>
+                ) : (
+                  // 영토=길드 소유 — 무소속은 개척 불가(길드 생성/가입 안내).
+                  <span className="text-xs text-amber-400">
+                    개척마을은 길드 전용 — 길드를 만들거나 가입하세요
+                  </span>
+                ))}
             </div>
           </div>
         ))}

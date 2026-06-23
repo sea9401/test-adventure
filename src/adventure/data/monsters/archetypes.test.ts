@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { resolveMonsterArchetype } from "./archetypes";
 import { scaleMonsterForFloor } from "@/adventure/data/v2/monsterScale";
+import { V2_SKILLS } from "@/adventure/data/v2/v2Skills";
 import type { Monster } from "./types";
 
 const base: Monster = {
@@ -64,5 +65,31 @@ describe("scaleMonsterForFloor — 다양성 깊이 스케일", () => {
     expect(s.matk).toBeUndefined();
     expect(s.evasionPct).toBeUndefined();
     expect(s.critPct).toBeUndefined();
+  });
+});
+
+describe("caster — 마법 스킬 시전(PR2)", () => {
+  it("caster 프로필이 v2Skills(마력탄) + v2MaxMp 주입(미지정 시)", () => {
+    const m = resolveMonsterArchetype({ ...base, archetype: "caster" });
+    expect(m.v2Skills?.equipped).toContain("mob_mana_bolt");
+    expect(m.v2MaxMp!).toBeGreaterThan(0);
+  });
+  it("몹이 직접 지정한 v2Skills 는 프로필이 덮지 않음(명시 우선)", () => {
+    const m = resolveMonsterArchetype({
+      ...base,
+      archetype: "caster",
+      v2Skills: { learned: ["mob_firebolt"], equipped: ["mob_firebolt"] },
+    });
+    expect(m.v2Skills?.equipped).toEqual(["mob_firebolt"]);
+  });
+  it("몹 마법 스킬 3종 = monsterOnly + scaling magic", () => {
+    for (const id of ["mob_mana_bolt", "mob_firebolt", "mob_frostwind"] as const) {
+      const sk = V2_SKILLS[id];
+      expect(sk.monsterOnly, id).toBe(true);
+      const dmg = sk.effects.find((e) => e.kind === "damage") as
+        | { scaling?: string }
+        | undefined;
+      expect(dmg?.scaling, id).toBe("magic");
+    }
   });
 });

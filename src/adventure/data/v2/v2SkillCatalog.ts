@@ -111,4 +111,52 @@ export const V2_BASE_SKILLS = {
     monsterOnly: true,
     effects: [{ kind: "dot", ...V2_DOT_PRESETS.출혈 }],
   },
+  // ── 몬스터 전용 마법 스킬 (caster 아키타입 시전) — scaling magic → 플레이어 magicDef(정신)로 경감. ──
+  //   damage = statCoef × matk(+baseFlat). 물리탱크 약점·정신빌드 카운터. mpCost>0 → 단판 풀 소모. ⚠️ sim 다이얼.
+  mob_mana_bolt: {
+    id: "mob_mana_bolt",
+    name: "마력탄",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "응축한 마력탄을 쏘아 박는다.",
+    mpCost: 22,
+    cooldown: 1,
+    monsterOnly: true,
+    element: "void",
+    effects: [
+      { kind: "damage", statCoef: 1.1, baseFlatByTier: [30, 60, 100], scaling: "magic" },
+    ],
+  },
+  mob_firebolt: {
+    id: "mob_firebolt",
+    name: "화염구",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "타오르는 화염구를 던져 터뜨린다.",
+    mpCost: 30,
+    cooldown: 2,
+    monsterOnly: true,
+    element: "fire",
+    effects: [
+      { kind: "damage", statCoef: 1.4, baseFlatByTier: [50, 100, 160], scaling: "magic" },
+    ],
+  },
+  mob_frostwind: {
+    id: "mob_frostwind",
+    name: "서릿바람",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "차가운 바람으로 베어 움직임을 둔하게 한다.",
+    mpCost: 26,
+    cooldown: 3,
+    monsterOnly: true,
+    element: "water",
+    effects: [
+      { kind: "damage", statCoef: 0.9, baseFlatByTier: [30, 60, 90], scaling: "magic" },
+      { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.둔화 },
+    ],
+  },
 } satisfies Partial<Record<V2SkillId, V2SkillDefinition>>;

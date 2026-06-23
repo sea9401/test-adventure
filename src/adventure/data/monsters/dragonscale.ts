@@ -94,6 +94,9 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
     name: "용골 리치",
     tags: ["spirit", "undead"],
     archetype: "caster",
+    // 리치 — 강한 화염구(마법 단일딜) 시전. 보스급 마법 위협.
+    v2Skills: { learned: ["mob_firebolt"], equipped: ["mob_firebolt"] },
+    v2MaxMp: 120,
     hp: 1000,
     atk: 80,
     def: 42,

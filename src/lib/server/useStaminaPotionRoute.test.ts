@@ -1,6 +1,6 @@
 // 스태미나 포션 사용 라우트 통합 테스트 — POST /api/v2/me/use-stamina-potion.
 // savesKv(lock/upsert)를 stateful 모킹하고 실제 스태미나 로직을 통과시켜 ① 포션 0 거부
-// ② 사용 시 1 차감 + 스태미나 회복(최대치 캡)을 검증.
+// ② 사용 시 1 차감 + 스태미나 회복(최대치 초과 비축 허용)을 검증.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +26,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 }));
 
 import { POST } from "@/app/api/v2/me/use-stamina-potion/route";
+import { MAX_STAMINA } from "@/adventure/v2/stamina";
 import {
   STAMINA_POTIONS_KEY,
   STAMINA_POTION_RESTORE,
@@ -98,6 +99,21 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
     expect(j.count).toBe(2);
     expect(potCount()).toBe(2);
     expect(char().stamina.current).toBe(100 + STAMINA_POTION_RESTORE * 3);
+  });
+
+  it("만피 근처에서 다량 사용 → 최대치 초과 비축(캡 없음)", async () => {
+    const t = Date.now();
+    // 만피(5000) 근처에서 포션 10개 사용 → 5000 + 200*10 = 7000 (max 초과 허용).
+    store.set(k("u1", "character.v2"), {
+      stamina: { current: MAX_STAMINA, lastUpdatedAt: t },
+    });
+    store.set(k("u1", STAMINA_POTIONS_KEY), { count: 10 });
+    const res = await POST(req({ count: 10 }));
+    const j = (await res.json()) as { stamina: number; used: number };
+    expect(res.status).toBe(200);
+    expect(j.used).toBe(10);
+    expect(j.stamina).toBe(MAX_STAMINA + STAMINA_POTION_RESTORE * 10);
+    expect(char().stamina.current).toBe(MAX_STAMINA + STAMINA_POTION_RESTORE * 10);
   });
 
   it("count 가 보유 초과 → 보유 수로 클램프", async () => {

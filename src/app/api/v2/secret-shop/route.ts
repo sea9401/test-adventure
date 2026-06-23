@@ -171,7 +171,9 @@ export async function POST(req: Request) {
       nextChar = {
         ...nextChar,
         stamina: {
-          current: Math.min(max, cur.current + STAMINA_POTION_AMOUNT),
+          // 소모품 포션과 동일 — 최대치 초과 비축(overcharge) 허용. min(max,…) 캡을 두면
+          //   이미 비축해 둔 분(cur.current > max)을 도로 max 로 깎는 회귀가 생긴다.
+          current: cur.current + STAMINA_POTION_AMOUNT,
           lastUpdatedAt: cur.lastUpdatedAt,
         },
       };

@@ -141,9 +141,9 @@ describe("스태미너 — saves 파싱", () => {
     expect(r.lastUpdatedAt).toBe(999);
   });
 
-  it("current 가 MAX 초과 — clamp", () => {
+  it("current 가 MAX 초과 — 비축분 보존(포션 초과 비축, clamp 안 함)", () => {
     const r = parseStaminaFromSave({ current: 9999, lastUpdatedAt: 0 });
-    expect(r.current).toBe(MAX_STAMINA);
+    expect(r.current).toBe(9999);
   });
 
   it("current 가 음수 — 0 으로 clamp", () => {
@@ -163,5 +163,25 @@ describe("스태미너 — saves 파싱", () => {
       500,
     );
     expect(r2.current).toBe(MAX_STAMINA);
+  });
+});
+
+describe("스태미너 — 최대치 초과 비축(overcharge)", () => {
+  it("초과 비축분은 applyRegen 이 깎지 않음(만피 위 회복만 차단)", () => {
+    const over = at(MAX_STAMINA + 4000, 0);
+    const r = applyRegen(over, 10_000_000, MAX_STAMINA);
+    expect(r.current).toBe(MAX_STAMINA + 4000);
+  });
+
+  it("초과 비축분에서 사냥 차감 — 만피 클램프 없이 정상 차감", () => {
+    const over = at(MAX_STAMINA + 100, 0);
+    const r = tryConsume(over, HUNT_COST, 0, MAX_STAMINA);
+    expect(r?.current).toBe(MAX_STAMINA + 100 - HUNT_COST);
+  });
+
+  it("만피 미만으로 떨어지면 시간 회복 재개(만피까지만)", () => {
+    // 만피-1 에서 충분히 흐르면 만피로만 회복, 초과는 안 함.
+    const r = applyRegen(at(MAX_STAMINA - 1, 0), 10_000_000, MAX_STAMINA);
+    expect(r.current).toBe(MAX_STAMINA);
   });
 });

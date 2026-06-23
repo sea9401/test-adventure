@@ -739,9 +739,13 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
               },
             ],
       );
+      // 점령행(occupations)도 새로고침 — found 가 createTileOccupation 으로 길드 점령행을
+      //   짝으로 만든다. 이걸 안 끌어오면 거점 관리 화면이 occupation=null 로 보고 "점령 시도"
+      //   (= 본인 거점인데 남의 땅 공격 UI)를 띄운다. 지도 마커 색(소유자색)도 이 행으로 파생.
+      void refreshOccupations();
       return true;
     },
-    [postTileSettlement, viewerUserId, viewerGuildId],
+    [postTileSettlement, viewerUserId, viewerGuildId, refreshOccupations],
   );
   const renameTile = useCallback(
     (col: number, row: number, name: string) => {
@@ -793,9 +797,11 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         setTileSettlements((s) =>
           s.filter((x) => !(x.col === col && x.row === row)),
         );
+        // 철거는 점령행(occupations)도 서버에서 지운다(removeTileWarfare) — 클라 점령행 동기화.
+        void refreshOccupations();
       });
     },
-    [postTileSettlement],
+    [postTileSettlement, refreshOccupations],
   );
   const clearTileActionError = useCallback(() => setTileActionError(null), []);
 

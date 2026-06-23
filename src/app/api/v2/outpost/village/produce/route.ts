@@ -7,6 +7,9 @@ import {
   normalizeVillageOwner,
 } from "@/lib/server/v2Settlement";
 import { tryStartProduction } from "@/adventure/data/v2/settlement";
+import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileProduce } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/produce — body { outpostId, slot }
 // 마을 빈 슬롯에 생산 작업을 시작한다. 생산 종류는 마을 특화(productionKind, 건설 시 선택)로 고정 —
@@ -29,6 +32,10 @@ export async function POST(req: Request) {
       : -1;
   if (!outpostId || slot < 0) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
+  }
+
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileProduce(userId, outpostId, slot);
   }
 
   try {

@@ -8,6 +8,9 @@ import {
 } from "@/lib/server/v2Settlement";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import { isValidVillageName } from "@/adventure/data/v2/settlement";
+import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileRename } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/rename — body { outpostId, name }
 // 건설된 마을의 이름을 바꾼다. 점령 길드만(점령 승계로 받은 남의 마을도 새로 명명 가능).
@@ -29,6 +32,10 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_name" }, { status: 400 });
   }
   const name = rawName.trim();
+
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileRename(userId, outpostId, name);
+  }
 
   try {
     const result = await db.transaction(async (tx) => {

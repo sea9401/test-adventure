@@ -940,9 +940,14 @@ export const userSettlementResources = pgTable("user_settlement_resources", {
 //   단계별 판 크기는 data/v2/settlement MAX_SLOTS_BY_TIER(마을 2×2·도시 3×3). 명명(name)=건설 흐름.
 export const outpostVillages = pgTable("outpost_villages", {
   outpostId: text("outpost_id").primaryKey(),
-  guildId: integer("guild_id")
-    .notNull()
-    .references(() => guilds.id, { onDelete: "cascade" }),
+  // 소유 — 길드 마을이면 guildId, 솔로(무길드) 타일 정착지면 ownerUserId. 정확히 하나만 set.
+  //   옛 행(거점 마을)은 전부 guildId(ownerUserId NULL). 솔로 지원으로 guildId NOT NULL 완화(T1b).
+  guildId: integer("guild_id").references(() => guilds.id, {
+    onDelete: "cascade",
+  }),
+  ownerUserId: text("owner_user_id").references(() => users.id, {
+    onDelete: "cascade",
+  }),
   tier: text("tier").notNull().default("village"),
   name: text("name"),
   // [레거시] 옛 마을 특화 종류(crop|ore|fish) — 한 마을 한 종류 모델의 잔재. 신규 마을은 NULL.

@@ -10,6 +10,9 @@ import {
 } from "@/lib/server/v2Settlement";
 import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
 import { canUpgrade, applyUpgradeCost } from "@/adventure/data/v2/settlement";
+import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileUpgrade } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/upgrade — body { outpostId }
 // 길드 재화로 마을 단계 업그레이드(마을→도시→대도시). 마스터/부마스터 전용. 현 판을 다 채워야 가능.
@@ -29,6 +32,10 @@ export async function POST(req: Request) {
   const outpostId = typeof body.outpostId === "string" ? body.outpostId : "";
   if (!outpostId) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
+  }
+
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileUpgrade(userId, outpostId);
   }
 
   try {

@@ -15,6 +15,9 @@ import {
   canUnlockSlot,
   isValidProductionKind,
 } from "@/adventure/data/v2/settlement";
+import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileUnlockSlot } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/unlock-slot — body { outpostId, kind }
 // 판의 다음 칸을 길드 금고 골드로 열고, 그 칸에서 키울 종류(crop|ore|fish)를 고른다(영구).
@@ -41,6 +44,10 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_kind" }, { status: 400 });
   }
   const kind = body.kind;
+
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileUnlockSlot(userId, outpostId, kind);
+  }
 
   try {
     const result = await db.transaction(async (tx) => {

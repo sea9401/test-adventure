@@ -365,18 +365,6 @@ export function V2DungeonFloorView({
     }
   };
 
-  // 깊이 1·2 는 authored 층 필수. 3+ 는 floor 없어도 OK (프론티어 — 데이터 도출).
-  if (!floor && depth < 3) {
-    return (
-      <main className="mx-auto max-w-[720px] space-y-4 p-6">
-        <BackButton onClick={onBack} />
-        <div className="text-sm text-rose-600 dark:text-rose-400">
-          알 수 없는 구역입니다.
-        </div>
-      </main>
-    );
-  }
-
   // 코어루프 on(쿨다운 객체 전달됨) = 스태미나 폐지·전투 쿨다운 게이트. off/dev = 기존 스태미나.
   const coreLoopOn = combatCooldown != null;
   const onCooldown = combatCooldown != null && now < combatCooldown.nextBattleAt;
@@ -445,10 +433,6 @@ export function V2DungeonFloorView({
       void runBatch(huntCount);
     }
   };
-  // "최신 핸들러" ref 패턴(인터벌/keydown 리스너가 최신 클로저를 호출하도록). 렌더 중 ref
-  // 갱신이라 규칙에 걸리나 동작은 의도대로 — 후속(effect 로 이전)으로 정리 예정.
-  // eslint-disable-next-line react-hooks/refs
-  triggerHuntRef.current = triggerHunt;
 
   // 사냥 버튼/스페이스바 동작. 코어루프 on = 버튼이 곧 자동 사냥 토글(누르면 켜고 첫 판 즉시,
   //   다시 누르면 끔). 끄는 동작은 항상 가능. off = 기존 단판/일괄(triggerHunt).
@@ -466,9 +450,27 @@ export function V2DungeonFloorView({
     setAutoHunt(true);
     triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시 발동.
   };
-  // "최신 핸들러" ref 패턴 — 위와 동일(후속 정리 예정).
-  // eslint-disable-next-line react-hooks/refs
-  huntButtonRef.current = onHuntPress;
+  // 최신 핸들러를 ref 에 동기화 — 매 렌더 후 effect 에서 갱신(렌더 중 ref 변경 회피).
+  //   keydown/인터벌 리스너는 stable 클로저([],[autoHunt])라 ref.current 로 항상 최신
+  //   triggerHunt/onHuntPress 를 호출한다. dep array 없음 = 매 렌더 후 동기화(의도).
+  useEffect(() => {
+    triggerHuntRef.current = triggerHunt;
+    huntButtonRef.current = onHuntPress;
+  });
+
+  // 알 수 없는 구역(authored 층 없는 깊이 1·2). 모든 hook 뒤에서 조건부 렌더 —
+  //   "hook 먼저, early-return 은 끝에"(rules-of-hooks). 위 파생 const/핸들러는 floor 미사용이라
+  //   이 경우에도 계산·정의만 되고(no-op) 실행 안 됨.
+  if (!floor && depth < 3) {
+    return (
+      <main className="mx-auto max-w-[720px] space-y-4 p-6">
+        <BackButton onClick={onBack} />
+        <div className="text-sm text-rose-600 dark:text-rose-400">
+          알 수 없는 구역입니다.
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">

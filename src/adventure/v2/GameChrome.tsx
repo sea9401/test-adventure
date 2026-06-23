@@ -99,10 +99,14 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     refreshGameState,
   } = useGameState();
 
-  // 스태미나 포션 사용(바 끝 + 버튼) — 서버 권위 회복 후 전역 상태 갱신.
-  const usePotion = async () => {
+  // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
+  const usePotion = async (count: number) => {
     try {
-      await fetch("/api/v2/me/use-stamina-potion", { method: "POST" });
+      await fetch("/api/v2/me/use-stamina-potion", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ count }),
+      });
     } catch {}
     await refreshGameState();
   };

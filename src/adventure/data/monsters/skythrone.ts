@@ -6,10 +6,6 @@ export const SKYTHRONE_MONSTERS: Record<string, Monster> = {
     name: "별점술사 잔영",
     image: "/images/monster/starseer_shade.webp",
     tags: ["spirit"],
-    archetype: "caster",
-    // 별점술사 — 별빛 작렬(강한 별빛 마법) 시전.
-    v2Skills: { learned: ["mob_star_burst"], equipped: ["mob_star_burst"] },
-    v2MaxMp: 110,
     hp: 785,
     atk: 70,
     def: 33,
@@ -30,7 +26,6 @@ export const SKYTHRONE_MONSTERS: Record<string, Monster> = {
     name: "구름 사냥꾼",
     image: "/images/monster/cloudhunter.webp",
     tags: ["beast"],
-    archetype: "evasive",
     hp: 980,
     atk: 74,
     def: 41,

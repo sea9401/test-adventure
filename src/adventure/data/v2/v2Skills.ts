@@ -118,13 +118,6 @@ export type V2SkillId =
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
-  // ── 몬스터 전용 마법 스킬 (caster 아키타입이 v2Skills 로 시전) — scaling magic·플레이어 미학습 ──
-  | "mob_mana_bolt" // 마력탄 — 마법 단일딜
-  | "mob_firebolt" // 화염구 — 강한 마법 단일딜
-  | "mob_frostwind" // 서릿바람 — 마법딜 + 둔화
-  | "mob_lightning_bolt" // 뇌격 — 빠른 마법 단일딜(저쿨)
-  | "mob_void_lance" // 공허창 — 마법딜 + 약화(공격−)
-  | "mob_star_burst" // 별빛 작렬 — 강한 마법 단일딜
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
   | V2CommonSkillId;
 

@@ -27,7 +27,6 @@ export const STARLIT_MONSTERS: Record<string, Monster> = {
     name: "별빛 동굴뱀",
     image: "/images/monster/starlitcavesnake.webp",
     tags: ["beast"],
-    archetype: "evasive",
     hp: 2950,
     atk: 199,
     def: 91,
@@ -112,10 +111,6 @@ export const STARLIT_MONSTERS: Record<string, Monster> = {
   "별빛 돌풍 정령": {
     name: "별빛 돌풍 정령",
     tags: ["spirit"],
-    archetype: "caster",
-    // 별빛 돌풍 정령 — 별빛 작렬 시전.
-    v2Skills: { learned: ["mob_star_burst"], equipped: ["mob_star_burst"] },
-    v2MaxMp: 110,
     hp: 3050,
     atk: 228,
     def: 82,

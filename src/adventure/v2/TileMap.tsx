@@ -20,7 +20,10 @@ import {
 } from "@/adventure/data/v2/outposts";
 import { CONFLICT_ZONE_IDS } from "@/adventure/data/v2/outpostGraph";
 import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
-import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  V2_TILE_WARFARE,
+  V2_TILE_PRODUCTION,
+} from "@/adventure/data/v2/settlementWarfareConfig";
 import { guildColorHex } from "@/adventure/data/guild-colors";
 import {
   TILE_BOARD_SIZE,
@@ -388,7 +391,9 @@ export function TileMap({
                         {mine || sameGuild ? "방어·관리" : "공격"}
                       </button>
                     )}
-                  {mine && next && onPromoteTile && (
+                  {/* 생산 관리 이전(T3): V2_TILE_PRODUCTION on 이면 지도 승격 폐지 —
+                      승격은 관리 화면(생산/자원)에서. 지도는 개척마을 생성만. */}
+                  {!V2_TILE_PRODUCTION && mine && next && onPromoteTile && (
                     <button
                       type="button"
                       onClick={() => onPromoteTile(selCol, selRow)}

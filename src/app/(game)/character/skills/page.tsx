@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { TabBar } from "@/components/ui/TabBar";
 import { V2SkillLearnView } from "@/adventure/v2/V2SkillLearnView";
@@ -28,9 +27,7 @@ export default function SkillsPage() {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
-      <HeaderPanel>
-        <SubViewHeader title="스킬" onBack={back} />
-      </HeaderPanel>
+      <SubViewHeader title="스킬" onBack={back} />
 
       <TabBar
         tabs={tabs}

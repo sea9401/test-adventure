@@ -923,6 +923,17 @@ export const v2GuildResources = pgTable("v2_guild_resources", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// 솔로(무길드) 정착지 생산 재화 풀 — 길드 풀(v2_guild_resources.settlement)의 1인 버전.
+//   { crop, ore, fish }. 솔로 마을 수확물이 누적되고 솔로 마을 업그레이드에 소비된다.
+//   골드는 별도 풀 없이 플레이어 본인 골드(character.v2.gold)를 쓴다(슬롯 해금). 종류 추가=jsonb.
+export const userSettlementResources = pgTable("user_settlement_resources", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  settlement: jsonb("settlement").notNull().default({}),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // v2 정착지 — 길드가 점령한 거점에 세운 "마을"(단계·이름·생산 슬롯 상태).
 //   outpostId = data/v2/outposts.ts 의 Outpost.id (정적 데이터라 FK X).
 //   소유 길드가 사라지면 마을도 제거(cascade). jobs = 슬롯(문자열 인덱스) → ProductionJob.

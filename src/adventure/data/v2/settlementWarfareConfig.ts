@@ -15,6 +15,12 @@
 export const V2_SETTLEMENT_WARFARE =
   process.env.NEXT_PUBLIC_V2_SETTLEMENT_WARFARE === "true";
 
+// 타일 전쟁 플래그 — 정착지 전쟁을 자유 타일(tile:col,row) 위로 이전(브릿지=tileWarfare.ts).
+//   off(기본)=현행(옛 거점 기반) byte-identical. Phase 1+ 가 이 게이트 뒤에서 단계 배선:
+//     P1 타일 길드소유(점령행) · P2 사냥세 금고 · P3 약탈/정복/수비/영주/명성 · P4 컷오버+옛 거점 은퇴.
+export const V2_TILE_WARFARE =
+  process.env.NEXT_PUBLIC_V2_TILE_WARFARE === "true";
+
 // 다이얼 (라이브 실측 후 캘리브) ───────────────────────────────────────────
 
 // ── 건강도 (war vigor) — 순수 헬퍼는 warVigor.ts ──────────────────────────

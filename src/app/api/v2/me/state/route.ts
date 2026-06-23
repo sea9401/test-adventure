@@ -104,7 +104,7 @@ import {
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
@@ -290,7 +290,7 @@ export async function GET() {
   let currentOutpost: CurrentOutpost | null = null;
   const lastVisitId = charSave.lastVisitedOutpost?.outpostId;
   if (typeof lastVisitId === "string") {
-    const o = OUTPOSTS.find((x) => x.id === lastVisitId);
+    const o = resolveOutpostMeta(lastVisitId);
     if (o) {
       const occRow = (
         await db

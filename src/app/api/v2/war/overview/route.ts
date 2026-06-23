@@ -18,7 +18,7 @@ import {
   isIntruderActive,
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
-import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { isKnownOutpostId } from "@/adventure/data/v2/tileWarfare";
 
 // GET /api/v2/war/overview — 영지 상태 스냅샷 (읽기 전용, 스키마 변경 0).
 // 쟁탈 아레나(시즌 점수·활성 전장) 폐지 후: 내 길드 점령 거점·교전(공성)·최근 함락만 — 토벌
@@ -70,10 +70,10 @@ export async function GET() {
 
   // 맵 축소(96→40) 후 컷된 거점에 남은 고아 점령/공성/금고 행은 전황에서 제외(inert 정리).
   // npc-attacks 크론도 미지 거점은 skip 하므로 고아 행은 어디서도 처리되지 않는 잔재일 뿐.
-  const occRows = occRowsAll.filter((r) => OUTPOST_BY_ID.has(r.outpostId));
-  const attackRows = attackRowsAll.filter((r) => OUTPOST_BY_ID.has(r.outpostId));
+  const occRows = occRowsAll.filter((r) => isKnownOutpostId(r.outpostId));
+  const attackRows = attackRowsAll.filter((r) => isKnownOutpostId(r.outpostId));
   const treasuryRows = treasuryRowsAll.filter((r) =>
-    OUTPOST_BY_ID.has(r.outpostId),
+    isKnownOutpostId(r.outpostId),
   );
 
   // 길드 이름 일괄 해석 — 점령 길드 + 공격측 길드 (N+1 회피).

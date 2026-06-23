@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { isGuildAdmin } from "@/lib/server/guildAdmin";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 
 // POST /api/v2/outpost/policy — 점령자가 정책/세율 설정.
 //
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   if (typeof body.outpostId !== "string" || body.outpostId.length === 0) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
-  const outpost = OUTPOSTS.find((o) => o.id === body.outpostId);
+  const outpost = resolveOutpostMeta(body.outpostId);
   if (!outpost) {
     return Response.json(
       { ok: false, error: "no_such_outpost" },

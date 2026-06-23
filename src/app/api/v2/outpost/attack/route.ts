@@ -21,7 +21,7 @@ import {
   toPvpReplayPayload,
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import {
   isOutpostProtected,
   currentFortHp,
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
   if (mode !== "raid" && mode !== "conquest") {
     return Response.json({ ok: false, error: "invalid_mode" }, { status: 400 });
   }
-  const outpost = OUTPOSTS.find((o) => o.id === outpostId);
+  const outpost = resolveOutpostMeta(outpostId);
   if (!outpost || outpost.neutral) {
     return Response.json(
       { ok: false, error: "no_such_outpost" },

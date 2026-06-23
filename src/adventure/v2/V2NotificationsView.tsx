@@ -7,16 +7,12 @@ import { useEffect, useState } from "react";
 import { Bell, Flag, ShieldWarning, Skull } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
-import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
 import { formatRelative } from "@/lib/notifications";
 import type {
   V2NotificationEntry,
   V2NotificationType,
 } from "@/lib/v2-notification-config";
-
-function outpostName(outpostId: string): string {
-  return OUTPOST_BY_ID.get(outpostId)?.name ?? outpostId;
-}
 
 const TYPE_ICON: Record<V2NotificationType, React.ReactNode> = {
   outpost_attacked: (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
-import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
+import { outpostDisplayName } from "@/adventure/data/v2/tileWarfare";
 import { IntruderPanel } from "./IntruderPanel";
 
 // 전투 탭 > 토벌 — 내 길드가 보유한 거점들의 침입자 목록 + 토벌.
@@ -21,10 +21,6 @@ type OverviewResponse = {
   ok?: boolean;
   myGuild?: { guildId: number; outposts: MyGuildOutpost[] } | null;
 };
-
-function outpostName(id: string): string {
-  return OUTPOST_BY_ID.get(id)?.name ?? id;
-}
 
 export function V2SubjugationView({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
@@ -77,7 +73,7 @@ export function V2SubjugationView({ onBack }: { onBack: () => void }) {
               <IntruderPanel
                 key={o.outpostId}
                 outpostId={o.outpostId}
-                title={`${outpostName(o.outpostId)} — 침입자`}
+                title={`${outpostDisplayName(o.outpostId)} — 침입자`}
                 collapsible
                 // 침입자 있는 거점만 기본 펼침 — 나머지는 접어서 한눈에.
                 defaultOpen={o.intruderCount > 0}

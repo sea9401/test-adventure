@@ -22,12 +22,13 @@ import {
   V2_CLASS_DEFS,
 } from "@/adventure/data/v2/classes";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
+import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 
 // GET /api/v2/me/guild/info — 길드 정보 + 멤버 list (V2GuildHome).
 //
 // 응답:
 //   guild: { id, name, masterId, createdAt, fameTotal, description }
-//   members: [{ userId, role, joinedAt, name, level, job, lastSeenAt }]
+//   members: [{ userId, role, joinedAt, name, level, job, lastSeenAt, honorEarned }]
 //   isMaster: 뷰어가 마스터인지
 //   pendingRequests: [{ requestId, userId, name, level, requestedAt }] — 마스터일 때만, 아니면 []
 //
@@ -172,11 +173,15 @@ export async function GET() {
   // 직업 표시명 — character.v2 의 class+specChoice 로 파생. /me/state classDisplayName 과 동일 규칙:
   //   코어루프 on → jobDisplayName(견습 병사 등), off → 직군 표시명(전사 등). 캐릭터 카드와 일치.
   const jobByUser = new Map<string, string>();
+  // 누적 명성(honorEarned) — 정착지 전쟁 명성 획득 누계(소비와 무관). 길드원 리스트 표기용.
+  const honorEarnedByUser = new Map<string, number>();
   for (const r of charRows) {
     const v = (r.value ?? null) as {
       level?: number;
       class?: unknown;
       specChoice?: unknown;
+      honor?: unknown;
+      honorEarned?: unknown;
     } | null;
     if (typeof v?.level === "number") levelByUser.set(r.userId, v.level);
     const cls = parseV2Class(v?.class);
@@ -187,6 +192,10 @@ export async function GET() {
         ? "모험가"
         : (V2_CLASS_DEFS[cls]?.name ?? "모험가");
     jobByUser.set(r.userId, job);
+    honorEarnedByUser.set(
+      r.userId,
+      parseHonorEarned(v?.honorEarned, parseHonor(v?.honor)),
+    );
   }
 
   // 최근 접속 — presence.lastSeenAt(30초 하트비트). 한 번도 접속 없으면 키 없음 → null.
@@ -211,6 +220,7 @@ export async function GET() {
     level: levelByUser.get(m.userId) ?? 1,
     job: jobByUser.get(m.userId) ?? "모험가",
     lastSeenAt: lastSeenByUser.get(m.userId) ?? null,
+    honorEarned: honorEarnedByUser.get(m.userId) ?? 0,
   }));
   // master 먼저, 그 다음 joinedAt 오름차순.
   members.sort((a, b) => {

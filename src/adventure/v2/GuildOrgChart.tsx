@@ -9,6 +9,7 @@ export type OrgMember = {
   level: number;
   job: string; // 직업 표시명(jobDisplayName) — 예: "견습 병사", "방패병"
   lastSeenAt: string | null; // presence.lastSeenAt(ISO). 미접속 = null
+  honorEarned?: number; // 누적 명성(정착지 전쟁 획득 누계). 표시는 showHonor 로 게이트
 };
 
 type RoleKey = "master" | "vice_master" | "manager" | "member";
@@ -54,10 +55,12 @@ function MemberCard({
   member,
   role,
   isMaster,
+  showHonor,
 }: {
   member: OrgMember;
   role: RoleKey;
   isMaster?: boolean;
+  showHonor?: boolean;
 }) {
   const seen = lastSeenLabel(member.lastSeenAt);
 
@@ -100,6 +103,16 @@ function MemberCard({
       >
         {member.job}
       </div>
+      {showHonor && typeof member.honorEarned === "number" ? (
+        <div
+          className={[
+            "mt-1 text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400",
+            isMaster ? "text-center" : "text-left",
+          ].join(" ")}
+        >
+          명성 {member.honorEarned.toLocaleString()}
+        </div>
+      ) : null}
       <div
         className={[
           "mt-2 flex items-center gap-1 text-xs",
@@ -122,7 +135,7 @@ function Connector() {
   return <div className="mx-auto h-6 w-px bg-zinc-300 dark:bg-zinc-700" />;
 }
 
-function TierBlock({ tier }: { tier: Tier }) {
+function TierBlock({ tier, showHonor }: { tier: Tier; showHonor?: boolean }) {
   if (tier.members.length === 0) {
     return null;
   }
@@ -136,6 +149,7 @@ function TierBlock({ tier }: { tier: Tier }) {
             member={member}
             role={tier.role}
             isMaster
+            showHonor={showHonor}
           />
         ))}
       </div>
@@ -146,7 +160,12 @@ function TierBlock({ tier }: { tier: Tier }) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {tier.members.map((member) => (
-          <MemberCard key={member.userId} member={member} role={tier.role} />
+          <MemberCard
+            key={member.userId}
+            member={member}
+            role={tier.role}
+            showHonor={showHonor}
+          />
         ))}
       </div>
     );
@@ -155,13 +174,24 @@ function TierBlock({ tier }: { tier: Tier }) {
   return (
     <div className="flex flex-wrap justify-center gap-3">
       {tier.members.map((member) => (
-        <MemberCard key={member.userId} member={member} role={tier.role} />
+        <MemberCard
+          key={member.userId}
+          member={member}
+          role={tier.role}
+          showHonor={showHonor}
+        />
       ))}
     </div>
   );
 }
 
-export function GuildOrgChart({ members }: { members: OrgMember[] }) {
+export function GuildOrgChart({
+  members,
+  showHonor,
+}: {
+  members: OrgMember[];
+  showHonor?: boolean;
+}) {
   if (members.length === 0) {
     return null;
   }
@@ -208,7 +238,7 @@ export function GuildOrgChart({ members }: { members: OrgMember[] }) {
       {visibleTiers.map((tier, index) => (
         <div key={tier.role}>
           {index > 0 ? <Connector /> : null}
-          <TierBlock tier={tier} />
+          <TierBlock tier={tier} showHonor={showHonor} />
         </div>
       ))}
     </section>

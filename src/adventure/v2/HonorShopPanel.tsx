@@ -10,6 +10,7 @@ type Item = { id: string; name: string; cost: number };
 
 export default function HonorShopPanel() {
   const [honor, setHonor] = useState<number | null>(null);
+  const [honorEarned, setHonorEarned] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -20,6 +21,7 @@ export default function HonorShopPanel() {
       const j = r.ok ? await r.json() : null;
       if (j?.ok) {
         setHonor(j.honor ?? 0);
+        setHonorEarned(j.honorEarned ?? j.honor ?? 0);
         setItems(Array.isArray(j.items) ? (j.items as Item[]) : []);
       }
     } catch {
@@ -42,15 +44,16 @@ export default function HonorShopPanel() {
           body: JSON.stringify({ itemId }),
         });
         const j = (await r.json().catch(() => null)) as
-          | { ok: true; honor: number; granted: string }
+          | { ok: true; honor: number; honorEarned: number; granted: string }
           | { ok: false; error: string }
           | null;
         if (j?.ok) {
           setHonor(j.honor);
+          setHonorEarned(j.honorEarned ?? j.honor);
           setMsg("✓ 구매 완료 — 스태미나 회복약 +1");
         } else {
           setMsg(
-            `✗ ${j?.error === "insufficient_honor" ? "명예가 부족합니다" : (j?.error ?? "구매 실패")}`,
+            `✗ ${j?.error === "insufficient_honor" ? "명성이 부족합니다" : (j?.error ?? "구매 실패")}`,
           );
         }
       } catch (e) {
@@ -65,13 +68,16 @@ export default function HonorShopPanel() {
   return (
     <Card padding="md">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">명예상점</h2>
+        <h2 className="text-sm font-semibold">명성상점</h2>
         <span className="text-sm font-medium tabular-nums text-amber-600 dark:text-amber-400">
-          명예 {honor === null ? "…" : honor.toLocaleString()}
+          명성 {honor === null ? "…" : honor.toLocaleString()}
+          <span className="ml-1 text-xs font-normal text-zinc-500 dark:text-zinc-400">
+            · 누적 {honorEarned === null ? "…" : honorEarned.toLocaleString()}
+          </span>
         </span>
       </div>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-        수비 전투 승리·길드 골드 입금으로 모은 명예로 구매합니다.
+        수비 전투 승리·길드 골드 입금으로 모은 명성으로 구매합니다.
       </p>
       <div className="mt-3 space-y-2">
         {items.map((it) => {
@@ -83,7 +89,7 @@ export default function HonorShopPanel() {
             >
               <div>
                 <div className="text-sm font-medium">{it.name}</div>
-                <div className="text-xs text-zinc-500">명예 {it.cost}</div>
+                <div className="text-xs text-zinc-500">명성 {it.cost}</div>
               </div>
               <button
                 type="button"

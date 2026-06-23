@@ -15,6 +15,7 @@ import {
   lockGuildResources,
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
+import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import {
   toPvpReplayPayload,
@@ -47,7 +48,7 @@ import {
   V2_SETTLEMENT_WARFARE,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { parseWarVigor, vigorAfterBattle } from "@/adventure/data/v2/warVigor";
-import { parseHonor } from "@/adventure/data/v2/honor";
+import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 
 // POST /api/v2/outpost/attack — 정착지 전쟁 공격(약탈/정복). 설계: docs/v2-settlement-warfare-plan.md.
 //   body: { outpostId, mode: "raid" | "conquest" }
@@ -178,6 +179,8 @@ export async function POST(req: Request) {
       let won: boolean;
       let defenderName: string | null = null;
       let replay: ReplayPayload | null = null;
+      // 수비 성공 시 점령 길드(수비자 소속)에 누적할 명성 — tx 끝에서 단일 UPDATE.
+      let defenderFameDelta = 0;
 
       if (defender1Id == null) {
         won = true; // 무방비 → 무혈 약탈.
@@ -241,12 +244,16 @@ export async function POST(req: Request) {
               now,
             ),
           });
-          // 수비 성공(공격자 패배 = 수비자 승리)이면 명예 보상.
+          // 수비 성공(공격자 패배 = 수비자 승리)이면 명성 보상(보유+누적). 진 수비자는 0.
+          const honorReward = won ? 0 : HONOR_PER_DEFENSE_WIN;
+          defenderFameDelta = honorReward;
+          const dHonorBefore = parseHonor(defenderSave.honor);
           await upsertSave(tx, defender1Id, "character.v2", {
             ...defenderSave,
-            honor:
-              parseHonor(defenderSave.honor) +
-              (won ? 0 : HONOR_PER_DEFENSE_WIN),
+            honor: dHonorBefore + honorReward,
+            honorEarned:
+              parseHonorEarned(defenderSave.honorEarned, dHonorBefore) +
+              honorReward,
             warVigor: vigorAfterBattle(
               pvp.finalState.p2.hp,
               defender.maxHp,
@@ -292,6 +299,9 @@ export async function POST(req: Request) {
         }
       }
 
+      // 수비 성공분을 점령 길드 누적 명성에 가산(앞으로만). guild_resources 다음(락 순서).
+      await addGuildFame(tx, defenderGuildId, defenderFameDelta);
+
       return {
         status: 200,
         body: {
@@ -311,6 +321,8 @@ export async function POST(req: Request) {
     let attackerFinal: { hp: number; mp: number } | null = null;
     let defendersDefeated = 0;
     let clearedQueue = true;
+    // 이 공격에서 수비자들이 막아낸 만큼 점령 길드에 누적할 명성 — tx 끝에서 단일 UPDATE.
+    let defenderFameDelta = 0;
     for (const d of queue) {
       const defender = await derivePlayerCombatV2(d.userId, tx);
       if (!defender) {
@@ -351,13 +363,17 @@ export async function POST(req: Request) {
         { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
       );
       const dMaxMp = defender.player.maxMp ?? 0;
-      // 이 수비자가 공격자를 막아냈으면(공격자 패배) 명예 보상. 진 수비자는 0.
+      // 이 수비자가 공격자를 막아냈으면(공격자 패배) 명성 보상(보유+누적). 진 수비자는 0.
       const defenderWon = pvp.outcome !== "p1_win";
+      const honorReward = defenderWon ? HONOR_PER_DEFENSE_WIN : 0;
+      defenderFameDelta += honorReward;
+      const dHonorBefore = parseHonor(defenderSave.honor);
       await upsertSave(tx, d.userId, "character.v2", {
         ...defenderSave,
-        honor:
-          parseHonor(defenderSave.honor) +
-          (defenderWon ? HONOR_PER_DEFENSE_WIN : 0),
+        honor: dHonorBefore + honorReward,
+        honorEarned:
+          parseHonorEarned(defenderSave.honorEarned, dHonorBefore) +
+          honorReward,
         warVigor: vigorAfterBattle(
           pvp.finalState.p2.hp,
           defender.maxHp,
@@ -478,6 +494,10 @@ export async function POST(req: Request) {
         fortHpAfter = damaged;
       }
     }
+
+    // 수비 성공분을 점령 길드 누적 명성에 가산(앞으로만). 함락 시엔 delta=0(수비 전원 격파)
+    //   이라 소유 이관과 무관. guild_resources(수리 락) 다음(락 순서).
+    await addGuildFame(tx, defenderGuildId, defenderFameDelta);
 
     return {
       status: 200,

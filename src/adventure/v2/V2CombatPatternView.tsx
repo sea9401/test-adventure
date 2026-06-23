@@ -280,7 +280,7 @@ export function V2CombatPatternView({
       {!embedded && <SubViewHeader title="전투 패턴" onBack={onBack} />}
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
         위에서부터 조건이 맞는 첫 블록의 스킬을 발동합니다. 맨 아래에 「항상」 블록을 두면
-        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 스킬은 「로드아웃」 탭에서 학습하세요.
+        다른 조건이 안 맞을 때의 기본기로 쓰입니다. 「스킬」 탭에서 스킬을 배우고 장착하세요.
       </p>
 
       {loading ? (

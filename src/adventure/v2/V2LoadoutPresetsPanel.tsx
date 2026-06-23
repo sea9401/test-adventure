@@ -127,7 +127,7 @@ export function V2LoadoutPresetsPanel({
   return (
     <Card padding="md">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">로드아웃 프리셋</h2>
+        <h2 className="text-sm font-semibold">스킬 프리셋</h2>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           슬롯{" "}
           <strong className="tabular-nums">
@@ -139,7 +139,7 @@ export function V2LoadoutPresetsPanel({
         지금 장착한 스킬을 프리셋으로 저장해 두면 한 번에 불러올 수 있어요.
       </p>
 
-      {/* 현재 로드아웃 저장 */}
+      {/* 현재 스킬 저장 */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <input
           type="text"
@@ -156,7 +156,7 @@ export function V2LoadoutPresetsPanel({
           disabled={busy || slotsFull}
           className="shrink-0 rounded-md border border-teal-600 bg-teal-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          현재 로드아웃 저장
+          현재 스킬 저장
         </button>
       </div>
 

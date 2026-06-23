@@ -32,7 +32,8 @@ import {
   runTournamentForGuilds,
 } from "@/lib/server/v2RunTournament";
 // PR-7: 병사 시스템 폐기 — applySoldierBoost/simulateTroopBattle/computePlunder 제거.
-import { OUTPOSTS, treasuryShares } from "@/adventure/data/v2/outposts";
+import { treasuryShares } from "@/adventure/data/v2/outposts";
+import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
@@ -113,7 +114,7 @@ export async function POST(req: Request) {
   if (typeof body.outpostId !== "string" || body.outpostId.length === 0) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
-  const outpost = OUTPOSTS.find((o) => o.id === body.outpostId);
+  const outpost = resolveOutpostMeta(body.outpostId);
   if (!outpost) {
     return Response.json({ ok: false, error: "no_such_outpost" }, { status: 400 });
   }

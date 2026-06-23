@@ -4,7 +4,7 @@ import { outpostClaimAttempts, outpostOccupations } from "@/db/schema";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
-import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
 import { getChampion } from "@/adventure/data/v2/champions";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   };
 
   for (const occ of dueRows) {
-    const outpost = OUTPOSTS.find((o) => o.id === occ.outpostId);
+    const outpost = resolveOutpostMeta(occ.outpostId);
     if (!outpost || !occ.occupiedByUserId) {
       summary.skipped += 1;
       continue;

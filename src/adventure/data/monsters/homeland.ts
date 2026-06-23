@@ -141,9 +141,9 @@ export const HOMELAND_MONSTERS: Record<string, Monster> = {
     def: 4,
     spd: 5,
     exp: 10,
-    // PR-5b — 인프라 검증 샘플 2호. spirit 컨셉에 맞게 자강화 (잔영 보법 dex +10%).
-    v2Skills: { learned: ["v2_skill_dash"], equipped: ["v2_skill_dash"] },
-    v2MaxMp: 100,
+    // caster — 물 정령답게 서릿바람(마법딜 + 둔화) 시전(옛 PR-5b 샘플 대체).
+    v2Skills: { learned: ["mob_frostwind"], equipped: ["mob_frostwind"] },
+    v2MaxMp: 90,
     drops: [
       { kind: "material", materialId: "fairy_dust", chance: 0.03 },
       { kind: "equip", itemId: "nymph_ring", chance: 0.005 },

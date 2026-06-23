@@ -358,11 +358,15 @@ export function BattleScene({
   playerSubtitle,
   logAnchor = "bottom",
   elementMatchup,
+  playerCombat,
 }: {
   state: BattleState;
   playerName: string;
   playerStatus: BattlePlayerStatus;
   recentNotifications?: AppNotification[];
+  // 플레이어 유효 전투 스탯(공/방/속+상세) — split 플레이어 칸에 적과 대칭 표기. 미전달 시 미표시.
+  //   BattleState/리플레이엔 플레이어 스탯이 없어 별도 prop 으로 받는다(리플레이 부분객체 안전).
+  playerCombat?: BattleStats;
   // "stacked" = 라이브(v1) 적 위 / 플레이어 아래. "split" = v2 좌(플레이어)/우(적) 반폭.
   layout?: "stacked" | "split";
   // 플레이어 이름 아래 부제(예: "Lv.42 · 견습 검사 · 무속성"). split 레이아웃(v2)에서만 표시.
@@ -425,13 +429,9 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
-                <HpBar
-                  compact
-                  label="EXP"
-                  value={playerStatus.exp}
-                  max={playerStatus.maxExp}
-                  color="bg-amber-400"
-                />
+                {/* 공/방/속 — 적 칸과 대칭. 누르면 명중/회피/치명 펼침. EXP 바는 이 패널에서 제거
+                    (전투 결과/캐릭터 카드에 노출). */}
+                {playerCombat && <BattleStatStrip center stats={playerCombat} />}
               </div>
             </div>
             {/* 오른쪽 — 적 */}

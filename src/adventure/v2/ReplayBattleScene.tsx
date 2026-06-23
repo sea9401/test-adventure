@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   BattleScene,
   type BattlePlayerStatus,
+  type BattleStats,
 } from "@/adventure/battle/BattleScene";
 import type { BattleState } from "@/adventure/v2/combat/engine";
 import {
@@ -26,6 +27,7 @@ export function ReplayBattleScene({
   mpCharges,
   playerSubtitle,
   elementMatchup,
+  playerCombat,
 }: {
   payload: ReplayPayload;
   // 사냥 시작 시점 playerHp — 사전 hp 회복 적용 후. 없으면 playerMaxHp.
@@ -41,6 +43,8 @@ export function ReplayBattleScene({
   playerSubtitle?: string;
   // 약점찌르기 강조 — 적 속성 뱃지 "약점!" (BattleScene 으로 전달).
   elementMatchup?: "advantage" | "disadvantage" | "neutral";
+  // 플레이어 공/방/속(+상세) — 전투 패널 플레이어 칸에 적과 대칭 표기. BattleScene 으로 전달.
+  playerCombat?: BattleStats;
 }) {
   const derivedState = useMemo<BattleState>(() => {
     // finalState — 마지막 hp_bar entry 의 HP 가 최종.
@@ -86,6 +90,7 @@ export function ReplayBattleScene({
       playerSubtitle={playerSubtitle}
       logAnchor="top"
       elementMatchup={elementMatchup}
+      playerCombat={playerCombat}
     />
   );
 }

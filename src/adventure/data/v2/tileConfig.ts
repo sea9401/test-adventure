@@ -39,8 +39,7 @@ export const TILE_POS_BY_OUTPOST = new Map(
 export const TILE_KEPT_OUTPOST_IDS = new Set(TILE_OUTPOSTS.map((t) => t.id));
 
 // === 개척 정착지 (Phase 3) — 마을 아래 "개척마을" 신설 ===============================
-// 개척마을(frontier)은 땅(영지)을 보유하지 않고 시작 → 마을(village)로 승격할 때 비로소
-// 3×3 영지를 얻는다. 그 승격 비용이 가장 비싸다(영지 획득의 대가). 마을→도시→대도시.
+// 빈 땅에 개척마을(frontier) 건설 → 마을(village)→도시(city)→대도시(metropolis) 승격.
 export const TILE_SETTLEMENT_TIERS = [
   "frontier",
   "village",
@@ -56,13 +55,10 @@ export const TILE_TIER_LABEL: Record<TileSettlementTier, string> = {
   metropolis: "대도시",
 };
 
-// 개척마을은 땅 미보유. 마을(village)+ 는 3×3 영지를 보유(점선 경계 표시).
-export const tileTierOwnsLand = (t: TileSettlementTier) => t !== "frontier";
-
-// 비용(목업 골드) — 건설은 싸고, 영지를 얻는 개척마을→마을 승격이 가장 비싸다. 다이얼.
+// 비용(목업 골드) — 건설은 싸고, 승격은 단계가 오를수록 비싸진다. 다이얼.
 export const TILE_FOUND_COST = 100;
 export const TILE_PROMOTE_COST: Record<TileSettlementTier, number> = {
-  frontier: 1000, // → 마을 (영지 획득)
+  frontier: 1000, // → 마을
   village: 1500, // → 도시
   city: 3000, // → 대도시
   metropolis: 0, // 최고 티어

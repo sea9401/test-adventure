@@ -3,8 +3,7 @@
 // === 자유 타일 지도 — Phase 1~3 렌더 (비파괴) ========================================
 // V2_FREEFORM_TILES on 일 때 /map 에서 옛 ContinentMap 대신 렌더.
 //  - 9×9 보드 + 유지 거점 9개(점령 상태색) + 빈 땅 자유 이동(Phase 2).
-//  - 빈 땅 어디든 개척마을 건설 → 마을(영지 획득)→도시→대도시 승격/철거(Phase 3).
-//  - 개척마을은 땅 미보유(점선 영지 없음), 마을+ 는 3×3 점선 영지를 가진다.
+//  - 빈 땅 어디든 개척마을 건설 → 마을→도시→대도시 승격/철거(Phase 3).
 // 라이브 데이터(occupations/treasuries/currentOutpostId)는 표시만, 정착지는 tileSettlements.
 import { useState } from "react";
 import {
@@ -31,7 +30,6 @@ import {
   TILE_TIER_LABEL,
   TILE_FOUND_COST,
   TILE_PROMOTE_COST,
-  tileTierOwnsLand,
   tileNextTier,
   isTileSettlementTier,
   type TileSettlementTier,
@@ -161,24 +159,6 @@ export function TileMap({
       : null);
   const playerTileKey = playerPos ? tileKey(playerPos.col, playerPos.row) : null;
   const currentOnBoard = playerTileKey != null;
-
-  // 영지 점선 경계 — 땅 보유 정착지(마을+)의 3×3(보드 밖 잘림). 개척마을(frontier)은 없음.
-  const at = (i: number) => i * (CELL + GAP);
-  const territory = (tileSettlements ?? [])
-    .filter((s) => tileTierOwnsLand(tierOf(s.tier)))
-    .map((s) => {
-      const c0 = Math.max(0, s.col - 1);
-      const c1 = Math.min(TILE_BOARD_SIZE - 1, s.col + 1);
-      const r0 = Math.max(0, s.row - 1);
-      const r1 = Math.min(TILE_BOARD_SIZE - 1, s.row + 1);
-      return {
-        key: tileKey(s.col, s.row),
-        left: at(c0) - 2,
-        top: at(r0) - 2,
-        width: (c1 - c0 + 1) * CELL + (c1 - c0) * GAP + 4,
-        height: (r1 - r0 + 1) * CELL + (r1 - r0) * GAP + 4,
-      };
-    });
 
   return (
     <main className="mx-auto max-w-2xl space-y-3 p-4 text-zinc-200">
@@ -312,21 +292,6 @@ export function TileMap({
               );
             })}
           </div>
-
-          {/* 영지 점선 경계 — 마을+ 만(개척마을은 땅 미보유). */}
-          {territory.map((t) => (
-            <div
-              key={`terr-${t.key}`}
-              className="pointer-events-none absolute z-20 rounded-lg border-2 border-dashed"
-              style={{
-                left: t.left,
-                top: t.top,
-                width: t.width,
-                height: t.height,
-                borderColor: `${FOUNDED_FILL}88`,
-              }}
-            />
-          ))}
         </div>
       </div>
 
@@ -394,8 +359,7 @@ export function TileMap({
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500">
-                    {mine ? "내 정착지" : "다른 모험가의 정착지"} ·{" "}
-                    {tileTierOwnsLand(tier) ? "영지 3×3 보유" : "땅 미보유 (개척 거점)"}
+                    {mine ? "내 정착지" : "다른 모험가의 정착지"}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -420,7 +384,7 @@ export function TileMap({
                       onClick={() => onPromoteTile(selCol, selRow)}
                       className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
                     >
-                      {tier === "frontier" ? "마을로 승격(영지)" : "승격"} →{" "}
+                      {tier === "frontier" ? "마을로 승격" : "승격"} →{" "}
                       {TILE_TIER_LABEL[next]} ({TILE_PROMOTE_COST[tier].toLocaleString()}G)
                     </button>
                   )}

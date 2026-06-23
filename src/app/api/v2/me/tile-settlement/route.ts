@@ -24,7 +24,6 @@ import {
 // 본문: { action: "found" | "promote" | "demolish", col, row }
 //  - found: 빈 칸(거점 아님·미정착)에 개척마을(frontier) 건설. TILE_FOUND_COST 골드.
 //  - promote: 본인 정착지 한 단계 승격(frontier→village→city→metropolis). TILE_PROMOTE_COST.
-//    개척마을→마을 승격이 영지를 얻는 가장 비싼 단계.
 //  - demolish: 본인 정착지 철거(환불 없음).
 //  - V2_FREEFORM_TILES off 면 404(플래그 게이트) — 라이브(flag off)는 이 테이블 무접촉.
 

@@ -165,40 +165,6 @@ export const OUTPOST_TYPE_BY_ID = new Map<string, Outpost["type"]>(
 export const MAP_BOUNDS = { width: 10000, height: 6000 } as const;
 export const CONTINENT_NAME = "아스토리아 대륙";
 
-// 거점 → 소속 지역(가장 가까운 tier4 중심) id. weather 권역·팝업 "○○령" 라벨이 파생한다.
-// 모듈 로드 시 1회 precompute (렌더마다 최근접 재계산 회피).
-const KINGDOM_ID_BY_OUTPOST: Map<string, string> = (() => {
-  const capitals = OUTPOSTS.filter((o) => o.tier === 4);
-  const map = new Map<string, string>();
-  for (const o of OUTPOSTS) {
-    let bestId = capitals[0]?.id;
-    let bestD = Infinity;
-    for (const c of capitals) {
-      const d = Math.hypot(
-        o.position.x - c.position.x,
-        o.position.y - c.position.y,
-      );
-      if (d < bestD) {
-        bestD = d;
-        bestId = c.id;
-      }
-    }
-    if (bestId) map.set(o.id, bestId);
-  }
-  return map;
-})();
-
-// 거점이 속한 왕국 수도 id (지리적 최근).
-export function kingdomIdOf(o: Outpost): string | undefined {
-  return KINGDOM_ID_BY_OUTPOST.get(o.id);
-}
-
-// 거점이 속한 지역 중심 거점 이름(예: "에이라"). 지도 팝업의 "○○령" 지역 표기에 사용.
-export function kingdomNameOf(o: Outpost): string | undefined {
-  const id = KINGDOM_ID_BY_OUTPOST.get(o.id);
-  return id ? OUTPOST_BY_ID.get(id)?.name : undefined;
-}
-
 // 신규 플레이어 시작 거점 — 중앙 자유 도시(어느 세력에도 속하지 않는 중립 허브). 현재
 // 위치가 아직 기록되지 않았을 때(부트스트랩) 인접 이동 게이트·발견 시드의 기준점으로 쓴다.
 export const START_OUTPOST_ID = "neutral_haven_central";

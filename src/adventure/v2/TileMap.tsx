@@ -20,7 +20,6 @@ import {
 } from "@phosphor-icons/react";
 import {
   OUTPOSTS,
-  kingdomNameOf,
   OUTPOST_NPC_TAX_RATE,
 } from "@/adventure/data/v2/outposts";
 import { CONFLICT_ZONE_IDS } from "@/adventure/data/v2/outpostGraph";
@@ -135,8 +134,7 @@ export function TileMap({
     if (occ?.occupiedByGuildName) return `${occ.occupiedByGuildName} 길드 점령`;
     if (occ?.occupiedByUserId) return "솔로 점령자";
     if (CONFLICT_ZONE_IDS.has(o.id)) return "분쟁지대 · 무소속";
-    const kn = kingdomNameOf(o);
-    return kn ? `${kn}령` : "무소속";
+    return "무소속";
   };
   const taxPctOf = (o: Outpost): number => {
     const occ = occByOutpost.get(o.id);

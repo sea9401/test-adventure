@@ -12,7 +12,6 @@ import {
 import {
   OUTPOSTS,
   MAP_BOUNDS,
-  kingdomNameOf,
   OUTPOST_NPC_TAX_RATE,
 } from "@/adventure/data/v2/outposts";
 import {
@@ -75,8 +74,7 @@ const TYPE_LABEL: Record<OutpostType, string> = {
 // id → Outpost 빠른 조회 — 연결선 좌표 + 현재 위치 판정용.
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
 
-// (권역 색칠/경계 시스템 제거 — 왕국 폐기로 지역 구분 없앰. 배경=단색+격자선만.
-//  weather 권역(kingdomIdOf 기반)은 지도 비주얼과 별개로 유지.)
+// (권역/왕국·날씨 개념 제거 — 지역 구분 없음. 배경=단색+격자선만.)
 
 
 // === 거점 → 격자 셀 스냅(충돌은 결정적 확장 링 BFS 로 최근접 빈 셀). ==================
@@ -215,15 +213,14 @@ export function ContinentMap({
   // 자유이동(B안 PR-3): 워프·다중홉 경로 미리보기 폐기 — 선택 거점으로 바로 이동.
 
   // 거점 소유 주체 라벨 — 호버 요약 카드 + 클릭 팝업 공유. 길드 점령 > 솔로 점령자 >
-  //   분쟁지대(무소속) > 미점령은 소속 지역 "○○령". 중립은 배지로 충분해 null.
+  //   분쟁지대(무소속) > 미점령은 "무소속". 중립은 배지로 충분해 null.
   const ownerLabelOf = (o: Outpost): string | null => {
     if (o.neutral) return null;
     const occ = occByOutpost.get(o.id);
     if (occ?.occupiedByGuildName) return `${occ.occupiedByGuildName} 길드 점령`;
     if (occ?.occupiedByUserId) return "솔로 점령자";
     if (CONFLICT_ZONE_IDS.has(o.id)) return "분쟁지대 · 무소속";
-    const kn = kingdomNameOf(o);
-    return kn ? `${kn}령` : "무소속";
+    return "무소속";
   };
   // 거점 골드 세율 % — 점령 거점은 점령자 설정값, 미점령은 NPC 기본율.
   const taxPctOf = (o: Outpost): number => {

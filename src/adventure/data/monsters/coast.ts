@@ -53,6 +53,7 @@ export const COAST_MONSTERS: Record<string, Monster> = {
     name: "산호초 사이렌",
     image: "/images/monster/coralmermaid.webp",
     tags: ["spirit"],
+    archetype: "caster",
     hp: 175,
     atk: 21,
     def: 6,

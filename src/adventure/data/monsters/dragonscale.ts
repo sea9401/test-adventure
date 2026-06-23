@@ -40,6 +40,7 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "묘지 그렘린": {
     name: "묘지 그렘린",
     tags: ["humanoid"],
+    archetype: "crit",
     hp: 280,
     atk: 30,
     def: 8,
@@ -92,6 +93,7 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "용골 리치": {
     name: "용골 리치",
     tags: ["spirit", "undead"],
+    archetype: "caster",
     hp: 1000,
     atk: 80,
     def: 42,

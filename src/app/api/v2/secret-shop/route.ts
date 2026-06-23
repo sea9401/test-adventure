@@ -19,6 +19,7 @@ import {
   applyRegen,
   parseStaminaFromSave,
   staminaCapBonusOf,
+  staminaOverchargeCap,
 } from "@/adventure/v2/stamina";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 
@@ -167,13 +168,17 @@ export async function POST(req: Request) {
     } else if (item.id === "stamina_potion") {
       const max =
         MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
+      const cap = staminaOverchargeCap(max);
       const cur = applyRegen(parseStaminaFromSave(charSave.stamina, now), now, max);
       nextChar = {
         ...nextChar,
         stamina: {
-          // 소모품 포션과 동일 — 최대치 초과 비축(overcharge) 허용. min(max,…) 캡을 두면
-          //   이미 비축해 둔 분(cur.current > max)을 도로 max 로 깎는 회귀가 생긴다.
-          current: cur.current + STAMINA_POTION_AMOUNT,
+          // 소모품 포션과 동일 — 최대치를 넘겨 비축(overcharge), 단 상한(cap)까지만.
+          //   max-guard: 이미 cap 이상(레거시)이면 줄이지 않음(min(cap,…) 단독은 깎음).
+          current: Math.max(
+            cur.current,
+            Math.min(cap, cur.current + STAMINA_POTION_AMOUNT),
+          ),
           lastUpdatedAt: cur.lastUpdatedAt,
         },
       };

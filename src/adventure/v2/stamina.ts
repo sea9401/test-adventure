@@ -17,6 +17,16 @@ export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·재진입은 무료)
 
+// 포션 초과 비축(overcharge) 상한 = per-user 최대치 × 이 배수.
+//   시간 회복은 여전히 max 까지만. 포션으로는 이 상한까지 미리 비축 가능(밸런스 다이얼).
+//   1 = 초과 비축 없음(만피 캡). 한 줄로 조정. (5000 기준 3 = 15000 ≈ 1.5만 사냥분.)
+export const STAMINA_OVERCHARGE_MULT = 3;
+
+// per-user 최대치 기준 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프.
+export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
+  return Math.floor(maxStamina * STAMINA_OVERCHARGE_MULT);
+}
+
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
 //   = 5000 * 30 s = 150000 s = ~41.7 시간 (밴킹 cap — 평소엔 거의 안 비움).
 // 시간당 회복 = 120, 일 이론 회복 = 2880 (cap 5000 이라 ~41.7h 후 정체). 회복률 불변 — cap 만 확대.

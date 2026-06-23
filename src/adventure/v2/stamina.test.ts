@@ -3,11 +3,13 @@ import {
   MAX_STAMINA,
   REGEN_SECONDS_PER_POINT,
   HUNT_COST,
+  STAMINA_OVERCHARGE_MULT,
   applyRegen,
   tryConsume,
   msUntilNextRegen,
   initialStamina,
   parseStaminaFromSave,
+  staminaOverchargeCap,
   type StaminaState,
 } from "./stamina";
 
@@ -183,5 +185,15 @@ describe("스태미너 — 최대치 초과 비축(overcharge)", () => {
     // 만피-1 에서 충분히 흐르면 만피로만 회복, 초과는 안 함.
     const r = applyRegen(at(MAX_STAMINA - 1, 0), 10_000_000, MAX_STAMINA);
     expect(r.current).toBe(MAX_STAMINA);
+  });
+
+  it("staminaOverchargeCap — per-user max × MULT", () => {
+    expect(staminaOverchargeCap(MAX_STAMINA)).toBe(
+      Math.floor(MAX_STAMINA * STAMINA_OVERCHARGE_MULT),
+    );
+    // 한계의 비약으로 max 가 오르면 상한도 비례 상승.
+    expect(staminaOverchargeCap(6000)).toBe(6000 * STAMINA_OVERCHARGE_MULT);
+    // 기본 인자 = MAX_STAMINA.
+    expect(staminaOverchargeCap()).toBe(staminaOverchargeCap(MAX_STAMINA));
   });
 });

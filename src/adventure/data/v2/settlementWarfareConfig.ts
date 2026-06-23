@@ -21,6 +21,12 @@ export const V2_SETTLEMENT_WARFARE =
 export const V2_TILE_WARFARE =
   process.env.NEXT_PUBLIC_V2_TILE_WARFARE === "true";
 
+// 타일 생산 관리 플래그 — 타일 정착지 승격을 지도 버튼이 아니라 기존 마을 생산 시스템
+//   (outpost_villages·슬롯/생산/자원 승격)으로 이전. off(기본)=현행(지도 promote) byte-identical.
+//   T1 생산 백엔드(솔로/길드 자원 라우팅) · T2 관리 UI · T3 지도 promote 제거+flip 단계 배선.
+export const V2_TILE_PRODUCTION =
+  process.env.NEXT_PUBLIC_V2_TILE_PRODUCTION === "true";
+
 // 다이얼 (라이브 실측 후 캘리브) ───────────────────────────────────────────
 
 // ── 건강도 (war vigor) — 순수 헬퍼는 warVigor.ts ──────────────────────────

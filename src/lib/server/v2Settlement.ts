@@ -1,10 +1,13 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { db as dbType } from "@/db";
 import {
   outpostOccupations,
   outpostVillages,
+  tileSettlements,
+  userSettlementResources,
   v2GuildResources,
 } from "@/db/schema";
+import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { getGuildId } from "./v2EnsureSoloGuild";
 import {
   VILLAGE_TIERS,
@@ -277,6 +280,109 @@ export async function readGuildSettlement(
       .limit(1)
   )[0];
   return parseResources(row?.settlement);
+}
+
+// ── 솔로(무길드) 정착지 재화 풀 — 길드 풀 헬퍼의 1인 미러(user_settlement_resources) ──────
+export async function lockSoloSettlement(
+  tx: Tx,
+  userId: string,
+): Promise<SettlementResources> {
+  await tx
+    .insert(userSettlementResources)
+    .values({ userId })
+    .onConflictDoNothing();
+  const row = (
+    await tx
+      .select({ settlement: userSettlementResources.settlement })
+      .from(userSettlementResources)
+      .where(eq(userSettlementResources.userId, userId))
+      .for("update")
+      .limit(1)
+  )[0];
+  return parseResources(row?.settlement);
+}
+
+export async function upsertSoloSettlement(
+  tx: Tx,
+  userId: string,
+  resources: SettlementResources,
+): Promise<void> {
+  const safe = parseResources(resources);
+  await tx
+    .insert(userSettlementResources)
+    .values({ userId, settlement: safe })
+    .onConflictDoUpdate({
+      target: userSettlementResources.userId,
+      set: { settlement: safe, updatedAt: new Date() },
+    });
+}
+
+export async function readSoloSettlement(
+  tx: Tx,
+  userId: string,
+): Promise<SettlementResources> {
+  const row = (
+    await tx
+      .select({ settlement: userSettlementResources.settlement })
+      .from(userSettlementResources)
+      .where(eq(userSettlementResources.userId, userId))
+      .limit(1)
+  )[0];
+  return parseResources(row?.settlement);
+}
+
+// ── 정착지 소유 추상화 — 길드(점령행) | 솔로(무길드 founder). 자원 라우팅을 한 곳으로. ──────
+export type SettlementOwner =
+  | { kind: "guild"; guildId: number }
+  | { kind: "solo"; userId: string };
+
+// 자원 풀 lock/upsert/read 를 소유 종류에 맞게 분기(길드 풀 vs 솔로 풀).
+export function lockSettlementResources(
+  tx: Tx,
+  owner: SettlementOwner,
+): Promise<SettlementResources> {
+  return owner.kind === "guild"
+    ? lockGuildSettlement(tx, owner.guildId)
+    : lockSoloSettlement(tx, owner.userId);
+}
+export function upsertSettlementResources(
+  tx: Tx,
+  owner: SettlementOwner,
+  resources: SettlementResources,
+): Promise<void> {
+  return owner.kind === "guild"
+    ? upsertGuildSettlement(tx, owner.guildId, resources)
+    : upsertSoloSettlement(tx, owner.userId, resources);
+}
+export function readSettlementResources(
+  tx: Tx,
+  owner: SettlementOwner,
+): Promise<SettlementResources> {
+  return owner.kind === "guild"
+    ? readGuildSettlement(tx, owner.guildId)
+    : readSoloSettlement(tx, owner.userId);
+}
+
+// 타일 정착지(col,row) 소유 해석 — 점령행(occupiedByGuildId) 있으면 길드, 없으면 솔로(founder).
+//   미존재(정착지 없음)면 null. tile 점령행은 길드 founder 만 생성(P1)이라 점령행을 우선 본다.
+export async function resolveTileSettlementOwner(
+  tx: Tx,
+  col: number,
+  row: number,
+): Promise<SettlementOwner | null> {
+  const id = tileOutpostId(col, row);
+  const [occ] = await tx
+    .select({ g: outpostOccupations.occupiedByGuildId })
+    .from(outpostOccupations)
+    .where(eq(outpostOccupations.outpostId, id))
+    .limit(1);
+  if (occ?.g != null) return { kind: "guild", guildId: occ.g };
+  const [ts] = await tx
+    .select({ userId: tileSettlements.userId })
+    .from(tileSettlements)
+    .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)))
+    .limit(1);
+  return ts ? { kind: "solo", userId: ts.userId } : null;
 }
 
 // ── 소유 가드 ── 유저의 길드가 이 거점을 점령 중이면 guildId, 아니면 null. ────────────

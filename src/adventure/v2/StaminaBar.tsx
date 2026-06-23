@@ -31,6 +31,7 @@ export function StaminaBar({
 
   const display = applyRegen(state, now, max);
   const pct = Math.max(0, Math.min(100, (display.current / max) * 100));
+  const overcharged = display.current > max; // 포션 초과 비축 상태
 
   const showPotionButton = potions > 0 && !!onUsePotion;
 
@@ -39,13 +40,22 @@ export function StaminaBar({
       <div className="flex items-baseline justify-between text-sm">
         <span className="text-zinc-500 dark:text-zinc-400">스태미너</span>
         <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
-          {display.current} / {max}
+          {display.current.toLocaleString()} / {max.toLocaleString()}
+          {overcharged && (
+            <span className="ml-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              초과 비축
+            </span>
+          )}
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-2">
         <div className="h-3 flex-1 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div
-            className="h-full bg-amber-500 transition-[width] duration-500"
+            className={`h-full transition-[width] duration-500 ${
+              overcharged
+                ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.7)]"
+                : "bg-amber-500"
+            }`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -76,7 +86,8 @@ export function StaminaBar({
 }
 
 // 스태미나 포션 사용 모달 — 보유 수·포션당 회복·현재 스태미나 + 개수 스테퍼.
-//   사용 상한 = min(보유, 가득 채우는 데 필요한 개수) → 초과 낭비 방지. 가득이면 사용 불가.
+//   사용 상한 = 보유 전량(최대치를 넘겨 비축 가능). 기본 제안 = 만피까지. "한 번에 많이
+//   먹어두고 길게 사냥" 의도 → 초과분은 회복 없이 사냥/이동으로만 소모.
 function StaminaPotionModal({
   potions,
   current,
@@ -91,18 +102,20 @@ function StaminaPotionModal({
   onClose: () => void;
 }) {
   const restore = STAMINA_POTION_RESTORE;
-  const needed = Math.max(0, Math.ceil((max - current) / restore));
-  const usableMax = Math.min(potions, needed);
-  const isFull = usableMax <= 0;
-  const [qty, setQty] = useState(usableMax);
+  const usableMax = Math.max(1, potions); // 보유 전량까지(초과 비축 허용)
+  // 기본 제안 개수 = 만피까지 필요한 만큼(이미 만피/초과면 1). 그 이상은 사용자가 비축 선택.
+  const fillToMax = Math.max(0, Math.ceil((max - current) / restore));
+  const defaultQty = Math.max(1, Math.min(potions, fillToMax || 1));
+  const [qty, setQty] = useState(defaultQty);
   const [busy, setBusy] = useState(false);
 
-  // 표시·사용에 쓰는 유효 개수 — 재생으로 usableMax 가 줄어도 항상 1..usableMax 로 클램프.
+  // 표시·사용에 쓰는 유효 개수 — 항상 1..usableMax 로 클램프.
   const effQty = Math.max(1, Math.min(qty, usableMax));
-  const projected = Math.min(max, current + restore * effQty);
+  const projected = current + restore * effQty; // 캡 없음 — 초과 비축분 그대로 표시
+  const overcharge = projected > max;
 
   const handleUse = async () => {
-    if (isFull || busy) return;
+    if (busy) return;
     setBusy(true);
     try {
       await onUse(effQty);
@@ -150,53 +163,53 @@ function StaminaPotionModal({
           </div>
         </div>
 
-        {isFull ? (
-          <p className="mt-4 rounded-md bg-zinc-100 px-3 py-2 text-center text-sm text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-            스태미나가 가득 찼어요.
-          </p>
-        ) : (
-          <>
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setQty(effQty - 1)}
-                disabled={busy || effQty <= 1}
-                aria-label="개수 줄이기"
-                className={stepBtn}
-              >
-                −
-              </button>
-              <span className="w-12 text-center text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                {effQty}
-              </span>
-              <button
-                type="button"
-                onClick={() => setQty(effQty + 1)}
-                disabled={busy || effQty >= usableMax}
-                aria-label="개수 늘리기"
-                className={stepBtn}
-              >
-                ＋
-              </button>
-              {usableMax > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setQty(usableMax)}
-                  disabled={busy || effQty >= usableMax}
-                  className="ml-1 rounded-md border border-zinc-300 px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  최대
-                </button>
-              )}
-            </div>
-            <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-              사용 후{" "}
-              <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
-                {projected.toLocaleString()} / {max.toLocaleString()}
-              </span>
-            </p>
-          </>
-        )}
+        <div className="mt-4 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setQty(effQty - 1)}
+            disabled={busy || effQty <= 1}
+            aria-label="개수 줄이기"
+            className={stepBtn}
+          >
+            −
+          </button>
+          <span className="w-12 text-center text-xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+            {effQty}
+          </span>
+          <button
+            type="button"
+            onClick={() => setQty(effQty + 1)}
+            disabled={busy || effQty >= usableMax}
+            aria-label="개수 늘리기"
+            className={stepBtn}
+          >
+            ＋
+          </button>
+          {usableMax > 1 && (
+            <button
+              type="button"
+              onClick={() => setQty(usableMax)}
+              disabled={busy || effQty >= usableMax}
+              className="ml-1 rounded-md border border-zinc-300 px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              최대
+            </button>
+          )}
+        </div>
+        <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
+          사용 후{" "}
+          <span className="font-medium tabular-nums text-amber-600 dark:text-amber-400">
+            {projected.toLocaleString()} / {max.toLocaleString()}
+          </span>
+          {overcharge && (
+            <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
+              · 초과 비축
+            </span>
+          )}
+        </p>
+        <p className="mt-1 text-center text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">
+          최대치를 넘겨 비축하면 회복을 기다리지 않고 길게 사냥할 수 있어요.
+        </p>
 
         <div className="mt-4 flex gap-2">
           <button
@@ -210,7 +223,7 @@ function StaminaPotionModal({
           <button
             type="button"
             onClick={handleUse}
-            disabled={isFull || busy}
+            disabled={busy}
             className="flex-1 rounded-md border border-amber-600 bg-amber-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? "사용 중…" : `${effQty}개 사용`}

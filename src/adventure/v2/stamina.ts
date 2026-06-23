@@ -113,7 +113,10 @@ export function parseStaminaFromSave(
       Number.isFinite(s.lastUpdatedAt)
     ) {
       return {
-        current: Math.max(0, Math.min(MAX_STAMINA, s.current)),
+        // 상한 클램프 없음 — 포션으로 최대치를 넘겨 비축(overcharge)한 분을 보존.
+        //   max 는 per-user(한계의 비약)라 여기선 모름. 만피 위 회복은 applyRegen 이
+        //   막고(초과분은 깎지 않음), 저장값은 서버 권위라 그대로 신뢰. 음수만 0 으로.
+        current: Math.max(0, s.current),
         lastUpdatedAt: s.lastUpdatedAt,
       };
     }

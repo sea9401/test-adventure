@@ -13,7 +13,7 @@ import {
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 
-// POST /api/v2/me/use-stamina-potion — 보유 스태미나 포션 사용 → 스태미나 회복(최대치 캡).
+// POST /api/v2/me/use-stamina-potion — 보유 스태미나 포션 사용 → 스태미나 회복(최대치 초과 비축 허용).
 //   body { count? } — 한 번에 사용할 개수(미전달=1). 보유 수·1 이상으로 클램프.
 //   비밀상점 "스태미나 회복약" 적용 로직 미러. 락 순서: character.v2 → stamina-potions.v1
 //   (stamina-potions 는 leaf — 항상 마지막에 잠금 → 데드락 없음).
@@ -58,7 +58,10 @@ export async function POST(req: Request) {
     const max = MAX_STAMINA + staminaCapBonusOf(charSave.staminaCapBonus);
     const cur = applyRegen(parseStaminaFromSave(charSave.stamina, now), now, max);
     const nextStamina = {
-      current: Math.min(max, cur.current + STAMINA_POTION_RESTORE * useCount),
+      // 최대치 캡 없음 — 포션으로 max 를 넘겨 비축(overcharge) 가능.
+      //   "한 번에 많이 먹어두고 길게 사냥" 의도. 시간 회복은 여전히 max 까지만(applyRegen),
+      //   초과분은 사냥/이동으로만 소모. 비축 상한은 보유 포션 수로 자연 제한.
+      current: cur.current + STAMINA_POTION_RESTORE * useCount,
       lastUpdatedAt: cur.lastUpdatedAt,
     };
     await upsertSave(tx, userId, "character.v2", {

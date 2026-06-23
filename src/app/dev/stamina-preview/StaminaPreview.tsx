@@ -18,7 +18,7 @@ export function StaminaPreview() {
 
   const [scenarios] = useState<Array<{ label: string; state: StaminaState }>>(
     () => [
-      { label: "만피 (200/200)", state: initialStamina(now) },
+      { label: `만피 (${MAX_STAMINA}/${MAX_STAMINA})`, state: initialStamina(now) },
       {
         label: "0 (회복 막 시작)",
         state: { current: 0, lastUpdatedAt: now },
@@ -36,7 +36,11 @@ export function StaminaPreview() {
         state: { current: 199, lastUpdatedAt: now },
       },
       {
-        label: "옛 데이터 (1시간 전 마지막, +12 자동 회복)",
+        label: `초과 비축 (${MAX_STAMINA + 2000}/${MAX_STAMINA} — 포션 overcharge)`,
+        state: { current: MAX_STAMINA + 2000, lastUpdatedAt: now },
+      },
+      {
+        label: "옛 데이터 (1시간 전 마지막, +120 자동 회복)",
         state: { current: 100, lastUpdatedAt: now - 3600 * 1000 },
       },
     ],
@@ -57,7 +61,8 @@ export function StaminaPreview() {
           <div className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
             {label}
           </div>
-          <StaminaBar state={state} />
+          {/* 포션 보유 가정 → 바 끝 + 버튼/모달(개수 선택·초과 비축) 시각 검증. */}
+          <StaminaBar state={state} potions={20} onUsePotion={async () => {}} />
         </section>
       ))}
     </main>

@@ -5,6 +5,7 @@ import { Storefront } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
+import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 import {
   V2_EQUIPMENT,
   effectiveStats,
@@ -259,7 +260,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     act("/api/v2/marketplace/cancel", { listingId: l.id }, "✓ 매물 취소 — 아이템 반환", () => loadBrowse(true));
 
   const listEquip = (inst: V2EquipInstance) => {
-    const price = Number(prices[inst.iid]);
+    const price = parseAmount(prices[inst.iid]);
     if (!Number.isInteger(price) || price < 1) {
       setError("가격은 1 이상 정수로 입력하세요.");
       return;
@@ -272,7 +273,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     );
   };
   const listMaterial = (matId: V2MaterialId) => {
-    const price = Number(prices[matId]);
+    const price = parseAmount(prices[matId]);
     const qty = Number(qtys[matId] ?? "1");
     if (!Number.isInteger(price) || price < 1) {
       setError("가격은 1 이상 정수로 입력하세요.");
@@ -292,7 +293,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
   // 소모품(레어맵) 등록 — 개체 단위(가격만 입력).
   const listConsumable = (iid: string) => {
-    const price = Number(prices[iid] ?? "");
+    const price = parseAmount(prices[iid]);
     if (!Number.isInteger(price) || price < 1) {
       setError("가격은 1 이상 정수로 입력하세요.");
       return;
@@ -624,7 +625,7 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
               </div>
               {sellEquipPager.pageItems.map((inst) => {
                 const detail = equipDetail(inst.id, inst.roll);
-                const price = Number(prices[inst.iid]);
+                const price = parseAmount(prices[inst.iid]);
                 return (
                   <Card key={inst.iid} padding="sm">
                     <div className="flex items-start justify-between gap-2">
@@ -868,13 +869,11 @@ function PriceRefLine({ stat }: { stat?: PriceStat }) {
 
 function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <input
-      type="number"
-      min={1}
+    <NumberInput
       placeholder="가격"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+      onValueChange={onChange}
+      className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
     />
   );
 }

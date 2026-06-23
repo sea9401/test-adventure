@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useGameState } from "./GameStateProvider";
+import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
 
 // 은행 패널 — 골드 입금/출금. 거점 hub(OutpostView)와 마을 탭(/town/bank) 양쪽에서 재사용.
 // 안전 위치 게이트(다른 길드 점령지 불가)는 서버(/api/v2/me/bank)가 unsafe_location 으로 최종 판정.
@@ -35,12 +36,12 @@ export function BankPanel() {
   const [busyAction, setBusyAction] = useState<BankAction | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const amount = Math.max(0, Math.floor(Number(amountText)));
+  const amount = parseAmount(amountText);
   const canSubmit = amount > 0 && busyAction === null;
 
   function fillAll(action: BankAction) {
     const max = action === "deposit" ? gold : bankedGold;
-    setAmountText(max > 0 ? String(max) : "");
+    setAmountText(max > 0 ? max.toLocaleString("en-US") : "");
     setMessage(null);
   }
 
@@ -94,14 +95,10 @@ export function BankPanel() {
       <div
         className={`mt-3 grid gap-2 ${depositOnly ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_auto]"}`}
       >
-        <input
-          type="number"
-          min={1}
-          step={1}
-          inputMode="numeric"
+        <NumberInput
           value={amountText}
-          onChange={(e) => {
-            setAmountText(e.target.value);
+          onValueChange={(v) => {
+            setAmountText(v);
             setMessage(null);
           }}
           placeholder="금액"

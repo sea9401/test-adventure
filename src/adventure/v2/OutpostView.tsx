@@ -23,6 +23,7 @@ import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { V2VillagePanel } from "./V2VillagePanel";
+import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 import DefendPanel from "./DefendPanel";
 import LordPanel from "./LordPanel";
 import { useGameState } from "./GameStateProvider";
@@ -40,7 +41,8 @@ import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 // 활동(claim/harvest/policy/병사 모집 등) 만.
 export type OutpostAction =
   | { kind: "back" }
-  | { kind: "claimed" };
+  | { kind: "claimed" }
+  | { kind: "policy-changed" };
 
 type OccupationLite = {
   outpostId: string;
@@ -83,6 +85,8 @@ export function OutpostView({
   const [activityTab, setActivityTab] = useState<
     "produce" | "attacks" | "manage" | "defend"
   >("produce");
+  // 관리 탭의 정책·세율 편집기 폴드 상태 — 관리하러 들어온 화면이라 기본 펼침.
+  const [policyOpen, setPolicyOpen] = useState(true);
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
@@ -532,7 +536,20 @@ export function OutpostView({
               <OutpostAttackLog outpostId={outpost.id} />
             )}
             {activityTab === "manage" && canManageSettlement && (
-              <V2VillagePanel outpostId={outpost.id} mode="manage" />
+              <>
+                <V2VillagePanel outpostId={outpost.id} mode="manage" />
+                {/* 거점 정책·세율 — 점령행이 있어야 서버가 갱신 가능(길드/솔로 모두 본인 소유). */}
+                {occupation && (
+                  <OutpostPolicyEditor
+                    outpostId={outpost.id}
+                    currentPolicy={occupation.policy ?? "open"}
+                    currentTaxRate={Number(occupation.taxRate ?? "0")}
+                    open={policyOpen}
+                    onToggle={() => setPolicyOpen((v) => !v)}
+                    onSaved={() => onAction({ kind: "policy-changed" })}
+                  />
+                )}
+              </>
             )}
           </>
         ) : (

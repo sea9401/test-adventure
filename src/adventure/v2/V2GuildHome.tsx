@@ -8,6 +8,7 @@ import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
 import {
   TILE_TIER_LABEL,
@@ -1224,27 +1225,42 @@ export function V2GuildHome({
                 </p>
               ) : (
                 <ul className="space-y-1.5">
-                  {guildSettlements.map((s) => (
-                    <li
-                      key={`${s.col},${s.row}`}
-                      className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-baseline justify-between gap-2">
-                          <span className="truncate text-sm font-medium">
-                            {s.name ?? "개척 정착지"}
+                  {guildSettlements.map((s) => {
+                    const sid = tileOutpostId(s.col, s.row);
+                    const occ = occByOutpost.get(sid);
+                    const policy = occ?.policy ?? "open";
+                    return (
+                      <li key={`${s.col},${s.row}`}>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/outpost/${sid}`)}
+                          className="flex w-full items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-left transition-colors hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700 dark:hover:bg-zinc-800"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-baseline justify-between gap-2">
+                              <span className="truncate text-sm font-medium">
+                                {s.name ?? "개척 정착지"}
+                              </span>
+                              <span className="shrink-0 text-xs text-emerald-600 dark:text-emerald-400">
+                                {settleTierLabel(s.tier)}
+                              </span>
+                            </span>
+                            <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                              {memberNameById.get(s.userId) ?? "길드원"} · ({s.col},{" "}
+                              {s.row}) · 정책 {POLICY_LABEL[policy] ?? policy} ·
+                              관리하기
+                            </span>
                           </span>
-                          <span className="shrink-0 text-xs text-emerald-600 dark:text-emerald-400">
-                            {settleTierLabel(s.tier)}
-                          </span>
-                        </span>
-                        <span className="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
-                          {memberNameById.get(s.userId) ?? "길드원"} · ({s.col},{" "}
-                          {s.row}) · 지도에서 관리
-                        </span>
-                      </span>
-                    </li>
-                  ))}
+                          <CaretRight
+                            size={16}
+                            weight="bold"
+                            aria-hidden
+                            className="shrink-0 text-zinc-400 dark:text-zinc-500"
+                          />
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>

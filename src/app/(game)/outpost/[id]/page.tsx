@@ -78,7 +78,9 @@ export default function OutpostPage() {
       tileFounderUserId={tileFounderUserId}
       onAction={(a) => {
         if (a.kind === "back") router.push(backHref);
-        if (a.kind === "claimed") refreshOccupations();
+        if (a.kind === "claimed" || a.kind === "policy-changed") {
+          refreshOccupations();
+        }
       }}
     />
   );

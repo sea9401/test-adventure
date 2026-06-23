@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
-import { revertGuildTilesToSolo } from "@/lib/server/tileOccupation";
+import { neutralizeGuildTiles } from "@/lib/server/tileOccupation";
 
 // POST /api/v2/guild/disband — 길드 해산 (마스터 전용). body: { confirm: <길드 이름> }
 //
@@ -69,12 +69,9 @@ export async function POST(req: Request) {
     await tx
       .delete(guildMembers)
       .where(eq(guildMembers.guildId, mem.guildId));
-    // 해산 — 그 길드의 전 타일 점령행을 솔로로 복귀(소유자 따라감). 툼스톤이라 점령행이
-    //   크론 하드삭제(SET NULL) 전까지 스테일로 남는 것을 방지(즉시 복귀). 금고는 곧 소멸이라 미입금.
-    await revertGuildTilesToSolo(tx, {
-      guildId: mem.guildId,
-      depositTreasury: false,
-    });
+    // 해산 — 그 길드의 전 타일 영토를 중립화(빈 땅). 영토=길드 소유라 길드가 사라지면 영토도
+    //   소멸: 점령행·거점 금고·수비큐·영주·정착지 행 즉시 제거(크론 캐스케이드 전 스테일 방지).
+    await neutralizeGuildTiles(tx, mem.guildId);
     await tx
       .update(guilds)
       .set({ disbandedAt: new Date() })

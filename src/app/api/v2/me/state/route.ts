@@ -106,7 +106,10 @@ import {
   staminaPotionCount,
 } from "@/adventure/v2/staminaPotions";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
-import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
+import {
+  resolveOutpostMeta,
+  tileOutpostId,
+} from "@/adventure/data/v2/tileWarfare";
 import { seededDiscovery } from "@/adventure/data/v2/outpostGraph";
 
 // GET /api/v2/me/state — V2GameFlow 의 mount fetch (캐릭+자원+currentOutpost).
@@ -561,26 +564,30 @@ export async function GET() {
     : null;
 
   // 자유 타일 지도 개척 정착지 — flag on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
-  //   정착지의 "길드 귀속"은 저장하지 않고 소유자(userId)→현재 길드(guild_members) 조인으로
-  //   읽을 때 파생한다 → 소유자가 길드를 옮기면 자동으로 따라간다(스키마/마이그 불요).
+  //   정착지의 "길드 귀속"은 점령행 occupiedByGuildId(권위)로 파생 — 영토=길드 소유 모델.
+  //   founder 가 길드를 떠나도 길드가 정착지를 유지한다(옛 소유자→길드 소프트링크 폐기).
   const freeformTileSettlements = V2_FREEFORM_TILES
     ? await (async () => {
         const rows = await db.select().from(tileSettlements);
         if (rows.length === 0) return [];
-        // 소유자 → 현재 길드 일괄 조회(N+1 회피).
-        const ownerIds = [...new Set(rows.map((r) => r.userId))];
-        const memberRows = await db
+        // 타일 점령행 일괄 조회(N+1 회피) → 칸별 소유 길드(occupiedByGuildId).
+        const tileIds = rows.map((r) => tileOutpostId(r.col, r.row));
+        const occRows = await db
           .select({
-            userId: guildMembers.userId,
-            guildId: guildMembers.guildId,
+            outpostId: outpostOccupations.outpostId,
+            guildId: outpostOccupations.occupiedByGuildId,
           })
-          .from(guildMembers)
-          .where(inArray(guildMembers.userId, ownerIds));
-        const guildIdByUser = new Map(
-          memberRows.map((m) => [m.userId, m.guildId]),
+          .from(outpostOccupations)
+          .where(inArray(outpostOccupations.outpostId, tileIds));
+        const guildIdByTileId = new Map(
+          occRows.map((o) => [o.outpostId, o.guildId]),
         );
         // 길드 id → 이름/색 일괄 조회(지도 길드색·길드홈 표시용).
-        const gIds = [...new Set(memberRows.map((m) => m.guildId))];
+        const gIds = [
+          ...new Set(
+            occRows.map((o) => o.guildId).filter((g): g is number => g != null),
+          ),
+        ];
         const guildNameById = new Map<number, string>();
         const guildColorById = new Map<number, string>();
         if (gIds.length > 0) {
@@ -594,7 +601,8 @@ export async function GET() {
           }
         }
         return rows.map((r) => {
-          const gid = guildIdByUser.get(r.userId) ?? null;
+          const gid =
+            guildIdByTileId.get(tileOutpostId(r.col, r.row)) ?? null;
           return {
             col: r.col,
             row: r.row,

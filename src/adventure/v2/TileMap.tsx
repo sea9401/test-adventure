@@ -25,7 +25,6 @@ import {
   TILE_BOARD_SIZE,
   TILE_OUTPOST_AT,
   TILE_POS_BY_OUTPOST,
-  TILE_KEPT_OUTPOST_IDS,
   tileKey,
   TILE_TIER_LABEL,
   TILE_FOUND_COST,
@@ -73,7 +72,6 @@ const tierOf = (t: string): TileSettlementTier =>
 
 export function TileMap({
   onTravelToTile,
-  onTravelTo,
   tilePos,
   tileSettlements,
   onFoundTile,
@@ -87,8 +85,6 @@ export function TileMap({
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
   onTravelToTile?: (col: number, row: number) => void;
-  // 거점 직접 이동 — 보드 밖 거점(옛 23거점 중 9 외)도 이동 가능하게(공존). visit-outpost.
-  onTravelTo?: (o: Outpost) => void;
   tilePos?: { col: number; row: number } | null;
   // 개척 정착지(Phase 3).
   tileSettlements?: TileSettlementLite[];
@@ -127,16 +123,6 @@ export function TileMap({
         : OUTPOST_NPC_TAX_RATE;
     return Math.round((Number.isFinite(raw) ? raw : OUTPOST_NPC_TAX_RATE) * 100);
   };
-
-  // 보드 밖 거점 — 옛 23거점 중 보드(9) 외 14개. 공존: 전쟁/도시/마을이 계속 살아있으므로
-  // 새 지도에서도 이동 가능하게 목록으로 노출(분쟁지대 먼저). 옛 ContinentMap travel 파리티 유지.
-  const offBoardOutposts = OUTPOSTS.filter(
-    (o) => !TILE_KEPT_OUTPOST_IDS.has(o.id),
-  ).sort(
-    (a, b) =>
-      (CONFLICT_ZONE_IDS.has(a.id) ? 0 : 1) -
-      (CONFLICT_ZONE_IDS.has(b.id) ? 0 : 1),
-  );
 
   const boardPx = TILE_BOARD_SIZE * CELL + (TILE_BOARD_SIZE - 1) * GAP;
   const iconPx = Math.round(CELL * 0.5);
@@ -436,54 +422,6 @@ export function TileMap({
             </div>
           </div>
         ))}
-
-      {/* 다른 지역 거점 — 보드 밖(공존). 전쟁 분쟁지대·도시·마을 등 옛 거점 이동 유지. */}
-      {onTravelTo && offBoardOutposts.length > 0 && (
-        <details className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-zinc-400">
-            다른 지역 거점{" "}
-            <span className="text-zinc-600">· 보드 밖 {offBoardOutposts.length}</span>
-          </summary>
-          <div className="flex flex-col gap-1 px-3 pb-3">
-            {offBoardOutposts.map((o) => {
-              const label = ownerLabelOf(o);
-              const isCurrent = currentOutpostId === o.id;
-              const conflict = CONFLICT_ZONE_IDS.has(o.id);
-              return (
-                <div
-                  key={o.id}
-                  className="flex items-center justify-between gap-2 rounded-md bg-zinc-900/60 px-2.5 py-1.5"
-                >
-                  <div className="min-w-0">
-                    <span className="text-xs text-zinc-200">{o.name}</span>
-                    {conflict && (
-                      <span className="ml-1.5 text-[11px] text-rose-400">분쟁</span>
-                    )}
-                    {label && (
-                      <span className="ml-1.5 text-[11px] text-zinc-500">
-                        {label}
-                      </span>
-                    )}
-                  </div>
-                  {isCurrent ? (
-                    <span className="shrink-0 text-[11px] text-emerald-300">
-                      현재 위치
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onTravelTo(o)}
-                      className="shrink-0 rounded-md border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-zinc-800"
-                    >
-                      이동
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
     </main>
   );
 }

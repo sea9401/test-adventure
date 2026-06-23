@@ -177,7 +177,15 @@ export type BattleStats = {
   magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
 };
 
-// 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피 등) 펼침. 플레이어 카드·적 칸 공용.
+// 상세 스탯 칩 — 항목별 은은한 색 강조(명중/회피/치명/마공).
+const DETAIL_COLOR: Record<string, string> = {
+  명중: "text-sky-600 dark:text-sky-400",
+  회피: "text-cyan-600 dark:text-cyan-400",
+  치명: "text-amber-600 dark:text-amber-400",
+  마공: "text-violet-600 dark:text-violet-400",
+};
+
+// 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피/치명/마공) 칩 펼침. 플레이어 카드·적 칸 공용.
 export function BattleStatStrip({
   stats,
   center = false,
@@ -186,21 +194,13 @@ export function BattleStatStrip({
   center?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const details: { label: string; value: string }[] = [];
-  if (stats.accuracy != null)
-    details.push({ label: "명중", value: String(Math.round(stats.accuracy)) });
-  if (stats.evasionPct != null)
-    details.push({ label: "회피", value: `${Math.round(stats.evasionPct)}%` });
-  if ((stats.critChancePct ?? 0) > 0)
-    details.push({
-      label: "치명",
-      value: `${Math.round(stats.critChancePct as number)}%`,
-    });
-  if ((stats.magicAtk ?? 0) > 0)
-    details.push({
-      label: "마공",
-      value: String(Math.round(stats.magicAtk as number)),
-    });
+  // 명중·회피·치명·마공 4종을 항상 표시(값 없으면 0) — 적·플레이어 대칭.
+  const details: { label: string; value: string }[] = [
+    { label: "명중", value: String(Math.round(stats.accuracy ?? 0)) },
+    { label: "회피", value: `${Math.round(stats.evasionPct ?? 0)}%` },
+    { label: "치명", value: `${Math.round(stats.critChancePct ?? 0)}%` },
+    { label: "마공", value: String(Math.round(stats.magicAtk ?? 0)) },
+  ];
   const hasDetails = details.length > 0;
   const align = center ? " justify-center" : "";
   const dim = "text-zinc-400 dark:text-zinc-500";
@@ -230,11 +230,21 @@ export function BattleStatStrip({
       </button>
       {hasDetails && open && (
         <div
-          className={`mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400${align}`}
+          className={`mt-1 flex flex-wrap gap-1 text-[10px] tabular-nums${align}`}
         >
           {details.map((d) => (
-            <span key={d.label}>
-              <span className={dim}>{d.label}</span> {d.value}
+            <span
+              key={d.label}
+              className="inline-flex items-baseline gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 dark:bg-zinc-800/70"
+            >
+              <span className={dim}>{d.label}</span>
+              <span
+                className={`font-medium ${
+                  DETAIL_COLOR[d.label] ?? "text-zinc-700 dark:text-zinc-200"
+                }`}
+              >
+                {d.value}
+              </span>
             </span>
           ))}
         </div>
@@ -486,6 +496,12 @@ export function BattleScene({
                       spd: state.enemy.spd,
                       accuracy: state.enemy.accuracy,
                       evasionPct: state.enemy.evasionPct,
+                      // 치명형 몹 critPct·마법형 몹 atk(=마공). 미보유는 0 표시(대칭).
+                      critChancePct: state.enemy.critPct,
+                      magicAtk:
+                        state.enemy.atkType === "magic"
+                          ? state.enemy.atk
+                          : undefined,
                     }}
                   />
                 )}

@@ -18,6 +18,11 @@ import {
   isTileSettlementTier,
   tileSettlementName,
 } from "@/adventure/data/v2/tileConfig";
+import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  createTileGuildOccupation,
+  removeTileWarfare,
+} from "@/lib/server/tileOccupation";
 
 // POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거. (자유 타일 지도 Phase 3)
 //
@@ -131,6 +136,15 @@ export async function POST(req: Request) {
         tier: "frontier",
         name: tileSettlementName(col, row),
       });
+      // 길드원이 개척하면 길드 점령행 생성(길드 자산화). 플래그 off → 무생성(라이브 무접촉).
+      if (V2_TILE_WARFARE) {
+        await createTileGuildOccupation(tx, {
+          userId,
+          col,
+          row,
+          tier: "frontier",
+        });
+      }
       return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
     }
 
@@ -144,6 +158,8 @@ export async function POST(req: Request) {
       await tx
         .delete(tileSettlements)
         .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
+      // 전쟁 행 정리 — 점령/금고/수비큐/영주(무행이면 no-op·플래그 무관 항상 안전).
+      await removeTileWarfare(tx, col, row);
       const cur = await chargeGold(tx, userId, 0); // 읽기용(과금 0).
       return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
     }

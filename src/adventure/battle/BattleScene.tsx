@@ -218,13 +218,13 @@ export function BattleStatStrip({
         }`}
       >
         <span>
-          <span className={dim}>공</span> {stats.atk.toLocaleString()}
+          <span className={dim}>공</span> {(stats.atk ?? 0).toLocaleString()}
         </span>
         <span>
-          <span className={dim}>방</span> {stats.def.toLocaleString()}
+          <span className={dim}>방</span> {(stats.def ?? 0).toLocaleString()}
         </span>
         <span>
-          <span className={dim}>속</span> {stats.spd.toLocaleString()}
+          <span className={dim}>속</span> {(stats.spd ?? 0).toLocaleString()}
         </span>
         {hasDetails && <span className={dim}>{open ? "▴" : "▾"}</span>}
       </button>
@@ -475,17 +475,20 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
-                {/* 공/방/속 — 누르면 명중/회피 펼침. */}
-                <BattleStatStrip
-                  center
-                  stats={{
-                    atk: state.enemy.atk,
-                    def: state.enemy.def,
-                    spd: state.enemy.spd,
-                    accuracy: state.enemy.accuracy,
-                    evasionPct: state.enemy.evasionPct,
-                  }}
-                />
+                {/* 공/방/속 — 누르면 명중/회피 펼침. 리플레이/PvP enemy 는 스탯이 없을 수
+                    있어(payload 부분 객체) atk 숫자일 때만 렌더 — 없으면 표시 생략(크래시 방지). */}
+                {typeof state.enemy.atk === "number" && (
+                  <BattleStatStrip
+                    center
+                    stats={{
+                      atk: state.enemy.atk,
+                      def: state.enemy.def,
+                      spd: state.enemy.spd,
+                      accuracy: state.enemy.accuracy,
+                      evasionPct: state.enemy.evasionPct,
+                    }}
+                  />
+                )}
               </div>
             </div>
           </div>

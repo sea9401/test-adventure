@@ -152,7 +152,7 @@ function runHunt(
   for (const b of builds) {
     let totalKills = 0;
     let deaths = 0;
-    let totalEnemyEncounters: Record<string, number> = {};
+    const totalEnemyEncounters: Record<string, number> = {};
     let totalSessionHp = 0;
     let totalSessionsCompleted = 0;
     let totalEarnedExp = 0;

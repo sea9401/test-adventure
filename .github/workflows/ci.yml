@@ -29,5 +29,8 @@ jobs:
         run: npm run check-images
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
+      # ESLint — 에러 시 실패(경고는 비차단). 린트 부채 누적 방지 게이트.
+      - name: Lint (eslint)
+        run: npm run lint
       - name: Tests (vitest)
         run: npx vitest run

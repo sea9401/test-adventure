@@ -445,6 +445,9 @@ export function V2DungeonFloorView({
       void runBatch(huntCount);
     }
   };
+  // "최신 핸들러" ref 패턴(인터벌/keydown 리스너가 최신 클로저를 호출하도록). 렌더 중 ref
+  // 갱신이라 규칙에 걸리나 동작은 의도대로 — 후속(effect 로 이전)으로 정리 예정.
+  // eslint-disable-next-line react-hooks/refs
   triggerHuntRef.current = triggerHunt;
 
   // 사냥 버튼/스페이스바 동작. 코어루프 on = 버튼이 곧 자동 사냥 토글(누르면 켜고 첫 판 즉시,
@@ -463,6 +466,8 @@ export function V2DungeonFloorView({
     setAutoHunt(true);
     triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시 발동.
   };
+  // "최신 핸들러" ref 패턴 — 위와 동일(후속 정리 예정).
+  // eslint-disable-next-line react-hooks/refs
   huntButtonRef.current = onHuntPress;
 
   return (

@@ -69,7 +69,7 @@ function levelForDepth(depth: number): number {
 }
 
 const evaRating = (s: Record<V2StatKey, number>) => s.dex * EVA_PER_DEX + s.luk * EVA_PER_LUK;
-const accRating = (s: Record<V2StatKey, number>) =>
+const _accRating = (s: Record<V2StatKey, number>) =>
   s.dex * ACC_PER_DEX + s.str * ACC_PER_STR + s.int * ACC_PER_INT + s.spi * ACC_PER_SPI;
 
 // 대결형 회피확률.

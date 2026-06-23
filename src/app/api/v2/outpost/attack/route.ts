@@ -27,7 +27,9 @@ import {
   resolveOutpostMeta,
   isTileOutpostId,
   parseTileOutpostId,
+  isTileAdjacentToNeutralOutpost,
 } from "@/adventure/data/v2/tileWarfare";
+import { guildTileFoothold } from "@/lib/server/tileWarfareGates";
 import {
   isTileSettlementTier,
   tilePrevTier,
@@ -74,7 +76,12 @@ import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 // 🔑 건강도 MP 메모: resolveBattlePvP 는 매치 시작 시 MP 풀충전(engine-pvp). vigor.mp 는 전투
 //   "시작"에 미반영(HP 가 전쟁 소모 축). 전투 후엔 hp/mp 둘 다 vigor 로 저장.
 
-type WarVigorSave = { warVigor?: unknown; [k: string]: unknown };
+type WarVigorSave = {
+  warVigor?: unknown;
+  // 자유 타일 지도 위치 마커(move-tile 갱신) — 약탈 "현지 위치" 게이트에 사용.
+  tilePos?: { col?: number; row?: number };
+  [k: string]: unknown;
+};
 
 export async function POST(req: Request) {
   if (!V2_SETTLEMENT_WARFARE) {
@@ -228,6 +235,43 @@ export async function POST(req: Request) {
     const attackerName = await resolveUserDisplayName(userId);
     const attackerVigor = parseWarVigor(attackerSave.warVigor);
     const aMaxMp = attacker.player.maxMp ?? 0;
+
+    // === 위치/인접 게이트 (타일 정착지 대상만 — 옛 카탈로그 거점은 오프보드·inert 라 현행 유지) ===
+    //   약탈 = 대상 정착지 칸에 "위치"해야(tilePos 일치). 멀리서 약탈 불가.
+    //   정복 = 내 길드 영지에 4방향 인접한 칸만(연속 확장). 땅 없는 길드는 중립 거점 인접에서 발판.
+    //   전투/건강도 소모 전(여기서) 거부해 무효 시도에 비용이 들지 않게 한다.
+    if (isTileOutpostId(outpost.id)) {
+      const pos = parseTileOutpostId(outpost.id);
+      if (pos) {
+        if (mode === "raid") {
+          const tp = attackerSave.tilePos;
+          if (!tp || tp.col !== pos.col || tp.row !== pos.row) {
+            return {
+              status: 400,
+              body: { ok: false as const, error: "not_present" },
+            };
+          }
+        } else {
+          // conquest — attackerGuildId 는 위 no_guild 가드 통과로 non-null.
+          const foothold = await guildTileFoothold(
+            tx,
+            attackerGuildId,
+            pos.col,
+            pos.row,
+          );
+          const allowed =
+            foothold.adjacentOwned ||
+            (!foothold.ownsAny &&
+              isTileAdjacentToNeutralOutpost(pos.col, pos.row));
+          if (!allowed) {
+            return {
+              status: 400,
+              body: { ok: false as const, error: "no_foothold" },
+            };
+          }
+        }
+      }
+    }
 
     // ===================== 약탈(raid) =====================
     if (mode === "raid") {

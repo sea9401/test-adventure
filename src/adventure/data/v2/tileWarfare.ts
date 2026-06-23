@@ -16,7 +16,9 @@ import { computeNextAttackAt } from "./npcAttack";
 import { FORT_MAX_HP, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
 import {
   TILE_BOARD_SIZE,
+  TILE_OUTPOSTS,
   TILE_SETTLEMENT_TIERS,
+  areTilesAdjacent4,
   tileSettlementName,
   type TileCoord,
   type TileSettlementTier,
@@ -145,4 +147,21 @@ export function buildTileOccupationValues(args: {
     fortUpdatedAt: new Date(now),
     protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
   };
+}
+
+// === 중립 거점 인접(영토 PvP 부트스트랩) ============================================
+// 땅 없는 길드는 "중립 거점(리베라 같은 절대중립 거점)"에 인접한 칸을 정복해 첫 발판을 얻는다.
+//   보드 위 중립 거점 칸 = TILE_OUTPOSTS 중 카탈로그 메타가 neutral 인 것(현재 리베라 4,4 하나).
+export const NEUTRAL_TILE_OUTPOST_CELLS: TileCoord[] = TILE_OUTPOSTS.filter(
+  (t) => OUTPOST_BY_ID.get(t.id)?.neutral,
+).map((t) => ({ col: t.col, row: t.row }));
+
+// (col,row) 칸이 중립 거점 칸 중 하나와 4방향 인접인가.
+export function isTileAdjacentToNeutralOutpost(
+  col: number,
+  row: number,
+): boolean {
+  return NEUTRAL_TILE_OUTPOST_CELLS.some((c) =>
+    areTilesAdjacent4(col, row, c.col, c.row),
+  );
 }

@@ -354,9 +354,9 @@ export function TileMap({
             const canManage =
               (V2_TILE_WARFARE && !isSolo && ours) ||
               (V2_TILE_PRODUCTION && isSolo && mine);
-            // 공격: 남의 솔로 타일=누구나, 남의 길드 영지=길드 소속만(백엔드 규칙 미러).
-            const canAttack =
-              V2_TILE_WARFARE && !ours && (isSolo || viewerGuildId != null);
+            // 공격: 남의 타일이면 누구나(솔로/길드 무관). 솔로 공격자는 막타 시 빈땅(점령 못 함),
+            //   길드 공격자는 인수. 카탈로그 거점이 아닌 타일 정착지라 철거(빈땅)가 성립.
+            const canAttack = V2_TILE_WARFARE && !ours;
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
                 <div className="min-w-0">

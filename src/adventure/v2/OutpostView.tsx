@@ -95,6 +95,7 @@ export function OutpostView({
     | {
         clearedQueue: boolean;
         captured: boolean;
+        razed: boolean;
         fortHp: number;
         fortMaxHp: number;
         downgradedTo: string | null;
@@ -202,15 +203,15 @@ export function OutpostView({
   const canManageSettlement =
     (isGuildMember && (guildIsMaster || guildRole === "vice_master")) ||
     isSoloTileOwner;
-  // 남의 솔로 타일 정착지(점령행=solo·occupiedByUserId 주인) — 정복(conquest)만 가능(금고 없어
-  //   약탈 X). 공격 주체는 누구나(길드 무관). 본인은 위 isSoloTileOwner 로 관리 분기.
-  const isSoloTileTarget =
+  // 비-소유자가 정복할 수 있는 대상인가 — 타일이면 누구나(솔로/길드 영지 무관), 카탈로그 정적
+  //   거점은 철거(빈땅) 불가라 길드 viewer + 길드 점령만. occupation 없으면 불가. (비-소유 브랜치 전용)
+  const isTile = isTileOutpostId(outpost.id);
+  const showConquer =
     V2_SETTLEMENT_WARFARE &&
-    isTileOutpostId(outpost.id) &&
     occupation != null &&
-    occupation.occupiedByGuildId == null &&
-    occupation.occupiedByUserId != null &&
-    occupation.occupiedByUserId !== viewerUserId;
+    (isTile || (viewerGuildId != null && occupation.occupiedByGuildId != null));
+  // 막타가 솔로 viewer(무길드)면 빈땅(철거·소유 못 함), 길드 viewer면 인수(소유 이전).
+  const conquerRazes = viewerGuildId == null;
   // 거점 지형 특성 — 옛 type 라벨 대신 헤더에 표기(맞는 생산물 +보너스).
   const trait = terrainTraitOf(outpost.id);
 
@@ -335,6 +336,7 @@ export function OutpostView({
             ok: true;
             clearedQueue: boolean;
             captured: boolean;
+            razed: boolean;
             fortHp: number;
             fortMaxHp: number;
             downgradedTo: string | null;
@@ -353,6 +355,7 @@ export function OutpostView({
       setConquestResult({
         clearedQueue: json.clearedQueue,
         captured: json.captured,
+        razed: json.razed,
         fortHp: json.fortHp,
         fortMaxHp: json.fortMaxHp,
         downgradedTo: json.downgradedTo,
@@ -549,7 +552,7 @@ export function OutpostView({
             {/* 옛 공성/점령(3:3 토너먼트) — 정착지 전쟁 on 이면 적 길드 거점·남의 솔로 타일에선
                 숨김(약탈/정복으로 일원화). 미점령/NPC 거점 점령은 그대로(새 영토 확보 경로). */}
             {!(V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null) &&
-              !isSoloTileTarget && (
+              !showConquer && (
               <ActionCard
                 title={
                   claimDisabled
@@ -569,11 +572,11 @@ export function OutpostView({
                 loading={busy}
               />
             )}
-            {/* 정착지 전쟁 약탈/정복 — 적 길드 점령 거점만(NPC 거점 제외)·길드원만. 플래그 on 전용. */}
+            {/* 약탈 — 길드 viewer + 길드 점령 대상만(금고 50% 탈취). 솔로 타일은 금고가 없어 제외.
+                플래그 on 전용. */}
             {V2_SETTLEMENT_WARFARE &&
               viewerGuildId != null &&
               occupation?.occupiedByGuildId != null && (
-              <>
                 <ActionCard
                   title="약탈 시도"
                   subtitle="수비대 1번과 건강도 결투 — 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
@@ -581,20 +584,17 @@ export function OutpostView({
                   disabled={busy}
                   loading={busy}
                 />
-                <ActionCard
-                  title="정복 시도"
-                  subtitle="수비대 전원과 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락(마을 1단계 강등·소유 이전). 한 번에 안 되니 여러 차례 공격해 성벽을 무너뜨려야 함."
-                  onClick={attemptConquest}
-                  disabled={busy}
-                  loading={busy}
-                />
-              </>
-            )}
-            {/* 남의 솔로(개인) 타일 — 정복만(금고 없어 약탈 X). 공격 주체는 누구나(길드 무관). */}
-            {isSoloTileTarget && (
+              )}
+            {/* 정복 — 타일=누구나, 카탈로그 거점=길드 viewer + 길드 점령. 막타가 솔로면 빈땅(철거),
+                길드면 인수. 솔로 viewer 도 길드 영지를 칠 수 있으나 소유는 못 하고 철거만. */}
+            {showConquer && (
               <ActionCard
                 title="정복 시도"
-                subtitle="개척자(주인)와 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락(정착지 1단계 강등·소유 이전). 한 번에 안 되니 여러 차례 공격해야 함. 개인 정착지라 약탈은 불가."
+                subtitle={
+                  conquerRazes
+                    ? "수비(개척자/수비대)와 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락. 개인은 점령할 수 없어 함락 시 빈땅으로 철거됩니다(여러 차례 공격 필요)."
+                    : "수비대 전원과 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락(마을 1단계 강등·소유 이전). 한 번에 안 되니 여러 차례 공격해야 함."
+                }
                 onClick={attemptConquest}
                 disabled={busy}
                 loading={busy}
@@ -649,13 +649,21 @@ export function OutpostView({
                 {conquestResult}
               </span>
             ) : conquestResult.captured ? (
-              <span>
-                <strong>함락!</strong> 거점을 점령했습니다
-                {conquestResult.downgradedTo
-                  ? ` — 마을이 ${conquestResult.downgradedTo}(으)로 강등됨`
-                  : ""}
-                .
-              </span>
+              conquestResult.razed ? (
+                <span>
+                  <strong>함락!</strong> 정착지를 무너뜨려 빈땅으로 만들었습니다
+                  (개인은 점령할 수 없어 철거). 빈 칸이 되어 누구든 새로 개척할 수
+                  있습니다.
+                </span>
+              ) : (
+                <span>
+                  <strong>함락!</strong> 거점을 점령했습니다
+                  {conquestResult.downgradedTo
+                    ? ` — 마을이 ${conquestResult.downgradedTo}(으)로 강등됨`
+                    : ""}
+                  .
+                </span>
+              )
             ) : conquestResult.clearedQueue ? (
               <span>
                 수비대 {conquestResult.defendersDefeated}명 격파 · 성벽{" "}

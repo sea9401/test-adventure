@@ -200,31 +200,25 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
   const soloOcc = (over: Record<string, unknown> = {}) =>
     occRow({ occupiedByGuildId: null, occupiedByUserId: "u-owner", ...over });
 
-  it("솔로 공격자(무길드) → 솔로 타일 정복 → 개인 소유 인수(guild=null·tile userId=공격자)", async () => {
+  it("솔로 공격자(무길드) → 솔로 타일 정복(막타) → 빈땅 철거(razed·인수 아님)", async () => {
     h.attackerGuildId = null; // 무길드 공격자
     h.occ = soloOcc({ fortHp: 10 }); // 주인(u-owner) 격파 후 1격 함락
     const res = await POST(req({ outpostId: "tile:5,5", mode: "conquest" }));
     expect(res.status).toBe(200);
-    expect((await res.json()) as { captured: boolean }).toMatchObject({
-      captured: true,
-    });
-    // 점령행 이관: 솔로→개인(공격자) — occupiedByGuildId null 유지.
-    expect(h.occUpdates).toContainEqual(
-      expect.objectContaining({
-        occupiedByUserId: "u-atk",
-        occupiedByGuildId: null,
-      }),
-    );
-    expect(h.tileUpdates).toContainEqual(
-      expect.objectContaining({ userId: "u-atk" }),
-    );
+    const json = (await res.json()) as { captured: boolean; razed: boolean };
+    expect(json.captured).toBe(true);
+    expect(json.razed).toBe(true);
+    // 철거 = 점령행/정착지 삭제 → 소유 이관(update) 없음.
+    expect(h.occUpdates).toHaveLength(0);
+    expect(h.tileUpdates).toHaveLength(0);
   });
 
-  it("길드 공격자 → 솔로 타일 정복 → 길드 영지로 인수(occupiedByGuildId=공격자 길드)", async () => {
+  it("길드 공격자 → 솔로 타일 정복 → 길드 영지로 인수(razed=false·occupiedByGuildId=공격자 길드)", async () => {
     h.attackerGuildId = 7;
     h.occ = soloOcc({ fortHp: 10 });
     const res = await POST(req({ outpostId: "tile:5,6", mode: "conquest" }));
     expect(res.status).toBe(200);
+    expect(((await res.json()) as { razed: boolean }).razed).toBe(false);
     expect(h.occUpdates).toContainEqual(
       expect.objectContaining({
         occupiedByUserId: "u-atk",
@@ -242,12 +236,19 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
     );
   });
 
-  it("솔로 공격자 → 길드 영지 공격 → no_guild (개인은 길드 땅 공격 불가)", async () => {
-    h.attackerGuildId = null;
-    h.occ = occRow({ occupiedByGuildId: 99, occupiedByUserId: "u-owner" });
+  it("솔로 공격자 → 길드 영지(타일) 정복(막타) → 빈땅 철거(razed·인수 아님)", async () => {
+    h.attackerGuildId = null; // 무길드도 길드 영지 공격 가능 — 단 소유 못 하고 철거만
+    h.occ = occRow({
+      occupiedByGuildId: 99,
+      occupiedByUserId: "u-owner",
+      fortHp: 10,
+    });
     const res = await POST(req({ outpostId: "tile:5,8", mode: "conquest" }));
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as { error: string }).error).toBe("no_guild");
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { captured: boolean; razed: boolean };
+    expect(json.captured).toBe(true);
+    expect(json.razed).toBe(true);
+    expect(h.occUpdates).toHaveLength(0); // 이관 update 없음(삭제)
   });
 
   it("본인 솔로 타일 공격 → already_yours", async () => {

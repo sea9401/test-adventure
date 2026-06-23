@@ -5,8 +5,21 @@ import {
   PlayerAvatar,
   HpBar as StatBar,
   RecoveryReadout,
+  BattleStatStrip,
   type BattlePlayerStatus,
 } from "@/adventure/battle/BattleScene";
+
+// 플레이어 유효 전투 스탯 — me/state 의 combat. 사냥 카드 공/방/속 표기용(상세=명중/회피/치명).
+export type PlayerCombatStats = {
+  atk: number;
+  def: number;
+  spd: number;
+  magicAtk?: number;
+  accuracyPct?: number;
+  accRating?: number;
+  evasionPct?: number;
+  critChancePct?: number;
+};
 import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
 import { MpBar } from "@/adventure/v2/MpBar";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -25,6 +38,7 @@ export function PlayerStatusCard({
   hpCharges,
   mpCharges,
   hasMp = false,
+  combat,
 }: {
   gender: Gender;
   name: string;
@@ -39,6 +53,8 @@ export function PlayerStatusCard({
   hpCharges?: number;
   mpCharges?: number;
   hasMp?: boolean;
+  // 유효 전투 스탯 — 공/방/속(+상세). 미전달이면 미표시.
+  combat?: PlayerCombatStats | null;
 }) {
   const hasExp = typeof exp === "number" && typeof maxExp === "number";
   const playerStatus: BattlePlayerStatus = {
@@ -72,6 +88,19 @@ export function PlayerStatusCard({
               value={playerStatus.exp}
               max={playerStatus.maxExp}
               color="bg-amber-400"
+            />
+          )}
+          {combat && (
+            <BattleStatStrip
+              stats={{
+                atk: combat.atk,
+                def: combat.def,
+                spd: combat.spd,
+                accuracy: combat.accRating ?? combat.accuracyPct,
+                evasionPct: combat.evasionPct,
+                critChancePct: combat.critChancePct,
+                magicAtk: combat.magicAtk,
+              }}
             />
           )}
           <RecoveryReadout playerStatus={playerStatus} hasMp={hasMp} />

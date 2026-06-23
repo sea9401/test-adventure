@@ -13,7 +13,10 @@ import {
   type BatchSummary,
 } from "@/adventure/v2/BatchSummaryCard";
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
-import { PlayerStatusCard } from "@/adventure/v2/PlayerStatusCard";
+import {
+  PlayerStatusCard,
+  type PlayerCombatStats,
+} from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
 import { HUNT_COST, type StaminaState } from "@/adventure/v2/stamina";
 import { HUNT_COOLDOWN_MS } from "@/adventure/data/v2/coreLoopConfig";
@@ -77,6 +80,7 @@ export function V2DungeonFloorView({
   setHp,
   mp,
   setMp,
+  playerCombat,
   onSeekHealing,
   onBack,
   playerSubtitle,
@@ -106,6 +110,8 @@ export function V2DungeonFloorView({
   // 전역 MP + setter — 사냥 후 갱신. 미전달이면 MP 바 비표시(dev 하니스).
   mp?: { mp: number; maxMp: number } | null;
   setMp?: (s: { mp: number; maxMp: number }) => void;
+  // 유효 전투 스탯(공/방/속+상세) — 캐릭터 카드 표기용. me/state 권위.
+  playerCombat?: PlayerCombatStats | null;
   // "치료소로 가기" — 마을 치료소 뷰로 이동. 미전달이면 버튼 숨김.
   onSeekHealing?: () => void;
   onBack: () => void;
@@ -503,6 +509,7 @@ export function V2DungeonFloorView({
           hpCharges={lastResult?.hpCharges ?? batchStatus?.hpCharges}
           mpCharges={lastResult?.mpCharges ?? batchStatus?.mpCharges}
           hasMp={(mp?.maxMp ?? 0) > 0}
+          combat={playerCombat}
         />
       )}
 

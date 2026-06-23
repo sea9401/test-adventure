@@ -95,7 +95,7 @@ export function V2LoadoutPanel({
   if (loadout.library.length === 0) {
     return (
       <Card padding="md">
-        <h2 className="text-sm font-semibold">로드아웃</h2>
+        <h2 className="text-sm font-semibold">스킬</h2>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           아직 배운 스킬이 없어요. 아래에서 스킬을 먼저 배우세요.
         </p>
@@ -106,7 +106,7 @@ export function V2LoadoutPanel({
   return (
     <Card padding="md">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold">로드아웃</h2>
+        <h2 className="text-sm font-semibold">스킬</h2>
         <span className="text-xs text-zinc-500 dark:text-zinc-400">
           스킬포인트{" "}
           <strong className="tabular-nums text-violet-700 dark:text-violet-400">

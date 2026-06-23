@@ -137,7 +137,7 @@ export function V2SkillLearnView({
       {!loading && elementalSkills.length > 0 && (
         <Card padding="md">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="text-sm font-semibold">스킬</h2>
+            <h2 className="text-sm font-semibold">학습</h2>
             <div className="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
               <span>
                 숙달 포인트{" "}
@@ -149,7 +149,7 @@ export function V2SkillLearnView({
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {loadout
-              ? "학습한 스킬은 라이브러리에 영구 보관됩니다. 위 로드아웃에서 스킬포인트 예산 안으로 장착하세요."
+              ? "학습한 스킬은 라이브러리에 영구 보관됩니다. 위 스킬에서 스킬포인트 예산 안으로 장착하세요."
               : "학습한 스킬은 전투에서 자동 발동합니다. 발동 순서·조건은 전투 패턴에서 설정하세요."}
           </p>
           <ul className="mt-3 space-y-1.5">

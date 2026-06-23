@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { OUTPOSTS, OUTPOST_BY_ID } from "./outposts";
+import { computeNextAttackAt } from "./npcAttack";
+import { FORT_MAX_HP, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
 import {
+  buildTileOccupationValues,
   isKnownOutpostId,
   isTileOutpostId,
   parseTileOutpostId,
@@ -83,6 +86,55 @@ describe("resolveOutpostMeta", () => {
     const o = resolveOutpostMeta("tile:2,2", { tier: "village" });
     expect(o?.id).toBe("tile:2,2");
     expect(o?.tier).toBe(2);
+  });
+});
+
+describe("buildTileOccupationValues", () => {
+  const NOW = 1_700_000_000_000;
+
+  it("길드 점령행 값 — claim 패턴 미러(공성/세율 동일)", () => {
+    const v = buildTileOccupationValues({
+      userId: "u1",
+      guildId: 42,
+      col: 3,
+      row: 5,
+      tier: "village",
+      now: NOW,
+    });
+    expect(v.outpostId).toBe("tile:3,5");
+    expect(v.occupiedByUserId).toBe("u1");
+    expect(v.occupiedByGuildId).toBe(42);
+    expect(v.policy).toBe("open");
+    expect(v.taxRate).toBe("0.100");
+    expect(v.fortHp).toBe(FORT_MAX_HP);
+    expect(v.fortMaxHp).toBe(FORT_MAX_HP);
+    expect(v.fortUpdatedAt.getTime()).toBe(NOW);
+    expect(v.protectedUntil.getTime()).toBe(NOW + POST_CAPTURE_PROTECT_MS);
+  });
+
+  it("nextAttackAt 은 tier 매핑 기반 computeNextAttackAt (frontier→1, city→3)", () => {
+    const frontier = buildTileOccupationValues({
+      userId: "u1",
+      guildId: 1,
+      col: 0,
+      row: 0,
+      tier: "frontier",
+      now: NOW,
+    });
+    expect(frontier.nextAttackAt.getTime()).toBe(
+      computeNextAttackAt(1, NOW).getTime(),
+    );
+    const city = buildTileOccupationValues({
+      userId: "u1",
+      guildId: 1,
+      col: 1,
+      row: 1,
+      tier: "city",
+      now: NOW,
+    });
+    expect(city.nextAttackAt.getTime()).toBe(
+      computeNextAttackAt(3, NOW).getTime(),
+    );
   });
 });
 

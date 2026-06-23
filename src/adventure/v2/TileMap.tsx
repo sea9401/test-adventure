@@ -19,6 +19,8 @@ import {
   OUTPOST_NPC_TAX_RATE,
 } from "@/adventure/data/v2/outposts";
 import { CONFLICT_ZONE_IDS } from "@/adventure/data/v2/outpostGraph";
+import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import { guildColorHex } from "@/adventure/data/guild-colors";
 import {
   TILE_BOARD_SIZE,
@@ -85,6 +87,7 @@ export function TileMap({
   viewerUserId,
   viewerGuildId,
   currentOutpostId,
+  onOpenOutpost,
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
   onTravelToTile?: (col: number, row: number) => void;
@@ -99,6 +102,8 @@ export function TileMap({
   viewerUserId?: string | null;
   viewerGuildId?: number | null;
   currentOutpostId?: string | null;
+  // 거점/타일 전쟁 화면 진입 — /outpost/[id] 딥링크(부모가 router.push 주입).
+  onOpenOutpost?: (id: string) => void;
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
 
@@ -382,6 +387,19 @@ export function TileMap({
                       </button>
                     )
                   )}
+                  {V2_TILE_WARFARE &&
+                    onOpenOutpost &&
+                    selSettlement.guildId != null && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpenOutpost(tileOutpostId(selCol, selRow))
+                        }
+                        className="rounded-md border border-rose-700/60 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-950/40"
+                      >
+                        {mine || sameGuild ? "방어·관리" : "공격"}
+                      </button>
+                    )}
                   {mine && next && onPromoteTile && (
                     <button
                       type="button"

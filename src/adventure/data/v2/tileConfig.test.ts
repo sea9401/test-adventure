@@ -3,11 +3,10 @@ import {
   TILE_SETTLEMENT_TIERS,
   TILE_PROMOTE_COST,
   tileNextTier,
-  tileTierOwnsLand,
   isTileSettlementTier,
 } from "./tileConfig";
 
-// 자유 타일 지도 — 개척 정착지 티어 사슬/영지 보유 순수 로직.
+// 자유 타일 지도 — 개척 정착지 티어 사슬 순수 로직.
 
 describe("tileNextTier — 승격 사슬", () => {
   it("frontier→village→city→metropolis→null(최고)", () => {
@@ -15,15 +14,6 @@ describe("tileNextTier — 승격 사슬", () => {
     expect(tileNextTier("village")).toBe("city");
     expect(tileNextTier("city")).toBe("metropolis");
     expect(tileNextTier("metropolis")).toBeNull();
-  });
-});
-
-describe("tileTierOwnsLand — 개척마을은 땅 미보유, 마을+ 는 영지 보유", () => {
-  it("frontier 만 땅 미보유", () => {
-    expect(tileTierOwnsLand("frontier")).toBe(false);
-    expect(tileTierOwnsLand("village")).toBe(true);
-    expect(tileTierOwnsLand("city")).toBe(true);
-    expect(tileTierOwnsLand("metropolis")).toBe(true);
   });
 });
 

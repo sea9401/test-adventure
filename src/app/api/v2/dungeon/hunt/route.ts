@@ -53,7 +53,11 @@ import {
   parseV2SkillsState,
 } from "@/adventure/data/v2/v2Skills";
 import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  V2_SETTLEMENT_WARFARE,
+  V2_TILE_WARFARE,
+} from "@/adventure/data/v2/settlementWarfareConfig";
+import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
@@ -264,6 +268,8 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   let taxOwnerId: string | null = null;
   let taxRate = 0;
   let npcTaxOutpostId: string | null = null;
+  // 타일 전쟁 — 마커가 길드 점령 정착지 위면 사냥세 행선지(그 타일 금고). charSave lock 후 결정.
+  let tileTaxOutpostId: string | null = null;
   if (
     occRow &&
     occRow.occupiedByUserId &&
@@ -720,12 +726,41 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     equipped: equippedEquip,
   });
 
-  // 세금 계산 — 위에서 결정한 taxOwnerId/npcTaxOutpostId/taxRate 사용.
+  // 타일 전쟁(flag) — 마커(charSave.tilePos)가 길드 점령 정착지 위면 사냥세를 그 타일 금고로
+  //   돌린다(점령자 개인 X·영토 우선). 서버 권위(클라 신뢰 X)·비잠금 read(treasury 키=타일 id
+  //   안정·증분 원자적 → FOR UPDATE 불요로 락 순서 보존). off → 블록 스킵(byte-identical).
+  if (V2_TILE_WARFARE) {
+    const tp = charSave.tilePos as
+      | { col?: unknown; row?: unknown }
+      | null
+      | undefined;
+    const tcol = Number(tp?.col);
+    const trow = Number(tp?.row);
+    if (Number.isInteger(tcol) && Number.isInteger(trow)) {
+      const tId = tileOutpostId(tcol, trow);
+      const [tileOcc] = await tx
+        .select({
+          occupiedByGuildId: outpostOccupations.occupiedByGuildId,
+          taxRate: outpostOccupations.taxRate,
+        })
+        .from(outpostOccupations)
+        .where(eq(outpostOccupations.outpostId, tId))
+        .limit(1);
+      if (tileOcc && tileOcc.occupiedByGuildId != null) {
+        tileTaxOutpostId = tId;
+        taxOwnerId = null;
+        npcTaxOutpostId = null;
+        taxRate = Math.max(0, Math.min(1, Number(tileOcc.taxRate) || 0));
+      }
+    }
+  }
+
+  // 세금 계산 — 위에서 결정한 taxOwnerId/npcTaxOutpostId/tileTaxOutpostId/taxRate 사용.
   // outpost FOR UPDATE 로 정책/세율 스냅샷 — 점령자가 hunt 도중 정책을 바꿔도
   // 이 hunt 는 진입 시점 값으로 처리, 다음 hunt 부터 변경 반영.
   let goldTaxed = 0;
   if (
-    (taxOwnerId || npcTaxOutpostId) &&
+    (taxOwnerId || npcTaxOutpostId || tileTaxOutpostId) &&
     taxRate > 0 &&
     won &&
     goldGross > 0
@@ -1030,12 +1065,34 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
         },
       });
   }
-  // 코어루프 패배 세금 → 그 땅(거점) 금고. 적/NPC 점령지(taxOwnerId||npcTaxOutpostId)만 —
-  //   같은 길드·무거점이면 행선지 없이 순수 sink(보유에서 이미 차감, 자기거래 차단).
-  if (lossTax > 0 && outpostId && (taxOwnerId || npcTaxOutpostId)) {
+  // 타일 전쟁 — 길드 점령 정착지 금고에 누적(영주 수확·약탈 대상). flag off → tileTaxOutpostId null.
+  if (goldTaxed > 0 && tileTaxOutpostId) {
     await tx
       .insert(outpostTreasury)
-      .values({ outpostId, gold: lossTax, updatedAt: new Date(now) })
+      .values({
+        outpostId: tileTaxOutpostId,
+        gold: goldTaxed,
+        updatedAt: new Date(now),
+      })
+      .onConflictDoUpdate({
+        target: outpostTreasury.outpostId,
+        set: {
+          gold: sql`${outpostTreasury.gold} + ${goldTaxed}`,
+          updatedAt: new Date(now),
+        },
+      });
+  }
+  // 코어루프 패배 세금 → 그 땅(거점/타일) 금고. 적/NPC 점령지 또는 영토 타일만 —
+  //   같은 길드·무거점이면 행선지 없이 순수 sink(보유에서 이미 차감, 자기거래 차단).
+  const lossTaxDest = tileTaxOutpostId ?? outpostId;
+  if (
+    lossTax > 0 &&
+    lossTaxDest &&
+    (taxOwnerId || npcTaxOutpostId || tileTaxOutpostId)
+  ) {
+    await tx
+      .insert(outpostTreasury)
+      .values({ outpostId: lossTaxDest, gold: lossTax, updatedAt: new Date(now) })
       .onConflictDoUpdate({
         target: outpostTreasury.outpostId,
         set: {

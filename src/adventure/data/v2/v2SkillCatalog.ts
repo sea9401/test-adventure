@@ -111,4 +111,34 @@ export const V2_BASE_SKILLS = {
     monsterOnly: true,
     effects: [{ kind: "dot", ...V2_DOT_PRESETS.출혈 }],
   },
+  // ── 사냥터 마법몹 시전 스킬 (DungeonEnemy.castSkill) — scaling magic → 플레이어 정신(magicDef)로 경감.
+  //   몹은 attackerMagicAtk 미지정 → atk 폴백(combatShared). mpCost 0(statusSkill 과 동일·자원 무관),
+  //   쿨다운+procChance 게이트. 시전 턴엔 평타 생략 → DPS 대략 중립, 마법몹 "체감" 강화. element 생략
+  //   → 몹 자기 속성으로 정규화(skillElementMult=1·평타와 동일 상성). ⚠️ sim 다이얼(statCoef/baseFlat).
+  mob_arcane_bolt: {
+    id: "mob_arcane_bolt",
+    name: "마력탄",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "응축한 마력탄을 쏘아 박는다.",
+    mpCost: 0,
+    cooldown: 3,
+    procChance: 50,
+    monsterOnly: true,
+    effects: [{ kind: "damage", statCoef: 1.0, baseFlat: 15, scaling: "magic" }],
+  },
+  mob_arcane_burst: {
+    id: "mob_arcane_burst",
+    name: "비전 작렬",
+    stat: "int",
+    category: "attack",
+    tier: 2,
+    description: "비전 마력을 모아 한꺼번에 터뜨린다.",
+    mpCost: 0,
+    cooldown: 4,
+    procChance: 45,
+    monsterOnly: true,
+    effects: [{ kind: "damage", statCoef: 1.35, baseFlat: 30, scaling: "magic" }],
+  },
 } satisfies Partial<Record<V2SkillId, V2SkillDefinition>>;

@@ -3,7 +3,7 @@
 // 라이브의 전투 엔진·스킬·아이템·강화·마법부여는 그대로 재활용 (Monster 타입 등도 공유).
 
 import type { V2Element } from "./elements";
-import type { V2MonsterStatusSkillId } from "./v2Skills";
+import type { V2MonsterStatusSkillId, V2MonsterCastSkillId } from "./v2Skills";
 
 // === 던전 (PvE 성장의 주 무대) ===
 
@@ -29,6 +29,9 @@ export type DungeonEnemy = {
   /** PR-9 — 이 사냥터 몹이 플레이어에게 거는 상태이상 스킬(monsterOnly v2 스킬). v2 전용(라이브 무영향).
    *  hunt 가 enemyMonster.v2Skills 로 시드 → 엔진 적 페이즈에서 DoT/디버프 적용. */
   statusSkill?: V2MonsterStatusSkillId;
+  /** 마법몹 시전 스킬(monsterOnly·scaling magic). hunt 가 statusSkill 과 병합해 v2Skills 로 시드 →
+   *  마법 평타 대신 시전(시전 턴 평타 생략). 마법몹(atkType:"magic")에 붙여 "주문을 쓰는" 체감 강화. */
+  castSkill?: V2MonsterCastSkillId;
 };
 
 export type DungeonFloor = {

@@ -41,9 +41,9 @@ const BAND_A_CANYON_ENEMIES: DungeonEnemy[] = [
 const BAND_B_LAKE_ENEMIES: DungeonEnemy[] = [
   { key: "서리 늑대", name: "서리 늑대", image: "/images/monster/v2/snow-leopard.webp", element: "water" },
   { key: "빙벽 골렘", name: "빙벽 골렘", image: "/images/monster/v2/snow-ice-colossus.webp", element: "water" },
-  { key: "얼음 정령", name: "얼음 정령", image: "/images/monster/v2/snow-ice-sprite.webp", element: "water", statusSkill: "mob_chilling_touch" },
+  { key: "얼음 정령", name: "얼음 정령", image: "/images/monster/v2/snow-ice-sprite.webp", element: "water", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_bolt" },
   { key: "눈보라 매", name: "눈보라 매", image: "/images/monster/v2/snow-blizzard-hunter.webp", element: "wind" },
-  { key: "호수 망령", name: "호수 망령", image: "/images/monster/v2/snow-wraith.webp", element: "water", statusSkill: "mob_chilling_touch" },
+  { key: "호수 망령", name: "호수 망령", image: "/images/monster/v2/snow-wraith.webp", element: "water", statusSkill: "mob_chilling_touch", castSkill: "mob_arcane_bolt" },
 ];
 
 // 심층 동굴 — earth·void, 기습(SPD 편차). 중독·출혈 첫 등장.
@@ -59,7 +59,7 @@ const BAND_C_CAVE_ENEMIES: DungeonEnemy[] = [
 // 잊힌 성소 — starlight·earth, 마법 버스트(ATK 편차).
 const BAND_D_SANCTUM_ENEMIES: DungeonEnemy[] = [
   { key: "수호 석상", name: "수호 석상", image: "/images/monster/v2/throne-guardian.webp", element: "earth" },
-  { key: "성소 망령", name: "성소 망령", image: "/images/monster/v2/ruins-wraith.webp", element: "starlight", statusSkill: "mob_rending_claw" },
+  { key: "성소 망령", name: "성소 망령", image: "/images/monster/v2/ruins-wraith.webp", element: "starlight", statusSkill: "mob_rending_claw", castSkill: "mob_arcane_burst" },
   { key: "빛의 정령", name: "빛의 정령", image: "/images/monster/v2/ruins-stardust-sprite.webp", element: "starlight" },
   { key: "타락한 사제", name: "타락한 사제", image: "/images/monster/v2/snow-frost-acolyte.webp", element: "starlight" },
   { key: "별빛 수문장", name: "별빛 수문장", image: "/images/monster/v2/throne-gatekeeper.webp", element: "starlight", statusSkill: "mob_chilling_touch" },
@@ -70,7 +70,7 @@ const BAND_E_SWAMP_ENEMIES: DungeonEnemy[] = [
   { key: "리자드맨 전사", name: "리자드맨 전사", image: "/images/monster/v2/volcano-flame-lizard.webp", element: "earth" },
   { key: "늪 독수", name: "늪 독수", image: "/images/monster/v2/ruins-viper.webp", element: "water", statusSkill: "mob_venom_bite" },
   { key: "수렁 거머리", name: "수렁 거머리", image: "/images/monster/v2/field-slime.webp", element: "water", statusSkill: "mob_rending_claw" },
-  { key: "독안개 정령", name: "독안개 정령", image: "/images/monster/v2/forest-water-sprite.webp", element: "water", statusSkill: "mob_venom_bite" },
+  { key: "독안개 정령", name: "독안개 정령", image: "/images/monster/v2/forest-water-sprite.webp", element: "water", statusSkill: "mob_venom_bite", castSkill: "mob_arcane_bolt" },
   { key: "늪지 도마뱀왕", name: "늪지 도마뱀왕", image: "/images/monster/v2/forest-salamander.webp", element: "earth", statusSkill: "mob_venom_bite" },
 ];
 

@@ -8,7 +8,7 @@
 //   즉시 그 API 들에 노출된다. 그래서 "쓰기"(생성)는 호출부에서 V2_TILE_WARFARE 게이트 뒤에서만
 //   호출한다(라이브 flag off → tile 행 0 → 무노출). 정리(remove)는 항상 안전(무행이면 no-op).
 
-import { and, eq, inArray, isNull, like } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, or } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
@@ -16,17 +16,18 @@ import {
   outpostLords,
   outpostOccupations,
   outpostTreasury,
+  tileSettlements,
 } from "@/db/schema";
 import {
   buildTileOccupationValues,
+  parseTileOutpostId,
   tileOutpostId,
   TILE_OUTPOST_PREFIX,
 } from "@/adventure/data/v2/tileWarfare";
-import type { TileSettlementTier } from "@/adventure/data/v2/tileConfig";
-import {
-  lockGuildResources,
-  upsertGuildResources,
-} from "@/lib/server/v2GuildResources";
+import type {
+  TileCoord,
+  TileSettlementTier,
+} from "@/adventure/data/v2/tileConfig";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -70,10 +71,10 @@ export async function removeTileWarfare(
   await tx.delete(outpostLords).where(eq(outpostLords.outpostId, id));
 }
 
-// === 멤버십 동기화: 타일 점령행 길드 = 소유자의 현재 길드 ============================
-// "타일=소유자의 현재 길드 따라감" 통일 모델. 멤버십 변경 훅(가입/탈퇴/추방/해산)에서 호출해
-//   점령행 occupiedByGuildId 를 소유자 길드와 맞춘다 → 지도 소프트링크(소유자→길드)와 항상 일치.
-//   가입 솔로 타일이 길드 전쟁 자산이 되고, 탈퇴 시 솔로로 복귀. tile id 한정(카탈로그 무접촉).
+// === 멤버십 훅: 영토=길드 소유 모델 ====================================================
+// 점령행 occupiedByGuildId 가 "영토 소유 길드"의 권위(me/state 지도도 이걸로 파생). founder 가
+//   떠나도 길드가 정착지를 유지한다(소프트링크 폐기). 가입/창단=그 유저의 잔존 솔로 타일을 길드로
+//   편입(convertSoloTilesToGuild). 탈퇴/추방=떠난 멤버만 분리(타일은 길드 잔류). 해산=중립화(빈 땅).
 
 // 가입/길드생성 — 그 유저 소유 솔로 타일 점령행을 새 길드로 전환. 가입 시점엔 무길드라 그의
 //   타일은 전부 솔로(guildId null) → guildId 로 set(isNull 가드는 스테일 방어).
@@ -94,46 +95,77 @@ export async function convertSoloTilesToGuild(
     );
 }
 
-// 탈퇴/추방/해산 — 길드 타일 점령행을 솔로로 복귀(occupiedByGuildId=null). 솔로엔 무의미한
-//   수비큐/영주/금고 정리. opts.userId=그 멤버 타일만(탈퇴/추방), 생략=그 길드 전 타일(해산).
-//   opts.depositTreasury=거점 금고를 길드 금고로 입금 후 정리(탈퇴/추방=골드 보존)·해산=false
-//   (길드 금고가 곧 소멸이라 입금 무의미).
-export async function revertGuildTilesToSolo(
+// 탈퇴/추방 — 떠난 멤버를 길드 타일에서 분리. 영토=길드 소유라 점령행(occupiedByGuildId)·정착지·
+//   거점 금고는 그대로 둔다(길드가 정착지·세수 유지). 떠난 멤버의 영주/수비 등록만 정리(더는
+//   길드원 아님 → 스테일 방지). tile id 한정. 무대상이면 no-op(항상 호출 안전).
+export async function releaseMemberFromGuildTiles(
   tx: Tx,
-  opts: { guildId: number; userId?: string; depositTreasury: boolean },
+  guildId: number,
+  userId: string,
 ): Promise<void> {
-  const conds = [
-    eq(outpostOccupations.occupiedByGuildId, opts.guildId),
-    like(outpostOccupations.outpostId, `${TILE_OUTPOST_PREFIX}%`),
-  ];
-  if (opts.userId != null) {
-    conds.push(eq(outpostOccupations.occupiedByUserId, opts.userId));
-  }
   const rows = await tx
     .select({ outpostId: outpostOccupations.outpostId })
     .from(outpostOccupations)
-    .where(and(...conds));
+    .where(
+      and(
+        eq(outpostOccupations.occupiedByGuildId, guildId),
+        like(outpostOccupations.outpostId, `${TILE_OUTPOST_PREFIX}%`),
+      ),
+    );
   if (rows.length === 0) return;
   const ids = rows.map((r) => r.outpostId);
-  // 거점 금고: 탈퇴/추방=길드 금고로 입금(골드 보존)·해산=소멸(입금 생략). 이후 행 제거.
-  if (opts.depositTreasury) {
-    const treas = await tx
-      .select({ gold: outpostTreasury.gold })
-      .from(outpostTreasury)
-      .where(inArray(outpostTreasury.outpostId, ids));
-    const total = treas.reduce((s, t) => s + Math.max(0, t.gold ?? 0), 0);
-    if (total > 0) {
-      const gr = await lockGuildResources(tx, opts.guildId);
-      await upsertGuildResources(tx, opts.guildId, { gold: gr.gold + total });
-    }
-  }
+  await tx
+    .delete(outpostLords)
+    .where(
+      and(inArray(outpostLords.outpostId, ids), eq(outpostLords.userId, userId)),
+    );
+  await tx
+    .delete(outpostDefenders)
+    .where(
+      and(
+        inArray(outpostDefenders.outpostId, ids),
+        eq(outpostDefenders.userId, userId),
+      ),
+    );
+}
+
+// 해산 — 그 길드의 전 타일 영토를 중립화(빈 땅). 영토=길드 소유라 길드가 사라지면 영토도 소멸:
+//   점령행/거점 금고/수비큐/영주 + 정착지(tile_settlements) 행까지 제거 → 그 칸은 다시 개척 가능.
+//   (옛 "솔로 복귀"는 솔로 소유 폐기로 무의미.) 무대상이면 no-op.
+export async function neutralizeGuildTiles(
+  tx: Tx,
+  guildId: number,
+): Promise<void> {
+  const rows = await tx
+    .select({ outpostId: outpostOccupations.outpostId })
+    .from(outpostOccupations)
+    .where(
+      and(
+        eq(outpostOccupations.occupiedByGuildId, guildId),
+        like(outpostOccupations.outpostId, `${TILE_OUTPOST_PREFIX}%`),
+      ),
+    );
+  if (rows.length === 0) return;
+  const ids = rows.map((r) => r.outpostId);
   await tx.delete(outpostTreasury).where(inArray(outpostTreasury.outpostId, ids));
   await tx
     .delete(outpostDefenders)
     .where(inArray(outpostDefenders.outpostId, ids));
   await tx.delete(outpostLords).where(inArray(outpostLords.outpostId, ids));
   await tx
-    .update(outpostOccupations)
-    .set({ occupiedByGuildId: null })
+    .delete(outpostOccupations)
     .where(inArray(outpostOccupations.outpostId, ids));
+  // 정착지(물리) 행도 제거 — guild FK 가 없어 크론 캐스케이드가 못 지움(직접 정리).
+  const coords = ids
+    .map((id) => parseTileOutpostId(id))
+    .filter((c): c is TileCoord => c != null);
+  if (coords.length > 0) {
+    await tx.delete(tileSettlements).where(
+      or(
+        ...coords.map((c) =>
+          and(eq(tileSettlements.col, c.col), eq(tileSettlements.row, c.row)),
+        ),
+      ),
+    );
+  }
 }

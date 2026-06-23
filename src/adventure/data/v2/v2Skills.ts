@@ -118,6 +118,9 @@ export type V2SkillId =
   | "mob_chilling_touch" // 한기 — 둔화(속도−)
   | "mob_rending_claw" // 살점 뜯기 — 출혈(DoT)
   // (위 3종은 V2MonsterStatusSkillId 로도 재노출 — 몹 부착 타입 안전)
+  // ── 몬스터 전용 마법 시전 (사냥터 마법몹 castSkill) — scaling magic·플레이어 미학습 ──
+  | "mob_arcane_bolt" // 마력탄 — 마법 단일딜(magicDef 경감)
+  | "mob_arcane_burst" // 비전 작렬 — 강한 마법 단일딜
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
   | V2CommonSkillId;
 
@@ -133,6 +136,11 @@ export type V2MonsterStatusSkillId =
   | "mob_venom_bite"
   | "mob_chilling_touch"
   | "mob_rending_claw";
+
+// 몬스터 전용 마법 시전 스킬 id (DungeonEnemy.castSkill 부착 타입 안전). 사냥터 마법몹이
+//   마법 평타 대신 시전(시전 턴엔 평타 생략 → DPS 대략 중립·"체감"↑). scaling magic → 플레이어
+//   magicDef(정신)로 경감. attackerMagicAtk 미지정(몹) → atk 폴백(combatShared). statusSkill 과 병합 가능.
+export type V2MonsterCastSkillId = "mob_arcane_bolt" | "mob_arcane_burst";
 
 // baseFlatByTier: 전문화 스킬 차수 flat 성장(2/3/4차). 지정 시 시전자 차수로 baseFlat 대체(엔진 PR2).
 //   공용 스킬은 차수 무관이라 미지정(baseFlat 고정).

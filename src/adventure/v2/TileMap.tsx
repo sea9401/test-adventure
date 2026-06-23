@@ -64,6 +64,10 @@ type TileSettlementLite = {
   userId: string;
   tier: string;
   name: string | null;
+  // 소유자의 현재 길드(서버가 멤버십 조인으로 파생). 무소속이면 null.
+  guildId?: number | null;
+  guildName?: string | null;
+  guildColor?: string | null;
 };
 
 const tierOf = (t: string): TileSettlementTier =>
@@ -232,6 +236,11 @@ export function TileMap({
 
               if (settlement) {
                 const Glyph = SETTLE_TIER_ICON[tierOf(settlement.tier)];
+                // 길드 소속 정착지 = 그 길드 색(우리 길드든 남의 길드든). 색 미설정·무소속 = 개척 초록.
+                const settleFill =
+                  (settlement.guildId != null
+                    ? guildColorHex(settlement.guildColor ?? null)
+                    : null) ?? FOUNDED_FILL;
                 return (
                   <button
                     key={k}
@@ -242,7 +251,7 @@ export function TileMap({
                     style={{
                       width: CELL,
                       height: CELL,
-                      background: `${FOUNDED_FILL}22`,
+                      background: `${settleFill}22`,
                     }}
                   >
                     <span
@@ -250,7 +259,7 @@ export function TileMap({
                       style={{
                         width: CELL - 10,
                         height: CELL - 10,
-                        background: FOUNDED_FILL,
+                        background: settleFill,
                       }}
                     >
                       <Glyph size={iconPx} weight="fill" color="#0b1020" />
@@ -332,6 +341,16 @@ export function TileMap({
             const tier = tierOf(selSettlement.tier);
             const next = tileNextTier(tier);
             const mine = selSettlement.userId === viewerUserId;
+            const sameGuild =
+              selSettlement.guildId != null &&
+              selSettlement.guildId === viewerGuildId;
+            const ownerLabel = mine
+              ? "내 정착지"
+              : sameGuild
+                ? `우리 길드 · ${selSettlement.guildName ?? "길드"}`
+                : selSettlement.guildId != null
+                  ? `${selSettlement.guildName ?? "다른 길드"} 영지`
+                  : "다른 모험가의 정착지";
             return (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
                 <div className="min-w-0">
@@ -344,7 +363,7 @@ export function TileMap({
                     </span>
                   </div>
                   <div className="mt-0.5 text-xs text-zinc-500">
-                    {mine ? "내 정착지" : "다른 모험가의 정착지"}
+                    {ownerLabel}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

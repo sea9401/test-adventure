@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guilds,
@@ -541,14 +541,52 @@ export async function GET() {
     : null;
 
   // 자유 타일 지도 개척 정착지 — flag on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
+  //   정착지의 "길드 귀속"은 저장하지 않고 소유자(userId)→현재 길드(guild_members) 조인으로
+  //   읽을 때 파생한다 → 소유자가 길드를 옮기면 자동으로 따라간다(스키마/마이그 불요).
   const freeformTileSettlements = V2_FREEFORM_TILES
-    ? (await db.select().from(tileSettlements)).map((r) => ({
-        col: r.col,
-        row: r.row,
-        userId: r.userId,
-        tier: r.tier,
-        name: r.name,
-      }))
+    ? await (async () => {
+        const rows = await db.select().from(tileSettlements);
+        if (rows.length === 0) return [];
+        // 소유자 → 현재 길드 일괄 조회(N+1 회피).
+        const ownerIds = [...new Set(rows.map((r) => r.userId))];
+        const memberRows = await db
+          .select({
+            userId: guildMembers.userId,
+            guildId: guildMembers.guildId,
+          })
+          .from(guildMembers)
+          .where(inArray(guildMembers.userId, ownerIds));
+        const guildIdByUser = new Map(
+          memberRows.map((m) => [m.userId, m.guildId]),
+        );
+        // 길드 id → 이름/색 일괄 조회(지도 길드색·길드홈 표시용).
+        const gIds = [...new Set(memberRows.map((m) => m.guildId))];
+        const guildNameById = new Map<number, string>();
+        const guildColorById = new Map<number, string>();
+        if (gIds.length > 0) {
+          const gs = await db
+            .select({ id: guilds.id, name: guilds.name, color: guilds.color })
+            .from(guilds)
+            .where(inArray(guilds.id, gIds));
+          for (const g of gs) {
+            guildNameById.set(g.id, g.name);
+            if (g.color != null) guildColorById.set(g.id, g.color);
+          }
+        }
+        return rows.map((r) => {
+          const gid = guildIdByUser.get(r.userId) ?? null;
+          return {
+            col: r.col,
+            row: r.row,
+            userId: r.userId,
+            tier: r.tier,
+            name: r.name,
+            guildId: gid,
+            guildName: gid != null ? (guildNameById.get(gid) ?? null) : null,
+            guildColor: gid != null ? (guildColorById.get(gid) ?? null) : null,
+          };
+        });
+      })()
     : [];
 
   return Response.json({

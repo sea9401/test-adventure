@@ -23,9 +23,7 @@ import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { V2VillagePanel } from "./V2VillagePanel";
-import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
 import DefendPanel from "./DefendPanel";
-import LordPanel from "./LordPanel";
 import { useGameState } from "./GameStateProvider";
 import {
   V2_SETTLEMENT_WARFARE,
@@ -85,8 +83,6 @@ export function OutpostView({
   const [activityTab, setActivityTab] = useState<
     "produce" | "attacks" | "manage" | "defend"
   >("produce");
-  // 관리 탭의 정책·세율 편집기 폴드 상태 — 관리하러 들어온 화면이라 기본 펼침.
-  const [policyOpen, setPolicyOpen] = useState(true);
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
@@ -496,16 +492,7 @@ export function OutpostView({
               />
             </HeaderPanel>
             {activityTab === "produce" && (
-              <>
-                <V2VillagePanel outpostId={outpost.id} mode="produce" />
-                {V2_SETTLEMENT_WARFARE && !isSoloTileOwner && (
-                  <LordPanel
-                    outpostId={outpost.id}
-                    canManage={canManageSettlement}
-                    viewerUserId={viewerUserId}
-                  />
-                )}
-              </>
+              <V2VillagePanel outpostId={outpost.id} mode="produce" />
             )}
             {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
               <DefendPanel outpostId={outpost.id} />
@@ -513,21 +500,9 @@ export function OutpostView({
             {activityTab === "attacks" && (
               <OutpostAttackLog outpostId={outpost.id} />
             )}
+            {/* 정책·세율·영주 관리는 길드 홈 "관리 > 거점 정책" 탭으로 이전(일원화). */}
             {activityTab === "manage" && canManageSettlement && (
-              <>
-                <V2VillagePanel outpostId={outpost.id} mode="manage" />
-                {/* 거점 정책·세율 — 점령행이 있어야 서버가 갱신 가능(길드/솔로 모두 본인 소유). */}
-                {occupation && (
-                  <OutpostPolicyEditor
-                    outpostId={outpost.id}
-                    currentPolicy={occupation.policy ?? "open"}
-                    currentTaxRate={Number(occupation.taxRate ?? "0")}
-                    open={policyOpen}
-                    onToggle={() => setPolicyOpen((v) => !v)}
-                    onSaved={() => onAction({ kind: "policy-changed" })}
-                  />
-                )}
-              </>
+              <V2VillagePanel outpostId={outpost.id} mode="manage" />
             )}
           </>
         ) : (

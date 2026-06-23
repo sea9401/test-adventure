@@ -33,6 +33,7 @@ import {
   type GuildActivity,
 } from "./GuildActivityList";
 import { OutpostPolicyEditor } from "./OutpostPolicyEditor";
+import LordPanel from "./LordPanel";
 import { GuildFoundCard } from "./GuildFoundCard";
 
 // 길드 탭 — sub-tab nav 분리 (info / members / manage / outposts).
@@ -146,11 +147,14 @@ type Notice = { kind: "ok" | "err"; text: string };
 
 export function V2GuildHome({
   viewerGuildId,
+  viewerUserId,
   occupations,
   onGuildChanged,
   onOccupationsChanged,
 }: {
   viewerGuildId: number | null;
+  // 현재 유저 id — 거점 정책 탭의 LordPanel 영주 본인(세금 수확) 판정용.
+  viewerUserId: string | null;
   occupations: Occupation[];
   // 길드 소속이 바뀌면(창단 등) 부모의 viewerGuildId 를 다시 받아오게 알린다.
   onGuildChanged?: () => void;
@@ -600,6 +604,27 @@ export function V2GuildHome({
   const settleTierLabel = (t: string): string =>
     isTileSettlementTier(t) ? TILE_TIER_LABEL[t] : t;
 
+  // 거점 정책 탭 대상 — 길드 타일 정착지 + 카탈로그 점령 거점(영주/정책·세율 일원 관리).
+  const policyTargets: { outpostId: string; title: string; occ?: Occupation }[] =
+    [
+      ...guildSettlements.map((s) => {
+        const sid = tileOutpostId(s.col, s.row);
+        return {
+          outpostId: sid,
+          title: `${s.name ?? "개척 정착지"} (${settleTierLabel(s.tier)})`,
+          occ: occByOutpost.get(sid),
+        };
+      }),
+      ...ownedOutposts.map((o) => {
+        const occ = occByOutpost.get(o.id);
+        return {
+          outpostId: o.id,
+          title: `${occ?.villageName?.trim() || o.name} (${TYPE_LABEL[o.type]})`,
+          occ,
+        };
+      }),
+    ];
+
   // 무소속이면 창단 + 둘러보기를 노출. 점령/길드원 등 모든 sub-tab 의 prerequisite 가 길드.
   if (!loading && !state?.guild) {
     return (
@@ -970,36 +995,44 @@ export function V2GuildHome({
           </div>
           )}
 
-          {/* ── 거점 정책: 보유 거점 정책·세율 ── */}
-          {/* 점령자 본인이 아니어도 마스터/관리자가 일괄 관리 */}
+          {/* ── 거점 정책: 영주 + 정책·세율 (타일 정착지 + 카탈로그 거점) ── */}
+          {/* 정책/영주 지정 = 마스터/관리자. 세금 수확 = 영주 본인(LordPanel 내부 게이트). */}
           {activeManageTab === "territory" && (
           <div className="space-y-2">
             <div className="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              보유 거점 정책·세율
+              거점 정책 · 영주 · 세율
             </div>
-            {ownedOutposts.length === 0 ? (
+            {policyTargets.length === 0 ? (
               <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-4 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
                 점령한 거점이 아직 없어요.
               </div>
             ) : (
-              <div className="space-y-1.5">
-                {ownedOutposts.map((o) => {
-                  const occ = occByOutpost.get(o.id);
-                  return (
+              <div className="space-y-2.5">
+                {policyTargets.map((t) => (
+                  <div
+                    key={t.outpostId}
+                    className="border-t border-zinc-200 pt-2.5 first:border-t-0 first:pt-0 dark:border-zinc-800"
+                  >
                     <OutpostPolicyEditor
-                      key={o.id}
-                      outpostId={o.id}
-                      title={`${occ?.villageName?.trim() || o.name} (${TYPE_LABEL[o.type]})`}
-                      currentPolicy={occ?.policy ?? "open"}
-                      currentTaxRate={Number(occ?.taxRate ?? "0")}
-                      open={policyOpenId === o.id}
+                      outpostId={t.outpostId}
+                      title={t.title}
+                      currentPolicy={t.occ?.policy ?? "open"}
+                      currentTaxRate={Number(t.occ?.taxRate ?? "0")}
+                      open={policyOpenId === t.outpostId}
                       onToggle={() =>
-                        setPolicyOpenId((cur) => (cur === o.id ? null : o.id))
+                        setPolicyOpenId((cur) =>
+                          cur === t.outpostId ? null : t.outpostId,
+                        )
                       }
                       onSaved={() => onOccupationsChanged?.()}
                     />
-                  );
-                })}
+                    <LordPanel
+                      outpostId={t.outpostId}
+                      canManage={canManage}
+                      viewerUserId={viewerUserId}
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>

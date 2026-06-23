@@ -31,6 +31,7 @@ export default function DungeonFloorPage() {
     setHp,
     mp,
     setMp,
+    playerCombat,
     frontierDepth,
     setFrontierDepth,
     refreshGameState,
@@ -70,6 +71,7 @@ export default function DungeonFloorPage() {
       setHp={setHp}
       mp={mp}
       setMp={setMp}
+      playerCombat={playerCombat}
       onSeekHealing={() => router.push("/town/healing")}
       onBack={() => router.push("/battle/dungeon")}
       frontierDepth={frontierDepth}

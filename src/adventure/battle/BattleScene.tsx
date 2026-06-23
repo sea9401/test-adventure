@@ -166,6 +166,83 @@ export function RecoveryReadout({
   );
 }
 
+// 전투 스탯 표시용 — 공/방/속 기본 + 상세(명중/회피/치명/마공). 적·플레이어 공용 shape.
+export type BattleStats = {
+  atk: number;
+  def: number;
+  spd: number;
+  accuracy?: number; // 명중(rating) — 적=Monster.accuracy, 플레이어=accRating
+  evasionPct?: number; // 회피 %
+  critChancePct?: number; // 치명 % (플레이어)
+  magicAtk?: number; // 마법 공격력(>0 일 때만 상세에)
+};
+
+// 전투 스탯 한 줄 — 공/방/속 기본, 누르면 상세(명중/회피 등) 펼침. 플레이어 카드·적 칸 공용.
+export function BattleStatStrip({
+  stats,
+  center = false,
+}: {
+  stats: BattleStats;
+  center?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const details: { label: string; value: string }[] = [];
+  if (stats.accuracy != null)
+    details.push({ label: "명중", value: String(Math.round(stats.accuracy)) });
+  if (stats.evasionPct != null)
+    details.push({ label: "회피", value: `${Math.round(stats.evasionPct)}%` });
+  if ((stats.critChancePct ?? 0) > 0)
+    details.push({
+      label: "치명",
+      value: `${Math.round(stats.critChancePct as number)}%`,
+    });
+  if ((stats.magicAtk ?? 0) > 0)
+    details.push({
+      label: "마공",
+      value: String(Math.round(stats.magicAtk as number)),
+    });
+  const hasDetails = details.length > 0;
+  const align = center ? " justify-center" : "";
+  const dim = "text-zinc-400 dark:text-zinc-500";
+  return (
+    <div className={center ? "text-center" : ""}>
+      <button
+        type="button"
+        onClick={() => hasDetails && setOpen((o) => !o)}
+        aria-expanded={hasDetails ? open : undefined}
+        disabled={!hasDetails}
+        className={`flex w-full flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300${align} ${
+          hasDetails
+            ? "cursor-pointer hover:text-zinc-900 dark:hover:text-zinc-100"
+            : "cursor-default"
+        }`}
+      >
+        <span>
+          <span className={dim}>공</span> {stats.atk.toLocaleString()}
+        </span>
+        <span>
+          <span className={dim}>방</span> {stats.def.toLocaleString()}
+        </span>
+        <span>
+          <span className={dim}>속</span> {stats.spd.toLocaleString()}
+        </span>
+        {hasDetails && <span className={dim}>{open ? "▴" : "▾"}</span>}
+      </button>
+      {hasDetails && open && (
+        <div
+          className={`mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] tabular-nums text-zinc-500 dark:text-zinc-400${align}`}
+        >
+          {details.map((d) => (
+            <span key={d.label}>
+              <span className={dim}>{d.label}</span> {d.value}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 데미지 받은 순간 짧게 빨간 링 + 흔들림. hpDelta 가 변할 때마다 트리거.
 function useDamageFlash(hp: number): boolean {
   const [flashing, setFlashing] = useState(false);
@@ -398,6 +475,17 @@ export function BattleScene({
                     color="bg-blue-500"
                   />
                 )}
+                {/* 공/방/속 — 누르면 명중/회피 펼침. */}
+                <BattleStatStrip
+                  center
+                  stats={{
+                    atk: state.enemy.atk,
+                    def: state.enemy.def,
+                    spd: state.enemy.spd,
+                    accuracy: state.enemy.accuracy,
+                    evasionPct: state.enemy.evasionPct,
+                  }}
+                />
               </div>
             </div>
           </div>

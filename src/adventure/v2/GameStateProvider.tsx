@@ -12,6 +12,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { usePresenceHeartbeat } from "@/lib/usePresenceHeartbeat";
 import type { HpBarState } from "@/adventure/v2/HpBar";
 import type { MpBarState } from "@/adventure/v2/MpBar";
+import type { PlayerCombatStats } from "@/adventure/v2/PlayerStatusCard";
 import {
   MAX_STAMINA,
   initialStamina,
@@ -142,6 +143,8 @@ type GameStateValue = {
   setAtRiskGold: React.Dispatch<React.SetStateAction<number | null>>;
   mp: MpBarState | null;
   setMp: React.Dispatch<React.SetStateAction<MpBarState | null>>;
+  // 유효 전투 스탯(공/방/속+상세) — 사냥 카드 표기. me/state 권위.
+  playerCombat: PlayerCombatStats | null;
   discoveredIds: Set<string>;
   setDiscoveredIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   occupations: Occupation[];
@@ -234,6 +237,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   const [gold, setGold] = useState(0);
   const [bankedGold, setBankedGold] = useState(0);
   const [mp, setMp] = useState<MpBarState | null>(null);
+  // 유효 전투 스탯(공/방/속+상세) — me/state combat 에서 초기화, 사냥 카드 표기용.
+  const [playerCombat, setPlayerCombat] = useState<PlayerCombatStats | null>(
+    null,
+  );
   // 쿨다운 모드 전용(스태미나 모드/off=null). me/state 에서 초기화.
   const [combatCooldown, setCombatCooldown] = useState<{
     nextBattleAt: number;
@@ -328,6 +335,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             serverNow: number;
           } | null;
           offlinePending?: number | null;
+          // 유효 전투 스탯(공/방/속 + 명중/회피/치명). 사냥 카드 표기용.
+          combat?: PlayerCombatStats | null;
           offlineHunt?: {
             active: boolean;
             startedAt?: number;
@@ -387,6 +396,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         ) {
           setMp({ mp: j.character.mp, maxMp: j.character.maxMp });
         }
+        setPlayerCombat(j?.combat ?? null);
         if (j?.currentOutpost) setCurrentOutpost(j.currentOutpost);
         if (j?.discoveredOutpostIds && j.discoveredOutpostIds.length > 0) {
           setDiscoveredIds(new Set(j.discoveredOutpostIds));
@@ -729,6 +739,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     setAtRiskGold,
     mp,
     setMp,
+    playerCombat,
     discoveredIds,
     setDiscoveredIds,
     occupations,

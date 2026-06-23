@@ -94,6 +94,9 @@ export const MIDLANDS_MONSTERS: Record<string, Monster> = {
     name: "돌풍 정령",
     tags: ["spirit"],
     archetype: "caster",
+    // 돌풍 정령 — 뇌격(빠른 번개 마법) 시전.
+    v2Skills: { learned: ["mob_lightning_bolt"], equipped: ["mob_lightning_bolt"] },
+    v2MaxMp: 80,
     hp: 190,
     atk: 21,
     def: 9,

@@ -171,6 +171,9 @@ export const HOMELAND_MONSTERS: Record<string, Monster> = {
     name: "떠도는 망령",
     tags: ["undead", "spirit"],
     archetype: "caster",
+    // 망령 — 공허창(마법딜 + 약화) 시전.
+    v2Skills: { learned: ["mob_void_lance"], equipped: ["mob_void_lance"] },
+    v2MaxMp: 90,
     image: "/images/monster/wraith.webp",
     hp: 95,
     atk: 14,

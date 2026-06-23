@@ -7,6 +7,9 @@ export const SKYTHRONE_MONSTERS: Record<string, Monster> = {
     image: "/images/monster/starseer_shade.webp",
     tags: ["spirit"],
     archetype: "caster",
+    // 별점술사 — 별빛 작렬(강한 별빛 마법) 시전.
+    v2Skills: { learned: ["mob_star_burst"], equipped: ["mob_star_burst"] },
+    v2MaxMp: 110,
     hp: 785,
     atk: 70,
     def: 33,

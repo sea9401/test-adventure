@@ -1,5 +1,5 @@
 // tileOccupation 헬퍼 — 가짜 tx 위 단위 테스트(drizzle 체인 흉내·DB 미접촉).
-//   소유 분기(길드원=길드 소유·무길드=솔로 소유) + 철거 정리(4개 전쟁 테이블 delete) 검증.
+//   소유 분기(길드원=길드 소유·무길드=솔로 소유) + 철거 정리(전쟁 4테이블 + 생산 마을 delete) 검증.
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -71,9 +71,10 @@ describe("createTileOccupation", () => {
 });
 
 describe("removeTileWarfare", () => {
-  it("전쟁 4테이블(점령/금고/수비큐/영주) 모두 delete", async () => {
+  it("전쟁 4테이블(점령/금고/수비큐/영주) + 생산 마을(outpost_villages) 모두 delete", async () => {
     const { tx, getDeletes } = makeTx([]);
     await removeTileWarfare(tx, 4, 4);
-    expect(getDeletes()).toBe(4);
+    // 점령/금고/수비큐/영주 + 생산 마을 = 5. 생산 마을을 빼면 철거→재개척 시 옛 마을 부활.
+    expect(getDeletes()).toBe(5);
   });
 });

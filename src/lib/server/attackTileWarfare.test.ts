@@ -11,6 +11,10 @@ const h = vi.hoisted(() => ({
   tileUpdates: [] as unknown[],
   attackerGuildId: 7 as number | null, // 공격자 길드(솔로 공격자 테스트는 null)
   pvpAttackerWins: true, // resolveBattlePvP mock 결과 제어(솔로 수비 결투)
+  // 공격자 위치 마커(약탈 "현지 위치" 게이트) — 대상 칸 일치 시 통과.
+  attackerTilePos: null as { col: number; row: number } | null,
+  // 정복 발판(guildTileFoothold mock) — 기본 허용(인접 영지 보유).
+  foothold: { ownsAny: true, adjacentOwned: true },
 }));
 
 vi.mock("@/adventure/data/v2/settlementWarfareConfig", async (importOriginal) => {
@@ -57,8 +61,16 @@ vi.mock("@/lib/server/v2GuildFame", () => ({
   addGuildFame: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/server/savesKv", () => ({
-  lockSaveForUpdate: vi.fn(async () => ({})),
+  // 공격자(u-atk) 세이브엔 tilePos 주입(약탈 위치 게이트용). 그 외(수비자)는 빈 세이브.
+  lockSaveForUpdate: vi.fn(async (_tx: unknown, id: string) =>
+    id === "u-atk" ? { tilePos: h.attackerTilePos } : {},
+  ),
   upsertSave: vi.fn(async () => {}),
+}));
+// 정복 발판 게이트 — guildTileFoothold 는 제어용 h.foothold 반환(인접 영지/땅 보유 판정).
+//   중립 거점 인접(isTileAdjacentToNeutralOutpost)은 mock 하지 않음(실로직 검증).
+vi.mock("@/lib/server/tileWarfareGates", () => ({
+  guildTileFoothold: vi.fn(async () => h.foothold),
 }));
 vi.mock("@/db", () => {
   // 컬럼 모양으로 테이블 구분(huntTileTax 패턴 확장).
@@ -140,12 +152,15 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     h.tileUpdates = [];
     h.attackerGuildId = 7;
     h.pvpAttackerWins = true;
+    h.attackerTilePos = null;
+    h.foothold = { ownsAny: true, adjacentOwned: true };
   });
   afterEach(() => vi.clearAllMocks());
 
   it("무수비 약탈(raid) → 타일 금고 50% 탈취 → 공격 길드 골드", async () => {
     h.occ = occRow({});
     h.treasuryGold = 1000;
+    h.attackerTilePos = { col: 2, row: 3 }; // 대상 칸에 위치(약탈 게이트 통과)
     const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
@@ -184,6 +199,33 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
     expect(h.occUpdates.length).toBeGreaterThan(0);
     expect(h.tileUpdates).toContainEqual({ tier: "frontier", userId: "u-atk" });
   });
+
+  it("약탈(raid) — 대상 칸에 없으면 not_present (전투/탈취 없음)", async () => {
+    h.occ = occRow({});
+    h.treasuryGold = 1000;
+    h.attackerTilePos = { col: 0, row: 0 }; // 대상(tile:2,3)과 불일치
+    const res = await POST(req({ outpostId: "tile:2,3", mode: "raid" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("not_present");
+    expect(h.upsertGuildRes).toHaveLength(0); // 금고 탈취 없음
+  });
+
+  it("정복(conquest) — 인접 영지 없고 중립 거점 인접도 아니면 no_foothold", async () => {
+    h.occ = occRow({ fortHp: 10 });
+    h.foothold = { ownsAny: true, adjacentOwned: false }; // 땅은 있으나 비인접
+    const res = await POST(req({ outpostId: "tile:0,0", mode: "conquest" }));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("no_foothold");
+    expect(h.occUpdates).toHaveLength(0); // 점령행 무변동
+  });
+
+  it("정복(conquest) — 땅 없는 길드 + 중립 거점(리베라 4,4) 인접 칸이면 허용", async () => {
+    h.occ = occRow({ fortHp: 10 });
+    h.foothold = { ownsAny: false, adjacentOwned: false }; // 땅 없음 → 중립 인접으로 통과
+    const res = await POST(req({ outpostId: "tile:3,4", mode: "conquest" })); // (3,4)=리베라 인접
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { captured: boolean }).captured).toBe(true);
+  });
 });
 
 describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
@@ -193,6 +235,8 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
     h.tileUpdates = [];
     h.attackerGuildId = 7;
     h.pvpAttackerWins = true;
+    h.attackerTilePos = null;
+    h.foothold = { ownsAny: true, adjacentOwned: true };
   });
   afterEach(() => vi.clearAllMocks());
 
@@ -225,6 +269,7 @@ describe("POST /api/v2/outpost/attack — 솔로(무길드) 타일", () => {
 
   it("솔로 타일 약탈(raid) → raid_solo_unsupported (금고 없음)", async () => {
     h.occ = soloOcc({});
+    h.attackerTilePos = { col: 5, row: 7 }; // 대상 칸에 위치(약탈 게이트 통과 후 솔로 거부)
     const res = await POST(req({ outpostId: "tile:5,7", mode: "raid" }));
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe(

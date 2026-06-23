@@ -6,7 +6,9 @@ import { tileSettlementName } from "./tileConfig";
 import {
   buildTileOccupationValues,
   isKnownOutpostId,
+  isTileAdjacentToNeutralOutpost,
   isTileOutpostId,
+  NEUTRAL_TILE_OUTPOST_CELLS,
   outpostDisplayName,
   parseTileOutpostId,
   resolveOutpostMeta,
@@ -154,6 +156,30 @@ describe("buildTileOccupationValues", () => {
     expect(city.nextAttackAt.getTime()).toBe(
       computeNextAttackAt(3, NOW).getTime(),
     );
+  });
+});
+
+describe("중립 거점 인접(영토 PvP 부트스트랩)", () => {
+  it("NEUTRAL_TILE_OUTPOST_CELLS — 보드 위 중립 거점(리베라 4,4) 포함", () => {
+    expect(NEUTRAL_TILE_OUTPOST_CELLS).toContainEqual({ col: 4, row: 4 });
+    // 중립 거점만(현재 리베라 하나).
+    expect(NEUTRAL_TILE_OUTPOST_CELLS.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("isTileAdjacentToNeutralOutpost — 리베라 상하좌우 4칸만 true", () => {
+    // 4방향 인접.
+    for (const [c, r] of [
+      [3, 4],
+      [5, 4],
+      [4, 3],
+      [4, 5],
+    ]) {
+      expect(isTileAdjacentToNeutralOutpost(c, r)).toBe(true);
+    }
+    // 자기 자신·대각선·원거리 = false.
+    expect(isTileAdjacentToNeutralOutpost(4, 4)).toBe(false);
+    expect(isTileAdjacentToNeutralOutpost(3, 3)).toBe(false);
+    expect(isTileAdjacentToNeutralOutpost(0, 0)).toBe(false);
   });
 });
 

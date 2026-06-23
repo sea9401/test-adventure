@@ -538,7 +538,7 @@ export function OutpostView({
               occupation?.occupiedByGuildId != null && (
                 <ActionCard
                   title="약탈 시도"
-                  subtitle="수비대 1번과 건강도 결투 — 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+                  subtitle="이 정착지 칸에 있어야 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
                   onClick={attemptRaid}
                   disabled={busy}
                   loading={busy}
@@ -551,8 +551,8 @@ export function OutpostView({
                 title="정복 시도"
                 subtitle={
                   conquerRazes
-                    ? "수비(개척자/수비대)와 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락. 개인은 점령할 수 없어 함락 시 빈땅으로 철거됩니다(여러 차례 공격 필요)."
-                    : "수비대 전원과 건강도 결투 + 성벽 공성 — 성벽을 다 깎으면 함락(마을 1단계 강등·소유 이전). 한 번에 안 되니 여러 차례 공격해야 함."
+                    ? "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비와 건강도 결투 + 성벽 공성. 개인은 점령할 수 없어 함락 시 빈땅으로 철거됩니다(여러 차례 공격 필요)."
+                    : "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비대 전원과 건강도 결투 + 성벽 공성, 함락 시 마을 1단계 강등·소유 이전. 한 번에 안 되니 여러 차례 공격해야 함."
                 }
                 onClick={attemptConquest}
                 disabled={busy}
@@ -661,6 +661,10 @@ function raidErrorMsg(error: string): string {
       return "점령되지 않은 거점은 약탈할 수 없습니다";
     case "raid_solo_unsupported":
       return "개인 정착지는 약탈할 수 없습니다 (정복만 가능)";
+    case "not_present":
+      return "해당 정착지 칸에 있어야 약탈할 수 있어요 — 지도에서 그 칸으로 이동하세요";
+    case "no_foothold":
+      return "인접한 우리 영지가 있어야 정복할 수 있어요 (땅이 없으면 중립 거점 옆 칸부터)";
     case "already_yours":
       return "내 거점입니다";
     case "protected":

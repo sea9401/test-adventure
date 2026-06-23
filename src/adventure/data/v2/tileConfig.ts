@@ -13,6 +13,37 @@ export type TileCoord = { col: number; row: number };
 
 export const tileKey = (col: number, row: number) => `${col},${row}`;
 
+// === 타일 인접(4방향·상하좌우) — 영토 PvP 정복 인접 게이트용 =========================
+// 영토전 정복은 "내 영지에 인접한 칸"만 칠 수 있다(연속 확장). 인접 = 폰 노이만 거리 1
+//   (상하좌우만·대각선 제외). 순수 함수(서버·클라 공용).
+export function areTilesAdjacent4(
+  aCol: number,
+  aRow: number,
+  bCol: number,
+  bRow: number,
+): boolean {
+  return Math.abs(aCol - bCol) + Math.abs(aRow - bRow) === 1;
+}
+
+// 보드 경계 내 상하좌우 이웃 칸(0..TILE_BOARD_SIZE-1).
+export function tileNeighbors4(col: number, row: number): TileCoord[] {
+  const deltas = [
+    [0, -1],
+    [0, 1],
+    [-1, 0],
+    [1, 0],
+  ] as const;
+  const out: TileCoord[] = [];
+  for (const [dc, dr] of deltas) {
+    const c = col + dc;
+    const r = row + dr;
+    if (c >= 0 && c < TILE_BOARD_SIZE && r >= 0 && r < TILE_BOARD_SIZE) {
+      out.push({ col: c, row: r });
+    }
+  }
+  return out;
+}
+
 // 보드 위 고정 거점 = 리베라(중앙 자유도시) 하나뿐 — 정중앙(4,4).
 //   나머지 칸은 전부 빈 땅: 플레이어가 직접 개척(개척마을→마을→도시→대도시)하는 곳.
 //   옛 기본 무소속 거점 8개(보레아/노토스/에우로스 + 에이라/로렌/코린/세라/발렌)는

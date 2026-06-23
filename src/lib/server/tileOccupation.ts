@@ -16,6 +16,7 @@ import {
   outpostLords,
   outpostOccupations,
   outpostTreasury,
+  outpostVillages,
   tileSettlements,
 } from "@/db/schema";
 import {
@@ -58,7 +59,10 @@ export async function createTileOccupation(
   return { created: true, guildId };
 }
 
-// 타일의 전쟁 행 전부 정리(점령/금고/수비큐/영주). 무행이면 no-op — 항상 호출해도 안전.
+// 타일의 전쟁/정착 행 전부 정리(점령/금고/수비큐/영주 + 생산 마을). 무행이면 no-op — 항상 호출해도 안전.
+//   ⚠️ outpost_villages(생산 보드: tier/슬롯/생산직/이름)도 지운다 — 빼면 철거 후 같은 (col,row)
+//   재개척 시 옛 마을 생산 데이터가 부활한다(데모리시→재개척 잔류 버그). 솔로 막타 raze 경로와 동일.
+//   소유자별 자원 풀(settlement resources)은 타일별이 아니라 공유라 여기서 건드리지 않는다.
 export async function removeTileWarfare(
   tx: Tx,
   col: number,
@@ -69,6 +73,7 @@ export async function removeTileWarfare(
   await tx.delete(outpostTreasury).where(eq(outpostTreasury.outpostId, id));
   await tx.delete(outpostDefenders).where(eq(outpostDefenders.outpostId, id));
   await tx.delete(outpostLords).where(eq(outpostLords.outpostId, id));
+  await tx.delete(outpostVillages).where(eq(outpostVillages.outpostId, id));
 }
 
 // === 멤버십 훅: 영토=길드 소유 모델 ====================================================

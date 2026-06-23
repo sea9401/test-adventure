@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
+  TILE_BOARD_SIZE,
   TILE_SETTLEMENT_TIERS,
   TILE_PROMOTE_COST,
+  areTilesAdjacent4,
+  tileNeighbors4,
   tileNextTier,
   tilePrevTier,
   isTileSettlementTier,
@@ -15,6 +18,40 @@ describe("tileNextTier — 승격 사슬", () => {
     expect(tileNextTier("village")).toBe("city");
     expect(tileNextTier("city")).toBe("metropolis");
     expect(tileNextTier("metropolis")).toBeNull();
+  });
+});
+
+describe("areTilesAdjacent4 — 4방향(상하좌우) 인접", () => {
+  it("상하좌우만 true, 대각선·자기자신·원거리 false", () => {
+    expect(areTilesAdjacent4(4, 4, 4, 3)).toBe(true);
+    expect(areTilesAdjacent4(4, 4, 4, 5)).toBe(true);
+    expect(areTilesAdjacent4(4, 4, 3, 4)).toBe(true);
+    expect(areTilesAdjacent4(4, 4, 5, 4)).toBe(true);
+    expect(areTilesAdjacent4(4, 4, 4, 4)).toBe(false); // 자기 자신
+    expect(areTilesAdjacent4(4, 4, 5, 5)).toBe(false); // 대각선
+    expect(areTilesAdjacent4(4, 4, 4, 6)).toBe(false); // 2칸
+  });
+});
+
+describe("tileNeighbors4 — 보드 경계 내 4이웃", () => {
+  it("내부 칸 = 4개", () => {
+    expect(tileNeighbors4(4, 4)).toHaveLength(4);
+  });
+  it("모서리(0,0) = 2개(경계 밖 제외)", () => {
+    const n = tileNeighbors4(0, 0);
+    expect(n).toHaveLength(2);
+    expect(n).toContainEqual({ col: 1, row: 0 });
+    expect(n).toContainEqual({ col: 0, row: 1 });
+  });
+  it("끝 모서리 = 2개", () => {
+    expect(
+      tileNeighbors4(TILE_BOARD_SIZE - 1, TILE_BOARD_SIZE - 1),
+    ).toHaveLength(2);
+  });
+  it("이웃은 모두 대상과 4방향 인접", () => {
+    for (const n of tileNeighbors4(4, 4)) {
+      expect(areTilesAdjacent4(4, 4, n.col, n.row)).toBe(true);
+    }
   });
 });
 

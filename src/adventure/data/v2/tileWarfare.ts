@@ -12,6 +12,8 @@
 
 import type { Outpost, OutpostTier } from "./types";
 import { MAP_BOUNDS, OUTPOST_BY_ID } from "./outposts";
+import { computeNextAttackAt } from "./npcAttack";
+import { FORT_MAX_HP, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
 import {
   TILE_BOARD_SIZE,
   TILE_SETTLEMENT_TIERS,
@@ -89,3 +91,44 @@ export function resolveOutpostMeta(
 //   Phase 0: tile id 미존재라 OUTPOST_BY_ID.has 와 byte-identical.
 export const isKnownOutpostId = (id: string): boolean =>
   isTileOutpostId(id) || OUTPOST_BY_ID.has(id);
+
+// === Phase 1: 타일 길드 점령행 ============================================
+
+export type TileOccupationValues = {
+  outpostId: string;
+  occupiedByUserId: string;
+  occupiedByGuildId: number;
+  policy: "open";
+  taxRate: string;
+  nextAttackAt: Date;
+  fortHp: number;
+  fortMaxHp: number;
+  fortUpdatedAt: Date;
+  protectedUntil: Date;
+};
+
+// 타일 정착지 점령행 insert 값 — claim 라우트의 신규 점령 패턴 미러(공성/세율/쿨다운 동일).
+//   길드 소유(occupiedByGuildId 필수) + 창립자 기록(occupiedByUserId). 순수 함수(DB 미접촉·
+//   now 주입으로 결정적)라 단위 테스트 가능.
+export function buildTileOccupationValues(args: {
+  userId: string;
+  guildId: number;
+  col: number;
+  row: number;
+  tier: TileSettlementTier;
+  now: number;
+}): TileOccupationValues {
+  const { userId, guildId, col, row, tier, now } = args;
+  return {
+    outpostId: tileOutpostId(col, row),
+    occupiedByUserId: userId,
+    occupiedByGuildId: guildId,
+    policy: "open",
+    taxRate: "0.100",
+    nextAttackAt: computeNextAttackAt(tileTierToOutpostTier(tier), now),
+    fortHp: FORT_MAX_HP,
+    fortMaxHp: FORT_MAX_HP,
+    fortUpdatedAt: new Date(now),
+    protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
+  };
+}

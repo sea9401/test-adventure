@@ -14,6 +14,17 @@ type Lord = {
 } | null;
 type Member = { userId: string; name: string };
 
+// 세금 수확 쿨다운 남은 시간 — nextHarvestAt 까지 "N시간 M분 후" / "M분 후" (지났으면 빈 문자열).
+function formatCooldown(nextHarvestAt: string | null): string {
+  if (!nextHarvestAt) return "";
+  const ms = new Date(nextHarvestAt).getTime() - Date.now();
+  if (ms <= 0) return "";
+  const totalMin = Math.ceil(ms / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}시간 ${m}분 후` : `${m}분 후`;
+}
+
 export default function LordPanel({
   outpostId,
   canManage,
@@ -143,10 +154,10 @@ export default function LordPanel({
           type="button"
           onClick={harvest}
           disabled={busy || !!lord?.onCooldown}
-          className="w-full rounded-md bg-amber-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {lord?.onCooldown
-            ? "세금 수확 쿨다운"
+            ? `세금 수확 쿨다운 — ${formatCooldown(lord.nextHarvestAt) || "곧 가능"}`
             : "세금 수확 (10% 개인 / 90% 길드)"}
         </button>
       )}

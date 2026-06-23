@@ -1026,11 +1026,14 @@ export function V2GuildHome({
                       }
                       onSaved={() => onOccupationsChanged?.()}
                     />
-                    <LordPanel
-                      outpostId={t.outpostId}
-                      canManage={canManage}
-                      viewerUserId={viewerUserId}
-                    />
+                    {/* 영주·세금 — 정책 편집기와 같은 펼침(policyOpenId) 안에. 펼쳤을 때만 표시. */}
+                    {policyOpenId === t.outpostId && (
+                      <LordPanel
+                        outpostId={t.outpostId}
+                        canManage={canManage}
+                        viewerUserId={viewerUserId}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

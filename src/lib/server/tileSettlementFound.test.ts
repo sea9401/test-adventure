@@ -11,6 +11,9 @@ const h = vi.hoisted(() => ({
   inserts: [] as Record<string, unknown>[],
   guildUpserts: [] as unknown[],
   soloSaves: [] as Record<string, unknown>[],
+  // FOR UPDATE 로 읽히는 기존 정착지 행(rename 시나리오). 기본 없음.
+  existing: [] as Record<string, unknown>[],
+  updates: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
@@ -52,13 +55,20 @@ vi.mock("@/db", () => {
   const tx = {
     select: () => ({
       from: () => ({
-        where: () => ({ for: () => ({ limit: async () => [] }) }),
+        where: () => ({ for: () => ({ limit: async () => h.existing }) }),
       }),
     }),
     insert: () => ({
       values: async (v: Record<string, unknown>) => {
         h.inserts.push(v);
       },
+    }),
+    update: () => ({
+      set: (v: Record<string, unknown>) => ({
+        where: async () => {
+          h.updates.push(v);
+        },
+      }),
     }),
     delete: () => ({ where: async () => {} }),
   };
@@ -70,10 +80,10 @@ vi.mock("@/db", () => {
 import { POST } from "@/app/api/v2/me/tile-settlement/route";
 import { scaledTileGoldCost } from "@/adventure/data/v2/tileConfig";
 
-function foundReq(col = 2, row = 3): Request {
+function foundReq(col = 2, row = 3, name = "내정착지"): Request {
   return new Request("http://t/api/v2/me/tile-settlement", {
     method: "POST",
-    body: JSON.stringify({ action: "found", col, row }),
+    body: JSON.stringify({ action: "found", col, row, name }),
   });
 }
 
@@ -90,10 +100,12 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     h.inserts = [];
     h.guildUpserts = [];
     h.soloSaves = [];
+    h.existing = [];
+    h.updates = [];
     vi.clearAllMocks();
   });
 
-  it("길드 마스터/부마스터: 길드 자금 소모 + 정착지 생성(개인 골드 불변)", async () => {
+  it("길드 마스터/부마스터: 길드 자금 소모 + 정착지 생성(이름 저장·개인 골드 불변)", async () => {
     h.guildId = 7;
     h.isAdmin = true;
     h.guildGold = FOUND_COST + COST; // 차감 후 COST 남도록
@@ -101,8 +113,27 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     const res = await POST(foundReq());
     expect(res.status).toBe(200);
     expect(h.inserts).toHaveLength(1); // tile_settlements insert
+    // 창립자가 지은 이름이 그대로 저장(자동 이름 아님).
+    expect(h.inserts[0]).toMatchObject({ name: "내정착지" });
     expect(h.guildUpserts).toContainEqual({ gold: COST }); // 2*COST - COST
     expect(h.soloSaves).toHaveLength(0); // 개인 골드 차감 없음
+  });
+
+  it("이름 없으면 400 invalid_name (미생성)", async () => {
+    h.guildId = 7;
+    h.isAdmin = true;
+    h.guildGold = FOUND_COST * 2;
+    const res = await POST(
+      new Request("http://t/api/v2/me/tile-settlement", {
+        method: "POST",
+        body: JSON.stringify({ action: "found", col: 2, row: 3 }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "invalid_name",
+    );
+    expect(h.inserts).toHaveLength(0);
   });
 
   it("길드원이지만 마스터/부마스터 아님 → 403 not_guild_admin", async () => {
@@ -135,5 +166,59 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     expect(((await res.json()) as { error: string }).error).toBe("need_guild");
     expect(h.inserts).toHaveLength(0); // 정착지 미생성
     expect(h.guildUpserts).toHaveLength(0);
+  });
+});
+
+describe("POST tile-settlement rename — 표시 이름 갱신", () => {
+  afterEach(() => {
+    h.existing = [];
+    h.updates = [];
+    h.soloGold = 0;
+    vi.clearAllMocks();
+  });
+
+  function renameReq(name: string, col = 2, row = 3): Request {
+    return new Request("http://t/api/v2/me/tile-settlement", {
+      method: "POST",
+      body: JSON.stringify({ action: "rename", col, row, name }),
+    });
+  }
+
+  it("본인 정착지: name 갱신(200) + tile_settlements.name 업데이트", async () => {
+    h.existing = [
+      { col: 2, row: 3, userId: "u-me", tier: "frontier", name: "옛이름" },
+    ];
+    const res = await POST(renameReq("새이름"));
+    expect(res.status).toBe(200);
+    expect(h.updates).toContainEqual({ name: "새이름" });
+  });
+
+  it("남의 정착지 → 403 not_owner (미갱신)", async () => {
+    h.existing = [
+      { col: 2, row: 3, userId: "someone-else", tier: "frontier", name: "옛이름" },
+    ];
+    const res = await POST(renameReq("새이름"));
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe("not_owner");
+    expect(h.updates).toHaveLength(0);
+  });
+
+  it("정착지 없음 → 404 not_found", async () => {
+    h.existing = [];
+    const res = await POST(renameReq("새이름"));
+    expect(res.status).toBe(404);
+    expect(h.updates).toHaveLength(0);
+  });
+
+  it("이름 빈값 → 400 invalid_name", async () => {
+    h.existing = [
+      { col: 2, row: 3, userId: "u-me", tier: "frontier", name: "옛이름" },
+    ];
+    const res = await POST(renameReq("   "));
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe(
+      "invalid_name",
+    );
+    expect(h.updates).toHaveLength(0);
   });
 });

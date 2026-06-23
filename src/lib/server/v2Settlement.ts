@@ -506,6 +506,20 @@ export async function syncTileSettlementTier(
     .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
 }
 
+// tile_settlements.name 동기화 — 생산 마을 건설/개명 시 지도·헤더 표시 이름(occupations.villageName
+//   = tile_settlements.name)과 일치시킨다. 표시 이름은 found 때부터 tile_settlements 가 단일 진실원.
+export async function syncTileSettlementName(
+  tx: Tx,
+  col: number,
+  row: number,
+  name: string,
+): Promise<void> {
+  await tx
+    .update(tileSettlements)
+    .set({ name })
+    .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
+}
+
 // 타일 정착지 관리 권한 해석(쓰기 경로) — 점령행/정착지 행을 FOR UPDATE 로 직렬화 + 권한 판정.
 //   guild: 점령 길드 멤버(requireAdmin 면 마스터/부마스터). solo: founder 본인.
 //   반환 owner 로 자원/골드 풀이 갈린다. flag(V2_TILE_PRODUCTION) 게이트는 호출부(라우트)에서.

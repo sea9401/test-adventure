@@ -29,7 +29,6 @@ import {
   TILE_POS_BY_OUTPOST,
   tileKey,
   tileNextTier,
-  tileSettlementName,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
 
@@ -167,9 +166,10 @@ type GameStateValue = {
   travelToTile: (col: number, row: number) => void;
   // 개척 정착지(Phase 3) — 보드의 모든 정착지 + 본인 건설/승격/철거.
   tileSettlements: TileSettlement[];
-  foundTile: (col: number, row: number) => void;
+  foundTile: (col: number, row: number, name: string) => void;
   promoteTile: (col: number, row: number) => void;
   demolishTile: (col: number, row: number) => void;
+  renameTile: (col: number, row: number, name: string) => void;
 };
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
@@ -616,15 +616,21 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   // 개척 정착지 — 건설/승격/철거/수확. 성공 시 낙관적 갱신 + 골드 반영(서버 권위). 실패는 현 상태 유지.
   const postTileSettlement = useCallback(
     async (
-      action: "found" | "promote" | "demolish",
+      action: "found" | "promote" | "demolish" | "rename",
       col: number,
       row: number,
+      name?: string,
     ): Promise<boolean> => {
       try {
         const res = await fetch("/api/v2/me/tile-settlement", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ action, col, row }),
+          body: JSON.stringify({
+            action,
+            col,
+            row,
+            ...(name != null ? { name } : {}),
+          }),
         });
         const j = (await res.json().catch(() => null)) as {
           gold?: number;
@@ -642,8 +648,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     [],
   );
   const foundTile = useCallback(
-    (col: number, row: number) => {
-      void postTileSettlement("found", col, row).then((ok) => {
+    (col: number, row: number, name: string) => {
+      void postTileSettlement("found", col, row, name).then((ok) => {
         if (!ok) return;
         setTileSettlements((s) =>
           s.some((x) => x.col === col && x.row === row)
@@ -655,8 +661,9 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
                   row,
                   userId: viewerUserId ?? "",
                   tier: "frontier",
-                  name: tileSettlementName(col, row),
-                  // 내 길드로 즉시 귀속(색/이름은 다음 state 새로고침이 채움).
+                  // 창립자가 직접 지은 이름 — 지도·헤더 표시 이름(서버 tile_settlements.name).
+                  name,
+                  // 내 길드로 즉시 귀속(색은 다음 state 새로고침이 채움).
                   guildId: viewerGuildId,
                 },
               ],
@@ -664,6 +671,19 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       });
     },
     [postTileSettlement, viewerUserId, viewerGuildId],
+  );
+  const renameTile = useCallback(
+    (col: number, row: number, name: string) => {
+      void postTileSettlement("rename", col, row, name).then((ok) => {
+        if (!ok) return;
+        setTileSettlements((s) =>
+          s.map((x) => (x.col === col && x.row === row ? { ...x, name } : x)),
+        );
+        // 거점 화면 헤더(occupations.villageName)도 새 이름으로 — 지도는 위 낙관적 갱신이 처리.
+        void refreshOccupations();
+      });
+    },
+    [postTileSettlement, refreshOccupations],
   );
   const promoteTile = useCallback(
     (col: number, row: number) => {
@@ -757,6 +777,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     foundTile,
     promoteTile,
     demolishTile,
+    renameTile,
   };
 
   return (

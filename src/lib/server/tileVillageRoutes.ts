@@ -22,6 +22,7 @@ import {
   lockSettlementResources,
   upsertSettlementResources,
   syncTileSettlementTier,
+  syncTileSettlementName,
   terrainTraitOf,
   type VillageRow,
 } from "./v2Settlement";
@@ -78,6 +79,7 @@ export async function tileBuild(
             return { status: 409, body: { ok: false, error: "already_built" } };
           }
           await upsertVillage(tx, { ...village, name });
+          await syncTileSettlementName(tx, pos.col, pos.row, name);
           return { status: 200, body: { ok: true, name, tier: village.tier } };
         }
         const og = await lockOwnerGold(tx, owner);
@@ -111,6 +113,7 @@ export async function tileBuild(
         await upsertVillage(tx, village);
         await og.spend(buildCost);
         await syncTileSettlementTier(tx, pos.col, pos.row, "village");
+        await syncTileSettlementName(tx, pos.col, pos.row, name);
         return { status: 200, body: { ok: true, name, tier: village.tier } };
       }),
     );
@@ -369,6 +372,7 @@ export async function tileRename(
           return { status: 409, body: { ok: false, error: "not_built" } };
         }
         await upsertVillage(tx, { ...village, name });
+        await syncTileSettlementName(tx, pos.col, pos.row, name);
         return { status: 200, body: { ok: true, name } };
       }),
     );

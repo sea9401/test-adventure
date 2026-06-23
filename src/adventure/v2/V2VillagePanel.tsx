@@ -5,6 +5,7 @@ import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
@@ -102,7 +103,11 @@ export function V2VillagePanel({
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/v2/outpost/village");
+      const r = await fetch(
+        isTileOutpostId(outpostId)
+          ? `/api/v2/outpost/village?outpostId=${encodeURIComponent(outpostId)}`
+          : "/api/v2/outpost/village",
+      );
       const j = (await r.json().catch(() => null)) as {
         ok?: boolean;
         villages?: Village[];
@@ -165,6 +170,8 @@ export function V2VillagePanel({
 
   // 거점 지형 특성 — 마을 있으면 GET 값, 없으면(빈 공터) id 로 파생.
   const trait: TerrainTrait = village?.trait ?? terrainTraitOf(outpostId);
+  // 골드 출처 표기 — 타일 정착지는 길드 금고(길드 타일) 또는 본인 골드(솔로)라 중립 "보유"로.
+  const goldNoun = isTileOutpostId(outpostId) ? "보유" : "길드 금고";
   // 건설됨 = 이름. 종류는 이제 칸별(slotKinds) — 마을 단위 특화 개념 폐기.
   const built = !!village && village.name != null;
 
@@ -429,7 +436,7 @@ export function V2VillagePanel({
             생산할 것은 칸을 해금할 때 고릅니다.
           </p>
           <div className="text-xs text-zinc-600 dark:text-zinc-300">
-            길드 금고{" "}
+            {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
           </div>
           <input
@@ -455,7 +462,7 @@ export function V2VillagePanel({
           </button>
           {gold < VILLAGE_BUILD_GOLD_COST && (
             <p className="text-[11px] text-rose-500 dark:text-rose-400">
-              길드 금고 골드가 부족해요 (보유 {fmtGold(gold)}).
+              {goldNoun} 골드가 부족해요 (보유 {fmtGold(gold)}).
             </p>
           )}
         </div>
@@ -463,7 +470,7 @@ export function V2VillagePanel({
         <>
           {resourcePool}
           <div className="text-xs text-zinc-600 dark:text-zinc-300">
-            길드 금고{" "}
+            {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
           </div>
           {/* 슬롯 판 미리보기(읽기 전용) — 잠김/해금 + 칸별 종류 시각화. */}
@@ -507,7 +514,7 @@ export function V2VillagePanel({
                 </button>
                 {!canAffordUnlock && (
                   <p className="text-[11px] text-rose-500 dark:text-rose-400">
-                    길드 금고 골드가 부족해요 (보유 {fmtGold(gold)}).
+                    {goldNoun} 골드가 부족해요 (보유 {fmtGold(gold)}).
                   </p>
                 )}
               </>

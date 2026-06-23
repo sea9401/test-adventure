@@ -49,6 +49,17 @@ export default function OutpostPage() {
   }
   if (!outpost) notFound();
 
+  // 솔로 타일 정착지 소유 판정용 founder — 타일 정착지의 userId(카탈로그/미존재면 null).
+  const tileFounderUserId = (() => {
+    if (!isTileOutpostId(params.id)) return null;
+    const pos = parseTileOutpostId(params.id);
+    if (!pos) return null;
+    return (
+      tileSettlements.find((s) => s.col === pos.col && s.row === pos.row)
+        ?.userId ?? null
+    );
+  })();
+
   return (
     <OutpostView
       outpost={outpost}
@@ -60,6 +71,7 @@ export default function OutpostPage() {
       treasuryGold={
         treasuries.find((t) => t.outpostId === outpost.id)?.gold ?? 0
       }
+      tileFounderUserId={tileFounderUserId}
       onAction={(a) => {
         if (a.kind === "back") router.push(backHref);
         if (a.kind === "claimed") refreshOccupations();

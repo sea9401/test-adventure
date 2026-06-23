@@ -26,7 +26,11 @@ import { V2VillagePanel } from "./V2VillagePanel";
 import DefendPanel from "./DefendPanel";
 import LordPanel from "./LordPanel";
 import { useGameState } from "./GameStateProvider";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  V2_SETTLEMENT_WARFARE,
+  V2_TILE_PRODUCTION,
+} from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -59,6 +63,7 @@ export function OutpostView({
   viewerGuildId,
   occupation,
   treasuryGold = 0,
+  tileFounderUserId = null,
   onAction,
 }: {
   outpost: Outpost;
@@ -67,6 +72,8 @@ export function OutpostView({
   occupation: OccupationLite;
   // 거점 금고 잔액 — 점령/함락 시 자동 회수되는 점령 유인(occupations GET 동봉).
   treasuryGold?: number;
+  // 타일 정착지 founder(솔로 소유 판정용) — 카탈로그 거점이면 무관(null).
+  tileFounderUserId?: string | null;
   onAction: (action: OutpostAction) => void;
 }) {
   // 코어루프 on = 스태미나 폐지(점령은 골드 비용). 안내 문구의 "스태미너 소모" 분기.
@@ -181,10 +188,20 @@ export function OutpostView({
     viewerGuildId === occupation.occupiedByGuildId;
   // 내 거점(내가 점령했거나 우리 길드 소유) — 점령/공성 시도 카드를 숨기고 생산/공격기록 탭.
   const ownByMyGuild = isOwner || isGuildMember;
-  // 정착지 관리(건설·이름변경·칸 해금·단계 업그레이드) = 점령 길드의 마스터/부마스터만(관리 탭).
+  // 솔로 타일 정착지(점령행 없음) 소유자 = founder. 길드 타일은 위 occupation 경로로 처리.
+  const isSoloTileOwner =
+    V2_TILE_PRODUCTION &&
+    isTileOutpostId(outpost.id) &&
+    occupation?.occupiedByGuildId == null &&
+    !!viewerUserId &&
+    tileFounderUserId === viewerUserId;
+  // 정착지/거점 활동 탭 노출 = 우리 길드 소유(점령)거나 솔로 타일 본인 소유.
+  const ownSettlement = ownByMyGuild || isSoloTileOwner;
+  // 정착지 관리(건설·이름변경·칸 해금·단계 업그레이드) = 점령 길드의 마스터/부마스터, 또는 솔로 founder.
   //   role 'vice_master' 는 guildAdmin 의 GUILD_ROLE_VICE_MASTER 와 동일(클라라 문자열 직접 비교).
   const canManageSettlement =
-    isGuildMember && (guildIsMaster || guildRole === "vice_master");
+    (isGuildMember && (guildIsMaster || guildRole === "vice_master")) ||
+    isSoloTileOwner;
   // 거점 지형 특성 — 옛 type 라벨 대신 헤더에 표기(맞는 생산물 +보너스).
   const trait = terrainTraitOf(outpost.id);
 
@@ -458,8 +475,8 @@ export function OutpostView({
           </div>
         )}
 
-        {ownByMyGuild ? (
-          // 내 거점 — 생산 / 최근 공격 기록 (+ 마스터·부마스터면 관리) 탭.
+        {ownSettlement ? (
+          // 내 거점/정착지 — 생산 / 최근 공격 기록 (+ 관리) 탭.
           <>
             <HeaderPanel className="py-2">
               <TabBar
@@ -487,7 +504,7 @@ export function OutpostView({
             {activityTab === "produce" && (
               <>
                 <V2VillagePanel outpostId={outpost.id} mode="produce" />
-                {V2_SETTLEMENT_WARFARE && (
+                {V2_SETTLEMENT_WARFARE && !isSoloTileOwner && (
                   <LordPanel
                     outpostId={outpost.id}
                     canManage={canManageSettlement}

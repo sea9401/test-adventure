@@ -5,7 +5,14 @@ import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
 import { terrainTraitOf } from "@/adventure/data/v2/outposts";
-import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import {
+  isTileOutpostId,
+  parseTileOutpostId,
+} from "@/adventure/data/v2/tileWarfare";
+import {
+  scaledTileGoldCost,
+  scaledTileResourceCost,
+} from "@/adventure/data/v2/tileConfig";
 import {
   VILLAGE_TIER_NAME,
   TERRAIN_TRAIT_NAME,
@@ -367,15 +374,32 @@ export function V2VillagePanel({
 
   // ── 관리 탭 ── 건설(이름)·이름 변경·칸 해금(골드+종류)·단계 업그레이드. ──────────
   const next = village ? nextTier(village.tier) : null;
-  const upgradeCost = village ? (UPGRADE_COST[village.tier] ?? {}) : {};
+  // 리베라(중앙) 거리 비용 배수 — 타일이면 거리 스케일, 카탈로그 거점이면 기본(불변). 서버 과금과 일치.
+  const tilePos = parseTileOutpostId(outpostId);
+  const upgradeCost =
+    village && tilePos
+      ? scaledTileResourceCost(
+          UPGRADE_COST[village.tier] ?? {},
+          tilePos.col,
+          tilePos.row,
+        )
+      : village
+        ? (UPGRADE_COST[village.tier] ?? {})
+        : {};
   const atMaxSlots = !!village && village.unlockedSlots >= village.maxSlots;
   const needSlots = !!village && !atMaxSlots; // 단계 업그레이드 전 판을 다 채워야
   const canAffordUpgrade =
     !!next &&
     !needSlots &&
     PRODUCTION_KINDS.every((k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0));
-  const unlockGold = village ? slotUnlockGoldCost(village.unlockedSlots) : 0;
+  const unlockGoldBase = village ? slotUnlockGoldCost(village.unlockedSlots) : 0;
+  const unlockGold = tilePos
+    ? scaledTileGoldCost(unlockGoldBase, tilePos.col, tilePos.row)
+    : unlockGoldBase;
   const canAffordUnlock = !atMaxSlots && gold >= unlockGold;
+  const buildGold = tilePos
+    ? scaledTileGoldCost(VILLAGE_BUILD_GOLD_COST, tilePos.col, tilePos.row)
+    : VILLAGE_BUILD_GOLD_COST;
 
   return (
     <section className={`${SURFACE_CARD} space-y-2 p-3`}>
@@ -451,16 +475,14 @@ export function V2VillagePanel({
           <button
             type="button"
             disabled={
-              busy ||
-              buildName.trim().length === 0 ||
-              gold < VILLAGE_BUILD_GOLD_COST
+              busy || buildName.trim().length === 0 || gold < buildGold
             }
             onClick={() => void act("build", { name: buildName.trim() }, true)}
             className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            마을 건설 · {fmtGold(VILLAGE_BUILD_GOLD_COST)} 골드
+            마을 건설 · {fmtGold(buildGold)} 골드
           </button>
-          {gold < VILLAGE_BUILD_GOLD_COST && (
+          {gold < buildGold && (
             <p className="text-[11px] text-rose-500 dark:text-rose-400">
               {goldNoun} 골드가 부족해요 (보유 {fmtGold(gold)}).
             </p>

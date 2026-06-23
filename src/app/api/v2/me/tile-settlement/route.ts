@@ -17,6 +17,7 @@ import {
   tileNextTier,
   isTileSettlementTier,
   tileSettlementName,
+  scaledTileGoldCost,
 } from "@/adventure/data/v2/tileConfig";
 import {
   V2_TILE_WARFARE,
@@ -134,6 +135,8 @@ export async function POST(req: Request) {
       if (existing) {
         return { kind: "err", status: 409, error: "already_settled" };
       }
+      // 개척마을 생성비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(중앙=기본).
+      const foundCost = scaledTileGoldCost(TILE_FOUND_COST, col, row);
       // 길드 소속이면 개척마을 생성=길드 행위: 마스터/부마스터만 + 길드 자금 소모(개인 골드 X).
       //   무소속(솔로)은 본인 골드(현행). V2_TILE_WARFARE off 면 길드 타일 개념 없어 솔로 경로.
       const guildId = V2_TILE_WARFARE ? await getGuildId(tx, userId) : null;
@@ -142,12 +145,12 @@ export async function POST(req: Request) {
           return { kind: "err", status: 403, error: "not_guild_admin" };
         }
         const gr = await lockGuildResources(tx, guildId);
-        if (V2_CORE_LOOP_V2 && gr.gold < TILE_FOUND_COST) {
+        if (V2_CORE_LOOP_V2 && gr.gold < foundCost) {
           return {
             kind: "err",
             status: 409,
             error: "out_of_guild_gold",
-            required: TILE_FOUND_COST,
+            required: foundCost,
             gold: gr.gold,
           };
         }
@@ -161,7 +164,7 @@ export async function POST(req: Request) {
         await createTileOccupation(tx, { userId, col, row, tier: "frontier" });
         if (V2_CORE_LOOP_V2) {
           await upsertGuildResources(tx, guildId, {
-            gold: gr.gold - TILE_FOUND_COST,
+            gold: gr.gold - foundCost,
           });
         }
         // 응답 골드 = 개인 골드(길드 자금 차감이라 개인은 불변) — 클라 표시용.
@@ -169,13 +172,13 @@ export async function POST(req: Request) {
         return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
       }
       // 무소속(솔로) — 본인 골드(현행).
-      const charge = await chargeGold(tx, userId, TILE_FOUND_COST);
+      const charge = await chargeGold(tx, userId, foundCost);
       if (!charge.ok) {
         return {
           kind: "err",
           status: 409,
           error: "out_of_gold",
-          required: TILE_FOUND_COST,
+          required: foundCost,
           gold: charge.gold,
         };
       }

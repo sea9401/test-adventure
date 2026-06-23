@@ -35,6 +35,7 @@ import {
   TILE_PROMOTE_COST,
   tileNextTier,
   isTileSettlementTier,
+  scaledTileGoldCost,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
 import type { Outpost } from "@/adventure/data/v2/types";
@@ -464,7 +465,13 @@ export function TileMap({
                   className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                 >
                   <Hammer size={14} weight="fill" />
-                  개척마을 건설 ({TILE_FOUND_COST.toLocaleString()}G)
+                  개척마을 건설 (
+                  {scaledTileGoldCost(
+                    TILE_FOUND_COST,
+                    selCol,
+                    selRow,
+                  ).toLocaleString()}
+                  G)
                 </button>
               )}
             </div>

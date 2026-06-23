@@ -68,6 +68,7 @@ vi.mock("@/db", () => {
 });
 
 import { POST } from "@/app/api/v2/me/tile-settlement/route";
+import { scaledTileGoldCost } from "@/adventure/data/v2/tileConfig";
 
 function foundReq(col = 2, row = 3): Request {
   return new Request("http://t/api/v2/me/tile-settlement", {
@@ -77,6 +78,8 @@ function foundReq(col = 2, row = 3): Request {
 }
 
 const COST = 10_000_000; // TILE_FOUND_COST
+// found 좌표 (2,3) = 리베라(4,4) 체비셰프 거리 2 → 생성비 거리 스케일.
+const FOUND_COST = scaledTileGoldCost(COST, 2, 3);
 
 describe("POST tile-settlement found — 길드 규칙", () => {
   afterEach(() => {
@@ -93,7 +96,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
   it("길드 마스터/부마스터: 길드 자금 소모 + 정착지 생성(개인 골드 불변)", async () => {
     h.guildId = 7;
     h.isAdmin = true;
-    h.guildGold = COST * 2;
+    h.guildGold = FOUND_COST + COST; // 차감 후 COST 남도록
     h.soloGold = 0; // 개인 골드 0이어도 길드 자금으로 생성 가능
     const res = await POST(foundReq());
     expect(res.status).toBe(200);
@@ -116,7 +119,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
   it("길드 자금 부족 → 409 out_of_guild_gold(미생성)", async () => {
     h.guildId = 7;
     h.isAdmin = true;
-    h.guildGold = COST - 1;
+    h.guildGold = FOUND_COST - 1;
     const res = await POST(foundReq());
     expect(res.status).toBe(409);
     const j = (await res.json()) as { error: string };
@@ -126,7 +129,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
 
   it("무소속(솔로): 본인 골드 소모 + 정착지 생성(길드 자금 무관)", async () => {
     h.guildId = null;
-    h.soloGold = COST * 2;
+    h.soloGold = FOUND_COST + COST;
     const res = await POST(foundReq());
     expect(res.status).toBe(200);
     expect(h.inserts).toHaveLength(1);

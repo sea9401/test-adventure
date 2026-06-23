@@ -9,6 +9,10 @@
 import { db } from "@/db";
 import { parseTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
+  scaledTileGoldCost,
+  tileCostMultiplier,
+} from "@/adventure/data/v2/tileConfig";
+import {
   lockVillage,
   upsertVillage,
   resolveTileVillageManageOwner,
@@ -76,13 +80,19 @@ export async function tileBuild(
           return { status: 200, body: { ok: true, name, tier: village.tier } };
         }
         const og = await lockOwnerGold(tx, owner);
-        if (og.available < VILLAGE_BUILD_GOLD_COST) {
+        // 마을 건설비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑.
+        const buildCost = scaledTileGoldCost(
+          VILLAGE_BUILD_GOLD_COST,
+          pos.col,
+          pos.row,
+        );
+        if (og.available < buildCost) {
           return {
             status: 409,
             body: {
               ok: false,
               error: "insufficient_gold",
-              cost: VILLAGE_BUILD_GOLD_COST,
+              cost: buildCost,
             },
           };
         }
@@ -98,7 +108,7 @@ export async function tileBuild(
           jobs: {},
         };
         await upsertVillage(tx, village);
-        await og.spend(VILLAGE_BUILD_GOLD_COST);
+        await og.spend(buildCost);
         await syncTileSettlementTier(tx, pos.col, pos.row, "village");
         return { status: 200, body: { ok: true, name, tier: village.tier } };
       }),
@@ -238,28 +248,32 @@ export async function tileUnlockSlot(
         }
         const og = await lockOwnerGold(tx, ctx.owner);
         const check = canUnlockSlot(village.tier, village.unlockedSlots, og.available);
-        if (!check.ok) {
+        if (check.atMax) {
           return {
             status: 409,
-            body: {
-              ok: false,
-              error: check.atMax ? "at_max" : "insufficient_gold",
-              cost: check.cost,
-            },
+            body: { ok: false, error: "at_max", cost: check.cost },
+          };
+        }
+        // 칸 해금비 = 기본 누진비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(첫 무료칸은 0 유지).
+        const cost = scaledTileGoldCost(check.cost, pos.col, pos.row);
+        if (og.available < cost) {
+          return {
+            status: 409,
+            body: { ok: false, error: "insufficient_gold", cost },
           };
         }
         const newSlot = village.unlockedSlots;
         village.unlockedSlots += 1;
         village.slotKinds = { ...village.slotKinds, [newSlot]: kind };
         await upsertVillage(tx, village);
-        await og.spend(check.cost);
+        await og.spend(cost);
         return {
           status: 200,
           body: {
             ok: true,
             unlockedSlots: village.unlockedSlots,
             slotKinds: village.slotKinds,
-            gold: og.available - check.cost,
+            gold: og.available - cost,
           },
         };
       }),
@@ -291,7 +305,14 @@ export async function tileUpgrade(
         if (!loaded) return { status: 404, body: { ok: false, error: "no_village" } };
         const village = normalizeVillageToOwner(loaded, ctx.owner);
         const resources = await lockSettlementResources(tx, ctx.owner);
-        const check = canUpgrade(village.tier, village.unlockedSlots, resources);
+        // 단계 승격 자원비 = 기본비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑.
+        const mult = tileCostMultiplier(pos.col, pos.row);
+        const check = canUpgrade(
+          village.tier,
+          village.unlockedSlots,
+          resources,
+          mult,
+        );
         if (!check.ok || !check.next) {
           return {
             status: 409,
@@ -306,7 +327,7 @@ export async function tileUpgrade(
             },
           };
         }
-        const nextResources = applyUpgradeCost(village.tier, resources);
+        const nextResources = applyUpgradeCost(village.tier, resources, mult);
         village.tier = check.next;
         await upsertVillage(tx, village);
         await upsertSettlementResources(tx, ctx.owner, nextResources);

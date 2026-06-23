@@ -94,7 +94,7 @@ export function HpBar({
 }
 
 // v2 충전식 회복약 한 줄 표기 (🧪 HP 충전약 123). 잔량 0 이면 회색.
-function ChargeReadout({
+export function ChargeReadout({
   emoji,
   label,
   value,
@@ -355,11 +355,6 @@ export function BattleScene({
                   max={playerStatus.maxExp}
                   color="bg-amber-400"
                 />
-                <RecoveryReadout
-                  playerStatus={playerStatus}
-                  hasMp={hasMp}
-                  center
-                />
               </div>
             </div>
             {/* 오른쪽 — 적 */}
@@ -371,22 +366,20 @@ export function BattleScene({
                 size="sm"
               />
               <div className="w-full space-y-1.5">
-                <div className="flex items-center justify-center gap-1">
-                  <span className="truncate text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
-                    {state.enemy.name}
-                  </span>
-                  {state.enemy.element && state.enemy.element !== "neutral" && (
-                    <span
-                      className={`shrink-0 rounded px-1.5 py-px text-[10px] font-medium ${
-                        elementMatchup === "advantage"
-                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
-                          : "bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
-                      }`}
-                    >
-                      {V2_ELEMENT_LABEL[state.enemy.element]}
-                      {elementMatchup === "advantage" && " · 약점!"}
-                    </span>
-                  )}
+                {/* 이름 — 플레이어와 동일하게 가운데 한 줄. */}
+                <div className="truncate text-center text-[13px] font-semibold text-zinc-800 dark:text-zinc-100">
+                  {state.enemy.name}
+                </div>
+                {/* 속성 — 이름 아래 부제(플레이어 부제 위치와 맞춤). 약점이면 강조. */}
+                <div
+                  className={`-mt-1 truncate text-center text-[11px] ${
+                    elementMatchup === "advantage"
+                      ? "font-medium text-emerald-600 dark:text-emerald-400"
+                      : "text-zinc-500 dark:text-zinc-400"
+                  }`}
+                >
+                  {V2_ELEMENT_LABEL[state.enemy.element ?? "neutral"]}
+                  {elementMatchup === "advantage" && " · 약점!"}
                 </div>
                 <HpBar
                   compact
@@ -395,6 +388,16 @@ export function BattleScene({
                   max={state.enemy.hp}
                   color="bg-rose-500"
                 />
+                {/* MP — 플레이어와 좌우 위치 맞춤(플레이어가 MP 보유 시 또는 적이 MP 풀 보유 시). */}
+                {(hasMp || state.enemyMaxMp > 0) && (
+                  <HpBar
+                    compact
+                    label="MP"
+                    value={state.enemyMp}
+                    max={state.enemyMaxMp}
+                    color="bg-blue-500"
+                  />
+                )}
               </div>
             </div>
           </div>

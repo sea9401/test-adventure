@@ -661,7 +661,14 @@ export function V2DungeonFloorView({
       {batchSummary ? (
         <BatchSummaryCard summary={batchSummary} />
       ) : (
-        lastResult && <HuntResultCard result={lastResult} />
+        lastResult && (
+          <HuntResultCard
+            result={lastResult}
+            hpCharges={lastResult.hpCharges}
+            mpCharges={lastResult.mpCharges}
+            hasMp={(mp?.maxMp ?? 0) > 0}
+          />
+        )
       )}
 
       {showLevelupModal && (

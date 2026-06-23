@@ -3,7 +3,8 @@ import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { isGuildAdmin } from "@/lib/server/guildAdmin";
-import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
+import { resolveOutpostMeta, isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // POST /api/v2/outpost/policy — 점령자가 정책/세율 설정.
 //
@@ -36,8 +37,13 @@ export async function POST(req: Request) {
   if (typeof body.outpostId !== "string" || body.outpostId.length === 0) {
     return Response.json({ ok: false, error: "bad_intent" }, { status: 400 });
   }
-  const outpost = resolveOutpostMeta(body.outpostId);
-  if (!outpost) {
+  const outpostId = body.outpostId;
+  // 타일 전쟁 — tile id 는 카탈로그 메타가 없으므로 점령행 기준으로 정책 설정(실제 존재는
+  //   아래 occupation 조회가 판정·미점령이면 not_occupied). flag off → tile id 는 미지로 거부.
+  const known =
+    resolveOutpostMeta(outpostId) != null ||
+    (V2_TILE_WARFARE && isTileOutpostId(outpostId));
+  if (!known) {
     return Response.json(
       { ok: false, error: "no_such_outpost" },
       { status: 400 },
@@ -80,7 +86,7 @@ export async function POST(req: Request) {
       await tx
         .select()
         .from(outpostOccupations)
-        .where(eq(outpostOccupations.outpostId, outpost.id))
+        .where(eq(outpostOccupations.outpostId, outpostId))
         .for("update")
         .limit(1)
     )[0];
@@ -105,7 +111,7 @@ export async function POST(req: Request) {
     await tx
       .update(outpostOccupations)
       .set(updates)
-      .where(eq(outpostOccupations.outpostId, outpost.id));
+      .where(eq(outpostOccupations.outpostId, outpostId));
     return {
       status: 200,
       body: {

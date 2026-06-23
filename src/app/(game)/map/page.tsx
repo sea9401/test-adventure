@@ -22,6 +22,8 @@ export default function MapPage() {
     viewerUserId,
     viewerGuildId,
     currentOutpost,
+    tileActionError,
+    clearTileActionError,
   } = useGameState();
   return (
     <TileMap
@@ -38,6 +40,8 @@ export default function MapPage() {
       viewerGuildId={viewerGuildId}
       currentOutpostId={currentOutpost?.id ?? null}
       onOpenOutpost={(id) => router.push(`/outpost/${id}`)}
+      actionError={tileActionError}
+      onDismissActionError={clearTileActionError}
     />
   );
 }

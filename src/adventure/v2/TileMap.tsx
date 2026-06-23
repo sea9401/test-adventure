@@ -95,13 +95,15 @@ export function TileMap({
   viewerGuildId,
   currentOutpostId,
   onOpenOutpost,
+  actionError,
+  onDismissActionError,
 }: {
   // 칸 이동(거점/빈 땅 공통) — 좌표를 받아 provider 가 거점/빈땅 분기.
   onTravelToTile?: (col: number, row: number) => void;
   tilePos?: { col: number; row: number } | null;
   // 개척 정착지(Phase 3).
   tileSettlements?: TileSettlementLite[];
-  onFoundTile?: (col: number, row: number, name: string) => void;
+  onFoundTile?: (col: number, row: number, name: string) => void | Promise<boolean>;
   onPromoteTile?: (col: number, row: number) => void;
   onDemolishTile?: (col: number, row: number) => void;
   onRenameTile?: (col: number, row: number, name: string) => void;
@@ -112,6 +114,9 @@ export function TileMap({
   currentOutpostId?: string | null;
   // 거점/타일 전쟁 화면 진입 — /outpost/[id] 딥링크(부모가 router.push 주입).
   onOpenOutpost?: (id: string) => void;
+  // 개척/승격/철거/개명 실패 사유(한 줄). 있으면 빈 땅 패널에 안내 배너로 표시.
+  actionError?: string | null;
+  onDismissActionError?: () => void;
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
   const [foundName, setFoundName] = useState(""); // 개척마을 건설 폼 이름 입력
@@ -294,8 +299,24 @@ export function TileMap({
       </div>
 
       {/* 선택 칸 패널 */}
-      {selected &&
-        (selOutpost ? (
+      {selected && (
+        <>
+          {/* 개척/승격/철거/개명 실패 사유 — 침묵 실패 방지(서버 거절 시 표시). */}
+          {actionError && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-red-700 bg-red-950/70 px-3 py-2 text-xs text-red-300">
+              <span className="min-w-0">{actionError}</span>
+              {onDismissActionError && (
+                <button
+                  type="button"
+                  onClick={onDismissActionError}
+                  className="shrink-0 rounded px-1.5 py-0.5 text-red-400 hover:bg-red-900/60"
+                >
+                  닫기
+                </button>
+              )}
+            </div>
+          )}
+          {selOutpost ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-1.5">
@@ -513,9 +534,14 @@ export function TileMap({
                     <button
                       type="button"
                       disabled={foundName.trim().length === 0}
-                      onClick={() => {
-                        onFoundTile(selCol, selRow, foundName.trim());
-                        setFoundName("");
+                      onClick={async () => {
+                        // 성공일 때만 입력창을 비운다 — 실패(골드/권한 등)면 이름을 남겨 재시도.
+                        const ok = await onFoundTile(
+                          selCol,
+                          selRow,
+                          foundName.trim(),
+                        );
+                        if (ok) setFoundName("");
                       }}
                       className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                     >
@@ -537,7 +563,9 @@ export function TileMap({
                 ))}
             </div>
           </div>
-        ))}
+          )}
+        </>
+      )}
     </main>
   );
 }

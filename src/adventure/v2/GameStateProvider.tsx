@@ -166,11 +166,60 @@ type GameStateValue = {
   travelToTile: (col: number, row: number) => void;
   // 개척 정착지(Phase 3) — 보드의 모든 정착지 + 본인 건설/승격/철거.
   tileSettlements: TileSettlement[];
-  foundTile: (col: number, row: number, name: string) => void;
+  foundTile: (col: number, row: number, name: string) => Promise<boolean>;
   promoteTile: (col: number, row: number) => void;
   demolishTile: (col: number, row: number) => void;
   renameTile: (col: number, row: number, name: string) => void;
+  // 개척/승격/철거/개명 실패 사유(한 줄). 성공·미발생이면 null. 지도에서 안내 후 해제.
+  tileActionError: string | null;
+  clearTileActionError: () => void;
 };
+
+// 정착지 액션(개척/승격/철거/개명) 실패 사유 → 사용자 안내 문구.
+//   서버 error 코드별로 "왜 안 됐는지"를 한국어로 풀어 침묵 실패를 없앤다.
+function tileSettlementErrorMessage(
+  action: "found" | "promote" | "demolish" | "rename",
+  res: { error?: string; requiredGold?: number; gold?: number },
+): string {
+  const label =
+    action === "found"
+      ? "개척"
+      : action === "promote"
+        ? "승격"
+        : action === "demolish"
+          ? "철거"
+          : "개명";
+  const req = res.requiredGold ?? 0;
+  const have = res.gold ?? 0;
+  switch (res.error) {
+    case "out_of_guild_gold":
+      return `길드 골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요 (현재 길드 골드 ${have.toLocaleString()} G). 거점 금고를 회수해 길드 자금을 채우세요.`;
+    case "out_of_gold":
+      return `골드 부족 — ${label} 비용 ${req.toLocaleString()} G 필요.`;
+    case "not_guild_admin":
+      return "개척마을 건설은 길드 마스터·부마스터만 가능합니다.";
+    case "need_guild":
+      return "개척마을은 길드 전용입니다 — 길드를 만들거나 가입하세요.";
+    case "already_settled":
+      return "이미 정착지가 있는 칸입니다.";
+    case "tile_is_outpost":
+      return "거점 칸에는 개척할 수 없습니다.";
+    case "invalid_name":
+      return "마을 이름이 올바르지 않습니다.";
+    case "not_owner":
+      return "본인 정착지가 아닙니다.";
+    case "not_found":
+      return "정착지를 찾을 수 없습니다.";
+    case "max_tier":
+      return "이미 최고 단계입니다.";
+    case "use_production_management":
+      return "승격은 거점 관리 화면(생산 시스템)에서 진행하세요.";
+    case "network":
+      return "네트워크 오류 — 잠시 후 다시 시도하세요.";
+    default:
+      return `${label}에 실패했습니다 (${res.error ?? "알 수 없는 오류"}).`;
+  }
+}
 
 const GameStateCtx = createContext<GameStateValue | null>(null);
 
@@ -219,6 +268,10 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
   // 개척 정착지 — me/state 로 초기화, 건설/승격/철거로 낙관적 갱신.
   const [tileSettlements, setTileSettlements] = useState<TileSettlement[]>([]);
+  // 개척/승격/철거/개명 실패 사유 — 한 줄 안내(지도에서 표시). 성공 시 null 로 해제.
+  //   서버가 403/409 등으로 거절해도 클라가 침묵하면 "버튼이 안 먹는다"로 보이므로
+  //   사유를 사용자에게 노출한다.
+  const [tileActionError, setTileActionError] = useState<string | null>(null);
   // 전역 stamina — me/state mount fetch 에서 초기화. 던전 hunt 응답 시 갱신.
   const [staminaMax, setStaminaMax] = useState(MAX_STAMINA);
   const [stamina, setStamina] = useState<StaminaState>(() =>
@@ -614,13 +667,19 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
 
   // 개척 정착지 — 건설/승격/철거/수확. 성공 시 낙관적 갱신 + 골드 반영(서버 권위). 실패는 현 상태 유지.
+  //   실패 사유(error/requiredGold/gold)를 그대로 돌려줘 호출부가 안내 문구를 만들 수 있게 한다.
   const postTileSettlement = useCallback(
     async (
       action: "found" | "promote" | "demolish" | "rename",
       col: number,
       row: number,
       name?: string,
-    ): Promise<boolean> => {
+    ): Promise<{
+      ok: boolean;
+      error?: string;
+      requiredGold?: number;
+      gold?: number;
+    }> => {
       try {
         const res = await fetch("/api/v2/me/tile-settlement", {
           method: "POST",
@@ -635,47 +694,63 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
         const j = (await res.json().catch(() => null)) as {
           gold?: number;
           bankedGold?: number;
+          error?: string;
+          requiredGold?: number;
         } | null;
         if (res.ok) {
           if (typeof j?.gold === "number") setGold(j.gold);
           if (typeof j?.bankedGold === "number") setBankedGold(j.bankedGold);
+          return { ok: true };
         }
-        return res.ok;
+        return {
+          ok: false,
+          error: j?.error ?? "unknown",
+          requiredGold: j?.requiredGold,
+          gold: j?.gold,
+        };
       } catch {
-        return false;
+        return { ok: false, error: "network" };
       }
     },
     [],
   );
   const foundTile = useCallback(
-    (col: number, row: number, name: string) => {
-      void postTileSettlement("found", col, row, name).then((ok) => {
-        if (!ok) return;
-        setTileSettlements((s) =>
-          s.some((x) => x.col === col && x.row === row)
-            ? s
-            : [
-                ...s,
-                {
-                  col,
-                  row,
-                  userId: viewerUserId ?? "",
-                  tier: "frontier",
-                  // 창립자가 직접 지은 이름 — 지도·헤더 표시 이름(서버 tile_settlements.name).
-                  name,
-                  // 내 길드로 즉시 귀속(색은 다음 state 새로고침이 채움).
-                  guildId: viewerGuildId,
-                },
-              ],
-        );
-      });
+    async (col: number, row: number, name: string): Promise<boolean> => {
+      const res = await postTileSettlement("found", col, row, name);
+      if (!res.ok) {
+        setTileActionError(tileSettlementErrorMessage("found", res));
+        return false;
+      }
+      setTileActionError(null);
+      setTileSettlements((s) =>
+        s.some((x) => x.col === col && x.row === row)
+          ? s
+          : [
+              ...s,
+              {
+                col,
+                row,
+                userId: viewerUserId ?? "",
+                tier: "frontier",
+                // 창립자가 직접 지은 이름 — 지도·헤더 표시 이름(서버 tile_settlements.name).
+                name,
+                // 내 길드로 즉시 귀속(색은 다음 state 새로고침이 채움).
+                guildId: viewerGuildId,
+              },
+            ],
+      );
+      return true;
     },
     [postTileSettlement, viewerUserId, viewerGuildId],
   );
   const renameTile = useCallback(
     (col: number, row: number, name: string) => {
-      void postTileSettlement("rename", col, row, name).then((ok) => {
-        if (!ok) return;
+      void postTileSettlement("rename", col, row, name).then((res) => {
+        if (!res.ok) {
+          setTileActionError(tileSettlementErrorMessage("rename", res));
+          return;
+        }
+        setTileActionError(null);
         setTileSettlements((s) =>
           s.map((x) => (x.col === col && x.row === row ? { ...x, name } : x)),
         );
@@ -687,8 +762,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
   const promoteTile = useCallback(
     (col: number, row: number) => {
-      void postTileSettlement("promote", col, row).then((ok) => {
-        if (!ok) return;
+      void postTileSettlement("promote", col, row).then((res) => {
+        if (!res.ok) {
+          setTileActionError(tileSettlementErrorMessage("promote", res));
+          return;
+        }
+        setTileActionError(null);
         setTileSettlements((s) =>
           s.map((x) =>
             x.col === col && x.row === row
@@ -705,8 +784,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   );
   const demolishTile = useCallback(
     (col: number, row: number) => {
-      void postTileSettlement("demolish", col, row).then((ok) => {
-        if (!ok) return;
+      void postTileSettlement("demolish", col, row).then((res) => {
+        if (!res.ok) {
+          setTileActionError(tileSettlementErrorMessage("demolish", res));
+          return;
+        }
+        setTileActionError(null);
         setTileSettlements((s) =>
           s.filter((x) => !(x.col === col && x.row === row)),
         );
@@ -714,6 +797,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     },
     [postTileSettlement],
   );
+  const clearTileActionError = useCallback(() => setTileActionError(null), []);
 
   // 전투 장면 플레이어 부제 — "Lv.42 · 견습 검사 · 무속성". 레벨·직업·속성 간단 표기.
   const playerLevelText = viewerLevelCap
@@ -778,6 +862,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     promoteTile,
     demolishTile,
     renameTile,
+    tileActionError,
+    clearTileActionError,
   };
 
   return (

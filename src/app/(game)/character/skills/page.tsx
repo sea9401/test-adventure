@@ -19,7 +19,7 @@ export default function SkillsPage() {
   const [tab, setTab] = useState<SkillTab>("loadout");
 
   const tabs = [
-    { key: "loadout" as const, label: "로드아웃" },
+    { key: "loadout" as const, label: "스킬" },
     ...(V2_COMBAT_PATTERN_ENABLED
       ? [{ key: "pattern" as const, label: "전투패턴" }]
       : []),

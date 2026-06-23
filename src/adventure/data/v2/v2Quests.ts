@@ -234,7 +234,7 @@ const BASICS: QuestDef[] = [
     id: "b_skill",
     line: "basics",
     title: "기술 연마",
-    desc: "로드아웃에 스킬을 하나 장착해보세요.",
+    desc: "스킬을 하나 장착해보세요.",
     reward: { staminaPotions: 2 },
     check: (c) => c.skillsEquipped >= 1,
   },

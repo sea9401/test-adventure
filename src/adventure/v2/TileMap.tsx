@@ -13,8 +13,6 @@ import {
   Flag,
   Hammer,
   House,
-  Mountains,
-  Sparkle,
   Trash,
   type Icon,
 } from "@phosphor-icons/react";
@@ -38,23 +36,10 @@ import {
   isTileSettlementTier,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
-import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
+import type { Outpost } from "@/adventure/data/v2/types";
 
 const CELL = 54; // 셀(=아이콘) 크기 px. 고정값(반응형은 후속 폴리시).
 const GAP = 1;
-
-const TYPE_ICON: Record<OutpostType, Icon> = {
-  mine: Mountains,
-  tower: Sparkle,
-  fort: CastleTurret,
-  village: House,
-};
-const TYPE_LABEL: Record<OutpostType, string> = {
-  mine: "광산",
-  tower: "마탑",
-  fort: "요새",
-  village: "마을",
-};
 
 // 개척 정착지 티어별 아이콘 — 개척마을(깃발)→마을(집)→도시(성)→대도시(왕관).
 const SETTLE_TIER_ICON: Record<TileSettlementTier, Icon> = {
@@ -258,7 +243,8 @@ export function TileMap({
                     ? guildColorHex(occ.occupiedByGuildColor ?? null)
                     : null;
                 const fill = guildColor ?? ownerColor;
-                const Glyph = o.tier === 4 ? Crown : TYPE_ICON[o.type];
+                // 모든 거점 = 마을 아이콘으로 통일(타입/지역중심 구분 폐지).
+                const Glyph = House;
                 return (
                   <button
                     key={k}
@@ -354,9 +340,7 @@ export function TileMap({
                   {occByOutpost.get(selOutpost.id)?.villageName?.trim() ||
                     selOutpost.name}
                 </span>
-                <span className="text-xs text-zinc-500">
-                  {selOutpost.tier === 4 ? "지역 중심" : TYPE_LABEL[selOutpost.type]}
-                </span>
+                <span className="text-xs text-zinc-500">마을</span>
                 {selOutpost.neutral && (
                   <span className="rounded bg-yellow-400 px-1 py-0.5 text-[10px] text-yellow-900">
                     중립

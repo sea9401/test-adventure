@@ -9,6 +9,8 @@
 import type { V2SkillId } from "./v2Skills";
 
 export const V2_SKILLS_BY_JOB: Record<string, readonly V2SkillId[]> = {
+  // ── 모험가(무직) — 착용형 패시브 2(학습+SP 슬롯). 상위직업과 달리 액티브 없이 패시브 2개. ──
+  none: ["v2c_none_toughness", "v2c_none_diligence"],
   // ── 기본 4직업 — 액티브 1 + 패시브 스킬 1(학습+SP 슬롯해야 효과) ──
   warrior: ["v2c_warrior_strike", "v2c_warrior_might"], // 강타 + 근력(힘+10%)
   martial: ["v2c_martial_steelguard", "v2c_martial_fortitude"], // 하급 권법(단일딜) + 강건(활력+10%)

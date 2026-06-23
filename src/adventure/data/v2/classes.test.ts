@@ -128,8 +128,11 @@ describe("parseV2Class — 6→4 마이그", () => {
 });
 
 describe("elementalSkillsForClass", () => {
-  it("none = 빈 배열, 4직군은 공용 스킬 풀 보유(전문화 미선택)", () => {
-    expect(elementalSkillsForClass("none")).toEqual([]);
+  it("none = 모험가 킷 2종, 4직군은 공용 스킬 풀 보유(전문화 미선택)", () => {
+    expect(elementalSkillsForClass("none")).toEqual([
+      "v2c_none_toughness",
+      "v2c_none_diligence",
+    ]);
     for (const c of V2_SELECTABLE_CLASSES) {
       expect(elementalSkillsForClass(c).length, `${c} 공용 풀`).toBeGreaterThan(
         0,

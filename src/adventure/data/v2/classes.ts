@@ -191,6 +191,7 @@ export function elementalSkillsForClass(
   specId?: string | null,
   _specTier?: number,
 ): V2SkillId[] {
-  if (c === "none") return [];
+  // 모험가(무직)도 자기 킷(착용형 패시브 2종)을 학습/장착할 수 있다 — 차수 게이트 없이 둘 다.
+  if (c === "none") return [...skillsForJob("none")];
   return [...skillsForJob(jobIdFromLegacy(c, specId ?? null))];
 }

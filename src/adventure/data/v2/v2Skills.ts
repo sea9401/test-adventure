@@ -84,14 +84,24 @@ export type V2PassiveSkillEffect = {
   elementAdvPctBonus?: number;
   /** 속성 불리 감소 +%p 가산(원소 통달) — V2_ELEMENT_DIS_PCT 에 더해 전달(받피 추가 경감·딜 추가 손해). */
   elementDisPctBonus?: number;
+  // ── 경제(비전투) — 장착 시 사냥 처치당 숙달 포인트 획득 +N. 전투 derive 무관(hunt 지급부에서 소비).
+  profPerKillBonus?: number;
 };
 
 // 스킬 학습 비용 — 숙련도(직군 숙달 포인트)로 지불. 모든 학습 스킬 고정 단가. 스타터(자동 보유)는
 // 학습 경로를 타지 않는다. 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5) 포인트 기준 →
 // 들판 기준 ~750킬/종(심층일수록 단축). learn-skill 라우트(차감) + state 라우트(UI 가격 표기)가 참조.
-export const V2_SKILL_LEARN_COST_COMMON = 1500; // 모든 학습 스킬 고정 단가.
-export function v2SkillLearnCost(_skillId: V2SkillId): number {
-  return V2_SKILL_LEARN_COST_COMMON;
+export const V2_SKILL_LEARN_COST_COMMON = 1500; // tier1(입문) 기본 단가.
+// 학습 비용 tier 스케일(숙달 포인트) — 입문/중급/상급. per-skill learnCost 오버라이드가 우선.
+export const V2_SKILL_LEARN_COST_BY_TIER: Record<1 | 2 | 3, number> = {
+  1: 1500,
+  2: 3000,
+  3: 5000,
+};
+export function v2SkillLearnCost(skillId: V2SkillId): number {
+  const def = V2_SKILLS[skillId];
+  if (def?.learnCost != null) return def.learnCost;
+  return V2_SKILL_LEARN_COST_BY_TIER[def?.tier ?? 1] ?? V2_SKILL_LEARN_COST_COMMON;
 }
 
 // 스킬 카탈로그 id — union 으로 컴파일타임 검증.
@@ -270,6 +280,8 @@ export type V2SkillDefinition = {
   /** SP 로드아웃 코스트(코어루프) — 미지정이면 (category, tier) 루브릭 표(spCostOf)에서 도출.
    *  PR-5 sim 튜닝 때 아웃라이어만 명시 override. flag-off 미사용. */
   spCost?: number;
+  /** 학습 비용 오버라이드(숙달 포인트) — 미지정이면 tier 스케일(V2_SKILL_LEARN_COST_BY_TIER). */
+  learnCost?: number;
   /** 패시브 스킬(category "passive") 의 상시 효과 — 장착 시 derive 가 적용(캐스트 아님).
    *  액티브 스킬은 미지정. 직업 킷 재설계 — 근력/강건/총명/예기 등. */
   passive?: V2PassiveSkillEffect;
@@ -502,6 +514,13 @@ export function aggregateEquippedPassives(equipped: readonly V2SkillId[]): {
     elementAdvPctBonus,
     elementDisPctBonus,
   };
+}
+
+// 장착 패시브의 "처치당 숙달 포인트 보너스" 합산(경제 — 전투 aggregate 와 분리). hunt 지급부에서 소비.
+export function equippedProfPerKillBonus(equipped: readonly V2SkillId[]): number {
+  let n = 0;
+  for (const id of equipped) n += V2_SKILLS[id]?.passive?.profPerKillBonus ?? 0;
+  return n;
 }
 
 // 스킬 효과 1개를 사람이 읽을 한 줄로. UI 상세 옵션 칩에 사용.

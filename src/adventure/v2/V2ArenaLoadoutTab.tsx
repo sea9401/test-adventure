@@ -114,7 +114,7 @@ export function V2ArenaLoadoutTab() {
   return (
     <section className="space-y-3">
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        현재 장착한 스킬·전투 패턴·장비를 한 세팅으로 저장해 두고, 눌러서 그대로 불러올 수 있어요.
+        현재 장착한 스킬·스킬 패턴·장비를 한 세팅으로 저장해 두고, 눌러서 그대로 불러올 수 있어요.
         (판매·미습득으로 사라진 항목은 자동으로 건너뜁니다.)
       </p>
 
@@ -166,7 +166,7 @@ export function V2ArenaLoadoutTab() {
                 <div className="text-xs text-zinc-500">
                   스킬 {l.skills?.length ?? 0} · 장비{" "}
                   {Object.keys(l.equipment ?? {}).length}칸
-                  {l.pattern?.blocks?.length ? " · 전투패턴" : ""}
+                  {l.pattern?.blocks?.length ? " · 스킬 패턴" : ""}
                 </div>
               </div>
               <button

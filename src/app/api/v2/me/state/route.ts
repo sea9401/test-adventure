@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   guilds,
   guildMembers,
+  outpostLords,
   outpostOccupations,
   outpostTreasury,
   savesKv,
@@ -10,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
+import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { ownedTitleIdsOf } from "@/lib/server/grantTitle";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { reconcileV2EquippedSkills } from "@/lib/server/v2Skills";
@@ -279,6 +281,8 @@ export async function GET() {
     policy: string;
     taxRate: string;
     nextAttackAt: string;
+    // 거점 영주 표시명 — 점령 길드가 임명한 영주(없으면 null). 거점 카드 "영주" 행.
+    lordName: string | null;
   };
   type CurrentOutpost = {
     id: string;
@@ -302,6 +306,7 @@ export async function GET() {
       let occupation: OccupationInfo | null = null;
       if (occRow) {
         let occGuildName: string | null = null;
+        let lordName: string | null = null;
         if (occRow.occupiedByGuildId != null) {
           const g = (
             await db
@@ -311,6 +316,20 @@ export async function GET() {
               .limit(1)
           )[0];
           occGuildName = g?.name ?? null;
+          // 거점 영주 — 임명 길드가 현재 점령 길드와 같을 때만 유효(거점 양도 시 스테일 무시).
+          const lordRow = (
+            await db
+              .select({
+                userId: outpostLords.userId,
+                guildId: outpostLords.guildId,
+              })
+              .from(outpostLords)
+              .where(eq(outpostLords.outpostId, o.id))
+              .limit(1)
+          )[0];
+          if (lordRow && lordRow.guildId === occRow.occupiedByGuildId) {
+            lordName = await resolveUserDisplayName(lordRow.userId);
+          }
         }
         occupation = {
           occupiedByUserId: occRow.occupiedByUserId,
@@ -320,6 +339,7 @@ export async function GET() {
           policy: occRow.policy,
           taxRate: occRow.taxRate,
           nextAttackAt: occRow.nextAttackAt.toISOString(),
+          lordName,
         };
       }
       const treasuryRow = (

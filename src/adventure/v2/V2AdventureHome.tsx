@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Coins, DoorOpen, MapPin } from "@phosphor-icons/react";
+import { Coins, MapPin } from "@phosphor-icons/react";
 import {
   V2CharacterCard,
   type V2CharacterCardData,
@@ -13,7 +13,7 @@ import {
   OUTPOST_NPC_TAX_RATE,
   treasuryShares,
 } from "@/adventure/data/v2/outposts";
-import type { Outpost, OutpostType } from "@/adventure/data/v2/types";
+import type { OutpostType } from "@/adventure/data/v2/types";
 import type {
   V2EquipInstance,
   V2EquipSlot,
@@ -31,6 +31,7 @@ type OccupationInfo = {
   policy: string;
   taxRate: string;
   nextAttackAt: string;
+  lordName: string | null;
 };
 
 type StateResponse = {
@@ -55,8 +56,9 @@ const TYPE_LABEL: Record<OutpostType, string> = {
   fort: "요새",
   village: "마을",
 };
+// 거점 카드 "정책" 행 = 통행 정책 표기. open = 누구나 입장 가능(자유 통행).
 const POLICY_LABEL: Record<string, string> = {
-  open: "개방",
+  open: "자유 통행",
   guild_only: "길드 전용",
 };
 
@@ -67,22 +69,11 @@ function formatTaxRate(taxRate: string): string {
   return `${Math.round(n * 100)}%`;
 }
 
-function formatNextAttack(iso: string): string {
-  const t = new Date(iso).getTime();
-  const diff = t - Date.now();
-  if (diff <= 0) return "공격 가능";
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m}분 후`;
-  const h = Math.floor(m / 60);
-  return `${h}시간 후`;
-}
 
 export function V2AdventureHome({
   currentOutpost,
-  onEnterOutpost,
 }: {
   currentOutpost: { id: string; name: string } | null;
-  onEnterOutpost: (outpost: Outpost) => void;
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   // 모험 탭 간략 카드에 장착 장비를 표시 — me/state 는 장비를 안 담으므로 별도 fetch.
@@ -220,31 +211,29 @@ export function V2AdventureHome({
               </p>
             )}
             <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-              <dt className="text-zinc-500 dark:text-zinc-400">보유</dt>
+              <dt className="text-zinc-500 dark:text-zinc-400">소속</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
-                {occupation
-                  ? occupation.occupiedByGuildName
-                    ? `${occupation.occupiedByGuildName} 길드`
-                    : occupation.occupiedByUserId
-                      ? "솔로 점령자"
-                      : "—"
-                  : "NPC 운영"}
+                {occupation?.occupiedByGuildName
+                  ? `${occupation.occupiedByGuildName} 길드`
+                  : occupation?.occupiedByUserId
+                    ? "솔로 점령자"
+                    : "무소속"}
               </dd>
               <dt className="text-zinc-500 dark:text-zinc-400">세율</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
                 {occupation
                   ? formatTaxRate(occupation.taxRate)
-                  : `${Math.round(OUTPOST_NPC_TAX_RATE * 100)}% (NPC)`}
+                  : `${Math.round(OUTPOST_NPC_TAX_RATE * 100)}%`}
               </dd>
               <dt className="text-zinc-500 dark:text-zinc-400">정책</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
                 {occupation
                   ? POLICY_LABEL[occupation.policy] ?? occupation.policy
-                  : "—"}
+                  : "자유 통행"}
               </dd>
-              <dt className="text-zinc-500 dark:text-zinc-400">다음 공격</dt>
+              <dt className="text-zinc-500 dark:text-zinc-400">영주</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
-                {occupation ? formatNextAttack(occupation.nextAttackAt) : "—"}
+                {occupation?.lordName ?? "—"}
               </dd>
               <dt className="text-zinc-500 dark:text-zinc-400">보유 골드</dt>
               <dd className="text-zinc-800 dark:text-zinc-200">
@@ -254,17 +243,9 @@ export function V2AdventureHome({
                 G
               </dd>
             </dl>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => onEnterOutpost(outpost)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-emerald-700"
-              >
-                <DoorOpen size={16} weight="fill" />
-                거점 진입
-              </button>
-              {/* 레거시 수동 금고 회수 — 정착지 전쟁 on 이면 영주 수확으로 일원화(숨김). */}
-              {isMember && !V2_SETTLEMENT_WARFARE && (
+            {/* 레거시 수동 금고 회수 — 정착지 전쟁 on 이면 영주 수확으로 일원화(숨김). */}
+            {isMember && !V2_SETTLEMENT_WARFARE && (
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={handleClaim}
@@ -278,8 +259,8 @@ export function V2AdventureHome({
                       ? `세금 회수 (본인 +${treasuryShares(treasuryGold).claimerShare.toLocaleString()} G)`
                       : "세금 회수 (금고 비어있음)"}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
             {msg && (
               <p
                 className={`mt-2 text-xs ${

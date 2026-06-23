@@ -4,6 +4,7 @@ import {
   outpostDefenders,
   outpostOccupations,
   outpostTreasury,
+  tileSettlements,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
@@ -21,7 +22,16 @@ import {
   toPvpReplayPayload,
   type ReplayPayload,
 } from "@/adventure/data/v2/replayPayload";
-import { resolveOutpostMeta } from "@/adventure/data/v2/tileWarfare";
+import {
+  resolveOutpostMeta,
+  isTileOutpostId,
+  parseTileOutpostId,
+} from "@/adventure/data/v2/tileWarfare";
+import {
+  isTileSettlementTier,
+  tilePrevTier,
+  TILE_TIER_LABEL,
+} from "@/adventure/data/v2/tileConfig";
 import {
   isOutpostProtected,
   currentFortHp,
@@ -46,6 +56,7 @@ import {
   RAID_TREASURY_STEAL_FRAC,
   HONOR_PER_DEFENSE_WIN,
   V2_SETTLEMENT_WARFARE,
+  V2_TILE_WARFARE,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { parseWarVigor, vigorAfterBattle } from "@/adventure/data/v2/warVigor";
 import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
@@ -82,7 +93,23 @@ export async function POST(req: Request) {
   if (mode !== "raid" && mode !== "conquest") {
     return Response.json({ ok: false, error: "invalid_mode" }, { status: 400 });
   }
-  const outpost = resolveOutpostMeta(outpostId);
+  let outpost = resolveOutpostMeta(outpostId);
+  // 타일 전쟁 — tile id 면 tile_settlements 의 tier 로 메타 합성(없으면 undefined→아래 거부).
+  if (!outpost && V2_TILE_WARFARE && isTileOutpostId(outpostId)) {
+    const pos = parseTileOutpostId(outpostId);
+    if (pos) {
+      const [ts] = await db
+        .select({ tier: tileSettlements.tier, name: tileSettlements.name })
+        .from(tileSettlements)
+        .where(
+          and(eq(tileSettlements.col, pos.col), eq(tileSettlements.row, pos.row)),
+        )
+        .limit(1);
+      if (ts && isTileSettlementTier(ts.tier)) {
+        outpost = resolveOutpostMeta(outpostId, { tier: ts.tier, name: ts.name });
+      }
+    }
+  }
   if (!outpost || outpost.neutral) {
     return Response.json(
       { ok: false, error: "no_such_outpost" },
@@ -459,10 +486,45 @@ export async function POST(req: Request) {
           .where(eq(outpostOccupations.outpostId, outpost.id));
         fortHpAfter = fortMaxHp;
 
+        // 타일 정착지 함락 — tier 1단계 강등(tile_settlements) + 소유자=정복자(userId 갱신).
+        //   founder 가드: 소유자를 정복자로 바꿔 이후 demolish/promote 의 소유 체크(existing.userId
+        //   === userId)가 자동으로 옛 창립자를 막고 정복자만 허용. 옛 마을(outpost_villages) 무관.
+        if (isTileOutpostId(outpost.id)) {
+          const pos = parseTileOutpostId(outpost.id);
+          if (pos) {
+            const [ts] = await tx
+              .select({ tier: tileSettlements.tier })
+              .from(tileSettlements)
+              .where(
+                and(
+                  eq(tileSettlements.col, pos.col),
+                  eq(tileSettlements.row, pos.row),
+                ),
+              )
+              .for("update")
+              .limit(1);
+            if (ts && isTileSettlementTier(ts.tier)) {
+              const down = tilePrevTier(ts.tier);
+              const downTier = down ?? ts.tier;
+              await tx
+                .update(tileSettlements)
+                .set({ tier: downTier, userId })
+                .where(
+                  and(
+                    eq(tileSettlements.col, pos.col),
+                    eq(tileSettlements.row, pos.row),
+                  ),
+                );
+              downgradedTo = down ? TILE_TIER_LABEL[downTier] : null;
+            }
+          }
+        }
         // 마을 tier 1단계 강등 + 소유 이관(금고는 그대로 인수). 최하(마을)=강등 없이 이관.
         //   강등 시 해금 칸이 새 tier 상한 초과면 클램프(슬롯 종류도 트림). 진행 작업은
-        //   normalizeVillageOwner 가 비움(옛 소유의 생산 손실).
-        const village = await lockVillage(tx, outpost.id);
+        //   normalizeVillageOwner 가 비움. 타일이면 village=null 로 스킵(위 tile 분기가 처리).
+        const village = isTileOutpostId(outpost.id)
+          ? null
+          : await lockVillage(tx, outpost.id);
         if (village) {
           const transferred = normalizeVillageOwner(village, attackerGuildId);
           const down = prevTier(village.tier);

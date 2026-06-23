@@ -3,6 +3,7 @@ import {
   TILE_SETTLEMENT_TIERS,
   TILE_PROMOTE_COST,
   tileNextTier,
+  tilePrevTier,
   isTileSettlementTier,
 } from "./tileConfig";
 
@@ -14,6 +15,15 @@ describe("tileNextTier — 승격 사슬", () => {
     expect(tileNextTier("village")).toBe("city");
     expect(tileNextTier("city")).toBe("metropolis");
     expect(tileNextTier("metropolis")).toBeNull();
+  });
+});
+
+describe("tilePrevTier — 정복 강등 사슬", () => {
+  it("metropolis→city→village→frontier→null(최하)", () => {
+    expect(tilePrevTier("metropolis")).toBe("city");
+    expect(tilePrevTier("city")).toBe("village");
+    expect(tilePrevTier("village")).toBe("frontier");
+    expect(tilePrevTier("frontier")).toBeNull();
   });
 });
 

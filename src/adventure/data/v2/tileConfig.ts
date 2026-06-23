@@ -69,6 +69,14 @@ export const tileNextTier = (
     : null;
 };
 
+// 이전 티어(없으면 null = 최하 frontier). 정복 함락 시 1단계 강등에 사용(settlement.ts prevTier 미러).
+export const tilePrevTier = (
+  t: TileSettlementTier,
+): TileSettlementTier | null => {
+  const i = TILE_SETTLEMENT_TIERS.indexOf(t);
+  return i > 0 ? TILE_SETTLEMENT_TIERS[i - 1] : null;
+};
+
 export const isTileSettlementTier = (v: unknown): v is TileSettlementTier =>
   typeof v === "string" &&
   (TILE_SETTLEMENT_TIERS as readonly string[]).includes(v);

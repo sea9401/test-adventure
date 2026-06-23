@@ -18,7 +18,10 @@ import {
   isTileSettlementTier,
   tileSettlementName,
 } from "@/adventure/data/v2/tileConfig";
-import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  V2_TILE_WARFARE,
+  V2_TILE_PRODUCTION,
+} from "@/adventure/data/v2/settlementWarfareConfig";
 import {
   createTileGuildOccupation,
   removeTileWarfare,
@@ -164,7 +167,15 @@ export async function POST(req: Request) {
       return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
     }
 
-    // promote
+    // promote — 생산 관리 이전(T3): V2_TILE_PRODUCTION on 이면 지도 승격 폐지.
+    //   승격은 관리 화면(/outpost/tile:c,r)의 생산 시스템(마을 건설→슬롯/생산/자원)으로 일원화.
+    if (V2_TILE_PRODUCTION) {
+      return {
+        kind: "err",
+        status: 409,
+        error: "use_production_management",
+      };
+    }
     const tier = isTileSettlementTier(existing.tier) ? existing.tier : "frontier";
     const next = tileNextTier(tier);
     if (!next) return { kind: "err", status: 409, error: "max_tier" };

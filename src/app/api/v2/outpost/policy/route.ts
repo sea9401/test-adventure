@@ -9,7 +9,7 @@ import { V2_TILE_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 // POST /api/v2/outpost/policy — 점령자가 정책/세율 설정.
 //
 // body: { outpostId, policy?, taxRate? } — 둘 중 하나는 있어야.
-// 점령자(occupiedByUserId === userId) 또는 점령 길드의 마스터/관리자(길드 관리탭).
+// 권한: 길드 점령 거점=길드 마스터/관리자만(영토=길드 소유). 솔로 잔존 타일=점령자 본인.
 //
 // policy: "open" | "guild-only"
 //   - open: 누구나 입장 가능, taxRate 만큼 점령자에게 세금
@@ -96,17 +96,20 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_occupied" as const },
       };
     }
-    if (occ.occupiedByUserId !== userId) {
-      // 길드 점령 거점이면 길드 마스터/관리자도 설정 가능 (길드 관리탭).
-      const adminOk =
-        occ.occupiedByGuildId != null &&
-        (await isGuildAdmin(tx, occ.occupiedByGuildId, userId));
-      if (!adminOk) {
+    // 영토=길드 소유 — 길드 점령 거점은 길드 마스터/관리자만 설정(점령자 본인이라도 일반 멤버·
+    //   탈퇴자면 불가, occupiedByUserId 바이패스 차단). 솔로 잔존 타일(마이그 전/엣지)만 점령자 본인.
+    if (occ.occupiedByGuildId != null) {
+      if (!(await isGuildAdmin(tx, occ.occupiedByGuildId, userId))) {
         return {
           status: 403,
           body: { ok: false as const, error: "not_owner" as const },
         };
       }
+    } else if (occ.occupiedByUserId !== userId) {
+      return {
+        status: 403,
+        body: { ok: false as const, error: "not_owner" as const },
+      };
     }
     await tx
       .update(outpostOccupations)

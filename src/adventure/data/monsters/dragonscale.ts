@@ -24,7 +24,6 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "역병 하이에나": {
     name: "역병 하이에나",
     tags: ["beast"],
-    archetype: "crit",
     hp: 320,
     atk: 34,
     def: 10,
@@ -41,7 +40,6 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "묘지 그렘린": {
     name: "묘지 그렘린",
     tags: ["humanoid"],
-    archetype: "crit",
     hp: 280,
     atk: 30,
     def: 8,
@@ -76,7 +74,6 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "잿빛 와이번": {
     name: "잿빛 와이번",
     tags: ["beast", "dragon"],
-    archetype: "evasive",
     hp: 920,
     atk: 78,
     def: 36,
@@ -95,10 +92,6 @@ export const DRAGONSCALE_MONSTERS: Record<string, Monster> = {
   "용골 리치": {
     name: "용골 리치",
     tags: ["spirit", "undead"],
-    archetype: "caster",
-    // 리치 — 강한 화염구(마법 단일딜) 시전. 보스급 마법 위협.
-    v2Skills: { learned: ["mob_firebolt"], equipped: ["mob_firebolt"] },
-    v2MaxMp: 120,
     hp: 1000,
     atk: 80,
     def: 42,

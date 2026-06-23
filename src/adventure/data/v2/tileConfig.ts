@@ -13,18 +13,13 @@ export type TileCoord = { col: number; row: number };
 
 export const tileKey = (col: number, row: number) => `${col},${row}`;
 
-// 리베라(중앙 자유도시)를 정중앙으로 한 3×3 = 유지 거점 9개. 실제 outpost id 재사용.
-//   배치는 기존 좌표의 대략적 방위를 따른다(북=위, 남=아래, 동=오른쪽).
+// 보드 위 고정 거점 = 리베라(중앙 자유도시) 하나뿐 — 정중앙(4,4).
+//   나머지 칸은 전부 빈 땅: 플레이어가 직접 개척(개척마을→마을→도시→대도시)하는 곳.
+//   옛 기본 무소속 거점 8개(보레아/노토스/에우로스 + 에이라/로렌/코린/세라/발렌)는
+//   보드에서 내려 빈 땅으로 돌렸다(2026-06-23 오너 결정). outposts.ts 카탈로그엔 남아 있으나
+//   보드/이동목록 어디에도 노출 안 됨(unreachable·inert) — 가역적(이 배열만 되돌리면 복원).
 export const TILE_OUTPOSTS: { id: string; col: number; row: number }[] = [
-  { id: "kingdom_tatiholm", col: 3, row: 3 }, // 에이라(북서)
-  { id: "neutral_north_outpost", col: 4, row: 3 }, // 보레아(북)
-  { id: "kingdom_silverbance", col: 5, row: 3 }, // 로렌(북동)
-  { id: "kingdom_blackforge", col: 3, row: 4 }, // 코린(서)
-  { id: "neutral_haven_central", col: 4, row: 4 }, // 리베라(중앙)
-  { id: "neutral_east_outpost", col: 5, row: 4 }, // 에우로스(동)
-  { id: "kingdom_sunderhold", col: 3, row: 5 }, // 세라(남서)
-  { id: "neutral_south_outpost", col: 4, row: 5 }, // 노토스(남)
-  { id: "kingdom_ragnarod", col: 5, row: 5 }, // 발렌(남동)
+  { id: "neutral_haven_central", col: 4, row: 4 }, // 리베라(중앙·절대중립·점령불가)
 ];
 
 // 칸("col,row") → outpost id.

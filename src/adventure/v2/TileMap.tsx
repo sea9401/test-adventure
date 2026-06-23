@@ -520,7 +520,17 @@ export function TileMap({
                 )
               )}
               {onFoundTile &&
-                (viewerGuildId != null ? (
+                (viewerGuildId == null ? (
+                  // 영토=길드 소유 — 무소속은 개척 불가(길드 생성/가입 안내).
+                  <span className="text-xs text-amber-400">
+                    개척마을은 길드 전용 — 길드를 만들거나 가입하세요
+                  </span>
+                ) : playerTileKey !== selected ? (
+                  // 개척은 그 칸에 실제로 가 있어야 가능 — 먼저 "여기로 이동"(위 버튼) 후 개척.
+                  <span className="text-xs text-zinc-500">
+                    이 칸으로 이동해야 개척할 수 있습니다
+                  </span>
+                ) : (
                   // 이름을 직접 정해 개척마을을 세운다 — 그 이름이 지도·헤더의 거점 표시 이름.
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <input
@@ -555,11 +565,6 @@ export function TileMap({
                       G)
                     </button>
                   </div>
-                ) : (
-                  // 영토=길드 소유 — 무소속은 개척 불가(길드 생성/가입 안내).
-                  <span className="text-xs text-amber-400">
-                    개척마을은 길드 전용 — 길드를 만들거나 가입하세요
-                  </span>
                 ))}
             </div>
           </div>

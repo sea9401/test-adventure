@@ -14,6 +14,8 @@ const h = vi.hoisted(() => ({
   // FOR UPDATE 로 읽히는 기존 정착지 행(rename 시나리오). 기본 없음.
   existing: [] as Record<string, unknown>[],
   updates: [] as Record<string, unknown>[],
+  // 플레이어 마커 위치(readSave) — found 는 그 칸에 있어야 가능. 기본=foundReq 좌표(2,3) 일치.
+  tilePos: { col: 2, row: 3 } as { col: number; row: number } | null,
 }));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
@@ -47,6 +49,7 @@ vi.mock("@/lib/server/tileOccupation", () => ({
 }));
 vi.mock("@/lib/server/savesKv", () => ({
   lockSaveForUpdate: vi.fn(async () => ({ gold: h.soloGold, bankedGold: 0 })),
+  readSave: vi.fn(async () => ({ tilePos: h.tilePos ?? undefined })),
   upsertSave: vi.fn(async (_tx, _uid, _key, v: Record<string, unknown>) => {
     h.soloSaves.push(v);
   }),
@@ -102,6 +105,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     h.soloSaves = [];
     h.existing = [];
     h.updates = [];
+    h.tilePos = { col: 2, row: 3 };
     vi.clearAllMocks();
   });
 
@@ -155,6 +159,29 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     expect(res.status).toBe(409);
     const j = (await res.json()) as { error: string };
     expect(j.error).toBe("out_of_guild_gold");
+    expect(h.inserts).toHaveLength(0);
+  });
+
+  it("그 칸에 있지 않으면 → 409 not_at_tile (미생성)", async () => {
+    h.guildId = 7;
+    h.isAdmin = true;
+    h.guildGold = FOUND_COST * 2;
+    h.tilePos = { col: 0, row: 0 }; // 대상(2,3)과 불일치 — 현장에 없음
+    const res = await POST(foundReq());
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe("not_at_tile");
+    expect(h.inserts).toHaveLength(0); // 정착지 미생성
+    expect(h.guildUpserts).toHaveLength(0);
+  });
+
+  it("위치 정보 없으면(tilePos null) → 409 not_at_tile", async () => {
+    h.guildId = 7;
+    h.isAdmin = true;
+    h.guildGold = FOUND_COST * 2;
+    h.tilePos = null;
+    const res = await POST(foundReq());
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe("not_at_tile");
     expect(h.inserts).toHaveLength(0);
   });
 

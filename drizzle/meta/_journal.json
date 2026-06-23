@@ -547,6 +547,13 @@
       "when": 1782211569834,
       "tag": "0077_tile_solo_settlement_resources",
       "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1782212178834,
+      "tag": "0078_tile_village_solo_owner",
+      "breakpoints": true
     }
   ]
 }

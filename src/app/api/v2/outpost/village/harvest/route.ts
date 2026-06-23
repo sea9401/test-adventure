@@ -10,6 +10,9 @@ import {
   terrainTraitOf,
 } from "@/lib/server/v2Settlement";
 import { isHarvestReady, harvestYield } from "@/adventure/data/v2/settlement";
+import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileHarvest } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/harvest — body { outpostId, slot }
 // 완료된 생산 슬롯을 수확 → 산출물을 길드 정착지 재화 풀에 적립, 슬롯 비움(재큐 필요).
@@ -32,6 +35,10 @@ export async function POST(req: Request) {
       : -1;
   if (!outpostId || slot < 0) {
     return Response.json({ ok: false, error: "invalid" }, { status: 400 });
+  }
+
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileHarvest(userId, outpostId, slot);
   }
 
   try {

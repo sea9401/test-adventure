@@ -17,6 +17,9 @@ import {
   INITIAL_UNLOCKED_SLOTS,
   VILLAGE_BUILD_GOLD_COST,
 } from "@/adventure/data/v2/settlement";
+import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileBuild } from "@/lib/server/tileVillageRoutes";
 
 // POST /api/v2/outpost/village/build — body { outpostId, name }
 // 점령한 빈 공터에 마을을 세운다 — 이름만 정한다(생산 종류는 칸을 해금할 때 칸마다 고른다).
@@ -43,6 +46,11 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_name" }, { status: 400 });
   }
   const name = rawName.trim();
+
+  // 타일 정착지(tile:col,row) — 생산 시스템(솔로/길드)으로 위임. 카탈로그 거점은 아래 그대로.
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileBuild(userId, outpostId, name);
+  }
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -88,6 +96,7 @@ export async function POST(req: Request) {
       const village = {
         outpostId,
         guildId,
+        ownerUserId: null,
         tier: "village",
         name,
         productionKind: null,

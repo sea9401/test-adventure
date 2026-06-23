@@ -9,6 +9,13 @@ import {
 } from "@/db/schema";
 import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import { getGuildId } from "./v2EnsureSoloGuild";
+import { isGuildMasterOrVice } from "./guildAdmin";
+import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "./v2GuildResources";
+import { lockSaveForUpdate, upsertSave } from "./savesKv";
+import { spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import {
   VILLAGE_TIERS,
   PRODUCTION_KINDS,
@@ -26,7 +33,10 @@ type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 // ── 마을(outpost_villages) 영속 ──────────────────────────────────────────
 export type VillageRow = {
   outpostId: string;
-  guildId: number;
+  /** 길드 마을이면 길드 id, 솔로(무길드) 타일 정착지면 null. ownerUserId 와 정확히 하나만 set. */
+  guildId: number | null;
+  /** 솔로(무길드) 타일 정착지 소유자. 길드 마을이면 null. */
+  ownerUserId: string | null;
   tier: VillageTier;
   name: string | null;
   /** [레거시] 옛 한-마을-한-종류 특화. 신규 마을은 null — 종류는 칸별 slotKinds 가 결정. */
@@ -155,6 +165,7 @@ export async function lockVillage(
   return {
     outpostId: row.outpostId,
     guildId: row.guildId,
+    ownerUserId: row.ownerUserId ?? null,
     tier,
     name: row.name ?? null,
     productionKind,
@@ -181,6 +192,7 @@ export async function readVillagesOfGuild(
     return {
       outpostId: row.outpostId,
       guildId: row.guildId,
+      ownerUserId: row.ownerUserId ?? null,
       tier,
       name: row.name ?? null,
       productionKind,
@@ -197,6 +209,7 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
     .values({
       outpostId: row.outpostId,
       guildId: row.guildId,
+      ownerUserId: row.ownerUserId,
       tier: row.tier,
       name: row.name,
       productionKind: row.productionKind,
@@ -208,6 +221,7 @@ export async function upsertVillage(tx: Tx, row: VillageRow): Promise<void> {
       target: outpostVillages.outpostId,
       set: {
         guildId: row.guildId,
+        ownerUserId: row.ownerUserId,
         tier: row.tier,
         name: row.name,
         productionKind: row.productionKind,
@@ -383,6 +397,127 @@ export async function resolveTileSettlementOwner(
     .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)))
     .limit(1);
   return ts ? { kind: "solo", userId: ts.userId } : null;
+}
+
+// village 행의 소유 → SettlementOwner. guildId 있으면 길드, 없으면 ownerUserId(솔로).
+export function villageOwner(row: VillageRow): SettlementOwner {
+  if (row.guildId != null) return { kind: "guild", guildId: row.guildId };
+  if (row.ownerUserId != null) return { kind: "solo", userId: row.ownerUserId };
+  throw new Error("village_no_owner");
+}
+
+// village 행을 현 소유(owner)로 정규화 — 소유가 바뀐 경우(점령 이관 등) 갱신 + 작업 비움.
+//   소유 동일이면 그대로(no-op). 길드↔솔로 표현 일치까지 확인.
+export function normalizeVillageToOwner(
+  village: VillageRow,
+  owner: SettlementOwner,
+): VillageRow {
+  const same =
+    owner.kind === "guild"
+      ? village.guildId === owner.guildId && village.ownerUserId == null
+      : village.ownerUserId === owner.userId && village.guildId == null;
+  if (same) return village;
+  return owner.kind === "guild"
+    ? { ...village, guildId: owner.guildId, ownerUserId: null, jobs: {} }
+    : { ...village, ownerUserId: owner.userId, guildId: null, jobs: {} };
+}
+
+// 소유별 골드 — 길드는 길드 금고 풀, 솔로는 플레이어 본인 골드(+은행, spendGold). lock 후 spend.
+export type OwnerGoldHandle = {
+  available: number;
+  spend: (amount: number) => Promise<void>;
+};
+export async function lockOwnerGold(
+  tx: Tx,
+  owner: SettlementOwner,
+): Promise<OwnerGoldHandle> {
+  if (owner.kind === "guild") {
+    const res = await lockGuildResources(tx, owner.guildId);
+    return {
+      available: res.gold,
+      spend: async (amount) => {
+        await upsertGuildResources(tx, owner.guildId, {
+          gold: res.gold - amount,
+        });
+      },
+    };
+  }
+  const save = await lockSaveForUpdate<Record<string, unknown>>(
+    tx,
+    owner.userId,
+    "character.v2",
+    {},
+  );
+  const gold = Math.max(0, Math.floor(Number(save.gold) || 0));
+  const banked = Math.max(0, Math.floor(Number(save.bankedGold) || 0));
+  return {
+    available: gold + banked,
+    spend: async (amount) => {
+      const r = spendGold(gold, banked, amount);
+      await upsertSave(tx, owner.userId, "character.v2", {
+        ...save,
+        gold: r.gold,
+        bankedGold: r.bankedGold,
+      });
+    },
+  };
+}
+
+// tile_settlements.tier 동기화 — 마을 건설(→village)·승격(→city/metropolis) 시 지도/메타 표시 일치.
+export async function syncTileSettlementTier(
+  tx: Tx,
+  col: number,
+  row: number,
+  tier: VillageTier,
+): Promise<void> {
+  await tx
+    .update(tileSettlements)
+    .set({ tier })
+    .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
+}
+
+// 타일 정착지 관리 권한 해석(쓰기 경로) — 점령행/정착지 행을 FOR UPDATE 로 직렬화 + 권한 판정.
+//   guild: 점령 길드 멤버(requireAdmin 면 마스터/부마스터). solo: founder 본인.
+//   반환 owner 로 자원/골드 풀이 갈린다. flag(V2_TILE_PRODUCTION) 게이트는 호출부(라우트)에서.
+export async function resolveTileVillageManageOwner(
+  tx: Tx,
+  userId: string,
+  col: number,
+  row: number,
+  requireAdmin: boolean,
+): Promise<
+  | { ok: true; owner: SettlementOwner }
+  | { ok: false; status: number; error: string }
+> {
+  const id = tileOutpostId(col, row);
+  const [occ] = await tx
+    .select({ g: outpostOccupations.occupiedByGuildId })
+    .from(outpostOccupations)
+    .where(eq(outpostOccupations.outpostId, id))
+    .for("update")
+    .limit(1);
+  if (occ?.g != null) {
+    const guildId = occ.g;
+    const myGuild = await getGuildId(tx, userId);
+    if (myGuild !== guildId) {
+      return { ok: false, status: 403, error: "not_owner" };
+    }
+    if (requireAdmin && !(await isGuildMasterOrVice(tx, guildId, userId))) {
+      return { ok: false, status: 403, error: "not_authorized" };
+    }
+    return { ok: true, owner: { kind: "guild", guildId } };
+  }
+  const [ts] = await tx
+    .select({ userId: tileSettlements.userId })
+    .from(tileSettlements)
+    .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)))
+    .for("update")
+    .limit(1);
+  if (!ts) return { ok: false, status: 404, error: "no_settlement" };
+  if (ts.userId !== userId) {
+    return { ok: false, status: 403, error: "not_owner" };
+  }
+  return { ok: true, owner: { kind: "solo", userId } };
 }
 
 // ── 소유 가드 ── 유저의 길드가 이 거점을 점령 중이면 guildId, 아니면 null. ────────────

@@ -1,7 +1,6 @@
 "use client";
 
-// === 자유 타일 지도 — Phase 1~3 렌더 (비파괴) ========================================
-// V2_FREEFORM_TILES on 일 때 /map 에서 옛 ContinentMap 대신 렌더.
+// === 자유 타일 지도 — /map 의 지도 컴포넌트 (옛 ContinentMap 대체·은퇴) ================
 //  - 9×9 보드 + 유지 거점 9개(점령 상태색) + 빈 땅 자유 이동(Phase 2).
 //  - 빈 땅 어디든 개척마을 건설 → 마을→도시→대도시 승격/철거(Phase 3).
 // 라이브 데이터(occupations/treasuries/currentOutpostId)는 표시만, 정착지는 tileSettlements.

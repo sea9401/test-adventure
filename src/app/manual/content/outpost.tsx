@@ -1,35 +1,72 @@
-import { H2, H3, P, UL, Em, Table, Note } from "./primitives";
+import { H2, P, UL, Em, Table, Note } from "./primitives";
+import {
+  TILE_TIER_LABEL,
+  TILE_FOUND_COST,
+  TILE_PROMOTE_COST,
+} from "@/adventure/data/v2/tileConfig";
+import { OUTPOST_MOVE_GOLD_COST } from "@/adventure/data/v2/coreLoopConfig";
 
 export function OutpostContent() {
   return (
     <>
-      <H2>거점 세계</H2>
+      <H2>지도와 이동</H2>
       <P>
-        대륙은 수십 개의 <Em>거점</Em>으로 이어져 있습니다. 거점은 종류(광산·마탑·
-        요새·마을)와 규모(마을 → 거점 → 도시 → 왕국, 4 단계)를 가집니다. 일부는
-        점령할 수 없는 <Em>중립</Em> 거점입니다.
+        세계는 <Em>타일 지도</Em>입니다. 지도에서 칸을 눌러 <Em>어디로든 바로</Em>{" "}
+        이동합니다 — 인접 여부와 상관없습니다.
       </P>
-
-      <H2>이동</H2>
       <UL>
         <li>
-          거점 사이는 지도에 그려진 <Em>길로 인접한</Em> 거점으로만 이동합니다.
+          다른 칸으로 이동할 때마다 <Em>{OUTPOST_MOVE_GOLD_COST} 골드</Em>가
+          듭니다. 지금 있는 칸에 머무르거나 다시 누르는 건 무료입니다.
         </li>
-        <li>한 홉당 스태미나 1. 처음 가는 거점은 방문하면 주변 지도가 드러납니다.</li>
-        <li>모험 탭의 현 거점 카드에서 「거점 진입」, 또는 마을 탭의 지도로 오갑니다.</li>
+        <li>
+          일부 칸에는 <Em>거점</Em>이 놓여 있습니다(점령·세금의 무대). 나머지는 빈
+          땅이라 직접 정착할 수 있습니다.
+        </li>
+        <li>마을 탭 또는 모험 탭에서 지도를 엽니다.</li>
       </UL>
 
-      <H2>점령</H2>
+      <H2>개척 정착지</H2>
+      <P>
+        거점 말고도, <Em>빈 땅 아무 칸</Em>에나 <Em>{TILE_TIER_LABEL.frontier}</Em>
+        을 세워 나만의 정착지를 시작합니다(<Em>개인 소유</Em>). 골드를 들여 한
+        단계씩 키웁니다.
+      </P>
+      <Table
+        head={["단계", "내용", "비용"]}
+        rows={[
+          [
+            <Em key="f">{TILE_TIER_LABEL.frontier}</Em>,
+            "빈 칸에 건설 — 아직 영지는 없습니다.",
+            `${TILE_FOUND_COST} 골드`,
+          ],
+          [
+            <Em key="v">{TILE_TIER_LABEL.village}</Em>,
+            "마을로 승격 — 3×3 영지를 얻습니다.",
+            `${TILE_PROMOTE_COST.frontier} 골드`,
+          ],
+          [
+            <Em key="c">{TILE_TIER_LABEL.city}</Em>,
+            "도시로 승격.",
+            `${TILE_PROMOTE_COST.village} 골드`,
+          ],
+          [
+            <Em key="m">{TILE_TIER_LABEL.metropolis}</Em>,
+            "대도시로 승격 — 최고 단계.",
+            `${TILE_PROMOTE_COST.city} 골드`,
+          ],
+        ]}
+        caption="비용은 지갑·은행 골드에서 빠집니다. 정착지 칸을 눌러 건설·승격·철거합니다."
+      />
+
+      <H2>거점 점령</H2>
       <UL>
         <li>
-          <Em>1대1 일기토</Em>로 점령합니다. 빈 거점이면 NPC 챔피언과, 이미 점령된
-          거점이면 점령자의 챔피언과 겨뤄 이기면 거점이 넘어옵니다.
+          지도의 <Em>거점</Em>은 <Em>1대1 일기토</Em>로 점령합니다. 빈 거점이면 NPC
+          챔피언과, 이미 점령된 거점이면 점령자의 챔피언과 겨뤄 이기면 거점이
+          넘어옵니다.
         </li>
         <li>중립 거점은 점령할 수 없습니다.</li>
-        <li>
-          공격은 <Em>현재 거점 또는 인접 1칸 거점</Em>만 가능합니다 — 전투 탭
-          전쟁의 작전 지도에서 인접 거점을 눌러 공격하세요.
-        </li>
         <li>
           점령·공성에는 <Em>길드 보유 골드</Em>가 듭니다(규모가 클수록 더 많이).
           길드 골드는 거점 금고 회수와 <Em>길드원의 입금</Em>(거점 화면의 「길드
@@ -37,13 +74,6 @@ export function OutpostContent() {
           자산이라 전쟁 비용도 길드가 함께 부담합니다.
         </li>
       </UL>
-
-      <H3>보급선 규칙</H3>
-      <P>
-        아무 거점이나 칠 수 있는 게 아닙니다. <Em>우리 길드가 이미 가진 거점에
-        인접</Em>하거나, <Em>중립 거점에 인접</Em>한 거점만 점령 대상이 됩니다.
-        영토를 한 칸씩 잇대어 넓혀가는 구조예요.
-      </P>
 
       <H2>점령 보상 = 수입 + 통제</H2>
       <Table

@@ -11,6 +11,7 @@ import { parseTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
   scaledTileGoldCost,
   tileCostMultiplier,
+  tileSlotUnlockGoldCost,
 } from "@/adventure/data/v2/tileConfig";
 import {
   lockVillage,
@@ -26,11 +27,11 @@ import {
 } from "./v2Settlement";
 import {
   INITIAL_UNLOCKED_SLOTS,
+  MAX_SLOTS_BY_TIER,
   VILLAGE_BUILD_GOLD_COST,
   tryStartProduction,
   isHarvestReady,
   harvestYield,
-  canUnlockSlot,
   canUpgrade,
   applyUpgradeCost,
   type ProductionKind,
@@ -247,15 +248,14 @@ export async function tileUnlockSlot(
           return { status: 409, body: { ok: false, error: "not_built" } };
         }
         const og = await lockOwnerGold(tx, ctx.owner);
-        const check = canUnlockSlot(village.tier, village.unlockedSlots, og.available);
-        if (check.atMax) {
+        // 칸 해금비 = 타일 고정 누진(거리 무관·5천만/1억/2억/3억). 판이 꽉 차면 at_max.
+        if (village.unlockedSlots >= MAX_SLOTS_BY_TIER[village.tier]) {
           return {
             status: 409,
-            body: { ok: false, error: "at_max", cost: check.cost },
+            body: { ok: false, error: "at_max", cost: 0 },
           };
         }
-        // 칸 해금비 = 기본 누진비용 × 리베라(중앙) 거리 배수 — 중앙에서 멀수록↑(첫 무료칸은 0 유지).
-        const cost = scaledTileGoldCost(check.cost, pos.col, pos.row);
+        const cost = tileSlotUnlockGoldCost(village.unlockedSlots);
         if (og.available < cost) {
           return {
             status: 409,

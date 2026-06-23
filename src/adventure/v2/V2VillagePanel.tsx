@@ -12,6 +12,7 @@ import {
 import {
   scaledTileGoldCost,
   scaledTileResourceCost,
+  tileSlotUnlockGoldCost,
 } from "@/adventure/data/v2/tileConfig";
 import {
   VILLAGE_TIER_NAME,
@@ -392,10 +393,12 @@ export function V2VillagePanel({
     !!next &&
     !needSlots &&
     PRODUCTION_KINDS.every((k) => (resources[k] ?? 0) >= (upgradeCost[k] ?? 0));
-  const unlockGoldBase = village ? slotUnlockGoldCost(village.unlockedSlots) : 0;
-  const unlockGold = tilePos
-    ? scaledTileGoldCost(unlockGoldBase, tilePos.col, tilePos.row)
-    : unlockGoldBase;
+  // 칸 해금비 — 타일은 고정 누진(거리 무관·5천만/1억/2억/3억), 카탈로그 거점은 옛 누진.
+  const unlockGold = village
+    ? tilePos
+      ? tileSlotUnlockGoldCost(village.unlockedSlots)
+      : slotUnlockGoldCost(village.unlockedSlots)
+    : 0;
   const canAffordUnlock = !atMaxSlots && gold >= unlockGold;
   const buildGold = tilePos
     ? scaledTileGoldCost(VILLAGE_BUILD_GOLD_COST, tilePos.col, tilePos.row)

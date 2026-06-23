@@ -26,6 +26,12 @@ import {
   createTileGuildOccupation,
   removeTileWarfare,
 } from "@/lib/server/tileOccupation";
+import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
+import { isGuildMasterOrVice } from "@/lib/server/guildAdmin";
+import {
+  lockGuildResources,
+  upsertGuildResources,
+} from "@/lib/server/v2GuildResources";
 
 // POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거. (자유 타일 지도 Phase 3)
 //
@@ -128,6 +134,41 @@ export async function POST(req: Request) {
       if (existing) {
         return { kind: "err", status: 409, error: "already_settled" };
       }
+      // 길드 소속이면 개척마을 생성=길드 행위: 마스터/부마스터만 + 길드 자금 소모(개인 골드 X).
+      //   무소속(솔로)은 본인 골드(현행). V2_TILE_WARFARE off 면 길드 타일 개념 없어 솔로 경로.
+      const guildId = V2_TILE_WARFARE ? await getGuildId(tx, userId) : null;
+      if (guildId != null) {
+        if (!(await isGuildMasterOrVice(tx, guildId, userId))) {
+          return { kind: "err", status: 403, error: "not_guild_admin" };
+        }
+        const gr = await lockGuildResources(tx, guildId);
+        if (V2_CORE_LOOP_V2 && gr.gold < TILE_FOUND_COST) {
+          return {
+            kind: "err",
+            status: 409,
+            error: "out_of_guild_gold",
+            required: TILE_FOUND_COST,
+            gold: gr.gold,
+          };
+        }
+        await tx.insert(tileSettlements).values({
+          col,
+          row,
+          userId,
+          tier: "frontier",
+          name: tileSettlementName(col, row),
+        });
+        await createTileGuildOccupation(tx, { userId, col, row, tier: "frontier" });
+        if (V2_CORE_LOOP_V2) {
+          await upsertGuildResources(tx, guildId, {
+            gold: gr.gold - TILE_FOUND_COST,
+          });
+        }
+        // 응답 골드 = 개인 골드(길드 자금 차감이라 개인은 불변) — 클라 표시용.
+        const cur = await chargeGold(tx, userId, 0);
+        return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
+      }
+      // 무소속(솔로) — 본인 골드(현행).
       const charge = await chargeGold(tx, userId, TILE_FOUND_COST);
       if (!charge.ok) {
         return {
@@ -145,7 +186,7 @@ export async function POST(req: Request) {
         tier: "frontier",
         name: tileSettlementName(col, row),
       });
-      // 길드원이 개척하면 길드 점령행 생성(길드 자산화). 플래그 off → 무생성(라이브 무접촉).
+      // 솔로라도 V2_TILE_WARFARE on 이면 점령행 시도(무길드면 createTileGuildOccupation 가 no-op).
       if (V2_TILE_WARFARE) {
         await createTileGuildOccupation(tx, {
           userId,

@@ -251,4 +251,4 @@ export function resolveCurrentOutpostId(
 
 // (canMoveToOutpost·canWarpToOutpost·shortestOutpostPath 는 자유이동 전환(B안 PR-3)으로 폐기.
 //  이동은 인접/발견 게이트 없이 어디로든 — visit-outpost 라우트가 유효 거점만 검사한다.
-//  인접 그래프 자체는 보급선 점령(supplyLine.canClaimOutpost)·지도 길선에서 계속 쓴다.)
+//  인접 그래프 자체는 지도 길선·분쟁지대(CONFLICT_ZONE_IDS) 판정에서 계속 쓴다.)

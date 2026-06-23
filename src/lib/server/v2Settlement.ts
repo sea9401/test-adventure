@@ -175,6 +175,36 @@ export async function lockVillage(
   };
 }
 
+// 단건 읽기(lock 없이) — UI/GET 용(특정 거점/타일 마을 1개).
+export async function readVillage(
+  tx: Tx,
+  outpostId: string,
+): Promise<VillageRow | null> {
+  const row = (
+    await tx
+      .select()
+      .from(outpostVillages)
+      .where(eq(outpostVillages.outpostId, outpostId))
+      .limit(1)
+  )[0];
+  if (!row) return null;
+  const tier = parseTier(row.tier);
+  const jobs = parseJobs(row.jobs);
+  const productionKind = parseProductionKind(row.productionKind);
+  const unlockedSlots = parseUnlockedSlots(row.unlockedSlots, tier, jobs);
+  return {
+    outpostId: row.outpostId,
+    guildId: row.guildId,
+    ownerUserId: row.ownerUserId ?? null,
+    tier,
+    name: row.name ?? null,
+    productionKind,
+    unlockedSlots,
+    slotKinds: parseSlotKinds(row.slotKinds, productionKind, unlockedSlots),
+    jobs,
+  };
+}
+
 // read only (lock 없이) — UI 목록용.
 export async function readVillagesOfGuild(
   tx: Tx,

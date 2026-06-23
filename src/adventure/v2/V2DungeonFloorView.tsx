@@ -15,6 +15,7 @@ import {
 import { ReplayBattleScene } from "@/adventure/v2/ReplayBattleScene";
 import {
   PlayerStatusCard,
+  playerCombatToBattleStats,
   type PlayerCombatStats,
 } from "@/adventure/v2/PlayerStatusCard";
 import { useDungeonHunt } from "@/adventure/v2/useDungeonHunt";
@@ -713,6 +714,9 @@ export function V2DungeonFloorView({
           mpCharges={lastResult.mpCharges}
           playerSubtitle={playerSubtitle}
           elementMatchup={lastResult.elementMatchup}
+          playerCombat={
+            playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
+          }
         />
       )}
     </main>

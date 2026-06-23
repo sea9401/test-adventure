@@ -7,6 +7,7 @@ import {
   RecoveryReadout,
   BattleStatStrip,
   type BattlePlayerStatus,
+  type BattleStats,
 } from "@/adventure/battle/BattleScene";
 
 // 플레이어 유효 전투 스탯 — me/state 의 combat. 사냥 카드 공/방/속 표기용(상세=명중/회피/치명).
@@ -20,6 +21,20 @@ export type PlayerCombatStats = {
   evasionPct?: number;
   critChancePct?: number;
 };
+
+// me/state combat → BattleStatStrip 입력. 명중=accRating(캡 없는 raw) 우선, 폴백 accuracyPct.
+//   플레이어 카드·전투 패널 양쪽에서 동일 매핑을 쓰도록 추출.
+export function playerCombatToBattleStats(c: PlayerCombatStats): BattleStats {
+  return {
+    atk: c.atk,
+    def: c.def,
+    spd: c.spd,
+    accuracy: c.accRating ?? c.accuracyPct,
+    evasionPct: c.evasionPct,
+    critChancePct: c.critChancePct,
+    magicAtk: c.magicAtk,
+  };
+}
 import { HpBar, type HpBarState } from "@/adventure/v2/HpBar";
 import { MpBar } from "@/adventure/v2/MpBar";
 import type { Gender } from "@/adventure/profile/avatars";
@@ -91,17 +106,7 @@ export function PlayerStatusCard({
             />
           )}
           {combat && (
-            <BattleStatStrip
-              stats={{
-                atk: combat.atk,
-                def: combat.def,
-                spd: combat.spd,
-                accuracy: combat.accRating ?? combat.accuracyPct,
-                evasionPct: combat.evasionPct,
-                critChancePct: combat.critChancePct,
-                magicAtk: combat.magicAtk,
-              }}
-            />
+            <BattleStatStrip stats={playerCombatToBattleStats(combat)} />
           )}
           <RecoveryReadout playerStatus={playerStatus} hasMp={hasMp} />
         </div>

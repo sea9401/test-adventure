@@ -41,10 +41,11 @@ export function parseTileOutpostId(id: string): TileCoord | null {
   return { col: Number(m[1]), row: Number(m[2]) };
 }
 
-// 거점 id → 사람이 읽는 표시 이름. 카탈로그 거점이면 카탈로그 name, 타일 거점이면
-//   좌표 결정적 이름(tileSettlementName — DB 의 tile_settlements.name 도 found 시 같은 값으로
-//   고정, rename 없음 → 클라 단독 계산이 지도/DB 와 항상 일치). 미해석 id 는 원시 id 폴백.
-//   UI 헬퍼(토벌/알림/전광판/침입자 패널)의 중복 outpostName 을 단일화한다.
+// 거점 id → 사람이 읽는 표시 이름. 카탈로그 거점이면 카탈로그 name, 타일 거점이면 좌표 결정적
+//   이름(tileSettlementName)으로 폴백 — id 만으로 DB 없이 계산하는 헬퍼라 창립자가 지은 실제
+//   tile_settlements.name(found·rename)은 반영하지 못한다. 지도·헤더는 occupations.villageName
+//   /synthTileOutpost(name) 로 실제 이름을 쓰고, 이 헬퍼는 DB 없이 부르는 2차 표면(토벌/알림/
+//   전광판/침입자 패널)의 좌표 폴백 용도. 미해석 id 는 원시 id 폴백.
 export function outpostDisplayName(id: string): string {
   const cat = OUTPOST_BY_ID.get(id);
   if (cat) return cat.name;

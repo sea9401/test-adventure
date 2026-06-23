@@ -11,6 +11,7 @@ import {
   Flag,
   Hammer,
   House,
+  PencilSimple,
   Trash,
   type Icon,
 } from "@phosphor-icons/react";
@@ -38,6 +39,7 @@ import {
   scaledTileGoldCost,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
+import { VILLAGE_NAME_MAX } from "@/adventure/data/v2/settlement";
 import type { Outpost } from "@/adventure/data/v2/types";
 
 // 보드는 컨테이너 폭을 꽉 채우는 반응형 정사각형(9×9 1fr 트랙). 셀/아이콘은 % 로 스케일.
@@ -86,6 +88,7 @@ export function TileMap({
   onFoundTile,
   onPromoteTile,
   onDemolishTile,
+  onRenameTile,
   occupations,
   treasuries,
   viewerUserId,
@@ -98,9 +101,10 @@ export function TileMap({
   tilePos?: { col: number; row: number } | null;
   // 개척 정착지(Phase 3).
   tileSettlements?: TileSettlementLite[];
-  onFoundTile?: (col: number, row: number) => void;
+  onFoundTile?: (col: number, row: number, name: string) => void;
   onPromoteTile?: (col: number, row: number) => void;
   onDemolishTile?: (col: number, row: number) => void;
+  onRenameTile?: (col: number, row: number, name: string) => void;
   occupations?: OccupationLite[];
   treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
@@ -110,6 +114,9 @@ export function TileMap({
   onOpenOutpost?: (id: string) => void;
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
+  const [foundName, setFoundName] = useState(""); // 개척마을 건설 폼 이름 입력
+  const [renamingKey, setRenamingKey] = useState<string | null>(null); // 개명 중인 칸 키
+  const [renameName, setRenameName] = useState(""); // 개명 입력
 
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) for (const o of occupations) occByOutpost.set(o.outpostId, o);
@@ -410,6 +417,21 @@ export function TileMap({
                       {TILE_TIER_LABEL[next]} ({TILE_PROMOTE_COST[tier].toLocaleString()}G)
                     </button>
                   )}
+                  {mine && onRenameTile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRenameName(selSettlement.name ?? "");
+                        setRenamingKey((k) =>
+                          k === selected ? null : selected,
+                        );
+                      }}
+                      aria-label="이름 변경"
+                      className="rounded-md border border-zinc-600 p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                    >
+                      <PencilSimple size={14} weight="bold" />
+                    </button>
+                  )}
                   {mine && onDemolishTile && (
                     <button
                       type="button"
@@ -421,6 +443,37 @@ export function TileMap({
                     </button>
                   )}
                 </div>
+                {/* 개명 폼 — 새 줄(w-full)로 떨어진다. 저장 시 지도·헤더 표시 이름이 바뀐다. */}
+                {mine && onRenameTile && renamingKey === selected && (
+                  <div className="flex w-full items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={renameName}
+                      onChange={(e) => setRenameName(e.target.value)}
+                      maxLength={VILLAGE_NAME_MAX}
+                      placeholder="새 정착지 이름"
+                      className="min-w-0 flex-1 rounded-md border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={renameName.trim().length === 0}
+                      onClick={() => {
+                        onRenameTile(selCol, selRow, renameName.trim());
+                        setRenamingKey(null);
+                      }}
+                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      저장
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRenamingKey(null)}
+                      className="shrink-0 rounded-md border border-zinc-600 px-2 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
+                    >
+                      취소
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })()
@@ -447,20 +500,35 @@ export function TileMap({
               )}
               {onFoundTile &&
                 (viewerGuildId != null ? (
-                  <button
-                    type="button"
-                    onClick={() => onFoundTile(selCol, selRow)}
-                    className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                  >
-                    <Hammer size={14} weight="fill" />
-                    개척마을 건설 (
-                    {scaledTileGoldCost(
-                      TILE_FOUND_COST,
-                      selCol,
-                      selRow,
-                    ).toLocaleString()}
-                    G)
-                  </button>
+                  // 이름을 직접 정해 개척마을을 세운다 — 그 이름이 지도·헤더의 거점 표시 이름.
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <input
+                      type="text"
+                      value={foundName}
+                      onChange={(e) => setFoundName(e.target.value)}
+                      maxLength={VILLAGE_NAME_MAX}
+                      placeholder="개척마을 이름"
+                      className="w-32 min-w-0 rounded-md border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={foundName.trim().length === 0}
+                      onClick={() => {
+                        onFoundTile(selCol, selRow, foundName.trim());
+                        setFoundName("");
+                      }}
+                      className="inline-flex items-center gap-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Hammer size={14} weight="fill" />
+                      개척 (
+                      {scaledTileGoldCost(
+                        TILE_FOUND_COST,
+                        selCol,
+                        selRow,
+                      ).toLocaleString()}
+                      G)
+                    </button>
+                  </div>
                 ) : (
                   // 영토=길드 소유 — 무소속은 개척 불가(길드 생성/가입 안내).
                   <span className="text-xs text-amber-400">

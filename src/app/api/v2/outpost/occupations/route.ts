@@ -3,11 +3,12 @@ import {
   outpostOccupations,
   outpostTreasury,
   outpostVillages,
+  tileSettlements,
   guilds,
 } from "@/db/schema";
 import { gt, inArray, isNotNull } from "drizzle-orm";
 import { currentFortHp } from "@/adventure/data/v2/outpostSiege";
-import { isKnownOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { isKnownOutpostId, tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 
 // GET /api/v2/outpost/occupations — 모든 점령된 거점 상태 조회.
 // 응답: { occupations: [...], treasuries: [{ outpostId, gold }] }
@@ -17,7 +18,7 @@ import { isKnownOutpostId } from "@/adventure/data/v2/tileWarfare";
 // 인증 불필요 — 점령 상태는 공개 정보 (모든 유저가 지도에서 본다).
 
 export async function GET() {
-  const [rawRows, rawTreasury, villageRows] = await Promise.all([
+  const [rawRows, rawTreasury, villageRows, tileNameRows] = await Promise.all([
     db.select().from(outpostOccupations),
     db
       .select({ outpostId: outpostTreasury.outpostId, gold: outpostTreasury.gold })
@@ -31,6 +32,16 @@ export async function GET() {
       })
       .from(outpostVillages)
       .where(isNotNull(outpostVillages.name)),
+    // 타일 개척 정착지 — 창립자가 found 때 직접 지은 이름(tile_settlements.name). 자유 타일 지도의
+    //   거점 표시 이름은 이 값이 우선(옛 outpost_villages 는 카탈로그/레거시 폴백).
+    db
+      .select({
+        col: tileSettlements.col,
+        row: tileSettlements.row,
+        name: tileSettlements.name,
+      })
+      .from(tileSettlements)
+      .where(isNotNull(tileSettlements.name)),
   ]);
   // 고아 행 거르기 — 현재 거점 데이터(OUTPOSTS)에 없는 outpostId(옛 지도 축소 잔재)는 제외.
   const rows = rawRows.filter((r) => isKnownOutpostId(r.outpostId));
@@ -39,6 +50,11 @@ export async function GET() {
   const villageNameById = new Map<string, string>();
   for (const v of villageRows) {
     if (v.name != null) villageNameById.set(v.outpostId, v.name);
+  }
+  // 타일 정착지 이름 — 합성 거점 id(tile:col,row) 키로. 거점 표시 이름의 우선 소스.
+  const tileNameById = new Map<string, string>();
+  for (const t of tileNameRows) {
+    if (t.name != null) tileNameById.set(tileOutpostId(t.col, t.row), t.name);
   }
 
   // 점령 길드 id → 이름 일괄 조회(N+1 회피). 지도 팝업에서 "○○ 길드 점령" 표시용.
@@ -94,7 +110,10 @@ export async function GET() {
       fortHp: currentFortHp(r.fortHp, r.fortMaxHp, r.fortUpdatedAt, now),
       fortMaxHp: r.fortMaxHp,
       protectedUntil: r.protectedUntil.toISOString(),
-      villageName: villageNameById.get(r.outpostId) ?? null,
+      villageName:
+        tileNameById.get(r.outpostId) ??
+        villageNameById.get(r.outpostId) ??
+        null,
     })),
     treasuries: treasuryRows,
   });

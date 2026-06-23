@@ -378,17 +378,29 @@ export function TileMap({
                       </button>
                     )
                   )}
-                  {V2_TILE_WARFARE &&
-                    onOpenOutpost &&
-                    selSettlement.guildId != null && (
+                  {/* 진입 버튼: 길드 점령 정착지=전쟁/관리(V2_TILE_WARFARE), 솔로 본인 정착지=생산
+                      관리(V2_TILE_PRODUCTION). 솔로 타일은 점령행 없어 전쟁 대상 아님→본인만 "관리". */}
+                  {onOpenOutpost &&
+                    ((V2_TILE_WARFARE && selSettlement.guildId != null) ||
+                      (V2_TILE_PRODUCTION &&
+                        selSettlement.guildId == null &&
+                        mine)) && (
                       <button
                         type="button"
                         onClick={() =>
                           onOpenOutpost(tileOutpostId(selCol, selRow))
                         }
-                        className="rounded-md border border-rose-700/60 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-950/40"
+                        className={
+                          selSettlement.guildId == null
+                            ? "rounded-md border border-zinc-600 px-3 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800"
+                            : "rounded-md border border-rose-700/60 px-3 py-1.5 text-xs text-rose-300 hover:bg-rose-950/40"
+                        }
                       >
-                        {mine || sameGuild ? "방어·관리" : "공격"}
+                        {selSettlement.guildId == null
+                          ? "관리"
+                          : mine || sameGuild
+                            ? "방어·관리"
+                            : "공격"}
                       </button>
                     )}
                   {/* 생산 관리 이전(T3): V2_TILE_PRODUCTION on 이면 지도 승격 폐지 —

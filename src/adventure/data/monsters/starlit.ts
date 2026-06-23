@@ -27,6 +27,7 @@ export const STARLIT_MONSTERS: Record<string, Monster> = {
     name: "별빛 동굴뱀",
     image: "/images/monster/starlitcavesnake.webp",
     tags: ["beast"],
+    archetype: "evasive",
     hp: 2950,
     atk: 199,
     def: 91,
@@ -111,6 +112,7 @@ export const STARLIT_MONSTERS: Record<string, Monster> = {
   "별빛 돌풍 정령": {
     name: "별빛 돌풍 정령",
     tags: ["spirit"],
+    archetype: "caster",
     hp: 3050,
     atk: 228,
     def: 82,

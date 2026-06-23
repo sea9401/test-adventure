@@ -93,6 +93,7 @@ export const MIDLANDS_MONSTERS: Record<string, Monster> = {
   "돌풍 정령": {
     name: "돌풍 정령",
     tags: ["spirit"],
+    archetype: "caster",
     hp: 190,
     atk: 21,
     def: 9,
@@ -109,6 +110,7 @@ export const MIDLANDS_MONSTERS: Record<string, Monster> = {
   "늑대 무리장": {
     name: "늑대 무리장",
     tags: ["beast"],
+    archetype: "evasive",
     hp: 240,
     atk: 22,
     def: 12,
@@ -180,6 +182,7 @@ export const MIDLANDS_MONSTERS: Record<string, Monster> = {
   "초원 매": {
     name: "초원 매",
     tags: ["beast"],
+    archetype: "crit",
     image: "/images/monster/plainfalcon.webp",
     hp: 230,
     atk: 27,

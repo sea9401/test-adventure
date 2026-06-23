@@ -170,6 +170,7 @@ export const HOMELAND_MONSTERS: Record<string, Monster> = {
   "떠도는 망령": {
     name: "떠도는 망령",
     tags: ["undead", "spirit"],
+    archetype: "caster",
     image: "/images/monster/wraith.webp",
     hp: 95,
     atk: 14,

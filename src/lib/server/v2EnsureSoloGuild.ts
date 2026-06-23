@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import type { db as dbType } from "@/db";
 import { guildMembers, guilds } from "@/db/schema";
+import { convertSoloTilesToGuild } from "./tileOccupation";
 
 type Tx = Parameters<Parameters<typeof dbType.transaction>[0]>[0];
 
@@ -57,5 +58,7 @@ export async function createUserGuild(
   await tx
     .insert(guildMembers)
     .values({ guildId, userId, role: "master" });
+  // 길드 생성=가입 — 창립자의 솔로 타일 점령행을 새 길드로 전환(소유자 길드 동기화).
+  await convertSoloTilesToGuild(tx, userId, guildId);
   return guildId;
 }

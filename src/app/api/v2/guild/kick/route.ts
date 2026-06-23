@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { guildLeaveCooldown, guildMembers, guilds } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { clearAffiliationInTx } from "@/lib/server/guildAffiliation";
+import { revertGuildTilesToSolo } from "@/lib/server/tileOccupation";
 import { logGuildActivity } from "@/lib/server/guildActivityLog";
 import { GUILD_LEAVE_COOLDOWN_DAYS } from "@/adventure/data/guild";
 
@@ -81,6 +82,12 @@ export async function POST(req: Request) {
         ),
       );
     await clearAffiliationInTx(tx, targetUserId);
+    // 추방 — 대상 멤버 소유 길드 타일 점령행을 솔로로 복귀(거점 금고는 길드 금고로 입금).
+    await revertGuildTilesToSolo(tx, {
+      guildId: mem.guildId,
+      userId: targetUserId,
+      depositTreasury: true,
+    });
     const until = new Date(Date.now() + GUILD_LEAVE_COOLDOWN_DAYS * 86_400_000);
     await tx
       .insert(guildLeaveCooldown)

@@ -104,11 +104,17 @@ export async function POST(req: Request) {
       };
 
   const result: Res = await db.transaction(async (tx): Promise<Res> => {
+    // FOR UPDATE — 정착지 행을 트랜잭션 내내 잠근다. 잠그지 않으면 동시 promote/demolish
+    // 두 요청(더블클릭·병렬)이 같은 stale tier 를 읽어, 세이브 락만으로는 막히지 않는
+    // read-modify-write race 가 난다(promote: 같은 tier 비용을 둘 다 차감하고 한 단계만
+    // 승격 = 비용 중복 차감). 행 락이 두 번째 요청을 직렬화해 갱신된 tier 를 다시 읽게 한다.
+    // found(빈 칸)는 행이 없어 FOR UPDATE 가 잠글 대상이 없지만 복합 PK 가 중복 insert 를 막는다.
     const existing = (
       await tx
         .select()
         .from(tileSettlements)
         .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)))
+        .for("update")
         .limit(1)
     )[0];
 

@@ -31,7 +31,7 @@ export const V2_TILE_PRODUCTION =
 
 // ── 건강도 (war vigor) — 순수 헬퍼는 warVigor.ts ──────────────────────────
 // 0(소진)→1(만충)까지 걸리는 시간. 치료소 방문 시 경과만큼 선형 회복(lazy·크론 불요).
-export const WAR_VIGOR_FULL_RECOVERY_MS = 12 * 3_600_000; // 12h 만충(보수적 시작)
+export const WAR_VIGOR_FULL_RECOVERY_MS = 7 * 60_000; // 7분 만충(빠른 회복)
 
 // ── 약탈 / 정복 (PR-3) ────────────────────────────────────────────────────
 // 약탈 = 수비 큐 1번 격파 시 거점 금고의 이 비율을 탈취(마을 유지).

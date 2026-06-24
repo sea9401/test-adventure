@@ -169,26 +169,19 @@ type GameStateValue = {
   foundTile: (col: number, row: number, name: string) => Promise<boolean>;
   promoteTile: (col: number, row: number) => void;
   demolishTile: (col: number, row: number) => void;
-  renameTile: (col: number, row: number, name: string) => void;
   // 개척/승격/철거/개명 실패 사유(한 줄). 성공·미발생이면 null. 지도에서 안내 후 해제.
   tileActionError: string | null;
   clearTileActionError: () => void;
 };
 
-// 정착지 액션(개척/승격/철거/개명) 실패 사유 → 사용자 안내 문구.
+// 정착지 액션(개척/승격/철거) 실패 사유 → 사용자 안내 문구.
 //   서버 error 코드별로 "왜 안 됐는지"를 한국어로 풀어 침묵 실패를 없앤다.
 function tileSettlementErrorMessage(
-  action: "found" | "promote" | "demolish" | "rename",
+  action: "found" | "promote" | "demolish",
   res: { error?: string; requiredGold?: number; gold?: number },
 ): string {
   const label =
-    action === "found"
-      ? "개척"
-      : action === "promote"
-        ? "승격"
-        : action === "demolish"
-          ? "철거"
-          : "개명";
+    action === "found" ? "개척" : action === "promote" ? "승격" : "철거";
   const req = res.requiredGold ?? 0;
   const have = res.gold ?? 0;
   switch (res.error) {
@@ -672,7 +665,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
   //   실패 사유(error/requiredGold/gold)를 그대로 돌려줘 호출부가 안내 문구를 만들 수 있게 한다.
   const postTileSettlement = useCallback(
     async (
-      action: "found" | "promote" | "demolish" | "rename",
+      action: "found" | "promote" | "demolish",
       col: number,
       row: number,
       name?: string,
@@ -748,23 +741,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
       return true;
     },
     [postTileSettlement, viewerUserId, viewerGuildId, refreshOccupations],
-  );
-  const renameTile = useCallback(
-    (col: number, row: number, name: string) => {
-      void postTileSettlement("rename", col, row, name).then((res) => {
-        if (!res.ok) {
-          setTileActionError(tileSettlementErrorMessage("rename", res));
-          return;
-        }
-        setTileActionError(null);
-        setTileSettlements((s) =>
-          s.map((x) => (x.col === col && x.row === row ? { ...x, name } : x)),
-        );
-        // 거점 화면 헤더(occupations.villageName)도 새 이름으로 — 지도는 위 낙관적 갱신이 처리.
-        void refreshOccupations();
-      });
-    },
-    [postTileSettlement, refreshOccupations],
   );
   const promoteTile = useCallback(
     (col: number, row: number) => {
@@ -869,7 +845,6 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     foundTile,
     promoteTile,
     demolishTile,
-    renameTile,
     tileActionError,
     clearTileActionError,
   };

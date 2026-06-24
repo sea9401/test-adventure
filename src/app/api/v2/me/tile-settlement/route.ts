@@ -34,14 +34,14 @@ import {
   upsertGuildResources,
 } from "@/lib/server/v2GuildResources";
 
-// POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거/개명. (자유 타일 지도 Phase 3)
+// POST /api/v2/me/tile-settlement — 빈 땅 개척 정착지 건설/승격/철거. (자유 타일 지도 Phase 3)
 //
-// 본문: { action: "found" | "promote" | "demolish" | "rename", col, row, name? }
+// 본문: { action: "found" | "promote" | "demolish", col, row, name? }
 //  - found: 빈 칸(거점 아님·미정착)에 개척마을(frontier) 건설. TILE_FOUND_COST 골드. name 필수
 //      — 창립자가 직접 지은 이름이 지도·헤더의 거점 표시 이름(tile_settlements.name)이 된다.
+//      이 이름은 이후 불변(개명 없음) — 마을 건설도 이 이름을 그대로 재사용한다.
 //  - promote: 본인 정착지 한 단계 승격(frontier→village→city→metropolis). TILE_PROMOTE_COST.
 //  - demolish: 본인 정착지 철거(환불 없음).
-//  - rename: 본인 정착지 개명(name 필수·과금 없음) → tile_settlements.name 갱신(지도·헤더 표시 이름).
 //  - V2_FREEFORM_TILES off 면 404(플래그 게이트) — 라이브(flag off)는 이 테이블 무접촉.
 
 type CharSave = { gold?: number; bankedGold?: number; [k: string]: unknown };
@@ -100,16 +100,13 @@ export async function POST(req: Request) {
     row < TILE_BOARD_SIZE;
   if (
     !validTile ||
-    (action !== "found" &&
-      action !== "promote" &&
-      action !== "demolish" &&
-      action !== "rename")
+    (action !== "found" && action !== "promote" && action !== "demolish")
   ) {
     return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
-  // 이름은 건설(found)·개명(rename)에만 필요 — 창립자가 직접 짓는 표시 이름. 마을 이름 규칙 재사용.
+  // 이름은 건설(found)에만 필요 — 창립자가 직접 짓는 표시 이름(이후 불변·개명 없음). 마을 이름 규칙 재사용.
   const rawName = typeof body.name === "string" ? body.name : "";
-  const needsName = action === "found" || action === "rename";
+  const needsName = action === "found";
   if (needsName && !isValidVillageName(rawName)) {
     return Response.json({ ok: false, error: "invalid_name" }, { status: 400 });
   }
@@ -218,21 +215,10 @@ export async function POST(req: Request) {
       return { kind: "ok", gold: charge.gold, bankedGold: charge.bankedGold };
     }
 
-    // promote / demolish / rename — 본인 정착지여야.
+    // promote / demolish — 본인 정착지여야.
     if (!existing) return { kind: "err", status: 404, error: "not_found" };
     if (existing.userId !== userId) {
       return { kind: "err", status: 403, error: "not_owner" };
-    }
-
-    // rename — 표시 이름만 갱신(과금 없음). 지도·헤더가 occupations.villageName(=tile_settlements.name)
-    //   를 읽으므로 이 한 줄이 표시 이름의 단일 진실원(SSOT)이 된다.
-    if (action === "rename") {
-      await tx
-        .update(tileSettlements)
-        .set({ name })
-        .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
-      const cur = await chargeGold(tx, userId, 0); // 읽기용(과금 0).
-      return { kind: "ok", gold: cur.gold, bankedGold: cur.bankedGold };
     }
 
     if (action === "demolish") {

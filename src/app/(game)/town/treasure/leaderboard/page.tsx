@@ -8,7 +8,7 @@ export default function TreasureLeaderboardPage() {
   const router = useRouter();
   return (
     <TreasureLeaderboardPanel
-      onBack={() => router.push("/town/treasure")}
+      onBack={() => router.push("/town")}
       onOpenDig={() => router.push("/town/treasure")}
       onOpenCollection={() => router.push("/town/treasure/collection")}
       onOpenShop={() => router.push("/town/treasure/shop")}

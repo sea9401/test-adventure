@@ -33,16 +33,11 @@ export function V2SparringView({
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="훈련장" onBack={onBack} />
       <Card padding="md">
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          보상도 손실도 없는 연습용 대결이다. 허수아비는 쓰러지지 않는다. 지금
-          능력치로 50턴 동안 얼마나 많은 피해를 누적하는지 전투 기록으로 살펴볼
-          수 있다.
-        </p>
         <button
           type="button"
           onClick={handleSpar}
           disabled={busy}
-          className="mt-3 w-full rounded-md border border-emerald-600 bg-emerald-600 px-4 py-3 text-base font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-md border border-emerald-600 bg-emerald-600 px-4 py-3 text-base font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy
             ? "대련 중…"

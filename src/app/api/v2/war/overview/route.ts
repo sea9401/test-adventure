@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   guildMembers,
@@ -6,7 +6,9 @@ import {
   outpostClaimAttempts,
   outpostOccupations,
   outpostTreasury,
+  outpostVillages,
   savesKv,
+  tileSettlements,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
@@ -18,7 +20,7 @@ import {
   isIntruderActive,
   parseLastHuntedOutpost,
 } from "@/adventure/data/v2/intruderTracking";
-import { isKnownOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { isKnownOutpostId, tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 
 // GET /api/v2/war/overview — 영지 상태 스냅샷 (읽기 전용, 스키마 변경 0).
 // 쟁탈 아레나(시즌 점수·활성 전장) 폐지 후: 내 길드 점령 거점·교전(공성)·최근 함락만 — 토벌
@@ -52,21 +54,51 @@ export async function GET() {
   const since = new Date(now.getTime() - WAR_OVERVIEW_WINDOW_H * 3_600_000);
 
   // 점령 전체 + 윈도 내 공성 로그 + 금고 — 세 테이블이 전황의 전부.
-  const [occRowsAll, attackRowsAll, treasuryRowsAll] = await Promise.all([
-    db.select().from(outpostOccupations),
-    db
-      .select()
-      .from(outpostClaimAttempts)
-      .where(gte(outpostClaimAttempts.createdAt, since))
-      .orderBy(desc(outpostClaimAttempts.createdAt)),
-    db
-      .select({
-        outpostId: outpostTreasury.outpostId,
-        gold: outpostTreasury.gold,
-      })
-      .from(outpostTreasury)
-      .where(gt(outpostTreasury.gold, 0)),
-  ]);
+  // + 정착지 표시 이름(창립자가 지은 tile_settlements.name·레거시 outpost_villages.name) —
+  //   토벌 화면이 거점을 좌표 폴백이 아닌 설정 이름으로 표기하도록(occupations 라우트와 동일 소스).
+  const [occRowsAll, attackRowsAll, treasuryRowsAll, villageRows, tileNameRows] =
+    await Promise.all([
+      db.select().from(outpostOccupations),
+      db
+        .select()
+        .from(outpostClaimAttempts)
+        .where(gte(outpostClaimAttempts.createdAt, since))
+        .orderBy(desc(outpostClaimAttempts.createdAt)),
+      db
+        .select({
+          outpostId: outpostTreasury.outpostId,
+          gold: outpostTreasury.gold,
+        })
+        .from(outpostTreasury)
+        .where(gt(outpostTreasury.gold, 0)),
+      db
+        .select({
+          outpostId: outpostVillages.outpostId,
+          name: outpostVillages.name,
+        })
+        .from(outpostVillages)
+        .where(isNotNull(outpostVillages.name)),
+      db
+        .select({
+          col: tileSettlements.col,
+          row: tileSettlements.row,
+          name: tileSettlements.name,
+        })
+        .from(tileSettlements)
+        .where(isNotNull(tileSettlements.name)),
+    ]);
+
+  // 거점 id → 설정 표시 이름. 타일 정착지(tile:col,row) 우선, 없으면 레거시 마을 이름.
+  const tileNameById = new Map<string, string>();
+  for (const t of tileNameRows) {
+    if (t.name != null) tileNameById.set(tileOutpostId(t.col, t.row), t.name);
+  }
+  const villageNameById = new Map<string, string>();
+  for (const v of villageRows) {
+    if (v.name != null) villageNameById.set(v.outpostId, v.name);
+  }
+  const displayNameOf = (id: string): string | null =>
+    tileNameById.get(id) ?? villageNameById.get(id) ?? null;
 
   // 맵 축소(96→40) 후 컷된 거점에 남은 고아 점령/공성/금고 행은 전황에서 제외(inert 정리).
   // npc-attacks 크론도 미지 거점은 skip 하므로 고아 행은 어디서도 처리되지 않는 잔재일 뿐.
@@ -183,6 +215,7 @@ export async function GET() {
     guildId: number;
     outposts: Array<{
       outpostId: string;
+      villageName: string | null;
       fortHp: number;
       fortMaxHp: number;
       underAttack: boolean;
@@ -242,6 +275,7 @@ export async function GET() {
           );
           return {
             outpostId: r.outpostId,
+            villageName: displayNameOf(r.outpostId),
             fortHp,
             fortMaxHp: r.fortMaxHp,
             underAttack:

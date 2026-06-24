@@ -15,7 +15,8 @@ export function TreasureShopPanel({
   onOpenLeaderboard?: () => void;
   onOpenCollection?: () => void;
 }) {
-  const { state, loading, error, buying, buy } = useTreasureShop();
+  const { state, loading, error, buying, buy, buyConsumable } =
+    useTreasureShop();
   return (
     <TreasureShopView
       state={state}
@@ -23,6 +24,7 @@ export function TreasureShopPanel({
       error={error}
       buying={buying}
       onBuy={buy}
+      onBuyConsumable={buyConsumable}
       onBack={onBack}
       onOpenDig={onOpenDig}
       onOpenLeaderboard={onOpenLeaderboard}

@@ -107,7 +107,7 @@ export function TreasureCollectionView({
         onBack={onBack}
         right={
           <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
-            🪙 {coins.toLocaleString()}
+            🪙 발굴 코인 {coins.toLocaleString()}
           </span>
         }
       />

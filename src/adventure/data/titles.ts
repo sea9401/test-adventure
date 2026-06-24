@@ -752,9 +752,9 @@ export const TITLES: Record<TitleId, Title> = {
   },
   treasure_legend: {
     id: "treasure_legend",
-    name: "잊힌 보물의 발견자",
+    name: "트레져 헌터",
     description: "전설로만 전하던 유물을 끝내 땅속에서 끌어올린 발굴의 대가.",
-    condition: "발굴 코인 상점에서 발굴 코인 1800으로 구매",
+    condition: "발굴 코인 상점에서 발굴 코인 2000으로 구매",
     category: "treasure",
   },
   // 수집 칭호 — ⚠️ 레거시(2026-06: 수집 포인트/칭호 상점 폐지·불필요한 복잡도). 신규 획득 경로

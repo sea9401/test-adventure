@@ -5,13 +5,15 @@ import {
 } from "./treasurePayouts";
 
 describe("treasureRankCoins", () => {
-  it("순위 경계 1/2/3/4~10/11+/0", () => {
-    expect(treasureRankCoins(1)).toBe(600);
-    expect(treasureRankCoins(2)).toBe(400);
-    expect(treasureRankCoins(3)).toBe(280);
-    expect(treasureRankCoins(4)).toBe(120);
-    expect(treasureRankCoins(10)).toBe(120);
-    expect(treasureRankCoins(11)).toBe(0);
+  it("순위 경계 1/2/3/4~10/11~20/21+/0", () => {
+    expect(treasureRankCoins(1)).toBe(700);
+    expect(treasureRankCoins(2)).toBe(480);
+    expect(treasureRankCoins(3)).toBe(340);
+    expect(treasureRankCoins(4)).toBe(160);
+    expect(treasureRankCoins(10)).toBe(160);
+    expect(treasureRankCoins(11)).toBe(60);
+    expect(treasureRankCoins(20)).toBe(60);
+    expect(treasureRankCoins(21)).toBe(0);
     expect(treasureRankCoins(0)).toBe(0);
   });
 });
@@ -24,10 +26,10 @@ describe("computeTreasureSeasonPayouts", () => {
       { userId: "d", value: 10 },
       { userId: "c", value: 50 }, // b 와 동률 2위
     ]);
-    expect(p.get("a")).toBe(600); // 1위
-    expect(p.get("b")).toBe(400); // 2위
-    expect(p.get("c")).toBe(400); // 2위 동률
-    expect(p.get("d")).toBe(120); // 3위 건너뛰고 4위
+    expect(p.get("a")).toBe(700); // 1위
+    expect(p.get("b")).toBe(480); // 2위
+    expect(p.get("c")).toBe(480); // 2위 동률
+    expect(p.get("d")).toBe(160); // 3위 건너뛰고 4위
   });
 
   it("0점/음수는 제외", () => {
@@ -36,7 +38,7 @@ describe("computeTreasureSeasonPayouts", () => {
       { userId: "z", value: 0 },
       { userId: "n", value: -5 },
     ]);
-    expect(p.get("a")).toBe(600);
+    expect(p.get("a")).toBe(700);
     expect(p.has("z")).toBe(false);
     expect(p.has("n")).toBe(false);
   });

@@ -8,7 +8,7 @@ export default function FishingLeaderboardPage() {
   const router = useRouter();
   return (
     <FishingLeaderboardPanel
-      onBack={() => router.push("/town/fishing")}
+      onBack={() => router.push("/town")}
       onOpenFishing={() => router.push("/town/fishing")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}
       onOpenHallOfFame={() => router.push("/town/fishing/hall-of-fame")}

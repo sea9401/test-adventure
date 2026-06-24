@@ -8,7 +8,7 @@ export default function FishingHallOfFamePage() {
   const router = useRouter();
   return (
     <FishingHallOfFamePanel
-      onBack={() => router.push("/town/fishing")}
+      onBack={() => router.push("/town")}
       onOpenFishing={() => router.push("/town/fishing")}
       onOpenChallenges={() => router.push("/town/fishing/challenges")}
       onOpenLeaderboard={() => router.push("/town/fishing/leaderboard")}

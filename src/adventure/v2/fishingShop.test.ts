@@ -25,16 +25,34 @@ describe("낚시 코인 상점 카탈로그", () => {
   });
 
   it("fishingShopPriceFor — 등재/미등재", () => {
-    expect(fishingShopPriceFor("fishing_taegong")).toBe(150);
+    expect(fishingShopPriceFor("fishing_taegong")).toBe(3000);
     expect(fishingShopPriceFor("not_a_title")).toBeUndefined();
+    // 은퇴 칭호는 상점 미등재(구매 불가)
+    expect(fishingShopPriceFor("fishing_deepsea")).toBeUndefined();
+    expect(fishingShopPriceFor("fishing_dawnangler")).toBeUndefined();
+    expect(fishingShopPriceFor("fishing_tidereader")).toBeUndefined();
+    expect(fishingShopPriceFor("fishing_specialguest")).toBeUndefined();
   });
 
   it("fishingShopEntries — 이름·설명·가격 합본, 카탈로그와 동수", () => {
     const entries = fishingShopEntries();
     expect(entries).toHaveLength(FISHING_SHOP_TITLES.length);
+    expect(entries).toHaveLength(3);
     const taegong = entries.find((e) => e.titleId === "fishing_taegong");
     expect(taegong?.name).toBe("강태공");
-    expect(taegong?.price).toBe(150);
+    expect(taegong?.price).toBe(3000);
     expect(taegong?.description.length).toBeGreaterThan(0);
+  });
+
+  it("제거된 칭호는 정의도 삭제(표시 경로가 미정의 id 를 가드)", () => {
+    const removed: Record<string, unknown> = TITLES;
+    for (const id of [
+      "fishing_deepsea",
+      "fishing_dawnangler",
+      "fishing_tidereader",
+      "fishing_specialguest",
+    ]) {
+      expect(removed[id], id).toBeUndefined();
+    }
   });
 });

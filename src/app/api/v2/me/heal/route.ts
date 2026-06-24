@@ -4,11 +4,14 @@ import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import { applyVigorRecovery, parseWarVigor } from "@/adventure/data/v2/warVigor";
 
-// POST /api/v2/me/heal — 치료소 만피 회복.
+// POST /api/v2/me/heal — 치료소 만피 회복(항상 무료).
 //
-// 라이브 룰 차용: gold < 50 이면 무료, 아니면 1G.
-// 이미 만피면 410 already_full (UI 버튼은 disabled 이지만 race 방어).
+// HP/MP 즉시 만피 + 전쟁 건강도(war vigor)는 같은 방문에서 시간누적 회복분만 적용한다
+// (즉시 100% 아님 = 전쟁 throttle 의미 유지). 옛 별도 "건강도 회복" 버튼을 이 한 버튼으로 통합.
+// HP/MP·건강도가 모두 만충이면 409 already_full (UI 버튼은 disabled 이지만 race 방어).
 // 회복 시 hpRegenSince 도 now 로 리셋.
 
 type CharSave = {
@@ -18,9 +21,6 @@ type CharSave = {
   gold?: number;
   [k: string]: unknown;
 };
-
-const HEAL_COST_FULL_PRICE = 1;
-const HEAL_FREE_GOLD_THRESHOLD = 50;
 
 export async function POST() {
   const userId = await ensureUser();
@@ -53,8 +53,14 @@ export async function POST() {
     const hpRegenSince = parseHpRegenSince(charSave.hpRegenSince, now);
     const regen = applyHpRegen(savedHp, maxHp, hpRegenSince, now);
 
-    // 둘 다 풀이어야 already_full. MP 가 미달이면 HP 풀이어도 회복 가능 (mp 만 채움).
-    if (regen.hp >= maxHp && savedMp >= maxMp) {
+    // 전쟁 건강도 — 저장값(회복 미적용) 기준으로 만충 여부 판정. 플래그 off 면 null.
+    const vigorBefore = V2_SETTLEMENT_WARFARE
+      ? parseWarVigor(charSave.warVigor)
+      : null;
+    const vigorFull = !vigorBefore || (vigorBefore.hp >= 1 && vigorBefore.mp >= 1);
+
+    // HP/MP 둘 다 풀 + 건강도도 만충이어야 already_full. 하나라도 미달이면 회복 가능.
+    if (regen.hp >= maxHp && savedMp >= maxMp && vigorFull) {
       return {
         ok: false as const,
         status: 409,
@@ -71,10 +77,13 @@ export async function POST() {
 
     const gold = Math.max(0, charSave.gold ?? 0);
     const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
-    // 무료 회복 게이트는 HELD 골드 기준 그대로 — 보유 적은 가난한 유저는 무료.
-    const cost = gold < HEAL_FREE_GOLD_THRESHOLD ? 0 : HEAL_COST_FULL_PRICE;
+    // 치료소 회복은 항상 무료.
+    const cost = 0;
     // cost 차감만 은행 우선. cost === 0 이면 no-op(보유·은행 불변).
     const spend = spendGold(gold, bankedGold, cost);
+
+    // 건강도는 시간누적분만 적용(즉시 만충 아님). 플래그 off 면 미접촉.
+    const vigorAfter = vigorBefore ? applyVigorRecovery(vigorBefore, now) : null;
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
@@ -84,6 +93,7 @@ export async function POST() {
       gold: spend.gold,
       bankedGold: spend.bankedGold,
       hasHealed: true, // 가이드 퀘스트(회복의 손길) 지표
+      ...(vigorAfter ? { warVigor: vigorAfter } : {}),
     });
 
     return {
@@ -98,6 +108,7 @@ export async function POST() {
         gold: spend.gold,
         ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
         cost,
+        ...(vigorAfter ? { warVigor: vigorAfter } : {}),
       },
     };
   });

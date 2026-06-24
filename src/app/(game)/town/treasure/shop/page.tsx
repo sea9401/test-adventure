@@ -7,6 +7,11 @@ import { TreasureShopPanel } from "@/adventure/v2/TreasureShopPanel";
 export default function TreasureShopPage() {
   const router = useRouter();
   return (
-    <TreasureShopPanel onBack={() => router.push("/town/treasure/collection")} />
+    <TreasureShopPanel
+      onBack={() => router.push("/town/treasure/collection")}
+      onOpenDig={() => router.push("/town/treasure")}
+      onOpenLeaderboard={() => router.push("/town/treasure/leaderboard")}
+      onOpenCollection={() => router.push("/town/treasure/collection")}
+    />
   );
 }

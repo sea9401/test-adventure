@@ -8,10 +8,12 @@ export function TreasurePanel({
   onBack,
   onOpenCollection,
   onOpenLeaderboard,
+  onOpenShop,
 }: {
   onBack: () => void;
   onOpenCollection: () => void;
   onOpenLeaderboard: () => void;
+  onOpenShop: () => void;
 }) {
   const handlers = useTreasure();
   return (
@@ -20,6 +22,7 @@ export function TreasurePanel({
       onBack={onBack}
       onOpenCollection={onOpenCollection}
       onOpenLeaderboard={onOpenLeaderboard}
+      onOpenShop={onOpenShop}
     />
   );
 }

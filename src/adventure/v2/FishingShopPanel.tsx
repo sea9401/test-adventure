@@ -4,7 +4,19 @@ import { FishingShopView } from "./FishingShopView";
 import { useFishingShop } from "./useFishingShop";
 
 // 낚시 코인 상점 패널 — 마운트 시 상태 fetch(useFishingShop) 후 뷰에 주입.
-export function FishingShopPanel({ onBack }: { onBack: () => void }) {
+export function FishingShopPanel({
+  onBack,
+  onOpenFishing,
+  onOpenChallenges,
+  onOpenLeaderboard,
+  onOpenHallOfFame,
+}: {
+  onBack: () => void;
+  onOpenFishing?: () => void;
+  onOpenChallenges?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenHallOfFame?: () => void;
+}) {
   const { state, loading, error, buying, buy } = useFishingShop();
   return (
     <FishingShopView
@@ -14,6 +26,10 @@ export function FishingShopPanel({ onBack }: { onBack: () => void }) {
       buying={buying}
       onBuy={buy}
       onBack={onBack}
+      onOpenFishing={onOpenFishing}
+      onOpenChallenges={onOpenChallenges}
+      onOpenLeaderboard={onOpenLeaderboard}
+      onOpenHallOfFame={onOpenHallOfFame}
     />
   );
 }

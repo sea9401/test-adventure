@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/Card";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { FishingSubTabs } from "./FishingSubTabs";
 import { PlayerNameLink } from "@/components/ui/PlayerNameLink";
 import {
   FISH,
@@ -48,11 +49,20 @@ export function FishingLeaderboardView({
   loading,
   error,
   onBack,
+  onOpenFishing,
+  onOpenChallenges,
+  onOpenHallOfFame,
+  onOpenShop,
 }: {
   data: FishingLeaderboardData | null;
   loading: boolean;
   error?: string | null;
   onBack?: () => void;
+  // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenFishing?: () => void;
+  onOpenChallenges?: () => void;
+  onOpenHallOfFame?: () => void;
+  onOpenShop?: () => void;
 }) {
   return (
     <main className="mx-auto max-w-[640px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -75,6 +85,14 @@ export function FishingLeaderboardView({
           </span>
         )}
       </p>
+
+      <FishingSubTabs
+        active="leaderboard"
+        onOpenFishing={onOpenFishing}
+        onOpenChallenges={onOpenChallenges}
+        onOpenHallOfFame={onOpenHallOfFame}
+        onOpenShop={onOpenShop}
+      />
 
       {loading ? (
         <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">

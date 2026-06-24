@@ -106,13 +106,9 @@ export function TreasureCollectionView({
         title="발굴 보관함"
         onBack={onBack}
         right={
-          <button
-            type="button"
-            onClick={onOpenShop}
-            className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/60"
-          >
-            🪙 {coins.toLocaleString()} · 상점
-          </button>
+          <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+            🪙 {coins.toLocaleString()}
+          </span>
         }
       />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
@@ -124,6 +120,7 @@ export function TreasureCollectionView({
         active="collection"
         onOpenDig={onOpenDig}
         onOpenLeaderboard={onOpenLeaderboard}
+        onOpenShop={onOpenShop}
       />
 
       {!loading && junkGroup.length > 0 && (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { TreasureSubTabs } from "./TreasureSubTabs";
 import { treasureShopEntries } from "./treasureShop";
 import type { BuyResult, TreasureShopState } from "./useTreasureShop";
 
@@ -18,6 +19,9 @@ export function TreasureShopView({
   buying,
   onBuy,
   onBack,
+  onOpenDig,
+  onOpenLeaderboard,
+  onOpenCollection,
 }: {
   state: TreasureShopState | null;
   loading: boolean;
@@ -25,6 +29,10 @@ export function TreasureShopView({
   buying: string | null;
   onBuy: (titleId: string) => Promise<BuyResult>;
   onBack?: () => void;
+  // 발굴 서브 탭바(발굴/주간 순위/보관함) — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenDig?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenCollection?: () => void;
 }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -48,6 +56,13 @@ export function TreasureShopView({
             🪙 {coins.toLocaleString()}
           </span>
         }
+      />
+
+      <TreasureSubTabs
+        active="shop"
+        onOpenDig={onOpenDig}
+        onOpenLeaderboard={onOpenLeaderboard}
+        onOpenCollection={onOpenCollection}
       />
 
       {message && (

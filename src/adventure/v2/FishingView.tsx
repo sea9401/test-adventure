@@ -10,6 +10,7 @@ import {
 } from "@/adventure/data/v2/fish";
 import { REACTION_WINDOW_MS } from "@/adventure/v2/fishingSession";
 import { MulttaeBadge } from "@/adventure/v2/MulttaeBadge";
+import { FishingSubTabs } from "@/adventure/v2/FishingSubTabs";
 
 // 완전 수동·반응형 낚시 미니게임 UI.
 //
@@ -327,51 +328,14 @@ export function FishingView({
 
   return (
     <main className="mx-auto my-4 w-[calc(100%-2rem)] max-w-[520px] space-y-4 rounded-2xl border border-zinc-200 bg-white/90 p-6 shadow-lg backdrop-blur-md text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900/90 dark:text-zinc-100">
-      <SubViewHeader
-        title="낚시터"
-        onBack={onBack}
-        right={
-          onOpenLeaderboard || onOpenShop || onOpenChallenges || onOpenHallOfFame ? (
-            <div className="flex shrink-0 flex-col gap-1.5">
-              {onOpenChallenges && (
-                <button
-                  type="button"
-                  onClick={onOpenChallenges}
-                  className="rounded-full bg-sky-200/70 px-3 py-1 text-xs font-medium text-sky-800 transition hover:bg-sky-300/70 dark:bg-sky-900/50 dark:text-sky-200 dark:hover:bg-sky-800/60"
-                >
-                  오늘의 도전
-                </button>
-              )}
-              {onOpenLeaderboard && (
-                <button
-                  type="button"
-                  onClick={onOpenLeaderboard}
-                  className="rounded-full bg-zinc-200/70 px-3 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-300/70 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
-                >
-                  주간 대회 순위
-                </button>
-              )}
-              {onOpenHallOfFame && (
-                <button
-                  type="button"
-                  onClick={onOpenHallOfFame}
-                  className="rounded-full bg-amber-100/70 px-3 py-1 text-xs font-medium text-amber-700 transition hover:bg-amber-200/70 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50"
-                >
-                  명예의 전당
-                </button>
-              )}
-              {onOpenShop && (
-                <button
-                  type="button"
-                  onClick={onOpenShop}
-                  className="rounded-full bg-amber-200/70 px-3 py-1 text-xs font-medium text-amber-800 transition hover:bg-amber-300/70 dark:bg-amber-900/50 dark:text-amber-200 dark:hover:bg-amber-800/60"
-                >
-                  코인 상점
-                </button>
-              )}
-            </div>
-          ) : undefined
-        }
+      <SubViewHeader title="낚시터" onBack={onBack} />
+
+      <FishingSubTabs
+        active="fishing"
+        onOpenChallenges={onOpenChallenges}
+        onOpenLeaderboard={onOpenLeaderboard}
+        onOpenHallOfFame={onOpenHallOfFame}
+        onOpenShop={onOpenShop}
       />
 
       <MulttaeBadge />

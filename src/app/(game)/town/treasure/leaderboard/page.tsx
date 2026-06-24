@@ -11,6 +11,7 @@ export default function TreasureLeaderboardPage() {
       onBack={() => router.push("/town/treasure")}
       onOpenDig={() => router.push("/town/treasure")}
       onOpenCollection={() => router.push("/town/treasure/collection")}
+      onOpenShop={() => router.push("/town/treasure/shop")}
     />
   );
 }

@@ -34,14 +34,16 @@ export function TreasureLeaderboardView({
   onBack,
   onOpenDig,
   onOpenCollection,
+  onOpenShop,
 }: {
   data: TreasureLeaderboardData | null;
   loading: boolean;
   error?: string | null;
   onBack?: () => void;
-  // 발굴 서브 탭바(발굴/보관함) — 미전달(dev 하니스)이면 그 탭 숨김.
+  // 발굴 서브 탭바(발굴/보관함/상점) — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenDig?: () => void;
   onOpenCollection?: () => void;
+  onOpenShop?: () => void;
 }) {
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -63,6 +65,7 @@ export function TreasureLeaderboardView({
         active="leaderboard"
         onOpenDig={onOpenDig}
         onOpenCollection={onOpenCollection}
+        onOpenShop={onOpenShop}
       />
 
       {loading ? (

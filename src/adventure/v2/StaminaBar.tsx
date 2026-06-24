@@ -92,7 +92,7 @@ export function StaminaBar({
 
 // 스태미나 포션 사용 모달 — 보유 수·포션당 회복·현재 스태미나 + 개수 스테퍼.
 //   사용 상한 = min(보유, 비축 상한까지 필요 개수). 최대치를 넘겨 비축 가능하되
-//   staminaOverchargeCap(max × MULT)까지. 기본 제안 = 만피까지. "한 번에 많이 먹어두고
+//   staminaOverchargeCap(고정 10,000)까지. 기본 제안 = 만피까지. "한 번에 많이 먹어두고
 //   길게 사냥" 의도 → 초과분은 회복 없이 사냥/이동으로만 소모.
 function StaminaPotionModal({
   potions,
@@ -219,13 +219,9 @@ function StaminaPotionModal({
               </span>
               {overcharge && (
                 <span className="ml-1 font-medium text-amber-600 dark:text-amber-400">
-                  · 초과 비축
+                  · 초과 비축 (상한 {cap.toLocaleString()})
                 </span>
               )}
-            </p>
-            <p className="mt-1 text-center text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">
-              최대치를 넘겨 비축하면 회복을 기다리지 않고 길게 사냥할 수 있어요
-              (상한 {cap.toLocaleString()}).
             </p>
           </>
         )}

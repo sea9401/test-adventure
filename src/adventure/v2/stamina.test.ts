@@ -3,7 +3,7 @@ import {
   MAX_STAMINA,
   REGEN_SECONDS_PER_POINT,
   HUNT_COST,
-  STAMINA_OVERCHARGE_MULT,
+  STAMINA_OVERCHARGE_CAP,
   applyRegen,
   tryConsume,
   msUntilNextRegen,
@@ -187,12 +187,13 @@ describe("스태미너 — 최대치 초과 비축(overcharge)", () => {
     expect(r.current).toBe(MAX_STAMINA);
   });
 
-  it("staminaOverchargeCap — per-user max × MULT", () => {
-    expect(staminaOverchargeCap(MAX_STAMINA)).toBe(
-      Math.floor(MAX_STAMINA * STAMINA_OVERCHARGE_MULT),
-    );
-    // 한계의 비약으로 max 가 오르면 상한도 비례 상승.
-    expect(staminaOverchargeCap(6000)).toBe(6000 * STAMINA_OVERCHARGE_MULT);
+  it("staminaOverchargeCap — 고정 상한(10,000), max 가 넘으면 max 까지", () => {
+    // 기본 max(5000) → 고정 상한 10,000.
+    expect(staminaOverchargeCap(MAX_STAMINA)).toBe(STAMINA_OVERCHARGE_CAP);
+    // max 가 상한 아래면 여전히 고정 상한.
+    expect(staminaOverchargeCap(6000)).toBe(STAMINA_OVERCHARGE_CAP);
+    // max 가 고정 상한을 넘는 예외만 그 max 까지(상한이 max 아래로 못 감).
+    expect(staminaOverchargeCap(12000)).toBe(12000);
     // 기본 인자 = MAX_STAMINA.
     expect(staminaOverchargeCap()).toBe(staminaOverchargeCap(MAX_STAMINA));
   });

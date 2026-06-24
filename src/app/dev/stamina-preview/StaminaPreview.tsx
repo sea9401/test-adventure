@@ -5,7 +5,7 @@ import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import {
   MAX_STAMINA,
   REGEN_SECONDS_PER_POINT,
-  STAMINA_OVERCHARGE_MULT,
+  staminaOverchargeCap,
   initialStamina,
   type StaminaState,
 } from "@/adventure/v2/stamina";
@@ -41,9 +41,9 @@ export function StaminaPreview() {
         state: { current: MAX_STAMINA + 2000, lastUpdatedAt: now },
       },
       {
-        label: `비축 상한 도달 (${MAX_STAMINA * STAMINA_OVERCHARGE_MULT}/${MAX_STAMINA})`,
+        label: `비축 상한 도달 (${staminaOverchargeCap(MAX_STAMINA)}/${MAX_STAMINA})`,
         state: {
-          current: MAX_STAMINA * STAMINA_OVERCHARGE_MULT,
+          current: staminaOverchargeCap(MAX_STAMINA),
           lastUpdatedAt: now,
         },
       },

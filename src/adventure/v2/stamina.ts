@@ -17,14 +17,15 @@ export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·재진입은 무료)
 
-// 포션 초과 비축(overcharge) 상한 = per-user 최대치 × 이 배수.
-//   시간 회복은 여전히 max 까지만. 포션으로는 이 상한까지 미리 비축 가능(밸런스 다이얼).
-//   1 = 초과 비축 없음(만피 캡). 한 줄로 조정. (5000 기준 3 = 15000 ≈ 1.5만 사냥분.)
-export const STAMINA_OVERCHARGE_MULT = 3;
+// 포션 초과 비축(overcharge) 상한 = 고정값(10,000). 옛 per-user max×3 은 최대치를 줄이면 상한도
+//   같이 줄어 의도와 어긋나 고정으로 전환(2026-06-25 사용자 결정). 시간 회복은 여전히 max 까지만,
+//   포션으로는 이 상한까지 미리 비축 가능(밸런스 다이얼·한 줄로 조정).
+export const STAMINA_OVERCHARGE_CAP = 10000;
 
-// per-user 최대치 기준 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프.
+// 포션 비축 상한(현재값). 포션 사용/모달이 이 값으로 클램프. 한계의 비약으로 per-user 최대치가
+//   이 상한을 넘는 예외 케이스만 그 max 까지 허용(상한이 max 아래로 내려가 만피 자체가 불가해지는 것 방지).
 export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
-  return Math.floor(maxStamina * STAMINA_OVERCHARGE_MULT);
+  return Math.max(STAMINA_OVERCHARGE_CAP, Math.floor(maxStamina));
 }
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT

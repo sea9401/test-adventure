@@ -116,10 +116,10 @@ describe("POST /api/v2/me/use-stamina-potion", () => {
     expect(char().stamina.current).toBe(MAX_STAMINA + STAMINA_POTION_RESTORE * 10);
   });
 
-  it("비축 상한 초과 사용 → 상한(max×MULT)으로 클램프", async () => {
+  it("비축 상한 초과 사용 → 상한(고정 10,000)으로 클램프", async () => {
     const t = Date.now();
-    const cap = staminaOverchargeCap(MAX_STAMINA); // 5000 × 3 = 15000
-    // 상한 근처(14900)에서 10개(=+2000) 사용 → 16900 시도지만 cap 15000 으로 클램프.
+    const cap = staminaOverchargeCap(MAX_STAMINA); // 고정 10000 (max 5000 < 상한)
+    // 상한 근처(cap-100)에서 10개(=+2000) 사용 → cap+1900 시도지만 cap 으로 클램프.
     store.set(k("u1", "character.v2"), {
       stamina: { current: cap - 100, lastUpdatedAt: t },
     });

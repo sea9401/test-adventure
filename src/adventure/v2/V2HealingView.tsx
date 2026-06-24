@@ -5,16 +5,14 @@ import { FirstAid } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
 import { StatBar } from "@/components/ui/StatBar";
-import WarVigorCard from "./WarVigorCard";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import type { WarVigor } from "@/adventure/data/v2/warVigor";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
 
-// v2 치료소 — 만피 회복(라이브 룰: gold<50 무료, 1G 만피) + HP/MP 충전약 구매.
-// 옛 V2ShopView 의 충전 섹션이 여기로 이전 — 상점은 장비만 취급.
-
-const HEAL_FREE_GOLD_THRESHOLD = 50;
+// v2 치료소 — 만피 회복(무료, 전쟁 건강도 회복 통합) + HP/MP 충전약 구매.
+// 옛 V2ShopView 의 충전 섹션 + 옛 WarVigorCard 의 건강도 회복이 여기로 통합 — 상점은 장비만 취급.
 
 type StateResponse = {
   ok?: boolean;
@@ -47,6 +45,8 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const [bankedGold, setBankedGold] = useState(0);
   const [hpCharges, setHpCharges] = useState<number | null>(null);
   const [mpCharges, setMpCharges] = useState<number | null>(null);
+  // 전쟁 건강도(war vigor) — 정착지 전쟁 플래그 ON 일 때만 표시·회복. 저장값(회복 미적용) 기준.
+  const [warVigor, setWarVigor] = useState<WarVigor | null>(null);
   const [busy, setBusy] = useState<"heal" | ChargeKind | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -73,6 +73,17 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         : null;
       setHpCharges(invJ?.hpCharges ?? 0);
       setMpCharges(invJ?.mpCharges ?? 0);
+      // 건강도는 표시용으로 현재 저장값(회복 미적용)을 읽는다. 플래그 off 면 404 → 미표시.
+      if (V2_SETTLEMENT_WARFARE) {
+        const vRes = await fetch("/api/v2/me/war-vigor/recover");
+        const vJ = vRes.ok
+          ? ((await vRes.json().catch(() => null)) as {
+              ok?: boolean;
+              warVigor?: WarVigor;
+            } | null)
+          : null;
+        if (vJ?.ok && vJ.warVigor) setWarVigor(vJ.warVigor);
+      }
     } catch {
       setLoadError(true);
     }
@@ -97,12 +108,14 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
         gold?: number;
         bankedGold?: number;
         cost?: number;
+        warVigor?: WarVigor;
         error?: string;
       } | null;
       if (!j?.ok) {
         setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
         return;
       }
+      if (j.warVigor) setWarVigor(j.warVigor);
       if (typeof j.hp === "number") setHp(j.hp);
       if (typeof j.maxHp === "number") setMaxHp(j.maxHp);
       if (typeof j.mp === "number") setMp(j.mp);
@@ -173,8 +186,14 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
   const hpFull = hp != null && maxHp != null && hp >= maxHp;
   const mpFull = mp != null && maxMp != null && mp >= maxMp;
   const isFull = hpFull && mpFull;
-  const healCost =
-    gold == null ? 0 : gold < HEAL_FREE_GOLD_THRESHOLD ? 0 : 1;
+  // 건강도 만충 여부 — 미로드(null) 또는 플래그 off 면 게이트에서 제외(HP/MP 기준만).
+  const vigorFull =
+    !V2_SETTLEMENT_WARFARE ||
+    warVigor == null ||
+    (warVigor.hp >= 1 && warVigor.mp >= 1);
+  // HP/MP·건강도 모두 만충일 때만 "이미 가득". 건강도만 미달이어도 회복 가능.
+  const allFull = isFull && vigorFull;
+  const vigorPct = (x: number) => Math.round(Math.max(0, Math.min(1, x)) * 100);
 
   return (
     <main className="mx-auto max-w-[720px] space-y-3 p-6 text-zinc-900 dark:text-zinc-100">
@@ -188,30 +207,51 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
             className="shrink-0 text-rose-500"
           />
           <p className="text-sm text-zinc-700 dark:text-zinc-300">
-            체력과 마력을 모두 회복할 수 있다. 비용 1 G — 소지금이 50 G 미만이면 무료.
+            체력과 마력을 모두 회복할 수 있습니다.
           </p>
         </div>
         {hp != null && maxHp != null && (
           <div className="mt-4 space-y-2">
-            <StatBar label="HP" value={hp} max={maxHp} color="bg-red-500" />
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <StatBar label="HP" value={hp} max={maxHp} color="bg-red-500" />
+              </div>
+              {warVigor && (
+                <span className="shrink-0 text-xs tabular-nums text-amber-600 dark:text-amber-400">
+                  건강도 {vigorPct(warVigor.hp)}%
+                </span>
+              )}
+            </div>
             {maxMp != null && maxMp > 0 && mp != null && (
-              <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
+              <div className="flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <StatBar label="MP" value={mp} max={maxMp} color="bg-blue-500" />
+                </div>
+                {warVigor && (
+                  <span className="shrink-0 text-xs tabular-nums text-amber-600 dark:text-amber-400">
+                    건강도 {vigorPct(warVigor.mp)}%
+                  </span>
+                )}
+              </div>
             )}
           </div>
+        )}
+        {warVigor && (
+          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            건강도(전쟁 전용)는 약탈·정복 전투에 쓰이며, 회복할 때 시간 누적분만큼 함께 차오릅니다.
+          </p>
         )}
         <button
           type="button"
           onClick={handleHeal}
-          disabled={isFull || busy !== null || hp == null}
+          disabled={allFull || busy !== null || hp == null}
           className="mt-4 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {hp == null
             ? "..."
-            : isFull
+            : allFull
               ? "이미 가득 차 있다"
-              : healCost > 0
-                ? `전부 회복 (${healCost} G)`
-                : "전부 회복 (무료)"}
+              : "전부 회복 (무료)"}
         </button>
       </Card>
 
@@ -240,8 +280,6 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
           />
         )}
       </Card>
-
-      {V2_SETTLEMENT_WARFARE && <WarVigorCard />}
 
       {msg && (
         <div

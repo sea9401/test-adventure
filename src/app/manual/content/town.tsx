@@ -14,8 +14,7 @@ export function TownContent() {
       <UL>
         <li>한 번에 HP·MP 를 가득 회복합니다.</li>
         <li>
-          보유 골드가 <Em>50 미만이면 무료</Em>, 그 이상이면 1 골드(빈털터리
-          보호).
+          <Em>무료</Em>로 이용할 수 있습니다.
         </li>
         <li>
           <Em>HP·MP 충전약</Em>도 여기서 삽니다 — 1 골드당 1 충전. 사냥 후 깎인

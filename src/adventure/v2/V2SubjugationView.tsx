@@ -11,6 +11,8 @@ import { IntruderPanel } from "./IntruderPanel";
 
 type MyGuildOutpost = {
   outpostId: string;
+  // 창립자가 지은 설정 이름(tile_settlements.name 등). 없으면 좌표 폴백명 사용.
+  villageName?: string | null;
   fortHp: number;
   fortMaxHp: number;
   underAttack: boolean;
@@ -73,7 +75,7 @@ export function V2SubjugationView({ onBack }: { onBack: () => void }) {
               <IntruderPanel
                 key={o.outpostId}
                 outpostId={o.outpostId}
-                title={`${outpostDisplayName(o.outpostId)} — 침입자`}
+                title={`${o.villageName ?? outpostDisplayName(o.outpostId)} — 침입자`}
                 collapsible
                 // 침입자 있는 거점만 기본 펼침 — 나머지는 접어서 한눈에.
                 defaultOpen={o.intruderCount > 0}

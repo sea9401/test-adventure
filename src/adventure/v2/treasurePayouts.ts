@@ -3,15 +3,17 @@
 
 export type TreasurePayoutRecord = { userId: string; value: number };
 
-// 순위별 발굴 코인 — 1-based rank. 10등 밖이면 0. (다이얼)
+// 순위별 발굴 코인 — 1-based rank. 20등 밖이면 0. (다이얼)
 // 2026-06-13 ×3 상향 — 분해→코인 폐지로 코인 공급원이 주간 정산 단일화(사용자 결정).
-// 1위 기준 전설 칭호(1800코인)까지 3주.
+// 2026-06-25 공급 증가 + 11~20위 신설(주간 총 방출 2,120→3,240). 보상권을 top10→top20 으로
+//   넓혀 중앙값 0 구간을 뒤로 미룸. 1위 기준 트레져 헌터 칭호(2000코인)까지 ~3주.
 export function treasureRankCoins(rank: number): number {
   if (rank <= 0) return 0;
-  if (rank === 1) return 600;
-  if (rank === 2) return 400;
-  if (rank === 3) return 280;
-  if (rank <= 10) return 120;
+  if (rank === 1) return 700;
+  if (rank === 2) return 480;
+  if (rank === 3) return 340;
+  if (rank <= 10) return 160;
+  if (rank <= 20) return 60;
   return 0;
 }
 

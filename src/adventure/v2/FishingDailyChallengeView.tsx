@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
+import { FishingSubTabs } from "./FishingSubTabs";
 import type {
   ClaimResult,
   FishingChallengesState,
@@ -23,6 +24,10 @@ export function FishingDailyChallengeView({
   claiming,
   onClaim,
   onBack,
+  onOpenFishing,
+  onOpenLeaderboard,
+  onOpenHallOfFame,
+  onOpenShop,
 }: {
   state: FishingChallengesState | null;
   loading: boolean;
@@ -30,6 +35,11 @@ export function FishingDailyChallengeView({
   claiming?: string | null;
   onClaim?: (id: string) => Promise<ClaimResult>;
   onBack?: () => void;
+  // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenFishing?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenHallOfFame?: () => void;
+  onOpenShop?: () => void;
 }) {
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -51,6 +61,14 @@ export function FishingDailyChallengeView({
             </span>
           ) : undefined
         }
+      />
+
+      <FishingSubTabs
+        active="challenges"
+        onOpenFishing={onOpenFishing}
+        onOpenLeaderboard={onOpenLeaderboard}
+        onOpenHallOfFame={onOpenHallOfFame}
+        onOpenShop={onOpenShop}
       />
 
       {loading && (

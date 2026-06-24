@@ -8,16 +8,19 @@ export function TreasureLeaderboardPanel({
   onBack,
   onOpenDig,
   onOpenCollection,
+  onOpenShop,
 }: {
   onBack: () => void;
   onOpenDig?: () => void;
   onOpenCollection?: () => void;
+  onOpenShop?: () => void;
 }) {
   const { data, loading, error } = useTreasureLeaderboard();
   return (
     <TreasureLeaderboardView
       onOpenDig={onOpenDig}
       onOpenCollection={onOpenCollection}
+      onOpenShop={onOpenShop}
       data={data}
       loading={loading}
       error={error}

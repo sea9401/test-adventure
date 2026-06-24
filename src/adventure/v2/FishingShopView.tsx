@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
+import { FishingSubTabs } from "./FishingSubTabs";
 import { fishingShopEntries } from "./fishingShop";
 import type { BuyResult, FishingShopState } from "./useFishingShop";
 
@@ -18,6 +19,10 @@ export function FishingShopView({
   buying,
   onBuy,
   onBack,
+  onOpenFishing,
+  onOpenChallenges,
+  onOpenLeaderboard,
+  onOpenHallOfFame,
 }: {
   state: FishingShopState | null;
   loading: boolean;
@@ -25,6 +30,11 @@ export function FishingShopView({
   buying: string | null;
   onBuy: (titleId: string) => Promise<BuyResult>;
   onBack?: () => void;
+  // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
+  onOpenFishing?: () => void;
+  onOpenChallenges?: () => void;
+  onOpenLeaderboard?: () => void;
+  onOpenHallOfFame?: () => void;
 }) {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -48,6 +58,14 @@ export function FishingShopView({
             🪙 {coins.toLocaleString()}
           </span>
         }
+      />
+
+      <FishingSubTabs
+        active="shop"
+        onOpenFishing={onOpenFishing}
+        onOpenChallenges={onOpenChallenges}
+        onOpenLeaderboard={onOpenLeaderboard}
+        onOpenHallOfFame={onOpenHallOfFame}
       />
 
       {message && (

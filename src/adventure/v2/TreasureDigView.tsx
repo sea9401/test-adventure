@@ -95,10 +95,12 @@ export function TreasureDigView({
   onBack,
   onOpenCollection,
   onOpenLeaderboard,
+  onOpenShop,
 }: TreasureHandlers & {
   onBack?: () => void;
   onOpenCollection?: () => void;
   onOpenLeaderboard?: () => void;
+  onOpenShop?: () => void;
 }) {
   const [site, setSite] = useState<TreasureSitePublic | null>(null);
   const [result, setResult] = useState<Result>(null);
@@ -202,6 +204,7 @@ export function TreasureDigView({
         active="dig"
         onOpenLeaderboard={onOpenLeaderboard}
         onOpenCollection={onOpenCollection}
+        onOpenShop={onOpenShop}
       />
 
       {notice && (

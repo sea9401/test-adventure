@@ -7,6 +7,12 @@ import { FishingDailyChallengePanel } from "@/adventure/v2/FishingDailyChallenge
 export default function FishingChallengesPage() {
   const router = useRouter();
   return (
-    <FishingDailyChallengePanel onBack={() => router.push("/town/fishing")} />
+    <FishingDailyChallengePanel
+      onBack={() => router.push("/town/fishing")}
+      onOpenFishing={() => router.push("/town/fishing")}
+      onOpenLeaderboard={() => router.push("/town/fishing/leaderboard")}
+      onOpenHallOfFame={() => router.push("/town/fishing/hall-of-fame")}
+      onOpenShop={() => router.push("/town/fishing/shop")}
+    />
   );
 }

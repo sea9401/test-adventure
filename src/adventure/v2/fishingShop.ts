@@ -4,6 +4,9 @@
 //
 // 새 품목 추가 시: titles.ts 에 칭호 정의(category "fishing") + 여기 { titleId, price } 한 줄.
 // 가격은 주간 정산 코인 규모(캐주얼 ~수십/주, 상위 ~수백/주) 기준 초안 — 후속 튜닝 다이얼.
+// 2026-06-25 칭호 과다 정리: 4종(심해의 어부·여명의 낚시꾼·물때를 읽는 자·특별한 손님의 벗)
+//   제거 — titles.ts 정의까지 삭제(표시 경로 미정의 id 가드·옛 보유분은 비표시·데이터 무손실).
+//   활성 3종만 등재.
 
 import { TITLES, type TitleId } from "@/adventure/data/titles";
 
@@ -13,13 +16,9 @@ export type FishingShopTitle = {
 };
 
 export const FISHING_SHOP_TITLES: readonly FishingShopTitle[] = [
-  { titleId: "fishing_taegong", price: 150 },
-  { titleId: "fishing_dawnangler", price: 250 },
-  { titleId: "fishing_trophy", price: 600 },
-  { titleId: "fishing_tidereader", price: 900 },
-  { titleId: "fishing_deepsea", price: 1500 },
-  { titleId: "fishing_specialguest", price: 2200 },
-  { titleId: "fishing_legend", price: 3500 },
+  { titleId: "fishing_trophy", price: 600 }, // 월척 사냥꾼
+  { titleId: "fishing_legend", price: 1500 }, // 바다의 전설
+  { titleId: "fishing_taegong", price: 3000 }, // 강태공
 ];
 
 /** 카탈로그에 등재된 titleId → 가격. 미등재면 undefined(구매 불가). */

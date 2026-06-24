@@ -680,13 +680,7 @@ export const TITLES: Record<TitleId, Title> = {
     category: "pvp",
   },
   // ── 낚시 코인 상점 칭호 (낚시 코인으로 구매) ──────────────────────────────
-  fishing_taegong: {
-    id: "fishing_taegong",
-    name: "강태공",
-    description: "물가에 앉아 세월을 낚는 느긋한 손맛의 주인.",
-    condition: "낚시 코인 상점에서 낚시 코인 150으로 구매",
-    category: "fishing",
-  },
+  // 활성 3종 — 가격 오름차순(월척 사냥꾼 → 바다의 전설 → 강태공).
   fishing_trophy: {
     id: "fishing_trophy",
     name: "월척 사냥꾼",
@@ -694,41 +688,24 @@ export const TITLES: Record<TitleId, Title> = {
     condition: "낚시 코인 상점에서 낚시 코인 600으로 구매",
     category: "fishing",
   },
-  fishing_deepsea: {
-    id: "fishing_deepsea",
-    name: "심해의 어부",
-    description: "깊고 어두운 바다의 괴물조차 끌어올리는 자.",
-    condition: "낚시 코인 상점에서 낚시 코인 1500으로 구매",
-    category: "fishing",
-  },
   fishing_legend: {
     id: "fishing_legend",
     name: "바다의 전설",
     description: "어보의 모든 페이지에 이름을 남긴 낚시의 전설.",
-    condition: "낚시 코인 상점에서 낚시 코인 3500으로 구매",
+    condition: "낚시 코인 상점에서 낚시 코인 1500으로 구매",
     category: "fishing",
   },
-  fishing_dawnangler: {
-    id: "fishing_dawnangler",
-    name: "여명의 낚시꾼",
-    description: "동트는 물가에서 첫 입질을 기다리는 부지런한 손.",
-    condition: "낚시 코인 상점에서 낚시 코인 250으로 구매",
+  fishing_taegong: {
+    id: "fishing_taegong",
+    name: "강태공",
+    description: "물가에 앉아 세월을 낚는 느긋한 손맛의 주인.",
+    condition: "낚시 코인 상점에서 낚시 코인 3000으로 구매",
     category: "fishing",
   },
-  fishing_tidereader: {
-    id: "fishing_tidereader",
-    name: "물때를 읽는 자",
-    description: "물때의 흐름을 꿰어, 손님이 드는 때를 놓치지 않는 자.",
-    condition: "낚시 코인 상점에서 낚시 코인 900으로 구매",
-    category: "fishing",
-  },
-  fishing_specialguest: {
-    id: "fishing_specialguest",
-    name: "특별한 손님의 벗",
-    description: "여명과 별빛, 물안개와 폭풍, 모든 물때의 손님과 인사를 나눈 자.",
-    condition: "낚시 코인 상점에서 낚시 코인 2200으로 구매",
-    category: "fishing",
-  },
+  // 낚시 칭호 4종(심해의 어부·여명의 낚시꾼·물때를 읽는 자·특별한 손님의 벗) 정의 제거
+  //   (2026-06-25 과다 정리). TitleId=string 이라 타입 영향 없음. 표시 경로는 미정의 id 를
+  //   가드(resolveActor·V2Codex 의 `if(!t)`) — 옛 보유분은 칭호만 비표시(데이터 무손실·정의
+  //   재추가 시 복원). 새 칭호로 같은 id 재사용 금지(옛 보유자에게 엉뚱하게 붙음).
   treasure_digger: {
     id: "treasure_digger",
     name: "흙먼지 사냥꾼",

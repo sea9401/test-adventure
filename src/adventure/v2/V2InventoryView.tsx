@@ -9,6 +9,7 @@ import {
   Diamond,
   HandFist,
   Lock,
+  Package,
   Shield,
   Sneaker,
   Sword,
@@ -515,7 +516,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           />
         ) : tab === "material" ? (
           <>
-            <MaterialList materials={materialPager.pageItems} />
+            <MaterialCardGrid materials={materialPager.pageItems} />
             <Pagination
               page={materialPager.page}
               pageCount={materialPager.pageCount}
@@ -644,7 +645,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
   );
 }
 
-function MaterialList({
+// 보유 재료 2열 카드 그리드 — 장비 카드(EquipmentCardGrid)와 동형. 좌상단 아이콘 +
+//   우상단 수량 배지 + 등급색 없는 이름 + 설명(2줄). 재료는 굴림/장착이 없어 비상호작용 div.
+function MaterialCardGrid({
   materials,
 }: {
   materials: Array<{
@@ -663,28 +666,27 @@ function MaterialList({
     );
   }
   return (
-    <Card padding="none" className="overflow-hidden">
-      <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-        {materials.map(({ id, material, count }) => (
-          <li
-            key={id}
-            className="grid grid-cols-[1fr_auto] items-center gap-x-3 px-3 py-2.5"
-          >
-            <div className="min-w-0">
-              <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                {material.name}
-              </span>
-              <p className="mt-0.5 truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-                {material.description}
-              </p>
-            </div>
+    <div className="grid grid-cols-2 gap-2">
+      {materials.map(({ id, material, count }) => (
+        <div
+          key={id}
+          className="flex flex-col gap-1 rounded-lg border border-zinc-200 bg-white p-3 text-left dark:border-zinc-800 dark:bg-zinc-900"
+        >
+          <div className="flex items-start justify-between gap-1">
+            <Package size={20} weight="duotone" className="text-amber-500" />
             <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
               ×{count}
             </span>
-          </li>
-        ))}
-      </ul>
-    </Card>
+          </div>
+          <div className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
+            {material.name}
+          </div>
+          <p className="line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+            {material.description}
+          </p>
+        </div>
+      ))}
+    </div>
   );
 }
 

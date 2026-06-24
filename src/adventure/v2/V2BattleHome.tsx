@@ -2,6 +2,7 @@
 
 import {
   Barbell,
+  CompassRose,
   Crosshair,
   Skull,
   Sword,
@@ -11,14 +12,15 @@ import { EntryCard } from "@/components/ui/EntryCard";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 
 // 전투 탭 default — town/character 탭 패턴: EntryCard 사냥터/아레나/훈련장 진입.
-// 지도는 마을 탭으로 이관(2026-06-11).
+// 지도는 전투 탭 최하단(영토/전쟁 동선) — 마을 탭에서 이관(2026-06-25).
 
 export type BattleAction =
   | { kind: "open-dungeons" }
   | { kind: "open-coop" }
   | { kind: "open-subjugation" }
   | { kind: "open-arena" }
-  | { kind: "open-sparring" };
+  | { kind: "open-sparring" }
+  | { kind: "open-map" };
 
 export function V2BattleHome({
   onAction,
@@ -67,6 +69,17 @@ export function V2BattleHome({
           }
           title="토벌"
           onClick={() => onAction({ kind: "open-subjugation" })}
+        />
+        <EntryCard
+          icon={
+            <CompassRose
+              size={28}
+              weight="duotone"
+              className="text-emerald-500"
+            />
+          }
+          title="지도"
+          onClick={() => onAction({ kind: "open-map" })}
         />
       </div>
     </main>

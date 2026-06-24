@@ -506,18 +506,19 @@ export async function syncTileSettlementTier(
     .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
 }
 
-// tile_settlements.name 동기화 — 생산 마을 건설/개명 시 지도·헤더 표시 이름(occupations.villageName
-//   = tile_settlements.name)과 일치시킨다. 표시 이름은 found 때부터 tile_settlements 가 단일 진실원.
-export async function syncTileSettlementName(
+// tile_settlements.name 읽기 — 마을 건설이 개척(found) 때 정한 이름을 그대로 재사용한다(건설
+//   단계에서 이름을 다시 받지 않음). found 가 항상 이름을 넣으므로 보통 비어있지 않다.
+export async function readTileSettlementName(
   tx: Tx,
   col: number,
   row: number,
-  name: string,
-): Promise<void> {
-  await tx
-    .update(tileSettlements)
-    .set({ name })
-    .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)));
+): Promise<string | null> {
+  const [ts] = await tx
+    .select({ name: tileSettlements.name })
+    .from(tileSettlements)
+    .where(and(eq(tileSettlements.col, col), eq(tileSettlements.row, row)))
+    .limit(1);
+  return ts?.name ?? null;
 }
 
 // 타일 정착지 관리 권한 해석(쓰기 경로) — 점령행/정착지 행을 FOR UPDATE 로 직렬화 + 권한 판정.

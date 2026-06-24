@@ -41,16 +41,18 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
   const outpostId = typeof body.outpostId === "string" ? body.outpostId : "";
+
+  // 타일 정착지(tile:col,row) — 이름은 개척(found) 때 정한 이름을 재사용(건설 단계 이름 입력 없음).
+  //   생산 시스템(솔로/길드)으로 위임. 카탈로그 거점은 아래에서 이름을 받아 건설.
+  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
+    return tileBuild(userId, outpostId);
+  }
+
   const rawName = typeof body.name === "string" ? body.name : "";
   if (!outpostId || !isValidVillageName(rawName)) {
     return Response.json({ ok: false, error: "invalid_name" }, { status: 400 });
   }
   const name = rawName.trim();
-
-  // 타일 정착지(tile:col,row) — 생산 시스템(솔로/길드)으로 위임. 카탈로그 거점은 아래 그대로.
-  if (V2_TILE_PRODUCTION && isTileOutpostId(outpostId)) {
-    return tileBuild(userId, outpostId, name);
-  }
 
   try {
     const result = await db.transaction(async (tx) => {

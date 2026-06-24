@@ -91,6 +91,9 @@ export function V2VillagePanel({
   // 거점 표시 이름(헤더·지도)은 GameState occupations.villageName 에서 옴 — 건설/개명 후
   //   동기화해야 같은 화면 헤더가 즉시 새 이름으로 갱신된다.
   const { refreshOccupations } = useGameState();
+  // 타일 개척마을 — 이름은 개척(found) 때 한 번만 정한다. 건설 시 이름 재입력 없음·개명 없음(불변).
+  //   카탈로그 거점은 종전대로 건설 시 이름 입력 + 개명 가능.
+  const isTile = isTileOutpostId(outpostId);
   const [village, setVillage] = useState<Village | null>(null);
   const [resources, setResources] = useState<Resources>({});
   const [gold, setGold] = useState(0); // 길드 금고 골드(칸 해금 비용)
@@ -407,7 +410,8 @@ export function V2VillagePanel({
   return (
     <section className={`${SURFACE_CARD} space-y-2 p-3`}>
       {header}
-      {built && village && (
+      {/* 개명 — 카탈로그 거점만(타일 개척마을은 이름 불변·개척 때 한 번만). */}
+      {built && village && !isTile && (
         <button
           type="button"
           onClick={() => {
@@ -421,8 +425,8 @@ export function V2VillagePanel({
         </button>
       )}
 
-      {/* 이름 변경 폼 */}
-      {built && village && renaming && (
+      {/* 이름 변경 폼 — 카탈로그 거점만. */}
+      {built && village && !isTile && renaming && (
         <div className="flex items-center gap-1.5">
           <input
             type="text"
@@ -456,31 +460,43 @@ export function V2VillagePanel({
       )}
 
       {!built ? (
-        // 빈 공터 — 이름만 정해 마을을 세운다(종류는 칸 해금 때 고른다). 건설에 길드 골드 1천만.
+        // 빈 공터 — 마을을 세운다(종류는 칸 해금 때 고른다). 건설에 길드 골드 1천만.
+        //   타일 개척마을: 이름은 개척 때 정한 이름을 그대로 쓴다(재입력 없음). 카탈로그: 이름 입력.
         <div className="space-y-2">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            점령한 빈 공터예요. 이름을 정해 마을을 세우세요. 첫 칸은 무료로 열리고,
-            생산할 것은 칸을 해금할 때 고릅니다.
+            {isTile
+              ? "점령한 빈 공터예요. 마을을 세우세요(이름은 개척 때 정한 이름을 씁니다). 첫 칸은 무료로 열리고, 생산할 것은 칸을 해금할 때 고릅니다."
+              : "점령한 빈 공터예요. 이름을 정해 마을을 세우세요. 첫 칸은 무료로 열리고, 생산할 것은 칸을 해금할 때 고릅니다."}
           </p>
           <div className="text-xs text-zinc-600 dark:text-zinc-300">
             {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
           </div>
-          <input
-            type="text"
-            value={buildName}
-            onChange={(e) => setBuildName(e.target.value)}
-            maxLength={VILLAGE_NAME_MAX}
-            placeholder="마을 이름"
-            disabled={busy}
-            className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
-          />
+          {!isTile && (
+            <input
+              type="text"
+              value={buildName}
+              onChange={(e) => setBuildName(e.target.value)}
+              maxLength={VILLAGE_NAME_MAX}
+              placeholder="마을 이름"
+              disabled={busy}
+              className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+            />
+          )}
           <button
             type="button"
             disabled={
-              busy || buildName.trim().length === 0 || gold < buildGold
+              busy ||
+              (!isTile && buildName.trim().length === 0) ||
+              gold < buildGold
             }
-            onClick={() => void act("build", { name: buildName.trim() }, true)}
+            onClick={() =>
+              void act(
+                "build",
+                isTile ? {} : { name: buildName.trim() },
+                true,
+              )
+            }
             className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             마을 건설 · {fmtGold(buildGold)} 골드

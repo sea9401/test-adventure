@@ -11,7 +11,6 @@ import {
   Flag,
   Hammer,
   House,
-  PencilSimple,
   Trash,
   type Icon,
 } from "@phosphor-icons/react";
@@ -88,7 +87,6 @@ export function TileMap({
   onFoundTile,
   onPromoteTile,
   onDemolishTile,
-  onRenameTile,
   occupations,
   treasuries,
   viewerUserId,
@@ -106,7 +104,6 @@ export function TileMap({
   onFoundTile?: (col: number, row: number, name: string) => void | Promise<boolean>;
   onPromoteTile?: (col: number, row: number) => void;
   onDemolishTile?: (col: number, row: number) => void;
-  onRenameTile?: (col: number, row: number, name: string) => void;
   occupations?: OccupationLite[];
   treasuries?: Array<{ outpostId: string; gold: number }>;
   viewerUserId?: string | null;
@@ -120,8 +117,6 @@ export function TileMap({
 } = {}) {
   const [selected, setSelected] = useState<string | null>(null); // 칸 키 "c,r"
   const [foundName, setFoundName] = useState(""); // 개척마을 건설 폼 이름 입력
-  const [renamingKey, setRenamingKey] = useState<string | null>(null); // 개명 중인 칸 키
-  const [renameName, setRenameName] = useState(""); // 개명 입력
 
   const occByOutpost = new Map<string, OccupationLite>();
   if (occupations) for (const o of occupations) occByOutpost.set(o.outpostId, o);
@@ -438,21 +433,6 @@ export function TileMap({
                       {TILE_TIER_LABEL[next]} ({TILE_PROMOTE_COST[tier].toLocaleString()}G)
                     </button>
                   )}
-                  {mine && onRenameTile && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRenameName(selSettlement.name ?? "");
-                        setRenamingKey((k) =>
-                          k === selected ? null : selected,
-                        );
-                      }}
-                      aria-label="이름 변경"
-                      className="rounded-md border border-zinc-600 p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                    >
-                      <PencilSimple size={14} weight="bold" />
-                    </button>
-                  )}
                   {mine && onDemolishTile && (
                     <button
                       type="button"
@@ -464,37 +444,6 @@ export function TileMap({
                     </button>
                   )}
                 </div>
-                {/* 개명 폼 — 새 줄(w-full)로 떨어진다. 저장 시 지도·헤더 표시 이름이 바뀐다. */}
-                {mine && onRenameTile && renamingKey === selected && (
-                  <div className="flex w-full items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={renameName}
-                      onChange={(e) => setRenameName(e.target.value)}
-                      maxLength={VILLAGE_NAME_MAX}
-                      placeholder="새 정착지 이름"
-                      className="min-w-0 flex-1 rounded-md border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500"
-                    />
-                    <button
-                      type="button"
-                      disabled={renameName.trim().length === 0}
-                      onClick={() => {
-                        onRenameTile(selCol, selRow, renameName.trim());
-                        setRenamingKey(null);
-                      }}
-                      className="shrink-0 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      저장
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRenamingKey(null)}
-                      className="shrink-0 rounded-md border border-zinc-600 px-2 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800"
-                    >
-                      취소
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })()

@@ -22,7 +22,7 @@ import {
   lockSettlementResources,
   upsertSettlementResources,
   syncTileSettlementTier,
-  syncTileSettlementName,
+  readTileSettlementName,
   terrainTraitOf,
   type VillageRow,
 } from "./v2Settlement";
@@ -53,10 +53,11 @@ function badTile(): Response {
 }
 
 // build — 개척마을(frontier) → 마을(village). 마을 행 생성 + 소유 골드 1천만 + tile_settlements.tier 동기화.
+//   표시 이름은 개척(found) 때 정한 이름(tile_settlements.name)을 그대로 쓴다 — 건설 단계에서 이름을
+//   다시 받지 않는다(이름은 개척 때 한 번만·불변). 그래서 name 동기화도 불필요(이미 SSOT 와 일치).
 export async function tileBuild(
   userId: string,
   outpostId: string,
-  name: string,
 ): Promise<Response> {
   const pos = parseTileOutpostId(outpostId);
   if (!pos) return badTile();
@@ -72,6 +73,8 @@ export async function tileBuild(
         );
         if (!ctx.ok) return { status: ctx.status, body: { ok: false, error: ctx.error } };
         const owner = ctx.owner;
+        // 표시 이름 = 개척 때 정한 이름. found 가 항상 채우지만, 만약을 위해 기본값 폴백.
+        const name = (await readTileSettlementName(tx, pos.col, pos.row)) ?? "개척마을";
         const existing = await lockVillage(tx, outpostId);
         if (existing) {
           const village = normalizeVillageToOwner(existing, owner);
@@ -79,7 +82,6 @@ export async function tileBuild(
             return { status: 409, body: { ok: false, error: "already_built" } };
           }
           await upsertVillage(tx, { ...village, name });
-          await syncTileSettlementName(tx, pos.col, pos.row, name);
           return { status: 200, body: { ok: true, name, tier: village.tier } };
         }
         const og = await lockOwnerGold(tx, owner);
@@ -113,7 +115,6 @@ export async function tileBuild(
         await upsertVillage(tx, village);
         await og.spend(buildCost);
         await syncTileSettlementTier(tx, pos.col, pos.row, "village");
-        await syncTileSettlementName(tx, pos.col, pos.row, name);
         return { status: 200, body: { ok: true, name, tier: village.tier } };
       }),
     );
@@ -339,41 +340,6 @@ export async function tileUpgrade(
           status: 200,
           body: { ok: true, tier: village.tier, resources: nextResources },
         };
-      }),
-    );
-  } catch {
-    return serverError();
-  }
-}
-
-// rename — 건설된 마을 개명. 관리권 필요.
-export async function tileRename(
-  userId: string,
-  outpostId: string,
-  name: string,
-): Promise<Response> {
-  const pos = parseTileOutpostId(outpostId);
-  if (!pos) return badTile();
-  try {
-    return json(
-      await db.transaction(async (tx): Promise<Res> => {
-        const ctx = await resolveTileVillageManageOwner(
-          tx,
-          userId,
-          pos.col,
-          pos.row,
-          true,
-        );
-        if (!ctx.ok) return { status: ctx.status, body: { ok: false, error: ctx.error } };
-        const loaded = await lockVillage(tx, outpostId);
-        if (!loaded) return { status: 409, body: { ok: false, error: "not_built" } };
-        const village = normalizeVillageToOwner(loaded, ctx.owner);
-        if (village.name == null) {
-          return { status: 409, body: { ok: false, error: "not_built" } };
-        }
-        await upsertVillage(tx, { ...village, name });
-        await syncTileSettlementName(tx, pos.col, pos.row, name);
-        return { status: 200, body: { ok: true, name } };
       }),
     );
   } catch {

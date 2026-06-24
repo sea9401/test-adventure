@@ -109,7 +109,10 @@ const TILE = "tile:3,5"; // 리베라(4,4) 체비셰프 거리 1 → 비용 1.5�
 const BUILD_COST = scaledTileGoldCost(VILLAGE_BUILD_GOLD_COST, 3, 5);
 
 function seedTile(tier = "frontier") {
-  store.set(tileSettlements, [{ col: 3, row: 5, userId: ME, tier }]);
+  // name = 개척(found) 때 정한 이름 — 마을 건설이 이 이름을 그대로 재사용한다.
+  store.set(tileSettlements, [
+    { col: 3, row: 5, userId: ME, tier, name: "개척이름" },
+  ]);
 }
 function village(over: Partial<VillageRow>): Record<string, unknown> {
   return {
@@ -158,12 +161,13 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
     seedTile();
     store.set(outpostOccupations, [{ outpostId: TILE, occupiedByGuildId: GUILD, g: GUILD }]);
     store.set(v2GuildResources, [{ guildId: GUILD, gold: 50_000_000, settlement: {} }]);
-    const res = await tileBuild(ME, TILE, "황금마을");
+    const res = await tileBuild(ME, TILE);
     expect(res.status).toBe(200);
     const v = store.get(outpostVillages)![0];
     expect(v.guildId).toBe(GUILD);
     expect(v.ownerUserId).toBeNull();
     expect(v.tier).toBe("village");
+    expect(v.name).toBe("개척이름"); // 개척 때 정한 이름 재사용(재입력 없음)
     expect(store.get(tileSettlements)![0].tier).toBe("village"); // 동기화
     expect(store.get(v2GuildResources)![0].gold).toBe(50_000_000 - BUILD_COST);
   });
@@ -171,12 +175,13 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
   it("솔로 타일: 점령행 없음 → 솔로 마을(ownerUserId) + 본인 골드 차감 + tier 동기화", async () => {
     seedTile();
     soloSave.set(ME, { gold: 50_000_000, bankedGold: 0 });
-    const res = await tileBuild(ME, TILE, "내마을");
+    const res = await tileBuild(ME, TILE);
     expect(res.status).toBe(200);
     const v = store.get(outpostVillages)![0];
     expect(v.ownerUserId).toBe(ME);
     expect(v.guildId).toBeNull();
     expect(v.tier).toBe("village");
+    expect(v.name).toBe("개척이름"); // 개척 이름 재사용
     expect(store.get(tileSettlements)![0].tier).toBe("village");
     expect(soloSave.get(ME)!.gold).toBe(50_000_000 - BUILD_COST);
   });
@@ -184,7 +189,7 @@ describe("tileBuild — 개척마을→마을 + tier 동기화", () => {
   it("솔로 골드 부족 → 409 insufficient_gold (마을 미생성)", async () => {
     seedTile();
     soloSave.set(ME, { gold: BUILD_COST - 1, bankedGold: 0 });
-    const res = await tileBuild(ME, TILE, "내마을");
+    const res = await tileBuild(ME, TILE);
     expect(res.status).toBe(409);
     expect(store.get(outpostVillages) ?? []).toHaveLength(0);
   });

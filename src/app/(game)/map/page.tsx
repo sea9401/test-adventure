@@ -16,7 +16,6 @@ export default function MapPage() {
     foundTile,
     promoteTile,
     demolishTile,
-    renameTile,
     occupations,
     treasuries,
     viewerUserId,
@@ -33,7 +32,6 @@ export default function MapPage() {
       onFoundTile={foundTile}
       onPromoteTile={promoteTile}
       onDemolishTile={demolishTile}
-      onRenameTile={renameTile}
       occupations={occupations}
       treasuries={treasuries}
       viewerUserId={viewerUserId}

@@ -196,7 +196,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
   });
 });
 
-describe("POST tile-settlement rename — 표시 이름 갱신", () => {
+describe("POST tile-settlement rename — 개명 폐지(이름 불변)", () => {
   afterEach(() => {
     h.existing = [];
     h.updates = [];
@@ -204,48 +204,18 @@ describe("POST tile-settlement rename — 표시 이름 갱신", () => {
     vi.clearAllMocks();
   });
 
-  function renameReq(name: string, col = 2, row = 3): Request {
-    return new Request("http://t/api/v2/me/tile-settlement", {
-      method: "POST",
-      body: JSON.stringify({ action: "rename", col, row, name }),
-    });
-  }
-
-  it("본인 정착지: name 갱신(200) + tile_settlements.name 업데이트", async () => {
+  it("rename 액션 → 400 bad_request (이름은 개척 때 한 번만·불변·미갱신)", async () => {
     h.existing = [
       { col: 2, row: 3, userId: "u-me", tier: "frontier", name: "옛이름" },
     ];
-    const res = await POST(renameReq("새이름"));
-    expect(res.status).toBe(200);
-    expect(h.updates).toContainEqual({ name: "새이름" });
-  });
-
-  it("남의 정착지 → 403 not_owner (미갱신)", async () => {
-    h.existing = [
-      { col: 2, row: 3, userId: "someone-else", tier: "frontier", name: "옛이름" },
-    ];
-    const res = await POST(renameReq("새이름"));
-    expect(res.status).toBe(403);
-    expect(((await res.json()) as { error: string }).error).toBe("not_owner");
-    expect(h.updates).toHaveLength(0);
-  });
-
-  it("정착지 없음 → 404 not_found", async () => {
-    h.existing = [];
-    const res = await POST(renameReq("새이름"));
-    expect(res.status).toBe(404);
-    expect(h.updates).toHaveLength(0);
-  });
-
-  it("이름 빈값 → 400 invalid_name", async () => {
-    h.existing = [
-      { col: 2, row: 3, userId: "u-me", tier: "frontier", name: "옛이름" },
-    ];
-    const res = await POST(renameReq("   "));
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as { error: string }).error).toBe(
-      "invalid_name",
+    const res = await POST(
+      new Request("http://t/api/v2/me/tile-settlement", {
+        method: "POST",
+        body: JSON.stringify({ action: "rename", col: 2, row: 3, name: "새이름" }),
+      }),
     );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("bad_request");
     expect(h.updates).toHaveLength(0);
   });
 });

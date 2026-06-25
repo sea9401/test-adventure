@@ -1,25 +1,22 @@
-// 정착지(마을) 라우트 통합 테스트 — build → unlock-slot → produce → harvest → upgrade + GET.
-// v2 정착지는 codebase 에서 유일하게 테스트 없던 API 층(cleanup-audit). 여기서 메운다.
+// 정착지(마을) 라우트 통합 테스트 — build → unlock-slot → upgrade + GET.
+// [PR-3] 슬롯 생산(produce/harvest) 폐지 — 슬롯은 자리표시, crop/ore 는 사냥 드랍→기부+업글.
+//   해당 라우트·테스트 삭제. 칸 해금은 종류 선택 없음(자리표시 칸).
 //
 // 전략: DB I/O 경계(@/lib/server/v2Settlement·v2GuildResources)만 STATEFUL in-memory 로 모킹하고,
-// 순수 엔진(@/adventure/data/v2/settlement)은 REAL 그대로 — 수확량·비용·해금 수학이 진짜로 돈다.
-//   - 마을 저장: outpostId → VillageRow Map. 길드 생산재화: guildId → SettlementResources.
+// 순수 엔진(@/adventure/data/v2/settlement)은 REAL 그대로 — 비용·해금 수학이 진짜로 돈다.
+//   - 마을 저장: outpostId → VillageRow Map. 길드 정착지 재화: guildId → SettlementResources.
 //   - 길드 금고 골드: guildId → number(칸 해금 비용 풀). 소유 가드: owners Map.
-//   - 시간: vi.setSystemTime 으로 Date.now() 제어 → 생산 완료/미완료 결정화.
 // db.transaction 은 더미 tx({}) 로 콜백을 그냥 실행(쿼리는 전부 모킹 헬퍼가 가로챔).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { terrainTraitOf as realTerrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
-  PRODUCTION_BASE_YIELD,
-  PRODUCTION_DURATION_MS,
   MAX_SLOTS_BY_TIER,
   SLOT_UNLOCK_GOLD_BASE,
   SLOT_UNLOCK_GOLD_STEP,
   slotUnlockGoldCost,
   VILLAGE_BUILD_GOLD_COST,
-  TRAIT_BONUS_PCT,
   UPGRADE_COST,
 } from "@/adventure/data/v2/settlement";
 
@@ -39,9 +36,8 @@ const ME_USER = "u-settler";
 const MY_GUILD = 42;
 
 // 내 길드가 점령했다고 가정하는 거점들 — 지형 특성별 1개씩(REAL terrainTraitOf 기준).
-const PLAIN_OUTPOST = "outpost_plain_fort"; // fort → plain (보너스 없음)
-const FARM_OUTPOST = "village_wheatfield"; // village → farmland (작물 +30%)
-const MINE_OUTPOST = "village_oremouth"; // override → mine (광물 +30%)
+const PLAIN_OUTPOST = "outpost_plain_fort"; // fort → plain
+const FARM_OUTPOST = "village_wheatfield"; // village → farmland
 
 vi.mock("@/lib/server/ensureUser", () => ({
   ensureUser: vi.fn(async () => ME_USER as string | null),
@@ -135,8 +131,6 @@ vi.mock("@/lib/server/v2Settlement", () => {
 // 라우트 핸들러 — 모킹 등록 후 import.
 import { GET } from "@/app/api/v2/outpost/village/route";
 import { POST as buildPOST } from "@/app/api/v2/outpost/village/build/route";
-import { POST as producePOST } from "@/app/api/v2/outpost/village/produce/route";
-import { POST as harvestPOST } from "@/app/api/v2/outpost/village/harvest/route";
 import { POST as upgradePOST } from "@/app/api/v2/outpost/village/upgrade/route";
 import { POST as unlockPOST } from "@/app/api/v2/outpost/village/unlock-slot/route";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -239,8 +233,6 @@ describe("GET /api/v2/outpost/village", () => {
         trait: string;
         unlockedSlots: number;
         maxSlots: number;
-        slotKinds: Record<string, string>;
-        slots: Array<{ slot: number; kind: string; ready: boolean }>;
       }>;
       resources: Record<string, number>;
       gold: number;
@@ -254,9 +246,8 @@ describe("GET /api/v2/outpost/village", () => {
     expect(v.name).toBe("밀밭");
     expect(v.trait).toBe("farmland"); // REAL terrainTraitOf
     expect(v.unlockedSlots).toBe(1);
-    expect(v.maxSlots).toBe(MAX_SLOTS_BY_TIER.village); // 4 (이 단계 해금 상한)
-    expect(v.slotKinds).toEqual({ "0": "crop" });
-    expect(v.slots[0].kind).toBe("crop");
+    expect(v.maxSlots).toBe(MAX_SLOTS_BY_TIER.village); // 2 (이 단계 해금 상한)
+    // [PR-3] 슬롯 생산 폐지 — slots/slotKinds 미노출.
     expect(json.resources).toEqual({ crop: 7 });
     expect(json.gold).toBe(123_456);
   });
@@ -361,199 +352,16 @@ describe("POST /api/v2/outpost/village/build", () => {
   });
 });
 
-// ── produce (생산 시작) ─────────────────────────────────────────────────────
-describe("POST /api/v2/outpost/village/produce", () => {
-  it("미인증 → 401", async () => {
-    vi.mocked(ensureUser).mockResolvedValueOnce(null);
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(401);
-  });
-
-  it("길드 미가입(getGuildId→null) → 403 not_owner", async () => {
-    guildState.current = null;
-    seedBuiltVillage(FARM_OUTPOST);
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(403);
-    expect(((await res.json()) as AnyJson).error).toBe("not_owner");
-  });
-
-  it("invalid json → 400", async () => {
-    const res = await producePOST(jreq("nope"));
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as AnyJson).error).toBe("invalid_json");
-  });
-
-  it("잘못된 slot(음수/비정수) → 400 invalid", async () => {
-    seedBuiltVillage(FARM_OUTPOST);
-    const r1 = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: -1 }));
-    expect(r1.status).toBe(400);
-    const r2 = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 1.5 }));
-    expect(r2.status).toBe(400);
-    expect(((await r2.json()) as AnyJson).error).toBe("invalid");
-  });
-
-  it("미점령 → 403 not_owner", async () => {
-    seedBuiltVillage(FARM_OUTPOST, { guildId: 999 }); // 남의 길드 점령
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(403);
-    expect(((await res.json()) as AnyJson).error).toBe("not_owner");
-  });
-
-  it("건설 안 됨(마을 없음 / 이름 없음) → 409 not_built", async () => {
-    setOwner(FARM_OUTPOST, MY_GUILD);
-    const r1 = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(r1.status).toBe(409);
-    expect(((await r1.json()) as AnyJson).error).toBe("not_built");
-
-    seedBuiltVillage(FARM_OUTPOST, { name: null });
-    const r2 = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(r2.status).toBe(409);
-    expect(((await r2.json()) as AnyJson).error).toBe("not_built");
-  });
-
-  it("happy — 빈 칸에 그 칸 종류로 생산 시작(startedAt=now)", async () => {
-    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1, kind: "crop" });
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as AnyJson & {
-      jobs: Record<string, { kind: string; startedAt: number }>;
-    };
-    expect(json.ok).toBe(true);
-    expect(json.jobs["0"]).toEqual({ kind: "crop", startedAt: T0 });
-  });
-
-  it("칸마다 다른 종류 — slot 1(ore)은 ore 로 생산", async () => {
-    seedBuiltVillage(FARM_OUTPOST, {
-      unlockedSlots: 2,
-      slotKinds: { "0": "crop", "1": "ore" },
-    });
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 1 }));
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as AnyJson & {
-      jobs: Record<string, { kind: string }>;
-    };
-    expect(json.jobs["1"].kind).toBe("ore");
-  });
-
-  it("이미 찬 칸 → 409 slot_busy", async () => {
-    seedBuiltVillage(FARM_OUTPOST, {
-      jobs: { "0": { kind: "crop", startedAt: T0 } },
-    });
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as AnyJson).error).toBe("slot_busy");
-  });
-
-  it("해금 안 된 칸(1칸만 해금, slot 1) → 400 slot_out_of_range", async () => {
-    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
-    const res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot: 1 }));
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as AnyJson).error).toBe("slot_out_of_range");
-  });
-});
-
-// ── harvest (수확) ──────────────────────────────────────────────────────────
-describe("POST /api/v2/outpost/village/harvest", () => {
-  it("미인증 → 401", async () => {
-    vi.mocked(ensureUser).mockResolvedValueOnce(null);
-    const res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(401);
-  });
-
-  it("미점령 → 403 not_owner", async () => {
-    const res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(403);
-  });
-
-  it("마을 없음 → 404 no_village", async () => {
-    setOwner(FARM_OUTPOST, MY_GUILD);
-    const res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(404);
-    expect(((await res.json()) as AnyJson).error).toBe("no_village");
-  });
-
-  it("빈 칸 → 404 no_job", async () => {
-    seedBuiltVillage(FARM_OUTPOST);
-    const res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(404);
-    expect(((await res.json()) as AnyJson).error).toBe("no_job");
-  });
-
-  it("미완료 작업 → 409 not_ready (재화 불변)", async () => {
-    seedBuiltVillage(FARM_OUTPOST, {
-      jobs: { "0": { kind: "crop", startedAt: T0 } },
-    });
-    vi.setSystemTime(T0 + PRODUCTION_DURATION_MS.crop - 1);
-    const res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as AnyJson).error).toBe("not_ready");
-    expect(resourcesByGuild.get(MY_GUILD)).toBeUndefined();
-  });
-
-  it("완료 작업(농지 작물) → 200, 재화 = base × 1.3 (TRAIT_BONUS_PCT)", async () => {
-    seedBuiltVillage(FARM_OUTPOST, {
-      jobs: { "0": { kind: "crop", startedAt: T0 } },
-    });
-    vi.setSystemTime(T0 + PRODUCTION_DURATION_MS.crop);
-    const res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot: 0 }));
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as AnyJson & {
-      harvested: { kind: string; amount: number };
-      resources: Record<string, number>;
-    };
-    const expected = Math.round(
-      PRODUCTION_BASE_YIELD.crop * (1 + TRAIT_BONUS_PCT / 100),
-    );
-    expect(expected).toBe(13);
-    expect(json.harvested).toEqual({ kind: "crop", amount: 13 });
-    expect(json.resources).toEqual({ crop: 13 });
-    const stored = villages.get(FARM_OUTPOST) as { jobs: Record<string, unknown> };
-    expect(stored.jobs["0"]).toBeUndefined();
-    expect(resourcesByGuild.get(MY_GUILD)).toEqual({ crop: 13 });
-  });
-
-  it("평지(plain) 작물 → 보너스 없음(10), 기존 재화에 가산", async () => {
-    seedBuiltVillage(PLAIN_OUTPOST, {
-      jobs: { "0": { kind: "crop", startedAt: T0 } },
-    });
-    resourcesByGuild.set(MY_GUILD, { crop: 5 });
-    vi.setSystemTime(T0 + PRODUCTION_DURATION_MS.crop);
-    const res = await harvestPOST(jreq({ outpostId: PLAIN_OUTPOST, slot: 0 }));
-    const json = (await res.json()) as AnyJson & { harvested: { amount: number } };
-    expect(json.harvested.amount).toBe(PRODUCTION_BASE_YIELD.crop); // 10
-    expect(resourcesByGuild.get(MY_GUILD)).toEqual({ crop: 15 });
-  });
-
-  it("광맥(mine) 광물 → +30%, round(6 × 1.3)=8", async () => {
-    seedBuiltVillage(MINE_OUTPOST, {
-      kind: "ore",
-      jobs: { "0": { kind: "ore", startedAt: T0 } },
-    });
-    vi.setSystemTime(T0 + PRODUCTION_DURATION_MS.ore);
-    const res = await harvestPOST(jreq({ outpostId: MINE_OUTPOST, slot: 0 }));
-    const json = (await res.json()) as AnyJson & { harvested: { amount: number } };
-    expect(json.harvested.amount).toBe(8);
-  });
-});
-
-// ── unlock-slot (길드 골드로 칸 해금 + 종류 선택) ─────────────────────────────
+// ── unlock-slot (길드 골드로 칸 해금 · [PR-3] 종류 선택 없음) ─────────────────
 describe("POST /api/v2/outpost/village/unlock-slot", () => {
   it("미인증 → 401", async () => {
     vi.mocked(ensureUser).mockResolvedValueOnce(null);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(401);
   });
 
-  it("잘못된 종류 → 400 invalid_kind", async () => {
-    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
-    guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "gold" }));
-    expect(res.status).toBe(400);
-    expect(((await res.json()) as AnyJson).error).toBe("invalid_kind");
-  });
-
   it("미점령 → 403 not_owner", async () => {
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(403);
     expect(((await res.json()) as AnyJson).error).toBe("not_owner");
   });
@@ -562,7 +370,7 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
     guildState.canManage = false;
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
     guildGold.set(MY_GUILD, 9_999_999_999);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(403);
     expect(((await res.json()) as AnyJson).error).toBe("not_authorized");
   });
@@ -570,7 +378,7 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
   it("미건설(이름 없음) → 409 not_built", async () => {
     seedBuiltVillage(FARM_OUTPOST, { name: null, unlockedSlots: 0 });
     guildGold.set(MY_GUILD, 9_999_999_999);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(409);
     expect(((await res.json()) as AnyJson).error).toBe("not_built");
   });
@@ -579,44 +387,37 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
     // 첫 칸부터 유료(5천만) — 골드 부족이면 막힌다.
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
     guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE - 1);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(409);
     expect(((await res.json()) as AnyJson).error).toBe("insufficient_gold");
     expect((villages.get(FARM_OUTPOST) as { unlockedSlots: number }).unlockedSlots).toBe(0);
   });
 
-  it("happy — 첫 칸 해금(+1·5천만 차감) + 종류 고정", async () => {
+  it("happy — 첫 칸 해금(+1·5천만 차감, 종류 선택 없음)", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 0 });
     guildGold.set(MY_GUILD, SLOT_UNLOCK_GOLD_BASE); // 첫 칸 5천만
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "ore" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as AnyJson & {
       unlockedSlots: number;
-      slotKinds: Record<string, string>;
       gold: number;
     };
     expect(json.unlockedSlots).toBe(1);
-    expect(json.slotKinds).toEqual({ "0": "ore" });
     expect(json.gold).toBe(0); // 5천만 차감
     expect(guildGold.get(MY_GUILD)).toBe(0);
   });
 
   it("둘째 칸 — 길드 골드 1억 차감", async () => {
-    seedBuiltVillage(FARM_OUTPOST, {
-      unlockedSlots: 1,
-      slotKinds: { "0": "crop" },
-    });
+    seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 1 });
     const second = SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP; // 1억
     guildGold.set(MY_GUILD, second + 7);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "ore" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(200);
     const json = (await res.json()) as AnyJson & {
       unlockedSlots: number;
-      slotKinds: Record<string, string>;
       gold: number;
     };
     expect(json.unlockedSlots).toBe(2);
-    expect(json.slotKinds).toEqual({ "0": "crop", "1": "ore" });
     expect(json.gold).toBe(7); // 1억 차감
     expect(guildGold.get(MY_GUILD)).toBe(7);
   });
@@ -624,7 +425,7 @@ describe("POST /api/v2/outpost/village/unlock-slot", () => {
   it("판 가득(마을 2칸) → 409 at_max", async () => {
     seedBuiltVillage(FARM_OUTPOST, { unlockedSlots: 2 });
     guildGold.set(MY_GUILD, 9_999_999_999);
-    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: "crop" }));
+    const res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
     expect(res.status).toBe(409);
     expect(((await res.json()) as AnyJson).error).toBe("at_max");
   });
@@ -712,9 +513,10 @@ describe("POST /api/v2/outpost/village/upgrade", () => {
 });
 
 // ── END-TO-END (이 파일의 핵심) ──────────────────────────────────────────────
-// build(이름) → 골드로 칸 해금(종류 선택) → 칸마다 다른 종류 생산 → 수확 → 단계 업그레이드.
+// build(이름) → 골드로 칸 2개 해금(종류 선택 없음·자리표시) → 재화 충족 시 village→city 업그레이드.
+// [PR-3] 슬롯 생산 폐지 — crop/ore 풀은 사냥 드랍→기부로 채워진다(여기선 풀을 직접 세팅).
 describe("정착지 라이프사이클 end-to-end", () => {
-  it("건설 → 칸 2개 해금(작물/광물) → 칸별 생산·수확 → village→city 업그레이드", async () => {
+  it("건설 → 칸 2개 해금(자리표시) → village→city 업그레이드", async () => {
     setOwner(FARM_OUTPOST, MY_GUILD);
 
     // 1) build — 이름만(길드 금고 골드 1천만 차감).
@@ -725,44 +527,19 @@ describe("정착지 라이프사이클 end-to-end", () => {
     let expectedGold = 1_000_000_000 - VILLAGE_BUILD_GOLD_COST;
     expect(guildGold.get(MY_GUILD)).toBe(expectedGold);
 
-    // 2) 마을 판 2칸을 한 칸씩 해금하며 종류를 고른다 — 첫 칸부터 유료(5천만/1억).
-    const slotPlan: Array<"crop" | "ore"> = ["crop", "ore"];
-    for (let i = 0; i < slotPlan.length; i++) {
+    // 2) 마을 판 2칸을 한 칸씩 해금 — 첫 칸부터 유료(5천만/1억), 종류 선택 없음.
+    for (let i = 0; i < 2; i++) {
       const cost = slotUnlockGoldCost(i); // i=0 → 5천만, i=1 → 1억
-      res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST, kind: slotPlan[i] }));
+      res = await unlockPOST(jreq({ outpostId: FARM_OUTPOST }));
       expect(res.status).toBe(200);
       const j = (await res.json()) as { unlockedSlots: number; gold: number };
       expect(j.unlockedSlots).toBe(i + 1);
       expectedGold -= cost;
       expect(j.gold).toBe(expectedGold);
     }
-    const built = villages.get(FARM_OUTPOST) as {
-      unlockedSlots: number;
-      slotKinds: Record<string, string>;
-    };
-    expect(built.unlockedSlots).toBe(2);
-    expect(built.slotKinds).toEqual({ "0": "crop", "1": "ore" });
+    expect((villages.get(FARM_OUTPOST) as { unlockedSlots: number }).unlockedSlots).toBe(2);
 
-    // 3) 칸마다 그 종류로 생산 후 수확 — 농지라 작물만 +30%(13), 광물 6.
-    for (const slot of [0, 1]) {
-      vi.setSystemTime(T0);
-      res = await producePOST(jreq({ outpostId: FARM_OUTPOST, slot }));
-      expect(res.status).toBe(200);
-    }
-    vi.setSystemTime(T0 + PRODUCTION_DURATION_MS.ore); // 경과 → 둘 다 완료
-    for (const slot of [0, 1]) {
-      res = await harvestPOST(jreq({ outpostId: FARM_OUTPOST, slot }));
-      expect(res.status).toBe(200);
-    }
-    const cropYield = Math.round(
-      PRODUCTION_BASE_YIELD.crop * (1 + TRAIT_BONUS_PCT / 100),
-    ); // 13
-    expect(resourcesByGuild.get(MY_GUILD)).toEqual({
-      crop: cropYield,
-      ore: PRODUCTION_BASE_YIELD.ore, // 6 (보너스 없음)
-    });
-
-    // 4) 업그레이드 재화는 큰 비용 — 누적 검증은 위 생산이 충분하므로 풀을 임계로 세팅 후 승급.
+    // 3) 업그레이드 재화(드랍→기부로 채워질 풀)를 임계로 세팅 후 village→city 승급.
     const cost = UPGRADE_COST.village!;
     resourcesByGuild.set(MY_GUILD, {
       crop: cost.crop! + 1,
@@ -774,7 +551,7 @@ describe("정착지 라이프사이클 end-to-end", () => {
     expect(up.tier).toBe("city");
     expect(up.resources).toEqual({ crop: 1, ore: 2 });
 
-    // 5) GET — city·판 2×2·해금 칸 2(옛 경로는 자동 부여 없음)·칸 종류 유지.
+    // 4) GET — city·판 2×2·해금 칸 2(옛 경로는 자동 부여 없음).
     res = await GET();
     const after = (await res.json()) as {
       villages: Array<{
@@ -782,13 +559,11 @@ describe("정착지 라이프사이클 end-to-end", () => {
         tier: string;
         unlockedSlots: number;
         maxSlots: number;
-        slotKinds: Record<string, string>;
       }>;
     };
     const farm = after.villages.find((v) => v.outpostId === FARM_OUTPOST)!;
     expect(farm.tier).toBe("city");
     expect(farm.maxSlots).toBe(MAX_SLOTS_BY_TIER.city); // 3
     expect(farm.unlockedSlots).toBe(2);
-    expect(farm.slotKinds["1"]).toBe("ore"); // 칸 종류 보존
   });
 });

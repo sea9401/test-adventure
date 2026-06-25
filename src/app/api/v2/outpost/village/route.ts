@@ -12,35 +12,23 @@ import {
 } from "@/lib/server/v2Settlement";
 import { readGuildResources } from "@/lib/server/v2GuildResources";
 import { readSave } from "@/lib/server/savesKv";
-import {
-  MAX_SLOTS_BY_TIER,
-  harvestRemainingMs,
-  isHarvestReady,
-} from "@/adventure/data/v2/settlement";
+import { MAX_SLOTS_BY_TIER } from "@/adventure/data/v2/settlement";
 import { V2_TILE_PRODUCTION } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
   isTileOutpostId,
   parseTileOutpostId,
 } from "@/adventure/data/v2/tileWarfare";
 
-// 마을 행 → UI DTO(슬롯 카운트다운은 서버 시각 기준 remainingMs). 길드/타일 공통.
-function villageDto(v: VillageRow, now: number) {
+// 마을 행 → UI DTO. [PR-3] 슬롯 생산 폐지 — 슬롯=자리표시라 작업(jobs)/종류(slotKinds) 미노출.
+//   해금 칸 수 + 이 단계 해금 상한(maxSlots)만. 화면 판은 2×2(UI 상수).
+function villageDto(v: VillageRow) {
   return {
     outpostId: v.outpostId,
     name: v.name,
     tier: v.tier,
     trait: terrainTraitOf(v.outpostId),
-    // 슬롯 판 — 해금 칸 수 + 이 단계 해금 상한(maxSlots) + 칸별 종류. 화면은 항상 3×3(UI 상수).
     unlockedSlots: v.unlockedSlots,
     maxSlots: MAX_SLOTS_BY_TIER[v.tier],
-    slotKinds: v.slotKinds,
-    slots: Object.entries(v.jobs).map(([slot, job]) => ({
-      slot: Number(slot),
-      kind: job.kind,
-      startedAt: job.startedAt,
-      remainingMs: harvestRemainingMs(job, now),
-      ready: isHarvestReady(job, now),
-    })),
   };
 }
 
@@ -90,7 +78,7 @@ export async function GET(req?: Request) {
               ),
             );
       return {
-        villages: village ? [villageDto(village, now)] : [],
+        villages: village ? [villageDto(village)] : [],
         resources,
         gold,
       };
@@ -110,7 +98,7 @@ export async function GET(req?: Request) {
       readGuildResources(tx, guildId),
     ]);
     return {
-      villages: villages.map((v) => villageDto(v, now)),
+      villages: villages.map((v) => villageDto(v)),
       resources,
       gold: guildRes.gold,
     };

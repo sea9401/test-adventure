@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useGameState } from "./GameStateProvider";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { SURFACE_CARD } from "@/components/ui/surfaces";
@@ -40,38 +40,19 @@ import {
 } from "@/adventure/data/v2/settlementMaterials";
 
 // 길드 마을 패널 — 점령 거점 상세(OutpostView)에 노출. mode 로 두 화면을 분리:
-//   - produce(생산 탭, 길드원 전원): 슬롯 판(2×2 마을 / 3×3 도시) 그리드에서 생산 시작·수확.
-//   - manage(관리 탭, 마스터/부마스터): 마을 건설(이름)·이름 변경·칸 해금(골드+종류)·단계 업그레이드.
-//   건설 직후엔 빈 판 — 칸을 길드 금고 골드로 한 칸씩 열며 그때 키울 종류를 고른다. 단계 업글이 판 확장.
+//   - produce(탭, 길드원 전원): 정착지 재화 풀 + 재료 기부 + 슬롯 판(자리표시) 보기.
+//   - manage(관리 탭, 마스터/부마스터): 마을 건설(이름)·이름 변경·칸 해금(골드)·단계 업그레이드.
+//   [PR-3] 슬롯 생산 폐지 — 슬롯은 "미래 영지 건물" 자리표시. crop/ore 는 사냥 드랍→기부+업글로만.
 
-type SlotState = {
-  slot: number;
-  kind: ProductionKind;
-  startedAt: number;
-  remainingMs: number;
-  ready: boolean;
-};
 type Village = {
   outpostId: string;
   name: string | null;
   tier: VillageTier;
   trait: TerrainTrait;
   unlockedSlots: number;
-  maxSlots: number; // 이 단계 해금 상한(마을 4·도시 9·대도시 9). 화면 판은 항상 3×3(9).
-  slotKinds: Record<string, ProductionKind>; // jsonb 키는 문자열
-  slots: SlotState[];
+  maxSlots: number; // 이 단계 해금 상한(마을 2·도시 3·대도시 4). 화면 판은 2×2(4).
 };
 type Resources = Partial<Record<ProductionKind, number>>;
-
-function fmtRemaining(ms: number): string {
-  const s = Math.ceil(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h > 0) return `${h}시간 ${m}분`;
-  if (m > 0) return `${m}분 ${sec}초`;
-  return `${sec}초`;
-}
 
 // 큰 골드는 만 단위로 — 50,000,000 → "5,000만".
 function fmtGold(n: number): string {
@@ -105,7 +86,6 @@ export function V2VillagePanel({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [buildName, setBuildName] = useState(""); // 건설 폼 이름 입력
-  const [unlockKind, setUnlockKind] = useState<ProductionKind | null>(null); // 새 칸 종류
   const [renaming, setRenaming] = useState(false); // 이름 변경 폼 토글
   const [renameName, setRenameName] = useState(""); // 이름 변경 입력
   // 재료 기부 — 개인 인벤(통나무/철광석) → 정착지 풀(crop/ore). 길드원 전원 가능.
@@ -113,13 +93,6 @@ export function V2VillagePanel({
   const [donateOpen, setDonateOpen] = useState(false);
   const [donateTimber, setDonateTimber] = useState("");
   const [donateIronOre, setDonateIronOre] = useState("");
-  // 카운트다운용 — 로드 시각 기준 readyAt 환산 + 1초 틱.
-  const [loadedAt, setLoadedAt] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -140,7 +113,6 @@ export function V2VillagePanel({
         setExists(!!v);
         setResources(j.resources ?? {});
         setGold(j.gold ?? 0);
-        setLoadedAt(Date.now());
       }
     } catch {
       // 무시 — 패널은 비치명
@@ -213,18 +185,11 @@ export function V2VillagePanel({
     await loadInv();
   }, [donateTimber, donateIronOre, act, loadInv]);
 
-  // 슬롯 인덱스별 현재 작업 맵.
-  const jobBySlot = useMemo(() => {
-    const m = new Map<number, SlotState>();
-    for (const s of village?.slots ?? []) m.set(s.slot, s);
-    return m;
-  }, [village]);
-
   // 거점 지형 특성 — 마을 있으면 GET 값, 없으면(빈 공터) id 로 파생.
   const trait: TerrainTrait = village?.trait ?? terrainTraitOf(outpostId);
   // 골드 출처 표기 — 타일 정착지는 길드 금고(길드 타일) 또는 본인 골드(솔로)라 중립 "보유"로.
   const goldNoun = isTileOutpostId(outpostId) ? "보유" : "길드 금고";
-  // 건설됨 = 이름. 종류는 이제 칸별(slotKinds) — 마을 단위 특화 개념 폐기.
+  // 건설됨 = 이름.
   const built = !!village && village.name != null;
 
   if (exists === null) {
@@ -235,8 +200,8 @@ export function V2VillagePanel({
     );
   }
 
-  // 슬롯 판 그리드 — interactive(생산 탭)면 빈 칸=생산 시작·완료 칸=수확 버튼, 아니면(관리 탭) 상태만.
-  function renderGrid(interactive: boolean) {
+  // 슬롯 판 그리드 — [PR-3] 생산 폐지. 칸 상태만: 상위단계 필요(흐림)·잠김(🔒)·해금=자리표시(건물 예정).
+  function renderGrid() {
     if (!village || !built) return null;
     return (
       <div
@@ -246,15 +211,10 @@ export function V2VillagePanel({
         }}
       >
         {Array.from({ length: GRID_DISPLAY_SLOTS }, (_, slot) => {
-          // 판은 항상 4×4. 이 단계 상한(maxSlots) 너머 = 상위 단계 필요(tierLocked, 흐리게).
-          //   그 안에서 아직 안 연 칸 = 지금 해금 가능(locked, 🔒).
+          // 판은 2×2. 이 단계 상한(maxSlots) 너머 = 상위 단계 필요(tierLocked, 흐리게).
+          //   그 안에서 아직 안 연 칸 = 지금 해금 가능(locked, 🔒). 해금된 칸 = 자리표시.
           const tierLocked = slot >= village.maxSlots;
           const locked = !tierLocked && slot >= village.unlockedSlots;
-          const job = jobBySlot.get(slot);
-          const slotKind = village.slotKinds[String(slot)];
-          const readyAt = job ? loadedAt + job.remainingMs : 0;
-          const remaining = job ? Math.max(0, readyAt - now) : 0;
-          const ready = job ? remaining <= 0 : false;
           const base =
             "flex aspect-square flex-col items-center justify-center rounded-md border px-1 text-center";
           if (tierLocked) {
@@ -279,66 +239,15 @@ export function V2VillagePanel({
               </div>
             );
           }
-          if (job) {
-            if (ready && interactive) {
-              return (
-                <button
-                  key={slot}
-                  type="button"
-                  disabled={busy}
-                  title={PRODUCTION_KIND_NAME[job.kind]}
-                  onClick={() => void act("harvest", { slot })}
-                  className={`${base} border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900`}
-                >
-                  <span className="text-lg leading-none">
-                    {PRODUCTION_KIND_ICON[job.kind]}
-                  </span>
-                  <span className="mt-0.5 text-[10px] font-semibold">수확 ✓</span>
-                </button>
-              );
-            }
-            return (
-              <div
-                key={slot}
-                title={PRODUCTION_KIND_NAME[job.kind]}
-                className={`${base} border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300`}
-              >
-                <span className="text-lg leading-none">
-                  {PRODUCTION_KIND_ICON[job.kind]}
-                </span>
-                <span className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
-                  {ready ? "수확 가능" : fmtRemaining(remaining)}
-                </span>
-              </div>
-            );
-          }
-          // 빈 칸(해금됨) — 그 칸의 종류로 생산.
-          if (interactive) {
-            return (
-              <button
-                key={slot}
-                type="button"
-                disabled={busy}
-                title={slotKind ? PRODUCTION_KIND_NAME[slotKind] : undefined}
-                onClick={() => void act("produce", { slot })}
-                className={`${base} border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-50 disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800`}
-              >
-                <span className="text-lg leading-none opacity-50">
-                  {slotKind ? PRODUCTION_KIND_ICON[slotKind] : "＋"}
-                </span>
-                <span className="mt-0.5 text-[10px]">생산</span>
-              </button>
-            );
-          }
+          // 해금된 칸 — 자리표시(미래 영지 건물용·현재 비어 있음).
           return (
             <div
               key={slot}
-              title={slotKind ? PRODUCTION_KIND_NAME[slotKind] : undefined}
-              className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-600`}
+              title="미래 영지 건물용 자리 (준비 중)"
+              className={`${base} border-zinc-200 bg-white text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-500`}
             >
-              <span className="text-lg leading-none opacity-50">
-                {slotKind ? PRODUCTION_KIND_ICON[slotKind] : "·"}
-              </span>
+              <span className="text-base leading-none opacity-60">🏗️</span>
+              <span className="mt-0.5 text-[10px]">건물 예정</span>
             </div>
           );
         })}
@@ -477,20 +386,24 @@ export function V2VillagePanel({
         {header}
         {!built ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            아직 마을이 없어요. 관리 탭에서 마을을 건설하면 이곳에서 생산할 수
-            있어요.
+            아직 마을이 없어요. 관리 탭에서 마을을 건설하세요.
           </p>
         ) : (
           <>
             {resourcePool}
             {donateBox}
-            {village!.unlockedSlots === 0 && (
+            {village!.unlockedSlots === 0 ? (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                아직 해금된 칸이 없어요. 관리 탭에서 칸을 해금하면 생산을 시작할
-                수 있어요.
+                아직 해금된 칸이 없어요. 관리 탭에서 칸을 해금할 수 있어요(추후
+                영지 건물용 자리).
+              </p>
+            ) : (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                해금한 칸은 추후 영지 건물용 자리입니다(현재 비어 있음). 통나무·철광석은
+                사냥에서 얻어 위 풀에 기부하세요.
               </p>
             )}
-            {renderGrid(true)}
+            {renderGrid()}
           </>
         )}
         {errBox}
@@ -587,8 +500,8 @@ export function V2VillagePanel({
         <div className="space-y-2">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             {isTile
-              ? "점령한 빈 공터예요. 마을을 세우세요(이름은 개척 때 정한 이름을 씁니다). 첫 칸은 무료로 열리고, 생산할 것은 칸을 해금할 때 고릅니다."
-              : "점령한 빈 공터예요. 이름을 정해 마을을 세우세요. 첫 칸은 무료로 열리고, 생산할 것은 칸을 해금할 때 고릅니다."}
+              ? "점령한 빈 공터예요. 마을을 세우세요(이름은 개척 때 정한 이름을 씁니다)."
+              : "점령한 빈 공터예요. 이름을 정해 마을을 세우세요."}
           </p>
           <div className="text-xs text-zinc-600 dark:text-zinc-300">
             {goldNoun}{" "}
@@ -636,10 +549,10 @@ export function V2VillagePanel({
             {goldNoun}{" "}
             <span className="font-medium tabular-nums">{fmtGold(gold)}</span> 골드
           </div>
-          {/* 슬롯 판 미리보기(읽기 전용) — 잠김/해금 + 칸별 종류 시각화. */}
-          {renderGrid(false)}
+          {/* 슬롯 판 미리보기(읽기 전용) — 잠김/해금/자리표시. */}
+          {renderGrid()}
 
-          {/* 칸 해금 — 길드 골드 + 새 칸에서 키울 종류 선택 */}
+          {/* 칸 해금 — 길드 골드(자리표시 칸·추후 영지 건물용) */}
           <div className="space-y-1.5">
             <div className="text-xs text-zinc-600 dark:text-zinc-300">
               해금된 칸{" "}
@@ -655,25 +568,15 @@ export function V2VillagePanel({
             ) : (
               <>
                 <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  새 칸에서 키울 것을 고르세요{" "}
-                  <span className="text-zinc-400 dark:text-zinc-500">
-                    (칸마다 영구)
-                  </span>
+                  칸을 열어 두면 추후 영지 건물용 자리로 쓰입니다(현재 비어 있음).
                 </div>
-                <KindChoice
-                  trait={trait}
-                  selected={unlockKind}
-                  onSelect={setUnlockKind}
-                  disabled={busy}
-                />
                 <button
                   type="button"
-                  disabled={busy || unlockKind == null || !canAffordUnlock}
-                  onClick={() => void act("unlock-slot", { kind: unlockKind })}
+                  disabled={busy || !canAffordUnlock}
+                  onClick={() => void act("unlock-slot", {})}
                   className="w-full rounded-md border border-emerald-700 bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  칸 해금 ·{" "}
-                  {unlockGold === 0 ? "무료 (기본 제공)" : `${fmtGold(unlockGold)} 골드`}
+                  칸 해금 · {fmtGold(unlockGold)} 골드
                 </button>
                 {!canAffordUnlock && (
                   <p className="text-[11px] text-rose-500 dark:text-rose-400">
@@ -712,68 +615,16 @@ export function V2VillagePanel({
 }
 
 const ERR_MESSAGES: Record<string, string> = {
-  slot_busy: "이미 작업 중인 칸이에요.",
-  slot_out_of_range: "아직 해금되지 않은 칸이에요.",
-  not_ready: "아직 수확할 수 없어요.",
   insufficient: "재화가 부족해요.",
   insufficient_gold: "길드 금고 골드가 부족해요.",
+  insufficient_material: "보유한 재료가 부족해요.",
+  bad_request: "잘못된 요청이에요.",
   not_owner: "이 거점의 점령 길드만 관리할 수 있어요.",
   not_authorized: "길드 마스터·부마스터만 관리할 수 있어요.",
   not_built: "먼저 마을을 건설해야 해요.",
   already_built: "이미 세워진 마을이에요.",
   invalid_name: "이름은 1~16자로 지어주세요.",
-  invalid_kind: "생산 종류를 골라주세요.",
   need_slots: "먼저 이 단계의 칸을 모두 해금해야 해요.",
   at_max: "판이 가득 찼어요 — 다음 단계로 업그레이드하세요.",
   max_tier: "이미 최고 단계예요.",
 };
-
-// 칸에서 키울 생산 종류 선택 — 나무/광물/식량 토글. 지형 일치 종류엔 +보너스 표시(좋은 선택 유도).
-function KindChoice({
-  trait,
-  selected,
-  onSelect,
-  disabled,
-}: {
-  trait: TerrainTrait;
-  selected: ProductionKind | null;
-  onSelect: (kind: ProductionKind) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {PRODUCTION_KINDS.map((k) => {
-        const bonus = TRAIT_BONUS_KIND[trait] === k;
-        const sel = selected === k;
-        return (
-          <button
-            key={k}
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelect(k)}
-            className={
-              "rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-50 " +
-              (sel
-                ? "border-emerald-700 bg-emerald-700 text-white"
-                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800")
-            }
-          >
-            {PRODUCTION_KIND_ICON[k]} {PRODUCTION_KIND_NAME[k]}
-            {bonus ? (
-              <span
-                className={
-                  sel
-                    ? "text-emerald-100"
-                    : "text-emerald-600 dark:text-emerald-400"
-                }
-              >
-                {" "}
-                +{TRAIT_BONUS_PCT}%
-              </span>
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
-  );
-}

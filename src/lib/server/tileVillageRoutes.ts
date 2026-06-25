@@ -23,19 +23,14 @@ import {
   upsertSettlementResources,
   syncTileSettlementTier,
   readTileSettlementName,
-  terrainTraitOf,
   type VillageRow,
 } from "./v2Settlement";
 import {
   INITIAL_UNLOCKED_SLOTS,
   MAX_SLOTS_BY_TIER,
   VILLAGE_BUILD_GOLD_COST,
-  tryStartProduction,
-  isHarvestReady,
-  harvestYield,
   canUpgrade,
   applyUpgradeCost,
-  type ProductionKind,
 } from "@/adventure/data/v2/settlement";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { SETTLEMENT_MATERIAL_TO_KIND } from "@/adventure/data/v2/settlementMaterials";
@@ -128,114 +123,13 @@ export async function tileBuild(
   }
 }
 
-// produce — 슬롯 생산 시작. 관리권 불요(길드원/founder 누구나).
-export async function tileProduce(
-  userId: string,
-  outpostId: string,
-  slot: number,
-): Promise<Response> {
-  const pos = parseTileOutpostId(outpostId);
-  if (!pos) return badTile();
-  try {
-    return json(
-      await db.transaction(async (tx): Promise<Res> => {
-        const now = Date.now();
-        const ctx = await resolveTileVillageManageOwner(
-          tx,
-          userId,
-          pos.col,
-          pos.row,
-          false,
-        );
-        if (!ctx.ok) return { status: ctx.status, body: { ok: false, error: ctx.error } };
-        const loaded = await lockVillage(tx, outpostId);
-        if (!loaded) return { status: 409, body: { ok: false, error: "not_built" } };
-        const village = normalizeVillageToOwner(loaded, ctx.owner);
-        if (village.name == null) {
-          return { status: 409, body: { ok: false, error: "not_built" } };
-        }
-        const slotKind = village.slotKinds[slot];
-        if (slotKind == null) {
-          return { status: 400, body: { ok: false, error: "slot_out_of_range" } };
-        }
-        const started = tryStartProduction(
-          village.jobs,
-          village.unlockedSlots,
-          slot,
-          slotKind,
-          now,
-        );
-        if (!started.ok) {
-          return {
-            status: started.error === "slot_busy" ? 409 : 400,
-            body: { ok: false, error: started.error },
-          };
-        }
-        village.jobs = started.jobs;
-        await upsertVillage(tx, village);
-        return { status: 200, body: { ok: true, tier: village.tier, jobs: village.jobs } };
-      }),
-    );
-  } catch {
-    return serverError();
-  }
-}
+// [폐지·PR-3] tileProduce/tileHarvest 제거 — 슬롯 생산(12h crop/ore) 폐지. crop/ore 풀은
+//   사냥 드랍→기부(tileDonate)+업그레이드 소비로만 변동. 슬롯은 자리표시(미래 영지 건물)만.
 
-// harvest — 완료 슬롯 수확 → 소유 자원 풀(길드/솔로)에 적립.
-export async function tileHarvest(
-  userId: string,
-  outpostId: string,
-  slot: number,
-): Promise<Response> {
-  const pos = parseTileOutpostId(outpostId);
-  if (!pos) return badTile();
-  try {
-    return json(
-      await db.transaction(async (tx): Promise<Res> => {
-        const now = Date.now();
-        const ctx = await resolveTileVillageManageOwner(
-          tx,
-          userId,
-          pos.col,
-          pos.row,
-          false,
-        );
-        if (!ctx.ok) return { status: ctx.status, body: { ok: false, error: ctx.error } };
-        const loaded = await lockVillage(tx, outpostId);
-        if (!loaded) return { status: 404, body: { ok: false, error: "no_village" } };
-        const village = normalizeVillageToOwner(loaded, ctx.owner);
-        const job = village.jobs[String(slot)];
-        if (!job) return { status: 404, body: { ok: false, error: "no_job" } };
-        if (!isHarvestReady(job, now)) {
-          return { status: 409, body: { ok: false, error: "not_ready" } };
-        }
-        const amount = harvestYield(job, terrainTraitOf(outpostId), now);
-        const resources = await lockSettlementResources(tx, ctx.owner);
-        resources[job.kind] = (resources[job.kind] ?? 0) + amount;
-        delete village.jobs[String(slot)];
-        await upsertVillage(tx, village);
-        await upsertSettlementResources(tx, ctx.owner, resources);
-        return {
-          status: 200,
-          body: {
-            ok: true,
-            harvested: { kind: job.kind, amount },
-            jobs: village.jobs,
-            resources,
-          },
-        };
-      }),
-    );
-  } catch {
-    return serverError();
-  }
-}
-
-// unlock-slot — 다음 칸 해금(소유 골드) + 종류 고정. 관리권 필요.
+// unlock-slot — 다음 칸 해금(소유 골드). 관리권 필요. [PR-3] 종류 선택 없음(슬롯=자리표시).
 export async function tileUnlockSlot(
   userId: string,
   outpostId: string,
-  kind: ProductionKind,
 ): Promise<Response> {
   const pos = parseTileOutpostId(outpostId);
   if (!pos) return badTile();
@@ -271,9 +165,7 @@ export async function tileUnlockSlot(
             body: { ok: false, error: "insufficient_gold", cost },
           };
         }
-        const newSlot = village.unlockedSlots;
         village.unlockedSlots += 1;
-        village.slotKinds = { ...village.slotKinds, [newSlot]: kind };
         await upsertVillage(tx, village);
         await og.spend(cost);
         return {
@@ -281,7 +173,6 @@ export async function tileUnlockSlot(
           body: {
             ok: true,
             unlockedSlots: village.unlockedSlots,
-            slotKinds: village.slotKinds,
             gold: og.available - cost,
           },
         };

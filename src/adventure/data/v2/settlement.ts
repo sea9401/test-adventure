@@ -78,17 +78,9 @@ export function terrainTraitDesc(trait: TerrainTrait): string {
   return `${PRODUCTION_KIND_NAME[bonusKind]} 수확량 +${TRAIT_BONUS_PCT}%`;
 }
 
-// ── 생산 다이얼 ──────────────────────────────────────────────────────────
-// 1회 소요 시간(ms) — 종류별. (수확창 = 이 시간 지나면 수확 가능)
-export const PRODUCTION_DURATION_MS: Record<ProductionKind, number> = {
-  crop: 12 * 3_600_000, // 12시간
-  ore: 12 * 3_600_000, // 12시간
-};
-// 1슬롯 1회 기본 수확량.
-export const PRODUCTION_BASE_YIELD: Record<ProductionKind, number> = {
-  crop: 10,
-  ore: 6,
-};
+// [폐지·PR-3] 슬롯 12h 생산(produce/harvest)은 제거됨 — 통나무/철광석은 사냥 드랍으로 수급
+//   (settlementMaterials). 슬롯은 칸 해금(골드 sink)만 남고 "미래 영지 건물" 자리표시.
+//   생산 소요시간/수확량/수확 다이얼·헬퍼 삭제. crop/ore 풀은 기부(donate)+업글 소비로만 변동.
 // ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
 // 2×2 고정 판(최대 4칸). 마을=골드로 2칸 해금(5천만/1억), 도시/대도시 달성 시 +1칸씩 무료 부여
 //   → 총 4칸. 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서
@@ -125,41 +117,15 @@ export const UPGRADE_COST: Partial<
   city: { crop: 1500, ore: 1000 }, // 도시 → 대도시
 };
 
-// ── 생산 작업(개체) ── 슬롯 하나에 도는 작업. ──────────────────────────────
+// ── 생산 작업(개체) [폐지·PR-3 잔존] ── 옛 슬롯 생산 작업 타입. 슬롯 생산(produce/harvest)은
+//   제거됐지만 레거시 jobs jsonb(outpost_villages.jobs·schema/v2Settlement 파싱)를 위해 타입만 보존.
 export type ProductionJob = {
   kind: ProductionKind;
-  /** 시작 시각(ms epoch). 수확 준비 = startedAt + duration ≤ now. */
+  /** 시작 시각(ms epoch). [폐지] 옛 수확 준비 판정용. */
   startedAt: number;
 };
 
-// 수확 준비됐나(완료됐나).
-export function isHarvestReady(job: ProductionJob, now: number): boolean {
-  return now - job.startedAt >= PRODUCTION_DURATION_MS[job.kind];
-}
-
-// 수확까지 남은 ms(0=완료). 미래 startedAt(클락스큐)은 duration 으로 클램프.
-export function harvestRemainingMs(job: ProductionJob, now: number): number {
-  const remaining = job.startedAt + PRODUCTION_DURATION_MS[job.kind] - now;
-  const dur = PRODUCTION_DURATION_MS[job.kind];
-  return Math.max(0, Math.min(dur, remaining));
-}
-
-// 수확량 — 거점 특성 보너스 적용. 완료 전이면 0.
-// 🔑 "손해" 약한 버전(메모리 결정): 늦게 수확해도 수확량 동일. 손해 = 완료된 슬롯이 재큐 전까지
-//   놀아서 생산시간 손실(기회비용) — 다음 작업은 수동 큐라 안 챙기면 그만큼 못 번다. 창고넘침/
-//   감쇠(강한 버전)는 후속 다이얼.
-export function harvestYield(
-  job: ProductionJob,
-  trait: TerrainTrait,
-  now: number,
-): number {
-  if (!isHarvestReady(job, now)) return 0;
-  const base = PRODUCTION_BASE_YIELD[job.kind];
-  const bonusPct = TRAIT_BONUS_KIND[trait] === job.kind ? TRAIT_BONUS_PCT : 0;
-  return Math.round(base * (1 + bonusPct / 100));
-}
-
-// 길드 재화 풀(정착지 생산 산출·업그레이드 소비). 종류별 정수 누적.
+// 길드 재화 풀(기부 적립·업그레이드 소비). 종류별 정수 누적.
 export type SettlementResources = Partial<Record<ProductionKind, number>>;
 
 // 업그레이드 가능?(다음 단계 존재 + 현 판 모두 해금 + 재화 충분). 부족 종류 목록도 함께.
@@ -230,32 +196,10 @@ export function canUnlockSlot(
   return { ok: gold >= cost, atMax: false, cost };
 }
 
-// 생산 시작 판정(순수) — 빈 슬롯 검증 후 새 jobs 반환(비파괴). 슬롯 범위는 해금된 칸 수.
-export function tryStartProduction(
-  jobs: Record<string, ProductionJob>,
-  unlockedSlots: number,
-  slot: number,
-  kind: ProductionKind,
-  now: number,
-):
-  | { ok: true; jobs: Record<string, ProductionJob> }
-  | { ok: false; error: "slot_out_of_range" | "slot_busy" } {
-  if (!Number.isInteger(slot) || slot < 0 || slot >= unlockedSlots) {
-    return { ok: false, error: "slot_out_of_range" };
-  }
-  if (jobs[String(slot)]) return { ok: false, error: "slot_busy" };
-  return { ok: true, jobs: { ...jobs, [String(slot)]: { kind, startedAt: now } } };
-}
-
 // ── 건설/명명 ── 빈 공터(점령지)에 마을을 세우고 길드가 이름을 짓는다. ─────────────
-// 닉네임 규약과 동일(1~16자). 건설(name != null)된 마을만 생산 가능(produce 게이트).
+// 닉네임 규약과 동일(1~16자).
 export const VILLAGE_NAME_MAX = 16;
 export function isValidVillageName(name: string): boolean {
   const t = name.trim();
   return t.length >= 1 && t.length <= VILLAGE_NAME_MAX;
-}
-
-// 마을 특화 생산 종류 검증 — 건설 시 선택(crop|ore). 영구.
-export function isValidProductionKind(k: unknown): k is ProductionKind {
-  return typeof k === "string" && (PRODUCTION_KINDS as string[]).includes(k);
 }

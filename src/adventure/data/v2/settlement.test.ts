@@ -1,18 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
-  isHarvestReady,
-  harvestRemainingMs,
-  harvestYield,
   nextTier,
   tierMeetsNation,
   NATION_REQUIRED_TIER,
   canUpgrade,
   applyUpgradeCost,
-  tryStartProduction,
   isValidVillageName,
-  PRODUCTION_DURATION_MS,
-  PRODUCTION_BASE_YIELD,
-  TRAIT_BONUS_PCT,
   MAX_SLOTS_BY_TIER,
   GRID_COLS_BY_TIER,
   GRID_DISPLAY_COLS,
@@ -24,53 +17,13 @@ import {
   SLOT_UNLOCK_GOLD_BASE,
   SLOT_UNLOCK_GOLD_STEP,
   UPGRADE_COST,
-  type ProductionJob,
 } from "./settlement";
 import { terrainTraitOf } from "./outposts";
 
-const T0 = 1_750_000_000_000;
+// [PR-3] 슬롯 생산(produce/harvest) 폐지 — isHarvestReady/harvestYield/tryStartProduction 등
+//   생산 헬퍼 테스트는 함수와 함께 삭제. 정착지 업글·칸 해금·검증 테스트만 유지.
 
-describe("settlement — 생산 엔진", () => {
-  it("isHarvestReady — duration 경과 전 false, 후 true", () => {
-    const job: ProductionJob = { kind: "crop", startedAt: T0 };
-    const dur = PRODUCTION_DURATION_MS.crop;
-    expect(isHarvestReady(job, T0)).toBe(false);
-    expect(isHarvestReady(job, T0 + dur - 1)).toBe(false);
-    expect(isHarvestReady(job, T0 + dur)).toBe(true);
-    expect(isHarvestReady(job, T0 + dur + 999999)).toBe(true); // 늦어도 준비됨
-  });
-
-  it("harvestRemainingMs — 0 으로 수렴, 미래 startedAt 은 duration 클램프", () => {
-    const job: ProductionJob = { kind: "ore", startedAt: T0 };
-    const dur = PRODUCTION_DURATION_MS.ore;
-    expect(harvestRemainingMs(job, T0)).toBe(dur);
-    expect(harvestRemainingMs(job, T0 + dur)).toBe(0);
-    expect(harvestRemainingMs(job, T0 + dur + 5000)).toBe(0);
-    // 미래 startedAt(클락스큐) → duration 초과 안 함.
-    expect(harvestRemainingMs({ kind: "ore", startedAt: T0 + 10 * dur }, T0)).toBe(
-      dur,
-    );
-  });
-
-  it("harvestYield — 완료 전 0, 완료 후 기본 수확량", () => {
-    const job: ProductionJob = { kind: "crop", startedAt: T0 };
-    const dur = PRODUCTION_DURATION_MS.crop;
-    expect(harvestYield(job, "plain", T0)).toBe(0);
-    expect(harvestYield(job, "plain", T0 + dur)).toBe(PRODUCTION_BASE_YIELD.crop);
-  });
-
-  it("harvestYield — 일치 특성이면 +보너스, 불일치면 기본", () => {
-    const dur = PRODUCTION_DURATION_MS.crop;
-    const done = T0 + dur;
-    const job: ProductionJob = { kind: "crop", startedAt: T0 };
-    // farmland=crop(나무) 보너스.
-    expect(harvestYield(job, "farmland", done)).toBe(
-      Math.round(PRODUCTION_BASE_YIELD.crop * (1 + TRAIT_BONUS_PCT / 100)),
-    );
-    // mine=ore(광물) 보너스라 crop 엔 무효.
-    expect(harvestYield(job, "mine", done)).toBe(PRODUCTION_BASE_YIELD.crop);
-  });
-
+describe("settlement — 정착지(업그레이드·칸 해금)", () => {
   it("nextTier — 마을→도시→대도시→null", () => {
     expect(nextTier("village")).toBe("city");
     expect(nextTier("city")).toBe("metropolis");
@@ -154,33 +107,6 @@ describe("settlement — 생산 엔진", () => {
     expect(after.ore).toBe(300 - cost.ore!);
     // 부족해도 음수 안 됨(0 클램프).
     expect(applyUpgradeCost("village", { crop: 10 }).crop).toBe(0);
-  });
-
-  it("tryStartProduction — 해금된 칸만 성공, 범위 밖/사용중 거부", () => {
-    const empty: Record<string, ProductionJob> = {};
-    // 해금 1칸 → slot 0 만 유효.
-    const r = tryStartProduction(empty, 1, 0, "crop", 1000);
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.jobs["0"]).toEqual({ kind: "crop", startedAt: 1000 });
-
-    // 해금 범위 밖(1칸이라 slot 1 없음).
-    expect(tryStartProduction(empty, 1, 1, "crop", 1000)).toEqual({
-      ok: false,
-      error: "slot_out_of_range",
-    });
-    // 해금 2칸이면 slot 1 유효.
-    expect(tryStartProduction(empty, 2, 1, "crop", 1000).ok).toBe(true);
-    // 음수/비정수.
-    expect(tryStartProduction(empty, 3, -1, "crop", 1000).ok).toBe(false);
-
-    // 이미 사용 중.
-    const busy = { "0": { kind: "ore" as const, startedAt: 5 } };
-    expect(tryStartProduction(busy, 1, 0, "crop", 1000)).toEqual({
-      ok: false,
-      error: "slot_busy",
-    });
-    // 비파괴 — 원본 jobs 불변.
-    expect(empty).toEqual({});
   });
 
   it("isValidVillageName — 1~16자(트림), 빈/공백/초과 거부", () => {

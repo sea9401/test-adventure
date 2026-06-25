@@ -20,7 +20,16 @@ import { V2VillagePanel } from "./V2VillagePanel";
 import DefendPanel from "./DefendPanel";
 import { useGameState } from "./GameStateProvider";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
-import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import {
+  isTileOutpostId,
+  parseTileOutpostId,
+  isTileAdjacentToNeutralOutpost,
+} from "@/adventure/data/v2/tileWarfare";
+import {
+  areOutpostsAdjacent,
+  resolveCurrentOutpostId,
+} from "@/adventure/data/v2/outpostGraph";
+import { areTilesAdjacent4 } from "@/adventure/data/v2/tileConfig";
 
 // 라이브 TownScreen 의 메뉴 카드 UI 패턴을 v2 거점에 적용.
 // 거점 hub — 진입 시 그 거점에서 할 수 있는 활동 리스트.
@@ -67,7 +76,9 @@ export function OutpostView({
   onAction: (action: OutpostAction) => void;
 }) {
   // 코어루프 on = 스태미나 폐지(점령은 골드 비용). 안내 문구의 "스태미너 소모" 분기.
-  const { coreLoopOn } = useGameState();
+  // currentOutpost/tilePos/tileSettlements = 현재 위치 게이트(점령/약탈/정복)의 클라 입력.
+  const { coreLoopOn, currentOutpost, tilePos, tileSettlements } =
+    useGameState();
   const [busy, setBusy] = useState(false);
   // 내 거점 활동 탭 — 생산 / 최근 공격 기록 / (마스터·부마스터) 관리.
   const [activityTab, setActivityTab] = useState<
@@ -173,12 +184,45 @@ export function OutpostView({
     viewerGuildId != null &&
     occupation.occupiedByGuildId !== viewerGuildId;
 
+  // === 현재 위치 게이트 — 서버(claim/attack 라우트)의 위치·인접 규칙을 버튼에 미리 반영.
+  //   멀리 떨어진 거점은 버튼을 비활성화하고 사유를 보여준다(지금은 클릭 후 서버 에러). 서버와
+  //   동일 헬퍼·동일 판정을 쓰며 서버가 최종 권위. 타일 좌표 못 푸는 카탈로그 거점(targetTilePos
+  //   null)은 약탈/정복의 서버 위치 게이트 적용 대상이 아니라 통과시킨다.
+  const targetTilePos = parseTileOutpostId(outpost.id); // 타일=｛col,row｝, 카탈로그=null
+  // 점령(claim) = 현재 머무는 거점 또는 그 인접 1칸(claim 라우트 not_adjacent 미러).
+  const attackerLocId = resolveCurrentOutpostId(currentOutpost?.id);
+  const claimInRange =
+    attackerLocId === outpost.id ||
+    areOutpostsAdjacent(attackerLocId, outpost.id);
+  // 약탈(raid) = 대상 타일 칸에 직접 서 있어야(attack 라우트 not_present 미러).
+  const raidOutOfRange =
+    targetTilePos != null &&
+    (tilePos == null ||
+      tilePos.col !== targetTilePos.col ||
+      tilePos.row !== targetTilePos.row);
+  // 정복(conquest) = 내 길드 영지에 4방향 인접한 칸(연속 확장)·땅 없으면 중립 거점 인접 발판
+  //   (attack 라우트 no_foothold 미러 — 서버 guildTileFoothold 를 클라 tileSettlements 로 재구성).
+  const myGuildTiles =
+    viewerGuildId == null
+      ? []
+      : tileSettlements.filter((s) => s.guildId === viewerGuildId);
+  const conquerOutOfRange =
+    targetTilePos != null &&
+    !(
+      myGuildTiles.some((s) =>
+        areTilesAdjacent4(s.col, s.row, targetTilePos.col, targetTilePos.row),
+      ) ||
+      (myGuildTiles.length === 0 &&
+        isTileAdjacentToNeutralOutpost(targetTilePos.col, targetTilePos.row))
+    );
+
   const claimDisabled = computeClaimDisabled(
     outpost,
     occupation,
     viewerUserId,
     defensePower,
     viewerPower,
+    claimInRange,
   );
   const isOwner =
     !!occupation &&
@@ -620,9 +664,13 @@ export function OutpostView({
               occupation?.occupiedByGuildId != null && (
                 <ActionCard
                   title="약탈 시도"
-                  subtitle="이 정착지 칸에 있어야 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+                  subtitle={
+                    raidOutOfRange
+                      ? "이 정착지 칸으로 이동해야 약탈할 수 있어요 — 지도에서 해당 칸으로 이동하세요."
+                      : "이 정착지 칸에 있어야 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
+                  }
                   onClick={attemptRaid}
-                  disabled={busy}
+                  disabled={busy || raidOutOfRange}
                   loading={busy}
                 />
               )}
@@ -632,12 +680,14 @@ export function OutpostView({
               <ActionCard
                 title="정복 시도"
                 subtitle={
-                  conquerRazes
-                    ? "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비와 건강도 결투 + 성벽 공성. 개인은 점령할 수 없어 함락 시 빈땅으로 철거됩니다(여러 차례 공격 필요)."
-                    : "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비대 전원과 건강도 결투 + 성벽 공성, 함락 시 마을 1단계 강등·소유 이전. 한 번에 안 되니 여러 차례 공격해야 함."
+                  conquerOutOfRange
+                    ? "인접한 우리 영지가 있어야 정복할 수 있어요 — 우리 길드 영지 옆 칸부터(땅이 없으면 중립 거점 옆 칸부터) 노리세요."
+                    : conquerRazes
+                      ? "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비와 건강도 결투 + 성벽 공성. 개인은 점령할 수 없어 함락 시 빈땅으로 철거됩니다(여러 차례 공격 필요)."
+                      : "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비대 전원과 건강도 결투 + 성벽 공성, 함락 시 마을 1단계 강등·소유 이전. 한 번에 안 되니 여러 차례 공격해야 함."
                 }
                 onClick={attemptConquest}
-                disabled={busy}
+                disabled={busy || conquerOutOfRange}
                 loading={busy}
               />
             )}
@@ -774,6 +824,7 @@ function computeClaimDisabled(
   viewerUserId: string | null,
   defensePower: number,
   viewerPower: number | null,
+  inRange: boolean,
 ): { reason: string } | null {
   if (outpost.neutral) return { reason: "절대 중립 거점 (점령 불가)" };
   if (
@@ -789,6 +840,12 @@ function computeClaimDisabled(
     new Date(occupation.protectedUntil).getTime() > Date.now()
   ) {
     return { reason: "함락 직후 보호막 — 잠시 후 공성 가능" };
+  }
+  // 현재 위치 게이트 — 현재 거점 또는 인접 1칸에서만 점령 가능(서버 not_adjacent 미러).
+  if (!inRange) {
+    return {
+      reason: "현재 거점 또는 인접 1칸 거점에서만 점령할 수 있어요 — 지도에서 이동하세요",
+    };
   }
   // 수비 전투력 게이트 — 내 전투력이 거점 수비 전투력에 못 미치면 시도 불가.
   // viewerPower 로딩 전(null)엔 막지 않는다(서버가 권위로 한 번 더 차단).

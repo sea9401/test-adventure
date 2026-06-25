@@ -12,7 +12,7 @@ import {
   type TimelineEntry,
 } from "./combatTimeline";
 
-describe("actionRate — 로그 소프트캡", () => {
+describe("actionRate — 멱 곡선", () => {
   it("SPD↑ 면 rate 단조 증가", () => {
     let prev = -1;
     for (const s of [0, 20, 50, 120, 200, 292]) {
@@ -21,20 +21,23 @@ describe("actionRate — 로그 소프트캡", () => {
       prev = r;
     }
   });
-  it("RATE_CAP(260) 에서 평평 — 고SPD 는 캡", () => {
-    expect(actionRate(500)).toBe(RATE_CAP);
+  it("RATE_CAP(400) 에서 평평 — 극단 고SPD 만 캡", () => {
+    expect(actionRate(1000)).toBe(RATE_CAP);
     expect(actionRate(10000)).toBe(RATE_CAP);
   });
-  it("기준(spd 0)=100", () => {
-    expect(actionRate(0)).toBeCloseTo(100, 5);
+  it("기준(spd REF=50)=100", () => {
+    expect(actionRate(50)).toBeCloseTo(100, 5);
   });
-  it("음수/NaN 방어 → spd 0 취급", () => {
-    expect(actionRate(-50)).toBe(100);
-    expect(actionRate(NaN)).toBe(100);
+  it("음수/NaN/0 → spd 1 바닥 취급(동일·양수)", () => {
+    const floor = actionRate(1);
+    expect(actionRate(0)).toBe(floor);
+    expect(actionRate(-50)).toBe(floor);
+    expect(actionRate(NaN)).toBe(floor);
+    expect(floor).toBeGreaterThan(0);
   });
 });
 
-describe("actionInterval — ~2배 천장(설계 핵심)", () => {
+describe("actionInterval — ~6배 스프레드(설계 핵심)", () => {
   it("interval 은 정수, SPD↑ 면 단조 감소(자주 행동)", () => {
     let prev = Infinity;
     for (const s of [20, 50, 120, 200, 292]) {
@@ -44,10 +47,10 @@ describe("actionInterval — ~2배 천장(설계 핵심)", () => {
       prev = iv;
     }
   });
-  it("궁사(spd292) 는 탱크(spd20) 대비 ~2배 행동(1.8~2.1×)", () => {
-    const ratio = actionInterval(20) / actionInterval(292);
-    expect(ratio).toBeGreaterThanOrEqual(1.8);
-    expect(ratio).toBeLessThanOrEqual(2.1);
+  it("궁사(spd292) 는 최슬로(spd14) 대비 ~6배 행동(5.8~6.4×)", () => {
+    const ratio = actionInterval(14) / actionInterval(292);
+    expect(ratio).toBeGreaterThanOrEqual(5.8);
+    expect(ratio).toBeLessThanOrEqual(6.4);
   });
 });
 

@@ -2,17 +2,19 @@
 //
 // 고정 교대(나 한 번 너 한 번) → "다음 행동 tick 가장 빠른 액터가 행동"하는 타임라인.
 // SPD 는 데미지에 **행동 빈도 하나로만** 기여한다(데미지식·스탯은 불변). 빠른 빌드(도적/궁사)가
-// 탱크 대비 ~2배 행동 = 정체성. 단순 1/spd 는 궁사가 49배라 금지 → 로그 소프트캡으로 ~2배 천장.
+// 느린 빌드 대비 ~6배까지 행동 = 정체성. 단순 1/spd 는 궁사가 49배라 금지 → 멱(power) 곡선으로
+// ~6배 스프레드(오너 결정·sim 검증). 중갑 무게페널티 완화(WEIGHT_SPD_PENALTY 0.5)로 탱 생존 동반.
 //
 // 🔑 "스탯 과열"의 범인은 ATB 가 아니라 기존 SPD 파생 extraAttackChancePct(=spd×0.5)다. ATB 에선
 //    그걸 제거(빈도로 일원화)해야 ~2배로 통제된다 — 그 제거는 엔진 통합 단계에서.
 // 이 모듈은 결정론(Math.random 미사용) — 리플레이가 동일 타임라인을 재현한다.
 
-// 속도 매운맛 다이얼 — 빠른 빌드의 최대 행동 배율 상한. 260≈2.0배(추천)·220≈1.6배·320≈2.1배.
-export const RATE_CAP = 260;
-// 로그 게인 — 클수록 SPD 당 빈도 증가 가파름. Phase0 추천 0.75.
-export const SPD_RATE_GAIN = 0.75;
-// ln(1 + spd/REF) 기준 스케일 — 50 에서 의미 있는 곡률.
+// 속도 매운맛 다이얼 — 멱 곡선 rate 상한. 정상 범위(spd≤292 → rate≤~288)엔 안 걸리고 극단
+//   outlier(버프 등·spd≈504+)만 캡. 옛 로그(~2배 천장)에서 멱(~6배 스프레드)으로 전환.
+export const RATE_CAP = 400;
+// 멱지수 — 클수록 SPD 당 빈도 증가 가파름. 0.6 ≈ 최슬로(14)↔최패스트(292) 행동빈도 ~6.19배.
+export const SPD_RATE_POW = 0.6;
+// (spd/REF)^POW 기준 스케일 — spd=REF(50) 에서 rate=기준 100.
 export const RATE_REF_SPD = 50;
 // 기준 액터(rate 100)의 행동 간격(tick). interval = ceil(RATE_BASE^2 / rate).
 const RATE_BASE = 100;
@@ -22,13 +24,10 @@ const RATE_BASE = 100;
 //   순수 표시 다이얼 — 엔진/리플레이 불변, 한 줄로 조절. BattleLogList 가 e.t 를 이 값으로 버킷팅.
 export const ATB_LOG_WINDOW_TICKS = 400;
 
-// 행동 레이트 — SPD 가 높을수록 ↑, RATE_CAP 에서 평평. 100 = 기준 속도.
+// 행동 레이트 — SPD^POW 비례(멱 곡선). spd=REF(50)에서 100 기준, 높을수록 ↑(RATE_CAP 상한).
 export function actionRate(spd: number): number {
-  const s = Math.max(0, Number(spd) || 0);
-  return Math.min(
-    RATE_CAP,
-    RATE_BASE * (1 + SPD_RATE_GAIN * Math.log(1 + s / RATE_REF_SPD)),
-  );
+  const s = Math.max(1, Number(spd) || 0);
+  return Math.min(RATE_CAP, RATE_BASE * Math.pow(s / RATE_REF_SPD, SPD_RATE_POW));
 }
 
 // 행동 간격(tick) — rate 의 역수 스케일. 작을수록 자주 행동. 정수 tick(결정론).

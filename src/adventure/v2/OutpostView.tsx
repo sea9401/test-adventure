@@ -40,6 +40,8 @@ type OccupationLite = {
   outpostId: string;
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
+  // 점령 길드 이름 — occupations API 가 동봉(배지 "○○ 점령" 표시용).
+  occupiedByGuildName?: string | null;
   policy?: string;
   taxRate?: string;
   nextAttackAt?: string;
@@ -104,6 +106,8 @@ export function OutpostView({
   // 내 길드 직책 — 정착지 관리 탭(마스터/부마스터 전용) 게이트. 같은 응답에서.
   const [guildRole, setGuildRole] = useState<string | null>(null);
   const [guildIsMaster, setGuildIsMaster] = useState(false);
+  // 영주(거점 1인) — 헤더에 "영주 X · 세금 N" 표기용. lord GET 이 응답(없으면 null).
+  const [lord, setLord] = useState<{ name: string } | null>(null);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -126,6 +130,25 @@ export function OutpostView({
       alive = false;
     };
   }, []);
+
+  // 영주 — 점령된 거점만. lord GET(설전 off 면 404 → null). 세금(treasuryGold)은 prop 사용.
+  useEffect(() => {
+    if (!occupation) {
+      setLord(null);
+      return;
+    }
+    let alive = true;
+    fetch(`/api/v2/outpost/lord?outpostId=${encodeURIComponent(outpost.id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive) return;
+        setLord(j?.lord?.name ? { name: j.lord.name as string } : null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [occupation, outpost.id]);
 
   // 거점 수비 전투력 (tier 정적값 1500~5000, 분쟁지대·중립은 0=게이트 없음).
   const defensePower = outpostDefensePower(outpost);
@@ -352,27 +375,13 @@ export function OutpostView({
               절대 중립
             </span>
           )}
-          {occupation && isOwner && (
-            <span className="rounded bg-emerald-500 px-2 py-0.5 text-white">
-              내 점령
-            </span>
-          )}
-          {occupation && !isOwner && isGuildMember && (
-            <span className="rounded bg-emerald-500 px-2 py-0.5 text-white">
-              우리 길드 점령
-            </span>
-          )}
-          {occupation &&
-            occupation.occupiedByUserId !== null &&
-            !isOwner &&
-            !isGuildMember && (
-              <span className="rounded bg-red-500 px-2 py-0.5 text-white">
-                적대 점령
-              </span>
-            )}
-          {(treasuryGold ?? 0) > 0 && (
-            <span className="rounded bg-yellow-400/20 px-2 py-0.5 font-medium tabular-nums text-yellow-700 dark:text-yellow-400">
-              금고 {treasuryGold.toLocaleString()} G
+          {occupation && (
+            <span
+              className={`rounded px-2 py-0.5 text-white ${
+                ownByMyGuild ? "bg-emerald-500" : "bg-red-500"
+              }`}
+            >
+              {occupation.occupiedByGuildName ?? "어느 길드"} 점령
             </span>
           )}
           {/* 세율 상시 표기 — 사냥 골드에서 떼어가는 비율. 점령 거점은 점령자 설정값,
@@ -385,32 +394,17 @@ export function OutpostView({
             %
           </span>
         </div>
+        {occupation && (
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            영주 <strong>{lord?.name ?? "없음"}</strong>
+            <span className="ml-1 tabular-nums">
+              · 세금 {(treasuryGold ?? 0).toLocaleString()} G
+            </span>
+          </p>
+        )}
         {outpost.description && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
             {outpost.description}
-          </p>
-        )}
-        {defensePower > 0 && (
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-            수비 전투력{" "}
-            <strong className="tabular-nums">
-              {defensePower.toLocaleString()}
-            </strong>
-            {viewerPower != null && (
-              <span
-                className={
-                  "ml-1 " +
-                  (viewerPower < defensePower
-                    ? "text-rose-600 dark:text-rose-400"
-                    : "text-emerald-600 dark:text-emerald-400")
-                }
-              >
-                · 내 전투력{" "}
-                <span className="tabular-nums">
-                  {viewerPower.toLocaleString()}
-                </span>
-              </span>
-            )}
           </p>
         )}
         {occupation &&
@@ -422,9 +416,6 @@ export function OutpostView({
               protectedUntil={occupation.protectedUntil}
             />
           )}
-        {isOwner && occupation?.nextAttackAt && (
-          <NextAttackInfo nextAttackAt={occupation.nextAttackAt} />
-        )}
       </HeaderPanel>
 
       <section className="space-y-2">
@@ -741,30 +732,6 @@ function FortBar({
         공성 1승당 −{SIEGE_DAMAGE_PER_WIN} · 약 {siegeWinsToFall(fortHp)}
         승이면 함락
       </div>
-    </div>
-  );
-}
-
-function NextAttackInfo({ nextAttackAt }: { nextAttackAt: string }) {
-  const targetMs = new Date(nextAttackAt).getTime();
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const diffMs = targetMs - now;
-  const overdue = diffMs <= 0;
-  const totalMin = Math.max(0, Math.floor(diffMs / 60_000));
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-
-  return (
-    <div className="rounded border border-zinc-200 bg-zinc-100 px-2 py-1 text-xs dark:border-zinc-800 dark:bg-zinc-900">
-      <span className="text-zinc-500">다음 NPC 공격: </span>
-      <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
-        {overdue ? "곧 (cron 처리 대기)" : `${h}시간 ${m}분 후`}
-      </span>
     </div>
   );
 }

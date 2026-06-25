@@ -42,11 +42,9 @@ import {
 import {
   isOutpostProtected,
   currentFortHp,
-  repairHpFromGold,
   fortMaxHpForTier,
   siegeDamage,
   undefendedSiegeDamage,
-  REPAIR_GOLD_PER_HP,
   POST_CAPTURE_PROTECT_MS,
 } from "@/adventure/data/v2/outpostSiege";
 import { derivePowerScore } from "@/adventure/data/v2/power";
@@ -590,21 +588,9 @@ export async function POST(req: Request) {
     );
 
     if (clearedQueue) {
-      // 수비 길드 금고 자동 수리(데미지 전·claim 미러). 정복은 공격자 골드 안 씀 → 수비 길드만 잠금.
-      //   솔로 타일(defenderGuildId=null)은 길드 금고가 없어 성벽 자동 수리 없음(데미지 그대로).
-      if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
-        // 🔑 lock 먼저 — 잠근 잔액으로 수리 HP 계산. read-then-lock 이면 그 사이 동시 tx 가 골드를
-        //   바꿔 stale 잔액으로 수리 + 음수 클램프(골드 보존 깨짐). repairHpFromGold 가 잔액으로
-        //   hp 를 캡하므로 차감 후 항상 ≥0.
-        const dr = await lockGuildResources(tx, defenderGuildId);
-        const hp = repairHpFromGold(fortMaxHp - fortHpAfter, dr.gold);
-        if (hp > 0) {
-          fortHpAfter += hp;
-          await upsertGuildResources(tx, defenderGuildId, {
-            gold: dr.gold - hp * REPAIR_GOLD_PER_HP,
-          });
-        }
-      }
+      // 성벽 자동 수리 폐지 — 공성 데미지가 그대로 박힌다(수비는 별도 수동 수리
+      //   /api/v2/outpost/repair 로 직접 골드를 써서 보강). 옛 금고 자동수리는 무방비
+      //   거점도 돈으로 무한 방어돼 공격이 안 먹히는 역설을 만들어 제거.
       // 성벽 데미지 — 공격자 합성전투력 기반.
       const attackerPower = derivePowerScore({
         atk: attacker.player.atk,

@@ -13,6 +13,7 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
+import { REPAIR_GOLD_PER_HP } from "@/adventure/data/v2/outpostSiege";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { V2VillagePanel } from "./V2VillagePanel";
@@ -109,6 +110,9 @@ export function OutpostView({
   } | null>(null);
   // 약탈/정복 직후 "최근 공격 기록" 패널 재조회 트리거 — bump 하면 OutpostAttackLog 가 refetch.
   const [attackLogReload, setAttackLogReload] = useState(0);
+  // 성벽 수동 수리 — 진행 상태 + 결과 메시지(성공/실패). 점령 길드 멤버 전용.
+  const [repairing, setRepairing] = useState(false);
+  const [repairResult, setRepairResult] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -368,6 +372,55 @@ export function OutpostView({
     }
   }
 
+  // 성벽 수동 수리 — 점령 길드 금고 골드로 결손분 보강(자동 수리 폐지 대체). 점령 길드 멤버 전용.
+  async function attemptRepair() {
+    setRepairing(true);
+    setRepairResult(null);
+    try {
+      const res = await fetch("/api/v2/outpost/repair", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ outpostId: outpost.id }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | {
+            ok: true;
+            fortHp: number;
+            fortMaxHp: number;
+            repairedHp: number;
+            goldSpent: number;
+            guildGold: number;
+          }
+        | { ok: false; error: string }
+        | null;
+      if (!json) {
+        setRepairResult(`응답 오류 (http ${res.status})`);
+        return;
+      }
+      if (!json.ok) {
+        setRepairResult(raidErrorMsg(json.error));
+        return;
+      }
+      if (json.repairedHp > 0) {
+        setRepairResult(
+          `성벽 +${json.repairedHp.toLocaleString()} 수리 (−${json.goldSpent.toLocaleString()} 골드 · 금고 ${json.guildGold.toLocaleString()})`,
+        );
+      } else {
+        setRepairResult(
+          json.fortHp >= json.fortMaxHp
+            ? "이미 성벽이 가득 찼습니다."
+            : "길드 금고 골드가 부족합니다.",
+        );
+      }
+      // 성벽 HP 갱신을 헤더 바에 즉시 반영.
+      onAction({ kind: "claimed" });
+    } catch (err) {
+      setRepairResult(`network: ${(err as Error).message}`);
+    } finally {
+      setRepairing(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader
@@ -431,6 +484,34 @@ export function OutpostView({
               fortMaxHp={occupation.fortMaxHp}
               protectedUntil={occupation.protectedUntil}
             />
+          )}
+        {/* 성벽 수동 수리 — 점령 길드 멤버만. 자동 수리 폐지 대체(능동 방어). */}
+        {V2_SETTLEMENT_WARFARE &&
+          ownByMyGuild &&
+          occupation?.fortHp != null &&
+          occupation.fortMaxHp != null && (
+            <div className="mt-2 space-y-1">
+              {occupation.fortHp < occupation.fortMaxHp && (
+                <button
+                  type="button"
+                  onClick={attemptRepair}
+                  disabled={repairing}
+                  className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950"
+                >
+                  {repairing
+                    ? "수리 중…"
+                    : `성벽 수리 — 풀수리 시 최대 ${(
+                        (occupation.fortMaxHp - occupation.fortHp) *
+                        REPAIR_GOLD_PER_HP
+                      ).toLocaleString()} 골드 (길드 금고)`}
+                </button>
+              )}
+              {repairResult && (
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  {repairResult}
+                </p>
+              )}
+            </div>
           )}
       </HeaderPanel>
 
@@ -674,6 +755,8 @@ function raidErrorMsg(error: string): string {
       return "인접한 우리 영지가 있어야 정복할 수 있어요 (땅이 없으면 중립 거점 옆 칸부터)";
     case "already_yours":
       return "내 거점입니다";
+    case "not_owner":
+      return "점령 길드 멤버만 할 수 있습니다";
     case "protected":
       return "함락 직후 보호막 — 잠시 후 가능";
     case "no_character":

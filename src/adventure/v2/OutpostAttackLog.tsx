@@ -21,6 +21,9 @@ type AttackRow = {
   hasReplay: boolean;
 };
 
+// 페이지당 노출 행 수 — 카드가 너무 길어지지 않게 클라 페이지네이션(서버는 최신 20건 캡).
+const PAGE_SIZE = 5;
+
 function fmtAgo(iso: string, now: number): string {
   const ms = Math.max(0, now - new Date(iso).getTime());
   const min = Math.floor(ms / 60_000);
@@ -41,6 +44,8 @@ export function OutpostAttackLog({
 }) {
   const [attacks, setAttacks] = useState<AttackRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // 현재 페이지(0-index). refetch 시 0 으로 리셋(아래 finally).
+  const [page, setPage] = useState(0);
   // fetch 시점 기준 elapsed 표시용 — Date.now() 를 render 중 직접 호출하면 impure.
   const [nowMs, setNowMs] = useState(() => Date.now());
   // 펼친 리플레이 — 한 번에 하나. envelope null = 로딩 중.
@@ -67,6 +72,8 @@ export function OutpostAttackLog({
     } finally {
       setNowMs(Date.now());
       setLoading(false);
+      setPage(0);
+      setOpenReplay(null);
     }
   }, [outpostId]);
 
@@ -114,11 +121,23 @@ export function OutpostAttackLog({
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(attacks.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  const visible = attacks.slice(
+    safePage * PAGE_SIZE,
+    safePage * PAGE_SIZE + PAGE_SIZE,
+  );
+
   return (
     <Card padding="md">
       <div className="flex items-center justify-between">
         <div className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
           최근 공격 기록
+          {attacks.length > 0 && (
+            <span className="ml-1 text-xs font-normal text-zinc-400">
+              ({attacks.length})
+            </span>
+          )}
         </div>
         <button
           type="button"
@@ -140,7 +159,7 @@ export function OutpostAttackLog({
         </div>
       ) : (
         <ul className="mt-3 space-y-2">
-          {attacks.map((a) => (
+          {visible.map((a) => (
             <li
               key={a.id}
               className="rounded-md border border-zinc-200 dark:border-zinc-800"
@@ -226,6 +245,36 @@ export function OutpostAttackLog({
             </li>
           ))}
         </ul>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-3 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+          <button
+            type="button"
+            onClick={() => {
+              setOpenReplay(null);
+              setPage((p) => Math.max(0, p - 1));
+            }}
+            disabled={safePage <= 0}
+            className="rounded px-2 py-1 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
+          >
+            ◀ 이전
+          </button>
+          <span className="tabular-nums">
+            {safePage + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setOpenReplay(null);
+              setPage((p) => Math.min(totalPages - 1, p + 1));
+            }}
+            disabled={safePage >= totalPages - 1}
+            className="rounded px-2 py-1 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
+          >
+            다음 ▶
+          </button>
+        </div>
       )}
     </Card>
   );

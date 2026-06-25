@@ -42,9 +42,11 @@ vi.mock("@/lib/server/derivePlayerCombatV2", () => ({
 vi.mock("@/adventure/v2/combat/engine-pvp", () => ({
   resolveBattlePvP: vi.fn(() => ({
     outcome: h.pvpAttackerWins ? "p1_win" : "p2_win",
+    turns: 3,
     finalState: {
       p1: { hp: 900, mp: 50 },
       p2: { hp: h.pvpAttackerWins ? 0 : 800, mp: 0 },
+      log: [],
     },
   })),
 }));

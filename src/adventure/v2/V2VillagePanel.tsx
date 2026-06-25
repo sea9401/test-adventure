@@ -34,6 +34,10 @@ import {
   type ProductionKind,
   type TerrainTrait,
 } from "@/adventure/data/v2/settlement";
+import {
+  SETTLEMENT_MATERIAL_ID,
+  SETTLEMENT_MATERIALS,
+} from "@/adventure/data/v2/settlementMaterials";
 
 // 길드 마을 패널 — 점령 거점 상세(OutpostView)에 노출. mode 로 두 화면을 분리:
 //   - produce(생산 탭, 길드원 전원): 슬롯 판(2×2 마을 / 3×3 도시) 그리드에서 생산 시작·수확.
@@ -104,6 +108,11 @@ export function V2VillagePanel({
   const [unlockKind, setUnlockKind] = useState<ProductionKind | null>(null); // 새 칸 종류
   const [renaming, setRenaming] = useState(false); // 이름 변경 폼 토글
   const [renameName, setRenameName] = useState(""); // 이름 변경 입력
+  // 재료 기부 — 개인 인벤(통나무/철광석) → 정착지 풀(crop/ore). 길드원 전원 가능.
+  const [inv, setInv] = useState<Record<string, number>>({}); // 개인 보유 재료
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [donateTimber, setDonateTimber] = useState("");
+  const [donateIronOre, setDonateIronOre] = useState("");
   // 카운트다운용 — 로드 시각 기준 readyAt 환산 + 1초 틱.
   const [loadedAt, setLoadedAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
@@ -141,6 +150,23 @@ export function V2VillagePanel({
     void load();
   }, [load]);
 
+  // 개인 보유 재료(통나무/철광석) — 기부 폼의 보유량/상한 표시용.
+  const loadInv = useCallback(async () => {
+    try {
+      const r = await fetch("/api/v2/me/inventory");
+      const j = (await r.json().catch(() => null)) as {
+        ok?: boolean;
+        materials?: Record<string, number>;
+      } | null;
+      if (j?.ok) setInv(j.materials ?? {});
+    } catch {
+      // 무시 — 기부는 비치명
+    }
+  }, []);
+  useEffect(() => {
+    void loadInv();
+  }, [loadInv]);
+
   const act = useCallback(
     async (path: string, body: Record<string, unknown>, syncName = false) => {
       if (busy) return;
@@ -171,6 +197,21 @@ export function V2VillagePanel({
     },
     [busy, outpostId, load, refreshOccupations],
   );
+
+  // 재료 기부 제출 — 0 초과 입력만 추려 donate 호출 후 보유/풀 갱신.
+  const submitDonate = useCallback(async () => {
+    const t = Math.floor(Number(donateTimber) || 0);
+    const o = Math.floor(Number(donateIronOre) || 0);
+    const donations: Record<string, number> = {};
+    if (t > 0) donations[SETTLEMENT_MATERIAL_ID.timber] = t;
+    if (o > 0) donations[SETTLEMENT_MATERIAL_ID.ironOre] = o;
+    if (Object.keys(donations).length === 0) return;
+    await act("donate", { donations });
+    setDonateTimber("");
+    setDonateIronOre("");
+    setDonateOpen(false);
+    await loadInv();
+  }, [donateTimber, donateIronOre, act, loadInv]);
 
   // 슬롯 인덱스별 현재 작업 맵.
   const jobBySlot = useMemo(() => {
@@ -343,6 +384,86 @@ export function V2VillagePanel({
     </div>
   );
 
+  // ── 재료 기부 ── 개인 인벤(통나무/철광석)을 정착지 풀(crop/ore)에 적립. 길드원 전원. ──────
+  const ownTimber = inv[SETTLEMENT_MATERIAL_ID.timber] ?? 0;
+  const ownIronOre = inv[SETTLEMENT_MATERIAL_ID.ironOre] ?? 0;
+  const dT = Math.floor(Number(donateTimber) || 0);
+  const dO = Math.floor(Number(donateIronOre) || 0);
+  const donateValid =
+    (dT > 0 || dO > 0) && dT <= ownTimber && dO <= ownIronOre;
+  const donateRows = [
+    {
+      id: SETTLEMENT_MATERIAL_ID.timber,
+      label: SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.timber].name,
+      own: ownTimber,
+      val: donateTimber,
+      set: setDonateTimber,
+    },
+    {
+      id: SETTLEMENT_MATERIAL_ID.ironOre,
+      label: SETTLEMENT_MATERIALS[SETTLEMENT_MATERIAL_ID.ironOre].name,
+      own: ownIronOre,
+      val: donateIronOre,
+      set: setDonateIronOre,
+    },
+  ];
+  const donateBox = built ? (
+    <div className="text-xs">
+      {!donateOpen ? (
+        <button
+          type="button"
+          onClick={() => setDonateOpen(true)}
+          disabled={busy}
+          className="rounded bg-zinc-200 px-2 py-1 font-medium text-zinc-700 hover:bg-zinc-300 disabled:opacity-50 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
+        >
+          재료 기부
+        </button>
+      ) : (
+        <div className="space-y-1.5 rounded border border-zinc-200 p-2 dark:border-zinc-700">
+          <p className="text-zinc-500 dark:text-zinc-400">
+            개인 인벤의 재료를 정착지 발전에 기부합니다.
+          </p>
+          {donateRows.map((row) => (
+            <label key={row.id} className="flex items-center gap-2">
+              <span className="w-12 shrink-0">{row.label}</span>
+              <input
+                type="number"
+                min={0}
+                max={row.own}
+                value={row.val}
+                onChange={(e) => row.set(e.target.value)}
+                className="w-20 rounded border border-zinc-300 bg-white px-1.5 py-0.5 tabular-nums dark:border-zinc-600 dark:bg-zinc-800"
+              />
+              <span className="text-zinc-400">보유 {row.own}</span>
+            </label>
+          ))}
+          <div className="flex gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={submitDonate}
+              disabled={busy || !donateValid}
+              className="rounded bg-emerald-600 px-2 py-1 font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              기부하기
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDonateOpen(false);
+                setDonateTimber("");
+                setDonateIronOre("");
+              }}
+              disabled={busy}
+              className="rounded px-2 py-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   const errBox = err ? (
     <div className="text-xs text-rose-600 dark:text-rose-400">
       {ERR_MESSAGES[err] ?? `오류: ${err}`}
@@ -362,6 +483,7 @@ export function V2VillagePanel({
         ) : (
           <>
             {resourcePool}
+            {donateBox}
             {village!.unlockedSlots === 0 && (
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 아직 해금된 칸이 없어요. 관리 탭에서 칸을 해금하면 생산을 시작할

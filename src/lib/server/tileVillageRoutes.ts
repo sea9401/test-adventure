@@ -37,6 +37,11 @@ import {
   applyUpgradeCost,
   type ProductionKind,
 } from "@/adventure/data/v2/settlement";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
+import { SETTLEMENT_MATERIAL_TO_KIND } from "@/adventure/data/v2/settlementMaterials";
+
+// 기부로 차감할 개인 재료(통나무/철광석)는 character.v2 세이브의 materials 에 있다(강화/드랍과 동일).
+type CharSaveMaterials = { materials?: Record<string, number>; [k: string]: unknown };
 
 type Res =
   | { status: number; body: Record<string, unknown> }
@@ -350,6 +355,71 @@ export async function tileUpgrade(
             resources: nextResources,
           },
         };
+      }),
+    );
+  } catch {
+    return serverError();
+  }
+}
+
+// donate — 개인 인벤(통나무/철광석)을 정착지 재화 풀(crop/ore)에 기부한다. 길드원 전원 가능
+//   (관리권 불요·requireAdmin=false). 통나무→crop / 철광석→ore (SETTLEMENT_MATERIAL_TO_KIND).
+//   lock 순서: 점령행(resolve) → character.v2(개인 재료) → 정착지 풀. 단일 tx·중첩 트랜잭션 없음.
+export async function tileDonate(
+  userId: string,
+  outpostId: string,
+  donations: Partial<Record<string, number>>,
+): Promise<Response> {
+  const pos = parseTileOutpostId(outpostId);
+  if (!pos) return badTile();
+  // 검증(트랜잭션 전) — 키는 정착지 재료만·양수 정수·최소 1종. 알 수 없는 키는 거부.
+  const entries: Array<[string, number]> = [];
+  for (const [id, raw] of Object.entries(donations ?? {})) {
+    if (!(id in SETTLEMENT_MATERIAL_TO_KIND)) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    const n = typeof raw === "number" ? Math.floor(raw) : NaN;
+    if (!Number.isFinite(n) || n <= 0) {
+      return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+    }
+    entries.push([id, n]);
+  }
+  if (entries.length === 0) {
+    return Response.json({ ok: false, error: "bad_request" }, { status: 400 });
+  }
+  try {
+    return json(
+      await db.transaction(async (tx): Promise<Res> => {
+        const ctx = await resolveTileVillageManageOwner(
+          tx,
+          userId,
+          pos.col,
+          pos.row,
+          false,
+        );
+        if (!ctx.ok) return { status: ctx.status, body: { ok: false, error: ctx.error } };
+        const charSave = await lockSaveForUpdate<CharSaveMaterials>(
+          tx,
+          userId,
+          "character.v2",
+          {},
+        );
+        const materials: Record<string, number> = { ...(charSave.materials ?? {}) };
+        // 보유 검증 — 풀 lock 전에 실패시켜 잠금 범위 최소화.
+        for (const [id, n] of entries) {
+          if (Math.floor(Number(materials[id]) || 0) < n) {
+            return { status: 409, body: { ok: false, error: "insufficient_material" } };
+          }
+        }
+        const resources = await lockSettlementResources(tx, ctx.owner);
+        for (const [id, n] of entries) {
+          materials[id] = Math.max(0, Math.floor(Number(materials[id]) || 0) - n);
+          const kind = SETTLEMENT_MATERIAL_TO_KIND[id];
+          resources[kind] = (resources[kind] ?? 0) + n;
+        }
+        await upsertSave(tx, userId, "character.v2", { ...charSave, materials });
+        await upsertSettlementResources(tx, ctx.owner, resources);
+        return { status: 200, body: { ok: true, resources, materials } };
       }),
     );
   } catch {

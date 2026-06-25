@@ -4,10 +4,10 @@
 // 두 갈래:
 //   ① 레거시 층 풀(UNIQUE_FLOOR_POOLS, floor 1~8 키): 들판 구간(깊이 1~6)의 유니크 6종.
 //      5층은 2종(별을 가르는 단검·현자의 인장). 확률 0.003~0.005.
-//   ② 심층 밴드 풀(깊이 범위 키): 프론티어 밴드 드랍. 2026-06-09 흔한/유니크 분리 —
-//      BAND_COMMON_POOLS(흔한 밴드 장비, 밴드당 9종: 무기 4 + 갑주세트 3 + 장신구 2, noDrop
-//      normal, 로컬 깊이 램프) + BAND_UNIQUE_POOLS(비세트 사이드그레이드만 — 세트 통합 후,
-//      chance 0.005 고정). 신규 밴드는 두 풀에 항목 1개씩 추가.
+//   ② 심층 밴드 풀(깊이 범위 키): 프론티어 밴드 드랍. BAND_COMMON_POOLS(흔한 밴드 장비, 로컬 깊이
+//      램프) + BAND_UNIQUE_POOLS. 2026-06-26 **유니크 재정의**: 옛 필드 유니크(굴림 사이드그레이드)는
+//      `common` 강등→COMMON 풀로 이동, UNIQUE 풀엔 **이름 있는 고유 아이템(Signature)** 만(잊힌 성소
+//      25+·밴드당 5종·chance 0.0005). 7~24 밴드 UNIQUE 풀은 비었다(게이트 전). 상세 = BAND_UNIQUE_POOLS 위 주석.
 //
 // 밴드 드랍은 중복 허용(보유분 포함 균등 pick). 레거시 층 유니크만 id당 1개(ownedSet 제외).
 
@@ -101,6 +101,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_canyon_set_boots",
       "v2_canyon_sand_ring",
       "v2_canyon_sand_necklace",
+      // 강등된 옛 필드 유니크(일반화·2026-06-26 유니크 재정의).
+      "v2_canyon_swift_rapier",
+      "v2_canyon_wind_boots",
     ],
   },
   {
@@ -117,6 +120,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_lake_frost_boots",
       "v2_lake_chill_ring",
       "v2_lake_chill_necklace",
+      // 강등된 옛 필드 유니크(일반화).
+      "v2_lake_brutal_greatsword",
+      "v2_lake_dodge_cloak",
     ],
   },
   {
@@ -133,6 +139,11 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_cave_abyss_boots",
       "v2_cave_void_ring",
       "v2_cave_void_necklace",
+      // 강등된 옛 필드 유니크(일반화).
+      "v2_cave_fortress_armor",
+      "v2_cave_rooted_boots",
+      "v2_cave_ruin_gloves",
+      "v2_cave_focus_ring",
     ],
   },
   {
@@ -149,6 +160,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_sanctum_set_boots",
       "v2_sanctum_arcana_ring",
       "v2_sanctum_arcana_necklace",
+      // 강등된 옛 필드 유니크(일반화).
+      "v2_sanctum_anchor_armor",
+      "v2_sanctum_nova_ring",
     ],
   },
   {
@@ -165,6 +179,9 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_swamp_set_boots",
       "v2_swamp_heart_ring",
       "v2_swamp_heart_necklace",
+      // 강등된 옛 필드 유니크(일반화).
+      "v2_swamp_mire_boots",
+      "v2_swamp_bruiser_armor",
     ],
   },
   {
@@ -182,6 +199,10 @@ export const BAND_COMMON_POOLS: readonly BandPool[] = [
       "v2_den_set_boots",
       "v2_den_alpha_ring",
       "v2_den_alpha_necklace",
+      // 강등된 옛 필드 유니크(일반화).
+      "v2_den_mauler_gloves",
+      "v2_den_ghost_boots",
+      "v2_den_hide_armor",
     ],
   },
 ];
@@ -214,68 +235,54 @@ export type BandUniquePool = {
 
 // 밴드 유니크 풀 — 비(非)세트 컨셉 사이드그레이드 유니크. 세트 통합(38→12) 후 특화/2피스 세트는
 //   제거돼 사이드그레이드만 남는다. 밴드 표준 2세트(갑주·장신구)는 BAND_COMMON_POOLS 에서 드랍.
+// 🔑 유니크 재정의(2026-06-26·docs/v2-signature-uniques-plan.md): 옛 필드 유니크(굴림 사이드그레이드)는
+//   특별하지 않아 `common`(일반)으로 강등 → BAND_COMMON_POOLS 로 이동. 유니크 풀엔 **이름 있는
+//   고유 아이템(Signature)** 만 남아 "유니크 = 정말 특별한 것"이 됨. 게이트 = **잊힌 성소(25)부터** —
+//   7~24 밴드는 빈 풀(유니크 없음·정규/흔한만). 25~42 = 밴드당 고유 5종, chance 0.0005(밴드유니크보다
+//   희귀). droppedUnique 슬롯 → 바이올렛 배너 + unique_drop 전광판 방송(기존 인프라 그대로·강등 후 고유템만).
+export const SIGNATURE_UNIQUE_CHANCE = 0.0005; // 고유 아이템 총 드랍률(밴드당)·다이얼.
 export const BAND_UNIQUE_POOLS: readonly BandUniquePool[] = [
+  // 마른 협곡(7~12)·얼음 호수(13~18)·심층 동굴(19~24) = 게이트 전 → 유니크 없음(빈 풀).
+  { minDepth: 7, maxDepth: 12, chance: 0, ids: [] },
+  { minDepth: 13, maxDepth: 18, chance: 0, ids: [] },
+  { minDepth: 19, maxDepth: 24, chance: 0, ids: [] },
   {
-    // 마른 협곡(밴드 A, 7~12) 비세트 사이드그레이드 2.
-    minDepth: 7,
-    maxDepth: 12,
-    chance: 0.001,
-    ids: [
-      "v2_canyon_swift_rapier",
-      "v2_canyon_wind_boots",
-    ],
-  },
-  {
-    // 얼음 호수(밴드 B, 13~18) 비세트 사이드그레이드 2.
-    minDepth: 13,
-    maxDepth: 18,
-    chance: 0.001,
-    ids: [
-      "v2_lake_brutal_greatsword",
-      "v2_lake_dodge_cloak",
-    ],
-  },
-  {
-    // 심층 동굴(밴드 C, 19~24) 비세트 사이드그레이드 4.
-    minDepth: 19,
-    maxDepth: 24,
-    chance: 0.001,
-    ids: [
-      "v2_cave_fortress_armor",
-      "v2_cave_rooted_boots",
-      "v2_cave_ruin_gloves",
-      "v2_cave_focus_ring",
-    ],
-  },
-  {
-    // 잊힌 성소(밴드 D, 25~30) 비세트 사이드그레이드 2.
+    // 잊힌 성소(25~30) 고유 5종 — 회복·버팀(성물 세트 2 + 단품 3).
     minDepth: 25,
     maxDepth: 30,
-    chance: 0.001,
+    chance: SIGNATURE_UNIQUE_CHANCE,
     ids: [
-      "v2_sanctum_anchor_armor",
-      "v2_sanctum_nova_ring",
+      "v2_sanctum_sig_priest_armor",
+      "v2_sanctum_sig_priest_necklace",
+      "v2_sanctum_sig_spire_staff",
+      "v2_sanctum_sig_priest_boots",
+      "v2_sanctum_sig_sealed_ring",
     ],
   },
   {
-    // 리자드 늪지(밴드 E, 31~36) 비세트 사이드그레이드 2.
+    // 리자드 늪지(31~36) 고유 5종 — 회피·기동(독왕 세트 2 + 단품 3).
     minDepth: 31,
     maxDepth: 36,
-    chance: 0.001,
+    chance: SIGNATURE_UNIQUE_CHANCE,
     ids: [
-      "v2_swamp_mire_boots",
-      "v2_swamp_bruiser_armor",
+      "v2_swamp_sig_venom_gloves",
+      "v2_swamp_sig_slip_boots",
+      "v2_swamp_sig_scale_armor",
+      "v2_swamp_sig_fang_dagger",
+      "v2_swamp_sig_fang_necklace",
     ],
   },
   {
-    // 짐승의 소굴(밴드 F, 37~42) 비세트 사이드그레이드 3. 마지막 테마 = 프론티어 끝(42 너머 도달 불가).
+    // 짐승의 소굴(37~42) 고유 5종 — 폭딜·글래스캐넌(포식자 세트 2 + 단품 3). 마지막 밴드=프론티어 끝.
     minDepth: 37,
     maxDepth: 42,
-    chance: 0.001,
+    chance: SIGNATURE_UNIQUE_CHANCE,
     ids: [
-      "v2_den_mauler_gloves",
-      "v2_den_ghost_boots",
-      "v2_den_hide_armor",
+      "v2_den_sig_alpha_greatsword",
+      "v2_den_sig_beasthide_armor",
+      "v2_den_sig_claw_gloves",
+      "v2_den_sig_tracker_boots",
+      "v2_den_sig_alpha_necklace",
     ],
   },
 ];

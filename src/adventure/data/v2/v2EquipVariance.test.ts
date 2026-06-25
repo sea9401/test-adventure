@@ -214,8 +214,8 @@ describe("reforgeGoldCost", () => {
     expect(reforgeGoldCost(ring)).toBe(REFORGE_MIN_COST * mult);
   });
 
-  it("유니크는 ×2 — 호숫가 회피망토", () => {
-    const uniq = V2_EQUIPMENT.v2_lake_dodge_cloak;
+  it("유니크는 ×2 — 잊힌 사제의 성갑(고유 아이템)", () => {
+    const uniq = V2_EQUIPMENT.v2_sanctum_sig_priest_armor;
     expect(isUnique(uniq)).toBe(true);
     const base = Math.max(
       REFORGE_MIN_COST,

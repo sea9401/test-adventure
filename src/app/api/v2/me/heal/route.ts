@@ -1,11 +1,18 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
+import { guildMembers } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import { derivePlayerCombatV2 } from "@/lib/server/derivePlayerCombatV2";
 import { applyHpRegen, parseHpRegenSince } from "@/adventure/v2/hpRegen";
 import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
-import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  V2_SETTLEMENT_WARFARE,
+  WAR_VIGOR_FULL_RECOVERY_MS,
+  HOTSPRING_VIGOR_RECOVERY_DIVISOR,
+} from "@/adventure/data/v2/settlementWarfareConfig";
 import { applyVigorRecovery, parseWarVigor } from "@/adventure/data/v2/warVigor";
+import { guildHasHotspringAdjacency } from "@/lib/server/tileHotspring";
 
 // POST /api/v2/me/heal — 치료소 만피 회복(항상 무료).
 //
@@ -82,8 +89,26 @@ export async function POST() {
     // cost 차감만 은행 우선. cost === 0 이면 no-op(보유·은행 불변).
     const spend = spendGold(gold, bankedGold, cost);
 
+    // 온천 인접 정착지 보유 길드원은 회복 가속(분모÷divisor) — docs §2.3. 플래그 off(vigorBefore
+    //   null)면 쿼리 스킵.
+    let vigorRecoveryMs = WAR_VIGOR_FULL_RECOVERY_MS;
+    if (vigorBefore) {
+      const guildRow = (
+        await tx
+          .select({ id: guildMembers.guildId })
+          .from(guildMembers)
+          .where(eq(guildMembers.userId, userId))
+          .limit(1)
+      )[0];
+      if (await guildHasHotspringAdjacency(tx, guildRow?.id ?? null)) {
+        vigorRecoveryMs =
+          WAR_VIGOR_FULL_RECOVERY_MS / HOTSPRING_VIGOR_RECOVERY_DIVISOR;
+      }
+    }
     // 건강도는 시간누적분만 적용(즉시 만충 아님). 플래그 off 면 미접촉.
-    const vigorAfter = vigorBefore ? applyVigorRecovery(vigorBefore, now) : null;
+    const vigorAfter = vigorBefore
+      ? applyVigorRecovery(vigorBefore, now, vigorRecoveryMs)
+      : null;
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,

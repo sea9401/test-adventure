@@ -5,6 +5,7 @@ import {
   TILE_TERRAIN,
   TILE_TERRAIN_LABEL,
   TILE_OUTPOST_AT,
+  HOTSPRING_BENEFIT_COORDS,
   tileFeatureAt,
   isTileSettleable,
   tileKey,
@@ -32,9 +33,9 @@ describe("TILE_TERRAIN — 배치 데이터", () => {
     }
   });
 
-  it("산맥·호수는 정착 불가(settleable=false), 협곡은 정착 가능(true)", () => {
+  it("산맥·호수·온천은 정착 불가(settleable=false), 협곡은 정착 가능(true)", () => {
     for (const f of Object.values(TILE_TERRAIN)) {
-      if (f.kind === "mountain" || f.kind === "lake") {
+      if (f.kind === "mountain" || f.kind === "lake" || f.kind === "hotspring") {
         expect(f.settleable).toBe(false);
       }
       if (f.kind === "canyon") {
@@ -43,10 +44,10 @@ describe("TILE_TERRAIN — 배치 데이터", () => {
     }
   });
 
-  it("P1 배치 종류는 산맥/협곡/호수만(미배치 종은 칸 없음)", () => {
+  it("배치 종류는 산맥/협곡/호수/온천만(요새터/교역로는 미배치)", () => {
     const kinds = new Set(Object.values(TILE_TERRAIN).map((f) => f.kind));
     for (const kind of kinds) {
-      expect(["mountain", "canyon", "lake"]).toContain(kind);
+      expect(["mountain", "canyon", "lake", "hotspring"]).toContain(kind);
     }
   });
 
@@ -62,14 +63,16 @@ describe("tileFeatureAt / isTileSettleable — 헬퍼", () => {
     expect(tileFeatureAt(2, 1)?.kind).toBe("mountain");
     expect(tileFeatureAt(2, 4)?.kind).toBe("canyon");
     expect(tileFeatureAt(6, 6)?.kind).toBe("lake");
+    expect(tileFeatureAt(1, 1)?.kind).toBe("hotspring");
     expect(tileFeatureAt(0, 0)).toBeNull();
   });
 
-  it("빈 칸·협곡은 settleable, 산맥·호수는 not", () => {
+  it("빈 칸·협곡은 settleable, 산맥·호수·온천은 not", () => {
     expect(isTileSettleable(0, 0)).toBe(true); // 빈 땅
     expect(isTileSettleable(2, 4)).toBe(true); // 협곡(길목)
     expect(isTileSettleable(2, 1)).toBe(false); // 산맥
     expect(isTileSettleable(6, 6)).toBe(false); // 호수
+    expect(isTileSettleable(1, 1)).toBe(false); // 온천(아우라 타일)
   });
 });
 
@@ -109,6 +112,33 @@ describe("배치 — 산맥 벽은 협곡으로 뚫린다(길목)", () => {
       }).length;
     expect(canyonsInCol(2)).toBeGreaterThanOrEqual(1);
     expect(canyonsInCol(6)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("온천(hotspring) 수혜 zone — HOTSPRING_BENEFIT_COORDS (P2)", () => {
+  it("수혜 zone = 온천(1,1) 인접 정착 가능 칸 {(1,0),(0,1),(1,2)} — 산맥(2,1) 제외", () => {
+    const set = new Set(
+      HOTSPRING_BENEFIT_COORDS.map((c) => tileKey(c.col, c.row)),
+    );
+    expect(set).toEqual(new Set(["1,0", "0,1", "1,2"]));
+  });
+
+  it("모든 수혜 칸은 정착 가능(소유 가능)해야 길드 소유 조회가 의미 있다", () => {
+    for (const c of HOTSPRING_BENEFIT_COORDS) {
+      expect(isTileSettleable(c.col, c.row)).toBe(true);
+    }
+  });
+
+  it("모든 수혜 칸은 어떤 온천에 4-인접", () => {
+    const springs = Object.entries(TILE_TERRAIN)
+      .filter(([, f]) => f.kind === "hotspring")
+      .map(([k]) => parseKey(k));
+    for (const c of HOTSPRING_BENEFIT_COORDS) {
+      const adjacent = springs.some(([sc, sr]) =>
+        areTilesAdjacent4(sc, sr, c.col, c.row),
+      );
+      expect(adjacent).toBe(true);
+    }
   });
 });
 

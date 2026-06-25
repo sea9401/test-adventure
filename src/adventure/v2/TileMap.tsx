@@ -78,7 +78,8 @@ const TERRAIN_BG: Partial<Record<TileFeatureKind, string>> = {
   lake: "bg-sky-950",
   hotspring: "bg-amber-950",
   stronghold: "bg-slate-800/70 hover:bg-slate-700/70",
-  trade_route: "bg-yellow-900/60 hover:bg-yellow-800/60",
+  // 보라(violet) — 노랑은 중립 마커(bg-yellow-400)와 헷갈려 금지. 교역=부유한 거점 톤.
+  trade_route: "bg-violet-900/60 hover:bg-violet-800/60",
 };
 const TERRAIN_ICON_COLOR: Partial<Record<TileFeatureKind, string>> = {
   mountain: "#52525b",
@@ -86,7 +87,7 @@ const TERRAIN_ICON_COLOR: Partial<Record<TileFeatureKind, string>> = {
   lake: "#38bdf8",
   hotspring: "#fbbf24",
   stronghold: "#cbd5e1",
-  trade_route: "#fcd34d",
+  trade_route: "#c4b5fd", // violet-300 — 중립 노랑과 분리.
 };
 // 통행 불가 지형의 퍽 한 줄(정보 패널). 없으면 기본 "통행 불가" 문구만.
 const TERRAIN_PERK_HINT: Partial<Record<TileFeatureKind, string>> = {

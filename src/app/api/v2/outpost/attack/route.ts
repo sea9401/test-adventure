@@ -41,6 +41,7 @@ import {
   repairHpFromGold,
   fortMaxHpForTier,
   siegeDamage,
+  undefendedSiegeDamage,
   REPAIR_GOLD_PER_HP,
   POST_CAPTURE_PROTECT_MS,
 } from "@/adventure/data/v2/outpostSiege";
@@ -71,7 +72,8 @@ import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 //   body: { outpostId, mode: "raid" | "conquest" }
 //   raid    = 수비 큐 1번을 "건강도(전쟁 전용 HP 이월)" 결투로 격파 → 거점 금고 50% 탈취(마을 유지).
 //   conquest= 수비 큐 전원 격파(건틀릿) + 성벽(fortHp) 누적 공성 완파 → 함락(마을 tier 1↓·소유 이관,
-//             금고는 그대로). 성벽은 siegeDamage(전투력 비율) 만큼 깎임 → 여러 차례 공격으로 함락.
+//             금고는 그대로). 성벽 데미지 = 수비 격파 시 siegeDamage(전투력 비율), 무방비(큐 0명)면
+//             undefendedSiegeDamage(전투력÷4·캡 50%HP) → 여러 차례 공격으로 함락.
 //   큐가 비면 무혈(수비 미등록 시 약탈/공성에 무방비 = 등록 인센티브).
 //   플래그 off → 404. 옛 claim 라우트(3:3 토너먼트)는 손대지 않음 — PR-6 에서 제거.
 //
@@ -552,7 +554,7 @@ export async function POST(req: Request) {
           });
         }
       }
-      // 성벽 데미지 — 전투력 비율(공격자 합성전투력 ÷ 거점 수비전투력). 압도적 전력차=큰 타격.
+      // 성벽 데미지 — 공격자 합성전투력 기반.
       const attackerPower = derivePowerScore({
         atk: attacker.player.atk,
         magicAtk: attacker.player.magicAtk ?? 0,
@@ -561,10 +563,12 @@ export async function POST(req: Request) {
         maxHp: attacker.maxHp,
         maxMp: aMaxMp,
       });
-      const damaged = Math.max(
-        0,
-        fortHpAfter - siegeDamage(attackerPower, outpostDefensePower(outpost)),
-      );
+      // 무방비(수비 큐 0명 = defendersDefeated 0)면 전투력÷4(캡 50%HP·벌칙), 수비 격파면 전투력 비율.
+      const siegeAmt =
+        defendersDefeated === 0
+          ? undefendedSiegeDamage(attackerPower, fortMaxHp)
+          : siegeDamage(attackerPower, outpostDefensePower(outpost));
+      const damaged = Math.max(0, fortHpAfter - siegeAmt);
       const newOccupiedAt = new Date();
       if (damaged <= 0) {
         // 함락. 공격자 정체성으로 분기 — 길드 공격자=인수(소유 이전), 솔로 공격자=철거(빈땅).

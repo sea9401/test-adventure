@@ -152,6 +152,9 @@ type GameStateValue = {
   refreshOccupations: () => Promise<void>;
   refreshGuildId: () => Promise<void>;
   refreshGameState: () => Promise<void>;
+  // 최초 me/state fetch 가 끝났는가. 타일 정착지처럼 비동기 로드에 의존하는 화면이
+  //   "데이터 아직 없음"과 "진짜 없음"을 구분하려면 필요(딥링크/새로고침 notFound 오발 방지).
+  gameStateLoaded: boolean;
   // 무한 프론티어 — 최고 도달 깊이(기본 2). 사냥터 목록·층 뷰에 전달.
   frontierDepth: number;
   setFrontierDepth: React.Dispatch<React.SetStateAction<number>>;
@@ -306,6 +309,8 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     depth: number;
   } | null>(null);
   const [atRiskGold, setAtRiskGold] = useState<number | null>(null);
+  // 최초 me/state 로드 완료 여부 — 성공/실패 무관하게 끝나면 true(아래 finally).
+  const [gameStateLoaded, setGameStateLoaded] = useState(false);
 
   // 접속자 등록 — 30초마다 POST /api/presence (서버가 이름/직업/칭호를 권위 해석, 클라값 무시).
   // ChatPanel 의 "접속 N명" 목록이 이걸로 채워진다. + 응답 buildVersion 불일치 시 옛 탭 자동 새로고침.
@@ -504,7 +509,12 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
             : null,
         );
       }
-    } catch {}
+    } catch {
+    } finally {
+      // tileSettlements 등 비동기 상태가 채워진(혹은 비어있음이 확정된) 시점. 같은
+      //   continuation 의 setState 들과 배치되어 한 번에 반영된다.
+      setGameStateLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -835,6 +845,7 @@ export function GameStateProvider({ children }: { children: React.ReactNode }) {
     refreshOccupations,
     refreshGuildId,
     refreshGameState,
+    gameStateLoaded,
     frontierDepth,
     setFrontierDepth,
     enterOutpost,

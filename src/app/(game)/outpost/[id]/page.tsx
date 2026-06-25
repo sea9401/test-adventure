@@ -36,6 +36,7 @@ export default function OutpostPage() {
     occupations,
     treasuries,
     tileSettlements,
+    gameStateLoaded,
     refreshOccupations,
   } = useGameState();
 
@@ -51,7 +52,19 @@ export default function OutpostPage() {
       outpost = synthTileOutpost(pos.col, pos.row, ts.tier, ts.name);
     }
   }
-  if (!outpost) notFound();
+  if (!outpost) {
+    // 타일 정착지는 me/state 비동기 로드(tileSettlements)에 의존 — 새로고침/딥링크로 직접
+    //   들어오면 첫 렌더엔 아직 비어 있어 합성이 실패한다. 로드 완료 전까진 notFound 대신
+    //   대기(로드 후에도 없으면 그때 진짜 notFound). 카탈로그 거점·flag off 는 즉시 notFound.
+    if (V2_TILE_WARFARE && isTileOutpostId(id) && !gameStateLoaded) {
+      return (
+        <main className="mx-auto w-full max-w-[720px] p-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
+          불러오는 중…
+        </main>
+      );
+    }
+    notFound();
+  }
 
   return (
     <OutpostView

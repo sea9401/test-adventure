@@ -194,7 +194,23 @@ export type V2EquipmentId =
   | "v2_den_alpha_necklace"
   | "v2_den_mauler_gloves"
   | "v2_den_ghost_boots"
-  | "v2_den_hide_armor";
+  | "v2_den_hide_armor"
+  // 고유 아이템(Signature Uniques) — 잊힌 성소(25)부터. docs/v2-signature-uniques-plan.md.
+  | "v2_sanctum_sig_priest_armor"
+  | "v2_sanctum_sig_priest_necklace"
+  | "v2_sanctum_sig_spire_staff"
+  | "v2_sanctum_sig_priest_boots"
+  | "v2_sanctum_sig_sealed_ring"
+  | "v2_swamp_sig_venom_gloves"
+  | "v2_swamp_sig_slip_boots"
+  | "v2_swamp_sig_scale_armor"
+  | "v2_swamp_sig_fang_dagger"
+  | "v2_swamp_sig_fang_necklace"
+  | "v2_den_sig_alpha_greatsword"
+  | "v2_den_sig_beasthide_armor"
+  | "v2_den_sig_claw_gloves"
+  | "v2_den_sig_tracker_boots"
+  | "v2_den_sig_alpha_necklace";
 
 // 옵션 — 위력/무게 외 flavor 차별화 효과. derive 가 결과 player 에 후-가산.
 //   crit, eva: 퍼센트 정수 (예: crit=2 → critChancePct +2)
@@ -465,6 +481,26 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "우두머리 장신구",
     pieces: ["v2_den_alpha_ring", "v2_den_alpha_necklace"],
     bonus: { mp: 100, spd: 12 },
+  },
+
+  // ── 고유 아이템(Signature) 2피스 세트 — 일부만 세트, 일부는 단품(다양성). 보수적 2피스 보너스.
+  {
+    id: "sig_relic",
+    name: "성물",
+    pieces: ["v2_sanctum_sig_priest_armor", "v2_sanctum_sig_priest_necklace"],
+    bonus: { healPowerPct: 8, magicDef: 12 },
+  },
+  {
+    id: "sig_venomlord",
+    name: "독왕",
+    pieces: ["v2_swamp_sig_venom_gloves", "v2_swamp_sig_slip_boots"],
+    bonus: { eva: 6, crit: 6 },
+  },
+  {
+    id: "sig_predator",
+    name: "포식자",
+    pieces: ["v2_den_sig_alpha_greatsword", "v2_den_sig_beasthide_armor"],
+    bonus: { critMult: 40, hp: 60 },
   },
 ];
 

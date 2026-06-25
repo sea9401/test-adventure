@@ -32,10 +32,12 @@ function seqRng(values: number[]): () => number {
 }
 
 describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => {
-  it("밴드당 흔한 9종(무기 4 + 기본세트 3 + 기본장신구 2; weaponType 8→4 후), 깊이 13~48 커버", () => {
+  it("밴드당 흔한 ≥9종(기본 9 + 강등된 옛 필드 유니크) — 전부 noDrop·비유니크", () => {
+    // 2026-06-26 유니크 재정의: 옛 필드 유니크가 일반(noDrop)으로 강등돼 흔한 풀에 합류 →
+    //   밴드별 9 + 강등분(canyon/lake+2·cave+4·sanctum/swamp+2·den+3).
     expect(BAND_COMMON_POOLS).toHaveLength(6);
     for (const p of BAND_COMMON_POOLS) {
-      expect(p.ids).toHaveLength(9);
+      expect(p.ids.length, `밴드 ${p.minDepth}`).toBeGreaterThanOrEqual(9);
       for (const id of p.ids) {
         expect(V2_EQUIPMENT[id], id).toBeDefined();
         expect(isUnique(V2_EQUIPMENT[id]), `${id} 흔한=비유니크`).toBe(false);
@@ -132,184 +134,84 @@ describe("UNIQUE_FLOOR_POOLS", () => {
   });
 });
 
-describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 마른 협곡)", () => {
+describe("BAND_UNIQUE_POOLS — 게이트 전(7~24) 유니크 풀 비었음(유니크 재정의)", () => {
   const empty = new Set<V2EquipmentId>();
-  const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 7)!;
+  it("마른협곡(7)·얼음호수(13)·심층동굴(19) = ids 빈 풀·chance 0 → 굴림 항상 null(rng 미소비)", () => {
+    for (const minDepth of [7, 13, 19]) {
+      const pool = BAND_UNIQUE_POOLS.find((p) => p.minDepth === minDepth)!;
+      expect(pool.ids, `밴드 ${minDepth}`).toEqual([]);
+      expect(pool.chance, `밴드 ${minDepth} chance`).toBe(0);
+      let calls = 0;
+      const rng = () => {
+        calls++;
+        return 0;
+      };
+      expect(rollBandUniqueDrop(minDepth, empty, rng)).toBeNull();
+      expect(calls, `밴드 ${minDepth} rng 미소비`).toBe(0);
+    }
+  });
+  it("uniqueIdsForDepthRange(7~24) = 빈 배열(게이트 전 유니크 없음)", () => {
+    expect(uniqueIdsForDepthRange(7, 24)).toEqual([]);
+  });
+});
 
-  it("마른 협곡 유니크 = 깊이 7~12, 사이드그레이드 2, 총 0.1% 고정", () => {
-    expect(canyon).toBeDefined();
-    expect(canyon.maxDepth).toBe(12);
-    expect(canyon.ids).toHaveLength(2);
-    // chance 0.001 고정(2026-06-13 ÷5 — 흔한 장비와 별개·어디서나 귀함). 흔한 9종은 BAND_COMMON_POOLS.
-    expect(canyon.chance).toBe(0.001);
+describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~42)", () => {
+  const empty = new Set<V2EquipmentId>();
+  const sanctum = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
+  const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
+  const den = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 37)!;
+
+  it("성소(25~30)·늪지(31~36)·소굴(37~42) = 각 고유 5종, chance 0.0005, 전부 유니크", () => {
+    for (const [pool, min, max] of [
+      [sanctum, 25, 30],
+      [swamp, 31, 36],
+      [den, 37, 42],
+    ] as const) {
+      expect(pool.minDepth).toBe(min);
+      expect(pool.maxDepth).toBe(max);
+      expect(pool.ids).toHaveLength(5);
+      expect(pool.chance).toBe(0.0005);
+      for (const id of pool.ids) {
+        expect(isUnique(V2_EQUIPMENT[id]), `${id} 유니크`).toBe(true);
+      }
+    }
   });
 
-  it("마른 협곡 깊이 매칭 — 6 이하는 null(들판=밴드 전), 7~12 캐년", () => {
-    expect(bandUniquePoolForDepth(6)).toBeNull();
-    expect(bandUniquePoolForDepth(7)).toBe(canyon);
-    expect(bandUniquePoolForDepth(12)).toBe(canyon);
-    // 13+ 는 다음 밴드(얼음 호수). 캐년 풀이 아님만 확인.
-    expect(bandUniquePoolForDepth(13)).not.toBe(canyon);
+  it("깊이 매칭 — 24 이하 빈 풀, 25부터 성소→늪지→소굴, 43+ null(프론티어 끝)", () => {
+    expect(bandUniquePoolForDepth(24)!.ids).toEqual([]); // 심층 동굴(빈 풀)
+    expect(bandUniquePoolForDepth(25)).toBe(sanctum);
+    expect(bandUniquePoolForDepth(30)).toBe(sanctum);
+    expect(bandUniquePoolForDepth(31)).toBe(swamp);
+    expect(bandUniquePoolForDepth(36)).toBe(swamp);
+    expect(bandUniquePoolForDepth(37)).toBe(den);
+    expect(bandUniquePoolForDepth(42)).toBe(den);
+    expect(bandUniquePoolForDepth(43)).toBeNull();
   });
 
-  it("통과 굴림(rng<chance) → 그 밴드 유니크 반환 (pick 0 → 첫 id)", () => {
-    expect(rollBandUniqueDrop(7, empty, seqRng([0, 0]))).toBe(canyon.ids[0]);
+  it("통과 굴림(rng<chance) → 그 밴드 고유 반환(pick 0 → 첫 id)", () => {
+    expect(rollBandUniqueDrop(25, empty, seqRng([0, 0]))).toBe(sanctum.ids[0]);
+    expect(rollBandUniqueDrop(31, empty, seqRng([0, 0]))).toBe(swamp.ids[0]);
+    expect(rollBandUniqueDrop(42, empty, seqRng([0, 0]))).toBe(den.ids[0]);
   });
 
   it("굴림 실패(rng≥chance) → null", () => {
-    expect(rollBandUniqueDrop(7, empty, () => 0.5)).toBeNull();
+    expect(rollBandUniqueDrop(25, empty, () => 0.01)).toBeNull();
   });
 
-  it("밴드 밖 깊이 → rng 미소비하고 null (레거시 롤과 ?? 합성 안전)", () => {
-    let calls = 0;
-    const rng = () => {
-      calls++;
-      return 0;
-    };
-    expect(rollBandUniqueDrop(4, empty, rng)).toBeNull(); // 들판(밴드 전)
-    expect(calls).toBe(0); // 풀 null → rng 호출 없음
+  it("중복 드랍 허용 — 전종 보유해도 재드랍(god-roll 추격)", () => {
+    const owned = new Set<V2EquipmentId>(den.ids);
+    expect(rollBandUniqueDrop(37, owned, seqRng([0, 0]))).toBe(den.ids[0]);
   });
 
-  it("중복 드랍 허용 — 전종 다 보유해도 후보에서 안 빠지고 재드랍(god-roll 추격)", () => {
-    const owned = new Set<V2EquipmentId>(canyon.ids);
-    // 보유분 제외 안 함 → 전 종류 균등 pick. pick 0 → 첫 id 그대로 재드랍.
-    expect(rollBandUniqueDrop(7, owned, seqRng([0, 0]))).toBe(canyon.ids[0]);
-  });
-});
-
-describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 얼음 호수)", () => {
-  const empty = new Set<V2EquipmentId>();
-  const lake = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 13)!;
-
-  it("얼음 호수 유니크 = 깊이 13~18, 사이드그레이드 2, 총 0.1% 고정", () => {
-    expect(lake).toBeDefined();
-    expect(lake.maxDepth).toBe(18);
-    expect(lake.ids).toHaveLength(2);
-    expect(lake.chance).toBe(0.001);
-  });
-
-  it("깊이 매칭 — 12 이하는 호수 아님, 13~18 만 매칭(19+는 다음 밴드)", () => {
-    expect(bandUniquePoolForDepth(12)).not.toBe(lake);
-    expect(bandUniquePoolForDepth(13)).toBe(lake);
-    expect(bandUniquePoolForDepth(18)).toBe(lake);
-    // 19+ 는 다음 밴드(심층 동굴). 호수 풀이 아님만 확인.
-    expect(bandUniquePoolForDepth(19)).not.toBe(lake);
-  });
-
-  it("통과 굴림(rng<chance) → 얼음 호수 유니크 반환", () => {
-    expect(rollBandUniqueDrop(13, empty, seqRng([0, 0]))).toBe(lake.ids[0]);
-  });
-
-  it("마른 협곡과 후보 풀이 겹치지 않음(밴드 분리)", () => {
-    const canyon = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 7)!;
-    const overlap = lake.ids.filter((id) => canyon.ids.includes(id));
-    expect(overlap).toEqual([]);
-  });
-});
-
-describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 심층 동굴)", () => {
-  const empty = new Set<V2EquipmentId>();
-  const cave = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 19)!;
-
-  it("심층 동굴 유니크 = 깊이 19~24, 사이드그레이드 4, 총 0.1% 고정", () => {
-    expect(cave).toBeDefined();
-    expect(cave.maxDepth).toBe(24);
-    expect(cave.ids).toHaveLength(4);
-    expect(cave.chance).toBe(0.001);
-  });
-
-  it("깊이 매칭 — 18 이하는 동굴 아님, 19~24 만 매칭(25+는 다음 밴드)", () => {
-    expect(bandUniquePoolForDepth(18)).not.toBe(cave);
-    expect(bandUniquePoolForDepth(19)).toBe(cave);
-    expect(bandUniquePoolForDepth(24)).toBe(cave);
-    expect(bandUniquePoolForDepth(25)).not.toBe(cave);
-  });
-
-  it("통과 굴림(rng<chance) → 심층 동굴 유니크 반환", () => {
-    expect(rollBandUniqueDrop(19, empty, seqRng([0, 0]))).toBe(cave.ids[0]);
-  });
-
-  it("다른 밴드(협곡·호수)와 후보 풀이 겹치지 않음", () => {
-    const others = BAND_UNIQUE_POOLS.filter((p) => p.minDepth !== 19).flatMap(
-      (p) => p.ids,
-    );
-    const overlap = cave.ids.filter((id) => others.includes(id));
-    expect(overlap).toEqual([]);
-  });
-});
-
-describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 잊힌 성소)", () => {
-  const empty = new Set<V2EquipmentId>();
-  const sanctum = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 25)!;
-
-  it("잊힌 성소 유니크 = 깊이 25~30, 사이드그레이드 2, 총 0.1% 고정", () => {
-    expect(sanctum).toBeDefined();
-    expect(sanctum.maxDepth).toBe(30);
-    expect(sanctum.ids).toHaveLength(2);
-    expect(sanctum.chance).toBe(0.001);
-    expect(sanctum.chance / sanctum.ids.length).toBeCloseTo(0.001 / 2);
-  });
-
-  it("깊이 매칭 — 24 이하는 성소 아님, 25~30 만 매칭(31+는 다음 밴드)", () => {
-    expect(bandUniquePoolForDepth(24)).not.toBe(sanctum);
-    expect(bandUniquePoolForDepth(25)).toBe(sanctum);
-    expect(bandUniquePoolForDepth(30)).toBe(sanctum);
-    expect(bandUniquePoolForDepth(31)).not.toBe(sanctum);
-  });
-
-  it("통과 굴림(rng<chance) → 잊힌 성소 유니크 반환", () => {
-    expect(rollBandUniqueDrop(25, empty, seqRng([0, 0]))).toBe(
-      sanctum.ids[0],
-    );
-  });
-});
-
-describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 리자드 늪지)", () => {
-  const empty = new Set<V2EquipmentId>();
-  const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
-
-  it("리자드 늪지 유니크 = 깊이 31~36, 사이드그레이드 2, 총 0.1% 고정", () => {
-    expect(swamp).toBeDefined();
-    expect(swamp.maxDepth).toBe(36);
-    expect(swamp.ids).toHaveLength(2);
-    expect(swamp.chance).toBe(0.001);
-    expect(swamp.chance / swamp.ids.length).toBeCloseTo(0.001 / 2);
-  });
-
-  it("깊이 매칭 — 30 이하는 늪지 아님, 31~36 만 매칭(37+는 다음 밴드)", () => {
-    expect(bandUniquePoolForDepth(30)).not.toBe(swamp);
-    expect(bandUniquePoolForDepth(31)).toBe(swamp);
-    expect(bandUniquePoolForDepth(36)).toBe(swamp);
-    expect(bandUniquePoolForDepth(37)).not.toBe(swamp);
-  });
-
-  it("통과 굴림(rng<chance) → 리자드 늪지 유니크 반환", () => {
-    expect(rollBandUniqueDrop(31, empty, seqRng([0, 0]))).toBe(swamp.ids[0]);
-  });
-});
-
-describe("BAND_UNIQUE_POOLS / rollBandUniqueDrop (심층 밴드 — 짐승의 소굴)", () => {
-  const empty = new Set<V2EquipmentId>();
-  const den = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 37)!;
-
-  it("짐승의 소굴 유니크 = 깊이 37~42(마지막 밴드=프론티어 끝), 사이드그레이드 3, 총 0.1% 고정", () => {
-    expect(den).toBeDefined();
-    expect(den.maxDepth).toBe(42);
-    expect(den.ids).toHaveLength(3);
-    expect(den.chance).toBe(0.001);
-    expect(den.chance / den.ids.length).toBeCloseTo(0.001 / 3);
-  });
-
-  it("깊이 매칭 — 36 이하는 소굴 아님, 37~42 만 매칭, 43+ 는 null(프론티어 끝)", () => {
-    expect(bandUniquePoolForDepth(36)).not.toBe(den);
-    expect(bandUniquePoolForDepth(37)).toBe(den);
-    expect(bandUniquePoolForDepth(42)).toBe(den);
-    expect(bandUniquePoolForDepth(43)).toBeNull(); // 캡 너머 = 콘텐츠 없음
-  });
-
-  it("통과 굴림(rng<chance) → 짐승의 소굴 유니크 반환", () => {
-    expect(rollBandUniqueDrop(37, empty, seqRng([0, 0]))).toBe(den.ids[0]);
-    expect(rollBandUniqueDrop(42, empty, seqRng([0, 0]))).toBe(den.ids[0]);
+  it("밴드 간 후보 풀이 겹치지 않음", () => {
+    const all = [sanctum, swamp, den];
+    for (const a of all) {
+      const others = all.filter((p) => p !== a).flatMap((p) => p.ids);
+      expect(
+        a.ids.filter((id) => others.includes(id)),
+        `밴드 ${a.minDepth}`,
+      ).toEqual([]);
+    }
   });
 });
 

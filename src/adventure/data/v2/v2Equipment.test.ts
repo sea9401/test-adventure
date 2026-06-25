@@ -194,13 +194,14 @@ function weaponTypeTiersWithStarter(wt: V2WeaponType): V2EquipTier[] {
   return [...tiers].sort((a, b) => a - b);
 }
 
-describe("V2_EQUIPMENT grid (104종 — 6슬롯)", () => {
+describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
   it("정규 그리드 29종 + 유니크 18 + 전문화 스타터 3 (제작전용 0; 장갑/신발 중갑 폐기 후)", () => {
     // 누적 정리(무기 8→4 #823 · 세트 38→12 #824 · 장갑/신발 중갑 폐기 · 들판 유니크 6 삭제) 후 카탈로그 104:
     //   정규 그리드 29 = 비무기 18(갑옷 6 + 장갑 3 + 신발 3 + 반지 3 + 목걸이 3) + 무기 11
     //     (대검 3·지팡이 3·활 3 + 단검 정규 2). 장갑/신발 중갑 정규 6자루 제거(경갑 단일).
-    //   전문화 스타터 3 · 밴드 흔한(noDrop) 54 · 유니크 18(밴드 15 + 보스 3).
-    // 총 104 = 정규 29 + 유니크 18 + 전문화 스타터 3 + 밴드 흔한 54.
+    //   전문화 스타터 3 · noDrop 69(밴드 흔한 54 + 강등된 옛 필드 유니크 15) · 유니크 18
+    //     (고유 아이템 15 + 보스 3). 2026-06-26 유니크 재정의: 옛 필드 유니크 15 → noDrop(일반)·
+    //     신규 고유 아이템 15 → unique. 총 119 = 정규 29 + 유니크 18 + 전문화 스타터 3 + noDrop 69.
     const all = Object.values(V2_EQUIPMENT);
     expect(
       all.filter(
@@ -211,7 +212,7 @@ describe("V2_EQUIPMENT grid (104종 — 6슬롯)", () => {
     expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(18);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
-    expect(all.filter((i) => i.noDrop), "밴드 흔한(드랍 전용)").toHaveLength(54);
+    expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(69);
   });
 
   it("상점 구매=스타터(T1)만, 판매는 전 티어 — shopPriceOf vs shopPriceForSell", () => {
@@ -312,7 +313,8 @@ describe("V2_EQUIPMENT grid (104종 — 6슬롯)", () => {
               i.concept === concept &&
               !isUnique(i) &&
               !i.craftOnly &&
-              !i.starterOnly,
+              !i.starterOnly &&
+              !i.noDrop, // 정규 그리드(T1→T5)만 — 밴드 흔한·강등 사이드그레이드(noDrop)는 제외.
           )
           .sort((a, b) => a.tier - b.tier)
           .map((i) => i.power);
@@ -327,7 +329,8 @@ describe("V2_EQUIPMENT grid (104종 — 6슬롯)", () => {
             i.weaponType === wt &&
             !isUnique(i) &&
             !i.craftOnly &&
-            !i.starterOnly,
+            !i.starterOnly &&
+            !i.noDrop, // 정규 그리드만 — 밴드 흔한·강등 사이드그레이드(noDrop) 제외.
         )
         .sort((a, b) => a.tier - b.tier)
         .map((i) => i.power);

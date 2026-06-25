@@ -13,7 +13,12 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
-import { REPAIR_GOLD_PER_HP } from "@/adventure/data/v2/outpostSiege";
+import { FORT_HP_PER_REPAIR_KIT } from "@/adventure/data/v2/outpostSiege";
+import {
+  SETTLEMENT_MATERIAL_ID,
+  WALL_REPAIR_KIT_ID,
+  WALL_REPAIR_KIT_COST,
+} from "@/adventure/data/v2/settlementMaterials";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
 import { V2VillagePanel } from "./V2VillagePanel";
@@ -124,6 +129,27 @@ export function OutpostView({
   // 성벽 수동 수리 — 진행 상태 + 결과 메시지(성공/실패). 점령 길드 멤버 전용.
   const [repairing, setRepairing] = useState(false);
   const [repairResult, setRepairResult] = useState<string | null>(null);
+  // 성벽 수리 키트 + 재료 보유수 — /me/inventory 로 초기화, 조합/수리 응답으로 갱신.
+  const [combining, setCombining] = useState(false);
+  const [repairKits, setRepairKits] = useState(0);
+  const [kitTimber, setKitTimber] = useState(0);
+  const [kitOre, setKitOre] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/v2/me/inventory")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive) return;
+        const m = (j?.materials ?? {}) as Record<string, number>;
+        setRepairKits(Number(m[WALL_REPAIR_KIT_ID]) || 0);
+        setKitTimber(Number(m[SETTLEMENT_MATERIAL_ID.timber]) || 0);
+        setKitOre(Number(m[SETTLEMENT_MATERIAL_ID.ironOre]) || 0);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -416,7 +442,8 @@ export function OutpostView({
     }
   }
 
-  // 성벽 수동 수리 — 점령 길드 금고 골드로 결손분 보강(자동 수리 폐지 대체). 점령 길드 멤버 전용.
+  // 성벽 수동 수리 — 점령 길드원이 본인 인벤의 성벽 수리 키트로 결손분 보강(키트 1개=+100 HP).
+  //   옛 골드 수리 폐지 대체(능동 방어). 키트가 곧 방어 비용.
   async function attemptRepair() {
     setRepairing(true);
     setRepairResult(null);
@@ -432,8 +459,8 @@ export function OutpostView({
             fortHp: number;
             fortMaxHp: number;
             repairedHp: number;
-            goldSpent: number;
-            guildGold: number;
+            kitsSpent: number;
+            kitsLeft: number;
           }
         | { ok: false; error: string }
         | null;
@@ -445,15 +472,16 @@ export function OutpostView({
         setRepairResult(raidErrorMsg(json.error));
         return;
       }
+      setRepairKits(json.kitsLeft);
       if (json.repairedHp > 0) {
         setRepairResult(
-          `성벽 +${json.repairedHp.toLocaleString()} 수리 (−${json.goldSpent.toLocaleString()} 골드 · 금고 ${json.guildGold.toLocaleString()})`,
+          `성벽 +${json.repairedHp.toLocaleString()} 수리 (수리 키트 ${json.kitsSpent}개 소비 · 남은 키트 ${json.kitsLeft}개)`,
         );
       } else {
         setRepairResult(
           json.fortHp >= json.fortMaxHp
             ? "이미 성벽이 가득 찼습니다."
-            : "길드 금고 골드가 부족합니다.",
+            : "성벽 수리 키트가 없습니다 — 통나무·철광석으로 조합하세요.",
         );
       }
       // 성벽 HP 갱신을 헤더 바에 즉시 반영.
@@ -462,6 +490,43 @@ export function OutpostView({
       setRepairResult(`network: ${(err as Error).message}`);
     } finally {
       setRepairing(false);
+    }
+  }
+
+  // 성벽 수리 키트 조합 — 통나무 N + 철광석 N → 키트 1개(/api/v2/me/repair-kit-combine).
+  async function attemptCombineKit() {
+    setCombining(true);
+    setRepairResult(null);
+    try {
+      const res = await fetch("/api/v2/me/repair-kit-combine", {
+        method: "POST",
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { ok: true; timberLeft: number; oreLeft: number; kits: number }
+        | { ok: false; error: string }
+        | null;
+      if (!json) {
+        setRepairResult(`응답 오류 (http ${res.status})`);
+        return;
+      }
+      if (!json.ok) {
+        setRepairResult(
+          json.error === "insufficient_material"
+            ? `재료 부족 — 통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 필요`
+            : `조합 실패 (${json.error})`,
+        );
+        return;
+      }
+      setKitTimber(json.timberLeft);
+      setKitOre(json.oreLeft);
+      setRepairKits(json.kits);
+      setRepairResult(
+        `성벽 수리 키트 +1 조합 (통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} · 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 소비 · 보유 키트 ${json.kits}개)`,
+      );
+    } catch (err) {
+      setRepairResult(`network: ${(err as Error).message}`);
+    } finally {
+      setCombining(false);
     }
   }
 
@@ -529,7 +594,7 @@ export function OutpostView({
               protectedUntil={occupation.protectedUntil}
             />
           )}
-        {/* 성벽 수동 수리 — 점령 길드 멤버만. 자동 수리 폐지 대체(능동 방어). */}
+        {/* 성벽 수동 수리 — 점령 길드 멤버만. 성벽 수리 키트(통나무3+철광석3 조합) 소비. 능동 방어. */}
         {V2_SETTLEMENT_WARFARE &&
           ownByMyGuild &&
           occupation?.fortHp != null &&
@@ -539,17 +604,31 @@ export function OutpostView({
                 <button
                   type="button"
                   onClick={attemptRepair}
-                  disabled={repairing}
+                  disabled={repairing || repairKits <= 0}
                   className="w-full rounded-md border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950"
                 >
                   {repairing
                     ? "수리 중…"
-                    : `성벽 수리 — 풀수리 시 최대 ${(
-                        (occupation.fortMaxHp - occupation.fortHp) *
-                        REPAIR_GOLD_PER_HP
-                      ).toLocaleString()} 골드 (길드 금고)`}
+                    : repairKits <= 0
+                      ? "성벽 수리 — 수리 키트 없음 (아래에서 조합)"
+                      : `성벽 수리 — 수리 키트 사용 (1개당 +${FORT_HP_PER_REPAIR_KIT} HP · 보유 ${repairKits}개)`}
                 </button>
               )}
+              {/* 수리 키트 조합 — 통나무 N + 철광석 N → 키트 1개. 성벽이 가득 차도 미리 비축 가능. */}
+              <button
+                type="button"
+                onClick={attemptCombineKit}
+                disabled={
+                  combining ||
+                  kitTimber < WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber] ||
+                  kitOre < WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]
+                }
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+              >
+                {combining
+                  ? "조합 중…"
+                  : `수리 키트 조합 — 🪵 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 🪨 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 키트 1 (보유 🪵 ${kitTimber} · 🪨 ${kitOre})`}
+              </button>
               {repairResult && (
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   {repairResult}

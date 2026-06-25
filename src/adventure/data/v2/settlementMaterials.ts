@@ -23,6 +23,24 @@ export const SETTLEMENT_MATERIALS = {
   },
 } as const;
 
+// ── 성벽 수리 키트 ── 통나무·철광석으로 짜는 수리 소모품(드랍 재료 sink). 점령 거점 성벽 수리에
+//   골드 대신 소비한다(키트 1개 = 성벽 HP 회복량은 outpostSiege FORT_HP_PER_REPAIR_KIT 다이얼).
+//   조합: 통나무 N + 철광석 N → 키트 1개(/api/v2/me/repair-kit-combine). V2_MATERIALS 등재로
+//   인벤/거래소 노출. NPC 환금은 비등재(유저 거래 전용).
+export const WALL_REPAIR_KIT_ID = "v2_wall_repair_kit";
+export const WALL_REPAIR_KIT_COST: Record<string, number> = {
+  [SETTLEMENT_MATERIAL_ID.timber]: 3,
+  [SETTLEMENT_MATERIAL_ID.ironOre]: 3,
+};
+export const WALL_REPAIR_KIT_MATERIAL = {
+  [WALL_REPAIR_KIT_ID]: {
+    id: WALL_REPAIR_KIT_ID,
+    name: "성벽 수리 키트",
+    description:
+      "통나무 3 + 철광석 3으로 짜 맞춘 수리 키트. 점령 거점 성벽을 1개당 100 보강한다. 사냥 드랍 재료로 만들어 능동 방어에 쓴다.",
+  },
+} as const;
+
 // 드랍 종류 → 정착지 재화 키(기부 적립 매핑·PR-2b 가 사용). 통나무→crop / 철광석→ore.
 export const SETTLEMENT_MATERIAL_TO_KIND: Record<string, ProductionKind> = {
   [SETTLEMENT_MATERIAL_ID.timber]: "crop",

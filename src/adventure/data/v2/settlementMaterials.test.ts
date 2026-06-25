@@ -40,12 +40,15 @@ describe("정착지 재료 — 통나무/철광석 독립 드랍", () => {
   });
 
   it("부분 통과 — 통나무만 / 철광석만", () => {
-    // timber rng < 0.05 통과, ironOre rng ≥ 0.03 실패
-    expect(rollSettlementMaterialDrops(seqRng([0.04, 0.5]))).toEqual({
+    // 드랍률 다이얼에 무관하게 — pct 미만이면 통과, pct 이상이면 실패.
+    const tp = SETTLEMENT_MATERIAL_DROP_PCT[timber];
+    const op = SETTLEMENT_MATERIAL_DROP_PCT[ironOre];
+    // timber 통과(< tp), ironOre 실패(= op)
+    expect(rollSettlementMaterialDrops(seqRng([tp - 1e-9, op]))).toEqual({
       [timber]: 1,
     });
-    // timber 실패, ironOre 통과
-    expect(rollSettlementMaterialDrops(seqRng([0.5, 0.02]))).toEqual({
+    // timber 실패(= tp), ironOre 통과(< op)
+    expect(rollSettlementMaterialDrops(seqRng([tp, op - 1e-9]))).toEqual({
       [ironOre]: 1,
     });
   });

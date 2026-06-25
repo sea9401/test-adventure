@@ -25,6 +25,7 @@ import {
   V2_TILE_PRODUCTION,
 } from "@/adventure/data/v2/settlementWarfareConfig";
 import { guildColorHex } from "@/adventure/data/guild-colors";
+import { guildEmblemIcon } from "@/adventure/data/guild-emblems-icons";
 import {
   TILE_BOARD_SIZE,
   TILE_OUTPOST_AT,
@@ -60,6 +61,7 @@ type OccupationLite = {
   occupiedByUserId: string | null;
   occupiedByGuildId: number | null;
   occupiedByGuildName: string | null;
+  occupiedByGuildEmblem?: string | null;
   occupiedByGuildColor?: string | null;
   taxRate?: string | null;
   villageName?: string | null;
@@ -225,8 +227,11 @@ export function TileMap({
                     ? guildColorHex(occ.occupiedByGuildColor ?? null)
                     : null;
                 const fill = guildColor ?? ownerColor;
-                // 모든 거점 = 마을 아이콘으로 통일(타입/지역중심 구분 폐지).
-                const Glyph = House;
+                // 길드 점령 거점 = 그 길드 엠블럼, 그 외(NPC/무소속) = 기본 마을 아이콘.
+                const Glyph =
+                  occ?.occupiedByGuildId != null
+                    ? guildEmblemIcon(occ.occupiedByGuildEmblem)
+                    : House;
                 return (
                   <button
                     key={k}

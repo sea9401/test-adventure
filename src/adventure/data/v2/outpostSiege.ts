@@ -5,6 +5,8 @@
 // (lazy 계산) 지속 압박이 있어야 함락한다. 비점령 NPC 거점은 단판 점령(성벽 없음).
 
 import type { OutpostTier } from "./types";
+import { isStrongholdTile } from "./tileConfig";
+import { STRONGHOLD_FORT_HP_MULT } from "./settlementWarfareConfig";
 
 // 다이얼 (라이브 실측 후 캘리브) ───────────────────────────────────────────
 // 성벽 최대 HP — 단계(tier)별. 단계 오를수록 두꺼움 → 상위 거점은 한참 걸려야 함락.
@@ -19,6 +21,14 @@ export const FORT_MAX_HP_BY_TIER: Record<OutpostTier, number> = {
 };
 export function fortMaxHpForTier(tier: OutpostTier): number {
   return FORT_MAX_HP_BY_TIER[tier] ?? FORT_MAX_HP_BY_TIER[1];
+}
+
+// 타일 정착지 성벽 최대 HP — 요새터(stronghold) 칸 위면 ×STRONGHOLD_FORT_HP_MULT(P3). 그 외엔
+//   tier 기본값. ⚠️ tier 로부터 매번 재계산(저장값 재곱 금지)이라 멱등 — found/promote/함락
+//   재설정 어디서 불러도 일관(복리 누적 없음). 카탈로그/비-타일 거점은 이 함수를 쓰지 않는다.
+export function tileFortMaxHp(col: number, row: number, tier: OutpostTier): number {
+  const base = fortMaxHpForTier(tier);
+  return Math.round(base * (isStrongholdTile(col, row) ? STRONGHOLD_FORT_HP_MULT : 1));
 }
 // 기본/폴백 성벽 HP(tier 미상). 옛 상수 호환 — tier1(개척마을) 값.
 export const FORT_MAX_HP = 900;

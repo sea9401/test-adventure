@@ -12,7 +12,9 @@ import {
   isOutpostProtected,
   repairHpFromGold,
   siegeWinsToFall,
+  tileFortMaxHp,
 } from "./outpostSiege";
+import { STRONGHOLD_FORT_HP_MULT } from "./settlementWarfareConfig";
 
 describe("currentFortHp (성벽 lazy 재생)", () => {
   const t0 = new Date("2026-06-08T00:00:00.000Z");
@@ -131,5 +133,33 @@ describe("siegeWinsToFall (함락까지 승수 표기)", () => {
     expect(siegeWinsToFall(0, BASE_SIEGE_DAMAGE)).toBe(1);
     expect(siegeWinsToFall(1, BASE_SIEGE_DAMAGE)).toBe(1);
     expect(siegeWinsToFall(300, 0)).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("tileFortMaxHp (요새터 ×1.15·P3)", () => {
+  // 요새터 배치 칸 (8,4)(7,7) — tileConfig.TILE_TERRAIN.
+  it("요새터 칸 = tier 기본 × STRONGHOLD_FORT_HP_MULT(반올림)", () => {
+    for (const tier of [1, 2, 3, 4] as const) {
+      const expected = Math.round(fortMaxHpForTier(tier) * STRONGHOLD_FORT_HP_MULT);
+      expect(tileFortMaxHp(8, 4, tier)).toBe(expected);
+      expect(tileFortMaxHp(7, 7, tier)).toBe(expected);
+    }
+    expect(tileFortMaxHp(8, 4, 1)).toBe(1035); // round(900*1.15)
+    expect(tileFortMaxHp(8, 4, 4)).toBe(5175); // round(4500*1.15)
+  });
+
+  it("비-요새터 칸 = tier 기본(보정 없음)", () => {
+    for (const tier of [1, 2, 3, 4] as const) {
+      expect(tileFortMaxHp(0, 0, tier)).toBe(fortMaxHpForTier(tier)); // 빈 땅
+      expect(tileFortMaxHp(1, 6, tier)).toBe(fortMaxHpForTier(tier)); // 교역로(요새터 아님)
+    }
+  });
+
+  it("멱등 — tier 로부터 단일 곱(저장값 재곱 = 복리 누적 아님)", () => {
+    // 헬퍼 출력을 다시 ×1.15 하면 복리(틀린 값). 헬퍼는 항상 base 에서 한 번만 곱한다.
+    const once = tileFortMaxHp(8, 4, 1);
+    const compounded = Math.round(once * STRONGHOLD_FORT_HP_MULT);
+    expect(once).not.toBe(compounded);
+    expect(tileFortMaxHp(8, 4, 1)).toBe(once); // 반복 호출 동일(결정론)
   });
 });

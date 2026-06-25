@@ -42,6 +42,17 @@ export const RAID_TREASURY_STEAL_FRAC = 0.5;
 // 정복 = 수비 큐 전원 격파 + 성벽(fortHp) 누적 공성 완파. 성벽 메커닉은 outpostSiege.ts(FORT_*)
 //   재활용. 함락 시 마을 tier 1단계 강등(대도시→도시→마을, 최하=강등 없이 이관), 금고는 그대로.
 
+// ── 전략 지형 보정 (P3) — docs/v2-map-terrain-plan.md §2.4/2.5/2.6 ─────────
+// 타일 정착지가 특수 지형 칸 위(요새터/교역로) 또는 인접(호수)일 때만 적용. 카탈로그 거점 무관.
+// 요새터(stronghold) — 그 칸 정착지 fortMaxHp 배수(outpostSiege.tileFortMaxHp).
+export const STRONGHOLD_FORT_HP_MULT = 1.15;
+// 교역로(trade_route) — 영주 세금 "발생"(hunt goldTaxed) 배수. 수확(harvest) 곱 금지(골드 인플레).
+export const TRADE_ROUTE_TAX_MULT = 1.15;
+// 교역로 — 약탈당할 때 금고 탈취 배수(양날: 잘 벌지만 잘 털림).
+export const TRADE_ROUTE_RAID_LOSS_MULT = 1.1;
+// 호수(lake) — 인접 정착지가 공격(공성/약탈)당할 때 공격자 효율 배수(천연 해자·방어 명당).
+export const LAKE_ATTACKER_PENALTY_MULT = 0.9;
+
 // ── 영주 + 세금 수확 (PR-4) ───────────────────────────────────────────────
 export const LORD_HARVEST_COOLDOWN_MS = 6 * 3_600_000; // 영주 세금 수확 6h 쿨다운
 export const LORD_PERSONAL_CUT_FRAC = 0.1; // 수확분 10% 영주 개인 / 90% 길드 금고

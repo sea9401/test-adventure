@@ -57,8 +57,10 @@ import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
+  TRADE_ROUTE_TAX_MULT,
 } from "@/adventure/data/v2/settlementWarfareConfig";
-import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { tileOutpostId, parseTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { isTradeRouteTile } from "@/adventure/data/v2/tileConfig";
 import {
   RARE_MAP_CAP,
   RARE_MAP_KINDS,
@@ -779,6 +781,14 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     goldGross > 0
   ) {
     goldTaxed = Math.max(1, Math.floor(goldGross * taxRate));
+    // 교역로(trade_route) 칸 정착지 = 세금 발생 ×1.15(P3). 발생 지점이라 사냥꾼 net 에서 더 떼어
+    //   금고로 갈 뿐 새 골드를 찍지 않음(보존). 수확(harvest)엔 곱 안 함. 비-타일/비-교역로 무변경.
+    if (tileTaxOutpostId) {
+      const pos = parseTileOutpostId(tileTaxOutpostId);
+      if (pos && isTradeRouteTile(pos.col, pos.row)) {
+        goldTaxed = Math.floor(goldTaxed * TRADE_ROUTE_TAX_MULT);
+      }
+    }
     if (goldTaxed > goldGross) goldTaxed = goldGross;
   }
   const goldNet = goldGross - goldTaxed;

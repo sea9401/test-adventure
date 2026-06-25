@@ -8,6 +8,9 @@ import {
   HOTSPRING_BENEFIT_COORDS,
   tileFeatureAt,
   isTileSettleable,
+  isStrongholdTile,
+  isTradeRouteTile,
+  isLakeAdjacentTile,
   tileKey,
   tileNeighbors4,
   areTilesAdjacent4,
@@ -33,21 +36,32 @@ describe("TILE_TERRAIN — 배치 데이터", () => {
     }
   });
 
-  it("산맥·호수·온천은 정착 불가(settleable=false), 협곡은 정착 가능(true)", () => {
+  it("산맥·호수·온천은 정착 불가(false), 협곡·요새터·교역로는 정착 가능(true)", () => {
     for (const f of Object.values(TILE_TERRAIN)) {
       if (f.kind === "mountain" || f.kind === "lake" || f.kind === "hotspring") {
         expect(f.settleable).toBe(false);
       }
-      if (f.kind === "canyon") {
+      if (
+        f.kind === "canyon" ||
+        f.kind === "stronghold" ||
+        f.kind === "trade_route"
+      ) {
         expect(f.settleable).toBe(true);
       }
     }
   });
 
-  it("배치 종류는 산맥/협곡/호수/온천만(요새터/교역로는 미배치)", () => {
+  it("배치 종류는 산맥/협곡/호수/온천/요새터/교역로", () => {
     const kinds = new Set(Object.values(TILE_TERRAIN).map((f) => f.kind));
     for (const kind of kinds) {
-      expect(["mountain", "canyon", "lake", "hotspring"]).toContain(kind);
+      expect([
+        "mountain",
+        "canyon",
+        "lake",
+        "hotspring",
+        "stronghold",
+        "trade_route",
+      ]).toContain(kind);
     }
   });
 
@@ -67,12 +81,39 @@ describe("tileFeatureAt / isTileSettleable — 헬퍼", () => {
     expect(tileFeatureAt(0, 0)).toBeNull();
   });
 
-  it("빈 칸·협곡은 settleable, 산맥·호수·온천은 not", () => {
+  it("빈 칸·협곡·요새터·교역로는 settleable, 산맥·호수·온천은 not", () => {
     expect(isTileSettleable(0, 0)).toBe(true); // 빈 땅
     expect(isTileSettleable(2, 4)).toBe(true); // 협곡(길목)
+    expect(isTileSettleable(8, 4)).toBe(true); // 요새터(ON-tile)
+    expect(isTileSettleable(1, 6)).toBe(true); // 교역로(ON-tile)
     expect(isTileSettleable(2, 1)).toBe(false); // 산맥
     expect(isTileSettleable(6, 6)).toBe(false); // 호수
     expect(isTileSettleable(1, 1)).toBe(false); // 온천(아우라 타일)
+  });
+});
+
+describe("전략 지형 술어 — 요새터/교역로/호수 인접 (P3)", () => {
+  it("isStrongholdTile — (8,4)(7,7)만 true", () => {
+    expect(isStrongholdTile(8, 4)).toBe(true);
+    expect(isStrongholdTile(7, 7)).toBe(true);
+    expect(isStrongholdTile(1, 6)).toBe(false); // 교역로
+    expect(isStrongholdTile(0, 0)).toBe(false); // 빈 땅
+  });
+
+  it("isTradeRouteTile — (1,6)만 true", () => {
+    expect(isTradeRouteTile(1, 6)).toBe(true);
+    expect(isTradeRouteTile(8, 4)).toBe(false); // 요새터
+    expect(isTradeRouteTile(0, 0)).toBe(false);
+  });
+
+  it("isLakeAdjacentTile — 호수(6,6)(7,6) 4-인접만 true", () => {
+    // (7,7)은 호수(7,6) 인접 = 의도된 수변 요새 시너지.
+    expect(isLakeAdjacentTile(7, 7)).toBe(true); // (7,6) 호수에 인접
+    expect(isLakeAdjacentTile(5, 6)).toBe(true); // (6,6) 호수에 인접
+    expect(isLakeAdjacentTile(6, 5)).toBe(true); // (6,6) 호수에 인접
+    expect(isLakeAdjacentTile(8, 4)).toBe(false); // 요새터·호수 비인접
+    expect(isLakeAdjacentTile(0, 0)).toBe(false);
+    expect(isLakeAdjacentTile(8, 8)).toBe(false); // 먼 구석·호수 비인접
   });
 });
 

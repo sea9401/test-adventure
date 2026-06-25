@@ -6,8 +6,8 @@ import { ReplayBattleScene } from "./ReplayBattleScene";
 import type { StoredReplayEnvelope } from "@/adventure/data/v2/replayPayload";
 import type { Gender } from "@/adventure/profile/avatars";
 
-// 보유 거점 전용 — 이 거점에 행해진 최근 공격 기록 (공성/NPC 정기 공격, 승패 포함).
-// 점령자 본인 또는 점령 길드 멤버일 때만 OutpostView 가 렌더.
+// 이 거점에 행해진 최근 공격 기록 (공성/NPC 정기 공격, 승패 포함).
+// 소유 탭과 비-소유(공격자 정찰) 탭 양쪽에서 렌더 — API 는 읽기 전용·인증만 게이트.
 // hasReplay 행은 "전투 보기"로 리플레이 단건 lazy 조회 (한 번에 하나만 펼침).
 
 type AttackRow = {

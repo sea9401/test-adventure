@@ -31,10 +31,11 @@ export const SETTLEMENT_MATERIAL_TO_KIND: Record<string, ProductionKind> = {
 
 // 🔧 다이얼 — 사냥 1판(승리)당 독립 드랍 확률(0~1 분수). 희소(자급자족은 한참 걸리게 →
 //   거래소 수요 유도). qty=1 고정이라 확률 = 판당 기대 개수. 라이브 튜닝 한 줄.
-//   현 수치: 통나무 5%(≈village→city 통나무 400개=8천승)·철광석 3%(≈250개=8.3천승).
+//   ⚠️ 값은 분수(rng()<값), 퍼센트 아님 — 0.003 = 0.3%(강화석/재련석 _DROP_PCT 와 단위 다름).
+//   현 수치: 통나무·철광석 각 0.3%(≈1개당 333승).
 export const SETTLEMENT_MATERIAL_DROP_PCT: Record<string, number> = {
-  [SETTLEMENT_MATERIAL_ID.timber]: 0.05,
-  [SETTLEMENT_MATERIAL_ID.ironOre]: 0.03,
+  [SETTLEMENT_MATERIAL_ID.timber]: 0.003,
+  [SETTLEMENT_MATERIAL_ID.ironOre]: 0.003,
 };
 
 // 독립 드랍 굴림(순수). rng()∈[0,1). 강화석/재련석 롤 패턴 미러. 레어맵 배수 미적용.

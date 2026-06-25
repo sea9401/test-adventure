@@ -4,6 +4,7 @@ import { guilds, outpostClaimAttempts } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
+import { isTileOutpostId } from "@/adventure/data/v2/tileWarfare";
 
 // GET /api/v2/outpost/attacks?outpostId=...
 //
@@ -41,7 +42,12 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const outpostId = url.searchParams.get("outpostId");
-  if (!outpostId || !OUTPOSTS.some((o) => o.id === outpostId)) {
+  // 카탈로그 거점 + 타일 정착지(tile:col,row) 둘 다 허용 — 타일은 OUTPOSTS 에 없어
+  //   카탈로그 검증만 하면 타일 거점 공격 기록이 400 으로 막혀 빈 목록으로 보였다(버그).
+  if (
+    !outpostId ||
+    !(OUTPOSTS.some((o) => o.id === outpostId) || isTileOutpostId(outpostId))
+  ) {
     return Response.json({ ok: false, error: "bad_outpost" }, { status: 400 });
   }
 

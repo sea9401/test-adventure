@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { currentLocationLabel } from "./currentLocation";
+import { currentLocationLabel, standingTileLocation } from "./currentLocation";
 import { tileSettlementName } from "@/adventure/data/v2/tileConfig";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 
@@ -69,5 +69,39 @@ describe("currentLocationLabel — 좌상단 위치 라벨(서 있는 타일 기
     });
     expect(label).not.toBe("리베라");
     expect(label).toBe("빈 땅 (1, 3)");
+  });
+});
+
+describe("standingTileLocation — 모험 탭 현 위치 카드 분류", () => {
+  it("tilePos 없음 → offboard(거점 요약 폴백)", () => {
+    expect(
+      standingTileLocation({ tilePos: null, tileSettlements: [] }),
+    ).toEqual({ kind: "offboard" });
+  });
+
+  it("거점 칸(리베라 4,4) → outpost", () => {
+    expect(
+      standingTileLocation({ tilePos: { col: 4, row: 4 }, tileSettlements: [] }),
+    ).toEqual({ kind: "outpost", outpostId: "neutral_haven_central" });
+  });
+
+  it("개척 정착지 칸 → settlement(객체 그대로 실어줌)", () => {
+    const s = { col: 2, row: 6, name: "노원역", tier: "village" };
+    expect(
+      standingTileLocation({
+        tilePos: { col: 2, row: 6 },
+        tileSettlements: [s, { col: 0, row: 0, name: "딴마을", tier: "frontier" }],
+      }),
+    ).toEqual({ kind: "settlement", settlement: s });
+  });
+
+  it("빈 땅(3,4) → empty (리베라 박힘 버그 회귀 가드)", () => {
+    // 유저 리포트: 빈 땅 (3,4) 에서 카드가 리베라로 떴다 → empty 로 분류돼야 한다.
+    expect(
+      standingTileLocation({
+        tilePos: { col: 3, row: 4 },
+        tileSettlements: [{ col: 2, row: 6, name: "노원역", tier: "village" }],
+      }),
+    ).toEqual({ kind: "empty", col: 3, row: 4 });
   });
 });

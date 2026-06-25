@@ -106,8 +106,11 @@ export function OutpostView({
   // 내 길드 직책 — 정착지 관리 탭(마스터/부마스터 전용) 게이트. 같은 응답에서.
   const [guildRole, setGuildRole] = useState<string | null>(null);
   const [guildIsMaster, setGuildIsMaster] = useState(false);
-  // 영주(거점 1인) — 헤더에 "영주 X · 세금 N" 표기용. lord GET 이 응답(없으면 null).
-  const [lord, setLord] = useState<{ name: string } | null>(null);
+  // 영주(거점 1인) + 거점 금고(쌓인 세금) — 헤더 표기용. lord GET 에서 둘 다(없으면 null).
+  const [lordInfo, setLordInfo] = useState<{
+    lordName: string | null;
+    treasury: number;
+  } | null>(null);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -131,10 +134,11 @@ export function OutpostView({
     };
   }, []);
 
-  // 영주 — 점령된 거점만. lord GET(설전 off 면 404 → null). 세금(treasuryGold)은 prop 사용.
+  // 영주 + 거점 금고(세금) — 점령된 거점만. lord GET 은 멤버 게이트 없이 남의 길드 거점도
+  //   영주명·세금을 공개(스카우팅 정보). 세금도 이 응답값을 써 모든 거점에 표기. 설전 off 면 404 → null.
   useEffect(() => {
     if (!occupation) {
-      setLord(null);
+      setLordInfo(null);
       return;
     }
     let alive = true;
@@ -142,7 +146,14 @@ export function OutpostView({
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (!alive) return;
-        setLord(j?.lord?.name ? { name: j.lord.name as string } : null);
+        setLordInfo(
+          j?.ok
+            ? {
+                lordName: j.lord?.name ?? null,
+                treasury: Math.max(0, Number(j.treasuryGold ?? 0)),
+              }
+            : null,
+        );
       })
       .catch(() => {});
     return () => {
@@ -396,9 +407,10 @@ export function OutpostView({
         </div>
         {occupation && (
           <p className="text-xs text-zinc-600 dark:text-zinc-400">
-            영주 <strong>{lord?.name ?? "없음"}</strong>
+            영주 <strong>{lordInfo?.lordName ?? "없음"}</strong>
             <span className="ml-1 tabular-nums">
-              · 세금 {(treasuryGold ?? 0).toLocaleString()} G
+              · 세금 {(lordInfo?.treasury ?? treasuryGold ?? 0).toLocaleString()}{" "}
+              G
             </span>
           </p>
         )}

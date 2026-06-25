@@ -103,6 +103,22 @@ describe("applyVigorRecovery", () => {
     const r = applyVigorRecovery({ hp: 0.5, mp: 0.5, at: 1000 }, 500);
     expect(r).toEqual({ hp: 0.5, mp: 0.5, at: 500 });
   });
+  it("fullRecoveryMs 절반(온천 가속)이면 같은 경과에 회복분 2배", () => {
+    const base = { hp: 0.2, mp: 0.2, at: 1 };
+    const now = 1 + WAR_VIGOR_FULL_RECOVERY_MS / 4; // 기본 분모 → +0.25
+    const normal = applyVigorRecovery(base, now);
+    const boosted = applyVigorRecovery(base, now, WAR_VIGOR_FULL_RECOVERY_MS / 2);
+    expect(normal.hp).toBeCloseTo(0.45, 6); // 0.2 + 0.25
+    expect(boosted.hp).toBeCloseTo(0.7, 6); // 0.2 + 0.5
+    expect(boosted.hp - base.hp).toBeCloseTo(2 * (normal.hp - base.hp), 6);
+  });
+  it("fullRecoveryMs 생략 = 기본값 — 기존 콜러 동작 불변(byte-identical)", () => {
+    const base = { hp: 0.5, mp: 0.5, at: 1 };
+    const now = 1 + WAR_VIGOR_FULL_RECOVERY_MS / 2;
+    expect(applyVigorRecovery(base, now)).toEqual(
+      applyVigorRecovery(base, now, WAR_VIGOR_FULL_RECOVERY_MS),
+    );
+  });
 });
 
 describe("vigorAfterBattle", () => {

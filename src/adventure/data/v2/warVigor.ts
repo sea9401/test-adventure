@@ -62,11 +62,18 @@ export function parseWarVigor(raw: unknown): WarVigor {
 
 // 치료소 회복 적용 — at 이후 경과시간만큼 hp/mp 회복하고 갱신시각을 now 로(멱등 기준점 갱신).
 //   at=0(미설정)이면 경과 0 = 만충 유지. now 가 과거(클락 스큐)면 음수 경과 → 회복 0(가드).
-export function applyVigorRecovery(v: WarVigor, now: number): WarVigor {
+//   fullRecoveryMs — 만충 소요(다이얼). 기본 = WAR_VIGOR_FULL_RECOVERY_MS. 온천 인접 정착지 보유
+//   길드원은 라우트에서 더 작은 값(÷divisor)을 주입해 회복 가속(docs §2.3). 기본 인자라 기존 콜러
+//   /테스트는 byte-identical.
+export function applyVigorRecovery(
+  v: WarVigor,
+  now: number,
+  fullRecoveryMs: number = WAR_VIGOR_FULL_RECOVERY_MS,
+): WarVigor {
   const elapsed = v.at > 0 ? now - v.at : 0;
   return {
-    hp: recoveredVigorFrac(v.hp, elapsed),
-    mp: recoveredVigorFrac(v.mp, elapsed),
+    hp: recoveredVigorFrac(v.hp, elapsed, fullRecoveryMs),
+    mp: recoveredVigorFrac(v.mp, elapsed, fullRecoveryMs),
     at: now,
   };
 }

@@ -111,6 +111,9 @@ export const TILE_TERRAIN: Record<string, TileFeature> = {
   // 우하단 소형 호수 — 통행/정착 불가(인접 방어보너스는 후속 PR).
   [tileKey(6, 6)]: { kind: "lake", settleable: false },
   [tileKey(7, 6)]: { kind: "lake", settleable: false },
+  // 좌상단 온천(P2) — 통행/정착 불가 아우라 타일(호수와 대칭). 위에 정착 불가, 인접 4칸에 버프:
+  //   인접 정착지 "소유" 길드의 길드원 건강도(war vigor) 회복 가속(HOTSPRING_BENEFIT_COORDS).
+  [tileKey(1, 1)]: { kind: "hotspring", settleable: false },
 };
 
 // 좌표 → 피처(미배치 = null). 서버·클라 공용 순수함수.
@@ -130,6 +133,29 @@ export const TILE_TERRAIN_LABEL: Record<TileFeatureKind, string> = {
   stronghold: "요새터",
   trade_route: "교역로",
 };
+
+// === 온천(hotspring) 수혜 zone (P2) ===============================================
+// 온천 4-인접 중 "정착 가능한" 칸들. 이 칸에 정착지를 **소유**한 길드의 길드원은 건강도(war
+//   vigor) 회복이 가속된다(서 있는 위치가 아니라 소유 기준·docs §2.3). 산맥 등 settleable=false
+//   이웃은 소유 불가라 제외(예: 온천(1,1)의 이웃 (2,1)=산맥 → 빠짐 → {(1,0),(0,1),(1,2)}).
+//   ⚠️ 좌표는 서버에서 tileOutpostId(col,row)="tile:col,row" 로 매핑해 occupiedByGuildId 소유를
+//   조회한다(tileHotspring.ts). tileWarfare import 은 순환(그쪽이 tileConfig 참조)이라 여기선
+//   좌표만 export 하고 id 변환은 서버 헬퍼에 둔다.
+export const HOTSPRING_BENEFIT_COORDS: ReadonlyArray<TileCoord> = (() => {
+  const seen = new Set<string>();
+  const out: TileCoord[] = [];
+  for (const [k, f] of Object.entries(TILE_TERRAIN)) {
+    if (f.kind !== "hotspring") continue;
+    const [col, row] = k.split(",").map(Number);
+    for (const n of tileNeighbors4(col, row)) {
+      const nk = tileKey(n.col, n.row);
+      if (seen.has(nk) || !isTileSettleable(n.col, n.row)) continue;
+      seen.add(nk);
+      out.push(n);
+    }
+  }
+  return out;
+})();
 
 // === 개척 정착지 (Phase 3) — 마을 아래 "개척마을" 신설 ===============================
 // 빈 땅에 개척마을(frontier) 건설 → 마을(village)→도시(city)→대도시(metropolis) 승격.

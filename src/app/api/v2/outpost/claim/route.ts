@@ -37,10 +37,8 @@ import {
   fortMaxHpForTier,
   siegeDamage,
   POST_CAPTURE_PROTECT_MS,
-  REPAIR_GOLD_PER_HP,
   currentFortHp,
   isOutpostProtected,
-  repairHpFromGold,
 } from "@/adventure/data/v2/outpostSiege";
 import {
   areOutpostsAdjacent,
@@ -538,27 +536,12 @@ export async function POST(req: Request) {
       ? currentFortHp(occRow.fortHp, fortMaxHp, occRow.fortUpdatedAt, new Date(now))
       : fortMaxHpForTier(outpost.tier);
     let captured = false;
-    let repairedHp = 0;
-    let repairGoldSpent = 0;
     if (won!) {
       const newOccupiedAt = new Date();
       if (stillHasOccRow) {
-        // 길드 금고 자동 수리(B안) — 데미지 전, 수비 길드 금고 골드로 결손분 보강.
-        //   수리량은 여기서 (lock 없이) 계산하고 fortHp 에 반영(함락 판정에 필요)하되, 실제
-        //   골드 차감은 tx 마지막 길드자원 정산에서 attacker 비용과 함께 guildId 오름차순으로
-        //   잠가 적용한다(역방향 동시 공성의 attacker↔defender guild_resources 데드락 차단).
-        //   repairHpFromGold 가 보유 골드로 hp 를 캡하므로 평시엔 항상 지불 가능 — 정산 시 race 로
-        //   모자라면(드묾) 전체 롤백.
-        if (defenderGuildId != null && fortHpAfter < fortMaxHp) {
-          const guildGold = (await readGuildResources(tx, defenderGuildId)).gold;
-          const hp = repairHpFromGold(fortMaxHp - fortHpAfter, guildGold);
-          if (hp > 0) {
-            repairedHp = hp;
-            repairGoldSpent = hp * REPAIR_GOLD_PER_HP;
-            fortHpAfter += hp;
-          }
-        }
-        // 공성 — 승리 1회당 성벽 siegeDamage(전투력 비율) 감소(수리 반영 후).
+        // 성벽 자동 수리 폐지 — 공성 데미지가 그대로 박힌다(수비는 /api/v2/outpost/repair
+        //   로 직접 골드를 써서 수동 보강). 옛 금고 자동수리는 돈으로 무한 방어돼 제거.
+        // 공성 — 승리 1회당 성벽 siegeDamage(전투력 비율) 감소.
         const damaged = Math.max(0, fortHpAfter - siegeDamage(myPower, outpostDefense));
         if (damaged <= 0) {
           // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막.
@@ -704,13 +687,6 @@ export async function POST(req: Request) {
     const guildDeltas = new Map<number, number>();
     const attackerDelta = guildShareGain - guildCostNow;
     if (attackerDelta !== 0) guildDeltas.set(attackerGuildId, attackerDelta);
-    if (repairGoldSpent > 0 && defenderGuildId != null) {
-      // attacker 와 defender 는 서로 다른 길드(같은 길드 점령은 위에서 거부).
-      guildDeltas.set(
-        defenderGuildId,
-        (guildDeltas.get(defenderGuildId) ?? 0) - repairGoldSpent,
-      );
-    }
     for (const guildId of [...guildDeltas.keys()].sort((a, b) => a - b)) {
       const delta = guildDeltas.get(guildId)!;
       const resources = await lockGuildResources(tx, guildId);
@@ -747,9 +723,6 @@ export async function POST(req: Request) {
         captured,
         fortHp: fortHpAfter,
         fortMaxHp,
-        // 길드 금고 자동 수리(PR-2) — 이번 타격 전 수비 길드 금고로 보강한 HP·소모 골드.
-        repairedHp,
-        repairGoldSpent,
         // 거점 금고 탈환 — 점령/함락 시 자동 회수분 (없으면 null).
         treasuryCaptured,
         // 내부 전용 — 알림 수신자 결정용 수비측 스냅샷(점령돼 있던 경우만).

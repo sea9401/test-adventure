@@ -82,38 +82,40 @@ export default function DefendPanel({ outpostId }: { outpostId: string }) {
             : "수비대 등록"}
       </button>
 
-      <div>
-        <div className="mb-1 text-xs font-medium uppercase tracking-wider text-zinc-500">
-          수비 큐 {queue ? `(${queue.length})` : ""}
+      <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+          수비자 목록 {queue ? `(${queue.length})` : ""}
         </div>
-        {queue && queue.length > 0 ? (
-          <ol className="space-y-1">
-            {queue.map((d, i) => (
-              <li
-                key={d.userId}
-                className={
-                  d.isMe
-                    ? "flex items-center gap-2 rounded-md bg-emerald-50 px-2 py-1 text-sm dark:bg-emerald-950/40"
-                    : "flex items-center gap-2 rounded-md px-2 py-1 text-sm"
-                }
-              >
-                <span className="w-5 text-right text-xs tabular-nums text-zinc-400">
-                  {i + 1}
-                </span>
-                <span className="font-medium">{d.name}</span>
-                {d.isMe && (
-                  <span className="text-xs text-emerald-600 dark:text-emerald-400">
-                    나
+        <div className="min-h-[200px]">
+          {queue && queue.length > 0 ? (
+            <ol className="space-y-1">
+              {queue.map((d, i) => (
+                <li
+                  key={d.userId}
+                  className={
+                    d.isMe
+                      ? "flex items-center gap-2 rounded-md bg-emerald-100 px-2 py-1 text-sm dark:bg-emerald-950/40"
+                      : "flex items-center gap-2 rounded-md px-2 py-1 text-sm"
+                  }
+                >
+                  <span className="w-5 text-right text-xs tabular-nums text-zinc-400">
+                    {i + 1}
                   </span>
-                )}
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-sm text-zinc-400">
-            {queue === null ? "" : "아직 등록된 수비대가 없습니다."}
-          </p>
-        )}
+                  <span className="font-medium">{d.name}</span>
+                  {d.isMe && (
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                      나
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-sm text-zinc-400">
+              {queue === null ? "" : "아직 등록된 수비대가 없습니다."}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

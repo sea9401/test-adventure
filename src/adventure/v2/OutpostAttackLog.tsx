@@ -22,7 +22,7 @@ type AttackRow = {
 };
 
 // 페이지당 노출 행 수 — 카드가 너무 길어지지 않게 클라 페이지네이션(서버는 최신 20건 캡).
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 function fmtAgo(iso: string, now: number): string {
   const ms = Math.max(0, now - new Date(iso).getTime());
@@ -248,31 +248,48 @@ export function OutpostAttackLog({
       )}
 
       {totalPages > 1 && (
-        <div className="mt-3 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+        <div className="mt-3 flex items-center justify-center gap-1.5">
           <button
             type="button"
+            aria-label="이전 페이지"
             onClick={() => {
               setOpenReplay(null);
               setPage((p) => Math.max(0, p - 1));
             }}
             disabled={safePage <= 0}
-            className="rounded px-2 py-1 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            ◀ 이전
+            ‹
           </button>
-          <span className="tabular-nums">
-            {safePage + 1} / {totalPages}
-          </span>
+          {Array.from({ length: totalPages }, (_, i) => i).map((n) => (
+            <button
+              key={n}
+              type="button"
+              aria-current={n === safePage ? "page" : undefined}
+              onClick={() => {
+                setOpenReplay(null);
+                setPage(n);
+              }}
+              className={
+                n === safePage
+                  ? "flex h-8 w-8 items-center justify-center rounded-md border border-transparent bg-zinc-900 text-sm font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-sm text-zinc-600 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }
+            >
+              {n + 1}
+            </button>
+          ))}
           <button
             type="button"
+            aria-label="다음 페이지"
             onClick={() => {
               setOpenReplay(null);
               setPage((p) => Math.min(totalPages - 1, p + 1));
             }}
             disabled={safePage >= totalPages - 1}
-            className="rounded px-2 py-1 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-300 text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
           >
-            다음 ▶
+            ›
           </button>
         </div>
       )}

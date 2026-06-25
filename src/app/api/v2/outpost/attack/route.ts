@@ -1,10 +1,12 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  outpostClaimAttempts,
   outpostDefenders,
   outpostOccupations,
   outpostTreasury,
   outpostVillages,
+  savesKv,
   tileSettlements,
 } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
@@ -19,9 +21,11 @@ import {
 } from "@/lib/server/v2GuildResources";
 import { addGuildFame } from "@/lib/server/v2GuildFame";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
+import { trimAttackReplays } from "@/lib/server/outpostAttackLog";
 import {
   toPvpReplayPayload,
   type ReplayPayload,
+  type StoredReplayEnvelope,
 } from "@/adventure/data/v2/replayPayload";
 import {
   resolveOutpostMeta,
@@ -237,6 +241,22 @@ export async function POST(req: Request) {
       {},
     );
     const attackerName = await resolveUserDisplayName(userId);
+    // 공격 기록 리플레이 봉투용 성별(claim 미러 — character-profile.v2.gender, 기본 male1).
+    const attackerProfileRow = await tx
+      .select({ value: savesKv.value })
+      .from(savesKv)
+      .where(
+        and(eq(savesKv.userId, userId), eq(savesKv.key, "character-profile.v2")),
+      )
+      .limit(1);
+    const attackerProfile = (attackerProfileRow[0]?.value ?? null) as {
+      gender?: string;
+    } | null;
+    const attackerGender =
+      typeof attackerProfile?.gender === "string" &&
+      attackerProfile.gender.length > 0
+        ? attackerProfile.gender
+        : "male1";
     const attackerVigor = parseWarVigor(attackerSave.warVigor);
     const aMaxMp = attacker.player.maxMp ?? 0;
 
@@ -293,6 +313,8 @@ export async function POST(req: Request) {
       let won: boolean;
       let defenderName: string | null = null;
       let replay: ReplayPayload | null = null;
+      let raidTurns = 0;
+      let raidBattled = false; // 실제 전투(수비자 존재)면 true → 공격 기록 INSERT.
       // 수비 성공 시 점령 길드(수비자 소속)에 누적할 명성 — tx 끝에서 단일 UPDATE.
       let defenderFameDelta = 0;
 
@@ -347,6 +369,8 @@ export async function POST(req: Request) {
           );
           won = pvp.outcome === "p1_win";
           replay = toPvpReplayPayload(pvp.finalState, defenderName, 200);
+          raidTurns = pvp.turns;
+          raidBattled = true;
           const dMaxMp = defender.player.maxMp ?? 0;
           await upsertSave(tx, userId, "character.v2", {
             ...attackerSave,
@@ -416,6 +440,26 @@ export async function POST(req: Request) {
       // 수비 성공분을 점령 길드 누적 명성에 가산(앞으로만). guild_resources 다음(락 순서).
       await addGuildFame(tx, defenderGuildId, defenderFameDelta);
 
+      // 공격 기록(최근 공격 기록 탭) — 실제 전투가 있었던 약탈만(무혈/스테일 수비자 제외). claim 미러.
+      if (raidBattled) {
+        await tx.insert(outpostClaimAttempts).values({
+          outpostId: outpost.id,
+          attackerUserId: userId,
+          attackerGuildId,
+          defenderName: defenderName ?? "수비자",
+          defenderUserId: defender1Id,
+          won,
+          turns: raidTurns,
+          replay: replay
+            ? ({
+                payload: replay,
+                playerName: attackerName,
+                gender: attackerGender,
+              } satisfies StoredReplayEnvelope)
+            : null,
+        });
+      }
+
       return {
         status: 200,
         body: {
@@ -434,6 +478,10 @@ export async function POST(req: Request) {
     let currentHp = Math.max(1, Math.floor(attacker.maxHp * attackerVigor.hp));
     let attackerFinal: { hp: number; mp: number } | null = null;
     let defendersDefeated = 0;
+    // 공격 기록용 — 마지막 실제 전투 캡처(건틀릿 요약 1건 INSERT).
+    let lastPvp: ReturnType<typeof resolveBattlePvP> | null = null;
+    let lastDefenderName: string | null = null;
+    let lastDefenderId: string | null = null;
     let clearedQueue = true;
     // 이 공격에서 수비자들이 막아낸 만큼 점령 길드에 누적할 명성 — tx 끝에서 단일 UPDATE.
     let defenderFameDelta = 0;
@@ -476,6 +524,9 @@ export async function POST(req: Request) {
         dName,
         { pickAction: () => ({ kind: "attack" }), potions: { p1: {}, p2: {} } },
       );
+      lastPvp = pvp;
+      lastDefenderName = dName;
+      lastDefenderId = d.userId;
       const dMaxMp = defender.player.maxMp ?? 0;
       // 이 수비자가 공격자를 막아냈으면(공격자 패배) 명성 보상(보유+누적). 진 수비자는 0.
       const defenderWon = pvp.outcome !== "p1_win";
@@ -690,6 +741,27 @@ export async function POST(req: Request) {
       await addGuildFame(tx, defenderGuildId, defenderFameDelta);
     }
 
+    // 공격 기록(최근 공격 기록 탭) — 정복 시도 1건 요약(마지막 전투 리플레이·무혈이면 "수비 없음").
+    const conquestReplay = lastPvp
+      ? toPvpReplayPayload(lastPvp.finalState, lastDefenderName ?? "수비대", 200)
+      : null;
+    await tx.insert(outpostClaimAttempts).values({
+      outpostId: outpost.id,
+      attackerUserId: userId,
+      attackerGuildId,
+      defenderName: lastDefenderName ?? "(수비 없음)",
+      defenderUserId: lastDefenderId,
+      won: clearedQueue,
+      turns: lastPvp?.turns ?? 0,
+      replay: conquestReplay
+        ? ({
+            payload: conquestReplay,
+            playerName: attackerName,
+            gender: attackerGender,
+          } satisfies StoredReplayEnvelope)
+        : null,
+    });
+
     return {
       status: 200,
       body: {
@@ -705,6 +777,15 @@ export async function POST(req: Request) {
       },
     };
   });
+
+  // 공격 시도가 기록된 성공 응답이면 거점당 최신 N 건으로 trim(실패 삼킴·부수효과). claim 미러.
+  if (result.body.ok) {
+    try {
+      await trimAttackReplays(outpost.id);
+    } catch {
+      // 부수효과 — 실패 삼킴.
+    }
+  }
 
   return Response.json(result.body, { status: result.status });
 }

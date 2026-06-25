@@ -69,29 +69,28 @@ describe("자원 비용 배수 — 1칸 범위=1×·바깥 1칸당 +1×·거리3
 });
 
 describe("tileSlotUnlockGoldCost (칸 해금 고정 누진·거리 무관)", () => {
-  it("첫칸 5천만·2번째 7500만·3번째↑ 1억 고정 (INITIAL=0 → 0-기준)", () => {
+  it("첫칸 5천만·2번째 1억 (마을 판 2칸·INITIAL=0 → 0-기준)", () => {
     expect(tileSlotUnlockGoldCost(0)).toBe(50_000_000);
-    expect(tileSlotUnlockGoldCost(1)).toBe(75_000_000);
-    expect(tileSlotUnlockGoldCost(2)).toBe(100_000_000);
+    expect(tileSlotUnlockGoldCost(1)).toBe(100_000_000);
   });
-  it("3번째 이후(도시 칸 포함)=1억 고정", () => {
-    expect(tileSlotUnlockGoldCost(3)).toBe(100_000_000);
+  it("인덱스 2 이후=1억 상한 폴백(달성 칸은 무료라 실제 호출 안 됨)", () => {
+    expect(tileSlotUnlockGoldCost(2)).toBe(100_000_000);
     expect(tileSlotUnlockGoldCost(8)).toBe(100_000_000);
   });
 });
 
 describe("canUpgrade/applyUpgradeCost costMultiplier (단계 승격 자원)", () => {
-  const exact = { crop: 400, ore: 250, fish: 120 };
+  const exact = { crop: 400, ore: 250 };
   it("기본(1) — 옛 거점 경로 불변", () => {
-    expect(canUpgrade("village", 4, exact).ok).toBe(true);
+    expect(canUpgrade("village", 2, exact).ok).toBe(true);
     expect(applyUpgradeCost("village", exact).crop).toBe(0);
   });
   it("배수 2 — 자원 2배 요구(검증·차감 일치)", () => {
-    expect(canUpgrade("village", 4, exact, 2).ok).toBe(false);
-    const doubled = { crop: 800, ore: 500, fish: 240 };
-    expect(canUpgrade("village", 4, doubled, 2).ok).toBe(true);
+    expect(canUpgrade("village", 2, exact, 2).ok).toBe(false);
+    const doubled = { crop: 800, ore: 500 };
+    expect(canUpgrade("village", 2, doubled, 2).ok).toBe(true);
     const after = applyUpgradeCost("village", doubled, 2);
     expect(after.crop).toBe(0);
-    expect(after.fish).toBe(0);
+    expect(after.ore).toBe(0);
   });
 });

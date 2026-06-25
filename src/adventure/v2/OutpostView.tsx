@@ -9,9 +9,6 @@ import type { Outpost } from "@/adventure/data/v2/types";
 import { OUTPOST_NPC_TAX_RATE, terrainTraitOf } from "@/adventure/data/v2/outposts";
 import {
   TERRAIN_TRAIT_NAME,
-  TRAIT_BONUS_KIND,
-  TRAIT_BONUS_PCT,
-  PRODUCTION_KIND_NAME,
   terrainTraitDesc,
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
@@ -349,12 +346,6 @@ export function OutpostView({
             triggerClassName="rounded bg-amber-200 px-2 py-0.5 font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
           >
             {TERRAIN_TRAIT_NAME[trait]}
-            {TRAIT_BONUS_KIND[trait] && (
-              <>
-                {" · "}
-                {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
-              </>
-            )}
           </Tooltip>
           {outpost.neutral && (
             <span className="rounded bg-yellow-400 px-2 py-0.5 text-yellow-900">

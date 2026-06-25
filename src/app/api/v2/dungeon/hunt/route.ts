@@ -124,6 +124,7 @@ import {
   rollItemStats,
   rollReforgeStoneDrops,
 } from "@/adventure/data/v2/v2EquipVariance";
+import { rollSettlementMaterialDrops } from "@/adventure/data/v2/settlementMaterials";
 import {
   toReplayPayload,
   toReplayPayloadLite,
@@ -673,6 +674,13 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     // 재련석 2종 — 강화석과 같은 독립 드랍(전 깊이 공통·레어맵 배수 미적용).
     // 다이얼 = v2EquipVariance REFORGE_STONE_DROP_PCT.
     for (const [id, n] of Object.entries(rollReforgeStoneDrops(Math.random))) {
+      drops[id] = (drops[id] ?? 0) + n;
+    }
+    // 정착지 재료(통나무/철광석) — 강화석과 같은 독립 드랍(전 깊이 공통·희소·레어맵 배수 미적용).
+    // 다이얼 = settlementMaterials SETTLEMENT_MATERIAL_DROP_PCT.
+    for (const [id, n] of Object.entries(
+      rollSettlementMaterialDrops(Math.random),
+    )) {
       drops[id] = (drops[id] ?? 0) + n;
     }
   }

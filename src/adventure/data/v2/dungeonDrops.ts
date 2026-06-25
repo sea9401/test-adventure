@@ -22,6 +22,7 @@ import {
   REFORGE_STONE_MATERIAL_ID,
   REFORGE_STONES,
 } from "./v2EquipVariance";
+import { SETTLEMENT_MATERIALS } from "./settlementMaterials";
 
 // === 재료/제작 보류 토글 (단일 reversible 플래그) =====================
 // 재료·제작 시스템을 통째로 "park" 하는 단일 스위치. false 면:
@@ -82,6 +83,9 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
     description:
       "더 높은 품질이 나올 가능성이 큰 상급 재련 재료. 대장간에서 재련석을 모아 만들 수도 있다.",
   },
+  // 정착지 재료 2종(settlementMaterials) — 강화석과 같은 독립 드랍(hunt 라우트 롤·플래그 무관).
+  //   카탈로그 등재로 인벤 재료 탭·거래소 거래가 살아나고, NPC 판매는 비등재(유저 거래 전용).
+  ...SETTLEMENT_MATERIALS,
 };
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,

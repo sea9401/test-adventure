@@ -203,20 +203,20 @@ describe("tileUpgrade — 단계 상승 + tier 동기화 + 소유 자원 소비"
     store.set(outpostOccupations, [{ outpostId: TILE, occupiedByGuildId: GUILD, g: GUILD }]);
     store.set(outpostVillages, [village({ guildId: GUILD, tier: "village" })]);
     store.set(v2GuildResources, [
-      { guildId: GUILD, gold: 0, settlement: { crop: cost.crop! + 1, ore: cost.ore! + 2, fish: cost.fish! + 3 } },
+      { guildId: GUILD, gold: 0, settlement: { crop: cost.crop! + 1, ore: cost.ore! + 2 } },
     ]);
     const res = await tileUpgrade(ME, TILE);
     expect(res.status).toBe(200);
     expect(store.get(outpostVillages)![0].tier).toBe("city");
     expect(store.get(tileSettlements)![0].tier).toBe("city");
-    expect(store.get(v2GuildResources)![0].settlement).toEqual({ crop: 1, ore: 2, fish: 3 });
+    expect(store.get(v2GuildResources)![0].settlement).toEqual({ crop: 1, ore: 2 });
   });
 
   it("솔로 타일: village→city, 개인 자원 풀 소비 + tier 동기화", async () => {
     seedTile("village");
     store.set(outpostVillages, [village({ ownerUserId: ME, tier: "village" })]);
     store.set(userSettlementResources, [
-      { userId: ME, settlement: { crop: cost.crop!, ore: cost.ore!, fish: cost.fish! } },
+      { userId: ME, settlement: { crop: cost.crop!, ore: cost.ore! } },
     ]);
     const res = await tileUpgrade(ME, TILE);
     expect(res.status).toBe(200);

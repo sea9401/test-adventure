@@ -333,12 +333,22 @@ export async function tileUpgrade(
         }
         const nextResources = applyUpgradeCost(village.tier, resources, mult);
         village.tier = check.next;
+        // 도시/대도시 달성 보상 = 슬롯 +1칸(무료·골드 불요). 판 최대까지만.
+        village.unlockedSlots = Math.min(
+          MAX_SLOTS_BY_TIER[village.tier],
+          village.unlockedSlots + 1,
+        );
         await upsertVillage(tx, village);
         await upsertSettlementResources(tx, ctx.owner, nextResources);
         await syncTileSettlementTier(tx, pos.col, pos.row, village.tier);
         return {
           status: 200,
-          body: { ok: true, tier: village.tier, resources: nextResources },
+          body: {
+            ok: true,
+            tier: village.tier,
+            unlockedSlots: village.unlockedSlots,
+            resources: nextResources,
+          },
         };
       }),
     );

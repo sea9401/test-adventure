@@ -39,37 +39,35 @@ export function tierMeetsNation(tier: VillageTier): boolean {
 }
 
 // ── 지형 특성 ── 거점마다 1개(static outposts.ts 에서 부여). 해당 생산에 +보너스. ──────
-//   키는 영구 유지(farmland/mine/lake), 표시명은 생산물 테마에 맞춤: 숲→나무·광맥→광물·어장→식량.
+//   키는 영구 유지(farmland/mine/lake), 표시명은 생산물 테마에 맞춤: 숲→통나무·광맥→철광석·어장(식량폐기).
 export type TerrainTrait = "plain" | "farmland" | "mine" | "lake";
 export const TERRAIN_TRAIT_NAME: Record<TerrainTrait, string> = {
   plain: "평지",
-  farmland: "숲", // 나무(crop) 보너스
-  mine: "광맥", // 광물(ore) 보너스
-  lake: "어장", // 식량(fish) 보너스
+  farmland: "숲", // 통나무(crop) 보너스
+  mine: "광맥", // 철광석(ore) 보너스
+  lake: "어장", // (식량 폐기 — 보너스 없음)
 };
 
-// ── 생산 종류 ── 슬롯에서 고르는 작업. 내부 키(crop/ore/fish)는 영구 유지, 표시명만 재테마.
-//   crop=나무 / ore=광물 / fish=식량. 표시명·아이콘은 여기 한 곳에서(저장 키는 안 건드림).
-export type ProductionKind = "crop" | "ore" | "fish";
+// ── 생산 종류 ── 내부 키(crop/ore) 영구 유지, 표시명만 재테마. 식량(fish) 폐기(2026-06-25).
+//   crop=통나무 / ore=철광석 — 둘 다 사냥 드랍 재료로 전환 중(슬롯 생산은 과도기 잔존).
+export type ProductionKind = "crop" | "ore";
 export const PRODUCTION_KIND_NAME: Record<ProductionKind, string> = {
-  crop: "나무",
-  ore: "광물",
-  fish: "식량",
+  crop: "통나무",
+  ore: "철광석",
 };
 // 종류별 간단 아이콘(이모지) — 슬롯/재화 표시용.
 export const PRODUCTION_KIND_ICON: Record<ProductionKind, string> = {
-  crop: "🌲",
+  crop: "🪵",
   ore: "🪨",
-  fish: "🌾",
 };
-export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore", "fish"];
+export const PRODUCTION_KINDS: ProductionKind[] = ["crop", "ore"];
 
-// 특성 → 보너스 받는 생산 종류(없으면 null). farmland=나무 / mine=광물 / lake=식량.
+// 특성 → 보너스 받는 생산 종류(없으면 null). farmland=통나무 / mine=철광석 / lake=보너스 없음.
 export const TRAIT_BONUS_KIND: Record<TerrainTrait, ProductionKind | null> = {
   plain: null,
   farmland: "crop",
   mine: "ore",
-  lake: "fish",
+  lake: null, // 어장 — 식량 폐기로 보너스 없음(특성 재배치는 후속)
 };
 export const TRAIT_BONUS_PCT = 30; // 일치 특성 +30% 수확량 (다이얼)
 
@@ -85,32 +83,30 @@ export function terrainTraitDesc(trait: TerrainTrait): string {
 export const PRODUCTION_DURATION_MS: Record<ProductionKind, number> = {
   crop: 12 * 3_600_000, // 12시간
   ore: 12 * 3_600_000, // 12시간
-  fish: 12 * 3_600_000, // 12시간
 };
 // 1슬롯 1회 기본 수확량.
 export const PRODUCTION_BASE_YIELD: Record<ProductionKind, number> = {
   crop: 10,
   ore: 6,
-  fish: 12,
 };
 // ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
-// 마을=2×2(4칸)·도시=3×3(9칸)·대도시=3×3(9칸, 국가 게이트). 건설 직후엔 빈 판(0칸)이고 칸을
-//   골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서 키울 종류를 그때 고른다(slotKinds). 단계
-//   업그레이드는 판을 넓히고(2×2→3×3), 칸 해금은 그 판 안을 채운다.
+// 2×2 고정 판(최대 4칸). 마을=골드로 2칸 해금(5천만/1억), 도시/대도시 달성 시 +1칸씩 무료 부여
+//   → 총 4칸. 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서
+//   키울 종류를 그때 고른다(slotKinds).
 export const MAX_SLOTS_BY_TIER: Record<VillageTier, number> = {
-  village: 4, // 2×2
-  city: 9, // 3×3
-  metropolis: 9, // 3×3 (도시와 동일 판 — 대도시는 국가 선포 게이트가 보상)
+  village: 2, // 2×2 판·골드 해금(5천만/1억)
+  city: 3, // 도시 달성 시 +1칸(무료)
+  metropolis: 4, // 대도시 달성 시 +1칸 → 총 4
 };
 export const GRID_COLS_BY_TIER: Record<VillageTier, number> = {
   village: 2,
-  city: 3,
-  metropolis: 3,
+  city: 2,
+  metropolis: 2,
 };
-// 화면에 항상 보여주는 판 크기 = 가장 큰 단계(대도시) 기준 3×3. 단계가 낮아도 그 단계 최대
+// 화면에 항상 보여주는 판 크기 = 가장 큰 단계(대도시) 기준 2×2(4칸). 단계가 낮아도 그 단계 최대
 //   (MAX_SLOTS_BY_TIER) 너머의 칸을 흐리게(상위 단계 필요) 함께 보여줘 잠재 판을 미리 보게 한다.
-export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 3
-export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 9 (3×3)
+export const GRID_DISPLAY_COLS = GRID_COLS_BY_TIER.metropolis; // 2
+export const GRID_DISPLAY_SLOTS = MAX_SLOTS_BY_TIER.metropolis; // 4 (2×2)
 // 건설 직후 열려 있는 칸 수 — 0(첫 칸도 골드로 해금하며 종류를 고른다).
 export const INITIAL_UNLOCKED_SLOTS = 0;
 
@@ -125,8 +121,8 @@ export function clampUnlockedSlots(tier: VillageTier, n: number): number {
 export const UPGRADE_COST: Partial<
   Record<VillageTier, Partial<Record<ProductionKind, number>>>
 > = {
-  village: { crop: 400, ore: 250, fish: 120 }, // 마을 → 도시
-  city: { crop: 1500, ore: 1000, fish: 600 }, // 도시 → 대도시
+  village: { crop: 400, ore: 250 }, // 마을 → 도시
+  city: { crop: 1500, ore: 1000 }, // 도시 → 대도시
 };
 
 // ── 생산 작업(개체) ── 슬롯 하나에 도는 작업. ──────────────────────────────
@@ -212,13 +208,13 @@ export function applyUpgradeCost(
 export const VILLAGE_BUILD_GOLD_COST = 10_000_000; // 마을 건설 1천만
 
 // ── 칸 해금 ── 판 안의 다음 칸을 길드 골드로 열고, 그때 키울 종류를 고른다(단계 업그레이드와 별개).
-// 비용 = 길드 금고 골드(거점 세금/입금 풀). **첫 칸은 무료(기본 제공)** — 그 다음부터 base 에서
-//   칸마다 step 누진(둘째 칸=base, 셋째=base+step…). 큰 골드 sink.
-export const SLOT_UNLOCK_GOLD_BASE = 50_000_000; // 둘째 칸(첫 유료) 5천만
-export const SLOT_UNLOCK_GOLD_STEP = 10_000_000; // 이후 칸마다 +1천만
+// 비용 = 길드 금고 골드(거점 세금/입금 풀). 첫 칸 5천만 / 칸마다 +5천만 → 5천만·1억(마을 판 2칸).
+//   도시/대도시 달성 칸은 upgrade 가 무료로 부여(여기 골드 해금은 마을 2칸에만). 큰 골드 sink.
+export const SLOT_UNLOCK_GOLD_BASE = 50_000_000; // 첫 칸 5천만
+export const SLOT_UNLOCK_GOLD_STEP = 50_000_000; // 칸마다 +5천만 → 5천만·1억
 export function slotUnlockGoldCost(currentUnlocked: number): number {
-  if (currentUnlocked <= 0) return 0; // 첫 칸 무료
-  return SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP * (currentUnlocked - 1);
+  if (currentUnlocked < 0) return 0;
+  return SLOT_UNLOCK_GOLD_BASE + SLOT_UNLOCK_GOLD_STEP * currentUnlocked;
 }
 
 // 칸 해금 가능?(판에 여유 + 길드 골드 충분). atMax = 현 단계 판을 다 채움(다음은 단계 업그레이드).
@@ -259,7 +255,7 @@ export function isValidVillageName(name: string): boolean {
   return t.length >= 1 && t.length <= VILLAGE_NAME_MAX;
 }
 
-// 마을 특화 생산 종류 검증 — 건설 시 선택(crop|ore|fish). 영구.
+// 마을 특화 생산 종류 검증 — 건설 시 선택(crop|ore). 영구.
 export function isValidProductionKind(k: unknown): k is ProductionKind {
   return typeof k === "string" && (PRODUCTION_KINDS as string[]).includes(k);
 }

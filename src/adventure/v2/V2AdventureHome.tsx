@@ -20,6 +20,13 @@ import type {
 } from "@/adventure/data/v2/v2Equipment";
 import { effectiveLevelCap } from "@/adventure/data/v2/proficiency";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
+import {
+  TILE_TIER_LABEL,
+  tileSettlementName,
+  type TileSettlementTier,
+} from "@/adventure/data/v2/tileConfig";
+import { standingTileLocation } from "./currentLocation";
+import type { TileSettlement } from "./GameStateProvider";
 
 // 모험 탭 — 캐릭 카드 + 현 위치 거점 카드 (세부 정보 + 액션).
 
@@ -72,8 +79,14 @@ function formatTaxRate(taxRate: string): string {
 
 export function V2AdventureHome({
   currentOutpost,
+  tilePos,
+  tileSettlements,
 }: {
   currentOutpost: { id: string; name: string } | null;
+  // 서 있는 타일(자유 타일 지도). currentOutpost 는 사냥 base 로 리베라에 고정되므로,
+  //   "현 위치" 카드는 tilePos 로 판정해야 빈 땅에서 리베라가 박혀 보이는 버그를 막는다.
+  tilePos: { col: number; row: number } | null;
+  tileSettlements: TileSettlement[];
 }) {
   const [state, setState] = useState<StateResponse | null>(null);
   // 모험 탭 간략 카드에 장착 장비를 표시 — me/state 는 장비를 안 담으므로 별도 fetch.
@@ -118,6 +131,14 @@ export function V2AdventureHome({
         : null,
     [currentOutpost],
   );
+
+  // 서 있는 타일 분류 — 거점 칸(리베라)/보드 밖이면 거점 요약 카드, 개척 정착지면 정착지
+  //   요약, 빈 땅이면 빈 땅 안내. (currentOutpost 고정 = 리베라 박힘 버그 방지)
+  const loc = useMemo(
+    () => standingTileLocation({ tilePos, tileSettlements }),
+    [tilePos, tileSettlements],
+  );
+  const onOutpostTile = loc.kind === "outpost" || loc.kind === "offboard";
 
   const occupation = state?.currentOutpost?.occupation ?? null;
   const currentGroup = state?.proficiency?.current?.group ?? "none";
@@ -185,7 +206,7 @@ export function V2AdventureHome({
 
         <V2AnnouncementsPanel />
 
-        {outpost && (
+        {onOutpostTile && outpost && (
           <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
             <div className="flex items-baseline gap-2">
               <MapPin
@@ -272,6 +293,62 @@ export function V2AdventureHome({
                 {msg}
               </p>
             )}
+          </section>
+        )}
+
+        {/* 개척 정착지 칸 — 정착지 요약(상세 관리는 지도/거점 화면). */}
+        {!onOutpostTile && loc.kind === "settlement" && (
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex items-baseline gap-2">
+              <MapPin
+                size={16}
+                weight="fill"
+                className="shrink-0 text-emerald-500"
+              />
+              <h2 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                {loc.settlement.name?.trim() ||
+                  tileSettlementName(loc.settlement.col, loc.settlement.row)}
+              </h2>
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                {TILE_TIER_LABEL[loc.settlement.tier as TileSettlementTier] ??
+                  "정착지"}
+              </span>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <dt className="text-zinc-500 dark:text-zinc-400">소속</dt>
+              <dd className="text-zinc-800 dark:text-zinc-200">
+                {loc.settlement.guildName
+                  ? `${loc.settlement.guildName} 길드`
+                  : "솔로 개척자"}
+              </dd>
+              <dt className="text-zinc-500 dark:text-zinc-400">위치</dt>
+              <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
+                ({loc.settlement.col}, {loc.settlement.row})
+              </dd>
+            </dl>
+            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+              상세 관리는 지도·거점 화면에서.
+            </p>
+          </section>
+        )}
+
+        {/* 빈 땅 칸 — 정착지가 없으니 거점 정보 대신 안내. */}
+        {!onOutpostTile && loc.kind === "empty" && (
+          <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div className="flex items-baseline gap-2">
+              <MapPin
+                size={16}
+                weight="fill"
+                className="shrink-0 text-zinc-400 dark:text-zinc-500"
+              />
+              <h2 className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                빈 땅 ({loc.col}, {loc.row})
+              </h2>
+            </div>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              정착지가 없는 빈 땅입니다. 지도에서 다른 칸으로 이동하거나
+              개척마을을 세울 수 있어요.
+            </p>
           </section>
         )}
 

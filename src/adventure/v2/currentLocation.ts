@@ -12,6 +12,34 @@ import {
 } from "@/adventure/data/v2/tileConfig";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 
+// 서 있는 타일이 무엇인지 — 좌상단 라벨과 모험 탭 "현 위치" 카드가 공유하는 분류.
+// 우선순위: 거점 칸(리베라) → 그 칸의 개척 정착지 → 빈 땅 → 보드 밖(tilePos 없음).
+export type StandingTile<
+  S extends { col: number; row: number } = { col: number; row: number },
+> =
+  | { kind: "outpost"; outpostId: string }
+  | { kind: "settlement"; settlement: S }
+  | { kind: "empty"; col: number; row: number }
+  | { kind: "offboard" };
+
+// tilePos 가 가리키는 칸을 분류한다(순수 함수 — DB/React 무관). 정착지 객체를 그대로 실어
+//   호출부가 길드/티어 등 부가 정보를 꺼내 쓸 수 있게 한다.
+export function standingTileLocation<S extends { col: number; row: number }>({
+  tilePos,
+  tileSettlements,
+}: {
+  tilePos: { col: number; row: number } | null;
+  tileSettlements: ReadonlyArray<S>;
+}): StandingTile<S> {
+  if (!tilePos) return { kind: "offboard" };
+  const { col, row } = tilePos;
+  const oid = TILE_OUTPOST_AT.get(tileKey(col, row));
+  if (oid) return { kind: "outpost", outpostId: oid };
+  const s = tileSettlements.find((t) => t.col === col && t.row === row);
+  if (s) return { kind: "settlement", settlement: s };
+  return { kind: "empty", col, row };
+}
+
 export type LocationLabelArgs = {
   // 서 있는 타일(보드 밖이면 null).
   tilePos: { col: number; row: number } | null;
@@ -27,14 +55,21 @@ export function currentLocationLabel({
   tileSettlements,
   currentOutpostName,
 }: LocationLabelArgs): string | null {
-  if (!tilePos) return currentOutpostName;
-  const { col, row } = tilePos;
-  // 보드 고정 거점 칸(현재 리베라 하나) — 거점명.
-  const oid = TILE_OUTPOST_AT.get(tileKey(col, row));
-  if (oid) return OUTPOST_BY_ID.get(oid)?.name ?? currentOutpostName;
-  // 내가 선 칸에 개척 정착지가 있으면 그 마을 이름(빈 이름이면 좌표 결정 이름으로 폴백).
-  const s = tileSettlements.find((t) => t.col === col && t.row === row);
-  if (s) return s.name?.trim() || tileSettlementName(col, row);
-  // 빈 땅 — 좌표로 "어디에 서 있는지" 명시.
-  return `빈 땅 (${col}, ${row})`;
+  const loc = standingTileLocation({ tilePos, tileSettlements });
+  switch (loc.kind) {
+    case "offboard":
+      return currentOutpostName;
+    // 보드 고정 거점 칸(현재 리베라 하나) — 거점명.
+    case "outpost":
+      return OUTPOST_BY_ID.get(loc.outpostId)?.name ?? currentOutpostName;
+    // 개척 정착지 — 그 마을 이름(빈 이름이면 좌표 결정 이름으로 폴백).
+    case "settlement":
+      return (
+        loc.settlement.name?.trim() ||
+        tileSettlementName(loc.settlement.col, loc.settlement.row)
+      );
+    // 빈 땅 — 좌표로 "어디에 서 있는지" 명시.
+    case "empty":
+      return `빈 땅 (${loc.col}, ${loc.row})`;
+  }
 }

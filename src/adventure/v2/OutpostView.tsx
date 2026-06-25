@@ -12,10 +12,6 @@ import {
   terrainTraitDesc,
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
-import {
-  siegeDamage,
-  siegeWinsToFall,
-} from "@/adventure/data/v2/outpostSiege";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { OutpostAttackLog } from "./OutpostAttackLog";
 import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
@@ -426,7 +422,6 @@ export function OutpostView({
               fortHp={occupation.fortHp}
               fortMaxHp={occupation.fortMaxHp}
               protectedUntil={occupation.protectedUntil}
-              perWin={siegeDamage(viewerPower ?? defensePower, defensePower)}
             />
           )}
       </HeaderPanel>
@@ -710,12 +705,10 @@ function FortBar({
   fortHp,
   fortMaxHp,
   protectedUntil,
-  perWin,
 }: {
   fortHp: number;
   fortMaxHp: number;
   protectedUntil?: string;
-  perWin: number;
 }) {
   // 마운트 시각 기준(보호막은 시간 단위라 라이브 틱 불요) — 렌더 중 Date.now() 직접 호출 회피.
   const [nowMs] = useState(() => Date.now());
@@ -741,11 +734,6 @@ function FortBar({
           className="h-full rounded-full bg-amber-500 transition-all"
           style={{ width: `${pct}%` }}
         />
-      </div>
-      {/* 공성 메커니즘 명문화 — 1승당 데미지와 함락까지 남은 승수(재생 무시 근사). */}
-      <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-        공성 1승당 −{perWin} · 약 {siegeWinsToFall(fortHp, perWin)}
-        승이면 함락
       </div>
     </div>
   );

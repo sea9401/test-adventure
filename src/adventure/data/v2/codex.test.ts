@@ -11,8 +11,8 @@ import {
 // codexRequirement(전직 재료 요건)는 계속 0(플래그 게이트). 총량/진척 카운트만 2종 반영.
 
 describe("v2 코덱스(재료 도감) 진척 — 강화석 2종·요건은 플래그 잠금", () => {
-  it("V2_CODEX_TOTAL = 7 (강화석 2종 + 보스 소환서 + 재련석 2종 + 정착지 재료 2종 등재)", () => {
-    expect(V2_CODEX_TOTAL).toBe(7);
+  it("V2_CODEX_TOTAL = 8 (강화석 2종 + 보스 소환서 + 재련석 2종 + 정착지 재료 2종 + 성벽 수리 키트 등재)", () => {
+    expect(V2_CODEX_TOTAL).toBe(8);
   });
 
   it("discoveredMaterialIds — 미등재 보유분은 진척에 안 잡힘", () => {

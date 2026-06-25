@@ -63,14 +63,22 @@ export const POST_CAPTURE_PROTECT_HOURS = 18; // 함락 후 재공성 금지
 
 export const POST_CAPTURE_PROTECT_MS = POST_CAPTURE_PROTECT_HOURS * 3_600_000;
 
-// 길드 금고 자동 수리(PR-2) — 공성 타격 시 데미지 전, 수비 길드 금고 골드로 성벽을 보강.
-// HP 1 당 비용. 별도 일일 캡 없이 금고 잔액이 한도 — 금고가 마르면 수리 중단(골드 소진 공성).
-export const REPAIR_GOLD_PER_HP = 50;
+// 성벽 수동 수리 — 골드 대신 "성벽 수리 키트"(통나무3+철광석3 조합·settlementMaterials) 소비.
+//   키트 1개당 회복 성벽 HP(다이얼). 드랍 재료가 곧 방어 비용 → 골드 무한 수리(과거 너무 저렴) 해소.
+export const FORT_HP_PER_REPAIR_KIT = 100;
 
-// 결손(deficit = fortMaxHp − 현재성벽)과 길드 금고로 보강 가능한 HP. 금고가 한도.
-export function repairHpFromGold(deficit: number, guildGold: number): number {
-  if (deficit <= 0 || guildGold <= 0) return 0;
-  return Math.max(0, Math.min(deficit, Math.floor(guildGold / REPAIR_GOLD_PER_HP)));
+// 결손(deficit = fortMaxHp − 현재성벽)과 보유 키트로 보강할 HP + 소비 키트 수(순수).
+//   키트는 이산(1개=FORT_HP_PER_REPAIR_KIT) — 마지막 키트가 결손을 넘으면 초과분은 버려진다.
+//   보유 키트가 한도. 결손/키트 0 이면 {0,0}.
+export function repairFromKits(
+  deficit: number,
+  kits: number,
+): { hp: number; kitsUsed: number } {
+  if (deficit <= 0 || kits <= 0) return { hp: 0, kitsUsed: 0 };
+  const needed = Math.ceil(deficit / FORT_HP_PER_REPAIR_KIT);
+  const kitsUsed = Math.min(kits, needed);
+  const hp = Math.min(deficit, kitsUsed * FORT_HP_PER_REPAIR_KIT);
+  return { hp, kitsUsed };
 }
 
 // 마지막 갱신(fortUpdatedAt) 이후 경과로 재생한 현재 성벽(상한 fortMaxHp). lazy — 크론 불요.

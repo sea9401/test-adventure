@@ -3,26 +3,25 @@ import { db } from "@/db";
 import { outpostOccupations } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { guildOwningOutpost } from "@/lib/server/v2Settlement";
-import {
-  lockGuildResources,
-  upsertGuildResources,
-} from "@/lib/server/v2GuildResources";
+import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   FORT_MAX_HP,
   currentFortHp,
-  repairHpFromGold,
-  REPAIR_GOLD_PER_HP,
+  repairFromKits,
 } from "@/adventure/data/v2/outpostSiege";
+import { WALL_REPAIR_KIT_ID } from "@/adventure/data/v2/settlementMaterials";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
-// 정착지 전쟁 — 성벽 수동 수리. 공성 자동 수리(옛 길드 금고 자동 보강)를 폐지하고
-//   수비 길드가 직접 골드를 써서 성벽을 보강하는 능동 방어로 대체한다.
-//   POST { outpostId } — 점령 길드원이 길드 금고 골드로 성벽을 결손분만큼(보유 골드 한도) 수리.
-//     HP 1 당 REPAIR_GOLD_PER_HP 골드. 부족하면 살 수 있는 만큼만.
+// 정착지 전쟁 — 성벽 수동 수리. 옛 골드 수리(너무 저렴)를 폐지하고 "성벽 수리 키트"
+//   (통나무3+철광석3 조합·/api/v2/me/repair-kit-combine) 소비로 대체한다. 드랍 재료가 곧
+//   방어 비용 — 능동 방어.
+//   POST { outpostId } — 점령 길드원이 본인 인벤의 키트로 성벽을 결손분만큼(보유 키트 한도) 수리.
+//     키트 1개 = 성벽 HP FORT_HP_PER_REPAIR_KIT(100). 부족하면 가진 만큼만.
 //   게이트: V2_SETTLEMENT_WARFARE on + 점령 길드 멤버(guildOwningOutpost).
-//
-//   응답: { ok, fortHp, fortMaxHp, repairedHp, goldSpent, guildGold }
-//     - 미점령/타 길드 → 403  · 이미 풀성벽/골드부족 → repairedHp 0 (ok)
+//   응답: { ok, fortHp, fortMaxHp, repairedHp, kitsSpent, kitsLeft }
+//     - 미점령/타 길드 → 403  · 이미 풀성벽/키트부족 → repairedHp 0 (ok)
+
+type CharSave = { materials?: Record<string, number>; [k: string]: unknown };
 
 export async function POST(req: Request) {
   if (!V2_SETTLEMENT_WARFARE) {
@@ -46,7 +45,8 @@ export async function POST(req: Request) {
     );
   }
 
-  // lock 순서: 점령행(guildOwningOutpost 가 FOR UPDATE) → 길드 금고. 공성/claim 라우트 공통.
+  // lock 순서: 점령행(guildOwningOutpost 가 FOR UPDATE) → 수리하는 멤버 character.v2.
+  //   attack 라우트(점령행 → 공격자 char.v2)와 같은 순서라 데드락 안전.
   const result = await db.transaction(async (tx) => {
     const guildId = await guildOwningOutpost(tx, userId, outpostId);
     if (guildId == null) {
@@ -78,9 +78,20 @@ export async function POST(req: Request) {
       new Date(),
     );
     const deficit = fortMaxHp - fortHpNow;
-    if (deficit <= 0) {
-      // 이미 풀성벽 — 수리할 게 없음(골드 미소모).
-      const dr = await lockGuildResources(tx, guildId);
+
+    // 키트 보유 — character.v2 lock 후 read(수리 통과 시 차감).
+    const charSave = await lockSaveForUpdate<CharSave>(
+      tx,
+      userId,
+      "character.v2",
+      {},
+    );
+    const mats = { ...(charSave.materials ?? {}) };
+    const haveKits = Math.max(0, Math.floor(Number(mats[WALL_REPAIR_KIT_ID]) || 0));
+
+    const { hp, kitsUsed } = repairFromKits(deficit, haveKits);
+    if (kitsUsed <= 0) {
+      // 이미 풀성벽이거나 키트 0 — 변경 없음.
       return {
         status: 200,
         body: {
@@ -88,38 +99,24 @@ export async function POST(req: Request) {
           fortHp: fortHpNow,
           fortMaxHp,
           repairedHp: 0,
-          goldSpent: 0,
-          guildGold: dr.gold,
+          kitsSpent: 0,
+          kitsLeft: haveKits,
         },
       };
     }
-    // 🔑 lock 먼저 — 잠근 잔액으로 수리 HP 계산(stale 잔액 음수 클램프 차단). repairHpFromGold
-    //   가 보유 골드로 hp 를 캡하므로 차감 후 항상 ≥0.
-    const dr = await lockGuildResources(tx, guildId);
-    const hp = repairHpFromGold(deficit, dr.gold);
-    if (hp <= 0) {
-      // 골드 부족 — 1 HP 도 못 사는 상태.
-      return {
-        status: 200,
-        body: {
-          ok: true as const,
-          fortHp: fortHpNow,
-          fortMaxHp,
-          repairedHp: 0,
-          goldSpent: 0,
-          guildGold: dr.gold,
-        },
-      };
-    }
-    const goldSpent = hp * REPAIR_GOLD_PER_HP;
+    const kitsLeft = haveKits - kitsUsed;
+    if (kitsLeft > 0) mats[WALL_REPAIR_KIT_ID] = kitsLeft;
+    else delete mats[WALL_REPAIR_KIT_ID];
     const newFortHp = fortHpNow + hp;
-    const newGold = dr.gold - goldSpent;
     await tx
       .update(outpostOccupations)
       // fortUpdatedAt 갱신으로 재생 기준점 리셋(수리값에서 다시 재생 시작).
       .set({ fortHp: newFortHp, fortUpdatedAt: new Date() })
       .where(eq(outpostOccupations.outpostId, outpostId));
-    await upsertGuildResources(tx, guildId, { gold: newGold });
+    await upsertSave(tx, userId, "character.v2", {
+      ...charSave,
+      materials: mats,
+    });
     return {
       status: 200,
       body: {
@@ -127,8 +124,8 @@ export async function POST(req: Request) {
         fortHp: newFortHp,
         fortMaxHp,
         repairedHp: hp,
-        goldSpent,
-        guildGold: newGold,
+        kitsSpent: kitsUsed,
+        kitsLeft,
       },
     };
   });

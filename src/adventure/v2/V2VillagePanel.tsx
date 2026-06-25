@@ -20,8 +20,6 @@ import {
   PRODUCTION_KIND_NAME,
   PRODUCTION_KIND_ICON,
   PRODUCTION_KINDS,
-  TRAIT_BONUS_KIND,
-  TRAIT_BONUS_PCT,
   UPGRADE_COST,
   VILLAGE_NAME_MAX,
   VILLAGE_BUILD_GOLD_COST,
@@ -273,12 +271,6 @@ export function V2VillagePanel({
         triggerClassName="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
       >
         {TERRAIN_TRAIT_NAME[trait]}
-        {TRAIT_BONUS_KIND[trait] && (
-          <>
-            {" "}
-            {PRODUCTION_KIND_NAME[TRAIT_BONUS_KIND[trait]!]} +{TRAIT_BONUS_PCT}%
-          </>
-        )}
       </Tooltip>
     </div>
   );

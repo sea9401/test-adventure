@@ -71,11 +71,10 @@ export const TRAIT_BONUS_KIND: Record<TerrainTrait, ProductionKind | null> = {
 };
 export const TRAIT_BONUS_PCT = 30; // 일치 특성 +30% 수확량 (다이얼)
 
-// 지형 특성 효과(툴팁용) — 설명문 대신 효과만 간결히. 보너스 다이얼에서 자동 파생.
-export function terrainTraitDesc(trait: TerrainTrait): string {
-  const bonusKind = TRAIT_BONUS_KIND[trait];
-  if (bonusKind == null) return "수확량 보너스 없음";
-  return `${PRODUCTION_KIND_NAME[bonusKind]} 수확량 +${TRAIT_BONUS_PCT}%`;
+// 지형 특성 효과(툴팁용). [PR-3 중립화] 슬롯 생산 폐지로 수확 보너스 실효 0 — 중립 표시.
+//   TRAIT_BONUS_KIND/TRAIT_BONUS_PCT 데이터는 미래 지형 작업용으로 보존(현재 미표시·미적용).
+export function terrainTraitDesc(_trait: TerrainTrait): string {
+  return "특별한 효과 없음";
 }
 
 // [폐지·PR-3] 슬롯 12h 생산(produce/harvest)은 제거됨 — 통나무/철광석은 사냥 드랍으로 수급
@@ -83,8 +82,8 @@ export function terrainTraitDesc(trait: TerrainTrait): string {
 //   생산 소요시간/수확량/수확 다이얼·헬퍼 삭제. crop/ore 풀은 기부(donate)+업글 소비로만 변동.
 // ── 슬롯 판(grid) ── 단계별 판 크기 + 칸 단위 해금. ──────────────────────────
 // 2×2 고정 판(최대 4칸). 마을=골드로 2칸 해금(5천만/1억), 도시/대도시 달성 시 +1칸씩 무료 부여
-//   → 총 4칸. 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩 해금(unlockedSlots)하면서 그 칸에서
-//   키울 종류를 그때 고른다(slotKinds).
+//   → 총 4칸. 건설 직후엔 빈 판(0칸)이고 칸을 골드로 한 칸씩 해금(unlockedSlots). [PR-3] 슬롯은
+//   생산 없는 "건물 예정" 자리표시(종류 선택 없음).
 export const MAX_SLOTS_BY_TIER: Record<VillageTier, number> = {
   village: 2, // 2×2 판·골드 해금(5천만/1억)
   city: 3, // 도시 달성 시 +1칸(무료)

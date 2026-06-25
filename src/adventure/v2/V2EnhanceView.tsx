@@ -731,6 +731,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         />
         <div className="mt-2">
           <EquipmentCardGrid
+            selectedIid={selectedIid}
             cards={pager.pageItems.map(
               (inst: V2EquipInstance): EquipmentCard => ({
                 inst,

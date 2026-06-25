@@ -700,10 +700,16 @@ export type EquipmentCard = {
 export function EquipmentCardGrid({
   cards,
   onOpenCard,
+  selectedIid,
 }: {
   cards: EquipmentCard[];
   onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
+  // 선택 모드(강화/재련): selectedIid 를 넘기면 에메랄드 하이라이트는 "선택한 장비"를 뜻하고,
+  // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
+  // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
+  selectedIid?: string | null;
 }) {
+  const selectable = selectedIid !== undefined;
   if (cards.length === 0) {
     return (
       <EmptyState
@@ -719,6 +725,8 @@ export function EquipmentCardGrid({
         const item = V2_EQUIPMENT[inst.id];
         const { Icon, color } = SLOT_ICON[item.slot];
         const pct = rollQualityPct(item, inst.roll);
+        const isSelected = selectable && inst.iid === selectedIid;
+        const highlighted = selectable ? isSelected : isEquipped;
         return (
           <button
             key={inst.iid}
@@ -726,7 +734,7 @@ export function EquipmentCardGrid({
             onClick={(e) => onOpenCard(inst, anchorOf(e.currentTarget))}
             aria-label={`${item.name} 정보`}
             className={`relative flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
-              isEquipped
+              highlighted
                 ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600/70 dark:bg-emerald-950"
                 : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
             }`}
@@ -743,7 +751,11 @@ export function EquipmentCardGrid({
                   />
                 )}
               </span>
-              {isEquipped ? (
+              {isEquipped && selectable ? (
+                <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  착용중
+                </span>
+              ) : isEquipped ? (
                 <CheckCircle
                   size={18}
                   weight="fill"

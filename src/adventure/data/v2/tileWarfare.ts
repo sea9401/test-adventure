@@ -13,7 +13,7 @@
 import type { Outpost, OutpostTier } from "./types";
 import { MAP_BOUNDS, OUTPOST_BY_ID } from "./outposts";
 import { computeNextAttackAt } from "./npcAttack";
-import { FORT_MAX_HP, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
+import { fortMaxHpForTier, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
 import {
   TILE_BOARD_SIZE,
   TILE_OUTPOSTS,
@@ -142,8 +142,8 @@ export function buildTileOccupationValues(args: {
     policy: "open",
     taxRate: "0.100",
     nextAttackAt: computeNextAttackAt(tileTierToOutpostTier(tier), now),
-    fortHp: FORT_MAX_HP,
-    fortMaxHp: FORT_MAX_HP,
+    fortHp: fortMaxHpForTier(tileTierToOutpostTier(tier)),
+    fortMaxHp: fortMaxHpForTier(tileTierToOutpostTier(tier)),
     fortUpdatedAt: new Date(now),
     protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
   };

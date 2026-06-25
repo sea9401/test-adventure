@@ -34,7 +34,8 @@ import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { derivePowerScore } from "@/adventure/data/v2/power";
 import {
   FORT_MAX_HP,
-  SIEGE_DAMAGE_PER_WIN,
+  fortMaxHpForTier,
+  siegeDamage,
   POST_CAPTURE_PROTECT_MS,
   REPAIR_GOLD_PER_HP,
   currentFortHp,
@@ -360,16 +361,16 @@ export async function POST(req: Request) {
     //   내 합성 전투력(derivePowerScore)이 그에 못 미치면 점령 시도 불가. upsert 전 early
     //   return 이라 스태미나 미소모. 중립·분쟁지대(defense 0)는 게이트 없음 — 기존 난이도.
     const outpostDefense = outpostDefensePower(outpost);
+    // 내 합성 전투력 — 수비 게이트 + 공성 데미지(전투력 비율) 양쪽에서 사용(화면 "내 전투력"과 동일 입력).
+    const myPower = derivePowerScore({
+      atk: player.player.atk,
+      magicAtk: player.player.magicAtk ?? 0,
+      def: player.player.def,
+      spd: player.player.spd,
+      maxHp: player.maxHp,
+      maxMp: player.player.maxMp,
+    });
     if (outpostDefense > 0) {
-      // state 라우트의 combat.power 와 동일 입력(= 화면 "내 전투력")으로 계산해 일치 보장.
-      const myPower = derivePowerScore({
-        atk: player.player.atk,
-        magicAtk: player.player.magicAtk ?? 0,
-        def: player.player.def,
-        spd: player.player.spd,
-        maxHp: player.maxHp,
-        maxMp: player.player.maxMp,
-      });
       if (myPower < outpostDefense) {
         return {
           ok: false as const,
@@ -532,10 +533,10 @@ export async function POST(req: Request) {
     } | null = null;
     let raceLost = false;
     // 응답용 성벽 상태 — 점령된 거점이면 재생 반영 현재값, 비점령이면 풀성벽(표시용).
-    const fortMaxHp = occRow?.fortMaxHp ?? FORT_MAX_HP;
+    const fortMaxHp = occRow?.fortMaxHp ?? fortMaxHpForTier(outpost.tier);
     let fortHpAfter = occRow
       ? currentFortHp(occRow.fortHp, fortMaxHp, occRow.fortUpdatedAt, new Date(now))
-      : FORT_MAX_HP;
+      : fortMaxHpForTier(outpost.tier);
     let captured = false;
     let repairedHp = 0;
     let repairGoldSpent = 0;
@@ -557,8 +558,8 @@ export async function POST(req: Request) {
             fortHpAfter += hp;
           }
         }
-        // 공성 — 승리 1회당 성벽 SIEGE_DAMAGE_PER_WIN 감소(수리 반영 후).
-        const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
+        // 공성 — 승리 1회당 성벽 siegeDamage(전투력 비율) 감소(수리 반영 후).
+        const damaged = Math.max(0, fortHpAfter - siegeDamage(myPower, outpostDefense));
         if (damaged <= 0) {
           // 함락 — 소유권 이전 + 성벽 풀충전 + 보호막.
           captured = true;
@@ -601,8 +602,8 @@ export async function POST(req: Request) {
             policy: "open",
             taxRate: "0.100",
             nextAttackAt: computeNextAttackAt(outpost.tier, Date.now()),
-            fortHp: FORT_MAX_HP,
-            fortMaxHp: FORT_MAX_HP,
+            fortHp: fortMaxHpForTier(outpost.tier),
+            fortMaxHp: fortMaxHpForTier(outpost.tier),
             fortUpdatedAt: newOccupiedAt,
             protectedUntil: new Date(now + POST_CAPTURE_PROTECT_MS),
           });
@@ -613,7 +614,7 @@ export async function POST(req: Request) {
             occupiedByGuildId: attackerGuildId,
             occupiedAt: newOccupiedAt.toISOString(),
           };
-          fortHpAfter = FORT_MAX_HP;
+          fortHpAfter = fortMaxHpForTier(outpost.tier);
         } catch (e) {
           const code = (e as { code?: string }).code;
           if (code === "23505") {

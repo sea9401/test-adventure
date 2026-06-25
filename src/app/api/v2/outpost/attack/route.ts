@@ -39,11 +39,13 @@ import {
   isOutpostProtected,
   currentFortHp,
   repairHpFromGold,
-  FORT_MAX_HP,
-  SIEGE_DAMAGE_PER_WIN,
+  fortMaxHpForTier,
+  siegeDamage,
   REPAIR_GOLD_PER_HP,
   POST_CAPTURE_PROTECT_MS,
 } from "@/adventure/data/v2/outpostSiege";
+import { derivePowerScore } from "@/adventure/data/v2/power";
+import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { computeNextAttackAt } from "@/adventure/data/v2/npcAttack";
 import {
   lockVillage,
@@ -69,7 +71,7 @@ import { parseHonor, parseHonorEarned } from "@/adventure/data/v2/honor";
 //   body: { outpostId, mode: "raid" | "conquest" }
 //   raid    = 수비 큐 1번을 "건강도(전쟁 전용 HP 이월)" 결투로 격파 → 거점 금고 50% 탈취(마을 유지).
 //   conquest= 수비 큐 전원 격파(건틀릿) + 성벽(fortHp) 누적 공성 완파 → 함락(마을 tier 1↓·소유 이관,
-//             금고는 그대로). 성벽은 한 번에 SIEGE_DAMAGE_PER_WIN 깎임 → 여러 차례 공격으로 함락.
+//             금고는 그대로). 성벽은 siegeDamage(전투력 비율) 만큼 깎임 → 여러 차례 공격으로 함락.
 //   큐가 비면 무혈(수비 미등록 시 약탈/공성에 무방비 = 등록 인센티브).
 //   플래그 off → 404. 옛 claim 라우트(3:3 토너먼트)는 손대지 않음 — PR-6 에서 제거.
 //
@@ -526,7 +528,7 @@ export async function POST(req: Request) {
     let captured = false;
     let razed = false; // 솔로 공격자 함락 = 철거(빈땅). 길드 공격자 함락 = 인수(razed=false).
     let downgradedTo: string | null = null;
-    const fortMaxHp = occRow.fortMaxHp ?? FORT_MAX_HP;
+    const fortMaxHp = occRow.fortMaxHp ?? fortMaxHpForTier(outpost.tier);
     let fortHpAfter = currentFortHp(
       occRow.fortHp,
       fortMaxHp,
@@ -550,7 +552,19 @@ export async function POST(req: Request) {
           });
         }
       }
-      const damaged = Math.max(0, fortHpAfter - SIEGE_DAMAGE_PER_WIN);
+      // 성벽 데미지 — 전투력 비율(공격자 합성전투력 ÷ 거점 수비전투력). 압도적 전력차=큰 타격.
+      const attackerPower = derivePowerScore({
+        atk: attacker.player.atk,
+        magicAtk: attacker.player.magicAtk ?? 0,
+        def: attacker.player.def,
+        spd: attacker.player.spd,
+        maxHp: attacker.maxHp,
+        maxMp: aMaxMp,
+      });
+      const damaged = Math.max(
+        0,
+        fortHpAfter - siegeDamage(attackerPower, outpostDefensePower(outpost)),
+      );
       const newOccupiedAt = new Date();
       if (damaged <= 0) {
         // 함락. 공격자 정체성으로 분기 — 길드 공격자=인수(소유 이전), 솔로 공격자=철거(빈땅).

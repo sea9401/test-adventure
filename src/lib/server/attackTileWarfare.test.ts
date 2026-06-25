@@ -32,7 +32,8 @@ vi.mock("@/lib/server/v2EnsureSoloGuild", () => ({
 }));
 vi.mock("@/lib/server/derivePlayerCombatV2", () => ({
   derivePlayerCombatV2: vi.fn(async () => ({
-    player: { maxMp: 100, hp: 1000 },
+    // 전투력비율 공성 — derivePowerScore 입력(atk/def/spd) 필요. 임의 값.
+    player: { atk: 100, magicAtk: 0, def: 50, spd: 50, maxMp: 100, hp: 1000 },
     maxHp: 1000,
     selectedStance: null,
   })),
@@ -181,7 +182,7 @@ describe("POST /api/v2/outpost/attack — 타일 정착지", () => {
   });
 
   it("빈 큐 정복(conquest) — 성벽 ≤ 공성 → 함락 + 타일 tier 1단계 강등(village→frontier)", async () => {
-    h.occ = occRow({ fortHp: 10 }); // 10 ≤ SIEGE_DAMAGE_PER_WIN(20) → 1격 함락
+    h.occ = occRow({ fortHp: 10 }); // 10 ≤ 최소 공성데미지(BASE×0.5=38) → 1격 함락
     h.treasuryGold = 0;
     const res = await POST(req({ outpostId: "tile:4,4", mode: "conquest" }));
     expect(res.status).toBe(200);

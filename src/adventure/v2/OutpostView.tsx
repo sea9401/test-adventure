@@ -13,7 +13,7 @@ import {
 } from "@/adventure/data/v2/settlement";
 import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import {
-  SIEGE_DAMAGE_PER_WIN,
+  siegeDamage,
   siegeWinsToFall,
 } from "@/adventure/data/v2/outpostSiege";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
@@ -426,6 +426,7 @@ export function OutpostView({
               fortHp={occupation.fortHp}
               fortMaxHp={occupation.fortMaxHp}
               protectedUntil={occupation.protectedUntil}
+              perWin={siegeDamage(viewerPower ?? defensePower, defensePower)}
             />
           )}
       </HeaderPanel>
@@ -709,10 +710,12 @@ function FortBar({
   fortHp,
   fortMaxHp,
   protectedUntil,
+  perWin,
 }: {
   fortHp: number;
   fortMaxHp: number;
   protectedUntil?: string;
+  perWin: number;
 }) {
   // 마운트 시각 기준(보호막은 시간 단위라 라이브 틱 불요) — 렌더 중 Date.now() 직접 호출 회피.
   const [nowMs] = useState(() => Date.now());
@@ -741,7 +744,7 @@ function FortBar({
       </div>
       {/* 공성 메커니즘 명문화 — 1승당 데미지와 함락까지 남은 승수(재생 무시 근사). */}
       <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
-        공성 1승당 −{SIEGE_DAMAGE_PER_WIN} · 약 {siegeWinsToFall(fortHp)}
+        공성 1승당 −{perWin} · 약 {siegeWinsToFall(fortHp, perWin)}
         승이면 함락
       </div>
     </div>

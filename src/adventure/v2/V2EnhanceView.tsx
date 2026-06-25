@@ -48,6 +48,12 @@ import {
   EquipmentCardGrid,
   type EquipmentCard,
 } from "@/adventure/v2/V2InventoryView";
+import {
+  SETTLEMENT_MATERIAL_ID,
+  WALL_REPAIR_KIT_ID,
+  WALL_REPAIR_KIT_COST,
+} from "@/adventure/data/v2/settlementMaterials";
+import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 const SLOT_TABS: { key: V2EquipSlot; label: string }[] = [
   { key: "weapon", label: "무기" },
@@ -93,6 +99,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   >({});
   const [stones, setStones] = useState({ red: 0, blue: 0 });
   const [reforgeStones, setReforgeStones] = useState({ basic: 0, high: 0 });
+  // 성벽 수리 키트 조합 재료 — 통나무/철광석 보유 + 키트 보유수(/me/inventory).
+  const [kitMats, setKitMats] = useState({ timber: 0, ore: 0, kits: 0 });
   const [tab, setTab] = useState<V2EquipSlot>("weapon");
   const [selectedIid, setSelectedIid] = useState<string | null>(null);
   const [stone, setStone] = useState<EnhanceChoice>("none");
@@ -130,6 +138,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         setReforgeStones({
           basic: j.materials?.[REFORGE_STONE_MATERIAL_ID.basic] ?? 0,
           high: j.materials?.[REFORGE_STONE_MATERIAL_ID.high] ?? 0,
+        });
+        setKitMats({
+          timber: j.materials?.[SETTLEMENT_MATERIAL_ID.timber] ?? 0,
+          ore: j.materials?.[SETTLEMENT_MATERIAL_ID.ironOre] ?? 0,
+          kits: j.materials?.[WALL_REPAIR_KIT_ID] ?? 0,
         });
       }
     } catch {
@@ -309,9 +322,6 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   }, [selected, item, busy, refresh, reforgeStone]);
 
   // ── 조합(combine) — 일반 재련석 3개 → 상급 재련석 1개(결정론·무료) ──
-  const combinePossible = Math.floor(reforgeStones.basic / REFORGE_COMBINE_COST);
-  const combineShort = reforgeStones.basic < REFORGE_COMBINE_COST;
-
   const doCombine = useCallback(async () => {
     if (busy) return;
     setBusy(true);
@@ -334,6 +344,38 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       setMsg({
         kind: "success",
         text: `✨ 재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개`,
+      });
+      await refresh();
+    } catch {
+      setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, refresh]);
+
+  // ── 조합(combine) — 통나무 3 + 철광석 3 → 성벽 수리 키트 1개(결정론·무료) ──
+  const doCombineKit = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/v2/me/repair-kit-combine", {
+        method: "POST",
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!json.ok) {
+        setMsg({
+          kind: "error",
+          text:
+            json.error === "insufficient_material"
+              ? `재료가 부족합니다 (통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 필요)`
+              : `실패: ${json.error ?? "unknown"}`,
+        });
+        return;
+      }
+      setMsg({
+        kind: "success",
+        text: `🛡️ 통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개`,
       });
       await refresh();
     } catch {
@@ -662,102 +704,154 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         </Card>
       )}
 
-      {/* 조합 패널 — 일반 재련석 3개 → 상급 재련석 1개 (장비 선택 불필요) */}
+      {/* 조합 — 레시피 목록(장비 선택 불필요). 카드마다 산출물·조합비·재료 충족(✓/✗) + 조합 버튼.
+          재련석 조합 + (전쟁 on) 성벽 수리 키트 조합. 둘 다 골드 무료. */}
       {mode === "combine" && (
-        <Card padding="sm">
-          <div className="space-y-2">
-            <div className="text-sm font-semibold">재련석 조합</div>
-            <div className="flex items-center justify-center gap-3 text-sm tabular-nums">
-              <span className="text-zinc-500 dark:text-zinc-400">
-                🔧 재련석 {REFORGE_COMBINE_COST}
-              </span>
-              <span aria-hidden>→</span>
-              <span className="text-indigo-500">✨ 상급 재련석 1</span>
-            </div>
-            <div className="flex items-baseline justify-between text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-              <span>
-                보유 — 🔧 {reforgeStones.basic} · ✨ {reforgeStones.high}
-              </span>
-              <span>조합 가능 {combinePossible}회</span>
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              일반 재련석 {REFORGE_COMBINE_COST}개를 상급 재련석 1개로 바꿉니다.
-              골드는 들지 않습니다.
-            </p>
-            <button
-              type="button"
-              onClick={() => void doCombine()}
-              disabled={busy || combineShort}
-              className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+        <section className="space-y-2">
+          {[
+            {
+              key: "reforge-stone",
+              icon: "✨",
+              output: "상급 재련석",
+              cost: "무료",
+              mats: [
+                {
+                  label: "🔧 재련석",
+                  have: reforgeStones.basic,
+                  need: REFORGE_COMBINE_COST,
+                },
+              ],
+              onCombine: doCombine,
+            },
+            ...(V2_SETTLEMENT_WARFARE
+              ? [
+                  {
+                    key: "repair-kit",
+                    icon: "🛡️",
+                    output: "성벽 수리 키트",
+                    cost: "무료",
+                    mats: [
+                      {
+                        label: "🪵 통나무",
+                        have: kitMats.timber,
+                        need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber],
+                      },
+                      {
+                        label: "🪨 철광석",
+                        have: kitMats.ore,
+                        need: WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre],
+                      },
+                    ],
+                    onCombine: doCombineKit,
+                  },
+                ]
+              : []),
+          ].map((r) => {
+            const short = r.mats.some((m) => m.have < m.need);
+            return (
+              <Card key={r.key} padding="sm">
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0 text-2xl" aria-hidden>
+                    {r.icon}
+                  </div>
+                  <div className="min-w-0 shrink-0">
+                    <div className="text-sm font-semibold">{r.output}</div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                      조합비 {r.cost}
+                    </div>
+                  </div>
+                  <div className="ml-auto space-y-0.5 text-xs tabular-nums">
+                    {r.mats.map((m) => {
+                      const ok = m.have >= m.need;
+                      return (
+                        <div
+                          key={m.label}
+                          className={
+                            ok
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-zinc-400 dark:text-zinc-500"
+                          }
+                        >
+                          {ok ? "✓" : "✗"} {m.label} {m.have}/{m.need}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void r.onCombine()}
+                    disabled={busy || short}
+                    className="shrink-0 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {busy ? "…" : "조합 →"}
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+          {msg && (
+            <div
+              className={`rounded-md border px-3 py-1.5 text-xs ${
+                msg.kind === "success"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                  : msg.kind === "fail"
+                    ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
+                    : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
+              }`}
             >
-              {busy
-                ? "조합 중…"
-                : combineShort
-                  ? `재련석 부족 (${REFORGE_COMBINE_COST}개 필요)`
-                  : "조합"}
-            </button>
-            {msg && (
-              <div
-                className={`rounded-md border px-3 py-1.5 text-xs ${
-                  msg.kind === "success"
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-                    : msg.kind === "fail"
-                      ? "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-300"
-                      : "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-300"
-                }`}
-              >
-                {msg.text}
-              </div>
-            )}
+              {msg.text}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 장비 선택 — 슬롯 탭 + 그리드(강화 높은 순). 조합 모드는 장비 선택이 불필요해 숨긴다. */}
+      {mode !== "combine" && (
+        <Card as="section" padding="sm">
+          <TabBar
+            tabs={SLOT_TABS}
+            active={tab}
+            onChange={(t) => {
+              setTab(t);
+              setSelectedIid(null);
+              setMsg(null);
+              setFeedIid(null);
+            }}
+            ariaLabel="강화 슬롯"
+            size="sm"
+            variant="highlight"
+            scrollable
+          />
+          <div className="mt-2">
+            <EquipmentCardGrid
+              selectedIid={selectedIid}
+              cards={pager.pageItems.map(
+                (inst: V2EquipInstance): EquipmentCard => ({
+                  inst,
+                  isEquipped: (equipped[tab] ?? null) === inst.iid,
+                }),
+              )}
+              onOpenCard={(inst) => {
+                setSelectedIid(inst.iid);
+                setMsg(null);
+                setFeedIid(null);
+                // +8부터 돌 필수 — 골드만 선택 상태면 푸른으로 자동 전환.
+                if (
+                  (inst.enhance?.level ?? 0) >= ENHANCE_STONE_REQUIRED_FROM &&
+                  stone === "none"
+                ) {
+                  setStone("blue");
+                }
+              }}
+            />
+            <Pagination
+              page={pager.page}
+              pageCount={pager.pageCount}
+              setPage={pager.setPage}
+            />
           </div>
         </Card>
       )}
-
-      {/* 장비 선택 — 슬롯 탭 + 그리드(강화 높은 순). */}
-      <Card as="section" padding="sm">
-        <TabBar
-          tabs={SLOT_TABS}
-          active={tab}
-          onChange={(t) => {
-            setTab(t);
-            setSelectedIid(null);
-            setMsg(null);
-            setFeedIid(null);
-          }}
-          ariaLabel="강화 슬롯"
-          size="sm"
-          variant="highlight"
-          scrollable
-        />
-        <div className="mt-2">
-          <EquipmentCardGrid
-            selectedIid={selectedIid}
-            cards={pager.pageItems.map(
-              (inst: V2EquipInstance): EquipmentCard => ({
-                inst,
-                isEquipped: (equipped[tab] ?? null) === inst.iid,
-              }),
-            )}
-            onOpenCard={(inst) => {
-              setSelectedIid(inst.iid);
-              setMsg(null);
-              setFeedIid(null);
-              // +8부터 돌 필수 — 골드만 선택 상태면 푸른으로 자동 전환.
-              if (
-                (inst.enhance?.level ?? 0) >= ENHANCE_STONE_REQUIRED_FROM &&
-                stone === "none"
-              ) {
-                setStone("blue");
-              }
-            }}
-          />
-          <Pagination
-            page={pager.page}
-            pageCount={pager.pageCount}
-            setPage={pager.setPage}
-          />
-        </div>
-      </Card>
     </main>
   );
 }

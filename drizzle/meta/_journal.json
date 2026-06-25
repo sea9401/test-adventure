@@ -610,6 +610,13 @@
       "when": 1782367472471,
       "tag": "0086_tiered_fort_hp",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1782370849689,
+      "tag": "0087_fort_hp_3x",
+      "breakpoints": true
     }
   ]
 }

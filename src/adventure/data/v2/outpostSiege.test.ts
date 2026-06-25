@@ -5,6 +5,7 @@ import {
   fortMaxHpForTier,
   BASE_SIEGE_DAMAGE,
   siegeDamage,
+  undefendedSiegeDamage,
   FORT_REGEN_PER_HOUR,
   REPAIR_GOLD_PER_HP,
   currentFortHp,
@@ -63,13 +64,13 @@ describe("repairHpFromGold (길드 금고 자동 수리)", () => {
 });
 
 describe("성벽 단계별 HP", () => {
-  it("개척마을 300 / 마을 500 / 도시 1000 / 대도시 1500", () => {
-    expect(FORT_MAX_HP_BY_TIER[1]).toBe(300);
-    expect(FORT_MAX_HP_BY_TIER[2]).toBe(500);
-    expect(FORT_MAX_HP_BY_TIER[3]).toBe(1000);
-    expect(FORT_MAX_HP_BY_TIER[4]).toBe(1500);
-    expect(fortMaxHpForTier(1)).toBe(300);
-    expect(fortMaxHpForTier(4)).toBe(1500);
+  it("개척마을 900 / 마을 1500 / 도시 3000 / 대도시 4500", () => {
+    expect(FORT_MAX_HP_BY_TIER[1]).toBe(900);
+    expect(FORT_MAX_HP_BY_TIER[2]).toBe(1500);
+    expect(FORT_MAX_HP_BY_TIER[3]).toBe(3000);
+    expect(FORT_MAX_HP_BY_TIER[4]).toBe(4500);
+    expect(fortMaxHpForTier(1)).toBe(900);
+    expect(fortMaxHpForTier(4)).toBe(4500);
   });
   it("FORT_MAX_HP(폴백) = tier1", () => {
     expect(FORT_MAX_HP).toBe(FORT_MAX_HP_BY_TIER[1]);
@@ -99,10 +100,29 @@ describe("siegeDamage (전투력 비율 공성)", () => {
   });
 });
 
+describe("undefendedSiegeDamage (무방비 성벽 = 전투력÷4·캡 50%HP)", () => {
+  it("캡 아래면 전투력÷4(반올림)", () => {
+    expect(undefendedSiegeDamage(742, 900)).toBe(186); // round(742/4)=186 < cap 450
+  });
+  it("성벽 최대HP의 50% 로 캡(엔드 공격자 원샷 방지)", () => {
+    expect(undefendedSiegeDamage(4000, 900)).toBe(450); // 1000 > floor(900*0.5)=450
+    expect(undefendedSiegeDamage(999999, 4500)).toBe(2250); // cap = floor(4500*0.5)
+  });
+  it("최소 1", () => {
+    expect(undefendedSiegeDamage(0, 900)).toBe(1);
+    expect(undefendedSiegeDamage(1, 900)).toBe(1);
+  });
+  it("캡 덕분에 풀수리 성벽은 무방비라도 ≥2타", () => {
+    const hp = FORT_MAX_HP_BY_TIER[1];
+    expect(undefendedSiegeDamage(999999, hp)).toBeLessThan(hp);
+  });
+});
+
 describe("siegeWinsToFall (함락까지 승수 표기)", () => {
   it("경계 — 정확히 나누어떨어지면 그 몫", () => {
     expect(siegeWinsToFall(BASE_SIEGE_DAMAGE * 3, BASE_SIEGE_DAMAGE)).toBe(3);
-    expect(siegeWinsToFall(FORT_MAX_HP_BY_TIER[1], BASE_SIEGE_DAMAGE)).toBe(4);
+    // tier1 900 / BASE 75 = 12
+    expect(siegeWinsToFall(FORT_MAX_HP_BY_TIER[1], BASE_SIEGE_DAMAGE)).toBe(12);
   });
   it("나머지가 있으면 올림", () => {
     expect(siegeWinsToFall(BASE_SIEGE_DAMAGE * 2 + 1, BASE_SIEGE_DAMAGE)).toBe(3);

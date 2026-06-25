@@ -9,19 +9,19 @@ import type { OutpostTier } from "./types";
 // 다이얼 (라이브 실측 후 캘리브) ───────────────────────────────────────────
 // 성벽 최대 HP — 단계(tier)별. 단계 오를수록 두꺼움 → 상위 거점은 한참 걸려야 함락.
 //   타일 frontier/village/city/metropolis = tileTierToOutpostTier 로 1~4 매핑(카탈로그 거점 공용).
-// 불변식: 최소 HP(tier1=300) > 최대 siegeDamage(BASE 75 × MAX 3.0 = 225) — 풀수리 성벽이
-//   한 방에 안 무너져야 "금고 충분하면 방어" 가 성립(금고 자동 수리 전제).
+// 불변식: 최소 HP(tier1=900) > 최대 siegeDamage(BASE 75 × MAX 3.0 = 225) — 풀수리 성벽이
+//   한 방에 안 무너져야 "금고 충분하면 방어" 가 성립. 무방비 타격도 최대 50%HP 캡이라 ≥2타 보장.
 export const FORT_MAX_HP_BY_TIER: Record<OutpostTier, number> = {
-  1: 300, // 개척마을(frontier)
-  2: 500, // 마을(village)
-  3: 1000, // 도시(city)
-  4: 1500, // 대도시(metropolis)
+  1: 900, // 개척마을(frontier)
+  2: 1500, // 마을(village)
+  3: 3000, // 도시(city)
+  4: 4500, // 대도시(metropolis)
 };
 export function fortMaxHpForTier(tier: OutpostTier): number {
   return FORT_MAX_HP_BY_TIER[tier] ?? FORT_MAX_HP_BY_TIER[1];
 }
 // 기본/폴백 성벽 HP(tier 미상). 옛 상수 호환 — tier1(개척마을) 값.
-export const FORT_MAX_HP = 300;
+export const FORT_MAX_HP = 900;
 
 // 성벽 데미지 — 전투력 비율 기반. 압도적 전력차=큰 타격, 빠듯=찔끔(옛 고정 -20 폐지).
 export const BASE_SIEGE_DAMAGE = 75; // 전력 동급(비율 1.0)일 때 데미지 — 다이얼
@@ -33,6 +33,19 @@ export function siegeDamage(attackerPower: number, defenderPower: number): numbe
     Math.max(SIEGE_RATIO_MIN, attackerPower / Math.max(1, defenderPower)),
   );
   return Math.max(1, Math.round(BASE_SIEGE_DAMAGE * ratio));
+}
+
+// 무방비(수비 큐 0명) 성벽 데미지 — 공격자 전투력 ÷ 4. 수비 안 깔면 강한 적에 정비례로 노출(벌칙).
+//   단 한 타 최대 = 성벽 최대HP의 50% 로 캡(엔드 고전투력도 원샷 불가 — 최소 2타 보장).
+export const UNDEFENDED_SIEGE_POWER_DIVISOR = 4;
+export const UNDEFENDED_SIEGE_HP_FRACTION_CAP = 0.5;
+export function undefendedSiegeDamage(
+  attackerPower: number,
+  fortMaxHp: number,
+): number {
+  const raw = Math.round(attackerPower / UNDEFENDED_SIEGE_POWER_DIVISOR);
+  const cap = Math.floor(fortMaxHp * UNDEFENDED_SIEGE_HP_FRACTION_CAP);
+  return Math.max(1, Math.min(raw, cap));
 }
 
 export const FORT_REGEN_PER_HOUR = 5; // 시간당 회복(상위 성벽일수록 상대적으로 작음 = 의도)

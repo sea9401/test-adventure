@@ -271,7 +271,9 @@ const SPD_PER_DEX = 2.0;
 //   weight 다이얼은 페널티 계수 그대로 두고, 무게 자체를 effectiveStats 에서 슬롯별 스케일
 //   (일반 ×2·무기 ×4)로 키워 SPD 가치 대비 너무 미미하던 무게 트레이드오프를 강화(2026-06-20, 오너).
 //   "표시 무게 1 = 속도 −2" 직관은 유지. 무게는 전투력 점수 미산입이라 순수 속도 트레이드오프.
-const WEIGHT_SPD_PENALTY = 2.0;
+//   2.0→0.5 (2026-06-25, 오너·sim): ATB 속도곡선 ~6배 전환과 함께 중갑 탱(STR/VIT)이 속도열세로
+//   전멸하던 걸 막기 위해 무게 속도페널티를 1/4 로 완화 — 6배에서 STR 67%·VIT 58% 생존(sim 검증).
+const WEIGHT_SPD_PENALTY = 0.5;
 // 최소 데미지(데미지 하한) — 힘·지능 major, 활력 minor.
 const MIN_DMG_PER_STR = 0.1;
 const MIN_DMG_PER_INT = 0.05;

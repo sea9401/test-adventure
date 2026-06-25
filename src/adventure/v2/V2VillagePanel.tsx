@@ -203,9 +203,10 @@ export function V2VillagePanel({
     if (!village || !built) return null;
     return (
       <div
-        className="grid gap-1.5"
+        className="grid w-fit gap-1.5"
         style={{
-          gridTemplateColumns: `repeat(${GRID_DISPLAY_COLS}, minmax(0, 1fr))`,
+          // 칸은 작게 고정 — 자리표시라 화면 폭을 채울 필요 없음(풀폭 1fr → 5rem 상한).
+          gridTemplateColumns: `repeat(${GRID_DISPLAY_COLS}, minmax(0, 5rem))`,
         }}
       >
         {Array.from({ length: GRID_DISPLAY_SLOTS }, (_, slot) => {

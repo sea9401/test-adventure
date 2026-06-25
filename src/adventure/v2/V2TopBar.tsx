@@ -12,14 +12,15 @@ import { V2SettingsMenu } from "./V2SettingsMenu";
 // 우측: 알림(미읽음 뱃지 → /notifications)·채팅·설정.
 
 export function V2TopBar({
-  currentOutpost,
+  locationName,
   gameName,
   playerName,
   playerLevel,
   bankedGold,
   coreLoopOn,
 }: {
-  currentOutpost: { id: string; name: string } | null;
+  // 현재 서 있는 위치 라벨(거점명/마을명/빈 땅 좌표). 없으면 "이동 중".
+  locationName: string | null;
   gameName: string | null;
   playerName: string;
   playerLevel: number;
@@ -43,7 +44,7 @@ export function V2TopBar({
             className="shrink-0 text-emerald-500"
           />
           <span className="truncate text-base font-semibold text-zinc-700 dark:text-zinc-200">
-            {currentOutpost?.name ?? "이동 중"}
+            {locationName ?? "이동 중"}
           </span>
           {coreLoopOn ? (
             <span className="hidden shrink-0 text-[11px] tabular-nums text-zinc-500 sm:inline dark:text-zinc-400">

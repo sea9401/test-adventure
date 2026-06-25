@@ -8,6 +8,7 @@ import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { WarTicker } from "@/adventure/v2/WarTicker";
 import { TabBar } from "@/components/ui/TabBar";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
+import { currentLocationLabel } from "@/adventure/v2/currentLocation";
 import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
 import type { OutpostType } from "@/adventure/data/v2/types";
 
@@ -87,6 +88,8 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const {
     currentOutpost,
+    tilePos,
+    tileSettlements,
     accountName,
     stamina,
     staminaMax,
@@ -98,6 +101,12 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
     huntStaminaMode,
     refreshGameState,
   } = useGameState();
+  // 좌상단 위치 라벨 — 서 있는 타일(tilePos) 기준(빈 칸이면 리베라 고정 버그 방지).
+  const currentLocationName = currentLocationLabel({
+    tilePos,
+    tileSettlements,
+    currentOutpostName: currentOutpost?.name ?? null,
+  });
 
   // 스태미나 포션 사용(모달에서 개수 선택) — 서버 권위 회복 후 전역 상태 갱신.
   const usePotion = async (count: number) => {
@@ -157,7 +166,7 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
   return (
     <div>
       <V2TopBar
-        currentOutpost={currentOutpost}
+        locationName={currentLocationName}
         gameName={accountName}
         playerName={viewerName}
         playerLevel={viewerLevel}

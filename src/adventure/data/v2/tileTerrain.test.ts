@@ -33,7 +33,7 @@ describe("TILE_TERRAIN — 배치 데이터", () => {
   });
 
   it("산맥·호수는 정착 불가(settleable=false), 협곡은 정착 가능(true)", () => {
-    for (const [k, f] of Object.entries(TILE_TERRAIN)) {
+    for (const f of Object.values(TILE_TERRAIN)) {
       if (f.kind === "mountain" || f.kind === "lake") {
         expect(f.settleable).toBe(false);
       }

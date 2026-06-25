@@ -549,6 +549,9 @@ export function OutpostView({
                 loading={busy}
               />
             )}
+            {/* 공격자 시점 정찰 — 이 거점에 행해진 최근 공격 기록(승패·성벽 타격)을
+                노출. 소유 탭의 "최근 공격 기록" 과 동일 컴포넌트(읽기 전용). */}
+            <OutpostAttackLog outpostId={outpost.id} />
           </>
         )}
 

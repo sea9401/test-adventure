@@ -1,25 +1,21 @@
 import { desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import {
-  guilds,
-  outpostClaimAttempts,
-  outpostOccupations,
-} from "@/db/schema";
+import { guilds, outpostClaimAttempts } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
-import { getGuildId } from "@/lib/server/v2EnsureSoloGuild";
 import { resolveUserDisplayName } from "@/lib/server/serverFeed";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 // GET /api/v2/outpost/attacks?outpostId=...
 //
-// 보유 거점의 최근 공격 기록 — outpost_claim_attempts 를 수비측 시점으로 노출.
-// 점령자 본인 또는 점령 길드 멤버만 열람 가능 (intruders GET 과 같은 게이트).
+// 거점의 최근 공격 기록 — outpost_claim_attempts 를 수비측 시점으로 노출.
+// 인증된 누구나 열람 가능(공격자 정찰용) — 소유 탭과 비-소유(공격자) 탭이
+// 같은 컴포넌트를 공유한다. 읽기 전용이라 소유권 게이트 없음.
 //
 // 응답: { ok: true, attacks: Array<{id, attackerName, attackerGuildName, npc,
 //         attackerWon, turns, at}> }
 //   - npc=true 행은 NPC 정기 공격 — 원본 won 의미가 "점령자(수비) 승리"라
 //     attackerWon 으로 정규화해서 내려보낸다 (클라가 의미 분기 안 하게).
-//   - 권한 없음(점령 안 함 / 다른 길드) → 403
+//   - 미인증 → 401
 //   - outpost 모름 → 400
 
 const ATTACK_LOG_LIMIT = 20;
@@ -49,31 +45,7 @@ export async function GET(req: Request) {
     return Response.json({ ok: false, error: "bad_outpost" }, { status: 400 });
   }
 
-  // 권한 검증 — 점령 변경 직후 stale 권한 race 방지를 위해 occ 조회와 같은 tx.
-  const gate = await db.transaction(async (tx) => {
-    const occ = (
-      await tx
-        .select({
-          ownerUserId: outpostOccupations.occupiedByUserId,
-          guildId: outpostOccupations.occupiedByGuildId,
-        })
-        .from(outpostOccupations)
-        .where(eq(outpostOccupations.outpostId, outpostId))
-        .limit(1)
-    )[0];
-    if (!occ || occ.ownerUserId == null) {
-      return { error: "not_occupied" as const };
-    }
-    if (occ.ownerUserId === userId) return { ok: true as const };
-    const viewerGuildId = await getGuildId(tx, userId);
-    if (occ.guildId != null && viewerGuildId === occ.guildId) {
-      return { ok: true as const };
-    }
-    return { error: "not_owner_guild" as const };
-  });
-  if ("error" in gate) {
-    return Response.json({ ok: false, error: gate.error }, { status: 403 });
-  }
+  // 공격 기록은 정찰 정보 — 인증된 누구나 읽기 가능(소유권 게이트 없음).
 
   const rows = await db
     .select({

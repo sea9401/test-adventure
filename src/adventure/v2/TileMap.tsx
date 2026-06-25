@@ -11,7 +11,10 @@ import {
   Flag,
   Hammer,
   House,
+  Mountains,
+  Path,
   Trash,
+  Waves,
   type Icon,
 } from "@phosphor-icons/react";
 import {
@@ -37,6 +40,9 @@ import {
   tileNextTier,
   isTileSettlementTier,
   scaledTileGoldCost,
+  tileFeatureAt,
+  TILE_TERRAIN_LABEL,
+  type TileFeatureKind,
   type TileSettlementTier,
 } from "@/adventure/data/v2/tileConfig";
 import { VILLAGE_NAME_MAX } from "@/adventure/data/v2/settlement";
@@ -53,6 +59,24 @@ const SETTLE_TIER_ICON: Record<TileSettlementTier, Icon> = {
   metropolis: Crown,
 };
 const FOUNDED_FILL = "#10b981"; // 개척 정착지 = 초록 계열.
+
+// 지형 타일 시각 — 통행 불가(산맥/호수)는 어두운 패턴, 통행 가능(협곡)은 빈 땅처럼 선택/개척 가능.
+//   미배치 종(온천/요새터/교역로)은 P1 에 칸이 없어 여기 없어도 안전(있으면 빈 땅으로 폴백).
+const TERRAIN_GLYPH: Partial<Record<TileFeatureKind, Icon>> = {
+  mountain: Mountains,
+  canyon: Path,
+  lake: Waves,
+};
+const TERRAIN_BG: Partial<Record<TileFeatureKind, string>> = {
+  mountain: "bg-zinc-950",
+  canyon: "bg-stone-800/70 hover:bg-stone-700/70",
+  lake: "bg-sky-950",
+};
+const TERRAIN_ICON_COLOR: Partial<Record<TileFeatureKind, string>> = {
+  mountain: "#52525b",
+  canyon: "#a8a29e",
+  lake: "#38bdf8",
+};
 
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
 
@@ -155,6 +179,8 @@ export function TileMap({
   const selOutpost = selOutpostId ? OUTPOST_BY_ID.get(selOutpostId) : undefined;
   const selSettlement = selected ? settlementByKey.get(selected) : undefined;
   const [selCol, selRow] = selected ? selected.split(",").map(Number) : [-1, -1];
+  // 선택 칸 지형(미배치 = null). 통행 불가 지형(산맥/호수)은 이동/개척 패널 대신 정보 패널.
+  const selFeature = selected ? tileFeatureAt(selCol, selRow) : null;
 
   // 플레이어 마커 칸 — tilePos 우선, 없으면 현재 거점 칸에서 파생(보드 밖이면 마커 없음).
   const playerPos =
@@ -274,6 +300,33 @@ export function TileMap({
                     >
                       <Glyph className="h-3/5 w-3/5" weight="fill" color="#0b1020" />
                     </span>
+                    {ring}
+                  </button>
+                );
+              }
+
+              // 지형 타일(산맥·협곡·호수) — 정착지가 없는 특수 칸. 협곡(settleable)은 빈 땅처럼
+              //   개척 가능, 산맥·호수(통행 불가)는 배경만(정복 디딤돌 불가).
+              const feature = tileFeatureAt(col, row);
+              const TerrainGlyph = feature ? TERRAIN_GLYPH[feature.kind] : undefined;
+              if (feature && TerrainGlyph) {
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSelected(k)}
+                    title={`${TILE_TERRAIN_LABEL[feature.kind]}${
+                      feature.settleable ? "" : " · 통행 불가"
+                    }`}
+                    className={`relative flex h-full w-full items-center justify-center transition ${
+                      TERRAIN_BG[feature.kind] ?? "bg-zinc-900/60"
+                    } ${isSel ? "outline outline-2 outline-indigo-400" : ""}`}
+                  >
+                    <TerrainGlyph
+                      className="h-2/5 w-2/5"
+                      weight="fill"
+                      color={TERRAIN_ICON_COLOR[feature.kind] ?? "#71717a"}
+                    />
                     {ring}
                   </button>
                 );
@@ -452,10 +505,23 @@ export function TileMap({
               </div>
             );
           })()
+        ) : selFeature && !selFeature.settleable ? (
+          // 통행 불가 지형(산맥·호수) — 이동/개척 불가. 정보만 표시.
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-zinc-100">
+                {TILE_TERRAIN_LABEL[selFeature.kind]}
+              </div>
+              <div className="mt-0.5 text-xs text-zinc-500">
+                통행 불가 · 정착할 수 없는 지형 ({selCol}, {selRow})
+              </div>
+            </div>
+          </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
             <div className="text-xs text-zinc-400">
-              빈 땅 ({selCol}, {selRow})
+              {selFeature ? `${TILE_TERRAIN_LABEL[selFeature.kind]} ` : "빈 땅 "}(
+              {selCol}, {selRow})
             </div>
             <div className="flex items-center gap-2">
               {playerTileKey === selected ? (

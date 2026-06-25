@@ -64,6 +64,73 @@ export const TILE_POS_BY_OUTPOST = new Map(
 // 새 보드에 남는 거점 id 집합(나머지는 표시 제외).
 export const TILE_KEPT_OUTPOST_IDS = new Set(TILE_OUTPOSTS.map((t) => t.id));
 
+// === 전략 지형 레이어 (P1) — 손배치 특수 타일 ====================================
+// 9×9 보드는 칸이 거의 균질해 "어디에 정착하느냐"가 입지 싸움이 아니다. 지형(terrain)을 소수
+//   손배치해 칸마다 가치를 차등화한다(절차생성 X — 균형·기억가능성). docs/v2-map-terrain-plan.md.
+//
+// terrain(지도 고정) ↔ trait(정착지 속성·settlement.ts TerrainTrait)은 별개 책임 — 이 레이어는
+//   그 위에 보정/차단으로만 얹힌다. 생산(나무/광물) 코드는 무접촉.
+//
+// 🔑 P1 범위 = 데이터/타입/헬퍼 + 산맥·협곡·호수. "통행/정착 불가"는 settleable=false 하나로
+//    표현(found/move-tile 라우트가 거부). 산맥·호수는 소유 불가라 정복 인접 사슬의 디딤돌도 못 됨
+//    → 별도 인접 차단 코드 불요. 온천(건강도)·요새터(fortHp)·교역로(세금)·호수 방어보너스 등
+//    수치 효과는 후속 PR(P2/P3) — P1 은 통행/정착 게이트만.
+export type TileFeatureKind =
+  | "mountain" // 정복-인접 벽 — 정착·소유 불가(settleable=false). 인접 사슬 차단(구조적).
+  | "canyon" // 산맥 벽에서 유일하게 소유 가능한 칸 = 길목(settleable=true).
+  | "lake" // 수공(水攻) 방어 — 통행/정착 불가(settleable=false). 인접 방어보너스는 후속 PR.
+  | "hotspring" // 건강도(전쟁HP) 회복 가속 — 후속 PR(P2·미배치).
+  | "stronghold" // 수비/성벽 fortHp ↑ — 후속 PR(P3·미배치).
+  | "trade_route"; // 경제(영주 세금) ↑ — 후속 PR(P3·미배치).
+// 미래(진입형 던전): | "dungeon" — settleable=false + interaction(§7 자리 예약).
+
+export type TileFeature = {
+  kind: TileFeatureKind;
+  // 정착/소유 가능한 칸인가. false = 빈 칸이지만 found/이동 불가(산맥·호수·던전).
+  settleable: boolean;
+  // 진입형 콘텐츠(미래 던전)의 진입 정의. 없으면 비-진입 지형(§7). P1 미사용(자리 예약).
+  interaction?: { kind: string; routeId: string; access: "neutral" | "owner" };
+};
+
+// 손배치 — 좌표 키 "col,row" → 피처. 미배치 칸은 평범한 빈 땅(이동·정착 자유).
+//   P1 배치: 좌측 산맥 줄(col2)이 협곡(2,4)로만 뚫림 + 우측 산맥 줄(col6)이 협곡(6,2)로만 뚫림 +
+//   우하단 소형 호수(통행 불가). 산맥 줄은 보드 끝까지 안 닿게(우회로 보존). 리베라 인접 링
+//   (3,4)(5,4)(4,3)(4,5)은 비워둔다(land-less 길드 bootstrap 초크와 무겹침).
+export const TILE_TERRAIN: Record<string, TileFeature> = {
+  // 좌측 산맥 줄(col2) — 협곡(2,4)이 유일한 통로.
+  [tileKey(2, 1)]: { kind: "mountain", settleable: false },
+  [tileKey(2, 2)]: { kind: "mountain", settleable: false },
+  [tileKey(2, 3)]: { kind: "mountain", settleable: false },
+  [tileKey(2, 4)]: { kind: "canyon", settleable: true },
+  [tileKey(2, 5)]: { kind: "mountain", settleable: false },
+  // 우측 산맥 줄(col6) — 협곡(6,2)이 유일한 통로.
+  [tileKey(6, 0)]: { kind: "mountain", settleable: false },
+  [tileKey(6, 1)]: { kind: "mountain", settleable: false },
+  [tileKey(6, 2)]: { kind: "canyon", settleable: true },
+  [tileKey(6, 3)]: { kind: "mountain", settleable: false },
+  // 우하단 소형 호수 — 통행/정착 불가(인접 방어보너스는 후속 PR).
+  [tileKey(6, 6)]: { kind: "lake", settleable: false },
+  [tileKey(7, 6)]: { kind: "lake", settleable: false },
+};
+
+// 좌표 → 피처(미배치 = null). 서버·클라 공용 순수함수.
+export const tileFeatureAt = (col: number, row: number): TileFeature | null =>
+  TILE_TERRAIN[tileKey(col, row)] ?? null;
+
+// 정착/소유 가능 칸인가 — 피처 없으면 자유(true). 산맥·호수 등 settleable=false 만 거부.
+export const isTileSettleable = (col: number, row: number): boolean =>
+  tileFeatureAt(col, row)?.settleable ?? true;
+
+// 지형 한글 라벨(UI 툴팁/패널). 미배치 칸은 라벨 없음.
+export const TILE_TERRAIN_LABEL: Record<TileFeatureKind, string> = {
+  mountain: "산맥",
+  canyon: "협곡",
+  lake: "호수",
+  hotspring: "온천",
+  stronghold: "요새터",
+  trade_route: "교역로",
+};
+
 // === 개척 정착지 (Phase 3) — 마을 아래 "개척마을" 신설 ===============================
 // 빈 땅에 개척마을(frontier) 건설 → 마을(village)→도시(city)→대도시(metropolis) 승격.
 export const TILE_SETTLEMENT_TIERS = [

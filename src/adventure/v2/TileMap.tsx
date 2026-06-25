@@ -7,6 +7,7 @@
 import { useState } from "react";
 import {
   CastleTurret,
+  Coins,
   Crown,
   Flag,
   FlowerLotus,
@@ -61,29 +62,40 @@ const SETTLE_TIER_ICON: Record<TileSettlementTier, Icon> = {
 };
 const FOUNDED_FILL = "#10b981"; // 개척 정착지 = 초록 계열.
 
-// 지형 타일 시각 — 통행 불가(산맥/호수/온천)는 어두운 패턴, 통행 가능(협곡)은 빈 땅처럼 선택/개척
-//   가능. 미배치 종(요새터/교역로)은 칸이 없어 여기 없어도 안전(있으면 빈 땅으로 폴백).
+// 지형 타일 시각 — 통행 불가(산맥/호수/온천)는 어두운 패턴, 통행 가능(협곡/요새터/교역로)은
+//   빈 땅처럼 선택/개척 가능(요새터/교역로는 그 칸 정착지에 보정).
 const TERRAIN_GLYPH: Partial<Record<TileFeatureKind, Icon>> = {
   mountain: Mountains,
   canyon: Path,
   lake: Waves,
   hotspring: FlowerLotus,
+  stronghold: CastleTurret,
+  trade_route: Coins,
 };
 const TERRAIN_BG: Partial<Record<TileFeatureKind, string>> = {
   mountain: "bg-zinc-950",
   canyon: "bg-stone-800/70 hover:bg-stone-700/70",
   lake: "bg-sky-950",
   hotspring: "bg-amber-950",
+  stronghold: "bg-slate-800/70 hover:bg-slate-700/70",
+  trade_route: "bg-yellow-900/60 hover:bg-yellow-800/60",
 };
 const TERRAIN_ICON_COLOR: Partial<Record<TileFeatureKind, string>> = {
   mountain: "#52525b",
   canyon: "#a8a29e",
   lake: "#38bdf8",
   hotspring: "#fbbf24",
+  stronghold: "#cbd5e1",
+  trade_route: "#fcd34d",
 };
 // 통행 불가 지형의 퍽 한 줄(정보 패널). 없으면 기본 "통행 불가" 문구만.
 const TERRAIN_PERK_HINT: Partial<Record<TileFeatureKind, string>> = {
   hotspring: "인접 정착지 보유 길드원 건강도 회복 가속",
+};
+// 정착 가능 특수 지형(요새터/교역로)의 퍽 한 줄(정착 패널). 협곡 등은 없음.
+const TERRAIN_SETTLE_HINT: Partial<Record<TileFeatureKind, string>> = {
+  stronghold: "정착 시 성벽 내구 +15%",
+  trade_route: "정착 시 영주 세금 +15% · 약탈 손실 +10%",
 };
 
 const OUTPOST_BY_ID = new Map(OUTPOSTS.map((o) => [o.id, o]));
@@ -532,9 +544,16 @@ export function TileMap({
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-zinc-700 bg-zinc-900/80 p-3">
-            <div className="text-xs text-zinc-400">
-              {selFeature ? `${TILE_TERRAIN_LABEL[selFeature.kind]} ` : "빈 땅 "}(
-              {selCol}, {selRow})
+            <div className="min-w-0">
+              <div className="text-xs text-zinc-400">
+                {selFeature ? `${TILE_TERRAIN_LABEL[selFeature.kind]} ` : "빈 땅 "}(
+                {selCol}, {selRow})
+              </div>
+              {selFeature && TERRAIN_SETTLE_HINT[selFeature.kind] && (
+                <div className="mt-0.5 text-xs text-amber-300/80">
+                  {TERRAIN_SETTLE_HINT[selFeature.kind]}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {playerTileKey === selected ? (

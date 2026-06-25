@@ -110,18 +110,19 @@ export const tileFeatureAt = (col: number, row: number): TileFeature | null =>
 - **밸런스**: "전선 옆 보급 명당". ÷2 가 과하면 ÷1.5 로.
 
 ### 2.4 요새터 `stronghold` — 수비/성벽
-- **효과**: 이 칸 정착지의 `fortHp` 최대치 +15%.
+- **효과**: 이 칸 정착지의 `fortHp` 최대치 +15%. **(P3 LIVE — 배치 (8,4)(7,7).)**
 - **수치**: `STRONGHOLD_FORT_HP_MULT = 1.15`.
-- **후킹**: fortHp 최대 계산(`outpostSiege.ts FORT_*` / 점령행 fortMaxHp)(§4-③).
+- **후킹**: 단일 헬퍼 `outpostSiege.tileFortMaxHp(col,row,tier)` 가 fortMaxHp 쓰기 4지점 통일·멱등(§4-③).
 - **밸런스**: 후반 난공불락 고착 방지 → 보수적 시작. 생산 페널티는 재료 개편 후라 미부여.
 - ⚠️ **수비 큐 슬롯 +1 보류**: 현재 `outpost/defend` 라우트에 큐 용량(cap) 개념 자체가 없음
   (Codex 확인). 슬롯 보너스를 주려면 기본 cap·초과 처리·stale row 정리·UI 를 전부 새로 만들어야
   해 지형 perk 치고 과대. **defender capacity 시스템이 생기면 그때 추가.**
 
 ### 2.5 교역로 `trade_route` — 경제(세금)
-- **효과**: 이 칸 정착지의 영주 세금 수입 +15%. 단, 약탈당할 때 금고 탈취량 +10%(양날).
+- **효과**: 이 칸 정착지의 영주 세금 수입 +15%. 단, 약탈당할 때 금고 탈취량 +10%(양날). **(P3 LIVE — 배치 (1,6).)**
 - **수치**: `TRADE_ROUTE_TAX_MULT = 1.15`, `TRADE_ROUTE_RAID_LOSS_MULT = 1.10`.
-- **후킹**: 영주 세금 *발생(accrual)* 지점 + 약탈 금고 탈취(`RAID_TREASURY_STEAL_FRAC`)(§4-④).
+- **후킹(확정)**: 세금 *발생* = **hunt 라우트 `goldTaxed`**(사냥꾼 gross→금고·보존) ×1.15 + 약탈 금고
+  탈취(`attack/route` `RAID_TREASURY_STEAL_FRAC`) ×1.10(§4-④).
 - ⚠️ **골드 보존 규칙(필수·Codex)**: +15%는 **활동에서 떼는 세금을 키우는 재분배**여야 한다
   (납세자=사냥꾼이 더 내고 금고가 더 받음). **harvest(금고→영주 지급) 단계에 곱하면 이미 쌓인
   금고에서 새 골드를 찍는 인플레가 되므로 금지.** 실제 세금 발생 지점(예: `dungeon/hunt`
@@ -133,9 +134,10 @@ export const tileFeatureAt = (col: number, row: number): TileFeature | null =>
 - **수치**: `LAKE_ATTACKER_PENALTY = 0.10`(인접 정착지 공격 시 공성·약탈 효율 −10%). 시작 보수적.
 - **후킹**: 공성 데미지(`outpostSiege.ts siegeDamage`)·약탈 금고 탈취에 "방어 측이 호수-인접 보유?"
   조회 후 ×(1−페널티). 호수 자체는 settleable=false 라 못 가짐 — *인접* 보너스(산맥과 대칭).
-- **밸런스**: 천연 해자 — 너무 강하면 −10%→−5%.
-- ⚠️ **P1 범위**: 통행/정착 불가(settleable=false)만 우선 적용(산맥과 동일 경로). 인접 방어보너스
-  후킹은 **P3**(공성/약탈 라우트 손볼 때).
+- **밸런스**: 천연 해자 — 너무 강하면 0.9→0.95.
+- ✅ **P1**: 호수 칸 통행/정착 불가(settleable=false). ✅ **P3 LIVE**: 인접 정착지 방어보너스 —
+  공성 데미지·약탈 탈취 ×`LAKE_ATTACKER_PENALTY_MULT`(0.9). 다이얼은 *배수*(0.9)로 통일(원래
+  설계의 −0.10 페널티값을 ×0.90 으로 표기 변경).
 
 > 채널 분포: 정복-인접 ×2(벽+길목), 건강도 ×1, 수비 ×1, 경제 ×1, 수공방어 ×1 = **5 채널 / 6 종**.
 > 각 채널 1~2개만 건드려 밸런스 다이얼이 작고, 전부 기존(혹은 최근 추가) 시스템 위에 얹힌다.
@@ -192,15 +194,22 @@ row8  .   .   .   .   .   .   .   .   .
   `settleable=false` 거부.
 - **② 건강도** — `warVigor.ts applyVigorRecovery`(순수 헬퍼·인자 추가) + `me/war-vigor/recover`
   라우트가 "수혜자 길드의 온천-인접 정착지 보유" 조회 후 `fullRecoveryMs ÷ 2` 주입.
-- **③ 수비/성벽** — fortHp 최대 계산(`outpostSiege.ts FORT_*` / 점령행 fortMaxHp). `stronghold`면
-  fortHp max ×1.15. **(슬롯 보너스는 §2.4대로 보류 — 큐 용량 시스템 부재.)**
-- **④ 경제-세금** — 영주 세금 *발생* 지점 + 약탈 금고 탈취(`RAID_TREASURY_STEAL_FRAC`).
-  `trade_route`면 세금 발생 ×1.15(harvest 지급엔 곱 금지 — §2.5 보존), 약탈 탈취 ×1.10.
-- **⑤ 수공방어(호수)** — 인접 4칸 정착지 공격 시 공성/약탈 효율 ×(1−`LAKE_ATTACKER_PENALTY`).
-  `found`/`move-tile` 은 `settleable=false` 거부(P1·산맥과 동일 경로). 방어보너스 후킹은 P3.
+- **③ 수비/성벽 (P3 LIVE)** — 타일 정착지 fortMaxHp 단일 헬퍼 `outpostSiege.tileFortMaxHp(col,row,tier)`
+  = `fortMaxHpForTier(tier) × (stronghold ? 1.15 : 1)`. tier 로부터 매번 재계산이라 멱등(복리 누적
+  없음). found(`tileWarfare.buildTileOccupationValues`)·promote(`tileVillageRoutes`)·함락 재설정
+  (`attack/route`) 모든 fortMaxHp 쓰기 지점에 적용. 카탈로그/비-타일 거점은 `fortMaxHpForTier`
+  그대로(골든 불변). **(슬롯 보너스는 §2.4대로 보류 — 큐 용량 시스템 부재.)**
+- **④ 경제-세금 (P3 LIVE)** — 세금 *발생* 지점 = **hunt 라우트 `goldTaxed`**(사냥꾼 gross 에서 떼어
+  금고로 = 골드 보존). `trade_route` 정착지면 `goldTaxed ×1.15`(goldNet 이 같은 만큼 감소 — 새 골드
+  안 찍음). **harvest(수확)엔 곱 금지**(이미 쌓인 금고에서 골드 인플레라 — §2.5). 약탈 탈취
+  (`attack/route` `RAID_TREASURY_STEAL_FRAC`)는 `trade_route` 방어 정착지면 ×1.10(양날).
+- **⑤ 수공방어(호수) (P3 LIVE)** — 호수에 4-인접한 방어 정착지가 공격당할 때 공격자 효율 ×0.9:
+  공성 데미지(`attack/route` siege)·약탈 탈취 모두 `LAKE_ATTACKER_PENALTY_MULT`. 공성은 ≥1 보장
+  (완전 정체 방지). `found`/`move-tile` 은 호수 칸 자체 `settleable=false` 거부(P1). 비-타일 무관.
 
-각 후킹은 좌표→피처 조회(`tileFeatureAt`) 한 번 + 다이얼 곱 한 번. 생산 코드는 무접촉.
-**P1 은 ①(settleable 거부)만 구현** — ②~⑤ 수치 후킹은 P2/P3.
+각 후킹은 좌표→피처 조회(`tileFeatureAt`/술어 `isStrongholdTile`·`isTradeRouteTile`·`isLakeAdjacentTile`)
+한 번 + 다이얼 곱 한 번. 생산 코드는 무접촉. **claim 라우트는 카탈로그 전용**(`resolveOutpostMeta`
+가 tile 인자 없이 호출 → tile id=undefined 거부)이라 타일 지형 미접촉.
 
 ---
 
@@ -224,10 +233,10 @@ row8  .   .   .   .   .   .   .   .   .
 | 특수 타일 비율 | ~15% (81칸 중 ~12) | 너무 많으면 답답·적으면 무의미 |
 | 산맥 줄 수 / 길이 | 1~2줄 / 3~4칸 | 우회로 보존 필수 |
 | `HOTSPRING_VIGOR_RECOVERY_DIVISOR` | 2 | 인접 정착지 보유 길드원 건강도 회복시간 ÷2 (P2 LIVE) |
-| `STRONGHOLD_FORT_HP_MULT` | 1.15 | fortHp 최대 배수 (슬롯 보너스는 보류·§2.4) |
-| `TRADE_ROUTE_TAX_MULT` | 1.15 | 세금 *발생* 배수 (harvest 곱 금지·§2.5) |
-| `TRADE_ROUTE_RAID_LOSS_MULT` | 1.10 | 약탈 탈취 배수(양날) |
-| `LAKE_ATTACKER_PENALTY` | 0.10 | 인접 호수 정착지 공격 효율 −10%(P3) |
+| `STRONGHOLD_FORT_HP_MULT` | 1.15 | 요새터 정착지 fortMaxHp 배수 (P3 LIVE·§2.4) |
+| `TRADE_ROUTE_TAX_MULT` | 1.15 | 세금 *발생* 배수 (harvest 곱 금지·P3 LIVE·§2.5) |
+| `TRADE_ROUTE_RAID_LOSS_MULT` | 1.10 | 약탈 탈취 배수(양날·P3 LIVE) |
+| `LAKE_ATTACKER_PENALTY_MULT` | 0.90 | 인접 호수 정착지 공격(공성/약탈) 효율 ×0.9 (P3 LIVE) |
 | `CANYON_CONQUEST_HONOR_MULT` | 1.10 (옵션) | 협곡 길목 명예 보너스 |
 
 ---
@@ -263,8 +272,10 @@ kind만 추가하면 끼게 미리 연다.
   - **P2 — 온천(건강도).** 온천 (1,1) = settleable=false 아우라 타일(호수와 대칭) + `HOTSPRING_BENEFIT_COORDS`
     (인접 정착 가능 칸) + `applyVigorRecovery` 분모 인자 주입 + recover/heal 라우트가 길드의 온천-인접
     정착지 소유를 `guildHasHotspringAdjacency`(IN 조회)로 판정해 회복 ÷2. ← **구현 완료(this PR)**
-  - P3 — 요새터(fortHp만) · 교역로(세금 발생 ×, 보존 규칙 확정 후) · 호수 방어보너스
-    (`LAKE_ATTACKER_PENALTY` — 공성/약탈 라우트).
+  - **P3 — 요새터·교역로·호수 수치 효과.** 요새터 (8,4)(7,7)·교역로 (1,6) 배치(settleable=true·ON-tile).
+    `tileFortMaxHp`(fortHp ×1.15·4개 쓰기지점 통일·멱등) + hunt `goldTaxed ×1.15`(발생 지점·골드 보존)
+    + 약탈 탈취 ×1.10(교역로)/×0.90(호수) + 공성 ×0.90(호수). ⚠️요새터 (7,7)은 호수 (7,6) 인접
+    = 의도된 "수변 요새" 시너지(fortHp↑ + 공격자−10%·다이얼로 분리 가능). ← **구현 완료(this PR)**
   - P4 — 시각 폴리시(렌더 레이어 분리·툴팁·로그 표기).
   - 던전 타일 = 별도 에픽(§7 자리 예약).
 

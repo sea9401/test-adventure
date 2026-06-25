@@ -79,9 +79,9 @@ export type TileFeatureKind =
   | "mountain" // 정복-인접 벽 — 정착·소유 불가(settleable=false). 인접 사슬 차단(구조적).
   | "canyon" // 산맥 벽에서 유일하게 소유 가능한 칸 = 길목(settleable=true).
   | "lake" // 수공(水攻) 방어 — 통행/정착 불가(settleable=false). 인접 방어보너스는 후속 PR.
-  | "hotspring" // 건강도(전쟁HP) 회복 가속 — 후속 PR(P2·미배치).
-  | "stronghold" // 수비/성벽 fortHp ↑ — 후속 PR(P3·미배치).
-  | "trade_route"; // 경제(영주 세금) ↑ — 후속 PR(P3·미배치).
+  | "hotspring" // 건강도(전쟁HP) 회복 가속 — P2(아우라 타일·settleable=false).
+  | "stronghold" // 그 칸 정착지 fortMaxHp ×1.15 — P3(settleable=true·ON-tile).
+  | "trade_route"; // 그 칸 정착지 세금 +15%·약탈 손실 +10% — P3(settleable=true·ON-tile).
 // 미래(진입형 던전): | "dungeon" — settleable=false + interaction(§7 자리 예약).
 
 export type TileFeature = {
@@ -114,6 +114,12 @@ export const TILE_TERRAIN: Record<string, TileFeature> = {
   // 좌상단 온천(P2) — 통행/정착 불가 아우라 타일(호수와 대칭). 위에 정착 불가, 인접 4칸에 버프:
   //   인접 정착지 "소유" 길드의 길드원 건강도(war vigor) 회복 가속(HOTSPRING_BENEFIT_COORDS).
   [tileKey(1, 1)]: { kind: "hotspring", settleable: false },
+  // 요새터(P3) — ON-tile(settleable=true). 그 칸 정착지 fortMaxHp ×1.15(tileFortMaxHp). 사분면
+  //   분산. (7,7)은 호수(7,6) 인접 = 의도된 "수변 요새" 시너지(fortHp↑ + 공격자−10%).
+  [tileKey(8, 4)]: { kind: "stronghold", settleable: true },
+  [tileKey(7, 7)]: { kind: "stronghold", settleable: true },
+  // 교역로(P3) — ON-tile(settleable=true). 그 칸 정착지 세금 발생 ×1.15 + 약탈 손실 ×1.10(양날).
+  [tileKey(1, 6)]: { kind: "trade_route", settleable: true },
 };
 
 // 좌표 → 피처(미배치 = null). 서버·클라 공용 순수함수.
@@ -156,6 +162,17 @@ export const HOTSPRING_BENEFIT_COORDS: ReadonlyArray<TileCoord> = (() => {
   }
   return out;
 })();
+
+// === 전략 지형 술어 (P3) — 순수 함수, 서버/클라 공용 ================================
+// 요새터(stronghold)·교역로(trade_route)는 ON-tile 효과(그 칸 정착지에 적용). 호수(lake)는
+//   인접 효과(호수에 4-인접한 정착지가 공격당할 때 공격자 약화). 후킹부에서 좌표로 조회.
+export const isStrongholdTile = (col: number, row: number): boolean =>
+  tileFeatureAt(col, row)?.kind === "stronghold";
+export const isTradeRouteTile = (col: number, row: number): boolean =>
+  tileFeatureAt(col, row)?.kind === "trade_route";
+// 이 칸이 호수에 4-인접인가(호수 자체는 정착 불가라 "인접 정착지"가 수혜).
+export const isLakeAdjacentTile = (col: number, row: number): boolean =>
+  tileNeighbors4(col, row).some((n) => tileFeatureAt(n.col, n.row)?.kind === "lake");
 
 // === 개척 정착지 (Phase 3) — 마을 아래 "개척마을" 신설 ===============================
 // 빈 땅에 개척마을(frontier) 건설 → 마을(village)→도시(city)→대도시(metropolis) 승격.

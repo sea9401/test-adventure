@@ -14,7 +14,7 @@ import {
   tileOutpostId,
   tileTierToOutpostTier,
 } from "@/adventure/data/v2/tileWarfare";
-import { fortMaxHpForTier } from "@/adventure/data/v2/outpostSiege";
+import { tileFortMaxHp } from "@/adventure/data/v2/outpostSiege";
 import {
   scaledTileGoldCost,
   tileCostMultiplier,
@@ -246,7 +246,11 @@ export async function tileUpgrade(
         await syncTileSettlementTier(tx, pos.col, pos.row, village.tier);
         // 단계 상승 → 성벽도 새 단계 HP 로 강화 + 풀수리. 이 타일 자신의 점령행만 단일 update
         //   (타 길드 자원 미접촉 → 동시 공성과 데드락 회피). 업글은 1방향+자원소모라 비악용.
-        const tierFortHp = fortMaxHpForTier(tileTierToOutpostTier(village.tier));
+        const tierFortHp = tileFortMaxHp(
+          pos.col,
+          pos.row,
+          tileTierToOutpostTier(village.tier),
+        );
         await tx
           .update(outpostOccupations)
           .set({

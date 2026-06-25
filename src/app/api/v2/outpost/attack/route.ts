@@ -38,11 +38,14 @@ import {
   isTileSettlementTier,
   tilePrevTier,
   TILE_TIER_LABEL,
+  isTradeRouteTile,
+  isLakeAdjacentTile,
 } from "@/adventure/data/v2/tileConfig";
 import {
   isOutpostProtected,
   currentFortHp,
   fortMaxHpForTier,
+  tileFortMaxHp,
   siegeDamage,
   undefendedSiegeDamage,
   POST_CAPTURE_PROTECT_MS,
@@ -63,6 +66,8 @@ import {
 } from "@/adventure/data/v2/settlement";
 import {
   RAID_TREASURY_STEAL_FRAC,
+  TRADE_ROUTE_RAID_LOSS_MULT,
+  LAKE_ATTACKER_PENALTY_MULT,
   HONOR_PER_DEFENSE_WIN,
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
@@ -423,6 +428,15 @@ export async function POST(req: Request) {
         )[0];
         const treasury = Math.max(0, tRow?.gold ?? 0);
         stolenGold = Math.floor(treasury * RAID_TREASURY_STEAL_FRAC);
+        // 지형 보정(P3) — 방어 정착지가 교역로면 탈취 ×1.10(양날), 호수 인접이면 ×0.90(공격자
+        //   약화). 합성곱. 비-타일/비-해당지형은 무변경. 금고 잔액 초과 클램프.
+        const raidDefPos = parseTileOutpostId(outpost.id);
+        if (raidDefPos) {
+          let mult = 1;
+          if (isTradeRouteTile(raidDefPos.col, raidDefPos.row)) mult *= TRADE_ROUTE_RAID_LOSS_MULT;
+          if (isLakeAdjacentTile(raidDefPos.col, raidDefPos.row)) mult *= LAKE_ATTACKER_PENALTY_MULT;
+          if (mult !== 1) stolenGold = Math.min(treasury, Math.floor(stolenGold * mult));
+        }
         if (stolenGold > 0) {
           await tx
             .update(outpostTreasury)
@@ -579,7 +593,14 @@ export async function POST(req: Request) {
     let captured = false;
     let razed = false; // 솔로 공격자 함락 = 철거(빈땅). 길드 공격자 함락 = 인수(razed=false).
     let downgradedTo: string | null = null;
-    const fortMaxHp = occRow.fortMaxHp ?? fortMaxHpForTier(outpost.tier);
+    // 방어 타일 좌표(비-타일 거점=null). 호수 공성 페널티 + fortMaxHp 폴백에 공용.
+    const defTilePos = parseTileOutpostId(outpost.id);
+    // 저장된 fortMaxHp 우선(found/promote 가 요새터 ×1.15 반영해 기록) — 폴백도 타일이면 동일 헬퍼.
+    const fortMaxHp =
+      occRow.fortMaxHp ??
+      (defTilePos
+        ? tileFortMaxHp(defTilePos.col, defTilePos.row, outpost.tier)
+        : fortMaxHpForTier(outpost.tier));
     let fortHpAfter = currentFortHp(
       occRow.fortHp,
       fortMaxHp,
@@ -601,10 +622,14 @@ export async function POST(req: Request) {
         maxMp: aMaxMp,
       });
       // 무방비(수비 큐 0명 = defendersDefeated 0)면 전투력÷4(캡 50%HP·벌칙), 수비 격파면 전투력 비율.
-      const siegeAmt =
+      let siegeAmt =
         defendersDefeated === 0
           ? undefendedSiegeDamage(attackerPower, fortMaxHp)
           : siegeDamage(attackerPower, outpostDefensePower(outpost));
+      // 호수 인접 방어 정착지 = 공성 데미지 −10%(공격자 약화·≥1 보장)·P3. 비-타일/비-인접 무변경.
+      if (defTilePos && isLakeAdjacentTile(defTilePos.col, defTilePos.row)) {
+        siegeAmt = Math.max(1, Math.round(siegeAmt * LAKE_ATTACKER_PENALTY_MULT));
+      }
       const damaged = Math.max(0, fortHpAfter - siegeAmt);
       const newOccupiedAt = new Date();
       if (damaged <= 0) {

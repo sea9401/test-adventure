@@ -7,7 +7,14 @@
 // tier: build=frontier→village(+ tile_settlements 동기화), upgrade=village→city→metropolis(동기화).
 
 import { db } from "@/db";
-import { parseTileOutpostId } from "@/adventure/data/v2/tileWarfare";
+import { eq } from "drizzle-orm";
+import { outpostOccupations } from "@/db/schema";
+import {
+  parseTileOutpostId,
+  tileOutpostId,
+  tileTierToOutpostTier,
+} from "@/adventure/data/v2/tileWarfare";
+import { fortMaxHpForTier } from "@/adventure/data/v2/outpostSiege";
 import {
   scaledTileGoldCost,
   tileCostMultiplier,
@@ -237,6 +244,17 @@ export async function tileUpgrade(
         await upsertVillage(tx, village);
         await upsertSettlementResources(tx, ctx.owner, nextResources);
         await syncTileSettlementTier(tx, pos.col, pos.row, village.tier);
+        // 단계 상승 → 성벽도 새 단계 HP 로 강화 + 풀수리. 이 타일 자신의 점령행만 단일 update
+        //   (타 길드 자원 미접촉 → 동시 공성과 데드락 회피). 업글은 1방향+자원소모라 비악용.
+        const tierFortHp = fortMaxHpForTier(tileTierToOutpostTier(village.tier));
+        await tx
+          .update(outpostOccupations)
+          .set({
+            fortHp: tierFortHp,
+            fortMaxHp: tierFortHp,
+            fortUpdatedAt: new Date(),
+          })
+          .where(eq(outpostOccupations.outpostId, tileOutpostId(pos.col, pos.row)));
         return {
           status: 200,
           body: {

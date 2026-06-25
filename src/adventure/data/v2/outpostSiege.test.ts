@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   FORT_MAX_HP,
-  SIEGE_DAMAGE_PER_WIN,
+  FORT_MAX_HP_BY_TIER,
+  fortMaxHpForTier,
+  BASE_SIEGE_DAMAGE,
+  siegeDamage,
   FORT_REGEN_PER_HOUR,
   REPAIR_GOLD_PER_HP,
   currentFortHp,
@@ -59,22 +62,54 @@ describe("repairHpFromGold (길드 금고 자동 수리)", () => {
   });
 });
 
-describe("다이얼 sanity", () => {
-  it("함락까지 ≈ 5승 (FORT_MAX_HP / SIEGE_DAMAGE_PER_WIN)", () => {
-    expect(Math.ceil(FORT_MAX_HP / SIEGE_DAMAGE_PER_WIN)).toBe(5);
+describe("성벽 단계별 HP", () => {
+  it("개척마을 300 / 마을 500 / 도시 1000 / 대도시 1500", () => {
+    expect(FORT_MAX_HP_BY_TIER[1]).toBe(300);
+    expect(FORT_MAX_HP_BY_TIER[2]).toBe(500);
+    expect(FORT_MAX_HP_BY_TIER[3]).toBe(1000);
+    expect(FORT_MAX_HP_BY_TIER[4]).toBe(1500);
+    expect(fortMaxHpForTier(1)).toBe(300);
+    expect(fortMaxHpForTier(4)).toBe(1500);
+  });
+  it("FORT_MAX_HP(폴백) = tier1", () => {
+    expect(FORT_MAX_HP).toBe(FORT_MAX_HP_BY_TIER[1]);
+  });
+  it("불변식: 최소 HP > 최대 데미지(풀수리 성벽이 한 방에 안 무너짐)", () => {
+    expect(FORT_MAX_HP_BY_TIER[1]).toBeGreaterThan(siegeDamage(999999, 1));
+  });
+});
+
+describe("siegeDamage (전투력 비율 공성)", () => {
+  it("전력 동급(비율 1.0) = BASE", () => {
+    expect(siegeDamage(2000, 2000)).toBe(BASE_SIEGE_DAMAGE);
+  });
+  it("압도적(비율 ≥ 3.0) = 상한 BASE×3", () => {
+    expect(siegeDamage(6000, 2000)).toBe(Math.round(BASE_SIEGE_DAMAGE * 3));
+    expect(siegeDamage(999999, 2000)).toBe(Math.round(BASE_SIEGE_DAMAGE * 3));
+  });
+  it("열세(비율 ≤ 0.5) = 하한 BASE×0.5", () => {
+    expect(siegeDamage(100, 2000)).toBe(Math.round(BASE_SIEGE_DAMAGE * 0.5));
+  });
+  it("비율 2.0 = BASE×2", () => {
+    expect(siegeDamage(4000, 2000)).toBe(Math.round(BASE_SIEGE_DAMAGE * 2));
+  });
+  it("수비력 0 div 가드 — 크래시 없이 최소 1, 상한 클램프", () => {
+    expect(siegeDamage(0, 0)).toBeGreaterThanOrEqual(1);
+    expect(siegeDamage(1000, 0)).toBe(Math.round(BASE_SIEGE_DAMAGE * 3));
   });
 });
 
 describe("siegeWinsToFall (함락까지 승수 표기)", () => {
   it("경계 — 정확히 나누어떨어지면 그 몫", () => {
-    expect(siegeWinsToFall(SIEGE_DAMAGE_PER_WIN * 3)).toBe(3);
-    expect(siegeWinsToFall(FORT_MAX_HP)).toBe(5);
+    expect(siegeWinsToFall(BASE_SIEGE_DAMAGE * 3, BASE_SIEGE_DAMAGE)).toBe(3);
+    expect(siegeWinsToFall(FORT_MAX_HP_BY_TIER[1], BASE_SIEGE_DAMAGE)).toBe(4);
   });
   it("나머지가 있으면 올림", () => {
-    expect(siegeWinsToFall(SIEGE_DAMAGE_PER_WIN * 2 + 1)).toBe(3);
+    expect(siegeWinsToFall(BASE_SIEGE_DAMAGE * 2 + 1, BASE_SIEGE_DAMAGE)).toBe(3);
   });
-  it("0 이하라도 최소 1승 (이미 함락 직전 표기 안정)", () => {
-    expect(siegeWinsToFall(0)).toBe(1);
-    expect(siegeWinsToFall(1)).toBe(1);
+  it("0 이하/0 데미지라도 최소 1승(안정)", () => {
+    expect(siegeWinsToFall(0, BASE_SIEGE_DAMAGE)).toBe(1);
+    expect(siegeWinsToFall(1, BASE_SIEGE_DAMAGE)).toBe(1);
+    expect(siegeWinsToFall(300, 0)).toBeGreaterThanOrEqual(1);
   });
 });

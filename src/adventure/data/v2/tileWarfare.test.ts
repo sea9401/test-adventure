@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OUTPOSTS, OUTPOST_BY_ID } from "./outposts";
 import { computeNextAttackAt } from "./npcAttack";
-import { FORT_MAX_HP, POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
+import { POST_CAPTURE_PROTECT_MS } from "./outpostSiege";
 import { tileSettlementName } from "./tileConfig";
 import {
   buildTileOccupationValues,
@@ -127,8 +127,8 @@ describe("buildTileOccupationValues", () => {
     expect(v.occupiedByGuildId).toBe(42);
     expect(v.policy).toBe("open");
     expect(v.taxRate).toBe("0.100");
-    expect(v.fortHp).toBe(FORT_MAX_HP);
-    expect(v.fortMaxHp).toBe(FORT_MAX_HP);
+    expect(v.fortHp).toBe(500); // 마을(village)=tier2 성벽 500
+    expect(v.fortMaxHp).toBe(500);
     expect(v.fortUpdatedAt.getTime()).toBe(NOW);
     expect(v.protectedUntil.getTime()).toBe(NOW + POST_CAPTURE_PROTECT_MS);
   });

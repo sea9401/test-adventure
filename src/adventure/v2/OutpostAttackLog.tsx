@@ -31,7 +31,14 @@ function fmtAgo(iso: string, now: number): string {
   return `${Math.floor(h / 24)}일 전`;
 }
 
-export function OutpostAttackLog({ outpostId }: { outpostId: string }) {
+export function OutpostAttackLog({
+  outpostId,
+  // 부모가 bump 하면(약탈/정복 직후) 자동 refetch — 방금 시도한 공격 기록을 바로 노출.
+  reloadKey = 0,
+}: {
+  outpostId: string;
+  reloadKey?: number;
+}) {
   const [attacks, setAttacks] = useState<AttackRow[]>([]);
   const [loading, setLoading] = useState(true);
   // fetch 시점 기준 elapsed 표시용 — Date.now() 를 render 중 직접 호출하면 impure.
@@ -65,7 +72,8 @@ export function OutpostAttackLog({ outpostId }: { outpostId: string }) {
 
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    // reloadKey 변화 = 부모의 공격 시도 후 갱신 신호 → 같은 outpost 라도 재조회.
+  }, [refresh, reloadKey]);
 
   async function toggleReplay(attemptId: number) {
     if (openReplay?.attemptId === attemptId) {

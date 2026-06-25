@@ -107,6 +107,8 @@ export function OutpostView({
     lordName: string | null;
     treasury: number;
   } | null>(null);
+  // 약탈/정복 직후 "최근 공격 기록" 패널 재조회 트리거 — bump 하면 OutpostAttackLog 가 refetch.
+  const [attackLogReload, setAttackLogReload] = useState(0);
   useEffect(() => {
     let alive = true;
     fetch("/api/v2/me/state")
@@ -305,6 +307,9 @@ export function OutpostView({
         stolenGold: json.stolenGold,
         defenderName: json.defenderName,
       });
+      // 금고 탈취·수비 큐 변동 반영 — 부모 거점 상태(금고/소유) 재조회 + 공격 기록 패널 갱신.
+      onAction({ kind: "claimed" });
+      setAttackLogReload((n) => n + 1);
     } catch (err) {
       setRaidResult(`network: ${(err as Error).message}`);
     } finally {
@@ -352,7 +357,10 @@ export function OutpostView({
         downgradedTo: json.downgradedTo,
         defendersDefeated: json.defendersDefeated,
       });
-      // 함락 시 부모 거점 상태(소유/금고/성벽) 갱신은 후속 — 지금은 결과 메시지만(재진입 시 반영).
+      // 부모 거점 상태(성벽 HP·소유·금고) 재조회 — 공성 진행/함락이 헤더 성벽바에 즉시 반영되게.
+      //   + 공격 기록 패널 갱신(방금 시도 1건 노출). 옛 "재진입 시 반영" 갭 해소.
+      onAction({ kind: "claimed" });
+      setAttackLogReload((n) => n + 1);
     } catch (err) {
       setConquestResult(`network: ${(err as Error).message}`);
     } finally {
@@ -474,7 +482,10 @@ export function OutpostView({
               <DefendPanel outpostId={outpost.id} />
             )}
             {activityTab === "attacks" && (
-              <OutpostAttackLog outpostId={outpost.id} />
+              <OutpostAttackLog
+                outpostId={outpost.id}
+                reloadKey={attackLogReload}
+              />
             )}
             {/* 정책·세율·영주 관리는 길드 홈 "관리 > 거점 정책" 탭으로 이전(일원화). */}
             {activityTab === "manage" && canManageSettlement && (
@@ -551,7 +562,10 @@ export function OutpostView({
             )}
             {/* 공격자 시점 정찰 — 이 거점에 행해진 최근 공격 기록(승패·성벽 타격)을
                 노출. 소유 탭의 "최근 공격 기록" 과 동일 컴포넌트(읽기 전용). */}
-            <OutpostAttackLog outpostId={outpost.id} />
+            <OutpostAttackLog
+              outpostId={outpost.id}
+              reloadKey={attackLogReload}
+            />
           </>
         )}
 

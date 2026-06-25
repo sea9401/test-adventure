@@ -33,8 +33,10 @@ import {
 import {
   V2_EQUIPMENT,
   isUnique,
+  type V2Equipment,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
+import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 import {
   FISH,
   FISH_IDS,
@@ -110,6 +112,40 @@ function equipPoolChance(pool: FloorEquipDropPool): number {
   return pool.chance;
 }
 
+// 드랍 목록의 아이템 칩 — 클릭하면 옵션 팝오버(V2ItemCard, 인벤과 동일)를 띄운다.
+//   카탈로그 id 가 V2_EQUIPMENT 에 없으면(방어) 클릭 불가 라벨로만.
+function DropChip({
+  id,
+  unique,
+  onOpen,
+}: {
+  id: V2EquipmentId;
+  unique?: boolean;
+  onOpen: (item: V2Equipment, anchor: ItemCardAnchor) => void;
+}) {
+  const item = V2_EQUIPMENT[id];
+  const tone = unique
+    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+    : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+  if (!item) {
+    return (
+      <span className={`rounded px-1.5 py-0.5 text-[11px] ${tone}`}>{id}</span>
+    );
+  }
+  const hover = unique
+    ? "hover:bg-amber-200 dark:hover:bg-amber-900/60"
+    : "hover:bg-zinc-200 dark:hover:bg-zinc-700";
+  return (
+    <button
+      type="button"
+      onClick={(e) => onOpen(item, anchorOf(e.currentTarget))}
+      className={`rounded px-1.5 py-0.5 text-[11px] transition-colors ${tone} ${hover}`}
+    >
+      {item.name}
+    </button>
+  );
+}
+
 // 스타터 풀(깊이 1~12)이 떨어뜨릴 수 있는 정규 그리드 장비 id — 티어 가중 후 무작위 슬롯·컨셉으로
 //   뽑히므로 그 티어들의 그리드 전 종류가 후보. 유니크·제작전용·전문화스타터·밴드흔한(noDrop) 제외.
 function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
@@ -132,6 +168,11 @@ function starterGridIds(pool: FloorEquipDropPool): V2EquipmentId[] {
 
 export function V2CodexView({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<CodexTab>("huntground");
+  // 드랍 칩 클릭 시 뜨는 옵션 팝오버(읽기전용 카탈로그 미리보기 — 굴림 없음).
+  const [card, setCard] = useState<{
+    item: V2Equipment;
+    anchor: ItemCardAnchor;
+  } | null>(null);
 
   // 내 도감 진척 — /me/state 가 권위. 재료: 수집한 id 집합. 어보: 발견 id + 종별 최대어.
   // 유물: 발견 id + 종별 최고 보존상태.
@@ -405,12 +446,13 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       {regularIds.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {regularIds.map((id) => (
-                            <span
+                            <DropChip
                               key={id}
-                              className="rounded bg-zinc-100 px-1.5 py-0.5 text-[11px] text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
-                            >
-                              {V2_EQUIPMENT[id]?.name ?? id}
-                            </span>
+                              id={id}
+                              onOpen={(item, anchor) =>
+                                setCard({ item, anchor })
+                              }
+                            />
                           ))}
                         </div>
                       ) : (
@@ -433,12 +475,14 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
                       {uniqueIds.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {uniqueIds.map((id) => (
-                            <span
+                            <DropChip
                               key={id}
-                              className="rounded bg-amber-100 px-1.5 py-0.5 text-[11px] text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
-                            >
-                              {V2_EQUIPMENT[id]?.name ?? id}
-                            </span>
+                              id={id}
+                              unique
+                              onOpen={(item, anchor) =>
+                                setCard({ item, anchor })
+                              }
+                            />
                           ))}
                         </div>
                       ) : (
@@ -737,6 +781,15 @@ export function V2CodexView({ onBack }: { onBack: () => void }) {
             </p>
           </Card>
         ))}
+
+      {/* 드랍 칩 클릭 → 아이템 옵션 팝오버. 카탈로그 미리보기(굴림·장착 액션 없음). */}
+      {card && (
+        <V2ItemCard
+          item={card.item}
+          anchor={card.anchor}
+          onClose={() => setCard(null)}
+        />
+      )}
     </main>
   );
 }

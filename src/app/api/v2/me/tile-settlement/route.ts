@@ -17,6 +17,7 @@ import {
   tileNextTier,
   isTileSettlementTier,
   scaledTileGoldCost,
+  isTileSettleable,
 } from "@/adventure/data/v2/tileConfig";
 import { isValidVillageName } from "@/adventure/data/v2/settlement";
 import {
@@ -140,6 +141,11 @@ export async function POST(req: Request) {
     if (action === "found") {
       if (TILE_OUTPOST_AT.has(tileKey(col, row))) {
         return { kind: "err", status: 400, error: "tile_is_outpost" };
+      }
+      // 산맥·호수 등 정착 불가 지형(settleable=false)엔 개척마을을 세울 수 없다. move-tile 이
+      //   이미 막아 tilePos 가 닿을 수 없지만(아래 not_at_tile), 방어적 게이트(§2.1/2.6).
+      if (!isTileSettleable(col, row)) {
+        return { kind: "err", status: 400, error: "not_settleable" };
       }
       if (existing) {
         return { kind: "err", status: 409, error: "already_settled" };

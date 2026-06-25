@@ -14,8 +14,9 @@ const h = vi.hoisted(() => ({
   // FOR UPDATE 로 읽히는 기존 정착지 행(rename 시나리오). 기본 없음.
   existing: [] as Record<string, unknown>[],
   updates: [] as Record<string, unknown>[],
-  // 플레이어 마커 위치(readSave) — found 는 그 칸에 있어야 가능. 기본=foundReq 좌표(2,3) 일치.
-  tilePos: { col: 2, row: 3 } as { col: number; row: number } | null,
+  // 플레이어 마커 위치(readSave) — found 는 그 칸에 있어야 가능. 기본=foundReq 좌표(4,2) 일치.
+  //   (4,2)=지형 없는 빈 칸·리베라 거리 2 — 산맥/협곡/호수 칸과 무겹침.
+  tilePos: { col: 4, row: 2 } as { col: number; row: number } | null,
 }));
 
 vi.mock("@/adventure/data/v2/coreLoopConfig", async (importOriginal) => {
@@ -83,7 +84,7 @@ vi.mock("@/db", () => {
 import { POST } from "@/app/api/v2/me/tile-settlement/route";
 import { scaledTileGoldCost } from "@/adventure/data/v2/tileConfig";
 
-function foundReq(col = 2, row = 3, name = "내정착지"): Request {
+function foundReq(col = 4, row = 2, name = "내정착지"): Request {
   return new Request("http://t/api/v2/me/tile-settlement", {
     method: "POST",
     body: JSON.stringify({ action: "found", col, row, name }),
@@ -91,8 +92,8 @@ function foundReq(col = 2, row = 3, name = "내정착지"): Request {
 }
 
 const COST = 10_000_000; // TILE_FOUND_COST
-// found 좌표 (2,3) = 리베라(4,4) 체비셰프 거리 2 → 생성비 거리 스케일.
-const FOUND_COST = scaledTileGoldCost(COST, 2, 3);
+// found 좌표 (4,2) = 리베라(4,4) 체비셰프 거리 2 → 생성비 거리 스케일.
+const FOUND_COST = scaledTileGoldCost(COST, 4, 2);
 
 describe("POST tile-settlement found — 길드 규칙", () => {
   afterEach(() => {
@@ -105,7 +106,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     h.soloSaves = [];
     h.existing = [];
     h.updates = [];
-    h.tilePos = { col: 2, row: 3 };
+    h.tilePos = { col: 4, row: 2 };
     vi.clearAllMocks();
   });
 
@@ -130,7 +131,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     const res = await POST(
       new Request("http://t/api/v2/me/tile-settlement", {
         method: "POST",
-        body: JSON.stringify({ action: "found", col: 2, row: 3 }),
+        body: JSON.stringify({ action: "found", col: 4, row: 2 }),
       }),
     );
     expect(res.status).toBe(400);
@@ -166,7 +167,7 @@ describe("POST tile-settlement found — 길드 규칙", () => {
     h.guildId = 7;
     h.isAdmin = true;
     h.guildGold = FOUND_COST * 2;
-    h.tilePos = { col: 0, row: 0 }; // 대상(2,3)과 불일치 — 현장에 없음
+    h.tilePos = { col: 0, row: 0 }; // 대상(4,2)과 불일치 — 현장에 없음
     const res = await POST(foundReq());
     expect(res.status).toBe(409);
     expect(((await res.json()) as { error: string }).error).toBe("not_at_tile");
@@ -206,12 +207,12 @@ describe("POST tile-settlement rename — 개명 폐지(이름 불변)", () => {
 
   it("rename 액션 → 400 bad_request (이름은 개척 때 한 번만·불변·미갱신)", async () => {
     h.existing = [
-      { col: 2, row: 3, userId: "u-me", tier: "frontier", name: "옛이름" },
+      { col: 4, row: 2, userId: "u-me", tier: "frontier", name: "옛이름" },
     ];
     const res = await POST(
       new Request("http://t/api/v2/me/tile-settlement", {
         method: "POST",
-        body: JSON.stringify({ action: "rename", col: 2, row: 3, name: "새이름" }),
+        body: JSON.stringify({ action: "rename", col: 4, row: 2, name: "새이름" }),
       }),
     );
     expect(res.status).toBe(400);

@@ -52,9 +52,18 @@ type Village = {
 };
 type Resources = Partial<Record<ProductionKind, number>>;
 
-// 큰 골드는 만 단위로 — 50,000,000 → "5,000만".
+// 큰 골드는 억/만 단위로 — 5,000만 → "5,000만", 1억 → "1억", 1억 5,000만 → "1억 5,000만".
 function fmtGold(n: number): string {
-  if (n >= 10000) return `${Math.floor(n / 10000).toLocaleString()}만`;
+  const EOK = 100_000_000;
+  const MAN = 10_000;
+  if (n >= EOK) {
+    const eok = Math.floor(n / EOK);
+    const man = Math.floor((n % EOK) / MAN);
+    return man > 0
+      ? `${eok.toLocaleString()}억 ${man.toLocaleString()}만`
+      : `${eok.toLocaleString()}억`;
+  }
+  if (n >= MAN) return `${Math.floor(n / MAN).toLocaleString()}만`;
   return n.toLocaleString();
 }
 

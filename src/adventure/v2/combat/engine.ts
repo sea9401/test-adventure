@@ -1997,7 +1997,8 @@ function resolveBattleLegacy(
             playerV2Dots: playerDotTick.nextDots,
             log: appendLog(state.log, {
               kind: "enemy_attack",
-              text: `[${dotLabels}] ${playerDotTick.totalDmg} 피해를 입었다.`,
+              // "입혔다" 로 통일 — 가한 쪽 관점(ATB tickPlayerBundleEntry 와 동일).
+              text: `[${dotLabels}] ${playerDotTick.totalDmg} 피해를 입혔다.`,
             }),
           };
           if (state.playerHp <= 0) {

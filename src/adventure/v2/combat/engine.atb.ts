@@ -123,7 +123,9 @@ function tickPlayerBundleEntry(state: BattleState): BattleState {
       playerHp: Math.max(0, state.playerHp - dotTick.totalDmg),
       log: appendLog(state.log, {
         kind: "enemy_attack",
-        text: `[${labels}] ${dotTick.totalDmg} 피해를 입었다.`,
+        // "입혔다" 로 통일 — 모든 데미지 로그는 가한 쪽 관점(좌우 정렬로 누가 가했는지 구분).
+        //   적 평타("공격! N 피해를 입혔다")와 같은 어투(옛 출혈만 "입었다" 였던 불일치 해소).
+        text: `[${labels}] ${dotTick.totalDmg} 피해를 입혔다.`,
         turn: "player",
       }),
     };

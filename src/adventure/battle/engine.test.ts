@@ -1334,7 +1334,8 @@ describe("잡몹 스킬", () => {
     s = advanceTurn(s, PLAYER, "P"); // 플레이어 페이즈
     s = advanceTurn(s, PLAYER, "P"); // 적 페이즈 2 — 강타 ×2 → +6
     expect(PLAYER.hp - s.playerHp).toBe(9);
-    expect(s.log.some((e) => e.text.startsWith("[강타]"))).toBe(true);
+    // 라벨은 "공격! " 접두 뒤 인라인([강타])으로 통일됨(평타·스킬 어투 일치).
+    expect(s.log.some((e) => e.text.includes("[강타]"))).toBe(true);
   });
 
   it("격노 — HP 임계 도달 시 1회, 적 ATK 영구 증가", () => {

@@ -1579,7 +1579,7 @@ export function castV2SkillOnAttackerTurnPvP(
   for (const dot of result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}턴)`,
+      text: `[${result.castSkillName ?? dot.label}] +${dot.stacks}스택 (${dot.turns}회)`,
       side: who,
     });
   }

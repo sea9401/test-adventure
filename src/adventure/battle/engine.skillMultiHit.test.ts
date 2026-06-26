@@ -33,7 +33,7 @@ const MAGE: PlayerCombat = {
   evasionPct: 0,
   critChancePct: 0, // 크리 비활성(다단히트만 순수 측정)
   attackCount: 1,
-  maxMp: 100000, // MP 무제한(매 턴 탄막)
+  maxMp: 100000, // MP 무제한(매 턴 탄막) — 고정 비용(~55) << 풀이라 사실상 무제한
 };
 
 function dummy(hp: number): Monster {

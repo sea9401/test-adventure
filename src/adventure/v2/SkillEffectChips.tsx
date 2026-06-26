@@ -5,15 +5,14 @@ import {
   describeV2Skill,
   type V2SkillId,
 } from "@/adventure/data/v2/v2Skills";
-import { v2SkillMpCost } from "@/adventure/v2/combat/combatShared";
 
 // 스킬 효과 칩 — 피해/회복/버프/디버프/DoT (패시브면 "지능 +10%" 등) + MP·쿨다운·속성.
 //   학습 화면과 로드아웃 화면이 같은 표기를 공유한다. id 미존재/무효과면 아무것도 렌더하지 않음.
 export function SkillEffectChips({ skillId }: { skillId: string }) {
   const def = V2_SKILLS[skillId as V2SkillId];
   if (!def) return null;
-  // 실효 MP — 시그니처 차수별 자동 산정은 은퇴(v2SkillMpCost = def.mpCost 리터럴 그대로 반환).
-  const chips = describeV2Skill(def, v2SkillMpCost(def));
+  // MP 는 고정 절대값 모델 → describeV2Skill 이 "MP 55" 칩으로 자족 표기(maxMp 주입 불필요).
+  const chips = describeV2Skill(def);
   if (chips.length === 0) return null;
   return (
     <div className="mt-1 flex flex-wrap gap-1">

@@ -13,6 +13,7 @@ import {
 import { CRIT_MULT_BASE, RAMPAGE_START_TURN } from "../data/v2/v2CombatConstants";
 import type { Potion } from "../data/potions";
 import { V2_SKILLS } from "../data/v2/v2Skills";
+import { v2SkillMpCost } from "../v2/combat/combatShared";
 
 function makePlayer(over: Partial<PlayerCombat> = {}): PlayerCombat {
   return {
@@ -1015,11 +1016,11 @@ describe("v2 스킬 런타임 framework (PR-4a) — PvP", () => {
       },
     };
     const r = resolveBattlePvP(p1, p2, "P1", "P2", ctx);
-    // MP 차감 횟수 = cast 횟수. p1.mp = 풀충전 - (cast 횟수 × strike.mpCost).
+    // MP 차감 횟수 = cast 횟수. p1.mp = 풀충전 - (cast 횟수 × 실효비용).
+    // 고정 절대값 모델 — 실효 비용은 v2SkillMpCost(스킬)(카탈로그 literal 아님).
     const strike = V2_SKILLS["v2_skill_strike"];
-    const castCount = Math.floor(
-      (p1.maxMp! - r.finalState.p1.mp) / strike.mpCost,
-    );
+    const perCast = v2SkillMpCost(strike);
+    const castCount = Math.floor((p1.maxMp! - r.finalState.p1.mp) / perCast);
     // p1 의 turn 수는 적어도 1, 많아도 (적이 죽을 때까지). 매 turn 1회 cast 가 정상이므로
     // cast 횟수가 turn 수보다 클 수 없음. p2 의 attacksLeft=0 이므로 p1 turn 수 ≈ loop iter / 2 + 1.
     // 정확히 비교 어려우므로 sanity: cast 가 발생했으면서 한 turn 에 2번 fire 안 했는지.

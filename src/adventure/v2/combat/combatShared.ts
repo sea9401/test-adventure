@@ -10,6 +10,7 @@ import { computeHealAmount, type Potion } from "@/adventure/data/potions";
 import type { APSkillEffect } from "@/adventure/character/apSkills";
 import {
   V2_SKILLS,
+  v2SkillMpCostValue,
   type V2SkillDefinition,
   type V2SkillId,
   type V2SkillsState,
@@ -406,9 +407,9 @@ export function v2HealAmount(args: {
 }
 
 // MP-throttle 모델 — 전 스킬 쿨다운 폐지(데이터 cooldown:0), MP 소모량이 유일 throttle.
-// P4 — 구 시그니처 차수별 자동 MP 산정 폐지(시그니처 은퇴). 학습 스킬은 data 의 mpCost literal 그대로.
+// P5 — 고정 절대값(v2Skills.v2SkillMpCostValue): 기준 풀 × % × 계열 × 차수. 무료·몬스터는 리터럴.
 export function v2SkillMpCost(def: V2SkillDefinition): number {
-  return def.mpCost;
+  return v2SkillMpCostValue(def);
 }
 
 // PR-5b — monster.v2MaxMp 미지정 시 자동 시드. equipped 중 max mpCost × 3 → 약 3-5 회 cast.

@@ -616,9 +616,7 @@ function describeV2Effect(e: V2SkillEffect): string {
 // 스킬의 상세 옵션을 칩 문자열 배열로 — 효과(피해/회복/버프/디버프/DoT) 먼저, 그 뒤
 // MP·쿨다운·속성 메타. UI(학습/장착 화면)에서 작은 칩으로 표기.
 //
-// mpCost: 표시할 실효 MP. 시그니처(직업 전용)는 카탈로그 mpCost 가 0(센티넬)이고 실제
-// 비용은 엔진이 차수별로 산정(combatShared.v2SkillMpCost) — 그 실효값을 넘기면 "MP N" 으로
-// 정확히 표기된다. 미전달이면 카탈로그 mpCost(시그니처는 0=표기 생략).
+// MP 칩 = 고정 절대값(v2SkillMpCostValue) → "MP 55". 무료/몬스터 스킬(0)은 생략.
 // 패시브 스킬 효과 → 칩 문자열. 장착 상시 효과(근력 "힘 +10" / 예기 "민첩→공격력").
 function describePassive(p: V2PassiveSkillEffect): string[] {
   const chips: string[] = [];
@@ -650,14 +648,49 @@ function describePassive(p: V2PassiveSkillEffect): string[] {
   return chips;
 }
 
-export function describeV2Skill(
-  skill: V2SkillDefinition,
-  mpCost: number = skill.mpCost,
-): string[] {
+// ── MP 비용 루브릭 (P5 — 고정 절대값 모델) ──────────────────────────────────
+// 정적·직업무차별 mpCost(풀 대비 과소 → MP 가 죽은 자원) 를 "기준 풀 × % × 계열 × 차수" 로
+// 산정한 고정 절대값으로 대체. 풀 성장(INT)과 무관한 고정값 → 예측 가능(지속형 MP 자원: 전투 중
+// 재생 없이 치료소/물약 리필). 무료(mpCost 0 센티넬: 패시브·기본기·명상)·몬스터(monsterOnly)는
+// 그 literal 그대로. MP_REFERENCE_POOL·MP_BASE_PCT 가 튜닝 다이얼. 표시·차감 동일 산식 공유.
+export const MP_REFERENCE_POOL = 600; // 산정 기준 풀(~중간 캐스터). 올리면 전체 비용↑·엔드 타이트.
+export const MP_BASE_PCT = 0.07;
+const MP_TIER_MULT: Record<1 | 2 | 3, number> = { 1: 1.0, 2: 1.4, 3: 1.8 };
+// 계열 = 직업 계보(tier1~4) 전체. 캐스터 ×1.3 — 큰 풀·마나가 핵심 자원.
+const MP_CASTER_JOBS = new Set([
+  "mage", "caster", "acolyte", "magus", "bishop", "sage", "elementalist",
+]);
+// 무인 ×0.85 — 기 기반·작은 풀.
+const MP_MARTIAL_JOBS = new Set([
+  "martial", "boxer", "monk", "brawler", "warmonk", "sensei", "battlemonk",
+]);
+// 도적 ×0.7 — 물리/술수·MP 가벼움.
+const MP_ROGUE_JOBS = new Set([
+  "rogue", "assassin", "archer", "shadow", "ranger", "phantom", "chief",
+]);
+// default 1.0 = 병사 계보(warrior/shieldman/squire/paladin/guardian/veteran/warden)
+//   + 하이브리드(templar/spellblade) + none·스타터(v2_skill_).
+function mpArchetypeMult(id: string): number {
+  const job = id.split("_")[1] ?? ""; // v2c_<직업>_… / v2_skill_… 접두에서 계열 추출
+  if (MP_CASTER_JOBS.has(job)) return 1.3;
+  if (MP_MARTIAL_JOBS.has(job)) return 0.85;
+  if (MP_ROGUE_JOBS.has(job)) return 0.7;
+  return 1.0;
+}
+// 플레이어 학습 스킬 1회 시전 MP 비용(고정 절대값). 무료·몬스터 스킬은 그 literal 그대로.
+export function v2SkillMpCostValue(def: V2SkillDefinition): number {
+  if (def.mpCost === 0 || def.monsterOnly) return def.mpCost;
+  const pct = MP_BASE_PCT * mpArchetypeMult(def.id) * MP_TIER_MULT[def.tier];
+  return Math.max(1, Math.round(MP_REFERENCE_POOL * pct));
+}
+
+export function describeV2Skill(skill: V2SkillDefinition): string[] {
   const chips = skill.passive
     ? describePassive(skill.passive)
     : skill.effects.map(describeV2Effect);
-  if (mpCost > 0) chips.push(`MP ${mpCost}`);
+  // MP 비용 = 고정 절대값(기준 풀 기반) → 인게임·매뉴얼 동일 숫자. 무료/몬스터(0)는 칩 생략.
+  const mp = v2SkillMpCostValue(skill);
+  if (mp > 0) chips.push(`MP ${mp}`);
   if (skill.cooldown > 0) chips.push(`쿨 ${skill.cooldown}턴`);
   if (skill.element && skill.element !== "neutral") {
     chips.push(`속성 ${V2_ELEMENT_LABEL[skill.element]}`);

@@ -265,9 +265,10 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
   });
 
   it("디버프 스킬은 적 스탯 감소 칩 + MP 칩", () => {
+    // 파쇄 = 병사 계열(×1.0) tier 2 → 기준풀 600 × 7% × 1.4 = 58.8 → "MP 59".
     const chips = describeV2Skill(V2_SKILLS.v2c_warrior_sunder);
     expect(chips.some((c) => c.startsWith("적 활력 −"))).toBe(true);
-    expect(chips).toContain("MP 28");
+    expect(chips).toContain("MP 59");
   });
 
   it("DoT/쿨다운 — 몹 독니는 지속피해 + 쿨 칩", () => {
@@ -285,11 +286,20 @@ describe("describeV2Skill — 상세 옵션 칩", () => {
     expect(chips.some((c) => c.startsWith("속성"))).toBe(false);
   });
 
-  it("실효 MP 인자를 주면 그 값으로 MP 칩 표기", () => {
-    // 카탈로그 mpCost 0 스킬도 실효 비용(예: 12)을 넘기면 "MP 12" 로 정확히 표기 —
-    // UI 가 v2SkillMpCost 를 넘긴다.
-    const chips = describeV2Skill(V2_SKILLS.mob_venom_bite, 12);
-    expect(chips).toContain("MP 12");
+  it("MP 칩 = 고정 절대값 — 계열 차등 + 차수 스케일", () => {
+    // 비용 = 기준풀 600 × 7% × 계열 × 차수. 같은 t1 에서 캐스터(×1.3·55) > 병사(×1.0·42):
+    expect(describeV2Skill(V2_SKILLS.v2c_mage_fireball)).toContain("MP 55"); // 캐스터 t1
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_strike)).toContain("MP 42"); // 병사 t1
+    // 같은 병사 계열에서 차수 스케일 t1(42) < t2(600×7%×1.4=58.8→59):
+    expect(describeV2Skill(V2_SKILLS.v2c_warrior_sunder)).toContain("MP 59");
+    // 같은 t2 에서 도적(×0.7·41) < 병사(59) — 계열 차등 재확인:
+    expect(describeV2Skill(V2_SKILLS.v2c_assassin_ambush)).toContain("MP 41");
+    // 무료 스킬(마력탄 mpCost 0)은 MP 칩 생략:
+    expect(
+      describeV2Skill(V2_SKILLS.v2c_mage_boltcast).some((c) =>
+        c.startsWith("MP"),
+      ),
+    ).toBe(false);
   });
 });
 

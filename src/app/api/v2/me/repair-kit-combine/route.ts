@@ -6,13 +6,20 @@ import {
   WALL_REPAIR_KIT_ID,
   WALL_REPAIR_KIT_COST,
 } from "@/adventure/data/v2/settlementMaterials";
+import { COMBINE_GOLD_COST } from "@/adventure/data/v2/v2EquipVariance";
+import { V2_CORE_LOOP_V2, spendGold } from "@/adventure/data/v2/coreLoopConfig";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 
 // POST /api/v2/me/repair-kit-combine — 통나무 N + 철광석 N → 성벽 수리 키트 1개.
-//   결정론·무료(골드 없음). 재련석 조합 라우트 패턴 미러. body 없음.
-//   락: character.v2 (materials 만 변경). 게이트: V2_SETTLEMENT_WARFARE.
+//   결정론. 골드 비용 COMBINE_GOLD_COST(조합 공통). 재련석 조합 라우트 패턴 미러. body 없음.
+//   락: character.v2 (materials + gold 변경). 게이트: V2_SETTLEMENT_WARFARE.
 
-type CharSave = { materials?: Record<string, number>; [k: string]: unknown };
+type CharSave = {
+  materials?: Record<string, number>;
+  gold?: number;
+  bankedGold?: number;
+  [k: string]: unknown;
+};
 
 export async function POST() {
   if (!V2_SETTLEMENT_WARFARE) {
@@ -50,6 +57,21 @@ export async function POST() {
       };
     }
 
+    // 골드 비용 — 코어루프 on 이면 은행 우선 차감(재련석 조합과 동일).
+    const haveGold = Math.max(0, Math.floor(Number(charSave.gold) || 0));
+    const bankedGold = Math.max(0, Math.floor(Number(charSave.bankedGold) || 0));
+    const spend = spendGold(haveGold, bankedGold, COMBINE_GOLD_COST);
+    if (!spend.ok) {
+      return {
+        status: 400,
+        body: {
+          ok: false as const,
+          error: "insufficient_gold" as const,
+          goldCost: COMBINE_GOLD_COST,
+        },
+      };
+    }
+
     // 통나무·철광석 차감(0 이면 키 제거) + 키트 1개 적립.
     const timberLeft = haveTimber - needTimber;
     if (timberLeft > 0) mats[timberId] = timberLeft;
@@ -65,6 +87,8 @@ export async function POST() {
 
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
+      gold: spend.gold,
+      bankedGold: spend.bankedGold,
       materials: mats,
     });
 
@@ -75,6 +99,9 @@ export async function POST() {
         timberLeft,
         oreLeft,
         kits: mats[WALL_REPAIR_KIT_ID],
+        goldCost: COMBINE_GOLD_COST,
+        gold: spend.gold,
+        ...(V2_CORE_LOOP_V2 ? { bankedGold: spend.bankedGold } : {}),
       },
     };
   });

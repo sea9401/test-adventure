@@ -171,8 +171,12 @@ export function rollReforgeStoneDrops(
   return out;
 }
 
-// 대장간 조합 — 일반 재련석 N개 → 상급 재련석 1개(결정론·무료). 일반 상위 변환 sink + 거래 수요. 다이얼.
+// 대장간 조합 — 일반 재련석 N개 → 상급 재련석 1개(결정론). 일반 상위 변환 sink + 거래 수요. 다이얼.
 export const REFORGE_COMBINE_COST = 3;
+
+// 조합 공통 골드 비용 — 모든 대장간 조합(재련석·성벽 수리 키트 등)에 기본 적용하는 골드 sink.
+//   재료를 결과물로 바꾸는 수수료. 보유 골드(코어루프 on 이면 은행 우선)에서 차감. 다이얼.
+export const COMBINE_GOLD_COST = 200_000;
 
 // 상급 재련석 max-of-N — N회 굴려 품질 최고를 채택(같은 분포·범위라 파워크립 0). N=1=현 굴림.
 export const REFORGE_HIGH_ROLLS = 3;

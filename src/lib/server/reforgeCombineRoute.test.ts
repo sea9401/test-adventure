@@ -24,18 +24,20 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/me/reforge-stone-combine/route";
 import {
+  COMBINE_GOLD_COST,
   REFORGE_COMBINE_COST,
   REFORGE_STONE_MATERIAL_ID,
 } from "@/adventure/data/v2/v2EquipVariance";
 
 const BASIC = REFORGE_STONE_MATERIAL_ID.basic;
 const HIGH = REFORGE_STONE_MATERIAL_ID.high;
+const GOLD = COMBINE_GOLD_COST * 3; // 조합 비용 여유
 
-function seed(basic: number, high?: number) {
+function seed(basic: number, high?: number, gold = GOLD) {
   store.clear();
   const materials: Record<string, number> = { [BASIC]: basic };
   if (high != null) materials[HIGH] = high;
-  store.set("character.v2", { gold: 123, materials });
+  store.set("character.v2", { gold, materials });
 }
 
 const charOf = () =>
@@ -57,7 +59,20 @@ describe("POST /api/v2/me/reforge-stone-combine", () => {
     expect(json.high).toBe(2);
     expect(charOf().materials[BASIC]).toBe(5 - REFORGE_COMBINE_COST);
     expect(charOf().materials[HIGH]).toBe(2);
-    expect(charOf().gold).toBe(123); // 무료 — 골드·기타 필드 불변
+    expect(json.goldCost).toBe(COMBINE_GOLD_COST);
+    expect(charOf().gold).toBe(GOLD - COMBINE_GOLD_COST); // 조합 비용 차감
+  });
+
+  it("골드 부족(<비용) — insufficient_gold, 재료·골드 불변", async () => {
+    seed(5, 1, COMBINE_GOLD_COST - 1); // 재련석은 충분, 골드만 부족
+    const before = JSON.stringify(charOf().materials);
+    const res = await POST();
+    const json = await res.json();
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("insufficient_gold");
+    expect(json.goldCost).toBe(COMBINE_GOLD_COST);
+    expect(JSON.stringify(charOf().materials)).toBe(before); // 미변경
+    expect(charOf().gold).toBe(COMBINE_GOLD_COST - 1); // 미차감
   });
 
   it("딱 N개면 일반 키 제거 + 상급 신규 1", async () => {

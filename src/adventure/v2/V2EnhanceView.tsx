@@ -25,6 +25,7 @@ import {
 import {
   canReforge,
   reforgeGoldCost,
+  COMBINE_GOLD_COST,
   REFORGE_COMBINE_COST,
   REFORGE_STONE_MATERIAL_ID,
   REFORGE_STONES,
@@ -337,13 +338,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           text:
             json.error === "insufficient_stone"
               ? "재련석이 부족합니다"
-              : `실패: ${json.error ?? "unknown"}`,
+              : json.error === "insufficient_gold"
+                ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
+                : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
       setMsg({
         kind: "success",
-        text: `✨ 재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개`,
+        text: `✨ 재련석 ${REFORGE_COMBINE_COST}개 → 상급 재련석 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -369,13 +372,15 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           text:
             json.error === "insufficient_material"
               ? `재료가 부족합니다 (통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} 필요)`
-              : `실패: ${json.error ?? "unknown"}`,
+              : json.error === "insufficient_gold"
+                ? `골드가 부족합니다 (${COMBINE_GOLD_COST.toLocaleString()} G 필요)`
+                : `실패: ${json.error ?? "unknown"}`,
         });
         return;
       }
       setMsg({
         kind: "success",
-        text: `🛡️ 통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개`,
+        text: `🛡️ 통나무 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.timber]} + 철광석 ${WALL_REPAIR_KIT_COST[SETTLEMENT_MATERIAL_ID.ironOre]} → 성벽 수리 키트 1개 (−${COMBINE_GOLD_COST.toLocaleString()} G)`,
       });
       await refresh();
     } catch {
@@ -705,7 +710,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       )}
 
       {/* 조합 — 레시피 목록(장비 선택 불필요). 카드마다 산출물·조합비·재료 충족(✓/✗) + 조합 버튼.
-          재련석 조합 + (전쟁 on) 성벽 수리 키트 조합. 둘 다 골드 무료. */}
+          재련석 조합 + (전쟁 on) 성벽 수리 키트 조합. 골드 비용 COMBINE_GOLD_COST(조합 공통). */}
       {mode === "combine" && (
         <section className="space-y-2">
           {[
@@ -713,7 +718,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
               key: "reforge-stone",
               icon: "✨",
               output: "상급 재련석",
-              cost: "무료",
+              cost: COMBINE_GOLD_COST,
               mats: [
                 {
                   label: "🔧 재련석",
@@ -729,7 +734,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                     key: "repair-kit",
                     icon: "🛡️",
                     output: "성벽 수리 키트",
-                    cost: "무료",
+                    cost: COMBINE_GOLD_COST,
                     mats: [
                       {
                         label: "🪵 통나무",
@@ -757,7 +762,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
                   <div className="min-w-0 shrink-0">
                     <div className="text-sm font-semibold">{r.output}</div>
                     <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                      조합비 {r.cost}
+                      조합비 {r.cost.toLocaleString()} G
                     </div>
                   </div>
                   <div className="ml-auto space-y-0.5 text-xs tabular-nums">

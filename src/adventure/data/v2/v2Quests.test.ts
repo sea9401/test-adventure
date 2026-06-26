@@ -7,7 +7,6 @@ import {
   isQuestClaimable,
   deriveQuestViews,
   currentGuideQuest,
-  questLinesFor,
   isTutorialLine,
   type QuestCtx,
 } from "./v2Quests";
@@ -79,11 +78,12 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
-  it("직업 4종 각각 전용 라인(class_*) 3퀘 보유", () => {
-    for (const cls of ["warrior", "martial", "mage", "rogue"]) {
-      const line = QUEST_LINES.find((l) => l.id === `class_${cls}`);
-      expect(line?.classOnly, cls).toBe(cls);
-      expect(V2_QUESTS.filter((q) => q.line === `class_${cls}`)).toHaveLength(3);
+  it("직업 차수(class_*) 전용 라인은 제거됨 — 차수 미노출", () => {
+    expect(QUEST_LINES.some((l) => l.id.startsWith("class_"))).toBe(false);
+    expect(V2_QUESTS.some((q) => q.line.startsWith("class_"))).toBe(false);
+    // 유저 노출 문구에 "N차" 가 남아 있지 않다(차수 미노출 정책).
+    for (const q of V2_QUESTS) {
+      expect(/\d차/.test(q.title + q.desc), q.id).toBe(false);
     }
   });
 });
@@ -173,45 +173,25 @@ describe("성장의 길 (순차 라인)", () => {
   });
 });
 
-describe("직업 전용 라인 (classOnly)", () => {
-  it("현 직군 라인만 보임 — 전사는 class_warrior 보이고 class_mage 안 보임", () => {
-    const lines = questLinesFor(ZERO).map((l) => l.id);
-    expect(lines).toContain("class_warrior");
-    expect(lines).not.toContain("class_mage");
-    const ids = deriveQuestViews(ZERO, none).map((v) => v.id);
-    expect(ids).toContain("c_warrior_spec");
-    expect(ids).not.toContain("c_mage_spec");
+describe("전직 마일스톤 — 차수 숫자 미노출, 내부 tier 판정 유지", () => {
+  it("성장의 길 전직 단계 — tier 게이트(.check)", () => {
+    expect(questById("g_advance2")!.check({ ...ZERO, tier: 1 })).toBe(false);
+    expect(questById("g_advance2")!.check({ ...ZERO, tier: 2 })).toBe(true);
+    expect(questById("g_passive")!.check({ ...ZERO, tier: 2 })).toBe(false);
+    expect(questById("g_passive")!.check({ ...ZERO, tier: 3 })).toBe(true);
   });
 
-  it("마법사는 class_mage 만 보임", () => {
-    const mage = { ...ZERO, class: "mage" as const };
-    const lines = questLinesFor(mage).map((l) => l.id);
-    expect(lines).toContain("class_mage");
-    expect(lines).not.toContain("class_warrior");
-  });
-
-  it("직업 차수 진행 — 2차 전직 → 3차 → 4차", () => {
-    const t2 = { ...ZERO, tier: 2 };
-    expect(isQuestClaimable(questById("c_warrior_spec")!, t2, none)).toBe(true);
-    expect(questStatus(questById("c_warrior_deepen")!, t2, none)).toBe(
+  it("정점(a_apex) — tier 4 에서 수령 가능, 그전엔 진행 중", () => {
+    expect(isQuestClaimable(questById("a_apex")!, { ...ZERO, tier: 4 }, none)).toBe(
+      true,
+    );
+    expect(questStatus(questById("a_apex")!, { ...ZERO, tier: 3 }, none)).toBe(
       "active",
     );
-    const t3 = { ...ZERO, tier: 3 };
-    expect(isQuestClaimable(questById("c_warrior_deepen")!, t3, none)).toBe(
-      true,
-    );
-    const t4 = { ...ZERO, tier: 4 };
-    expect(isQuestClaimable(questById("c_warrior_apex")!, t4, none)).toBe(true);
   });
 
-  it("교차 직군 수령 차단 — 전사가 2차여도 class_mage 퀘 수령 불가", () => {
-    const t2 = { ...ZERO, tier: 2 };
-    expect(isQuestClaimable(questById("c_mage_spec")!, t2, none)).toBe(false);
-    // 마법사면 반대로 가능.
-    const mageT2 = { ...t2, class: "mage" as const };
-    expect(isQuestClaimable(questById("c_mage_spec")!, mageT2, none)).toBe(
-      true,
-    );
+  it("classOnly 메커니즘은 보존하되 사용하는 라인 데이터는 없음", () => {
+    expect(QUEST_LINES.every((l) => !l.classOnly)).toBe(true);
   });
 });
 
@@ -329,21 +309,25 @@ describe("currentGuideQuest (홈 배너)", () => {
     expect(currentGuideQuest(ZERO, none)?.id).toBe("g_first_battle");
   });
 
-  it("성장의 길 전부 수령 후 — 직업 라인으로 넘어감(라인 우선순위)", () => {
+  it("수령 가능한 마일스톤이 진행 중 퀘보다 우선(라인 순서 무관)", () => {
+    // 성장의 길은 전부 수령. 길드 가입 신호만 충족 → 기초 튜토리얼(진행 중)을 건너뛰고
+    // 모험가의 길 '길드의 일원'(수령 가능)이 현재 목표로 안내된다.
     const ctx: QuestCtx = {
       ...ZERO,
       level: 60,
       tier: 2,
       battleCount: 99,
-      frontierDepth: 6, // 7 미만 — b_band_canyon(도감) claimable 방지(라인 우선순위 검증용)
-      equippedCount: 1, // 6 미만 — x_full_gear(수집) 이 claimable 안 되게(라인 우선순위 검증용)
+      frontierDepth: 6, // 7 미만 — b_band_canyon(도감) claimable 방지
+      equippedCount: 1, // 6 미만 — x_full_gear(수집) claimable 방지
       cultivations: 2,
+      hasGuild: true,
     };
     const growthClaimed = new Set(
       V2_QUESTS.filter((q) => q.line === "growth").map((q) => q.id),
     );
     const cur = currentGuideQuest(ctx, growthClaimed);
-    expect(cur?.line).toBe("class_warrior");
+    expect(cur?.id).toBe("s_guild");
+    expect(cur?.line).toBe("social");
   });
 
   it("전부 수령 → null", () => {
@@ -393,7 +377,6 @@ describe("deriveQuestViews", () => {
     // 직군 가시 퀘 중, 체인은 첫 단계만 보임(미수령 상태 기준).
     const seenChains = new Set<string>();
     const visibleCount = V2_QUESTS.filter((q) => {
-      if (q.line.startsWith("class_") && q.line !== "class_warrior") return false;
       if (!q.chain) return true;
       if (seenChains.has(q.chain)) return false;
       seenChains.add(q.chain);

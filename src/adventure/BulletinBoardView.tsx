@@ -41,8 +41,12 @@ type Mode =
   | { kind: "detail"; postId: number }
   | { kind: "edit"; postId: number };
 
+// 탭 = 실제 카테고리 + UI 전용 "전체"(DB 카테고리 아님 — category 미지정으로 전체 조회).
+type BoardTab = BulletinCategory | "all";
+
 export function BulletinBoardView() {
-  const [category, setCategory] = useState<BulletinCategory>("notice");
+  // 입장 시 기본 탭 = 전체(모든 게시판 글 최신순).
+  const [category, setCategory] = useState<BoardTab>("all");
   const [search, setSearch] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [posts, setPosts] = useState<BulletinPost[] | null>(null);
@@ -88,8 +92,8 @@ export function BulletinBoardView() {
   }) => {
     try {
       const created = await postPost(input);
-      // 작성한 카테고리가 현재 탭과 같으면 즉시 반영, 다르면 그 탭으로 이동.
-      if (created.category === category) {
+      // 작성한 카테고리가 현재 탭과 같거나 "전체" 탭이면 즉시 반영, 다르면 그 탭으로 이동.
+      if (category === "all" || created.category === category) {
         setPosts((prev) => (prev ? [created, ...prev] : [created]));
       } else {
         setCategory(created.category);
@@ -217,19 +221,26 @@ export function BulletinBoardView() {
 
   const pager = usePagination(posts ?? [], 15);
 
+  // 전체 / 공지사항 / 자유게시판 / 공략·팁 순. "전체"는 UI 전용 탭(맨 앞).
   const tabs = useMemo(
-    () =>
-      BULLETIN_CATEGORIES.map((c) => ({
+    (): { key: BoardTab; label: string }[] => [
+      { key: "all", label: "전체" },
+      ...BULLETIN_CATEGORIES.map((c) => ({
         key: c,
         label: BULLETIN_CATEGORY_LABELS[c].name,
       })),
+    ],
     [],
   );
 
   if (mode.kind === "compose") {
     return (
       <ComposePage
-        initialCategory={category === "notice" && !isAdmin ? "free" : category}
+        initialCategory={
+          category === "all" || (category === "notice" && !isAdmin)
+            ? "free"
+            : category
+        }
         isAdmin={isAdmin}
         onCancel={() => setMode({ kind: "list" })}
         onSubmit={handleSubmit}
@@ -303,7 +314,9 @@ export function BulletinBoardView() {
       />
 
       <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        {BULLETIN_CATEGORY_LABELS[category].description}
+        {category === "all"
+          ? "모든 게시판의 글을 최신순으로 모아 봅니다."
+          : BULLETIN_CATEGORY_LABELS[category].description}
       </p>
 
       <div className="flex items-center gap-2">

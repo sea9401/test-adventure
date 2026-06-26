@@ -107,18 +107,18 @@ describe("coopBosses 카탈로그", () => {
 
   it("rollCoopUnique — EPIC+ 단일 굴림(GOLD 이하 0·확률 경계)", () => {
     expect(COOP_UNIQUE_CHANCE.gold).toBe(0);
-    expect(COOP_UNIQUE_CHANCE.epic).toBe(0.05);
-    expect(COOP_UNIQUE_CHANCE.legend).toBe(0.12);
+    expect(COOP_UNIQUE_CHANCE.epic).toBe(0.12);
+    expect(COOP_UNIQUE_CHANCE.legend).toBe(0.25);
     // GOLD 이하 — rng 무관 항상 false.
     expect(rollCoopUnique(null, () => 0)).toBe(false);
     expect(rollCoopUnique("bronze", () => 0)).toBe(false);
     expect(rollCoopUnique("gold", () => 0)).toBe(false);
     // EPIC/LEGEND — rng < chance 통과.
     expect(rollCoopUnique("epic", () => 0)).toBe(true);
-    expect(rollCoopUnique("epic", () => 0.049)).toBe(true);
-    expect(rollCoopUnique("epic", () => 0.05)).toBe(false);
-    expect(rollCoopUnique("legend", () => 0.11)).toBe(true);
-    expect(rollCoopUnique("legend", () => 0.12)).toBe(false);
+    expect(rollCoopUnique("epic", () => 0.119)).toBe(true);
+    expect(rollCoopUnique("epic", () => 0.12)).toBe(false);
+    expect(rollCoopUnique("legend", () => 0.24)).toBe(true);
+    expect(rollCoopUnique("legend", () => 0.25)).toBe(false);
   });
 
   it("보스 uniqueIds — 시그니처 유니크 실재(이름·rarity·signature)", () => {

@@ -158,10 +158,11 @@ export async function POST(req: Request) {
     }
 
     // 보스 전용 시그니처 유니크 — SP 열매와 별개의 희귀 트로피. EPIC+ 단일 굴림(GOLD 이하 0).
+    //   보스가 여러 종 보유 시 보유 풀에서 랜덤 1개(보스당 2종 — 산군/스콜피온/호수 각 2).
     const kind = COOP_BOSSES[kindId];
     const uniqueId: V2EquipmentId | null =
       kind.uniqueIds.length > 0 && rollCoopUnique(tier, Math.random)
-        ? kind.uniqueIds[0]
+        ? kind.uniqueIds[Math.floor(Math.random() * kind.uniqueIds.length)]
         : null;
     if (uniqueId) {
       const equipmentSave = await lockSaveForUpdate<EquipmentSave>(

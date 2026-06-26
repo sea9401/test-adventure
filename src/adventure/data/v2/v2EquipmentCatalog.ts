@@ -472,6 +472,58 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     // 한기(신규) — 치명타 시 대상 둔화. 라이브 상향(2026-06-26): 속도 −25%·2행동 → −35%·3행동.
     signature: { trigger: "on_crit", label: "한기", chillSlowPct: 35, buffActions: 3 },
   },
+  // 보스 전용 시그니처 유니크 2번째(2026-06-26) — 보스당 2종(독립·세트 아님). 1번과 다른 슬롯·효과.
+  //   기존 엔진 훅 재사용(군림/독왕/성물). claim 이 보유 풀에서 랜덤 1개 드랍.
+  v2_boss_mountain_amulet: {
+    id: "v2_boss_mountain_amulet",
+    slot: "necklace",
+    concept: "mana",
+    tier: 3,
+    name: "격노의 부적",
+    description:
+      "산군의 분노가 깃든 부적. 결정타가 터질 때마다 몸이 더 빠르게 달아오른다.",
+    power: 22,
+    weight: 0, // 장신구(반지·목걸이)는 무게 0 불변
+    options: { crit: 8, hp: 120 }, // 개성: 목걸이에 치명축 + hp
+    rarity: "unique",
+    // 격노 — 결정타 시 자기 속도+(군림 아키타입 재사용).
+    signature: { trigger: "on_crit", label: "격노", spdBuffPct: 20, buffActions: 2 },
+  },
+  v2_boss_canyon_boots: {
+    id: "v2_boss_canyon_boots",
+    slot: "boots",
+    concept: "light",
+    tier: 3,
+    name: "사구의 질주화",
+    description:
+      "스콜피온 킹의 민첩을 담은 신. 한 번 비껴서면 모래폭풍처럼 가속한다.",
+    power: 24,
+    weight: 2,
+    options: { eva: 10, critMult: 25 }, // 개성: 신발에 치명뎀
+    rarity: "unique",
+    // 질주 — 회피 시 자기 속도+(독왕 아키타입 재사용).
+    signature: { trigger: "on_dodge", label: "질주", spdBuffPct: 25, buffActions: 3 },
+  },
+  v2_boss_lake_gloves: {
+    id: "v2_boss_lake_gloves",
+    slot: "gloves",
+    concept: "light",
+    tier: 3,
+    name: "혹한의 손아귀",
+    description:
+      "호수의 괴물의 냉기가 어린 장갑. 위기에 몰릴수록 얼음이 굳어 몸을 지킨다.",
+    power: 26,
+    weight: 3,
+    options: { def: 16, magicDef: 14 }, // 개성: 경갑 장갑에 방어·마방
+    rarity: "unique",
+    // 혹한 — 체력 35% 이하 받피감 −25%(성물 아키타입 재사용).
+    signature: {
+      trigger: "low_hp",
+      label: "혹한",
+      hpThresholdPct: 35,
+      damageTakenReductionPct: 25,
+    },
+  },
 
   // ── 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique" 드랍 전용) ───────────────
   // 심층 프론티어 첫 밴드(마른 협곡) 전용 유니크. 8 무기타입 1종씩(12 전문화 전부 발동 가능) +

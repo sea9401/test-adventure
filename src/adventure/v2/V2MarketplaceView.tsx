@@ -5,17 +5,14 @@ import { Storefront } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 import { Card } from "@/components/ui/Card";
-import { NumberInput, parseAmount } from "@/components/ui/NumberInput";
+import { parseAmount } from "@/components/ui/NumberInput";
 import {
   V2_EQUIPMENT,
-  effectiveStats,
-  v2EquipStatRows,
   type V2Equipment,
   type V2EquipInstance,
   type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
-import { rollQualityPct } from "@/adventure/data/v2/v2EquipVariance";
 import {
   parseEnhance,
   type V2EnhanceState,
@@ -29,70 +26,31 @@ import {
 import { V2ItemCard, anchorOf, type ItemCardAnchor } from "./V2ItemCard";
 import { useGameState } from "./GameStateProvider";
 import { TabBar } from "@/components/ui/TabBar";
-import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
 import {
   V2_ITEM_TABS,
-  nextSortMode,
-  sortModeLabel,
   sortEquipInstances,
   type V2ItemTabKey,
   type SortMode,
 } from "./v2ItemListShared";
+import {
+  equipDetail,
+  PriceRefLine,
+  type Listing,
+  type PriceStat,
+} from "./marketplace/marketplaceShared";
+import { MarketplaceEquipmentTab } from "./marketplace/MarketplaceEquipmentTab";
+import { MarketplaceMaterialTab } from "./marketplace/MarketplaceMaterialTab";
+import { MarketplaceRareMapTab } from "./marketplace/MarketplaceRareMapTab";
 
 // v2 거래소 — 장비 개체 + 재료 + 소모품(레어맵) 거래(고정가).
 // 백엔드 /api/v2/marketplace (list/buy/cancel/browse).
-//   판매세는 서버 권위 — 여기 0.05 는 순수령 미리보기용(표시 advisory).
-const TAX_RATE_DISPLAY = 0.05;
-const netPreview = (price: number) => Math.floor(price * (1 - TAX_RATE_DISPLAY));
-
-// 시세 집계(/api/v2/marketplace/prices) — itemId 별 최근 판매 통계.
-type PriceStat = { n: number; avg: number; min: number; max: number };
-
-// 장비 스탯 한 줄(개체 굴림 반영) — 위력 + 슬롯 옵션. V2InventoryView 의 cardStatLine 과 동형
-//   (무기 element 는 폐지 정책으로 항상 neutral → 표기 생략). 구매자가 무엇을 사는지 보이게.
-function equipStatLine(item: V2Equipment, roll?: V2EquipRoll): string {
-  const eff = effectiveStats(item, roll);
-  const parts = [`위력 ${eff.power}`, `무게 ${eff.weight}`];
-  for (const row of v2EquipStatRows(item, roll)) {
-    if (row.label === "위력" || row.label === "무게") continue;
-    parts.push(`${row.label} ${row.value}`);
-  }
-  return parts.join(" · ");
-}
-
-// 장비 매물/개체의 굴림% + 스탯줄 — itemId(카탈로그) + roll(개체 편차).
-function equipDetail(
-  itemId: string,
-  roll: V2EquipRoll | undefined,
-  enhance?: V2EnhanceState,
-) {
-  const item = V2_EQUIPMENT[itemId as keyof typeof V2_EQUIPMENT];
-  if (!item) return null;
-  return {
-    pct: rollQualityPct(item, roll),
-    line: equipStatLine(item, roll),
-    enhance,
-  };
-}
+//   타입·시세 헬퍼·시세줄/가격입력 leaf 컴포넌트는 marketplace/marketplaceShared 공용.
 
 // 리스팅 payload — 굴림(+강화) 혼합형. 옛 행은 raw roll 객체(enhance 없음).
 function listingEnhance(payload: unknown): V2EnhanceState | undefined {
   return parseEnhance((payload as { enhance?: unknown } | null)?.enhance);
 }
-
-type Listing = {
-  id: number;
-  sellerId: string;
-  sellerName: string;
-  kind: "equip" | "material" | "consumable";
-  itemId: string;
-  itemName: string;
-  quantity: number;
-  price: number;
-  instancePayload: unknown;
-  createdAt: string;
-};
 
 type Tab = "browse" | "mine" | "sell";
 
@@ -505,184 +463,40 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
           </HeaderPanel>
 
           {sellTab === "consumable" ? (
-            rareMaps.length === 0 ? (
-              <Card padding="sm">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  팔 수 있는 소모품이 없어요. 레어맵은 사냥 중 아주 낮은
-                  확률로 발견됩니다.
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {rareMaps.map((m) => {
-                  const def = RARE_MAP_KINDS[m.kind];
-                  return (
-                    <Card key={m.iid} padding="sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="min-w-0 text-sm font-medium">
-                          🗺 {def?.name ?? m.kind}
-                          <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            깊이 {m.depth} · 남은 {m.runsLeft}판
-                          </span>
-                          <span className="ml-1.5">
-                            <PriceRefLine stat={priceRef[m.kind]} />
-                          </span>
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <PriceInput
-                            value={prices[m.iid] ?? ""}
-                            onChange={(v) =>
-                              setPrices((p) => ({ ...p, [m.iid]: v }))
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={() => listConsumable(m.iid)}
-                            disabled={busy}
-                            className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                          >
-                            등록
-                          </button>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )
+            <MarketplaceRareMapTab
+              rareMaps={rareMaps}
+              prices={prices}
+              setPrices={setPrices}
+              priceRef={priceRef}
+              busy={busy}
+              onListConsumable={listConsumable}
+            />
           ) : sellTab === "material" ? (
-            sellableMats.length === 0 ? (
-              <Card padding="sm">
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  팔 수 있는 재료가 없어요.
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {sellMatPager.pageItems.map((matId) => {
-                  const have = materials[matId] ?? 0;
-                  return (
-                    <Card key={matId} padding="sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium">
-                          {V2_MATERIALS[matId]?.name ?? matId}
-                          <span className="ml-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">보유 {have}</span>
-                          <span className="ml-1.5">
-                            <PriceRefLine stat={priceRef[matId]} />
-                          </span>
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <input
-                            type="number"
-                            min={1}
-                            max={have}
-                            placeholder="수량"
-                            value={qtys[matId] ?? ""}
-                            onChange={(e) => setQtys((q) => ({ ...q, [matId]: e.target.value }))}
-                            className="w-16 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
-                          />
-                          <PriceInput
-                            value={prices[matId] ?? ""}
-                            onChange={(v) => setPrices((p) => ({ ...p, [matId]: v }))}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => listMaterial(matId)}
-                            disabled={busy}
-                            className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                          >
-                            등록
-                          </button>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-                <Pagination
-                  page={sellMatPager.page}
-                  pageCount={sellMatPager.pageCount}
-                  setPage={sellMatPager.setPage}
-                />
-              </div>
-            )
-          ) : sellTabEquip.length === 0 ? (
-            <Card padding="sm">
-              <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                팔 수 있는 장비가 없어요. (장착·잠금 장비는 제외)
-              </div>
-            </Card>
+            <MarketplaceMaterialTab
+              items={sellableMats}
+              pager={sellMatPager}
+              materials={materials}
+              prices={prices}
+              setPrices={setPrices}
+              qtys={qtys}
+              setQtys={setQtys}
+              priceRef={priceRef}
+              busy={busy}
+              onListMaterial={listMaterial}
+            />
           ) : (
-            <div className="space-y-2">
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
-                  onClick={() => setSellSort((m) => nextSortMode(m))}
-                  className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  정렬 ⇅ {sortModeLabel(sellSort)}
-                </button>
-              </div>
-              {sellEquipPager.pageItems.map((inst) => {
-                const detail = equipDetail(inst.id, inst.roll);
-                const price = parseAmount(prices[inst.iid]);
-                return (
-                  <Card key={inst.iid} padding="sm">
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => openCardFor(inst.id, inst.roll, e.currentTarget)}
-                        className="group min-w-0 text-left"
-                      >
-                        <div>
-                          <span className="text-sm font-medium group-hover:underline group-focus-visible:underline">
-                            {V2_EQUIPMENT[inst.id]?.name ?? inst.id}
-                            {inst.enhance && inst.enhance.level > 0 ? (
-                              <span className="ml-1 text-amber-500">+{inst.enhance.level}</span>
-                            ) : null}
-                          </span>
-                          {detail?.pct != null && (
-                            <span className="ml-1.5 text-[11px] text-amber-600 dark:text-amber-400">품질 {detail.pct}%</span>
-                          )}
-                        </div>
-                        {detail && (
-                          <div className="mt-0.5 break-words text-[11px] text-zinc-600 dark:text-zinc-300">
-                            {detail.line}
-                          </div>
-                        )}
-                        <div className="mt-0.5">
-                          <PriceRefLine stat={priceRef[inst.id]} />
-                        </div>
-                      </button>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <PriceInput
-                          value={prices[inst.iid] ?? ""}
-                          onChange={(v) => setPrices((p) => ({ ...p, [inst.iid]: v }))}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => listEquip(inst)}
-                          disabled={busy}
-                          className="rounded-md border border-sky-600 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50"
-                        >
-                          등록
-                        </button>
-                      </div>
-                    </div>
-                    {Number.isInteger(price) && price >= 1 && (
-                      <div className="mt-1 text-right text-[11px] text-zinc-400">
-                        판매 시 수령 {netPreview(price).toLocaleString()}골드
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-              <Pagination
-                page={sellEquipPager.page}
-                pageCount={sellEquipPager.pageCount}
-                setPage={sellEquipPager.setPage}
-              />
-            </div>
+            <MarketplaceEquipmentTab
+              items={sellTabEquip}
+              pager={sellEquipPager}
+              sellSort={sellSort}
+              setSellSort={setSellSort}
+              prices={prices}
+              setPrices={setPrices}
+              priceRef={priceRef}
+              busy={busy}
+              onListEquip={listEquip}
+              onOpenCard={openCardFor}
+            />
           )}
         </div>
       )}
@@ -850,31 +664,6 @@ function SelectControl({
         </option>
       ))}
     </select>
-  );
-}
-
-// 시세 한 줄 — 최근 거래가 참고. 기록 없으면 표시 안 함.
-function PriceRefLine({ stat }: { stat?: PriceStat }) {
-  if (!stat || stat.n <= 0) return null;
-  const range =
-    stat.min === stat.max
-      ? ""
-      : ` · ${stat.min.toLocaleString()}~${stat.max.toLocaleString()}`;
-  return (
-    <span className="text-[11px] text-sky-600 dark:text-sky-400">
-      시세 평균 {stat.avg.toLocaleString()}골드 ({stat.n}건{range})
-    </span>
-  );
-}
-
-function PriceInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <NumberInput
-      placeholder="가격"
-      value={value}
-      onValueChange={onChange}
-      className="w-24 rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
-    />
   );
 }
 

@@ -74,6 +74,7 @@ import {
   type V2EquipmentId,
   type V2EquipRoll,
   type V2EquipSlot,
+  type SignatureEffect,
 } from "@/adventure/data/v2/v2Equipment";
 import {
   V2_JOB_CATALOG,
@@ -221,6 +222,39 @@ export function aggregateV2Equipment(
     acc.healPowerPct += b.healPowerPct ?? 0; // 세트 보너스 회복%(SPI PR-2).
   }
   return acc;
+}
+
+// 장착 발동형 시그니처 집계(Phase 2) — 마퀴 단품 + 활성 세트(전 조각 장착)의 시그니처를 모은다.
+//   엔진이 PlayerCombat.equipSignatures 로 읽어 전투 중 발동. 빈 배열 → derive 가 undefined 로
+//   내려 엔진 훅 미발화(골든 byte-identical). 순수 함수.
+export function collectEquipSignatures(
+  v2Equipped: Partial<Record<V2EquipSlot, V2EquipmentId>>,
+): SignatureEffect[] {
+  const out: SignatureEffect[] = [];
+  const equippedIds = new Set<V2EquipmentId>();
+  for (const slot of [
+    "weapon",
+    "armor",
+    "gloves",
+    "boots",
+    "ring",
+    "necklace",
+  ] as const) {
+    const id = v2Equipped[slot];
+    if (id) equippedIds.add(id);
+  }
+  // 단품(마퀴) 시그니처.
+  for (const id of equippedIds) {
+    const sig = V2_EQUIPMENT[id].signature;
+    if (sig) out.push(sig);
+  }
+  // 세트 시그니처 — 전 조각 장착 시.
+  for (const set of V2_EQUIP_SETS) {
+    if (set.signature && set.pieces.every((p) => equippedIds.has(p))) {
+      out.push(set.signature);
+    }
+  }
+  return out;
 }
 
 // PR-S1 5배 스케일 다이얼 — 각 계수 = 옛값 / 5.
@@ -452,6 +486,8 @@ export function derivePlayerCombatV2Pure(
   const level = Math.max(1, input.level ?? 1);
   const v2Equipped = input.v2Equipped ?? {};
   const equipAcc = aggregateV2Equipment(v2Equipped, input.v2StatRolls);
+  // 발동형 시그니처(Phase 2) — 활성 세트/마퀴 단품. 없으면 빈 배열(아래서 undefined 로).
+  const equipSignatures = collectEquipSignatures(v2Equipped);
 
   // baseAllocatedStats = V2_BASE_STATS + 성장분, stat 별 cap 으로 클램프(수행으로 cap 상향).
   // PR-prof — 랜덤 레벨 성장은 cap 까지만(docs §2). statCaps 미지정이면 무클램프(sim 호환).
@@ -717,6 +753,9 @@ export function derivePlayerCombatV2Pure(
     dexStat: totalStats.dex,
     lukStat: totalStats.luk,
     classTier: input.classTier,
+    // 발동형 시그니처(Phase 2) — 활성분 있을 때만 키 추가(빈 배열이면 키 자체 생략 →
+    //   미장착 액터의 player 객체·스냅샷 byte-identical, 엔진 훅 미발화).
+    ...(equipSignatures.length > 0 ? { equipSignatures } : {}),
     atk: specAtk,
     magicAtk: specMagicAtk,
     def: specDef,

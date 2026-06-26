@@ -133,3 +133,56 @@ Phase 2 시그니처 효과(괄호)는 *컨셉*(later).
 > 포식자 세트 2pc: critMult+hp
 
 = 15종 / 세트 3개(각 2pc) / 단품 9개. 밴드마다 정체성이 다름(회복형/회피형/폭딜형).
+
+## 10. Phase 2 — 발동형 시그니처 효과 (설계·전투엔진)
+
+### 10.0 🔴 핵심 정정 (전투엔진 실측)
+라이브 사냥 = **단일 적 1v1**(`resolveBattle` 1회 = 적 1마리·다중사냥은 N번 **별개** 호출·전투 버프
+`BattleBuffs`는 매 전투 리셋·비이월). → **"처치 시(on-kill)" 효과는 무용**(처치=전투 종료, 이후 사용
+불가). §9 로스터의 "처치 시 회복/공속↑" 컨셉 **폐기** → **전투 중 발동 트리거**로 재설계.
+
+### 10.1 유효 트리거 (단일전투에서 의미 있는 것만)
+크리 시(on-crit) · 회피 시(on-dodge) · 저체력 HP≤X%(low-hp·조건부 패시브) · N타마다(every-N-hits).
+(on-kill / battle-start 후 지속버프 = 무용. on-hit = 너무 잦아 약효 희석.)
+
+### 10.2 3 세트 시그니처 (세트 완성 시 발동·정체성 매칭)
+- **성물(회복·버팀)** = **저체력(HP≤30%) 시 받는 피해 −25%** (low-hp → `damageTakenReductionPct` 조건부).
+- **독왕(회피·기동)** = **회피 성공 시 3행동 동안 속도 +25%** (on-dodge → `playerSpdMult` 버프+turnsLeft).
+- **포식자(폭딜)** = **3타마다 추가타 1회** (every-N-hits → extraAttack). 글래스캐넌 버스트.
+(전부 보수적 시작값·다이얼. 강도는 sim 후 캘리브.)
+
+### 10.2b 단품 마퀴 시그니처 3개 (오너: 세트3+단품2~3) — 밴드당 1개·트리거 안 겹치게
+- **봉인된 반지**(성소·ring) = **회피 성공 시 HP 소량 회복** (on-dodge → heal). 회피탱 sustain.
+- **독니 단검**(늪지·dagger·무기) = **크리 시 대상 중독(독 DoT) 부여** (on-crit → poison·`makePoisonDot`). 독왕 테마.
+- **알파의 군림목걸이**(소굴·necklace) = **크리 시 2행동 동안 속도 +20%** (on-crit → `playerSpdMult`). 크리 스노볼.
+> 합계 6 효과·트리거 분포: low-hp 1 / on-dodge 2(속도·회복) / every-N 1 / on-crit 2(독·속도). 나머지 단품 6종은 Phase 1 스탯조합만(무 시그니처).
+
+### 10.3 데이터 모델
+- `V2EquipSet.signature?: { trigger, params }`(세트-귀속·2피스 완성 시) **+** `V2Equipment.signature?`(단품-귀속).
+  세트 = "개성 잠금 해제"(빌드 보상), 마퀴 단품 = 단일 슬롯 개성. 나머지 단품은 무 시그니처.
+- 활성 세트 집계(`aggregateV2Equipment` 의 세트 활성 판정 재사용) → `PlayerCombat.equipSignatures?`
+  (없으면 undefined). 미장착=undefined → **골든 byte-identical**.
+
+### 10.4 엔진 후킹 (ATB·PvE+PvP) — 전부 presence 게이트
+- on-crit: `engine.playerPhase.ts` 크리 확정부 / on-dodge: 회피 성공부 / low-hp: 데미지 적용 전 HP 체크
+  / every-N-hits: 신규 `BattleStacks.signatureHitCounter` 모듈로. **PvP 미러**(`engine.pvpPhase.ts`).
+- ⚠️ **legacy 경로(`resolveBattleLegacy`/PvP legacy)는 휴면(V2_CORE_LOOP_V2=true 라이브)→미후킹**
+  (롤백 시 시그니처 inert·죽은 경로에 리스크 안 넣음).
+- primitive **재사용**: `damageTakenReductionPct`·`playerSpdMult`+turnsLeft·extraAttack(`rollAttackCount`)·
+  전투로그 "시그니처 발동!" 라벨(체감). 신규 메커니즘 최소(hit 카운터 1개).
+- 🔑 골든: 시그니처 없는 액터는 훅 미발화(`if (equipSignatures?.length)`)→픽스처 무영향·byte-identical.
+
+### 10.5 PR 슬라이스 (전투엔진=민감·신중)
+- **PR-2a** — 데이터 모델 + derive 집계 + **성물(low-hp 받피감)** PvE+PvP 후킹 + 골든 재확인 + 테스트.
+  (가장 패시브적 트리거로 배선·골든 안전 입증.)
+- **PR-2b** — **독왕(on-dodge 속도)** + **포식자(every-N 추가타)** + sim 밸런스 + PvP 검증.
+- 또는 셋 일괄(PR-2) — 셋 다 작아 가능하나 슬라이스가 골든/PvP 리스크를 단계 격리.
+
+### 10.6 결정 (오너 확정 2026-06-26)
+1. ✅ **세트 3 + 단품 마퀴 3 = 6 효과**(§10.2 + §10.2b).
+2. ✅ **PR-2a → 2b 슬라이스**(전투엔진 리스크 단계 격리).
+   - **PR-2a**: 데이터 모델(V2EquipSet/V2Equipment.signature + PlayerCombat.equipSignatures + derive 집계)
+     + **성물(low-hp 받피감)** PvE+PvP 후킹 + 골든 byte-identical 재확인 + 테스트. 메커니즘·골든 안전 입증.
+   - **PR-2b**: 나머지 5(독왕 on-dodge속도·포식자 every-N추가타·봉인반지 on-dodge회복·독니단검 on-crit독·
+     군림목걸이 on-crit속도) + sim 밸런스 + PvP 검증.
+3. ⬜ 효과/강도 최종 = sim 후 캘리브(다이얼).

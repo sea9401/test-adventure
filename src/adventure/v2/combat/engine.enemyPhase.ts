@@ -13,6 +13,7 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import { lowHpDamageReductionPct } from "./signatureEffects";
 import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
 import {
   elementDamageMult,
@@ -606,8 +607,14 @@ export function resolveEnemyPhase(
   //   직업 킷 재설계). 합산 %로 곱연산. 인내(endure) 다음·가드 전. 최소 1 클램프. 0=무변.
   const buffReducePct =
     state.stacks.skillDmgReduceTurns > 0 ? state.stacks.skillDmgReducePct : 0;
+  // 고유 시그니처(성물·Phase 2) — 저체력(HP≤임계%) 시 받피감 추가. 미장착/조건미충족=0 → byte-identical.
+  const sigReducePct = lowHpDamageReductionPct(
+    player.equipSignatures,
+    state.playerHp,
+    player.maxHp,
+  );
   const passiveReducePct =
-    (player.passiveDamageTakenReductionPct ?? 0) + buffReducePct;
+    (player.passiveDamageTakenReductionPct ?? 0) + buffReducePct + sigReducePct;
   const passiveReduced =
     passiveReducePct > 0
       ? Math.max(1, Math.floor(enduredDmg * (1 - passiveReducePct / 100)))

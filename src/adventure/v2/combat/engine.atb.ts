@@ -8,6 +8,7 @@ import {
 } from "./combatTimeline";
 import {
   appendLog,
+  applyEnemyV2SkillCast,
   applyPhaseTriggerIfAny,
   applyPlayerV2SkillCast,
   finishEnemyAttack,
@@ -379,14 +380,32 @@ export function resolveBattleAtb(
       // 적 번들 틱(DoT/사망)도 동일 — t 미스탬프 외톨이 박스 방지(같은 nextTick 윈도우).
       state = stampTick(state, enemyBundleStart, nextTick);
       if (state.phase !== "ended") {
-        // Phase-1 limitation: enemyV2Debuffs ownership and enemy v2 skill casts remain legacy-loop concerns.
-        // Phase-1 limitation: Shadow Step is still evaluated by the helper per enemy bundle, not per individual hit.
-        while (state.phase === "enemy") {
+        // 적 v2 스킬 시전(V2_ATB_SKILLS) — cast 발동이면 이 틱은 시전으로 소진, 평타 생략(player ATB
+        //   cast 미러·더블어택 방지). v2Skills 미장착 몹은 헬퍼가 즉시 no-op → 기존 전투 byte-identical.
+        //   버프/디버프 tick 은 위 tickEnemyBundleEntry 가 이미 했으므로 헬퍼는 tick 없이 cast+적용만.
+        let enemyCastFired = false;
+        if (V2_ATB_SKILLS) {
           const prevLogLen = state.log.length;
-          state = resolveEnemyPhase(state, atbPlayer, playerName, false);
+          const cast = applyEnemyV2SkillCast(state, atbPlayer);
+          state = cast.state;
+          enemyCastFired = cast.castFired;
           state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
-          if (state.phase === "ended") break;
-          if (state.turn.enemyAttacksLeft <= 0) state = finishEnemyAttack(state);
+        }
+        // Phase-1 limitation: Shadow Step is still evaluated by the helper per enemy bundle, not per individual hit.
+        if (enemyCastFired && state.phase !== "ended") {
+          // 시전 = 이 틱의 적 행동. 평타 루프 대신 skipBasicAttack=true 로 한기 틱·페이즈 전환만
+          //   (skip 분기가 자체 finishEnemyAttack → 평타 한 번도 안 굴림, 더블어택 방지).
+          const prevLogLen = state.log.length;
+          state = resolveEnemyPhase(state, atbPlayer, playerName, false, true);
+          state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
+        } else if (!enemyCastFired) {
+          while (state.phase === "enemy") {
+            const prevLogLen = state.log.length;
+            state = resolveEnemyPhase(state, atbPlayer, playerName, false);
+            state = tagNewLogEntries(state, prevLogLen, "enemy", nextTick);
+            if (state.phase === "ended") break;
+            if (state.turn.enemyAttacksLeft <= 0) state = finishEnemyAttack(state);
+          }
         }
       }
       enemyNextTick += actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));

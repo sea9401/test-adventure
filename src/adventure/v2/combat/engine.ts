@@ -1410,6 +1410,152 @@ export type BattleResolution = {
   turns: number;
 };
 
+// v2 적(몬스터) 스킬 시전 — applyPlayerV2SkillCast 의 적 대칭판(ATB 라이브 경로용).
+//   ⚠️ ATB 전용: 버프/디버프 tick 은 tickEnemyBundleEntry/tickPlayerBundleEntry(번들)가 이미 했으므로
+//   여기선 tick 없이 cast 결정 + 효과 적용만 한다(player cast 헬퍼와 동일 소유권 모델 — 이중 tick 방지).
+//   레거시 advanceTurn 의 인라인 적 cast 는 자체 tick 을 가지므로 별개(그쪽은 미수정 — 골든 byte-identical).
+//   🔑 v2Skills 미장착 몹은 즉시 no-op → 기존 전투 전부 byte-identical(골든 불변). MP·쿨다운(소모) +
+//   데미지/힐/HP비용/자버프/적디버프/도트 + lethal 까지. "시전=평타 XOR"(skipBasic)은 호출부가 처리.
+export function applyEnemyV2SkillCast(
+  state: BattleState,
+  player: PlayerCombat,
+): { state: BattleState; castFired: boolean } {
+  if (state.enemyV2Skills.equipped.length === 0) {
+    return { state, castFired: false };
+  }
+  const result = resolveV2SkillCast({
+    skills: state.enemyV2Skills,
+    cooldowns: state.enemyV2SkillCooldowns,
+    procRoll: Math.random() * 100,
+    attacker: {
+      mp: state.enemyMp,
+      atk: state.enemy.atk,
+      maxHp: state.enemy.hp,
+      def: state.enemy.def,
+      currentHp: state.enemyHp,
+      maxMp: state.enemyMaxMp,
+      selfBuffs: state.enemyV2SelfBuffs,
+      selfDebuffs: state.enemyV2Debuffs,
+      // 몬스터 평타·스킬 모두 자기 속성(atk 에 baked) — 보정 1(이중계산 방지).
+      attackElement: state.enemy.element,
+      characterElement: state.enemy.element,
+    },
+    target: {
+      def: player.def,
+      magicDef: player.magicDef,
+      selfBuffs: state.v2SelfBuffs,
+      selfDebuffs: state.v2SelfDebuffs,
+      element: player.characterElement,
+      currentHp: state.playerHp,
+      maxHp: state.playerMaxHp,
+      bleedStacks: state.playerV2Dots
+        .filter((d) => d.tag === "bleed")
+        .reduce((s, d) => s + d.stacks, 0),
+      poisonStacks: state.playerV2Dots
+        .filter((d) => d.tag === "poison")
+        .reduce((s, d) => s + d.stacks, 0),
+    },
+  });
+  // 미발동 — 쿨다운 tick(resolveV2SkillCast 내부) + MP(불변)만 반영, 평타로 폴백.
+  if (!result.castSkillId) {
+    return {
+      state: {
+        ...state,
+        enemyMp: result.nextMp,
+        enemyV2SkillCooldowns: result.nextCooldowns,
+      },
+      castFired: false,
+    };
+  }
+  let nextPlayerHp = state.playerHp;
+  let nextEnemyHp = state.enemyHp;
+  let nextLog = state.log;
+  if (result.enemyDamage > 0 && result.castSkillName) {
+    nextPlayerHp = Math.max(0, nextPlayerHp - result.enemyDamage);
+    nextLog = appendLog(nextLog, {
+      kind: "enemy_attack",
+      text: `${result.castSkillName}! ${result.enemyDamage} 피해를 입혔다.`,
+    });
+  }
+  if (result.selfHeal > 0 && result.castSkillName) {
+    const healReduce =
+      state.stacks.enemyHealReduceTurns > 0 ? state.stacks.enemyHealReducePct : 0;
+    const effHeal =
+      healReduce > 0
+        ? Math.floor(result.selfHeal * (1 - healReduce / 100))
+        : result.selfHeal;
+    const before = nextEnemyHp;
+    nextEnemyHp = Math.min(state.enemy.hp, nextEnemyHp + effHeal);
+    const actual = nextEnemyHp - before;
+    if (actual > 0) {
+      nextLog = appendLog(nextLog, {
+        kind: "enemy_attack",
+        text: `${result.castSkillName}! ${state.enemy.name} HP ${actual} 회복했다.`,
+      });
+    }
+  }
+  if (result.selfHpCost > 0) {
+    nextEnemyHp = Math.max(1, nextEnemyHp - result.selfHpCost);
+  }
+  const nextEnemySelfBuffs = applyV2BuffsToMap(
+    state.enemyV2SelfBuffs,
+    result.selfBuffsToApply,
+  );
+  const nextPlayerDebuffs = applyV2BuffsToMap(
+    state.v2SelfDebuffs,
+    result.enemyDebuffsToApply,
+  );
+  const nextPlayerDots = applyV2DotsToTarget(
+    state.playerV2Dots,
+    result.dotsToApplyToTarget,
+  );
+  for (const b of result.selfBuffsToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${result.castSkillName ?? "강화"}] ${b.stat.toUpperCase()} +${b.pct}% (${b.turns}턴)`,
+      turn: "enemy",
+    });
+  }
+  for (const d of result.enemyDebuffsToApply) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${[result.castSkillName, statusNameForDebuffStat(d.stat)].filter(Boolean).join(" + ") || "약화"}] ${d.stat.toUpperCase()} -${d.pct}% (${d.turns}턴)`,
+      turn: "enemy",
+    });
+  }
+  for (const dot of result.dotsToApplyToTarget) {
+    nextLog = appendLog(nextLog, {
+      kind: "info",
+      text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}턴)`,
+      turn: "enemy",
+    });
+  }
+  let nextState: BattleState = {
+    ...state,
+    playerHp: nextPlayerHp,
+    enemyHp: nextEnemyHp,
+    enemyMp: result.nextMp,
+    enemyV2SkillCooldowns: result.nextCooldowns,
+    enemyV2SelfBuffs: nextEnemySelfBuffs,
+    v2SelfDebuffs: nextPlayerDebuffs,
+    playerV2Dots: nextPlayerDots,
+    log: nextLog,
+  };
+  if (nextState.playerHp <= 0) {
+    nextState = {
+      ...nextState,
+      log: appendLog(nextState.log, {
+        kind: "info",
+        text: `플레이어가 쓰러졌다.`,
+        turn: "enemy",
+      }),
+      outcome: "lose",
+      phase: "ended",
+    };
+  }
+  return { state: nextState, castFired: true };
+}
+
 // v2 플레이어 스킬 시전 + 효과 적용 — resolveBattleLegacy 에서 추출(ATB 경로 공유용).
 // buff/debuff tick 은 호출부 책임(legacy=인라인 tick, ATB=tickPlayerBundleEntry). lethal 체크와
 // "시전=완료 턴"(평타 XOR) 처리도 호출부가 루프 모델에 맞게 한다. 이 함수는 cast 결정 + 데미지/힐/

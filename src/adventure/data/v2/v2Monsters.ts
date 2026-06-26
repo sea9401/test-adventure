@@ -90,6 +90,9 @@ export const V2_MONSTERS: Record<string, Monster> = {
     spd: 2,
     exp: 26,
     skill: { kind: "heavy_blow", name: "내리찍기", everyPhases: 3, multiplier: 1.5 },
+    // v2 시그니처 액티브(MP 게이트) — 분쇄 일격. 정해진 MP(전투 내 재생 없음)로 시전 ≈3회 제한.
+    v2Skills: { learned: ["mob_crushing_blow"], equipped: ["mob_crushing_blow"] },
+    v2MaxMp: 90,
   },
   "회오리 매": {
     name: "회오리 매",
@@ -143,6 +146,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     spd: 2,
     exp: 28,
     skill: { kind: "heavy_blow", name: "내리찍기", everyPhases: 3, multiplier: 1.5 },
+    v2Skills: { learned: ["mob_crushing_blow"], equipped: ["mob_crushing_blow"] },
+    v2MaxMp: 90,
   },
   "박쥐 떼": { name: "박쥐 떼", tags: ["beast"], hp: 150, atk: 20, def: 4, spd: 9, exp: 21, evasionPct: 12 },
   "심연 벌레": {
@@ -231,6 +236,8 @@ export const V2_MONSTERS: Record<string, Monster> = {
     exp: 30,
     evasionPct: 11,
     skill: { kind: "heavy_blow", name: "꼬리치기", everyPhases: 3, multiplier: 1.5 },
+    v2Skills: { learned: ["mob_crushing_blow"], equipped: ["mob_crushing_blow"] },
+    v2MaxMp: 90,
   },
 
   // ── 프론티어 밴드 F — 짐승의 소굴 (깊이 36+). 자연 혼합+void 정예, 고공격·관통 강. ──────
@@ -244,6 +251,12 @@ export const V2_MONSTERS: Record<string, Monster> = {
     exp: 29,
     evasionPct: 6,
     skill: { kind: "heavy_blow", name: "후려치기", everyPhases: 3, multiplier: 1.5 },
+    // 거대 곰 — 포효(자버프)로 공격력을 올린 뒤 분쇄 일격. 우선순위 = equipped 배열 순서.
+    v2Skills: {
+      learned: ["mob_savage_roar", "mob_crushing_blow"],
+      equipped: ["mob_savage_roar", "mob_crushing_blow"],
+    },
+    v2MaxMp: 90,
   },
   "우두머리 늑대": {
     name: "우두머리 늑대",

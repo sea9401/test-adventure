@@ -215,6 +215,10 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
   playerDefVulnerable: 0.2,
   dropQualityBias: 3,
   onDefeatTitleId: "v2_boss_mountain",
+  // v2 시그니처 액티브(MP 게이트) — 포효로 자기 공격력을 끌어올린다. 정해진 MP·전투 내 재생 없음
+  //   → MP 소진(≈3회) 후엔 평타·기존 강타만. (scaleMonsterForFloor 가 ...monster 로 보존.)
+  v2Skills: { learned: ["mob_savage_roar"], equipped: ["mob_savage_roar"] },
+  v2MaxMp: 75,
 };
 
 const CANYON_PREDATOR_BASE: Monster = {
@@ -232,6 +236,9 @@ const CANYON_PREDATOR_BASE: Monster = {
   playerDefVulnerable: 0.2,
   dropQualityBias: 3,
   onDefeatTitleId: "v2_boss_canyon",
+  // v2 시그니처 액티브(MP 게이트) — 강한 물리 단일타. MP 소진(≈3회) 후엔 평타·절벽 발톱만.
+  v2Skills: { learned: ["mob_crushing_blow"], equipped: ["mob_crushing_blow"] },
+  v2MaxMp: 90,
 };
 
 const LAKE_SOVEREIGN_BASE: Monster = {
@@ -261,6 +268,9 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   playerDefVulnerable: 0.2,
   dropQualityBias: 3,
   onDefeatTitleId: "v2_boss_lake",
+  // v2 시그니처 액티브(MP 게이트) — 비전 폭발(마법 단일타). MP 소진(≈3회) 후엔 평타·한기만.
+  v2Skills: { learned: ["mob_arcane_nova"], equipped: ["mob_arcane_nova"] },
+  v2MaxMp: 105,
 };
 
 // === 소환 유지시간 — 공유 HP 비례 ====================================

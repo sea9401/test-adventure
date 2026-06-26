@@ -63,9 +63,9 @@ describe("coopBosses 카탈로그", () => {
   it("보상 = SP 열매 티어 확률 — GOLD부터·단조 증가·BRONZE/SILVER 0", () => {
     expect(COOP_SP_FRUIT_CHANCE.bronze).toBe(0);
     expect(COOP_SP_FRUIT_CHANCE.silver).toBe(0);
-    expect(COOP_SP_FRUIT_CHANCE.gold).toBe(0.15);
-    expect(COOP_SP_FRUIT_CHANCE.epic).toBe(0.25);
-    expect(COOP_SP_FRUIT_CHANCE.legend).toBe(0.35);
+    expect(COOP_SP_FRUIT_CHANCE.gold).toBe(0.1);
+    expect(COOP_SP_FRUIT_CHANCE.epic).toBe(0.15);
+    expect(COOP_SP_FRUIT_CHANCE.legend).toBe(0.2);
     let prev = -1;
     for (const t of COOP_TIER_ORDER) {
       const c = COOP_SP_FRUIT_CHANCE[t];
@@ -86,12 +86,12 @@ describe("coopBosses 카탈로그", () => {
     expect(rollCoopSpFruits("legend", () => 0)).toBe(3);
     // rng=0.99 → 모두 실패.
     expect(rollCoopSpFruits("legend", () => 0.99)).toBe(0);
-    // 경계 — rng < chance 통과. gold(0.15): 0.1 통과·0.15 실패.
-    expect(rollCoopSpFruits("gold", () => 0.1)).toBe(1);
-    expect(rollCoopSpFruits("gold", () => 0.15)).toBe(0);
-    // 부분 — legend 에서 GOLD(0.15)만 통과: 0.1<0.15 통과, EPIC(0.25)·LEGEND(0.35) 실패시키려면
+    // 경계 — rng < chance 통과. gold(0.10): 0.05 통과·0.10 실패.
+    expect(rollCoopSpFruits("gold", () => 0.05)).toBe(1);
+    expect(rollCoopSpFruits("gold", () => 0.1)).toBe(0);
+    // 부분 — legend 에서 GOLD(0.10)만 통과: 0.05<0.10 통과, EPIC(0.15)·LEGEND(0.20) 실패시키려면
     //   각 굴림이 다른 값을 봐야 함. 시퀀스 rng 로 [통과, 실패, 실패].
-    const seq = [0.1, 0.3, 0.4];
+    const seq = [0.05, 0.3, 0.4];
     let i = 0;
     expect(rollCoopSpFruits("legend", () => seq[i++] ?? 1)).toBe(1);
   });

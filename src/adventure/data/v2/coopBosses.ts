@@ -78,9 +78,9 @@ export function coopTierForRatio(ratio: number): CoopRewardTier | null {
 export const COOP_SP_FRUIT_CHANCE: Record<CoopRewardTier, number> = {
   bronze: 0,
   silver: 0,
-  gold: 0.15,
-  epic: 0.25,
-  legend: 0.35,
+  gold: 0.1, // 라이브 하향(2026-06-26) — 15%→10%
+  epic: 0.15, // 25%→15%
+  legend: 0.2, // 35%→20%
 };
 
 // 도달 티어까지 SP 열매 굴림(순수). rng() ∈ [0,1). 보상 가능 티어(확률>0) 중 도달한 것을

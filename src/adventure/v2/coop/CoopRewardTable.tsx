@@ -18,13 +18,14 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { SURFACE_INSET } from "@/components/ui/surfaces";
 
-// key 있는 Fragment — grid 셀 3개를 행 래퍼 없이 흘리기 위한 래퍼.
+// key 있는 Fragment — grid 셀 4개를 행 래퍼 없이 흘리기 위한 래퍼.
 function FragmentRow({ children }: { children: ReactNode }) {
   return <Fragment>{children}</Fragment>;
 }
 
-// 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피·확률). 인라인/모달 공용.
+// 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피). 인라인/모달 공용.
 export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
@@ -34,7 +35,7 @@ export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
   return (
     <div className="space-y-1.5">
       {fruit && (
-        <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+        <p className="text-xs text-zinc-600 dark:text-zinc-300">
           보상 ·{" "}
           <span className="font-medium text-amber-700 dark:text-amber-300">
             {fruit.name}
@@ -45,15 +46,13 @@ export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
         </p>
       )}
       {uniqueNames.length > 0 && (
-        <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+        <p className="text-xs text-zinc-600 dark:text-zinc-300">
           트로피 ·{" "}
           <span className="font-medium text-violet-700 dark:text-violet-300">
             {uniqueNames.join(" · ")}
           </span>{" "}
           <span className="text-zinc-400 dark:text-zinc-500">
-            (보스 전용 유니크 {uniqueNames.length}종 · EPIC{" "}
-            {Math.round(COOP_UNIQUE_CHANCE.epic * 100)}% · LEGEND{" "}
-            {Math.round(COOP_UNIQUE_CHANCE.legend * 100)}% · 랜덤 1개)
+            (보스 전용 유니크 {uniqueNames.length}종 · EPIC+ 랜덤 1개)
           </span>
         </p>
       )}
@@ -89,43 +88,69 @@ export function CoopRewardTable({
     <div className="space-y-1.5">
       {/* 보상 캡션(무엇을 주나) — 상세 화면(hideCaptions)은 모달로 빼고, 목록은 인라인 유지. */}
       {!hideCaptions && <CoopRewardCaptions kind={kind} />}
-      <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 text-[11px]">
-        <span className="font-medium text-zinc-500 dark:text-zinc-400">
+      <div
+        className={`${SURFACE_INSET} grid grid-cols-[minmax(3.7rem,1.05fr)_minmax(3.15rem,0.75fr)_minmax(3.1rem,0.65fr)_minmax(3.4rem,0.75fr)] overflow-hidden text-xs leading-tight`}
+      >
+        <span className="border-b border-zinc-200 bg-zinc-100 px-1 py-1 font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
           티어
         </span>
-        <span className="text-right font-medium text-zinc-500 dark:text-zinc-400">
-          기여 기준
+        <span className="border-b border-zinc-200 bg-zinc-100 px-1 py-1 text-right font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <span className="block">기여</span>
+          <span className="block">기준</span>
         </span>
-        <span className="text-right font-medium text-zinc-500 dark:text-zinc-400">
-          SP 열매
+        <span className="border-b border-zinc-200 bg-zinc-100 px-1 py-1 text-right font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <span className="block">SP</span>
+          <span className="block">열매</span>
         </span>
-        {COOP_TIER_ORDER.map((t) => {
+        <span className="border-b border-zinc-200 bg-zinc-100 px-1 py-1 text-right font-medium text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <span className="block">보스</span>
+          <span className="block">유니크</span>
+        </span>
+        {COOP_TIER_ORDER.map((t, index) => {
           const mine = myTier === t;
-          const chance = COOP_SP_FRUIT_CHANCE[t];
+          const fruitChance = COOP_SP_FRUIT_CHANCE[t];
+          const uniqueChance = COOP_UNIQUE_CHANCE[t];
+          const row =
+            index % 2 === 0
+              ? "bg-white dark:bg-zinc-950"
+              : "bg-zinc-50 dark:bg-zinc-900";
           const cell = mine
-            ? "bg-amber-50 font-semibold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
-            : "text-zinc-700 dark:text-zinc-300";
-          // 외부 grid(3열)에 셀을 직접 흘림 — 행 래퍼 없음(subgrid 회피).
+            ? "border-y border-amber-300 bg-amber-100 font-semibold text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100"
+            : `${row} border-t border-zinc-100 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300`;
+          // 외부 grid(4열)에 셀을 직접 흘림 — 행 래퍼 없음(subgrid 회피).
           return (
             <FragmentRow key={t}>
-              <span className={`rounded-l px-1 py-0.5 ${cell}`}>
-                {COOP_TIER_LABEL[t]}
-                {mine && " ← 현재"}
+              <span
+                className={`min-w-0 px-1 py-1 ${mine ? "border-l border-amber-300 dark:border-amber-700" : ""} ${cell}`}
+              >
+                <span className="block truncate">{COOP_TIER_LABEL[t]}</span>
+                {mine && (
+                  <span className="mt-0.5 block text-xs leading-none text-amber-700 dark:text-amber-200">
+                    현재
+                  </span>
+                )}
               </span>
-              <span className={`px-1 py-0.5 text-right font-mono ${cell}`}>
+              <span
+                className={`min-w-0 px-1 py-1 text-right font-mono ${cell}`}
+              >
                 {Math.round(COOP_TIER_THRESHOLDS[t] * 100)}%+
               </span>
               <span
-                className={`rounded-r px-1 py-0.5 text-right font-mono ${cell}`}
+                className={`min-w-0 px-1 py-1 text-right font-mono ${cell}`}
               >
-                {chance > 0 ? `${Math.round(chance * 100)}%` : "—"}
+                {fruitChance > 0 ? `${Math.round(fruitChance * 100)}%` : "—"}
+              </span>
+              <span
+                className={`min-w-0 px-1 py-1 text-right font-mono ${mine ? "border-r border-amber-300 dark:border-amber-700" : ""} ${cell}`}
+              >
+                {uniqueChance > 0 ? `${Math.round(uniqueChance * 100)}%` : "—"}
               </span>
             </FragmentRow>
           );
         })}
       </div>
       {myDamage != null && nextTier && (
-        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           다음 티어({COOP_TIER_LABEL[nextTier]})까지{" "}
           <span className="font-mono font-medium text-zinc-700 dark:text-zinc-200">
             {Math.max(
@@ -139,12 +164,12 @@ export function CoopRewardTable({
         </p>
       )}
       {myTier && coopSpFruitMaxAt(myTier) > 0 && (
-        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+        <p className="text-xs text-amber-700 dark:text-amber-400">
           현재 티어 보상 — 토벌 성공 시 {fruit?.name ?? "SP 열매"} 최대{" "}
           {coopSpFruitMaxAt(myTier)}개 (각 단계 확률 독립 굴림)
         </p>
       )}
-      <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+      <p className="text-xs text-zinc-400 dark:text-zinc-500">
         기여 기준 = 내 누적 데미지 ÷ 보스 최대 HP. 도달한 각 티어를 독립 굴림 —
         통과 시 {fruit?.name ?? "SP 열매"} 1개. LEGEND 달성 시 최대 3개.
       </p>

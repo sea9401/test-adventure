@@ -28,7 +28,6 @@ import {
   V2_FLOOR_DECAY_MIN,
   V2_SIGNATURE_LEARN_COST,
   proficiencyPerKillAtDepth,
-  V2_PROFICIENCY_CAP_FMT,
 } from "./proficiency";
 
 describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
@@ -70,14 +69,14 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(parseProficiency(undefined)).toEqual(emptyProficiency());
   });
 
-  it("parse — points 마이그(옛 earned−spent), 의미없는 그룹 제외, 새 포맷 보존", () => {
+  it("parse — points 파싱, 의미없는 그룹 제외, 새 포맷 보존", () => {
     const p = parseProficiency({
       groups: {
-        warrior: { earned: 100, spent: 30, cultivations: 5 }, // 옛 포맷 → points 70
-        rogue: { earned: 5, spent: 5 }, // points 0·cult 0·tier1·cumLevel 0 → 제외
-        mage: { points: 42, cultivations: 1 }, // 새 포맷 그대로
-        martial: { earned: 50, spent: 60, cultivations: 3 }, // points 0(클램프) but cult 3 → 보존
-        bad: { earned: "x" }, // 비수 → 제외
+        warrior: { points: 70, cultivations: 5 },
+        rogue: { points: 0 }, // points 0·cult 0·tier1·cumLevel 0 → 제외
+        mage: { points: 42, cultivations: 1 },
+        martial: { points: 0, cultivations: 3 }, // points 0 but cult 3 → 보존
+        bad: { points: "x" }, // 매핑 불가 키 + 비수 → 제외
       },
     });
     expect(p.groups.warrior).toEqual({
@@ -102,57 +101,51 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p.groups.bad).toBeUndefined();
   });
 
-  it("parse — cumLevel: 필드 있으면 보존, 없으면 (tier-1)×50 시드, 음수/비수 폴백", () => {
+  it("parse — cumLevel: 필드 있으면 보존, 없거나 음수/비수면 0(시드 마이그 폐지)", () => {
     const p = parseProficiency({
       groups: {
         warrior: { points: 10, cumLevel: 137 }, // 명시값 보존
-        rogue: { points: 10, tier: 3 }, // 필드없음 → (3-1)×50 = 100 시드
-        mage: { points: 10, tier: 2, cumLevel: -4 }, // 비수(음수) → (2-1)×50 = 50 시드
+        rogue: { points: 10, tier: 3 }, // 필드없음 → 0
+        mage: { points: 10, tier: 2, cumLevel: -4 }, // 비수(음수) → 0
       },
     });
     expect(p.groups.warrior.cumLevel).toBe(137);
-    expect(p.groups.rogue.cumLevel).toBe(100);
-    expect(p.groups.mage.cumLevel).toBe(50);
+    expect(p.groups.rogue.cumLevel).toBe(0);
+    expect(p.groups.mage.cumLevel).toBe(0);
   });
 
-  it("parseProficiencyForChar — 활성 직군은 현재 레벨 포함 시드, 비활성은 (tier-1)×50", () => {
+  it("parseProficiencyForChar — charSave 무시(시드 마이그 폐지), cumLevel 필드만 반영", () => {
     const raw = {
       groups: {
-        warrior: { points: 10, tier: 1 }, // 활성·cumLevel 없음 → (1-1)×50 + level
-        rogue: { points: 10, tier: 2 }, // 비활성·cumLevel 없음 → (2-1)×50, 레벨 미포함
+        warrior: { points: 10, tier: 1 }, // cumLevel 없음 → 0
+        rogue: { points: 10, tier: 2 }, // cumLevel 없음 → 0
       },
     };
     const p = parseProficiencyForChar(raw, { class: "warrior", level: 100 });
-    expect(p.groups.warrior.cumLevel).toBe(100);
-    expect(p.groups.rogue.cumLevel).toBe(50);
+    expect(p.groups.warrior.cumLevel).toBe(0);
+    expect(p.groups.rogue.cumLevel).toBe(0);
     const p2 = parseProficiencyForChar(
       { groups: { warrior: { points: 10, tier: 1, cumLevel: 7 } } },
       { class: "warrior", level: 100 },
     );
     expect(p2.groups.warrior.cumLevel).toBe(7);
-    const p3 = parseProficiencyForChar(raw, {
-      class: undefined,
-      level: undefined,
-    });
-    expect(p3.groups.warrior.cumLevel).toBe(0);
   });
 
-  it("parse — none(모험가) 그룹 보존(수행 적립분)·cumLevel 항상 0(seed 누출 차단)", () => {
+  it("parse — none(모험가) 그룹 보존(수행 적립분)·cumLevel 항상 0", () => {
     // 모험가 수행 적립분: none 그룹의 points 는 보존되어야(로드 때 안 사라짐).
-    const p = parseProficiencyForChar(
-      { groups: { none: { points: 30, cultivations: 1 } } }, // cumLevel 누락
-      { class: "none", level: 80 }, // seed.group="none" level 80
-    );
+    const p = parseProficiency({
+      groups: { none: { points: 30, cultivations: 1 } }, // cumLevel 누락
+    });
     expect(p.groups.none?.points).toBe(30);
-    // cumLevel 은 fallback(레벨 누출) 대신 항상 0 — 직군 정복/SP/floors 에 안 샘.
+    // 모험가(none)는 직군 정복/cumLevel 미사용 — 항상 0.
     expect(p.groups.none?.cumLevel).toBe(0);
-    // 매핑 불가 옛 그룹키(none 이 아닌데 parseV2Class→none)는 계속 폐기.
+    // 매핑 불가 키(parseV2Class→none)는 폐기.
     const q = parseProficiency({ groups: { 궁술: { points: 9 } } });
     expect(q.groups["궁술"]).toBeUndefined();
     expect(q.groups.none).toBeUndefined();
   });
 
-  it("parse — caps 는 수행 이득(0<c<60)만 보존, 옛 절대값(≥60)·비수 드롭 (표식 없는 옛 세이브)", () => {
+  it("parse — caps 는 양수·유한만 보존(≥60 드롭 가드 폐지)", () => {
     const p = parseProficiency({
       groups: {},
       caps: { str: 30, dex: 0, vit: -4, int: "x", spi: 90 },
@@ -161,32 +154,13 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p.caps.dex).toBeUndefined();
     expect(p.caps.vit).toBeUndefined();
     expect(p.caps.int).toBeUndefined();
-    expect(p.caps.spi).toBeUndefined(); // 90 ≥ 60 → 옛 절대 cap 으로 보고 드롭
+    expect(p.caps.spi).toBe(90); // ≥60 도 보존(가드 폐지)
   });
 
-  it("parse — capFmt 표식이 있으면 ≥60 이득도 보존(고차수 정상 적립) — 수행 한계치 하락 버그 방지", () => {
-    // 표식 있는 새 포맷(#284~)은 caps=이득이 확정 → ≥60 가드 면제. 표식 없으면 위 테스트처럼 드롭.
-    const p = parseProficiency({
-      groups: {},
-      caps: { str: 30, dex: 90, spi: 65 },
-      capFmt: V2_PROFICIENCY_CAP_FMT,
-    });
-    expect(p.caps.str).toBe(30);
-    expect(p.caps.dex).toBe(90); // 표식 있어 보존(옛 가드면 드롭됐을 값)
-    expect(p.caps.spi).toBe(65);
-  });
-
-  it("parse — 출력은 항상 capFmt 표식을 박는다(첫 write-back 후 가드 면제 → 영구 마이그)", () => {
-    expect(parseProficiency({ groups: {}, caps: { str: 30 } }).capFmt).toBe(
-      V2_PROFICIENCY_CAP_FMT,
-    );
-    expect(emptyProficiency().capFmt).toBe(V2_PROFICIENCY_CAP_FMT);
-  });
-
-  it("groupUsable — 직군 숙달 포인트 잔액(옛 earned−spent 통합)", () => {
+  it("groupUsable — 직군 숙달 포인트 잔액", () => {
     const p = parseProficiency({
       groups: {
-        warrior: { earned: 100, spent: 30 },
+        warrior: { points: 70 },
         rogue: { points: 40 },
       },
     });
@@ -430,61 +404,6 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       jobCumLevel: { paladin: 35, acolyte: 12, none: 9, bad: -3 },
     });
     expect(round.jobCumLevel).toEqual({ paladin: 35, acolyte: 12 });
-  });
-});
-
-describe("v2 직업 숙달 — 6→4 그룹 리키 마이그(P4)", () => {
-  it("구 그룹키가 4직군으로 리키 — 검술→전사, 궁술→도적", () => {
-    const p = parseProficiency({
-      groups: {
-        swordsman: { points: 30, tier: 2, cumLevel: 80, cultivations: 4 },
-        archer: { points: 10, tier: 1, cumLevel: 20 },
-      },
-    });
-    expect(p.groups.swordsman).toBeUndefined();
-    expect(p.groups.archer).toBeUndefined();
-    expect(p.groups.warrior).toEqual({
-      points: 30,
-      tier: 2,
-      cumLevel: 80,
-      cultivations: 4,
-    });
-    expect(p.groups.rogue).toEqual({
-      points: 10,
-      tier: 1,
-      cumLevel: 20,
-      cultivations: 0,
-    });
-  });
-
-  it("같은 job 으로 합쳐지는 옛 그룹은 머지 — 궁술+인술→도적(tier·cumLevel max, points·cult 합)", () => {
-    const p = parseProficiency({
-      groups: {
-        archer: { points: 10, tier: 2, cumLevel: 60, cultivations: 3 },
-        ninja: { points: 25, tier: 3, cumLevel: 120, cultivations: 1 },
-      },
-    });
-    expect(p.groups.rogue).toEqual({
-      points: 35, // 10 + 25
-      cultivations: 4, // 3 + 1
-      tier: 3, // max(2,3)
-      cumLevel: 120, // max(60,120)
-    });
-  });
-
-  it("마술+신술→마법사 머지", () => {
-    const p = parseProficiency({
-      groups: {
-        mage: { points: 5, tier: 1, cumLevel: 30 },
-        priest: { points: 8, tier: 2, cumLevel: 70 },
-      },
-    });
-    expect(p.groups.mage).toEqual({
-      points: 13,
-      cultivations: 0,
-      tier: 2,
-      cumLevel: 70,
-    });
   });
 });
 

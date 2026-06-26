@@ -164,8 +164,6 @@ export type RareMapInstance = {
   depth: number;
   runsLeft: number;
   foundAt: number;
-  /** @deprecated 만료 폐지(2026-06-22). 더는 설정/검사하지 않음 — 옛 save 데이터 호환용. */
-  expiresAt?: number;
   /** 비밀 상점 — 이 지도로 이미 구매한 품목 id(품목당 1회 제한). hunt 계열은 미사용. */
   bought?: string[];
 };

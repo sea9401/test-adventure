@@ -111,7 +111,7 @@ export type V2EquipmentId =
   | "v2_jade_amulet"
   | "v2_crystal_amulet"
   | "v2_mana_essence"
-  // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리) — LEGACY_ID_REMAP 으로 동슬롯 정규템 마이그.
+  // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리).
   // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses. 보스당 2종.
   | "v2_boss_mountain_axe"
   | "v2_boss_mountain_amulet"
@@ -797,8 +797,6 @@ export type V2EquipRoll = {
 export type EquipmentSave = {
   owned?: unknown;
   equipped?: unknown;
-  // 옛 id별 굴림맵 — 개체(instance) 모델로 마이그 후 미사용. 파싱 시 옛 세이브 변환에만 읽음.
-  statRolls?: unknown;
 };
 
 // 장비 개체(instance) — 같은 카탈로그 id 라도 개별 굴림을 갖는 한 자루. iid 로 식별.
@@ -843,166 +841,6 @@ export function starterWeaponForType(
 
 const VALID_IDS: ReadonlySet<string> = new Set(Object.keys(V2_EQUIPMENT));
 
-// 2026-06-08: 대장간 제작 콘텐츠 제거로 craftOnly 7종(v2_meadow_bow·v2_spider_venom_dagger·
-//   v2_wolffang_staff·v2_fang_necklace·v2_field_leather_armor/gloves/boots)을 카탈로그에서 삭제.
-//   이들은 LEGACY_ID_REMAP 에 의도적으로 넣지 않는다 — 보유/장착분은 parseEquipmentSave 가
-//   VALID_IDS 미포함으로 무음 제거(들가죽 세트 보너스도 소실). 보상 없이 드롭하는 것이 사용자 결정.
-
-// 티어 5→3 축소(2026-06)로 제거된 옛 id(각 라인 T2/T4) → 잔존 id(다음 잔존 티어). 보유/장착
-//   장비가 고아화되지 않게 치환(데이터 손실 방지 — rune/enchant 손실 incident 교훈). 치환분은
-//   굴림을 카탈로그로 리셋(옛 티어 굴림이 새 티어 아이템에 오접되어 약화/과강되는 것 차단).
-//   보유 아이템 자체는 보존. 비치환 id 는 그대로.
-const LEGACY_ID_REMAP: Record<string, V2EquipmentId> = {
-  // 들판 유니크 삭제(2026-06-19) — 동슬롯·동컨셉 정규템으로 비파괴 마이그.
-  v2_uniq_shadow_garb: "v2_leather_armor", // 경갑 T1
-  v2_uniq_trickster_boots: "v2_shadow_boots", // 경갑 신발 T2
-  v2_uniq_giant_fist: "v2_shadow_gloves", // 경갑 장갑 T2
-  v2_uniq_berserker_fang: "v2_mana_essence", // 마나 목걸이 T3
-  v2_uniq_starcleaver: "v2_toxic_dagger", // 단검 T3
-  v2_uniq_sage_seal: "v2_fate_ring", // 운 반지 T3
-  // 무기 종류 통합(weaponType 8→4) — 검방·권갑→대검, 세검·권조→단검. 보유분 비파괴 마이그.
-  v2_starter_sword_shield: "v2_iron_sword",
-  v2_knight_blade: "v2_greatsword",
-  v2_paladin_blade: "v2_mithril_sword",
-  v2_canyon_knightblade: "v2_canyon_greatsword",
-  v2_lake_knightblade: "v2_lake_greatsword",
-  v2_cave_knightblade: "v2_cave_greatsword",
-  v2_sanctum_knightblade: "v2_sanctum_greatsword",
-  v2_swamp_knightblade: "v2_swamp_greatsword",
-  v2_den_knightblade: "v2_den_greatsword",
-  v2_starter_gauntlet: "v2_iron_sword",
-  v2_fighter_gauntlet: "v2_greatsword",
-  v2_vajra_gauntlet: "v2_mithril_sword",
-  v2_canyon_gauntlet: "v2_canyon_greatsword",
-  v2_lake_gauntlet: "v2_lake_greatsword",
-  v2_cave_gauntlet: "v2_cave_greatsword",
-  v2_sanctum_gauntlet: "v2_sanctum_greatsword",
-  v2_swamp_gauntlet: "v2_swamp_greatsword",
-  v2_den_gauntlet: "v2_den_greatsword",
-  v2_starter_rapier: "v2_starter_dagger",
-  v2_swift_rapier: "v2_assassin_dagger",
-  v2_gale_rapier: "v2_toxic_dagger",
-  v2_canyon_rapier: "v2_canyon_dagger",
-  v2_lake_rapier: "v2_lake_dagger",
-  v2_cave_rapier: "v2_cave_dagger",
-  v2_sanctum_rapier: "v2_sanctum_dagger",
-  v2_swamp_rapier: "v2_swamp_dagger",
-  v2_den_rapier: "v2_den_dagger",
-  v2_starter_claw: "v2_starter_dagger",
-  v2_keen_claw: "v2_assassin_dagger",
-  v2_dragon_claw: "v2_toxic_dagger",
-  v2_canyon_claw: "v2_canyon_dagger",
-  v2_lake_claw: "v2_lake_dagger",
-  v2_cave_claw: "v2_cave_dagger",
-  v2_sanctum_claw: "v2_sanctum_dagger",
-  v2_swamp_claw: "v2_swamp_dagger",
-  v2_den_claw: "v2_den_dagger",
-  v2_plate_armor: "v2_full_plate",
-  v2_silver_plate: "v2_mithril_plate",
-  v2_studded_leather: "v2_shadow_cloak",
-  v2_silken_armor: "v2_windweave_cloak",
-  // 장갑/신발 중갑 폐기(컨셉 통합) — 중갑 6종 삭제, 경갑 동티어로 마이그(보유분 비파괴).
-  v2_iron_gauntlets: "v2_leather_gloves",
-  v2_plate_gauntlets: "v2_shadow_gloves",
-  v2_mithril_gauntlets: "v2_windweave_gloves",
-  v2_iron_boots: "v2_leather_boots",
-  v2_plate_boots: "v2_shadow_boots",
-  v2_mithril_boots: "v2_windweave_boots",
-  // 옛 중갑 별칭 — 삭제된 중갑 대신 경갑 동티어로 transitive 재지정.
-  v2_steel_boots: "v2_shadow_boots",
-  v2_silver_boots: "v2_windweave_boots",
-  v2_studded_boots: "v2_shadow_boots",
-  v2_silken_boots: "v2_windweave_boots",
-  v2_steel_gauntlets: "v2_shadow_gloves",
-  v2_silver_gauntlets: "v2_windweave_gloves",
-  v2_studded_gloves: "v2_shadow_gloves",
-  v2_silken_gloves: "v2_windweave_gloves",
-  v2_rune_pendant: "v2_crystal_amulet",
-  v2_starlight_pendant: "v2_mana_essence",
-  v2_gold_ring: "v2_lucky_charm",
-  v2_stardust_ring: "v2_fate_ring",
-  v2_recurve_bow: "v2_horn_bow",
-  v2_silver_bow: "v2_starsong_bow",
-  v2_runed_staff: "v2_obsidian_staff",
-  v2_silver_staff: "v2_starlit_staff",
-  v2_steel_sword: "v2_greatsword",
-  v2_silver_sword: "v2_mithril_sword",
-  // 옛 legacy 무기 → 통합으로 타겟이 제거됨 → 생존 무기로 직접 재지정(weaponType 8→4).
-  v2_beast_claw: "v2_assassin_dagger",
-  v2_fierce_claw: "v2_toxic_dagger",
-  v2_steel_dagger: "v2_assassin_dagger",
-  v2_shadow_dagger: "v2_toxic_dagger",
-  v2_duel_rapier: "v2_assassin_dagger",
-  v2_master_rapier: "v2_toxic_dagger",
-  v2_brawl_gauntlet: "v2_greatsword",
-  v2_ironfist_gauntlet: "v2_mithril_sword",
-  v2_guard_blade: "v2_greatsword",
-  v2_royal_blade: "v2_mithril_sword",
-  // 세트 통합(38→12) — 제거 세트 조각 → 생존 세트 동일슬롯/밴드 공용무기. 비파괴 마이그.
-  v2_canyon_bulwark_armor: "v2_canyon_set_armor",
-  v2_canyon_bulwark_gloves: "v2_canyon_set_gloves",
-  v2_canyon_bulwark_boots: "v2_canyon_set_boots",
-  v2_lake_bulwark_armor: "v2_lake_frost_armor",
-  v2_lake_bulwark_gloves: "v2_lake_frost_gloves",
-  v2_lake_bulwark_boots: "v2_lake_frost_boots",
-  v2_cave_obsidian_armor: "v2_cave_abyss_armor",
-  v2_cave_obsidian_gloves: "v2_cave_abyss_gloves",
-  v2_cave_obsidian_boots: "v2_cave_abyss_boots",
-  v2_canyon_rustfang_dagger: "v2_canyon_dagger",
-  v2_canyon_rustfang_gloves: "v2_canyon_set_gloves",
-  v2_lake_frostarcane_staff: "v2_lake_staff",
-  v2_lake_frostarcane_necklace: "v2_lake_chill_necklace",
-  v2_lake_bloodvajra_gauntlet: "v2_lake_greatsword",
-  v2_lake_bloodvajra_boots: "v2_lake_frost_boots",
-  v2_cave_judgment_sword: "v2_cave_greatsword",
-  v2_cave_judgment_armor: "v2_cave_abyss_armor",
-  v2_cave_judgment_ring: "v2_cave_void_ring",
-  v2_cave_venomlord_dagger: "v2_cave_dagger",
-  v2_cave_venomlord_ring: "v2_cave_void_ring",
-  v2_cave_venomlord_necklace: "v2_cave_void_necklace",
-  v2_canyon_dune_gloves: "v2_canyon_set_gloves",
-  v2_canyon_dune_boots: "v2_canyon_set_boots",
-  v2_canyon_bond_armor: "v2_canyon_set_armor",
-  v2_canyon_bond_ring: "v2_canyon_sand_ring",
-  v2_lake_trek_armor: "v2_lake_frost_armor",
-  v2_lake_trek_boots: "v2_lake_frost_boots",
-  v2_lake_seal_gloves: "v2_lake_frost_gloves",
-  v2_lake_seal_necklace: "v2_lake_chill_necklace",
-  v2_cave_onyx_armor: "v2_cave_abyss_armor",
-  v2_cave_onyx_gloves: "v2_cave_abyss_gloves",
-  v2_cave_drift_boots: "v2_cave_abyss_boots",
-  v2_cave_drift_necklace: "v2_cave_void_necklace",
-  v2_sanctum_bulwark_armor: "v2_sanctum_set_armor",
-  v2_sanctum_bulwark_gloves: "v2_sanctum_set_gloves",
-  v2_sanctum_bulwark_boots: "v2_sanctum_set_boots",
-  v2_sanctum_astral_staff: "v2_sanctum_staff",
-  v2_sanctum_astral_necklace: "v2_sanctum_arcana_necklace",
-  v2_sanctum_revelation_sword: "v2_sanctum_greatsword",
-  v2_sanctum_revelation_armor: "v2_sanctum_set_armor",
-  v2_sanctum_revelation_ring: "v2_sanctum_arcana_ring",
-  v2_sanctum_lumen_gloves: "v2_sanctum_set_gloves",
-  v2_sanctum_lumen_boots: "v2_sanctum_set_boots",
-  v2_swamp_bulwark_armor: "v2_swamp_set_armor",
-  v2_swamp_bulwark_gloves: "v2_swamp_set_gloves",
-  v2_swamp_bulwark_boots: "v2_swamp_set_boots",
-  v2_swamp_venomlord_dagger: "v2_swamp_dagger",
-  v2_swamp_venomlord_ring: "v2_swamp_heart_ring",
-  v2_swamp_venomlord_necklace: "v2_swamp_heart_necklace",
-  v2_swamp_vajra_gauntlet: "v2_swamp_greatsword",
-  v2_swamp_vajra_boots: "v2_swamp_set_boots",
-  v2_swamp_moss_armor: "v2_swamp_set_armor",
-  v2_swamp_moss_gloves: "v2_swamp_set_gloves",
-  v2_den_void_armor: "v2_den_set_armor",
-  v2_den_void_gloves: "v2_den_set_gloves",
-  v2_den_void_boots: "v2_den_set_boots",
-  v2_den_hunter_claw: "v2_den_dagger",
-  v2_den_hunter_ring: "v2_den_alpha_ring",
-  v2_den_hunter_necklace: "v2_den_alpha_necklace",
-  v2_den_rush_greatsword: "v2_den_greatsword",
-  v2_den_rush_gloves: "v2_den_set_gloves",
-  v2_den_beastgait_boots: "v2_den_set_boots",
-  v2_den_beastgait_necklace: "v2_den_alpha_necklace",
-};
 const VALID_SLOTS_SET: ReadonlySet<V2EquipSlot> = new Set([
   "weapon",
   "armor",
@@ -1035,80 +873,54 @@ export function parseEquipRoll(val: unknown): V2EquipRoll | undefined {
   return roll;
 }
 
-// equipment.v2 파싱 — 개체(instance) 모델. 옛 {owned:id[], statRolls, equipped:slot→id} 를
-// 자동 비파괴 마이그: 각 id 등장 → 개체 1개, 굴림은 옛 statRolls[id] 공유값을 이식(현재 스탯
-// 보존), equipped id → 해당 id의 개체 iid. 마이그 iid 는 결정적(`id~n`)이라 쓰기 전 반복 파싱에도
-// 안정적. 신 형식은 그대로 검증. 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신).
+// equipment.v2 파싱 — 개체(instance) 모델. owned = {iid,id,roll?,locked?,enhance?} 배열.
+// 카탈로그 슬롯(item.slot) 기준 배치(저장 슬롯 키 불신). equipped = 슬롯→iid. 옛 24-class·티어
+// 리매핑(LEGACY_ID_REMAP)·옛 {owned:id[], statRolls} 마이그는 폐지(DB 초기화 전제) — 알 수 없는
+// id 는 무음 제거. 누락/중복 iid 는 결정적 스킴(`id~n`)으로 복구해 read=write 안정성을 유지한다.
 export function parseEquipmentSave(raw: unknown): {
   owned: V2EquipInstance[];
   equipped: Partial<Record<V2EquipSlot, string>>;
 } {
   const v = (raw ?? {}) as EquipmentSave;
-  const statRollsRaw =
-    v.statRolls && typeof v.statRolls === "object"
-      ? (v.statRolls as Record<string, unknown>)
-      : {};
 
   const owned: V2EquipInstance[] = [];
   const byIid = new Map<string, V2EquipInstance>();
   const idSeq = new Map<string, number>();
   const ownedRaw = Array.isArray(v.owned) ? v.owned : [];
   for (const entry of ownedRaw) {
-    if (typeof entry === "string") {
-      // 옛 형식 — id 문자열. 개체로 변환(굴림은 옛 공유맵에서 이식). 제거 id 는 잔존으로 치환.
-      const remapped = LEGACY_ID_REMAP[entry] ?? entry;
-      if (!VALID_IDS.has(remapped)) continue;
-      const id = remapped as V2EquipmentId;
-      const seq = idSeq.get(id) ?? 0;
-      idSeq.set(id, seq + 1);
-      const iid = `${id}~${seq}`;
-      if (byIid.has(iid)) continue;
-      const inst: V2EquipInstance = {
-        iid,
-        id,
-        // 치환분은 굴림 카탈로그 리셋, 아니면 옛 공유맵에서 이식.
-        roll: remapped !== entry ? undefined : parseEquipRoll(statRollsRaw[id]),
-      };
-      owned.push(inst);
-      byIid.set(iid, inst);
-    } else if (entry && typeof entry === "object") {
-      // 신 형식 — {iid, id, roll?, locked?}. 제거 id 는 잔존으로 치환(iid 보존 → 장착 정합 유지).
-      const e = entry as {
-        iid?: unknown;
-        id?: unknown;
-        roll?: unknown;
-        locked?: unknown;
-        enhance?: unknown;
-      };
-      if (typeof e.id !== "string") continue;
-      const remapped = LEGACY_ID_REMAP[e.id] ?? e.id;
-      if (!VALID_IDS.has(remapped)) continue;
-      const id = remapped as V2EquipmentId;
-      const wasRemapped = remapped !== e.id;
-      let iid = typeof e.iid === "string" && e.iid.length > 0 ? e.iid : "";
-      // 누락/중복 iid 는 마이그와 같은 결정적 스킴(`id~n`)으로 복구 — 랜덤이면 쓰기 전 반복
-      // 파싱에서 iid 가 매번 달라져 equip/sell 이 not_owned 로 깨지는 footgun 차단(read=write 안정).
-      if (!iid || byIid.has(iid)) {
-        do {
-          const seq = idSeq.get(id) ?? 0;
-          idSeq.set(id, seq + 1);
-          iid = `${id}~${seq}`;
-        } while (byIid.has(iid));
-      }
-      const inst: V2EquipInstance = {
-        iid,
-        id,
-        roll: wasRemapped ? undefined : parseEquipRoll(e.roll),
-      };
-      if (e.locked === true) inst.locked = true;
-      const enhance = parseEnhance(e.enhance);
-      if (enhance) inst.enhance = enhance;
-      owned.push(inst);
-      byIid.set(iid, inst);
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as {
+      iid?: unknown;
+      id?: unknown;
+      roll?: unknown;
+      locked?: unknown;
+      enhance?: unknown;
+    };
+    if (typeof e.id !== "string" || !VALID_IDS.has(e.id)) continue;
+    const id = e.id as V2EquipmentId;
+    let iid = typeof e.iid === "string" && e.iid.length > 0 ? e.iid : "";
+    // 누락/중복 iid 는 결정적 스킴(`id~n`)으로 복구 — 랜덤이면 쓰기 전 반복 파싱에서 iid 가 매번
+    // 달라져 equip/sell 이 not_owned 로 깨지는 footgun 차단(read=write 안정).
+    if (!iid || byIid.has(iid)) {
+      do {
+        const seq = idSeq.get(id) ?? 0;
+        idSeq.set(id, seq + 1);
+        iid = `${id}~${seq}`;
+      } while (byIid.has(iid));
     }
+    const inst: V2EquipInstance = {
+      iid,
+      id,
+      roll: parseEquipRoll(e.roll),
+    };
+    if (e.locked === true) inst.locked = true;
+    const enhance = parseEnhance(e.enhance);
+    if (enhance) inst.enhance = enhance;
+    owned.push(inst);
+    byIid.set(iid, inst);
   }
 
-  // equipped — 슬롯→iid. 옛(slot→id) 흡수: id 면 그 id 의 미배정 개체 하나를 잡는다.
+  // equipped — 슬롯→iid. 옛(slot→id) 흡수: id 면 그 id 의 미배정 개체 하나를 잡는다(방어적 폴백).
   const equipped: Partial<Record<V2EquipSlot, string>> = {};
   const usedIid = new Set<string>();
   const freeById = new Map<string, V2EquipInstance[]>();
@@ -1126,17 +938,14 @@ export function parseEquipmentSave(raw: unknown): {
     let inst: V2EquipInstance | undefined;
     if (byIid.has(val) && !usedIid.has(val)) {
       inst = byIid.get(val);
-    } else {
-      // 옛 slot→id 형식. 제거 id 면 잔존으로 치환해 그 종류 미배정 개체를 잡는다.
-      const remappedVal = LEGACY_ID_REMAP[val] ?? val;
-      if (VALID_IDS.has(remappedVal)) {
-        const q = freeById.get(remappedVal);
-        while (q && q.length > 0) {
-          const cand = q.shift();
-          if (cand && !usedIid.has(cand.iid)) {
-            inst = cand;
-            break;
-          }
+    } else if (VALID_IDS.has(val)) {
+      // slot→id 형식(방어적 폴백) — 그 종류 미배정 개체를 잡는다.
+      const q = freeById.get(val);
+      while (q && q.length > 0) {
+        const cand = q.shift();
+        if (cand && !usedIid.has(cand.iid)) {
+          inst = cand;
+          break;
         }
       }
     }

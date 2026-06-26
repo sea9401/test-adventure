@@ -30,13 +30,11 @@ describe("rareMaps", () => {
       runsLeft: RARE_MAP_KINDS.worn_map.runs,
       foundAt: NOW,
     });
-    // 만료 폐지 — expiresAt 미설정.
-    expect(m.expiresAt).toBeUndefined();
   });
 
-  it("parseRareMaps — 소진/형식불량만 purge, 만료는 폐지(옛 expiresAt 무시·보존)", () => {
+  it("parseRareMaps — 소진/형식불량만 purge, 옛 expiresAt 가 박혀도 무시하고 보존", () => {
     const ok = newRareMapInstance("worn_map", 5, NOW, "rm_ok");
-    // 옛 데이터: 과거 expiresAt 가 박혀 있어도 더는 만료시키지 않는다(소모품·시간무제한).
+    // 옛 데이터: 과거 expiresAt(폐지된 필드)가 박혀 있어도 더는 만료시키지 않는다(소모품·시간무제한).
     const oldExpiry = {
       ...newRareMapInstance("worn_map", 5, NOW, "rm_old"),
       expiresAt: NOW - 1,
@@ -46,8 +44,6 @@ describe("rareMaps", () => {
     const parsed = parseRareMaps([ok, oldExpiry, used, ...junk], NOW);
     // ok + oldExpiry 둘 다 보존(만료 무시), used(소진)·junk 만 purge.
     expect(parsed.map((m) => m.iid).sort()).toEqual(["rm_ok", "rm_old"]);
-    // 만료 필드는 파싱 결과에서 제거됨.
-    expect(parsed[0].expiresAt).toBeUndefined();
   });
 
   it("parseRareMaps — 배열 아님/빈 값은 []", () => {

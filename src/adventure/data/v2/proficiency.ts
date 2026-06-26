@@ -10,12 +10,12 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 //   - points = 숙달 포인트(사용가능 잔액). 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
 //     수행·스킬학습에 소모.
 //     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 — floor·전직은 cumLevel 이 담당하므로 누적
-//     추적 불필요. 단일 잔액으로 합침. 옛 세이브는 parse 가 earned−spent 로 마이그.)
+//     추적 불필요. 단일 잔액으로 합침.)
 //   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력).
 //   - cap 미지정 = V2_STAT_CAP_BASE.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
-import { tier1ClassOf, parseV2Class } from "./classes";
+import { parseV2Class } from "./classes";
 import { themeIndexForDepth } from "./dungeon";
 
 export type V2ProficiencyGroup = {
@@ -35,8 +35,6 @@ export type V2ProficiencyState = {
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 레벨업당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
   jobCumLevel?: Record<string, number>;
-  // caps 포맷 버전(V2_PROFICIENCY_CAP_FMT). 있으면 caps=이득(gain) 포맷 — 로드 시 ≥60 가드 면제.
-  capFmt?: number;
 };
 
 // §10 다이얼.
@@ -56,11 +54,6 @@ export function proficiencyPerKillAtDepth(depth: number): number {
 export const V2_CAP_HEADROOM_BASE = 45;
 // 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
 export const V2_STAT_CAP_BASE = 60;
-// caps 포맷 버전 — caps[stat] 가 "절대 cap"(옛 #275) 이 아니라 "헤드룸 이득(gain)"(#284~) 임을 표식.
-// 이 표식이 있는 세이브는 ≥60 이득도 정상 적립으로 보존(아래 마이그레이션 가드 건너뜀). 표식 없는
-// 옛 세이브만 1회 ≥60=절대cap 으로 보고 드롭한다. (버그: 가드가 매 로드마다 돌아 고차수 직군의
-// 정상 이득 ≥60 을 영구 소거 → "수행시 한계치 하락". 표식으로 신/구 포맷을 명확히 구분.)
-export const V2_PROFICIENCY_CAP_FMT = 1;
 
 // 수행 1회 cap 헤드룸 상승 — 직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
 // 각 직군의 전문화 서브스탯을 함께 담아 자유 수행 없이도 전문화별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
@@ -116,7 +109,6 @@ export function emptyProficiency(): V2ProficiencyState {
     caps: {},
     grown: {},
     jobCumLevel: {},
-    capFmt: V2_PROFICIENCY_CAP_FMT,
   };
 }
 
@@ -134,61 +126,42 @@ function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
   return out;
 }
 
-// seed — cumLevel 필드가 없는 옛 세이브 마이그레이션용. 활성 직군(seed.group)은 현재 캐릭터
-// 레벨(seed.level)을 더해 시드 = (tier-1)×50 + level (현 차수 진행분 반영). 그 외 직군은 (tier-1)×50.
-// prof 를 write 하는 모든 라우트(hunt/advance/cultivate/learn-skill/grant)에 동일 seed 를 넘겨야
-// 첫 write-back 이 올바른 cumLevel 을 박제한다(시드 없이 0 박제 → 전직 영구차단 방지).
-export function parseProficiency(
-  raw: unknown,
-  seed?: { group: string; level: number },
-): V2ProficiencyState {
+export function parseProficiency(raw: unknown): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
   const obj = raw as {
     groups?: unknown;
     caps?: unknown;
     grown?: unknown;
     jobCumLevel?: unknown;
-    capFmt?: unknown;
   };
   const groups: Record<string, V2ProficiencyGroup> = {};
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
       if (!v || typeof v !== "object") continue;
-      // 그룹 리키 마이그(P4 6→4): 구 그룹키(swordsman/archer/priest/ninja…) → 4직군 job 키.
-      // 같은 job 으로 합쳐지는 옛 그룹(궁술+인술→rogue, 마술+신술→mage)은 아래에서 머지.
+      // 그룹키 검증 — 현재 직군 키(warrior/martial/mage/rogue/none)만 유효. parseV2Class 가 옛
+      //   24-class 리매핑을 폐지(DB 초기화 전제)했으므로, 알 수 없는 키는 none 으로 떨어져 폐기된다.
       const key = parseV2Class(k);
-      // 매핑 불가 옛 그룹키(parseV2Class→none)는 폐기. 단 진짜 "none" 그룹(모험가 수행 적립분)은 보존
+      // 매핑 불가 키(parseV2Class→none)는 폐기. 단 진짜 "none" 그룹(모험가 수행 적립분)은 보존
       //   — 모험가도 수행 가능해졌고 cap 적립이 none 그룹 포인트를 소비하므로 로드 시 유지해야 한다.
       if (key === "none" && k !== "none") continue;
-      // 숙달 포인트(잔액) — 새 포맷은 points, 옛 포맷은 earned−spent 로 마이그(통합 2026-06).
-      const rawPoints = (v as { points?: unknown }).points;
-      const points =
-        typeof rawPoints === "number" && Number.isFinite(rawPoints)
-          ? Math.max(0, Math.floor(rawPoints))
-          : Math.max(
-              0,
-              posInt((v as { earned?: unknown }).earned) -
-                posInt((v as { spent?: unknown }).spent),
-            );
+      // 숙달 포인트(잔액). DB 초기화 후 모든 그룹은 points 를 가진다(옛 earned/spent 마이그 폐지).
+      const points = posInt((v as { points?: unknown }).points);
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
-      // tier 1~4 클램프, 미지정(옛 세이브)=1.
+      // tier 1~4 클램프, 미지정=1.
       const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
-      // cumLevel(직군 누적 레벨) — 필드 있으면 그 값 그대로(이미 누적된 영구값).
-      // 없으면 마이그레이션 시드 = 완료 차수 (tier-1)×50 + 활성 직군이면 현재 레벨(현 차수 진행분).
-      // 비활성 직군은 과거 레벨을 알 수 없어 (tier-1)×50 만(보수적). 신규(tier1·미활성)=0.
+      // cumLevel(직군 누적 레벨) — 모든 writer 가 항상 기록(DB 초기화 후 옛 시드 마이그 불필요).
+      //   필드 없거나 비수면 0. 모험가(none)는 직군 정복/cumLevel 미사용이라 항상 0.
       const rawCum = (v as { cumLevel?: unknown }).cumLevel;
-      const seedLevel = seed && seed.group === key ? Math.max(0, seed.level) : 0;
-      // 🔑 모험가(none)는 직군 정복/cumLevel 미사용 — 항상 0. rawCum 누락 + seed.group==="none"
-      //   (전직 전 환생 등)일 때 fallback 이 캐릭 레벨을 누출시켜 floors/SP/정복에 새는 걸 차단(Codex).
       const cumLevel =
-        key === "none"
-          ? 0
-          : typeof rawCum === "number" && Number.isFinite(rawCum) && rawCum >= 0
-            ? Math.floor(rawCum)
-            : (tier - 1) * V2_ADVANCE_MIN_LEVEL + seedLevel;
+        key !== "none" &&
+        typeof rawCum === "number" &&
+        Number.isFinite(rawCum) &&
+        rawCum >= 0
+          ? Math.floor(rawCum)
+          : 0;
       // 의미 있는 데이터(잔액/누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
       if (points > 0 || cumLevel > 0 || cultivations > 0 || tier > 1) {
-        // 머지(여러 옛 그룹 → 같은 job): 차수·누적레벨은 max, 포인트·수행 횟수는 합.
+        // 방어적 머지(같은 key 가 중복 등장할 때): 차수·누적레벨은 max, 포인트·수행 횟수는 합.
         const prev = groups[key];
         groups[key] = prev
           ? {
@@ -201,24 +174,14 @@ export function parseProficiency(
       }
     }
   }
-  // caps[stat] = 수행으로 올린 cap 헤드룸 이득(floor+base 위 추가분). 양수만 저장.
-  // 마이그레이션 가드(수행개편 2026-06): 옛 포맷(#275)은 "절대 cap"(항상 ≥ 60+이득 = ≥61)을 저장했다.
-  // 60 이상 값은 옛 절대 cap 으로 보고 드롭(이득 0 리셋) — 새 의미로 재해석돼 cap/비용이 부풀지 않게.
-  // ⚠️ 단 capFmt 표식이 있는 새 세이브(#284~)는 caps=이득 포맷이 확정이라 가드를 면제한다. 고차수
-  //   직군의 정상 이득은 ≥60 까지 올라갈 수 있는데(예 도적 dex), 표식 없이 매 로드 ≥60 을 드롭하면
-  //   "수행할수록 한계치가 영구 하락"하는 버그가 난다(2026-06-26 수정). 표식 없는 옛 세이브만 가드 적용.
-  const gainFmt = obj.capFmt === V2_PROFICIENCY_CAP_FMT;
+  // caps[stat] = 수행으로 올린 cap 헤드룸 이득(floor+base 위 추가분). 양수·유한만 저장.
+  //   (DB 초기화 후 옛 "절대 cap"(#275) 세이브가 없으므로 ≥60 드롭 가드/capFmt 표식 폐지.)
   const caps: Partial<Record<V2StatKey, number>> = {};
   if (obj.caps && typeof obj.caps === "object") {
     const rawCaps = obj.caps as Record<string, unknown>;
     for (const stat of V2_STAT_KEYS) {
       const c = rawCaps[stat];
-      if (
-        typeof c === "number" &&
-        Number.isFinite(c) &&
-        c > 0 &&
-        (gainFmt || c < V2_STAT_CAP_BASE)
-      ) {
+      if (typeof c === "number" && Number.isFinite(c) && c > 0) {
         caps[stat] = Math.floor(c);
       }
     }
@@ -233,31 +196,22 @@ export function parseProficiency(
       if (n > 0 && k && k !== "none") jobCumLevel[k] = n;
     }
   }
-  // 출력에 항상 표식을 박는다 — 어떤 write 경로든 다음 저장 시 capFmt 가 따라가(헬퍼는 모두 ...p
-  //   스프레드), 첫 write-back 이후로는 가드가 면제된다. 옛 세이브도 첫 저장 후 1회로 마이그 완료.
   return {
     groups,
     caps,
     grown: parseStatMap(obj.grown),
     jobCumLevel,
-    capFmt: V2_PROFICIENCY_CAP_FMT,
   };
 }
 
-// charSave({class, level})에서 활성 직군 + 현재 레벨을 뽑아 cumLevel 시드와 함께 파싱.
-// prof 를 읽거나 write 하는 라우트는 bare parseProficiency 대신 이걸 써서, 옛 세이브의 cumLevel
-// 마이그레이션 시드가 현 차수 진행 레벨을 포함하게 한다(전직 영구차단 방지). 모든 write 경로가
-// 동일 시드를 쓰므로 어느 라우트가 먼저 write-back 하든 올바른 cumLevel 이 박제된다.
+// prof 파싱 — 옛 cumLevel 시드 마이그레이션이 폐지(DB 초기화 전제)되면서 charSave 는 더는
+// 쓰이지 않지만, 20여 곳 호출부 호환을 위해 시그니처(raw, charSave)는 유지한다.
 export function parseProficiencyForChar(
   raw: unknown,
   charSave: { class?: unknown; level?: unknown },
 ): V2ProficiencyState {
-  const group = tier1ClassOf(parseV2Class(charSave.class));
-  const level =
-    typeof charSave.level === "number" && Number.isFinite(charSave.level)
-      ? Math.max(1, Math.floor(charSave.level))
-      : 1;
-  return parseProficiency(raw, { group, level });
+  void charSave; // 시그니처 호환용(시드 마이그 폐지로 미사용)
+  return parseProficiency(raw);
 }
 
 // 랜덤 레벨 성장분 교체(비파괴). 다른 필드 보존.

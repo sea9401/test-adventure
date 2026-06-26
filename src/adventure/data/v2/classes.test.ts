@@ -72,56 +72,15 @@ describe("v2 직업 (P4 4직군 압축)", () => {
   });
 });
 
-describe("parseV2Class — 6→4 마이그", () => {
+describe("parseV2Class — 현재 4직군/none 만 인식(옛 24-class 리매핑 폐지)", () => {
   it("새 4직군 + none 은 그대로 통과", () => {
     for (const c of V2_CLASSES) expect(parseV2Class(c)).toBe(c);
   });
 
-  it("구 검술 계열 → 전사", () => {
-    for (const old of ["swordsman", "swordmaster", "swordking", "swordgod"]) {
-      expect(parseV2Class(old)).toBe("warrior");
+  it("옛 24-class id 등 알 수 없는 값 → none (DB 초기화로 리매핑 폐지)", () => {
+    for (const old of ["swordsman", "archer", "priest", "ninja", "nonsense"]) {
+      expect(parseV2Class(old)).toBe("none");
     }
-  });
-
-  it("구 체술 계열 → 무도가", () => {
-    for (const old of ["grandmaster", "fistemperor", "warlord"]) {
-      expect(parseV2Class(old)).toBe("martial");
-    }
-    expect(parseV2Class("martial")).toBe("martial"); // 동일 문자열
-  });
-
-  it("구 마술 + 신술 → 마법사", () => {
-    for (const old of [
-      "archmage",
-      "sage",
-      "magus",
-      "priest",
-      "bishop",
-      "archbishop",
-      "pope",
-    ]) {
-      expect(parseV2Class(old)).toBe("mage");
-    }
-    expect(parseV2Class("mage")).toBe("mage");
-  });
-
-  it("구 궁술 + 인술 → 도적", () => {
-    for (const old of [
-      "archer",
-      "sharpshooter",
-      "bowking",
-      "bowgod",
-      "ninja",
-      "nightblade",
-      "shadowlord",
-      "voidwalker",
-    ]) {
-      expect(parseV2Class(old)).toBe("rogue");
-    }
-  });
-
-  it("미지의 값 → none", () => {
-    expect(parseV2Class("nonsense")).toBe("none");
     expect(parseV2Class(undefined)).toBe("none");
     expect(parseV2Class(123)).toBe("none");
   });

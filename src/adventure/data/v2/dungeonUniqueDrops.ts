@@ -30,8 +30,8 @@ export type UniqueFloorPool = {
 };
 
 export const UNIQUE_FLOOR_POOLS: Record<DungeonFloorId, UniqueFloorPool> = {
-  // 들판 유니크 6종 전부 삭제(2026-06-19, 초반 정리) — 보유분은 LEGACY_ID_REMAP 으로 동슬롯
-  //   정규템 비파괴 마이그. 들판 구간은 정규 그리드만 드랍(특수 드랍 없음·온보딩 단순화).
+  // 들판 유니크 6종 전부 삭제(2026-06-19, 초반 정리). 들판 구간은 정규 그리드만 드랍
+  //   (특수 드랍 없음·온보딩 단순화).
   //   심층 유니크는 BAND_UNIQUE_POOLS(깊이 키)가 담당.
   1: { chance: 0, ids: [] },
   2: { chance: 0, ids: [] },

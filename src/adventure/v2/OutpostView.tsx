@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
-import { TabBar } from "@/components/ui/TabBar";
 import { Tooltip } from "@/components/ui/Tooltip";
 import type { Outpost } from "@/adventure/data/v2/types";
 import { OUTPOST_NPC_TAX_RATE, terrainTraitOf } from "@/adventure/data/v2/outposts";
@@ -15,11 +14,19 @@ import { evaluateOutpostEntry } from "@/adventure/data/v2/outpostPolicy";
 import { outpostDefensePower } from "@/adventure/data/v2/outpostDefense";
 import { FORT_HP_PER_REPAIR_KIT } from "@/adventure/data/v2/outpostSiege";
 import { WALL_REPAIR_KIT_ID } from "@/adventure/data/v2/settlementMaterials";
-import { OutpostAttackLog } from "./OutpostAttackLog";
-import { ClaimResultCard, type ClaimResult } from "./ClaimResultCard";
-import { V2VillagePanel } from "./V2VillagePanel";
-import DefendPanel from "./DefendPanel";
+import { type ClaimResult } from "./ClaimResultCard";
 import { useGameState } from "./GameStateProvider";
+import {
+  OutpostActivityTabs,
+  type ActivityTab,
+} from "./outpost/OutpostActivityTabs";
+import { OutpostAttackPanel } from "./outpost/OutpostAttackPanel";
+import { OutpostResultCards } from "./outpost/OutpostResultCards";
+import type {
+  OccupationLite,
+  RaidResult,
+  ConquestResult,
+} from "./outpost/types";
 import { V2_SETTLEMENT_WARFARE } from "@/adventure/data/v2/settlementWarfareConfig";
 import {
   isTileOutpostId,
@@ -43,23 +50,6 @@ export type OutpostAction =
   | { kind: "claimed" }
   | { kind: "policy-changed" };
 
-type OccupationLite = {
-  outpostId: string;
-  occupiedByUserId: string | null;
-  occupiedByGuildId: number | null;
-  // 점령 길드 이름 — occupations API 가 동봉(배지 "○○ 점령" 표시용).
-  occupiedByGuildName?: string | null;
-  policy?: string;
-  taxRate?: string;
-  nextAttackAt?: string;
-  // 거점 공성(성벽 HP) — 재생 반영 현재값 + 보호막 만료.
-  fortHp?: number;
-  fortMaxHp?: number;
-  protectedUntil?: string;
-  // 마을 건설 시 길드가 지은 이름 — 있으면 거점 표시 이름을 덮는다.
-  villageName?: string | null;
-} | null;
-
 export function OutpostView({
   outpost,
   viewerUserId,
@@ -82,30 +72,16 @@ export function OutpostView({
     useGameState();
   const [busy, setBusy] = useState(false);
   // 내 거점 활동 탭 — 생산 / 최근 공격 기록 / (마스터·부마스터) 관리.
-  const [activityTab, setActivityTab] = useState<
-    "produce" | "attacks" | "manage" | "defend"
-  >("produce");
+  const [activityTab, setActivityTab] = useState<ActivityTab>("produce");
   const [lastClaimResult, setLastClaimResult] = useState<ClaimResult | null>(
     null,
   );
   // 정착지 전쟁 약탈(raid) 결과 — 성공/실패 + 탈취 골드(또는 에러 문자열). 플래그 on 일 때만 사용.
-  const [raidResult, setRaidResult] = useState<
-    { won: boolean; stolenGold: number; defenderName: string | null } | string | null
-  >(null);
+  const [raidResult, setRaidResult] = useState<RaidResult | null>(null);
   // 정착지 전쟁 정복(conquest) 결과 — 함락/공성 진행/실패(또는 에러 문자열). 플래그 on 전용.
-  const [conquestResult, setConquestResult] = useState<
-    | {
-        clearedQueue: boolean;
-        captured: boolean;
-        razed: boolean;
-        fortHp: number;
-        fortMaxHp: number;
-        downgradedTo: string | null;
-        defendersDefeated: number;
-      }
-    | string
-    | null
-  >(null);
+  const [conquestResult, setConquestResult] = useState<ConquestResult | null>(
+    null,
+  );
   // 내 합성 전투력(derivePowerScore) — 수비 전투력 게이트 비교용. state 라우트서 1회 로드.
   // intrusion(침입 상태)도 같은 응답에서 — "이 거점에 침입 중" 배너용.
   const [viewerPower, setViewerPower] = useState<number | null>(null);
@@ -595,215 +571,43 @@ export function OutpostView({
 
         {ownSettlement ? (
           // 내 거점/정착지 — 생산 / 최근 공격 기록 (+ 관리) 탭.
-          <>
-            <HeaderPanel className="py-2">
-              <TabBar
-                tabs={[
-                  { key: "produce", label: "생산" },
-                  ...(V2_SETTLEMENT_WARFARE
-                    ? [{ key: "defend", label: "수비" }]
-                    : []),
-                  { key: "attacks", label: "최근 공격 기록" },
-                  ...(canManageSettlement
-                    ? [{ key: "manage", label: "관리" }]
-                    : []),
-                ]}
-                active={activityTab}
-                onChange={(k) =>
-                  setActivityTab(
-                    k as "produce" | "attacks" | "manage" | "defend",
-                  )
-                }
-                ariaLabel="거점 활동 탭"
-                size="sm"
-                variant="highlight"
-              />
-            </HeaderPanel>
-            {activityTab === "produce" && (
-              <V2VillagePanel outpostId={outpost.id} mode="produce" />
-            )}
-            {activityTab === "defend" && V2_SETTLEMENT_WARFARE && (
-              <DefendPanel outpostId={outpost.id} />
-            )}
-            {activityTab === "attacks" && (
-              <OutpostAttackLog
-                outpostId={outpost.id}
-                reloadKey={attackLogReload}
-              />
-            )}
-            {/* 정책·세율·영주 관리는 길드 홈 "관리 > 거점 정책" 탭으로 이전(일원화). */}
-            {activityTab === "manage" && canManageSettlement && (
-              <V2VillagePanel outpostId={outpost.id} mode="manage" />
-            )}
-          </>
+          <OutpostActivityTabs
+            outpostId={outpost.id}
+            activityTab={activityTab}
+            onTabChange={setActivityTab}
+            canManageSettlement={canManageSettlement}
+            attackLogReload={attackLogReload}
+          />
         ) : (
           // 비-소유 — 점령/공성 시도.
-          <>
-            <HeaderPanel className="py-3">
-              <div className="text-xs font-medium uppercase tracking-wider text-zinc-500">
-                여기서 할 수 있는 것
-              </div>
-            </HeaderPanel>
-            {/* 영토=길드 소유 — 무소속 viewer 는 점령/정복 불가. 안내만 노출. */}
-            {viewerGuildId == null && (
-              <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-                거점은 길드만 점령·정복할 수 있어요. 길드를 만들거나 가입하면 이
-                땅을 노릴 수 있습니다.
-              </div>
-            )}
-            {/* 옛 공성/점령 — 정착지 전쟁 on 이면 적 길드 거점·남의 솔로 타일에선
-                숨김(약탈/정복으로 일원화). 미점령/NPC 거점 점령은 그대로(새 영토 확보 경로).
-                무소속(viewerGuildId null)은 점령 불가라 카드 숨김. */}
-            {viewerGuildId != null &&
-              !(V2_SETTLEMENT_WARFARE && occupation?.occupiedByGuildId != null) &&
-              !showConquer && (
-              <ActionCard
-                title={
-                  claimDisabled
-                    ? "점령 시도"
-                    : occupation
-                      ? "공성 시도 (PvP 결투)"
-                      : "점령 시도 (NPC 일기토)"
-                }
-                subtitle={
-                  claimDisabled?.reason ??
-                  (occupation
-                    ? `점령자와 1대1 결투 — 승리 시 성벽을 깎고, 0이 되면 함락${coreLoopOn ? "" : " (스태미너 소모)"}.`
-                    : `거점 NPC 영웅과 1대1 결투. 승리 시 점령${coreLoopOn ? "" : " (스태미너 소모)"}.`)
-                }
-                onClick={attemptClaim}
-                disabled={!!claimDisabled || busy}
-                loading={busy}
-              />
-            )}
-            {/* 약탈 — 길드 viewer + 길드 점령 대상만(금고 50% 탈취). 솔로 타일은 금고가 없어 제외.
-                플래그 on 전용. */}
-            {V2_SETTLEMENT_WARFARE &&
-              viewerGuildId != null &&
-              occupation?.occupiedByGuildId != null && (
-                <ActionCard
-                  title="약탈 시도"
-                  subtitle={
-                    raidOutOfRange
-                      ? "이 정착지 칸으로 이동해야 약탈할 수 있어요 — 지도에서 해당 칸으로 이동하세요."
-                      : "이 정착지 칸에 있어야 약탈 가능 — 수비대 1번과 건강도 결투, 승리 시 거점 금고 50% 탈취(점령은 안 함). 수비대가 없으면 무혈 약탈."
-                  }
-                  onClick={attemptRaid}
-                  disabled={busy || raidOutOfRange}
-                  loading={busy}
-                />
-              )}
-            {/* 정복 — 타일=누구나, 카탈로그 거점=길드 viewer + 길드 점령. 막타가 솔로면 빈땅(철거),
-                길드면 인수. 솔로 viewer 도 길드 영지를 칠 수 있으나 소유는 못 하고 철거만. */}
-            {showConquer && (
-              <ActionCard
-                title="정복 시도"
-                subtitle={
-                  conquerOutOfRange
-                    ? "인접한 우리 영지가 있어야 정복할 수 있어요 — 우리 길드 영지 옆 칸부터(땅이 없으면 중립 거점 옆 칸부터) 노리세요."
-                    : conquerRazes
-                      ? "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비와 건강도 결투 + 성벽 공성. 개인은 점령할 수 없어 함락 시 빈땅으로 철거됩니다(여러 차례 공격 필요)."
-                      : "인접한 우리 영지가 있어야 정복 가능(땅 없는 길드는 중립 거점 옆 칸부터) — 수비대 전원과 건강도 결투 + 성벽 공성, 함락 시 마을 1단계 강등·소유 이전. 한 번에 안 되니 여러 차례 공격해야 함."
-                }
-                onClick={attemptConquest}
-                disabled={busy || conquerOutOfRange}
-                loading={busy}
-              />
-            )}
-            {/* 공격자 시점 정찰 — 이 거점에 행해진 최근 공격 기록(승패·성벽 타격)을
-                노출. 소유 탭의 "최근 공격 기록" 과 동일 컴포넌트(읽기 전용). */}
-            <OutpostAttackLog
-              outpostId={outpost.id}
-              reloadKey={attackLogReload}
-            />
-          </>
-        )}
-
-        {/* 점령 결과 — 탭 분기 밖(점령 성공 시 내 거점으로 전환돼도 결과 카드 유지). */}
-        {lastClaimResult && (
-          <ClaimResultCard
-            result={lastClaimResult}
-            outpostName={occupation?.villageName?.trim() || outpost.name}
-            onClose={() => setLastClaimResult(null)}
+          <OutpostAttackPanel
+            outpostId={outpost.id}
+            viewerGuildId={viewerGuildId}
+            occupation={occupation}
+            showConquer={showConquer}
+            claimDisabled={claimDisabled}
             coreLoopOn={coreLoopOn}
+            busy={busy}
+            raidOutOfRange={raidOutOfRange}
+            conquerOutOfRange={conquerOutOfRange}
+            conquerRazes={conquerRazes}
+            attackLogReload={attackLogReload}
+            onClaim={attemptClaim}
+            onRaid={attemptRaid}
+            onConquest={attemptConquest}
           />
         )}
-        {raidResult && (
-          <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
-            {typeof raidResult === "string" ? (
-              <span className="text-rose-600 dark:text-rose-400">
-                {raidResult}
-              </span>
-            ) : raidResult.won ? (
-              <span>
-                약탈 성공! <strong>{raidResult.stolenGold.toLocaleString()} 골드</strong>{" "}
-                탈취
-                {raidResult.defenderName
-                  ? ` — 수비자 ${raidResult.defenderName} 격파`
-                  : " (무방비 거점)"}
-              </span>
-            ) : (
-              <span>
-                약탈 실패 — 수비자
-                {raidResult.defenderName ? ` ${raidResult.defenderName}` : ""}에게
-                패배. 건강도를 회복하고 다시 시도하세요.
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setRaidResult(null)}
-              className="ml-2 text-xs text-zinc-500 underline"
-            >
-              닫기
-            </button>
-          </div>
-        )}
-        {conquestResult && (
-          <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
-            {typeof conquestResult === "string" ? (
-              <span className="text-rose-600 dark:text-rose-400">
-                {conquestResult}
-              </span>
-            ) : conquestResult.captured ? (
-              conquestResult.razed ? (
-                <span>
-                  <strong>함락!</strong> 정착지를 무너뜨려 빈땅으로 만들었습니다
-                  (개인은 점령할 수 없어 철거). 빈 칸이 되어 누구든 새로 개척할 수
-                  있습니다.
-                </span>
-              ) : (
-                <span>
-                  <strong>함락!</strong> 거점을 점령했습니다
-                  {conquestResult.downgradedTo
-                    ? ` — 마을이 ${conquestResult.downgradedTo}(으)로 강등됨`
-                    : ""}
-                  .
-                </span>
-              )
-            ) : conquestResult.clearedQueue ? (
-              <span>
-                수비대 {conquestResult.defendersDefeated}명 격파 · 성벽{" "}
-                <strong>
-                  {conquestResult.fortHp}/{conquestResult.fortMaxHp}
-                </strong>{" "}
-                — 성벽을 더 깎아야 함락됩니다.
-              </span>
-            ) : (
-              <span>
-                공성 실패 — 수비대에 막혔습니다(
-                {conquestResult.defendersDefeated}명 격파). 건강도를 회복하고
-                다시 시도하세요.
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setConquestResult(null)}
-              className="ml-2 text-xs text-zinc-500 underline"
-            >
-              닫기
-            </button>
-          </div>
-        )}
+
+        <OutpostResultCards
+          lastClaimResult={lastClaimResult}
+          raidResult={raidResult}
+          conquestResult={conquestResult}
+          outpostName={occupation?.villageName?.trim() || outpost.name}
+          coreLoopOn={coreLoopOn}
+          onCloseClaim={() => setLastClaimResult(null)}
+          onCloseRaid={() => setRaidResult(null)}
+          onCloseConquest={() => setConquestResult(null)}
+        />
       </section>
     </main>
   );
@@ -912,36 +716,5 @@ function FortBar({
         />
       </div>
     </div>
-  );
-}
-
-function ActionCard({
-  title,
-  subtitle,
-  onClick,
-  disabled,
-  loading,
-}: {
-  title: string;
-  subtitle: string;
-  onClick?: () => void;
-  disabled?: { reason: string } | boolean;
-  loading?: boolean;
-}) {
-  const isDisabled = !!disabled;
-  const reason = typeof disabled === "object" ? disabled.reason : null;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={isDisabled}
-      className="block w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:disabled:hover:bg-zinc-900/50"
-    >
-      <div className="font-medium">
-        {title}
-        {loading && <span className="ml-2 text-xs text-zinc-500">…</span>}
-      </div>
-      <div className="mt-0.5 text-xs text-zinc-500">{reason ?? subtitle}</div>
-    </button>
   );
 }

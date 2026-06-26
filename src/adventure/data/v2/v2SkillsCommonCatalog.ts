@@ -8,14 +8,13 @@
 // mpCost = 설계 문서값. cooldown 0.
 // 엔진 핸들러(shield/manaRestore/selfRegen/selfBuffPct/heal pctLostHp)는 PR2-B 배선.
 //
-// 학습/장착 게이팅(어느 직군이 무엇을)은 learn 라우트 + V2_COMMON_SKILLS_BY_JOB(아래).
+// 학습/장착 게이팅(어느 직군이 무엇을)은 learn 라우트 = elementalSkillsForClass(V2_SKILLS_BY_JOB).
 
 import type {
   V2SkillDefinition,
   V2SkillEffect,
   V2DamageScaling,
 } from "./v2Skills";
-import type { V2Class } from "./classes";
 import { V2_DOT_PRESETS, V2_DEBUFF_PRESETS } from "./statusEffects";
 
 // 공용 스킬 id — 직군 prefix(v2c_<job>_<slug>). 마력구/예기는 패시브(derive)라 여기 없음.
@@ -25,13 +24,9 @@ export type V2CommonSkillId =
   | "v2c_warrior_flurry" // 난격
   | "v2c_warrior_sunder" // 파쇄
   | "v2c_warrior_warcry" // 함성
-  | "v2c_warrior_endure" // 불굴
   // 무도가
-  | "v2c_martial_burst" // 붕권
   | "v2c_martial_combo" // 연환 난타
-  | "v2c_martial_whirl" // 선풍각
   | "v2c_martial_chi" // 기공 순환
-  | "v2c_martial_circulate" // 운기
   | "v2c_martial_steelguard" // 하급 권법 (단일 딜 — 견습 무인 기본기)
   // 마법사 (마력구 패시브 제외)
   | "v2c_mage_fireball" // 화염구
@@ -40,9 +35,6 @@ export type V2CommonSkillId =
   | "v2c_mage_meditate" // 명상
   | "v2c_mage_boltcast" // 마력탄 (0코스트 마법 — 직업 킷 재설계)
   // 도적 (예기 패시브 제외)
-  | "v2c_rogue_strike" // 일격
-  | "v2c_rogue_flurry" // 연격
-  | "v2c_rogue_expose" // 약점 포착
   | "v2c_rogue_poison" // 독침
   // 기본 직업 패시브 스킬(학습+SP 슬롯해야 효과 — 직업 킷 재설계)
   | "v2c_warrior_might" // 근력 (힘 +10%)
@@ -167,43 +159,17 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
     description: "전의를 끌어올려 공격력을 높인다.", mpCost: 24, cooldown: 0, procChance: 100,
     effects: [{ kind: "selfBuff", stat: "str", pct: 10, turns: 3 }],
   },
-  v2c_warrior_endure: {
-    id: "v2c_warrior_endure", name: "불굴", stat: "str", category: "buff", tier: 2,
-    description: "버티는 자세로 생존력을 높인다.", mpCost: 24, cooldown: 0, procChance: 100,
-    effects: [{ kind: "selfBuff", stat: "vit", pct: 15, turns: 3 }],
-  },
 
   // ═══ 무도가 (STR 딜 · VIT 앵커) — 콤보/지속/기동 ═══
-  // 역할 분리(스킬 감사 1차 가안 — sim 재캘리브 사용자 몫): 붕권 = flat 무거운 단일타(저-atk
-  //   구간/대-DEF 버스트), 연환 난타 = 계수형 다단(고-atk 스케일 + 5타 크리 + 더 쌈). 둘이 닮아
-  //   연환난타가 붕권을 완전 지배하던 것(계수·flat·코스트 전부 우위)을 교차 구간으로 분리.
-  v2c_martial_burst: {
-    id: "v2c_martial_burst", name: "붕권", stat: "str", category: "attack", tier: 1,
-    description: "기를 모아 내지르는 묵직한 일권.", mpCost: 30, cooldown: 0, procChance: 30,
-    effects: [dmg(1.0, 230)],
-  },
   v2c_martial_combo: {
     id: "v2c_martial_combo", name: "연환 난타", stat: "str", category: "attack", tier: 1,
     description: "다섯 번 연속으로 두들긴다.", mpCost: 24, cooldown: 0, procChance: 40,
     effects: hits(5, 0.25, 36),
   },
-  v2c_martial_whirl: {
-    id: "v2c_martial_whirl", name: "선풍각", stat: "str", category: "attack", tier: 2,
-    description: "회전 발차기로 치고 빠진다.", mpCost: 28, cooldown: 0, procChance: 40,
-    effects: [...hits(3, 0.4, 40), { kind: "selfBuffPct", target: "evasion", pct: 12, turns: 2 }],
-  },
   v2c_martial_chi: {
     id: "v2c_martial_chi", name: "기공 순환", stat: "vit", category: "heal", tier: 2,
     description: "기를 돌려 잃은 활력을 일부 되찾는다.", mpCost: 0, cooldown: 0, procChance: 100,
     effects: [{ kind: "heal", pctLostHp: 5 }],
-  },
-  v2c_martial_circulate: {
-    id: "v2c_martial_circulate", name: "운기", stat: "vit", category: "buff", tier: 2,
-    description: "호흡을 고르며 단단해지고 꾸준히 회복한다.", mpCost: 26, cooldown: 0, procChance: 100,
-    effects: [
-      { kind: "selfBuff", stat: "vit", pct: 15, turns: 3 },
-      { kind: "selfRegen", pctMaxHpPerTurn: 3, turns: 3 },
-    ],
   },
 
   // ═══ 마법사 (INT · 마법) — 캐스터 (마력구 패시브로 평타 마법화) ═══
@@ -229,21 +195,6 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 
   // ═══ 도적 (STR 딜 · DEX 앵커 보조) — 정밀/크리/독 (예기 패시브로 DEX 보조) ═══
-  v2c_rogue_strike: {
-    id: "v2c_rogue_strike", name: "일격", stat: "str", category: "attack", tier: 1,
-    description: "급소를 노린 한 방.", mpCost: 30, cooldown: 0, procChance: 30,
-    effects: [dmg(1.0, 140)],
-  },
-  v2c_rogue_flurry: {
-    id: "v2c_rogue_flurry", name: "연격", stat: "str", category: "attack", tier: 1,
-    description: "세 번 빠르게 베고 찌른다.", mpCost: 26, cooldown: 0, procChance: 40,
-    effects: hits(3, 0.4, 40),
-  },
-  v2c_rogue_expose: {
-    id: "v2c_rogue_expose", name: "약점 포착", stat: "str", category: "attack", tier: 2,
-    description: "허점을 노려 방어를 깎는다.", mpCost: 28, cooldown: 0, procChance: 30,
-    effects: [dmg(0.7, 90), { kind: "enemyDebuff", ...V2_DEBUFF_PRESETS.무력 }],
-  },
   v2c_rogue_poison: {
     id: "v2c_rogue_poison", name: "독침", stat: "str", category: "attack", tier: 2,
     description: "독을 바른 침으로 찔러 중독시킨다.", mpCost: 26, cooldown: 0, procChance: 30,
@@ -768,20 +719,7 @@ export const V2_COMMON_SKILLS: Record<V2CommonSkillId, V2SkillDefinition> = {
   },
 };
 
-// 직군 → 공용 스킬 id 목록 (학습/장착 게이팅 — learn 라우트 참조).
-export const V2_COMMON_SKILLS_BY_JOB: Record<
-  Exclude<V2Class, "none">,
-  readonly V2CommonSkillId[]
-> = {
-  // 전사 공용 풀 폐지(2026-06-19) — "직업 순회 수집" 설계상 공용 스킬 제거. 전사계는 직업별
-  //   시그니처(V2_SKILLS_BY_JOB)만 학습. 강타는 견습 병사 시그니처로 잔존. 난격/파쇄/함성/불굴
-  //   (v2c_warrior_flurry/sunder/warcry/endure) 정의는 보존(비파괴)·추후 재배치/정리 대상.
-  warrior: [],
-  // 무인/마법/도적 공용 풀도 폐지(2026-06-19) — 전사와 동일("직업 순회 수집" 설계). 직업별
-  //   시그니처(V2_SKILLS_BY_JOB)만 학습. 견습직 액티브(철포·마력탄·독침)는 시그니처라 잔존.
-  //   나머지 공용 정의(연격/난타/회선/기공/운기·화염구/연발/마법보호/명상·찌르기/난자/허점)는
-  //   보존(비파괴·추후 재배치/정리 대상).
-  martial: [],
-  mage: [],
-  rogue: [],
-};
+// 옛 V2_COMMON_SKILLS_BY_JOB(직군별 공용 스킬 풀)은 폐지됐다 — "직업 순회 수집" 설계로 풀이 전부
+//   빈 배열이 된 뒤(2026-06-19) 어떤 라이브 코드도 읽지 않아 제거. 학습/장착 게이팅은 learn 라우트가
+//   elementalSkillsForClass(= V2_SKILLS_BY_JOB)로 처리한다. 도달 불가 공용 정의(난격/파쇄/붕권/선풍각
+//   /운기/일격/연격/약점 포착 등)도 함께 정리했다.

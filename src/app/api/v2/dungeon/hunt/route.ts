@@ -9,13 +9,7 @@ import {
 } from "@/lib/server/derivePlayerCombatV2";
 import { resolveBattle } from "@/adventure/v2/combat/engine";
 import { pickAutoAction } from "@/adventure/v2/combat/pickAutoAction";
-import { monsterGoldReward } from "@/adventure/v2/combat/monsterGold";
-import {
-  applyExpGain,
-  applyNewbieExpBonusByBattles,
-  requiredExpToNext,
-  XP_RATE_MULT,
-} from "@/lib/leveling";
+import { applyExpGain, requiredExpToNext } from "@/lib/leveling";
 
 // BattleScene replay UI 의 EXP 바 max — 이미 만렙이면 분모로 쓸 값 없음.
 // EXP 바 안 보이게 0 으로 fallback (현재 exp 와 동일 → pct 0).
@@ -57,16 +51,11 @@ import { OUTPOSTS, OUTPOST_NPC_TAX_RATE } from "@/adventure/data/v2/outposts";
 import {
   V2_SETTLEMENT_WARFARE,
   V2_TILE_WARFARE,
-  TRADE_ROUTE_TAX_MULT,
 } from "@/adventure/data/v2/settlementWarfareConfig";
-import { tileOutpostId, parseTileOutpostId } from "@/adventure/data/v2/tileWarfare";
-import { isTradeRouteTile } from "@/adventure/data/v2/tileConfig";
+import { tileOutpostId } from "@/adventure/data/v2/tileWarfare";
 import {
-  RARE_MAP_CAP,
   RARE_MAP_KINDS,
-  newRareMapInstance,
   parseRareMaps,
-  rollRareMapDrop,
   type RareMapInstance,
   type RareMapKindId,
 } from "@/adventure/data/v2/rareMaps";
@@ -83,7 +72,6 @@ import {
   HUNT_COOLDOWN_MODE,
   HUNT_COOLDOWN_MS,
   combatCooldownRemainingMs,
-  lossTaxOf,
   spMilestonesCrossed,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
@@ -91,22 +79,7 @@ import {
   canHuntWithHp,
   parseHpRegenSince,
 } from "@/adventure/v2/hpRegen";
-import { rollEnhanceStoneDrops } from "@/adventure/data/v2/v2Enhance";
-import {
-  mergeDrops,
-  rollDrops,
-  type DropResult,
-} from "@/adventure/data/v2/dungeonDrops";
-import { rollEquipDrop } from "@/adventure/data/v2/dungeonEquipDrops";
-import {
-  rollBandUniqueDrop,
-  rollBandCommonDrop,
-  rollUniqueDrop,
-} from "@/adventure/data/v2/dungeonUniqueDrops";
-import {
-  SUMMON_SCROLL_MATERIAL_ID,
-  rollSummonScrollDrop,
-} from "@/adventure/data/v2/coopBosses";
+import { mergeDrops, type DropResult } from "@/adventure/data/v2/dungeonDrops";
 import {
   TREASURE_FRAGMENTS_KEY,
   HUNT_FRAGMENT_DROP_CHANCE,
@@ -115,18 +88,10 @@ import {
   rollFragmentDrop,
 } from "@/adventure/v2/treasureFragments";
 import {
-  V2_EQUIPMENT,
   parseEquipmentSave,
-  genEquipIid,
   type EquipmentSave,
-  type V2EquipInstance,
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
-import {
-  rollItemStats,
-  rollReforgeStoneDrops,
-} from "@/adventure/data/v2/v2EquipVariance";
-import { rollSettlementMaterialDrops } from "@/adventure/data/v2/settlementMaterials";
 import {
   toReplayPayload,
   toReplayPayloadLite,
@@ -144,6 +109,10 @@ import {
   insertFeedEntry,
   resolveUserDisplayName,
 } from "@/lib/server/serverFeed";
+import { rollHuntDrops } from "./huntDrops";
+import { computeGoldTax, computeLossTax } from "./huntTax";
+import { computeBattleRewards, applyChargeRestore } from "./huntRewards";
+import { updateRareMaps } from "./huntRareMaps";
 
 // POST /api/v2/dungeon/hunt — 던전 한 번 사냥 intent.
 //
@@ -647,95 +616,26 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     ) + (logVal?.battleLosses ?? 0);
   // EXP = monster.exp → 신참 보너스(전적 ≤ 3만 ×2, EXP 전용) → 전역 배율(staging 기본
   // 2.2/IS_STAGING, 라이브 1.0). 라이브 battleClaim 과 같은 순서(newbie 먼저, 그 다음 배율).
-  const baseExp = won
-    ? applyNewbieExpBonusByBattles(enemyMonster.exp, battleCount).gained
-    : 0;
-  const expGained = Math.round(baseExp * XP_RATE_MULT * mapExpMult);
-  const goldGross = won
-    ? Math.round(monsterGoldReward(enemyMonster) * mapGoldMult)
-    : 0;
-  // 신참 드롭 보너스 폐지 — 신참 혜택은 EXP 전용(사용자 결정). 드롭은 항상 ×1.
-  const drops: DropResult = won
-    ? rollDrops(dropFloor, Math.random, mapDropMult)
-    : {};
-  // 강화석 — 재료 보류 플래그(V2_MATERIALS_ENABLED)와 무관한 독립 드랍. 전 깊이 공통
-  // (초보자도 줍고 거래소에서 환금). 다이얼 = v2Enhance ENHANCE_STONE_DROP_PCT.
-  if (won) {
-    for (const [id, n] of Object.entries(
-      rollEnhanceStoneDrops(Math.random, mapStoneMult),
-    )) {
-      drops[id] = (drops[id] ?? 0) + n;
-    }
-    // 협동 보스 소환서 — 강화석과 같은 독립 드랍(전 깊이 공통·레어맵 배수 미적용).
-    // 다이얼 = coopBosses SUMMON_SCROLL_DROP_PCT.
-    const scroll = rollSummonScrollDrop(Math.random);
-    if (scroll > 0) {
-      drops[SUMMON_SCROLL_MATERIAL_ID] =
-        (drops[SUMMON_SCROLL_MATERIAL_ID] ?? 0) + scroll;
-    }
-    // 재련석 2종 — 강화석과 같은 독립 드랍(전 깊이 공통·레어맵 배수 미적용).
-    // 다이얼 = v2EquipVariance REFORGE_STONE_DROP_PCT.
-    for (const [id, n] of Object.entries(rollReforgeStoneDrops(Math.random))) {
-      drops[id] = (drops[id] ?? 0) + n;
-    }
-    // 정착지 재료(통나무/철광석) — 강화석과 같은 독립 드랍(전 깊이 공통·희소·레어맵 배수 미적용).
-    // 다이얼 = settlementMaterials SETTLEMENT_MATERIAL_DROP_PCT.
-    for (const [id, n] of Object.entries(
-      rollSettlementMaterialDrops(Math.random),
-    )) {
-      drops[id] = (drops[id] ?? 0) + n;
-    }
-  }
+  const { expGained, goldGross } = computeBattleRewards({
+    won,
+    enemyMonster,
+    battleCount,
+    mapExpMult,
+    mapGoldMult,
+  });
+  // 드랍 굴림 — 승리 시 재료/강화석/소환서/재련석/정착지 재료 + 정규/유니크 장비를 한 번에
+  //   굴린다(순수 RNG 헬퍼·huntDrops). 영속(materials merge·equipment.v2 기록)은 아래 라우트가.
+  const { drops, droppedEquipment, droppedUnique, nextOwned } = rollHuntDrops({
+    won,
+    dropFloor,
+    depth,
+    ownedEquip,
+    mapDropMult,
+    mapUniqueMult,
+    mapStoneMult,
+  });
   const nextMaterials = mergeDrops(charSave.materials, drops);
-
-  // 장비 드랍 — 승리 시 1회 굴림. 정규 장비는 중복 드랍 허용(보유분도 새 굴림으로 재드랍 =
-  // god-roll 추격). 풀이 마르거나 굴림 실패면 null. equipment.v2 는 조기 lock 한 걸 한 번에 기록.
-  let droppedEquipment: V2EquipmentId | null = null;
-  let droppedUnique: V2EquipmentId | null = null;
-  let nextOwned: V2EquipInstance[] = ownedEquip;
-  if (won) {
-    // ownedSet 은 rollUniqueDrop 의 유니크 dedup 용(유니크는 종류당 1개). 정규 rollEquipDrop
-    // 은 중복 허용이라 ownedSet 무시(보유분도 새 굴림으로 재드랍).
-    const ownedSet = new Set<V2EquipmentId>(ownedEquip.map((i) => i.id));
-    // 정규 장비 드랍: 스타터(1~12)=rollEquipDrop(6%), 프론티어 밴드(13~30)=흔한 밴드 장비
-    //   (rollBandCommonDrop, 로컬 깊이 램프 2~4%). rollEquipDrop 이 13+ 에서 null → ?? 로 밴드
-    //   흔한 풀이 그 자리(정규 장비 슬롯)를 채운다(깊이 범위 안 겹쳐 rng 한 쪽만 소비).
-    droppedEquipment =
-      rollEquipDrop(depth, ownedSet, Math.random, mapDropMult) ??
-      rollBandCommonDrop(depth, Math.random, mapDropMult);
-    if (droppedEquipment !== null) {
-      // 드랍 = 새 개체 + 새 굴림(±편차).
-      nextOwned = [
-        ...nextOwned,
-        {
-          iid: genEquipIid(),
-          id: droppedEquipment,
-          roll: rollItemStats(V2_EQUIPMENT[droppedEquipment], Math.random),
-        },
-      ];
-      ownedSet.add(droppedEquipment);
-    }
-    // 유니크 — 정규 드랍과 독립한 별도 초저확률 롤(드랍 전용). 정규 장비와 둘 다 떨어질 수도.
-    // 신참 배율(Lv<30 ×2) 미적용 — 유니크 chase 희귀도는 레벨 무관 균일.
-    // 두 갈래: 레거시 층 풀(rollUniqueDrop, 깊이 1~6 들판 — 보유분 제외 dedup, 종류당 1개) +
-    // 심층 밴드 풀(rollBandUniqueDrop, 마른 협곡 13~18 등 — 중복 드랍 허용, 보유분도 재드랍).
-    // 깊이 범위가 겹치지 않아 둘 중 하나만 rng 소비 — ?? 합성 안전
-    // (밴드 밖이면 bandUniquePoolForDepth=null → rng 미소비, dropFloor 8 풀은 chance 0 → 미소비).
-    droppedUnique =
-      rollBandUniqueDrop(depth, ownedSet, Math.random, mapUniqueMult) ??
-      rollUniqueDrop(dropFloor, ownedSet, Math.random, mapUniqueMult);
-    if (droppedUnique !== null) {
-      nextOwned = [
-        ...nextOwned,
-        {
-          iid: genEquipIid(),
-          id: droppedUnique,
-          roll: rollItemStats(V2_EQUIPMENT[droppedUnique], Math.random),
-        },
-      ];
-    }
-  }
-  // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함.
+  // equipment.v2 한 번에 기록 — owned(+드랍 개체). 굴림은 개체에 포함. 조기 lock 한 걸 한 번에 기록.
   await upsertSave(tx, userId, "equipment.v2", {
     owned: nextOwned,
     equipped: equippedEquip,
@@ -772,43 +672,26 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
 
   // 세금 계산 — 위에서 결정한 taxOwnerId/npcTaxOutpostId/tileTaxOutpostId/taxRate 사용.
   // outpost FOR UPDATE 로 정책/세율 스냅샷 — 점령자가 hunt 도중 정책을 바꿔도
-  // 이 hunt 는 진입 시점 값으로 처리, 다음 hunt 부터 변경 반영.
-  let goldTaxed = 0;
-  if (
-    (taxOwnerId || npcTaxOutpostId || tileTaxOutpostId) &&
-    taxRate > 0 &&
-    won &&
-    goldGross > 0
-  ) {
-    goldTaxed = Math.max(1, Math.floor(goldGross * taxRate));
-    // 교역로(trade_route) 칸 정착지 = 세금 발생 ×1.15(P3). 발생 지점이라 사냥꾼 net 에서 더 떼어
-    //   금고로 갈 뿐 새 골드를 찍지 않음(보존). 수확(harvest)엔 곱 안 함. 비-타일/비-교역로 무변경.
-    if (tileTaxOutpostId) {
-      const pos = parseTileOutpostId(tileTaxOutpostId);
-      if (pos && isTradeRouteTile(pos.col, pos.row)) {
-        goldTaxed = Math.floor(goldTaxed * TRADE_ROUTE_TAX_MULT);
-      }
-    }
-    if (goldTaxed > goldGross) goldTaxed = goldGross;
-  }
+  // 이 hunt 는 진입 시점 값으로 처리, 다음 hunt 부터 변경 반영. 교역로 ×1.15 곱은 huntTax 내부.
+  const goldTaxed = computeGoldTax({
+    taxOwnerId,
+    npcTaxOutpostId,
+    tileTaxOutpostId,
+    taxRate,
+    won,
+    goldGross,
+  });
   const goldNet = goldGross - goldTaxed;
 
   // 코어루프 패배 세금 — 마지막 패배 이후 번 골드(atRiskGold)를 승리마다 누적, 패배 시 그
   //   절반(보유 한도 클램프)을 압류하고 0 리셋. 원금이 아닌 최근 승리분만 대상 → 전멸 없음.
   //   off = lossTax 0·atRiskGold 미기록(byte-identical). 행선지는 아래 저장 후 라우팅.
-  const prevAtRisk = V2_CORE_LOOP_V2
-    ? Math.max(0, Number(charSave.atRiskGold) || 0)
-    : 0;
-  let lossTax = 0;
-  let nextAtRisk = prevAtRisk;
-  if (V2_CORE_LOOP_V2) {
-    if (won) {
-      nextAtRisk = prevAtRisk + Math.max(0, goldNet);
-    } else {
-      lossTax = lossTaxOf(prevAtRisk, Math.max(0, charSave.gold ?? 0)).tax;
-      nextAtRisk = 0;
-    }
-  }
+  const { lossTax, nextAtRisk } = computeLossTax({
+    won,
+    goldNet,
+    atRiskGoldRaw: charSave.atRiskGold,
+    goldRaw: charSave.gold,
+  });
 
   // 차수별 레벨 캡(환생 §3.1) — 현 직군 차수의 캡까지만 성장. none = 만렙(4차 캡 100).
   // PR-perf: 차수(player.classTier)는 위 derive 가 같은 tx 에서 읽은 proficiency 에서 산출한
@@ -846,20 +729,15 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   let hpCharges = Math.max(0, invSave.hpCharges ?? 0);
   let mpCharges = Math.max(0, invSave.mpCharges ?? 0);
 
-  // HP 부족분 만큼 hpCharges 차감.
-  if (afterHp > 0 && afterHp < player.maxHp && hpCharges > 0) {
-    const need = player.maxHp - afterHp;
-    const restore = Math.min(need, hpCharges);
-    afterHp += restore;
-    hpCharges -= restore;
-  }
-  // MP 부족분 만큼 mpCharges 차감.
-  if (afterMp < maxMp && mpCharges > 0) {
-    const need = maxMp - afterMp;
-    const restore = Math.min(need, mpCharges);
-    afterMp += restore;
-    mpCharges -= restore;
-  }
+  // 충전식 회복약 소모 — 전투 후 HP/MP 부족분을 보유 충전량으로 채운다(순수 헬퍼·huntRewards).
+  ({ afterHp, afterMp, hpCharges, mpCharges } = applyChargeRestore({
+    afterHp,
+    afterMp,
+    maxHp: player.maxHp,
+    maxMp,
+    hpCharges,
+    mpCharges,
+  }));
   await upsertSave(tx, userId, "inventory.v2", {
     ...invSave,
     hpCharges,
@@ -881,27 +759,19 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
   const { ejectedFrom: _dropEjected, ...charSaveWithoutEject } = charSave;
   void _dropEjected;
 
-  // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤. ===
-  // 레어맵 안에서 또 지도가 떨어지는 재귀 farming 은 막는다(입장 중 롤 없음).
-  // 캡 가득이면 롤 자체를 건너뜀.
+  // === 레어맵 갱신 — 입장 중이면 판수 차감(승패 무관), 아니면 신규 드랍 롤(순수 헬퍼·huntRareMaps). ===
   // ⚠️ 반드시 next 빌드 전에 적용 — character.v2 저장(아래 upsertSave)에 rareMaps 가
   //   포함되므로. 과거엔 이 블록이 save 뒤에 있어 판수 차감·신규 드랍이 영속되지 않았다.
-  let rareMapDrop: RareMapKindId | null = null;
-  if (activeRareMap) {
-    rareMaps = rareMaps
-      .map((m) =>
-        m.iid === activeRareMap!.iid ? { ...m, runsLeft: m.runsLeft - 1 } : m,
-      )
-      .filter((m) => m.runsLeft > 0);
-  } else if (won && rareMaps.length < RARE_MAP_CAP) {
-    rareMapDrop = rollRareMapDrop(Math.random);
-    if (rareMapDrop) {
-      rareMaps = [...rareMaps, newRareMapInstance(rareMapDrop, depth, now)];
-    }
-  }
-  const rareMapRunsLeft = activeRareMap
-    ? (rareMaps.find((m) => m.iid === activeRareMap!.iid)?.runsLeft ?? 0)
-    : null;
+  const rareMapUpdate = updateRareMaps({
+    activeRareMap,
+    rareMaps,
+    won,
+    depth,
+    now,
+  });
+  rareMaps = rareMapUpdate.rareMaps;
+  const rareMapDrop = rareMapUpdate.rareMapDrop;
+  const rareMapRunsLeft = rareMapUpdate.rareMapRunsLeft;
 
   const next = {
     ...charSaveWithoutEject,

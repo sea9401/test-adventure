@@ -64,6 +64,10 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import {
+  onDodgeHealAmount,
+  onDodgeSpeedBuff,
+} from "./signatureEffects";
 import { V2_COMBAT_PATTERN_ENABLED } from "./combatPattern";
 import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
 import {
@@ -601,9 +605,11 @@ function applyDodgeEffects(
     log: appendLog(state.log, { kind: "info", text: dodgeLogText }),
   };
   if (st.phase === "ended") return st;
-  // 곡예 — 회피 성공 시 HP +amount.
+  // 곡예 — 회피 성공 시 HP +amount. + 봉인 on-dodge 회복(Phase 2·미장착=0 → byte-identical).
   const defForHeal = st[defKey];
-  const evadeHeal = defForHeal.player.evadeHealAmount ?? 0;
+  const evadeHeal =
+    (defForHeal.player.evadeHealAmount ?? 0) +
+    onDodgeHealAmount(defForHeal.player.equipSignatures, defForHeal.maxHp);
   if (evadeHeal > 0 && defForHeal.hp < defForHeal.maxHp) {
     const newHp = Math.min(defForHeal.maxHp, defForHeal.hp + evadeHeal);
     const actual = newHp - defForHeal.hp;
@@ -615,6 +621,25 @@ function applyDodgeEffects(
         text: `[곡예] ${defForHeal.name}의 HP +${actual}`,
       }),
     };
+  }
+  // 독왕 on-dodge 속도 버프(Phase 2) — 회피 성공 시 방어자 속도↑(Math.max 로 기존 버프 미감소).
+  //   미발동=불변 → byte-identical.
+  const sigDodgeSpd = onDodgeSpeedBuff(st[defKey].player.equipSignatures);
+  if (sigDodgeSpd) {
+    const d = st[defKey];
+    const activeMult =
+      d.buffs.playerSpdTurnsLeft > 0 ? d.buffs.playerSpdMult : 1;
+    st = setSide(st, defKey, {
+      ...d,
+      buffs: {
+        ...d.buffs,
+        playerSpdMult: Math.max(activeMult, sigDodgeSpd.mult),
+        playerSpdTurnsLeft: Math.max(
+          d.buffs.playerSpdTurnsLeft,
+          sigDodgeSpd.turns,
+        ),
+      },
+    });
   }
   // 보장 회피 소비 (회피 강화 분기에서만).
   if (consumeEvade) {

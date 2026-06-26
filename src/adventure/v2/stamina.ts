@@ -12,7 +12,9 @@
 // 유저가 cap 손실 줄어들도록 총량 ×5, 회복 ×10 으로 확장.
 
 // 2026-06-03 cap 1000→5000→과다→1500. 2026-06-06 사용자 결정 — 다시 5000 으로 상향(밴킹 cap 확대).
-export const MAX_STAMINA = 5000;
+// 2026-06-27 사용자 결정 — 5000→2000 으로 하향(캐릭터 생성 만피 = 2000). 기존 캐릭의 보유분(2000 초과)은
+//   보존되나 시간 회복은 2000 까지만, 신규 캐릭은 2000 만피로 생성.
+export const MAX_STAMINA = 2000;
 export const REGEN_SECONDS_PER_POINT = 30; // 1 분 = 2 stamina
 export const HUNT_COST = 1; // 사냥 1회 기본 비용
 export const OUTPOST_MOVE_COST = 1; // 거점 이동 1회 비용 (자유이동·재진입은 무료)
@@ -29,8 +31,8 @@ export function staminaOverchargeCap(maxStamina: number = MAX_STAMINA): number {
 }
 
 // 0 → MAX 회복 시간 = MAX * REGEN_SECONDS_PER_POINT
-//   = 5000 * 30 s = 150000 s = ~41.7 시간 (밴킹 cap — 평소엔 거의 안 비움).
-// 시간당 회복 = 120, 일 이론 회복 = 2880 (cap 5000 이라 ~41.7h 후 정체). 회복률 불변 — cap 만 확대.
+//   = 2000 * 30 s = 60000 s = ~16.7 시간 (밴킹 cap — 평소엔 거의 안 비움).
+// 시간당 회복 = 120, 일 이론 회복 = 2880 (cap 2000 이라 ~16.7h 후 정체). 회복률 불변 — cap 만 조정.
 
 // === 상태 ===========================================================
 

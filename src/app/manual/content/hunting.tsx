@@ -1,3 +1,4 @@
+import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
 import { H2, P, UL, Em, Code, Table, Note } from "./primitives";
 
 export function HuntingContent() {
@@ -48,9 +49,14 @@ export function HuntingContent() {
         head={["요소", "값"]}
         rows={[
           ["사냥 1회 비용", <Code key="c">1</Code>],
-          ["최대치", <Code key="m">5,000</Code>],
+          ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복 속도", <Code key="r">30초당 1 (시간당 120)</Code>],
-          ["0 → 가득", <Code key="f">약 41.7 시간</Code>],
+          [
+            "0 → 가득",
+            <Code key="f">
+              약 {((MAX_STAMINA * REGEN_SECONDS_PER_POINT) / 3600).toFixed(1)} 시간
+            </Code>,
+          ],
         ]}
         caption="스태미나는 사냥 페이스를 조절하는 핵심 장치입니다. 스태미나를 쓰는 것은 사냥뿐이에요(타일 이동은 골드 25). 스태미나 포션으로 최대치 위로 최대 10,000까지 비축해 둘 수 있습니다."
       />

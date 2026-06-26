@@ -1,3 +1,4 @@
+import { MAX_STAMINA, REGEN_SECONDS_PER_POINT } from "@/adventure/v2/stamina";
 import { H2, H3, P, UL, Em, Code, Table, Note } from "./primitives";
 
 export function EconomyContent() {
@@ -45,11 +46,16 @@ export function EconomyContent() {
       <Table
         head={["요소", "값"]}
         rows={[
-          ["최대치", <Code key="m">5,000</Code>],
+          ["최대치", <Code key="m">{MAX_STAMINA.toLocaleString()}</Code>],
           ["회복", <Code key="r">30초당 1 (시간당 120)</Code>],
           ["사냥 1회", <Code key="h">−1</Code>],
           ["거점 점령(일기토)", <Code key="c">규모별 30 / 50 / 80 / 120</Code>],
-          ["0 → 가득", <Code key="f">약 41.7 시간</Code>],
+          [
+            "0 → 가득",
+            <Code key="f">
+              약 {((MAX_STAMINA * REGEN_SECONDS_PER_POINT) / 3600).toFixed(1)} 시간
+            </Code>,
+          ],
         ]}
         caption="스태미나를 쓰는 것은 사냥과 점령 일기토뿐입니다(타일 이동은 골드 25). 자리비움 동안에도 차오릅니다. 점령은 스태미나와 함께 길드 골드(규모별 500 / 1,500 / 4,000 / 9,000)도 듭니다."
       />

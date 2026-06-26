@@ -1,15 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import {
-  CheckCircle,
   Circle,
   Diamond,
   HandFist,
-  Lock,
-  Package,
   Shield,
   Sneaker,
   Sword,
@@ -17,87 +13,40 @@ import {
 } from "@phosphor-icons/react";
 import { Card } from "@/components/ui/Card";
 import { LoadErrorBanner } from "@/components/ui/LoadErrorBanner";
-import { Pagination } from "@/components/ui/Pagination";
-import { usePagination } from "@/lib/usePagination";
 import { TabBar } from "@/components/ui/TabBar";
-import {
-  RARE_MAP_KINDS,
-  type RareMapInstance,
-} from "@/adventure/data/v2/rareMaps";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { ItemTypeChip } from "@/components/ui/ItemTypeChip";
-import {
-  V2_MATERIALS,
-  type V2MaterialId,
-} from "@/adventure/data/v2/dungeonDrops";
-import {
-  SP_FRUIT,
-  SP_FRUIT_TIERS,
-  type SpFruitTier,
-} from "@/adventure/data/v2/spFruit";
+import { type RareMapInstance } from "@/adventure/data/v2/rareMaps";
+import { type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
+import { SP_FRUIT, type SpFruitTier } from "@/adventure/data/v2/spFruit";
 import {
   V2_EQUIPMENT,
-  effectiveStats,
-  v2EquipStatRows,
-  type V2Equipment,
   type V2EquipInstance,
-  type V2EquipRoll,
   type V2EquipSlot,
 } from "@/adventure/data/v2/v2Equipment";
 import {
-  rollQualityPct,
   selectBulkSell,
   type BulkSellOpts,
 } from "@/adventure/data/v2/v2EquipVariance";
 import {
-  enhancedPower,
-  type V2EnhanceState,
-} from "@/adventure/data/v2/v2Enhance";
-import { V2_ELEMENT_LABEL } from "@/adventure/data/v2/elements";
-import {
   V2ItemCard,
   anchorOf,
   powerNameClass,
-  rollPctClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
 import {
   V2_ITEM_TABS,
-  nextSortMode,
-  sortModeLabel,
-  sortEquipInstances,
   type V2ItemTabKey,
   type SortMode,
 } from "./v2ItemListShared";
+import { EquipmentTab } from "./inventory/EquipmentTab";
+import { MaterialsTab } from "./inventory/MaterialsTab";
+import { RareMapsTab } from "./inventory/RareMapsTab";
 
-// 슬롯별 아이콘/색 — 카드 좌상단 표식.
-const SLOT_ICON: Record<V2EquipSlot, { Icon: Icon; color: string }> = {
-  weapon: { Icon: Sword, color: "text-rose-500" },
-  armor: { Icon: Shield, color: "text-sky-500" },
-  gloves: { Icon: HandFist, color: "text-amber-500" },
-  boots: { Icon: Sneaker, color: "text-emerald-500" },
-  ring: { Icon: Circle, color: "text-violet-500" },
-  necklace: { Icon: Diamond, color: "text-pink-500" },
-};
-
-// 카드 스탯줄 — 개체 굴림 반영 위력 + (무기만)속성 + 슬롯 고유 옵션(치명/회피/MP/HP/속도/
-//   치명피해). 티어 숫자 표기는 제거(이름·위력·옵션으로 구분) — 옵션이 슬롯 정체성이라 노출.
-function cardStatLine(
-  item: V2Equipment,
-  roll?: V2EquipRoll,
-  enhance?: V2EnhanceState,
-): string {
-  const eff = effectiveStats(item, roll);
-  const parts = [`위력 ${enhancedPower(eff.power, enhance)}`];
-  if (item.slot === "weapon" && item.element && item.element !== "neutral") {
-    parts.push(V2_ELEMENT_LABEL[item.element]);
-  }
-  for (const row of v2EquipStatRows(item, roll)) {
-    if (row.label === "위력" || row.label === "무게") continue;
-    parts.push(`${row.label} ${row.value}`);
-  }
-  return parts.join(" · ");
-}
+// 강화/재련 등 다른 화면도 같은 장비 카드 그리드를 쓴다 — 기존 import 경로 유지를 위해
+// 분리한 컴포넌트를 여기서 재노출(re-export).
+export {
+  EquipmentCardGrid,
+  type EquipmentCard,
+} from "./inventory/EquipmentCardGrid";
 
 // v2 인벤토리 — 위쪽 장착 슬롯 + 무기/갑옷/장갑/신발/반지/목걸이/재료 sub-tab.
 // 개체(instance) 모델: 같은 종류라도 굴림이 다르면 별도 카드. 행 우측 버튼으로 장착/해제
@@ -123,15 +72,7 @@ const INVENTORY_PAGE_SIZE = 20;
 // 일괄 판매 임계값(%) — 한 번 정하면 새로고침 후에도 유지되도록 localStorage 에 저장.
 const SELL_PCT_STORAGE_KEY = "v2-inventory-sell-pct";
 
-// 유틸맵 사용 — 종류별 전용 화면으로 이동(지도 iid 동봉, 서버가 소유 재검증).
-const UTILITY_MAP_ROUTE: Partial<Record<string, string>> = {
-  secret_shop_map: "/hidden/shop",
-  rename_map: "/hidden/rename",
-  portrait_map: "/hidden/portrait",
-};
-
 export function V2InventoryView({ onBack }: { onBack: () => void }) {
-  const router = useRouter();
   const [tab, setTab] = useState<V2ItemTabKey>("weapon");
   const [sortMode, setSortMode] = useState<SortMode>("default");
   // 소모품 탭 — 보유 레어맵. 탭 진입 시 lazy 조회(판수 소모는 서버 권위. 만료 없음).
@@ -421,35 +362,6 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     return groups;
   }, [owned]);
 
-  const ownedMaterials = useMemo(
-    () =>
-      (Object.keys(V2_MATERIALS) as V2MaterialId[])
-        .map((id) => ({
-          id,
-          material: V2_MATERIALS[id],
-          count: materials[id] ?? 0,
-        }))
-        .filter((e) => e.count > 0)
-        .sort((a, b) => a.material.name.localeCompare(b.material.name)),
-    [materials],
-  );
-
-  const tabInstances: V2EquipInstance[] = useMemo(() => {
-    if (tab === "material" || tab === "consumable") return [];
-    return sortEquipInstances(ownedBySlot[tab], sortMode);
-  }, [tab, ownedBySlot, sortMode]);
-
-  // 목록이 길어지면 페이지로 나눈다(한 페이지 20개). 장비 탭은 탭·정렬을 바꾸면 1페이지로 리셋
-  //   (resetKey), 재료 탭은 탭 진입 시 리셋.
-  const equipPager = usePagination(
-    tabInstances,
-    INVENTORY_PAGE_SIZE,
-    `${tab}:${sortMode}`,
-  );
-  const materialPager = usePagination(ownedMaterials, INVENTORY_PAGE_SIZE, tab);
-
-  const tabLabel = V2_ITEM_TABS.find((t) => t.key === tab)?.label ?? "";
-
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
       <SubViewHeader title="인벤토리" onBack={onBack} />
@@ -550,128 +462,29 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
             불러오는 중…
           </div>
         ) : tab === "consumable" ? (
-          <div className="space-y-4">
-            <SpFruitSection
-              materials={materials}
-              used={spFruitUsed}
-              busy={busy}
-              onUse={useSpFruit}
-            />
-            <ConsumableList
-              maps={rareMaps}
-              suppressEmpty={SP_FRUIT_TIERS.some(
-                (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
-              )}
-              onUse={(m) => {
-                // 경험치의 비약(테스트) — 화면 이동 없이 즉시 EXP 지급 후 새로고침
-                //   (레벨·스탯이 전역에 반영되도록).
-                if (m.kind === "exp_tome") {
-                  fetch("/api/v2/me/use-exp-tome", {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ map: m.iid }),
-                  })
-                    .then((res) => {
-                      if (res.ok) window.location.reload();
-                    })
-                    .catch(() => {});
-                  return;
-                }
-                const base = UTILITY_MAP_ROUTE[m.kind];
-                if (base) router.push(`${base}?map=${m.iid}`);
-              }}
-            />
-          </div>
+          <RareMapsTab
+            materials={materials}
+            spFruitUsed={spFruitUsed}
+            busy={busy}
+            onUseSpFruit={useSpFruit}
+            rareMaps={rareMaps}
+          />
         ) : tab === "material" ? (
-          <>
-            <MaterialCardGrid materials={materialPager.pageItems} />
-            <Pagination
-              page={materialPager.page}
-              pageCount={materialPager.pageCount}
-              setPage={materialPager.setPage}
-            />
-          </>
+          <MaterialsTab materials={materials} pageSize={INVENTORY_PAGE_SIZE} />
         ) : (
-          <>
-            {tabInstances.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* 정리(일괄 판매) — 현재 탭 슬롯, 장착·잠금만 제외(전 장비 판매 가능) */}
-                <div className="flex items-center gap-1">
-                  <span className="mr-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-                    정리
-                  </span>
-                  {/* 품질 임계값 직접 설정(0~100). 이 값 이하 품질만 일괄 판매. */}
-                  <label className="flex items-center gap-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                    품질
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={sellQualityPct}
-                      onChange={(e) =>
-                        setSellQualityPct(
-                          Math.max(
-                            0,
-                            Math.min(100, Math.floor(Number(e.target.value) || 0)),
-                          ),
-                        )
-                      }
-                      aria-label="일괄 판매 품질 임계값(%)"
-                      className="w-11 rounded border border-zinc-300 bg-white px-1 py-0.5 text-right tabular-nums text-zinc-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200"
-                    />
-                    %
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      applyBulkSell(
-                        { slot: tab as V2EquipSlot, belowPct: sellQualityPct },
-                        `${tabLabel} 품질 ${sellQualityPct}% 이하`,
-                      )
-                    }
-                    disabled={busy !== null}
-                    className="rounded border border-amber-300 px-2 py-0.5 text-[11px] text-amber-700 transition hover:bg-amber-50 disabled:opacity-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-950/40"
-                  >
-                    이하 판매
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      applyBulkSell(
-                        { slot: tab as V2EquipSlot },
-                        `${tabLabel} 미장착 전부`,
-                      )
-                    }
-                    disabled={busy !== null}
-                    className="rounded border border-rose-300 px-2 py-0.5 text-[11px] text-rose-700 transition hover:bg-rose-50 disabled:opacity-50 dark:border-rose-800 dark:text-rose-400 dark:hover:bg-rose-950/40"
-                  >
-                    미장착 전부 판매
-                  </button>
-                </div>
-                {/* 정렬 — 단일 버튼, 누를 때마다 순환(기본 → 품질순 → 위력순). */}
-                <button
-                  type="button"
-                  title="누를 때마다 정렬 전환 (기본 → 품질순 → 위력순)"
-                  onClick={() => setSortMode((m) => nextSortMode(m))}
-                  className="rounded border border-zinc-300 px-2.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                >
-                  정렬 ⇅ {sortModeLabel(sortMode)}
-                </button>
-              </div>
-            )}
-            <EquipmentCardGrid
-              cards={equipPager.pageItems.map((inst) => ({
-                inst,
-                isEquipped: (equipped[tab as V2EquipSlot] ?? null) === inst.iid,
-              }))}
-              onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
-            />
-            <Pagination
-              page={equipPager.page}
-              pageCount={equipPager.pageCount}
-              setPage={equipPager.setPage}
-            />
-          </>
+          <EquipmentTab
+            slot={tab}
+            instances={ownedBySlot[tab]}
+            equippedIid={equipped[tab] ?? null}
+            busy={busy}
+            sortMode={sortMode}
+            setSortMode={setSortMode}
+            sellQualityPct={sellQualityPct}
+            setSellQualityPct={setSellQualityPct}
+            pageSize={INVENTORY_PAGE_SIZE}
+            onBulkSell={applyBulkSell}
+            onOpenCard={(inst, anchor) => setCard({ inst, anchor })}
+          />
         )}
       </Card>
       {card && (
@@ -710,298 +523,5 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         />
       )}
     </main>
-  );
-}
-
-// 보유 재료 2열 카드 그리드 — 장비 카드(EquipmentCardGrid)와 동형. 좌상단 아이콘 +
-//   우상단 수량 배지 + 등급색 없는 이름 + 설명(2줄). 재료는 굴림/장착이 없어 비상호작용 div.
-function MaterialCardGrid({
-  materials,
-}: {
-  materials: Array<{
-    id: V2MaterialId;
-    material: (typeof V2_MATERIALS)[V2MaterialId];
-    count: number;
-  }>;
-}) {
-  if (materials.length === 0) {
-    return (
-      <EmptyState
-        icon={<Diamond size={40} weight="duotone" />}
-        title="보유한 재료가 없습니다"
-        message="거점 사냥터에서 사냥하면 모입니다."
-      />
-    );
-  }
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {materials.map(({ id, material, count }) => (
-        <div
-          key={id}
-          className="flex flex-col gap-1 rounded-lg border border-zinc-200 bg-white p-3 text-left dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <div className="flex items-start justify-between gap-1">
-            <Package size={20} weight="duotone" className="text-amber-500" />
-            <span className="shrink-0 rounded bg-zinc-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              ×{count}
-            </span>
-          </div>
-          <div className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-            {material.name}
-          </div>
-          <p className="line-clamp-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-            {material.description}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-export type EquipmentCard = {
-  inst: V2EquipInstance;
-  isEquipped: boolean;
-};
-
-// 보유 장비 2열 카드 그리드 — 개체(instance) 단위. 슬롯 아이콘 + 장착 배지(✓/잠금) +
-// 등급색 이름 + 굴림 반영 스탯줄. 카드 탭 → 옵션/장착 팝오버(V2ItemCard).
-export function EquipmentCardGrid({
-  cards,
-  onOpenCard,
-  selectedIid,
-}: {
-  cards: EquipmentCard[];
-  onOpenCard: (inst: V2EquipInstance, anchor: ItemCardAnchor) => void;
-  // 선택 모드(강화/재련): selectedIid 를 넘기면 에메랄드 하이라이트는 "선택한 장비"를 뜻하고,
-  // 착용 장비는 우상단 "착용중" 배지로만 표시한다. 미전달 시(인벤토리)는 착용 장비를
-  // 에메랄드 하이라이트 + 체크로 강조하는 기존 동작을 유지한다.
-  selectedIid?: string | null;
-}) {
-  const selectable = selectedIid !== undefined;
-  if (cards.length === 0) {
-    return (
-      <EmptyState
-        icon={<Diamond size={40} weight="duotone" />}
-        title="보유한 장비가 없습니다"
-        message="상점에서 구매하거나 사냥터 드랍으로 모입니다."
-      />
-    );
-  }
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {cards.map(({ inst, isEquipped }) => {
-        const item = V2_EQUIPMENT[inst.id];
-        const { Icon, color } = SLOT_ICON[item.slot];
-        const pct = rollQualityPct(item, inst.roll);
-        const isSelected = selectable && inst.iid === selectedIid;
-        const highlighted = selectable ? isSelected : isEquipped;
-        return (
-          <button
-            key={inst.iid}
-            type="button"
-            onClick={(e) => onOpenCard(inst, anchorOf(e.currentTarget))}
-            aria-label={`${item.name} 정보`}
-            className={`relative flex flex-col gap-1 rounded-lg border p-3 text-left transition ${
-              highlighted
-                ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600/70 dark:bg-emerald-950"
-                : "border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-            }`}
-          >
-            <div className="flex items-start justify-between gap-1">
-              <span className="flex items-center gap-1">
-                <Icon size={20} weight="duotone" className={color} />
-                {inst.locked && (
-                  <Lock
-                    size={13}
-                    weight="fill"
-                    className="text-amber-500"
-                    aria-label="잠금됨"
-                  />
-                )}
-              </span>
-              {isEquipped && selectable ? (
-                <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-px text-[10px] font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                  착용중
-                </span>
-              ) : isEquipped ? (
-                <CheckCircle
-                  size={18}
-                  weight="fill"
-                  className="text-emerald-500"
-                />
-              ) : pct != null ? (
-                <span
-                  className={`shrink-0 text-[11px] font-semibold tabular-nums ${rollPctClass(pct)}`}
-                  title="품질"
-                >
-                  {pct}%
-                </span>
-              ) : null}
-            </div>
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span
-                className={`truncate text-sm font-semibold ${powerNameClass(item, inst.roll)}`}
-              >
-                {item.name}
-                {inst.enhance && inst.enhance.level > 0 ? (
-                  <span className="ml-1 text-amber-500">
-                    +{inst.enhance.level}
-                  </span>
-                ) : null}
-              </span>
-              <ItemTypeChip item={item} />
-            </div>
-            <div className="truncate text-[11px] text-zinc-500 dark:text-zinc-400">
-              {cardStatLine(item, inst.roll, inst.enhance)}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// SP 열매 섹션 — 협동 보스 드랍 소모품. 등급별로 보유수 + "사용 N/캡" 표시.
-//   사용 버튼: 보유 0 또는 캡 도달 시 비활성(캡 도달분은 거래소 거래만). 1회 = SP 최대치 +1.
-function SpFruitSection({
-  materials,
-  used,
-  busy,
-  onUse,
-}: {
-  materials: Partial<Record<V2MaterialId, number>>;
-  used: Record<SpFruitTier, number>;
-  busy: string | null;
-  onUse: (tier: SpFruitTier) => void;
-}) {
-  // 보유분이 하나도 없으면 섹션 자체를 숨긴다(빈 카드 난립 방지). 캡 도달했어도 보유 0이면 숨김.
-  const anyHeld = SP_FRUIT_TIERS.some(
-    (t) => (materials[SP_FRUIT[t].materialId] ?? 0) > 0,
-  );
-  if (!anyHeld) return null;
-  return (
-    <div>
-      <div className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
-        SP 열매 · 사용 시 SP 최대치 영구 +1
-      </div>
-      <ul className="space-y-1.5">
-        {SP_FRUIT_TIERS.map((t) => {
-          const def = SP_FRUIT[t];
-          const held = materials[def.materialId] ?? 0;
-          if (held <= 0) return null;
-          const usedCount = used[t] ?? 0;
-          const atCap = usedCount >= def.useCap;
-          const isBusy = busy === `sp_fruit_${t}`;
-          return (
-            <li
-              key={def.materialId}
-              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900 dark:bg-amber-950/40"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-medium">
-                  🍂 {def.name}
-                  <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">
-                    ×{held}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  disabled={atCap || isBusy}
-                  onClick={() => onUse(t)}
-                  className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
-                    atCap || isBusy
-                      ? "cursor-not-allowed border border-zinc-300 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500"
-                      : "border border-amber-700 bg-amber-600 text-white hover:bg-amber-700"
-                  }`}
-                >
-                  {atCap ? "한도 도달" : isBusy ? "사용 중…" : "사용"}
-                </button>
-              </div>
-              <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                사용 {usedCount}/{def.useCap}
-                {atCap
-                  ? " · 한도 도달 (보유·거래만 가능)"
-                  : ` · SP 최대치 +${def.spPerUse}/회`}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-// 소모품 탭 — 보유 레어맵 목록. hunt 계열 사용(입장)은 사냥터 목록의 "발견한 지도",
-// utility 계열(비밀 상점/개명/화공)은 여기서 "사용". 판매는 거래소 > 팔기 > 소모품.
-function ConsumableList({
-  maps,
-  onUse,
-  // 위에 SP 열매 섹션이 이미 보유분을 그리면(true) 빈 레어맵 안내문을 숨긴다.
-  suppressEmpty = false,
-}: {
-  maps: RareMapInstance[] | null;
-  onUse?: (m: RareMapInstance) => void;
-  suppressEmpty?: boolean;
-}) {
-  if (maps === null) {
-    return (
-      <div className="text-sm text-zinc-500 dark:text-zinc-400">
-        불러오는 중…
-      </div>
-    );
-  }
-  if (maps.length === 0) {
-    if (suppressEmpty) return null;
-    return (
-      <div className="text-sm text-zinc-500 dark:text-zinc-400">
-        보유한 소모품이 없습니다. 레어맵은 사냥 중 아주 낮은 확률로
-        발견됩니다.
-      </div>
-    );
-  }
-  return (
-    <ul className="space-y-1.5">
-      {maps.map((m) => {
-        const def = RARE_MAP_KINDS[m.kind];
-        const isUtility = def?.category === "utility";
-        return (
-          <li
-            key={m.iid}
-            className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-sm font-medium">
-                🗺 {def?.name ?? m.kind}
-              </span>
-              {isUtility ? (
-                <button
-                  type="button"
-                  onClick={() => onUse?.(m)}
-                  className="shrink-0 rounded-md border border-sky-700 bg-sky-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-sky-700"
-                >
-                  사용
-                </button>
-              ) : (
-                <span className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                  깊이 {m.depth}
-                </span>
-              )}
-            </div>
-            <div className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              {isUtility ? (
-                <>남은 {m.runsLeft}회</>
-              ) : (
-                <>남은 {m.runsLeft}판 · 입장은 전투 탭 &gt; 사냥터의 「발견한 지도」</>
-              )}
-            </div>
-            {def?.desc && (
-              <div className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
-                {def.desc}
-              </div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
   );
 }

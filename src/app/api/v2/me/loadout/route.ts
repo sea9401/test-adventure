@@ -18,6 +18,7 @@ import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 
 // POST /api/v2/me/loadout — 수동 SP 로드아웃 저장(코어루프). body: { equipped: string[] }(우선순위 순서).
 //   배운 스킬 중 SP 예산 내여야 통과(validateLoadout). 통과 시 그대로 저장(순서 보존),
@@ -77,7 +78,10 @@ export async function POST(req: Request) {
       ),
       charSave,
     );
-    const spBudget = calcSpBudget(prof.groups);
+    const spBudget = calcSpBudget(
+      prof.groups,
+      spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
+    );
 
     const check = validateLoadout(requested, skills.learned, spBudget);
     if (!check.ok) {

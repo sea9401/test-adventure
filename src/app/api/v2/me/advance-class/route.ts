@@ -31,6 +31,7 @@ import {
   V2_LEVEL_CAP,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 import {
   V2_JOB_CATALOG,
   isJobUnlocked,
@@ -174,7 +175,10 @@ export async function POST(req: Request) {
         equipped: sanitizeLoadout(
           skills.equipped,
           skills.learned,
-          calcSpBudget(nextProf.groups),
+          calcSpBudget(
+            nextProf.groups,
+            spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
+          ),
         ),
       });
       await upsertSave(tx, userId, "proficiency.v2", nextProf);

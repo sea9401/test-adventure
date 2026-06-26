@@ -239,8 +239,11 @@ export function spMilestonesForCumLevel(cumLevel: number): number {
 //   groups = proficiency.groups (직업군별 { cumLevel }). 구조적 인자(순환 import 회피).
 //   직업군은 확장형 — 4개 하드코딩 아님, groups 를 순회(새 직업군 추가 시 자동 반영).
 //   정복 = cumLevel≥SP_MASTERED_CUMLEVEL(환생 보존 → 여러 직업 정복 누적, tier 기반 아님).
+//   spCapBonus — SP 열매(협동 보스 보상) 사용분. 소프트캡(40) 위에 더해 천장을 올린다(영구
+//   빌드폭). 🔑 기본 0 → 기존 모든 콜러/플레이어 예산 byte-identical(SP 열매 미사용 시 무변).
 export function calcSpBudget(
   groups: Record<string, { cumLevel?: number; tier?: number }> | null | undefined,
+  spCapBonus = 0,
 ): number {
   let milestoneSp = 0;
   let masteredBonus = 0;
@@ -249,7 +252,8 @@ export function calcSpBudget(
     milestoneSp += spMilestonesForCumLevel(cum);
     if (cum >= SP_MASTERED_CUMLEVEL) masteredBonus += SP_MASTERED_JOB_BONUS;
   }
-  return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus);
+  const bonus = Math.max(0, Math.floor(Number(spCapBonus) || 0));
+  return Math.min(SP_MAX_SOFT_CAP, SP_BASE + milestoneSp + masteredBonus) + bonus;
 }
 
 // 두 cumLevel 사이에 새로 넘은 SP 마일스톤 수("스킬포인트 +N 획득!" 알림용).

@@ -276,7 +276,7 @@ const LAKE_SOVEREIGN_BASE: Monster = {
 // === 소환 유지시간 — 공유 HP 비례 ====================================
 // HP 가 클수록 다 같이 깎을 시간이 필요 — HP COOP_DURATION_HP_PER_HOUR 당 1시간,
 // 최소 2시간 ~ 최대 24시간(사용자 결정 2026-06-13). ⚠️ 캘리브 다이얼.
-// 현 3종: 15k→3h · 40k→8h · 100k→20h (캡 24h 는 미래의 더 큰 보스용).
+// 현 3종(HP ×2 리워크): 30k→6h · 80k→16h · 200k→24h(캡). HP 2배라 토벌 시간도 비례 확대.
 export const COOP_DURATION_HP_PER_HOUR = 5_000;
 export const COOP_DURATION_MIN_MS = 2 * 3_600_000;
 export const COOP_DURATION_MAX_MS = 24 * 3_600_000;
@@ -305,31 +305,44 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "산적 두목",
     desc: "산길을 틀어쥔 산적단의 우두머리. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 5,
-    sharedMaxHp: 15_000,
+    sharedMaxHp: 30_000,
     anchorDepth: 12,
     base: MOUNTAIN_CHIEF_BASE,
     uniqueIds: ["v2_boss_mountain_axe"],
     titleId: "v2_boss_mountain",
     statusSkill: "mob_rending_claw",
+    // 발악 완만화(리워크) — 옛 단일 50% 절벽(atk×1.25)을 3단 점증으로. 누적 최종은 비슷하되
+    //   70%부터 미리 예고되며 단계적으로 사나워진다("갑작스러움" 해소). 누적: 20%에서 atk×1.43·def+10.
     enrageStages: [
       {
-        hpFraction: 0.5,
-        note: "두목이 분노로 날뛰고 있다! (공격력·방어력 상승)",
-        atkMult: 1.25,
+        hpFraction: 0.7,
+        note: "두목이 거칠어지기 시작했다 (공격력 상승)",
+        atkMult: 1.1,
+      },
+      {
+        hpFraction: 0.45,
+        note: "두목이 분노로 날뛴다! (공격력·방어력 상승)",
+        atkMult: 1.13,
+        defBonus: 4,
+      },
+      {
+        hpFraction: 0.2,
+        note: "두목이 광란에 빠졌다! (공격력·방어력 대폭 상승)",
+        atkMult: 1.15,
         defBonus: 6,
       },
     ],
     traits: [
       "분쇄 강타 — 주기적으로 강한 일격",
       "살점 뜯기 — 출혈",
-      "발악(HP 50%) — 공격력·방어력 상승",
+      "발악 — HP 70%·45%·20% 단계로 점점 강해짐(공격력·방어력)",
     ],
     rewards: {
-      bronze: { gold: 200, uniqueChance: 0.02 },
-      silver: { gold: 300, uniqueChance: 0.05 },
-      gold: { gold: 500, uniqueChance: 0.1 },
-      epic: { gold: 800, uniqueChance: 0.18 },
-      legend: { gold: 1200, uniqueChance: 0.3 },
+      bronze: { gold: 500, uniqueChance: 0.03 },
+      silver: { gold: 700, uniqueChance: 0.08 },
+      gold: { gold: 1200, uniqueChance: 0.15 },
+      epic: { gold: 2000, uniqueChance: 0.25 },
+      legend: { gold: 3000, uniqueChance: 0.4 },
     },
   },
   canyon_predator: {
@@ -337,36 +350,43 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "사구의 포식자",
     desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 짐승. 절벽조차 발톱으로 꿰뚫는다.",
     scrollCost: 10,
-    sharedMaxHp: 40_000,
+    sharedMaxHp: 80_000,
     anchorDepth: 24,
     base: CANYON_PREDATOR_BASE,
     uniqueIds: ["v2_boss_canyon_fang"],
     titleId: "v2_boss_canyon",
     statusSkill: "mob_venom_bite",
+    // 발악 완만화 — 옛 60% 회피 + 25% atk×1.4 두 절벽을 3단 점증으로. 회피가 먼저 서서히 깔리고
+    //   공격력은 두 번에 나눠 오른다. 누적: 20%에서 atk×1.44·회피+10(옛 최종과 유사하되 점증).
     enrageStages: [
       {
-        hpFraction: 0.6,
-        note: "모래폭풍이 일어났다! (회피 상승)",
-        evasionBonus: 10,
+        hpFraction: 0.7,
+        note: "모래바람이 일기 시작한다 (회피 상승)",
+        evasionBonus: 5,
       },
       {
-        hpFraction: 0.25,
+        hpFraction: 0.45,
+        note: "모래폭풍이 거세진다! (공격력·회피 상승)",
+        atkMult: 1.18,
+        evasionBonus: 5,
+      },
+      {
+        hpFraction: 0.2,
         note: "포식자가 광폭화했다! (공격력 대폭 상승)",
-        atkMult: 1.4,
+        atkMult: 1.22,
       },
     ],
     traits: [
       "절벽 발톱 — 방어 관통",
       "독니 — 중독",
-      "모래폭풍(HP 60%) — 회피 상승",
-      "광폭화(HP 25%) — 공격력 대폭 상승",
+      "발악 — HP 70%·45%·20% 단계로 점점 강해짐(회피·공격력)",
     ],
     rewards: {
-      bronze: { gold: 400, uniqueChance: 0.02 },
-      silver: { gold: 600, uniqueChance: 0.05 },
-      gold: { gold: 1000, uniqueChance: 0.1 },
-      epic: { gold: 1600, uniqueChance: 0.18 },
-      legend: { gold: 2400, uniqueChance: 0.3 },
+      bronze: { gold: 1000, uniqueChance: 0.03 },
+      silver: { gold: 1500, uniqueChance: 0.08 },
+      gold: { gold: 2500, uniqueChance: 0.15 },
+      epic: { gold: 4000, uniqueChance: 0.25 },
+      legend: { gold: 6000, uniqueChance: 0.4 },
     },
   },
   lake_sovereign: {
@@ -374,36 +394,44 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     name: "호심의 군주",
     desc: "얼음 호수 가장 깊은 곳에서 깨어난 옛 군주. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
-    sharedMaxHp: 100_000,
+    sharedMaxHp: 200_000,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
     uniqueIds: ["v2_boss_lake_maul"],
     titleId: "v2_boss_lake",
     statusSkill: "mob_chilling_touch",
+    // 발악 완만화 — 옛 50% def + 20% atk×1.5 절벽을 3단 점증으로. 방어가 먼저 두꺼워지고 공격력은
+    //   두 번에 나눠 폭발한다. 누적: 20%에서 atk×1.53·def+18(옛 최종보다 약간 사납되 점증·예고).
     enrageStages: [
       {
-        hpFraction: 0.5,
-        note: "서리 갑주가 두꺼워졌다! (방어력 상승)",
-        defBonus: 12,
+        hpFraction: 0.7,
+        note: "서리가 갑주에 맺힌다 (방어력 상승)",
+        defBonus: 5,
+      },
+      {
+        hpFraction: 0.45,
+        note: "서리 갑주가 두꺼워진다! (공격력·방어력 상승)",
+        atkMult: 1.18,
+        defBonus: 7,
       },
       {
         hpFraction: 0.2,
         note: "심해의 분노가 폭발한다! (공격력 대폭 상승)",
-        atkMult: 1.5,
+        atkMult: 1.3,
+        defBonus: 6,
       },
     ],
     traits: [
       "얼어붙는 손길 — 한기 누적(맞을수록 고정 피해·회피 감소)",
       "한기 — 둔화",
-      "서리 갑주(HP 50%) — 방어력 상승",
-      "심해의 분노(HP 20%) — 공격력 대폭 상승",
+      "발악 — HP 70%·45%·20% 단계로 점점 강해짐(방어력·공격력)",
     ],
     rewards: {
-      bronze: { gold: 800, uniqueChance: 0.02 },
-      silver: { gold: 1200, uniqueChance: 0.05 },
-      gold: { gold: 2000, uniqueChance: 0.1 },
-      epic: { gold: 3200, uniqueChance: 0.18 },
-      legend: { gold: 4800, uniqueChance: 0.3 },
+      bronze: { gold: 2000, uniqueChance: 0.03 },
+      silver: { gold: 3000, uniqueChance: 0.08 },
+      gold: { gold: 5000, uniqueChance: 0.15 },
+      epic: { gold: 8000, uniqueChance: 0.25 },
+      legend: { gold: 12000, uniqueChance: 0.4 },
     },
   },
 };

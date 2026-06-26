@@ -4,11 +4,13 @@ import type { BulletinComment, BulletinPost } from "./types";
 // 게시판 클라이언트 API helper — 모든 fetch 호출을 한 곳에 모아 라우트 경로/메서드
 // 변경 시 검색 영역을 좁힌다. UI 컴포넌트는 fetch 디테일을 모르고 이 함수만 호출.
 
+// category "all" = "전체" 탭 — category 파라미터를 빼면 서버가 모든 카테고리를 반환.
 export async function fetchPosts(
-  category: BulletinCategory,
+  category: BulletinCategory | "all",
   q: string,
 ): Promise<BulletinPost[]> {
-  const params = new URLSearchParams({ category });
+  const params = new URLSearchParams();
+  if (category !== "all") params.set("category", category);
   if (q) params.set("q", q);
   const res = await fetch(`/api/bulletin?${params.toString()}`, {
     cache: "no-store",

@@ -76,7 +76,7 @@ export function CoopContent() {
           ["EPIC", "40% 이상", "15%"],
           ["LEGEND", "60% 이상", "20%"],
         ]}
-        caption="GOLD부터 보상이 시작됩니다. 도달한 각 티어를 독립으로 굴리므로 LEGEND 달성 시 GOLD·EPIC·LEGEND 세 번 굴려 최대 3개까지 받습니다. 열매 등급은 보스마다 다릅니다(산군 I · 스콜피온 킹 II · 호수의 괴물 III)."
+        caption="GOLD부터 보상이 시작됩니다. 도달한 각 티어를 따로따로 굴리므로 LEGEND 달성 시 GOLD·EPIC·LEGEND 세 번 굴려 최대 3개까지 받습니다. 열매 등급은 보스마다 다릅니다(산군 I · 스콜피온 킹 II · 호수의 괴물 III)."
       />
       <Note>
         SP 열매는 거래소에서 사고팔 수 있습니다. 사용 횟수에는 캐릭터당 상한이

@@ -490,6 +490,43 @@ export function coopBossForBattle(
   return { monster, enrageNotes };
 }
 
+// === 발악 단계 라이브 상태 (전투 체감 — UI 배지/예고) ===================
+// 현재 공유 HP 비율(0~1)에서 발악 스테이지가 몇 개 발동했고 다음이 어느 임계인지.
+//   상세 화면이 "발악 N/총 단계 + 곧 발악(다음 임계·안내)" 배지를 라이브로 그린다.
+//   coopBossForBattle 의 적용 규칙(frac ≤ hpFraction 이면 발동)과 동일 기준.
+export type CoopEnrageStatus = {
+  /** 현재 발동 중인 발악 단계 수. */
+  activeCount: number;
+  /** 전체 발악 단계 수. */
+  totalStages: number;
+  /** 다음 발동될 단계(아직 미발동 중 임계가 가장 높은 = 가장 임박). 없으면 null. */
+  nextStage: CoopEnrageStage | null;
+  /** 단계 트래커용 — hpFraction 내림차순 + 발동 여부. */
+  stages: { stage: CoopEnrageStage; active: boolean }[];
+};
+
+export function coopEnrageStatus(
+  kind: CoopBossKind,
+  hpFraction: number,
+): CoopEnrageStatus {
+  // 내림차순(임계 높은 = 먼저 발동) — 트래커 표시 순서와 일치.
+  const sorted = [...kind.enrageStages].sort(
+    (a, b) => b.hpFraction - a.hpFraction,
+  );
+  const stages = sorted.map((stage) => ({
+    stage,
+    active: hpFraction <= stage.hpFraction,
+  }));
+  const pending = sorted.filter((st) => hpFraction > st.hpFraction);
+  return {
+    activeCount: stages.filter((s) => s.active).length,
+    totalStages: sorted.length,
+    // pending 은 내림차순 → 첫 항목이 가장 높은 임계 = 다음에 발동(가장 임박).
+    nextStage: pending.length > 0 ? pending[0] : null,
+    stages,
+  };
+}
+
 // 도달 티어까지의 골드 합산(증분 합).
 export function sumCoopGold(kind: CoopBossKind, tier: CoopRewardTier): number {
   let total = 0;

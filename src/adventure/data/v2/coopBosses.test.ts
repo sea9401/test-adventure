@@ -9,6 +9,7 @@ import {
   COOP_TIER_THRESHOLDS,
   SUMMON_SCROLL_DROP_PCT,
   coopBossForBattle,
+  coopEnrageStatus,
   coopTierForRatio,
   parseCoopBossKindId,
   rollSummonScrollDrop,
@@ -141,6 +142,38 @@ describe("coopBosses 카탈로그", () => {
     // 바닥 — 소형 HP 는 2h 미만으로 안 내려간다.
     const tiny = { ...COOP_BOSSES.mountain_chief, sharedMaxHp: 1_000 };
     expect(coopBossDurationMs(tiny)).toBe(COOP_DURATION_MIN_MS);
+  });
+
+  it("coopEnrageStatus — 라이브 발악 진행/예고(상세 배지용)", () => {
+    for (const id of COOP_BOSS_KIND_IDS) {
+      const b = COOP_BOSSES[id];
+      const n = b.enrageStages.length;
+      // 풀피 — 발동 0·다음 단계는 가장 높은 임계.
+      const full = coopEnrageStatus(b, 1);
+      expect(full.activeCount).toBe(0);
+      expect(full.totalStages).toBe(n);
+      expect(full.stages).toHaveLength(n);
+      // 트래커는 임계 내림차순.
+      for (let i = 1; i < full.stages.length; i++) {
+        expect(full.stages[i - 1].stage.hpFraction).toBeGreaterThanOrEqual(
+          full.stages[i].stage.hpFraction,
+        );
+      }
+      const highest = Math.max(...b.enrageStages.map((s) => s.hpFraction));
+      expect(full.nextStage?.hpFraction).toBe(highest);
+      // 바닥 — 전부 발동·다음 없음.
+      const low = coopEnrageStatus(b, 0);
+      expect(low.activeCount).toBe(n);
+      expect(low.nextStage).toBeNull();
+      expect(low.stages.every((s) => s.active)).toBe(true);
+      // 가장 높은 임계 바로 위 — 아직 0 발동, 그 임계가 다음.
+      const justAbove = coopEnrageStatus(b, Math.min(1, highest + 0.001));
+      expect(justAbove.activeCount).toBe(0);
+      expect(justAbove.nextStage?.hpFraction).toBe(highest);
+      // 가장 높은 임계 정확히 — 그 단계 발동(≤ 규칙, coopBossForBattle 과 동일).
+      const atHighest = coopEnrageStatus(b, highest);
+      expect(atHighest.activeCount).toBeGreaterThanOrEqual(1);
+    }
   });
 
   it("parseCoopBossKindId — 유효 id 만 통과", () => {

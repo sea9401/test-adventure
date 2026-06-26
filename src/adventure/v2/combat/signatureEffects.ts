@@ -24,3 +24,35 @@ export function lowHpDamageReductionPct(
   }
   return pct;
 }
+
+// on_crit 독(독니 단검) — 크리 + 피해 발생 시 부여할 독 스택 magnitude(maxHp 비율/스택). 기존
+//   poison 다이얼(~0.004) 동급. 시그니처는 발동 여부만, 강도는 이 상수(밸런스 다이얼).
+export const SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK = 0.004;
+
+// on_crit 속도 버프(군림목걸이) — 크리 + 피해 발생 시 발동할 속도 버프 {배수, 지속행동}.
+//   여러 개면 가장 강한 배수. 미발동/미장착 = null.
+export function onCritSpeedBuff(
+  signatures: SignatureEffect[] | undefined,
+  critRoll: boolean,
+  dealtDamage: boolean,
+): { mult: number; turns: number } | null {
+  if (!critRoll || !dealtDamage || !signatures) return null;
+  let best: { mult: number; turns: number } | null = null;
+  for (const s of signatures) {
+    if (s.trigger !== "on_crit" || !s.spdBuffPct) continue;
+    const mult = 1 + s.spdBuffPct / 100;
+    const turns = Math.max(1, s.buffActions ?? 1);
+    if (!best || mult > best.mult) best = { mult, turns };
+  }
+  return best;
+}
+
+// on_crit 독 부여 여부(독니 단검) — 크리 + 피해 발생 시 poisonOnCrit 시그니처가 하나라도 있으면 true.
+export function firesOnCritPoison(
+  signatures: SignatureEffect[] | undefined,
+  critRoll: boolean,
+  dealtDamage: boolean,
+): boolean {
+  if (!critRoll || !dealtDamage || !signatures) return false;
+  return signatures.some((s) => s.trigger === "on_crit" && s.poisonOnCrit);
+}

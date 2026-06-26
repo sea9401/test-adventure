@@ -22,11 +22,18 @@ import {
   computeStormBonus,
 } from "./engine.damageHelpers";
 import {
+  applyV2DotsToTarget,
   damageBetween,
   extractApEffect,
+  makePoisonDot,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
+import {
+  firesOnCritPoison,
+  onCritSpeedBuff,
+  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+} from "./signatureEffects";
 import {
   CRIT_PCT_CAP,
 } from "@/adventure/data/stats";
@@ -713,12 +720,58 @@ export function resolvePlayerPhase(
       text: `[${apOffensiveSkill!.name}] ${playerName}의 HP -${madSlashSelfDmg} (자해)`,
     });
   }
+  // 고유 시그니처 on-crit(Phase 2) — 크리 + 피해 발생 시 발동. 미장착=null/false → byte-identical.
+  //   군림목걸이=속도 버프(playerSpdMult), 독니 단검=대상 중독 DoT. 둘 다 아래 afterDamage 에 합류.
+  const sigDealtDamage = totalDmg > 0;
+  const sigCritSpeedBuff = onCritSpeedBuff(
+    player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  const sigCritPoison = firesOnCritPoison(
+    player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  const sigEnemyDots = sigCritPoison
+    ? applyV2DotsToTarget(state.enemyV2Dots, [
+        makePoisonDot({
+          stacks: 1,
+          pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+          sourceAtk: player.atk,
+        }),
+      ])
+    : state.enemyV2Dots;
+  // 시그니처 발동 시 속도 버프 병합 — 기존 버프(폭주 등)보다 약하면 유지(Math.max·미감소).
+  const sigSpdActiveMult =
+    nextBuffsTimed.playerSpdTurnsLeft > 0 ? nextBuffsTimed.playerSpdMult : 1;
+  const sigSpdBuff = sigCritSpeedBuff
+    ? {
+        playerSpdMult: Math.max(sigSpdActiveMult, sigCritSpeedBuff.mult),
+        playerSpdTurnsLeft: Math.max(
+          nextBuffsTimed.playerSpdTurnsLeft,
+          sigCritSpeedBuff.turns,
+        ),
+      }
+    : null;
+  if (sigCritPoison) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[독니] ${state.enemy.name}을(를) 중독시켰다!`,
+    });
+  }
+  if (sigSpdBuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[군림] 결정타 — 속도가 솟구친다!`,
+    });
+  }
   // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
   // 같은 턴 후속 공격(다중공격/연타)에 즉시 반영된다.
   const afterDamage = applyPhaseTriggerIfAny(applyPlayerOnHitDots({
     ...state,
     enemyHp,
-    enemyV2Dots: state.enemyV2Dots,
+    enemyV2Dots: sigEnemyDots, // 고유 시그니처 on-crit 독(독니) 합류·미발동=state 그대로.
     playerHp: playerHpAfterMadSlash,
     log,
     flags: {
@@ -735,6 +788,8 @@ export function resolvePlayerPhase(
       ...nextBuffsTimed,
       // 2티어 특기 상태 갱신.
       cyclingChiBonus: cyclingChiThisTurn,
+      // 고유 시그니처 on-crit 속도 버프(군림) 병합 — 미발동이면 빈 객체(불변).
+      ...(sigSpdBuff ?? {}),
     },
     stacks: {
       ...state.stacks,

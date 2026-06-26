@@ -18,11 +18,18 @@ import {
   type PvPSideBuffs,
 } from "./engine-pvp";
 import {
+  applyV2DotsToTarget,
   extractApEffect,
+  makePoisonDot,
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
-import { lowHpDamageReductionPct } from "./signatureEffects";
+import {
+  firesOnCritPoison,
+  lowHpDamageReductionPct,
+  onCritSpeedBuff,
+  SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+} from "./signatureEffects";
 import {
   appendLog,
   damageBetween,
@@ -798,11 +805,50 @@ export function advanceTurnPvP(
       text: `[${apOffensiveSkill!.name}] ${attacker.name}의 HP -${madSlashSelfDmg} (자해)`,
     });
   }
+  // 고유 시그니처 on-crit(Phase 2·PvP 미러) — 군림=공격자 속도 버프, 독니=방어자 중독.
+  //   미장착=null/false → byte-identical. critRoll + 피해 발생 게이트.
+  const sigDealtDamage = totalDmg > 0;
+  const sigCritSpeedBuff = onCritSpeedBuff(
+    attacker.player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  const sigCritPoison = firesOnCritPoison(
+    attacker.player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  if (sigCritPoison) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[독니] ${defender.name}을(를) 중독시켰다!`,
+    });
+  }
+  if (sigCritSpeedBuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[군림] 결정타 — 속도가 솟구친다!`,
+    });
+  }
+  const sigSpdActiveMult =
+    nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
+      ? nextBuffsTimedFromAp.playerSpdMult
+      : 1;
   // 지속 효과 (PR-2 미러).
   // 여기는 cyclingChiBonus(매 턴 누적) 만 추가한다.
   const nextBuffsTimed: PvPSideBuffs = {
     ...nextBuffsTimedFromAp,
     cyclingChiBonus: cyclingChiThisTurn,
+    // 군림 on-crit 속도 버프 병합(미발동=빈 객체·기존 버프보다 약하면 Math.max 로 유지).
+    ...(sigCritSpeedBuff
+      ? {
+          playerSpdMult: Math.max(sigSpdActiveMult, sigCritSpeedBuff.mult),
+          playerSpdTurnsLeft: Math.max(
+            nextBuffsTimedFromAp.playerSpdTurnsLeft,
+            sigCritSpeedBuff.turns,
+          ),
+        }
+      : {}),
   };
   // 사이드 갱신 — 공격자 + 방어자.
   // attacksLeft 는 아래 분기에서 setSide 로 명시적으로 덮어쓰므로 여기 안 박음 (연환격 가산은 그 변수에서).
@@ -846,6 +892,16 @@ export function advanceTurnPvP(
   };
   const newDefender: PvPSide = applyPvPOnHitDots({
     ...defender,
+    // 독니 on-crit 독(Phase 2) 합류 — 미발동=defender.v2Dots 그대로.
+    v2Dots: sigCritPoison
+      ? applyV2DotsToTarget(defender.v2Dots, [
+          makePoisonDot({
+            stacks: 1,
+            pctMaxHpPerStack: SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
+            sourceAtk: attacker.player.atk,
+          }),
+        ])
+      : defender.v2Dots,
     hp: newDefenderHp,
     flags: {
       ...defender.flags,

@@ -161,7 +161,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~42)
   const swamp = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 31)!;
   const den = BAND_UNIQUE_POOLS.find((p) => p.minDepth === 37)!;
 
-  it("성소(25~30)·늪지(31~36)·소굴(37~42) = 각 고유 5종, chance 0.0005, 전부 유니크", () => {
+  it("성소(25~30)·늪지(31~36)·소굴(37~42) = 각 고유 5종, chance 0.0002, 전부 유니크", () => {
     for (const [pool, min, max] of [
       [sanctum, 25, 30],
       [swamp, 31, 36],
@@ -170,7 +170,7 @@ describe("BAND_UNIQUE_POOLS — 고유 아이템(Signature, 잊힌 성소 25~42)
       expect(pool.minDepth).toBe(min);
       expect(pool.maxDepth).toBe(max);
       expect(pool.ids).toHaveLength(5);
-      expect(pool.chance).toBe(0.0005);
+      expect(pool.chance).toBe(0.0002);
       for (const id of pool.ids) {
         expect(isUnique(V2_EQUIPMENT[id]), `${id} 유니크`).toBe(true);
       }

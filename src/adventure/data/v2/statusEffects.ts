@@ -37,7 +37,8 @@ export const V2_DOT_PRESETS = {
     turns: 5,
     flatPerStack: 0,
     atkCoefPerStack: 0,
-    pctMaxHpPerStack: 4 * POISON_PCT_PER_POINT,
+    // 잡몹 체감 버프(2026): 스택당 4→6 POINT (HP 0.16%→0.24%). 보스는 ATK×0.6 상한이 그대로 캡.
+    pctMaxHpPerStack: 6 * POISON_PCT_PER_POINT,
   },
   연소: {
     tag: "burn" as const,
@@ -45,8 +46,9 @@ export const V2_DOT_PRESETS = {
     stacks: 1,
     maxStacks: 1,
     turns: 2,
-    flatPerStack: 8,
-    atkCoefPerStack: 0,
+    // 연소 버프(2026): 옛 flat 8(무스케일 → 깊을수록 무의미)에 ATK 계수 부여 + flat↑. 짧은 버스트 정체성 유지.
+    flatPerStack: 12,
+    atkCoefPerStack: 0.2,
     pctMaxHpPerStack: 0,
   },
 } as const;

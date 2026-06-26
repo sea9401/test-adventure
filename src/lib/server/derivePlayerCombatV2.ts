@@ -42,7 +42,6 @@ import {
   parseProficiencyForChar,
   effectiveStatCap,
 } from "@/adventure/data/v2/proficiency";
-import { resolveClassPassive } from "@/adventure/data/v2/v2Passives";
 import {
   parseV2SkillsState,
   aggregateEquippedPassives,
@@ -667,20 +666,12 @@ export function derivePlayerCombatV2Pure(
   const savedMp = input.mp ?? maxMp;
   const mp = Math.max(0, Math.min(savedMp, maxMp));
 
-  // 직업 패시브 (시그니처 대체) — 현 직업군에서 학습한 시그니처 최고티어의 상시 효과.
-  // 2026-06-03 재설계: 직업군당 효과 1개. 검사=atk+STR계수·마법사=magicAtk+INT계수는 여기서,
-  // 궁수 방어관통·체술 카운터·마법사 평타마공화는 PlayerCombat 필드로 넘겨 엔진이 적용.
-  const passive = resolveClassPassive(
-    input.playerClass,
-    input.learnedSkillIds ?? [],
-  );
-  // 검사 — 평타 공격력에 STR×계수 가산. 마법사 — 마법공격력에 INT×계수 가산.
-  const finalAtk =
-    atk + Math.floor(totalStats.str * (passive?.atkPerStrCoef ?? 0));
-  const finalMagicAtk =
-    magicAtk + Math.floor(totalStats.int * (passive?.magicAtkPerIntCoef ?? 0));
-  // 인술(passive.critMultAdd) 도 같은 가산원 풀에 합류 — 점감 곡선은 출력부에서 1회 적용.
-  const critBonusWithPassive = critBonus + (passive?.critMultAdd ?? 0);
+  // 구 직업군 패시브(V2_CLASS_PASSIVE)는 P4(2026-06-04)에 은퇴 → 효과 패시브(jobPassive→specEff)가
+  // 대체. 과거 atk/magicAtk/critBonus 에 더하던 직업군 가산은 항상 0 이었으므로 그대로 통과시킨다.
+  // (finalAtk/finalMagicAtk 은 아래 specEff 곱연산 직전의 베이스 — 이름·역할 유지.)
+  const finalAtk = atk;
+  const finalMagicAtk = magicAtk;
+  const critBonusWithPassive = critBonus;
 
   // ── 직업 효과 패시브 (jobPassive → specEff 경로) ───────────────────────
   // 래퍼가 jobPassive(jobId) 를 주입. 미정의 직업/sim·테스트 미지정 = {} (전부 항등·inert).
@@ -775,22 +766,22 @@ export function derivePlayerCombatV2Pure(
     critResistPct,
     minDamage,
     healMult,
-    // 직업 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 직업 효과는 합산(sumOrUndef).
+    // 직업 효과 패시브 — 엔진이 읽어 적용. 미보유면 undefined(no-op). 합산(sumOrUndef).
+    // (구 직업군 패시브는 은퇴 → specEff/input 만 합류.)
     passiveTurnHealPctMaxHp: sumOrUndef(
-      passive?.turnHealPctMaxHp,
+      undefined,
       specEff.hpRegenPctPerTurn,
     ), // 신성 회복류(기존 턴회복 훅 재사용)
     passiveDefPenetrationPct: sumOrUndef(
-      passive?.defPenetrationPct,
+      undefined,
       specEff.defPenetrationPct,
-    ), // 궁수 + 광검류
+    ), // 광검류
     passiveCounterChancePct: sumOrUndef(
       input.passiveCounterChancePct,
-      sumOrUndef(passive?.counterChancePct, specEff.counterChancePct),
-    ), // 절정 반격(장착 패시브·input) + 무도가(클래스 패시브) + 철벽검류(전문화)
-    // 마력구(마법사 직군 패시브) — 평타를 마법공격력 기반으로. 모든 마법사 상시(무료 패시브).
-    passiveMagicBasicAttack:
-      playerClass === "mage" ? true : passive?.magicBasicAttack,
+      sumOrUndef(undefined, specEff.counterChancePct),
+    ), // 절정 반격(장착 패시브·input) + 철벽검류(전문화)
+    // 마력구 — 평타를 마법공격력 기반으로. 모든 마법사 상시(무료 패시브).
+    passiveMagicBasicAttack: playerClass === "mage" ? true : undefined,
     // 직업 효과 패시브 — 미보유 시 키 생략(spread)으로 inert. 받피감(P3b 훅)·반사(thornsPct)·출혈/중독.
     ...(totalDamageTakenReductionPct > 0
       ? { passiveDamageTakenReductionPct: totalDamageTakenReductionPct }

@@ -117,8 +117,8 @@ export const COOP_UNIQUE_CHANCE: Record<CoopRewardTier, number> = {
   bronze: 0,
   silver: 0,
   gold: 0,
-  epic: 0.05,
-  legend: 0.12,
+  epic: 0.12, // 라이브 상향(2026-06-26) — 5%→12%
+  legend: 0.25, // 라이브 상향 — 12%→25%
 };
 
 // 유니크 드랍 굴림(순수). rng() ∈ [0,1). 도달 티어 확률 단일 굴림 — 통과 시 true.

@@ -469,8 +469,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 3,
     options: { def: 18, crit: 5, critMult: 25 }, // 개성: 갑옷에 치명축 → 자체 한기 발동
     rarity: "unique",
-    // 한기(신규) — 치명타 시 대상 둔화(속도 −25%·2행동). 군림(자속도+)의 거울.
-    signature: { trigger: "on_crit", label: "한기", chillSlowPct: 25, buffActions: 2 },
+    // 한기(신규) — 치명타 시 대상 둔화. 라이브 상향(2026-06-26): 속도 −25%·2행동 → −35%·3행동.
+    signature: { trigger: "on_crit", label: "한기", chillSlowPct: 35, buffActions: 3 },
   },
 
   // ── 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique" 드랍 전용) ───────────────

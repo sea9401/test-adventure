@@ -1,0 +1,1 @@
+CREATE INDEX "listings_v2_sold_idx" ON "marketplace_listings_v2" USING btree ("closed_at") WHERE "marketplace_listings_v2"."status" = 'sold';

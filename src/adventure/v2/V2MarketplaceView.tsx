@@ -52,7 +52,20 @@ function listingEnhance(payload: unknown): V2EnhanceState | undefined {
   return parseEnhance((payload as { enhance?: unknown } | null)?.enhance);
 }
 
-type Tab = "browse" | "mine" | "sell";
+type Tab = "browse" | "history" | "mine" | "sell";
+
+// 최근 거래(체결 내역) 한 행 — /api/v2/marketplace/history. status='sold' 스냅샷.
+type Trade = {
+  id: number;
+  sellerName: string;
+  kind: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  price: number;
+  instancePayload: unknown;
+  closedAt: string | null;
+};
 
 // 판매 탭 한 페이지에 보여줄 아이템 수 — 인벤토리와 동일.
 const SELL_PAGE_SIZE = 20;
@@ -83,6 +96,8 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
   const [viewerId, setViewerId] = useState<string | null>(null);
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [mine, setMine] = useState<Listing[] | null>(null);
+  // 최근 거래 — Trade 를 Listing 형태로 매핑(ListingList 재사용). createdAt 자리 = 체결 시각.
+  const [history, setHistory] = useState<Listing[] | null>(null);
   // 팔기 — 내 인벤(미장착·미잠금 장비 + 재료).
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<Partial<Record<V2EquipSlot, string>>>({});
@@ -165,6 +180,30 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
     if (j?.ok && j.prices) setPriceRef(j.prices);
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    const res = await fetch("/api/v2/marketplace/history");
+    const j = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      trades?: Trade[];
+    } | null;
+    if (!res.ok || !j?.ok) throw new Error(`거래 내역 로드 실패 (${res.status})`);
+    // ListingList 재사용 — createdAt 자리에 체결 시각(closedAt). expiry 미전달이라 timeAgo 에만 쓰임.
+    setHistory(
+      (j.trades ?? []).map((t) => ({
+        id: t.id,
+        sellerId: "",
+        sellerName: t.sellerName,
+        kind: t.kind as Listing["kind"],
+        itemId: t.itemId,
+        itemName: t.itemName,
+        quantity: t.quantity,
+        price: t.price,
+        instancePayload: t.instancePayload,
+        createdAt: t.closedAt ?? "",
+      })),
+    );
+  }, []);
+
   // 탭 전환 시 해당 데이터 로드. 둘러보기·팔기는 시세도 함께(가격 판단 참고).
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- 탭 전환 시 이전 에러 클리어
@@ -174,11 +213,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
       void loadPrices();
     } else if (tab === "mine") {
       void loadBrowse(true).catch((e) => setError(String(e.message ?? e)));
+    } else if (tab === "history") {
+      void loadHistory().catch((e) => setError(String(e.message ?? e)));
     } else {
       void loadInventory().catch(() => setError("인벤토리 로드 실패"));
       void loadPrices();
     }
-  }, [tab, loadBrowse, loadInventory, loadPrices]);
+  }, [tab, loadBrowse, loadInventory, loadPrices, loadHistory]);
 
   const act = useCallback(
     async (url: string, body: Record<string, unknown>, okMsg: string, after: () => Promise<void>) => {
@@ -337,9 +378,10 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
         }
       />
 
-      <div className="flex gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {([
           ["browse", "둘러보기"],
+          ["history", "최근 거래"],
           ["mine", "내 매물"],
           ["sell", "팔기"],
         ] as const).map(([k, label]) => (
@@ -426,6 +468,22 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
             onOpenCard={openCardFor}
           />
         </>
+      )}
+
+      {tab === "history" && (
+        <ListingList
+          rows={history}
+          emptyText="아직 체결된 거래가 없어요."
+          priceRef={{}}
+          onOpenCard={openCardFor}
+          action={(l) => (
+            <span className="shrink-0 text-right text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+              {l.sellerName}
+              <br />
+              {timeAgo(l.createdAt)}
+            </span>
+          )}
+        />
       )}
 
       {tab === "mine" && (
@@ -665,6 +723,19 @@ function SelectControl({
       ))}
     </select>
   );
+}
+
+// 체결 시각(ISO) → 상대 표기. 최근 거래 내역 "방금 / N분·시간·일 전".
+function timeAgo(iso: string): string {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return "";
+  if (ms < 60_000) return "방금";
+  const min = Math.floor(ms / 60_000);
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
 }
 
 // 등록 후 경과 → 만료까지 남은 일수(올림). expiryDays(TTL) 없으면 null.

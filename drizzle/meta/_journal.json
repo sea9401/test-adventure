@@ -624,6 +624,13 @@
       "when": 1782370909689,
       "tag": "0088_backfill_orphan_tile_occupations_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1782513912603,
+      "tag": "0089_marketplace_sold_idx",
+      "breakpoints": true
     }
   ]
 }

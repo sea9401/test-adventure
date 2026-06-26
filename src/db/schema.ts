@@ -408,6 +408,10 @@ export const marketplaceListingsV2 = pgTable(
       .where(sql`${t.status} = 'active'`),
     // 내 매물 / 슬롯 카운트.
     index("listings_v2_seller_idx").on(t.sellerId, t.status, t.createdAt),
+    // 최근 거래(체결 내역, closedAt desc) + 시세 집계 — status='sold' 부분 인덱스.
+    index("listings_v2_sold_idx")
+      .on(t.closedAt)
+      .where(sql`${t.status} = 'sold'`),
     check(
       "listings_v2_kind_valid",
       sql`${t.kind} IN ('equip','material','consumable')`,

@@ -394,6 +394,26 @@ export type SignatureEffect = {
   everyNHits?: number;
 };
 
+// 시그니처 효과 → 사람이 읽는 한 줄(아이템/세트 툴팁용). 트리거+파라미터를 한국어로.
+export function signatureLabel(sig: SignatureEffect): string {
+  switch (sig.trigger) {
+    case "low_hp":
+      return `체력 ${sig.hpThresholdPct ?? 0}% 이하일 때 받는 피해 −${sig.damageTakenReductionPct ?? 0}%`;
+    case "on_dodge":
+      if (sig.healPct) return `회피 시 HP +${sig.healPct}% 회복`;
+      if (sig.spdBuffPct)
+        return `회피 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
+      return "회피 시 발동";
+    case "on_crit":
+      if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
+      if (sig.spdBuffPct)
+        return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
+      return "치명타 시 발동";
+    case "every_n_hits":
+      return `${sig.everyNHits ?? 0}타마다 추가타 1회`;
+  }
+}
+
 // === 장비 세트 ======================================================
 // 한 세트의 조각을 전부 장착하면 보너스(옵션 후-가산, aggregateV2Equipment 에서 적용).
 export type V2EquipSet = {

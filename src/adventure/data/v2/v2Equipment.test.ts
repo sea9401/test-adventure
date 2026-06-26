@@ -5,6 +5,7 @@ import {
   V2_EQUIPMENT,
   V2_EQUIP_OPTION_KEYS,
   V2_EQUIP_SETS,
+  signatureLabel,
   isUnique,
   parseEquipmentSave,
   powerBandOf,
@@ -611,6 +612,54 @@ describe("무기 종류 게이트 (weaponType / weaponTypeOf / weaponGateOpen)",
   it("weaponType 필드는 무기 슬롯에서만 — 방어구·장신구엔 미부여", () => {
     for (const item of Object.values(V2_EQUIPMENT)) {
       if (item.weaponType !== undefined) expect(item.slot).toBe("weapon");
+    }
+  });
+});
+
+describe("signatureLabel (시그니처 효과 표기·툴팁용)", () => {
+  it("트리거별 한국어 한 줄 — 6 효과", () => {
+    expect(
+      signatureLabel({
+        trigger: "low_hp",
+        label: "성물",
+        hpThresholdPct: 30,
+        damageTakenReductionPct: 25,
+      }),
+    ).toBe("체력 30% 이하일 때 받는 피해 −25%");
+    expect(
+      signatureLabel({ trigger: "every_n_hits", label: "포식자", everyNHits: 3 }),
+    ).toBe("3타마다 추가타 1회");
+    expect(
+      signatureLabel({
+        trigger: "on_dodge",
+        label: "독왕",
+        spdBuffPct: 25,
+        buffActions: 3,
+      }),
+    ).toBe("회피 시 속도 +25% (3행동)");
+    expect(
+      signatureLabel({ trigger: "on_dodge", label: "봉인", healPct: 8 }),
+    ).toBe("회피 시 HP +8% 회복");
+    expect(
+      signatureLabel({ trigger: "on_crit", label: "독니", poisonOnCrit: true }),
+    ).toBe("치명타 시 대상 중독(독)");
+    expect(
+      signatureLabel({
+        trigger: "on_crit",
+        label: "군림",
+        spdBuffPct: 20,
+        buffActions: 2,
+      }),
+    ).toBe("치명타 시 속도 +20% (2행동)");
+  });
+
+  it("세트/단품 카탈로그 시그니처 전부 비어있지 않은 표기", () => {
+    for (const s of V2_EQUIP_SETS) {
+      if (s.signature) expect(signatureLabel(s.signature).length).toBeGreaterThan(0);
+    }
+    for (const it of Object.values(V2_EQUIPMENT)) {
+      if (it.signature)
+        expect(signatureLabel(it.signature).length).toBeGreaterThan(0);
     }
   });
 });

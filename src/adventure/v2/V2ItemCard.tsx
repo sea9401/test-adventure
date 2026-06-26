@@ -9,6 +9,7 @@ import {
   V2_EQUIPMENT,
   V2_SLOT_LABEL,
   powerBandOf,
+  signatureLabel,
   v2EquipStatRows,
   type V2Equipment,
   type V2EquipmentId,
@@ -278,6 +279,13 @@ export function V2ItemCard({
           </>
         )}
 
+        {/* 단품 마퀴 시그니처(세트 아닌 고유 아이템의 발동형 효과) — 장착만 하면 발동. */}
+        {item.signature && (
+          <div className="mt-2 border-t border-zinc-200 pt-2 text-[11px] font-medium text-amber-600 dark:border-zinc-800 dark:text-amber-400">
+            ★ {signatureLabel(item.signature)}
+          </div>
+        )}
+
         {set && (
           <div className="mt-2 border-t border-zinc-200 pt-2 dark:border-zinc-800">
             <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -301,6 +309,18 @@ export function V2ItemCard({
                 {formatSetBonus(set.bonus)}
               </span>
             </div>
+            {/* 세트 발동형 시그니처 효과(전 부위 착용 시) — 스탯 보너스와 별개로 명시. */}
+            {set.signature && (
+              <p
+                className={`mt-1 text-[11px] ${
+                  setActive
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
+                ★ {signatureLabel(set.signature)}
+              </p>
+            )}
             {/* 세트 구성 — 착용 중인 부위는 밝게(흰색) 하이라이트로 몇 부위 모았는지 한눈에. */}
             <ul className="mt-1 space-y-px">
               {set.pieces.map((pid) => {

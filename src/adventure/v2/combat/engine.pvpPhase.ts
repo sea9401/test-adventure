@@ -25,6 +25,7 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
+  everyNHitsValue,
   firesOnCritPoison,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
@@ -808,6 +809,24 @@ export function advanceTurnPvP(
   // 고유 시그니처 on-crit(Phase 2·PvP 미러) — 군림=공격자 속도 버프, 독니=방어자 중독.
   //   미장착=null/false → byte-identical. critRoll + 피해 발생 게이트.
   const sigDealtDamage = totalDmg > 0;
+  // 포식자 every-N(Phase 2·PvP 미러) — N타마다 추가타. 미장착(N=0)=카운터 불변·추가타 0 → byte-identical.
+  const sigEveryN = everyNHitsValue(attacker.player.equipSignatures);
+  const nextSigHitCount =
+    sigEveryN > 0 && sigDealtDamage
+      ? attacker.stacks.signatureHitCount + 1
+      : attacker.stacks.signatureHitCount;
+  const sigExtraAttack =
+    sigEveryN > 0 &&
+    nextSigHitCount > attacker.stacks.signatureHitCount &&
+    nextSigHitCount % sigEveryN === 0
+      ? 1
+      : 0;
+  if (sigExtraAttack > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[포식자] ${attacker.name} 연격 — 한 번 더!`,
+    });
+  }
   const sigCritSpeedBuff = onCritSpeedBuff(
     attacker.player.equipSignatures,
     critRoll,
@@ -870,6 +889,7 @@ export function advanceTurnPvP(
       ...attacker.stacks,
       evadesRemaining: attacker.stacks.evadesRemaining + apEvadesAdd,
       weakpointDefIgnoreLeft: newWeakpointLeft,
+      signatureHitCount: nextSigHitCount, // 포식자 every-N 카운터(미장착=불변)
     },
     turn: {
       ...attacker.turn,
@@ -943,7 +963,8 @@ export function advanceTurnPvP(
   next = martialCounterResult.state;
   if (martialCounterResult.attackerKilled) return next;
   // 남은 공격 횟수 — 연환격(comboExtraAttacks) 도 포함.
-  const attacksLeft = attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks;
+  const attacksLeft =
+    attacker.attacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;
   if (attacksLeft > 0) {
     return setSide(next, atkKey, {
       ...next[atkKey],

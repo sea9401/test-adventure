@@ -30,6 +30,7 @@ import {
   v2DefBuffMult,
 } from "./combatShared";
 import {
+  everyNHitsValue,
   firesOnCritPoison,
   onCritSpeedBuff,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
@@ -723,6 +724,24 @@ export function resolvePlayerPhase(
   // 고유 시그니처 on-crit(Phase 2) — 크리 + 피해 발생 시 발동. 미장착=null/false → byte-identical.
   //   군림목걸이=속도 버프(playerSpdMult), 독니 단검=대상 중독 DoT. 둘 다 아래 afterDamage 에 합류.
   const sigDealtDamage = totalDmg > 0;
+  // 포식자 every-N(Phase 2) — N타마다 추가타 1회. 미장착(N=0)이면 카운터 불변·추가타 0 → byte-identical.
+  const sigEveryN = everyNHitsValue(player.equipSignatures);
+  const nextSigHitCount =
+    sigEveryN > 0 && sigDealtDamage
+      ? state.stacks.signatureHitCount + 1
+      : state.stacks.signatureHitCount;
+  const sigExtraAttack =
+    sigEveryN > 0 &&
+    nextSigHitCount > state.stacks.signatureHitCount &&
+    nextSigHitCount % sigEveryN === 0
+      ? 1
+      : 0;
+  if (sigExtraAttack > 0) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[포식자] 연격 — 한 번 더!`,
+    });
+  }
   const sigCritSpeedBuff = onCritSpeedBuff(
     player.equipSignatures,
     critRoll,
@@ -798,6 +817,7 @@ export function resolvePlayerPhase(
       weakpointDefIgnoreLeft: newWeakpointDefIgnoreLeft,
       comboAtkBonus: nextComboAtkBonus,
       comboHitCount: nextComboHitCount,
+      signatureHitCount: nextSigHitCount, // 포식자 every-N 카운터(미장착=불변)
     },
     turn: {
       ...state.turn,
@@ -833,7 +853,7 @@ export function resolvePlayerPhase(
     };
   }
   const attacksLeft =
-    state.playerAttacksLeft - 1 + weakpointAdd + comboExtraAttacks;
+    state.playerAttacksLeft - 1 + weakpointAdd + comboExtraAttacks + sigExtraAttack;
   if (attacksLeft > 0) {
     return {
       ...afterDamage,

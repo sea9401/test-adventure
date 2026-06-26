@@ -5,6 +5,7 @@ import {
   firesOnCritPoison,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
+  everyNHitsValue,
 } from "./signatureEffects";
 import { resolveBattle } from "./engine";
 import { pickAutoAction } from "./pickAutoAction";
@@ -160,6 +161,79 @@ describe("onDodgeSpeedBuff (독왕 회피 속도)", () => {
       onDodgeSpeedBuff([{ trigger: "on_dodge", label: "봉인", healPct: 8 }]),
     ).toBeNull(); // spdBuffPct 없음
     expect(onDodgeSpeedBuff([CROWN])).toBeNull(); // on_crit
+  });
+});
+
+describe("everyNHitsValue (포식자 N타마다)", () => {
+  const PRED: SignatureEffect = {
+    trigger: "every_n_hits",
+    label: "포식자",
+    everyNHits: 3,
+  };
+  it("every_n_hits → N (가장 작은 N)", () => {
+    expect(everyNHitsValue([PRED])).toBe(3);
+    const faster: SignatureEffect = {
+      trigger: "every_n_hits",
+      label: "빠름",
+      everyNHits: 2,
+    };
+    expect(everyNHitsValue([PRED, faster])).toBe(2); // 더 자주
+  });
+  it("미장착/다른 트리거/N<1 → 0", () => {
+    expect(everyNHitsValue(undefined)).toBe(0);
+    expect(everyNHitsValue([CROWN])).toBe(0); // on_crit
+    expect(
+      everyNHitsValue([{ trigger: "every_n_hits", label: "0", everyNHits: 0 }]),
+    ).toBe(0);
+  });
+});
+
+describe("엔진 통합 — 포식자 every-N 카운터가 적중 시 증가한다 (PvE)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  function dummyPredator(equipSignatures?: SignatureEffect[]) {
+    const base = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    return {
+      ...base,
+      hp: 60,
+      maxHp: 60,
+      attackCount: 1,
+      ...(equipSignatures ? { equipSignatures } : {}),
+    };
+  }
+  const PRED: SignatureEffect = {
+    trigger: "every_n_hits",
+    label: "포식자",
+    everyNHits: 3,
+  };
+
+  it("포식자 장착 → finalState.stacks.signatureHitCount > 0 (적중마다 증가)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const res = resolveBattle(
+      dummyPredator([PRED]),
+      V2_MONSTERS["훈련용 허수아비"],
+      "용사",
+      {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: emptyV2SkillsState(),
+      },
+    );
+    expect(res.finalState.stacks.signatureHitCount).toBeGreaterThan(0);
+  });
+
+  it("대조군 — 미장착이면 signatureHitCount 0 유지(byte-identical 가드)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const res = resolveBattle(
+      dummyPredator(),
+      V2_MONSTERS["훈련용 허수아비"],
+      "용사",
+      {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: emptyV2SkillsState(),
+      },
+    );
+    expect(res.finalState.stacks.signatureHitCount).toBe(0);
   });
 });
 

@@ -161,6 +161,8 @@ export type PvPSideStacks = {
   // 주문 중첩(워메이지) — 이 side(시전자)의 누적 스킬 시전 횟수. 스택당 스킬피해 +skillDmgPctPerCast%.
   // 감쇠 없음·SPELL_STACK_CAP 상한.
   spellCastCount: number;
+  // 고유 시그니처(포식자) — 이 side 의 누적 적중 횟수(N타마다 추가타·Phase 2). 미장착=0 고정 → byte-identical.
+  signatureHitCount: number;
 };
 
 export type PvPSide = {
@@ -409,6 +411,7 @@ function buildSide(
       healReduceTurns: 0,
       magicVulnStacks: 0,
       spellCastCount: 0,
+      signatureHitCount: 0,
     },
   };
 }

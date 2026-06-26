@@ -5,6 +5,7 @@ import {
   extractApEffect,
   tickV2SkillCooldowns,
   pickAutoCastV2Skill,
+  v2SkillMpCost,
   resolveV2SkillCast,
   tickV2BuffMap,
   applyV2BuffsToMap,
@@ -154,12 +155,12 @@ describe("pickAutoCastV2Skill (PR-4a)", () => {
   });
 
   it("MP 부족이면 skip → 다음 슬롯", () => {
-    // MP-throttle: 화염구(mpCost 38) 불가 + strike(8) 가능한 MP(10) → strike.
+    // MP-throttle: 화염구(55) 불가 + strike(42) 딱 가능한 MP → strike (고정 절대값 모델).
     expect(
       pickAutoCastV2Skill({
         equipped: ["v2c_mage_fireball", "v2_skill_strike"],
         cooldowns: {},
-        mp: 10,
+        mp: v2SkillMpCost(V2_SKILLS["v2_skill_strike"]),
       }),
     ).toBe("v2_skill_strike");
   });
@@ -241,7 +242,7 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
     });
     expect(result.castSkillId).toBe("v2_skill_strike");
     expect(result.castSkillName).toBe(strike.name);
-    expect(result.nextMp).toBe(100 - strike.mpCost);
+    expect(result.nextMp).toBe(100 - v2SkillMpCost(strike));
     expect(result.nextCooldowns).toEqual({
       v2_skill_recover: 2,
       v2_skill_strike: strike.cooldown + 1,
@@ -268,7 +269,7 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
         equipped: ["v2_skill_strike"],
       },
       cooldowns: {},
-      mp: strike.mpCost * 5,
+      mp: v2SkillMpCost(strike) * 5,
     });
     expect(t1.castSkillId).toBe("v2_skill_strike");
     expect(t1.nextCooldowns).toEqual({ v2_skill_strike: strike.cooldown + 1 });
@@ -298,7 +299,7 @@ describe("resolveV2SkillCast (PR-4a — framework: cd/MP/슬롯 픽)", () => {
 });
 
 describe("resolveV2SkillCast 발동 확률 (procChance — 스킬 발동확률 시스템)", () => {
-  const fireballMp = V2_SKILLS["v2c_mage_fireball"].mpCost;
+  const fireballMp = v2SkillMpCost(V2_SKILLS["v2c_mage_fireball"]);
 
   it("화염구 procChance=30 — 롤 < 30 이면 발동 (MP 차감 + 피해)", () => {
     const r = resolveV2SkillCast({

@@ -423,44 +423,54 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
   // 협동 보스 토벌 보상으로만 획득(coopBosses, 일반 사냥 풀·상점·제작 제외). 토벌이 의도적
   // 고스태미나 단판이라 드랍률은 밴드 풀보다 높게(보스당 단일 풀). 위력은 그 밴드 정규 유니크보다
   // 한 끗 위 — "보스 처치 = 그 테마 최고 트로피" 체감. 아트는 보스 이미지와 결만 맞춘 플레이버.
+  // 협동 보스 전용 시그니처 유니크 3종(2026-06-26 재설계) — 보스 토벌 EPIC+ 확률 드랍.
+  //   id 는 옛 휴면 유니크 재활용(보유분 호환). 차별점 = 시그니처 발동 효과 + 슬롯 관습 깨는 개성 옵션.
   v2_boss_mountain_axe: {
     id: "v2_boss_mountain_axe",
     slot: "weapon",
     concept: "str",
     tier: 3,
-    name: "산왕의 쌍도끼",
-    description: "산길을 호령하던 두목이 휘두르던 쌍도끼. 한 번 떨어지면 바위도 갈라진다.",
-    power: 90,
+    name: "산군의 분쇄도끼",
+    description:
+      "산을 호령하던 산군의 쌍도끼. 내려칠수록 가속이 붙어, 네 번째 일격은 산도 가른다.",
+    power: 92,
     weight: 5,
-    options: { hp: 80, critMult: 30 },
+    options: { hp: 70, spd: 8 }, // 개성: 무거운 대검에 spd(관습 깨기)
     weaponType: "greatsword",
     rarity: "unique",
+    // 분쇄 — 4타마다 추가타 1회(포식자 아키타입 재사용).
+    signature: { trigger: "every_n_hits", label: "분쇄", everyNHits: 4 },
   },
   v2_boss_canyon_fang: {
     id: "v2_boss_canyon_fang",
     slot: "weapon",
     concept: "dex",
     tier: 3,
-    name: "사구 군주의 독니",
-    description: "마른 협곡을 지배하던 포식자의 송곳니로 벼린 단검. 빈틈을 놓치지 않는다.",
-    power: 86,
+    name: "전갈왕의 독침",
+    description:
+      "스콜피온 킹의 꼬리침으로 벼린 단검. 급소를 찌르면 맹독이 스며든다.",
+    power: 84,
     weight: 1,
-    options: { crit: 6, critMult: 30 },
+    options: { crit: 6, hp: 60 }, // 개성: 단검에 hp(글캐인데 단단)
     weaponType: "dagger",
     rarity: "unique",
+    // 맹독 — 치명타 시 대상 중독(독니 아키타입 재사용).
+    signature: { trigger: "on_crit", label: "맹독", poisonOnCrit: true },
   },
   v2_boss_lake_maul: {
     id: "v2_boss_lake_maul",
-    slot: "weapon",
-    concept: "str",
+    slot: "armor",
+    concept: "heavy",
     tier: 3,
-    name: "동결의 권갑",
-    description: "얼음 호수 깊은 곳의 군주가 두르던 권갑. 닿는 것마다 얼어붙는다.",
-    power: 96,
+    name: "동결의 갑주",
+    description:
+      "호수의 괴물에게서 떼어낸 얼음 갑주. 두른 자의 매서운 일격에 적이 얼어붙는다.",
+    power: 42,
     weight: 3,
-    options: { hp: 70, crit: 3 },
-    weaponType: "greatsword",
+    options: { def: 18, crit: 5, critMult: 25 }, // 개성: 갑옷에 치명축 → 자체 한기 발동
     rarity: "unique",
+    // 한기(신규) — 치명타 시 대상 둔화(속도 −25%·2행동). 군림(자속도+)의 거울.
+    signature: { trigger: "on_crit", label: "한기", chillSlowPct: 25, buffActions: 2 },
   },
 
   // ── 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique" 드랍 전용) ───────────────

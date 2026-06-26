@@ -32,6 +32,7 @@ import {
 import {
   everyNHitsValue,
   firesOnCritPoison,
+  onCritEnemyChill,
   onCritSpeedBuff,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
 } from "./signatureEffects";
@@ -774,6 +775,23 @@ export function resolvePlayerPhase(
         ),
       }
     : null;
+  // 한기(동결의 갑주) — 크리 시 적 둔화. enemySpdMult 슬로우 슬롯에 병합(가장 강한 슬로우=Math.min).
+  const sigCritChill = onCritEnemyChill(
+    player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  const sigEnemySlowActiveMult =
+    nextBuffsTimed.enemySpdTurnsLeft > 0 ? nextBuffsTimed.enemySpdMult : 1;
+  const sigChillDebuff = sigCritChill
+    ? {
+        enemySpdMult: Math.min(sigEnemySlowActiveMult, sigCritChill.mult),
+        enemySpdTurnsLeft: Math.max(
+          nextBuffsTimed.enemySpdTurnsLeft,
+          sigCritChill.turns,
+        ),
+      }
+    : null;
   if (sigCritPoison) {
     log = appendLog(log, {
       kind: "info",
@@ -784,6 +802,12 @@ export function resolvePlayerPhase(
     log = appendLog(log, {
       kind: "info",
       text: `[군림] 결정타 — 속도가 솟구친다!`,
+    });
+  }
+  if (sigChillDebuff) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[한기] ${state.enemy.name}이(가) 얼어붙어 굼떠진다!`,
     });
   }
   // 페이즈 트리거 검사 — 데미지 적용 직후, 사망 분기 전에 처리해야 트리거된 def 가
@@ -810,6 +834,8 @@ export function resolvePlayerPhase(
       cyclingChiBonus: cyclingChiThisTurn,
       // 고유 시그니처 on-crit 속도 버프(군림) 병합 — 미발동이면 빈 객체(불변).
       ...(sigSpdBuff ?? {}),
+      // 고유 시그니처 on-crit 한기(동결의 갑주) 적 둔화 — 미발동이면 빈 객체(불변).
+      ...(sigChillDebuff ?? {}),
     },
     stacks: {
       ...state.stacks,

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   lowHpDamageReductionPct,
   onCritSpeedBuff,
+  onCritEnemyChill,
   firesOnCritPoison,
   onDodgeHealAmount,
   onDodgeSpeedBuff,
@@ -32,6 +33,44 @@ const RELIC: SignatureEffect = {
   hpThresholdPct: 30,
   damageTakenReductionPct: 25,
 };
+
+const FROST: SignatureEffect = {
+  trigger: "on_crit",
+  label: "한기",
+  chillSlowPct: 25,
+  buffActions: 2,
+};
+
+describe("onCritEnemyChill (동결의 갑주 한기 — 크리 시 적 둔화)", () => {
+  it("시그니처 없음/빈 배열/미장착 → null (골든 byte-identical 가드)", () => {
+    expect(onCritEnemyChill(undefined, true, true)).toBeNull();
+    expect(onCritEnemyChill([], true, true)).toBeNull();
+    expect(onCritEnemyChill([CROWN, FANG], true, true)).toBeNull(); // chillSlowPct 없음
+  });
+
+  it("크리 아님/피해 없음이면 미발동", () => {
+    expect(onCritEnemyChill([FROST], false, true)).toBeNull();
+    expect(onCritEnemyChill([FROST], true, false)).toBeNull();
+  });
+
+  it("크리+피해 시 슬로우 배수(<1)+지속행동 반환", () => {
+    const r = onCritEnemyChill([FROST], true, true);
+    expect(r).not.toBeNull();
+    expect(r!.mult).toBeCloseTo(0.75); // 1 − 25%
+    expect(r!.turns).toBe(2);
+    expect(r!.mult).toBeLessThan(1); // 적을 늦춤
+  });
+
+  it("여러 개면 가장 강한 슬로우(가장 작은 배수)", () => {
+    const strong: SignatureEffect = {
+      trigger: "on_crit",
+      label: "한기",
+      chillSlowPct: 40,
+    };
+    const r = onCritEnemyChill([FROST, strong], true, true);
+    expect(r!.mult).toBeCloseTo(0.6); // 40% 슬로우가 더 강함
+  });
+});
 
 describe("lowHpDamageReductionPct (성물 저체력 받피감)", () => {
   it("시그니처 없음/빈 배열 → 0 (골든 byte-identical 가드)", () => {
@@ -283,5 +322,43 @@ describe("엔진 통합 — on-crit 독(독니)이 실제 적에게 부여된다
     expect(res.finalState.enemyV2Dots.some((d) => d.tag === "poison")).toBe(
       false,
     );
+  });
+
+  it("한기(동결의 갑주) 장착 + 크리 → 적 둔화 로그 발화", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5); // 미스 회피·크리 강제(100%)
+    const res = resolveBattle(
+      dummyPlayer([FROST]),
+      V2_MONSTERS["훈련용 허수아비"],
+      "용사",
+      {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: emptyV2SkillsState(),
+      },
+    );
+    expect(
+      res.finalState.log.some(
+        (e) => typeof e.text === "string" && e.text.includes("[한기]"),
+      ),
+    ).toBe(true);
+  });
+
+  it("대조군 — 한기 미장착이면 둔화 로그 없음(누수 가드)", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const res = resolveBattle(
+      dummyPlayer(),
+      V2_MONSTERS["훈련용 허수아비"],
+      "용사",
+      {
+        pickAction: (s) => pickAutoAction(s, { rules: [], potions: {} }),
+        potions: {},
+        v2Skills: emptyV2SkillsState(),
+      },
+    );
+    expect(
+      res.finalState.log.some(
+        (e) => typeof e.text === "string" && e.text.includes("[한기]"),
+      ),
+    ).toBe(false);
   });
 });

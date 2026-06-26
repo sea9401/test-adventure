@@ -27,6 +27,7 @@ import {
 import {
   everyNHitsValue,
   firesOnCritPoison,
+  onCritEnemyChill,
   lowHpDamageReductionPct,
   onCritSpeedBuff,
   SIGNATURE_CRIT_POISON_PCT_MAX_HP_PER_STACK,
@@ -849,9 +850,26 @@ export function advanceTurnPvP(
       text: `[군림] 결정타 — 속도가 솟구친다!`,
     });
   }
+  // 한기(동결의 갑주) — 공격자 크리 시 방어자 둔화. 공격자 buffs.enemySpdMult 가 상대(방어자)
+  //   속도를 늦춘다(effectiveSideSpd: other.enemySpdMult 가 who 를 슬로우). 군림(자속도+)의 거울.
+  const sigCritChill = onCritEnemyChill(
+    attacker.player.equipSignatures,
+    critRoll,
+    sigDealtDamage,
+  );
+  if (sigCritChill) {
+    log = appendLog(log, {
+      kind: "info",
+      text: `[한기] ${defender.name}이(가) 얼어붙어 굼떠진다!`,
+    });
+  }
   const sigSpdActiveMult =
     nextBuffsTimedFromAp.playerSpdTurnsLeft > 0
       ? nextBuffsTimedFromAp.playerSpdMult
+      : 1;
+  const sigEnemySlowActiveMult =
+    nextBuffsTimedFromAp.enemySpdTurnsLeft > 0
+      ? nextBuffsTimedFromAp.enemySpdMult
       : 1;
   // 지속 효과 (PR-2 미러).
   // 여기는 cyclingChiBonus(매 턴 누적) 만 추가한다.
@@ -865,6 +883,16 @@ export function advanceTurnPvP(
           playerSpdTurnsLeft: Math.max(
             nextBuffsTimedFromAp.playerSpdTurnsLeft,
             sigCritSpeedBuff.turns,
+          ),
+        }
+      : {}),
+    // 한기 on-crit 적 둔화 병합(가장 강한 슬로우=Math.min·미발동=빈 객체).
+    ...(sigCritChill
+      ? {
+          enemySpdMult: Math.min(sigEnemySlowActiveMult, sigCritChill.mult),
+          enemySpdTurnsLeft: Math.max(
+            nextBuffsTimedFromAp.enemySpdTurnsLeft,
+            sigCritChill.turns,
           ),
         }
       : {}),

@@ -11,11 +11,13 @@ import {
   COOP_TIER_LABEL,
   COOP_TIER_ORDER,
   COOP_TIER_THRESHOLDS,
+  COOP_UNIQUE_CHANCE,
   coopSpFruitMaxAt,
   coopTierForRatio,
   type CoopBossKind,
 } from "@/adventure/data/v2/coopBosses";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
+import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 
 // key 있는 Fragment — grid 셀 3개를 행 래퍼 없이 흘리기 위한 래퍼.
 function FragmentRow({ children }: { children: ReactNode }) {
@@ -43,6 +45,11 @@ export function CoopRewardTable({
   // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III).
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
+  // 보스 전용 시그니처 유니크(있으면) — EPIC+ 확률 트로피.
+  const uniqueName =
+    kind.uniqueIds.length > 0
+      ? (V2_EQUIPMENT[kind.uniqueIds[0]]?.name ?? null)
+      : null;
   return (
     <div className="space-y-1.5">
       {/* 보상 캡션 — 무엇을 주나(SP 열매 이름·효과). */}
@@ -54,6 +61,18 @@ export function CoopRewardTable({
           </span>{" "}
           <span className="text-zinc-400 dark:text-zinc-500">
             (사용 시 SP 최대치 +{fruit.spPerUse})
+          </span>
+        </p>
+      )}
+      {uniqueName && (
+        <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
+          트로피 ·{" "}
+          <span className="font-medium text-violet-700 dark:text-violet-300">
+            {uniqueName}
+          </span>{" "}
+          <span className="text-zinc-400 dark:text-zinc-500">
+            (보스 전용 유니크 · EPIC {Math.round(COOP_UNIQUE_CHANCE.epic * 100)}%
+            · LEGEND {Math.round(COOP_UNIQUE_CHANCE.legend * 100)}%)
           </span>
         </p>
       )}

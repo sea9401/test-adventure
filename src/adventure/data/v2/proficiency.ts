@@ -35,6 +35,8 @@ export type V2ProficiencyState = {
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 레벨업당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
   jobCumLevel?: Record<string, number>;
+  // caps 포맷 버전(V2_PROFICIENCY_CAP_FMT). 있으면 caps=이득(gain) 포맷 — 로드 시 ≥60 가드 면제.
+  capFmt?: number;
 };
 
 // §10 다이얼.
@@ -54,6 +56,11 @@ export function proficiencyPerKillAtDepth(depth: number): number {
 export const V2_CAP_HEADROOM_BASE = 45;
 // 표시/폴백용 기본 cap(floor=base 가정). 실제 클램프는 effectiveStatCap 사용.
 export const V2_STAT_CAP_BASE = 60;
+// caps 포맷 버전 — caps[stat] 가 "절대 cap"(옛 #275) 이 아니라 "헤드룸 이득(gain)"(#284~) 임을 표식.
+// 이 표식이 있는 세이브는 ≥60 이득도 정상 적립으로 보존(아래 마이그레이션 가드 건너뜀). 표식 없는
+// 옛 세이브만 1회 ≥60=절대cap 으로 보고 드롭한다. (버그: 가드가 매 로드마다 돌아 고차수 직군의
+// 정상 이득 ≥60 을 영구 소거 → "수행시 한계치 하락". 표식으로 신/구 포맷을 명확히 구분.)
+export const V2_PROFICIENCY_CAP_FMT = 1;
 
 // 수행 1회 cap 헤드룸 상승 — 직군 프로필(합 4 고정 = 비용/economy 불변). 키 = job(tier1ClassOf).
 // 각 직군의 전문화 서브스탯을 함께 담아 자유 수행 없이도 전문화별 스탯을 커버(예 도적 dex+luk = 궁수+암살).
@@ -104,7 +111,13 @@ function posInt(raw: unknown): number {
 }
 
 export function emptyProficiency(): V2ProficiencyState {
-  return { groups: {}, caps: {}, grown: {}, jobCumLevel: {} };
+  return {
+    groups: {},
+    caps: {},
+    grown: {},
+    jobCumLevel: {},
+    capFmt: V2_PROFICIENCY_CAP_FMT,
+  };
 }
 
 function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
@@ -135,6 +148,7 @@ export function parseProficiency(
     caps?: unknown;
     grown?: unknown;
     jobCumLevel?: unknown;
+    capFmt?: unknown;
   };
   const groups: Record<string, V2ProficiencyGroup> = {};
   if (obj.groups && typeof obj.groups === "object") {
@@ -188,9 +202,12 @@ export function parseProficiency(
     }
   }
   // caps[stat] = 수행으로 올린 cap 헤드룸 이득(floor+base 위 추가분). 양수만 저장.
-  // 마이그레이션 가드(수행개편 2026-06): 옛 포맷은 "절대 cap"(항상 ≥ 60+이득 = ≥61)을 저장했다.
-  // 새 이득은 실측상 < 60(t4 앵커 ~33). 60 이상 값은 옛 절대 cap 으로 보고 드롭(이득 0 리셋) —
-  // 새 의미로 재해석돼 cap/비용이 부풀지 않게. (staging 한정, 두 포맷이 60 에서 깔끔히 갈림.)
+  // 마이그레이션 가드(수행개편 2026-06): 옛 포맷(#275)은 "절대 cap"(항상 ≥ 60+이득 = ≥61)을 저장했다.
+  // 60 이상 값은 옛 절대 cap 으로 보고 드롭(이득 0 리셋) — 새 의미로 재해석돼 cap/비용이 부풀지 않게.
+  // ⚠️ 단 capFmt 표식이 있는 새 세이브(#284~)는 caps=이득 포맷이 확정이라 가드를 면제한다. 고차수
+  //   직군의 정상 이득은 ≥60 까지 올라갈 수 있는데(예 도적 dex), 표식 없이 매 로드 ≥60 을 드롭하면
+  //   "수행할수록 한계치가 영구 하락"하는 버그가 난다(2026-06-26 수정). 표식 없는 옛 세이브만 가드 적용.
+  const gainFmt = obj.capFmt === V2_PROFICIENCY_CAP_FMT;
   const caps: Partial<Record<V2StatKey, number>> = {};
   if (obj.caps && typeof obj.caps === "object") {
     const rawCaps = obj.caps as Record<string, unknown>;
@@ -200,7 +217,7 @@ export function parseProficiency(
         typeof c === "number" &&
         Number.isFinite(c) &&
         c > 0 &&
-        c < V2_STAT_CAP_BASE
+        (gainFmt || c < V2_STAT_CAP_BASE)
       ) {
         caps[stat] = Math.floor(c);
       }
@@ -216,7 +233,15 @@ export function parseProficiency(
       if (n > 0 && k && k !== "none") jobCumLevel[k] = n;
     }
   }
-  return { groups, caps, grown: parseStatMap(obj.grown), jobCumLevel };
+  // 출력에 항상 표식을 박는다 — 어떤 write 경로든 다음 저장 시 capFmt 가 따라가(헬퍼는 모두 ...p
+  //   스프레드), 첫 write-back 이후로는 가드가 면제된다. 옛 세이브도 첫 저장 후 1회로 마이그 완료.
+  return {
+    groups,
+    caps,
+    grown: parseStatMap(obj.grown),
+    jobCumLevel,
+    capFmt: V2_PROFICIENCY_CAP_FMT,
+  };
 }
 
 // charSave({class, level})에서 활성 직군 + 현재 레벨을 뽑아 cumLevel 시드와 함께 파싱.

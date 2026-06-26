@@ -28,6 +28,7 @@ import {
   V2_FLOOR_DECAY_MIN,
   V2_SIGNATURE_LEARN_COST,
   proficiencyPerKillAtDepth,
+  V2_PROFICIENCY_CAP_FMT,
 } from "./proficiency";
 
 describe("diminishedCumLevel (환생 누적 floor 감쇠)", () => {
@@ -151,7 +152,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(q.groups.none).toBeUndefined();
   });
 
-  it("parse — caps 는 수행 이득(0<c<60)만 보존, 옛 절대값(≥60)·비수 드롭", () => {
+  it("parse — caps 는 수행 이득(0<c<60)만 보존, 옛 절대값(≥60)·비수 드롭 (표식 없는 옛 세이브)", () => {
     const p = parseProficiency({
       groups: {},
       caps: { str: 30, dex: 0, vit: -4, int: "x", spi: 90 },
@@ -160,7 +161,26 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p.caps.dex).toBeUndefined();
     expect(p.caps.vit).toBeUndefined();
     expect(p.caps.int).toBeUndefined();
-    expect(p.caps.spi).toBeUndefined();
+    expect(p.caps.spi).toBeUndefined(); // 90 ≥ 60 → 옛 절대 cap 으로 보고 드롭
+  });
+
+  it("parse — capFmt 표식이 있으면 ≥60 이득도 보존(고차수 정상 적립) — 수행 한계치 하락 버그 방지", () => {
+    // 표식 있는 새 포맷(#284~)은 caps=이득이 확정 → ≥60 가드 면제. 표식 없으면 위 테스트처럼 드롭.
+    const p = parseProficiency({
+      groups: {},
+      caps: { str: 30, dex: 90, spi: 65 },
+      capFmt: V2_PROFICIENCY_CAP_FMT,
+    });
+    expect(p.caps.str).toBe(30);
+    expect(p.caps.dex).toBe(90); // 표식 있어 보존(옛 가드면 드롭됐을 값)
+    expect(p.caps.spi).toBe(65);
+  });
+
+  it("parse — 출력은 항상 capFmt 표식을 박는다(첫 write-back 후 가드 면제 → 영구 마이그)", () => {
+    expect(parseProficiency({ groups: {}, caps: { str: 30 } }).capFmt).toBe(
+      V2_PROFICIENCY_CAP_FMT,
+    );
+    expect(emptyProficiency().capFmt).toBe(V2_PROFICIENCY_CAP_FMT);
   });
 
   it("groupUsable — 직군 숙달 포인트 잔액(옛 earned−spent 통합)", () => {

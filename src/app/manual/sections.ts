@@ -34,19 +34,19 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "combat",
     title: "전투 시스템",
-    summary: "턴 흐름, 데미지·방어, 속성, 치명·회피, 상태이상, 멀티히트.",
+    summary: "속도 타임라인, 데미지·방어, 속성, 치명·회피, 상태이상.",
     group: "combat",
   },
   {
     slug: "hunting",
     title: "사냥과 사냥터",
-    summary: "사냥터 2층, 단발·일괄 사냥, 스태미나, 전리품, 레어맵.",
+    summary: "프론티어 깊이 밴드, 단발·일괄 사냥, 스태미나, 전리품, 레어맵.",
     group: "combat",
   },
   {
     slug: "coop",
     title: "협동 보스",
-    summary: "소환서 수집, 소환, 공유 HP 토벌, 기여 티어 보상.",
+    summary: "소환서 수집, 소환, 공유 HP 토벌, SP 열매·보스 유니크 보상.",
     group: "combat",
   },
   {
@@ -58,7 +58,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "jobs",
     title: "직업·숙련도·전직",
-    summary: "4직군 4차수, 상위 직업, 숙달 포인트, 전직, 수행.",
+    summary: "4직군에서 전직으로 뻗는 직업 트리, 숙달 포인트, 계보 전직, 수행.",
     group: "growth",
   },
   {
@@ -106,7 +106,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   {
     slug: "outpost",
     title: "지도 · 거점 · 정착지",
-    summary: "자유 타일 이동, 빈 땅 개척마을 정착(마을·도시·대도시), 거점 점령·세금·토벌.",
+    summary: "자유 타일 이동, 길드 영토 정착(마을·도시·대도시), 점령·세금·수비·영주·토벌.",
     group: "world",
   },
   {

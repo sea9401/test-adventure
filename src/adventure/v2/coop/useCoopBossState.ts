@@ -61,10 +61,9 @@ export type CoopAttackResult = {
 
 export type CoopClaimReward = {
   tier: CoopRewardTier;
-  gold: number;
-  uniqueId: string | null;
-  titleId: string;
-  titleNew: boolean;
+  // 보상 개편 — SP 열매뿐. 획득 개수(0~3)·등급 이름(0개면 null).
+  spFruitCount: number;
+  spFruitName: string | null;
 };
 
 export type CoopSessionDetail = {

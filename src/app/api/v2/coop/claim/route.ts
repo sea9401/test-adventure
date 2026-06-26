@@ -4,49 +4,34 @@ import { coopBossContributors, coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
-  COOP_BOSSES,
-  COOP_TIER_ORDER,
   coopTierForRatio,
   parseCoopBossKindId,
-  sumCoopGold,
+  rollCoopSpFruits,
   type CoopRewardTier,
 } from "@/adventure/data/v2/coopBosses";
-import {
-  V2_EQUIPMENT,
-  genEquipIid,
-  parseEquipmentSave,
-  type EquipmentSave,
-  type V2EquipmentId,
-} from "@/adventure/data/v2/v2Equipment";
-import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
-import {
-  SP_FRUIT,
-  SP_FRUIT_DROP_MIN_TIER,
-  fruitTierForBoss,
-} from "@/adventure/data/v2/spFruit";
+import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
 // 본문: { sessionId }
-// 보상 = 도달 티어까지 골드 합산 + 보스 전용 유니크(티어 확률 1회 굴림) + 첫 처치 칭호
-// (멱등 — 가이드 퀘스트 bossKills 판정 호환). 전부 본인 세이브만 변형(교차 유저 락 0).
+// 보상 개편(2026-06-26·오너) = **SP 열매뿐**. 도달한 각 보상 티어(GOLD/EPIC/LEGEND)를 독립
+//   굴림 → 통과 수만큼 그 보스 등급 열매 적립(LEGEND 최대 3개). 골드·유니크·칭호 보상 폐지.
+//   가이드 퀘스트 bossKills 호환 위해 격파 보스 종류를 adventure-log.v2.coopBossKinds 에 기록.
 //
 // 멱등성(v1 claim 의 audit #9 승계): contributor row FOR UPDATE → 이미 claim 이면
 // 저장된 claimedRewardSnapshot 그대로 반환(보상 재적용 없음·응답 손실 retry 안전).
-// 락 순서: character.v2 먼저(전 라우트 공통) → equipment → adventure-log → contributor.
+// 락 순서: character.v2 먼저(전 라우트 공통) → adventure-log → contributor.
 
 type RewardSnapshot = {
   tier: CoopRewardTier;
-  gold: number;
-  uniqueId: V2EquipmentId | null;
-  titleId: string;
-  titleNew: boolean;
-  // SP 열매 드랍(없으면 null) — 멱등 스냅샷에 포함해 retry 시 그대로 반환.
-  spFruit?: { materialId: string; name: string } | null;
+  // 획득한 SP 열매 개수(0~3)·등급. 멱등 스냅샷 — retry 시 그대로 반환.
+  spFruitCount: number;
+  spFruitMaterialId: string | null;
+  spFruitName: string | null;
 };
 
-type CharSave = { gold?: number; materials?: unknown; [k: string]: unknown };
+type CharSave = { materials?: unknown; [k: string]: unknown };
 
 export async function POST(req: Request) {
   const maybeUserId = await ensureUser();
@@ -104,7 +89,6 @@ export async function POST(req: Request) {
         body: { ok: false as const, error: "not_defeated" as const },
       };
     }
-    const kind = COOP_BOSSES[kindId];
 
     // === 3. contributor FOR UPDATE — 멱등 가드 ===
     const [contrib] = await tx
@@ -143,78 +127,45 @@ export async function POST(req: Request) {
       };
     }
 
-    // === 4. 보상 결정 + 적용 (전부 본인 세이브) ===
-    const gold = sumCoopGold(kind, tier);
-    const uniqueId: V2EquipmentId | null =
-      Math.random() < kind.rewards[tier].uniqueChance &&
-      kind.uniqueIds.length > 0
-        ? kind.uniqueIds[Math.floor(Math.random() * kind.uniqueIds.length)]
-        : null;
-
-    // SP 열매 — gold 티어 이상이면 이 보스 등급의 열매 1개 인벤(materials) 적립(거래·사용 가능).
+    // === 4. 보상 결정 + 적용 (SP 열매뿐 — 전부 본인 세이브) ===
+    // 도달한 보상 티어를 독립 굴림 → 통과 수 = 이 보스 등급 열매 개수(BRONZE/SILVER=0, LEGEND≤3).
     const fruitTier = fruitTierForBoss(kindId);
-    const awardFruit =
-      fruitTier !== null &&
-      COOP_TIER_ORDER.indexOf(tier) >=
-        COOP_TIER_ORDER.indexOf(SP_FRUIT_DROP_MIN_TIER);
-    const fruitDef = awardFruit && fruitTier !== null ? SP_FRUIT[fruitTier] : null;
-    const nextMaterials = fruitDef
-      ? mergeDrops(charSave.materials, { [fruitDef.materialId]: 1 })
-      : (charSave.materials as Record<string, number> | undefined);
+    const fruitDef = fruitTier !== null ? SP_FRUIT[fruitTier] : null;
+    const fruitCount = fruitDef ? rollCoopSpFruits(tier, Math.random) : 0;
+    const nextMaterials =
+      fruitDef && fruitCount > 0
+        ? mergeDrops(charSave.materials, { [fruitDef.materialId]: fruitCount })
+        : (charSave.materials as Record<string, number> | undefined);
 
-    await upsertSave(tx, userId, "character.v2", {
-      ...charSave,
-      gold: Math.max(0, (charSave.gold ?? 0) + gold),
-      ...(fruitDef ? { materials: nextMaterials } : {}),
-    });
-
-    if (uniqueId) {
-      const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
-        tx,
-        userId,
-        "equipment.v2",
-        {},
-      );
-      const { owned, equipped } = parseEquipmentSave(equipmentSave);
-      await upsertSave(tx, userId, "equipment.v2", {
-        owned: [
-          ...owned,
-          {
-            iid: genEquipIid(),
-            id: uniqueId,
-            roll: rollItemStats(V2_EQUIPMENT[uniqueId], Math.random),
-          },
-        ],
-        equipped,
+    if (fruitDef && fruitCount > 0) {
+      await upsertSave(tx, userId, "character.v2", {
+        ...charSave,
+        materials: nextMaterials,
       });
     }
 
-    // 첫 처치 칭호 — adventure-log.v2 titles 멱등 추가(이미 있으면 titleNew=false).
+    // 가이드 퀘스트 bossKills 호환 — 격파(기여)한 보스 종류를 멱등 기록(칭호 지급 폐지 대체).
+    //   v2QuestContext 가 coopBossKinds 종류 수 + 레거시 칭호 보유분으로 bossKills 산정.
     const logSave = await lockSaveForUpdate<{
-      titles?: Record<string, { obtainedAt: number }>;
+      coopBossKinds?: unknown;
       [k: string]: unknown;
     }>(tx, userId, "adventure-log.v2", {});
-    const titleNew = !(logSave.titles ?? {})[kind.titleId];
-    if (titleNew) {
+    const priorKinds = Array.isArray(logSave.coopBossKinds)
+      ? (logSave.coopBossKinds.filter((k) => typeof k === "string") as string[])
+      : [];
+    if (!priorKinds.includes(kindId)) {
       await upsertSave(tx, userId, "adventure-log.v2", {
         ...logSave,
-        titles: {
-          ...(logSave.titles ?? {}),
-          [kind.titleId]: { obtainedAt: now },
-        },
+        coopBossKinds: [...priorKinds, kindId],
       });
     }
 
     // === 5. claim 마킹 + 스냅샷(retry 시 그대로 반환) ===
     const reward: RewardSnapshot = {
       tier,
-      gold,
-      uniqueId,
-      titleId: kind.titleId,
-      titleNew,
-      spFruit: fruitDef
-        ? { materialId: fruitDef.materialId, name: fruitDef.name }
-        : null,
+      spFruitCount: fruitCount,
+      spFruitMaterialId: fruitCount > 0 && fruitDef ? fruitDef.materialId : null,
+      spFruitName: fruitCount > 0 && fruitDef ? fruitDef.name : null,
     };
     await tx
       .update(coopBossContributors)

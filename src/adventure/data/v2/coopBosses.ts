@@ -70,6 +70,46 @@ export function coopTierForRatio(ratio: number): CoopRewardTier | null {
   return achieved;
 }
 
+// === 보상 = SP 열매 (단일 보상·티어별 확률 굴림) ========================
+// 협동 보스 보상 개편(2026-06-26·오너): 골드·유니크·칭호 보상 폐지. 보상은 **SP 열매**뿐.
+//   도달한 각 보상 티어를 **독립 굴림**한다 — 통과 시 그 보스 등급 열매 1개. BRONZE/SILVER 는
+//   0(GOLD 부터). LEGEND 도달 = GOLD+EPIC+LEGEND 세 번 굴림 = 최대 3개. 전 보스 공통 확률.
+//   ⚠️ 캘리브 다이얼. 열매 등급은 보스 고유(산악→I·협곡→II·호수→III, spFruit.fruitTierForBoss).
+export const COOP_SP_FRUIT_CHANCE: Record<CoopRewardTier, number> = {
+  bronze: 0,
+  silver: 0,
+  gold: 0.15,
+  epic: 0.25,
+  legend: 0.35,
+};
+
+// 도달 티어까지 SP 열매 굴림(순수). rng() ∈ [0,1). 보상 가능 티어(확률>0) 중 도달한 것을
+//   각각 독립 굴림 → 통과 수 = 획득 개수(0~3). reachedTier=null(브론즈 미달)이면 0.
+export function rollCoopSpFruits(
+  reachedTier: CoopRewardTier | null,
+  rng: () => number,
+): number {
+  if (!reachedTier) return 0;
+  const reachedIdx = COOP_TIER_ORDER.indexOf(reachedTier);
+  let count = 0;
+  for (const t of COOP_TIER_ORDER) {
+    if (COOP_TIER_ORDER.indexOf(t) > reachedIdx) break; // 미도달 티어
+    const chance = COOP_SP_FRUIT_CHANCE[t];
+    if (chance <= 0) continue; // 보상 없는 티어(bronze/silver)
+    if (rng() < chance) count++;
+  }
+  return count;
+}
+
+// 도달 티어에서 받을 수 있는 SP 열매 최대 개수(보상 가능 티어 수). UI 표시용.
+export function coopSpFruitMaxAt(tier: CoopRewardTier | null): number {
+  if (!tier) return 0;
+  const idx = COOP_TIER_ORDER.indexOf(tier);
+  return COOP_TIER_ORDER.filter(
+    (t) => COOP_SP_FRUIT_CHANCE[t] > 0 && COOP_TIER_ORDER.indexOf(t) <= idx,
+  ).length;
+}
+
 // === 공격 다이얼 =======================================================
 
 // 1회 공격 시뮬 턴 수(플레이어 턴 기준 — resolveBattle maxTurns). 강빌드도 1회로
@@ -144,13 +184,6 @@ export type CoopBossKindId =
   | "canyon_predator"
   | "lake_sovereign";
 
-export type CoopTierReward = {
-  /** 골드(증분 — 도달 티어까지 합산 지급). */
-  gold: number;
-  /** 보스 전용 유니크 드랍 확률(0~1, 도달 티어의 값 단일 적용 — 합산 아님). */
-  uniqueChance: number;
-};
-
 // 발악 스테이지 — 전역 공유 HP 비율이 hpFraction 이하면 적용(누적). 시뮬이 공격 단위
 // stateless 라 페이즈를 "현재 상태"로 미리 구워 넣는다 — 토벌이 진행될수록 모두에게
 // 더 사나운 보스("레이드가 깊어질수록 위험"). note 는 전투 로그 첫머리 안내.
@@ -178,12 +211,12 @@ export type CoopBossKind = {
   anchorDepth: number;
   /** flat 베이스 Monster — 이름/이미지/스킬/페이즈 보존(옛 테마 보스 승계). */
   base: Monster;
-  /** 보스 전용 유니크 풀 — 일반 사냥·상점·제작엔 없음. claim 시 티어 확률로 굴림. */
+  /** 보스 전용 유니크 풀 — 휴면(2026-06-26 보상 개편으로 드랍 폐지). 카탈로그·보유분 보존,
+   *  새 유니크 설계 시 재배선. BOSS_UNIQUE_IDS(도감/드랍검증)만 참조. */
   uniqueIds: V2EquipmentId[];
-  /** 첫 처치 칭호 id — claim(bronze+) 시 멱등 부여. 가이드 퀘스트(bossKills) 판정 호환. */
+  /** 첫 처치 칭호 id — 휴면(보상 개편으로 지급 폐지). 카탈로그·기보유분 보존, 가이드 퀘스트
+   *  bossKills 는 BOSS_TITLE_TO_KIND 로 레거시 호환(v2QuestContext). */
   titleId: string;
-  /** 티어별 보상(증분). 골드는 합산, uniqueChance 는 도달 티어 값. ⚠️ 캘리브 다이얼. */
-  rewards: Record<CoopRewardTier, CoopTierReward>;
   /** 평타 부가 상태이상(매 적중 확률 발동) — 중독/둔화/출혈. */
   statusSkill?: V2MonsterStatusSkillId;
   /** 발악 스테이지 — hpFraction 내림차순 권장(전부 누적 적용). ⚠️ 수치 캘리브 다이얼. */
@@ -197,7 +230,7 @@ export type CoopBossKind = {
 // 발악은 CoopBossKind.enrageStages(전역 비율)로 coopBossForBattle 이 미리 구워 넣는다.
 
 const MOUNTAIN_CHIEF_BASE: Monster = {
-  name: "산적 두목",
+  name: "산군",
   tags: ["humanoid"],
   image: "/images/monster/v2/boss-mountain-chief.webp",
   hp: 620,
@@ -222,7 +255,7 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
 };
 
 const CANYON_PREDATOR_BASE: Monster = {
-  name: "사구의 포식자",
+  name: "스콜피온 킹",
   tags: ["beast"],
   image: "/images/monster/v2/boss-canyon-predator.webp",
   element: "earth",
@@ -242,7 +275,7 @@ const CANYON_PREDATOR_BASE: Monster = {
 };
 
 const LAKE_SOVEREIGN_BASE: Monster = {
-  name: "호심의 군주",
+  name: "호수의 괴물",
   tags: ["golem"],
   image: "/images/monster/v2/boss-lake-sovereign.webp",
   element: "water",
@@ -298,12 +331,13 @@ export function coopBossDurationLabel(kind: CoopBossKind): string {
 }
 
 // 3단 사다리 — 소환서 5/10/20장, 시뮬 스탯은 깊이 12/24/42 스케일(상위 보스일수록
-// 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·골드는 ⚠️ 라이브 캘리브.
+// 반격이 아파 약빌드는 비싼 보스에 함부로 못 붙는다). 공유 HP·보상은 ⚠️ 라이브 캘리브.
+// 보상 = SP 열매뿐(COOP_SP_FRUIT_CHANCE·티어별 확률 굴림). 골드·유니크·칭호 보상 폐지(2026-06-26).
 export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
   mountain_chief: {
     id: "mountain_chief",
-    name: "산적 두목",
-    desc: "산길을 틀어쥔 산적단의 우두머리. 분노하면 바위도 갈라지는 강타를 휘두른다.",
+    name: "산군",
+    desc: "산을 틀어쥔 채 군림하는 자. 분노하면 바위도 갈라지는 강타를 휘두른다.",
     scrollCost: 5,
     sharedMaxHp: 30_000,
     anchorDepth: 12,
@@ -316,18 +350,18 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     enrageStages: [
       {
         hpFraction: 0.7,
-        note: "두목이 거칠어지기 시작했다 (공격력 상승)",
+        note: "산군이 거칠어지기 시작했다 (공격력 상승)",
         atkMult: 1.1,
       },
       {
         hpFraction: 0.45,
-        note: "두목이 분노로 날뛴다! (공격력·방어력 상승)",
+        note: "산군이 분노로 날뛴다! (공격력·방어력 상승)",
         atkMult: 1.13,
         defBonus: 4,
       },
       {
         hpFraction: 0.2,
-        note: "두목이 광란에 빠졌다! (공격력·방어력 대폭 상승)",
+        note: "산군이 광란에 빠졌다! (공격력·방어력 대폭 상승)",
         atkMult: 1.15,
         defBonus: 6,
       },
@@ -337,18 +371,11 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "살점 뜯기 — 출혈",
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(공격력·방어력)",
     ],
-    rewards: {
-      bronze: { gold: 500, uniqueChance: 0.03 },
-      silver: { gold: 700, uniqueChance: 0.08 },
-      gold: { gold: 1200, uniqueChance: 0.15 },
-      epic: { gold: 2000, uniqueChance: 0.25 },
-      legend: { gold: 3000, uniqueChance: 0.4 },
-    },
   },
   canyon_predator: {
     id: "canyon_predator",
-    name: "사구의 포식자",
-    desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 짐승. 절벽조차 발톱으로 꿰뚫는다.",
+    name: "스콜피온 킹",
+    desc: "마른 협곡의 모래 밑을 헤엄치는 거대한 전갈. 절벽조차 집게로 꿰뚫는다.",
     scrollCost: 10,
     sharedMaxHp: 80_000,
     anchorDepth: 24,
@@ -372,7 +399,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       },
       {
         hpFraction: 0.2,
-        note: "포식자가 광폭화했다! (공격력 대폭 상승)",
+        note: "스콜피온 킹이 광폭화했다! (공격력 대폭 상승)",
         atkMult: 1.22,
       },
     ],
@@ -381,18 +408,11 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "독니 — 중독",
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(회피·공격력)",
     ],
-    rewards: {
-      bronze: { gold: 1000, uniqueChance: 0.03 },
-      silver: { gold: 1500, uniqueChance: 0.08 },
-      gold: { gold: 2500, uniqueChance: 0.15 },
-      epic: { gold: 4000, uniqueChance: 0.25 },
-      legend: { gold: 6000, uniqueChance: 0.4 },
-    },
   },
   lake_sovereign: {
     id: "lake_sovereign",
-    name: "호심의 군주",
-    desc: "얼음 호수 가장 깊은 곳에서 깨어난 옛 군주. 닿는 것마다 얼어붙는다.",
+    name: "호수의 괴물",
+    desc: "얼음 호수 가장 깊은 곳에서 깨어난 거대한 존재. 닿는 것마다 얼어붙는다.",
     scrollCost: 20,
     sharedMaxHp: 200_000,
     anchorDepth: 42,
@@ -426,13 +446,6 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
       "한기 — 둔화",
       "발악 — HP 70%·45%·20% 단계로 점점 강해짐(방어력·공격력)",
     ],
-    rewards: {
-      bronze: { gold: 2000, uniqueChance: 0.03 },
-      silver: { gold: 3000, uniqueChance: 0.08 },
-      gold: { gold: 5000, uniqueChance: 0.15 },
-      epic: { gold: 8000, uniqueChance: 0.25 },
-      legend: { gold: 12000, uniqueChance: 0.4 },
-    },
   },
 };
 
@@ -527,19 +540,9 @@ export function coopEnrageStatus(
   };
 }
 
-// 도달 티어까지의 골드 합산(증분 합).
-export function sumCoopGold(kind: CoopBossKind, tier: CoopRewardTier): number {
-  let total = 0;
-  for (const t of COOP_TIER_ORDER) {
-    total += kind.rewards[t].gold;
-    if (t === tier) break;
-  }
-  return total;
-}
-
 // === 옛 테마 보스 호환 export ==========================================
 // v2QuestContext(가이드 퀘스트 bossKills)·도감류가 쓰는 합집합 — dungeonBosses.ts 시절
-// 시그니처 유지. 칭호는 이제 협동 보스 claim 으로 부여되지만 id 는 동일(기보유분 호환).
+// 시그니처 유지. 칭호 지급은 폐지됐지만(보상 개편) id·카탈로그는 보존(기보유분 호환).
 
 export const BOSS_UNIQUE_IDS: V2EquipmentId[] = [
   ...new Set(Object.values(COOP_BOSSES).flatMap((b) => b.uniqueIds)),
@@ -548,3 +551,13 @@ export const BOSS_UNIQUE_IDS: V2EquipmentId[] = [
 export const BOSS_TITLE_IDS: string[] = [
   ...new Set(Object.values(COOP_BOSSES).map((b) => b.titleId)),
 ];
+
+// 칭호 id → 보스 kind id. 보상 개편으로 칭호 지급은 끊겼지만, 가이드 퀘스트 bossKills 가
+//   "격파한 보스 종류 수"라서 레거시 칭호 보유분을 종류로 환산해 호환(v2QuestContext).
+//   신규 격파는 adventure-log.v2.coopBossKinds 에 직접 기록 → 둘을 합집합.
+export const BOSS_TITLE_TO_KIND: Record<string, CoopBossKindId> = Object.values(
+  COOP_BOSSES,
+).reduce<Record<string, CoopBossKindId>>((acc, b) => {
+  acc[b.titleId] = b.id;
+  return acc;
+}, {});

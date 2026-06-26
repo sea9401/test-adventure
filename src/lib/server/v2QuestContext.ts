@@ -23,7 +23,10 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { ENHANCE_STONE_MATERIAL_ID } from "@/adventure/data/v2/v2Enhance";
-import { BOSS_TITLE_IDS } from "@/adventure/data/v2/coopBosses";
+import {
+  BOSS_TITLE_IDS,
+  BOSS_TITLE_TO_KIND,
+} from "@/adventure/data/v2/coopBosses";
 import type { QuestCtx } from "@/adventure/data/v2/v2Quests";
 import type { RepeatSignals } from "@/adventure/data/v2/v2RepeatQuests";
 import { readSave, type DbExecutor } from "@/lib/server/savesKv";
@@ -55,6 +58,8 @@ type AdventureLog = {
   monsters?: Record<string, { kills?: number }>;
   battleLosses?: number;
   titles?: Record<string, unknown>;
+  // 격파한 협동 보스 종류(coop/claim 기록) — bossKills 판정용. 옛 세이브엔 없음(레거시 칭호로 환산).
+  coopBossKinds?: unknown;
   // 전쟁 카운터(2026-06-11) — eject/claim/treasury 라우트가 누적. 옛 세이브엔 없음(0 취급).
   warCaptures?: unknown;
   warEjectWins?: unknown;
@@ -125,7 +130,17 @@ export function buildQuestCtx(args: {
       0,
     ) + num(advLog.battleLosses);
   const titles = advLog.titles ?? {};
-  const bossKills = BOSS_TITLE_IDS.filter((id) => titles[id] != null).length;
+  // bossKills = 격파한 협동 보스 종류 수. 신규 기록(coopBossKinds) + 레거시(보스 칭호 보유분을
+  //   종류로 환산)의 합집합 — 보상 개편으로 칭호 지급은 끊겼지만 기존 진행 보존(둘 다 멱등·종류 dedup).
+  const killedKinds = new Set<string>(
+    Array.isArray(advLog.coopBossKinds)
+      ? advLog.coopBossKinds.filter((k): k is string => typeof k === "string")
+      : [],
+  );
+  for (const titleId of BOSS_TITLE_IDS) {
+    if (titles[titleId] != null) killedKinds.add(BOSS_TITLE_TO_KIND[titleId]);
+  }
+  const bossKills = killedKinds.size;
   const titleCount =
     titles && typeof titles === "object" ? Object.keys(titles).length : 0;
 

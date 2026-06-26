@@ -13,7 +13,9 @@ import {
   coopTierForRatio,
   parseCoopBossKindId,
   rollSummonScrollDrop,
-  sumCoopGold,
+  COOP_SP_FRUIT_CHANCE,
+  rollCoopSpFruits,
+  coopSpFruitMaxAt,
   canAccessCoopBoss,
   parseCoopVisibility,
   coopAttackCooldownMs,
@@ -40,9 +42,10 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
-  it("유니크/칭호 — 장비 카탈로그·칭호 카탈로그에 실재", () => {
+  it("유니크/칭호 카탈로그 — 휴면 id 도 장비·칭호 카탈로그에 실재(기보유분 호환)", () => {
     for (const id of COOP_BOSS_KIND_IDS) {
       const b = COOP_BOSSES[id];
+      // 보상 개편으로 드랍/지급은 폐지됐지만 id·카탈로그는 보존(보유분 비파괴).
       expect(b.uniqueIds.length).toBeGreaterThan(0);
       for (const u of b.uniqueIds) {
         expect(V2_EQUIPMENT[u], `unknown equipment: ${u}`).toBeDefined();
@@ -55,20 +58,49 @@ describe("coopBosses 카탈로그", () => {
     }
   });
 
-  it("티어 보상 — 골드 증분 전부 양수·uniqueChance 단조 증가·합산이 증분 합과 일치", () => {
-    for (const id of COOP_BOSS_KIND_IDS) {
-      const b = COOP_BOSSES[id];
-      let prevChance = 0;
-      let cum = 0;
-      for (const t of COOP_TIER_ORDER) {
-        expect(b.rewards[t].gold).toBeGreaterThan(0);
-        expect(b.rewards[t].uniqueChance).toBeGreaterThanOrEqual(prevChance);
-        expect(b.rewards[t].uniqueChance).toBeLessThanOrEqual(1);
-        prevChance = b.rewards[t].uniqueChance;
-        cum += b.rewards[t].gold;
-        expect(sumCoopGold(b, t)).toBe(cum);
-      }
+  it("보상 = SP 열매 티어 확률 — GOLD부터·단조 증가·BRONZE/SILVER 0", () => {
+    expect(COOP_SP_FRUIT_CHANCE.bronze).toBe(0);
+    expect(COOP_SP_FRUIT_CHANCE.silver).toBe(0);
+    expect(COOP_SP_FRUIT_CHANCE.gold).toBe(0.15);
+    expect(COOP_SP_FRUIT_CHANCE.epic).toBe(0.25);
+    expect(COOP_SP_FRUIT_CHANCE.legend).toBe(0.35);
+    let prev = -1;
+    for (const t of COOP_TIER_ORDER) {
+      const c = COOP_SP_FRUIT_CHANCE[t];
+      expect(c).toBeGreaterThanOrEqual(0);
+      expect(c).toBeLessThanOrEqual(1);
+      expect(c).toBeGreaterThanOrEqual(prev); // 단조 증가
+      prev = c;
     }
+  });
+
+  it("rollCoopSpFruits — 도달 티어별 독립 굴림(LEGEND 최대 3·BRONZE/SILVER 0)", () => {
+    // rng=0 → 모든 굴림 통과(확률>0 티어 수 = 획득 수).
+    expect(rollCoopSpFruits(null, () => 0)).toBe(0);
+    expect(rollCoopSpFruits("bronze", () => 0)).toBe(0);
+    expect(rollCoopSpFruits("silver", () => 0)).toBe(0);
+    expect(rollCoopSpFruits("gold", () => 0)).toBe(1);
+    expect(rollCoopSpFruits("epic", () => 0)).toBe(2);
+    expect(rollCoopSpFruits("legend", () => 0)).toBe(3);
+    // rng=0.99 → 모두 실패.
+    expect(rollCoopSpFruits("legend", () => 0.99)).toBe(0);
+    // 경계 — rng < chance 통과. gold(0.15): 0.1 통과·0.15 실패.
+    expect(rollCoopSpFruits("gold", () => 0.1)).toBe(1);
+    expect(rollCoopSpFruits("gold", () => 0.15)).toBe(0);
+    // 부분 — legend 에서 GOLD(0.15)만 통과: 0.1<0.15 통과, EPIC(0.25)·LEGEND(0.35) 실패시키려면
+    //   각 굴림이 다른 값을 봐야 함. 시퀀스 rng 로 [통과, 실패, 실패].
+    const seq = [0.1, 0.3, 0.4];
+    let i = 0;
+    expect(rollCoopSpFruits("legend", () => seq[i++] ?? 1)).toBe(1);
+  });
+
+  it("coopSpFruitMaxAt — 도달 티어 최대 개수(GOLD 1·EPIC 2·LEGEND 3)", () => {
+    expect(coopSpFruitMaxAt(null)).toBe(0);
+    expect(coopSpFruitMaxAt("bronze")).toBe(0);
+    expect(coopSpFruitMaxAt("silver")).toBe(0);
+    expect(coopSpFruitMaxAt("gold")).toBe(1);
+    expect(coopSpFruitMaxAt("epic")).toBe(2);
+    expect(coopSpFruitMaxAt("legend")).toBe(3);
   });
 
   it("전투 몬스터 — 전역 잔여 HP 시작·이름/이미지/스킬/상태이상 보존", () => {

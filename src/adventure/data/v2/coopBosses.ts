@@ -252,7 +252,7 @@ export type CoopBossKind = {
 const MOUNTAIN_CHIEF_BASE: Monster = {
   name: "산군",
   tags: ["humanoid"],
-  image: "/images/monster/v2/boss-mountain-chief.webp",
+  image: "/images/monster/v2/sangoon.webp",
   hp: 620,
   atk: 30,
   def: 14,
@@ -279,7 +279,7 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
 const CANYON_PREDATOR_BASE: Monster = {
   name: "스콜피온 킹",
   tags: ["beast"],
-  image: "/images/monster/v2/boss-canyon-predator.webp",
+  image: "/images/monster/v2/scorpionking.webp",
   element: "earth",
   hp: 600,
   atk: 31,
@@ -299,7 +299,7 @@ const CANYON_PREDATOR_BASE: Monster = {
 const LAKE_SOVEREIGN_BASE: Monster = {
   name: "호수의 괴물",
   tags: ["golem"],
-  image: "/images/monster/v2/boss-lake-sovereign.webp",
+  image: "/images/monster/v2/nessi.webp",
   element: "water",
   hp: 680,
   atk: 29,

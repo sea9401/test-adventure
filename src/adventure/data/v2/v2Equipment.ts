@@ -112,10 +112,13 @@ export type V2EquipmentId =
   | "v2_crystal_amulet"
   | "v2_mana_essence"
   // 들판 유니크(레거시 floor 1~5) 6종 삭제(2026-06-19, 초반 정리) — LEGACY_ID_REMAP 으로 동슬롯 정규템 마이그.
-  // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses.
+  // 보스 전용 유니크 (협동 보스 토벌 보상만, rarity:"unique") — coopBosses. 보스당 2종.
   | "v2_boss_mountain_axe"
+  | "v2_boss_mountain_amulet"
   | "v2_boss_canyon_fang"
+  | "v2_boss_canyon_boots"
   | "v2_boss_lake_maul"
+  | "v2_boss_lake_gloves"
   // 마른 협곡 밴드 드랍 (깊이 13~18, rarity:"unique") — 8 무기타입 1종씩 + 마른땅 갑주 세트 3종.
   | "v2_canyon_greatsword"
   | "v2_canyon_staff"

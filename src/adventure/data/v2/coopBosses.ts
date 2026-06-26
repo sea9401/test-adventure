@@ -364,7 +364,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     sharedMaxHp: 30_000,
     anchorDepth: 12,
     base: MOUNTAIN_CHIEF_BASE,
-    uniqueIds: ["v2_boss_mountain_axe"],
+    uniqueIds: ["v2_boss_mountain_axe", "v2_boss_mountain_amulet"],
     titleId: "v2_boss_mountain",
     statusSkill: "mob_rending_claw",
     // 발악 완만화(리워크) — 옛 단일 50% 절벽(atk×1.25)을 3단 점증으로. 누적 최종은 비슷하되
@@ -402,7 +402,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     sharedMaxHp: 80_000,
     anchorDepth: 24,
     base: CANYON_PREDATOR_BASE,
-    uniqueIds: ["v2_boss_canyon_fang"],
+    uniqueIds: ["v2_boss_canyon_fang", "v2_boss_canyon_boots"],
     titleId: "v2_boss_canyon",
     statusSkill: "mob_venom_bite",
     // 발악 완만화 — 옛 60% 회피 + 25% atk×1.4 두 절벽을 3단 점증으로. 회피가 먼저 서서히 깔리고
@@ -439,7 +439,7 @@ export const COOP_BOSSES: Record<CoopBossKindId, CoopBossKind> = {
     sharedMaxHp: 200_000,
     anchorDepth: 42,
     base: LAKE_SOVEREIGN_BASE,
-    uniqueIds: ["v2_boss_lake_maul"],
+    uniqueIds: ["v2_boss_lake_maul", "v2_boss_lake_gloves"],
     titleId: "v2_boss_lake",
     statusSkill: "mob_chilling_touch",
     // 발악 완만화 — 옛 50% def + 20% atk×1.5 절벽을 3단 점증으로. 방어가 먼저 두꺼워지고 공격력은

@@ -210,7 +210,7 @@ describe("V2_EQUIPMENT grid (119종 — 6슬롯)", () => {
       ),
       "정규 그리드",
     ).toHaveLength(29);
-    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(18);
+    expect(all.filter((i) => isUnique(i)), "유니크").toHaveLength(21);
     expect(all.filter((i) => i.craftOnly), "제작전용(제거됨)").toHaveLength(0);
     expect(all.filter((i) => i.starterOnly), "전문화 스타터").toHaveLength(3);
     expect(all.filter((i) => i.noDrop), "noDrop(밴드흔한+강등 필드유니크)").toHaveLength(69);

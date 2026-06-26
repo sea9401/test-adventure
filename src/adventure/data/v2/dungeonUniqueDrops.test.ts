@@ -92,7 +92,7 @@ describe("BAND_COMMON_POOLS / rollBandCommonDrop (흔한 밴드 장비)", () => 
 
 describe("유니크 카탈로그 (18종 — 들판 유니크 6 삭제 후: 밴드 사이드그레이드/추가 15 + 보스 3)", () => {
   it("V2_UNIQUE_IDS 18종, 전부 rarity:unique + 카탈로그 존재", () => {
-    expect(V2_UNIQUE_IDS).toHaveLength(18);
+    expect(V2_UNIQUE_IDS).toHaveLength(21);
     for (const id of V2_UNIQUE_IDS) {
       expect(V2_EQUIPMENT[id], id).toBeDefined();
       expect(isUnique(V2_EQUIPMENT[id]), id).toBe(true);

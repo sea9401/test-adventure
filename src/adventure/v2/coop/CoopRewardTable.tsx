@@ -45,11 +45,10 @@ export function CoopRewardTable({
   // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III).
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
-  // 보스 전용 시그니처 유니크(있으면) — EPIC+ 확률 트로피.
-  const uniqueName =
-    kind.uniqueIds.length > 0
-      ? (V2_EQUIPMENT[kind.uniqueIds[0]]?.name ?? null)
-      : null;
+  // 보스 전용 시그니처 유니크(보스당 2종) — EPIC+ 확률, 보유 풀에서 랜덤 1개.
+  const uniqueNames = kind.uniqueIds
+    .map((id) => V2_EQUIPMENT[id]?.name)
+    .filter((n): n is string => Boolean(n));
   return (
     <div className="space-y-1.5">
       {/* 보상 캡션 — 무엇을 주나(SP 열매 이름·효과). */}
@@ -64,15 +63,16 @@ export function CoopRewardTable({
           </span>
         </p>
       )}
-      {uniqueName && (
+      {uniqueNames.length > 0 && (
         <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
           트로피 ·{" "}
           <span className="font-medium text-violet-700 dark:text-violet-300">
-            {uniqueName}
+            {uniqueNames.join(" · ")}
           </span>{" "}
           <span className="text-zinc-400 dark:text-zinc-500">
-            (보스 전용 유니크 · EPIC {Math.round(COOP_UNIQUE_CHANCE.epic * 100)}%
-            · LEGEND {Math.round(COOP_UNIQUE_CHANCE.legend * 100)}%)
+            (보스 전용 유니크 {uniqueNames.length}종 · EPIC{" "}
+            {Math.round(COOP_UNIQUE_CHANCE.epic * 100)}% · LEGEND{" "}
+            {Math.round(COOP_UNIQUE_CHANCE.legend * 100)}% · 랜덤 1개)
           </span>
         </p>
       )}

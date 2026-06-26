@@ -6,11 +6,7 @@
 //    spread 하고, 여기선 V2Material/CoopBossKindId 를 타입으로만 참조.
 
 import type { V2Material } from "./dungeonDrops";
-import type { CoopBossKindId, CoopRewardTier } from "./coopBosses";
-
-// SP 열매 드랍 게이트 — 이 기여 티어 이상이면 1개 적립(coop/claim). UI 보상표가 같은 값을
-//   "○○ 티어 이상 시 획득"으로 표기하도록 단일 소스로 둔다(PR-1 placeholder=gold·추후 정밀화).
-export const SP_FRUIT_DROP_MIN_TIER: CoopRewardTier = "gold";
+import type { CoopBossKindId } from "./coopBosses";
 
 export const SP_FRUIT_TIERS = [1, 2, 3] as const;
 export type SpFruitTier = (typeof SP_FRUIT_TIERS)[number];
@@ -41,19 +37,19 @@ export const SP_FRUIT_MATERIALS: Record<string, V2Material> = {
     id: "sp_fruit_1",
     name: "SP 열매 I",
     description:
-      "산적두목을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
+      "산군을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
   },
   sp_fruit_2: {
     id: "sp_fruit_2",
     name: "SP 열매 II",
     description:
-      "사구의 포식자를 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
+      "스콜피온 킹을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 3회). 거래 가능.",
   },
   sp_fruit_3: {
     id: "sp_fruit_3",
     name: "SP 열매 III",
     description:
-      "호심의 군주를 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 5회). 거래 가능.",
+      "호수의 괴물을 토벌하고 얻는 결정. 사용하면 SP 최대치가 영구히 +1 오른다(캐릭터당 5회). 거래 가능.",
   },
 };
 

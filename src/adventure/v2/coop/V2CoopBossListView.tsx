@@ -144,19 +144,26 @@ export function V2CoopBossListView({
         </Card>
       )}
 
-      {lastReward && (
-        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
-          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-            🏆 {COOP_TIER_LABEL[lastReward.tier]} 보상 — 골드 +
-            {lastReward.gold.toLocaleString()}
-            {lastReward.uniqueId && " · 보스 유니크 획득!"}
-            {lastReward.titleNew && " · 칭호 획득!"}
-          </p>
-          <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-            장비는 인벤토리, 칭호는 도감에서 확인할 수 있어요.
-          </p>
-        </div>
-      )}
+      {lastReward &&
+        (lastReward.spFruitCount > 0 ? (
+          <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
+            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+              🍂 {COOP_TIER_LABEL[lastReward.tier]} 보상 —{" "}
+              {lastReward.spFruitName ?? "SP 열매"} ×{lastReward.spFruitCount}{" "}
+              획득!
+            </p>
+            <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+              인벤토리 &gt; 소모품에서 사용하면 SP 최대치가 오릅니다.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">
+              {COOP_TIER_LABEL[lastReward.tier]} 기여 — 이번엔 SP 열매를 얻지
+              못했어요. (GOLD 티어부터 확률 획득)
+            </p>
+          </div>
+        ))}
 
       {/* 소환된 보스 — 인스턴스 단위(같은 종류 여러 마리 가능) */}
       <div className="space-y-1.5">

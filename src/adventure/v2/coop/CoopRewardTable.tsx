@@ -24,34 +24,15 @@ function FragmentRow({ children }: { children: ReactNode }) {
   return <Fragment>{children}</Fragment>;
 }
 
-export function CoopRewardTable({
-  kind,
-  myDamage,
-}: {
-  kind: CoopBossKind;
-  /** 내 누적 기여 — 전달 시 현재 티어 강조 + 다음 티어 진행 안내. */
-  myDamage?: number;
-}) {
-  const myTier =
-    myDamage != null && myDamage > 0
-      ? coopTierForRatio(myDamage / kind.sharedMaxHp)
-      : null;
-  const nextTier =
-    myDamage != null
-      ? COOP_TIER_ORDER.find(
-          (t) => myDamage < COOP_TIER_THRESHOLDS[t] * kind.sharedMaxHp,
-        )
-      : undefined;
-  // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III).
+// 보상 캡션 — 무엇을 주나(SP 열매 이름·효과 + 보스 전용 유니크 트로피·확률). 인라인/모달 공용.
+export function CoopRewardCaptions({ kind }: { kind: CoopBossKind }) {
   const fruitTier = fruitTierForBoss(kind.id);
   const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
-  // 보스 전용 시그니처 유니크(보스당 2종) — EPIC+ 확률, 보유 풀에서 랜덤 1개.
   const uniqueNames = kind.uniqueIds
     .map((id) => V2_EQUIPMENT[id]?.name)
     .filter((n): n is string => Boolean(n));
   return (
     <div className="space-y-1.5">
-      {/* 보상 캡션 — 무엇을 주나(SP 열매 이름·효과). */}
       {fruit && (
         <p className="text-[11px] text-zinc-600 dark:text-zinc-300">
           보상 ·{" "}
@@ -76,6 +57,38 @@ export function CoopRewardTable({
           </span>
         </p>
       )}
+    </div>
+  );
+}
+
+export function CoopRewardTable({
+  kind,
+  myDamage,
+  hideCaptions,
+}: {
+  kind: CoopBossKind;
+  /** 내 누적 기여 — 전달 시 현재 티어 강조 + 다음 티어 진행 안내. */
+  myDamage?: number;
+  /** 보상 캡션(무엇을 주나)을 인라인에서 숨김 — 상세 화면은 모달 버튼으로 대체. 기본 표시. */
+  hideCaptions?: boolean;
+}) {
+  const myTier =
+    myDamage != null && myDamage > 0
+      ? coopTierForRatio(myDamage / kind.sharedMaxHp)
+      : null;
+  const nextTier =
+    myDamage != null
+      ? COOP_TIER_ORDER.find(
+          (t) => myDamage < COOP_TIER_THRESHOLDS[t] * kind.sharedMaxHp,
+        )
+      : undefined;
+  // 이 보스의 SP 열매 등급(산악→I·협곡→II·호수→III).
+  const fruitTier = fruitTierForBoss(kind.id);
+  const fruit = fruitTier != null ? SP_FRUIT[fruitTier] : null;
+  return (
+    <div className="space-y-1.5">
+      {/* 보상 캡션(무엇을 주나) — 상세 화면(hideCaptions)은 모달로 빼고, 목록은 인라인 유지. */}
+      {!hideCaptions && <CoopRewardCaptions kind={kind} />}
       <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 text-[11px]">
         <span className="font-medium text-zinc-500 dark:text-zinc-400">
           티어

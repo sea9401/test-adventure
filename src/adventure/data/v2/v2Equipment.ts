@@ -283,6 +283,8 @@ export type V2Equipment = {
   noDrop?: boolean;
   /** 세트 id — 같은 세트 조각을 전부 장착하면 세트 보너스(V2_EQUIP_SETS). 없으면 세트 무관. */
   setId?: string;
+  /** Phase 2 — 단품 발동형 시그니처 효과(마퀴 단품만; 세트 시그니처는 V2EquipSet.signature). */
+  signature?: SignatureEffect;
 };
 
 // 마을 상점 판매가 — T1~T3 전부 판매. ×36 가파른 곡선 (각 티어 다음이 36배).
@@ -365,6 +367,33 @@ export function weaponGateOpen(
   return weaponTypeOf(weaponId) === required;
 }
 
+// === 발동형 시그니처 효과 (Phase 2) ==================================
+// 고유 아이템(세트 완성 또는 단품)이 전투 "중"에 조건부로 발동하는 효과. 옵션(flat 패시브)과 달리
+//   트리거가 있다(저체력/회피/크리/N타마다). docs/v2-signature-uniques-plan.md §10.
+//   🔑 라이브 사냥=단일 적 1v1 → on-kill 무용(처치=전투 종료) → 전투 중 트리거만.
+//   엔진(engine.playerPhase/enemyPhase/pvpPhase)이 PlayerCombat.equipSignatures 로 읽어 발동.
+//   미장착(undefined)=엔진 훅 미발화 → 골든 byte-identical.
+export type SignatureTrigger = "low_hp" | "on_dodge" | "on_crit" | "every_n_hits";
+export type SignatureEffect = {
+  trigger: SignatureTrigger;
+  /** 전투로그/UI 표기 이름(예: "성물"). */
+  label: string;
+  /** low_hp: 현재 HP 가 maxHp 의 이 % 이하일 때 효과 활성. */
+  hpThresholdPct?: number;
+  /** low_hp: 받는 피해 −% (조건 충족 시). */
+  damageTakenReductionPct?: number;
+  /** on_dodge/on_crit: 발동 시 속도 +% 버프. */
+  spdBuffPct?: number;
+  /** 속도/스탯 버프 지속(행동 수). */
+  buffActions?: number;
+  /** on_dodge/on_crit: 발동 시 maxHp 의 이 % 만큼 회복. */
+  healPct?: number;
+  /** on_crit: 크리 시 대상에게 중독(독 DoT) 부여. */
+  poisonOnCrit?: boolean;
+  /** every_n_hits: 이 횟수마다 1회 추가타. */
+  everyNHits?: number;
+};
+
 // === 장비 세트 ======================================================
 // 한 세트의 조각을 전부 장착하면 보너스(옵션 후-가산, aggregateV2Equipment 에서 적용).
 export type V2EquipSet = {
@@ -373,6 +402,8 @@ export type V2EquipSet = {
   pieces: readonly V2EquipmentId[];
   /** 전 조각 장착 시 후-가산 보너스. V2EquipOptions 형태(crit/eva/mp/hp) 재사용. */
   bonus: Readonly<V2EquipOptions>;
+  /** Phase 2 — 세트 완성 시 발동하는 시그니처 효과(없으면 스탯 보너스만). */
+  signature?: SignatureEffect;
 };
 
 export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
@@ -489,18 +520,34 @@ export const V2_EQUIP_SETS: readonly V2EquipSet[] = [
     name: "성물",
     pieces: ["v2_sanctum_sig_priest_armor", "v2_sanctum_sig_priest_necklace"],
     bonus: { healPowerPct: 8, magicDef: 12 },
+    // 저체력(HP≤30%) 시 받는 피해 −25% — 버팀 정체성(Phase 2).
+    signature: {
+      trigger: "low_hp",
+      label: "성물",
+      hpThresholdPct: 30,
+      damageTakenReductionPct: 25,
+    },
   },
   {
     id: "sig_venomlord",
     name: "독왕",
     pieces: ["v2_swamp_sig_venom_gloves", "v2_swamp_sig_slip_boots"],
     bonus: { eva: 6, crit: 6 },
+    // 회피 성공 시 3행동 동안 속도 +25% — 기동 정체성(Phase 2).
+    signature: {
+      trigger: "on_dodge",
+      label: "독왕",
+      spdBuffPct: 25,
+      buffActions: 3,
+    },
   },
   {
     id: "sig_predator",
     name: "포식자",
     pieces: ["v2_den_sig_alpha_greatsword", "v2_den_sig_beasthide_armor"],
     bonus: { critMult: 40, hp: 60 },
+    // 3타마다 추가타 1회 — 폭딜 정체성(Phase 2).
+    signature: { trigger: "every_n_hits", label: "포식자", everyNHits: 3 },
   },
 ];
 

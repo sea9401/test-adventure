@@ -1492,6 +1492,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 0,
     options: { hp: 120, def: 14, eva: 6 },
     rarity: "unique",
+    // 회피 성공 시 HP 소량(maxHp 8%) 회복 — 회피탱 sustain(Phase 2).
+    signature: { trigger: "on_dodge", label: "봉인", healPct: 8 },
   },
   // ── 리자드 늪지(31–36) — 회피·기동 ───────────────────────────────────────────
   v2_swamp_sig_venom_gloves: {
@@ -1544,6 +1546,8 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     options: { crit: 10, spd: 12 },
     weaponType: "dagger",
     rarity: "unique",
+    // 크리 시 대상에게 중독(독 DoT) 부여 — 독왕 테마(Phase 2).
+    signature: { trigger: "on_crit", label: "독니", poisonOnCrit: true },
   },
   v2_swamp_sig_fang_necklace: {
     id: "v2_swamp_sig_fang_necklace",
@@ -1620,6 +1624,13 @@ export const V2_EQUIPMENT: Record<V2EquipmentId, V2Equipment> = {
     weight: 0,
     options: { crit: 9, critMult: 60, spd: 6 },
     rarity: "unique",
+    // 크리 시 2행동 동안 속도 +20% — 크리 스노볼(Phase 2).
+    signature: {
+      trigger: "on_crit",
+      label: "군림",
+      spdBuffPct: 20,
+      buffActions: 2,
+    },
   },
 };
 

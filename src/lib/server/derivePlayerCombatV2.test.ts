@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 import {
   aggregateV2Equipment,
+  collectEquipSignatures,
   CRIT_MULT_CEIL,
   CRIT_MULT_SCALE,
   derivePlayerCombatV2,
@@ -908,5 +909,49 @@ describe("derivePlayerCombatV2Pure thornsFlatFromDef (수호자 가시 방벽)",
   it("미지정 → thornsFlatFromDef 미설정(inert·byte-identical)", () => {
     const p = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
     expect(p.thornsFlatFromDef).toBeUndefined();
+  });
+});
+
+describe("collectEquipSignatures + equipSignatures 배선 (고유 시그니처 Phase 2)", () => {
+  it("시그니처 없음 → 빈 배열", () => {
+    expect(collectEquipSignatures({})).toEqual([]);
+    // 일반 장비(시그니처 없는 흔한템)만 → 빈 배열.
+    expect(
+      collectEquipSignatures({ weapon: "v2_iron_sword" } as never),
+    ).toEqual([]);
+  });
+
+  it("마퀴 단품(봉인된 반지) 장착 → on_dodge 시그니처", () => {
+    const sigs = collectEquipSignatures({
+      ring: "v2_sanctum_sig_sealed_ring",
+    } as never);
+    expect(sigs).toHaveLength(1);
+    expect(sigs[0].trigger).toBe("on_dodge");
+    expect(sigs[0].label).toBe("봉인");
+  });
+
+  it("세트(성물) 전 조각 장착 → low_hp 시그니처, 부분 장착 → 없음", () => {
+    const full = collectEquipSignatures({
+      armor: "v2_sanctum_sig_priest_armor",
+      necklace: "v2_sanctum_sig_priest_necklace",
+    } as never);
+    expect(full.some((s) => s.trigger === "low_hp" && s.label === "성물")).toBe(
+      true,
+    );
+    // 한 조각만 → 세트 미완성 → 성물 시그니처 없음(그 조각 단품 시그니처도 없음).
+    const partial = collectEquipSignatures({
+      armor: "v2_sanctum_sig_priest_armor",
+    } as never);
+    expect(partial).toEqual([]);
+  });
+
+  it("derive → 시그니처 없으면 player.equipSignatures 미설정(byte-identical), 있으면 채움", () => {
+    const none = derivePlayerCombatV2Pure({ level: 50, v2Equipped: {} }).player;
+    expect(none.equipSignatures).toBeUndefined();
+    const withSig = derivePlayerCombatV2Pure({
+      level: 50,
+      v2Equipped: { ring: "v2_sanctum_sig_sealed_ring" } as never,
+    }).player;
+    expect(withSig.equipSignatures?.[0]?.trigger).toBe("on_dodge");
   });
 });

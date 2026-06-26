@@ -1,5 +1,6 @@
 import type { Monster } from "@/adventure/data/monsters";
 import type { V2Element } from "@/adventure/data/v2/elements";
+import type { SignatureEffect } from "@/adventure/data/v2/v2Equipment";
 import { statusNameForDebuffStat } from "@/adventure/data/v2/statusEffects";
 import { smartDefaultPatternFromEquipped } from "@/adventure/data/v2/v2Skills";
 import {
@@ -538,6 +539,9 @@ export type PlayerCombat = {
   enemyMagicVulnPctPerStack?: number;
   // 워메이지 절제(직업 특성) — 스킬 마나 소모 -pct%(시전 시 소모분 일부 환급). 0/undefined=미보유.
   mpCostReductionPct?: number;
+  // ── 고유 아이템 발동형 시그니처(Phase 2) — 장착 세트/단품의 전투내 발동 효과 ──
+  // 미장착/없음 = undefined → 엔진 훅 미발화(골든 byte-identical). derive 가 활성분만 채운다.
+  equipSignatures?: SignatureEffect[];
 };
 
 // AP 스킬 발동 슬롯 형태 — v2 미장착이라 런타임 비활성이나, apSel no-op scaffolding 의

@@ -321,6 +321,29 @@ export function V2AdventureHome({
                   ? `${loc.settlement.guildName} 길드`
                   : "솔로 개척자"}
               </dd>
+              <dt className="text-zinc-500 dark:text-zinc-400">세율</dt>
+              <dd className="text-zinc-800 dark:text-zinc-200">
+                {loc.settlement.taxRate != null
+                  ? formatTaxRate(loc.settlement.taxRate)
+                  : "—"}
+              </dd>
+              <dt className="text-zinc-500 dark:text-zinc-400">정책</dt>
+              <dd className="text-zinc-800 dark:text-zinc-200">
+                {loc.settlement.policy != null
+                  ? (POLICY_LABEL[loc.settlement.policy] ?? loc.settlement.policy)
+                  : "—"}
+              </dd>
+              <dt className="text-zinc-500 dark:text-zinc-400">영주</dt>
+              <dd className="text-zinc-800 dark:text-zinc-200">
+                {loc.settlement.lordName ?? "—"}
+              </dd>
+              <dt className="text-zinc-500 dark:text-zinc-400">보유 골드</dt>
+              <dd className="text-zinc-800 dark:text-zinc-200">
+                <span className="tabular-nums">
+                  {(loc.settlement.treasuryGold ?? 0).toLocaleString()}
+                </span>{" "}
+                G
+              </dd>
               <dt className="text-zinc-500 dark:text-zinc-400">위치</dt>
               <dd className="tabular-nums text-zinc-800 dark:text-zinc-200">
                 ({loc.settlement.col}, {loc.settlement.row})

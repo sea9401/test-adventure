@@ -566,22 +566,45 @@ export async function GET() {
   // 자유 타일 지도 개척 정착지 — flag on 일 때만 전부 조회(보드 ≤81칸·작음). off=빈 배열.
   //   정착지의 "길드 귀속"은 점령행 occupiedByGuildId(권위)로 파생 — 영토=길드 소유 모델.
   //   founder 가 길드를 떠나도 길드가 정착지를 유지한다(옛 소유자→길드 소프트링크 폐기).
+  //   모험 탭 "현 위치" 카드가 거점 카드와 동일 정보(소속/세율/정책/영주/금고)를 쓰므로
+  //   점령행의 정책·세율, 거점 금고, 영주까지 칸별로 동봉(전부 N+1 회피 일괄 조회).
   const freeformTileSettlements = V2_FREEFORM_TILES
     ? await (async () => {
         const rows = await db.select().from(tileSettlements);
         if (rows.length === 0) return [];
-        // 타일 점령행 일괄 조회(N+1 회피) → 칸별 소유 길드(occupiedByGuildId).
+        // 타일 점령행 일괄 조회(N+1 회피) → 칸별 소유 길드/정책/세율.
         const tileIds = rows.map((r) => tileOutpostId(r.col, r.row));
         const occRows = await db
           .select({
             outpostId: outpostOccupations.outpostId,
             guildId: outpostOccupations.occupiedByGuildId,
+            policy: outpostOccupations.policy,
+            taxRate: outpostOccupations.taxRate,
           })
           .from(outpostOccupations)
           .where(inArray(outpostOccupations.outpostId, tileIds));
-        const guildIdByTileId = new Map(
-          occRows.map((o) => [o.outpostId, o.guildId]),
+        const occByTileId = new Map(occRows.map((o) => [o.outpostId, o]));
+        // 거점 금고(타일별 누적 세금) 일괄 조회.
+        const treasuryRows = await db
+          .select({
+            outpostId: outpostTreasury.outpostId,
+            gold: outpostTreasury.gold,
+          })
+          .from(outpostTreasury)
+          .where(inArray(outpostTreasury.outpostId, tileIds));
+        const treasuryByTileId = new Map(
+          treasuryRows.map((t) => [t.outpostId, t.gold]),
         );
+        // 영주(임명행) 일괄 조회 — 임명 길드 == 현재 점령 길드일 때만 유효(양도 시 스테일 무시).
+        const lordRows = await db
+          .select({
+            outpostId: outpostLords.outpostId,
+            userId: outpostLords.userId,
+            guildId: outpostLords.guildId,
+          })
+          .from(outpostLords)
+          .where(inArray(outpostLords.outpostId, tileIds));
+        const lordByTileId = new Map(lordRows.map((l) => [l.outpostId, l]));
         // 길드 id → 이름/색 일괄 조회(지도 길드색·길드홈 표시용).
         const gIds = [
           ...new Set(
@@ -600,9 +623,39 @@ export async function GET() {
             if (g.color != null) guildColorById.set(g.id, g.color);
           }
         }
+        // 유효 영주 표시명 일괄 resolve(임명 길드 == 점령 길드인 칸만).
+        const lordNameById = new Map<string, string>();
+        await Promise.all(
+          [
+            ...new Set(
+              rows
+                .map((r) => {
+                  const id = tileOutpostId(r.col, r.row);
+                  const occ = occByTileId.get(id);
+                  const lord = lordByTileId.get(id);
+                  return lord &&
+                    occ &&
+                    lord.guildId != null &&
+                    lord.guildId === occ.guildId
+                    ? lord.userId
+                    : null;
+                })
+                .filter((u): u is string => u != null),
+            ),
+          ].map(async (uid) => {
+            lordNameById.set(uid, await resolveUserDisplayName(uid));
+          }),
+        );
         return rows.map((r) => {
-          const gid =
-            guildIdByTileId.get(tileOutpostId(r.col, r.row)) ?? null;
+          const id = tileOutpostId(r.col, r.row);
+          const occ = occByTileId.get(id);
+          const gid = occ?.guildId ?? null;
+          const lord = lordByTileId.get(id);
+          const lordValid =
+            lord != null &&
+            occ != null &&
+            lord.guildId != null &&
+            lord.guildId === occ.guildId;
           return {
             col: r.col,
             row: r.row,
@@ -612,6 +665,11 @@ export async function GET() {
             guildId: gid,
             guildName: gid != null ? (guildNameById.get(gid) ?? null) : null,
             guildColor: gid != null ? (guildColorById.get(gid) ?? null) : null,
+            // 거점 카드와 동일 정보 — 점령행 없는 고아면 null/0.
+            policy: occ?.policy ?? null,
+            taxRate: occ?.taxRate ?? null,
+            lordName: lordValid ? (lordNameById.get(lord.userId) ?? null) : null,
+            treasuryGold: Math.max(0, treasuryByTileId.get(id) ?? 0),
           };
         });
       })()

@@ -39,10 +39,15 @@ export type TileSettlement = {
   userId: string;
   tier: string;
   name: string | null;
-  // 소유자의 현재 길드(읽기 시 멤버십 조인으로 파생). 무소속이면 null.
+  // 소유 길드 — 점령행 occupiedByGuildId 파생(영토=길드 소유 모델). 점령행 없으면(고아) null.
   guildId?: number | null;
   guildName?: string | null;
   guildColor?: string | null;
+  // 거점 카드와 동일 정보(모험 탭 현 위치 카드용) — 점령행/금고 파생. 고아면 null/0.
+  policy?: string | null;
+  taxRate?: string | null;
+  lordName?: string | null;
+  treasuryGold?: number;
 };
 import { parseV2Class, V2_CLASS_DEFS } from "@/adventure/data/v2/classes";
 import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";

@@ -20,10 +20,11 @@ import {
 } from "@/adventure/data/v2/v2Equipment";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
-import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
-
-// SP 열매 드랍 게이트(PR-1 placeholder) — gold 티어 이상 기여 시 1개. 정밀 게이팅은 추후 결정.
-const SP_FRUIT_MIN_TIER: CoopRewardTier = "gold";
+import {
+  SP_FRUIT,
+  SP_FRUIT_DROP_MIN_TIER,
+  fruitTierForBoss,
+} from "@/adventure/data/v2/spFruit";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -155,7 +156,7 @@ export async function POST(req: Request) {
     const awardFruit =
       fruitTier !== null &&
       COOP_TIER_ORDER.indexOf(tier) >=
-        COOP_TIER_ORDER.indexOf(SP_FRUIT_MIN_TIER);
+        COOP_TIER_ORDER.indexOf(SP_FRUIT_DROP_MIN_TIER);
     const fruitDef = awardFruit && fruitTier !== null ? SP_FRUIT[fruitTier] : null;
     const nextMaterials = fruitDef
       ? mergeDrops(charSave.materials, { [fruitDef.materialId]: 1 })

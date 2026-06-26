@@ -6,7 +6,11 @@
 //    spread 하고, 여기선 V2Material/CoopBossKindId 를 타입으로만 참조.
 
 import type { V2Material } from "./dungeonDrops";
-import type { CoopBossKindId } from "./coopBosses";
+import type { CoopBossKindId, CoopRewardTier } from "./coopBosses";
+
+// SP 열매 드랍 게이트 — 이 기여 티어 이상이면 1개 적립(coop/claim). UI 보상표가 같은 값을
+//   "○○ 티어 이상 시 획득"으로 표기하도록 단일 소스로 둔다(PR-1 placeholder=gold·추후 정밀화).
+export const SP_FRUIT_DROP_MIN_TIER: CoopRewardTier = "gold";
 
 export const SP_FRUIT_TIERS = [1, 2, 3] as const;
 export type SpFruitTier = (typeof SP_FRUIT_TIERS)[number];

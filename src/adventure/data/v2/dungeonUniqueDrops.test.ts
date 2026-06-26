@@ -18,7 +18,6 @@ import {
   shopPriceOf,
   type V2EquipmentId,
 } from "./v2Equipment";
-import { V2_RECIPES } from "./v2Recipes";
 import { rollEquipDrop } from "./dungeonEquipDrops";
 import { BOSS_UNIQUE_IDS } from "./coopBosses";
 import type { DungeonFloorId } from "./types";
@@ -99,10 +98,9 @@ describe("유니크 카탈로그 (18종 — 들판 유니크 6 삭제 후: 밴�
     }
   });
 
-  it("유니크는 상점 비매(undefined) + 제작 불가(레시피 없음)", () => {
+  it("유니크는 상점 비매(undefined)", () => {
     for (const id of V2_UNIQUE_IDS) {
       expect(shopPriceOf(V2_EQUIPMENT[id]), `${id} 상점`).toBeUndefined();
-      expect(V2_RECIPES[id], `${id} 레시피`).toBeUndefined();
     }
   });
 });

@@ -236,7 +236,9 @@ const MOUNTAIN_CHIEF_BASE: Monster = {
   hp: 620,
   atk: 30,
   def: 14,
-  spd: 6,
+  // spd ↑(2026-06-26) — 협동 보스는 effectiveMonsterSpd(10+raw×6)로 매핑돼 필드 1~9 밴드에선
+  //   엔드 플레이어(spd 200~300) 대비 반격이 너무 굼떴다. 레이드 보스라 밴드 밖으로 올림(유효 ~95).
+  spd: 14,
   exp: 90,
   skill: {
     kind: "heavy_blow",
@@ -262,7 +264,7 @@ const CANYON_PREDATOR_BASE: Monster = {
   hp: 600,
   atk: 31,
   def: 13,
-  spd: 7,
+  spd: 15, // ↑ 레이드 보스 속도(유효 ~101) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 95,
   skill: { kind: "pierce", name: "절벽 발톱", armorPierce: 6 },
   armorVulnerable: 0.3,
@@ -282,7 +284,7 @@ const LAKE_SOVEREIGN_BASE: Monster = {
   hp: 680,
   atk: 29,
   def: 16,
-  spd: 5,
+  spd: 12, // ↑ 레이드 보스 속도(유효 ~83·느린 골렘이라 셋 중 최저) — MOUNTAIN_CHIEF_BASE 주석 참고.
   exp: 100,
   // 한기 스택 기믹(옛 월드 보스 「별을 잊은 것」 계열) — 맞을수록 한기가 쌓여 고정
   // 피해 + 회피 감소. "오래 버티는 싸움일수록 아프다" 시간압 — 20턴 공격과 맞물림.

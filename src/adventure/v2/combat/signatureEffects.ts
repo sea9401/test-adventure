@@ -47,6 +47,25 @@ export function onCritSpeedBuff(
   return best;
 }
 
+// on_crit 한기(동결의 갑주) — 크리 + 피해 발생 시 적에게 걸 둔화 {배수(<1), 지속행동}.
+//   여러 개면 가장 강한 슬로우(가장 작은 배수). 미발동/미장착 = null. 군림(자속도+)의 거울 —
+//   playerSpdMult 대신 enemySpdMult 로 적 ATB 를 늦춘다. enemySpd 슬로우 버프 슬롯 재사용(대지 마법과 동일).
+export function onCritEnemyChill(
+  signatures: SignatureEffect[] | undefined,
+  critRoll: boolean,
+  dealtDamage: boolean,
+): { mult: number; turns: number } | null {
+  if (!critRoll || !dealtDamage || !signatures) return null;
+  let best: { mult: number; turns: number } | null = null;
+  for (const s of signatures) {
+    if (s.trigger !== "on_crit" || !s.chillSlowPct) continue;
+    const mult = Math.max(0.1, 1 - s.chillSlowPct / 100);
+    const turns = Math.max(1, s.buffActions ?? 1);
+    if (!best || mult < best.mult) best = { mult, turns };
+  }
+  return best;
+}
+
 // on_crit 독 부여 여부(독니 단검) — 크리 + 피해 발생 시 poisonOnCrit 시그니처가 하나라도 있으면 true.
 export function firesOnCritPoison(
   signatures: SignatureEffect[] | undefined,

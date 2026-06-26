@@ -4,13 +4,23 @@ import { coopBossContributors, coopBossSessions } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
+  COOP_BOSSES,
   coopTierForRatio,
   parseCoopBossKindId,
   rollCoopSpFruits,
+  rollCoopUnique,
   type CoopRewardTier,
 } from "@/adventure/data/v2/coopBosses";
 import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
 import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
+import {
+  V2_EQUIPMENT,
+  genEquipIid,
+  parseEquipmentSave,
+  type EquipmentSave,
+  type V2EquipmentId,
+} from "@/adventure/data/v2/v2Equipment";
+import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -29,6 +39,9 @@ type RewardSnapshot = {
   spFruitCount: number;
   spFruitMaterialId: string | null;
   spFruitName: string | null;
+  // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
+  uniqueId: V2EquipmentId | null;
+  uniqueName: string | null;
 };
 
 type CharSave = { materials?: unknown; [k: string]: unknown };
@@ -144,6 +157,33 @@ export async function POST(req: Request) {
       });
     }
 
+    // 보스 전용 시그니처 유니크 — SP 열매와 별개의 희귀 트로피. EPIC+ 단일 굴림(GOLD 이하 0).
+    const kind = COOP_BOSSES[kindId];
+    const uniqueId: V2EquipmentId | null =
+      kind.uniqueIds.length > 0 && rollCoopUnique(tier, Math.random)
+        ? kind.uniqueIds[0]
+        : null;
+    if (uniqueId) {
+      const equipmentSave = await lockSaveForUpdate<EquipmentSave>(
+        tx,
+        userId,
+        "equipment.v2",
+        {},
+      );
+      const { owned, equipped } = parseEquipmentSave(equipmentSave);
+      await upsertSave(tx, userId, "equipment.v2", {
+        owned: [
+          ...owned,
+          {
+            iid: genEquipIid(),
+            id: uniqueId,
+            roll: rollItemStats(V2_EQUIPMENT[uniqueId], Math.random),
+          },
+        ],
+        equipped,
+      });
+    }
+
     // 가이드 퀘스트 bossKills 호환 — 격파(기여)한 보스 종류를 멱등 기록(칭호 지급 폐지 대체).
     //   v2QuestContext 가 coopBossKinds 종류 수 + 레거시 칭호 보유분으로 bossKills 산정.
     const logSave = await lockSaveForUpdate<{
@@ -166,6 +206,8 @@ export async function POST(req: Request) {
       spFruitCount: fruitCount,
       spFruitMaterialId: fruitCount > 0 && fruitDef ? fruitDef.materialId : null,
       spFruitName: fruitCount > 0 && fruitDef ? fruitDef.name : null,
+      uniqueId,
+      uniqueName: uniqueId ? (V2_EQUIPMENT[uniqueId]?.name ?? null) : null,
     };
     await tx
       .update(coopBossContributors)

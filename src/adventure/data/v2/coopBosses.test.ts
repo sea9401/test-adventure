@@ -16,6 +16,8 @@ import {
   COOP_SP_FRUIT_CHANCE,
   rollCoopSpFruits,
   coopSpFruitMaxAt,
+  COOP_UNIQUE_CHANCE,
+  rollCoopUnique,
   canAccessCoopBoss,
   parseCoopVisibility,
   coopAttackCooldownMs,
@@ -101,6 +103,33 @@ describe("coopBosses 카탈로그", () => {
     expect(coopSpFruitMaxAt("gold")).toBe(1);
     expect(coopSpFruitMaxAt("epic")).toBe(2);
     expect(coopSpFruitMaxAt("legend")).toBe(3);
+  });
+
+  it("rollCoopUnique — EPIC+ 단일 굴림(GOLD 이하 0·확률 경계)", () => {
+    expect(COOP_UNIQUE_CHANCE.gold).toBe(0);
+    expect(COOP_UNIQUE_CHANCE.epic).toBe(0.05);
+    expect(COOP_UNIQUE_CHANCE.legend).toBe(0.12);
+    // GOLD 이하 — rng 무관 항상 false.
+    expect(rollCoopUnique(null, () => 0)).toBe(false);
+    expect(rollCoopUnique("bronze", () => 0)).toBe(false);
+    expect(rollCoopUnique("gold", () => 0)).toBe(false);
+    // EPIC/LEGEND — rng < chance 통과.
+    expect(rollCoopUnique("epic", () => 0)).toBe(true);
+    expect(rollCoopUnique("epic", () => 0.049)).toBe(true);
+    expect(rollCoopUnique("epic", () => 0.05)).toBe(false);
+    expect(rollCoopUnique("legend", () => 0.11)).toBe(true);
+    expect(rollCoopUnique("legend", () => 0.12)).toBe(false);
+  });
+
+  it("보스 uniqueIds — 시그니처 유니크 실재(이름·rarity·signature)", () => {
+    for (const id of COOP_BOSS_KIND_IDS) {
+      const b = COOP_BOSSES[id];
+      expect(b.uniqueIds.length).toBeGreaterThan(0);
+      for (const u of b.uniqueIds) {
+        expect(V2_EQUIPMENT[u]?.rarity).toBe("unique");
+        expect(V2_EQUIPMENT[u]?.signature).toBeDefined(); // 발동형 효과 부여
+      }
+    }
   });
 
   it("전투 몬스터 — 전역 잔여 HP 시작·이름/이미지/스킬/상태이상 보존", () => {

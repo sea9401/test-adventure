@@ -390,6 +390,8 @@ export type SignatureEffect = {
   healPct?: number;
   /** on_crit: 크리 시 대상에게 중독(독 DoT) 부여. */
   poisonOnCrit?: boolean;
+  /** on_crit: 크리 시 대상에게 한기(둔화) — 적 속도 −% (buffActions 행동). 군림(자속도+)의 거울. */
+  chillSlowPct?: number;
   /** every_n_hits: 이 횟수마다 1회 추가타. */
   everyNHits?: number;
 };
@@ -406,6 +408,8 @@ export function signatureLabel(sig: SignatureEffect): string {
       return "회피 시 발동";
     case "on_crit":
       if (sig.poisonOnCrit) return "치명타 시 대상 중독(독)";
+      if (sig.chillSlowPct)
+        return `치명타 시 대상 한기 — 속도 −${sig.chillSlowPct}% (${sig.buffActions ?? 1}행동)`;
       if (sig.spdBuffPct)
         return `치명타 시 속도 +${sig.spdBuffPct}% (${sig.buffActions ?? 1}행동)`;
       return "치명타 시 발동";

@@ -61,9 +61,12 @@ export type CoopAttackResult = {
 
 export type CoopClaimReward = {
   tier: CoopRewardTier;
-  // 보상 개편 — SP 열매뿐. 획득 개수(0~3)·등급 이름(0개면 null).
+  // SP 열매 획득 개수(0~3)·등급 이름(0개면 null).
   spFruitCount: number;
   spFruitName: string | null;
+  // 보스 전용 시그니처 유니크 드랍(EPIC+ 확률·없으면 null).
+  uniqueId: string | null;
+  uniqueName: string | null;
 };
 
 export type CoopSessionDetail = {

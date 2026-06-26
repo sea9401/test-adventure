@@ -145,22 +145,32 @@ export function V2CoopBossListView({
       )}
 
       {lastReward &&
-        (lastReward.spFruitCount > 0 ? (
+        (lastReward.spFruitCount > 0 || lastReward.uniqueId ? (
           <div className="rounded-md border border-emerald-300 bg-emerald-50 px-4 py-3 dark:border-emerald-800/60 dark:bg-emerald-950/30">
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              🍂 {COOP_TIER_LABEL[lastReward.tier]} 보상 —{" "}
-              {lastReward.spFruitName ?? "SP 열매"} ×{lastReward.spFruitCount}{" "}
-              획득!
+              {COOP_TIER_LABEL[lastReward.tier]} 보상 획득!
             </p>
-            <p className="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400">
-              인벤토리 &gt; 소모품에서 사용하면 SP 최대치가 오릅니다.
-            </p>
+            <ul className="mt-1 space-y-0.5 text-xs text-emerald-700 dark:text-emerald-400">
+              {lastReward.uniqueId && (
+                <li>
+                  ⚔️ 보스 유니크{" "}
+                  <span className="font-semibold">{lastReward.uniqueName}</span>{" "}
+                  — 인벤토리에서 확인!
+                </li>
+              )}
+              {lastReward.spFruitCount > 0 && (
+                <li>
+                  🍂 {lastReward.spFruitName ?? "SP 열매"} ×
+                  {lastReward.spFruitCount} — 소모품 탭에서 사용 시 SP 최대치 ↑
+                </li>
+              )}
+            </ul>
           </div>
         ) : (
           <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
             <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              {COOP_TIER_LABEL[lastReward.tier]} 기여 — 이번엔 SP 열매를 얻지
-              못했어요. (GOLD 티어부터 확률 획득)
+              {COOP_TIER_LABEL[lastReward.tier]} 기여 — 이번엔 드랍 없음. (SP 열매
+              GOLD+·유니크 EPIC+ 확률)
             </p>
           </div>
         ))}

@@ -110,6 +110,26 @@ export function coopSpFruitMaxAt(tier: CoopRewardTier | null): number {
   ).length;
 }
 
+// === 보스 전용 시그니처 유니크 드랍 (트로피·EPIC+ 확률) ====================
+// 보상 개편 후 유니크는 SP 열매와 별개의 희귀 트로피. 도달 티어 단일 굴림(누적 아님)으로 1개.
+//   GOLD 이하 0 — 상위 기여자만. ⚠️ 캘리브 다이얼. 어떤 유니크인지는 보스 uniqueIds.
+export const COOP_UNIQUE_CHANCE: Record<CoopRewardTier, number> = {
+  bronze: 0,
+  silver: 0,
+  gold: 0,
+  epic: 0.05,
+  legend: 0.12,
+};
+
+// 유니크 드랍 굴림(순수). rng() ∈ [0,1). 도달 티어 확률 단일 굴림 — 통과 시 true.
+export function rollCoopUnique(
+  reachedTier: CoopRewardTier | null,
+  rng: () => number,
+): boolean {
+  if (!reachedTier) return false;
+  return rng() < COOP_UNIQUE_CHANCE[reachedTier];
+}
+
 // === 공격 다이얼 =======================================================
 
 // 1회 공격 시뮬 턴 수(플레이어 턴 기준 — resolveBattle maxTurns). 강빌드도 1회로

@@ -44,6 +44,10 @@ import {
   offlineFarmDepth,
 } from "@/adventure/data/v2/coreLoopConfig";
 import {
+  parseSpFruitUsed,
+  spCapBonusFromRaw,
+} from "@/adventure/data/v2/spFruit";
+import {
   parseProficiencyForChar,
   groupCumLevel,
   groupUsable,
@@ -261,6 +265,7 @@ export async function GET() {
     frontierDepth?: unknown;
     lastHuntedOutpost?: unknown;
     equippedTitleId?: unknown;
+    spFruitUsed?: unknown;
   };
 
   // 칭호 — 보유(adventure-log.v2.titles)·장착(character.v2.equippedTitleId). 모험의 서
@@ -794,7 +799,10 @@ export async function GET() {
             const prof = parseProficiencyForChar(proficiencyRow?.value, charSave);
             const skillsState = parseV2SkillsState(skillsRow?.value);
             const equippedSet = new Set<string>(skillsState.equipped);
-            const spBudget = calcSpBudget(prof.groups);
+            const spBudget = calcSpBudget(
+              prof.groups,
+              spCapBonusFromRaw(charSave.spFruitUsed),
+            );
             let spUsed = 0;
             const library = skillsState.learned
               .filter((id) => V2_SKILLS[id])
@@ -815,6 +823,12 @@ export async function GET() {
           })(),
         }
       : {}),
+    // SP 열매(협동 보스 드랍 소모품) 사용 현황 — 인벤 소모품 탭이 등급별 "사용 N/캡"·
+    //   캡 도달 여부를 그린다. used = 캐릭터당 등급별 사용 횟수, capBonus = 현재 SP 보너스.
+    spFruit: (() => {
+      const used = parseSpFruitUsed(charSave.spFruitUsed);
+      return { used, capBonus: spCapBonusFromRaw(charSave.spFruitUsed) };
+    })(),
     // 모험의 서(재료 도감) 진척 — 3·4차 전직 게이트 + 코덱스 UI 표시용.
     codex: (() => {
       const ids = discoveredMaterialIds(charSave.materials);

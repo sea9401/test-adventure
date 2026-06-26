@@ -4,6 +4,10 @@ import { savesKv } from "@/db/schema";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { V2_MATERIALS, type V2MaterialId } from "@/adventure/data/v2/dungeonDrops";
 import { MAX_CHARGE } from "@/lib/v2-charge-config";
+import {
+  parseSpFruitUsed,
+  spCapBonusFromRaw,
+} from "@/adventure/data/v2/spFruit";
 
 // GET /api/v2/me/inventory — V2InventoryView + V2ShopView 자체 fetch.
 //
@@ -27,7 +31,8 @@ export async function GET() {
       ),
     );
 
-  let charSave: { materials?: Record<string, unknown> } = {};
+  let charSave: { materials?: Record<string, unknown>; spFruitUsed?: unknown } =
+    {};
   let invSave: { hpCharges?: number; mpCharges?: number } = {};
   for (const r of rows) {
     if (r.key === "character.v2")
@@ -53,5 +58,16 @@ export async function GET() {
   const hpCharges = Math.max(0, Math.min(MAX_CHARGE, invSave.hpCharges ?? 0));
   const mpCharges = Math.max(0, Math.min(MAX_CHARGE, invSave.mpCharges ?? 0));
 
-  return Response.json({ ok: true, materials, hpCharges, mpCharges });
+  // SP 열매 사용 현황 — 소모품 탭이 등급별 "사용 N/캡"·캡 도달 차단을 그린다.
+  const spFruitUsed = parseSpFruitUsed(charSave.spFruitUsed);
+  const spCapBonus = spCapBonusFromRaw(charSave.spFruitUsed);
+
+  return Response.json({
+    ok: true,
+    materials,
+    hpCharges,
+    mpCharges,
+    spFruitUsed,
+    spCapBonus,
+  });
 }

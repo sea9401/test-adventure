@@ -5,6 +5,7 @@ import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
 import {
   COOP_BOSSES,
+  COOP_TIER_ORDER,
   coopTierForRatio,
   parseCoopBossKindId,
   sumCoopGold,
@@ -18,6 +19,11 @@ import {
   type V2EquipmentId,
 } from "@/adventure/data/v2/v2Equipment";
 import { rollItemStats } from "@/adventure/data/v2/v2EquipVariance";
+import { mergeDrops } from "@/adventure/data/v2/dungeonDrops";
+import { SP_FRUIT, fruitTierForBoss } from "@/adventure/data/v2/spFruit";
+
+// SP 열매 드랍 게이트(PR-1 placeholder) — gold 티어 이상 기여 시 1개. 정밀 게이팅은 추후 결정.
+const SP_FRUIT_MIN_TIER: CoopRewardTier = "gold";
 
 // POST /api/v2/coop/claim — 처치된 협동 보스의 기여 보상 수령.
 //
@@ -35,9 +41,11 @@ type RewardSnapshot = {
   uniqueId: V2EquipmentId | null;
   titleId: string;
   titleNew: boolean;
+  // SP 열매 드랍(없으면 null) — 멱등 스냅샷에 포함해 retry 시 그대로 반환.
+  spFruit?: { materialId: string; name: string } | null;
 };
 
-type CharSave = { gold?: number; [k: string]: unknown };
+type CharSave = { gold?: number; materials?: unknown; [k: string]: unknown };
 
 export async function POST(req: Request) {
   const maybeUserId = await ensureUser();
@@ -142,9 +150,21 @@ export async function POST(req: Request) {
         ? kind.uniqueIds[Math.floor(Math.random() * kind.uniqueIds.length)]
         : null;
 
+    // SP 열매 — gold 티어 이상이면 이 보스 등급의 열매 1개 인벤(materials) 적립(거래·사용 가능).
+    const fruitTier = fruitTierForBoss(kindId);
+    const awardFruit =
+      fruitTier !== null &&
+      COOP_TIER_ORDER.indexOf(tier) >=
+        COOP_TIER_ORDER.indexOf(SP_FRUIT_MIN_TIER);
+    const fruitDef = awardFruit && fruitTier !== null ? SP_FRUIT[fruitTier] : null;
+    const nextMaterials = fruitDef
+      ? mergeDrops(charSave.materials, { [fruitDef.materialId]: 1 })
+      : (charSave.materials as Record<string, number> | undefined);
+
     await upsertSave(tx, userId, "character.v2", {
       ...charSave,
       gold: Math.max(0, (charSave.gold ?? 0) + gold),
+      ...(fruitDef ? { materials: nextMaterials } : {}),
     });
 
     if (uniqueId) {
@@ -191,6 +211,9 @@ export async function POST(req: Request) {
       uniqueId,
       titleId: kind.titleId,
       titleNew,
+      spFruit: fruitDef
+        ? { materialId: fruitDef.materialId, name: fruitDef.name }
+        : null,
     };
     await tx
       .update(coopBossContributors)

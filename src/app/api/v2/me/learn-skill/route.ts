@@ -25,6 +25,7 @@ import {
   V2_CORE_LOOP_V2,
   calcSpBudget,
 } from "@/adventure/data/v2/coreLoopConfig";
+import { spCapBonusFromRaw } from "@/adventure/data/v2/spFruit";
 
 // POST /api/v2/me/learn-skill — 시그니처 1종 학습. 그 차수 도달 + 숙달 포인트 비용 지불.
 // docs/v2-proficiency-redesign.md §6·§10. 자동부여 폐지 → 숙련도가 화폐. 골드/쿨다운 없음.
@@ -132,7 +133,10 @@ export async function POST(req: Request) {
       ? sanitizeLoadout(
           [...skills.equipped, sig],
           nextLearned,
-          calcSpBudget(spent.groups),
+          calcSpBudget(
+            spent.groups,
+            spCapBonusFromRaw((charSave as { spFruitUsed?: unknown }).spFruitUsed),
+          ),
         )
       : nextLearned.filter((s) => elementalPool.includes(s));
     const nextSkills: V2SkillsState = {

@@ -18,6 +18,7 @@
 import type { DungeonFloorId } from "./types";
 import { ENHANCE_STONE_MATERIAL_ID, ENHANCE_STONES } from "./v2Enhance";
 import { SUMMON_SCROLL_MATERIAL_ID } from "./coopBosses";
+import { SP_FRUIT_MATERIALS } from "./spFruit";
 import {
   REFORGE_STONE_MATERIAL_ID,
   REFORGE_STONES,
@@ -92,6 +93,9 @@ export const V2_MATERIALS: Record<V2MaterialId, V2Material> = {
   // 성벽 수리 키트(settlementMaterials) — 통나무3+철광석3 조합 소모품. 카탈로그 등재로 인벤/거래소
   //   노출 + 키트 보유수가 거점 수리 UI 로 surface 된다. 드랍 아님(조합 전용).
   ...WALL_REPAIR_KIT_MATERIAL,
+  // SP 열매 3종(spFruit) — 협동 보스 드랍. 카탈로그 등재로 인벤 소모품·거래소 거래(NPC 비매).
+  //   사용 시 SP 최대치 +1(/me/use-sp-fruit). 거래용으로도 가치(사용 캡 도달분 판매).
+  ...SP_FRUIT_MATERIALS,
 };
 
 // 재료 NPC 판매가 (개당, 골드). 강화석은 의도적으로 **비등재** — NPC 환금 없음,

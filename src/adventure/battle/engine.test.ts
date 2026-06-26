@@ -747,9 +747,9 @@ describe("v2 스킬 효과 적용 (PR-4b)", () => {
         },
       },
     );
-    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명 + 출혈] +N스택 (M턴).
+    // 출혈 박힘 로그 (apply 시점 — info kind 유지). 새 포맷: [스킬명 + 출혈] +N스택 (M회).
     const dotApplyLog = r.finalState.log.find(
-      (e) => e.kind === "info" && e.text.includes("스택") && e.text.includes("(3턴)"),
+      (e) => e.kind === "info" && e.text.includes("스택") && e.text.includes("(3회)"),
     );
     expect(dotApplyLog).toBeDefined();
     // tick 로그 (enemy 측 turn 진입 시 누적 피해) — 일반 공격 패턴 (player_attack + "[출혈]").

@@ -1534,7 +1534,7 @@ export function applyEnemyV2SkillCast(
   for (const dot of result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}턴)`,
+      text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
       turn: "enemy",
     });
   }
@@ -1810,7 +1810,7 @@ export function applyPlayerV2SkillCast(
   for (const dot of result.dotsToApplyToTarget) {
     nextLog = appendLog(nextLog, {
       kind: "info",
-      text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}턴)`,
+      text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
       turn: "player",
     });
   }
@@ -2184,7 +2184,7 @@ function resolveBattleLegacy(
         for (const dot of result.dotsToApplyToTarget) {
           nextLog = appendLog(nextLog, {
             kind: "info",
-            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}턴)`,
+            text: `[${[result.castSkillName, dot.label].filter(Boolean).join(" + ")}] +${dot.stacks}스택 (${dot.turns}회)`,
             turn: "enemy",
           });
         }

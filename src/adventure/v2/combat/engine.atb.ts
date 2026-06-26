@@ -33,6 +33,9 @@ import { V2_ATB_SKILLS } from "@/adventure/data/v2/coreLoopConfig";
 
 export const ATB_TICK_CAP = 50 * 26;
 export const ATB_ACTION_GUARD = 1000;
+// DoT(출혈/중독/연소) 고정 틱 간격 — 대상 행동과 무관하게 이 타임라인 간격마다 1회 적용(속도 독립).
+//   기준 액터(spd 50) 1행동 ≈ 100틱(actionInterval). 지속(turns)은 "이 클락 N회". 다이얼.
+export const DOT_TICK_INTERVAL = 100;
 
 function hpBarEntry(state: BattleState, tick?: number): BattleLogEntry {
   return {
@@ -110,22 +113,50 @@ function tagNewLogEntries(
   };
 }
 
+// 플레이어 행동 진입 시 — 버프/디버프 tick + 추가타 큐 반영. ⚠️ DoT 틱은 여기서 제거(2026):
+//   DoT 는 대상 행동이 아니라 고정 클락(applyDotClockTick·DOT_TICK_INTERVAL)에서 적용한다(속도 독립).
 function tickPlayerBundleEntry(state: BattleState): BattleState {
-  const dotTick = tickV2Dots(state.playerV2Dots, state.playerMaxHp);
-  let next: BattleState = { ...state, playerV2Dots: dotTick.nextDots };
-  if (dotTick.totalDmg > 0) {
-    const labels = state.playerV2Dots
+  return {
+    ...state,
+    buffs:
+      state.turn.completedPlayerTurns > 0
+        ? decrementTimedBuffs(state.buffs)
+        : state.buffs,
+    v2SelfBuffs: tickV2BuffMap(state.v2SelfBuffs),
+    v2SelfDebuffs: tickV2BuffMap(state.v2SelfDebuffs),
+    playerAttacksLeft: state.playerAttacksLeft + state.turn.queuedExtraAttacks,
+    turn: { ...state.turn, queuedExtraAttacks: 0 },
+  };
+}
+
+// 적 행동 진입 시 — 적 버프/디버프 tick. ⚠️ DoT 틱은 제거(고정 클락 applyDotClockTick 으로 이전).
+function tickEnemyBundleEntry(state: BattleState): BattleState {
+  return {
+    ...state,
+    enemyV2SelfBuffs: tickV2BuffMap(state.enemyV2SelfBuffs),
+    enemyV2Debuffs: tickV2BuffMap(state.enemyV2Debuffs),
+  };
+}
+
+// DoT 고정 클락 1회 — 양쪽(플레이어·적) DoT 을 동시에 1틱(스택×스택당, 잔여 −1, 만료 drop).
+//   대상 행동과 무관(DOT_TICK_INTERVAL 간격마다 루프가 호출). 라벨·어투는 평타와 동일("입혔다").
+//   사망 시 phase ended. 라벨은 tick 전(turns>0) dot 기준.
+function applyDotClockTick(state: BattleState): BattleState {
+  let next = state;
+  // 플레이어한테 걸린 DoT(적이 가함 → 플레이어가 받음). 우측(enemy_attack)·turn player.
+  const pTick = tickV2Dots(next.playerV2Dots, next.playerMaxHp);
+  if (pTick.totalDmg > 0) {
+    const labels = next.playerV2Dots
       .filter((d) => d.turns > 0)
       .map((d) => d.label)
       .join(" + ");
     next = {
       ...next,
-      playerHp: Math.max(0, state.playerHp - dotTick.totalDmg),
-      log: appendLog(state.log, {
+      playerV2Dots: pTick.nextDots,
+      playerHp: Math.max(0, next.playerHp - pTick.totalDmg),
+      log: appendLog(next.log, {
         kind: "enemy_attack",
-        // "입혔다" 로 통일 — 모든 데미지 로그는 가한 쪽 관점(좌우 정렬로 누가 가했는지 구분).
-        //   적 평타("공격! N 피해를 입혔다")와 같은 어투(옛 출혈만 "입었다" 였던 불일치 해소).
-        text: `[${labels}] ${dotTick.totalDmg} 피해를 입혔다.`,
+        text: `[${labels}] ${pTick.totalDmg} 피해를 입혔다.`,
         turn: "player",
       }),
     };
@@ -141,35 +172,23 @@ function tickPlayerBundleEntry(state: BattleState): BattleState {
         outcome: "lose",
       };
     }
+  } else {
+    next = { ...next, playerV2Dots: pTick.nextDots };
   }
-  return {
-    ...next,
-    buffs:
-      next.turn.completedPlayerTurns > 0
-        ? decrementTimedBuffs(next.buffs)
-        : next.buffs,
-    v2SelfBuffs: tickV2BuffMap(next.v2SelfBuffs),
-    v2SelfDebuffs: tickV2BuffMap(next.v2SelfDebuffs),
-    playerAttacksLeft:
-      next.playerAttacksLeft + next.turn.queuedExtraAttacks,
-    turn: { ...next.turn, queuedExtraAttacks: 0 },
-  };
-}
-
-function tickEnemyBundleEntry(state: BattleState): BattleState {
-  const dotTick = tickV2Dots(state.enemyV2Dots, state.enemy.hp);
-  let next: BattleState = { ...state, enemyV2Dots: dotTick.nextDots };
-  if (dotTick.totalDmg > 0) {
-    const labels = state.enemyV2Dots
+  // 적한테 걸린 DoT(플레이어가 가함 → 적이 받음). 좌측(player_attack)·turn enemy.
+  const eTick = tickV2Dots(next.enemyV2Dots, next.enemy.hp);
+  if (eTick.totalDmg > 0) {
+    const labels = next.enemyV2Dots
       .filter((d) => d.turns > 0)
       .map((d) => d.label)
       .join(" + ");
     next = applyPhaseTriggerIfAny({
       ...next,
-      enemyHp: Math.max(0, state.enemyHp - dotTick.totalDmg),
-      log: appendLog(state.log, {
+      enemyV2Dots: eTick.nextDots,
+      enemyHp: Math.max(0, next.enemyHp - eTick.totalDmg),
+      log: appendLog(next.log, {
         kind: "player_attack",
-        text: `[${labels}] ${dotTick.totalDmg} 피해를 입혔다.`,
+        text: `[${labels}] ${eTick.totalDmg} 피해를 입혔다.`,
         turn: "enemy",
       }),
     });
@@ -178,19 +197,17 @@ function tickEnemyBundleEntry(state: BattleState): BattleState {
         ...next,
         log: appendLog(next.log, {
           kind: "info",
-          text: `${state.enemy.name}을(를) 쓰러뜨렸다!`,
+          text: `${next.enemy.name}을(를) 쓰러뜨렸다!`,
           turn: "enemy",
         }),
         phase: "ended",
         outcome: "win",
       };
     }
+  } else {
+    next = { ...next, enemyV2Dots: eTick.nextDots };
   }
-  return {
-    ...next,
-    enemyV2SelfBuffs: tickV2BuffMap(next.enemyV2SelfBuffs),
-    enemyV2Debuffs: tickV2BuffMap(next.enemyV2Debuffs),
-  };
+  return next;
 }
 
 function forceAtbLoss(state: BattleState, turns: number, consumed: Partial<Record<PotionId, number>>): BattleResolution {
@@ -247,12 +264,13 @@ export function resolveBattleAtb(
 
   let playerNextTick = 0;
   let enemyNextTick = actionInterval(effectiveEnemyTimelineSpd(state, depthCorr));
+  let dotNextTick = DOT_TICK_INTERVAL; // DoT 고정 클락 — 적용 시점이 아니라 다음 클락 경계부터 틱.
   let actions = 0;
   let turns = 0;
   let lastTick = 0; // 최종 hp_bar 스탬프용(루프 밖)
 
   while (state.phase !== "ended") {
-    const nextTick = Math.min(playerNextTick, enemyNextTick);
+    const nextTick = Math.min(playerNextTick, enemyNextTick, dotNextTick);
     lastTick = nextTick;
     if (
       nextTick > ATB_TICK_CAP ||
@@ -260,6 +278,19 @@ export function resolveBattleAtb(
       turns >= (ctx.maxTurns ?? Number.POSITIVE_INFINITY)
     ) {
       return forceAtbLoss(state, turns, consumed);
+    }
+
+    // DoT 고정 클락 — 행동(actor)보다 먼저(동률이면 DoT 우선). 양쪽 DoT 1틱 적용 후 hp_bar 1개.
+    //   행동 카운터(actions)는 안 올린다(actor 행동 가드 의미 보존). 사망 시 phase ended → 루프 종료.
+    if (dotNextTick <= playerNextTick && dotNextTick <= enemyNextTick) {
+      const prevLogLen = state.log.length;
+      state = applyDotClockTick(state);
+      state = tagNewLogEntries(state, prevLogLen, "player", dotNextTick);
+      if (state.phase !== "ended" && state.log.length > prevLogLen) {
+        state = { ...state, log: appendLog(state.log, hpBarEntry(state, dotNextTick)) };
+      }
+      dotNextTick += DOT_TICK_INTERVAL;
+      continue;
     }
 
     const actor = nextActor1v1(playerNextTick, enemyNextTick);

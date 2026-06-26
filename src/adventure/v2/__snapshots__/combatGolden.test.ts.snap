@@ -227,7 +227,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "ninja_crit_vs_늑대",
-    "logSha": "411629ec416fe329677e3857c56cc5b4665a41a2",
+    "logSha": "08a9a77ed8c2d9d39496b006c74ec2db067222a6",
     "outcome": "win",
     "playerHp": 640,
     "playerMp": 227,
@@ -236,7 +236,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "archer_pen_vs_골렘",
-    "logSha": "659e1d0de39e7e59490829150657aefdbc39e60c",
+    "logSha": "4779424562461f3c188e512c297aabe8aeb18992",
     "outcome": "win",
     "playerHp": 635,
     "playerMp": 227,
@@ -254,7 +254,7 @@ exports[`골든: resolveBattle PvE 지문 (엔진 가드) > PvE 지문 매트릭
   {
     "enemyHp": 0,
     "label": "counter_tank_vs_들소",
-    "logSha": "bbe60afb612896d27de210be002499d998dce94a",
+    "logSha": "36b39de6dfcab27b045774d627242bc1e6cf4ff3",
     "outcome": "win",
     "playerHp": 820,
     "playerMp": 227,
@@ -327,7 +327,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "chill_enemy",
-    "logSha": "ae6fc147a0d11370b44a5372257e3abb6550c4cf",
+    "logSha": "0f842970d868f700da679680e60723020889e8ac",
     "outcome": "win",
     "playerHp": 821,
     "playerMp": 227,
@@ -345,7 +345,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "evade_reflect",
-    "logSha": "698b28b09e51b1982397c3e4420cc70bcf564b98",
+    "logSha": "ab7cfb2a7e3a362103061c8e53040c7aad7aab20",
     "outcome": "win",
     "playerHp": 625,
     "playerMp": 227,
@@ -363,7 +363,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "brace_enemy",
-    "logSha": "c93e131d0885df06de6952e327497a9548601bf6",
+    "logSha": "a28b0d2de3cfcf3c5e279cfabf19e1dd15149b7f",
     "outcome": "win",
     "playerHp": 714,
     "playerMp": 227,
@@ -372,7 +372,7 @@ exports[`골든: 적 페이즈 메커닉 커버리지 (리팩터 가드) > 적 �
   {
     "enemyHp": 0,
     "label": "heavyblow_enemy",
-    "logSha": "8651b08cffbd4ae42821b00475fa8faaff8413a4",
+    "logSha": "6d7dc0a07d3cf7cc386ed9ccfab23a632345f230",
     "outcome": "win",
     "playerHp": 820,
     "playerMp": 227,

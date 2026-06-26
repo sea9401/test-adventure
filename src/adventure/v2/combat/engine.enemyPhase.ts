@@ -726,9 +726,10 @@ export function resolveEnemyPhase(
     (heavyBlowFired && skill?.kind === "heavy_blow" ? `[${skill.name}] ` : "") +
     (magicAttack ? "[마법] " : "") +
     (monsterCritFired ? "[치명] " : "");
+  // 항상 "공격! " 접두 → 라벨([강타]·[마법]·[치명] 등)을 인라인(플레이어 공격·스킬과 통일).
   log = appendLog(log, {
     kind: "enemy_attack",
-    text: `${atkPrefix || "공격! "}${dmgToHp} 피해를 입혔다.`,
+    text: `공격! ${atkPrefix}${dmgToHp} 피해를 입혔다.`,
   });
   if (enduranceFires) {
     log = appendLog(log, {

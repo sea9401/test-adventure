@@ -121,6 +121,10 @@ export type V2SkillId =
   // ── 몬스터 전용 마법 시전 (사냥터 마법몹 castSkill) — scaling magic·플레이어 미학습 ──
   | "mob_arcane_bolt" // 마력탄 — 마법 단일딜(magicDef 경감)
   | "mob_arcane_burst" // 비전 작렬 — 강한 마법 단일딜
+  // ── 몬스터 전용 시그니처 액티브 (특수 몹·협동 보스) — mpCost>0 + 유한 v2MaxMp 로 시전 횟수 제한 ──
+  | "mob_crushing_blow" // 분쇄 일격 — 강한 물리 단일딜
+  | "mob_savage_roar" // 포효 — 자버프 ATK↑(3턴)
+  | "mob_arcane_nova" // 비전 폭발 — 강한 마법 단일딜
   // ── 스킬 재설계 — 공용 액티브 18종 (직군당 5, 마력구/예기 패시브 제외) ───
   | V2CommonSkillId;
 

@@ -56,3 +56,33 @@ export function firesOnCritPoison(
   if (!critRoll || !dealtDamage || !signatures) return false;
   return signatures.some((s) => s.trigger === "on_crit" && s.poisonOnCrit);
 }
+
+// on_dodge 회복(봉인된 반지) — 회피 성공 시 maxHp 의 healPct% 회복량 합산. 없으면 0.
+export function onDodgeHealAmount(
+  signatures: SignatureEffect[] | undefined,
+  maxHp: number,
+): number {
+  if (!signatures || maxHp <= 0) return 0;
+  let amt = 0;
+  for (const s of signatures) {
+    if (s.trigger !== "on_dodge" || !s.healPct) continue;
+    amt += Math.floor((s.healPct / 100) * maxHp);
+  }
+  return amt;
+}
+
+// on_dodge 속도 버프(독왕 세트) — 회피 성공 시 발동할 속도 버프 {배수, 지속행동}(가장 강한).
+//   미장착/미발동 = null.
+export function onDodgeSpeedBuff(
+  signatures: SignatureEffect[] | undefined,
+): { mult: number; turns: number } | null {
+  if (!signatures) return null;
+  let best: { mult: number; turns: number } | null = null;
+  for (const s of signatures) {
+    if (s.trigger !== "on_dodge" || !s.spdBuffPct) continue;
+    const mult = 1 + s.spdBuffPct / 100;
+    const turns = Math.max(1, s.buffActions ?? 1);
+    if (!best || mult > best.mult) best = { mult, turns };
+  }
+  return best;
+}

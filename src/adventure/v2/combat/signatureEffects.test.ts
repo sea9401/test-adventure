@@ -3,6 +3,8 @@ import {
   lowHpDamageReductionPct,
   onCritSpeedBuff,
   firesOnCritPoison,
+  onDodgeHealAmount,
+  onDodgeSpeedBuff,
 } from "./signatureEffects";
 import { resolveBattle } from "./engine";
 import { pickAutoAction } from "./pickAutoAction";
@@ -122,6 +124,42 @@ describe("firesOnCritPoison (독니 크리 독)", () => {
     expect(firesOnCritPoison([FANG], true, false)).toBe(false);
     expect(firesOnCritPoison(undefined, true, true)).toBe(false);
     expect(firesOnCritPoison([CROWN], true, true)).toBe(false); // 군림=속도만
+  });
+});
+
+describe("onDodgeHealAmount (봉인 회피 회복)", () => {
+  const SEAL: SignatureEffect = {
+    trigger: "on_dodge",
+    label: "봉인",
+    healPct: 8,
+  };
+  it("on_dodge healPct → maxHp 의 % 회복량(내림)", () => {
+    expect(onDodgeHealAmount([SEAL], 100)).toBe(8); // 8% of 100
+    expect(onDodgeHealAmount([SEAL], 250)).toBe(20); // floor(0.08*250)
+  });
+  it("미장착/다른 트리거/maxHp 0 → 0", () => {
+    expect(onDodgeHealAmount(undefined, 100)).toBe(0);
+    expect(onDodgeHealAmount([CROWN], 100)).toBe(0); // on_crit
+    expect(onDodgeHealAmount([SEAL], 0)).toBe(0);
+  });
+});
+
+describe("onDodgeSpeedBuff (독왕 회피 속도)", () => {
+  const VENOM: SignatureEffect = {
+    trigger: "on_dodge",
+    label: "독왕",
+    spdBuffPct: 25,
+    buffActions: 3,
+  };
+  it("on_dodge spdBuffPct → {배수, 지속}", () => {
+    expect(onDodgeSpeedBuff([VENOM])).toEqual({ mult: 1.25, turns: 3 });
+  });
+  it("미장착/회복전용(봉인)/on_crit → null", () => {
+    expect(onDodgeSpeedBuff(undefined)).toBeNull();
+    expect(
+      onDodgeSpeedBuff([{ trigger: "on_dodge", label: "봉인", healPct: 8 }]),
+    ).toBeNull(); // spdBuffPct 없음
+    expect(onDodgeSpeedBuff([CROWN])).toBeNull(); // on_crit
   });
 });
 

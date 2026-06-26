@@ -13,7 +13,11 @@ import {
   v2AtkBuffMult,
   v2DefBuffMult,
 } from "./combatShared";
-import { lowHpDamageReductionPct } from "./signatureEffects";
+import {
+  lowHpDamageReductionPct,
+  onDodgeHealAmount,
+  onDodgeSpeedBuff,
+} from "./signatureEffects";
 import { dodgeChance } from "@/adventure/data/v2/v2CombatConstants";
 import {
   elementDamageMult,
@@ -139,10 +143,28 @@ export function resolveEnemyPhase(
 
   // enemy phase — 그림자 보법 → 보장 회피 → % 회피 → 행운의 방패 → 데미지 (가드 적용) 순.
   // enemy phase 종료 시 enemyPhasesCompleted +1 (가드 카운터 진행).
-  // 회피/방패 성공 시 곡예(특기) 장착이면 HP +evadeHealAmount.
-  const evadeHeal = player.evadeHealAmount ?? 0;
+  // 회피/방패 성공 시 곡예(특기) 장착이면 HP +evadeHealAmount. + 봉인 on-dodge 회복(Phase 2·
+  //   미장착=0 → byte-identical). healOnDodge 가 4개 회피 분기 공통이라 한 곳에 합산하면 전파.
+  const evadeHeal =
+    (player.evadeHealAmount ?? 0) +
+    onDodgeHealAmount(player.equipSignatures, state.playerMaxHp);
   const healOnDodge = (hp: number): number =>
     evadeHeal > 0 ? Math.min(state.playerMaxHp, hp + evadeHeal) : hp;
+  // 독왕 on-dodge 속도 버프(Phase 2) — 회피 성공 분기들이 next.buffs 로 쓸 값. 미발동=state.buffs
+  //   그대로(Math.max 로 기존 버프 미감소) → byte-identical.
+  const sigDodgeSpd = onDodgeSpeedBuff(player.equipSignatures);
+  const dodgeSpdActiveMult =
+    state.buffs.playerSpdTurnsLeft > 0 ? state.buffs.playerSpdMult : 1;
+  const dodgeBuffs = sigDodgeSpd
+    ? {
+        ...state.buffs,
+        playerSpdMult: Math.max(dodgeSpdActiveMult, sigDodgeSpd.mult),
+        playerSpdTurnsLeft: Math.max(
+          state.buffs.playerSpdTurnsLeft,
+          sigDodgeSpd.turns,
+        ),
+      }
+    : state.buffs;
 
   // 무한 가시 (2티어 특기) — 매 적 공격에 적 ATK 의 N% 반사 (회피/피격 무관).
   // 회피/피격 모든 분기에서 동일 적용 — helper 로 컴팩트하게.
@@ -240,6 +262,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -292,6 +315,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       stacks: {
         ...state.stacks,
         evadesRemaining: state.stacks.evadesRemaining - 1,
@@ -380,6 +404,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,
@@ -463,6 +488,7 @@ export function resolveEnemyPhase(
       ...state,
       playerHp: healedHp,
       enemyHp: reflect.enemyHp,
+      buffs: dodgeBuffs, // 독왕 on-dodge 속도 버프(미발동=state.buffs → byte-identical)
       turn: {
         ...state.turn,
         enemyPhasesCompleted: state.turn.enemyPhasesCompleted + 1,

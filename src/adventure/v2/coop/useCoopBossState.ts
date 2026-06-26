@@ -17,6 +17,9 @@ import {
 } from "@/adventure/data/v2/coopBosses";
 
 const POLL_MS = 20_000;
+// 상세(토벌) 화면은 더 자주 폴링 — 공유 HP 가 실시간으로 깎이는 체감(여러 명 동시 공격).
+//   처치/만료 확정 시 폴링 중단(죽은 세션 무한 폴링 방지).
+const DETAIL_POLL_MS = 5_000;
 
 export type CoopSessionSummary = {
   id: string;
@@ -282,12 +285,17 @@ export function useCoopSessionState({
     } catch {}
   }, [sessionId]);
 
+  // 서버가 처치/만료를 확정하면 폴링 중단(HP 더 안 변함). 시간상 만료(expiresAt≤now)는 매초
+  //   바뀌어 effect 재실행을 유발하므로 폴링 게이트엔 안 씀 — 서버 확정 플래그만 본다.
+  const stopPolling =
+    detail?.session.defeated === true || detail?.session.expired === true;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh 는 async(fetch 후 set)
     void refresh();
-    const id = setInterval(() => void refresh(), POLL_MS);
+    if (stopPolling) return; // 종료 세션 — 한 번만 갱신, 인터벌 없음.
+    const id = setInterval(() => void refresh(), DETAIL_POLL_MS);
     return () => clearInterval(id);
-  }, [refresh]);
+  }, [refresh, stopPolling]);
 
   const attack = useCallback(async () => {
     if (busy) return;
@@ -309,8 +317,23 @@ export function useCoopSessionState({
       };
       if (j.stamina) setStamina(j.stamina);
       if (j.ok && j.result) {
-        setLastAttack(j.result);
-        onHpAfterAttack?.(j.result);
+        const r = j.result;
+        setLastAttack(r);
+        onHpAfterAttack?.(r);
+        // 공격 직후 즉시 — 보스 공유 HP 바를 응답값으로 낙관적 갱신(refresh 왕복 전 체감).
+        //   finally 의 refresh 가 곧 서버 권위로 확정(다른 사람 공격분도 반영).
+        setDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                session: {
+                  ...prev.session,
+                  hp: r.bossHp,
+                  defeated: prev.session.defeated || r.defeated,
+                },
+              }
+            : prev,
+        );
       } else {
         setNotice(
           j.error === "cooldown"

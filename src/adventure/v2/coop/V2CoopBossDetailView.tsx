@@ -19,6 +19,7 @@ import {
   COOP_VISIBILITY_LABEL,
   COOP_VISIBILITY_OPTIONS,
   coopAttackCooldownMs,
+  coopEnrageStatus,
 } from "@/adventure/data/v2/coopBosses";
 import { V2_CORE_LOOP_V2 } from "@/adventure/data/v2/coreLoopConfig";
 import {
@@ -101,6 +102,10 @@ export function V2CoopBossDetailView({
     session.defeated || session.expired || session.expiresAt <= now;
   const active = !ended;
   const hpPct = Math.max(0, Math.min(100, (session.hp / session.maxHp) * 100));
+  // 발악 단계 라이브 상태 — 현재 공유 HP 기준 발동/임박 단계(활성 보스만 표시).
+  const enrage = active
+    ? coopEnrageStatus(def, session.hp / session.maxHp)
+    : null;
   const cooldownLeft =
     my.lastAttackAt != null
       ? my.lastAttackAt + coopAttackCooldownMs() - now
@@ -162,6 +167,43 @@ export function V2CoopBossDetailView({
             style={{ width: `${hpPct}%` }}
           />
         </div>
+
+        {/* 발악 단계 트래커 — 현재 HP 기준 발동(🔥)/임박(⚠)/예정 단계를 라이브로. 토벌이
+            진행될수록 보스가 더 사나워지는 것을 미리 보여준다(예고). */}
+        {enrage && enrage.totalStages > 0 && (
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center justify-center gap-1">
+              <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                발악 {enrage.activeCount}/{enrage.totalStages}
+              </span>
+              {enrage.stages.map(({ stage, active: on }) => {
+                const isNext = enrage.nextStage === stage;
+                return (
+                  <span
+                    key={stage.hpFraction}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                      on
+                        ? "border border-rose-400/60 bg-rose-500/15 text-rose-700 dark:text-rose-300"
+                        : isNext
+                          ? "animate-pulse border border-amber-400 text-amber-700 dark:text-amber-300"
+                          : "border border-zinc-200 text-zinc-400 dark:border-zinc-700"
+                    }`}
+                  >
+                    {on ? "🔥 " : isNext ? "⚠ " : ""}HP{" "}
+                    {Math.round(stage.hpFraction * 100)}%
+                  </span>
+                );
+              })}
+            </div>
+            {enrage.nextStage && (
+              <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                다음 발악 (HP {Math.round(enrage.nextStage.hpFraction * 100)}%) —{" "}
+                {enrage.nextStage.note}
+              </p>
+            )}
+          </div>
+        )}
+
         <p className="text-xs text-zinc-500 dark:text-zinc-400">{def.desc}</p>
         {def.traits.length > 0 && (
           <div className="flex flex-wrap justify-center gap-1">

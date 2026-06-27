@@ -12,6 +12,7 @@ import { Hammer } from "@phosphor-icons/react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { TabBar } from "@/components/ui/TabBar";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/lib/usePagination";
 import {
@@ -94,10 +95,15 @@ type ReforgeResponse = {
 type ForgeMode = "enhance" | "reforge" | "combine";
 
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
+  // 강화·재련·조합은 골드 sink — 보유 골드를 헤더에 노출(사용자 요청). 코어루프면 지갑+은행이
+  //   결제 가능액(서버 enhance/reforge 가 spendGold 로 둘 다 차감)이라 그 합을 보여준다.
+  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
     Partial<Record<V2EquipSlot, string>>
   >({});
+  const [gold, setGold] = useState<number | null>(null);
+  const [bankedGold, setBankedGold] = useState(0);
   const [stones, setStones] = useState({ red: 0, blue: 0 });
   const [reforgeStones, setReforgeStones] = useState({ basic: 0, high: 0 });
   // 성벽 수리 키트 조합 재료 — 통나무/철광석 보유 + 키트 보유수(/me/inventory).
@@ -116,10 +122,23 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
 
   const refresh = useCallback(async () => {
     try {
-      const [eqRes, invRes] = await Promise.all([
+      const [eqRes, invRes, stateRes] = await Promise.all([
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
+        // 골드 표시용 보조 조회 — 거부(네트워크 끊김)돼도 장비/인벤 로드를 깨지 않게 격리.
+        fetch("/api/v2/me/state").catch(() => null),
       ]);
+      // 보유 골드 — 매 작업 후 핸들러가 refresh() 를 부르므로 여기서만 읽으면 자동 갱신.
+      if (stateRes?.ok) {
+        const j = (await stateRes.json().catch(() => null)) as {
+          character?: { gold?: number; bankedGold?: number };
+        } | null;
+        if (j?.character) {
+          setGold(j.character.gold ?? 0);
+          setBankedGold(j.character.bankedGold ?? 0);
+          syncCtxBanked(j.character.bankedGold ?? 0);
+        }
+      }
       if (eqRes.ok) {
         const j = (await eqRes.json()) as {
           owned?: V2EquipInstance[];
@@ -149,7 +168,7 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     } catch {
       /* 폴링 아님 — 조용히 */
     }
-  }, []);
+  }, [syncCtxBanked]);
 
   useEffect(() => {
     // 비동기 fetch 후 setState — cascading render 아님(인벤토리와 동일 패턴).
@@ -204,6 +223,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
     stone === "red" ? stones.red : stone === "blue" ? stones.blue : 0;
   const stoneShort = stone !== "none" && !feedIid && haveStones < stoneCost;
   const goldOnlyBlocked = stoneRequired && stone === "none";
+  // 결제 가능 골드 — 코어루프면 지갑+은행(서버 spendGold 와 동일 기준), 아니면 지갑만.
+  const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : (gold ?? 0);
 
   const doEnhance = useCallback(async () => {
     if (!selected || busy) return;
@@ -401,19 +422,27 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         }
         onBack={onBack}
         right={
-          mode === "enhance" ? (
-            <div className="flex items-center gap-3 text-sm tabular-nums">
-              <span className="text-rose-500">🔴 {stones.red}</span>
-              <span className="text-sky-500">🔵 {stones.blue}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 text-sm tabular-nums">
-              <span className="text-zinc-500 dark:text-zinc-400">
-                🔧 {reforgeStones.basic}
+          <div className="flex items-center gap-3 text-sm tabular-nums">
+            {/* 보유 골드 — 강화/재련/조합 결제 통화(스톤과 같은 자원 칩 줄에). */}
+            {gold != null && (
+              <span className="font-medium text-amber-600 dark:text-amber-400">
+                💰 {spendable.toLocaleString()}
               </span>
-              <span className="text-indigo-500">✨ {reforgeStones.high}</span>
-            </div>
-          )
+            )}
+            {mode === "enhance" ? (
+              <>
+                <span className="text-rose-500">🔴 {stones.red}</span>
+                <span className="text-sky-500">🔵 {stones.blue}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-zinc-500 dark:text-zinc-400">
+                  🔧 {reforgeStones.basic}
+                </span>
+                <span className="text-indigo-500">✨ {reforgeStones.high}</span>
+              </>
+            )}
+          </div>
         }
       />
 

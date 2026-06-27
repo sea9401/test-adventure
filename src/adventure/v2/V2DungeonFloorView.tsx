@@ -137,8 +137,9 @@ export function V2DungeonFloorView({
   offlineHunt?: { active: boolean; endsAt: number; depth: number } | null;
   onRefresh?: () => void | Promise<void>;
 }) {
-  // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). 깊이 1·2 의 authored 층
-  // 객체(floor)는 권장 파워·존재 가드 용도로만 조회한다.
+  // 이름은 항상 depthName(테마명 + 테마 내 로컬 번호, 예 "들판 2"). authored 층은 깊이 1(들판)
+  // 하나뿐 — 그 객체(floor)는 권장 파워 조회용이고, 없으면 floorPowerGate(depth) 로 폴백한다.
+  // ⚠️ floor 존재 ≠ 깊이 유효성(깊이 2~6 도 들판이지만 authored 층 없음). 유효성은 page 가 검증.
   const floor = MAIN_DUNGEON.floors.find((f) => f.id === floorId);
   const depth = Number(floorId);
   const displayName = depthName(depth);
@@ -458,10 +459,11 @@ export function V2DungeonFloorView({
     huntButtonRef.current = onHuntPress;
   });
 
-  // 알 수 없는 구역(authored 층 없는 깊이 1·2). 모든 hook 뒤에서 조건부 렌더 —
-  //   "hook 먼저, early-return 은 끝에"(rules-of-hooks). 위 파생 const/핸들러는 floor 미사용이라
-  //   이 경우에도 계산·정의만 되고(no-op) 실행 안 됨.
-  if (!floor && depth < 3) {
+  // 알 수 없는 구역 — 유효하지 않은 깊이(0·음수·NaN)만 방어한다. (정상 경로는 page 가 1~MAX
+  //   범위를 이미 검증·notFound. authored 층 유무로 막던 옛 가드 `!floor && depth<3` 은 들판
+  //   2~6 처럼 authored 층 없는 정상 깊이까지 막는 버그라 깊이-유효성 검사로 교체.) 모든 hook
+  //   뒤에서 조건부 렌더(rules-of-hooks) — 위 파생 const/핸들러는 floor 미사용이라 no-op.
+  if (!Number.isInteger(depth) || depth < 1) {
     return (
       <main className="mx-auto max-w-[720px] space-y-4 p-6">
         <BackButton onClick={onBack} />

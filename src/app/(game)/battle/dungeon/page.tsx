@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 
@@ -10,6 +10,11 @@ import { V2DungeonList } from "@/adventure/v2/V2DungeonList";
 export default function DungeonListPage() {
   const router = useRouter();
   const { currentOutpost, frontierDepth, offlineHunt } = useGameState();
+  // ?openDepth=<테마 첫 깊이> — 사냥터에서 "뒤로"로 들어오면 그 테마의 깊이 선택을 펼친 채 시작.
+  const openDepthParam = useSearchParams().get("openDepth");
+  const openDepthNum = openDepthParam ? Number(openDepthParam) : null;
+  const initialOpenDepth =
+    openDepthNum != null && Number.isFinite(openDepthNum) ? openDepthNum : null;
 
   // 자동 사냥 활성 → 사냥 중인 farm 깊이로 직행(목록 건너뜀). 정지하면 다시 목록이 보인다.
   const autoHuntDepth =
@@ -28,6 +33,7 @@ export default function DungeonListPage() {
       onBack={() => router.push("/battle")}
       onOpenMap={() => router.push("/map")}
       frontierDepth={frontierDepth}
+      initialOpenDepth={initialOpenDepth}
       onSelectRareMap={(m) =>
         router.push(`/battle/dungeon/${m.depth}?rareMap=${m.iid}`)
       }

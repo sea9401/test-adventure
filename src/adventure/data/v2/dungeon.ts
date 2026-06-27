@@ -128,6 +128,13 @@ export function themeIndexForDepth(depth: number): number {
   );
 }
 
+// 깊이(1+) → 그 깊이가 속한 테마 블록의 첫 깊이(예: 깊이 10 → 7). 사냥터 목록(V2DungeonList)이
+// 테마를 블록 첫 깊이(g.depths[0])로 식별하므로, 사냥터에서 "뒤로 = 그 테마의 깊이 선택" 으로
+// 보낼 때 이 값을 openDepth 로 넘긴다.
+export function themeFirstDepth(depth: number): number {
+  return themeIndexForDepth(depth) * THEME_DEPTH_SPAN + 1;
+}
+
 // 깊이(1+) → 테마 + 테마 내 로컬 번호. 마지막 테마는 인덱스 클램프(캡 밖 방어용·도달 불가).
 function themeForDepth(depth: number): {
   name: string;

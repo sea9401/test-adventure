@@ -9,7 +9,7 @@ import {
 } from "next/navigation";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { V2DungeonFloorView } from "@/adventure/v2/V2DungeonFloorView";
-import { MAX_FRONTIER_DEPTH } from "@/adventure/data/v2/dungeon";
+import { MAX_FRONTIER_DEPTH, themeFirstDepth } from "@/adventure/data/v2/dungeon";
 
 // /battle/dungeon/[floorId] — 무한 프론티어 던전 층 전투.
 // floorId 는 depth 숫자(1~6→들판, 7+→프론티어 밴드). 들판만 authored, 7+ 는 데이터 도출.
@@ -73,7 +73,11 @@ export default function DungeonFloorPage() {
       setMp={setMp}
       playerCombat={playerCombat}
       onSeekHealing={() => router.push("/town/healing")}
-      onBack={() => router.push("/battle/dungeon")}
+      // 뒤로 = 테마 선택이 아니라 그 테마의 깊이 선택으로(들판1→들판2 빠른 이동). 현재 깊이가
+      //   속한 테마 블록의 첫 깊이를 openDepth 로 넘겨 해당 테마를 펼친 채 목록을 연다.
+      onBack={() =>
+        router.push(`/battle/dungeon?openDepth=${themeFirstDepth(n)}`)
+      }
       frontierDepth={frontierDepth}
       onFrontierUnlocked={(newMax) => setFrontierDepth(Math.max(frontierDepth, newMax))}
       onLevelUp={refreshGameState}

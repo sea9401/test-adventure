@@ -181,6 +181,52 @@ describe("전직 마일스톤 — 차수 숫자 미노출, 내부 tier 판정 �
     expect(questById("g_passive")!.check({ ...ZERO, tier: 3 })).toBe(true);
   });
 
+  it("재전직 직후 전직 퀘스트가 잠기지 않음 — 환생 레벨 리셋 회귀", () => {
+    // 정점(레벨캡)을 찍고 재전직한 직후. 환생이 현재 레벨을 1로 리셋하지만
+    // cumLevel 은 보존된다(100). 앞 성장 단계 조건은 모두 충족된 상태.
+    const afterReincarnate: QuestCtx = {
+      ...ZERO,
+      level: 1, // 환생으로 리셋됨(과거 버그의 방아쇠)
+      cumLevel: 100, // 보존 — 정점 조건은 누적레벨 기준이라 유지
+      tier: 2,
+      battleCount: 5,
+      equippedCount: 6,
+      frontierDepth: 6,
+      cultivations: 1,
+    };
+    // 정점은 누적레벨 기준이라 환생 후에도 충족(현재 레벨 기준이면 false 였음).
+    expect(questById("g_cap1")!.check(afterReincarnate)).toBe(true);
+    // 따라서 전직 퀘스트는 locked 가 아니라 조건이 노출되고 수령 가능해야 한다.
+    expect(questStatus(questById("g_advance2")!, afterReincarnate, none)).toBe(
+      "claimable",
+    );
+    expect(
+      isQuestClaimable(questById("g_advance2")!, afterReincarnate, none),
+    ).toBe(true);
+  });
+
+  it("수령된 앞 단계는 조건이 다시 거짓이 돼도 뒤 단계를 안 잠금 — 보강", () => {
+    // 정점(g_cap1)을 수령한 뒤 그 조건이 다시 거짓인 합성 상태라도, 수령 사실 덕에
+    // 전직 단계가 열린 채로 유지된다(순차 해금이 claimed 도 충족으로 인정).
+    const claimed = new Set([
+      "g_first_battle",
+      "g_equip",
+      "g_depth5",
+      "g_cultivate",
+      "g_cap1",
+    ]);
+    const ctx: QuestCtx = {
+      ...ZERO,
+      level: 1,
+      cumLevel: 50, // 정점 조건(>=100) 미충족이지만 이미 수령됨
+      tier: 2,
+    };
+    expect(questById("g_cap1")!.check(ctx)).toBe(false);
+    expect(questStatus(questById("g_advance2")!, ctx, claimed)).toBe(
+      "claimable",
+    );
+  });
+
   it("정점(a_apex) — tier 4 에서 수령 가능, 그전엔 진행 중", () => {
     expect(isQuestClaimable(questById("a_apex")!, { ...ZERO, tier: 4 }, none)).toBe(
       true,

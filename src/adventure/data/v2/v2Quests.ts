@@ -170,7 +170,10 @@ const GROWTH: QuestDef[] = [
     title: "정점",
     desc: `레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
     reward: { gold: 400 },
-    check: (c) => c.level >= V2_LEVEL_CAP,
+    // 누적레벨 기준(현재 레벨 아님) — 다음 단계 "2차 전직"은 재전직(환생)이 강제이고
+    // 환생은 현재 레벨을 1로 리셋한다. level 기준이면 환생 직후 이 조건이 다시 거짓이 돼
+    // 순차 라인의 뒤 퀘스트(전직)가 재잠금된다. cumLevel 은 환생에도 보존·단조증가.
+    check: (c) => c.cumLevel >= V2_LEVEL_CAP,
   },
   {
     id: "g_advance2",
@@ -804,14 +807,20 @@ function isVisible(def: QuestDef, ctx: QuestCtx): boolean {
   return lineVisible(LINE_BY_ID.get(def.line), ctx);
 }
 
-// 순차 라인에서 "열림" = 앞 퀘스트들의 check 가 전부 true. 비순차는 항상 열림.
-function isUnlocked(def: QuestDef, ctx: QuestCtx): boolean {
+// 순차 라인에서 "열림" = 앞 퀘스트들이 전부 충족(수령됨 || 현재 check true). 비순차는 항상 열림.
+// 수령(claimed)도 충족으로 인정 — 한 번 수령한 앞 단계의 조건이 나중에 다시 거짓이 돼도
+// (예: 정점=레벨캡을 찍고 재전직하면 현재 레벨이 1로 리셋) 뒤 퀘스트가 재잠금되지 않게.
+function isUnlocked(
+  def: QuestDef,
+  ctx: QuestCtx,
+  claimed: ReadonlySet<string>,
+): boolean {
   const line = LINE_BY_ID.get(def.line);
   if (!line?.sequential) return true;
   for (const q of V2_QUESTS) {
     if (q.line !== def.line) continue;
     if (q.id === def.id) break; // 자기 자신 앞까지만
-    if (!q.check(ctx)) return false;
+    if (!claimed.has(q.id) && !q.check(ctx)) return false;
   }
   return true;
 }
@@ -834,7 +843,7 @@ export function questStatus(
   claimed: ReadonlySet<string>,
 ): QuestStatus {
   if (claimed.has(def.id)) return "claimed";
-  if (!isUnlocked(def, ctx)) return "locked";
+  if (!isUnlocked(def, ctx, claimed)) return "locked";
   return def.check(ctx) ? "claimable" : "active";
 }
 

@@ -146,7 +146,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     const char0 = store.get("character.v2") as Record<string, unknown>;
     store.set("character.v2", {
       ...char0,
-      exp: requiredExpToNext(30) - 1,
+      // 30 은 만렙 미만이라 requiredExpToNext 는 항상 숫자(null 폴백은 타입 안전용).
+      exp: (requiredExpToNext(30) ?? 1) - 1,
       totalLevels: 30,
     });
     const res = await POST(huntReq({ floor: 1 }));

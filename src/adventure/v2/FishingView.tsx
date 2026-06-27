@@ -31,6 +31,8 @@ export type ReelOutcome =
       isPersonalBest: boolean;
       prevBest: number;
       codexCount: number;
+      /** 이번 챔질로 받은 낚시 코인(티어 소량·일일 상한 도달 시 0). */
+      coinsGained?: number;
       /** 물때 한정 특별 손님이면 그 물때 정보(없으면 일반 어종). */
       special?: { id: string; label: string; emoji: string } | null;
     }
@@ -430,6 +432,11 @@ export function FishingView({
               <div className="pt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
                 어보 {result.codexCount}/{FISH_TOTAL}종
               </div>
+              {result.coinsGained != null && result.coinsGained > 0 && (
+                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                  + {result.coinsGained} 낚시 코인
+                </div>
+              )}
               {lastReactionMs != null && (
                 <div className="text-[11px] font-medium">
                   <span className={reactionGrade(lastReactionMs).cls}>

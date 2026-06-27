@@ -40,6 +40,7 @@ export function useFishing(): FishingHandlers {
           isPersonalBest: Boolean(j.isPersonalBest),
           prevBest: Number(j.prevBest ?? 0),
           codexCount: Number(j.codexCount ?? 0),
+          coinsGained: Number(j.coinsGained ?? 0),
         };
       }
       return {

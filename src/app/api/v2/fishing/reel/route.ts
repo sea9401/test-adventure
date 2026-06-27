@@ -16,6 +16,10 @@ import {
 } from "@/adventure/v2/fishingCodex";
 import { currentFishingSeasonId } from "@/lib/server/fishing/season";
 import { upsertFishingRecord } from "@/lib/server/fishing/records";
+import {
+  FISHING_WALLET_KEY,
+  applyCatchCoin,
+} from "@/lib/server/fishing/coins";
 import { kstDailyKey } from "@/adventure/data/v2/v2RepeatQuests";
 import {
   FISHING_DAILY_KEY,
@@ -111,6 +115,15 @@ export async function POST(req: Request) {
     );
     await upsertSave(tx, userId, FISHING_DAILY_KEY, daily);
 
+    // 챔질당 코인 — 티어 소량(크기 무관) 적립, 일일 상한 클램프. 락 순서: 일일 → 지갑
+    //   (= challenges/claim 라우트와 동일 순서라 순환/데드락 없음). 캐스팅·실패엔 미지급(여기는 caught 분기).
+    const coinResult = applyCatchCoin(
+      await lockSaveForUpdate(tx, userId, FISHING_WALLET_KEY, {}),
+      FISH[session.fishId].tier,
+      dayKey,
+    );
+    await upsertSave(tx, userId, FISHING_WALLET_KEY, coinResult.next);
+
     // 보물 탐사 — 챔질 성공 시 낮은 확률로 지도 조각 드랍(주 경로). 굴림은 100% 서버.
     // 드랍 났을 때만 키를 잠그고 누적(매 캐스팅 잠금 회피). 조각 소비(발굴)는 PR-3.
     const fragmentDrop = rollFragmentDrop(Math.random, FISHING_FRAGMENT_DROP_CHANCE);
@@ -132,6 +145,8 @@ export async function POST(req: Request) {
       isPersonalBest,
       prevBest,
       codexCount: countDiscoveredFish(next),
+      coinsGained: coinResult.awarded,
+      coins: coinResult.next.coins,
       fragmentDrop,
       fragmentsTotal,
     };
@@ -154,6 +169,9 @@ export async function POST(req: Request) {
     isPersonalBest: result.isPersonalBest,
     prevBest: result.prevBest,
     codexCount: result.codexCount,
+    // 챔질당 코인 — 이번 마리 지급액(일일 상한 도달 시 0) + 누적 잔액.
+    coinsGained: result.coinsGained,
+    coins: result.coins,
     special: mt ? { id: mt.id, label: mt.label, emoji: mt.emoji } : undefined,
     // 보물 탐사 — 이번 챔질에서 지도 조각이 떨어졌는지 + 누적(0 = 안 떨어짐).
     fragmentDrop: result.fragmentDrop,

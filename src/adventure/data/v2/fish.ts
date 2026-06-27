@@ -72,7 +72,7 @@ export type FishTierMeta = {
   encounterWeight: number;
   /** heavy-tail 지수 k. 클수록 대물이 희박 → 기록치 포화가 느림. */
   sizeExponent: number;
-  /** 종별 주간 기록 보상 코인(순위별). 4~10등은 동일. */
+  /** 종별 주간 기록 보상 코인(순위별). 4~10등은 동일. 2026-06-27 사용자 결정 — 주간 코인 획득량 ×2. */
   recordCoins: { rank1: number; rank2: number; rank3: number; rank4to10: number };
 };
 
@@ -90,31 +90,31 @@ export const FISH_TIERS: Record<FishTier, FishTierMeta> = {
     label: "흔함",
     encounterWeight: 40,
     sizeExponent: 3.0,
-    recordCoins: { rank1: 18, rank2: 11, rank3: 7, rank4to10: 4 },
+    recordCoins: { rank1: 36, rank2: 22, rank3: 14, rank4to10: 8 },
   },
   uncommon: {
     label: "보통",
     encounterWeight: 28,
     sizeExponent: 3.5,
-    recordCoins: { rank1: 30, rank2: 19, rank3: 13, rank4to10: 7 },
+    recordCoins: { rank1: 60, rank2: 38, rank3: 26, rank4to10: 14 },
   },
   rare: {
     label: "희귀",
     encounterWeight: 20,
     sizeExponent: 4.0,
-    recordCoins: { rank1: 55, rank2: 35, rank3: 24, rank4to10: 13 },
+    recordCoins: { rank1: 110, rank2: 70, rank3: 48, rank4to10: 26 },
   },
   epic: {
     label: "영웅",
     encounterWeight: 9,
     sizeExponent: 5.0,
-    recordCoins: { rank1: 105, rank2: 68, rank3: 46, rank4to10: 24 },
+    recordCoins: { rank1: 210, rank2: 136, rank3: 92, rank4to10: 48 },
   },
   legendary: {
     label: "전설",
     encounterWeight: 3,
     sizeExponent: 6.0,
-    recordCoins: { rank1: 210, rank2: 135, rank3: 92, rank4to10: 48 },
+    recordCoins: { rank1: 420, rank2: 270, rank3: 184, rank4to10: 96 },
   },
 };
 

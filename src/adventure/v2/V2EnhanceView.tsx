@@ -422,13 +422,8 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         }
         onBack={onBack}
         right={
+          // 강화석/재련석만 — 골드까지 넣으면 우측이 넓어져 가운데 타이틀과 겹쳐(모바일) 아래 줄로 분리.
           <div className="flex items-center gap-3 text-sm tabular-nums">
-            {/* 보유 골드 — 강화/재련/조합 결제 통화(스톤과 같은 자원 칩 줄에). */}
-            {gold != null && (
-              <span className="font-medium text-amber-600 dark:text-amber-400">
-                💰 {spendable.toLocaleString()}
-              </span>
-            )}
             {mode === "enhance" ? (
               <>
                 <span className="text-rose-500">🔴 {stones.red}</span>
@@ -445,6 +440,13 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
           </div>
         }
       />
+
+      {/* 보유 골드 — 강화/재련/조합 결제 통화. 헤더 우측은 타이틀과 겹쳐서 별도 줄로(모바일 겹침 수정). */}
+      {gold != null && (
+        <div className="-mt-2 flex justify-end text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
+          💰 보유 골드 {spendable.toLocaleString()} G
+        </div>
+      )}
 
       {/* 작업 모드 — 강화 / 재련 / 조합 */}
       <TabBar

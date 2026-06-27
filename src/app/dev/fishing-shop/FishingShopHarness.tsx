@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { FishingShopView } from "@/adventure/v2/FishingShopView";
-import { fishingShopPriceFor } from "@/adventure/v2/fishingShop";
+import {
+  fishingShopConsumablePriceFor,
+  fishingShopPriceFor,
+} from "@/adventure/v2/fishingShop";
 import type { BuyResult, FishingShopState } from "@/adventure/v2/useFishingShop";
 
 // /dev/fishing-shop — mock 코인/보유로 상점 구매 UI QA(로그인·DB 없이).
@@ -10,6 +13,7 @@ export function FishingShopHarness() {
   const [state, setState] = useState<FishingShopState>({
     coins: 800,
     ownedTitleIds: ["fishing_taegong"],
+    staminaPotions: 0,
   });
 
   const buy = async (titleId: string): Promise<BuyResult> => {
@@ -20,10 +24,23 @@ export function FishingShopHarness() {
     }
     if (state.coins < price) return { ok: false, message: "낚시 코인이 부족하다." };
     setState((s) => ({
+      ...s,
       coins: s.coins - price,
       ownedTitleIds: [...s.ownedTitleIds, titleId],
     }));
     return { ok: true, message: "칭호를 손에 넣었다." };
+  };
+
+  const buyConsumable = async (itemId: string): Promise<BuyResult> => {
+    const price = fishingShopConsumablePriceFor(itemId);
+    if (price === undefined) return { ok: false, message: "알 수 없는 품목." };
+    if (state.coins < price) return { ok: false, message: "낚시 코인이 부족하다." };
+    setState((s) => ({
+      ...s,
+      coins: s.coins - price,
+      staminaPotions: s.staminaPotions + 1,
+    }));
+    return { ok: true, message: "스태미나 회복약을 구매했다." };
   };
 
   return (
@@ -38,6 +55,7 @@ export function FishingShopHarness() {
         loading={false}
         buying={null}
         onBuy={buy}
+        onBuyConsumable={buyConsumable}
       />
     </div>
   );

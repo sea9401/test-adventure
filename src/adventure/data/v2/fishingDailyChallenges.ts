@@ -40,14 +40,14 @@ export type FishingDailyChallengeDef = {
   progress: (s: FishingDailyState) => number;
 };
 
-// 3종(다이얼). 보상 코인은 캐주얼 수급 보조 규모 — 샵 가격(150~3500)에 비해 소액.
+// 3종(다이얼). 보상은 셋 다 50코인(일일 과제 — 꾸준히 들어오면 샵 칭호까지 모이는 규모).
 export const FISHING_DAILY_CHALLENGES: readonly FishingDailyChallengeDef[] = [
   {
     id: "d_catch8",
     title: "부지런한 손맛",
     desc: "오늘 물고기 8마리를 낚으세요.",
     goal: 8,
-    rewardCoins: 6,
+    rewardCoins: 50,
     progress: (s) => s.caught,
   },
   {
@@ -55,7 +55,7 @@ export const FISHING_DAILY_CHALLENGES: readonly FishingDailyChallengeDef[] = [
     title: "월척을 노려",
     desc: "오늘 희귀 이상 3마리를 낚으세요.",
     goal: 3,
-    rewardCoins: 10,
+    rewardCoins: 50,
     progress: (s) => s.rarePlus,
   },
   {
@@ -63,7 +63,7 @@ export const FISHING_DAILY_CHALLENGES: readonly FishingDailyChallengeDef[] = [
     title: "다채로운 어획",
     desc: "오늘 서로 다른 6종을 낚으세요.",
     goal: 6,
-    rewardCoins: 8,
+    rewardCoins: 50,
     progress: (s) => s.species.length,
   },
 ];

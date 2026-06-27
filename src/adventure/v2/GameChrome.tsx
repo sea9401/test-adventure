@@ -6,7 +6,7 @@ import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { WarTicker } from "@/adventure/v2/WarTicker";
-import { TabBar } from "@/components/ui/TabBar";
+import { MainNavDropdown } from "@/adventure/v2/MainNavDropdown";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { currentLocationLabel } from "@/adventure/v2/currentLocation";
 import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
@@ -183,16 +183,15 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         />
       )}
       <div>
-        <TabBar
-          tabs={TABS}
-          active={activeTab}
-          onChange={(t) => router.push(hrefOfTab(t))}
-          ariaLabel="메인 탭"
-          size="lg"
-          variant="highlight"
-          scrollable
-          className="mx-auto w-full max-w-[720px] px-4 sm:px-6 [&_button]:text-[1.0625rem]"
-        />
+        {/* 메인 내비 — 가로 5탭 대신 "현재 섹션 ▾" 드롭다운(사용자 요청). */}
+        <div className="mx-auto w-full max-w-[720px] border-b border-zinc-200 px-2 py-1.5 sm:px-4 dark:border-zinc-800">
+          <MainNavDropdown
+            tabs={TABS}
+            activeKey={activeTab}
+            onSelect={(t) => router.push(hrefOfTab(t))}
+            ariaLabel="메인 메뉴"
+          />
+        </div>
         {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
         <WarTicker />
         {/* 쿨다운 모드만 스태미나 폐지(전투 쿨다운 대체) → 바 숨김. 스태미나 모드/off 면 표시. */}

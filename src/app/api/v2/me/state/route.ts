@@ -50,7 +50,7 @@ import {
 import {
   parseProficiencyForChar,
   groupCumLevel,
-  groupUsable,
+  usablePoints,
   cultivationCount,
   cultivationCost,
   totalCapGains,
@@ -881,7 +881,7 @@ export async function GET() {
           // 직군 누적 레벨 — 전직 게이트·floor 입력. UI 전직 진척 표시용.
           cumLevel: groupCumLevel(prof, group),
           // 숙달 포인트 잔액(사용가능). 옛 earned/usable 통합.
-          points: groupUsable(prof, group),
+          points: usablePoints(prof),
           cultivations: cultivationCount(prof, group),
           nextCost: cultivationCost(totalCapGains(prof)),
           // 현 직업군 다음 차수 전직 가능 여부 — 신전 직업 그리드의 "전직 가능" 표시용.

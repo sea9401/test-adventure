@@ -8,7 +8,7 @@ import {
   parseProficiencyForChar,
   emptyProficiency,
   addPoints,
-  groupUsable,
+  usablePoints,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -217,7 +217,7 @@ export async function POST(req: Request) {
           proficiencyGain,
         );
         await upsertSave(tx, userId, "proficiency.v2", nextProf);
-        out.proficiencyEarned = groupUsable(nextProf, group);
+        out.proficiencyEarned = usablePoints(nextProf);
       }
     }
 

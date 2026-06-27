@@ -29,7 +29,7 @@ import {
   setGrown,
   setGroupTier,
   groupCumLevel,
-  groupUsable,
+  usablePoints,
   cultivationCount,
   capGain,
   effectiveStatCap,
@@ -163,7 +163,7 @@ function simulateGroup(t1: V2Class): Row[] {
     for (let t = 1; t <= tier; t++) {
       if (learnedTiers.has(t)) continue;
       const c = V2_SIGNATURE_LEARN_COST[t] ?? 0;
-      const sp = spendProficiency(prof, group, c);
+      const sp = spendProficiency(prof, c);
       if (sp) {
         prof = sp;
         learnedCostTotal += c;
@@ -182,7 +182,7 @@ function simulateGroup(t1: V2Class): Row[] {
       cumLevel: groupCumLevel(prof, group),
       kills,
       learnedCost: learnedCostTotal,
-      usableAfter: groupUsable(prof, group),
+      usableAfter: usablePoints(prof),
       cultivations: cultivationCount(prof, group),
       anchorCap,
       anchorFloor,

@@ -3,7 +3,7 @@ import {
   parseProficiency,
   parseProficiencyForChar,
   emptyProficiency,
-  groupUsable,
+  usablePoints,
   addPoints,
   cultivationCost,
   cultivationCount,
@@ -69,31 +69,31 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(parseProficiency(undefined)).toEqual(emptyProficiency());
   });
 
-  it("parse — points 파싱, 의미없는 그룹 제외, 새 포맷 보존", () => {
+  it("parse — points 전역 합산, 의미없는 그룹 제외, 새 포맷 보존", () => {
     const p = parseProficiency({
       groups: {
         warrior: { points: 70, cultivations: 5 },
         rogue: { points: 0 }, // points 0·cult 0·tier1·cumLevel 0 → 제외
         mage: { points: 42, cultivations: 1 },
         martial: { points: 0, cultivations: 3 }, // points 0 but cult 3 → 보존
-        bad: { points: "x" }, // 매핑 불가 키 + 비수 → 제외
+        bad: { points: "x" }, // 매핑 불가 키 + 비수 → 제외(points 합산 안 됨)
       },
     });
+    // 직군별 points(70+0+42+0)는 전역 단일 잔액으로 합산. bad 는 매핑 불가라 합산 제외.
+    expect(usablePoints(p)).toBe(112);
+    // 그룹은 비-포인트 데이터(수행/누적/차수)만 보존.
     expect(p.groups.warrior).toEqual({
-      points: 70,
       cultivations: 5,
       tier: 1,
       cumLevel: 0,
     });
     expect(p.groups.rogue).toBeUndefined();
     expect(p.groups.mage).toEqual({
-      points: 42,
       cultivations: 1,
       tier: 1,
       cumLevel: 0,
     });
     expect(p.groups.martial).toEqual({
-      points: 0,
       cultivations: 3,
       tier: 1,
       cumLevel: 0,
@@ -117,7 +117,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
   it("parseProficiencyForChar — charSave 무시(시드 마이그 폐지), cumLevel 필드만 반영", () => {
     const raw = {
       groups: {
-        warrior: { points: 10, tier: 1 }, // cumLevel 없음 → 0
+        warrior: { points: 10, tier: 2 }, // tier>1 라 그룹 보존·cumLevel 없음 → 0
         rogue: { points: 10, tier: 2 }, // cumLevel 없음 → 0
       },
     };
@@ -131,12 +131,13 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p2.groups.warrior.cumLevel).toBe(7);
   });
 
-  it("parse — none(모험가) 그룹 보존(수행 적립분)·cumLevel 항상 0", () => {
-    // 모험가 수행 적립분: none 그룹의 points 는 보존되어야(로드 때 안 사라짐).
+  it("parse — none(모험가) 수행분 보존·cumLevel 항상 0, points 는 전역 합산", () => {
+    // 모험가 수행 적립분: none 그룹 points 는 전역으로 합산(로드 때 안 사라짐), 수행 횟수는 그룹 유지.
     const p = parseProficiency({
       groups: { none: { points: 30, cultivations: 1 } }, // cumLevel 누락
     });
-    expect(p.groups.none?.points).toBe(30);
+    expect(usablePoints(p)).toBe(30); // 전역 잔액으로 이관
+    expect(p.groups.none?.cultivations).toBe(1); // 수행 횟수는 그룹 보존
     // 모험가(none)는 직군 정복/cumLevel 미사용 — 항상 0.
     expect(p.groups.none?.cumLevel).toBe(0);
     // 매핑 불가 키(parseV2Class→none)는 폐기.
@@ -157,34 +158,48 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(p.caps.spi).toBe(90); // ≥60 도 보존(가드 폐지)
   });
 
-  it("groupUsable — 직군 숙달 포인트 잔액", () => {
+  it("usablePoints — 캐릭터 전역 잔액(옛 직군별 points 합산 이관)", () => {
     const p = parseProficiency({
       groups: {
         warrior: { points: 70 },
         rogue: { points: 40 },
       },
     });
-    expect(groupUsable(p, "warrior")).toBe(70);
-    expect(groupUsable(p, "rogue")).toBe(40);
-    expect(groupUsable(p, "none")).toBe(0);
+    // 옛 직군별 points(70+40)는 전역 단일 잔액으로 합산 — 전직해도 유지.
+    expect(usablePoints(p)).toBe(110);
+    // points 만 있던 그룹은 합산 후 폐기(누적레벨/수행/차수 없음).
+    expect(p.groups.warrior).toBeUndefined();
+    expect(p.groups.rogue).toBeUndefined();
   });
 
-  it("addPoints — 잔액 += amount, 비파괴, caps/cultivations 보존, none 적립·프로필無/0 무변경", () => {
+  it("전역 points — 재전직(flattenGroupTiers)·전직 후에도 유지(버그 회귀 가드)", () => {
+    // 제보 버그: 다른 직군으로 재전직하면 숙달 포인트가 0 으로 보였다 → 전역화로 해소.
+    const p = parseProficiency({
+      groups: { mage: { points: 5000, cumLevel: 100, tier: 2 } },
+    });
+    expect(usablePoints(p)).toBe(5000);
+    // 마법사 → 도적 재전직(차수 평탄화 + 도적 그룹 보장) 해도 전역 잔액 그대로.
+    const after = flattenGroupTiers(p, "rogue");
+    expect(usablePoints(after)).toBe(5000);
+    expect(after.groups.rogue).toEqual({ cultivations: 0, tier: 1, cumLevel: 0 });
+    expect(after.groups.mage.tier).toBe(1); // 차수 정규화
+    expect(after.groups.mage.cumLevel).toBe(100); // 직군 누적레벨은 보존
+  });
+
+  it("addPoints — 전역 잔액 += amount, 비파괴, caps/그룹 보존, none 적립·프로필無/0 무변경", () => {
     const p0 = parseProficiency({
       groups: { warrior: { points: 5, cultivations: 2 } },
       caps: { str: 30 },
     });
+    expect(usablePoints(p0)).toBe(5);
     const p1 = addPoints(p0, "warrior", 3);
-    expect(p1.groups.warrior).toEqual({
-      points: 8,
-      cultivations: 2,
-      tier: 1,
-      cumLevel: 0,
-    });
+    expect(usablePoints(p1)).toBe(8); // 5 + 3 (전역)
+    // 그룹의 비-포인트 필드(수행 횟수 등)는 보존.
+    expect(p1.groups.warrior).toEqual({ cultivations: 2, tier: 1, cumLevel: 0 });
     expect(p1.caps.str).toBe(30);
-    expect(p0.groups.warrior.points).toBe(5);
-    // none(모험가)도 이제 수행 프로필 보유 → 적립됨(2026-06-22).
-    expect(addPoints(p1, "none", 5).groups.none?.points).toBe(5);
+    expect(usablePoints(p0)).toBe(5); // 비파괴
+    // none(모험가)도 수행 프로필 보유 → 적립(group 은 적립 자격 게이트, 잔액은 전역).
+    expect(usablePoints(addPoints(p1, "none", 5))).toBe(13); // 8 + 5
     // 프로필 없는 그룹(빈/무효)·0 amount 는 여전히 무변경.
     expect(addPoints(p1, "bogus", 5)).toBe(p1);
     expect(addPoints(p1, "warrior", 0)).toBe(p1);
@@ -214,8 +229,8 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(r).not.toBeNull();
     expect(r!.cost).toBe(8);
     expect(r!.mult).toBe(1);
+    expect(usablePoints(r!.next)).toBe(92); // 100 − 8 (전역 차감)
     expect(r!.next.groups.warrior).toEqual({
-      points: 92,
       cultivations: 1,
       tier: 1,
       cumLevel: 0,
@@ -228,7 +243,7 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     // 2회차 비용 = 8 + (올린 cap합 4)×5 = 28
     const r2 = applyCultivation(r!.next, "warrior");
     expect(r2!.cost).toBe(28);
-    expect(p.groups.warrior.points).toBe(100);
+    expect(usablePoints(p)).toBe(100); // 원본 비파괴
   });
 
   it("applyCultivation — 크리티컬(rng) 으로 multX 이득", () => {
@@ -280,7 +295,6 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(setGroupTier(p, "warrior", 1)).toBe(p);
     expect(setGroupTier(p, "none", 4)).toBe(p);
     expect(setGroupTier(p, "rogue", 2).groups.rogue).toEqual({
-      points: 0,
       cultivations: 0,
       tier: 2,
       cumLevel: 0,
@@ -296,11 +310,12 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
       caps: { str: 7 },
     });
     const flat = flattenGroupTiers(p, "rogue");
+    // 전역 points(100+5)는 보존(전직해도 유지).
+    expect(usablePoints(flat)).toBe(105);
     // 옛 차수(4)가 1로 내려감 — setGroupTier 로는 불가능했던 하향.
     expect(flat.groups.warrior.tier).toBe(1);
-    // points/cultivations/cumLevel 보존.
+    // cultivations/cumLevel 보존(차수만 정규화).
     expect(flat.groups.warrior).toEqual({
-      points: 100,
       cultivations: 3,
       tier: 1,
       cumLevel: 120,
@@ -309,7 +324,6 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(flat.groups.mage).toBe(p.groups.mage);
     // ensureGroup 은 없으면 1차로 생성.
     expect(flat.groups.rogue).toEqual({
-      points: 0,
       cultivations: 0,
       tier: 1,
       cumLevel: 0,
@@ -326,28 +340,28 @@ describe("v2 직업 숙달 (숙달 포인트)", () => {
     expect(flattenGroupTiers(p).groups.warrior.tier).toBe(1);
   });
 
-  it("spendProficiency — 숙달 포인트 차감, cap/cultivations 불변, 비파괴", () => {
+  it("spendProficiency — 전역 잔액 차감, cap/그룹 불변, 비파괴", () => {
     const p = parseProficiency({
       groups: { warrior: { points: 90, cultivations: 2 } },
     });
-    const next = spendProficiency(p, "warrior", 80);
+    const next = spendProficiency(p, 80);
     expect(next).not.toBeNull();
+    expect(usablePoints(next!)).toBe(10); // 90 − 80
+    // 그룹(수행 횟수 등)·caps 불변.
     expect(next!.groups.warrior).toEqual({
-      points: 10,
       cultivations: 2,
       tier: 1,
       cumLevel: 0,
     });
     expect(next!.caps).toEqual(p.caps);
-    expect(groupUsable(next!, "warrior")).toBe(10);
-    expect(p.groups.warrior.points).toBe(90);
+    expect(usablePoints(p)).toBe(90); // 비파괴
   });
 
-  it("spendProficiency — 잔액 부족이면 null, amount<=0 이면 그대로", () => {
-    const p = parseProficiency({ groups: { warrior: { points: 50 } } });
-    expect(spendProficiency(p, "warrior", 80)).toBeNull();
-    expect(spendProficiency(p, "rogue", 10)).toBeNull();
-    expect(spendProficiency(p, "warrior", 0)).toBe(p);
+  it("spendProficiency — 전역 잔액 부족이면 null, amount<=0 이면 그대로", () => {
+    const p = parseProficiency({ groups: { warrior: { points: 50 } } }); // 전역 50
+    expect(spendProficiency(p, 80)).toBeNull(); // 부족
+    expect(usablePoints(spendProficiency(p, 50)!)).toBe(0); // 딱 맞게 → 0
+    expect(spendProficiency(p, 0)).toBe(p);
   });
 
   it("signatureLearnCost — 차수별 비용, 미지정 차수는 t1 폴백", () => {

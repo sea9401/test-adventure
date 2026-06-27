@@ -83,14 +83,15 @@ psql "$DBURL" < ~/backups/<백업파일>.sql
 ### 전체 초기화 (클린 슬레이트)
 🚨 **비가역. 반드시 백업 먼저.**
 ```bash
-sudo systemctl stop adventure-rpg                         # 1) 중단(락 경합 방지)
+bash deploy/maintenance.sh on    # 1) 점검 ON — 유저에게 점검 페이지(앱은 떠 있고 라우트만 차단)
 psql "$DBURL" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
-  WHERE datname=current_database() AND pid<>pg_backend_pid();"   # 2) 잔여 커넥션 종료
+  WHERE datname=current_database() AND pid<>pg_backend_pid();"   # 2) 앱 DB 커넥션 종료(DROP 락 경합 방지)
 psql "$DBURL" -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;'
 psql "$DBURL" -c 'DROP SCHEMA drizzle CASCADE;'           # 🔑 3) 필수! (아래 함정 참고)
 node --env-file=.env.production.local src/db/migrate.mjs  # 4) 89개 재적용 → 46 테이블
-sudo systemctl restart adventure-rpg                      # 5) 복구
+bash deploy/maintenance.sh off   # 5) 점검 OFF — 재시작되며 새 DB 재연결
 # 검증: psql "$DBURL" -tAc "select count(*) from information_schema.tables where table_schema='public';"  → 46
+# (DROP 이 락에 막히면 sudo systemctl stop adventure-rpg 후 진행 — 단 이땐 유저가 잠깐 502)
 ```
 
 > 🔑 **함정(2026-06-27 실제 사고)**: `DROP SCHEMA public CASCADE` 는 public만 지운다. 마이그 추적 테이블 **`__drizzle_migrations` 는 별도 `drizzle` 스키마**라 살아남아 → 다음 `migrate.mjs` 가 "전부 적용됨"으로 보고 **테이블을 0개** 만든다(게임 다운). 반드시 **`DROP SCHEMA drizzle CASCADE` 도** 같이 한다.
@@ -98,6 +99,18 @@ sudo systemctl restart adventure-rpg                      # 5) 복구
 > ⚠️ `pg_dump` 버전 ≥ 서버 버전이어야 한다(16으로 18 못 뜸). EC2 pg_dump = 18 이라 OK. 로컬 개발 박스는 16이라 prod 덤프 불가.
 
 ---
+
+## 4b. 점검(maintenance) 모드
+DB 작업·마이그·복구 등으로 잠시 막을 때. 앱은 떠 있고 **사용자 라우트만 차단** → 유저는 깔끔한 "점검 중" 페이지, `/api/health` 만 통과(모니터 유지·업타임 알림 오발 방지).
+```bash
+# EC2 에서
+bash deploy/maintenance.sh on       # 점검 시작
+bash deploy/maintenance.sh off      # 점검 종료(재시작 포함)
+bash deploy/maintenance.sh status   # 현재 상태
+```
+- 토글 = `.env.production.local` 의 `MAINTENANCE_MODE` + 재시작. **배포(git reset)에 안 씻김**(`.env*.local` gitignore) → 켠 채 배포해도 유지.
+- 구현 = `src/middleware.ts` (`MAINTENANCE_MODE==="true"` → 503 점검 페이지). staging 게이트(`IS_STAGING`)와 독립.
+- ⚠️ 앱-레벨이라 **앱을 완전히 stop 하면 페이지도 안 뜸**(nginx 502). 그래서 위 초기화 절차는 stop 대신 점검 ON + 커넥션 종료를 쓴다.
 
 ## 5. 헬스 / 모니터링
 - `https://msmsge.com/api/health` → `{ok, db:"ok", ms}` (DB 핑 포함, 실패 시 503). 인증 불필요.
@@ -133,7 +146,7 @@ sudo systemctl restart adventure-rpg                      # 5) 복구
 - **pg_dump 버전**: ≥ 서버. 16<18.
 - **옛 Neon URL**: stale 좀비. 진짜 prod = RDS.
 - **main 머지 = 즉시 운영**: 스테이징 없음. CI(`check`) 통과는 런타임 정상을 보장 안 함 → 배포 후 `/api/health` 확인 습관.
-- **점검 모드 부재**: 현재 다운타임 = `systemctl stop`(에러창 발생). middleware에 게이트 흔적 있음 → 추후 정식 점검모드.
+- **점검 모드**: ✅ 구현됨 — `deploy/maintenance.sh on|off` (§4b). 단 앱-레벨이라 완전 stop 시엔 nginx 502(추후 nginx-레벨 점검 페이지 고려).
 
 ---
 
@@ -141,6 +154,6 @@ sudo systemctl restart adventure-rpg                      # 5) 복구
 - [ ] **자동 백업 + 복구 테스트** (1순위 · 현재 수동뿐)
 - [ ] 외부 업타임 모니터 + 알림 (Route53/CloudWatch/SNS)
 - [ ] 배포 후 자동 스모크
-- [ ] 점검(maintenance) 모드
+- [x] 점검(maintenance) 모드 — `deploy/maintenance.sh` (§4b)
 - [ ] 시크릿을 SSM/Secrets Manager로
 - [ ] 노출 자격증명 로테이션(베타 준비 중 채팅 노출분)

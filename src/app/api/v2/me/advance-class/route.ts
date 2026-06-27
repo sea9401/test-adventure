@@ -13,6 +13,7 @@ import {
   setGrown,
   setGroupTier,
   flattenGroupTiers,
+  addReincarnation,
   emptyProficiency,
   effectiveLevelCap,
   type V2ProficiencyState,
@@ -164,9 +165,9 @@ export async function POST(req: Request) {
       });
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
-      const nextProf = flattenGroupTiers(
-        setGrown(prof, {}),
-        tier1ClassOf(targetClass),
+      //   환생 1회 기록(addReincarnation) — 같은 직업 재전직도 "다시 태어나다" 퀘스트가 깨지도록.
+      const nextProf = addReincarnation(
+        flattenGroupTiers(setGrown(prof, {}), tier1ClassOf(targetClass)),
       );
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →
       //   타직업 공용/기본기 오픈믹스 수집분 유지). 예산은 tier 1 정규화 기준(정복 보너스 빠짐).
@@ -271,7 +272,11 @@ export async function POST(req: Request) {
 
     // 숙달 — grown 리셋(레벨1=성장분 0, floor 부터) + 직업군 도달 차수 기록(floor tierMult).
     // points/cumLevel/caps 는 보존(전직해도 잔액·누적레벨·수행이득 유지). 위에서 잠가 읽은 prof 재사용.
-    const nextProf = setGroupTier(setGrown(prof, {}), group, nextTier);
+    // 환생(4차 정점→1차)일 때만 환생 1회 기록 — 일반 차수 승급은 환생이 아니므로 제외.
+    const advancedProf = setGroupTier(setGrown(prof, {}), group, nextTier);
+    const nextProf = isReincarnate
+      ? addReincarnation(advancedProf)
+      : advancedProf;
     await upsertSave(tx, userId, "proficiency.v2", nextProf);
 
     return {

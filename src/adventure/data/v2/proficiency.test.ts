@@ -19,6 +19,7 @@ import {
   tierLevelCap,
   levelCapFor,
   addCumLevel,
+  addReincarnation,
   addJobCumLevel,
   jobCumLevelOf,
   groupCumLevel,
@@ -474,5 +475,36 @@ describe("proficiencyPerKillAtDepth (킬당 숙달 — 깊이 밴드 비례)", (
   it("비정상 입력 가드 — 0 이하·소수도 들판(2)으로 처리", () => {
     expect(proficiencyPerKillAtDepth(0)).toBe(2);
     expect(proficiencyPerKillAtDepth(1.9)).toBe(2);
+  });
+});
+
+describe("addReincarnation (환생 횟수 카운터)", () => {
+  it("빈 prof 는 0 에서 시작, 호출마다 +1", () => {
+    const p0 = emptyProficiency();
+    expect(p0.reincarnations).toBe(0);
+    const p1 = addReincarnation(p0);
+    const p2 = addReincarnation(p1);
+    expect(p1.reincarnations).toBe(1);
+    expect(p2.reincarnations).toBe(2);
+    // 비파괴 — 입력은 불변.
+    expect(p0.reincarnations).toBe(0);
+  });
+
+  it("필드 없는(undefined) prof 도 1 로 안전 증가", () => {
+    const p = emptyProficiency();
+    delete p.reincarnations;
+    expect(addReincarnation(p).reincarnations).toBe(1);
+  });
+
+  it("parse 라운드트립 — reincarnations 보존(음수·비수치는 0)", () => {
+    expect(parseProficiency({ reincarnations: 3 }).reincarnations).toBe(3);
+    expect(parseProficiency({ reincarnations: -2 }).reincarnations).toBe(0);
+    expect(parseProficiency({}).reincarnations).toBe(0);
+  });
+
+  it("flattenGroupTiers·setGrown·addCumLevel 은 reincarnations 를 보존", () => {
+    const p = addReincarnation(addReincarnation(emptyProficiency()));
+    expect(flattenGroupTiers(p, "warrior").reincarnations).toBe(2);
+    expect(addCumLevel(p, "warrior", 5).reincarnations).toBe(2);
   });
 });

@@ -102,20 +102,13 @@ export function V2SecretShopView({
   const spendable = coreLoopOn ? (gold ?? 0) + bankedGold : gold ?? 0;
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="비밀 상점"
-        onBack={onBack}
-        right={
-          gold != null ? (
-            <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-              보유 골드{" "}
-              <span className="font-medium tabular-nums text-yellow-600 dark:text-yellow-400">
-                {spendable.toLocaleString()} G
-              </span>
-            </span>
-          ) : undefined
-        }
-      />
+      <SubViewHeader title="비밀 상점" onBack={onBack} />
+      {/* 보유 골드 — 헤더 우측에 두면 큰 숫자에서 가운데 타이틀과 겹쳐 별도 줄로(모바일 겹침 수정). */}
+      {gold != null && (
+        <div className="-mt-2 flex justify-end text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
+          💰 보유 골드 {spendable.toLocaleString()} G
+        </div>
+      )}
       {gold != null && (
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
           품목당 1회 구매 · 지도가 닳기 전까지 재방문 가능

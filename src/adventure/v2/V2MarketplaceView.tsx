@@ -366,17 +366,13 @@ export function V2MarketplaceView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="mx-auto max-w-[720px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
-      <SubViewHeader
-        title="거래소"
-        onBack={onBack}
-        right={
-          gold !== null ? (
-            <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-              보유 {gold.toLocaleString()}골드
-            </span>
-          ) : undefined
-        }
-      />
+      <SubViewHeader title="거래소" onBack={onBack} />
+      {/* 보유 골드 — 헤더 우측에 두면 큰 숫자에서 가운데 타이틀과 겹쳐 별도 줄로(모바일 겹침 수정). */}
+      {gold !== null && (
+        <div className="-mt-2 flex justify-end text-xs font-medium tabular-nums text-amber-700 dark:text-amber-400">
+          💰 보유 {gold.toLocaleString()}골드
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {([

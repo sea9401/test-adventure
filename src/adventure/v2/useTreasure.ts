@@ -41,6 +41,25 @@ export function useTreasure(): TreasureHandlers {
     return null;
   }, []);
 
+  // 진행 중 발굴 세션 복원 — 마운트 시 호출. 조각 소비 없는 읽기 전용(open 의 resume 과 동일 뷰).
+  //   다른 화면을 다녀와도 발굴이 사라지지 않게 격자를 그대로 이어준다.
+  //   🔑 타임아웃(AbortController) 필수 — 멈춘 fetch 가 영영 안 끝나면 호출측 restoring 가드가
+  //      true 로 굳어 화면이 빈 채로 잠긴다. 8초 내 항상 settle(실패 시 null=시작 화면 폴백).
+  const loadSession = useCallback(async (): Promise<TreasureSitePublic | null> => {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 8000);
+    try {
+      const res = await fetch("/api/v2/treasure/session", { signal: ac.signal });
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok && j.site) return j.site as TreasureSitePublic;
+    } catch {
+      // 타임아웃/네트워크 — 복원 실패로 간주(시작 화면). 세션은 서버에 안전.
+    } finally {
+      clearTimeout(timer);
+    }
+    return null;
+  }, []);
+
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
       const res = await fetch("/api/v2/treasure/dig", {
@@ -80,5 +99,5 @@ export function useTreasure(): TreasureHandlers {
     [],
   );
 
-  return { open, dig, loadFragments };
+  return { open, dig, loadFragments, loadSession };
 }

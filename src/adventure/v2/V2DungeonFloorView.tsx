@@ -148,6 +148,10 @@ export function V2DungeonFloorView({
       ? floor.requirement.min
       : floorPowerGate(depth)
     : floorPowerGate(depth);
+  // 내 전투력 — me/state 가 보낸 power(권장 파워와 동일 derivePowerScore 단위)라 직접 비교 가능.
+  //   없으면(미로딩) 표시 생략. 권장 미만이면 amber 로 "버거울 수 있음" 신호(권장이라 하드 차단 아님).
+  const myPower = playerCombat?.power ?? null;
+  const powerBelowGate = myPower != null && myPower < powerGate;
   // 도전(미정복) 여부 — 최고 도달 깊이+1 이 현재 깊이.
   const isChallenge = depth > frontierDepth;
   const { busy, lastResult, hunt, huntBatch } = useDungeonHunt({
@@ -555,7 +559,23 @@ export function V2DungeonFloorView({
         }
       />
       <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
-        권장 전투력 {powerGate}
+        {myPower != null && (
+          <>
+            내 전투력{" "}
+            <span
+              className={`font-semibold tabular-nums ${
+                powerBelowGate
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-emerald-600 dark:text-emerald-400"
+              }`}
+            >
+              {myPower.toLocaleString()}
+            </span>
+            {" · "}
+          </>
+        )}
+        권장 전투력{" "}
+        <span className="tabular-nums">{powerGate.toLocaleString()}</span>
       </p>
       {rareMapIid && (
         <div className="rounded-md border border-sky-300 bg-sky-50 px-2 py-1.5 text-xs font-medium text-sky-800 dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">

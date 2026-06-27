@@ -40,6 +40,9 @@ export type HuntResult = {
   goldTaxed?: number;
   // 세금 수취자 표기 — 점령 길드명/솔로 점령자/거점 금고. goldTaxed>0 일 때만 서버가 채움.
   taxOwnerLabel?: string;
+  // 코어루프 패배 압류 — 패배 시 "마지막 패배 이후 번 골드"의 절반을 그 땅 세금으로 압류한 액수.
+  //   서버가 패배 시에만 >0 으로 채운다(승리/flag off = 0/미설정). 점령세금(goldTaxed)과 별개.
+  lossTax?: number;
   levelsGained: number;
   spMilestonesGained?: number; // 코어루프 — 이번 사냥에서 새로 넘은 SP 마일스톤(>0 일 때만 표기).
   statGains?: Partial<Record<V2StatKey, number>>; // 레벨업 랜덤 성장으로 오른 1차 스탯.
@@ -134,7 +137,11 @@ export function HuntResultCard({
   const hpMpGainsText = formatHpMpGains(result.hpGain, result.mpGain);
 
   return (
-    <Card padding="sm">
+    <Card
+      padding="sm"
+      // 패배 카드는 붉은 링으로 승리 카드와 확연히 구분 — "졌는지 모르고 계속 사냥" 방지.
+      className={won ? undefined : "ring-2 ring-rose-400 dark:ring-rose-600"}
+    >
       {result.rareMapDrop && (
         <div className="mb-2 rounded-md border border-sky-400 bg-sky-50 px-2 py-1.5 text-center text-xs font-semibold text-sky-800 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-200">
           🗺 「{RARE_MAP_KINDS[result.rareMapDrop].name}」 발견! — 인벤토리
@@ -151,20 +158,23 @@ export function HuntResultCard({
           {dropBannerText}
         </div>
       )}
-      <div className="flex items-baseline justify-center gap-2">
-        <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-          전투 결과
-        </span>
-        <span
-          className={`text-sm font-semibold ${
-            won
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-rose-600 dark:text-rose-400"
-          }`}
-        >
-          {won ? "승리" : "패배"}
-        </span>
-      </div>
+      {won ? (
+        <div className="flex items-baseline justify-center gap-2">
+          <span className="text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            전투 결과
+          </span>
+          <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+            승리
+          </span>
+        </div>
+      ) : (
+        // 패배는 작은 글씨 대신 눈에 띄는 배지로 — 승리 카드와 한눈에 구분되게.
+        <div className="rounded-md bg-rose-100 py-1.5 text-center dark:bg-rose-900/50">
+          <span className="text-base font-bold tracking-wide text-rose-700 dark:text-rose-300">
+            💀 패배
+          </span>
+        </div>
+      )}
 
       {result.elementMatchup &&
         result.elementMatchup !== "neutral" &&
@@ -209,6 +219,11 @@ export function HuntResultCard({
         {(result.goldTaxed ?? 0) > 0 && (
           <div className="text-[11px] tabular-nums text-zinc-500 dark:text-zinc-400">
             세금 −{result.goldTaxed} G → {result.taxOwnerLabel ?? "점령자"}
+          </div>
+        )}
+        {(result.lossTax ?? 0) > 0 && (
+          <div className="text-xs font-semibold tabular-nums text-rose-600 dark:text-rose-400">
+            골드 −{result.lossTax} G 압류 (패배 페널티)
           </div>
         )}
       </div>

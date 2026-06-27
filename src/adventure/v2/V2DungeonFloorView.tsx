@@ -161,6 +161,8 @@ export function V2DungeonFloorView({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [batchRunning, setBatchRunning] = useState(false);
   const [batchSummary, setBatchSummary] = useState<BatchSummary | null>(null);
+  // 연패 카운터 — 단판 사냥 결과마다 갱신(승=0 리셋·패=+1). 넛지 배너 격상 조건에 사용.
+  const [lossStreak, setLossStreak] = useState(0);
   // 일괄 사냥 후 캐릭터 정보 카드용 — 서버 일괄 처리는 단판 lastResult 를 세우지 않으므로
   // 합산 응답의 마지막 상태(EXP 진행도·회복약 충전량)를 따로 담는다.
   const [batchStatus, setBatchStatus] = useState<{
@@ -381,6 +383,16 @@ export function V2DungeonFloorView({
     : null;
   const needsRecovery =
     hp != null && liveHp != null && !canHuntWithHp(liveHp, hp.maxHp);
+  // 패배 넛지 — "졌는지 모르고 계속 사냥" 방지. 직전 단판 패배 / 일괄 패배 포함 / 연패 2회+ 일 때
+  //   사냥 버튼 위에 경고를 띄운다. needsRecovery(<5%) 면 그쪽 전용 배너가 우선이라 중복 회피.
+  const justLostSingle = !batchSummary && !!lastResult && !lastResult.won;
+  const justLostBatch =
+    !!batchSummary &&
+    (batchSummary.stoppedReason === "death" ||
+      (batchSummary.losses ?? 0) > 0);
+  const showDefeatNudge =
+    !needsRecovery &&
+    (justLostSingle || justLostBatch || (lossStreak >= 2 && !batchSummary));
   // 자동 사냥 세션과 직접 사냥 상호 배타 — 세션 활성 OR 시작/정지 처리 중이면 사냥 버튼 잠금.
   //   offlineBusy 까지 포함해 "시작 직후 refresh 반영 전" 틈에 온라인 루프가 켜지는 레이스 차단.
   const offlineLocked = offlineSessionActive || offlineBusy;
@@ -403,6 +415,8 @@ export function V2DungeonFloorView({
       setBatchStatus(null);
       void hunt(depth).then((r) => {
         if (r) {
+          // 연패 추적 — 승리면 리셋, 패배면 누적(넛지 배너 격상용).
+          setLossStreak((s) => (r.won ? 0 : s + 1));
           recordHp(r);
           recordMp(r);
           if (r.rareMapRunsLeft != null) setRareMapRunsLeft(r.rareMapRunsLeft);
@@ -560,6 +574,29 @@ export function V2DungeonFloorView({
           hasMp={(mp?.maxMp ?? 0) > 0}
           combat={playerCombat}
         />
+      )}
+
+      {showDefeatNudge && (
+        <div className="rounded-md border border-rose-300 bg-rose-50 px-4 py-3 dark:border-rose-800 dark:bg-rose-950">
+          <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">
+            {lossStreak >= 2
+              ? `${lossStreak}연패 중입니다 — 이 사냥터가 버겁습니다.`
+              : "이번 전투에서 졌습니다."}
+          </p>
+          <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+            권장 전투력 {powerGate}에 못 미치거나 체력이 낮을 수 있어요. 치료소에서
+            회복하거나 더 쉬운 사냥터를 고르세요.
+          </p>
+          {onSeekHealing && (
+            <button
+              type="button"
+              onClick={onSeekHealing}
+              className="mt-2.5 w-full rounded-md border border-rose-600 bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700"
+            >
+              치료소로 가기
+            </button>
+          )}
+        </div>
       )}
 
       <Card padding="md">
@@ -768,6 +805,8 @@ export function V2DungeonFloorView({
           mpCharges={lastResult.mpCharges}
           playerSubtitle={playerSubtitle}
           elementMatchup={lastResult.elementMatchup}
+          // 승리는 결과 카드의 "전투 결과 승리"와 중복이라 배너 생략 — 패배만 부각(코덱스 권고).
+          outcome={lastResult.won ? undefined : "lose"}
           playerCombat={
             playerCombat ? playerCombatToBattleStats(playerCombat) : undefined
           }

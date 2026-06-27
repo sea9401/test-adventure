@@ -369,6 +369,7 @@ export function BattleScene({
   logAnchor = "bottom",
   elementMatchup,
   playerCombat,
+  outcome,
 }: {
   state: BattleState;
   playerName: string;
@@ -386,6 +387,9 @@ export function BattleScene({
   logAnchor?: "top" | "bottom";
   // 약점찌르기(+25%) 표시 — "advantage" 면 적 속성 뱃지를 "약점!" 으로 강조 (v2 PvE).
   elementMatchup?: "advantage" | "disadvantage" | "neutral";
+  // 전투 종료 결과 — 전달되면 전투 패널 위에 큰 승/패 배너를 띄운다. 미전달(라이브 진행 중·
+  //   PvP·코업 등)이면 배너 미표시 → 기존 호출부 렌더 byte-identical.
+  outcome?: "win" | "lose";
 }) {
   const hasMp = state.playerMaxMp > 0;
   const logRef = useRef<HTMLDivElement>(null);
@@ -402,6 +406,30 @@ export function BattleScene({
 
   return (
     <div className="space-y-4">
+      {outcome && (
+        <div
+          className={`rounded-lg border-2 px-4 py-3 text-center ${
+            outcome === "lose"
+              ? "border-rose-500 bg-rose-50 dark:border-rose-600 dark:bg-rose-950"
+              : "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-950"
+          }`}
+        >
+          <span
+            className={`text-xl font-bold tracking-wide ${
+              outcome === "lose"
+                ? "text-rose-700 dark:text-rose-300"
+                : "text-emerald-700 dark:text-emerald-300"
+            }`}
+          >
+            {outcome === "lose" ? "💀 패배" : "🏆 승리"}
+          </span>
+          {outcome === "lose" && (
+            <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
+              이번 전투에서 졌습니다 — 보상이 없습니다.
+            </p>
+          )}
+        </div>
+      )}
       <Card padding="lg">
         {layout === "split" ? (
           // v2 — 좌(플레이어)/우(적) 각 반폭. 위아래 스택 대신 좌우 분리.

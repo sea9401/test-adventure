@@ -435,28 +435,67 @@ export function V2DungeonFloorView({
     }
   };
 
-  // 사냥 버튼/스페이스바 동작. 코어루프 on = 버튼이 곧 자동 사냥 토글(누르면 켜고 첫 판 즉시,
-  //   다시 누르면 끔). 끄는 동작은 항상 가능. off = 기존 단판/일괄(triggerHunt).
-  const onHuntPress = () => {
+  // 사냥 버튼/스페이스바 — 코어루프: 탭(짧게)=단판, 길게(0.5s)=자동 연속. 자동 중엔 탭=정지.
+  //   off 모드는 기존 단판/일괄(triggerHunt).
+  const LONG_PRESS_MS = 500;
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+  const cancelLongPress = () => {
+    if (longPressTimer.current != null) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  // 언마운트 시 타이머 정리 — press 중 화면을 떠나도 unmounted setState 안 나게.
+  useEffect(
+    () => () => {
+      if (longPressTimer.current != null) clearTimeout(longPressTimer.current);
+    },
+    [],
+  );
+  const startAutoHunt = () => {
+    if (!coreLoopOn || offlineLocked || autoHunt) return;
+    setAutoHunt(true);
+    triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시.
+  };
+  // 탭(짧게) — 단판 사냥. 자동 중이면 정지. off 모드는 기존 단판/일괄.
+  const tapHunt = () => {
     if (!coreLoopOn) {
       triggerHunt();
       return;
     }
-    // 자동 사냥 세션 중(또는 시작/정지 처리 중)엔 직접 사냥 잠금 — 정지 버튼으로 먼저 끊어야 한다.
     if (offlineLocked) return;
     if (autoHunt) {
       setAutoHunt(false);
       return;
     }
-    setAutoHunt(true);
-    triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시 발동.
+    triggerHunt();
+  };
+  // 버튼 click — 길게 눌러 자동이 막 시작됐으면 뒤따르는 click 무시(중복 단판 방지), 아니면 탭.
+  const onHuntClick = () => {
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return;
+    }
+    tapHunt();
+  };
+  // 누르기 시작 → 0.5초 유지하면 자동 시작. 자동 중·off·잠금이면 길게 무의미(탭만 동작).
+  const onHuntPressStart = () => {
+    longPressFired.current = false;
+    if (!coreLoopOn || offlineLocked || autoHunt) return;
+    cancelLongPress();
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      startAutoHunt();
+    }, LONG_PRESS_MS);
   };
   // 최신 핸들러를 ref 에 동기화 — 매 렌더 후 effect 에서 갱신(렌더 중 ref 변경 회피).
   //   keydown/인터벌 리스너는 stable 클로저([],[autoHunt])라 ref.current 로 항상 최신
   //   triggerHunt/onHuntPress 를 호출한다. dep array 없음 = 매 렌더 후 동기화(의도).
   useEffect(() => {
     triggerHuntRef.current = triggerHunt;
-    huntButtonRef.current = onHuntPress;
+    // 스페이스바 = 탭(단판). 자동은 버튼 길게 누르기로(키보드는 길게 개념 없음).
+    huntButtonRef.current = tapHunt;
   });
 
   // 알 수 없는 구역 — 유효하지 않은 깊이(0·음수·NaN)만 방어한다. (정상 경로는 page 가 1~MAX
@@ -527,7 +566,13 @@ export function V2DungeonFloorView({
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={onHuntPress}
+            onClick={onHuntClick}
+            // 길게 누르기(0.5s) = 자동 연속 사냥. 탭 = 단판. 포인터 이탈/취소 시 타이머 정리.
+            onPointerDown={onHuntPressStart}
+            onPointerUp={cancelLongPress}
+            onPointerLeave={cancelLongPress}
+            onPointerCancel={cancelLongPress}
+            onContextMenu={(e) => e.preventDefault()}
             // 코어루프 — 자동 사냥(오프라인 세션) 중이면 직접 사냥 잠금. 온라인 루프 중이면
             //   "멈추기" 버튼이라 항상 클릭 가능(쿨다운/회복 중에도).
             disabled={
@@ -541,7 +586,7 @@ export function V2DungeonFloorView({
                     onCooldown
             }
             aria-pressed={coreLoopOn ? autoHunt : undefined}
-            className={`flex-1 rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
+            className={`flex-1 select-none touch-manipulation rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
               coreLoopOn && autoHunt && !offlineLocked
                 ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
                 : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
@@ -566,7 +611,7 @@ export function V2DungeonFloorView({
                     : onCooldown
                       ? `다음 사냥까지 ${cooldownLeftSec}초`
                       : coreLoopOn
-                        ? "사냥"
+                        ? "사냥 (길게 눌러 자동)"
                         : huntCount === 1
                           ? "사냥 (스태미너 1)"
                           : `${huntCount}회 사냥 (스태미너 ${huntCount})`}

@@ -32,7 +32,9 @@ function tabOfPath(pathname: string): TabId {
   )
     return "battle";
   if (pathname.startsWith("/town")) return "town";
-  if (pathname.startsWith("/character")) return "character";
+  // 퀘스트(/quests)는 캐릭터 탭의 하위 메뉴 — 캐릭터로 묶어 활성 강조·배경이 안 깨지게.
+  if (pathname.startsWith("/character") || pathname.startsWith("/quests"))
+    return "character";
   if (pathname.startsWith("/guild")) return "guild";
   if (pathname.startsWith("/plaza")) return "plaza";
   return "adventure";

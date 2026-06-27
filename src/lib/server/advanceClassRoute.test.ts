@@ -133,3 +133,31 @@ describe("advance-class — 전직 후 숙달 포인트 유지(#1220 전역화 �
     expect(storedUsable()).toBe(1234);
   });
 });
+
+describe("advance-class — 모험가(none) 전직 허용(킷 재학습 경로)", () => {
+  it("병사→모험가 전직: 200·class=none·포인트 유지(킷을 다시 배울 수 있게)", async () => {
+    seed("warrior", "warrior", 777);
+    expect(storedUsable()).toBe(777);
+
+    const res = await POST(advanceReq("none"));
+    const json = (await res.json()) as { ok?: boolean; reincarnated?: boolean };
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+
+    // 활성 직업이 모험가(none)로 바뀌고, 숙달 포인트는 그대로 보존.
+    const char = store.get("character.v2") as { class: unknown; level?: number };
+    expect(parseV2Class(char.class)).toBe("none");
+    expect(char.level).toBe(1); // 전직은 레벨 1 리셋(표준 동작).
+    expect(storedUsable()).toBe(777);
+  });
+
+  it("미인식(카탈로그 미존재) 타겟은 bad_target", async () => {
+    // none 만 tier0 허용 — 그 외 tier0(미래 추가분)은 가드 `tier===0 && id!=="none"` 로 차단되지만,
+    //   현재 카탈로그 tier0 은 none 하나뿐이라 여기선 미존재 타겟(!jobDef)으로 거부 경로를 검증한다.
+    seed("warrior", "warrior", 100);
+    const res = await POST(advanceReq("__not_a_job__"));
+    const json = (await res.json()) as { ok?: boolean; error?: string };
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("bad_target");
+  });
+});

@@ -14,6 +14,8 @@ import {
   setGroupTier,
   flattenGroupTiers,
   addReincarnation,
+  addCumLevel,
+  addJobCumLevel,
   emptyProficiency,
   effectiveLevelCap,
   type V2ProficiencyState,
@@ -167,8 +169,19 @@ export async function POST(req: Request) {
       // 차수 폐지 — 모든 직업군 tier=1 정규화(flattenGroupTiers). setGroupTier 는 max-clamp 라
       //   1차로 내릴 수 없어 옛 차수 보너스(앵커 %·floor mult)가 샌다. cumLevel/points/caps 보존.
       //   환생 1회 기록(addReincarnation) — 같은 직업 재전직도 "다시 태어나다" 퀘스트가 깨지도록.
-      const nextProf = addReincarnation(
-        flattenGroupTiers(setGrown(prof, {}), tier1ClassOf(targetClass)),
+      // 새 캠페인 진입 = 시작 레벨 1 을 누적레벨에 포함(+1). cumLevel/jobCumLevel 은 레벨업당 +1
+      //   누적이라 시작 레벨 1 이 안 세져 Lv100 도달 시 99 가 된다 → 전직 게이트(100/200/300)에서
+      //   1 모자라 한 번 더 전직해야 하던 문제. 진입 시 +1 로 보정해 "한 캠페인(Lv1→100)=정확히 100".
+      //   addCumLevel/addJobCumLevel 은 none/빈 jobId 무변경(모험가 전직은 누적 미적립).
+      const targetGroup = tier1ClassOf(targetClass);
+      const nextProf = addJobCumLevel(
+        addCumLevel(
+          addReincarnation(flattenGroupTiers(setGrown(prof, {}), targetGroup)),
+          targetGroup,
+          1,
+        ),
+        targetJobId,
+        1,
       );
       // 코어루프 — 환생: 모아둔 로드아웃 보존 + SP 예산 초과분만 빠진다(강제 재산출 아님 →
       //   타직업 공용/기본기 오픈믹스 수집분 유지). 예산은 tier 1 정규화 기준(정복 보너스 빠짐).

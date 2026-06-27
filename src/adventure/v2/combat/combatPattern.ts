@@ -134,14 +134,14 @@ export function evaluateCombatPattern(
 //   전 빌드 너프 0. 옛 flat 0.28(전사+38%·마법+56%) 대비 인플레 절반.
 export const V2_PATTERN_SKILL_POWER_MULT = 0.14;
 
-// PR2 — 차수별 스킬 위력 통과율. 고차 스킬일수록 평타 초과분을 더 많이 반영해 "쓸 가치"를 준다
-//   (MP/SP 비용↑를 데미지로 보답). t1 = 위력 중립 기본값(V2_PATTERN_SKILL_POWER_MULT). 전투 시점
-//   곱이라 skillPowerScore(=SP 비용)는 불변 — 고차 = MP↑·데미지↑·SP 불변. 다이얼(작을수록 약함).
-//   참고: 옛 flat 0.28 ≈ 전사+38%·마법+56% 인플레 수준이 곧 t3 기준.
+// PR2/3 — 차수별 스킬 위력 통과율. 스킬일수록 평타 초과분을 더 많이 반영해 "쓸 가치"(SP·MP 비용)를
+//   보답. 전투 시점 곱이라 skillPowerScore(=SP 비용)는 불변 — 스킬 = 데미지↑·SP 불변(값어치↑).
+//   PR3: 기본선 전반 상향(t1 0.14→0.18 등) — 기본 스킬도 평타보다 우위. 옛 0.14 "위력 중립"(스킬≈평타)
+//   은 "SP 써도 평타와 비슷=값어치 없음"이라, 빌드 다양성 적은 현 단계에서 폐기. 라이브 watch 다이얼.
 export const V2_PATTERN_SKILL_POWER_MULT_BY_TIER: Record<1 | 2 | 3, number> = {
-  1: V2_PATTERN_SKILL_POWER_MULT, // 0.14 — 기본 스킬: 평타 보너스 유지(중립)
-  2: 0.2,
-  3: 0.28,
+  1: 0.18,
+  2: 0.24,
+  3: 0.32,
 };
 
 // 패턴 경로 DoT(출혈·중독·연소) 틱 위력 배율. DoT 도 확정 발동으로 ~5배 자주 적용돼(특히 saturate

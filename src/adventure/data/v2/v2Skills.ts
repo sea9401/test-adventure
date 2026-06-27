@@ -309,6 +309,9 @@ export type V2SkillDefinition = {
 //   - 패시브는 상시 효과라 발동 가중 없이 효과 크기 합산.
 //   🔑 SP 보유량(calcSpBudget)은 별도로 끌어올릴 예정(오너) — 코스트만 성능비례로 재조정.
 const SP_FLAT_NORM = 140; // baseFlat ~140 ≈ statCoef 1.0 (정규화 기준).
+// 패시브 SP 할인 — 패시브는 상시 효과라 성능비례 루브릭이 다소 과청구되는 면(같은 power 라도
+//   액티브는 발동 조건/빈도 제약이 있으나 패시브는 항상 켜짐). 코스트만 할인(power 점수는 불변).
+const SP_PASSIVE_DISCOUNT = 0.75;
 
 function spAvgTier(byTier?: readonly [number, number, number]): number {
   return byTier ? (byTier[0] + byTier[1] + byTier[2]) / 3 : 0;
@@ -421,7 +424,9 @@ export function skillPowerScore(def: V2SkillDefinition): number {
 // 성능비례 코스트 바닥(루브릭) — power 점수 → SP(1~10 선형). override 트립와이어 기준.
 //   기존 호출부/테스트가 rubricSpCost 이름을 쓰므로 유지(이제 "표"가 아니라 power 도출).
 export function rubricSpCost(skill: V2SkillDefinition): number {
-  const sp = Math.round(0.7 + 3.0 * skillPowerScore(skill));
+  // 패시브는 코스트만 ×SP_PASSIVE_DISCOUNT 할인(상시 효과 과청구 완화). power 점수 자체는 불변.
+  const power = skillPowerScore(skill) * (skill.passive ? SP_PASSIVE_DISCOUNT : 1);
+  const sp = Math.round(0.7 + 3.0 * power);
   return Math.max(1, Math.min(10, sp));
 }
 

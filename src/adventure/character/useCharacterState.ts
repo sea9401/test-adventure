@@ -29,6 +29,9 @@ export type CharacterDynamicState = {
   hp: number;
   level: number;
   exp: number;
+  /** 평생 누적 레벨 — 모든 레벨업에 +오른 레벨(모험가 포함·전직/환생에도 리셋 안 됨). 누적 레벨 랭킹용.
+   *  옛 세이브엔 없음 → 랭킹은 COALESCE 로 옛 공식(직군 cumLevel 합·현재레벨 floor)으로 폴백·마이그가 시드. */
+  totalLevels?: number;
   gold: number;
   fame: number;
   /** 길드 시스템에서 자동 갱신. 미가입 시 "무소속". */
@@ -87,6 +90,8 @@ export const initialCharacterState: CharacterDynamicState = {
   hp: 97,
   level: 1,
   exp: 0,
+  // 평생 누적 레벨 — 시작 레벨(1)부터. 이후 레벨업마다 += 오른 레벨. 환생/전직에도 리셋 안 됨.
+  totalLevels: 1,
   gold: 50,
   fame: 0,
   equippedTitleId: null,

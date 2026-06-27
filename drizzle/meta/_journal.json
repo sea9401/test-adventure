@@ -631,6 +631,13 @@
       "when": 1782513912603,
       "tag": "0089_marketplace_sold_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1782557715091,
+      "tag": "0090_backfill_total_levels",
+      "breakpoints": true
     }
   ]
 }

@@ -61,6 +61,7 @@ vi.mock("@/lib/server/savesKv", () => ({
 
 import { POST } from "@/app/api/v2/dungeon/hunt/route";
 import { proficiencyPerKillAtDepth } from "@/adventure/data/v2/proficiency";
+import { requiredExpToNext } from "@/lib/leveling";
 import { OUTPOSTS } from "@/adventure/data/v2/outposts";
 
 function seedStrongWarrior() {
@@ -138,6 +139,27 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
       monsters: Record<string, { kills?: number }>;
     };
     expect(log.monsters[json.result.enemyName]?.kills).toBe(1);
+  });
+
+  it("레벨업 시 totalLevels(평생 누적 레벨) += 오른 레벨", async () => {
+    // beforeEach 가 강한 전사(Lv30) 시드 — 다음 레벨까지 1 EXP 부족하게 + totalLevels=30 으로 설정.
+    const char0 = store.get("character.v2") as Record<string, unknown>;
+    store.set("character.v2", {
+      ...char0,
+      // 30 은 만렙 미만이라 requiredExpToNext 는 항상 숫자(null 폴백은 타입 안전용).
+      exp: (requiredExpToNext(30) ?? 1) - 1,
+      totalLevels: 30,
+    });
+    const res = await POST(huntReq({ floor: 1 }));
+    expect(res.status).toBe(200);
+    const char = store.get("character.v2") as {
+      level: number;
+      totalLevels: number;
+    };
+    // 한 판 승리(EXP>0)로 최소 1 레벨업 → 31 이상.
+    expect(char.level).toBeGreaterThanOrEqual(31);
+    // totalLevels 는 오른 레벨만큼 누적(시작 30=level → 둘 다 +levelsGained 라 항상 일치).
+    expect(char.totalLevels).toBe(char.level);
   });
 
   it("배치(count=5) — 5회 완료 + 판간 read-your-writes 이월(스태미나·EXP 누적)", async () => {

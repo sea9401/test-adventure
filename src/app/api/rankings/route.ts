@@ -82,17 +82,23 @@ async function fetchRows(metric: Metric): Promise<RankRow[]> {
         COALESCE(u.game_name, p.value->>'name') AS name,
         COALESCE((c.value->>'level')::int, 1) AS level,
         COALESCE((c.value->>'fame')::bigint, 0) AS fame,
-        -- 총 누적 레벨 — proficiency.v2 의 모든 직군 cumLevel 합(환생/전직 누적, 리셋 안 됨).
-        -- prof 미기록(옛 세이브)이면 0 → 현재 레벨로 바닥 처리(GREATEST). 차수 진행분 반영.
-        -- 정수 문자열만 캐스트(regex 가드) — 단 한 행이라도 비정수면 ::int 가 쿼리 전체를
-        -- 터뜨리므로 방어. cumLevel 은 항상 음 아닌 정수(posInt)라 ^[0-9]+$ 로 충분.
-        GREATEST(
-          COALESCE((
-            SELECT SUM((g.value->>'cumLevel')::int)
-            FROM jsonb_each(pr.value->'groups') AS g
-            WHERE (g.value->>'cumLevel') ~ '^[0-9]+$'
-          ), 0),
-          COALESCE((c.value->>'level')::int, 1)
+        -- 총 누적 레벨 — character.v2.totalLevels(평생 누적 레벨, 모험가 포함·환생/전직 리셋 안 됨)
+        -- 우선. 없는 옛 세이브는 옛 공식(직군 cumLevel 합을 현재레벨로 floor)으로 폴백 — 마이그(0090)가
+        -- totalLevels 를 시드하면 이후엔 항상 totalLevels 사용. regex 가드로 비정수 1행이 쿼리를
+        -- 터뜨리는 것 방지(항상 음 아닌 정수라 ^[0-9]+$ 로 충분).
+        COALESCE(
+          CASE
+            WHEN (c.value->>'totalLevels') ~ '^[0-9]+$'
+              THEN (c.value->>'totalLevels')::int
+          END,
+          GREATEST(
+            COALESCE((
+              SELECT SUM((g.value->>'cumLevel')::int)
+              FROM jsonb_each(pr.value->'groups') AS g
+              WHERE (g.value->>'cumLevel') ~ '^[0-9]+$'
+            ), 0),
+            COALESCE((c.value->>'level')::int, 1)
+          )
         ) AS cum_level,
         -- 파라곤 적립 EXP. 큰 값(만렙 후 누적)이라 bigint. 포인트 환산은 JS(pointsFromExp).
         COALESCE((pg.value->>'paragonExp')::bigint, 0) AS paragon_exp,

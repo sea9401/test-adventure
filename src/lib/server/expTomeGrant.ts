@@ -17,6 +17,8 @@ export const EXP_TOME_GRANT = 1_000_000;
 export type ExpTomeGrantResult = {
   level: number;
   exp: number;
+  // 평생 누적 레벨 — 오른 레벨 수만큼 누적(모험가 포함·리셋 안 됨). 누적 레벨 랭킹용.
+  totalLevels: number;
   levelsGained: number;
   proficiency: V2ProficiencyState;
 };
@@ -27,7 +29,13 @@ export type ExpTomeGrantResult = {
 //   - 레벨 캡: 코어루프 on = 단일 캡, off = 차수 캡(effectiveLevelCap 이 플래그 처리).
 //   - 무직(none): 레벨은 오르지만 누적레벨/스탯 성장은 없음(hunt 와 동일하게 no-op).
 export function applyExpTomeGrant(
-  charSave: { class?: unknown; level?: number; exp?: number; specChoice?: unknown },
+  charSave: {
+    class?: unknown;
+    level?: number;
+    exp?: number;
+    totalLevels?: number;
+    specChoice?: unknown;
+  },
   proficiencyRaw: unknown,
   grant: number = EXP_TOME_GRANT,
   rand: () => number = Math.random,
@@ -65,6 +73,11 @@ export function applyExpTomeGrant(
   return {
     level: expResult.level,
     exp: expResult.exp,
+    // 평생 누적 레벨 — 직전 totalLevels(없으면 직전 레벨로 시드) + 오른 레벨. 모험가 포함.
+    totalLevels:
+      (typeof charSave.totalLevels === "number"
+        ? charSave.totalLevels
+        : curLevel) + expResult.levelsGained,
     levelsGained: expResult.levelsGained,
     proficiency: prof,
   };

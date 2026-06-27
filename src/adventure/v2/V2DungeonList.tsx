@@ -27,6 +27,7 @@ export function V2DungeonList({
   onOpenMap,
   frontierDepth = 2,
   onSelectRareMap,
+  initialOpenDepth = null,
 }: {
   currentOutpost: { id: string; name: string } | null;
   onSelectFloor: (depth: number) => void;
@@ -36,6 +37,8 @@ export function V2DungeonList({
   frontierDepth?: number;
   // 레어맵 입장 — 보유 지도(iid·깊이)로 농축 사냥. 미전달이면 섹션 숨김.
   onSelectRareMap?: (map: RareMapInstance) => void;
+  // 진입 시 자동으로 펼칠 테마 블록의 첫 깊이(사냥터에서 "뒤로"로 들어올 때). null=테마 목록부터.
+  initialOpenDepth?: number | null;
 }) {
   const maxDepth = Math.max(2, frontierDepth);
   // 도전(미정복) = 최고도달+1, 단 마지막 테마 끝(MAX_FRONTIER_DEPTH)에서 캡(그 너머 콘텐츠 없음).
@@ -43,7 +46,8 @@ export function V2DungeonList({
   // 깊이 1 ~ 도전까지를 테마 블록(≤6깊이)으로 묶는다.
   const groups = dungeonThemeGroups(challengeDepth);
   // 열린 테마 — 블록의 첫 깊이로 식별(배열 인덱스보다 안정적, frontierDepth 변동에도 견고).
-  const [openDepth, setOpenDepth] = useState<number | null>(null);
+  //   사냥터에서 "뒤로"로 진입 시(initialOpenDepth) 그 테마를 펼친 상태로 시작.
+  const [openDepth, setOpenDepth] = useState<number | null>(initialOpenDepth);
   const openGroup =
     openDepth != null
       ? (groups.find((g) => g.depths[0] === openDepth) ?? null)

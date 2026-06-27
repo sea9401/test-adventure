@@ -139,6 +139,11 @@ export async function POST(req: Request) {
       ...charSave,
       level,
       exp,
+      // 평생 누적 레벨 — 오른 레벨만큼 누적(모험가 포함). 없으면 직전 레벨로 시드. (dev 시드용)
+      totalLevels:
+        (typeof charSave.totalLevels === "number"
+          ? charSave.totalLevels
+          : (charSave.level ?? 1)) + levelsGained,
       gold,
       materials,
     });

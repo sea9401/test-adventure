@@ -66,6 +66,7 @@ export async function POST(req: Request) {
         ...charSave,
         level: grant.level,
         exp: grant.exp,
+        totalLevels: grant.totalLevels,
         rareMaps: nextMaps,
       });
       await upsertSave(tx, userId, "proficiency.v2", grant.proficiency);

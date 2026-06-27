@@ -152,6 +152,7 @@ type CharSave = {
   hpRegenSince?: number;
   level?: number;
   exp?: number;
+  totalLevels?: number; // 평생 누적 레벨(모험가 포함·리셋 안 됨). 누적 레벨 랭킹용.
   gold?: number;
   materials?: unknown;
   lastHuntedOutpost?: unknown;
@@ -781,6 +782,12 @@ export async function runOneHunt(forBatch: boolean, ctx: RunOneHuntCtx) {
     hpRegenSince: now,
     level: expResult.level,
     exp: expResult.exp,
+    // 평생 누적 레벨 — 오른 레벨 수만큼 누적(모험가 포함·전직/환생 리셋 무관). 옛 세이브(totalLevels
+    //   없음)는 직전 레벨로 시드 → 첫 등반은 현재 레벨과 일치. 기존 유저 권위 시드는 마이그 0090.
+    totalLevels:
+      (typeof charSave.totalLevels === "number"
+        ? charSave.totalLevels
+        : (charSave.level ?? 1)) + expResult.levelsGained,
     gold: newGold,
     materials: nextMaterials,
     rareMaps,

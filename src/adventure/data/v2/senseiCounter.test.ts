@@ -11,12 +11,12 @@ import {
 } from "./v2Skills";
 
 describe("투승 반격 패시브", () => {
-  it("카탈로그: v2c_battlemonk_counter = 반격 패시브(counterChancePct 30·SP 8)", () => {
+  it("카탈로그: v2c_battlemonk_counter = 반격 패시브(counterChancePct 30·SP 6)", () => {
     const s = V2_SKILLS.v2c_battlemonk_counter;
     expect(s.name).toBe("반격");
     expect(s.category).toBe("passive");
     expect(s.passive?.counterChancePct).toBe(30);
-    expect(spCostOf(s)).toBe(8); // 성능비례 루브릭(counterChancePct 30 → 8)
+    expect(spCostOf(s)).toBe(6); // 루브릭 8(counterChancePct 30) × 패시브 할인 0.75 → 6
   });
 
   it("aggregateEquippedPassives 가 counterChancePct 합산", () => {

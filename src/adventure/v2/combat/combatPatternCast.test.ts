@@ -5,7 +5,6 @@ import {
   type V2SkillCastInput,
 } from "./combatShared";
 import {
-  V2_PATTERN_SKILL_POWER_MULT,
   V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
   type V2CombatPattern,
 } from "./combatPattern";
@@ -39,18 +38,20 @@ const always: V2CombatPattern = {
 };
 
 describe("resolveV2SkillCast — 전투 패턴 경로", () => {
-  it("위력 중립 — 패턴 피해 = 평타 바닥 + 초과분 × mult (평타 기준 보너스)", () => {
+  it("패턴 피해 = 평타 바닥 + 초과분 × 차수 통과율(난격=t1)", () => {
     // 옛 경로(procRoll 미지정 = 항상 발동): 풀 위력.
     const full = resolveV2SkillCast(castInput([SKILL]));
-    // 패턴 경로: 같은 입력, "평타 바닥 + 초과분×mult" 로 깎임.
+    // 패턴 경로: 같은 입력, "평타 바닥 + 초과분 × 통과율" 로 깎임(난격=t1).
     const scaled = resolveV2SkillCast(castInput([SKILL], { combatPattern: always }));
     expect(full.castSkillId).toBe(SKILL);
     expect(scaled.castSkillId).toBe(SKILL);
     expect(full.enemyDamage).toBeGreaterThan(0);
-    // 평타 바닥 = damageBetween(atk, def) × attackCount(미지정=1). 초과분만 mult 로 깎인다.
+    // 평타 바닥 = damageBetween(atk, def) × attackCount(미지정=1). 초과분만 t1 통과율로 깎인다.
     const basicFloor = damageBetween(100, 10);
     const expected = Math.round(
-      basicFloor + Math.max(0, full.enemyDamage - basicFloor) * V2_PATTERN_SKILL_POWER_MULT,
+      basicFloor +
+        Math.max(0, full.enemyDamage - basicFloor) *
+          V2_PATTERN_SKILL_POWER_MULT_BY_TIER[1],
     );
     expect(scaled.enemyDamage).toBe(expected);
     // 바닥 보장 — 패턴 스킬 피해는 평타 한 번보다 작지 않다.

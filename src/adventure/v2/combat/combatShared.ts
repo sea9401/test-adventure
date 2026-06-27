@@ -31,7 +31,7 @@ import type { PlayerCombat } from "./engine";
 import {
   evaluateCombatPattern,
   V2_PATTERN_DOT_POWER_MULT,
-  V2_PATTERN_SKILL_POWER_MULT,
+  V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
   type V2CombatPattern,
   type V2PatternCtx,
 } from "./combatPattern";
@@ -888,7 +888,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
   //   hitDamages 는 비율용이라 미스케일(엔진이 enemyDamage 총합을 distributeBoostedHits 로 재분배).
   //   DoT 는 평타 등가가 없어 위 모델 대신 V2_PATTERN_DOT_POWER_MULT 로 별도 throttle(위 dot 분기).
   //   selfHeal 도 동일 ×skillMult throttle. 버프/디버프/마나회복은 미적용.
-  const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT : 1;
+  // 차수별 위력 통과율 — 고차 스킬일수록 평타 초과분을 더 많이 반영(쓸 가치). t1=중립 기본값.
+  const skillMult = viaPattern ? V2_PATTERN_SKILL_POWER_MULT_BY_TIER[def.tier] : 1;
   // 기습(ambushDamage) = 빈도 제한 오프너 — 첫 턴 풀피에서만 큰 값이고(그 외엔 낮은 기본딜·평타 이하)
   //   매 턴 스팸이 아니다. 패턴 빈도 throttle(0.14·~5배 발동 가정)을 면제하지 않으면 "큰 오프너"가
   //   평타바닥+14% 로 뭉개진다(설계 무력화). raw 그대로 통과(off 경로/일반 스킬은 무영향).
@@ -920,7 +921,8 @@ export function resolveV2SkillCast(input: V2SkillCastInput): V2SkillCastResult {
     const basicFloor =
       damageBetween(effAtk, effDef) * Math.max(1, input.attacker.attackCount ?? 1);
     const surplus = Math.max(0, enemyDamage - basicFloor);
-    return Math.round(basicFloor + surplus * V2_PATTERN_SKILL_POWER_MULT);
+    // viaPattern 가드 통과 = skillMult 가 차수별 통과율(1 아님).
+    return Math.round(basicFloor + surplus * skillMult);
   })();
   return {
     nextMp: input.attacker.mp - v2SkillMpCost(def) + manaRestore,

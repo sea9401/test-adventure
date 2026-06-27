@@ -222,9 +222,9 @@ export function V2DungeonFloorView({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // 자동 사냥 루프 — 코어루프 on 에서 사냥 버튼을 누르면 켜진다. 켜져 있으면 1.2초마다 단판 발동.
-  //   쿨다운/회복/busy 가드는 triggerHunt 내부라 조건 안 되면 no-op(쿨다운 끝나면 자동 재개).
-  //   탭 닫으면(언마운트) 정지. 사냥이 서버에서 거부되면 triggerHunt 가 자동으로 끈다.
+  // 자동 사냥 루프 — 사냥 버튼을 길게 누르면 켜진다(두 모드 공용). 켜져 있으면 1.2초마다 발동.
+  //   쿨다운/처리중 가드는 triggerHunt 내부라 일시 조건이면 no-op(풀리면 재개). 스태미나·체력
+  //   소진이면 triggerHunt 가 자동 정지. 서버 거부·언마운트도 정지.
   const [autoHunt, setAutoHunt] = useState(false);
   useEffect(() => {
     if (!autoHunt) return;
@@ -408,14 +408,13 @@ export function V2DungeonFloorView({
   //   레벨업 모달이 열렸으면 무발동 — 스페이스바 전역 리스너가 모달 오버레이를 우회해 뒤에서
   //   사냥이 돌지 않게(클릭은 오버레이가 막지만 키는 막지 못함).
   const triggerHunt = () => {
-    if (
-      oneActionDisabled ||
-      lowStamina ||
-      needsRecovery ||
-      onCooldown ||
-      showLevelupModal
-    )
+    // 일시적 차단(처리 중·쿨다운·레벨업 모달)은 자동 사냥을 유지 — 풀리면 다음 틱에 재개.
+    if (oneActionDisabled || onCooldown || showLevelupModal) return;
+    // 스태미나·체력 소진은 더 못 싸우는 상태 → 자동 사냥 정지(빈 인터벌 무한 반복 방지).
+    if (lowStamina || needsRecovery) {
+      setAutoHunt(false);
       return;
+    }
     setBatchSummary(null);
     // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). off = huntCount 반영.
     if (coreLoopOn || huntCount === 1) {
@@ -479,16 +478,14 @@ export function V2DungeonFloorView({
     [],
   );
   const startAutoHunt = () => {
-    if (!coreLoopOn || offlineLocked || autoHunt) return;
+    // 스태미나 모드에서도 자동 사냥 허용(coreLoopOn 게이트 제거). 능동적 길게누르기라 방치
+    //   자동전투(#840 우려)와 무관하고, 스태미나·체력으로 자연 제한된다(소진 시 triggerHunt 정지).
+    if (offlineLocked || autoHunt) return;
     setAutoHunt(true);
     triggerHunt(); // 1.2초 인터벌을 기다리지 않고 첫 판 즉시.
   };
-  // 탭(짧게) — 단판 사냥. 자동 중이면 정지. off 모드는 기존 단판/일괄.
+  // 탭(짧게) — 자동 중이면 정지, 아니면 단판/일괄(huntCount). 두 모드 공용.
   const tapHunt = () => {
-    if (!coreLoopOn) {
-      triggerHunt();
-      return;
-    }
     if (offlineLocked) return;
     if (autoHunt) {
       setAutoHunt(false);
@@ -504,10 +501,10 @@ export function V2DungeonFloorView({
     }
     tapHunt();
   };
-  // 누르기 시작 → 0.5초 유지하면 자동 시작. 자동 중·off·잠금이면 길게 무의미(탭만 동작).
+  // 누르기 시작 → 0.5초 유지하면 자동 시작(두 모드 공용). 자동 중·잠금이면 길게 무의미(탭만 동작).
   const onHuntPressStart = () => {
     longPressFired.current = false;
-    if (!coreLoopOn || offlineLocked || autoHunt) return;
+    if (offlineLocked || autoHunt) return;
     cancelLongPress();
     longPressTimer.current = setTimeout(() => {
       longPressFired.current = true;
@@ -642,16 +639,16 @@ export function V2DungeonFloorView({
             disabled={
               coreLoopOn && offlineLocked
                 ? true
-                : coreLoopOn && autoHunt
+                : autoHunt
                   ? false
                   : oneActionDisabled ||
                     lowStamina ||
                     needsRecovery ||
                     onCooldown
             }
-            aria-pressed={coreLoopOn ? autoHunt : undefined}
+            aria-pressed={autoHunt}
             className={`flex-1 select-none touch-manipulation rounded-md border px-3 py-2.5 text-sm font-medium text-white ${
-              coreLoopOn && autoHunt && !offlineLocked
+              autoHunt && !offlineLocked
                 ? "border-rose-600 bg-rose-600 hover:bg-rose-700"
                 : "border-emerald-600 bg-emerald-600 hover:bg-emerald-700"
             } ${
@@ -662,7 +659,7 @@ export function V2DungeonFloorView({
           >
             {coreLoopOn && offlineLocked
               ? "오프라인 사냥 중 — 정지하면 직접 사냥"
-              : coreLoopOn && autoHunt
+              : autoHunt
                 ? busy
                   ? "사냥 중… (누르면 멈춤)"
                   : onCooldown
@@ -677,7 +674,7 @@ export function V2DungeonFloorView({
                       : coreLoopOn
                         ? "사냥 (길게 눌러 자동)"
                         : huntCount === 1
-                          ? "사냥 (스태미너 1)"
+                          ? "사냥 (길게 눌러 자동 · 스태미너 1)"
                           : `${huntCount}회 사냥 (스태미너 ${huntCount})`}
           </button>
           {/* 코어루프 on = 항상 단판(일괄 폐지) → 사냥 횟수 설정 숨김. */}

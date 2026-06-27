@@ -10,6 +10,9 @@ import { useRouter } from "next/navigation";
 import { Sword } from "@phosphor-icons/react";
 import { outpostDisplayName as outpostName } from "@/adventure/data/v2/tileWarfare";
 import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
+import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
+import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import {
   FEED_POLL_MS,
   WAR_TICKER_MAX_ITEMS,
@@ -62,6 +65,25 @@ export function warTickerText(e: FeedEntry): string | null {
       (V2_EQUIPMENT as Record<string, { name?: string }>)[p.itemId]?.name ??
       p.itemId;
     return `${e.actorName} 님의 ${name} +${p.level}, 강화 중 파괴…`;
+  }
+  if (e.type === "coop_summon" || e.type === "coop_kill") {
+    const p = e.payload as { kind: string };
+    const kindId = parseCoopBossKindId(p.kind);
+    const boss = kindId ? COOP_BOSSES[kindId].name : p.kind;
+    return e.type === "coop_summon"
+      ? `${e.actorName} 님이 협동 보스 ${boss} 소환! 토벌에 참여하세요`
+      : `${e.actorName} 님이 협동 보스 ${boss} 처치 확정타!`;
+  }
+  if (e.type === "rare_map_drop") {
+    const p = e.payload as { kind: string };
+    const name =
+      RARE_MAP_KINDS[p.kind as keyof typeof RARE_MAP_KINDS]?.name ?? p.kind;
+    return `${e.actorName} 님이 희귀한 ${name} 발견!`;
+  }
+  if (e.type === "fishing_big_catch") {
+    const p = e.payload as { fishId: string; size: number };
+    const name = FISH[p.fishId as keyof typeof FISH]?.name ?? p.fishId;
+    return `${e.actorName} 님이 ${name} ${formatFishSize(Math.round(p.size))} 대물 낚시!`;
   }
   if (e.type === "newcomer") {
     return `새 모험가 ${e.actorName} 님이 모험을 시작했습니다!`;

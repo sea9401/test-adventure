@@ -1,8 +1,9 @@
 import { db } from "@/db";
 import { ensureUser } from "@/lib/server/ensureUser";
 import { lockSaveForUpdate, upsertSave } from "@/lib/server/savesKv";
-import { FISH } from "@/adventure/data/v2/fish";
+import { FISH, isBigCatch } from "@/adventure/data/v2/fish";
 import { MULTTAE_BY_ID } from "@/adventure/data/v2/multtae";
+import { insertFeedEntry } from "@/lib/server/serverFeed";
 import {
   FISHING_SESSION_KEY,
   judgeCatch,
@@ -156,6 +157,14 @@ export async function POST(req: Request) {
     return Response.json({ ok: true, caught: false, reason: result.reason });
   }
   const fish = FISH[result.fishId];
+  // 낚시 대물 — 종 크기 상위 구간 + 개인 신기록이면 전광판/소식 피드에 알린다.
+  //   디바운스(같은 유저+type 60s)·보관 trim 은 insertFeedEntry 가 자동 처리(도배 방지).
+  if (result.isPersonalBest && isBigCatch(result.fishId, result.size)) {
+    await insertFeedEntry(userId, "fishing_big_catch", {
+      fishId: result.fishId,
+      size: result.size,
+    });
+  }
   // 물때 한정 특별 손님이면 그 물때 정보를 동봉(결과 오버레이 "○○ 물때의 손님" 표시용).
   const mt = fish.condition ? MULTTAE_BY_ID.get(fish.condition) : undefined;
   return Response.json({

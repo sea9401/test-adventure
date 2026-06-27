@@ -476,3 +476,13 @@ export function formatFishSize(cm: number): string {
   }
   return `${cm}cm`;
 }
+
+// "대물" 판정 — 종 크기 범위(min~max)의 상위 (1−BIG_CATCH_FRACTION) 구간에 든 어획.
+//   사이즈가 heavy-tail(min 쪽 몰림)이라 상위 10% 도달은 종마다 드문 트로피급 → 전광판 알림 기준.
+//   종 무관 절대 크기가 아니라 "그 종에서 큰가"로 판정(붕어 월척도 대물로 인정).
+export const BIG_CATCH_FRACTION = 0.9;
+export function isBigCatch(fishId: FishId, size: number): boolean {
+  const f = FISH[fishId];
+  if (!f) return false;
+  return size >= f.minSize + BIG_CATCH_FRACTION * (f.maxSize - f.minSize);
+}

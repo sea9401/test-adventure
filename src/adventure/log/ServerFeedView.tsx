@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Fish,
   Flag,
   HandWaving,
   Hammer,
@@ -23,6 +24,7 @@ import { V2_EQUIPMENT } from "@/adventure/data/v2/v2Equipment";
 import { OUTPOST_BY_ID } from "@/adventure/data/v2/outposts";
 import { RARE_MAP_KINDS } from "@/adventure/data/v2/rareMaps";
 import { parseCoopBossKindId, COOP_BOSSES } from "@/adventure/data/v2/coopBosses";
+import { FISH, formatFishSize } from "@/adventure/data/v2/fish";
 import { formatRelative } from "@/lib/notifications";
 import {
   FEED_CATEGORIES,
@@ -111,6 +113,13 @@ const TYPE_ICON: Record<FeedType, React.ReactNode> = {
       className="shrink-0 text-emerald-500 dark:text-emerald-400"
     />
   ),
+  fishing_big_catch: (
+    <Fish
+      size={14}
+      weight="fill"
+      className="shrink-0 text-cyan-500 dark:text-cyan-400"
+    />
+  ),
   newcomer: (
     <HandWaving
       size={14}
@@ -172,6 +181,19 @@ function entryText(e: FeedEntry): React.ReactNode {
           {itemName(p.itemId)}
         </span>{" "}
         발견!
+      </>
+    );
+  }
+  if (e.type === "fishing_big_catch") {
+    const p = e.payload as { fishId: string; size: number };
+    const fishName = FISH[p.fishId as keyof typeof FISH]?.name ?? p.fishId;
+    return (
+      <>
+        {name} 님이{" "}
+        <span className="font-medium text-cyan-600 dark:text-cyan-400">
+          {fishName} {formatFishSize(Math.round(p.size))}
+        </span>{" "}
+        대물 낚시!
       </>
     );
   }

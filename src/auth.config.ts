@@ -1,5 +1,4 @@
 import type { NextAuthConfig } from "next-auth";
-import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 
 const PUBLIC_PATHS = [
@@ -19,7 +18,8 @@ const PUBLIC_PATHS = [
 // 미들웨어 전용 설정 — adapter 없이 edge-compatible.
 // 실제 DB/OAuth 처리는 src/auth.ts (full config).
 export const authConfig: NextAuthConfig = {
-  providers: [Google, Kakao],
+  // 베타 동안 구글 로그인 제외 — 카카오만. (구글 재도입 시 Google import + 배열·sign-in 버튼 복원)
+  providers: [Kakao],
   pages: { signIn: "/sign-in" },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {

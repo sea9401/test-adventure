@@ -11,7 +11,8 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => ({})) as { provider?: string };
-  if (!body.provider || !["google", "kakao"].includes(body.provider)) {
+  // 베타 동안 구글 제외 — 카카오만 연동 허용.
+  if (!body.provider || !["kakao"].includes(body.provider)) {
     return new Response("invalid provider", { status: 400 });
   }
 

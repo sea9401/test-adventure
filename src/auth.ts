@@ -1,5 +1,4 @@
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
 import Kakao from "next-auth/providers/kakao";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm";
@@ -40,9 +39,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
   }),
   session: { strategy: "jwt" as const },
   providers: [
-    // allowDangerousEmailAccountLinking: 같은 이메일로 복수 공급자 연동 허용
-    // (Google 로 가입한 유저가 카카오로도 로그인 시 같은 계정으로 통합).
-    Google({ allowDangerousEmailAccountLinking: true }),
+    // 베타 동안 구글 로그인 제외 — 카카오만. (구글 재도입 시 import + 이 배열·auth.config·sign-in 버튼 복원)
+    // allowDangerousEmailAccountLinking: 같은 이메일로 복수 공급자 연동 허용.
     Kakao({
       allowDangerousEmailAccountLinking: true,
       // 카카오 이메일 권한이 잠겨 있을 때(사업자 미등록) ID 기반 플레이스홀더 이메일 사용.

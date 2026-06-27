@@ -28,6 +28,7 @@ import {
 } from "@/adventure/data/v2/v2EquipVariance";
 import {
   V2ItemCard,
+  V2ItemCompareCard,
   anchorOf,
   powerNameClass,
   type ItemCardAnchor,
@@ -179,8 +180,13 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     refresh();
   }, [refresh]);
 
+  // 성공 시 true 반환 — 비교 카드가 실패 시엔 닫히지 않고 에러 메시지를 보여주도록.
   const applyEquip = useCallback(
-    async (slot: V2EquipSlot, iid: string | null, busyKey: string) => {
+    async (
+      slot: V2EquipSlot,
+      iid: string | null,
+      busyKey: string,
+    ): Promise<boolean> => {
       setBusy(busyKey);
       setMsg(null);
       try {
@@ -196,12 +202,14 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         } | null;
         if (!j?.ok) {
           setMsg(`✗ ${j?.error ?? `http ${res.status}`}`);
-          return;
+          return false;
         }
         setEquipped(j.equipped ?? {});
         setMsg(iid == null ? "✓ 해제 완료" : "✓ 장착 완료");
+        return true;
       } catch (err) {
         setMsg(`✗ ${(err as Error).message}`);
+        return false;
       } finally {
         setBusy(null);
       }
@@ -487,41 +495,80 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           />
         )}
       </Card>
-      {card && (
-        <V2ItemCard
-          item={V2_EQUIPMENT[card.inst.id]}
-          roll={card.inst.roll}
-          enhance={card.inst.enhance}
-          anchor={card.anchor}
-          onClose={() => setCard(null)}
-          equippedIds={equippedItemIds}
-          equip={{
-            isEquipped:
-              (equipped[V2_EQUIPMENT[card.inst.id].slot] ?? null) ===
-              card.inst.iid,
+      {card &&
+        (() => {
+          const candItem = V2_EQUIPMENT[card.inst.id];
+          const slot = candItem.slot;
+          const equippedIid = equipped[slot] ?? null;
+          const isCandidateEquipped = equippedIid === card.inst.iid;
+          // 같은 슬롯에 다른 장비가 장착돼 있으면(후보가 미장착) 비교 카드를 띄운다.
+          const equippedInst =
+            equippedIid && !isCandidateEquipped
+              ? owned.find((i) => i.iid === equippedIid)
+              : undefined;
+          // 토글 후 owned 갱신되므로 라이브 잠금 상태를 owned 에서 조회(card.inst 는 stale 가능).
+          const liveLocked =
+            owned.find((i) => i.iid === card.inst.iid)?.locked ?? false;
+          const lockAction = {
+            locked: liveLocked,
             busy: busy === card.inst.iid,
-            onEquip: () =>
-              applyEquip(
-                V2_EQUIPMENT[card.inst.id].slot,
-                card.inst.iid,
-                card.inst.iid,
-              ),
-            onUnequip: () =>
-              applyEquip(V2_EQUIPMENT[card.inst.id].slot, null, card.inst.iid),
-          }}
-          lock={{
-            // 토글 후 owned 갱신되므로 라이브 잠금 상태를 owned 에서 조회(card.inst 는 stale 가능).
-            locked:
-              owned.find((i) => i.iid === card.inst.iid)?.locked ?? false,
-            busy: busy === card.inst.iid,
-            onToggle: () =>
-              applyLock(
-                card.inst.iid,
-                !(owned.find((i) => i.iid === card.inst.iid)?.locked ?? false),
-              ),
-          }}
-        />
-      )}
+            onToggle: () => applyLock(card.inst.iid, !liveLocked),
+          };
+
+          if (equippedInst) {
+            const equippedItem = V2_EQUIPMENT[equippedInst.id];
+            return (
+              <V2ItemCompareCard
+                candidate={{
+                  item: candItem,
+                  roll: card.inst.roll,
+                  enhance: card.inst.enhance,
+                }}
+                equipped={{
+                  item: equippedItem,
+                  roll: equippedInst.roll,
+                  enhance: equippedInst.enhance,
+                }}
+                onClose={() => setCard(null)}
+                equip={{
+                  busy: busy === card.inst.iid,
+                  onEquip: async () => {
+                    // 실패 시 모달 유지(에러 확인) — 성공해야 닫는다.
+                    if (await applyEquip(slot, card.inst.iid, card.inst.iid)) {
+                      setCard(null);
+                    }
+                  },
+                }}
+                unequip={{
+                  busy: busy === slot,
+                  onUnequip: async () => {
+                    if (await applyEquip(slot, null, slot)) setCard(null);
+                  },
+                }}
+                lock={lockAction}
+              />
+            );
+          }
+
+          // 후보가 이미 장착 중이거나 슬롯이 비었으면 기존 단일 카드.
+          return (
+            <V2ItemCard
+              item={candItem}
+              roll={card.inst.roll}
+              enhance={card.inst.enhance}
+              anchor={card.anchor}
+              onClose={() => setCard(null)}
+              equippedIds={equippedItemIds}
+              equip={{
+                isEquipped: isCandidateEquipped,
+                busy: busy === card.inst.iid,
+                onEquip: () => applyEquip(slot, card.inst.iid, card.inst.iid),
+                onUnequip: () => applyEquip(slot, null, card.inst.iid),
+              }}
+              lock={lockAction}
+            />
+          );
+        })()}
     </main>
   );
 }

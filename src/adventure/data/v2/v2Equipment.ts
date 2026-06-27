@@ -779,6 +779,92 @@ export function v2EquipStatEntries(item: V2Equipment, roll?: V2EquipRoll): strin
   return v2EquipStatRows(item, roll).map((r) => `${r.label} ${r.value}`);
 }
 
+// ── 장비 비교(장착 중 vs 후보) ───────────────────────────────────────────────
+// 인벤토리에서 미장착 장비를 탭하면 그 슬롯의 장착 장비와 한 화면에서 비교한다.
+// 후보의 각 스탯에 "현재 대비 증감"을 붙여 이득/손해를 색으로 즉시 인지하게 한다.
+
+export type V2EquipCompareRow = {
+  label: string;
+  /** 후보 표시값(없으면 "—") — v2EquipStatRows 와 동일 포맷. */
+  value: string;
+  /** 증감 표시("" = 동일). 무게만 감소가 이득이라 부호는 그대로, 색은 better 로 결정. */
+  deltaText: string;
+  /** 1 = 이득(초록) · -1 = 손해(빨강) · 0 = 동일. 무게는 낮을수록 이득(lowerBetter). */
+  better: 0 | 1 | -1;
+};
+
+// 비교 행 순서 + 무게만 "낮을수록 이득" — 위력/옵션은 높을수록 이득.
+const COMPARE_FIELD_ORDER: { label: string; lowerBetter: boolean }[] = [
+  { label: "위력", lowerBetter: false },
+  { label: "무게", lowerBetter: true },
+  ...V2_EQUIP_OPTION_KEYS.map((k) => ({
+    label: OPTION_LABELS[k],
+    lowerBetter: false,
+  })),
+];
+
+// 라벨별 수치(증감 계산용) — effectiveStats 의 위력(강화 반영)·무게·옵션을 평탄화.
+function compareNumeric(
+  item: V2Equipment,
+  roll?: V2EquipRoll,
+  enhance?: V2EnhanceState,
+): Record<string, number> {
+  const eff = effectiveStats(item, roll);
+  const out: Record<string, number> = {
+    위력: enhancedPower(eff.power, enhance),
+    무게: eff.weight,
+  };
+  const opts = eff.options ?? {};
+  for (const k of V2_EQUIP_OPTION_KEYS) out[OPTION_LABELS[k]] = opts[k] ?? 0;
+  return out;
+}
+
+// 증감 표시 — v2EquipStatRows 와 단위 일치(치명피해 ×, 치명/회피/회복 %, 그 외 flat).
+function formatCompareDelta(label: string, delta: number): string {
+  const sign = delta > 0 ? "+" : "-";
+  const a = Math.abs(delta);
+  if (label === OPTION_LABELS.critMult) return `${sign}${(a / 100).toFixed(2)}×`;
+  if (
+    label === OPTION_LABELS.crit ||
+    label === OPTION_LABELS.eva ||
+    label === OPTION_LABELS.healPowerPct
+  ) {
+    return `${sign}${a}%`;
+  }
+  return `${sign}${a}`;
+}
+
+// 후보 vs 장착 중 — 라벨별 후보값 + 증감/이득방향. 어느 한쪽이라도 값이 있으면 행을 만든다
+//   (후보엔 없고 장착엔 있는 스탯도 "—" + 손해로 노출 → 다운그레이드 가시화).
+export function v2EquipCompareRows(
+  candidate: { item: V2Equipment; roll?: V2EquipRoll; enhance?: V2EnhanceState },
+  equipped: { item: V2Equipment; roll?: V2EquipRoll; enhance?: V2EnhanceState },
+): V2EquipCompareRow[] {
+  const candDisplay = new Map(
+    v2EquipStatRows(candidate.item, candidate.roll, candidate.enhance).map(
+      (r) => [r.label, r.value] as const,
+    ),
+  );
+  const candN = compareNumeric(candidate.item, candidate.roll, candidate.enhance);
+  const eqN = compareNumeric(equipped.item, equipped.roll, equipped.enhance);
+  const out: V2EquipCompareRow[] = [];
+  for (const { label, lowerBetter } of COMPARE_FIELD_ORDER) {
+    const cv = candN[label] ?? 0;
+    const ev = eqN[label] ?? 0;
+    if (cv === 0 && ev === 0) continue;
+    const delta = cv - ev;
+    const better: 0 | 1 | -1 =
+      delta === 0 ? 0 : lowerBetter ? (delta < 0 ? 1 : -1) : delta > 0 ? 1 : -1;
+    out.push({
+      label,
+      value: candDisplay.get(label) ?? "—",
+      deltaText: delta === 0 ? "" : formatCompareDelta(label, delta),
+      better,
+    });
+  }
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // equipment.v2 save 파싱 — owned/equipped 정합 보정.
 //

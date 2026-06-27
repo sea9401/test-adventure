@@ -52,12 +52,23 @@ curl -s https://msmsge.com/api/health   # {"ok":true,"db":"ok",...}
 ```
 
 ### 롤백 (나쁜 배포 되돌리기)
-`main` = 라이브라 **revert로 되돌린다**(force-push 금지):
+나쁜 배포(크래시·깨진 페이지)가 나갔을 때. **직전 정상 커밋 = 마지막으로 성공한 배포 Action 의 커밋**(`gh run list --workflow=deploy.yml` / GitHub Actions 히스토리).
+
+**A. 정석(깨끗·~2분)** — `main` 을 고쳐 되돌리는 배포를 낸다(force-push 금지):
 ```bash
-gh pr create ...   # 또는
-git revert <나쁜커밋sha> && git push   # → 자동 재배포
+git revert <나쁜커밋sha> && git push    # → 자동 재배포로 되돌림
 ```
-급하면 EC2에서 직접 `git reset --hard <좋은sha> && npm run build && sudo systemctl restart adventure-rpg` — 단 **main도 같이 고쳐야**(안 그러면 다음 배포가 나쁜 코드를 다시 당겨옴).
+
+**B. 긴급(사이트 지금 죽음·즉시)** — EC2 에서 직전 정상 커밋으로 로컬 롤백:
+```bash
+# EC2 에서
+bash deploy/rollback.sh                 # 인자 없이 = 현재/최근 커밋 목록
+bash deploy/rollback.sh <좋은sha>        # reset→install→build→restart→health
+```
+→ `rollback.sh` 가 배포와 동일 단계로 그 커밋을 띄운다. **끝나면 반드시 A(main revert)도** — 안 그러면 다음 배포의 `git reset --hard origin/main` 이 나쁜 코드를 다시 당겨온다.
+
+> 💡 롤백 동안 유저에게 점검 페이지: 먼저 `bash deploy/maintenance.sh on` → 롤백 → `off`.
+> ⚠️ **마이그레이션 포함 배포**면 코드 롤백만으론 부족(마이그는 전진 전용). 롤백한 코드가 새 스키마와 안 맞으면 → **백업 복원**(§4) 또는 교정 마이그. 스키마-코드 정합을 먼저 확인.
 
 ---
 

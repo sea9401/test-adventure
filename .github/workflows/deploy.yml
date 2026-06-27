@@ -58,6 +58,15 @@ jobs:
             sudo systemctl restart adventure-rpg
             sleep 2
             sudo systemctl --no-pager status adventure-rpg | head -n 4
-            echo "▶ [prod] health"
-            curl -fsS -o /dev/null -w 'prod=%{http_code}\n' http://127.0.0.1:3000/api/health || true
-            echo "▶ [prod] done"
+            echo "▶ [prod] smoke — 라이브가 진짜 살아있는지 검증(실패 시 배포 빨간불 → rollback.sh)"
+            ok=0
+            for i in $(seq 1 20); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/api/health || echo 000)
+              if [ "$code" = "200" ]; then ok=1; echo "  health 200 (try $i)"; break; fi
+              echo "  health $code — 부팅 대기 $i/20"; sleep 3
+            done
+            [ "$ok" = "1" ] || { echo "✗ SMOKE FAIL: /api/health 가 200 이 아님 (앱 미기동/DB 단절)"; exit 1; }
+            sc=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:3000/sign-in || echo 000)
+            [ "$sc" = "200" ] || { echo "✗ SMOKE FAIL: /sign-in → $sc"; exit 1; }
+            echo "  /sign-in 200"
+            echo "✓ [prod] smoke pass · done"

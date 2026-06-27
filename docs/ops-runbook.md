@@ -40,7 +40,9 @@ EC2엔 `psql`·`pg_dump` **18.3**(RDS와 일치)·`aws` CLI·`node` 있음. 단 
 
 ## 3. 배포
 
-**배포 = `main` 에 머지** (push:main → 자동). 흐름: GitHub Action `deploy.yml`(appleboy/ssh-action, 시크릿 `EC2_HOST`/`EC2_SSH_KEY`) → EC2에서 `git reset --hard origin/main` → `install-deps.sh` → `migrate.mjs`(대기 마이그 적용) → `npm run build` → `sudo systemctl restart adventure-rpg`.
+**배포 = `main` 에 머지** (push:main → 자동). 흐름: GitHub Action `deploy.yml`(appleboy/ssh-action, 시크릿 `EC2_HOST`/`EC2_SSH_KEY`) → EC2에서 `git reset --hard origin/main` → `install-deps.sh` → `migrate.mjs`(대기 마이그 적용) → `npm run build` → `sudo systemctl restart adventure-rpg` → **스모크**(`/api/health`+`/sign-in` 200 재시도 검증).
+
+> ✅ **배포 후 스모크**: 재시작 뒤 라이브를 찔러보고 200 이 아니면 **배포 Action 을 빨간불**로 만든다(빌드 성공 ≠ 앱 정상 — 마이그 0-테이블 같은 사고도 잡음). 빨간불 뜨면 → `rollback.sh` 로 되돌린다.
 
 ```bash
 # 머지 (CI 필수체크 'check' 통과 후라야 머지됨 — 브랜치 보호)

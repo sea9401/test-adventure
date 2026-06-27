@@ -161,3 +161,39 @@ describe("advance-class — 모험가(none) 전직 허용(킷 재학습 경로)"
     expect(json.error).toBe("bad_target");
   });
 });
+
+describe("advance-class — 새 캠페인 진입 시 누적레벨 +1(시작 레벨 1 포함)", () => {
+  it("재전직(병사→병사): 직군 cumLevel·직업 jobCumLevel 둘 다 +1 시드", async () => {
+    // cumLevel 은 레벨업당 +1 누적이라 Lv1→100=99(시작 레벨1 미포함). 전직 게이트가 100/200/300
+    //   이라 정확히 1 모자라던 문제 → 진입 시 +1 시드로 "한 캠페인=정확히 100" 보정.
+    seed("warrior", "warrior", 500); // groups.warrior.cumLevel = 200
+    const res = await POST(advanceReq("warrior"));
+    expect(((await res.json()) as { ok?: boolean }).ok).toBe(true);
+
+    const prof = parseProficiency(store.get("proficiency.v2"));
+    expect(prof.groups.warrior?.cumLevel).toBe(201); // 200 + 1 시드
+    expect(prof.jobCumLevel?.warrior).toBe(1); // 기존 jobCumLevel 없었음 → 시드 1
+  });
+
+  it("다른 직업 전직(마법사→병사): 새 직군에 +1 시드, 기존 직군 보존", async () => {
+    seed("mage", "mage", 500); // groups.mage.cumLevel = 200
+    const res = await POST(advanceReq("warrior"));
+    expect(((await res.json()) as { ok?: boolean }).ok).toBe(true);
+
+    const prof = parseProficiency(store.get("proficiency.v2"));
+    expect(prof.groups.warrior?.cumLevel).toBe(1); // 새 직군 진입 = 레벨1 +1 시드
+    expect(prof.groups.mage?.cumLevel).toBe(200); // 기존 직군 누적 보존
+    expect(prof.jobCumLevel?.warrior).toBe(1);
+  });
+
+  it("모험가(none) 전직은 누적 미적립(시드 no-op)", async () => {
+    seed("warrior", "warrior", 500);
+    const res = await POST(advanceReq("none"));
+    expect(((await res.json()) as { ok?: boolean }).ok).toBe(true);
+
+    const prof = parseProficiency(store.get("proficiency.v2"));
+    // 시드 대상이 none 이라 무변경 — warrior cumLevel 보존, jobCumLevel.none 미적립.
+    expect(prof.groups.warrior?.cumLevel).toBe(200);
+    expect(prof.jobCumLevel?.none).toBeUndefined();
+  });
+});

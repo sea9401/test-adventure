@@ -132,10 +132,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     const char = store.get("character.v2") as { exp: number; stamina: { current: number } };
     expect(char.exp).toBeGreaterThan(0);
     expect(char.stamina.current).toBe(4999); // 5000 - HUNT_COST(1)
-    const prof = store.get("proficiency.v2") as {
-      groups: { warrior: { points: number } };
-    };
-    expect(prof.groups.warrior.points).toBe(proficiencyPerKillAtDepth(1));
+    const prof = store.get("proficiency.v2") as { points: number };
+    expect(prof.points).toBe(proficiencyPerKillAtDepth(1)); // 전역 잔액
     const log = store.get("adventure-log.v2") as {
       monsters: Record<string, { kills?: number }>;
     };
@@ -175,10 +173,8 @@ describe("POST /api/v2/dungeon/hunt — 통합(폴드 안전망)", () => {
     expect(char.exp).toBe(json.batch.totalExp);
     expect(char.exp).toBeGreaterThan(0);
     // 숙련도도 5판 누적.
-    const prof = store.get("proficiency.v2") as {
-      groups: { warrior: { points: number } };
-    };
-    expect(prof.groups.warrior.points).toBe(5 * proficiencyPerKillAtDepth(1));
+    const prof = store.get("proficiency.v2") as { points: number };
+    expect(prof.points).toBe(5 * proficiencyPerKillAtDepth(1)); // 전역 잔액 5판 누적
   });
 
   it("거점(미점령) 사냥 — NPC 세금 차감 + 수취 라벨 '거점 금고'", async () => {

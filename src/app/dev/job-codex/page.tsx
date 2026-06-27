@@ -8,9 +8,9 @@ import { emptyProficiency } from "@/adventure/data/v2/proficiency";
 // mock: 전사 직군 100+(2차 해금)·견습 기사 누적 200(→기사 3차 계보 해금)·마법 진행·일부 패시브. cls=warrior.
 //   🔑 계보 게이팅: 3차(기사)는 직군 cumLevel 이 아니라 바로 아래 2차(견습 기사) jobCumLevel 로 열린다.
 const prof = emptyProficiency();
-prof.groups.warrior = { points: 0, cultivations: 0, tier: 2, cumLevel: 250 };
-prof.groups.mage = { points: 0, cultivations: 0, tier: 1, cumLevel: 120 };
-prof.groups.rogue = { points: 0, cultivations: 0, tier: 1, cumLevel: 40 };
+prof.groups.warrior = { cultivations: 0, tier: 2, cumLevel: 250 };
+prof.groups.mage = { cultivations: 0, tier: 1, cumLevel: 120 };
+prof.groups.rogue = { cultivations: 0, tier: 1, cumLevel: 40 };
 prof.jobCumLevel = { squire: 200 }; // 견습 기사 200 → 기사(3차) 계보 해금 시연
 
 const learned = [

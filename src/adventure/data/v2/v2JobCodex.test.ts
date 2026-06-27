@@ -7,7 +7,7 @@ import { emptyProficiency, type V2ProficiencyState } from "./proficiency";
 function profWith(groups: Record<string, number>): V2ProficiencyState {
   const p = emptyProficiency();
   for (const [g, cum] of Object.entries(groups)) {
-    p.groups[g] = { points: 0, cultivations: 0, tier: 1, cumLevel: cum };
+    p.groups[g] = { cultivations: 0, tier: 1, cumLevel: cum };
   }
   return p;
 }

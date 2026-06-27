@@ -4,14 +4,15 @@ import { V2_CORE_LOOP_V2, V2_LEVEL_CAP } from "./coreLoopConfig";
 //
 // 직업군 키 = 그 직업군의 1차 직업 id (tier1ClassOf, 예: 검술=swordsman). none(무직) 적립 없음.
 // 저장: proficiency.v2 = {
-//   groups: { [tier1classId]: { points, cultivations, tier, cumLevel } },
+//   points: number,                                                // 숙달 포인트(캐릭터 단일 잔액)
+//   groups: { [tier1classId]: { cultivations, tier, cumLevel } },
 //   caps:   { [stat]: number },                                    // 수행으로 올린 stat cap
 // }
 //   - points = 숙달 포인트(사용가능 잔액). 킬당 +proficiencyPerKillAtDepth(깊이 밴드 비례 2~5),
-//     수행·스킬학습에 소모.
-//     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 — floor·전직은 cumLevel 이 담당하므로 누적
-//     추적 불필요. 단일 잔액으로 합침.)
-//   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력).
+//     수행·스킬학습에 소모. 🔑 caps/grown 처럼 캐릭터 전역(직군 무관) — 전직해도 유지.
+//     (2026-06 통합: 옛 earned 누적/spent 분리 폐지 → 단일 잔액. 2026-06-27: 옛 직군별 points 를
+//      전역으로 승격 — 재전직 시 잔액이 0 으로 보이던 문제 해소. parse 가 옛 직군별을 합산 이관.)
+//   - cultivations(수행 횟수) · tier(도달 차수) · cumLevel(직군 누적 레벨, floor·전직 입력)은 직군별.
 //   - cap 미지정 = V2_STAT_CAP_BASE.
 
 import { V2_STAT_KEYS, type V2StatKey } from "./v2StatKeys";
@@ -19,15 +20,16 @@ import { parseV2Class } from "./classes";
 import { themeIndexForDepth } from "./dungeon";
 
 export type V2ProficiencyGroup = {
-  // 숙달 포인트 — 사용가능 잔액(킬당 적립, 수행·스킬학습에 소모). 옛 earned/spent 통합(2026-06).
-  points: number;
   cultivations: number;
   tier: number; // 그 직업군에서 도달한 최고 차수(1~4). floor tierMult 에 사용.
   // 직군 누적 레벨 — 레벨업마다 +1(전직 리셋에도 불변). floor·전직 게이트 입력(2026-06).
-  // 레벨캡·차수 유한이라 ~200-250 에서 천장. (누적 추적은 cumLevel 이 담당 → points 는 단일 잔액.)
+  // 레벨캡·차수 유한이라 ~200-250 에서 천장.
   cumLevel: number;
 };
 export type V2ProficiencyState = {
+  // 숙달 포인트 — 캐릭터 단일 잔액(킬당 적립, 수행·스킬학습에 소모). caps 처럼 전역(전직 무관).
+  //   옛 직군별 points 는 parse 시 전부 합산해 이관(2026-06-27).
+  points: number;
   groups: Record<string, V2ProficiencyGroup>;
   caps: Partial<Record<V2StatKey, number>>;
   grown: Partial<Record<V2StatKey, number>>; // 랜덤 레벨 성장 누적분(1차 스탯).
@@ -105,6 +107,7 @@ function posInt(raw: unknown): number {
 
 export function emptyProficiency(): V2ProficiencyState {
   return {
+    points: 0,
     groups: {},
     caps: {},
     grown: {},
@@ -129,11 +132,16 @@ function parseStatMap(raw: unknown): Partial<Record<V2StatKey, number>> {
 export function parseProficiency(raw: unknown): V2ProficiencyState {
   if (!raw || typeof raw !== "object") return emptyProficiency();
   const obj = raw as {
+    points?: unknown;
     groups?: unknown;
     caps?: unknown;
     grown?: unknown;
     jobCumLevel?: unknown;
   };
+  // 숙달 포인트(캐릭터 전역 잔액) — 신포맷=top-level points. 옛 포맷=직군별 points 라, 아래 루프에서
+  //   각 직군의 points 를 전부 여기 합산해 이관한다(2026-06-27 전역 승격). 신포맷 그룹엔 points 가
+  //   없어 posInt→0 이므로 이중계산 없음.
+  let pointsTotal = posInt(obj.points);
   const groups: Record<string, V2ProficiencyGroup> = {};
   if (obj.groups && typeof obj.groups === "object") {
     for (const [k, v] of Object.entries(obj.groups as Record<string, unknown>)) {
@@ -144,8 +152,8 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
       // 매핑 불가 키(parseV2Class→none)는 폐기. 단 진짜 "none" 그룹(모험가 수행 적립분)은 보존
       //   — 모험가도 수행 가능해졌고 cap 적립이 none 그룹 포인트를 소비하므로 로드 시 유지해야 한다.
       if (key === "none" && k !== "none") continue;
-      // 숙달 포인트(잔액). DB 초기화 후 모든 그룹은 points 를 가진다(옛 earned/spent 마이그 폐지).
-      const points = posInt((v as { points?: unknown }).points);
+      // 옛 직군별 points → 전역 잔액으로 합산 이관(2026-06-27). 신포맷 그룹엔 points 없음(→0).
+      pointsTotal += posInt((v as { points?: unknown }).points);
       const cultivations = posInt((v as { cultivations?: unknown }).cultivations);
       // tier 1~4 클램프, 미지정=1.
       const tier = Math.min(4, Math.max(1, posInt((v as { tier?: unknown }).tier) || 1));
@@ -159,18 +167,18 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
         rawCum >= 0
           ? Math.floor(rawCum)
           : 0;
-      // 의미 있는 데이터(잔액/누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
-      if (points > 0 || cumLevel > 0 || cultivations > 0 || tier > 1) {
-        // 방어적 머지(같은 key 가 중복 등장할 때): 차수·누적레벨은 max, 포인트·수행 횟수는 합.
+      // 의미 있는 데이터(누적레벨/수행/차수)가 있는 그룹만 보존. 전부 0·1차면 신규와 동일이라 생략.
+      //   (points 는 전역으로 빠졌으므로 그룹 보존 판정에서 제외 — points 만 있던 그룹은 합산 후 폐기.)
+      if (cumLevel > 0 || cultivations > 0 || tier > 1) {
+        // 방어적 머지(같은 key 가 중복 등장할 때): 차수·누적레벨은 max, 수행 횟수는 합.
         const prev = groups[key];
         groups[key] = prev
           ? {
-              points: prev.points + points,
               cultivations: prev.cultivations + cultivations,
               tier: Math.max(prev.tier, tier),
               cumLevel: Math.max(prev.cumLevel, cumLevel),
             }
-          : { points, cultivations, tier, cumLevel };
+          : { cultivations, tier, cumLevel };
       }
     }
   }
@@ -197,6 +205,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     }
   }
   return {
+    points: pointsTotal,
     groups,
     caps,
     grown: parseStatMap(obj.grown),
@@ -231,7 +240,6 @@ export function setGroupTier(
   if (!group || group === "none") return p;
   const t = Math.min(4, Math.max(1, Math.floor(tier)));
   const cur = p.groups[group] ?? {
-    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -253,7 +261,7 @@ export function flattenGroupTiers(
     groups[g] = v.tier === 1 ? v : { ...v, tier: 1 };
   }
   if (ensureGroup && ensureGroup !== "none" && !groups[ensureGroup]) {
-    groups[ensureGroup] = { points: 0, cultivations: 0, tier: 1, cumLevel: 0 };
+    groups[ensureGroup] = { cultivations: 0, tier: 1, cumLevel: 0 };
   }
   return { ...p, groups };
 }
@@ -363,9 +371,9 @@ export function groupCumLevel(p: V2ProficiencyState, group: string): number {
   return p.groups[group]?.cumLevel ?? 0;
 }
 
-// 숙달 포인트 잔액(사용가능). 옛 earned−spent 통합 → 단일 points.
-export function groupUsable(p: V2ProficiencyState, group: string): number {
-  return p.groups[group]?.points ?? 0;
+// 숙달 포인트 잔액(사용가능) — 캐릭터 전역(직군 무관). 옛 직군별 groupUsable 대체(2026-06-27).
+export function usablePoints(p: V2ProficiencyState): number {
+  return Math.max(0, p.points ?? 0);
 }
 
 export function cultivationCount(p: V2ProficiencyState, group: string): number {
@@ -390,28 +398,16 @@ export function totalCapGains(p: V2ProficiencyState): number {
   return t;
 }
 
-// 숙달 포인트 적립 — group 의 points += amount(킬당). 비파괴. 0 이하·빈 group·수행 프로필 없는
-//   group 은 무변경. 🔑 4직군 하드코딩 대신 V2_CULTIVATE_PROFILE 존재로 게이트 — none(모험가) 및
-//   향후 직군 밖 직업도 프로필만 있으면 적립(일반화, 2026-06-22).
+// 숙달 포인트 적립 — 캐릭터 전역 points += amount(킬당). 비파괴. 0 이하·빈 group·수행 프로필 없는
+//   group 은 무변경. 🔑 group 은 적립 "자격" 게이트일 뿐(잔액은 전역) — V2_CULTIVATE_PROFILE 가
+//   있는 직업(4직군 + none 모험가 등)에서 사냥할 때만 적립(일반화, 2026-06-22).
 export function addPoints(
   p: V2ProficiencyState,
   group: string,
   amount: number,
 ): V2ProficiencyState {
   if (amount <= 0 || !group || !V2_CULTIVATE_PROFILE[group]) return p;
-  const cur = p.groups[group] ?? {
-    points: 0,
-    cultivations: 0,
-    tier: 1,
-    cumLevel: 0,
-  };
-  return {
-    ...p,
-    groups: {
-      ...p.groups,
-      [group]: { ...cur, points: cur.points + amount },
-    },
-  };
+  return { ...p, points: p.points + amount };
 }
 
 // 직군 누적 레벨 적립 — group 의 cumLevel += amount(레벨업 수). 비파괴. none/빈 group/0 이하 무변경.
@@ -422,7 +418,6 @@ export function addCumLevel(
 ): V2ProficiencyState {
   if (amount <= 0 || !group || group === "none") return p;
   const cur = p.groups[group] ?? {
-    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -473,10 +468,9 @@ export function applyCultivation(
   const profile = V2_CULTIVATE_PROFILE[group];
   if (!profile) return null; // none/무효 직업군
   const cost = cultivationCost(totalCapGains(p));
-  if (groupUsable(p, group) < cost) return null; // 사용가능 부족
+  if (usablePoints(p) < cost) return null; // 사용가능 부족(전역 잔액)
   const mult = rng ? rollCultivationMult(rng) : 1;
   const cur = p.groups[group] ?? {
-    points: 0,
     cultivations: 0,
     tier: 1,
     cumLevel: 0,
@@ -498,13 +492,10 @@ export function applyCultivation(
     mult,
     next: {
       ...p,
+      points: p.points - cost, // 전역 잔액에서 차감
       groups: {
         ...p.groups,
-        [group]: {
-          ...cur,
-          points: cur.points - cost,
-          cultivations: cur.cultivations + 1,
-        },
+        [group]: { ...cur, cultivations: cur.cultivations + 1 },
       },
       caps: nextCaps,
     },
@@ -521,26 +512,13 @@ export function recommendedCultivationStats(group: string): V2StatKey[] {
   );
 }
 
-// 숙달 포인트 소모(시그니처 학습용) — cap/cultivations 불변, points 만 차감.
+// 숙달 포인트 소모(시그니처 학습용) — 전역 잔액에서만 차감(cap/cultivations 불변).
 // 비파괴. 잔액 부족이면 null. (수행과 달리 횟수 카운트 안 함 — 고정 비용.)
 export function spendProficiency(
   p: V2ProficiencyState,
-  group: string,
   amount: number,
 ): V2ProficiencyState | null {
   if (amount <= 0) return p;
-  if (groupUsable(p, group) < amount) return null;
-  const cur = p.groups[group] ?? {
-    points: 0,
-    cultivations: 0,
-    tier: 1,
-    cumLevel: 0,
-  };
-  return {
-    ...p,
-    groups: {
-      ...p.groups,
-      [group]: { ...cur, points: cur.points - amount },
-    },
-  };
+  if (usablePoints(p) < amount) return null;
+  return { ...p, points: p.points - amount };
 }

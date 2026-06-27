@@ -34,7 +34,7 @@ import { derivePlayerCombatV2Pure } from "@/lib/server/derivePlayerCombatV2";
 function profWithGroups(groupCumLevels: Record<string, number>): V2ProficiencyState {
   const prof = emptyProficiency();
   for (const [id, cumLevel] of Object.entries(groupCumLevels)) {
-    prof.groups[id] = { points: 0, cultivations: 0, tier: 1, cumLevel };
+    prof.groups[id] = { cultivations: 0, tier: 1, cumLevel };
   }
   return prof;
 }

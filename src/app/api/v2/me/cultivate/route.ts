@@ -6,7 +6,7 @@ import {
   parseProficiencyForChar,
   applyCultivation,
   emptyProficiency,
-  groupUsable,
+  usablePoints,
   cultivationCost,
   totalCapGains,
   capGain,
@@ -54,7 +54,7 @@ export async function POST() {
           ok: false as const,
           error: "insufficient_proficiency" as const,
           required: cultivationCost(totalCapGains(prof)),
-          have: groupUsable(prof, group),
+          have: usablePoints(prof),
         },
       };
     }
@@ -75,7 +75,7 @@ export async function POST() {
         group,
         caps: effectiveCaps,
         cultivations: nextCult,
-        points: groupUsable(applied.next, group),
+        points: usablePoints(applied.next),
         nextCost: cultivationCost(totalCapGains(applied.next)),
       },
     };

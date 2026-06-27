@@ -54,7 +54,7 @@ const TIER4_LINEAGE: Record<string, string> = {
 function profWith(groupCumLevels: Record<string, number>) {
   const prof = emptyProficiency();
   for (const [id, cumLevel] of Object.entries(groupCumLevels)) {
-    prof.groups[id] = { points: 0, cultivations: 0, tier: 1, cumLevel };
+    prof.groups[id] = { cultivations: 0, tier: 1, cumLevel };
   }
   return prof;
 }

@@ -10,7 +10,7 @@ import {
   parseProficiencyForChar,
   emptyProficiency,
   spendProficiency,
-  groupUsable,
+  usablePoints,
   type V2ProficiencyState,
 } from "@/adventure/data/v2/proficiency";
 import {
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
           ok: true as const,
           alreadyLearned: true as const,
           skillId,
-          points: groupUsable(prof, group),
+          points: usablePoints(prof),
           learned: skills.learned,
           equipped: skills.equipped,
         },
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     // 비용 — 모든 학습 스킬 고정 단가(v2SkillLearnCost): 1500.
     const cost = v2SkillLearnCost(sig);
 
-    const spent = spendProficiency(prof, group, cost);
+    const spent = spendProficiency(prof, cost);
     if (!spent) {
       return {
         status: 400,
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
           ok: false as const,
           error: "insufficient_proficiency" as const,
           required: cost,
-          have: groupUsable(prof, group),
+          have: usablePoints(prof),
         },
       };
     }
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
         skillId,
         spent: cost,
         group,
-        points: groupUsable(spent, group),
+        points: usablePoints(spent),
         learned: nextLearned,
         equipped: nextEquipped,
       },

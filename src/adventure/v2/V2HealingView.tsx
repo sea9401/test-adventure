@@ -256,7 +256,21 @@ export function V2HealingView({ onBack }: { onBack: () => void }) {
       </Card>
 
       <Card padding="md">
-        <h2 className="text-sm font-semibold">충전약</h2>
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-sm font-semibold">충전약</h2>
+          {/* 보유 골드 — 충전약 결제 통화. 코어루프면 지갑+은행 합산(spendable)이 곧 쓸 수 있는 골드.
+              메인 상단바는 코어루프 중 골드를 안 보여줘서 여기서 노출(사용자 요청). */}
+          {gold != null && (
+            <span className="shrink-0 text-xs font-medium tabular-nums text-amber-600 dark:text-amber-400">
+              보유 골드 {spendable.toLocaleString()} G
+            </span>
+          )}
+        </div>
+        {gold != null && coreLoopOn && bankedGold > 0 && (
+          <p className="mt-0.5 text-right text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+            지갑 {gold.toLocaleString()} · 은행 {bankedGold.toLocaleString()}
+          </p>
+        )}
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           1 G 당 1 충전, 최대 {MAX_CHARGE.toLocaleString()}. 사냥 후 부족분 만큼 자동 소모.
         </p>

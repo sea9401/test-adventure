@@ -411,79 +411,67 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(parseEquipmentSave(undefined)).toEqual({ owned: [], equipped: {} });
   });
 
-  it("옛 id[] owned → 개체 마이그(결정적 iid `id~n`), 중복 보존, 굴림 이식", () => {
+  it("owned 의 알 수 없는 id 개체·비객체는 제거", () => {
     const r = parseEquipmentSave({
-      owned: ["v2_iron_sword", "v2_iron_sword", "v2_leather_armor"],
-      statRolls: { v2_iron_sword: { power: 4, weight: 1 } },
-    });
-    expect(r.owned).toEqual([
-      {
-        iid: "v2_iron_sword~0",
-        id: "v2_iron_sword",
-        roll: { power: 4, weight: 1 },
-      },
-      {
-        iid: "v2_iron_sword~1",
-        id: "v2_iron_sword",
-        roll: { power: 4, weight: 1 },
-      },
-      { iid: "v2_leather_armor~0", id: "v2_leather_armor" },
-    ]);
-  });
-
-  it("owned 의 알 수 없는 id 는 제거", () => {
-    const r = parseEquipmentSave({
-      owned: ["v2_iron_sword", "v2_fake_item", 42, null],
+      owned: [
+        { iid: "a", id: "v2_iron_sword" },
+        { iid: "b", id: "v2_fake_item" },
+        42,
+        null,
+      ],
     });
     expect(r.owned.map((i) => i.id)).toEqual(["v2_iron_sword"]);
   });
 
-  it("옛 equipped(slot→id) → 보유 개체 iid 로 마이그, 미보유는 제외", () => {
+  it("equipped 가 slot→id(방어적 폴백)면 보유 개체 iid 로 해석, 미보유는 제외", () => {
     const r = parseEquipmentSave({
-      owned: ["v2_iron_sword"],
+      owned: [{ iid: "w0", id: "v2_iron_sword" }],
       equipped: { weapon: "v2_iron_sword", armor: "v2_leather_armor" },
     });
-    expect(r.equipped).toEqual({ weapon: "v2_iron_sword~0" });
+    expect(r.equipped).toEqual({ weapon: "w0" });
   });
 
-  it("stored slot 무시·카탈로그 슬롯 배치(3→6), accessory→ring/necklace, iid 매핑", () => {
+  it("stored slot 무시·카탈로그 슬롯 배치(3→6), accessory→ring, iid 매핑", () => {
     const r = parseEquipmentSave({
-      owned: ["v2_iron_sword", "v2_silver_ring", "v2_jade_amulet"],
+      owned: [
+        { iid: "w0", id: "v2_iron_sword" },
+        { iid: "r0", id: "v2_silver_ring" },
+        { iid: "n0", id: "v2_jade_amulet" },
+      ],
       equipped: {
         armor: "v2_iron_sword",
         accessory: "v2_silver_ring",
       },
     });
     expect(r.equipped).toEqual({
-      weapon: "v2_iron_sword~0",
-      ring: "v2_silver_ring~0",
+      weapon: "w0",
+      ring: "r0",
     });
   });
 
-  it("옛 statRolls → 개체 roll 이식(클램프·옵션 정수·무효는 roll 없음)", () => {
+  it("roll 클램프·옵션 정수·무효 roll 드롭(개체는 남음)", () => {
     const r = parseEquipmentSave({
       owned: [
-        "v2_iron_sword",
-        "v2_starsong_bow",
-        "v2_silver_ring",
-        "v2_steel_sword",
+        { iid: "a", id: "v2_iron_sword", roll: { power: 4, weight: 1 } },
+        {
+          iid: "b",
+          id: "v2_starsong_bow",
+          roll: { power: 16, weight: 2, options: { crit: 3, bad: 9 } },
+        },
+        { iid: "c", id: "v2_silver_ring", roll: { power: -5, weight: -2 } }, // 클램프 → 1, 0
+        { iid: "d", id: "v2_iron_sword", roll: { weight: 2 } }, // power 없음 → roll 드롭
       ],
-      statRolls: {
-        v2_iron_sword: { power: 4, weight: 1 },
-        v2_starsong_bow: { power: 16, weight: 2, options: { crit: 3, bad: 9 } },
-        v2_silver_ring: { power: -5, weight: -2 }, // 클램프 → 1, 0
-        v2_steel_sword: { weight: 2 }, // power 없음 → roll 드롭(개체는 남음)
-      },
     });
-    const rollById = Object.fromEntries(r.owned.map((i) => [i.id, i.roll]));
-    expect(rollById.v2_iron_sword).toEqual({ power: 4, weight: 1 });
-    expect(rollById.v2_starsong_bow).toEqual({
+    const rollByIid = Object.fromEntries(r.owned.map((i) => [i.iid, i.roll]));
+    expect(rollByIid.a).toEqual({ power: 4, weight: 1 });
+    expect(rollByIid.b).toEqual({
       power: 16,
       weight: 2,
       options: { crit: 3 }, // 허용 키만(bad 제거)
     });
-    expect(rollById.v2_silver_ring).toEqual({ power: 1, weight: 0 });
-    expect(rollById.v2_steel_sword).toBeUndefined();
+    expect(rollByIid.c).toEqual({ power: 1, weight: 0 });
+    expect(rollByIid.d).toBeUndefined();
+    expect(r.owned).toHaveLength(4);
   });
 
   it("신 형식 — 개체(iid/id/roll)·equipped(slot→iid) 보존", () => {
@@ -527,39 +515,6 @@ describe("parseEquipmentSave (개체 instance 모델)", () => {
     expect(r.owned.find((i) => i.iid === "d4")).not.toHaveProperty("locked");
   });
 
-  // 티어 5→3 축소 마이그 — 제거된 옛 id(T2/T4)를 잔존 id 로 치환(고아 방지).
-  it("제거 id(옛 형식 문자열) → 잔존 id 치환 + 굴림 리셋", () => {
-    const r = parseEquipmentSave({
-      owned: ["v2_steel_sword", "v2_silver_plate"],
-      statRolls: { v2_steel_sword: { power: 99, weight: 9 } },
-    });
-    expect(r.owned.map((i) => i.id).sort()).toEqual(
-      ["v2_greatsword", "v2_mithril_plate"].sort(),
-    );
-    // 치환분은 굴림 리셋(옛 99 위력 굴림이 새 아이템에 안 붙음).
-    expect(r.owned.find((i) => i.id === "v2_greatsword")?.roll).toBeUndefined();
-  });
-
-  it("제거 id(신 형식 개체) → id 치환 + iid 보존(장착 정합)", () => {
-    const r = parseEquipmentSave({
-      owned: [{ iid: "keep1", id: "v2_silver_bow", roll: { power: 50, weight: 0 } }],
-      equipped: { weapon: "keep1" }, // iid 로 장착 → 치환 후에도 정합 유지
-    });
-    expect(r.owned).toHaveLength(1);
-    expect(r.owned[0].id).toBe("v2_starsong_bow"); // 치환됨
-    expect(r.owned[0].iid).toBe("keep1"); // iid 보존
-    expect(r.owned[0].roll).toBeUndefined(); // 치환분 굴림 리셋
-    expect(r.equipped.weapon).toBe("keep1"); // 장착 슬롯 정합
-  });
-
-  it("제거 id(옛 slot→id 장착 형식) → 치환된 개체로 장착", () => {
-    const r = parseEquipmentSave({
-      owned: ["v2_gold_ring"],
-      equipped: { ring: "v2_gold_ring" }, // 옛 형식: slot→id
-    });
-    expect(r.owned[0].id).toBe("v2_lucky_charm");
-    expect(r.equipped.ring).toBe(r.owned[0].iid); // 치환 개체로 장착됨
-  });
 });
 
 describe("setInstanceLock", () => {

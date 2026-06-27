@@ -4,7 +4,7 @@
 //   · class id 는 직업 정체성만(warrior/martial/mage/rogue). 차수(tier)는 id 에서 떼어
 //     proficiency.v2.groups[job].tier 로 이동. 전문화(spec)는 별도 축(character.v2.specChoice).
 //   · 전직(advance) = class 변경이 아니라 groups[job].tier +1. 갈아타기(respec) = class=다른 job.
-//   · 구 24 class id (swordsman/archer/priest/ninja …)는 parseV2Class 가 4 job 으로 마이그.
+//   · 구 24 class id 리매핑은 폐지(DB 초기화 전제) — parseV2Class 는 현재 4직군/none 만 인식.
 //   · 구 직업 패시브(v2Passives)는 은퇴 → 전문화 패시브가 대체(derive 가 specChoice 로 적용).
 // 직업이 주는 것: ① 권장 앵커 스탯(자유 수행이 강제하진 않음) ② 차수별 앵커 보정(V2_TIER_STAT_BONUS_PCT).
 
@@ -116,39 +116,6 @@ export function jobDisplayName(cls: V2Class, spec: string | null): string {
   return cls === "none" ? "모험가" : (V2_CLASS_DEFS[cls]?.name ?? "모험가");
 }
 
-// 구 24 class id → 새 4 job 매핑. parseV2Class 가 옛 세이브 class 를 4직군으로 마이그.
-// (martial·mage 는 옛 id 와 새 job 문자열이 동일 → 자기 자신으로 통과.)
-const OLD_CLASS_TO_JOB: Record<string, V2Class> = {
-  // 검술 → 전사
-  swordsman: "warrior",
-  swordmaster: "warrior",
-  swordking: "warrior",
-  swordgod: "warrior",
-  // 체술 → 무도가
-  martial: "martial",
-  grandmaster: "martial",
-  fistemperor: "martial",
-  warlord: "martial",
-  // 마술 + 신술 → 마법사
-  mage: "mage",
-  archmage: "mage",
-  sage: "mage",
-  magus: "mage",
-  priest: "mage",
-  bishop: "mage",
-  archbishop: "mage",
-  pope: "mage",
-  // 궁술 + 인술 → 도적
-  archer: "rogue",
-  sharpshooter: "rogue",
-  bowking: "rogue",
-  bowgod: "rogue",
-  ninja: "rogue",
-  nightblade: "rogue",
-  shadowlord: "rogue",
-  voidwalker: "rogue",
-};
-
 // 플레이어가 직접 선택할 수 있는 직업 = 4직군(none 제외).
 export const V2_SELECTABLE_CLASSES: readonly V2Class[] = V2_CLASSES.filter(
   (c) => c !== "none",
@@ -157,8 +124,8 @@ export const V2_SELECTABLE_CLASSES: readonly V2Class[] = V2_CLASSES.filter(
 export function parseV2Class(raw: unknown): V2Class {
   if (typeof raw !== "string") return "none";
   if ((V2_CLASSES as readonly string[]).includes(raw)) return raw as V2Class;
-  // 옛 세이브 마이그 — 구 24 class id → 4직군.
-  return OLD_CLASS_TO_JOB[raw] ?? "none";
+  // 알 수 없는 값(옛 24-class id 포함, DB 초기화로 더는 존재 안 함) = none.
+  return "none";
 }
 
 export function v2ClassDef(c: V2Class): V2ClassDef {

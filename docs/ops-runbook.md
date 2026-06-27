@@ -64,20 +64,30 @@ git revert <나쁜커밋sha> && git push   # → 자동 재배포
 ## 4. DB 운영
 
 ### 백업
+- **자동(일일)**: `deploy/backup-db.sh` 가 매일 **17:00 UTC(02:00 KST)** RDS → `~/backups/auto_*.sql.gz` (gzip·14일 로테이션·무결성 검증). crontab 등록은 `deploy/crontab.txt` 참고. 로그 `~/backups/backup.log`.
+- **수동(작업 직전 임시)**:
 ```bash
-# EC2에서 (pg_dump 18 = RDS 18 일치)
-cd ~/adventure-rpg
-DBURL=$(grep "^DATABASE_URL=" .env.production.local | cut -d= -f2- | tr -d '"')
-mkdir -p ~/backups
-pg_dump "$DBURL" --no-owner --no-acl -f ~/backups/backup_$(date +%F_%H%M%S).sql
-# 검증: 끝에 'PostgreSQL database dump complete' 가 있어야 함
-tail -3 ~/backups/backup_*.sql
+cd ~/adventure-rpg && bash deploy/backup-db.sh         # 자동백업 스크립트 그대로(검증 포함)
+# 또는 직접: pg_dump "$DBURL" --no-owner --no-acl -f ~/backups/backup_$(date +%F_%H%M%S).sql
 ```
-(RDS 자동 스냅샷/PITR도 있으면 더 좋다 — 콘솔 확인. 일일 자동 백업은 추후 cron 권장.)
+- **2중 안전(권장)**: AWS 콘솔에서 **RDS 자동 스냅샷/PITR 보존기간 > 0** 확인(관리형·시점복원). + 추후 IAM 역할 붙이면 `backup-db.sh` 에 S3 업로드 한 줄 추가.
 
 ### 복구
 ```bash
-psql "$DBURL" < ~/backups/<백업파일>.sql
+gunzip -c ~/backups/<백업>.sql.gz | psql "$DBURL"       # gzip 자동백업
+psql "$DBURL" < ~/backups/<백업>.sql                     # 평문 수동백업
+```
+
+### 복구 테스트 (정기 권장 — 백업은 복원돼야 백업)
+prod 무접촉으로 임시 DB 에 복원해 검증(2026-06-27 실증 통과):
+```bash
+BK=$(ls -t ~/backups/*.sql* | head -1)
+psql "$DBURL" -c 'DROP DATABASE IF EXISTS restore_test;' && psql "$DBURL" -c 'CREATE DATABASE restore_test;'
+R=$(echo "$DBURL" | sed 's#/test_adventurerpg#/restore_test#')
+case "$BK" in *.gz) gunzip -c "$BK";; *) cat "$BK";; esac | psql "$R" -v ON_ERROR_STOP=1 -q
+psql "$R" -tAc "select count(*) from information_schema.tables where table_schema='public';"  # 46
+psql "$R" -tAc "select count(*) from saves_kv;"
+psql "$DBURL" -c 'DROP DATABASE restore_test;'   # 정리
 ```
 
 ### 전체 초기화 (클린 슬레이트)
@@ -151,7 +161,7 @@ bash deploy/maintenance.sh status   # 현재 상태
 ---
 
 ## 9. 운영 성숙도 — 남은 TODO
-- [ ] **자동 백업 + 복구 테스트** (1순위 · 현재 수동뿐)
+- [x] **자동 백업 + 복구 테스트** — `deploy/backup-db.sh`(일일·14일 로테) + 복구테스트 절차(§4 검증완료). ⬜ S3 오프사이트(IAM 역할 후)
 - [ ] 외부 업타임 모니터 + 알림 (Route53/CloudWatch/SNS)
 - [ ] 배포 후 자동 스모크
 - [x] 점검(maintenance) 모드 — `deploy/maintenance.sh` (§4b)

@@ -37,6 +37,10 @@ export type V2ProficiencyState = {
   //   하이브리드 직업 해금 게이트 입력(직군이 아니라 특정 상위 직업의 깊이를 요구). 레벨업당 +1.
   //   ⚠️ 소급 없음(도입 후부터 적립). totalCumLevel/floor 는 groups 만 보므로 이중계산 없음.
   jobCumLevel?: Record<string, number>;
+  // 환생(재전직) 횟수 — advance-class 환생(같은/다른 직업 무관)마다 +1. cumLevel 과 별개의 "행동" 신호:
+  //   윤회의 길 첫 퀘스트("다시 태어나다")가 cumLevel 임계(레벨캡+1) 대신 이 카운터로 "환생 1회"를
+  //   판정해, 같은 직업 재전직만으로도 깨지게 한다(한 생애 cumLevel ~99 < 101 사각지대 해소).
+  reincarnations?: number;
 };
 
 // §10 다이얼.
@@ -112,6 +116,7 @@ export function emptyProficiency(): V2ProficiencyState {
     caps: {},
     grown: {},
     jobCumLevel: {},
+    reincarnations: 0,
   };
 }
 
@@ -137,6 +142,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps?: unknown;
     grown?: unknown;
     jobCumLevel?: unknown;
+    reincarnations?: unknown;
   };
   // 숙달 포인트(캐릭터 전역 잔액) — 신포맷=top-level points. 옛 포맷=직군별 points 라, 아래 루프에서
   //   각 직군의 points 를 전부 여기 합산해 이관한다(2026-06-27 전역 승격). 신포맷 그룹엔 points 가
@@ -210,6 +216,7 @@ export function parseProficiency(raw: unknown): V2ProficiencyState {
     caps,
     grown: parseStatMap(obj.grown),
     jobCumLevel,
+    reincarnations: posInt(obj.reincarnations),
   };
 }
 
@@ -429,6 +436,12 @@ export function addCumLevel(
       [group]: { ...cur, cumLevel: cur.cumLevel + amount },
     },
   };
+}
+
+// 환생(재전직) 1회 기록 — reincarnations += 1. advance-class 환생 경로(같은/다른 직업 무관)에서 호출.
+// 비파괴. cumLevel 과 독립(환생은 cumLevel 을 보존만 하고 더하지 않으므로, "환생했다"는 별도 신호 필요).
+export function addReincarnation(p: V2ProficiencyState): V2ProficiencyState {
+  return { ...p, reincarnations: (p.reincarnations ?? 0) + 1 };
 }
 
 // 직업별 누적 레벨 적립 — jobId 의 jobCumLevel += amount(레벨업 수). 비파괴. none/빈 jobId/0이하 무변경.

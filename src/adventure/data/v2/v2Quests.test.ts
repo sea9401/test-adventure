@@ -31,6 +31,7 @@ const ZERO: QuestCtx = {
   outpostsDiscovered: 0,
   titleCount: 0,
   cumLevel: 1,
+  reincarnations: 0,
   speciesKilled: 0,
   claimAttempted: false,
   hasOutpost: false,
@@ -414,6 +415,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       outpostsDiscovered: 20,
       titleCount: 5,
       cumLevel: 2500,
+      reincarnations: 9,
       speciesKilled: 41,
       claimAttempted: true,
       hasOutpost: true,
@@ -494,9 +496,20 @@ describe("확장 라인(전쟁/윤회/생활/도감) 판정", () => {
     expect(questStatus(questById("w_hold")!, { ...ZERO, hasOutpost: true }, none)).toBe("locked");
   });
 
-  it("윤회의 길 — 누적레벨 경계 (첫 환생 = 101)", () => {
-    expect(questById("r_first")!.check({ ...ZERO, cumLevel: 100 })).toBe(false);
-    expect(questById("r_first")!.check({ ...ZERO, cumLevel: 101 })).toBe(true);
+  it("윤회의 길 — 첫 퀘스트는 환생 1회로 판정(누적레벨 무관)", () => {
+    // 한 생애 누적레벨(~99)은 환생 직후 101 문턱 아래라, cumLevel 임계로는 같은 직업
+    // 재전직만으로 안 깨지던 사각지대가 있었다. 이제 환생 횟수(행동)로 판정한다.
+    expect(
+      questById("r_first")!.check({ ...ZERO, reincarnations: 0, cumLevel: 100 }),
+    ).toBe(false);
+    expect(
+      questById("r_first")!.check({ ...ZERO, reincarnations: 1, cumLevel: 99 }),
+    ).toBe(true);
+  });
+
+  it("윤회의 길 — 후속 마일스톤은 누적레벨 경계", () => {
+    expect(questById("r_300")!.check({ ...ZERO, cumLevel: 299 })).toBe(false);
+    expect(questById("r_300")!.check({ ...ZERO, cumLevel: 300 })).toBe(true);
     expect(questById("r_2000")!.check({ ...ZERO, cumLevel: 2000 })).toBe(true);
   });
 

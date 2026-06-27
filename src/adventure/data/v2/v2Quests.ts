@@ -69,6 +69,8 @@ export type QuestCtx = {
   // ── 확장 신호(2026-06-11, 라인 4종 추가) ─────────────────────────────────
   /** 총 누적레벨(전 직군 합·환생 보존). proficiency totalCumLevel. */
   cumLevel: number;
+  /** 환생(재전직) 횟수 — advance-class 환생마다 +1. proficiency.reincarnations. "다시 태어나다" 판정. */
+  reincarnations: number;
   /** 처치한 몬스터 종 수(kills>0 인 키 수). adventure-log.v2.monsters. */
   speciesKilled: number;
   /** 거점 점령 시도 경험. outpost_claim_attempts attacker=me ≥1. */
@@ -470,9 +472,11 @@ const REBIRTH: QuestDef[] = [
     chain: "rebirth_cum",
     line: "rebirth",
     title: "다시 태어나다",
-    desc: `레벨 한계(${V2_LEVEL_CAP})에 도달한 뒤 성장의 신전에서 환생하세요 (누적레벨 ${V2_LEVEL_CAP + 1}+).`,
+    desc: `레벨 한계(${V2_LEVEL_CAP})에 도달한 뒤 성장의 신전에서 환생하세요. (같은 직업으로 환생해도 됩니다)`,
     reward: { gold: 1000 },
-    check: (c) => c.cumLevel >= V2_LEVEL_CAP + 1,
+    // 환생 1회로 판정 — 같은 직업 재전직도 깨진다. 옛 cumLevel≥101 임계는 한 생애 누적(~99)이
+    //   문턱 아래라 환생 직후 안 깨지던 사각지대(다른 직업으로 직군을 늘려야만 넘던 비대칭)를 해소.
+    check: (c) => c.reincarnations >= 1,
   },
   {
     id: "r_300",

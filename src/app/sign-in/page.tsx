@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import { savesKv, presence } from "@/db/schema";
+import { hasCompletedOnboarding } from "@/lib/server/profile";
 import { LandingContent } from "./LandingContent";
 
 export const metadata: Metadata = {
@@ -45,13 +46,24 @@ const getLandingStats = unstable_cache(
 );
 
 export default async function SignInPage() {
-  // 이미 로그인된 상태에서 뒤로가기 등으로 이 페이지에 들어오면 홈으로 보낸다.
-  // (그대로 두면 다른 공급자 버튼을 눌러 의도치 않게 별도 계정으로 갈아타게 됨 —
-  //  계정 추가는 설정 메뉴의 "연동하기"를 통해서만.)
+  // 대문을 모든 신규 진입의 최우선 화면으로 둔다(로그인/캐릭터 유무 무관).
+  //  · 비로그인           → 로그인 버튼이 있는 대문.
+  //  · 로그인 + 캐릭터 없음 → "시작하기"(→/create) CTA 가 있는 대문.
+  //  · 로그인 + 캐릭터 있음 → 게임 홈(/)으로. (이미 만든 유저가 대문에 머무를 이유 없음.)
+  // 캐릭터 유무 판정은 OnboardingGate(클라)의 needsOnboarding 과 같은 기준
+  // (hasCompletedOnboarding)이라야 / ↔ /sign-in 무한 리다이렉트가 안 생긴다.
   const session = await auth();
-  if (session?.user) redirect("/");
+  if (session?.user && (await hasCompletedOnboarding(session.user.id))) {
+    redirect("/");
+  }
 
   const { total, online } = await getLandingStats();
 
-  return <LandingContent total={total} online={online} />;
+  return (
+    <LandingContent
+      total={total}
+      online={online}
+      authed={!!session?.user}
+    />
+  );
 }

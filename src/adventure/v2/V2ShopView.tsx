@@ -382,10 +382,12 @@ export function V2ShopView({ onBack }: { onBack: () => void }) {
         title="상점"
         onBack={onBack}
         right={
+          // 보유 골드 — 결제 가능 총액(spendable: 코어루프면 지갑+은행)을 표시. 구매 가능여부
+          //   게이트(gold={spendable})와 일치 + 치료소·대장간 표기와 통일.
           <span className="flex items-center gap-1.5 text-sm text-zinc-700 dark:text-zinc-200">
             <Coins size={16} weight="fill" className="text-yellow-500" />
             <span className="font-semibold tabular-nums">
-              {gold.toLocaleString()}G
+              {spendable.toLocaleString()}G
             </span>
           </span>
         }

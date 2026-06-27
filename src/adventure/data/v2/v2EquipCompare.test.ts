@@ -1,0 +1,63 @@
+import { describe, expect, it } from "vitest";
+import { V2_EQUIPMENT, v2EquipCompareRows } from "./v2Equipment";
+
+// 비교 행 — 카탈로그 값(굴림 없음) 기준. 위력은 WEAPON_POWER_SCALE(×0.8 round) 반영,
+//   무게는 WEAPON_WEIGHT_SCALE(×4) 반영값.
+//   철검 위력5/무게8 · 한타검 위력19/무게12 · 각궁 위력16/무게4+치명1% · 목궁 위력5/무게4.
+const ironSword = { item: V2_EQUIPMENT.v2_iron_sword };
+const greatSword = { item: V2_EQUIPMENT.v2_greatsword };
+const hornBow = { item: V2_EQUIPMENT.v2_horn_bow };
+const woodenBow = { item: V2_EQUIPMENT.v2_wooden_bow };
+
+function row(rows: ReturnType<typeof v2EquipCompareRows>, label: string) {
+  const r = rows.find((x) => x.label === label);
+  if (!r) throw new Error(`행 없음: ${label}`);
+  return r;
+}
+
+describe("v2EquipCompareRows", () => {
+  it("위력 증가는 이득(better=1), 값/증감 포맷이 v2EquipStatRows 와 일치", () => {
+    const rows = v2EquipCompareRows(greatSword, ironSword);
+    const power = row(rows, "위력");
+    expect(power.value).toBe("+19");
+    expect(power.deltaText).toBe("+14"); // 5 → 19
+    expect(power.better).toBe(1);
+  });
+
+  it("무게는 낮을수록 이득 — 증가하면 손해(better=-1), 부호는 그대로 +", () => {
+    const rows = v2EquipCompareRows(greatSword, ironSword);
+    const weight = row(rows, "무게");
+    expect(weight.value).toBe("12");
+    expect(weight.deltaText).toBe("+4"); // 8 → 12
+    expect(weight.better).toBe(-1); // 무거워짐 = 손해
+  });
+
+  it("후보만 가진 옵션은 이득으로 +값 노출(치명 +1%)", () => {
+    const rows = v2EquipCompareRows(hornBow, woodenBow);
+    const crit = row(rows, "치명");
+    expect(crit.value).toBe("+1%");
+    expect(crit.deltaText).toBe("+1%");
+    expect(crit.better).toBe(1);
+  });
+
+  it("후보엔 없고 장착엔 있는 옵션은 '—' + 손해(better=-1)", () => {
+    const rows = v2EquipCompareRows(woodenBow, hornBow);
+    const crit = row(rows, "치명");
+    expect(crit.value).toBe("—");
+    expect(crit.deltaText).toBe("-1%");
+    expect(crit.better).toBe(-1);
+  });
+
+  it("값이 같으면 증감 없음(deltaText '', better 0) — 무게 동일", () => {
+    const rows = v2EquipCompareRows(hornBow, woodenBow);
+    const weight = row(rows, "무게");
+    expect(weight.deltaText).toBe("");
+    expect(weight.better).toBe(0);
+  });
+
+  it("양쪽 모두 0 인 스탯은 행을 만들지 않는다", () => {
+    const rows = v2EquipCompareRows(greatSword, ironSword);
+    // 옵션 없는 두 검 — 위력/무게만, 옵션 행 없음.
+    expect(rows.map((r) => r.label)).toEqual(["위력", "무게"]);
+  });
+});

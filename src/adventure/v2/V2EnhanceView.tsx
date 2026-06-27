@@ -97,7 +97,11 @@ type ForgeMode = "enhance" | "reforge" | "combine";
 export function V2EnhanceView({ onBack }: { onBack: () => void }) {
   // 강화·재련·조합은 골드 sink — 보유 골드를 헤더에 노출(사용자 요청). 코어루프면 지갑+은행이
   //   결제 가능액(서버 enhance/reforge 가 spendGold 로 둘 다 차감)이라 그 합을 보여준다.
-  const { coreLoopOn, setBankedGold: syncCtxBanked } = useGameState();
+  const {
+    coreLoopOn,
+    setBankedGold: syncCtxBanked,
+    refreshGameState,
+  } = useGameState();
   const [owned, setOwned] = useState<V2EquipInstance[]>([]);
   const [equipped, setEquipped] = useState<
     Partial<Record<V2EquipSlot, string>>
@@ -282,13 +286,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       } else {
         setMsg({ kind: "fail", text: "강화 실패 — 수치 유지, 재료만 소모" });
       }
-      await refresh();
+      // 강화는 장착 장비의 위력을 바꾸므로 전역 상태(전투력)도 갱신.
+      await Promise.all([refresh(), refreshGameState()]);
     } catch {
       setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
     } finally {
       setBusy(false);
     }
-  }, [selected, stone, feedIid, busy, refresh]);
+  }, [selected, stone, feedIid, busy, refresh, refreshGameState]);
 
   // ── 재련(reforge) — 골드로 옵션 굴림 재시도(항상 적용 = 도박) ──
   const reforgeCost = item ? reforgeGoldCost(item) : 0;
@@ -335,13 +340,14 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
         kind: json.improved ? "success" : "fail",
         text: `${arrow} 재련 — 품질 ${json.oldQuality ?? "?"}% → ${json.newQuality ?? "?"}% (위력 ${oldP} → ${newP})`,
       });
-      await refresh();
+      // 재련은 장착 장비의 옵션(위력)을 바꾸므로 전역 상태(전투력)도 갱신.
+      await Promise.all([refresh(), refreshGameState()]);
     } catch {
       setMsg({ kind: "error", text: "네트워크 오류 — 다시 시도해주세요" });
     } finally {
       setBusy(false);
     }
-  }, [selected, item, busy, refresh, reforgeStone]);
+  }, [selected, item, busy, refresh, reforgeStone, refreshGameState]);
 
   // ── 조합(combine) — 일반 재련석 3개 → 상급 재련석 1개(결정론·무료) ──
   const doCombine = useCallback(async () => {

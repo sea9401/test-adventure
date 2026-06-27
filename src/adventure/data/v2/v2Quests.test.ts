@@ -47,6 +47,7 @@ const ZERO: QuestCtx = {
   skillsLearned: 0,
   hasHealed: false,
   hasShopped: false,
+  hasMoved: false,
 };
 
 const none = new Set<string>();
@@ -145,18 +146,19 @@ describe("성장의 길 (순차 라인)", () => {
         none,
       ),
     ).toBe(true);
+    // 지도에서 한 번이라도 이동했으면(hasMoved) 완료. 거점 수와 무관(자유 타일).
     expect(
       isQuestClaimable(
         questById("b_travel")!,
-        { ...ZERO, outpostsDiscovered: 2 },
+        { ...ZERO, hasMoved: true },
         none,
       ),
     ).toBe(true);
-    // 거점 1곳(시작 거점 시드 가능)만으론 이동 퀘 미충족.
+    // 아직 이동 전이면 미충족.
     expect(
       isQuestClaimable(
         questById("b_travel")!,
-        { ...ZERO, outpostsDiscovered: 1 },
+        { ...ZERO, hasMoved: false },
         none,
       ),
     ).toBe(false);
@@ -428,6 +430,7 @@ describe("currentGuideQuest (홈 배너)", () => {
       skillsLearned: 5,
       hasHealed: true,
       hasShopped: true,
+      hasMoved: true,
     };
     const all = new Set(V2_QUESTS.map((q) => q.id));
     expect(currentGuideQuest(ctx, all)).toBeNull();

@@ -51,6 +51,7 @@ type CharSave = {
   hasHealed?: unknown;
   hasShopped?: unknown;
   discoveredOutpostIds?: unknown;
+  tilePos?: { at?: unknown } | null; // 타일 지도 현재 위치 — move-tile 라우트가 설정(이동 경험 신호).
   materials?: Record<string, unknown>;
 };
 
@@ -170,6 +171,8 @@ export function buildQuestCtx(args: {
   const bankedGold = num(charSave.bankedGold);
   const hasHealed = Boolean(charSave.hasHealed);
   const hasShopped = Boolean(charSave.hasShopped);
+  // 타일 이동 경험 — move-tile 라우트가 tilePos.at 을 찍는다. 신규 캐릭터는 tilePos 미설정.
+  const hasMoved = charSave.tilePos?.at != null;
   const skillsSave = (args.skillsRaw ?? {}) as {
     equipped?: unknown;
     learned?: unknown;
@@ -224,6 +227,7 @@ export function buildQuestCtx(args: {
     skillsLearned,
     hasHealed,
     hasShopped,
+    hasMoved,
   };
 }
 

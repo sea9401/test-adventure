@@ -101,6 +101,8 @@ export type QuestCtx = {
   hasHealed: boolean;
   /** 상점에서 구매(장비/충전)를 한 적 있는가. character.v2.hasShopped. */
   hasShopped: boolean;
+  /** 지도에서 한 번이라도 이동했는가. character.v2.tilePos.at(이동 시각)이 찍혔으면 true(신규는 미설정). */
+  hasMoved: boolean;
 };
 
 export type QuestDef = {
@@ -250,9 +252,10 @@ const BASICS: QuestDef[] = [
     id: "b_travel",
     line: "basics",
     title: "새로운 땅으로",
-    desc: "지도에서 다른 거점으로 이동해보세요.",
+    desc: "지도에서 다른 곳으로 이동해보세요.",
     reward: { staminaPotions: 2 },
-    check: (c) => c.outpostsDiscovered >= 2,
+    // 자유 타일 지도 — 한 번이라도 이동하면 완료(옛 "거점 2곳" 조건은 고정 거점이 하나뿐이라 불가).
+    check: (c) => c.hasMoved,
   },
 ];
 

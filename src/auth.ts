@@ -67,6 +67,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => ({
       const linkUserId = cookieStore.get("link_user_id")?.value;
       if (!linkUserId) return true;
 
+      // 연동 의도는 1회용 — 읽는 즉시 쿠키를 소비(만료)한다. 그대로 두면 maxAge(/api/auth/link
+      // 에서 300s) 동안 이후의 모든 OAuth 콜백이 연동 모드로 빨려들어, 그 창에 다른 카카오 계정
+      // 으로 로그인하면 엉뚱한 유저(linkUserId)에 묶이거나(심지어 타 유저 계정 강제 재연동) 한다.
+      // 여기서 지우면 직후의 의도된 콜백 1회에만 적용되고, 아래 모든 분기/조기반환이 자동으로 안전.
+      // (signIn 콜백은 /api/auth/[...nextauth] 라우트 핸들러 안 — .set 으로 쓰기 가능.)
+      // .delete 대신 maxAge:0 set — set 한 경로(path "/")와 일치시켜 Set-Cookie 만료가 확실히 나가게.
+      cookieStore.set("link_user_id", "", { maxAge: 0, path: "/" });
+
       // 연동 모드: 이 OAuth 계정이 이미 accounts 테이블에 있는지 확인.
       const [existing] = await rawDb()
         .select({ userId: accounts.userId })

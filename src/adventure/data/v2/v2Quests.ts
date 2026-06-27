@@ -137,7 +137,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "첫 발걸음",
     desc: "사냥터에서 첫 전투를 치러보세요.",
-    reward: { gold: 80, equip: "v2_chain_mail" },
+    reward: { staminaPotions: 1, equip: "v2_chain_mail" },
     check: (c) => c.battleCount >= 1,
   },
   {
@@ -145,7 +145,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "무장하기",
     desc: "인벤토리에서 장비를 장착하세요.",
-    reward: { gold: 120 },
+    reward: { staminaPotions: 1 },
     check: (c) => c.equippedCount >= 1,
   },
   {
@@ -153,7 +153,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "더 깊은 곳으로",
     desc: "사냥터 깊이 5까지 진출하세요.",
-    reward: { gold: 200 },
+    reward: { staminaPotions: 1 },
     check: (c) => c.frontierDepth >= 5,
   },
   {
@@ -161,7 +161,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "수행 입문",
     desc: "성장의 신전에서 수행으로 능력치 한계를 올리세요.",
-    reward: { gold: 300 },
+    reward: { staminaPotions: 1 },
     check: (c) => c.cultivations >= 1,
   },
   {
@@ -169,7 +169,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "정점",
     desc: `레벨 한계치(${V2_LEVEL_CAP})에 도달하세요.`,
-    reward: { gold: 400 },
+    reward: { staminaPotions: 1 },
     // 누적레벨 기준(현재 레벨 아님) — 다음 단계 "2차 전직"은 재전직(환생)이 강제이고
     // 환생은 현재 레벨을 1로 리셋한다. level 기준이면 환생 직후 이 조건이 다시 거짓이 돼
     // 순차 라인의 뒤 퀘스트(전직)가 재잠금된다. cumLevel 은 환생에도 보존·단조증가.
@@ -180,7 +180,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "전직",
     desc: "성장의 신전에서 더 강한 직업으로 전직하세요.",
-    reward: { gold: 600 },
+    reward: { staminaPotions: 1 },
     check: (c) => c.tier >= 2,
   },
   {
@@ -189,7 +189,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "거듭된 전직",
     desc: "한 번 더 전직해 직업을 더 키우세요.",
-    reward: { gold: 500 },
+    reward: { staminaPotions: 1 },
     check: (c) => c.tier >= 3,
   },
   {
@@ -197,7 +197,7 @@ const GROWTH: QuestDef[] = [
     line: "growth",
     title: "프론티어 개척자",
     desc: "프론티어 첫 테마 밴드(깊이 7)에 진입하세요.",
-    reward: { gold: 800 },
+    reward: { staminaPotions: 1 },
     check: (c) => c.frontierDepth >= 7,
   },
 ];
@@ -691,20 +691,21 @@ const ENHANCE: QuestDef[] = [
   },
 ];
 
-// 라인 순서 = 배너 "현재 목표" 우선순위(성장 → 직업 → 사회 → 전쟁 → 수집/정점 → 심화).
+// 라인 순서 = 퀘스트 화면의 라인 섹션 표시 순서(튜토리얼/업적 탭). 튜토리얼 탭은 기초 → 성장.
+// (배너 "현재 목표" 우선순위는 이 순서가 아니라 V2_QUESTS 정의 순서를 따른다 — 성장이 먼저.)
 export const QUEST_LINES: readonly QuestLine[] = [
-  {
-    id: "growth",
-    name: "성장의 길",
-    subtitle: "첫 전투부터 직업 전직까지 — 차례로 따라오세요.",
-    sequential: true,
-    tutorial: true,
-  },
   {
     id: "basics",
     name: "기초 튜토리얼",
     subtitle: "상점·치료·은행·스킬·이동 — 기본 조작을 한 번씩 익혀보세요.",
     sequential: false,
+    tutorial: true,
+  },
+  {
+    id: "growth",
+    name: "성장의 길",
+    subtitle: "첫 전투부터 직업 전직까지 — 차례로 따라오세요.",
+    sequential: true,
     tutorial: true,
   },
   {
@@ -881,8 +882,8 @@ export function deriveQuestViews(
   }));
 }
 
-// 홈 배너용 — 지금 안내할 "현재 목표" 하나. 우선순위 = 라인 순서(성장→직업→사회→정점) 내
-// 수령 가능 > 진행 중. 전부 끝났으면 null.
+// 홈 배너용 — 지금 안내할 "현재 목표" 하나. 우선순위 = V2_QUESTS 정의 순서(성장 먼저, 라인
+// 섹션 표시 순서인 QUEST_LINES 와 무관) 내에서 수령 가능 > 진행 중. 전부 끝났으면 null.
 export function currentGuideQuest(
   ctx: QuestCtx,
   claimed: ReadonlySet<string>,

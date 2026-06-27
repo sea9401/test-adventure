@@ -78,6 +78,23 @@ describe("v2Quests 카탈로그 무결성", () => {
     }
   });
 
+  it("성장의 길(growth) 보상 = 스태미나 회복약 1개(골드 없음)", () => {
+    const growth = V2_QUESTS.filter((q) => q.line === "growth");
+    expect(growth.length).toBeGreaterThan(0);
+    for (const q of growth) {
+      expect(q.reward.staminaPotions, q.id).toBe(1);
+      expect(q.reward.gold, q.id).toBeUndefined();
+    }
+    // 첫 발걸음은 회복약과 별개로 쇠사슬 갑옷 유지(다음 "무장하기" 튜토리얼 루프).
+    expect(questById("g_first_battle")!.reward.equip).toBe("v2_chain_mail");
+  });
+
+  it("튜토리얼 탭 라인 순서 — 기초 튜토리얼이 성장의 길보다 위", () => {
+    const tut = QUEST_LINES.filter((l) => l.tutorial).map((l) => l.id);
+    expect(tut.indexOf("basics")).toBeGreaterThanOrEqual(0);
+    expect(tut.indexOf("basics")).toBeLessThan(tut.indexOf("growth"));
+  });
+
   it("직업 차수(class_*) 전용 라인은 제거됨 — 차수 미노출", () => {
     expect(QUEST_LINES.some((l) => l.id.startsWith("class_"))).toBe(false);
     expect(V2_QUESTS.some((q) => q.line.startsWith("class_"))).toBe(false);

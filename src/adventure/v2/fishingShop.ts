@@ -36,7 +36,7 @@ export const FISHING_SHOP_CONSUMABLES: readonly FishingShopConsumable[] = [
     itemId: "stamina_potion",
     name: "스태미나 회복약",
     description: `사용 시 스태미나 ${STAMINA_POTION_RESTORE} 회복. 보관했다 필요할 때 쓴다.`,
-    price: 100,
+    price: 200, // 2026-06-27 사용자 결정 100→200.
   },
 ];
 

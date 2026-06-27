@@ -194,6 +194,9 @@ export function V2DungeonFloorView({
   //     다시 누르면 끔), off 면 단판/일괄. 인터벌이 이걸 호출하면 첫 틱에 꺼지므로 분리한다.
   const triggerHuntRef = useRef<() => void>(() => {});
   const huntButtonRef = useRef<() => void>(() => {});
+  // 단판 사냥 동시 제출 차단 — busy 가 리렌더에 반영되기 전 한 프레임 내 중복 호출 시 사냥이
+  //   겹쳐 결과 순서(lastResult·연패 카운터)가 꼬이는 것을 동기적으로 막는다. 결과 수신 시 해제.
+  const huntInFlightRef = useRef(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat) return;
@@ -412,8 +415,12 @@ export function V2DungeonFloorView({
     setBatchSummary(null);
     // 코어루프 on = 항상 단판(일괄 폐지 — 누적은 오프라인 정산). off = huntCount 반영.
     if (coreLoopOn || huntCount === 1) {
+      // 이미 한 판이 진행 중이면 무발동(동시 제출 차단). hunt 결과 .then 에서 해제.
+      if (huntInFlightRef.current) return;
+      huntInFlightRef.current = true;
       setBatchStatus(null);
       void hunt(depth).then((r) => {
+        huntInFlightRef.current = false;
         if (r) {
           // 연패 추적 — 승리면 리셋, 패배면 누적(넛지 배너 격상용).
           setLossStreak((s) => (r.won ? 0 : s + 1));

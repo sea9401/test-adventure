@@ -67,7 +67,7 @@ export type BatchHuntPayload = {
   droppedUniques: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
   rareMapRunsLeft?: number | null;
-  stoppedReason: "stamina" | "death" | "recovery" | "error" | null;
+  stoppedReason: "stamina" | "death" | "defeat" | "recovery" | "error" | null;
   finalHpAfter: number | null;
   finalMaxHp: number | null;
   finalMpAfter: number | null;

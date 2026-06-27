@@ -38,7 +38,7 @@ export type BatchSummary = {
   droppedEquipments: V2EquipmentId[];
   droppedUniques: V2EquipmentId[];
   rareMapDrops?: RareMapKindId[];
-  stoppedReason?: "stamina" | "death" | "recovery" | "error" | null;
+  stoppedReason?: "stamina" | "death" | "defeat" | "recovery" | "error" | null;
 };
 
 export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
@@ -157,7 +157,8 @@ export function BatchSummaryCard({ summary }: { summary: BatchSummary }) {
         <p className="mt-2 text-center text-xs text-amber-600 dark:text-amber-400">
           {summary.stoppedReason === "stamina"
             ? "스태미너 부족으로 중단"
-            : summary.stoppedReason === "death"
+            : summary.stoppedReason === "death" ||
+                summary.stoppedReason === "defeat"
               ? "패배로 중단"
               : summary.stoppedReason === "recovery"
                 ? "체력 부족으로 중단"

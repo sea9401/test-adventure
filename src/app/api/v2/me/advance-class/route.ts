@@ -125,8 +125,9 @@ export async function POST(req: Request) {
       const targetJobId =
         typeof reqBody.targetJobId === "string" ? reqBody.targetJobId : "";
       const jobDef = V2_JOB_CATALOG[targetJobId];
-      // 모험가(tier 0)로는 전직 불가 → bad_target.
-      if (!jobDef || jobDef.tier === 0) {
+      // 모험가(tier 0, id "none")는 전직 대상으로 허용 — 전직 후엔 모험가 킷(강인함·수련)을
+      //   배울 길이 없어(되돌아갈 수 없음) 학습이 막히던 문제 해소. 그 외 tier 0(미래 추가분)은 차단.
+      if (!jobDef || (jobDef.tier === 0 && jobDef.id !== "none")) {
         return {
           status: 400,
           body: { ok: false as const, error: "bad_target" as const },

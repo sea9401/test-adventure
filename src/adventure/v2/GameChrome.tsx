@@ -6,7 +6,7 @@ import { V2TopBar } from "@/adventure/v2/V2TopBar";
 import { OfflineSettleCard } from "@/adventure/v2/OfflineSettleCard";
 import { StaminaBar } from "@/adventure/v2/StaminaBar";
 import { WarTicker } from "@/adventure/v2/WarTicker";
-import { TabBar } from "@/components/ui/TabBar";
+import { MainTabNav } from "@/adventure/v2/MainTabNav";
 import { useGameState } from "@/adventure/v2/GameStateProvider";
 import { currentLocationLabel } from "@/adventure/v2/currentLocation";
 import { OUTPOST_TYPE_BY_ID } from "@/adventure/data/v2/outposts";
@@ -17,15 +17,7 @@ import type { OutpostType } from "@/adventure/data/v2/types";
 
 type TabId = "adventure" | "battle" | "town" | "character" | "guild" | "plaza";
 
-// 광장은 탭에서 제외(모바일에서 6번째 탭이 화면 밖으로 밀려 안 보임) — 기능은 상단
-// 설정 메뉴의 "광장" 섹션으로 이관(#723). /plaza/* 라우트·배경 매핑은 그대로 유지.
-const TABS: { key: TabId; label: string }[] = [
-  { key: "adventure", label: "모험" },
-  { key: "battle", label: "전투" },
-  { key: "town", label: "마을" },
-  { key: "character", label: "캐릭터" },
-  { key: "guild", label: "길드" },
-];
+// 탭 목록·하위 메뉴는 MainTabNav 가 소유(#723: 광장은 탭 제외·설정 메뉴로 이관, /plaza/* 라우트·배경만 유지).
 
 // 배경을 깔 탭 — 모험/마을/캐릭터. 전투·길드·광장은 별도 이미지 없음(중립 배경).
 const BG_TABS = new Set<TabId>(["adventure", "town", "character"]);
@@ -40,14 +32,12 @@ function tabOfPath(pathname: string): TabId {
   )
     return "battle";
   if (pathname.startsWith("/town")) return "town";
-  if (pathname.startsWith("/character")) return "character";
+  // 퀘스트(/quests)는 캐릭터 탭의 하위 메뉴 — 캐릭터로 묶어 활성 강조·배경이 안 깨지게.
+  if (pathname.startsWith("/character") || pathname.startsWith("/quests"))
+    return "character";
   if (pathname.startsWith("/guild")) return "guild";
   if (pathname.startsWith("/plaza")) return "plaza";
   return "adventure";
-}
-
-function hrefOfTab(tab: TabId): string {
-  return tab === "adventure" ? "/" : `/${tab}`;
 }
 
 // 탭 배경 이미지 — fixed full-screen + 위에 반투명 dim 오버레이.
@@ -183,15 +173,10 @@ export function GameChrome({ children }: { children: React.ReactNode }) {
         />
       )}
       <div>
-        <TabBar
-          tabs={TABS}
-          active={activeTab}
-          onChange={(t) => router.push(hrefOfTab(t))}
-          ariaLabel="메인 탭"
-          size="lg"
-          variant="highlight"
-          scrollable
-          className="mx-auto w-full max-w-[720px] px-4 sm:px-6 [&_button]:text-[1.0625rem]"
+        {/* 메인 내비 — 5탭 유지, 전투/마을/캐릭터는 하위 메뉴 드롭다운(사용자 요청). */}
+        <MainTabNav
+          activeKey={activeTab}
+          onNavigate={(href) => router.push(href)}
         />
         {/* 전쟁 전광판 — 탭바 바로 아래 전역 한 줄. 사건 0건이면 스스로 숨는다. */}
         <WarTicker />

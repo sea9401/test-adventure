@@ -45,8 +45,11 @@ export function BankPanel() {
     setMessage(null);
   }
 
-  async function submit(action: BankAction) {
-    if (!canSubmit) {
+  // amountOverride 를 주면 입력칸 대신 그 값으로 처리(전액 입금 원탭 버튼용). 서버가
+  //   moved=min(amount, 보유)로 클램프하므로 살짝 stale 해도 과입금 에러 없이 보유분만 들어간다.
+  async function submit(action: BankAction, amountOverride?: number) {
+    const amt = amountOverride ?? amount;
+    if (amt <= 0 || busyAction !== null) {
       setMessage("금액을 확인해 주세요");
       return;
     }
@@ -56,7 +59,7 @@ export function BankPanel() {
       const res = await fetch("/api/v2/me/bank", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, amount }),
+        body: JSON.stringify({ action, amount: amt }),
       });
       const j = (await res.json().catch(() => null)) as BankResult | null;
       if (!j?.ok) {
@@ -92,57 +95,70 @@ export function BankPanel() {
         </div>
       </div>
 
-      <div
-        className={`mt-3 grid gap-2 ${depositOnly ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_auto_auto]"}`}
-      >
-        <NumberInput
-          value={amountText}
-          onValueChange={(v) => {
-            setAmountText(v);
-            setMessage(null);
-          }}
-          placeholder="금액"
-          className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-emerald-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-        />
+      {depositOnly ? (
+        // 코어루프 — 출금이 없고, 은행 잔액은 안전+우선소비라 '전부 입금'이 항상 이득.
+        //   금액 입력 없이 원탭으로 보유 골드 전부 입금(사용자 요청).
         <button
           type="button"
-          onClick={() => fillAll("deposit")}
+          onClick={() => submit("deposit", gold)}
           disabled={busyAction !== null || gold <= 0}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="mt-3 w-full rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          전액
+          {busyAction === "deposit"
+            ? "입금 중…"
+            : gold > 0
+              ? `전액 입금 (${gold.toLocaleString()}G)`
+              : "입금할 골드 없음"}
         </button>
-        {!depositOnly && (
-          <button
-            type="button"
-            onClick={() => fillAll("withdraw")}
-            disabled={busyAction !== null || bankedGold <= 0}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-          >
-            전액
-          </button>
-        )}
-      </div>
-      <div className={`mt-2 grid gap-2 ${depositOnly ? "grid-cols-1" : "grid-cols-2"}`}>
-        <button
-          type="button"
-          onClick={() => submit("deposit")}
-          disabled={!canSubmit}
-          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {busyAction === "deposit" ? "처리 중…" : "입금"}
-        </button>
-        {!depositOnly && (
-          <button
-            type="button"
-            onClick={() => submit("withdraw")}
-            disabled={!canSubmit}
-            className="rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busyAction === "withdraw" ? "처리 중…" : "출금"}
-          </button>
-        )}
-      </div>
+      ) : (
+        <>
+          <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
+            <NumberInput
+              value={amountText}
+              onValueChange={(v) => {
+                setAmountText(v);
+                setMessage(null);
+              }}
+              placeholder="금액"
+              className="min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm tabular-nums text-zinc-900 outline-none focus:border-emerald-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+            <button
+              type="button"
+              onClick={() => fillAll("deposit")}
+              disabled={busyAction !== null || gold <= 0}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              전액
+            </button>
+            <button
+              type="button"
+              onClick={() => fillAll("withdraw")}
+              disabled={busyAction !== null || bankedGold <= 0}
+              className="rounded-md border border-zinc-300 px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              전액
+            </button>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => submit("deposit")}
+              disabled={!canSubmit}
+              className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busyAction === "deposit" ? "처리 중…" : "입금"}
+            </button>
+            <button
+              type="button"
+              onClick={() => submit("withdraw")}
+              disabled={!canSubmit}
+              className="rounded-md border border-sky-600 bg-sky-600 px-3 py-2 text-xs font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {busyAction === "withdraw" ? "처리 중…" : "출금"}
+            </button>
+          </div>
+        </>
+      )}
       {depositOnly && (
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">
           입금한 골드는 패배 세금에서 안전합니다. 출금은 없지만, 골드를 쓸 때

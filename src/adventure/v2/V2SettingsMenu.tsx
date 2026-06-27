@@ -8,7 +8,7 @@ import {
   ChartBar,
   ChatsCircle,
   EnvelopeSimple,
-  Gear,
+  List,
   Megaphone,
   Moon,
   SignOut,
@@ -85,11 +85,12 @@ export function V2SettingsMenu({ gameName }: { gameName: string | null }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="설정"
-        title="설정"
+        // 광장+설정이 함께 들어있어 "설정"으로만 오인되던 톱니 → 햄버거 "메뉴"로(사용자 피드백).
+        aria-label="메뉴"
+        title="메뉴 (광장·설정)"
         className="inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
       >
-        <Gear size={18} weight="duotone" />
+        <List size={20} weight="bold" />
       </button>
       {open && (
         <div className="absolute right-0 top-full z-30 mt-2 w-[min(12rem,calc(100vw-2rem))] origin-top-right overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-800 dark:bg-zinc-950">

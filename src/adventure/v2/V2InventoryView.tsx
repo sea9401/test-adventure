@@ -552,6 +552,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
                   },
                 }}
                 lock={lockAction}
+                equippedIds={equippedItemIds}
               />
             );
           }

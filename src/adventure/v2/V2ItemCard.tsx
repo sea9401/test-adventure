@@ -476,6 +476,38 @@ function CompareHeader({
   );
 }
 
+// 비교용 세트 한 줄 — 세트면 "🔗 세트명 (N/M [발동])"(발동=amber), 아니면 "세트 없음"(muted).
+//   전체 구성 목록은 단일 카드에서. 여기선 유무·진행도만 간결히(사용자 요청).
+function CompareSetLine({
+  item,
+  equippedIds,
+}: {
+  item: V2Equipment;
+  equippedIds?: ReadonlySet<V2EquipmentId>;
+}) {
+  const set = item.setId
+    ? V2_EQUIP_SETS.find((s) => s.id === item.setId)
+    : undefined;
+  if (!set) {
+    return <p className="text-[11px] text-zinc-400 dark:text-zinc-500">세트 없음</p>;
+  }
+  const worn = set.pieces.filter((p) => equippedIds?.has(p)).length;
+  const active = worn === set.pieces.length;
+  return (
+    <p
+      className={`truncate text-[11px] font-medium ${
+        active
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-zinc-500 dark:text-zinc-400"
+      }`}
+      title={set.name}
+    >
+      🔗 {set.name} ({worn}/{set.pieces.length}
+      {active ? " 발동" : ""})
+    </p>
+  );
+}
+
 export function V2ItemCompareCard({
   candidate,
   equipped,
@@ -483,6 +515,7 @@ export function V2ItemCompareCard({
   equip,
   unequip,
   lock,
+  equippedIds,
 }: {
   // 탭한(장착 후보) 장비 — 우측, 증감 표기 + 하단 장착하기.
   candidate: V2CompareSide;
@@ -493,6 +526,8 @@ export function V2ItemCompareCard({
   unequip: { busy: boolean; onUnequip: () => void };
   // 후보 즐겨찾기 잠금 토글.
   lock?: ItemCardLockAction;
+  // 착용 중 장비 id 집합 — 세트 발동(전 부위 착용) 판정용.
+  equippedIds?: ReadonlySet<V2EquipmentId>;
 }) {
   useEscapeKey(onClose);
 
@@ -502,6 +537,8 @@ export function V2ItemCompareCard({
     equipped.enhance,
   );
   const compareRows = v2EquipCompareRows(candidate, equipped);
+  // 어느 한쪽이라도 세트 장비면 세트 줄 노출(둘 다 아니면 숨겨 노이즈 방지).
+  const showSet = Boolean(equipped.item.setId || candidate.item.setId);
 
   return (
     <>
@@ -564,6 +601,9 @@ export function V2ItemCompareCard({
                 ))
               )}
             </div>
+            {showSet && (
+              <CompareSetLine item={equipped.item} equippedIds={equippedIds} />
+            )}
             <button
               type="button"
               onClick={unequip.onUnequip}
@@ -594,6 +634,9 @@ export function V2ItemCompareCard({
                 ))
               )}
             </div>
+            {showSet && (
+              <CompareSetLine item={candidate.item} equippedIds={equippedIds} />
+            )}
             {candidate.item.signature && (
               <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
                 ★ {signatureLabel(candidate.item.signature)}

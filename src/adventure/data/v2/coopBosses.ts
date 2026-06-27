@@ -476,7 +476,10 @@ export const COOP_BOSS_KIND_IDS = Object.keys(
 ) as CoopBossKindId[];
 
 export function parseCoopBossKindId(v: unknown): CoopBossKindId | null {
-  return typeof v === "string" && v in COOP_BOSSES
+  // own-key 만 인정 — `in` 은 프로토타입 키("toString" 등)도 통과시켜, 손상된 payload 가
+  //   COOP_BOSSES["toString"](프로토타입 함수)로 새는 잠복 위험이 있었다(코덱스 지적).
+  return typeof v === "string" &&
+    Object.prototype.hasOwnProperty.call(COOP_BOSSES, v)
     ? (v as CoopBossKindId)
     : null;
 }

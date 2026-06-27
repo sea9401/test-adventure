@@ -31,6 +31,7 @@ export const FEED_TYPES = [
   "rare_map_drop",
   "coop_summon",
   "coop_kill",
+  "fishing_big_catch",
   "newcomer",
 ] as const;
 export type FeedType = (typeof FEED_TYPES)[number];
@@ -44,6 +45,13 @@ export const WAR_FEED_TYPES: readonly FeedType[] = [
   "outpost_eject",
   "enhance_high",
   "enhance_destroy",
+  // 보스/희귀 사건 — 드물어 도배 위험 없고 서버 전체에 알릴 만한 "사건"이라 전광판에 합류.
+  //   coop_summon/kill=협동 보스, rare_map_drop=레어맵 발견, fishing_big_catch=낚시 대물.
+  //   ⚠️ unique_drop 은 의도적으로 제외 — 빈도가 높아 전광판 도배(아래 FEED_CATEGORY 주석 참고).
+  "coop_summon",
+  "coop_kill",
+  "rare_map_drop",
+  "fishing_big_catch",
   // newcomer = 전쟁 사건은 아니지만 "서버 전체에 알리는 한 줄"이라 같은 상단 전광판에 태운다
   // (enhance_high 가 전쟁 아님에도 여기 묶인 것과 같은 취지 — 전광판 = 서버 공지 묶음).
   "newcomer",
@@ -120,6 +128,8 @@ export type FeedPayload =
   // rare_map_drop — 레어맵 발견(유니크보다 희귀한 사건). 이름은 클라가 RARE_MAP_KINDS 해석.
   // coop_summon · coop_kill — 협동 보스 소환/처치. 이름은 클라가 COOP_BOSSES 해석.
   | { kind: string }
+  // fishing_big_catch — 낚시 대물(종 크기 상위 구간 + 개인 신기록). 어종명은 클라가 FISH 해석.
+  | { fishId: string; size: number }
   // newcomer — 새 모험가 합류(첫 캐릭터 생성). 닉네임은 actorName 에 스냅샷되므로 payload 는 비움.
   | { newcomer: true };
 

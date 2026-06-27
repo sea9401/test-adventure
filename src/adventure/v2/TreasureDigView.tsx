@@ -47,6 +47,8 @@ export type TreasureHandlers = {
   dig: (siteId: string, cell: number) => Promise<DigOutcome>;
   /** 보유 지도 조각 수 조회(표시용). 없으면 조각 수를 숨긴다. */
   loadFragments?: () => Promise<number | null>;
+  /** 진행 중 발굴 세션 복원(읽기 전용). 마운트 시 격자를 이어 그린다. 없으면 복원 안 함. */
+  loadSession?: () => Promise<TreasureSitePublic | null>;
 };
 
 const TIER_LABEL: Record<string, string> = {
@@ -92,6 +94,7 @@ export function TreasureDigView({
   open,
   dig,
   loadFragments,
+  loadSession,
   onBack,
   onOpenCollection,
   onOpenLeaderboard,
@@ -108,6 +111,8 @@ export function TreasureDigView({
   const [notice, setNotice] = useState<string | null>(null);
   // 보유 지도 조각 — 마운트 시 조회, open 응답(소비 후 잔량/부족 시 현재량)으로 갱신.
   const [fragments, setFragments] = useState<number | null>(null);
+  // 세션 복원 진행 중 — loadSession 결과 전까지 시작 화면이 깜빡이지 않게 가린다.
+  const [restoring, setRestoring] = useState(Boolean(loadSession));
 
   useEffect(() => {
     if (!loadFragments) return;
@@ -119,6 +124,27 @@ export function TreasureDigView({
       alive = false;
     };
   }, [loadFragments]);
+
+  // 진행 중 발굴 복원 — 다른 화면을 다녀와 언마운트되면 로컬 격자가 사라지는데, 서버 세션은
+  //   살아 있다(조각은 이미 소비됨). 마운트 시 세션을 읽어 격자를 이어 그려 "조각만 증발"을 막는다.
+  //   읽기 전용(조각 재소비 없음) · 진행 중 세션 없으면 null → 그대로 시작 화면.
+  useEffect(() => {
+    if (!loadSession) return;
+    let alive = true;
+    void loadSession()
+      .then((s) => {
+        if (alive && s) {
+          setSite(s);
+          setResult(null);
+        }
+      })
+      .finally(() => {
+        if (alive) setRestoring(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [loadSession]);
 
   const handleOpen = useCallback(async () => {
     setBusy(true);
@@ -213,8 +239,8 @@ export function TreasureDigView({
         </div>
       )}
 
-      {/* 발굴 방법 — 아직 발굴 지점을 연 적 없는 첫 화면에서 안내 */}
-      {!grid && (
+      {/* 발굴 방법 — 아직 발굴 지점을 연 적 없는 첫 화면에서 안내(복원 중엔 깜빡임 방지로 숨김) */}
+      {!grid && !restoring && (
         <div className="rounded-lg border border-zinc-200 bg-white p-4 text-xs leading-relaxed text-zinc-600 shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
           <p className="mb-2 text-sm font-semibold text-zinc-800 dark:text-zinc-100">
             발굴 방법
@@ -333,8 +359,8 @@ export function TreasureDigView({
         </div>
       )}
 
-      {/* 액션 버튼 */}
-      {!grid || result ? (
+      {/* 액션 버튼 — 복원 중엔 숨겨 시작 화면 깜빡임/오클릭 방지 */}
+      {(!grid || result) && !restoring ? (
         <button
           type="button"
           disabled={busy || (fragments !== null && fragments < FRAGMENTS_PER_MAP)}

@@ -41,6 +41,17 @@ export function useTreasure(): TreasureHandlers {
     return null;
   }, []);
 
+  // 진행 중 발굴 세션 복원 — 마운트 시 호출. 조각 소비 없는 읽기 전용(open 의 resume 과 동일 뷰).
+  //   다른 화면을 다녀와도 발굴이 사라지지 않게 격자를 그대로 이어준다.
+  const loadSession = useCallback(async (): Promise<TreasureSitePublic | null> => {
+    try {
+      const res = await fetch("/api/v2/treasure/session");
+      const j = await res.json().catch(() => null);
+      if (res.ok && j?.ok && j.site) return j.site as TreasureSitePublic;
+    } catch {}
+    return null;
+  }, []);
+
   const dig = useCallback(
     async (siteId: string, cell: number): Promise<DigOutcome> => {
       const res = await fetch("/api/v2/treasure/dig", {
@@ -80,5 +91,5 @@ export function useTreasure(): TreasureHandlers {
     [],
   );
 
-  return { open, dig, loadFragments };
+  return { open, dig, loadFragments, loadSession };
 }

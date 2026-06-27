@@ -134,6 +134,16 @@ export function evaluateCombatPattern(
 //   전 빌드 너프 0. 옛 flat 0.28(전사+38%·마법+56%) 대비 인플레 절반.
 export const V2_PATTERN_SKILL_POWER_MULT = 0.14;
 
+// PR2 — 차수별 스킬 위력 통과율. 고차 스킬일수록 평타 초과분을 더 많이 반영해 "쓸 가치"를 준다
+//   (MP/SP 비용↑를 데미지로 보답). t1 = 위력 중립 기본값(V2_PATTERN_SKILL_POWER_MULT). 전투 시점
+//   곱이라 skillPowerScore(=SP 비용)는 불변 — 고차 = MP↑·데미지↑·SP 불변. 다이얼(작을수록 약함).
+//   참고: 옛 flat 0.28 ≈ 전사+38%·마법+56% 인플레 수준이 곧 t3 기준.
+export const V2_PATTERN_SKILL_POWER_MULT_BY_TIER: Record<1 | 2 | 3, number> = {
+  1: V2_PATTERN_SKILL_POWER_MULT, // 0.14 — 기본 스킬: 평타 보너스 유지(중립)
+  2: 0.2,
+  3: 0.28,
+};
+
 // 패턴 경로 DoT(출혈·중독·연소) 틱 위력 배율. DoT 도 확정 발동으로 ~5배 자주 적용돼(특히 saturate
 // 하는 독·연소) 빈도 이득이 큼. 평타 등가가 없어 보너스 모델 대신 단순 배율로 throttle — 직타가 이미
 // 평타 바닥으로 보호되므로 이 값으로 DoT 만 깎아도 DoT 빌드가 평타 이하로 안 떨어진다. sim 캘리브:

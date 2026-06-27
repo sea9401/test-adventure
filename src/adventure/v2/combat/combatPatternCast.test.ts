@@ -6,6 +6,7 @@ import {
 } from "./combatShared";
 import {
   V2_PATTERN_SKILL_POWER_MULT,
+  V2_PATTERN_SKILL_POWER_MULT_BY_TIER,
   type V2CombatPattern,
 } from "./combatPattern";
 import {
@@ -54,6 +55,32 @@ describe("resolveV2SkillCast — 전투 패턴 경로", () => {
     expect(scaled.enemyDamage).toBe(expected);
     // 바닥 보장 — 패턴 스킬 피해는 평타 한 번보다 작지 않다.
     expect(scaled.enemyDamage).toBeGreaterThanOrEqual(basicFloor);
+  });
+
+  it("PR2 — 고차(t3) 스킬은 통과율이 더 커 초과분을 더 많이 반영(t1<t3)", () => {
+    const T3 = "v2c_brawler_combo"; // 벽력권 t3 — 순수 데미지(디버프/힐 없음)
+    expect(V2_SKILLS[T3]?.tier).toBe(3);
+    const full = resolveV2SkillCast(castInput([T3])); // non-pattern = 풀 위력
+    const scaled = resolveV2SkillCast(
+      castInput([T3], {
+        combatPattern: {
+          blocks: [
+            { condition: { kind: "always" }, action: { kind: "skill", skillId: T3 } },
+          ],
+        },
+      }),
+    );
+    const basicFloor = damageBetween(100, 10);
+    const surplus = Math.max(0, full.enemyDamage - basicFloor);
+    // 패턴 피해 = 평타바닥 + 초과분 × t3 통과율(0.28).
+    expect(scaled.enemyDamage).toBe(
+      Math.round(basicFloor + surplus * V2_PATTERN_SKILL_POWER_MULT_BY_TIER[3]),
+    );
+    // t1 통과율(0.14)로 깎였을 값보다 크다 — 고차일수록 더 센 게 핵심.
+    const asT1 = Math.round(
+      basicFloor + surplus * V2_PATTERN_SKILL_POWER_MULT_BY_TIER[1],
+    );
+    expect(scaled.enemyDamage).toBeGreaterThan(asT1);
   });
 
   it("패턴 경로는 기본적으로 procChance 은퇴 — procRoll 실패해도 확정 발동(applyProcInPattern 미지정)", () => {

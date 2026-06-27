@@ -17,7 +17,8 @@ export function FishingShopPanel({
   onOpenLeaderboard?: () => void;
   onOpenHallOfFame?: () => void;
 }) {
-  const { state, loading, error, buying, buy } = useFishingShop();
+  const { state, loading, error, buying, buy, buyConsumable } =
+    useFishingShop();
   return (
     <FishingShopView
       state={state}
@@ -25,6 +26,7 @@ export function FishingShopPanel({
       error={error}
       buying={buying}
       onBuy={buy}
+      onBuyConsumable={buyConsumable}
       onBack={onBack}
       onOpenFishing={onOpenFishing}
       onOpenChallenges={onOpenChallenges}

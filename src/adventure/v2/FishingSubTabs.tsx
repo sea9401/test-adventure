@@ -3,7 +3,7 @@
 import { TabBar } from "@/components/ui/TabBar";
 import { HeaderPanel } from "@/components/ui/HeaderPanel";
 
-// 낚시터 5화면 공용 서브 탭바 — 낚시 / 오늘의 도전 / 주간 순위 / 명예의 전당 / 상점.
+// 낚시터 5화면 공용 서브 탭바 — 낚시 / 일일 과제 / 주간 순위 / 명예의 전당 / 상점.
 // 보물 발굴(TreasureSubTabs)과 같은 패턴: 우상단 작은 버튼 메뉴를 탭바로 승격.
 // 핸들러 미전달(dev 하니스 등) 시 그 탭은 숨긴다. 현재 화면 탭은 no-op.
 
@@ -34,7 +34,7 @@ export function FishingSubTabs({
       ? [{ key: "fishing" as const, label: "낚시" }]
       : []),
     ...(active === "challenges" || onOpenChallenges
-      ? [{ key: "challenges" as const, label: "오늘의 도전" }]
+      ? [{ key: "challenges" as const, label: "일일 과제" }]
       : []),
     ...(active === "leaderboard" || onOpenLeaderboard
       ? [{ key: "leaderboard" as const, label: "주간 순위" }]

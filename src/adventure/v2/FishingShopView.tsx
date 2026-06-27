@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SubViewHeader } from "@/components/ui/SubViewHeader";
 import { Card } from "@/components/ui/Card";
 import { FishingSubTabs } from "./FishingSubTabs";
-import { fishingShopEntries } from "./fishingShop";
+import { fishingShopEntries, FISHING_SHOP_CONSUMABLES } from "./fishingShop";
 import type { BuyResult, FishingShopState } from "./useFishingShop";
 
 // 낚시 코인 상점 — 칭호 구매. 데이터·구매 핸들러는 주입(useFishingShop 실 API / dev mock).
@@ -18,6 +18,7 @@ export function FishingShopView({
   error,
   buying,
   onBuy,
+  onBuyConsumable,
   onBack,
   onOpenFishing,
   onOpenChallenges,
@@ -29,6 +30,8 @@ export function FishingShopView({
   error?: string | null;
   buying: string | null;
   onBuy: (titleId: string) => Promise<BuyResult>;
+  // 소비템(스태미나 회복약) 구매 — 미전달(dev 하니스)이면 소비품 섹션 숨김.
+  onBuyConsumable?: (itemId: string) => Promise<BuyResult>;
   onBack?: () => void;
   // 낚시터 서브 탭바 — 미전달(dev 하니스)이면 그 탭 숨김.
   onOpenFishing?: () => void;
@@ -45,8 +48,15 @@ export function FishingShopView({
     setMessage({ ok: r.ok, text: r.message });
   };
 
+  const handleBuyConsumable = async (itemId: string) => {
+    if (!onBuyConsumable) return;
+    const r = await onBuyConsumable(itemId);
+    setMessage({ ok: r.ok, text: r.message });
+  };
+
   const coins = state?.coins ?? 0;
   const owned = new Set(state?.ownedTitleIds ?? []);
+  const staminaPotions = state?.staminaPotions ?? 0;
 
   return (
     <main className="mx-auto max-w-[560px] space-y-4 p-6 text-zinc-900 dark:text-zinc-100">
@@ -132,6 +142,51 @@ export function FishingShopView({
             })}
           </ul>
         </Card>
+      )}
+
+      {!loading && !error && onBuyConsumable && (
+        <div className="space-y-1.5">
+          <p className="px-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            소비품
+          </p>
+          <Card padding="none" className="overflow-hidden">
+            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {FISHING_SHOP_CONSUMABLES.map((c) => {
+                const affordable = coins >= c.price;
+                const inFlight = buying === c.itemId;
+                const anyInFlight = buying !== null;
+                return (
+                  <li
+                    key={c.itemId}
+                    className="flex items-center justify-between gap-3 px-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-sm font-semibold">
+                        🧪 {c.name}
+                        {c.itemId === "stamina_potion" && staminaPotions > 0 && (
+                          <span className="rounded bg-sky-200/70 px-1 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-900/60 dark:text-sky-200">
+                            보유 {staminaPotions}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                        {c.description}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!affordable || anyInFlight}
+                      onClick={() => handleBuyConsumable(c.itemId)}
+                      className="shrink-0 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400"
+                    >
+                      {inFlight ? "구매 중…" : `🪙 ${c.price.toLocaleString()}`}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        </div>
       )}
     </main>
   );

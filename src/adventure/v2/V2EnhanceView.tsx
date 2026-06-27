@@ -125,10 +125,11 @@ export function V2EnhanceView({ onBack }: { onBack: () => void }) {
       const [eqRes, invRes, stateRes] = await Promise.all([
         fetch("/api/v2/me/equipment"),
         fetch("/api/v2/me/inventory"),
-        fetch("/api/v2/me/state"),
+        // 골드 표시용 보조 조회 — 거부(네트워크 끊김)돼도 장비/인벤 로드를 깨지 않게 격리.
+        fetch("/api/v2/me/state").catch(() => null),
       ]);
       // 보유 골드 — 매 작업 후 핸들러가 refresh() 를 부르므로 여기서만 읽으면 자동 갱신.
-      if (stateRes.ok) {
+      if (stateRes?.ok) {
         const j = (await stateRes.json().catch(() => null)) as {
           character?: { gold?: number; bankedGold?: number };
         } | null;

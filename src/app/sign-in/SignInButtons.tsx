@@ -8,7 +8,7 @@ export function SignInButtons() {
     <div className="flex w-full max-w-xs flex-col gap-3">
       <button
         type="button"
-        onClick={() => signIn("kakao", { callbackUrl: "/" })}
+        onClick={() => signIn("kakao", { callbackUrl: "/create" })}
         className="flex items-center justify-center gap-3 rounded-lg border border-yellow-300 bg-yellow-400 px-4 py-3 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-yellow-300"
       >
         <KakaoIcon />

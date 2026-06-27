@@ -17,7 +17,7 @@ import { GameChrome } from "./GameChrome";
 // 컴파일 에러 나는 것을 차단 (2026-05-28 staging 사고와 동일한 경계 규율).
 //
 // SaveProvider 는 하이드레이트가 끝날 때까지 로딩 화면을 띄우고, OnboardingGate 는
-// 온보딩 미완료 유저를 /create 로 보낸다. 둘 다 통과해야 GameStateProvider+chrome 마운트.
+// 온보딩 미완료 유저를 대문(/sign-in)으로 보낸다. 둘 다 통과해야 GameStateProvider+chrome 마운트.
 export function GameClientBoundary({
   children,
 }: {
@@ -34,10 +34,12 @@ export function GameClientBoundary({
   );
 }
 
-// 온보딩 미완료 유저는 캐릭터 생성 페이지로 보낸다. 완료 기준 = 프로필(이름) +
-// 직업(class !== none) 둘 다. SaveProvider 가 children 마운트 전에 hydrate 를 끝내므로
-// 신뢰 가능. 생성 완료 후 게임 라우트로 돌아오면 프로필+직업이 있어 게임 렌더.
-// (예전엔 V2GamePageContents 안에 있었고, 라우트 그룹 전환으로 모든 (game) 경로를 게이트.)
+// 온보딩 미완료 유저는 대문(/sign-in)으로 보낸다 — 대문이 로그인 여부와 무관하게 모든
+// 진입의 최우선 화면이고, 거기서 "시작하기"로 캐릭터 생성(/create)에 들어간다. (신규 유저는
+// 카카오 로그인 직후 callbackUrl=/create 로 바로 생성에 가고, 이 게이트는 캐릭터 없이 게임
+// 라우트로 들어온 복귀 유저를 대문으로 되돌리는 역할.) 완료 기준 = 프로필(이름) + 직업
+// (class !== none) 둘 다. SaveProvider 가 children 마운트 전에 hydrate 를 끝내므로 신뢰 가능.
+// /sign-in·/create 서버 게이트는 같은 기준(hasCompletedOnboarding)을 써 무한 리다이렉트를 막는다.
 function OnboardingGate({ children }: { children: React.ReactNode }) {
   const { needsSetup } = useProfile();
   const char = useSavedValue("character.v2") as { class?: unknown } | null;
@@ -48,12 +50,12 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
     (!V2_CORE_LOOP_V2 && parseV2Class(char?.class) === "none");
   const router = useRouter();
   useEffect(() => {
-    if (needsOnboarding) router.replace("/create");
+    if (needsOnboarding) router.replace("/sign-in");
   }, [needsOnboarding, router]);
   if (needsOnboarding) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 text-sm text-zinc-500 dark:bg-zinc-950 dark:text-zinc-400">
-        캐릭터를 만드는 중…
+        잠시만요…
       </div>
     );
   }

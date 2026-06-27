@@ -1,15 +1,16 @@
 import { useState } from "react";
+import { type Avatar, type Gender } from "@/adventure/profile/avatars";
 import {
-  isValidAvatarId,
-  type Avatar,
-  type Gender,
-} from "@/adventure/profile/avatars";
+  readProfileValue,
+  type Profile,
+} from "@/adventure/profile/profileValue";
 import { useSavedValue } from "@/lib/storage/SaveProvider";
 
 export const DEFAULT_NAME = "모험가";
 export const DEFAULT_AVATAR: Avatar = "male1";
 
-export type Profile = { name: string; gender: Avatar };
+// 하위 호환 — 기존 import 경로(@/adventure/profile/useProfile) 유지. 단일 출처는 profileValue.ts.
+export type { Profile };
 
 export type SubmitResult =
   | { ok: true }
@@ -20,30 +21,10 @@ export type SubmitOptions = {
   onRetry?: () => void;
 };
 
-// 저장된 gender 값을 정규화. 구버전("male"/"female")은 male1/female1 으로 마이그레이션.
-// npc:/monster: 접두 id 도 isValidAvatarId 가 동시에 받아낸다.
-function normalizeAvatar(raw: unknown): Avatar | null {
-  if (typeof raw !== "string") return null;
-  if (isValidAvatarId(raw)) return raw;
-  if (raw === "male") return "male1";
-  if (raw === "female") return "female1";
-  return null;
-}
-
-function readInitial(raw: unknown): Profile | null {
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as { name?: unknown; gender?: unknown };
-  const normalized = normalizeAvatar(obj.gender);
-  if (typeof obj.name === "string" && obj.name.length > 0 && normalized) {
-    return { name: obj.name, gender: normalized };
-  }
-  return null;
-}
-
 export function useProfile() {
   const initial = useSavedValue("character-profile.v2");
   const [profile, setProfile] = useState<Profile | null>(() =>
-    readInitial(initial),
+    readProfileValue(initial),
   );
 
   // 서버 /api/profile/setup 호출 — 중복 닉네임 검증·users.name 등록·savesKv 갱신.
@@ -87,7 +68,7 @@ export function useProfile() {
     let serverProfile: Profile = next;
     try {
       const body = (await res.json()) as { profile?: unknown };
-      const parsed = readInitial(body?.profile);
+      const parsed = readProfileValue(body?.profile);
       if (parsed) serverProfile = parsed;
     } catch {
       // body 파싱 실패 — 사용자 입력 그대로 사용 (이전 동작).

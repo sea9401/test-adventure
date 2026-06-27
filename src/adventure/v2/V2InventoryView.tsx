@@ -33,6 +33,7 @@ import {
   powerNameClass,
   type ItemCardAnchor,
 } from "./V2ItemCard";
+import { useGameState } from "@/adventure/v2/GameStateProvider";
 import {
   V2_ITEM_TABS,
   type V2ItemTabKey,
@@ -141,6 +142,9 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
     anchor: ItemCardAnchor;
   } | null>(null);
 
+  // 장비 변경 후 전역 상태(전투력 등) 갱신 — 사냥터 "내 전투력" 표기가 바로 정확해지도록.
+  const { refreshGameState } = useGameState();
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
@@ -205,6 +209,8 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
           return false;
         }
         setEquipped(j.equipped ?? {});
+        // 전역 갱신(전투력 등) — 즉시 응답(local equipped)은 유지, 파생 스탯은 백그라운드 반영.
+        void refreshGameState();
         setMsg(iid == null ? "✓ 해제 완료" : "✓ 장착 완료");
         return true;
       } catch (err) {
@@ -214,7 +220,7 @@ export function V2InventoryView({ onBack }: { onBack: () => void }) {
         setBusy(null);
       }
     },
-    [],
+    [refreshGameState],
   );
 
   // SP 열매 사용 — SP 최대치 +1(영구·캐릭터당 캡). 성공 시 인벤 새로고침으로 보유/사용수 갱신.

@@ -157,6 +157,7 @@ export function MainTabNav({
                 <s.Icon
                   size={20}
                   weight="duotone"
+                  aria-hidden
                   className={`shrink-0 ${s.color}`}
                 />
                 <span className="truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">

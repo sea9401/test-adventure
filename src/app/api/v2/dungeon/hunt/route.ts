@@ -1183,7 +1183,13 @@ export async function POST(req: Request) {
     const droppedUniques: V2EquipmentId[] = [];
     const rareMapDrops: RareMapKindId[] = [];
     let rareMapRunsLeft: number | null = null;
-    let stoppedReason: "stamina" | "death" | "recovery" | "error" | null = null;
+    let stoppedReason:
+      | "stamina"
+      | "death"
+      | "defeat"
+      | "recovery"
+      | "error"
+      | null = null;
     let lastStamina: unknown = null;
     let finalHpAfter: number | null = null;
     let finalMaxHp: number | null = null;
@@ -1255,6 +1261,12 @@ export async function POST(req: Request) {
       // 사망/저체력이면 다음 사냥이 서버에서 막히므로 즉시 중단(라벨 구분: 사망 vs 회복필요).
       if (res.hpAfter <= 0) {
         stoppedReason = "death";
+        break;
+      }
+      // 패배 시 중단 — 녹아웃(hpAfter<=0)은 위 사망으로 잡히고, 여기선 살아남았지만 진 경우
+      //   (ATB 틱 상한 초과 = 못 잡는 적). 보상 0 사냥을 반복하지 않게 즉시 멈춘다.
+      if (!res.won) {
+        stoppedReason = "defeat";
         break;
       }
       if (!canHuntWithHp(res.hpAfter, res.maxHp)) {

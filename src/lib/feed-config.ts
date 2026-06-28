@@ -13,7 +13,7 @@ export const FEED_RETENTION_MS = 90 * 24 * 3_600_000;
 
 // 같은 유저+type 디바운스 — 이 시간 안에 동일 종류 항목이 이미 있으면 새 항목을 만들지 않는다.
 // 연달아 터뜨려도 도배되지 않게.
-export const FEED_DEBOUNCE_MS = 60_000;
+export const FEED_DEBOUNCE_MS = 5_000;
 
 // 클라이언트 패널 폴링 주기.
 export const FEED_POLL_MS = 30_000;
@@ -37,7 +37,7 @@ export const FEED_TYPES = [
 export type FeedType = (typeof FEED_TYPES)[number];
 
 // 전광판 묶음 — GET /api/feed?types=war 서버 필터 + 전광판 티커(WarTicker) 소비.
-// 전쟁 사건 + 서버 명물(고강 +8 이상 성공). 서버 필터인 이유: FEED_FETCH_LIMIT 안에서
+// 전쟁 사건 + 서버 명물(고강 +9 이상 성공/파괴). 서버 필터인 이유: FEED_FETCH_LIMIT 안에서
 // 자랑거리 도배에 밀려나는 것 방지.
 export const WAR_FEED_TYPES: readonly FeedType[] = [
   "outpost_capture",
@@ -78,7 +78,7 @@ export type FeedCategory = (typeof FEED_CATEGORIES)[number];
 export const FEED_CATEGORY_TYPES: Record<FeedCategory, readonly FeedType[]> = {
   // 획득 — 걸작 제작/레어맵 발견(희귀 사건만 — 유니크 드랍 제외).
   acquisition: ["masterpiece", "rare_map_drop"],
-  // 강화 — 고강(+8 이상) 성공.
+  // 강화 — 고강(+9 이상) 성공/파괴.
   enhance: ["enhance_high", "enhance_destroy"],
   // 전쟁 — 거점 점령/공성/침입자 토벌.
   war: ["outpost_capture", "outpost_siege", "outpost_eject"],

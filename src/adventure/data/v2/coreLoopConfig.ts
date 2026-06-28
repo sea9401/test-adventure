@@ -226,6 +226,33 @@ function spBalanceCumLevel(cumLevel: number): number {
   return Math.floor(cumLevel / SP_MASTERY_BALANCE_SCALE);
 }
 
+export const SP_MASTERED_REQUIRED_CUMLEVEL =
+  SP_MASTERED_CUMLEVEL * SP_MASTERY_BALANCE_SCALE;
+
+export function spMasteryProgressForCumLevel(cumLevel: number): {
+  cumLevel: number;
+  requiredCumLevel: number;
+  mastered: boolean;
+  remainingCumLevel: number;
+  milestoneSp: number;
+  masteryBonusSp: number;
+} {
+  const current = Number.isFinite(cumLevel)
+    ? Math.max(0, Math.floor(cumLevel))
+    : 0;
+  const mastered = spBalanceCumLevel(current) >= SP_MASTERED_CUMLEVEL;
+  return {
+    cumLevel: current,
+    requiredCumLevel: SP_MASTERED_REQUIRED_CUMLEVEL,
+    mastered,
+    remainingCumLevel: mastered
+      ? 0
+      : Math.max(0, SP_MASTERED_REQUIRED_CUMLEVEL - current),
+    milestoneSp: spMilestonesForCumLevel(current),
+    masteryBonusSp: mastered ? SP_MASTERED_JOB_BONUS : 0,
+  };
+}
+
 // 한 직업군 cumLevel → 마일스톤 SP 개수(점감). 간격이 SP 마다 +WIDEN 벌어지는 등차 임계의 역.
 //   임계 T(n) = BASE·n + WIDEN·n(n-1)/2 ≤ cum 인 최대 n. 근의공식 닫힌형(루프 불필요).
 //   cum ≤ 0 → 0. (역수식 floor 경계 부동소수 안정용 +1e-9.)
